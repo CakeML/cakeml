@@ -112,6 +112,7 @@ End
 
 (* Testing ********************************************************************)
 
+(*
 val coch_dir  = "/home/daniel/code/coch-demo";
 val cnf_names = ["reset", "transition", "property", "base", "step"];
 
@@ -150,3 +151,4 @@ fun check_unsat name =
 val () = app (fn (name, ok) =>
     print (name ^ ": " ^ (if ok then "UNSAT (verified)" else "*** NOT UNSAT ***") ^ "\n"))
   (map (fn name => (name, check_unsat name)) cnf_names);
+*)
