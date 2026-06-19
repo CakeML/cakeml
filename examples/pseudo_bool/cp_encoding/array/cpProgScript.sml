@@ -35,6 +35,13 @@ val _ = update_precondition bits_of_int_side;
 val res = translate COUNT_LIST_AUX_def;
 val res = translate COUNT_LIST_compute;
 
+val res = translate (nub_def |> REWRITE_RULE [MEMBER_INTRO]);
+
+val res = translate ISL;
+val res = translate ISR;
+val res = translate OUTL;
+val res = translate OUTR;
+
 (* pbc *)
 
 val res = translate b2i_def;
@@ -377,6 +384,33 @@ val res = translate cp_to_ilp_countingTheory.cencode_count_def;
 val res = translate cp_to_ilp_countingTheory.cencode_among_aux_def;
 val res = translate cp_to_ilp_countingTheory.cencode_full_eq_ilist_def;
 val res = translate cp_to_ilp_countingTheory.cencode_among_def;
+
+Definition mk_outr_def:
+  (mk_outr [] = []) ∧
+  (mk_outr (x::xs) =
+    (case x of INR y => y::mk_outr xs | _ => mk_outr xs))
+End
+
+Theorem EVERY_ISR_mk_outr:
+  ∀ls. EVERY ISR ls ⇒
+  MAP OUTR ls = mk_outr ls
+Proof
+  Induct>>rw[mk_outr_def]>>
+  TOP_CASE_TAC>>gvs[]
+QED
+
+Theorem split_varc_in_list_eq:
+  split_varc_in_list Xs =
+   let (Xsc,Xsv) = PARTITION ISR Xs in (REVERSE Xsv,mk_outr Xsc)
+Proof
+  rw[split_varc_in_list_def]>>pairarg_tac>>rw[]>>
+  irule EVERY_ISR_mk_outr>>
+  drule PARTITION_FILTER >>
+  rw[EVERY_FILTER]
+QED
+
+val res = translate mk_outr_def;
+val res = translate split_varc_in_list_eq;
 
 val res = translate cp_to_ilp_countingTheory.cencode_in_def;
 val res = translate cp_to_ilp_countingTheory.cencode_at_most_one_def;

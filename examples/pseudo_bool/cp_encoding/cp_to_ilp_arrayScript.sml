@@ -457,7 +457,7 @@ Definition cencode_array_max_def:
   then cfalse_constr
   else
     Append
-      (flat_app (MAPi (λi X. cvar_imply bnd (arri name i) (mk_ge X Y)) Xs)) $
+      (flat_app (MAPi (λi X. cbimply_var bnd (arri name i) (mk_ge X Y)) Xs)) $
       Append
         (flat_app (MAPi (λi X. List $
           mk_annotate
@@ -508,17 +508,17 @@ Proof
   simp[encode_array_max_def,cencode_array_max_def,array_max_sem_def]>>
   Cases_on ‘NULL Xs’>>
   gs[NULL_EQ]
-  >-simp[cfalse_constr_def]>>
+  >- simp[cfalse_constr_def]>>
   simp[EVERY_FLAT]>>
   qmatch_goalsub_abbrev_tac ‘EVERY P (MAPi _ _)’>>
   rw[EVERY_MEM,MEM_MAPi,SF DNF_ss]>>
   unabbrev_all_tac>>
   gs[MEM_EL]
   >-(
-    rename1 ‘n < LENGTH Xs’>>
-    qexists ‘n’>>
-    ntac 3 (first_x_assum $ drule_then assume_tac)>>
-    simp[EL_MAP]>>
+    first_assum $ irule_at Any>>
+    first_x_assum $ drule_then assume_tac>>
+    first_x_assum $ drule_then assume_tac>>
+    gvs[EL_MAP]>>
     intLib.ARITH_TAC)>>
   gs[EL_MAP]>>
   first_x_assum $ drule_then assume_tac>>
@@ -538,7 +538,7 @@ Definition cencode_array_min_def:
   then cfalse_constr
   else
     Append
-      (flat_app (MAPi (λi X. cvar_imply bnd (arri name i) (mk_le X Y)) Xs)) $
+      (flat_app (MAPi (λi X. cbimply_var bnd (arri name i) (mk_le X Y)) Xs)) $
       Append
         (flat_app (MAPi (λi X. List $
           mk_annotate
@@ -589,17 +589,17 @@ Proof
   simp[encode_array_min_def,cencode_array_min_def,array_min_sem_def]>>
   Cases_on ‘NULL Xs’>>
   gs[NULL_EQ]
-  >-simp[cfalse_constr_def]>>
+  >- simp[cfalse_constr_def]>>
   simp[EVERY_FLAT]>>
   qmatch_goalsub_abbrev_tac ‘EVERY P (MAPi _ _)’>>
   rw[EVERY_MEM,MEM_MAPi,SF DNF_ss]>>
   unabbrev_all_tac>>
   gs[MEM_EL]
   >-(
-    rename1 ‘n < LENGTH Xs’>>
-    qexists ‘n’>>
-    ntac 3 (first_x_assum $ drule_then assume_tac)>>
-    simp[EL_MAP]>>
+    first_assum $ irule_at Any>>
+    first_x_assum $ drule_then assume_tac>>
+    first_x_assum $ drule_then assume_tac>>
+    gvs[EL_MAP]>>
     intLib.ARITH_TAC)>>
   gs[EL_MAP]>>
   first_x_assum $ drule_then assume_tac>>

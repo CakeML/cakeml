@@ -83,7 +83,7 @@ Definition reify_flag_def:
     | SOME (Counting (Count Xs Y _)) =>
       reify_flag_counting ann ids wi Xs Y
     | SOME (Counting (In Xs Y)) =>
-      reify_flag_counting ann ids wi Xs Y
+      reify_flag_counting ann ids wi (FILTER ISL Xs) Y
     | SOME (Counting (AtMostOne Xs Y)) =>
       reify_flag_counting ann ids wi Xs Y
     | SOME (Array (ArrayMax Xs Y)) =>

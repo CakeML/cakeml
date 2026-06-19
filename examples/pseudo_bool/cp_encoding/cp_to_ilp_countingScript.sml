@@ -316,15 +316,38 @@ Definition cencode_count_aux_def:
     )
 End
 
+Definition split_varc_in_list_def:
+  split_varc_in_list Xs =
+  let (Xsc,Xsv) = PARTITION ISR Xs in
+    (REVERSE Xsv, MAP OUTR Xsc)
+End
+
+(* In Xs Y : Y is a member of Xs.
+  Split into cases where Xs is Var or Const *)
 Definition cencode_in_def:
-  cencode_in bnd Xs Y name =
-  Append
-    (cencode_count_aux bnd Xs Y name)
-    (cat_least_one name (GENLIST (λi. Pos $ eqi name i («eq»)) (LENGTH Xs)))
+  cencode_in bnd (Xs:mlstring varc list) Y name ec =
+  let (Xsv,Xsc) = split_varc_in_list Xs in
+  let (cs_enc,ec') =
+    fold_cenc
+      (λc ec. cencode_full_eq bnd Y c ec)
+      Xsc ec in
+  let var_lits =
+    GENLIST (λi. Pos $ eqi name i («eq»)) (LENGTH Xsv) in
+  let con_lits =
+    MAP (λc. Pos (INL (Eq Y c))) Xsc in
+  (Append cs_enc
+    (Append (cencode_count_aux bnd Xsv Y name)
+            (cat_least_one name (var_lits ++ con_lits))), ec')
 End
 
 Definition encode_in_def:
-  encode_in bnd Xs Y name = abstr $ cencode_in bnd Xs Y name
+  encode_in bnd (Xs:mlstring varc list) Y name =
+  let (Xsv,Xsc) = split_varc_in_list Xs in
+  FLAT (MAP (λc. encode_full_eq bnd Y c) Xsc) ++
+  abstr (cencode_count_aux bnd Xsv Y name) ++
+  [at_least_one
+    (GENLIST (λi. Pos $ eqi name i («eq»)) (LENGTH Xsv) ++
+     MAP (λc. Pos (INL (Eq Y c))) Xsc)]
 End
 
 Definition cencode_count_def:
@@ -352,7 +375,7 @@ End
 Theorem encode_count_aux_sem_1:
   valid_assignment bnd wi ∧
   (ALOOKUP cs name = SOME (Counting (Count Xs Y Z)) ∨
-  ALOOKUP cs name = SOME (Counting (In Xs Y)) ∨
+  ALOOKUP cs name = SOME (Counting (In Xs' Y)) ∧ Xs = FILTER ISL Xs' ∨
   ALOOKUP cs name = SOME (Counting (AtMostOne Xs Y)))
   ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
@@ -365,6 +388,36 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Theorem PART_FILTER:
+  ∀Xs ls rs xs ys.
+  PART P Xs ls rs = (xs,ys) ⇒
+  xs = REVERSE (FILTER P Xs) ++ ls ∧
+  ys = REVERSE (FILTER ($~ o P) Xs) ++ rs
+Proof
+  Induct>>rw[PART_DEF]>>
+  first_x_assum drule>>rw[]
+QED
+
+Theorem PARTITION_FILTER:
+  PARTITION P Xs = (xs,ys) ⇒
+  xs = REVERSE (FILTER P Xs) ∧
+  ys = REVERSE (FILTER ($~ o P) Xs)
+Proof
+  rw[PARTITION_DEF]>>
+  drule PART_FILTER>>rw[]
+QED
+
+Theorem split_varc_in_list_eq:
+  split_varc_in_list Xs = (Xsv,Xsc) ⇒
+  Xsv = FILTER ISL Xs ∧
+  Xsc = REVERSE (MAP OUTR (FILTER ISR Xs))
+Proof
+  rw[split_varc_in_list_def]>>
+  pairarg_tac>>gvs[]>>
+  drule PARTITION_FILTER>>rw[]>>
+  simp[FILTER_EQ,MAP_REVERSE]
+QED
+
 Theorem encode_in_sem_1:
   valid_assignment bnd wi ∧
   ALOOKUP cs name = SOME (Counting (In Xs Y)) ∧
@@ -372,13 +425,27 @@ Theorem encode_in_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_in bnd Xs Y name)
 Proof
-  rw[cencode_in_def,encode_in_def,in_sem_def]
-  >-
-    metis_tac[encode_count_aux_sem_1]>>
-  drule_then (fn thm => simp[thm]) encode_bitsum_sem>>
+  rw[encode_in_def,in_sem_def]>>
+  pairarg_tac>>rw[]
+  >- (
+    simp[EVERY_FLAT,EVERY_MAP,Once EVERY_MEM]>>
+    Cases>>rw[reify_avar_def,reify_reif_def])
+  >- (
+    irule encode_count_aux_sem_1>>
+    gvs[]>>
+    metis_tac[split_varc_in_list_eq])>>
   gvs[MEM_MAP,MEM_GENLIST,PULL_EXISTS,reify_avar_def,
-    reify_flag_def,reify_flag_counting_def]>>
-  metis_tac[MEM_EL]
+    reify_flag_def,reify_flag_counting_def,MEM_FLAT,AllCaseEqs(),
+    SF DNF_ss,reify_reif_def]>>
+  drule split_varc_in_list_eq>>rw[]>>
+  Cases_on`y`>>gvs[]
+  >- (
+    `MEM (INL x) (FILTER ISL Xs)` by fs[MEM_FILTER]>>
+    DISJ1_TAC>>gvs[MEM_EL]>>
+    first_x_assum $ irule_at Any>>
+    gvs[])>>
+  simp[varc_def,MEM_MAP,MEM_FILTER]>>
+  metis_tac[ISR,OUTR]
 QED
 
 Theorem encode_count_sem_1:
@@ -436,11 +503,18 @@ Theorem encode_in_sem_2:
     (encode_in bnd Xs Y name) ⇒
   in_sem Xs Y wi
 Proof
-  rw[cencode_in_def,encode_in_def,EVERY_FLAT]>>
-  gs[MEM_GENLIST,in_sem_def]>>
-  drule_all encode_count_aux_sem_2>>
-  rw[MEM_MAP]>>
-  metis_tac[MEM_EL]
+  rw[encode_in_def]>>
+  pairarg_tac>>
+  gs[EVERY_FLAT,MEM_GENLIST,in_sem_def]>>
+  drule split_varc_in_list_eq>>rw[]
+  >- (
+    drule_all encode_count_aux_sem_2>>
+    rw[MEM_MAP]>>
+    metis_tac[MEM_EL,MEM_FILTER])
+  >- (
+    gvs[MEM_FLAT,MEM_MAP,AllCaseEqs(),Once EVERY_MEM,SF DNF_ss,MEM_FILTER]>>
+    first_x_assum $ irule_at Any>>
+    Cases_on`y`>>gvs[varc_def])
 QED
 
 Theorem encode_count_sem_2:
@@ -475,18 +549,41 @@ Proof
   rw[]
 QED
 
-(* Among: Y equals the number of times values from iS appear in Xs
-   Y = Sum_i [Xs[i] ∈ iS] *)
+Theorem cencode_in_sem:
+  valid_assignment bnd wi ∧
+  cencode_in bnd Xs Y name ec = (es, ec') ⇒
+  enc_rel wi es (encode_in bnd Xs Y name) ec ec'
+Proof
+  rw[cencode_in_def,encode_in_def]>>
+  gvs[AllCaseEqs(),UNCURRY_EQ]>>
+  PURE_ONCE_REWRITE_TAC[GSYM APPEND_ASSOC]>>
+  irule enc_rel_Append>>
+  rename1 ‘_ = (xs,_)’>>
+  qexists ‘ec'’>>
+  CONJ_TAC
+  >-(
+    pop_assum mp_tac>>
+    qmatch_goalsub_abbrev_tac
+      ‘fold_cenc cf _ _ = _ ⇒ enc_rel _ _ (FLAT (MAP f _)) _ _’>>
+    rename1 ‘fold_cenc _ ls _’>>
+    qid_spec_tac ‘ec'’>>
+    qid_spec_tac ‘xs’>>
+    qid_spec_tac ‘ec’>>
+    qid_spec_tac ‘ls’>>
+    ho_match_mp_tac enc_rel_fold_cenc>>
+    simp[Abbr‘cf’,Abbr‘f’]>>
+    metis_tac[enc_rel_encode_full_eq])>>
+  irule enc_rel_abstr_cong>>
+  simp[]
+QED
+
+(* Among: Y equals the number of times values from iS appear in Xs.
+  NOTE: nub might need to be optimized here. *)
 Definition cencode_among_aux_def:
   cencode_among_aux bnd Xs iS Y name =
-    Append
-      (flat_app
-        (MAPi
-          (λi X.
-            cbimply_var bnd (eqi name i («al1»))
-              (at_least_one (MAP (λv. Pos (INL (Eq X v))) iS)))
-          Xs))
-      (cencode_bitsum (GENLIST (λi. eqi name i («al1»)) (LENGTH Xs)) Y name)
+    cencode_bitsum
+      (FLAT (MAP (λX. MAP (λv. INL (Eq X v)) (nub iS)) Xs))
+      Y name
 End
 
 Definition encode_among_def:
@@ -495,6 +592,17 @@ Definition encode_among_def:
     FLAT (MAP (λv. encode_full_eq bnd X v) iS)) Xs) ++
   abstr (cencode_among_aux bnd Xs iS Y name)
 End
+
+Theorem iSUM_ALL_DISTINCT_MEM:
+  ∀ls.
+  ALL_DISTINCT ls ∧
+  (∀x. MEM x ls ⇒ (f x ⇔ y = x)) ⇒
+  iSUM (MAP (λx. b2i (f x)) ls) =
+  b2i (MEM y ls)
+Proof
+  Induct>>rw[iSUM_def]>>
+  Cases_on`f h`>>gvs[]
+QED
 
 Theorem encode_among_sem_1:
   valid_assignment bnd wi ∧
@@ -507,14 +615,14 @@ Proof
   >-(
     simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
     rw[Once EVERY_MEM,MEM_MAP]>>
-    simp[reify_avar_def,reify_reif_def])
-  >-(
-    simp[EVERY_FLAT,o_DEF,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS,MEM_MAP]>>
-    simp[reify_avar_def,reify_flag_def,reify_reif_def])>>
+    simp[reify_avar_def,reify_reif_def])>>
   drule_then (fn thm => simp[thm]) encode_bitsum_sem>>
+  simp[MAP_FLAT,pbc_encodeTheory.iSUM_FLAT,MAP_MAP_o,o_DEF]>>
+  rw[reify_avar_def,reify_reif_def]>>
   cong_tac NONE>>
-  simp[MAP_GENLIST,o_ABS_R,GENLIST_eq_MAP]>>
-  rw[reify_avar_def,reify_flag_def]
+  PURE_REWRITE_TAC[Once (GSYM MEM_nub)]>>
+  ho_match_mp_tac iSUM_ALL_DISTINCT_MEM>>
+  simp[]
 QED
 
 Theorem encode_among_sem_2:
@@ -528,16 +636,13 @@ Proof
   pop_assum (SUBST_ALL_TAC o SYM)>>
   qpat_x_assum`EVERY _ _` mp_tac>>
   simp[Once EVERY_MEM,MEM_MAPi,SF DNF_ss,iconstraint_sem_def,EVERY_FLAT,EVERY_MAP,MEM_MAP]>>
-  qpat_x_assum`EVERY _ _` mp_tac>>
-  simp[EVERY_MEM,MEM_MAPi,SF DNF_ss,iconstraint_sem_def,EVERY_FLAT,EVERY_MAP,MEM_MAP]>>
   rw[]>>
+  simp[MAP_FLAT,pbc_encodeTheory.iSUM_FLAT,MAP_MAP_o,o_DEF]>>
   cong_tac NONE>>
-  rw[MAP_GENLIST,o_ABS_R,GENLIST_eq_MAP]>>
-  cong_tac NONE>>
-  gs[EVERY_MEM]>>
-  last_x_assum $ drule_then assume_tac>>
-  pop_assum (SUBST_ALL_TAC o SYM)>>
-  metis_tac[MEM_EL]
+  PURE_REWRITE_TAC[Once (GSYM MEM_nub)]>>
+  ho_match_mp_tac iSUM_ALL_DISTINCT_MEM>>
+  rw[]>>
+  first_x_assum drule_all>>rw[EVERY_MEM]
 QED
 
 (* (encode_full_eq_ilist bnd X iS) extends (encode_full_eq bnd X v)
@@ -658,7 +763,7 @@ Definition cencode_counting_constr_def:
   | NValue Xs Y => cencode_n_value bnd Xs Y name ec
   | Count Xs Y Z => (cencode_count bnd Xs Y Z name, ec)
   | Among Xs iS Y => cencode_among bnd Xs iS Y name ec
-  | In Xs Y => (cencode_in bnd Xs Y name, ec)
+  | In Xs Y => cencode_in bnd Xs Y name ec
   | AtMostOne Xs Y => (cencode_at_most_one bnd Xs Y name, ec)
 End
 
@@ -673,6 +778,6 @@ Proof
   >-simp[cencode_n_value_sem]
   >-simp[cencode_count_def,encode_count_def]
   >-simp[cencode_among_sem]
-  >-simp[cencode_in_def,encode_in_def]
+  >-simp[cencode_in_sem]
   >-simp[cencode_at_most_one_def,encode_at_most_one_def]
 QED
