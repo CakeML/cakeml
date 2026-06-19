@@ -182,7 +182,7 @@ Definition aig_rename_def:
 End
 
 Definition aig_rename_rev_def:
-  aig_rename_rev ([]:('a,'i,'l) and list) acc next im lm nm = (acc,next,im,lm,nm) ∧
+  aig_rename_rev ([]:('a,'b,'c) and list) acc next im lm nm = (acc,next,im,lm,nm) ∧
   aig_rename_rev ((m,ts)::xs) acc next im lm nm =
     let (ts1,next,im,lm) = aig_rename_aux ts next im lm nm [] in
       aig_rename_rev xs ((next,ts1)::acc) (next+1) im lm (nm |+ (m, next))
