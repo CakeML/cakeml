@@ -124,7 +124,7 @@ Definition compile_def:
        (Seq c1 (Raise (HD v1)), v1, n1)) /\
   (compile n env tail live [Return xs] =
      let (c1,vs,n1) = compile n env F live xs in
-       (Seq c1 (Return vs), [n1], n1)) /\
+       (Seq c1 (Return vs), [n1], n1+1)) /\
   (compile n env tail live [Op op xs] =
      let (c1,vs,n1) = compile n env F live xs in
      let c2 = Seq c1 (iAssign n1 op (REVERSE vs) live env) in
@@ -155,9 +155,10 @@ Definition compile_def:
          (Seq c1 (mk_ticks ticks (Call NONE (SOME dest) vs NONE)), [n1], n1+1)
        else
          (* non-tailcall *)
-         let (c2,v,n2) = compile (n1+1) (vs ++ env) tail live [y] in
-         let ret = (SOME ([n1], list_to_num_set (live ++ env))) in
-           (Seq (Seq c1 (mk_ticks ticks (Call ret (SOME dest) vs NONE))) c2, [n2], n2+1))
+         let rs = GENLIST (\i. n1+i) rets in
+         let (c2,v,n2) = compile (n1+rets) (rs ++ env) tail live [y] in
+         let ret = (SOME (rs, list_to_num_set (live ++ env))) in
+           (Seq (Seq c1 (mk_ticks ticks (Call ret (SOME dest) vs NONE))) c2, v, n2))
 End
 
 Definition compile_sing_def:
@@ -184,7 +185,7 @@ Definition compile_sing_def:
        (Seq c1 (Raise v1), v1, n1)) /\
   (compile_sing n env tail live (Return xs) =
      let (c1,vs,n1) = compile_list n env live xs in
-       (Seq c1 (Return vs), n1, n1)) /\
+       (Seq c1 (Return vs), n1, n1+1)) /\
   (compile_sing n env tail live (Op op xs) =
      let (c1,vs,n1) = compile_list n env live xs in
      let c2 = Seq c1 (iAssign n1 op (REVERSE vs) live env) in
@@ -217,9 +218,10 @@ Definition compile_sing_def:
          (Seq c1 (mk_ticks ticks (Call NONE (SOME dest) vs NONE)), n1, n1+1)
        else
          (* non-tailcall *)
-         let (c2,v,n2) = compile_sing (n1+1) (vs ++ env) tail live y in
-         let ret = (SOME ([n1], list_to_num_set (live ++ env))) in
-           (Seq (Seq c1 (mk_ticks ticks (Call ret (SOME dest) vs NONE))) c2, n2, n2+1)) /\
+         let rs = GENLIST (\i. n1+i) rets in
+         let (c2,v,n2) = compile_sing (n1+rets) (rs ++ env) tail live y in
+         let ret = (SOME (rs, list_to_num_set (live ++ env))) in
+           (Seq (Seq c1 (mk_ticks ticks (Call ret (SOME dest) vs NONE))) c2, v, n2)) /\
   (compile_list (n:num) (env:num list) live [] =
     (Skip,[]:num list,n)) /\
   (compile_list n env live (x::xs) =

@@ -418,11 +418,9 @@ Proof
     \\ imp_res_tac do_app_oracle \\ rfs[]
     \\ qexists_tac`n` \\ fs[])
   >- (
-    gvs [AllCaseEqs(), FUN_EQ_THM]
-    >~ [‘dest_thunk _ _ = IsThunk NotEvaluated _’, ‘find_code _ _ _ = SOME _’,
-        ‘s.clock ≠ 0’]
-    >- (qexists ‘n'’ \\ gvs [])
-    \\ qexists `0` \\ gvs [])
+    gvs [AllCaseEqs()]
+    >>~- ([‘s.clock ≠ 0’], qexists ‘n'’ \\ gvs [])
+    \\ qexists `0` \\ gvs [FUN_EQ_THM])
   (* Call (exception handler) and LetCall (multi-return body) continuation arms:
      split the exn_or_ret result, apply the continuation IH, compose oracle shifts *)
   \\ gvs[AllCaseEqs()]
@@ -636,6 +634,11 @@ Proof
   REV_FULL_SIMP_TAC(srw_ss()++ARITH_ss)[dec_clock_inc_clock,inc_clock_ZERO] >>
   fsrw_tac[ARITH_ss][dec_clock_inc_clock,inc_clock_ZERO] >>
   full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  (* the bvi Call/LetCall handler now post-processes its result (rejecting an
+     escaping Ret); every_case_tac splits that inner case on both clock sides,
+     so specialise the add_clock facts at extra to unify them before closing *)
+  rpt (qpat_x_assum ‘∀ck. evaluate _ = _’ (assume_tac o Q.SPEC ‘extra’)) >>
+  gvs[inc_clock_ffi] >>
   metis_tac[evaluate_io_events_mono,SND,IS_PREFIX_TRANS,PAIR,
             inc_clock_ffi,dec_clock_ffi]
 QED

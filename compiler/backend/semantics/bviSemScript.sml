@@ -258,7 +258,9 @@ Definition evaluate_def:
                   if s.clock = 0 then
                     (Rerr(Rabort Rtimeout_error),s with clock := 0)
                   else
-                    evaluate ([exp],args,dec_clock 1 s))) /\
+                    (case evaluate ([exp],args,dec_clock 1 s) of
+                     | (Rerr(Rraise (Ret _)),s1) => (Rerr(Rabort Rtype_error),s1)
+                     | res => res))) /\
   (evaluate ([Call ticks dest xs handler],env,s1) =
      if IS_NONE dest /\ IS_SOME handler then (Rerr(Rabort Rtype_error),s1) else
      case fix_clock s1 (evaluate (xs,env,s1)) of
@@ -270,7 +272,10 @@ Definition evaluate_def:
                 case fix_clock (dec_clock (ticks+1) s) (evaluate ([exp],args,dec_clock (ticks+1) s)) of
                 | (Rerr(Rraise (Exn v)),s) =>
                      (case handler of
-                      | SOME x => evaluate ([x],v::env,s)
+                      | SOME x =>
+                          (case evaluate ([x],v::env,s) of
+                           | (Rerr(Rraise (Ret _)),s1) => (Rerr(Rabort Rtype_error),s1)
+                           | res => res)
                       | NONE => (Rerr(Rraise (Exn v)),s))
                 | (Rerr(Rraise _),s) => (Rerr(Rabort Rtype_error),s)
                 | res => res)

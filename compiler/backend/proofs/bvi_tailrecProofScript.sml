@@ -2212,7 +2212,8 @@ Resume evaluate_rewrite_tail[Call]:
       \\ fs [bvlSemTheory.v_to_list_def]
       \\ fs [case_eq_thms, case_elim_thms, pair_case_eq, bool_case_eq] \\ rw []
       \\ fs [bvl_to_bvi_id, list_to_v_imp])
-    >- (PURE_TOP_CASE_TAC \\ fs [] \\ strip_tac
+    >-
+     (PURE_TOP_CASE_TAC \\ fs [] \\ strip_tac
     \\ PURE_TOP_CASE_TAC \\ fs []
     >- (imp_res_tac state_rel_code_rel \\ metis_tac [code_rel_find_code_SOME])
     \\ PURE_TOP_CASE_TAC \\ fs []
@@ -2248,7 +2249,9 @@ Resume evaluate_rewrite_tail[Call]:
       \\ sg `ty_rel (aa::env1) (Any::ts)`
       >- fs [ty_rel_def, LIST_REL_EL_EQN]
       \\ imp_res_tac state_rel_const \\ fs []
-      \\ rpt (disch_then drule) \\ rw [])
+      \\ rpt (disch_then drule) \\ rw []
+      \\ fs [ty_rel_def, LIST_REL_EL_EQN]
+      \\ imp_res_tac evaluate_clock \\ fs [dec_clock_def])
     \\ rw []
     \\ pairarg_tac \\ fs [] \\ rw []
     \\ imp_res_tac scan_expr_not_Noop \\ fs []
@@ -2283,7 +2286,8 @@ Resume evaluate_rewrite_tail[Call]:
       \\ impl_tac >- (imp_res_tac evaluate_clock \\ fs [dec_clock_def])
       \\ `env_rel ty F (LENGTH env1 + 1) (aa::env1) (aa::env2)` by fs [env_rel_def]
       \\ `ty_rel (aa::env1) (Any::ts)` by fs [ty_rel_def]
-      \\ rpt (disch_then drule) \\ rw [])
+      \\ rpt (disch_then drule) \\ rw []
+      \\ imp_res_tac evaluate_clock \\ fs [dec_clock_def])
     \\ rw [] \\ fs []
     \\ qpat_x_assum `_ = (rrr,_)` mp_tac
     \\ simp [EL_LENGTH_APPEND, EL_APPEND1]

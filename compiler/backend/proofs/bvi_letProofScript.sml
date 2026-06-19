@@ -285,9 +285,15 @@ Resume evaluate_env_rel[Call]:
    \\ impl_tac >- (CCONTR_TAC \\ gvs []) \\ gvs []
    \\ gvs [CaseEq"result",CaseEq"option",CaseEq"prod",CaseEq"bool"]
    \\ gvs [CaseEq"error_result",CaseEq"exn_or_ret"] \\ rw [compile_HD_SING]
-   \\ first_x_assum $ irule \\ gvs []
-   \\ first_x_assum $ irule_at Any
-   \\ fs [env_rel_def] \\ fs [v_rel_def,LLOOKUP_def])
+   (* the handler now post-processes its result (rejecting an escaping Ret);
+      split that inner case (the Ret branch is impossible as res <> type error),
+      then close each surviving handler outcome by the induction hypothesis *)
+   \\ gvs [AllCaseEqs()]
+   \\ ‘env_rel (0::ax) d (v::env1) (v::env2)’ by fs [env_rel_def,v_rel_def,LLOOKUP_def]
+   \\ ‘list_size exp_size [x] <
+         ts + (exp_size x + (list_size exp_size args + (option_size (λx. x) dest + 3)))’
+        by simp [list_size_def]
+   \\ res_tac \\ gvs [])
 QED
 
 Resume evaluate_env_rel[Op]:
