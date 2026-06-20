@@ -420,8 +420,9 @@ Proof
   \\ every_case_tac \\ fs [] \\ rveq
   \\ first_x_assum drule_all \\ rw []
   \\ fs [type_ok_def]
-  \\ drule_all assoc_ALOOKUP \\ rw []
-  \\ rfs [STATE_def, CONTEXT_def]
+  \\ gvs [STATE_def, CONTEXT_def]
+  \\ imp_res_tac extends_theory_ok \\ fs[init_theory_ok]
+  \\ imp_res_tac theory_ok_sig \\ fs [is_std_sig_def]
 QED
 
 Theorem get_const_type_thm:
