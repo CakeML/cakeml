@@ -5,11 +5,65 @@ Theory cp_to_ilp_misc
 Libs
   preamble
 Ancestors
-  pbc cp ilp cp_to_ilp cp_to_ilp_linear
+  pbc cp ilp ilp_to_pb
+  cp_to_ilp cp_to_ilp_linear cp_to_ilp_counting
 
-(* Misc constraints are not yet implemented in the CP semantics
-   (misc_constr_sem always returns T)
-   These are placeholders for future work *)
+(***
+  TODO: move this (and dependency on ilp_to_pb.
+  Proof-only integer variables, encoded in binary (reusable).
+
+  The CP to ILP encoding supports only fresh Boolean reif/flag vars.
+
+  For now, we only need upper-bounded natural numbers, i.e.,
+    in the range 0 ≤ n < UB.
+
+  Each such n will be represented with sufficient bits to fit UB.
+***)
+
+(* a * (Σ As) + b * (Σ Bs) ≥ c, where As,Bs are weighted-literal sums *)
+Definition mk_constraint_ge_bin_def[simp]:
+  mk_constraint_ge_bin (a:int) As (b:int) Bs (c:int) =
+  ([],
+  MAP (λ(ai,li). (a * ai, li)) As ++
+    MAP (λ(bi,li). (b * bi, li)) Bs,
+  c)
+End
+
+(* Σ As ≥ lbnd *)
+Definition mk_lbnd_bin_def[simp]:
+  mk_lbnd_bin As lbnd =
+  mk_constraint_ge_bin 1 As 0 [] lbnd
+End
+
+(* Σ As ≤ ubnd *)
+Definition mk_ubnd_bin_def[simp]:
+  mk_ubnd_bin As ubnd =
+  mk_constraint_ge_bin (-1) As 0 [] (-ubnd)
+End
+
+(* the pair of constraints [Σ As ≥ lbnd; Σ As ≤ ubnd] *)
+Definition mk_bounds_bin_def[simp]:
+  mk_bounds_bin As lbnd ubnd =
+  [mk_lbnd_bin As lbnd;mk_ubnd_bin As ubnd]
+End
+
+(* Generates the sum-of-bits sequence for an
+  upper bounded number (<= n)
+  name[p,b0] + 2 * name[p,b1]  + ... *)
+Definition ub_num_def:
+  ub_num name (p:num) (n:num) =
+  let h = LENGTH (bits_of_num n) in
+  GENLIST (λi. (&(2**i),
+    Pos $ neiv name p i (SOME «bin»))) h
+End
+
+Theorem ub_num_num_of_bits:
+  eval_lin_term wb (ub_num name p n) =
+  &num_of_bits (GENLIST (λi.
+    wb (neiv name p i (SOME «bin»))) (LENGTH (bits_of_num n)))
+Proof
+  rw[num_of_bits_GENLIST,ub_num_def,eval_lin_term_def,MAP_GENLIST,o_DEF]
+QED
 
 (* equivalent definition to circuit_sem *)
 
@@ -372,53 +426,76 @@ Proof
     metis_tac[])
 QED
 
-(* this is a variant of mk_constraint_ge that takes two weighted sums,
-   As and Bs, of literals rather than two 'a varc variables *)
-Definition mk_constraint_ge_bin_def[simp]:
-  mk_constraint_ge_bin (a:int) As (b:int) Bs (c:int) =
-  ([],
-  MAP (λ(ai,li). (a * ai, li)) As ++
-    MAP (λ(bi,li). (b * bi, li)) Bs,
-  c)
-End
+(* Position (Hamiltonian-cycle) constraints.
+   pos i is the auxiliary binary integer (name,i) giving the position of node i
+   in the traversal.
 
-(* this makes the constraint As ≥ lbnd *)
-Definition mk_lbnd_bin_def[simp]:
-  mk_lbnd_bin As lbnd =
-  mk_constraint_ge_bin 1 As 0 [] lbnd
-End
-
-(* this makes the constraint As ≤ ubnd *)
-Definition mk_ubnd_bin_def[simp]:
-  mk_ubnd_bin As ubnd =
-  mk_constraint_ge_bin (-1) As 0 [] (-ubnd)
-End
-
-(* this makes the list of constraints [As ≥ lbnd; As ≤ ubnd] *)
-Definition mk_bounds_bin_def[simp]:
-  mk_bounds_bin As lbnd ubnd =
-  [mk_lbnd_bin As lbnd;mk_ubnd_bin As ubnd]
-End
-
-Definition bpos_aux_def[simp]:
-  bpos_aux name i (n:num) (p:num) (c:int) =
-  if n = 0
-  then []
-  else
-    (c,Pos $ neiv name i p (SOME «bin»)) ::
-      bpos_aux name i (n - 1) (p + 1) (2 * c)
-End
-
-Definition bpos_def[simp]:
-  bpos name i n = bpos_aux name i n 0 1
-End
-
-Definition cencode_circuit_aux_def:
-  cencode_circuit_aux bnd Xs name =
+   We pin pos 0 = 0, keep every pos i ∈ [0,n-1], and reify the successor
+   relation pos (Xs[i]) = (pos i + 1) MOD n :
+     Xs[i] = 0  ⇒  pos i = n-1   (since pos 0 = 0)
+     Xs[i] = j  ⇒  pos j = pos i + 1   (j ≠ 0) *)
+Definition cencode_circuit_pos_def:
+  cencode_circuit_pos bnd Xs name =
   let
     n = LENGTH Xs;
-    m = LENGTH (bits_of_num (n - 1))
+    n1 = n - 1
   in
+    Append
+      (* pos 0 = 0 *)
+      (List [
+        (SOME $ mk_name name
+          («pos0eq0»),
+        mk_ubnd_bin (ub_num name 0 n1) 0)])
+      (* pos i ≤ n for i = 0 to n-1 *)
+      (Append (List
+        (GENLIST
+        (λi. SOME $ mk_name name
+          («pos» ^ toString i ^ «lt» ^ toString n),
+        mk_ubnd_bin (ub_num name i n1) (&n1)) n))
+      (* for 0 ≤ i, j < n *)
+      (flat_app (MAPi
+        (λi X.
+            (flat_app $ GENLIST
+              (λj.
+                let
+                  cond = INL (Eq X (&j))
+                in
+                 if j = 0
+                 then
+                   (* Xs[i] = 0  ⇒  pos i = n-1  *)
+                   List $ mk_annotate
+                   [
+                     mk_name name («pos_suc_eq0_gt»);
+                     mk_name name («pos_suc_eq0_lt»)
+                   ]
+                   (MAP
+                     (λcc. bits_imply bnd [Pos cond] cc)
+                       (mk_bounds_bin (ub_num name i n1) (&n1) (&n1)))
+                 else
+                   (* Xs[i] = j  ⇒  pos j = pos i + 1 *)
+                   List $ mk_annotate
+                   [
+                     mk_name name («pos_suc_gt0_gt»);
+                     mk_name name («pos_suc_gt0_lt»)
+                   ]
+                   [
+                     bits_imply bnd [Pos cond] $
+                       mk_constraint_ge_bin (-1) (ub_num name i n1) 1 (ub_num name j n1) 1;
+                     bits_imply bnd [Pos cond] $
+                       mk_constraint_ge_bin 1 (ub_num name i n1) (-1) (ub_num name j n1) (-1);
+                   ])
+              n))
+        Xs)))
+End
+
+(* The static circuit constraints:
+     - every successor Xs[i] lies in [0, n-1];
+     - the successors are all-distinct (reusing cencode_all_different), so they
+       form a permutation of 0..n-1;
+     - the positions form a single Hamiltonian cycle (cencode_circuit_pos). *)
+Definition cencode_circuit_aux_def:
+  cencode_circuit_aux bnd Xs name =
+  let n = LENGTH Xs in
     Append
       (Append
         (flat_app (MAPi
@@ -429,59 +506,11 @@ Definition cencode_circuit_aux_def:
             ]
             (mk_bounds X 0 &(n - 1)))
           Xs))
-        (flat_app (MAPi (λi X. flat_app (MAPi (λj Y.
-          if i < j
-          then
-            List [
-              (SOME $ mk_name name
-                (int_to_string #"-" (&i) ^ «gt» ^ int_to_string #"-" (&j)),
-              bits_imply bnd [Pos (neiv name i j (SOME «diff»))] (mk_gt X Y));
-              (SOME $ mk_name name
-                (int_to_string #"-" (&i) ^ «lt» ^ int_to_string #"-" (&j)),
-              bits_imply bnd [Neg (neiv name i j (SOME «diff»))] (mk_gt Y X))]
-          else
-            Nil) Xs)) Xs)))
-      (Append
-        (List [
-          (SOME $ mk_name name
-            («pos» ^ int_to_string #"-" 0 ^ «=» ^ int_to_string #"-" 0),
-          mk_ubnd_bin (bpos name 0 m) 0)])
-        (flat_app (MAPi
-          (λi X.
-            Append
-              (List [
-                (SOME $ mk_name name
-                  («pos<» ^ int_to_string #"-" (&n)),
-                mk_ubnd_bin (bpos name i m) (&(n - 1)))])
-              (flat_app $ GENLIST
-                (λj.
-                  let
-                    cond = INL (Eq X (&j))
-                  in
-                   if j = 0
-                   then List $ mk_annotate
-                     [
-                       mk_name name («pos-suc=0-gt»);
-                       mk_name name («pos-suc=0-lt»)
-                     ]
-                     (MAP
-                       (λcc. bits_imply bnd [Pos cond] cc)
-                       (mk_bounds_bin (bpos name i m) (&(n - 1)) (&(n - 1))))
-                   else List $ mk_annotate
-                     [
-                       mk_name name («pos-suc>0-gt»);
-                       mk_name name («pos-suc>0-lt»)
-                     ]
-                     [
-                       bits_imply bnd [Pos cond] $
-                         mk_constraint_ge_bin (-1) (bpos name i m) 1 (bpos name j m) 1;
-                       bits_imply bnd [Pos cond] $
-                         mk_constraint_ge_bin 1 (bpos name i m) (-1) (bpos name j m) (-1);
-                     ])
-                n))
-          Xs)))
+        (cencode_all_different bnd Xs name))
+      (cencode_circuit_pos bnd Xs name)
 End
 
+(* Add the reifications for all Xs *)
 Definition cencode_circuit_def:
   cencode_circuit bnd Xs name ec =
   let n = LENGTH Xs in
@@ -520,90 +549,6 @@ EVAL
    name = «NAME»
  in
    encode_circuit bnd Xs name”
-*)
-
-
-(* IGNORE THIS PART:
-   The next alternative encoding for circuit_sem uses ad hoc integer variables
-   and results in an extended form of ILP (i.e., not the standard ILP).
-
-(* Naming auxiliary position variables for circuit encoding.
-   pos_var name k is the name of the variable recording the
-   position of node k in the circuit traversal. *)
-Definition pos_var_def:
-  pos_var name (k:num) =
-  INL (mk_name name (strlit"pos[" ^ int_to_string #"-" (&k) ^ strlit"]"))
-End
-
-(* Static constraints for the circuit encoding.
-   Encodes pos[Xs[i]] = (pos[i] + 1) MOD n via half-reified implications:
-     j = 0: (Xs[i] = 0) → pos[i] = n-1   (since pos[0] = 0, 0 = pos[i]+1 mod n)
-     j ≠ 0: (Xs[i] = j) → pos[j] - pos[i] = 1
-   Together with the bounds pos[0] ∈ [0,0] and pos[k] ∈ [0,n-1],
-   these imply circuit_sem (Hamiltonian cycle). *)
-Definition encode_circuit_aux_def:
-  encode_circuit_aux bnd Xs name =
-  let n = LENGTH Xs in
-  FLAT (MAP (λX. mk_bounds X 0 (&n - 1)) Xs) ++
-  mk_bounds (pos_var name 0) 0 0 ++
-  FLAT (GENLIST (λk. mk_bounds (pos_var name (k + 1)) 0 (&n - 1)) (n - 1)) ++
-  FLAT (FLAT $ GENLIST (λi. GENLIST (λj.
-    let cond = INL (Eq (EL i Xs) (&j)) in
-    if j = 0 then
-      [bits_imply bnd [Pos cond]
-         (mk_constraint_one_ge 1 (pos_var name i) (&n - 1));
-       bits_imply bnd [Pos cond]
-         (mk_constraint_one_ge (-1) (pos_var name i) (1 - &n))]
-    else
-      [bits_imply bnd [Pos cond]
-         (mk_constraint_ge 1 (pos_var name j) (-1) (pos_var name i) 1);
-       bits_imply bnd [Pos cond]
-         (mk_constraint_ge (-1) (pos_var name j) 1 (pos_var name i) (-1))]
-  ) n) n)
-End
-
-Definition encode_circuit_def:
-  encode_circuit bnd Xs name =
-  let n = LENGTH Xs in
-  if n = 0 then [] else
-  FLAT (FLAT $ GENLIST (λj. MAP (λX. encode_full_eq bnd X (&j)) Xs) n) ++
-  encode_circuit_aux bnd Xs name
-End
-
-(* Concrete circuit encoding *)
-Definition cencode_circuit_aux_def:
-  cencode_circuit_aux bnd Xs name =
-  let n = LENGTH Xs in
-  List $ mk_annotate
-    (FLAT (GENLIST (λk.
-       [mk_name name (strlit"X," ^ int_to_string #"-" (&k+1) ^ strlit",lb");
-        mk_name name (strlit"X," ^ int_to_string #"-" (&k+1) ^ strlit",ub")]) n) ++
-     [mk_name name (strlit"pos[0],lb");
-      mk_name name (strlit"pos[0],ub")] ++
-     FLAT (GENLIST (λk.
-       [mk_name name (strlit"pos[" ^ int_to_string #"-" (&k+2) ^ strlit"],lb");
-        mk_name name (strlit"pos[" ^ int_to_string #"-" (&k+2) ^ strlit"],ub")]) (n-1)) ++
-     FLAT (FLAT $ GENLIST (λi. GENLIST (λj.
-       [mk_name name (int_to_string #"-" (&i+1) ^ strlit"," ^
-                      int_to_string #"-" (&j+1) ^ strlit",pos,1");
-        mk_name name (int_to_string #"-" (&i+1) ^ strlit"," ^
-                      int_to_string #"-" (&j+1) ^ strlit",pos,2")])
-       n) n))
-    (encode_circuit_aux bnd Xs name)
-End
-
-Definition cencode_circuit_def:
-  cencode_circuit bnd Xs name ec =
-  let n = LENGTH Xs in
-  if n = 0 then (Nil, ec) else
-  let (xs, ec') =
-    fold_cenc
-      (λj ec'. fold_cenc (λX ec. cencode_full_eq bnd X (&j) ec) Xs ec')
-      (COUNT_LIST n)
-      ec
-  in
-    (Append xs (cencode_circuit_aux bnd Xs name), ec')
-End
 *)
 
 Theorem cencode_circuit_sem:
@@ -649,7 +594,7 @@ Definition cencode_knapsack_def:
     cfalse_constr
 End
 
-Definition encode_knapsack_def[simp]:
+Definition encode_knapsack_def:
   encode_knapsack css Xs ts name =
   abstr $ cencode_knapsack css Xs ts name
 End
@@ -659,7 +604,7 @@ Theorem encode_knapsack_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_knapsack css Xs ts name)
 Proof
-  rw[cencode_knapsack_def,knapsack_sem_def]>>
+  rw[cencode_knapsack_def,encode_knapsack_def,knapsack_sem_def]>>
   gvs[LIST_REL_EL_EQN,EVERY_FLAT,EVERY_MEM,MEM_MAPi,
     PULL_EXISTS,cencode_knapsack1_def]>>
   rw[]>>
@@ -673,7 +618,7 @@ Theorem encode_knapsack_sem_2:
     (encode_knapsack css Xs ts name) ⇒
   knapsack_sem css Xs ts wi
 Proof
-  rw[cencode_knapsack_def,knapsack_sem_def]>>
+  rw[cencode_knapsack_def,encode_knapsack_def,knapsack_sem_def]>>
   gvs[LIST_REL_EL_EQN,EVERY_FLAT,EVERY_MEM,MEM_MAPi,
     PULL_EXISTS,cencode_knapsack1_def,cfalse_constr_def]>>
   rw[]>>first_x_assum drule>>
@@ -684,9 +629,10 @@ QED
 Definition encode_misc_constr_def:
   encode_misc_constr bnd c name =
   case c of
-    Knapsack css Xs ts =>
+    Circuit Xs =>
+    encode_circuit bnd Xs name
+  | Knapsack css Xs ts =>
     encode_knapsack css Xs ts name
-  | _ => [] (* TODO *)
 End
 
 Theorem encode_misc_constr_sem_1:
@@ -698,8 +644,8 @@ Theorem encode_misc_constr_sem_1:
 Proof
   Cases_on`c`>>
   rw[encode_misc_constr_def,misc_constr_sem_def]
-  >-
-    (drule encode_knapsack_sem_1>>rw[])
+  >- metis_tac[encode_circuit_sem_1]
+  >- metis_tac[encode_knapsack_sem_1]
 QED
 
 Theorem encode_misc_constr_sem_2:
@@ -710,19 +656,18 @@ Theorem encode_misc_constr_sem_2:
 Proof
   Cases_on`c`>>
   rw[encode_misc_constr_def,misc_constr_sem_def]
-  >-  cheat
-  >- (
-    irule encode_knapsack_sem_2>>
-    gvs[]>>metis_tac[])
+  >- metis_tac[encode_circuit_sem_2]
+  >- metis_tac[encode_knapsack_sem_2]
 QED
 
 (* Concrete encodings *)
 Definition cencode_misc_constr_def:
   cencode_misc_constr bnd c name ec =
   case c of
-    Knapsack css Xs ts =>
+    Circuit Xs =>
+    cencode_circuit bnd Xs name ec
+  | Knapsack css Xs ts =>
     (cencode_knapsack css Xs ts name, ec)
-  | _ => (Nil,ec) (* TODO *)
 End
 
 Theorem cencode_misc_constr_sem:
@@ -732,4 +677,6 @@ Theorem cencode_misc_constr_sem:
 Proof
   Cases_on`c`>>
   rw[cencode_misc_constr_def,encode_misc_constr_def]
+  >- metis_tac[cencode_circuit_sem]
+  >- simp[cencode_knapsack_def,encode_knapsack_def]
 QED
