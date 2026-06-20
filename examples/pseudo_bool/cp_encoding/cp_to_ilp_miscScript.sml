@@ -446,7 +446,7 @@ Definition cencode_circuit_pos_def:
         (SOME $ mk_name name
           («pos0eq0»),
         mk_ubnd_bin (ub_num name 0 n1) 0)])
-      (* pos i ≤ n for i = 0 to n-1 *)
+      (* pos i < n for i = 0 to n-1 *)
       (Append (List
         (GENLIST
         (λi. SOME $ mk_name name
@@ -460,30 +460,25 @@ Definition cencode_circuit_pos_def:
                 let
                   cond = INL (Eq X (&j))
                 in
-                 if j = 0
+                 List $ mk_annotate
+                 [
+                   mk_name name («pos_suc_» ^ toString i ^ «_» ^ toString j ^ «_ge»);
+                   mk_name name («pos_suc_» ^ toString i ^ «_» ^ toString j ^ «_le»)
+                 ]
+                 (if j = 0
                  then
                    (* Xs[i] = 0  ⇒  pos i = n-1  *)
-                   List $ mk_annotate
-                   [
-                     mk_name name («pos_suc_eq0_gt»);
-                     mk_name name («pos_suc_eq0_lt»)
-                   ]
                    (MAP
                      (λcc. bits_imply bnd [Pos cond] cc)
                        (mk_bounds_bin (ub_num name i n1) (&n1) (&n1)))
                  else
                    (* Xs[i] = j  ⇒  pos j = pos i + 1 *)
-                   List $ mk_annotate
-                   [
-                     mk_name name («pos_suc_gt0_gt»);
-                     mk_name name («pos_suc_gt0_lt»)
-                   ]
                    [
                      bits_imply bnd [Pos cond] $
                        mk_constraint_ge_bin (-1) (ub_num name i n1) 1 (ub_num name j n1) 1;
                      bits_imply bnd [Pos cond] $
                        mk_constraint_ge_bin 1 (ub_num name i n1) (-1) (ub_num name j n1) (-1);
-                   ])
+                   ]))
               n))
         Xs)))
 End
@@ -501,8 +496,8 @@ Definition cencode_circuit_aux_def:
         (flat_app (MAPi
           (λi X. List $ mk_annotate
             [
-              mk_name name (int_to_string #"-" (&i) ^ «-lb»);
-              mk_name name (int_to_string #"-" (&i) ^ «-ub»)
+              mk_name name (toString i ^ «lb»);
+              mk_name name (toString i ^ «ub»)
             ]
             (mk_bounds X 0 &(n - 1)))
           Xs))
@@ -526,6 +521,8 @@ End
 
 Definition encode_circuit_def:
   encode_circuit bnd Xs name =
+  let n = LENGTH Xs in
+  if n = 0 then [] else
   (FLAT $ MAP
     (λX. FLAT $ GENLIST (λi. encode_full_eq bnd X (&i)) (LENGTH Xs))
     Xs) ++
