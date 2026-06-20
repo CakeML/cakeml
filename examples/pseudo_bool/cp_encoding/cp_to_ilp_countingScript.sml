@@ -7,10 +7,6 @@ Libs
 Ancestors
   pbc cp ilp cp_to_ilp
 
-Definition neiv_def[simp]:
-  neiv name (i:num) j =
-    INR (name, Indices [i;j] NONE)
-End
 
 (* AllDifferent: All variables must take distinct values
    For n variables, this requires O(n^2) pairwise inequality constraints *)
@@ -23,10 +19,10 @@ Definition cencode_all_different_def:
         List [
           (SOME $ mk_name name
             (int_to_string #"-" (&i) ^ «gt» ^ int_to_string #"-" (&j)),
-            bits_imply bnd [Pos (neiv name i j)] (mk_gt X Y));
+            bits_imply bnd [Pos (neiv name i j NONE)] (mk_gt X Y));
           (SOME $ mk_name name
             (int_to_string #"-" (&i) ^ «lt» ^ int_to_string #"-" (&j)),
-            bits_imply bnd [Neg (neiv name i j)] (mk_gt Y X))]
+            bits_imply bnd [Neg (neiv name i j NONE)] (mk_gt Y X))]
       else
         Nil) Xs)) Xs)
 End
@@ -58,7 +54,7 @@ Theorem all_different_sem_aux:
   (∀i j. i < j ∧ j < LENGTH Xs ⇒
     let X = EL i Xs in
     let Y = EL j Xs in
-    if wb (neiv (name:mlstring) i j)
+    if wb (neiv (name:mlstring) i j NONE)
     then varc wi X > varc wi Y
     else varc wi Y > varc wi X) ⇒
   all_different_sem Xs wi

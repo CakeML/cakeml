@@ -261,6 +261,12 @@ Definition format_var_def:
   | INR z => format_flag z
 End
 
+(* neiv are used in the constaints in all-different and circuit *)
+Definition neiv_def[simp]:
+  neiv name (i:num) j ann_opt =
+    INR (name, Indices [i;j] ann_opt)
+End
+
 (*
   ltv, gtv and neg are commonly used in the constraints
   (linear) equal and (linear) not-equal
