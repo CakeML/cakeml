@@ -859,6 +859,14 @@ Definition bvi_to_display_def:
   (bvi_to_display ns h (Op op xs) =
     Item NONE «op» (clos_op_to_display ns op ::
                              (bvi_to_display_list ns h xs)))  ∧
+  (bvi_to_display ns h (Return xs) =
+    Item NONE «return» (bvi_to_display_list ns h xs)) ∧
+  (bvi_to_display ns h (LetCall rets ticks dest xs y) =
+    separate_lines «letcall»
+        [Item NONE «call»
+           (String (attach_name ns (SOME dest)) :: bvi_to_display_list ns h xs);
+         Tuple (REVERSE $ GENLIST (λi. display_num_as_varn (h+i)) rets);
+         bvi_to_display ns (h + rets) y]) ∧
   (bvi_to_display_list ns h [] = []) ∧
   (bvi_to_display_list ns h (x::xs) =
     bvi_to_display ns h x :: bvi_to_display_list ns h xs) /\
