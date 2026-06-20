@@ -62,16 +62,18 @@ val _ = register_type``:'a constraint``;
 
 (* cp_parse *)
 
+(* shared list-parsing combinators *)
+val res = translate result_monadTheory.result_mmap_def;
+val res = translate sexp_list_of_def;
+
 (* generic helpers *)
 val res = translate sexp_bnd_def;
 val res = translate sexp_bnds_def;
 
 val res = translate sexp_varc_def;
-val res = translate sexp_varcs_def;
 val res = translate sexp_varc_list_def;
 
 val res = translate sexp_int_def;
-val res = translate sexp_ints_def;
 val res = translate sexp_int_list_def;
 
 val res = translate sexp_cmpop_kw_def;
@@ -105,16 +107,13 @@ val res = translate sexp_linear_dispatch_def;
 
 (* extensional (table) *)
 val res = translate sexp_table_entry_def;
-val res = translate sexp_table_row_entries_def;
 val res = translate sexp_table_row_def;
-val res = translate sexp_table_rows_aux_def;
 val res = translate sexp_table_rows_def;
 val res = translate sexp_table_body_def;
 val res = translate sexp_extensional_dispatch_def;
 
 (* array *)
 val res = translate sexp_array_ind_def;
-val res = translate sexp_varc_rows_aux_def;
 val res = translate sexp_varc_rows_def;
 val res = translate sexp_array_aggr_def;
 val res = translate sexp_element_body_def;
@@ -129,6 +128,9 @@ val res = translate sexp_count_body_def;
 val res = translate sexp_among_body_def;
 val res = translate sexp_in_body_def;
 val res = translate sexp_at_most_one_body_def;
+val res = translate sexp_all_equal_body_def;
+val res = translate sexp_all_different_except_body_def;
+val res = translate sexp_symmetric_all_different_body_def;
 val res = translate sexp_counting_dispatch_def;
 
 (* logical *)
@@ -141,9 +143,8 @@ val res = translate sexp_off_list_def;
 val res = translate sexp_inverse_body_def;
 val res = translate sexp_channeling_dispatch_def;
 
-(* misc: knapsack (circuit disabled until its encoding is done; TODO: lex) *)
-(* val res = translate sexp_circuit_body_def; *)
-val res = translate sexp_int_rows_aux_def;
+(* misc: circuit, knapsack *)
+val res = translate sexp_circuit_body_def;
 val res = translate sexp_int_rows_def;
 val res = translate sexp_knapsack_body_def;
 val res = translate sexp_misc_dispatch_def;
@@ -332,6 +333,8 @@ val res = translate init_ec_def;
 
 val res = translate encode_bvar_eq_def;
 
+val res = translate neiv_def;
+
 (* cp_to_ilp_primScript *)
 
 val res = translate cp_to_ilp_primTheory.mk_nge_def;
@@ -369,8 +372,13 @@ val res = translate cp_to_ilp_primTheory.cencode_prim_constr_def;
 
 (* cp_to_ilp_counting *)
 
-val res = translate cp_to_ilp_countingTheory.neiv_def;
 val res = translate cp_to_ilp_countingTheory.cencode_all_different_def;
+
+val res = translate cp_to_ilp_countingTheory.equal_chain_def;
+val res = translate cp_to_ilp_countingTheory.cencode_all_equal_def;
+
+val res = translate cp_to_ilp_countingTheory.cencode_all_different_except_def;
+val res = translate cp_to_ilp_countingTheory.cencode_symmetric_all_different_def;
 
 val res = translate cp_to_ilp_countingTheory.elm_def;
 val res = translate cp_to_ilp_countingTheory.cencode_some_eq_def;
@@ -414,6 +422,7 @@ val res = translate split_varc_in_list_eq;
 
 val res = translate cp_to_ilp_countingTheory.cencode_in_def;
 val res = translate cp_to_ilp_countingTheory.cencode_at_most_one_def;
+
 val res = translate cp_to_ilp_countingTheory.cencode_counting_constr_def;
 
 (* cp_to_ilp_linear *)
@@ -512,8 +521,45 @@ val res = translate cp_to_ilp_channelingTheory.cencode_channeling_constr_def;
 
 (* cp_to_ilp_misc *)
 
+val res = translate cp_to_ilp_miscTheory.mk_constraint_ge_bin_def;
+val res = translate cp_to_ilp_miscTheory.mk_ubnd_bin_def;
+val res = translate cp_to_ilp_miscTheory.ub_num_def;
+val res = translate cp_to_ilp_miscTheory.mk_lbnd_bin_def;
+val res = translate cp_to_ilp_miscTheory.mk_bounds_bin_def;
+
+val res = translate cp_to_ilp_miscTheory.cencode_circuit_pos_def;
+
+Theorem cencode_circuit_pos_side[local]:
+  cencode_circuit_pos_side bnd Xs nm ⇔ 1 ≤ LENGTH Xs
+Proof
+  rw[fetch "-" "cencode_circuit_pos_side_def"]>>gvs[]
+QED
+
+val _ = update_precondition cencode_circuit_pos_side;
+
+val res = translate cp_to_ilp_miscTheory.cencode_circuit_aux_def;
+
+Theorem cencode_circuit_aux_side[local]:
+  cencode_circuit_aux_side bnd Xs nm ⇔ 1 ≤ LENGTH Xs
+Proof
+  rw[fetch "-" "cencode_circuit_aux_side_def"]>>gvs[]
+QED
+
+val _ = update_precondition cencode_circuit_aux_side;
+
+val res = translate cp_to_ilp_miscTheory.cencode_circuit_def;
+
+Theorem cencode_circuit_side:
+  cencode_circuit_side bnd Xs nm ec ⇔ T
+Proof
+  rw[fetch "-" "cencode_circuit_side_def"]>>gvs[]>>Cases_on ‘Xs’>>gvs[]
+QED
+
+val _ = update_precondition cencode_circuit_side;
+
 val res = translate cp_to_ilp_miscTheory.cencode_knapsack1_def;
 val res = translate cp_to_ilp_miscTheory.cencode_knapsack_def;
+
 val res = translate cp_to_ilp_miscTheory.cencode_misc_constr_def;
 
 (* cp_to_ilp_all *)
