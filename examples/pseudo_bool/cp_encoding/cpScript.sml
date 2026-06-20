@@ -78,7 +78,8 @@ Datatype:
   | Among ('a varc list) (int list) ('a varc)
     (* In Xs Y: Y is in Xs *)
   | In ('a varc list) ('a varc)
-  (* AtMostOne TODO: future work, not yet in solver *)
+    (* AtMostOne Xs Y : at most one of Xs equals the value Y *)
+  | AtMostOne ('a varc list) ('a varc)
 End
 
 Type iclin_term[pp] = ``:(int # 'a varc) list ``
@@ -296,6 +297,11 @@ Definition in_sem_def:
     MEM y xs
 End
 
+Definition at_most_one_sem_def:
+  at_most_one_sem Xs Y w ⇔
+  iSUM (MAP (λX. b2i (varc w X = varc w Y)) Xs) ≤ 1
+End
+
 Definition counting_constr_sem_def:
   counting_constr_sem c w =
   case c of
@@ -304,6 +310,7 @@ Definition counting_constr_sem_def:
   | Count Xs Y Z => count_sem Xs Y Z w
   | Among Xs iS Y => among_sem Xs iS Y w
   | In Y Xs => in_sem Y Xs w
+  | AtMostOne Xs Y => at_most_one_sem Xs Y w
 End
 
 (***

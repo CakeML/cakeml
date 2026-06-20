@@ -56,6 +56,15 @@ End
 
 Overload Index = ``λname n. (name,Indices [n] NONE)``;
 
+Definition reify_flag_counting_def:
+  reify_flag_counting ann ids wi Xs Y =
+  if ann = SOME («ge»)
+  then varc wi (EL (HD ids) Xs) ≥ varc wi Y
+  else if ann = SOME («le»)
+  then varc wi (EL (HD ids) Xs) ≤ varc wi Y
+  else varc wi (EL (HD ids) Xs) = varc wi Y
+End
+
 Definition reify_flag_def:
   reify_flag cs wi (name,flag) ⇔
   case flag of
@@ -63,18 +72,6 @@ Definition reify_flag_def:
     (case ALOOKUP cs name of
     | SOME (Counting (AllDifferent Xs)) =>
       varc wi (EL (EL 0 ids) Xs) > varc wi (EL (EL 1 ids) Xs)
-    | SOME (Counting (Count Xs Y _)) =>
-      if ann = SOME («ge»)
-      then varc wi (EL (HD ids) Xs) ≥ varc wi Y
-      else if ann = SOME («le»)
-      then varc wi (EL (HD ids) Xs) ≤ varc wi Y
-      else varc wi (EL (HD ids) Xs) = varc wi Y
-    | SOME (Counting (In Xs Y)) =>
-      if ann = SOME («ge»)
-      then varc wi (EL (HD ids) Xs) ≥ varc wi Y
-      else if ann = SOME («le»)
-      then varc wi (EL (HD ids) Xs) ≤ varc wi Y
-      else varc wi (EL (HD ids) Xs) = varc wi Y
     | SOME (Counting (Among Xs iS _)) =>
       if ann = SOME («ge»)
       then varc wi (EL (EL 0 ids) Xs) ≥ EL (EL 1 ids) iS
@@ -83,6 +80,12 @@ Definition reify_flag_def:
       else if ann = SOME («eq»)
       then varc wi (EL (EL 0 ids) Xs) = EL (EL 1 ids) iS
       else MEM (varc wi (EL (HD ids) Xs)) iS (* ann = SOME («fnd») *)
+    | SOME (Counting (Count Xs Y _)) =>
+      reify_flag_counting ann ids wi Xs Y
+    | SOME (Counting (In Xs Y)) =>
+      reify_flag_counting ann ids wi Xs Y
+    | SOME (Counting (AtMostOne Xs Y)) =>
+      reify_flag_counting ann ids wi Xs Y
     | SOME (Array (ArrayMax Xs Y)) =>
       varc wi (EL (HD ids) Xs) ≥ varc wi Y
     | SOME (Array (ArrayMin Xs Y)) =>
@@ -1322,6 +1325,34 @@ Theorem abstr_cat_least_one[simp]:
   abstr (cat_least_one name ls) = [at_least_one ls]
 Proof
   rw[cat_least_one_def]
+QED
+
+(* at most one over literals.
+  We define the raw version and abstract over it. *)
+Definition at_most_one_def:
+  at_most_one ls = ([], MAP (λl. (-1,l)) ls, -1)
+End
+
+Definition cat_most_one_def:
+  cat_most_one name ls =
+    List [
+      (SOME (mk_name name («am1»)),
+        at_most_one ls)]
+End
+
+Theorem at_most_one_sem[simp]:
+  iconstraint_sem (at_most_one ls) (wi,wb) ⇔
+  iSUM (MAP (b2i o lit wb) ls) ≤ 1
+Proof
+  rw[iconstraint_sem_def,at_most_one_def,eval_lin_term_def]>>
+  simp[MAP_MAP_o,o_DEF,iSUM_MAP_lin_const ]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem abstr_cat_most_one[simp]:
+  abstr (cat_most_one name ls) = [at_most_one ls]
+Proof
+  rw[cat_most_one_def]
 QED
 
 (* encodes (sum of the bitlist Bs) = Y *)
