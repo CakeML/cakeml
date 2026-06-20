@@ -8,8 +8,8 @@ Ancestors
   cp mlsexp result_monad
 
 (*
-  Tentatively, we will have everything live in a big s-expression with
-    either 2 or 3 elements.
+  We have everything live in a big s-expression with
+  either 2 or 3 elements.
 
 (
   // the first element is a list of all the bounds
@@ -31,6 +31,16 @@ Ancestors
 )
 *)
 
+(* Shared combinator: parse every element of an s-expression list with `f`,
+   short-circuiting on the first error.
+   `msg` is the error for a non-list sexp. *)
+Definition sexp_list_of_def:
+  sexp_list_of msg f e =
+    case e of
+      Expr es => result_mmap f es
+    | _ => fail msg
+End
+
 (* Parsing all the bounds *)
 Definition sexp_bnd_def:
   sexp_bnd e =
@@ -43,13 +53,7 @@ Definition sexp_bnd_def:
 End
 
 Definition sexp_bnds_def:
-  (sexp_bnds [] = return []) ∧
-  (sexp_bnds (e::es) =
-    do
-      x <- sexp_bnd e;
-      xs <- sexp_bnds es;
-      return (x::xs)
-    od)
+  sexp_bnds es = result_mmap sexp_bnd es
 End
 
 (*--------------------------------------------------------------*
@@ -66,21 +70,9 @@ Definition sexp_varc_def:
     fail («invalid sexpression at var/const position\n»))
 End
 
-Definition sexp_varcs_def:
-  (sexp_varcs [] = return []) ∧
-  (sexp_varcs (e::es) =
-     do
-      x <- sexp_varc e;
-      xs <- sexp_varcs es;
-      return (x::xs)
-    od)
-End
-
 Definition sexp_varc_list_def:
   sexp_varc_list e =
-  case e of
-    Expr es => sexp_varcs es
-  | _ => fail («expected s-expression list of vars/ints\n»)
+    sexp_list_of («expected s-expression list of vars/ints\n») sexp_varc e
 End
 
 Definition sexp_int_def:
@@ -93,21 +85,9 @@ Definition sexp_int_def:
   | _ => fail («expected integer atom\n»)
 End
 
-Definition sexp_ints_def:
-  (sexp_ints [] = return []) ∧
-  (sexp_ints (e::es) =
-    do
-      x <- sexp_int e;
-      xs <- sexp_ints es;
-      return (x::xs)
-    od)
-End
-
 Definition sexp_int_list_def:
   sexp_int_list e =
-  case e of
-    Expr es => sexp_ints es
-  | _ => fail («expected s-expression list of integers\n»)
+    sexp_list_of («expected s-expression list of integers\n») sexp_int e
 End
 
 Definition sexp_cmpop_kw_def:
@@ -328,38 +308,15 @@ Definition sexp_table_entry_def:
   | _ => fail («expected integer atom or * in table row\n»)
 End
 
-Definition sexp_table_row_entries_def:
-  (sexp_table_row_entries [] = return []) ∧
-  (sexp_table_row_entries (e::es) =
-    do
-      x <- sexp_table_entry e;
-      xs <- sexp_table_row_entries es;
-      return (x::xs)
-    od)
-End
-
 Definition sexp_table_row_def:
   sexp_table_row e =
-    case e of
-      Expr es => sexp_table_row_entries es
-    | _ => fail («expected table row as s-expression list\n»)
-End
-
-Definition sexp_table_rows_aux_def:
-  (sexp_table_rows_aux [] = return []) ∧
-  (sexp_table_rows_aux (e::es) =
-    do
-      r <- sexp_table_row e;
-      rs <- sexp_table_rows_aux es;
-      return (r::rs)
-    od)
+    sexp_list_of («expected table row as s-expression list\n») sexp_table_entry e
 End
 
 Definition sexp_table_rows_def:
   sexp_table_rows e =
-    case e of
-      Expr es => sexp_table_rows_aux es
-    | _ => fail («expected table body as s-expression list of rows\n»)
+    sexp_list_of («expected table body as s-expression list of rows\n»)
+      sexp_table_row e
 End
 
 (* Table body: rows (X1 ... Xn) *)
@@ -399,21 +356,10 @@ Definition sexp_array_ind_def:
 End
 
 (* List of rows, each a list of varcs (for element_2d). *)
-Definition sexp_varc_rows_aux_def:
-  (sexp_varc_rows_aux [] = return []) ∧
-  (sexp_varc_rows_aux (e::es) =
-    do
-      r <- sexp_varc_list e;
-      rs <- sexp_varc_rows_aux es;
-      return (r::rs)
-    od)
-End
-
 Definition sexp_varc_rows_def:
   sexp_varc_rows e =
-    case e of
-      Expr es => sexp_varc_rows_aux es
-    | _ => fail («expected 2D body as s-expression list of rows\n»)
+    sexp_list_of («expected 2D body as s-expression list of rows\n»)
+      sexp_varc_list e
 End
 
 (* Atom → ArrayMax / ArrayMin constructor (both share (Xs Y) shape), NONE otherwise. *)
@@ -560,9 +506,48 @@ End
 
 (* Counting: returns NONE when ctype isn't a counting constraint so the
    top-level dispatcher can fall through. *)
+(* all_equal: v0 v1 ... (the variables are given directly, not grouped) *)
+Definition sexp_all_equal_body_def:
+  sexp_all_equal_body rest =
+    do
+      Xs <- result_mmap sexp_varc rest;
+      return (Counting (AllEqual Xs))
+    od
+End
+
+(* all_different_except: (X1 ... Xn) (e1 ... em) *)
+Definition sexp_all_different_except_body_def:
+  sexp_all_different_except_body rest =
+    case rest of
+      [Xs_e; iS_e] =>
+      (do
+         Xs <- sexp_varc_list Xs_e;
+         iS <- sexp_int_list iS_e;
+         return (Counting (AllDifferentExcept Xs iS))
+       od)
+    | _ => fail («all_different_except expects 2 args: (X1 ... Xn) (e1 ... em)\n»)
+End
+
+(* symmetric_all_different: (X1 ... Xn) start *)
+Definition sexp_symmetric_all_different_body_def:
+  sexp_symmetric_all_different_body rest =
+    case rest of
+      [Xs_e; start_e] =>
+      (do
+         Xs <- sexp_varc_list Xs_e;
+         start <- sexp_int start_e;
+         return (Counting (SymmetricAllDifferent (Xs,start)))
+       od)
+    | _ => fail («symmetric_all_different expects 2 args: (X1 ... Xn) start\n»)
+End
+
 Definition sexp_counting_dispatch_def:
   sexp_counting_dispatch ctype rest =
          if ctype = «all_different» then SOME (sexp_all_different_body rest)
+    else if ctype = «all_equal»     then SOME (sexp_all_equal_body rest)
+    (*
+    else if ctype = «all_different_except» then SOME (sexp_all_different_except_body rest)
+    else if ctype = «symmetric_all_different» then SOME (sexp_symmetric_all_different_body rest) *)
     else if ctype = «nvalue»        then SOME (sexp_nvalue_body rest)
     else if ctype = «count»         then SOME (sexp_count_body rest)
     else if ctype = «among»         then SOME (sexp_among_body rest)
@@ -647,21 +632,9 @@ Definition sexp_circuit_body_def:
 End
 
 (* a list of integer rows: ((c11 ... c1n) (c21 ... c2n) ...) *)
-Definition sexp_int_rows_aux_def:
-  (sexp_int_rows_aux [] = return []) ∧
-  (sexp_int_rows_aux (e::es) =
-    do
-      r <- sexp_int_list e;
-      rs <- sexp_int_rows_aux es;
-      return (r::rs)
-    od)
-End
-
 Definition sexp_int_rows_def:
   sexp_int_rows e =
-  case e of
-    Expr es => sexp_int_rows_aux es
-  | _ => fail («expected s-expression list of integer rows\n»)
+    sexp_list_of («expected s-expression list of integer rows\n») sexp_int_list e
 End
 
 (* knapsack: ((c11 ... c1n) ...) (X1 ... Xn) (t1 ... tm) -- each row cs with
@@ -681,9 +654,8 @@ End
 
 Definition sexp_misc_dispatch_def:
   sexp_misc_dispatch ctype rest =
-    (* circuit disabled until its encoding is finished:
-            if ctype = «circuit» then SOME (sexp_circuit_body rest) else *)
-    if ctype = «knapsack» then SOME (sexp_knapsack_body rest)
+    if ctype = «circuit» then SOME (sexp_circuit_body rest)
+    else if ctype = «knapsack» then SOME (sexp_knapsack_body rest)
     else NONE
 End
 
@@ -738,13 +710,7 @@ Definition sexp_constraint_def:
 End
 
 Definition sexp_constraints_def:
-  (sexp_constraints [] = return []) ∧
-  (sexp_constraints (e::es) =
-    do
-      x <- sexp_constraint e;
-      xs <- sexp_constraints es;
-      return (x::xs)
-    od)
+  sexp_constraints es = result_mmap sexp_constraint es
 End
 
 Definition sexp_prob_type_def:

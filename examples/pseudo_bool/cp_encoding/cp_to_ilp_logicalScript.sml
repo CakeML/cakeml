@@ -262,18 +262,18 @@ Definition cencode_parity_aux_def:
         [], [(-1,Pos (arri name $ LENGTH Xs))], 0)])
       (List $ mk_annotate
         [
-          mk_name name (int_to_string #"-" 0 ^ «ge»);
-          mk_name name (int_to_string #"-" 0 ^ «le»)
+          mk_name name («0ge»);
+          mk_name name («0le»)
         ]
         (encode_bvar_eq (INL (Ge Y 1)) (arri name 0))))
     (flat_app $ MAPi
       (λi X. List $
         mk_annotate
           [
-            mk_name name (int_to_string #"-" (&i+1) ^ «_0_0»);
-            mk_name name (int_to_string #"-" (&i+1) ^ «_1_1»);
-            mk_name name (int_to_string #"-" (&i+1) ^ «_1_0»);
-            mk_name name (int_to_string #"-" (&i+1) ^ «_0_1»)
+            mk_name name (toString (i+1) ^ «_0_0»);
+            mk_name name (toString (i+1) ^ «_1_1»);
+            mk_name name (toString (i+1) ^ «_1_0»);
+            mk_name name (toString (i+1) ^ «_0_1»)
           ]
           (encode_xor (arri name i) (INL (Ge X 1)) (arri name (i+1)))
       )

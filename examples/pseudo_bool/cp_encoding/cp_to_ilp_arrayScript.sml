@@ -84,8 +84,8 @@ Definition cencode_element_aux_def:
     (FLAT $ MAPi
       (λi X.
         [
-          mk_name name (int_to_string #"-" (&i) ^ «ge»);
-          mk_name name (int_to_string #"-" (&i) ^ «le»)
+          mk_name name (toString i ^ «ge»);
+          mk_name name (toString i ^ «le»)
         ])
       Xs)
     (encode_element_aux bnd Xs Yi Z)
@@ -265,12 +265,12 @@ Definition cencode_element2d_aux_def:
             [
               mk_name
                 name
-                (int_to_string #"-" (&i) ^ «_» ^
-                  int_to_string #"-" (&j) ^ «ge»);
+                (toString i ^ «_» ^
+                  toString j ^ «ge»);
               mk_name
                 name
-                (int_to_string #"-" (&i) ^ «_» ^
-                  int_to_string #"-" (&j) ^ «le»)
+                (toString i ^ «_» ^
+                  toString j ^ «le»)
             ])
           Xs)
         Xss)
@@ -461,7 +461,7 @@ Definition cencode_array_max_def:
       Append
         (flat_app (MAPi (λi X. List $
           mk_annotate
-            [mk_name name $ int_to_string #"-" (&i) ^ «le»]
+            [mk_name name $ toString i ^ «le»]
             [mk_le X Y]) Xs)) $
         cat_least_one name $ GENLIST (λi. Pos $ arri name i) (LENGTH Xs)
 End
@@ -542,7 +542,7 @@ Definition cencode_array_min_def:
       Append
         (flat_app (MAPi (λi X. List $
           mk_annotate
-            [mk_name name $ int_to_string #"-" (&i) ^ «ge»]
+            [mk_name name $ toString i ^ «ge»]
             [mk_ge X Y]) Xs)) $
         cat_least_one name $ GENLIST (λi. Pos $ arri name i) (LENGTH Xs)
 End
