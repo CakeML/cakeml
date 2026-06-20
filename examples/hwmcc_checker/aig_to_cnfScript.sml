@@ -7,12 +7,6 @@ Ancestors
 Libs
   preamble
 
-Definition fmap_update_def:
-  fmap_update f k v = f |+ (k,v)
-End
-
-Theorem fmap_update_simp[local,simp] = fmap_update_def;
-
 (*----------------------------------------------------------------------*
    pruning
  *----------------------------------------------------------------------*)

@@ -43,6 +43,9 @@ Module about the built-in list type.
 [ListProofScript.sml](ListProofScript.sml):
 Proofs about the module about the list type.
 
+[MapProgLib.sml](MapProgLib.sml):
+Functions for teaching the translator about fmap operations
+
 [MapProgScript.sml](MapProgScript.sml):
 This module contains CakeML code implementing a functional map type
 using a self-balancing binary tree.

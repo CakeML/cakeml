@@ -4464,3 +4464,48 @@ Proof
   Induct_on`ls`>>simp[]>>
   rw[]>>gvs[]
 QED
+
+(* must be used instead of FUPDATE in defitions that go through translation *)
+Definition fmap_update_def[simp]:
+  fmap_update f k v = f |+ (k,v)
+End
+
+(* TODO: move to HOL? *)
+Definition sum_cmp_def:
+  sum_cmp c1 c2 x1 x2 =
+    case x1 of
+    | INL n1 =>
+        (case x2 of
+         | INL n2 => c1 n1 n2
+         | INR _ => LESS)
+    | INR n1 =>
+        (case x2 of
+         | INL _ => GREATER
+         | INR n2 => c2 n1 n2)
+End
+
+Theorem sum_forall:
+  (∀x. P x) ⇔ (∀y. P (INL y)) ∧ (∀y. P (INR y))
+Proof
+  eq_tac \\ rw [] \\ simp [] \\ Cases_on ‘x’ \\ fs []
+QED
+
+Theorem TotOrd_sum:
+  TotOrd c1 ∧ TotOrd c2 ⇒
+  TotOrd (sum_cmp c1 c2)
+Proof
+  fs [totoTheory.TotOrd, sum_cmp_def, AllCaseEqs(), sum_forall]
+  \\ simp [SF DNF_ss, PULL_EXISTS] \\ rw [] \\ res_tac
+QED
+
+Definition num_cmp_def:
+  num_cmp n1 (n2:num) =
+    if n1 < n2 then LESS else
+    if n2 < n1 then GREATER else EQUAL
+End
+
+Theorem TotOrd_num_cmp:
+  TotOrd (num_cmp : num -> num -> ordering)
+Proof
+  fs [totoTheory.TotOrd, num_cmp_def, CaseEq"bool"]
+QED

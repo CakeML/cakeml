@@ -180,7 +180,24 @@ val _ = add_user_proved_v_thm gcd_v_thm;
 (* compare *)
 
 val _ = (next_ml_names := ["compare"]);
-val _ = translate mlintTheory.int_cmp_def;
+val int_cmp_v_thm = translate mlintTheory.int_cmp_def;
+
+Theorem num_cmp_v_thm:
+  (NUM --> NUM --> ORDERING_TYPE) misc$num_cmp int_cmp_v
+Proof
+  assume_tac int_cmp_v_thm
+  \\ fs [ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def]
+  \\ fs [ml_translatorTheory.NUM_def]
+  \\ rw [] \\ last_x_assum drule
+  \\ disch_then (strip_assume_tac o SPEC_ALL) \\ fs []
+  \\ first_assum $ irule_at Any
+  \\ rw [] \\ last_x_assum drule
+  \\ disch_then (qspec_then ‘refs''’ strip_assume_tac) \\ fs []
+  \\ first_assum $ irule_at Any
+  \\ fs [int_cmp_def, num_cmp_def]
+QED
+
+val _ = add_user_proved_v_thm num_cmp_v_thm;
 
 val _ = ml_prog_update close_local_blocks;
 
