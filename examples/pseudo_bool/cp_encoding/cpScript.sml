@@ -62,13 +62,16 @@ Datatype:
   | Cmpop ('a reify) cmpop ('a varc) ('a varc)
 End
 
-(* The ones below are general constraints.
-  Our policy: keep only general and widely-used ones.
-  Those that can be readily encoded using other constraints are removed. *)
 Datatype:
   counting_constr =
+    (* AllEqual Xs *)
+  | AllEqual ('a varc list)
     (* AllDifferent Xs *)
   | AllDifferent ('a varc list)
+    (* AllDifferentExcept Xs iS *)
+  | AllDifferentExcept ('a varc list) (int list)
+    (* SymmetricAllDifferent (Xs,i) *)
+  | SymmetricAllDifferent ('a varc list # int)
     (* NValue Xs Y : Y is num. distinct in Xs *)
   | NValue ('a varc list) ('a varc)
     (* Count Xs Y Z : Z is num. times Y appears in Xs *)
@@ -256,9 +259,29 @@ End
 (***
   counting_constr
 ***)
+Definition all_equal_sem_def:
+  all_equal_sem Xs w =
+    ∃v. EVERY (λX. varc w X = v) Xs
+End
+
 Definition all_different_sem_def:
   all_different_sem Xs w =
     ALL_DISTINCT (MAP (varc w) Xs)
+End
+
+Definition all_different_except_sem_def:
+  all_different_except_sem Xs iS w =
+    ALL_DISTINCT (FILTER (λv. ¬ MEM v iS) (MAP (varc w) Xs))
+End
+
+Definition symmetric_all_different_sem_def:
+  symmetric_all_different_sem (Xs,start) w ⇔
+  let n = LENGTH Xs in
+    (* (a) every value lies in [start, start+n) *)
+    EVERY (λX. start ≤ varc w X ∧ varc w X < start + &n) Xs ∧
+    (* (b) self-inverse: position (Xs[i] − start) names i back *)
+    (∀i. i < n ⇒
+       varc w (EL (Num (varc w (EL i Xs) − start)) Xs) = &i + start)
 End
 
 Definition n_value_sem_def:
@@ -305,7 +328,10 @@ End
 Definition counting_constr_sem_def:
   counting_constr_sem c w =
   case c of
-    AllDifferent Xs => all_different_sem Xs w
+    AllEqual Xs => all_equal_sem Xs w
+  | AllDifferent Xs => all_different_sem Xs w
+  | AllDifferentExcept Xs iS => all_different_except_sem Xs iS w
+  | SymmetricAllDifferent p => symmetric_all_different_sem p w
   | NValue Xs Y => n_value_sem Xs Y w
   | Count Xs Y Z => count_sem Xs Y Z w
   | Among Xs iS Y => among_sem Xs iS Y w
@@ -553,7 +579,7 @@ Definition lexicographical_constr_sem_def:
 End
 
 (***
-  channeling_constr TODO
+  channeling_constr
 ***)
 Definition inverse_sem_def:
   inverse_sem (Xs,offx) (Ys,offy) w ⇔

@@ -7,7 +7,6 @@ Libs
 Ancestors
   pbc cp ilp cp_to_ilp
 
-
 (* AllDifferent: All variables must take distinct values
    For n variables, this requires O(n^2) pairwise inequality constraints *)
 Definition cencode_all_different_def:
@@ -18,10 +17,10 @@ Definition cencode_all_different_def:
       then
         List [
           (SOME $ mk_name name
-            (int_to_string #"-" (&i) ^ «gt» ^ int_to_string #"-" (&j)),
+            (toString i ^ «gt» ^ toString j),
             bits_imply bnd [Pos (neiv name i j NONE)] (mk_gt X Y));
           (SOME $ mk_name name
-            (int_to_string #"-" (&i) ^ «lt» ^ int_to_string #"-" (&j)),
+            (toString i ^ «lt» ^ toString j),
             bits_imply bnd [Neg (neiv name i j NONE)] (mk_gt Y X))]
       else
         Nil) Xs)) Xs)
@@ -90,6 +89,10 @@ Proof
   rw[]>>
   intLib.ARITH_TAC
 QED
+
+(* TODO: AllDifferentExcept *)
+
+(* TODO: SymmetricAllDifferent *)
 
 Definition elm_def[simp]:
   elm name (v:int) =
@@ -712,10 +715,91 @@ Proof
   fs[]
 QED
 
+(* AllEqual: linear chain x1=x2, x2=x3, ... *)
+Definition equal_chain_def:
+  (equal_chain i name X [] = []) ∧
+  (equal_chain i name X (Y::Ys) =
+    (SOME (mk_name name (toString i ^ «ge»)), mk_ge X Y)::
+    (SOME (mk_name name (toString i ^ «le»)), mk_le X Y)::
+    equal_chain (i+1) name Y Ys)
+End
+
+Definition cencode_all_equal_def:
+  cencode_all_equal Xs name =
+  case Xs of [] => Nil
+  | (X::Xs) =>
+    List (equal_chain 0 name X Xs)
+End
+
+Definition encode_all_equal_def:
+  encode_all_equal Xs name =
+  abstr $ cencode_all_equal Xs name
+End
+
+Theorem equal_chain_sem:
+  ∀Xs i name X.
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstrl (equal_chain i name X Xs)) ⇔
+  EVERY (λY. varc wi X = varc wi Y) Xs
+Proof
+  Induct>>rw[equal_chain_def]>>
+  simp[Once CONJ_ASSOC]>>
+  irule boolTheory.LEFT_AND_CONG>>rw[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem encode_all_equal_sem_1:
+  all_equal_sem Xs wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_all_equal Xs name)
+Proof
+  strip_tac>>
+  gs[encode_all_equal_def,cencode_all_equal_def,all_equal_sem_def]>>
+  Cases_on`Xs`>>
+  rw[]>>fs[equal_chain_sem]>>
+  simp[Once EQ_SYM_EQ]
+QED
+
+Theorem encode_all_equal_sem_2:
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_all_equal Xs name) ⇒
+  all_equal_sem Xs wi
+Proof
+  gs[encode_all_equal_def,cencode_all_equal_def,all_equal_sem_def]>>
+  Cases_on`Xs`>>
+  rw[]>>fs[equal_chain_sem]>>
+  simp[Once EQ_SYM_EQ]
+QED
+
+(* TODO: AllDifferentExcept *)
+Definition cencode_all_different_except_def:
+  cencode_all_different_except bnd Xs (iS:int list) name =
+  Nil
+End
+
+Definition encode_all_different_except_def:
+  encode_all_different_except bnd Xs iS name =
+  []
+End
+
+(* TODO: SymmetricAllDifferent *)
+Definition cencode_symmetric_all_different_def:
+  cencode_symmetric_all_different bnd Xs start name ec =
+  (Nil,ec)
+End
+
+Definition encode_symmetric_all_different_def:
+  encode_symmetric_all_different bnd Xs start name =
+  []
+End
+
 Definition encode_counting_constr_def:
   encode_counting_constr bnd c name =
   case c of
-    AllDifferent Xs => encode_all_different bnd Xs name
+    AllEqual Xs => encode_all_equal Xs name
+  | AllDifferent Xs => encode_all_different bnd Xs name
+  | AllDifferentExcept Xs iS => encode_all_different_except bnd Xs iS name
+  | SymmetricAllDifferent (Xs,start) => encode_symmetric_all_different bnd Xs start name
   | NValue Xs Y => encode_n_value bnd Xs Y name
   | In Xs Y => encode_in bnd Xs Y name
   | Count Xs Y Z => encode_count bnd Xs Y Z name
@@ -732,7 +816,10 @@ Theorem encode_counting_constr_sem_1:
 Proof
   Cases_on`c`>>
   rw[encode_counting_constr_def,counting_constr_sem_def]
+  >- metis_tac[encode_all_equal_sem_1]
   >- metis_tac[encode_all_different_sem_1]
+  >- cheat (* AllDifferentExcept *)
+  >- cheat (* SymmetricAllDifferent *)
   >- metis_tac[encode_n_value_sem_1]
   >- metis_tac[encode_count_sem_1]
   >- metis_tac[encode_among_sem_1]
@@ -748,7 +835,10 @@ Theorem encode_counting_constr_sem_2:
 Proof
   Cases_on`c`>>
   rw[encode_counting_constr_def,counting_constr_sem_def]
+  >- metis_tac[encode_all_equal_sem_2]
   >- metis_tac[encode_all_different_sem_2]
+  >- cheat (* AllDifferentExcept *)
+  >- cheat (* SymmetricAllDifferent *)
   >- metis_tac[encode_n_value_sem_2]
   >- metis_tac[encode_count_sem_2]
   >- metis_tac[encode_among_sem_2]
@@ -759,7 +849,10 @@ QED
 Definition cencode_counting_constr_def:
   cencode_counting_constr bnd c name ec =
   case c of
-    AllDifferent Xs => (cencode_all_different bnd Xs name, ec)
+    AllEqual Xs => (cencode_all_equal Xs name, ec)
+  | AllDifferent Xs => (cencode_all_different bnd Xs name, ec)
+  | AllDifferentExcept Xs iS => (cencode_all_different_except bnd Xs iS name, ec)
+  | SymmetricAllDifferent (Xs,start) => cencode_symmetric_all_different bnd Xs start name ec
   | NValue Xs Y => cencode_n_value bnd Xs Y name ec
   | Count Xs Y Z => (cencode_count bnd Xs Y Z name, ec)
   | Among Xs iS Y => cencode_among bnd Xs iS Y name ec
@@ -774,10 +867,13 @@ Theorem cencode_counting_constr_sem:
 Proof
   Cases_on ‘c’>>
   simp[cencode_counting_constr_def,encode_counting_constr_def]
-  >-simp[cencode_all_different_def,encode_all_different_def]
-  >-simp[cencode_n_value_sem]
-  >-simp[cencode_count_def,encode_count_def]
-  >-simp[cencode_among_sem]
-  >-simp[cencode_in_sem]
-  >-simp[cencode_at_most_one_def,encode_at_most_one_def]
+  >- simp[cencode_all_equal_def,encode_all_equal_def]
+  >- simp[cencode_all_different_def,encode_all_different_def]
+  >- cheat (* AllDifferentExcept *)
+  >- cheat (* SymmetricAllDifferent *)
+  >- simp[cencode_n_value_sem]
+  >- simp[cencode_count_def,encode_count_def]
+  >- simp[cencode_among_sem]
+  >- simp[cencode_in_sem]
+  >- simp[cencode_at_most_one_def,encode_at_most_one_def]
 QED
