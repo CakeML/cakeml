@@ -465,7 +465,11 @@ Resume evaluate_compile[Force_SOME]:
     \\ ‘t1.refs = s.refs’ by gvs [state_rel_def] \\ gvs []
     \\ Cases_on ‘dest_thunk x s.refs’ \\ gvs []
     \\ Cases_on ‘t’ \\ gvs []
-    >- suspend "FS_1"
+    >- (
+      gvs [AllCaseEqs(), PULL_EXISTS, cut_env_def, state_rel_def, set_var_def]
+      \\ gvs [SF DNF_ss, lookup_insert, lookup_inter_alt]
+      \\ gvs [SUBSET_DEF, domain_lookup] \\ rw []
+      \\ ntac 2 (first_x_assum drule_all \\ rw []))
 
     \\ ‘t1.code = s.code ∧ t1.stack_frame_sizes = s.stack_frame_sizes ∧
         t1.clock = s.clock’
@@ -476,10 +480,16 @@ Resume evaluate_compile[Force_SOME]:
     \\ Cases_on ‘r’ \\ gvs []
     \\ Cases_on ‘cut_env names s.locals’ \\ fs []
     \\ fs [cut_env_def] \\ reverse (srw_tac [] [])
-    >- suspend "FS_2"
+    >- (
+      pop_assum mp_tac \\ fs []
+      \\ fs [SUBSET_DEF,domain_list_insert,domain_inter,
+             domain_delete,state_rel_def]
+      \\ rpt strip_tac \\ imp_res_tac get_vars_IMP_domain
+      \\ fs [domain_lookup] \\ metis_tac [])
 
     \\ Cases_on ‘s.clock = 0’ \\ gvs []
-    >- suspend "FS_3"
+    >- (gvs [state_rel_def, call_env_def, push_env_def, dec_clock_def,
+            flush_state_def])
 
     \\ qabbrev_tac `t5 = call_env q r' (push_env
              ((inter t1.locals (inter names (delete v l2)))) F (dec_clock t1))`
@@ -501,58 +511,7 @@ Resume evaluate_compile[Force_SOME]:
     \\ qspecl_then [‘q'’,‘t4’] mp_tac evaluate_stack_swap
     \\ Cases_on ‘evaluate (q',t4)’ \\ fs []
     \\ Cases_on ‘q''’ \\ fs [] \\ Cases_on ‘x'’ \\ fs []
-    >- suspend "FS_4"
-
-    \\ Cases_on ‘e’ \\ fs []
-    >- suspend "FS_5"
-
-    \\ Cases_on ‘a’ \\ fs []
-    \\ (
-      rpt strip_tac
-      \\ first_x_assum (qspec_then ‘t5.stack’ mp_tac) \\ fs []
-      \\ rpt strip_tac
-      \\ qmatch_asmsub_abbrev_tac  ‘evaluate (q',p) = (SOME _, ss)’
-      \\ qmatch_goalsub_abbrev_tac ‘evaluate (q', ss')’
-      \\ drule_all_then (qspecl_then [‘ss'.stack_max’
-                                     ,‘ss'.safe_for_space’
-                                     ,‘ss'.peak_heap_length’] assume_tac)
-                        evaluate_smx_safe_peak_swap
-      \\ fs []
-      \\ `ss' = p with <| stack_max := ss'.stack_max;
-                          safe_for_space := ss'.safe_for_space;
-                          peak_heap_length := ss'.peak_heap_length |>`
-          by (unabbrev_all_tac \\ rveq \\ fs [state_component_equality]
-             \\ fs [call_env_def,push_env_def])
-     \\ pop_assum (fn t => once_rewrite_tac [t])
-     \\ unabbrev_all_tac
-     \\ once_asm_rewrite_tac []
-     \\ fs [state_rel_def]))
-QED
-
-Resume evaluate_compile[FS_1]:
-  (
-      gvs [AllCaseEqs(), PULL_EXISTS, cut_env_def, state_rel_def, set_var_def]
-      \\ gvs [SF DNF_ss, lookup_insert, lookup_inter_alt]
-      \\ gvs [SUBSET_DEF, domain_lookup] \\ rw []
-      \\ ntac 2 (first_x_assum drule_all \\ rw []))
-QED
-
-Resume evaluate_compile[FS_2]:
-  (
-      pop_assum mp_tac \\ fs []
-      \\ fs [SUBSET_DEF,domain_list_insert,domain_inter,
-             domain_delete,state_rel_def]
-      \\ rpt strip_tac \\ imp_res_tac get_vars_IMP_domain
-      \\ fs [domain_lookup] \\ metis_tac [])
-QED
-
-Resume evaluate_compile[FS_3]:
-  (gvs [state_rel_def, call_env_def, push_env_def, dec_clock_def,
-            flush_state_def])
-QED
-
-Resume evaluate_compile[FS_4]:
-  (
+    >- (
       rpt strip_tac
       \\ first_x_assum $ qspec_then ‘t5.stack’ mp_tac \\ fs []
       \\ rpt strip_tac \\ fs []
@@ -577,10 +536,9 @@ Resume evaluate_compile[FS_4]:
       \\ fs []
       \\ fs [lookup_insert, lookup_inter_alt, domain_list_insert,
              domain_inter, domain_delete] \\ rpt strip_tac)
-QED
 
-Resume evaluate_compile[FS_5]:
-  (
+    \\ Cases_on ‘e’ \\ fs []
+    >- (
       rpt strip_tac
       \\ pop_assum $ qspec_then ‘t5.stack’ mp_tac
       \\ qpat_x_assum ‘!x.bbb’ (mp_tac o GSYM)
@@ -633,22 +591,43 @@ Resume evaluate_compile[FS_5]:
       \\ fs []
       \\ rev_full_simp_tac std_ss []
       \\ fs [state_rel_def] \\ srw_tac [] [] \\ fs [])
-QED
 
+    \\ Cases_on ‘a’ \\ fs []
+    \\ (
+      rpt strip_tac
+      \\ first_x_assum (qspec_then ‘t5.stack’ mp_tac) \\ fs []
+      \\ rpt strip_tac
+      \\ qmatch_asmsub_abbrev_tac  ‘evaluate (q',p) = (SOME _, ss)’
+      \\ qmatch_goalsub_abbrev_tac ‘evaluate (q', ss')’
+      \\ drule_all_then (qspecl_then [‘ss'.stack_max’
+                                     ,‘ss'.safe_for_space’
+                                     ,‘ss'.peak_heap_length’] assume_tac)
+                        evaluate_smx_safe_peak_swap
+      \\ fs []
+      \\ `ss' = p with <| stack_max := ss'.stack_max;
+                          safe_for_space := ss'.safe_for_space;
+                          peak_heap_length := ss'.peak_heap_length |>`
+          by (unabbrev_all_tac \\ rveq \\ fs [state_component_equality]
+             \\ fs [call_env_def,push_env_def])
+     \\ pop_assum (fn t => once_rewrite_tac [t])
+     \\ unabbrev_all_tac
+     \\ once_asm_rewrite_tac []
+     \\ fs [state_rel_def]))
+QED
 
 Resume evaluate_compile[Call]:
   (* Call from here onwards *)
   Cases_on `ret` \\ fs [evaluate_def,compile_def]
-  >- suspend "Call_NONE"
+  >- suspend "Call_tail"
   (* Call with SOME ret *)
   \\ Cases_on `x` \\ Q.MATCH_ASSUM_RENAME_TAC
        `(d,l1) = compile (Call (SOME (v,names)) dest args handler) l2`
   \\ Cases_on `handler`
-  >- suspend "Call_hNONE"
-  >- suspend "Call_hSOME"
+  >- suspend "Call_returning_no_handler"
+  >- suspend "Call_returning_with_handler"
 QED
 
-Resume evaluate_compile[Call_NONE]:
+Resume evaluate_compile[Call_tail]:
   (`s.clock = t1.clock /\ s.code = t1.code` by fs [state_rel_def]
     \\ REV_FULL_SIMP_TAC std_ss []
     \\ fs [] \\ Cases_on `get_vars args s.locals` \\ fs []
@@ -725,7 +704,7 @@ Resume evaluate_compile[Call_NONE]:
        \\ fs[state_rel_def]))
 QED
 
-Resume evaluate_compile[Call_hNONE]:
+Resume evaluate_compile[Call_returning_no_handler]:
   (fs [compile_def,LET_DEF,evaluate_def]
     \\ `t1.clock = s.clock /\ t1.code = s.code` by fs [state_rel_def]
     \\ Cases_on `get_vars args s.locals` \\ fs []
@@ -736,7 +715,11 @@ Resume evaluate_compile[Call_hNONE]:
     \\ Cases_on `x'` \\ fs []
     \\ Cases_on `r` \\ fs []
     \\ Cases_on `cut_env names s.locals` \\ fs []
-    \\ fs [cut_env_def] \\ reverse (SRW_TAC [] []) >- suspend "ChN_dom"
+    \\ fs [cut_env_def] \\ reverse (SRW_TAC [] []) >- (POP_ASSUM MP_TAC \\ fs []
+      \\ fs [SUBSET_DEF,domain_list_insert,domain_inter,
+             domain_delete,domain_list_delete,state_rel_def]
+      \\ REPEAT STRIP_TAC \\ IMP_RES_TAC get_vars_IMP_domain
+      \\ fs [domain_lookup] \\ METIS_TAC [])
     \\ Q.ABBREV_TAC `t5 = call_env q r' (push_env
              ((inter t1.locals (inter names (list_delete v l2)))) F (dec_clock t1))`
     \\ `?sfsp smax lss. (call_env q r' (push_env ((inter s.locals names)) F (dec_clock s))
@@ -755,36 +738,43 @@ Resume evaluate_compile[Call_hNONE]:
       \\ fs [state_rel_def] \\ NO_TAC)
     \\ Q.ISPECL_THEN [`q'`,`t4`] mp_tac evaluate_stack_swap
     \\ Cases_on `s.clock = 0` \\ fs []
-    >- suspend "ChN_clk"
+    >- (fs [state_rel_def,call_env_def,state_component_equality])
     \\ Cases_on `evaluate (q',t4)` \\ fs []
     \\ Cases_on `q''` \\ fs [] \\ Cases_on `x'` \\ fs []
-    >- suspend "ChN_rval"
+    >- (REPEAT STRIP_TAC
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t5.stack`) \\ fs []
+      \\ REPEAT STRIP_TAC \\ fs []
+      \\ Cases_on `LENGTH a = LENGTH v ∧ ALL_DISTINCT v` \\ gvs []
+      \\ SIMP_TAC (srw_ss()) [pop_env_def]
+      \\ UNABBREV_ALL_TAC \\ fs [call_env_def,push_env_def]
+      \\ fs [pop_env_def] \\ fs [state_rel_def,set_vars_def]
+      \\ qmatch_asmsub_abbrev_tac  `evaluate (q',p) = (SOME _, ss)`
+      \\ qmatch_goalsub_abbrev_tac `evaluate (q', ss')`
+      \\ drule_all_then (qspecl_then [`ss'.stack_max`
+                                     ,`ss'.safe_for_space`
+                                     ,`ss'.peak_heap_length`] ASSUME_TAC)
+                        evaluate_smx_safe_peak_swap
+      \\ fs []
+      \\ `ss' = p with <| stack_max := ss'.stack_max;
+                          safe_for_space := ss'.safe_for_space;
+                          peak_heap_length := ss'.peak_heap_length |>`
+         by (UNABBREV_ALL_TAC \\ rveq \\ fs [state_component_equality])
+      \\ pop_assum (fn t => ONCE_REWRITE_TAC [t]) \\ fs []
+      \\ UNABBREV_ALL_TAC
+      \\ ONCE_ASM_REWRITE_TAC []
+      \\ fs []
+      \\ qx_gen_tac `z` \\ strip_tac
+      \\ simp [lookup_union, lookup_fromAList]
+      \\ Cases_on `ALOOKUP (ZIP (v,a)) z` \\ fs []
+      \\ `¬MEM z v` by (`MAP FST (ZIP (v,a)) = v` by metis_tac [MAP_ZIP] \\ fs [ALOOKUP_NONE])
+      \\ `z ∈ domain (list_delete v l2)` by fs [domain_list_delete]
+      \\ fs [state_rel_def]
+      \\ simp [lookup_inter_alt, domain_inter, domain_list_delete]
+      \\ rw [domain_list_insert, domain_inter, domain_list_delete]
+      \\ first_x_assum irule
+      \\ simp [domain_list_insert, domain_inter, domain_list_delete])
     \\ Cases_on`e` >> fs[]
-    >- suspend "ChN_rraise"
-    THEN Cases_on`a`>>fs[] THEN
-     (REPEAT STRIP_TAC
-     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t5.stack`) \\ fs []
-     \\ REPEAT STRIP_TAC
-     \\ qmatch_asmsub_abbrev_tac  `evaluate (q',p) = (SOME _, ss)`
-     \\ qmatch_goalsub_abbrev_tac `evaluate (q', ss')`
-     \\ drule_all_then (qspecl_then [`ss'.stack_max`
-                                    ,`ss'.safe_for_space`
-                                    ,`ss'.peak_heap_length`] ASSUME_TAC)
-                       evaluate_smx_safe_peak_swap
-     \\ fs []
-     \\ `ss' = p with <| stack_max := ss'.stack_max;
-                         safe_for_space := ss'.safe_for_space;
-                         peak_heap_length := ss'.peak_heap_length |>`
-         by (UNABBREV_ALL_TAC \\ rveq \\ fs [state_component_equality]
-            \\ fs [call_env_def,push_env_def])
-    \\ pop_assum (fn t => ONCE_REWRITE_TAC [t])
-    \\ UNABBREV_ALL_TAC
-    \\ ONCE_ASM_REWRITE_TAC []
-    \\ fs [state_rel_def]))
-QED
-
-Resume evaluate_compile[ChN_rraise]:
-  (REPEAT STRIP_TAC
+    >- (REPEAT STRIP_TAC
       \\ POP_ASSUM (MP_TAC o Q.SPECL [`t5.stack`])
       \\ Q.PAT_X_ASSUM `!x.bbb` (MP_TAC o GSYM)
       \\ Q.MATCH_ASSUM_RENAME_TAC `jump_exc t4 = SOME s3`
@@ -834,56 +824,29 @@ Resume evaluate_compile[ChN_rraise]:
       \\ fs []
       \\ REV_FULL_SIMP_TAC std_ss []
       \\ fs [state_rel_def] \\ SRW_TAC [] [] \\ fs [])
+    THEN Cases_on`a`>>fs[] THEN
+     (REPEAT STRIP_TAC
+     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t5.stack`) \\ fs []
+     \\ REPEAT STRIP_TAC
+     \\ qmatch_asmsub_abbrev_tac  `evaluate (q',p) = (SOME _, ss)`
+     \\ qmatch_goalsub_abbrev_tac `evaluate (q', ss')`
+     \\ drule_all_then (qspecl_then [`ss'.stack_max`
+                                    ,`ss'.safe_for_space`
+                                    ,`ss'.peak_heap_length`] ASSUME_TAC)
+                       evaluate_smx_safe_peak_swap
+     \\ fs []
+     \\ `ss' = p with <| stack_max := ss'.stack_max;
+                         safe_for_space := ss'.safe_for_space;
+                         peak_heap_length := ss'.peak_heap_length |>`
+         by (UNABBREV_ALL_TAC \\ rveq \\ fs [state_component_equality]
+            \\ fs [call_env_def,push_env_def])
+    \\ pop_assum (fn t => ONCE_REWRITE_TAC [t])
+    \\ UNABBREV_ALL_TAC
+    \\ ONCE_ASM_REWRITE_TAC []
+    \\ fs [state_rel_def]))
 QED
 
-Resume evaluate_compile[ChN_clk]:
-  (fs [state_rel_def,call_env_def,state_component_equality])
-QED
-
-Resume evaluate_compile[ChN_dom]:
-  (POP_ASSUM MP_TAC \\ fs []
-      \\ fs [SUBSET_DEF,domain_list_insert,domain_inter,
-             domain_delete,domain_list_delete,state_rel_def]
-      \\ REPEAT STRIP_TAC \\ IMP_RES_TAC get_vars_IMP_domain
-      \\ fs [domain_lookup] \\ METIS_TAC [])
-QED
-
-Resume evaluate_compile[ChN_rval]:
-  (REPEAT STRIP_TAC
-      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t5.stack`) \\ fs []
-      \\ REPEAT STRIP_TAC \\ fs []
-      \\ Cases_on `LENGTH a = LENGTH v ∧ ALL_DISTINCT v` \\ gvs []
-      \\ SIMP_TAC (srw_ss()) [pop_env_def]
-      \\ UNABBREV_ALL_TAC \\ fs [call_env_def,push_env_def]
-      \\ fs [pop_env_def] \\ fs [state_rel_def,set_vars_def]
-      \\ qmatch_asmsub_abbrev_tac  `evaluate (q',p) = (SOME _, ss)`
-      \\ qmatch_goalsub_abbrev_tac `evaluate (q', ss')`
-      \\ drule_all_then (qspecl_then [`ss'.stack_max`
-                                     ,`ss'.safe_for_space`
-                                     ,`ss'.peak_heap_length`] ASSUME_TAC)
-                        evaluate_smx_safe_peak_swap
-      \\ fs []
-      \\ `ss' = p with <| stack_max := ss'.stack_max;
-                          safe_for_space := ss'.safe_for_space;
-                          peak_heap_length := ss'.peak_heap_length |>`
-         by (UNABBREV_ALL_TAC \\ rveq \\ fs [state_component_equality])
-      \\ pop_assum (fn t => ONCE_REWRITE_TAC [t]) \\ fs []
-      \\ UNABBREV_ALL_TAC
-      \\ ONCE_ASM_REWRITE_TAC []
-      \\ fs []
-      \\ qx_gen_tac `z` \\ strip_tac
-      \\ simp [lookup_union, lookup_fromAList]
-      \\ Cases_on `ALOOKUP (ZIP (v,a)) z` \\ fs []
-      \\ `¬MEM z v` by (`MAP FST (ZIP (v,a)) = v` by metis_tac [MAP_ZIP] \\ fs [ALOOKUP_NONE])
-      \\ `z ∈ domain (list_delete v l2)` by fs [domain_list_delete]
-      \\ fs [state_rel_def]
-      \\ simp [lookup_inter_alt, domain_inter, domain_list_delete]
-      \\ rw [domain_list_insert, domain_inter, domain_list_delete]
-      \\ first_x_assum irule
-      \\ simp [domain_list_insert, domain_inter, domain_list_delete])
-QED
-
-Resume evaluate_compile[Call_hSOME]:
+Resume evaluate_compile[Call_returning_with_handler]:
   ((* Call with SOME handler *)
   `?var handle. x = (var,handle)` by METIS_TAC [PAIR]
   \\ POP_ASSUM (fn th => fs [th])
@@ -898,7 +861,11 @@ Resume evaluate_compile[Call_hSOME]:
   \\ Cases_on `x'` \\ fs []
   \\ Cases_on `r` \\ fs []
   \\ Cases_on `cut_env names s.locals` \\ fs []
-  \\ fs [cut_env_def] \\ reverse (SRW_TAC [] []) >- suspend "ChS_dom"
+  \\ fs [cut_env_def] \\ reverse (SRW_TAC [] []) >- (POP_ASSUM MP_TAC \\ fs []
+    \\ fs [SUBSET_DEF,domain_list_insert,domain_inter,
+           domain_delete,domain_list_delete,state_rel_def]
+    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC get_vars_IMP_domain
+    \\ fs [domain_lookup] \\ METIS_TAC [])
   \\ Q.ABBREV_TAC `t5 = call_env q r' (push_env
            ((inter t1.locals (inter names
               (union (list_delete v l2) (delete var l6))))) T (dec_clock t1))`
@@ -918,16 +885,42 @@ Resume evaluate_compile[Call_hSOME]:
     \\ fs [state_rel_def] \\ NO_TAC)
   \\ Q.ISPECL_THEN [`q'`,`t4`] mp_tac evaluate_stack_swap
   \\ Cases_on `s.clock = 0` \\ fs []
-  >- suspend "ChS_clk"
+  >- (UNABBREV_ALL_TAC \\ fs [state_rel_def,call_env_def,push_env_def,dec_clock_def])
   \\ Cases_on `evaluate (q',t4)` \\ fs []
-  \\ Cases_on `q''` \\ fs [] \\ Cases_on `x'` \\ fs [] >- suspend "ChS_rval"
+  \\ Cases_on `q''` \\ fs [] \\ Cases_on `x'` \\ fs [] >- (REPEAT STRIP_TAC
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t5.stack`) \\ fs []
+    \\ REPEAT STRIP_TAC \\ fs []
+    \\ Cases_on `LENGTH a = LENGTH v ∧ ALL_DISTINCT v` \\ gvs []
+    \\ qmatch_asmsub_abbrev_tac  `evaluate (q',p) = (SOME _, ss)`
+    \\ qmatch_goalsub_abbrev_tac `evaluate (q', ss')`
+    \\ drule_all_then (qspecl_then [`ss'.stack_max`
+                                    ,`ss'.safe_for_space`
+                                    ,`ss'.peak_heap_length`] ASSUME_TAC)
+                       evaluate_smx_safe_peak_swap
+     \\ fs []
+     \\ `ss' = p with <| stack_max := ss'.stack_max;
+                         safe_for_space := ss'.safe_for_space;
+                         peak_heap_length := ss'.peak_heap_length |>`
+         by (UNABBREV_ALL_TAC \\ rveq \\ fs [state_component_equality]
+            \\ fs [call_env_def,push_env_def])
+    \\ pop_assum (fn t => ONCE_REWRITE_TAC [t])
+    \\ rw [] \\ UNABBREV_ALL_TAC
+    \\ fs [] \\ SIMP_TAC (srw_ss()) [pop_env_def]
+    \\ UNABBREV_ALL_TAC \\ fs [call_env_def,push_env_def]
+    \\ fs [pop_env_def] \\ fs [state_rel_def,set_vars_def]
+    \\ conj_tac >- fs [state_rel_def, dec_clock_def]
+    \\ qx_gen_tac `z` \\ strip_tac
+    \\ simp [lookup_union, lookup_fromAList]
+    \\ Cases_on `ALOOKUP (ZIP (v,a)) z` \\ fs []
+    \\ `¬MEM z v` by (`MAP FST (ZIP (v,a)) = v` by metis_tac [MAP_ZIP] \\ fs [ALOOKUP_NONE])
+    \\ `z ∈ domain (list_delete v l2)` by fs [domain_list_delete]
+    \\ fs [state_rel_def]
+    \\ simp [lookup_inter_alt, domain_inter, domain_union, domain_list_delete]
+    \\ rw [domain_list_insert, domain_inter, domain_union, domain_list_delete]
+    \\ first_x_assum irule
+    \\ simp [domain_list_insert, domain_inter, domain_union, domain_list_delete])
   \\ Cases_on `e` \\ fs []
-  >- suspend "ChS_rraise"
-  >- suspend "ChS_rabort")
-QED
-
-Resume evaluate_compile[ChS_rraise]:
-  (REPEAT STRIP_TAC
+  >- (REPEAT STRIP_TAC
   \\ POP_ASSUM (MP_TAC o Q.SPECL [`t5.stack`])
   \\ UNABBREV_ALL_TAC
   \\ NTAC 3 (SIMP_TAC std_ss [Once dec_clock_def])
@@ -987,10 +980,7 @@ Resume evaluate_compile[ChS_rraise]:
   \\ Cases_on `LASTN (t1.handler + 1) t1.stack` \\ fs []
   \\ Cases_on `h` \\ fs []
   \\ SRW_TAC [] [] \\ fs [])
-QED
-
-Resume evaluate_compile[ChS_rabort]:
-  (Cases_on`a` >> fs[] >> (
+  >- (Cases_on`a` >> fs[] >> (
     REPEAT STRIP_TAC
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t5.stack`) \\ fs []
     \\ REPEAT STRIP_TAC
@@ -1008,54 +998,7 @@ Resume evaluate_compile[ChS_rabort]:
             \\ fs [call_env_def,push_env_def])
     \\ pop_assum (fn t => ONCE_REWRITE_TAC [t])
     \\ rw [] \\ UNABBREV_ALL_TAC
-    \\ fs [state_rel_def]))
-QED
-
-Resume evaluate_compile[ChS_clk]:
-  (UNABBREV_ALL_TAC \\ fs [state_rel_def,call_env_def,push_env_def,dec_clock_def])
-QED
-
-Resume evaluate_compile[ChS_dom]:
-  (POP_ASSUM MP_TAC \\ fs []
-    \\ fs [SUBSET_DEF,domain_list_insert,domain_inter,
-           domain_delete,domain_list_delete,state_rel_def]
-    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC get_vars_IMP_domain
-    \\ fs [domain_lookup] \\ METIS_TAC [])
-QED
-
-Resume evaluate_compile[ChS_rval]:
-  (REPEAT STRIP_TAC
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t5.stack`) \\ fs []
-    \\ REPEAT STRIP_TAC \\ fs []
-    \\ Cases_on `LENGTH a = LENGTH v ∧ ALL_DISTINCT v` \\ gvs []
-    \\ qmatch_asmsub_abbrev_tac  `evaluate (q',p) = (SOME _, ss)`
-    \\ qmatch_goalsub_abbrev_tac `evaluate (q', ss')`
-    \\ drule_all_then (qspecl_then [`ss'.stack_max`
-                                    ,`ss'.safe_for_space`
-                                    ,`ss'.peak_heap_length`] ASSUME_TAC)
-                       evaluate_smx_safe_peak_swap
-     \\ fs []
-     \\ `ss' = p with <| stack_max := ss'.stack_max;
-                         safe_for_space := ss'.safe_for_space;
-                         peak_heap_length := ss'.peak_heap_length |>`
-         by (UNABBREV_ALL_TAC \\ rveq \\ fs [state_component_equality]
-            \\ fs [call_env_def,push_env_def])
-    \\ pop_assum (fn t => ONCE_REWRITE_TAC [t])
-    \\ rw [] \\ UNABBREV_ALL_TAC
-    \\ fs [] \\ SIMP_TAC (srw_ss()) [pop_env_def]
-    \\ UNABBREV_ALL_TAC \\ fs [call_env_def,push_env_def]
-    \\ fs [pop_env_def] \\ fs [state_rel_def,set_vars_def]
-    \\ conj_tac >- fs [state_rel_def, dec_clock_def]
-    \\ qx_gen_tac `z` \\ strip_tac
-    \\ simp [lookup_union, lookup_fromAList]
-    \\ Cases_on `ALOOKUP (ZIP (v,a)) z` \\ fs []
-    \\ `¬MEM z v` by (`MAP FST (ZIP (v,a)) = v` by metis_tac [MAP_ZIP] \\ fs [ALOOKUP_NONE])
-    \\ `z ∈ domain (list_delete v l2)` by fs [domain_list_delete]
-    \\ fs [state_rel_def]
-    \\ simp [lookup_inter_alt, domain_inter, domain_union, domain_list_delete]
-    \\ rw [domain_list_insert, domain_inter, domain_union, domain_list_delete]
-    \\ first_x_assum irule
-    \\ simp [domain_list_insert, domain_inter, domain_union, domain_list_delete])
+    \\ fs [state_rel_def])))
 QED
 
 Finalise evaluate_compile;
