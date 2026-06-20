@@ -9,8 +9,6 @@ Libs
 
 val _ = translation_extends "aig_cert_encodeProg";
 
-val r = translate fmap_update_def;
-
 (*----------------------------------------------------------------------*
    general tooling for adding mlmap support for fmaps
  *----------------------------------------------------------------------*)
@@ -199,25 +197,216 @@ Type ty6[local] = “:((num + num) iext + (num + num) iext) iext”;
    ty1
  *----------------------------------------------------------------------*)
 
-(*
-
-Definition my_comp_def:
-  my_comp (x:key_ty) (y:key_ty) =
-    case x of
-    | INL n =>
-        (case y of
-         | INL m => int_cmp (& n) (& m)
-         | _ => LESS)
-    | _ => GREATER
+Definition num_cmp_def:
+  num_cmp n1 (n2:num) =
+    if n1 < n2 then LESS else
+    if n2 < n1 then GREATER else EQUAL
 End
 
-val _ = translate my_comp_def;
+val _ = translate num_cmp_def;
 
-Theorem TotOrd_my_comp:
-  TotOrd my_comp
+Theorem TotOrd_ty1:
+  TotOrd (num_cmp : ty1 -> ty1 -> ordering)
 Proof
-  fs [totoTheory.TotOrd]
-  \\ cheat
+  fs [totoTheory.TotOrd, num_cmp_def, CaseEq"bool"]
 QED
 
-*)
+(*----------------------------------------------------------------------*
+   ty2
+ *----------------------------------------------------------------------*)
+
+Definition sum_cmp_def:
+  sum_cmp c1 c2 x1 x2 =
+    case x1 of
+    | INL n1 =>
+        (case x2 of
+         | INL n2 => c1 n1 n2
+         | INR _ => LESS)
+    | INR n1 =>
+        (case x2 of
+         | INL _ => GREATER
+         | INR n2 => c2 n1 n2)
+End
+
+Theorem sum_forall:
+  (∀x. P x) ⇔ (∀y. P (INL y)) ∧ (∀y. P (INR y))
+Proof
+  eq_tac \\ rw [] \\ simp [] \\ Cases_on ‘x’ \\ fs []
+QED
+
+Theorem TotOrd_sum:
+  TotOrd c1 ∧ TotOrd c2 ⇒
+  TotOrd (sum_cmp c1 c2)
+Proof
+  fs [totoTheory.TotOrd, sum_cmp_def, AllCaseEqs(), sum_forall]
+  \\ simp [SF DNF_ss, PULL_EXISTS] \\ rw [] \\ res_tac
+QED
+
+Definition num_sum_num_cmp_def:
+  num_sum_num_cmp = sum_cmp num_cmp num_cmp
+End
+
+Theorem num_sum_num_cmp_eq[local] =
+  num_sum_num_cmp_def |> SRULE [sum_cmp_def, num_cmp_def, FUN_EQ_THM];
+
+val r = translate num_sum_num_cmp_eq;
+
+Theorem TotOrd_ty2:
+  TotOrd (num_sum_num_cmp : ty2 -> ty2 -> ordering)
+Proof
+  rewrite_tac [num_sum_num_cmp_def]
+  \\ irule TotOrd_sum \\ simp [TotOrd_ty1]
+QED
+
+(*----------------------------------------------------------------------*
+   ty3
+ *----------------------------------------------------------------------*)
+
+Definition ext_cmp_def:
+  ext_cmp cmp (x1: 'a ext) (x2: 'a ext) =
+    case x1 of
+    | Orig n1 =>
+        (case x2 of
+         | Orig n2 => cmp n1 n2
+         | Ext _ => LESS)
+    | Ext n1 =>
+        (case x2 of
+         | Orig _ => GREATER
+         | Ext n2 => mlstring$compare n1 n2)
+End
+
+Definition iext_cmp_def:
+  iext_cmp cmp (x1: 'a iext) (x2: 'a iext) =
+    case x1 of
+    | Named n1 =>
+        (case x2 of
+         | Named n2 => ext_cmp cmp n1 n2
+         | Anon _ => LESS)
+    | Anon n1 =>
+        (case x2 of
+         | Named _ => GREATER
+         | Anon n2 => num_cmp n1 n2)
+End
+
+Theorem ext_forall:
+  (∀x. P x) ⇔ (∀y. P (Orig y)) ∧ (∀y. P (Ext y))
+Proof
+  eq_tac \\ rw [] \\ simp [] \\ Cases_on ‘x’ \\ fs []
+QED
+
+Theorem iext_forall:
+  (∀x. P x) ⇔ (∀y. P (Named y)) ∧ (∀y. P (Anon y))
+Proof
+  eq_tac \\ rw [] \\ simp [] \\ Cases_on ‘x’ \\ fs []
+QED
+
+Theorem TotOrd_ext:
+  TotOrd c1 ⇒ TotOrd (ext_cmp c1)
+Proof
+  mp_tac mlstringTheory.TotOrd_compare
+  \\ fs [totoTheory.TotOrd, ext_cmp_def, AllCaseEqs(), ext_forall]
+  \\ simp [SF DNF_ss, PULL_EXISTS] \\ rw [] \\ res_tac
+QED
+
+Theorem TotOrd_iext:
+  TotOrd c1 ⇒ TotOrd (iext_cmp c1)
+Proof
+  strip_tac \\ dxrule TotOrd_ext
+  \\ mp_tac TotOrd_ty1
+  \\ fs [totoTheory.TotOrd, iext_cmp_def, AllCaseEqs(), iext_forall]
+  \\ simp [SF DNF_ss, PULL_EXISTS] \\ rw [] \\ res_tac
+QED
+
+Definition num_iext_cmp_def:
+  num_iext_cmp = iext_cmp num_cmp
+End
+
+Theorem num_iext_cmp_eq[local] =
+  num_iext_cmp_def |> SRULE [iext_cmp_def, num_cmp_def, FUN_EQ_THM, ext_cmp_def];
+
+val r = translate num_iext_cmp_eq;
+
+Theorem TotOrd_ty3:
+  TotOrd (num_iext_cmp : ty3 -> ty3 -> ordering)
+Proof
+  rewrite_tac [num_iext_cmp_def]
+  \\ irule TotOrd_iext \\ simp [TotOrd_ty1]
+QED
+
+(*----------------------------------------------------------------------*
+   ty4
+ *----------------------------------------------------------------------*)
+
+Definition ty4_cmp_def:
+  ty4_cmp = iext_cmp num_sum_num_cmp
+End
+
+Theorem ty4_cmp_eq[local] =
+  ty4_cmp_def
+  |> SRULE [iext_cmp_def, num_sum_num_cmp_eq, FUN_EQ_THM, ext_cmp_def, num_cmp_def];
+
+val r = translate ty4_cmp_eq;
+
+Theorem TotOrd_ty4:
+  TotOrd (ty4_cmp : ty4 -> ty4 -> ordering)
+Proof
+  rewrite_tac [ty4_cmp_def]
+  \\ irule TotOrd_iext \\ simp [TotOrd_ty2]
+QED
+
+(*----------------------------------------------------------------------*
+   ty5
+ *----------------------------------------------------------------------*)
+
+Definition ty5_cmp_def:
+  ty5_cmp = iext_cmp (sum_cmp num_iext_cmp num_iext_cmp)
+End
+
+Theorem ty5_cmp_eq[local] =
+  ty5_cmp_def
+  |> SRULE [iext_cmp_def, FUN_EQ_THM, ext_cmp_def, num_cmp_def, sum_cmp_def];
+
+val r = translate ty5_cmp_eq;
+
+Theorem TotOrd_ty5:
+  TotOrd (ty5_cmp : ty5 -> ty5 -> ordering)
+Proof
+  rewrite_tac [ty5_cmp_def]
+  \\ irule TotOrd_iext
+  \\ irule TotOrd_sum
+  \\ simp [TotOrd_ty3]
+QED
+
+(*----------------------------------------------------------------------*
+   ty6
+ *----------------------------------------------------------------------*)
+
+Definition ty6_cmp_def:
+  ty6_cmp = iext_cmp (sum_cmp ty4_cmp ty4_cmp)
+End
+
+Theorem ty6_cmp_eq[local] =
+  ty6_cmp_def
+  |> SRULE [iext_cmp_def, FUN_EQ_THM, ext_cmp_def, num_cmp_def, sum_cmp_def];
+
+val r = translate ty6_cmp_eq;
+
+Theorem TotOrd_ty6:
+  TotOrd (ty6_cmp : ty6 -> ty6 -> ordering)
+Proof
+  rewrite_tac [ty6_cmp_def]
+  \\ irule TotOrd_iext
+  \\ irule TotOrd_sum
+  \\ simp [TotOrd_ty4]
+QED
+
+(*----------------------------------------------------------------------*
+   translating them all
+ *----------------------------------------------------------------------*)
+
+val _ = add_fmap_for_cmp TotOrd_ty1;
+val _ = add_fmap_for_cmp TotOrd_ty2;
+val _ = add_fmap_for_cmp TotOrd_ty3;
+val _ = add_fmap_for_cmp TotOrd_ty4;
+val _ = add_fmap_for_cmp TotOrd_ty5;
+val _ = add_fmap_for_cmp TotOrd_ty6;
