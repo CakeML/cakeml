@@ -6,6 +6,10 @@ Changes since release v3400:
 
 ## Compiler backend and runtime
 
+### BVI
+
+BVI now supports multi-arg calls/returns (with a separate constructor).
+
 ## Pancake
 
 ## Candle
