@@ -119,9 +119,10 @@ Theorem case_elim_thms =
     |> cons pair_case_elim |> LIST_CONJ
 
 Theorem case_eq_thms =
-  CONJ
-  (TypeBase.case_eq_of ``:bvi$exp``)
-  bvlPropsTheory.case_eq_thms
+  LIST_CONJ
+  [TypeBase.case_eq_of ``:bvi$exp``,
+   TypeBase.case_eq_of ``:bviSem$exn_or_ret``,
+   bvlPropsTheory.case_eq_thms]
 
 val evaluate_LENGTH = Q.prove(
   `!xs s env. (\(xs,s,env).
@@ -325,6 +326,14 @@ Proof
   \\ fs[bvlSemTheory.state_component_equality] \\ fs[] \\ rw[] \\ fs[]
 QED
 
+Theorem do_app_inc_clock_IMP[local]:
+  (do_app op vs s = Rval (v,s1) ==>
+     do_app op vs (inc_clock n s) = Rval (v,inc_clock n s1)) /\
+  (do_app op vs s = Rerr e ==> do_app op vs (inc_clock n s) = Rerr e)
+Proof
+  rw[] \\ mp_tac (do_app_inv_clock |> Q.INST [`a`|->`REVERSE vs`]) \\ fs[]
+QED
+
 Theorem evaluate_inv_clock:
    !xs env t1 res t2 n.
       (evaluate (xs,env,t1) = (res,t2)) /\ res <> Rerr(Rabort Rtimeout_error) ==>
@@ -332,44 +341,10 @@ Theorem evaluate_inv_clock:
 Proof
   SIMP_TAC std_ss [] \\ recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ full_simp_tac(srw_ss())[evaluate_def]
-  THEN1 (`?res5 s5. evaluate ([x],env,s) = (res5,s5)` by METIS_TAC [PAIR]
-    \\ `?res6 s6. evaluate (y::xs,env,s5) = (res6,s6)` by METIS_TAC [PAIR]
-    \\ full_simp_tac(srw_ss())[] \\ reverse (Cases_on `res5`) \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-    \\ Cases_on `res6` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-    \\ Cases_on`e` \\ full_simp_tac(srw_ss())[])
-  THEN1 (Cases_on `n < LENGTH env` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [])
-  \\ TRY (`?res5 s5. evaluate ([x1],env,s) = (res5,s5)` by METIS_TAC [PAIR]
-    \\ full_simp_tac(srw_ss())[] \\ Cases_on `res5` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
-  THEN1 (`?res5 s5. evaluate (xs,env,s) = (res5,s5)` by METIS_TAC [PAIR]
-    \\ full_simp_tac(srw_ss())[] \\ Cases_on `res5` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-    \\ Cases_on`e` \\ full_simp_tac(srw_ss())[])
-  \\ TRY (Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[]
-    \\ `(inc_clock n s).clock <> 0` by (EVAL_TAC \\ DECIDE_TAC)
-    \\ full_simp_tac(srw_ss())[dec_clock_inv_clock1] \\ NO_TAC)
-  THEN1
-   (`?res5 s5. evaluate (xs,env,s) = (res5,s5)` by METIS_TAC [PAIR]
-    \\ full_simp_tac(srw_ss())[] \\ Cases_on `res5` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-    \\ TRY (Cases_on`e` \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
-    \\ MP_TAC (do_app_inv_clock |> Q.INST [`s`|->`s5`])
-    \\ Cases_on `do_app op (REVERSE a) s5` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-    \\ Cases_on `a'` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [])
-  THEN1 gvs [AllCaseEqs(), NOT_LESS, dec_clock_def, inc_clock_def]
-  THEN1
-   (Cases_on `dest = NONE /\ IS_SOME handler` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `evaluate (xs,env,s1)` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `q` \\ full_simp_tac(srw_ss())[]
-    \\ `(inc_clock n r).code = r.code` by SRW_TAC [] [inc_clock_def] \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `find_code dest a r.code` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-    \\ TRY (Cases_on`e` \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
-    \\ Cases_on `x` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `r.clock < ticks + 1` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-    \\ IMP_RES_TAC dec_clock_inv_clock
-    \\ POP_ASSUM (ASSUME_TAC o GSYM)
-    \\ Cases_on `evaluate ([r'],q,dec_clock (ticks + 1) r)` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `q'` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-    \\ TRY(Cases_on`e` \\ full_simp_tac(srw_ss())[] \\ Cases_on`a'` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][])
-    \\ RES_TAC \\ TRY (full_simp_tac(srw_ss())[inc_clock_def] \\ decide_tac)
-    \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][])
+  \\ gvs[AllCaseEqs(), dec_clock_inv_clock, dec_clock_inv_clock1]
+  \\ rpt (first_x_assum (fn th => mp_tac th \\ impl_tac >- fs[] \\ strip_tac))
+  \\ gvs[AllCaseEqs(), dec_clock_inv_clock, dec_clock_inv_clock1]
+  \\ imp_res_tac do_app_inc_clock_IMP \\ gvs[]
 QED
 
 Theorem do_app_code:
@@ -386,6 +361,23 @@ Theorem do_app_oracle:
 Proof
   rw[do_app_def,case_eq_thms,pair_case_eq,bvl_to_bvi_def] \\ rw[] \\
   fs[do_app_aux_def,case_eq_thms] \\ rw[]
+QED
+
+Theorem GENLIST_add_split[local]:
+  !f a b. GENLIST f a ++ GENLIST (\i. f (a + i)) b = GENLIST f (a + b)
+Proof
+  Induct_on `b` \\ rw[GENLIST, ADD_CLAUSES, SNOC_APPEND]
+  \\ simp[GENLIST_APPEND]
+QED
+
+Theorem FOLDL_union_GENLIST_split[local]:
+  FOLDL union (FOLDL union c (MAP (fromAList o SND) (GENLIST f a)))
+              (MAP (fromAList o SND) (GENLIST (\i. f (i + a)) b)) =
+  FOLDL union c (MAP (fromAList o SND) (GENLIST f (a + b)))
+Proof
+  `(\i. f (i + a)) = (\i. f (a + i))` by simp[FUN_EQ_THM, ADD_COMM]
+  \\ pop_assum (fn th => rewrite_tac[th])
+  \\ rewrite_tac[GSYM GENLIST_add_split, MAP_APPEND, FOLDL_APPEND]
 QED
 
 Theorem evaluate_code:
@@ -426,11 +418,17 @@ Proof
     \\ imp_res_tac do_app_oracle \\ rfs[]
     \\ qexists_tac`n` \\ fs[])
   >- (
-    gvs [AllCaseEqs(), FUN_EQ_THM]
-    >~ [‘dest_thunk _ _ = IsThunk NotEvaluated _’, ‘find_code _ _ _ = SOME _’,
-        ‘s.clock ≠ 0’]
-    >- (qexists ‘n'’ \\ gvs [])
-    \\ qexists `0` \\ gvs [])
+    gvs [AllCaseEqs()]
+    >>~- ([‘s.clock ≠ 0’], qexists ‘n'’ \\ gvs [])
+    \\ qexists `0` \\ gvs [FUN_EQ_THM])
+  (* Call (exception handler) and LetCall (multi-return body) continuation arms:
+     split the exn_or_ret result, apply the continuation IH, compose oracle shifts *)
+  \\ gvs[AllCaseEqs()]
+  \\ rpt (first_x_assum (dxrule_then strip_assume_tac))
+  \\ gvs[shift_seq_def]
+  \\ qmatch_goalsub_abbrev_tac `(λi. s1.compile_oracle (i + summ)) = _`
+  \\ qexists_tac `summ`
+  \\ simp[Abbr`summ`,FOLDL_union_GENLIST_split]
 QED
 
 Theorem evaluate_code_mono:
@@ -543,49 +541,7 @@ Theorem evaluate_add_clock:
     ⇒
     !ck. evaluate (exps,env,inc_clock ck s1) = (res, inc_clock ck s2)
 Proof
-  recInduct evaluate_ind >>
-  srw_tac[][evaluate_def]
-  >- (Cases_on `evaluate ([x], env,s)` >> full_simp_tac(srw_ss())[] >>
-      Cases_on `q` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-      Cases_on `evaluate (y::xs,env,r)` >> full_simp_tac(srw_ss())[] >>
-      Cases_on `q` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[])
-  >- (Cases_on `evaluate ([x1],env,s)` >> full_simp_tac(srw_ss())[] >>
-      Cases_on `q` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[])
-  >- (Cases_on `evaluate (xs,env,s)` >>
-      full_simp_tac(srw_ss())[] >>
-      Cases_on `q` >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac[][] >> full_simp_tac(srw_ss())[])
-  >- (Cases_on `evaluate ([x1],env,s)` >> full_simp_tac(srw_ss())[] >>
-      Cases_on `q` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[])
-  >- (Cases_on `evaluate (xs,env,s)` >> full_simp_tac(srw_ss())[] >>
-      Cases_on `q` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-      srw_tac[][inc_clock_def] >>
-      BasicProvers.EVERY_CASE_TAC >>
-      gvs [] >>
-      imp_res_tac do_app_const >>
-      imp_res_tac do_app_change_clock >>
-      imp_res_tac do_app_change_clock_err >>
-      fs [])
-  >- (srw_tac[][] >>
-      full_simp_tac(srw_ss())[inc_clock_def, dec_clock_def] >>
-      srw_tac[][] >>
-      `s.clock + ck - 1 = s.clock - 1 + ck` by (srw_tac [ARITH_ss] [ADD1]) >>
-      metis_tac [])
-  >- gvs [AllCaseEqs(), dec_clock_def, inc_clock_def]
-  >- (Cases_on `evaluate (xs,env,s1)` >>
-      full_simp_tac(srw_ss())[] >>
-      Cases_on `q` >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac[][] >>
-      BasicProvers.EVERY_CASE_TAC >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac[][] >>
-      rev_full_simp_tac(srw_ss())[inc_clock_def, dec_clock_def] >>
-      fsrw_tac[ARITH_ss][] >>
-      `ck + r.clock - (ticks + 1) = r.clock - (ticks + 1) + ck` by srw_tac [ARITH_ss] [ADD1] >>
-      full_simp_tac(srw_ss())[] >>
-      rpt(first_x_assum(qspec_then`ck`mp_tac))>> srw_tac[][])
+  metis_tac[evaluate_inv_clock]
 QED
 
 Theorem do_app_aux_io_events_mono:
@@ -678,6 +634,11 @@ Proof
   REV_FULL_SIMP_TAC(srw_ss()++ARITH_ss)[dec_clock_inc_clock,inc_clock_ZERO] >>
   fsrw_tac[ARITH_ss][dec_clock_inc_clock,inc_clock_ZERO] >>
   full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  (* the bvi Call/LetCall handler now post-processes its result (rejecting an
+     escaping Ret); every_case_tac splits that inner case on both clock sides,
+     so specialise the add_clock facts at extra to unify them before closing *)
+  rpt (qpat_x_assum ‘∀ck. evaluate _ = _’ (assume_tac o Q.SPEC ‘extra’)) >>
+  gvs[inc_clock_ffi] >>
   metis_tac[evaluate_io_events_mono,SND,IS_PREFIX_TRANS,PAIR,
             inc_clock_ffi,dec_clock_ffi]
 QED
@@ -743,7 +704,10 @@ Definition get_code_labels_def:
     (case d of NONE => {} | SOME n => {n}) ∪
     (case h of NONE => {} | SOME e => get_code_labels e) ∪
     BIGUNION (set (MAP get_code_labels es))) ∧
-  (get_code_labels (Op op es) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP get_code_labels es)))
+  (get_code_labels (Op op es) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP get_code_labels es))) ∧
+  (get_code_labels (Return es) = BIGUNION (set (MAP get_code_labels es))) ∧
+  (get_code_labels (LetCall _ _ d es y) =
+    {d} ∪ get_code_labels y ∪ BIGUNION (set (MAP get_code_labels es)))
 Termination
   wf_rel_tac`measure exp_size`
   \\ simp[bviTheory.exp_size_def]
