@@ -500,21 +500,6 @@ fun assert_for_lines_of filename pred err_msg =
   orelse err (err_msg filename);
 
 fun run_full_check path = let
-  fun remove_prefix prefix s =
-    if String.isPrefix prefix s then
-      String.substring(s,String.size prefix,String.size s - String.size prefix)
-    else s
-  fun show_path p =
-    if p = path then "." else remove_prefix (path ^ "/") p
-  fun common_prefix s t = let
-    fun common (x::xs) (y::ys) = if x = y then x::(common xs ys) else []
-      | common _ _ = []
-    in implode (common (explode s) (explode t)) end
-  fun inject_readme_target p [] = ["\n",HOLMAKEFILE_SUGGESTION]
-    | inject_readme_target p (l::ls) =
-        if String.isPrefix "ifdef" l orelse String.isPrefix "ifndef" l then
-          [HOLMAKEFILE_SUGGESTION,"\n"] @ l::ls
-        else l :: inject_readme_target p ls
 (*
   val p = path
   val SOME lines = read_all_lines (p ^ "/Holmakefile")
