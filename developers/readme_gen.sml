@@ -25,6 +25,7 @@ val MAX_LINE_COUNT = 10
 val MAX_CODE_LINE_LENGTH = 200
 val PREFIX_FILENAME = "readmePrefix"
 val OUTPUT_FILENAME = "README.md"
+val OUTPUT_MK = "developers/readme.mk"
 val CHECK_OPT = "--check"
 val AUTO_INCLUDE_SUFFIXES = ["Script.sml","Syntax.sml","Lib.sml",".lem",".c",".cml"]
 val FIRST_TARGET_PREFIX = "all: $(DEFAULT_TARGETS) README.md"
@@ -36,10 +37,7 @@ concat ["INCLUDES =\n\n",
         PHONY_SUGGESTION ^ "\n\n",
         "README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) ",
         "$(wildcard *Syntax.sml)\n",
-        "DIRS = $(wildcard */)\n",
-        "README.md: $(CAKEMLDIR)/developers/readme_gen",
-        " readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)\n",
-        "\t$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)\n"]
+        "sinclude $(CAKEMLDIR)/developers/readme.mk\n"]
 
 val ILLEGAL_STRINGS =
   [("store_thm(\"", "The Theorem syntax is to be used instead of store_thm."),
@@ -398,7 +396,10 @@ fun check_Holmakefile filename =
   case read_all_lines filename of
     NONE => err ("Unable to read: " ^ filename)
   | SOME lines => let
-      val _ = List.exists (fn s => String.isPrefix (OUTPUT_FILENAME ^ ":") s) lines
+      fun check_line s =
+          String.isPrefix (OUTPUT_FILENAME ^ ":") s orelse
+          String.isSubstring OUTPUT_MK s
+      val _ = List.exists check_line lines
               orelse (err (concat
                 ["ERROR! Every Holmakefile must include a ", OUTPUT_FILENAME,
                  " target. Consider adding:\n\n",HOLMAKEFILE_SUGGESTION,
