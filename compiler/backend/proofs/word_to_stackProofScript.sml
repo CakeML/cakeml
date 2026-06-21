@@ -7928,8 +7928,8 @@ Resume comp_correct[Call]:
   fs[comp_def,UNCURRY_EQ]\\ rveq \\
   Cases_on `ret` \\ fs[] \\ rveq \\
   fs[get_labels_def]
-  THEN1 suspend "Call_tail"
-  \\ suspend "Call_returning"
+  >- suspend "Call_tail"
+  >- suspend "Call_returning"
 QED
 
 Resume comp_correct[Call_tail]:
@@ -8238,11 +8238,7 @@ Resume comp_correct[Call_returning]:
   imp_res_tac evaluate_wLive_clock>>
   pop_assum (qspec_then`t4` assume_tac)>>
   Cases_on`handler`>> fs[] >> rveq >> fs[]
-  THEN1 suspend "Call_returning_no_handler"
-  >> suspend "Call_returning_handler"
-QED
-
-Resume comp_correct[Call_returning_no_handler]:
+  >- (
     note_tac "No handler case">>
     simp[Ntimes stackSemTheory.evaluate_def 2]>>
     imp_res_tac compile_prog_stack_size >>
@@ -9019,10 +9015,8 @@ Resume comp_correct[Call_returning_no_handler]:
       fs[LASTN_CONS_ID,GSYM ADD1])>>
     fs[LASTN_CONS] >>
     asm_exists_tac >> fs[]
-QED
-
-
-Resume comp_correct[Call_returning_handler]:
+)
+  >- (
   note_tac "Handler case">>
   rename1 `push_env _ (SOME handler)` >>
   fs[UNCURRY_EQ,TypeBase.case_eq_of ``:'a # 'b``] >> rveq >>
@@ -10049,8 +10043,8 @@ Resume comp_correct[Call_returning_handler]:
       metis_tac[IS_PREFIX_TRANS,isPREFIX_DROP]))>>
   strip_tac >>
   Q.EXISTS_TAC `ck'` >> fs[]
+)
 QED
-
 
 Resume comp_correct[Break]:
   REPEAT STRIP_TAC \\ fs[get_labels_def] \\
