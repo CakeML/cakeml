@@ -70,8 +70,13 @@ Definition reify_flag_def:
   case flag of
   | Indices ids ann =>
     (case ALOOKUP cs name of
-    | SOME (Counting (AllDifferent Xs)) =>
+    | SOME (Counting (AllDifferentExcept Xs iS)) =>
       varc wi (EL (EL 0 ids) Xs) > varc wi (EL (EL 1 ids) Xs)
+    | SOME (Counting (SymmetricAllDifferent (Xs,start))) =>
+      varc wi (EL (EL 0 ids) Xs) > varc wi (EL (EL 1 ids) Xs)
+    | SOME (Misc (Circuit Xs)) =>
+      varc wi (EL (EL 0 ids) Xs) > varc wi (EL (EL 1 ids) Xs)
+
     | SOME (Counting (Among Xs iS _)) =>
       if ann = SOME («ge»)
       then varc wi (EL (EL 0 ids) Xs) ≥ EL (EL 1 ids) iS
@@ -469,6 +474,26 @@ Proof
   ‘P ⇔ ¬Q’ suffices_by metis_tac[]>>
   unabbrev_all_tac>>
   intLib.ARITH_TAC
+QED
+
+(* For all X \in Xs, v \in vs pairs, create the reification X=v *)
+Definition encode_eq_grid_def:
+  encode_eq_grid bnd Xs vs =
+    FLAT (MAP (λv. FLAT (MAP (λX. encode_full_eq bnd X v) Xs)) vs)
+End
+
+Theorem encode_eq_grid_sem[simp]:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_eq_grid bnd Xs vs) =
+  (∀X i.
+    MEM X Xs ∧ MEM i vs ⇒
+    ((wb (INL (Ge X i)) ⇔ varc wi X ≥ i) ∧
+    (wb (INL (Ge X (i+1))) ⇔ varc wi X ≥ i+1) ∧
+    (wb (INL (Eq X i)) ⇔ varc wi X = i)))
+Proof
+  simp[encode_eq_grid_def,EVERY_FLAT,EVERY_MAP]>>
+  simp[EVERY_MEM]>>
+  metis_tac[]
 QED
 
 (*
@@ -986,6 +1011,12 @@ Definition cencode_reif_gen_def:
   | (Z, LessThan, v) => cencode_ge bnd Z v ec
 End
 
+Definition cencode_eq_grid_def:
+  cencode_eq_grid bnd Xs vs ec =
+    fold_cenc (λv ec.
+      fold_cenc (λX ec. cencode_full_eq bnd X v ec) Xs ec) vs ec
+End
+
 (* TODO: lemmas *)
 Theorem iSUM_FILTER:
   iSUM (MAP (b2i o P) ls) = &(LENGTH $ FILTER P ls)
@@ -1265,6 +1296,31 @@ Proof
   every_case_tac>>
   simp[encode_reif_gen_def,enc_rel_encode_ge,
     enc_rel_encode_eq,enc_rel_encode_full_eq]
+QED
+
+Theorem enc_rel_encode_eq_grid:
+  valid_assignment bnd wi ∧ cencode_eq_grid bnd Xs vs ec = (x1,ec') ⇒
+  enc_rel wi x1 (encode_eq_grid bnd Xs vs) ec ec'
+Proof
+  simp[cencode_eq_grid_def,encode_eq_grid_def]>>
+  rw[]>>
+  pop_assum mp_tac>>
+  qmatch_goalsub_abbrev_tac
+    ‘fold_cenc cf _ _ = _ ⇒ enc_rel _ _ (FLAT (MAP f _)) _ _’>>
+  rename1 ‘fold_cenc _ ls _’>>
+  qid_spec_tac ‘ec'’>>
+  qid_spec_tac ‘x1’>>
+  qid_spec_tac ‘ec’>>
+  qid_spec_tac ‘ls’>>
+  ho_match_mp_tac enc_rel_fold_cenc>>
+  simp[Abbr‘cf’,Abbr‘f’]>>
+  strip_tac>>
+  qmatch_goalsub_abbrev_tac
+    ‘fold_cenc cf _ _ = _ ⇒ enc_rel _ _ (FLAT (MAP f _)) _ _’>>
+  qid_spec_tac ‘Xs’>>
+  ho_match_mp_tac enc_rel_fold_cenc>>
+  simp[Abbr‘cf’,Abbr‘f’]>>
+  metis_tac[enc_rel_encode_full_eq]
 QED
 
 Definition init_ec_def:

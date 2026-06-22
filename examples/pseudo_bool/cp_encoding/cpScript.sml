@@ -66,8 +66,6 @@ Datatype:
   counting_constr =
     (* AllEqual Xs *)
   | AllEqual ('a varc list)
-    (* AllDifferent Xs *)
-  | AllDifferent ('a varc list)
     (* AllDifferentExcept Xs iS *)
   | AllDifferentExcept ('a varc list) (int list)
     (* SymmetricAllDifferent (Xs,i) *)
@@ -84,6 +82,8 @@ Datatype:
     (* AtMostOne Xs Y : at most one of Xs equals the value Y *)
   | AtMostOne ('a varc list) ('a varc)
 End
+
+Overload AllDifferent = ``λXs. AllDifferentExcept Xs []``;
 
 Type iclin_term[pp] = ``:(int # 'a varc) list ``
 
@@ -264,11 +264,6 @@ Definition all_equal_sem_def:
     ∃v. EVERY (λX. varc w X = v) Xs
 End
 
-Definition all_different_sem_def:
-  all_different_sem Xs w =
-    ALL_DISTINCT (MAP (varc w) Xs)
-End
-
 Definition all_different_except_sem_def:
   all_different_except_sem Xs iS w =
     ALL_DISTINCT (FILTER (λv. ¬ MEM v iS) (MAP (varc w) Xs))
@@ -329,7 +324,6 @@ Definition counting_constr_sem_def:
   counting_constr_sem c w =
   case c of
     AllEqual Xs => all_equal_sem Xs w
-  | AllDifferent Xs => all_different_sem Xs w
   | AllDifferentExcept Xs iS => all_different_except_sem Xs iS w
   | SymmetricAllDifferent p => symmetric_all_different_sem p w
   | NValue Xs Y => n_value_sem Xs Y w

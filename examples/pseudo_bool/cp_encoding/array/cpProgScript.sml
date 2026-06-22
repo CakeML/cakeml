@@ -309,6 +309,7 @@ val res = translate cencode_ge_def;
 val res = translate cencode_eq_def;
 
 val res = translate cencode_full_eq_def;
+val res = translate cencode_eq_grid_def;
 val res = translate cencode_reif_gen_def;
 
 val res = translate reif_gen_def;
@@ -334,6 +335,8 @@ val res = translate init_ec_def;
 val res = translate encode_bvar_eq_def;
 
 val res = translate neiv_def;
+
+val res = translate mk_bounds_def;
 
 (* cp_to_ilp_primScript *)
 
@@ -372,12 +375,17 @@ val res = translate cp_to_ilp_primTheory.cencode_prim_constr_def;
 
 (* cp_to_ilp_counting *)
 
-val res = translate cp_to_ilp_countingTheory.cencode_all_different_def;
-
 val res = translate cp_to_ilp_countingTheory.equal_chain_def;
 val res = translate cp_to_ilp_countingTheory.cencode_all_equal_def;
 
+val res = translate cp_to_ilp_countingTheory.check_neqs_def;
+val res = translate cp_to_ilp_countingTheory.cencode_all_different_except_aux_def;
 val res = translate cp_to_ilp_countingTheory.cencode_all_different_except_def;
+val res = translate cp_to_ilp_countingTheory.cencode_all_different_def;
+
+val res = translate cp_to_ilp_countingTheory.cmk_bounds_def;
+val res = translate cp_to_ilp_countingTheory.cmk_bounds_all_def;
+val res = translate cp_to_ilp_countingTheory.cencode_symmetric_all_different_aux_def;
 val res = translate cp_to_ilp_countingTheory.cencode_symmetric_all_different_def;
 
 val res = translate cp_to_ilp_countingTheory.elm_def;
@@ -390,7 +398,6 @@ val res = translate cp_to_ilp_countingTheory.cencode_count_aux_def;
 val res = translate cp_to_ilp_countingTheory.cencode_count_def;
 
 val res = translate cp_to_ilp_countingTheory.cencode_among_aux_def;
-val res = translate cp_to_ilp_countingTheory.cencode_full_eq_ilist_def;
 val res = translate cp_to_ilp_countingTheory.cencode_among_def;
 
 Definition mk_outr_def:
@@ -511,7 +518,6 @@ val res = translate cp_to_ilp_lexicographicalTheory.cencode_lexicographical_cons
 
 (* cp_to_ilp_channeling *)
 
-val res = translate cp_to_ilpTheory.mk_bounds_def;
 val res = translate indexedListsTheory.MAPi_ACC_def;
 val res = translate indexedListsTheory.MAPi_compute;
 val res = translate cp_to_ilp_channelingTheory.encode_inverse_aux_def;

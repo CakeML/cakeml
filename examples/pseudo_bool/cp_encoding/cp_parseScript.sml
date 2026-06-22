@@ -506,13 +506,16 @@ End
 
 (* Counting: returns NONE when ctype isn't a counting constraint so the
    top-level dispatcher can fall through. *)
-(* all_equal: v0 v1 ... (the variables are given directly, not grouped) *)
+(* all_equal: (X1 ... Xn) — vars grouped in one sublist, as for all_different *)
 Definition sexp_all_equal_body_def:
   sexp_all_equal_body rest =
-    do
-      Xs <- result_mmap sexp_varc rest;
-      return (Counting (AllEqual Xs))
-    od
+    case rest of
+      [Xs_e] =>
+      (do
+         Xs <- sexp_varc_list Xs_e;
+         return (Counting (AllEqual Xs))
+       od)
+    | _ => fail («all_equal expects 1 arg: (X1 ... Xn)\n»)
 End
 
 (* all_different_except: (X1 ... Xn) (e1 ... em) *)
@@ -545,9 +548,8 @@ Definition sexp_counting_dispatch_def:
   sexp_counting_dispatch ctype rest =
          if ctype = «all_different» then SOME (sexp_all_different_body rest)
     else if ctype = «all_equal»     then SOME (sexp_all_equal_body rest)
-    (*
     else if ctype = «all_different_except» then SOME (sexp_all_different_except_body rest)
-    else if ctype = «symmetric_all_different» then SOME (sexp_symmetric_all_different_body rest) *)
+    else if ctype = «symmetric_all_different» then SOME (sexp_symmetric_all_different_body rest)
     else if ctype = «nvalue»        then SOME (sexp_nvalue_body rest)
     else if ctype = «count»         then SOME (sexp_count_body rest)
     else if ctype = «among»         then SOME (sexp_among_body rest)
