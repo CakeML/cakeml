@@ -81,6 +81,10 @@ Datatype:
   | In ('a varc list) ('a varc)
     (* AtMostOne Xs Y : at most one of Xs equals the value Y *)
   | AtMostOne ('a varc list) ('a varc)
+    (* GlobalCardinality Xs vs Cs clsd : for each j, count variable Cs[j]
+       equals the number of Xs taking the (constant) cover value vs[j].
+       clsd ⇒ every Xs[i] additionally takes some value in vs. *)
+  | GlobalCardinality ('a varc list) (int list) ('a varc list) bool
 End
 
 Overload AllDifferent = ``λXs. AllDifferentExcept Xs []``;
@@ -154,6 +158,25 @@ Datatype:
   | Knapsack (int list list) ('a varc list) ('a varc list)
 End
 
+(* TODO: under construction *)
+Datatype:
+  scheduling_constr =
+    (* Disjunctive xs ws strct :
+      tasks xs[i] with width ws[i], placed on a line with no overlaps.
+       strct keeps zero-length tasks; otherwise they are dropped. *)
+    Disjunctive ('a varc list) ('a varc list) bool
+    (* Disjunctive2D xs ys ws hs strct :
+      tasks (xs[i],ys[i]) with rectangle ws[i] x hs[i]
+      strct keeps degenerate (zero-area) tasks/rectangles.
+      Additionally, the 2D case supports general-valued ws, hs *)
+  | Disjunctive2D ('a varc list) ('a varc list)
+                  ('a varc list) ('a varc list) bool
+    (* Cumulative xs ws hs cap :
+      tasks xs[i] width width ws[i] and height hs[i].
+      Height at each time point must not exceed cap *)
+  | Cumulative ('a varc list) ('a varc list) ('a varc list) ('a varc)
+End
+
 Datatype:
   constraint =
   | Prim ('a prim_constr)
@@ -165,6 +188,7 @@ Datatype:
   | Lexicographical ('a lexicographical_constr)
   | Channeling ('a channeling_constr)
   | Misc ('a misc_constr)
+  | Scheduling ('a scheduling_constr)
 End
 
 (* Semantics *)
@@ -320,6 +344,15 @@ Definition at_most_one_sem_def:
   iSUM (MAP (λX. b2i (varc w X = varc w Y)) Xs) ≤ 1
 End
 
+Definition global_cardinality_sem_def:
+  global_cardinality_sem Xs vs Cs clsd w ⇔
+  (* for each cover value vs[j], count variable Cs[j] holds its multiplicity *)
+  LIST_REL
+    (λv C. varc w C = iSUM (MAP (λX. b2i (varc w X = v)) Xs)) vs Cs ∧
+  (* clsd: every variable takes some cover value *)
+  (clsd ⇒ EVERY (λX. MEM (varc w X) vs) Xs)
+End
+
 Definition counting_constr_sem_def:
   counting_constr_sem c w =
   case c of
@@ -331,6 +364,7 @@ Definition counting_constr_sem_def:
   | Among Xs iS Y => among_sem Xs iS Y w
   | In Y Xs => in_sem Y Xs w
   | AtMostOne Xs Y => at_most_one_sem Xs Y w
+  | GlobalCardinality Xs vs Cs clsd => global_cardinality_sem Xs vs Cs clsd w
 End
 
 (***
@@ -644,6 +678,86 @@ Definition misc_constr_sem_def:
   | Knapsack css Xs ts => knapsack_sem css Xs ts w
 End
 
+(* Disjunctive:
+    For each i, the active intervals are:
+
+    xs[i] ≤ t < xs[i] + ws[i]
+
+    These must be pairwise disjoint for i ≠ j.
+
+    In strict mode, 0-length tasks cannot lie inside another interval. *)
+Definition disjunctive_sem_def:
+  disjunctive_sem xs ws strct w ⇔
+  let xs = MAP (varc w) xs in
+  let ws = MAP (varc w) ws in
+  LENGTH xs = LENGTH ws ∧
+  ∀i j.
+    i < LENGTH xs ∧ j < LENGTH xs ∧ i ≠ j ∧
+    (strct ∨ (EL i ws > 0 ∧ EL j ws > 0)) ⇒
+    EL i xs + EL i ws ≤ EL j xs ∨
+    EL j xs + EL j ws ≤ EL i xs
+End
+
+(* Disjunctive 2D:
+    For each i, the active rectangle is:
+
+    xs[i] ≤ tx < varc w xs[i] + ws[i]
+    ys[i] ≤ ty < varc w ys[i] + hs[i]
+
+    Same overlap requirements on area and strict flag. *)
+Definition disjunctive2d_sem_def:
+  disjunctive2d_sem xs ys ws hs strct w ⇔
+  let xs = MAP (varc w) xs in
+  let ys = MAP (varc w) ys in
+  let ws = MAP (varc w) ws in
+  let hs = MAP (varc w) hs in
+  LENGTH xs = LENGTH ys ∧
+  LENGTH xs = LENGTH ws ∧
+  LENGTH xs = LENGTH hs ∧
+  ∀i j.
+    i < LENGTH xs ∧ j < LENGTH xs ∧ i ≠ j ∧
+    (strct ∨
+      (EL i ws > 0 ∧ EL j ws > 0 ∧
+       EL i hs > 0 ∧ EL j hs > 0)) ⇒
+    EL i xs + EL i ws ≤ EL j xs ∨
+    EL j xs + EL j ws ≤ EL i xs ∨
+    EL i ys + EL i hs ≤ EL j ys ∨
+    EL j ys + EL j hs ≤ EL i ys
+End
+
+(* Cumulative:
+  For each time point t,
+    the sum of hs[i] for active tasks (xs[i] ≤ t < xs[i] + ws[i])
+    is ≤ cap *)
+Definition cumulative_sem_def:
+  cumulative_sem xs ws hs cap w ⇔
+  let xs = MAP (varc w) xs in
+  let ws = MAP (varc w) ws in
+  let hs = MAP (varc w) hs in
+  let cap = varc w cap in
+  LENGTH xs = LENGTH ws ∧
+  LENGTH xs = LENGTH hs ∧
+  ∀t.
+    iSUM
+      (GENLIST
+        (λi.
+          if EL i xs ≤ t ∧ t < EL i xs + EL i ws
+          then EL i hs
+          else 0
+        ) (LENGTH xs)) ≤ cap
+End
+
+Definition scheduling_constr_sem_def:
+  scheduling_constr_sem c w ⇔
+  case c of
+    Disjunctive xs ws strct =>
+      disjunctive_sem xs ws strct w
+  | Disjunctive2D xs ys ws hs strct =>
+      disjunctive2d_sem xs ys ws hs strct w
+  | Cumulative xs ws hs cap =>
+      cumulative_sem xs ws hs cap w
+End
+
 Definition constraint_sem_def:
   constraint_sem c (w: 'a assignment) =
   case c of
@@ -656,6 +770,7 @@ Definition constraint_sem_def:
   | Lexicographical c => lexicographical_constr_sem c w
   | Channeling c => channeling_constr_sem c w
   | Misc c => misc_constr_sem c w
+  | Scheduling c => scheduling_constr_sem c w
 End
 
 Definition valid_assignment_def:

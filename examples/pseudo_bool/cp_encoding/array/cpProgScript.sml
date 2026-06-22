@@ -8,7 +8,7 @@ Ancestors
   int_bitwise ilp ilp_to_pb cp cp_parse cp_enc cp_to_ilp
   cp_to_ilp_prim cp_to_ilp_counting cp_to_ilp_linear cp_to_ilp_array
   cp_to_ilp_extensional cp_to_ilp_logical cp_to_ilp_lexicographical
-  cp_to_ilp_channeling cp_to_ilp_misc cp_to_ilp_all
+  cp_to_ilp_channeling cp_to_ilp_misc cp_to_ilp_scheduling cp_to_ilp_all
 Libs
   preamble basis
 
@@ -131,6 +131,7 @@ val res = translate sexp_at_most_one_body_def;
 val res = translate sexp_all_equal_body_def;
 val res = translate sexp_all_different_except_body_def;
 val res = translate sexp_symmetric_all_different_body_def;
+val res = translate sexp_global_cardinality_body_def;
 val res = translate sexp_counting_dispatch_def;
 
 (* logical *)
@@ -143,11 +144,16 @@ val res = translate sexp_off_list_def;
 val res = translate sexp_inverse_body_def;
 val res = translate sexp_channeling_dispatch_def;
 
-(* misc: circuit, knapsack *)
+(* misc *)
 val res = translate sexp_circuit_body_def;
 val res = translate sexp_int_rows_def;
 val res = translate sexp_knapsack_body_def;
 val res = translate sexp_misc_dispatch_def;
+
+(* scheduling *)
+val res = translate sexp_disjunctive_body_def;
+val res = translate sexp_cumulative_body_def;
+val res = translate sexp_scheduling_dispatch_def;
 
 val res = translate strip_prefix_def;
 
@@ -400,6 +406,10 @@ val res = translate cp_to_ilp_countingTheory.cencode_count_def;
 val res = translate cp_to_ilp_countingTheory.cencode_among_aux_def;
 val res = translate cp_to_ilp_countingTheory.cencode_among_def;
 
+val res = translate cp_to_ilp_countingTheory.cencode_gcc_counts_def;
+val res = translate cp_to_ilp_countingTheory.cencode_global_cardinality_aux_def;
+val res = translate cp_to_ilp_countingTheory.cencode_global_cardinality_def;
+
 Definition mk_outr_def:
   (mk_outr [] = []) ∧
   (mk_outr (x::xs) =
@@ -567,6 +577,12 @@ val res = translate cp_to_ilp_miscTheory.cencode_knapsack1_def;
 val res = translate cp_to_ilp_miscTheory.cencode_knapsack_def;
 
 val res = translate cp_to_ilp_miscTheory.cencode_misc_constr_def;
+
+(* cp_to_ilp_scheduling *)
+val res = translate cp_to_ilp_schedulingTheory.cencode_disjunctive_def;
+val res = translate cp_to_ilp_schedulingTheory.cencode_disjunctive2d_def;
+val res = translate cp_to_ilp_schedulingTheory.cencode_cumulative_def;
+val res = translate cp_to_ilp_schedulingTheory.cencode_scheduling_constr_def;
 
 (* cp_to_ilp_all *)
 

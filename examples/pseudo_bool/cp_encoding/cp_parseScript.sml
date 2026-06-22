@@ -544,6 +544,21 @@ Definition sexp_symmetric_all_different_body_def:
     | _ => fail («symmetric_all_different expects 2 args: (X1 ... Xn) start\n»)
 End
 
+(* global_cardinality: (X1 ... Xn) (v1 ... vm) (C1 ... Cm); clsd via keyword.
+   gac/bounds variants share one model (bounds lists arrive value-sorted). *)
+Definition sexp_global_cardinality_body_def:
+  sexp_global_cardinality_body clsd rest =
+    case rest of
+      [Xs_e; vs_e; Cs_e] =>
+      (do
+         Xs <- sexp_varc_list Xs_e;
+         vs <- sexp_int_list vs_e;
+         Cs <- sexp_varc_list Cs_e;
+         return (Counting (GlobalCardinality Xs vs Cs clsd))
+       od)
+    | _ => fail («global_cardinality expects 3 args: (X1 ... Xn) (v1 ... vm) (C1 ... Cm)\n»)
+End
+
 Definition sexp_counting_dispatch_def:
   sexp_counting_dispatch ctype rest =
          if ctype = «all_different» then SOME (sexp_all_different_body rest)
@@ -555,6 +570,10 @@ Definition sexp_counting_dispatch_def:
     else if ctype = «among»         then SOME (sexp_among_body rest)
     else if ctype = «in»            then SOME (sexp_in_body rest)
     else if ctype = «at_most_one»   then SOME (sexp_at_most_one_body rest)
+    else if ctype = «gacglobalcardinality»          then SOME (sexp_global_cardinality_body F rest)
+    else if ctype = «gacglobalcardinalityclosed»     then SOME (sexp_global_cardinality_body T rest)
+    else if ctype = «boundsglobalcardinality»        then SOME (sexp_global_cardinality_body F rest)
+    else if ctype = «boundsglobalcardinalityclosed»  then SOME (sexp_global_cardinality_body T rest)
     else NONE
 End
 
@@ -669,6 +688,59 @@ Definition strip_prefix_def:
     else NONE
 End
 
+(* scheduling: disjunctive / disjunctive2d / cumulative *)
+Definition sexp_disjunctive_body_def:
+  sexp_disjunctive_body strct rest =
+    case rest of
+      [xs_e; ws_e] =>
+      (do
+         xs <- sexp_varc_list xs_e;
+         ws <- sexp_varc_list ws_e;
+         return (Scheduling (Disjunctive xs ws strct))
+       od)
+    | _ => fail («disjunctive expects 2 args: (x1 ... xn) (w1 ... wn)\n»)
+End
+
+Definition sexp_disjunctive2d_body_def:
+  sexp_disjunctive2d_body strct rest =
+    case rest of
+      [xs_e; ys_e; ws_e; hs_e] =>
+      (do
+         xs <- sexp_varc_list xs_e;
+         ys <- sexp_varc_list ys_e;
+         ws <- sexp_varc_list ws_e;
+         hs <- sexp_varc_list hs_e;
+         return (Scheduling (Disjunctive2D xs ys ws hs strct))
+       od)
+    | _ => fail («disjunctive2d expects 4 args: (x1 ... xn) (y1 ... yn) (w1 ... wn) (h1 ... hn)\n»)
+End
+
+Definition sexp_cumulative_body_def:
+  sexp_cumulative_body rest =
+    case rest of
+      [xs_e; ws_e; hs_e; cap_e] =>
+      (do
+         xs <- sexp_varc_list xs_e;
+         ws <- sexp_varc_list ws_e;
+         hs <- sexp_varc_list hs_e;
+         cap <- sexp_varc cap_e;
+         return (Scheduling (Cumulative xs ws hs cap))
+       od)
+    | _ => fail («cumulative expects 4 args: (x1 ... xn) (w1 ... wn) (h1 ... hn) cap\n»)
+End
+
+Definition sexp_scheduling_dispatch_def:
+  sexp_scheduling_dispatch ctype rest =
+    (* TODO: enable when encodings are implemented .
+    if ctype = «disjunctive»          then SOME (sexp_disjunctive_body F rest)
+    else if ctype = «disjunctive_strict»   then SOME (sexp_disjunctive_body T rest)
+    else if ctype = «disjunctive2d»        then SOME (sexp_disjunctive2d_body F rest)
+    else if ctype = «disjunctive2d_strict» then SOME (sexp_disjunctive2d_body T rest)
+    else if ctype = «cumulative»           then SOME (sexp_cumulative_body rest)
+    else NONE
+    *) NONE
+End
+
 Definition sexp_constraint_dispatch_def:
   sexp_constraint_dispatch ctype rest =
     case strip_prefix («lin_») ctype of
@@ -695,6 +767,9 @@ Definition sexp_constraint_dispatch_def:
       SOME res => res
     | NONE =>
     case sexp_misc_dispatch ctype rest of
+      SOME res => res
+    | NONE =>
+    case sexp_scheduling_dispatch ctype rest of
       SOME res => res
     | NONE =>
     sexp_prim_dispatch ctype rest
