@@ -279,21 +279,26 @@ Definition sexp_linear_dispatch_def:
     od
 End
 
-(* Lex: stems of the form lex_<cmp>. Takes two varc lists, no reif.
-  TODO: not yet supported *)
+(* Lex: stems of the form lex_<cmp>, with optional reif suffix (_if/_iff).
+   Reified variants peel a leading cond tuple, then two varc lists. *)
 Definition sexp_lex_dispatch_def:
   sexp_lex_dispatch cmp_kw rest =
-    case sexp_cmpop_kw cmp_kw of
-      NONE => fail («unknown lex comparison: » ^ cmp_kw ^ «\n»)
-    | SOME cmp =>
-      (case rest of
-         [Xs_e; Ys_e] =>
-         (do
-            Xs <- sexp_varc_list Xs_e;
-            Ys <- sexp_varc_list Ys_e;
-            return (Lexicographical (Lex cmp Xs Ys))
-          od)
-       | _ => fail («lex_<cmp> expects 2 args: (X1 ... Xn) (Y1 ... Ym)\n»))
+  case strip_reif_suffix cmp_kw of (stem, reif_flag) =>
+  case sexp_cmpop_kw stem of
+    NONE => fail («unknown lex comparison: » ^ stem ^ «\n»)
+  | SOME cmp =>
+    do
+      pr <- peel_reif reif_flag rest;
+      case pr of (zr, rest') =>
+        case rest' of
+          [Xs_e; Ys_e] =>
+          (do
+             Xs <- sexp_varc_list Xs_e;
+             Ys <- sexp_varc_list Ys_e;
+             return (Lexicographical (Lex zr cmp Xs Ys))
+           od)
+        | _ => fail («lex_<cmp> expects 2 args: (X1 ... Xn) (Y1 ... Ym) after optional reif\n»)
+    od
 End
 
 (* Extensional: table — rows and wildcard-aware entries. *)
@@ -755,11 +760,9 @@ Definition sexp_constraint_dispatch_def:
     case sexp_counting_dispatch ctype rest of
       SOME res => res
     | NONE =>
-    (*
     case strip_prefix («lex_») ctype of
       SOME cmp_kw => sexp_lex_dispatch cmp_kw rest
     | NONE =>
-    *)
     case sexp_logical_dispatch ctype rest of
       SOME res => res
     | NONE =>
@@ -769,9 +772,11 @@ Definition sexp_constraint_dispatch_def:
     case sexp_misc_dispatch ctype rest of
       SOME res => res
     | NONE =>
+    (* scheduling DISABLED — encoders are reject-stubs only:
     case sexp_scheduling_dispatch ctype rest of
       SOME res => res
     | NONE =>
+    *)
     sexp_prim_dispatch ctype rest
 End
 
@@ -876,6 +881,25 @@ Theorem test_linear:
      (Linear
         (Lin (SOME (INR (INL «zz»,Equal,5))) GreaterEqual
            [(1,INL «A»); (2,INL «B»)] (INR 5))))
+Proof
+  EVAL_TAC
+QED
+
+Theorem test_lex:
+  sexp_constraint_dispatch («lex_greater_than»)
+    (fromStringL («((A B) (C D))»)) =
+    INR (Lexicographical
+      (Lex NONE GreaterThan [INL «A»; INL «B»] [INL «C»; INL «D»])) ∧
+  sexp_constraint_dispatch («lex_greater_than_if»)
+    (fromStringL («((zz >= 5) (A B) (C D))»)) =
+    INR (Lexicographical
+      (Lex (SOME (INL (INL «zz»,GreaterEqual,5))) GreaterThan
+        [INL «A»; INL «B»] [INL «C»; INL «D»])) ∧
+  sexp_constraint_dispatch («lex_less_equal_iff»)
+    (fromStringL («((zz = 5) (A B) (C D))»)) =
+    INR (Lexicographical
+      (Lex (SOME (INR (INL «zz»,Equal,5))) LessEqual
+        [INL «A»; INL «B»] [INL «C»; INL «D»]))
 Proof
   EVAL_TAC
 QED

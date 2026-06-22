@@ -106,7 +106,19 @@ Definition reify_flag_def:
     | SOME (Logical (Parity Xs Y)) =>
       ODD (SUM $ MAP (λZ. if varc wi Z > 0 then 1n else 0n) (TAKE (HD ids + 1) (Y::Xs)))
     | SOME (Extensional (Table tss Xs)) =>
-      match_row (EL (HD ids) tss) (MAP (varc wi) Xs))
+      match_row (EL (HD ids) tss) (MAP (varc wi) Xs)
+    | SOME (Lexicographical (Lex Zr cmp Xs Ys)) =>
+      if ann = SOME («pref»)
+      then
+        ∀j. j < HD ids ⇒ varc wi (EL j Xs) = varc wi (EL j Ys)
+      else if ann = SOME («dec»)
+      then
+        (∀j. j < HD ids ⇒ varc wi (EL j Xs) = varc wi (EL j Ys)) ∧
+        varc wi (EL (HD ids) Xs) > varc wi (EL (HD ids) Ys)
+      else (* ann = SOME («inc») *)
+        (∀j. j < HD ids ⇒ varc wi (EL j Xs) = varc wi (EL j Ys)) ∧
+        varc wi (EL (HD ids) Xs) < varc wi (EL (HD ids) Ys)
+    )
   | Flag ann =>
     (case ALOOKUP cs name of
     | SOME (Prim (Cmpop _ _ X Y)) =>
