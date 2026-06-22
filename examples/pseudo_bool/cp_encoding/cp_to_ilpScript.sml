@@ -5,7 +5,7 @@ Theory cp_to_ilp
 Libs
   preamble
 Ancestors
-  cp ilp pbc pbc_encode sptree
+  cp ilp pbc pbc_encode sptree int_bitwise
 
 (* The shared infrastructure for all encodings goes into this file *)
 
@@ -75,8 +75,16 @@ Definition reify_flag_def:
     | SOME (Counting (SymmetricAllDifferent (Xs,start))) =>
       varc wi (EL (EL 0 ids) Xs) > varc wi (EL (EL 1 ids) Xs)
     | SOME (Misc (Circuit Xs)) =>
-      varc wi (EL (EL 0 ids) Xs) > varc wi (EL (EL 1 ids) Xs)
-
+      if ann = NONE
+      then varc wi (EL (EL 0 ids) Xs) > varc wi (EL (EL 1 ids) Xs)
+      else (* ann = SOME («bin») *)
+        let
+          len = LENGTH Xs;
+          i = EL 0 ids;
+          b = EL 1 ids
+        in
+          EL b $ bits_of_num (@t.
+            t < len ∧ FUNPOW (λn. Num (varc wi (EL n Xs))) t 0 = i)
     | SOME (Counting (Among Xs iS _)) =>
       if ann = SOME («ge»)
       then varc wi (EL (EL 0 ids) Xs) ≥ EL (EL 1 ids) iS
