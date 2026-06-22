@@ -1436,7 +1436,7 @@ Definition encode_is_witness_decrease_def:
     ];
     rhss = [iext_lit (right_name_lit (Name (Named (Ext «lives_hold»)), F))]
   in
-    encode_imply circ «decrease» F lhss rhss
+    encode_imply circ «decrease» T lhss rhss
 End
 
 (* Proving correctness of the encodings ***************************************)
@@ -1846,7 +1846,7 @@ Proof
 QED
 
 Theorem eval_circuit_encode_is_witness_decrease:
-  (∀ss.
+  (¬∃ss.
      (eval_circuit ss
        (encode_is_witness_decrease
           wcirc wnext wcnstrs wpreds wlive wlatches interv)
@@ -1870,7 +1870,7 @@ Proof
   >> qmatch_goalsub_abbrev_tac ‘encode_lives_hold _ _ wlive'’
   >> sg ‘EVERY (EVERY (λx. iname x = 0)) wlive'’
   >- (simp [Abbr ‘wlive'’, qinterv_live_r_l_def, qinterv_live_def, MEM_MAP,
-            iright_name_lits_def, EVERY_MAP])
+            EVERY_MAP])
   >> simp [Req0 eval_lit_encode_lives_hold_Named]
   >> simp [Abbr ‘wlive'’]
   >> simp [lives_hold_r_l_eq]
