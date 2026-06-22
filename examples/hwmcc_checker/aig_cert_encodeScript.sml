@@ -445,6 +445,11 @@ Definition qinterv_live_ll_r_def:
     qinterv_live (INL ∘ INL) (INL ∘ INL) INR interv live
 End
 
+Definition qinterv_live_ll_lr_def:
+  qinterv_live_ll_lr interv (live: ('a, 'i, 'l) lit list list) =
+    qinterv_live (INL ∘ INL) (INL ∘ INL) (INL ∘ INR) interv live
+End
+
 Definition qinterv_live_lr_r_def:
   qinterv_live_lr_r interv (live: ('a, 'i, 'l) lit list list) =
     qinterv_live (INL ∘ INR) (INL ∘ INR) INR interv live
@@ -463,6 +468,11 @@ End
 Definition qinterv_ll_r_def:
   qinterv_ll_r interv (circ: ('a, 'i, 'l) circuit) =
     qinterv (INL ∘ INL) (INL ∘ INL) INR interv circ
+End
+
+Definition qinterv_ll_lr_def:
+  qinterv_ll_lr interv (circ: ('a, 'i, 'l) circuit) =
+    qinterv (INL ∘ INL) (INL ∘ INL) (INL ∘ INR) interv circ
 End
 
 Definition qinterv_lr_r_def:
@@ -864,6 +874,13 @@ QED
 
 (* Encoding is_next ***********************************************************)
 
+(* cur/next are usually INL/INR, but for consistent we need more flexibility. *)
+Definition encode_is_next_with_def:
+  encode_is_next_with circ name cur nxt next latches =
+    encode_equiv circ name
+      (MAP (λl. (cur (next l), nxt (Base (Latch l), F))) latches)
+End
+
 Definition encode_is_next_def:
   encode_is_next
     (circ: (('a + 'b) iext, 'i + 'j, 'l + 'l) circuit)
@@ -871,9 +888,8 @@ Definition encode_is_next_def:
     (next: ('l -> ('a,'i,'l) lit))
     (latches: 'l list)
   =
-  encode_equiv circ name
-    (MAP (λl. (iext_lit (left_lit (next l)),
-               iext_lit (right_lit (Base (Latch l), F)))) latches)
+  encode_is_next_with circ name (iext_lit ∘ left_lit) (iext_lit ∘ right_lit)
+    next latches
 End
 
 (* Encoding lives_imply *******************************************************)
@@ -1069,17 +1085,18 @@ Proof
 QED
 
 Theorem eval_lit_encode_signal_imply_Name:
-  LENGTH signals' = LENGTH signals ∧
-  EVERY (λx. iname x = 0) signals  ∧
-  EVERY (λx. iname x = 0) signals'
-  ⇒
-  (eval_lit ss (encode_signal_imply circ name signals signals')
-     (Name (Named n), b) ⇔
-   if n = Ext name then
-     (b ⇎ signal_imply ss circ ss circ signals signals')
-   else eval_lit ss circ (Name (Named n), b))
+  ∀signals' signals ss circ name n b.
+    LENGTH signals' = LENGTH signals ∧
+    EVERY (λx. iname x = 0) signals  ∧
+    EVERY (λx. iname x = 0) signals'
+    ⇒
+    (eval_lit ss (encode_signal_imply circ name signals signals')
+       (Name (Named n), b) ⇔
+     if n = Ext name then
+       (b ⇎ signal_imply ss circ ss circ signals signals')
+     else eval_lit ss circ (Name (Named n), b))
 Proof
-  strip_tac >> simp [eval_circuit_def]
+  rpt strip_tac >> simp [eval_circuit_def]
   >> drule_all eval_circuit_encode_signal_imply
   >> rw []
 QED
@@ -1434,8 +1451,8 @@ Definition encode_is_witness_decrease_def:
   let
     wqcirc = qinterv_r_l interv wcirc;
     qcirc = iext_circuit wqcirc;
-    wsignals = MAP (MAP iext_lit) (qinterv_live_r_l interv wlive);
-    qcirc = encode_lives_hold qcirc «lives_hold» wsignals;
+    wlive = MAP (MAP iext_lit) (qinterv_live_r_l interv wlive);
+    qcirc = encode_lives_hold qcirc «lives_hold» wlive;
     circ = iext_circuit wcirc;
     circ = encode_preds_hold circ «wcnstrs» (MAP iext_lit wcnstrs);
     circ = encode_preds_hold circ «wpreds» (MAP iext_lit wpreds);
@@ -1472,12 +1489,12 @@ Definition encode_is_witness_closure_def:
   let
     wqcirc₀ = qinterv_ll_r interv wcirc;
     qcirc₀ = iext_circuit wqcirc₀;
-    wsignals₀ = MAP (MAP iext_lit) (qinterv_live_ll_r interv wlive);
-    qcirc₀ = encode_lives_hold qcirc₀ «lives_hold02» wsignals₀;
+    wlive₀ = MAP (MAP iext_lit) (qinterv_live_ll_r interv wlive);
+    qcirc₀ = encode_lives_hold qcirc₀ «lives_hold02» wlive₀;
     wqcirc₁ = qinterv_lr_r interv wcirc;
     qcirc₁ = iext_circuit wqcirc₁;
-    wsignals₁ = MAP (MAP iext_lit) (qinterv_live_lr_r interv wlive);
-    qcirc₁ = encode_lives_hold qcirc₁ «lives_hold12» wsignals₁;
+    wlive₁ = MAP (MAP iext_lit) (qinterv_live_lr_r interv wlive);
+    qcirc₁ = encode_lives_hold qcirc₁ «lives_hold12» wlive₁;
     circ₀ = iext_circuit wcirc;
     circ₀ = encode_preds_hold circ₀ «wcnstrs» (MAP iext_lit wcnstrs);
     circ₀ = encode_preds_hold circ₀ «wpreds» (MAP iext_lit wpreds);
@@ -1511,6 +1528,59 @@ Definition encode_is_witness_closure_def:
     rhss = [iext_lit (right_name_lit (Name (Named (Ext «lives_hold12»)), F))]
   in
     encode_imply circ «closure» T lhss rhss
+End
+
+Definition encode_is_witness_consistent_def:
+  encode_is_witness_consistent
+    (wcirc: ('b, 'i, 'l) circuit)
+    (wnext: 'l -> ('b, 'i, 'l) lit)
+    (wcnstrs: ('b, 'i, 'l) lit list)
+    (wpreds: ('b, 'i, 'l) lit list)
+    (wlive: ('b, 'i, 'l) lit list list)
+    (wlatches: 'l list)
+    (interv: ('b, 'i, 'l) lit -> 'l option)
+  =
+  let
+    wlive₀ = MAP ileft_name_lits (qinterv_live_ll_lr interv wlive);
+    wlive₁ = MAP iright_name_lits (qinterv_live_lr_r interv wlive);
+    qcirc₀ = qinterv_ll_lr interv wcirc;
+    qcirc₁ = qinterv_lr_r interv wcirc;
+    qcirc  = imerge_circuits qcirc₀ qcirc₁;
+    qcirc = encode_signal_imply qcirc «lives_imply» (FLAT wlive₀) (FLAT wlive₁) ;
+    qcirc = encode_lives_hold qcirc «lives_hold01» wlive₀;
+    qcirc = encode_lives_hold qcirc «lives_hold12» wlive₁;
+    circ₀ = iext_circuit wcirc;
+    circ₀ = encode_preds_hold circ₀ «wcnstrs» (MAP iext_lit wcnstrs);
+    circ₀ = encode_preds_hold circ₀ «wpreds» (MAP iext_lit wpreds);
+    circ = iext_circuit (pair_circuits circ₀ circ₀);
+    circ = encode_is_next circ «wnext» (iext_lit ∘ wnext) wlatches;
+    circ = iext_circuit (pair_circuits circ circ₀);
+    circ = encode_is_next_with circ «wnext»
+             (iext_lit ∘ left_lit ∘ iext_lit ∘ right_lit) (iext_lit ∘ right_lit)
+             (iext_lit ∘ wnext) wlatches;
+    circ = imerge_circuits circ qcirc;
+    lhss = [
+      iext_lit (left_name_lit (iext_lit (left_lit
+        (iext_lit (left_lit (Name (Named (Ext «wcnstrs»)), F))))));
+      iext_lit (left_name_lit (iext_lit (left_lit
+        (iext_lit (left_lit (Name (Named (Ext «wpreds»)), F))))));
+      iext_lit (left_name_lit (iext_lit (left_lit
+        (iext_lit (right_lit (Name (Named (Ext «wcnstrs»)), F))))));
+      iext_lit (left_name_lit (iext_lit (left_lit
+        (iext_lit (right_lit (Name (Named (Ext «wpreds»)), F))))));
+      iext_lit (left_name_lit (iext_lit (right_lit
+        (Name (Named (Ext «wcnstrs»)), F))));
+      iext_lit (left_name_lit (iext_lit (right_lit
+        (Name (Named (Ext «wpreds»)), F))));
+      iext_lit (left_name_lit (iext_lit (left_lit
+        (Name (Named (Ext «wnext»)), F))));
+      iext_lit (left_name_lit (Name (Named (Ext «wnext»)), F));
+      iext_lit (right_name_lit (Name (Named (Ext «lives_hold01»)), F));
+      iext_lit (right_name_lit (Name (Named (Ext «lives_hold12»)), F))
+      ];
+    rhss = [iext_lit (right_name_lit (Name (Named (Ext «lives_imply»)), F))];
+  in
+    encode_imply circ «consistent» T lhss rhss
 End
 
 (* Proving correctness of the encodings ***************************************)
@@ -1650,12 +1720,108 @@ Proof
         preds_hold_def, LIST_REL_MAP]
 QED
 
+Theorem signal_imply_ileft_iright[local,simp]:
+  signal_imply ss₀ (imerge_circuits circ₁ circ₂)
+    ss₁ (imerge_circuits circ₃ circ₄) (ileft_name_lits signals')
+    (iright_name_lits signals)
+  ⇔
+  signal_imply ss₀ circ₁ ss₁ circ₄ signals' signals
+Proof
+  simp [signal_imply_def, ileft_name_lits_def, iright_name_lits_def,
+        preds_hold_def, LIST_REL_MAP]
+QED
+
 Theorem lives_hold_iext_circuit[local,simp]:
   lives_hold ss (iext_circuit circ) (MAP (MAP iext_lit) lives)
   ⇔
   lives_hold ss circ lives
 Proof
   simp [lives_hold_def, some_signal_holds_def, preds_hold_def,
+        EXISTS_MEM, EVERY_MEM, MEM_MAP, PULL_EXISTS]
+QED
+
+Theorem encode_lives_hold_aux_eval_lit_iext[local]:
+  ∀live circ next circ' outs.
+    encode_lives_hold_aux circ live next = (circ',outs)
+    ⇒
+    (eval_lit ss circ' (iext_lit lit) ⇔ eval_lit ss circ (iext_lit lit))
+Proof
+  Induct >> rw [encode_lives_hold_aux_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> last_x_assum drule >> simp []
+QED
+
+Theorem encode_signal_imply_aux_eval_lit_iext[local]:
+  ∀circ signals signals' next circ' outs.
+    encode_signal_imply_aux circ signals signals' next = (circ',outs)
+    ⇒
+    (eval_lit ss circ' (iext_lit lit) ⇔ eval_lit ss circ (iext_lit lit))
+Proof
+  recInduct encode_signal_imply_aux_ind
+  >> rw [encode_signal_imply_aux_def]
+  >> rpt (pairarg_tac >> gvs [])
+QED
+
+Theorem lives_hold_encode_lives_hold_iright[local,simp]:
+  lives_hold ss (encode_lives_hold circ name live) (MAP iright_name_lits live')
+  ⇔
+  lives_hold ss circ (MAP iright_name_lits live')
+Proof
+  simp [encode_lives_hold_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> simp [lives_hold_def, some_signal_holds_def,
+           preds_hold_def, iright_name_lits_def,
+           EVERY_MEM, EXISTS_MEM, MEM_MAP, PULL_EXISTS]
+  >> drule encode_lives_hold_aux_eval_lit_iext >> simp []
+QED
+
+Theorem lives_hold_encode_signal_imply_ileft[local,simp]:
+  lives_hold ss (encode_signal_imply circ name signals signals')
+    (MAP ileft_name_lits live')
+  ⇔
+  lives_hold ss circ (MAP ileft_name_lits live')
+Proof
+  simp [encode_signal_imply_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> simp [lives_hold_def, some_signal_holds_def,
+           preds_hold_def, ileft_name_lits_def,
+           EVERY_MEM, MEM_MAP, EXISTS_MEM, PULL_EXISTS]
+  >> drule encode_signal_imply_aux_eval_lit_iext
+  >> simp []
+QED
+
+Theorem lives_hold_encode_signal_imply_iright[local,simp]:
+  lives_hold ss (encode_signal_imply circ name signals signals')
+    (MAP iright_name_lits live')
+  ⇔
+  lives_hold ss circ (MAP iright_name_lits live')
+Proof
+  simp [encode_signal_imply_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> simp [lives_hold_def, some_signal_holds_def,
+           preds_hold_def, iright_name_lits_def,
+           EVERY_MEM, MEM_MAP, EXISTS_MEM, PULL_EXISTS]
+  >> drule encode_signal_imply_aux_eval_lit_iext
+  >> simp []
+QED
+
+Theorem lives_hold_imerge_circuits_ileft[local,simp]:
+  lives_hold ss (imerge_circuits circ₀ circ₁) (MAP ileft_name_lits live)
+  ⇔
+  lives_hold ss circ₀ live
+Proof
+  simp [lives_hold_def, some_signal_holds_def,
+        ileft_name_lits_def, preds_hold_def,
+        EXISTS_MEM, EVERY_MEM, MEM_MAP, PULL_EXISTS]
+QED
+
+Theorem lives_hold_imerge_circuits_iright[local,simp]:
+  lives_hold ss (imerge_circuits circ₀ circ₁) (MAP iright_name_lits live)
+  ⇔
+  lives_hold ss circ₁ live
+Proof
+  simp [lives_hold_def, some_signal_holds_def,
+        iright_name_lits_def, preds_hold_def,
         EXISTS_MEM, EVERY_MEM, MEM_MAP, PULL_EXISTS]
 QED
 
@@ -1680,6 +1846,14 @@ Theorem qinterv_lr_r_cons[local]:
     ::(qinterv_lr_r interv circ)
 Proof
   simp [qinterv_lr_r_def, qinterv_def]
+QED
+
+Theorem qinterv_ll_lr_cons[local]:
+  qinterv_ll_lr interv (a::circ) =
+    (qinterv_and (INL ∘ INL) (INL ∘ INL) (INL ∘ INR) interv a)
+    ::(qinterv_ll_lr interv circ)
+Proof
+  simp [qinterv_ll_lr_def, qinterv_def]
 QED
 
 Theorem qinterv_l_r_cons[local]:
@@ -1844,6 +2018,58 @@ Proof
   >> simp [EVERY_MEM, MEM_MAP, PULL_EXISTS]
 QED
 
+Theorem eval_lit_qinterv_ll_lr_eq[local]:
+  (∀lit.
+     eval_lit (pair_state (pair_state s₀ s₁) s₂) (qinterv_ll_lr interv circ)
+       (qinterv_lit (INL ∘ INL) (INL ∘ INL) (INL ∘ INR) interv lit)
+     ⇔
+     eval_lit (pair_state s₀ s₁) (qinterv_l_r interv circ)
+       (qinterv_lit INL INL INR interv lit)) ∧
+  (∀a.
+     eval_circuit (pair_state (pair_state s₀ s₁) s₂)
+       (qinterv_ll_lr interv circ) a ⇔
+     eval_circuit (pair_state s₀ s₁) (qinterv_l_r interv circ) a)
+Proof
+  Induct_on ‘circ’ >> rw []
+  >> PairCases_on ‘s₀’ >> PairCases_on ‘s₁’ >> PairCases_on ‘s₂’
+  >-
+   (simp [qinterv_ll_lr_def, qinterv_l_r_def, qinterv_def]
+    >> namedCases_on ‘lit’ ["v b"]
+    >> Cases_on ‘v’
+    >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def, pair_state_def]
+    >> CASE_TAC
+    >> simp [eval_circuit_def]
+    >> rename1 ‘bvar_map _ _ base’
+    >> Cases_on ‘base’
+    >> simp [bvar_map_def])
+  >- simp [qinterv_ll_lr_def, qinterv_l_r_def, qinterv_def]
+  >-
+   (simp [qinterv_ll_lr_cons, qinterv_l_r_cons]
+    >> namedCases_on ‘lit’ ["v b"]
+    >> Cases_on ‘v’
+    >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def]
+    >-
+     (reverse CASE_TAC
+      >- simp [eval_circuit_def, pair_state_def]
+      >> simp [eval_circuit_def]
+      >> rpt (pairarg_tac >> gvs [])
+      >> IF_CASES_TAC >> gvs []
+      >> IF_CASES_TAC >> gvs []
+      >> gvs [oneline qinterv_and_def, AllCaseEqs()]
+      >> simp [EVERY_MEM, MEM_MAP, PULL_EXISTS])
+    >> rename1 ‘Base base’
+    >> Cases_on ‘base’
+    >> simp [bvar_map_def]
+    >> CASE_TAC >> gvs [eval_circuit_def]
+    >> gvs [pair_state_def])
+  >> rename1 ‘qinterv_ll_lr _ (h::_)’
+  >> Cases_on ‘h’
+  >> simp [qinterv_ll_lr_cons, qinterv_l_r_cons]
+  >> simp [qinterv_and_def, eval_circuit_def]
+  >> IF_CASES_TAC >> gvs []
+  >> simp [EVERY_MEM, MEM_MAP, PULL_EXISTS]
+QED
+
 Theorem lives_hold_r_l_eq[local]:
   lives_hold (pair_state s₀ s₁)
     (qinterv_r_l interv wcirc) (qinterv_live_r_l interv wlive)
@@ -1876,6 +2102,19 @@ Proof
         EXISTS_MEM, EVERY_MEM, MEM_MAP, PULL_EXISTS]
 QED
 
+Theorem lives_hold_ll_lr_eq[local]:
+  lives_hold (pair_state (pair_state s₀ s₁) s₂)
+    (qinterv_ll_lr interv wcirc) (qinterv_live_ll_lr interv wlive)
+  ⇔
+  lives_hold (pair_state s₀ s₁)
+    (qinterv_l_r interv wcirc) (qinterv_live_l_r interv wlive)
+Proof
+  simp [lives_hold_def, some_signal_holds_def,
+        qinterv_live_ll_lr_def, qinterv_live_l_r_def, qinterv_live_def,
+        preds_hold_def, eval_lit_qinterv_ll_lr_eq,
+        EVERY_MEM, EXISTS_MEM, MEM_MAP, PULL_EXISTS]
+QED
+
 Theorem lives_hold_lr_r_eq[local]:
   lives_hold (pair_state (pair_state s₀ s₁) s₂)
     (qinterv_lr_r interv wcirc) (qinterv_live_lr_r interv wlive)
@@ -1892,18 +2131,71 @@ Proof
         EXISTS_MEM, EVERY_MEM, MEM_MAP, PULL_EXISTS]
 QED
 
+Theorem FLAT_qinterv_live_flip[local]:
+  FLAT (qinterv_live_lr_r interv wlive) =
+    MAP (qinterv_lit (INL ∘ INR) (INL ∘ INR) INR interv) (FLAT wlive)
+  ∧
+  FLAT (qinterv_live_l_r interv wlive) =
+    MAP (qinterv_lit INL INL INR interv) (FLAT wlive)
+  ∧
+  FLAT (qinterv_live_ll_lr interv wlive) =
+    MAP (qinterv_lit (INL ∘ INL) (INL ∘ INL) (INL ∘ INR) interv) (FLAT wlive)
+Proof
+  simp [qinterv_live_lr_r_def, qinterv_live_def, qinterv_live_l_r_def,
+        qinterv_live_ll_lr_def,
+        GSYM MAP_FLAT]
+QED
+
+Theorem signal_imply_right_lr_r_eq[local]:
+  signal_imply ss circ
+    (pair_state (pair_state s₀ s₁) s₂)
+    (qinterv_lr_r interv wcirc)
+    signals
+    (FLAT (qinterv_live_lr_r interv wlive))
+  ⇔
+  signal_imply ss circ (pair_state s₁ s₂) (qinterv_l_r interv wcirc)
+    signals (FLAT (qinterv_live_l_r interv wlive))
+Proof
+  simp [signal_imply_def, FLAT_qinterv_live_flip, LIST_REL_EL_EQN]
+  >> eq_tac >> rw []
+  >> gvs [Req0 EL_MAP, preds_hold_def, eval_lit_qinterv_lr_r_eq]
+QED
+
+Theorem signal_imply_left_ll_lr_eq[local]:
+  signal_imply
+    (pair_state (pair_state s₀ s₁) s₂)
+    (qinterv_ll_lr interv wcirc)
+    ss circ
+    (FLAT (qinterv_live_ll_lr interv wlive))
+    signals
+  ⇔
+  signal_imply (pair_state s₀ s₁) (qinterv_l_r interv wcirc) ss circ
+    (FLAT (qinterv_live_l_r interv wlive)) signals
+Proof
+  simp [signal_imply_def, FLAT_qinterv_live_flip, LIST_REL_EL_EQN]
+  >> eq_tac >> rw []
+  >> gvs [Req0 EL_MAP, preds_hold_def, eval_lit_qinterv_ll_lr_eq]
+QED
+
+Theorem FLAT_MAP_name_lits_flip[local]:
+  FLAT (MAP ileft_name_lits xs) = ileft_name_lits (FLAT xs) ∧
+  FLAT (MAP iright_name_lits xs) = iright_name_lits (FLAT xs)
+Proof
+  simp [ileft_name_lits_def, iright_name_lits_def, GSYM MAP_FLAT]
+QED
+
 (* Main encoder theorems ******************************************************)
 
 Theorem eval_circuit_encode_is_witness_reset:
   (¬∃ss.
-     (eval_circuit ss
-       (encode_is_witness_reset
-          mcirc mreset mcnstrs mlatches
-          wcirc wreset wcnstrs wlatches)
-       (Named (Ext «reset»)))) =
+      (eval_circuit ss
+                    (encode_is_witness_reset
+                     mcirc mreset mcnstrs mlatches
+                     wcirc wreset wcnstrs wlatches)
+                    (Named (Ext «reset»)))) =
   is_witness_reset
-    mcirc mreset mnext mpreds (set mcnstrs) (set mlatches)
-    wcirc wreset wnext wpreds (set wcnstrs) (set wlatches)
+  mcirc mreset mnext mpreds (set mcnstrs) (set mlatches)
+  wcirc wreset wnext wpreds (set wcnstrs) (set wlatches)
 Proof
   simp [
       is_witness_reset_def, encode_is_witness_reset_def,
@@ -1929,7 +2221,7 @@ Proof
   simp [
       encode_is_witness_transition_def,
       eval_circuit_encode_imply,
-      encode_is_next_def,
+      encode_is_next_def, encode_is_next_with_def,
       eval_lit_encode_equiv_Named,
       eval_lit_encode_preds_hold_Named,
       FORALL_PAIR_STATE,
@@ -2006,7 +2298,7 @@ Proof
       eval_circuit_encode_imply,
       eval_lit_encode_preds_hold_Named,
       eval_lit_encode_equiv_Named,
-      encode_is_next_def,
+      encode_is_next_def, encode_is_next_with_def,
       eval_lit_base,
       is_witness_step_def, is_next_def,
       FORALL_PAIR_STATE,
@@ -2036,7 +2328,7 @@ Proof
   >> simp [
       encode_is_witness_liveness_def,
       eval_circuit_encode_imply,
-      encode_is_next_def, is_next_def,
+      encode_is_next_def, encode_is_next_with_def, is_next_def,
       is_witness_liveness_def, lives_imply_signal_imply_FLAT,
       eval_lit_encode_preds_hold_Named,
       eval_lit_encode_equiv_Named,
@@ -2086,7 +2378,7 @@ Proof
       eval_circuit_encode_imply,
       eval_lit_encode_preds_hold_Named,
       eval_lit_encode_equiv_Named,
-      encode_is_next_def,
+      encode_is_next_def, encode_is_next_with_def,
       eval_lit_base,
       is_witness_decrease_def,
       is_next_def,
@@ -2118,7 +2410,7 @@ Proof
       eval_circuit_encode_imply,
       eval_lit_encode_preds_hold_Named,
       eval_lit_encode_equiv_Named,
-      encode_is_next_def,
+      encode_is_next_def, encode_is_next_with_def,
       eval_lit_base,
       is_witness_closure_def, is_next_def,
       FORALL_PAIR_STATE,
@@ -2135,4 +2427,62 @@ Proof
   >> simp [Abbr ‘wlive₀’, Abbr ‘wlive₁’]
   >> simp [lives_hold_ll_r_eq, lives_hold_lr_r_eq]
   >> metis_tac []
+QED
+
+Theorem eval_circuit_encode_is_witness_consistent:
+  (¬∃ss.
+     (eval_circuit ss
+       (encode_is_witness_consistent
+          wcirc wnext wcnstrs wpreds wlive wlatches interv)
+       (Named (Ext «consistent»)))) =
+  is_witness_consistent
+    wcirc wreset wnext (set wpreds) (set wcnstrs)
+    (qinterv_l_r interv wcirc) (qinterv_live_l_r interv wlive) (set wlatches)
+Proof
+  simp [
+      encode_is_witness_consistent_def,
+      eval_circuit_encode_imply,
+      encode_is_next_with_def,
+      encode_is_next_def,
+      eval_lit_encode_equiv_Named,
+      eval_lit_encode_preds_hold_Named,
+      eval_lit_base, is_next_def,
+      is_witness_consistent_def,
+      FORALL_PAIR_STATE,
+      EXISTS_MEM, MEM_MAP, PULL_EXISTS
+    ]
+  >> qmatch_goalsub_abbrev_tac
+     ‘encode_signal_imply _ _ (FLAT wlive₀) (FLAT wlive₁)’
+  >> sg ‘LIST_REL (λws ws'. LENGTH ws = LENGTH ws') wlive₀ wlive₁’
+  >-
+   (unabbrev_all_tac
+    >> simp [LIST_REL_EL_EQN, qinterv_live_ll_lr_def, qinterv_live_lr_r_def,
+             qinterv_live_def, ileft_name_lits_def, iright_name_lits_def,
+             EL_MAP])
+  >> sg ‘EVERY (EVERY (λx. iname x = 0)) wlive₀ ∧
+         EVERY (EVERY (λx. iname x = 0)) wlive₁’
+  >-
+   (simp [Abbr ‘wlive₀’, Abbr ‘wlive₁’, EVERY_MEM, MEM_MAP, PULL_EXISTS,
+          ileft_name_lits_def, iright_name_lits_def])
+  >> qmatch_goalsub_abbrev_tac ‘encode_signal_imply _ _ signals' signals’
+  >> sg ‘LENGTH signals' = LENGTH signals’
+  >-
+   (simp [Abbr ‘signals'’, Abbr ‘signals’, iright_name_lits_def,
+          ileft_name_lits_def]
+    >> drule LIST_REL_LENGTH_FLAT >> simp [])
+  >> sg ‘EVERY (λx. iname x = 0) signals ∧ EVERY (λx. iname x = 0) signals'’
+  >-
+   (unabbrev_all_tac
+    >> simp [EVERY_MEM, MEM_FLAT, MEM_MAP, ileft_name_lits_def,
+             iright_name_lits_def, PULL_EXISTS])
+  >> simp [Req0 eval_lit_encode_lives_hold_Named]
+  >> simp [Req0 eval_lit_encode_signal_imply_Name]
+  >> unabbrev_all_tac
+  >> simp [lives_hold_lr_r_eq, lives_imply_signal_imply_FLAT]
+  >> qmatch_goalsub_abbrev_tac ‘LIST_REL _ xs _’
+  >> sg ‘LIST_REL (λQ Q'. LENGTH Q = LENGTH Q') xs xs’
+  >- simp [LIST_REL_EL_EQN]
+  >> simp [FLAT_MAP_name_lits_flip, signal_imply_right_lr_r_eq,
+           lives_hold_ll_lr_eq, signal_imply_left_ll_lr_eq]
+  >> simp [IMP_DISJ_THM]
 QED
