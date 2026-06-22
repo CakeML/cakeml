@@ -512,8 +512,8 @@ Definition cencode_circuit_def:
   if n = 0 then (Nil, ec) else
   let (xs, ec') =
     fold_cenc
-      (λj ec'. fold_cenc (λX ec. cencode_full_eq bnd X (&j) ec) Xs ec')
-      (COUNT_LIST n)
+      (λX ec'. fold_cenc (λj ec. cencode_full_eq bnd X (&j) ec) (COUNT_LIST n) ec')
+      Xs
       ec
   in
     (Append xs (cencode_circuit_aux bnd Xs name), ec')
@@ -553,7 +553,20 @@ Theorem cencode_circuit_sem:
   cencode_circuit bnd Xs name ec = (es, ec') ⇒
   enc_rel wi es (encode_circuit bnd Xs name) ec ec'
 Proof
-  cheat
+  simp[cencode_circuit_def,encode_circuit_def]>>
+  IF_CASES_TAC>>
+  rw[]>>
+  gvs[AllCaseEqs(),UNCURRY_EQ]>>
+  irule enc_rel_Append>>
+  irule_at Any enc_rel_abstr>>
+  irule_at Any enc_rel_fold_cenc>>
+  pop_assum (fn thm => irule_at Any thm)>>
+  rw[]>>
+  simp[GSYM MAP_COUNT_LIST]>>
+  irule_at Any enc_rel_fold_cenc>>
+  pop_assum (fn thm => irule_at Any thm)>>
+  rw[]>>
+  simp[enc_rel_encode_full_eq]
 QED
 
 Theorem encode_circuit_sem_1:
