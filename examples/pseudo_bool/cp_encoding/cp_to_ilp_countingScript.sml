@@ -1022,6 +1022,121 @@ Proof
   simp[enc_rel_encode_eq_grid]
 QED
 
+(* GlobalCardinality Xs vs Cs clsd:
+   per cover value vs[j], a reified-sum equality  Σ_i [Xi = vs[j]] = Cs[j];
+   when `clsd`, additionally each Xi ∈ vs (per-variable membership).
+   The [Xi = v] eq-atoms are shared/registered once via the eq-grid. *)
+
+(* count line per cover value, walking vs/Cs in parallel; j indexes the name *)
+Definition cencode_gcc_counts_def:
+  (cencode_gcc_counts Xs vs Cs name =
+    flat_app
+    (MAPi (λi (v,C).
+      cencode_bitsum (MAP (λX. INL (Eq X v)) Xs) C (name ^ «_» ^ toString i))
+      (ZIP (vs,Cs))))
+End
+
+(* the non-grid part: count lines, plus clsd membership per variable *)
+Definition cencode_global_cardinality_aux_def:
+  cencode_global_cardinality_aux Xs vs Cs clsd name =
+  if LENGTH vs = LENGTH Cs then
+    Append
+      (flat_app
+        (MAPi (λi (v,C).
+          cencode_bitsum (MAP (λX. INL (Eq X v)) Xs) C (name ^ «_» ^ toString i))
+          (ZIP (vs,Cs))))
+      (if clsd then
+         flat_app
+           (MAPi (λi X.
+              List [(SOME (mk_name name (toString i ^ «_al1»)),
+                     at_least_one (MAP (λv. Pos (INL (Eq X v))) vs))]) Xs)
+       else Nil)
+  else
+    cfalse_constr
+End
+
+Definition cencode_global_cardinality_def:
+  cencode_global_cardinality bnd Xs vs Cs clsd name ec =
+  let (xs,ec') = cencode_eq_grid bnd Xs vs ec in
+  (Append xs (cencode_global_cardinality_aux Xs vs Cs clsd name), ec')
+End
+
+Definition encode_global_cardinality_def:
+  encode_global_cardinality bnd Xs vs Cs clsd name =
+  encode_eq_grid bnd Xs vs ++
+  abstr (cencode_global_cardinality_aux Xs vs Cs clsd name)
+End
+
+Theorem cencode_global_cardinality_sem:
+  valid_assignment bnd wi ∧
+  cencode_global_cardinality bnd Xs vs Cs clsd name ec = (es, ec') ⇒
+  enc_rel wi es (encode_global_cardinality bnd Xs vs Cs clsd name) ec ec'
+Proof
+  rw[cencode_global_cardinality_def,encode_global_cardinality_def]>>
+  gvs[AllCaseEqs(),UNCURRY_EQ]>>
+  irule enc_rel_Append>>
+  irule_at Any enc_rel_abstr>>
+  simp[enc_rel_encode_eq_grid]
+QED
+
+Theorem encode_global_cardinality_sem_1:
+  valid_assignment bnd wi ∧
+  global_cardinality_sem Xs vs Cs clsd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
+    (encode_global_cardinality bnd Xs vs Cs clsd name)
+Proof
+  rw[global_cardinality_sem_def,encode_global_cardinality_def]>>
+  simp[reify_avar_def,reify_reif_def]>>
+  simp[cencode_global_cardinality_aux_def]>>
+  reverse IF_CASES_TAC
+  >- fs[LIST_REL_EL_EQN]>>
+  simp[]>>
+  CONJ_TAC
+  >- (
+    simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>rw[]>>
+    DEP_REWRITE_TAC[EL_ZIP]>>
+    fs[LIST_REL_EL_EQN]>>
+    DEP_REWRITE_TAC[encode_bitsum_sem]>>
+    simp[MAP_MAP_o,o_DEF,reify_avar_def,reify_reif_def])
+  >- (
+    rw[]>>gvs[]>>
+    simp[EVERY_MEM,MEM_MAPi,MEM_FLAT,PULL_EXISTS,MEM_MAP,
+      reify_avar_def,reify_reif_def]>>
+    fs[EVERY_EL])
+QED
+
+Theorem encode_global_cardinality_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_global_cardinality bnd Xs vs Cs clsd name) ⇒
+  global_cardinality_sem Xs vs Cs clsd wi
+Proof
+  simp[global_cardinality_sem_def,encode_global_cardinality_def,
+    cencode_global_cardinality_aux_def]>>
+  reverse IF_CASES_TAC
+  >- simp[cfalse_constr_def]>>
+  simp[]>>
+  strip_tac>>
+  CONJ_TAC
+  >- (
+    pop_assum kall_tac>>
+    pop_assum mp_tac>>
+    simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>
+    rw[LIST_REL_EL_EQN]>>
+    first_x_assum drule>>
+    DEP_REWRITE_TAC[EL_ZIP]>>
+    gvs[]>>
+    DEP_REWRITE_TAC[encode_bitsum_sem]>>
+    simp[MAP_MAP_o,o_DEF]>>
+    disch_then sym_sub_tac>>
+    cong_tac NONE>>
+    metis_tac[EL_MEM])>>
+  rw[]>>gvs[]>>
+  pop_assum mp_tac>>
+  simp[EVERY_MEM,MEM_MAPi,MEM_FLAT,PULL_EXISTS,MEM_MAP]>>
+  metis_tac[MEM_EL]
+QED
+
 (* AllEqual: linear chain x1=x2, x2=x3, ... *)
 Definition equal_chain_def:
   (equal_chain i name X [] = []) ∧
@@ -1089,6 +1204,8 @@ Definition encode_counting_constr_def:
   | Count Xs Y Z => encode_count bnd Xs Y Z name
   | Among Xs iS Y => encode_among bnd Xs iS Y name
   | AtMostOne Xs Y => encode_at_most_one bnd Xs Y name
+  | GlobalCardinality Xs vs Cs clsd =>
+      encode_global_cardinality bnd Xs vs Cs clsd name
 End
 
 Theorem encode_counting_constr_sem_1:
@@ -1108,6 +1225,7 @@ Proof
   >- metis_tac[encode_among_sem_1]
   >- metis_tac[encode_in_sem_1]
   >- metis_tac[encode_at_most_one_sem_1]
+  >- metis_tac[encode_global_cardinality_sem_1]
 QED
 
 Theorem encode_counting_constr_sem_2:
@@ -1126,6 +1244,7 @@ Proof
   >- metis_tac[encode_among_sem_2]
   >- metis_tac[encode_in_sem_2]
   >- metis_tac[encode_at_most_one_sem_2]
+  >- metis_tac[encode_global_cardinality_sem_2]
 QED
 
 Definition cencode_counting_constr_def:
@@ -1139,6 +1258,8 @@ Definition cencode_counting_constr_def:
   | Among Xs iS Y => cencode_among bnd Xs iS Y name ec
   | In Xs Y => cencode_in bnd Xs Y name ec
   | AtMostOne Xs Y => (cencode_at_most_one bnd Xs Y name, ec)
+  | GlobalCardinality Xs vs Cs clsd =>
+      cencode_global_cardinality bnd Xs vs Cs clsd name ec
 End
 
 Theorem cencode_counting_constr_sem:
@@ -1156,4 +1277,5 @@ Proof
   >- simp[cencode_among_sem]
   >- simp[cencode_in_sem]
   >- simp[cencode_at_most_one_def,encode_at_most_one_def]
+  >- simp[cencode_global_cardinality_sem]
 QED

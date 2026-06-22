@@ -15,6 +15,7 @@ Ancestors
   cp_to_ilp_lexicographical
   cp_to_ilp_channeling
   cp_to_ilp_misc
+  cp_to_ilp_scheduling
 
 Definition encode_constraint_def:
   encode_constraint bnd c name =
@@ -28,6 +29,7 @@ Definition encode_constraint_def:
   | Lexicographical c => encode_lexicographical_constr bnd c name
   | Channeling c => encode_channeling_constr bnd c name
   | Misc c => encode_misc_constr bnd c name
+  | Scheduling c => encode_scheduling_constr bnd c name
 End
 
 Theorem encode_cp_one_sem_1:
@@ -48,6 +50,7 @@ Proof
   >- metis_tac[encode_lexicographical_constr_sem_1]
   >- metis_tac[encode_channeling_constr_sem_1]
   >- metis_tac[encode_misc_constr_sem_1]
+  >- metis_tac[encode_scheduling_constr_sem_1]
 QED
 
 Theorem encode_cp_one_sem_2:
@@ -66,6 +69,7 @@ Proof
   >- metis_tac[encode_lexicographical_constr_sem_2]
   >- metis_tac[encode_channeling_constr_sem_2]
   >- metis_tac[encode_misc_constr_sem_2]
+  >- metis_tac[encode_scheduling_constr_sem_2]
 QED
 
 (* An actual implementation will avoid duplicates here *)
@@ -114,6 +118,7 @@ Definition cencode_constraint_def:
   | Lexicographical c => cencode_lexicographical_constr bnd c name ec
   | Channeling c => cencode_channeling_constr bnd c name ec
   | Misc c => cencode_misc_constr bnd c name ec
+  | Scheduling c => cencode_scheduling_constr bnd c name ec
 End
 
 Theorem cencode_constraint_sem:
@@ -132,6 +137,7 @@ Proof
   >- metis_tac[cencode_lexicographical_constr_sem]
   >- metis_tac[cencode_channeling_constr_sem]
   >- metis_tac[cencode_misc_constr_sem]
+  >- metis_tac[cencode_scheduling_constr_sem]
 QED
 
 Definition cencode_constraints_def:
