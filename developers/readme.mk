@@ -18,13 +18,9 @@ ifndef README_SOURCES
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
 endif
 
-ifndef README_DIRS
-README_DIRS = $(wildcard */)
-endif
-
 all: README.md
 .PHONY: all
 
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix \
-           $(patsubst %,%readmePrefix,$(README_DIRS)) $(README_SOURCES)
+           $(wildcard */readmePrefix) $(README_SOURCES)
 	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)

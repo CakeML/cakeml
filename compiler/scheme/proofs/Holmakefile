@@ -12,8 +12,6 @@ INCLUDES = $(CAKEMLDIR)/translator \
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 
-# Filter out tests/ (they don't have a readmePrefix)
-README_DIRS = $(patsubst tests/,,$(wildcard */))
 sinclude $(CAKEMLDIR)/developers/readme.mk
 
 ifdef POLY
