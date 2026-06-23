@@ -131,6 +131,8 @@ Definition cnf_to_string_def:
     header ^ clauses
 End
 
+(* TODO Maybe the constant strings «» should be translated once and
+   then reused everywhere (including during encoding)? *)
 Definition make_cert_strings_def:
   make_cert_strings mstr wstr =
   do
@@ -139,17 +141,20 @@ Definition make_cert_strings_def:
      cert_decrease_circ, cert_closure_circ, cert_consistent_circ) <-
       make_cert_aig mstr wstr;
     cnfs <<- [
-        aig_to_cnf cert_reset_circ (Named (Ext «reset»));
-        aig_to_cnf cert_transition_circ (Named (Ext «transition»));
-        aig_to_cnf cert_property_circ (Named (Ext «property»));
-        aig_to_cnf cert_base_circ (Named (Ext «base»));
-        aig_to_cnf cert_step_circ (Named (Ext «step»));
-        aig_to_cnf cert_liveness_circ (Named (Ext «liveness»));
-        aig_to_cnf cert_decrease_circ (Named (Ext «decrease»));
-        aig_to_cnf cert_closure_circ (Named (Ext «closure»));
-        aig_to_cnf cert_consistent_circ (Named (Ext «consistent»));
+        («reset», aig_to_cnf cert_reset_circ (Named (Ext «reset»)));
+        («transition»,
+          aig_to_cnf cert_transition_circ (Named (Ext «transition»)));
+        («property»,
+          aig_to_cnf cert_property_circ (Named (Ext «property»)));
+        («base», aig_to_cnf cert_base_circ (Named (Ext «base»)));
+        («step», aig_to_cnf cert_step_circ (Named (Ext «step»)));
+        («liveness», aig_to_cnf cert_liveness_circ (Named (Ext «liveness»)));
+        («decrease», aig_to_cnf cert_decrease_circ (Named (Ext «decrease»)));
+        («closure», aig_to_cnf cert_closure_circ (Named (Ext «closure»)));
+        («consistent»,
+          aig_to_cnf cert_consistent_circ (Named (Ext «consistent»)));
       ];
-    return (MAP cnf_to_string cnfs)
+    return (MAP (λx. (FST x, cnf_to_string (SND x))) cnfs)
   od
 End
 

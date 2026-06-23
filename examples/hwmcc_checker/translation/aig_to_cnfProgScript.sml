@@ -35,6 +35,9 @@ fun translate_rest i = let
    The general type for circuits is ('α, 'β, 'γ) circuit.
  *)
 
+(* TODO Instead of big types, add type abbreviations and use them everywhere
+   (aig_cert_encode, aig_fmapsProg, here) *)
+
 (*
   For encode_is_witness_reset
 *)
