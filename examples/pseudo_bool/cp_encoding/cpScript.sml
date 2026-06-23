@@ -20,6 +20,18 @@ Definition varc_def:
   | INR c => c
 End
 
+Theorem varc_INL:
+  varc wi (INL y) = wi y
+Proof
+  rw[varc_def]
+QED
+
+Theorem varc_INR:
+  varc wi (INR y) = y
+Proof
+  rw[varc_def]
+QED
+
 Datatype:
   prim_unop = Negative | Abs
 End
@@ -124,6 +136,12 @@ End
 Datatype:
   extensional_constr =
     Table ((int option) list list) ('a varc list)
+    (* Regular vars nstates trans finals :
+       vars (read as a value string) is accepted by the NFA with states
+       0..nstates-1, start state 0, transition relation trans
+       (EL q trans = list of (symbol,target) edges out of state q),
+       and accepting set finals. *)
+  | Regular ('a varc list) num ((int # num) list list) (num list)
 End
 
 Datatype:
@@ -537,10 +555,51 @@ Definition table_sem_def:
   ∃ts. MEM ts tss ∧ match_row ts (MAP (varc w) Xs)
 End
 
+(* the edge list for state q is EL q trans.
+  out-of-bounds qs have no transitions *)
+Definition nfa_edges_def:
+  nfa_edges trans q =
+    if q < LENGTH trans then EL q trans else []
+End
+
+(* nfa accepts a list of values from state q;
+  throughout, we check that states are valid (q < nstates)
+  (v,q') is an outgoing edge from q to q' labeled v. *)
+Definition nfa_accepts_def:
+  (nfa_accepts trans finals nstates q [] ⇔
+    q < nstates ∧ MEM q finals) ∧
+  (nfa_accepts trans finals nstates q (v::vs) ⇔
+     q < nstates ∧
+     ∃q'. MEM (v,q') (nfa_edges trans q) ∧
+          nfa_accepts trans finals nstates q' vs)
+End
+
+(* regular_sem: there exists an accepting run of the NFA over the value
+   string (MAP (varc w) Xs): start in state 0, every step follows an
+   edge, every state is < nstates, and the last state is accepting. *)
+Definition regular_sem_def:
+  regular_sem Xs nstates trans finals w ⇔
+  nfa_accepts trans finals nstates 0 (MAP (varc w) Xs)
+End
+
+(* nfa_run reconstructs a canonical accepting run (proof-only, never
+   translated): starting in state 0, at each index pick a successor state
+   that follows an edge on the i-th value AND from which the remaining
+   string is still accepted. When the string is accepted from state 0,
+   such a successor always exists, so the choice (@) is meaningful. *)
+Definition nfa_run_def:
+  nfa_run trans finals nstates as 0 = 0 ∧
+  nfa_run trans finals nstates as (SUC i) =
+    @q'. MEM (EL i as, q') (nfa_edges trans (nfa_run trans finals nstates as i)) ∧
+         nfa_accepts trans finals nstates q' (DROP (SUC i) as)
+End
+
 Definition extensional_constr_sem_def:
   extensional_constr_sem c w ⇔
-  case c of Table tss Xs =>
-    table_sem tss Xs w
+  case c of
+    Table tss Xs => table_sem tss Xs w
+  | Regular Xs nstates trans finals =>
+      regular_sem Xs nstates trans finals w
 End
 
 (***
@@ -1012,6 +1071,53 @@ Definition cp_inst_sem_concl_def:
     cp_sem_concl (bnd_lookup bnd) (set (MAP SND cs)) pty concl
 End
 
+Theorem FINITE_int_interval[local]:
+  FINITE {i:int | lb ≤ i ∧ i ≤ ub}
+Proof
+  irule SUBSET_FINITE>>
+  qexists_tac`IMAGE (λn. lb + &n) (count (Num (ub - lb) + 1))`>>
+  CONJ_TAC >- (irule IMAGE_FINITE>>simp[])>>
+  simp[SUBSET_DEF,PULL_EXISTS,IN_IMAGE,IN_COUNT]>>
+  rw[]>>
+  qexists_tac`Num (x - lb)`>>
+  `0 ≤ x - lb` by intLib.ARITH_TAC>>
+  `&Num (x - lb) = x - lb` by metis_tac[integerTheory.INT_OF_NUM]>>
+  CONJ_TAC >- intLib.ARITH_TAC>>
+  `Num (x - lb) ≤ Num (ub - lb)` by (
+    irule integerTheory.LE_NUM_OF_INT>>intLib.ARITH_TAC)>>
+  simp[]
+QED
+
+Theorem FINITE_IMAGE_MAP_valid[local]:
+  (∀w. w ∈ ws ⇒ valid_assignment bnd w) ⇒
+  FINITE (IMAGE (λw. MAP w vs) ws)
+Proof
+  Induct_on`vs`>>rw[]
+  >- (
+    irule SUBSET_FINITE>>
+    qexists_tac`{[]}`>>simp[SUBSET_DEF]>>rw[])>>
+  irule SUBSET_FINITE>>
+  qexists_tac`IMAGE (λ(a,l). a::l)
+    (IMAGE (λw. w h) ws CROSS IMAGE (λw. MAP w vs) ws)`>>
+  CONJ_TAC >- (
+    irule IMAGE_FINITE>>
+    irule FINITE_CROSS>>
+    reverse CONJ_TAC
+    >- (first_x_assum irule>>first_assum ACCEPT_TAC)>>
+    irule SUBSET_FINITE>>
+    qexists_tac`{i | FST (bnd h) ≤ i ∧ i ≤ SND (bnd h)}`>>
+    CONJ_TAC >- irule FINITE_int_interval>>
+    simp[SUBSET_DEF,PULL_EXISTS,IN_IMAGE]>>rw[]>>
+    first_x_assum drule>>rw[valid_assignment_def]>>
+    first_x_assum (qspec_then`h` mp_tac)>>
+    Cases_on`bnd h`>>rw[])>>
+  rw[SUBSET_DEF]>>
+  gvs[IN_IMAGE]>>
+  qexists_tac`(w h, MAP w vs)`>>
+  simp[IN_CROSS,IN_IMAGE]>>
+  metis_tac[]
+QED
+
 (* The solution set is FINITE, as long as the
   bound is a function with finite support
   (here, finite support is such that the function is constant
@@ -1020,8 +1126,8 @@ Theorem FINITE_cp_proj_cp_sat:
   FINITE (cp_proj vs {w | cp_sat bnd cs w})
 Proof
   rw[cp_proj_def]>>
-  cheat
-  (* TODO: the projected set is a subset of lists of length = LENGTH vs
-    and where each entry i is bounded by the bounds of the corresponding v. *)
+  irule FINITE_IMAGE_MAP_valid>>
+  qexists_tac`bnd`>>
+  rw[cp_sat_def]
 QED
 

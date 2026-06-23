@@ -463,7 +463,7 @@ Definition cencode_array_max_def:
           mk_annotate
             [mk_name name $ toString i ^ «le»]
             [mk_le X Y]) Xs)) $
-        cat_least_one name $ GENLIST (λi. Pos $ arri name i) (LENGTH Xs)
+        cat_least_one name «» $ GENLIST (λi. Pos $ arri name i) (LENGTH Xs)
 End
 
 Definition encode_array_max_def:
@@ -544,7 +544,7 @@ Definition cencode_array_min_def:
           mk_annotate
             [mk_name name $ toString i ^ «ge»]
             [mk_ge X Y]) Xs)) $
-        cat_least_one name $ GENLIST (λi. Pos $ arri name i) (LENGTH Xs)
+        cat_least_one name «» $ GENLIST (λi. Pos $ arri name i) (LENGTH Xs)
 End
 
 Definition encode_array_min_def:

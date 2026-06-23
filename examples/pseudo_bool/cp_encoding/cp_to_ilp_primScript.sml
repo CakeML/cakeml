@@ -30,7 +30,7 @@ Definition cencode_equal_2_def[simp]:
       (cvar_imply bnd (gtv name) (mk_gt X Y)) $
     Append
       (cvar_imply bnd (ltv name) (mk_lt X Y)) $
-    (cat_least_one name
+    (cat_least_one name «»
       [Pos (ltv name); Pos (gtv name); reif_gen Zc])
 End
 
@@ -106,7 +106,7 @@ Definition cencode_not_equal_2_def[simp]:
     (cbimply_var bnd (gtv name) (mk_gt X Y)) $
   Append
     (cbimply_var bnd (ltv name) (mk_lt X Y)) $
-  (cat_least_one name
+  (cat_least_one name «»
       [Pos (ltv name); Pos (gtv name); negate (reif_gen Zc)])
 End
 
@@ -447,7 +447,7 @@ Definition cencode_min_def:
       (mk_annotate
       [mk_name name («lge»); mk_name name («rge»)]
       [mk_ge X Z; mk_ge Y Z])) $
-  cat_least_one name [Pos lle; Pos rle]
+  cat_least_one name «» [Pos lle; Pos rle]
 End
 
 Definition encode_min_def:
@@ -491,7 +491,7 @@ Definition cencode_max_def:
       (mk_annotate
       [mk_name name («lle»); mk_name name («rle»)]
       [mk_le X Z; mk_le Y Z])) $
-  cat_least_one name [Pos lge; Pos rge]
+  cat_least_one name «» [Pos lge; Pos rge]
 End
 
 Definition encode_max_def:

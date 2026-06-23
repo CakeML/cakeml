@@ -136,6 +136,8 @@ Definition reify_flag_def:
       ODD (SUM $ MAP (λZ. if varc wi Z > 0 then 1n else 0n) (TAKE (HD ids + 1) (Y::Xs)))
     | SOME (Extensional (Table tss Xs)) =>
       match_row (EL (HD ids) tss) (MAP (varc wi) Xs)
+    | SOME (Extensional (Regular Xs nstates trans finals)) =>
+      (nfa_run trans finals nstates (MAP (varc wi) Xs) (EL 0 ids) = EL 1 ids)
     | SOME (Lexicographical (Lex Zr cmp Xs Ys)) =>
       if ann = SOME («pref»)
       then
@@ -147,6 +149,26 @@ Definition reify_flag_def:
       else (* ann = SOME («inc») *)
         (∀j. j < HD ids ⇒ varc wi (EL j Xs) = varc wi (EL j Ys)) ∧
         varc wi (EL (HD ids) Xs) < varc wi (EL (HD ids) Ys)
+    | SOME (Scheduling (Disjunctive xs ws strct)) =>
+      if ann = SOME («bf»)
+      then (* before: task (EL 0 ids) finishes at/before task (EL 1 ids) starts *)
+        varc wi (EL (EL 0 ids) xs) + varc wi (EL (EL 0 ids) ws) ≤
+        varc wi (EL (EL 1 ids) xs)
+      else (* ann = SOME («zw») : task (HD ids) has zero width *)
+        varc wi (EL (HD ids) ws) ≤ 0
+    | SOME (Scheduling (Disjunctive2D xs ys ws hs strct)) =>
+      if ann = SOME («bx»)
+      then (* before on x: task (EL 0 ids) left of task (EL 1 ids) *)
+        varc wi (EL (EL 0 ids) xs) + varc wi (EL (EL 0 ids) ws) ≤
+        varc wi (EL (EL 1 ids) xs)
+      else if ann = SOME («by»)
+      then (* before on y: task (EL 0 ids) below task (EL 1 ids) *)
+        varc wi (EL (EL 0 ids) ys) + varc wi (EL (EL 0 ids) hs) ≤
+        varc wi (EL (EL 1 ids) ys)
+      else if ann = SOME («zw») (* task (HD ids) has zero width *)
+      then varc wi (EL (HD ids) ws) ≤ 0
+      else (* ann = SOME («zh») : task (HD ids) has zero height *)
+        varc wi (EL (HD ids) hs) ≤ 0
     )
   | Flag ann =>
     (case ALOOKUP cs name of
@@ -1412,9 +1434,9 @@ Definition at_least_one_def:
 End
 
 Definition cat_least_one_def:
-  cat_least_one name ls =
+  cat_least_one name pref ls =
     List [
-      (SOME (mk_name name («al1»)),
+      (SOME (mk_name name (pref ^ «al1»)),
         at_least_one ls)]
 End
 
@@ -1427,7 +1449,7 @@ Proof
 QED
 
 Theorem abstr_cat_least_one[simp]:
-  abstr (cat_least_one name ls) = [at_least_one ls]
+  abstr (cat_least_one name pref ls) = [at_least_one ls]
 Proof
   rw[cat_least_one_def]
 QED
@@ -1439,9 +1461,9 @@ Definition at_most_one_def:
 End
 
 Definition cat_most_one_def:
-  cat_most_one name ls =
+  cat_most_one name pref ls =
     List [
-      (SOME (mk_name name («am1»)),
+      (SOME (mk_name name (pref ^ «am1»)),
         at_most_one ls)]
 End
 
@@ -1455,7 +1477,7 @@ Proof
 QED
 
 Theorem abstr_cat_most_one[simp]:
-  abstr (cat_most_one name ls) = [at_most_one ls]
+  abstr (cat_most_one name pref ls) = [at_most_one ls]
 Proof
   rw[cat_most_one_def]
 QED

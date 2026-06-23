@@ -337,11 +337,68 @@ Definition sexp_table_body_def:
     | _ => fail («table expects 2 args: rows (X1 ... Xn)\n»)
 End
 
-(* Extensional: table (for now). Returns NONE when ctype is not an
+(* Regular (NFA) body: (X1 ... Xn) nstates ((edges_0)...(edges_{S-1})) (f1 ... fk)
+   where edges_q is a list of (symbol target) pairs out of state q. *)
+Definition sexp_num_def:
+  sexp_num e =
+  case e of
+    Atom s =>
+    (case mlint$fromString s of
+       SOME (i:int) =>
+         (if i < 0 then fail («expected nonnegative integer, got: » ^ s ^ «\n»)
+          else return (Num i))
+     | NONE => fail («expected nonnegative integer, got: » ^ s ^ «\n»))
+  | _ => fail («expected nonnegative integer atom\n»)
+End
+
+Definition sexp_num_list_def:
+  sexp_num_list e =
+    sexp_list_of («expected s-expression list of nats\n») sexp_num e
+End
+
+Definition sexp_reg_edge_def:
+  sexp_reg_edge e =
+  case e of
+    Expr [sym_e; tgt_e] =>
+    (do
+       sym <- sexp_int sym_e;
+       tgt <- sexp_num tgt_e;
+       return (sym,tgt)
+     od)
+  | _ => fail («regular edge expects (symbol target)\n»)
+End
+
+Definition sexp_reg_edges_def:
+  sexp_reg_edges e =
+    sexp_list_of («expected list of regular edges\n») sexp_reg_edge e
+End
+
+Definition sexp_reg_trans_def:
+  sexp_reg_trans e =
+    sexp_list_of («expected per-state list of regular edge lists\n»)
+      sexp_reg_edges e
+End
+
+Definition sexp_regular_body_def:
+  sexp_regular_body rest =
+    case rest of
+      [vars_e; nstates_e; trans_e; finals_e] =>
+      (do
+         vars <- sexp_varc_list vars_e;
+         nstates <- sexp_num nstates_e;
+         trans <- sexp_reg_trans trans_e;
+         finals <- sexp_num_list finals_e;
+         return (Extensional (Regular vars nstates trans finals))
+       od)
+    | _ => fail («regular expects 4 args: (X1 ... Xn) nstates ((edges)...) (f1 ... fk)\n»)
+End
+
+(* Extensional: table, regular. Returns NONE when ctype is not an
    extensional constraint, so the top-level dispatcher can fall through. *)
 Definition sexp_extensional_dispatch_def:
   sexp_extensional_dispatch ctype rest =
     if ctype = «table» then SOME (sexp_table_body rest)
+    else if ctype = «regular» then SOME (sexp_regular_body rest)
     else NONE
 End
 
@@ -734,16 +791,15 @@ Definition sexp_cumulative_body_def:
     | _ => fail («cumulative expects 4 args: (x1 ... xn) (w1 ... wn) (h1 ... hn) cap\n»)
 End
 
+(* cumulative is intentionally NOT dispatched here: its encoder is a
+   recognized-but-rejected reject-stub whose soundness is cheated. *)
 Definition sexp_scheduling_dispatch_def:
   sexp_scheduling_dispatch ctype rest =
-    (* TODO: enable when encodings are implemented .
-    if ctype = «disjunctive»          then SOME (sexp_disjunctive_body F rest)
+    if ctype = «disjunctive»               then SOME (sexp_disjunctive_body F rest)
     else if ctype = «disjunctive_strict»   then SOME (sexp_disjunctive_body T rest)
     else if ctype = «disjunctive2d»        then SOME (sexp_disjunctive2d_body F rest)
     else if ctype = «disjunctive2d_strict» then SOME (sexp_disjunctive2d_body T rest)
-    else if ctype = «cumulative»           then SOME (sexp_cumulative_body rest)
     else NONE
-    *) NONE
 End
 
 Definition sexp_constraint_dispatch_def:
@@ -772,11 +828,9 @@ Definition sexp_constraint_dispatch_def:
     case sexp_misc_dispatch ctype rest of
       SOME res => res
     | NONE =>
-    (* scheduling DISABLED — encoders are reject-stubs only:
     case sexp_scheduling_dispatch ctype rest of
       SOME res => res
     | NONE =>
-    *)
     sexp_prim_dispatch ctype rest
 End
 
@@ -927,6 +981,55 @@ Theorem test_table:
   sexp_constraint_dispatch («table»)
     (fromStringL («(((1 2)))»)) =
     INL («table expects 2 args: rows (X1 ... Xn)\n»)
+Proof
+  EVAL_TAC
+QED
+
+Theorem test_regular:
+  (* DFA: 2 states, vars A B, accept in state 1 *)
+  sexp_constraint_dispatch («regular»)
+    (fromStringL («((A B) 2 (((1 1)) ((1 1))) (1))»)) =
+    INR (Extensional (Regular [INL «A»; INL «B»] 2 [[(1,1)]; [(1,1)]] [1])) ∧
+  (* NFA: multi-target edge, mixed var/const, empty edge list for a state,
+     multiple finals *)
+  sexp_constraint_dispatch («regular»)
+    (fromStringL («((A 3) 3 (((1 1) (1 2)) () ((0 0))) (1 2))»)) =
+    INR (Extensional (Regular [INL «A»; INR 3] 3
+           [[(1,1); (1,2)]; []; [(0,0)]] [1; 2])) ∧
+  (* empty automaton body is well-formed *)
+  sexp_constraint_dispatch («regular»)
+    (fromStringL («(() 1 () ())»)) =
+    INR (Extensional (Regular [] 1 [] [])) ∧
+  (* wrong arity *)
+  sexp_constraint_dispatch («regular»)
+    (fromStringL («((A) 2)»)) =
+    INL («regular expects 4 args: (X1 ... Xn) nstates ((edges)...) (f1 ... fk)\n»)
+Proof
+  EVAL_TAC
+QED
+
+Theorem test_scheduling:
+  (* disjunctive, non-strict: tasks (A B C) with variable widths (W1 2 1) *)
+  sexp_constraint_dispatch («disjunctive»)
+    (fromStringL («((A B C) (W1 2 1))»)) =
+    INR (Scheduling (Disjunctive [INL «A»; INL «B»; INL «C»]
+           [INL «W1»; INR 2; INR 1] F)) ∧
+  (* disjunctive_strict sets the strict flag *)
+  sexp_constraint_dispatch («disjunctive_strict»)
+    (fromStringL («((A B) (1 1))»)) =
+    INR (Scheduling (Disjunctive [INL «A»; INL «B»] [INR 1; INR 1] T)) ∧
+  (* disjunctive2d, non-strict: x,y positions and w,h sizes *)
+  sexp_constraint_dispatch («disjunctive2d»)
+    (fromStringL («((A B) (C D) (2 2) (3 1))»)) =
+    INR (Scheduling (Disjunctive2D [INL «A»; INL «B»] [INL «C»; INL «D»]
+           [INR 2; INR 2] [INR 3; INR 1] F)) ∧
+  (* disjunctive2d_strict *)
+  sexp_constraint_dispatch («disjunctive2d_strict»)
+    (fromStringL («((A) (B) (1) (1))»)) =
+    INR (Scheduling (Disjunctive2D [INL «A»] [INL «B»] [INR 1] [INR 1] T)) ∧
+  (* cumulative is NOT dispatched: falls through to prim (unknown) and fails *)
+  ISL (sexp_constraint_dispatch («cumulative»)
+    (fromStringL («((A) (1) (1) 5)»)))
 Proof
   EVAL_TAC
 QED

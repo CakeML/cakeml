@@ -46,7 +46,7 @@ Definition cencode_lin_equal_2_def[simp]:
       (cvar_imply bnd (gtv name) (mk_lin_gt cXs Y)) $
     Append
       (cvar_imply bnd (ltv name) (mk_lin_lt cXs Y)) $
-    (cat_least_one name
+    (cat_least_one name «»
       [Pos (ltv name); Pos (gtv name); reif_gen Zc])
 End
 
@@ -122,7 +122,7 @@ Definition cencode_lin_not_equal_2_def[simp]:
     (cbimply_var bnd (gtv name) (mk_lin_gt cXs Y)) $
   Append
     (cbimply_var bnd (ltv name) (mk_lin_lt cXs Y)) $
-  (cat_least_one name
+  (cat_least_one name «»
       [Pos (ltv name); Pos (gtv name); negate (reif_gen Zc)])
 End
 

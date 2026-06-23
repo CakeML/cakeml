@@ -720,7 +720,7 @@ Definition cencode_in_def:
     MAP (λc. Pos (INL (Eq Y c))) Xsc in
   (Append cs_enc
     (Append (cencode_count_aux bnd Xsv Y name)
-            (cat_least_one name (var_lits ++ con_lits))), ec')
+            (cat_least_one name «» (var_lits ++ con_lits))), ec')
 End
 
 Definition encode_in_def:
@@ -748,7 +748,7 @@ Definition cencode_at_most_one_def:
   cencode_at_most_one bnd Xs Y name =
   Append
     (cencode_count_aux bnd Xs Y name)
-    (cat_most_one name (GENLIST (λi. Pos $ eqi name i («eq»)) (LENGTH Xs)))
+    (cat_most_one name «» (GENLIST (λi. Pos $ eqi name i («eq»)) (LENGTH Xs)))
 End
 
 Definition encode_at_most_one_def:
@@ -1048,8 +1048,8 @@ Definition cencode_global_cardinality_aux_def:
       (if clsd then
          flat_app
            (MAPi (λi X.
-              List [(SOME (mk_name name (toString i ^ «_al1»)),
-                     at_least_one (MAP (λv. Pos (INL (Eq X v))) vs))]) Xs)
+              cat_least_one name (toString i ^ «_»)
+                (MAP (λv. Pos (INL (Eq X v))) vs)) Xs)
        else Nil)
   else
     cfalse_constr
