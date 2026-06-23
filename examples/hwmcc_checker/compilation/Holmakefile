@@ -1,4 +1,4 @@
-INCLUDES = $(CAKEMLDIR)/misc ../ $(CAKEMLDIR)/cv_translator
+INCLUDES = $(CAKEMLDIR)/misc ../translation $(CAKEMLDIR)/cv_translator
 
 all: $(DEFAULT_TARGETS) README.md cake_tiger
 .PHONY: all

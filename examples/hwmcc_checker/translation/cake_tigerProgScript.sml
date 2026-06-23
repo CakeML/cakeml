@@ -5,7 +5,7 @@ Theory cake_tigerProg
 Ancestors
   aig_cert_fullProg
 Libs
-  preamble (* ml_translatorLib  *)basisFunctionsLib
+  preamble ml_translatorLib basisFunctionsLib
 
 val _ = translation_extends "aig_cert_fullProg";
 
@@ -39,10 +39,11 @@ Quote add_cakeml:
     None => TextIO.output TextIO.stdErr "cannot read witness file\n"
   | Some witness =>
   case make_cert_strings model witness of
-    error (msg, _) => TextIO.output TextIO.stdErr msg
-  | return certs => let
+    Error (msg, _) => TextIO.output TextIO.stdErr msg
+  | Return certs => let
       fun write (name, cert) = let
-        val oname = case prefix of None => name | Some pfx => pfx ^ name
+        val oname =
+          (case prefix of None => name | Some pfx => pfx ^ name) ^ ".cnf"
         val ostrm = TextIO.openOut oname
         val _     = TextIO.output ostrm cert
         in TextIO.closeOut ostrm end
