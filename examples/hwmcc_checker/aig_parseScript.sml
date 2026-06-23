@@ -10,8 +10,6 @@ Libs
 val _ = monadsyntax.enable_monadsyntax();
 val _ = monadsyntax.enable_monad "error";
 
-(* TODO Add intervention default *)
-
 (* Types **********************************************************************)
 
 Datatype:
@@ -511,7 +509,7 @@ Definition shared_lit_def:
               most likely wrong: it will convert a raw literal into what would
               be a gate in the model, but downstream will understand it as a
               gate in the witness, as we assume the gate namespaces of model
-              and witnes to be separate. *)
+              and witness to be separate. *)
          (* b ≠ b': negate iff original or replacement is negated *)
          let (v, b') = convert_lit micnt max_latch lit in (v, b ≠ b'))
     | Base (Latch l) =>
@@ -561,13 +559,28 @@ Definition shared_circuit_def:
     MAP (I ## MAP (shared_lit micnt mlcnt iren lren)) circuit
 End
 
+(* Making the intervention map ************************************************)
+
+(* Ultimately, the intervention map possibly maps literals to latches.
+   By default, the next state literals are mapped to the corresponding latch *)
+
+Definition make_interv_def:
+  make_interv micnt mlcnt wicnt wmax_latch iren lren next interv =
+  if isEmpty interv then MAP SWAP next else
+    foldi
+      (λlat lit a.
+         (shared_lit micnt mlcnt iren lren (convert_lit wicnt wmax_latch lit),
+          shared_latch_key micnt mlcnt iren lren lat)::a) 0 []
+      interv
+End
+
 (* Testing ********************************************************************)
 (*
-val model = mlstringSyntax.mlstring_from_file "./examples/01_model.aig";
+val model = mlstringSyntax.mlstring_from_file "./examples/intervention_model.aig";
 val [maig, midx] =
   EVAL “parse_aiger ^model 0” |> concl |> rhs |> rand |> strip_pair;
 
-val witness = mlstringSyntax.mlstring_from_file "./examples/06_witness.aig";
+val witness = mlstringSyntax.mlstring_from_file "./examples/intervention_witness_inputs.aig";
 val [waig, wmaps, midx] =
   EVAL “parse_aiger_and_symbols ^witness 0”
     |> concl |> rhs |> rand |> strip_pair;
@@ -577,5 +590,13 @@ val witness' =
         ^(maig).counts.inputs ^(maig).counts.latches
         ^(wmaps).shared_inputs ^(wmaps).shared_latches
         ^waig.circuit”
+    |> concl |> rhs
+
+val interv =
+  EVAL “make_interv
+        ^(maig).counts.inputs ^(maig).counts.latches
+        ^(waig).counts.inputs (^(waig).counts.inputs + ^(waig).counts.latches)
+        ^(wmaps).shared_inputs ^(wmaps).shared_latches
+        ^(waig).next ^(wmaps).intervened_latches”
     |> concl |> rhs
 *)

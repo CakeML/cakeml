@@ -9,7 +9,6 @@ Libs
   preamble
 
 (* TODO wlatches might have duplicates after applying the shared latches map? *)
-(* TODO Do we need to apply the shared maps to the intervention map as well?  *)
 
 Definition make_cert_cnf_def:
   make_cert_cnf mstr wstr =
@@ -43,7 +42,8 @@ Definition make_cert_cnf_def:
     wcirc <<- shared_circuit micnt mlcnt iren lren waig.circuit;
     wreset <<- fromAList (shared_latches micnt mlcnt iren lren waig.reset);
     wreset <<- (λl. lookup l wreset);
-    wnext <<- fromAList (shared_latches micnt mlcnt iren lren waig.next);
+    wnext_alist <<- shared_latches micnt mlcnt iren lren waig.next;
+    wnext <<- fromAList wnext_alist;
     wnext  <<- (λl. case lookup l wnext of
                     | SOME lit => lit
                     | NONE => (Base Ff, F));
@@ -55,6 +55,9 @@ Definition make_cert_cnf_def:
     wlatches <<-
       GENLIST (λk. shared_latch_key micnt mlcnt iren lren (wlatch_start + k))
         wcounts.latches;
+    interv <<-
+      make_interv micnt mlcnt wicnt wmax_latch iren lren wnext_alist
+        (maps.intervened_latches);
     (* encode certificate conditions as circuits *)
     cert_reset_circ <<-
       encode_is_witness_reset mcirc mreset mcnstrs mlatches wcirc wreset
@@ -68,6 +71,12 @@ Definition make_cert_cnf_def:
       encode_is_witness_base wcirc wreset wcnstrs wpreds wlatches;
     cert_step_circ <<-
       encode_is_witness_step wcirc wnext wcnstrs wpreds wlatches;
+(*
+    cert_liveness_circ <<-
+      encode_is_witness_liveness
+        mcirc mcnstrs mlive
+        wcirc wnext wcnstrs wpreds wlive wlatches interv;
+*)
     (* encode certificate conditions in conjunctive normal form *)
     cert_reset_cnf <<- aig_to_cnf cert_reset_circ (Named (Ext «reset»));
     cert_transition_cnf <<- aig_to_cnf cert_transition_circ (Named (Ext «transition»));
