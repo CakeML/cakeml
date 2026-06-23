@@ -19,6 +19,11 @@ Type ty3[local] = “:num iext”;
 Type ty4[local] = “:(num + num) iext”;
 Type ty5[local] = “:(num iext + num iext) iext”;
 Type ty6[local] = “:((num + num) iext + (num + num) iext) iext”;
+Type ty7[local] = “:(ty6 + ty4) iext”
+Type ty8[local] = “:(ty5 + ty3) iext”
+Type ty9[local] = “:(((ty8 + ty3) iext) + ty3) iext”
+Type ty10[local] = “:(ty8 + ty4) iext”
+Type ty11[local] = “:(num + num) + num”
 
 (*----------------------------------------------------------------------*
    ty1
@@ -195,6 +200,122 @@ Proof
 QED
 
 (*----------------------------------------------------------------------*
+   ty7
+ *----------------------------------------------------------------------*)
+
+Definition ty7_cmp_def:
+  ty7_cmp = iext_cmp (sum_cmp ty6_cmp ty4_cmp)
+End
+
+Theorem ty7_cmp_eq[local] =
+  ty7_cmp_def
+  |> SRULE [iext_cmp_def, FUN_EQ_THM, ext_cmp_def, num_cmp_def, sum_cmp_def];
+
+val r = translate ty7_cmp_eq;
+
+Theorem TotOrd_ty7:
+  TotOrd (ty7_cmp : ty7 -> ty7 -> ordering)
+Proof
+  rewrite_tac [ty7_cmp_def]
+  \\ irule TotOrd_iext
+  \\ irule TotOrd_sum
+  \\ simp [TotOrd_ty6, TotOrd_ty4]
+QED
+
+(*----------------------------------------------------------------------*
+   ty8
+ *----------------------------------------------------------------------*)
+
+Definition ty8_cmp_def:
+  ty8_cmp = iext_cmp (sum_cmp ty5_cmp num_iext_cmp)
+End
+
+Theorem ty8_cmp_eq[local] =
+  ty8_cmp_def
+  |> SRULE [iext_cmp_def, FUN_EQ_THM, ext_cmp_def, num_cmp_def, sum_cmp_def];
+
+val r = translate ty8_cmp_eq;
+
+Theorem TotOrd_ty8:
+  TotOrd (ty8_cmp : ty8 -> ty8 -> ordering)
+Proof
+  rewrite_tac [ty8_cmp_def]
+  \\ irule TotOrd_iext
+  \\ irule TotOrd_sum
+  \\ simp [TotOrd_ty5, TotOrd_ty3]
+QED
+
+(*----------------------------------------------------------------------*
+   ty9
+ *----------------------------------------------------------------------*)
+
+Definition ty9_cmp_def:
+  ty9_cmp = iext_cmp (sum_cmp (iext_cmp (sum_cmp ty8_cmp num_iext_cmp)) num_iext_cmp)
+End
+
+Theorem ty9_cmp_eq[local] =
+  ty9_cmp_def
+  |> SRULE [iext_cmp_def, FUN_EQ_THM, ext_cmp_def, num_cmp_def, sum_cmp_def];
+
+val r = translate ty9_cmp_eq;
+
+Theorem TotOrd_ty9:
+  TotOrd (ty9_cmp : ty9 -> ty9 -> ordering)
+Proof
+  rewrite_tac [ty9_cmp_def]
+  \\ irule TotOrd_iext
+  \\ irule TotOrd_sum
+  \\ irule_at (Pos hd) TotOrd_iext
+  \\ irule_at (Pos hd) TotOrd_sum
+  \\ simp [TotOrd_ty8, TotOrd_ty3]
+QED
+
+(*----------------------------------------------------------------------*
+   ty10
+ *----------------------------------------------------------------------*)
+
+Definition ty10_cmp_def:
+  ty10_cmp = iext_cmp (sum_cmp ty8_cmp ty4_cmp)
+End
+
+Theorem ty10_cmp_eq[local] =
+  ty10_cmp_def
+  |> SRULE [iext_cmp_def, FUN_EQ_THM, ext_cmp_def, num_cmp_def, sum_cmp_def];
+
+val r = translate ty10_cmp_eq;
+
+Theorem TotOrd_ty10:
+  TotOrd (ty10_cmp : ty10 -> ty10 -> ordering)
+Proof
+  rewrite_tac [ty10_cmp_def]
+  \\ irule TotOrd_iext
+  \\ irule TotOrd_sum
+  \\ simp [TotOrd_ty8, TotOrd_ty4]
+QED
+
+(*----------------------------------------------------------------------*
+   ty11
+ *----------------------------------------------------------------------*)
+
+Definition ty11_cmp_def:
+  ty11_cmp = sum_cmp num_sum_num_cmp num_cmp
+End
+
+Theorem ty11_cmp_eq[local] =
+  ty11_cmp_def
+  |> SRULE [sum_cmp_def, num_sum_num_cmp_eq, num_cmp_def, FUN_EQ_THM];
+
+val r = translate ty11_cmp_eq;
+
+Theorem TotOrd_ty11:
+  TotOrd (ty11_cmp : ty11 -> ty11 -> ordering)
+Proof
+  rewrite_tac [ty11_cmp_def]
+  \\ irule TotOrd_sum
+  \\ simp [TotOrd_ty2, TotOrd_ty1]
+QED
+
+(*----------------------------------------------------------------------*
    translating them all
  *----------------------------------------------------------------------*)
 
@@ -204,3 +325,8 @@ val _ = add_fmap_for_cmp TotOrd_ty3;
 val _ = add_fmap_for_cmp TotOrd_ty4;
 val _ = add_fmap_for_cmp TotOrd_ty5;
 val _ = add_fmap_for_cmp TotOrd_ty6;
+val _ = add_fmap_for_cmp TotOrd_ty7;
+val _ = add_fmap_for_cmp TotOrd_ty8;
+val _ = add_fmap_for_cmp TotOrd_ty9;
+val _ = add_fmap_for_cmp TotOrd_ty10;
+val _ = add_fmap_for_cmp TotOrd_ty11;

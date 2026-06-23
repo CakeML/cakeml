@@ -13,7 +13,7 @@ val _ = translation_extends "aig_to_cnfProg";
 fun demonadify thm = SRULE [oneline bind_def, guard_def, UNCURRY] thm;
 
 val r = translate sptreeTheory.fromAList_def;
-val r = translate (aig_cert_fullTheory.make_cert_cnf_def |> demonadify);
+val r = translate (aig_cert_fullTheory.make_cert_aig_def |> demonadify);
 val r = translate aig_cert_fullTheory.lit_to_string_def;
 val r = translate aig_cert_fullTheory.clause_to_string_def;
 val r = translate aig_cert_fullTheory.cnf_to_string_def;

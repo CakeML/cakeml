@@ -28,8 +28,15 @@ fun translate_rest i = let
   val r = translate (aig_to_cnfTheory.aig_to_cnf_def |> i)
   in r end
 
+(* By instantiating the types, the translator should translate finite maps
+   with something more efficient than alists, assuming aig_fmapsProgScript.sml
+   contains the appropriate comparison functions.
+
+   The general type for circuits is ('α, 'β, 'γ) circuit.
+ *)
+
 (*
-  ((num + num) iext, num, num) circuit
+  For encode_is_witness_reset
 *)
 val i = INST_TYPE
           [alpha |-> “:(num + num) iext”,
@@ -38,7 +45,7 @@ val i = INST_TYPE
 val r = translate_rest i;
 
 (*
-  (((num + num) iext + (num + num) iext) iext, num + num, num + num) circuit
+  For encode_is_witness_transition
 *)
 val i = INST_TYPE
           [alpha |-> “:((num + num) iext + (num + num) iext) iext”,
@@ -47,7 +54,7 @@ val i = INST_TYPE
 val r = translate_rest i;
 
 (*
-  ((num + num) iext, num, num) circuit
+  For encode_is_witness_property
 *)
 val i = INST_TYPE
           [alpha |-> “:(num + num) iext”,
@@ -56,7 +63,7 @@ val i = INST_TYPE
 val r = translate_rest i;
 
 (*
-  (num iext, num, num) circuit
+  For encode_is_witness_base
 *)
 val i = INST_TYPE
           [alpha |-> “:num iext”,
@@ -65,10 +72,47 @@ val i = INST_TYPE
 val r = translate_rest i;
 
 (*
-  ((num iext + num iext) iext, num + num, num + num) circuit
+  For encode_is_witness_step
 *)
 val i = INST_TYPE
           [alpha |-> “:(num iext + num iext) iext”,
            beta  |-> “:num + num”,
            gamma |-> “:num + num”]
+val r = translate_rest i;
+
+(*
+  For encode_is_witness_liveness
+*)
+val i = INST_TYPE
+          [alpha |-> “:(((num + num) iext + (num + num) iext) iext + (num + num) iext) iext”,
+           beta  |-> “:num + num”,
+           gamma |-> “:num + num”]
+val r = translate_rest i;
+
+(*
+  For encode_is_witness_decrease
+*)
+val i = INST_TYPE
+          [alpha |-> “:((num iext + num iext) iext + num iext) iext”,
+           beta  |-> “:num + num”,
+           gamma |-> “:num + num”]
+val r = translate_rest i;
+
+(*
+  For encode_is_witness_closure
+*)
+val i = INST_TYPE
+          [alpha |-> “:((((num iext + num iext) iext + num iext) iext + num iext) iext + num iext) iext”,
+           beta  |-> “:(num + num) + num”,
+           gamma |-> “: (num + num) + num”]
+val r = translate_rest i;
+
+
+(*
+  For encode_is_witness_consistent
+*)
+val i = INST_TYPE
+          [alpha |-> “:(((num iext + num iext) iext + num iext) iext + (num + num) iext) iext”,
+           beta  |-> “:(num + num) + num”,
+           gamma |-> “: (num + num) + num”]
 val r = translate_rest i;
