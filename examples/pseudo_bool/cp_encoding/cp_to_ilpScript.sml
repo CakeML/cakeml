@@ -65,6 +65,32 @@ Definition reify_flag_counting_def:
   else varc wi (EL (HD ids) Xs) = varc wi Y
 End
 
+(* list obtained by applying binary f to two input lists elementwise
+   (remainder appended if their lengths don't match)
+ *)
+Definition ZIPOP_def:
+  ZIPOP f ls1 [] = ls1 ∧
+  ZIPOP f [] ls2 = ls2 ∧
+  ZIPOP f (h1::ls1) (h2::ls2) = (f h1 h2)::ZIPOP f ls1 ls2
+End
+
+(* list obtained by negating all elements in input list *)
+Definition neg_list_def:
+  neg_list ls = MAP (λb. ¬b) ls
+End
+
+(* list of all F's whose length = no. of bits required for (bnd:num) *)
+Definition fls_list_bnd_def:
+  fls_list_bnd (bnd:num) =
+  ZIPOP (/\) (bits_of_num bnd) (neg_list $ bits_of_num bnd)
+End
+
+(* bits_of_num (n:num), padded with F, to the no. of bits required for (bnd:num) *)
+Definition bits_of_num_bnd_def:
+  bits_of_num_bnd (n:num) bnd =
+  ZIPOP (\/) (bits_of_num n) (fls_list_bnd bnd)
+End
+
 Definition reify_flag_def:
   reify_flag cs wi (name,flag) ⇔
   case flag of
@@ -80,11 +106,14 @@ Definition reify_flag_def:
       else (* ann = SOME («bin») *)
         let
           len = LENGTH Xs;
+          bnd = LENGTH Xs - 1;
           i = EL 0 ids;
           b = EL 1 ids
         in
-          EL b $ bits_of_num (@t.
-            t < len ∧ FUNPOW (λn. Num (varc wi (EL n Xs))) t 0 = i)
+          EL b $ bits_of_num_bnd
+            (@t.
+              t < len ∧ FUNPOW (λn. Num (varc wi (EL n Xs))) t 0 = i)
+            bnd
     | SOME (Counting (Among Xs iS _)) =>
       if ann = SOME («ge»)
       then varc wi (EL (EL 0 ids) Xs) ≥ EL (EL 1 ids) iS
