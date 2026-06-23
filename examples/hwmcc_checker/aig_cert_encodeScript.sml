@@ -398,11 +398,14 @@ End
    to. h indicates the second copy of latches intervened literals should be
    mapped to. *)
 Definition qinterv_lit_def:
-  qinterv_lit f g h (interv: ('a, 'i, 'l) lit -> 'l option) lit =
-  case interv lit of
-  | NONE => lit_map_base f g lit
-  | SOME l =>
-    let (v, b) = lit in (Base (Latch (h l)), b)
+  qinterv_lit f g h (interv: ('a, 'i, 'l) var -> ('l # bool) option) lit =
+  let (v, b) = lit in
+    case interv v of
+    | NONE => lit_map_base f g lit
+    | SOME (l, b') =>
+      (* if the intervened literal and the key in interv have different
+         polarity, make sure result has negative polarity *)
+        (Base (Latch (h l)), b ≠ b')
 End
 
 Definition qinterv_and_def:
@@ -1400,7 +1403,7 @@ Definition encode_is_witness_liveness_def:
     (wpreds: ('b, 'i, 'l) lit list)
     (wlive: ('b, 'i, 'l) lit list list)
     (wlatches: 'l list)
-    (interv: ('b, 'i, 'l) lit -> 'l option)
+    (interv: ('b, 'i, 'l) var -> ('l # bool) option)
   =
   let
     msignals  = ileft_name_lits (FLAT (qleft_live mlive));
@@ -1446,7 +1449,7 @@ Definition encode_is_witness_decrease_def:
     (wpreds: ('b, 'i, 'l) lit list)
     (wlive: ('b, 'i, 'l) lit list list)
     (wlatches: 'l list)
-    (interv: ('b, 'i, 'l) lit -> 'l option)
+    (interv: ('b, 'i, 'l) var -> ('l # bool) option)
   =
   let
     wqcirc = qinterv_r_l interv wcirc;
@@ -1484,7 +1487,7 @@ Definition encode_is_witness_closure_def:
     (wpreds: ('b, 'i, 'l) lit list)
     (wlive: ('b, 'i, 'l) lit list list)
     (wlatches: 'l list)
-    (interv: ('b, 'i, 'l) lit -> 'l option)
+    (interv: ('b, 'i, 'l) var -> ('l # bool) option)
   =
   let
     wqcirc₀ = qinterv_ll_r interv wcirc;
@@ -1538,7 +1541,7 @@ Definition encode_is_witness_consistent_def:
     (wpreds: ('b, 'i, 'l) lit list)
     (wlive: ('b, 'i, 'l) lit list list)
     (wlatches: 'l list)
-    (interv: ('b, 'i, 'l) lit -> 'l option)
+    (interv: ('b, 'i, 'l) var -> ('l # bool) option)
   =
   let
     wlive₀ = MAP ileft_name_lits (qinterv_live_ll_lr interv wlive);
@@ -1881,7 +1884,7 @@ Proof
     >> namedCases_on ‘lit’ ["v b"]
     >> Cases_on ‘v’
     >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def, pair_state_def]
-    >> CASE_TAC
+    >> rpt CASE_TAC
     >> simp [eval_circuit_def]
     >> rename1 ‘bvar_map _ _ base’
     >> Cases_on ‘base’
@@ -1894,7 +1897,7 @@ Proof
     >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def]
     >-
      (reverse CASE_TAC
-      >- simp [eval_circuit_def, pair_state_def]
+      >- (CASE_TAC >> simp [eval_circuit_def, pair_state_def])
       >> simp [eval_circuit_def]
       >> rpt (pairarg_tac >> gvs [])
       >> IF_CASES_TAC >> gvs []
@@ -1905,7 +1908,8 @@ Proof
     >> Cases_on ‘base’
     >> simp [bvar_map_def]
     >> CASE_TAC >> gvs [eval_circuit_def]
-    >> gvs [pair_state_def])
+    >> gvs [pair_state_def]
+    >> CASE_TAC >> gvs [eval_circuit_def])
   >> rename1 ‘qinterv_r_l _ (h::_)’
   >> Cases_on ‘h’
   >> simp [qinterv_r_l_cons, qinterv_l_r_cons]
@@ -1933,7 +1937,7 @@ Proof
     >> namedCases_on ‘lit’ ["v b"]
     >> Cases_on ‘v’
     >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def, pair_state_def]
-    >> CASE_TAC
+    >> rpt CASE_TAC
     >> simp [eval_circuit_def]
     >> rename1 ‘bvar_map _ _ base’
     >> Cases_on ‘base’
@@ -1946,7 +1950,7 @@ Proof
     >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def]
     >-
      (reverse CASE_TAC
-      >- simp [eval_circuit_def, pair_state_def]
+      >- (CASE_TAC >> simp [eval_circuit_def, pair_state_def])
       >> simp [eval_circuit_def]
       >> rpt (pairarg_tac >> gvs [])
       >> IF_CASES_TAC >> gvs []
@@ -1957,7 +1961,8 @@ Proof
     >> Cases_on ‘base’
     >> simp [bvar_map_def]
     >> CASE_TAC >> gvs [eval_circuit_def]
-    >> gvs [pair_state_def])
+    >> gvs [pair_state_def]
+    >> CASE_TAC >> gvs [eval_circuit_def])
   >> rename1 ‘qinterv_ll_r _ (h::_)’
   >> Cases_on ‘h’
   >> simp [qinterv_ll_r_cons, qinterv_l_r_cons]
@@ -1985,7 +1990,7 @@ Proof
     >> namedCases_on ‘lit’ ["v b"]
     >> Cases_on ‘v’
     >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def, pair_state_def]
-    >> CASE_TAC
+    >> rpt CASE_TAC
     >> simp [eval_circuit_def]
     >> rename1 ‘bvar_map _ _ base’
     >> Cases_on ‘base’
@@ -1998,7 +2003,7 @@ Proof
     >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def]
     >-
      (reverse CASE_TAC
-      >- simp [eval_circuit_def, pair_state_def]
+      >- (CASE_TAC >> simp [eval_circuit_def, pair_state_def])
       >> simp [eval_circuit_def]
       >> rpt (pairarg_tac >> gvs [])
       >> IF_CASES_TAC >> gvs []
@@ -2009,7 +2014,8 @@ Proof
     >> Cases_on ‘base’
     >> simp [bvar_map_def]
     >> CASE_TAC >> gvs [eval_circuit_def]
-    >> gvs [pair_state_def])
+    >> gvs [pair_state_def]
+    >> CASE_TAC >> gvs [eval_circuit_def])
   >> rename1 ‘qinterv_lr_r _ (h::_)’
   >> Cases_on ‘h’
   >> simp [qinterv_lr_r_cons, qinterv_l_r_cons]
@@ -2037,7 +2043,7 @@ Proof
     >> namedCases_on ‘lit’ ["v b"]
     >> Cases_on ‘v’
     >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def, pair_state_def]
-    >> CASE_TAC
+    >> rpt CASE_TAC
     >> simp [eval_circuit_def]
     >> rename1 ‘bvar_map _ _ base’
     >> Cases_on ‘base’
@@ -2050,7 +2056,7 @@ Proof
     >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def]
     >-
      (reverse CASE_TAC
-      >- simp [eval_circuit_def, pair_state_def]
+      >- (CASE_TAC >> simp [eval_circuit_def, pair_state_def])
       >> simp [eval_circuit_def]
       >> rpt (pairarg_tac >> gvs [])
       >> IF_CASES_TAC >> gvs []
@@ -2061,7 +2067,8 @@ Proof
     >> Cases_on ‘base’
     >> simp [bvar_map_def]
     >> CASE_TAC >> gvs [eval_circuit_def]
-    >> gvs [pair_state_def])
+    >> gvs [pair_state_def]
+    >> CASE_TAC >> gvs [eval_circuit_def])
   >> rename1 ‘qinterv_ll_lr _ (h::_)’
   >> Cases_on ‘h’
   >> simp [qinterv_ll_lr_cons, qinterv_l_r_cons]

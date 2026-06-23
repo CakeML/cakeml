@@ -561,16 +561,25 @@ End
 
 (* Making the intervention map ************************************************)
 
-(* Ultimately, the intervention map possibly maps literals to latches.
-   By default, the next state literals are mapped to the corresponding latch *)
+(* It seems that in Certifaiger, intervention maps over literals, making sure
+   that both positive and negative are present.
+   We could do the same, but doubling the amount of entries in the map
+   seems a bit wasteful. Instead, we key on the variable and return the polarity
+   that can be used downstream. *)
 
 Definition make_interv_def:
   make_interv micnt mlcnt wicnt wmax_latch iren lren next interv =
-  if isEmpty interv then MAP SWAP next else
+  if isEmpty interv then
+    (* next: latch -> lit; turn this into var -> (latch, bool) *)
+    MAP (λx. let (v,b) = SND x in (v, (FST x, b))) next
+  else
     foldi
       (λlat lit a.
-         (shared_lit micnt mlcnt iren lren (convert_lit wicnt wmax_latch lit),
-          shared_latch_key micnt mlcnt iren lren lat)::a) 0 []
+         let
+           (v, b) =
+             shared_lit micnt mlcnt iren lren (convert_lit wicnt wmax_latch lit)
+         in
+           (v, (shared_latch_key micnt mlcnt iren lren lat, b))::a) 0 []
       interv
 End
 

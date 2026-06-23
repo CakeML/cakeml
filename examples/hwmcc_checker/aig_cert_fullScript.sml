@@ -8,10 +8,8 @@ Ancestors
 Libs
   preamble
 
-(* TODO wlatches might have duplicates after applying the shared latches map? *)
-
-Definition make_cert_cnf_def:
-  make_cert_cnf mstr wstr =
+Definition make_cert_aig_def:
+  make_cert_aig mstr wstr =
   do
     (* -- parse model and witness -- *)
     (maig, rest) <- parse_aiger mstr 0;
@@ -34,9 +32,15 @@ Definition make_cert_cnf_def:
          else maig.bad);
     mcnstrs <<- maig.constraints;
     mlatches <<- GENLIST (λk. mlatch_start + k) mcounts.latches;
+    mfair <<- MAP not maig.fairness;
+    mjust <<- maig.justice;
+    mlive <<- MAP (λsignals. mfair ++ (MAP not signals)) mjust;
     (* -- witness -- *)
     wcounts <<- waig.counts;
-    wlatch_start <<- wcounts.inputs + 1;
+    wicnt <<- wcounts.inputs;
+    wlcnt <<- wcounts.latches;
+    wlatch_start <<- wicnt + 1;
+    wmax_latch <<- wicnt + wlcnt;
     iren <<- maps.shared_inputs;
     lren <<- maps.shared_latches;
     wcirc <<- shared_circuit micnt mlcnt iren lren waig.circuit;
@@ -54,10 +58,18 @@ Definition make_cert_cnf_def:
     wcnstrs <<- MAP (shared_lit micnt mlcnt iren lren) waig.constraints;
     wlatches <<-
       GENLIST (λk. shared_latch_key micnt mlcnt iren lren (wlatch_start + k))
-        wcounts.latches;
+        wlcnt;
+    wfair <<- MAP (not ∘ shared_lit micnt mlcnt iren lren) waig.fairness;
+    wjust <<- waig.justice;
+    wlive <<-
+      MAP
+        (λsignals.
+           wfair ++
+           (MAP (not ∘ shared_lit micnt mlcnt iren lren) signals)) wjust;
     interv <<-
       make_interv micnt mlcnt wicnt wmax_latch iren lren wnext_alist
         (maps.intervened_latches);
+    interv <<- ALOOKUP interv;
     (* encode certificate conditions as circuits *)
     cert_reset_circ <<-
       encode_is_witness_reset mcirc mreset mcnstrs mlatches wcirc wreset
@@ -71,20 +83,30 @@ Definition make_cert_cnf_def:
       encode_is_witness_base wcirc wreset wcnstrs wpreds wlatches;
     cert_step_circ <<-
       encode_is_witness_step wcirc wnext wcnstrs wpreds wlatches;
-(*
     cert_liveness_circ <<-
       encode_is_witness_liveness
         mcirc mcnstrs mlive
         wcirc wnext wcnstrs wpreds wlive wlatches interv;
-*)
-    (* encode certificate conditions in conjunctive normal form *)
-    cert_reset_cnf <<- aig_to_cnf cert_reset_circ (Named (Ext «reset»));
-    cert_transition_cnf <<- aig_to_cnf cert_transition_circ (Named (Ext «transition»));
-    cert_property_cnf <<- aig_to_cnf cert_property_circ (Named (Ext «property»));
-    cert_base_cnf <<- aig_to_cnf cert_base_circ (Named (Ext «base»));
-    cert_step_cnf <<- aig_to_cnf cert_step_circ (Named (Ext «step»));
-    return
-    (cert_reset_cnf, cert_transition_cnf, cert_property_cnf, cert_base_cnf, cert_step_cnf)
+    cert_decrease_circ <<-
+      encode_is_witness_decrease
+        wcirc wnext wcnstrs wpreds wlive wlatches interv;
+    cert_closure_circ <<-
+      encode_is_witness_closure
+        wcirc wnext wcnstrs wpreds wlive wlatches interv;
+    cert_consistent_circ <<-
+      encode_is_witness_consistent
+        wcirc wnext wcnstrs wpreds wlive wlatches interv;
+    return (
+      cert_reset_circ,
+      cert_transition_circ,
+      cert_property_circ,
+      cert_base_circ,
+      cert_step_circ,
+      cert_liveness_circ,
+      cert_decrease_circ,
+      cert_closure_circ,
+      cert_consistent_circ
+    )
   od
 End
 
@@ -112,10 +134,22 @@ End
 Definition make_cert_strings_def:
   make_cert_strings mstr wstr =
   do
-    (reset, transition, property, base, step) <- make_cert_cnf mstr wstr;
-    return
-      (cnf_to_string reset, cnf_to_string transition,
-            cnf_to_string property, cnf_to_string base, cnf_to_string step)
+    (cert_reset_circ, cert_transition_circ, cert_property_circ,
+     cert_base_circ, cert_step_circ, cert_liveness_circ,
+     cert_decrease_circ, cert_closure_circ, cert_consistent_circ) <-
+      make_cert_aig mstr wstr;
+    cnfs <<- [
+        aig_to_cnf cert_reset_circ (Named (Ext «reset»));
+        aig_to_cnf cert_transition_circ (Named (Ext «transition»));
+        aig_to_cnf cert_property_circ (Named (Ext «property»));
+        aig_to_cnf cert_base_circ (Named (Ext «base»));
+        aig_to_cnf cert_step_circ (Named (Ext «step»));
+        aig_to_cnf cert_liveness_circ (Named (Ext «liveness»));
+        aig_to_cnf cert_decrease_circ (Named (Ext «decrease»));
+        aig_to_cnf cert_closure_circ (Named (Ext «closure»));
+        aig_to_cnf cert_consistent_circ (Named (Ext «consistent»));
+      ];
+    return (MAP cnf_to_string cnfs)
   od
 End
 
@@ -123,7 +157,17 @@ End
 
 (*
 val coch_dir  = "/home/daniel/code/coch-demo";
-val cnf_names = ["reset", "transition", "property", "base", "step"];
+val cnf_names = [
+  "reset",
+  "transition",
+  "property",
+  "base",
+  "step",
+  "liveness",
+  "decrease",
+  "closure",
+  "consistent"
+];
 
 fun write_file path s =
   let val os = TextIO.openOut path
@@ -134,12 +178,12 @@ fun read_file path =
   in TextIO.inputAll is before TextIO.closeIn is end;
 
 (* Generate the five CNF obligations for the example pair and write them out. *)
-val model   = mlstringSyntax.mlstring_from_file "./examples/01_model.aig";
-val witness = mlstringSyntax.mlstring_from_file "./examples/06_witness.aig";
+val model   = mlstringSyntax.mlstring_from_file "./examples/intervention_model.aig";
+val witness = mlstringSyntax.mlstring_from_file "./examples/intervention_witness_inputs.aig";
 
-val cnfs =
+val (cnfs, _) =
   EVAL “make_cert_strings ^model ^witness”
-    |> concl |> rhs |> rand |> strip_pair;
+    |> concl |> rhs |> rand |> listSyntax.dest_list;
 
 val () =
   ListPair.app
