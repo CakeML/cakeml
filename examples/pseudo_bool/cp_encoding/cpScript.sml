@@ -136,11 +136,12 @@ Datatype:
   | Parity ('a varc list) ('a varc)
 End
 
-(* The op is prefixed with "lex-", e.g.:
-  lex-less (X Y Z) (A B C) *)
+(* The op is prefixed with "lex_", e.g.:
+  lex_less_than (X Y Z) (A B C).
+  We reuse the cmpop type, but there is no lex= and lex≠ *)
 Datatype:
   lexicographical_constr =
-    Lex cmpop ('a varc list) ('a varc list)
+    Lex ('a reify) cmpop ('a varc list) ('a varc list)
 End
 
 Datatype:
@@ -575,35 +576,101 @@ End
   lexicographical_constr
 ***)
 
-(* Our semantics assumes LENGTH xs = LENGTH ys *)
-Definition row_lt_def:
-  (row_lt (x::xs) (y::ys) ⇔
-    (x:int) < y ∨
-    (x = y) ∧ row_lt xs ys) ∧
-  (row_lt _ _ ⇔ F)
+Definition row_gt_def:
+  (row_gt (x::xs) (y::ys) ⇔
+    (x:int) > y ∨
+    (x = y) ∧ row_gt xs ys) ∧
+  (row_gt [] _ ⇔ F) ∧
+  (row_gt (x::xs) [] ⇔ T)
 End
 
-Definition cmpop_row_val_def:
-  cmpop_row_val cmp (xs:int list) (ys:int list) =
-  case cmp of
-    Equal => xs = ys
-  | NotEqual => xs ≠ ys
-  | GreaterEqual => row_lt ys xs ∨ xs = ys
-  | GreaterThan => row_lt ys xs
-  | LessEqual => row_lt xs ys ∨ xs = ys
-  | LessThan => row_lt xs ys
-End
+(* Sanity check *)
+Theorem row_gt_alt:
+  ∀xs ys.
+  row_gt xs ys ⇔
+  (∃i.
+    i < LENGTH xs ∧
+    i < LENGTH ys ∧
+    (∀j. j < i ⇒ EL j xs = EL j ys) ∧
+    EL i xs > EL i ys) ∨
+  LENGTH xs > LENGTH ys ∧
+  (∀j. j < LENGTH ys ⇒ EL j xs = EL j ys)
+Proof
+  ho_match_mp_tac row_gt_ind>>
+  rw[row_gt_def]>>
+  eq_tac
+  >- (
+    rw[]
+    >- (
+      DISJ1_TAC>>
+      qexists_tac`0`>>simp[])
+    >- (
+      DISJ1_TAC>>
+      qexists_tac`SUC i`>>simp[]>>
+      Cases>>simp[])
+    >- (
+      DISJ2_TAC>>simp[]>>
+      Cases>>fs[]))
+  >- (
+    rw[]
+    >- (
+      Cases_on`i`>>gvs[]>>
+      DISJ2_TAC>>
+      CONJ_TAC >- (
+        first_x_assum (qspec_then`0` mp_tac)>>
+        simp[])>>
+      DISJ1_TAC>>
+      first_x_assum $ irule_at Any>>
+      rw[]>>
+      first_x_assum(qspec_then`SUC j` mp_tac)>>simp[])>>
+    DISJ2_TAC>>
+    CONJ_TAC >- (
+      first_x_assum (qspec_then`0` mp_tac)>>
+      simp[])>>
+    DISJ2_TAC>>
+    rw[]>>
+    first_x_assum(qspec_then`SUC j` mp_tac)>>simp[])
+QED
+
+Theorem row_ge_alt:
+  ∀xs ys.
+  row_gt xs ys ∨ xs = ys ⇔
+  (∃i.
+    i < LENGTH xs ∧
+    i < LENGTH ys ∧
+    (∀j. j < i ⇒ EL j xs = EL j ys) ∧
+    EL i xs > EL i ys) ∨
+  LENGTH xs ≥ LENGTH ys ∧
+  (∀j. j < LENGTH ys ⇒ EL j xs = EL j ys)
+Proof
+  rw[row_gt_alt]>>
+  eq_tac>>rw[]
+  >- metis_tac[]
+  >- (DISJ2_TAC>>simp[])
+  >-  metis_tac[]
+  >- (
+    Cases_on`LENGTH xs > LENGTH ys`>>simp[]>>
+    DISJ2_TAC>>
+    fs[LIST_EQ])
+QED
 
 Definition lex_sem_def:
-  lex_sem cmp Xs Ys w ⇔
-  LENGTH Xs = LENGTH Ys ∧
-  cmpop_row_val cmp (MAP (varc w) Xs) (MAP (varc w) Ys)
+  lex_sem Zr cmp Xs Ys w ⇔
+  let xs = MAP (varc w) Xs in
+  let ys = MAP (varc w) Ys in
+  case cmp of
+    Equal => F (* Invalid comparison *)
+  | NotEqual => F (* Invalid comparison *)
+  | GreaterThan => reify_sem Zr w (row_gt xs ys)
+  | GreaterEqual => reify_sem Zr w (row_gt xs ys ∨ xs = ys)
+  | LessThan => reify_sem Zr w (row_gt ys xs)
+  | LessEqual => reify_sem Zr w (row_gt ys xs ∨ xs = ys)
 End
 
 Definition lexicographical_constr_sem_def:
   lexicographical_constr_sem c w ⇔
-  case c of Lex cmp Xs Ys =>
-    lex_sem cmp Xs Ys w
+  case c of Lex Zr cmp Xs Ys =>
+    lex_sem Zr cmp Xs Ys w
 End
 
 (***

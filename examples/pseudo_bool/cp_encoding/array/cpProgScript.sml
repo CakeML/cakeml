@@ -42,6 +42,11 @@ val res = translate ISR;
 val res = translate OUTL;
 val res = translate OUTR;
 
+val res = translate MIN_DEF;
+val res = translate TAKE_def;
+val res = translate indexedListsTheory.MAPi_ACC_def;
+val res = translate indexedListsTheory.MAPi_compute;
+
 (* pbc *)
 
 val res = translate b2i_def;
@@ -104,6 +109,9 @@ val res = translate sexp_prim_dispatch_def;
 val res = translate sexp_iclin_pairs_def;
 val res = translate sexp_iclin_term_def;
 val res = translate sexp_linear_dispatch_def;
+
+(* lex *)
+val res = translate sexp_lex_dispatch_def;
 
 (* extensional (table) *)
 val res = translate sexp_table_entry_def;
@@ -524,12 +532,31 @@ val res = translate cp_to_ilp_logicalTheory.cencode_logical_constr_def;
 
 (* cp_to_ilp_lexicographical *)
 
+val res = translate cp_to_ilp_lexicographicalTheory.pref_eq_def;
+val res = translate cp_to_ilp_lexicographicalTheory.dec_at_def;
+val res = translate cp_to_ilp_lexicographicalTheory.inc_at_def;
+
+val _ = ml_translatorLib.use_sub_check true;
+
+val res = translate cp_to_ilp_lexicographicalTheory.pref_imp_pref_def;
+val res = translate cp_to_ilp_lexicographicalTheory.pref_imp_eq_def;
+val res = translate cp_to_ilp_lexicographicalTheory.dec_imp_pref_def;
+val res = translate cp_to_ilp_lexicographicalTheory.inc_imp_pref_def;
+val res = translate cp_to_ilp_lexicographicalTheory.dec_imp_gt_def;
+val res = translate cp_to_ilp_lexicographicalTheory.inc_imp_lt_def;
+val res = translate cp_to_ilp_lexicographicalTheory.mk_lex_gte_al1_def;
+val res = translate cp_to_ilp_lexicographicalTheory.lex_gte_def;
+val res = translate cp_to_ilp_lexicographicalTheory.mk_lex_lte_al1_def;
+val res = translate cp_to_ilp_lexicographicalTheory.lex_lte_def;
+val res = translate cp_to_ilp_lexicographicalTheory.cencode_lex_gte_def;
+val res = translate cp_to_ilp_lexicographicalTheory.cencode_lex_lte_def;
+val res = translate cp_to_ilp_lexicographicalTheory.cencode_lex_def;
 val res = translate cp_to_ilp_lexicographicalTheory.cencode_lexicographical_constr_def;
+
+val _ = ml_translatorLib.use_sub_check false;
 
 (* cp_to_ilp_channeling *)
 
-val res = translate indexedListsTheory.MAPi_ACC_def;
-val res = translate indexedListsTheory.MAPi_compute;
 val res = translate cp_to_ilp_channelingTheory.encode_inverse_aux_def;
 val res = translate cp_to_ilp_channelingTheory.cencode_inverse_def;
 
