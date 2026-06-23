@@ -9,8 +9,8 @@ A concrete CNF representation as lists of integers that will be packed.
 [cnfScript.sml](cnfScript.sml):
 Syntax and semantics of CNF
 
-[lrup](lrup):
-An LRUP checker
+[dist](dist):
+An distributed RUP checker
 
 [syntax_helperScript.sml](syntax_helperScript.sml):
 Syntactic print/parse helper files

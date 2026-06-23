@@ -798,12 +798,7 @@ Resume evaluate_sf_gc_consts[Call]:
       \\ ntac 2 (irule EVERY2_trans \\ rpt conj_tac
       >- ACCEPT_TAC sf_gc_consts_trans
       >- (asm_exists_tac \\ rw [])))
-    >~ [`set_var`] >- suspend "Exception"
-    \\ (* Other cases: NONE/Break/Continue errors + catch-all *)
-    (rw [] \\ rw [])
-QED
-
-Resume evaluate_sf_gc_consts[Exception]:
+    >~ [`set_var`] >- (
   TOP_CASE_TAC
   >- (* NONE, no handler *)
   (rw [] \\ fs [call_env_def, flush_state_def, push_env_def, dec_clock_def] \\ pairarg_tac \\ fs []
@@ -850,6 +845,9 @@ Resume evaluate_sf_gc_consts[Exception]:
           \\ conj_tac >- ACCEPT_TAC sf_gc_consts_trans
           >- (asm_exists_tac \\ rw []))
       >- (rw [get_above_handler_def] \\ rw [ADD1])))
+)
+    \\ (* Other cases: NONE/Break/Continue errors + catch-all *)
+    (rw [] \\ rw [])
 QED
 
 Resume evaluate_sf_gc_consts[Loop]:
@@ -955,6 +953,7 @@ Proof
     >- (* Arith *)
     (Cases_on `a` \\ fs [const_fp_inst_cs_def, inst_def, assign_def] \\
     every_case_tac \\ fs [] \\ rveq \\
+    rpt (pairarg_tac \\ gvs []) \\
     fs [get_var_def,set_var_def,lookup_insert,lookup_delete] \\
     metis_tac [cs_delete_if_set, cs_delete_if_set_x2])
     >- (* Mem *)

@@ -259,7 +259,7 @@ QED
 
 Definition dfreevars_def:
   dfreevars (Dlet locs p x) =
-    (freevars x DIFF set (MAP Short (pat_bindings p []))) ∧
+    (freevars x DIFF set (MAP Short (pat_bindings p))) ∧
   dfreevars (Dletrec locs f) =
     BIGUNION (set (MAP (λ(fn,vn,x). freevars x DIFF {Short fn; Short vn}) f)) ∧
   dfreevars (Dmod mn ds) =
@@ -603,7 +603,7 @@ Theorem evaluate_perms_ok:
   (∀s:'ffi semanticPrimitives$state. ∀env v pes errv s' res.
      EVERY (perms_ok_exp ps) (MAP SND pes) ∧
      EVERY (λ(p,x). perms_ok_env ps (freevars x DIFF
-                                     set (MAP Short (pat_bindings p []))) env)
+                                     set (MAP Short (pat_bindings p))) env)
            pes ∧
      perms_ok_state ps s ∧
      perms_ok ps v ∧

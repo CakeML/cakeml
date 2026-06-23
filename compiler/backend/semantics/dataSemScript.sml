@@ -193,6 +193,23 @@ Definition add_space_def:
             ; peak_heap_length := heap_peak k s |>
 End
 
+(* Args-aware variant: cost reflects op_args + non-arg locals as the
+   GC-root set, matching wordSem's view at the op's inner Alloc.
+   stack_to_vs already covers s.locals (which, when the dataLang
+   evaluator hands the state to do_app, is the NARROW cut without args). *)
+Definition size_of_heap_args_def:
+  size_of_heap_args op_args ^s =
+    let (n,_,_) = size_of s.limits (op_args ++ stack_to_vs ^s) ^s.refs LN in
+      n
+End
+
+Overload add_space_safe_args =
+  ``λk op_args ^s. s.safe_for_space
+                  ∧ size_of_heap_args op_args s + k <= s.limits.heap_limit``
+
+Overload heap_peak_args =
+  ``λk op_args ^s. MAX (s.peak_heap_length) (size_of_heap_args op_args s + k)``
+
 Definition consume_space_def:
   consume_space k ^s =
     if s.space < k then NONE else SOME (s with space := s.space - k)
@@ -380,12 +397,14 @@ End
 Overload do_space_safe =
   ``λop vs ^s. if op_space_reset op
               then s.safe_for_space
-                   ∧ size_of_heap s + space_consumed s op vs <= s.limits.heap_limit
+                   ∧ size_of_heap_args vs s
+                       + space_consumed s op vs
+                     <= s.limits.heap_limit
               else s.safe_for_space``;
 
 Overload do_space_peak =
   ``λop vs ^s. if op_space_reset op
-              then heap_peak (space_consumed s op vs) s
+              then heap_peak_args (space_consumed s op vs) vs s
               else s.peak_heap_length``;
 
 Definition do_space_def:
@@ -1258,6 +1277,10 @@ Definition dest_thunk_def:
   dest_thunk v refs = NotThunk
 End
 
+Definition set_vars_def:
+  set_vars ns vs s = (s with locals := union (fromAList (ZIP (ns,vs))) s.locals)
+End
+
 Definition evaluate_def:
   (evaluate (Skip,^s) = (NONE,s)) /\
   (evaluate (Move dest src,s) =
@@ -1265,16 +1288,19 @@ Definition evaluate_def:
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
      | SOME v => (NONE, set_var dest v s)) /\
   (evaluate (Assign dest op args names_opt,s) =
-     if op_requires_names op /\ IS_NONE names_opt then (SOME (Rerr(Rabort Rtype_error)),s) else
-     case cut_state_opt names_opt s of
-     | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-     | SOME s =>
-       (case get_vars args s.locals of
-        | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-        | SOME xs => (case do_app op xs s of
-                      | Rerr e => (SOME (Rerr e),flush_state T (install_sfs op s))
-                      | Rval (v,s) =>
-                        (NONE, set_var dest v (install_sfs op s))))) /\
+     if op_requires_names op = IS_NONE names_opt then
+       (SOME (Rerr(Rabort Rtype_error)),s)
+     else
+       case get_vars args s.locals of
+       | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
+       | SOME xs =>
+           case cut_state_opt names_opt s of
+           | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
+           | SOME s =>
+               case do_app op xs s of
+               | Rerr e => (SOME (Rerr e),flush_state T (install_sfs op s))
+               | Rval (v,s) =>
+                   (NONE, set_var dest v (install_sfs op s))) /\
   (evaluate (Tick,s) =
      if s.clock = 0 then (SOME (Rerr(Rabort Rtimeout_error)),flush_state T s)
                     else (NONE,dec_clock s)) /\
@@ -1289,10 +1315,10 @@ Definition evaluate_def:
        (case jump_exc s of
         | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
         | SOME s => (SOME (Rerr(Rraise x)),s))) /\
-  (evaluate (Return n,s) =
-     case get_var n s.locals of
+  (evaluate (Return ns,s) =
+     case get_vars ns s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-     | SOME x => (SOME (Rval x),flush_state F s)) /\
+     | SOME xs => (SOME (Rval xs),flush_state F s)) /\
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
        if res = NONE then evaluate (c2,s1) else (res,s1)) /\
@@ -1312,7 +1338,7 @@ Definition evaluate_def:
         | NotThunk => (SOME (Rerr (Rabort Rtype_error)),s)
         | IsThunk Evaluated v =>
           (case ret of
-           | NONE => (SOME (Rval v),flush_state F s)
+           | NONE => (SOME (Rval [v]),flush_state F s)
            | SOME (dest,names) =>
              (case cut_env names s.locals of
               | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
@@ -1340,10 +1366,13 @@ Definition evaluate_def:
                            s1 with <| stack := [] ; locals := LN |>)
                         else
                           (case fix_clock s1 (evaluate (prog, s1)) of
-                           | (SOME (Rval x),s2) =>
-                             (case pop_env s2 of
-                              | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
-                              | SOME s1 => (NONE, set_var dest x s1))
+                           | (SOME (Rval xs),s2) =>
+                             (if LENGTH xs = 1 then
+                                case pop_env s2 of
+                                | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
+                                | SOME s1 => (NONE, set_var dest (HD xs) s1)
+                              else
+                                (SOME (Rerr(Rabort Rtype_error)),s2))
                            | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
                            | res => res)))))) /\
   (evaluate (Call ret dest args handler,s) =
@@ -1364,7 +1393,8 @@ Definition evaluate_def:
                   | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
                   | (SOME res,s) => (SOME res,s))
                else (SOME (Rerr(Rabort Rtype_error)),s)
-           | SOME (n,names) (* returning call, returns into var n *) =>
+           | SOME (ns,names) (* returning call, returns into var n *) =>
+             if ¬ALL_DISTINCT ns then (SOME (Rerr(Rabort Rtype_error)),s) else
              (case cut_env names s.locals of
               | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
               | SOME env =>
@@ -1374,10 +1404,13 @@ Definition evaluate_def:
                    then (SOME (Rerr(Rabort Rtimeout_error)),
                         s1 with <| stack := [] ; locals := LN |>)
                    else (case fix_clock s1 (evaluate (prog, s1)) of
-                         | (SOME (Rval x),s2) =>
-                           (case pop_env s2 of
-                            | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
-                            | SOME s1 => (NONE, set_var n x s1))
+                         | (SOME (Rval xs),s2) =>
+                           (if LENGTH xs = LENGTH ns then
+                              (case pop_env s2 of
+                               | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
+                               | SOME s1 => (NONE, set_vars ns xs s1))
+                            else
+                              (SOME (Rerr(Rabort Rtype_error)),s2))
                          | (SOME (Rerr(Rraise x)),s2) =>
                            (* if handler is present, then handle exc *)
                            (case handler of
@@ -1443,8 +1476,14 @@ Proof
   \\ rw[do_stack_clock]
 QED
 
+Theorem set_vars_clock[local,simp]:
+  (set_vars ns vs s).clock = s.clock
+Proof
+  simp [set_vars_def]
+QED
+
 Theorem evaluate_clock:
- !xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock
+  !xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock
 Proof
   recInduct evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >>

@@ -138,7 +138,7 @@ Definition compile_decs_alt_def:
           | _ => (n, next, <| v := nsEmpty; c := nsEmpty |>, envs, []))
      | NONE =>
          let n' = n + 4 in
-         let xs = REVERSE (pat_bindings p []) in
+         let xs = REVERSE (pat_bindings p) in
          let e' = compile_exp (xs++t) env e in
          let l = LENGTH xs in
          let n'' = n' + l in
@@ -542,7 +542,7 @@ Definition compile_exp_alt_def:
   (compile_match_alt cfg [] = (0, F, [])) /\
   (compile_match_alt cfg ((p, x)::ps) =
     let (i, sgx, y) = compile_exp_alt cfg x in
-    let j = max_dec_name (pat_bindings p []) in
+    let j = max_dec_name (pat_bindings p) in
     let (k, sgp, ps2) = compile_match_alt cfg ps in
     (MAX i (MAX j k), sgx \/ sgp, ((p, y) :: ps2)))
 End
@@ -2706,12 +2706,22 @@ val _ = cv_auto_trans bvi_to_dataTheory.optimise_def;
 val _ = cv_auto_trans bvi_to_dataTheory.op_requires_names_eqn;
 
 val pre = cv_auto_trans_pre "" (bvi_to_dataTheory.compile_sing_def |> measure_args [4,3]);
+
 Theorem bvi_to_data_compile_sing_pre[cv_pre,local]:
   (∀n env tail live v. bvi_to_data_compile_sing_pre n env tail live v) ∧
   (∀n env live v. bvi_to_data_compile_list_pre n env live v)
 Proof
   ho_match_mp_tac bvi_to_dataTheory.compile_sing_ind
   \\ rpt strip_tac \\ simp [Once pre]
+  \\ rw[]
+  \\ first_x_assum (fn th => drule (GSYM th))
+  \\ gvs[GSYM cv_stdTheory.genlist_eq_GENLIST]
+  \\ qmatch_goalsub_abbrev_tac `GENLIST xx _`
+  \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac `GENLIST yy _`
+  \\ qsuff_tac `xx = yy`
+  >- metis_tac[]
+  \\ unabbrev_all_tac \\ simp[FUN_EQ_THM]
 QED
 
 val _ = cv_auto_trans rich_listTheory.COUNT_LIST_GENLIST;

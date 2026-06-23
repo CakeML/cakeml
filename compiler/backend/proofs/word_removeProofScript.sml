@@ -201,7 +201,9 @@ QED
 Theorem inst_compile_state[simp]:
    inst i (compile_state clk c s) = OPTION_MAP (compile_state clk c) (inst i s)
 Proof
-  fs[inst_def] >> every_case_tac >> fs[]
+  fs[inst_def] >>
+  every_case_tac >> rpt (pairarg_tac >> fs []) >>
+  fs []
 QED
 
 Theorem cut_state_compile_state[simp]:
@@ -426,4 +428,3 @@ Resume word_remove_correct[Loop]:
 QED
 
 Finalise word_remove_correct;
-

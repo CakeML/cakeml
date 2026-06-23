@@ -193,7 +193,7 @@ Definition compile_exp_def:
      compile_exp t env e :: compile_exps t env es) ∧
   (compile_pes t env [] = []) ∧
   (compile_pes t env ((p,e)::pes) =
-    let pbs = pat_bindings p [] in
+    let pbs = pat_bindings p in
     let pts = pat_tups None pbs in
     (compile_pat env p, compile_exp t (env with v := nsBindList pts env.v) e)
     :: compile_pes t env pes) ∧
@@ -349,7 +349,7 @@ Definition compile_decs_def:
           | _ => (n, next, <| v := nsEmpty; c := nsEmpty |>, envs, []))
      | NONE =>
          let n' = n + 4 in
-         let xs = REVERSE (pat_bindings p []) in
+         let xs = REVERSE (pat_bindings p) in
          let e' = compile_exp (xs++t) env e in
          let l = LENGTH xs in
          let n'' = n' + l in

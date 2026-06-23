@@ -144,6 +144,7 @@ Datatype:
   config =
   <| reg_names : num num_map
    ; jump : bool (* whether to compile to JumpLower or If Lower ... in stack_remove*)
+   ; perf_calls : bool (* unverified: emit C-stack shadowing for perf call graphs (x64 only) *)
    |>
 End
 

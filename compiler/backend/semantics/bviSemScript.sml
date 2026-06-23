@@ -13,6 +13,12 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 Overload num_stubs[local] = ``bvl_num_stubs``
 
 Datatype:
+  exn_or_ret = Exn bvlSem$v | Ret (bvlSem$v list)  (* exception or multi-value return *)
+End
+
+Type bvi_result = “: (bvlSem$v list, exn_or_ret) semanticPrimitives$result ”
+
+Datatype:
   state =
     <| refs    : num |-> bvlSem$v ref
      ; clock   : num
@@ -158,8 +164,9 @@ Definition do_app_def:
     | NONE => Rerr(Rabort Rtype_error)
     | SOME (SOME (v,t)) => Rval (v,t)
     | SOME NONE => (case bvlSem$do_app op vs (bvi_to_bvl s) of
-                    | Rerr e => Rerr e
-                    | Rval (v,t) => Rval (v, bvl_to_bvi t s))
+                    | Rval (v,t) => Rval (v, bvl_to_bvi t s)
+                    | Rerr (Rabort a) => Rerr (Rabort a)
+                    | Rerr (Rraise v) => Rerr (Rraise (Exn v)))
 End
 
 Datatype:
@@ -198,7 +205,7 @@ QED
    defined to evaluate a list of bvi_exp expressions. *)
 
 Definition evaluate_def:
-  (evaluate ([],env,s) = (Rval [],s)) /\
+  (evaluate ([],env,s) = (Rval [] : bvi_result,s)) /\
   (evaluate (x::y::xs,env,s) =
      case fix_clock s (evaluate ([x],env,s)) of
      | (Rval v1,s1) =>
@@ -221,7 +228,11 @@ Definition evaluate_def:
      | res => res) /\
   (evaluate ([Raise x1],env,s) =
      case evaluate ([x1],env,s) of
-     | (Rval vs,s) => (Rerr(Rraise (HD vs)),s)
+     | (Rval vs,s) => (Rerr(Rraise (Exn (HD vs))),s)
+     | res => res) /\
+  (evaluate ([Return xs],env,s) =
+     case evaluate (xs,env,s) of
+     | (Rval vs,s) => (Rerr(Rraise (Ret vs)),s)
      | res => res) /\
   (evaluate ([Op op xs],env,s) =
      case fix_clock s (evaluate (xs,env,s)) of
@@ -247,7 +258,9 @@ Definition evaluate_def:
                   if s.clock = 0 then
                     (Rerr(Rabort Rtimeout_error),s with clock := 0)
                   else
-                    evaluate ([exp],args,dec_clock 1 s))) /\
+                    (case evaluate ([exp],args,dec_clock 1 s) of
+                     | (Rerr(Rraise (Ret _)),s1) => (Rerr(Rabort Rtype_error),s1)
+                     | res => res))) /\
   (evaluate ([Call ticks dest xs handler],env,s1) =
      if IS_NONE dest /\ IS_SOME handler then (Rerr(Rabort Rtype_error),s1) else
      case fix_clock s1 (evaluate (xs,env,s1)) of
@@ -257,10 +270,28 @@ Definition evaluate_def:
           | SOME (args,exp) =>
               if (s.clock < ticks + 1) then (Rerr(Rabort Rtimeout_error),s with clock := 0) else
                 case fix_clock (dec_clock (ticks+1) s) (evaluate ([exp],args,dec_clock (ticks+1) s)) of
-                | (Rerr(Rraise v),s) =>
+                | (Rerr(Rraise (Exn v)),s) =>
                      (case handler of
-                      | SOME x => evaluate ([x],v::env,s)
-                      | NONE => (Rerr(Rraise v),s))
+                      | SOME x =>
+                          (case evaluate ([x],v::env,s) of
+                           | (Rerr(Rraise (Ret _)),s1) => (Rerr(Rabort Rtype_error),s1)
+                           | res => res)
+                      | NONE => (Rerr(Rraise (Exn v)),s))
+                | (Rerr(Rraise _),s) => (Rerr(Rabort Rtype_error),s)
+                | res => res)
+     | res => res) ∧
+  (evaluate ([LetCall rets ticks dest xs y],env,s1) =
+     case fix_clock s1 (evaluate (xs,env,s1)) of
+     | (Rval vs,s) =>
+         (case find_code (SOME dest) vs s.code of
+          | NONE => (Rerr(Rabort Rtype_error),s)
+          | SOME (args,exp) =>
+              if (s.clock < ticks + 1) then (Rerr(Rabort Rtimeout_error),s with clock := 0) else
+                case fix_clock (dec_clock (ticks+1) s) (evaluate ([exp],args,dec_clock (ticks+1) s)) of
+                | (Rval _,s) => (Rerr(Rabort Rtype_error),s)
+                | (Rerr(Rraise (Ret ret_vs)),s) =>
+                    if LENGTH ret_vs = rets then evaluate ([y],ret_vs ++ env,s)
+                    else (Rerr(Rabort Rtype_error),s)
                 | res => res)
      | res => res)
 Termination
@@ -286,11 +317,9 @@ Proof
   THEN1 (ntac 2 (every_case_tac \\ fs [UNCURRY]) \\ rw [] \\ fs [])
   \\ Cases_on `do_app_aux op args s1` \\ fs []
   \\ Cases_on `x` \\ fs [] THEN1
-   (Cases_on `do_app op args (bvi_to_bvl s1)` \\ fs []
-    \\ Cases_on `a` \\ fs []
+   (every_case_tac \\ fs []
     \\ IMP_RES_TAC bvlSemTheory.do_app_const
-    \\ SRW_TAC [] [bvl_to_bvi_def,bvi_to_bvl_def]
-    \\ SRW_TAC [] [bvl_to_bvi_def,bvi_to_bvl_def])
+    \\ SRW_TAC [] [bvl_to_bvi_def,bvi_to_bvl_def] \\ fs [])
   \\ Cases_on `x'` \\ fs []
   \\ fs [do_app_aux_def]
   \\ BasicProvers.EVERY_CASE_TAC
@@ -298,8 +327,8 @@ Proof
 QED
 
 Theorem evaluate_clock:
-   !xs env s1 vs s2.
-  (bviSem$evaluate (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock
+  ∀xs env s1 vs s2.
+    (bviSem$evaluate (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock
 Proof
   recInduct evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[dec_clock_def] >> rw[] >> rfs[] >>
@@ -364,4 +393,3 @@ End
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-

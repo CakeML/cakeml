@@ -358,14 +358,14 @@ T
 evaluate_match ck env s v [] err_v (s, Rerr (Rraise err_v)))
 
 /\ (! ck env env' v p pes e bv err_v s.
-(ALL_DISTINCT (pat_bindings p []) /\
+(ALL_DISTINCT (pat_bindings p) /\
 (pmatch env.c s.refs p v [] = Match env') /\
 evaluate ck ( env with<| v := (nsAppend (alist_to_ns env') env.v) |>) s e bv)
 ==>
 evaluate_match ck env s v ((p,e)::pes) err_v bv)
 
 /\ (! ck env v p e pes bv s err_v.
-(ALL_DISTINCT (pat_bindings p []) /\
+(ALL_DISTINCT (pat_bindings p) /\
 (pmatch env.c s.refs p v [] = No_match) /\
 evaluate_match ck env s v pes err_v bv)
 ==>
@@ -377,7 +377,7 @@ evaluate_match ck env s v ((p,e)::pes) err_v bv)
 evaluate_match ck env s v ((p,e)::pes) err_v (s, Rerr (Rabort Rtype_error)))
 
 /\ (! ck env v p e pes s err_v.
-(~ (ALL_DISTINCT (pat_bindings p [])))
+(~ (ALL_DISTINCT (pat_bindings p)))
 ==>
 evaluate_match ck env s v ((p,e)::pes) err_v (s, Rerr (Rabort Rtype_error)))
 End
@@ -387,7 +387,7 @@ End
 Inductive evaluate_dec:
 (! ck env p e v env' s1 s2 locs.
 (evaluate ck env s1 e (s2, Rval v) /\
-ALL_DISTINCT (pat_bindings p []) /\
+ALL_DISTINCT (pat_bindings p) /\
 every_exp (one_con_check env.c) e /\
 (pmatch env.c s2.refs p v [] = Match env'))
 ==>
@@ -395,7 +395,7 @@ evaluate_dec ck env s1 (Dlet locs p e) (s2, Rval <| v := (alist_to_ns env'); c :
 
 /\ (! ck env p e v s1 s2 locs.
 (evaluate ck env s1 e (s2, Rval v) /\
-ALL_DISTINCT (pat_bindings p []) /\
+ALL_DISTINCT (pat_bindings p) /\
 every_exp (one_con_check env.c) e /\
 (pmatch env.c s2.refs p v [] = No_match))
 ==>
@@ -403,21 +403,21 @@ evaluate_dec ck env s1 (Dlet locs p e) (s2, Rerr (Rraise bind_exn_v)))
 
 /\ (! ck env p e v s1 s2 locs.
 (evaluate ck env s1 e (s2, Rval v) /\
-ALL_DISTINCT (pat_bindings p []) /\
+ALL_DISTINCT (pat_bindings p) /\
 every_exp (one_con_check env.c) e /\
 (pmatch env.c s2.refs p v [] = Match_type_error))
 ==>
 evaluate_dec ck env s1 (Dlet locs p e) (s2, Rerr (Rabort Rtype_error)))
 
 /\ (! ck env p e s locs.
-(~ (ALL_DISTINCT (pat_bindings p []) /\
+(~ (ALL_DISTINCT (pat_bindings p) /\
     every_exp (one_con_check env.c) e))
 ==>
 evaluate_dec ck env s (Dlet locs p e) (s, Rerr (Rabort Rtype_error)))
 
 /\ (! ck env p e err s s' locs.
 (evaluate ck env s e (s', Rerr err) /\
-ALL_DISTINCT (pat_bindings p []) /\
+ALL_DISTINCT (pat_bindings p) /\
 every_exp (one_con_check env.c) e)
 ==>
 evaluate_dec ck env s (Dlet locs p e) (s', Rerr err))
@@ -509,7 +509,7 @@ End
 
 Inductive dec_diverges:
 (! env st locs p e.
-(ALL_DISTINCT (pat_bindings p []) /\
+(ALL_DISTINCT (pat_bindings p) /\
  every_exp (one_con_check env.c) e /\
  e_diverges env (st.refs, st.ffi) e)
 ==>

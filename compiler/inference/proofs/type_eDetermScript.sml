@@ -18,19 +18,18 @@ QED
 
 Theorem type_p_pat_bindings:
  (∀tvs tenv p t new_bindings.
-  type_p tvs tenv p t new_bindings ⇒ MAP FST new_bindings = pat_bindings p []) ∧
+  type_p tvs tenv p t new_bindings ⇒ MAP FST new_bindings = pat_bindings p) ∧
  (∀tvs tenv ps ts new_bindings.
-  type_ps tvs tenv ps ts new_bindings ⇒ MAP FST new_bindings = pats_bindings ps [])
+  type_ps tvs tenv ps ts new_bindings ⇒ MAP FST new_bindings = pats_bindings ps)
 Proof
  ho_match_mp_tac type_p_ind >>
- rw [pat_bindings_def] >>
- metis_tac [semanticPrimitivesPropsTheory.pat_bindings_accum]
+ rw [pat_bindings_def]
 QED
 
 Theorem infer_pe_complete:
    ienv_ok {} ienv ∧
     env_rel_complete FEMPTY ienv tenv (bind_tvar tvs Empty) ∧
-    ALL_DISTINCT (pat_bindings p []) ∧
+    ALL_DISTINCT (pat_bindings p) ∧
     type_p tvs tenv p t1 tenv1 ∧
     type_e tenv (bind_tvar tvs Empty) e t1
     ⇒
@@ -119,8 +118,7 @@ Proof
     fs[SUBSET_DEF,EXTENSION] >> rw[] >> res_tac >> DECIDE_TAC ) >>
   fs[simp_tenv_invC_def,convert_env_def] >>
   imp_res_tac type_p_pat_bindings>>fs[]>>
-  imp_res_tac infer_p_bindings>>
-  pop_assum(qspec_then`[]` assume_tac)>>fs[]>>
+  imp_res_tac infer_p_bindings>>fs[]>>
   fs[EVERY_MEM,FORALL_PROD]>>rw[]
   >-
     (`ALOOKUP new_bindings p_1 = SOME p_2` by

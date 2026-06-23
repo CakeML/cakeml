@@ -30,6 +30,7 @@ Definition var_prog_def:
   (var_prog (ExtCall f v1 v2 v3 v4) = [v1;v2;v3;v4]) ∧
   (var_prog (Return e) = var_cexp e) ∧
   (var_prog (ShMem mop v e) = [v] ++ var_cexp e) ∧
+  (var_prog (Primitive lhss pop rhss) = lhss ++ rhss) ∧
   (var_prog _ = [])
 End
 

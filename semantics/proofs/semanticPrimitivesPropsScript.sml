@@ -86,22 +86,6 @@ Proof
   Cases >> Cases >> simp[semanticPrimitivesTheory.lit_same_type_def]
 QED
 
-Theorem pat_bindings_accum:
- (!p acc. pat_bindings p acc = pat_bindings p [] ++ acc) ∧
- (!ps acc. pats_bindings ps acc = pats_bindings ps [] ++ acc)
-Proof
-  Induct
-  >- srw_tac[][pat_bindings_def]
-  >- srw_tac[][pat_bindings_def]
-  >- srw_tac[][pat_bindings_def]
-  >- metis_tac [APPEND_ASSOC, pat_bindings_def]
-  >- metis_tac [APPEND_ASSOC, pat_bindings_def]
-  >- metis_tac [APPEND_ASSOC, CONS_APPEND, pat_bindings_def]
-  >- metis_tac [APPEND_ASSOC, CONS_APPEND, pat_bindings_def]
-  >- srw_tac[][pat_bindings_def]
-  >- metis_tac [APPEND_ASSOC, pat_bindings_def]
-QED
-
 Theorem pmatch_append:
  (!(cenv : env_ctor) (st : v store) p v env env' env''.
     (pmatch cenv st p v env = Match env') ⇒
@@ -121,11 +105,11 @@ Theorem pmatch_extend:
  (!cenv s p v env env' env''.
   pmatch cenv s p v env = Match env'
   ⇒
-  ?env''. env' = env'' ++ env ∧ MAP FST env'' = pat_bindings p []) ∧
+  ?env''. env' = env'' ++ env ∧ MAP FST env'' = pat_bindings p) ∧
  (!cenv s ps vs env env' env''.
   pmatch_list cenv s ps vs env = Match env'
   ⇒
-  ?env''. env' = env'' ++ env ∧ MAP FST env'' = pats_bindings ps [])
+  ?env''. env' = env'' ++ env ∧ MAP FST env'' = pats_bindings ps)
 Proof
  ho_match_mp_tac pmatch_ind >>
  srw_tac[][pat_bindings_def, pmatch_def] >>
@@ -133,8 +117,7 @@ Proof
  full_simp_tac(srw_ss())[] >>
  srw_tac[][] >>
  res_tac >> rveq >>
- srw_tac[][] >>
- metis_tac [pat_bindings_accum]
+ srw_tac[][]
 QED
 
 Theorem pmatch_nsAppend:
@@ -671,7 +654,7 @@ Definition FV_def[simp]:
   (FV_list (e::es) = FV e ∪ FV_list es) ∧
   (FV_pes [] = {}) ∧
   (FV_pes ((p,e)::pes) =
-     (FV e DIFF (IMAGE Short (set (pat_bindings p [])))) ∪ FV_pes pes) ∧
+     (FV e DIFF (IMAGE Short (set (pat_bindings p)))) ∪ FV_pes pes) ∧
   (FV_defs [] = {}) ∧
   (FV_defs ((_,x,e)::defs) =
      (FV e DIFF {Short x}) ∪ FV_defs defs)
@@ -680,7 +663,7 @@ End
 Overload SFV = ``λe. {x | Short x ∈ FV e}``
 
 Theorem FV_pes_MAP:
-   FV_pes pes = BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p [])))) (set pes))
+   FV_pes pes = BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p)))) (set pes))
 Proof
   Induct_on`pes`>>simp[]>>
   qx_gen_tac`p`>>PairCases_on`p`>>srw_tac[][]
