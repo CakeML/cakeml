@@ -43,6 +43,10 @@ Definition make_cert_aig_def:
     wmax_latch <<- wicnt + wlcnt;
     iren <<- maps.shared_inputs;
     lren <<- maps.shared_latches;
+    (iren, lren) <<-
+      if isEmpty iren ∧ isEmpty lren then
+        default_shared micnt mlcnt wicnt wlcnt
+      else (iren, lren);
     wcirc <<- shared_circuit micnt mlcnt iren lren waig.circuit;
     wreset <<- fromAList (shared_latches micnt mlcnt iren lren waig.reset);
     wreset <<- (λl. lookup l wreset);
@@ -162,17 +166,6 @@ End
 
 (*
 val coch_dir  = "/home/daniel/code/coch-demo";
-val cnf_names = [
-  "reset",
-  "transition",
-  "property",
-  "base",
-  "step",
-  "liveness",
-  "decrease",
-  "closure",
-  "consistent"
-];
 
 fun write_file path s =
   let val os = TextIO.openOut path
@@ -184,16 +177,21 @@ fun read_file path =
 
 (* Generate the five CNF obligations for the example pair and write them out. *)
 val model   = mlstringSyntax.mlstring_from_file "./examples/intervention_model.aig";
-val witness = mlstringSyntax.mlstring_from_file "./examples/intervention_witness_inputs.aig";
+val witness = mlstringSyntax.mlstring_from_file "./examples/intervention_witness.aig";
 
-val (cnfs, _) =
+fun to_string_pair t =
+  let val (a, b) = pairSyntax.dest_pair t
+  in (mlstringSyntax.dest_mlstring a, mlstringSyntax.dest_mlstring b) end
+
+val (cnf_names, cnfs) =
   EVAL “make_cert_strings ^model ^witness”
-    |> concl |> rhs |> rand |> listSyntax.dest_list;
+    |> concl |> rhs |> rand |> listSyntax.dest_list |> fst
+    |> map to_string_pair |> ListPair.unzip
 
 val () =
   ListPair.app
-    (fn (name, t) =>
-       write_file (coch_dir ^ "/" ^ name ^ ".cnf") (mlstringSyntax.dest_mlstring t))
+    (fn (name, cnf) =>
+       write_file (coch_dir ^ "/" ^ name ^ ".cnf") cnf)
     (cnf_names, cnfs);
 
 (* Check each obligation is UNSAT (LRAT-verified by cake_lpr). *)

@@ -18,6 +18,9 @@ Parser for the AIGER format.
 [aig_to_cnfScript.sml](aig_to_cnfScript.sml):
 Mapping And-Inverter Graphs into CNF
 
+[compilation](compilation):
+Compilation scripts for cake_tiger.
+
 [examples](examples):
 Examples to test the AIGER infrastructure.
 
