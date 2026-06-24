@@ -194,6 +194,16 @@ Quote add_cakeml:
           if nw < n then write fd (n-nw) (i+nw) else () end
 End
 
+Quote add_cakeml:
+  fun output_aux fd s i z =
+  if z <= i then () else let
+    val left = z - i
+    val n = if left <= 2048 then left else 2048
+    val _ = Word8Array.copyVec s i n iobuff 4
+    val _ = write (get_out fd) n 0
+  in output_aux fd s (i + n) z end
+End
+
 val _ = ml_prog_update open_local_in_block;
 
 (* Output functions on given file descriptor *)
@@ -204,14 +214,7 @@ End
 
 (* writes a string into a file *)
 Quote add_cakeml:
-  fun output fd s =
-  if s = "" then () else
-  let val z = String.size s
-      val n = if z <= 2048 then z else 2048
-      val fl = Word8Array.copyVec s 0 n iobuff 4
-      val a = write (get_out fd) n 0 in
-         output fd (String.substring s n (z-n))
-  end;
+  fun output fd s = output_aux fd s 0 (String.size s)
   fun print s = output stdOut s
   fun print_err s = output stdErr s
 End

@@ -1566,6 +1566,83 @@ Proof
   \\ tac
 QED
 
+Theorem output_aux_spec:
+  ∀fd fdv s sv i iv z zv fs content pos.
+    OUTSTREAM fd fdv ∧ STRING_TYPE s sv ∧ NUM i iv ∧ NUM z zv ∧
+    i ≤ z ∧ z ≤ strlen s ∧
+    get_file_content fs fd = SOME (content, pos) ∧
+    get_mode fs fd = SOME WriteMode ⇒
+    app (p:'ffi ffi_proj) TextIO_output_aux_v [fdv; sv; iv; zv]
+      (IOFS fs)
+      (POSTv uv.
+         &(UNIT_TYPE () uv) *
+         SEP_EXISTS k.
+           IOFS
+             (fsupdate fs fd k (pos + (z - i))
+                (insert_atI (explode (substring s i (z - i))) pos content)))
+Proof
+  completeInduct_on ‘z:num - i’ >> rw []
+  >> xcf_with_def TextIO_output_aux_v_def
+  >> xlet_auto >- xsimpl
+  >> xif
+  >-
+   (xcon >> xsimpl
+    >> sg ‘z = i’ >- fs []
+    >> simp []
+    >> qexists ‘0’
+    >> simp [Req0 fsupdate_unchanged, insert_atI_NIL]
+    >> xsimpl)
+  >> xlet_auto >- xsimpl
+  >> xlet_auto >- xsimpl
+  >> xlet ‘POSTv nv. &NUM (MIN (z:num - i) 2048) nv * IOFS fs’
+  >-
+   (xif
+    >- (xvar >> xsimpl >> fs [MIN_DEF, NUM_def, INT_def])
+    >> xlit >> xsimpl >> fs [MIN_DEF])
+  (* w8array_copyVec_spec uses W8Array.
+     To make xlet_auto's life easier we unfold IOFS, where it is located
+     within IOFS_iobuff. However, it is important to not rewrite
+     the postcondition; else, the rest of the proof becomes more of a
+     headache. *)
+  >> rewrite_tac [Once IOFS_def, IOFS_iobuff_def] >> xpull
+  >> rename1 ‘W8ARRAY _ buff’
+  >> xlet_auto >- xsimpl
+  >> drule $ iffLR OUTSTREAM_def >> strip_tac
+  >> xlet_auto >- xsimpl
+  (* For write_spec *)
+  >> sg ‘∃h1 h2 h3 h4 t. buff = h1::h2::h3::h4::t’
+  >- ntac 4 (Cases_on ‘buff’ >> fs [] >> rename1 ‘buff = _::_’)
+  >> xlet_auto
+  >- (xsimpl >> fs [strlen_substring, FD_def, get_out_def])
+  >> xlet_auto >- xsimpl
+  >> xapp
+  >> qpat_assum ‘NUM _ _’ $ irule_at Any
+  >> qpat_assum ‘NUM _ _’ $ irule_at Any
+  >> qpat_assum ‘z ≤ strlen s’ $ irule_at Any
+  >> simp []
+  >> qmatch_goalsub_abbrev_tac ‘IOFS fs'’
+  >> sg ‘get_mode fs' fd = SOME WriteMode’
+  >- simp [Abbr ‘fs'’]
+  >> qpat_assum ‘get_mode fs' fd = _’ $ irule_at Any
+  >> simp [Abbr ‘fs'’]
+  >> irule_at Any get_file_content_fsupdate >> simp []
+  >> xsimpl
+  >> rpt strip_tac
+  >> qmatch_goalsub_abbrev_tac ‘fsupdate (fsupdate _ _ _ (pos + off) _) _’
+  >> sg ‘liveFS fs’ >- fs [wfFS_def]
+  >> drule_then assume_tac fsupdate_o >> simp []
+  >> qmatch_goalsub_abbrev_tac ‘insert_atI sfx _ (insert_atI pfx _ _)’
+  >> sg ‘off + pos = pos + STRLEN pfx’
+  >- cheat
+  >> simp [Req0 insert_atI_insert_atI]
+  >> sg ‘pfx ++ sfx = explode (substring s i (z − i))’
+  >- cheat
+  >> simp []
+  >> qmatch_goalsub_abbrev_tac ‘IOFS (fsupdate fs fd k' _ _)’
+  >> qexists ‘k'’
+  >> xsimpl
+QED
+
 Theorem output_spec:
    !s fd fdv sv fs content pos.
     OUTSTREAM fd fdv ⇒ STRING_TYPE s sv ⇒
