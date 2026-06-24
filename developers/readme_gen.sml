@@ -25,6 +25,7 @@ val MAX_LINE_COUNT = 10
 val MAX_CODE_LINE_LENGTH = 200
 val PREFIX_FILENAME = "readmePrefix"
 val OUTPUT_FILENAME = "README.md"
+val OUTPUT_MK = "developers/readme.mk"
 val CHECK_OPT = "--check"
 val AUTO_INCLUDE_SUFFIXES = ["Script.sml","Syntax.sml","Lib.sml",".lem",".c",".cml"]
 val FIRST_TARGET_PREFIX = "all: $(DEFAULT_TARGETS) README.md"
@@ -36,10 +37,7 @@ concat ["INCLUDES =\n\n",
         PHONY_SUGGESTION ^ "\n\n",
         "README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) ",
         "$(wildcard *Syntax.sml)\n",
-        "DIRS = $(wildcard */)\n",
-        "README.md: $(CAKEMLDIR)/developers/readme_gen",
-        " readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)\n",
-        "\t$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)\n"]
+        "sinclude $(CAKEMLDIR)/developers/readme.mk\n"]
 
 val ILLEGAL_STRINGS =
   [("store_thm(\"", "The Theorem syntax is to be used instead of store_thm."),
@@ -398,7 +396,10 @@ fun check_Holmakefile filename =
   case read_all_lines filename of
     NONE => err ("Unable to read: " ^ filename)
   | SOME lines => let
-      val _ = List.exists (fn s => String.isPrefix (OUTPUT_FILENAME ^ ":") s) lines
+      fun check_line s =
+          String.isPrefix (OUTPUT_FILENAME ^ ":") s orelse
+          String.isSubstring OUTPUT_MK s
+      val _ = List.exists check_line lines
               orelse (err (concat
                 ["ERROR! Every Holmakefile must include a ", OUTPUT_FILENAME,
                  " target. Consider adding:\n\n",HOLMAKEFILE_SUGGESTION,
@@ -500,21 +501,6 @@ fun assert_for_lines_of filename pred err_msg =
   orelse err (err_msg filename);
 
 fun run_full_check path = let
-  fun remove_prefix prefix s =
-    if String.isPrefix prefix s then
-      String.substring(s,String.size prefix,String.size s - String.size prefix)
-    else s
-  fun show_path p =
-    if p = path then "." else remove_prefix (path ^ "/") p
-  fun common_prefix s t = let
-    fun common (x::xs) (y::ys) = if x = y then x::(common xs ys) else []
-      | common _ _ = []
-    in implode (common (explode s) (explode t)) end
-  fun inject_readme_target p [] = ["\n",HOLMAKEFILE_SUGGESTION]
-    | inject_readme_target p (l::ls) =
-        if String.isPrefix "ifdef" l orelse String.isPrefix "ifndef" l then
-          [HOLMAKEFILE_SUGGESTION,"\n"] @ l::ls
-        else l :: inject_readme_target p ls
 (*
   val p = path
   val SOME lines = read_all_lines (p ^ "/Holmakefile")
