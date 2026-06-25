@@ -623,6 +623,29 @@ Theorem opt_mmap_helper_thm[local] =
     |> REWRITE_RULE []
     |> Q.GENL [`f`, `st`, `es`]
 
+Theorem eval_some_var_exp_local_lookup:
+  ∀s e v n. eval s e = SOME v ∧ MEM n (var_exp e) ⇒
+    ∃w. FLOOKUP s.locals n = SOME w
+Proof
+  recInduct eval_ind >> rw[] >> gvs[var_exp_def, MEM_FLAT, MEM_MAP, eval_def, AllCaseEqs()]
+  >- (
+    first_x_assum irule
+    >> imp_res_tac opt_mmap_mem_func >> fs[]
+    >> metis_tac[]
+  )
+  >- (
+    first_x_assum irule
+    >> rpt (pairarg_tac >> gvs[AllCaseEqs()])
+    >> fs[UNZIP_MAP]
+    >> qrefine `SND y` >> fs[LEFT_EXISTS_AND_THM]
+    >> conj_asm2_tac
+    >- (imp_res_tac opt_mmap_mem_func >> fs[])
+    >> metis_tac[MEM_MAP]
+  )
+  >> first_x_assum irule
+  >> imp_res_tac opt_mmap_mem_func >> fs[] >> metis_tac[]
+QED
+
 Theorem eval_upd_clock_eq:
   !t e ck. eval (t with clock := ck) e =  eval t e
 Proof
@@ -1129,22 +1152,24 @@ Theorem evaluate_invariants:
 Proof
   Ho_Rewrite.PURE_REWRITE_TAC[FORALL_AND_THM,IMP_CONJ_THM] >> rpt conj_tac >>
   recInduct evaluate_ind >>
-    (rw[Once evaluate_def]
+     (rw[Once evaluate_def]
      >~ [‘While’]
      >- (qpat_x_assum ‘evaluate _ = _’ (strip_assume_tac o ONCE_REWRITE_RULE[evaluate_def]) >>
          gvs[AllCaseEqs(),empty_locals_def,ELIM_UNCURRY,dec_clock_def] >>
          metis_tac[PAIR,FST,SND])
      >~[‘ShMemLoad’]
-     >- (Cases_on ‘op’>>
-         gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,ffiTheory.call_FFI_def,
-             dec_clock_def,kvar_defs,nb_op_def,sh_mem_store_def,sh_mem_load_def] >>
-         metis_tac[PAIR,FST,SND])
+     >- (
+      Cases_on ‘op’>>
+      gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,ffiTheory.call_FFI_def,
+             dec_clock_def,kvar_defs,nb_op_def,sh_mem_store_def,sh_mem_load_def]
+     )
      >~[‘ShMemStore’]
-     >- (Cases_on ‘op’>>
-         gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,
+     >- (
+      Cases_on ‘op’>>
+      gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,
              dec_clock_def,set_var_def,nb_op_def,sh_mem_store_def,ffiTheory.call_FFI_def,
-             sh_mem_load_def] >>
-         metis_tac[PAIR,FST,SND])>>
+             sh_mem_load_def]
+     )>>
      gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,
          ffiTheory.call_FFI_def,dec_clock_def,kvar_defs] >>
      metis_tac[PAIR,FST,SND])
@@ -1173,7 +1198,7 @@ Proof
       PURE_TOP_CASE_TAC >> simp[]) >>
   rw[Once evaluate_def,AllCaseEqs(),UNCURRY_EQ,empty_locals_def,
      sh_mem_store_def,dec_clock_def,kvar_defs] >>
-  rw[FLOOKUP_UPDATE] >> gvs[] >> res_tac >>
+  rw[FLOOKUP_UPDATE] >> fs[] >> gvs[] >> res_tac >>
   metis_tac[]
 QED
 
@@ -1202,7 +1227,7 @@ QED
 
 Theorem lookup_code_wf_shape_invariant_step:
   OPT_MMAP (eval s) argexps = SOME args ∧
-  lookup_code s.code fname args = SOME (prog,newlocals) ∧
+  lookup_code s.code fname args = SOME (prog,newlocals,return_sh) ∧
   FEVERY (λ(nm,v). is_wf_shape_v s.structs v) s.locals ∧
   FEVERY (λ(nm,v). is_wf_shape_v s.structs v) s.globals ⇒
   FEVERY (λ(nm,v). is_wf_shape_v s.structs v) newlocals
@@ -1393,7 +1418,7 @@ QED
 
 Theorem functions_eq_FILTER:
   functions prog =
-  MAP (λx. case x of Function fi => (fi.name,fi.params,fi.body) | _ => ARB)
+  MAP (λx. case x of Function fi => (fi.name,fi.params,fi.body,fi.return) | _ => ARB)
   $ FILTER is_function prog
 Proof
   Induct_on ‘prog’ using functions_ind >>

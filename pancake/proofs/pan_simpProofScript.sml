@@ -371,18 +371,18 @@ Definition state_rel_def:
      (∀f.
         FLOOKUP s.code f = NONE ==>
          FLOOKUP c f = NONE) /\
-     (∀f vshs prog.
-        FLOOKUP s.code f = SOME (vshs, prog) ==>
-         FLOOKUP c f = SOME (vshs, pan_simp$compile prog))
+     (∀f vshs prog rshape.
+        FLOOKUP s.code f = SOME (vshs, prog, rshape) ==>
+         FLOOKUP c f = SOME (vshs, pan_simp$compile prog, rshape))
 End
 
 
 Theorem state_rel_intro:
   !s t c. state_rel s t c ==>
      (t = s with code := c) /\
-     (∀f vshs prog.
-        FLOOKUP s.code f = SOME (vshs, prog) ==>
-         FLOOKUP c f = SOME (vshs, pan_simp$compile prog))
+     (∀f vshs prog rshape.
+        FLOOKUP s.code f = SOME (vshs, prog, rshape) ==>
+         FLOOKUP c f = SOME (vshs, pan_simp$compile prog, rshape))
 Proof
   rw [state_rel_def]
 QED
@@ -1019,7 +1019,7 @@ Finalise compile_correct;
 
 Theorem functions_compile_prog:
   functions(pan_simp$compile_prog prog) =
-  MAP (λ(x,y,z). (x,y,compile z)) (functions prog)
+  MAP (λ(x,y,z,t). (x,y,compile z,t)) (functions prog)
 Proof
   Induct_on ‘prog’ using panLangTheory.functions_ind >> rw[] >>
   gvs[compile_prog_def,panLangTheory.functions_def]
@@ -1043,15 +1043,16 @@ Proof
   cases_on ‘EL n prog’ >>
   fs [] >>
   cases_on ‘r’ >>
-  fs []
+  fs [] >>
+  Cases_on `r'` >> fs[]
 QED
 
 Theorem el_compile_prog_el_prog_eq:
-  !prog n start pprog p.
-   EL n (functions(compile_prog prog)) = (start,[],pprog) /\
+  !prog n start pprog p rshape.
+   EL n (functions(compile_prog prog)) = (start,[],pprog,rshape) /\
    ALL_DISTINCT (MAP FST(functions prog)) /\ n < LENGTH(functions prog) /\
-   ALOOKUP (functions prog) start = SOME ([],p) ==>
-     EL n (functions prog) = (start,[],p)
+   ALOOKUP (functions prog) start = SOME ([],p,rshape) ==>
+     EL n (functions prog) = (start,[],p,rshape)
 Proof
   rw[functions_compile_prog] >>
   gvs[EL_MAP,UNCURRY_eq_pair] >>
