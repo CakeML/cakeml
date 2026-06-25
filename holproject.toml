@@ -19,6 +19,7 @@ external_includes = [
   "$(HOLDIR)/examples/machine-code/multiword",
   "$(HOLDIR)/examples/machine-code/hoare-triple",
   "$(HOLDIR)/examples/data-structures/balanced_bst",
+  "$(HOLDIR)/examples/l3-machine-code/arm8/asl-equiv",
 ]
 
 
