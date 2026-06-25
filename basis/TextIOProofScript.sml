@@ -1566,6 +1566,18 @@ Proof
   \\ tac
 QED
 
+(* TODO Move? *)
+Theorem SEG_APPEND3[local]:
+  ∀len off z l.
+    len + off ≤ z ∧ z ≤ LENGTH l
+    ⇒
+    SEG len off l ++ SEG (z − (off + len)) (off + len) l = SEG (z − off) off l
+Proof
+  rpt Induct >> rw [SEG]
+  >- (last_x_assum $ qspec_then ‘0’ mp_tac >> simp [SEG_SUC_CONS])
+  >> fs [ADD_CLAUSES, SEG_SUC_CONS]
+QED
+
 Theorem output_aux_spec:
   ∀fd fdv s sv i iv z zv fs content pos.
     OUTSTREAM fd fdv ∧ STRING_TYPE s sv ∧ NUM i iv ∧ NUM z zv ∧
@@ -1599,11 +1611,11 @@ Proof
    (xif
     >- (xvar >> xsimpl >> fs [MIN_DEF, NUM_def, INT_def])
     >> xlit >> xsimpl >> fs [MIN_DEF])
-  (* w8array_copyVec_spec uses W8Array.
-     To make xlet_auto's life easier we unfold IOFS, where it is located
-     within IOFS_iobuff. However, it is important to not rewrite
-     the postcondition; else, the rest of the proof becomes more of a
-     headache. *)
+  (* w8array_copyVec_spec has W8ARRAY in its precondition,
+     but at this point our precondition is IOFS, so xlet_auto struggles.
+     Thus, we unfold IOFS and IOFS_iobuff, exposing W8ARRAY.
+     However, it is important to not rewrite the postcondition; otherwise,
+     the rest of the proof becomes more of a headache. *)
   >> rewrite_tac [Once IOFS_def, IOFS_iobuff_def] >> xpull
   >> rename1 ‘W8ARRAY _ buff’
   >> xlet_auto >- xsimpl
@@ -1633,10 +1645,20 @@ Proof
   >> drule_then assume_tac fsupdate_o >> simp []
   >> qmatch_goalsub_abbrev_tac ‘insert_atI sfx _ (insert_atI pfx _ _)’
   >> sg ‘off + pos = pos + STRLEN pfx’
-  >- cheat
+  >- simp [Abbr ‘off’, Abbr ‘pfx’, LENGTH_TAKE_EQ, strlen_substring]
   >> simp [Req0 insert_atI_insert_atI]
   >> sg ‘pfx ++ sfx = explode (substring s i (z − i))’
-  >- cheat
+  >-
+   (simp [Abbr ‘pfx’, Abbr ‘sfx’]
+    >> simp [MAP_MAP_o, CHR_w2n_n2w_ORD, TAKE_APPEND]
+    >> namedCases_on ‘s’ ["l"] >> simp [substring_def]
+    >> IF_CASES_TAC >> gvs []
+    >-
+     (sg ‘LENGTH (SEG off i l) = off’ >- simp [LENGTH_SEG]
+      >> simp [TAKE_SEG, SEG_SEG, SEG]
+      >> irule SEG_APPEND3
+      >> simp [Abbr ‘off’])
+    >> fs [Abbr ‘off’])
   >> simp []
   >> qmatch_goalsub_abbrev_tac ‘IOFS (fsupdate fs fd k' _ _)’
   >> qexists ‘k'’
@@ -1654,82 +1676,14 @@ Theorem output_spec:
        SEP_EXISTS k. IOFS (fsupdate fs fd k (pos + (strlen s))
                                     (insert_atI (explode s) pos content)))
 Proof
-  strip_tac >>
-  `?n. strlen s <= n` by (qexists_tac`strlen s` >> fs[]) >>
-  FIRST_X_ASSUM MP_TAC >> qid_spec_tac`s` >>
-  Induct_on`n` >>
-  rpt strip_tac >>
-  xcf_with_def TextIO_output_v_def >>
-  fs[IOFS_def,IOFS_iobuff_def] >>
-  xpull >> rename [`W8ARRAY _ buff`] >>
-  Cases_on `buff` >> fs[] >> qmatch_goalsub_rename_tac`h1 :: t` >>
-  Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1 :: h2 :: t` >>
-  Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::t` >>
-  Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::h4::t` >>
-  (xlet_auto >- xsimpl) >>
-  (xif >-(xcon >> xsimpl >> qexists_tac`0` >>
-         fs[fsupdate_unchanged,insert_atI_NIL] >> xsimpl))
-  >-(cases_on`s` >> fs[strlen_def]) >>
-  fs[insert_atI_def] >>
-  xlet_auto >- xsimpl >>
-  xlet_auto >- xsimpl >>
-  xlet`POSTv mv. &NUM (MIN (strlen s) 2048) mv * IOx fs_ffi_part fs * W8ARRAY
-  (iobuff_loc) (h1::h2::h3::h4::t)`
-  >- (
-    xif
-    >- (xret \\ xsimpl \\ fs[NUM_def,INT_def,MIN_DEF] )
-    \\ xlit \\ xsimpl \\ fs[MIN_DEF] ) >>
-  xlet_auto >- xsimpl >>
-  fs[insert_atI_def] >>
-  fs [OUTSTREAM_def] >>
-  xlet_auto >- xsimpl >> fs [get_out_def] >>
-  xlet_auto >> xsimpl
-  >-(xsimpl >> fs[LENGTH_explode,strlen_substring,FD_def]) >>
-  xlet_auto >- xsimpl >>
-  xlet_auto >- xsimpl >>
-  qmatch_goalsub_abbrev_tac`fsupdate fs _ _ pos' content'` >>
-  qmatch_goalsub_abbrev_tac`IOFS fs'` >>
-  fs[IOFS_def] >> xpull >>
-  xapp >> fs[IOFS_iobuff_def,IOFS_def] >> xsimpl >>
-  CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-  map_every qexists_tac [`content'`,`fd`,`fs'`,`pos'`] >>
-  instantiate >> xsimpl >>
-  `strlen s <> 0` by (cases_on`s` >> cases_on`s'` >> fs[])>>
-  fs[strlen_substring] >>
-  imp_res_tac get_file_content_validFD >>
-  fs[get_file_content_def, get_mode_def] >> pairarg_tac >>
-  fs[Abbr`fs'`,Abbr`pos'`,Abbr`content'`,liveFS_def,live_numchars_def,
-     fsupdate_def,LDROP_1, wfFS_fsupdate,validFD_def,always_DROP,
-     AFUPDKEY_ALOOKUP,extract_def,strlen_extract_le,
-     MIN_DEF] >> xsimpl >>
-  rpt strip_tac >>
-  qexists_tac`x' + k` >> fs[insert_atI_def] >>
-  qmatch_goalsub_abbrev_tac`IOx _ fs1 ==>> IOx _ fs2 * GC` >>
-  `fs1 = fs2` suffices_by xsimpl >> fs[Abbr`fs1`,Abbr`fs2`] >>
-  simp[IO_fs_component_equality] >>
-  reverse conj_tac >- (
-    reverse conj_tac >- (
-      fs[LDROP_ADD] \\
-      CASE_TAC \\ fs[] \\
-      imp_res_tac LDROP_NONE_LFINITE
-      \\ fs[wfFS_def,liveFS_def,live_numchars_def] ) >>
-    fs[AFUPDKEY_o] >>
-    match_mp_tac AFUPDKEY_eq >>
-    fs[PAIR_MAP_THM,FORALL_PROD] ) >>
-  fs[AFUPDKEY_o] >>
-  match_mp_tac AFUPDKEY_eq >>
-  simp[] >>
-  fs[MAP_MAP_o,CHR_w2n_n2w_ORD] >>
-  IF_CASES_TAC >-
-    fs[substring_too_long,TAKE_APPEND,TAKE_TAKE,TAKE_LENGTH_TOO_LONG,
-       LENGTH_explode,DROP_APPEND,LENGTH_TAKE_EQ,DROP_LENGTH_TOO_LONG] >>
-  fs[LENGTH_explode,strlen_substring] >>
-  fs[TAKE_APPEND,DROP_APPEND,LENGTH_TAKE_EQ,LENGTH_explode,
-     strlen_substring,DROP_LENGTH_TOO_LONG,TAKE_LENGTH_ID_rwt] >>
-  IF_CASES_TAC \\
-  fs[TAKE_LENGTH_ID_rwt,LENGTH_explode,strlen_substring,
-     DROP_DROP_T,TAKE_LENGTH_TOO_LONG,DROP_LENGTH_TOO_LONG]
-  \\ Cases_on`s` \\ fs[substring_def,SEG_TAKE_DROP,TAKE_LENGTH_ID_rwt]
+  rw []
+  >> xcf_with_def TextIO_output_v_def
+  >> xlet_auto >- xsimpl
+  >> xapp
+  >> qpat_assum ‘get_file_content _ _ = _’ $ irule_at Any
+  >> qpat_assum ‘NUM _ nv’ $ irule_at Any
+  >> qexistsl [‘s’, ‘0’] >> simp []
+  >> xsimpl
 QED
 
 Theorem output_STDIO_spec:
