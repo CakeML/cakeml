@@ -8,10 +8,47 @@ Ancestors
 Libs
   preamble
 
-Definition make_cert_aig_def:
-  make_cert_aig mstr wstr =
+(* TODO Move? *)
+(* Convert cnf to string  *****************************************************)
+
+(* lifting some constants to avoid unnecessary reallocation *******************)
+
+(* TODO This can be removed once the compiler automatically lifts constants. *)
+
+Definition space_def:
+  space = « »
+End
+
+Definition clause_end_def:
+  clause_end = [«0\n»]
+End
+
+(* to_string functions  *******************************************************)
+
+Definition lit_to_string_def:
+  (lit_to_string (Pos (i: num)) = toString i) ∧
+  (lit_to_string (Neg (i: num)) = «-» ^ toString i)
+End
+
+Definition clause_to_string_def:
+  clause_to_string (clause: num clause) =
+  concat (MAP (λn. (lit_to_string n) ^ space) clause ++ clause_end)
+End
+
+Definition cnf_to_string_def:
+  cnf_to_string (cnf: num clause list, limit: num) =
+  let
+    header    = [«p cnf »; toString limit; space; toString (LENGTH cnf); «\n»];
+    clauses   = MAP clause_to_string cnf
+  in
+    concat (header ++ clauses)
+End
+
+(* end-to-end processing of model and witness *********************************)
+
+Definition parse_and_process_def:
+  parse_and_process mstr wstr =
   do
-    (* -- parse model and witness -- *)
     (maig, rest) <- parse_aiger mstr 0;
     (waig, maps, rest) <- parse_aiger_and_symbols wstr 0;
     (* -- model -- *)
@@ -74,92 +111,143 @@ Definition make_cert_aig_def:
       make_interv micnt mlcnt wicnt wmax_latch iren lren wnext_alist
         (maps.intervened_latches);
     interv <<- ALOOKUP interv;
-    (* encode certificate conditions as circuits *)
-    cert_reset_circ <<-
-      encode_is_witness_reset mcirc mreset mcnstrs mlatches wcirc wreset
-      wcnstrs wlatches;
-    cert_transition_circ <<-
-      encode_is_witness_transition mcirc mnext mcnstrs mlatches wcirc
-        wnext wcnstrs wlatches;
-    cert_property_circ <<-
-      encode_is_witness_property mcirc mcnstrs mpreds wcirc wcnstrs wpreds;
-    cert_base_circ <<-
-      encode_is_witness_base wcirc wreset wcnstrs wpreds wlatches;
-    cert_step_circ <<-
-      encode_is_witness_step wcirc wnext wcnstrs wpreds wlatches;
-    cert_liveness_circ <<-
-      encode_is_witness_liveness
-        mcirc mcnstrs mlive
-        wcirc wnext wcnstrs wpreds wlive wlatches interv;
-    cert_decrease_circ <<-
-      encode_is_witness_decrease
-        wcirc wnext wcnstrs wpreds wlive wlatches interv;
-    cert_closure_circ <<-
-      encode_is_witness_closure
-        wcirc wnext wcnstrs wpreds wlive wlatches interv;
-    cert_consistent_circ <<-
-      encode_is_witness_consistent
-        wcirc wnext wcnstrs wpreds wlive wlatches interv;
-    return (
-      cert_reset_circ,
-      cert_transition_circ,
-      cert_property_circ,
-      cert_base_circ,
-      cert_step_circ,
-      cert_liveness_circ,
-      cert_decrease_circ,
-      cert_closure_circ,
-      cert_consistent_circ
-    )
+    return
+      (mcirc, mreset, mnext, mpreds, mcnstrs, mlive, mlatches,
+       wcirc, wreset, wnext, wpreds, wcnstrs, wlive, wlatches, interv)
   od
-End
-
-Definition lit_to_string_def:
-  (lit_to_string (Pos (i: num)) = toString i) ∧
-  (lit_to_string (Neg (i: num)) = «-» ^ toString i)
-End
-
-Definition clause_to_string_def:
-  clause_to_string (clause: num clause) =
-  concat (MAP (λn. (lit_to_string n) ^ « ») clause ++ [«0\n»])
-End
-
-Definition cnf_to_string_def:
-  cnf_to_string (cnf: num clause list, limit: num) =
-  let
-    clauses   = LENGTH cnf;
-    header    =
-      concat [«p cnf »; toString limit; « »; toString clauses; «\n»];
-    clauses   = concat (MAP clause_to_string cnf)
-  in
-    header ^ clauses
 End
 
 (* TODO Maybe the constant strings «» should be translated once and
    then reused everywhere (including during encoding)? *)
-Definition make_cert_strings_def:
-  make_cert_strings mstr wstr =
-  do
-    (cert_reset_circ, cert_transition_circ, cert_property_circ,
-     cert_base_circ, cert_step_circ, cert_liveness_circ,
-     cert_decrease_circ, cert_closure_circ, cert_consistent_circ) <-
-      make_cert_aig mstr wstr;
-    cnfs <<- [
-        («reset», aig_to_cnf cert_reset_circ (Named (Ext «reset»)));
-        («transition»,
-          aig_to_cnf cert_transition_circ (Named (Ext «transition»)));
-        («property»,
-          aig_to_cnf cert_property_circ (Named (Ext «property»)));
-        («base», aig_to_cnf cert_base_circ (Named (Ext «base»)));
-        («step», aig_to_cnf cert_step_circ (Named (Ext «step»)));
-        («liveness», aig_to_cnf cert_liveness_circ (Named (Ext «liveness»)));
-        («decrease», aig_to_cnf cert_decrease_circ (Named (Ext «decrease»)));
-        («closure», aig_to_cnf cert_closure_circ (Named (Ext «closure»)));
-        («consistent»,
-          aig_to_cnf cert_consistent_circ (Named (Ext «consistent»)));
-      ];
-    return (MAP (λx. (FST x, cnf_to_string (SND x))) cnfs)
-  od
+
+Definition make_reset_string_def:
+  make_reset_string
+    (mcirc: (num, num, num) circuit) mreset mcnstrs mlatches
+    (wcirc: (num, num, num) circuit) wreset wcnstrs wlatches
+  =
+  let
+    name = «reset»;
+    circ =
+      encode_is_witness_reset
+        mcirc mreset mcnstrs mlatches
+        wcirc wreset wcnstrs wlatches;
+    cnf = aig_to_cnf circ (Named (Ext name))
+  in
+    (name, cnf_to_string cnf)
+End
+
+Definition make_transition_string_def:
+  make_transition_string
+    (mcirc: (num, num, num) circuit) mnext mcnstrs mlatches
+    (wcirc: (num, num, num) circuit) wnext wcnstrs wlatches
+  =
+  let
+    name = «transition»;
+    circ =
+      encode_is_witness_transition
+        mcirc mnext mcnstrs mlatches
+        wcirc wnext wcnstrs wlatches;
+    cnf = aig_to_cnf circ (Named (Ext name))
+  in
+    (name, cnf_to_string cnf)
+End
+
+Definition make_property_string_def:
+  make_property_string
+    (mcirc: (num, num, num) circuit) mcnstrs mpreds
+    (wcirc: (num, num, num) circuit) wcnstrs wpreds
+  =
+  let
+    name = «property»;
+    circ =
+      encode_is_witness_property mcirc mcnstrs mpreds wcirc wcnstrs wpreds;
+    cnf = aig_to_cnf circ (Named (Ext name))
+  in
+    (name, cnf_to_string cnf)
+End
+
+Definition make_base_string_def:
+  make_base_string
+    (wcirc: (num, num, num) circuit) wreset wcnstrs wpreds wlatches
+  =
+  let
+    name = «base»;
+    circ =
+      encode_is_witness_base wcirc wreset wcnstrs wpreds wlatches;
+    cnf = aig_to_cnf circ (Named (Ext name))
+  in
+    (name, cnf_to_string cnf)
+End
+
+Definition make_step_string_def:
+  make_step_string
+    (wcirc: (num, num, num) circuit) wnext wcnstrs wpreds wlatches
+  =
+  let
+    name = «step»;
+    circ =
+      encode_is_witness_step wcirc wnext wcnstrs wpreds wlatches;
+    cnf = aig_to_cnf circ (Named (Ext name))
+  in
+    (name, cnf_to_string cnf)
+End
+
+Definition make_liveness_string_def:
+  make_liveness_string
+    (mcirc: (num, num, num) circuit) mcnstrs mlive
+    (wcirc: (num, num, num) circuit) wnext wcnstrs wpreds wlive wlatches interv
+  =
+  let
+    name = «liveness»;
+    circ =
+      encode_is_witness_liveness
+        mcirc mcnstrs mlive
+        wcirc wnext wcnstrs wpreds wlive wlatches interv;
+    cnf = aig_to_cnf circ (Named (Ext name))
+  in
+    (name, cnf_to_string cnf)
+End
+
+Definition make_decrease_string_def:
+  make_decrease_string
+    (wcirc: (num, num, num) circuit) wnext wcnstrs wpreds wlive wlatches interv
+  =
+  let
+    name = «decrease»;
+    circ =
+      encode_is_witness_decrease
+        wcirc wnext wcnstrs wpreds wlive wlatches interv;
+    cnf = aig_to_cnf circ (Named (Ext name))
+  in
+    (name, cnf_to_string cnf)
+End
+
+Definition make_closure_string_def:
+  make_closure_string
+    (wcirc: (num, num, num) circuit) wnext wcnstrs wpreds wlive wlatches interv
+  =
+  let
+    name = «closure»;
+    circ =
+      encode_is_witness_closure
+        wcirc wnext wcnstrs wpreds wlive wlatches interv;
+    cnf = aig_to_cnf circ (Named (Ext name))
+  in
+    (name, cnf_to_string cnf)
+End
+
+Definition make_consistent_string_def:
+  make_consistent_string
+    (wcirc: (num, num, num) circuit) wnext wcnstrs wpreds wlive wlatches interv
+  =
+  let
+    name = «consistent»;
+    circ =
+      encode_is_witness_consistent
+        wcirc wnext wcnstrs wpreds wlive wlatches interv;
+    cnf = aig_to_cnf circ (Named (Ext name))
+  in
+    (name, cnf_to_string cnf)
 End
 
 (* Testing ********************************************************************)

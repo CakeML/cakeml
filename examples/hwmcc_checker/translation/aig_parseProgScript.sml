@@ -86,6 +86,9 @@ val r = translate (aig_parseTheory.parse_symbol_table_def |> demonadify);
 val r = translate (aig_parseTheory.parse_aiger_and_symbols_def |> demonadify);
 
 val r = translate sptreeTheory.lookup_def;
+val r = translate sptreeTheory.fromAList_def;
+
+val r = translate aig_parseTheory.default_shared_def;
 val r = translate aig_parseTheory.shared_lit_def;
 val r = translate aig_parseTheory.shared_latch_key_def;
 val r = translate aig_parseTheory.shared_latch_map_def;
