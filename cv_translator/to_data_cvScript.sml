@@ -2706,12 +2706,22 @@ val _ = cv_auto_trans bvi_to_dataTheory.optimise_def;
 val _ = cv_auto_trans bvi_to_dataTheory.op_requires_names_eqn;
 
 val pre = cv_auto_trans_pre "" (bvi_to_dataTheory.compile_sing_def |> measure_args [4,3]);
+
 Theorem bvi_to_data_compile_sing_pre[cv_pre,local]:
   (∀n env tail live v. bvi_to_data_compile_sing_pre n env tail live v) ∧
   (∀n env live v. bvi_to_data_compile_list_pre n env live v)
 Proof
   ho_match_mp_tac bvi_to_dataTheory.compile_sing_ind
   \\ rpt strip_tac \\ simp [Once pre]
+  \\ rw[]
+  \\ first_x_assum (fn th => drule (GSYM th))
+  \\ gvs[GSYM cv_stdTheory.genlist_eq_GENLIST]
+  \\ qmatch_goalsub_abbrev_tac `GENLIST xx _`
+  \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac `GENLIST yy _`
+  \\ qsuff_tac `xx = yy`
+  >- metis_tac[]
+  \\ unabbrev_all_tac \\ simp[FUN_EQ_THM]
 QED
 
 val _ = cv_auto_trans rich_listTheory.COUNT_LIST_GENLIST;

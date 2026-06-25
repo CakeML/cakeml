@@ -1046,7 +1046,7 @@ Theorem term_union_idem[simp]:
    ∀ls. term_union ls ls = ls
 Proof
   Induct >- simp[term_union_def] >>
-  simp[Once term_union_def]
+  simp[Once term_union_def, Once orda_def]
 QED
 
 Theorem term_union_thm:

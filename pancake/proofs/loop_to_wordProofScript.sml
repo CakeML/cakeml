@@ -1254,12 +1254,7 @@ Resume compile_correct[Call_SOMEhandler]:
   >> strip_tac >> fs []
   >> Cases_on ‘res2’ >> fs [] >> rveq >> fs []
   >> fs [loopSemTheory.dec_clock_def]
-  >- suspend "Call_SOMEh_Result"
-  >- suspend "Call_SOMEh_Exception"
-QED
-
-Resume compile_correct[Call_SOMEh_Result]:
-  ((* SOMEhandler_Result: res2 = Result *)
+  >- ((* SOMEhandler_Result: res2 = Result *)
       Cases_on ‘LENGTH l = LENGTH x0’ >> fs []
       >> Cases_on ‘evaluate (x2,set_vars x0 l (st with locals := inter s.locals x1))’ >> fs []
       >> Cases_on ‘q = SOME Error’ >- fs [cut_res_def] >> fs []
@@ -1349,9 +1344,7 @@ Resume compile_correct[Call_SOMEh_Result]:
       >> ((* FinalFFI *)
           qexists ‘s1'’ >> qpat_x_assum ‘(p2',_,_) = comp _ _ _’ (assume_tac o GSYM)
           >> fs [] >> rveq >> gvs []))
-QED
-
-Resume compile_correct[Call_SOMEh_Exception]:
+  >- (
   (* SOMEhandler_Exception *)
      qpat_x_assum ‘∀x. _’ (assume_tac o REWRITE_RULE [IMP_DISJ_THM])
   >> rename [‘loopSem$set_var hvar w _’]
@@ -1409,8 +1402,8 @@ Resume compile_correct[Call_SOMEh_Exception]:
   >> rw []
   >> qpat_x_assum ‘∀r l1'' l2. _’ mp_tac
   >> simp [jump_exc_def] >> metis_tac []
+)
 QED
-
 
 Resume compile_correct[FFI]:
   rpt strip_tac >>

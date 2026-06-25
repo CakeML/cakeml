@@ -65,18 +65,35 @@ Proof
   SIMP_TAC std_ss [compile_def]
   \\ recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ fs[evaluate_def,space_def,pMakeSpace_def]
-  THEN1 (* Skip *)
+  >- suspend "Skip"
+  >- suspend "Move"
+  >- suspend "Assign"
+  >- suspend "Tick"
+  >- suspend "MakeSpace"
+  >- suspend "Raise"
+  >- suspend "Return"
+  >- suspend "Seq"
+  >- suspend "If"
+  >- suspend "Force"
+  >- suspend "Call"
+QED
+
+Resume evaluate_compile[Skip]:
    (MAP_EVERY Q.EXISTS_TAC [ `l`,`s2.safe_for_space`
                            , `s2.peak_heap_length`]
    \\ rw [state_component_equality])
-  THEN1 (* Move *)
+QED
+
+Resume evaluate_compile[Move]:
    (Cases_on `get_var src s.locals` \\ fs[] \\ SRW_TAC [] []
     \\ fs[get_var_def,lookup_union,set_var_def,locals_ok_def]
     \\ RES_TAC \\ fs[]
     \\ Q.EXISTS_TAC `insert dest x l`
     \\ fs[lookup_insert,state_component_equality]
     \\ METIS_TAC [])
-  >-
+QED
+
+Resume evaluate_compile[Assign]:
    (BasicProvers.TOP_CASE_TAC \\ fs[cut_state_opt_def] \\
     Cases_on `names_opt` \\ fs[]
     >-(
@@ -111,18 +128,24 @@ Proof
      \\ qexists_tac `s2.locals` \\ qexists_tac `s2.safe_for_space`
      \\ qexists_tac `s2.peak_heap_length` \\ qexists_tac `s2.stack_max`
      \\ Cases_on `res` \\ gvs [state_component_equality, locals_ok_refl]))
-  THEN1 (* Tick *)
+QED
+
+Resume evaluate_compile[Tick]:
    (Cases_on `s.clock = 0` \\ fs[] \\ SRW_TAC [] []
     \\ fs[locals_ok_def,call_env_def,
          EVAL ``fromList []``,lookup_def,dec_clock_def,state_component_equality,
          flush_state_def]
     \\ METIS_TAC [])
-  THEN1 (* MakeSpace *)
+QED
+
+Resume evaluate_compile[MakeSpace]:
    (Cases_on `cut_env names s.locals` \\ fs[]
     \\ IMP_RES_TAC locals_ok_cut_env
     \\ fs[LET_DEF,add_space_def,
          state_component_equality,locals_ok_def])
-  THEN1 (* Raise *)
+QED
+
+Resume evaluate_compile[Raise]:
    (Cases_on `get_var n s.locals` \\ fs[] \\ SRW_TAC [] []
     \\ `jump_exc (s with locals := l) = jump_exc s` by
          fs[jump_exc_def]
@@ -135,16 +158,17 @@ Proof
                               , `s2.safe_for_space`
                               , `s2.peak_heap_length`]
     \\ fs[locals_ok_def,state_component_equality])
-  THEN1 (* Return *)
-   (Cases_on `get_var n s.locals` \\ fs[] \\ SRW_TAC [] []
-    \\ `get_var n l = SOME x` by
-         fs[locals_ok_def,get_var_def]
-    \\ fs[]
-    \\ srw_tac [] [call_env_def]
-    \\ fs[locals_ok_def,call_env_def,lookup_fromList,
-           dec_clock_def,state_component_equality,
-           flush_state_def,lookup_def])
-  THEN1 (* Seq *)
+QED
+
+Resume evaluate_compile[Return]:
+   (Cases_on `get_vars ns s.locals` \\ gvs[]
+    \\ imp_res_tac locals_ok_get_vars \\ gvs[]
+    \\ MAP_EVERY Q.EXISTS_TAC [`LN`,`s.safe_for_space`,
+                              `s.peak_heap_length`,`s.stack_max`]
+    \\ gvs[flush_state_def,state_component_equality,locals_ok_def,lookup_def])
+QED
+
+Resume evaluate_compile[Seq]:
    (fs[LET_DEF] \\ Cases_on `space c2` \\ fs[]
     THEN1
      (Cases_on `evaluate (c1,s)` \\ fs[]
@@ -438,11 +462,15 @@ Proof
       \\ fs[] \\ SRW_TAC [] [] \\ POP_ASSUM (K ALL_TAC)
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ fs[]
       \\ SIMP_TAC std_ss [Once evaluate_def,LET_DEF]))
-  THEN1 (* If *)
+QED
+
+Resume evaluate_compile[If]:
    (Cases_on `get_var n s.locals` \\ fs[]
     \\ IMP_RES_TAC locals_ok_get_var \\ fs[]
     \\ SRW_TAC [] [] \\ fs[])
-  THEN1 (* Force *)
+QED
+
+Resume evaluate_compile[Force]:
     (gvs [AllCaseEqs(), PULL_EXISTS]
      \\ imp_res_tac locals_ok_get_var \\ gvs []
      \\ imp_res_tac locals_ok_cut_env \\ gvs []
@@ -467,7 +495,9 @@ Proof
     >- (
       gvs [call_env_def, push_env_def, dec_clock_def, state_component_equality]
       \\ metis_tac [locals_ok_refl]))
-  THEN1 (* Call *)
+QED
+
+Resume evaluate_compile[Call]:
    (Cases_on `get_vars args s.locals` \\ fs[]
     \\ IMP_RES_TAC locals_ok_get_vars \\ fs[]
     \\ Cases_on `find_code dest x s.code s.stack_frame_sizes` \\ fs[]
@@ -514,6 +544,9 @@ Proof
                                       , `s2.stack_max`]
     \\ rw [locals_ok_refl,with_same_locals,state_component_equality])
 QED
+
+Finalise evaluate_compile;
+
 
 Theorem compile_correct:
    !c s.
