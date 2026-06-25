@@ -7,7 +7,7 @@ Changes since release v3400:
 ### TextIO
 
 `TextIO.output`'s behavior is now linear in the size of the string
-(previously quadratic -- oops!). This should allow users to output large string
+(previously quadratic -- oops!). This should allow users to output large strings
 (as in: much larger than 2kB) without the program hanging (#1425).
 
 ## Compiler backend and runtime
