@@ -596,9 +596,22 @@ Proof
   cheat
 QED
 
+Theorem LENGTH_ZIPOP:
+  LENGTH $ ZIPOP op ls1 ls2 = MAX (LENGTH ls1) (LENGTH ls2)
+Proof
+  cheat
+QED
+
+Theorem LENGTH_neg_list:
+  LENGTH $ neg_list ls = LENGTH ls
+Proof
+  simp[neg_list_def]
+QED
+
 Theorem LENGTH_bits_of_num_bnd:
   ∀n bnd. n ≤ bnd ⇒ LENGTH (bits_of_num_bnd n bnd) = LENGTH (bits_of_num bnd)
 Proof
+  rw[bits_of_num_bnd_def,LENGTH_ZIPOP,fls_list_bnd_def,LENGTH_neg_list]>>
   cheat
 QED
 
@@ -609,7 +622,12 @@ Theorem encode_circuit_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_circuit bnd Xs name)
 Proof
-  simp[circuit_sem_alt_strong,encode_circuit_def]>>
+  strip_tac>>
+  ‘∀i. i < LENGTH Xs ⇒ ∀n. 0 < n ∧ n < LENGTH Xs ⇒
+    FUNPOW (λi. Num (varc wi $ EL i Xs)) n i ≠ i’ by fs[circuit_sem_def]>>
+  ntac 3 (last_x_assum mp_tac)>>
+  qmatch_asmsub_abbrev_tac‘Q’>>
+  fs[circuit_sem_alt_strong,encode_circuit_def]>>
   IF_CASES_TAC>>
   fs[GSYM LENGTH_NON_NIL]>>
   qmatch_goalsub_abbrev_tac‘_ ⇒ P’>>
@@ -661,8 +679,15 @@ Proof
     rw[ub_num_num_of_bits,reify_avar_def,reify_flag_def]>>
     qmatch_goalsub_abbrev_tac‘bits_of_num_bnd m _’>>
     qmatch_goalsub_abbrev_tac‘num_of_bits (GENLIST f _) = p’>>
-    ‘INJ step dom dom’ by cheat>>
-    ‘SURJ step dom dom’ by cheat>>
+    ‘FINITE dom’ by (
+      ‘dom = count n’ by simp[Abbr‘dom’,EXTENSION,IN_COUNT]>>
+      simp[])>>
+    ‘INJ step dom dom’ by (
+      simp[INJ_DEF,IN_APP]>>
+      cheat (* this follows from assm 0.
+      consult the proof of Theorem circuit_sem_alt_strong *)
+      )>>
+    ‘SURJ step dom dom’ by fs[FINITE_INJ_IMP_SURJ]>>
     fs[INJ_DEF,SURJ_DEF,IN_APP]>>
     ‘∀i. dom i ⇒ pos (step i) = i’ by (
       ‘∀i. dom (SUC i) ⇒ dom i’ by rw[ADD1,Abbr‘dom’]>>
@@ -688,6 +713,7 @@ Proof
   >-simp[abstrl_GENLIST,EVERY_GENLIST,iconstraint_sem_def,
       ub_num_neg,integerTheory.INT_GE,SUB_LESS_OR_EQ]
   >-(
+    last_x_assum kall_tac>>
     simp[o_ABS_R,EVERY_FLAT]>>
     qmatch_goalsub_abbrev_tac‘EVERY P _’>>
     rw[EVERY_MEM,MEM_MAPi,SF DNF_ss]>>
