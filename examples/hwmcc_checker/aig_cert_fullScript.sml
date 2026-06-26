@@ -110,7 +110,7 @@ Definition parse_and_process_def:
     interv <<-
       make_interv micnt mlcnt wicnt wmax_latch iren lren wnext_alist
         (maps.intervened_latches);
-    interv <<- ALOOKUP interv;
+    interv <<- FLOOKUP interv;
     return
       (mcirc, mreset, mnext, mpreds, mcnstrs, mlive, mlatches,
        wcirc, wreset, wnext, wpreds, wcnstrs, wlive, wlatches, interv)

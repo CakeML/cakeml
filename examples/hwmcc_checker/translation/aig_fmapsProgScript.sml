@@ -29,8 +29,6 @@ Type ty11[local] = “:(num + num) + num”
    ty1
  *----------------------------------------------------------------------*)
 
-val _ = translate num_cmp_def;
-
 Theorem TotOrd_ty1:
   TotOrd (num_cmp : ty1 -> ty1 -> ordering)
 Proof

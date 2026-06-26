@@ -578,21 +578,23 @@ End
 Definition make_interv_def:
   make_interv micnt mlcnt wicnt wmax_latch iren lren next interv =
   if isEmpty interv then
-    (* next: latch -> lit; turn this into var -> (latch, bool) *)
-    MAP
-      (λx.
-         let (v, b) = shared_lit micnt mlcnt iren lren (SND x) in
-           (v, (shared_latch_key micnt mlcnt iren lren (FST x), b)))
-      next
+    (* next: latch -> lit is turned into var -> (latch, bool) *)
+    FOLDL
+      (λmap x.
+         let lit = shared_lit micnt mlcnt iren lren (SND x) in
+           fmap_update map (FST lit)
+             (shared_latch_key micnt mlcnt iren lren (FST x), (SND lit)))
+      FEMPTY next
   else
     foldi
-      (λlat lit a.
+      (λlat lit map.
          let
-           (v, b) =
+           lit' =
              shared_lit micnt mlcnt iren lren (convert_lit wicnt wmax_latch lit)
          in
-           (v, (shared_latch_key micnt mlcnt iren lren lat, b))::a) 0 []
-      interv
+           fmap_update map (FST lit')
+             (shared_latch_key micnt mlcnt iren lren lat, (SND lit')))
+      0 FEMPTY interv
 End
 
 (* Testing ********************************************************************)
