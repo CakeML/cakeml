@@ -2,6 +2,11 @@ Changes since release v3400:
 
 ## Source language and front‑end
 
+## Parser
+
+The S-expression parser has been changed to use the simpler and more efficient mlsexp parser
+instead of the PEG-based parser from HOL (simpleSexp) (#1365).
+
 ## Basis library
 
 ### TextIO
