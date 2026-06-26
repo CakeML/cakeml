@@ -5,9 +5,7 @@ all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 
 README_SOURCES = preamble.sml $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
-DIRS = $(wildcard */)
-README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
-	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
+sinclude $(CAKEMLDIR)/developers/readme.mk
 
 EXTRA_CLEANS = cakeml-heap
 
