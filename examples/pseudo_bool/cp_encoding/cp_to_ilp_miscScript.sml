@@ -540,25 +540,6 @@ Definition encode_circuit_def:
   (abstr $ cencode_circuit_aux bnd Xs name)
 End
 
-(* test cases:
-
-EVAL
-“let
-   bnd = (λi. (0,0));
-   Xs = [INL «X»;INL «Y»;INL «Z»];
-   name = «NAME»
- in
-   cencode_circuit_aux bnd Xs name”
-
-EVAL
-“let
-   bnd = (λi. (0,0));
-   Xs = [INL «X»;INL «Y»;INL «Z»];
-   name = «NAME»
- in
-   encode_circuit bnd Xs name”
- *)
-
 Theorem cencode_circuit_sem:
   valid_assignment bnd wi ∧
   cencode_circuit bnd Xs name ec = (es, ec') ⇒
@@ -609,6 +590,18 @@ Proof
   simp[]
 QED
 
+Theorem num_of_bits_bits_of_num_bnd:
+  ∀n bnd. n ≤ bnd ⇒ num_of_bits (bits_of_num_bnd n bnd) = n
+Proof
+  cheat
+QED
+
+Theorem LENGTH_bits_of_num_bnd:
+  ∀n bnd. n ≤ bnd ⇒ LENGTH (bits_of_num_bnd n bnd) = LENGTH (bits_of_num bnd)
+Proof
+  cheat
+QED
+
 Theorem encode_circuit_sem_1:
   valid_assignment bnd wi ∧
   ALOOKUP cs name = SOME (Misc (Circuit Xs)) ∧
@@ -619,111 +612,107 @@ Proof
   simp[circuit_sem_alt_strong,encode_circuit_def]>>
   IF_CASES_TAC>>
   fs[GSYM LENGTH_NON_NIL]>>
-  rw[EVERY_FLAT]
-  >-((* reifications *)
-    simp[EVERY_MAP]>>
+  qmatch_goalsub_abbrev_tac‘_ ⇒ P’>>
+  simp[EVERY_MEM]>>
+  rw[Abbr‘P’,EVERY_FLAT]
+  >-((* reifications Xs[i]=j *)
     qmatch_goalsub_abbrev_tac‘EVERY P _’>>
-    simp[EVERY_MEM,Abbr‘P’,EVERY_FLAT,EVERY_GENLIST,
-      reify_avar_def,reify_reif_def])
+    simp[EVERY_MAP]>>
+    simp[EVERY_MEM]>>
+    simp[Abbr‘P’,EVERY_FLAT,EVERY_GENLIST,reify_avar_def,reify_reif_def])>>
+  simp[cencode_circuit_aux_def]>>
+  rpt CONJ_TAC
+  >-((* bounds 0 ≤ Xs[i] < n *)
+    simp[mk_bounds_def,mk_annotate_def,o_ABS_R,EVERY_FLAT,EVERY_MAP]>>
+    rw[EVERY_MEM,integerTheory.INT_GE,GSYM integerTheory.INT_NEG_MINUS1]>>
+    last_assum $ drule_then mp_tac>>
+    rename1‘0 ≤ a ∧ Num _ < b’>>
+    simp[intLib.ARITH_PROVE“0 ≤ (a:int) ∧ Num a < (b:num) ⇒ a ≤ &(b − 1)”])
+  >-((* all different Xs[i] = Xs[j] iff i = j
+       should try to take advantage of what has been proved *)
+    simp[cencode_all_different_def,
+      cencode_all_different_except_aux_def,o_ABS_R,EVERY_FLAT]>>
+    qmatch_goalsub_abbrev_tac‘EVERY P _’>>
+    rw[EVERY_MEM,MEM_MAPi,SF DNF_ss]>>
+    simp[Abbr‘P’,EVERY_FLAT]>>
+    qmatch_goalsub_abbrev_tac‘EVERY P _’>>
+    rw[EVERY_MEM,MEM_MAPi,SF DNF_ss]>>
+    rw[Abbr‘P’,reify_avar_def,reify_flag_def,
+      GSYM integerTheory.INT_NEG_MINUS1]>>
+    ntac 4 (pop_assum mp_tac)>>
+    simp[integerTheory.INT_GT,integerTheory.INT_NOT_LT,
+      integerTheory.INT_GE,GSYM integerTheory.int_sub]>>
+    qmatch_goalsub_abbrev_tac‘a - b’>>
+    simp[intLib.ARITH_PROVE“1 ≤ (a:int) - b ⇔ b < a”]>>
+    fs[integerTheory.INT_LT_LE,EL_ALL_DISTINCT_EL_EQ]>>
+    rw[Abbr‘a’,Abbr‘b’]>>
+    fs[EL_MAP])>>
+  (* constraints on position variables *)
+  fs[MEM_EL,SF DNF_ss,cencode_circuit_pos_def]>>
+  qabbrev_tac‘n = LENGTH Xs’>>
+  qabbrev_tac‘dom = (λi. i < n)’>>
+  qabbrev_tac‘suc = λm. Num (varc wi $ EL m Xs)’>>
+  qabbrev_tac‘step = (λm. FUNPOW suc m 0)’>>
+  fs[]>>
+  ‘∀i. dom i ⇒
+    eval_lin_term
+      (reify_avar cs wi)
+      (ub_num name i (n − 1)) = &pos i’ by (
+    rw[ub_num_num_of_bits,reify_avar_def,reify_flag_def]>>
+    qmatch_goalsub_abbrev_tac‘bits_of_num_bnd m _’>>
+    qmatch_goalsub_abbrev_tac‘num_of_bits (GENLIST f _) = p’>>
+    ‘INJ step dom dom’ by cheat>>
+    ‘SURJ step dom dom’ by cheat>>
+    fs[INJ_DEF,SURJ_DEF,IN_APP]>>
+    ‘∀i. dom i ⇒ pos (step i) = i’ by (
+      ‘∀i. dom (SUC i) ⇒ dom i’ by rw[ADD1,Abbr‘dom’]>>
+      simp[Abbr‘step’]>>
+      Induct>>
+      simp[FUNPOW_SUC]>>
+      strip_tac>>
+      fs[ADD1])>>
+    ‘m ≤ n - 1’ by (
+      simp[Abbr‘m’]>>
+      SELECT_ELIM_TAC>>
+      simp[Abbr‘dom’])>>
+    ‘num_of_bits (GENLIST f (LENGTH (bits_of_num_bnd m (n - 1)))) = p’
+      suffices_by metis_tac[GSYM LENGTH_bits_of_num_bnd]>>
+    simp[Abbr‘f’,GENLIST_ID]>>
+    simp[num_of_bits_bits_of_num_bnd]>>
+    first_assum $ drule_then assume_tac>>
+    fs[Abbr‘m’,Abbr‘p’]>>
+    SELECT_ELIM_TAC>>
+    metis_tac[])>>
+  rpt CONJ_TAC
+  >-simp[iconstraint_sem_def,ub_num_neg]
+  >-simp[abstrl_GENLIST,EVERY_GENLIST,iconstraint_sem_def,
+      ub_num_neg,integerTheory.INT_GE,SUB_LESS_OR_EQ]
   >-(
-    simp[cencode_circuit_aux_def]>>
-    rpt CONJ_TAC
-    >-((* 1st among the 3 remaining sets of constraints:
-          For i in 0...n-1, 0 ≤ Xs[i] ≤ n-1 *)
-      simp[mk_bounds_def,mk_annotate_def,o_ABS_R,EVERY_FLAT,EVERY_MAP]>>
-      fs[EVERY_MEM,integerTheory.INT_GE,GSYM LENGTH_NON_NIL]>>
-      rw[]>>
-      last_x_assum $ drule_then mp_tac>>
-      rw[]>>
-      qmatch_goalsub_abbrev_tac‘-&(a - 1) ≤ -1 * b’>>
-      simp[GSYM integerTheory.INT_NEG_MINUS1]>>
-      simp[intLib.ARITH_PROVE“0 < a ⇒ &(a - 1) = &a - 1”,
-        intLib.ARITH_PROVE“(b:int) ≤ &a - 1 ⇔ b < &a”]>>
-      DEP_REWRITE_TAC[GSYM integerTheory.NUM_LT]>>
-      simp[])
-    >-((* 2nd among the 3 remaining sets of constraints:
-          For i,j in 0...n-1, Xs[i] ≠ Xs[j] iff i ≠ j
-
-          Should try to use results from all_different *)
-      simp[cencode_all_different_def,
-        cencode_all_different_except_aux_def,o_ABS_R,EVERY_FLAT]>>
-      qmatch_goalsub_abbrev_tac‘EVERY P _’>>
-      rw[EVERY_MEM,MEM_MAPi,SF DNF_ss]>>
-      simp[Abbr‘P’,EVERY_FLAT]>>
-      qmatch_goalsub_abbrev_tac‘EVERY P _’>>
-      rw[EVERY_MEM,MEM_MAPi,SF DNF_ss]>>
-      rw[Abbr‘P’,reify_avar_def,reify_flag_def,
-        GSYM integerTheory.INT_NEG_MINUS1]>>
-      ntac 4 (pop_assum mp_tac)>>
-      simp[integerTheory.INT_GT,integerTheory.INT_NOT_LT,
-        integerTheory.INT_GE,GSYM integerTheory.int_sub]>>
-      qmatch_goalsub_abbrev_tac‘a - b’>>
-      simp[intLib.ARITH_PROVE“1 ≤ (a:int) - b ⇔ b < a”]>>
-      fs[integerTheory.INT_LT_LE,EL_ALL_DISTINCT_EL_EQ]>>
-      rw[Abbr‘a’,Abbr‘b’]>>
-      fs[EL_MAP])
-    >-((* 3rd among the 3 remaining sets of constraints:
-          Constraints on position variables *)
-      simp[cencode_circuit_pos_def]>>
-      ‘∀i. i < LENGTH Xs ⇒
-        eval_lin_term
-          (reify_avar cs wi)
-          (ub_num name i (LENGTH Xs − 1)) = &pos i’ by cheat>>
-      (*‘∀i j. i < LENGTH Xs ∧ j < LENGTH Xs ⇒ (pos i = j ⇔
-        eval_lin_term
-          (reify_avar cs wi)
-          (ub_num name i (LENGTH Xs − 1)) = &j)’ by cheat>>*)
-      (* MAP_COUNT_LIST
-        LENGTH_COUNT_LIST*)
-      rpt CONJ_TAC
-      >-(
-        simp[iconstraint_sem_def,ub_num_neg]>>
-        first_x_assum $ rev_drule_all_then assume_tac>>
-        qmatch_goalsub_abbrev_tac‘-s ≥ 0’>>
-        ‘s = 0’ suffices_by simp[]>>
-        metis_tac[])
-      >-(
-        rw[abstrl_GENLIST,EVERY_GENLIST,iconstraint_sem_def,ub_num_neg]>>
-        first_x_assum $ drule_then assume_tac>>
-        last_x_assum $ drule_then assume_tac>>
-        first_x_assum $ drule_then assume_tac>>
-        fs[]>>
-        cheat)
-      >-(
-        simp[o_ABS_R,EVERY_FLAT]>>
-        qmatch_goalsub_abbrev_tac‘EVERY P _’>>
-        rw[EVERY_MEM,MEM_MAPi,SF DNF_ss]>>
-        simp[Abbr‘P’,EVERY_FLAT,EVERY_MAP]>>
-        simp[EVERY_GENLIST]>>
-        first_assum $ drule_then assume_tac>>
-        last_x_assum mp_tac>>
-        last_assum $ drule_then assume_tac>>
-        ntac 3 strip_tac>>
-        first_x_assum $ drule_then assume_tac>>
-        last_x_assum $ drule_then assume_tac>>
-        simp[predicate_if_else,iconstraint_sem_def,
-          GSYM IMP_CONJ_THM,pair_idfun,ub_num_neg,
-          reify_avar_def,reify_reif_def]>>
-        IF_CASES_TAC>>
-        strip_tac
-        >-(
-          qmatch_goalsub_abbrev_tac‘&a ≥ &b’>>
-          simp[integerTheory.INT_GE]>>
-          ‘a = b’ suffices_by simp[integerTheory.INT_LE_ANTISYM]>>
-          unabbrev_all_tac>>
-          last_x_assum $ rev_drule_then mp_tac>>
-          simp[]>>
-          ‘∀a b. 0 < b ∧ a < b ⇒
-            (a + 1) MOD b = 0 ⇔ a = b - 1’ suffices_by metis_tac[]>>
-          cheat)
-        >-(
-          fs[]>>
-          qmatch_goalsub_abbrev_tac‘_ ∧ &a + -&b ≥ _’>>
-          simp[integerTheory.INT_GE]>>
-          simp[intLib.ARITH_PROVE“1 ≤ -&a + &b ∧ -1 ≤ &a + -&b ⇔ -&a + &b = 1”]>>
-          unabbrev_all_tac>>
-          last_x_assum $ rev_drule_then mp_tac>>
-          cheat)
+    simp[o_ABS_R,EVERY_FLAT]>>
+    qmatch_goalsub_abbrev_tac‘EVERY P _’>>
+    rw[EVERY_MEM,MEM_MAPi,SF DNF_ss]>>
+    simp[Abbr‘P’,EVERY_FLAT,EVERY_MAP,EVERY_GENLIST]>>
+    simp[predicate_if_else,iconstraint_sem_def,GSYM IMP_CONJ_THM,
+      pair_idfun,ub_num_neg,reify_avar_def,reify_reif_def,
+      integerTheory.INT_GE]>>
+    strip_tac>>
+    rename1‘if j = _ then _ _ (_ i _) = _ ⇒ _ else _’>>
+    qmatch_goalsub_abbrev_tac‘if _ then P1 ⇒ Q1 else _ ⇒ P2 ⇒ Q2’>>
+    ‘P1 ⇔ suc i = 0’ by simp[Abbr‘P1’,Abbr‘suc’]>>
+    ‘P2 ⇔ suc i = j’ by simp[Abbr‘P2’,Abbr‘suc’,Abbr‘dom’,
+      intLib.ARITH_PROVE“0 ≤ a ⇒ (a = &b ⇔ Num a = b)”]>>
+    ‘Q1 ⇔ pos i + 1 = n’ by (
+      last_x_assum mp_tac>>
+      simp[Abbr‘dom’,Abbr‘Q1’])>>
+    ‘Q2 ⇔ pos i + 1 = pos j’ by (
+      simp[Abbr‘Q2’]>>
+      rename1‘a + _ = b’>>
+      simp[intLib.ARITH_PROVE“1 ≤ -&a + &b ∧ -1 ≤ &a + -&b ⇔ a + 1 = b”])>>
+    rfs[Abbr‘dom’]>>
+    first_x_assum $ drule_then kall_tac>>
+    first_x_assum $ drule_then mp_tac>>
+    last_x_assum mp_tac>>
+    cheat)
 QED
 
 Theorem encode_circuit_sem_2:
