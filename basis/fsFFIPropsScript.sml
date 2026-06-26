@@ -1446,6 +1446,17 @@ Proof
   rw[get_mode_def]
 QED
 
+Theorem get_mode_fsupdate[simp]:
+  get_mode (fsupdate fs fd' k pos content) fd = get_mode fs fd
+Proof
+  simp [get_mode_def, fsupdate_def]
+  >> CASE_TAC
+  >> CASE_TAC
+  >> simp [IO_fs_component_equality, AFUPDKEY_ALOOKUP]
+  >> CASE_TAC >> gvs []
+  >> CASE_TAC >> gvs []
+QED
+
 Theorem get_mode_forwardFD[simp]:
    get_mode (forwardFD fs fd n) fd' = get_mode fs fd'
 Proof
