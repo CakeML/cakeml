@@ -8,7 +8,8 @@ Ancestors
   int_bitwise int_bitwiseExtra ilp ilp_to_pb cp cp_parse cp_enc cp_to_ilp
   cp_to_ilp_prim cp_to_ilp_counting cp_to_ilp_linear cp_to_ilp_array
   cp_to_ilp_extensional cp_to_ilp_logical cp_to_ilp_lexicographical
-  cp_to_ilp_channeling cp_to_ilp_misc cp_to_ilp_scheduling cp_to_ilp_all
+  cp_to_ilp_channeling cp_to_ilp_misc cp_to_ilp_scheduling cp_to_ilp_sorting
+  cp_to_ilp_all
 Libs
   preamble basis
 
@@ -169,6 +170,10 @@ val res = translate sexp_disjunctive_body_def;
 val res = translate sexp_disjunctive2d_body_def;
 val res = translate sexp_cumulative_body_def;
 val res = translate sexp_scheduling_dispatch_def;
+
+(* sorting *)
+val res = translate sexp_increasing_body_def;
+val res = translate sexp_sorting_dispatch_def;
 
 val res = translate strip_prefix_def;
 
@@ -696,6 +701,12 @@ QED
 val _ = update_precondition cencode_cumulative_side;
 
 val res = translate cp_to_ilp_schedulingTheory.cencode_scheduling_constr_def;
+
+(* cp_to_ilp_sorting *)
+val res = translate cp_to_ilp_sortingTheory.inc_cmp_def;
+val res = translate cp_to_ilp_sortingTheory.inc_chain_def;
+val res = translate cp_to_ilp_sortingTheory.cencode_increasing_def;
+val res = translate cp_to_ilp_sortingTheory.cencode_sorting_constr_def;
 
 (* cp_to_ilp_all *)
 

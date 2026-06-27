@@ -801,6 +801,26 @@ Definition sexp_scheduling_dispatch_def:
     else NONE
 End
 
+Definition sexp_increasing_body_def:
+  sexp_increasing_body strct desc rest =
+    case rest of
+      [xs_e] =>
+      (do
+         xs <- sexp_varc_list xs_e;
+         return (Sorting (Increasing xs strct desc))
+       od)
+    | _ => fail («increasing expects 1 arg: (x1 ... xn)\n»)
+End
+
+Definition sexp_sorting_dispatch_def:
+  sexp_sorting_dispatch ctype rest =
+    if ctype = «increasing»               then SOME (sexp_increasing_body F F rest)
+    else if ctype = «strictly_increasing» then SOME (sexp_increasing_body T F rest)
+    else if ctype = «decreasing»          then SOME (sexp_increasing_body F T rest)
+    else if ctype = «strictly_decreasing» then SOME (sexp_increasing_body T T rest)
+    else NONE
+End
+
 Definition sexp_constraint_dispatch_def:
   sexp_constraint_dispatch ctype rest =
     case strip_prefix («lin_») ctype of
@@ -828,6 +848,9 @@ Definition sexp_constraint_dispatch_def:
       SOME res => res
     | NONE =>
     case sexp_scheduling_dispatch ctype rest of
+      SOME res => res
+    | NONE =>
+    case sexp_sorting_dispatch ctype rest of
       SOME res => res
     | NONE =>
     sexp_prim_dispatch ctype rest
@@ -1030,6 +1053,27 @@ Theorem test_scheduling:
   sexp_constraint_dispatch («cumulative»)
     (fromStringL («((A) (1) (1) 5)»)) =
     INR (Scheduling (Cumulative [INL «A»] [INR 1] [INR 1] (INR 5)))
+Proof
+  EVAL_TAC
+QED
+
+Theorem test_sorting:
+  (* increasing: non-strict, non-descending *)
+  sexp_constraint_dispatch («increasing»)
+    (fromStringL («((A B C))»)) =
+    INR (Sorting (Increasing [INL «A»; INL «B»; INL «C»] F F)) ∧
+  (* strictly_increasing sets the strict flag *)
+  sexp_constraint_dispatch («strictly_increasing»)
+    (fromStringL («((A B))»)) =
+    INR (Sorting (Increasing [INL «A»; INL «B»] T F)) ∧
+  (* decreasing sets the descending flag *)
+  sexp_constraint_dispatch («decreasing»)
+    (fromStringL («((A B C))»)) =
+    INR (Sorting (Increasing [INL «A»; INL «B»; INL «C»] F T)) ∧
+  (* strictly_decreasing sets both flags *)
+  sexp_constraint_dispatch («strictly_decreasing»)
+    (fromStringL («((A B))»)) =
+    INR (Sorting (Increasing [INL «A»; INL «B»] T T))
 Proof
   EVAL_TAC
 QED

@@ -5,7 +5,7 @@ Theory cp
 Libs
   preamble
 Ancestors
-  mlint pbc
+  mlint pbc sorting
 
 Type assignment[pp] = ``:('a -> int)``;
 
@@ -197,6 +197,15 @@ Datatype:
 End
 
 Datatype:
+  sorting_constr =
+    (* Increasing xs strct desc :
+       the sequence xs is monotone; (strct,desc) pick the adjacent comparison:
+       (F,F) ≤, (T,F) <, (F,T) ≥, (T,T) >.
+       Vacuously true for LENGTH xs ≤ 1. *)
+    Increasing ('a varc list) bool bool
+End
+
+Datatype:
   constraint =
   | Prim ('a prim_constr)
   | Counting ('a counting_constr)
@@ -208,6 +217,7 @@ Datatype:
   | Channeling ('a channeling_constr)
   | Misc ('a misc_constr)
   | Scheduling ('a scheduling_constr)
+  | Sorting ('a sorting_constr)
 End
 
 (* Semantics *)
@@ -892,6 +902,26 @@ Definition scheduling_constr_sem_def:
       cumulative_sem xs ws hs cap w
 End
 
+(* adjacent comparison picked by (strct,desc):
+   (F,F) ≤, (T,F) <, (F,T) ≥, (T,T) > *)
+Definition inc_rel_def[simp]:
+  inc_rel strct desc (x:int) y =
+  if desc then (if strct then x > y else x ≥ y)
+  else (if strct then x < y else x ≤ y)
+End
+
+Definition increasing_sem_def:
+  increasing_sem xs strct desc w ⇔
+  SORTED (inc_rel strct desc) (MAP (varc w) xs)
+End
+
+Definition sorting_constr_sem_def:
+  sorting_constr_sem c w ⇔
+  case c of
+    Increasing xs strct desc =>
+      increasing_sem xs strct desc w
+End
+
 Definition constraint_sem_def:
   constraint_sem c (w: 'a assignment) =
   case c of
@@ -905,6 +935,7 @@ Definition constraint_sem_def:
   | Channeling c => channeling_constr_sem c w
   | Misc c => misc_constr_sem c w
   | Scheduling c => scheduling_constr_sem c w
+  | Sorting c => sorting_constr_sem c w
 End
 
 Definition valid_assignment_def:
