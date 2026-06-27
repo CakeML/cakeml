@@ -5,7 +5,7 @@ Theory ilp
 Libs
   preamble
 Ancestors
-  mlint pbc cp pbc_encode int_bitwise
+  mlint pbc cp pbc_encode int_bitwiseExtra
 
 (*
   This "ILP"-style intermediate language is designed for convenience of
@@ -71,77 +71,6 @@ Proof
   rw[norm_varcs_def]>>
   drule norm_varcs_aux_sound>>
   simp[eval_ilin_term_def,iSUM_def]
-QED
-
-(* twos-compplement representation *)
-Definition bit_width_def:
-  bit_width bnd X =
-    let (lb,ub) = bnd X in
-     (lb < 0,
-      if lb < 0 then
-        MAX (LENGTH (FST (bits_of_int lb)))
-            (LENGTH (FST (bits_of_int ub)))
-      else LENGTH (FST (bits_of_int ub)))
-End
-
-Theorem LESS_EXP_MAX[local]:
-  (k:num) < 2 ** MAX m n ⇔ k < 2 ** m ∨ k < 2 ** n
-Proof
-  rw [MAX_DEF]
-  \\ eq_tac \\ rw []
-  \\ irule LESS_LESS_EQ_TRANS
-  \\ pop_assum $ irule_at Any
-  \\ gvs []
-QED
-
-Theorem LESS_EQ_EXP_MAX[local]:
-  (k:num) ≤ 2 ** MAX m n ⇔ k ≤ 2 ** m ∨ k ≤ 2 ** n
-Proof
-  rw [MAX_DEF]
-  \\ eq_tac \\ rw []
-  \\ irule LESS_EQ_TRANS
-  \\ pop_assum $ irule_at Any
-  \\ gvs []
-QED
-
-Theorem LESS_LENGTH_bits_of_num:
-  ∀k. k < 2 ** LENGTH (bits_of_num k)
-Proof
-  ho_match_mp_tac bits_of_num_ind \\ rw []
-  \\ simp [Once bits_of_num_def]
-  \\ rw [] \\ gvs []
-QED
-
-Theorem bit_width_lemma1:
-  bit_width bnd X = (b,h) ∧ bnd X = (q,r) ∧ &n ≤ r ⇒ n < 2 ** h
-Proof
-  strip_tac
-  \\ gvs [bit_width_def] \\ rw []
-  \\ gvs [LESS_EXP_MAX]
-  \\ ‘∃k. r = & k’ by intLib.COOPER_TAC
-  \\ gvs [bits_of_int_def]
-  \\ rpt disj2_tac
-  \\ irule LESS_EQ_LESS_TRANS
-  \\ irule_at Any LESS_LENGTH_bits_of_num \\ gvs []
-QED
-
-Theorem bit_width_lemma2:
-  bit_width bnd X = (T,h) ∧ bnd X = (q,r) ∧ q ≤ -&n ⇒
-    n ≤ 2**h
-Proof
-  strip_tac
-  \\ gvs [bit_width_def]
-  \\ Cases_on ‘q’ \\ gvs []
-  \\ rename [‘k ≠ 0:num’]
-  \\ ‘- & k - 1 = -& (k + 1):int’ by intLib.COOPER_TAC \\ gvs []
-  \\ gvs [bits_of_int_def]
-  \\ gvs [int_not_def]
-  \\ ‘&(k + 1) − 1 = & k : int’ by intLib.COOPER_TAC \\ gvs []
-  \\ qmatch_goalsub_abbrev_tac`MAX lbb ubb`
-  \\ qspec_then `Num (&k -1)` assume_tac LESS_LENGTH_bits_of_num
-  \\ gvs[]
-  \\ `k ≤ 2** lbb` by intLib.ARITH_TAC
-  \\ gvs [LESS_EQ_EXP_MAX]
 QED
 
 (* Rounding to the nearest powers of two *)

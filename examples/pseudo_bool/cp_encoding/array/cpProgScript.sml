@@ -5,7 +5,7 @@
 Theory cpProg
 Ancestors
   basis_ffi pbc pbc_encode pbc_normalise npbc_parseProg
-  int_bitwise ilp ilp_to_pb cp cp_parse cp_enc cp_to_ilp
+  int_bitwise int_bitwiseExtra ilp ilp_to_pb cp cp_parse cp_enc cp_to_ilp
   cp_to_ilp_prim cp_to_ilp_counting cp_to_ilp_linear cp_to_ilp_array
   cp_to_ilp_extensional cp_to_ilp_logical cp_to_ilp_lexicographical
   cp_to_ilp_channeling cp_to_ilp_misc cp_to_ilp_scheduling cp_to_ilp_all
@@ -187,6 +187,10 @@ val res = translate sexp_prob_type_def;
 val res = translate sexp_cp_inst_def;
 val res = translate parse_cp_inst_def;
 
+(* int_bitwiseExtra *)
+
+val res = translate bit_width_def;
+
 (* ilp *)
 
 (* TODO: remove? *)
@@ -196,7 +200,6 @@ Proof
   rw[]
 QED
 
-val res = translate bit_width_def;
 val res = translate (min_iterm_def |> PURE_REWRITE_RULE[int_2_pow_eq]);
 val res = translate min_ilin_term_def;
 val res = translate bits_imply_def;
@@ -358,6 +361,12 @@ val res = translate encode_bvar_eq_def;
 val res = translate neiv_def;
 
 val res = translate mk_bounds_def;
+
+val res = translate cp_to_ilpTheory.mk_constraint_ge_bin_def;
+val res = translate cp_to_ilpTheory.mk_lbnd_bin_def;
+val res = translate cp_to_ilpTheory.mk_ubnd_bin_def;
+val res = translate cp_to_ilpTheory.mk_bounds_bin_def;
+val res = translate cp_to_ilpTheory.ub_num_def;
 
 (* cp_to_ilp_primScript *)
 
@@ -600,12 +609,6 @@ val res = translate cp_to_ilp_channelingTheory.cencode_inverse_def;
 val res = translate cp_to_ilp_channelingTheory.cencode_channeling_constr_def;
 
 (* cp_to_ilp_misc *)
-
-val res = translate cp_to_ilp_miscTheory.mk_constraint_ge_bin_def;
-val res = translate cp_to_ilp_miscTheory.mk_ubnd_bin_def;
-val res = translate cp_to_ilp_miscTheory.ub_num_def;
-val res = translate cp_to_ilp_miscTheory.mk_lbnd_bin_def;
-val res = translate cp_to_ilp_miscTheory.mk_bounds_bin_def;
 
 val res = translate cp_to_ilp_miscTheory.cencode_circuit_pos_def;
 

@@ -5,7 +5,7 @@ Theory ilp_to_pb
 Libs
   preamble
 Ancestors
-  cp ilp pbc pbc_encode int_bitwise
+  cp ilp pbc pbc_encode int_bitwise int_bitwiseExtra
 
 Datatype:
   epb =
@@ -38,35 +38,6 @@ Definition encode_ivar_def:
       (-&(2**h),Pos(Sign X)):: bits
   else (bits:('a,'b) epb lin_term)
 End
-
-Theorem iSUM_GENLIST_eq_SUM_GENLIST[local]:
-  iSUM (GENLIST (λi. &(2 ** i) * b2i (f i)) h) =
-  & (SUM (GENLIST (λi. if f i then 2 ** i else 0) h))
-Proof
-  Induct_on ‘h’ \\ gvs [iSUM_def,GENLIST,SNOC_APPEND,SUM_APPEND]
-  \\ Cases_on ‘f h’ \\ gvs [] \\ intLib.COOPER_TAC
-QED
-
-Theorem SUM_GENLIST_BIT:
-  SUM (GENLIST (λi. if BIT i n then 2 ** i else 0) h) = n MOD 2 ** h
-Proof
-  Induct_on ‘h’ \\ gvs [GENLIST,SNOC_APPEND,SUM_APPEND]
-  \\ pop_assum kall_tac
-  \\ ‘∀k n. k MOD 2 ** (SUC n) = BITS n 0 k’ by
-     gvs [bitTheory.BITS_def,bitTheory.DIV_2EXP_def,bitTheory.MOD_2EXP_def]
-  \\ Cases_on ‘h’ \\ gvs []
-  >- (gvs [bitTheory.BIT_def] \\ rw []
-      \\ metis_tac [bitTheory.NOT_BITS2])
-  \\ gvs [] \\ gvs [bitTheory.BITS_SUC_THM,bitTheory.SBIT_def]
-QED
-
-Theorem SUM_GENLIST_LE[local]:
-  ∀g h. SUM (GENLIST (λi. if g i then 2 ** i else 0) h) ≤ 2 ** h
-Proof
-  gen_tac \\ Induct
-  \\ gvs [GENLIST,SNOC_APPEND,SUM_APPEND]
-  \\ rw [] \\ gvs [EXP]
-QED
 
 Theorem encode_ivar_sem_1:
   valid_assignment bnd wi ⇒
@@ -114,26 +85,6 @@ Proof
   \\ Cases_on`n = 2 **h` \\ gvs[]
   \\ qspecl_then [‘h’,‘i’,‘1’] mp_tac bitTheory.BIT_COMPLEMENT
   \\ simp[ONE_MOD]
-QED
-
-Theorem num_of_bits_APPEND:
-  ∀xs.
-  num_of_bits (xs ++ ys) =
-  num_of_bits xs + (2 ** LENGTH xs) * (num_of_bits ys)
-Proof
-  ho_match_mp_tac num_of_bits_ind>>
-  rw[num_of_bits_def,EXP]
-QED
-
-Theorem num_of_bits_GENLIST:
-  &num_of_bits (GENLIST f h)
-  =
-  iSUM (GENLIST (λi. &(2**i) * b2i (f i)) h)
-Proof
- Induct_on`h`>>
- rw[num_of_bits_def,iSUM_def,GENLIST,SNOC_APPEND,num_of_bits_APPEND]>>
- fs[b2i_alt]>>rw[num_of_bits_def]>>
- intLib.ARITH_TAC
 QED
 
 Theorem encode_ivar_sem_2:

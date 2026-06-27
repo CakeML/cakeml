@@ -5,7 +5,7 @@ Theory cp_to_ilp
 Libs
   preamble
 Ancestors
-  cp ilp pbc pbc_encode sptree int_bitwise
+  cp ilp pbc pbc_encode sptree int_bitwiseExtra
 
 (* The shared infrastructure for all encodings goes into this file *)
 
@@ -63,32 +63,6 @@ Definition reify_flag_counting_def:
   else if ann = SOME («le»)
   then varc wi (EL (HD ids) Xs) ≤ varc wi Y
   else varc wi (EL (HD ids) Xs) = varc wi Y
-End
-
-(* list obtained by applying binary f to two input lists elementwise
-   (remainder appended if their lengths don't match)
- *)
-Definition ZIPOP_def:
-  ZIPOP f ls1 [] = ls1 ∧
-  ZIPOP f [] ls2 = ls2 ∧
-  ZIPOP f (h1::ls1) (h2::ls2) = (f h1 h2)::ZIPOP f ls1 ls2
-End
-
-(* list obtained by negating all elements in input list *)
-Definition neg_list_def:
-  neg_list ls = MAP (λb. ¬b) ls
-End
-
-(* list of all F's whose length = no. of bits required for (bnd:num) *)
-Definition fls_list_bnd_def:
-  fls_list_bnd (bnd:num) =
-  ZIPOP (/\) (bits_of_num bnd) (neg_list $ bits_of_num bnd)
-End
-
-(* bits_of_num (n:num), padded with F, to the no. of bits required for (bnd:num) *)
-Definition bits_of_num_bnd_def:
-  bits_of_num_bnd (n:num) bnd =
-  ZIPOP (\/) (bits_of_num n) (fls_list_bnd bnd)
 End
 
 Definition reify_flag_def:
@@ -1480,6 +1454,70 @@ Theorem abstr_cat_most_one[simp]:
   abstr (cat_most_one name pref ls) = [at_most_one ls]
 Proof
   rw[cat_most_one_def]
+QED
+
+(* ===================================================================== *)
+(* Proof-only integer variables, encoded in binary (reusable).            *)
+(*                                                                        *)
+(* The CP to ILP encoding supports only fresh Boolean reif/flag vars.     *)
+(* For now we only need upper-bounded natural numbers (0 ≤ n < UB); each  *)
+(* such n is represented with sufficient bits to fit UB.                  *)
+(* ===================================================================== *)
+
+(* a * (Σ As) + b * (Σ Bs) ≥ c, where As,Bs are weighted-literal sums *)
+Definition mk_constraint_ge_bin_def[simp]:
+  mk_constraint_ge_bin (a:int) As (b:int) Bs (c:int) =
+  ([],
+  MAP (λ(ai,li). (a * ai, li)) As ++
+    MAP (λ(bi,li). (b * bi, li)) Bs,
+  c)
+End
+
+(* Σ As ≥ lbnd *)
+Definition mk_lbnd_bin_def[simp]:
+  mk_lbnd_bin As lbnd =
+  mk_constraint_ge_bin 1 As 0 [] lbnd
+End
+
+(* Σ As ≤ ubnd *)
+Definition mk_ubnd_bin_def[simp]:
+  mk_ubnd_bin As ubnd =
+  mk_constraint_ge_bin (-1) As 0 [] (-ubnd)
+End
+
+(* the pair of constraints [Σ As ≥ lbnd; Σ As ≤ ubnd] *)
+Definition mk_bounds_bin_def[simp]:
+  mk_bounds_bin As lbnd ubnd =
+  [mk_lbnd_bin As lbnd;mk_ubnd_bin As ubnd]
+End
+
+(* Generates the sum-of-bits sequence for an
+  upper bounded number (<= n)
+  name[p,b0] + 2 * name[p,b1]  + ... *)
+Definition ub_num_def:
+  ub_num name (p:num) (n:num) =
+  let h = LENGTH (bits_of_num n) in
+  GENLIST (λi. (&(2**i),
+    Pos $ neiv name p i (SOME «bin»))) h
+End
+
+Theorem ub_num_num_of_bits:
+  eval_lin_term wb (ub_num name p n) =
+  &num_of_bits (GENLIST (λi.
+    wb (neiv name p i (SOME «bin»))) (LENGTH (bits_of_num n)))
+Proof
+  rw[num_of_bits_GENLIST,ub_num_def,eval_lin_term_def,MAP_GENLIST,o_DEF]
+QED
+
+Theorem ub_num_neg:
+  eval_lin_term wb (MAP (λ(ai,li). (-1 * ai,li)) (ub_num name p n)) =
+  -eval_lin_term wb (ub_num name p n)
+Proof
+  simp[eval_lin_term_def,ub_num_def,MAP_GENLIST,o_DEF]>>
+  simp[GSYM MAP_COUNT_LIST,GSYM integerTheory.INT_MUL_ASSOC,
+    iSUM_MAP_lin_const]>>
+  rename1‘-1 * a’>>
+  simp[GSYM integerTheory.INT_NEG_MINUS1]
 QED
 
 (* encodes (sum of the bitlist Bs) = Y *)

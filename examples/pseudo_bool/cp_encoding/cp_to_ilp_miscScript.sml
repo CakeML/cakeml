@@ -5,76 +5,8 @@ Theory cp_to_ilp_misc
 Libs
   preamble
 Ancestors
-  pbc cp ilp ilp_to_pb
+  pbc cp ilp int_bitwiseExtra
   cp_to_ilp cp_to_ilp_linear cp_to_ilp_counting
-
-(***
-  TODO: move this (and dependency on ilp_to_pb.
-  Proof-only integer variables, encoded in binary (reusable).
-
-  The CP to ILP encoding supports only fresh Boolean reif/flag vars.
-
-  For now, we only need upper-bounded natural numbers, i.e.,
-    in the range 0 ≤ n < UB.
-
-  Each such n will be represented with sufficient bits to fit UB.
-***)
-
-(* a * (Σ As) + b * (Σ Bs) ≥ c, where As,Bs are weighted-literal sums *)
-Definition mk_constraint_ge_bin_def[simp]:
-  mk_constraint_ge_bin (a:int) As (b:int) Bs (c:int) =
-  ([],
-  MAP (λ(ai,li). (a * ai, li)) As ++
-    MAP (λ(bi,li). (b * bi, li)) Bs,
-  c)
-End
-
-(* Σ As ≥ lbnd *)
-Definition mk_lbnd_bin_def[simp]:
-  mk_lbnd_bin As lbnd =
-  mk_constraint_ge_bin 1 As 0 [] lbnd
-End
-
-(* Σ As ≤ ubnd *)
-Definition mk_ubnd_bin_def[simp]:
-  mk_ubnd_bin As ubnd =
-  mk_constraint_ge_bin (-1) As 0 [] (-ubnd)
-End
-
-(* the pair of constraints [Σ As ≥ lbnd; Σ As ≤ ubnd] *)
-Definition mk_bounds_bin_def[simp]:
-  mk_bounds_bin As lbnd ubnd =
-  [mk_lbnd_bin As lbnd;mk_ubnd_bin As ubnd]
-End
-
-(* Generates the sum-of-bits sequence for an
-  upper bounded number (<= n)
-  name[p,b0] + 2 * name[p,b1]  + ... *)
-Definition ub_num_def:
-  ub_num name (p:num) (n:num) =
-  let h = LENGTH (bits_of_num n) in
-  GENLIST (λi. (&(2**i),
-    Pos $ neiv name p i (SOME «bin»))) h
-End
-
-Theorem ub_num_num_of_bits:
-  eval_lin_term wb (ub_num name p n) =
-  &num_of_bits (GENLIST (λi.
-    wb (neiv name p i (SOME «bin»))) (LENGTH (bits_of_num n)))
-Proof
-  rw[num_of_bits_GENLIST,ub_num_def,eval_lin_term_def,MAP_GENLIST,o_DEF]
-QED
-
-Theorem ub_num_neg:
-  eval_lin_term wb (MAP (λ(ai,li). (-1 * ai,li)) (ub_num name p n)) =
-  -eval_lin_term wb (ub_num name p n)
-Proof
-  simp[eval_lin_term_def,ub_num_def,MAP_GENLIST,o_DEF]>>
-  simp[GSYM MAP_COUNT_LIST,GSYM integerTheory.INT_MUL_ASSOC,
-    iSUM_MAP_lin_const]>>
-  rename1‘-1 * a’>>
-  simp[GSYM integerTheory.INT_NEG_MINUS1]
-QED
 
 (* equivalent definition to circuit_sem *)
 
@@ -112,6 +44,32 @@ Theorem FINITE_INJ_IMP_SURJ:
   ∀s. FINITE s ⇔ ∀f. INJ f s s ⇒ SURJ f s s
 Proof
   metis_tac[INFINITE_INJ_NOT_SURJ]
+QED
+
+(* The successor-iteration m ↦ (suc^m) 0 is injective on the domain {i | i < n}
+   whenever suc maps the domain into itself and has no nontrivial cycle through
+   any point (a return after 0 < k < n steps is impossible). Shared by
+   circuit_sem_alt, circuit_sem_alt_strong and encode_circuit_sem_1. *)
+Theorem FUNPOW_step_INJ:
+  (∀i. i < n ⇒ suc i < n) ∧
+  (∀i k. i < n ∧ 0 < k ∧ k < n ⇒ FUNPOW suc k i ≠ i) ⇒
+  INJ (λm. FUNPOW suc m 0) (λi. i < n) (λi. i < n)
+Proof
+  strip_tac>>
+  `∀j i. i < n ⇒ FUNPOW suc j i < n` by
+    (Induct>>rw[FUNPOW_0,FUNPOW_SUC]>>metis_tac[])>>
+  simp[INJ_DEF,IN_APP]>>
+  ntac 3 strip_tac>>
+  rename1`_ ⇒ i = j`>>
+  simp[Once MONO_NOT_EQ]>>strip_tac>>
+  wlog_tac `i < j` [`i`,`j`]
+  >- (`j < i` by metis_tac[LESS_CASES_IMP]>>metis_tac[])>>
+  `FUNPOW suc (j − i) (FUNPOW suc i 0) = FUNPOW suc j 0` by
+    (simp[GSYM FUNPOW_ADD]>>AP_THM_TAC>>AP_TERM_TAC>>simp[])>>
+  `FUNPOW suc i 0 < n` by (first_x_assum irule>>simp[])>>
+  `FUNPOW suc (j − i) (FUNPOW suc i 0) ≠ FUNPOW suc i 0` by
+    (first_x_assum irule>>simp[])>>
+  metis_tac[]
 QED
 
 Theorem circuit_sem_alt:
@@ -590,31 +548,6 @@ Proof
   simp[]
 QED
 
-Theorem num_of_bits_bits_of_num_bnd:
-  ∀n bnd. n ≤ bnd ⇒ num_of_bits (bits_of_num_bnd n bnd) = n
-Proof
-  cheat
-QED
-
-Theorem LENGTH_ZIPOP:
-  LENGTH $ ZIPOP op ls1 ls2 = MAX (LENGTH ls1) (LENGTH ls2)
-Proof
-  cheat
-QED
-
-Theorem LENGTH_neg_list:
-  LENGTH $ neg_list ls = LENGTH ls
-Proof
-  simp[neg_list_def]
-QED
-
-Theorem LENGTH_bits_of_num_bnd:
-  ∀n bnd. n ≤ bnd ⇒ LENGTH (bits_of_num_bnd n bnd) = LENGTH (bits_of_num bnd)
-Proof
-  rw[bits_of_num_bnd_def,LENGTH_ZIPOP,fls_list_bnd_def,LENGTH_neg_list]>>
-  cheat
-QED
-
 Theorem encode_circuit_sem_1:
   valid_assignment bnd wi ∧
   ALOOKUP cs name = SOME (Misc (Circuit Xs)) ∧
@@ -683,10 +616,9 @@ Proof
       ‘dom = count n’ by simp[Abbr‘dom’,EXTENSION,IN_COUNT]>>
       simp[])>>
     ‘INJ step dom dom’ by (
-      simp[INJ_DEF,IN_APP]>>
-      cheat (* this follows from assm 0.
-      consult the proof of Theorem circuit_sem_alt_strong *)
-      )>>
+      simp[Abbr‘step’,Abbr‘dom’]>>
+      irule FUNPOW_step_INJ>>
+      metis_tac[])>>
     ‘SURJ step dom dom’ by fs[FINITE_INJ_IMP_SURJ]>>
     fs[INJ_DEF,SURJ_DEF,IN_APP]>>
     ‘∀i. dom i ⇒ pos (step i) = i’ by (
@@ -738,7 +670,14 @@ Proof
     first_x_assum $ drule_then kall_tac>>
     first_x_assum $ drule_then mp_tac>>
     last_x_assum mp_tac>>
-    cheat)
+    strip_tac>>strip_tac>>
+    `∀a b. a < n ∧ b < n ⇒ (pos a = pos b ⇔ a = b)` by
+      (qpat_x_assum`ALL_DISTINCT (GENLIST _ _)` mp_tac>>
+       simp[EL_ALL_DISTINCT_EL_EQ,EL_GENLIST])>>
+    `pos i < n ∧ suc i < n` by metis_tac[]>>
+    `pos (suc i) = if pos i + 1 = n then 0 else pos i + 1` by
+      (IF_CASES_TAC>>gvs[arithmeticTheory.LESS_MOD,arithmeticTheory.DIVMOD_ID])>>
+    rw[]>>gvs[]>>metis_tac[])
 QED
 
 Theorem encode_circuit_sem_2:
@@ -747,7 +686,114 @@ Theorem encode_circuit_sem_2:
     (encode_circuit bnd Xs name) ⇒
   circuit_sem Xs wi
 Proof
-  cheat
+  strip_tac>>
+  Cases_on`Xs = []`
+  >- gvs[circuit_sem_def]>>
+  `0 < LENGTH Xs` by (Cases_on`Xs`>>gvs[])>>
+  gvs[encode_circuit_def,cencode_circuit_aux_def,append_thm,EVERY_APPEND]>>
+  simp[circuit_sem_alt]>>
+  rpt conj_tac
+  >- ( (* bounds 0 ≤ Xs[i] < n *)
+    qpat_x_assum`EVERY _ (FLAT (MAPi _ Xs))` mp_tac>>
+    simp[EVERY_FLAT,EVERY_MEM,MEM_MAPi,PULL_EXISTS,o_DEF]>>
+    strip_tac>>
+    `∀m. m < LENGTH Xs ⇒
+       0 ≤ varc wi (EL m Xs) ∧ varc wi (EL m Xs) ≤ &(LENGTH Xs − 1)` by (
+      rw[]>>first_x_assum drule>>
+      simp[GSYM EVERY_MEM,integerTheory.INT_GE])>>
+    rw[]>>gvs[MEM_EL]>>
+    first_x_assum drule>>strip_tac>>
+    intLib.ARITH_TAC)
+  >- ( (* ALL_DISTINCT: reuse all_different_except soundness with iS = [] *)
+    `all_different_except_sem Xs [] wi` suffices_by
+      simp[all_different_except_sem_def]>>
+    irule encode_all_different_except_aux_sem_2>>
+    gvs[encode_all_different_except_aux_def,cencode_all_different_def]>>
+    metis_tac[])
+  >- ( (* ∃pos *)
+    qabbrev_tac`pos = λi. num_of_bits
+      (GENLIST (λb. wb (neiv name i b (SOME «bin»)))
+        (LENGTH (bits_of_num (LENGTH Xs − 1))))`>>
+    `∀i. eval_lin_term wb (ub_num name i (LENGTH Xs − 1)) = &(pos i)` by
+      simp[Abbr`pos`,ub_num_num_of_bits]>>
+    qexists`pos`>>
+    qpat_x_assum`EVERY _ (abstr (cencode_circuit_pos _ _ _))` mp_tac>>
+    simp[cencode_circuit_pos_def,append_thm,EVERY_APPEND]>>
+    strip_tac>>
+    (* pos 0 = 0 from the pos0eq0 constraint *)
+    `pos 0 = 0` by (
+      qpat_x_assum`iconstraint_sem ([],MAP _ _,0) _` mp_tac>>
+      simp[iconstraint_sem_def,ub_num_neg]>>gs[]>>strip_tac>>
+      gs[integerTheory.INT_GE,integerTheory.INT_NEG_GE0,
+        integerTheory.INT_OF_NUM_LE])>>
+    (* pos m < n from the pos<n constraints *)
+    `∀m. m < LENGTH Xs ⇒ pos m < LENGTH Xs` by (
+      rw[]>>
+      qpat_x_assum`EVERY _ (abstrl (GENLIST _ _))` mp_tac>>
+      simp[abstrl_GENLIST,EVERY_GENLIST,iconstraint_sem_def,ub_num_neg]>>
+      strip_tac>>first_x_assum drule>>
+      gs[integerTheory.INT_GE,integerTheory.INT_LE_NEG,
+        integerTheory.INT_OF_NUM_LE])>>
+    (* reification consistency for Xs[i] = j, from encode_full_eq *)
+    `∀X j. MEM X Xs ∧ j < LENGTH Xs ⇒
+       (wb (INL (Eq X (&j))) ⇔ varc wi X = &j)` by (
+      qpat_x_assum`EVERY _ (FLAT (MAP _ Xs))` mp_tac>>
+      simp[EVERY_FLAT,EVERY_MAP,EVERY_GENLIST,EVERY_MEM]>>
+      rw[]>>first_x_assum drule_all>>simp[])>>
+    (* range bounds 0 ≤ Xs[m] ≤ n-1 *)
+    `∀m. m < LENGTH Xs ⇒
+       0 ≤ varc wi (EL m Xs) ∧ varc wi (EL m Xs) ≤ &(LENGTH Xs − 1)` by (
+      qpat_x_assum`EVERY _ (FLAT (MAPi ($o _ ∘ (λi X. List _)) Xs))` mp_tac>>
+      simp[EVERY_FLAT,EVERY_MEM,MEM_MAPi,PULL_EXISTS,o_DEF]>>
+      rw[]>>first_x_assum drule>>
+      simp[GSYM EVERY_MEM,integerTheory.INT_GE])>>
+    (* the bulky constraint assumptions are spent; drop them so the
+       remaining simplification stays cheap *)
+    qpat_x_assum`EVERY _ (FLAT (MAP _ Xs))` kall_tac>>
+    qpat_x_assum`EVERY _ (abstrl (GENLIST _ _))` kall_tac>>
+    qpat_x_assum`EVERY _ (FLAT (MAPi ($o _ ∘ (λi X. List _)) Xs))` kall_tac>>
+    qpat_x_assum`iconstraint_sem ([],MAP _ _,0) _` kall_tac>>
+    rpt conj_tac
+    >- simp[]
+    >- simp[]
+    >- ((* successor: pos (Xs[i]) = (pos i + 1) MOD n *)
+      rw[]>>
+      `varc wi (EL i Xs) = &(Num (varc wi (EL i Xs)))` by
+        metis_tac[integerTheory.INT_OF_NUM]>>
+      qabbrev_tac`v = Num (varc wi (EL i Xs))`>>
+      `v < LENGTH Xs` by
+        (`&v ≤ &(LENGTH Xs - 1)` by metis_tac[]>>gs[integerTheory.INT_OF_NUM_LE])>>
+      `wb (INL (Eq (EL i Xs) (&v)))` by
+        (last_x_assum(qspecl_then[`EL i Xs`,`v`]mp_tac)>>simp[MEM_EL]>>metis_tac[])>>
+      `pos v < LENGTH Xs ∧ pos i < LENGTH Xs` by metis_tac[]>>
+      qpat_x_assum`EVERY _ (FLAT (MAPi ($o _ ∘ (λi X. flat_app _)) Xs))` mp_tac>>
+      simp[EVERY_FLAT,EVERY_MEM,MEM_MAPi,PULL_EXISTS,o_DEF,append_thm,
+        abstrl_mk_annotate]>>
+      disch_then(qspec_then`i`mp_tac)>>
+      simp[MEM_FLAT,MEM_MAP,MEM_GENLIST,PULL_EXISTS,append_thm,abstrl_mk_annotate]>>
+      disch_then(fn th => mp_tac (Q.SPEC`v` (CONV_RULE SWAP_FORALL_CONV th)))>>
+      simp[]>>
+      strip_tac>>Cases_on`v`>>
+      qpat_x_assum`∀x. MEM x _ ⇒ _`mp_tac>>
+      simp[DISJ_IMP_THM,FORALL_AND_THM,bits_imply_sem,iconstraint_sem_def,
+        pbc_encodeTheory.eval_lin_term_append,pair_idfun,ub_num_neg]>>
+      strip_tac
+      >~ [`pos (SUC _) = _`]
+      >- ((* Xs[i] = v+1: pos (v+1) = pos i + 1, in range *)
+        `pos (SUC n) = pos i + 1` by (
+          qpat_x_assum`-&pos i + &pos (SUC n) ≥ 1`mp_tac>>
+          qpat_x_assum`&pos i + -&pos (SUC n) ≥ -1`mp_tac>>
+          rpt (pop_assum kall_tac)>>intLib.ARITH_TAC)>>
+        simp[arithmeticTheory.LESS_MOD])>>
+      (* Xs[i] = 0: pos i = n-1, so (pos i + 1) MOD n = 0 *)
+      gs[integerTheory.INT_GE,integerTheory.INT_LE_NEG,integerTheory.INT_OF_NUM_LE]>>
+      `pos i + 1 = LENGTH Xs` by (
+        `0 < LENGTH Xs` by (Cases_on`Xs`>>fs[])>>
+        qpat_x_assum`LENGTH Xs ≤ pos i + 1`mp_tac>>
+        qpat_x_assum`pos i ≤ LENGTH Xs − 1`mp_tac>>
+        qpat_x_assum`0 < LENGTH Xs`mp_tac>>
+        rpt (pop_assum kall_tac)>>intLib.ARITH_TAC)>>
+      simp[arithmeticTheory.DIVMOD_ID]))
 QED
 
 Definition cencode_knapsack1_def:
