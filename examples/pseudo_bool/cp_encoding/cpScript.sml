@@ -180,29 +180,33 @@ End
 (* TODO: under construction *)
 Datatype:
   scheduling_constr =
-    (* Disjunctive xs ws strct :
-      tasks xs[i] with width ws[i], placed on a line with no overlaps.
+    (* Disjunctive Xs Ws strct :
+      tasks Xs[i] with width Ws[i], placed on a line with no overlaps.
        strct keeps zero-length tasks; otherwise they are dropped. *)
     Disjunctive ('a varc list) ('a varc list) bool
-    (* Disjunctive2D xs ys ws hs strct :
-      tasks (xs[i],ys[i]) with rectangle ws[i] x hs[i]
+    (* Disjunctive2D Xs Ys Ws Hs strct :
+      tasks (Xs[i],Ys[i]) with rectangle Ws[i] by Hs[i]
       strct keeps degenerate (zero-area) tasks/rectangles.
-      Additionally, the 2D case supports general-valued ws, hs *)
+      Additionally, the 2D case supports general-valued Ws, Hs *)
   | Disjunctive2D ('a varc list) ('a varc list)
                   ('a varc list) ('a varc list) bool
-    (* Cumulative xs ws hs cap :
-      tasks xs[i] width width ws[i] and height hs[i].
+    (* Cumulative Xs Ws Hs cap :
+      tasks Xs[i] width width Ws[i] and height Hs[i].
       Height at each time point must not exceed cap *)
   | Cumulative ('a varc list) ('a varc list) ('a varc list) ('a varc)
 End
 
 Datatype:
   sorting_constr =
-    (* Increasing xs strct desc :
-       the sequence xs is monotone; (strct,desc) pick the adjacent comparison:
-       (F,F) ≤, (T,F) <, (F,T) ≥, (T,T) >.
-       Vacuously true for LENGTH xs ≤ 1. *)
+    (* Increasing Xs strct desc :
+       the sequence Xs is monotone; (strct,desc) pick the adjacent comparison:
+       (F,F) ≤, (T,F) <, (F,T) ≥, (T,T) >. *)
     Increasing ('a varc list) bool bool
+    (* Sort Xs Ys : Ys is a non-decreasing permutation of Xs. *)
+  | Sort ('a varc list) ('a varc list)
+    (* ArgSort Xs Ps offset : Ps are the (offset-shifted) indices that
+       stably sort Xs, i.e. Ps lists Xs's positions in stable-sorted order. *)
+  | ArgSort ('a varc list) ('a varc list) int
 End
 
 Datatype:
@@ -802,16 +806,16 @@ Definition circuit_sem_def:
 End
 
 Definition knapsack_sem_def:
-  knapsack_sem css Xs ts w ⇔
+  knapsack_sem css Xs Ts w ⇔
   EVERY (λcs. LENGTH cs = LENGTH Xs) css ∧
-  LIST_REL (λcs t. eval_iclin_term w (ZIP (cs,Xs)) = t) css (MAP (varc w) ts)
+  LIST_REL (λcs t. eval_iclin_term w (ZIP (cs,Xs)) = t) css (MAP (varc w) Ts)
 End
 
 Definition misc_constr_sem_def:
   misc_constr_sem c w ⇔
   case c of
     Circuit Xs => circuit_sem Xs w
-  | Knapsack css Xs ts => knapsack_sem css Xs ts w
+  | Knapsack css Xs Ts => knapsack_sem css Xs Ts w
 End
 
 (* Disjunctive:
@@ -823,9 +827,9 @@ End
 
     In strict mode, 0-length tasks cannot lie inside another interval. *)
 Definition disjunctive_sem_def:
-  disjunctive_sem xs ws strct w ⇔
-  let xs = MAP (varc w) xs in
-  let ws = MAP (varc w) ws in
+  disjunctive_sem Xs Ws strct w ⇔
+  let xs = MAP (varc w) Xs in
+  let ws = MAP (varc w) Ws in
   LENGTH xs = LENGTH ws ∧
   ∀i j.
     i < LENGTH xs ∧ j < LENGTH xs ∧ i ≠ j ∧
@@ -842,11 +846,11 @@ End
 
     Same overlap requirements on area and strict flag. *)
 Definition disjunctive2d_sem_def:
-  disjunctive2d_sem xs ys ws hs strct w ⇔
-  let xs = MAP (varc w) xs in
-  let ys = MAP (varc w) ys in
-  let ws = MAP (varc w) ws in
-  let hs = MAP (varc w) hs in
+  disjunctive2d_sem Xs Ys Ws Hs strct w ⇔
+  let xs = MAP (varc w) Xs in
+  let ys = MAP (varc w) Ys in
+  let ws = MAP (varc w) Ws in
+  let hs = MAP (varc w) Hs in
   LENGTH xs = LENGTH ys ∧
   LENGTH xs = LENGTH ws ∧
   LENGTH xs = LENGTH hs ∧
@@ -872,10 +876,10 @@ End
   Durations need no guard: a non-positive ws[i] yields an empty
   occupancy interval, so the task is simply never active. *)
 Definition cumulative_sem_def:
-  cumulative_sem xs ws hs cap w ⇔
-  let xs = MAP (varc w) xs in
-  let ws = MAP (varc w) ws in
-  let hs = MAP (varc w) hs in
+  cumulative_sem Xs Ws Hs cap w ⇔
+  let xs = MAP (varc w) Xs in
+  let ws = MAP (varc w) Ws in
+  let hs = MAP (varc w) Hs in
   let cap = varc w cap in
   LENGTH xs = LENGTH ws ∧
   LENGTH xs = LENGTH hs ∧
@@ -894,12 +898,12 @@ End
 Definition scheduling_constr_sem_def:
   scheduling_constr_sem c w ⇔
   case c of
-    Disjunctive xs ws strct =>
-      disjunctive_sem xs ws strct w
-  | Disjunctive2D xs ys ws hs strct =>
-      disjunctive2d_sem xs ys ws hs strct w
-  | Cumulative xs ws hs cap =>
-      cumulative_sem xs ws hs cap w
+    Disjunctive Xs Ws strct =>
+      disjunctive_sem Xs Ws strct w
+  | Disjunctive2D Xs Ys Ws Hs strct =>
+      disjunctive2d_sem Xs Ys Ws Hs strct w
+  | Cumulative Xs Ws Hs cap =>
+      cumulative_sem Xs Ws Hs cap w
 End
 
 (* adjacent comparison picked by (strct,desc):
@@ -911,15 +915,43 @@ Definition inc_rel_def[simp]:
 End
 
 Definition increasing_sem_def:
-  increasing_sem xs strct desc w ⇔
-  SORTED (inc_rel strct desc) (MAP (varc w) xs)
+  increasing_sem Xs strct desc w ⇔
+  SORTED (inc_rel strct desc) (MAP (varc w) Xs)
+End
+
+Definition sort_sem_def:
+  sort_sem Xs Ys w ⇔
+  LENGTH Xs = LENGTH Ys ∧
+  PERM (MAP (varc w) Xs) (MAP (varc w) Ys) ∧
+  SORTED (λ(x:int) y. x ≤ y) (MAP (varc w) Ys)
+End
+
+(* stable_lt: promotes value-< to a strict total order by breaking ties on the
+   original index — i.e. the order a STABLE sort imposes on (value,index) pairs. *)
+Definition stable_lt_def:
+  stable_lt (v1:int,i1:num) (v2,i2) ⇔ v1 < v2 ∨ (v1 = v2 ∧ i1 < i2)
+End
+
+Definition argsort_sem_def:
+  argsort_sem Xs Ps offset w ⇔
+  let xs = MAP (varc w) Xs ; ps = MAP (varc w) Ps ; n = LENGTH Xs in
+  LENGTH Ps = n ∧ EVERY (λp. offset ≤ p ∧ p < offset + &n) ps ∧
+  (let qs = MAP (λp. Num (p − offset)) ps in
+     (* qs are the indices into Xs; this requires them to be a
+        permutation of 0 .. n-1 *)
+     PERM qs (COUNT_LIST n) ∧
+     SORTED stable_lt (MAP (λq. (EL q xs, q)) qs))
 End
 
 Definition sorting_constr_sem_def:
   sorting_constr_sem c w ⇔
   case c of
-    Increasing xs strct desc =>
-      increasing_sem xs strct desc w
+    Increasing Xs strct desc =>
+      increasing_sem Xs strct desc w
+  | Sort Xs Ys =>
+      sort_sem Xs Ys w
+  | ArgSort Xs Ps offset =>
+      argsort_sem Xs Ps offset w
 End
 
 Definition constraint_sem_def:

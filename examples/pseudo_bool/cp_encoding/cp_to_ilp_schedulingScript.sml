@@ -179,37 +179,37 @@ End
 
 (* Disjunctive *)
 Definition cencode_disjunctive_def:
-  cencode_disjunctive bnd xs ws strct name =
-  if LENGTH xs ≠ LENGTH ws then cfalse_constr
+  cencode_disjunctive bnd Xs Ws strct name =
+  if LENGTH Xs ≠ LENGTH Ws then cfalse_constr
   else
     let task_info =
-      if strct then MAP (λs. ([],F)) ws
-      else MAPi (λk s. (zsize_lit name «zw» k s, zsize_inactive s)) ws in
+      if strct then MAP (λs. ([],F)) Ws
+      else MAPi (λk s. (zsize_lit name «zw» k s, zsize_inactive s)) Ws in
     Append (mk_before_links bnd name «bf»
-      (ZIP (ZIP (xs,ws), (MAP SND task_info))))
-    (Append (if strct then List [] else mk_zero_links bnd name «zw» ws)
+      (ZIP (ZIP (Xs,Ws), (MAP SND task_info))))
+    (Append (if strct then List [] else mk_zero_links bnd name «zw» Ws)
       (mk_sep_clauses name [«bf»] task_info))
 End
 
 Definition encode_disjunctive_def:
-  encode_disjunctive bnd xs ws strct name =
-  abstr (cencode_disjunctive bnd xs ws strct name)
+  encode_disjunctive bnd Xs Ws strct name =
+  abstr (cencode_disjunctive bnd Xs Ws strct name)
 End
 
 Theorem cencode_disjunctive_sem:
   valid_assignment bnd wi ∧
-  cencode_disjunctive bnd xs ws strct name = es ⇒
-  enc_rel wi es (encode_disjunctive bnd xs ws strct name) ec ec
+  cencode_disjunctive bnd Xs Ws strct name = es ⇒
+  enc_rel wi es (encode_disjunctive bnd Xs Ws strct name) ec ec
 Proof
   rw[encode_disjunctive_def]
 QED
 
 Theorem encode_disjunctive_sem_1:
   valid_assignment bnd wi ∧
-  ALOOKUP cs name = SOME (Scheduling (Disjunctive xs ws strct)) ∧
-  disjunctive_sem xs ws strct wi ⇒
+  ALOOKUP cs name = SOME (Scheduling (Disjunctive Xs Ws strct)) ∧
+  disjunctive_sem Xs Ws strct wi ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_disjunctive bnd xs ws strct name)
+    (encode_disjunctive bnd Xs Ws strct name)
 Proof
   rw[]>>
   simp[encode_disjunctive_def,cencode_disjunctive_def]>>
@@ -248,11 +248,11 @@ QED
 Theorem encode_disjunctive_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_disjunctive bnd xs ws strct name) ⇒
-  disjunctive_sem xs ws strct wi
+    (encode_disjunctive bnd Xs Ws strct name) ⇒
+  disjunctive_sem Xs Ws strct wi
 Proof
   strip_tac>>
-  `LENGTH xs = LENGTH ws` by (
+  `LENGTH Xs = LENGTH Ws` by (
     CCONTR_TAC>>
     gvs[encode_disjunctive_def,cencode_disjunctive_def,cfalse_constr_def])>>
   gvs[encode_disjunctive_def,cencode_disjunctive_def]>>
@@ -270,8 +270,8 @@ Proof
   (* non-strict: both widths positive ⇒ neither inactive, zero-escapes ruled
      out by the zero-links, so the separation gives a before-order *)
   gvs[mk_sep_clauses_sem,mk_zero_links_sem,mk_before_links_sem]>>
-  `¬zsize_inactive (EL i ws) ∧ ¬zsize_inactive (EL j ws)` by (
-    Cases_on`EL i ws`>>Cases_on`EL j ws`>>
+  `¬zsize_inactive (EL i Ws) ∧ ¬zsize_inactive (EL j Ws)` by (
+    Cases_on`EL i Ws`>>Cases_on`EL j Ws`>>
     gvs[zsize_inactive_def,varc_def]>>intLib.ARITH_TAC)>>
   qpat_x_assum`∀i' j'. _ ⇒ (λ((p_i,s_i),inact_i). _) _`(fn th =>
     mp_tac (Q.SPECL[`i`,`j`]th) >> mp_tac (Q.SPECL[`j`,`i`]th))>>
@@ -290,48 +290,48 @@ QED
 
 (* Disjunctive2D *)
 Definition cencode_disjunctive2d_def:
-  cencode_disjunctive2d bnd xs ys ws hs strct name =
-  let n = LENGTH xs in
-  if n ≠ LENGTH ys ∨ n ≠ LENGTH ws ∨ n ≠ LENGTH hs
+  cencode_disjunctive2d bnd Xs Ys Ws Hs strct name =
+  let n = LENGTH Xs in
+  if n ≠ LENGTH Ys ∨ n ≠ LENGTH Ws ∨ n ≠ LENGTH Hs
   then cfalse_constr
   else
     let task_info =
-      if strct then MAP (λs. ([],F)) ws
+      if strct then MAP (λs. ([],F)) Ws
       else MAPi (λk wh.
          (zsize_lit name «zw» k (FST wh) ++ zsize_lit name «zh» k (SND wh),
-          zsize_inactive (FST wh) ∨ zsize_inactive (SND wh))) (ZIP (ws,hs)) in
+          zsize_inactive (FST wh) ∨ zsize_inactive (SND wh))) (ZIP (Ws,Hs)) in
     let inactive = MAP SND task_info in
     Append (mk_before_links bnd name «bx»
-        (ZIP (ZIP (xs,ws), inactive)))
+        (ZIP (ZIP (Xs,Ws), inactive)))
     (Append (mk_before_links bnd name «by»
-          (ZIP (ZIP (ys,hs), inactive)))
-    (Append (if strct then List [] else mk_zero_links bnd name «zw» ws)
-    (Append (if strct then List [] else mk_zero_links bnd name «zh» hs)
+          (ZIP (ZIP (Ys,Hs), inactive)))
+    (Append (if strct then List [] else mk_zero_links bnd name «zw» Ws)
+    (Append (if strct then List [] else mk_zero_links bnd name «zh» Hs)
       (mk_sep_clauses name [«bx»;«by»] task_info))))
 End
 
 Definition encode_disjunctive2d_def:
-  encode_disjunctive2d bnd xs ys ws hs strct name =
-  abstr (cencode_disjunctive2d bnd xs ys ws hs strct name)
+  encode_disjunctive2d bnd Xs Ys Ws Hs strct name =
+  abstr (cencode_disjunctive2d bnd Xs Ys Ws Hs strct name)
 End
 
 Theorem cencode_disjunctive2d_sem:
   valid_assignment bnd wi ∧
-  cencode_disjunctive2d bnd xs ys ws hs strct name = es ⇒
-  enc_rel wi es (encode_disjunctive2d bnd xs ys ws hs strct name) ec ec
+  cencode_disjunctive2d bnd Xs Ys Ws Hs strct name = es ⇒
+  enc_rel wi es (encode_disjunctive2d bnd Xs Ys Ws Hs strct name) ec ec
 Proof
   rw[encode_disjunctive2d_def]
 QED
 
 Theorem encode_disjunctive2d_sem_1:
   valid_assignment bnd wi ∧
-  ALOOKUP cs name = SOME (Scheduling (Disjunctive2D xs ys ws hs strct)) ∧
-  disjunctive2d_sem xs ys ws hs strct wi ⇒
+  ALOOKUP cs name = SOME (Scheduling (Disjunctive2D Xs Ys Ws Hs strct)) ∧
+  disjunctive2d_sem Xs Ys Ws Hs strct wi ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_disjunctive2d bnd xs ys ws hs strct name)
+    (encode_disjunctive2d bnd Xs Ys Ws Hs strct name)
 Proof
   rw[]>>
-  `LENGTH xs = LENGTH ys ∧ LENGTH ys = LENGTH ws ∧ LENGTH ws = LENGTH hs` by
+  `LENGTH Xs = LENGTH Ys ∧ LENGTH Ys = LENGTH Ws ∧ LENGTH Ws = LENGTH Hs` by
     fs[disjunctive2d_sem_def]>>
   simp[encode_disjunctive2d_def,cencode_disjunctive2d_def]>>
   gvs[append_thm,EVERY_APPEND]>>
@@ -361,14 +361,14 @@ Proof
       simp[EL_MAP]>>intLib.ARITH_TAC)>>
     (* non-strict *)
     rw[]>>
-    `i < LENGTH ws ∧ j < LENGTH ws` by gvs[LENGTH_MAPi,LENGTH_ZIP]>>
-    `EL i (ZIP (ws,hs)) = (EL i ws,EL i hs) ∧
-     EL j (ZIP (ws,hs)) = (EL j ws,EL j hs)` by (conj_tac>>irule EL_ZIP>>gvs[])>>
+    `i < LENGTH Ws ∧ j < LENGTH Ws` by gvs[LENGTH_MAPi,LENGTH_ZIP]>>
+    `EL i (ZIP (Ws,Hs)) = (EL i Ws,EL i Hs) ∧
+     EL j (ZIP (Ws,Hs)) = (EL j Ws,EL j Hs)` by (conj_tac>>irule EL_ZIP>>gvs[])>>
     gvs[EL_MAPi]>>
     qpat_x_assum`∀i j. _ ⇒ _`(qspecl_then[`i`,`j`]mp_tac)>>
     simp[EL_MAP]>>
-    Cases_on`EL i ws`>>Cases_on`EL j ws`>>
-    Cases_on`EL i hs`>>Cases_on`EL j hs`>>
+    Cases_on`EL i Ws`>>Cases_on`EL j Ws`>>
+    Cases_on`EL i Hs`>>Cases_on`EL j Hs`>>
     gvs[zsize_inactive_def,zsize_lit_def,reify_avar_def,reify_flag_def,
       lit_def,varc_INR,SF DNF_ss]>>
     intLib.ARITH_TAC)
@@ -377,11 +377,11 @@ QED
 Theorem encode_disjunctive2d_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_disjunctive2d bnd xs ys ws hs strct name) ⇒
-  disjunctive2d_sem xs ys ws hs strct wi
+    (encode_disjunctive2d bnd Xs Ys Ws Hs strct name) ⇒
+  disjunctive2d_sem Xs Ys Ws Hs strct wi
 Proof
   strip_tac>>
-  `LENGTH xs = LENGTH ys ∧ LENGTH xs = LENGTH ws ∧ LENGTH xs = LENGTH hs` by (
+  `LENGTH Xs = LENGTH Ys ∧ LENGTH Xs = LENGTH Ws ∧ LENGTH Xs = LENGTH Hs` by (
     CCONTR_TAC>>
     gvs[encode_disjunctive2d_def,cencode_disjunctive2d_def,cfalse_constr_def])>>
   gvs[encode_disjunctive2d_def,cencode_disjunctive2d_def]>>
@@ -402,10 +402,10 @@ Proof
     disch_then strip_assume_tac>>gvs[]>>
     metis_tac[])>>
   (* non-strict: positive area ⇒ neither inactive, zero-escapes ruled out *)
-  `¬zsize_inactive (EL i ws) ∧ ¬zsize_inactive (EL j ws) ∧
-   ¬zsize_inactive (EL i hs) ∧ ¬zsize_inactive (EL j hs)` by (
-    Cases_on`EL i ws`>>Cases_on`EL j ws`>>
-    Cases_on`EL i hs`>>Cases_on`EL j hs`>>
+  `¬zsize_inactive (EL i Ws) ∧ ¬zsize_inactive (EL j Ws) ∧
+   ¬zsize_inactive (EL i Hs) ∧ ¬zsize_inactive (EL j Hs)` by (
+    Cases_on`EL i Ws`>>Cases_on`EL j Ws`>>
+    Cases_on`EL i Hs`>>Cases_on`EL j Hs`>>
     gvs[zsize_inactive_def,varc_def]>>intLib.ARITH_TAC)>>
   qpat_x_assum`∀i' j'. _ ⇒ (λ((p_i,s_i),inact_i). _) _`(fn th =>
     mp_tac (Q.SPECL[`i`,`j`]th) >> mp_tac (Q.SPECL[`j`,`i`]th))>>
@@ -728,42 +728,42 @@ QED
    height when active and 0 otherwise *)
 Theorem cumul_ub_num_reify:
   valid_assignment bnd wi ∧
-  ALOOKUP cs name = SOME (Scheduling (Cumulative xs ws hs cap)) ∧
-  i < LENGTH hs ∧ 0 ≤ varc wi (EL i hs) ⇒
+  ALOOKUP cs name = SOME (Scheduling (Cumulative Xs Ws Hs cap)) ∧
+  i < LENGTH Hs ∧ 0 ≤ varc wi (EL i Hs) ⇒
   eval_lin_term (reify_avar cs wi)
-    (cumul_ub_num name i t (SND (varc_bnd bnd (EL i hs)))) =
-  (if varc wi (EL i xs) ≤ t ∧
-      varc wi (EL i xs) + varc wi (EL i ws) ≥ t + 1
-   then varc wi (EL i hs) else 0)
+    (cumul_ub_num name i t (SND (varc_bnd bnd (EL i Hs)))) =
+  (if varc wi (EL i Xs) ≤ t ∧
+      varc wi (EL i Xs) + varc wi (EL i Ws) ≥ t + 1
+   then varc wi (EL i Hs) else 0)
 Proof
   rw[cumul_ub_num_num_of_bits,reify_avar_def,reify_flag_def]>>
   simp[num_of_bits_GENLIST_F,num_of_bits_GENLIST_BIT]>>
-  `0 ≤ SND (varc_bnd bnd (EL i hs)) ∧
-   varc wi (EL i hs) ≤ SND (varc_bnd bnd (EL i hs))` by
+  `0 ≤ SND (varc_bnd bnd (EL i Hs)) ∧
+   varc wi (EL i Hs) ≤ SND (varc_bnd bnd (EL i Hs))` by
     metis_tac[varc_bnd_valid,integerTheory.INT_LE_TRANS]>>
-  `(if 0 ≤ SND (varc_bnd bnd (EL i hs)) then SND (varc_bnd bnd (EL i hs)) else 0) =
-   SND (varc_bnd bnd (EL i hs))` by gvs[]>>
+  `(if 0 ≤ SND (varc_bnd bnd (EL i Hs)) then SND (varc_bnd bnd (EL i Hs)) else 0) =
+   SND (varc_bnd bnd (EL i Hs))` by gvs[]>>
   pop_assum SUBST_ALL_TAC>>
-  `&(Num (varc wi (EL i hs))):int = varc wi (EL i hs)` by
+  `&(Num (varc wi (EL i Hs))):int = varc wi (EL i Hs)` by
     metis_tac[integerTheory.INT_OF_NUM]>>
-  `&(Num (SND (varc_bnd bnd (EL i hs)))):int = SND (varc_bnd bnd (EL i hs))` by
+  `&(Num (SND (varc_bnd bnd (EL i Hs)))):int = SND (varc_bnd bnd (EL i Hs))` by
     metis_tac[integerTheory.INT_OF_NUM]>>
-  `Num (varc wi (EL i hs)) ≤ Num (SND (varc_bnd bnd (EL i hs)))` by
-    (`(&(Num (varc wi (EL i hs)))):int ≤ &(Num (SND (varc_bnd bnd (EL i hs))))` by
+  `Num (varc wi (EL i Hs)) ≤ Num (SND (varc_bnd bnd (EL i Hs)))` by
+    (`(&(Num (varc wi (EL i Hs)))):int ≤ &(Num (SND (varc_bnd bnd (EL i Hs))))` by
        intLib.ARITH_TAC>>
      fs[integerTheory.INT_LE])>>
-  `Num (varc wi (EL i hs)) <
-   2 ** LENGTH (bits_of_num (Num (SND (varc_bnd bnd (EL i hs)))))` by
+  `Num (varc wi (EL i Hs)) <
+   2 ** LENGTH (bits_of_num (Num (SND (varc_bnd bnd (EL i Hs)))))` by
     metis_tac[arithmeticTheory.LESS_EQ_LESS_TRANS,LESS_LENGTH_bits_of_num]>>
   gs[arithmeticTheory.LESS_MOD]>>
   metis_tac[integerTheory.INT_OF_NUM]
 QED
 
 Definition cencode_cumulative_def:
-  cencode_cumulative bnd xs ws hs cap name =
-  if LENGTH xs ≠ LENGTH ws ∨ LENGTH xs ≠ LENGTH hs then cfalse_constr
+  cencode_cumulative bnd Xs Ws Hs cap name =
+  if LENGTH Xs ≠ LENGTH Ws ∨ LENGTH Xs ≠ LENGTH Hs then cfalse_constr
   else
-    let tasks = ZIP (xs, ZIP (ws, hs)) in
+    let tasks = ZIP (Xs, ZIP (Ws, Hs)) in
     let tlo = cumul_tlo bnd tasks in
     let thi = cumul_thi bnd tasks in
     let ts = GENLIST (λk. tlo + &k) (Num (thi - tlo + 1)) in
@@ -782,27 +782,27 @@ Definition cencode_cumulative_def:
 End
 
 Definition encode_cumulative_def:
-  encode_cumulative bnd xs ws hs cap name =
-  abstr (cencode_cumulative bnd xs ws hs cap name)
+  encode_cumulative bnd Xs Ws Hs cap name =
+  abstr (cencode_cumulative bnd Xs Ws Hs cap name)
 End
 
 Theorem cencode_cumulative_sem:
   valid_assignment bnd wi ∧
-  cencode_cumulative bnd xs ws hs cap name = es ⇒
-  enc_rel wi es (encode_cumulative bnd xs ws hs cap name) ec ec
+  cencode_cumulative bnd Xs Ws Hs cap name = es ⇒
+  enc_rel wi es (encode_cumulative bnd Xs Ws Hs cap name) ec ec
 Proof
   rw[encode_cumulative_def]
 QED
 
 Theorem encode_cumulative_sem_1:
   valid_assignment bnd wi ∧
-  ALOOKUP cs name = SOME (Scheduling (Cumulative xs ws hs cap)) ∧
-  cumulative_sem xs ws hs cap wi ⇒
+  ALOOKUP cs name = SOME (Scheduling (Cumulative Xs Ws Hs cap)) ∧
+  cumulative_sem Xs Ws Hs cap wi ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_cumulative bnd xs ws hs cap name)
+    (encode_cumulative bnd Xs Ws Hs cap name)
 Proof
   rw[]>>
-  `LENGTH xs = LENGTH ws ∧ LENGTH xs = LENGTH hs` by fs[cumulative_sem_def]>>
+  `LENGTH Xs = LENGTH Ws ∧ LENGTH Xs = LENGTH Hs` by fs[cumulative_sem_def]>>
   simp[encode_cumulative_def,cencode_cumulative_def,append_thm,EVERY_APPEND]>>
   rpt conj_tac
   >- (
@@ -813,11 +813,11 @@ Proof
     simp[EVERY_FLAT]>>
     simp[Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>
     rw[]>>
-    Cases_on`EL n (ZIP (xs,ZIP (ws,hs)))`>>Cases_on`r`>>
+    Cases_on`EL n (ZIP (Xs,ZIP (Ws,Hs)))`>>Cases_on`r`>>
     gvs[combinTheory.o_DEF]>>
-    `q = EL n xs ∧ q' = EL n ws ∧ r' = EL n hs` by
+    `q = EL n Xs ∧ q' = EL n Ws ∧ r' = EL n Hs` by
       (qpat_x_assum`_ = (q,q',r')`mp_tac>>simp[EL_ZIP,LENGTH_ZIP])>>
-    `0 ≤ varc wi (EL n hs)` by fs[cumulative_sem_def,EVERY_EL,EL_MAP]>>
+    `0 ≤ varc wi (EL n Hs)` by fs[cumulative_sem_def,EVERY_EL,EL_MAP]>>
     gvs[]>>
     simp[append_flat_app,EVERY_FLAT,EVERY_MAP]>>
     simp[Once EVERY_MEM]>>
@@ -838,7 +838,7 @@ Proof
     simp[EVERY_FLAT,EVERY_MAP]>>
     simp[Once EVERY_MEM]>>rw[]>>
     simp[EVERY_SND,cumul_cap_line_sem]>>
-    `∀j. j < LENGTH hs ⇒ 0 ≤ varc wi (EL j hs)` by
+    `∀j. j < LENGTH Hs ⇒ 0 ≤ varc wi (EL j Hs)` by
       fs[cumulative_sem_def,EVERY_EL,EL_MAP]>>
     qpat_x_assum`cumulative_sem _ _ _ _ _`mp_tac>>
     simp[cumulative_sem_def]>>strip_tac>>
@@ -849,7 +849,7 @@ Proof
     irule LIST_EQ>>
     simp[LENGTH_MAPi,LENGTH_ZIP,EL_MAPi,EL_ZIP,EL_MAP]>>
     rw[]>>
-    `0 ≤ varc wi (EL x hs)` by gs[]>>
+    `0 ≤ varc wi (EL x Hs)` by gs[]>>
     DEP_REWRITE_TAC[cumul_ub_num_reify]>>
     simp[EL_MAP]>>
     simp[intLib.ARITH_PROVE``∀a b t:int. (a + b ≥ t + 1) ⇔ (t < a + b)``])
@@ -933,13 +933,13 @@ QED
 
 (* the per-time load list (over tasks) equals the semantic occupancy list *)
 Theorem cumul_load_eq[local]:
-  LENGTH xs = LENGTH ws ∧ LENGTH xs = LENGTH hs ⇒
-  GENLIST (λi. if (MAP (varc wi) xs)❲i❳ ≤ t ∧
-            t < (MAP (varc wi) xs)❲i❳ + (MAP (varc wi) ws)❲i❳
-          then (MAP (varc wi) hs)❲i❳ else 0) (LENGTH ws) =
+  LENGTH Xs = LENGTH Ws ∧ LENGTH Xs = LENGTH Hs ⇒
+  GENLIST (λi. if (MAP (varc wi) Xs)❲i❳ ≤ t ∧
+            t < (MAP (varc wi) Xs)❲i❳ + (MAP (varc wi) Ws)❲i❳
+          then (MAP (varc wi) Hs)❲i❳ else 0) (LENGTH Ws) =
   MAPi (λi (x,w,h).
     if varc wi x ≤ t ∧ varc wi x + varc wi w ≥ t + 1
-    then varc wi h else 0) (ZIP (xs,ZIP (ws,hs)))
+    then varc wi h else 0) (ZIP (Xs,ZIP (Ws,Hs)))
 Proof
   strip_tac>>
   irule LIST_EQ>>
@@ -954,16 +954,16 @@ QED
 Theorem encode_cumulative_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_cumulative bnd xs ws hs cap name) ⇒
-  cumulative_sem xs ws hs cap wi
+    (encode_cumulative bnd Xs Ws Hs cap name) ⇒
+  cumulative_sem Xs Ws Hs cap wi
 Proof
   strip_tac>>
-  `LENGTH xs = LENGTH ws ∧ LENGTH xs = LENGTH hs` by
+  `LENGTH Xs = LENGTH Ws ∧ LENGTH Xs = LENGTH Hs` by
     (CCONTR_TAC>>gvs[encode_cumulative_def,cencode_cumulative_def,cfalse_constr_def])>>
   gvs[encode_cumulative_def,cencode_cumulative_def,append_thm,EVERY_APPEND]>>
-  `0 ≤ varc wi cap ∧ EVERY (λ(x,w,h). 0 ≤ varc wi h) (ZIP (xs,ZIP (ws,hs)))` by
+  `0 ≤ varc wi cap ∧ EVERY (λ(x,w,h). 0 ≤ varc wi h) (ZIP (Xs,ZIP (Ws,Hs)))` by
     (qpat_x_assum`EVERY _ (abstr (cumul_nonneg _ _ _))`mp_tac>>simp[cumul_nonneg_sem])>>
-  `∀j. j < LENGTH hs ⇒ 0 ≤ varc wi (EL j hs)` by
+  `∀j. j < LENGTH Hs ⇒ 0 ≤ varc wi (EL j Hs)` by
     (gvs[EVERY_EL,LENGTH_ZIP]>>rw[]>>first_x_assum drule>>simp[EL_ZIP])>>
   simp[cumulative_sem_def,LENGTH_MAP]>>
   rpt conj_tac
@@ -989,19 +989,19 @@ Proof
     strip_tac>>
     reverse(Cases_on`cumul_tlo bnd tasks ≤ t ∧ t ≤ cumul_thi bnd tasks`)
     >- (
-      `GENLIST (λi. if (MAP (varc wi) xs)❲i❳ ≤ t ∧
-              t < (MAP (varc wi) xs)❲i❳ + (MAP (varc wi) ws)❲i❳
-            then (MAP (varc wi) hs)❲i❳ else 0) (LENGTH ws) =
-       GENLIST (λi. 0i) (LENGTH ws)` by (
+      `GENLIST (λi. if (MAP (varc wi) Xs)❲i❳ ≤ t ∧
+              t < (MAP (varc wi) Xs)❲i❳ + (MAP (varc wi) Ws)❲i❳
+            then (MAP (varc wi) Hs)❲i❳ else 0) (LENGTH Ws) =
+       GENLIST (λi. 0i) (LENGTH Ws)` by (
         simp[GENLIST_FUN_EQ]>>rw[]>>
-        `i < LENGTH xs ∧ i < LENGTH hs` by gs[]>>
-        `MEM (EL i xs,EL i ws,EL i hs) tasks` by
+        `i < LENGTH Xs ∧ i < LENGTH Hs` by gs[]>>
+        `MEM (EL i Xs,EL i Ws,EL i Hs) tasks` by
           (simp[Abbr`tasks`,MEM_EL]>>qexists`i`>>simp[EL_ZIP,LENGTH_ZIP])>>
-        `cumul_tlo bnd tasks ≤ FST (varc_bnd bnd (EL i xs)) ∧
-         FST (varc_bnd bnd (EL i xs)) ≤ varc wi (EL i xs) ∧
-         varc wi (EL i xs) ≤ SND (varc_bnd bnd (EL i xs)) ∧
-         varc wi (EL i ws) ≤ SND (varc_bnd bnd (EL i ws)) ∧
-         SND (varc_bnd bnd (EL i xs)) + SND (varc_bnd bnd (EL i ws)) - 1 ≤
+        `cumul_tlo bnd tasks ≤ FST (varc_bnd bnd (EL i Xs)) ∧
+         FST (varc_bnd bnd (EL i Xs)) ≤ varc wi (EL i Xs) ∧
+         varc wi (EL i Xs) ≤ SND (varc_bnd bnd (EL i Xs)) ∧
+         varc wi (EL i Ws) ≤ SND (varc_bnd bnd (EL i Ws)) ∧
+         SND (varc_bnd bnd (EL i Xs)) + SND (varc_bnd bnd (EL i Ws)) - 1 ≤
            cumul_thi bnd tasks` by
           metis_tac[cumul_tlo_LE,cumul_thi_GE,varc_bnd_valid]>>
         gvs[EL_MAP]>>rw[]>>
@@ -1017,9 +1017,9 @@ Proof
       qpat_x_assum`∀t. MEM t ts ⇒ iSUM _ ≤ _`drule>>
       qpat_x_assum`∀t. MEM t ts ⇒ MAPi _ _ = _`drule>>
       rw[]>>
-      `GENLIST (λi. if (MAP (varc wi) xs)❲i❳ ≤ t ∧
-              t < (MAP (varc wi) xs)❲i❳ + (MAP (varc wi) ws)❲i❳
-            then (MAP (varc wi) hs)❲i❳ else 0) (LENGTH ws) =
+      `GENLIST (λi. if (MAP (varc wi) Xs)❲i❳ ≤ t ∧
+              t < (MAP (varc wi) Xs)❲i❳ + (MAP (varc wi) Ws)❲i❳
+            then (MAP (varc wi) Hs)❲i❳ else 0) (LENGTH Ws) =
        MAPi (λi (x,w,h).
          if varc wi x ≤ t ∧ varc wi x + varc wi w ≥ t + 1
          then varc wi h else 0) tasks` by
@@ -1030,23 +1030,23 @@ QED
 Definition encode_scheduling_constr_def:
   encode_scheduling_constr bnd c name =
   case c of
-    Disjunctive xs ws strct =>
-      encode_disjunctive bnd xs ws strct name
-  | Disjunctive2D xs ys ws hs strct =>
-      encode_disjunctive2d bnd xs ys ws hs strct name
-  | Cumulative xs ws hs cap =>
-      encode_cumulative bnd xs ws hs cap name
+    Disjunctive Xs Ws strct =>
+      encode_disjunctive bnd Xs Ws strct name
+  | Disjunctive2D Xs Ys Ws Hs strct =>
+      encode_disjunctive2d bnd Xs Ys Ws Hs strct name
+  | Cumulative Xs Ws Hs cap =>
+      encode_cumulative bnd Xs Ws Hs cap name
 End
 
 Definition cencode_scheduling_constr_def:
   cencode_scheduling_constr bnd c name ec =
   case c of
-    Disjunctive xs ws strct =>
-      (cencode_disjunctive bnd xs ws strct name, ec)
-  | Disjunctive2D xs ys ws hs strct =>
-      (cencode_disjunctive2d bnd xs ys ws hs strct name, ec)
-  | Cumulative xs ws hs cap =>
-      (cencode_cumulative bnd xs ws hs cap name, ec)
+    Disjunctive Xs Ws strct =>
+      (cencode_disjunctive bnd Xs Ws strct name, ec)
+  | Disjunctive2D Xs Ys Ws Hs strct =>
+      (cencode_disjunctive2d bnd Xs Ys Ws Hs strct name, ec)
+  | Cumulative Xs Ws Hs cap =>
+      (cencode_cumulative bnd Xs Ws Hs cap name, ec)
 End
 
 Theorem encode_scheduling_constr_sem_1:

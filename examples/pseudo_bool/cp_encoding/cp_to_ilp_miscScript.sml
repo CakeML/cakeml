@@ -803,26 +803,26 @@ Definition cencode_knapsack1_def:
 End
 
 Definition cencode_knapsack_def:
-  cencode_knapsack css Xs ts name =
+  cencode_knapsack css Xs Ts name =
   let lxs = LENGTH Xs in
   if
     EVERY (λcs. LENGTH cs = lxs) css ∧
-    LENGTH ts = LENGTH css
+    LENGTH Ts = LENGTH css
   then
-    flat_app (MAPi (λn (cs,t). cencode_knapsack1 name n Xs cs t) (ZIP (css,ts)))
+    flat_app (MAPi (λn (cs,t). cencode_knapsack1 name n Xs cs t) (ZIP (css,Ts)))
   else
     cfalse_constr
 End
 
 Definition encode_knapsack_def:
-  encode_knapsack css Xs ts name =
-  abstr $ cencode_knapsack css Xs ts name
+  encode_knapsack css Xs Ts name =
+  abstr $ cencode_knapsack css Xs Ts name
 End
 
 Theorem encode_knapsack_sem_1:
-  knapsack_sem css Xs ts wi ⇒
+  knapsack_sem css Xs Ts wi ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_knapsack css Xs ts name)
+    (encode_knapsack css Xs Ts name)
 Proof
   rw[cencode_knapsack_def,encode_knapsack_def,knapsack_sem_def]>>
   gvs[LIST_REL_EL_EQN,EVERY_FLAT,EVERY_MEM,MEM_MAPi,
@@ -835,8 +835,8 @@ QED
 
 Theorem encode_knapsack_sem_2:
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_knapsack css Xs ts name) ⇒
-  knapsack_sem css Xs ts wi
+    (encode_knapsack css Xs Ts name) ⇒
+  knapsack_sem css Xs Ts wi
 Proof
   rw[cencode_knapsack_def,encode_knapsack_def,knapsack_sem_def]>>
   gvs[LIST_REL_EL_EQN,EVERY_FLAT,EVERY_MEM,MEM_MAPi,
@@ -851,8 +851,8 @@ Definition encode_misc_constr_def:
   case c of
     Circuit Xs =>
     encode_circuit bnd Xs name
-  | Knapsack css Xs ts =>
-    encode_knapsack css Xs ts name
+  | Knapsack css Xs Ts =>
+    encode_knapsack css Xs Ts name
 End
 
 Theorem encode_misc_constr_sem_1:
@@ -886,8 +886,8 @@ Definition cencode_misc_constr_def:
   case c of
     Circuit Xs =>
     cencode_circuit bnd Xs name ec
-  | Knapsack css Xs ts =>
-    (cencode_knapsack css Xs ts name, ec)
+  | Knapsack css Xs Ts =>
+    (cencode_knapsack css Xs Ts name, ec)
 End
 
 Theorem cencode_misc_constr_sem:

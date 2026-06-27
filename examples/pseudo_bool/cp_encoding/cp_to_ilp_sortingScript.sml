@@ -8,7 +8,7 @@ Ancestors
   pbc cp ilp cp_to_ilp
 
 (* ===================================================================== *)
-(* Increasing: a monotone chain over xs. Emits one adjacent inequality   *)
+(* Increasing: a monotone chain over Xs. Emits one adjacent inequality   *)
 (* per pair vars[i] ⋈ vars[i+1], where (strct,desc) pick ⋈ (see inc_rel).*)
 (* No auxiliaries, no reification, no proof-only variables.              *)
 (* Structural kin of all_equal (which emits the ≤ and ≥ halves per pair).*)
@@ -38,15 +38,15 @@ Definition inc_chain_def:
 End
 
 Definition cencode_increasing_def:
-  cencode_increasing xs strct desc name =
-  case xs of [] => Nil
+  cencode_increasing Xs strct desc name =
+  case Xs of [] => Nil
   | (X::Xs) =>
     List (inc_chain strct desc 0 name X Xs)
 End
 
 Definition encode_increasing_def:
-  encode_increasing xs strct desc name =
-  abstr $ cencode_increasing xs strct desc name
+  encode_increasing Xs strct desc name =
+  abstr $ cencode_increasing Xs strct desc name
 End
 
 Theorem inc_chain_sem:
@@ -59,22 +59,22 @@ Proof
 QED
 
 Theorem encode_increasing_sem_1:
-  increasing_sem xs strct desc wi ⇒
+  increasing_sem Xs strct desc wi ⇒
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_increasing xs strct desc name)
+    (encode_increasing Xs strct desc name)
 Proof
   gs[encode_increasing_def,cencode_increasing_def,increasing_sem_def]>>
-  Cases_on`xs`>>
+  Cases_on`Xs`>>
   rw[]>>fs[inc_chain_sem]
 QED
 
 Theorem encode_increasing_sem_2:
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_increasing xs strct desc name) ⇒
-  increasing_sem xs strct desc wi
+    (encode_increasing Xs strct desc name) ⇒
+  increasing_sem Xs strct desc wi
 Proof
   gs[encode_increasing_def,cencode_increasing_def,increasing_sem_def]>>
-  Cases_on`xs`>>
+  Cases_on`Xs`>>
   rw[]>>fs[inc_chain_sem]
 QED
 
@@ -85,15 +85,19 @@ QED
 Definition encode_sorting_constr_def:
   encode_sorting_constr bnd c name =
   case c of
-    Increasing xs strct desc =>
-      encode_increasing xs strct desc name
+    Increasing Xs strct desc =>
+      encode_increasing Xs strct desc name
+  | Sort Xs Ys => []
+  | ArgSort Xs Ps offset => []
 End
 
 Definition cencode_sorting_constr_def:
   cencode_sorting_constr bnd c name ec =
   case c of
-    Increasing xs strct desc =>
-      (cencode_increasing xs strct desc name, ec)
+    Increasing Xs strct desc =>
+      (cencode_increasing Xs strct desc name, ec)
+  | Sort Xs Ys => (Nil, ec)
+  | ArgSort Xs Ps offset => (Nil, ec)
 End
 
 Theorem encode_sorting_constr_sem_1:
@@ -115,8 +119,10 @@ Theorem encode_sorting_constr_sem_2:
   sorting_constr_sem c wi
 Proof
   Cases_on`c`>>
-  rw[encode_sorting_constr_def,sorting_constr_sem_def]>>
-  metis_tac[encode_increasing_sem_2]
+  rw[encode_sorting_constr_def,sorting_constr_sem_def]
+  >- metis_tac[encode_increasing_sem_2]
+  >- cheat (* TODO: Sort encoding *)
+  >- cheat (* TODO: ArgSort encoding *)
 QED
 
 Theorem cencode_sorting_constr_sem:

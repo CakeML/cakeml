@@ -246,9 +246,9 @@ Definition sexp_iclin_pairs_def:
   (sexp_iclin_pairs (c::x::es) =
     do
       ci <- sexp_int c;
-      xi <- sexp_varc x;
+      Xi <- sexp_varc x;
       rest <- sexp_iclin_pairs es;
-      return ((ci,xi)::rest)
+      return ((ci,Xi)::rest)
     od)
 End
 
@@ -384,11 +384,11 @@ Definition sexp_regular_body_def:
     case rest of
       [vars_e; nstates_e; trans_e; finals_e] =>
       (do
-         vars <- sexp_varc_list vars_e;
+         Xs <- sexp_varc_list vars_e;
          nstates <- sexp_num nstates_e;
          trans <- sexp_reg_trans trans_e;
          finals <- sexp_num_list finals_e;
-         return (Extensional (Regular vars nstates trans finals))
+         return (Extensional (Regular Xs nstates trans finals))
        od)
     | _ => fail («regular expects 4 args: (X1 ... Xn) nstates ((edges)...) (f1 ... fk)\n»)
 End
@@ -729,8 +729,8 @@ Definition sexp_knapsack_body_def:
       (do
          css <- sexp_int_rows css_e;
          Xs <- sexp_varc_list Xs_e;
-         ts <- sexp_varc_list ts_e;
-         return (Misc (Knapsack css Xs ts))
+         Ts <- sexp_varc_list ts_e;
+         return (Misc (Knapsack css Xs Ts))
        od)
     | _ => fail («knapsack expects 3 args: ((c11 ...) ...) (X1 ... Xn) (t1 ... tm)\n»)
 End
@@ -756,9 +756,9 @@ Definition sexp_disjunctive_body_def:
     case rest of
       [xs_e; ws_e] =>
       (do
-         xs <- sexp_varc_list xs_e;
-         ws <- sexp_varc_list ws_e;
-         return (Scheduling (Disjunctive xs ws strct))
+         Xs <- sexp_varc_list xs_e;
+         Ws <- sexp_varc_list ws_e;
+         return (Scheduling (Disjunctive Xs Ws strct))
        od)
     | _ => fail («disjunctive expects 2 args: (x1 ... xn) (w1 ... wn)\n»)
 End
@@ -768,11 +768,11 @@ Definition sexp_disjunctive2d_body_def:
     case rest of
       [xs_e; ys_e; ws_e; hs_e] =>
       (do
-         xs <- sexp_varc_list xs_e;
-         ys <- sexp_varc_list ys_e;
-         ws <- sexp_varc_list ws_e;
-         hs <- sexp_varc_list hs_e;
-         return (Scheduling (Disjunctive2D xs ys ws hs strct))
+         Xs <- sexp_varc_list xs_e;
+         Ys <- sexp_varc_list ys_e;
+         Ws <- sexp_varc_list ws_e;
+         Hs <- sexp_varc_list hs_e;
+         return (Scheduling (Disjunctive2D Xs Ys Ws Hs strct))
        od)
     | _ => fail («disjunctive2d expects 4 args: (x1 ... xn) (y1 ... yn) (w1 ... wn) (h1 ... hn)\n»)
 End
@@ -782,11 +782,11 @@ Definition sexp_cumulative_body_def:
     case rest of
       [xs_e; ws_e; hs_e; cap_e] =>
       (do
-         xs <- sexp_varc_list xs_e;
-         ws <- sexp_varc_list ws_e;
-         hs <- sexp_varc_list hs_e;
+         Xs <- sexp_varc_list xs_e;
+         Ws <- sexp_varc_list ws_e;
+         Hs <- sexp_varc_list hs_e;
          cap <- sexp_varc cap_e;
-         return (Scheduling (Cumulative xs ws hs cap))
+         return (Scheduling (Cumulative Xs Ws Hs cap))
        od)
     | _ => fail («cumulative expects 4 args: (x1 ... xn) (w1 ... wn) (h1 ... hn) cap\n»)
 End
@@ -806,8 +806,8 @@ Definition sexp_increasing_body_def:
     case rest of
       [xs_e] =>
       (do
-         xs <- sexp_varc_list xs_e;
-         return (Sorting (Increasing xs strct desc))
+         Xs <- sexp_varc_list xs_e;
+         return (Sorting (Increasing Xs strct desc))
        od)
     | _ => fail («increasing expects 1 arg: (x1 ... xn)\n»)
 End
