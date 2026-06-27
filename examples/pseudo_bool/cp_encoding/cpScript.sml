@@ -854,7 +854,13 @@ End
 (* Cumulative:
   For each time point t,
     the sum of hs[i] for active tasks (xs[i] ≤ t < xs[i] + ws[i])
-    is ≤ cap *)
+    is ≤ cap
+
+  Well-formedness good default: heights and capacity must be
+  non-negative (a negative demand/capacity makes the constraint
+  infeasible, matching gcs which rejects these at validation).
+  Durations need no guard: a non-positive ws[i] yields an empty
+  occupancy interval, so the task is simply never active. *)
 Definition cumulative_sem_def:
   cumulative_sem xs ws hs cap w ⇔
   let xs = MAP (varc w) xs in
@@ -863,6 +869,8 @@ Definition cumulative_sem_def:
   let cap = varc w cap in
   LENGTH xs = LENGTH ws ∧
   LENGTH xs = LENGTH hs ∧
+  EVERY (λh. 0 ≤ h) hs ∧
+  0 ≤ cap ∧
   ∀t.
     iSUM
       (GENLIST

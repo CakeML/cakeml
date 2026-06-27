@@ -80,14 +80,12 @@ Definition reify_flag_def:
       else (* ann = SOME («bin») *)
         let
           len = LENGTH Xs;
-          bnd = LENGTH Xs - 1;
           i = EL 0 ids;
           b = EL 1 ids
         in
-          EL b $ bits_of_num_bnd
+          BIT b
             (@t.
               t < len ∧ FUNPOW (λn. Num (varc wi (EL n Xs))) t 0 = i)
-            bnd
     | SOME (Counting (Among Xs iS _)) =>
       if ann = SOME («ge»)
       then varc wi (EL (EL 0 ids) Xs) ≥ EL (EL 1 ids) iS
@@ -165,7 +163,23 @@ Definition reify_flag_def:
   | Values vs ann =>
     (case ALOOKUP cs name of
     | SOME (Counting (NValue Xs Y)) =>
-      MEM (HD vs) $ MAP (varc wi) Xs)
+      MEM (HD vs) $ MAP (varc wi) Xs
+    | SOME (Scheduling (Cumulative xs ws hs cap)) =>
+      (* cumulative flags carry the (int) time t in the Values list:
+         «cb»: task i has started by t;  «ca»: task i not finished by t;
+         «cact»: active (started ∧ not finished);
+         «cc»: bit b of task i's contribution at t (an upper-bounded natural
+               equal to its height when active and 0 otherwise). Every bit is
+               defined via BIT, so no bit-width bound is threaded. *)
+      let i = Num (EL 0 vs); t = EL 1 vs in
+      let bef = (varc wi (EL i xs) ≤ t) in
+      let aft = (varc wi (EL i xs) + varc wi (EL i ws) ≥ t + 1) in
+      if ann = SOME («cb») then bef
+      else if ann = SOME («ca») then aft
+      else if ann = SOME («cact») then bef ∧ aft
+      else (* ann = SOME («cc») *)
+        let b = Num (EL 2 vs) in
+        BIT b (if bef ∧ aft then Num (varc wi (EL i hs)) else 0))
 End
 
 (* char 91 is [, char 92 is backslash, char 93 is ] *)

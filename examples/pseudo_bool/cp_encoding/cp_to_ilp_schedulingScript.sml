@@ -5,7 +5,7 @@ Theory cp_to_ilp_scheduling
 Libs
   preamble
 Ancestors
-  pbc cp ilp cp_to_ilp
+  pbc cp ilp cp_to_ilp int_bitwiseExtra
 
 (* ===================================================================== *)
 (* Generic interval-disjointness kit, shared by Disjunctive (1 axis) and  *)
@@ -427,11 +427,358 @@ Proof
   gvs[varc_def]>>intLib.ARITH_TAC
 QED
 
-(* Cumulative *)
+(* ===================================================================== *)
+(* Cumulative: time-table encoding.                                       *)
+(*                                                                        *)
+(* For each task i and integer time t in a global window [tlo,thi], three  *)
+(* reified flags pin whether the task has started (before: sᵢ ≤ t), not    *)
+(* finished (after: sᵢ + wsᵢ ≥ t+1) and is running (active = before∧after).*)
+(* A proof-only upper-bounded natural contrib(i,t), summed over its bits,   *)
+(* equals the task's height when active and 0 otherwise; per time the       *)
+(* contribs sum to ≤ capacity. Heights and capacity are pinned ≥ 0          *)
+(* (matching cumulative_sem's good default; a constant height < 0 makes its *)
+(* own ≥0 line unsatisfiable). All bits are defined via BIT in reify_flag,  *)
+(* so no bit-width bound is threaded through the flags. *)
+(* ===================================================================== *)
+
+(* domain (lb,ub) of a varc under bnd *)
+Definition varc_bnd_def:
+  varc_bnd (bnd:'a -> int # int) vc =
+  case vc of INL v => bnd v | INR c => (c,c)
+End
+
+Theorem varc_bnd_valid:
+  valid_assignment bnd wi ⇒
+  FST (varc_bnd bnd vc) ≤ varc wi vc ∧ varc wi vc ≤ SND (varc_bnd bnd vc)
+Proof
+  Cases_on`vc`>>rw[varc_bnd_def,varc_def]>>
+  gvs[valid_assignment_def]>>
+  first_x_assum(qspec_then`x`mp_tac)>>
+  Cases_on`bnd x`>>simp[]
+QED
+
+(* per-(task,time) reified flags, carrying the int time t in a Values flag *)
+Definition cumul_before_def[simp]:
+  cumul_before name i t = INR (name, Values [&i; t] (SOME «cb»))
+End
+Definition cumul_after_def[simp]:
+  cumul_after name i t = INR (name, Values [&i; t] (SOME «ca»))
+End
+Definition cumul_active_def[simp]:
+  cumul_active name i t = INR (name, Values [&i; t] (SOME «cact»))
+End
+Definition cumul_cbit_def[simp]:
+  cumul_cbit name i t b = INR (name, Values [&i; t; &b] (SOME «cc»))
+End
+
+(* weighted bit-sum for the proof-only contribution of task i at time t,
+   wide enough to represent its height upper bound ubh *)
+Definition cumul_ub_num_def:
+  cumul_ub_num name i t (ubh:int) =
+  GENLIST (λb. (&(2 ** b), Pos (cumul_cbit name i t b)))
+    (LENGTH (bits_of_num (Num (if 0 ≤ ubh then ubh else 0))))
+End
+
+Theorem cumul_ub_num_num_of_bits:
+  eval_lin_term wb (cumul_ub_num name i t ubh) =
+  &num_of_bits (GENLIST (λb. wb (cumul_cbit name i t b))
+    (LENGTH (bits_of_num (Num (if 0 ≤ ubh then ubh else 0)))))
+Proof
+  rw[num_of_bits_GENLIST,cumul_ub_num_def,eval_lin_term_def,MAP_GENLIST,o_DEF]
+QED
+
+Theorem eval_lin_term_MAP_neg:
+  ∀bs. eval_lin_term wb (MAP (λ(a,l). (-a,l)) bs) = -eval_lin_term wb bs
+Proof
+  Induct>>gvs[eval_lin_term_def,iSUM_def]>>
+  Cases_on`h`>>gvs[eval_term_def,eval_lin_term_def,iSUM_def]>>
+  intLib.ARITH_TAC
+QED
+
+(* the three half-reified constraints relating a contribution bit-sum cb to
+   a height varc h:  cb ≥ h ,  cb ≤ h ,  cb ≤ 0 *)
+Definition cumul_contrib_ge_def:
+  cumul_contrib_ge cb h =
+  case h of INL v => ([(-1i,v)],cb,0i) | INR c => ([],cb,c)
+End
+Definition cumul_contrib_le_def:
+  cumul_contrib_le cb h =
+  case h of INL v => ([(1i,v)],MAP (λ(a,l). (-a,l)) cb,0i)
+          | INR c => ([],MAP (λ(a,l). (-a,l)) cb,-c)
+End
+Definition cumul_contrib_le0_def:
+  cumul_contrib_le0 cb = ([],MAP (λ(a,l). (-a,l)) cb,0i)
+End
+
+Theorem cumul_contrib_ge_sem[simp]:
+  iconstraint_sem (cumul_contrib_ge cb h) (wi,wb) ⇔
+  eval_lin_term wb cb ≥ varc wi h
+Proof
+  Cases_on`h`>>
+  rw[cumul_contrib_ge_def,iconstraint_sem_def,eval_ilin_term_def,iSUM_def,varc_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem cumul_contrib_le_sem[simp]:
+  iconstraint_sem (cumul_contrib_le cb h) (wi,wb) ⇔
+  eval_lin_term wb cb ≤ varc wi h
+Proof
+  Cases_on`h`>>
+  rw[cumul_contrib_le_def,iconstraint_sem_def,eval_ilin_term_def,iSUM_def,varc_def,
+     eval_lin_term_MAP_neg]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem cumul_contrib_le0_sem[simp]:
+  iconstraint_sem (cumul_contrib_le0 cb) (wi,wb) ⇔ eval_lin_term wb cb ≤ 0
+Proof
+  rw[cumul_contrib_le0_def,iconstraint_sem_def,eval_ilin_term_def,iSUM_def,
+     eval_lin_term_MAP_neg]>>
+  intLib.ARITH_TAC
+QED
+
+(* active(i,t) ⇔ before(i,t) ∧ after(i,t) *)
+Definition mk_cumul_active_def:
+  mk_cumul_active name i t =
+  let a = cumul_active name i t in
+  let bf = cumul_before name i t in
+  let af = cumul_after name i t in
+  let pre = toString i ^ «_» ^ toString (intnum t) in
+  flat_app [
+    cat_least_one name (pre ^ «_acta») [Neg a; Pos bf];
+    cat_least_one name (pre ^ «_actb») [Neg a; Pos af];
+    cat_least_one name (pre ^ «_actc») [Pos a; Neg bf; Neg af]]
+End
+
+Theorem mk_cumul_active_sem:
+  EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (mk_cumul_active name i t)) ⇔
+  (wb (cumul_active name i t) ⇔
+   wb (cumul_before name i t) ∧ wb (cumul_after name i t))
+Proof
+  rw[mk_cumul_active_def,flat_app_def]>>
+  simp[append_thm,at_least_one_sem,MEM,lit_def,RIGHT_AND_OVER_OR,EXISTS_OR_THM]>>
+  metis_tac[]
+QED
+
+(* contribution-defining lines for task i (height h) at time t *)
+Definition mk_cumul_contrib_def:
+  mk_cumul_contrib bnd name h i t =
+  let ubh = SND (varc_bnd bnd h) in
+  let cb = cumul_ub_num name i t ubh in
+  let act = cumul_active name i t in
+  let pre = toString i ^ «_» ^ toString (intnum t) in
+  List (mk_annotate
+    [mk_name name (pre ^ «_cge»); mk_name name (pre ^ «_cle»);
+     mk_name name (pre ^ «_cz»)]
+    [bits_imply bnd [Pos act] (cumul_contrib_ge cb h);
+     bits_imply bnd [Pos act] (cumul_contrib_le cb h);
+     bits_imply bnd [Neg act] (cumul_contrib_le0 cb)])
+End
+
+(* non-negativity good default: capacity ≥ 0 and each height ≥ 0 *)
+Definition cumul_nonneg_def:
+  cumul_nonneg name tasks cap =
+  List (mk_annotate
+    (mk_name name «cap_ge0» ::
+     MAPi (λi (x,w,h). mk_name name («h_» ^ toString i ^ «_ge0»)) tasks)
+    (mk_constraint_one_ge 1 cap 0 ::
+     MAP (λ(x,w,h). mk_constraint_one_ge 1 h 0) tasks))
+End
+
+Theorem cumul_nonneg_sem:
+  EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (cumul_nonneg name tasks cap)) ⇔
+  0 ≤ varc wi cap ∧ EVERY (λ(x,w,h). 0 ≤ varc wi h) tasks
+Proof
+  rw[cumul_nonneg_def,abstrl_mk_annotate,EVERY_MAP]>>
+  simp[integerTheory.INT_GE,LAMBDA_PROD]
+QED
+
+(* per-time capacity line: Σ_i contrib(i,t) ≤ cap *)
+Definition cumul_cap_line_def:
+  cumul_cap_line bnd name tasks cap t =
+  let loadbs = FLAT (MAPi (λi (x,w,h).
+      MAP (λ(a,l). (-a,l))
+        (cumul_ub_num name i t (SND (varc_bnd bnd h)))) tasks) in
+  let lbl = mk_name name («cap_» ^ toString (intnum t)) in
+  case cap of
+    INR c => List [(SOME lbl, ([],loadbs,-c))]
+  | INL v => List [(SOME lbl, ([(1i,v)],loadbs,0i))]
+End
+
+Theorem eval_lin_term_FLAT_MAPi_neg:
+  ∀ls g. eval_lin_term wb
+    (FLAT (MAPi (λi (x,w,h). MAP (λ(c,l). (-c,l)) (g i x w h)) ls)) =
+  -iSUM (MAPi (λi (x,w,h). eval_lin_term wb (g i x w h)) ls)
+Proof
+  Induct
+  >- rw[eval_lin_term_def,iSUM_def,indexedListsTheory.MAPi_def]
+  >- (
+    qx_gen_tac`e`>>PairCases_on`e`>>
+    pop_assum (fn ih =>
+      rw[indexedListsTheory.MAPi_def,combinTheory.o_DEF,iSUM_def,
+         pbc_encodeTheory.eval_lin_term_append,eval_lin_term_MAP_neg,ih])>>
+    intLib.ARITH_TAC)
+QED
+
+Theorem cumul_cap_line_sem:
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr (cumul_cap_line bnd name tasks cap t)) ⇔
+  iSUM (MAPi (λi (x,w,h). eval_lin_term wb
+    (cumul_ub_num name i t (SND (varc_bnd bnd h)))) tasks) ≤ varc wi cap
+Proof
+  rw[cumul_cap_line_def]>>
+  CASE_TAC>>
+  simp[iconstraint_sem_def,eval_ilin_term_def,iSUM_def,varc_def,
+       eval_lin_term_FLAT_MAPi_neg]>>
+  intLib.ARITH_TAC
+QED
+
+(* global window [tlo,thi] covering every task's possibly-active times *)
+Definition cumul_tlo_def:
+  cumul_tlo bnd tasks = FOLDR int_min 0 (MAP (λ(x,w,h). FST (varc_bnd bnd x)) tasks)
+End
+Definition cumul_thi_def:
+  cumul_thi bnd tasks =
+  FOLDR int_max 0
+    (MAP (λ(x,w,h). SND (varc_bnd bnd x) + SND (varc_bnd bnd w) - 1) tasks)
+End
+
+Theorem FOLDR_int_min_LE_MEM:
+  ∀ls. MEM x ls ⇒ FOLDR int_min s ls ≤ x
+Proof
+  Induct>>rw[]>>
+  gvs[integerTheory.INT_MIN]>>rw[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem FOLDR_int_max_GE_MEM:
+  ∀ls. MEM x ls ⇒ x ≤ FOLDR int_max s ls
+Proof
+  Induct>>rw[]>>
+  gvs[integerTheory.INT_MAX]>>rw[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem FOLDR_int_min_LE_0:
+  ∀ls. FOLDR int_min 0 ls ≤ 0
+Proof
+  Induct>>rw[integerTheory.INT_MIN]>>intLib.ARITH_TAC
+QED
+
+Theorem FOLDR_int_max_0_LE:
+  ∀ls. 0 ≤ FOLDR int_max 0 ls
+Proof
+  Induct>>rw[integerTheory.INT_MAX]>>intLib.ARITH_TAC
+QED
+
+Theorem cumul_tlo_LE_0:
+  cumul_tlo bnd tasks ≤ 0
+Proof
+  rw[cumul_tlo_def,FOLDR_int_min_LE_0]
+QED
+
+Theorem cumul_thi_0_LE:
+  0 ≤ cumul_thi bnd tasks
+Proof
+  rw[cumul_thi_def,FOLDR_int_max_0_LE]
+QED
+
+Theorem cumul_tlo_LE:
+  MEM (x,w,h) tasks ⇒ cumul_tlo bnd tasks ≤ FST (varc_bnd bnd x)
+Proof
+  rw[cumul_tlo_def]>>irule FOLDR_int_min_LE_MEM>>
+  simp[MEM_MAP]>>qexists`(x,w,h)`>>simp[]
+QED
+
+Theorem cumul_thi_GE:
+  MEM (x,w,h) tasks ⇒
+  SND (varc_bnd bnd x) + SND (varc_bnd bnd w) - 1 ≤ cumul_thi bnd tasks
+Proof
+  rw[cumul_thi_def]>>irule FOLDR_int_max_GE_MEM>>
+  simp[MEM_MAP]>>qexists`(x,w,h)`>>simp[]
+QED
+
+(* the backward direction is all we need (and holds unconditionally; the
+   iff fails when thi < tlo, but cumul_tlo ≤ 0 ≤ cumul_thi rules that out) *)
+Theorem MEM_cumul_ts:
+  tlo ≤ t ∧ t ≤ thi ⇒
+  MEM t (GENLIST (λk. tlo + &k) (Num (thi - tlo + 1)))
+Proof
+  rw[MEM_GENLIST]>>
+  `0 ≤ t - tlo` by intLib.ARITH_TAC>>
+  `0 ≤ thi - tlo + 1` by intLib.ARITH_TAC>>
+  `&(Num (t - tlo)) = t - tlo` by metis_tac[integerTheory.INT_OF_NUM]>>
+  `&(Num (thi - tlo + 1)) = thi - tlo + 1` by metis_tac[integerTheory.INT_OF_NUM]>>
+  qexists`Num (t - tlo)`>>
+  conj_tac
+  >- (
+    `(&(Num (t - tlo))):int < &(Num (thi - tlo + 1))` by intLib.ARITH_TAC>>
+    fs[integerTheory.INT_LT])>>
+  intLib.ARITH_TAC
+QED
+
+Theorem num_of_bits_GENLIST_F[local]:
+  num_of_bits (GENLIST (λb. F) w) = 0
+Proof
+  `num_of_bits (GENLIST (λb. BIT b 0) w) = 0` by simp[num_of_bits_GENLIST_BIT]>>
+  fs[bitTheory.BIT_ZERO]
+QED
+
+(* under reify_avar the contribution bit-sum evaluates to the (non-negative)
+   height when active and 0 otherwise *)
+Theorem cumul_ub_num_reify:
+  valid_assignment bnd wi ∧
+  ALOOKUP cs name = SOME (Scheduling (Cumulative xs ws hs cap)) ∧
+  i < LENGTH hs ∧ 0 ≤ varc wi (EL i hs) ⇒
+  eval_lin_term (reify_avar cs wi)
+    (cumul_ub_num name i t (SND (varc_bnd bnd (EL i hs)))) =
+  (if varc wi (EL i xs) ≤ t ∧
+      varc wi (EL i xs) + varc wi (EL i ws) ≥ t + 1
+   then varc wi (EL i hs) else 0)
+Proof
+  rw[cumul_ub_num_num_of_bits,reify_avar_def,reify_flag_def]>>
+  simp[num_of_bits_GENLIST_F,num_of_bits_GENLIST_BIT]>>
+  `0 ≤ SND (varc_bnd bnd (EL i hs)) ∧
+   varc wi (EL i hs) ≤ SND (varc_bnd bnd (EL i hs))` by
+    metis_tac[varc_bnd_valid,integerTheory.INT_LE_TRANS]>>
+  `(if 0 ≤ SND (varc_bnd bnd (EL i hs)) then SND (varc_bnd bnd (EL i hs)) else 0) =
+   SND (varc_bnd bnd (EL i hs))` by gvs[]>>
+  pop_assum SUBST_ALL_TAC>>
+  `&(Num (varc wi (EL i hs))):int = varc wi (EL i hs)` by
+    metis_tac[integerTheory.INT_OF_NUM]>>
+  `&(Num (SND (varc_bnd bnd (EL i hs)))):int = SND (varc_bnd bnd (EL i hs))` by
+    metis_tac[integerTheory.INT_OF_NUM]>>
+  `Num (varc wi (EL i hs)) ≤ Num (SND (varc_bnd bnd (EL i hs)))` by
+    (`(&(Num (varc wi (EL i hs)))):int ≤ &(Num (SND (varc_bnd bnd (EL i hs))))` by
+       intLib.ARITH_TAC>>
+     fs[integerTheory.INT_LE])>>
+  `Num (varc wi (EL i hs)) <
+   2 ** LENGTH (bits_of_num (Num (SND (varc_bnd bnd (EL i hs)))))` by
+    metis_tac[arithmeticTheory.LESS_EQ_LESS_TRANS,LESS_LENGTH_bits_of_num]>>
+  gs[arithmeticTheory.LESS_MOD]>>
+  metis_tac[integerTheory.INT_OF_NUM]
+QED
+
 Definition cencode_cumulative_def:
   cencode_cumulative bnd xs ws hs cap name =
-  (* TODO *)
-  cfalse_constr
+  if LENGTH xs ≠ LENGTH ws ∨ LENGTH xs ≠ LENGTH hs then cfalse_constr
+  else
+    let tasks = ZIP (xs, ZIP (ws, hs)) in
+    let tlo = cumul_tlo bnd tasks in
+    let thi = cumul_thi bnd tasks in
+    let ts = GENLIST (λk. tlo + &k) (Num (thi - tlo + 1)) in
+    Append (cumul_nonneg name tasks cap)
+    (Append
+      (flat_app (MAPi (λi (x,w,h).
+         flat_app (MAP (λt.
+           Append
+             (cbimply_var bnd (cumul_before name i t) (mk_le x (INR t)))
+           (Append
+             (cbimply_var bnd (cumul_after name i t)
+               (mk_constraint_ge 1 x 1 w (t + 1)))
+           (Append (mk_cumul_active name i t)
+                   (mk_cumul_contrib bnd name h i t)))) ts)) tasks))
+      (flat_app (MAP (λt. cumul_cap_line bnd name tasks cap t) ts)))
 End
 
 Definition encode_cumulative_def:
@@ -454,7 +801,154 @@ Theorem encode_cumulative_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_cumulative bnd xs ws hs cap name)
 Proof
-  cheat
+  rw[]>>
+  `LENGTH xs = LENGTH ws ∧ LENGTH xs = LENGTH hs` by fs[cumulative_sem_def]>>
+  simp[encode_cumulative_def,cencode_cumulative_def,append_thm,EVERY_APPEND]>>
+  rpt conj_tac
+  >- (
+    simp[cumul_nonneg_sem]>>
+    fs[cumulative_sem_def,EVERY_EL,EL_MAP]>>
+    simp[EVERY_EL,LENGTH_ZIP,EL_ZIP,EL_MAP])
+  >- (
+    simp[EVERY_FLAT]>>
+    simp[Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>
+    rw[]>>
+    Cases_on`EL n (ZIP (xs,ZIP (ws,hs)))`>>Cases_on`r`>>
+    gvs[combinTheory.o_DEF]>>
+    `q = EL n xs ∧ q' = EL n ws ∧ r' = EL n hs` by
+      (qpat_x_assum`_ = (q,q',r')`mp_tac>>simp[EL_ZIP,LENGTH_ZIP])>>
+    `0 ≤ varc wi (EL n hs)` by fs[cumulative_sem_def,EVERY_EL,EL_MAP]>>
+    gvs[]>>
+    simp[append_flat_app,EVERY_FLAT,EVERY_MAP]>>
+    simp[Once EVERY_MEM]>>
+    rw[]
+    >- (simp[EVERY_SND,abstr_cbimply_var,EVERY_REVERSE,bimply_bit_sem,lit_def,
+             reify_avar_def,reify_flag_def,integerTheory.NUM_OF_INT,varc_def]>>
+        intLib.ARITH_TAC)
+    >- (simp[EVERY_SND,abstr_cbimply_var,EVERY_REVERSE,bimply_bit_sem,lit_def,
+             reify_avar_def,reify_flag_def,integerTheory.NUM_OF_INT,varc_def]>>
+        intLib.ARITH_TAC)
+    >- simp[EVERY_SND,mk_cumul_active_sem,reify_avar_def,reify_flag_def,
+            integerTheory.NUM_OF_INT]
+    >- (simp[EVERY_SND,mk_cumul_contrib_def,abstrl_mk_annotate,bits_imply_sem,lit_def,
+             reify_avar_def,reify_flag_def,integerTheory.NUM_OF_INT]>>
+        DEP_REWRITE_TAC[cumul_ub_num_reify]>>
+        simp[]>>rw[]>>intLib.ARITH_TAC))
+  >- (
+    simp[EVERY_FLAT,EVERY_MAP]>>
+    simp[Once EVERY_MEM]>>rw[]>>
+    simp[EVERY_SND,cumul_cap_line_sem]>>
+    `∀j. j < LENGTH hs ⇒ 0 ≤ varc wi (EL j hs)` by
+      fs[cumulative_sem_def,EVERY_EL,EL_MAP]>>
+    qpat_x_assum`cumulative_sem _ _ _ _ _`mp_tac>>
+    simp[cumulative_sem_def]>>strip_tac>>
+    first_x_assum(qspec_then`t`mp_tac)>>
+    qmatch_goalsub_abbrev_tac`iSUM cumls ≤ vc ⇒ iSUM myls ≤ vc`>>
+    `myls = cumls` suffices_by simp[]>>
+    unabbrev_all_tac>>
+    irule LIST_EQ>>
+    simp[LENGTH_MAPi,LENGTH_ZIP,EL_MAPi,EL_ZIP,EL_MAP]>>
+    rw[]>>
+    `0 ≤ varc wi (EL x hs)` by gs[]>>
+    DEP_REWRITE_TAC[cumul_ub_num_reify]>>
+    simp[EL_MAP]>>
+    simp[intLib.ARITH_PROVE``∀a b t:int. (a + b ≥ t + 1) ⇔ (t < a + b)``])
+QED
+
+Theorem cumul_ub_num_nonneg:
+  0 ≤ eval_lin_term wb (cumul_ub_num name i t ubh)
+Proof
+  rw[cumul_ub_num_num_of_bits]
+QED
+
+Theorem iSUM_GENLIST_0[local]:
+  iSUM (GENLIST (λi. 0i) n) = 0
+Proof
+  Induct_on`n`>>rw[GENLIST_CONS,iSUM_def,combinTheory.o_DEF]
+QED
+
+(* the per-(task,time) block forces the contribution bit-sum to the (gated)
+   height, for any wb satisfying it *)
+Theorem cumul_taskt_sound:
+  valid_assignment bnd wi ∧
+  EVERY (λy. iconstraint_sem (SND y) (wi,wb))
+    (append
+      (Append (cbimply_var bnd (cumul_before name i t) (mk_le x (INR t)))
+      (Append (cbimply_var bnd (cumul_after name i t)
+                 (mk_constraint_ge 1 x 1 w (t + 1)))
+      (Append (mk_cumul_active name i t)
+              (mk_cumul_contrib bnd name h i t))))) ⇒
+  eval_lin_term wb (cumul_ub_num name i t (SND (varc_bnd bnd h))) =
+  (if varc wi x ≤ t ∧ varc wi x + varc wi w ≥ t + 1
+   then varc wi h else 0)
+Proof
+  strip_tac>>
+  `0 ≤ eval_lin_term wb (cumul_ub_num name i t (SND (varc_bnd bnd h)))` by
+    simp[cumul_ub_num_nonneg]>>
+  gvs[append_thm,EVERY_APPEND,EVERY_SND,abstr_cbimply_var,EVERY_REVERSE,bimply_bit_sem,lit_def,
+      mk_cumul_active_sem,mk_cumul_contrib_def,abstrl_mk_annotate,
+      bits_imply_sem,varc_def]>>
+  Cases_on`wb (INR (name,Values [&i; t] (SOME «cb»)))`>>
+  Cases_on`wb (INR (name,Values [&i; t] (SOME «ca»)))`>>
+  gvs[]>>intLib.ARITH_TAC
+QED
+
+(* the flag+contrib lines force every contribution bit-sum to its gated height *)
+Theorem cumul_flags_contrib:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr (flat_app (MAPi (λi (x,w,h).
+       flat_app (MAP (λt.
+         Append
+           (cbimply_var bnd (cumul_before name i t) (mk_le x (INR t)))
+         (Append
+           (cbimply_var bnd (cumul_after name i t)
+              (mk_constraint_ge 1 x 1 w (t + 1)))
+         (Append (mk_cumul_active name i t)
+                 (mk_cumul_contrib bnd name h i t)))) ts)) tasks))) ⇒
+  ∀t. MEM t ts ⇒
+    MAPi (λi (x,w,h).
+      eval_lin_term wb (cumul_ub_num name i t (SND (varc_bnd bnd h)))) tasks =
+    MAPi (λi (x,w,h).
+      if varc wi x ≤ t ∧ varc wi x + varc wi w ≥ t + 1
+      then varc wi h else 0) tasks
+Proof
+  strip_tac>>
+  gen_tac>>strip_tac>>
+  irule LIST_EQ>>
+  simp[LENGTH_MAPi,EL_MAPi]>>
+  qx_gen_tac`i`>>strip_tac>>
+  qpat_x_assum`EVERY _ (abstr _)`mp_tac>>
+  simp[append_flat_app,EVERY_FLAT,EVERY_MAP]>>
+  simp[Once EVERY_EL,LENGTH_MAPi]>>
+  disch_then(qspec_then`i`mp_tac)>>simp[EL_MAPi]>>
+  Cases_on`EL i tasks`>>Cases_on`r`>>simp[]>>
+  simp[append_flat_app,EVERY_FLAT,EVERY_MAP]>>
+  simp[Once EVERY_MEM]>>
+  disch_then(qspec_then`t`mp_tac)>>simp[]>>
+  strip_tac>>
+  irule cumul_taskt_sound>>
+  gvs[]
+QED
+
+(* the per-time load list (over tasks) equals the semantic occupancy list *)
+Theorem cumul_load_eq[local]:
+  LENGTH xs = LENGTH ws ∧ LENGTH xs = LENGTH hs ⇒
+  GENLIST (λi. if (MAP (varc wi) xs)❲i❳ ≤ t ∧
+            t < (MAP (varc wi) xs)❲i❳ + (MAP (varc wi) ws)❲i❳
+          then (MAP (varc wi) hs)❲i❳ else 0) (LENGTH ws) =
+  MAPi (λi (x,w,h).
+    if varc wi x ≤ t ∧ varc wi x + varc wi w ≥ t + 1
+    then varc wi h else 0) (ZIP (xs,ZIP (ws,hs)))
+Proof
+  strip_tac>>
+  irule LIST_EQ>>
+  gvs[LENGTH_MAPi,LENGTH_ZIP]>>
+  rw[]>>
+  DEP_REWRITE_TAC[EL_MAPi,EL_ZIP]>>
+  gvs[LENGTH_ZIP,EL_MAP]>>
+  rw[]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem encode_cumulative_sem_2:
@@ -463,7 +957,74 @@ Theorem encode_cumulative_sem_2:
     (encode_cumulative bnd xs ws hs cap name) ⇒
   cumulative_sem xs ws hs cap wi
 Proof
-  cheat
+  strip_tac>>
+  `LENGTH xs = LENGTH ws ∧ LENGTH xs = LENGTH hs` by
+    (CCONTR_TAC>>gvs[encode_cumulative_def,cencode_cumulative_def,cfalse_constr_def])>>
+  gvs[encode_cumulative_def,cencode_cumulative_def,append_thm,EVERY_APPEND]>>
+  `0 ≤ varc wi cap ∧ EVERY (λ(x,w,h). 0 ≤ varc wi h) (ZIP (xs,ZIP (ws,hs)))` by
+    (qpat_x_assum`EVERY _ (abstr (cumul_nonneg _ _ _))`mp_tac>>simp[cumul_nonneg_sem])>>
+  `∀j. j < LENGTH hs ⇒ 0 ≤ varc wi (EL j hs)` by
+    (gvs[EVERY_EL,LENGTH_ZIP]>>rw[]>>first_x_assum drule>>simp[EL_ZIP])>>
+  simp[cumulative_sem_def,LENGTH_MAP]>>
+  rpt conj_tac
+  >- (simp[EVERY_EL,EL_MAP]>>metis_tac[])
+  >- (
+    qmatch_asmsub_abbrev_tac`cumul_cap_line bnd name tasks cap`>>
+    qabbrev_tac`ts = GENLIST (λk. cumul_tlo bnd tasks + &k)
+      (Num (cumul_thi bnd tasks − cumul_tlo bnd tasks + 1))`>>
+    `∀t. MEM t ts ⇒
+       MAPi (λi (x,w,h).
+         eval_lin_term wb (cumul_ub_num name i t (SND (varc_bnd bnd h)))) tasks =
+       MAPi (λi (x,w,h).
+         if varc wi x ≤ t ∧ varc wi x + varc wi w ≥ t + 1
+         then varc wi h else 0) tasks` by (
+      ho_match_mp_tac cumul_flags_contrib>>
+      gvs[abstr_flat_app,combinTheory.o_DEF])>>
+    `∀t. MEM t ts ⇒
+       iSUM (MAPi (λi (x,w,h).
+         eval_lin_term wb (cumul_ub_num name i t (SND (varc_bnd bnd h)))) tasks) ≤
+       varc wi cap` by (
+      qpat_x_assum`EVERY _ (FLAT (MAP _ (MAP _ _)))`mp_tac>>
+      simp[EVERY_FLAT,EVERY_MAP,EVERY_SND,cumul_cap_line_sem,EVERY_MEM])>>
+    strip_tac>>
+    reverse(Cases_on`cumul_tlo bnd tasks ≤ t ∧ t ≤ cumul_thi bnd tasks`)
+    >- (
+      `GENLIST (λi. if (MAP (varc wi) xs)❲i❳ ≤ t ∧
+              t < (MAP (varc wi) xs)❲i❳ + (MAP (varc wi) ws)❲i❳
+            then (MAP (varc wi) hs)❲i❳ else 0) (LENGTH ws) =
+       GENLIST (λi. 0i) (LENGTH ws)` by (
+        simp[GENLIST_FUN_EQ]>>rw[]>>
+        `i < LENGTH xs ∧ i < LENGTH hs` by gs[]>>
+        `MEM (EL i xs,EL i ws,EL i hs) tasks` by
+          (simp[Abbr`tasks`,MEM_EL]>>qexists`i`>>simp[EL_ZIP,LENGTH_ZIP])>>
+        `cumul_tlo bnd tasks ≤ FST (varc_bnd bnd (EL i xs)) ∧
+         FST (varc_bnd bnd (EL i xs)) ≤ varc wi (EL i xs) ∧
+         varc wi (EL i xs) ≤ SND (varc_bnd bnd (EL i xs)) ∧
+         varc wi (EL i ws) ≤ SND (varc_bnd bnd (EL i ws)) ∧
+         SND (varc_bnd bnd (EL i xs)) + SND (varc_bnd bnd (EL i ws)) - 1 ≤
+           cumul_thi bnd tasks` by
+          metis_tac[cumul_tlo_LE,cumul_thi_GE,varc_bnd_valid]>>
+        gvs[EL_MAP]>>rw[]>>
+        qpat_x_assum`valid_assignment _ _`kall_tac>>
+        rpt(qpat_x_assum`EVERY _ _`kall_tac)>>
+        rpt(qpat_x_assum`Abbrev _`kall_tac)>>
+        rpt(qpat_x_assum`MEM _ _`kall_tac)>>
+        rpt(qpat_x_assum`!x._`kall_tac)>>
+        intLib.ARITH_TAC)>>
+      simp[iSUM_GENLIST_0])
+    >- (
+      `MEM t ts` by (simp[Abbr`ts`]>>irule MEM_cumul_ts>>simp[])>>
+      qpat_x_assum`∀t. MEM t ts ⇒ iSUM _ ≤ _`drule>>
+      qpat_x_assum`∀t. MEM t ts ⇒ MAPi _ _ = _`drule>>
+      rw[]>>
+      `GENLIST (λi. if (MAP (varc wi) xs)❲i❳ ≤ t ∧
+              t < (MAP (varc wi) xs)❲i❳ + (MAP (varc wi) ws)❲i❳
+            then (MAP (varc wi) hs)❲i❳ else 0) (LENGTH ws) =
+       MAPi (λi (x,w,h).
+         if varc wi x ≤ t ∧ varc wi x + varc wi w ≥ t + 1
+         then varc wi h else 0) tasks` by
+        (simp[Abbr`tasks`]>>irule cumul_load_eq>>simp[])>>
+      gvs[]))
 QED
 
 Definition encode_scheduling_constr_def:

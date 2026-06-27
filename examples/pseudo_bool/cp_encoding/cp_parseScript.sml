@@ -791,14 +791,13 @@ Definition sexp_cumulative_body_def:
     | _ => fail («cumulative expects 4 args: (x1 ... xn) (w1 ... wn) (h1 ... hn) cap\n»)
 End
 
-(* cumulative is intentionally NOT dispatched here: its encoder is a
-   recognized-but-rejected reject-stub whose soundness is cheated. *)
 Definition sexp_scheduling_dispatch_def:
   sexp_scheduling_dispatch ctype rest =
     if ctype = «disjunctive»               then SOME (sexp_disjunctive_body F rest)
     else if ctype = «disjunctive_strict»   then SOME (sexp_disjunctive_body T rest)
     else if ctype = «disjunctive2d»        then SOME (sexp_disjunctive2d_body F rest)
     else if ctype = «disjunctive2d_strict» then SOME (sexp_disjunctive2d_body T rest)
+    else if ctype = «cumulative»           then SOME (sexp_cumulative_body rest)
     else NONE
 End
 
@@ -1027,9 +1026,10 @@ Theorem test_scheduling:
   sexp_constraint_dispatch («disjunctive2d_strict»)
     (fromStringL («((A) (B) (1) (1))»)) =
     INR (Scheduling (Disjunctive2D [INL «A»] [INL «B»] [INR 1] [INR 1] T)) ∧
-  (* cumulative is NOT dispatched: falls through to prim (unknown) and fails *)
-  ISL (sexp_constraint_dispatch («cumulative»)
-    (fromStringL («((A) (1) (1) 5)»)))
+  (* cumulative: tasks (A), widths (1), heights (1), capacity 5 *)
+  sexp_constraint_dispatch («cumulative»)
+    (fromStringL («((A) (1) (1) 5)»)) =
+    INR (Scheduling (Cumulative [INL «A»] [INR 1] [INR 1] (INR 5)))
 Proof
   EVAL_TAC
 QED

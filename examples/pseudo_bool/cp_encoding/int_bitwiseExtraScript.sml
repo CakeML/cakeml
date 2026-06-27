@@ -21,14 +21,6 @@ Definition bit_width_def:
       else LENGTH (FST (bits_of_int ub)))
 End
 
-(* bits_of_num (n:num), zero-padded (with F) on the right to the number of
-   bits required for (bnd:num). When n ≤ bnd this is bits_of_num n widened to
-   the common bit-width LENGTH (bits_of_num bnd). *)
-Definition bits_of_num_bnd_def:
-  bits_of_num_bnd (n:num) bnd =
-  PAD_RIGHT F (LENGTH (bits_of_num bnd)) (bits_of_num n)
-End
-
 Theorem LESS_EXP_MAX[local]:
   (k:num) < 2 ** MAX m n ⇔ k < 2 ** m ∨ k < 2 ** n
 Proof
@@ -138,65 +130,15 @@ Proof
  intLib.ARITH_TAC
 QED
 
-Theorem num_of_bits_bits_of_num:
-  ∀n. num_of_bits (bits_of_num n) = n
+(* Reading off the first h bits of any natural number n via BIT recovers
+   n MOD 2 ** h. The reification of proof-only binary integers uses this:
+   bit i is defined for ALL i (BIT i n) even though the encoding only ever
+   references finitely many, so no bit-width bound need be threaded. *)
+Theorem num_of_bits_GENLIST_BIT:
+  num_of_bits (GENLIST (λi. BIT i n) h) = n MOD 2 ** h
 Proof
-  ho_match_mp_tac int_bitwiseTheory.bits_of_num_ind>>rw[]>>
-  simp[Once int_bitwiseTheory.bits_of_num_def]>>
-  rw[int_bitwiseTheory.num_of_bits_def]>>
-  Cases_on‘ODD n’>>
-  gvs[int_bitwiseTheory.num_of_bits_def,bitTheory.DIV_MULT_THM2,
-    arithmeticTheory.MOD_2,arithmeticTheory.ODD_EVEN]
-QED
-
-Theorem num_of_bits_F:
-  ∀fs. EVERY (λx. ¬x) fs ⇒ num_of_bits fs = 0
-Proof
-  Induct>>rw[int_bitwiseTheory.num_of_bits_def]
-QED
-
-Theorem num_of_bits_GENLIST_F:
-  num_of_bits (GENLIST (K F) k) = 0
-Proof
-  irule num_of_bits_F>>simp[EVERY_GENLIST]
-QED
-
-Theorem num_of_bits_PAD_RIGHT_F:
-  num_of_bits (PAD_RIGHT F w xs) = num_of_bits xs
-Proof
-  rw[listTheory.PAD_RIGHT,num_of_bits_APPEND,
-    num_of_bits_GENLIST_F]
-QED
-
-Theorem LENGTH_bits_of_num_LE:
-  ∀m n. n < 2 ** m ⇒ LENGTH (bits_of_num n) ≤ m
-Proof
-  Induct>>rw[]
-  >- (gvs[]>>simp[Once int_bitwiseTheory.bits_of_num_def])>>
-  simp[Once int_bitwiseTheory.bits_of_num_def]>>rw[]>>
-  last_x_assum irule>>
-  gvs[arithmeticTheory.EXP,arithmeticTheory.DIV_LT_X]
-QED
-
-Theorem LENGTH_bits_of_num_mono:
-  ∀n bnd. n ≤ bnd ⇒ LENGTH (bits_of_num n) ≤ LENGTH (bits_of_num bnd)
-Proof
-  rw[]>>irule LENGTH_bits_of_num_LE>>
-  `bnd < 2 ** LENGTH (bits_of_num bnd)` by simp[LESS_LENGTH_bits_of_num]>>
-  simp[]
-QED
-
-Theorem num_of_bits_bits_of_num_bnd:
-  ∀n bnd. n ≤ bnd ⇒ num_of_bits (bits_of_num_bnd n bnd) = n
-Proof
-  rw[bits_of_num_bnd_def,num_of_bits_PAD_RIGHT_F,num_of_bits_bits_of_num]
-QED
-
-Theorem LENGTH_bits_of_num_bnd:
-  ∀n bnd. n ≤ bnd ⇒ LENGTH (bits_of_num_bnd n bnd) = LENGTH (bits_of_num bnd)
-Proof
-  rw[bits_of_num_bnd_def,listTheory.PAD_RIGHT]>>
-  `LENGTH (bits_of_num n) ≤ LENGTH (bits_of_num bnd)` by
-    simp[LENGTH_bits_of_num_mono]>>
-  simp[]
+  `(&num_of_bits (GENLIST (λi. BIT i n) h)):int = &(n MOD 2 ** h)` suffices_by simp[]>>
+  once_rewrite_tac[num_of_bits_GENLIST]>>
+  once_rewrite_tac[iSUM_GENLIST_eq_SUM_GENLIST]>>
+  simp[SUM_GENLIST_BIT]
 QED

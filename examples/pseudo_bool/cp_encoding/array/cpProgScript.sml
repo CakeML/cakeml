@@ -655,7 +655,46 @@ val res = translate cp_to_ilp_schedulingTheory.mk_zero_links_def;
 val res = translate cp_to_ilp_schedulingTheory.mk_sep_clauses_def;
 val res = translate cp_to_ilp_schedulingTheory.cencode_disjunctive_def;
 val res = translate cp_to_ilp_schedulingTheory.cencode_disjunctive2d_def;
+
+(* cumulative *)
+val res = translate cp_to_ilp_schedulingTheory.varc_bnd_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_before_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_after_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_active_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_cbit_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_ub_num_def;
+
+Theorem cumul_ub_num_side[local]:
+  cumul_ub_num_side a b c d ⇔ T
+Proof
+  rw[fetch "-" "cumul_ub_num_side_def"]>>rw[]>>intLib.ARITH_TAC
+QED
+val _ = update_precondition cumul_ub_num_side;
+
+val res = translate cp_to_ilp_schedulingTheory.cumul_contrib_ge_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_contrib_le_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_contrib_le0_def;
+val res = translate cp_to_ilp_schedulingTheory.mk_cumul_active_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_tlo_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_thi_def;
+val res = translate cp_to_ilp_schedulingTheory.mk_cumul_contrib_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_nonneg_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_cap_line_def;
 val res = translate cp_to_ilp_schedulingTheory.cencode_cumulative_def;
+
+Theorem cencode_cumulative_side[local]:
+  cencode_cumulative_side a b c d e f ⇔ T
+Proof
+  rw[fetch "-" "cencode_cumulative_side_def"]>>
+  `cumul_tlo a (ZIP (b,ZIP (c,d))) ≤ 0` by
+    simp[cp_to_ilp_schedulingTheory.cumul_tlo_LE_0]>>
+  `0 ≤ cumul_thi a (ZIP (b,ZIP (c,d)))` by
+    simp[cp_to_ilp_schedulingTheory.cumul_thi_0_LE]>>
+  rpt(qpat_x_assum`LENGTH _ = LENGTH _`kall_tac)>>
+  intLib.ARITH_TAC
+QED
+val _ = update_precondition cencode_cumulative_side;
+
 val res = translate cp_to_ilp_schedulingTheory.cencode_scheduling_constr_def;
 
 (* cp_to_ilp_all *)

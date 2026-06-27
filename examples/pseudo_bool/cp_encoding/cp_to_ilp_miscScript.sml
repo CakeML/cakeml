@@ -610,7 +610,7 @@ Proof
       (reify_avar cs wi)
       (ub_num name i (n − 1)) = &pos i’ by (
     rw[ub_num_num_of_bits,reify_avar_def,reify_flag_def]>>
-    qmatch_goalsub_abbrev_tac‘bits_of_num_bnd m _’>>
+    qmatch_goalsub_abbrev_tac‘BIT _ m’>>
     qmatch_goalsub_abbrev_tac‘num_of_bits (GENLIST f _) = p’>>
     ‘FINITE dom’ by (
       ‘dom = count n’ by simp[Abbr‘dom’,EXTENSION,IN_COUNT]>>
@@ -632,14 +632,15 @@ Proof
       simp[Abbr‘m’]>>
       SELECT_ELIM_TAC>>
       simp[Abbr‘dom’])>>
-    ‘num_of_bits (GENLIST f (LENGTH (bits_of_num_bnd m (n - 1)))) = p’
-      suffices_by metis_tac[GSYM LENGTH_bits_of_num_bnd]>>
-    simp[Abbr‘f’,GENLIST_ID]>>
-    simp[num_of_bits_bits_of_num_bnd]>>
-    first_assum $ drule_then assume_tac>>
-    fs[Abbr‘m’,Abbr‘p’]>>
-    SELECT_ELIM_TAC>>
-    metis_tac[])>>
+    ‘m = p’ by (
+      first_assum $ drule_then assume_tac>>
+      fs[Abbr‘m’,Abbr‘p’]>>
+      SELECT_ELIM_TAC>>
+      metis_tac[])>>
+    ‘m < 2 ** LENGTH (bits_of_num (n − 1))’ by
+      metis_tac[LESS_LENGTH_bits_of_num,LESS_EQ_LESS_TRANS]>>
+    simp[Abbr‘f’,num_of_bits_GENLIST_BIT]>>
+    gvs[LESS_MOD])>>
   rpt CONJ_TAC
   >-simp[iconstraint_sem_def,ub_num_neg]
   >-simp[abstrl_GENLIST,EVERY_GENLIST,iconstraint_sem_def,
