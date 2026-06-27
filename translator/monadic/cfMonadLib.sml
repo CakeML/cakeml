@@ -177,11 +177,8 @@ mk_app_of_ArrowP spec2
 
 (* Some tests
 
-Overload monad_bind[local] = ``st_ex_bind``
-Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload ex_bind[local] = ``st_ex_bind``
-Overload ex_return[local] = ``st_ex_return``
+val _ = monadsyntax.temp_add_monadsyntax ();
+val _ = monadsyntax.temp_enable_monad "st_ex";
 
 val _ = Datatype `
   my_state =

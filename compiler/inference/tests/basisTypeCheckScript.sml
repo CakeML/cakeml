@@ -17,8 +17,8 @@ val basis_types = cv_eval “infertype_prog init_config basis”;
 
 val print_types = let
   val x = basis_types |> concl |> rhs
-  val _ = if can (match_term ``infer$Success _``) x then () else
-          if can (match_term ``infer$Failure _``) x then let
+  val _ = if can (match_term ``M_success _``) x then () else
+          if can (match_term ``M_failure _``) x then let
             val msg = x |> rand |> rand |> rand
             in case total stringSyntax.fromHOLstring msg of
                 SOME s => failwith ("Type inference failed for basis with message: " ^ s)

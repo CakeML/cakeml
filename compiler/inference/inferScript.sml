@@ -4,21 +4,15 @@
 Theory infer
 Ancestors
   misc ast namespace typeSystem namespaceProps infer_t unify
-  string primTypes
+  string primTypes ml_monadBase
 Libs
   preamble
 
 val _ = monadsyntax.temp_add_monadsyntax()
 val _ = patternMatchesSyntax.temp_enable_pmatch();
 
-(*  The inferencer uses a state monad internally to keep track of unifications at the expressions level *)
+val _ = monadsyntax.temp_enable_monad "st_ex";
 
-(* 'a is the type of the state, 'b is the type of successful computations, and
- * 'c is the type of exceptions *)
-
-Datatype:
-  exc = Success 'a | Failure 'b
-End
 
 Type err_var = (type_of ``primTypes$prim_tenv.t``)
 
@@ -27,29 +21,9 @@ Datatype:
                     err : err_var |>
 End
 
-Type M = ``:'a -> ('b, 'c) exc # 'a``
-
-Definition st_ex_bind_def:
-  (st_ex_bind : (α, β, γ) M -> (β -> (α, δ, γ) M) -> (α, δ, γ) M) x f =
-  λs.
-    case x s of
-      (Success y,s) => f y s
-    | (Failure x,s) => (Failure x,s)
-End
-
-Definition st_ex_return_def:
-  (st_ex_return (*: α -> (β, α, γ) M*)) x =
-    λs. (Success x, s)
-End
-
-Overload monad_bind[local] = ``st_ex_bind``
-Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload return[local] = ``st_ex_return``
-
 Definition failwith_def:
   (failwith : loc_err_info -> α -> (β, γ, (locs option # α)) M) l msg =
-    (\s. (Failure (l.loc, msg), s))
+    (\s. (M_failure (l.loc, msg), s))
 End
 
 Definition guard_def:
@@ -58,19 +32,19 @@ End
 
 Definition read_def:
   (read : (α, α, β) M) =
-  \s. (Success s, s)
+  \s. (M_success s, s)
 End
 
 Definition write_def:
   (write : α -> (α, unit, β) M) v =
-  \s. (Success (), v)
+  \s. (M_success (), v)
 End
 
 Definition lookup_st_ex_def:
   lookup_st_ex l err id ienv st =
     case nsLookup ienv id of
-    | NONE => (Failure (l.loc, concat [«Undefined »; err; «: »; id_to_string id]), st)
-    | SOME v => (Success v, st)
+    | NONE => (M_failure (l.loc, concat [«Undefined »; err; «: »; id_to_string id]), st)
+    | SOME v => (M_success v, st)
 End
 
 Datatype:
@@ -82,7 +56,7 @@ End
 
 Definition fresh_uvar_def:
   (fresh_uvar : (infer_st, infer_t, α) M) =
-  \s. (Success (Infer_Tuvar s.next_uvar), s with <| next_uvar := s.next_uvar + 1 |>)
+  \s. (M_success (Infer_Tuvar s.next_uvar), s with <| next_uvar := s.next_uvar + 1 |>)
 End
 
 Definition n_fresh_uvar_def:
@@ -99,7 +73,7 @@ End
 Definition n_fresh_id_def:
   n_fresh_id n =
   λs.
-  (Success (GENLIST (λx. s.next_id+x) n), s with next_id := s.next_id+n)
+  (M_success (GENLIST (λx. s.next_id+x) n), s with next_id := s.next_id+n)
 End
 
 (* Doesn't reset the ID component *)
@@ -110,7 +84,7 @@ End
 Definition init_state_def:
   init_state =
   \st.
-    (Success (), init_infer_state st)
+    (M_success (), init_infer_state st)
 End
 
 Definition add_constraint_def:
@@ -118,14 +92,14 @@ Definition add_constraint_def:
   \st.
     case t_unify st.subst t1 t2 of
       | NONE =>
-          (Failure (l.loc, concat [«Type mismatch between »;
+          (M_failure (l.loc, concat [«Type mismatch between »;
                                    inf_type_to_string l.err
                                          (t_walkstar st.subst t1);
                                    « and »;
                                    inf_type_to_string l.err
                                          (t_walkstar st.subst t2)]), st)
       | SOME s =>
-          (Success (), st with <| subst := s |>)
+          (M_success (), st with <| subst := s |>)
 End
 
 Definition add_constraints_def:
@@ -142,7 +116,7 @@ End
 
 Definition get_next_uvar_def:
 get_next_uvar =
-  \st. (Success st.next_uvar, st)
+  \st. (M_success st.next_uvar, st)
 End
 
 Definition apply_subst_def:
@@ -294,17 +268,24 @@ End
 
 Theorem bind_guard:
   st_ex_bind (guard b l x) g =
-  λs. if b then g () s else (Failure (l.loc,x),s)
+  λs. if b then g () s else (M_failure (l.loc,x),s)
 Proof
-  rw [st_ex_bind_def,FUN_EQ_THM,guard_def,st_ex_return_def,failwith_def]
+  rw [st_ex_bind_def,guard_def,st_ex_return_def,failwith_def]
+QED
+
+Theorem ignore_bind_guard:
+  st_ex_ignore_bind (guard b l x) g =
+  λs. if b then g s else (M_failure (l.loc,x),s)
+Proof
+  rw [st_ex_ignore_bind_def,guard_def,st_ex_return_def,failwith_def]
 QED
 
 Theorem st_ex_bind_pair:
   monad_bind x f =
   (λs.
      case x s of
-     | (Success (y,z),s) => f (y,z) s
-     | (Failure x,s) => (Failure x,s))
+     | (M_success (y,z),s) => f (y,z) s
+     | (M_failure x,s) => (M_failure x,s))
 Proof
   gvs [st_ex_bind_def,FUN_EQ_THM]
   \\ rw [] \\ Cases_on ‘x s’ \\ gvs []
@@ -315,8 +296,8 @@ Theorem st_ex_bind_triple:
   monad_bind x f =
   (λs.
      case x s of
-     | (Success (y,z,q),s) => f (y,z,q) s
-     | (Failure x,s) => (Failure x,s))
+     | (M_success (y,z,q),s) => f (y,z,q) s
+     | (M_failure x,s) => (M_failure x,s))
 Proof
   gvs [st_ex_bind_def,FUN_EQ_THM]
   \\ rw [] \\ Cases_on ‘x s’ \\ gvs []
@@ -325,76 +306,77 @@ QED
 
 val type_name_check_subst_alt =
   type_name_check_subst_def
-  |> SRULE [bind_guard]
+  |> SRULE [bind_guard, ignore_bind_guard]
   |> SRULE [st_ex_bind_pair]
-  |> SRULE [st_ex_bind_def,lookup_st_ex_def,st_ex_return_def];
+  |> SRULE [st_ex_bind_def,st_ex_ignore_bind_def,lookup_st_ex_def,
+            st_ex_return_def];
 
 Definition type_name_check_sub_def:
    (type_name_check_sub l tenvT fvs (Atvar tv) =
-        (λs. if MEM tv fvs then (Success (Tvar tv),s)
-             else (Failure (l.loc,INR tv),s))) ∧
+        (λs. if MEM tv fvs then (M_success (Tvar tv),s)
+             else (M_failure (l.loc,INR tv),s))) ∧
    (type_name_check_sub l tenvT fvs (Attup ts) =
         (λs. case type_name_check_sub_list l tenvT fvs ts s of
-               (Success ts',s) => (Success (Ttup ts'),s)
-             | (Failure x,s) => (Failure x,s))) ∧
+               (M_success ts',s) => (M_success (Ttup ts'),s)
+             | (M_failure x,s) => (M_failure x,s))) ∧
    (type_name_check_sub l tenvT fvs (Atfun t1 t2) =
         (λs. case type_name_check_sub l tenvT fvs t1 s of
-               (Success t1',s) =>
+               (M_success t1',s) =>
                  (case type_name_check_sub l tenvT fvs t2 s of
-                    (Success t2',s) => (Success (Tfn t1' t2'),s)
-                  | (Failure x,s) => (Failure x,s))
-             | (Failure x,s) => (Failure x,s))) ∧
+                    (M_success t2',s) => (M_success (Tfn t1' t2'),s)
+                  | (M_failure x,s) => (M_failure x,s))
+             | (M_failure x,s) => (M_failure x,s))) ∧
    (type_name_check_sub l tenvT fvs (Atapp ts tc) =
         (λs. case type_name_check_sub_list l tenvT fvs ts s of
-               (Success ts',s) =>
+               (M_success ts',s) =>
                  (case
                     case nsLookup tenvT tc of
                       NONE =>
-                        (Failure
+                        (M_failure
                            (l.loc, INL $
                             concat
                               [«Undefined »;
                                «type constructor»; «: »;
                                id_to_string tc]),s)
-                    | SOME v => (Success v,s)
+                    | SOME v => (M_success v,s)
                   of
-                    (Success (y,z),s) =>
+                    (M_success (y,z),s) =>
                       if LENGTH y = LENGTH ts then
-                        (Success (type_subst (alist_to_fmap (ZIP (y,ts'))) z),
+                        (M_success (type_subst (alist_to_fmap (ZIP (y,ts'))) z),
                          s)
                       else
-                        (Failure
+                        (M_failure
                            (l.loc, INL $
                             concat
                               [«Type constructor »; id_to_string tc;
                                « given »; toString (LENGTH ts);
                                « arguments, but expected »;
                                toString (LENGTH y)]),s)
-                  | (Failure x,s) => (Failure x,s))
-             | (Failure x,s) => (Failure x,s))) ∧
-   (type_name_check_sub_list l tenvT fvs [] = (λs. (Success [],s))) ∧
+                  | (M_failure x,s) => (M_failure x,s))
+             | (M_failure x,s) => (M_failure x,s))) ∧
+   (type_name_check_sub_list l tenvT fvs [] = (λs. (M_success [],s))) ∧
    (type_name_check_sub_list l tenvT fvs (t::ts) =
        (λs. case type_name_check_sub l tenvT fvs t s of
-              (Success t',s) =>
+              (M_success t',s) =>
                 (case type_name_check_sub_list l tenvT fvs ts s of
-                   (Success ts',s) => (Success (t'::ts'),s)
-                 | (Failure x,s) => (Failure x,s))
-            | (Failure x,s) => (Failure x,s)))
+                   (M_success ts',s) => (M_success (t'::ts'),s)
+                 | (M_failure x,s) => (M_failure x,s))
+            | (M_failure x,s) => (M_failure x,s)))
 End
 
 Theorem to_type_name_check_sub:
   (∀t l f tenvT fvs.
      type_name_check_subst l f tenvT fvs t =
      λs:'a. case type_name_check_sub l tenvT fvs t s of
-         | (Failure (x,INR r),s) => (Failure (x,f r),s)
-         | (Failure (x,INL r),s) => (Failure (x,r),s)
-         | (Success y,s) => (Success y,s)) ∧
+         | (M_failure (x,INR r),s) => (M_failure (x,f r),s)
+         | (M_failure (x,INL r),s) => (M_failure (x,r),s)
+         | (M_success y,s) => (M_success y,s)) ∧
   (∀t l f tenvT fvs.
      type_name_check_subst_list l f tenvT fvs t =
      λs:'a. case type_name_check_sub_list l tenvT fvs t s of
-         | (Failure (x,INR r),s) => (Failure (x,f r),s)
-         | (Failure (x,INL r),s) => (Failure (x,r),s)
-         | (Success y,s) => (Success y,s))
+         | (M_failure (x,INR r),s) => (M_failure (x,f r),s)
+         | (M_failure (x,INL r),s) => (M_failure (x,r),s)
+         | (M_success y,s) => (M_success y,s))
 Proof
   ho_match_mp_tac ast_t_induction \\ rpt strip_tac
   \\ simp [type_name_check_subst_alt,type_name_check_sub_def,FUN_EQ_THM]
@@ -421,16 +403,32 @@ QED
 Theorem bind_type_name_check_subst:
   (st_ex_bind (type_name_check_subst l f tenvT fvs t) g =
    λs:'a. case type_name_check_sub l tenvT fvs t s of
-          | (Failure (x,INR r),s) => (Failure (x,f r),s)
-          | (Failure (x,INL r),s) => (Failure (x,r),s)
-          | (Success y,s) => g y s) ∧
+          | (M_failure (x,INR r),s) => (M_failure (x,f r),s)
+          | (M_failure (x,INL r),s) => (M_failure (x,r),s)
+          | (M_success y,s) => g y s) ∧
   (st_ex_bind (type_name_check_subst_list l f tenvT fvs ts) gs =
    λs:'a. case type_name_check_sub_list l tenvT fvs ts s of
-          | (Failure (x,INR r),s) => (Failure (x,f r),s)
-          | (Failure (x,INL r),s) => (Failure (x,r),s)
-          | (Success y,s) => gs y s)
+          | (M_failure (x,INR r),s) => (M_failure (x,f r),s)
+          | (M_failure (x,INL r),s) => (M_failure (x,r),s)
+          | (M_success y,s) => gs y s)
 Proof
   rw [to_type_name_check_sub,st_ex_bind_def,FUN_EQ_THM]
+  \\ rpt (FULL_CASE_TAC \\ gvs [])
+QED
+
+Theorem ignore_bind_type_name_check_subst:
+  (st_ex_ignore_bind (type_name_check_subst l f tenvT fvs t) g =
+   λs:'a. case type_name_check_sub l tenvT fvs t s of
+          | (M_failure (x,INR r),s) => (M_failure (x,f r),s)
+          | (M_failure (x,INL r),s) => (M_failure (x,r),s)
+          | (M_success y,s) => g s) ∧
+  (st_ex_ignore_bind (type_name_check_subst_list l f tenvT fvs ts) gs =
+   λs:'a. case type_name_check_sub_list l tenvT fvs ts s of
+          | (M_failure (x,INR r),s) => (M_failure (x,f r),s)
+          | (M_failure (x,INL r),s) => (M_failure (x,r),s)
+          | (M_success y,s) => gs s)
+Proof
+  rw [to_type_name_check_sub,st_ex_ignore_bind_def,FUN_EQ_THM]
   \\ rpt (FULL_CASE_TAC \\ gvs [])
 QED
 
@@ -450,16 +448,16 @@ End
 
 Theorem check_dups_eq_find_dup:
   ∀xs.
-    st_ex_bind (check_dups l f xs) g =
+    st_ex_ignore_bind (check_dups l f xs) g =
     λs. case find_dup xs of
-        | NONE => g () s
-        | SOME x => (Failure (l.loc, f x), s)
+        | NONE => g s
+        | SOME x => (M_failure (l.loc, f x), s)
 Proof
   Induct
   \\ simp [check_dups_def,st_ex_return_def,find_dup_def]
-  >- gvs [st_ex_bind_def]
+  >- gvs [st_ex_ignore_bind_def]
   \\ rw [failwith_def]
-  \\ gvs [st_ex_bind_def]
+  \\ gvs [st_ex_ignore_bind_def]
 QED
 
 Definition check_ctor_types_def:
@@ -475,7 +473,7 @@ Definition check_ctor_types_def:
 End
 
 Theorem check_ctor_types_expand = check_ctor_types_def
-  |> SRULE [bind_type_name_check_subst,FUN_EQ_THM,st_ex_return_def];
+  |> SRULE [ignore_bind_type_name_check_subst,FUN_EQ_THM,st_ex_return_def];
 
 Definition check_ctors_def:
   (check_ctors l tenvT [] = return ()) ∧
@@ -495,7 +493,8 @@ Definition check_ctors_def:
 End
 
 Theorem check_ctors_expand = check_ctors_def
-  |> SRULE [check_dups_eq_find_dup,FUN_EQ_THM,st_ex_bind_def,st_ex_return_def];
+  |> SRULE [check_dups_eq_find_dup,FUN_EQ_THM,st_ex_return_def]
+  |> SRULE [st_ex_ignore_bind_def];
 
 Definition check_type_definition_def:
   check_type_definition l tenvT tds =
@@ -509,7 +508,7 @@ Definition check_type_definition_def:
 End
 
 Theorem check_type_definition_expand = check_type_definition_def
-  |> SRULE [check_dups_eq_find_dup,FUN_EQ_THM,st_ex_bind_def,st_ex_return_def];
+  |> SRULE [check_dups_eq_find_dup,FUN_EQ_THM,st_ex_return_def];
 
 Definition infer_p_def:
   (infer_p l ienv (Pvar n) =
@@ -583,10 +582,10 @@ Proof
 QED
 
 Theorem infer_p_expand = infer_p_def
-  |> SRULE [check_dups_eq_find_dup,bind_guard,bind_type_name_check_subst]
+  |> SRULE [ignore_bind_guard,bind_guard,bind_type_name_check_subst]
   |> SRULE [st_ex_bind_triple]
   |> SRULE [st_ex_bind_pair]
-  |> SRULE [st_ex_bind_def,FUN_EQ_THM,st_ex_return_def,
+  |> SRULE [st_ex_bind_def,st_ex_ignore_bind_def,FUN_EQ_THM,st_ex_return_def,
             failwith_def,option_case_rand];
 
 Definition word_tc_def:
@@ -801,9 +800,9 @@ Theorem constrain_op_expand = constrain_op_case_def
   |> SRULE [st_ex_bind_def,st_ex_return_def];
 
 Theorem st_ex_bind_failure:
-  st_ex_bind f g s = (Failure r, s') <=>
-  (f s = (Failure r, s') \/
-    (?x st. f s = (Success x, st) /\ g x st = (Failure r, s')))
+  st_ex_bind f g s = (M_failure r, s') <=>
+  (f s = (M_failure r, s') \/
+    (?x st. f s = (M_success x, st) /\ g x st = (M_failure r, s')))
 Proof
   simp [st_ex_bind_def]
   \\ every_case_tac
@@ -812,7 +811,7 @@ QED
 Theorem constrain_op_error_msg_sanity:
   ∀l op args s l' s' msg.
     LENGTH args = SND (op_to_string op) ∧
-    constrain_op l op args s = (Failure (l',msg), s')
+    constrain_op l op args s = (M_failure (l',msg), s')
     ⇒
     IS_PREFIX (explode msg) "Type mismatch" ∨
     IS_PREFIX (explode msg) "Unsafe" ∨
@@ -1032,10 +1031,10 @@ Proof
 QED
 
 Theorem infer_e_expand = infer_e_def
-  |> SRULE [check_dups_eq_find_dup,bind_guard,bind_type_name_check_subst]
+  |> SRULE [check_dups_eq_find_dup,ignore_bind_guard,bind_type_name_check_subst]
   |> SRULE [st_ex_bind_triple]
   |> SRULE [st_ex_bind_pair]
-  |> SRULE [st_ex_bind_def,FUN_EQ_THM_state,st_ex_return_def,
+  |> SRULE [st_ex_bind_def,st_ex_ignore_bind_def,FUN_EQ_THM_state,st_ex_return_def,
             failwith_def,option_case_rand,COND_RATOR];
 
 Definition extend_dec_ienv_def:
@@ -1149,7 +1148,7 @@ Theorem infer_d_expand = infer_d_def
   |> SRULE [check_dups_eq_find_dup,bind_guard,bind_type_name_check_subst]
   |> SRULE [st_ex_bind_triple]
   |> SRULE [st_ex_bind_pair]
-  |> SRULE [st_ex_bind_def,FUN_EQ_THM,st_ex_return_def,
+  |> SRULE [st_ex_bind_def,st_ex_ignore_bind_def,FUN_EQ_THM,st_ex_return_def,
             failwith_def,option_case_rand];
 
 (* The starting Id should be greater than Tlist_num :: (Tbool_num :: prim_type_nums) *)
@@ -1161,16 +1160,16 @@ End
 Definition infertype_prog_def:
   infertype_prog ienv prog =
     case FST (infer_ds ienv prog (init_infer_state <| next_uvar := 0; subst := FEMPTY; next_id := start_type_id |>)) of
-    | Success new_ienv => Success (extend_dec_ienv new_ienv ienv)
-    | Failure x => Failure x
+    | M_success new_ienv => M_success (extend_dec_ienv new_ienv ienv)
+    | M_failure x => M_failure x
 End
 
 Definition infertype_prog_inc_def:
   infertype_prog_inc (ienv, next_id) prog =
   case infer_ds ienv prog (init_infer_state <| next_id := next_id |>) of
-    (Success new_ienv, st) =>
-    (Success (extend_dec_ienv new_ienv ienv, st.next_id))
-  | (Failure x, _) => Failure x
+    (M_success new_ienv, st) =>
+    (M_success (extend_dec_ienv new_ienv ienv, st.next_id))
+  | (M_failure x, _) => M_failure x
 End
 
 Definition init_config_def:

@@ -38,3 +38,12 @@ Theorem get_mode_fsupdate[simp]:
 ```
 
 ## Miscellaneous 
+
+inferScript.sml now uses the state-exception monad defined in
+ml_monadBase instead of a locally defined version of it.
+
+Some files have been refactored to use `monadsyntax.temp_enable_monad`
+instead of manual overloads of constants such as `monad_bind`.
+
+Some files have been refactored to use `st_ex_ignore_bind` instead of
+a locally defined version using `st_ex_bind`.
