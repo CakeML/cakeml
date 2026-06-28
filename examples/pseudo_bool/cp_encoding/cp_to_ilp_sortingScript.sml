@@ -289,10 +289,9 @@ Definition sort_width_def:
   sort_width n = LENGTH (bits_of_num (n − 1))
 End
 
-(* (c) proof-only stable-rank bit-sum for element i *)
+(* (c) proof-only stable-rank bit-sum for element i (the shared pos_num kernel) *)
 Definition sort_pos_num_def:
-  sort_pos_num name i w =
-  GENLIST (λb. (&(2 ** b), Pos (sort_posbit name i b))) w
+  sort_pos_num name i w = pos_num (sort_posbit name i) w
 End
 
 (* Σ_{ip<n} before[ip][i] as a bit lin-term (before[i][i] is forced false) *)
@@ -325,9 +324,9 @@ Definition sort_rank_lines_def:
     let bs = sort_pos_num name i w in
     let cs = sort_before_sum name n i in
     [(SOME (mk_name name («rge» ^ toString i)),
-        ([], bs ++ MAP (λ(a,l). (-a,l)) cs, 0i));
+        ([], bs ++ flip_coeffs cs, 0i));
      (SOME (mk_name name («rle» ^ toString i)),
-        ([], cs ++ MAP (λ(a,l). (-a,l)) bs, 0i))])
+        ([], cs ++ flip_coeffs bs, 0i))])
     (COUNT_LIST n)))
 End
 
@@ -439,15 +438,6 @@ Proof
   simp[]
 QED
 
-(* negating coefficients negates the linear value *)
-Theorem eval_lin_term_MAP_neg_sort[local]:
-  ∀bs. eval_lin_term wb (MAP (λ(a,l). (-a,l)) bs) = -eval_lin_term wb bs
-Proof
-  Induct>>gvs[eval_lin_term_def,iSUM_def]>>
-  Cases>>gvs[eval_term_def,eval_lin_term_def,iSUM_def]>>
-  intLib.ARITH_TAC
-QED
-
 (* the proof-only before-flag is the stable order on the value list *)
 Theorem sort_before_idx_lt[local]:
   ip < LENGTH Xs ∧ i < LENGTH Xs ⇒
@@ -543,8 +533,7 @@ Theorem sort_pos_num_num_of_bits[local]:
   eval_lin_term wb (sort_pos_num name i w) =
   &num_of_bits (GENLIST (λb. wb (sort_posbit name i b)) w)
 Proof
-  rw[num_of_bits_GENLIST,sort_pos_num_def,eval_lin_term_def,MAP_GENLIST,o_DEF,
-     eval_term_def,eval_lit_def,lit_def]
+  rw[sort_pos_num_def,pos_num_num_of_bits]
 QED
 
 (* the unit-coefficient before-flag sum counts the set before-flags *)
@@ -605,7 +594,7 @@ Theorem sort_rank_lines_sem[local]:
 Proof
   simp[sort_rank_lines_def,EVERY_FLAT,EVERY_MAP,MEM_MAP,PULL_EXISTS,MEM_COUNT_LIST,
        iconstraint_sem_def,eval_ilin_term_def,iSUM_def,eval_lin_term_append,
-       eval_lin_term_MAP_neg_sort]>>
+       eval_lin_term_flip_coeffs]>>
   simp[EVERY_MEM,MEM_COUNT_LIST]>>
   `∀a b:int. (a + -b ≥ 0 ∧ b + -a ≥ 0) ⇔ a = b` by intLib.ARITH_TAC>>
   metis_tac[]
@@ -743,12 +732,11 @@ Theorem sort_pos_num_reify[local]:
   eval_lin_term (reify_avar cs wi)
     (sort_pos_num name i (sort_width (LENGTH Xs))) = &(sort_rank wi Xs i)
 Proof
-  rw[]>>
-  `sort_rank wi Xs i < 2 ** sort_width (LENGTH Xs)` by (irule sort_rank_2EXP>>simp[])>>
-  `∀b. reify_avar cs wi (sort_posbit name i b) ⇔ BIT b (sort_rank wi Xs i)` by
-    (rw[]>>drule reify_pos>>simp[])>>
-  pop_assum (fn th =>
-    simp[sort_pos_num_num_of_bits,th,num_of_bits_GENLIST_BIT,arithmeticTheory.LESS_MOD])
+  rw[sort_pos_num_def]>>
+  irule pos_num_reify_eq>>
+  CONJ_TAC
+  >- (rw[]>>drule reify_pos>>simp[])
+  >- (irule sort_rank_2EXP>>simp[])
 QED
 
 (* under reify_avar the before-flag sum also evaluates to the stable rank *)

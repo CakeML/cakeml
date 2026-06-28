@@ -519,32 +519,10 @@ Proof
   simp[enc_rel_encode_full_eq]
 QED
 
-Theorem abstrl_GENLIST:
-  abstrl (GENLIST f n) = GENLIST (λi. SND (f i)) n
-Proof
-  Induct_on‘n’>>
-  simp[GENLIST,SNOC_APPEND]
-QED
-
-Theorem iSUM_eq_0:
-  (∀x. MEM x ls ⇒ x = 0) ⇒ iSUM ls = 0
-Proof
-  Induct_on‘ls’>>
-  simp[iSUM_def]
-QED
-
 Theorem pair_idfun:
   (λ(a,b). (a,b)) = I
 Proof
   cong_tac NONE>>
-  simp[]
-QED
-
-Theorem predicate_if_else:
-  P (if b then x else y) ⇔
-  if b then P x else P y
-Proof
-  IF_CASES_TAC>>
   simp[]
 QED
 
@@ -643,7 +621,7 @@ Proof
     gvs[LESS_MOD])>>
   rpt CONJ_TAC
   >-simp[iconstraint_sem_def,ub_num_neg]
-  >-simp[abstrl_GENLIST,EVERY_GENLIST,iconstraint_sem_def,
+  >-simp[EVERY_MAP,EVERY_GENLIST,iconstraint_sem_def,
       ub_num_neg,integerTheory.INT_GE,SUB_LESS_OR_EQ]
   >-(
     last_x_assum kall_tac>>
@@ -651,9 +629,8 @@ Proof
     qmatch_goalsub_abbrev_tac‘EVERY P _’>>
     rw[EVERY_MEM,MEM_MAPi,SF DNF_ss]>>
     simp[Abbr‘P’,EVERY_FLAT,EVERY_MAP,EVERY_GENLIST]>>
-    simp[predicate_if_else,iconstraint_sem_def,GSYM IMP_CONJ_THM,
-      pair_idfun,ub_num_neg,reify_avar_def,reify_reif_def,
-      integerTheory.INT_GE]>>
+    simp[COND_RAND,pair_idfun,iconstraint_sem_def,GSYM IMP_CONJ_THM,ub_num_neg,
+      reify_avar_def,reify_reif_def,integerTheory.INT_GE]>>
     strip_tac>>
     rename1‘if j = _ then _ _ (_ i _) = _ ⇒ _ else _’>>
     qmatch_goalsub_abbrev_tac‘if _ then P1 ⇒ Q1 else _ ⇒ P2 ⇒ Q2’>>
@@ -662,7 +639,7 @@ Proof
       intLib.ARITH_PROVE“0 ≤ a ⇒ (a = &b ⇔ Num a = b)”]>>
     ‘Q1 ⇔ pos i + 1 = n’ by (
       last_x_assum mp_tac>>
-      simp[Abbr‘dom’,Abbr‘Q1’])>>
+      simp[Abbr‘dom’,Abbr‘Q1’,])>>
     ‘Q2 ⇔ pos i + 1 = pos j’ by (
       simp[Abbr‘Q2’]>>
       rename1‘a + _ = b’>>
@@ -723,7 +700,7 @@ Proof
     strip_tac>>
     (* pos 0 = 0 from the pos0eq0 constraint *)
     `pos 0 = 0` by (
-      qpat_x_assum`iconstraint_sem ([],MAP _ _,0) _` mp_tac>>
+      qpat_x_assum`_ ≥ 0` mp_tac>>
       simp[iconstraint_sem_def,ub_num_neg]>>gs[]>>strip_tac>>
       gs[integerTheory.INT_GE,integerTheory.INT_NEG_GE0,
         integerTheory.INT_OF_NUM_LE])>>
@@ -731,7 +708,7 @@ Proof
     `∀m. m < LENGTH Xs ⇒ pos m < LENGTH Xs` by (
       rw[]>>
       qpat_x_assum`EVERY _ (abstrl (GENLIST _ _))` mp_tac>>
-      simp[abstrl_GENLIST,EVERY_GENLIST,iconstraint_sem_def,ub_num_neg]>>
+      simp[EVERY_MAP,EVERY_GENLIST,iconstraint_sem_def,ub_num_neg]>>
       strip_tac>>first_x_assum drule>>
       gs[integerTheory.INT_GE,integerTheory.INT_LE_NEG,
         integerTheory.INT_OF_NUM_LE])>>
@@ -753,10 +730,8 @@ Proof
     qpat_x_assum`EVERY _ (FLAT (MAP _ Xs))` kall_tac>>
     qpat_x_assum`EVERY _ (abstrl (GENLIST _ _))` kall_tac>>
     qpat_x_assum`EVERY _ (FLAT (MAPi ($o _ ∘ (λi X. List _)) Xs))` kall_tac>>
-    qpat_x_assum`iconstraint_sem ([],MAP _ _,0) _` kall_tac>>
-    rpt conj_tac
-    >- simp[]
-    >- simp[]
+    qpat_x_assum`_ ≥ 0` kall_tac>>
+    simp[]
     >- ((* successor: pos (Xs[i]) = (pos i + 1) MOD n *)
       rw[]>>
       `varc wi (EL i Xs) = &(Num (varc wi (EL i Xs)))` by

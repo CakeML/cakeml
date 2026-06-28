@@ -848,6 +848,38 @@ Definition sexp_sorting_dispatch_def:
     else NONE
 End
 
+(* value_precede chain (v1 ... vn) and vars (x1 ... xm) *)
+Definition sexp_value_precede_body_def:
+  sexp_value_precede_body rest =
+    case rest of
+      [vs_e; xs_e] =>
+      (do
+         vs <- sexp_int_list vs_e;
+         Xs <- sexp_varc_list xs_e;
+         return (Lexicographical (ValuePrecede vs Xs))
+       od)
+    | _ => fail («value_precede expects 2 args: (v1 ... vn) (x1 ... xm)\n»)
+End
+
+(* seq_precede_chain: the implicit chain 1,2,3,… over vars (x1 ... xn) *)
+Definition sexp_seq_precede_chain_body_def:
+  sexp_seq_precede_chain_body rest =
+    case rest of
+      [xs_e] =>
+      (do
+         Xs <- sexp_varc_list xs_e;
+         return (Lexicographical (SeqPrecedeChain Xs))
+       od)
+    | _ => fail («seq_precede_chain expects 1 arg: (x1 ... xn)\n»)
+End
+
+Definition sexp_precede_dispatch_def:
+  sexp_precede_dispatch ctype rest =
+    if ctype = «value_precede»          then SOME (sexp_value_precede_body rest)
+    else if ctype = «seq_precede_chain» then SOME (sexp_seq_precede_chain_body rest)
+    else NONE
+End
+
 Definition sexp_constraint_dispatch_def:
   sexp_constraint_dispatch ctype rest =
     case strip_prefix («lin_») ctype of
@@ -878,6 +910,9 @@ Definition sexp_constraint_dispatch_def:
       SOME res => res
     | NONE =>
     case sexp_sorting_dispatch ctype rest of
+      SOME res => res
+    | NONE =>
+    case sexp_precede_dispatch ctype rest of
       SOME res => res
     | NONE =>
     sexp_prim_dispatch ctype rest
@@ -1109,6 +1144,23 @@ Theorem test_sorting:
   sexp_constraint_dispatch («arg_sort»)
     (fromStringL («((A B C) (P Q R) 1)»)) =
     INR (Sorting (ArgSort [INL «A»; INL «B»; INL «C»] [INL «P»; INL «Q»; INL «R»] 1))
+Proof
+  EVAL_TAC
+QED
+
+Theorem test_precede:
+  (* value_precede: chain (1 2) over vars (A B C) *)
+  sexp_constraint_dispatch («value_precede»)
+    (fromStringL («((1 2) (A B C))»)) =
+    INR (Lexicographical (ValuePrecede [1; 2] [INL «A»; INL «B»; INL «C»])) ∧
+  (* seq_precede_chain over vars (A B C) *)
+  sexp_constraint_dispatch («seq_precede_chain»)
+    (fromStringL («((A B C))»)) =
+    INR (Lexicographical (SeqPrecedeChain [INL «A»; INL «B»; INL «C»])) ∧
+  (* wrong arity is rejected *)
+  sexp_constraint_dispatch («seq_precede_chain»)
+    (fromStringL («((A) (B))»)) =
+    INL («seq_precede_chain expects 1 arg: (x1 ... xn)\n»)
 Proof
   EVAL_TAC
 QED

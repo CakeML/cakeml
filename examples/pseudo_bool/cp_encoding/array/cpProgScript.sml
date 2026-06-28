@@ -177,6 +177,11 @@ val res = translate sexp_sort_body_def;
 val res = translate sexp_argsort_body_def;
 val res = translate sexp_sorting_dispatch_def;
 
+(* precede *)
+val res = translate sexp_value_precede_body_def;
+val res = translate sexp_seq_precede_chain_body_def;
+val res = translate sexp_precede_dispatch_def;
+
 val res = translate strip_prefix_def;
 
 Theorem strip_prefix_side:
@@ -610,6 +615,35 @@ val res = translate cp_to_ilp_lexicographicalTheory.lex_lte_def;
 val res = translate cp_to_ilp_lexicographicalTheory.cencode_lex_gte_def;
 val res = translate cp_to_ilp_lexicographicalTheory.cencode_lex_lte_def;
 val res = translate cp_to_ilp_lexicographicalTheory.cencode_lex_def;
+
+(* shared proof-only-natural kernel + value/seq precede *)
+val res = translate cp_to_ilpTheory.pos_num_def;
+val res = translate cp_to_ilpTheory.varc_bnd_def;
+val res = translate cp_to_ilp_lexicographicalTheory.vp_posbit_def;
+val res = translate cp_to_ilp_lexicographicalTheory.vp_ge_flag_def;
+val res = translate cp_to_ilp_lexicographicalTheory.vp_width_def;
+val res = translate cp_to_ilp_lexicographicalTheory.vp_pos_num_def;
+val res = translate cp_to_ilp_lexicographicalTheory.vp_geq_term_def;
+val res = translate cp_to_ilp_lexicographicalTheory.vp_diff_term_def;
+val res = translate cp_to_ilp_lexicographicalTheory.vp_ge_defs_def;
+val res = translate cp_to_ilp_lexicographicalTheory.vp_ub_pins_def;
+val res = translate cp_to_ilp_lexicographicalTheory.vp_ex_pins_def;
+val res = translate cp_to_ilp_lexicographicalTheory.vp_value_block_def;
+val res = translate cp_to_ilp_lexicographicalTheory.vp_precede_blocks_def;
+val res = translate cp_to_ilp_lexicographicalTheory.vp_blocks_def;
+val res = translate cp_to_ilp_lexicographicalTheory.cencode_value_precede_def;
+val res = translate cp_to_ilp_lexicographicalTheory.vp_seq_m_def;
+
+Theorem vp_seq_m_side[local]:
+  vp_seq_m_side bnd Xs ⇔ T
+Proof
+  rw[fetch "-" "vp_seq_m_side_def"]>>intLib.ARITH_TAC
+QED
+val _ = update_precondition vp_seq_m_side;
+
+val res = translate cp_to_ilp_lexicographicalTheory.vp_clamp_def;
+val res = translate cp_to_ilp_lexicographicalTheory.cencode_seq_precede_chain_def;
+
 val res = translate cp_to_ilp_lexicographicalTheory.cencode_lexicographical_constr_def;
 
 val _ = ml_translatorLib.use_sub_check false;
@@ -670,7 +704,6 @@ val res = translate cp_to_ilp_schedulingTheory.cencode_disjunctive_def;
 val res = translate cp_to_ilp_schedulingTheory.cencode_disjunctive2d_def;
 
 (* cumulative *)
-val res = translate cp_to_ilp_schedulingTheory.varc_bnd_def;
 val res = translate cp_to_ilp_schedulingTheory.cumul_before_def;
 val res = translate cp_to_ilp_schedulingTheory.cumul_after_def;
 val res = translate cp_to_ilp_schedulingTheory.cumul_active_def;

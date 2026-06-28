@@ -160,6 +160,12 @@ End
 Datatype:
   lexicographical_constr =
     Lex ('a reify) cmpop ('a varc list) ('a varc list)
+    (* ValuePrecede chain Xs : along chain, each value's first occurrence in
+       Xs strictly precedes its successors. *)
+  | ValuePrecede (int list) ('a varc list)
+    (* SeqPrecedeChain Xs : the implicit chain 1,2,3,…; a value k may occur
+       only if k−1 occurs earlier. *)
+  | SeqPrecedeChain ('a varc list)
 End
 
 Datatype:
@@ -740,10 +746,32 @@ Definition lex_sem_def:
   | LessEqual => reify_sem Zr w (row_gt ys xs ∨ xs = ys)
 End
 
+(* For a value v_j to occur, then all preceding v_i must occur strictly before
+  it. Note that duplicate values are automatically blocked. *)
+Definition value_precede_sem_def:
+  value_precede_sem vs Xs w ⇔
+  let xs = MAP (varc w) Xs in
+  ∀i j.
+    i < j ∧ j < LENGTH vs ⇒
+    ∀jj. jj < LENGTH xs ∧ EL jj xs = EL j vs ⇒
+    ∃ii. ii < LENGTH xs ∧ EL ii xs = EL i vs ∧ ii < jj
+End
+
+(* The implicit chain 1,2,3,…: any occurrence of a value ≥ 2 must be preceded
+  by an occurrence of its predecessor. Non-positive values are unconstrained. *)
+Definition seq_precede_chain_sem_def:
+  seq_precede_chain_sem Xs w ⇔
+  let xs = MAP (varc w) Xs in
+  ∀j. j < LENGTH xs ∧ 2 ≤ EL j xs ⇒
+    ∃i. i < j ∧ EL i xs = EL j xs - 1
+End
+
 Definition lexicographical_constr_sem_def:
   lexicographical_constr_sem c w ⇔
-  case c of Lex Zr cmp Xs Ys =>
-    lex_sem Zr cmp Xs Ys w
+  case c of
+    Lex Zr cmp Xs Ys => lex_sem Zr cmp Xs Ys w
+  | ValuePrecede ch Xs => value_precede_sem ch Xs w
+  | SeqPrecedeChain Xs => seq_precede_chain_sem Xs w
 End
 
 (***

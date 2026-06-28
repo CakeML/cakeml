@@ -92,6 +92,15 @@ Definition argsort_yval_def:
   varc wi (EL (@k. k < LENGTH Xs ∧ sort_rank wi Xs k = j) Xs)
 End
 
+(* First-occurrence index of value v in Xs under w, or the sentinel LENGTH Xs
+   if v is absent (the LEAST is total: the i = LENGTH Xs disjunct always holds).
+   Characterization lemmas (vp_first_occ_le/_occ/_least/_leq) live in
+   cp_to_ilp_lexicographicalScript. *)
+Definition vp_first_occ_def:
+  vp_first_occ w Xs v =
+    LEAST i. i = LENGTH Xs ∨ (i < LENGTH Xs ∧ varc w (EL i Xs) = v)
+End
+
 Definition reify_flag_def:
   reify_flag cs wi (name,flag) ⇔
   case flag of
@@ -230,7 +239,19 @@ Definition reify_flag_def:
         (let j = Num (EL 0 vs) in argsort_yval wi Xs j < 0)
       else (* ann = SOME («yge») *)
         (let j = Num (EL 0 vs) in
-           argsort_yval wi Xs j ≥ argsort_yval wi Xs (j+1)))
+           argsort_yval wi Xs j ≥ argsort_yval wi Xs (j+1))
+    | SOME (Lexicographical (ValuePrecede ch Xs)) =>
+      (* «pos»: bit (EL 1 vs) of pos[EL 0 vs] (the first-occurrence index of the
+         chain value EL 0 vs); «pge»: the reified literal [pos[v] ≥ EL 1 vs] *)
+      if ann = SOME («pos») then
+        BIT (Num (EL 1 vs)) (vp_first_occ wi Xs (EL 0 vs))
+      else (* ann = SOME («pge») *)
+        &(vp_first_occ wi Xs (EL 0 vs)) ≥ EL 1 vs
+    | SOME (Lexicographical (SeqPrecedeChain Xs)) =>
+      if ann = SOME («pos») then
+        BIT (Num (EL 1 vs)) (vp_first_occ wi Xs (EL 0 vs))
+      else (* ann = SOME («pge») *)
+        &(vp_first_occ wi Xs (EL 0 vs)) ≥ EL 1 vs)
 End
 
 (* char 91 is [, char 92 is backslash, char 93 is ] *)
@@ -432,6 +453,39 @@ Proof
   every_case_tac>>
   simp[reify_avar_def,reify_reif_def,cmpop_val_def]>>
   intLib.ARITH_TAC
+QED
+
+(* a coefficient-free iconstraint is just its bit-term sum bounded below *)
+Theorem lin_ge_sem[simp]:
+  iconstraint_sem ([],bs,c) (wi,wb) ⇔ eval_lin_term wb bs ≥ c
+Proof
+  rw[iconstraint_sem_def,eval_ilin_term_def,iSUM_def]
+QED
+
+(* Proof-only natural as a positive-bit sum: bit b carried by flag b with
+   coefficient 2^b. The key-agnostic kernel shared by the Sort stable-rank and
+   value-precede first-occurrence encodings (no sign bit; naturals only). *)
+Definition pos_num_def:
+  pos_num flag w = GENLIST (λb. (&(2 ** b), Pos (flag b))) w
+End
+
+Theorem pos_num_num_of_bits:
+  eval_lin_term wb (pos_num flag w) =
+  &num_of_bits (GENLIST (λb. wb (flag b)) w)
+Proof
+  rw[num_of_bits_GENLIST,pos_num_def,eval_lin_term_def,MAP_GENLIST,o_DEF,
+     eval_term_def,eval_lit_def,lit_def]
+QED
+
+(* whenever the first w bits match a value m < 2^w, the bit sum reads back as m *)
+Theorem pos_num_reify_eq:
+  (∀b. b < w ⇒ (wb (flag b) ⇔ BIT b m)) ∧ m < 2 ** w ⇒
+  eval_lin_term wb (pos_num flag w) = &m
+Proof
+  rw[]>>
+  `GENLIST (λb. wb (flag b)) w = GENLIST (λb. BIT b m) w` by
+    (simp[listTheory.GENLIST_FUN_EQ]>>metis_tac[])>>
+  simp[pos_num_num_of_bits,num_of_bits_GENLIST_BIT,arithmeticTheory.LESS_MOD]
 QED
 
 (***
@@ -818,6 +872,23 @@ Proof
     last_x_assum $ drule_then mp_tac>>
     rw[eval_iclin_term_def, eval_ilin_term_def, iSUM_def, varc_def]>>
     intLib.ARITH_TAC)
+QED
+
+(* the declared (lo,hi) bounds of a varc: a user variable's bounds, or the
+   constant itself for a literal *)
+Definition varc_bnd_def:
+  varc_bnd (bnd:'a -> int # int) vc =
+  case vc of INL v => bnd v | INR c => (c,c)
+End
+
+Theorem varc_bnd_valid:
+  valid_assignment bnd wi ⇒
+  FST (varc_bnd bnd vc) ≤ varc wi vc ∧ varc wi vc ≤ SND (varc_bnd bnd vc)
+Proof
+  Cases_on`vc`>>rw[varc_bnd_def,varc_def]>>
+  gvs[valid_assignment_def]>>
+  first_x_assum(qspec_then`x`mp_tac)>>
+  Cases_on`bnd x`>>simp[]
 QED
 
 (*

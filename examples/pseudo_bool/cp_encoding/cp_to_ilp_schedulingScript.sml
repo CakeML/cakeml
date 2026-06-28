@@ -433,22 +433,6 @@ QED
    unsatisfiable).  Bits go through BIT in reify_flag, so no width bound is
    threaded through the flags. *)
 
-(* domain (lb,ub) of a varc under bnd *)
-Definition varc_bnd_def:
-  varc_bnd (bnd:'a -> int # int) vc =
-  case vc of INL v => bnd v | INR c => (c,c)
-End
-
-Theorem varc_bnd_valid:
-  valid_assignment bnd wi ⇒
-  FST (varc_bnd bnd vc) ≤ varc wi vc ∧ varc wi vc ≤ SND (varc_bnd bnd vc)
-Proof
-  Cases_on`vc`>>rw[varc_bnd_def,varc_def]>>
-  gvs[valid_assignment_def]>>
-  first_x_assum(qspec_then`x`mp_tac)>>
-  Cases_on`bnd x`>>simp[]
-QED
-
 (* per-(task,time) reified flags, carrying the int time t in a Values flag *)
 Definition cumul_before_def[simp]:
   cumul_before name i t = INR (name, Values [&i; t] (SOME «cb»))
@@ -479,14 +463,6 @@ Proof
   rw[num_of_bits_GENLIST,cumul_ub_num_def,eval_lin_term_def,MAP_GENLIST,o_DEF]
 QED
 
-Theorem eval_lin_term_MAP_neg:
-  ∀bs. eval_lin_term wb (MAP (λ(a,l). (-a,l)) bs) = -eval_lin_term wb bs
-Proof
-  Induct>>gvs[eval_lin_term_def,iSUM_def]>>
-  Cases_on`h`>>gvs[eval_term_def,eval_lin_term_def,iSUM_def]>>
-  intLib.ARITH_TAC
-QED
-
 (* the three half-reified constraints relating a contribution bit-sum cb to
    a height varc h:  cb ≥ h ,  cb ≤ h ,  cb ≤ 0 *)
 Definition cumul_contrib_ge_def:
@@ -495,11 +471,11 @@ Definition cumul_contrib_ge_def:
 End
 Definition cumul_contrib_le_def:
   cumul_contrib_le cb h =
-  case h of INL v => ([(1i,v)],MAP (λ(a,l). (-a,l)) cb,0i)
-          | INR c => ([],MAP (λ(a,l). (-a,l)) cb,-c)
+  case h of INL v => ([(1i,v)],flip_coeffs cb,0i)
+          | INR c => ([],flip_coeffs cb,-c)
 End
 Definition cumul_contrib_le0_def:
-  cumul_contrib_le0 cb = ([],MAP (λ(a,l). (-a,l)) cb,0i)
+  cumul_contrib_le0 cb = ([],flip_coeffs cb,0i)
 End
 
 Theorem cumul_contrib_ge_sem[simp]:
@@ -516,16 +492,15 @@ Theorem cumul_contrib_le_sem[simp]:
   eval_lin_term wb cb ≤ varc wi h
 Proof
   Cases_on`h`>>
-  rw[cumul_contrib_le_def,iconstraint_sem_def,eval_ilin_term_def,iSUM_def,varc_def,
-     eval_lin_term_MAP_neg]>>
+  rw[cumul_contrib_le_def,iconstraint_sem_def]>>
+  simp[eval_ilin_term_def,iSUM_def,varc_def]>>
   intLib.ARITH_TAC
 QED
 
 Theorem cumul_contrib_le0_sem[simp]:
   iconstraint_sem (cumul_contrib_le0 cb) (wi,wb) ⇔ eval_lin_term wb cb ≤ 0
 Proof
-  rw[cumul_contrib_le0_def,iconstraint_sem_def,eval_ilin_term_def,iSUM_def,
-     eval_lin_term_MAP_neg]>>
+  rw[cumul_contrib_le0_def,iconstraint_sem_def,eval_ilin_term_def,iSUM_def]>>
   intLib.ARITH_TAC
 QED
 
@@ -663,7 +638,7 @@ Definition cumul_cap_line_def:
   cumul_cap_line bnd name tasks cap t =
   let loadbs = FLAT (MAPi (λi (x,w,h).
       if cumul_covers bnd x w t
-      then MAP (λ(a,l). (-a,l)) (cumul_ub_num name i t (SND (varc_bnd bnd h)))
+      then flip_coeffs (cumul_ub_num name i t (SND (varc_bnd bnd h)))
       else []) tasks) in
   let lbl = mk_name name («cap_» ^ toString (intnum t)) in
   case cap of
@@ -674,7 +649,7 @@ End
 Theorem eval_lin_term_FLAT_MAPi_neg_if:
   ∀ls g P. eval_lin_term wb
     (FLAT (MAPi (λi (x,w,h).
-       if P i x w h then MAP (λ(c,l). (-c,l)) (g i x w h) else []) ls)) =
+       if P i x w h then flip_coeffs (g i x w h) else []) ls)) =
   -iSUM (MAPi (λi (x,w,h).
        if P i x w h then eval_lin_term wb (g i x w h) else 0) ls)
 Proof
@@ -683,8 +658,7 @@ Proof
   >- (
     qx_gen_tac`e`>>PairCases_on`e`>>
     pop_assum (fn ih =>
-      rw[indexedListsTheory.MAPi_def,combinTheory.o_DEF,iSUM_def,
-         pbc_encodeTheory.eval_lin_term_append,eval_lin_term_MAP_neg,ih])>>
+      rw[indexedListsTheory.MAPi_def,combinTheory.o_DEF,iSUM_def,ih])>>
     intLib.ARITH_TAC)
 QED
 
