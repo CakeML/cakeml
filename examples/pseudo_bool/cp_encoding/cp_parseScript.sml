@@ -812,12 +812,39 @@ Definition sexp_increasing_body_def:
     | _ => fail («increasing expects 1 arg: (x1 ... xn)\n»)
 End
 
+Definition sexp_sort_body_def:
+  sexp_sort_body rest =
+    case rest of
+      [xs_e; ys_e] =>
+      (do
+         Xs <- sexp_varc_list xs_e;
+         Ys <- sexp_varc_list ys_e;
+         return (Sorting (Sort Xs Ys))
+       od)
+    | _ => fail («sort expects 2 args: (x1 ... xn) (y1 ... yn)\n»)
+End
+
+Definition sexp_argsort_body_def:
+  sexp_argsort_body rest =
+    case rest of
+      [xs_e; ps_e; off_e] =>
+      (do
+         Xs <- sexp_varc_list xs_e;
+         Ps <- sexp_varc_list ps_e;
+         off <- sexp_int off_e;
+         return (Sorting (ArgSort Xs Ps off))
+       od)
+    | _ => fail («arg_sort expects 3 args: (x1 ... xn) (p1 ... pn) offset\n»)
+End
+
 Definition sexp_sorting_dispatch_def:
   sexp_sorting_dispatch ctype rest =
     if ctype = «increasing»               then SOME (sexp_increasing_body F F rest)
     else if ctype = «strictly_increasing» then SOME (sexp_increasing_body T F rest)
     else if ctype = «decreasing»          then SOME (sexp_increasing_body F T rest)
     else if ctype = «strictly_decreasing» then SOME (sexp_increasing_body T T rest)
+    else if ctype = «sort»                then SOME (sexp_sort_body rest)
+    else if ctype = «arg_sort»            then SOME (sexp_argsort_body rest)
     else NONE
 End
 
@@ -1073,7 +1100,15 @@ Theorem test_sorting:
   (* strictly_decreasing sets both flags *)
   sexp_constraint_dispatch («strictly_decreasing»)
     (fromStringL («((A B))»)) =
-    INR (Sorting (Increasing [INL «A»; INL «B»] T T))
+    INR (Sorting (Increasing [INL «A»; INL «B»] T T)) ∧
+  (* sort: Ys is a non-decreasing permutation of Xs *)
+  sexp_constraint_dispatch («sort»)
+    (fromStringL («((A B C) (X Y Z))»)) =
+    INR (Sorting (Sort [INL «A»; INL «B»; INL «C»] [INL «X»; INL «Y»; INL «Z»])) ∧
+  (* arg_sort: Ps are the offset-shifted stable sorted indices *)
+  sexp_constraint_dispatch («arg_sort»)
+    (fromStringL («((A B C) (P Q R) 1)»)) =
+    INR (Sorting (ArgSort [INL «A»; INL «B»; INL «C»] [INL «P»; INL «Q»; INL «R»] 1))
 Proof
   EVAL_TAC
 QED

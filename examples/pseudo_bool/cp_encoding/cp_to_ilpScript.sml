@@ -65,6 +65,33 @@ Definition reify_flag_counting_def:
   else varc wi (EL (HD ids) Xs) = varc wi Y
 End
 
+(* The stable "before" relation on positions of Xs (gcs sort_before): element
+   at ip precedes element at i in the stable order. Ties broken by index, so
+   the comparison is ≤ when ip < i and strict < otherwise; in particular
+   sort_before wi Xs i i is false, so a position never precedes itself. *)
+Definition sort_before_def:
+  sort_before wi Xs ip i ⇔
+  if ip < i
+  then varc wi (EL ip Xs) ≤ varc wi (EL i Xs)
+  else varc wi (EL ip Xs) < varc wi (EL i Xs)
+End
+
+(* The proof-only stable rank of element i: how many positions precede it in
+   the stable order. Equals Σ_{ip≠i} sort_before, and lies in [0, |Xs|−1]. *)
+Definition sort_rank_def:
+  sort_rank wi Xs i =
+  LENGTH (FILTER (λip. sort_before wi Xs ip i) (COUNT_LIST (LENGTH Xs)))
+End
+
+(* The j-th order statistic of Xs under the stable order: the value of the
+   element whose stable rank is j. sort_rank is a bijection on [0,|Xs|), so for
+   j < |Xs| there is a unique such element; @k picks it. This is the proof-only
+   value held by ArgSort's internal sorted-value array y[j]. *)
+Definition argsort_yval_def:
+  argsort_yval wi Xs j =
+  varc wi (EL (@k. k < LENGTH Xs ∧ sort_rank wi Xs k = j) Xs)
+End
+
 Definition reify_flag_def:
   reify_flag cs wi (name,flag) ⇔
   case flag of
@@ -141,6 +168,12 @@ Definition reify_flag_def:
       then varc wi (EL (HD ids) ws) ≤ 0
       else (* ann = SOME («zh») : task (HD ids) has zero height *)
         varc wi (EL (HD ids) hs) ≤ 0
+    | SOME (Sorting (Sort Xs Ys)) =>
+      (* «bf»: stable before-flag for the ordered pair (EL 0 ids, EL 1 ids) *)
+      sort_before wi Xs (EL 0 ids) (EL 1 ids)
+    | SOME (Sorting (ArgSort Xs Ps offset)) =>
+      (* «bf»: same stable before-flag, on the user values Xs (the rank core) *)
+      sort_before wi Xs (EL 0 ids) (EL 1 ids)
     )
   | Flag ann =>
     (case ALOOKUP cs name of
@@ -179,7 +212,25 @@ Definition reify_flag_def:
       else if ann = SOME («cact») then bef ∧ aft
       else (* ann = SOME («cc») *)
         let b = Num (EL 2 vs) in
-        BIT b (if bef ∧ aft then Num (varc wi (EL i hs)) else 0))
+        BIT b (if bef ∧ aft then Num (varc wi (EL i hs)) else 0)
+    | SOME (Sorting (Sort Xs Ys)) =>
+      (* «pos»: bit (EL 1 vs) of the proof-only stable rank of element (EL 0 vs) *)
+      let i = Num (EL 0 vs); b = Num (EL 1 vs) in
+      BIT b (sort_rank wi Xs i)
+    | SOME (Sorting (ArgSort Xs Ps offset)) =>
+      (* «pos»: stable-rank bits (as Sort); «y»/«ysgn»: two's-complement bits and
+         sign of the j-th sorted value (EL 0 vs = j); «yge»: tie-break flag
+         y[j] ≥ y[j+1] *)
+      if ann = SOME («pos») then
+        (let i = Num (EL 0 vs); b = Num (EL 1 vs) in BIT b (sort_rank wi Xs i))
+      else if ann = SOME («y») then
+        (let j = Num (EL 0 vs); b = Num (EL 1 vs) in
+           int_bit b (argsort_yval wi Xs j))
+      else if ann = SOME («ysgn») then
+        (let j = Num (EL 0 vs) in argsort_yval wi Xs j < 0)
+      else (* ann = SOME («yge») *)
+        (let j = Num (EL 0 vs) in
+           argsort_yval wi Xs j ≥ argsort_yval wi Xs (j+1)))
 End
 
 (* char 91 is [, char 92 is backslash, char 93 is ] *)
@@ -603,6 +654,24 @@ Proof
   simp[GSYM integerTheory.INT]
 QED
 *)
+
+(* Generic int_min/int_max FOLDR bounds, shared by the scheduling and sorting
+   encoders (cumulative bounds; argsort value-channel range). *)
+Theorem FOLDR_int_min_LE_MEM:
+  ∀ls. MEM x ls ⇒ FOLDR int_min s ls ≤ x
+Proof
+  Induct>>rw[]>>
+  gvs[integerTheory.INT_MIN]>>rw[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem FOLDR_int_max_GE_MEM:
+  ∀ls. MEM x ls ⇒ x ≤ FOLDR int_max s ls
+Proof
+  Induct>>rw[]>>
+  gvs[integerTheory.INT_MAX]>>rw[]>>
+  intLib.ARITH_TAC
+QED
 
 (* Encodes a * X + b * Y ≥ c where both X, Y are varc *)
 Definition mk_constraint_ge_def:
@@ -1470,13 +1539,8 @@ Proof
   rw[cat_most_one_def]
 QED
 
-(* ===================================================================== *)
-(* Proof-only integer variables, encoded in binary (reusable).            *)
-(*                                                                        *)
-(* The CP to ILP encoding supports only fresh Boolean reif/flag vars.     *)
-(* For now we only need upper-bounded natural numbers (0 ≤ n < UB); each  *)
-(* such n is represented with sufficient bits to fit UB.                  *)
-(* ===================================================================== *)
+(* Proof-only integer variables encoded in binary: upper-bounded naturals
+   (0 ≤ n < UB), each with enough bits to fit UB.  Reusable. *)
 
 (* a * (Σ As) + b * (Σ Bs) ≥ c, where As,Bs are weighted-literal sums *)
 Definition mk_constraint_ge_bin_def[simp]:

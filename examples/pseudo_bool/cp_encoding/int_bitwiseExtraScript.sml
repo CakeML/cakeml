@@ -142,3 +142,95 @@ Proof
   once_rewrite_tac[iSUM_GENLIST_eq_SUM_GENLIST]>>
   simp[SUM_GENLIST_BIT]
 QED
+
+(* bit b of the value of a bit list (b in range) is the b-th element *)
+Theorem BIT_num_of_bits_EL:
+  ∀L b. b < LENGTH L ⇒ (BIT b (num_of_bits L) ⇔ EL b L)
+Proof
+  Induct >> simp[] >>
+  gen_tac >> Cases_on`b` >> simp[]
+  >- (Cases_on`h`>>
+      simp[num_of_bits_def,bitTheory.BIT0_ODD,arithmeticTheory.ODD_ADD,
+           arithmeticTheory.ODD_MULT])>>
+  strip_tac>>
+  simp[GSYM bitTheory.BIT_DIV2]>>
+  `num_of_bits (h::L) DIV 2 = num_of_bits L` by
+    (Cases_on`h`>>
+     simp[num_of_bits_def,arithmeticTheory.ADD_DIV_RWT,arithmeticTheory.MULT_DIV])>>
+  simp[]>>metis_tac[]
+QED
+
+(* bit b of n is the b-th element of its little-endian expansion *)
+Theorem BIT_bits_of_num:
+  ∀n b. BIT b n ⇔ b < LENGTH (bits_of_num n) ∧ EL b (bits_of_num n)
+Proof
+  ho_match_mp_tac bits_of_num_ind>>rw[]>>
+  Cases_on`n = 0`>>simp[Once bits_of_num_def]>>
+  `bits_of_num n = ODD n::bits_of_num (n DIV 2)` by simp[Once bits_of_num_def]>>
+  pop_assum SUBST_ALL_TAC>>
+  Cases_on`b`>>simp[bitTheory.BIT0_ODD,GSYM bitTheory.BIT_DIV2]>>
+  metis_tac[]
+QED
+
+(* the little-endian expansion of n < 2^w fits in w bits *)
+Theorem LENGTH_bits_of_num_LE:
+  ∀w n. n < 2 ** w ⇒ LENGTH (bits_of_num n) ≤ w
+Proof
+  Induct>>rw[]>>simp[Once bits_of_num_def]>>rw[]>>
+  first_x_assum irule>>gvs[EXP,DIV_LT_X]
+QED
+
+(* the b-th literal of the binary guard for j is bit b of j *)
+Theorem EL_PAD_RIGHT_bits:
+  b < w ⇒ EL b (PAD_RIGHT F w (bits_of_num j)) = BIT b j
+Proof
+  rw[PAD_RIGHT,EL_APPEND_EQN]
+  >- (simp[Once BIT_bits_of_num])>>
+  simp[EL_GENLIST]>>simp[Once BIT_bits_of_num]
+QED
+
+(* two naturals below 2^w agreeing on bits [0,w) are equal *)
+Theorem BIT_eq_lt_2EXP:
+  a < 2 ** w ∧ b < 2 ** w ∧ (∀k. k < w ⇒ (BIT k a ⇔ BIT k b)) ⇒ a = b
+Proof
+  rw[]>>
+  `GENLIST (λk. BIT k a) w = GENLIST (λk. BIT k b) w` by
+    simp[GENLIST_FUN_EQ]>>
+  `a MOD 2 ** w = b MOD 2 ** w` by metis_tac[num_of_bits_GENLIST_BIT]>>
+  gvs[arithmeticTheory.LESS_MOD]
+QED
+
+(* eval of a signed bit-sum is the int_of_bits of its bit assignment *)
+Theorem two_comp_eval:
+  eval_lin_term w
+    ((-&(2 ** h),Pos s)::GENLIST (λb. (&(2 ** b),Pos (f b))) h) =
+  int_of_bits (GENLIST (λb. w (f b)) h, w s)
+Proof
+  rw[eval_lin_term_def]>>
+  simp[MAP_GENLIST,iSUM_def,eval_term_def,eval_lit_def,o_DEF,int_of_bits_def]>>
+  rw[num_of_bits_GENLIST]>>
+  simp[int_not_def]>>
+  Induct_on`h`>>
+  fs[iSUM_def,GENLIST,SNOC_APPEND,b2i_alt,EXP]>>
+  rw[]>>
+  intLib.ARITH_TAC
+QED
+
+(* a signed value in the h-bit two's-complement range round-trips through its
+   bit decomposition: reconstruction from its bits recovers the value *)
+Theorem two_comp_reconstruct:
+  -&(2 ** h) ≤ v ∧ v < &(2 ** h) ⇒
+  int_of_bits (GENLIST (λb. int_bit b v) h, v < 0) = v
+Proof
+  strip_tac>>simp[int_of_bits_def]>>IF_CASES_TAC
+  >- (simp[int_bit_def,MAP_GENLIST,combinTheory.o_DEF,num_of_bits_GENLIST_BIT]>>
+      `0 ≤ int_not v` by (simp[int_not_def]>>intLib.ARITH_TAC)>>
+      `Num (int_not v) < 2 ** h` by (simp[int_not_def]>>intLib.COOPER_TAC)>>
+      simp[arithmeticTheory.LESS_MOD]>>
+      `&Num (int_not v) = int_not v` by metis_tac[integerTheory.INT_OF_NUM]>>
+      simp[int_not_not])>>
+  simp[int_bit_def,MAP_GENLIST,combinTheory.o_DEF,num_of_bits_GENLIST_BIT]>>
+  `?n. v = &n` by intLib.ARITH_TAC>>gvs[]>>
+  `n < 2**h` by intLib.ARITH_TAC>>
+  simp[arithmeticTheory.LESS_MOD]
+QED

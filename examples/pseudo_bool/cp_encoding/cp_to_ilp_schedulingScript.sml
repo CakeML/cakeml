@@ -7,12 +7,10 @@ Libs
 Ancestors
   pbc cp ilp cp_to_ilp int_bitwiseExtra
 
-(* ===================================================================== *)
-(* Generic interval-disjointness kit, shared by Disjunctive (1 axis) and  *)
-(* Disjunctive2D (2 axes). A "before" flag means task i finishes at/before *)
-(* task j starts on some axis (pos_i + sz_i ≤ pos_j); a "zero" flag means  *)
-(* a task has zero extent (sz_i ≤ 0). The flags are pinned by reify_flag.  *)
-(* ===================================================================== *)
+(* Generic interval-disjointness kit, shared by Disjunctive (1 axis) and
+   Disjunctive2D (2 axes): a "before" flag means task i finishes at/before task
+   j starts on some axis (pos_i + sz_i ≤ pos_j); a "zero" flag means a task has
+   zero extent (sz_i ≤ 0).  Flags are pinned by reify_flag. *)
 
 (* before flag for ordered pair (i,j) under annotation ann *)
 Definition disj_before_def[simp]:
@@ -427,19 +425,13 @@ Proof
   gvs[varc_def]>>intLib.ARITH_TAC
 QED
 
-(* ===================================================================== *)
-(* Cumulative: time-table encoding.                                       *)
-(*                                                                        *)
-(* For each task i and integer time t in a global window [tlo,thi], three  *)
-(* reified flags pin whether the task has started (before: sᵢ ≤ t), not    *)
-(* finished (after: sᵢ + wsᵢ ≥ t+1) and is running (active = before∧after).*)
-(* A proof-only upper-bounded natural contrib(i,t), summed over its bits,   *)
-(* equals the task's height when active and 0 otherwise; per time the       *)
-(* contribs sum to ≤ capacity. Heights and capacity are pinned ≥ 0          *)
-(* (matching cumulative_sem's good default; a constant height < 0 makes its *)
-(* own ≥0 line unsatisfiable). All bits are defined via BIT in reify_flag,  *)
-(* so no bit-width bound is threaded through the flags. *)
-(* ===================================================================== *)
+(* Cumulative: time-table encoding.  For each task i and time t in [tlo,thi],
+   reified flags pin started (sᵢ ≤ t), not-finished (sᵢ + wsᵢ ≥ t+1) and running
+   (active = before ∧ after).  A proof-only contrib(i,t) equals the task height
+   when active and 0 otherwise; per time the contribs sum to ≤ capacity.  Heights
+   and capacity are pinned ≥ 0 (a constant height < 0 makes its own ≥0 line
+   unsatisfiable).  Bits go through BIT in reify_flag, so no width bound is
+   threaded through the flags. *)
 
 (* domain (lb,ub) of a varc under bnd *)
 Definition varc_bnd_def:
@@ -642,22 +634,6 @@ Definition cumul_thi_def:
   FOLDR int_max 0
     (MAP (λ(x,w,h). SND (varc_bnd bnd x) + SND (varc_bnd bnd w) - 1) tasks)
 End
-
-Theorem FOLDR_int_min_LE_MEM:
-  ∀ls. MEM x ls ⇒ FOLDR int_min s ls ≤ x
-Proof
-  Induct>>rw[]>>
-  gvs[integerTheory.INT_MIN]>>rw[]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem FOLDR_int_max_GE_MEM:
-  ∀ls. MEM x ls ⇒ x ≤ FOLDR int_max s ls
-Proof
-  Induct>>rw[]>>
-  gvs[integerTheory.INT_MAX]>>rw[]>>
-  intLib.ARITH_TAC
-QED
 
 Theorem FOLDR_int_min_LE_0:
   ∀ls. FOLDR int_min 0 ls ≤ 0

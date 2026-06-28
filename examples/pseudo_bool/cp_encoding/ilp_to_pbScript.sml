@@ -39,6 +39,17 @@ Definition encode_ivar_def:
   else (bits:('a,'b) epb lin_term)
 End
 
+Theorem encode_ivar_sem_2:
+  eval_lin_term w (encode_ivar bnd X) =
+  unreify_epb bnd w X
+Proof
+  rw[encode_ivar_def,unreify_epb_def]>>
+  pairarg_tac>>gvs[]>>
+  IF_CASES_TAC>>gvs[two_comp_eval]>>
+  simp[eval_lin_term_def,MAP_GENLIST,eval_term_def,o_DEF,int_of_bits_def,
+       GSYM num_of_bits_GENLIST]
+QED
+
 Theorem encode_ivar_sem_1:
   valid_assignment bnd wi ⇒
   eval_lin_term
@@ -46,62 +57,35 @@ Theorem encode_ivar_sem_1:
   wi X
 Proof
   rw[encode_ivar_def]>>
-  pairarg_tac>>gvs[eval_lin_term_def]>>
-  reverse (rw[])>>
-  simp[MAP_GENLIST,iSUM_def,eval_term_def,o_DEF,reify_epb_def]
-  \\ gvs [valid_assignment_def]
-  \\ last_x_assum $ qspec_then ‘X’ assume_tac
-  \\ Cases_on ‘bnd X’ \\ gvs []
+  pairarg_tac>>gvs[]>>
+  `?q r. bnd X = (q,r)` by metis_tac[PAIR]>>
+  `q ≤ wi X ∧ wi X ≤ r` by (gvs[valid_assignment_def]>>metis_tac[])>>
+  `-&(2 ** h) ≤ wi X ∧ wi X < &(2 ** h)` by (
+    conj_tac
+    >- (
+      Cases_on`0 ≤ wi X` >- (`(0:int) ≤ &(2**h)` by simp[]>>intLib.ARITH_TAC)>>
+      `?m. wi X = -&m ∧ 0 < m` by (Cases_on`wi X`>>gvs[]>>intLib.ARITH_TAC)>>
+      `q < 0` by intLib.ARITH_TAC>>
+      `bit_width bnd X = (T,h)` by gvs[bit_width_def]>>
+      `q ≤ -&m` by intLib.ARITH_TAC>>
+      drule_all bit_width_lemma2>>
+      rw[]>>intLib.ARITH_TAC)>>
+    Cases_on`wi X < 0` >- (`(0:int) ≤ &(2**h)` by simp[]>>intLib.ARITH_TAC)>>
+    `?n. wi X = &n` by intLib.ARITH_TAC>>
+    `&n ≤ r` by intLib.ARITH_TAC>>
+    drule_all bit_width_lemma1>>
+    rw[]>>intLib.ARITH_TAC)>>
+  reverse IF_CASES_TAC
   >- (
-    ‘~(q < 0)’ by gvs [bit_width_def]
-    \\ `?n. wi X = &n` by intLib.ARITH_TAC
-    \\ gvs [] \\ gvs [int_bit_def]
-    \\ gvs [iSUM_GENLIST_eq_SUM_GENLIST]
-    \\ drule_all bit_width_lemma1
-    \\ gvs [SUM_GENLIST_BIT])
-  \\ Cases_on ‘~(wi X < 0)’ \\ gvs [int_bit_def]
-  \\ gvs [iSUM_GENLIST_eq_SUM_GENLIST]
-  >- (
-    `?n. wi X = &n` by intLib.ARITH_TAC
-    \\ gvs [] \\ gvs [int_bit_def]
-    \\ gvs [iSUM_GENLIST_eq_SUM_GENLIST]
-    \\ drule_all bit_width_lemma1
-    \\ gvs [SUM_GENLIST_BIT])
-  \\ `?n. wi X = -&n` by (Cases_on ‘wi X’ \\ gvs [] \\ intLib.ARITH_TAC)
-  \\ gvs [int_not_def]
-  \\ ‘& n - 1 = & (n - 1) :int’ by intLib.COOPER_TAC \\ gvs []
-  \\ irule (intLib.COOPER_PROVE “k ≤ n ∧ n = k + m ⇒ - & n + & k = -& m :int”)
-  \\ conj_tac >- gvs [SUM_GENLIST_LE]
-  \\ gvs []
-  \\ drule_all bit_width_lemma2 \\ strip_tac
-  \\ ‘SUM (GENLIST (λi. if ¬BIT i (n − 1) then 2 ** i else 0) h) =
-      2 ** h - n’ suffices_by fs []
-  \\ ‘SUM (GENLIST (λi. if ¬BIT i (n − 1) then 2 ** i else 0) h) =
-      SUM (GENLIST (λi. if BIT i (2 ** h - n) then 2 ** i else 0) h)’
-         suffices_by gvs [SUM_GENLIST_BIT]
-  \\ AP_TERM_TAC
-  \\ simp [GENLIST_FUN_EQ] \\ rpt strip_tac
-  \\ qspecl_then [‘h’,‘i’,‘n’] mp_tac bitTheory.BIT_COMPLEMENT
-  \\ Cases_on`n = 2 **h` \\ gvs[]
-  \\ qspecl_then [‘h’,‘i’,‘1’] mp_tac bitTheory.BIT_COMPLEMENT
-  \\ simp[ONE_MOD]
-QED
-
-Theorem encode_ivar_sem_2:
-  eval_lin_term w (encode_ivar bnd X) =
-  unreify_epb bnd w X
-Proof
-  rw[encode_ivar_def,unreify_epb_def]>>
-  pairarg_tac>>gvs[eval_lin_term_def]>>
-  reverse IF_CASES_TAC>>
-  simp[MAP_GENLIST,iSUM_def,eval_term_def,o_DEF,int_of_bits_def]>>
-  rw[num_of_bits_GENLIST]>>
-  simp[int_not_def]>>
-  ntac 2 (pop_assum kall_tac)>>
-  Induct_on`h`>>
-  fs[iSUM_def,GENLIST,SNOC_APPEND,b2i_alt,EXP]>>
-  rw[]>>
-  intLib.ARITH_TAC
+    `~(wi X < 0)` by (gvs[bit_width_def]>>intLib.ARITH_TAC)>>
+    `?n. wi X = &n` by (Cases_on`wi X`>>gvs[])>>
+    gvs[eval_lin_term_def,MAP_GENLIST,iSUM_def,eval_term_def,o_DEF,
+        reify_epb_def,int_bit_def]>>
+    gvs[iSUM_GENLIST_eq_SUM_GENLIST]>>
+    drule_all bit_width_lemma1>>
+    gvs[SUM_GENLIST_BIT])>>
+  simp[two_comp_eval,reify_epb_def]>>
+  irule two_comp_reconstruct>>gvs[]
 QED
 
 Definition mul_lin_term_def:

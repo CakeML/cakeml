@@ -173,6 +173,8 @@ val res = translate sexp_scheduling_dispatch_def;
 
 (* sorting *)
 val res = translate sexp_increasing_body_def;
+val res = translate sexp_sort_body_def;
+val res = translate sexp_argsort_body_def;
 val res = translate sexp_sorting_dispatch_def;
 
 val res = translate strip_prefix_def;
@@ -262,6 +264,12 @@ val res = translate format_var_def;
 
 val res = translate encode_ge_aux_def;
 val res = translate encode_eq_aux_def;
+
+(* iconstraint-list eq/ge builders (used by the ArgSort equality flags) *)
+val res = translate ilpTheory.bimply_bit_def;
+val res = translate encode_ge_def;
+val res = translate encode_eq_def;
+val res = translate encode_full_eq_def;
 
 val res = translate mk_constraint_ge_def;
 val res = translate mk_ge_def;
@@ -706,6 +714,47 @@ val res = translate cp_to_ilp_schedulingTheory.cencode_scheduling_constr_def;
 val res = translate cp_to_ilp_sortingTheory.inc_cmp_def;
 val res = translate cp_to_ilp_sortingTheory.inc_chain_def;
 val res = translate cp_to_ilp_sortingTheory.cencode_increasing_def;
+
+(* Sort core.  sort_width/sort_guard are translated via their value-preserving,
+   subtraction-free alt forms (sort_width_alt/sort_guard_alt) so the truncated
+   subtractions (n-1, w-LENGTH...) don't carry preconditions through the encoder. *)
+val res = translate cp_to_ilp_sortingTheory.sort_bf_def;
+val res = translate cp_to_ilp_sortingTheory.sort_posbit_def;
+val res = translate cp_to_ilp_sortingTheory.sort_width_alt;
+val res = translate cp_to_ilp_sortingTheory.sort_pos_num_def;
+val res = translate cp_to_ilp_sortingTheory.sort_before_sum_def;
+val res = translate cp_to_ilp_sortingTheory.sort_chain_le_def;
+val res = translate cp_to_ilp_sortingTheory.sort_bf_lines_def;
+val res = translate cp_to_ilp_sortingTheory.sort_rank_lines_def;
+val res = translate MAX_DEF;
+val res = translate cp_to_ilp_sortingTheory.nth_bit_def;
+val res = translate cp_to_ilp_sortingTheory.sort_guard_alt;
+val res = translate cp_to_ilp_sortingTheory.sort_chan_lines_def;
+val res = translate cp_to_ilp_sortingTheory.cencode_sort_def;
+
+(* ArgSort *)
+val res = translate cp_to_ilp_sortingTheory.argsort_ybit_def;
+val res = translate cp_to_ilp_sortingTheory.argsort_ysgn_def;
+val res = translate cp_to_ilp_sortingTheory.argsort_yge_def;
+val res = translate cp_to_ilp_sortingTheory.argsort_y_num_def;
+val res = translate cp_to_ilp_sortingTheory.argsort_width_def;
+val res = translate cp_to_ilp_sortingTheory.lin_ge_varc_def;
+val res = translate cp_to_ilp_sortingTheory.lin_le_varc_def;
+val res = translate cp_to_ilp_sortingTheory.lin_ge_lin_def;
+val res = translate cp_to_ilp_sortingTheory.lin_ge_const_def;
+val res = translate cp_to_ilp_sortingTheory.lin_le_const_def;
+val res = translate cp_to_ilp_sortingTheory.cwrap_def;
+val res = translate cp_to_ilp_sortingTheory.argsort_chain_le_alt;
+val res = translate cp_to_ilp_sortingTheory.argsort_pos_chan_def;
+val res = translate cp_to_ilp_sortingTheory.argsort_p_range_def;
+val res = translate cp_to_ilp_sortingTheory.argsort_eq_flags_def;
+val res = translate cp_to_ilp_sortingTheory.argsort_perm_def;
+val res = translate cp_to_ilp_sortingTheory.argsort_valchan_def;
+val res = translate cp_to_ilp_sortingTheory.argsort_rankchan_def;
+val res = translate cp_to_ilp_sortingTheory.adj_pairs_def;
+val res = translate cp_to_ilp_sortingTheory.argsort_tiebreak_alt;
+val res = translate cp_to_ilp_sortingTheory.cencode_argsort_def;
+
 val res = translate cp_to_ilp_sortingTheory.cencode_sorting_constr_def;
 
 (* cp_to_ilp_all *)
