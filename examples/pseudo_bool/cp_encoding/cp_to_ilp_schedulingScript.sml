@@ -585,22 +585,98 @@ Proof
   simp[integerTheory.INT_GE,LAMBDA_PROD]
 QED
 
-(* per-time capacity line: Σ_i contrib(i,t) ≤ cap *)
+(* per-task active window: t ranges over [lb_x, ub_x + ub_w - 1] *)
+Definition task_lo_def:
+  task_lo bnd x = FST (varc_bnd bnd x)
+End
+Definition task_hi_def:
+  task_hi bnd x w = SND (varc_bnd bnd x) + SND (varc_bnd bnd w) - 1
+End
+Definition cumul_covers_def:
+  cumul_covers bnd x w t ⇔ task_lo bnd x ≤ t ∧ t ≤ task_hi bnd x w
+End
+Definition cumul_ts_task_def:
+  cumul_ts_task bnd x w =
+  GENLIST (λk. task_lo bnd x + &k)
+    (if task_hi bnd x w < task_lo bnd x then 0
+     else Num (task_hi bnd x w - task_lo bnd x + 1))
+End
+
+(* cap-line times: the deduplicated union of all per-task windows, built with
+   the same sorted-set machinery as union_dom *)
+Definition cumul_times_def:
+  cumul_times bnd tasks =
+  numset_to_intlist (FOLDL union LN
+    (MAP (λ(x,w,h). list_to_num_set (MAP intnum (cumul_ts_task bnd x w))) tasks))
+End
+
+Theorem MEM_cumul_ts_task:
+  MEM t (cumul_ts_task bnd x w) ⇔ cumul_covers bnd x w t
+Proof
+  rw[cumul_ts_task_def,cumul_covers_def,MEM_GENLIST]>>
+  Cases_on ‘task_hi bnd x w < task_lo bnd x’>>gvs[]
+  >- intLib.ARITH_TAC>>
+  `0 ≤ task_hi bnd x w - task_lo bnd x + 1` by intLib.ARITH_TAC>>
+  `&(Num (task_hi bnd x w - task_lo bnd x + 1)) =
+     task_hi bnd x w - task_lo bnd x + 1` by metis_tac[integerTheory.INT_OF_NUM]>>
+  eq_tac>>rw[]
+  >- intLib.ARITH_TAC
+  >- (
+    `(&k):int < &(Num (task_hi bnd x w - task_lo bnd x + 1))` by
+      simp[integerTheory.INT_LT]>>
+    intLib.ARITH_TAC)>>
+  qexists`Num (t - task_lo bnd x)`>>
+  `0 ≤ t - task_lo bnd x` by intLib.ARITH_TAC>>
+  `&(Num (t - task_lo bnd x)) = t - task_lo bnd x` by
+    metis_tac[integerTheory.INT_OF_NUM]>>
+  `(&(Num (t - task_lo bnd x))):int < &(Num (task_hi bnd x w - task_lo bnd x + 1))` by
+    intLib.ARITH_TAC>>
+  fs[integerTheory.INT_LT]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem MEM_cumul_times:
+  MEM t (cumul_times bnd tasks) ⇔
+  ∃x w h. MEM (x,w,h) tasks ∧ MEM t (cumul_ts_task bnd x w)
+Proof
+  rw[cumul_times_def,MEM_numset_to_intlist,domain_FOLDL_union,domain_def,
+     MEM_MAP,PULL_EXISTS,domain_list_to_num_set,EXISTS_PROD]>>
+  metis_tac[numint_intnum]
+QED
+
+(* an active task is covered by its own window *)
+Theorem cumul_active_in_window:
+  valid_assignment bnd wi ∧
+  varc wi x ≤ t ∧ varc wi x + varc wi w ≥ t + 1 ⇒
+  cumul_covers bnd x w t
+Proof
+  rw[cumul_covers_def,task_lo_def,task_hi_def]>>
+  `FST (varc_bnd bnd x) ≤ varc wi x ∧ varc wi x ≤ SND (varc_bnd bnd x) ∧
+   FST (varc_bnd bnd w) ≤ varc wi w ∧ varc wi w ≤ SND (varc_bnd bnd w)` by
+    metis_tac[varc_bnd_valid]>>
+  intLib.ARITH_TAC
+QED
+
+(* per-time capacity line: Σ contrib(i,t) ≤ cap, summed over the tasks whose
+   window covers t *)
 Definition cumul_cap_line_def:
   cumul_cap_line bnd name tasks cap t =
   let loadbs = FLAT (MAPi (λi (x,w,h).
-      MAP (λ(a,l). (-a,l))
-        (cumul_ub_num name i t (SND (varc_bnd bnd h)))) tasks) in
+      if cumul_covers bnd x w t
+      then MAP (λ(a,l). (-a,l)) (cumul_ub_num name i t (SND (varc_bnd bnd h)))
+      else []) tasks) in
   let lbl = mk_name name («cap_» ^ toString (intnum t)) in
   case cap of
     INR c => List [(SOME lbl, ([],loadbs,-c))]
   | INL v => List [(SOME lbl, ([(1i,v)],loadbs,0i))]
 End
 
-Theorem eval_lin_term_FLAT_MAPi_neg:
-  ∀ls g. eval_lin_term wb
-    (FLAT (MAPi (λi (x,w,h). MAP (λ(c,l). (-c,l)) (g i x w h)) ls)) =
-  -iSUM (MAPi (λi (x,w,h). eval_lin_term wb (g i x w h)) ls)
+Theorem eval_lin_term_FLAT_MAPi_neg_if:
+  ∀ls g P. eval_lin_term wb
+    (FLAT (MAPi (λi (x,w,h).
+       if P i x w h then MAP (λ(c,l). (-c,l)) (g i x w h) else []) ls)) =
+  -iSUM (MAPi (λi (x,w,h).
+       if P i x w h then eval_lin_term wb (g i x w h) else 0) ls)
 Proof
   Induct
   >- rw[eval_lin_term_def,iSUM_def,indexedListsTheory.MAPi_def]
@@ -615,81 +691,15 @@ QED
 Theorem cumul_cap_line_sem:
   EVERY (λx. iconstraint_sem x (wi,wb))
     (abstr (cumul_cap_line bnd name tasks cap t)) ⇔
-  iSUM (MAPi (λi (x,w,h). eval_lin_term wb
-    (cumul_ub_num name i t (SND (varc_bnd bnd h)))) tasks) ≤ varc wi cap
+  iSUM (MAPi (λi (x,w,h).
+    if cumul_covers bnd x w t
+    then eval_lin_term wb (cumul_ub_num name i t (SND (varc_bnd bnd h)))
+    else 0) tasks) ≤ varc wi cap
 Proof
   rw[cumul_cap_line_def]>>
   CASE_TAC>>
   simp[iconstraint_sem_def,eval_ilin_term_def,iSUM_def,varc_def,
-       eval_lin_term_FLAT_MAPi_neg]>>
-  intLib.ARITH_TAC
-QED
-
-(* global window [tlo,thi] covering every task's possibly-active times *)
-Definition cumul_tlo_def:
-  cumul_tlo bnd tasks = FOLDR int_min 0 (MAP (λ(x,w,h). FST (varc_bnd bnd x)) tasks)
-End
-Definition cumul_thi_def:
-  cumul_thi bnd tasks =
-  FOLDR int_max 0
-    (MAP (λ(x,w,h). SND (varc_bnd bnd x) + SND (varc_bnd bnd w) - 1) tasks)
-End
-
-Theorem FOLDR_int_min_LE_0:
-  ∀ls. FOLDR int_min 0 ls ≤ 0
-Proof
-  Induct>>rw[integerTheory.INT_MIN]>>intLib.ARITH_TAC
-QED
-
-Theorem FOLDR_int_max_0_LE:
-  ∀ls. 0 ≤ FOLDR int_max 0 ls
-Proof
-  Induct>>rw[integerTheory.INT_MAX]>>intLib.ARITH_TAC
-QED
-
-Theorem cumul_tlo_LE_0:
-  cumul_tlo bnd tasks ≤ 0
-Proof
-  rw[cumul_tlo_def,FOLDR_int_min_LE_0]
-QED
-
-Theorem cumul_thi_0_LE:
-  0 ≤ cumul_thi bnd tasks
-Proof
-  rw[cumul_thi_def,FOLDR_int_max_0_LE]
-QED
-
-Theorem cumul_tlo_LE:
-  MEM (x,w,h) tasks ⇒ cumul_tlo bnd tasks ≤ FST (varc_bnd bnd x)
-Proof
-  rw[cumul_tlo_def]>>irule FOLDR_int_min_LE_MEM>>
-  simp[MEM_MAP]>>qexists`(x,w,h)`>>simp[]
-QED
-
-Theorem cumul_thi_GE:
-  MEM (x,w,h) tasks ⇒
-  SND (varc_bnd bnd x) + SND (varc_bnd bnd w) - 1 ≤ cumul_thi bnd tasks
-Proof
-  rw[cumul_thi_def]>>irule FOLDR_int_max_GE_MEM>>
-  simp[MEM_MAP]>>qexists`(x,w,h)`>>simp[]
-QED
-
-(* the backward direction is all we need (and holds unconditionally; the
-   iff fails when thi < tlo, but cumul_tlo ≤ 0 ≤ cumul_thi rules that out) *)
-Theorem MEM_cumul_ts:
-  tlo ≤ t ∧ t ≤ thi ⇒
-  MEM t (GENLIST (λk. tlo + &k) (Num (thi - tlo + 1)))
-Proof
-  rw[MEM_GENLIST]>>
-  `0 ≤ t - tlo` by intLib.ARITH_TAC>>
-  `0 ≤ thi - tlo + 1` by intLib.ARITH_TAC>>
-  `&(Num (t - tlo)) = t - tlo` by metis_tac[integerTheory.INT_OF_NUM]>>
-  `&(Num (thi - tlo + 1)) = thi - tlo + 1` by metis_tac[integerTheory.INT_OF_NUM]>>
-  qexists`Num (t - tlo)`>>
-  conj_tac
-  >- (
-    `(&(Num (t - tlo))):int < &(Num (thi - tlo + 1))` by intLib.ARITH_TAC>>
-    fs[integerTheory.INT_LT])>>
+       eval_lin_term_FLAT_MAPi_neg_if]>>
   intLib.ARITH_TAC
 QED
 
@@ -740,9 +750,6 @@ Definition cencode_cumulative_def:
   if LENGTH Xs ≠ LENGTH Ws ∨ LENGTH Xs ≠ LENGTH Hs then cfalse_constr
   else
     let tasks = ZIP (Xs, ZIP (Ws, Hs)) in
-    let tlo = cumul_tlo bnd tasks in
-    let thi = cumul_thi bnd tasks in
-    let ts = GENLIST (λk. tlo + &k) (Num (thi - tlo + 1)) in
     Append (cumul_nonneg name tasks cap)
     (Append
       (flat_app (MAPi (λi (x,w,h).
@@ -753,8 +760,8 @@ Definition cencode_cumulative_def:
              (cbimply_var bnd (cumul_after name i t)
                (mk_constraint_ge 1 x 1 w (t + 1)))
            (Append (mk_cumul_active name i t)
-                   (mk_cumul_contrib bnd name h i t)))) ts)) tasks))
-      (flat_app (MAP (λt. cumul_cap_line bnd name tasks cap t) ts)))
+                   (mk_cumul_contrib bnd name h i t)))) (cumul_ts_task bnd x w))) tasks))
+      (flat_app (MAP (λt. cumul_cap_line bnd name tasks cap t) (cumul_times bnd tasks))))
 End
 
 Definition encode_cumulative_def:
@@ -816,6 +823,22 @@ Proof
     simp[EVERY_SND,cumul_cap_line_sem]>>
     `∀j. j < LENGTH Hs ⇒ 0 ≤ varc wi (EL j Hs)` by
       fs[cumulative_sem_def,EVERY_EL,EL_MAP]>>
+    (* drop the covering guard: a non-covering task is inactive, so its
+       contribution is 0 either way *)
+    `iSUM (MAPi (λi (x,w,h).
+        if cumul_covers bnd x w t
+        then eval_lin_term (reify_avar cs wi)
+               (cumul_ub_num name i t (SND (varc_bnd bnd h))) else 0)
+       (ZIP (Xs,ZIP (Ws,Hs)))) =
+     iSUM (MAPi (λi (x,w,h).
+        eval_lin_term (reify_avar cs wi)
+          (cumul_ub_num name i t (SND (varc_bnd bnd h)))) (ZIP (Xs,ZIP (Ws,Hs))))` by (
+      AP_TERM_TAC>>irule LIST_EQ>>simp[LENGTH_MAPi,LENGTH_ZIP]>>rw[]>>
+      `0 ≤ varc wi (EL x Hs)` by gs[]>>
+      simp[EL_MAPi,EL_ZIP,EL_MAP]>>IF_CASES_TAC>>simp[]>>
+      DEP_REWRITE_TAC[cumul_ub_num_reify]>>simp[]>>rw[]>>
+      metis_tac[cumul_active_in_window])>>
+    pop_assum SUBST1_TAC>>
     qpat_x_assum`cumulative_sem _ _ _ _ _`mp_tac>>
     simp[cumulative_sem_def]>>strip_tac>>
     first_x_assum(qspec_then`t`mp_tac)>>
@@ -869,7 +892,8 @@ Proof
   gvs[]>>intLib.ARITH_TAC
 QED
 
-(* the flag+contrib lines force every contribution bit-sum to its gated height *)
+(* a task's flag+contrib lines force its contribution bit-sum to its gated
+   height, at every time in its own window *)
 Theorem cumul_flags_contrib:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
@@ -881,50 +905,26 @@ Theorem cumul_flags_contrib:
            (cbimply_var bnd (cumul_after name i t)
               (mk_constraint_ge 1 x 1 w (t + 1)))
          (Append (mk_cumul_active name i t)
-                 (mk_cumul_contrib bnd name h i t)))) ts)) tasks))) ⇒
-  ∀t. MEM t ts ⇒
-    MAPi (λi (x,w,h).
-      eval_lin_term wb (cumul_ub_num name i t (SND (varc_bnd bnd h)))) tasks =
-    MAPi (λi (x,w,h).
-      if varc wi x ≤ t ∧ varc wi x + varc wi w ≥ t + 1
-      then varc wi h else 0) tasks
+                 (mk_cumul_contrib bnd name h i t)))) (cumul_ts_task bnd x w)))
+       tasks))) ⇒
+  ∀i x w h t. i < LENGTH tasks ∧ EL i tasks = (x,w,h) ∧
+    MEM t (cumul_ts_task bnd x w) ⇒
+    eval_lin_term wb (cumul_ub_num name i t (SND (varc_bnd bnd h))) =
+    (if varc wi x ≤ t ∧ varc wi x + varc wi w ≥ t + 1 then varc wi h else 0)
 Proof
   strip_tac>>
-  gen_tac>>strip_tac>>
-  irule LIST_EQ>>
-  simp[LENGTH_MAPi,EL_MAPi]>>
-  qx_gen_tac`i`>>strip_tac>>
+  rpt gen_tac>>strip_tac>>
   qpat_x_assum`EVERY _ (abstr _)`mp_tac>>
   simp[append_flat_app,EVERY_FLAT,EVERY_MAP]>>
   simp[Once EVERY_EL,LENGTH_MAPi]>>
   disch_then(qspec_then`i`mp_tac)>>simp[EL_MAPi]>>
-  Cases_on`EL i tasks`>>Cases_on`r`>>simp[]>>
+  qpat_x_assum`EL i tasks = _`(fn th => simp[th])>>
   simp[append_flat_app,EVERY_FLAT,EVERY_MAP]>>
   simp[Once EVERY_MEM]>>
   disch_then(qspec_then`t`mp_tac)>>simp[]>>
   strip_tac>>
   irule cumul_taskt_sound>>
   gvs[]
-QED
-
-(* the per-time load list (over tasks) equals the semantic occupancy list *)
-Theorem cumul_load_eq[local]:
-  LENGTH Xs = LENGTH Ws ∧ LENGTH Xs = LENGTH Hs ⇒
-  GENLIST (λi. if (MAP (varc wi) Xs)❲i❳ ≤ t ∧
-            t < (MAP (varc wi) Xs)❲i❳ + (MAP (varc wi) Ws)❲i❳
-          then (MAP (varc wi) Hs)❲i❳ else 0) (LENGTH Ws) =
-  MAPi (λi (x,w,h).
-    if varc wi x ≤ t ∧ varc wi x + varc wi w ≥ t + 1
-    then varc wi h else 0) (ZIP (Xs,ZIP (Ws,Hs)))
-Proof
-  strip_tac>>
-  irule LIST_EQ>>
-  gvs[LENGTH_MAPi,LENGTH_ZIP]>>
-  rw[]>>
-  DEP_REWRITE_TAC[EL_MAPi,EL_ZIP]>>
-  gvs[LENGTH_ZIP,EL_MAP]>>
-  rw[]>>
-  intLib.ARITH_TAC
 QED
 
 Theorem encode_cumulative_sem_2:
@@ -946,25 +946,23 @@ Proof
   >- (simp[EVERY_EL,EL_MAP]>>metis_tac[])
   >- (
     qmatch_asmsub_abbrev_tac`cumul_cap_line bnd name tasks cap`>>
-    qabbrev_tac`ts = GENLIST (λk. cumul_tlo bnd tasks + &k)
-      (Num (cumul_thi bnd tasks − cumul_tlo bnd tasks + 1))`>>
-    `∀t. MEM t ts ⇒
-       MAPi (λi (x,w,h).
-         eval_lin_term wb (cumul_ub_num name i t (SND (varc_bnd bnd h)))) tasks =
-       MAPi (λi (x,w,h).
-         if varc wi x ≤ t ∧ varc wi x + varc wi w ≥ t + 1
-         then varc wi h else 0) tasks` by (
+    `∀i x w h t. i < LENGTH tasks ∧ EL i tasks = (x,w,h) ∧
+       MEM t (cumul_ts_task bnd x w) ⇒
+       eval_lin_term wb (cumul_ub_num name i t (SND (varc_bnd bnd h))) =
+       (if varc wi x ≤ t ∧ varc wi x + varc wi w ≥ t + 1 then varc wi h else 0)` by (
       ho_match_mp_tac cumul_flags_contrib>>
       gvs[abstr_flat_app,combinTheory.o_DEF])>>
-    `∀t. MEM t ts ⇒
+    `∀t. MEM t (cumul_times bnd tasks) ⇒
        iSUM (MAPi (λi (x,w,h).
-         eval_lin_term wb (cumul_ub_num name i t (SND (varc_bnd bnd h)))) tasks) ≤
-       varc wi cap` by (
+         if cumul_covers bnd x w t
+         then eval_lin_term wb (cumul_ub_num name i t (SND (varc_bnd bnd h)))
+         else 0) tasks) ≤ varc wi cap` by (
       qpat_x_assum`EVERY _ (FLAT (MAP _ (MAP _ _)))`mp_tac>>
       simp[EVERY_FLAT,EVERY_MAP,EVERY_SND,cumul_cap_line_sem,EVERY_MEM])>>
     strip_tac>>
-    reverse(Cases_on`cumul_tlo bnd tasks ≤ t ∧ t ≤ cumul_thi bnd tasks`)
+    reverse (Cases_on`MEM t (cumul_times bnd tasks)`)
     >- (
+      (* uncovered: no task's window contains t, so every task is inactive *)
       `GENLIST (λi. if (MAP (varc wi) Xs)❲i❳ ≤ t ∧
               t < (MAP (varc wi) Xs)❲i❳ + (MAP (varc wi) Ws)❲i❳
             then (MAP (varc wi) Hs)❲i❳ else 0) (LENGTH Ws) =
@@ -973,33 +971,37 @@ Proof
         `i < LENGTH Xs ∧ i < LENGTH Hs` by gs[]>>
         `MEM (EL i Xs,EL i Ws,EL i Hs) tasks` by
           (simp[Abbr`tasks`,MEM_EL]>>qexists`i`>>simp[EL_ZIP,LENGTH_ZIP])>>
-        `cumul_tlo bnd tasks ≤ FST (varc_bnd bnd (EL i Xs)) ∧
-         FST (varc_bnd bnd (EL i Xs)) ≤ varc wi (EL i Xs) ∧
-         varc wi (EL i Xs) ≤ SND (varc_bnd bnd (EL i Xs)) ∧
-         varc wi (EL i Ws) ≤ SND (varc_bnd bnd (EL i Ws)) ∧
-         SND (varc_bnd bnd (EL i Xs)) + SND (varc_bnd bnd (EL i Ws)) - 1 ≤
-           cumul_thi bnd tasks` by
-          metis_tac[cumul_tlo_LE,cumul_thi_GE,varc_bnd_valid]>>
-        gvs[EL_MAP]>>rw[]>>
-        qpat_x_assum`valid_assignment _ _`kall_tac>>
-        rpt(qpat_x_assum`EVERY _ _`kall_tac)>>
-        rpt(qpat_x_assum`Abbrev _`kall_tac)>>
-        rpt(qpat_x_assum`MEM _ _`kall_tac)>>
-        rpt(qpat_x_assum`!x._`kall_tac)>>
-        intLib.ARITH_TAC)>>
+        `varc wi (EL i Xs) ≤ t ∧ varc wi (EL i Xs) + varc wi (EL i Ws) ≥ t + 1` by
+          (gvs[EL_MAP]>>
+           simp[intLib.ARITH_PROVE``∀a b t:int. (a + b ≥ t + 1) ⇔ (t < a + b)``])>>
+        `cumul_covers bnd (EL i Xs) (EL i Ws) t` by metis_tac[cumul_active_in_window]>>
+        metis_tac[MEM_cumul_times,MEM_cumul_ts_task])>>
       simp[iSUM_GENLIST_0])
     >- (
-      `MEM t ts` by (simp[Abbr`ts`]>>irule MEM_cumul_ts>>simp[])>>
-      qpat_x_assum`∀t. MEM t ts ⇒ iSUM _ ≤ _`drule>>
-      qpat_x_assum`∀t. MEM t ts ⇒ MAPi _ _ = _`drule>>
-      rw[]>>
-      `GENLIST (λi. if (MAP (varc wi) Xs)❲i❳ ≤ t ∧
+      (* covered: the cap line at t bounds the (deduplicated) load *)
+      qpat_x_assum`∀t. MEM t (cumul_times _ _) ⇒ iSUM _ ≤ _`drule>>strip_tac>>
+      `iSUM (GENLIST (λi. if (MAP (varc wi) Xs)❲i❳ ≤ t ∧
               t < (MAP (varc wi) Xs)❲i❳ + (MAP (varc wi) Ws)❲i❳
-            then (MAP (varc wi) Hs)❲i❳ else 0) (LENGTH Ws) =
-       MAPi (λi (x,w,h).
-         if varc wi x ≤ t ∧ varc wi x + varc wi w ≥ t + 1
-         then varc wi h else 0) tasks` by
-        (simp[Abbr`tasks`]>>irule cumul_load_eq>>simp[])>>
+            then (MAP (varc wi) Hs)❲i❳ else 0) (LENGTH Ws)) =
+       iSUM (MAPi (λi (x,w,h).
+         if cumul_covers bnd x w t
+         then eval_lin_term wb (cumul_ub_num name i t (SND (varc_bnd bnd h)))
+         else 0) tasks)` by (
+        AP_TERM_TAC>>irule LIST_EQ>>
+        simp[Abbr`tasks`,LENGTH_MAPi,LENGTH_ZIP]>>
+        qx_gen_tac`n`>>strip_tac>>
+        `0 ≤ varc wi (EL n Hs) ∧ n < LENGTH Hs` by gs[]>>
+        simp[EL_MAPi,EL_ZIP,EL_MAP,LENGTH_ZIP]>>
+        reverse (Cases_on`cumul_covers bnd (EL n Xs) (EL n Ws) t`)>>simp[]
+        >- (
+          `¬(varc wi (EL n Xs) ≤ t ∧ varc wi (EL n Xs) + varc wi (EL n Ws) ≥ t + 1)` by
+            metis_tac[cumul_active_in_window]>>
+          gvs[intLib.ARITH_PROVE``∀a b t:int. (a + b ≥ t + 1) ⇔ (t < a + b)``])>>
+        `eval_lin_term wb (cumul_ub_num name n t (SND (varc_bnd bnd (EL n Hs)))) =
+         (if varc wi (EL n Xs) ≤ t ∧ varc wi (EL n Xs) + varc wi (EL n Ws) ≥ t + 1
+          then varc wi (EL n Hs) else 0)` by
+          (first_x_assum irule>>simp[EL_ZIP,LENGTH_ZIP,MEM_cumul_ts_task])>>
+        simp[intLib.ARITH_PROVE``∀a b t:int. (a + b ≥ t + 1) ⇔ (t < a + b)``])>>
       gvs[]))
 QED
 
