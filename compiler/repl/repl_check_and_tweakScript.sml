@@ -15,10 +15,10 @@ val _ = Parse.hide "types"
 Definition check_and_tweak_def:
   check_and_tweak (decs, types, input_str) =
     case add_print_then_read types decs of
-    | Success (new_decs,new_types) =>
+    | M_success (new_decs,new_types) =>
         if decs_allowed new_decs then INR (new_decs, new_types)
         else INL «ERROR: input contains reserved constructor/FFI names»
-    | Failure (loc,msg) =>
+    | M_failure (loc,msg) =>
         INL (concat [«ERROR: »; msg; « at »;
                      locs_to_string input_str loc])
 End
@@ -27,7 +27,7 @@ End
 
 Theorem check_and_tweak: (* used in replProof *)
   check_and_tweak (decs,types,input_str) = INR (safe_decs,new_types) ⇒
-  infertype_prog_inc (SND types) safe_decs = Success (SND new_types) ∧
+  infertype_prog_inc (SND types) safe_decs = M_success (SND new_types) ∧
   decs_allowed safe_decs
 Proof
   fs [check_and_tweak_def,AllCaseEqs()] \\ rw []

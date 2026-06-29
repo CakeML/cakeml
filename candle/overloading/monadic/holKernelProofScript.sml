@@ -6,18 +6,16 @@ Theory holKernelProof
 Libs
   preamble
 Ancestors
-  mlstring mllist ml_monadBase holKernel holSyntaxLib
+  ml_monadBase mlstring mllist holKernel holSyntaxLib
   holSyntax holSyntaxExtra
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = ParseExtras.temp_loose_equality();
 val _ = hide"str";
-Overload monad_bind[local] = ``st_ex_bind``
-Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload return[local] = ``st_ex_return``
-Overload ex_return[local] = ``st_ex_return``
+
+val _ = monadsyntax.temp_enable_monad "st_ex";
+
 Overload failwith[local] = ``raise_Fail``
 Overload raise_clash[local] = ``raise_Clash``
 Overload handle_clash[local] = ``handle_Clash``
@@ -877,7 +875,7 @@ QED
 
 Theorem mk_eq_lemma[local]:
   inst [(term_type x,aty)] (Const «=» (Fun aty (Fun aty Bool))) s =
-    ex_return
+    st_ex_return
         (Const «=»
            (Fun (term_type x) (Fun (term_type x) Bool))) s
 Proof
@@ -2349,7 +2347,7 @@ Theorem check_overloads_thm:
      (∀msg. (res = M_failure msg) ⇒ (s' = s))
 Proof
   simp_tac std_ss [check_overloads_def,GSYM STRCAT_SHADOW_def] >>
-  simp[st_ex_bind_def,get_the_term_constants_def] >>
+  simp[st_ex_bind_def,st_ex_ignore_bind_def,get_the_term_constants_def] >>
   rpt gen_tac >>
   PURE_CASE_TAC >>
   drule forall_thm >>
@@ -2444,7 +2442,7 @@ Theorem new_specification_thm:
 Proof
   Cases_on`th` >>
   simp_tac std_ss [new_specification_def,GSYM STRCAT_SHADOW_def] >>
-  simp[st_ex_bind_def,st_ex_return_def] >>
+  simp[st_ex_bind_def,st_ex_ignore_bind_def,st_ex_return_def] >>
   rpt strip_tac >>
   Q.PAT_ABBREV_TAC`(f:term -> hol_refs -> ((((mlstring#type)#term), hol_exn) exc#hol_refs)) = X` >>
   `EVERY (λt. term_ok (sigof defs) t ∧ (typeof t = Bool)) (t::l)` by (
@@ -3256,7 +3254,7 @@ Theorem new_overloading_specification_thm:
 Proof
   Cases_on`th` >>
   simp_tac std_ss [new_overloading_specification_def,GSYM STRCAT_SHADOW_def] >>
-  simp[st_ex_bind_def,st_ex_return_def] >>
+  simp[st_ex_bind_def,st_ex_ignore_bind_def,st_ex_return_def] >>
   rpt strip_tac >>
   Q.PAT_ABBREV_TAC`(f:term -> hol_refs -> ((((mlstring#type)#term), hol_exn) exc#hol_refs)) = X` >>
   `EVERY (λt. term_ok (sigof defs) t ∧ (typeof t = Bool)) (t::l)` by (
@@ -3547,7 +3545,7 @@ Proof
   simp[Once st_ex_bind_def] >>
   Q.PAT_ABBREV_TAC`vs:string list = sort R X` >>
   simp[add_type_def,can_def,otherwise_def,st_ex_return_def] >>
-  ntac 2 (simp[Once st_ex_bind_def]) >>
+  simp[Once st_ex_bind_def, Once st_ex_ignore_bind_def] >>
   simp[Once st_ex_bind_def,get_the_type_constants_def] >>
   simp[Once st_ex_bind_def,set_the_type_constants_def] >>
   simp[Once st_ex_ignore_bind_def] >>
@@ -3579,6 +3577,7 @@ Proof
   fs[oneTheory.one] >>
   simp[Once st_ex_bind_def,add_def_def,get_the_context_def] >>
   simp[Once st_ex_bind_def,set_the_context_def] >>
+  simp[Once st_ex_ignore_bind_def] >>
   Q.PAT_ABBREV_TAC`s2 = s1 with <|the_term_constants := X; the_context := Y|>` >>
   `STATE s2.the_context s2` by (
     fs[STATE_def] >>
@@ -3847,7 +3846,8 @@ Proof
   Cases_on`add_constants [(name,ty)] s`>>simp[] >>
   Cases_on`q`>>simp[oneTheory.one] >>
   imp_res_tac STATE_ALL_DISTINCT >> rw[] >>
-  rw[add_def_def,st_ex_bind_def,get_the_context_def,set_the_context_def] >>
+  rw[add_def_def,st_ex_bind_def,st_ex_ignore_bind_def,
+     get_the_context_def,set_the_context_def] >>
   qexists_tac`NewConst name ty` >>
   conj_tac >- (
     fs[STATE_def] >>
@@ -3872,7 +3872,7 @@ Theorem new_axiom_thm:
     | (M_success th, s') => (?d. THM (d::defs) th ∧ STATE (d::defs) s' /\
                                !th. THM defs th ==> THM (d::defs) th)
 Proof
-  rw[new_axiom_def,st_ex_bind_def] >>
+  rw[new_axiom_def,st_ex_bind_def,st_ex_ignore_bind_def] >>
   imp_res_tac type_of_thm >> rw[] >>
   qspecl_then[`«bool»`,`[]`,`s`]mp_tac mk_type_thm >>
   Cases_on`mk_type («bool»,[]) s`>>simp[] >>
@@ -4134,8 +4134,10 @@ QED
 Theorem new_specification_not_clash[simp]:
    new_specification a b <> (M_failure (Clash tm),refs)
 Proof
-  Cases_on `a` \\ rw [new_specification_def, st_ex_bind_def, raise_Fail_def,
-                      st_ex_return_def, case_eq_thms, bool_case_eq, COND_RATOR]
+  Cases_on `a`
+  \\ rw [new_specification_def, st_ex_bind_def, raise_Fail_def,
+         st_ex_ignore_bind_def, st_ex_return_def, case_eq_thms, bool_case_eq,
+         COND_RATOR]
   \\ ho_match_mp_tac map_not_clash_thm \\ rw []
   \\ rw [case_eq_thms, bool_case_eq, COND_RATOR, ELIM_UNCURRY]
 QED
@@ -4158,11 +4160,12 @@ QED
 Theorem new_basic_type_definition_not_clash[simp]:
    new_basic_type_definition (a, b, c, d) e <> (M_failure (Clash tm),refs)
 Proof
-  Cases_on `d` \\ rw [new_basic_type_definition_def, st_ex_bind_def,
-                      st_ex_return_def, raise_Fail_def, can_def,
-                      get_type_arity_def, get_the_type_constants_def,
-                      otherwise_def, try_def, case_eq_thms, bool_case_eq,
-                      COND_RATOR, ELIM_UNCURRY]
+  Cases_on `d`
+  \\ rw [new_basic_type_definition_def, st_ex_bind_def, st_ex_ignore_bind_def,
+         st_ex_return_def, raise_Fail_def, can_def,
+         get_type_arity_def, get_the_type_constants_def,
+         otherwise_def, try_def, case_eq_thms, bool_case_eq,
+         COND_RATOR, ELIM_UNCURRY]
 QED
 
 Theorem vsubst_not_clash[simp]:
@@ -4186,21 +4189,21 @@ Theorem new_axiom_not_clash[simp]:
   new_axiom ax s ≠ (M_failure (Clash tm), t)
 Proof
   strip_tac
-  \\ fs [new_axiom_def, st_ex_bind_def, st_ex_return_def, raise_Fail_def,
-         case_eq_thms, bool_case_eq, COND_RATOR, get_the_axioms_def,
+  \\ fs [new_axiom_def, st_ex_bind_def, st_ex_ignore_bind_def, st_ex_return_def,
+         raise_Fail_def, case_eq_thms, bool_case_eq, COND_RATOR, get_the_axioms_def,
          set_the_axioms_def] \\ rw [] \\ fs []
 QED
 
 Theorem new_constant_not_clash[simp]:
   new_constant (a,b) s ≠ (M_failure (Clash tm), t)
 Proof
-  rw [new_constant_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]
+  rw [new_constant_def, st_ex_ignore_bind_def, st_ex_return_def, case_eq_thms]
 QED
 
 Theorem new_type_not_clash[simp]:
   new_type (a,b) s ≠ (M_failure (Clash tm), t)
 Proof
-  rw [new_type_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]
+  rw [new_type_def, st_ex_ignore_bind_def, st_ex_return_def, case_eq_thms]
 QED
 
 Theorem dest_abs_not_clash[simp]:

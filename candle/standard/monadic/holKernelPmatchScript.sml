@@ -12,11 +12,8 @@ Libs
 
 val _ = monadsyntax.temp_add_monadsyntax()
 
-Overload monad_bind[local] = ``st_ex_bind``
-Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload return[local] = ``st_ex_return``
-Overload ex_return[local] = ``st_ex_return``
+val _ = monadsyntax.temp_enable_monad "st_ex";
+
 Overload failwith[local] = ``raise_Failure``
 Overload raise_clash[local] = ``raise_Clash``
 Overload handle_clash[local] = ``handle_Clash``

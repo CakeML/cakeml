@@ -59,7 +59,7 @@ Theorem infertype_prog_correct:
    inf_set_tids_ienv (count start_type_id) ienv ∧
    set_tids_tenv (count start_type_id) st.tenv
    ⇒
-   ∃c' x. infertype_prog ienv p = if can_type_prog st p then Success c' else Failure x
+   ∃c' x. infertype_prog ienv p = if can_type_prog st p then M_success c' else M_failure x
 Proof
   strip_tac
   \\ simp[inferTheory.infertype_prog_def,
@@ -106,11 +106,11 @@ Theorem compile_correct_gen:
    ∀(st:'ffi semantics$state) (cc:α compiler$config) prelude input mc data_sp cbspace.
     initial_condition st cc mc ⇒
     case FST (compiler$compile cc prelude input) of
-    | Failure (ParseError e) => semantics st prelude input = CannotParse
-    | Failure (TypeError e) => semantics st prelude input = IllTyped
-    | Failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
-    | Failure (ConfigError e) => T (* configuration string is malformed *)
-    | Success (code,data,c) =>
+    | M_failure (ParseError e) => semantics st prelude input = CannotParse
+    | M_failure (TypeError e) => semantics st prelude input = IllTyped
+    | M_failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
+    | M_failure (ConfigError e) => T (* configuration string is malformed *)
+    | M_success (code,data,c) =>
       ∃behaviours source_decs.
         (semantics st prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
@@ -180,11 +180,11 @@ Theorem compile_correct_lemma:
   ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace.
     config_ok cc mc ⇒
     case FST (compiler$compile cc prelude input) of
-    | Failure (ParseError e) => semantics_init ffi prelude input = CannotParse
-    | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
-    | Failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
-    | Failure (ConfigError e) => T (* configuration string is malformed *)
-    | Success (code,data,c) =>
+    | M_failure (ParseError e) => semantics_init ffi prelude input = CannotParse
+    | M_failure (TypeError e) => semantics_init ffi prelude input = IllTyped
+    | M_failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
+    | M_failure (ConfigError e) => T (* configuration string is malformed *)
+    | M_success (code,data,c) =>
       ∃behaviours source_decs.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
@@ -232,7 +232,7 @@ QED
 Theorem compile_correct_safe_for_space:
   ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace code data c c'.
     config_ok cc mc ⇒
-    compiler$compile cc prelude input = (Success (code,data,c), c') ⇒
+    compiler$compile cc prelude input = (M_success (code,data,c), c') ⇒
       ∃behaviours source_decs.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
@@ -265,11 +265,11 @@ Theorem compile_correct = Q.prove(`
   ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace.
     config_ok cc mc ⇒
     case FST (compiler$compile cc prelude input) of
-    | Failure (ParseError e) => semantics_init ffi prelude input = CannotParse
-    | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
-    | Failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
-    | Failure (ConfigError e) => T (* configuration string is malformed *)
-    | Success (code,data,c) =>
+    | M_failure (ParseError e) => semantics_init ffi prelude input = CannotParse
+    | M_failure (TypeError e) => semantics_init ffi prelude input = IllTyped
+    | M_failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
+    | M_failure (ConfigError e) => T (* configuration string is malformed *)
+    | M_success (code,data,c) =>
       ∃behaviours.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         ∀ms.
@@ -281,7 +281,7 @@ Theorem compile_correct = Q.prove(`
              for the one without the ⊆ and extend_with_resource_limit *)`,
   rw [] \\ mp_tac (SPEC_ALL compile_correct_lemma)
   \\ fs [] \\ TOP_CASE_TAC \\ fs []
-  \\ rename [‘(Success a,_)’]
+  \\ rename [‘(M_success a,_)’]
   \\ PairCases_on `a` \\ fs [] \\ strip_tac \\ fs []
   \\ rw [] \\ first_x_assum drule \\ rw []
   \\ match_mp_tac SUBSET_TRANS

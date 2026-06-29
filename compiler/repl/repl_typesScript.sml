@@ -47,7 +47,7 @@ QED
 Inductive repl_types:
 [repl_types_init:]
   (∀ffi rs decs types (s:'ffi semanticPrimitives$state) env ck b.
-     infertype_prog_inc (init_config, start_type_id) decs = Success types ∧
+     infertype_prog_inc (init_config, start_type_id) decs = M_success types ∧
      evaluate$evaluate_decs (init_state ffi with clock := ck) init_env decs = (s,Rval env) ∧
      EVERY (check_ref_types (FST types) (extend_dec_env env init_env)) rs ⇒
      repl_types b (ffi,rs) (types,s,extend_dec_env env init_env))
@@ -61,20 +61,20 @@ Inductive repl_types:
 [repl_types_eval:]
   (∀ffi rs decs types new_types (s:'ffi semanticPrimitives$state) env new_env new_s b.
      repl_types b (ffi,rs) (types,s,env) ∧
-     infertype_prog_inc types decs = Success new_types ∧
+     infertype_prog_inc types decs = M_success new_types ∧
      evaluate$evaluate_decs s env decs = (new_s,Rval new_env) ⇒
      repl_types b (ffi,rs) (new_types,new_s,extend_dec_env new_env env))
 [repl_types_exn:]
   (∀ffi rs decs types new_types (s:'ffi semanticPrimitives$state) env e new_s b.
      repl_types b (ffi,rs) (types,s,env) ∧
-     infertype_prog_inc types decs = Success new_types ∧
+     infertype_prog_inc types decs = M_success new_types ∧
      evaluate$evaluate_decs s env decs = (new_s,Rerr (Rraise e)) ⇒
      repl_types b (ffi,rs) (roll_back types new_types,new_s,env))
 [repl_types_exn_assign:]
   (∀ffi rs decs types new_types (s:'ffi semanticPrimitives$state) env e
     new_s name loc new_store b.
      repl_types b (ffi,rs) (types,s,env) ∧
-     infertype_prog_inc types decs = Success new_types ∧
+     infertype_prog_inc types decs = M_success new_types ∧
      evaluate$evaluate_decs s env decs = (new_s,Rerr (Rraise e)) ∧
      MEM (name,Exn,loc) rs ∧
      store_assign loc (Refv e) new_s.refs = SOME new_store ⇒
@@ -216,7 +216,7 @@ Proof
     \\ match_mp_tac ienv_ok_extend_dec_ienv
     \\ fs[ienv_ok_init_config])
   >- (
-    rename1`_ tys decs = Success _`
+    rename1`_ tys decs = M_success _`
     \\ Cases_on`tys` \\ fs[infertype_prog_inc_def]
     \\ every_case_tac \\ fs[]
     \\ drule (CONJUNCT2 infer_d_check)
@@ -239,9 +239,9 @@ Proof
     \\ drule (CONJUNCT2 infer_d_next_id_mono)
     \\ rw[init_infer_state_def])
   \\ (
-    rename1`_ tys decs = Success _`
+    rename1`_ tys decs = M_success _`
     \\ Cases_on`tys` \\ fs[infertype_prog_inc_def]
-    \\ fs[CaseEqs["infer$exc","prod"]] \\ fs[]
+    \\ fs[CaseEqs["exc","prod"]] \\ fs[]
     \\ drule (CONJUNCT2 infer_d_next_id_mono)
     \\ simp[init_infer_state_def]
     \\ rw[])
@@ -860,7 +860,7 @@ Proof
     \\ match_mp_tac check_ref_types_check_ref_types_TS
     \\ metis_tac[])
   >- (
-    rename1`_ A decs = Success _`
+    rename1`_ A decs = M_success _`
     \\ `∃tys id. A = (tys,id)` by metis_tac[PAIR]
     \\ rw[] \\ fs[infertype_prog_inc_def]
     \\ every_case_tac \\ fs[]
@@ -883,10 +883,10 @@ Proof
       (match_mp_tac DISJOINT_set_ids>>simp[init_infer_state_def])
     \\ asm_exists_tac \\ simp[])
   >- (
-    rename1`_ A decs = Success _`
+    rename1`_ A decs = M_success _`
     \\ `∃tys id. A = (tys,id)` by metis_tac[PAIR]
     \\ rw[] \\ fs[infertype_prog_inc_def]
-    \\ fs[CaseEqs["infer$exc","prod"]] \\ rveq
+    \\ fs[CaseEqs["exc","prod"]] \\ rveq
     \\ drule (CONJUNCT2 infer_d_sound)
     \\ disch_then(qspec_then `ienv_to_tenv tys` mp_tac)
     \\ impl_tac >- (
@@ -907,10 +907,10 @@ Proof
     \\ asm_exists_tac \\ simp[]
     \\ metis_tac[])
   >- (
-    rename1`_ A decs = Success _`
+    rename1`_ A decs = M_success _`
     \\ `∃tys id. A = (tys,id)` by metis_tac[PAIR]
     \\ rw[] \\ fs[infertype_prog_inc_def]
-    \\ fs[CaseEqs["infer$exc","prod"]] \\ rveq
+    \\ fs[CaseEqs["exc","prod"]] \\ rveq
     \\ drule (CONJUNCT2 infer_d_sound)
     \\ disch_then(qspec_then `ienv_to_tenv tys` mp_tac)
     \\ impl_tac >- (
@@ -939,7 +939,7 @@ Theorem repl_types_F_thm:
     repl_types F (ffi,rs) (types,s,env) ⇒
       EVERY (ref_lookup_ok s.refs) rs ∧
       ∀decs new_t new_s res.
-        infertype_prog_inc types decs = Success new_t ∧
+        infertype_prog_inc types decs = M_success new_t ∧
         evaluate_decs s env decs = (new_s,res) ⇒
         res ≠ Rerr (Rabort Rtype_error)
 Proof
@@ -949,9 +949,9 @@ Proof
   \\ drule repl_types_TS_thm
   \\ strip_tac
   \\ rw[]
-  \\ rename1`_ A decs = Success _`
+  \\ rename1`_ A decs = M_success _`
   \\ `∃tys id. A = (tys,id)` by metis_tac[PAIR]
-  \\ qpat_x_assum`_ = Success _` mp_tac
+  \\ qpat_x_assum`_ = M_success _` mp_tac
   \\ simp[infertype_prog_inc_def]
   \\ every_case_tac \\ simp[]
   \\ drule (CONJUNCT2 infer_d_sound)
@@ -1158,7 +1158,7 @@ Theorem repl_types_thm:
     repl_types b (ffi,rs) (types,s,env) ⇒
       EVERY (ref_lookup_ok s.refs) rs ∧
       ∀decs new_t new_s res.
-        infertype_prog_inc types decs = Success new_t ∧
+        infertype_prog_inc types decs = M_success new_t ∧
         evaluate_decs s env decs = (new_s,res) ⇒
         res ≠ Rerr (Rabort Rtype_error)
 Proof

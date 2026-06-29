@@ -313,8 +313,8 @@ Theorem type_pe_determ_canon_infer_e:
   ienv_ok {} ienv ∧
   start_type_id ≤ ss.next_id ∧
   inf_set_tids_ienv (count ss.next_id) ienv ∧
-  infer_e loc ienv e (init_infer_state ss) = (Success t, st) ∧
-  infer_p loc ienv p st = (Success (t', new_bindings), st') ∧
+  infer_e loc ienv e (init_infer_state ss) = (M_success t, st) ∧
+  infer_p loc ienv p st = (M_success (t', new_bindings), st') ∧
   t_unify st'.subst t t' = SOME s ∧
   type_pe_determ_canon ss.next_id tenv Empty p e
   ⇒
@@ -617,7 +617,7 @@ Theorem infer_d_complete_canon:
    ?ienv' st2.
      env_rel tenv' ienv' ∧
      st2.next_id = st1.next_id + ids ∧
-     infer_d ienv d st1 = (Success ienv', st2)) ∧
+     infer_d ienv d st1 = (M_success ienv', st2)) ∧
   (!ds n tenv ids tenv' ienv st1.
    type_ds_canon n tenv ds ids tenv' ∧
    env_rel tenv ienv ∧
@@ -627,7 +627,7 @@ Theorem infer_d_complete_canon:
    ?ienv' st2.
      env_rel tenv' ienv' ∧
      st2.next_id = st1.next_id + ids ∧
-     infer_ds ienv ds st1 = (Success ienv', st2))
+     infer_ds ienv ds st1 = (M_success ienv', st2))
 Proof
   Induct>>
   rw [] >>
@@ -1383,7 +1383,7 @@ Theorem infer_ds_complete:
    start_type_id ≤ st1.next_id
    ⇒
    ∃g mapped_tenv' ienv' st2.
-     infer_ds ienv ds st1 = (Success ienv', st2) ∧
+     infer_ds ienv ds st1 = (M_success ienv', st2) ∧
      (*
      BIJ g (count st1.next_id ∪ count ids) (count (st1.next_id + ids)) ∧
      *)
@@ -1453,7 +1453,7 @@ Theorem check_specs_complete:
         decls = convert_decls idecls ∧
         env_rel tenv new_ienv ∧
         check_specs mn tenvT extra_idecls extra_ienv specs st1 =
-          (Success (append_decls idecls extra_idecls,extend_dec_ienv new_ienv extra_ienv), st2)
+          (M_success (append_decls idecls extra_idecls,extend_dec_ienv new_ienv extra_ienv), st2)
 Proof
   ho_match_mp_tac type_specs_ind >>
   rw [check_specs_def, success_eqns]
@@ -1468,7 +1468,7 @@ Proof
     disch_then (qspec_then `st1` strip_assume_tac) >>
     rw [PULL_EXISTS] >>
     qho_match_abbrev_tac
-      `?st2 idecls new_ienv. _ idecls ∧ _ new_ienv ∧ check_specs _ _ _ (extra_ienv with inf_v := nsBind name new extra_ienv.inf_v) _ _ = (Success (_ idecls new_ienv), st2)` >>
+      `?st2 idecls new_ienv. _ idecls ∧ _ new_ienv ∧ check_specs _ _ _ (extra_ienv with inf_v := nsBind name new extra_ienv.inf_v) _ _ = (M_success (_ idecls new_ienv), st2)` >>
     simp [] >>
     first_x_assum (qspecl_then [`st'`, `extra_idecls`, `(extra_ienv with inf_v := nsBind name new extra_ienv.inf_v)`] mp_tac) >>
     rw [] >>
@@ -1491,7 +1491,7 @@ Proof
  >- (
     qho_match_abbrev_tac
       `?st2 idecls new_ienv. _ idecls ∧ _ new_ienv ∧ _ ∧ check_specs _ _ eid'
-         <| inf_v := _ ; inf_c := nsAppend new_ctors _; inf_t := nsAppend new_t _ |> _ _ = (Success (_ idecls new_ienv), st2)` >>
+         <| inf_v := _ ; inf_c := nsAppend new_ctors _; inf_t := nsAppend new_t _ |> _ _ = (M_success (_ idecls new_ienv), st2)` >>
     simp [] >>
     `tenv_abbrev_ok new_t`
       by (
@@ -1536,7 +1536,7 @@ Proof
     >- rw [extend_dec_ienv_def])
   >- (
     qho_match_abbrev_tac
-      `?st2 idecls new_ienv. _ idecls ∧ _ new_ienv ∧ check_specs _ _ eid' (_ with inf_t := nsBind name new_t _) _ _ = (Success (_ idecls new_ienv), st2)` >>
+      `?st2 idecls new_ienv. _ idecls ∧ _ new_ienv ∧ check_specs _ _ eid' (_ with inf_t := nsBind name new_t _) _ _ = (M_success (_ idecls new_ienv), st2)` >>
     simp [] >>
     `tenv_abbrev_ok (nsBind name new_t tenvT)`
       by (
@@ -1570,7 +1570,7 @@ Proof
   >- (
     fs [] >>
     qho_match_abbrev_tac
-      `?st2 idecls new_ienv. _ idecls ∧ _ new_ienv ∧ check_specs _ _ eid' (extra_ienv with inf_c := nsBind name new_c extra_ienv.inf_c) _ _ = (Success (_ idecls new_ienv), st2)` >>
+      `?st2 idecls new_ienv. _ idecls ∧ _ new_ienv ∧ check_specs _ _ eid' (extra_ienv with inf_c := nsBind name new_c extra_ienv.inf_c) _ _ = (M_success (_ idecls new_ienv), st2)` >>
     simp [] >>
     first_x_assum (qspecl_then [`st1`, `eid'`, `extra_ienv with inf_c := nsBind name new_c extra_ienv.inf_c`] mp_tac) >>
     rw [] >>
@@ -1601,7 +1601,7 @@ Proof
       metis_tac []))
   >- (
     qho_match_abbrev_tac
-      `?st2 idecls new_ienv. _ idecls ∧ _ new_ienv ∧ check_specs _ _ eid' (_ with inf_t := nsBind name new_t _) _ _ = (Success (_ idecls new_ienv), st2)` >>
+      `?st2 idecls new_ienv. _ idecls ∧ _ new_ienv ∧ check_specs _ _ eid' (_ with inf_t := nsBind name new_t _) _ _ = (M_success (_ idecls new_ienv), st2)` >>
     simp [] >>
     `tenv_abbrev_ok (nsBind name new_t tenvT)`
       by (
@@ -1639,7 +1639,7 @@ Proof
 QED
 
 Theorem n_fresh_uvar_rw[local]:
-  ∀n st.n_fresh_uvar n st = (Success (GENLIST (λi.Infer_Tuvar(i+st.next_uvar)) n), st with next_uvar := st.next_uvar + n)
+  ∀n st.n_fresh_uvar n st = (M_success (GENLIST (λi.Infer_Tuvar(i+st.next_uvar)) n), st with next_uvar := st.next_uvar + n)
 Proof
   Induct>>simp[Once n_fresh_uvar_def]
   >-

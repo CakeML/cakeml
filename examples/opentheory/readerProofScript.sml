@@ -10,7 +10,9 @@ Ancestors
   ml_monadBase holKernel holKernelProof holSyntax holSyntaxExtra
   reader reader_init TextIOProg TextIOProof
 
-Overload return[local] = “st_ex_return”;
+val _ = monadsyntax.temp_add_monadsyntax ();
+val _ = monadsyntax.temp_enable_monad "st_ex";
+
 Overload failwith[local] = “raise_Failure”;
 
 val case_eq_thms =
@@ -279,8 +281,8 @@ QED
 Theorem init_reader_not_clash[simp]:
   init_reader () refs ≠ (M_failure (Clash tm), refs')
 Proof
-  rw [init_reader_def, st_ex_bind_def, st_ex_return_def, case_eq_thms,
-      select_sym_def, ind_type_def]
+  rw [init_reader_def, st_ex_bind_def, st_ex_ignore_bind_def,
+      st_ex_return_def, case_eq_thms, select_sym_def, ind_type_def]
 QED
 
 (* -------------------------------------------------------------------------
@@ -1583,8 +1585,8 @@ Proof
   simp_tac std_ss [init_reader_success]
   \\ sg ‘STATE init_refs.the_context init_refs’
   >- (EVAL_TAC \\ rw [])
-  \\ rw [init_reader_def, st_ex_bind_def, ind_type_def, select_sym_def,
-         st_ex_return_def]
+  \\ rw [init_reader_def, st_ex_bind_def, st_ex_ignore_bind_def,
+         ind_type_def, select_sym_def, st_ex_return_def]
   \\ fs [case_eq_thms] \\ rveq
   \\ qpat_x_assum ‘_ = mk_eta_ax _ _’ (assume_tac o SYM)
   \\ dxrule_then drule_all mk_eta_ax_thm
@@ -1615,7 +1617,7 @@ Proof
   \\ ‘TERM (d'::d::init_refs.the_context) select_const’
     by (fs [new_constant_def, add_constants_def, get_the_term_constants_def,
             set_the_term_constants_def, raise_Failure_def, case_eq_thms,
-            st_ex_bind_def, add_def_def]
+            st_ex_bind_def, st_ex_ignore_bind_def, add_def_def]
         \\ FULL_CASE_TAC \\ rw []
         \\ fs [get_the_context_def, set_the_context_def] \\ rw []
         \\ fs [STATE_def, TERM_def] \\ rw [select_const_def]
@@ -1627,7 +1629,8 @@ Proof
   \\ fsrw_tac [SATISFY_ss] []
   \\ last_x_assum (mp_then Any drule mk_infinity_ax_thm)
   \\ (impl_tac >-
-   (fs [new_type_def, st_ex_bind_def, add_type_def, st_ex_return_def,
+   (fs [new_type_def, st_ex_bind_def, st_ex_ignore_bind_def,
+        add_type_def, st_ex_return_def,
         raise_Failure_def, case_eq_thms, bool_case_eq, COND_RATOR, can_def,
         otherwise_def, get_type_arity_def, get_the_type_constants_def,
         set_the_type_constants_def, add_def_def, get_the_context_def,

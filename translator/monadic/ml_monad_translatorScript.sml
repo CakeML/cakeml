@@ -11,11 +11,6 @@ Libs
   ml_translatorLib ml_progLib Satisfy AC_Sort cfTacticsLib
   packLib preamble
 
-Overload monad_bind[local] = ``st_ex_bind``;
-Overload monad_unitbind[local] = ``st_ex_ignore_bind``;
-Overload monad_ignore_bind[local] = ``st_ex_ignore_bind``;
-Overload ex_bind[local] = ``st_ex_bind``;
-Overload ex_return[local] = ``st_ex_return``;
 Overload CONTAINER[local] = ``ml_translator$CONTAINER``;
 
 val _ = hide "state";
@@ -177,7 +172,7 @@ val H = mk_var("H",``:('a -> hprop) # 'ffi ffi_proj``);
 (* return *)
 Theorem EvalM_return:
    !H b. Eval env exp (a x) ==>
-         EvalM ro env st exp (MONAD a b (ex_return x)) ^H
+         EvalM ro env st exp (MONAD a b (st_ex_return x)) ^H
 Proof
   rw[Eval_def,EvalM_def,st_ex_return_def,MONAD_def]
   \\ first_x_assum(qspec_then`s.refs`strip_assume_tac)
@@ -200,7 +195,7 @@ Theorem EvalM_bind:
       EvalM ro (write name v env) (SND (x st)) e2
         (MONAD a c ((f z):('refs, 'a, 'c) M)) H) ==>
    (a1 /\ !z. (CONTAINER(FST(x st) = M_success z) ==> a2 z)) ==>
-   EvalM ro env st (Let (SOME name) e1 e2) (MONAD a c (ex_bind x f)) H
+   EvalM ro env st (Let (SOME name) e1 e2) (MONAD a c (st_ex_bind x f)) H
 Proof
   rw[EvalM_def,MONAD_def,st_ex_return_def,PULL_EXISTS, CONTAINER_def] \\ fs[]
   \\ last_x_assum drule \\ rw[]
@@ -278,7 +273,7 @@ Theorem EvalM_pure_seq:
   EvalM ro env st (Let NONE e1 e2) (MONAD a b (pure_seq y x)) ^H
 Proof
   rw []
-  \\ ‘pure_seq y x = monad_ignore_bind (ex_return y) x’ by
+  \\ ‘pure_seq y x = st_ex_ignore_bind (st_ex_return y) x’ by
     fs [pure_seq_def,st_ex_ignore_bind_def,st_ex_return_def, FUN_EQ_THM]
   \\ fs [] \\ irule EvalM_bind_ignore \\ fs []
   \\ conj_tac

@@ -4,6 +4,7 @@
 Theory infer_cv[no_sig_docs]
 Ancestors
   misc typeSystem ast namespace infer inferProps basis_cv unify_cv source_cv
+  ml_monadBase
 Libs
   preamble cv_transLib
 
@@ -11,7 +12,8 @@ val expand = let
   val th1 = SRULE [FUN_EQ_THM] st_ex_bind_def
   val th2 = SRULE [FUN_EQ_THM] st_ex_return_def
   val th3 = SRULE [FUN_EQ_THM,COND_RATOR,th2] guard_def
-  in SRULE [th1,th2,th3,FUN_EQ_THM] end
+  val th4 = SRULE [FUN_EQ_THM] st_ex_ignore_bind_def
+  in SRULE [th1,th2,th3,th4,FUN_EQ_THM] end
 
 val _ = cv_auto_trans $ expand failwith_def;
 val _ = cv_auto_trans $ expand read_def;
@@ -279,8 +281,8 @@ val infertype_prog_inc_eq =
 val call_infer_pre = cv_auto_trans_pre "" call_infer_def;
 
 Theorem type_name_check_sub_success:
-  type_name_check_sub l ienv.inf_t xs a s = (Success r,s1) ⇒
-  ∃f. type_name_check_subst l f ienv.inf_t xs a s = (Success r,s1)
+  type_name_check_sub l ienv.inf_t xs a s = (M_success r,s1) ⇒
+  ∃f. type_name_check_subst l f ienv.inf_t xs a s = (M_success r,s1)
 Proof
   gvs [to_type_name_check_sub]
 QED
