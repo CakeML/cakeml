@@ -71,6 +71,7 @@ $ cake --pancake < hello.pnk > hello.S
 ```
 
 You will need to provide the `--target=[<target>]` option if not using an x86-64 architecture.
+Reference `cake --help` if needed.
 
 If you do not capitalise the `.S` extension, the next step may fail.
 
