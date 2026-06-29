@@ -1,4 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/examples/vipr $(CAKEMLDIR)/compiler $(CAKEMLDIR)/cv_translator
 
 all: $(DEFAULT_TARGETS) README.md cake_vipr
 .PHONY: all
