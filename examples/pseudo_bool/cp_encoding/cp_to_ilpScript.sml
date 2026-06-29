@@ -101,6 +101,21 @@ Definition vp_first_occ_def:
     LEAST i. i = LENGTH Xs ∨ (i < LENGTH Xs ∧ varc w (EL i Xs) = v)
 End
 
+(* Proof-only value of a SmartTable flag. ids = [k] : row-k selector;
+   ids = [k;j] : the flag for entry j of row k, disambiguated by ann. *)
+Definition reify_smart_flag_def:
+  reify_smart_flag rows wi ids ann ⇔
+  if LENGTH ids = 1 then
+    EVERY (λe. smart_entry_holds e wi) (EL (HD ids) rows)
+  else
+    case EL (EL 1 ids) (EL (EL 0 ids) rows) of
+      SCmp v1 cmp v2 =>
+        if ann = SOME «sgt» then varc wi v1 > varc wi v2
+        else if ann = SOME «slt» then varc wi v1 < varc wi v2
+        else varc wi v1 = varc wi v2
+    | SSet v b vs => MEM (varc wi v) vs
+End
+
 Definition reify_flag_def:
   reify_flag cs wi (name,flag) ⇔
   case flag of
@@ -146,6 +161,8 @@ Definition reify_flag_def:
       match_row (EL (HD ids) tss) (MAP (varc wi) Xs)
     | SOME (Extensional (Regular Xs nstates trans finals)) =>
       (nfa_run trans finals nstates (MAP (varc wi) Xs) (EL 0 ids) = EL 1 ids)
+    | SOME (Extensional (SmartTable rows)) =>
+      reify_smart_flag rows wi ids ann
     | SOME (Lexicographical (Lex Zr cmp Xs Ys)) =>
       if ann = SOME («pref»)
       then

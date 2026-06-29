@@ -393,11 +393,97 @@ Definition sexp_regular_body_def:
     | _ => fail («regular expects 4 args: (X1 ... Xn) nstates ((edges)...) (f1 ... fk)\n»)
 End
 
-(* Extensional: table, regular. Returns NONE when ctype is not an
-   extensional constraint, so the top-level dispatcher can fall through. *)
+(* Negative (conflict) table body: same shape as table (rows then vars);
+   the listed tuples are forbidden rather than allowed. *)
+Definition sexp_negative_table_body_def:
+  sexp_negative_table_body rest =
+    case rest of
+      [rows_e; Xs_e] =>
+      (do
+         rows <- sexp_table_rows rows_e;
+         Xs <- sexp_varc_list Xs_e;
+         return (Extensional (NegativeTable rows Xs))
+       od)
+    | _ => fail («negative_table expects 2 args: rows (X1 ... Xn)\n»)
+End
+
+(* Smart-table entry: (v op c) / (v1 op v2) → SCmp; (v in|notin (c..)) → SSet.
+   Either operand of a comparison may be a constant (sexp_varc handles INL/INR). *)
+Definition sexp_smart_entry_def:
+  sexp_smart_entry e =
+  case e of
+    Expr [v_e; Atom op; arg_e] =>
+    (if op = «in» then
+       (do v <- sexp_varc v_e; vs <- sexp_int_list arg_e; return (SSet v T vs) od)
+     else if op = «notin» then
+       (do v <- sexp_varc v_e; vs <- sexp_int_list arg_e; return (SSet v F vs) od)
+     else
+       (do v1 <- sexp_varc v_e; c <- sexp_cmpop_sym op; v2 <- sexp_varc arg_e;
+           return (SCmp v1 c v2)
+        od))
+  | _ => fail («smart entry expects (v op c) / (v1 op v2) / (v in|notin (c..))\n»)
+End
+
+Definition sexp_smart_row_def:
+  sexp_smart_row e =
+    sexp_list_of («expected smart-table row as list of entries\n») sexp_smart_entry e
+End
+
+Definition sexp_smart_rows_def:
+  sexp_smart_rows e =
+    sexp_list_of («expected smart-table body as list of rows\n») sexp_smart_row e
+End
+
+(* Smart-table body: ((entries)...) (X1 ... Xn). Entries are self-contained,
+   so the trailing var list is informational (parsed for format validation). *)
+Definition sexp_smart_table_body_def:
+  sexp_smart_table_body rest =
+    case rest of
+      [rows_e; Xs_e] =>
+      (do
+         rows <- sexp_smart_rows rows_e;
+         Xs <- sexp_varc_list Xs_e;
+         return (Extensional (SmartTable rows))
+       od)
+    | _ => fail («smart_table expects 2 args: ((entries)...) (X1 ... Xn)\n»)
+End
+
+(* LexSmartTable body: (X1 ... Xn) (Y1 ... Ym) → Xs >_lex Ys (strict). *)
+Definition sexp_lex_smart_table_body_def:
+  sexp_lex_smart_table_body rest =
+    case rest of
+      [Xs_e; Ys_e] =>
+      (do
+         Xs <- sexp_varc_list Xs_e;
+         Ys <- sexp_varc_list Ys_e;
+         return (Extensional (LexSmartTable Xs Ys))
+       od)
+    | _ => fail («lex_smart_table expects 2 args: (X1 ... Xn) (Y1 ... Ym)\n»)
+End
+
+(* AtMostOneSmartTable body: (X1 ... Xn) val → at most one Xi equals val. *)
+Definition sexp_amo_smart_table_body_def:
+  sexp_amo_smart_table_body rest =
+    case rest of
+      [Xs_e; v_e] =>
+      (do
+         Xs <- sexp_varc_list Xs_e;
+         v <- sexp_int v_e;
+         return (Extensional (AtMostOneSmartTable Xs v))
+       od)
+    | _ => fail («at_most_one_smart_table expects 2 args: (X1 ... Xn) val\n»)
+End
+
+(* Extensional: table, negative_table, smart_table (+ its lex/at-most-one
+   front-ends), regular. Returns NONE when ctype is not an extensional
+   constraint, so the top-level dispatcher can fall through. *)
 Definition sexp_extensional_dispatch_def:
   sexp_extensional_dispatch ctype rest =
     if ctype = «table» then SOME (sexp_table_body rest)
+    else if ctype = «negative_table» then SOME (sexp_negative_table_body rest)
+    else if ctype = «smart_table» then SOME (sexp_smart_table_body rest)
+    else if ctype = «lex_smart_table» then SOME (sexp_lex_smart_table_body rest)
+    else if ctype = «at_most_one_smart_table» then SOME (sexp_amo_smart_table_body rest)
     else if ctype = «regular» then SOME (sexp_regular_body rest)
     else NONE
 End
@@ -1088,6 +1174,47 @@ Theorem test_regular:
   sexp_constraint_dispatch («regular»)
     (fromStringL («((A) 2)»)) =
     INL («regular expects 4 args: (X1 ... Xn) nstates ((edges)...) (f1 ... fk)\n»)
+Proof
+  EVAL_TAC
+QED
+
+Theorem test_negative_table:
+  (* forbidden tuples, with wildcard and mixed var/const scope *)
+  sexp_constraint_dispatch («negative_table»)
+    (fromStringL («(((1 2) (* 3)) (A B))»)) =
+    INR (Extensional
+           (NegativeTable [[SOME 1; SOME 2]; [NONE; SOME 3]]
+                          [INL «A»; INL «B»])) ∧
+  sexp_constraint_dispatch («negative_table»)
+    (fromStringL («(((1 2)))»)) =
+    INL («negative_table expects 2 args: rows (X1 ... Xn)\n»)
+Proof
+  EVAL_TAC
+QED
+
+Theorem test_smart_table:
+  (* a row mixing binary, unary-value, set-in and set-notin entries *)
+  sexp_constraint_dispatch («smart_table»)
+    (fromStringL
+       («((((A < B) (A = 1) (B in (2 4 6)) (C notin (3))) ((A = C))) (A B C))»)) =
+    INR (Extensional
+           (SmartTable
+              [[SCmp (INL «A») LessThan (INL «B»);
+                SCmp (INL «A») Equal (INR 1);
+                SSet (INL «B») T [2; 4; 6];
+                SSet (INL «C») F [3]];
+               [SCmp (INL «A») Equal (INL «C»)]])) ∧
+  sexp_constraint_dispatch («smart_table»)
+    (fromStringL («((()) (A))»)) =
+    INR (Extensional (SmartTable [[]])) ∧
+  (* lex_smart_table desugars to SmartTable (lex_smart_rows …) *)
+  sexp_constraint_dispatch («lex_smart_table»)
+    (fromStringL («((A B) (C D))»)) =
+    INR (Extensional (LexSmartTable [INL «A»; INL «B»] [INL «C»; INL «D»])) ∧
+  (* at_most_one_smart_table desugars to SmartTable (amo_smart_rows …) *)
+  sexp_constraint_dispatch («at_most_one_smart_table»)
+    (fromStringL («((A B C) 5)»)) =
+    INR (Extensional (AtMostOneSmartTable [INL «A»; INL «B»; INL «C»] 5))
 Proof
   EVAL_TAC
 QED

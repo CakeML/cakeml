@@ -132,6 +132,16 @@ Datatype:
   *)
 End
 
+(* A smart_entry is one condition in a smart-table row:
+   SCmp v1 cmp v2 : v1 <cmp> v2 — either operand may be a constant varc
+                    (INR c), so this also covers the var-vs-constant form ;
+   SSet v b vs    : v ∈ vs (b=T) / v ∉ vs (b=F). *)
+Datatype:
+  smart_entry =
+    SCmp ('a varc) cmpop ('a varc)
+  | SSet ('a varc) bool (int list)
+End
+
 (* NONE represents a wildcard entry for that element *)
 Datatype:
   extensional_constr =
@@ -142,7 +152,50 @@ Datatype:
        (EL q trans = list of (symbol,target) edges out of state q),
        and accepting set finals. *)
   | Regular ('a varc list) num ((int # num) list list) (num list)
+    (* NegativeTable: the assignment must NOT match any forbidden tuple. *)
+  | NegativeTable ((int option) list list) ('a varc list)
+    (* SmartTable rows: holds iff some row's entries all hold. *)
+  | SmartTable (('a smart_entry) list list)
 End
+
+(* Row models for the smart-table-encoded variants (LexSmartTable /
+   AtMostOneSmartTable), defined as overloads just below. *)
+Definition lex_rows_aux_def:
+  (lex_rows_aux acc [] = []) ∧
+  (lex_rows_aux acc ((x,y)::rest) =
+    (acc ++ [SCmp x GreaterThan y]) :: lex_rows_aux (acc ++ [SCmp x Equal y]) rest)
+End
+
+Definition lex_smart_rows_def:
+  lex_smart_rows Xs Ys =
+  let zs = ZIP (TAKE (MIN (LENGTH Xs) (LENGTH Ys)) Xs,
+                TAKE (MIN (LENGTH Xs) (LENGTH Ys)) Ys) in
+  lex_rows_aux [] zs ++
+  (if LENGTH Xs > LENGTH Ys
+   then [MAP (λ(x,y). SCmp x Equal y) zs]
+   else [])
+End
+
+Definition amo_rows_aux_def:
+  (amo_rows_aux pre [] v = []) ∧
+  (amo_rows_aux pre (x::rest) v =
+    (pre ++ MAP (λz. SCmp z NotEqual (INR v)) rest)
+    :: amo_rows_aux (pre ++ [SCmp x NotEqual (INR v)]) rest v)
+End
+
+Definition amo_smart_rows_def:
+  amo_smart_rows Xs v =
+  if LENGTH Xs < 2 then [[]]
+  else amo_rows_aux [] Xs v
+End
+
+(* LexSmartTable Xs Ys (Xs >_lex Ys, strict) and AtMostOneSmartTable Xs v
+   (≤1 of Xs equals v) are pseudo-constructors: the encoder desugars them to a
+   SmartTable.  That the desugared rows reproduce the intended predicate
+   (lex_sem / at_most_one_sem) is lex_smart_table_bridge / amo_smart_table_bridge
+   in cp_to_ilp_extensionalScript. *)
+Overload LexSmartTable = ``λXs Ys. SmartTable (lex_smart_rows Xs Ys)``;
+Overload AtMostOneSmartTable = ``λXs v. SmartTable (amo_smart_rows Xs v)``;
 
 Datatype:
   logical_constr =
@@ -614,12 +667,36 @@ Definition nfa_run_def:
          nfa_accepts trans finals nstates q' (DROP (SUC i) as)
 End
 
+(* NegativeTable: forbidden iff some listed tuple is matched; the constraint
+   holds iff NO forbidden tuple is matched. Mirrors table_sem's length guard. *)
+Definition negative_table_sem_def:
+  negative_table_sem tss Xs w ⇔
+  EVERY (λts. LENGTH ts = LENGTH Xs) tss ∧
+  ∀ts. MEM ts tss ⇒ ¬match_row ts (MAP (varc w) Xs)
+End
+
+Definition smart_entry_holds_def:
+  smart_entry_holds e w ⇔
+  case e of
+    SCmp v1 cmp v2 => cmpop_val cmp (varc w v1) (varc w v2)
+  | SSet v b vs => (MEM (varc w v) vs ⇔ b)
+End
+
+(* SmartTable: disjunction over rows of a conjunction of the row's entries.
+   Empty row ⇒ vacuously true; empty table ⇒ no row ⇒ UNSAT. *)
+Definition smart_table_sem_def:
+  smart_table_sem rows w ⇔
+  ∃row. MEM row rows ∧ EVERY (λe. smart_entry_holds e w) row
+End
+
 Definition extensional_constr_sem_def:
   extensional_constr_sem c w ⇔
   case c of
     Table tss Xs => table_sem tss Xs w
   | Regular Xs nstates trans finals =>
       regular_sem Xs nstates trans finals w
+  | NegativeTable tss Xs => negative_table_sem tss Xs w
+  | SmartTable rows => smart_table_sem rows w
 End
 
 (***

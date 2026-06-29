@@ -114,11 +114,23 @@ val res = translate sexp_linear_dispatch_def;
 (* lex *)
 val res = translate sexp_lex_dispatch_def;
 
-(* extensional (table, regular) *)
+(* extensional (table, negative_table, smart_table, regular) *)
 val res = translate sexp_table_entry_def;
 val res = translate sexp_table_row_def;
 val res = translate sexp_table_rows_def;
 val res = translate sexp_table_body_def;
+val res = translate sexp_negative_table_body_def;
+val res = translate sexp_smart_entry_def;
+val res = translate sexp_smart_row_def;
+val res = translate sexp_smart_rows_def;
+val res = translate sexp_smart_table_body_def;
+(* row-builders desugared by the lex/at-most-one smart-table front-ends *)
+val res = translate cpTheory.lex_rows_aux_def;
+val res = translate cpTheory.lex_smart_rows_def;
+val res = translate cpTheory.amo_rows_aux_def;
+val res = translate cpTheory.amo_smart_rows_def;
+val res = translate sexp_lex_smart_table_body_def;
+val res = translate sexp_amo_smart_table_body_def;
 val res = translate sexp_num_def;
 val res = translate sexp_num_list_def;
 val res = translate sexp_reg_edge_def;
@@ -546,6 +558,16 @@ val res = translate cp_to_ilp_extensionalTheory.cencode_full_eqs_def;
 val res = translate cp_to_ilp_extensionalTheory.creify_tuple_eq_def;
 val res = translate cp_to_ilp_extensionalTheory.creify_tuple_eqs_def;
 val res = translate cp_to_ilp_extensionalTheory.cencode_table_def;
+
+(* negative_table *)
+val res = translate cp_to_ilp_extensionalTheory.cencode_neg_tuple_def;
+val res = translate cp_to_ilp_extensionalTheory.cencode_negative_table_def;
+
+(* smart_table *)
+val res = translate cp_to_ilp_extensionalTheory.smart_entry_lit_def;
+val res = translate cp_to_ilp_extensionalTheory.cencode_smart_entry_def;
+val res = translate cp_to_ilp_extensionalTheory.cencode_smart_row_def;
+val res = translate cp_to_ilp_extensionalTheory.cencode_smart_table_def;
 
 (* regular *)
 
