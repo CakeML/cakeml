@@ -8,6 +8,9 @@ Pancake is a programming language for low-level imperative programming, with a v
 
 Note that Pancake is still in development, and thus everything in this document is subject to change.
 
+See the [Pancake syntax reference](/pancake/syntax.md) for a summary of Pancake syntax.
+See the [Pancake quickstart guide](/pancake/quickstart.md) for a minimal guide on building "Hello, world" in Pancake.
+
 ## Using the compiler
 
 ### Obtaining the compiler
