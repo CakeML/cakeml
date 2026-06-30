@@ -510,7 +510,7 @@ Definition mk_cumul_active_def:
   let a = cumul_active name i t in
   let bf = cumul_before name i t in
   let af = cumul_after name i t in
-  let pre = toString i ^ «_» ^ toString (intnum t) in
+  let pre = toString i ^ «_» ^ int_to_string #"-" t in
   flat_app [
     cat_least_one name (pre ^ «_acta») [Neg a; Pos bf];
     cat_least_one name (pre ^ «_actb») [Neg a; Pos af];
@@ -533,7 +533,7 @@ Definition mk_cumul_contrib_def:
   let ubh = SND (varc_bnd bnd h) in
   let cb = cumul_ub_num name i t ubh in
   let act = cumul_active name i t in
-  let pre = toString i ^ «_» ^ toString (intnum t) in
+  let pre = toString i ^ «_» ^ int_to_string #"-" t in
   List (mk_annotate
     [mk_name name (pre ^ «_cge»); mk_name name (pre ^ «_cle»);
      mk_name name (pre ^ «_cz»)]
@@ -640,7 +640,7 @@ Definition cumul_cap_line_def:
       if cumul_covers bnd x w t
       then flip_coeffs (cumul_ub_num name i t (SND (varc_bnd bnd h)))
       else []) tasks) in
-  let lbl = mk_name name («cap_» ^ toString (intnum t)) in
+  let lbl = mk_name name («cap_» ^ int_to_string #"-" t) in
   case cap of
     INR c => List [(SOME lbl, ([],loadbs,-c))]
   | INL v => List [(SOME lbl, ([(1i,v)],loadbs,0i))]
