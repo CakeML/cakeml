@@ -964,6 +964,9 @@ val side : tactic = fn (g as (asl, w)) =>
 (* val (asl, w) = top_goal (); *)
 (* testing theorems *)
 
+(* Takes multiple steps. *)
+val walk = rpt (step ORELSE side)
+
 Theorem and_neg_pos_geq_thm:
   ∀(ys: α word list) xs zs rs s c x y z frame.
     mwi_and_neg_pos_geq c xs ys = zs ∧ LENGTH ys ≤ LENGTH xs ∧
@@ -994,8 +997,7 @@ Proof
   >> rename1 ‘ones _ (Word h::MAP Word _)’
   >> once_rewrite_tac [GSYM stack_evaluate]
   >> irule_at (Pos first_stack) (stackify_imp_th evaluate_While_True_NONE)
-  >> side >> step >> side
-  >> hsimp []
+  >> walk
   >> ‘SUC (LENGTH ys) < dimword (:α)’ by
     (drule_then mp_tac $
        INST_TYPE [“:β” |-> “:α word_lab”] ones_leq_dimword
@@ -1006,66 +1008,14 @@ Proof
      >> first_assum $ irule_at (Pos last)
      >> simp [])
   >> hsimp []
-  >> step
-  >> step >> side
-  >> step >> side >> side
+  >> walk
   >> Cases_on ‘xs’ >> fs [ones_def] >> SEP_R_TAC
-  >> side >> side
-  >> step >> side
-  >> step >> side >> side
+  >> walk
   >> hsimp [] >> SEP_R_TAC >> hsimp []
-  >> side
-  >> step
-  >> step >> side
-  >> step >> side
-  >> step >> side
-  >> step >> side
-  >> side
-  >> step
-  >> step
-  >> side
-  >> step
-  >> side
-  >> step >> side
-  >> step >> side >> side >> side >> side
-  >> step
-  >> step >> side
-  >> step >> side
-  >> step >> side >> side >> side
-  >> step
-  >> step
-  >> step >> side >> side
+  >> walk
   >> Cases_on ‘rs’ >> gvs []
   >> fs [ones_def] >> SEP_R_TAC >> hsimp []
-  >> step >> side
-  >> step >> side
-  >> step >> side
-  >> step
-  >> step >> side
-  >> step >> side >> side >> side >> side
-  >> step
-  >> step
-  >> step >> side
-  >> step >> side
-  >> step >> side
-  >> step >> side >> side >> side
-  >> step
-  >> step
-  >> step >> side
-  >> step >> side
-  >> step >> side
-  >> step >> side >> side >> side
-  >> step
-  >> step
-  >> step >> side
-  >> step >> side
-  >> step >> side
-  >> step >> side >> side >> side
-  >> step
-  >> step >> side
-  >> step >> side
-  >> step >> side
-  >> step >> side >> side >> side
+  >> walk
   >> rewrite_tac [stack_evaluate]
   >> simp [Req0 $ GSYM and_neg_pos_geq_loop_def]
   >> rename1 ‘evaluate (and_neg_pos_geq_loop, _)’
