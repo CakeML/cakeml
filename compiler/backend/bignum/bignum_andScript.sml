@@ -4,7 +4,7 @@
 Theory bignum_and
 Ancestors
   errorLogMonad panPtreeConversion panLang panStatic multiword multiword_ext
-  set_sep address backend_common wordLang panSem
+  stackTest set_sep address backend_common wordLang panSem
 Libs
   stringLib numLib intLib preamble helperLib
 
@@ -202,10 +202,11 @@ Proof
 QED
 
 Theorem eval_RStruct_One_One:
+  r = RStruct [xv; yv] ∧
   eval s x = SOME xv ∧
   eval s y = SOME yv
   ⇒
-  eval s (RStruct [x; y]) = SOME (RStruct [xv; yv])
+  eval s (RStruct [x; y]) = SOME r
 Proof
   simp [eval_def]
 QED
@@ -216,11 +217,11 @@ Proof
   simp [eval_def]
 QED
 
-Theorem eval_RField_Var_Local_SOME_ValWord:
+Theorem eval_RField_Var_Local:
   FLOOKUP s.locals n = SOME (RStruct vs) ∧
-  LLOOKUP vs i = SOME (ValWord res)
+  LLOOKUP vs i = SOME r
   ⇒
-  eval s (RField i (Var Local n)) = SOME (ValWord res)
+  eval s (RField i (Var Local n)) = SOME r
 Proof
   simp [eval_def, LLOOKUP_THM]
 QED
@@ -232,36 +233,40 @@ Proof
 QED
 
 Theorem eval_Op_And_SOME:
+  r = ValWord (v₁ && v₂) ∧
   eval s x₁ = SOME (ValWord v₁) ∧
   eval s x₂ = SOME (ValWord v₂)
   ⇒
-  eval s (Op And [x₁; x₂]) = SOME (ValWord (v₁ && v₂))
+  eval s (Op And [x₁; x₂]) = SOME r
 Proof
   simp [eval_def, wordLangTheory.word_op_def]
 QED
 
 Theorem eval_Op_Sub_SOME:
+  r = ValWord (v₁ - v₂) ∧
   eval s x₁ = SOME (ValWord v₁) ∧
   eval s x₂ = SOME (ValWord v₂)
   ⇒
-  eval s (Op Sub [x₁; x₂]) = SOME (ValWord (v₁ - v₂))
+  eval s (Op Sub [x₁; x₂]) = SOME r
 Proof
   simp [eval_def, wordLangTheory.word_op_def]
 QED
 
 Theorem eval_Op_Add_SOME:
+  r = ValWord (v₁ + v₂) ∧
   eval s x₁ = SOME (ValWord v₁) ∧
   eval s x₂ = SOME (ValWord v₂)
   ⇒
-  eval s (Op Add [x₁; x₂]) = SOME (ValWord (v₁ + v₂))
+  eval s (Op Add [x₁; x₂]) = SOME r
 Proof
   simp [eval_def, word_op_def]
 QED
 
 Theorem eval_Op_BitwiseNot_SOME:
+  r = (ValWord ¬v₁) ∧
   eval s x₁ = SOME (ValWord (v₁: α word))
   ⇒
-  eval s (Op Xor [x₁; Const (n2w (dimword (:α) − 1))]) = SOME (ValWord ¬v₁)
+  eval s (Op Xor [x₁; Const (n2w (dimword (:α) − 1))]) = SOME r
 Proof
   simp [eval_def, word_op_def, GSYM word_T_def, GSYM UINT_MAX_def]
 QED
@@ -276,10 +281,11 @@ Proof
 QED
 
 Theorem eval_Load_One_Local_SOME:
+  r = (Val (s.memory v)) ∧
   FLOOKUP s.locals n = SOME (ValWord v) ∧
   v ∈ s.memaddrs
   ⇒
-  eval s (Load One (Var Local n)) = SOME (Val (s.memory v))
+  eval s (Load One (Var Local n)) = SOME r
 Proof
   simp [eval_def, mem_load_def, is_wf_shape_def]
 QED
@@ -292,14 +298,20 @@ Proof
   simp [evaluate_def]
 QED
 
-Theorem evaluate_Seq_Annot[simp]:
-  evaluate (Seq (Annot s₁ s₂) c, s) = evaluate (c, s) ∧
+Theorem evaluate_Seq_Annot_Left[simp]:
+  evaluate (Seq (Annot s₁ s₂) c, s) = evaluate (c, s)
+Proof
+  simp [evaluate_def]
+QED
+
+Theorem evaluate_Seq_Annot_Right[simp]:
   evaluate (Seq c (Annot s₁ s₂), s) = evaluate (c, s)
 Proof
   simp [evaluate_def]
   >> rpt (pairarg_tac >> gvs [])
   >> IF_CASES_TAC >> simp []
 QED
+
 
 Theorem evaluate_Seq_assoc[simp]:
   evaluate (Seq (Seq s₁ s₂) (Seq s₃ s₄), s) =
@@ -311,7 +323,9 @@ Proof
 QED
 
 Theorem evaluate_While_True_NONE:
-  eval s e = SOME (ValWord w) ∧ w ≠ 0w ∧ s.clock ≠ 0 ∧
+  s.clock ≠ 0 ∧
+  eval s e = SOME (ValWord w) ∧
+  w ≠ 0w ∧
   evaluate (c, dec_clock s) = (NONE, s₁) ∧
   evaluate (While e c, s₁) = (NONE, s')
   ⇒
@@ -321,12 +335,12 @@ Proof
 QED
 
 Theorem evaluate_Dec_NONE:
+  (s₂ = s₁ with locals := res_var s₁.locals (v, FLOOKUP s.locals v)) ∧
   eval s e = SOME value ∧
   shape = shape_of value ∧
   evaluate (prog,s with locals := s.locals |+ (v,value)) = (NONE,s₁)
   ⇒
-  evaluate (Dec v shape e prog, s) =
-    (NONE, s₁ with locals := res_var s₁.locals (v, FLOOKUP s.locals v))
+  evaluate (Dec v shape e prog, s) = (NONE, s₂)
 Proof
   rw [] >> simp [Once evaluate_def]
 QED
@@ -341,27 +355,33 @@ Proof
 QED
 
 Theorem evaluate_Store_Local_NONE:
+  s' = s with memory := s.memory⦇addr ↦ v⦈ ∧
   FLOOKUP s.locals dst = SOME (ValWord addr) ∧
   addr ∈ s.memaddrs ∧
   eval s e = SOME (Val v)
   ⇒
-  evaluate (Store (Var Local dst) e, s) =
-    (NONE, s with memory := s.memory⦇addr ↦ v⦈)
+  evaluate (Store (Var Local dst) e, s) = (NONE, s')
 Proof
   simp [evaluate_def, flatten_def, mem_stores_def, mem_store_def]
 QED
 
 Theorem evaluate_Assign_Local:
+  s' = set_var dst value s ∧
   eval s src = SOME value ∧
   FLOOKUP s.locals dst = SOME old_value ∧
   shape_of value = shape_of old_value
   ⇒
-  evaluate ((Assign Local dst src), s) = (NONE, set_var dst value s)
+  evaluate ((Assign Local dst src), s) = (NONE, s')
 Proof
   simp [evaluate_def, is_valid_value_def]
 QED
 
 Theorem evaluate_Primitive_AddCarry:
+  s' =
+    set_var dst
+       (RStruct
+          [ValWord (n2w res : α word);
+           ValWord (if dimword (:α) ≤ res then 1w else 0w)]) s ∧
   eval s l = SOME (ValWord lv) ∧
   eval s r = SOME (ValWord rv) ∧
   eval s ci = SOME (ValWord civ) ∧
@@ -369,12 +389,7 @@ Theorem evaluate_Primitive_AddCarry:
   shape_of old_value = Comb [One; One] ∧
   res = w2n lv + w2n rv + (if civ = 0w then 0 else 1)
   ⇒
-  evaluate (Primitive dst AddCarry [l; r; ci], s) =
-  (NONE,
-     set_var dst
-       (RStruct
-          [ValWord (n2w res : α word);
-           ValWord (if dimword (:α) ≤ res then 1w else 0w)]) s)
+  evaluate (Primitive dst AddCarry [l; r; ci], s) = (NONE, s')
 Proof
   simp [evaluate_def, pan_primop_def, isValWord_def, theValWord_def,
         is_valid_value_def, word_add_carry_def]
@@ -450,8 +465,19 @@ End
 
 (** Correctness ***************************************************************)
 
-val _ = max_print_depth := ~1;
+Theorem single_sub_0w_co[local]:
+  single_sub (x: α word) 0w ci = (r,co)
+  ⇒
+  r = (n2w (w2n x + (dimword (:α) − 1 + if b2w ci = 0w :α word then 0 else 1))) ∧
+  co = (dimword (:α) ≤ w2n x + (dimword (:α) − 1 + if b2w ci = 0w :α word then 0 else 1))
+Proof
+  strip_tac >> gvs [single_sub_def, single_add_def, w2n_minus1]
+  >> Cases_on ‘ci’
+  >> simp [b2n_def, b2w_def, GSYM word_add_n2w, GSYM UINT_MAX_def,
+           GSYM word_T_def]
+QED
 
+(*
 Theorem and_pos_pos_thm:
   ∀(xs: α word list) ys zs rs s x y z frame.
     mw_and xs ys = zs ∧ LENGTH xs ≤ LENGTH ys ∧
@@ -555,18 +581,6 @@ Proof
   >> qexistsl [‘m’, ‘l’]
   >> fs [state_component_equality, ones_def, ADD1]
   >> fs [AC STAR_ASSOC STAR_COMM]
-QED
-
-Theorem single_sub_0w_co[local]:
-  single_sub (x: α word) 0w ci = (r,co)
-  ⇒
-  r = (n2w (w2n x + (dimword (:α) − 1 + if b2w ci = 0w :α word then 0 else 1))) ∧
-  co = (dimword (:α) ≤ w2n x + (dimword (:α) − 1 + if b2w ci = 0w :α word then 0 else 1))
-Proof
-  strip_tac >> gvs [single_sub_def, single_add_def, w2n_minus1]
-  >> Cases_on ‘ci’
-  >> simp [b2n_def, b2w_def, GSYM word_add_n2w, GSYM UINT_MAX_def,
-           GSYM word_T_def]
 QED
 
 Theorem and_neg_pos_geq_thm:
@@ -678,6 +692,391 @@ Proof
   >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
   >> disch_then $ qspec_then ‘s'’ mp_tac
   >> simp [Abbr ‘s'’]
+  >> fs [GSYM b2w_ite, n2w_SUC, dec_clock_def]
+  >> disch_then $ qspec_then
+       ‘dimword (:α) ≤ w2n h + (dimword (:α) − 1 + if b2w c = 0w :α word then 0 else 1)’
+       mp_tac
+  >> simp []
+  >> strip_tac >> SEP_F_TAC
+  >> disch_then $ qx_choosel_then [‘m’, ‘l’] assume_tac
+  >> qexistsl [‘m’, ‘l’]
+  >> simp [mwi_and_neg_pos_geq_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> drule_then assume_tac single_sub_0w_co
+  >> fs [ones_def, AC STAR_ASSOC STAR_COMM, n2w_SUC, state_component_equality]
+QED
+*)
+
+(** tactics playground ********************************************************)
+
+(* todo write automation that automatically generates the stack variant for
+   a theorem? *)
+
+val _ = max_print_depth := 20;
+
+Theorem stack_T:
+  stack (T::xs) = stack xs
+Proof
+  simp [stack_def]
+QED
+
+Theorem stack_pull:
+  x ∧ stack xs
+  ⇒
+  stack (x::xs)
+Proof
+  simp [stack_def]
+QED
+
+Theorem stack_evaluate:
+  stack [evaluate (stmt, s) = (res, s')] ⇔ evaluate (stmt, s) = (res, s')
+Proof
+  simp [stack_def]
+QED
+
+Theorem add_rest[local]:
+  (stack P ⇒ stack Q) ⇒ stack (P ++ rest) ⇒ stack (Q ++ rest)
+Proof
+  simp [stack_def]
+QED
+
+Theorem stack_mono[local]:
+  (P ⇒ Q) ⇒ stack [P] ⇒ stack [Q]
+Proof
+  simp [stack_def]
+QED
+
+Theorem stack_conj[local]:
+  stack ((P ∧ Q)::rest) = stack (P::Q::rest)
+Proof
+  simp [stack_def, CONJ_ASSOC]
+QED
+
+val ERR = mk_HOL_ERR "bignum_and";
+val WRAP_EXN = wrap_exn "bignum_and";
+
+fun stackify_imp_th th = let
+  val RRULE = REWRITE_RULE
+  val ADD_STACK = MATCH_MP stack_mono
+  fun FLATTEN_STACK th = th |> RRULE [CONJ_ASSOC] |> RRULE [stack_conj];
+  fun ADD_REST th = th |> MATCH_MP add_rest |> RRULE [APPEND]
+in
+  th |> ADD_STACK |> FLATTEN_STACK |> ADD_REST
+    handle e => raise WRAP_EXN "stackify_imp_th" e
+end
+
+(* TODO Add comments *)
+(* TODO make LLM look over it *)
+
+(* todo add tactic to turn head into subgoal *)
+
+val it = stackify_imp_th evaluate_Dec_NONE
+
+val (stack_tm, mk_stack, dest_stack, is_stack) = syntax_fns1 "stackTest" "stack"
+fun is_stack_cons tm = is_stack tm andalso listSyntax.is_cons (dest_stack tm)
+
+(* Applies a conversion to the first instance of stack in the top-level
+   conjuncts (modulo leading quantifiers) *)
+fun STACK_CONV c =
+  let
+    fun search tm =
+      if is_stack tm then c tm
+      else if is_conj tm then
+        let val (l, _) = dest_conj tm in
+          if is_stack l then LAND_CONV c tm
+          else RAND_CONV search tm
+        end
+      else raise ERR "STACK_CONV" "no stack conjunct found"
+  in
+    STRIP_QUANT_CONV search
+  end
+
+(* Applies a conversion to the head of the first instance of stack
+   in the top-level conjuncts (modulo leading quantifiers) *)
+fun STACK_HEAD_CONV conv =
+  let
+    fun head_conv tm =
+      if is_stack_cons tm then RAND_CONV (LAND_CONV conv) tm
+      else raise ERR "STACK_HEAD_CONV" "stack is empty"
+  in
+    STACK_CONV head_conv
+  end
+
+(* Theorems of the form {evaluate,eval} ... = ...  *)
+val (step_eq_thl: thm list) =
+  [eval_Var_Local, evaluate_Seq_Annot_Left, eval_Const, eval_BytesInWord]
+val _ =
+  if not (all (is_eq o concl) step_eq_thl) then
+    raise ERR "assertion failure" "non-equality found in step_eq_thl"
+
+(* Theorems of the form stack (...) ⇒ stack ({evaluate,eval} ...) *)
+val (step_imp_thl: thm list) =
+  [evaluate_Dec_NONE, eval_Load_One_Local_SOME, eval_RStruct_One_One,
+   evaluate_Primitive_AddCarry, evaluate_Seq_NONE, eval_Op_BitwiseNot_SOME,
+   eval_RField_Var_Local, evaluate_Store_Local_NONE,
+   eval_Op_And_SOME, evaluate_Assign_Local, eval_Op_Add_SOME, eval_Op_Sub_SOME]
+  |> map stackify_imp_th
+
+(* Given ⊢ A = B, returns A. *)
+fun eq_thm_lhs thm = thm |> concl |> dest_eq |> fst
+
+(* Given ⊢ A ⇒ B, returns B. *)
+fun imp_thm_rhs thm = thm |> concl |> dest_imp |> snd
+
+(* Rewrites with the theorems in step_eq_thl at the stack head, failing if
+   the goal remains unchanged. *)
+val step_eq_tac : tactic =
+  CHANGED_TAC (CONV_TAC (STACK_HEAD_CONV (REWRITE_CONV step_eq_thl)))
+    handle e => raise WRAP_EXN "step_eq_tac" e
+
+(* Returns the first stack term in a list of terms. *)
+fun first_stack tms =
+  Lib.first is_stack tms
+  handle e => raise WRAP_EXN "first_stack: could not find stack term" e
+
+(* Given a stack term, returns the appropriate irule instantiation using an
+   appropriate theorem from step_imp_thl. *)
+fun step_imp_tac (stack: term) = let
+  val candidates =
+    filter (fn thm => can (match_term (imp_thm_rhs thm)) stack) step_imp_thl
+  val count = length candidates
+  val winner =
+    if count = 1 then hd candidates
+    else if count = 0 then
+      raise ERR "step_imp_tac" "no matching step theorem found."
+    else raise ERR "step_imp_tac" "found multiple candidate step theorems."
+in irule_at (Pos first_stack) winner end
+
+(* Reduces a goal that contains stack (({evaluate,eval} ... = ...)::...). *)
+val step : tactic = fn (g as (asl, w)) => let
+  val stack = find_term is_stack w
+    handle HOL_ERR _ => raise ERR "step" "could not find stack"
+  val (head, _) = listSyntax.dest_cons (rand stack)
+    handle HOL_ERR _ => raise ERR "step" "stack is empty"
+  val _ =
+    if not (is_eq head) then raise ERR "step" "stack head is not an equality"
+  val matches_eq =
+    exists (fn thm => can (match_term (eq_thm_lhs thm)) (lhs head)) step_eq_thl
+in
+  (if matches_eq then step_eq_tac else step_imp_tac stack) g
+    handle e => raise WRAP_EXN "step" e
+end
+
+(* Rewrites stack (T::rest) to stack rest. Fails if the rewrite does not apply. *)
+val head_pop_T : tactic = fn (g as (asl, w)) =>
+  (CHANGED_TAC (CONV_TAC (STACK_CONV (REWRITE_CONV [stack_T])))) g
+
+(* Rewrites the head of the stack using the assumptions and the passed
+   theorem list. *)
+(*
+fun head_asm_rewrite thl : tactic = fn (g as (asl, w)) =>
+    CONV_TAC (STACK_HEAD_CONV (ASM_REWRITE_CONV asl thl)) g
+*)
+
+(* Simplifies the head of the stack using the assumptions, the simpset and
+   the passed theorem list. *)
+fun head_asm_simp ss thl : tactic = fn (g as (asl, w)) =>
+  CONV_TAC (STACK_HEAD_CONV (SIMP_CONV ss (map ASSUME asl @ thl))) g
+
+(* "cleaned up" tactic *)
+
+(* Given a term of the form ∃x₁ ... xₙ. t₁ ∧ ... ∧ tₙ, returns
+   ([x₁, ..., xₙ], [t₁, ..., tₙ]). *)
+fun dest_exists_conj tm =
+  let val (evars, rest) = strip_exists tm
+  in (evars, strip_conj rest) end
+
+(* Given a list of terms, finds the stack and returns its head. *)
+fun get_stack_head tms = let
+  val stack = Lib.first is_stack tms
+    handle HOL_ERR _ => raise ERR "get_stack_head" "could not find stack"
+  val (head, _) = listSyntax.dest_cons (rand stack)
+    handle HOL_ERR _ => raise ERR "get_stack_head" "stack is empty"
+in head end
+
+(* Returns the first variable from evars that can be unwound using tm.
+   This function mirrors check_var from Unwind.sml. *)
+fun find_unwind_var (evars: term list) (tm: term) =
+  if is_eq tm then let
+    val (arg1, arg2) = dest_eq tm in
+      if op_mem aconv arg1 (free_vars arg2) orelse
+         op_mem aconv arg2 (free_vars arg1)
+      then raise ERR "find_unwind_var" "duplicate values"
+      else
+        (Lib.first (fn e => aconv arg1 e orelse aconv arg2 e) evars
+           handle HOL_ERR _ => raise ERR "find_unwind_var" "no value")
+    end
+  else if is_neg tm andalso List.exists (aconv (dest_neg tm)) evars then
+    Lib.first (aconv (dest_neg tm)) evars
+  else
+    (Lib.first (aconv tm) evars
+       handle HOL_ERR _ => raise ERR "find_unwind_var" "no value")
+
+(* Applies UNWIND_EXISTS_CONV to the first (top-level) existential quantifier
+   that is equal to tm. *)
+fun UNWIND_EXISTS_VAR_CONV v tm =
+  if is_exists tm then let
+    val (bv, _) = dest_exists tm in
+      if aconv bv v then Unwind.UNWIND_EXISTS_CONV tm
+      else QUANT_CONV (UNWIND_EXISTS_VAR_CONV v) tm
+    end
+  else ALL_CONV tm
+
+(* Eliminates existentials that are restricted to a point at the head of the
+   stack. *)
+val head_unwind : tactic = fn (g as (_, w)) =>
+  let
+    val (evars, conjs) = dest_exists_conj w
+    val head = get_stack_head conjs
+      handle e => raise WRAP_EXN "head_unwind" e
+    val target = find_unwind_var evars head
+      handle e => raise WRAP_EXN "head_unwind" e
+  in
+    (irule_at (Pos first_stack) stack_pull
+     >> CONV_TAC (UNWIND_EXISTS_VAR_CONV target)) g
+  end
+
+(* Variant of simp that only applies to the stack head for the use in user
+   proof-scripts. Makes sure to reduce stack (T::...) and apply unwind for
+   existentials. *)
+val hsimp : thm list -> tactic = let
+  val hsimp_core = head_asm_simp (boss_ss())
+in
+  fn thl => fn g =>
+    (hsimp_core thl >> TRY (head_pop_T ORELSE head_unwind)) g
+end
+
+(* Simplifier used to automatically discharge side-conditions. *)
+val side_simp =
+  head_asm_simp arith_ss [
+    v_11, word_lab_11, mlstringTheory.mlstring_11, list_11, NOT_CONS_NIL, CHR_11,
+    shape_of_ValWord, shape_of_RStruct_One_One,
+    dec_clock_record, panSemTheory.state_accfupds,
+    FLOOKUP_UPDATE, FLOOKUP_set_var_neq, FLOOKUP_set_var, LLOOKUP_def,
+  ]
+
+(* Attempts to prove side-conditions produced by step. Fails if a
+   side-condition cannot be discharged. *)
+val side : tactic = fn (g as (asl, w)) =>
+  (side_simp >> (head_pop_T ORELSE head_unwind)) g
+    handle HOL_ERR _ => raise ERR "side" "failed to discharge side-condition"
+
+(* val (asl, w) = top_goal (); *)
+(* testing theorems *)
+
+Theorem and_neg_pos_geq_thm:
+  ∀(ys: α word list) xs zs rs s c x y z frame.
+    mwi_and_neg_pos_geq c xs ys = zs ∧ LENGTH ys ≤ LENGTH xs ∧
+    LENGTH rs = LENGTH ys ∧ LENGTH ys ≤ s.clock ∧
+    FLOOKUP s.locals «y_len» = SOME (Val (Word (n2w (LENGTH ys)))) ∧
+    FLOOKUP s.locals «c» = SOME (Val (Word (b2w c))) ∧
+    FLOOKUP s.locals «xs» = SOME (Val (Word x)) ∧
+    FLOOKUP s.locals «ys» = SOME (Val (Word y)) ∧
+    FLOOKUP s.locals «zs» = SOME (Val (Word z)) ∧
+    (ones x (MAP Word xs) *
+     ones y (MAP Word ys) *
+     ones z rs *
+     frame) (fun2set (s.memory, s.memaddrs)) ∧
+    byte_dimindex (:α) ∧ 8 < dimindex (:α)
+    ⇒
+    ∃m l.
+      evaluate (and_neg_pos_geq_loop,s) = (NONE,
+        s with <| memory := m;
+                  locals := l;
+                  clock := s.clock - LENGTH ys |>) ∧
+      (ones x (MAP Word xs) *
+       ones y (MAP Word ys) *
+       ones z (MAP Word zs) *
+       frame) (fun2set (m, s.memaddrs))
+Proof
+  simp [] >> Induct >> rw [and_neg_pos_geq_loop_def]
+  >- (simp [Once evaluate_def, state_component_equality])
+  >> rename1 ‘ones _ (Word h::MAP Word _)’
+  >> once_rewrite_tac [GSYM stack_evaluate]
+  >> irule_at (Pos first_stack) (stackify_imp_th evaluate_While_True_NONE)
+  >> side >> step >> side
+  >> hsimp []
+  >> ‘SUC (LENGTH ys) < dimword (:α)’ by
+    (drule_then mp_tac $
+       INST_TYPE [“:β” |-> “:α word_lab”] ones_leq_dimword
+     >> disch_then $ qspec_then ‘Word h::MAP Word ys’ assume_tac
+     >> SEP_F_TAC >> simp [] >> strip_tac
+     >> drule_all_then assume_tac one_lt_w2n_bytes_in_word
+     >> irule_at (Pos hd) LESS_LESS_EQ_TRANS
+     >> first_assum $ irule_at (Pos last)
+     >> simp [])
+  >> hsimp []
+  >> step
+  >> step >> side
+  >> step >> side >> side
+  >> Cases_on ‘xs’ >> fs [ones_def] >> SEP_R_TAC
+  >> side >> side
+  >> step >> side
+  >> step >> side >> side
+  >> hsimp [] >> SEP_R_TAC >> hsimp []
+  >> side
+  >> step
+  >> step >> side
+  >> step >> side
+  >> step >> side
+  >> step >> side
+  >> side
+  >> step
+  >> step
+  >> side
+  >> step
+  >> side
+  >> step >> side
+  >> step >> side >> side >> side >> side
+  >> step
+  >> step >> side
+  >> step >> side
+  >> step >> side >> side >> side
+  >> step
+  >> step
+  >> step >> side >> side
+  >> Cases_on ‘rs’ >> gvs []
+  >> fs [ones_def] >> SEP_R_TAC >> hsimp []
+  >> step >> side
+  >> step >> side
+  >> step >> side
+  >> step
+  >> step >> side
+  >> step >> side >> side >> side >> side
+  >> step
+  >> step
+  >> step >> side
+  >> step >> side
+  >> step >> side
+  >> step >> side >> side >> side
+  >> step
+  >> step
+  >> step >> side
+  >> step >> side
+  >> step >> side
+  >> step >> side >> side >> side
+  >> step
+  >> step
+  >> step >> side
+  >> step >> side
+  >> step >> side
+  >> step >> side >> side >> side
+  >> step
+  >> step >> side
+  >> step >> side
+  >> step >> side
+  >> step >> side >> side >> side
+  >> rewrite_tac [stack_evaluate]
+  >> simp [Req0 $ GSYM and_neg_pos_geq_loop_def]
+  >> rename1 ‘evaluate (and_neg_pos_geq_loop, _)’
+  >> last_x_assum drule
+  >> disch_then drule
+  >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
+  >> disch_then $ qspec_then ‘s'’ mp_tac
+  >> simp [Abbr ‘s'’]
+  >> qabbrev_tac ‘memory = s.memory’
+  >> SEP_W_TAC
+  >> simp [Abbr ‘memory’]
   >> fs [GSYM b2w_ite, n2w_SUC, dec_clock_def]
   >> disch_then $ qspec_then
        ‘dimword (:α) ≤ w2n h + (dimword (:α) − 1 + if b2w c = 0w :α word then 0 else 1)’
