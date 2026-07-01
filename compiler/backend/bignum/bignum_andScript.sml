@@ -144,6 +144,7 @@ Proof
   simp [res_var_def, FLOOKUP_SIMP]
 QED
 
+(*
 Theorem FLOOKUP_set_var_neq[local,simp]:
   n' ≠ n ⇒ FLOOKUP (set_var n value s).locals n' = FLOOKUP s.locals n'
 Proof
@@ -155,6 +156,7 @@ Theorem FLOOKUP_set_var[simp]:
 Proof
   simp [set_var_def, FLOOKUP_SIMP]
 QED
+*)
 
 Theorem shape_of_ValWord[simp]:
   shape_of (ValWord x) = One
@@ -168,6 +170,7 @@ Proof
   simp [shape_of_def]
 QED
 
+(*
 Theorem set_var_record[simp]:
   (set_var v value s).clock = s.clock ∧
   (set_var v value s).memaddrs = s.memaddrs ∧
@@ -184,6 +187,7 @@ Theorem set_var_record[simp]:
 Proof
   simp [set_var_def]
 QED
+*)
 
 Theorem dec_clock_record[simp]:
   (dec_clock s).locals = s.locals ∧
@@ -334,6 +338,33 @@ Proof
   rw [] >> simp [Once evaluate_def]
 QED
 
+Theorem evaluate_While_NONE:
+  eval s e = SOME (ValWord w) ∧
+  evaluate (If (Const w) (Seq Tick (Seq c (While e c))) Skip, s) = (NONE, s')
+  ⇒
+  evaluate (While e c,s) = (NONE, s')
+Proof
+  once_rewrite_tac [evaluate_def]
+  >> qabbrev_tac ‘hidden = While e c’
+  >> simp []
+  >> reverse IF_CASES_TAC >> gvs []
+  >- simp [evaluate_def]
+  >> simp [evaluate_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> Cases_on ‘s.clock = 0’ >> gvs []
+  >> IF_CASES_TAC >> gvs []
+QED
+
+Theorem evaluate_If_NONE:
+  eval s e = SOME (ValWord w) ∧
+  evaluate (If (Const w) c1 c2,s) = (NONE, s')
+  ⇒
+  evaluate (If e c1 c2,s) = (NONE, s')
+Proof
+  once_rewrite_tac [evaluate_def]
+  >> rw []
+QED
+
 Theorem evaluate_Dec_NONE:
   (s₂ = s₁ with locals := res_var s₁.locals (v, FLOOKUP s.locals v)) ∧
   eval s e = SOME value ∧
@@ -366,22 +397,24 @@ Proof
 QED
 
 Theorem evaluate_Assign_Local:
-  s' = set_var dst value s ∧
+  s' = s with locals := s.locals⟨dst ↦ value⟩ ∧
   eval s src = SOME value ∧
   FLOOKUP s.locals dst = SOME old_value ∧
   shape_of value = shape_of old_value
   ⇒
   evaluate ((Assign Local dst src), s) = (NONE, s')
 Proof
-  simp [evaluate_def, is_valid_value_def]
+  simp [evaluate_def, is_valid_value_def, set_var_def]
 QED
 
 Theorem evaluate_Primitive_AddCarry:
   s' =
-    set_var dst
+    s with locals :=
+      s.locals⟨
+       dst ↦
        (RStruct
           [ValWord (n2w res : α word);
-           ValWord (if dimword (:α) ≤ res then 1w else 0w)]) s ∧
+           ValWord (if dimword (:α) ≤ res then 1w else 0w)])⟩ ∧
   eval s l = SOME (ValWord lv) ∧
   eval s r = SOME (ValWord rv) ∧
   eval s ci = SOME (ValWord civ) ∧
@@ -392,7 +425,17 @@ Theorem evaluate_Primitive_AddCarry:
   evaluate (Primitive dst AddCarry [l; r; ci], s) = (NONE, s')
 Proof
   simp [evaluate_def, pan_primop_def, isValWord_def, theValWord_def,
-        is_valid_value_def, word_add_carry_def]
+        is_valid_value_def, word_add_carry_def, set_var_def]
+QED
+
+Theorem evaluate_Tick_NONE:
+  s' = dec_clock s
+  ∧
+  s.clock ≠ 0
+  ⇒
+  evaluate (Tick, s) = (NONE, s')
+Proof
+  simp [evaluate_def]
 QED
 
 (** Pancake implementation ****************************************************)
@@ -709,10 +752,7 @@ QED
 
 (** tactics playground ********************************************************)
 
-(* todo write automation that automatically generates the stack variant for
-   a theorem? *)
-
-val _ = max_print_depth := 20;
+val _ = max_print_depth := 13;
 
 Theorem stack_T:
   stack (T::xs) = stack xs
@@ -770,10 +810,44 @@ end
 
 (* todo add tactic to turn head into subgoal *)
 
+(* Adds the assumptions asl to thl. Useful for rewriters/simplifiers that make
+   use of the assumptions. *)
+fun add_asms asl thl = map ASSUME asl @ thl
+
 val it = stackify_imp_th evaluate_Dec_NONE
 
 val (stack_tm, mk_stack, dest_stack, is_stack) = syntax_fns1 "stackTest" "stack"
 fun is_stack_cons tm = is_stack tm andalso listSyntax.is_cons (dest_stack tm)
+val (eval_tm, mk_eval, dest_eval, is_eval) = syntax_fns2 "panSem" "eval"
+val (evaluate_tm, mk_evaluate, dest_evaluate, is_evaluate) = syntax_fns1 "panSem" "evaluate"
+val (While_tm, mk_While, dest_While, is_While) = syntax_fns2 "panLang" "While"
+val (If_tm, mk_If, dest_If, is_If) = syntax_fns3 "panLang" "If"
+val (Const_tm, mk_Const, dest_Const, is_Const) = syntax_fns1 "panLang" "Const"
+
+(* Returns tm ≠ 0w, given that tm is of type word. *)
+fun mk_neq_0w tm = let
+  val ty = wordsSyntax.dim_of tm
+    handle e => raise WRAP_EXN "mk_neq_0w" e
+  val zero = wordsSyntax.mk_n2w (numSyntax.zero_tm, ty)
+in mk_neg (mk_eq (tm, zero)) end
+
+(* Returns whether tm is of form evaluate (While ..., ...). *)
+fun is_evaluate_While tm =
+  if not $ is_evaluate tm then false
+  else is_While $ fst $ dest_pair $ dest_evaluate tm
+
+(* Returns whether tm is of form evaluate (If ..., ...). *)
+fun is_evaluate_If tm =
+  if not $ is_evaluate tm then false
+  else is_If $ fst $ dest_pair $ dest_evaluate tm
+
+(* Returns w if tm is of the form (If (Const w) ... , ...)*)
+fun dest_evaluate_If_Const tm =
+  let val (cond, _, _,) = dest_If $ fst $ dest_pair $ dest_evaluate tm in
+    dest_Const cond end
+
+(* Returns whether tm is of form evaluate (If (Const ...) ... , ...). *)
+val is_evaluate_If_Const = can $ dest_evaluate_If_Const
 
 (* Applies a conversion to the first instance of stack in the top-level
    conjuncts (modulo leading quantifiers) *)
@@ -814,7 +888,8 @@ val (step_imp_thl: thm list) =
   [evaluate_Dec_NONE, eval_Load_One_Local_SOME, eval_RStruct_One_One,
    evaluate_Primitive_AddCarry, evaluate_Seq_NONE, eval_Op_BitwiseNot_SOME,
    eval_RField_Var_Local, evaluate_Store_Local_NONE,
-   eval_Op_And_SOME, evaluate_Assign_Local, eval_Op_Add_SOME, eval_Op_Sub_SOME]
+   eval_Op_And_SOME, evaluate_Assign_Local, eval_Op_Add_SOME, eval_Op_Sub_SOME,
+   evaluate_Tick_NONE]
   |> map stackify_imp_th
 
 (* Given ⊢ A = B, returns A. *)
@@ -847,20 +922,97 @@ fun step_imp_tac (stack: term) = let
     else raise ERR "step_imp_tac" "found multiple candidate step theorems."
 in irule_at (Pos first_stack) winner end
 
-(* Reduces a goal that contains stack (({evaluate,eval} ... = ...)::...). *)
-val step : tactic = fn (g as (asl, w)) => let
-  val stack = find_term is_stack w
-    handle HOL_ERR _ => raise ERR "step" "could not find stack"
+(* Unfolds evaluate (While ...) = ... at the head. *)
+val step_While = irule_at (Pos first_stack) (stackify_imp_th evaluate_While_NONE)
+
+(* Reduces evaluate (If ...) = ... at the head to
+   evaluate (If (Const ...) ...) = ... . This tactic should not be used on
+   If with a Const condition, as it will not lead to progress in the proof. *)
+val step_If = irule_at (Pos first_stack) (stackify_imp_th evaluate_If_NONE)
+
+(* Finds the "redex" of the stack (lhs of wants at the top of the stack) . *)
+fun find_redex tm = let
+  val stack = find_term is_stack tm
+    handle HOL_ERR _ => raise ERR "find_redex" "could not find stack"
   val (head, _) = listSyntax.dest_cons (rand stack)
-    handle HOL_ERR _ => raise ERR "step" "stack is empty"
-  val _ =
-    if not (is_eq head) then raise ERR "step" "stack head is not an equality"
-  val matches_eq =
-    exists (fn thm => can (match_term (eq_thm_lhs thm)) (lhs head)) step_eq_thl
+    handle HOL_ERR _ => raise ERR "find_redex" "stack is empty"
 in
-  (if matches_eq then step_eq_tac else step_imp_tac stack) g
-    handle e => raise WRAP_EXN "step" e
+  lhs head handle HOL_ERR _ => raise ERR "find_redex" "not an equality"
 end
+
+(* For use in step_If_Const *)
+Theorem evaluate_If_Const_T:
+  (w ≠ 0w ⇔ T)
+  ⇒
+  evaluate (c1 ,s) = (NONE, s')
+  ⇒
+  evaluate (If (Const w) c1 c2,s) = (NONE, s')
+Proof
+  simp [evaluate_def]
+QED
+
+(* For use in step_If_Const *)
+Theorem evaluate_If_Const_F:
+  (w ≠ 0w ⇔ F)
+  ⇒
+  evaluate (c2 ,s) = (NONE, s')
+  ⇒
+  evaluate (If (Const w) c1 c2,s) = (NONE, s')
+Proof
+  simp [evaluate_def]
+QED
+
+(* Given a head of the form  evaluate (If (Const w) ...) = ..., tries to
+   reduce w ≠ 0w to T or F and choose the branch accordingly. *)
+val step_If_Const : tactic = fn (g as (asl, w)) => let
+  val cond = mk_neq_0w $ dest_evaluate_If_Const $ find_redex w
+    handle e => raise WRAP_EXN "step_If_Const" e
+  val thl = [n2w_11, LESS_MOD, ZERO_MOD, ZERO_LT_dimword]
+  val reduced_th = QCONV (SIMP_CONV arith_ss (add_asms asl thl)) cond
+  val reduced = rhs $ concl $ reduced_th
+in
+  if aconv reduced boolSyntax.T then
+    irule_at (Pos first_stack)
+      (stackify_imp_th $ MATCH_MP evaluate_If_Const_T reduced_th) g
+  else if aconv reduced boolSyntax.F then
+    irule_at (Pos first_stack)
+      (stackify_imp_th $ MATCH_MP evaluate_If_Const_F reduced_th) g
+  else raise ERR "step_If_Const" $
+    concat [
+      "failed to reduce condition ", term_to_string cond, " to a boolean.\n",
+      "Hint: no assumption determines this; add one and try again.\n",
+      "debug: reduced_th: ", thm_to_string reduced_th
+      ]
+end
+
+(* Reduces a goal that contains stack (({evaluate,eval} ... = ...)::...).
+   unfold indicates whether while-loops should be unfolded. *)
+fun step_core unfold : tactic = fn (g as (asl, w)) => let
+  val stack = find_term is_stack w
+    handle HOL_ERR _ => raise ERR "find_step" "could not find stack"
+  val (head, _) = listSyntax.dest_cons (rand stack)
+    handle HOL_ERR _ => raise ERR "find_step" "stack is empty"
+  val _ =
+    if not (is_eq head) then
+      raise ERR "step_core" "stack head is not an equality"
+  val redex = lhs head
+  val matches_eq =
+    exists (fn thm => can (match_term (eq_thm_lhs thm)) redex) step_eq_thl
+in
+  (if is_evaluate_While redex then
+     if unfold then step_While else
+       raise ERR "step_core"
+         "unfolding while-loops disabled. Hint: use the step tactic."
+   else if is_evaluate_If_Const redex then step_If_Const
+   else if is_evaluate_If redex then step_If
+   else if matches_eq then
+     step_eq_tac handle e => raise WRAP_EXN "step_core" e
+   else
+     step_imp_tac stack handle e => raise WRAP_EXN "step_core" e) g
+end
+
+(* step tactic for the user. Unfolds while-loops. *)
+val step = step_core true
 
 (* Rewrites stack (T::rest) to stack rest. Fails if the rewrite does not apply. *)
 val head_pop_T : tactic = fn (g as (asl, w)) =>
@@ -876,7 +1028,7 @@ fun head_asm_rewrite thl : tactic = fn (g as (asl, w)) =>
 (* Simplifies the head of the stack using the assumptions, the simpset and
    the passed theorem list. *)
 fun head_asm_simp ss thl : tactic = fn (g as (asl, w)) =>
-  CONV_TAC (STACK_HEAD_CONV (SIMP_CONV ss (map ASSUME asl @ thl))) g
+  CONV_TAC (STACK_HEAD_CONV (SIMP_CONV ss (add_asms asl thl))) g
 
 (* "cleaned up" tactic *)
 
@@ -946,13 +1098,14 @@ in
     (hsimp_core thl >> TRY (head_pop_T ORELSE head_unwind)) g
 end
 
-(* Simplifier used to automatically discharge side-conditions. *)
+(* Simplifier used to automatically discharge side-conditions.
+   Since it does not fail, it is useful for debugging side. *)
 val side_simp =
   head_asm_simp arith_ss [
     v_11, word_lab_11, mlstringTheory.mlstring_11, list_11, NOT_CONS_NIL, CHR_11,
     shape_of_ValWord, shape_of_RStruct_One_One,
     dec_clock_record, panSemTheory.state_accfupds,
-    FLOOKUP_UPDATE, FLOOKUP_set_var_neq, FLOOKUP_set_var, LLOOKUP_def,
+    FLOOKUP_UPDATE, (* FLOOKUP_set_var_neq, FLOOKUP_set_var, *) LLOOKUP_def,
   ]
 
 (* Attempts to prove side-conditions produced by step. Fails if a
@@ -961,11 +1114,31 @@ val side : tactic = fn (g as (asl, w)) =>
   (side_simp >> (head_pop_T ORELSE head_unwind)) g
     handle HOL_ERR _ => raise ERR "side" "failed to discharge side-condition"
 
-(* val (asl, w) = top_goal (); *)
-(* testing theorems *)
+(* Tries to apply step or side. *)
+fun step_or_side_core unfold : tactic = fn (g as (asl, w)) => let
+  val is_step =
+    case total find_redex w of
+      NONE => false
+    | SOME redex => is_evaluate redex orelse is_eval redex
+in
+  (if is_step then step_core unfold else side) g
+    handle e => raise WRAP_EXN "step_or_side_core" e
+end
 
-(* Takes multiple steps. *)
-val walk = rpt (step ORELSE side)
+(* Tries to apply step or side, including unfolding of loops. *)
+val step_or_side = step_or_side_core true
+    handle e => raise WRAP_EXN "step_or_side" e
+
+(* Apply tactic one or more times. *)
+fun rpt1 tac : tactic = tac >> rpt tac
+
+(* Takes as many steps as possible, except unfold while-loops. *)
+val walk : tactic = fn (g as (asl, w)) =>
+  (rpt1 (step_or_side_core false)) g handle e => raise WRAP_EXN "walk" e
+
+(*
+val g as (asl, w) = top_goal ();
+*)
 
 Theorem and_neg_pos_geq_thm:
   ∀(ys: α word list) xs zs rs s c x y z frame.
@@ -996,8 +1169,7 @@ Proof
   >- (simp [Once evaluate_def, state_component_equality])
   >> rename1 ‘ones _ (Word h::MAP Word _)’
   >> once_rewrite_tac [GSYM stack_evaluate]
-  >> irule_at (Pos first_stack) (stackify_imp_th evaluate_While_True_NONE)
-  >> walk
+  >> step >> walk
   >> ‘SUC (LENGTH ys) < dimword (:α)’ by
     (drule_then mp_tac $
        INST_TYPE [“:β” |-> “:α word_lab”] ones_leq_dimword
@@ -1007,7 +1179,6 @@ Proof
      >> irule_at (Pos hd) LESS_LESS_EQ_TRANS
      >> first_assum $ irule_at (Pos last)
      >> simp [])
-  >> hsimp []
   >> walk
   >> Cases_on ‘xs’ >> fs [ones_def] >> SEP_R_TAC
   >> walk
@@ -1027,7 +1198,7 @@ Proof
   >> qabbrev_tac ‘memory = s.memory’
   >> SEP_W_TAC
   >> simp [Abbr ‘memory’]
-  >> fs [GSYM b2w_ite, n2w_SUC, dec_clock_def]
+  >> fs [GSYM b2w_ite, n2w_SUC, dec_clock_def, FLOOKUP_SIMP]
   >> disch_then $ qspec_then
        ‘dimword (:α) ≤ w2n h + (dimword (:α) − 1 + if b2w c = 0w :α word then 0 else 1)’
        mp_tac
