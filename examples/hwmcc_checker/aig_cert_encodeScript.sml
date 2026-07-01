@@ -1273,12 +1273,12 @@ Definition encode_is_witness_reset_def:
     (wreset: 'l -> ('b, 'i, 'l) lit option)
     (wcnstrs: ('b, 'i, 'l) lit list)
     (wlatches: 'l list)
+    (klatches: 'l list)  (* mlatches ∩ wlatches *)
   =
   let
     circ = imerge_circuits mcirc wcirc;
     circ = encode_is_reset circ «mreset» (ileft_reset mreset) mlatches;
     circ = encode_preds_hold circ «mcnstrs» (ileft_name_lits mcnstrs);
-    klatches = list_inter mlatches wlatches;
     circ = encode_is_reset circ «wreset» (iright_reset wreset) klatches;
     circ = encode_preds_hold circ «wcnstrs» (iright_name_lits wcnstrs);
     lhss =
@@ -1301,6 +1301,7 @@ Definition encode_is_witness_transition_def:
     (wnext: 'l -> ('b, 'i, 'l) lit)
     (wcnstrs: ('b, 'i, 'l) lit list)
     (wlatches: 'l list)
+    (klatches: 'l list)  (* mlatches ∩ wlatches *)
   =
   let
     circ  = imerge_circuits mcirc wcirc;
@@ -1308,7 +1309,6 @@ Definition encode_is_witness_transition_def:
     circ = encode_preds_hold circ «wcnstrs» (iright_name_lits wcnstrs);
     circ  = iext_circuit (pair_circuits circ circ);
     circ  = encode_is_next circ «mnext» (iext_lit ∘ left_name_lit ∘ mnext) mlatches;
-    klatches = list_inter mlatches wlatches;
     circ  = encode_is_next circ «wnext» (iext_lit ∘ right_name_lit ∘ wnext) klatches;
     lhss  =
       [(Name (Named (Ext «mnext»)), F);
@@ -2194,45 +2194,49 @@ QED
 (* Main encoder theorems ******************************************************)
 
 Theorem eval_circuit_encode_is_witness_reset:
-  (¬∃ss.
+  (set klatches) = (set mlatches) ∩ (set wlatches)
+  ⇒
+  ((¬∃ss.
       (eval_circuit ss
                     (encode_is_witness_reset
                      mcirc mreset mcnstrs mlatches
-                     wcirc wreset wcnstrs wlatches)
+                     wcirc wreset wcnstrs wlatches klatches)
                     (Named (Ext «reset»)))) =
   is_witness_reset
   mcirc mreset mnext mpreds (set mcnstrs) (set mlatches)
-  wcirc wreset wnext wpreds (set wcnstrs) (set wlatches)
+  wcirc wreset wnext wpreds (set wcnstrs) (set wlatches))
 Proof
   simp [
       is_witness_reset_def, encode_is_witness_reset_def,
       eval_circuit_encode_imply,
       eval_lit_encode_preds_hold_Named,
-      eval_lit_encode_is_reset_Named,
-      list_inter_set
+      eval_lit_encode_is_reset_Named
     ]
   >> metis_tac []
 QED
 
 Theorem eval_circuit_encode_is_witness_transition:
-  (¬∃ss.
+  (set klatches) = (set mlatches) ∩ (set wlatches)
+  ⇒
+  ((¬∃ss.
      (eval_circuit ss
        (encode_is_witness_transition
           mcirc mnext mcnstrs mlatches
-          wcirc wnext wcnstrs wlatches)
+          wcirc wnext wcnstrs wlatches klatches)
        (Named (Ext «transition»)))) ⇔
   is_witness_transition
     mcirc mreset mnext mpreds (set mcnstrs) (set mlatches)
-    wcirc wreset wnext wpreds (set wcnstrs) (set wlatches)
+    wcirc wreset wnext wpreds (set wcnstrs) (set wlatches))
 Proof
-  simp [
+  strip_tac
+  >> simp [
       encode_is_witness_transition_def,
       eval_circuit_encode_imply,
       encode_is_next_def, encode_is_next_with_def,
       eval_lit_encode_equiv_Named,
       eval_lit_encode_preds_hold_Named,
       FORALL_PAIR_STATE,
-      is_witness_transition_def, list_inter_set, is_next_def, eval_lit_base,
+      is_witness_transition_def, is_next_def, eval_lit_base,
       EVERY_MEM, MEM_MAP, PULL_EXISTS, PULL_FORALL
     ]
   (* metis_tac is quite finicky here... *)

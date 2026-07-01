@@ -18,6 +18,8 @@ val r = translate aig_cert_fullTheory.lit_to_string_def;
 val r = translate aig_cert_fullTheory.clause_to_string_def;
 val r = translate aig_cert_fullTheory.cnf_to_string_def;
 
+val r = translate aig_cert_fullTheory.range_inter_def;
+val r = translate listRangeTheory.listRangeINC_def;
 val r = translate (aig_cert_fullTheory.parse_and_process_def |> demonadify);
 
 val r = translate aig_cert_fullTheory.make_reset_string_def;

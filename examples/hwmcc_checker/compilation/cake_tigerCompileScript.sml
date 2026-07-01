@@ -10,7 +10,7 @@ Libs
 Definition x64_config'_def:
   x64_config' =
   let x64_stack_conf = x64_backend_config.stack_conf with perf_calls := T in
-    x64_backend_config with stack_conf := x64_stack_conf
+    x64_backend_config (* with stack_conf := x64_stack_conf *)
 End
 
 Theorem cake_tiger_compiled =

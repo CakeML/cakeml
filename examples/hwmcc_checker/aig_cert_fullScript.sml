@@ -3,6 +3,7 @@
 *)
 Theory aig_cert_full
 Ancestors
+  listRange
   mlint (* for num_to_str *)
   aig_parse aig_cert_encode aig_to_cnf
 Libs
@@ -46,6 +47,16 @@ End
 
 (* end-to-end processing of model and witness *********************************)
 
+Definition range_inter_def:
+  range_inter m n xs = FILTER (λh. m ≤ h ∧ h ≤ n) xs
+End
+
+Theorem range_inter_thm:
+  range_inter m n xs = ys ⇒ set ys = set [m .. n] ∩ set xs
+Proof
+  rw [range_inter_def] >> simp [EXTENSION, LIST_TO_SET_FILTER]
+QED
+
 Definition parse_and_process_def:
   parse_and_process mstr wstr =
   do
@@ -56,6 +67,7 @@ Definition parse_and_process_def:
     micnt <<- mcounts.inputs;
     mlcnt <<- mcounts.latches;
     mlatch_start <<- micnt + 1;
+    mmax_latch <<- micnt + mlcnt;
     mcirc <<- maig.circuit;
     mreset <<- fromAList maig.reset;
     mreset <<- (λl. lookup l mreset);
@@ -68,6 +80,7 @@ Definition parse_and_process_def:
         (if mcounts.bad = 0 ∧ mcounts.justice = 0 then maig.outputs
          else maig.bad);
     mcnstrs <<- maig.constraints;
+    mlatches <<- [mlatch_start .. mmax_latch];
     mlatches <<- GENLIST (λk. mlatch_start + k) mcounts.latches;
     mfair <<- MAP not maig.fairness;
     mjust <<- maig.justice;
@@ -111,9 +124,11 @@ Definition parse_and_process_def:
       make_interv micnt mlcnt wicnt wmax_latch iren lren wnext_alist
         (maps.intervened_latches);
     interv <<- FLOOKUP interv;
+    klatches <<- range_inter mlatch_start mmax_latch wlatches;
     return
       (mcirc, mreset, mnext, mpreds, mcnstrs, mlive, mlatches,
-       wcirc, wreset, wnext, wpreds, wcnstrs, wlive, wlatches, interv)
+       wcirc, wreset, wnext, wpreds, wcnstrs, wlive, wlatches,
+       interv, klatches)
   od
 End
 
@@ -123,14 +138,14 @@ End
 Definition make_reset_string_def:
   make_reset_string
     (mcirc: (num, num, num) circuit) mreset mcnstrs mlatches
-    (wcirc: (num, num, num) circuit) wreset wcnstrs wlatches
+    (wcirc: (num, num, num) circuit) wreset wcnstrs wlatches klatches
   =
   let
     name = «reset»;
     circ =
       encode_is_witness_reset
         mcirc mreset mcnstrs mlatches
-        wcirc wreset wcnstrs wlatches;
+        wcirc wreset wcnstrs wlatches klatches;
     cnf = aig_to_cnf circ (Named (Ext name))
   in
     (name, cnf_to_string cnf)
@@ -139,14 +154,14 @@ End
 Definition make_transition_string_def:
   make_transition_string
     (mcirc: (num, num, num) circuit) mnext mcnstrs mlatches
-    (wcirc: (num, num, num) circuit) wnext wcnstrs wlatches
+    (wcirc: (num, num, num) circuit) wnext wcnstrs wlatches klatches
   =
   let
     name = «transition»;
     circ =
       encode_is_witness_transition
         mcirc mnext mcnstrs mlatches
-        wcirc wnext wcnstrs wlatches;
+        wcirc wnext wcnstrs wlatches klatches;
     cnf = aig_to_cnf circ (Named (Ext name))
   in
     (name, cnf_to_string cnf)

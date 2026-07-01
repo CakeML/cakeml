@@ -43,7 +43,8 @@ Quote add_cakeml:
     Error (msg, _) => TextIO.output TextIO.stdErr msg
   | Return
       (mcirc, (mreset, (mnext, (mpreds, (mcnstrs, (mlive, (mlatches,
-        (wcirc, (wreset, (wnext, (wpreds, (wcnstrs, (wlive, (wlatches, interv)))))))))))))) =>
+        (wcirc, (wreset, (wnext, (wpreds, (wcnstrs, (wlive, (wlatches,
+          (interv, klatches))))))))))))))) =>
     let
       fun write (name, cert) = let
         val oname =
@@ -54,10 +55,10 @@ Quote add_cakeml:
       val _ = print "parsing finished! continuing with encodings..."
       val _ = write (
         make_reset_string mcirc mreset mcnstrs mlatches wcirc wreset wcnstrs
-          wlatches)
+          wlatches klatches)
       val _ = write (
         make_transition_string mcirc mnext mcnstrs mlatches wcirc wnext wcnstrs
-          wlatches)
+          wlatches klatches)
       val _ = write (
         make_property_string mcirc mcnstrs mpreds wcirc wcnstrs wpreds)
       val _ = write (
