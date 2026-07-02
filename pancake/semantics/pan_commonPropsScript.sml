@@ -99,6 +99,12 @@ Proof
   res_tac >> fs []
 QED
 
+Theorem distinct_lists_eq_disjoint:
+  distinct_lists xs ys ⇔ DISJOINT (set xs) (set ys)
+Proof
+  fs[DISJOINT_ALT, distinct_lists_def, EVERY_MEM]
+QED
+
 Theorem distinct_lists_append:
   ALL_DISTINCT (xs ++ ys)  ==>
   distinct_lists xs ys

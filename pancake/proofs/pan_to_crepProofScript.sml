@@ -3,7 +3,7 @@
 *)
 Theory pan_to_crepProof
 Ancestors
-(*  crep_inlineProof[qualified] *)
+  crep_inlineProof[qualified]
   panSem panProps crepLang crepSem pan_common
   listRange crepProps pan_commonProps pan_to_crep
 Libs
@@ -2594,7 +2594,7 @@ val ret_call_shape_retv_one_tac =
      strip_tac >> fs []
      >> imp_res_tac is_wf_shape_of_v
      >> imp_res_tac length_flatten_eq_size_of_shape
-     >> qpat_assum `locals_rel _ _ _` $ imp_res_tac o SRULE[locals_rel_def] 
+     >> qpat_assum `locals_rel _ _ _` $ imp_res_tac o SRULE[locals_rel_def]
      >> imp_res_tac length_flatten_eq_size_of_shape
      >> drule opt_mmap_length_eq >> disch_tac >> gvs[]
      >> gvs[panSemTheory.set_var_def, state_rel_def, FLOOKUP_UPDATE, Abbr `nctxt`, ctxt_fc_def, locals_rel_def]
@@ -2640,16 +2640,16 @@ val ret_call_shape_retv_comb_zero_tac =
      ) >>
      strip_tac >> fs [] >>
      imp_res_tac length_flatten_eq_size_of_shape
-     >> qpat_assum `locals_rel _ _ _` $ imp_res_tac o SRULE[locals_rel_def] 
+     >> qpat_assum `locals_rel _ _ _` $ imp_res_tac o SRULE[locals_rel_def]
      >> imp_res_tac length_flatten_eq_size_of_shape
      >> drule opt_mmap_length_eq >> disch_tac >> gvs[]
      >> fs[state_rel_def, panSemTheory.set_var_def, Abbr `nctxt`, ctxt_fc_def, code_rel_def, excp_rel_def]
      >> conj_tac >- metis_tac[]
      >> gvs[FLOOKUP_UPDATE, locals_rel_def]
      >> strip_tac >> TOP_CASE_TAC >> fs[]
-     >> rpt strip_tac 
+     >> rpt strip_tac
      >> res_tac >> gvs[FUPDATE_LIST]
-     
+
 
 val ret_call_shape_retv_comb_one_tac =
      fs [evaluate_def] >>
@@ -2743,7 +2743,7 @@ val ret_call_shape_retv_comb_gt_one_tac =
      fs [Abbr ‘ns’, ALL_DISTINCT_GENLIST]) >>
     strip_tac >> fs [] >>
     imp_res_tac length_flatten_eq_size_of_shape
-    >> qpat_assum `locals_rel _ _ _` $ imp_res_tac o SRULE[locals_rel_def] 
+    >> qpat_assum `locals_rel _ _ _` $ imp_res_tac o SRULE[locals_rel_def]
     >> imp_res_tac length_flatten_eq_size_of_shape
     >> drule opt_mmap_length_eq >> disch_tac >> gvs[]
     >> fs[state_rel_def, panSemTheory.set_var_def, Abbr `nctxt`, ctxt_fc_def, code_rel_def, excp_rel_def]
@@ -2753,7 +2753,7 @@ val ret_call_shape_retv_comb_gt_one_tac =
     >- (
       DEP_REWRITE_TAC [opt_mmap_some_eq_zip_flookup] >> gvs[]
     )
-    >> rpt strip_tac 
+    >> rpt strip_tac
     >> res_tac >> gvs[]
     >> DEP_REWRITE_TAC[opt_mmap_disj_zip_flookup] >> fs[]
     >> imp_res_tac no_overlap_flookup_distinct
@@ -3044,7 +3044,7 @@ Proof
   Induct >> fs[eval_def]
 QED
 
-Theorem eval_distinct_lists_not_affect:
+Theorem eval_distinct_lists_not_affect':
   ∀vs s e w nvals.
     eval s e = SOME w ∧
     LENGTH vs = LENGTH nvals ∧
@@ -3075,7 +3075,7 @@ Proof
   >> conj_tac
   >- (
     imp_res_tac distinct_lists_append_right_elim
-    >> metis_tac[eval_distinct_lists_not_affect]
+    >> metis_tac[eval_distinct_lists_not_affect']
   )
   >> imp_res_tac distinct_lists_append_right_elim
   >> metis_tac[]
@@ -3284,8 +3284,8 @@ Resume pc_compile_correct[Call_Ret_TimeOut]:
     >> `dec_clock (t with locals := old_loc) with locals := new_loc = dec_clock t with locals := new_loc` by fs[dec_clock_def, state_component_equality] >> gvs[]
     >> qunabbrev_tac `new_loc`
     >> ntac 2 $ pop_assum kall_tac
-    >> qmatch_asmsub_abbrev_tac `compile (ctxt_fc _ _ _ _ ns) prog` 
-    >> `LENGTH ns = LENGTH (FLAT (MAP flatten args))` by fs[Abbr `ns`, LENGTH_GENLIST] 
+    >> qmatch_asmsub_abbrev_tac `compile (ctxt_fc _ _ _ _ ns) prog`
+    >> `LENGTH ns = LENGTH (FLAT (MAP flatten args))` by fs[Abbr `ns`, LENGTH_GENLIST]
     >> drule call_preserve_state_code_locals_rel
     >> res_tac
     >> rpt (disch_then drule) >> fs[] >> impl_tac
@@ -3300,7 +3300,7 @@ Resume pc_compile_correct[Call_Ret_TimeOut]:
 QED
 
 Resume pc_compile_correct[Call_Ret_Return]:
-  imp_res_tac code_rel_imp >> gvs[panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] 
+  imp_res_tac code_rel_imp >> gvs[panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"]
   >> res_tac >> fs[] >>
   cases_on ‘x’>> fs[]>>
     PURE_TOP_CASE_TAC >> fs[]
@@ -3315,7 +3315,7 @@ Resume pc_compile_correct[Call_Ret_Return]:
             >> drule call_preserve_state_code_locals_rel
             >> rpt (disch_then drule) >> fs[ALL_DISTINCT_GENLIST]
             >> disch_tac >> fs[slc_def, tlc_def]
-            >> last_x_assum drule 
+            >> last_x_assum drule
             >> qmatch_asmsub_abbrev_tac `code_rel nctxt (dec_clock _).code _`
             >> disch_then $ qspec_then `nctxt` mp_tac >> impl_tac
             >- fs[Abbr `nctxt`, dec_clock_def, panSemTheory.dec_clock_def]
@@ -3332,17 +3332,17 @@ Resume pc_compile_correct[Call_Ret_Return]:
             >> disch_tac >> fs[GSYM opt_mmap_eq_some]
             >> pairarg_tac >> gvs[Abbr `p`, evaluate_def]
             >> rev_drule opt_mmap_eval_distinct_lists_not_affect
-            >> disch_then $ qspecl_then [`ntmps`, `REPLICATE (size_of_shape (shape_of v)) (Word 0w)`] mp_tac >> impl_tac 
+            >> disch_then $ qspecl_then [`ntmps`, `REPLICATE (size_of_shape (shape_of v)) (Word 0w)`] mp_tac >> impl_tac
             >- (
               conj_tac
               >- fs[Abbr `ntmps`, LENGTH_GENLIST, LENGTH_REPLICATE]
-              >> fs[distinct_lists_def, EVERY_MEM] 
+              >> fs[distinct_lists_def, EVERY_MEM]
               >> rpt strip_tac
               >> qunabbrev_tac `ntmps`
               >> imp_res_tac mem_genlist_add_suc_val
               >> gvs[MEM_FLAT, MEM_MAP]
               >> drule_all opt_mmap_mem_func
-              >> disch_tac >> fs[] 
+              >> disch_tac >> fs[]
               >> imp_res_tac $ el 2 o RES_CANON $ iffLR locals_rel_def
               >> imp_res_tac MEM_compile_exp_vmax >> fs[]
             )
@@ -3355,7 +3355,7 @@ Resume pc_compile_correct[Call_Ret_Return]:
             >> disch_then drule
             >> disch_tac
             >> imp_res_tac is_wf_shape_of_v
-            >> imp_res_tac length_flatten_eq_size_of_shape 
+            >> imp_res_tac length_flatten_eq_size_of_shape
             >> fs[Abbr `ntmps`]
             >> qpat_x_assum `_ = (q, r')` mp_tac
             >> DEP_REWRITE_TAC [opt_mmap_some_eq_zip_flookup]
@@ -3366,22 +3366,22 @@ Resume pc_compile_correct[Call_Ret_Return]:
             >- fs[state_rel_def]
             >- (fs[Abbr `nctxt`, ctxt_fc_def, code_rel_def] >> metis_tac[])
             >- fs[Abbr `nctxt`, ctxt_fc_def]
-            >> DEP_REWRITE_TAC [FUPDATE_LIST_CANCEL] 
+            >> DEP_REWRITE_TAC [FUPDATE_LIST_CANCEL]
             >> conj_tac
             >- (
-              DEP_REWRITE_TAC [hd $ RES_CANON MAP_ZIP] 
+              DEP_REWRITE_TAC [hd $ RES_CANON MAP_ZIP]
               >> gvs[LENGTH_GENLIST, LENGTH_REPLICATE]
             )
             >> DEP_REWRITE_TAC [res_var_lookup_original_eq] >> fs[]
           ) >>
-        (* Standalone call, with handler 
+        (* Standalone call, with handler
            Each smaller case in this case has the same exact proof as the previous case (standalone, no handler)
         *)
         PairCases_on ‘x’ >>
         fs[] >>
         PURE_TOP_CASE_TAC
         >- (
-           (* Handler's exception id is NOT found in context *) 
+           (* Handler's exception id is NOT found in context *)
            (* This is the same proof script as the standalone, no handler case *)
             fs[]
             >> drule_all list_rel_length_shape_of_flatten >> fs[]
@@ -3389,7 +3389,7 @@ Resume pc_compile_correct[Call_Ret_Return]:
             >> drule call_preserve_state_code_locals_rel
             >> rpt (disch_then drule) >> fs[ALL_DISTINCT_GENLIST]
             >> disch_tac >> fs[slc_def, tlc_def]
-            >> last_x_assum drule 
+            >> last_x_assum drule
             >> qmatch_asmsub_abbrev_tac `code_rel nctxt (dec_clock _).code _`
             >> disch_then $ qspec_then `nctxt` mp_tac >> impl_tac
             >- fs[Abbr `nctxt`, dec_clock_def, panSemTheory.dec_clock_def]
@@ -3406,17 +3406,17 @@ Resume pc_compile_correct[Call_Ret_Return]:
             >> disch_tac >> fs[GSYM opt_mmap_eq_some]
             >> pairarg_tac >> gvs[Abbr `p`, evaluate_def]
             >> rev_drule opt_mmap_eval_distinct_lists_not_affect
-            >> disch_then $ qspecl_then [`ntmps`, `REPLICATE (size_of_shape (shape_of v)) (Word 0w)`] mp_tac >> impl_tac 
+            >> disch_then $ qspecl_then [`ntmps`, `REPLICATE (size_of_shape (shape_of v)) (Word 0w)`] mp_tac >> impl_tac
             >- (
               conj_tac
               >- fs[Abbr `ntmps`, LENGTH_GENLIST, LENGTH_REPLICATE]
-              >> fs[distinct_lists_def, EVERY_MEM] 
+              >> fs[distinct_lists_def, EVERY_MEM]
               >> rpt strip_tac
               >> qunabbrev_tac `ntmps`
               >> imp_res_tac mem_genlist_add_suc_val
               >> gvs[MEM_FLAT, MEM_MAP]
               >> drule_all opt_mmap_mem_func
-              >> disch_tac >> fs[] 
+              >> disch_tac >> fs[]
               >> imp_res_tac $ el 2 o RES_CANON $ iffLR locals_rel_def
               >> imp_res_tac MEM_compile_exp_vmax >> fs[]
             )
@@ -3429,7 +3429,7 @@ Resume pc_compile_correct[Call_Ret_Return]:
             >> disch_then drule
             >> disch_tac
             >> imp_res_tac is_wf_shape_of_v
-            >> imp_res_tac length_flatten_eq_size_of_shape 
+            >> imp_res_tac length_flatten_eq_size_of_shape
             >> fs[Abbr `ntmps`]
             >> qpat_x_assum `_ = (q, r')` mp_tac
             >> DEP_REWRITE_TAC [opt_mmap_some_eq_zip_flookup]
@@ -3440,10 +3440,10 @@ Resume pc_compile_correct[Call_Ret_Return]:
             >- fs[state_rel_def]
             >- (fs[Abbr `nctxt`, ctxt_fc_def, code_rel_def] >> metis_tac[])
             >- fs[Abbr `nctxt`, ctxt_fc_def]
-            >> DEP_REWRITE_TAC [FUPDATE_LIST_CANCEL] 
+            >> DEP_REWRITE_TAC [FUPDATE_LIST_CANCEL]
             >> conj_tac
             >- (
-              DEP_REWRITE_TAC [hd $ RES_CANON MAP_ZIP] 
+              DEP_REWRITE_TAC [hd $ RES_CANON MAP_ZIP]
               >> gvs[LENGTH_GENLIST, LENGTH_REPLICATE]
             )
             >> DEP_REWRITE_TAC [res_var_lookup_original_eq] >> fs[]
@@ -3457,7 +3457,7 @@ Resume pc_compile_correct[Call_Ret_Return]:
         >> drule call_preserve_state_code_locals_rel
         >> rpt (disch_then drule) >> fs[ALL_DISTINCT_GENLIST]
         >> disch_tac >> fs[slc_def, tlc_def]
-        >> last_x_assum drule 
+        >> last_x_assum drule
         >> qmatch_asmsub_abbrev_tac `code_rel nctxt (dec_clock _).code _`
         >> disch_then $ qspec_then `nctxt` mp_tac >> impl_tac
         >- fs[Abbr `nctxt`, dec_clock_def, panSemTheory.dec_clock_def]
@@ -3474,17 +3474,17 @@ Resume pc_compile_correct[Call_Ret_Return]:
         >> disch_tac >> fs[GSYM opt_mmap_eq_some]
         >> pairarg_tac >> gvs[Abbr `p`, evaluate_def]
         >> rev_drule opt_mmap_eval_distinct_lists_not_affect
-        >> disch_then $ qspecl_then [`ntmps`, `REPLICATE (size_of_shape (shape_of v)) (Word 0w)`] mp_tac >> impl_tac 
+        >> disch_then $ qspecl_then [`ntmps`, `REPLICATE (size_of_shape (shape_of v)) (Word 0w)`] mp_tac >> impl_tac
         >- (
           conj_tac
           >- fs[Abbr `ntmps`, LENGTH_GENLIST, LENGTH_REPLICATE]
-          >> fs[distinct_lists_def, EVERY_MEM] 
+          >> fs[distinct_lists_def, EVERY_MEM]
           >> rpt strip_tac
           >> qunabbrev_tac `ntmps`
           >> imp_res_tac mem_genlist_add_suc_val
           >> gvs[MEM_FLAT, MEM_MAP]
           >> drule_all opt_mmap_mem_func
-          >> disch_tac >> fs[] 
+          >> disch_tac >> fs[]
           >> imp_res_tac $ el 2 o RES_CANON $ iffLR locals_rel_def
           >> imp_res_tac MEM_compile_exp_vmax >> fs[]
         )
@@ -3497,7 +3497,7 @@ Resume pc_compile_correct[Call_Ret_Return]:
         >> disch_then drule
         >> disch_tac
         >> imp_res_tac is_wf_shape_of_v
-        >> imp_res_tac length_flatten_eq_size_of_shape 
+        >> imp_res_tac length_flatten_eq_size_of_shape
         >> fs[Abbr `ntmps`]
         >> qpat_x_assum `_ = (q, r')` mp_tac
         >> DEP_REWRITE_TAC [opt_mmap_some_eq_zip_flookup]
@@ -3508,10 +3508,10 @@ Resume pc_compile_correct[Call_Ret_Return]:
         >- fs[state_rel_def]
         >- (fs[Abbr `nctxt`, ctxt_fc_def, code_rel_def] >> metis_tac[])
         >- fs[Abbr `nctxt`, ctxt_fc_def]
-        >> DEP_REWRITE_TAC [FUPDATE_LIST_CANCEL] 
+        >> DEP_REWRITE_TAC [FUPDATE_LIST_CANCEL]
         >> conj_tac
         >- (
-          DEP_REWRITE_TAC [hd $ RES_CANON MAP_ZIP] 
+          DEP_REWRITE_TAC [hd $ RES_CANON MAP_ZIP]
           >> gvs[LENGTH_GENLIST, LENGTH_REPLICATE]
         )
         >> DEP_REWRITE_TAC [res_var_lookup_original_eq] >> fs[]
@@ -3533,7 +3533,7 @@ Resume pc_compile_correct[Call_Ret_Return]:
      (* Variable to assign is not in context *)
      fs [CaseEq "option"]
      >- (
-       fs [locals_rel_def] 
+       fs [locals_rel_def]
        >> qpat_x_assum `!_ _. FLOOKUP s.locals _ = SOME _ ⇒ _` drule >> fs []
      ) >>
      fs [CaseEq "prod", CaseEq "shape", CaseEq "list"] >> rveq >> fs [] >>
@@ -3549,7 +3549,7 @@ Resume pc_compile_correct[Call_Ret_Return]:
     ) >>
     drule_at (Pos last) evaluate_shape_invariant_ret_inst2
     >> rpt (disch_then $ drule_at Any)
-    >> disch_then $ qspecl_then [`shape_of x`, `prog`, `fname`] mp_tac >> impl_tac 
+    >> disch_then $ qspecl_then [`shape_of x`, `prog`, `fname`] mp_tac >> impl_tac
     >- gvs[panSemTheory.lookup_code_def]
     >> disch_tac >> fs[]
     >> imp_res_tac is_wf_shape_of_v
@@ -3558,7 +3558,7 @@ Resume pc_compile_correct[Call_Ret_Return]:
     fs [ret_var_def, ret_hdl_def]
     >- (
      (* shape-rtv: One *)
-     TRY (rpt TOP_CASE_TAC) >> fs [] 
+     TRY (rpt TOP_CASE_TAC) >> fs []
      >> ret_call_shape_retv_one_tac
     )
     >- (
@@ -3566,10 +3566,10 @@ Resume pc_compile_correct[Call_Ret_Return]:
      qmatch_asmsub_rename_tac ‘FLOOKUP ctxt.vars m = SOME (Comb l,r'')’ >>
      cases_on ‘size_of_shape (Comb l) = 0’ >> fs []
      >- (
-       TRY (rpt TOP_CASE_TAC) >> fs [] 
+       TRY (rpt TOP_CASE_TAC) >> fs []
        >> ret_call_shape_retv_comb_zero_tac
      ) >>
-     TRY (rpt TOP_CASE_TAC) >> fs [] 
+     TRY (rpt TOP_CASE_TAC) >> fs []
      >> ret_call_shape_retv_comb_gt_one_tac
     )
     >- (
@@ -3583,13 +3583,7 @@ QED
 Theorem not_none_then_some:
   x ≠ NONE ⇔ ∃a. x = SOME a
 Proof
-  Cases_on `x` >> fs[] 
-QED
-
-Theorem distinct_lists_eq_disjoint:
-  distinct_lists xs ys ⇔ DISJOINT (set xs) (set ys)
-Proof
-  fs[DISJOINT_ALT, distinct_lists_def, EVERY_MEM]
+  Cases_on `x` >> fs[]
 QED
 
 Resume pc_compile_correct[Call_Ret_Exception]:
@@ -3660,7 +3654,7 @@ Resume pc_compile_correct[Call_Ret_Exception]:
           >> conj_tac >- metis_tac[]
           >> strip_tac >> gvs[globals_lookup_def]
       ) >>
-      (* Standalone with handlers *) 
+      (* Standalone with handlers *)
       PairCases_on ‘x’ >>
       fs[] >>
       PURE_TOP_CASE_TAC
@@ -3729,7 +3723,7 @@ Resume pc_compile_correct[Call_Ret_Exception]:
       ) >>
       (* Standalone call with handler, exception id is found in context *)
       fs[] >>
-      TOP_CASE_TAC >> fs[] 
+      TOP_CASE_TAC >> fs[]
       >- (
        (* Function/callee name is not found in context *)
        fs [evaluate_def] >>
@@ -3807,7 +3801,7 @@ Resume pc_compile_correct[Call_Ret_Exception]:
         >> qmatch_asmsub_abbrev_tac `evaluate (nested_seq excp_handler, nstate)`
         >> disch_then $ qspecl_then [`nstate`, `0w`] mp_tac >> fs[] >> impl_tac
         >- (
-          reverse $ Cases_on `1 ≤ size_of_shape (shape_of x')` >> fs[NOT_LE] 
+          reverse $ Cases_on `1 ≤ size_of_shape (shape_of x')` >> fs[NOT_LE]
           >> conj_tac >> fs[Abbr `nstate`]
           >- (
             ntac 2 strip_tac
@@ -3825,7 +3819,7 @@ Resume pc_compile_correct[Call_Ret_Exception]:
           >> drule_all opt_mmap_mem_func >> fs[]
         )
         >> disch_tac >> gvs[Abbr `nstate`, panSemTheory.set_var_def]
-        >> qmatch_asmsub_abbrev_tac `evaluate (compile _ _, _ with locals := tlocs)` 
+        >> qmatch_asmsub_abbrev_tac `evaluate (compile _ _, _ with locals := tlocs)`
         >> last_x_assum $ qspecl_then [`t1 with locals := tlocs`, `ctxt`] mp_tac >> impl_tac
         >- (
           gvs[state_rel_def, code_rel_def, excp_rel_def, Abbr `nctxt`, ctxt_fc_def]
@@ -3837,16 +3831,16 @@ Resume pc_compile_correct[Call_Ret_Exception]:
             DEP_REWRITE_TAC[opt_mmap_some_eq_zip_flookup]
             >> conj_tac >> fs[LENGTH_MAP]
             >> irule map_some_the_map
-            >> fs[GSYM opt_mmap_eq_some] 
-            >> reverse $ Cases_on `1 ≤ size_of_shape (shape_of x')` >> fs[NOT_LE] 
+            >> fs[GSYM opt_mmap_eq_some]
+            >> reverse $ Cases_on `1 ≤ size_of_shape (shape_of x')` >> fs[NOT_LE]
             >- (
               qpat_x_assum `shape_of _ = shape_of _` $ fs o single o GSYM
               >> metis_tac[flatten_nil_no_size]
-            ) 
-            >> fs[] 
+            )
+            >> fs[]
             >> qpat_x_assum `globals_lookup _ _ = _` $ assume_tac o SRULE[globals_lookup_def] >> gvs[]
           ) >>
-          res_tac >> gvs[] 
+          res_tac >> gvs[]
           >> ntac 2 $ DEP_REWRITE_TAC[opt_mmap_disj_zip_flookup]
           >> fs[LENGTH_REPLICATE, Abbr `rts`]
           >> conj_tac
@@ -3867,13 +3861,13 @@ Resume pc_compile_correct[Call_Ret_Exception]:
           >> rpt strip_tac >> res_tac >> gvs[]
           >> qpat_assum `OPT_MMAP (FLOOKUP _) _ = SOME (flatten v')` $ PURE_REWRITE_TAC o single o GSYM
           >> irule OPT_MMAP_CONG >> fs[]
-          >> rpt strip_tac 
+          >> rpt strip_tac
           >> irule flookup_res_var_distinct_zip_eq >> fs[LENGTH_MAP]
           >> strip_tac >> fs[ctxt_max_def] >> res_tac >> gvs[Abbr `rts`]
           >> imp_res_tac mem_genlist_add_suc_val >> fs[])
         >> TOP_CASE_TAC >> fs[]
         >> strip_tac >> fs[globals_lookup_def]
-      ) >> 
+      ) >>
       Cases_on `x0 = m` >> gvs[state_rel_def, locals_rel_def, panSemTheory.empty_locals_def, empty_locals_def, code_rel_def, locals_rel_def, excp_rel_def, Abbr `nctxt`, ctxt_fc_def]
       >> conj_tac >- metis_tac[]
       >> strip_tac >> fs[globals_lookup_def]
@@ -3915,13 +3909,13 @@ Resume pc_compile_correct[Call_Ret_FinalFFI]:
   cases_on ‘x’ >> fs []>>
   cases_on ‘r'’ >> fs []
   >- (
-    TRY (rpt TOP_CASE_TAC) >> fs [nested_decs_def] 
+    TRY (rpt TOP_CASE_TAC) >> fs [nested_decs_def]
     >~ [`evaluate (nested_decs _ _ _, _)`]
     >- (
       qmatch_goalsub_abbrev_tac `evaluate (nested_decs rts _ p, _)`
       >> qspecl_then [`size_of_shape r'`, `t`] (assume_tac o PURE_REWRITE_RULE[opt_mmap_eq_some]) evaluate_replicate_const
       >> drule eval_nested_decs_seq_res_var_eq
-      >> disch_then $ qspecl_then [`rts`, `p`] mp_tac >> fs[] >> impl_tac 
+      >> disch_then $ qspecl_then [`rts`, `p`] mp_tac >> fs[] >> impl_tac
       >- fs[Abbr `rts`, distinct_lists_def, EVERY_MEM, ALL_DISTINCT_GENLIST, var_cexp_def, FLAT_REPLICATE_NIL]
       >> disch_tac >> fs[]
       >> pairarg_tac >> fs[Abbr `p`, evaluate_def]
@@ -3981,7 +3975,7 @@ Resume pc_compile_correct[Call_Ret_FinalFFI]:
     >> call_tail_ret_impl_tac
   ) >>
   PairCases_on ‘x’ >>
-  TRY (rpt TOP_CASE_TAC) >> fs [] 
+  TRY (rpt TOP_CASE_TAC) >> fs []
   >>~- ([`evaluate (nested_decs [] [] _, _)`],
      fs[nested_decs_def] >>
      TRY (imp_res_tac no_overlap_wrap_rt_some_all_distinct >>
@@ -4005,7 +3999,7 @@ Resume pc_compile_correct[Call_Ret_FinalFFI]:
     qmatch_goalsub_abbrev_tac `evaluate (nested_decs rts _ p, _)`
     >> qspecl_then [`size_of_shape r'`, `t`] (assume_tac o PURE_REWRITE_RULE[opt_mmap_eq_some]) evaluate_replicate_const
     >> drule eval_nested_decs_seq_res_var_eq
-    >> disch_then $ qspecl_then [`rts`, `p`] mp_tac >> fs[] >> impl_tac 
+    >> disch_then $ qspecl_then [`rts`, `p`] mp_tac >> fs[] >> impl_tac
     >- fs[Abbr `rts`, distinct_lists_def, EVERY_MEM, ALL_DISTINCT_GENLIST, var_cexp_def, FLAT_REPLICATE_NIL]
     >> disch_tac >> fs[]
     >> pairarg_tac >> fs[Abbr `p`, evaluate_def]
@@ -4109,7 +4103,7 @@ Theorem eval_distinct_lists_not_affect:
     LENGTH vs = LENGTH nvals ∧ distinct_lists vs (var_cexp e) ⇒
       eval (s with locals := s.locals |++ ZIP (vs, nvals)) e = eval s e
 Proof
-  Induct >> rw[] 
+  Induct >> rw[]
   >- (`s with locals := s.locals = s` by fs[state_component_equality] >> fs[FUPDATE_LIST])
   >> Cases_on `nvals` >> fs[FUPDATE_LIST_THM]
   >> last_x_assum $ qspecl_then [`s with locals := s.locals |+ (h, h')`, `e`, `t`] mp_tac >> fs[] >> impl_tac
@@ -4207,7 +4201,7 @@ Proof
   >> every_case_tac >> gvs[]
   >- (
     irule opt_mmap_some_eq_zip_flookup
-    >> imp_res_tac length_flatten_eq_size_of_shape >> fs[] 
+    >> imp_res_tac length_flatten_eq_size_of_shape >> fs[]
   )
   >> res_tac >> fs[]
   >> DEP_REWRITE_TAC [opt_mmap_disj_zip_flookup] >> fs[]
@@ -4258,19 +4252,17 @@ Resume pc_compile_correct[DecCall]:
   Cases_on ‘s.clock = 0’
   >- (
     rw[] >>
-    Cases_on `shape = return_sh` >> fs[] >>
     qmatch_goalsub_abbrev_tac `evaluate (nested_decs rts (REPLICATE ret_len _) p, nctxt)` >>
-
     qspecl_then [`ret_len`, `nctxt`] (assume_tac o PURE_REWRITE_RULE[opt_mmap_eq_some]) evaluate_replicate_const >>
-    drule eval_nested_decs_seq_res_var_eq >> 
+    drule eval_nested_decs_seq_res_var_eq >>
     disch_then $ qspecl_then [`rts`, `p`] mp_tac >> impl_tac
     >- (
-      gvs[Abbr `rts`, LENGTH_GENLIST, LENGTH_REPLICATE, ALL_DISTINCT_GENLIST, var_cexp_def, 
+      gvs[Abbr `rts`, LENGTH_GENLIST, LENGTH_REPLICATE, ALL_DISTINCT_GENLIST, var_cexp_def,
           FLAT_REPLICATE_NIL, distinct_lists_def,
           oneline wrap_rt_def, CaseEq "option", CaseEq "prod", CaseEq "shape", CaseEq "list"]
     )
     >> disch_tac >> fs[]
-    >> pairarg_tac 
+    >> pairarg_tac
     >> fs[Abbr `p`, evaluate_def, AllCaseEqs()]
     >> pairarg_tac >> fs[]
     >> drule opt_mmap_eval_distinct_lists_not_affect
@@ -4281,11 +4273,10 @@ Resume pc_compile_correct[DecCall]:
       >> fs[locals_rel_def]
     )
     >> disch_tac >> gvs[lookup_code_def, ALL_DISTINCT_GENLIST]
-    >> `ALL_DISTINCT rts` by gvs[Abbr `rts`, ALL_DISTINCT_GENLIST] 
+    >> `ALL_DISTINCT rts` by gvs[Abbr `rts`, ALL_DISTINCT_GENLIST]
     >> gvs[state_rel_def, panSemTheory.empty_locals_def, empty_locals_def, code_rel_def, excp_rel_def, ctxt_fc_def]
     >> metis_tac[]
   ) >>
-  Cases_on `shape = return_sh` >> fs[] >>
   gvs[] >>
   Cases_on ‘evaluate (prog, dec_clock s with locals := FEMPTY |++ ZIP (MAP FST vshapes,args))’ >>
   rename1 ‘evaluate (_, dec_clock _ with locals := _) = (nres,ns)’ >>
@@ -4298,10 +4289,10 @@ Resume pc_compile_correct[DecCall]:
   (* Unwrap the nested declarations *)
   qmatch_goalsub_abbrev_tac `evaluate (nested_decs rts (REPLICATE ret_len _) p, _)` >>
   qspecl_then [`ret_len`, `t`] (assume_tac o PURE_REWRITE_RULE[opt_mmap_eq_some]) evaluate_replicate_const >>
-  drule eval_nested_decs_seq_res_var_eq >> 
+  drule eval_nested_decs_seq_res_var_eq >>
   disch_then $ qspecl_then [`rts`, `p`] mp_tac >> impl_tac
   >- (
-    gvs[Abbr `rts`, LENGTH_GENLIST, LENGTH_REPLICATE, ALL_DISTINCT_GENLIST, var_cexp_def, 
+    gvs[Abbr `rts`, LENGTH_GENLIST, LENGTH_REPLICATE, ALL_DISTINCT_GENLIST, var_cexp_def,
         FLAT_REPLICATE_NIL, distinct_lists_def,
         oneline wrap_rt_def, CaseEq "option", CaseEq "prod", CaseEq "shape", CaseEq "list"]
   )
@@ -4344,12 +4335,13 @@ Resume pc_compile_correct[DecCall]:
   (* Return *)
   >- (
     pairarg_tac >> gvs[Abbr `ret_len`]
+    >> Cases_on `shape = return_sh` >> fs[]
     >> fs[GSYM dec_clock_def]
     >> drule $ INST_TYPE [gamma |-> alpha] evaluate_shape_invariant_ret_inst
     >> fs[slc_tlc_rw]
     >> disch_then $ qspecl_then [`tlc fargs args`, `dec_clock t with locals := tlc fargs args`, `nctxt`] assume_tac >> gs[]
     >> imp_res_tac is_wf_shape_of_v
-    >> imp_res_tac length_flatten_eq_size_of_shape 
+    >> imp_res_tac length_flatten_eq_size_of_shape
     >> Cases_on `shape_of v = return_sh` >> fs[]
     >> `LENGTH (flatten v) = LENGTH rts` by fs[Abbr `rts`, LENGTH_GENLIST] >> fs[]
     >> DEP_REWRITE_TAC[opt_mmap_some_eq_zip_flookup]
@@ -4373,11 +4365,11 @@ Resume pc_compile_correct[DecCall]:
       >> fs[Abbr `upd_ctxt`]
       >> irule locals_rel_extend_new_var
       >> fs[Abbr `rts`]
-      >> rpt strip_tac 
+      >> rpt strip_tac
       >> imp_res_tac mem_genlist_add_suc_val
       >> fs[]
     )
-    >> disch_tac >> gvs[] 
+    >> disch_tac >> gvs[]
     >> rpt conj_tac
     >- fs[state_rel_def]
     >- (fs[code_rel_def, Abbr `upd_ctxt`] >> metis_tac[])
@@ -4399,9 +4391,9 @@ Resume pc_compile_correct[DecCall]:
         >> imp_res_tac mem_genlist_add_suc_val
         >> fs[ctxt_max_def] >> res_tac >> fs[]
       )
-      >> res_tac >> fs[] 
+      >> res_tac >> fs[]
       >> qpat_assum `OPT_MMAP _ _ = SOME (flatten _)` $ PURE_REWRITE_TAC o single o GSYM
-      >> irule OPT_MMAP_CONG >> fs[] 
+      >> irule OPT_MMAP_CONG >> fs[]
       >> rpt strip_tac
       >> DEP_REWRITE_TAC [flookup_res_var_distinct_zip_eq]
       >> conj_tac
@@ -4414,18 +4406,18 @@ Resume pc_compile_correct[DecCall]:
       >> drule unassigned_free_vars_evaluate_same >> fs[]
       >> disch_then $ qspec_then `x` mp_tac >> impl_tac
       >- (
-        DEP_REWRITE_TAC [assigned_free_vars_nested_decs_append] 
+        DEP_REWRITE_TAC [assigned_free_vars_nested_decs_append]
         >> conj_tac >- fs[Abbr `rts`, LENGTH_GENLIST, LENGTH_REPLICATE]
         >> fs[MEM_FILTER]
         >> disj2_tac
         >> fs[assigned_free_vars_def]
         >> conj_tac
         >- (
-          strip_tac 
+          strip_tac
           >> fs[Abbr `rts`, ctxt_max_def]
           >> imp_res_tac mem_genlist_add_suc_val >> res_tac >> gvs[]
         )
-        >> irule not_mem_context_assigned_mem_gt 
+        >> irule not_mem_context_assigned_mem_gt
         >> rpt conj_tac
         >- (
           rpt strip_tac >> fs[FLOOKUP_UPDATE]
@@ -4438,14 +4430,14 @@ Resume pc_compile_correct[DecCall]:
           >> metis_tac[]
         )
         >- (
-          fs[ctxt_max_def] >> res_tac >> fs[] 
+          fs[ctxt_max_def] >> res_tac >> fs[]
         )
         >> fs[]
       )
       >> DEP_REWRITE_TAC [flookup_res_var_distinct_zip_eq] >> fs[LENGTH_MAP]
       >> strip_tac >> fs[Abbr `rts`, ctxt_max_def] >> res_tac
       >> imp_res_tac mem_genlist_add_suc_val >> fs[]
-    ) 
+    )
     >> fs[Abbr `upd_ctxt`]
     >> TOP_CASE_TAC >> fs[]
     >> strip_tac >> fs[globals_lookup_def]
@@ -4454,12 +4446,16 @@ Resume pc_compile_correct[DecCall]:
   >- (
     qmatch_asmsub_abbrev_tac `FLOOKUP _.eids ev`
     >> Cases_on `FLOOKUP nctxt.eids ev` >> fs[]
-    >> disch_tac >> gvs[state_rel_def, panSemTheory.empty_locals_def, code_rel_def, excp_rel_def, ctxt_fc_def, empty_locals_def, Abbr `nctxt`, CaseEq "option", CaseEq "result", CaseEq "prod", CaseEq "bool"]
+    >> disch_tac
+    >> gvs[state_rel_def, panSemTheory.empty_locals_def, code_rel_def, excp_rel_def, ctxt_fc_def,
+           empty_locals_def, Abbr `nctxt`, CaseEq "option", CaseEq "result", CaseEq "prod", CaseEq "bool"]
     >> conj_tac >- metis_tac[]
     >> fs[globals_lookup_def]
   )
   (* FinalFFI *)
-  >> disch_tac >> gvs[state_rel_def, panSemTheory.empty_locals_def, code_rel_def, excp_rel_def, ctxt_fc_def, empty_locals_def, Abbr `nctxt`, CaseEq "option", CaseEq "result", CaseEq "prod", CaseEq "bool"]
+  >> disch_tac
+  >> gvs[state_rel_def, panSemTheory.empty_locals_def, code_rel_def, excp_rel_def, ctxt_fc_def,
+         empty_locals_def, Abbr `nctxt`, CaseEq "option", CaseEq "result", CaseEq "prod", CaseEq "bool"]
   >> metis_tac[]
 QED
 
@@ -4977,7 +4973,7 @@ Theorem state_rel_imp_semantics:
     s.code = alist_to_fmap(functions pan_code) ∧
     t.code = alist_to_fmap (pan_to_crep$compile_prog pan_code) ∧
     s.locals = FEMPTY ∧
-    EVERY (localised_prog ∘ SND ∘ SND) (functions pan_code) ∧
+    EVERY (localised_prog ∘ FST o SND ∘ SND) (functions pan_code) ∧
     panLang$size_of_eids pan_code < dimword (:'a) /\
     FDOM s.eshapes =  FDOM (get_eids(functions pan_code)) ∧
     semantics s start <> Fail ==>
@@ -5014,7 +5010,7 @@ Theorem state_rel_imp_semantics_decls:
     s.code = FEMPTY ∧
     t.code = alist_to_fmap (pan_to_crep$compile_prog pan_code) ∧
     s.locals = FEMPTY ∧
-    EVERY (localised_prog ∘ SND ∘ SND) (functions pan_code) ∧
+    EVERY (localised_prog ∘ FST o SND ∘ SND) (functions pan_code) ∧
     EVERY is_function pan_code ∧
     panLang$size_of_eids pan_code < dimword (:'a) /\
     FDOM s.eshapes =  FDOM (get_eids(functions pan_code)) ∧

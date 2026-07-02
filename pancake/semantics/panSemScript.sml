@@ -695,7 +695,7 @@ Definition evaluate_def:
     case OPT_MMAP (eval s) argexps of
      | SOME args =>
         (case lookup_code s.code fname args of
-          | SOME (prog, newlocals, return_sh) => if (shape ≠ return_sh) then (SOME Error, s) else
+          | SOME (prog, newlocals, return_sh) => (*if (shape ≠ return_sh) then (SOME Error, s) else*)
             (if s.clock = 0 then (SOME TimeOut,empty_locals s)
            else
            let eval_prog = fix_clock ((dec_clock s) with locals := newlocals)
@@ -705,7 +705,7 @@ Definition evaluate_def:
               | (SOME Break,st) => (SOME Error,st)
               | (SOME Continue,st) => (SOME Error,st)
               | (SOME (Return retv),st) =>
-                  (if shape_of retv = shape then
+                  (if shape_of retv = shape ∧ shape_of retv = return_sh then
                     let (res',st') = evaluate (prog1, set_var rt retv (st with locals := s.locals)) in
                       (res',st' with locals := res_var st'.locals (rt, FLOOKUP s.locals rt))
                   else

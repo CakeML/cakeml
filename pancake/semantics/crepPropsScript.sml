@@ -264,6 +264,36 @@ Proof
   Cases_on ‘v’ \\ rw[res_var_def,DOMSUB_FLOOKUP_THM,FLOOKUP_UPDATE]
 QED
 
+Theorem dec_clock_simp:
+  (dec_clock s).locals = s.locals ∧
+  (dec_clock s).globals = s.globals ∧
+  (dec_clock s).code = s.code ∧
+  (dec_clock s).memory = s.memory ∧
+  (dec_clock s).memaddrs = s.memaddrs ∧
+  (dec_clock s).sh_memaddrs = s.sh_memaddrs ∧
+  (dec_clock s).be = s.be ∧
+  (dec_clock s).ffi = s.ffi ∧
+  (dec_clock s).base_addr = s.base_addr ∧
+  (dec_clock s).top_addr = s.top_addr
+Proof
+  simp[dec_clock_def]
+QED
+
+Theorem empty_locals_simp:
+  (empty_locals s).globals = s.globals ∧
+  (empty_locals s).code = s.code ∧
+  (empty_locals s).memory = s.memory ∧
+  (empty_locals s).memaddrs = s.memaddrs ∧
+  (empty_locals s).sh_memaddrs = s.sh_memaddrs ∧
+  (empty_locals s).clock = s.clock ∧
+  (empty_locals s).be = s.be ∧
+  (empty_locals s).ffi = s.ffi ∧
+  (empty_locals s).base_addr = s.base_addr ∧
+  (empty_locals s).top_addr = s.top_addr
+Proof
+  simp[empty_locals_def]
+QED
+
 Theorem FLOOKUP_set_globals[simp]:
   FLOOKUP (set_globals gv w s).locals n = FLOOKUP s.locals n
 Proof
@@ -578,7 +608,6 @@ Proof
   fs [Abbr ‘st’]  >> fs [] >> strip_tac >> fs [state_component_equality] >>
   fs [GENLIST_CONS, FUPDATE_LIST_THM, o_DEF, n2w_SUC]
 QED
-
 
 Theorem res_var_lookup_original_eq:
   !xs ys lc. ALL_DISTINCT xs ∧ LENGTH xs = LENGTH ys ==>

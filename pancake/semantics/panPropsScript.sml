@@ -1511,8 +1511,8 @@ QED
 
 Theorem semantics_decls_has_main:
   semantics_decls s start code <> Fail ⇒
-  ∃body.
-    FLOOKUP (s.code |++ functions code) start = SOME ([],body)
+  ∃body rshape.
+    FLOOKUP (s.code |++ functions code) start = SOME ([],body,rshape)
 Proof
   rw[semantics_decls_def] >>
   rpt (PURE_FULL_CASE_TAC >> gvs[]) >>
@@ -1528,8 +1528,8 @@ QED
 
 Theorem semantics_decls_has_main':
   semantics_decls s start code <> Fail ⇒
-  ∃body.
-    FLOOKUP (s.code |++ functions code) start = SOME ([],body)
+  ∃body rshape.
+    FLOOKUP (s.code |++ functions code) start = SOME ([],body,rshape)
 Proof
   rw[semantics_decls_def] >>
   rpt (PURE_FULL_CASE_TAC >> gvs[]) >>

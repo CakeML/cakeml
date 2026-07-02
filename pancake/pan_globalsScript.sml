@@ -233,7 +233,7 @@ Definition compile_top_def:
   compile_top decs start =
   case ALOOKUP (functions decs) start of
     NONE => []
-  | SOME (args, body) =>
+  | SOME (args, body, rshape) =>
       let nds = resort_decls decs;
           start' = new_main_name decs;
           nds' = fperm_decs start start' nds;
@@ -247,7 +247,7 @@ Definition compile_top_def:
                                ;  export := F
                                ;  params := args
                                ;  body := Seq (nested_seq decls) (TailCall start' params)
-                               ;  return := One
+                               ;  return := rshape
                               |>
       in
         new_main::funs

@@ -268,19 +268,6 @@ Definition compile_def:
      ret_dec = nested_decs nvars (REPLICATE (LENGTH nvars) (Const 0w));
      p' = compile nctxt p in
    ret_dec $ Seq (Call (SOME (nvars, NONE)) ce args) p'
-
-
-     (*
-     case wrap_rt (SOME(s,nvars)) of
-       NONE =>
-        nested_decs nvars (REPLICATE (LENGTH nvars) (Const 0w)) (Seq (Call (SOME (nvars, NONE)) ce args) (compile nctxt p))
-     | SOME(sh,ns) =>
-         let ret_dec = nested_decs ns (REPLICATE (LENGTH ns) (Const 0w));
-             p' = compile nctxt p;
-         in ret_dec $
-                    Seq (Call (SOME (ns, NONE)) ce args) p'
-      *)
-
   ) /\
   (compile ctxt (ExtCall f ptr1 len1 ptr2 len2) =
    let
