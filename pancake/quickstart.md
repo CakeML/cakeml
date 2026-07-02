@@ -91,7 +91,7 @@ If compiling to MIPS64, the `-fPIC` option may be required.
 
 Your program should now be runnable:
 ```
-$ ./empty
+$ ./hello
 Hello, world!
 ```
 
