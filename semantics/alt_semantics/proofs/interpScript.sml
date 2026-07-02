@@ -301,7 +301,7 @@ Theorem run_eval_def:
      run_eval_match env v ((p,e)::pes) err_v
      =
      do ^st <- get_store;
-        if ALL_DISTINCT (pat_bindings p []) then
+        if ALL_DISTINCT (pat_bindings p) then
           case pmatch env.c st.refs p v [] of
             Match_type_error => raise (Rabort Rtype_error)
           | No_match => run_eval_match env v pes err_v
@@ -412,7 +412,7 @@ QED
 
 Definition run_eval_dec_def:
   (run_eval_dec env ^st (Dlet _ p e) =
-   if ALL_DISTINCT (pat_bindings p []) ∧
+   if ALL_DISTINCT (pat_bindings p) ∧
       every_exp (one_con_check env.c) e then
      case run_eval env e st of
      | (st', Rval v) =>

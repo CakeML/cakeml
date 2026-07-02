@@ -2825,7 +2825,7 @@ Proof
         metis_tac[])>>
       Cases_on`ALOOKUP (ZIP (vs,xs)) yy`
       >- gs[MAP_ZIP,ALOOKUP_NONE]>>
-      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      DEP_ONCE_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
       CONJ_TAC>- metis_tac[]>>
       simp[]>>
       DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
@@ -2904,7 +2904,7 @@ Proof
       Cases_on`ALOOKUP (ZIP (us,xs)) n`
       >- gs[MAP_ZIP,ALOOKUP_NONE]>>
       simp[]>>
-      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      DEP_ONCE_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
       CONJ_TAC>- metis_tac[]>>
       simp[]>>
       DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
@@ -3710,4 +3710,3 @@ Definition pres_set_spt_def:
   pres_set_spt pres =
     case pres of NONE => {} | SOME pres => domain pres
 End
-

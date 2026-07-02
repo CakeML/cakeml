@@ -183,7 +183,7 @@ QED
 Inductive type_d_canon:
 (!n tvs tenv p e t bindings locs.
   (is_value e /\
-  ALL_DISTINCT (pat_bindings p []) /\
+  ALL_DISTINCT (pat_bindings p) /\
   type_p tvs tenv p t bindings /\
   type_e tenv (bind_tvar tvs Empty) e t /\
   (! tvs' bindings' t'.
@@ -198,7 +198,7 @@ Inductive type_d_canon:
     <| v := (alist_to_ns (tenv_add_tvs tvs bindings)); c := nsEmpty; t := nsEmpty |>) ∧
 (!n tenv p e t bindings locs.
   ((~ (is_value e) /\ type_pe_determ_canon n tenv Empty p e) /\
-  ALL_DISTINCT (pat_bindings p []) /\
+  ALL_DISTINCT (pat_bindings p) /\
   type_p(( 0 : num)) tenv p t bindings /\
   type_e tenv Empty e t)
   ==>

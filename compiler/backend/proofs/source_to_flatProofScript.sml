@@ -1735,7 +1735,7 @@ Proof
 QED
 
 Theorem pat_bindings_compile_pat[simp]:
- !comp_map (p:ast$pat) vars. pat_bindings (compile_pat comp_map p) vars = pat_bindings p vars
+ !comp_map (p:ast$pat). pat_bindings (compile_pat comp_map p) = pat_bindings p
 Proof
   ho_match_mp_tac compile_pat_ind >>
   simp [compile_pat_def, astTheory.pat_bindings_def, pat_bindings_def] >>
@@ -4815,7 +4815,7 @@ Resume compile_correct[Dlet]:
   simp [bind_locals_def] >>
   simp [Q.prove (`(x with v := x.v) = (x : source_to_flat$environment)`,
       simp [source_to_flatTheory.environment_component_equality])] >>
-  disch_then $ qspec_then ‘(REVERSE (pat_bindings p []) ++ path)’ mp_tac >>
+  disch_then $ qspec_then ‘(REVERSE (pat_bindings p) ++ path)’ mp_tac >>
   (impl_tac >- (CCONTR_TAC >> fs [])) >>
   rw [] >>
   simp [] >>
@@ -5779,7 +5779,7 @@ QED
 
 Definition num_bindings_def[simp]:
    (num_bindings (Dlet _ p e) =
-     case simple_dlet p e of SOME _ => 0 | _ => LENGTH (pat_bindings p [])) ∧
+     case simple_dlet p e of SOME _ => 0 | _ => LENGTH (pat_bindings p)) ∧
    (num_bindings (Dletrec _ f) = LENGTH f) ∧
    (num_bindings (Dmod _ ds) = SUM (MAP num_bindings ds)) ∧
    (num_bindings (Dlocal lds ds) = SUM (MAP num_bindings lds)

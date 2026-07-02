@@ -112,7 +112,7 @@ Definition freevars_def[simp]:
   freevars (Raise e) = freevars e ∧
   freevars (Handle e pes) =
       (freevars e ∪ BIGUNION (set (MAP (λ(p,e). freevars e DIFF
-                                   set (MAP Short (pat_bindings p []))) pes))) ∧
+                                   set (MAP Short (pat_bindings p))) pes))) ∧
   freevars (Con cn es) = BIGUNION (set (MAP freevars es)) ∧
   freevars (Var n) = {n} ∧
   freevars (Fun n e) = freevars e DIFF {Short n} ∧
@@ -121,7 +121,7 @@ Definition freevars_def[simp]:
   freevars (If x y z) = (freevars x ∪ freevars y ∪ freevars z) ∧
   freevars (Mat e pes) =
       (freevars e ∪ BIGUNION (set (MAP (λ(p,e). freevars e DIFF
-                                   set (MAP Short (pat_bindings p []))) pes))) ∧
+                                   set (MAP Short (pat_bindings p))) pes))) ∧
   freevars (Let opt x y) =
       (freevars x ∪
        (freevars y DIFF (case opt of SOME n => {Short n} | _ => {}))) ∧

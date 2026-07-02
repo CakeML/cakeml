@@ -2458,10 +2458,7 @@ Proof
   AP_TERM_TAC>>
   irule IMAGE_CONG>>
   irule_at (Pos last) EQ_REFL>>
-  suspend "tail"
-QED
-
-Resume word_to_word_compile_semantics[tail]:
+  (
   rpt strip_tac>>gs[]>>
   rpt (first_x_assum (qspec_then ‘x’ assume_tac))>>
   qmatch_asmsub_abbrev_tac ‘FST ev’>>Cases_on ‘ev’>>gs[]>>
@@ -2487,7 +2484,6 @@ Resume word_to_word_compile_semantics[tail]:
     simp[no_alloc_def, no_install_def]>>
     strip_tac>>gs[]>>
     pairarg_tac>>gs[])
+)
 QED
-
-Finalise word_to_word_compile_semantics;
 
