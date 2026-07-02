@@ -99,7 +99,7 @@ Modify the command to use the appropriate `qemu` version if required.
 
 ## Makefile
 
-If referencing the CakeML compiler's `Makefile`, the `-DEVAL` option is not necessary for Pancake and may not work on some architectures.
+If referencing the CakeML compiler's `Makefile`, the `-DEVAL` option is not necessary for Pancake and may cause compilation to fail on some architectures.
 
 A general Makefile for Pancake programs is in progress.
 
