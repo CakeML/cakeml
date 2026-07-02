@@ -259,33 +259,9 @@ Proof
   rw[strcat_thm]
 QED
 
-Definition concatWith_aux_def:
-  (concatWith_aux s [] bool = implode []) /\
-  (concatWith_aux s (h::t) T = strcat h (concatWith_aux s t F)) /\
-  (concatWith_aux s (h::t) F = strcat s (concatWith_aux s (h::t) T))
-Termination
-  wf_rel_tac `inv_image ($< LEX $<) (\(s,l,b). (LENGTH l, if b then 0n else 1))` \\
-  rw[]
-End
-
 Definition concatWith_def:
-  concatWith s l = concatWith_aux s l T
+  concatWith s l = concat (intersperse s l)
 End
-
-Theorem concatWith_CONCAT_WITH_aux[local]:
-  !s l fl. (CONCAT_WITH_aux s l fl = REVERSE fl ++ explode (concatWith (implode s) (MAP implode l)))
-Proof
-  ho_match_mp_tac CONCAT_WITH_aux_ind
-  \\ rw[CONCAT_WITH_aux_def, concatWith_def, concatWith_aux_def, strcat_thm]
-  >-(Induct_on `l` \\ rw[MAP, concatWith_aux_def, strcat_thm]
-  \\ Cases_on `l` \\ rw[concatWith_aux_def, explode_implode, strcat_thm])
-QED
-
-Theorem concatWith_CONCAT_WITH:
-   !s l. CONCAT_WITH s l = explode (concatWith (implode s) (MAP implode l))
-Proof
-    rw[concatWith_def, CONCAT_WITH_def, concatWith_CONCAT_WITH_aux]
-QED
 
 Definition chr_to_str_def:
   chr_to_str (c: char) = implode [c]
