@@ -124,7 +124,7 @@ The compiler output expects the following to exist within the C file:
   - `void* cml_heap`
   - `void* cml_stack`
   - `void* cml_stackend`
-- `cml_*` functions:
+- `cml_*` functions (copying the definitions in `basis_ffi.c` should be sufficient in most cases):
   - `cml_exit(int arg)`
   - `cml_err(int arg)`
   - `cml_clear()`
@@ -133,10 +133,10 @@ The compiler output expects the following to exist within the C file:
 
 C file requirements outside of this will depend on what your file needs.
 
-For new FFI function definitions, reference the existing FFI definitions.
+For new FFI function definitions, reference the existing definition signatures and naming.
 
-For exported function declarations (multiple entry points feature), use `extern` like `cml_main` and call similarly.
-Unlike `cml_main`, they can have up to 4 arguments and a return value, all single words.
+For exported function declarations (multiple entry points feature), declare with `extern` like `cml_main` and call similarly.
+Unlike `cml_main`, these functions can have up to 4 arguments and a return value, all single words.
 Ensure `cml_main` is called before any exported functions, and exported functions are not called within FFI calls.
 
 The `-lm` flag can be removed during compilation if you remove the `math.h` usages in the C file.
