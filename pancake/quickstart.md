@@ -43,7 +43,7 @@ Instead, this program uses FFI calls to print using C code.
 
 ### C file
 
-Obtain the compiler's [accompanying C file](/basis/basis_ffi.c).
+Obtain the compiler's [accompanying C file](/basis/basis_ffi.c), named `basis_ffi.c`.
 
 Add the following definition for our program to use:
 ```c
