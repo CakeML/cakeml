@@ -46,10 +46,6 @@ val extract_side_thm = Q.prove(
   `!s i opt. extract_side s i opt`,
   rw [extract_side_def, arithmeticTheory.MIN_DEF] ) |> update_precondition
 
-val _ = ml_prog_update open_local_block;
-val res = translate concatWith_aux_def;
-val _ = ml_prog_update open_local_in_block;
-
 val _ = next_ml_names := ["concatWith"];
 val result = translate concatWith_def;
 

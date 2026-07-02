@@ -4,6 +4,17 @@ Changes since release v3400:
 
 ## Basis library
 
+### List
+
+`List.intersperse`,
+which inserts a given element between every consecutive pair of elements in a list,
+has been added to basis.
+
+### String
+
+`String.concatWith` has been reimplemented using `concat` and `intersperse`,
+avoiding potentially quadratic behavior due to left-associative concatenations (#1425).
+
 ### TextIO
 
 `TextIO.output`'s behavior is now linear in the size of the string
@@ -38,6 +49,9 @@ Theorem get_mode_fsupdate[simp]:
 ```
 
 ## Miscellaneous 
+
+`CONCAT_WITH` (misc) and `concatWith_CONCAT_WITH` (mlstring)
+have been removed due to being unused.
 
 inferScript.sml now uses the state-exception monad defined in
 ml_monadBase instead of a locally defined version of it.
