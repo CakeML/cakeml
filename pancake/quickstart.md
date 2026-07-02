@@ -150,7 +150,7 @@ See the [Pancake syntax reference](/pancake/syntax.md) for a summary of Pancake 
 The file MUST have at least one top-level declaration.
 A default `main` function that does nothing will be added if one is not provided.
 
-If using the multiple entry points function, include the `--main_return=true` option during compilation to prevent the program from exiting after `cml_main`.
+If using the multiple entry points feature, include the `--main_return=true` option during compilation to prevent the program from exiting after `cml_main`.
 
 ### C file
 
