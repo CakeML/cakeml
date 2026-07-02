@@ -119,25 +119,26 @@ CAKEFLAGS = --target=x64
 
 # Project filenames
 BINNAME = hello
-OBJS = hello.S basis_ffi.o # use .S for Pancake files and .o for C files
+PKASM = hello.S # <Pancake file name>.S
+COBJS = basis_ffi.o # <C file name>.o for each C file
 
 
 all: $(BINNAME)
 
 # Overall binary
-$(BINNAME): $(OBJS)
+$(BINNAME): $(PKASM) $(COBJS)
 	$(CC) $(CFLAGS) $^ -o $@ $(LDLIBS)
 
 # Pancake files
-%.S : %.pnk
+$(PKASM): %.S : %.pnk
 	$(CAKEPATH) --pancake $(CAKEFLAGS) < $^ > $@
 
 # C files
-%.o : %.c
+$(COBJS): %.o : %.c
 	$(CC) $(CFLAGS) -c $^ -o $@ $(LDLIBS)
 
 clean:
-	rm -f $(OBJS)
+	rm -f $(PKASM) $(COBJS)
 ```
 
 ## Customising the files
