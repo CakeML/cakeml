@@ -97,11 +97,48 @@ Hello, world!
 
 Modify the command to use the appropriate `qemu` version if required.
 
-## Makefile
+## Makefiles
 
 If referencing the CakeML compiler's `Makefile`, the `-DEVAL` option is not necessary for Pancake and may cause compilation to fail on some architectures.
 
-A general Makefile for Pancake programs is in progress.
+The following is a suggested Makefile to use for simple Pancake projects.
+The variables have been (mostly) pre-filled for use with the "Hello, world" program above.
+
+```mk
+# General Makefile for simple Pancake projects
+# EDIT VARIABLES AS NEEDED
+
+# C compiler
+CC = gcc
+# CFLAGS = -Wall -Werror -g # uncomment if needed
+LDLIBS = -lm
+
+# CakeML/Pancake compiler
+CAKEPATH = /path/to/cake # TODO: update me!
+CAKEFLAGS = --target=x64
+
+# Project filenames
+BINNAME = hello
+OBJS = hello.S basis_ffi.o # use .S for Pancake files and .o for C files
+
+
+all: $(BINNAME)
+
+# Overall binary
+$(BINNAME): $(OBJS)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDLIBS)
+
+# Pancake files
+%.S : %.pnk
+	$(CAKEPATH) --pancake $(CAKEFLAGS) < $^ > $@
+
+# C files
+%.o : %.c
+	$(CC) $(CFLAGS) -c $^ -o $@ $(LDLIBS)
+
+clean:
+	rm -f $(OBJS)
+```
 
 ## Customising the files
 
