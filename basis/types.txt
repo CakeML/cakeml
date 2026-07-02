@@ -35,6 +35,7 @@ List.takeUntil: ('a -> bool) -> 'a list -> 'a list
 List.dropUntil: ('a -> bool) -> 'a list -> 'a list
 List.cmp: ('a -> 'b -> ordering) -> 'a list -> 'b list -> ordering
 List.concat: 'a list list -> 'a list
+List.intersperse: 'a -> 'a list -> 'a list
 List.map: ('a -> 'b) -> 'a list -> 'b list
 List.mapi: (int -> 'a -> 'b) -> 'a list -> 'b list
 List.mapPartial: ('a -> 'b option) -> 'a list -> 'b list
