@@ -296,6 +296,7 @@ val res = translate mk_lt_def;
 
 val res = translate split_iclin_term_def;
 val res = translate cbimply_var_def;
+val res = translate cbimply_var_n_def;
 val res = translate cvar_imply_def;
 
 val res = translate mk_name_def;

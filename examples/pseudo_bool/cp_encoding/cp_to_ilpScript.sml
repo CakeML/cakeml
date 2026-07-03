@@ -1421,6 +1421,17 @@ Definition cimply_var_n_def:
     (imply_bit bnd (Pos x) cc))]
 End
 
+(* cbimply_var with a disambiguating index n on the annotation *)
+Definition cbimply_var_n_def:
+  cbimply_var_n bnd x cc n =
+  let fmt = format_var x in
+  List
+  [(SOME (fmt ^ «[f][» ^ n ^ «]»),
+    (imply_bit bnd (Pos x) cc));
+   (SOME (fmt ^ «[r][» ^ n ^ «]»),
+    (bits_imply bnd [Pos x] cc))]
+End
+
 Theorem abstr_cimply_var[simp]:
   abstr (cimply_var bnd v c) =
   [imply_bit bnd (Pos v) c]
@@ -1440,6 +1451,13 @@ Theorem abstr_cbimply_var[simp]:
   REVERSE (bimply_bit bnd (Pos v) c)
 Proof
   rw[cbimply_var_def,bimply_bit_def]
+QED
+
+Theorem abstr_cbimply_var_n[simp]:
+  abstr (cbimply_var_n bnd v c n) =
+  REVERSE (bimply_bit bnd (Pos v) c)
+Proof
+  rw[cbimply_var_n_def,bimply_bit_def]
 QED
 
 Theorem abstr_cvar_imply[simp]:
@@ -1713,16 +1731,16 @@ Proof
 QED
 
 Definition cencode_bitsum_def:
-  cencode_bitsum Bs Y name =
+  cencode_bitsum Bs Y name pref =
   List
     (mk_annotate
-      [mk_name name («ge»); mk_name name («le»)]
+      [mk_name name (pref ^ «ge»); mk_name name (pref ^ «le»)]
       (encode_bitsum Bs Y)
     )
 End
 
 Theorem enc_rel_cencode_bitsum[simp]:
-  enc_rel wi (cencode_bitsum Bs Y name) (encode_bitsum Bs Y) ec ec
+  enc_rel wi (cencode_bitsum Bs Y name pref) (encode_bitsum Bs Y) ec ec
 Proof
   rw[cencode_bitsum_def,encode_bitsum_def]>>
   Cases_on ‘Y’>>
@@ -1753,7 +1771,7 @@ Proof
 QED
 
 Theorem abstr_cencode_bitsum[simp]:
-  abstr (cencode_bitsum Bs Y name) = encode_bitsum Bs Y
+  abstr (cencode_bitsum Bs Y name pref) = encode_bitsum Bs Y
 Proof
   rw[cencode_bitsum_def]
 QED

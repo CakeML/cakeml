@@ -43,7 +43,7 @@ Proof
 QED
 
 Definition cencode_proper_index_def:
-  cencode_proper_index bnd Yi n name =
+  cencode_proper_index bnd Yi n name atag =
   let
     (Y,offset) = Yi;
     (lb,ub) =
@@ -52,11 +52,11 @@ Definition cencode_proper_index_def:
       | INR cY => (cY,cY);
     lbann =
       if lb < offset
-      then [mk_name name $ «lb»]
+      then [mk_name name $ atag ^ «lb»]
       else [];
     ubann =
       if ub > offset + n - 1
-      then [mk_name name $ «ub»]
+      then [mk_name name $ atag ^ «ub»]
       else []
   in
     List $ mk_annotate
@@ -109,7 +109,7 @@ Definition cencode_element_def:
     (Append
       xs
       (Append
-        (cencode_proper_index bnd Yi (&len) name)
+        (cencode_proper_index bnd Yi (&len) name «»)
         (cencode_element_aux bnd Xs Yi Z name)),
     ec')
 End
@@ -315,8 +315,8 @@ Definition cencode_element2d_def:
             (Append xs' xs'')
             (Append
               (Append
-                (cencode_proper_index bnd Y1i (&len1) name)
-                (cencode_proper_index bnd Y2i (&len2) name))
+                (cencode_proper_index bnd Y1i (&len1) name «1»)
+                (cencode_proper_index bnd Y2i (&len2) name «2»))
               (cencode_element2d_aux
                 bnd
                 Xss

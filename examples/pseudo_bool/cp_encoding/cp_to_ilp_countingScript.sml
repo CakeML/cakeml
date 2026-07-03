@@ -355,8 +355,9 @@ Definition cencode_symmetric_all_different_aux_def:
       if i < j
       then
         (* Xs[i]={j+start} ⇒ Xs[j]={i+start} *)
-        cbimply_var bnd (INL (Eq X (&j + start)))
+        cbimply_var_n bnd (INL (Eq X (&j + start)))
           ([],[(1, Pos (INL (Eq Y (&i + start))))],1)
+          (toString i ^ «_» ^ toString j)
       else
         Nil) Xs)) Xs)))
 End
@@ -657,7 +658,7 @@ Definition cencode_n_value_def:
       (Append xs
         (flat_app $ MAP (λv.
           cencode_some_eq bnd Xs v name) vals))
-      (cencode_bitsum (MAP (elm name) vals) Y name), ec')
+      (cencode_bitsum (MAP (elm name) vals) Y name «»), ec')
 End
 
 Theorem cencode_n_value_sem:
@@ -737,7 +738,7 @@ Definition cencode_count_def:
   cencode_count bnd Xs Y Z name =
   Append
     (cencode_count_aux bnd Xs Y name)
-    (cencode_bitsum (GENLIST (λi. eqi name i («eq»)) (LENGTH Xs)) Z name)
+    (cencode_bitsum (GENLIST (λi. eqi name i («eq»)) (LENGTH Xs)) Z name «»)
 End
 
 Definition encode_count_def:
@@ -950,7 +951,7 @@ Definition cencode_among_aux_def:
   cencode_among_aux bnd Xs iS Y name =
     cencode_bitsum
       (FLAT (MAP (λX. MAP (λv. INL (Eq X v)) (nub iS)) Xs))
-      Y name
+      Y name «»
 End
 
 Definition encode_among_def:
@@ -1032,7 +1033,7 @@ Definition cencode_gcc_counts_def:
   (cencode_gcc_counts Xs vs Cs name =
     flat_app
     (MAPi (λi (v,C).
-      cencode_bitsum (MAP (λX. INL (Eq X v)) Xs) C (name ^ «_» ^ toString i))
+      cencode_bitsum (MAP (λX. INL (Eq X v)) Xs) C name (toString i ^ «_»))
       (ZIP (vs,Cs))))
 End
 
@@ -1043,7 +1044,7 @@ Definition cencode_global_cardinality_aux_def:
     Append
       (flat_app
         (MAPi (λi (v,C).
-          cencode_bitsum (MAP (λX. INL (Eq X v)) Xs) C (name ^ «_» ^ toString i))
+          cencode_bitsum (MAP (λX. INL (Eq X v)) Xs) C name (toString i ^ «_»))
           (ZIP (vs,Cs))))
       (if clsd then
          flat_app

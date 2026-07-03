@@ -31,9 +31,9 @@ End
   conds & pref_eq [4] --> pref_eq [3]
   The conds are extra bits passed in. *)
 Definition pref_imp_pref_def:
-  pref_imp_pref bnd name conds n =
+  pref_imp_pref bnd name dtag conds n =
   List (GENLIST (λi.
-    (SOME (mk_name name (toString i ^ «pp»)),
+    (SOME (mk_name name (toString i ^ «pp» ^ dtag)),
     bits_imply bnd (Pos (pref_eq name (i+2))::conds)
       ([],[(1,Pos (pref_eq name (i+1)))],1))) (n-1))
 End
@@ -41,12 +41,12 @@ End
 (* Prefix equal at i implies vars equal at i;
   assumes xs ys are truncated to the same length *)
 Definition pref_imp_eq_def:
-  pref_imp_eq bnd name conds xs ys =
+  pref_imp_eq bnd name dtag conds xs ys =
   flat_app
   (MAPi (λi (x,y).
-    List [(SOME (mk_name name (toString i ^ «pge»)),
+    List [(SOME (mk_name name (toString i ^ «pge» ^ dtag)),
         bits_imply bnd (Pos (pref_eq name (i+1))::conds) (mk_ge x y));
-     (SOME (mk_name name (toString i ^ «ple»)),
+     (SOME (mk_name name (toString i ^ «ple» ^ dtag)),
         bits_imply bnd (Pos (pref_eq name (i+1))::conds) (mk_le x y));]
   ) (ZIP(xs,ys)))
 End
@@ -74,7 +74,7 @@ End
 Definition dec_imp_gt_def:
   dec_imp_gt bnd name conds xs ys =
   List (MAPi (λi (x,y).
-     (SOME (mk_name name (toString i ^ «pge»)),
+     (SOME (mk_name name (toString i ^ «dg»)),
         bits_imply bnd (Pos (dec_at name i)::conds) (mk_gt x y))
   ) (ZIP(xs,ys)))
 End
@@ -83,14 +83,14 @@ End
 Definition inc_imp_lt_def:
   inc_imp_lt bnd name conds xs ys =
   List (MAPi (λi (x,y).
-     (SOME (mk_name name (toString i ^ «pge»)),
+     (SOME (mk_name name (toString i ^ «il»)),
         bits_imply bnd (Pos (inc_at name i)::conds) (mk_lt x y))
   ) (ZIP(xs,ys)))
 End
 
 Definition mk_lex_gte_al1_def:
-  mk_lex_gte_al1 bnd name conds (lx:num) (ly:num) n eq =
-  List [(SOME (mk_name name «al1»),
+  mk_lex_gte_al1 bnd name dtag conds (lx:num) (ly:num) n eq =
+  List [(SOME (mk_name name («al1» ^ dtag)),
     bits_imply bnd conds
     (at_least_one
     (if lx > ly ∨ eq ∧ lx = ly then
@@ -102,7 +102,7 @@ End
 
 (* Encodes lex> or lex>= *)
 Definition lex_gte_def:
-  lex_gte bnd name conds Xs Ys eq =
+  lex_gte bnd name dtag conds Xs Ys eq =
   let
     lx = LENGTH Xs;
     ly = LENGTH Ys;
@@ -110,16 +110,16 @@ Definition lex_gte_def:
     xss = TAKE n Xs;
     yss = TAKE n Ys;
   in
-    Append (pref_imp_pref bnd name conds n)
-    (Append (pref_imp_eq bnd name conds xss yss)
+    Append (pref_imp_pref bnd name dtag conds n)
+    (Append (pref_imp_eq bnd name dtag conds xss yss)
     (Append (dec_imp_pref bnd name conds n)
     (Append (dec_imp_gt bnd name conds xss yss)
-      (mk_lex_gte_al1 bnd name conds lx ly n eq ))))
+      (mk_lex_gte_al1 bnd name dtag conds lx ly n eq ))))
 End
 
 Definition mk_lex_lte_al1_def:
-  mk_lex_lte_al1 bnd name conds (lx:num) (ly:num) n eq =
-  List [(SOME (mk_name name «al1»),
+  mk_lex_lte_al1 bnd name dtag conds (lx:num) (ly:num) n eq =
+  List [(SOME (mk_name name («al1» ^ dtag)),
     bits_imply bnd conds
     (at_least_one
     (if lx < ly ∨ eq ∧ lx = ly then
@@ -131,7 +131,7 @@ End
 
 (* Encodes lex< or lex<= *)
 Definition lex_lte_def:
-  lex_lte bnd name conds Xs Ys eq =
+  lex_lte bnd name dtag conds Xs Ys eq =
   let
     lx = LENGTH Xs;
     ly = LENGTH Ys;
@@ -139,11 +139,11 @@ Definition lex_lte_def:
     xss = TAKE n Xs;
     yss = TAKE n Ys;
   in
-    Append (pref_imp_pref bnd name conds n)
-    (Append (pref_imp_eq bnd name conds xss yss)
+    Append (pref_imp_pref bnd name dtag conds n)
+    (Append (pref_imp_eq bnd name dtag conds xss yss)
     (Append (inc_imp_pref bnd name conds n)
     (Append (inc_imp_lt bnd name conds xss yss)
-      (mk_lex_lte_al1 bnd name conds lx ly n eq ))))
+      (mk_lex_lte_al1 bnd name dtag conds lx ly n eq ))))
 End
 
 Theorem b2i_ge_1[local]:
@@ -155,7 +155,7 @@ QED
 Theorem pref_imp_pref_sem:
   valid_assignment bnd wi ⇒
   (EVERY (λx. iconstraint_sem x (wi,wb))
-    (abstr (pref_imp_pref bnd name conds n)) ⇔
+    (abstr (pref_imp_pref bnd name dtag conds n)) ⇔
   ∀i. i < n - 1 ⇒
     (EVERY (lit wb) conds ∧ wb (pref_eq name (i+2)) ⇒
       wb (pref_eq name (i+1))))
@@ -169,7 +169,7 @@ Theorem pref_imp_eq_sem:
   valid_assignment bnd wi ∧
   n ≤ LENGTH Xs ∧ n ≤ LENGTH Ys ⇒
   (EVERY (λx. iconstraint_sem x (wi,wb))
-    (abstr (pref_imp_eq bnd name conds (TAKE n Xs) (TAKE n Ys))) ⇔
+    (abstr (pref_imp_eq bnd name dtag conds (TAKE n Xs) (TAKE n Ys))) ⇔
   ∀i. i < n ⇒
     (EVERY (lit wb) conds ∧ wb (pref_eq name (i+1)) ⇒
       varc wi (EL i Xs) = varc wi (EL i Ys)))
@@ -258,7 +258,7 @@ Theorem mk_lex_gte_al1_sem:
   valid_assignment bnd wi ⇒
   (EVERY (λx. iconstraint_sem x (wi,wb))
     (abstr
-       (mk_lex_gte_al1 bnd name conds lx ly n eq)) ⇔
+       (mk_lex_gte_al1 bnd name dtag conds lx ly n eq)) ⇔
   (EVERY (lit wb) conds ⇒
     ((∃i. i < n ∧ wb (dec_at name i)) ∨
     wb (pref_eq name n) ∧
@@ -275,7 +275,7 @@ Theorem mk_lex_lte_al1_sem:
   valid_assignment bnd wi ⇒
   (EVERY (λx. iconstraint_sem x (wi,wb))
     (abstr
-       (mk_lex_lte_al1 bnd name conds lx ly n eq)) ⇔
+       (mk_lex_lte_al1 bnd name dtag conds lx ly n eq)) ⇔
   (EVERY (lit wb) conds ⇒
   (∃i. i < n ∧ wb (inc_at name i)) ∨
   wb (pref_eq name n) ∧
@@ -294,7 +294,7 @@ Theorem lex_gte_sem_1:
   (EVERY (lit (reify_avar cs wi)) conds ⇒
     row_gte (MAP (varc wi) Xs) (MAP (varc wi) Ys) eq) ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (abstr (lex_gte bnd name conds Xs Ys eq))
+    (abstr (lex_gte bnd name dtag conds Xs Ys eq))
 Proof
   rw[lex_gte_def]
   >- simp[pref_imp_pref_sem,reify_avar_def,reify_flag_def]
@@ -315,7 +315,7 @@ Theorem lex_lte_sem_1:
   (EVERY (lit (reify_avar cs wi)) conds ⇒
     row_gte (MAP (varc wi) Ys) (MAP (varc wi) Xs) eq) ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (abstr (lex_lte bnd name conds Xs Ys eq))
+    (abstr (lex_lte bnd name dtag conds Xs Ys eq))
 Proof
   rw[lex_lte_def]
   >- simp[pref_imp_pref_sem,reify_avar_def,reify_flag_def]
@@ -348,7 +348,7 @@ QED
 Theorem lex_gte_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (abstr (lex_gte bnd name conds Xs Ys eq)) ∧
+    (abstr (lex_gte bnd name dtag conds Xs Ys eq)) ∧
   EVERY (lit wb) conds ⇒
   row_gte (MAP (varc wi) Xs) (MAP (varc wi) Ys) eq
 Proof
@@ -387,7 +387,7 @@ QED
 Theorem lex_lte_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (abstr (lex_lte bnd name conds Xs Ys eq)) ∧
+    (abstr (lex_lte bnd name dtag conds Xs Ys eq)) ∧
   EVERY (lit wb) conds ⇒
   row_gte (MAP (varc wi) Ys) (MAP (varc wi) Xs) eq
 Proof
@@ -429,38 +429,38 @@ Definition cencode_lex_gte_def:
   cencode_lex_gte bnd Zr name Xs Ys eq ec =
   case Zr of
     NONE =>
-      (lex_gte bnd name [] Xs Ys eq, ec)
+      (lex_gte bnd name «» [] Xs Ys eq, ec)
   | SOME (INL Zc) =>
       let
         (e,ec') = cencode_reif_gen bnd Zc ec
       in
-        (Append e $ lex_gte bnd name [reif_gen Zc] Xs Ys eq, ec')
+        (Append e $ lex_gte bnd name «» [reif_gen Zc] Xs Ys eq, ec')
   | SOME (INR Zc) =>
       let
         (e,ec') = cencode_reif_gen bnd Zc ec
       in
         (Append e
-          (Append (lex_gte bnd name [reif_gen Zc] Xs Ys eq)
-          (lex_lte bnd name [negate (reif_gen Zc)] Xs Ys (¬eq))), ec')
+          (Append (lex_gte bnd name «» [reif_gen Zc] Xs Ys eq)
+          (lex_lte bnd name «c» [negate (reif_gen Zc)] Xs Ys (¬eq))), ec')
 End
 
 Definition cencode_lex_lte_def:
   cencode_lex_lte bnd Zr name Xs Ys eq ec =
   case Zr of
     NONE =>
-      (lex_lte bnd name [] Xs Ys eq, ec)
+      (lex_lte bnd name «» [] Xs Ys eq, ec)
   | SOME (INL Zc) =>
       let
         (e,ec') = cencode_reif_gen bnd Zc ec
       in
-        (Append e $ lex_lte bnd name [reif_gen Zc] Xs Ys eq, ec')
+        (Append e $ lex_lte bnd name «» [reif_gen Zc] Xs Ys eq, ec')
   | SOME (INR Zc) =>
       let
         (e,ec') = cencode_reif_gen bnd Zc ec
       in
         (Append e
-          (Append (lex_lte bnd name [reif_gen Zc] Xs Ys eq)
-          (lex_gte bnd name [negate (reif_gen Zc)] Xs Ys (¬eq))), ec')
+          (Append (lex_lte bnd name «» [reif_gen Zc] Xs Ys eq)
+          (lex_gte bnd name «c» [negate (reif_gen Zc)] Xs Ys (¬eq))), ec')
 End
 
 Definition cencode_lex_def:
@@ -477,28 +477,28 @@ Definition encode_lex_gte_def:
   encode_lex_gte bnd Zr name Xs Ys eq =
   case Zr of
     NONE =>
-      abstr (lex_gte bnd name [] Xs Ys eq)
+      abstr (lex_gte bnd name «» [] Xs Ys eq)
   | SOME (INL Zc) =>
       encode_reif_gen bnd Zc ++
-      abstr (lex_gte bnd name [reif_gen Zc] Xs Ys eq)
+      abstr (lex_gte bnd name «» [reif_gen Zc] Xs Ys eq)
   | SOME (INR Zc) =>
       encode_reif_gen bnd Zc ++
-      abstr (lex_gte bnd name [reif_gen Zc] Xs Ys eq) ++
-      abstr (lex_lte bnd name [negate (reif_gen Zc)] Xs Ys (¬eq))
+      abstr (lex_gte bnd name «» [reif_gen Zc] Xs Ys eq) ++
+      abstr (lex_lte bnd name «c» [negate (reif_gen Zc)] Xs Ys (¬eq))
 End
 
 Definition encode_lex_lte_def:
   encode_lex_lte bnd Zr name Xs Ys eq =
   case Zr of
     NONE =>
-      abstr (lex_lte bnd name [] Xs Ys eq)
+      abstr (lex_lte bnd name «» [] Xs Ys eq)
   | SOME (INL Zc) =>
       encode_reif_gen bnd Zc ++
-      abstr (lex_lte bnd name [reif_gen Zc] Xs Ys eq)
+      abstr (lex_lte bnd name «» [reif_gen Zc] Xs Ys eq)
   | SOME (INR Zc) =>
       encode_reif_gen bnd Zc ++
-      abstr (lex_lte bnd name [reif_gen Zc] Xs Ys eq) ++
-      abstr (lex_gte bnd name [negate (reif_gen Zc)] Xs Ys (¬eq))
+      abstr (lex_lte bnd name «» [reif_gen Zc] Xs Ys eq) ++
+      abstr (lex_gte bnd name «c» [negate (reif_gen Zc)] Xs Ys (¬eq))
 End
 
 Definition encode_lex_def:
@@ -890,7 +890,7 @@ End
 Definition vp_ub_pins_def:
   vp_ub_pins bnd name v npv Xs =
   List (MAPi (λi X.
-    (SOME (mk_name name (toString i ^ «ub»)),
+    (SOME (mk_name name (toString i ^ «ub» ^ «_» ^ int_to_string #"-" v)),
      bits_imply bnd [Pos (INL (Eq X v))] ([], npv, -&i))) Xs)
 End
 
@@ -898,7 +898,7 @@ End
 Definition vp_ex_pins_def:
   vp_ex_pins name v eqlits n =
   List (GENLIST (λi.
-    (SOME (mk_name name (toString i ^ «ex»)),
+    (SOME (mk_name name (toString i ^ «ex» ^ «_» ^ int_to_string #"-" v)),
      at_least_one (Pos (vp_ge_flag name v (i+1)) :: TAKE (i+1) eqlits))) n)
 End
 

@@ -24,10 +24,10 @@ Definition mk_lin_lt_def[simp]:
 End
 
 Definition cmk_lin_eq_def[simp]:
-  cmk_lin_eq name cXs Y =
+  cmk_lin_eq name pref cXs Y =
   [
-    (SOME (mk_name name («ge»)), mk_lin_ge cXs Y);
-    (SOME (mk_name name («le»)), mk_lin_le cXs Y)
+    (SOME (mk_name name (pref ^ «ge»)), mk_lin_ge cXs Y);
+    (SOME (mk_name name (pref ^ «le»)), mk_lin_le cXs Y)
   ]
 End
 
@@ -35,7 +35,7 @@ Definition cencode_lin_equal_1_def[simp]:
   cencode_lin_equal_1 bnd Zc cXs Y name =
   List (
     MAP (I ## bits_imply bnd [reif_gen Zc])
-      (cmk_lin_eq name cXs Y))
+      (cmk_lin_eq name «» cXs Y))
 End
 
 Definition cencode_lin_equal_2_def[simp]:
@@ -53,7 +53,7 @@ End
 Definition encode_lin_equal_def:
   encode_lin_equal bnd Zr cXs Y name =
   case Zr of
-    NONE => abstrl (cmk_lin_eq name cXs Y)
+    NONE => abstrl (cmk_lin_eq name «» cXs Y)
   | SOME (INL Zc) =>
     encode_reif_gen bnd Zc ++
     abstr (cencode_lin_equal_1 bnd Zc cXs Y name)
@@ -130,7 +130,7 @@ Definition cencode_lin_not_equal_3_def[simp]:
   cencode_lin_not_equal_3 bnd Zc cXs Y name =
   Append
     (List (MAP (I ## bits_imply bnd [negate (reif_gen Zc)])
-      (cmk_lin_eq name cXs Y))) $
+      (cmk_lin_eq name «» cXs Y))) $
     cencode_lin_not_equal_2 bnd Zc cXs Y name
 End
 
@@ -346,7 +346,7 @@ QED
 Definition cencode_lin_equal_def:
   cencode_lin_equal bnd Zr cXs Y name ec =
   case Zr of
-    NONE => (List (cmk_lin_eq name cXs Y),ec)
+    NONE => (List (cmk_lin_eq name «» cXs Y),ec)
   | SOME (INL Zc) =>
       let
         (e,ec') = cencode_reif_gen bnd Zc ec

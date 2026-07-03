@@ -774,7 +774,7 @@ QED
 
 Definition cencode_knapsack1_def:
   cencode_knapsack1 name (n:num) Xs cs t =
-  List (cmk_lin_eq (name ^ toString n) (ZIP(cs,Xs)) t)
+  List (cmk_lin_eq name (toString n ^ «_») (ZIP(cs,Xs)) t)
 End
 
 Definition cencode_knapsack_def:
