@@ -301,6 +301,10 @@ local val compile_op_quotation = `
     | Label l => Op (Label (bvl_num_stubs + bvl_to_bvi_namespaces * l)) c1
     | BlockOp (Build ps) => Op (BlockOp (Build ps)) c1
     | BlockOp (EqualConst p) => Op (BlockOp (EqualConst p)) c1
+    (* reserved for bvi_tmc; bvlSem$do_app is Error on these, so compile them out *)
+    | MemOp (MutCons tag i) => Let c1 (Op (IntOp (Const 0)) [])
+    | MemOp UpdateCons => Let c1 (Op (IntOp (Const 0)) [])
+    | MemOp FinaliseCons => Let c1 (Op (IntOp (Const 0)) [])
     | _ => Op op c1`
 in
 val compile_op_def = Define compile_op_quotation;
