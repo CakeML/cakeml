@@ -208,6 +208,9 @@ val res = translate sexp_constraint_dispatch_def;
 val res = translate sexp_constraint_def;
 val res = translate sexp_constraints_def;
 val res = translate sexp_prob_type_def;
+val res = translate sorted_fast_lt_aux_def;
+val res = translate sorted_fast_lt_def;
+val res = translate check_distinct_names_def;
 val res = translate sexp_cp_inst_def;
 val res = translate parse_cp_inst_def;
 

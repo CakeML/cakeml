@@ -5,7 +5,7 @@ Theory cp_parse
 Libs
   preamble
 Ancestors
-  cp mlsexp result_monad
+  cp mlsexp result_monad mllist
 
 (*
   We have everything live in a big s-expression with
@@ -1035,6 +1035,90 @@ Definition sexp_prob_type_def:
   (sexp_prob_type _ _ = fail («invalid problem type sexpression\n»))
 End
 
+(* Duplicate constraint-name check: sort the names with fast_le, then one
+   strict fast_lt adjacency scan (n log n overall).
+   The fast_le/fast_lt order lemmas are candidates to upstream to
+   mlstringTheory. *)
+
+Theorem transitive_fast_le:
+  transitive fast_le
+Proof
+  rw[transitive_def, mlstringTheory.fast_le_def]
+  >> Cases_on ‘strlen x = strlen y’ >> Cases_on ‘strlen y = strlen z’ >> gvs[]
+  >> metis_tac[mlstringTheory.transitive_mlstring_le, transitive_def]
+QED
+
+Theorem total_fast_le:
+  total fast_le
+Proof
+  rw[total_def, mlstringTheory.fast_le_def]
+  >> Cases_on ‘strlen x = strlen y’ >> gvs[]
+  >> metis_tac[mlstringTheory.total_mlstring_le, total_def]
+QED
+
+Theorem transitive_fast_lt:
+  transitive fast_lt
+Proof
+  rw[transitive_def, mlstringTheory.fast_lt_def]
+  >> Cases_on ‘strlen x = strlen y’ >> Cases_on ‘strlen y = strlen z’ >> gvs[]
+  >> metis_tac[mlstringTheory.mlstring_lt_trans]
+QED
+
+Theorem irreflexive_fast_lt:
+  irreflexive fast_lt
+Proof
+  rw[irreflexive_def, mlstringTheory.fast_lt_def, mlstringTheory.mlstring_lt_nonrefl]
+QED
+
+Theorem fast_le_lt:
+  fast_le x y ∧ x ≠ y ⇒ fast_lt x y
+Proof
+  rw[mlstringTheory.fast_le_def, mlstringTheory.fast_lt_def]
+  >> gvs[mlstringTheory.mlstring_le_thm]
+QED
+
+Definition sorted_fast_lt_aux_def:
+  (sorted_fast_lt_aux x [] ⇔ T) ∧
+  (sorted_fast_lt_aux x (y::ys) ⇔ fast_lt x y ∧ sorted_fast_lt_aux y ys)
+End
+
+Definition sorted_fast_lt_def:
+  (sorted_fast_lt [] ⇔ T) ∧
+  (sorted_fast_lt (x::xs) ⇔ sorted_fast_lt_aux x xs)
+End
+
+Theorem sorted_fast_lt_SORTED[local]:
+  ∀ls. sorted_fast_lt ls ⇔ SORTED fast_lt ls
+Proof
+  Cases >> rw[sorted_fast_lt_def]
+  >> qid_spec_tac ‘h’ >> Induct_on ‘t’
+  >> rw[sorted_fast_lt_aux_def, sortingTheory.SORTED_DEF]
+QED
+
+Theorem SORTED_fast_le_imp_lt[local]:
+  ∀ls. SORTED fast_le ls ∧ ALL_DISTINCT ls ⇒ SORTED fast_lt ls
+Proof
+  Induct
+  >> rw[sortingTheory.SORTED_EQ, transitive_fast_le, transitive_fast_lt]
+  >> metis_tac[fast_le_lt]
+QED
+
+Definition check_distinct_names_def:
+  check_distinct_names ns ⇔ sorted_fast_lt (sort fast_le ns)
+End
+
+Theorem check_distinct_names_thm:
+  check_distinct_names ns ⇔ ALL_DISTINCT ns
+Proof
+  rw[check_distinct_names_def, sorted_fast_lt_SORTED] >> eq_tac >> rw[]
+  >- metis_tac[sortingTheory.SORTED_ALL_DISTINCT, irreflexive_fast_lt,
+               transitive_fast_lt, mllistTheory.sort_PERM,
+               sortingTheory.ALL_DISTINCT_PERM]
+  >> metis_tac[SORTED_fast_le_imp_lt, mllistTheory.sort_SORTED,
+               transitive_fast_le, total_fast_le, mllistTheory.sort_PERM,
+               sortingTheory.ALL_DISTINCT_PERM]
+QED
+
 Definition sexp_cp_inst_def:
   sexp_cp_inst e =
   case e of
@@ -1042,8 +1126,12 @@ Definition sexp_cp_inst_def:
     do
       (bb:(mlstring, int # int) alist) <- sexp_bnds bnds;
       (cs:(mlstring # mlstring constraint) list) <- sexp_constraints constraints;
-      (pty:mlstring prob_type) <- sexp_prob_type (MAP FST bb) mopt;
-      return ((bb,cs,pty ):cp_inst)
+      if check_distinct_names (MAP FST cs) then
+        do
+          (pty:mlstring prob_type) <- sexp_prob_type (MAP FST bb) mopt;
+          return ((bb,cs,pty ):cp_inst)
+        od
+      else fail («duplicate constraint names\n»)
     od
   | _ => fail («invalid sexpression for top-level CP instance\n»)
 End
@@ -1054,6 +1142,14 @@ Definition parse_cp_inst_def:
       NONE => fail («sexp parse failure\n»)
     | SOME se => sexp_cp_inst se
 End
+
+Theorem parse_cp_inst_distinct:
+  parse_cp_inst s = INR (bnd,cs,pty) ⇒ ALL_DISTINCT (MAP FST cs)
+Proof
+  rw[parse_cp_inst_def]
+  >> gvs[sexp_cp_inst_def, oneline bind_def, AllCaseEqs(),
+         check_distinct_names_thm]
+QED
 
 (*--------------------------------------------------------------*
    EVAL tests — each theorem asserts the parser returned the expected
@@ -1515,7 +1611,10 @@ Theorem test_cp_inst:
     INL («invalid sexpression for top-level CP instance\n») ∧
   (* malformed s-expression (unbalanced parens) → parse failure *)
   parse_cp_inst («(()») =
-    INL («sexp parse failure\n»)
+    INL («sexp parse failure\n») ∧
+  (* duplicate constraint names rejected *)
+  parse_cp_inst («(((X 0 2) (Y 0 2) (Z 0 2)) ((c equals X Y) (c equals X Z)))») =
+    INL («duplicate constraint names\n»)
 Proof
   EVAL_TAC
 QED
