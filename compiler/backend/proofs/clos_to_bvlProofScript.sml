@@ -1834,6 +1834,8 @@ Proof
   \\ srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def]
   \\ TRY (fs[case_eq_thms,bool_case_eq,v_case_eq_thms] \\ NO_TAC)
   \\ gvs[AllCaseEqs()]
+  (* MutCons/UpdateCons/FinaliseCons: vacuous, closSem$do_app is Error *)
+  \\ metis_tac []
 QED
 
 (* correctness of implemented primitives *)
