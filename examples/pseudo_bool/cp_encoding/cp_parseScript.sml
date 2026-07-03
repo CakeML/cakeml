@@ -203,6 +203,20 @@ Definition sexp_binop_body_def:
     | _ => fail («binary op expects 3 args: X op Y = Z\n»)
 End
 
+(* Non-linear prim: X op Y = Z, each of X, Y, Z a variable or constant. *)
+Definition sexp_nlop_body_def:
+  sexp_nlop_body nlop rest =
+    case rest of
+      [Xe; Ye; Ze] =>
+      (do
+         X <- sexp_varc Xe;
+         Y <- sexp_varc Ye;
+         Z <- sexp_varc Ze;
+         return (Prim (Nonlinop nlop X Y Z))
+       od)
+    | _ => fail («non-linear op expects 3 args: X op Y = Z\n»)
+End
+
 (* Comparison prim with optional reification: strip _if/_iff, parse stem as
    cmpop. Since prim_dispatch is the last branch in the top-level dispatch,
    an unrecognised stem means the constraint name is simply unsupported. *)
@@ -226,8 +240,8 @@ Definition sexp_cmpop_body_def:
       od
 End
 
-(* Primitive: neg, abs (unary); plus, minus, max, min (binary);
-   equals/not_equals/greater_*/less_* (comparison with optional reif). *)
+(* Primitive: neg, abs (unary); plus, minus, max, min (binary); multiply
+   (non-linear); equals/not_equals/greater_*/less_* (comparison w/ opt reif). *)
 Definition sexp_prim_dispatch_def:
   sexp_prim_dispatch ctype rest =
     case sexp_prim_unop ctype of
@@ -235,7 +249,9 @@ Definition sexp_prim_dispatch_def:
     | NONE =>
     case sexp_prim_binop ctype of
       SOME bop => sexp_binop_body bop rest
-    | NONE => sexp_cmpop_body ctype rest
+    | NONE =>
+      if ctype = «multiply» then sexp_nlop_body Mult rest
+      else sexp_cmpop_body ctype rest
 End
 
 (* Linear: stems prefixed with "lin_", embedded comparison keyword, optional reif. *)
@@ -1489,6 +1505,19 @@ Theorem test_prim:
   sexp_constraint_dispatch («min»)
     (fromStringL («(A B C)»)) =
     INR (Prim (Binop Min (INL «A») (INL «B») (INL «C»))) ∧
+  (* non-linear multiply: X, Y, Z each a variable or constant *)
+  sexp_constraint_dispatch («multiply»)
+    (fromStringL («(A B C)»)) =
+    INR (Prim (Nonlinop Mult (INL «A») (INL «B») (INL «C»))) ∧
+  sexp_constraint_dispatch («multiply»)
+    (fromStringL («(A B 6)»)) =
+    INR (Prim (Nonlinop Mult (INL «A») (INL «B») (INR 6))) ∧
+  sexp_constraint_dispatch («multiply»)
+    (fromStringL («(A 3 C)»)) =
+    INR (Prim (Nonlinop Mult (INL «A») (INR 3) (INL «C»))) ∧
+  sexp_constraint_dispatch («multiply»)
+    (fromStringL («(A B)»)) =
+    INL («non-linear op expects 3 args: X op Y = Z\n») ∧
   (* bare comparison *)
   sexp_constraint_dispatch («equals»)
     (fromStringL («(X Y)»)) =

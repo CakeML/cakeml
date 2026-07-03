@@ -39,9 +39,14 @@ End
 Datatype:
   prim_binop =
     Plus | Minus
-  (* TODO: future work, not in solver except maybe Times
-  | Times | Div | Mod | Pow *)
   | Min | Max
+End
+
+(* Nonlinear operations (args attached at the Nonlinop wrapper, cf. Binop) *)
+Datatype:
+  prim_nlop =
+    (* Mult : X * Y = Z *)
+    Mult
 End
 
 Datatype:
@@ -62,14 +67,15 @@ Type reify[pp] = ``: ('a reify_cmp + 'a reify_cmp) option``;
   For the reified cmpops, the names are appended
   with -if or -iff, e.g.:
   equal-if
-  equal-iff
-*)
+  equal-iff *)
 Datatype:
   prim_constr =
     (* op X Y : op X = Y *)
   | Unop prim_unop ('a varc) ('a varc)
     (* Binop op X Y Z : X op Y = Z *)
   | Binop prim_binop ('a varc) ('a varc) ('a varc)
+    (* Nonlinop op X Y Z : X op Y = Z *)
+  | Nonlinop prim_nlop ('a varc) ('a varc) ('a varc)
     (* Cmpop reif op X Y : reify(X cmp Y) *)
   | Cmpop ('a reify) cmpop ('a varc) ('a varc)
 End
@@ -318,21 +324,28 @@ Definition binop_val_def:
   | Minus => x - y
   | Min => int_min x y
   | Max => int_max x y
-(*
-  | Times => x * y
-  | Div => x / y
-  | Mod => x % y
-  | Pow => x ** Num y
-*)
 End
 
 Definition binop_sem_def:
-  binop_sem bop X Y Z w =
+  binop_sem bop X Y Z w ⇔
   let x = varc w X in
   let y = varc w Y in
   let z = varc w Z in
-  (* guard_binop bop y ∧ *)
   binop_val bop x y = z
+End
+
+Definition nlop_val_def:
+  nlop_val nlop (x:int) y =
+  case nlop of
+    Mult => x * y
+End
+
+Definition nlop_sem_def:
+  nlop_sem nlop X Y Z w ⇔
+  let x = varc w X in
+  let y = varc w Y in
+  let z = varc w Z in
+  nlop_val nlop x y = z
 End
 
 Definition cmpop_val_def:
@@ -350,7 +363,7 @@ End
   INL Z : one-sided reification
   INR Z : full reification *)
 Definition reify_sem_def:
-  reify_sem Zr w b =
+  reify_sem Zr w b ⇔
   case Zr of
     NONE => b
   | SOME (INL (Z,cmp,v)) => cmpop_val cmp (varc w Z) v ⇒ b
@@ -358,17 +371,18 @@ Definition reify_sem_def:
 End
 
 Definition cmpop_sem_def:
-  cmpop_sem Zr cmp X Y w =
+  cmpop_sem Zr cmp X Y w ⇔
   let x = varc w X in
   let y = varc w Y in
   reify_sem Zr w (cmpop_val cmp x y)
 End
 
 Definition prim_constr_sem_def:
-  prim_constr_sem c w =
+  prim_constr_sem c w ⇔
   case c of
     Unop uop X Y => unop_sem uop X Y w
   | Binop bop X Y Z => binop_sem bop X Y Z w
+  | Nonlinop nlop X Y Z => nlop_sem nlop X Y Z w
   | Cmpop Zr cmp X Y => cmpop_sem Zr cmp X Y w
 End
 
@@ -376,12 +390,12 @@ End
   counting_constr
 ***)
 Definition all_equal_sem_def:
-  all_equal_sem Xs w =
+  all_equal_sem Xs w ⇔
     ∃v. EVERY (λX. varc w X = v) Xs
 End
 
 Definition all_different_except_sem_def:
-  all_different_except_sem Xs iS w =
+  all_different_except_sem Xs iS w ⇔
     ALL_DISTINCT (FILTER (λv. ¬ MEM v iS) (MAP (varc w) Xs))
 End
 
@@ -396,14 +410,14 @@ Definition symmetric_all_different_sem_def:
 End
 
 Definition n_value_sem_def:
-  n_value_sem Xs Y w =
+  n_value_sem Xs Y w ⇔
   (varc w Y ≥ 0 ∧
     (Num $ varc w Y =
     CARD $ set (MAP (varc w) Xs)))
 End
 
 Definition count_sem_def:
-  count_sem Xs Y Z w =
+  count_sem Xs Y Z w ⇔
   (varc w Z =
     iSUM $
       MAP
@@ -413,7 +427,7 @@ Definition count_sem_def:
 End
 
 Definition among_sem_def:
-  among_sem Xs iS Y w =
+  among_sem Xs iS Y w ⇔
   (varc w Y =
     iSUM $
       MAP
@@ -423,7 +437,7 @@ Definition among_sem_def:
 End
 
 Definition in_sem_def:
-  in_sem Xs Y w =
+  in_sem Xs Y w ⇔
   let
     y = varc w Y;
     xs = MAP (varc w) Xs
@@ -446,7 +460,7 @@ Definition global_cardinality_sem_def:
 End
 
 Definition counting_constr_sem_def:
-  counting_constr_sem c w =
+  counting_constr_sem c w ⇔
   case c of
     AllEqual Xs => all_equal_sem Xs w
   | AllDifferentExcept Xs iS => all_different_except_sem Xs iS w
@@ -553,7 +567,7 @@ Definition element2d_sem_def:
 End
 
 Definition array_max_sem_def:
-  array_max_sem Xs Y w =
+  array_max_sem Xs Y w ⇔
   let
     y = varc w Y;
     xs = MAP (varc w) Xs
@@ -563,7 +577,7 @@ Definition array_max_sem_def:
 End
 
 Definition array_min_sem_def:
-  array_min_sem Xs Y w =
+  array_min_sem Xs Y w ⇔
   let
     y = varc w Y;
     xs = MAP (varc w) Xs
@@ -703,19 +717,19 @@ End
   logical_constr
 ***)
 Definition and_sem_def:
-  and_sem Xs Y w =
+  and_sem Xs Y w ⇔
    reify_sem (SOME (INR (Y, GreaterThan, 0))) w
     (EVERY (λX. varc w X > 0) Xs)
 End
 
 Definition or_sem_def:
-  or_sem Xs Y w =
+  or_sem Xs Y w ⇔
    reify_sem (SOME (INR (Y, GreaterThan, 0))) w
     (EXISTS (λX. varc w X > 0) Xs)
 End
 
 Definition parity_sem_def:
-  parity_sem Xs Y w =
+  parity_sem Xs Y w ⇔
    reify_sem (SOME (INR (Y, GreaterThan, 0))) w
     (ODD (SUM $ MAP (λX. if varc w X > 0 then 1n else 0n) Xs))
 End
@@ -1014,7 +1028,7 @@ End
 (* adjacent comparison picked by (strct,desc):
    (F,F) ≤, (T,F) <, (F,T) ≥, (T,T) > *)
 Definition inc_rel_def[simp]:
-  inc_rel strct desc (x:int) y =
+  inc_rel strct desc (x:int) y ⇔
   if desc then (if strct then x > y else x ≥ y)
   else (if strct then x < y else x ≤ y)
 End
@@ -1034,7 +1048,8 @@ End
 (* stable_lt: promotes value-< to a strict total order by breaking ties on the
    original index — i.e. the order a STABLE sort imposes on (value,index) pairs. *)
 Definition stable_lt_def:
-  stable_lt (v1:int,i1:num) (v2,i2) ⇔ v1 < v2 ∨ (v1 = v2 ∧ i1 < i2)
+  stable_lt (v1:int,i1:num) (v2,i2) ⇔
+    v1 < v2 ∨ (v1 = v2 ∧ i1 < i2)
 End
 
 Definition argsort_sem_def:
@@ -1060,7 +1075,7 @@ Definition sorting_constr_sem_def:
 End
 
 Definition constraint_sem_def:
-  constraint_sem c (w: 'a assignment) =
+  constraint_sem c (w: 'a assignment) ⇔
   case c of
     Prim c => prim_constr_sem c w
   | Counting c => counting_constr_sem c w

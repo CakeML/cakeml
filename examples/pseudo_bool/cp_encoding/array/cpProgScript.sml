@@ -103,6 +103,7 @@ val res = translate sexp_prim_unop_def;
 val res = translate sexp_prim_binop_def;
 val res = translate sexp_unop_body_def;
 val res = translate sexp_binop_body_def;
+val res = translate sexp_nlop_body_def;
 val res = translate sexp_cmpop_body_def;
 val res = translate sexp_prim_dispatch_def;
 
@@ -435,6 +436,19 @@ val res = translate cp_to_ilp_primTheory.cencode_not_equal_def;
 val res = translate cp_to_ilp_primTheory.encode_cmp_aux_def;
 val res = translate cp_to_ilp_primTheory.cencode_order_cmpops_def;
 
+(* multiply: shared pos_num/varc_bnd kernels + non-linear product encoder *)
+val res = translate cp_to_ilpTheory.pos_num_def;
+val res = translate cp_to_ilpTheory.varc_bnd_def;
+val res = translate cp_to_ilp_primTheory.mult_width_def;
+val res = translate cp_to_ilp_primTheory.mult_binbit_def;
+val res = translate cp_to_ilp_primTheory.mult_prodbit_def;
+val res = translate cp_to_ilp_primTheory.mult_bin_term_def;
+val res = translate cp_to_ilp_primTheory.mult_prod_term_def;
+val res = translate cp_to_ilp_primTheory.mult_varc_row_def;
+val res = translate cp_to_ilp_primTheory.mult_mag_rows_def;
+val res = translate cp_to_ilp_primTheory.cencode_mult_body_def;
+val res = translate cp_to_ilp_primTheory.cencode_mult_def;
+
 val res = translate cp_to_ilp_primTheory.cencode_prim_constr_def;
 
 (* cp_to_ilp_counting *)
@@ -642,9 +656,8 @@ val res = translate cp_to_ilp_lexicographicalTheory.cencode_lex_gte_def;
 val res = translate cp_to_ilp_lexicographicalTheory.cencode_lex_lte_def;
 val res = translate cp_to_ilp_lexicographicalTheory.cencode_lex_def;
 
-(* shared proof-only-natural kernel + value/seq precede *)
-val res = translate cp_to_ilpTheory.pos_num_def;
-val res = translate cp_to_ilpTheory.varc_bnd_def;
+(* shared proof-only-natural kernel + value/seq precede
+   (pos_num, varc_bnd translated earlier, for multiply) *)
 val res = translate cp_to_ilp_lexicographicalTheory.vp_posbit_def;
 val res = translate cp_to_ilp_lexicographicalTheory.vp_ge_flag_def;
 val res = translate cp_to_ilp_lexicographicalTheory.vp_width_def;

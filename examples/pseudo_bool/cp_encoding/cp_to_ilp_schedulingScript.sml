@@ -124,14 +124,6 @@ Definition mk_sep_clauses_def:
     ) task_info)) task_info))
 End
 
-Theorem append_flat_app[local]:
-  append (flat_app ls) = FLAT (MAP append ls)
-Proof
-  `∀acc. append (FOLDR Append acc ls) = FLAT (MAP append ls) ++ append acc` by
-    (Induct_on `ls` >> rw[append_thm])>>
-  simp[flat_app_def,append_thm]
-QED
-
 Theorem mk_sep_clauses_sem:
   (EVERY (λx. iconstraint_sem x (wi,wb))
     (abstr (mk_sep_clauses name pair_anns ts)) ⇔

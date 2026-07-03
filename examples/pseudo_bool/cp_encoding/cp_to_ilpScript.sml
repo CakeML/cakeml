@@ -121,6 +121,14 @@ Definition reify_flag_def:
   case flag of
   | Indices ids ann =>
     (case ALOOKUP cs name of
+    | SOME (Prim (Nonlinop Mult X Y Z)) =>
+      (* «bin» [axis;b]: bit b of |X| (axis 0) or |Y| (axis 1);
+         «prod» [i;j]: bit i of |X| AND bit j of |Y| *)
+      if ann = SOME («bin»)
+      then BIT (EL 1 ids) (Num (ABS (varc wi (if EL 0 ids = 0 then X else Y))))
+      else (* ann = SOME («prod») *)
+        (BIT (EL 0 ids) (Num (ABS (varc wi X))) ∧
+         BIT (EL 1 ids) (Num (ABS (varc wi Y))))
     | SOME (Counting (AllDifferentExcept Xs iS)) =>
       varc wi (EL (EL 0 ids) Xs) > varc wi (EL (EL 1 ids) Xs)
     | SOME (Counting (SymmetricAllDifferent (Xs,start))) =>
@@ -1759,6 +1767,14 @@ Proof
   `∀acc. abstr (FOLDR Append acc ls) = FLAT (MAP abstr ls) ++ abstr acc` by
     (Induct_on`ls`>>rw[flat_app_def])>>
   simp[flat_app_def]
+QED
+
+Theorem append_flat_app:
+  append (flat_app ls) = FLAT (MAP append ls)
+Proof
+  `∀acc. append (FOLDR Append acc ls) = FLAT (MAP append ls) ++ append acc` by
+    (Induct_on `ls` >> rw[append_thm])>>
+  simp[flat_app_def,append_thm]
 QED
 
 Theorem abstrl_mk_annotate[simp]:
