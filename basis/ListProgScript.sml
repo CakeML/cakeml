@@ -86,6 +86,9 @@ val result = translate list_compare_def;
 val result = next_ml_names := ["concat"];
 val result = translate FLAT;
 
+val result = next_ml_names := ["intersperse"];
+val result = translate mllistTheory.intersperse_def;
+
 (* the let is introduced to produce slight better code (smaller stack frames) *)
 Theorem MAP_let[local]:
     MAP f xs =
