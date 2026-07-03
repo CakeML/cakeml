@@ -7010,6 +7010,13 @@ Proof
       \\ qexists_tac `r` \\ fs [] \\ fs [domain_lookup])
     \\ rename [‘lookup r refs1 = SOME v’]
     \\ reverse (Cases_on `v`) \\ fs []
+    >~ [‘MutBlock tg ls cv rs’] >-
+     (rveq \\ fs []
+      \\ first_x_assum (qspec_then `r` mp_tac)
+      \\ (impl_tac THEN1 fs [reachable_refs_def,get_refs_def])
+      \\ fs [subspt_lookup] \\ res_tac \\ fs []
+      \\ fs [bc_ref_inv_def,FLOOKUP_DEF]
+      \\ Cases_on `r IN FDOM f` \\ fs [])
     >~ [‘ByteArray b l’] >-
      (rveq \\ fs [] \\ fs []
       \\ first_x_assum (qspec_then `r` mp_tac)

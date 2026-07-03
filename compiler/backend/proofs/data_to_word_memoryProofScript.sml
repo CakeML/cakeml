@@ -8865,6 +8865,20 @@ Proof
   \\ fs [SUBSET_DEF,domain_lookup]
 QED
 
+Theorem memory_rel_MutBlock_IMP_F[local]:
+  memory_rel c be ts refs sp st m dm ((RefPtr bl p,v:'a word_loc)::vars) /\
+  lookup p refs = SOME (MutBlock tg ls cv rs) ==> F
+Proof
+  strip_tac
+  \\ fs [memory_rel_def,word_ml_inv_def,abs_ml_inv_def,
+         bc_stack_ref_inv_def,v_inv_def,word_addr_def]
+  \\ `bc_ref_inv c p refs (f,tf,heap,be)` by
+    (first_x_assum match_mp_tac \\ fs [reachable_refs_def]
+     \\ qexists_tac `RefPtr bl p` \\ fs [get_refs_def])
+  \\ pop_assum mp_tac \\ simp [bc_ref_inv_def]
+  \\ Cases_on `FLOOKUP f p` \\ simp []
+QED
+
 Theorem memory_rel_RefPtr_IMP':
   memory_rel c be ts refs sp st m dm ((RefPtr bl p,v)::vars) ∧
   good_dimindex (:α) ⇒
@@ -8880,6 +8894,7 @@ Proof
   THEN1 (drule_all memory_rel_ValueArray_IMP \\ rw [] \\ fs [])
   THEN1 (drule_all memory_rel_ByteArray_IMP \\ rw [] \\ fs [])
   THEN1 (drule_all memory_rel_Thunk_IMP \\ rw [] \\ fs [])
+  \\ drule_all memory_rel_MutBlock_IMP_F \\ fs []
 QED
 
 Theorem memory_rel_RefPtr_IMP:
@@ -10931,6 +10946,12 @@ Proof
       \\ srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] []))
   THEN1 (* do_eq RefPtr bl *)
    (rpt strip_tac
+    \\ `(!tg ls cv rs. lookup n1 refs <> SOME (MutBlock tg ls cv rs)) /\
+        (!tg ls cv rs. lookup n2 refs <> SOME (MutBlock tg ls cv rs))` by
+      (rpt strip_tac
+       THEN1 (drule_all memory_rel_MutBlock_IMP_F \\ fs [])
+       \\ old_drule memory_rel_swap \\ strip_tac
+       \\ drule_all memory_rel_MutBlock_IMP_F \\ fs [])
     \\ gvs [CaseEq"bool"] \\ old_drule memory_rel_RefPtr_EQ \\ fs []
     \\ strip_tac
     \\ once_rewrite_tac [word_eq_def]

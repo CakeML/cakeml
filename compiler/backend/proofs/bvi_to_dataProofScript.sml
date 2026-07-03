@@ -67,6 +67,8 @@ Definition data_to_bvi_ref_def[simp]:
   data_to_bvi_ref (ValueArray l)   = ValueArray (MAP data_to_bvi_v l)
 ∧ data_to_bvi_ref (ByteArray b bl) = ByteArray b bl
 ∧ data_to_bvi_ref (Thunk m v)      = Thunk m (data_to_bvi_v v)
+∧ data_to_bvi_ref (MutBlock tg ls c rs) =
+    MutBlock tg (MAP data_to_bvi_v ls) (data_to_bvi_v c) (MAP data_to_bvi_v rs)
 End
 
 (* State relation *)
@@ -556,6 +558,12 @@ Proof
       gvs [state_rel_def] >>
       fs[bvi_to_bvl_def,bvl_to_bvi_def,lookup_map,lookup_insert,FLOOKUP_SIMP] >>
       rw [])
+  >~ [`do_app (MemOp (MutCons _ _))`]
+  >- cheat (* bvi_tmc TODO(MM): MutBlock ops at data level not yet implemented *)
+  >~ [`do_app (MemOp UpdateCons)`]
+  >- cheat (* bvi_tmc TODO(MM): MutBlock ops at data level not yet implemented *)
+  >~ [`do_app (MemOp FinaliseCons)`]
+  >- cheat (* bvi_tmc TODO(MM): MutBlock ops at data level not yet implemented *)
   \\ ntac 2 (fs [ do_app_aux_def
                 , bvlSemTheory.do_app_def
                 , bviSemTheory.do_app_def

@@ -126,7 +126,10 @@ Definition size_of_def:
      | SOME (ValueArray vs) => let (n,refs,seen) = size_of lims vs (delete r refs) seen in
                                  (n + LENGTH vs + 1, refs, seen)
      | SOME (Thunk _ v) => let (n,refs,seen) = size_of lims [v] (delete r refs) seen in
-                             (n + 2, refs, seen)) /\
+                             (n + 2, refs, seen)
+     | SOME (MutBlock tg ls c rs) =>
+         let (n,refs,seen) = size_of lims (ls ++ [c] ++ rs) (delete r refs) seen in
+           (n + LENGTH ls + LENGTH rs + 2, refs, seen)) /\
   (size_of lims [Block ts tag []]) refs seen = (0, refs, seen) /\
   (size_of lims [Block ts tag vs] refs seen =
      if IS_SOME (sptree$lookup ts seen) then (0, refs, seen) else
@@ -144,7 +147,13 @@ End
 Theorem check_res_size_of[local]:
   check_res refs (size_of lims vs refs seen) = size_of lims vs refs seen
 Proof
-  cheat (* TEMP-REVERT: pre-existing env failure *)
+  qsuff_tac
+    `!lims vs refs seen. size (( \ (n,refs,seen). refs) (size_of lims vs refs seen)) <= size refs`
+  THEN1 (rw [] \\ pop_assum (assume_tac o SPEC_ALL) \\ pairarg_tac \\ fs [check_res_def])
+  \\ ho_match_mp_tac size_of_ind \\ fs [size_of_def] \\ rw []
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs[]
+  \\ fs [check_res_def,bool_case_eq,option_case_eq,pair_case_eq,CaseEq"ref"]
+  \\ rveq \\ fs [] \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs[] \\ fs [size_delete]
 QED
 
 Theorem size_of_def[allow_rebind,compute] = REWRITE_RULE [check_res_size_of] size_of_def

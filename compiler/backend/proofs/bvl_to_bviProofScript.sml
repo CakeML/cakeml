@@ -4686,14 +4686,637 @@ Proof
   \\ fs [EVAL ``num_stubs MOD nss``]
 QED
 
-(* The bvi_tmc pass requires its input to be free of MutCons operations
-   (the no_mutcons side condition of bvi_tmc's input_condition).  We assume
-   this holds of the programs reaching bvi_tmc; this is the single remaining
-   cheat in this file, used by compile_semantics below. *)
-Theorem no_mutcons_assumed[local]:
-   EVERY (no_mutcons o SND o SND) (prog:(num # num # bvi$exp) list)
+(* --- no_mutcons: syntactic absence of MutCons/UpdateCons/FinaliseCons ---
+
+   The bvi_tmc pass requires its input to be free of MutCons operations
+   (the no_mutcons conjunct of bvi_tmc's input_condition).  This holds
+   because bvi_tmc itself is the only pass that introduces these
+   operations.  bvl_no_mutcons is the bvl-level analogue of the bvi-level
+   no_mutcons (bvi_tmcProof); the lemmas below thread the property through
+   bvl_inline, bvl_to_bvi (incl. bvi_let) and bvi_tailrec, discharging the
+   two input_condition obligations in compile_semantics below. *)
+
+Definition bvl_no_mutcons_def[simp]:
+  (bvl_no_mutcons (Var n : bvl$exp) ⇔ T) ∧
+  (bvl_no_mutcons (If x1 x2 x3) ⇔
+     bvl_no_mutcons x1 ∧ bvl_no_mutcons x2 ∧ bvl_no_mutcons x3) ∧
+  (bvl_no_mutcons (Let xs x) ⇔ EVERY bvl_no_mutcons xs ∧ bvl_no_mutcons x) ∧
+  (bvl_no_mutcons (Raise x) ⇔ bvl_no_mutcons x) ∧
+  (bvl_no_mutcons (Handle x1 x2) ⇔ bvl_no_mutcons x1 ∧ bvl_no_mutcons x2) ∧
+  (bvl_no_mutcons (Tick x) ⇔ bvl_no_mutcons x) ∧
+  (bvl_no_mutcons (Call ticks dest xs) ⇔ EVERY bvl_no_mutcons xs) ∧
+  (bvl_no_mutcons (Force loc n) ⇔ T) ∧
+  (bvl_no_mutcons (Op op xs) ⇔ no_mutcons_op op ∧ EVERY bvl_no_mutcons xs)
+End
+
+(* no_mutcons preservation: bvi_let *)
+
+Theorem bvi_let_delete_var_no_mutcons[local]:
+  no_mutcons x ⇒ no_mutcons (bvi_let$delete_var x)
 Proof
-  cheat
+  Cases_on ‘x’ \\ fs [bvi_letTheory.delete_var_def, bvi_tmcProofTheory.no_mutcons_op_def]
+QED
+
+Theorem bvi_let_compile_no_mutcons[local]:
+  (∀env d e. no_mutcons e ⇒ no_mutcons (bvi_let$compile_sing env d e)) ∧
+  (∀env d es. EVERY no_mutcons es ⇒ EVERY no_mutcons (bvi_let$compile_list env d es))
+Proof
+  ho_match_mp_tac bvi_letTheory.compile_sing_ind
+  \\ rw [bvi_letTheory.compile_sing_def]
+  >- (CASE_TAC \\ simp [])
+  >- (fs [ETA_THM] \\ first_x_assum irule
+      \\ fs [EVERY_MEM] \\ metis_tac [rich_listTheory.MEM_FRONT_NOT_NIL])
+  >- (fs [ETA_THM] \\ first_x_assum irule
+      \\ fs [EVERY_MEM] \\ metis_tac [rich_listTheory.MEM_LAST_NOT_NIL])
+  >- (fs [ETA_THM, EVERY_MAP, EVERY_MEM] \\ rw []
+      \\ irule bvi_let_delete_var_no_mutcons \\ res_tac \\ fs [])
+  >- fs [ETA_THM]
+  >- (CASE_TAC \\ simp [])
+  >- fs [ETA_THM]
+  \\ Cases_on ‘h’ \\ gvs []
+QED
+
+Theorem bvi_let_compile_exp_no_mutcons[local]:
+  no_mutcons x ⇒ no_mutcons (bvi_let$compile_exp x)
+Proof
+  rw [bvi_letTheory.compile_exp_eq, bvi_let_compile_no_mutcons]
+QED
+
+(* no_mutcons preservation: bvl_to_bvi compile *)
+
+Theorem compile_int_no_mutcons[local,simp]:
+  no_mutcons (compile_int i)
+Proof
+  rw [bvl_to_bviTheory.compile_int_def, bvi_tmcProofTheory.no_mutcons_op_def]
+QED
+
+Theorem compile_op_no_mutcons[local]:
+  no_mutcons_op op ∧ EVERY no_mutcons c1 ⇒ no_mutcons (compile_op op c1)
+Proof
+  strip_tac
+  \\ simp [bvl_to_bviTheory.compile_op_def]
+  \\ rpt (TOP_CASE_TAC \\ gvs [bvi_tmcProofTheory.no_mutcons_op_def, EVERY_REPLICATE, ETA_THM])
+QED
+
+Theorem destLet_no_mutcons[local]:
+  destLet x = (args,x0) ∧ bvl_no_mutcons x ⇒
+  EVERY bvl_no_mutcons args ∧ bvl_no_mutcons x0
+Proof
+  Cases_on ‘x’ \\ rw [bvl_to_bviTheory.destLet_def] \\ fs [ETA_THM]
+QED
+
+Theorem compile_exps_sing_no_mutcons[local]:
+  (∀n e c aux n1.
+     compile_exps_sing n e = (c,aux,n1) ∧ bvl_no_mutcons e ⇒
+     no_mutcons c ∧ EVERY (no_mutcons o SND o SND) (append aux)) ∧
+  (∀n es c aux n1.
+     compile_exps_list n es = (c,aux,n1) ∧ EVERY bvl_no_mutcons es ⇒
+     EVERY no_mutcons c ∧ EVERY (no_mutcons o SND o SND) (append aux))
+Proof
+  ho_match_mp_tac bvl_to_bviTheory.compile_exps_sing_ind
+  \\ rw [bvl_to_bviTheory.compile_exps_sing_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [bvl_to_bviTheory.compile_aux_def, bvi_let_compile_exp_no_mutcons,
+          compile_op_no_mutcons, bvi_tmcProofTheory.no_mutcons_op_def, ETA_THM]
+  \\ imp_res_tac destLet_no_mutcons \\ gvs [ETA_THM]
+  \\ gvs [bvi_let_compile_exp_no_mutcons]
+QED
+
+Theorem compile_exps_no_mutcons[local]:
+  compile_exps n xs = (c,aux,n1) ∧ EVERY bvl_no_mutcons xs ⇒
+  EVERY no_mutcons c ∧ EVERY (no_mutcons o SND o SND) (append aux)
+Proof
+  rw [GSYM (CONJUNCT2 bvl_to_bviTheory.compile_exps_sing)]
+  \\ imp_res_tac (CONJUNCT2 compile_exps_sing_no_mutcons) \\ fs []
+QED
+
+Theorem stubs_no_mutcons[local]:
+  EVERY (no_mutcons o SND o SND) (bvl_to_bvi$stubs start n)
+Proof
+  rw [bvl_to_bviTheory.stubs_def, bvl_to_bviTheory.AllocGlobal_code_def,
+      bvl_to_bviTheory.CopyGlobals_code_def, bvl_to_bviTheory.InitGlobals_code_def,
+      bvl_to_bviTheory.ListLength_code_def, bvl_to_bviTheory.FromListByte_code_def,
+      bvl_to_bviTheory.ToListByte_code_def, bvl_to_bviTheory.SumListLength_code_def,
+      bvl_to_bviTheory.ConcatByte_code_def, bvi_tmcProofTheory.no_mutcons_op_def]
+QED
+
+Theorem compile_single_no_mutcons[local]:
+  compile_single n p = (q,n1) ∧ bvl_no_mutcons (SND (SND p)) ⇒
+  EVERY (no_mutcons o SND o SND) (append q)
+Proof
+  PairCases_on ‘p’
+  \\ rw [bvl_to_bviTheory.compile_single_eq]
+  \\ pairarg_tac \\ gvs []
+  \\ imp_res_tac (CONJUNCT1 compile_exps_sing_no_mutcons)
+  \\ fs [bvi_let_compile_exp_no_mutcons]
+QED
+
+Theorem compile_list_no_mutcons[local]:
+  ∀n progs q n1.
+    compile_list n progs = (q,n1) ∧
+    EVERY (bvl_no_mutcons o SND o SND) progs ⇒
+    EVERY (no_mutcons o SND o SND) (append q)
+Proof
+  Induct_on ‘progs’
+  \\ rw [bvl_to_bviTheory.compile_list_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ imp_res_tac compile_single_no_mutcons
+  \\ res_tac \\ fs []
+QED
+
+(* no_mutcons preservation: bvl_const *)
+
+Theorem Bool_no_mutcons[local,simp]:
+  bvl_no_mutcons (Bool b)
+Proof
+  rw [bvlTheory.Bool_def, bvi_tmcProofTheory.no_mutcons_op_def]
+QED
+
+Theorem case_op_const_no_mutcons[local]:
+  case_op_const exp = SOME (op1,x1,n2) ∧ bvl_no_mutcons exp ⇒
+  no_mutcons_op op1 ∧ bvl_no_mutcons x1
+Proof
+  rw [bvl_constTheory.case_op_const_def, AllCaseEqs()] \\ fs []
+QED
+
+Theorem SmartOp_flip_no_mutcons[local]:
+  SmartOp_flip op x1 x2 = (op1,y1,y2) ∧
+  no_mutcons_op op ∧ bvl_no_mutcons x1 ∧ bvl_no_mutcons x2 ⇒
+  no_mutcons_op op1 ∧ bvl_no_mutcons y1 ∧ bvl_no_mutcons y2
+Proof
+  rw [bvl_constTheory.SmartOp_flip_def, AllCaseEqs()]
+  \\ fs [bvi_tmcProofTheory.no_mutcons_op_def]
+QED
+
+Theorem SmartOp2_no_mutcons[local]:
+  no_mutcons_op op ∧ bvl_no_mutcons x1 ∧ bvl_no_mutcons x2 ⇒
+  bvl_no_mutcons (SmartOp2 (op,x1,x2))
+Proof
+  strip_tac
+  \\ rw [bvl_constTheory.SmartOp2_def]
+  \\ rpt (TOP_CASE_TAC \\ gvs [])
+  \\ imp_res_tac case_op_const_no_mutcons
+  \\ gvs [bvi_tmcProofTheory.no_mutcons_op_def]
+QED
+
+Theorem SmartOp1_no_mutcons[local]:
+  no_mutcons_op op ∧ bvl_no_mutcons x ⇒ bvl_no_mutcons (SmartOp1 op x)
+Proof
+  strip_tac
+  \\ rw [bvl_constTheory.SmartOp1_def]
+  \\ rpt (TOP_CASE_TAC \\ gvs [])
+QED
+
+Theorem SmartOp_no_mutcons[local]:
+  no_mutcons_op op ∧ EVERY bvl_no_mutcons xs ⇒
+  bvl_no_mutcons (bvl_const$SmartOp op xs)
+Proof
+  strip_tac
+  \\ rw [bvl_constTheory.SmartOp_def]
+  \\ rpt (TOP_CASE_TAC \\ gvs [ETA_THM])
+  >- (irule SmartOp1_no_mutcons \\ fs [])
+  \\ qmatch_goalsub_rename_tac ‘SmartOp2 (SmartOp_flip op a1 a2)’
+  \\ ‘∃op1 y1 y2. SmartOp_flip op a1 a2 = (op1,y1,y2)’ by metis_tac [PAIR]
+  \\ drule_all SmartOp_flip_no_mutcons \\ strip_tac
+  \\ simp []
+  \\ irule SmartOp2_no_mutcons \\ fs []
+QED
+
+Theorem bvl_const_extract_no_mutcons[local]:
+  bvl_const$extract x ys = SOME y ⇒ bvl_no_mutcons y
+Proof
+  rw [DefnBase.one_line_ify NONE bvl_constTheory.extract_def, AllCaseEqs()]
+  \\ rw [bvi_tmcProofTheory.no_mutcons_op_def]
+QED
+
+Theorem bvl_const_extract_list_inv[local]:
+  ∀ys. EVERY (λx. ∀e. x = SOME e ⇒ bvl_no_mutcons e) (bvl_const$extract_list ys)
+Proof
+  Induct \\ rw [bvl_constTheory.extract_list_def]
+  \\ imp_res_tac bvl_const_extract_no_mutcons
+QED
+
+Theorem bvl_const_delete_var_no_mutcons[local]:
+  bvl_no_mutcons x ⇒ bvl_no_mutcons (bvl_const$delete_var x)
+Proof
+  Cases_on ‘x’
+  \\ rw [bvl_constTheory.delete_var_def, bvi_tmcProofTheory.no_mutcons_op_def]
+QED
+
+Theorem bvl_const_compile_no_mutcons[local]:
+  (∀e env. EVERY (λx. ∀e'. x = SOME e' ⇒ bvl_no_mutcons e') env ∧
+           bvl_no_mutcons e ⇒
+           bvl_no_mutcons (bvl_const$compile_sing env e)) ∧
+  (∀es env. EVERY (λx. ∀e'. x = SOME e' ⇒ bvl_no_mutcons e') env ∧
+            EVERY bvl_no_mutcons es ⇒
+            EVERY bvl_no_mutcons (bvl_const$compile_list env es))
+Proof
+  Induct
+  \\ rw [bvl_constTheory.compile_sing_def]
+  >- (rpt (TOP_CASE_TAC \\ gvs [])
+      \\ gvs [LLOOKUP_EQ_EL, EVERY_EL]
+      \\ qpat_x_assum ‘SOME _ = _’ (assume_tac o GSYM)
+      \\ res_tac \\ gvs [ETA_THM, EVERY_EL])
+  >- (fs [ETA_THM, EVERY_MAP, EVERY_MEM] \\ rw []
+      \\ irule bvl_const_delete_var_no_mutcons \\ res_tac \\ fs [])
+  >- (first_x_assum irule
+      \\ fs [EVERY_APPEND, bvl_const_extract_list_inv])
+  >- (fs [ETA_THM] \\ first_x_assum irule \\ fs [])
+  >- rpt (TOP_CASE_TAC \\ gvs [])
+  >- (irule SmartOp_no_mutcons
+      \\ fs [ETA_THM]
+      \\ first_x_assum irule \\ fs [])
+QED
+
+Theorem bvl_const_compile_exp_no_mutcons[local]:
+  bvl_no_mutcons e ⇒ bvl_no_mutcons (bvl_const$compile_exp e)
+Proof
+  rw [bvl_constTheory.compile_exp_eq]
+  \\ irule (CONJUNCT1 bvl_const_compile_no_mutcons) \\ fs []
+QED
+
+(* no_mutcons preservation: bvl_handle *)
+
+Theorem handle_adj_vars_no_mutcons[local,simp]:
+  (∀e l d. bvl_no_mutcons (handle_adj_vars l d e) ⇔ bvl_no_mutcons e) ∧
+  (∀es l d. EVERY bvl_no_mutcons (handle_adj_vars1 l d es) ⇔
+            EVERY bvl_no_mutcons es)
+Proof
+  Induct \\ rw [bvl_handleTheory.handle_adj_vars_def, ETA_THM]
+QED
+
+Theorem handle_simp_no_mutcons[local]:
+  (∀e. bvl_no_mutcons e ⇒ bvl_no_mutcons (handle_simp e)) ∧
+  (∀es. EVERY bvl_no_mutcons es ⇒ EVERY bvl_no_mutcons (handle_simp_list es)) ∧
+  (∀x1 x2 l. bvl_no_mutcons x1 ∧ bvl_no_mutcons x2 ⇒
+             bvl_no_mutcons (make_handle x1 x2 l))
+Proof
+  ho_match_mp_tac bvl_handleTheory.handle_simp_ind
+  \\ rw [] \\ once_rewrite_tac [bvl_handleTheory.handle_simp_def] \\ fs [ETA_THM]
+  \\ rpt (TOP_CASE_TAC \\ gvs [])
+  \\ gvs [DefnBase.one_line_ify NONE bvl_handleTheory.dest_handle_Raise_def,
+          DefnBase.one_line_ify NONE bvl_handleTheory.dest_handle_Let_def,
+          DefnBase.one_line_ify NONE bvl_handleTheory.dest_handle_If_def,
+          AllCaseEqs(), ETA_THM]
+QED
+
+Theorem LetLet_no_mutcons[local]:
+  bvl_no_mutcons body ⇒ bvl_no_mutcons (LetLet sz fvs body)
+Proof
+  rw [bvl_handleTheory.LetLet_def, bvl_handleTheory.SmartLet_def,
+      EVERY_MAP, EVERY_GENLIST]
+  \\ rpt (TOP_CASE_TAC \\ gvs [bvi_tmcProofTheory.no_mutcons_op_def])
+QED
+
+Theorem OptionalLetLet_sing_no_mutcons[local]:
+  OptionalLetLet_sing e sz lv s lim nr = (d,lv1,s1,nr1) ∧ bvl_no_mutcons e ⇒
+  bvl_no_mutcons d
+Proof
+  rw [bvl_handleTheory.OptionalLetLet_sing_def] \\ gvs []
+  \\ irule LetLet_no_mutcons \\ fs []
+QED
+
+Theorem bvl_handle_compile_no_mutcons[local]:
+  (∀e l n d lv s nr.
+     bvl_handle$compile_sing l n e = (d,lv,s,nr) ∧ bvl_no_mutcons e ⇒
+     bvl_no_mutcons d) ∧
+  (∀es l n ds lv s nr.
+     bvl_handle$compile_list l n es = (ds,lv,s,nr) ∧ EVERY bvl_no_mutcons es ⇒
+     EVERY bvl_no_mutcons ds)
+Proof
+  Induct
+  \\ rw [bvl_handleTheory.compile_sing_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ imp_res_tac OptionalLetLet_sing_no_mutcons
+  \\ gvs [LetLet_no_mutcons, ETA_THM]
+  \\ res_tac \\ fs [bvi_tmcProofTheory.no_mutcons_op_def]
+  >- (gvs [AllCaseEqs()]
+      \\ irule LetLet_no_mutcons \\ fs [])
+  >- (gvs [AllCaseEqs(), bvi_tmcProofTheory.no_mutcons_op_def, ETA_THM]
+      \\ drule OptionalLetLet_sing_no_mutcons
+      \\ impl_tac >- gvs [bvi_tmcProofTheory.no_mutcons_op_def, ETA_THM]
+      \\ simp [])
+QED
+
+Theorem bvl_handle_compile_exp_no_mutcons[local]:
+  bvl_no_mutcons e ⇒ bvl_no_mutcons (bvl_handle$compile_exp lim arity e)
+Proof
+  strip_tac
+  \\ rw [bvl_handleTheory.compile_exp_eq]
+  \\ ‘∃d lv s nr. bvl_handle$compile_sing lim arity
+        (handle_simp (bvl_const$compile_exp e)) = (d,lv,s,nr)’ by metis_tac [PAIR]
+  \\ ‘bvl_no_mutcons (handle_simp (bvl_const$compile_exp e))’ by
+    metis_tac [handle_simp_no_mutcons, bvl_const_compile_exp_no_mutcons]
+  \\ imp_res_tac (CONJUNCT1 bvl_handle_compile_no_mutcons) \\ fs []
+QED
+
+Theorem dest_Seq_no_mutcons[local]:
+  bvl_handle$dest_Seq e = SOME (e1,e2) ∧ bvl_no_mutcons e ⇒
+  bvl_no_mutcons e1 ∧ bvl_no_mutcons e2
+Proof
+  rw [DefnBase.one_line_ify NONE bvl_handleTheory.dest_Seq_def, AllCaseEqs()]
+  \\ fs []
+QED
+
+Theorem compile_seqs_no_mutcons[local]:
+  ∀lim e acc.
+    bvl_no_mutcons e ∧ (∀r. acc = SOME r ⇒ bvl_no_mutcons r) ⇒
+    bvl_no_mutcons (compile_seqs lim e acc)
+Proof
+  ho_match_mp_tac bvl_handleTheory.compile_seqs_ind
+  \\ rw []
+  \\ once_rewrite_tac [bvl_handleTheory.compile_seqs_def]
+  \\ rpt (TOP_CASE_TAC \\ gvs [bvl_handle_compile_exp_no_mutcons])
+  \\ imp_res_tac dest_Seq_no_mutcons
+  \\ gvs [bvl_handle_compile_exp_no_mutcons]
+QED
+
+Theorem compile_any_no_mutcons[local]:
+  bvl_no_mutcons e ⇒ bvl_no_mutcons (bvl_handle$compile_any sq lim arity e)
+Proof
+  rw [bvl_handleTheory.compile_any_def]
+  \\ fs [bvl_handle_compile_exp_no_mutcons, compile_seqs_no_mutcons]
+QED
+
+(* no_mutcons preservation: bvl_inline *)
+
+Theorem mk_tick_no_mutcons[local,simp]:
+  ∀n e. bvl_no_mutcons (mk_tick n e) ⇔ bvl_no_mutcons e
+Proof
+  Induct \\ fs [bvlTheory.mk_tick_def, FUNPOW_SUC]
+QED
+
+Theorem tick_inline_no_mutcons[local]:
+  (∀e cs. (∀k a e'. lookup k cs = SOME ((a:num),e') ⇒ bvl_no_mutcons e') ∧
+          bvl_no_mutcons e ⇒
+          bvl_no_mutcons (tick_inline_sing cs e)) ∧
+  (∀es cs. (∀k a e'. lookup k cs = SOME ((a:num),e') ⇒ bvl_no_mutcons e') ∧
+           EVERY bvl_no_mutcons es ⇒
+           EVERY bvl_no_mutcons (tick_inline_list cs es))
+Proof
+  Induct
+  \\ rw [bvl_inlineTheory.tick_inline_sing_def]
+  \\ rpt (TOP_CASE_TAC \\ gvs [])
+  \\ gvs [ETA_THM]
+  \\ res_tac \\ fs []
+  \\ metis_tac []
+QED
+
+Theorem tick_inline_all_no_mutcons[local]:
+  ∀limit cs prog aux cs1 prog1.
+    tick_inline_all limit cs prog aux = (cs1,prog1) ∧
+    (∀k a e. lookup k cs = SOME ((a:num),e) ⇒ bvl_no_mutcons e) ∧
+    EVERY (bvl_no_mutcons o SND o SND) prog ∧
+    EVERY (bvl_no_mutcons o SND o SND) aux ⇒
+    EVERY (bvl_no_mutcons o SND o SND) prog1 ∧
+    (∀k a e. lookup k cs1 = SOME ((a:num),e) ⇒ bvl_no_mutcons e)
+Proof
+  Induct_on ‘prog’
+  >- (rw [bvl_inlineTheory.tick_inline_all_eq, EVERY_REVERSE]
+      \\ res_tac \\ fs [])
+  >- (rpt gen_tac \\ PairCases_on ‘h’ \\ strip_tac
+      \\ gvs [bvl_inlineTheory.tick_inline_all_eq]
+      \\ ‘bvl_no_mutcons (tick_inline_sing cs h2)’ by
+           (irule (CONJUNCT1 tick_inline_no_mutcons) \\ fs []
+            \\ first_assum ACCEPT_TAC)
+      \\ first_x_assum drule
+      \\ impl_tac >-
+       (conj_tac
+        >- (rpt strip_tac
+            \\ Cases_on ‘must_inline h0 limit (tick_inline_sing cs h2)’
+            \\ gvs [lookup_insert, AllCaseEqs()]
+            \\ res_tac \\ fs [])
+        \\ fs [])
+      \\ simp [])
+QED
+
+Theorem dest_op_no_mutcons[local]:
+  dest_op x args = SOME op1 ∧ bvl_no_mutcons x ⇒ no_mutcons_op op1
+Proof
+  Cases_on ‘x’ \\ rw [bvl_inlineTheory.dest_op_def] \\ fs []
+QED
+
+Theorem let_op_no_mutcons[local]:
+  (∀e. bvl_no_mutcons e ⇒ bvl_no_mutcons (let_op_one e)) ∧
+  (∀es. EVERY bvl_no_mutcons es ⇒ EVERY bvl_no_mutcons (let_op_list es))
+Proof
+  Induct
+  \\ rw [bvl_inlineTheory.let_op_one_def]
+  \\ rpt (TOP_CASE_TAC \\ gvs [])
+  \\ imp_res_tac dest_op_no_mutcons \\ gvs [ETA_THM]
+QED
+
+Theorem let_op_sing_no_mutcons[local]:
+  bvl_no_mutcons e ⇒ bvl_no_mutcons (let_op_sing e)
+Proof
+  rw [bvl_inlineTheory.let_op_sing_eq]
+  \\ fs [let_op_no_mutcons]
+QED
+
+Theorem remove_ticks_no_mutcons[local]:
+  (∀e. bvl_no_mutcons e ⇒ bvl_no_mutcons (remove_ticks_sing e)) ∧
+  (∀es. EVERY bvl_no_mutcons es ⇒ EVERY bvl_no_mutcons (remove_ticks_list es))
+Proof
+  Induct
+  \\ rw [bvl_inlineTheory.remove_ticks_sing_def, ETA_THM]
+QED
+
+Theorem optimise_no_mutcons[local]:
+  bvl_no_mutcons (SND (SND p)) ⇒
+  bvl_no_mutcons (SND (SND (bvl_inline$optimise sq lim p)))
+Proof
+  PairCases_on ‘p’
+  \\ rw [bvl_inlineTheory.optimise_eq]
+  \\ irule compile_any_no_mutcons
+  \\ irule let_op_sing_no_mutcons
+  \\ fs [remove_ticks_no_mutcons]
+QED
+
+Theorem bvl_inline_compile_inc_no_mutcons:
+  bvl_inline$compile_inc l b i cs prog = (cs1,prog1) ∧
+  (∀k a e. lookup k cs = SOME ((a:num),e) ⇒ bvl_no_mutcons e) ∧
+  EVERY (bvl_no_mutcons o SND o SND) prog ⇒
+  EVERY (bvl_no_mutcons o SND o SND) prog1 ∧
+  (∀k a e. lookup k cs1 = SOME ((a:num),e) ⇒ bvl_no_mutcons e)
+Proof
+  strip_tac
+  \\ fs [bvl_inlineTheory.compile_inc_def, bvl_inlineTheory.tick_compile_prog_def]
+  \\ pairarg_tac \\ gvs []
+  \\ drule tick_inline_all_no_mutcons \\ fs []
+  \\ strip_tac
+  \\ fs [EVERY_MAP, EVERY_MEM] \\ rw []
+  \\ res_tac
+  \\ fs [optimise_no_mutcons]
+QED
+
+Theorem bvl_inline_compile_prog_no_mutcons:
+  bvl_inline$compile_prog l b i prog = (inlines,prog1) ∧
+  EVERY (bvl_no_mutcons o SND o SND) prog ⇒
+  EVERY (bvl_no_mutcons o SND o SND) prog1
+Proof
+  rw [bvl_inlineTheory.compile_prog_def]
+  \\ drule bvl_inline_compile_inc_no_mutcons
+  \\ fs [lookup_def]
+QED
+
+Theorem compile_inc_no_mutcons:
+  bvl_to_bvi$compile_inc n prog = (n1,prog1) ∧
+  EVERY (bvl_no_mutcons o SND o SND) prog ⇒
+  EVERY (no_mutcons o SND o SND) prog1
+Proof
+  rw [bvl_to_bviTheory.compile_inc_def]
+  \\ pairarg_tac \\ gvs []
+  \\ imp_res_tac compile_list_no_mutcons \\ fs []
+QED
+
+Theorem compile_prog_no_mutcons:
+  compile_prog start n prog = (loc,code,n1) ∧
+  EVERY (bvl_no_mutcons o SND o SND) prog ⇒
+  EVERY (no_mutcons o SND o SND) code
+Proof
+  rw [bvl_to_bviTheory.compile_prog_def]
+  \\ pairarg_tac \\ gvs []
+  \\ imp_res_tac compile_list_no_mutcons
+  \\ fs [stubs_no_mutcons]
+QED
+
+(* no_mutcons preservation: bvi_tailrec *)
+
+Theorem to_op_no_mutcons[local,simp]:
+  no_mutcons_op (bvi_tailrec$to_op op)
+Proof
+  Cases_on ‘op’
+  \\ rw [bvi_tailrecTheory.to_op_def, bvi_tmcProofTheory.no_mutcons_op_def]
+QED
+
+Theorem apply_op_no_mutcons[local,simp]:
+  no_mutcons (bvi_tailrec$apply_op op e1 e2) ⇔ no_mutcons e1 ∧ no_mutcons e2
+Proof
+  rw [bvi_tailrecTheory.apply_op_def]
+QED
+
+Theorem id_from_op_no_mutcons[local,simp]:
+  no_mutcons (bvi_tailrec$id_from_op op)
+Proof
+  Cases_on ‘op’
+  \\ rw [bvi_tailrecTheory.id_from_op_def, bvi_tailrecTheory.dummy_def,
+         bvi_tmcProofTheory.no_mutcons_op_def]
+QED
+
+Theorem let_wrap_no_mutcons[local,simp]:
+  no_mutcons (bvi_tailrec$let_wrap arity id x) ⇔ no_mutcons id ∧ no_mutcons x
+Proof
+  rw [bvi_tailrecTheory.let_wrap_def, EVERY_GENLIST] \\ eq_tac \\ rw []
+QED
+
+Theorem get_bin_args_no_mutcons[local]:
+  get_bin_args exp = SOME (e1,e2) ∧ no_mutcons exp ⇒
+  no_mutcons e1 ∧ no_mutcons e2
+Proof
+  rw [bvi_tailrecTheory.get_bin_args_def, AllCaseEqs()] \\ fs []
+QED
+
+Theorem opbinargs_no_mutcons[local]:
+  opbinargs opr exp = SOME (e1,e2) ∧ no_mutcons exp ⇒
+  no_mutcons e1 ∧ no_mutcons e2
+Proof
+  rw [bvi_tailrecTheory.opbinargs_def]
+  \\ imp_res_tac get_bin_args_no_mutcons \\ fs []
+QED
+
+Theorem try_swap_no_mutcons[local]:
+  no_mutcons exp ⇒ no_mutcons (bvi_tailrec$try_swap loc opr exp)
+Proof
+  strip_tac
+  \\ Cases_on ‘opr’ \\ rw [bvi_tailrecTheory.try_swap_def]
+  \\ rpt (TOP_CASE_TAC \\ gvs [])
+  \\ imp_res_tac opbinargs_no_mutcons \\ gvs []
+QED
+
+Theorem check_op_no_mutcons[local]:
+  check_op ts opr loc exp = SOME exp2 ∧ no_mutcons exp ⇒ no_mutcons exp2
+Proof
+  rw [bvi_tailrecTheory.check_op_def, AllCaseEqs()]
+  \\ ‘no_mutcons (try_swap loc opr exp)’ by fs [try_swap_no_mutcons]
+  \\ imp_res_tac opbinargs_no_mutcons \\ simp []
+QED
+
+Theorem args_from_no_mutcons[local]:
+  args_from f = SOME (t,d,args,hdl) ∧ no_mutcons f ⇒
+  EVERY no_mutcons args ∧ (case hdl of NONE => T | SOME h => no_mutcons h)
+Proof
+  rw [DefnBase.one_line_ify NONE bvi_tailrecTheory.args_from_def, AllCaseEqs()]
+  \\ fs [ETA_THM]
+QED
+
+Theorem push_call_no_mutcons[local]:
+  no_mutcons x ∧ no_mutcons f ⇒
+  no_mutcons (bvi_tailrec$push_call n op acc x (args_from f))
+Proof
+  strip_tac
+  \\ Cases_on ‘args_from f’
+  >- rw [bvi_tailrecTheory.push_call_def, bvi_tailrecTheory.dummy_def]
+  \\ rename1 ‘args_from f = SOME c’
+  \\ PairCases_on ‘c’
+  \\ drule_all args_from_no_mutcons
+  \\ rw [bvi_tailrecTheory.push_call_def, ETA_THM]
+QED
+
+Theorem rewrite_catchall_no_mutcons[local]:
+  (case check_op ts opr loc exp of
+     NONE => (F, bvi_tailrec$apply_op opr (Var acc) exp)
+   | SOME v1 =>
+       case opbinargs opr v1 of
+         NONE => (F, bvi_tailrec$apply_op opr (Var acc) v1)
+       | SOME (xs,f) => (T, bvi_tailrec$push_call next opr acc xs (args_from f)))
+    = (r,y) ∧
+  no_mutcons exp ⇒
+  no_mutcons y
+Proof
+  strip_tac
+  \\ gvs [AllCaseEqs()]
+  \\ imp_res_tac check_op_no_mutcons
+  \\ imp_res_tac opbinargs_no_mutcons
+  \\ gvs []
+  \\ irule push_call_no_mutcons \\ fs []
+QED
+
+Theorem rewrite_no_mutcons[local]:
+  ∀loc next opr acc ts exp r y.
+    rewrite loc next opr acc ts exp = (r,y) ∧ no_mutcons exp ⇒ no_mutcons y
+Proof
+  ho_match_mp_tac bvi_tailrecTheory.rewrite_ind
+  \\ rw [bvi_tailrecTheory.rewrite_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  >- simp []
+  >- rw []
+  >- simp []
+  \\ drule rewrite_catchall_no_mutcons
+  \\ impl_tac >- fs [ETA_THM]
+  \\ simp []
+QED
+
+Theorem tailrec_compile_exp_no_mutcons[local]:
+  bvi_tailrec$compile_exp loc next arity exp = SOME (aux,opt) ∧
+  no_mutcons exp ⇒
+  no_mutcons aux ∧ no_mutcons opt
+Proof
+  rw [bvi_tailrecTheory.compile_exp_def, AllCaseEqs()]
+  \\ pairarg_tac \\ gvs []
+  \\ imp_res_tac rewrite_no_mutcons \\ gvs []
+QED
+
+Theorem bvi_tailrec_compile_prog_no_mutcons:
+  ∀next prog next1 prog1.
+    bvi_tailrec$compile_prog next prog = (next1,prog1) ∧
+    EVERY (no_mutcons o SND o SND) prog ⇒
+    EVERY (no_mutcons o SND o SND) prog1
+Proof
+  ho_match_mp_tac bvi_tailrecTheory.compile_prog_ind
+  \\ rw [bvi_tailrecTheory.compile_prog_def]
+  \\ gvs [AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ imp_res_tac tailrec_compile_exp_no_mutcons \\ gvs []
 QED
 
 Theorem compile_semantics:
@@ -4705,7 +5328,10 @@ Theorem compile_semantics:
    (∀n. ALL_DISTINCT (MAP FST (SND (co n))) ∧
         num_stubs ≤ FST(SND(SND(FST(co n)))) ∧ in_ns 2 (FST(SND(SND(FST(co n))))) ∧
         num_stubs ≤ FST(SND(SND(SND(FST(co n))))) ∧
-        in_ns 3 (FST(SND(SND(SND(FST(co n))))))) /\
+        in_ns 3 (FST(SND(SND(SND(FST(co n)))))) ∧
+        EVERY (bvl_no_mutcons o SND o SND) (SND (co n)) ∧
+        (∀k a e. lookup k (FST (FST (co n))) = SOME (a,e) ⇒ bvl_no_mutcons e)) /\
+   EVERY (bvl_no_mutcons o SND o SND) prog /\
    ALL_DISTINCT (MAP FST prog) ==>
    semantics (ffi0:'ffi ffi_state) (fromAList prog) co (full_cc c cc) start ≠ Fail
    ⇒
@@ -4827,7 +5453,10 @@ Proof
                 \\ asm_simp_tac std_ss [arithmeticTheory.MOD_TIMES] \\ simp[arithmeticTheory.MOD_TIMES])
           \\ qpat_x_assum `∀x. MEM x (MAP FST code') ∧ x MOD nss = 3 ⇒ x ≤ num_stubs` drule
           \\ disch_then drule \\ fs[])
-      \\ conj_tac >- simp[no_mutcons_assumed]
+      \\ conj_tac >-
+       (drule_all bvl_inline_compile_prog_no_mutcons \\ strip_tac
+        \\ drule_all compile_prog_no_mutcons \\ strip_tac
+        \\ drule_all bvi_tailrec_compile_prog_no_mutcons \\ simp [])
       \\ simp[EVERY_MEM, MEM_FILTER] \\ rw[] \\ strip_tac
       \\ `MEM (FST e) (MAP FST code')` by (simp[MEM_MAP] \\ metis_tac[])
       \\ qpat_x_assum `∀x. MEM x (MAP FST code') ∧ x MOD nss = 3 ⇒ x ≤ num_stubs` drule
@@ -4896,7 +5525,17 @@ Proof
               \\ pop_assum (fn th => once_rewrite_tac[th])
               \\ asm_simp_tac std_ss [arithmeticTheory.MOD_TIMES])
         \\ qpat_x_assum `∀x. MEM x (MAP FST r) ⇒ x MOD nss ≠ 3` drule \\ fs[])
-    \\ conj_tac >- simp[no_mutcons_assumed]
+    \\ conj_tac >-
+     (fs [markerTheory.Abbrev_def]
+      \\ Cases_on ‘bvl_inline$compile_inc c.inline_size_limit c.split_main_at_seq
+                     c.exp_cut (FST (FST (co k))) (SND (co k))’
+      \\ rename1 ‘bvl_inline$compile_inc _ _ _ _ _ = (cs2,p2)’
+      \\ drule_all bvl_inline_compile_inc_no_mutcons \\ strip_tac
+      \\ Cases_on ‘bvl_to_bvi$compile_inc (FST (SND (FST (co k)))) p2’
+      \\ rename1 ‘bvl_to_bvi$compile_inc _ p2 = (nn2,p3)’
+      \\ drule_all compile_inc_no_mutcons \\ strip_tac
+      \\ gvs []
+      \\ drule_all bvi_tailrec_compile_prog_no_mutcons \\ simp [])
     \\ simp[EVERY_MEM, MEM_FILTER] \\ rw[] \\ strip_tac
     \\ `MEM (FST e) (MAP FST r)` by (simp[MEM_MAP] \\ metis_tac[])
     \\ first_x_assum drule \\ fs[])
