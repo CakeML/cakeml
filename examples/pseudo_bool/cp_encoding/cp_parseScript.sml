@@ -977,8 +977,13 @@ Definition sexp_seq_precede_chain_body_def:
     | _ => fail («seq_precede_chain expects 1 arg: (x1 ... xn)\n»)
 End
 
-Definition sexp_precede_dispatch_def:
-  sexp_precede_dispatch ctype rest =
+(* Lexicographical: lex_<cmp> comparisons plus the precede constraints, all
+   building Lexicographical constraints. *)
+Definition sexp_lexicographical_dispatch_def:
+  sexp_lexicographical_dispatch ctype rest =
+    case strip_prefix («lex_») ctype of
+      SOME cmp_kw => SOME (sexp_lex_dispatch cmp_kw rest)
+    | NONE =>
     if ctype = «value_precede»          then SOME (sexp_value_precede_body rest)
     else if ctype = «seq_precede_chain» then SOME (sexp_seq_precede_chain_body rest)
     else NONE
@@ -998,8 +1003,8 @@ Definition sexp_constraint_dispatch_def:
     case sexp_counting_dispatch ctype rest of
       SOME res => res
     | NONE =>
-    case strip_prefix («lex_») ctype of
-      SOME cmp_kw => sexp_lex_dispatch cmp_kw rest
+    case sexp_lexicographical_dispatch ctype rest of
+      SOME res => res
     | NONE =>
     case sexp_logical_dispatch ctype rest of
       SOME res => res
@@ -1014,9 +1019,6 @@ Definition sexp_constraint_dispatch_def:
       SOME res => res
     | NONE =>
     case sexp_sorting_dispatch ctype rest of
-      SOME res => res
-    | NONE =>
-    case sexp_precede_dispatch ctype rest of
       SOME res => res
     | NONE =>
     sexp_prim_dispatch ctype rest

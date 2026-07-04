@@ -15,6 +15,10 @@ Libs
 
 val _ = translation_extends"npbc_parseProg";
 
+fun check_side th = th |> hyp |> null orelse
+        failwith ("Unproved side condition in translation thm: " ^
+                  (thm_to_string th));
+
 (* HOL *)
 
 val res = translate result_monadTheory.bind_def;
@@ -107,13 +111,34 @@ val res = translate sexp_nlop_body_def;
 val res = translate sexp_cmpop_body_def;
 val res = translate sexp_prim_dispatch_def;
 
+val _ = check_side res;
+
 (* linear *)
 val res = translate sexp_iclin_pairs_def;
 val res = translate sexp_iclin_term_def;
 val res = translate sexp_linear_dispatch_def;
 
-(* lex *)
+val _ = check_side res;
+
+(* lexicographical *)
+
+val res = translate sexp_value_precede_body_def;
+val res = translate sexp_seq_precede_chain_body_def;
+
+val res = translate strip_prefix_def;
+
+Theorem strip_prefix_side:
+  strip_prefix_side pre s ⇔ T
+Proof
+  EVAL_TAC>>rw[]
+QED
+
+val _ = update_precondition strip_prefix_side;
+
 val res = translate sexp_lex_dispatch_def;
+val res = translate sexp_lexicographical_dispatch_def;
+
+val _ = check_side res;
 
 (* extensional (table, negative_table, smart_table, regular) *)
 val res = translate sexp_table_entry_def;
@@ -132,13 +157,26 @@ val res = translate cpTheory.amo_rows_aux_def;
 val res = translate cpTheory.amo_smart_rows_def;
 val res = translate sexp_lex_smart_table_body_def;
 val res = translate sexp_amo_smart_table_body_def;
+
 val res = translate sexp_num_def;
+
+Theorem sexp_num_side:
+  sexp_num_side i ⇔ T
+Proof
+  EVAL_TAC>>rw[]>>
+  intLib.ARITH_TAC
+QED
+
+val _ = update_precondition sexp_num_side;
+
 val res = translate sexp_num_list_def;
 val res = translate sexp_reg_edge_def;
 val res = translate sexp_reg_edges_def;
 val res = translate sexp_reg_trans_def;
 val res = translate sexp_regular_body_def;
 val res = translate sexp_extensional_dispatch_def;
+
+val _ = check_side res;
 
 (* array *)
 val res = translate sexp_array_ind_def;
@@ -148,6 +186,8 @@ val res = translate sexp_element_body_def;
 val res = translate sexp_element_2d_body_def;
 val res = translate sexp_array_aggr_body_def;
 val res = translate sexp_array_dispatch_def;
+
+val _ = check_side res;
 
 (* counting *)
 val res = translate sexp_all_different_body_def;
@@ -162,15 +202,21 @@ val res = translate sexp_symmetric_all_different_body_def;
 val res = translate sexp_global_cardinality_body_def;
 val res = translate sexp_counting_dispatch_def;
 
+val _ = check_side res;
+
 (* logical *)
 val res = translate sexp_logical_cons_def;
 val res = translate sexp_logical_body_def;
 val res = translate sexp_logical_dispatch_def;
 
+val _ = check_side res;
+
 (* channeling *)
 val res = translate sexp_off_list_def;
 val res = translate sexp_inverse_body_def;
 val res = translate sexp_channeling_dispatch_def;
+
+val _ = check_side res;
 
 (* misc *)
 val res = translate sexp_circuit_body_def;
@@ -178,11 +224,15 @@ val res = translate sexp_int_rows_def;
 val res = translate sexp_knapsack_body_def;
 val res = translate sexp_misc_dispatch_def;
 
+val _ = check_side res;
+
 (* scheduling *)
 val res = translate sexp_disjunctive_body_def;
 val res = translate sexp_disjunctive2d_body_def;
 val res = translate sexp_cumulative_body_def;
 val res = translate sexp_scheduling_dispatch_def;
+
+val _ = check_side res;
 
 (* sorting *)
 val res = translate sexp_increasing_body_def;
@@ -190,20 +240,7 @@ val res = translate sexp_sort_body_def;
 val res = translate sexp_argsort_body_def;
 val res = translate sexp_sorting_dispatch_def;
 
-(* precede *)
-val res = translate sexp_value_precede_body_def;
-val res = translate sexp_seq_precede_chain_body_def;
-val res = translate sexp_precede_dispatch_def;
-
-val res = translate strip_prefix_def;
-
-Theorem strip_prefix_side:
-  strip_prefix_side pre s ⇔ T
-Proof
-  EVAL_TAC>>rw[]
-QED
-
-val _ = update_precondition strip_prefix_side;
+val _ = check_side res;
 
 val res = translate sexp_constraint_dispatch_def;
 val res = translate sexp_constraint_def;
@@ -214,6 +251,8 @@ val res = translate sorted_fast_lt_def;
 val res = translate check_distinct_names_def;
 val res = translate sexp_cp_inst_def;
 val res = translate parse_cp_inst_def;
+
+val _ = check_side res;
 
 (* int_bitwiseExtra *)
 
@@ -403,6 +442,10 @@ val res = translate cp_to_ilpTheory.mk_ubnd_bin_def;
 val res = translate cp_to_ilpTheory.mk_bounds_bin_def;
 val res = translate cp_to_ilpTheory.ub_num_def;
 
+val res = translate cp_to_ilpTheory.pos_num_def;
+val res = translate cp_to_ilpTheory.varc_bnd_def;
+val res = translate cp_to_ilpTheory.arri_def;
+
 (* cp_to_ilp_primScript *)
 
 val res = translate cp_to_ilp_primTheory.mk_nge_def;
@@ -437,8 +480,6 @@ val res = translate cp_to_ilp_primTheory.encode_cmp_aux_def;
 val res = translate cp_to_ilp_primTheory.cencode_order_cmpops_def;
 
 (* multiply: shared pos_num/varc_bnd kernels + non-linear product encoder *)
-val res = translate cp_to_ilpTheory.pos_num_def;
-val res = translate cp_to_ilpTheory.varc_bnd_def;
 val res = translate cp_to_ilp_primTheory.mult_width_def;
 val res = translate cp_to_ilp_primTheory.mult_binbit_def;
 val res = translate cp_to_ilp_primTheory.mult_prodbit_def;
@@ -456,6 +497,8 @@ val res = translate cp_to_ilp_primTheory.cencode_mod_body_def;
 val res = translate cp_to_ilp_primTheory.cencode_mod_def;
 
 val res = translate cp_to_ilp_primTheory.cencode_prim_constr_def;
+
+val _ = check_side res;
 
 (* cp_to_ilp_counting *)
 
@@ -520,6 +563,8 @@ val res = translate cp_to_ilp_countingTheory.cencode_at_most_one_def;
 
 val res = translate cp_to_ilp_countingTheory.cencode_counting_constr_def;
 
+val _ = check_side res;
+
 (* cp_to_ilp_linear *)
 
 val res = translate cp_to_ilp_linearTheory.mk_lin_ge_def;
@@ -544,6 +589,8 @@ val res = translate cp_to_ilp_linearTheory.cencode_lin_order_cmpops_def;
 
 val res = translate cp_to_ilp_linearTheory.cencode_linear_constr_def;
 
+val _ = check_side res;
+
 (* cp_to_ilp_array *)
 
 val res = translate cp_to_ilp_arrayTheory.encode_proper_index_def;
@@ -567,11 +614,12 @@ QED
 
 val _ = update_precondition cencode_element2d_side;
 
-val res = translate cp_to_ilpTheory.arri_def;
 val res = translate cp_to_ilp_arrayTheory.cencode_array_max_def;
 val res = translate cp_to_ilp_arrayTheory.cencode_array_min_def;
 
 val res = translate cp_to_ilp_arrayTheory.cencode_array_constr_def;
+
+val _ = check_side res;
 
 (* cp_to_ilp_extensional *)
 
@@ -624,6 +672,8 @@ val res = translate cp_to_ilp_extensionalTheory.reg_eq_pairs_def;
 val res = translate cp_to_ilp_extensionalTheory.cencode_regular_def;
 val res = translate cp_to_ilp_extensionalTheory.cencode_extensional_constr_def;
 
+val _ = check_side res;
+
 (* cp_to_ilp_logical *)
 
 val res = translate cp_to_ilp_logicalTheory.encode_and_aux_def;
@@ -639,6 +689,8 @@ val res = translate cp_to_ilp_logicalTheory.cencode_parity_aux_def;
 val res = translate cp_to_ilp_logicalTheory.cencode_parity_def;
 
 val res = translate cp_to_ilp_logicalTheory.cencode_logical_constr_def;
+
+val _ = check_side res;
 
 (* cp_to_ilp_lexicographical *)
 
@@ -693,12 +745,16 @@ val res = translate cp_to_ilp_lexicographicalTheory.cencode_lexicographical_cons
 
 val _ = ml_translatorLib.use_sub_check false;
 
+val _ = check_side res;
+
 (* cp_to_ilp_channeling *)
 
 val res = translate cp_to_ilp_channelingTheory.encode_inverse_aux_def;
 val res = translate cp_to_ilp_channelingTheory.cencode_inverse_def;
 
 val res = translate cp_to_ilp_channelingTheory.cencode_channeling_constr_def;
+
+val _ = check_side res;
 
 (* cp_to_ilp_misc *)
 
@@ -736,6 +792,8 @@ val res = translate cp_to_ilp_miscTheory.cencode_knapsack1_def;
 val res = translate cp_to_ilp_miscTheory.cencode_knapsack_def;
 
 val res = translate cp_to_ilp_miscTheory.cencode_misc_constr_def;
+
+val _ = check_side res;
 
 (* cp_to_ilp_scheduling *)
 val res = translate cp_to_ilp_schedulingTheory.disj_before_def;
@@ -786,6 +844,8 @@ val res = translate cp_to_ilp_schedulingTheory.cencode_cumulative_def;
 
 val res = translate cp_to_ilp_schedulingTheory.cencode_scheduling_constr_def;
 
+val _ = check_side res;
+
 (* cp_to_ilp_sorting *)
 val res = translate cp_to_ilp_sortingTheory.inc_cmp_def;
 val res = translate cp_to_ilp_sortingTheory.inc_chain_def;
@@ -802,7 +862,6 @@ val res = translate cp_to_ilp_sortingTheory.sort_before_sum_def;
 val res = translate cp_to_ilp_sortingTheory.sort_chain_le_def;
 val res = translate cp_to_ilp_sortingTheory.sort_bf_lines_def;
 val res = translate cp_to_ilp_sortingTheory.sort_rank_lines_def;
-val res = translate MAX_DEF;
 val res = translate cp_to_ilp_sortingTheory.nth_bit_def;
 val res = translate cp_to_ilp_sortingTheory.sort_guard_alt;
 val res = translate cp_to_ilp_sortingTheory.sort_chan_lines_def;
@@ -833,9 +892,14 @@ val res = translate cp_to_ilp_sortingTheory.cencode_argsort_def;
 
 val res = translate cp_to_ilp_sortingTheory.cencode_sorting_constr_def;
 
+val _ = check_side res;
+
 (* cp_to_ilp_all *)
 
 val res = translate cencode_constraint_def;
+
+val _ = check_side res;
+
 val res = translate cencode_constraints_def;
 
 (* cp_encScript *)
@@ -860,24 +924,22 @@ Overload "cp_inst_TYPE" = ``
 
 Definition get_cp_inst_def:
   get_cp_inst fs f =
-  if inFS_fname fs f then
-    case parse_cp_inst (concat (all_lines_file fs f)) of
+  case file_content fs f of
+    SOME s =>
+    (case parse_cp_inst (implode s) of
       INL _ => NONE
-    | INR inst => SOME inst
-  else NONE
+    | INR inst => SOME inst)
+  | NONE => NONE
 End
 
 (* Read an input file and parse into a cp_inst. *)
 Quote add_cakeml:
   fun parse_cp_file f =
-    let
-      val fd = TextIO.openIn f
-      val l = TextIO.inputAll fd
-      val u = TextIO.closeIn fd
-    in
-      parse_cp_inst l
-    end
-    handle TextIO.BadFileName => Inl (notfound_string f)
+    case
+      TextIO.inputAllFrom (Some f)
+    of
+      None => Inl (notfound_string f)
+    | Some l => parse_cp_inst l
 End
 
 Theorem parse_cp_file_spec:
@@ -898,7 +960,38 @@ Theorem parse_cp_file_spec:
       | INR inst =>
           get_cp_inst fs f = SOME inst)
 Proof
-  cheat
+  rw[]>>
+  xcf"parse_cp_file"(get_ml_prog_state())>>
+  reverse (Cases_on `STD_streams fs`)
+  >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
+  reverse (Cases_on`consistentFS fs`)
+  >- (fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def] \\ xpull \\ metis_tac[]) >>
+  xlet_autop>>
+  xlet `POSTv sv.
+             &OPTION_TYPE vomap_TYPE
+               (OPTION_BIND (file_content fs f) (SOME ∘ implode)) sv *
+             STDIO fs`
+  >- (
+    xapp_spec inputAllFrom_SOME_spec>>
+    fs[OPTION_TYPE_def,FILENAME_def,validArg_def])>>
+  Cases_on`file_content fs f`>>
+  gvs[OPTION_TYPE_def]>>
+  xmatch
+  >- (
+    xlet_autop>>
+    xcon>>xsimpl>>
+    qexists_tac`INL (notfound_string f)`>>
+    simp[SUM_TYPE_def,get_cp_inst_def]>>
+    gvs[file_content_def,inFS_fname_def,AllCaseEqs()]>>
+    gvs[consistentFS_def]>>
+    metis_tac[ALOOKUP_NONE])>>
+  xapp>>
+  xsimpl>>
+  first_x_assum $ irule_at Any>>
+  rw[]>>
+  first_x_assum $ irule_at Any>>
+  simp[get_cp_inst_def]>>
+  TOP_CASE_TAC>>simp[]
 QED
 
 Quote add_cakeml:
@@ -1095,11 +1188,39 @@ Proof
   fs[map_concl_to_string_def]>>
   every_case_tac>>fs[SUM_TYPE_def]>>xmatch
   >- (
-    xapp>>xsimpl>>
-    cheat)
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    qexists_tac`«»`>>
+    rename1`add_stderr _ err`>>
+    qexists_tac`err`>>xsimpl>>rw[]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    xsimpl)
   >- (
     xapp>>xsimpl>>
-    cheat)
+    asm_exists_tac>>simp[]>>
+    qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    qexists_tac`print_cp_concl_str x`>>simp[]>>
+    qexists_tac`«»`>>
+    reverse CONJ_TAC >- (
+      rw[]>>simp[STD_streams_stderr,add_stdo_nil]>>
+      xsimpl)>>
+    rw[]>>
+    qexists_tac`x`>>simp[]>>
+    `∃bnd cs pty. inst = (bnd,cs,pty)` by metis_tac[PAIR]>>
+    gvs[]>>
+    irule full_encode_sem_concl>>
+    gvs[get_cp_inst_def,AllCaseEqs()]>>
+    CONJ_TAC >- (
+      metis_tac[parse_cp_inst_distinct])>>
+    first_x_assum $ irule_at Any>>
+    `∃pres obj pbf.
+     full_encode (bnd,cs,pty) = (pres,obj,pbf)` by
+      metis_tac[PAIR]>>
+    gvs[pb_parseTheory.strip_annot_prob_def])
 QED
 
 (* Emit just the PB encoding on stdout. *)
