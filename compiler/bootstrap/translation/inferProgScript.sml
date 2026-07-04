@@ -3,13 +3,13 @@
 *)
 Theory inferProg[no_sig_docs]
 Ancestors
-  parserProg reg_allocProg infer ml_translator semanticPrimitives
+  ml_monadBase parserProg reg_allocProg infer ml_translator semanticPrimitives
   inferProps
 Libs
   preamble ml_translatorLib
 
 open preamble parserProgTheory
-     reg_allocProgTheory inferTheory
+     reg_allocProgTheory
      ml_translatorLib ml_translatorTheory
      semanticPrimitivesTheory inferPropsTheory;
 
@@ -259,8 +259,8 @@ Theorem anub_ind =
 val _ = translate (REWRITE_RULE[MEMBER_INTRO] miscTheory.anub_def)
 
 val _ = (extra_preprocessing :=
-  [MEMBER_INTRO, MAP, OPTION_BIND_THM, inferTheory.st_ex_bind_def,
-   inferTheory.st_ex_return_def, failwith_def, guard_def, read_def, write_def]);
+  [MEMBER_INTRO, MAP, OPTION_BIND_THM, st_ex_bind_def, st_ex_ignore_bind_def,
+   st_ex_return_def, failwith_def, guard_def, read_def, write_def]);
 
 val _ = translate (def_of_const ``id_to_string``)
 val _ = translate (def_of_const ``lookup_st_ex``)

@@ -253,31 +253,31 @@ Definition compile_def:
       then parse_sexp_input input
       else parse_cml_input input
     of
-    | INL msg => (Failure (ParseError msg), Nil)
+    | INL msg => (M_failure (ParseError msg), Nil)
     | INR prog =>
        let _ = empty_ffi «finished: lexing and parsing» in
        let full_prog = if c.exclude_prelude then prog else prelude ++ prog in
        case
          if c.skip_type_inference
-         then Success c.inferencer_config
+         then M_success c.inferencer_config
          else infertype_prog c.inferencer_config full_prog
        of
-       | Failure (locs, msg) =>
-           (Failure (TypeError (concat [msg; « at »;
+       | M_failure (locs, msg) =>
+           (M_failure (TypeError (concat [msg; « at »;
                locs_to_string (implode input) locs])), Nil)
-       | Success ic =>
+       | M_success ic =>
           let _ = empty_ffi «finished: type inference» in
           if c.only_print_types then
-            (Failure (TypeError (concat ([«\n»] ++
+            (M_failure (TypeError (concat ([«\n»] ++
                                          inf_env_to_types_string ic ++
                                          [«\n»]))), Nil)
           else if c.only_print_sexp then
-            (Failure (TypeError (implode
+            (M_failure (TypeError (implode
                ("\n" ++ print_sexp (listsexp (MAP decsexp full_prog))))),Nil)
           else
           case backend_passes$compile_tap c.asm_config c.backend_config full_prog of
-          | (NONE, td) => (Failure AssembleError, td)
-          | (SOME (bytes,data,c), td) => (Success (bytes,data,c), td)
+          | (NONE, td) => (M_failure AssembleError, td)
+          | (SOME (bytes,data,c), td) => (M_success (bytes,data,c), td)
 End
 
 Definition compile_pancake_def:
@@ -285,18 +285,18 @@ Definition compile_pancake_def:
   let _ = empty_ffi «finished: start up» in
   case panPtreeConversion$parse_topdecs_to_ast input of
   | INR errs =>
-    ((Failure $ ParseError $ concat $
+    ((M_failure $ ParseError $ concat $
        MAP (λ(msg,loc). concat [msg; « at »;
                                 locs_to_string (implode input) (SOME loc); «\n»])
            errs), Nil, [])
   | INL funs =>
       case static_check funs of
-      | (error e, warns) => (Failure $ StaticError e, Nil, MAP StaticError warns)
+      | (error e, warns) => (M_failure $ StaticError e, Nil, MAP StaticError warns)
       | (return (), warns) =>
           let _ = empty_ffi «finished: lexing and parsing» in
           case pan_passes$pan_compile_tap asm_conf c funs of
-          | (NONE,td) => (Failure AssembleError, td, MAP StaticError warns)
-          | (SOME (bytes,data,c),td) => (Success (bytes,data,c), td, MAP StaticError warns)
+          | (NONE,td) => (M_failure AssembleError, td, MAP StaticError warns)
+          | (SOME (bytes,data,c),td) => (M_success (bytes,data,c), td, MAP StaticError warns)
 End
 
 (* The top-level compiler *)
@@ -666,10 +666,10 @@ Definition has_pancake_flag_def:
 End
 
 Definition format_compiler_result_def:
-  format_compiler_result bytes_export (Failure err) =
+  format_compiler_result bytes_export (M_failure err) =
     (List[]:mlstring app_list, error_to_str err) ∧
   format_compiler_result bytes_export
-    (Success ((bytes:word8 list),(data:'a word list),(c:backend$config))) =
+    (M_success ((bytes:word8 list),(data:'a word list),(c:backend$config))) =
     (bytes_export (the [] c.lab_conf.ffi_names) bytes data, implode "")
 End
 
@@ -703,13 +703,13 @@ Definition compile_64_def:
              only_print_sexp     := sexpprint;
              |> in
         (case compiler$compile compiler_conf basis input of
-          (Success (bytes,data,c), td) =>
+          (M_success (bytes,data,c), td) =>
             (add_tap_output td (export
               (ffinames_to_string_list
                 $ the [] c.lab_conf.ffi_names)
                 bytes data c.symbols c.exported mainret F),
               implode "")
-        | (Failure err, td) => (add_tap_output td (List []), error_to_str err))
+        | (M_failure err, td) => (add_tap_output td (List []), error_to_str err))
     | INR err =>
     (List[], error_to_str (ConfigError (get_err_str ext_conf))))
   | _ =>
@@ -738,9 +738,9 @@ Definition compile_pancake_64_def:
           | INL ext_conf =>
               let ext_conf = pancake_backend_conf ext_conf in
               case compiler$compile_pancake aconf ext_conf input of
-              | (Failure err, td, warns) =>
+              | (M_failure err, td, warns) =>
                   (List[], concat (MAP error_to_str (err::(if nowarn then [] else warns))))
-              | (Success (bytes, data, c), td, warns) =>
+              | (M_success (bytes, data, c), td, warns) =>
                   (add_tap_output td
                     (export (ffinames_to_string_list $
                       the [] c.lab_conf.ffi_names) bytes data c.symbols
@@ -784,13 +784,13 @@ Definition compile_32_def:
              only_print_sexp     := sexpprint;
              |> in
         (case compiler$compile compiler_conf basis input of
-          (Success (bytes,data,c), td) =>
+          (M_success (bytes,data,c), td) =>
             (add_tap_output td (export
               (ffinames_to_string_list $
                 the [] c.lab_conf.ffi_names)
                 bytes data c.symbols c.exported mainret F),
               implode "")
-        | (Failure err, td) => (List [], error_to_str err))
+        | (M_failure err, td) => (List [], error_to_str err))
     | INR err =>
     (List[], error_to_str (ConfigError (get_err_str ext_conf))))
   | _ =>
@@ -814,9 +814,9 @@ Definition compile_pancake_32_def:
           | INL ext_conf =>
               let ext_conf = pancake_backend_conf ext_conf in
               case compiler$compile_pancake aconf ext_conf input of
-              | (Failure err, td, warns) =>
+              | (M_failure err, td, warns) =>
                   (List[], concat (MAP error_to_str (err::(if nowarn then [] else warns))))
-              | (Success (bytes, data, c), td, warns) =>
+              | (M_success (bytes, data, c), td, warns) =>
                   (add_tap_output td
                     (export (ffinames_to_string_list $
                       the [] c.lab_conf.ffi_names) bytes data c.symbols

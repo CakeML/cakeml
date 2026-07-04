@@ -7,7 +7,7 @@ Ancestors
 Libs
   preamble
 
-Type M = ``:('c,'ffi) dataSem$state -> (v, v) result option # ('c,'ffi) dataSem$state``
+Type M = ``:('c,'ffi) dataSem$state -> (v list, v) result option # ('c,'ffi) dataSem$state``
 
 val s = ``s:('c,'ffi) dataSem$state``
 val f = ``f: ('c,'ffi) M``
@@ -50,10 +50,10 @@ Definition if_var_def:
 End
 
 Definition return_def[simp]:
-  return n s =
-    case sptree$lookup n s.locals of
+  return ns s =
+    case get_vars ns s.locals of
     | NONE => fail s
-    | SOME v => (SOME (Rval v), flush_state F s)
+    | SOME xs => (SOME (Rval xs), flush_state F s)
 End
 
 Definition tailcall_def:
@@ -71,13 +71,14 @@ Definition tailcall_def:
 End
 
 Definition call_def:
-  call (n,names) dest args handler s =
+  call (ns,names) dest args handler s =
      case get_vars args s.locals of
      | NONE => fail s
      | SOME xs =>
        (case find_code dest xs s.code s.stack_frame_sizes of
         | NONE => fail s
         | SOME (args1,prog,ss) =>
+          if ¬ALL_DISTINCT ns then fail s else
           (case cut_env names s.locals of
            | NONE => fail s
            | SOME env =>
@@ -87,10 +88,12 @@ Definition call_def:
                 then timeout (s1 with <| stack := [] ; locals := LN |>)
                 else (case evaluate (prog, call_env args1 ss
                             (push_env env (IS_SOME handler) (dec_clock s))) of
-                      | (SOME (Rval x),s2) =>
-                        (case pop_env s2 of
-                         | NONE => fail s2
-                         | SOME s1 => (NONE, set_var n x s1))
+                      | (SOME (Rval xs),s2) =>
+                        (if LENGTH xs = LENGTH ns then
+                           (case pop_env s2 of
+                            | NONE => fail s2
+                            | SOME s1 => (NONE, set_vars ns xs s1))
+                         else fail s2)
                       | (SOME (Rerr(Rraise x)),s2) =>
                         (* if handler is present, then handle exc *)
                         (case handler of
@@ -131,7 +134,7 @@ Definition force_def:
        | NotThunk => fail s
        | IsThunk Evaluated v =>
          (case ret of
-          | NONE => (SOME (Rval v),flush_state F s)
+          | NONE => (SOME (Rval [v]),flush_state F s)
           | SOME (dest,names) =>
             (case cut_env names s.locals of
              | NONE => fail s
@@ -157,10 +160,12 @@ Definition force_def:
                        timeout (s1 with <| stack := []; locals := LN |>)
                      else
                        (case evaluate (prog, s1) of
-                        | (SOME (Rval x),s2) =>
-                          (case pop_env s2 of
-                           | NONE => fail s2
-                           | SOME s1 => (NONE, set_var dest x s1))
+                        | (SOME (Rval xs),s2) =>
+                          (if LENGTH xs = 1 then
+                             (case pop_env s2 of
+                              | NONE => fail s2
+                              | SOME s1 => (NONE, set_var dest (HD xs) s1))
+                           else fail s2)
                         | (NONE,s) => fail s
                         | res => res)))))
 End
@@ -235,9 +240,7 @@ Proof
   >- rw [makespace_def]
   (* Raise *)
   >- rw [raise_def]
-  (* Return *)
-  >- (fs [get_var_def] \\ rw []
-     \\ CASE_TAC \\ fs [call_env_def,fromList_def])
+  (* Return now auto-closes: return_def matches evaluate (Return ns) exactly *)
   (* Tick *)
   >- rw[tick_def,timeout_def,call_env_def,state_component_equality,fromList_def]
   (* Force *)
@@ -251,7 +254,7 @@ val _ = monadsyntax.temp_add_monadsyntax()
 
 val challenge_program =
   ``Seq (Assign 2 (BlockOp (TagLenEq 0 0)) [0] NONE)
-        (If 2 (Return 1)
+        (If 2 (Return [1])
               (Seq (Assign 5 (IntOp (Const 0)) [] NONE)
               (Seq (Assign 3 (MemOp El) [0; 5] NONE)
               (Seq (Assign 5 (IntOp (Const 1)) [] NONE)
@@ -263,7 +266,7 @@ val to_shallow_thm =
   ``to_shallow ^challenge_program``
   |> REWRITE_CONV [to_shallow_def]
 
-val res = ``(res:(v, v) result option)``
+val res = ``(res:(v list, v) result option)``
 
 Definition data_safe_def:
   data_safe (^res ,^s) = s.safe_for_space

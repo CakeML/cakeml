@@ -4516,7 +4516,7 @@ Definition state_rel_thm:
     (* the store *)
     EVERY (\n. n IN FDOM t.store) [Globals] /\
     (* every local is represented in word lang *)
-    (v1 = [] ==> lookup 0 t.locals = SOME (Loc l1 l2)) /\
+    (v1 = NONE ==> lookup 0 t.locals = SOME (Loc l1 l2)) /\
     (!n. IS_SOME (lookup n s.locals) ==>
          IS_SOME (lookup (adjust_var n) t.locals)) /\
     (* the stacks contain the same names, have same shape *)
@@ -4529,7 +4529,7 @@ Definition state_rel_thm:
     limits_inv s.limits (FLOOKUP t.store HeapLength) t.stack_limit c.len_size c.has_fp_ops c.has_fp_tern /\
     (* there exists some GC-compatible abstraction *)
     memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
-      (v1 ++
+      ((case v1 of NONE => [] | SOME vs => vs) ++
        join_env s.locals (toAList (inter t.locals (adjust_set s.locals))) ++
        [(the_global s.global,t.store ' Globals)] ++
        flat s.stack t.stack)
@@ -4610,7 +4610,7 @@ Theorem state_rel_init:
     conf_ok (:'a) c /\
     init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ==>
     state_rel c l1 l2 (initial_state ffi code co cc T lim t.stack_size t.clock)
-                      (t:('a,'c,'ffi) state) [] []
+                      (t:('a,'c,'ffi) state) NONE []
 Proof
   simp_tac std_ss [word_list_exists_ADD,conf_ok_def,init_store_ok_def]
   \\ fs [state_rel_thm,dataSemTheory.initial_state_def,
@@ -4688,7 +4688,7 @@ QED
 
 Theorem state_rel_get_vars_IMP:
    !n xs.
-      state_rel c l1 l2 ^s t [] locs ==>
+      state_rel c l1 l2 ^s t NONE locs ==>
       (get_vars n s.locals = SOME xs) ==>
       ?ws. get_vars (MAP adjust_var n) t = SOME ws /\ (LENGTH xs = LENGTH ws)
 Proof
@@ -4700,7 +4700,7 @@ Proof
 QED
 
 Theorem state_rel_0_get_vars_IMP:
-   state_rel c l1 l2 ^s t [] locs ==>
+   state_rel c l1 l2 ^s t NONE locs ==>
     (get_vars n s.locals = SOME xs) ==>
     ?ws. get_vars (0::MAP adjust_var n) t = SOME ((Loc l1 l2)::ws) /\
          (LENGTH xs = LENGTH ws)
@@ -4712,7 +4712,7 @@ Proof
 QED
 
 Theorem get_var_T_OR_F:
-   state_rel c l1 l2 ^s (t:('a,'c,'ffi) state) [] locs /\
+   state_rel c l1 l2 ^s (t:('a,'c,'ffi) state) NONE locs /\
     get_var n s.locals = SOME x /\
     get_var (adjust_var n) t = SOME w ==>
     18 MOD dimword (:'a) <> 2 MOD dimword (:'a) /\
@@ -4735,7 +4735,7 @@ Proof
 QED
 
 Theorem get_var_isT_OR_isF:
-  state_rel c l1 l2 ^s (t:('a,'c,'ffi) state) [] locs /\
+  state_rel c l1 l2 ^s (t:('a,'c,'ffi) state) NONE locs /\
     get_var n s.locals = SOME x /\
     get_var (adjust_var n) t = SOME w ==>
     18 MOD dimword (:'a) <> 2 MOD dimword (:'a) /\
@@ -4767,7 +4767,7 @@ Definition mk_loc_def:
 End
 
 Theorem cut_env_IMP_cut_env:
-   state_rel c l1 l2 ^s t [] locs /\
+   state_rel c l1 l2 ^s t NONE locs /\
     dataSem$cut_env r s.locals = SOME x ==>
     ?y. wordSem$cut_env (adjust_sets r) t.locals = SOME y
 Proof
@@ -4943,11 +4943,11 @@ Proof
 QED
 
 Theorem state_rel_pop_env_set_var_IMP:
-   state_rel c q l ^s1 t1 [(a,w)] locs /\
+   state_rel c q l ^s1 t1 (SOME [(a,w)]) locs /\
     pop_env s1 = SOME s2 ==>
     ?t2 l8 l9 ll.
       pop_env t1 = SOME t2 /\ locs = (l8,l9)::ll /\
-      state_rel c l8 l9 (set_var q1 a s2) (set_var (adjust_var q1) w t2) [] ll
+      state_rel c l8 l9 (set_var q1 a s2) (set_var (adjust_var q1) w t2) NONE ll
 Proof
   fs[pop_env_def]
   \\ Cases_on `s1.stack` \\ fs[] \\ Cases_on `h` \\ fs[]
@@ -4996,14 +4996,14 @@ Proof
 QED
 
 Theorem state_rel_jump_exc:
-   state_rel c l1 l2 ^s (t:('a,'c,'ffi) wordSem$state) [] locs /\
+   state_rel c l1 l2 ^s (t:('a,'c,'ffi) wordSem$state) NONE locs /\
     get_var n s.locals = SOME x /\
     get_var (adjust_var n) t = SOME w /\
     jump_exc s = SOME s1 ==>
     ?t1 d1 d2 l5 l6 ll.
       jump_exc t = SOME (t1,d1,d2) /\
       LASTN (LENGTH s1.stack + 1) locs = (l5,l6)::ll /\
-      !i. state_rel c l5 l6 (set_var i x s1) (set_var (adjust_var i) w t1) [] ll
+      !i. state_rel c l5 l6 (set_var i x s1) (set_var (adjust_var i) w t1) NONE ll
 Proof
   simp [jump_exc_def,AllCaseEqs()] \\ strip_tac
   \\ gvs [state_rel_def,wordSemTheory.set_var_def,set_var_def]
@@ -5126,9 +5126,9 @@ QED
 Theorem state_rel_call_env:
     get_vars args ^s.locals = SOME q /\
     get_vars (MAP adjust_var args) (t:('a,'c,'ffi) wordSem$state) = SOME ws /\
-    state_rel c l5 l6 s t [] locs ==>
+    state_rel c l5 l6 s t NONE locs ==>
     state_rel c l1 l2 (call_env q ss (dec_clock s))
-      (call_env (Loc l1 l2::ws) ss (dec_clock t)) [] locs
+      (call_env (Loc l1 l2::ws) ss (dec_clock t)) NONE locs
 Proof
   full_simp_tac(srw_ss())[state_rel_def,call_env_def,wordSemTheory.call_env_def,LET_THM,
       dataSemTheory.dec_clock_def,wordSemTheory.dec_clock_def,lookup_adjust_var_fromList2]
@@ -5201,7 +5201,7 @@ Proof
 QED
 
 Theorem state_rel_CodePtr:
-   state_rel c l1 l2 s t [] locs /\
+   state_rel c l1 l2 s t NONE locs /\
     get_vars args s.locals = SOME x /\
     get_vars (MAP adjust_var args) t = SOME y /\
     LAST x = CodePtr n /\ x <> [] ==>
@@ -5225,14 +5225,14 @@ QED
 
 Theorem find_code_thm = Q.prove(`
   !s (t:('a,'c,'ffi)wordSem$state).
-      state_rel c l1 l2 ^s t [] locs /\
+      state_rel c l1 l2 ^s t NONE locs /\
       get_vars args s.locals = SOME x /\
       get_vars (0::MAP adjust_var args) t = SOME (Loc l1 l2::ws) /\
       find_code dest x s.code fs = SOME (q,r,ss) ==>
       ?args1 n1 n2.
         find_code dest (Loc l1 l2::ws) t.code fs = SOME (args1,FST (comp c n1 n2 r),ss) /\
         state_rel c l1 l2 (call_env q ss (dec_clock s))
-          (call_env args1 ss (dec_clock t)) [] locs`,
+          (call_env args1 ss (dec_clock t)) NONE locs`,
   Cases_on `dest` \\ srw_tac[][] \\ full_simp_tac(srw_ss())[find_code_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[wordSemTheory.find_code_def] \\ srw_tac[][]
   \\ `code_rel c s.code t.code` by full_simp_tac(srw_ss())[state_rel_def]
@@ -5362,14 +5362,14 @@ val _ = temp_delsimps ["fromAList_def"]
 
 Theorem state_rel_call_env_push_opt:
   ∀(opt:(num # 'a wordLang$prog # num # num) option).
-    state_rel c l1 l2 s t (ZIP(xs,ws)) locs ∧
+    state_rel c l1 l2 s t (SOME (ZIP(xs,ws))) locs ∧
     lookup 0 t.locals = SOME (Loc l1 l2) ∧
     LENGTH xs = LENGTH ws ∧
     cut_env r s.locals = SOME x ∧
     cut_envs (adjust_sets r) t.locals = SOME y ⇒
     state_rel c q l
       (call_env xs ss (push_env x (IS_SOME opt) (dec_clock s)))
-      (call_env (Loc q l::ws) ss (push_env y opt (dec_clock t))) []
+      (call_env (Loc q l::ws) ss (push_env y opt (dec_clock t))) NONE
       ((l1,l2)::locs)
 Proof
   Cases \\ TRY (PairCases_on `x'`) \\ full_simp_tac(srw_ss())[]
@@ -5457,14 +5457,14 @@ Proof
 QED
 
 Theorem state_rel_call_env_push:
-  state_rel c l1 l2 s t (ZIP(xs,ws)) locs ∧
+  state_rel c l1 l2 s t (SOME (ZIP(xs,ws))) locs ∧
   LENGTH xs = LENGTH ws ∧
   lookup 0 t.locals = SOME (Loc l1 l2) ∧
   cut_env r s.locals = SOME x ∧
   cut_envs (adjust_sets r) t.locals = SOME y ⇒
   state_rel c q l
     (call_env xs ss (push_env x F (dec_clock s)))
-    (call_env (Loc q l::ws) ss (push_env y NONE (dec_clock t))) []
+    (call_env (Loc q l::ws) ss (push_env y NONE (dec_clock t))) NONE
     ((l1,l2)::locs)
 Proof
   strip_tac
@@ -5474,13 +5474,13 @@ QED
 
 Theorem state_rel_call_env_push_env: (* TODO: tidy up proof *)
   !opt:(num # 'a wordLang$prog # num # num) option.
-    state_rel c l1 l2 s (t:('a,'c,'ffi)wordSem$state) [] locs /\
+    state_rel c l1 l2 s (t:('a,'c,'ffi)wordSem$state) NONE locs /\
     get_vars args s.locals = SOME xs /\
     get_vars (MAP adjust_var args) t = SOME ws /\
     dataSem$cut_env r s.locals = SOME x /\
     wordSem$cut_envs (adjust_sets r) t.locals = SOME y ==>
     state_rel c q l (call_env xs ss (push_env x (IS_SOME opt) (dec_clock s)))
-       (call_env (Loc q l::ws) ss (push_env y opt (dec_clock t))) []
+       (call_env (Loc q l::ws) ss (push_env y opt (dec_clock t))) NONE
        ((l1,l2)::locs)
 Proof
   rpt strip_tac
@@ -5496,7 +5496,7 @@ Proof
 QED
 
 Theorem find_code_thm_ret:
-      state_rel c l1 l2 s (t:('a,'c,'ffi)wordSem$state) [] locs /\
+      state_rel c l1 l2 s (t:('a,'c,'ffi)wordSem$state) NONE locs /\
       get_vars args s.locals = SOME xs /\
       get_vars (MAP adjust_var args) t = SOME ws /\
       find_code dest xs s.code fs = SOME (ys,prog,ss) /\
@@ -5506,7 +5506,7 @@ Theorem find_code_thm_ret:
         find_code dest (Loc q l::ws) t.code fs = SOME (args1,FST (comp c n1 n2 prog),ss) /\
         state_rel c q l (call_env ys ss (push_env x F (dec_clock s)))
           (call_env args1 ss (push_env y NONE
-          (dec_clock t))) [] ((l1,l2)::locs)
+          (dec_clock t))) NONE ((l1,l2)::locs)
 Proof
   reverse (Cases_on `dest`) \\ srw_tac[][] \\ full_simp_tac(srw_ss())[find_code_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[wordSemTheory.find_code_def] \\ srw_tac[][]
@@ -5535,7 +5535,7 @@ Proof
 QED
 
 Theorem find_code_thm_handler:
-      state_rel c l1 l2 s (t:('a,'c,'ffi)wordSem$state) [] locs /\
+      state_rel c l1 l2 s (t:('a,'c,'ffi)wordSem$state) NONE locs /\
       get_vars args s.locals = SOME xs /\
       get_vars (MAP adjust_var args) t = SOME ws /\
       find_code dest xs s.code fs = SOME (ys,prog,ss) /\
@@ -5546,7 +5546,7 @@ Theorem find_code_thm_handler:
         state_rel c q l (call_env ys ss (push_env x T (dec_clock s)))
           (call_env args1 ss (push_env y
              (SOME (adjust_var x0,(prog1:'a wordLang$prog),nn,l + 1))
-          (dec_clock t))) [] ((l1,l2)::locs)
+          (dec_clock t))) NONE ((l1,l2)::locs)
 Proof
   reverse (Cases_on `dest`) \\ srw_tac[][] \\ full_simp_tac(srw_ss())[find_code_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[wordSemTheory.find_code_def] \\ srw_tac[][]
@@ -5743,9 +5743,9 @@ Proof
 QED
 
 Theorem state_rel_cut_env:
-   state_rel c l1 l2 s t [] locs /\
+   state_rel c l1 l2 s t NONE locs /\
     dataSem$cut_env names s.locals = SOME x ==>
-    state_rel c l1 l2 (s with locals := x) t [] locs
+    state_rel c l1 l2 (s with locals := x) t NONE locs
 Proof
   full_simp_tac(srw_ss())[state_rel_def,dataSemTheory.cut_env_def] \\ srw_tac[][]
   THEN1 (full_simp_tac(srw_ss())[lookup_inter] \\ every_case_tac \\ full_simp_tac(srw_ss())[])
@@ -5784,10 +5784,10 @@ Proof
   \\ disch_then old_drule
   \\ disch_then old_drule
   \\ REWRITE_TAC[GSYM APPEND_ASSOC]
-  \\ qmatch_goalsub_abbrev_tac`v1 ++ (rr ++ ls)`
-  \\ qmatch_abbrev_tac`P (v1 ++ (rr ++ ls)) ⇒ _`
+  \\ qmatch_goalsub_abbrev_tac`vv ++ (rr ++ ls)`
+  \\ qmatch_abbrev_tac`P (vv ++ (rr ++ ls)) ⇒ _`
   \\ strip_tac
-  \\ `P (rr ++ v1 ++ ls)`
+  \\ `P (rr ++ vv ++ ls)`
   by (
     unabbrev_all_tac
     \\ match_mp_tac (GEN_ALL (MP_CANON word_ml_inv_rearrange))
@@ -5818,10 +5818,10 @@ Proof
   \\ disch_then old_drule
   \\ disch_then old_drule
   \\ REWRITE_TAC[GSYM APPEND_ASSOC]
-  \\ qmatch_goalsub_abbrev_tac`v1 ++ (rr ++ ls)`
-  \\ qmatch_abbrev_tac`P (v1 ++ (rr ++ ls)) ⇒ _`
+  \\ qmatch_goalsub_abbrev_tac`vv ++ (rr ++ ls)`
+  \\ qmatch_abbrev_tac`P (vv ++ (rr ++ ls)) ⇒ _`
   \\ strip_tac
-  \\ `P (rr ++ v1 ++ ls)`
+  \\ `P (rr ++ vv ++ ls)`
   by (
     unabbrev_all_tac
     \\ match_mp_tac (GEN_ALL (MP_CANON word_ml_inv_rearrange))
@@ -5844,10 +5844,10 @@ QED
 val s' = mk_var("s'",type_of s);
 
 Theorem state_rel_cut_state_opt_get_var:
-   state_rel c l1 l2 ^s t [] locs ∧
+   state_rel c l1 l2 ^s t NONE locs ∧
    cut_state_opt names_opt s = SOME x ∧
    get_var v x.locals = SOME w ⇒
-   ∃s'. state_rel c l1 l2 ^s' t [] locs ∧
+   ∃s'. state_rel c l1 l2 ^s' t NONE locs ∧
         get_var v s'.locals = SOME w
 Proof
   rw[cut_state_opt_def]
@@ -6130,9 +6130,9 @@ Proof
 QED
 
 Theorem state_rel_inc_clock:
-   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs ==>
+   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) NONE locs ==>
     state_rel c l1 l2 (s with clock := s.clock + 1)
-                      (t with clock := t.clock + 1) [] locs
+                      (t with clock := t.clock + 1) NONE locs
 Proof
   fs [state_rel_def] \\ fs [] \\ metis_tac []
 QED
@@ -7335,7 +7335,7 @@ Proof
 QED
 
 Theorem state_rel_gc_gen:
-   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs ==>
+   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) NONE locs ==>
     FLOOKUP t.store AllocSize = SOME (Word (alloc_size k)) /\
     s.locals = LN /\
     t.locals = LS (Loc l1 l2) ==>
@@ -7355,7 +7355,7 @@ Theorem state_rel_gc_gen:
            size_of s.limits roots2 s.refs LN = (n2,r2,s2) ==>
            s.limits.heap_limit < n2 + k) /\
       state_rel c l1 l2 (s with space := 0)
-        (t with <|stack := stack; store := st; memory := m|>) [] locs
+        (t with <|stack := stack; store := st; memory := m|>) NONE locs
 Proof
   full_simp_tac(srw_ss())[state_rel_def] \\ srw_tac[][]
   \\ ‘EVERY loc_ok (MAP SND (flat s.stack t.stack)) ∧
@@ -7553,7 +7553,7 @@ Theorem gc_lemma_gen:
    let t0 = call_env [Loc l1 l2] ss (push_env y
         (NONE:(num # 'a wordLang$prog # num # num) option) t) in
       dataSem$cut_env names (s:('c,'ffi) dataSem$state).locals = SOME x /\
-      state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
+      state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) NONE locs /\
       FLOOKUP t.store AllocSize = SOME (Word (alloc_size k)) /\
       wordSem$cut_envs (adjust_sets names) t.locals = SOME y ==>
       ?t2 wl m st w1 w2 stack.
@@ -7575,7 +7575,7 @@ Theorem gc_lemma_gen:
           stack_max := OPTION_MAP2 MAX
           (OPTION_MAP2 MAX s.stack_max
              (size_of_stack (Env s.locals_size x::s.stack)))
-          (OPTION_MAP2 $+ (size_of_stack (Env s.locals_size x::s.stack)) ss) |>) t2 [] locs
+          (OPTION_MAP2 $+ (size_of_stack (Env s.locals_size x::s.stack)) ss) |>) t2 NONE locs
 Proof
   srw_tac[][] \\ fs [LET_DEF]
   \\ Q.UNABBREV_TAC `t0` \\ fs []
@@ -7655,8 +7655,8 @@ QED
 
 Theorem has_space_state_rel:
   has_space (Word ((alloc_size k):'a word)) (r:('a,'c,'ffi) state) = SOME T /\
-  state_rel c l1 l2 s r [] locs ==>
-  state_rel c l1 l2 (s with space := k) r [] locs
+  state_rel c l1 l2 s r NONE locs ==>
+  state_rel c l1 l2 (s with space := k) r NONE locs
 Proof
   fs [state_rel_def] \\ srw_tac[][]
   \\ asm_exists_tac \\ fs []
@@ -7743,7 +7743,7 @@ Proof
 QED
 
 Theorem alloc_lemma_gen:
-   state_rel c l1 l2 s (t:('a,'c,'ffi)wordSem$state) [] locs /\
+   state_rel c l1 l2 s (t:('a,'c,'ffi)wordSem$state) NONE locs /\
     dataSem$cut_env names s.locals = SOME x /\
     alloc (alloc_size k) (adjust_sets names) t =
       ((q:'a result option),r) ==>
@@ -7758,7 +7758,7 @@ Theorem alloc_lemma_gen:
           size_of s.limits roots2 s.refs LN = (n2,r2,s2) ==>
           s.limits.heap_limit < n2 + k)) /\
     (q <> SOME NotEnoughSpace ==>
-     state_rel c l1 l2 (s with <|locals := x; space := k|>) r [] locs /\
+     state_rel c l1 l2 (s with <|locals := x; space := k|>) r NONE locs /\
      alloc_size k <> -1w:'a word /\
      FLOOKUP r.store (Temp 29w) = FLOOKUP t.store (Temp 29w) /\
      r.code = t.code /\
@@ -7779,7 +7779,7 @@ Proof
   \\ first_x_assum (assume_tac o HO_MATCH_MP gc_add_call_env)
   \\ `FLOOKUP t5.store AllocSize = SOME (Word (alloc_size k)) /\
       wordSem$cut_envs (adjust_sets names) t5.locals = SOME (y1,y2) /\
-      state_rel c l1 l2 s t5 [] locs` by
+      state_rel c l1 l2 s t5 NONE locs` by
    (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[state_rel_set_store_AllocSize]
     \\ full_simp_tac(srw_ss())[wordSemTheory.set_store_def] \\ srw_tac[][]
     \\ full_simp_tac(srw_ss())[SUBSET_DEF,state_rel_insert_1,FLOOKUP_DEF])
@@ -7798,7 +7798,7 @@ Proof
           (imp_res_tac wordPropsTheory.pop_env_const \\ fs []
            \\ fs [CaseEq"option",pair_case_eq,CaseEq"bool"] \\ rveq \\ fs []
            \\ fs [wordSemTheory.flush_state_def])
-         \\ qpat_x_assum `state_rel c l1 l2 s t5 [] locs` mp_tac
+         \\ qpat_x_assum `state_rel c l1 l2 s t5 NONE locs` mp_tac
          \\ simp [state_rel_def]
          \\ fs [wordSemTheory.stack_size_def,wordSemTheory.stack_size_frame_def]
          \\ qpat_abbrev_tac `pat = FOLDR _ _ _` \\ strip_tac
@@ -7833,7 +7833,7 @@ Proof
           (imp_res_tac wordPropsTheory.pop_env_const \\ fs []
            \\ fs [CaseEq"option",pair_case_eq,CaseEq"bool"] \\ rveq \\ fs []
            \\ fs [wordSemTheory.flush_state_def])
-         \\ qpat_x_assum `state_rel c l1 l2 s t5 [] locs` mp_tac
+         \\ qpat_x_assum `state_rel c l1 l2 s t5 NONE locs` mp_tac
          \\ simp [state_rel_def]
          \\ fs [wordSemTheory.stack_size_def,wordSemTheory.stack_size_frame_def]
          \\ qpat_abbrev_tac `pat = FOLDR _ _ _` \\ strip_tac
@@ -7884,7 +7884,7 @@ val alloc_alt_gen =
   |> GEN_ALL;
 
 Theorem alloc_lemma:
-   state_rel c l1 l2 s (t:('a,'c,'ffi)wordSem$state) [] locs /\
+   state_rel c l1 l2 s (t:('a,'c,'ffi)wordSem$state) NONE locs /\
     dataSem$cut_env names s.locals = SOME x /\
     alloc (alloc_size k) (adjust_sets names) t =
       ((q:'a result option),r) ==>
@@ -7893,7 +7893,7 @@ Theorem alloc_lemma:
      (c.gc_kind <> None ==>
        s.limits.heap_limit < size_of_heap (cut_locals names s) + k)) ∧
     (q ≠ SOME NotEnoughSpace ⇒
-     state_rel c l1 l2 (s with <|locals := x; space := k|>) r [] locs ∧
+     state_rel c l1 l2 (s with <|locals := x; space := k|>) r NONE locs ∧
      alloc_size k <> -1w:'a word /\
      FLOOKUP r.store (Temp 29w) = FLOOKUP t.store (Temp 29w) /\
      r.code = t.code /\
@@ -7980,7 +7980,7 @@ Proof
 QED
 
 Theorem evaluate_GiveUp:
-   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs ==>
+   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) NONE locs ==>
     ?r. evaluate (GiveUp,t) = (SOME NotEnoughSpace,r) /\
         r.ffi = s.ffi /\ t.ffi = s.ffi
 Proof
@@ -8041,7 +8041,7 @@ val alloc_fail_lemma = alloc_lemma
   |> SIMP_RULE std_ss [AC ADD_COMM ADD_ASSOC]
 
 Theorem alloc_fail:
-  good_dimindex (:α) ∧ state_rel c l1 l2 ^s t [] locs ∧
+  good_dimindex (:α) ∧ state_rel c l1 l2 ^s t NONE locs ∧
   dataSem$cut_env names s.locals = SOME x ∧
   alloc (-1w:'a word) (adjust_sets names) t = (q,r) ⇒
   (q = SOME NotEnoughSpace ⇒ r.ffi = s.ffi ∧ option_le r.stack_max s.stack_max) ∧
@@ -8068,10 +8068,10 @@ Proof
 QED
 
 Theorem state_rel_cut_env_cut_env:
-   state_rel c l1 l2 s t [] locs /\
+   state_rel c l1 l2 s t NONE locs /\
     dataSem$cut_env names s.locals = SOME x /\
     wordSem$cut_env (adjust_sets names) t.locals = SOME y ==>
-    state_rel c l1 l2 (s with locals := x) (t with locals := y) [] locs
+    state_rel c l1 l2 (s with locals := x) (t with locals := y) NONE locs
 Proof
   rpt strip_tac
   \\ old_drule (GEN_ALL state_rel_cut_env)
@@ -8262,7 +8262,7 @@ Proof
 QED
 
 Theorem AllocVar_thm_gen:
-   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
+   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) NONE locs /\
     dataSem$cut_env names s.locals = SOME x /\
     get_var 1 t = SOME (Word w) /\
     evaluate (AllocVar c limit names,t) = (q,r) /\
@@ -8278,7 +8278,7 @@ Theorem AllocVar_thm_gen:
                s.limits.heap_limit < n2 + (w2n w DIV 4 + 1))) /\
     (q <> SOME NotEnoughSpace ==>
       w2n w DIV 4 < limit /\
-      state_rel c l1 l2 (s with <|locals := x; space := w2n w DIV 4 + 1|>) r [] locs /\
+      state_rel c l1 l2 (s with <|locals := x; space := w2n w DIV 4 + 1|>) r NONE locs /\
       FLOOKUP r.store (Temp 29w) = FLOOKUP t.store (Temp 29w) /\
       r.code = t.code /\
       r.code_buffer = t.code_buffer /\
@@ -8306,7 +8306,7 @@ Proof
   >- (rfs [word_exp_rw,wordSemTheory.set_var_def,lookup_insert]
       \\ gvs [asmTheory.word_cmp_def,WORD_LO]
       \\ reverse FULL_CASE_TAC
-      \\ qpat_assum `state_rel c l1 l2 s t [] locs` mp_tac
+      \\ qpat_assum `state_rel c l1 l2 s t NONE locs` mp_tac
       \\ rewrite_tac [state_rel_def] \\ strip_tac
       \\ fs [heap_in_memory_store_def] \\ fs []
       \\ fs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w]
@@ -8445,7 +8445,7 @@ Proof
 QED
 
 Theorem AllocVar_thm:
-   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs ∧
+   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) NONE locs ∧
     dataSem$cut_env names s.locals = SOME x ∧
     get_var 1 t = SOME (Word w) /\
     evaluate (AllocVar c limit names,t) = (q,r) /\
@@ -8455,7 +8455,7 @@ Theorem AllocVar_thm:
            s.limits.heap_limit < size_of_heap (cut_locals names s) + w2n w DIV 4 + 1)) ∧
     (q ≠ SOME NotEnoughSpace ⇒
       w2n w DIV 4 < limit /\
-      state_rel c l1 l2 (s with <|locals := x; space := w2n w DIV 4 + 1|>) r [] locs ∧
+      state_rel c l1 l2 (s with <|locals := x; space := w2n w DIV 4 + 1|>) r NONE locs ∧
       FLOOKUP r.store (Temp 29w) = FLOOKUP t.store (Temp 29w) /\
       r.code = t.code /\
       r.code_buffer = t.code_buffer /\
@@ -8486,7 +8486,7 @@ QED
 
 Theorem AllocVar_thm_nary:
   !c l1 l2 s (t:('a,'c,'ffi) wordSem$state) locs args x' xa vals i limit q r.
-    state_rel c l1 l2 s t [] locs /\
+    state_rel c l1 l2 s t NONE locs /\
     dataSem$cut_env (sptree$list_insert args x') s.locals = SOME xa /\
     get_vars args s.locals = SOME vals /\
     get_var 1 t = SOME (Word (n2w (4 * i))) /\
@@ -8501,7 +8501,7 @@ Theorem AllocVar_thm_nary:
     (q <> SOME NotEnoughSpace ==>
        i < limit /\
        state_rel c l1 l2
-         (s with <|locals := xa; space := i + 1|>) r [] locs /\
+         (s with <|locals := xa; space := i + 1|>) r NONE locs /\
        FLOOKUP r.store (Temp 29w) = FLOOKUP t.store (Temp 29w) /\
        r.code = t.code /\ r.code_buffer = t.code_buffer /\
        r.data_buffer = t.data_buffer /\ r.compile_oracle = t.compile_oracle /\
@@ -8582,7 +8582,7 @@ Proof
 QED
 
 Theorem state_rel_imp_clock:
-   state_rel c l1 l2 s t [] locs ==> s.clock = t.clock
+   state_rel c l1 l2 s t NONE locs ==> s.clock = t.clock
 Proof
   fs [state_rel_def]
 QED
@@ -8660,7 +8660,7 @@ Theorem memory_rel_get_var_IMP =
          PULL_EXISTS,ZIP,APPEND]
 
 Theorem lookup_RefByte_location:
-   state_rel c l1 l2 x t [] locs ==>
+   state_rel c l1 l2 x t NONE locs ==>
     lookup RefByte_location t.code = SOME (4,RefByte_code c) /\
     lookup RefArray_location t.code = SOME (3,RefArray_code c) /\
     lookup FromList_location t.code = SOME (4,FromList_code c) /\
@@ -8689,11 +8689,11 @@ Proof
 QED
 
 Theorem state_rel_IMP_Number_arg:
-   state_rel c l1 l2 (call_env xs ss s) (call_env ys ss t) [] locs /\
+   state_rel c l1 l2 (call_env xs ss s) (call_env ys ss t) NONE locs /\
     n < dimword (:'a) DIV 16 /\ LENGTH ys = LENGTH xs + 1 ==>
     state_rel c l1 l2
       (call_env (xs ++ [Number (& n)]) ss s)
-      (call_env (ys ++ [Word (n2w (4 * n):'a word)]) ss t) [] locs
+      (call_env (ys ++ [Word (n2w (4 * n):'a word)]) ss t) NONE locs
 Proof
   fs [state_rel_thm,call_env_def,wordSemTheory.call_env_def] \\ rw []
   THEN1 (Cases_on `ys` \\ fs [lookup_fromList,lookup_fromList2])
@@ -8716,9 +8716,9 @@ Proof
 QED
 
 Theorem state_rel_cut_IMP:
-   state_rel c l1 l2 s (t :(α, γ, 'ffi) state) [] locs /\
+   state_rel c l1 l2 s (t :(α, γ, 'ffi) state) NONE locs /\
    cut_state_opt names_opt s = SOME x ==>
-   state_rel c l1 l2 x t [] locs
+   state_rel c l1 l2 x t NONE locs
 Proof
   Cases_on `names_opt` \\ fs [dataSemTheory.cut_state_opt_def]
   THEN1 (rw [] \\ fs [])

@@ -98,7 +98,7 @@ QED
 
 Definition compile_def:
   (compile Skip live = (Skip,live)) /\
-  (compile (Return n) live = (Return n, insert n () LN)) /\
+  (compile (Return ns) live = (Return ns, list_insert ns LN)) /\
   (compile (Raise n) live = (Raise n, insert n () LN)) /\
   (compile (Move n1 n2) live =
     (Move n1 n2, insert n2 () (delete n1 live))) /\
@@ -128,15 +128,14 @@ Definition compile_def:
        (Force (SOME (n,l1)) loc src,l2)) /\
   (compile (Call NONE dest vs handler) live =
      (Call NONE dest vs handler,list_to_num_set vs)) /\
-  (compile (Call (SOME (n,names)) dest vs NONE) live =
-     let l1 = inter names (delete n live) in
+  (compile (Call (SOME (ns,names)) dest vs NONE) live =
+     let l1 = inter names (list_delete ns live) in
      let l2 = list_insert vs l1 in
-       (Call (SOME (n,l1)) dest vs NONE,l2)) /\
-  (compile (Call (SOME (n,names)) dest vs (SOME (v,c))) live =
+       (Call (SOME (ns,l1)) dest vs NONE,l2)) /\
+  (compile (Call (SOME (ns,names)) dest vs (SOME (v,c))) live =
      let (d,l3) = compile c live in
-     let l0 = union (delete n live) (delete v l3) in
+     let l0 = union (list_delete ns live) (delete v l3) in
      let l1 = inter names l0 in
      let l2 = list_insert vs l1 in
-       (Call (SOME (n,l1)) dest vs (SOME (v,d)),l2))
+       (Call (SOME (ns,l1)) dest vs (SOME (v,d)),l2))
 End
-

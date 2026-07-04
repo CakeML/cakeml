@@ -511,6 +511,11 @@ Definition scan_expr_def:
     let ty = if n < LENGTH ts then EL n ts else Any in
       [(ts, ty, F, NONE)]) ∧
   (scan_expr ts loc [Call t d xs h] = [(ts, Any, F, NONE)]) ∧
+  (* multi-value calls/returns decline the tail-rec optimisation. TODO(multiret):
+     to optimise them, is_rec/has_rec/scan_expr/rewrite must recognise LetCall
+     self-calls and Return-based accumulation. *)
+  (scan_expr ts loc [Return xs] = [(ts, Any, F, NONE)]) ∧
+  (scan_expr ts loc [LetCall rets t d xs y] = [(ts, Any, F, NONE)]) ∧
   (scan_expr ts loc [Op op xs] =
     let opr = from_op op in
     let opt = op_type opr in
@@ -569,6 +574,8 @@ Definition scan_expr_sing_def:
     let ty = if n < LENGTH ts then EL n ts else Any in
       (ts, ty, F, NONE)) ∧
   (scan_expr_sing ts loc (Call t d xs h) = (ts, Any, F, NONE)) ∧
+  (scan_expr_sing ts loc (Return xs) = (ts, Any, F, NONE)) ∧
+  (scan_expr_sing ts loc (LetCall rets t d xs y) = (ts, Any, F, NONE)) ∧
   (scan_expr_sing ts loc (Op op xs) =
     let opr = from_op op in
     let opt = op_type opr in
