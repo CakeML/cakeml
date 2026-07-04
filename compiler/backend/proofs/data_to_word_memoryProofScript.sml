@@ -11470,7 +11470,7 @@ Proof
   \\ irule EQ_TRANS
   \\ irule_at Any write_bytes_inj
   \\ fs [] \\ unabbrev_all_tac
-  \\ Cases_on ‘s’ \\ fs [mlstringTheory.explode_def,mlstringTheory.implode_def]
+  \\ Cases_on ‘s’ \\ fs [mlstringTheory.explode_def]
   \\ (conj_tac THEN1
    (fs [good_dimindex_def] \\ rename [‘STRLEN sss’]
     \\ ‘0 < if dimindex(:'a) = 32 then 4 else 8n’ by rw []
@@ -15218,7 +15218,7 @@ Theorem str_cmp_cons:
   str_cmp b cmp (implode xs) (implode ys)
 Proof
   Cases_on ‘b’ \\ Cases_on ‘cmp’
-  \\ gvs [semanticPrimitivesTheory.str_cmp_def,mlstringTheory.implode_def,
+  \\ gvs [semanticPrimitivesTheory.str_cmp_def,
           mlstringTheory.fast_lt_def, mlstringTheory.fast_gt_def,
           mlstringTheory.fast_le_def, mlstringTheory.fast_ge_def,
           mlstringTheory.mlstring_lt_def, mlstringTheory.mlstring_gt_def,
@@ -15250,7 +15250,7 @@ Proof
           mlstringTheory.mlstring_le_def, mlstringTheory.mlstring_ge_def]
   \\ simp [mlstringTheory.compare_def]
   \\ simp [Once mlstringTheory.compare_aux_def]
-  \\ simp [char_lt_def,mlstringTheory.strsub_def,mlstringTheory.implode_def]
+  \\ simp [char_lt_def,mlstringTheory.strsub_def]
   \\ gvs [AllCaseEqs()]
 QED
 
@@ -15310,7 +15310,7 @@ Proof
      \\ simp [mlstringTheory.compare_def]
      \\ rw []
      \\ simp [Once mlstringTheory.compare_aux_def]
-     \\ simp [char_lt_def,mlstringTheory.strsub_def,mlstringTheory.implode_def]
+     \\ simp [char_lt_def,mlstringTheory.strsub_def]
      \\ gvs [AllCaseEqs()])
   \\ gvs [MIN_SUC_SUC]
   \\ last_x_assum $ qspecl_then [‘k+1’,‘t’] mp_tac

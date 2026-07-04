@@ -8,14 +8,10 @@ Ancestors
   flat_pattern misc[qualified] ffi[qualified] bag[qualified]
   flatProps backendProps backend_common[qualified]
   pattern_semantics
-Ancestors[ignore_grammar]
   semanticPrimitives semanticPrimitivesProps flatLang
   flatSem mlstring
 
-(* Set up ML bindings *)
-open flat_patternTheory semanticPrimitivesTheory
-     semanticPrimitivesPropsTheory flatLangTheory flatSemTheory
-     flatPropsTheory backendPropsTheory pattern_semanticsTheory
+val build_rec_env_merge = flatPropsTheory.build_rec_env_merge;
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
@@ -72,7 +68,7 @@ Theorem dec_enc_aux:
 Proof
   measureInduct_on `I i`
   \\ simp [Once enc_num_to_name_aux_def]
-  \\ CASE_TAC \\ simp [dec_name_to_num_def, sum_string_ords_eq, implode_def]
+  \\ CASE_TAC \\ simp [dec_name_to_num_def, sum_string_ords_eq]
 QED
 
 Theorem dec_enc:
@@ -436,7 +432,7 @@ Theorem compile_pat_bindings_simulation:
   j < i /\
   ALOOKUP_rel ((\k. k < j) o dec_name_to_num) (=) env.v
     (pre_bindings ++ base_vs) /\
-  EVERY (\(p, k, _). EVERY (\nm. dec_name_to_num nm < j) (pat_bindings p []) /\
+  EVERY (\(p, k, _). EVERY (\nm. dec_name_to_num nm < j) (pat_bindings p) /\
         j < k /\ k < i) n_bindings
   ==>
   ?env2. evaluate env2 s [exp] = (s2, res) /\
@@ -572,9 +568,7 @@ Proof
     \\ fs [dec_enc]
   )
   >- (
-    gs [pat_bindings_def]
-    \\ qpat_x_assum ‘EVERY _ (pat_bindings _ [_])’ mp_tac
-    \\ rw [Once pat_bindings_accum]
+    gs [pat_bindings_def, EVERY_APPEND]
     \\ gvs [CaseEq "match_result"]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ qpat_x_assum `!env. _ ==> pure_eval_to _ _ x _` mp_tac
@@ -1176,14 +1170,14 @@ Proof
   \\ rpt strip_tac
   \\ fs [encode_pat_def, encode_val_def,
     Q.ISPEC `encode_val` ETA_THM, Q.ISPEC `encode_pat` ETA_THM]
-  \\ fs [flatSemTheory.pmatch_def, pmatch_def]
+  \\ fs [flatSemTheory.pmatch_def, pattern_semanticsTheory.pmatch_def]
   \\ TRY (fs [bool_case_eq] \\ rveq \\ fs [] \\ NO_TAC)
   >- (
     (* conses *)
     fs [Q.GEN `t1` bool_case_eq |> Q.ISPEC `Match_type_error`] \\  fs []
     \\ gvs [pmatch_stamps_ok_cases]
     \\ fs [AllCaseEqs()] \\ rveq \\ fs []
-    \\ simp [pmatch_def, is_sibling_def]
+    \\ simp [pattern_semanticsTheory.pmatch_def, is_sibling_def]
     \\ rfs []
     \\ every_case_tac \\ fs []
   )
@@ -1439,7 +1433,7 @@ Theorem compile_match_EL:
   ?exp_i sg exp'.
   compile_exp cfg exp = (exp_i, sg, exp') /\
   EL i pats2 = (pat, exp') /\
-  exp_i <= k /\ max_dec_name (pat_bindings pat []) <= k
+  exp_i <= k /\ max_dec_name (pat_bindings pat) <= k
 Proof
   Induct
   \\ simp [FORALL_PROD, compile_exp_def]
@@ -1462,7 +1456,7 @@ Theorem evaluate_compile_pat_rhs:
   nv_rel M l_bindings bindings /\
   f env3.v = (enc_num_to_name N, v) :: env2.v /\
   N <= M /\
-  max_dec_name (pat_bindings p []) < N - 1
+  max_dec_name (pat_bindings p) < N - 1
   ==>
   ?ext_env.
   evaluate ext_env s [exp] = (t, res) /\
@@ -1890,7 +1884,7 @@ Proof
     \\ metis_tac []
   )
   >- (
-    rename [`compile_dec cfg (Dlet e)`]
+    rename [`compile_dec cfg e`]
     \\ fs [compile_dec_def] \\ rveq \\ fs []
     \\ `?N sg exps. compile_exp cfg e = (N, sg, exps)`
         by metis_tac [pair_CASES]
@@ -2154,12 +2148,11 @@ QED
 
 Theorem compile_decs_elist_globals:
   !decs.
-  elist_globals (MAP dest_Dlet (FILTER is_Dlet (MAP (compile_dec cfg) decs))) ≤
-  elist_globals (MAP dest_Dlet (FILTER is_Dlet decs))
+  elist_globals (MAP (compile_dec cfg) decs) ≤
+  elist_globals decs
 Proof
   Induct
-  \\ rw []
-  \\ Cases_on `h` \\ fs [compile_dec_def]
+  \\ rw [] \\ fs [compile_dec_def]
   \\ simp [FST_SND_EQ_CASE]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
@@ -2293,15 +2286,14 @@ Proof
 QED
 
 Theorem compile_decs_esgc_free:
-  !decs. EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet decs))
+  !decs. EVERY esgc_free decs
   ==>
-  EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (MAP (compile_dec cfg) decs)))
+  EVERY esgc_free (MAP (compile_dec cfg) decs)
 Proof
   Induct
   \\ rw []
   \\ rpt (pairarg_tac \\ fs [])
-  \\ rveq \\ fs []
-  \\ Cases_on `h` \\ fs [compile_dec_def]
+  \\ rveq \\ fs [compile_dec_def]
   \\ simp [FST_SND_EQ_CASE]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []

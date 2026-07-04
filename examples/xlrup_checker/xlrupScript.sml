@@ -947,7 +947,7 @@ End
 
 Definition is_xor_def:
   is_xor def fml is cfml cis t s =
-  let r = extend_s (strlit "") def in
+  let r = extend_s «» def in
   case add_xors_aux fml is (strxor r s)
     of NONE => F
   | SOME x =>
@@ -958,7 +958,7 @@ End
 
 Definition conv_rawxor_def:
   conv_rawxor mv x =
-  let s = extend_s (strlit "") (MAX 1 mv)  in
+  let s = extend_s «» (MAX 1 mv)  in
   let s = flip_bit s 0 in
   conv_xor_aux s x
 End
@@ -971,7 +971,7 @@ End
 
 Definition is_cfromx_def:
   is_cfromx def fml is c =
-  let r = extend_s (strlit "") def in
+  let r = extend_s «» def in
   case add_xors_aux fml is r of NONE => F
   | SOME x =>
     strxor_imp_cclause def x c
@@ -1479,10 +1479,10 @@ QED
 
 Theorem is_emp_xor_eq:
   is_emp_xor x ⇒
-  (x = extend_s (strlit "") (strlen x))
+  (x = extend_s «» (strlen x))
 Proof
   rw[extend_s_def,is_emp_xor_def]>>
-  Cases_on`x`>>fs[implode_def]>>
+  Cases_on`x`>>fs[]>>
   rw[LIST_EQ_REWRITE,EL_REPLICATE]>>
   fs[EVERY_EL]
 QED
@@ -3213,14 +3213,14 @@ End
 
 Definition conv_xfml_def:
   conv_xfml mv xfml =
-  let s = extend_s (strlit "") (MAX 1 mv) in
+  let s = extend_s «» (MAX 1 mv) in
   let s = flip_bit s 0 in
   MAP (conv_xor s) xfml
 End
 
 Theorem conv_xor_base:
   EVERY nz_lit ls ⇒
- (isat_strxor w (conv_xor (flip_bit (extend_s (strlit "") (MAX 1 n)) 0) ls) ⇔
+ (isat_strxor w (conv_xor (flip_bit (extend_s «» (MAX 1 n)) 0) ls) ⇔
   sat_cmsxor w ls)
 Proof
   rw[conv_xor_sound,isat_strxor_extend_s]>>

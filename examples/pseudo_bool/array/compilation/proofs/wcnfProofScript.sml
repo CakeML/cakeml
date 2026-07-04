@@ -71,7 +71,7 @@ Theorem machine_code_sound:
   ∃out err.
     extract_fs fs (cake_pb_wcnf_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
-    (out ≠ strlit"" ⇒
+    (out ≠ «» ⇒
       (
         (LENGTH cl = 2 ∧
         ∃wfml.
@@ -157,7 +157,7 @@ Theorem strcat_isSuffixL:
   x ^ y = a ⇒
   isSuffix y a
 Proof
-  `a = a ^ strlit ""` by
+  `a = a ^ «»` by
     (Cases_on`a`>>EVAL_TAC)>>
   rw[]>>
   metis_tac[isSuffix_STRCAT]

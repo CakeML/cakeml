@@ -105,9 +105,9 @@ val _ = print "Running inference on basis...\n";
 
 (* Based on repl_init_typesScript.sml *)
 fun check infer_res = let
-  val _ = if can (match_term ``infer$Success _``) infer_res then
+  val _ = if can (match_term ``M_success _``) infer_res then
             print "Was Success!" else
-          if can (match_term ``infer$Failure _``) infer_res then let
+          if can (match_term ``M_failure _``) infer_res then let
             val msg = infer_res |> rand |> rand |> rand |> stringSyntax.fromHOLstring
                       handle HOL_ERR _ =>
                       failwith ("Was Failure! " ^

@@ -105,12 +105,12 @@ Theorem LIST_REL_STRING_TYPE:
    LIST_REL STRING_TYPE ls vs ⇒ ls = MAP v_to_string vs
 Proof
   rw[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP] \\ rfs[] \\ res_tac \\
-  Cases_on`EL x ls` \\ fs[STRING_TYPE_def,v_to_string_def,implode_def]
+  Cases_on`EL x ls` \\ fs[STRING_TYPE_def,v_to_string_def]
 QED
 (* -- *)
 
 Definition usage_string_def:
-  usage_string = strlit"Usage: sort <file> <file>...\n"
+  usage_string = «Usage: sort <file> <file>...\n»
 End
 
 val r = translate usage_string_def;
@@ -277,7 +277,7 @@ Definition valid_sort_result_def:
         PERM output lines ∧
         SORTED mlstring_le output ∧
         result_fs = add_stdout fs (concat output)
-    else result_fs = add_stderr init_fs (strlit "Cannot open file")
+    else result_fs = add_stderr init_fs «Cannot open file»
 End
 
 Theorem valid_sort_result_unique:
@@ -407,7 +407,7 @@ Proof
   xsimpl >>
   qexists_tac `\l n. STDIO (add_stdout fss (concat (MAP v_to_string (TAKE n l))))` >>
   xsimpl >>
-  simp [implode_def] >>
+  simp [] >>
   DEP_REWRITE_TAC[GEN_ALL add_stdo_nil] >>
   conj_asm1_tac
   >- (

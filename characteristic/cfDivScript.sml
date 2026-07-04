@@ -279,7 +279,7 @@ Definition mk_single_app_def:
    (mk_single_apps fname allow_fname [] =
     SOME []) /\
    (mk_single_appps fname allow_fname ((p,e)::pes) =
-    let fname' = if EXISTS ($= fname o SOME) (pat_bindings p [])
+    let fname' = if EXISTS ($= fname o SOME) (pat_bindings p)
                  then NONE
                  else fname
     in
@@ -930,7 +930,7 @@ Proof
       fs[ml_progTheory.nsLookup_nsAppend_Short] >>
       imp_res_tac semanticPrimitivesPropsTheory.pmatch_extend >> rveq >>
       rfs[] >>
-      qpat_x_assum `MAP _ _ = pat_bindings _ _` (assume_tac o GSYM) >>
+      qpat_x_assum `MAP _ _ = pat_bindings _` (assume_tac o GSYM) >>
       fs[] >> rfs[nsLookup_alist_to_ns_fresh] >>
       TRY(qmatch_asmsub_abbrev_tac `mk_single_app (SOME _) T e = SOME ea`
           >> every_case_tac >> fs[] >> every_case_tac >> fs[]) >>
@@ -2428,7 +2428,7 @@ Definition make_single_app_def:
     od) /\
    (make_single_apps fname [] = SOME []) /\
    (make_single_appps fname allow_fname ((p,e)::pes) =
-    let fname' = if EXISTS ($= fname o SOME) (pat_bindings p [])
+    let fname' = if EXISTS ($= fname o SOME) (pat_bindings p)
                  then NONE
                  else fname
     in
@@ -2954,7 +2954,7 @@ Proof
     \\ imp_res_tac semanticPrimitivesPropsTheory.pmatch_extend
     \\ rveq \\ fs []
     \\ last_x_assum mp_tac
-    \\ qspec_tac (`pat_bindings p []`,`xs`)
+    \\ qspec_tac (`pat_bindings p`,`xs`)
     \\ Induct \\ fs [])
   \\ fs [make_single_app_def,part_evaluates_to_match_def]
   \\ fs[evaluate_def,mk_tyerr_res_def]

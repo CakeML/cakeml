@@ -129,11 +129,11 @@ End
 val _ = next_ml_names := ["stdOut","stdErr"];
 
 val r = stdOut_def
-          |> SIMP_RULE (srw_ss()) [mlstringTheory.implode_def, MarshallingTheory.n2w8_def]
+          |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
           |> translate;
 
 val r = stdErr_def
-          |> SIMP_RULE (srw_ss()) [mlstringTheory.implode_def, MarshallingTheory.n2w8_def]
+          |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
           |> translate ;
 
 
@@ -149,7 +149,7 @@ End
 val _ = next_ml_names := ["raw_stdIn"];
 
 val r = raw_stdIn_def
-          |> SIMP_RULE (srw_ss()) [mlstringTheory.implode_def, MarshallingTheory.n2w8_def]
+          |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
           |> translate;
 
 Quote add_cakeml:
@@ -194,6 +194,16 @@ Quote add_cakeml:
           if nw < n then write fd (n-nw) (i+nw) else () end
 End
 
+Quote add_cakeml:
+  fun output_aux fd s i z =
+  if z <= i then () else let
+    val left = z - i
+    val n = if left <= 2048 then left else 2048
+    val _ = Word8Array.copyVec s i n iobuff 4
+    val _ = write (get_out fd) n 0
+  in output_aux fd s (i + n) z end
+End
+
 val _ = ml_prog_update open_local_in_block;
 
 (* Output functions on given file descriptor *)
@@ -204,14 +214,7 @@ End
 
 (* writes a string into a file *)
 Quote add_cakeml:
-  fun output fd s =
-  if s = "" then () else
-  let val z = String.size s
-      val n = if z <= 2048 then z else 2048
-      val fl = Word8Array.copyVec s 0 n iobuff 4
-      val a = write (get_out fd) n 0 in
-         output fd (String.substring s n (z-n))
-  end;
+  fun output fd s = output_aux fd s 0 (String.size s)
   fun print s = output stdOut s
   fun print_err s = output stdErr s
 End
@@ -538,6 +541,30 @@ Quote add_cakeml:
     | Some c => fold_tokens_loop c0 tokP mp fld is (fld c y);
 End
 
+Quote add_cakeml:
+  fun inputBuff is =
+    case is of InstreamBuffered fd rref wref surplus =>
+    let
+      val r = (!rref)
+      val w = (!wref)
+      val u = (rref := w)
+    in
+      Word8Array.substring surplus r (w - r)
+    end
+End
+
+Quote add_cakeml:
+  fun inputAll_aux is acc =
+    let
+      val new_acc = inputBuff is :: acc
+    in
+      if refillBuffer_with_read_guard is then
+        String.concat (List.rev new_acc)
+      else
+        inputAll_aux is new_acc
+    end
+End
+
 val _ = ml_prog_update open_local_in_block;
 
 Quote add_cakeml:
@@ -565,20 +592,17 @@ Quote add_cakeml:
 End
 
 Quote add_cakeml:
-  fun inputAll is = case is of InstreamBuffered fd rref wref surplus =>
-    let
-      fun inputAll_aux arr i =
-        let val len = Word8Array.length arr in
-          if i < len then
-            let
-              val n = raw_input fd arr i (len - i)
-            in
-              if n = 0 then Word8Array.substring arr 0 i
-              else inputAll_aux arr (i + n)
-            end
-          else inputAll_aux (extend_array arr) i
-        end
-      in inputAll_aux surplus 0 end
+  fun inputAll is = inputAll_aux is []
+End
+
+Quote add_cakeml:
+  fun inputAllFrom stdin_or_fname =
+    case open_option stdin_or_fname of
+      None => None
+    | Some (is,close) => let
+        val content = inputAll is
+      in close (); Some content end
+      handle e => (close (); raise e)
 End
 
 Quote add_cakeml:

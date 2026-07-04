@@ -72,13 +72,13 @@ val diff_alg2_side_def = Q.prove(`
   >> fs[mllistTheory.drop_def,mllistTheory.take_def,ml_translatorTheory.sub_check_def]) |> update_precondition;
 
 Definition notfound_string_def:
-  notfound_string f = concat[strlit"cake_diff: ";f;strlit": No such file or directory\n"]
+  notfound_string f = concat[«cake_diff: »;f;«: No such file or directory\n»]
 End
 
 val r = translate notfound_string_def;
 
 Definition usage_string_def:
-  usage_string = strlit"Usage: diff <file> <file>\n"
+  usage_string = «Usage: diff <file> <file>\n»
 End
 
 val r = translate usage_string_def;

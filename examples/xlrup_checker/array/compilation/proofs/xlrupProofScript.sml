@@ -74,18 +74,18 @@ Theorem machine_code_sound:
     if inFS_fname fs (EL 1 cl)
     then
       case parse_cnf_ext (all_lines_file fs (EL 1 cl)) of
-        NONE => out = strlit ""
+        NONE => out = «»
       | SOME fml => out = concat (print_cnf_ext fml)
-    else out = strlit ""
+    else out = «»
   else if LENGTH cl = 3 then
-    if out = strlit "s VERIFIED UNSAT\n" then
+    if out = «s VERIFIED UNSAT\n» then
       inFS_fname fs (EL 1 cl) ∧
       ∃f.
         parse_cnf_ext (all_lines_file fs (EL 1 cl)) = SOME f ∧
         sols f = {}
-    else out = strlit ""
+    else out = «»
   else
-    out = strlit ""
+    out = «»
 Proof
   strip_tac>>
   fs[installed_x64_def,cake_xlrup_code_def,cake_xlrup_run_def]>>
@@ -116,7 +116,7 @@ Proof
     >- (
       qexists_tac`err`>>rw[]>>
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    qexists_tac`strlit ""` >>
+    qexists_tac`«»` >>
     simp[STD_streams_stderr,add_stdo_nil])>>
   TOP_CASE_TAC>>fs[]
   >- (
@@ -128,27 +128,27 @@ Proof
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     TOP_CASE_TAC>>fs[]
     >- (
-      qexists_tac`strlit ""`>>simp[]>>
+      qexists_tac`«»`>>simp[]>>
       qexists_tac`err`>>rw[]>>
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     PairCases_on`x`>>fs[]>>
     reverse IF_CASES_TAC>>fs[]
     >- (
-      qexists_tac`strlit ""`>>simp[]>>
+      qexists_tac`«»`>>simp[]>>
       qexists_tac`err`>>rw[]>>
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     TOP_CASE_TAC>>fs[]
     >- (
-      qexists_tac`strlit ""`>>simp[]>>
+      qexists_tac`«»`>>simp[]>>
       qexists_tac`err`>>rw[]>>
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     reverse IF_CASES_TAC>>fs[]
     >- (
-      qexists_tac`strlit ""`>>simp[]>>
+      qexists_tac`«»`>>simp[]>>
       qexists_tac`err`>>rw[]>>
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    qexists_tac`strlit "s VERIFIED UNSAT\n"` >>
-    qexists_tac`strlit ""`>> simp[]>>
+    qexists_tac`«s VERIFIED UNSAT\n»` >>
+    qexists_tac`«»`>> simp[]>>
     CONJ_TAC >-
       metis_tac[STD_streams_stderr,add_stdo_nil]>>
     simp[parse_cnf_ext_def]>>

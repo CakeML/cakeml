@@ -35,7 +35,7 @@ val _ = translate wnocomment_line_def;
 
 Definition format_wcnf_failure_def:
   format_wcnf_failure (lno:num) s =
-  strlit "c wcnf parse failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"
+  «c wcnf parse failed at line: » ^ toString lno ^ «. Reason: » ^ s ^ «\n»
 End
 
 val _ = translate format_wcnf_failure_def;
@@ -385,28 +385,28 @@ End
 
 Definition print_maxsat_str_def:
   print_maxsat_str copt =
-  case copt of NONE => strlit "s VERIFIED NO CONCLUSION\n"
+  case copt of NONE => «s VERIFIED NO CONCLUSION\n»
   | SOME (lbg:num option,ubg:num option) =>
   (case ubg of
-    NONE => strlit "s VERIFIED UNSATISFIABLE"
+    NONE => «s VERIFIED UNSATISFIABLE»
   | SOME ub =>
     (case lbg of
       NONE =>
-        strlit "s VERIFIED BOUNDS " ^
-        strlit "COST <= " ^ toString ub ^ strlit"\n"
+        «s VERIFIED BOUNDS » ^
+        «COST <= » ^ toString ub ^ «\n»
     | SOME lb =>
       if lb = ub then
-        strlit "s VERIFIED OPTIMAL COST = " ^
-        toString ub ^ strlit"\n"
+        «s VERIFIED OPTIMAL COST = » ^
+        toString ub ^ «\n»
       else
-        strlit "s VERIFIED " ^
+        «s VERIFIED » ^
         (toString lb) ^
-        strlit " <= COST <= " ^ toString ub ^ strlit"\n"))
+        « <= COST <= » ^ toString ub ^ «\n»))
 End
 
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 out ⇔
-  (out ≠ strlit"" ⇒
+  (out ≠ «» ⇒
   ∃wfml bounds.
     get_fml fs f1 = SOME wfml ∧
     out = print_maxsat_str bounds ∧
@@ -418,7 +418,7 @@ Definition map_concl_to_string_def:
   (map_concl_to_string (INR (out,bnd,c)) =
     case conv_concl c of
       SOME bounds => INR (print_maxsat_str bounds)
-    | NONE => INL (strlit "c Unexpected conclusion type\n"))
+    | NONE => INL «c Unexpected conclusion type\n»)
 End
 
 val res = translate nn_int_def;
@@ -515,7 +515,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -528,7 +528,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -539,7 +539,7 @@ Proof
     qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
     rw[]>>
     qexists_tac`print_maxsat_str x`>>simp[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
     rw[]>>
@@ -568,7 +568,7 @@ QED
 Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs f1 out ⇔
   case get_fml fs f1 of
-    NONE => out = strlit ""
+    NONE => out = «»
   | SOME wfml =>
     out = concat (print_prob (mk_prob (full_encode wfml)))
 End
@@ -613,7 +613,7 @@ Proof
   asm_exists_tac>>xsimpl>>
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`strlit ""`>>
+  qexists_tac`«»`>>
   simp[STD_streams_stderr,add_stdo_nil]>>
   xsimpl
 QED
@@ -626,13 +626,13 @@ End
 Definition print_maxsat_output_str_def:
   print_maxsat_output_str iseqopt =
   if iseqopt
-  then strlit "s VERIFIED OUTPUT EQUIOPTIMAL\n"
-  else strlit "s VERIFIED NO OUTPUT CLAIM\n"
+  then «s VERIFIED OUTPUT EQUIOPTIMAL\n»
+  else «s VERIFIED NO OUTPUT CLAIM\n»
 End
 
 Definition check_unsat_3_sem_def:
   check_unsat_3_sem fs f1 f3 out ⇔
-  (out ≠ strlit"" ⇒
+  (out ≠ «» ⇒
   ∃wfml wfmlt bounds iseqopt.
     get_fml fs f1 = SOME wfml ∧
     get_fml fs f3 = SOME wfmlt ∧
@@ -646,10 +646,10 @@ Definition map_out_concl_to_string_def:
   (map_out_concl_to_string (INL s) = (INL s)) ∧
   (map_out_concl_to_string (INR (out,bnd,c)) =
   case conv_concl c of
-    NONE => INL (strlit "c Unexpected conclusion type\n")
+    NONE => INL «c Unexpected conclusion type\n»
   | SOME bounds =>
     (case conv_output bnd out of
-      NONE => INL (strlit "c Unexpected output type\n")
+      NONE => INL «c Unexpected output type\n»
     | SOME iseqopt =>
         INR (print_maxsat_str bounds ^
             print_maxsat_output_str iseqopt )))
@@ -737,7 +737,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -752,7 +752,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -765,7 +765,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -777,7 +777,7 @@ Proof
   rw[]>>
   qexists_tac`print_maxsat_str x ^ print_maxsat_output_str x'`>>
   simp[]>>
-  qexists_tac`strlit ""`>>
+  qexists_tac`«»`>>
   simp[STD_streams_stderr,add_stdo_nil]>>
   xsimpl>>
   rw[]>>
@@ -810,7 +810,7 @@ Proof
 QED
 
 Definition usage_string_def:
-  usage_string = strlit "Usage: cake_pb_wcnf <wcnf file> <optional: PB proof file> <optional: wcnf output file>\n"
+  usage_string = «Usage: cake_pb_wcnf <wcnf file> <optional: PB proof file> <optional: wcnf output file>\n»
 End
 
 val r = translate usage_string_def;
@@ -832,7 +832,7 @@ Definition main_sem_def:
     check_unsat_2_sem fs (EL 1 cl) out
   else if LENGTH cl = 4 then
     check_unsat_3_sem fs (EL 1 cl) (EL 3 cl) out
-  else out = strlit ""
+  else out = «»
 End
 
 Theorem STDIO_refl:

@@ -651,7 +651,7 @@ type_e tenv tenvE (Raise e) t)
 /\ (! tenv tenvE e pes t.
 (type_e tenv tenvE e t /\ ~ (pes = []) /\
 (! ((p,e) :: LIST_TO_SET pes). ? bindings.
-   ALL_DISTINCT (pat_bindings p []) /\
+   ALL_DISTINCT (pat_bindings p) /\
    type_p (num_tvs tenvE) tenv p Texn bindings /\
    type_e tenv (bind_var_list(( 0 : num)) bindings tenvE) e t))
 ==>
@@ -706,7 +706,7 @@ type_e tenv tenvE (If e1 e2 e3) t)
 /\ (! tenv tenvE e pes t1 t2.
 (type_e tenv tenvE e t1 /\ ~ (pes = []) /\
 (! ((p,e) :: LIST_TO_SET pes) . ? bindings.
-   ALL_DISTINCT (pat_bindings p []) /\
+   ALL_DISTINCT (pat_bindings p) /\
    type_p (num_tvs tenvE) tenv p t1 bindings /\
    type_e tenv (bind_var_list(( 0 : num)) bindings tenvE) e t2))
 ==>
@@ -809,7 +809,7 @@ End
 Inductive type_d:
 (! extra_checks tvs tenv p e t bindings locs.
 (is_value e /\
-ALL_DISTINCT (pat_bindings p []) /\
+ALL_DISTINCT (pat_bindings p) /\
 type_p tvs tenv p t bindings /\
 type_e tenv (bind_tvar tvs Empty) e t /\
 (extra_checks ==>
@@ -828,7 +828,7 @@ type_d extra_checks tenv (Dlet locs p e)
    generalisation, a type error is given rather than picking an arbitrary
    instantiation. However, we should only do the check when the extra_checks
    argument tells us to. *)(extra_checks ==> (~ (is_value e) /\ type_pe_determ tenv Empty p e)) /\
-ALL_DISTINCT (pat_bindings p []) /\
+ALL_DISTINCT (pat_bindings p) /\
 type_p(( 0 : num)) tenv p t bindings /\
 type_e tenv Empty e t)
 ==>

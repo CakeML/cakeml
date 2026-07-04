@@ -3852,7 +3852,7 @@ Definition check_spec_aux_list_def:
   (check_spec_aux_list asv fml inds id (((c,s,pfs,idopt)::gs):specproof) vimap zeros =
   if check_support asv s then
     case check_red_list (NONE:num_set option) (NONE:ord_s option) NONE F F
-      fml inds id c s pfs idopt vimap (strlit "") zeros of
+      fml inds id c s pfs idopt vimap «» zeros of
         NONE => F
       | SOME (fml',inds',vimap',id',zeros') =>
         let fml'' = update_resize fml' NONE (SOME (c,F)) id' in
@@ -5031,7 +5031,7 @@ Proof
 QED
 
 Definition mk_vomap_opt_def:
-  (mk_vomap_opt NONE = strlit "") ∧
+  (mk_vomap_opt NONE = «») ∧
   (mk_vomap_opt (SOME fc) = mk_vomap (LENGTH (FST fc)) fc)
 End
 

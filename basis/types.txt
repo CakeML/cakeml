@@ -35,6 +35,7 @@ List.takeUntil: ('a -> bool) -> 'a list -> 'a list
 List.dropUntil: ('a -> bool) -> 'a list -> 'a list
 List.cmp: ('a -> 'b -> ordering) -> 'a list -> 'b list -> ordering
 List.concat: 'a list list -> 'a list
+List.intersperse: 'a -> 'a list -> 'a list
 List.map: ('a -> 'b) -> 'a list -> 'b list
 List.mapi: (int -> 'a -> 'b) -> 'a list -> 'b list
 List.mapPartial: ('a -> 'b option) -> 'a list -> 'b list
@@ -381,6 +382,7 @@ TextIO.inputLines: char -> TextIO.instream -> string list
 TextIO.inputLinesFile: char -> string -> string list option
 TextIO.inputLinesStdIn: char -> string list
 TextIO.inputAll: TextIO.instream -> string
+TextIO.inputAllFrom: string option -> string option
 TextIO.inputAllTokens: char -> TextIO.instream -> (char -> bool) -> (string -> 'a) -> 'a list list
 TextIO.inputAllTokensFile: char -> string -> (char -> bool) -> (string -> 'a) -> 'a list list option
 TextIO.inputAllTokensFrom: char -> string option -> (char -> bool) -> (string -> 'a) -> 'a list list option

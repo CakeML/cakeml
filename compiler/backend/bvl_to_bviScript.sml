@@ -539,22 +539,22 @@ End
 Definition get_names_def:
   get_names final_nums old_names =
     fromAList (MAP (λn. (n,
-      if n = InitGlobals_location then mlstring$strlit "start" else
-      if n = AllocGlobal_location then mlstring$strlit "AllocGlobal" else
-      if n = CopyGlobals_location then mlstring$strlit "CopyGlobals" else
-      if n = ListLength_location then mlstring$strlit "ListLength" else
-      if n = FromListByte_location then mlstring$strlit "FromListByte" else
-      if n = ToListByte_location then mlstring$strlit "ToListByte" else
-      if n = SumListLength_location then mlstring$strlit "SumListLength" else
-      if n = ConcatByte_location then mlstring$strlit "ConcatByte" else
-      if n < num_stubs then mlstring$strlit "bvi_unknown" else
+      if n = InitGlobals_location then implode "start" else
+      if n = AllocGlobal_location then implode "AllocGlobal" else
+      if n = CopyGlobals_location then implode "CopyGlobals" else
+      if n = ListLength_location then implode "ListLength" else
+      if n = FromListByte_location then implode "FromListByte" else
+      if n = ToListByte_location then implode "ToListByte" else
+      if n = SumListLength_location then implode "SumListLength" else
+      if n = ConcatByte_location then implode "ConcatByte" else
+      if n < num_stubs then implode "bvi_unknown" else
         let k = n - num_stubs in
         let kd = k DIV nss in
         let km = k MOD nss in
         let n = (case lookup kd old_names of
-          | NONE => mlstring$strlit "bvi_unmapped"
+          | NONE => implode "bvi_unmapped"
           | SOME name => name) in
-        let aux = (if km = 0 then mlstring$strlit "" else mlstring$strlit "_bvi_aux") in
+        let aux = (if km = 0 then implode "" else implode "_bvi_aux") in
           n ^ aux)) final_nums)
 End
 

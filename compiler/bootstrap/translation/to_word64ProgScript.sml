@@ -318,6 +318,11 @@ val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a wor
                    ``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``]
 
 val res = word_cseTheory.map_insert_def |> DefnBase.one_line_ify NONE |> translate;
+
+val res = translate word_cseTheory.bm_inter_eq_def;
+val res = translate sptreeTheory.inter_eq_def;
+val res = translate word_cseTheory.merge_data_def;
+
 val res = translate (word_cseTheory.word_cseInst_def |> spec64);
 val res = translate_no_ind (word_cseTheory.word_cse_def |> spec64);
 
@@ -467,6 +472,9 @@ val _ = translate (spec64 inst_select_def(*pmatch*))
 
 val _ = translate (spec64 list_next_var_rename_move_def)
 val _ = translate force_rename_def
+
+val _ = translate (spec64 ssa_reconcile_def);
+val _ = translate (spec64 loop_setup_def);
 
 val _ = translate (conv64 ssa_cc_trans_inst_def)
 val _ = translate (spec64 full_ssa_cc_trans_def)

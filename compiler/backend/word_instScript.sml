@@ -432,6 +432,8 @@ Definition inst_select_def:
         NONE => NONE
       | SOME (n,h,l1,l2) => SOME (n,inst_select c temp h,l1,l2) in
     Call retsel dest args handlersel) ∧
+  (inst_select c temp (Loop names body exit_names) =
+    Loop names (inst_select c temp body) exit_names) ∧
   (inst_select c temp prog = prog)
 End
 
@@ -490,6 +492,8 @@ Theorem inst_select_pmatch:
         NONE => NONE
       | SOME (n,h,l1,l2) => SOME (n,inst_select c temp h,l1,l2) in
     Call retsel dest args handlersel)
+  | (Loop names body exit_names) =>
+    Loop names (inst_select c temp body) exit_names
   | prog => prog
 Proof
   rpt(
@@ -533,6 +537,8 @@ Definition three_to_two_reg_def:
         NONE => NONE
       | SOME (n,h,l1,l2) => SOME (n,three_to_two_reg h,l1,l2) in
     Call retsel dest args handlersel) ∧
+  (three_to_two_reg (Loop names body exit_names) =
+    Loop names (three_to_two_reg body) exit_names) ∧
   (three_to_two_reg prog = prog)
 End
 
@@ -569,6 +575,8 @@ Theorem three_to_two_reg_pmatch:
         NONE => NONE
       | SOME (n,h,l1,l2) => SOME (n,three_to_two_reg h,l1,l2) in
     Call retsel dest args handlersel)
+  | (Loop names body exit_names) =>
+    Loop names (three_to_two_reg body) exit_names
   | prog => prog
 Proof
   rpt(

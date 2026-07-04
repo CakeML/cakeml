@@ -67,12 +67,12 @@ QED
 (* Pretty print conclusion *)
 Definition mclique_eq_str_def:
   mclique_eq_str (n:num) =
-  strlit "s VERIFIED COMPLETE ENUMERATION OF " ^ toString n ^ strlit " MAXIMAL CLIQUES\n"
+  «s VERIFIED COMPLETE ENUMERATION OF » ^ toString n ^ « MAXIMAL CLIQUES\n»
 End
 
 Definition mclique_bound_str_def:
   mclique_bound_str (n:num) =
-  strlit "s VERIFIED PARTIAL ENUMERATION OF " ^ toString n ^ strlit " MAXIMAL CLIQUES\n"
+  «s VERIFIED PARTIAL ENUMERATION OF » ^ toString n ^ « MAXIMAL CLIQUES\n»
 End
 
 Definition print_mclique_str_def:
@@ -91,7 +91,7 @@ End
 
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f out ⇔
-  (out ≠ strlit"" ⇒
+  (out ≠ «» ⇒
   ∃g nc.
     get_graph_dimacs fs f = SOME g ∧
     out = print_mclique_str nc ∧
@@ -105,7 +105,7 @@ Definition map_concl_to_string_def:
   (map_concl_to_string (INR (out,bnd,c)) =
     case mconv_concl c of
       SOME n => INR (print_mclique_str n)
-    | NONE => INL (strlit "c Unexpected conclusion type for maximal clique enumeration.\n"))
+    | NONE => INL «c Unexpected conclusion type for maximal clique enumeration.\n»)
 End
 
 val res = translate mclique_eq_str_def;
@@ -204,7 +204,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -217,7 +217,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -228,7 +228,7 @@ Proof
     qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
     rw[]>>
     qexists_tac`print_mclique_str x`>>simp[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rw[]>>simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
     qexists_tac`x`>>simp[]>>
@@ -244,7 +244,7 @@ QED
 Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs f1 out ⇔
   case get_graph_dimacs fs f1 of
-    NONE => out = strlit ""
+    NONE => out = «»
   | SOME g =>
     out = concat (print_annot_prob (mk_prob (full_mencode g)))
 End
@@ -294,13 +294,13 @@ Proof
   asm_exists_tac>>xsimpl>>
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`strlit ""`>>
+  qexists_tac`«»`>>
   simp[STD_streams_stderr,add_stdo_nil]>>
   xsimpl
 QED
 
 Definition usage_string_def:
-  usage_string = strlit "Usage: cake_pb_mclique <DIMACS file> <optional: PB proof file>\n"
+  usage_string = «Usage: cake_pb_mclique <DIMACS file> <optional: PB proof file>\n»
 End
 
 val r = translate usage_string_def;
@@ -319,7 +319,7 @@ Definition main_sem_def:
     check_unsat_1_sem fs (EL 1 cl) out
   else if LENGTH cl = 3 then
     check_unsat_2_sem fs (EL 1 cl) out
-  else out = strlit ""
+  else out = «»
 End
 
 Theorem STDIO_refl:

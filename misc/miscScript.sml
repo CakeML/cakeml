@@ -1739,6 +1739,14 @@ QED
 
 (* FUPDATE_LIST stuff *)
 
+Theorem NOT_MEM_FLOOKUP_ZIP:
+  ∀ys xs zs. ¬MEM n ys ⇒ FLOOKUP (xs |++ ZIP (ys, zs)) n = FLOOKUP xs n
+Proof
+  Induct >- simp [ZIP_def, FUPDATE_LIST_THM]
+  >> Cases_on ‘zs’
+  >> simp [ZIP_def, FUPDATE_LIST_THM, FLOOKUP_SIMP]
+QED
+
 (* Misc. *)
 
 Theorem LESS_1[simp]:
@@ -2479,20 +2487,6 @@ Proof
     \\ Cases_on `LENGTH (FILTER (\x. x = a) l1)`
     \\ first_x_assum (qspecl_then [`a`] mp_tac) \\ rw[] \\ rfs[]
 QED
-
-Definition CONCAT_WITH_aux_def:
-    (CONCAT_WITH_aux [] l fl = REVERSE fl ++ FLAT l) /\
-    (CONCAT_WITH_aux (h::t) [] fl = REVERSE fl) /\
-    (CONCAT_WITH_aux (h::t) ((h1::t1)::ls) fl = CONCAT_WITH_aux (h::t) (t1::ls) (h1::fl)) /\
-    (CONCAT_WITH_aux (h::t) ([]::[]) fl = REVERSE fl) /\
-    (CONCAT_WITH_aux (h::t) ([]::(h'::t')) fl = CONCAT_WITH_aux (h::t) (h'::t') (REVERSE(h::t) ++ fl))
-End
-
-val CONCAT_WITH_AUX_ind = theorem"CONCAT_WITH_aux_ind";
-
-Definition CONCAT_WITH_def:
-    CONCAT_WITH s l = CONCAT_WITH_aux s l []
-End
 
 Theorem OPT_MMAP_MAP_o:
    !ls. OPT_MMAP f (MAP g ls) = OPT_MMAP (f o g) ls

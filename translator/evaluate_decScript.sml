@@ -26,7 +26,7 @@ Definition evaluate_dec_list_def:
      | (st1,Rerr v7) => (st1,Rerr v7))
   ∧
   evaluate_dec_list st env [Dlet locs p e] =
-    (if ALL_DISTINCT (pat_bindings p [])
+    (if ALL_DISTINCT (pat_bindings p)
      then
        case evaluate st env [e] of
          (st',Rval v) =>

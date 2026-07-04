@@ -205,12 +205,17 @@ val _ = word_to_stackTheory.call_dest_def |> arch_spec |> cv_auto_trans;
 val _ = word_to_stackTheory.stack_free_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.stack_move_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.StackArgs_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.perf_rbp_def |> cv_trans;
+val _ = word_to_stackTheory.perf_rsp_def |> cv_trans;
+val _ = word_to_stackTheory.handler_slots_def |> cv_trans;
+val _ = word_to_stackTheory.perf_call_prefix_def |> arch_spec |> cv_auto_trans;
+val _ = word_to_stackTheory.perf_call_suffix_def |> arch_spec |> cv_auto_trans;
 val _ = word_to_stackTheory.StackHandlerArgs_def |> arch_spec |> cv_trans;
-val _ = word_to_stackTheory.PushHandler_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.PushHandler_def |> arch_spec |> cv_auto_trans;
 val _ = word_to_stackTheory.PopHandler_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.chunk_to_bits_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.chunk_to_bitmap_def |> arch_spec |> cv_trans;
-val _ = word_to_stackTheory.raise_stub_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.raise_stub_def |> arch_spec |> cv_auto_trans;
 val _ = word_to_stackTheory.store_consts_stub_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.copy_ret_def |> arch_spec |> cv_auto_trans;
 
@@ -287,7 +292,7 @@ val _ = word_removeTheory.remove_must_terminate_def |> arch_spec |> cv_trans;
 
 val pre = word_allocTheory.remove_dead_def |> arch_spec |> cv_auto_trans_pre "";
 Theorem word_alloc_remove_dead_pre[cv_pre]:
-  ∀v live nlive. word_alloc_remove_dead_pre v live nlive
+  ∀v live nlive lt. word_alloc_remove_dead_pre v live nlive lt
 Proof
   ho_match_mp_tac word_allocTheory.remove_dead_ind \\ rw [] \\ simp [Once pre]
 QED
@@ -347,6 +352,8 @@ val _ = word_cseTheory.regImmToNumList_def |> arch_spec |> cv_trans;
 val _ = word_cseTheory.arithToNumList_def |> arch_spec |> cv_trans;
 val _ = word_cseTheory.instToNumList_def |> arch_spec |> cv_trans;
 val _ = word_cseTheory.add_to_data_def |> arch_spec |> cv_trans;
+val _ = word_cseTheory.add_to_data_const_def |> arch_spec
+         |> SRULE [GSYM lookup_listCmp_def, GSYM insert_listCmp_def] |> cv_auto_trans;
 val _ = word_cseTheory.word_cseInst_def |> arch_spec |> cv_trans;
 val _ = word_cseTheory.word_cse_def |> arch_spec |> cv_trans;
 val _ = word_cseTheory.word_common_subexp_elim_def |> arch_spec |> cv_trans;
@@ -365,7 +372,7 @@ QED
 
 val pre = word_allocTheory.ssa_cc_trans_def |> arch_spec |> cv_auto_trans_pre "";
 Theorem word_alloc_ssa_cc_trans_pre[cv_pre]:
-  ∀v ssa na. word_alloc_ssa_cc_trans_pre v ssa na
+  ∀v ssa na lt. word_alloc_ssa_cc_trans_pre v ssa na lt
 Proof
   ho_match_mp_tac word_allocTheory.ssa_cc_trans_ind \\ rw[] \\ simp [Once pre]
 QED

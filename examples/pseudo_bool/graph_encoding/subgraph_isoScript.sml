@@ -20,26 +20,26 @@ Type map_var = ``:num # num``
 (* For a in vp, vp is mapped to exactly 1 target in vt *)
 Definition has_mapping_al1_def:
   has_mapping_al1 (a:num) vt =
-  ((strlit"al1" ^ toString a)
+  ((«al1» ^ toString a)
   ,(GreaterEqual, (GENLIST (λv. (1, Pos (a,v))) vt), 1):map_var pbc)
 End
 
 Definition has_mapping_am1_def:
   has_mapping_am1 (a:num) vt =
-  ((strlit"am1" ^ toString a)
+  ((«am1» ^ toString a)
   ,(LessEqual, (GENLIST (λv. (1, Pos (a,v))) vt), 1):map_var pbc)
 End
 
 Definition one_one_def:
   one_one u vp =
-  ((strlit"inj" ^ toString u)
+  ((«inj» ^ toString u)
   ,(GreaterEqual, GENLIST (λb. (1, Neg (b,u))) vp, &vp-1): map_var pbc)
 End
 
 Definition edge_map_def:
   edge_map (a:num,b:num) (u:num) et =
   (
-  concat [strlit"adj"; toString a; strlit"_"; toString u; strlit"_"; toString b]
+  concat [«adj»; toString a; «_»; toString u; «_»; toString b]
   ,(GreaterEqual,
     (1,Neg (a,u)) ::
       MAP (λv. (1,Pos (b,v))) (neighbours et u),
@@ -414,7 +414,7 @@ QED
   and normalize to ≥ only *)
 Definition enc_string_def:
   (enc_string (xp,xt) =
-    concat [strlit"x";toString xp;strlit"_";toString xt])
+    concat [«x»;toString xp;«_»;toString xt])
 End
 
 Theorem enc_string_INJ:

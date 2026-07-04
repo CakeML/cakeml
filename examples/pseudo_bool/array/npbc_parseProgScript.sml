@@ -224,7 +224,7 @@ val r = translate check_mark_qed_id_opt_def;
 val r = translate check_mark_qed_id_def;
 
 Definition check_mark_qed_id_pbc_def:
-  check_mark_qed_id_pbc s = check_mark_qed_id (INL (strlit "pbc")) s
+  check_mark_qed_id_pbc s = check_mark_qed_id (INL «pbc») s
 End
 
 val r = translate check_mark_qed_id_pbc_def;
@@ -980,7 +980,7 @@ QED
 val r = translate parse_red_header_red_def;
 
 Definition check_mark_qed_id_opt_red_def:
-  check_mark_qed_id_opt_red s = check_mark_qed_id_opt (INL (strlit "red")) s
+  check_mark_qed_id_opt_red s = check_mark_qed_id_opt (INL «red») s
 End
 
 val r = translate check_mark_qed_id_opt_red_def;
@@ -1729,19 +1729,19 @@ val res = translate parse_cstep_head_def;
 val PB_PARSE_PAR_TYPE_def = theorem"PB_PARSE_PAR_TYPE_def";
 
 Definition check_mark_qed_id_opt_dom_def:
-  check_mark_qed_id_opt_dom s = check_mark_qed_id_opt (INL (strlit "dom")) s
+  check_mark_qed_id_opt_dom s = check_mark_qed_id_opt (INL «dom») s
 End
 
 val r = translate check_mark_qed_id_opt_dom_def;
 
 Definition check_mark_qed_id_opt_delc_def:
-  check_mark_qed_id_opt_delc s = check_mark_qed_id_opt (INL (strlit "delc")) s
+  check_mark_qed_id_opt_delc s = check_mark_qed_id_opt (INL «delc») s
 End
 
 val r = translate check_mark_qed_id_opt_delc_def;
 
 Definition check_mark_qed_id_opt_obju_def:
-  check_mark_qed_id_opt_obju s = check_mark_qed_id_opt (INL (strlit "obju")) s
+  check_mark_qed_id_opt_obju s = check_mark_qed_id_opt (INL «obju») s
 End
 
 val r = translate check_mark_qed_id_opt_obju_def;
@@ -1749,7 +1749,7 @@ val r = translate check_mark_qed_id_opt_obju_def;
 Definition check_mark_qed_id_opt_preserve_def:
   check_mark_qed_id_opt_preserve b s =
     check_mark_qed_id_opt
-      (if b then INL (strlit"preserved_add") else INL (strlit"preserved_rm")) s
+      (if b then INL «preserved_add» else INL «preserved_rm») s
 End
 
 val r = translate check_mark_qed_id_opt_preserve_def;
@@ -2539,7 +2539,7 @@ val res = translate parse_concl_def;
 
 val res = translate parse_output_def;
 
-val endtrm = rconc (EVAL``toks (strlit"end pseudo-Boolean proof")``);
+val endtrm = rconc (EVAL``toks «end pseudo-Boolean proof»``);
 
 Definition last_two_ls_def:
   (last_two_ls [x;y] =
@@ -2570,7 +2570,7 @@ val res = translate parse_output_concl_def;
 
 Definition cons_line_def:
   cons_line ls =
-  concatWith (strlit" ")
+  concatWith « »
   (MAP
     (λn. case n of INL s => s | INR i => int_to_string #"-" i) ls)
 End
@@ -2579,7 +2579,7 @@ val res = translate cons_line_def;
 
 Definition mk_parse_err_def:
   mk_parse_err s =
-    strlit "unable to parse line at (parse error may be later for output/conclusion section): " ^
+    «unable to parse line at (parse error may be later for output/conclusion section): » ^
     cons_line s
 End
 
@@ -2589,7 +2589,7 @@ Definition format_err_def:
   (format_err NONE NONE = NONE) ∧
   (format_err (SOME s1) NONE = SOME s1) ∧
   (format_err NONE (SOME s2) = SOME s2) ∧
-  (format_err (SOME s1) (SOME s2) = SOME (s1 ^ strlit" ; "^ s2))
+  (format_err (SOME s1) (SOME s2) = SOME (s1 ^ « ; »^ s2))
 End
 
 val res = translate format_err_def;
@@ -3179,12 +3179,12 @@ Definition check_f_line_def:
   case strip_term_line s of NONE => F
   | SOME s =>
   case s of [] => F
-  | x::xs => x = INL(strlit "f")
+  | x::xs => x = INL «f»
 End
 
 val r = translate check_f_line_def;
 
-val headertrm = rconc (EVAL``toks_fast (strlit"pseudo-Boolean proof version 3.0")``);
+val headertrm = rconc (EVAL``toks_fast «pseudo-Boolean proof version 3.0»``);
 
 Definition parse_header_line_fast_def:
   parse_header_line_fast s ⇔
@@ -3268,7 +3268,7 @@ Proof
 QED
 
 Definition notfound_string_def:
-  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]
+  notfound_string f = concat[«c Input file: »;f;« no such file or directory\n»]
 End
 
 val r = translate notfound_string_def;
@@ -3654,18 +3654,18 @@ val date_tm = Term `strlit^(stringSyntax.fromMLstring date_str)`
 Definition print_option_def:
   print_option h x =
     case x of
-      NONE => strlit""
-    | SOME y => h ^ strlit" " ^ y ^ strlit"\n"
+      NONE => «»
+    | SOME y => h ^ « » ^ y ^ «\n»
 End
 
 val current_build_info_str_tm = EVAL ``
-    let commit = print_option (strlit"CakeML:") ^current_version_tm in
-    let hol    = print_option (strlit"HOL4:  ") ^hol_version_tm in
-    let poly   = print_option (strlit"PolyML:") ^poly_version_tm in
+    let commit = print_option «CakeML:» ^current_version_tm in
+    let hol    = print_option «HOL4:  » ^hol_version_tm in
+    let poly   = print_option «PolyML:» ^poly_version_tm in
       concat
-        [ strlit"CakePB\n\n"
-        ; strlit"Version details:\n"
-        ; ^date_tm; strlit"\n"
+        [ «CakePB\n\n»
+        ; «Version details:\n»
+        ; ^date_tm; «\n»
         ; commit; hol; poly ]``
   |> concl |> rhs
 
@@ -3676,7 +3676,7 @@ End
 val res = translate current_build_info_str_def;
 
 Definition mk_usage_string_def:
-  mk_usage_string s = current_build_info_str ^ strlit "\n\n" ^ s
+  mk_usage_string s = current_build_info_str ^ «\n\n» ^ s
 End
 
 val res = translate mk_usage_string_def;

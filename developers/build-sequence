@@ -91,6 +91,7 @@ candle/set-theory
 candle/syntax-lib
 candle/standard
 candle/standard/syntax
+candle/standard/syntax/little_theories
 candle/standard/semantics
 candle/standard/monadic
 candle/standard/ml_kernel
@@ -148,6 +149,13 @@ examples/xlrup_checker/array
 examples/xlrup_checker/array/compilation
 examples/xlrup_checker/array/compilation/proofs
 
+examples/cnf
+examples/cnf/array
+examples/cnf/dist
+examples/cnf/dist/array
+examples/cnf/dist/array/compilation
+examples/cnf/dist/array/compilation/proofs
+
 examples/scpog_checker
 examples/scpog_checker/array
 examples/scpog_checker/array/compilation
@@ -176,6 +184,10 @@ examples/deflate/translation
 examples/deflate/translation/compilation
 examples/vipr
 examples/vipr/compilation
+
+examples/flover/Infra
+examples/flover/semantics
+examples/flover
 
 examples/template
 examples/template/translation

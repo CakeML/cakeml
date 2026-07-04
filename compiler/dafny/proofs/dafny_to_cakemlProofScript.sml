@@ -93,7 +93,7 @@ Definition cml_dec_to_string_clos_def:
 End
 
 Definition dec_to_string_def:
-  dec_to_string n = str (CHR (48 + n))
+  dec_to_string n = toString (CHR (48 + n))
 End
 
 Definition has_list_cons_def:
@@ -122,8 +122,8 @@ Proof
            do_con_check_def, build_conv_def, do_app_def, do_arith_def, check_type_def]
   \\ ‘¬((48: int) + &n < 0 ∨ (48: int) + &n > 255)’ by (intLib.COOPER_TAC)
   \\ simp [v_to_char_list_def]
-  \\ gvs [dec_to_string_def, str_def]
-  \\ AP_TERM_TAC \\ AP_THM_TAC \\ ntac 2 AP_TERM_TAC
+  \\ gvs [dec_to_string_def, chr_to_str_def]
+  \\ AP_TERM_TAC
   \\ intLib.COOPER_TAC
 QED
 
@@ -2671,13 +2671,10 @@ Proof
   simp [ALL_DISTINCT_GENLIST, cml_tup_vname_def, num_to_str_11]
 QED
 
-Theorem ALL_DISTINCT_pats_bindings[local]:
-  ∀xs ys.
-    ALL_DISTINCT (xs ++ ys) ⇒
-    ALL_DISTINCT (pats_bindings (MAP Pvar xs) ys)
+Theorem pats_bindings_MAP_Pvar[local]:
+  ∀xs. pats_bindings (MAP Pvar xs) = REVERSE xs
 Proof
-  Induct_on ‘xs’ \\ gvs [pat_bindings_def]
-  \\ rpt strip_tac \\ gvs [ALL_DISTINCT_APPEND]
+  Induct \\ gvs [pat_bindings_def]
 QED
 
 Theorem state_rel_pop_env_while[local]:
@@ -3398,9 +3395,7 @@ Proof
     \\ reverse $ IF_CASES_TAC >-
      (‘LENGTH (MAP Pvar (REVERSE names)) ≠ 1’ by gvs [Abbr ‘names’]
       \\ drule Pstuple_Tuple \\ rpt strip_tac \\ gvs []
-      \\ gvs [pat_bindings_def]
-      \\ qsuff_tac ‘ALL_DISTINCT (REVERSE names ++ [])’
-      >- (strip_tac \\ drule ALL_DISTINCT_pats_bindings \\ gvs [])
+      \\ gvs [pat_bindings_def, pats_bindings_MAP_Pvar]
       \\ gvs [Abbr ‘names’, all_distinct_genlist_cml_tup_vname])
     \\ DEP_REWRITE_TAC [Pstuple_Tuple] \\ gvs []
     \\ gvs [pmatch_def]
@@ -3908,7 +3903,7 @@ Proof
       \\ gvs [GENLIST_MAP_Pvar]
       \\ DEP_REWRITE_TAC [pmatch_list_MAP_Pvar] \\ gvs []
       \\ gvs [pat_bindings_def]
-      \\ DEP_REWRITE_TAC [ALL_DISTINCT_pats_bindings] \\ gvs []
+      \\ gvs [pats_bindings_MAP_Pvar]
       \\ gvs [all_distinct_genlist_cml_tup_vname]
       \\ gvs [par_assign_def, oneline bind_def, CaseEq "sum"]
       \\ qmatch_goalsub_abbrev_tac ‘evaluate _ ass_env’
@@ -3929,7 +3924,7 @@ Proof
       \\ gvs [build_conv_def, can_pmatch_all_def, pmatch_def]
       \\ DEP_REWRITE_TAC [pmatch_list_MAP_Pvar] \\ gvs []
       \\ gvs [pat_bindings_def]
-      \\ DEP_REWRITE_TAC [ALL_DISTINCT_pats_bindings] \\ gvs []
+      \\ gvs [pats_bindings_MAP_Pvar]
       \\ gvs [all_distinct_genlist_cml_tup_vname]
       \\ qmatch_goalsub_abbrev_tac ‘evaluate _ ass_env₁’
       \\ drule evaluate_assign_values \\ gvs []
@@ -4256,7 +4251,7 @@ Proof
     \\ simp [GENLIST_lambda_MAP]
     \\ DEP_REWRITE_TAC [pmatch_list_MAP_Pvar] \\ gvs []
     \\ gvs [pat_bindings_def]
-    \\ DEP_REWRITE_TAC [ALL_DISTINCT_pats_bindings] \\ gvs []
+    \\ gvs [pats_bindings_MAP_Pvar]
     \\ gvs [GSYM GENLIST_lambda_MAP, all_distinct_genlist_cml_tup_vname]
     \\ qmatch_goalsub_abbrev_tac ‘evaluate _ ass_env’
     \\ simp [Ntimes GENLIST_lambda_MAP 2, MAP_MAP_o]
