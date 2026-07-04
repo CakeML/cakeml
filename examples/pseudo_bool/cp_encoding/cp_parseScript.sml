@@ -240,8 +240,8 @@ Definition sexp_cmpop_body_def:
       od
 End
 
-(* Primitive: neg, abs (unary); plus, minus, max, min (binary); multiply
-   (non-linear); equals/not_equals/greater_*/less_* (comparison w/ opt reif). *)
+(* Primitive: neg, abs (unary); plus, minus, max, min (binary); multiply/
+   divide/modulus (non-linear); equals/not_equals/greater_*/less_* (cmp w/ opt reif). *)
 Definition sexp_prim_dispatch_def:
   sexp_prim_dispatch ctype rest =
     case sexp_prim_unop ctype of
@@ -251,6 +251,8 @@ Definition sexp_prim_dispatch_def:
       SOME bop => sexp_binop_body bop rest
     | NONE =>
       if ctype = «multiply» then sexp_nlop_body Mult rest
+      else if ctype = «divide» then sexp_nlop_body Div rest
+      else if ctype = «modulus» then sexp_nlop_body Mod rest
       else sexp_cmpop_body ctype rest
 End
 
@@ -1516,6 +1518,19 @@ Theorem test_prim:
     (fromStringL («(A 3 C)»)) =
     INR (Prim (Nonlinop Mult (INL «A») (INR 3) (INL «C»))) ∧
   sexp_constraint_dispatch («multiply»)
+    (fromStringL («(A B)»)) =
+    INL («non-linear op expects 3 args: X op Y = Z\n») ∧
+  (* non-linear divide / modulus: same shape as multiply *)
+  sexp_constraint_dispatch («divide»)
+    (fromStringL («(A B C)»)) =
+    INR (Prim (Nonlinop Div (INL «A») (INL «B») (INL «C»))) ∧
+  sexp_constraint_dispatch («divide»)
+    (fromStringL («(A 3 C)»)) =
+    INR (Prim (Nonlinop Div (INL «A») (INR 3) (INL «C»))) ∧
+  sexp_constraint_dispatch («modulus»)
+    (fromStringL («(A B C)»)) =
+    INR (Prim (Nonlinop Mod (INL «A») (INL «B») (INL «C»))) ∧
+  sexp_constraint_dispatch («modulus»)
     (fromStringL («(A B)»)) =
     INL («non-linear op expects 3 args: X op Y = Z\n») ∧
   (* bare comparison *)

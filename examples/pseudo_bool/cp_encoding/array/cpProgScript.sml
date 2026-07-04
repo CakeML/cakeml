@@ -449,6 +449,12 @@ val res = translate cp_to_ilp_primTheory.mult_mag_rows_def;
 val res = translate cp_to_ilp_primTheory.cencode_mult_body_def;
 val res = translate cp_to_ilp_primTheory.cencode_mult_def;
 
+(* divide / modulus: reuse the multiply product machinery *)
+val res = translate cp_to_ilp_primTheory.cencode_div_body_def;
+val res = translate cp_to_ilp_primTheory.cencode_div_def;
+val res = translate cp_to_ilp_primTheory.cencode_mod_body_def;
+val res = translate cp_to_ilp_primTheory.cencode_mod_def;
+
 val res = translate cp_to_ilp_primTheory.cencode_prim_constr_def;
 
 (* cp_to_ilp_counting *)

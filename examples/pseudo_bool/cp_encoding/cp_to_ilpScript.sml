@@ -129,6 +129,25 @@ Definition reify_flag_def:
       else (* ann = SOME («prod») *)
         (BIT (EL 0 ids) (Num (ABS (varc wi X))) ∧
          BIT (EL 1 ids) (Num (ABS (varc wi Y))))
+    | SOME (Prim (Nonlinop Div X Y Z)) =>
+      (* axis 0 = |Z| (quotient), axis 1 = |Y|;
+         «prod» [i;j]: bit i of |Z| AND bit j of |Y| *)
+      if ann = SOME («bin»)
+      then BIT (EL 1 ids) (Num (ABS (varc wi (if EL 0 ids = 0 then Z else Y))))
+      else
+        (BIT (EL 0 ids) (Num (ABS (varc wi Z))) ∧
+         BIT (EL 1 ids) (Num (ABS (varc wi Y))))
+    | SOME (Prim (Nonlinop Mod X Y Z)) =>
+      (* axis 0 = |X quot Y| (hidden quotient), axis 1 = |Y|;
+         «prod» [i;j]: bit i of |quotient| AND bit j of |Y| *)
+      if ann = SOME («bin»)
+      then
+        (if EL 0 ids = 0
+         then BIT (EL 1 ids) (Num (ABS (varc wi X quot varc wi Y)))
+         else BIT (EL 1 ids) (Num (ABS (varc wi Y))))
+      else
+        (BIT (EL 0 ids) (Num (ABS (varc wi X quot varc wi Y))) ∧
+         BIT (EL 1 ids) (Num (ABS (varc wi Y))))
     | SOME (Counting (AllDifferentExcept Xs iS)) =>
       varc wi (EL (EL 0 ids) Xs) > varc wi (EL (EL 1 ids) Xs)
     | SOME (Counting (SymmetricAllDifferent (Xs,start))) =>

@@ -872,6 +872,610 @@ Proof
     enc_rel_encode_ge,enc_rel_abstr]
 QED
 
+(* ===================================================================== *)
+(* Divide / Modulus (truncated): binding spec ENCODING_DIVMOD.md.        *)
+(* Both reuse the multiply magnitude/product helpers; the op-specific    *)
+(* work is the sign-gated identity / range / sign rows, discharged via   *)
+(* the integer bridge lemmas below (INT_QUOT_UNIQUE / INT_REM_UNIQUE     *)
+(* for soundness, INT_REMQUOT for completeness).                         *)
+(* ===================================================================== *)
+
+(* sign of a product from the signs of its factors *)
+Theorem prod_sign[local]:
+  (0 ≤ (z:int) ∧ 0 ≤ y ⇒ 0 ≤ z*y) ∧
+  (z ≤ 0 ∧ y ≤ 0 ⇒ 0 ≤ z*y) ∧
+  (0 ≤ z ∧ y ≤ 0 ⇒ z*y ≤ 0) ∧
+  (z ≤ 0 ∧ 0 ≤ y ⇒ z*y ≤ 0)
+Proof
+  rpt strip_tac>>
+  rw[GSYM integerTheory.INT_NOT_LT, integerTheory.INT_MUL_SIGN_CASES]>>
+  intLib.ARITH_TAC
+QED
+
+(* the sign clauses force the product to take the sign of x *)
+Theorem zy_sign[local]:
+  y ≠ 0 ∧
+  (x ≥ 1 ∧ y ≥ 1 ⇒ z ≥ 0) ∧
+  (¬(x ≥ 0) ∧ ¬(y ≥ 0) ⇒ z ≥ 0) ∧
+  (x ≥ 1 ∧ ¬(y ≥ 0) ⇒ ¬(z ≥ 1)) ∧
+  (¬(x ≥ 0) ∧ y ≥ 1 ⇒ ¬(z ≥ 1)) ∧
+  (x = 0 ⇒ z * y = 0) ⇒
+  (0 ≤ x ⇒ 0 ≤ z * y) ∧ (x < 0 ⇒ z * y ≤ 0)
+Proof
+  strip_tac>>conj_tac>>strip_tac
+  >- (
+    Cases_on ‘x = 0’ >- gvs[]>>
+    ‘x ≥ 1’ by intLib.ARITH_TAC>>
+    Cases_on ‘0 ≤ y’
+    >- (‘y ≥ 1’ by intLib.ARITH_TAC>>‘z ≥ 0’ by gs[]>>
+        irule (cj 1 prod_sign)>>intLib.ARITH_TAC)
+    >- (‘¬(y ≥ 0)’ by intLib.ARITH_TAC>>‘¬(z ≥ 1)’ by gs[]>>
+        irule (cj 2 prod_sign)>>intLib.ARITH_TAC))
+  >- (
+    Cases_on ‘0 ≤ y’
+    >- (‘¬(x ≥ 0)’ by intLib.ARITH_TAC>>‘y ≥ 1’ by intLib.ARITH_TAC>>
+        ‘¬(z ≥ 1)’ by gs[]>>
+        irule (cj 4 prod_sign)>>intLib.ARITH_TAC)
+    >- (‘¬(x ≥ 0)’ by intLib.ARITH_TAC>>‘¬(y ≥ 0)’ by intLib.ARITH_TAC>>
+        ‘z ≥ 0’ by gs[]>>
+        irule (cj 3 prod_sign)>>intLib.ARITH_TAC))
+QED
+
+Theorem div_sign_bridge[local]:
+  y ≠ 0 ∧
+  (x ≥ 1 ∧ y ≥ 1 ⇒ z ≥ 0) ∧
+  (¬(x ≥ 0) ∧ ¬(y ≥ 0) ⇒ z ≥ 0) ∧
+  (x ≥ 1 ∧ ¬(y ≥ 0) ⇒ ¬(z ≥ 1)) ∧
+  (¬(x ≥ 0) ∧ y ≥ 1 ⇒ ¬(z ≥ 1)) ∧
+  (x = 0 ⇒ ¬(z ≥ 1)) ∧
+  (x ≥ 0 ⇒ 0 ≤ x - ABS (z * y) ∧ x - ABS (z * y) ≤ ABS y - 1) ∧
+  (¬(x ≥ 1) ⇒ x + ABS (z * y) ≤ 0 ∧ -x - ABS (z * y) ≤ ABS y - 1) ⇒
+  x quot y = z
+Proof
+  rpt strip_tac>>
+  ‘0 ≤ ABS (z * y)’ by simp[integerTheory.INT_ABS_POS]>>
+  ‘x = 0 ⇒ z * y = 0’ by (strip_tac>>intLib.ARITH_TAC)>>
+  drule_all zy_sign>>strip_tac>>
+  irule integerTheory.INT_QUOT_UNIQUE>>
+  qexists_tac ‘x - z * y’>>
+  Cases_on ‘0 ≤ x’>>gs[]>>Cases_on ‘0 < x’>>gs[]>>
+  intLib.ARITH_TAC
+QED
+
+(* sign of a truncated quotient from the signs of dividend and divisor,
+   stated in the sign-gate forms used by the div body rows *)
+Theorem quot_sign[local]:
+  y ≠ 0 ⇒
+  (x ≥ 1 ∧ y ≥ 1 ⇒ x quot y ≥ 0) ∧
+  (¬(x ≥ 0) ∧ ¬(y ≥ 0) ⇒ x quot y ≥ 0) ∧
+  (x ≥ 1 ∧ ¬(y ≥ 0) ⇒ ¬(x quot y ≥ 1)) ∧
+  (¬(x ≥ 0) ∧ y ≥ 1 ⇒ ¬(x quot y ≥ 1)) ∧
+  (x = 0 ⇒ ¬(x quot y ≥ 1))
+Proof
+  strip_tac>>
+  qspec_then ‘x’ strip_assume_tac integerTheory.INT_NUM_CASES>>
+  qspec_then ‘y’ strip_assume_tac integerTheory.INT_NUM_CASES>>
+  gvs[integerTheory.INT_QUOT_NEG,integerTheory.INT_QUOT,
+      integerTheory.INT_QUOT_0]>>
+  rw[]>>intLib.ARITH_TAC
+QED
+
+(* |quotient| ≤ |dividend| (needed to bound the free quotient magnitude bits) *)
+Theorem quot_abs_le[local]:
+  y ≠ 0 ⇒ ABS (x quot y) ≤ ABS x
+Proof
+  strip_tac>>
+  ‘ABS (x quot y * y) ≤ ABS x’ by (irule integerTheory.INT_ABS_QUOT>>simp[])>>
+  ‘ABS (x quot y) ≤ ABS (x quot y * y)’ by (
+    ‘ABS (x quot y) * ABS y = ABS (x quot y * y)’ by
+      simp[integerTheory.INT_ABS_MUL]>>
+    ‘1 ≤ ABS y’ by (
+      ‘ABS y ≠ 0’ by simp[integerTheory.INT_ABS_EQ0]>>
+      ‘0 ≤ ABS y’ by simp[integerTheory.INT_ABS_POS]>>
+      intLib.ARITH_TAC)>>
+    Cases_on ‘ABS (x quot y) = 0’ >- gvs[]>>
+    ‘0 < ABS (x quot y)’ by (
+      ‘0 ≤ ABS (x quot y)’ by simp[integerTheory.INT_ABS_POS]>>
+      intLib.ARITH_TAC)>>
+    ‘ABS (x quot y) * 1 ≤ ABS (x quot y) * ABS y’ by
+      metis_tac[integerTheory.INT_LE_MONO]>>
+    gvs[])>>
+  metis_tac[integerTheory.INT_LE_TRANS]
+QED
+
+(* the free quotient magnitude fits the dividend's bit width *)
+Theorem quot_width_bound[local]:
+  valid_assignment bnd wi ∧ varc_bnd bnd X = (lbx,ubx) ∧ varc wi Y ≠ 0 ⇒
+  Num (ABS (varc wi X quot varc wi Y)) < 2 ** mult_width lbx ubx
+Proof
+  rw[]>>
+  ‘Num (ABS (varc wi X)) < 2 ** mult_width lbx ubx’ by
+    metis_tac[mult_width_bound]>>
+  ‘ABS (varc wi X quot varc wi Y) ≤ ABS (varc wi X)’ by
+    (irule quot_abs_le>>simp[])>>
+  ‘Num (ABS (varc wi X quot varc wi Y)) ≤ Num (ABS (varc wi X))’ by (
+    ‘0 ≤ ABS (varc wi X quot varc wi Y) ∧ 0 ≤ ABS (varc wi X)’ by
+      simp[integerTheory.INT_ABS_POS]>>
+    intLib.ARITH_TAC)>>
+  metis_tac[LESS_EQ_LESS_TRANS]
+QED
+
+(* sign of quotient*divisor follows the dividend's sign (Q*Y = ±(X - R)) *)
+Theorem quot_prod_sign[local]:
+  y ≠ 0 ⇒
+  (x ≥ 0 ⇒ 0 ≤ x quot y * y) ∧
+  (¬(x ≥ 1) ⇒ x quot y * y ≤ 0)
+Proof
+  strip_tac>>
+  ‘(x ≥ 1 ∧ y ≥ 1 ⇒ x quot y ≥ 0) ∧
+   (¬(x ≥ 0) ∧ ¬(y ≥ 0) ⇒ x quot y ≥ 0) ∧
+   (x ≥ 1 ∧ ¬(y ≥ 0) ⇒ ¬(x quot y ≥ 1)) ∧
+   (¬(x ≥ 0) ∧ y ≥ 1 ⇒ ¬(x quot y ≥ 1)) ∧
+   (x = 0 ⇒ ¬(x quot y ≥ 1))’ by (irule quot_sign>>simp[])>>
+  conj_tac>>strip_tac
+  >- (
+    Cases_on ‘x = 0’ >- gvs[integerTheory.INT_QUOT_0]>>
+    ‘x ≥ 1’ by intLib.ARITH_TAC>>
+    Cases_on ‘y ≥ 1’
+    >- (‘x quot y ≥ 0’ by gs[]>>irule (cj 1 prod_sign)>>intLib.ARITH_TAC)
+    >- (‘¬(y ≥ 0)’ by intLib.ARITH_TAC>>‘¬(x quot y ≥ 1)’ by gs[]>>
+        irule (cj 2 prod_sign)>>intLib.ARITH_TAC))
+  >- (
+    Cases_on ‘x = 0’ >- gvs[integerTheory.INT_QUOT_0]>>
+    ‘¬(x ≥ 0)’ by intLib.ARITH_TAC>>
+    Cases_on ‘y ≥ 1’
+    >- (‘¬(x quot y ≥ 1)’ by gs[]>>irule (cj 4 prod_sign)>>intLib.ARITH_TAC)
+    >- (‘¬(y ≥ 0)’ by intLib.ARITH_TAC>>‘x quot y ≥ 0’ by gs[]>>
+        irule (cj 3 prod_sign)>>intLib.ARITH_TAC))
+QED
+
+(* completeness core for modulus: z = x rem y satisfies every mod body row
+   (P = |x quot y| * |y| is the free product magnitude) *)
+Theorem mod_complete[local]:
+  y ≠ 0 ∧ x rem y = z ⇒
+  (y ≥ 1 ∨ ¬(y ≥ 0)) ∧
+  (x ≥ 0 ⇒ x - z ≥ ABS (x quot y * y)) ∧
+  (x ≥ 0 ⇒ x - z ≤ ABS (x quot y * y)) ∧
+  (¬(x ≥ 1) ⇒ z - x ≥ ABS (x quot y * y)) ∧
+  (¬(x ≥ 1) ⇒ z - x ≤ ABS (x quot y * y)) ∧
+  (z ≤ ABS y - 1) ∧
+  (-z ≤ ABS y - 1) ∧
+  (x ≥ 0 ⇒ z ≥ 0) ∧
+  (¬(x ≥ 1) ⇒ z ≤ 0)
+Proof
+  strip_tac>>
+  drule integerTheory.INT_REMQUOT>>
+  disch_then (qspec_then ‘x’ strip_assume_tac)>>
+  ‘(x ≥ 0 ⇒ 0 ≤ x quot y * y) ∧ (¬(x ≥ 1) ⇒ x quot y * y ≤ 0)’ by
+    (irule quot_prod_sign>>simp[])>>
+  qpat_x_assum ‘x rem y = z’ (assume_tac o SYM)>>
+  qabbrev_tac ‘q = x quot y * y’>>
+  qabbrev_tac ‘r = x rem y’>>
+  gvs[]>>
+  rpt (qpat_x_assum ‘Abbrev _’ kall_tac)>>
+  rpt conj_tac>>rw[]>>gs[]>>intLib.ARITH_TAC
+QED
+
+(* completeness core for divide: z = x quot y satisfies every div body row,
+   stated in the exact PB-row form the encoder emits (P = |z|*|y|) *)
+Theorem div_complete[local]:
+  y ≠ 0 ∧ x quot y = z ⇒
+  (y ≥ 1 ∨ ¬(y ≥ 0)) ∧
+  (x ≥ 0 ⇒ x + -(ABS z * ABS y) ≥ 0) ∧
+  (x ≥ 0 ⇒ -1 * x + (ABS z * ABS y + ABS y) ≥ 1) ∧
+  (¬(x ≥ 1) ⇒ -1 * x + -(ABS z * ABS y) ≥ 0) ∧
+  (¬(x ≥ 1) ⇒ x + (ABS z * ABS y + ABS y) ≥ 1) ∧
+  (x ≥ 1 ∧ y ≥ 1 ⇒ z ≥ 0) ∧
+  (¬(x ≥ 0) ∧ ¬(y ≥ 0) ⇒ z ≥ 0) ∧
+  (x ≥ 1 ∧ ¬(y ≥ 0) ⇒ ¬(z ≥ 1)) ∧
+  (¬(x ≥ 0) ∧ y ≥ 1 ⇒ ¬(z ≥ 1)) ∧
+  (x = 0 ⇒ ¬(z ≥ 1))
+Proof
+  strip_tac>>
+  ‘ABS (x quot y * y) ≤ ABS x’ by (irule integerTheory.INT_ABS_QUOT>>simp[])>>
+  drule integerTheory.INT_REMQUOT>>
+  disch_then (qspec_then ‘x’ strip_assume_tac)>>
+  ‘(x ≥ 1 ∧ y ≥ 1 ⇒ x quot y ≥ 0) ∧
+   (¬(x ≥ 0) ∧ ¬(y ≥ 0) ⇒ x quot y ≥ 0) ∧
+   (x ≥ 1 ∧ ¬(y ≥ 0) ⇒ ¬(x quot y ≥ 1)) ∧
+   (¬(x ≥ 0) ∧ y ≥ 1 ⇒ ¬(x quot y ≥ 1)) ∧
+   (x = 0 ⇒ ¬(x quot y ≥ 1))’ by (irule quot_sign>>simp[])>>
+  qpat_x_assum ‘x quot y = z’ (fn th => fs[th])>>
+  ‘ABS z * ABS y = ABS (z * y)’ by simp[integerTheory.INT_ABS_MUL]>>
+  qabbrev_tac ‘q = z * y’>>
+  qabbrev_tac ‘r = x rem y’>>
+  rpt (qpat_x_assum ‘Abbrev _’ kall_tac)>>
+  rpt conj_tac>>rw[]>>gs[]>>
+  rpt (qpat_x_assum ‘_ ⇒ _’ kall_tac)>>
+  rpt (qpat_x_assum ‘ABS _ * ABS _ = _’ kall_tac)>>
+  Cases_on ‘0 < q + r’>>gs[]>>intLib.ARITH_TAC
+QED
+
+(* soundness core for modulus: the free product magnitude p = n*|y| makes
+   x - z a multiple of y; range + sign then pin z = x rem y. *)
+Theorem mod_sign_bridge[local]:
+  y ≠ 0 ∧ y int_divides p ∧
+  (0 ≤ x ⇒ x - z = p) ∧
+  (x ≤ 0 ⇒ z - x = p) ∧
+  (0 ≤ x ⇒ 0 ≤ z) ∧
+  (x ≤ 0 ⇒ z ≤ 0) ∧
+  ABS z ≤ ABS y - 1 ⇒
+  x rem y = z
+Proof
+  rw[]>>
+  irule integerTheory.INT_REM_UNIQUE>>
+  rpt conj_tac
+  >- (
+    ‘y int_divides (x - z)’ suffices_by
+      (simp[integerTheory.INT_DIVIDES]>>strip_tac>>qexists_tac ‘m’>>intLib.ARITH_TAC)>>
+    ‘x - z = p ∨ x - z = -p’ by (
+      Cases_on ‘0 ≤ x’ >- (gs[])>>
+      ‘x ≤ 0’ by intLib.ARITH_TAC>>gs[]>>intLib.ARITH_TAC)>>
+    gvs[integerTheory.INT_DIVIDES_NEG])
+  >- intLib.ARITH_TAC
+  >- (
+    IF_CASES_TAC
+    >- (‘0 ≤ x’ by intLib.ARITH_TAC>>gs[])
+    >- (‘x ≤ 0’ by intLib.ARITH_TAC>>gs[]))
+QED
+
+(* Divide Z = X quot Y: axis 0 = |Z| (channelled), axis 1 = |Y| (channelled),
+   product P = |Z|*|Y|. Remainder R = X - Z*Y is implicit. *)
+Definition cencode_div_body_def:
+  cencode_div_body bnd X Y Z name =
+  let
+    (lby,uby) = varc_bnd bnd Y;
+    (lbz,ubz) = varc_bnd bnd Z;
+    n = mult_width lbz ubz;
+    m = mult_width lby uby;
+    zbs = mult_bin_term name 0 n;
+    ybs = mult_bin_term name 1 m;
+    pbs = mult_prod_term (mult_prodbit name) n m;
+    gx0 = Pos (INL (Ge X 0));
+    ngx1 = Neg (INL (Ge X 1));
+    px0 = Pos (INL (Eq X 0));
+    px1 = Pos (INL (Ge X 1));
+    nx = Neg (INL (Ge X 0));
+    py1 = Pos (INL (Ge Y 1));
+    ny = Neg (INL (Ge Y 0));
+    zp = ([],[(1,Pos (INL (Ge Z 0)))],1);
+    zn = ([],[(1,Neg (INL (Ge Z 1)))],1)
+  in
+  Append
+    (List (mk_annotate
+      [mk_name name («Zge0_ge»); mk_name name («Zge0_le»);
+       mk_name name («Zlt0_ge»); mk_name name («Zlt0_le»)]
+      (mult_mag_rows bnd Z zbs))) $
+  Append
+    (List (mk_annotate
+      [mk_name name («Yge0_ge»); mk_name name («Yge0_le»);
+       mk_name name («Ylt0_ge»); mk_name name («Ylt0_le»)]
+      (mult_mag_rows bnd Y ybs))) $
+  Append
+    (flat_app (GENLIST (λi.
+      flat_app (GENLIST (λj.
+        cbimply_var bnd (mult_prodbit name i j)
+          ([],[(1,Pos (mult_binbit name 0 i));
+               (1,Pos (mult_binbit name 1 j))],2)) m)) n)) $
+    (List (mk_annotate
+      [mk_name name («nonzero»);
+       mk_name name («rem_pos_lo»); mk_name name («rem_pos_hi»);
+       mk_name name («rem_neg_hi»); mk_name name («rem_neg_lo»);
+       mk_name name («sgn_pp»); mk_name name («sgn_nn»);
+       mk_name name («sgn_pn»); mk_name name («sgn_np»);
+       mk_name name («sgn_x0»)]
+      [
+        ([],[(1,py1);(1,ny)],1);
+        bits_imply bnd [gx0] (mult_varc_row 1 X (flip_coeffs pbs) 0);
+        bits_imply bnd [gx0] (mult_varc_row (-1) X (pbs ++ ybs) 1);
+        bits_imply bnd [ngx1] (mult_varc_row (-1) X (flip_coeffs pbs) 0);
+        bits_imply bnd [ngx1] (mult_varc_row 1 X (pbs ++ ybs) 1);
+        bits_imply bnd [px1; py1] zp;
+        bits_imply bnd [nx; ny] zp;
+        bits_imply bnd [px1; ny] zn;
+        bits_imply bnd [nx; py1] zn;
+        bits_imply bnd [px0] zn
+      ]))
+End
+
+Definition cencode_div_def:
+  cencode_div bnd X Y Z name ec =
+  let
+    (e1,ec1) = cencode_full_eq bnd X 0 ec;
+    (e2,ec2) = cencode_full_eq bnd Y 0 ec1;
+    (e3,ec3) = cencode_full_eq bnd Z 0 ec2
+  in
+    (Append e1 $ Append e2 $ Append e3 $
+      cencode_div_body bnd X Y Z name, ec3)
+End
+
+Definition encode_div_def:
+  encode_div bnd X Y Z name =
+  encode_full_eq bnd X 0 ++
+  encode_full_eq bnd Y 0 ++
+  encode_full_eq bnd Z 0 ++
+  abstr (cencode_div_body bnd X Y Z name)
+End
+
+Theorem encode_div_sem_1:
+  valid_assignment bnd wi ∧
+  ALOOKUP cs name = SOME (Prim (Nonlinop Div X Y Z)) ∧
+  varc wi Y ≠ 0 ∧
+  varc wi X quot varc wi Y = varc wi Z ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
+    (encode_div bnd X Y Z name)
+Proof
+  rw[encode_div_def]>>
+  simp[reify_avar_def,reify_reif_def]>>
+  rw[cencode_div_body_def]>>rpt(pairarg_tac>>gvs[])>>
+  simp[mult_mag_rows_sem,reify_avar_def,reify_reif_def]>>
+  ‘∀b. b2i b ≥ 1 ⇔ b’ by (Cases>>simp[])>>
+  simp[]>>
+  ‘∀ax b. reify_avar cs wi (INR (name,Indices [ax; b] (SOME «bin»))) ⇔
+     BIT b (Num (ABS (varc wi (if ax = 0 then Z else Y))))’ by
+    gvs[reify_avar_def,reify_flag_def]>>
+  ‘∀i j. reify_avar cs wi (INR (name,Indices [i; j] (SOME «prod»))) ⇔
+     BIT i (Num (ABS (varc wi Z))) ∧ BIT j (Num (ABS (varc wi Y)))’ by
+    gvs[reify_avar_def,reify_flag_def]>>
+  ‘eval_lin_term (reify_avar cs wi)
+     (pos_num (mult_binbit name 0) (mult_width lbz ubz)) = ABS (varc wi Z)’ by
+    (irule mult_bin_eval>>fs[]>>metis_tac[mult_width_bound])>>
+  ‘eval_lin_term (reify_avar cs wi)
+     (pos_num (mult_binbit name 1) (mult_width lby uby)) = ABS (varc wi Y)’ by
+    (irule mult_bin_eval>>fs[]>>metis_tac[mult_width_bound])>>
+  ‘eval_lin_term (reify_avar cs wi)
+     (mult_prod_term (mult_prodbit name) (mult_width lbz ubz)
+        (mult_width lby uby)) =
+   eval_lin_term (reify_avar cs wi)
+     (pos_num (mult_binbit name 0) (mult_width lbz ubz)) *
+   eval_lin_term (reify_avar cs wi)
+     (pos_num (mult_binbit name 1) (mult_width lby uby))’ by
+    (irule eval_mult_prod_term>>fs[])>>
+  simp[mult_bin_term_def,GSYM integerTheory.INT_ABS_MUL]>>
+  qpat_assum ‘varc _ _ ≠ 0’ (fn c1 =>
+    qpat_assum ‘_ quot _ = _’ (fn c2 =>
+      strip_assume_tac (MATCH_MP (GEN_ALL div_complete) (CONJ c1 c2))))>>
+  rw[EVERY_FLAT,EVERY_MAP,EVERY_GENLIST,cbimply_var_def]>>
+  rw[append_flat_app,EVERY_FLAT,EVERY_MAP,EVERY_GENLIST]>>
+  gs[]
+QED
+
+Theorem encode_div_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_div bnd X Y Z name) ⇒
+  varc wi Y ≠ 0 ∧
+  varc wi X quot varc wi Y = varc wi Z
+Proof
+  rw[encode_div_def]>>
+  fs[cencode_div_body_def]>>rpt(pairarg_tac>>gvs[])>>
+  gs[mult_mag_rows_sem,mult_prod_block_sem]>>
+  ‘∀b. b2i b ≥ 1 ⇔ b’ by (Cases>>simp[])>>
+  fs[mult_bin_term_def]>>
+  ‘eval_lin_term wb (mult_prod_term (mult_prodbit name) (mult_width lbz ubz)
+     (mult_width lby uby)) =
+   eval_lin_term wb (pos_num (mult_binbit name 0) (mult_width lbz ubz)) *
+   eval_lin_term wb (pos_num (mult_binbit name 1) (mult_width lby uby))’ by
+    (irule eval_mult_prod_term>>fs[])>>
+  ‘varc wi Y ≠ 0’ by (
+    rpt (qpat_x_assum ‘eval_lin_term _ _ = _’ kall_tac)>>
+    rpt (qpat_x_assum ‘∀x. _’ kall_tac)>>
+    rpt (qpat_x_assum ‘_ ⇔ _’ kall_tac)>>
+    intLib.ARITH_TAC)>>
+  gvs[]>>
+  irule div_sign_bridge>>
+  gs[eval_lin_term_append,integerTheory.INT_ABS_MUL]>>
+  qabbrev_tac ‘P = ABS (varc wi Z * varc wi Y)’>>
+  rpt (qpat_x_assum ‘eval_lin_term _ _ = _’ kall_tac)>>
+  rpt (qpat_x_assum ‘∀x. _’ kall_tac)>>
+  rpt (qpat_x_assum ‘Abbrev _’ kall_tac)>>
+  rpt (qpat_x_assum ‘_ ⇔ _’ kall_tac)>>
+  rpt conj_tac>>rw[]>>intLib.ARITH_TAC
+QED
+
+Theorem cencode_div_sem:
+  valid_assignment bnd wi ∧
+  cencode_div bnd X Y Z name ec = (es, ec') ⇒
+  enc_rel wi es (encode_div bnd X Y Z name) ec ec'
+Proof
+  rw[cencode_div_def,encode_div_def]>>
+  gvs[UNCURRY_EQ]>>
+  pure_rewrite_tac[GSYM APPEND_ASSOC]>>
+  metis_tac[enc_rel_Append,enc_rel_encode_full_eq,
+    enc_rel_encode_ge,enc_rel_abstr]
+QED
+
+(* Modulus Z = X rem Y: axis 0 = |quotient| (free magnitude), axis 1 = |Y|
+   (channelled), product P = |quotient|*|Y|. The exposed Z is the remainder. *)
+Definition cencode_mod_body_def:
+  cencode_mod_body bnd X Y Z name =
+  let
+    (lbx,ubx) = varc_bnd bnd X;
+    (lby,uby) = varc_bnd bnd Y;
+    n = mult_width lbx ubx;
+    m = mult_width lby uby;
+    ybs = mult_bin_term name 1 m;
+    pbs = mult_prod_term (mult_prodbit name) n m;
+    gx0 = Pos (INL (Ge X 0));
+    ngx1 = Neg (INL (Ge X 1));
+    py1 = Pos (INL (Ge Y 1));
+    ny = Neg (INL (Ge Y 0));
+    (idp,rp) = split_iclin_term [(1,X);(-1,Z)] [] 0;
+    (idn,rn) = split_iclin_term [(-1,X);(1,Z)] [] 0
+  in
+  Append
+    (List (mk_annotate
+      [mk_name name («Yge0_ge»); mk_name name («Yge0_le»);
+       mk_name name («Ylt0_ge»); mk_name name («Ylt0_le»)]
+      (mult_mag_rows bnd Y ybs))) $
+  Append
+    (flat_app (GENLIST (λi.
+      flat_app (GENLIST (λj.
+        cbimply_var bnd (mult_prodbit name i j)
+          ([],[(1,Pos (mult_binbit name 0 i));
+               (1,Pos (mult_binbit name 1 j))],2)) m)) n)) $
+    (List (mk_annotate
+      [mk_name name («nonzero»);
+       mk_name name («id_pos_ge»); mk_name name («id_pos_le»);
+       mk_name name («id_neg_ge»); mk_name name («id_neg_le»);
+       mk_name name («rng_hi»); mk_name name («rng_lo»);
+       mk_name name («sgn_pos»); mk_name name («sgn_neg»)]
+      [
+        ([],[(1,py1);(1,ny)],1);
+        (* [X>=0] ==> X - Z = P *)
+        bits_imply bnd [gx0] (idp, flip_coeffs pbs, rp);
+        bits_imply bnd [gx0] (idn, pbs, rn);
+        (* ~[X>=1] ==> Z - X = P *)
+        bits_imply bnd [ngx1] (idn, flip_coeffs pbs, rn);
+        bits_imply bnd [ngx1] (idp, pbs, rp);
+        (* range |Z| < |Y| (ybs = |Y| pins the bound on the real Z) *)
+        mult_varc_row (-1) Z ybs 1;
+        mult_varc_row 1 Z ybs 1;
+        (* sign(Z) = sign(X) *)
+        bits_imply bnd [gx0] (mult_varc_row 1 Z [] 0);
+        bits_imply bnd [ngx1] (mult_varc_row (-1) Z [] 0)
+      ]))
+End
+
+Definition cencode_mod_def:
+  cencode_mod bnd X Y Z name ec =
+  let
+    (e1,ec1) = cencode_full_eq bnd X 0 ec;
+    (e2,ec2) = cencode_full_eq bnd Y 0 ec1
+  in
+    (Append e1 $ Append e2 $
+      cencode_mod_body bnd X Y Z name, ec2)
+End
+
+Definition encode_mod_def:
+  encode_mod bnd X Y Z name =
+  encode_full_eq bnd X 0 ++
+  encode_full_eq bnd Y 0 ++
+  abstr (cencode_mod_body bnd X Y Z name)
+End
+
+Theorem encode_mod_sem_1:
+  valid_assignment bnd wi ∧
+  ALOOKUP cs name = SOME (Prim (Nonlinop Mod X Y Z)) ∧
+  varc wi Y ≠ 0 ∧
+  varc wi X rem varc wi Y = varc wi Z ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
+    (encode_mod bnd X Y Z name)
+Proof
+  rw[encode_mod_def]>>
+  simp[reify_avar_def,reify_reif_def]>>
+  rw[cencode_mod_body_def]>>rpt(pairarg_tac>>gvs[])>>
+  simp[mult_mag_rows_sem,reify_avar_def,reify_reif_def]>>
+  ‘∀b. b2i b ≥ 1 ⇔ b’ by (Cases>>simp[])>>
+  simp[]>>
+  ‘∀ax b. reify_avar cs wi (INR (name,Indices [ax; b] (SOME «bin»))) ⇔
+     (if ax = 0 then BIT b (Num (ABS (varc wi X quot varc wi Y)))
+      else BIT b (Num (ABS (varc wi Y))))’ by
+    gvs[reify_avar_def,reify_flag_def]>>
+  ‘∀i j. reify_avar cs wi (INR (name,Indices [i; j] (SOME «prod»))) ⇔
+     BIT i (Num (ABS (varc wi X quot varc wi Y))) ∧
+     BIT j (Num (ABS (varc wi Y)))’ by
+    gvs[reify_avar_def,reify_flag_def]>>
+  ‘eval_lin_term (reify_avar cs wi)
+     (pos_num (mult_binbit name 0) (mult_width lbx ubx)) =
+   ABS (varc wi X quot varc wi Y)’ by
+    (irule mult_bin_eval>>fs[]>>metis_tac[quot_width_bound])>>
+  ‘eval_lin_term (reify_avar cs wi)
+     (pos_num (mult_binbit name 1) (mult_width lby uby)) = ABS (varc wi Y)’ by
+    (irule mult_bin_eval>>fs[]>>metis_tac[mult_width_bound])>>
+  ‘eval_lin_term (reify_avar cs wi)
+     (mult_prod_term (mult_prodbit name) (mult_width lbx ubx)
+        (mult_width lby uby)) =
+   eval_lin_term (reify_avar cs wi)
+     (pos_num (mult_binbit name 0) (mult_width lbx ubx)) *
+   eval_lin_term (reify_avar cs wi)
+     (pos_num (mult_binbit name 1) (mult_width lby uby))’ by
+    (irule eval_mult_prod_term>>fs[])>>
+  imp_res_tac split_iclin_term_sound>>
+  gs[iconstraint_sem_def,eval_ilin_term_def,iSUM_def,eval_lin_term_append,
+     mult_bin_term_def]>>
+  qpat_x_assum ‘∀wi'. eval_iclin_term wi' [(1,X); (-1,Z)] = _’
+    (qspec_then ‘wi’ assume_tac)>>
+  qpat_x_assum ‘∀wi'. eval_iclin_term wi' [(-1,X); (1,Z)] = _’
+    (qspec_then ‘wi’ assume_tac)>>
+  gs[eval_iclin_term_def,eval_icterm_def,iSUM_def]>>
+  qpat_assum ‘varc _ _ ≠ 0’ (fn c1 =>
+    qpat_assum ‘_ rem _ = _’ (fn c2 =>
+      strip_assume_tac (MATCH_MP (GEN_ALL mod_complete) (CONJ c1 c2))))>>
+  rw[EVERY_FLAT,EVERY_MAP,EVERY_GENLIST,cbimply_var_def]>>
+  rw[append_flat_app,EVERY_FLAT,EVERY_MAP,EVERY_GENLIST]>>
+  gs[integerTheory.INT_ABS_MUL]>>
+  qabbrev_tac ‘P = ABS (varc wi X quot varc wi Y * varc wi Y)’>>
+  rpt (qpat_x_assum ‘Abbrev _’ kall_tac)>>
+  rpt (qpat_x_assum ‘∀ax b. _’ kall_tac)>>
+  rpt (qpat_x_assum ‘∀i j. _’ kall_tac)>>
+  rpt (qpat_x_assum ‘∀b. _’ kall_tac)>>
+  rpt (qpat_x_assum ‘eval_lin_term _ _ = _’ kall_tac)>>
+  rpt (qpat_x_assum ‘split_iclin_term _ _ _ = _’ kall_tac)>>
+  rpt (qpat_x_assum ‘varc_bnd _ _ = _’ kall_tac)>>
+  rpt (qpat_x_assum ‘ALOOKUP _ _ = _’ kall_tac)>>
+  rpt (qpat_x_assum ‘_ rem _ = _’ kall_tac)>>
+  intLib.ARITH_TAC
+QED
+
+Theorem encode_mod_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_mod bnd X Y Z name) ⇒
+  varc wi Y ≠ 0 ∧
+  varc wi X rem varc wi Y = varc wi Z
+Proof
+  rw[encode_mod_def]>>
+  fs[cencode_mod_body_def]>>rpt(pairarg_tac>>gvs[])>>
+  gs[mult_mag_rows_sem,mult_prod_block_sem]>>
+  ‘∀b. b2i b ≥ 1 ⇔ b’ by (Cases>>simp[])>>
+  fs[mult_bin_term_def]>>
+  ‘eval_lin_term wb (mult_prod_term (mult_prodbit name) (mult_width lbx ubx)
+     (mult_width lby uby)) =
+   eval_lin_term wb (pos_num (mult_binbit name 0) (mult_width lbx ubx)) *
+   eval_lin_term wb (pos_num (mult_binbit name 1) (mult_width lby uby))’ by
+    (irule eval_mult_prod_term>>fs[])>>
+  gvs[]>>
+  ‘varc wi Y int_divides
+     (eval_lin_term wb (pos_num (mult_binbit name 0) (mult_width lbx ubx)) *
+      ABS (varc wi Y))’ by (
+    irule integerTheory.INT_DIVIDES_RMUL>>
+    rw[integerTheory.INT_ABS,integerTheory.INT_DIVIDES_NEG,
+       integerTheory.INT_DIVIDES_REFL])>>
+  imp_res_tac split_iclin_term_sound>>
+  gs[iconstraint_sem_def,eval_ilin_term_def,iSUM_def,eval_lin_term_append]>>
+  qabbrev_tac ‘P = eval_lin_term wb (pos_num (mult_binbit name 0)
+     (mult_width lbx ubx)) * ABS (varc wi Y)’>>
+  qpat_x_assum ‘∀wi'. eval_iclin_term wi' [(1,X); (-1,Z)] = _’
+    (qspec_then ‘wi’ assume_tac)>>
+  qpat_x_assum ‘∀wi'. eval_iclin_term wi' [(-1,X); (1,Z)] = _’
+    (qspec_then ‘wi’ assume_tac)>>
+  gs[eval_iclin_term_def,eval_icterm_def,iSUM_def]>>
+  ‘varc wi Y ≠ 0 ∧ varc wi Y int_divides P ∧
+   (0 ≤ varc wi X ⇒ varc wi X - varc wi Z = P) ∧
+   (varc wi X ≤ 0 ⇒ varc wi Z - varc wi X = P) ∧
+   (0 ≤ varc wi X ⇒ 0 ≤ varc wi Z) ∧
+   (varc wi X ≤ 0 ⇒ varc wi Z ≤ 0) ∧
+   ABS (varc wi Z) ≤ ABS (varc wi Y) - 1’ by (
+    rpt (qpat_x_assum ‘eval_lin_term _ _ = _’ kall_tac)>>
+    rpt (qpat_x_assum ‘∀x. _’ kall_tac)>>
+    rpt (qpat_x_assum ‘_ ⇔ _’ kall_tac)>>
+    rpt (qpat_x_assum ‘Abbrev _’ kall_tac)>>
+    rpt conj_tac>>rw[]>>intLib.ARITH_TAC)>>
+  metis_tac[mod_sign_bridge]
+QED
+
+Theorem cencode_mod_sem:
+  valid_assignment bnd wi ∧
+  cencode_mod bnd X Y Z name ec = (es, ec') ⇒
+  enc_rel wi es (encode_mod bnd X Y Z name) ec ec'
+Proof
+  rw[cencode_mod_def,encode_mod_def]>>
+  gvs[UNCURRY_EQ]>>
+  pure_rewrite_tac[GSYM APPEND_ASSOC]>>
+  metis_tac[enc_rel_Append,enc_rel_encode_full_eq,enc_rel_abstr]
+QED
+
 Definition encode_prim_constr_def:
   encode_prim_constr bnd c name =
   case c of
@@ -893,7 +1497,9 @@ Definition encode_prim_constr_def:
       | Max => encode_max bnd X Y Z name)
   | Nonlinop nlop X Y Z =>
       (case nlop of
-        Mult => encode_mult bnd X Y Z name)
+        Mult => encode_mult bnd X Y Z name
+      | Div => encode_div bnd X Y Z name
+      | Mod => encode_mod bnd X Y Z name)
 End
 
 Theorem encode_prim_constr_sem_1:
@@ -910,8 +1516,8 @@ Proof
   >- (Cases_on`p`>>gvs[]>>
       metis_tac[encode_plus_sem_1,encode_minus_sem_1,
                 encode_min_sem_1,encode_max_sem_1])
-  >- (Cases_on`p`>>gvs[nlop_sem_def,nlop_val_def]>>
-      metis_tac[encode_mult_sem_1])
+  >- (Cases_on`p`>>gvs[nlop_sem_def,nlop_val_def,guard_nlop_def]>>
+      metis_tac[encode_mult_sem_1,encode_div_sem_1,encode_mod_sem_1])
   >- (irule encode_equal_sem_1>>
       gvs[cmpop_sem_def,cmpop_val_def])
   >- (irule encode_not_equal_sem_1>>
@@ -932,8 +1538,8 @@ Proof
   >- (Cases_on`p`>>gvs[]>>
       metis_tac[encode_plus_sem_2,encode_minus_sem_2,
                 encode_min_sem_2,encode_max_sem_2])
-  >- (Cases_on`p`>>gvs[nlop_sem_def,nlop_val_def]>>
-      metis_tac[encode_mult_sem_2])
+  >- (Cases_on`p`>>gvs[nlop_sem_def,nlop_val_def,guard_nlop_def]>>
+      metis_tac[encode_mult_sem_2,encode_div_sem_2,encode_mod_sem_2])
   >- (gvs[cmpop_sem_def,cmpop_val_def]>>
       metis_tac[encode_equal_sem_2])
   >- (gvs[cmpop_sem_def,cmpop_val_def]>>
@@ -1108,7 +1714,9 @@ Definition cencode_prim_constr_def:
     | Minus => (cencode_minus bnd X Y Z name, ec))
   | Nonlinop nlop X Y Z =>
     (case nlop of
-      Mult => cencode_mult bnd X Y Z name ec)
+      Mult => cencode_mult bnd X Y Z name ec
+    | Div => cencode_div bnd X Y Z name ec
+    | Mod => cencode_mod bnd X Y Z name ec)
 End
 
 Theorem cencode_prim_constr_sem:
@@ -1131,6 +1739,8 @@ Proof
   >- simp[encode_min_def]
   >- simp[encode_max_def]
   >- metis_tac[cencode_mult_sem]
+  >- metis_tac[cencode_div_sem]
+  >- metis_tac[cencode_mod_sem]
   >- metis_tac[cencode_equal_sem]
   >- metis_tac[cencode_not_equal_sem]
   >- metis_tac[cencode_order_cmpops_sem]

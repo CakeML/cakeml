@@ -47,6 +47,10 @@ Datatype:
   prim_nlop =
     (* Mult : X * Y = Z *)
     Mult
+    (* Div : X quot Y = Z (truncated division) *)
+  | Div
+    (* Mod : X rem Y = Z (truncated remainder, sign of X) *)
+  | Mod
 End
 
 Datatype:
@@ -306,16 +310,6 @@ Definition unop_sem_def:
   unop_val unop (varc w X) = varc w Y
 End
 
-(* Future work
-Definition guard_binop_def:
-  guard_binop bop y ⇔
-  case bop of
-    Div => y ≠ 0
-  | Mod => y ≠ 0
-  | Pow => y ≥ 0
-  | _ => T
-End
-*)
 
 Definition binop_val_def:
   binop_val bop x y =
@@ -338,6 +332,17 @@ Definition nlop_val_def:
   nlop_val nlop (x:int) y =
   case nlop of
     Mult => x * y
+  | Div => x quot y
+  | Mod => x rem y
+End
+
+(* Div/Mod are only defined for a nonzero divisor. *)
+Definition guard_nlop_def:
+  guard_nlop nlop (y:int) ⇔
+  case nlop of
+    Div => y ≠ 0
+  | Mod => y ≠ 0
+  | _ => T
 End
 
 Definition nlop_sem_def:
@@ -345,7 +350,7 @@ Definition nlop_sem_def:
   let x = varc w X in
   let y = varc w Y in
   let z = varc w Z in
-  nlop_val nlop x y = z
+  guard_nlop nlop y ∧ nlop_val nlop x y = z
 End
 
 Definition cmpop_val_def:
