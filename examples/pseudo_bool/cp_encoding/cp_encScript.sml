@@ -249,20 +249,32 @@ Proof
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND]
 QED
 
+Theorem MEM_intersperse[local]:
+  ∀sep l x. MEM x (intersperse sep l) ⇒ x = sep ∨ MEM x l
+Proof
+  recInduct mllistTheory.intersperse_ind
+  \\ rw [mllistTheory.intersperse_def]
+  \\ metis_tac []
+QED
+
+Theorem EVERY_explode_concatWith[local]:
+  EVERY P (explode sep) ∧ EVERY (λs. EVERY P (explode s)) l ⇒
+  EVERY P (explode (concatWith sep l))
+Proof
+  rw [mlstringTheory.concatWith_def, mlstringTheory.concat_thm,
+      mlstringTheory.explode_implode, EVERY_MEM, MEM_FLAT, MEM_MAP]
+  \\ drule MEM_intersperse \\ strip_tac \\ gvs [] \\ res_tac \\ fs []
+QED
+
 Theorem split_bracket_format_int_list[simp,local]:
   split_bracket d ys (explode (format_int_list i) ++ rest) =
   split_bracket d (ys ++ explode (format_int_list i)) rest
 Proof
   irule split_bracket_fast_forward
-  \\ gvs [format_int_list_def, mlstringTheory.concatWith_def]
-  \\ rename [‘concatWith_aux _ _ b’]
-  \\ qid_spec_tac ‘b’
-  \\ Induct_on ‘i’ \\ gvs []
-  \\ gvs [format_int_list_def, mlstringTheory.concatWith_def,
-          mlstringTheory.concatWith_aux_def]
-  \\ rw [] \\ Cases_on ‘b’
-  \\ gvs [format_int_list_def, mlstringTheory.concatWith_def,
-          mlstringTheory.concatWith_aux_def]
+  \\ gvs [format_int_list_def]
+  \\ irule EVERY_explode_concatWith
+  \\ conj_tac >- EVAL_TAC
+  \\ simp [EVERY_MAP] \\ Induct_on ‘i’ \\ gvs []
   \\ rw [mlintTheory.int_to_string_def,mlintTheory.num_to_chars_thm]
   \\ rename [‘num_to_dec_string nn’]
   \\ qspec_then ‘nn’ mp_tac ASCIInumbersTheory.EVERY_isDigit_num_to_dec_string
@@ -277,15 +289,11 @@ Theorem split_bracket_format_num_list[simp,local]:
   split_bracket d (ys ++ explode (format_num_list i)) rest
 Proof
   irule split_bracket_fast_forward
-  \\ gvs [format_num_list_def, mlstringTheory.concatWith_def]
-  \\ rename [‘concatWith_aux _ _ b’]
-  \\ qid_spec_tac ‘b’
-  \\ Induct_on ‘i’ \\ gvs []
-  \\ gvs [format_int_list_def, mlstringTheory.concatWith_def,
-          mlstringTheory.concatWith_aux_def]
-  \\ rw [] \\ Cases_on ‘b’
-  \\ gvs [format_int_list_def, mlstringTheory.concatWith_def,
-          mlstringTheory.concatWith_aux_def]
+  \\ gvs [format_num_list_def]
+  \\ irule EVERY_explode_concatWith
+  \\ conj_tac >- EVAL_TAC
+  \\ simp [EVERY_MAP] \\ Induct_on ‘i’ \\ gvs []
+  \\ gen_tac
   \\ rename [‘num_to_str nn’]
   \\ Cases_on ‘num_to_str nn’
   \\ imp_res_tac mlintTheory.num_to_str_every
@@ -530,43 +538,81 @@ Proof
   \\ last_x_assum drule_all \\ simp []
 QED
 
+Theorem concatWith_nil[local]:
+  concatWith sep [] = «»
+Proof
+  rw [mlstringTheory.concatWith_def, mllistTheory.intersperse_def]
+QED
+
+Theorem concatWith_sing[local]:
+  concatWith sep [x] = x
+Proof
+  rw [mlstringTheory.concatWith_def, mllistTheory.intersperse_def,
+      mlstringTheory.concat_cons]
+QED
+
+Theorem concatWith_cons2[local]:
+  concatWith sep (x::y::t) = x ^ sep ^ concatWith sep (y::t)
+Proof
+  rw [mlstringTheory.concatWith_def, mllistTheory.intersperse_def,
+      mlstringTheory.concat_cons]
+QED
+
+Theorem MEM_sep_strcat[local]:
+  MEM c (explode (a ^ implode [c] ^ b))
+Proof
+  simp [mlstringTheory.explode_strcat, mlstringTheory.explode_implode]
+QED
+
+Theorem concatWith_MAP_11[local]:
+  INJ f UNIV UNIV ⇒
+  ∀xs ys.
+    EVERY (λx. ~MEM c (explode (f x)) ∧ f x ≠ «») xs ∧
+    EVERY (λx. ~MEM c (explode (f x)) ∧ f x ≠ «») ys ∧
+    concatWith (implode [c]) (MAP f xs) = concatWith (implode [c]) (MAP f ys) ⇒
+    xs = ys
+Proof
+  strip_tac \\ Induct
+  >- (rw [concatWith_nil]
+      \\ Cases_on ‘ys’ \\ gvs []
+      \\ Cases_on ‘t’
+      \\ gvs [concatWith_sing, concatWith_cons2]
+      \\ Cases_on ‘f h’
+      \\ gvs [mlstringTheory.strcat_def, mlstringTheory.concat_def])
+  \\ rw []
+  \\ Cases_on ‘ys’ \\ gvs [concatWith_nil]
+  >- (Cases_on ‘xs’
+      \\ gvs [concatWith_sing, concatWith_cons2]
+      \\ Cases_on ‘f h’
+      \\ gvs [mlstringTheory.strcat_def, mlstringTheory.concat_def])
+  \\ Cases_on ‘xs’ \\ Cases_on ‘t’
+  \\ gvs [concatWith_sing, concatWith_cons2]
+  >- metis_tac [INJ_DEF, IN_UNIV]
+  >- metis_tac [MEM_sep_strcat]
+  \\ qpat_x_assum ‘_ ^ _ = _ ^ _’ (mp_tac o Q.AP_TERM ‘explode’)
+  \\ REWRITE_TAC [mlstringTheory.explode_strcat, mlstringTheory.explode_implode,
+                  GSYM APPEND_ASSOC, APPEND]
+  \\ strip_tac
+  \\ drule_all str_divider_lemma
+  \\ strip_tac
+  \\ gvs [mlstringTheory.explode_11]
+  \\ qmatch_asmsub_rename_tac ‘f x1 = f x2’
+  \\ qmatch_asmsub_rename_tac
+       ‘concatWith _ (f y1::MAP f z1) = concatWith _ (f y2::MAP f z2)’
+  \\ ‘x1 = x2’ by metis_tac [INJ_DEF, IN_UNIV]
+  \\ ‘y1::z1 = y2::z2’ by (first_x_assum irule \\ simp [])
+  \\ gvs []
+QED
+
 Theorem concatWith_11:
   EVERY (λx. ~MEM c (explode (f x)) ∧ f x ≠ «») xs ∧
   EVERY (λx. ~MEM c (explode (f x)) ∧ f x ≠ «») ys ∧
   INJ f UNIV UNIV ⇒
   (concatWith (implode [c]) (MAP f xs) = concatWith (implode [c]) (MAP f ys) ⇔ xs = ys)
 Proof
-  gvs [mlstringTheory.concatWith_def]
-  \\ rename [‘concatWith_aux _ _ b’]
-  \\ simp [EQ_IMP_THM]
-  \\ qid_spec_tac ‘b’
-  \\ qid_spec_tac ‘ys’
-  \\ qid_spec_tac ‘xs’
-  \\ Induct
-  \\ Cases_on ‘ys’ \\ gvs []
-  \\ Cases_on ‘b’
-  \\ gvs [mlstringTheory.concatWith_aux_def]
-  \\ rpt $ disch_then strip_assume_tac
-  \\ Cases_on ‘f h’
-  \\ gvs [mlstringTheory.strcat_def,mlstringTheory.escape_char_def,
-          mlstringTheory.concat_def]
-  \\ rpt gen_tac
-  \\ Cases_on ‘f h'’
-  \\ gvs [mlstringTheory.strcat_def,mlstringTheory.escape_char_def,
-          mlstringTheory.concat_def]
-  \\ rpt $ disch_then strip_assume_tac
-  \\ gvs []
-  \\ first_x_assum drule
-  \\ disch_then $ qspec_then ‘F’ assume_tac
-  \\ ‘s = s' ⇒ h = h'’ by gvs [INJ_DEF]
-  \\ Cases_on ‘xs’ \\ gvs []
-  \\ Cases_on ‘t’ \\ gvs []
-  \\ gvs [mlstringTheory.concatWith_aux_def]
-  \\ gvs [mlstringTheory.strcat_def,mlstringTheory.escape_char_def,
-          mlstringTheory.concat_def]
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-  \\ drule_all str_divider_lemma
-  \\ strip_tac \\ gvs []
+  strip_tac \\ eq_tac
+  >- (strip_tac \\ metis_tac [concatWith_MAP_11])
+  \\ rw []
 QED
 
 Theorem format_int_list_11[local]:
