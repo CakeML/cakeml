@@ -1054,46 +1054,7 @@ Definition sexp_prob_type_def:
 End
 
 (* Duplicate constraint-name check: sort the names with fast_le, then one
-   strict fast_lt adjacency scan (n log n overall).
-   The fast_le/fast_lt order lemmas are candidates to upstream to
-   mlstringTheory. *)
-
-Theorem transitive_fast_le:
-  transitive fast_le
-Proof
-  rw[transitive_def, mlstringTheory.fast_le_def]
-  >> Cases_on ‘strlen x = strlen y’ >> Cases_on ‘strlen y = strlen z’ >> gvs[]
-  >> metis_tac[mlstringTheory.transitive_mlstring_le, transitive_def]
-QED
-
-Theorem total_fast_le:
-  total fast_le
-Proof
-  rw[total_def, mlstringTheory.fast_le_def]
-  >> Cases_on ‘strlen x = strlen y’ >> gvs[]
-  >> metis_tac[mlstringTheory.total_mlstring_le, total_def]
-QED
-
-Theorem transitive_fast_lt:
-  transitive fast_lt
-Proof
-  rw[transitive_def, mlstringTheory.fast_lt_def]
-  >> Cases_on ‘strlen x = strlen y’ >> Cases_on ‘strlen y = strlen z’ >> gvs[]
-  >> metis_tac[mlstringTheory.mlstring_lt_trans]
-QED
-
-Theorem irreflexive_fast_lt:
-  irreflexive fast_lt
-Proof
-  rw[irreflexive_def, mlstringTheory.fast_lt_def, mlstringTheory.mlstring_lt_nonrefl]
-QED
-
-Theorem fast_le_lt:
-  fast_le x y ∧ x ≠ y ⇒ fast_lt x y
-Proof
-  rw[mlstringTheory.fast_le_def, mlstringTheory.fast_lt_def]
-  >> gvs[mlstringTheory.mlstring_le_thm]
-QED
+   strict fast_lt adjacency scan (n log n overall). *)
 
 Definition sorted_fast_lt_aux_def:
   (sorted_fast_lt_aux x [] ⇔ T) ∧
@@ -1117,8 +1078,9 @@ Theorem SORTED_fast_le_imp_lt[local]:
   ∀ls. SORTED fast_le ls ∧ ALL_DISTINCT ls ⇒ SORTED fast_lt ls
 Proof
   Induct
-  >> rw[sortingTheory.SORTED_EQ, transitive_fast_le, transitive_fast_lt]
-  >> metis_tac[fast_le_lt]
+  >> rw[sortingTheory.SORTED_EQ, mlstringTheory.transitive_fast_le,
+        mlstringTheory.transitive_fast_lt]
+  >> metis_tac[mlstringTheory.fast_le_thm]
 QED
 
 Definition check_distinct_names_def:
@@ -1129,12 +1091,12 @@ Theorem check_distinct_names_thm:
   check_distinct_names ns ⇔ ALL_DISTINCT ns
 Proof
   rw[check_distinct_names_def, sorted_fast_lt_SORTED] >> eq_tac >> rw[]
-  >- metis_tac[sortingTheory.SORTED_ALL_DISTINCT, irreflexive_fast_lt,
-               transitive_fast_lt, mllistTheory.sort_PERM,
+  >- metis_tac[sortingTheory.SORTED_ALL_DISTINCT, mlstringTheory.irreflexive_fast_lt,
+               mlstringTheory.transitive_fast_lt, mllistTheory.sort_PERM,
                sortingTheory.ALL_DISTINCT_PERM]
   >> metis_tac[SORTED_fast_le_imp_lt, mllistTheory.sort_SORTED,
-               transitive_fast_le, total_fast_le, mllistTheory.sort_PERM,
-               sortingTheory.ALL_DISTINCT_PERM]
+               mlstringTheory.transitive_fast_le, mlstringTheory.total_fast_le,
+               mllistTheory.sort_PERM, sortingTheory.ALL_DISTINCT_PERM]
 QED
 
 Definition sexp_cp_inst_def:
