@@ -909,9 +909,12 @@ Definition vp_value_block_def:
   let pv = vp_pos_num name v w;
       npv = flip_coeffs pv;
       eqlits = MAPi (λi X. Pos (INL (Eq X v))) Xs in
-  Append (vp_ge_defs bnd name v pv (LENGTH Xs))
+  Append (List [
+    (SOME (mk_name name («ubn» ^ «_» ^ int_to_string #"-" v)),
+     ([], npv, -&(LENGTH Xs)))])
+  (Append (vp_ge_defs bnd name v pv (LENGTH Xs))
   (Append (vp_ub_pins bnd name v npv Xs)
-          (vp_ex_pins name v eqlits (LENGTH Xs)))
+          (vp_ex_pins name v eqlits (LENGTH Xs))))
 End
 
 (* per consecutive (s,t) of chain: precede (s≠t, guarded by t occurring) or
@@ -1042,6 +1045,7 @@ Theorem vp_value_block_sem[local]:
   valid_assignment bnd wi ⇒
   (EVERY (λx. iconstraint_sem x (wi,wb))
      (abstr (vp_value_block bnd name Xs w v)) ⇔
+   (eval_lin_term wb (vp_pos_num name v w) ≤ &(LENGTH Xs)) ∧
    (∀j. j < LENGTH Xs ⇒
       (wb (vp_ge_flag name v (j+1)) ⇔
        eval_lin_term wb (vp_pos_num name v w) ≥ &(j+1))) ∧
@@ -1106,6 +1110,8 @@ Proof
     simp[reify_avar_def,reify_reif_def]>>
   simp[vp_value_block_sem]>>
   rw[]
+  >- (`vp_first_occ wi Xs v ≤ LENGTH Xs` by simp[vp_first_occ_le]>>
+      intLib.ARITH_TAC)
   >- (CCONTR_TAC>>gvs[NOT_LESS_EQUAL]>>metis_tac[vp_first_occ_least])>>
   Cases_on`vp_first_occ wi Xs v ≤ i`
   >- (
