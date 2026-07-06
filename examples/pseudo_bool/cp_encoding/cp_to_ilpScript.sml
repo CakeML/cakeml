@@ -32,10 +32,10 @@ Definition reif_gen_def:
   case Zc of
     (Z, Equal, v) => Pos (INL (Eq Z v))
   | (Z, NotEqual, v) => Neg (INL (Eq Z v))
-  | (Z, GreaterEqual, v) => Pos (INL (Ge Z v))
-  | (Z, GreaterThan, v) => Pos (INL (Ge Z (v + 1)))
-  | (Z, LessEqual, v) => Neg (INL (Ge Z (v + 1)))
-  | (Z, LessThan, v) => Neg (INL (Ge Z v))
+  | (Z, Lexop GreaterEqual, v) => Pos (INL (Ge Z v))
+  | (Z, Lexop GreaterThan, v) => Pos (INL (Ge Z (v + 1)))
+  | (Z, Lexop LessEqual, v) => Neg (INL (Ge Z (v + 1)))
+  | (Z, Lexop LessThan, v) => Neg (INL (Ge Z v))
 End
 
 (* The datatype for flags in the ILP encoding.
@@ -63,6 +63,19 @@ Definition reify_flag_counting_def:
   else if ann = SOME («le»)
   then varc wi (EL (HD ids) Xs) ≤ varc wi Y
   else varc wi (EL (HD ids) Xs) = varc wi Y
+End
+
+(* nfa_run reconstructs a canonical accepting run (proof-only, never
+   translated): starting in state 0, at each index pick a successor state
+   that follows an edge on the i-th value AND from which the remaining
+   string is still accepted. When the string is accepted from state 0,
+   such a successor always exists, so the choice (@) is meaningful. *)
+Definition nfa_run_def:
+  nfa_run trans finals nstates xs 0 = 0 ∧
+  nfa_run trans finals nstates xs (SUC i) =
+    @q'. MEM (EL i xs, q')
+          (nfa_edges trans (nfa_run trans finals nstates xs i)) ∧
+         nfa_accepts trans finals nstates q' (DROP (SUC i) xs)
 End
 
 (* The stable "before" relation on positions of Xs (gcs sort_before): element
@@ -655,10 +668,10 @@ Definition encode_reif_gen_def:
     case Zc of
     (Z, Equal, v) => encode_full_eq bnd Z v
   | (Z, NotEqual, v) => encode_full_eq bnd Z v
-  | (Z, GreaterEqual, v) => encode_ge bnd Z v
-  | (Z, GreaterThan, v) => encode_ge bnd Z (v + 1)
-  | (Z, LessEqual, v) => encode_ge bnd Z (v + 1)
-  | (Z, LessThan, v) => encode_ge bnd Z v
+  | (Z, Lexop GreaterEqual, v) => encode_ge bnd Z v
+  | (Z, Lexop GreaterThan, v) => encode_ge bnd Z (v + 1)
+  | (Z, Lexop LessEqual, v) => encode_ge bnd Z (v + 1)
+  | (Z, Lexop LessThan, v) => encode_ge bnd Z v
 End
 
 Theorem encode_reif_gen_sem:
@@ -670,10 +683,16 @@ Theorem encode_reif_gen_sem:
     (wb (INL (Ge Z (v + 1))) ⇔ varc wi Z ≥ v + 1)))
 Proof
   simp[encode_reif_gen_def,reif_gen_def]>>
+  Cases_on`cmp = Equal`
+  >- (
+    rw[cmpop_val_def]>>
+    metis_tac[])>>
+  Cases_on`cmp = NotEqual`
+  >- (
+    rw[cmpop_val_def]>>
+    metis_tac[])>>
   every_case_tac>>
-  rw[cmpop_val_def]
-  >-metis_tac[]
-  >-metis_tac[]>>
+  rw[cmpop_val_def]>>
   qmatch_goalsub_abbrev_tac ‘(_ ⇔ P) ⇔ (_ ⇔ Q)’
   >-(
     ‘P ⇔ Q’ suffices_by simp[]>>
@@ -873,6 +892,25 @@ End
 Definition mk_lt_def[simp]:
   mk_lt X Y = mk_gt Y X
 End
+
+Definition encode_lex_def:
+  encode_lex cmp X Y =
+  case cmp of
+    GreaterEqual => mk_ge X Y
+  | GreaterThan  => mk_gt X Y
+  | LessEqual    => mk_le X Y
+  | LessThan     => mk_lt X Y
+End
+
+Theorem encode_lex_cmpop_val[simp]:
+  (iconstraint_sem (encode_lex lex X Y) (wi,wb) ⇔
+  lexop_val lex (varc wi X) (varc wi Y))
+Proof
+  rw[cmpop_val_def,encode_lex_def]>>
+  every_case_tac>>
+  fs[]>>
+  intLib.ARITH_TAC
+QED
 
 (* Bounds constraint: lb ≤ varc wi X ≤ ub *)
 Definition mk_bounds_def:
@@ -1248,10 +1286,10 @@ Definition cencode_reif_gen_def:
     case Zc of
     (Z, Equal, v) => cencode_full_eq bnd Z v ec
   | (Z, NotEqual, v) => cencode_full_eq bnd Z v ec
-  | (Z, GreaterEqual, v) => cencode_ge bnd Z v ec
-  | (Z, GreaterThan, v) => cencode_ge bnd Z (v + 1) ec
-  | (Z, LessEqual, v) => cencode_ge bnd Z (v + 1) ec
-  | (Z, LessThan, v) => cencode_ge bnd Z v ec
+  | (Z, Lexop GreaterEqual, v) => cencode_ge bnd Z v ec
+  | (Z, Lexop GreaterThan, v) => cencode_ge bnd Z (v + 1) ec
+  | (Z, Lexop LessEqual, v) => cencode_ge bnd Z (v + 1) ec
+  | (Z, Lexop LessThan, v) => cencode_ge bnd Z v ec
 End
 
 Definition cencode_eq_grid_def:

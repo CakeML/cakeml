@@ -90,26 +90,40 @@ Definition sexp_int_list_def:
     sexp_list_of («expected s-expression list of integers\n») sexp_int e
 End
 
-Definition sexp_cmpop_kw_def:
-  sexp_cmpop_kw s =
-       if s = «equals»        then SOME Equal
-  else if s = «not_equals»    then SOME NotEqual
-  else if s = «greater_equal» then SOME GreaterEqual
+Definition sexp_lexop_kw_def:
+  sexp_lexop_kw s =
+       if s = «greater_equal» then SOME GreaterEqual
   else if s = «greater_than»  then SOME GreaterThan
   else if s = «less_equal»    then SOME LessEqual
   else if s = «less_than»     then SOME LessThan
   else NONE
 End
 
-Definition sexp_cmpop_sym_def:
-  sexp_cmpop_sym s =
-       if s = «=»  then return Equal
-  else if s = «!=» then return NotEqual
-  else if s = «>=» then return GreaterEqual
+Definition sexp_cmpop_kw_def:
+  sexp_cmpop_kw s =
+       if s = «equals»        then SOME Equal
+  else if s = «not_equals»    then SOME NotEqual
+  else OPTION_MAP Lexop (sexp_lexop_kw s)
+End
+
+Definition sexp_lexop_sym_def:
+  sexp_lexop_sym s =
+       if s = «>=» then return GreaterEqual
   else if s = «>»  then return GreaterThan
   else if s = «<=» then return LessEqual
   else if s = «<»  then return LessThan
   else fail («unknown comparison symbol: » ^ s ^ «\n»)
+End
+
+Definition sexp_cmpop_sym_def:
+  sexp_cmpop_sym s =
+       if s = «=»  then return Equal
+  else if s = «!=» then return NotEqual
+  else
+  do
+    lop <- sexp_lexop_sym s;
+    return (Lexop lop)
+  od
 End
 
 Definition sexp_reify_cmp_def:
@@ -302,7 +316,7 @@ End
 Definition sexp_lex_dispatch_def:
   sexp_lex_dispatch cmp_kw rest =
   case strip_reif_suffix cmp_kw of (stem, reif_flag) =>
-  case sexp_cmpop_kw stem of
+  case sexp_lexop_kw stem of
     NONE => fail («unknown lex comparison: » ^ stem ^ «\n»)
   | SOME cmp =>
     do
@@ -905,15 +919,15 @@ Definition sexp_scheduling_dispatch_def:
     else NONE
 End
 
-Definition sexp_increasing_body_def:
-  sexp_increasing_body strct desc rest =
+Definition sexp_sorted_body_def:
+  sexp_sorted_body lex rest =
     case rest of
       [xs_e] =>
       (do
          Xs <- sexp_varc_list xs_e;
-         return (Sorting (Increasing Xs strct desc))
+         return (Sorting (Sorted lex Xs))
        od)
-    | _ => fail («increasing expects 1 arg: (x1 ... xn)\n»)
+    | _ => fail («sorted (increasing/decreasing) expects 1 arg: (x1 ... xn)\n»)
 End
 
 Definition sexp_sort_body_def:
@@ -943,10 +957,10 @@ End
 
 Definition sexp_sorting_dispatch_def:
   sexp_sorting_dispatch ctype rest =
-    if ctype = «increasing»               then SOME (sexp_increasing_body F F rest)
-    else if ctype = «strictly_increasing» then SOME (sexp_increasing_body T F rest)
-    else if ctype = «decreasing»          then SOME (sexp_increasing_body F T rest)
-    else if ctype = «strictly_decreasing» then SOME (sexp_increasing_body T T rest)
+    if ctype = «increasing»               then SOME (sexp_sorted_body LessEqual rest)
+    else if ctype = «strictly_increasing» then SOME (sexp_sorted_body LessThan rest)
+    else if ctype = «decreasing»          then SOME (sexp_sorted_body GreaterEqual rest)
+    else if ctype = «strictly_decreasing» then SOME (sexp_sorted_body GreaterThan rest)
     else if ctype = «sort»                then SOME (sexp_sort_body rest)
     else if ctype = «arg_sort»            then SOME (sexp_argsort_body rest)
     else NONE
@@ -1175,13 +1189,13 @@ Theorem test_linear:
     (fromStringL («((zz >= 5) (1 A 2 B) I)»)) =
     (INR
      (Linear
-        (Lin (SOME (INL (INL «zz»,GreaterEqual,5))) NotEqual
+        (Lin (SOME (INL (INL «zz»,Lexop GreaterEqual,5))) NotEqual
            [(1,INL «A»); (2,INL «B»)] (INL «I»)))) ∧
   sexp_constraint_dispatch («lin_greater_equal_iff»)
     (fromStringL («((zz = 5) (1 A 2 B) 5)»)) =
     (INR
      (Linear
-        (Lin (SOME (INR (INL «zz»,Equal,5))) GreaterEqual
+        (Lin (SOME (INR (INL «zz»,Equal,5))) (Lexop GreaterEqual)
            [(1,INL «A»); (2,INL «B»)] (INR 5))))
 Proof
   EVAL_TAC
@@ -1195,7 +1209,7 @@ Theorem test_lex:
   sexp_constraint_dispatch («lex_greater_than_if»)
     (fromStringL («((zz >= 5) (A B) (C D))»)) =
     INR (Lexicographical
-      (Lex (SOME (INL (INL «zz»,GreaterEqual,5))) GreaterThan
+      (Lex (SOME (INL (INL «zz»,Lexop GreaterEqual,5))) GreaterThan
         [INL «A»; INL «B»] [INL «C»; INL «D»])) ∧
   sexp_constraint_dispatch («lex_less_equal_iff»)
     (fromStringL («((zz = 5) (A B) (C D))»)) =
@@ -1277,7 +1291,7 @@ Theorem test_smart_table:
        («((((A < B) (A = 1) (B in (2 4 6)) (C notin (3))) ((A = C))) (A B C))»)) =
     INR (Extensional
            (SmartTable
-              [[SCmp (INL «A») LessThan (INL «B»);
+              [[SCmp (INL «A») (Lexop LessThan) (INL «B»);
                 SCmp (INL «A») Equal (INR 1);
                 SSet (INL «B») T [2; 4; 6];
                 SSet (INL «C») F [3]];
@@ -1325,22 +1339,22 @@ Proof
 QED
 
 Theorem test_sorting:
-  (* increasing: non-strict, non-descending *)
+  (* sorted: non-strict, non-descending *)
   sexp_constraint_dispatch («increasing»)
     (fromStringL («((A B C))»)) =
-    INR (Sorting (Increasing [INL «A»; INL «B»; INL «C»] F F)) ∧
-  (* strictly_increasing sets the strict flag *)
+    INR (Sorting (Sorted LessEqual [INL «A»; INL «B»; INL «C»])) ∧
+  (* strictly_sorted sets the strict flag *)
   sexp_constraint_dispatch («strictly_increasing»)
     (fromStringL («((A B))»)) =
-    INR (Sorting (Increasing [INL «A»; INL «B»] T F)) ∧
+    INR (Sorting (Sorted LessThan [INL «A»; INL «B»])) ∧
   (* decreasing sets the descending flag *)
   sexp_constraint_dispatch («decreasing»)
     (fromStringL («((A B C))»)) =
-    INR (Sorting (Increasing [INL «A»; INL «B»; INL «C»] F T)) ∧
+    INR (Sorting (Sorted GreaterEqual [INL «A»; INL «B»; INL «C»])) ∧
   (* strictly_decreasing sets both flags *)
   sexp_constraint_dispatch («strictly_decreasing»)
     (fromStringL («((A B))»)) =
-    INR (Sorting (Increasing [INL «A»; INL «B»] T T)) ∧
+    INR (Sorting (Sorted GreaterThan [INL «A»; INL «B»])) ∧
   (* sort: Ys is a non-decreasing permutation of Xs *)
   sexp_constraint_dispatch («sort»)
     (fromStringL («((A B C) (X Y Z))»)) =
@@ -1507,13 +1521,13 @@ Theorem test_prim:
   (* one-sided reified (_if) *)
   sexp_constraint_dispatch («greater_than_if»)
     (fromStringL («((zz >= 5) X Y)»)) =
-    INR (Prim (Cmpop (SOME (INL (INL «zz»,GreaterEqual,5)))
-                     GreaterThan (INL «X») (INL «Y»))) ∧
+    INR (Prim (Cmpop (SOME (INL (INL «zz»,Lexop GreaterEqual,5)))
+                     (Lexop GreaterThan) (INL «X») (INL «Y»))) ∧
   (* full reified (_iff) *)
   sexp_constraint_dispatch («less_equal_iff»)
     (fromStringL («((zz = 5) X Y)»)) =
     INR (Prim (Cmpop (SOME (INR (INL «zz»,Equal,5)))
-                     LessEqual (INL «X») (INL «Y»))) ∧
+                     (Lexop LessEqual) (INL «X») (INL «Y»))) ∧
   (* fallback: unrecognised ctype *)
   sexp_constraint_dispatch («weird»)
     (fromStringL («(X Y)»)) =

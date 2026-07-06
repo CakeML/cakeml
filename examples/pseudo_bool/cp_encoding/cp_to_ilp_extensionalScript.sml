@@ -750,10 +750,10 @@ Definition smart_entry_lit_def:
         INR c => reif_gen (v1,cmp,c)
       | INL _ =>
         (case cmp of
-          GreaterThan  => Pos (INR (name, Indices [k;j] (SOME «sgt»)))
-        | LessEqual    => Neg (INR (name, Indices [k;j] (SOME «sgt»)))
-        | LessThan     => Pos (INR (name, Indices [k;j] (SOME «slt»)))
-        | GreaterEqual => Neg (INR (name, Indices [k;j] (SOME «slt»)))
+          Lexop GreaterThan  => Pos (INR (name, Indices [k;j] (SOME «sgt»)))
+        | Lexop LessEqual    => Neg (INR (name, Indices [k;j] (SOME «sgt»)))
+        | Lexop LessThan     => Pos (INR (name, Indices [k;j] (SOME «slt»)))
+        | Lexop GreaterEqual => Neg (INR (name, Indices [k;j] (SOME «slt»)))
         | Equal        => Pos (INR (name, Indices [k;j] (SOME «seq»)))
         | NotEqual     => Neg (INR (name, Indices [k;j] (SOME «seq»)))))
   | SSet v b vs =>
@@ -775,10 +775,10 @@ Definition encode_smart_entry_def:
           feq = INR (name, Indices [k;j] (SOME «seq»))
         in
         (case cmp of
-          GreaterThan  => abstr (cbimply_var bnd fgt (mk_gt v1 v2))
-        | LessEqual    => abstr (cbimply_var bnd fgt (mk_gt v1 v2))
-        | LessThan     => abstr (cbimply_var bnd flt (mk_lt v1 v2))
-        | GreaterEqual => abstr (cbimply_var bnd flt (mk_lt v1 v2))
+          Lexop GreaterThan  => abstr (cbimply_var bnd fgt (mk_gt v1 v2))
+        | Lexop LessEqual    => abstr (cbimply_var bnd fgt (mk_gt v1 v2))
+        | Lexop LessThan     => abstr (cbimply_var bnd flt (mk_lt v1 v2))
+        | Lexop GreaterEqual => abstr (cbimply_var bnd flt (mk_lt v1 v2))
         | Equal =>
             abstr (cbimply_var bnd fgt (mk_gt v1 v2)) ++
             abstr (cbimply_var bnd flt (mk_lt v1 v2)) ++
@@ -822,14 +822,15 @@ Proof
     simp[encode_smart_entry_def,smart_entry_lit_def,smart_entry_holds_def]>>
     Cases_on`s0`>>simp[]
     >- (
-      Cases_on`c`>>
+      every_case_tac>>
       gvs[encode_smart_entry_def,abstr_cbimply_var,EVERY_REVERSE,EVERY_APPEND,
           lit_def,cmpop_val_def]>>
       rpt strip_tac>>
       rpt(qpat_x_assum`_ ⇔ wb _`(assume_tac o GSYM))>>
       gvs[]>>
       intLib.ARITH_TAC)>>
-    fs[encode_smart_entry_def]>>gvs[encode_reif_gen_sem,varc_def])
+    fs[encode_smart_entry_def]>>
+    gvs[encode_reif_gen_sem,varc_def])
   >- (
     simp[smart_entry_lit_def,smart_entry_holds_def]>>
     fs[encode_smart_entry_def,EVERY_APPEND,abstr_cbimply_var,EVERY_REVERSE]>>
@@ -879,7 +880,8 @@ Proof
     simp[encode_smart_entry_def]>>
     Cases_on`s0`
     >- (
-      simp[]>>Cases_on`c`>>
+      simp[]>>
+      every_case_tac>>
       gs[EVERY_REVERSE,EVERY_APPEND]>>
       gs[smart_reify_def,reify_avar_def,reify_smart_flag_def]>>
       intLib.ARITH_TAC)>>
@@ -1226,10 +1228,10 @@ Definition cencode_smart_entry_def:
           feq = INR (name, Indices [k;j] (SOME «seq»))
         in
         (case cmp of
-          GreaterThan  => (cbimply_var bnd fgt (mk_gt v1 v2), ec)
-        | LessEqual    => (cbimply_var bnd fgt (mk_gt v1 v2), ec)
-        | LessThan     => (cbimply_var bnd flt (mk_lt v1 v2), ec)
-        | GreaterEqual => (cbimply_var bnd flt (mk_lt v1 v2), ec)
+          Lexop GreaterThan  => (cbimply_var bnd fgt (mk_gt v1 v2), ec)
+        | Lexop LessEqual    => (cbimply_var bnd fgt (mk_gt v1 v2), ec)
+        | Lexop LessThan     => (cbimply_var bnd flt (mk_lt v1 v2), ec)
+        | Lexop GreaterEqual => (cbimply_var bnd flt (mk_lt v1 v2), ec)
         | Equal =>
             (Append (cbimply_var bnd fgt (mk_gt v1 v2))
               (Append (cbimply_var bnd flt (mk_lt v1 v2))
@@ -1291,7 +1293,9 @@ Proof
   gvs[cencode_smart_entry_def,encode_smart_entry_def]
   >- (
     Cases_on`s0`>>gvs[]
-    >- (Cases_on`c`>>gvs[]>>irule enc_rel_abstr'>>simp[])>>
+    >- (
+      every_case_tac>>
+      gvs[]>>irule enc_rel_abstr'>>simp[])>>
     metis_tac[enc_rel_encode_reif_gen])
   >- (
     pairarg_tac>>gvs[]>>
@@ -1377,11 +1381,4 @@ Proof
   >- metis_tac[cencode_negative_table_sem]
   >- metis_tac[cencode_smart_table_sem]
 QED
-
-(*
-EVAL``append o FST $ cencode_extensional_constr
-  (\x. (-5,5))
-  (Table [[SOME 1i;SOME 2i];[NONE;NONE];[SOME 1i;NONE];] [INL («x»);INL («y»)]) («t1») init_ec``
-*)
-
 

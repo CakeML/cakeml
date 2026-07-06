@@ -7,42 +7,25 @@ Libs
 Ancestors
   mlint pbc sorting
 
-Type assignment[pp] = ``:('a -> int)``;
+(***
+  Syntax for CP constraints
+***)
 
+(* In many CP constraints, we can flexibly write either a variable or constant
+  in places where either one makes sense; 'a varc is the type of this. *)
 Type varc[pp] = ``: 'a + int``;
 
-Type bounds[pp] = ``:'a -> int # int``;
-
-Definition varc_def:
-  varc (w:'a assignment) (vc:'a varc) =
-  case vc of
-    INL v => w v
-  | INR c => c
-End
-
-Theorem varc_INL:
-  varc wi (INL y) = wi y
-Proof
-  rw[varc_def]
-QED
-
-Theorem varc_INR:
-  varc wi (INR y) = y
-Proof
-  rw[varc_def]
-QED
-
+(* Unary primitive operations *)
 Datatype:
   prim_unop = Negative | Abs
 End
 
+(* Binary primitive operations *)
 Datatype:
-  prim_binop =
-    Plus | Minus
-  | Min | Max
+  prim_binop = Plus | Minus | Min | Max
 End
 
-(* Nonlinear operations (args attached at the Nonlinop wrapper, cf. Binop) *)
+(* Nonlinear operations *)
 Datatype:
   prim_nlop =
     (* Mult : X * Y = Z *)
@@ -53,25 +36,33 @@ Datatype:
   | Mod
 End
 
+(* Lexicographical operations *)
 Datatype:
-  cmpop =
-    Equal | NotEqual
-  | GreaterEqual | GreaterThan
-  | LessEqual | LessThan
+  lexop = GreaterEqual | GreaterThan | LessEqual | LessThan
 End
 
+(* Comparison operations *)
+Datatype:
+  cmpop = Lexop lexop | Equal | NotEqual
+End
+
+(* Reification conditions *)
 Type reify_cmp[pp] = ``: ('a varc # cmpop # int)``;
+
+(* The reification attached to a given constraint can be:
+  NONE : no reification
+  INL Z : one-sided reification ->
+  INR Z : full reification <-> *)
 Type reify[pp] = ``: ('a reify_cmp + 'a reify_cmp) option``;
 
 (* For binary operations, we have the arguments
   to the operations followed by the RHS,
-  e.g., Plus X Y Z means:
-  X + Y = Z
+  e.g., Plus X Y Z means: X + Y = Z
 
   For the reified cmpops, the names are appended
-  with -if or -iff, e.g.:
-  equal-if
-  equal-iff *)
+  with _if or _iff, e.g.:
+  equal_if
+  equal_iff *)
 Datatype:
   prim_constr =
     (* op X Y : op X = Y *)
@@ -111,14 +102,14 @@ End
 
 Overload AllDifferent = ``λXs. AllDifferentExcept Xs []``;
 
+(* A linear term in CP is a list of pairs of
+  (i,vc) where i is an integer coefficient and vc is var/const. *)
 Type iclin_term[pp] = ``:(int # 'a varc) list ``
 
-(* The op is prefixed with "linear-", e.g.:
-  lin-equal-if ((1 X) (2 5) ...) 5 *)
+(* The op is prefixed with "linear_" and follows the usual rules for
+  reification, e.g.: lin_equal_if ((1 X) (2 5) ...) 5 *)
 Datatype:
-  linear_constr =
-    (* Linear op Xs Y : Xs op Y *)
-  | Lin ('a reify) cmpop ('a iclin_term) ('a varc)
+  linear_constr = Lin ('a reify) cmpop ('a iclin_term) ('a varc)
 End
 
 (* The second value is the offset to interpret this index *)
@@ -143,8 +134,8 @@ Datatype:
 End
 
 (* A smart_entry is one condition in a smart-table row:
-   SCmp v1 cmp v2 : v1 <cmp> v2 — either operand may be a constant varc
-                    (INR c), so this also covers the var-vs-constant form ;
+   SCmp v1 cmp v2 : v1 <cmp> v2 — either operand may be a varc,
+                    so this also covers the var-vs-constant form ;
    SSet v b vs    : v ∈ vs (b=T) / v ∉ vs (b=F). *)
 Datatype:
   smart_entry =
@@ -155,6 +146,7 @@ End
 (* NONE represents a wildcard entry for that element *)
 Datatype:
   extensional_constr =
+    (* Table: assignment must match one of the rows *)
     Table ((int option) list list) ('a varc list)
     (* Regular vars nstates trans finals :
        vars (read as a value string) is accepted by the NFA with states
@@ -168,24 +160,49 @@ Datatype:
   | SmartTable (('a smart_entry) list list)
 End
 
-(* Row models for the smart-table-encoded variants (LexSmartTable /
-   AtMostOneSmartTable), defined as overloads just below. *)
+(* The LexSmartTable and AtMostOneSmartTable constraints are implemented as
+SmartTable overloads. We first define some helpers. *)
+
+(* Given a list [(X1,Y1); (X2;Y2); ... ; (Xn,Yn)],
+  This produces:
+    [
+      [X1 > Y1];
+      [X1 = Y1; X2 > Y2];
+      [X1 = Y1; X2 > Y2; X3 = Y3];
+      ...
+    ]
+  i.e., the expansion of Lex> into its individual rows. *)
 Definition lex_rows_aux_def:
   (lex_rows_aux acc [] = []) ∧
-  (lex_rows_aux acc ((x,y)::rest) =
-    (acc ++ [SCmp x GreaterThan y]) :: lex_rows_aux (acc ++ [SCmp x Equal y]) rest)
+  (lex_rows_aux acc ((X,Y)::rest) =
+    (acc ++ [SCmp X (Lexop GreaterThan) Y]) ::
+      lex_rows_aux (acc ++ [SCmp X Equal Y]) rest)
 End
 
 Definition lex_smart_rows_def:
   lex_smart_rows Xs Ys =
-  let zs = ZIP (TAKE (MIN (LENGTH Xs) (LENGTH Ys)) Xs,
-                TAKE (MIN (LENGTH Xs) (LENGTH Ys)) Ys) in
-  lex_rows_aux [] zs ++
-  (if LENGTH Xs > LENGTH Ys
-   then [MAP (λ(x,y). SCmp x Equal y) zs]
-   else [])
+  let
+    lXs = LENGTH Xs ;
+    lYs = LENGTH Ys ;
+      n = MIN lXs lYs ;
+     zs = ZIP (TAKE n Xs, TAKE n Ys)
+  in
+    lex_rows_aux [] zs ++
+    (if lXs > lYs
+     then [MAP (λ(X,Y). SCmp X Equal Y) zs]
+     else [])
 End
 
+(* Given a list [X1; X2; ... Xn],
+  This produces:
+    [
+      [X2 ≠ v; X3 ≠ v; ... ; Xn ≠ v];
+      [X1 ≠ v; X3 ≠ v; ... ; Xn ≠ v];
+      [X1 ≠ v; X2 ≠ v; ... ; Xn ≠ v];
+      ...
+      [X1 ≠ v; X2 ≠ v; ... ; X{n-1} ≠ v];
+    ]
+  i.e., the expansion of Lex> into its individual rows. *)
 Definition amo_rows_aux_def:
   (amo_rows_aux pre [] v = []) ∧
   (amo_rows_aux pre (x::rest) v =
@@ -199,11 +216,15 @@ Definition amo_smart_rows_def:
   else amo_rows_aux [] Xs v
 End
 
-(* LexSmartTable Xs Ys (Xs >_lex Ys, strict) and AtMostOneSmartTable Xs v
-   (≤1 of Xs equals v) are pseudo-constructors: the encoder desugars them to a
-   SmartTable.  That the desugared rows reproduce the intended predicate
-   (lex_sem / at_most_one_sem) is lex_smart_table_bridge / amo_smart_table_bridge
-   in cp_to_ilp_extensionalScript. *)
+(*
+  LexSmartTable Xs Ys (Xs >_lex Ys, strict) and
+  AtMostOneSmartTable Xs v (≤1 of Xs equals v) are pseudo-constructors.
+
+  The syntax directly desugars to a SmartTable.
+
+  That the desugared rows reproduce the intended predicate (lex_sem /
+  at_most_one_sem) is lex_smart_table_bridge / amo_smart_table_bridge in
+  cp_to_ilp_extensional. *)
 Overload LexSmartTable = ``λXs Ys. SmartTable (lex_smart_rows Xs Ys)``;
 Overload AtMostOneSmartTable = ``λXs v. SmartTable (amo_smart_rows Xs v)``;
 
@@ -217,12 +238,10 @@ Datatype:
   | Parity ('a varc list) ('a varc)
 End
 
-(* The op is prefixed with "lex_", e.g.:
-  lex_less_than (X Y Z) (A B C).
-  We reuse the cmpop type, but there is no lex= and lex≠ *)
+(* The op is prefixed with "lex_", e.g.: lex_less_than (X Y Z) (A B C).*)
 Datatype:
   lexicographical_constr =
-    Lex ('a reify) cmpop ('a varc list) ('a varc list)
+    Lex ('a reify) lexop ('a varc list) ('a varc list)
     (* ValuePrecede chain Xs : along chain, each value's first occurrence in
        Xs strictly precedes its successors. *)
   | ValuePrecede (int list) ('a varc list)
@@ -246,7 +265,6 @@ Datatype:
   | Knapsack (int list list) ('a varc list) ('a varc list)
 End
 
-(* TODO: under construction *)
 Datatype:
   scheduling_constr =
     (* Disjunctive Xs Ws strct :
@@ -267,10 +285,9 @@ End
 
 Datatype:
   sorting_constr =
-    (* Increasing Xs strct desc :
-       the sequence Xs is monotone; (strct,desc) pick the adjacent comparison:
-       (F,F) ≤, (T,F) <, (F,T) ≥, (T,T) >. *)
-    Increasing ('a varc list) bool bool
+    (* Sorted lex Xs :
+       the sequence Xs is sorted according to the lexicographical order. *)
+    Sorted lexop ('a varc list)
     (* Sort Xs Ys : Ys is a non-decreasing permutation of Xs. *)
   | Sort ('a varc list) ('a varc list)
     (* ArgSort Xs Ps offset : Ps are the (offset-shifted) indices that
@@ -293,7 +310,21 @@ Datatype:
   | Sorting ('a sorting_constr)
 End
 
-(* Semantics *)
+(***
+  Semantics for CP constraints
+***)
+
+(* An assignment in CP is integer-valued.
+  Throughout, 'a is the type of variables. *)
+Type assignment[pp] = ``:('a -> int)``;
+
+(* Value of a varc under an assignment w *)
+Definition varc_def:
+  varc (w:'a assignment) (vc:'a varc) =
+  case vc of
+    INL v => w v
+  | INR c => c
+End
 
 (***
   prim_constr
@@ -309,7 +340,6 @@ Definition unop_sem_def:
   unop_sem unop X Y w ⇔
   unop_val unop (varc w X) = varc w Y
 End
-
 
 Definition binop_val_def:
   binop_val bop x y =
@@ -347,10 +377,21 @@ End
 
 Definition nlop_sem_def:
   nlop_sem nlop X Y Z w ⇔
-  let x = varc w X in
-  let y = varc w Y in
-  let z = varc w Z in
-  guard_nlop nlop y ∧ nlop_val nlop x y = z
+  let
+    x = varc w X;
+    y = varc w Y;
+    z = varc w Z
+  in
+    guard_nlop nlop y ∧ nlop_val nlop x y = z
+End
+
+Definition lexop_val_def[simp]:
+  lexop_val lex (x:int) (y:int) =
+  case lex of
+  | GreaterEqual => x ≥ y
+  | GreaterThan => x > y
+  | LessEqual => x ≤ y
+  | LessThan => x < y
 End
 
 Definition cmpop_val_def:
@@ -358,13 +399,11 @@ Definition cmpop_val_def:
   case cmp of
     Equal => x = y
   | NotEqual => x ≠ y
-  | GreaterEqual => x ≥ y
-  | GreaterThan => x > y
-  | LessEqual => x ≤ y
-  | LessThan => x < y
+  | Lexop lex => lexop_val lex x y
 End
 
-(* NONE : no reification
+(* Helper to define reifications.
+  NONE : no reification
   INL Z : one-sided reification
   INR Z : full reification *)
 Definition reify_sem_def:
@@ -377,9 +416,11 @@ End
 
 Definition cmpop_sem_def:
   cmpop_sem Zr cmp X Y w ⇔
-  let x = varc w X in
-  let y = varc w Y in
-  reify_sem Zr w (cmpop_val cmp x y)
+  let
+    x = varc w X;
+    y = varc w Y
+  in
+    reify_sem Zr w (cmpop_val cmp x y)
 End
 
 Definition prim_constr_sem_def:
@@ -424,30 +465,18 @@ End
 Definition count_sem_def:
   count_sem Xs Y Z w ⇔
   (varc w Z =
-    iSUM $
-      MAP
-      (λX.
-        b2i (varc w X = varc w Y)
-      ) Xs)
+    iSUM $ MAP (λX. b2i (varc w X = varc w Y)) Xs)
 End
 
 Definition among_sem_def:
   among_sem Xs iS Y w ⇔
   (varc w Y =
-    iSUM $
-      MAP
-      (λX.
-        b2i (varc w X ∈ set iS)
-      ) Xs)
+    iSUM $ MAP (λX. b2i (varc w X ∈ set iS)) Xs)
 End
 
 Definition in_sem_def:
   in_sem Xs Y w ⇔
-  let
-    y = varc w Y;
-    xs = MAP (varc w) Xs
-  in
-    MEM y xs
+    MEM (varc w Y) (MAP (varc w) Xs)
 End
 
 Definition at_most_one_sem_def:
@@ -490,39 +519,7 @@ Definition eval_iclin_term_def:
     iSUM (MAP (eval_icterm w) xs)
 End
 
-Theorem eval_iclin_term_CONS:
-  eval_iclin_term w (x::xs) = eval_icterm w x + eval_iclin_term w xs
-Proof
-  simp[eval_iclin_term_def,iSUM_def]
-QED
-
-Theorem iSUM_MAP_lin:
-  ∀ls a f b. iSUM (MAP (λx. a * f x + b) ls) = a * iSUM (MAP (λx. f x) ls) + b * &LENGTH ls
-Proof
-  Induct>>
-  simp[iSUM_def,MAP,LENGTH]>>
-  rw[]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem iSUM_MAP_lin_const = iSUM_MAP_lin |> CONV_RULE (RESORT_FORALL_CONV List.rev) |> Q.SPEC `0` |> SRULE [] |> SPEC_ALL;
-
-Theorem eval_iclin_term_MAP_neg[simp]:
-  eval_iclin_term w (MAP (λ(c,X). (-c,X)) cXs) = -eval_iclin_term w cXs
-Proof
-  simp[eval_iclin_term_def,iSUM_def,MAP_MAP_o,o_DEF]>>
-  ‘(λx. eval_icterm w ((λ(c,X). (-c,X)) x)) =
-  (λx. -1 * eval_icterm w x)’ by (
-    cong_tac NONE>>
-    pairarg_tac>>
-    gs[]>>
-    intLib.ARITH_TAC)>>
-  simp[iSUM_MAP_lin_const]>>
-  rename1 ‘λx. f x’>>
-  simp[ETA_AX]>>
-  intLib.ARITH_TAC
-QED
-
+(* Refied linear comparison of (LHS linear term) to RHS varc *)
 Definition lin_sem_def:
   lin_sem Zr cmp cXs Y w ⇔
   reify_sem Zr w
@@ -555,7 +552,7 @@ Definition element_sem_def:
     varc w (EL (Num y) Xs)
 End
 
-(* TODO *)
+(* NOTE: This constrains every row of the Xss table to have the same length. *)
 Definition element2d_sem_def:
   element2d_sem Xss Y1i Y2i Z w ⇔
   let y1 = mk_array_ind Y1i w in
@@ -632,6 +629,8 @@ End
 (***
   extensional_constr
 ***)
+
+(* Whether a given valuation xs matches a row ts (accounting for wildcards). *)
 Definition match_row_def:
   match_row ts xs ⇔
   LIST_REL
@@ -641,13 +640,16 @@ Definition match_row_def:
       | SOME v => v = x) ts xs
 End
 
+(* All rows have the same length, and at leat one matches *)
 Definition table_sem_def:
   table_sem tss Xs w ⇔
   EVERY (λts. LENGTH ts = LENGTH Xs) tss ∧
   ∃ts. MEM ts tss ∧ match_row ts (MAP (varc w) Xs)
 End
 
-(* the edge list for state q is EL q trans.
+(* The next functions help define semantics for Regular (NFA). *)
+
+(* The edge list for state q is EL q trans.
   out-of-bounds qs have no transitions *)
 Definition nfa_edges_def:
   nfa_edges trans q =
@@ -672,18 +674,6 @@ End
 Definition regular_sem_def:
   regular_sem Xs nstates trans finals w ⇔
   nfa_accepts trans finals nstates 0 (MAP (varc w) Xs)
-End
-
-(* nfa_run reconstructs a canonical accepting run (proof-only, never
-   translated): starting in state 0, at each index pick a successor state
-   that follows an edge on the i-th value AND from which the remaining
-   string is still accepted. When the string is accepted from state 0,
-   such a successor always exists, so the choice (@) is meaningful. *)
-Definition nfa_run_def:
-  nfa_run trans finals nstates as 0 = 0 ∧
-  nfa_run trans finals nstates as (SUC i) =
-    @q'. MEM (EL i as, q') (nfa_edges trans (nfa_run trans finals nstates as i)) ∧
-         nfa_accepts trans finals nstates q' (DROP (SUC i) as)
 End
 
 (* NegativeTable: forbidden iff some listed tuple is matched; the constraint
@@ -721,21 +711,24 @@ End
 (***
   logical_constr
 ***)
+
+(* All of the logical constraints are of the form
+  log_op(Xs) ⇔ Y, where the RHS Boolean is reified as Y > 0. *)
 Definition and_sem_def:
   and_sem Xs Y w ⇔
-   reify_sem (SOME (INR (Y, GreaterThan, 0))) w
+   reify_sem (SOME (INR (Y, Lexop GreaterThan, 0))) w
     (EVERY (λX. varc w X > 0) Xs)
 End
 
 Definition or_sem_def:
   or_sem Xs Y w ⇔
-   reify_sem (SOME (INR (Y, GreaterThan, 0))) w
+   reify_sem (SOME (INR (Y, Lexop GreaterThan, 0))) w
     (EXISTS (λX. varc w X > 0) Xs)
 End
 
 Definition parity_sem_def:
   parity_sem Xs Y w ⇔
-   reify_sem (SOME (INR (Y, GreaterThan, 0))) w
+   reify_sem (SOME (INR (Y, Lexop GreaterThan, 0))) w
     (ODD (SUM $ MAP (λX. if varc w X > 0 then 1n else 0n) Xs))
 End
 
@@ -751,6 +744,8 @@ End
   lexicographical_constr
 ***)
 
+(* This also handles the special case where Xs matches Ys on all elements
+  within the prefix, but Xs is longer than Ys. In that case, Xs > Ys. *)
 Definition row_gt_def:
   (row_gt (x::xs) (y::ys) ⇔
     (x:int) > y ∨
@@ -834,8 +829,6 @@ Definition lex_sem_def:
   let xs = MAP (varc w) Xs in
   let ys = MAP (varc w) Ys in
   case cmp of
-    Equal => F (* Invalid comparison *)
-  | NotEqual => F (* Invalid comparison *)
   | GreaterThan => reify_sem Zr w (row_gt xs ys)
   | GreaterEqual => reify_sem Zr w (row_gt xs ys ∨ xs = ys)
   | LessThan => reify_sem Zr w (row_gt ys xs)
@@ -854,7 +847,7 @@ Definition value_precede_sem_def:
 End
 
 (* The implicit chain 1,2,3,…: any occurrence of a value ≥ 2 must be preceded
-  by an occurrence of its predecessor. Non-positive values are unconstrained. *)
+  by an occurrence of its predecessor. Non-positive values unconstrained. *)
 Definition seq_precede_chain_sem_def:
   seq_precede_chain_sem Xs w ⇔
   let xs = MAP (varc w) Xs in
@@ -905,7 +898,8 @@ End
   misc_constr
 ***)
 
-(*The idea of this definition:
+(* Circuit semantics.
+  The idea of this definition:
 
   Writing len for LENGTH Xs, and f for indexing function (λi. Xs[i]):
 
@@ -921,7 +915,6 @@ End
   f^p i = f^q i, then f^p i = f^q i = f^(q-p) (f^p i), contradicting 2.
 
 *)
-
 Definition circuit_sem_def:
   circuit_sem Xs w ⇔
   EVERY (λX. 0 ≤ varc w X ∧ Num (varc w X) < LENGTH Xs) Xs ∧
@@ -941,6 +934,10 @@ Definition misc_constr_sem_def:
     Circuit Xs => circuit_sem Xs w
   | Knapsack css Xs Ts => knapsack_sem css Xs Ts w
 End
+
+(***
+  scheduling_constr
+***)
 
 (* Disjunctive:
     For each i, the active intervals are:
@@ -1030,17 +1027,13 @@ Definition scheduling_constr_sem_def:
       cumulative_sem Xs Ws Hs cap w
 End
 
-(* adjacent comparison picked by (strct,desc):
-   (F,F) ≤, (T,F) <, (F,T) ≥, (T,T) > *)
-Definition inc_rel_def[simp]:
-  inc_rel strct desc (x:int) y ⇔
-  if desc then (if strct then x > y else x ≥ y)
-  else (if strct then x < y else x ≤ y)
-End
+(***
+  sorting_constr
+***)
 
-Definition increasing_sem_def:
-  increasing_sem Xs strct desc w ⇔
-  SORTED (inc_rel strct desc) (MAP (varc w) Xs)
+Definition sorted_sem_def:
+  sorted_sem lex Xs w ⇔
+  SORTED (lexop_val lex) (MAP (varc w) Xs)
 End
 
 Definition sort_sem_def:
@@ -1071,8 +1064,8 @@ End
 Definition sorting_constr_sem_def:
   sorting_constr_sem c w ⇔
   case c of
-    Increasing Xs strct desc =>
-      increasing_sem Xs strct desc w
+    Sorted lex Xs =>
+      sorted_sem lex Xs w
   | Sort Xs Ys =>
       sort_sem Xs Ys w
   | ArgSort Xs Ps offset =>
@@ -1094,6 +1087,11 @@ Definition constraint_sem_def:
   | Scheduling c => scheduling_constr_sem c w
   | Sorting c => sorting_constr_sem c w
 End
+
+(* Top-level problem syntax and semantics *)
+
+(* All CP variables are bounded to a prescribed range (lb,ub). *)
+Type bounds[pp] = ``:'a -> int # int``;
 
 Definition valid_assignment_def:
   valid_assignment (bnd: 'a bounds) w ⇔
@@ -1314,6 +1312,8 @@ Proof
   metis_tac[]
 QED
 
+(* Some useful lemmas *)
+
 (* The solution set is FINITE, as long as the
   bound is a function with finite support
   (here, finite support is such that the function is constant
@@ -1325,5 +1325,55 @@ Proof
   irule FINITE_IMAGE_MAP_valid>>
   qexists_tac`bnd`>>
   rw[cp_sat_def]
+QED
+
+Theorem varc_INL:
+  varc wi (INL y) = wi y
+Proof
+  rw[varc_def]
+QED
+
+Theorem varc_INR:
+  varc wi (INR y) = y
+Proof
+  rw[varc_def]
+QED
+
+Theorem eval_iclin_term_CONS:
+  eval_iclin_term w (x::xs) = eval_icterm w x + eval_iclin_term w xs
+Proof
+  simp[eval_iclin_term_def,iSUM_def]
+QED
+
+Theorem iSUM_MAP_lin:
+  ∀ls a f b.
+    iSUM (MAP (λx. a * f x + b) ls) =
+    a * iSUM (MAP (λx. f x) ls) + b * &LENGTH ls
+Proof
+  Induct>>
+  simp[iSUM_def,MAP,LENGTH]>>
+  rw[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem iSUM_MAP_lin_const =
+  iSUM_MAP_lin |>
+  CONV_RULE (RESORT_FORALL_CONV List.rev) |>
+  Q.SPEC `0` |> SRULE [] |> SPEC_ALL;
+
+Theorem eval_iclin_term_MAP_neg[simp]:
+  eval_iclin_term w (MAP (λ(c,X). (-c,X)) cXs) = -eval_iclin_term w cXs
+Proof
+  simp[eval_iclin_term_def,iSUM_def,MAP_MAP_o,o_DEF]>>
+  ‘(λx. eval_icterm w ((λ(c,X). (-c,X)) x)) =
+  (λx. -1 * eval_icterm w x)’ by (
+    cong_tac NONE>>
+    pairarg_tac>>
+    gs[]>>
+    intLib.ARITH_TAC)>>
+  simp[iSUM_MAP_lin_const]>>
+  rename1 ‘λx. f x’>>
+  simp[ETA_AX]>>
+  intLib.ARITH_TAC
 QED
 

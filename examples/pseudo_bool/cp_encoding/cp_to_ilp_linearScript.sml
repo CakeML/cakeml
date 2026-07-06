@@ -198,23 +198,20 @@ Proof
 QED
 
 (* this encompasses ≥, >, ≤, < *)
-Definition encode_lin_cmp_aux_def:
-  encode_lin_cmp_aux cmp cXs Y =
+Definition encode_lin_lex_def:
+  encode_lin_lex cmp cXs Y =
   case cmp of
     GreaterEqual => mk_lin_ge cXs Y
   | GreaterThan  => mk_lin_gt cXs Y
   | LessEqual    => mk_lin_le cXs Y
   | LessThan     => mk_lin_lt cXs Y
-  | _            => false_constr
 End
 
-Theorem encode_lin_cmp_aux_cmpop_val:
-  cmp ≠ Equal ∧
-  cmp ≠ NotEqual ⇒
-  (iconstraint_sem (encode_lin_cmp_aux cmp cXs Y) (wi,wb) ⇔
-  cmpop_val cmp (eval_iclin_term wi cXs) (varc wi Y))
+Theorem encode_lin_lex_cmpop_val:
+  (iconstraint_sem (encode_lin_lex cmp cXs Y) (wi,wb) ⇔
+  cmpop_val (Lexop cmp) (eval_iclin_term wi cXs) (varc wi Y))
 Proof
-  rw[cmpop_val_def,encode_lin_cmp_aux_def]>>
+  rw[cmpop_val_def,encode_lin_lex_def]>>
   every_case_tac>>
   simp[eval_iclin_term_CONS]>>
   intLib.ARITH_TAC
@@ -222,7 +219,7 @@ QED
 
 Definition encode_lin_order_cmpops_def:
   encode_lin_order_cmpops bnd Zr cmp cXs Y =
-  let constr = encode_lin_cmp_aux cmp cXs Y
+  let constr = encode_lin_lex cmp cXs Y
   in
     case Zr of
       NONE => [constr]
@@ -235,15 +232,15 @@ Definition encode_lin_order_cmpops_def:
 End
 
 Theorem encode_lin_order_cmpops_sem_1:
-  valid_assignment bnd wi ∧ cmp ≠ Equal ∧ cmp ≠ NotEqual ∧
-  reify_sem Zr wi (cmpop_val cmp (eval_iclin_term wi cXs) (varc wi Y)) ⇒
+  valid_assignment bnd wi ∧
+  reify_sem Zr wi (cmpop_val (Lexop cmp) (eval_iclin_term wi cXs) (varc wi Y)) ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_lin_order_cmpops bnd Zr cmp cXs Y)
 Proof
   rw[encode_lin_order_cmpops_def]>>
   every_case_tac
   >-(
-    rw[encode_lin_cmp_aux_def]>>
+    rw[encode_lin_lex_def]>>
     every_case_tac>>
     fs[reify_sem_def,cmpop_val_def,eval_iclin_term_CONS]>>
     intLib.ARITH_TAC)>>
@@ -251,37 +248,36 @@ Proof
   PairCases_on ‘z’>>
   simp[EVERY_APPEND,reify_avar_def,reify_reif_def,
     encode_reif_gen_sem,lit_reify_avar_reif_gen]>>
-  simp[encode_lin_cmp_aux_cmpop_val]>>
+  simp[encode_lin_lex_cmpop_val]>>
   fs[reify_sem_def]
 QED
 
 Theorem encode_lin_order_cmpops_sem_2:
-  valid_assignment bnd wi ∧ cmp ≠ Equal ∧ cmp ≠ NotEqual ∧
+  valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
     (encode_lin_order_cmpops bnd Zr cmp cXs Y) ⇒
-  reify_sem Zr wi (cmpop_val cmp (eval_iclin_term wi cXs) (varc wi Y))
+  reify_sem Zr wi (cmpop_val (Lexop cmp) (eval_iclin_term wi cXs) (varc wi Y))
 Proof
   rw[encode_lin_order_cmpops_def]>>
   every_case_tac>>
   simp[reify_sem_def]
   >-(
-    fs[encode_lin_cmp_aux_def,cmpop_val_def]>>
+    fs[encode_lin_lex_def,cmpop_val_def]>>
     every_case_tac>>
     gs[iconstraint_sem_def,eval_iclin_term_CONS]>>
     intLib.ARITH_TAC)>>
   every_case_tac>>
   gvs[EVERY_APPEND,encode_reif_gen_sem]>>
-  metis_tac[encode_lin_cmp_aux_cmpop_val]
+  metis_tac[encode_lin_lex_cmpop_val]
 QED
 
 (* Linear constraint: Σ ci·Xi cmp Y *)
 Definition encode_lin_def:
   encode_lin bnd Zr cmp cXs Y name =
-  if cmp = Equal
-  then encode_lin_equal bnd Zr cXs Y name
-  else if cmp = NotEqual
-  then encode_lin_not_equal bnd Zr cXs Y name
-  else encode_lin_order_cmpops bnd Zr cmp cXs Y
+  case cmp of
+    Equal => encode_lin_equal bnd Zr cXs Y name
+  | NotEqual => encode_lin_not_equal bnd Zr cXs Y name
+  | Lexop lex => encode_lin_order_cmpops bnd Zr lex cXs Y
 End
 
 Theorem encode_lin_sem_1:
@@ -291,10 +287,11 @@ Theorem encode_lin_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_lin bnd Zr cmp cXs Y name)
 Proof
-  rw[encode_lin_def,lin_sem_def]
-  >-gs[encode_lin_equal_sem_1,cmpop_val_def]
-  >-gs[encode_lin_not_equal_sem_1,cmpop_val_def]
-  >-metis_tac[encode_lin_order_cmpops_sem_1]
+  rw[encode_lin_def,lin_sem_def]>>
+  Cases_on`cmp`>>fs[]
+  >- metis_tac[encode_lin_order_cmpops_sem_1]
+  >- gs[encode_lin_equal_sem_1,cmpop_val_def]
+  >- gs[encode_lin_not_equal_sem_1,cmpop_val_def]
 QED
 
 Theorem encode_lin_sem_2:
@@ -303,14 +300,15 @@ Theorem encode_lin_sem_2:
     (encode_lin bnd Zr cmp cXs Y name) ⇒
   lin_sem Zr cmp cXs Y wi
 Proof
-  rw[encode_lin_def,lin_sem_def]
+  rw[encode_lin_def,lin_sem_def]>>
+  Cases_on`cmp`>>fs[]
+  >- metis_tac[encode_lin_order_cmpops_sem_2]
   >-(
     simp[cmpop_val_def]>>
     metis_tac[encode_lin_equal_sem_2])
   >-(
     simp[cmpop_val_def]>>
     metis_tac[encode_lin_not_equal_sem_2])
-  >-metis_tac[encode_lin_order_cmpops_sem_2]
 QED
 
 Definition encode_linear_constr_def:
@@ -417,7 +415,7 @@ QED
 
 Definition cencode_lin_order_cmpops_def:
   cencode_lin_order_cmpops bnd Zr cmp cXs Y name ec =
-  let constr = encode_lin_cmp_aux cmp cXs Y
+  let constr = encode_lin_lex cmp cXs Y
   in
     case Zr of
       NONE =>
@@ -469,11 +467,10 @@ Definition cencode_linear_constr_def:
   cencode_linear_constr bnd c name ec =
   case c of
     Lin Zr cmp cXs Y =>
-      if cmp = Equal
-      then cencode_lin_equal bnd Zr cXs Y name ec
-      else if cmp = NotEqual
-      then cencode_lin_not_equal bnd Zr cXs Y name ec
-      else cencode_lin_order_cmpops bnd Zr cmp cXs Y name ec
+    case cmp of
+      Equal => cencode_lin_equal bnd Zr cXs Y name ec
+    | NotEqual => cencode_lin_not_equal bnd Zr cXs Y name ec
+    | Lexop lex => cencode_lin_order_cmpops bnd Zr lex cXs Y name ec
 End
 
 Theorem cencode_linear_constr_sem:
@@ -483,8 +480,9 @@ Theorem cencode_linear_constr_sem:
 Proof
   Cases_on ‘c’>>
   rename1 ‘Lin Zr cmp cXs Y’>>
-  rw[cencode_linear_constr_def,encode_linear_constr_def,encode_lin_def]
-  >-simp[cencode_lin_equal_sem]
-  >-simp[cencode_lin_not_equal_sem]
-  >-metis_tac[cencode_lin_order_cmpops_sem]
+  rw[cencode_linear_constr_def,encode_linear_constr_def,encode_lin_def]>>
+  Cases_on`cmp`>>fs[]
+  >- metis_tac[cencode_lin_order_cmpops_sem]
+  >- simp[cencode_lin_equal_sem]
+  >- simp[cencode_lin_not_equal_sem]
 QED

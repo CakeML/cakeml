@@ -86,7 +86,9 @@ val res = translate sexp_varc_list_def;
 val res = translate sexp_int_def;
 val res = translate sexp_int_list_def;
 
+val res = translate sexp_lexop_kw_def;
 val res = translate sexp_cmpop_kw_def;
+val res = translate sexp_lexop_sym_def;
 val res = translate sexp_cmpop_sym_def;
 val res = translate sexp_reify_cmp_def;
 
@@ -235,7 +237,7 @@ val res = translate sexp_scheduling_dispatch_def;
 val _ = check_side res;
 
 (* sorting *)
-val res = translate sexp_increasing_body_def;
+val res = translate sexp_sorted_body_def;
 val res = translate sexp_sort_body_def;
 val res = translate sexp_argsort_body_def;
 val res = translate sexp_sorting_dispatch_def;
@@ -446,6 +448,8 @@ val res = translate cp_to_ilpTheory.pos_num_def;
 val res = translate cp_to_ilpTheory.varc_bnd_def;
 val res = translate cp_to_ilpTheory.arri_def;
 
+val res = translate cp_to_ilpTheory.encode_lex_def;
+
 (* cp_to_ilp_primScript *)
 
 val res = translate cp_to_ilp_primTheory.mk_nge_def;
@@ -476,7 +480,6 @@ val res = translate cp_to_ilp_primTheory.cencode_not_equal_2_def;
 val res = translate cp_to_ilp_primTheory.cencode_not_equal_3_def;
 val res = translate cp_to_ilp_primTheory.cencode_not_equal_def;
 
-val res = translate cp_to_ilp_primTheory.encode_cmp_aux_def;
 val res = translate cp_to_ilp_primTheory.cencode_order_cmpops_def;
 
 (* multiply: shared pos_num/varc_bnd kernels + non-linear product encoder *)
@@ -581,7 +584,7 @@ val res = translate cp_to_ilp_linearTheory.cencode_lin_not_equal_1_def;
 val res = translate cp_to_ilp_linearTheory.cencode_lin_not_equal_2_def;
 val res = translate cp_to_ilp_linearTheory.cencode_lin_not_equal_3_def;
 
-val res = translate cp_to_ilp_linearTheory.encode_lin_cmp_aux_def;
+val res = translate cp_to_ilp_linearTheory.encode_lin_lex_def;
 
 val res = translate cp_to_ilp_linearTheory.cencode_lin_equal_def;
 val res = translate cp_to_ilp_linearTheory.cencode_lin_not_equal_def;
@@ -847,9 +850,8 @@ val res = translate cp_to_ilp_schedulingTheory.cencode_scheduling_constr_def;
 val _ = check_side res;
 
 (* cp_to_ilp_sorting *)
-val res = translate cp_to_ilp_sortingTheory.inc_cmp_def;
-val res = translate cp_to_ilp_sortingTheory.inc_chain_def;
-val res = translate cp_to_ilp_sortingTheory.cencode_increasing_def;
+val res = translate cp_to_ilp_sortingTheory.sort_chain_def;
+val res = translate cp_to_ilp_sortingTheory.cencode_sorted_def;
 
 (* Sort core.  sort_width/sort_guard are translated via their value-preserving,
    subtraction-free alt forms (sort_width_alt/sort_guard_alt) so the truncated

@@ -206,71 +206,54 @@ Proof
   Cases_on`j`>>gvs[GSYM ADD1,EL]
 QED
 
-(* Increasing: a monotone chain over Xs — one adjacent comparison per pair,
-   with (strct,desc) selecting the relation. *)
+(* Sorted : a monotone chain over Xs. *)
 
-(* the adjacent comparison constraint picked by (strct,desc) *)
-Definition inc_cmp_def:
-  inc_cmp strct desc X Y =
-  if desc then (if strct then mk_gt X Y else mk_ge X Y)
-  else (if strct then mk_lt X Y else mk_le X Y)
+Definition sort_chain_def:
+  (sort_chain lex i name X [] = []) ∧
+  (sort_chain lex i name X (Y::Ys) =
+    (SOME (mk_name name (toString i)), encode_lex lex X Y)::
+    sort_chain lex (i+1) name Y Ys)
 End
 
-Theorem inc_cmp_sem[simp]:
-  iconstraint_sem (inc_cmp strct desc X Y) (wi,wb) ⇔
-  inc_rel strct desc (varc wi X) (varc wi Y)
-Proof
-  Cases_on`desc`>>Cases_on`strct`>>rw[inc_cmp_def]>>
-  intLib.ARITH_TAC
-QED
-
-(* Increasing: linear chain x0 ⋈ x1, x1 ⋈ x2, ... *)
-Definition inc_chain_def:
-  (inc_chain strct desc i name X [] = []) ∧
-  (inc_chain strct desc i name X (Y::Ys) =
-    (SOME (mk_name name (toString i)), inc_cmp strct desc X Y)::
-    inc_chain strct desc (i+1) name Y Ys)
-End
-
-Definition cencode_increasing_def:
-  cencode_increasing Xs strct desc name =
+Definition cencode_sorted_def:
+  cencode_sorted lex Xs name =
   case Xs of [] => Nil
   | (X::Xs) =>
-    List (inc_chain strct desc 0 name X Xs)
+    List (sort_chain lex 0 name X Xs)
 End
 
-Definition encode_increasing_def:
-  encode_increasing Xs strct desc name =
-  abstr $ cencode_increasing Xs strct desc name
+Definition encode_sorted_def:
+  encode_sorted lex Xs name =
+  abstr $ cencode_sorted lex Xs name
 End
 
-Theorem inc_chain_sem:
+Theorem sort_chain_sem:
   ∀Xs i name X.
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (abstrl (inc_chain strct desc i name X Xs)) ⇔
-  SORTED (inc_rel strct desc) (varc wi X :: MAP (varc wi) Xs)
+    (abstrl (sort_chain lex i name X Xs)) ⇔
+  SORTED (lexop_val lex) (varc wi X :: MAP (varc wi) Xs)
 Proof
-  Induct>>rw[inc_chain_def,SORTED_DEF]
+  Induct>>rw[sort_chain_def,SORTED_DEF]
 QED
 
-Theorem encode_increasing_sem_1:
-  increasing_sem Xs strct desc wi ⇒
+Theorem encode_sorted_sem_1:
+  sorted_sem lex Xs wi ⇒
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_increasing Xs strct desc name)
+    (encode_sorted lex Xs name)
 Proof
-  gs[encode_increasing_def,cencode_increasing_def,increasing_sem_def]>>
+  gs[encode_sorted_def,cencode_sorted_def,sorted_sem_def]>>
   Cases_on`Xs`>>
-  rw[]>>fs[inc_chain_sem]
+  rw[]>>fs[sort_chain_sem]
 QED
 
-Theorem encode_increasing_sem_2:
+Theorem encode_sorted_sem_2:
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_increasing Xs strct desc name) ⇒
-  increasing_sem Xs strct desc wi
+    (encode_sorted lex Xs name) ⇒
+  sorted_sem lex Xs wi
 Proof
-  gs[encode_increasing_def,cencode_increasing_def,increasing_sem_def]>>
+  gs[encode_sorted_def,cencode_sorted_def,sorted_sem_def]>>
   Cases_on`Xs`>>
-  rw[]>>fs[inc_chain_sem]
+  rw[]>>fs[sort_chain_sem]
 QED
 
 (* Sort: ys is a non-decreasing permutation of xs, via stable before-flags, a
@@ -300,9 +283,9 @@ Definition sort_before_sum_def:
   GENLIST (λip. (1i, Pos (sort_bf name ip i))) n
 End
 
-(* (a) the non-decreasing chain y[0] ≤ y[1] ≤ … : an Increasing (≤) chain over Ys *)
+(* (a) the non-decreasing chain y[0] ≤ y[1] ≤ … : sorted (≤) over Ys *)
 Definition sort_chain_le_def:
-  sort_chain_le name Ys = cencode_increasing Ys F F name
+  sort_chain_le name Ys = cencode_sorted LessEqual Ys name
 End
 
 (* (b) two-way pin each before-flag to its stable comparison; the indices i/ip
@@ -764,10 +747,10 @@ Proof
   gvs[append_thm,EVERY_APPEND]>>
   rpt conj_tac
   >- (* (a) non-decreasing chain over Ys *)
-    (simp[sort_chain_le_def,GSYM encode_increasing_def]>>
-     irule encode_increasing_sem_1>>
-     simp[increasing_sem_def]>>
-     `inc_rel F F = (λ(x:int) y. x ≤ y)` by simp[FUN_EQ_THM]>>
+    (simp[sort_chain_le_def,GSYM encode_sorted_def]>>
+     irule encode_sorted_sem_1>>
+     simp[sorted_sem_def]>>
+     `lexop_val LessEqual = (λ(x:int) y. x ≤ y)` by simp[FUN_EQ_THM]>>
      pop_assum SUBST1_TAC>>first_x_assum ACCEPT_TAC)
   >- (* (b) before-flags pinned to the stable comparison *)
     (simp[sort_bf_lines_sem]>>rw[]>>drule reify_bf>>simp[])
@@ -847,10 +830,10 @@ Proof
   (* (a) the non-decreasing chain gives SORTED *)
   `SORTED (λ(x:int) y. x ≤ y) (MAP (varc wi) Ys)` by (
     qpat_x_assum`EVERY _ (abstr (sort_chain_le _ _))`mp_tac>>
-    simp[sort_chain_le_def,GSYM encode_increasing_def]>>
-    strip_tac>>drule encode_increasing_sem_2>>
-    simp[increasing_sem_def]>>
-    `inc_rel F F = (λ(x:int) y. x ≤ y)` by simp[FUN_EQ_THM]>>
+    simp[sort_chain_le_def,GSYM encode_sorted_def]>>
+    strip_tac>>drule encode_sorted_sem_2>>
+    simp[sorted_sem_def]>>
+    `lexop_val LessEqual = (λ(x:int) y. x ≤ y)` by simp[FUN_EQ_THM]>>
     simp[])>>
   (* (b)+(d)+(e): the sorted permutation places x[i] at its stable rank *)
   `∀i. i < LENGTH Xs ⇒
@@ -1826,8 +1809,8 @@ QED
 Definition encode_sorting_constr_def:
   encode_sorting_constr bnd c name =
   case c of
-    Increasing Xs strct desc =>
-      encode_increasing Xs strct desc name
+    Sorted lex Xs =>
+      encode_sorted lex Xs name
   | Sort Xs Ys => encode_sort bnd Xs Ys name
   | ArgSort Xs Ps offset => encode_argsort bnd Xs Ps offset name
 End
@@ -1835,8 +1818,8 @@ End
 Definition cencode_sorting_constr_def:
   cencode_sorting_constr bnd c name ec =
   case c of
-    Increasing Xs strct desc =>
-      (cencode_increasing Xs strct desc name, ec)
+    Sorted lex Xs =>
+      (cencode_sorted lex Xs name, ec)
   | Sort Xs Ys => (cencode_sort bnd Xs Ys name, ec)
   | ArgSort Xs Ps offset => (cencode_argsort bnd Xs Ps offset name, ec)
 End
@@ -1850,7 +1833,7 @@ Theorem encode_sorting_constr_sem_1:
 Proof
   Cases_on`c`>>
   rw[encode_sorting_constr_def,sorting_constr_sem_def]>>
-  metis_tac[encode_increasing_sem_1,encode_sort_sem_1,encode_argsort_sem_1]
+  metis_tac[encode_sorted_sem_1,encode_sort_sem_1,encode_argsort_sem_1]
 QED
 
 Theorem encode_sorting_constr_sem_2:
@@ -1861,7 +1844,7 @@ Theorem encode_sorting_constr_sem_2:
 Proof
   Cases_on`c`>>
   rw[encode_sorting_constr_def,sorting_constr_sem_def]
-  >- metis_tac[encode_increasing_sem_2]
+  >- metis_tac[encode_sorted_sem_2]
   >- metis_tac[encode_sort_sem_2]
   >- metis_tac[encode_argsort_sem_2]
 QED
@@ -1873,5 +1856,5 @@ Theorem cencode_sorting_constr_sem:
 Proof
   Cases_on`c`>>
   simp[cencode_sorting_constr_def,encode_sorting_constr_def,
-    cencode_increasing_def,encode_increasing_def,encode_sort_def,encode_argsort_def]
+    cencode_sorted_def,encode_sorted_def,encode_sort_def,encode_argsort_def]
 QED

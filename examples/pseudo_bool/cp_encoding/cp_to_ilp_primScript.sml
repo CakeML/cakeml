@@ -180,32 +180,9 @@ Proof
     intLib.ARITH_TAC)
 QED
 
-(* this encompasses ≥, >, ≤, < *)
-Definition encode_cmp_aux_def:
-  encode_cmp_aux cmp X Y =
-  case cmp of
-    GreaterEqual => mk_ge X Y
-  | GreaterThan  => mk_gt X Y
-  | LessEqual    => mk_le X Y
-  | LessThan     => mk_lt X Y
-  | _            => false_constr
-End
-
-Theorem encode_cmp_aux_cmpop_val:
-  cmp ≠ Equal ∧
-  cmp ≠ NotEqual ⇒
-  (iconstraint_sem (encode_cmp_aux cmp X Y) (wi,wb) ⇔
-  cmpop_val cmp (varc wi X) (varc wi Y))
-Proof
-  rw[cmpop_val_def,encode_cmp_aux_def]>>
-  every_case_tac>>
-  fs[]>>
-  intLib.ARITH_TAC
-QED
-
 Definition encode_order_cmpops_def:
   encode_order_cmpops bnd Zr cmp X Y =
-  let constr = encode_cmp_aux cmp X Y
+  let constr = encode_lex cmp X Y
   in
     case Zr of
       NONE => [constr]
@@ -218,15 +195,15 @@ Definition encode_order_cmpops_def:
 End
 
 Theorem encode_order_cmpops_sem_1:
-  valid_assignment bnd wi ∧ cmp ≠ Equal ∧ cmp ≠ NotEqual ∧
-  reify_sem Zr wi (cmpop_val cmp (varc wi X) (varc wi Y)) ⇒
+  valid_assignment bnd wi ∧
+  reify_sem Zr wi (cmpop_val (Lexop cmp) (varc wi X) (varc wi Y)) ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_order_cmpops bnd Zr cmp X Y)
 Proof
   rw[encode_order_cmpops_def]>>
   every_case_tac
   >-(
-    rw[encode_cmp_aux_def]>>
+    rw[encode_lex_def]>>
     every_case_tac>>
     fs[reify_sem_def,cmpop_val_def]>>
     intLib.ARITH_TAC)>>
@@ -234,27 +211,26 @@ Proof
   PairCases_on ‘z’>>
   simp[EVERY_APPEND,reify_avar_def,reify_reif_def,
     encode_reif_gen_sem,lit_reify_avar_reif_gen]>>
-  simp[encode_cmp_aux_cmpop_val]>>
-  fs[reify_sem_def]
+  gvs[encode_lex_cmpop_val]>>
+  fs[cmpop_val_def,reify_sem_def]
 QED
 
 Theorem encode_order_cmpops_sem_2:
-  valid_assignment bnd wi ∧ cmp ≠ Equal ∧ cmp ≠ NotEqual ∧
+  valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
     (encode_order_cmpops bnd Zr cmp X Y) ⇒
-  reify_sem Zr wi (cmpop_val cmp (varc wi X) (varc wi Y))
+  reify_sem Zr wi (cmpop_val (Lexop cmp) (varc wi X) (varc wi Y))
 Proof
   rw[encode_order_cmpops_def]>>
   every_case_tac>>
   simp[reify_sem_def]
   >-(
-    fs[encode_cmp_aux_def,cmpop_val_def]>>
+    fs[encode_lex_def,cmpop_val_def]>>
     every_case_tac>>
     fs[iconstraint_sem_def]>>
     intLib.ARITH_TAC)>>
   every_case_tac>>
-  gvs[EVERY_APPEND,encode_reif_gen_sem]>>
-  metis_tac[encode_cmp_aux_cmpop_val]
+  gvs[EVERY_APPEND,encode_reif_gen_sem,cmpop_val_def]
 QED
 
 (* -X ≥ Y *)
@@ -1480,11 +1456,10 @@ Definition encode_prim_constr_def:
   encode_prim_constr bnd c name =
   case c of
     Cmpop Zr cmp X Y =>
-      if cmp = Equal
-      then encode_equal bnd Zr X Y name
-      else if cmp = NotEqual
-      then encode_not_equal bnd Zr X Y name
-      else encode_order_cmpops bnd Zr cmp X Y
+      (case cmp of
+        Equal => encode_equal bnd Zr X Y name
+      | NotEqual => encode_not_equal bnd Zr X Y name
+      | Lexop lex => encode_order_cmpops bnd Zr lex X Y)
   | Unop uop X Y =>
       (case uop of
         Negative => encode_negative X Y
@@ -1518,12 +1493,15 @@ Proof
                 encode_min_sem_1,encode_max_sem_1])
   >- (Cases_on`p`>>gvs[nlop_sem_def,nlop_val_def,guard_nlop_def]>>
       metis_tac[encode_mult_sem_1,encode_div_sem_1,encode_mod_sem_1])
-  >- (irule encode_equal_sem_1>>
-      gvs[cmpop_sem_def,cmpop_val_def])
-  >- (irule encode_not_equal_sem_1>>
-      gvs[cmpop_sem_def,cmpop_val_def])
-  >> (irule encode_order_cmpops_sem_1>>
-      gvs[cmpop_sem_def,cmpop_val_def])
+  >- (
+    rename1`cmpop_sem _ p`>>
+    Cases_on`p`>>fs[]
+    >- (irule encode_order_cmpops_sem_1>>
+        gvs[cmpop_sem_def,cmpop_val_def])
+    >- (irule encode_equal_sem_1>>
+        gvs[cmpop_sem_def,cmpop_val_def])
+    >- (irule encode_not_equal_sem_1>>
+        gvs[cmpop_sem_def,cmpop_val_def]))
 QED
 
 Theorem encode_prim_constr_sem_2:
@@ -1540,12 +1518,15 @@ Proof
                 encode_min_sem_2,encode_max_sem_2])
   >- (Cases_on`p`>>gvs[nlop_sem_def,nlop_val_def,guard_nlop_def]>>
       metis_tac[encode_mult_sem_2,encode_div_sem_2,encode_mod_sem_2])
-  >- (gvs[cmpop_sem_def,cmpop_val_def]>>
-      metis_tac[encode_equal_sem_2])
-  >- (gvs[cmpop_sem_def,cmpop_val_def]>>
-      metis_tac[encode_not_equal_sem_2])
-  >- (gvs[cmpop_sem_def]>>
-      metis_tac[encode_order_cmpops_sem_2])
+  >- (
+    rename1`cmpop_sem _ p`>>
+    Cases_on`p`>>fs[]
+    >- (gvs[cmpop_sem_def]>>
+        metis_tac[encode_order_cmpops_sem_2])
+    >- (gvs[cmpop_sem_def,cmpop_val_def]>>
+        metis_tac[encode_equal_sem_2])
+    >- (gvs[cmpop_sem_def,cmpop_val_def]>>
+        metis_tac[encode_not_equal_sem_2]))
 QED
 
 (* Concrete encodings *)
@@ -1623,7 +1604,7 @@ QED
 
 Definition cencode_order_cmpops_def:
   cencode_order_cmpops bnd Zr cmp X Y name ec =
-  let constr = encode_cmp_aux cmp X Y
+  let constr = encode_lex cmp X Y
   in
     case Zr of
       NONE =>
@@ -1692,16 +1673,14 @@ Definition cencode_abs_def:
     (Append e (List ls) , ec')
 End
 
-(* Concrete encodings - TODO *)
 Definition cencode_prim_constr_def:
   cencode_prim_constr bnd c name ec =
   case c of
     Cmpop Zr cmp X Y =>
-      if cmp = Equal
-      then cencode_equal bnd Zr X Y name ec
-      else if cmp = NotEqual
-      then cencode_not_equal bnd Zr X Y name ec
-      else cencode_order_cmpops bnd Zr cmp X Y name ec
+      (case cmp of
+        Equal => cencode_equal bnd Zr X Y name ec
+      | NotEqual => cencode_not_equal bnd Zr X Y name ec
+      | Lexop lex => cencode_order_cmpops bnd Zr lex X Y name ec)
   | Unop uop X Y =>
     (case uop of
         Negative => (cencode_negative X Y name,ec)
@@ -1741,17 +1720,8 @@ Proof
   >- metis_tac[cencode_mult_sem]
   >- metis_tac[cencode_div_sem]
   >- metis_tac[cencode_mod_sem]
+  >- metis_tac[cencode_order_cmpops_sem]
   >- metis_tac[cencode_equal_sem]
   >- metis_tac[cencode_not_equal_sem]
-  >- metis_tac[cencode_order_cmpops_sem]
 QED
 
-(*
-
-EVAL``append o FST $ cencode_prim_constr
-  (\x. (-5,5))
-  (Binop Min (INL («X»)) (INL («Y»)) (INL («Z»)))
-  («foo»)
-  init_ec``
-
-*)
