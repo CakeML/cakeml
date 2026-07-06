@@ -51,6 +51,14 @@
     - Invalid field index
     - Invalid field name
     - Returned shape size >32 words (TODO: raised shape size)
+
+  Primitive checks:
+  - Errors:
+    - Mismatched destination shape
+    - Incorrect number of arguments
+    - Unsupported position
+    - Assignment to global value
+    - Mismatched operands
 *)
 Theory panStatic
 Libs
@@ -443,22 +451,14 @@ Definition get_scope_msg_def:
 End
 
 (*
-  Identifier names that the parser recognises as built-in primitives and
-  desugars to Primitive in declaration and assignment RHS positions. Used by
-  add_primitive_hint to produce a more helpful message when a lookup fails
-  on one of these names; extend this list as new primitives are added.
+  List of recognised Primitive identifiers for usage hints
 *)
 Definition primitive_idents_def:
   primitive_idents = [«__add_with_carry__»]
 End
 
 (*
-  Append a hint to a function-not-in-scope error when fname is a built-in
-  primitive identifier. The parser desugars such names to a Primitive in
-  declaration and assignment RHS positions, so a function-name lookup failure
-  means the name was used in a position where the primitive is not available
-  (e.g. standalone call, tail-return) and no user-defined function of that
-  name exists either.
+  Adds hint when a primitive is used in an unsupported position
 *)
 Definition add_primitive_hint_def:
   add_primitive_hint fname msg =
@@ -670,9 +670,9 @@ Definition check_operands_def:
       ) (sh_bd_to_str sb) ctxt.loc ctxt.scope)
 End
 
-(* Check args for AddCarry primitive and return result shaped basedness *)
-Definition check_addcarry_args_def:
-  check_addcarry_args ctxt sh_bds =
+(* Check args for primitives and return result shaped basedness *)
+Definition check_primitive_args_def:
+  check_primitive_args ctxt AddCarry sh_bds =
     do
       op_str <<- primop_to_str AddCarry;
       nargs <<- LENGTH sh_bds;
@@ -1160,31 +1160,6 @@ Definition static_check_prog_def:
         ; var_delta  := empty mlstring$compare
         ; curr_loc   := ctxt.loc |>
     od ∧
-  static_check_prog ctxt (Primitive v pop es) =
-    do
-      (* check destination is in scope (Primitive always targets Local) *)
-      vinf <- check_local_var ctxt v;
-      (* check arg exps *)
-      esret <- static_check_exps ctxt es;
-      (* per-primop arity/operand checks; returns result shaped basedness *)
-      res_sb <- case pop of
-                | AddCarry => check_addcarry_args ctxt esret.sh_bds;
-      (* check declared destination shape matches result shape *)
-      if ~(sh_bd_eq_shapes vinf.vsh_bd res_sb)
-        then error (ShapeErr $ get_shape_mismatch_msg (concat [
-            «result of primitive »; primop_to_str pop;
-            « assigned to local variable »; v
-          ]) (sh_bd_to_str res_sb) (sh_bd_to_str vinf.vsh_bd)
-          ctxt.loc ctxt.scope)
-      else return ();
-      (* return prog info with updated var *)
-      return <| exits_fun  := F
-              ; exits_loop := F
-              ; last       := OtherLast
-              ; var_delta  := singleton mlstring$compare v
-                                (vinf with <| vsh_bd := res_sb |>)
-              ; curr_loc   := ctxt.loc |>
-    od ∧
       static_check_prog ctxt (AssignCall (Local, vname) hdl fname args) =
     do
       (* check for out of scope assignment *)
@@ -1262,6 +1237,30 @@ Definition static_check_prog_def:
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
         ; curr_loc   := ctxt.loc |>
+    od ∧
+  static_check_prog ctxt (Primitive vname pop es) =
+    do
+      (* check destination is in scope (Primitive always targets Local) *)
+      vinf <- check_local_var ctxt vname;
+      (* check arg exps *)
+      esret <- static_check_exps ctxt es;
+      (* per-primop arity/operand checks; returns result shaped basedness *)
+      res_sb <- check_primitive_args ctxt pop esret.sh_bds;
+      (* check declared destination shape matches result shape *)
+      if ~(sh_bd_eq_shapes vinf.vsh_bd res_sb)
+        then error (ShapeErr $ get_shape_mismatch_msg (concat [
+            «result of primitive »; primop_to_str pop;
+            « assigned to local variable »; vname
+          ]) (sh_bd_to_str res_sb) (sh_bd_to_str vinf.vsh_bd)
+          ctxt.loc ctxt.scope)
+      else return ();
+      (* return prog info with updated var *)
+      return <| exits_fun  := F
+              ; exits_loop := F
+              ; last       := OtherLast
+              ; var_delta  := singleton mlstring$compare vname
+                                (vinf with <| vsh_bd := res_sb |>)
+              ; curr_loc   := ctxt.loc |>
     od ∧
   static_check_prog ctxt (Return exp) =
     do

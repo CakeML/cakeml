@@ -176,7 +176,7 @@ QED
 
 Definition pmatch_no_type_error_def:
   pmatch_no_type_error envC a p <=>
-    ALL_DISTINCT (pat_bindings p []) /\
+    ALL_DISTINCT (pat_bindings p) /\
     !x v refs.
        a x v ==> pmatch envC refs p v [] <> Match_type_error
 End
@@ -210,7 +210,7 @@ QED
 
 Theorem Eval_PMATCH:
    !b a x xv.
-      ALL_DISTINCT (pat_bindings p []) ⇒
+      ALL_DISTINCT (pat_bindings p) ⇒
       (∀v1 v2. pat v1 = pat v2 ⇒ v1 = v2) ⇒
       Eval env x (a xv) ⇒
       (p1 xv ⇒ Eval env (Mat x ys) (b (PMATCH xv yrs))) ⇒
