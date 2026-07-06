@@ -52,14 +52,19 @@ Definition has_return_def:
   (has_return _ = F)
 End
 
-(* This simulate argument loading of a function call *)
+(* This simulate argument loading of a function call.
+   Conceptually, only one nested_decs round is needed: "nested_decs args_vname args p", but
+   variables in "args" might be shadowed by what are in "args_vname"
+ *)
 Definition arg_load_def:
   arg_load tmp_vars args args_vname p =
     nested_decs tmp_vars args (nested_decs args_vname (MAP Var tmp_vars) p)
 End
 
 
-(* Whether a function has return in a branching statement *)
+(* Whether a function has return in a branching statement, this includes
+   Returns inside a While loop
+ *)
 Definition not_branch_ret_def:
   (not_branch_ret (Dec v e p) = not_branch_ret p) ∧
   (not_branch_ret (Seq p1 p2) = (not_branch_ret p1 ∧ not_branch_ret p2)) ∧
@@ -126,7 +131,7 @@ End
 
 (*
   Transformation of Return statements
-  rets: variables to be returned to at the call site, [] for standalone call
+  rets: variables to be returned to at the call site
 *)
 
 (* Transform the callee's body where Returns are not inside any branching statements *)
@@ -145,8 +150,8 @@ Definition transform_eoc_def:
 End
 
 (* Transform the callee's body where are Returns inside branching statments (If/While)
-   The intention is to wrap a While(true) loop around the callee's body, and turn
-   Returns statements into Breaks
+   The implementation is to wrap a While(true) loop around the callee's body and turn
+   Returns into multi-level Breaks
  *)
 Definition transform_branch_def:
   (transform_branch ld rets (Return es) = Seq (nested_seq (MAP2 Assign rets es)) (Break ld)) ∧
@@ -162,19 +167,26 @@ Definition transform_branch_def:
   (transform_branch ld rets p = p)
 End
 
-(* Merge the callee body of a tail call into the caller's body, Tick is for clock-correctness *)
+(* Merge the callee body of a tail call into the caller's body, Tick is for clock-synchronization *)
 Definition inline_tail_def:
   inline_tail p = Seq Tick p
 End
 
 (* Inline (transformed) function body where the call site is not a tail call
    - p: the transformed callee's body
-   - rts: the variables to be returned to at call site
+   - rts: the variables to be returned to, defined at call site
    - temp_rets: temporary variables to avoid shadowing (rts might be shadowed by a variable inside
-              the callee's body
+              the callee's body)
    - tmp_vars: temporary variable to avoid shadowing the function arguments
    - args: expressions to be passed as function arguments
    - args_vname: function arguments original name
+
+   The transformation aims to simulate the behavior of assigning the return results of a call to the variables defined
+   at the call site.
+   The main transformed body "arg_load _ _ _ _" guarantees to assign the Return values of the call to "temp_rets",
+   which means the next "nested_seq _" assigns the Return values of the call back to "rts".
+   All the extra treatment of "temp_rets" instead of just storing the results in "rts" is to avoid variables in "rts" shadowing
+   a variable appearing in "p".
  *)
 Definition inline_nontail_def:
   inline_nontail p rts temp_rets tmp_vars args args_vname =
@@ -186,8 +198,7 @@ Definition inline_nontail_def:
 End
 
 (* Perform function inlining over a program's body, with a known inline map.
-   This only inlines functions that has Return at the end of control flow,
-   and ignores all calls with a handler.
+   This ignores all function calls with a handler.
 *)
 Definition inline_prog_def:
   (inline_prog inlineable_fs (Call ctyp e args) =
@@ -208,7 +219,6 @@ Definition inline_prog_def:
           let max_args = MAX_LIST (FLAT (MAP var_cexp args)) in
           let max_args_vname = MAX_LIST args_vname in
 
-          (* Avoid shadowing *)
           let tmp_vars = GENLIST (λx. SUC x + MAX max_args max_args_vname) (LENGTH args_vname) in
           (case ctyp_inl of
              | NONE => inline_tail $ arg_load tmp_vars args args_vname inlined_callee
@@ -218,7 +228,8 @@ Definition inline_prog_def:
                      (let ret_max = MAX_LIST [MAX_LIST rts; vmax_prog inlined_callee; MAX_LIST tmp_vars];
                          temp_rets = GENLIST (λx. SUC x + ret_max) (LENGTH rts); (* temporary variables to store to in the callee, avoid shadowing with call site *)
                          n_br = not_branch_ret inlined_callee; (* checks if return statements are inside branching primitives *)
-                         transformed_callee = if n_br then (Seq Tick (transform_eoc temp_rets inlined_callee)) else (While (Const 1w) (transform_branch 0 temp_rets inlined_callee)) in
+                         transformed_callee = if n_br then (Seq Tick (transform_eoc temp_rets inlined_callee))
+                                                      else (While (Const 1w) (transform_branch 0 temp_rets inlined_callee)) in
                       inline_nontail transformed_callee rts temp_rets tmp_vars args args_vname)
                    | SOME w_hdl => (Call ctyp_inl e args)
                  )
