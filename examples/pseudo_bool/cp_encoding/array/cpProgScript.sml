@@ -379,21 +379,11 @@ val res = translate union_dom_def;
 
 val res = translate lookup_int_def;
 val res = translate insert_int_def;
-val res = translate hash_varc_def;
 
-(* Rewrite lookup_ht so the translator sees a direct case split. *)
-Theorem lookup_ht_eq:
-  lookup_ht k n ht ⇔
-  case lookup (hash_varc k) ht of
-    NONE => F
-  | SOME t => (case lookup_int n t of NONE => F | SOME ls => MEMBER k ls)
-Proof
-  rw[lookup_ht_def,MEMBER_INTRO]>>
-  every_case_tac>>rw[]
-QED
+val res = translate fast_compare_def;
+val res = translate varc_compare_def;
 
-val res = translate lookup_ht_eq;
-
+val res = translate lookup_ht_def;
 val res = translate insert_ht_def;
 
 val res = translate has_ge_def;
@@ -909,7 +899,6 @@ val res = translate cencode_constraints_def;
 val res = translate cencode_bound_var_def;
 val res = translate cencode_bound_all_def;
 
-val res = translate fast_compare_def;
 val res = translate mk_bnd_map_def;
 val res = translate map_bnd_lookup_def;
 

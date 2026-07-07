@@ -5,7 +5,7 @@ Theory cp_to_ilp
 Libs
   preamble
 Ancestors
-  cp ilp pbc pbc_encode sptree int_bitwiseExtra
+  cp ilp pbc pbc_encode sptree int_bitwiseExtra mlmap
 
 (* The shared infrastructure for all encodings goes into this file *)
 
@@ -1021,11 +1021,70 @@ End
   The mlstring option is an annotation.
 *)
 
+(* Ordering-valued shortlex comparison on mlstring, via the native
+  String.Fast primitives fast_lt/fast_le.
+  NOTE: fast_compare + TotOrd_fast_compare could move upstream to
+  mlstringTheory (next to fast_lt/fast_le). *)
+Definition fast_compare_def:
+  fast_compare s1 s2 =
+  if fast_lt s1 s2 then LESS
+  else if fast_le s1 s2 then EQUAL
+  else GREATER
+End
+
+Theorem TotOrd_fast_compare:
+  TotOrd fast_compare
+Proof
+  `fast_compare = TO_of_LinearOrder fast_lt` by
+    (rw[FUN_EQ_THM,fast_compare_def,totoTheory.TO_of_LinearOrder,
+      mlstringTheory.fast_le_thm]>>
+    metis_tac[mlstringTheory.fast_lt_nonrefl])>>
+  metis_tac[totoTheory.TotOrd_TO_of_Strong,
+    mlstringTheory.StrongLinearOrder_fast_lt]
+QED
+
+(* NOTE: could move upstream to mlintTheory (next to int_cmp_def) *)
+Theorem TotOrd_int_cmp:
+  TotOrd mlint$int_cmp
+Proof
+  rw[totoTheory.TotOrd,mlintTheory.int_cmp_def]>>
+  every_case_tac>>gvs[]>>
+  intLib.ARITH_TAC
+QED
+
+(* Total order on varc: variables (INL, by fast_compare) before
+  constants (INR, by int_cmp) *)
+Definition varc_compare_def:
+  varc_compare (x:mlstring varc) (y:mlstring varc) =
+  case (x,y) of
+    (INL s1, INL s2) => fast_compare s1 s2
+  | (INR c1, INR c2) => int_cmp c1 c2
+  | (INL _, INR _) => LESS
+  | (INR _, INL _) => GREATER
+End
+
+Theorem TotOrd_varc_compare:
+  TotOrd varc_compare
+Proof
+  rw[totoTheory.TotOrd]
+  >- (
+    Cases_on`x`>>Cases_on`y`>>
+    gvs[varc_compare_def]>>
+    metis_tac[TotOrd_fast_compare,TotOrd_int_cmp,totoTheory.TotOrd])
+  >- (
+    Cases_on`x`>>Cases_on`y`>>
+    gvs[varc_compare_def]>>
+    metis_tac[TotOrd_fast_compare,TotOrd_int_cmp,totoTheory.TotOrd])>>
+  Cases_on`x`>>Cases_on`y`>>Cases_on`z`>>
+  gvs[varc_compare_def]>>
+  metis_tac[TotOrd_fast_compare,TotOrd_int_cmp,totoTheory.TotOrd]
+QED
+
 Datatype:
   enc_conf =
     <|
-       ge : ( (mlstring varc list) num_map) num_map
-     ; eq : ( (mlstring varc list) num_map) num_map
+       ge : (mlstring varc, num_set) map
+     ; eq : (mlstring varc, num_set) map
     |>
 End
 
@@ -1073,38 +1132,18 @@ Definition insert_int_def:
   insert (intnum i) v t
 End
 
-Definition hash_varc_def:
-  hash_varc (s: mlstring varc) =
-  case s of
-    INL v =>
-      let l = strlen v in
-      if l > 0 then ORD (strsub v 0) + l else 0
-  | INR c => intnum c
-End
-
 Definition lookup_ht_def:
   lookup_ht (k:mlstring varc) (n:int) ht =
-  let h = hash_varc k in
-  case lookup h ht of
+  case mlmap$lookup ht k of
     NONE => F
-  | SOME t =>
-    (case lookup_int n t of
-      NONE => F
-    | SOME ls => MEM k ls)
+  | SOME t => IS_SOME (lookup_int n t)
 End
 
 Definition insert_ht_def:
   insert_ht k n ht =
-  let h = hash_varc k in
-  case lookup h ht of
-    NONE =>
-    insert h (insert_int n [k] LN) ht
-  | SOME t =>
-    (case lookup_int n t of
-      NONE =>
-      insert h (insert_int n [k] t) ht
-    | SOME ls =>
-      insert h (insert_int n (k::ls) t) ht)
+  case mlmap$lookup ht k of
+    NONE => mlmap$insert ht k (insert_int n () LN)
+  | SOME t => mlmap$insert ht k (insert_int n () t)
 End
 
 (* lookup for when the given ge for a variable has been encoded *)
@@ -1116,8 +1155,14 @@ Definition has_eq_def:
   has_eq Y n ec = lookup_ht Y n ec.eq
 End
 
+(* Well-formedness of the balanced maps in enc_conf *)
+Definition ec_ok_def:
+  ec_ok ec ⇔ map_ok ec.ge ∧ map_ok ec.eq
+End
+
 Definition good_reif_def:
   good_reif wb wi ec ⇔
+  ec_ok ec ∧
   (∀Y n. has_ge Y n ec ⇒ (wb (INL (Ge Y n)) ⇔ varc wi Y ≥ n)) ∧
   (∀Y n. has_eq Y n ec ⇒ (wb (INL (Eq Y n)) ⇔
     wb (INL (Ge Y n)) ∧ ¬wb (INL (Ge Y (n + 1)))))
@@ -1193,52 +1238,71 @@ Theorem lookup_int_insert_int:
   lookup_int k1 (insert_int k2 v t) =
     if k1 = k2 then SOME v else lookup_int k1 t
 Proof
-  rw[lookup_int_def,insert_int_def,lookup_insert]>>
+  rw[lookup_int_def,insert_int_def,sptreeTheory.lookup_insert]>>
   metis_tac[numint_intnum]
 QED
 
+Theorem map_ok_insert_ht[simp]:
+  map_ok ht ⇒ map_ok (insert_ht k n ht)
+Proof
+  rw[insert_ht_def]>>
+  every_case_tac>>
+  simp[mlmapTheory.insert_thm]
+QED
+
 Theorem lookup_ht_insert_ht:
-  lookup_ht X n (insert_ht Y m ht) ⇔ X = Y ∧ n = m ∨ lookup_ht X n ht
+  map_ok ht ⇒
+  (lookup_ht X n (insert_ht Y m ht) ⇔ X = Y ∧ n = m ∨ lookup_ht X n ht)
 Proof
   rw[lookup_ht_def,insert_ht_def]>>
-  every_case_tac>>rw[]>>
-  gvs[lookup_insert,lookup_int_insert_int,AllCaseEqs()]>>
-  gvs[lookup_int_def]>>
-  metis_tac[]
+  every_case_tac>>
+  gvs[mlmapTheory.lookup_insert,lookup_int_insert_int,AllCaseEqs()]>>
+  gvs[lookup_int_def,sptreeTheory.lookup_def]>>
+  rw[]
+QED
+
+Theorem ec_ok_add_ge[simp]:
+  ec_ok ec ⇒ ec_ok (add_ge Y n ec)
+Proof
+  rw[ec_ok_def,add_ge_def]
+QED
+
+Theorem ec_ok_add_eq[simp]:
+  ec_ok ec ⇒ ec_ok (add_eq Y n ec)
+Proof
+  rw[ec_ok_def,add_eq_def]
 QED
 
 Theorem has_ge_add_ge[simp]:
-  has_ge X n (add_ge Y m ec) ⇔
+  ec_ok ec ⇒
+  (has_ge X n (add_ge Y m ec) ⇔
   X = Y ∧ n = m ∨
-  has_ge X n ec
+  has_ge X n ec)
 Proof
-  rw[has_ge_def,add_ge_def]>>every_case_tac>>
-  simp[lookup_ht_insert_ht]
+  rw[has_ge_def,add_ge_def,ec_ok_def,lookup_ht_insert_ht]
 QED
 
 Theorem has_ge_add_eq[simp]:
   has_ge X n (add_eq Y m ec) ⇔
   has_ge X n ec
 Proof
-  rw[has_ge_def,add_eq_def]>>every_case_tac>>
-  simp[lookup_ht_insert_ht]
+  rw[has_ge_def,add_eq_def]
 QED
 
 Theorem has_eq_add_eq[simp]:
-  has_eq X n (add_eq Y m ec) ⇔
+  ec_ok ec ⇒
+  (has_eq X n (add_eq Y m ec) ⇔
   X = Y ∧ n = m ∨
-  has_eq X n ec
+  has_eq X n ec)
 Proof
-  rw[has_eq_def,add_eq_def]>>every_case_tac>>
-  simp[lookup_ht_insert_ht]
+  rw[has_eq_def,add_eq_def,ec_ok_def,lookup_ht_insert_ht]
 QED
 
 Theorem has_eq_add_ge[simp]:
   has_eq X n (add_ge Y m ec) ⇔
   has_eq X n ec
 Proof
-  rw[has_eq_def,add_ge_def]>>every_case_tac>>
-  simp[lookup_ht_insert_ht]
+  rw[has_eq_def,add_ge_def]
 QED
 
 Type ciconstraint[pp] = ``:(mlstring, mlstring avar) iconstraint``
@@ -1623,8 +1687,22 @@ Proof
 QED
 
 Definition init_ec_def:
-  init_ec = <| ge := LN ; eq := LN |>
+  init_ec = <| ge := mlmap$empty varc_compare ; eq := mlmap$empty varc_compare |>
 End
+
+Theorem lookup_ht_empty[simp]:
+  ¬lookup_ht k n (empty varc_compare)
+Proof
+  rw[lookup_ht_def]>>
+  DEP_REWRITE_TAC[mlmapTheory.lookup_thm]>>
+  simp[mlmapTheory.empty_thm,TotOrd_varc_compare]
+QED
+
+Theorem ec_ok_init_ec[simp]:
+  ec_ok init_ec
+Proof
+  rw[ec_ok_def,init_ec_def,mlmapTheory.empty_thm,TotOrd_varc_compare]
+QED
 
 Theorem enc_rel_abstr[simp]:
   enc_rel wi ls (abstr ls) ec ec
