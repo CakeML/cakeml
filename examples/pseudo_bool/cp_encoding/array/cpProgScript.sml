@@ -909,6 +909,10 @@ val res = translate cencode_constraints_def;
 val res = translate cencode_bound_var_def;
 val res = translate cencode_bound_all_def;
 
+val res = translate fast_compare_def;
+val res = translate mk_bnd_map_def;
+val res = translate map_bnd_lookup_def;
+
 val res = translate cp_encTheory.encode_def;
 val res = translate encode_nivar_def;
 val res = translate proj_ivar_def;

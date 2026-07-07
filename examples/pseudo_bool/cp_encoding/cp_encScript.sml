@@ -5,7 +5,7 @@ Theory cp_enc
 Libs
   preamble
 Ancestors
-  cp pbc cp_to_ilp cp_to_ilp_all ilp_to_pb
+  cp pbc cp_to_ilp cp_to_ilp_all ilp_to_pb mlmap
 
 Definition cencode_bound_var_def:
   cencode_bound_var bnd X =
@@ -26,9 +26,69 @@ Definition cencode_bound_all_def:
       (cencode_bound_all bnd xs))
 End
 
+(* Ordering-valued shortlex comparison on mlstring, via the native
+  String.Fast primitives fast_lt/fast_le *)
+Definition fast_compare_def:
+  fast_compare s1 s2 =
+  if fast_lt s1 s2 then LESS
+  else if fast_le s1 s2 then EQUAL
+  else GREATER
+End
+
+Theorem TotOrd_fast_compare:
+  TotOrd fast_compare
+Proof
+  `fast_compare = TO_of_LinearOrder fast_lt` by
+    (rw[FUN_EQ_THM,fast_compare_def,totoTheory.TO_of_LinearOrder,
+      mlstringTheory.fast_le_thm]>>
+    metis_tac[mlstringTheory.fast_lt_nonrefl])>>
+  metis_tac[totoTheory.TotOrd_TO_of_Strong,
+    mlstringTheory.StrongLinearOrder_fast_lt]
+QED
+
+(* Bounds map keyed by fast_compare; first occurrence of a key wins,
+  matching ALOOKUP *)
+Definition mk_bnd_map_def:
+  (mk_bnd_map [] = mlmap$empty fast_compare) ∧
+  (mk_bnd_map ((k,v)::bnd) = mlmap$insert (mk_bnd_map bnd) k v)
+End
+
+Theorem map_ok_mk_bnd_map:
+  ∀bnd. map_ok (mk_bnd_map bnd)
+Proof
+  Induct
+  >- rw[mk_bnd_map_def,mlmapTheory.empty_thm,TotOrd_fast_compare]>>
+  Cases_on`h`>>
+  rw[mk_bnd_map_def,mlmapTheory.insert_thm]
+QED
+
+Theorem lookup_mk_bnd_map:
+  ∀bnd x. mlmap$lookup (mk_bnd_map bnd) x = ALOOKUP bnd x
+Proof
+  Induct
+  >- rw[mk_bnd_map_def,mlmapTheory.lookup_thm,mlmapTheory.empty_thm,
+        TotOrd_fast_compare]>>
+  Cases_on`h`>>
+  rw[mk_bnd_map_def,mlmapTheory.lookup_insert,map_ok_mk_bnd_map]
+QED
+
+Definition map_bnd_lookup_def:
+  map_bnd_lookup m x =
+  case mlmap$lookup m x of
+    NONE => (0i,0i)
+  | SOME v => v
+End
+
+Theorem map_bnd_lookup_mk_bnd_map:
+  map_bnd_lookup (mk_bnd_map bnd) = bnd_lookup bnd
+Proof
+  rw[FUN_EQ_THM,map_bnd_lookup_def,bnd_lookup_def,lookup_mk_bnd_map]
+QED
+
 Definition encode_def:
   encode bnd cs =
-  let bndm = bnd_lookup bnd in
+  let m = mk_bnd_map bnd in
+  let bndm = map_bnd_lookup m in
   let cs = append (FST (cencode_constraints bndm cs init_ec)) in
   let cs' = MAP (I ## encode_iconstraint_one bndm) cs in
   let bndcs = cencode_bound_all bndm (MAP FST bnd) in
@@ -89,7 +149,7 @@ Theorem encode_sem_1:
     (set (MAP SND (encode bnd cs)))
 Proof
   `∃es ec'. cencode_constraints (bnd_lookup bnd) cs init_ec = (es,ec')` by metis_tac[PAIR]>>
-  rw[encode_def,cp_sat_def,MAP_SND_MAP_I_FST]>>
+  rw[encode_def,map_bnd_lookup_mk_bnd_map,cp_sat_def,MAP_SND_MAP_I_FST]>>
   simp[GSYM encode_iconstraint_all_def,GSYM encode_iconstraint_all_sem_1]>>
   fs[GSYM EVERY_MEM,EVERY_MAP]>>
   drule_all cencode_constraints_thm_1>>
@@ -104,7 +164,7 @@ Theorem encode_sem_2:
     (unreify_epb (bnd_lookup bnd) w)
 Proof
   `∃es ec'. cencode_constraints (bnd_lookup bnd) cs init_ec = (es,ec')` by metis_tac[PAIR]>>
-  rw[encode_def]>>
+  rw[encode_def,map_bnd_lookup_mk_bnd_map]>>
   fs[MAP_SND_MAP_I_FST,cencode_bound_all_def,MAP_MAP_o,o_DEF]>>
   drule_at Any encode_bound_all_sem_2>>
   impl_tac >- (
