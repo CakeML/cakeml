@@ -35,27 +35,6 @@ Definition do_app_def:
           (SOME xs, SOME ys) => SOME (s, Rval (list_to_v (xs ++ ys)))
         | _ => NONE
       )
-    | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
-        if (op = Divide ∨ op = Modulo) ∧ n2 = 0 then
-          SOME (s, Rraise div_exn_v)
-        else
-          SOME (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
-    | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
-        SOME (s, Rval (Boolv (opb_lookup op n1 n2)))
-    | (Opw W8 op, [Litv (Word8 w1); Litv (Word8 w2)]) =>
-        SOME (s, Rval (Litv (Word8 (opw8_lookup op w1 w2))))
-    | (Opw W64 op, [Litv (Word64 w1); Litv (Word64 w2)]) =>
-        SOME (s, Rval (Litv (Word64 (opw64_lookup op w1 w2))))
-    | (FP_top t_op, [flit w1; flit w2; flit w3]) =>
-        SOME (s, Rval (flit (fp_top_comp t_op w1 w2 w3)))
-    | (FP_bop bop, [flit w1; flit w2]) =>
-        SOME (s,Rval (flit (fp_bop_comp bop w1 w2)))
-    | (FP_uop uop, [flit w1]) =>
-          SOME (s,Rval (flit (fp_uop_comp uop w1)))
-    | (FP_cmp cmp, [flit w1; flit w2]) =>
-        SOME (s,Rval (Boolv (fp_cmp_comp cmp w1 w2)))
-    | (FpToWord, [flit w1]) => SOME (s, Rval (Litv (Word64 w1)))
-    | (FpFromWord, [Litv (Word64 v1)]) => SOME (s, Rval (flit v1))
     | (Shift W8 op n, [Litv (Word8 w)]) =>
         SOME (s, Rval (Litv (Word8 (shift8_lookup op w n))))
     | (Shift W64 op n, [Litv (Word64 w)]) =>
@@ -75,8 +54,9 @@ Definition do_app_def:
     | (FromTo ty1 ty2, [v]) =>
         (if check_type ty1 v then
            (case do_conversion v ty1 ty2 of
-            | SOME res => SOME (s, Rval res)
-            | NONE     => NONE)
+            | SOME (INR res) => SOME (s, Rval res)
+            | SOME (INL exn) => SOME (s, Rraise exn)
+            | NONE           => NONE)
          else NONE)
     | (Test test test_ty, [v1; v2]) =>
         (case do_test test test_ty v1 v2 of
@@ -168,25 +148,17 @@ Definition do_app_def:
                   )
         | _ => NONE
       )
-    | (WordFromInt W8, [Litv(IntLit i)]) =>
-        SOME (s, Rval (Litv (Word8 (i2w i))))
-    | (WordFromInt W64, [Litv(IntLit i)]) =>
-        SOME (s, Rval (Litv (Word64 (i2w i))))
-    | (WordToInt W8, [Litv (Word8 w)]) =>
-        SOME (s, Rval (Litv (IntLit (int_of_num(w2n w)))))
-    | (WordToInt W64, [Litv (Word64 w)]) =>
-        SOME (s, Rval (Litv (IntLit (int_of_num(w2n w)))))
-    | (CopyStrStr, [Litv(StrLit strng);Litv(IntLit off);Litv(IntLit len)]) =>
+    | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
         SOME (s,
-        (case copy_array (explode strng,off) len NONE of
+        (case copy_array (explode str,off) len NONE of
           NONE => Rraise sub_exn_v
         | SOME cs => Rval (Litv(StrLit(implode (cs))))
         ))
-    | (CopyStrAw8, [Litv(StrLit strng);Litv(IntLit off);Litv(IntLit len);
+    | (CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
                     Loc _ dst;Litv(IntLit dstoff)]) =>
         (case store_lookup dst s of
           SOME (W8array ws) =>
-            (case copy_array (explode strng,off) len (SOME(ws_to_chars ws,dstoff)) of
+            (case copy_array (explode str,off) len (SOME(ws_to_chars ws,dstoff)) of
               NONE => SOME (s, Rraise sub_exn_v)
             | SOME cs =>
               (case store_assign dst (W8array (chars_to_ws cs)) s of
@@ -231,14 +203,6 @@ Definition do_app_def:
                 | SOME s' => SOME (s', Rval (Conv NONE [])))
         | _ => NONE
         )
-    | (Ord, [Litv (Char c)]) =>
-          SOME (s, Rval (Litv(IntLit(int_of_num(ORD c)))))
-    | (Chr, [Litv (IntLit i)]) =>
-        SOME (s,
-          (if (i <( 0 : int)) \/ (i >( 255 : int)) then
-            Rraise chr_exn_v
-          else
-            Rval (Litv(Char(CHR(Num (ABS (I i))))))))
     | (Implode, [v]) =>
           (case v_to_char_list v of
             SOME ls =>
@@ -247,27 +211,27 @@ Definition do_app_def:
           )
     | (Explode, [v]) =>
           (case v of
-            Litv (StrLit strng) =>
-              SOME (s, Rval (list_to_v (MAP (\ c .  Litv (Char c)) (explode strng))))
+            Litv (StrLit str) =>
+              SOME (s, Rval (list_to_v (MAP (\ c .  Litv (Char c)) (explode str))))
           | _ => NONE
           )
-    | (Strsub, [Litv (StrLit strng); Litv (IntLit i)]) =>
+    | (Strsub, [Litv (StrLit str); Litv (IntLit i)]) =>
         if i <( 0 : int) then
           SOME (s, Rraise sub_exn_v)
         else
           let n = (Num (ABS (I i))) in
-            if n >= strlen strng then
+            if n >= strlen str then
               SOME (s, Rraise sub_exn_v)
             else
-              SOME (s, Rval (Litv (Char (EL n (explode strng)))))
-    | (Strlen, [Litv (StrLit strng)]) =>
-        SOME (s, Rval (Litv(IntLit(int_of_num(strlen strng)))))
+              SOME (s, Rval (Litv (Char (EL n (explode str)))))
+    | (Strlen, [Litv (StrLit str)]) =>
+        SOME (s, Rval (Litv(IntLit(int_of_num(strlen str)))))
     | (Strcat, [v]) =>
         (case v_to_list v of
           SOME vs =>
             (case vs_to_string vs of
-              SOME strng =>
-                SOME (s, Rval (Litv(StrLit strng)))
+              SOME str =>
+                SOME (s, Rval (Litv(StrLit str)))
             | _ => NONE
             )
         | _ => NONE
@@ -490,7 +454,7 @@ Definition continue_def:
   continue s v ((Cmat [] err_v, env) :: c) =
     Estep (env, s, Exn err_v, c) ∧
   continue s v ((Cmat ((p,e)::pes) err_v, env) :: c) = (
-    if ALL_DISTINCT (pat_bindings p []) then (
+    if ALL_DISTINCT (pat_bindings p) then (
       case pmatch env.c s p v [] of
         Match_type_error => Etype_error
       | No_match => Estep (env, s, Val v, (Cmat pes err_v, env)::c)
@@ -614,7 +578,7 @@ End
 
 Definition dstep_def:
   dstep benv st (Decl $ Dlet locs p e) c = (
-    if ALL_DISTINCT (pat_bindings p []) ∧
+    if ALL_DISTINCT (pat_bindings p) ∧
        every_exp (one_con_check (collapse_env benv c).c) e then
       dreturn st c (ExpVal (collapse_env benv c) (Exp e) [] locs p)
     else Dtype_error ) ∧
@@ -647,7 +611,7 @@ Definition dstep_def:
   dstep benv st (Env env) c = dcontinue env st c ∧
 
   dstep benv st (ExpVal env (Val v) [] locs p) c = (
-    if ALL_DISTINCT (pat_bindings p []) then
+    if ALL_DISTINCT (pat_bindings p) then
       case pmatch (collapse_env benv c).c st.refs p v [] of
       | Match new_vals =>
           dreturn st c (Env <| v := alist_to_ns new_vals; c := nsEmpty |>)

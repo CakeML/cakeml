@@ -1,7 +1,7 @@
-Improving the XLRUP checker with arrays (manually)
+Improving the XLRUP checker with arrays (manually).
 
 [compilation](compilation):
-An XLRUP checker built on CakeML with arrays
+An XLRUP checker built on CakeML with arrays.
 
 [xlrup_arrayFullProgScript.sml](xlrup_arrayFullProgScript.sml):
 This builds the cake_xlrup proof checker

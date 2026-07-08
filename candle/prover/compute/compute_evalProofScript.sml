@@ -1545,7 +1545,7 @@ Proof
       \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
       \\ resolve_then Any irule sym_equation replaceL3
       \\ first_assum (irule_at Any)
-      \\ resolve_then Any irule sym_equation replaceL1
+      \\ resolve_then Any irule sym_equation replaceL2
       \\ first_assum (irule_at Any)
       \\ fs [cexp2term_def, cexp_vars_def]
       \\ irule_at Any CEXP_IF_eqn2 \\ gs []

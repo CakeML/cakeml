@@ -1,5 +1,5 @@
 (**
-  f machine-precision as a datatype for mixed-precision computations
+  Definition of machine-precision as a datatype for mixed-precision computations
 
   @author: Raphael Monat
   @maintainer: Heiko Becker

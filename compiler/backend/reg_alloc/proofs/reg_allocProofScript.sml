@@ -14,10 +14,7 @@ val _ = monadsyntax.temp_add_monadsyntax()
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
-Overload monad_bind[local] = ``st_ex_bind``
-Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload return[local] = ``st_ex_return``
+val _ = monadsyntax.temp_enable_monad "st_ex";
 
 (* Edge from node x to node y, in terms of an adjacency list *)
 Definition has_edge_def:
@@ -84,7 +81,7 @@ Definition good_pref_def:
     | SOME k => MEM k ks
 End
 
-val msimps = [st_ex_bind_def,st_ex_return_def];
+val msimps = [st_ex_bind_def,st_ex_ignore_bind_def,st_ex_return_def];
 
 val get_eqns = [get_dim_def, get_unavail_moves_wl_def,get_avail_moves_wl_def,get_simp_wl_def,get_spill_wl_def,set_spill_wl_def,get_freeze_wl_def,get_stack_def];
 
@@ -95,9 +92,8 @@ val add_eqns = [add_freeze_wl_def,add_unavail_moves_wl_def,add_spill_wl_def];
 val all_eqns = get_eqns @ set_eqns @ add_eqns @ msimps;
 
 (* M_success conditions *)
-fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty };
 Theorem case_eq_thms = pair_case_eq::
-  List.map (prove_case_eq_thm o get_thms)
+  List.map TypeBase.case_eq_of
            [``:('a,'b) exc``,``:tag``,``:'a list``,``:'a option``]
          |> LIST_CONJ
 
@@ -736,13 +732,33 @@ Proof
   IF_CASES_TAC>>fs[]
 QED
 
+Theorem coalesce_root_success:
+  ∀n s. good_ra_state s ∧ n < s.dim ⇒
+  ∃v. coalesce_root n s = (M_success v, s)
+Proof
+  completeInduct_on `n` >>
+  rw[Once coalesce_root_def] >>
+  simp msimps >>
+  fs[good_ra_state_def] >>
+  `EL n s.coalesced < s.dim` by (fs[EVERY_EL]) >>
+  simp[is_Fixed_def] >> simp msimps >>
+  TOP_CASE_TAC >> simp msimps >>
+  IF_CASES_TAC >> simp msimps >>
+  first_x_assum (qspec_then `EL n s.coalesced` mp_tac) >>
+  simp[] >>
+  disch_then (qspec_then `s` mp_tac) >>
+  simp[good_ra_state_def]
+QED
+
 Theorem good_pref_biased_pref:
     ∀t. good_pref (biased_pref t)
 Proof
   rw[good_pref_def,biased_pref_def]>>
   fs[get_dim_def]>>simp msimps>>
-  IF_CASES_TAC>>fs[good_ra_state_def]>>
-  TOP_CASE_TAC>>fs[handle_Subscript_def]>>
+  IF_CASES_TAC>>fs[]>>
+  drule_all coalesce_root_success >>
+  strip_tac >> simp[] >>
+  fs[good_ra_state_def,handle_Subscript_def]>>
   cases_on`lookup n t`>>fs[]>>
   qmatch_goalsub_abbrev_tac`first_match_col _ ls _`>>
   Q.ISPECL_THEN [`ls`,`ks`,`s`] assume_tac first_match_col_correct>>fs[]>>
@@ -2055,6 +2071,15 @@ QED
    some generic way to state the following lemmas
 *)
 
+(* is_not_coalesced succeeds and preserves state *)
+Theorem is_not_coalesced_succeeds[local]:
+  good_ra_state s ∧ n < s.dim ⇒
+  ∃b. is_not_coalesced n s = (M_success b, s)
+Proof
+  rw[is_not_coalesced_def]>>simp msimps>>
+  fs[good_ra_state_def]
+QED
+
 (* As an example, we don't bother fully characterizing
    st_ex_PARTITION, but merely that show it succeeds *)
 Theorem st_ex_PARTITION_split_degree[local]:
@@ -2069,10 +2094,10 @@ Proof
   fs[EVERY_MEM]>>
   rw[split_degree_def]>>rfs msimps>>
   every_case_tac>>
-  fs[degrees_accessor,Marray_sub_def,is_not_coalesced_def]>>
+  fs[degrees_accessor,Marray_sub_def]>>
   fs msimps>>
   rfs[]>>fs[]>>
-  every_case_tac>>fs[]>>
+  imp_res_tac is_not_coalesced_succeeds>>fs[]>>
   first_x_assum drule>>
   fs[good_ra_state_def]>>
   rw[]>>rfs[]
@@ -2791,22 +2816,24 @@ Proof
     rw[]>>fs[good_ra_state_def,degrees_accessor,Marray_sub_def]>>
     first_x_assum(qspecl_then[`ls`,`kk`,`vv`,`acc`] assume_tac)>>
     rfs[Abbr`acc`])>>
-  fs[good_ra_state_def]>>
-  simp[dec_deg_def]>> simp msimps>>
-  qmatch_goalsub_abbrev_tac`push_stack xx ss`>>
-  Q.ISPECL_THEN [`[xx]`,`ss`] mp_tac push_stack_success>>
+  (`good_ra_state s` by fs[good_ra_state_def])>>
+  qmatch_goalsub_abbrev_tac`dec_degree yy`>>
+  drule dec_degree_success>>
+  disch_then(qspec_then `[yy]` assume_tac)>>
+  fs[st_ex_FOREACH_def]>>fs msimps>>
+  TOP_CASE_TAC>>fs[]>>
+  TOP_CASE_TAC>>fs[]>>
+  Q.ISPECL_THEN [`[yy]`,`s with degrees:=d`] mp_tac push_stack_success>>
   (impl_tac>-
-    fs[Abbr`ss`,good_ra_state_def])>>
+    fs[good_ra_state_def])>>
   rw[]>>fs[st_ex_FOREACH_def]>>fs msimps>>
   TOP_CASE_TAC>>fs[]>>
   TOP_CASE_TAC>>fs[set_spill_wl_def]>>
-  qmatch_goalsub_abbrev_tac`unspill k sss`>>
-  qspecl_then [`k`,`sss`] mp_tac unspill_success>>
-  impl_tac>-
-    fs[Abbr`sss`,Abbr`ss`,good_ra_state_def]>>
-  rw[]>>fs[]>>
-  unabbrev_all_tac>>
-  fs[good_ra_state_def]
+  qmatch_goalsub_abbrev_tac`unspill k ss`>>
+  qspecl_then [`k`,`ss`] mp_tac unspill_success>>
+  (impl_tac>-
+    fs[Abbr`ss`,good_ra_state_def])>>
+  rw[]>>fs[Abbr`ss`,good_ra_state_def]
 QED
 
 Theorem do_step_success[local]:

@@ -1,4 +1,4 @@
-Prove end-to-end correctness theorem for LPR checker with arrays
+Prove end-to-end correctness theorem for LPR checker with arrays.
 
 [lpr_arrayPackingProofScript.sml](lpr_arrayPackingProofScript.sml):
 Compose the semantics theorem and the compiler correctness

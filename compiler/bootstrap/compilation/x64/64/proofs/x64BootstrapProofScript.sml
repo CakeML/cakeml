@@ -9,12 +9,12 @@ Libs
   preamble
 
 Theorem with_clos_conf_simp[local]:
-    (mc_init_ok (x64_backend_config with <| clos_conf := z ; bvl_conf updated_by
+    (mc_init_ok x64_config (x64_backend_config with <| clos_conf := z ; bvl_conf updated_by
                     (λc. c with <|inline_size_limit := t1; exp_cut := t2|>) |>) =
-     mc_init_ok x64_backend_config) /\
+     mc_init_ok x64_config x64_backend_config) /\
     (x.max_app <> 0 /\ (case x.known_conf of NONE => T | SOME k => k.val_approx_spt = LN) ==>
-     (backend_config_ok (x64_backend_config with clos_conf := x) =
-      backend_config_ok x64_backend_config))
+     (backend_config_ok x64_config (x64_backend_config with clos_conf := x) =
+      backend_config_ok x64_config x64_backend_config))
 Proof
   fs [mc_init_ok_def,FUN_EQ_THM,backend_config_ok_def]
   \\ rw [] \\ eq_tac \\ rw [] \\ EVAL_TAC
@@ -22,42 +22,24 @@ QED
 
 Definition compiler_instance_def:
   compiler_instance =
-    <| init_state := config_to_inc_config info;
+    <| init_state := info;
        compiler_fun := compile_inc_progs_for_eval x64_config ;
        config_dom := UNIV ;
-       config_v := BACKEND_INC_CONFIG_v ;
+       config_v := BACKEND_CONFIG_v ;
        decs_dom := decs_allowed ;
        decs_v := LIST_v AST_DEC_v |>
 End
 
 Theorem compiler_instance_lemma[local]:
-  INJ compiler_instance.config_v 𝕌(:inc_config) 𝕌(:semanticPrimitives$v) ∧
-  compiler_instance.init_state = config_to_inc_config info ∧
+  INJ compiler_instance.config_v 𝕌(:backend$config) 𝕌(:semanticPrimitives$v) ∧
+  compiler_instance.init_state = info ∧
   compiler_instance.compiler_fun = compile_inc_progs_for_eval x64_config
 Proof
   fs [compiler_instance_def]
 QED
 
-Theorem info_asm_conf:
-  info.lab_conf.asm_conf = x64_config
-Proof
-  assume_tac $ cj 1 compiler64_compiled
-  \\ drule compile_asm_config_eq
-  \\ gvs [backendTheory.set_oracle_def]
-  \\ strip_tac \\ EVAL_TAC
-QED
-
-Theorem set_asm_conf_init_conf:
-  set_asm_conf init_conf x64_config = init_conf
-Proof
-  gvs [init_conf_def,backendTheory.set_asm_conf_def,
-       x64_targetTheory.x64_config_def,
-       x64_configTheory.x64_backend_config_def,
-       backendTheory.config_component_equality]
-QED
-
 Theorem backend_config_ok_init_conf:
-  backend_config_ok init_conf
+  backend_config_ok x64_config init_conf
 Proof
   assume_tac x64_backend_config_ok
   \\ gvs [backendProofTheory.backend_config_ok_def,init_conf_def]
@@ -65,7 +47,7 @@ Proof
 QED
 
 Theorem mc_init_ok_init_conf:
-  mc_init_ok init_conf mc = mc_init_ok x64_backend_config mc
+  mc_init_ok x64_config init_conf mc = mc_init_ok x64_config x64_backend_config mc
 Proof
   simp [mc_init_ok_def,init_conf_def]
 QED
@@ -86,10 +68,10 @@ val (cake_not_fail,cake_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail c
 val compile_correct_applied =
   MATCH_MP compile_correct_eval (cj 1 compiler64_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,
-                         GSYM AND_IMP_INTRO,set_asm_conf_init_conf,with_clos_conf_simp]
+                         GSYM AND_IMP_INTRO,with_clos_conf_simp]
   |> Q.INST [‘ev’|->‘SOME compiler_instance’]
   |> SIMP_RULE (srw_ss()) [add_eval_state_def,opt_eval_config_wf_def,
-                           compiler_instance_lemma,info_asm_conf,mc_init_ok_init_conf]
+                           compiler_instance_lemma,mc_init_ok_init_conf]
   |> C MATCH_MP cake_not_fail
   |> C MATCH_MP backend_config_ok_init_conf
   |> REWRITE_RULE[cake_sem_sing,AND_IMP_INTRO]
@@ -144,7 +126,7 @@ Theorem repl_not_fail =
   |> Q.GEN ‘s’ |> ISPEC (mk_init_eval_state_lemma |> concl |> rand |> rand)
   |> REWRITE_RULE [GSYM mk_init_eval_state_lemma]
   |> SIMP_RULE (srw_ss()) [IN_DEF]
-  |> Q.GEN ‘conf’ |> Q.SPEC ‘config_to_inc_config info’
+  |> Q.GEN ‘conf’ |> Q.SPEC ‘info’
   |> REWRITE_RULE [GSYM (SIMP_CONV (srw_ss()) [] “hasFreeFD fs”)];
 
 Overload basis_init_ok =
@@ -174,7 +156,7 @@ Definition repl_ready_to_run_def:
       has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
       hasFreeFD fs ∧
       file_content fs «config_enc_str.txt» = SOME conf ∧
-      mc_conf_ok mc ∧ mc_init_ok x64_backend_config mc ∧
+      mc_conf_ok mc ∧ mc_init_ok x64_config x64_backend_config mc ∧
       installed code cbspace data data_sp
         info.lab_conf.ffi_names
         (heap_regs x64_backend_config.stack_conf.reg_names)
@@ -191,8 +173,7 @@ Theorem compile_correct_applied:
       (semantics_prog (init_eval_state_for cl fs) init_env compiler64_prog)
 Proof
   PairCases_on ‘ms’ \\ rw [IN_DEF,repl_ready_to_run_def]
-  \\ irule compile_correct_applied2 \\ fs [set_asm_conf_init_conf]
-  \\ rewrite_tac [info_asm_conf]
+  \\ irule compile_correct_applied2 \\ fs []
   \\ ‘init_conf.stack_conf.reg_names =
       x64_backend_config.stack_conf.reg_names’ by EVAL_TAC
   \\ gvs [] \\ first_x_assum $ irule_at Any

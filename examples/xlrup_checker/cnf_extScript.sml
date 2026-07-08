@@ -188,7 +188,7 @@ End
 
 (* lines which are not comments don't start with a single "c" *)
 Definition nocomment_line_def:
-  (nocomment_line (INL c::cs) = (c ≠ strlit "c")) ∧
+  (nocomment_line (INL c::cs) = (c ≠ «c»)) ∧
   (nocomment_line _ = T)
 End
 
@@ -231,7 +231,7 @@ Definition parse_header_line_def:
   parse_header_line ls =
   case ls of
     [p; cnf; vars; numls] =>
-    if p = INL (strlit "p") ∧ cnf = INL (strlit "cnf")
+    if p = INL «p» ∧ cnf = INL «cnf»
     then
       case (vars, numls)
       of
@@ -266,21 +266,21 @@ Definition parse_cnf_ext_def:
 End
 
 val cnf_ext_raw = ``[
-  strlit "c this is a comment";
-  strlit "p cnf 15 11 ";
-  strlit "    1  4 0";
-  strlit "x1  -5 0";
-  strlit "c this is a comment";
-  strlit "    2  4 0";
-  strlit "    2  5 0";
-  strlit "x  -3  4 0";
-  strlit "    3  5 0";
-  strlit "-1 -2 -3 0";
-  strlit "b 1 -2 -3 -4 -5 6 -7 -8 -9 -10 11 -12 13 -14 -15 0 55 11 0";
-  strlit "b1 -2 -3 -4 -5 6 -7 -8 -9 -10 11 -12 13 -14 -15 0 55 -11 0";
-  strlit "b1 -2 -3 -4 -5 6 -7 -8 -9 -10 11 -12 13 -14 -15 0 55 0";
-  strlit "c this is a comment";
-  strlit "   -4 -5 0";
+  «c this is a comment»;
+  «p cnf 15 11 »;
+  «    1  4 0»;
+  «x1  -5 0»;
+  «c this is a comment»;
+  «    2  4 0»;
+  «    2  5 0»;
+  «x  -3  4 0»;
+  «    3  5 0»;
+  «-1 -2 -3 0»;
+  «b 1 -2 -3 -4 -5 6 -7 -8 -9 -10 11 -12 13 -14 -15 0 55 11 0»;
+  «b1 -2 -3 -4 -5 6 -7 -8 -9 -10 11 -12 13 -14 -15 0 55 -11 0»;
+  «b1 -2 -3 -4 -5 6 -7 -8 -9 -10 11 -12 13 -14 -15 0 55 0»;
+  «c this is a comment»;
+  «   -4 -5 0»;
   ]``;
 
 val test = rconc (EVAL ``THE (parse_cnf_ext ^(cnf_ext_raw))``);
@@ -289,13 +289,13 @@ val test = rconc (EVAL ``THE (parse_cnf_ext ^(cnf_ext_raw))``);
 
 Definition print_lit_def:
   (print_lit (Pos n) = toString n) ∧
-  (print_lit (Neg n) = strlit"-" ^ toString n)
+  (print_lit (Neg n) = «-» ^ toString n)
 End
 
 Definition print_lits_def:
-  (print_lits e [] = str #"0" ^ str e) ∧
+  (print_lits (e: char) [] = toString #"0" ^ toString e) ∧
   (print_lits e (x::xs) =
-    print_lit x ^ strlit(" ") ^ print_lits e xs)
+    print_lit x ^ « » ^ print_lits e xs)
 End
 
 Definition print_clause_def:
@@ -303,27 +303,27 @@ Definition print_clause_def:
 End
 
 Definition print_xor_def:
-  print_xor xs = strlit"x " ^ print_lits (#"\n") xs
+  print_xor xs = «x » ^ print_lits (#"\n") xs
 End
 
 Definition print_opt_lit_def:
-  print_opt_lit oy = case oy of NONE => strlit "" | SOME y => print_lit y
+  print_opt_lit oy = case oy of NONE => «» | SOME y => print_lit y
 End
 
 Definition print_tail_def:
   print_tail (k:num) (oy:lit option) =
-  toString k ^ strlit " " ^
-  case oy of NONE => strlit "0\n"
-  | SOME y => print_lit y ^ strlit " 0\n"
+  toString k ^ « » ^
+  case oy of NONE => «0\n»
+  | SOME y => print_lit y ^ « 0\n»
 End
 
 Definition print_bnn_def:
-  print_bnn (ls,k,y) = strlit"b " ^ print_lits (#" ") ls ^ print_tail k y
+  print_bnn (ls,k,y) = «b » ^ print_lits (#" ") ls ^ print_tail k y
 End
 
 Definition print_header_line_def:
   print_header_line v len =
-  strlit ("p cnf ") ^  toString v ^ strlit(" ") ^ toString len ^ strlit("\n")
+  «p cnf » ^  toString v ^ « » ^ toString len ^ «\n»
 End
 
 Definition max_list_def:
@@ -405,7 +405,7 @@ Theorem print_lit_alt:
   (print_lit (Neg n) = int_to_string (#"-") (-&n))
 Proof
   rw[print_lit_def,int_to_string_thm,num_to_str_thm]>>
-  simp[strcat_def,concat_def,implode_def]
+  simp[strcat_def,concat_def]
 QED
 
 Overload nz_lit = ``(λl. var_lit l ≠ 0)``
@@ -434,10 +434,10 @@ Proof
   Induct>>rw[print_lits_def]
   >- (
     drule mlstringTheory.tokens_append>>simp[]>>
-    `strlit (STRING #"0" (STRING c "")) = strlit"0" ^ str c` by EVAL_TAC>>
+    `strlit (STRING #"0" (STRING c "")) = «0» ^ toString c` by EVAL_TAC>>
     simp[]>>
     EVAL_TAC)>>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = « »` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   PURE_REWRITE_TAC[GSYM strcat_assoc]>>
   disch_then (fn th => simp[th])>>
@@ -460,7 +460,7 @@ Theorem parse_lits_print_clause:
 Proof
   rw[parse_lits_def,print_clause_def]>>
   drule parse_lits_aux_print_lits>>
-  disch_then (qspecl_then[`strlit""`,`#"\n"`,`[]`] mp_tac)>>
+  disch_then (qspecl_then[`«»`,`#"\n"`,`[]`] mp_tac)>>
   gvs[check_maxvar_def]>>
   EVAL_TAC
 QED
@@ -471,10 +471,10 @@ Theorem fix_hd_toks:
   SOME (toks rest)
 Proof
   rw[toks_def]>>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = « »` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   qmatch_goalsub_abbrev_tac`aa ^ bb`>>
-  `aa = strlit[c] ^ strlit" "` by
+  `aa = strlit[c] ^ « »` by
     (fs[Abbr`aa`]>>EVAL_TAC)>>
   rw[]>>
   DEP_ONCE_REWRITE_TAC[tokens_unchanged]>>
@@ -493,7 +493,7 @@ Proof
   CONJ_TAC >- EVAL_TAC>>
   simp[]>>
   drule parse_lits_aux_print_lits>>
-  disch_then (qspecl_then[`strlit""`,`#"\n"`,`[]`] mp_tac)>>
+  disch_then (qspecl_then[`«»`,`#"\n"`,`[]`] mp_tac)>>
   fs[toks_def,parse_lits_def,check_maxvar_def]>>
   EVAL_TAC
 QED
@@ -535,8 +535,8 @@ Theorem parse_bnn_tail_print_tail:
   parse_bnn_tail (toks (print_tail k oy)) = SOME (k,oy)
 Proof
   rw[print_tail_def,toks_def]>>
-  `« 0\n» = str #" " ^ strlit"0\n"` by EVAL_TAC>>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `« 0\n» = toString #" " ^ «0\n»` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = « »` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>
   simp[tokens_blanks_toString]>>
   `MAP tokenize (tokens blanks «0\n») = [INR 0]` by
@@ -577,21 +577,21 @@ Theorem parse_header_line_print_header_line:
 Proof
   rw[print_header_line_def, toks_def]>>
   qmatch_goalsub_abbrev_tac`aa ^ bb ^ _ ^ cc ^ dd`>>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = « »` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
-  `aa = strlit"p" ^ strlit" " ^ strlit"cnf" ^ strlit" "` by
+  `aa = «p» ^ « » ^ «cnf» ^ « »` by
     (fs[Abbr`aa`]>>EVAL_TAC)>>
   strip_tac>>
   first_assum(qspecl_then[`aa ^ bb`,`cc ^ dd`] assume_tac)>>fs[]>>
-  `cc ^ dd = cc ^ dd ^ strlit""` by EVAL_TAC>>
+  `cc ^ dd = cc ^ dd ^ «»` by EVAL_TAC>>
   pop_assum SUBST_ALL_TAC>>
-  `blanks #"\n" ∧ str #"\n" = strlit "\n"` by EVAL_TAC>>
+  `blanks #"\n" ∧ toString #"\n" = «\n»` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   unabbrev_all_tac>>
   rw[]>>
-  `tokens blanks (strlit "p") = [strlit "p"]` by EVAL_TAC>>
-  `tokens blanks (strlit "cnf") = [strlit "cnf"]` by EVAL_TAC>>
-  `tokens blanks (strlit "") = []` by EVAL_TAC>>
+  `tokens blanks «p» = [«p»]` by EVAL_TAC>>
+  `tokens blanks «cnf» = [«cnf»]` by EVAL_TAC>>
+  `tokens blanks «» = []` by EVAL_TAC>>
   simp[tokens_blanks_toString]>>
   simp[tokenize_def,parse_header_line_def]>>
   CONJ_TAC >- EVAL_TAC>>
@@ -601,18 +601,18 @@ QED
 
 Theorem print_header_line_first:
   ∃ls. tokens blanks (print_header_line a b) =
-  strlit"p"::ls
+  «p»::ls
 Proof
   rw[print_header_line_def]>>
   qmatch_goalsub_abbrev_tac`aa ^ bb ^ _ ^ dd ^ ee`>>
-  `aa = strlit"p" ^ strlit" " ^ strlit"cnf" ^ strlit" "` by
+  `aa = «p» ^ « » ^ «cnf» ^ « »` by
     (fs[Abbr`aa`]>>EVAL_TAC)>>
   simp[]>>
   PURE_REWRITE_TAC[GSYM mlstringTheory.strcat_assoc]>>
   PURE_REWRITE_TAC[Once mlstringTheory.strcat_assoc]>>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = « »` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
-  `tokens blanks (strlit "p") = [strlit "p"]` by EVAL_TAC>>
+  `tokens blanks «p» = [«p»]` by EVAL_TAC>>
   simp[]
 QED
 
@@ -626,7 +626,7 @@ Proof
   rw[]>>
   Cases_on`x`>>simp[print_clause_def]
   >- EVAL_TAC >>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = « »` by EVAL_TAC>>
   first_x_assum drule>>
   simp[DISJ_IMP_THM,FORALL_AND_THM]>>rw[]>>
   simp[toks_def,print_lits_def]>>
@@ -676,9 +676,9 @@ Theorem parse_lits_print_xor:
   parse_lits maxvar (toks (print_xor xs)) = NONE
 Proof
   rw[parse_lits_def,print_xor_def,toks_def]>>
-  `strlit "x " = strlit"x" ^ strlit" "` by EVAL_TAC>>
+  `«x » = «x» ^ « »` by EVAL_TAC>>
   pop_assum SUBST_ALL_TAC>>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = « »` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   rw[]>>
   EVAL_TAC>>
@@ -704,9 +704,9 @@ Theorem parse_lits_print_bnn:
 Proof
   PairCases_on`b`>>
   rw[parse_lits_def,print_bnn_def,toks_def]>>
-  `strlit "b " = strlit"b" ^ strlit" "` by EVAL_TAC>>
+  `«b » = «b» ^ « »` by EVAL_TAC>>
   pop_assum SUBST_ALL_TAC>>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = « »` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   PURE_REWRITE_TAC[GSYM strcat_assoc]>>
   DISCH_THEN (fn th => simp[th])>>
@@ -719,9 +719,9 @@ Theorem parse_xor_print_bnn:
 Proof
   PairCases_on`b`>>
   rw[parse_xor_def,print_bnn_def,toks_def]>>
-  `strlit "b " = strlit"b" ^ strlit" "` by EVAL_TAC>>
+  `«b » = «b» ^ « »` by EVAL_TAC>>
   pop_assum SUBST_ALL_TAC>>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = « »` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   PURE_REWRITE_TAC[GSYM strcat_assoc]>>
   DISCH_THEN (fn th => simp[th])>>
@@ -789,7 +789,7 @@ Proof
   simp[Once toks_def]>>
   assume_tac print_header_line_first>>fs[]>>
   pop_assum sym_sub_tac>>
-  `tokenize (strlit "p") = INL (strlit "p")` by EVAL_TAC>>
+  `tokenize «p» = INL «p»` by EVAL_TAC>>
   simp[nocomment_line_def]>>
   simp[parse_header_line_print_header_line]>>
   unabbrev_all_tac>>

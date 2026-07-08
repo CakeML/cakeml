@@ -15,8 +15,8 @@ fun bring_fwd_ctors ty =
     end)
 
 val _ = bring_fwd_ctors ``:ast$lit``
-val _ = bring_fwd_ctors ``:ast$opn``
-val _ = bring_fwd_ctors ``:ast$opb``
+val _ = bring_fwd_ctors ``:ast$arith``
+val _ = bring_fwd_ctors ``:ast$prim_type``
 val _ = bring_fwd_ctors ``:('a,'b) namespace$id``
 val _ = bring_fwd_ctors ``:ast$op``
 val _ = bring_fwd_ctors ``:ast$lop``
@@ -759,8 +759,8 @@ fun logPrint logop sys d t pg str brk blk =
    m_brack str pg (sys (Prec(0,"lop"),pg,pg) (d-1) x >> str logop >> sys (Prec(0,"lop"),pg,pg) (d-1) y)
   end;
 
-val _=add_astPP ("andprint", ``Log And y z``, genPrint (logPrint " andalso "));
-val _=add_astPP ("orprint", ``Log Or y z``, genPrint (logPrint " orelse "));
+val _=add_astPP ("andprint", ``Log Andalso y z``, genPrint (logPrint " andalso "));
+val _=add_astPP ("orprint", ``Log Orelse y z``, genPrint (logPrint " orelse "));
 
 (*If-then-else*)
 fun ifthenelsePrint sys d t pg str brk blk =
@@ -835,7 +835,7 @@ val _=add_astPP("astlistprint",``x:ast$dec list``,genPrint astlistPrint);
 
 fun enable_astPP_verbose () = map temp_add_user_printer (!astPrettyPrinters);
 fun enable_astPP () = (enable_astPP_verbose();())
-fun disable_astPP_verbose () = map (fn (x,y,z) => temp_remove_user_printer x) (!astPrettyPrinters);
+fun disable_astPP_verbose () = map (fn (x,y,z) => temp_remove_user_printer (x,y)) (!astPrettyPrinters);
 fun disable_astPP () = (disable_astPP_verbose();())
 (*
 enable_astPP_verbose();

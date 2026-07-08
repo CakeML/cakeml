@@ -18,7 +18,7 @@ Automation that derives lemmas about arrays and references for use
 by the monadic translator.
 
 [ml_monadStoreScript.sml](ml_monadStoreScript.sml):
-This file defines theorems and lemma used in the ml_monadStoreLib
+This file defines theorems and lemmas used in the ml_monadStoreLib
 
 [ml_monad_translatorBaseScript.sml](ml_monad_translatorBaseScript.sml):
 Assertions about references and arrays are defined. Lemmas for these

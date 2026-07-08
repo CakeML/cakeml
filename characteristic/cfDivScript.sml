@@ -279,7 +279,7 @@ Definition mk_single_app_def:
    (mk_single_apps fname allow_fname [] =
     SOME []) /\
    (mk_single_appps fname allow_fname ((p,e)::pes) =
-    let fname' = if EXISTS ($= fname o SOME) (pat_bindings p [])
+    let fname' = if EXISTS ($= fname o SOME) (pat_bindings p)
                  then NONE
                  else fname
     in
@@ -930,7 +930,7 @@ Proof
       fs[ml_progTheory.nsLookup_nsAppend_Short] >>
       imp_res_tac semanticPrimitivesPropsTheory.pmatch_extend >> rveq >>
       rfs[] >>
-      qpat_x_assum `MAP _ _ = pat_bindings _ _` (assume_tac o GSYM) >>
+      qpat_x_assum `MAP _ _ = pat_bindings _` (assume_tac o GSYM) >>
       fs[] >> rfs[nsLookup_alist_to_ns_fresh] >>
       TRY(qmatch_asmsub_abbrev_tac `mk_single_app (SOME _) T e = SOME ea`
           >> every_case_tac >> fs[] >> every_case_tac >> fs[]) >>
@@ -2252,18 +2252,18 @@ QED
 
 val repeat_clos = process_topdecs `
   fun repeat f x = repeat f (f x);
-  ` |> rator |> rand |> rand
+  ` |> rator |> rand |> rand;
 
 val repeat_body = repeat_clos |> rator |> rand |> rand |> rand |> rand
 
 Definition cause_type_error_def:
-  cause_type_error = App Ord [Lit(IntLit 0)]
+  cause_type_error = App (FromTo CharT IntT) [Lit(IntLit 0)]
 End
 
 Theorem evaluate[simp]:
   evaluate s env [cause_type_error] = (s,Rerr (Rabort Rtype_error))
 Proof
-  fs [evaluate_def,cause_type_error_def,
+  fs [evaluate_def,cause_type_error_def,check_type_def,
       semanticPrimitivesTheory.do_opapp_def,semanticPrimitivesTheory.do_app_def]
 QED
 
@@ -2428,7 +2428,7 @@ Definition make_single_app_def:
     od) /\
    (make_single_apps fname [] = SOME []) /\
    (make_single_appps fname allow_fname ((p,e)::pes) =
-    let fname' = if EXISTS ($= fname o SOME) (pat_bindings p [])
+    let fname' = if EXISTS ($= fname o SOME) (pat_bindings p)
                  then NONE
                  else fname
     in
@@ -2954,7 +2954,7 @@ Proof
     \\ imp_res_tac semanticPrimitivesPropsTheory.pmatch_extend
     \\ rveq \\ fs []
     \\ last_x_assum mp_tac
-    \\ qspec_tac (`pat_bindings p []`,`xs`)
+    \\ qspec_tac (`pat_bindings p`,`xs`)
     \\ Induct \\ fs [])
   \\ fs [make_single_app_def,part_evaluates_to_match_def]
   \\ fs[evaluate_def,mk_tyerr_res_def]

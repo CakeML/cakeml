@@ -6,18 +6,16 @@ Theory holKernelProof
 Libs
   preamble
 Ancestors
-  mlstring mllist ml_monadBase holKernel holSyntaxLib
+  ml_monadBase mlstring mllist holKernel holSyntaxLib
   holSyntax holSyntaxExtra
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = ParseExtras.temp_loose_equality();
 val _ = hide"str";
-Overload monad_bind[local] = ``st_ex_bind``
-Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload return[local] = ``st_ex_return``
-Overload ex_return[local] = ``st_ex_return``
+
+val _ = monadsyntax.temp_enable_monad "st_ex";
+
 Overload failwith[local] = ``raise_Fail``
 Overload raise_clash[local] = ``raise_Clash``
 Overload handle_clash[local] = ``handle_Clash``
@@ -42,7 +40,7 @@ Proof
   Induct \\ Cases \\ SRW_TAC [] [rich_listTheory.REPLICATE]
 QED
 
-Overload impossible_term = ``holSyntax$Comb (Var (strlit "x") Bool) (Var (strlit "x") Bool)``
+Overload impossible_term = ``holSyntax$Comb (Var «x» Bool) (Var «x» Bool)``
 
 (* ------------------------------------------------------------------------- *)
 (* case_eq theorems                                                          *)
@@ -151,7 +149,7 @@ QED
 
 Theorem CONTEXT_fun[local]:
   CONTEXT defs ⇒
-      ∀a. MEM (strlit"fun",a) (type_list defs) ⇔ (a = 2)
+      ∀a. MEM («fun»,a) (type_list defs) ⇔ (a = 2)
 Proof
   rw[] >> imp_res_tac CONTEXT_ALL_DISTINCT >>
   imp_res_tac CONTEXT_std_sig >>
@@ -183,7 +181,7 @@ QED
 
 Theorem TYPE_Fun[local]:
   CONTEXT defs ∧ TYPE defs ty1 /\ TYPE defs ty2 ==>
-    TYPE defs (Tyapp (strlit "fun") [ty1;ty2])
+    TYPE defs (Tyapp «fun» [ty1;ty2])
 Proof
   rw[TYPE_def,type_ok_def] >>
   imp_res_tac CONTEXT_fun >>
@@ -400,7 +398,7 @@ Theorem mk_type_thm:
       STATE defs s /\
       EVERY (TYPE defs) args ==>
         (s' = s) /\
-        ((tyop = (strlit "fun")) /\ (LENGTH args = 2) ==> ?i. z = M_success i) /\
+        ((tyop = «fun») /\ (LENGTH args = 2) ==> ?i. z = M_success i) /\
         !i. (z = M_success i) ==> TYPE defs i /\ (i = Tyapp tyop args)
 Proof
   SIMP_TAC std_ss [mk_type_def,try_def,st_ex_bind_def,otherwise_def]
@@ -483,7 +481,7 @@ Theorem mk_fun_ty_thm:
    !ty1 ty2 s z s'.
       STATE defs s /\ EVERY (TYPE defs) [ty1;ty2] /\
       (mk_fun_ty ty1 ty2 s = (z,s')) ==> (s' = s) /\
-      ?i. (z = M_success i) /\ (i = Tyapp (strlit "fun") [ty1;ty2]) /\ TYPE defs i
+      ?i. (z = M_success i) /\ (i = Tyapp «fun» [ty1;ty2]) /\ TYPE defs i
 Proof
   SIMP_TAC std_ss [mk_fun_ty_def] \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC mk_type_thm \\ FULL_SIMP_TAC (srw_ss()) []
@@ -493,7 +491,7 @@ QED
 (* Verification of term functions                                            *)
 (* ------------------------------------------------------------------------- *)
 
-Overload aty[local] = ``(Tyvar (strlit "A")):type``
+Overload aty[local] = ``(Tyvar «A»):type``
 
 Theorem get_const_type_thm[local]:
   !name s z s'.
@@ -511,10 +509,10 @@ Definition term_type_def:
     case tm of
       Var _ ty => ty
     | Const _ ty => ty
-    | Comb s _ => (case term_type s of Tyapp (strlit "fun") (_::ty1::_) => ty1
-                                    | _ => Tyvar (strlit ""))
-    | Abs (Var _ ty) t => Tyapp (strlit "fun") [ty; term_type t]
-    | _ => Tyvar (strlit "")
+    | Comb s _ => (case term_type s of Tyapp «fun» (_::ty1::_) => ty1
+                                    | _ => Tyvar «»)
+    | Abs (Var _ ty) t => Tyapp «fun» [ty; term_type t]
+    | _ => Tyvar «»
 End
 
 Theorem term_type:
@@ -591,7 +589,7 @@ Proof
     \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC (srw_ss()) []
     \\ ONCE_REWRITE_TAC [st_ex_bind_def]
     \\ FULL_SIMP_TAC (srw_ss()) [dest_type_def]
-    \\ reverse (sg `?ty1 ty2. term_type t = Tyapp (strlit "fun") [ty1;ty2]`) THEN1
+    \\ reverse (sg `?ty1 ty2. term_type t = Tyapp «fun» [ty1;ty2]`) THEN1
      (FULL_SIMP_TAC (srw_ss()) [st_ex_return_def,codomain_def]
       \\ IMP_RES_TAC TYPE \\ ASM_SIMP_TAC (srw_ss()) [EVERY_DEF,Once term_type_def])
     \\ fs[TERM_def,term_ok_def] >>
@@ -848,10 +846,10 @@ QED
 
 Theorem get_const_type_Equal[local]:
   STATE defs s ==>
-    (get_const_type (strlit "=") s = (M_success (Fun aty (Fun aty Bool)),s))
+    (get_const_type «=» s = (M_success (Fun aty (Fun aty Bool)),s))
 Proof
   SIMP_TAC std_ss [STATE_def]
-  \\ Cases_on `get_const_type (strlit "=") s`
+  \\ Cases_on `get_const_type «=» s`
   \\ IMP_RES_TAC get_const_type_thm \\ REPEAT STRIP_TAC >>
   imp_res_tac CONTEXT_std_sig >>
   imp_res_tac CONTEXT_ALL_DISTINCT >>
@@ -866,8 +864,8 @@ QED
 
 Theorem mk_const_eq[local]:
   STATE defs s ==>
-    (mk_const ((strlit "="),[]) s =
-     (M_success (Const (strlit "=") (Fun aty (Fun aty Bool))),s))
+    (mk_const («=»,[]) s =
+     (M_success (Const «=» (Fun aty (Fun aty Bool))),s))
 Proof
   SIMP_TAC std_ss [mk_const_def,st_ex_bind_def,try_def,otherwise_def]
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC get_const_type_Equal
@@ -876,9 +874,9 @@ Proof
 QED
 
 Theorem mk_eq_lemma[local]:
-  inst [(term_type x,aty)] (Const (strlit "=") (Fun aty (Fun aty Bool))) s =
-    ex_return
-        (Const (strlit "=")
+  inst [(term_type x,aty)] (Const «=» (Fun aty (Fun aty Bool))) s =
+    st_ex_return
+        (Const «=»
            (Fun (term_type x) (Fun (term_type x) Bool))) s
 Proof
   NTAC 10 (SIMP_TAC (srw_ss()) [Once inst_def, Once inst_aux_def, Once LET_DEF])
@@ -892,7 +890,7 @@ Theorem mk_eq_thm:
     (s' = s) /\
     (!t. (res = M_failure t) ==> ((term_type x) <> (term_type y))) /\
     !t. (res = M_success t) ==>
-    (t = Comb (Comb (Const (strlit "=") (Fun (term_type x)
+    (t = Comb (Comb (Const «=» (Fun (term_type x)
                                (Fun (term_type x) Bool))) x) y) /\
     TERM defs t
 Proof
@@ -905,18 +903,18 @@ Proof
   \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) []
   \\ IMP_RES_TAC mk_const_eq \\ FULL_SIMP_TAC (srw_ss()) []
   \\ FULL_SIMP_TAC (srw_ss()) [mk_eq_lemma,st_ex_return_def]
-  \\ Cases_on `mk_comb (Const (strlit "=") (Fun (term_type x)
+  \\ Cases_on `mk_comb (Const «=» (Fun (term_type x)
                                   (Fun (term_type x) Bool)),x) s`
-  \\ sg `TERM defs (Const (strlit "=") (Fun (term_type x)
+  \\ sg `TERM defs (Const «=» (Fun (term_type x)
                            (Fun (term_type x) Bool)))` THEN1
    (IMP_RES_TAC term_type >>
     IMP_RES_TAC CONTEXT_std_sig
     \\ FULL_SIMP_TAC (srw_ss()) [TERM_def] >>
     simp[term_ok_def] >> fs[is_std_sig_def,type_ok_def,TYPE_def] >>
     rfs[] >>
-    qexists_tac`[(typeof x,Tyvar(strlit "A"))]` >>
+    qexists_tac`[(typeof x,Tyvar «A»)]` >>
     simp[REV_ASSOCD] )
-  \\ Q.ABBREV_TAC `eq = (Const (strlit "=") (Fun (term_type x) (Fun (term_type x) Bool)))`
+  \\ Q.ABBREV_TAC `eq = (Const «=» (Fun (term_type x) (Fun (term_type x) Bool)))`
   \\ MP_TAC (mk_comb_thm |> Q.INST [`f`|->`eq`,`a`|->`x`,`res`|->`q`,`s1`|->`r`])
   \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
   \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
@@ -924,7 +922,7 @@ Proof
    (Q.UNABBREV_TAC `eq` \\ FULL_SIMP_TAC std_ss [mk_comb_def,st_ex_bind_def]
     \\ IMP_RES_TAC (Q.SPEC `y` type_of_thm)
     \\ Q.PAT_X_ASSUM `type_of x s = (M_success (term_type x),s)` ASSUME_TAC
-    \\ FULL_SIMP_TAC (srw_ss()) [EVAL ``term_type (Const (strlit "=") ty)``,st_ex_return_def])
+    \\ FULL_SIMP_TAC (srw_ss()) [EVAL ``term_type (Const «=» ty)``,st_ex_return_def])
   \\ FULL_SIMP_TAC std_ss []
   \\ Cases_on `mk_comb (Comb eq x,y) s`
   \\ MP_TAC (mk_comb_thm |> Q.INST [`f`|->`Comb eq x`,`a`|->`y`,
@@ -935,7 +933,7 @@ Proof
   \\ Q.UNABBREV_TAC `eq` \\ FULL_SIMP_TAC std_ss [mk_comb_def,st_ex_bind_def]
   \\ IMP_RES_TAC (Q.SPEC `y` type_of_thm)
   \\ Q.PAT_X_ASSUM `type_of x s = (M_success (term_type x),s)` ASSUME_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [EVAL ``term_type (Const (strlit "=") ty)``,st_ex_return_def,
+  \\ FULL_SIMP_TAC (srw_ss()) [EVAL ``term_type (Const «=» ty)``,st_ex_return_def,
          ``term_type (Comb x y)`` |> SIMP_CONV (srw_ss()) [Once term_type_def],
          ``type_of (Comb x y)`` |> SIMP_CONV (srw_ss()) [Once type_of_def],
          ``type_of (Const x y)`` |> SIMP_CONV (srw_ss()) [Once type_of_def],
@@ -943,7 +941,7 @@ Proof
 QED
 
 Theorem TERM_Eq_x[local]:
-  STATE defs s /\ TERM defs (Comb (Const (strlit "=") ty) x) ==>
+  STATE defs s /\ TERM defs (Comb (Const «=» ty) x) ==>
     (Fun (typeof x) (Fun (typeof x) Bool) = ty)
 Proof
   rw[TERM_def,STATE_def] >>
@@ -973,7 +971,7 @@ Proof
 QED
 
 Theorem Equal_type[local]:
-  STATE defs s ∧ TERM defs (Const (strlit "=") ty) ==> ?a. ty = Fun a (Fun a Bool)
+  STATE defs s ∧ TERM defs (Const «=» ty) ==> ?a. ty = Fun a (Fun a Bool)
 Proof
   rw[STATE_def,TERM_def] >>
   imp_res_tac CONTEXT_std_sig >>
@@ -981,7 +979,7 @@ Proof
 QED
 
 Theorem Equal_type_IMP[local]:
-  STATE defs s ∧ TERM defs (Comb (Const (strlit "=") (Fun a' (Fun a' Bool))) ll) ==>
+  STATE defs s ∧ TERM defs (Comb (Const «=» (Fun a' (Fun a' Bool))) ll) ==>
     (typeof ll = a')
 Proof
   simp[TERM_Comb] >> strip_tac >>
@@ -1274,7 +1272,7 @@ Proof
         try_def,otherwise_def,get_type_arity_def,
         get_the_type_constants_def,raise_Fail_def,st_ex_return_def]
   \\ STRIP_ASSUME_TAC (assoc_state |> ISPEC ``s.the_type_constants``
-        |> ISPEC ``strlit"fun"``) \\ FULL_SIMP_TAC std_ss []
+        |> ISPEC ``«fun»``) \\ FULL_SIMP_TAC std_ss []
   \\ Cases_on `r` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ SRW_TAC [] []
 QED
@@ -1766,9 +1764,9 @@ Proof
   \\ BasicProvers.EVERY_CASE_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [raise_Fail_def]
   \\ SRW_TAC [] [st_ex_bind_def] \\ IMP_RES_TAC THM
-  \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Comb (Comb (Const (strlit "=") h1) ll) m1)`
+  \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Comb (Comb (Const «=» h1) ll) m1)`
   \\ POP_ASSUM MP_TAC
-  \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Comb (Comb (Const (strlit "=") h2) m2) rr)`
+  \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Comb (Comb (Const «=» h2) m2) rr)`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC TERM \\ Cases_on `mk_eq (ll,rr) s`
   \\ MP_TAC (mk_eq_thm |> Q.INST [`x`|->`ll`,`y`|->`rr`,`res`|->`q`,`s'`|->`r`])
   \\ FULL_SIMP_TAC std_ss [] \\ IMP_RES_TAC TERM
@@ -1877,7 +1875,7 @@ Proof
   IMP_RES_TAC map_type_of_state >> var_eq_tac >>
   every_case_tac >> fs[] >>
   rpt var_eq_tac >> simp[] >>
-  qspecl_then[`strlit"bool"`,`[]`,`s`]mp_tac mk_type_thm >>
+  qspecl_then[`«bool»`,`[]`,`s`]mp_tac mk_type_thm >>
   simp[] >> strip_tac >>
   rpt var_eq_tac >> simp[] >>
   fs[THM_def] >>
@@ -1915,9 +1913,9 @@ Proof
   \\ BasicProvers.EVERY_CASE_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [raise_Fail_def]
   \\ SRW_TAC [] [st_ex_bind_def] \\ IMP_RES_TAC THM
-  \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Comb (Comb (Const (strlit "=") h1) f1) f2)`
+  \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Comb (Comb (Const «=» h1) f1) f2)`
   \\ POP_ASSUM MP_TAC
-  \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Comb (Comb (Const (strlit "=") h2) x1) x2)`
+  \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Comb (Comb (Const «=» h2) x1) x2)`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC TERM
   \\ Cases_on `mk_comb (f1,x1) s`
   \\ MP_TAC (mk_comb_thm |> Q.INST [`f`|->`f1`,`a`|->`x1`,`res`|->`q`,`s1`|->`r`])
@@ -1963,7 +1961,7 @@ Proof
   \\ Cases_on `t'` \\ FULL_SIMP_TAC (srw_ss()) [raise_Fail_def]
   \\ Cases_on `t` \\ FULL_SIMP_TAC (srw_ss()) [raise_Fail_def]
   \\ FULL_SIMP_TAC std_ss [st_ex_bind_def]
-  \\ Cases_on `m = (strlit "=")` \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] []
+  \\ Cases_on `m = «=»` \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] []
   \\ TRY (
       qpat_x_assum ‘(_, _) = _’ mp_tac \\
       NTAC 4 BasicProvers.CASE_TAC \\
@@ -1971,7 +1969,7 @@ Proof
       FULL_SIMP_TAC std_ss [] \\
       NO_TAC)
   \\ Q.MATCH_ASSUM_RENAME_TAC
-       `THM defs (Sequent l (Comb (Comb (Const (strlit "=") h) t1) t2))`
+       `THM defs (Sequent l (Comb (Comb (Const «=» h) t1) t2))`
   \\ Cases_on `mk_abs (tm,t1) s` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ MP_TAC (mk_abs_thm |> Q.SPECL [`q`] |> Q.INST [`bvar`|->`tm`,
        `bod`|->`t1`,`s1`|->`r`])
@@ -2053,8 +2051,8 @@ Proof
   \\ STRIP_TAC \\ MP_TAC (type_of_thm |> Q.SPEC `tm`)
   \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC (srw_ss()) [st_ex_bind_def]
-  \\ MP_TAC (mk_type_thm |> Q.SPECL [`strlit"bool"`,`[]`,`s`])
-  \\ Cases_on `mk_type (strlit"bool",[]) s`
+  \\ MP_TAC (mk_type_thm |> Q.SPECL [`«bool»`,`[]`,`s`])
+  \\ Cases_on `mk_type («bool»,[]) s`
   \\ FULL_SIMP_TAC (srw_ss()) [EVERY_DEF]
   \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
@@ -2083,7 +2081,7 @@ Proof
   \\ SRW_TAC [] [st_ex_bind_def,st_ex_return_def] \\ IMP_RES_TAC THM
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC TERM
   \\ Q.MATCH_ASSUM_RENAME_TAC `THM defs (Sequent l
-        (Comb (Comb (Const (strlit "=") h1) t1) t2))`
+        (Comb (Comb (Const «=» h1) t1) t2))`
   \\ FULL_SIMP_TAC std_ss [THM_def]
   >> rpt(qpat_x_assum`H |- C`mp_tac) >>
   imp_res_tac term_union_thm >> simp[] >>
@@ -2349,7 +2347,7 @@ Theorem check_overloads_thm:
      (∀msg. (res = M_failure msg) ⇒ (s' = s))
 Proof
   simp_tac std_ss [check_overloads_def,GSYM STRCAT_SHADOW_def] >>
-  simp[st_ex_bind_def,get_the_term_constants_def] >>
+  simp[st_ex_bind_def,st_ex_ignore_bind_def,get_the_term_constants_def] >>
   rpt gen_tac >>
   PURE_CASE_TAC >>
   drule forall_thm >>
@@ -2444,7 +2442,7 @@ Theorem new_specification_thm:
 Proof
   Cases_on`th` >>
   simp_tac std_ss [new_specification_def,GSYM STRCAT_SHADOW_def] >>
-  simp[st_ex_bind_def,st_ex_return_def] >>
+  simp[st_ex_bind_def,st_ex_ignore_bind_def,st_ex_return_def] >>
   rpt strip_tac >>
   Q.PAT_ABBREV_TAC`(f:term -> hol_refs -> ((((mlstring#type)#term), hol_exn) exc#hol_refs)) = X` >>
   `EVERY (λt. term_ok (sigof defs) t ∧ (typeof t = Bool)) (t::l)` by (
@@ -3256,7 +3254,7 @@ Theorem new_overloading_specification_thm:
 Proof
   Cases_on`th` >>
   simp_tac std_ss [new_overloading_specification_def,GSYM STRCAT_SHADOW_def] >>
-  simp[st_ex_bind_def,st_ex_return_def] >>
+  simp[st_ex_bind_def,st_ex_ignore_bind_def,st_ex_return_def] >>
   rpt strip_tac >>
   Q.PAT_ABBREV_TAC`(f:term -> hol_refs -> ((((mlstring#type)#term), hol_exn) exc#hol_refs)) = X` >>
   `EVERY (λt. term_ok (sigof defs) t ∧ (typeof t = Bool)) (t::l)` by (
@@ -3547,7 +3545,7 @@ Proof
   simp[Once st_ex_bind_def] >>
   Q.PAT_ABBREV_TAC`vs:string list = sort R X` >>
   simp[add_type_def,can_def,otherwise_def,st_ex_return_def] >>
-  ntac 2 (simp[Once st_ex_bind_def]) >>
+  simp[Once st_ex_bind_def, Once st_ex_ignore_bind_def] >>
   simp[Once st_ex_bind_def,get_the_type_constants_def] >>
   simp[Once st_ex_bind_def,set_the_type_constants_def] >>
   simp[Once st_ex_ignore_bind_def] >>
@@ -3559,9 +3557,9 @@ Proof
     EVAL_TAC)>>
   simp[mk_type_def,try_def,otherwise_def,raise_Fail_def,st_ex_return_def,Once st_ex_bind_def] >>
   simp[mk_fun_ty_def] >>
-  `get_type_arity (strlit "fun") s1 = (M_success 2, s1)` by (
-    qspecl_then[`(strlit "fun")`,`s1`]mp_tac get_type_arity_thm >>
-    Cases_on`get_type_arity (strlit "fun") s1`>>simp[] >>strip_tac >>
+  `get_type_arity «fun» s1 = (M_success 2, s1)` by (
+    qspecl_then[`«fun»`,`s1`]mp_tac get_type_arity_thm >>
+    Cases_on`get_type_arity «fun» s1`>>simp[] >>strip_tac >>
     qunabbrev_tac`s1` >> fs[STATE_def] >>
     imp_res_tac CONTEXT_fun >> rfs[] >>
     METIS_TAC[exc_distinct,exc_11,exc_nchotomy] ) >>
@@ -3579,6 +3577,7 @@ Proof
   fs[oneTheory.one] >>
   simp[Once st_ex_bind_def,add_def_def,get_the_context_def] >>
   simp[Once st_ex_bind_def,set_the_context_def] >>
+  simp[Once st_ex_ignore_bind_def] >>
   Q.PAT_ABBREV_TAC`s2 = s1 with <|the_term_constants := X; the_context := Y|>` >>
   `STATE s2.the_context s2` by (
     fs[STATE_def] >>
@@ -3697,9 +3696,9 @@ Proof
     simp[MEM_MAP,EXISTS_PROD] >>
     simp[FAPPLY_FUPDATE_THM] >>
     rw[] >> METIS_TAC[]) >>
-  `mk_comb (P,Var (strlit "r") (term_type x)) s2 = (M_success (Comb P (Var (strlit "r") (term_type x))), s2)` by (
-    Cases_on`mk_comb (P,Var (strlit "r") (term_type x)) s2` >>
-    MP_TAC (mk_comb_thm |> Q.INST [`f`|->`P`,`a`|->`Var (strlit "r") (term_type x)`,`res`|->`q`,`s1`|->`r`,`s`|->`s2`,`defs`|->`s2.the_context`]) >>
+  `mk_comb (P,Var «r» (term_type x)) s2 = (M_success (Comb P (Var «r» (term_type x))), s2)` by (
+    Cases_on`mk_comb (P,Var «r» (term_type x)) s2` >>
+    MP_TAC (mk_comb_thm |> Q.INST [`f`|->`P`,`a`|->`Var «r» (term_type x)`,`res`|->`q`,`s1`|->`r`,`s`|->`s2`,`defs`|->`s2.the_context`]) >>
     impl_tac >- (
       rfs[STATE_def,TERM_Comb,TERM_Var_SIMP] >>
       imp_res_tac term_type ) >>
@@ -3847,7 +3846,8 @@ Proof
   Cases_on`add_constants [(name,ty)] s`>>simp[] >>
   Cases_on`q`>>simp[oneTheory.one] >>
   imp_res_tac STATE_ALL_DISTINCT >> rw[] >>
-  rw[add_def_def,st_ex_bind_def,get_the_context_def,set_the_context_def] >>
+  rw[add_def_def,st_ex_bind_def,st_ex_ignore_bind_def,
+     get_the_context_def,set_the_context_def] >>
   qexists_tac`NewConst name ty` >>
   conj_tac >- (
     fs[STATE_def] >>
@@ -3872,10 +3872,10 @@ Theorem new_axiom_thm:
     | (M_success th, s') => (?d. THM (d::defs) th ∧ STATE (d::defs) s' /\
                                !th. THM defs th ==> THM (d::defs) th)
 Proof
-  rw[new_axiom_def,st_ex_bind_def] >>
+  rw[new_axiom_def,st_ex_bind_def,st_ex_ignore_bind_def] >>
   imp_res_tac type_of_thm >> rw[] >>
-  qspecl_then[`(strlit "bool")`,`[]`,`s`]mp_tac mk_type_thm >>
-  Cases_on`mk_type ((strlit "bool"),[]) s`>>simp[] >>
+  qspecl_then[`«bool»`,`[]`,`s`]mp_tac mk_type_thm >>
+  Cases_on`mk_type («bool»,[]) s`>>simp[] >>
   Cases_on`q`>>simp[]>>strip_tac>>
   BasicProvers.CASE_TAC >> simp[raise_Fail_def,st_ex_return_def] >>
   simp[get_the_axioms_def,set_the_axioms_def] >>
@@ -4134,8 +4134,10 @@ QED
 Theorem new_specification_not_clash[simp]:
    new_specification a b <> (M_failure (Clash tm),refs)
 Proof
-  Cases_on `a` \\ rw [new_specification_def, st_ex_bind_def, raise_Fail_def,
-                      st_ex_return_def, case_eq_thms, bool_case_eq, COND_RATOR]
+  Cases_on `a`
+  \\ rw [new_specification_def, st_ex_bind_def, raise_Fail_def,
+         st_ex_ignore_bind_def, st_ex_return_def, case_eq_thms, bool_case_eq,
+         COND_RATOR]
   \\ ho_match_mp_tac map_not_clash_thm \\ rw []
   \\ rw [case_eq_thms, bool_case_eq, COND_RATOR, ELIM_UNCURRY]
 QED
@@ -4158,11 +4160,12 @@ QED
 Theorem new_basic_type_definition_not_clash[simp]:
    new_basic_type_definition (a, b, c, d) e <> (M_failure (Clash tm),refs)
 Proof
-  Cases_on `d` \\ rw [new_basic_type_definition_def, st_ex_bind_def,
-                      st_ex_return_def, raise_Fail_def, can_def,
-                      get_type_arity_def, get_the_type_constants_def,
-                      otherwise_def, try_def, case_eq_thms, bool_case_eq,
-                      COND_RATOR, ELIM_UNCURRY]
+  Cases_on `d`
+  \\ rw [new_basic_type_definition_def, st_ex_bind_def, st_ex_ignore_bind_def,
+         st_ex_return_def, raise_Fail_def, can_def,
+         get_type_arity_def, get_the_type_constants_def,
+         otherwise_def, try_def, case_eq_thms, bool_case_eq,
+         COND_RATOR, ELIM_UNCURRY]
 QED
 
 Theorem vsubst_not_clash[simp]:
@@ -4186,21 +4189,21 @@ Theorem new_axiom_not_clash[simp]:
   new_axiom ax s ≠ (M_failure (Clash tm), t)
 Proof
   strip_tac
-  \\ fs [new_axiom_def, st_ex_bind_def, st_ex_return_def, raise_Fail_def,
-         case_eq_thms, bool_case_eq, COND_RATOR, get_the_axioms_def,
+  \\ fs [new_axiom_def, st_ex_bind_def, st_ex_ignore_bind_def, st_ex_return_def,
+         raise_Fail_def, case_eq_thms, bool_case_eq, COND_RATOR, get_the_axioms_def,
          set_the_axioms_def] \\ rw [] \\ fs []
 QED
 
 Theorem new_constant_not_clash[simp]:
   new_constant (a,b) s ≠ (M_failure (Clash tm), t)
 Proof
-  rw [new_constant_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]
+  rw [new_constant_def, st_ex_ignore_bind_def, st_ex_return_def, case_eq_thms]
 QED
 
 Theorem new_type_not_clash[simp]:
   new_type (a,b) s ≠ (M_failure (Clash tm), t)
 Proof
-  rw [new_type_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]
+  rw [new_type_def, st_ex_ignore_bind_def, st_ex_return_def, case_eq_thms]
 QED
 
 Theorem dest_abs_not_clash[simp]:

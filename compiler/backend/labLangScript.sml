@@ -1,6 +1,6 @@
 (*
   The labLang intermediate language is a target-neutral assembly
-  language at the bottom end of the compielr backend.
+  language at the bottom end of the compiler backend.
 *)
 Theory labLang
 Ancestors

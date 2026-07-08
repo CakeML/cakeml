@@ -107,7 +107,7 @@ End
 
 Definition decode_test_def:
   decode_test t (TagLenEq tag l) v = App t (TagLenEq tag l) [v] /\
-  decode_test t (LitEq lit) v = App t Equality [v; Lit t lit]
+  decode_test t (LitEq lit) v = App t (Src Equality) [v; Lit t lit]
 End
 
 Definition simp_guard_def:
@@ -137,7 +137,7 @@ Definition simp_guard_def:
 End
 
 Definition decode_guard_def:
-  decode_guard t v (Not gd) = App t Equality [decode_guard t v gd; Bool t F] /\
+  decode_guard t v (Not gd) = App t (Src Equality) [decode_guard t v gd; Bool t F] /\
   decode_guard t v (Conj gd1 gd2) = SmartIf t (decode_guard t v gd1)
     (decode_guard t v gd2) (Bool t F) /\
   decode_guard t v (Disj gd1 gd2) = SmartIf t (decode_guard t v gd1) (Bool t T)
@@ -182,7 +182,7 @@ Definition naive_pattern_match_def:
   /\
   naive_pattern_match t ((Pvar _, _) :: mats) = naive_pattern_match t mats /\
   naive_pattern_match t ((Plit l, v) :: mats) = SmartIf t
-    (App t Equality [v; Lit t l]) (naive_pattern_match t mats) (Bool t F) /\
+    (App t (Src Equality) [v; Lit t l]) (naive_pattern_match t mats) (Bool t F) /\
   naive_pattern_match t ((Pcon NONE ps, v) :: mats) =
     naive_pattern_match t (MAPi (\i p. (p, App t (El i) [v])) ps ++ mats) /\
   naive_pattern_match t ((Pas p i, v) :: mats) =
@@ -292,7 +292,7 @@ Definition compile_exp_def:
   (compile_match cfg [] = (0, F, [])) /\
   (compile_match cfg ((p, x)::ps) =
     let (i, sgx, y) = compile_exp cfg x in
-    let j = max_dec_name (pat_bindings p []) in
+    let j = max_dec_name (pat_bindings p) in
     let (k, sgp, ps2) = compile_match cfg ps in
     (MAX i (MAX j k), sgx \/ sgp, ((p, y) :: ps2)))
 End
@@ -320,5 +320,5 @@ Proof
 QED
 
 Definition compile_dec_def:
-  compile_dec cfg (Dlet exp) = Dlet (SND (SND (compile_exp cfg exp)))
+  compile_dec cfg exp = SND (SND (compile_exp cfg exp))
 End

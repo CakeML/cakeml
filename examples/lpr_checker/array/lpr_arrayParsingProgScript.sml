@@ -323,14 +323,14 @@ val c0_v_thm = translate c0_def;
 
 Quote add_cakeml:
 fun parse_one_c lno fd =
-case TextIO.inputLine c0 fd of
+case TextIO.inputLineWith c0 fd of
   None => None
 | Some l =>
     (case parse_vb_string_head l of
        None => raise Fail (format_failure lno "failed to parse line (compressed format)")
      | Some (Inl d) => Some d
      | Some (Inr r) =>
-         (case TextIO.inputLine c0 fd of
+         (case TextIO.inputLineWith c0 fd of
             None => raise Fail (format_failure lno "failed to parse line (compressed format)")
           | Some y =>
               (case do_pr r y of

@@ -33,16 +33,18 @@ in
         Encode_def, opc_def, Itype_def, Rtype_def, Stype_def, SBtype_def,
         Utype_def, UJtype_def],
        computeLib.Tys
-         ([``:('a, 'b) sum``, ``:asm$cmp``, ``:ast$shift``] @ riscv_tys),
+         ([sumSyntax.mk_sum(alpha,beta),
+           mk_thy_type{Thy="asm",Tyop="cmp",Args=[]},
+           astSyntax.shift_ty] @ riscv_tys),
        computeLib.Convs
          [(bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV)],
        computeLib.Extenders [pairLib.add_pair_compset]])
 end
 
 val add_riscv_encode_compset = computeLib.extend_compset
-  [computeLib.Convs [(``riscv_target$riscv_enc``, 1, riscv_encode_conv)],
+  [computeLib.Convs [(prim_mk_const{Thy="riscv_target",Name="riscv_enc"}, 1, riscv_encode_conv)],
    computeLib.Defs [riscv_targetTheory.riscv_config],
-   computeLib.Tys [``:('a, 'b) sum``]]
+   computeLib.Tys [sumSyntax.mk_sum(alpha,beta)]]
 
 val riscv_encode_decode_conv =
   computeLib.compset_conv (wordsLib.words_compset)

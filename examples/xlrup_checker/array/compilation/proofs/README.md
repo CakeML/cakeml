@@ -1,4 +1,4 @@
-Prove end-to-end correctness theorem for xlrup checker with arrays
+Prove end-to-end correctness theorem for XLRUP checker with arrays.
 
 [xlrupProofScript.sml](xlrupProofScript.sml):
 Compose the semantics theorem and the compiler correctness

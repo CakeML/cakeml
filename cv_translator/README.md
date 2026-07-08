@@ -1,4 +1,4 @@
-Translator to cv type used by cv_compute
+Translator to the cv type used by cv_compute.
 
 [backend_32_cvScript.sml](backend_32_cvScript.sml):
 Translate arch-size-specific functions to cv equations.

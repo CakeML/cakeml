@@ -1,5 +1,5 @@
 (*
-  Module about the option tyoe.
+  Module about the option type.
 *)
 Theory OptionProg
 Libs

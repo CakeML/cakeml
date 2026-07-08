@@ -1,5 +1,5 @@
 (*
-  Translate of all to-CNF encoding functions
+  Translation of all to-CNF encoding functions
 *)
 Theory sat_encodersProg
 Ancestors

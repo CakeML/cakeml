@@ -40,7 +40,7 @@ val res = translate parse_ext_dimacs_toks_def;
 
 Definition format_dimacs_failure_def:
   format_dimacs_failure (lno:num) s =
-  strlit "c DIMACS parse failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"
+  «c DIMACS parse failed at line: » ^ toString lno ^ «. Reason: » ^ s ^ «\n»
 End
 
 val _ = translate format_dimacs_failure_def;
@@ -192,9 +192,9 @@ Proof
 QED
 
 Definition print_result_def:
-  (print_result (INL ()) = strlit "s VERIFIED UNSAT\n") ∧
+  (print_result (INL ()) = «s VERIFIED UNSAT\n») ∧
   (print_result (INR (r,scp)) =
-    strlit "s VERIFIED CPOG REPRESENTATION\n")
+    «s VERIFIED CPOG REPRESENTATION\n»)
 End
 
 val r = translate print_result_def;

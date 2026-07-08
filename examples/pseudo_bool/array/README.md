@@ -1,4 +1,4 @@
-Improving the pseudoboolean proof checker with arrays (manually)
+Improving the pseudo-boolean proof checker with arrays (manually).
 
 [cliqueProgScript.sml](cliqueProgScript.sml):
 Clique encode and checker
@@ -6,8 +6,11 @@ Clique encode and checker
 [cnfProgScript.sml](cnfProgScript.sml):
 CNF encoder and checker
 
+[colourProgScript.sml](colourProgScript.sml):
+Colour encode and checker
+
 [compilation](compilation):
-Compiling the pseudo-boolean constraints checker
+Compiling the pseudo-boolean constraints checker.
 
 [graphProgScript.sml](graphProgScript.sml):
 Basic shared graph encoder definitions
@@ -17,6 +20,9 @@ MCIS (connected) encode and checker
 
 [mcisProgScript.sml](mcisProgScript.sml):
 MCIS (unconnected) encode and checker
+
+[mcliqueProgScript.sml](mcliqueProgScript.sml):
+Maximal clique encode and checker
 
 [npbc_arrayProgScript.sml](npbc_arrayProgScript.sml):
 Refine npbc_list to npbc_array

@@ -38,7 +38,7 @@ Theorem cake_pb_clique_compiled_thm =
 (* Prettifying the standard parts of all the theorems *)
 Definition installed_x64_def:
   installed_x64 ((code, data, cfg) :
-      (word8 list # word64 list # 64 backend$config))
+      (word8 list # word64 list # backend$config))
     mc ms
   <=>
     ?cbspace data_sp.
@@ -71,7 +71,7 @@ Theorem machine_code_sound:
   ∃out err.
     extract_fs fs (cake_pb_clique_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
-    (out ≠ strlit"" ⇒
+    (out ≠ «» ⇒
       ∃g.
         get_graph_dimacs fs (EL 1 cl) = SOME g ∧
         (

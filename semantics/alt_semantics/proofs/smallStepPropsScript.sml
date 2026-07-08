@@ -4,7 +4,7 @@
 Theory smallStepProps
 Ancestors
   semanticPrimitives ffi semanticPrimitivesProps evaluateProps
-  smallStep determ
+  smallStep determ ast
 Libs
   preamble
 
@@ -568,19 +568,19 @@ QED
 Inductive small_eval_match:
   (!env s err_v v. small_eval_match env s v [] err_v (s,  Rerr (Rraise err_v))) ∧
   (!env s p e pes r v err_v.
-     ALL_DISTINCT (pat_bindings p []) ∧
+     ALL_DISTINCT (pat_bindings p) ∧
      pmatch env.c (FST s) p v [] = Match env' ∧
      small_eval (env with v := nsAppend (alist_to_ns env') env.v) s e [] r
      ⇒
      small_eval_match env s v ((p,e)::pes) err_v r) ∧
   (!env s e p pes r v err_v.
-     ALL_DISTINCT (pat_bindings p []) ∧
+     ALL_DISTINCT (pat_bindings p) ∧
      (pmatch env.c (FST s) p v [] = No_match) ∧
      small_eval_match env s v pes err_v r
      ⇒
      small_eval_match env s v ((p,e)::pes) err_v r) ∧
   (!env s p e pes v err_v.
-     ¬(ALL_DISTINCT (pat_bindings p []))
+     ¬(ALL_DISTINCT (pat_bindings p))
      ⇒
      small_eval_match env s v ((p,e)::pes) err_v (s,  Rerr (Rabort Rtype_error))) ∧
   (!env s p e pes v err_v.
@@ -714,7 +714,7 @@ Proof
     gvs[CaseEq"prod",CaseEq"result",CaseEq"error_result",
         do_app_cases,PULL_EXISTS]
     >~ [`do_arith a p`] >- (
-      Cases_on`a` \\ Cases_on`p` \\ TRY (Cases_on ‘w’)
+      Cases_on`a` \\ Cases_on ‘p’ using prim_type_cases
       \\ gvs[do_arith_def, CaseEq"list"] ) >>
     (* ThunkOp *)
     namedCases_on ‘v0’ ["", "hd tl"] >> gvs[]
@@ -756,7 +756,7 @@ Proof
     gvs[CaseEq"prod",CaseEq"result",CaseEq"error_result",
         do_app_cases,PULL_EXISTS]
     >~ [`do_arith a p`] >- (
-      Cases_on`a` \\ Cases_on`p` \\ TRY (Cases_on ‘w’)
+      Cases_on`a` \\ Cases_on ‘p’ using prim_type_cases
       \\ gvs[do_arith_def, CaseEq"list"]
       \\ Cases_on`v0` \\ gvs[] ) >>
     (* ThunkOp *)
@@ -871,13 +871,13 @@ Proof
 QED **)
 
 Inductive e_step_to_match:
-  (ALL_DISTINCT (pat_bindings p []) ∧
+  (ALL_DISTINCT (pat_bindings p) ∧
    pmatch env.c (FST s) p v [] = Match env' ∧
    RTC e_step_reln (env with v := nsAppend (alist_to_ns env') env.v, s,  Exp e, [])
     (env'', s', ev, cs)
   ⇒ e_step_to_match env s v ((p,e)::pes) s') ∧
 
-  (ALL_DISTINCT (pat_bindings p []) ∧
+  (ALL_DISTINCT (pat_bindings p) ∧
    pmatch env.c (FST s) p v [] = No_match ∧
    e_step_to_match env s v pes s'
   ⇒ e_step_to_match env s v ((p,e)::pes) s' )
@@ -1294,7 +1294,7 @@ Theorem decl_step_to_Draise:
     decl_step env (st, dev, c) = Draise ex ⇔
       (∃env' v locs p.
         dev = ExpVal env' (Val v) [] locs p ∧
-        ALL_DISTINCT (pat_bindings p []) ∧
+        ALL_DISTINCT (pat_bindings p) ∧
         pmatch (collapse_env env c).c st.refs p v [] = No_match ∧
         ex = bind_exn_v) ∨
       (∃env' v env'' locs p.

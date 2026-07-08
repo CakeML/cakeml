@@ -25,7 +25,7 @@ val names_tac =
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
 Theorem mips_backend_config_ok:
-    backend_config_ok mips_backend_config
+    backend_config_ok mips_config mips_backend_config
 Proof
   simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- (fs[mips_backend_config_def] \\ EVAL_TAC)
@@ -67,7 +67,7 @@ QED
 
 Theorem mips_init_ok:
    is_mips_machine_config mc ⇒
-    mc_init_ok mips_backend_config mc
+    mc_init_ok mips_config mips_backend_config mc
 Proof
   rw[mc_init_ok_def] \\
   fs[is_mips_machine_config_def] \\
@@ -78,8 +78,8 @@ val is_mips_machine_config_mc = mips_init_ok |> concl |> dest_imp |> #1
 
 Theorem mips_compile_correct =
   compile_correct
-  |> Q.GENL[`c`,`mc`]
-  |> Q.ISPECL[`mips_backend_config`, `^(rand is_mips_machine_config_mc)`]
+  |> Q.GENL[`asm_conf`,`c`,`mc`]
+  |> Q.ISPECL[`mips_config`, `mips_backend_config`, `^(rand is_mips_machine_config_mc)`]
   |> ADD_ASSUM is_mips_machine_config_mc
   |> SIMP_RULE (srw_ss()) [mips_backend_config_ok,UNDISCH mips_machine_config_ok,UNDISCH mips_init_ok]
   |> CONV_RULE (ONCE_DEPTH_CONV(EVAL o (assert(same_const``heap_regs``o fst o strip_comb))))

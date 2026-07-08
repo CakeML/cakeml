@@ -260,11 +260,10 @@ Proof
   Cases \\ fs [is_Label_def,line_bytes_def,line_length_def] \\ rw []
 QED
 
-fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
 Theorem case_eq_thms =
   (pair_case_eq::
    bool_case_eq::
-   map (prove_case_eq_thm o get_thms)
+   map TypeBase.case_eq_of
        [``:'a line``,``:'a option``,``:'a asm_with_lab``,``:'a asm_or_cbw``,
         ``:'a asm``, ``:'a word_loc``,``:'a list``,``:'a sec``,``:'a ffi_result``])
   |> LIST_CONJ
@@ -565,7 +564,7 @@ Theorem mem_load_32_align_dm:
    mem_load_32 s.mem s.mem_domain be x = SOME y ⇒
    mem_load_32 s.mem (align_dm s).mem_domain be x = SOME y
 Proof
-  rw[mem_load_32_def]
+  rw[mem_load_32_alt]
   \\ every_case_tac \\ fs[]
   \\ fs[align_dm_def]
   \\ last_x_assum mp_tac \\ simp[]
@@ -582,7 +581,7 @@ Proof
   \\ every_case_tac \\ fs[]
   \\ imp_res_tac mem_load_32_align_dm
   \\ fs[]
-  \\ gs[mem_load_32_def]
+  \\ gs[mem_load_32_alt]
   \\ every_case_tac \\ fs[]
   \\ fs[align_dm_def]
 QED
@@ -652,7 +651,7 @@ Theorem mem_store_32_align_dm:
    mem_store_32 mem s.mem_domain be x c = SOME y ⇒
    mem_store_32 mem (align_dm s).mem_domain be x c = SOME y
 Proof
-  rw[mem_store_32_def]
+  rw[mem_store_32_alt]
   \\ every_case_tac \\ fs[]
   \\ fs[align_dm_def]
   \\ last_x_assum mp_tac \\ simp[]
@@ -669,7 +668,7 @@ Proof
   \\ every_case_tac \\ fs[]
   \\ imp_res_tac mem_store_32_align_dm
   \\ fs[]
-  \\ fs[mem_store_32_def]
+  \\ fs[mem_store_32_alt]
   \\ fs[align_dm_def]
   \\ every_case_tac \\ fs[]
 QED

@@ -340,5 +340,5 @@ End
 Theorem mlstring_dec_enc'[simp]:
   mlstring_dec' (mlstring_enc' s) = s
 Proof
-  Cases_on ‘s’ \\ fs [mlstring_dec'_def, mlstring_enc'_def, implode_def]
+  Cases_on ‘s’ \\ fs [mlstring_dec'_def, mlstring_enc'_def]
 QED

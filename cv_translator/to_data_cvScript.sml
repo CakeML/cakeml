@@ -3,7 +3,7 @@
 *)
 Theory to_data_cv[no_sig_docs]
 Ancestors
-  cv_std basis_cv backend backend_asm unify_cv infer_cv
+  cv_std basis_cv source_cv backend backend_asm
 Libs
   preamble cv_transLib
 
@@ -130,16 +130,23 @@ val _ = cv_auto_trans (source_to_flatTheory.alloc_tags_def
 
 Definition compile_decs_alt_def:
   (compile_dec_alt (t:mlstring list) n next env envs (ast$Dlet locs p e) =
-     let n' = n + 4 in
-     let xs = REVERSE (pat_bindings p []) in
-     let e' = compile_exp (xs++t) env e in
-     let l = LENGTH xs in
-     let n'' = n' + l in
-       (n'', (next with vidx := next.vidx + l),
-        <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
-        envs,
-        [flatLang$Dlet (Mat None e'
-          [(compile_pat env p, make_varls 0 None next.vidx xs)])])) ∧
+     case simple_dlet p e of
+     | SOME (pv,v) =>
+         (case nsLookup env.v v of
+          | SOME (Glob t i) =>
+                 (n, next, <| v := alist_to_ns [(pv, Glob t i)]; c := nsEmpty |>, envs, [])
+          | _ => (n, next, <| v := nsEmpty; c := nsEmpty |>, envs, []))
+     | NONE =>
+         let n' = n + 4 in
+         let xs = REVERSE (pat_bindings p) in
+         let e' = compile_exp (xs++t) env e in
+         let l = LENGTH xs in
+         let n'' = n' + l in
+           (n'', (next with vidx := next.vidx + l),
+            <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
+            envs,
+            [(Mat None e'
+              [(compile_pat env p, make_varls 0 None next.vidx xs)])])) ∧
   (compile_dec_alt t n next env envs (ast$Dletrec locs funs) =
      let fun_names = MAP FST funs in
      let new_env = nsBindList (MAP (\x. (x, Local None x)) fun_names) env.v in
@@ -149,7 +156,7 @@ Definition compile_decs_alt_def:
                    c := nsEmpty |> in
        (n' + LENGTH funs, (next with vidx := next.vidx + LENGTH funs),
         env', envs,
-        [flatLang$Dlet (flatLang$Letrec (join_all_names t) flat_funs
+        [ (flatLang$Letrec (join_all_names t) flat_funs
            (make_varls 0 None next.vidx (REVERSE fun_names)))])) /\
   (compile_dec_alt t n next env envs (Dtype locs type_def) =
     let new_env = MAPi (\tid (_,_,constrs). alloc_tags (next.tidx + tid) constrs) type_def in
@@ -176,7 +183,7 @@ Definition compile_decs_alt_def:
         <| v := nsBind nenv (Glob None next.vidx) nsEmpty; c := nsEmpty |>,
         envs with <| next := envs.next + 1;
             envs := insert envs.next env envs.envs |>,
-        [flatLang$Dlet (App None (GlobalVarInit next.vidx)
+        [(App None (GlobalVarInit next.vidx)
             [env_id_tuple envs.generation envs.next])])) ∧
   (compile_decs_alt t n next env envs [] =
     (n, next, empty_env, envs, [])) ∧
@@ -216,7 +223,11 @@ Theorem compile_decs_thm:
 Proof
   ho_match_mp_tac source_to_flatTheory.compile_decs_ind >>
   PURE_ONCE_REWRITE_TAC[compile_decs_cons] >>
-  rw[source_to_flatTheory.compile_decs_def,compile_decs_alt_def,source_to_flatTheory.extend_env_def,source_to_flatTheory.empty_env_def,UNCURRY_eq_pair,PULL_EXISTS,source_to_flatTheory.lift_env_def]
+  rw[source_to_flatTheory.compile_decs_def, compile_decs_alt_def,
+     source_to_flatTheory.extend_env_def,
+     source_to_flatTheory.empty_env_def, UNCURRY_eq_pair, PULL_EXISTS,
+     source_to_flatTheory.lift_env_def]
+  >- (rpt (TOP_CASE_TAC \\ gvs []))
   >- metis_tac[FST,SND,PAIR]
   >- metis_tac[FST,SND,PAIR] >>
   res_tac >>
@@ -329,7 +340,7 @@ Definition naive_pattern_match_clocked_def:
   /\
   naive_pattern_match_clocked (SUC ck) t ((Pvar _, _) :: mats) = naive_pattern_match_clocked ck t mats /\
   naive_pattern_match_clocked (SUC ck) t ((Plit l, v) :: mats) = SmartIf t
-    (App t Equality [v; Lit t l]) (naive_pattern_match_clocked ck t mats) (Bool t F) /\
+    (App t (Src Equality) [v; Lit t l]) (naive_pattern_match_clocked ck t mats) (Bool t F) /\
   naive_pattern_match_clocked (SUC ck) t ((Pcon NONE ps, v) :: mats) =
     naive_pattern_match_clocked ck t (MAPi (\i p. (p, App t (El i) [v])) ps ++ mats) /\
   naive_pattern_match_clocked (SUC ck) t ((Pas p i, v) :: mats) =
@@ -531,7 +542,7 @@ Definition compile_exp_alt_def:
   (compile_match_alt cfg [] = (0, F, [])) /\
   (compile_match_alt cfg ((p, x)::ps) =
     let (i, sgx, y) = compile_exp_alt cfg x in
-    let j = max_dec_name (pat_bindings p []) in
+    let j = max_dec_name (pat_bindings p) in
     let (k, sgp, ps2) = compile_match_alt cfg ps in
     (MAX i (MAX j k), sgx \/ sgp, ((p, y) :: ps2)))
 End
@@ -731,7 +742,7 @@ Definition is_hidden_alt_def:
     (is_hidden_alt (Con t id_option es) = is_hidden_alts es) ∧
     (is_hidden_alt (Var_local t str) = T) ∧
     (is_hidden_alt (Fun t name body) = T) ∧
-    (is_hidden_alt (App t Opapp l) = F) ∧
+    (is_hidden_alt (App t (Src Opapp) l) = F) ∧
     (is_hidden_alt (App t (GlobalVarInit g) [e]) = is_hidden_alt e) ∧
     (is_hidden_alt (App t (GlobalVarLookup g) [e]) = F) ∧
     (is_hidden_alt (If t e1 e2 e3) = (is_hidden_alt e1 ∧ is_hidden_alt e2 ∧ is_hidden_alt e3)) ∧
@@ -791,7 +802,7 @@ QED
 
 val _ = cv_auto_trans flat_elimTheory.remove_flat_prog_def;
 
-val _ = cv_auto_trans backend_asmTheory.to_flat_def;
+val _ = cv_auto_trans backendTheory.to_flat_def;
 
 (* flat_to_clos *)
 
@@ -917,7 +928,7 @@ val _ = cv_auto_trans flat_to_closTheory.compile_prog_def
 
 (* to_clos *)
 
-val _ = cv_trans backend_asmTheory.to_clos_def
+val _ = cv_trans backendTheory.to_clos_def
 
 (* clos_mti *)
 
@@ -1487,7 +1498,7 @@ Definition decide_inline_alt_def:
           if app_lopt = NONE /\ app_arity = arity then
             (if body_size < c * (1 + app_arity) /\
                 ~contains_closures [body] /\
-                closed (Fn (strlit "") NONE NONE app_arity body)
+                closed (Fn «» NONE NONE app_arity body)
                 (* Consider moving these checks to the point where Clos approximations
                    are created, and bake them into the val_approx_val relation. *)
                then inlD_LetInline body
@@ -2184,7 +2195,7 @@ val _ = cv_auto_trans clos_to_bvlTheory.compile_def;
 
 (* to_bvl *)
 
-val _ = cv_auto_trans backend_asmTheory.to_bvl_def;
+val _ = cv_auto_trans backendTheory.to_bvl_def;
 
 (* bvl_const *)
 
@@ -2663,7 +2674,7 @@ val _ = cv_auto_trans bvl_to_bviTheory.compile_def;
 
 (* to_bvi *)
 
-val _ = cv_auto_trans backend_asmTheory.to_bvi_def;
+val _ = cv_auto_trans backendTheory.to_bvi_def;
 
 (* to_data *)
 
@@ -2695,23 +2706,33 @@ val _ = cv_auto_trans bvi_to_dataTheory.optimise_def;
 val _ = cv_auto_trans bvi_to_dataTheory.op_requires_names_eqn;
 
 val pre = cv_auto_trans_pre "" (bvi_to_dataTheory.compile_sing_def |> measure_args [4,3]);
+
 Theorem bvi_to_data_compile_sing_pre[cv_pre,local]:
   (∀n env tail live v. bvi_to_data_compile_sing_pre n env tail live v) ∧
   (∀n env live v. bvi_to_data_compile_list_pre n env live v)
 Proof
   ho_match_mp_tac bvi_to_dataTheory.compile_sing_ind
   \\ rpt strip_tac \\ simp [Once pre]
+  \\ rw[]
+  \\ first_x_assum (fn th => drule (GSYM th))
+  \\ gvs[GSYM cv_stdTheory.genlist_eq_GENLIST]
+  \\ qmatch_goalsub_abbrev_tac `GENLIST xx _`
+  \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac `GENLIST yy _`
+  \\ qsuff_tac `xx = yy`
+  >- metis_tac[]
+  \\ unabbrev_all_tac \\ simp[FUN_EQ_THM]
 QED
 
 val _ = cv_auto_trans rich_listTheory.COUNT_LIST_GENLIST;
 val _ = cv_trans bvi_to_dataTheory.compile_exp_eq;
 val _ = cv_auto_trans bvi_to_dataTheory.compile_prog_def;
-val _ = cv_trans to_data_def;
+val _ = cv_trans backendTheory.to_data_def;
 
-val _ = cv_trans backend_asmTheory.to_flat_all_def;
-val _ = cv_trans backend_asmTheory.to_clos_all_def;
-val _ = cv_trans backend_asmTheory.to_bvl_all_def;
-val _ = cv_auto_trans (backend_asmTheory.to_bvi_all_def
+val _ = cv_trans backend_passesTheory.to_flat_all_def;
+val _ = cv_trans backend_passesTheory.to_clos_all_def;
+val _ = cv_trans backend_passesTheory.to_bvl_all_def;
+val _ = cv_auto_trans (backend_passesTheory.to_bvi_all_def
                          |> REWRITE_RULE [bvl_inlineTheory.remove_ticks_sing,HD]);
 
 Theorem bvi_to_data_compile_sing[local]:
@@ -2722,7 +2743,7 @@ Proof
   \\ imp_res_tac bvi_to_dataTheory.compile_sing_eq \\ gvs []
 QED
 
-val _ = cv_auto_trans (to_data_all_def |> REWRITE_RULE [bvi_to_data_compile_sing]);
+val _ = cv_auto_trans (backend_passesTheory.to_data_all_def |> REWRITE_RULE [bvi_to_data_compile_sing]);
 
 (* Explorer *)
 

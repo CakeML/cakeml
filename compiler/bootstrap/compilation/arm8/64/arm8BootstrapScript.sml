@@ -1,5 +1,5 @@
 (*
-  Evaluateof the 64-bit version of the compiler into arm8 machine code.
+  Evaluation of the 64-bit version of the compiler into arm8 machine code.
 *)
 Theory arm8Bootstrap
 Ancestors

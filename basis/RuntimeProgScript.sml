@@ -36,7 +36,7 @@ val result = translate debugMsg_def;
 val exit =
  ``[Dletrec (unknown_loc)
      [«exit»,«i»,
-      Let (SOME «y») (App (WordFromInt W8) [Var (Short «i»)])
+      Let (SOME «y») (App (FromTo IntT (WordT W8)) [Var (Short «i»)])
         (Let (SOME «x») (App Aw8alloc [Lit(IntLit 1);
                                        Var (Short «y»)])
              (App (FFI «exit») [Lit(StrLit «»); Var (Short «x»)]))]]``
@@ -53,6 +53,10 @@ Quote add_cakeml:
     then ()
     else (debugMsg msg;
           abort());
+End
+
+Quote add_cakeml:
+  fun customFFI str_arg arr_arg = #(custom) str_arg arr_arg;
 End
 
 val _ = ml_prog_update (close_module NONE);

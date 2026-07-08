@@ -92,7 +92,7 @@ Proof
 QED
 
 Theorem two_byte_sum[local]:
-    k < 65536 ==> k MOD 256 + 256 * (k DIV 256) MOD 256 = k
+    k < 65536 ==> k MOD 256 + 256 * ((k DIV 256) MOD 256) = k
 Proof
   rw []
   \\ `(k DIV 256) MOD 256 = k DIV 256` by
@@ -153,10 +153,9 @@ Proof
     \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def,COMMANDLINE_def,IO_def]
     \\ xsimpl
     \\ qmatch_goalsub_abbrev_tac `FFI_part s u ns`
-    \\ qexistsl [‘[]’, `emp`, `s`, `u`, `ns`, `events`]
+    \\ qexistsl [`emp`, `s`, `u`, `ns`, `events`]
     \\ xsimpl
     \\ unabbrev_all_tac \\ fs []
-    \\ rewrite_tac [mlstringTheory.implode_def]
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_length_def,
            GSYM cfHeapsBaseTheory.encode_list_def,LENGTH_EQ_NUM_compute]
     \\ fs [wfcl_def] \\ xsimpl
@@ -178,10 +177,9 @@ Proof
     \\ qabbrev_tac `extra = W8ARRAY av [n2w (strlen x); n2w (strlen x DIV 256)]`
     \\ xsimpl
     \\ qmatch_goalsub_abbrev_tac `FFI_part s u ns`
-    \\ qexistsl [‘[]’, `extra`, `s`, `u`, `ns`, `events`]
+    \\ qexistsl [`extra`, `s`, `u`, `ns`, `events`]
     \\ xsimpl
     \\ unabbrev_all_tac \\ fs []
-    \\ rewrite_tac [mlstringTheory.implode_def]
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_def,
            GSYM cfHeapsBaseTheory.encode_list_def,LENGTH_EQ_NUM_compute]
     \\ fs [wfcl_def,SUC_SUC_MAX2,two_byte_sum] \\ xsimpl
@@ -210,7 +208,7 @@ Proof
   \\ `strlen x = LENGTH (MAP ((n2w:num->word8) ∘ ORD) (explode x))` by fs [mlstringTheory.LENGTH_explode]
   \\ asm_rewrite_tac [TAKE_LENGTH_APPEND]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND,EL_LENGTH_APPEND,NULL,HD]
-  \\ fs [MAP_MAP_o, CHR_w2n_n2w_ORD, GSYM mlstringTheory.implode_def]
+  \\ fs [MAP_MAP_o, CHR_w2n_n2w_ORD]
   \\ fs[DROP_APPEND,DROP_LENGTH_TOO_LONG]
 QED
 
@@ -238,9 +236,8 @@ Proof
     \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def,IO_def]
     \\ xsimpl
     \\ qmatch_goalsub_abbrev_tac `FFI_part s u ns`
-    \\ qexistsl [‘[]’, `emp`, `s`, `u`, `ns`, `events`]
+    \\ qexistsl [`emp`, `s`, `u`, `ns`, `events`]
     \\ xsimpl
-    \\ rewrite_tac [mlstringTheory.implode_def]
     \\ unabbrev_all_tac \\ fs []
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_count_def,
            GSYM cfHeapsBaseTheory.encode_list_def]

@@ -276,6 +276,9 @@ val r = data_to_wordTheory.parts_to_words_def |> inline_simp
         |> REWRITE_RULE [word_mul_n2w] |> conv32 |> translate;
 val r = data_to_wordTheory.const_parts_to_words_def |> conv32 |> translate;
 
+val r = data_to_wordTheory.SetBool_def |> conv32 |> translate;
+val r = data_to_wordTheory.AssignCmp_def |> conv32 |> translate;
+
 val _ = translate arg1_def;
 val _ = translate arg2_pmatch;
 val _ = translate arg3_pmatch;
@@ -324,6 +327,11 @@ open word_simpTheory word_allocTheory word_instTheory
 val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``]
 
 val res = word_cseTheory.map_insert_def |> DefnBase.one_line_ify NONE |> translate;
+
+val res = translate word_cseTheory.bm_inter_eq_def;
+val res = translate sptreeTheory.inter_eq_def;
+val res = translate word_cseTheory.merge_data_def;
+
 val res = translate (word_cseTheory.word_cseInst_def |> spec32);
 val res = translate_no_ind (word_cseTheory.word_cse_def |> spec32);
 
@@ -471,6 +479,9 @@ val _ = translate (spec32 inst_select_def(*pmatch*))
 
 val _ = translate (spec32 list_next_var_rename_move_def)
 val _ = translate force_rename_def
+
+val _ = translate (spec32 ssa_reconcile_def);
+val _ = translate (spec32 loop_setup_def);
 
 val _ = translate (conv32 ssa_cc_trans_inst_def)
 val _ = translate (spec32 full_ssa_cc_trans_def)
@@ -670,6 +681,7 @@ val _ = translate(Append_code_def|> inline_simp |> conv32 |> we_simp |> econv |>
 val _ = translate(AppendMainLoop_code_def|> inline_simp |> conv32)
 val _ = translate(AppendLenLoop_code_def|> inline_simp |> conv32)
 val _ = translate(XorLoop_code_def|> inline_simp |> conv32)
+val _ = translate(StringCmpLoop_code_def|> inline_simp |> conv32)
 
 val _ = translate(Compare1_code_def|> inline_simp |> conv32)
 val _ = translate(Compare_code_def|> inline_simp |> conv32)

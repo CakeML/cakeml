@@ -1,5 +1,5 @@
-This directory defines a target-neutral assmebly language that the
-intermediate languages of the lower half of the compiler makes use of.
+This directory defines a target-neutral assembly language that the
+intermediate languages of the lower half of the compiler make use of.
 
 [asmLib.sml](asmLib.sml):
 Various ML tools for dealing with the asm language.

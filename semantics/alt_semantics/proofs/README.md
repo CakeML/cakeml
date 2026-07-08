@@ -1,4 +1,4 @@
-The direcory contains proofs about the old relational semantics for
+This directory contains proofs about the old relational semantics for
 CakeML. This directory might be deleted in the future.
 
 [alt_semanticsScript.sml](alt_semanticsScript.sml):
@@ -31,7 +31,7 @@ semantics.
 Compset for evaluating the functional big-step semantics.
 
 [interpScript.sml](interpScript.sml):
-Deriviation of a functional big-step semantics from the relational one.
+Derivation of a functional big-step semantics from the relational one.
 
 [itree_semanticsEquivScript.sml](itree_semanticsEquivScript.sml):
 Relating the itree- and FFI state-based CakeML semantics

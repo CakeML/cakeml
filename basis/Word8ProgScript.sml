@@ -21,8 +21,9 @@ val () = generate_sigs := true;
 val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc [] «word» (Atapp [] (Short «word8»))`` I);
 
-(* to/from int *)
+(* to/from int/char *)
 val _ = trans "fromInt" ``n2w:num->word8``;
+val _ = trans "fromChar" “mlstring$char_to_word8”;
 val _ = trans "toInt" ``w2n:word8->num``;
 val _ = trans "toIntSigned" ``w2i:word8->int``;
 

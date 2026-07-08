@@ -116,7 +116,7 @@ End
   v in vt *)
 Definition has_mapping_al1_def:
   has_mapping_al1 (a:num) vt =
-  ((strlit"al1" ^ toString a)
+  ((«al1» ^ toString a)
   ,(GreaterEqual,
     (1, Pos (Unmapped a)) ::
     GENLIST (λv. (1, Pos (Mapped a v))) vt,
@@ -125,7 +125,7 @@ End
 
 Definition has_mapping_am1_def:
   has_mapping_am1 (a:num) vt =
-  ((strlit"am1" ^ toString a)
+  ((«am1» ^ toString a)
   ,(LessEqual,
     (1, Pos (Unmapped a)) ::
     GENLIST (λv. (1, Pos (Mapped a v))) vt,
@@ -140,7 +140,7 @@ End
 
 Definition one_one_def:
   one_one u vp =
-  ((strlit"inj" ^ toString u)
+  ((«inj» ^ toString u)
   ,(GreaterEqual,
     (GENLIST (λb. (1, Neg (Mapped b u))) vp),
     (&vp-1)): enc pbc)
@@ -155,7 +155,7 @@ Definition edge_map_def:
   edge_map (a,b) u et =
   if a = b then [] else
   [
-  (concat [strlit"adj"; toString a; strlit"_"; toString u; strlit"_"; toString b]
+  (concat [«adj»; toString a; «_»; toString u; «_»; toString b]
   ,(GreaterEqual,
     (1,Neg (Mapped a u)) ::
     (1,Pos (Unmapped b)) ::
@@ -168,7 +168,7 @@ Definition not_edge_map_def:
   if a = b then []
   else
   [
-  (concat [strlit"adj"; toString a; strlit"_"; toString u; strlit"_"; toString b]
+  (concat [«adj»; toString a; «_»; toString u; «_»; toString b]
   ,(GreaterEqual,
     (1,Neg (Mapped a u)) ::
     (1,Pos (Unmapped b)) ::
@@ -183,7 +183,7 @@ Definition all_full_edge_map_def:
       (* Check that a,u have same self-loop *)
       if is_edge ep a a ⇎ is_edge et u u
       then [
-        (concat [strlit"adj"; toString a; strlit"_"; toString u; strlit"_SELF"],
+        (concat [«adj»; toString a; «_»; toString u; «_SELF»],
         (GreaterEqual, [(1,Neg (Mapped a u))], 1):enc pbc)]
       else
         FLAT (MAP (λb. edge_map (a,b) u et) (neighbours ep a)) ++
@@ -1853,13 +1853,13 @@ QED
 
 Definition enc_string_def:
   (enc_string (Walk f g k) =
-    concat [strlit"xconn";toString k;strlit"_";toString f;strlit"_";toString g]) ∧
+    concat [«xconn»;toString k;«_»;toString f;«_»;toString g]) ∧
   (enc_string (Aux f h g k) =
-    concat [strlit"xconn_";toString k;strlit"_";toString f;strlit"_";toString g;strlit"_via_";toString h]) ∧
+    concat [«xconn_»;toString k;«_»;toString f;«_»;toString g;«_via_»;toString h]) ∧
   (enc_string (Unmapped f) =
-    concat [strlit"x";toString f;strlit"_null"]) ∧
+    concat [«x»;toString f;«_null»]) ∧
   (enc_string (Mapped f g) =
-    concat [strlit"x";toString f;strlit"_";toString g])
+    concat [«x»;toString f;«_»;toString g])
 End
 
 Theorem enc_string_INJ:
@@ -1983,7 +1983,7 @@ Theorem full_encode_mccis_sem_concl:
   good_graph gp ∧
   good_graph gt ∧
   full_encode_mccis gp gt = (obj,pbf) ∧
-  sem_concl (set (MAP SND pbf)) obj concl ∧
+  sem_concl (set (MAP SND pbf)) obj {} concl ∧
   conv_concl (FST gp) concl = SOME (lbg, ubg) ⇒
   (lbg = ubg ⇒ max_ccis_size gp gt = lbg) ∧
   (∀vs. is_ccis vs gp gt ⇒ CARD vs ≤ ubg) ∧
@@ -1991,11 +1991,14 @@ Theorem full_encode_mccis_sem_concl:
 Proof
   strip_tac>>
   gvs[full_encode_mccis_def]>>
-  qpat_x_assum`sem_concl _ _ _` mp_tac>>
+  qpat_x_assum`sem_concl _ _ _ _` mp_tac>>
   simp[LIST_TO_SET_MAP,IMAGE_IMAGE]>>
   simp[Once (GSYM IMAGE_IMAGE)]>>
+  `{} = IMAGE enc_string {}` by fs[]>>
+  pop_assum SUBST1_TAC>>
   DEP_REWRITE_TAC[GSYM concl_INJ_iff]>>
   CONJ_TAC >- (
+    simp[]>>
     assume_tac enc_string_INJ>>
     drule INJ_SUBSET>>
     disch_then match_mp_tac>>
@@ -2074,7 +2077,7 @@ Theorem full_encode_mcis_sem_concl:
   good_graph gp ∧
   good_graph gt ∧
   full_encode_mcis gp gt = (obj,pbf) ∧
-  sem_concl (set (MAP SND pbf)) obj concl ∧
+  sem_concl (set (MAP SND pbf)) obj {} concl ∧
   conv_concl (FST gp) concl = SOME (lbg, ubg) ⇒
   (lbg = ubg ⇒ max_cis_size gp gt = lbg) ∧
   (∀vs. is_cis vs gp gt ⇒ CARD vs ≤ ubg) ∧
@@ -2082,11 +2085,14 @@ Theorem full_encode_mcis_sem_concl:
 Proof
   strip_tac>>
   gvs[full_encode_mcis_def]>>
-  qpat_x_assum`sem_concl _ _ _` mp_tac>>
+  qpat_x_assum`sem_concl _ _ _ _` mp_tac>>
   simp[LIST_TO_SET_MAP,IMAGE_IMAGE]>>
   simp[Once (GSYM IMAGE_IMAGE)]>>
+  `{} = IMAGE enc_string {}` by fs[]>>
+  pop_assum SUBST1_TAC>>
   DEP_REWRITE_TAC[GSYM concl_INJ_iff]>>
   CONJ_TAC >- (
+    simp[]>>
     assume_tac enc_string_INJ>>
     drule INJ_SUBSET>>
     disch_then match_mp_tac>>

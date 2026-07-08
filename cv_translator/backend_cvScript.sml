@@ -200,7 +200,7 @@ val _ = cv_auto_trans lab_filterTheory.filter_skip_def;
 val _ = cv_auto_trans lab_to_targetTheory.prog_to_bytes_def;
 val _ = cv_auto_trans lab_to_targetTheory.zero_labs_acc_exist_def;
 val _ = cv_auto_trans lab_to_targetTheory.find_ffi_names_def;
-val _ = TypeBase.accessors_of “:lab_to_target$inc_config” |> map cv_trans;
+val _ = TypeBase.accessors_of “:lab_to_target$config” |> map cv_trans;
 val _ = TypeBase.accessors_of “:environment” |> map cv_trans;
 val _ = cv_trans (lab_to_targetTheory.get_memop_info_def
                     |> INST_TYPE [alpha|->“:8”]);
@@ -231,7 +231,7 @@ val _ = cv_auto_trans backend_enc_decTheory.data_to_word_config_enc_def;
 val _ = cv_auto_trans backend_enc_decTheory.word_to_word_config_enc_def;
 val _ = cv_auto_trans backend_enc_decTheory.word_to_stack_config_enc_def;
 val _ = cv_auto_trans backend_enc_decTheory.stack_to_lab_config_enc_def;
-val _ = cv_auto_trans backend_enc_decTheory.lab_to_target_inc_config_enc_def;
+val _ = cv_auto_trans backend_enc_decTheory.lab_to_target_config_enc_def;
 val _ = cv_auto_trans backend_enc_decTheory.presLang_tap_config_enc_def;
 
 (* environment encoding *)
@@ -409,12 +409,13 @@ QED
 
 val _ = cv_auto_trans backend_enc_decTheory.clos_to_bvl_config_enc_def;
 
-val _ = cv_auto_trans backend_enc_decTheory.backend_inc_config_enc_def;
+val _ = cv_auto_trans backend_enc_decTheory.backend_config_enc_def;
 val _ = cv_trans backend_enc_decTheory.encode_backend_config_def;
 val _ = cv_auto_trans backend_asmTheory.attach_bitmaps_def;
 
 (* ------------------------------------------------------------------------ *)
 
+val _ = cv_trans stack_to_labTheory.find_lab_def;
 val _ = cv_trans stack_to_labTheory.negate_def;
 val _ = cv_trans stack_to_labTheory.is_gen_gc_def;
 val _ = stack_namesTheory.dest_find_name_def |> cv_trans;
@@ -498,6 +499,10 @@ Definition apply_nummap_key'_def:
   apply_nummap_key' f = apply_nummap_key (total_colour f)
 End
 
+Definition apply_nummaps_key'_def:
+  apply_nummaps_key' f = apply_nummaps_key (total_colour f)
+End
+
 Definition apply_colour_imm'_def:
   apply_colour_imm' f = apply_colour_imm (total_colour f)
 End
@@ -522,6 +527,7 @@ val defs = [GSYM check_partial_col'_def,
             GSYM check_col'_def,
             GSYM check_clash_tree'_def,
             GSYM apply_nummap_key'_def,
+            GSYM apply_nummaps_key'_def,
             GSYM apply_colour_imm'_def,
             GSYM apply_colour_exp'_def,
             GSYM apply_colour_exp'_list_def,
@@ -542,6 +548,7 @@ Theorem apply_colour'_eq = word_allocTheory.apply_colour_def |> set_f
 Theorem apply_colour_inst'_eq = word_allocTheory.apply_colour_inst_def |> set_f
 Theorem apply_colour_imm'_eq = word_allocTheory.apply_colour_imm_def |> set_f
 Theorem apply_colour_nummap_key'_eq = word_allocTheory.apply_nummap_key_def |> set_f
+Theorem apply_colour_nummaps_key'_eq = word_allocTheory.apply_nummaps_key_def |> set_f
 Theorem apply_colour_exp'_eq =
   (CONJUNCTS word_allocTheory.apply_colour_exp_def @
    map (Q.ISPEC ‘apply_colour_exp' f’) (CONJUNCTS MAP))
@@ -590,6 +597,7 @@ Proof
 QED
 
 val _ = cv_auto_trans apply_colour_nummap_key'_eq;
+val _ = cv_auto_trans apply_colour_nummaps_key'_eq;
 
 Definition get_reads_exp_list_def:
   get_reads_exp_list xs = FLAT (MAP (λa. get_reads_exp a) xs)
@@ -669,11 +677,9 @@ Theorem flatten_exp_eq =
   |> REWRITE_RULE [GSYM flatten_exp_list_def]
 
 val _ = word_cseTheory.empty_data_def |> CONV_RULE (RAND_CONV EVAL) |> cv_trans;
-val _ = cv_auto_trans word_cseTheory.is_seen_def;
-val _ = cv_auto_trans word_cseTheory.canonicalMoveRegs3_def;
 
 Definition lookup_listCmp_def:
-  lookup_listCmp = lookup listCmp
+  lookup_listCmp = balanced_map$lookup listCmp
 End
 
 val _ = cv_trans (word_cseTheory.listCmp_def |> SRULE [GREATER_DEF]);
@@ -712,19 +718,57 @@ Proof
   Induct_on ‘t’ \\ simp [Once pre]
 QED
 
-val _ = word_cseTheory.arithOpToNum_def |> cv_trans;
-val _ = word_cseTheory.shiftToNum_def |> cv_trans;
-val _ = word_cseTheory.fpToNumList_def |> cv_trans;
-val _ = cv_trans word_cseTheory.firstRegOfArith_def;
+val _ = cv_trans word_cseTheory.keep_data_def;
+val _ = cv_auto_trans word_cseTheory.invalidate_data_def;
+val _ = cv_trans word_cseTheory.invalidate_regs_def;
+val _ = cv_trans word_cseTheory.register_read_def;
+val _ = cv_trans word_cseTheory.register_reads_def;
+val _ = cv_auto_trans word_cseTheory.canonicalRegs_def;
 val _ = cv_trans word_cseTheory.canonicalRegs'_def;
-val _ = cv_trans word_cseTheory.canonicalImmReg'_def;
 val _ = cv_trans word_cseTheory.canonicalImmReg_def;
+val _ = cv_trans word_cseTheory.canonicalImmReg'_def;
+val _ = cv_auto_trans word_cseTheory.canonicalMultRegs_def;
+val _ = cv_trans word_cseTheory.map_insert_def;
+val _ = cv_auto_trans word_cseTheory.canonicalMoveRegs_def;
 val _ = cv_trans word_cseTheory.canonicalArith_def;
-val _ = cv_trans word_cseTheory.are_reads_seen_def;
-val _ = cv_trans word_cseTheory.is_complex_def;
+val _ = cv_trans word_cseTheory.canonicalFp_def;
+val _ = cv_trans word_cseTheory.wordToNum_def;
+val _ = cv_trans word_cseTheory.shiftToNum_def;
+val _ = cv_trans word_cseTheory.arithOpToNum_def;
+val _ = cv_trans word_cseTheory.regImmToNumList_def;
+val _ = cv_trans word_cseTheory.arithToNumList_def;
+val _ = cv_auto_trans word_cseTheory.instToNumList_def;
+val _ = cv_trans word_cseTheory.firstRegOfArith_def;
+val _ = cv_trans word_cseTheory.arithWrites_def;
+val _ = cv_trans word_cseTheory.arithReads_def;
+val _ = cv_trans word_cseTheory.fpWrites_def;
+val _ = cv_auto_trans (word_cseTheory.add_to_data_aux_def
+                         |> SRULE [GSYM insert_listCmp_def,GSYM lookup_listCmp_def]);
+val _ = cv_trans word_cseTheory.add_to_data_def;
+val _ = cv_auto_trans (word_cseTheory.add_to_data_const_def
+                         |> SRULE [GSYM insert_listCmp_def,GSYM lookup_listCmp_def]);
+val _ = cv_trans word_cseTheory.memOpToNum_def;
+val _ = cv_trans word_cseTheory.loadToNumList_def;
+val _ = cv_auto_trans (word_cseTheory.add_to_load_aux_def
+                         |> SRULE [GSYM insert_listCmp_def,GSYM lookup_listCmp_def]);
+val _ = cv_trans word_cseTheory.can_mem_arith_def;
 val _ = cv_trans word_cseTheory.is_store_def;
-val _ = cv_trans word_cseTheory.canonicalExp_def;
-val _ = cv_trans word_cseTheory.OpCurrHeapToNumList_def;
+val _ = cv_auto_trans word_cseTheory.word_cseInst_def;
+val _ = cv_trans word_cseTheory.dest_Var_def;
+val _ = cv_auto_trans (word_cseTheory.bm_inter_eq_acc_def
+                         |> SRULE [GSYM insert_listCmp_def,GSYM lookup_listCmp_def]);
+val _ = cv_auto_trans word_cseTheory.bm_inter_eq_def;
+val _ = cv_auto_trans word_cseTheory.merge_data_def;
+
+val pre = cv_auto_trans_pre "" word_cseTheory.word_cse_def;
+Theorem word_cse_word_cse_pre[cv_pre,local]:
+  ∀data v. word_cse_word_cse_pre data v
+Proof
+  qsuff_tac ‘∀v data. word_cse_word_cse_pre data v’ >- gvs []
+  \\ Induct \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val _ = cv_trans word_cseTheory.word_common_subexp_elim_def;
 
 val _ = word_allocTheory.next_var_rename_def |> cv_trans;
 val _ = word_allocTheory.list_next_var_rename_def |> cv_trans;
@@ -908,12 +952,12 @@ val pre = cv_auto_trans (sort_canonize_def |> SRULE [sort_def,mergesort_tail_def
 
 val res = word_allocTheory.canonize_moves_def |> SRULE[GSYM sort_canonize_def] |> cv_auto_trans
 
-val _ = cv_trans backendTheory.inc_set_oracle_def;
+val _ = cv_trans backendTheory.set_oracle_def;
 
 val _ = cv_trans (exportTheory.escape_sym_char_def |> SRULE [GREATER_EQ]);
 val _ = cv_auto_trans exportTheory.emit_symbol_def;
 val _ = cv_auto_trans exportTheory.emit_symbols_def;
-val _ = cv_auto_trans (exportTheory.data_section_def |> SRULE [GSYM mlstringTheory.implode_def]);
+val _ = cv_auto_trans exportTheory.data_section_def;
 val _ = cv_trans (exportTheory.data_buffer_def |> SRULE []);
 val _ = cv_trans (exportTheory.code_buffer_def |> SRULE []);
 

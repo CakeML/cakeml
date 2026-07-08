@@ -5,6 +5,7 @@ Runtime.debugMsg: string -> unit
 Runtime.exit: int -> unit
 Runtime.abort: unit -> unit
 Runtime.assert: bool -> string -> unit
+Runtime.customFFI: string -> byte_array -> unit
 Option.getOpt: 'a option -> 'a -> 'a
 Option.isSome: 'a option -> bool
 Option.valOf: 'a option -> 'a
@@ -34,6 +35,7 @@ List.takeUntil: ('a -> bool) -> 'a list -> 'a list
 List.dropUntil: ('a -> bool) -> 'a list -> 'a list
 List.cmp: ('a -> 'b -> ordering) -> 'a list -> 'b list -> ordering
 List.concat: 'a list list -> 'a list
+List.intersperse: 'a -> 'a list -> 'a list
 List.map: ('a -> 'b) -> 'a list -> 'b list
 List.mapi: (int -> 'a -> 'b) -> 'a list -> 'b list
 List.mapPartial: ('a -> 'b option) -> 'a list -> 'b list
@@ -88,6 +90,14 @@ Vector.find: ('a -> bool) -> 'a Vector.vector -> 'a option
 Vector.exists: ('a -> bool) -> 'a Vector.vector -> bool
 Vector.all: ('a -> bool) -> 'a Vector.vector -> bool
 Vector.collate: ('a -> 'b -> ordering) -> 'a Vector.vector -> 'b Vector.vector -> ordering
+String.Fast.<: string -> string -> bool
+String.Fast.<=: string -> string -> bool
+String.Fast.>: string -> string -> bool
+String.Fast.>=: string -> string -> bool
+String.<: string -> string -> bool
+String.<=: string -> string -> bool
+String.>: string -> string -> bool
+String.>=: string -> string -> bool
 String.sub: string -> int -> char
 String.implode: char list -> string
 String.explode: string -> char list
@@ -109,10 +119,6 @@ String.isSubstring: string -> string -> bool
 String.isSuffix: string -> string -> bool
 String.isPrefix: string -> string -> bool
 String.compare: string -> string -> ordering
-String.<: string -> string -> bool
-String.<=: string -> string -> bool
-String.>=: string -> string -> bool
-String.>: string -> string -> bool
 String.collate: (char -> char -> ordering) -> string -> string -> ordering
 String.char_escape_seq: char -> string option
 String.escape_str: string -> string
@@ -209,6 +215,7 @@ Word64.~>>: Word64.word -> int -> Word64.word
 Word64.ror: Word64.word -> int -> Word64.word
 Word64.concatAll: Word8.word -> Word8.word -> Word8.word -> Word8.word -> Word8.word -> Word8.word -> Word8.word -> Word8.word -> Word64.word
 Word8.fromInt: int -> Word8.word
+Word8.fromChar: char -> Word8.word
 Word8.toInt: Word8.word -> int
 Word8.toIntSigned: Word8.word -> int
 Word8.andb: Word8.word -> Word8.word -> Word8.word
@@ -368,12 +375,14 @@ TextIO.closeIn: TextIO.instream -> unit
 TextIO.input: TextIO.instream -> byte_array -> int -> int -> int
 TextIO.peekChar: TextIO.instream -> char option
 TextIO.input1: TextIO.instream -> char option
-TextIO.inputLine: char -> TextIO.instream -> string option
+TextIO.inputLineWith: char -> TextIO.instream -> string option
+TextIO.inputLine: TextIO.instream -> string option
 TextIO.inputLineTokens: char -> TextIO.instream -> (char -> bool) -> (string -> 'a) -> 'a list option
 TextIO.inputLines: char -> TextIO.instream -> string list
 TextIO.inputLinesFile: char -> string -> string list option
 TextIO.inputLinesStdIn: char -> string list
 TextIO.inputAll: TextIO.instream -> string
+TextIO.inputAllFrom: string option -> string option
 TextIO.inputAllTokens: char -> TextIO.instream -> (char -> bool) -> (string -> 'a) -> 'a list list
 TextIO.inputAllTokensFile: char -> string -> (char -> bool) -> (string -> 'a) -> 'a list list option
 TextIO.inputAllTokensFrom: char -> string option -> (char -> bool) -> (string -> 'a) -> 'a list list option
@@ -448,3 +457,4 @@ print: string -> unit
 print_app_list: string app_list -> unit
 print_int: int -> unit
 print_pp: PrettyPrinter.pp_data -> unit
+

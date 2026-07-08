@@ -50,33 +50,61 @@ local
   end
   open Parse
   (* Information about the subscript exceptions *)
-  val Conv_Subscript = EVAL ``sub_exn_v`` |> concl |> rand
+  val Conv_Subscript = EVAL semanticPrimitivesSyntax.sub_exn_v |> concl |> rand
   (* val Stamp_Subscript = Conv_Subscript |> rator |> rand |> rand *)
 in
 
+(* Sidestep setting up "syntax" libraries, fetch const from def. *)
+fun left_const thm = concl thm
+    |> strip_conj |> hd |> strip_forall |> snd |> lhs
+    |> strip_comb |> fst
+
 (* Constants *)
-val hprop_ty = “:hprop”
-val v_ty = “:v”
-val ffi_state_ty = “:'ffi semanticPrimitives$state”
-val ffi_ffi_proj_ty = “:'ffi ffi_proj”
-val lookup_ret_ty = “:num # stamp”
+val hprop_ty = cfHeapsBaseSyntax.hprop_ty
+val v_ty = semanticPrimitivesSyntax.v_ty
+val ffi_var = mk_vartype "'ffi"
+val ffi_state_ty = semanticPrimitivesSyntax.state_ty |> type_subst [alpha |-> ffi_var]
+val ffi_ffi_proj_ty = cfHeapsBaseSyntax.mk_ffi_proj_ty ffi_var
+val lookup_ret_ty = pairSyntax.mk_prod(numSyntax.num, semanticPrimitivesSyntax.stamp_ty)
 
 val TRUE = boolSyntax.T
-val emp_const = “emp : hprop”
-val APPEND_const = “APPEND : α list -> α list -> α list”
-val CONS_const = “CONS : α -> α list -> α list”
-val REF_const = “REF”
-val RARRAY_const = “RARRAY”
-val ARRAY_const = “ARRAY”
-val SOME_const = “SOME”
-val one_const = “1 : num”
-val cond_const = “set_sep$cond”
-val get_refs_const = “λ(state : 'a semanticPrimitives$state). state.refs”
-val opref_expr = “λname. (App Opref [Var (Short name)])”
-val empty_v_list = “[] : v list”
-val empty_v_store = “[] : v store”
-val empty_alpha_list = “[] : α list”
-val nsLookup_env_short_term = “λ(env : v sem_env) name. nsLookup env.v (Short name)”
+val emp_const = cfHeapsBaseSyntax.emp_tm
+val APPEND_const = listSyntax.append_tm
+val CONS_const = listSyntax.cons_tm
+val REF_const = cfHeapsBaseTheory.REF_def |> left_const
+val RARRAY_const = ml_monad_translatorBaseTheory.RARRAY_def |> left_const
+val ARRAY_const = cfHeapsBaseTheory.ARRAY_def |> left_const
+val one_const = numSyntax.term_of_int 1
+val cond_const = set_sepTheory.cond_def |> left_const
+val get_refs_const = let
+    val state_ty_a = semanticPrimitivesSyntax.state_ty (* has alpha *)
+    val state_var = mk_var("state", state_ty_a)
+    val refs_acc = assoc "refs" (TypeBase.fields_of state_ty_a) |> #accessor
+    val tysub = match_type (dom_rng (type_of refs_acc) |> fst) state_ty_a
+    val body = mk_comb(inst tysub refs_acc, state_var)
+  in mk_abs(state_var, body) end
+val opref_expr = let
+    val name_var = mk_var("name", mlstringSyntax.mlstring_ty)
+    val var_exp = astSyntax.mk_Var(astSyntax.mk_Short name_var)
+    val body = astSyntax.mk_App(astSyntax.Opref,
+                 listSyntax.mk_list([var_exp], astSyntax.exp_ty))
+  in mk_abs(name_var, body) end
+val empty_v_list = listSyntax.mk_list ([], v_ty)
+val empty_v_store = listSyntax.mk_list ([],
+    semanticPrimitivesSyntax.store_v_ty |> type_subst [alpha |-> v_ty])
+val empty_alpha_list = listSyntax.mk_list ([], alpha)
+val nsLookup_env_short_term = let
+    val sem_env_ty = semanticPrimitivesSyntax.sem_env_ty |> type_subst [alpha |-> v_ty]
+    val env_var = mk_var("env", sem_env_ty)
+    val name_var = mk_var("name", mlstringSyntax.mlstring_ty)
+    val nsLookup_tm = prim_mk_const{Thy="namespace",Name="nsLookup"}
+    val v_accessor = assoc "v" (TypeBase.fields_of
+        (semanticPrimitivesSyntax.sem_env_ty)) |> #accessor
+    val tysub = match_type (dom_rng (type_of v_accessor) |> fst) sem_env_ty
+    val env_v = mk_comb(inst tysub v_accessor, env_var)
+    val short_name = astSyntax.mk_Short name_var
+    val body = list_mk_icomb(nsLookup_tm, [env_v, short_name])
+  in list_mk_abs([env_var, name_var], body) end
 val Conv_Subscript = Conv_Subscript
 end (* local *)
 
@@ -105,7 +133,7 @@ fun mk_VALID_REFS_PRED H =
 
 fun mk_lookup_eq name env type_tm = let
     val lookup_tm = ISPECL [name, env] lookup_cons_def |> concl |> dest_eq |> fst
-    val some_tm = mk_comb (inst [alpha |-> lookup_ret_ty] SOME_const, mk_pair(one_const, type_tm))
+    val some_tm = optionSyntax.mk_some(mk_pair(one_const, type_tm))
 in mk_eq(lookup_tm, some_tm) end
 
 (******* COPY/PASTE from ml_monadProgScript.sml *****************************************)
@@ -418,8 +446,7 @@ fun create_store_X_hprop refs_manip_list
         val get_term = mk_comb (get_f, Term.inst ty_subst state_var) |>
                        BETA_CONV |> concl |> dest_eq |> snd
 
-        val hprop =
-          list_mk_ucomb(``RARRAY_REL``, [ref_inv, rarray_ref_loc, get_term])
+        val hprop = mk_RARRAY_REL ref_inv rarray_ref_loc get_term
       in
         hprop
       end
@@ -441,7 +468,7 @@ fun create_store_X_hprop refs_manip_list
         val get_term = mk_comb (get_f, Term.inst ty_subst state_var) |>
                        BETA_CONV |> concl |> dest_eq |> snd
 
-        val hprop = list_mk_ucomb(``ARRAY_REL``, [ref_inv, farray_loc, get_term])
+        val hprop = mk_ARRAY_REL ref_inv farray_loc get_term
       in
         hprop
       end
@@ -484,7 +511,7 @@ fun create_store_X_hprop refs_manip_list
     fun mk_hprop_type n t = if n = 0 then t else mk_type("fun", [v_ty, mk_hprop_type (n-1) t])
     val store_hprop_type = mk_hprop_type num_vars store_hprop_type
 
-    val free_type_vars = type_vars store_hprop_type
+    val free_type_vars = List.rev (type_vars store_hprop_type)
     val tyvars_ref_invs = List.map get_type_inv free_type_vars
 
     fun mk_fun_type [] ret_ty = ret_ty

@@ -2027,9 +2027,7 @@ val stdstart =
 
 fun note_tac s g = (print (s ^ "\n"); ALL_TAC g)
 
-val list_case_eq = prove_case_eq_thm {
-  case_def= TypeBase.case_def_of ``:'a list``,
-  nchotomy = TypeBase.nchotomy_of ``:'a list``}
+val list_case_eq = TypeBase.case_eq_of ``:'a list``
 
 fun hasc cnm t = #1 (dest_const t) = cnm handle HOL_ERR _ => false
 fun const_assum0 f cnm k =

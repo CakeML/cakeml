@@ -34,29 +34,18 @@ Proof
 QED
 
 Theorem arm8_asl_init_ok:
-  is_arm8_asl_machine_config mc ⇒ mc_init_ok arm8_backend_config mc
+  is_arm8_asl_machine_config mc ⇒ mc_init_ok arm8_config arm8_backend_config mc
 Proof
   rw[mc_init_ok_def] >> gvs[is_arm8_asl_machine_config_def] >> EVAL_TAC
 QED
 
-Theorem arm8_asl_compile_correct:
-  is_arm8_asl_machine_config mc ∧
-  compile arm8_backend_config prog = SOME (bytes, bitmaps, config') ⇒
-    let (s,env) = THE (prim_sem_env ffi) in
-    ¬semantics_prog s env prog Fail ∧
-    installed bytes cbspace bitmaps data_sp config'.lab_conf.ffi_names (1,3) mc config'.lab_conf.shmem_extra ms
-    ⇒ machine_sem mc ffi ms ⊆
-        extend_with_resource_limit (semantics_prog s env prog)
-Proof
-  rw[] >>
-  qspecl_then [
-    `prog`,`ms`,`mc`,`ffi`,`data_sp`,`cbspace`,`config'`,
-    `arm8_backend_config`,`bytes`,`bitmaps`] assume_tac $ GEN_ALL compile_correct >>
-  gvs[] >> pairarg_tac >> gvs[] >>
-  rw[] >>
-  first_x_assum irule >> simp[] >>
-  map_every (irule_at Any)
-    [arm8_asl_init_ok, arm8_backend_config_ok, arm8_asl_machine_config_ok] >>
-  simp[arm8_backend_config_def, heap_regs_def, arm8_names_def,
-       tlookup_def, lookup_def]
-QED
+val is_arm8_asl_machine_config_mc = arm8_asl_init_ok |> concl |> dest_imp |> #1
+
+Theorem arm8_asl_compile_correct =
+  compile_correct
+  |> Q.GENL[`asm_conf`,`c`,`mc`]
+  |> Q.ISPECL[`arm8_config`, `arm8_backend_config`, `^(rand is_arm8_asl_machine_config_mc)`]
+  |> ADD_ASSUM is_arm8_asl_machine_config_mc
+  |> SIMP_RULE (srw_ss()) [arm8_backend_config_ok,UNDISCH arm8_asl_machine_config_ok,UNDISCH arm8_asl_init_ok]
+  |> CONV_RULE (ONCE_DEPTH_CONV(EVAL o (assert(same_const``heap_regs``o fst o strip_comb))))
+  |> DISCH_ALL

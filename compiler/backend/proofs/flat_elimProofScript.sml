@@ -3,7 +3,7 @@
 *)
 Theory flat_elimProof
 Ancestors
-  flat_elim flatSem flatLang flatProps spt_closure
+  flat_elim flatSem flatLang flatProps spt_closure ast
   misc[qualified] ffi[qualified] sptree
 Libs
   preamble
@@ -357,9 +357,9 @@ Definition decs_closed_def:
 End
 
 Theorem decs_closed_reduce:
-     ∀ reachable h t . decs_closed reachable (h::t) ⇒ decs_closed reachable t
+     ∀ reachable e t . decs_closed reachable (e::t) ⇒ decs_closed reachable t
 Proof
-    fs[decs_closed_def] >> rw[] >> Cases_on `h` >> fs[analyse_code_def]
+    fs[decs_closed_def] >> rw[] >> fs[analyse_code_def]
     >- (Cases_on `analyse_exp e` >> fs[code_analysis_union_def, domain_union])
     >- (
         Cases_on `analyse_exp e` >> fs[code_analysis_union_def, domain_union] >>
@@ -371,10 +371,10 @@ Proof
 QED
 
 Theorem decs_closed_reduce_HD:
-     ∀ reachable h t .
-        decs_closed reachable (h::t) ⇒ decs_closed reachable [h]
+     ∀ reachable e t .
+        decs_closed reachable (e::t) ⇒ decs_closed reachable [e]
 Proof
-    fs[decs_closed_def] >> rw[] >> Cases_on `h` >> fs[analyse_code_def] >>
+    fs[decs_closed_def] >> rw[] >> fs[analyse_code_def] >>
     Cases_on `analyse_exp e` >>
     fs[code_analysis_union_def, domain_union] >> rveq >> fs[domain_def]
     >- (Cases_on `analyse_code t` >> fs[code_analysis_union_def, domain_union])
@@ -523,9 +523,21 @@ Theorem do_app_cases =
   (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem, CaseEq "thunk_op"] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs])
 
+
+Theorem fvg_v_to_flat[local,simp]:
+  sptree$domain (find_v_globals (v_to_flat v)) ⊆ sptree$domain reachable ∧
+  ¬v_has_Eval (v_to_flat v)
+Proof
+  Cases_on `v`
+  >> simp [v_to_flat_def, find_v_globals_def, v_has_Eval_def,
+           semanticPrimitivesTheory.Boolv_def, Boolv_def]
+  >> every_case_tac
+  >> simp [find_v_globals_def, v_has_Eval_def, Boolv_def]
+QED
+
 Theorem do_app_SOME_flat_state_rel:
      ∀ reachable state removed_state op l new_state result new_removed_state.
-        flat_state_rel reachable state removed_state ∧ op ≠ Opapp ∧
+        flat_state_rel reachable state removed_state ∧ op ≠ Src Opapp ∧
         domain(find_v_globalsL l) ⊆ domain reachable ∧
         domain (find_lookups (App tra op [])) ⊆ domain reachable ∧
         EVERY ($~ ∘ v_has_Eval) l
@@ -543,33 +555,82 @@ Proof
   \\ qpat_assum `flat_state_rel _ _ _` (mp_tac o REWRITE_RULE [flat_state_rel_def])
   \\ rw []
   \\ `∃ this_case . this_case op` by (qexists_tac `K T` >> simp[])
-  \\ Cases_on ‘∃a ty. op = Arith a ty’ >- (
+  \\ Cases_on `∃a ty. op = Src (Arith a ty)` >- (
     fs [do_app_def]
     \\ gvs [AllCaseEqs()]
-    \\ Cases_on ‘ty’
-    \\ TRY(rename1 `WordT w` \\ Cases_on`w`)
+    \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
     \\ gvs [semanticPrimitivesTheory.do_arith_def, AllCaseEqs()]
     \\ simp [do_app_def, semanticPrimitivesTheory.do_arith_def,
               find_sem_prim_res_globals_def, find_result_globals_def,
-              find_v_globals_def, v_has_Eval_def, div_exn_v_def, v_to_flat_def])
-  \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ >- (
-    fs [do_app_def]
-    \\ gvs [AllCaseEqs()]
-    \\ Cases_on ‘ty1’ \\ Cases_on ‘ty2’
-    \\ gvs [semanticPrimitivesTheory.do_conversion_def, AllCaseEqs()]
-    \\ TRY (Cases_on ‘w’) \\ gvs [semanticPrimitivesTheory.do_conversion_def]
-    \\ simp [do_app_def, semanticPrimitivesTheory.do_conversion_def,
-              find_sem_prim_res_globals_def, find_result_globals_def,
-              find_v_globals_def, v_has_Eval_def, v_to_flat_def])
-  \\ qpat_x_assum `do_app _ _ _ = SOME _`
-      (strip_assume_tac o REWRITE_RULE [do_app_cases])
-  \\ rw []
-  \\ fs [v_has_Eval_def]
-  \\ simp [do_app_def]
-  \\ fs [find_sem_prim_res_globals_def, find_v_globals_def,
-        find_result_globals_def, chr_exn_v_def, Boolv_def, div_exn_v_def,
-        v_has_Eval_def, subscript_exn_v_def, Unitv_def, find_lookups_def,
-        dest_GlobalVarLookup_def]
+              find_v_globals_def, v_has_Eval_def, div_exn_v_def, v_to_flat_def]
+    \\ rw [find_v_globals_def, v_has_Eval_def,
+           semanticPrimitivesTheory.Boolv_def, v_to_flat_def, Boolv_def]
+    \\ every_case_tac \\ gvs [find_v_globals_def, v_has_Eval_def, Boolv_def])
+  \\ Cases_on `∃ty1 ty2. op = Src (FromTo ty1 ty2)` >- (
+    gvs [do_app_def, AllCaseEqs(),
+         find_sem_prim_res_globals_def, find_result_globals_def,
+         find_v_globals_def, v_has_Eval_def, chr_exn_v_def])
+  \\ Cases_on `op` \\ gvs []
+  >- ( (* Src case, excluding Arith and FromTo *)
+    rename [`Src aop`]
+    \\ Cases_on `aop`
+    \\ gvs [do_app_def, AllCaseEqs(),
+            find_sem_prim_res_globals_def, find_result_globals_def,
+            find_v_globals_def, v_has_Eval_def,
+            chr_exn_v_def, div_exn_v_def, subscript_exn_v_def,
+            Boolv_def, Unitv_def,
+            fvg_map_char_empty, v_has_Eval_list_to_v,
+            semanticPrimitivesTheory.store_alloc_def]
+    \\ rfs []
+    \\ imp_res_tac not_LE_LESS_IMP
+    \\ imp_res_tac find_v_globals_v_to_list
+    \\ imp_res_tac v_has_Eval_v_to_list
+    \\ imp_res_tac find_v_globals_list_to_v_APPEND
+    \\ imp_res_tac not_v_has_Eval_EVERY_EL
+    \\ qif_pat_tac `store_assign _ _ _ = SOME _` (
+      fs [semanticPrimitivesTheory.store_assign_def]
+      \\ rw []
+      \\ simp [flat_state_rel_def, listTheory.IMP_EVERY_LUPDATE,
+              find_refs_globals_LUPDATE]
+    )
+    \\ TRY (
+      simp [flat_state_rel_def, find_refs_globals_APPEND,
+            find_refs_globals_def, domain_union,
+            find_v_globals_def, v_has_Eval_def, EVERY_MAP,
+            find_v_globalsL_REPLICATE]
+      \\ NO_TAC
+    )
+    \\ fs [semanticPrimitivesTheory.store_lookup_def]
+    \\ fs [Q.ISPEC `EL _ _` EQ_SYM_EQ |> Q.SPEC `HD _`]
+    \\ fs [rich_listTheory.LENGTH_NOT_NULL]
+    \\ TRY (rename [`~ NULL xs`] \\ Cases_on `xs` \\ fs [])
+    \\ fs [find_v_globals_def, domain_union]
+    \\ imp_res_tac EVERY_EL_IMP
+    \\ imp_res_tac find_refs_globals_EL
+    \\ rfs []
+    \\ DEP_REWRITE_TAC [find_v_globalsL_EL_trans]
+    \\ simp []
+    \\ gvs [EVERY_MAP, v_has_Eval_def,
+            backend_commonTheory.true_tag_def,
+            backend_commonTheory.false_tag_def]
+    \\ gvs [flat_state_rel_def, listTheory.IMP_EVERY_LUPDATE]
+    \\ TRY (
+      irule (cj 2 find_refs_globals_LUPDATE) \\ simp []
+      \\ irule find_v_globalsL_LUPDATE \\ simp []
+    )
+    \\ TRY (
+      irule (cj 4 find_refs_globals_LUPDATE) \\ simp []
+    )
+    \\ gvs [find_refs_globals_APPEND, find_refs_globals_def, domain_union,
+            find_v_globals_def]
+    \\ metis_tac [find_v_globalsL_REPLICATE, SUBSET_TRANS]
+    )
+  (* FlatLang-specific ops - remaining 7 subgoals *)
+  \\ gvs [do_app_def, AllCaseEqs(),
+          find_sem_prim_res_globals_def, find_v_globals_def,
+          find_result_globals_def, chr_exn_v_def, Boolv_def, div_exn_v_def,
+          v_has_Eval_def, subscript_exn_v_def, Unitv_def, find_lookups_def,
+          dest_GlobalVarLookup_def]
   \\ rfs []
   \\ imp_res_tac not_LE_LESS_IMP
   \\ qif_pat_tac `store_assign _ _ _ = SOME _` (
@@ -597,90 +658,22 @@ Proof
     \\ simp []
   )
   >- (
-    qpat_assum `this_case Explode` kall_tac
-    \\ simp [v_has_Eval_list_to_v, EVERY_MAP, v_has_Eval_def,
-            fvg_map_char_empty]
-  )
-  >- (
-    drule_then drule find_v_globals_v_to_list
-    \\ imp_res_tac v_has_Eval_v_to_list
-    \\ fs []
-  )
-  >- (
-    qpat_assum `this_case Vsub` kall_tac
-    \\ simp [find_v_globalsL_EL_trans]
-    \\ fs [EVERY_EL]
-  )
-  >- (
-    qpat_assum `this_case Vsub_unsafe` kall_tac
-    \\ simp [find_v_globalsL_EL_trans]
-    \\ fs [EVERY_EL]
-  )
-  >- metis_tac[find_v_globalsL_REPLICATE,SUBSET_TRANS]
-  >- (
-    qpat_assum `this_case Asub` kall_tac
-    \\ fs [semanticPrimitivesTheory.store_lookup_def]
-    \\ DEP_REWRITE_TAC [find_v_globalsL_EL_trans, not_v_has_Eval_EVERY_EL]
-    \\ imp_res_tac find_refs_globals_EL
-    \\ imp_res_tac EVERY_EL_IMP
-    \\ rfs []
-  )
-  >- (
-    qpat_assum `this_case Aupdate` kall_tac
-    \\ fs [semanticPrimitivesTheory.store_lookup_def]
-    \\ DEP_REWRITE_TAC (listTheory.IMP_EVERY_LUPDATE
-        :: RES_CANON find_refs_globals_LUPDATE)
-    \\ simp []
-    \\ DEP_REWRITE_TAC [find_v_globalsL_LUPDATE, listTheory.IMP_EVERY_LUPDATE]
-    \\ simp []
-    \\ imp_res_tac find_refs_globals_EL
-    \\ imp_res_tac EVERY_EL_IMP
-    \\ rfs []
-  )
-  >- (
-    qpat_assum `this_case Asub_unsafe` kall_tac
-    \\ fs [semanticPrimitivesTheory.store_lookup_def]
-    \\ DEP_REWRITE_TAC [find_v_globalsL_EL_trans, not_v_has_Eval_EVERY_EL]
-    \\ imp_res_tac find_refs_globals_EL
-    \\ imp_res_tac EVERY_EL_IMP
-    \\ rfs []
-  )
-  >- (
-    qpat_assum `this_case Aupdate_unsafe` kall_tac
-    \\ fs [semanticPrimitivesTheory.store_lookup_def]
-    \\ DEP_REWRITE_TAC (listTheory.IMP_EVERY_LUPDATE
-        :: RES_CANON find_refs_globals_LUPDATE)
-    \\ simp []
-    \\ DEP_REWRITE_TAC [find_v_globalsL_LUPDATE, listTheory.IMP_EVERY_LUPDATE]
-    \\ simp []
-    \\ imp_res_tac find_refs_globals_EL
-    \\ imp_res_tac EVERY_EL_IMP
-    \\ rfs []
-  )
-  >- (
-    qpat_assum `this_case ListAppend` kall_tac
-    \\ imp_res_tac v_has_Eval_v_to_list
-    \\ rfs [v_has_Eval_list_to_v, domain_union]
-    \\ metis_tac[find_v_globals_v_to_list, find_v_globals_list_to_v_APPEND]
-  )
-  >- (
     qpat_assum `this_case (GlobalVarAlloc _)` kall_tac
     \\ fs [flat_state_rel_def, globals_rel_def]
     \\ simp [listTheory.EL_APPEND_EQN, EL_REPLICATE, bool_case_eq]
     \\ csimp [EL_REPLICATE]
-    \\ metis_tac []
+    \\ metis_tac [] (* A *)
   )
   >- (
     qpat_assum `this_case (GlobalVarInit _)` kall_tac
     \\ fs [flat_state_rel_def, globals_rel_def]
     \\ simp [EL_LUPDATE, bool_case_eq]
-    \\ metis_tac []
+    \\ metis_tac [] (* B *)
   )
   >- (
     qpat_assum `this_case (GlobalVarLookup _)` kall_tac
-    \\ fs [flat_state_rel_def, globals_rel_def, IS_SOME_EXISTS]
-    \\ rfs []
-    \\ metis_tac []
+    \\ gvs [flat_state_rel_def, globals_rel_def, IS_SOME_EXISTS]
+    \\ metis_tac [] (* C *)
   )
 QED
 
@@ -757,7 +750,7 @@ Theorem has_Eval_def[local]:
   (has_Eval (Handle _ e pes) = (has_Eval e ∨ EXISTS has_Eval (MAP SND pes))) ∧
   (has_Eval (Con _ _ es) = EXISTS has_Eval es) ∧
   (has_Eval (Fun _ _ e) = has_Eval e) ∧
-  (has_Eval (App t op es) = (op = Eval ∨ EXISTS has_Eval es)) ∧
+  (has_Eval (App t op es) = (op = Src Eval ∨ EXISTS has_Eval es)) ∧
   (has_Eval (If t e1 e2 e3) = (has_Eval e1 ∨ has_Eval e2 ∨ has_Eval e3)) ∧
   (has_Eval (Mat t e pes) = (has_Eval e ∨ EXISTS has_Eval (MAP SND pes))) ∧
   (has_Eval (Let _ opt e1 e2) = (has_Eval e1 ∨ has_Eval e2)) ∧
@@ -938,7 +931,7 @@ Proof
         fs[domain_insert]) >>
     fs[] >>
     Cases_on `r` >> fs[] >> strip_tac >> rveq >> fs[] >> rfs[] >>
-    Cases_on `op = Opapp` >> fs[]
+    Cases_on `op = Src Opapp` >> fs[]
     >- (
       Cases_on `do_opapp (REVERSE a)` >> fs[] >>
       Cases_on `x` >> fs[] >>
@@ -1014,7 +1007,7 @@ Proof
         )
       )
     >- (
-      Cases_on `op = ThunkOp ForceThunk` >> gvs []
+      Cases_on `op = Src (ThunkOp ForceThunk)` >> gvs []
       >- (
         gvs [AllCaseEqs(), dec_clock_def, dest_GlobalVarLookup_def, PULL_EXISTS]
         >- (
@@ -1168,7 +1161,7 @@ Theorem evaluate_sing_keep_flat_state_rel_eq:
       flatSem$evaluate (env with v := []) state exprL = (new_state, result) ∧
       flat_state_rel reachable state removed_state ∧
       exprL = [expr] ∧
-      keep reachable (Dlet expr) ∧
+      keep reachable expr ∧
       domain(find_lookups expr) ⊆ domain reachable ∧
       ~ has_Eval expr ∧
       result ≠ Rerr (Rabort Rtype_error)
@@ -1202,25 +1195,24 @@ Theorem evaluate_dec_flat_state_rel:
       flat_state_rel reachable new_state new_removed_state
 Proof
   rw[] >> qpat_x_assum `evaluate_dec _ _ = _` mp_tac >>
-  reverse(Induct_on `dec`) >> fs[evaluate_def] >> strip_tac >>
-  strip_tac >>
+  fs[evaluate_def] >> strip_tac >>
   fs[keep_def] >>
   rpt strip_tac >>
   fs [pair_case_eq] >>
   drule_then drule evaluate_sing_keep_flat_state_rel_eq >>
   fs [keep_def, has_Eval_dec_def] >>
-  `domain (find_lookups e) ⊆ domain reachable` by (
+  `domain (find_lookups dec) ⊆ domain reachable` by (
     fs[decs_closed_def] >> fs[analyse_code_def] >>
     fs[analyse_exp_def] >>
-    reverse(Cases_on `is_pure e`) >> fs[]
+    reverse(Cases_on `is_pure dec`) >> fs[]
     >- (fs[code_analysis_union_def] >> fs[domain_union]) >>
-    reverse(Cases_on `is_hidden e`) >> fs[] >>
+    reverse(Cases_on `is_hidden dec`) >> fs[] >>
     fs[code_analysis_union_def, domain_union] >>
     fs[Once num_set_tree_union_sym, num_set_tree_union_def] >>
     simp[SUBSET_DEF] >>
     rw[] >> first_x_assum match_mp_tac >>
     fs[spt_eq_thm, lookup_inter_alt] >>
-    fs[lookup_def] >> Cases_on `lookup n (find_loc e)` >> fs[] >>
+    fs[lookup_def] >> Cases_on `lookup n (find_loc dec)` >> fs[] >>
     fs[domain_lookup] >>
     asm_exists_tac >> fs[] >> fs[is_reachable_def] >>
     match_mp_tac RTC_SINGLE >> fs[is_adjacent_def] >>
@@ -1430,7 +1422,7 @@ Proof
     strip_tac >> fs[] >> fs[EVERY_REVERSE] >> fs[find_loc_EVERY_isEmpty] >>
     Cases_on `r` >> fs[]
     >- (
-      Cases_on `op = Opapp` >> fs[is_pure_def1, dest_GlobalVarInit_def] >>
+      Cases_on `op = Src Opapp` >> fs[is_pure_def1, dest_GlobalVarInit_def] >>
       first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
       strip_tac >>
       Cases_on `op` >>
@@ -1564,7 +1556,7 @@ Theorem evaluate_sing_notKeep_flat_state_rel:
       flatSem$evaluate (env with v := []) state exprL = (new_state, result) ∧
       exprL = [expr] ∧
       ~ has_Eval expr ∧
-      ¬keep reachable (Dlet expr) ∧
+      ¬keep reachable expr ∧
       flat_state_rel reachable state removed_state ∧
       result ≠ Rerr (Rabort Rtype_error)
   ⇒ flat_state_rel reachable new_state removed_state ∧
@@ -1579,12 +1571,6 @@ QED
 
 
 (******************************* MAIN PROOFS ******************************)
-
-Theorem keep_Dlet:
-     ∀ (reachable:num_set) h . ¬ keep reachable h ⇒ ∃ x . h = Dlet x
-Proof
-   Cases_on `h` >> rw[keep_def]
-QED
 
 Theorem flat_decs_removal_lemma:
      ∀ ^state decs new_state result
@@ -1603,21 +1589,24 @@ Proof
     Induct_on `decs`
     >- (rw[evaluate_def, remove_unreachable_def] >>
         fs[evaluate_def, find_result_globals_def, flat_state_rel_def])
-    >>  fs[evaluate_def, remove_unreachable_def] >> rw[] >>
+    >> simp [Once evaluate_def]
+    >>  fs[remove_unreachable_def] >> rw[] >>
+        fs [pair_case_eq] >>
         qpat_assum `flat_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac
         >- (
-          fs[evaluate_def] >>
           fs [pair_case_eq] >>
           rveq >> fs [] >>
           rename [`evaluate_dec _ _ = (_, r1)`] >>
           `r1 ≠ SOME (Rabort Rtype_error)` by (CCONTR_TAC >> fs[]) >>
-          drule evaluate_dec_flat_state_rel >> rpt (disch_then drule) >>
+          drule (evaluate_dec_flat_state_rel) >> rpt (disch_then drule) >>
           rw[] >> fs[] >>
           pop_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
           fs[] >>
           `decs_closed reachable [h]` by imp_res_tac decs_closed_reduce_HD >>
           fs[] >>
+          strip_tac >>
+          simp [Once evaluate_def] >>
           reverse(Cases_on `r1` >> fs[] >> rw[] >> rveq >> EVERY_CASE_TAC)
           >- fs[flat_state_rel_def] >>
           fs[] >> first_x_assum drule >> fs[] >> rveq >> strip_tac >>
@@ -1627,7 +1616,6 @@ Proof
           imp_res_tac decs_closed_reduce >> fs[]
           )
         >>  reverse(EVERY_CASE_TAC) >> fs[] >> rveq >>
-            imp_res_tac keep_Dlet >> rveq >>
             fs[Once evaluate_def] >> EVERY_CASE_TAC >> fs[] >>
             rveq >> rw[UNION_EMPTY]
             >- (
@@ -1692,49 +1680,49 @@ Theorem flat_remove_semantics =
 (* syntactic results *)
 
 Theorem elist_globals_filter[local]:
-  elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)) = {||}
+  elist_globals ds = {||}
    ==>
-   elist_globals (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds))) = {||}
+   elist_globals (FILTER P ds) = {||}
 Proof
   Induct_on `ds` \\ rw [] \\ fs [SUB_BAG_UNION]
 QED
 
 Theorem esgc_free_filter[local]:
-  EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
+  EVERY esgc_free ds
    ==>
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds)))
+   EVERY esgc_free (FILTER P ds)
 Proof
   Induct_on `ds` \\ rw []
 QED
 
 Theorem elist_globals_filter_SUB_BAG[local]:
-  elist_globals (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds))) <=
-   elist_globals (MAP dest_Dlet (FILTER is_Dlet ds))
+  elist_globals (FILTER P ds) <=
+   elist_globals ds
 Proof
   Induct_on `ds` \\ rw [] \\ fs [SUB_BAG_UNION]
 QED
 
 Theorem remove_flat_prog_elist_globals_eq_empty:
-   elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)) = {||}
+   elist_globals ds = {||}
    ==>
-   elist_globals (MAP dest_Dlet (FILTER is_Dlet (remove_flat_prog ds))) = {||}
+   elist_globals (remove_flat_prog ds) = {||}
 Proof
   simp [remove_flat_prog_def, remove_unreachable_def, UNCURRY]
   \\ metis_tac [elist_globals_filter]
 QED
 
 Theorem remove_flat_prog_esgc_free:
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
+   EVERY esgc_free ds
    ==>
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (remove_flat_prog ds)))
+   EVERY esgc_free (remove_flat_prog ds)
 Proof
   simp [remove_flat_prog_def, remove_unreachable_def, UNCURRY]
   \\ metis_tac [esgc_free_filter]
 QED
 
 Theorem remove_flat_prog_sub_bag:
-   elist_globals (MAP dest_Dlet (FILTER is_Dlet (remove_flat_prog ds))) <=
-   elist_globals (MAP dest_Dlet (FILTER is_Dlet ds))
+   elist_globals (remove_flat_prog ds) <=
+   elist_globals ds
 Proof
   simp [remove_flat_prog_def, remove_unreachable_def, UNCURRY]
   \\ rw []
@@ -1742,10 +1730,9 @@ Proof
 QED
 
 Theorem remove_flat_prog_distinct_globals:
-   BAG_ALL_DISTINCT (elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)))
+   BAG_ALL_DISTINCT (elist_globals ds)
    ==>
-   BAG_ALL_DISTINCT (elist_globals
-     (MAP dest_Dlet (FILTER is_Dlet (remove_flat_prog ds))))
+   BAG_ALL_DISTINCT (elist_globals (remove_flat_prog ds))
 Proof
   metis_tac [remove_flat_prog_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]
 QED

@@ -1,4 +1,4 @@
-Scripts relevant to the formalisation of the DEFLATE algorithm
+Scripts relevant to the formalisation of the DEFLATE algorithm.
 
 [LZSSScript.sml](LZSSScript.sml):
 Formalization and implementation of LZSS
@@ -25,4 +25,4 @@ Implementation written by Alexander Cox
 Implementation of Deflate specific Run Length Encoding
 
 [translation](translation):
-Translation scripts for Defalte.
+Translation scripts for Deflate.

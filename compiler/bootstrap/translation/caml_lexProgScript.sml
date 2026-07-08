@@ -133,8 +133,8 @@ Proof
     \\ intLib.ARITH_TAC)
   \\ simp [oct2num_def, s2n_def, numposrepTheory.l2n_def,
            lexer_implTheory.unhex_alt_def]
-  \\ rename [‘8 * ((if isHexDigit a then _ else 0) MOD 8 +
-           8 * (if isHexDigit b then _ else 0) MOD 8) +
+  \\ rename [‘8 * (((if isHexDigit a then _ else 0) MOD 8) +
+           8 * ((if isHexDigit b then _ else 0) MOD 8)) +
            (if isHexDigit c then _ else 0) MOD 8 < 256’]
   \\ ‘isHexDigit a ∧ isHexDigit c ∧ isHexDigit b’
     by (Cases_on ‘a’ \\ Cases_on ‘c’

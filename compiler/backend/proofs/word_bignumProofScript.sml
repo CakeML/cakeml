@@ -6,7 +6,7 @@ Libs
   preamble helperLib
 Ancestors
   mllist ast wordLang wordSem wordProps tailrec mc_multiword
-  set_sep word_bignum
+  backend_common set_sep word_bignum
 
 val good_dimindex_def = miscTheory.good_dimindex_def;
 val env_to_list_lookup_equiv = wordPropsTheory.env_to_list_lookup_equiv;
@@ -33,17 +33,18 @@ Definition eval_exp_def:
   eval_exp s (Op And [x1;x2]) = word_and (eval_exp s x1) (eval_exp s x2) /\
   eval_exp s (Op Or [x1;x2]) = word_or (eval_exp s x1) (eval_exp s x2) /\
   eval_exp s (Op Xor [x1;x2]) = word_xor (eval_exp s x1) (eval_exp s x2) /\
-  eval_exp s (Shift Lsl x n) = eval_exp s x << n /\
-  eval_exp s (Shift Asr x n) = eval_exp s x >> n /\
-  eval_exp s (Shift Lsr x n) = eval_exp s x >>> n /\
-  eval_exp s (Shift Ror x n) = word_ror (eval_exp s x) n
+  eval_exp s (Shift Lsl x1 x2) = eval_exp s x1 << (w2n (eval_exp s x2)) /\
+  eval_exp s (Shift Asr x1 x2) = eval_exp s x1 >> (w2n (eval_exp s x2)) /\
+  eval_exp s (Shift Lsr x1 x2) = eval_exp s x1 >>> (w2n (eval_exp s x2)) /\
+  eval_exp s (Shift Ror x1 x2) = word_ror (eval_exp s x1) (w2n (eval_exp s x2))
 End
 
 Definition eval_exp_pre_def:
   (eval_exp_pre s (Const w) <=> T) /\
   (eval_exp_pre s (Var v) <=> v IN FDOM s.regs) /\
   (eval_exp_pre s (Op _ [x;y]) <=> eval_exp_pre s x /\ eval_exp_pre s y) /\
-  (eval_exp_pre s (Shift sh x n) <=> eval_exp_pre s x /\ n = 1) /\
+  (eval_exp_pre s (Shift sh x1 x2) <=>
+     eval_exp_pre s x1 /\ eval_exp_pre s x2 ∧ (w2n (eval_exp s x2) < 32)) /\
   (eval_exp_pre s _ <=> F)
 End
 
@@ -445,15 +446,9 @@ Proof
          (unabbrev_all_tac \\ decide_tac)
     \\ fs [the_words_def]
     \\ Cases_on `b` \\ fs [word_op_def,eval_exp_def])
-  \\ Cases_on `n`
-  \\ fs [word_exp_def,eval_exp_def,eval_exp_pre_def,compile_exp_def] \\ rveq
-  \\ fs [compile_exp_def]
-  \\ `exp_size (K 0) e < exp_size (K 0) (Shift s e 1)` by
-       (fs [exp_size_def] \\ decide_tac)
-  \\ res_tac \\ fs []
-  \\ Cases_on `s`
-  \\ fs [word_sh_def,eval_exp_def]
-  \\ fs [good_dimindex_def]
+  \\ simp [word_sh_def]
+  \\ CASE_TAC
+  \\ fs [eval_exp_def, good_dimindex_def]
 QED
 
 Theorem evaluate_SeqTemp[local]:
@@ -510,11 +505,11 @@ Proof
 QED
 
 Theorem shift_eq_bytes_in_word[local]:
-    good_dimindex (:'a) ==>
-    (w << shift (:'a) = w * bytes_in_word:'a word)
+    good_dimindex (:α) ==>
+    (w << (shift (:α) MOD dimword (:α)) = w * bytes_in_word:α word)
 Proof
   fs [shift_def,good_dimindex_def] \\ rw []
-  \\ fs [WORD_MUL_LSL,bytes_in_word_def]
+  \\ fs [WORD_MUL_LSL,bytes_in_word_def,dimword_def]
 QED
 
 Theorem b2w_if[local]:
@@ -719,9 +714,11 @@ Proof
     (fs [compile_def] \\ rveq \\ fs [evaluate_def]
      \\ (irule_at (Pos hd) EQ_REFL) \\ fs[])
   THEN1 (* Continue *)
-    (fs [compile_def] \\ rveq \\ fs [evaluate_def]
+    (fs [compile_def] \\ rveq \\ fs [evaluate_def, bad_fun_return_def]
      \\ fs $ map uncurry_case_rand [``:'a option``,``:bool``,``:'a # 'b``]
-     \\ (irule_at (Pos hd) EQ_REFL) \\ fs[])
+     \\ qexists_tac `t1` \\ fs []
+     \\ rpt (TOP_CASE_TAC \\ fs [])
+     \\ Cases_on `q` \\ fs [] \\ Cases_on `x` \\ fs [bad_fun_return_def])
   THEN1 (* Delete *)
     (fs [compile_def] \\ rveq \\ fs [evaluate_def]
      \\ (irule_at (Pos hd) EQ_REFL) \\ fs [state_rel_delete_vars])
@@ -792,8 +789,8 @@ Proof
     \\ fs [SeqIndex_def,evaluate_def,array_rel_def]
     \\ Cases_on `a`
     \\ fs [word_exp_def,get_store_def,FLOOKUP_DEF,word_sh_def]
-    \\ `shift (:α) < dimindex (:α)` by
-          (fs [good_dimindex_def,shift_def] \\ NO_TAC)
+    \\ `shift (:α) MOD dimword (:α) < dimindex (:α)` by
+          (fs [good_dimindex_def,shift_def,dimword_def])
     \\ fs [the_words_def,word_op_def,get_var_def,set_var_def,lookup_insert,
            mem_load_def]
     \\ imp_res_tac LESS_LENGTH_IMP_APPEND
@@ -818,8 +815,8 @@ Proof
     \\ fs [SeqIndex_def,evaluate_def,array_rel_def]
     \\ once_rewrite_tac [evaluate_SeqTemp] \\ fs [evaluate_def]
     \\ fs [word_exp_def,get_store_def,FLOOKUP_DEF,word_sh_def,set_var_def]
-    \\ `shift (:α) < dimindex (:α)` by
-          (fs [good_dimindex_def,shift_def] \\ NO_TAC)
+    \\ `shift (:α) MOD dimword (:α) < dimindex (:α)` by
+          (fs [good_dimindex_def,shift_def,dimword_def])
     \\ fs [the_words_def,word_op_def,set_var_def,lookup_insert,get_var_def,
            mem_store_def]
     \\ imp_res_tac LESS_LENGTH_IMP_APPEND
@@ -877,7 +874,7 @@ Proof
     \\ Cases_on `n5` \\ fs []
     \\ fs [eval_ri_pre_def,eval_exp_pre_def]
     \\ imp_res_tac state_rel_IN_FDOM
-    \\ fs [lookup_insert]
+    \\ fs [lookup_insert, word_add_carry_def]
     \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t5)`
     \\ qexists_tac `t5` \\ unabbrev_all_tac \\ fs []
     \\ fs [lookup_insert]
@@ -916,7 +913,7 @@ Proof
     \\ Cases_on `n5` \\ fs []
     \\ fs [eval_ri_pre_def,eval_exp_pre_def]
     \\ imp_res_tac state_rel_IN_FDOM
-    \\ fs [lookup_insert]
+    \\ fs [lookup_insert, word_add_carry_def]
     \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t5)`
     \\ qexists_tac `t5` \\ unabbrev_all_tac \\ fs []
     \\ fs [lookup_insert]
@@ -1249,7 +1246,7 @@ Proof
     \\ fs [] \\ qexists_tac `t2'` \\ fs []
     \\ fs [call_env_def, flush_state_def,wordSemTheory.dec_clock_def]
     \\ fs [evaluate_def]
-    \\ every_case_tac \\ fs [])
+    \\ every_case_tac \\ fs [bad_fun_return_def])
 QED
 
 Definition good_code_def:

@@ -42,14 +42,6 @@ Proof
  rw [extend_dec_env_def]
 QED
 
-Definition opw_lookup_def[simp]:
-  (opw_lookup Andw = word_and) ∧
-  (opw_lookup Orw = word_or) ∧
-  (opw_lookup Xor = word_xor) ∧
-  (opw_lookup Add = word_add) ∧
-  (opw_lookup Sub = word_sub)
-End
-
 Definition shift_lookup_def[simp]:
   (shift_lookup Lsl = word_lsl) ∧
   (shift_lookup Lsr = word_lsr) ∧
@@ -57,16 +49,17 @@ Definition shift_lookup_def[simp]:
   (shift_lookup Ror = word_ror)
 End
 
-Definition do_word_op_def[simp]:
-  (do_word_op op W8 (Word8 w1) (Word8 w2) = SOME (Word8 (opw_lookup op w1 w2))) ∧
-  (do_word_op op W64 (Word64 w1) (Word64 w2) = SOME (Word64 (opw_lookup op w1 w2))) ∧
-  (do_word_op op _ _ _ = NONE)
-End
-
 Definition do_shift_def[simp]:
   (do_shift sh n W8 (Word8 w) = SOME (Word8 (shift_lookup sh w n))) ∧
   (do_shift sh n W64 (Word64 w) = SOME (Word64 (shift_lookup sh w n))) ∧
   (do_shift _ _ _ _ = NONE)
+End
+
+(*
+Definition do_word_op_def[simp]:
+  (do_word_op op W8 (Word8 w1) (Word8 w2) = SOME (Word8 (opw_lookup op w1 w2))) ∧
+  (do_word_op op W64 (Word64 w1) (Word64 w2) = SOME (Word64 (opw_lookup op w1 w2))) ∧
+  (do_word_op op _ _ _ = NONE)
 End
 
 Definition do_word_to_int_def[simp]:
@@ -79,6 +72,7 @@ Definition do_word_from_int_def[simp]:
   (do_word_from_int W8 i = Word8 (i2w i)) ∧
   (do_word_from_int W64 i = Word64 (i2w i))
 End
+*)
 
 Theorem lit_same_type_refl[simp]:
    ∀l. lit_same_type l l
@@ -90,22 +84,6 @@ Theorem lit_same_type_sym:
    ∀l1 l2. lit_same_type l1 l2 ⇒ lit_same_type l2 l1
 Proof
   Cases >> Cases >> simp[semanticPrimitivesTheory.lit_same_type_def]
-QED
-
-Theorem pat_bindings_accum:
- (!p acc. pat_bindings p acc = pat_bindings p [] ++ acc) ∧
- (!ps acc. pats_bindings ps acc = pats_bindings ps [] ++ acc)
-Proof
-  Induct
-  >- srw_tac[][pat_bindings_def]
-  >- srw_tac[][pat_bindings_def]
-  >- srw_tac[][pat_bindings_def]
-  >- metis_tac [APPEND_ASSOC, pat_bindings_def]
-  >- metis_tac [APPEND_ASSOC, pat_bindings_def]
-  >- metis_tac [APPEND_ASSOC, CONS_APPEND, pat_bindings_def]
-  >- metis_tac [APPEND_ASSOC, CONS_APPEND, pat_bindings_def]
-  >- srw_tac[][pat_bindings_def]
-  >- metis_tac [APPEND_ASSOC, pat_bindings_def]
 QED
 
 Theorem pmatch_append:
@@ -127,11 +105,11 @@ Theorem pmatch_extend:
  (!cenv s p v env env' env''.
   pmatch cenv s p v env = Match env'
   ⇒
-  ?env''. env' = env'' ++ env ∧ MAP FST env'' = pat_bindings p []) ∧
+  ?env''. env' = env'' ++ env ∧ MAP FST env'' = pat_bindings p) ∧
  (!cenv s ps vs env env' env''.
   pmatch_list cenv s ps vs env = Match env'
   ⇒
-  ?env''. env' = env'' ++ env ∧ MAP FST env'' = pats_bindings ps [])
+  ?env''. env' = env'' ++ env ∧ MAP FST env'' = pats_bindings ps)
 Proof
  ho_match_mp_tac pmatch_ind >>
  srw_tac[][pat_bindings_def, pmatch_def] >>
@@ -139,8 +117,7 @@ Proof
  full_simp_tac(srw_ss())[] >>
  srw_tac[][] >>
  res_tac >> rveq >>
- srw_tac[][] >>
- metis_tac [pat_bindings_accum]
+ srw_tac[][]
 QED
 
 Theorem pmatch_nsAppend:
@@ -214,16 +191,9 @@ Proof
  >> metis_tac [match_result_distinct, match_result_11]
 QED
 
-val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def}
-val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
-val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
-val v_thms = { nchotomy = v_nchotomy, case_def = v_case_def}
-val store_v_thms = { nchotomy = store_v_nchotomy, case_def = store_v_case_def}
-val lit_thms = { nchotomy = lit_nchotomy, case_def = lit_case_def}
-val eq_v_thms = { nchotomy = eq_result_nchotomy, case_def = eq_result_case_def}
-val wz_thms = { nchotomy = word_size_nchotomy, case_def = word_size_case_def}
-val eqs = LIST_CONJ (map prove_case_eq_thm
-  [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms, eq_v_thms, wz_thms])
+val eqs = LIST_CONJ (map TypeBase.case_eq_of
+  [``:op``, ``:'a list``, ``:'a option``, ``:v``, ``:'a store_v``, ``:lit``,
+   ``:eq_result``, ``:word_size``])
 
 Theorem pair_case_eq[local]:
   pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
@@ -684,7 +654,7 @@ Definition FV_def[simp]:
   (FV_list (e::es) = FV e ∪ FV_list es) ∧
   (FV_pes [] = {}) ∧
   (FV_pes ((p,e)::pes) =
-     (FV e DIFF (IMAGE Short (set (pat_bindings p [])))) ∪ FV_pes pes) ∧
+     (FV e DIFF (IMAGE Short (set (pat_bindings p)))) ∪ FV_pes pes) ∧
   (FV_defs [] = {}) ∧
   (FV_defs ((_,x,e)::defs) =
      (FV e DIFF {Short x}) ∪ FV_defs defs)
@@ -693,7 +663,7 @@ End
 Overload SFV = ``λe. {x | Short x ∈ FV e}``
 
 Theorem FV_pes_MAP:
-   FV_pes pes = BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p [])))) (set pes))
+   FV_pes pes = BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p)))) (set pes))
 Proof
   Induct_on`pes`>>simp[]>>
   qx_gen_tac`p`>>PairCases_on`p`>>srw_tac[][]
@@ -751,12 +721,12 @@ Proof
 QED
 
 Theorem do_conversion_check_type:
-  do_conversion v ty1 ty2 = SOME res ⇒
+  do_conversion v ty1 ty2 = SOME (INR res) ⇒
   check_type ty2 res
 Proof
   Cases_on ‘ty2’ using prim_type_cases
-  \\ rw [semanticPrimitivesTheory.check_type_def]
-  \\ gvs [oneline do_conversion_def,AllCaseEqs()]
+  \\ gvs [oneline do_conversion_def, AllCaseEqs()]
+  \\ rw [] \\ fs [semanticPrimitivesTheory.check_type_def]
 QED
 
 Theorem do_arith_check_type:

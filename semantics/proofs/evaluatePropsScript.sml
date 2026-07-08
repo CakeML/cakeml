@@ -105,7 +105,6 @@ Proof
   ho_match_mp_tac full_evaluate_ind >>
   srw_tac[][full_evaluate_def, do_eval_res_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
-  fs[astTheory.isFpBool_def] >>
   imp_res_tac do_app_call_FFI_rel >>
   rev_full_simp_tac(srw_ss())[dec_clock_def] >>
   metis_tac[RTC_TRANSITIVE,transitive_def,FST]
@@ -831,7 +830,6 @@ Theorem do_app_ffi_unchanged:
 Proof
   disch_then (strip_assume_tac o REWRITE_RULE [do_app_cases])
   \\ rw [do_app_def] \\ gvs[thunk_op_def, AllCaseEqs()]
-  >- metis_tac[]
   >- (pairarg_tac \\ gvs [])
   \\ gvs [call_FFI_return_unchanged,
           Q.SPECL [`x`, `ExtCall «»`] ffiTheory.call_FFI_def]
@@ -1181,7 +1179,6 @@ Proof
   simp [Once semanticPrimitivesPropsTheory.do_app_cases]
   \\ rw []
   \\ gvs [do_app_def,oneline thunk_op_def,AllCaseEqs(),store_alloc_def]
-  >- (CCONTR_TAC \\ gvs [])
   \\ simp [DROP_LENGTH_NIL]
   \\ fs[ffiTheory.call_FFI_def]
   \\ rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
@@ -1226,11 +1223,16 @@ Proof
 QED
 
 Theorem evaluate_add_history:
-  (!(st:'ffi semanticPrimitives$state) env exp st' res. evaluate (st with ffi := st.ffi with io_events := []) env exp = (st',res)
-  ==> evaluate st env exp = (st' with ffi:= st'.ffi with io_events := st.ffi.io_events ++ st'.ffi.io_events, res)) /\
+  (!(st:'ffi semanticPrimitives$state) env exp st' res.
+     evaluate (st with ffi := st.ffi with io_events := []) env exp = (st',res)
+     ==>
+     evaluate st env exp =
+     (st' with ffi:= st'.ffi with io_events := st.ffi.io_events ++ st'.ffi.io_events, res)) ∧
   (!(st:'ffi semanticPrimitives$state) env v pes err_v st' res.
-   evaluate_match (st with ffi := st.ffi with io_events := []) env v pes err_v = (st',res)
-  ==> evaluate_match st env v pes err_v = (st' with ffi:= st'.ffi with io_events := st.ffi.io_events ++ st'.ffi.io_events, res))
+     evaluate_match (st with ffi := st.ffi with io_events := []) env v pes err_v = (st',res)
+     ==>
+     evaluate_match st env v pes err_v =
+     (st' with ffi:= st'.ffi with io_events := st.ffi.io_events ++ st'.ffi.io_events, res))
 Proof
   rw []
   \\ imp_res_tac evaluate_history_irrelevance

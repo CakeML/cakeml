@@ -5,7 +5,7 @@
 *)
 Theory closLang
 Ancestors
-  ast[qualified] backend_common mlstring
+  ast[qualified] backend_common mlstring fpSem
 Libs
   preamble
 
@@ -63,6 +63,7 @@ Datatype:
      | TagEq num         (* check Block's tag *)
      | LengthBlock       (* get length of Block *)
      | BoolTest ast$test (* tests for bools *)
+     | BoolNot           (* boolean not *)
      | BoundsCheckBlock  (* check that vector index is within bounds *)
      | ConsExtend num    (* construct a Block with given tag. The first three
                             arguments should be a block followed by two numbers
@@ -103,6 +104,7 @@ Datatype:
      | ToListByte    (* convert ByteVector to list of chars *)
      | LengthByteVec (* get length of ByteVector *)
      | DerefByteVec  (* load a byte from a ByteVector *)
+     | StringCmp bool ast$opb (* string comparisons *)
      | XorByte       (* xor a btye vector into a byte array *)
      | BoundsCheckArray
      | BoundsCheckByte bool (* T = loose (<=) bound *)

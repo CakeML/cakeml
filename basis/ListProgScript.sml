@@ -1,5 +1,5 @@
 (*
-  Module about the built-in list tyoe.
+  Module about the built-in list type.
 *)
 Theory ListProg
 Ancestors
@@ -85,6 +85,9 @@ val result = translate list_compare_def;
 
 val result = next_ml_names := ["concat"];
 val result = translate FLAT;
+
+val result = next_ml_names := ["intersperse"];
+val result = translate mllistTheory.intersperse_def;
 
 (* the let is introduced to produce slight better code (smaller stack frames) *)
 Theorem MAP_let[local]:
@@ -201,7 +204,7 @@ Proof
   \\ xlet `POSTv v. &(A (f n) v) * heap_inv`
   >- ( xapp \\ xsimpl )
   \\ xlet `POSTv nv. &NUM (n+1) nv * heap_inv`
-  >-( xopn \\  xsimpl \\ fs[NUM_def,INT_def] \\ intLib.COOPER_TAC)
+  >-( xarith \\  xsimpl \\ fs[NUM_def,INT_def] \\ intLib.COOPER_TAC)
   \\ xlet `POSTv av. &LIST_TYPE A (f n::acc) av * heap_inv`
   >-( xcon \\ xsimpl \\ fs[LIST_TYPE_def] )
   \\ xapp

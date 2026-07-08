@@ -6,7 +6,7 @@ Theory x64Sexpr
 Ancestors
   compiler64Prog
 Libs
-  preamble mlstringSyntax astToSexprLib
+  preamble mlstringSyntax astSyntax astToSexprLib
 
 val filename = "cake-sexpr-x64-64"
 

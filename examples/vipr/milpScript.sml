@@ -302,21 +302,21 @@ Definition compat_def:
 End
 
 Definition op_str_def:
-  (op_str GreaterEqual = strlit" >= ") ∧
-  (op_str LessEqual = strlit" <= ") ∧
-  (op_str Equal = strlit" = ")
+  (op_str GreaterEqual = « >= ») ∧
+  (op_str LessEqual = « <= ») ∧
+  (op_str Equal = « = »)
 End
 
 (* Using default names x_i for variables, i.e., c * x_i *)
 Definition print_coeff_var_def:
   print_coeff_var (x:num,c:real) =
-  real_to_str c ^ strlit " * x_" ^ toString x
+  real_to_str c ^ « * x_» ^ toString x
 End
 
 Definition print_lc_def:
   print_lc ((lop,lhs,n):lc) =
   let ls = toSortedAList lhs in
-  concatWith (strlit " + ") (MAP print_coeff_var ls) ^ op_str lop ^ real_to_str n
+  concatWith « + » (MAP print_coeff_var ls) ^ op_str lop ^ real_to_str n
 End
 
 (* NOTE: This currently adds back to front.
@@ -329,7 +329,7 @@ Definition lin_comb_def:
   | INR ys =>
     if compat lop lop' r then
       INR (add ys r c)
-    else INL (strlit"Incompatible constraint: " ^ print_lc ((lop',c)))
+    else INL («Incompatible constraint: » ^ print_lc ((lop',c)))
   )
 End
 
@@ -541,7 +541,7 @@ QED
 
 Definition id_not_in_def:
   id_not_in (n:num) =
-  strlit"Invalid constraint ID: " ^ toString n
+  «Invalid constraint ID: » ^ toString n
 End
 
 (* TODO: change to accumulator and union assms instead of nub *)
@@ -595,15 +595,15 @@ End
 
 Definition assum_err_def:
   assum_err (l:num) (a:num list) =
-  strlit"Expect: " ^ toString l ^ strlit " in: " ^ concatWith (strlit " ") (MAP toString a)
+  «Expect: » ^ toString l ^ « in: » ^ concatWith « » (MAP toString a)
 End
 
 Definition resolv_dom_err_def:
   resolv_dom_err intv a1 a2 is1 is2 lc =
-  strlit "Unable to unsplit resolving assms: (" ^
-  print_lc a1 ^ strlit " , " ^ print_lc a2 ^
-  strlit ") with constraints (" ^
-  print_lc is1 ^ strlit " , " ^ print_lc is2 ^ strlit ") target " ^ print_lc lc
+  «Unable to unsplit resolving assms: (» ^
+  print_lc a1 ^ « , » ^ print_lc a2 ^
+  «) with constraints (» ^
+  print_lc is1 ^ « , » ^ print_lc is2 ^ «) target » ^ print_lc lc
 End
 
 Definition unsplit_def:
@@ -632,18 +632,18 @@ Definition check_vipr_def:
       if dominates lc' lc then
         INR (insert id (assms,lc) fml, id+1)
       else
-        INL (strlit "Derived constraint does not imply given constraint ")) ∧
+        INL «Derived constraint does not imply given constraint ») ∧
   (check_vipr intv (fml,id) (lc, Round lhs) =
     case do_lin fml (FST lc) lhs of
       INL err => INL err
     | INR (assms,lc') =>
       case round_lc intv lc' of
-        NONE => INL (strlit "Unable to round ")
+        NONE => INL «Unable to round »
       | SOME lc'' =>
         if dominates lc'' lc then
           INR (insert id (assms,lc) fml, id+1)
         else
-          INL (strlit "Derived constraint does not imply given constraint ")) ∧
+          INL «Derived constraint does not imply given constraint ») ∧
   (check_vipr intv (fml,id) (lc, Unsplit i1 l1 i2 l2) =
     case unsplit intv fml i1 l1 i2 l2 lc of
       INL err => INL err

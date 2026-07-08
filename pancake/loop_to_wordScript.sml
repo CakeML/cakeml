@@ -1,9 +1,9 @@
 (*
-  Compilation from looLang to wordLang.
+  Compilation from loopLang to wordLang.
 *)
 Theory loop_to_word
 Ancestors
-  loopLang wordLang backend_common[qualified] loop_remove
+  loopLang wordLang backend_common[qualified]
 Libs
   preamble
 
@@ -24,9 +24,9 @@ Definition comp_exp_def :
   (comp_exp ctxt (Var n) = Var (find_var ctxt n)) /\
   (comp_exp ctxt (Lookup m) = Lookup (Temp m)) /\
   (comp_exp ctxt (BaseAddr) = Lookup CurrHeap) /\
-  (comp_exp ctxt (TopAddr) = Op Add [Lookup CurrHeap; Shift Lsl (Lookup HeapLength) 1]) /\
+  (comp_exp ctxt (TopAddr) = Op Add [Lookup CurrHeap; Shift Lsl (Lookup HeapLength) (Const 1w)]) /\
   (comp_exp ctxt (Load exp) = Load (comp_exp ctxt exp)) /\
-  (comp_exp ctxt (Shift s exp n) = Shift s (comp_exp ctxt exp) n) /\
+  (comp_exp ctxt (Shift s exp n) = Shift s (comp_exp ctxt exp) (Const (n2w n))) /\
   (comp_exp ctxt (Op op wexps) =
    let wexps = MAP (comp_exp ctxt) wexps in
    Op op wexps)
@@ -57,6 +57,27 @@ Definition comp_def:
   (comp ctxt Skip l = (wordLang$Skip,l)) /\
   (comp ctxt (Assign n e) l =
      (Assign (find_var ctxt n) (comp_exp ctxt e),l)) /\
+  (comp ctxt (Primitive lhss pop rhss) l =
+     case pop of
+     | AddCarry =>
+       if LENGTH lhss = 2 ∧ LENGTH rhss = 3 then
+         let
+           res         = EL 0 lhss;
+           co          = EL 1 lhss;
+           li          = EL 0 rhss;
+           ri          = EL 1 rhss;
+           ci          = EL 2 rhss;
+           scratch_ci  = 1;
+           scratch_res = 3
+         in
+           (Seq (Assign scratch_ci (Var (find_var ctxt ci)))
+           (Seq (Inst (Arith (AddCarry scratch_res
+                                       (find_var ctxt li)
+                                       (find_var ctxt ri)
+                                       scratch_ci)))
+           (Seq (Assign (find_var ctxt co) (Var scratch_ci))
+                (Assign (find_var ctxt res) (Var scratch_res)))), l)
+       else (Skip, l)) /\
   (comp ctxt (Arith arith) l =
      (case arith of
         LLongMul r1 r2 r3 r4 =>
@@ -91,11 +112,15 @@ Definition comp_def:
     let (wp,l) = comp ctxt p l in
      let (wq,l) = comp ctxt q l in
        (Seq (If c (find_var ctxt n) (find_reg_imm ctxt ri) wp wq) Tick,l)) /\
-  (comp ctxt (Loop l1 body l2) l = (Skip,l)) /\ (* not present in input *)
-  (comp ctxt Break l = (Skip,l)) /\ (* not present in input *)
-  (comp ctxt Continue l = (Skip,l)) /\ (* not present in input *)
+  (comp ctxt (Loop l1 body l2) l =
+    let (wbody,l) = comp ctxt body l in
+      (Seq Tick
+         (Seq (wordLang$Loop (mk_new_cutset ctxt l1) wbody (mk_new_cutset ctxt l2))
+              Tick),l)) /\
+  (comp ctxt (Break n) l    = (Break n,l)) /\
+  (comp ctxt (Continue n) l = (Continue n,l)) /\
   (comp ctxt (Raise v) l = (Raise (find_var ctxt v),l)) /\
-  (comp ctxt (Return v) l = (Return 0 [find_var ctxt v],l)) /\
+  (comp ctxt (Return vs) l = (Return 0 (MAP (find_var ctxt) vs),l)) /\
   (comp ctxt Tick l = (Tick,l)) /\
   (comp ctxt (Mark p) l = comp ctxt p l) /\
   (comp ctxt Fail l = (Skip,l)) /\
@@ -104,17 +129,17 @@ Definition comp_def:
      let args = MAP (find_var ctxt) args in
        case ret of
        | NONE (* tail-call *) => (wordLang$Call NONE dest (0::args) NONE,l)
-       | SOME (v,live) =>
-         let v = find_var ctxt v in
+       | SOME (vs,live) =>
+         let vs = MAP (find_var ctxt) vs in
          let live = mk_new_cutset ctxt live in
          let new_l = (FST l, SND l+1) in
            case handler of
-           | NONE => (wordLang$Call (SOME ([v],(live,LN),Skip,l)) dest args NONE, new_l)
+           | NONE => (wordLang$Call (SOME (vs,(live,LN),Skip,l)) dest args NONE, new_l)
            | SOME (n,p1,p2,_) =>
               let (p1,l1) = comp ctxt p1 new_l in
               let (p2,l1) = comp ctxt p2 l1 in
               let new_l = (FST l1, SND l1+1) in
-                (Seq (Call (SOME ([v],(live,LN),p2,l)) dest args
+                (Seq (Call (SOME (vs,(live,LN),p2,l)) dest args
                    (SOME (find_var ctxt n,p1,l1))) Tick, new_l)) /\
    (comp ctxt (FFI f ptr1 len1 ptr2 len2 live) l =
       let live = mk_new_cutset ctxt live in
@@ -149,8 +174,5 @@ Definition compile_prog_def:
 End
 
 Definition compile_def:
-  compile p =
-    let p = loop_remove$comp_prog p in
-     compile_prog p
+  compile p = compile_prog p
 End
-

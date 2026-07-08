@@ -29,22 +29,7 @@ val _ = trans ">=" stringSyntax.char_ge_tm;
 val _ = next_ml_names := ["isSpace"];
 val res = translate stringTheory.isSpace_def;
 
-Definition fromByte_def:
-  fromByte (w:word8) = CHR (w2n w)
-End
-
-val _ = next_ml_names := ["fromByte"];
-val res = translate fromByte_def;
-
-Theorem frombyte_side_thm[local]:
-  frombyte_side v = T
-Proof
-  fs [fetch "-" "frombyte_side_def"]
-  \\ qspec_then ‘v’ assume_tac w2n_lt
-  \\ fs [dimword_def]
-QED
-
-val _ = update_precondition frombyte_side_thm;
+val _ = trans "fromByte" “mlstring$word8_to_char”;
 
 Definition some_chars_vector_def:
   some_chars_vector = Vector (GENLIST (λn. SOME (CHR n)) 256)

@@ -40,31 +40,31 @@ End
 Definition type_ident_to_string_def:
   type_ident_to_string tys ti =
   if ti = Tarray_num then
-    strlit "Array.array"
+    «Array.array»
   else if ti = Tbool_num then
-    strlit "bool"
+    «bool»
   else if ti = Tchar_num then
-    strlit "char"
+    «char»
   else if ti = Texn_num then
-    strlit "exn"
+    «exn»
   else if ti = Tint_num then
-    strlit "int"
+    «int»
   else if ti = Tlist_num then
-    strlit "list"
+    «list»
   else if ti = Tref_num then
-    strlit "ref"
+    «ref»
   else if ti = Tstring_num then
-    strlit "string"
+    «string»
   else if ti = Tvector_num then
-    strlit "Vector.vector"
+    «Vector.vector»
   else if ti = Tword64_num then
-    strlit "Word64.word"
+    «Word64.word»
   else if ti = Tword8_num then
-    strlit "Word8.word"
+    «Word8.word»
   else if ti = Tword8array_num then
-    strlit "byte_array"
+    «byte_array»
   else if ti = Tdouble_num then
-    strlit "Double.double"
+    «Double.double»
   else
     case get_tyname ti tys of
     | NONE => mlint$toString (&ti)
@@ -85,38 +85,38 @@ End
 
 Definition add_parens_def:
   add_parens threshold (x,n) =
-    if threshold < n:num then concat [strlit "("; x; strlit ")"] else x
+    if threshold < n:num then concat [«(»; x; «)»] else x
 End
 
 Definition inf_type_to_string_rec_def:
   (inf_type_to_string_rec tys (Infer_Tuvar n) =
-    (concat [strlit "_"; mlint$toString (&n)],0)) ∧
+    (concat [«_»; mlint$toString (&n)],0)) ∧
   (inf_type_to_string_rec tys (Infer_Tvar_db n) =
     (concat [ty_var_name n],0n)) ∧
   (inf_type_to_string_rec tys (Infer_Tapp ts ti) =
     if ti = Tfn_num then
      (case ts of
       | [t1; t2] =>
-        (concat [add_parens 2 (inf_type_to_string_rec tys t1); strlit " -> ";
+        (concat [add_parens 2 (inf_type_to_string_rec tys t1); « -> »;
                  add_parens 3 (inf_type_to_string_rec tys t2)],3)
       | _ => (implode "<bad function type>",0))
     else if ti = Ttup_num then
      (case ts of
-      | [] => (strlit "unit",0)
+      | [] => («unit»,0)
       | [t] => inf_type_to_string_rec tys t
-      | _ => (concat (commas (strlit " * ")
+      | _ => (concat (commas « * »
                (MAP (add_parens 1) (inf_type_to_string_rec_list tys ts))),2n))
     else
       case ts of
       | [] => (type_ident_to_string tys ti,0)
       | [t] =>
-        (concat [add_parens 1 (inf_type_to_string_rec tys t); strlit " ";
+        (concat [add_parens 1 (inf_type_to_string_rec tys t); « »;
                  type_ident_to_string tys ti],1)
       | _ =>
-        (concat ([strlit "("] ++
-                 commas (strlit ", ")
+        (concat ([«(»] ++
+                 commas «, »
                    (MAP (add_parens 5) (inf_type_to_string_rec_list tys ts)) ++
-                 [strlit ") "; type_ident_to_string tys ti]),1)) ∧
+                 [«) »; type_ident_to_string tys ti]),1)) ∧
   inf_type_to_string_rec_list tys [] = [] ∧
   inf_type_to_string_rec_list tys (t::ts) =
     inf_type_to_string_rec tys t ::

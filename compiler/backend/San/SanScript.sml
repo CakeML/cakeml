@@ -1,5 +1,5 @@
 (*
-* A simple instantiation of machin_config for sanity check share memory access
+* A simple instantiation of machine_config for sanity check share memory access
 *)
 Theory San
 Ancestors

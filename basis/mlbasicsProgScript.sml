@@ -95,12 +95,12 @@ Proof
 QED
 
 Definition bool_toString_def:
-  bool_toString b = if b then strlit "True" else strlit "False"
+  bool_toString b = if b then «True» else «False»
 End
 
 Definition bool_fromString_def:
-  bool_fromString s = if s = strlit "True" then SOME T else
-                      if s = strlit "False" then SOME F else
+  bool_fromString s = if s = «True» then SOME T else
+                      if s = «False» then SOME F else
                       NONE
 End
 
@@ -118,11 +118,11 @@ val _ = ml_prog_update (close_module NONE);
 
 Definition pair_toString_def:
   pair_toString f1 f2 (x,y) =
-    concat [strlit"(";
+    concat [«(»;
             f1 x;
-            strlit", ";
+            «, »;
             f2 y;
-            strlit")"]
+            «)»]
 End
 
 val _ = ml_prog_update (open_module "Pair");

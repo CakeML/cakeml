@@ -113,7 +113,7 @@ Definition compute_thms_def:
     (* CEXP_LESS  *) _CEXP_LESS (_CEXP_PAIR _P1 _Q1) (_CEXP_PAIR _P2 _Q2) ===
                      _CEXP_NUM (_NUMERAL _0);
     (* CEXP_IF    *) _CEXP_IF (_CEXP_NUM (_SUC _M)) _P1 _Q1 === _P1;
-    (* CEXP_IF    *) _CEXP_IF (_CEXP_PAIR _P2 _Q2) _P1 _Q1 === _P1;
+    (* CEXP_IF    *) _CEXP_IF (_CEXP_PAIR _P2 _Q2) _P1 _Q1 === _Q1;
     (* CEXP_IF    *) _CEXP_IF (_CEXP_NUM (_NUMERAL _0)) _P1 _Q1 === _Q1;
     (* CEXP_FST   *) _CEXP_FST (_CEXP_PAIR _P1 _Q1) === _P1;
     (* CEXP_FST   *) _CEXP_FST (_CEXP_NUM _M) === _CEXP_NUM (_NUMERAL _0);
@@ -283,4 +283,3 @@ Definition compute_def:
           return (Sequent [] c)
         od
 End
-

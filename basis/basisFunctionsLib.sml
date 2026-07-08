@@ -13,7 +13,7 @@ fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f;
 fun get_module_prefix () = let
   val mods = ml_progLib.get_open_modules (get_ml_prog_state ())
   in case mods of [] => ""
-    | (m :: ms) => m ^ "_"
+    | (m :: ms) => (String.concatWith "_" mods) ^ "_"
   end
 
 fun get_exn_conv name =

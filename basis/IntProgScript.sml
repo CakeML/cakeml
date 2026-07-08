@@ -1,6 +1,6 @@
 (*
   Module about the built-in integer type. Note that CakeML uses
-  arbitrary precision integers (the mathematical intergers).
+  arbitrary precision integers (the mathematical integers).
 *)
 Theory IntProg
 Ancestors

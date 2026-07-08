@@ -1,5 +1,5 @@
 (*
-  Proofs about the module about the list tyoe.
+  Proofs about the module about the list type.
 *)
 Theory ListProof
 Ancestors

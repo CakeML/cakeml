@@ -30,7 +30,7 @@ Definition is_hidden_def:
         (* local var *)
     (is_hidden (Fun t name body) = T) ∧
         (* function abstraction *)
-    (is_hidden (App t Opapp l) = F) ∧
+    (is_hidden (App t (Src Opapp) l) = F) ∧
         (* function application *)
     (is_hidden (App t (GlobalVarInit g) [e]) = is_hidden e) ∧
         (* GlobalVarInit *)
@@ -82,7 +82,7 @@ End
 Theorem is_pure_def1 = CONV_RULE (DEPTH_CONV ETA_CONV) is_pure_def
 
 Definition has_Eval_def:
-  (has_Eval (App t op es) ⇔ op = Eval ∨ has_Eval_list es) ∧
+  (has_Eval (App t op es) ⇔ op = Src Eval ∨ has_Eval_list es) ∧
   (has_Eval (Mat _ e pes) ⇔ has_Eval e ∨ has_Eval_pats pes) ∧
   (has_Eval (Letrec _ funs e) ⇔ has_Eval e ∨ has_Eval_funs funs) ∧
   (has_Eval (Raise _ e) ⇔ has_Eval e) ∧
@@ -202,7 +202,7 @@ End
 
 Definition analyse_code_def:
     analyse_code [] = (LN, LN) ∧
-    analyse_code ((Dlet e)::cs) =
+    analyse_code (e::cs) =
         code_analysis_union (analyse_exp e) (analyse_code cs)
 End
 
@@ -210,7 +210,7 @@ End
 (**************************** REMOVAL FUNCTIONS *****************************)
 
 Definition keep_def:
-    keep reachable (Dlet e) =
+    keep reachable e =
         (* if none of the global variables that e may assign to are in
            the reachable set, then e is candidate for removal
            -> if any are in, then keep e
@@ -224,7 +224,7 @@ Definition remove_unreachable_def:
 End
 
 Definition has_Eval_dec_def:
-  has_Eval_dec (Dlet e) = has_Eval e
+  has_Eval_dec e = has_Eval e
 End
 
 Definition remove_flat_prog_def:
@@ -236,4 +236,3 @@ Definition remove_flat_prog_def:
         let reachable = closure_spt r t in
         remove_unreachable reachable code
 End
-

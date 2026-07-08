@@ -7,17 +7,8 @@ structure cfMonadLib (* :> cfMonadLib *) = struct
 open cfAppTheory cfTacticsLib ml_monad_translatorTheory cfMonadTheory packLib
 open ml_monad_translatorBaseTheory
 
-local
-  structure Parse = struct
-    open Parse
-     val (Type,Term) =
-         parse_from_grammars $ valOf $ grammarDB {thyname = "cfMonad"}
-  end
-  open Parse
-in
-val emp_tm = ``emp:hprop``
-val PURE_tm = ``PURE : ('a -> v -> bool) -> ('a, 'b) H``
-end
+val emp_tm = cfHeapsBaseSyntax.emp_tm
+val PURE_tm = prim_mk_const {Thy="ml_monad_translator", Name="PURE"}
 
 
 fun get_fun_const def =
@@ -186,11 +177,8 @@ mk_app_of_ArrowP spec2
 
 (* Some tests
 
-Overload monad_bind[local] = ``st_ex_bind``
-Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload ex_bind[local] = ``st_ex_bind``
-Overload ex_return[local] = ``st_ex_return``
+val _ = monadsyntax.temp_add_monadsyntax ();
+val _ = monadsyntax.temp_enable_monad "st_ex";
 
 val _ = Datatype `
   my_state =
@@ -203,7 +191,7 @@ val init_state_def = Define `
     do
       is_done <- get_has_init;
       if is_done then
-        raise_Fail (strlit"init")
+        raise_Fail «init»
       else
         do
           set_my_count 0;

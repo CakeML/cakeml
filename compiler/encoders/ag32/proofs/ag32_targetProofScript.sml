@@ -429,6 +429,13 @@ Proof
                 Shift
               --------------*)
             print_tac "Shift"
+            \\ Cases_on `r`
+            THENL [ALL_TAC,
+                   Cases_on `c`
+                   \\ rename [‘shift_len < dimword (:32)’]
+                   \\ ‘w2w ((n2w shift_len):word32) = n2w shift_len : 6 word’ by
+                         gvs [asmTheory.asm_ok_def,asmTheory.inst_ok_def,
+                              asmTheory.arith_ok_def,wordsTheory.w2w_def]]
             \\ Cases_on `s`
             \\ next_tac
             )
@@ -532,4 +539,3 @@ Proof
       \\ next_tac
       )
 QED
-

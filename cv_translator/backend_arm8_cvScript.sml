@@ -141,6 +141,7 @@ val _ = cv_trans arm8_load_store_ast32_def;
 val _ = cv_trans cmp_cond_def;
 val _ = cv_trans asmSemTheory.is_test_def;
 val bop_enc_pre = cv_trans_pre "" bop_enc_def;
+val _ = cv_trans arm8_targetTheory.arm8_shv_def;
 val arm8_ast_pre = cv_trans_pre "" (SRULE [SF LET_ss] arm8_ast_def);
 
 Theorem arm8_ast_pre[cv_pre]:
@@ -159,9 +160,9 @@ val _ = cv_auto_trans (arm8_targetTheory.arm8_enc_def |>
 val pre = cv_auto_trans_pre "" comp_arm8_def;
 
 Theorem comp_arm8_pre[cv_pre,local]:
-  ∀v bs kf. comp_arm8_pre v bs kf
+  ∀perf v bs kf. comp_arm8_pre perf v bs kf
 Proof
-  gen_tac \\ completeInduct_on ‘prog_size (K 0) v’
+  gen_tac \\ gen_tac \\ completeInduct_on ‘prog_size (K 0) v’
   \\ rw [] \\ gvs [PULL_FORALL]
   \\ rw [] \\ simp [Once pre]
   \\ rw [] \\ gvs []
@@ -174,7 +175,7 @@ val _ = cv_auto_trans compile_prog_arm8_def;
 val pre = cv_auto_trans_pre "" compile_word_to_stack_arm8_def;
 
 Theorem compile_word_to_stack_arm8_pre[cv_pre]:
-  ∀k v bitmaps. compile_word_to_stack_arm8_pre k v bitmaps
+  ∀perf k v bitmaps. compile_word_to_stack_arm8_pre perf k v bitmaps
 Proof
   Induct_on`v`
   \\ rw [] \\ simp [Once pre]
@@ -310,12 +311,3 @@ val _ = cv_auto_trans
 val _ = cv_trans backend_arm8Theory.to_livesets_arm8_def;
 val _ = cv_trans backend_arm8Theory.compile_cake_arm8_def;
 val _ = cv_auto_trans backend_arm8Theory.compile_cake_explore_arm8_def;
-
-(* lemma used by automation *)
-
-Theorem set_asm_conf_arm8_backend_config:
-  set_asm_conf arm8_backend_config arm8_config = arm8_backend_config
-Proof
-  irule backendTheory.set_asm_conf_id \\ EVAL_TAC
-QED
-

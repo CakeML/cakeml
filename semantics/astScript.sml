@@ -4,7 +4,7 @@
 Theory ast
 Ancestors
   integer[qualified] words[qualified] string[qualified] mlstring[qualified] namespace
-  location[qualified] ast_temp
+  location[qualified]
 
 (* Literal constants *)
 Datatype:
@@ -17,37 +17,12 @@ Datatype:
   | Float64 word64
 End
 
-(* Built-in binary operations *)
-Datatype:
-  opn = Plus | Minus | Times | Divide | Modulo
-End
-
-Datatype:
-  opb = Lt | Gt | Leq | Geq
-End
-
-Datatype:
-  opw = Andw | Orw | Xor | Add | Sub
-End
-
 Datatype:
   shift = Lsl | Lsr | Asr | Ror
 End
 
 Datatype:
-  fp_cmp = FP_Less | FP_LessEqual | FP_Greater | FP_GreaterEqual | FP_Equal
-End
-
-Datatype:
-  fp_uop = FP_Abs | FP_Neg | FP_Sqrt
-End
-
-Datatype:
-  fp_bop = FP_Add | FP_Sub | FP_Mul | FP_Div
-End
-
-Datatype:
-  fp_top = FP_Fma
+  arith = Add | Sub | Mul | Div | Mod | Neg | And | Xor | Or | Not | Abs | Sqrt | FMA
 End
 
 (* Module names *)
@@ -81,6 +56,10 @@ Datatype:
 End
 
 Datatype:
+  opb = Lt | Gt | Leq | Geq
+End
+
+Datatype:
   test = Equal | Compare opb | AltCompare opb
 End
 
@@ -99,22 +78,10 @@ Datatype:
     Arith arith prim_type
   (* conversions between primitive types: char<->int, word<->double, word<->int *)
   | FromTo prim_type prim_type
-  (* Operations on integers *)
-  | Opn opn
-  | Opb opb
   (* Operations on words *)
-  | Opw word_size opw
   | Shift word_size shift num
   | Equality
   | Test test prim_type
-  (* FP operations *)
-  | FP_cmp fp_cmp
-  | FP_uop fp_uop
-  | FP_bop fp_bop
-  | FP_top fp_top
-  (* Floating-point <-> word translations *)
-  | FpFromWord
-  | FpToWord
   (* Function application *)
   | Opapp
   (* Reference operations *)
@@ -126,18 +93,12 @@ Datatype:
   | Aw8sub
   | Aw8length
   | Aw8update
-  (* Word/integer conversions *)
-  | WordFromInt word_size
-  | WordToInt word_size
   (* string/bytearray conversions *)
   | CopyStrStr
   | CopyStrAw8
   | CopyAw8Str
   | CopyAw8Aw8
   | XorAw8Str_unsafe
-  (* Char operations *)
-  | Ord
-  | Chr
   (* String operations *)
   | Implode
   | Explode
@@ -183,6 +144,7 @@ Datatype:
   | Force (* forcing a thunk *)
   | Simple (* arithmetic operation, no finite-precision/reals *)
 End
+
 Definition getOpClass_def[simp]:
  getOpClass op =
  case op of
@@ -190,15 +152,6 @@ Definition getOpClass_def[simp]:
   | Eval => EvalOp
   | ThunkOp t => (if t = ForceThunk then Force else Simple)
   | _ => Simple
-End
-
-Definition isFpBool_def:
-  isFpBool op = case op of FP_cmp _ => T | _ => F
-End
-
-(* Logical operations *)
-Datatype:
- lop = And | Or
 End
 
 (* Types used in type annotations *)
@@ -228,6 +181,11 @@ Datatype:
   (* Pattern alias. *)
   | Pas pat varN
   | Ptannot pat ast_t
+End
+
+(* Short circuiting logical operations *)
+Datatype:
+  lop = Andalso | Orelse
 End
 
 (* Expressions *)
@@ -290,18 +248,17 @@ Datatype:
   | Denv tvarN
 End
 
-(* Accumulates the bindings of a pattern *)
+(* Computes the bindings of a pattern *)
 Definition pat_bindings_def:
-  pat_bindings Pany already_bound = already_bound ∧
-  pat_bindings (Pvar n) already_bound = n::already_bound ∧
-  pat_bindings (Plit l) already_bound = already_bound ∧
-  pat_bindings (Pcon v0 ps) already_bound = pats_bindings ps already_bound ∧
-  pat_bindings (Pref p) already_bound = pat_bindings p already_bound ∧
-  pat_bindings (Pas p i) already_bound = pat_bindings p (i::already_bound) ∧
-  pat_bindings (Ptannot p v1) already_bound = pat_bindings p already_bound ∧
-  pats_bindings [] already_bound = already_bound ∧
-  pats_bindings (p::ps) already_bound =
-  pats_bindings ps (pat_bindings p already_bound)
+  pat_bindings Pany = [] ∧
+  pat_bindings (Pvar n) = [n] ∧
+  pat_bindings (Plit l) = [] ∧
+  pat_bindings (Pcon v0 ps) = pats_bindings ps ∧
+  pat_bindings (Pref p) = pat_bindings p ∧
+  pat_bindings (Pas p i) = pat_bindings p ++ [i] ∧
+  pat_bindings (Ptannot p v1) = pat_bindings p ∧
+  pats_bindings [] = [] ∧
+  pats_bindings (p::ps) = pats_bindings ps ++ pat_bindings p
 End
 
 Definition every_exp_def[simp]:

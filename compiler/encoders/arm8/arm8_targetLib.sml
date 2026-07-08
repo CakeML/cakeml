@@ -44,7 +44,7 @@ in
        computeLib.Convs
        [(bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV)],
        computeLib.Tys
-       (``:('a, 'b) sum`` ::
+       (sumSyntax.mk_sum(alpha,beta) ::
          List.map arm_type
           ["instruction", "Data", "Branch", "LoadStore", "SystemHintOp",
            "MoveWideOp", "LogicalOp", "MemOp", "BranchType", "ShiftType",
@@ -66,13 +66,13 @@ in
             CountTrailing_def, DecodeBitMasks_def, HighestSetBit_def, Ones_def,
             Replicate_def,
             pred_setTheory.IN_INSERT, pred_setTheory.NOT_IN_EMPTY],
-         computeLib.Tys [``:('a, 'b) sum``], es])
+         computeLib.Tys [sumSyntax.mk_sum(alpha,beta)], es])
 end
 
 val add_arm8_encode_compset = computeLib.extend_compset
   [computeLib.Convs
-     [(``arm8_target$arm8_enc``, 1, arm8_encode_conv),
-      (``arm8_target$valid_immediate``, 2, valid_immediate_conv)],
+     [(prim_mk_const{Thy="arm8_target",Name="arm8_enc"}, 1, arm8_encode_conv),
+      (prim_mk_const{Thy="arm8_target",Name="valid_immediate"}, 2, valid_immediate_conv)],
    computeLib.Defs [arm8_targetTheory.arm8_config]]
 
 val arm8_encode_decode_conv = computeLib.compset_conv (wordsLib.words_compset)

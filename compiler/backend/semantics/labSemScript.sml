@@ -87,28 +87,15 @@ Definition binop_upd_def:
   (binop_upd r Xor w1 w2 = upd_reg r (Word (word_xor w1 w2)))
 End
 
-Definition word_cmp_def:
-  (word_cmp Equal    (Word w1) (Word w2) = SOME (w1 = w2)) /\
-  (word_cmp Less     (Word w1) (Word w2) = SOME (w1 < w2)) /\
-  (word_cmp Lower    (Word w1) (Word w2) = SOME (w1 <+ w2)) /\
-  (word_cmp Test     (Word w1) (Word w2) = SOME ((w1 && w2) = 0w)) /\
-  (word_cmp Test     (Loc _ n) (Word w2) = if n ≠ 0 then NONE else if w2 = 1w then SOME T else NONE) /\
-  (word_cmp NotEqual (Word w1) (Word w2) = SOME (w1 <> w2)) /\
-  (word_cmp NotLess  (Word w1) (Word w2) = SOME (~(w1 < w2))) /\
-  (word_cmp NotLower (Word w1) (Word w2) = SOME (~(w1 <+ w2))) /\
-  (word_cmp NotTest  (Word w1) (Word w2) = SOME ((w1 && w2) <> 0w)) /\
-  (word_cmp NotTest  (Loc _ n) (Word w2) = if n ≠ 0 then NONE else if w2 = 1w then SOME F else NONE) /\
-  (word_cmp _ _ _ = NONE)
-End
-
 Definition arith_upd_def[simp]:
   (arith_upd (Binop b r1 r2 (ri:'a reg_imm)) s =
      case (read_reg r2 s, reg_imm ri s) of
      | (Word w1, Word w2) => binop_upd r1 b w1 w2 s
      | (x,_) => if b = Or /\ ri = Reg r2 then upd_reg r1 x s else assert F s) /\
-  (arith_upd (Shift l r1 r2 n) s =
-     case read_reg r2 s of
-     | Word w1 => upd_reg r1 (Word (word_shift l w1 n)) s
+  (arith_upd (Shift l r1 r2 ri) s =
+     case (read_reg r2 s, reg_imm ri s) of
+     | (Word w1, Word w2) =>
+         assert (w2n w2 < dimindex (:'a)) (upd_reg r1 (Word (word_shift l w1 (w2n w2))) s)
      | _ => assert F s) /\
   (arith_upd (Div r1 r2 r3) s =
      case (read_reg r3 s,read_reg r2 s) of
@@ -154,7 +141,6 @@ Definition arith_upd_def[simp]:
             (upd_reg r1 (Word (w2 - w3)) s)
      | _ => assert F s)
 End
-
 
 Definition upd_fp_reg_def:
   upd_fp_reg r v s = s with fp_regs := (r =+ v) s.fp_regs

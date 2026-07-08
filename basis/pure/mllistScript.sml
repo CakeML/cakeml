@@ -8,6 +8,12 @@ Ancestors
   indexedLists[qualified] toto[qualified]
   sorting mergesort
 
+Definition intersperse_def:
+  intersperse _ []        = [] ∧
+  intersperse _ [x]       = [x] ∧
+  intersperse sep (x::xs) = x::sep::intersperse sep xs
+End
+
 (* ===== TODO: TO BE PORTED TO HOL (better theorems for mergesort_tail) ===== *)
 Theorem merge_tail_MEM:
   !negate R xs ys acc. MEM x (merge_tail negate R xs ys acc) = ((MEM x xs) \/ (MEM x ys) \/ (MEM x acc))
@@ -34,6 +40,7 @@ Proof
       >- (
         gvs[]
         \\ simp[merge_tail_MEM]
+        \\ rename1 ‘DIV2 length’
         \\ `DIV2 length ≤ length` by (
             fs[DIV2_def]
             \\ qspecl_then [`length`, `2`] assume_tac DIV_LESS

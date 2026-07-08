@@ -26,11 +26,7 @@ val _ = translation_extends "basisProg";
 *)
 
 val _ = monadsyntax.temp_add_monadsyntax()
-
-Overload monad_bind[local] = ``st_ex_bind``
-Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload return[local] = ``st_ex_return``
+val _ = monadsyntax.temp_enable_monad "st_ex";
 
 val _ = hide "state";
 
@@ -185,6 +181,7 @@ val _ = m_translate (consistency_ok_def |> REWRITE_RULE [MEMBER_INTRO,
                            METIS_PROVE [] ``~(b1 /\ b2) <=> ~b1 \/ ~b2``]);
 
 val _ = m_translate coalesce_parent_def;
+val _ = m_translate coalesce_root_def;
 val _ = m_translate canonize_move_def;
 val _ = m_translate st_ex_FIRST_def;
 val _ = m_translate (respill_def |> REWRITE_RULE [MEMBER_INTRO]);

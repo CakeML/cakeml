@@ -13,14 +13,6 @@ Ancestors[ignore_grammar]
   clos_knownProof[qualified] clos_annotateProof[qualified]
   clos_callProof[qualified] clos_fvsProof[qualified]
 
-(* Make sure we get the correct ML bindings (somehow) *)
-open closLangTheory closSemTheory closPropsTheory
-     bvlSemTheory bvlPropsTheory
-     bvl_jumpProofTheory
-     clos_to_bvlTheory clos_constantProofTheory
-     backend_commonTheory;
-
-
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "fromAList_def",
@@ -1469,21 +1461,21 @@ Theorem do_eq[local]:
            do_eq_list x y = do_eq_list r x1 y1)
 Proof
   strip_tac >>
-   HO_MATCH_MP_TAC closSemTheory.do_eq_ind >>
-   srw_tac[][]
-   >- (srw_tac[][closSemTheory.do_eq_def] >>
-       Cases_on `x` >>
-       full_simp_tac(srw_ss())[v_rel_SIMP] >> full_simp_tac(srw_ss())[add_args_def] >> srw_tac[][] >>
-       Cases_on `y` >>
-       full_simp_tac(srw_ss())[v_rel_SIMP] >> full_simp_tac(srw_ss())[add_args_def] >> srw_tac[][] >>
-       rev_full_simp_tac(srw_ss())[] >>
-       imp_res_tac LIST_REL_LENGTH >>
-       full_simp_tac(srw_ss())[closure_tag_def,partial_app_tag_def,clos_tag_shift_def] >>
-       BasicProvers.EVERY_CASE_TAC >>
-       rev_full_simp_tac (srw_ss()++ARITH_ss) [] >>
-       full_simp_tac(srw_ss())[INJ_DEF, FLOOKUP_DEF] >>
-       fs [isClos_def,closure_tag_def,partial_app_tag_def] >>
-       metis_tac [])
+  HO_MATCH_MP_TAC closSemTheory.do_eq_ind >>
+  srw_tac[][]
+  >- (srw_tac[][closSemTheory.do_eq_def] >>
+      Cases_on `x` >>
+      fs[v_rel_SIMP] >> fs[add_args_def] >> srw_tac[][] >>
+      Cases_on `y` >>
+      fs[v_rel_SIMP] >> fs[add_args_def] >> srw_tac[][] >>
+      rev_full_simp_tac(srw_ss())[] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      full_simp_tac(srw_ss())[closure_tag_def,partial_app_tag_def,clos_tag_shift_def] >>
+      BasicProvers.EVERY_CASE_TAC >>
+      rev_full_simp_tac (srw_ss()++ARITH_ss) [] >>
+      full_simp_tac(srw_ss())[INJ_DEF, FLOOKUP_DEF] >>
+      fs [bvlSemTheory.isClos_def,closure_tag_def,partial_app_tag_def] >>
+      metis_tac [])
   >- full_simp_tac(srw_ss())[closSemTheory.do_eq_def]
   >- (res_tac >>
       srw_tac[][closSemTheory.do_eq_def] >>
@@ -1553,6 +1545,10 @@ Theorem do_app[local]:
      (t1.refs = t2.refs) /\ (t1.code = t2.code)
 Proof
   Cases_on `∃test. op = BlockOp (BoolTest test)`
+  >-
+   (gvs [closSemTheory.do_app_def,AllCaseEqs()] \\ rw []
+    \\ gvs [bvlSemTheory.do_app_def])
+  \\ Cases_on `op = BlockOp BoolNot`
   >-
    (gvs [closSemTheory.do_app_def,AllCaseEqs()] \\ rw []
     \\ gvs [bvlSemTheory.do_app_def])
@@ -1804,8 +1800,8 @@ QED
 
 val v_case_eq_thms =
   LIST_CONJ [
-    prove_case_eq_thm{nchotomy = closSemTheory.v_nchotomy, case_def = closSemTheory.v_case_def},
-    prove_case_eq_thm{nchotomy = bvlSemTheory.v_nchotomy, case_def = bvlSemTheory.v_case_def}];
+    TypeBase.case_eq_of ``:closSem$v``,
+    TypeBase.case_eq_of ``:bvlSem$v``];
 
 Theorem do_app_err[local]:
   do_app op xs s1 = Rerr err ∧
