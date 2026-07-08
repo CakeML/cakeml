@@ -2584,6 +2584,10 @@ Proof
     \\ disch_then imp_res_tac \\ fs []
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_bytes))
     \\ asm_exists_tac \\ fs [LIST_REL_REPLICATE_same])
+  (* MutCons/UpdateCons/FinaliseCons: vacuous, closSem$do_app is Error *)
+  \\ Cases_on `?tg i. opp = MemOp (MutCons tg i)` THEN1 (gvs [do_app_def])
+  \\ Cases_on `opp = MemOp UpdateCons` THEN1 (gvs [do_app_def])
+  \\ Cases_on `opp = MemOp FinaliseCons` THEN1 (gvs [do_app_def])
   \\ Cases_on `opp` \\ fs []
   >- (Cases_on `b` \\ fs [])
   >- (Cases_on `g` \\ fs [])

@@ -13,6 +13,9 @@ Correctness proof for bvi_let
 [bvi_tailrecProofScript.sml](bvi_tailrecProofScript.sml):
 Correctness proof for bvi_tailrec
 
+[bvi_tmcProofScript.sml](bvi_tmcProofScript.sml):
+Correctness proof for bvi_tmc
+
 [bvi_to_dataProofScript.sml](bvi_to_dataProofScript.sml):
 Correctness proof for bvi_to_data
 

@@ -379,6 +379,8 @@ Proof
   >- gvs [wf_vars_def]
   >- gvs [wf_vars_def]
   >- gvs [wf_vars_def]
+  >- gvs [wf_vars_def]
+  >- gvs [wf_vars_def]
   >- (irule pure_exps_append >> gvs [])
   >> irule wf_vars_append
   >> conj_tac
