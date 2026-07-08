@@ -30,6 +30,8 @@ Definition pure_exps_def:
   (pure_exps n [Tick e] = F) ∧
   (pure_exps n [Call _ _ _ _] = F) ∧
   (pure_exps n [Force _ _] = F) ∧
+  (pure_exps n [LetCall _ _ _ _ _] = F) ∧
+  (pure_exps n [Return _] = F) ∧
   (pure_exps n [Op op args] = (pure_op op args ∧ pure_exps n args)) ∧
   (pure_exps n (h1::h2::t) = (pure_exps n [h1] ∧ pure_exps n (h2::t)))
 End
@@ -374,8 +376,6 @@ Theorem bvi_to_cb_aux_wf_inl:
 Proof
   recInduct bvi_to_cb_aux_ind
   >> rw [] >> gvs [bvi_to_cb_aux_def, pure_exps_def, CaseEq "call_block", CaseEq "prod", CaseEq "option", CaseEq "sum", CaseEq "list", small_enough_int_def, length_shift_vars]
-  >- gvs [wf_vars_def]
-  >- gvs [wf_vars_def]
   >- gvs [wf_vars_def]
   >- gvs [wf_vars_def]
   >- gvs [wf_vars_def]
