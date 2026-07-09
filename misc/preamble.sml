@@ -583,5 +583,7 @@ val old_dxrule = old_dxrule_then mp_tac
 
 end
 
+val () = Cache.set_capacity numSimps.arith_cache 200000;
+val () = Cache.set_per_key_cap numSimps.arith_cache 5000;
 
 end

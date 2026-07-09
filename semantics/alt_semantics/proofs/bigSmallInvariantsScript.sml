@@ -239,19 +239,19 @@ Inductive evaluate_dec_state:
     ⇒ evaluate_dec_state ck benv (st, ExpVal env ev cs locs pat, dcs) (st', Rerr err)) ∧
 
   (evaluate_state ck (env, st, ev, cs) (st', Rval v) ∧
-   (ALL_DISTINCT (pat_bindings pats []) ⇒
+   (ALL_DISTINCT (pat_bindings pats) ⇒
       pmatch (collapse_env benv dcs).c st'.refs pats v [] = Match_type_error)
     ⇒ evaluate_dec_state ck benv (st, ExpVal env ev cs locs pats, dcs)
         (st', Rerr (Rabort Rtype_error))) ∧
 
   (evaluate_state ck (env, st, ev, cs) (st', Rval v) ∧
-   ALL_DISTINCT (pat_bindings pats []) ∧
+   ALL_DISTINCT (pat_bindings pats) ∧
    pmatch (collapse_env benv dcs).c st'.refs pats v [] = No_match
     ⇒ evaluate_dec_state ck benv (st, ExpVal env ev cs locs pats, dcs)
         (st', Rerr (Rraise bind_exn_v))) ∧
 
   (evaluate_state ck (env, st, ev, cs) (st', Rval v) ∧
-   ALL_DISTINCT (pat_bindings pats []) ∧
+   ALL_DISTINCT (pat_bindings pats) ∧
    pmatch (collapse_env benv dcs).c st'.refs pats v [] = Match new_vals ∧
    evaluate_dec_ctxts ck benv st' dcs
     (Rval <| v := alist_to_ns new_vals; c := nsEmpty |>) res

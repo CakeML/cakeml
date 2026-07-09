@@ -8,6 +8,12 @@ Ancestors
   indexedLists[qualified] toto[qualified]
   sorting mergesort
 
+Definition intersperse_def:
+  intersperse _ []        = [] ∧
+  intersperse _ [x]       = [x] ∧
+  intersperse sep (x::xs) = x::sep::intersperse sep xs
+End
+
 (* ===== TODO: TO BE PORTED TO HOL (better theorems for mergesort_tail) ===== *)
 Theorem merge_tail_MEM:
   !negate R xs ys acc. MEM x (merge_tail negate R xs ys acc) = ((MEM x xs) \/ (MEM x ys) \/ (MEM x acc))

@@ -7,12 +7,10 @@ Ancestors
 Libs
   preamble
 
-Overload monad_bind[local] = “st_ex_bind”
-Overload monad_unitbind[local] = “λx y. st_ex_bind x (λz. y)”
-Overload monad_ignore_bind[local] = “λx y. st_ex_bind x (λz. y)”
-Overload return[local] = “st_ex_return”
+val _ = monadsyntax.temp_add_monadsyntax ();
+val _ = monadsyntax.temp_enable_monad "st_ex";
+
 Overload failwith[local] = “raise_Failure”
-val _ = temp_add_monadsyntax()
 
 (* -------------------------------------------------------------------------
  * Kernel initialisation
@@ -287,4 +285,3 @@ Definition init_reader_def:
       return ()
     od
 End
-

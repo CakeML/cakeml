@@ -18,8 +18,8 @@ val eval_res_thm =
 
 val print_types = let
   val x = eval_res_thm |> concl |> rhs
-  val _ = if can (match_term ``infer$Success _``) x then () else
-          if can (match_term ``infer$Failure _``) x then let
+  val _ = if can (match_term ``M_success _``) x then () else
+          if can (match_term ``M_failure _``) x then let
             val msg = x |> rand |> rand |> rand |> stringSyntax.fromHOLstring
                       handle HOL_ERR _ =>
                       failwith ("Type inference failed. " ^
@@ -60,12 +60,12 @@ val _ = cv_trans locationTheory.unknown_loc_def
 
 Theorem CommandLine_arguments_lemma[local] =
   “case infertype_prog_inc (init_config,start_type_id) repl_prog of
-   | Failure _ => F
-   | Success env => infertype_prog_inc env
+   | M_failure _ => F
+   | M_success env => infertype_prog_inc env
     [Dlet unknown_loc Pany
       (App Opapp
         [Var (Long «CommandLine» (Short «arguments»));
-         Con NONE []])] = Success env”
+         Con NONE []])] = M_success env”
   |> cv_eval |> SRULE [repl_prog_types_thm];
 
 Theorem infertype_prog_inc_CommandLine_arguments:
@@ -73,19 +73,19 @@ Theorem infertype_prog_inc_CommandLine_arguments:
     [Dlet unknown_loc Pany
       (App Opapp
         [Var (Long «CommandLine» (Short «arguments»));
-         Con NONE []])] = Success repl_prog_types
+         Con NONE []])] = M_success repl_prog_types
 Proof
   rewrite_tac [CommandLine_arguments_lemma]
 QED
 
 Theorem Repl_charsFrom_lemma[local] =
   “case infertype_prog_inc (init_config,start_type_id) repl_prog of
-   | Failure _ => F
-   | Success env => infertype_prog_inc env
+   | M_failure _ => F
+   | M_success env => infertype_prog_inc env
     [Dlet unknown_loc Pany
       (App Opapp
         [Var (Long «Repl» (Short «charsFrom»));
-         Lit (StrLit «config_enc_str.txt»)])] = Success env”
+         Lit (StrLit «config_enc_str.txt»)])] = M_success env”
   |> cv_eval |> SRULE [repl_prog_types_thm];
 
 Theorem infertype_prog_inc_Repl_charsFrom:
@@ -93,8 +93,7 @@ Theorem infertype_prog_inc_Repl_charsFrom:
     [Dlet unknown_loc Pany
       (App Opapp
         [Var (Long «Repl» (Short «charsFrom»));
-         Lit (StrLit «config_enc_str.txt»)])] = Success repl_prog_types
+         Lit (StrLit «config_enc_str.txt»)])] = M_success repl_prog_types
 Proof
   rewrite_tac [Repl_charsFrom_lemma]
 QED
-
