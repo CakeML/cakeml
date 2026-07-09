@@ -896,7 +896,7 @@ Proof
 QED
 
 Theorem configs_nn3_MULT_namespaces:
-  ?k. (cake_configs c' syntax n).bvl_conf.next_name3
+  ?k. (cake_configs asm_conf c' syntax n).bvl_conf.next_name3
     = c'.bvl_conf.next_name3 + (k * bvl_to_bvi_namespaces)
 Proof
   Induct_on `n` \\ fs [cake_configs_def, state_orac_states_def]
@@ -910,7 +910,7 @@ Proof
 QED
 
 Theorem configs_nn3_MOD_namespaces:
-  (cake_configs c' syntax n).bvl_conf.next_name3
+  (cake_configs asm_conf c' syntax n).bvl_conf.next_name3
         MOD bvl_to_bvi_namespaces
     = c'.bvl_conf.next_name3 MOD bvl_to_bvi_namespaces
 Proof
@@ -934,7 +934,7 @@ Proof
 QED
 
 Theorem configs_nn3_MOD_namespaces_ok:
-  compile c prog = SOME (b, bm, c') /\ backend_config_ok c ==>
+  compile asm_conf c prog = SOME (b, bm, c') /\ backend_config_ok asm_conf c ==>
   c'.bvl_conf.next_name3 MOD bvl_to_bvi_namespaces = 3
 Proof
   fs [backendTheory.compile_def, compile_tap_def, bvl_to_bviTheory.compile_def]
@@ -1719,12 +1719,12 @@ Proof
 QED
 
 Theorem is_state_oracle_tmc_cake_orac:
-  compile c prog = SOME (b,bm,c') ==>
+  compile asm_conf c prog = SOME (b,bm,c') ==>
   is_state_oracle bvi_tmc_compile_prog
     (state_co bvi_tailrec_compile_prog (state_co bvl_to_bvi_compile_inc (state_co
       (bvl_inline_compile_inc c.bvl_conf.inline_size_limit
         c.bvl_conf.split_main_at_seq c.bvl_conf.exp_cut)
-      (cake_orac c' syntax config_tuple2 (λps. ps.bvl_prog)))))
+      (cake_orac asm_conf c' syntax config_tuple2 (λps. ps.bvl_prog)))))
 Proof
   rw []
   \\ REWRITE_TAC [state_co_eq_comp, o_ASSOC]
@@ -2140,7 +2140,7 @@ Proof
     \\ rpt (pairarg_tac \\ fs [])
     \\ rveq \\ fs []
     \\ rw [SUBSET_DEF, IN_PREIMAGE]
-    \\ qpat_x_assum `cake_orac _ _ _ _ _ = _` mp_tac
+    \\ qpat_x_assum `cake_orac _ _ _ _ _ _ = _` mp_tac
     \\ simp [cake_orac_def, config_tuple2_def]
     \\ strip_tac \\ rveq \\ fs []
     \\ rpt (pairarg_tac \\ fs [])
@@ -2173,7 +2173,7 @@ Proof
       \\ fs [state_co_def]
       \\ rpt (pairarg_tac \\ fs [])
       \\ rveq \\ fs []
-      \\ qpat_x_assum `cake_orac _ _ _ _ _ = _` mp_tac
+      \\ qpat_x_assum `cake_orac _ _ _ _ _ _ = _` mp_tac
       \\ simp [cake_orac_def, config_tuple2_def]
       \\ strip_tac \\ rveq \\ fs []
       \\ rpt (pairarg_tac \\ fs [])

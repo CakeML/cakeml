@@ -4799,17 +4799,19 @@ Theorem bvi_let_compile_no_mutcons[local]:
 Proof
   ho_match_mp_tac bvi_letTheory.compile_sing_ind
   \\ rw [bvi_letTheory.compile_sing_def]
-  >- (CASE_TAC \\ simp [])
+  >- (rpt CASE_TAC \\ simp [])                      (* Var *)
   >- (fs [ETA_THM] \\ first_x_assum irule
-      \\ fs [EVERY_MEM] \\ metis_tac [rich_listTheory.MEM_FRONT_NOT_NIL])
+      \\ fs [EVERY_MEM] \\ metis_tac [rich_listTheory.MEM_FRONT_NOT_NIL])  (* Let: FRONT *)
   >- (fs [ETA_THM] \\ first_x_assum irule
-      \\ fs [EVERY_MEM] \\ metis_tac [rich_listTheory.MEM_LAST_NOT_NIL])
+      \\ fs [EVERY_MEM] \\ metis_tac [rich_listTheory.MEM_LAST_NOT_NIL])   (* Let: LAST *)
   >- (fs [ETA_THM, EVERY_MAP, EVERY_MEM] \\ rw []
-      \\ irule bvi_let_delete_var_no_mutcons \\ res_tac \\ fs [])
-  >- fs [ETA_THM]
-  >- (CASE_TAC \\ simp [])
-  >- fs [ETA_THM]
-  \\ Cases_on ‘h’ \\ gvs []
+      \\ irule bvi_let_delete_var_no_mutcons \\ res_tac \\ fs [])          (* Let: delete_var *)
+  >- fs [ETA_THM]                                   (* Op *)
+  >- (rpt CASE_TAC \\ simp [])                      (* Force *)
+  >- fs [ETA_THM]                                   (* Call args *)
+  >- (Cases_on ‘h’ \\ gvs [])                       (* Call handler *)
+  >- fs [ETA_THM]                                   (* Return *)
+  \\ fs [ETA_THM]                                   (* LetCall args *)
 QED
 
 Theorem bvi_let_compile_exp_no_mutcons[local]:
