@@ -11153,110 +11153,6 @@ Proof
   \\ fs[word_bit_test,Smallnum_bits]
 QED
 
-(*
-Theorem memory_rel_pointer_eq_size:
-   ∀v1 v2 w.
-   good_dimindex (:'a) ∧
-   memory_rel c be ts refs sp st m dm ((v1,(w:'a word_loc))::(v2,w)::vars) ==>
-     vb_size v1 = vb_size v2
-Proof
-  cheat
-  (*ho_match_mp_tac v_ind \\ rw[] \\ Cases_on`v2` \\ fs[vb_size_def]
-  \\ qhdtm_x_assum`memory_rel`mp_tac
-  \\ qid_spec_tac`n` \\ qid_spec_tac`n0` \\ qid_spec_tac`n'`
-  THEN_LT USE_SG_THEN (fn th => metis_tac[memory_rel_swap,th]) 1 3
-  THEN_LT USE_SG_THEN (fn th => metis_tac[memory_rel_swap,th]) 2 3
-  THEN_LT USE_SG_THEN (fn th => metis_tac[memory_rel_swap,th]) 6 4
-  THEN_LT USE_SG_THEN (fn th => metis_tac[memory_rel_swap,th]) 6 4
-  \\ rw[]
-  >- (
-    Cases_on`small_int (:'a) i`
-    >- (
-      rpt_drule memory_rel_Number_IMP
-      \\ rpt_drule memory_rel_tail \\ strip_tac
-      \\ rpt_drule memory_rel_Block_IMP \\ strip_tac
-      \\ strip_tac \\ rveq \\ fs[] \\ rveq
-      \\ fs[Smallnum_0]
-      \\ `Smallnum i ' 1`
-      by (
-        `1 < dimindex (:'a)` by fs[good_dimindex_def]
-        \\ simp[Once WORD_ADD_BIT]
-        \\ simp[word_index,word_mul_n2w]
-        \\ `¬BIT 1 (n * 2 ** 4)`
-        by ( match_mp_tac bitTheory.BIT_SHIFT_THM3 \\ simp[] )
-        \\ fs[]
-        \\ simp[word_bits_n2w,word_index]
-        \\ match_mp_tac bitTheory.BIT_OF_BITS_THM2
-        \\ simp[] )
-      \\ rfs[Smallnum_1] )
-    \\ rpt_drule memory_rel_Number_bignum_IMP
-    \\ rpt_drule memory_rel_tail \\ strip_tac
-    \\ rpt_drule memory_rel_Block_IMP \\ strip_tac
-    \\ strip_tac \\ rveq \\ fs[] \\ rveq \\ fs[]
-    \\ qmatch_assum_rename_tac`(1w && w1) <> 0w`
-    \\ `word_bit 0 w1` by simp[word_bit_test]
-    \\ pop_assum mp_tac \\ rw[word_bit_thm] \\ fs[]
-    \\ rfs[word_bit_test] )
-  >- (
-    rpt_drule memory_rel_Word64_IMP
-    \\ rpt_drule memory_rel_tail \\ strip_tac
-    \\ rpt_drule memory_rel_Block_IMP \\ strip_tac
-    \\ strip_tac
-    \\ rveq \\ fs[] \\ rveq \\ fs[] \\ rveq \\ fs[]
-    \\ fs[get_addr_0] )
-  >- (
-    rpt_drule memory_rel_Block_IMP \\ strip_tac
-    \\ imp_res_tac memory_rel_tail
-    \\ rpt_drule memory_rel_Block_IMP \\ strip_tac
-    \\ clean_tac
-    \\ qmatch_asmsub_rename_tac`Word w`
-    \\ reverse(Cases_on`w ' 0` \\ fs[])
-    >- (
-      fs[word_mul_n2w]
-      \\ fs[X_LT_DIV] \\ rfs[] \\ fs[])
-    \\ fs[] \\ rveq \\ fs[] \\ rveq \\ fs[]
-    \\ imp_res_tac encode_header_tag_mask \\ fs[]
-    \\ fs[encode_header_def]
-    \\ fs[X_LT_DIV,LEFT_ADD_DISTRIB] \\ rfs[] \\ rveq
-    \\ `LENGTH l < dimword(:'a) ∧ LENGTH l' < dimword(:'a)`
-    by (
-      metis_tac[dimword_def,bitTheory.EXP_SUB_LESS_EQ,LESS_LESS_EQ_TRANS] )
-    \\ fs[]
-    \\ AP_TERM_TAC
-    \\ simp[LIST_EQ_REWRITE,EL_MAP]
-    \\ fs[] \\ qx_gen_tac`i` \\ strip_tac
-    \\ clean_tac
-    \\ qhdtm_x_assum`memory_rel`kall_tac
-    \\ rpt_drule memory_rel_Block_MEM \\ rw[]
-    \\ qmatch_assum_abbrev_tac`memory_rel _ _ _ _ _ _ _ _ (e1::b1::b2::vars)`
-    \\ `memory_rel c be ts refs sp st m dm (b2::e1::vars)`
-    by (
-      qhdtm_x_assum`memory_rel`mp_tac
-      \\ match_mp_tac memory_rel_rearrange
-      \\ rw[] \\ rw[] )
-    \\ unabbrev_all_tac
-    \\ `i < LENGTH l'` by simp[]
-    \\ rpt_drule memory_rel_Block_MEM \\ strip_tac
-    \\ rpt_drule memory_rel_swap \\ strip_tac
-    \\ rpt_drule memory_rel_tail \\ strip_tac
-    \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS,LIST_REL_EL_EQN]
-    \\ first_x_assum(match_mp_tac o MP_CANON) \\ simp[]
-    \\ rpt_drule memory_rel_swap \\ strip_tac
-    \\ asm_exists_tac \\ rw[] )
-  >- (
-    fs[memory_rel_def,word_ml_inv_def,abs_ml_inv_def,bc_stack_ref_inv_def]
-    \\ fs[v_inv_def] \\ rveq
-    \\ fs[word_addr_def]
-    \\ every_case_tac \\ fs[] \\ rveq \\ fs[word_addr_def])
-  >- (
-    rpt_drule memory_rel_RefPtr_IMP
-    \\ rpt_drule memory_rel_tail \\ strip_tac
-    \\ rpt_drule memory_rel_Block_IMP \\ strip_tac
-    \\ strip_tac
-    \\ fs[] \\ rveq \\ fs[] \\ rfs [] )*)
-QED
-*)
-
 Theorem do_eq_list_F_IMP_MEM[local]:
     !l l'.
       do_eq_list refs l l' = Eq_val F /\ LENGTH l' = LENGTH l ==>
@@ -11403,19 +11299,6 @@ End
 
 val elements_list_ind = theorem"elements_list_ind";
 
-(*
-Theorem elements_list_size_mono = Q.prove(
-  `∀ls x xs y. ls = x::xs ==> elements_list (x::xs) ==> MEM y xs ==> vb_size x < vb_size y`,
-  ho_match_mp_tac elements_list_ind
-  \\ rw[] \\ fs[vb_size_def]
-  \\ imp_res_tac SUM_MAP_MEM_bound
-  \\ cheat
-  (*\\ first_x_assum(qspec_then`vb_size`mp_tac)
-  \\ srw_tac[ETA_ss][] \\ fs[] \\ res_tac
-  \\ fsrw_tac[ETA_ss][] \\ decide_tac*))
-  |> SIMP_RULE std_ss []
-*)
-
 Theorem memory_rel_depth_limit:
    ∀v w vars.
     memory_rel c b ts refs sp st m dm ((v,(w:'a word_loc))::vars) ∧
@@ -11452,6 +11335,40 @@ Proof
   \\ metis_tac[CONS_APPEND,APPEND_ASSOC]
 QED
 
+Theorem not_all_distinct_map_snd[local]:
+  ~ ALL_DISTINCT (MAP SND xs) ⇒
+  ∃xs1 xs2 xs3 x y1 y2. xs = xs1 ++ [(y1,x)] ++ xs2 ++ [(y2,x)] ++ xs3
+Proof
+  Induct_on ‘xs’ \\ fs [] \\ rw [] \\ gvs []
+  >- (PairCases_on ‘h’ \\ gvs []
+      \\ qexists_tac ‘[]’ \\ fs []
+      \\ gvs [MEM_MAP,EXISTS_PROD]
+      \\ gvs [MEM_SPLIT]
+      \\ irule_at Any EQ_REFL)
+  \\ qexists_tac ‘h::xs1’ \\ fs []
+  \\ irule_at Any EQ_REFL
+QED
+
+Theorem memory_rel_Block_ptr_eq:
+  memory_rel c be ts refs sp st m (dm:'a word set)
+    ((Block t1 a1 b1,x) :: (Block t2 a2 b2,x) :: rest) ∧
+  good_dimindex (:'a) ⇒
+  Block t1 a1 b1 = Block t2 a2 b2
+Proof
+  cheat (* might need addition of a conjnuct to bc_stack_ref_inv_def *)
+QED
+
+Theorem elements_list_all_blocks:
+  elements_list xs ∧ xs ≠ [] ∧ (∃t a b. HD xs = Block t a b) ⇒
+  EVERY (λx. ∃t a b. x = Block t a b) xs ∧
+  SORTED (λx y. vb_size x < vb_size y) xs
+Proof
+  Induct_on ‘xs’ \\ fs []
+  \\ Cases_on ‘xs’ \\ fs []
+  \\ gen_tac \\ strip_tac
+  \\ gvs [vb_size_def,MAP_APPEND,SUM_APPEND]
+QED
+
 Theorem memory_rel_elements_list_distinct_lemma[local]:
    ∀vs vars tag a b.
      memory_rel c be ts refs sp st m (dm:'a word set) vars ∧
@@ -11462,49 +11379,29 @@ Theorem memory_rel_elements_list_distinct_lemma[local]:
      ⇒
      ALL_DISTINCT (MAP SND vars)
 Proof
-  cheat
-  (*ho_match_mp_tac elements_list_ind
-  \\ rw[] \\ rw[]
-  \\ Cases_on`vars` \\ fs[]
-  \\ qmatch_assum_rename_tac`_ :: _ = MAP FST l1` \\ rveq
-  \\ Cases_on`l1` \\ fs[] \\ rveq
-  \\ qmatch_assum_rename_tac`Block _ _ _ = FST p`
-  \\ Cases_on`p` \\ fs[]
-  \\ qmatch_assum_rename_tac`MEM (FST p) ls`
-  \\ Cases_on`p` \\ fs[] \\ rveq
-  \\ qmatch_asmsub_rename_tac`(Block ts2 t ls,wb)`
-  \\ qmatch_asmsub_rename_tac`Block _ t ls :: MAP FST l1`
-  \\ first_x_assum(qspec_then`(Block ts2 t ls,wb)::l1`mp_tac)
-  \\ simp[]
-  \\ rpt_drule memory_rel_tail \\ simp[]
-  \\ strip_tac \\ strip_tac
-  \\ qmatch_asmsub_rename_tac`(_,w)::(Block _ _ _,_)::_`
-  \\ Cases_on`w = wb` \\ fs[]
-  >- (
-    rpt_drule memory_rel_pointer_eq_size
-    \\ simp[vb_size_def]
-    \\ imp_res_tac SUM_MAP_MEM_bound
-    \\ first_x_assum(qspec_then`vb_size`mp_tac)
-    \\ srw_tac[ETA_ss][]
-    \\ strip_tac \\ fs[] )
-  \\ simp[MEM_MAP,FORALL_PROD]
-  \\ rpt strip_tac
-  \\ rename1`MEM (v',w) l1`
-  \\ `memory_rel c be ts refs sp st m dm ((v,w)::(v',w)::l1)`
-  by (
-    last_x_assum mp_tac
-    \\ match_mp_tac memory_rel_rearrange
-    \\ rw[] \\ rw[] )
-  \\ rpt_drule memory_rel_pointer_eq_size
-  \\ imp_res_tac elements_list_size_mono
-  \\ first_x_assum(qspec_then`v'`mp_tac)
-  \\ simp[MEM_MAP,EXISTS_PROD]
-  \\ impl_tac >- metis_tac[]
-  \\ simp[vb_size_def]
-  \\ srw_tac[ETA_ss][]
-  \\ imp_res_tac SUM_MAP_MEM_bound
-  \\ first_x_assum(qspec_then`vb_size`mp_tac)
-  \\ simp[]*)
+  rw []
+  \\ CCONTR_TAC
+  \\ dxrule not_all_distinct_map_snd
+  \\ strip_tac \\ gvs []
+  \\ ‘memory_rel c be ts refs sp st m dm [(y1,x);(y2,x)]’ by
+    (last_x_assum mp_tac
+     \\ match_mp_tac memory_rel_rearrange
+     \\ gvs [SF DNF_ss])
+  \\ last_x_assum kall_tac
+  \\ ‘∃t1 a1 b1 t2 a2 b2.
+        y1 = Block t1 a1 b1 ∧
+        y2 = Block t2 a2 b2 ∧
+        vb_size y1 < vb_size y2’ by
+   (drule elements_list_all_blocks
+    \\ impl_tac >- gvs []
+    \\ gvs [] \\ rw []
+    \\ pop_assum mp_tac
+    \\ DEP_REWRITE_TAC [SORTED_APPEND]
+    \\ conj_tac >- gvs [transitive_def]
+    \\ gvs [SF DNF_ss])
+  \\ gvs []
+  \\ drule_all memory_rel_Block_ptr_eq
+  \\ strip_tac \\ gvs []
 QED
 
 Theorem memory_rel_elements_list_distinct:
@@ -11633,8 +11530,9 @@ Definition vb_eq_size_def:
   (vb_eq_size _ (Number n1) (Number n2) = SOME (1,n1=n2)) ∧
   (vb_eq_size _ (Word64 w1) (Word64 w2) = SOME (1,w1=w2)) ∧
   (vb_eq_size _ _ _ = NONE) ∧
-  (vb_eq_size_list _ [] _ = SOME (0,T)) ∧
-  (vb_eq_size_list _ _ [] = SOME (0,T)) ∧
+  (vb_eq_size_list _ [] [] = SOME (0,T)) ∧
+  (vb_eq_size_list _ [] _ = SOME (0,F)) ∧
+  (vb_eq_size_list _ _ [] = SOME (0,F)) ∧
   (vb_eq_size_list refs (v1::vs1) (v2::vs2) =
      case vb_eq_size refs v1 v2 of
      | NONE => NONE
@@ -11659,13 +11557,13 @@ Proof
 QED
 
 Theorem memory_rel_limit:
-   ∀v w.
-   memory_rel c be ts refs sp st m dm
-     ((v1,w1:'a word_loc)::(v2,w2:'a word_loc)::vars) ∧
-   vb_eq_size refs v1 v2 = SOME (n,b) ∧
-   good_dimindex (:'a)
-   ==>
-   n * dimword (:'a) < MustTerminate_limit (:'a) - dimword (:'a)
+  ∀v w.
+    memory_rel c be ts refs sp st m dm
+      ((v1,w1:'a word_loc)::(v2,w2:'a word_loc)::vars) ∧
+    vb_eq_size refs v1 v2 = SOME (n,b) ∧
+    good_dimindex (:'a)
+    ==>
+    n * dimword (:'a) < MustTerminate_limit (:'a) - dimword (:'a)
 Proof
   rw[]
   \\ `n ≤ dimword (:α) ** (v_depth v1 + 1)` by
@@ -12246,9 +12144,22 @@ Proof
 QED
 
 Theorem do_eq_IFF_vb_eq_size:
-  do_eq refs v1 v2 = Eq_val b ⇔ ∃n. vb_eq_size refs v1 v2 = SOME (n,b)
+  (∀(refs: α ref sptree$num_map) v1 v2 b.
+     do_eq refs v1 v2 = Eq_val b ⇔
+       ∃n. vb_eq_size refs v1 v2 = SOME (n,b)) ∧
+  (∀(refs: α ref sptree$num_map) v1 v2 b.
+     do_eq_list refs v1 v2 = Eq_val b ⇔
+       ∃n. vb_eq_size_list refs v1 v2 = SOME (n,b))
 Proof
-  cheat
+  ho_match_mp_tac do_eq_ind
+  \\ rpt strip_tac
+  \\ simp [do_eq_def, vb_eq_size_def]
+  \\ rpt strip_tac
+  \\ gvs [AllCaseEqs()]
+  \\ eq_tac \\ rw [] \\ gvs []
+  \\ gvs [EXISTS_PROD]
+  >- (PairCases_on ‘z’ \\ gvs [])
+  >- metis_tac []
 QED
 
 Theorem do_eq_IMP_vb_eq_size:
