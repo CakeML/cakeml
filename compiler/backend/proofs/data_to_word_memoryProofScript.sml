@@ -11153,6 +11153,7 @@ Proof
   \\ fs[word_bit_test,Smallnum_bits]
 QED
 
+(*
 Theorem memory_rel_pointer_eq_size:
    ∀v1 v2 w.
    good_dimindex (:'a) ∧
@@ -11254,6 +11255,7 @@ Proof
     \\ strip_tac
     \\ fs[] \\ rveq \\ fs[] \\ rfs [] )*)
 QED
+*)
 
 Theorem do_eq_list_F_IMP_MEM[local]:
     !l l'.
@@ -11401,6 +11403,7 @@ End
 
 val elements_list_ind = theorem"elements_list_ind";
 
+(*
 Theorem elements_list_size_mono = Q.prove(
   `∀ls x xs y. ls = x::xs ==> elements_list (x::xs) ==> MEM y xs ==> vb_size x < vb_size y`,
   ho_match_mp_tac elements_list_ind
@@ -11411,6 +11414,7 @@ Theorem elements_list_size_mono = Q.prove(
   \\ srw_tac[ETA_ss][] \\ fs[] \\ res_tac
   \\ fsrw_tac[ETA_ss][] \\ decide_tac*))
   |> SIMP_RULE std_ss []
+*)
 
 Theorem memory_rel_depth_limit:
    ∀v w vars.
@@ -11521,25 +11525,23 @@ Proof
 QED
 
 Theorem memory_rel_elements_list_words:
-   ∀vs vars.
-   memory_rel c be ts refs sp st m (dm:'a word set) vars ∧
-   elements_list vs ∧ vs = MAP FST vars ∧
-   good_dimindex(:'a)
-   ⇒ vars ≠ [] ==> EVERY isWord (TL (MAP SND vars))
+  ∀vs vars.
+    memory_rel c be ts refs sp st m (dm:'a word set) vars ∧
+    elements_list vs ∧ vs = MAP FST vars ∧
+    good_dimindex(:'a)
+    ⇒ vars ≠ [] ==> EVERY isWord (TL (MAP SND vars))
 Proof
-  cheat
-  (*ho_match_mp_tac elements_list_ind
+  ho_match_mp_tac elements_list_ind
   \\ rw[] \\ rw[] \\ Cases_on`vars` \\ fs[]
   \\ qmatch_assum_rename_tac`_ :: _ = MAP FST l1` \\ rveq
   \\ Cases_on`l1` \\ fs[] \\ rveq
   \\ qmatch_assum_rename_tac`Block _ _ _ = FST p`
   \\ Cases_on`p` \\ fs[]
-  \\ qmatch_assum_rename_tac`MEM (FST p) ls`
-  \\ Cases_on`p` \\ fs[] \\ rveq
+  \\ Cases_on`h` \\ fs[] \\ rveq
   \\ rpt_drule memory_rel_tail \\ strip_tac
   \\ rpt_drule memory_rel_Block_IMP \\ strip_tac
   \\ rw[isWord_def]
-  \\ first_x_assum old_drule \\ simp[]*)
+  \\ first_x_assum old_drule \\ simp[]
 QED
 
 Theorem memory_rel_depth_size_limit:
@@ -11631,7 +11633,8 @@ Definition vb_eq_size_def:
   (vb_eq_size _ (Number n1) (Number n2) = SOME (1,n1=n2)) ∧
   (vb_eq_size _ (Word64 w1) (Word64 w2) = SOME (1,w1=w2)) ∧
   (vb_eq_size _ _ _ = NONE) ∧
-  (vb_eq_size_list _ [] [] = SOME (0,T)) ∧
+  (vb_eq_size_list _ [] _ = SOME (0,T)) ∧
+  (vb_eq_size_list _ _ [] = SOME (0,T)) ∧
   (vb_eq_size_list refs (v1::vs1) (v2::vs2) =
      case vb_eq_size refs v1 v2 of
      | NONE => NONE
@@ -11641,6 +11644,19 @@ Definition vb_eq_size_def:
        | NONE => NONE
        | SOME (m,b) => SOME (m+n+1, b)))
 End
+
+Theorem vb_eq_size_IMP_vb_size:
+  (∀(refs :α ref sptree$num_map) v1 v2 n b.
+    vb_eq_size refs v1 v2 = SOME (n,b) ⇒ n ≤ vb_size v1) ∧
+  (∀(refs :α ref sptree$num_map) v1 v2 n b.
+    vb_eq_size_list refs v1 v2 = SOME (n,b) ⇒ n ≤ SUM (MAP vb_size v1) + LENGTH v1)
+Proof
+  ho_match_mp_tac vb_eq_size_ind
+  \\ simp [vb_eq_size_def,vb_size_def]
+  \\ rw [] \\ gvs []
+  >- (PairCases_on ‘z’ \\ gvs [SF ETA_ss])
+  \\ gvs [AllCaseEqs()]
+QED
 
 Theorem memory_rel_limit:
    ∀v w.
@@ -11652,8 +11668,11 @@ Theorem memory_rel_limit:
    n * dimword (:'a) < MustTerminate_limit (:'a) - dimword (:'a)
 Proof
   rw[]
-  \\ `n ≤ dimword (:α) ** (v_depth v1 + 1)` by cheat
-  (*\\ rpt_drule memory_rel_depth_size_limit \\ rw[]*)
+  \\ `n ≤ dimword (:α) ** (v_depth v1 + 1)` by
+    (irule LESS_EQ_TRANS
+     \\ drule_all memory_rel_depth_size_limit
+     \\ disch_then $ irule_at Any
+     \\ imp_res_tac vb_eq_size_IMP_vb_size)
   \\ `memory_rel c be ts refs sp st m dm [(v1,w1)]`
   by (
     qhdtm_x_assum`memory_rel`mp_tac
@@ -12042,13 +12061,14 @@ Proof
 QED
 
 Theorem memory_rel_Loc:
-   memory_rel c be ts refs sp st m dm ((v1,Loc n k)::vars) ==> v1 = CodePtr n
+   memory_rel c be ts refs sp st m dm ((v1,Loc n k)::vars) ∧
+   (∀ptr. v1 ≠ RefPtr F ptr) ⇒
+   v1 = CodePtr n
 Proof
-  cheat
-  (*fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
+  fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
       bc_stack_ref_inv_def] \\ rw []
   \\ Cases_on `v1` \\ fs [v_inv_def,word_addr_def]
-  \\ every_case_tac \\ fs [] \\ rveq \\ fs [word_addr_def]*)
+  \\ every_case_tac \\ fs [] \\ rveq \\ fs [word_addr_def]
 QED
 
 Theorem memory_rel_ByteArray_words_IMP:
@@ -12225,21 +12245,34 @@ Proof
   rw[MAX_DEF]
 QED
 
-Theorem memory_rel_pointer_vb_eq_size:
-  ∀v1 v2 w b.
-    memory_rel c be ts refs sp st m dm ((v1,w)::(v2,w)::vars) ∧
-    good_dimindex (:α) ∧ vb_eq_size refs v1 v2 = SOME (n,b) ⇒
-      b
+Theorem do_eq_IFF_vb_eq_size:
+  do_eq refs v1 v2 = Eq_val b ⇔ ∃n. vb_eq_size refs v1 v2 = SOME (n,b)
 Proof
   cheat
 QED
 
-Theorem memory_rel_ptr_vb_eq:
-   memory_rel c be ts refs sp st m dm ((v1,x1)::(v2,x1:'a word_loc)::vars) /\
-   vb_eq_size refs v1 v2 = SOME (n,b) /\
-   good_dimindex (:'a) ==> b
+Theorem do_eq_IMP_vb_eq_size:
+  do_eq refs v1 v2 = Eq_val b ⇒
+    ∃n. vb_eq_size refs v1 v2 = SOME (n,b)
 Proof
-  cheat
+  simp [do_eq_IFF_vb_eq_size]
+QED
+
+Theorem vb_eq_size_IMP_do_eq:
+  vb_eq_size refs v1 v2 = SOME (n,b) ⇒
+  do_eq refs v1 v2 = Eq_val b
+Proof
+  metis_tac [do_eq_IFF_vb_eq_size]
+QED
+
+Theorem memory_rel_ptr_vb_eq:
+  memory_rel c be ts refs sp st m dm ((v1,x1)::(v2,x1:'a word_loc)::vars) /\
+  vb_eq_size refs v1 v2 = SOME (n,b) /\
+  good_dimindex (:'a) ==> b
+Proof
+  rw []
+  \\ drule_then assume_tac vb_eq_size_IMP_do_eq
+  \\ drule_all memory_rel_ptr_eq \\ gvs []
 QED
 
 Theorem word_eq_thm0:
@@ -12525,14 +12558,25 @@ Proof
   \\ Cases_on `vb_eq_size refs v1 v2` \\ fs []
   \\ Cases_on `x` \\ fs []
   \\ `?c1. m w1 = Word c1` by
-   (Cases_on `m w1` \\ fs [] \\ imp_res_tac memory_rel_Loc
-    \\ rveq \\ fs [vb_eq_size_def])
+   (Cases_on `m w1` \\ fs []
+    \\ drule memory_rel_Loc
+    \\ impl_tac
+    >-
+     (CCONTR_TAC \\ gvs []
+      \\ fs [oneline vb_eq_size_def, AllCaseEqs()])
+    \\ strip_tac \\ fs [vb_eq_size_def])
   \\ `?c2. m w2 = Word c2` by
    (`memory_rel c be ts refs sp st m dm [(v2,m w2)]` by
      (first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
       \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)
-    \\ Cases_on `m w2` \\ fs [] \\ imp_res_tac memory_rel_Loc
-    \\ rveq \\ Cases_on `v1` \\ fs [vb_eq_size_def])
+    \\ Cases_on `m w2` \\ fs []
+    \\ drule memory_rel_Loc
+    \\ impl_tac
+    >-
+     (CCONTR_TAC \\ gvs []
+      \\ fs [oneline vb_eq_size_def, AllCaseEqs()])
+    \\ strip_tac \\ fs [vb_eq_size_def]
+    \\ fs [oneline vb_eq_size_def, AllCaseEqs()])
   \\ `memory_rel c be ts refs sp st m dm ((v1,Word c1)::(v2,Word c2)::vars)` by
    (first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
     \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)
@@ -12564,14 +12608,6 @@ Proof
   \\ PURE_ONCE_REWRITE_TAC[MAX_COMM]
   \\ fs[ETA_THM]
   \\ fs[LEFT_ADD_DISTRIB]
-QED
-
-(* TODO(Nick): Looks fine *)
-Theorem do_eq_IMP_vb_eq_size:
-  do_eq refs v1 v2 = Eq_val b ⇒
-    ∃n. vb_eq_size refs v1 v2 = SOME (n,b)
-Proof
-  cheat
 QED
 
 Theorem word_eq_thm:
