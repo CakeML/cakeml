@@ -1141,6 +1141,7 @@ Resume data_compile_correct[Call]:
   \\ imp_res_tac s_key_eq_handler_eq_IMP
   \\ full_simp_tac(srw_ss())[jump_exc_inc_clock_EQ_NONE] \\ metis_tac []))
 QED
+
 Finalise data_compile_correct;
 
 

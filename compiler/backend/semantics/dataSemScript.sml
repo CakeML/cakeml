@@ -394,9 +394,14 @@ Definition stack_consumed_def:
      if allowed_op p (LENGTH vs) then SOME 0 else NONE)
 End
 
+Definition no_thunks_in_refs_def:
+  no_thunks_in_refs refs ⇔ ∀k e v. lookup k refs ≠ SOME (Thunk e v)
+End
+
 Overload do_space_safe =
   ``λop vs ^s. if op_space_reset op
               then s.safe_for_space
+                   ∧ no_thunks_in_refs s.refs
                    ∧ size_of_heap_args vs s
                        + space_consumed s op vs
                      <= s.limits.heap_limit
