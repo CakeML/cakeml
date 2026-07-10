@@ -4589,6 +4589,14 @@ Definition init_store_ok_def:
       byte_aligned curr
 End
 
+Theorem blocks_unique_empty[local]:
+  blocks_unique (all_vs LN [])
+Proof
+  qsuff_tac ‘all_vs LN [] = {}’
+  >- rw [blocks_unique_def]
+  \\ gvs [all_vs_def, v_all_vs_def]
+QED
+
 Theorem state_rel_init:
     t.ffi = ffi ∧ t.handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
     code_rel c code t.code ∧
@@ -4645,7 +4653,7 @@ Proof
        unused_space_inv_def,bc_stack_ref_inv_def,FDOM_EQ_EMPTY]
     \\ fs [heap_expand_def,heap_lookup_def]
     \\ rw [] \\ fs [isForwardPointer_def,bc_ref_inv_def,reachable_refs_def,
-                    gc_kind_inv_def,data_up_to_def,be_ok_def]
+                    gc_kind_inv_def,data_up_to_def,be_ok_def,blocks_unique_empty]
     \\ fs [heap_split_0]
     \\ fs [gen_state_ok_def,EVERY_MAP,gen_start_ok_def,heap_split_0]
     \\ fs [heap_split_def,el_length_def] \\ every_case_tac
