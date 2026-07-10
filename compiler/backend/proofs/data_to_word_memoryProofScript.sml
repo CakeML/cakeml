@@ -429,11 +429,11 @@ Definition all_vs_def:
 End
 
 Definition blocks_unique_def:
-  blocks_unique vs =
+  blocks_unique ts vs =
     ∀t a1 xs1 a2 xs2.
       Block t a1 xs1 ∈ vs ∧ xs1 ≠ [] ∧
       Block t a2 xs2 ∈ vs ∧ xs2 ≠ [] ⇒
-      a1 = a2 ∧ xs1 = xs2
+      a1 = a2 ∧ xs1 = xs2 ∧ t < ts
 End
 
 (* THIS IS IMPORTANT *)
@@ -445,7 +445,7 @@ Definition bc_stack_ref_inv_def:
       INJ (FAPPLY tf) (FDOM tf) { a | isSomeDataElement (heap_lookup a heap) } /\
       FDOM tf SUBSET (all_ts refs stack) /\
       FDOM tf SUBSET { n | n < ts } /\ be_ok conf.be be /\
-      blocks_unique (all_vs refs stack) /\
+      blocks_unique ts (all_vs refs stack) /\
       EVERY2 (\v x. v_inv conf v refs (x,f,tf,heap)) stack roots /\
       !n.
         reachable_refs stack refs n ∧
@@ -3017,6 +3017,32 @@ Proof
   metis_tac [v_inv_eq, v_inv_tf_restrict_lemma]
 QED
 
+Theorem v_all_vs_append:
+  ∀x y. v_all_vs (x ++ y) = v_all_vs x ++ v_all_vs y
+Proof
+  ho_match_mp_tac (theorem "v_all_vs_ind")
+  \\ rw [v_all_vs_def]
+QED
+
+Theorem all_vs_Block:
+  all_vs refs (Block t tag xs :: ys) =
+  Block t tag xs INSERT all_vs refs (xs ++ ys)
+Proof
+  fs [all_vs_def, v_all_vs_def, v_all_vs_append]
+  \\ gvs [EXTENSION]
+  \\ metis_tac []
+QED
+
+Theorem blocks_unique_cons_thm:
+  blocks_unique ts s ⇒
+  blocks_unique (ts + 1) (Block ts tag xs INSERT s)
+Proof
+  simp [blocks_unique_def]
+  \\ strip_tac \\ rpt gen_tac
+  \\ strip_tac \\ gvs []
+  \\ metis_tac [DECIDE “n < m ⇒ n < m + 1:num”, DECIDE “~ (n < n :num)”]
+QED
+
 Theorem cons_thm_alt:
    abs_ml_inv conf (xs ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
     LENGTH xs < sp /\ xs <> [] ==>
@@ -3089,7 +3115,8 @@ Proof
     \\ metis_tac [])
   THEN1 (rw [FDOM_FUPDATE,SUBSET_INSERT_RIGHT,all_ts_cons])
   THEN1 (fs [] \\ fs [SUBSET_DEF] \\ rw [] \\ res_tac \\ fs [])
-  THEN1 cheat
+  THEN1
+   (simp [all_vs_Block] \\ irule blocks_unique_cons_thm \\ simp [])
   THEN1
    (full_simp_tac (srw_ss()) [v_inv_def]
     \\ full_simp_tac std_ss [BlockRep_def,el_length_def]
@@ -3166,7 +3193,9 @@ Proof
   \\ fs [all_ts_cons,SUBSET_INSERT_RIGHT]
   \\ full_simp_tac (srw_ss()) [v_inv_def]
   \\ conj_tac
-  >- cheat
+  >- (simp [all_vs_Block]
+      \\ gvs [blocks_unique_def]
+      \\ metis_tac [])
   \\ rpt strip_tac \\ sg `reachable_refs stack refs n` \\ res_tac
   \\ full_simp_tac std_ss [reachable_refs_def]
   \\ Cases_on `x = Block 0 tag []` \\ full_simp_tac std_ss []
@@ -6970,13 +6999,6 @@ Proof
   \\ fs [heap_split_def,el_length_def] \\ rfs []
   \\ rpt (CASE_TAC \\ fs [])
   \\ rveq \\ fs [isRef_def]
-QED
-
-Theorem v_all_vs_append:
-  ∀x y. v_all_vs (x ++ y) = v_all_vs x ++ v_all_vs y
-Proof
-  ho_match_mp_tac (theorem "v_all_vs_ind")
-  \\ rw [v_all_vs_def]
 QED
 
 Theorem memory_rel_Update':
@@ -11391,8 +11413,8 @@ Proof
   \\ Cases_on ‘b1 = []’ >- cheat
   \\ ‘b2 ≠ []’ by cheat
   \\ gvs [blocks_unique_def]
-  \\ first_x_assum irule \\ fs []
-  \\ qexists ‘t1’
+  \\ last_x_assum $ qspecl_then [‘t1’,‘a1’,‘b1’,‘a2’,‘b2’] mp_tac
+  \\ reverse impl_tac >- simp []
   \\ simp [IN_all_vs_HD]
   \\ irule IN_all_vs_TL
   \\ simp [IN_all_vs_HD]

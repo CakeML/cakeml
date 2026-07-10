@@ -4590,7 +4590,7 @@ Definition init_store_ok_def:
 End
 
 Theorem blocks_unique_empty[local]:
-  blocks_unique (all_vs LN [])
+  blocks_unique v (all_vs LN [])
 Proof
   qsuff_tac ‘all_vs LN [] = {}’
   >- rw [blocks_unique_def]
