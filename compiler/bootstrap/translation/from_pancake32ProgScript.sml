@@ -305,12 +305,22 @@ val _ = translate $ spec32 mk_ctxt_def;
 
 val _ = translate $ spec32 comp_func_def;
 
-val _ = translate $ make_funcs_def;
+val r = translate $ make_funcs_def;
 
+Theorem pan_to_crep_make_funcs_side[local]:
+  !c. pan_to_crep_make_funcs_side c
+Proof
+  PURE_REWRITE_TAC [fetch "-" "pan_to_crep_make_funcs_side_def"]
+  >> Induct
+  >> simp [Once $ fetch "-" "misc_map3_side_def"]
+QED
+
+val _ = pan_to_crep_make_funcs_side |> update_precondition;
+  
 val _ = translate $ INST_TYPE[alpha|->“:32”,
                               beta|->“:mlstring”,
                               gamma|->“:(mlstring # shape) list”,
-                              delta|->“:32”] get_eids_def;
+                              delta|->“:shape”] get_eids_def;
 
 val _ = translate $ spec32 compile_to_crep_def;
 
