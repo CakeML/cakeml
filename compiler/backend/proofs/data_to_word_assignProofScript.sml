@@ -6195,10 +6195,10 @@ Proof
           dataSemTheory.cut_state_opt_def]
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
   \\ fs [assign_def] \\ fs [do_app_AllocThunk] \\ fs[do_app]
-  \\ Cases_on `consume_space (LENGTH vals + 1) s` \\ fs [] \\ rveq
+  \\ namedCases_on `consume_space (LENGTH vals + 1) s` ["", "s1"] \\ fs [] \\ rveq
   \\ Cases_on `vals` \\ gvs []
   \\ Cases_on `t'` \\ gvs []
-  \\ Cases_on `bad_thunk_update ev h x'.refs` \\ gvs []
+  \\ Cases_on `bad_thunk_update ev h s1.refs` \\ gvs []
   \\ gvs [dataLangTheory.op_requires_names_def,
           dataLangTheory.op_space_reset_def]
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ clean_tac
@@ -15132,7 +15132,7 @@ Proof
   \\ drule (memory_rel_get_vars_IMP |> GEN_ALL)
   \\ disch_then drule \\ simp []
   \\ rpt strip_tac
-  \\ ‘∃v. h = Word v’ by (imp_res_tac memory_rel_RefPtr_IMP \\ simp [])
+  \\ ‘∃v. h = Word v’ by (imp_res_tac memory_rel_RefPtr_T_IMP \\ simp [])
   \\ gvs [wordSemTheory.get_vars_def,AllCaseEqs()]
   \\ rename [‘_ = SOME (Word www)’]
   \\ eval_tac \\ fs [state_rel_thm,option_le_max_right]

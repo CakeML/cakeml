@@ -147,10 +147,10 @@ Proof
   \\ disch_then old_drule
   \\ disch_then old_drule
   \\ REWRITE_TAC[GSYM APPEND_ASSOC]
-  \\ qmatch_goalsub_abbrev_tac‘v1 ++ (rr ++ ls)’
-  \\ qmatch_abbrev_tac‘P (v1 ++ (rr ++ ls)) ⇒ _’
+  \\ qmatch_goalsub_abbrev_tac‘vv ++ (rr ++ ls)’
+  \\ qmatch_abbrev_tac‘P (vv ++ (rr ++ ls)) ⇒ _’
   \\ strip_tac
-  \\ ‘P (rr ++ v1 ++ ls)’
+  \\ ‘P (rr ++ vv ++ ls)’
   by (
     unabbrev_all_tac
     \\ match_mp_tac (GEN_ALL (MP_CANON word_ml_inv_rearrange))

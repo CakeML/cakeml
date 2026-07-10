@@ -5771,40 +5771,6 @@ Proof
   \\ full_simp_tac(srw_ss())[MEM_toAList,lookup_inter_alt]
 QED
 
-Theorem state_rel_get_var_RefPtr:
-   state_rel c l1 l2 s t v1 locs ∧
-   get_var n s.locals = SOME (RefPtr b p) ⇒
-   ∃f u. get_var (adjust_var n) t = SOME (Word (get_addr c (FAPPLY f p) u))
-Proof
-  rw[]
-  \\ imp_res_tac state_rel_get_var_IMP
-  \\ fs[state_rel_def,wordSemTheory.get_var_def,dataSemTheory.get_var_def]
-  \\ full_simp_tac std_ss [Once (GSYM APPEND_ASSOC)]
-  \\ old_drule (GEN_ALL word_ml_inv_lookup)
-  \\ disch_then old_drule
-  \\ disch_then old_drule
-  \\ REWRITE_TAC[GSYM APPEND_ASSOC]
-  \\ qmatch_goalsub_abbrev_tac`vv ++ (rr ++ ls)`
-  \\ qmatch_abbrev_tac`P (vv ++ (rr ++ ls)) ⇒ _`
-  \\ strip_tac
-  \\ `P (rr ++ vv ++ ls)`
-  by (
-    unabbrev_all_tac
-    \\ match_mp_tac (GEN_ALL (MP_CANON word_ml_inv_rearrange))
-    \\ ONCE_REWRITE_TAC[CONJ_COMM]
-    \\ asm_exists_tac
-    \\ simp[] \\ metis_tac[] )
-  \\ pop_assum mp_tac
-  \\ pop_assum kall_tac
-  \\ simp[Abbr`P`,Abbr`rr`,word_ml_inv_def]
-  \\ strip_tac \\ rveq
-  \\ fs[abs_ml_inv_def]
-  \\ fs[bc_stack_ref_inv_def]
-  \\ fs[v_inv_def]
-  \\ simp[word_addr_def]
-  \\ metis_tac[]
-QED
-
 Theorem state_rel_get_var_Block:
    state_rel c l1 l2 s t v1 locs ∧
    get_var n s.locals = SOME (Block ts tag vs) ⇒
@@ -7306,8 +7272,9 @@ QED
 Theorem soundness_size_of_gen:
   !lims (roots2:dataSem$v list) dups root_vars
    (vars:'a word_loc heap_address list) n2 r2 s2 refs c f tf heap be.
-    (!n. reachable_refs root_vars refs n ==> bc_ref_inv c n refs (f,tf,heap,be)) /\
-    LIST_REL (\v x. v_inv c v (x,f,tf,heap)) root_vars vars /\
+    (!n. reachable_refs root_vars refs n /\ n IN FDOM f ==>
+         bc_ref_inv c n refs (f,tf,heap,be)) /\
+    LIST_REL (\v x. v_inv c v refs (x,f,tf,heap)) root_vars vars /\
     PERM roots2 (dups ++ root_vars) /\
     set dups SUBSET set root_vars /\
     good_dimindex (:'a) /\
@@ -7318,7 +7285,7 @@ Theorem soundness_size_of_gen:
          !x. reachable_addresses vars heap x ==> MEM x p2
 Proof
   rpt strip_tac
-  \\ `?dvars. LIST_REL (\v x. v_inv c v (x,f,tf,heap)) dups dvars` by
+  \\ `?dvars. LIST_REL (\v x. v_inv c v refs (x,f,tf,heap)) dups dvars` by
        (irule LIST_REL_exists_witness \\ rw []
         \\ fs [SUBSET_DEF] \\ res_tac
         \\ imp_res_tac LIST_REL_MEM_IMP \\ metis_tac [])
