@@ -6910,8 +6910,7 @@ Theorem soundness_size_of:
          IMAGE ($' tf) (domain s2) SUBSET set p2 /\
          IMAGE ($' f) (domain refs DIFF domain r2) SUBSET set p2
 Proof
-  cheat
-  (*ho_match_mp_tac size_of_ind \\ rw []
+  ho_match_mp_tac size_of_ind \\ rw []
   THEN1 (fs [size_of_def] \\ rveq \\ simp [Once traverse_heap_cases]
          \\ qexists_tac `p1` \\ fs [])
   THEN1
@@ -6973,14 +6972,18 @@ Proof
     \\ qexists_tac `p1` \\ fs [])
   >~ [‘RefPtr r1 r’] >-
    (fs [size_of_def] \\ rveq
-    \\ fs [v_inv_def] \\ rveq \\ fs [CaseEq"option"] \\ rveq \\ fs []
-    >- cheat
-    >- cheat
+    \\ rename [‘lookup r refs1’]
+    \\ ‘∀k e v. lookup r refs ≠ SOME (Thunk e v)’ by cheat (* cost sem needs changing *)
+    \\ qpat_x_assum ‘v_inv _ _ _ _’ mp_tac
+    \\ simp [Once v_inv_def]
+    \\ strip_tac
+    \\ rpt var_eq_tac
+    \\ Cases_on ‘lookup r refs1’ \\ fs []
     THEN1
      (qexists_tac `p1` \\ fs [] \\ qsuff_tac `MEM (f ' r) p1`
-      THEN1 (once_rewrite_tac [traverse_heap_cases]\\ fs [])
+      THEN1 (once_rewrite_tac [traverse_heap_cases] \\ fs [])
       \\ fs [SUBSET_DEF] \\ first_x_assum match_mp_tac
-      \\ qexists_tac `r` \\ fs [] \\ fs [domain_lookup])
+      \\ qexists_tac `r` \\ fs [] \\ gvs [domain_lookup])
     \\ rename [‘lookup r refs1 = SOME v’]
     \\ reverse (Cases_on `v`) \\ fs []
     >~ [‘ByteArray b l’] >-
@@ -6999,30 +7002,8 @@ Proof
       \\ fs [SUBSET_DEF,PULL_EXISTS] \\ metis_tac [])
     >~ [‘Thunk t a’] >-
      (pairarg_tac \\ gvs [PULL_EXISTS]
-      \\ first_assum (qspec_then `r` mp_tac)
-      \\ impl_tac THEN1 fs [reachable_refs_def,get_refs_def]
-      \\ simp [bc_ref_inv_def,FLOOKUP_DEF]
-      \\ CASE_TAC \\ gvs []
-      \\ fs [subspt_lookup]
-      \\ first_assum old_drule
-      \\ strip_tac \\ fs [] \\ rveq \\ fs []
-      \\ strip_tac \\ fs []
-      \\ last_x_assum $ drule_at $ Pos $ el 2
-      \\ disch_then $ qspec_then `f ' r :: p1` mp_tac
-      \\ impl_tac THEN1
-       (fs [] \\ fs [lookup_delete,SUBSET_DEF,PULL_EXISTS]
-        \\ simp [SF DNF_ss]
-        \\ rpt strip_tac
-        \\ first_x_assum match_mp_tac
-        \\ fs [reachable_refs_def,get_refs_def]
-        \\ once_rewrite_tac [RTC_CASES1] \\ disj2_tac
-        \\ rename [`RTC _ r5 r6`] \\ qexists_tac `r5` \\ fs []
-        \\ simp [ref_edge_def,get_refs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]
-        \\ asm_exists_tac \\ fs [])
-      \\ strip_tac \\ qexists_tac `p2` \\ fs []
-      \\ rfs [lookup_len_def,el_length_def,ThunkBlock_def]
-      \\ once_rewrite_tac [traverse_heap_cases]
-      \\ rpt disj2_tac \\ fs [])
+      \\ gvs [subspt_lookup]
+      \\ res_tac \\ fs [])
     \\ rename [‘ValueArray l’]
     \\ pop_assum mp_tac
     \\ pairarg_tac \\ fs [] \\ rw []
@@ -7089,7 +7070,7 @@ Proof
   \\ fs [] \\ qexists_tac `p2` \\ simp []
   \\ once_rewrite_tac [traverse_heap_cases]
   \\ ntac 3 (disj2_tac)
-  \\ simp []*)
+  \\ simp []
 QED
 
 Theorem traverse_heap_reachable_set_mono:
