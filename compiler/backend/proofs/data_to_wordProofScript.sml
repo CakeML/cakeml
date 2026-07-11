@@ -739,6 +739,7 @@ Resume data_compile_correct[Force]:
     \\ simp [Abbr‘t8’]
     \\ drule evaluate_IMP_domain_EQ \\ fs [])))
 QED
+
 Resume data_compile_correct[Tick]:
   (fs [comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ `t.clock = s.clock` by fs [state_rel_def] \\ fs [] \\ srw_tac[][]
@@ -779,7 +780,8 @@ Resume data_compile_correct[MakeSpace]:
       \\ drule alloc_lemma
       \\ rpt (disch_then drule)
       \\ rw [] \\ fs [] \\ rfs [GSYM NOT_LESS,cut_locals_def]
-      \\ qpat_x_assum `state_rel c l1 l2 _ _ _ _` mp_tac \\ simp [state_rel_def])
+      \\ qpat_x_assum `state_rel c l1 l2 _ _ _ _` mp_tac \\ simp [state_rel_def]
+      \\ Cases_on ‘no_thunks_in_refs s.refs’ \\ gvs [])
     \\ fs [SilentFFI_def,wordSemTheory.evaluate_def,list_Seq_def,eq_eval]
     \\ fs [wordSemTheory.evaluate_def,SilentFFI_def,wordSemTheory.word_exp_def,
            wordSemTheory.set_var_def,EVAL ``read_bytearray a 0 m``,
@@ -804,7 +806,8 @@ Resume data_compile_correct[MakeSpace]:
     \\ drule_then (drule_at $ Pos last) alloc_lemma
     \\ simp []
     \\ strip_tac \\ Cases_on `res1 = SOME NotEnoughSpace`
-    >- (fs [] \\ rveq \\ rfs [add_space_def,cut_locals_def] \\ fs [GSYM NOT_LESS] \\ gvs [])
+    >- (fs [] \\ rveq \\ rfs [add_space_def,cut_locals_def] \\ fs [GSYM NOT_LESS] \\ gvs []
+        \\ Cases_on ‘no_thunks_in_refs s.refs’ \\ fs [])
     \\ `?end next hlen curr.
           FLOOKUP s1.store CurrHeap = SOME (Word curr) /\
           FLOOKUP s1.store HeapLength = SOME (Word hlen) /\

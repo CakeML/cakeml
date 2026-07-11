@@ -179,8 +179,13 @@ Definition size_of_heap_def:
       n
 End
 
+Definition no_thunks_in_refs_def:
+  no_thunks_in_refs refs ⇔ ∀k e v. lookup k refs ≠ SOME (Thunk e v)
+End
+
 Overload add_space_safe =
   ``λk ^s. s.safe_for_space
+           ∧ no_thunks_in_refs s.refs
            ∧ size_of_heap s + k <= s.limits.heap_limit``
 
 Overload heap_peak =
@@ -392,10 +397,6 @@ Definition stack_consumed_def:
   (* TODO: add more clauses as the need arises *)
   (stack_consumed sfs lims p vs =
      if allowed_op p (LENGTH vs) then SOME 0 else NONE)
-End
-
-Definition no_thunks_in_refs_def:
-  no_thunks_in_refs refs ⇔ ∀k e v. lookup k refs ≠ SOME (Thunk e v)
 End
 
 Overload do_space_safe =

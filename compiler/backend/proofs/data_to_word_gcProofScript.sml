@@ -6898,6 +6898,7 @@ Theorem soundness_size_of:
     (vars:'a word_loc heap_address list) n2 r2 s2 p1 refs.
     (∀n. reachable_refs root_vars refs n ∧ n ∈ FDOM f ⇒
          bc_ref_inv c n refs (f,tf,heap,be)) /\
+    no_thunks_in_refs refs /\
     LIST_REL (λv x. v_inv c v refs (x,f,tf,heap)) root_vars vars /\
     PERM roots root_vars /\ good_dimindex (:'a) /\
     IMAGE ($' tf) (domain s1) SUBSET set p1 /\
@@ -6973,7 +6974,7 @@ Proof
   >~ [‘RefPtr r1 r’] >-
    (fs [size_of_def] \\ rveq
     \\ rename [‘lookup r refs1’]
-    \\ ‘∀k e v. lookup r refs ≠ SOME (Thunk e v)’ by cheat (* cost sem needs changing *)
+    \\ ‘∀k e v. lookup r refs ≠ SOME (Thunk e v)’ by fs [no_thunks_in_refs_def]
     \\ qpat_x_assum ‘v_inv _ _ _ _’ mp_tac
     \\ simp [Once v_inv_def]
     \\ strip_tac
@@ -7263,6 +7264,7 @@ Theorem soundness_size_of_gen:
    (vars:'a word_loc heap_address list) n2 r2 s2 refs c f tf heap be.
     (!n. reachable_refs root_vars refs n /\ n IN FDOM f ==>
          bc_ref_inv c n refs (f,tf,heap,be)) /\
+    no_thunks_in_refs refs /\
     LIST_REL (\v x. v_inv c v refs (x,f,tf,heap)) root_vars vars /\
     PERM roots2 (dups ++ root_vars) /\
     set dups SUBSET set root_vars /\
@@ -7305,7 +7307,7 @@ Theorem state_rel_gc_gen:
       FLOOKUP st (Temp 29w) = FLOOKUP t.store (Temp 29w) /\
       FLOOKUP st AllocSize = SOME (Word (alloc_size k)) /\
       (has_space (Word ((alloc_size k):'a word)) (t with <|store := st |>) = SOME F /\
-       c.gc_kind <> None ==>
+       c.gc_kind <> None ∧ no_thunks_in_refs s.refs ==>
          !roots2 dups n2 r2 s2.
            PERM roots2 (dups ++ FLAT (MAP extract_stack s.stack) ++
                         [the_global s.global]) /\
@@ -7419,6 +7421,7 @@ Proof
     \\ fs [bc_stack_ref_inv_def]
     \\ old_drule soundness_size_of_gen
     \\ disch_then old_drule
+    \\ disch_then old_drule
     \\ disch_then (qspecl_then [`s.limits`,`roots2`,`dups`,`n2`,`r2`,`s2`] mp_tac)
     \\ impl_tac THEN1 fs []
     \\ strip_tac
@@ -7475,6 +7478,7 @@ Proof
   \\ fs [bc_stack_ref_inv_def]
   \\ old_drule soundness_size_of_gen
   \\ disch_then old_drule
+  \\ disch_then old_drule
   \\ disch_then (qspecl_then [`s.limits`,`roots2`,`dups`,`n2`,`r2`,`s2`] mp_tac)
   \\ impl_tac THEN1 fs []
   \\ strip_tac
@@ -7522,7 +7526,8 @@ Theorem gc_lemma_gen:
         pop_env (t0 with <|stack := stack; store := st; memory := m|>) = SOME t2 /\
         FLOOKUP t2.store (Temp 29w) = FLOOKUP t.store (Temp 29w) /\
         FLOOKUP t2.store AllocSize = SOME (Word (alloc_size k)) /\
-        (has_space (Word ((alloc_size k):'a word)) t2 = SOME F /\ c.gc_kind <> None ==>
+        (has_space (Word ((alloc_size k):'a word)) t2 = SOME F /\
+         c.gc_kind <> None ∧ no_thunks_in_refs s.refs ==>
            !roots2 dups n2 r2 s2.
              PERM roots2 (dups ++ toList x ++ FLAT (MAP extract_stack s.stack) ++
                           [the_global s.global]) /\
@@ -7708,7 +7713,7 @@ Theorem alloc_lemma_gen:
       ((q:'a result option),r) ==>
     (q = SOME NotEnoughSpace ==>
      r.ffi = s.ffi /\ option_le r.stack_max s.stack_max /\
-     (c.gc_kind <> None ==>
+     (c.gc_kind <> None ∧ no_thunks_in_refs s.refs ==>
         !roots2 dups n2 r2 s2.
           PERM roots2 (dups ++ toList x ++ FLAT (MAP extract_stack s.stack) ++
                        [the_global s.global]) /\
@@ -7776,7 +7781,7 @@ Proof
           \\ imp_res_tac wordPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
           \\ UNABBREV_ALL_TAC
           \\ full_simp_tac(srw_ss())[wordSemTheory.set_store_def,state_rel_def])
-      \\ qpat_x_assum `c.gc_kind <> None ==> _` mp_tac
+      \\ qpat_x_assum `c.gc_kind <> None ∧ _ ==> _` mp_tac
       \\ impl_tac THEN1 fs []
       \\ disch_then (qspecl_then [`roots2`,`dups`,`n2`,`r2`,`s2`] mp_tac)
       \\ impl_tac THEN1 fs [] \\ fs [])
@@ -7849,7 +7854,7 @@ Theorem alloc_lemma:
       ((q:'a result option),r) ==>
     (q = SOME NotEnoughSpace ⇒
      r.ffi = s.ffi /\ option_le r.stack_max s.stack_max /\
-     (c.gc_kind <> None ==>
+     (c.gc_kind <> None ∧ no_thunks_in_refs s.refs ==>
        s.limits.heap_limit < size_of_heap (cut_locals names s) + k)) ∧
     (q ≠ SOME NotEnoughSpace ⇒
      state_rel c l1 l2 (s with <|locals := x; space := k|>) r NONE locs ∧
@@ -8227,7 +8232,7 @@ Theorem AllocVar_thm_gen:
     evaluate (AllocVar c limit names,t) = (q,r) /\
     limit < dimword (:'a) DIV 8 ==>
     (q = SOME NotEnoughSpace ==> r.ffi = s.ffi /\ option_le r.stack_max s.stack_max /\
-          (c.gc_kind <> None /\ w2n w DIV 4 < limit ==>
+          (c.gc_kind <> None /\ w2n w DIV 4 < limit /\ no_thunks_in_refs s.refs ==>
              !roots2 dups n2 r2 s2.
                PERM roots2 (dups ++ toList x ++ FLAT (MAP extract_stack s.stack) ++
                             [the_global s.global]) /\
@@ -8410,7 +8415,7 @@ Theorem AllocVar_thm:
     evaluate (AllocVar c limit names,t) = (q,r) /\
     limit < dimword (:'a) DIV 8 ==>
     (q = SOME NotEnoughSpace ⇒ r.ffi = s.ffi ∧ option_le r.stack_max s.stack_max ∧
-          (c.gc_kind <> None /\ w2n w DIV 4 < limit ⇒
+          (c.gc_kind <> None /\ w2n w DIV 4 < limit /\ no_thunks_in_refs s.refs ⇒
            s.limits.heap_limit < size_of_heap (cut_locals names s) + w2n w DIV 4 + 1)) ∧
     (q ≠ SOME NotEnoughSpace ⇒
       w2n w DIV 4 < limit /\
@@ -8454,7 +8459,7 @@ Theorem AllocVar_thm_nary:
     limit < dimword (:'a) DIV 8 ==>
     (q = SOME NotEnoughSpace ==>
        r.ffi = s.ffi /\ option_le r.stack_max s.stack_max /\
-       (c.gc_kind <> None /\ i < limit ==>
+       (c.gc_kind <> None /\ i < limit /\ no_thunks_in_refs s.refs ==>
           s.limits.heap_limit <
             size_of_heap_args vals (cut_locals x' s) + (i + 1))) /\
     (q <> SOME NotEnoughSpace ==>
