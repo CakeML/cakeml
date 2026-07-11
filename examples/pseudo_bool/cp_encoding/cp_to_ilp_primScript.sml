@@ -59,8 +59,9 @@ Proof
   fs[reify_sem_def]>>
   every_case_tac
   >-intLib.ARITH_TAC>>
-  rw[encode_reif_gen_sem,lit_reify_avar_reif_gen,
+  rw[encode_reif_gen_sem_reify_avar,lit_reify_avar_reif_gen_alt,
     reify_avar_def,reify_reif_def,reify_flag_def,SF DNF_ss]>>
+  gs[]>>
   intLib.ARITH_TAC
 QED
 
@@ -79,14 +80,18 @@ Proof
     gs[EVERY_APPEND]>>
     intLib.ARITH_TAC)
   >-(
-    gs[EVERY_APPEND,encode_reif_gen_sem]>>
-    strip_tac>>
-    ntac 2 (first_x_assum drule)>>
+    gs[EVERY_APPEND]>>
+    drule_all encode_reif_gen_sem_lit>>
+    rpt strip_tac>>
+    gs[]>>
     intLib.ARITH_TAC)
   >-(
-    gs[EVERY_APPEND,encode_reif_gen_sem]>>
-    rename1 ‘P ⇔ _’>>
+    gs[EVERY_APPEND]>>
+    drule_all encode_reif_gen_sem_lit>>
+    strip_tac>>
+    qmatch_asmsub_abbrev_tac ‘P ⇔ reify_cmp_val _ _’>>
     Cases_on ‘P’>>
+    gs[]>>
     intLib.ARITH_TAC)
 QED
 
@@ -144,12 +149,13 @@ Proof
   fs[reify_sem_def,reify_avar_def,reify_flag_def]>>
   every_case_tac
   >-intLib.ARITH_TAC>>
-  rw[encode_reif_gen_sem,lit_reify_avar_reif_gen,
+  rw[encode_reif_gen_sem_reify_avar,lit_reify_avar_reif_gen_alt,
      reify_avar_def,reify_reif_def,reify_flag_def,SF DNF_ss]
   >~[‘_ ∨ _ ∨ ¬P’]
   >-(
     Cases_on ‘P’>>
     intLib.ARITH_TAC)>>
+  gs[]>>
   intLib.ARITH_TAC
 QED
 
@@ -170,13 +176,18 @@ Proof
     Cases_on ‘P’>>
     intLib.ARITH_TAC)
   >-(
-    gs[EVERY_APPEND,encode_reif_gen_sem]>>
-    strip_tac>>
+    gs[EVERY_APPEND]>>
+    drule_all encode_reif_gen_sem_lit>>
+    rpt strip_tac>>
+    gs[]>>
     intLib.ARITH_TAC)
   >-(
-    gs[EVERY_APPEND,encode_reif_gen_sem]>>
-    rename1 ‘P ⇔ _’>>
+    gs[EVERY_APPEND]>>
+    drule_all encode_reif_gen_sem_lit>>
+    strip_tac>>
+    qmatch_asmsub_abbrev_tac ‘P ⇔ reify_cmp_val _ _’>>
     Cases_on ‘P’>>
+    gs[]>>
     intLib.ARITH_TAC)
 QED
 
@@ -230,7 +241,10 @@ Proof
     fs[iconstraint_sem_def]>>
     intLib.ARITH_TAC)>>
   every_case_tac>>
-  gvs[EVERY_APPEND,encode_reif_gen_sem,cmpop_val_def]
+  gvs[EVERY_APPEND]>>
+  drule_all encode_reif_gen_sem_lit>>
+  strip_tac>>
+  gs[cmpop_val_def]
 QED
 
 (* -X ≥ Y *)

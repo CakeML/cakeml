@@ -563,32 +563,29 @@ Proof
     >- (irule lex_gte_sem_1>>gvs[])
     >- (
       irule_at Any lex_gte_sem_1>>
-      simp[encode_reif_gen_sem,lit_reify_avar_reif_gen]>>
+      simp[encode_reif_gen_sem_reify_avar,lit_reify_avar_reif_gen_alt]>>
       simp[reify_avar_def,reify_reif_def])
     >- (
       irule_at Any lex_gte_sem_1>>
       irule_at Any lex_lte_sem_1>>
-      simp[encode_reif_gen_sem,lit_reify_avar_reif_gen]>>
-      CONJ_TAC >-
-        simp[Once row_gte_flip]>>
-      simp[reify_avar_def,reify_reif_def]))
+      simp[encode_reif_gen_sem_reify_avar,lit_reify_avar_reif_gen_alt]>>
+      simp[Once row_gte_flip]))
   >- ( (* GreaterThan *)
     simp[encode_lex_gte_def]>>
     gvs[reify_sem_def,AllCasePreds()]
     >- (irule lex_gte_sem_1>>gvs[row_gte_def])
     >- (
       irule_at Any lex_gte_sem_1>>
-      simp[encode_reif_gen_sem,lit_reify_avar_reif_gen]>>
+      simp[encode_reif_gen_sem_reify_avar,lit_reify_avar_reif_gen_alt]>>
       simp[reify_avar_def,reify_reif_def,row_gte_def])
     >- (
       irule_at Any lex_gte_sem_1>>
       irule_at Any lex_lte_sem_1>>
-      simp[encode_reif_gen_sem,lit_reify_avar_reif_gen]>>
+      simp[encode_reif_gen_sem_reify_avar,lit_reify_avar_reif_gen_alt]>>
       CONJ_TAC >- (
         simp[row_gte_def]>>
         metis_tac[row_gt_neq])>>
-      CONJ_TAC >- simp[row_gte_def]>>
-      simp[reify_avar_def,reify_reif_def]))
+      simp[row_gte_def]))
   >- ( (* LessEqual *)
     simp[encode_lex_lte_def]>>
     pop_assum mp_tac>>
@@ -598,32 +595,28 @@ Proof
     >- (irule lex_lte_sem_1>>simp[])
     >- (
       irule_at Any lex_lte_sem_1>>
-      simp[encode_reif_gen_sem,lit_reify_avar_reif_gen]>>
+      simp[encode_reif_gen_sem_reify_avar,lit_reify_avar_reif_gen_alt]>>
       simp[reify_avar_def,reify_reif_def])
     >- (
       irule_at Any lex_gte_sem_1>>
       irule_at Any lex_lte_sem_1>>
-      simp[encode_reif_gen_sem,lit_reify_avar_reif_gen]>>
-      CONJ_TAC >-
-        simp[Once row_gte_flip]>>
-      simp[reify_avar_def,reify_reif_def]))
+      simp[encode_reif_gen_sem_reify_avar,lit_reify_avar_reif_gen_alt]>>
+      simp[Once row_gte_flip]))
   >- ( (* LessThan *)
     simp[encode_lex_lte_def]>>
     gvs[reify_sem_def,AllCasePreds()]
     >- (irule lex_lte_sem_1>>gvs[row_gte_def])
     >- (
       irule_at Any lex_lte_sem_1>>
-      simp[encode_reif_gen_sem,lit_reify_avar_reif_gen]>>
+      simp[encode_reif_gen_sem_reify_avar,lit_reify_avar_reif_gen_alt]>>
       simp[reify_avar_def,reify_reif_def,row_gte_def])
     >- (
       irule_at Any lex_gte_sem_1>>
       irule_at Any lex_lte_sem_1>>
-      simp[encode_reif_gen_sem,lit_reify_avar_reif_gen]>>
+      simp[encode_reif_gen_sem_reify_avar,lit_reify_avar_reif_gen_alt]>>
       CONJ_TAC >- simp[row_gte_def]>>
-      CONJ_TAC >- (
-        simp[row_gte_def]>>
-        metis_tac[row_gt_neq])>>
-      simp[reify_avar_def,reify_reif_def]))
+      simp[row_gte_def]>>
+      metis_tac[row_gt_neq]))
 QED
 
 Theorem encode_lex_sem_2:
@@ -644,13 +637,15 @@ Proof
       simp[])
     >- (
       drule_then drule lex_gte_sem_2>>
-      every_case_tac>>rw[]>>
-      gvs[encode_reif_gen_sem,lit_reify_avar_reif_gen])
+      drule_all encode_reif_gen_sem_lit>>
+      rpt strip_tac>>
+      gs[])
     >- (
       drule_then drule lex_gte_sem_2>>
       drule_then drule lex_lte_sem_2>>
-      every_case_tac>>rw[]>>
-      gvs[encode_reif_gen_sem,lit_reify_avar_reif_gen]>>
+      drule_all encode_reif_gen_sem_lit>>
+      rpt strip_tac>>
+      gs[lit_negate]>>
       eq_tac>>rw[]>>
       CCONTR_TAC>>
       gvs[Once row_gte_flip]))
@@ -663,13 +658,15 @@ Proof
       gvs[row_gte_def])
     >- (
       drule_then drule lex_gte_sem_2>>
-      every_case_tac>>rw[]>>
-      gvs[encode_reif_gen_sem,lit_reify_avar_reif_gen,row_gte_def])
+      drule_all encode_reif_gen_sem_lit>>
+      rpt strip_tac>>
+      gs[row_gte_def])
     >- (
       drule_then drule lex_gte_sem_2>>
       drule_then drule lex_lte_sem_2>>
-      every_case_tac>>rw[]>>
-      gvs[encode_reif_gen_sem,lit_reify_avar_reif_gen,row_gte_T]>>
+      drule_all encode_reif_gen_sem_lit>>
+      rpt strip_tac>>
+      gs[lit_negate,row_gte_T]>>
       eq_tac>>rw[]>>gvs[]
       >- gvs[row_gte_def]>>
       CCONTR_TAC>>
@@ -687,13 +684,15 @@ Proof
       simp[])
     >- (
       drule_then drule lex_lte_sem_2>>
-      every_case_tac>>rw[]>>
-      gvs[encode_reif_gen_sem,lit_reify_avar_reif_gen])
+      drule_all encode_reif_gen_sem_lit>>
+      rpt strip_tac>>
+      gs[])
     >- (
       drule_then drule lex_gte_sem_2>>
       drule_then drule lex_lte_sem_2>>
-      every_case_tac>>rw[]>>
-      gvs[encode_reif_gen_sem,lit_reify_avar_reif_gen]>>
+      drule_all encode_reif_gen_sem_lit>>
+      rpt strip_tac>>
+      gs[lit_negate]>>
       eq_tac>>rw[]>>
       CCONTR_TAC>>
       gvs[Once row_gte_flip]))
@@ -706,13 +705,15 @@ Proof
       gvs[row_gte_def])
     >- (
       drule_then drule lex_lte_sem_2>>
-      every_case_tac>>rw[]>>
-      gvs[encode_reif_gen_sem,lit_reify_avar_reif_gen,row_gte_def])
+      drule_all encode_reif_gen_sem_lit>>
+      rpt strip_tac>>
+      gs[row_gte_def])
     >- (
       drule_then drule lex_gte_sem_2>>
       drule_then drule lex_lte_sem_2>>
-      every_case_tac>>rw[]>>
-      gvs[encode_reif_gen_sem,lit_reify_avar_reif_gen,row_gte_T]>>
+      drule_all encode_reif_gen_sem_lit>>
+      rpt strip_tac>>
+      gs[lit_negate,row_gte_T]>>
       eq_tac>>rw[]>>gvs[]
       >- gvs[row_gte_def]>>
       CCONTR_TAC>>

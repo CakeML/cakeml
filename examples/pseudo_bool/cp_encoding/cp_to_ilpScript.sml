@@ -196,7 +196,7 @@ Definition reify_flag_def:
     | SOME (Array (ArrayMin Xs Y)) =>
       varc wi (EL (HD ids) Xs) ≤ varc wi Y
     | SOME (Logical (Parity Xs Y)) =>
-      ODD (SUM $ MAP (λZ. if varc wi Z > 0 then 1n else 0n) (TAKE (HD ids + 1) (Y::Xs)))
+      ODD (SUM $ MAP (λZc. if reify_cmp_val wi Zc then 1n else 0n) (TAKE (HD ids + 1) (Y::Xs)))
     | SOME (Extensional (Table tss Xs)) =>
       match_row (EL (HD ids) tss) (MAP (varc wi) Xs)
     | SOME (Extensional (Regular Xs nstates trans finals)) =>
@@ -512,6 +512,14 @@ Proof
   intLib.ARITH_TAC
 QED
 
+(* triple-agnostic form *)
+Theorem lit_reify_avar_reif_gen_alt:
+  lit (reify_avar cs wi) (reif_gen Zc) ⇔ reify_cmp_val wi Zc
+Proof
+  PairCases_on‘Zc’>>
+  simp[lit_reify_avar_reif_gen]
+QED
+
 (* a coefficient-free iconstraint is just its bit-term sum bounded below *)
 Theorem lin_ge_sem[simp]:
   iconstraint_sem ([],bs,c) (wi,wb) ⇔ eval_lin_term wb bs ≥ c
@@ -660,6 +668,25 @@ Proof
   fs[]
 QED
 
+(* encodes that the value of literal l equals Boolean variable Y *)
+Definition encode_bvar_lit_def:
+  encode_bvar_lit l Y =
+  [
+    ([], [(1, l);(-1, Pos Y)], 0);
+    ([], [(1, Pos Y);(-1, l)], 0)
+  ]
+End
+
+Theorem encode_bvar_lit_sem[simp]:
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_bvar_lit l Y) ⇔
+  (lit wb l ⇔ wb Y)
+Proof
+  simp[encode_bvar_lit_def,iconstraint_sem_def]>>
+  Cases_on‘lit wb l’>>
+  Cases_on‘wb Y’>>
+  fs[]
+QED
+
 (* Encoding a single variable Z cmp v, where cmp is among
    =, ≠, ≥, >, ≤, < and v is an integer
 *)
@@ -701,6 +728,27 @@ Proof
   ‘P ⇔ ¬Q’ suffices_by metis_tac[]>>
   unabbrev_all_tac>>
   intLib.ARITH_TAC
+QED
+
+(* triple-agnostic consequences of encode_reif_gen_sem *)
+Theorem encode_reif_gen_sem_reify_avar:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
+    (encode_reif_gen bnd Zc)
+Proof
+  PairCases_on‘Zc’>>
+  rw[encode_reif_gen_sem,lit_reify_avar_reif_gen]>>
+  simp[reify_avar_def,reify_reif_def]
+QED
+
+Theorem encode_reif_gen_sem_lit:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_reif_gen bnd Zc) ⇒
+  (lit wb (reif_gen Zc) ⇔ reify_cmp_val wi Zc)
+Proof
+  PairCases_on‘Zc’>>
+  strip_tac>>
+  gs[encode_reif_gen_sem]
 QED
 
 (* For all X \in Xs, v \in vs pairs, create the reification X=v *)

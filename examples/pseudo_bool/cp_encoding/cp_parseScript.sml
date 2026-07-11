@@ -139,6 +139,12 @@ Definition sexp_reify_cmp_def:
   | _ => fail («invalid reify tuple; expected (Z cmp v)\n»)
 End
 
+Definition sexp_reify_cmp_list_def:
+  sexp_reify_cmp_list e =
+    sexp_list_of («expected s-expression list of reify tuples\n»)
+      sexp_reify_cmp e
+End
+
 (* Returns (stem, reif_flag) where reif_flag is
      NONE    → no reification (bare constraint)
      SOME F  → one-sided (_if)
@@ -757,7 +763,8 @@ Definition sexp_counting_dispatch_def:
     else NONE
 End
 
-(* Logical: and, or, parity all share the (Xs) Y shape. *)
+(* Logical: and, or, parity all share the ((Z cmp v) ...) (Y cmp v) shape,
+  where every operand and the result are reification terms. *)
 
 (* Atom → And / Or / Parity constructor, NONE otherwise. *)
 Definition sexp_logical_cons_def:
@@ -773,11 +780,11 @@ Definition sexp_logical_body_def:
     case rest of
       [Xs_e; Ye] =>
       (do
-         Xs <- sexp_varc_list Xs_e;
-         Y <- sexp_varc Ye;
+         Xs <- sexp_reify_cmp_list Xs_e;
+         Y <- sexp_reify_cmp Ye;
          return (Logical (cons Xs Y))
        od)
-    | _ => fail («logical expects 2 args: (X1 ... Xn) Y\n»)
+    | _ => fail («logical expects 2 args: ((Z cmp v) ...) (Y cmp v)\n»)
 End
 
 Definition sexp_logical_dispatch_def:
@@ -1541,30 +1548,41 @@ Proof
 QED
 
 Theorem test_logical:
-  (* and: three-variable list *)
+  (* and: three-term list *)
   sexp_constraint_dispatch («and»)
-    (fromStringL («((A B C) D)»)) =
-    INR (Logical (And [INL «A»; INL «B»; INL «C»] (INL «D»))) ∧
+    (fromStringL («(((A >= 1) (B = 2) (C != 0)) (D >= 1))»)) =
+    INR (Logical (And
+      [(INL «A»,Lexop GreaterEqual,1); (INL «B»,Equal,2);
+       (INL «C»,NotEqual,0)]
+      (INL «D»,Lexop GreaterEqual,1))) ∧
   (* and: empty Xs list is well-formed *)
   sexp_constraint_dispatch («and»)
-    (fromStringL («(() D)»)) =
-    INR (Logical (And [] (INL «D»))) ∧
-  (* or: mixed var/const in Xs, const result *)
+    (fromStringL («(() (D >= 1))»)) =
+    INR (Logical (And [] (INL «D»,Lexop GreaterEqual,1))) ∧
+  (* or: constant operand (cf. GCS TrueLiteral) and < result *)
   sexp_constraint_dispatch («or»)
-    (fromStringL («((A 3) C)»)) =
-    INR (Logical (Or [INL «A»; INR 3] (INL «C»))) ∧
-  (* parity: four-variable list *)
+    (fromStringL («(((A <= 5) (1 >= 1)) (C < 3))»)) =
+    INR (Logical (Or
+      [(INL «A»,Lexop LessEqual,5); (INR 1,Lexop GreaterEqual,1)]
+      (INL «C»,Lexop LessThan,3))) ∧
+  (* parity: two-term list *)
   sexp_constraint_dispatch («parity»)
-    (fromStringL («((A B C D) Y)»)) =
-    INR (Logical (Parity [INL «A»; INL «B»; INL «C»; INL «D»] (INL «Y»))) ∧
+    (fromStringL («(((A > 0) (B > 0)) (Y = 1))»)) =
+    INR (Logical (Parity
+      [(INL «A»,Lexop GreaterThan,0); (INL «B»,Lexop GreaterThan,0)]
+      (INL «Y»,Equal,1))) ∧
+  (* strict: bare atom operands are rejected *)
+  sexp_constraint_dispatch («and»)
+    (fromStringL («((A B) Y)»)) =
+    INL («invalid reify tuple; expected (Z cmp v)\n») ∧
+  (* strict: bare atom result is rejected *)
+  sexp_constraint_dispatch («and»)
+    (fromStringL («(((A >= 1)) Y)»)) =
+    INL («invalid reify tuple; expected (Z cmp v)\n») ∧
   (* and: wrong arity — missing Y *)
   sexp_constraint_dispatch («and»)
-    (fromStringL («((A B C))»)) =
-    INL («logical expects 2 args: (X1 ... Xn) Y\n») ∧
-  (* or: wrong arity — extra arg *)
-  sexp_constraint_dispatch («or»)
-    (fromStringL («((A B) C D)»)) =
-    INL («logical expects 2 args: (X1 ... Xn) Y\n»)
+    (fromStringL («(((A >= 1) (B >= 1)))»)) =
+    INL («logical expects 2 args: ((Z cmp v) ...) (Y cmp v)\n»)
 Proof
   EVAL_TAC
 QED

@@ -230,12 +230,13 @@ Overload AtMostOneSmartTable = ``λXs v. SmartTable (amo_smart_rows Xs v)``;
 
 Datatype:
   logical_constr =
-    (* And Xs Y : Y > 0 ⇔ And_i (X_i > 0) *)
-    And ('a varc list) ('a varc)
-    (* Or Xs Y : Y > 0 ⇔ Or_i (X_i > 0) *)
-  | Or ('a varc list) ('a varc)
-    (* Parity Xs Y : Y > 0 ⇔ Odd number of (X_i > 0) *)
-  | Parity ('a varc list) ('a varc)
+    (* Operands are reification terms (Z,cmp,v), read as: varc Z cmp v.
+      And Xs Y : Y ⇔ And_i X_i *)
+    And ('a reify_cmp list) ('a reify_cmp)
+    (* Or Xs Y : Y ⇔ Or_i X_i *)
+  | Or ('a reify_cmp list) ('a reify_cmp)
+    (* Parity Xs Y : Y ⇔ odd number of X_i hold *)
+  | Parity ('a reify_cmp list) ('a reify_cmp)
 End
 
 (* The op is prefixed with "lex_", e.g.: lex_less_than (X Y Z) (A B C).*)
@@ -402,6 +403,11 @@ Definition cmpop_val_def:
   | Lexop lex => lexop_val lex x y
 End
 
+Definition reify_cmp_val_def[simp]:
+  reify_cmp_val w (Z,cmp,v) =
+    cmpop_val cmp (varc w Z) v
+End
+
 (* Helper to define reifications.
   NONE : no reification
   INL Z : one-sided reification
@@ -410,8 +416,8 @@ Definition reify_sem_def:
   reify_sem Zr w b ⇔
   case Zr of
     NONE => b
-  | SOME (INL (Z,cmp,v)) => cmpop_val cmp (varc w Z) v ⇒ b
-  | SOME (INR (Z,cmp,v)) => cmpop_val cmp (varc w Z) v ⇔ b
+  | SOME (INL reif) => reify_cmp_val w reif ⇒ b
+  | SOME (INR reif) => reify_cmp_val w reif ⇔ b
 End
 
 Definition cmpop_sem_def:
@@ -640,7 +646,7 @@ Definition match_row_def:
       | SOME v => v = x) ts xs
 End
 
-(* All rows have the same length, and at leat one matches *)
+(* All rows have the same length, and at least one matches *)
 Definition table_sem_def:
   table_sem tss Xs w ⇔
   EVERY (λts. LENGTH ts = LENGTH Xs) tss ∧
@@ -713,23 +719,24 @@ End
 ***)
 
 (* All of the logical constraints are of the form
-  log_op(Xs) ⇔ Y, where the RHS Boolean is reified as Y > 0. *)
+  log_op(Xs) ⇔ Y, where the RHS Boolean is reified. *)
 Definition and_sem_def:
-  and_sem Xs Y w ⇔
-   reify_sem (SOME (INR (Y, Lexop GreaterThan, 0))) w
-    (EVERY (λX. varc w X > 0) Xs)
+  and_sem Xsr Yr w ⇔
+   reify_sem (SOME (INR Yr)) w
+    (EVERY (reify_cmp_val w) Xsr)
 End
 
 Definition or_sem_def:
-  or_sem Xs Y w ⇔
-   reify_sem (SOME (INR (Y, Lexop GreaterThan, 0))) w
-    (EXISTS (λX. varc w X > 0) Xs)
+  or_sem Xsr Yr w ⇔
+   reify_sem (SOME (INR Yr)) w
+    (EXISTS (reify_cmp_val w) Xsr)
 End
 
 Definition parity_sem_def:
-  parity_sem Xs Y w ⇔
-   reify_sem (SOME (INR (Y, Lexop GreaterThan, 0))) w
-    (ODD (SUM $ MAP (λX. if varc w X > 0 then 1n else 0n) Xs))
+  parity_sem Xsr Yr w ⇔
+   reify_sem (SOME (INR Yr)) w
+    (ODD (SUM $ MAP
+      (λX. if reify_cmp_val w X then 1n else 0n) Xsr))
 End
 
 Definition logical_constr_sem_def:
@@ -1036,6 +1043,7 @@ Definition sorted_sem_def:
   SORTED (lexop_val lex) (MAP (varc w) Xs)
 End
 
+(* TODO: LENGTH superfluous! *)
 Definition sort_sem_def:
   sort_sem Xs Ys w ⇔
   LENGTH Xs = LENGTH Ys ∧

@@ -7,19 +7,20 @@ Libs
 Ancestors
   pbc pbc_encode cp ilp cp_to_ilp
 
-(* And constraint: Y > 0 ⇔ ∀i. Xs[i] > 0 *)
+(* And constraint: Y ⇔ ∀i. Xs[i]
+  where Y and the Xs[i] are reification terms (Z,cmp,v) *)
 Definition encode_and_aux_def:
   encode_and_aux bnd Xs Y =
   [
-    ([], (-&LENGTH Xs, Pos (INL (Ge Y 1))) :: MAP (λX. (1, Pos (INL (Ge X 1)))) Xs, 0);
-    ([], (-1, Neg (INL (Ge Y 1))) :: MAP (λX. (1, Neg (INL (Ge X 1)))) Xs, 0)
+    ([], (-&LENGTH Xs, reif_gen Y) :: MAP (λX. (1, reif_gen X)) Xs, 0);
+    ([], (-1, negate (reif_gen Y)) :: MAP (λX. (1, negate (reif_gen X))) Xs, 0)
   ]
 End
 
 Definition encode_and_def:
   encode_and bnd Xs Y =
-  FLAT (MAP (λX. encode_ge bnd X 1) Xs) ++
-  encode_ge bnd Y 1 ++
+  FLAT (MAP (λX. encode_reif_gen bnd X) Xs) ++
+  encode_reif_gen bnd Y ++
   encode_and_aux bnd Xs Y
 End
 
@@ -30,22 +31,38 @@ Theorem encode_and_sem_1:
     (encode_and bnd Xs Y)
 Proof
   rw[encode_and_def,encode_and_aux_def,and_sem_def,reify_sem_def]
-  >-simp[EVERY_FLAT,EVERY_MAP,reify_avar_def,reify_reif_def]
-  >-simp[reify_avar_def,reify_reif_def]>>
-  gs[iconstraint_sem_def,reify_avar_def,reify_reif_def,
-    eval_lin_term_def,MAP_MAP_o,o_ABS_R,cmpop_val_def]>>
-  pop_assum mp_tac>>
-  pure_rewrite_tac[intLib.ARITH_PROVE “(v:int) > 0 ⇔ v ≥ 1”]>>
+  >-simp[EVERY_FLAT,EVERY_MAP,encode_reif_gen_sem_reify_avar]
+  >-simp[encode_reif_gen_sem_reify_avar]
+  >-(
+    gs[eval_lin_term_def,MAP_MAP_o,o_ABS_R,lit_reify_avar_reif_gen_alt]>>
+    qmatch_goalsub_abbrev_tac ‘-b * c + a ≥ 0’>>
+    ‘a ≥ b * c’ suffices_by intLib.ARITH_TAC>>
+    unabbrev_all_tac>>
+    Cases_on ‘EVERY (reify_cmp_val wi) Xs’>>
+    gs[]>>
+    gs[EVERY_MEM,EXISTS_MEM]>>
+    qabbrev_tac ‘Q = ∀e. MEM e Xs ⇒ reify_cmp_val wi e’>>
+    ‘¬Q’ by (unabbrev_all_tac>>metis_tac[])>>
+    gs[]>>
+    irule pbc_encodeTheory.iSUM_ge_0>>
+    simp[MEM_MAP,SF DNF_ss,pbc_encodeTheory.b2i_ge_0])>>
+  gs[eval_lin_term_def,MAP_MAP_o,o_ABS_R,lit_negate,
+    lit_reify_avar_reif_gen_alt]>>
+  simp[pbcTheory.neg_b2i]>>
   qmatch_goalsub_abbrev_tac ‘-b * c + a ≥ 0’>>
-  strip_tac>>
   ‘a ≥ b * c’ suffices_by intLib.ARITH_TAC>>
   unabbrev_all_tac>>
-  Cases_on ‘varc wi Y ≥ 1’>>
-  gs[EVERY_MEM,EXISTS_MEM,cmpop_val_def]
-  >~[‘∃X. MEM X _ ∧ ¬(varc _ X ≥ _)’]
-  >-metis_tac[]>>
-  irule pbc_encodeTheory.iSUM_ge_0>>
-  simp[MEM_MAP,SF DNF_ss,pbc_encodeTheory.b2i_ge_0]
+  Cases_on ‘EVERY (reify_cmp_val wi) Xs’>>
+  gs[]
+  >-(
+    qabbrev_tac ‘Q = EXISTS ($¬ ∘ reify_cmp_val wi) Xs’>>
+    ‘¬Q’ by (unabbrev_all_tac>>gs[EVERY_MEM,EXISTS_MEM]>>metis_tac[])>>
+    gs[]>>
+    irule pbc_encodeTheory.iSUM_ge_0>>
+    simp[MEM_MAP,SF DNF_ss,pbc_encodeTheory.b2i_ge_0])
+  >-(
+    gs[EXISTS_MEM]>>
+    metis_tac[])
 QED
 
 Theorem encode_and_sem_2:
@@ -54,23 +71,20 @@ Theorem encode_and_sem_2:
     (encode_and bnd Xs Y) ⇒
   and_sem Xs Y wi
 Proof
-  rw[encode_and_def,encode_and_aux_def,and_sem_def,reify_sem_def,EVERY_FLAT]>>
-  qmatch_asmsub_abbrev_tac ‘EVERY P (MAP _ _)’>>
-  fs[EVERY_MAP,EVERY_MEM]>>
-  gs[Abbr‘P’,iconstraint_sem_def,eval_lin_term_def,MAP_MAP_o,o_ABS_R]>>
-  simp[intLib.ARITH_PROVE “(v:int) > 0 ⇔ v ≥ 1”,cmpop_val_def]>>
-  Cases_on ‘varc wi Y ≥ 1’>>
+  rw[encode_and_def,and_sem_def,reify_sem_def,EVERY_FLAT]>>
+  ‘lit wb (reif_gen Y) ⇔ reify_cmp_val wi Y’ by
+    metis_tac[encode_reif_gen_sem_lit]>>
+  ‘∀X. MEM X Xs ⇒ (lit wb (reif_gen X) ⇔ reify_cmp_val wi X)’ by
+    metis_tac[encode_reif_gen_sem_lit,EVERY_MEM,MEM_MAP]>>
+  gs[encode_and_aux_def,iconstraint_sem_def,eval_lin_term_def,
+    MAP_MAP_o,o_ABS_R,lit_negate]>>
+  Cases_on ‘reify_cmp_val wi Y’>>
   gvs[]>>
   qmatch_asmsub_abbrev_tac ‘-b + a ≥ 0’>>
   ‘a ≥ b’ by intLib.ARITH_TAC>>
   unabbrev_all_tac>>
-  qmatch_asmsub_abbrev_tac ‘f Y ≥ 1’
-  >-(
-    gs[cp_to_ilpTheory.iSUM_MAP_b2i_ge_LENGTH]>>
-    metis_tac[])
-  >-(
-    gs[cp_to_ilpTheory.iSUM_MAP_b2i_ge_1]>>
-    metis_tac[])
+  gs[EVERY_MEM,EXISTS_MEM,pbcTheory.neg_b2i]>>
+  metis_tac[]
 QED
 
 Definition cencode_and_aux_def:
@@ -83,8 +97,8 @@ End
 Definition cencode_and_def:
   cencode_and bnd Xs Y name ec =
   let
-    (xs,ec') = fold_cenc (λX ec. cencode_ge bnd X 1 ec) Xs ec;
-    (xs',ec'') = cencode_ge bnd Y 1 ec'
+    (xs,ec') = fold_cenc (λX ec. cencode_reif_gen bnd X ec) Xs ec;
+    (xs',ec'') = cencode_reif_gen bnd Y ec'
   in
     (Append
       (Append xs xs')
@@ -101,7 +115,7 @@ Proof
   gvs[AllCaseEqs(),UNCURRY_EQ]>>
   irule enc_rel_Append>>
   irule_at Any enc_rel_Append>>
-  rename1 ‘cencode_ge _ _ _ ec''’>>
+  rename1 ‘cencode_reif_gen _ _ ec''’>>
   qexists ‘ec''’>>
   qexists ‘ec'’>>
   CONJ_TAC
@@ -111,25 +125,26 @@ Proof
     irule enc_rel_fold_cenc>>
     qexists ‘cf’>>
     simp[Abbr ‘f’,Abbr ‘cf’]>>
-    simp[enc_rel_encode_ge])>>
+    simp[enc_rel_encode_reif_gen])>>
   CONJ_TAC
-  >-simp[enc_rel_encode_ge]>>
+  >-simp[enc_rel_encode_reif_gen]>>
   simp[cencode_and_aux_def,encode_and_aux_def,enc_rel_List_refl_mul]
 QED
 
-(* Or constraint: Y > 0 ⇔ ∃i. Xs[i] > 0 *)
+(* Or constraint: Y ⇔ ∃i. Xs[i]
+  where Y and the Xs[i] are reification terms (Z,cmp,v) *)
 Definition encode_or_aux_def:
   encode_or_aux bnd Xs Y =
   [
-    ([], (-1, Pos (INL (Ge Y 1))) :: MAP (λX. (1, Pos (INL (Ge X 1)))) Xs, 0);
-    ([], (-&LENGTH Xs, Neg (INL (Ge Y 1))) :: MAP (λX. (1, Neg (INL (Ge X 1)))) Xs, 0)
+    ([], (-1, reif_gen Y) :: MAP (λX. (1, reif_gen X)) Xs, 0);
+    ([], (-&LENGTH Xs, negate (reif_gen Y)) :: MAP (λX. (1, negate (reif_gen X))) Xs, 0)
   ]
 End
 
 Definition encode_or_def:
   encode_or bnd Xs Y =
-  FLAT (MAP (λX. encode_ge bnd X 1) Xs) ++
-  encode_ge bnd Y 1 ++
+  FLAT (MAP (λX. encode_reif_gen bnd X) Xs) ++
+  encode_reif_gen bnd Y ++
   encode_or_aux bnd Xs Y
 End
 
@@ -139,23 +154,37 @@ Theorem encode_or_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_or bnd Xs Y)
 Proof
-  rw[encode_or_def,encode_or_aux_def,or_sem_def,reify_sem_def,cmpop_val_def]
-  >-simp[EVERY_FLAT,EVERY_MAP,reify_avar_def,reify_reif_def]
-  >-simp[reify_avar_def,reify_reif_def]>>
-  simp[iconstraint_sem_def,reify_avar_def,reify_reif_def,
-    eval_lin_term_def,MAP_MAP_o,o_ABS_R]>>
-  pop_assum mp_tac>>
-  pure_rewrite_tac[intLib.ARITH_PROVE “(v:int) > 0 ⇔ v ≥ 1”]>>
+  rw[encode_or_def,encode_or_aux_def,or_sem_def,reify_sem_def]
+  >-simp[EVERY_FLAT,EVERY_MAP,encode_reif_gen_sem_reify_avar]
+  >-simp[encode_reif_gen_sem_reify_avar]
+  >-(
+    gs[eval_lin_term_def,MAP_MAP_o,o_ABS_R,lit_reify_avar_reif_gen_alt]>>
+    qmatch_goalsub_abbrev_tac ‘-b * c + a ≥ 0’>>
+    ‘a ≥ b * c’ suffices_by intLib.ARITH_TAC>>
+    unabbrev_all_tac>>
+    Cases_on ‘EXISTS (reify_cmp_val wi) Xs’>>
+    gs[]
+    >-(
+      gs[EXISTS_MEM]>>
+      metis_tac[])
+    >-(
+      qabbrev_tac ‘Q = EXISTS (reify_cmp_val wi) Xs’>>
+      ‘¬Q’ by (unabbrev_all_tac>>gs[EVERY_MEM,EXISTS_MEM]>>metis_tac[])>>
+      gs[]>>
+      irule pbc_encodeTheory.iSUM_ge_0>>
+      simp[MEM_MAP,SF DNF_ss,pbc_encodeTheory.b2i_ge_0]))>>
+  gs[eval_lin_term_def,MAP_MAP_o,o_ABS_R,lit_negate,
+    lit_reify_avar_reif_gen_alt]>>
+  simp[pbcTheory.neg_b2i]>>
   qmatch_goalsub_abbrev_tac ‘-b * c + a ≥ 0’>>
-  strip_tac>>
   ‘a ≥ b * c’ suffices_by intLib.ARITH_TAC>>
   unabbrev_all_tac>>
-  Cases_on ‘varc wi Y ≥ 1’>>
-  gs[EVERY_MEM,EXISTS_MEM]
-  >~[‘∃X. MEM X _ ∧ varc _ X ≥ _’]
-  >-metis_tac[]
-  >~[‘∀X. MEM X _ ⇒ ¬(varc _ X ≥ _)’]
-  >-metis_tac[]>>
+  Cases_on ‘EXISTS (reify_cmp_val wi) Xs’>>
+  gs[]>>
+  gs[EVERY_MEM,EXISTS_MEM]>>
+  qabbrev_tac ‘Q = ∀e. MEM e Xs ⇒ ¬reify_cmp_val wi e’>>
+  ‘¬Q’ by (unabbrev_all_tac>>metis_tac[])>>
+  gs[]>>
   irule pbc_encodeTheory.iSUM_ge_0>>
   simp[MEM_MAP,SF DNF_ss,pbc_encodeTheory.b2i_ge_0]
 QED
@@ -166,21 +195,20 @@ Theorem encode_or_sem_2:
     (encode_or bnd Xs Y) ⇒
   or_sem Xs Y wi
 Proof
-  rw[encode_or_def,encode_or_aux_def,or_sem_def,reify_sem_def,EVERY_FLAT,cmpop_val_def]>>
-  qmatch_asmsub_abbrev_tac ‘EVERY P (MAP _ _)’>>
-  fs[EVERY_MAP,EVERY_MEM]>>
-  gs[Abbr‘P’,iconstraint_sem_def,eval_lin_term_def,MAP_MAP_o,o_ABS_R]>>
-  simp[intLib.ARITH_PROVE “(v:int) > 0 ⇔ v ≥ 1”]>>
-  Cases_on ‘varc wi Y ≥ 1’>>
+  rw[encode_or_def,or_sem_def,reify_sem_def,EVERY_FLAT]>>
+  ‘lit wb (reif_gen Y) ⇔ reify_cmp_val wi Y’ by
+    metis_tac[encode_reif_gen_sem_lit]>>
+  ‘∀X. MEM X Xs ⇒ (lit wb (reif_gen X) ⇔ reify_cmp_val wi X)’ by
+    metis_tac[encode_reif_gen_sem_lit,EVERY_MEM,MEM_MAP]>>
+  gs[encode_or_aux_def,iconstraint_sem_def,eval_lin_term_def,
+    MAP_MAP_o,o_ABS_R,lit_negate]>>
+  Cases_on ‘reify_cmp_val wi Y’>>
   gvs[]>>
   qmatch_asmsub_abbrev_tac ‘-b + a ≥ 0’>>
   ‘a ≥ b’ by intLib.ARITH_TAC>>
   unabbrev_all_tac>>
-  qmatch_asmsub_abbrev_tac ‘f Y ≥ 1’
-  >-(
-    gs[EXISTS_MEM]>>
-    metis_tac[])
-  >-gs[EVERY_MEM]
+  gs[EVERY_MEM,EXISTS_MEM,pbcTheory.neg_b2i]>>
+  metis_tac[]
 QED
 
 Definition cencode_or_aux_def:
@@ -193,8 +221,8 @@ End
 Definition cencode_or_def:
   cencode_or bnd Xs Y name ec =
   let
-    (xs,ec') = fold_cenc (λX ec. cencode_ge bnd X 1 ec) Xs ec;
-    (xs',ec'') = cencode_ge bnd Y 1 ec'
+    (xs,ec') = fold_cenc (λX ec. cencode_reif_gen bnd X ec) Xs ec;
+    (xs',ec'') = cencode_reif_gen bnd Y ec'
   in
     (Append
       (Append xs xs')
@@ -211,7 +239,7 @@ Proof
   gvs[AllCaseEqs(),UNCURRY_EQ]>>
   irule enc_rel_Append>>
   irule_at Any enc_rel_Append>>
-  rename1 ‘cencode_ge _ _ _ ec''’>>
+  rename1 ‘cencode_reif_gen _ _ ec''’>>
   qexists ‘ec''’>>
   qexists ‘ec'’>>
   CONJ_TAC
@@ -221,38 +249,39 @@ Proof
     irule enc_rel_fold_cenc>>
     qexists ‘cf’>>
     simp[Abbr ‘f’,Abbr ‘cf’]>>
-    simp[enc_rel_encode_ge])>>
+    simp[enc_rel_encode_reif_gen])>>
   CONJ_TAC
-  >-simp[enc_rel_encode_ge]>>
+  >-simp[enc_rel_encode_reif_gen]>>
   simp[cencode_or_aux_def,encode_or_aux_def,enc_rel_List_refl_mul]
 QED
 
-(* encodes that the values of the Boolean variables X, Y and Z satisfy:
-   X xor Y = Z
+(* encodes that the Boolean variables X, Z and the literal l satisfy:
+   X xor l = Z
 *)
 Definition encode_xor_def:
-  encode_xor X Y Z =
+  encode_xor X l Z =
   [
-    ([],[(1,Pos X);(1,Pos Y);(1,Neg Z)], 1);
-    ([],[(1,Neg X);(1,Neg Y);(1,Neg Z)], 1);
-    ([],[(1,Neg X);(1,Pos Y);(1,Pos Z)], 1);
-    ([],[(1,Pos X);(1,Neg Y);(1,Pos Z)], 1)
+    ([],[(1,Pos X);(1,l);(1,Neg Z)], 1);
+    ([],[(1,Neg X);(1,negate l);(1,Neg Z)], 1);
+    ([],[(1,Neg X);(1,l);(1,Pos Z)], 1);
+    ([],[(1,Pos X);(1,negate l);(1,Pos Z)], 1)
   ]
 End
 
 Theorem encode_xor_sem[simp]:
-  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_xor X Y Z) ⇔
-  wb Z = (wb X ≠ wb Y)
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_xor X l Z) ⇔
+  wb Z = (wb X ≠ lit wb l)
 Proof
-  simp[encode_xor_def,iconstraint_sem_def]>>
+  simp[encode_xor_def,iconstraint_sem_def,lit_negate]>>
   Cases_on‘wb X’>>
-  Cases_on‘wb Y’>>
+  Cases_on‘lit wb l’>>
   Cases_on‘wb Z’>>
   fs[]
 QED
 
 (* Parity constraint:
-   Y > 0 ⇔ ODD number of indices i for which Xs[i] > 0
+   Y ⇔ ODD number of indices i for which Xs[i] holds,
+   where Y and the Xs[i] are reification terms (Z,cmp,v)
 *)
 Definition cencode_parity_aux_def:
   cencode_parity_aux bnd Y Xs name =
@@ -265,7 +294,7 @@ Definition cencode_parity_aux_def:
           mk_name name («0ge»);
           mk_name name («0le»)
         ]
-        (encode_bvar_eq (INL (Ge Y 1)) (arri name 0))))
+        (encode_bvar_lit (reif_gen Y) (arri name 0))))
     (flat_app $ MAPi
       (λi X. List $
         mk_annotate
@@ -275,7 +304,7 @@ Definition cencode_parity_aux_def:
             mk_name name (toString (i+1) ^ «_1_0»);
             mk_name name (toString (i+1) ^ «_0_1»)
           ]
-          (encode_xor (arri name i) (INL (Ge X 1)) (arri name (i+1)))
+          (encode_xor (arri name i) (reif_gen X) (arri name (i+1)))
       )
       Xs)
 End
@@ -287,14 +316,14 @@ End
 
 Definition encode_parity_def:
   encode_parity bnd Xs Y name =
-  FLAT (MAP (λX. encode_ge bnd X 1) (Y::Xs)) ++
+  FLAT (MAP (λX. encode_reif_gen bnd X) (Y::Xs)) ++
   encode_parity_aux bnd Y Xs name
 End
 
 Definition cencode_parity_def:
   cencode_parity bnd Xs Y name ec =
   let
-    (xs,ec') = fold_cenc (λX ec. cencode_ge bnd X 1 ec) (Y::Xs) ec
+    (xs,ec') = fold_cenc (λX ec. cencode_reif_gen bnd X ec) (Y::Xs) ec
   in
     (Append xs (cencode_parity_aux bnd Y Xs name),ec')
 End
@@ -306,9 +335,9 @@ Theorem encode_parity_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_parity bnd Xs Y name)
 Proof
-  rw[parity_sem_def,encode_parity_def,reify_sem_def,cmpop_val_def]
-  >-simp[reify_avar_def,reify_reif_def]
-  >-simp[EVERY_FLAT,EVERY_MAP,reify_avar_def,reify_reif_def]>>
+  rw[parity_sem_def,encode_parity_def,reify_sem_def]
+  >-simp[encode_reif_gen_sem_reify_avar]
+  >-simp[EVERY_FLAT,EVERY_MAP,encode_reif_gen_sem_reify_avar]>>
   simp[encode_parity_aux_def,cencode_parity_aux_def,iconstraint_sem_def]>>
   rpt CONJ_TAC
   >~[‘EVERY _ _’]
@@ -317,15 +346,13 @@ Proof
     qmatch_goalsub_abbrev_tac‘EVERY P _’>>
     simp[EVERY_MEM,MEM_MAPi,SF DNF_ss]>>
     rw[Abbr‘P’]>>
-    simp[reify_avar_def,reify_reif_def,reify_flag_def,
-      TAKE_EL_SNOC,MAP_SNOC,SNOC_APPEND,SUM_APPEND,
-      intLib.ARITH_PROVE“(a:int) ≥ 1 ⇔ a > 0”]>>
+    simp[lit_reify_avar_reif_gen_alt,reify_avar_def,reify_flag_def,
+      TAKE_EL_SNOC,MAP_SNOC,SNOC_APPEND,SUM_APPEND]>>
     rename1‘ODD (s + (t + if b then _ else _)) ⇔ _’>>
     Cases_on‘b’>>
     simp[ODD_EVEN,EVEN_ADD]>>
     metis_tac[])>>
-  simp[reify_avar_def,reify_reif_def,reify_flag_def,
-    intLib.ARITH_PROVE“(a:int) ≥ 1 ⇔ a > 0”]>>
+  simp[lit_reify_avar_reif_gen_alt,reify_avar_def,reify_flag_def]>>
   rename1‘if ODD s then _ else _’>>
   simp[ODD_EVEN,EVEN_ADD]>>
   Cases_on‘EVEN s’>>
@@ -338,18 +365,22 @@ Theorem encode_parity_sem_2:
     (encode_parity bnd Xs Y name) ⇒
   parity_sem Xs Y wi
 Proof
-  simp[parity_sem_def,reify_sem_def,cmpop_val_def,EVERY_FLAT,o_ABS_R,
+  simp[parity_sem_def,reify_sem_def,EVERY_FLAT,o_ABS_R,
     encode_parity_def,encode_parity_aux_def,cencode_parity_aux_def]>>
   qmatch_goalsub_abbrev_tac‘P _ ∧ EVERY P _’>>
   rw[EVERY_MEM,MEM_MAP,MEM_MAPi,SF DNF_ss,iconstraint_sem_def]>>
-  gs[Abbr‘P’,intLib.ARITH_PROVE“(a:int) ≥ 1 ⇔ a > 0”]>>
+  gs[Abbr‘P’]>>
+  ‘lit wb (reif_gen Y) ⇔ reify_cmp_val wi Y’ by
+    metis_tac[encode_reif_gen_sem_lit]>>
+  ‘∀X. MEM X Xs ⇒ (lit wb (reif_gen X) ⇔ reify_cmp_val wi X)’ by
+    metis_tac[encode_reif_gen_sem_lit,EVERY_MEM]>>
   qmatch_asmsub_abbrev_tac‘b2i b’>>
   ‘¬b’ by (Cases_on‘b’>>fs[])>>
   unabbrev_all_tac>>
   ‘∀m. m ≤ LENGTH Xs ⇒
     wb (INR (Index name m)) =
     ODD (SUM (MAP
-      (λX. if wb (INL (Ge X 1)) then 1 else 0)
+      (λX. if lit wb (reif_gen X) then 1 else 0)
       (TAKE (m+1) (Y::Xs))))’ by (
     Induct
     >-(simp[]>>rename1‘if b then _ else _’>>Cases_on‘b’>>fs[])>>
@@ -366,7 +397,7 @@ Proof
   ‘(¬P1 ⇔ Q2) ∧ (¬P2 ⇔ Q1)’ suffices_by metis_tac[]>>
   CONJ_TAC>>
   unabbrev_all_tac
-  >-(cong_tac NONE>>simp[])
+  >-(cong_tac NONE>>simp[]>>metis_tac[MEM_TAKE])
   >-(rename1‘¬b ⇔ _’>>Cases_on‘b’>>fs[])
 QED
 
@@ -383,7 +414,7 @@ Proof
   irule_at Any enc_rel_Append>>
   irule_at Any enc_rel_fold_cenc>>
   pop_assum $ irule_at Any>>
-  simp[enc_rel_encode_ge,encode_parity_aux_def,enc_rel_abstr]
+  simp[enc_rel_encode_reif_gen,encode_parity_aux_def,enc_rel_abstr]
 QED
 
 Definition encode_logical_constr_def:

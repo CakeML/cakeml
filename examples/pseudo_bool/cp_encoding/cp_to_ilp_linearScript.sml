@@ -75,8 +75,9 @@ Proof
   fs[reify_sem_def,eval_iclin_term_CONS]>>
   every_case_tac
   >-intLib.ARITH_TAC>>
-  rw[encode_reif_gen_sem,lit_reify_avar_reif_gen,
+  rw[encode_reif_gen_sem_reify_avar,lit_reify_avar_reif_gen_alt,
     reify_avar_def,reify_reif_def,reify_flag_def,SF DNF_ss]>>
+  gs[]>>
   intLib.ARITH_TAC
 QED
 
@@ -95,14 +96,18 @@ Proof
     gs[EVERY_APPEND,eval_iclin_term_CONS]>>
     intLib.ARITH_TAC)
   >-(
-    gs[EVERY_APPEND,encode_reif_gen_sem,eval_iclin_term_CONS]>>
-    strip_tac>>
-    ntac 2 (first_x_assum drule)>>
+    gs[EVERY_APPEND,eval_iclin_term_CONS]>>
+    drule_all encode_reif_gen_sem_lit>>
+    rpt strip_tac>>
+    gs[]>>
     intLib.ARITH_TAC)
   >-(
-    gs[EVERY_APPEND,encode_reif_gen_sem,eval_iclin_term_CONS]>>
-    rename1 ‘P ⇔ _’>>
+    gs[EVERY_APPEND,eval_iclin_term_CONS]>>
+    drule_all encode_reif_gen_sem_lit>>
+    strip_tac>>
+    qmatch_asmsub_abbrev_tac ‘P ⇔ reify_cmp_val _ _’>>
     Cases_on ‘P’>>
+    gs[]>>
     intLib.ARITH_TAC)
 QED
 
@@ -161,12 +166,13 @@ Proof
     eval_iclin_term_CONS]>>
   every_case_tac
   >-intLib.ARITH_TAC>>
-  rw[encode_reif_gen_sem,lit_reify_avar_reif_gen,
+  rw[encode_reif_gen_sem_reify_avar,lit_reify_avar_reif_gen_alt,
     reify_avar_def,reify_reif_def,reify_flag_def,SF DNF_ss]
   >~[‘_ ∨ _ ∨ ¬P’]
   >-(
     Cases_on ‘P’>>
     intLib.ARITH_TAC)>>
+  gs[]>>
   intLib.ARITH_TAC
 QED
 
@@ -187,13 +193,18 @@ Proof
     Cases_on ‘P’>>
     intLib.ARITH_TAC)
   >-(
-    gs[EVERY_APPEND,encode_reif_gen_sem,eval_iclin_term_CONS]>>
-    strip_tac>>
+    gs[EVERY_APPEND,eval_iclin_term_CONS]>>
+    drule_all encode_reif_gen_sem_lit>>
+    rpt strip_tac>>
+    gs[]>>
     intLib.ARITH_TAC)
   >-(
-    gs[EVERY_APPEND,encode_reif_gen_sem,eval_iclin_term_CONS]>>
-    rename1 ‘P ⇔ _’>>
+    gs[EVERY_APPEND,eval_iclin_term_CONS]>>
+    drule_all encode_reif_gen_sem_lit>>
+    strip_tac>>
+    qmatch_asmsub_abbrev_tac ‘P ⇔ reify_cmp_val _ _’>>
     Cases_on ‘P’>>
+    gs[]>>
     intLib.ARITH_TAC)
 QED
 
@@ -267,8 +278,8 @@ Proof
     gs[iconstraint_sem_def,eval_iclin_term_CONS]>>
     intLib.ARITH_TAC)>>
   every_case_tac>>
-  gvs[EVERY_APPEND,encode_reif_gen_sem]>>
-  metis_tac[encode_lin_lex_cmpop_val]
+  gvs[EVERY_APPEND]>>
+  metis_tac[encode_lin_lex_cmpop_val,encode_reif_gen_sem_lit]
 QED
 
 (* Linear constraint: Σ ci·Xi cmp Y *)

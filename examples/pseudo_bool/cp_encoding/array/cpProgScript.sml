@@ -91,6 +91,7 @@ val res = translate sexp_cmpop_kw_def;
 val res = translate sexp_lexop_sym_def;
 val res = translate sexp_cmpop_sym_def;
 val res = translate sexp_reify_cmp_def;
+val res = translate sexp_reify_cmp_list_def;
 
 val res = translate strip_reif_suffix_def;
 
@@ -423,6 +424,7 @@ val res = translate mk_constraint_one_ge_def;
 val res = translate init_ec_def;
 
 val res = translate encode_bvar_eq_def;
+val res = translate encode_bvar_lit_def;
 
 val res = translate neiv_def;
 
