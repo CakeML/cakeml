@@ -61,6 +61,7 @@ Datatype:
      ; global      : num option
      ; handler     : num
      ; refs        : v ref num_map
+     ; all_blocks  : v list
      ; compile     : 'c -> (num # num # dataLang$prog) list -> (word8 list # word64 list # 'c) option
      ; clock       : num
      ; code        : (num # dataLang$prog) num_map
@@ -109,53 +110,6 @@ Definition bignum_size_def:
     1 + bignum_digits arch64 (Num (ABS i))
 End
 
-Definition size_of_def:
-  (size_of lims [] refs seen = (0, refs, seen)) /\
-  (size_of lims (x::y::ys) refs seen =
-    let (n1,refs1,seen1) = check_res refs (size_of lims (y::ys) refs seen) in
-    let (n2,refs2,seen2) = size_of lims [x] refs1 seen1 in
-      (n1+n2,refs2,seen2)) /\
-  (size_of lims [Word64 _] refs seen = (3, refs, seen)) /\
-  (size_of lims [Number i] refs seen =
-    (if small_num lims.arch_64_bit i then 0 else bignum_size lims.arch_64_bit i, refs, seen)) /\
-  (size_of lims [CodePtr _] refs seen = (0, refs, seen)) /\
-  (size_of lims [RefPtr _ r] refs seen =
-     case sptree$lookup r refs of
-     | NONE => (0, refs, seen)
-     | SOME (ByteArray _ bs) => (LENGTH bs DIV (arch_size lims DIV 8) + 2, delete r refs, seen)
-     | SOME (ValueArray vs) => let (n,refs,seen) = size_of lims vs (delete r refs) seen in
-                                 (n + LENGTH vs + 1, refs, seen)
-     | SOME (Thunk _ v) => let (n,refs,seen) = size_of lims [v] (delete r refs) seen in
-                             (n + 2, refs, seen)) /\
-  (size_of lims [Block ts tag []]) refs seen = (0, refs, seen) /\
-  (size_of lims [Block ts tag vs] refs seen =
-     if IS_SOME (sptree$lookup ts seen) then (0, refs, seen) else
-       let (n,refs,seen) = size_of lims vs refs (insert ts () seen) in
-         (n + LENGTH vs + 1, refs, seen))
-Termination
-  WF_REL_TAC `(inv_image (measure I LEX measure (list_size v_size))
-                          (\(lims,vs,refs,seen). (sptree$size refs,vs)))`
-  \\ rpt strip_tac \\ fs [sptreeTheory.size_delete]
-  \\ imp_res_tac miscTheory.lookup_zero \\ fs []
-  \\ rw [] \\ fs []
-  \\ imp_res_tac check_res_IMP \\ fs []
-End
-
-Theorem check_res_size_of[local]:
-  check_res refs (size_of lims vs refs seen) = size_of lims vs refs seen
-Proof
-  qsuff_tac
-    `!lims vs refs seen. size (( \ (n,refs,seen). refs) (size_of lims vs refs seen)) <= size refs`
-  THEN1 (rw [] \\ pop_assum (assume_tac o SPEC_ALL) \\ pairarg_tac \\ fs [check_res_def])
-  \\ ho_match_mp_tac size_of_ind \\ fs [size_of_def] \\ rw []
-  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs[]
-  \\ fs [check_res_def,bool_case_eq,option_case_eq,pair_case_eq,CaseEq"ref"]
-  \\ rveq \\ fs [] \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs[] \\ fs [size_delete]
-QED
-
-Theorem size_of_def[allow_rebind,compute] = REWRITE_RULE [check_res_size_of] size_of_def
-Theorem size_of_ind[allow_rebind] = REWRITE_RULE [check_res_size_of] size_of_ind
-
 Definition extract_stack_def:
   extract_stack (Env _ env) = toList env /\
   extract_stack (Exc _ env _) = toList env
@@ -171,12 +125,100 @@ Definition stack_to_vs_def:
     toList s.locals ++ FLAT (MAP extract_stack s.stack) ++ global_to_vs s.global
 End
 
-(* Measures the amount of space everything in a dataLang "heap" would need
-   to fit in wordLang memory (over-approximation) *)
+Datatype:
+  addr = BlockAddr num | RefAddr num
+End
+
+(* Turns a list of values (:v) into a set of addresses (:addr) *)
+Definition to_addrs_def:
+  (to_addrs [] = {})
+∧ (to_addrs (Block _ _ []::xs) = to_addrs xs)
+∧ (to_addrs (Block ts _ _::xs) = {BlockAddr ts} ∪ to_addrs xs)
+∧ (to_addrs (RefPtr b ref::xs)   = {RefAddr ref} ∪ to_addrs xs)
+∧ (to_addrs (_::xs) = to_addrs xs)
+End
+
+(* Given a list of values and a timestamp returns the (possibly empty)
+   set of addresses (:addr) a block with that timestamp has.
+
+   note: meant to be used with s.all_blocks which should only contain
+         blocks with timestamps 0 < ts < s.timestamp
+ *)
+Definition block_to_addrs_def:
+  block_to_addrs blocks ts =
+  (case oEL ts blocks of
+   | SOME (Block _ _ vs) => to_addrs vs
+   | _ => ∅ )
+End
+
+(* Given a reference map and a pointer returns the (possibly empty)
+   set of addresses (:addr) at that location.
+ *)
+Definition ptr_to_addrs_def:
+  ptr_to_addrs refs p =
+    case sptree$lookup p refs of
+      SOME (ValueArray vs) => to_addrs vs
+      | _ => {}
+End
+
+(* next l r holds iff r follows immediately from l *)
+Definition next_def:
+  (next refs blocks (BlockAddr ts) r =
+     (r ∈ block_to_addrs blocks ts))
+∧ (next refs blocks (RefAddr ref) r =
+     (r ∈ ptr_to_addrs refs ref))
+End
+
+(* The set of all addresses that can be reached from an initial set of roots *)
+Definition reachable_v_def:
+  reachable_v refs blocks roots = { y | ∃x. x ∈ roots ∧ (next refs blocks)^* x y}
+End
+
+(* Given an address returns the list of values pointed by it *)
+Definition addr_to_vs_def:
+(addr_to_vs refs blocks (BlockAddr ts) =
+  (case oEL ts blocks of
+   | SOME (Block _ _ vs) => vs
+   | _ => [] ))
+∧ (addr_to_vs refs blocks (RefAddr p) =
+     case sptree$lookup p refs of
+       SOME (ValueArray vs) => vs
+       | _ => [])
+End
+
+(* Measure the size of a "flat" value *)
+Definition measure_def:
+  measure lims (Word64 _) = 3
+∧ measure lims (Number i) =
+     (if small_num lims.arch_64_bit i
+      then 0
+      else bignum_size lims.arch_64_bit i)
+∧ measure lims _ = 0
+End
+
+(* Measures the size of the values *)
+Definition size_of_addr_def:
+  (size_of_addr lims refs blocks (BlockAddr ts) =
+   (case oEL ts blocks of
+    | SOME (Block _ _ vs) => 1 + LENGTH vs + SUM (MAP (measure lims) vs)
+    | _ => 0))
+∧ (size_of_addr lims refs blocks (RefAddr p) =
+   (case sptree$lookup p refs of
+    | SOME (ValueArray vs)  => 1 + LENGTH vs + SUM (MAP (measure lims) vs)
+    | SOME (ByteArray _ bs) => LENGTH bs DIV (arch_size lims DIV 8) + 2
+    | _ => 0))
+End
+
+Definition size_of_def[nocompute]:
+  size_of lims refs blocks roots =
+    SUM (MAP (measure lims) roots) +
+    ∑ (size_of_addr lims refs blocks)
+      (reachable_v refs blocks (to_addrs roots))
+End
+
 Definition size_of_heap_def:
-  size_of_heap ^s =
-    let (n,_,_) = size_of s.limits (stack_to_vs ^s) ^s.refs LN in
-      n
+  size_of_heap ^s  =
+    size_of s.limits s.refs s.all_blocks (stack_to_vs s)
 End
 
 Definition no_thunks_in_refs_def:
@@ -204,8 +246,7 @@ End
    evaluator hands the state to do_app, is the NARROW cut without args). *)
 Definition size_of_heap_args_def:
   size_of_heap_args op_args ^s =
-    let (n,_,_) = size_of s.limits (op_args ++ stack_to_vs ^s) ^s.refs LN in
-      n
+    size_of s.limits s.refs s.all_blocks (op_args ++ stack_to_vs ^s)
 End
 
 Overload add_space_safe_args =
@@ -1547,6 +1588,7 @@ Definition initial_state_def:
   ; global := NONE
   ; handler := 0
   ; refs := LN
+  ; all_blocks := []
   ; clock := k
   ; code := code
   ; compile := cc
