@@ -10,6 +10,10 @@ Changes since release v3400:
 which inserts a given element between every consecutive pair of elements in a list,
 has been added to basis.
 
+### Char
+
+`isLower`, `isUpper`, `isDigit`, `isAlpha` and `isAlphaNum` have been added to the Char module.
+
 ### String
 
 `String.concatWith` has been reimplemented using `concat` and `intersperse`,
