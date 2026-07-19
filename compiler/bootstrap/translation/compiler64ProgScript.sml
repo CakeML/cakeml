@@ -805,13 +805,6 @@ Proof
   \\ xsimpl
 QED
 
-val (semantics_thm,prog_tm) =
-  whole_prog_thm (get_ml_prog_state()) "main" (main_whole_prog_spec |> UNDISCH);
-
-Definition compiler64_prog_def:
-  compiler64_prog = ^prog_tm
-End
-
 Theorem dec_sides[local]:
   (peg_v_side ⇔ T) ∧
   (peg_longv_side ⇔ T) ∧
@@ -825,16 +818,29 @@ Proof
     parserProgTheory.peg_uqconstructorname_side_def]
 QED
 
-Theorem semantics_compiler64_prog =
-  semantics_thm
-    |> PURE_ONCE_REWRITE_RULE[GSYM compiler64_prog_def]
-    |> DISCH_ALL
-    |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC,dec_sides]
+val sem_thm = prove_sem_thm "main" "compiler64_prog" main_whole_prog_spec;
+val compiler64_prog_def = fetch "-" "compiler64_prog_def";
+
+Theorem semantics_compiler64_prog:
+  ¬has_repl_flag (TL cl) ∧ IS_SOME (stdin_content fs) ∧ wfcl cl ∧ wfFS fs ∧
+  STD_streams fs ⇒
+  ∃io_events.
+    semantics_dec_list
+      (init_state
+        (basis_ffi cl fs) with
+         eval_state := SOME (EvalDecs (eval_state_var with env_id_counter := (0,0,1))))
+      init_env compiler64_prog (Terminate Success io_events) ∧
+    extract_fs fs io_events =
+      SOME (full_compile_64 (TL cl) (get_stdin fs) fs)
+Proof
+  strip_tac
+  \\ irule sem_thm
+  \\ fs [dec_sides]
+QED
 
 (* saving a tidied up final theorem *)
 
-val th =
-get_ml_prog_state ()
+val th = get_ml_prog_state ()
   (* |> ml_progLib.clean_state *)
   |> ml_progLib.remove_snocs
   |> ml_progLib.get_thm
@@ -845,17 +851,19 @@ Theorem BUTLAST_compiler64_prog[local]:
 Proof
   CONV_TAC (RAND_CONV (ONCE_REWRITE_CONV [compiler64_prog_def]))
   \\ CONV_TAC (RAND_CONV (PURE_REWRITE_CONV [listTheory.FRONT_CONS]))
-  \\ EVAL_TAC
+  \\ rewrite_tac []
 QED
 
 val th1 = th
             |> CONV_RULE (PATH_CONV "llr" (REWR_CONV BUTLAST_compiler64_prog))
             |> CONV_RULE (RAND_CONV (EVAL THENC REWRITE_CONV
-                                     (DB.find "_refs_def" |> map (#1 o #2)) THENC
-                                     SIMP_CONV std_ss [APPEND_NIL,APPEND]))
+                                          (DB.find "_refs_def" |> map (#1 o #2)) THENC
+                                          SIMP_CONV std_ss [APPEND_NIL,APPEND]))
+            |> DISCH_ALL |> REWRITE_RULE [dec_sides]
 
 Theorem Decls_FRONT_compiler64_prog = th1
 
-Theorem LAST_compiler64_prog = EVAL “LAST compiler64_prog”;
+Theorem LAST_compiler64_prog = “LAST compiler64_prog”
+  |> (ONCE_REWRITE_CONV [compiler64_prog_def] THENC EVAL);
 
 val _ = ml_translatorLib.reset_translation(); (* because this translation won't be continued *)

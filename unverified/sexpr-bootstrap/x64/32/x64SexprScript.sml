@@ -8,7 +8,10 @@ Ancestors
 Libs
   preamble mlstringSyntax astSyntax astToSexprLib
 
-val filename = "cake-sexpr-x64-32"
+val filename = "cake-sexpr-32"
 
-val _ = ((write_ast_to_file filename) o rhs o concl) compiler32_prog_def;
-
+val _ = compiler32_prog_def
+          |> CONV_RULE (RAND_CONV EVAL)
+          |> concl
+          |> rhs
+          |> write_ast_to_file filename;
