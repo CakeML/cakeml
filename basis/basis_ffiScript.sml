@@ -710,6 +710,7 @@ val st_f = get_ml_prog_state () |> get_state |> strip_comb |> fst;
 val st = mk_icomb (st_f, ``basis_ffi cls fs``);
 val _ = reset_translation ()
 
+(*
 Theorem parts_ok_basis_st:
    parts_ok (^st).ffi (basis_proj1, basis_proj2)
 Proof
@@ -731,6 +732,7 @@ Proof
   \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms)) \\ fs[]
   \\ srw_tac[DNF_ss][] \\ fs[ffi_exit_def]
 QED
+*)
 
 (* TODO: move somewhere else? *)
 Theorem SPLIT_exists:
@@ -772,18 +774,14 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem del_del_eq_sing[local]:
-  h_i = {x1;x2;m} ∧ x1 ≠ m ∧ x2 ≠ m ⇒ h_i DELETE x1 DELETE x2 = {m}
-Proof
-  fs [EXTENSION] \\ metis_tac []
-QED
-
-Theorem IMP_STDIO[local]:
+Theorem IMP_STDIO_general[local]:
   res_st.ffi = basis_ffi cl fs ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
-  is_refs_basis res_st.refs ⇒
+  is_refs_basis res_st.refs ∧
+  (∃other. p other ∧ other ⊆ store2heap_aux 2 (TL (TL res_st.refs)))
+  ⇒
   ∃h_i h_k.
     SPLIT (st2heap (basis_proj1,basis_proj2) res_st) (h_i,h_k) ∧
-    (COMMANDLINE cl * STDIO fs * &T) h_i
+    (COMMANDLINE cl * STDIO fs * p) h_i
 Proof
   fs[cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap,
      cfStoreTheory.Mem_NOT_IN_ffi2heap, cfStoreTheory.ffi2heap_def,
@@ -815,22 +813,137 @@ Proof
   \\ simp [cfStoreTheory.store2heap_def,cfStoreTheory.store2heap_aux_def]
   \\ irule SPLIT_eq_SUBSET
   \\ simp [COMMANDLINE_def, SEP_CLAUSES, IOx_def, cl_ffi_part_def, IO_def,
-           SEP_EXISTS_THM, one_STAR, PULL_EXISTS]
+           SEP_EXISTS_THM, one_STAR, PULL_EXISTS, GSYM STAR_ASSOC]
   \\ simp [STDIO_def, SEP_CLAUSES, IOx_def, cl_ffi_part_def, IO_def, GSYM STAR_ASSOC,
            SEP_EXISTS_THM, one_STAR, PULL_EXISTS, IOFS_def, fs_ffi_part_def, cond_STAR]
-  \\ simp [SEP_EXISTS_THM, IOFS_iobuff_def, cond_STAR, W8ARRAY_def, iobuff_loc_eq]
+  \\ simp [SEP_EXISTS_THM, IOFS_iobuff_def, cond_STAR, W8ARRAY_def, iobuff_loc_eq,
+           SEP_CLAUSES, GSYM STAR_ASSOC]
+  \\ simp_tac (std_ss ++ helperLib.sep_cond_ss) [cond_STAR, cell_def, one_STAR]
   \\ simp [cell_def, one_def, PULL_EXISTS, GREATER_EQ]
-  \\ irule_at Any del_del_eq_sing
-  \\ gvs [cfStoreTheory.FFI_part_NOT_IN_store2heap_aux]
-  \\ gvs [SF DNF_ss, basis_proj1_def, basis_ffi_def,FLOOKUP_SIMP,
-          alistTheory.flookup_fupdate_list,APPEND,
-          runtimeFFITheory.runtime_ffi_part_def,
-          mk_proj1_def, cl_ffi_part_def, fs_ffi_part_def]
-  \\ gvs [basis_proj2_def, mk_proj2_def, cl_ffi_part_def, fs_ffi_part_def]
-  \\ gvs [IO_fs_component_equality]
+  \\ qrefinel [‘_’,‘[]’,‘fs.numchars’,‘[]’]
   \\ ‘((fs with numchars := fs.numchars)) = fs’
     by fs [IO_fs_component_equality]
   \\ asm_rewrite_tac []
+  \\ pop_assum kall_tac
+  \\ qpat_abbrev_tac ‘x1 = FFI_part (encode cl) _ _ _’
+  \\ qpat_abbrev_tac ‘x2 = FFI_part _ _ _ _’
+  \\ qrefinel [‘_’,‘bs2’]
+  \\ qexists_tac ‘Mem 1 (W8array bs2) INSERT x1 INSERT x2 INSERT other’
+  \\ conj_tac
+  >-
+   (unabbrev_all_tac \\ gvs []
+    \\ gvs [cfStoreTheory.FFI_part_NOT_IN_store2heap_aux]
+    \\ gvs [SF DNF_ss, basis_proj1_def, basis_ffi_def,FLOOKUP_SIMP,
+            alistTheory.flookup_fupdate_list,APPEND,
+            runtimeFFITheory.runtime_ffi_part_def,
+            mk_proj1_def, cl_ffi_part_def, fs_ffi_part_def]
+    \\ gvs [basis_proj2_def, mk_proj2_def, cl_ffi_part_def, fs_ffi_part_def]
+    \\ gvs [IO_fs_component_equality]
+    \\ gvs [SUBSET_DEF] \\ metis_tac [])
+  \\ simp []
+  \\ qpat_x_assum ‘p other’ mp_tac
+  \\ match_mp_tac (METIS_PROVE [] “x1 = x2 ⇒ x1 ⇒ x2”)
+  \\ AP_TERM_TAC
+  \\ gvs []
+  \\ rw [EXTENSION]
+  \\ eq_tac
+  \\ rw [] \\ gvs [SUBSET_DEF, Abbr‘x1’, Abbr‘x2’]
+  \\ res_tac
+  \\ CCONTR_TAC \\ fs [cfStoreTheory.FFI_part_NOT_IN_store2heap_aux]
+  \\ imp_res_tac cfStoreTheory.store2heap_aux_IN_bound \\ fs []
+QED
+
+Theorem IMP_STDIO[local]:
+  res_st.ffi = basis_ffi cl fs ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
+  is_refs_basis res_st.refs ⇒
+  ∃h_i h_k.
+    SPLIT (st2heap (basis_proj1,basis_proj2) res_st) (h_i,h_k) ∧
+    (COMMANDLINE cl * STDIO fs * &T) h_i
+Proof
+  strip_tac
+  \\ irule IMP_STDIO_general
+  \\ simp [cond_def]
+QED
+
+Theorem IMP_STDIO_RUNTIME[local]:
+  res_st.ffi = basis_ffi cl fs ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
+  is_refs_basis res_st.refs
+  ⇒
+  ∃h_i h_k.
+    SPLIT (st2heap (basis_proj1,basis_proj2) res_st) (h_i,h_k) ∧
+    (COMMANDLINE cl * STDIO fs * RUNTIME) h_i
+Proof
+  fs[cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap,
+     cfStoreTheory.Mem_NOT_IN_ffi2heap, cfStoreTheory.ffi2heap_def,
+     is_refs_basis_def]
+  \\ qmatch_goalsub_abbrev_tac`parts_ok ffii (basis_proj1,basis_proj2)`
+  \\ strip_tac
+  \\ `parts_ok ffii (basis_proj1,basis_proj2)` by
+    (fs[Abbr`ffii`]
+     \\ rw[cfStoreTheory.parts_ok_def]
+     >- EVAL_TAC
+     >- EVAL_TAC
+     >~ [‘_ |++ _’]
+     >- (imp_res_tac oracle_parts
+         \\ first_x_assum $ qspec_then ‘res_st’ mp_tac
+         \\ fs [basis_ffi_def])
+    \\ qpat_x_assum`MEM _ basis_proj2`mp_tac
+    \\ simp[basis_proj2_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj2_def]
+    \\ TRY (qpat_x_assum`_ = SOME _`mp_tac)
+    \\ simp[basis_proj1_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj1_def,FUPDATE_LIST_THM]
+    \\ rw[] \\ rw[] \\ pairarg_tac \\ fs[FLOOKUP_UPDATE] \\ rw[]
+    \\ fs [AllCaseEqs(), SF DNF_ss, basis_ffi_def]
+    \\ fs[FAPPLY_FUPDATE_THM,cfHeapsBaseTheory.mk_ffi_next_def]
+    \\ TRY PURE_FULL_CASE_TAC
+    \\ fs[]
+    \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms))
+    \\ fs[fs_ffi_no_ffi_div,cl_ffi_no_ffi_div]
+    \\ srw_tac[DNF_ss][] \\ simp[basis_ffi_oracle_def])
+  \\ fs[Abbr`ffii`, SEP_CLAUSES]
+  \\ simp [cfStoreTheory.store2heap_def,cfStoreTheory.store2heap_aux_def]
+  \\ irule SPLIT_eq_SUBSET
+  \\ simp [COMMANDLINE_def, SEP_CLAUSES, IOx_def, cl_ffi_part_def, IO_def,
+           SEP_EXISTS_THM, one_STAR, PULL_EXISTS, GSYM STAR_ASSOC]
+  \\ simp [STDIO_def, SEP_CLAUSES, IOx_def, cl_ffi_part_def, IO_def, GSYM STAR_ASSOC,
+           SEP_EXISTS_THM, one_STAR, PULL_EXISTS, IOFS_def, fs_ffi_part_def, cond_STAR]
+  \\ simp [SEP_EXISTS_THM, IOFS_iobuff_def, cond_STAR, W8ARRAY_def, iobuff_loc_eq,
+           SEP_CLAUSES, GSYM STAR_ASSOC]
+  \\ simp_tac (std_ss ++ helperLib.sep_cond_ss) [cond_STAR, cell_def, one_STAR,
+                                                 RUNTIME_def]
+  \\ simp [STDIO_def, SEP_CLAUSES, IOx_def, cl_ffi_part_def, IO_def, GSYM STAR_ASSOC,
+           SEP_EXISTS_THM, one_STAR, PULL_EXISTS, IOFS_def, fs_ffi_part_def, cond_STAR,
+           runtime_ffi_part_def]
+  \\ simp [cell_def, one_def, PULL_EXISTS, GREATER_EQ]
+  \\ qrefinel [‘_’,‘[]’,‘fs.numchars’,‘[]’]
+  \\ ‘((fs with numchars := fs.numchars)) = fs’
+    by fs [IO_fs_component_equality]
+  \\ asm_rewrite_tac []
+  \\ pop_assum kall_tac
+  \\ qpat_abbrev_tac ‘x1 = FFI_part (encode cl) _ _ _’
+  \\ qpat_abbrev_tac ‘x2 = FFI_part _ _ _ _’
+  \\ qrefinel [‘_’,‘bs2’,‘[]’]
+  \\ qpat_abbrev_tac ‘x3 = FFI_part _ _ _ _’
+  \\ qexists_tac ‘Mem 1 (W8array bs2) INSERT x1 INSERT x2 INSERT x3 INSERT {}’
+  \\ conj_tac
+  >-
+   (unabbrev_all_tac \\ gvs []
+    \\ gvs [cfStoreTheory.FFI_part_NOT_IN_store2heap_aux]
+    \\ gvs [SF DNF_ss, basis_proj1_def, basis_ffi_def,FLOOKUP_SIMP,
+            alistTheory.flookup_fupdate_list,APPEND,
+            runtimeFFITheory.runtime_ffi_part_def,
+            mk_proj1_def, cl_ffi_part_def, fs_ffi_part_def]
+    \\ gvs [basis_proj2_def, mk_proj2_def, runtime_ffi_part_def, cl_ffi_part_def, fs_ffi_part_def]
+    \\ gvs [IO_fs_component_equality]
+    \\ gvs [SUBSET_DEF, EXTENSION] \\ metis_tac [])
+  \\ simp []
+  \\ unabbrev_all_tac
+  \\ gvs []
+  \\ rw [EXTENSION]
+  \\ eq_tac
+  \\ rw [] \\ gvs [SUBSET_DEF]
+  \\ res_tac
+  \\ CCONTR_TAC \\ fs [cfStoreTheory.FFI_part_NOT_IN_store2heap_aux]
+  \\ imp_res_tac cfStoreTheory.store2heap_aux_IN_bound \\ fs []
 QED
 
 Theorem whole_prog_spec_IMP':
@@ -900,6 +1013,123 @@ Proof
   \\ pop_assum $ assume_tac o GSYM \\ fs []
   \\ last_x_assum $ irule_at Any \\ fs []
   \\ drule_all IMP_STDIO \\ strip_tac
+  \\ pop_assum $ irule_at Any
+  \\ pop_assum $ irule_at Any
+QED
+
+Theorem whole_prog_spec_SOME_IMP:
+  whole_prog_spec main_v cl fs (SOME p) post ∧
+  Decls init_env (init_state (basis_ffi cl fs)) decs res_env res_st
+  ⇒
+  ∀main_name.
+    let all_decs = SNOC (Dlet unknown_loc (Pcon NONE [])
+                     (App Opapp [Var (Short main_name); Con NONE []])) decs in
+    nsLookup res_env.v (Short main_name) = SOME main_v
+    ⇒
+    res_st.ffi = basis_ffi cl fs
+    ⇒
+    is_refs_basis res_st.refs
+    ⇒
+    wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
+    (∃other. p other ∧ other ⊆ store2heap_aux 2 (TL (TL res_st.refs))) ⇒
+    ∃io_events result.
+      semantics_dec_list
+        (init_state (basis_ffi cl fs)) init_env
+        all_decs
+        (Terminate Success io_events) ∧
+      extract_fs fs io_events = SOME result ∧
+      post result
+Proof
+  simp [] \\ rpt strip_tac
+  \\ ‘init_state (basis_ffi cl fs) =
+      init_state (basis_ffi cl fs) with eval_state :=
+      (init_state (basis_ffi cl fs)).eval_state’ by
+    gvs [ml_progTheory.init_state_def]
+  \\ first_assum $ once_rewrite_tac o single
+  \\ irule whole_prog_spec_semantics_prog
+  \\ gvs [ml_progTheory.lookup_var_def]
+  \\ last_x_assum $ irule_at Any
+  \\ pop_assum $ assume_tac o GSYM \\ fs []
+  \\ last_x_assum $ irule_at Any \\ fs []
+  \\ drule_all (SRULE [PULL_EXISTS] IMP_STDIO_general)
+  \\ strip_tac
+  \\ pop_assum $ irule_at Any
+  \\ pop_assum $ irule_at Any
+QED
+
+Theorem whole_prog_spec2_IMP:
+  whole_prog_spec2 main_v cl fs NONE post ∧
+  Decls init_env (init_state (basis_ffi cl fs)) decs res_env res_st
+  ⇒
+  ∀main_name.
+    let all_decs = SNOC (Dlet unknown_loc (Pcon NONE [])
+                     (App Opapp [Var (Short main_name); Con NONE []])) decs in
+    nsLookup res_env.v (Short main_name) = SOME main_v
+    ⇒
+    res_st.ffi = basis_ffi cl fs
+    ⇒
+    is_refs_basis res_st.refs
+    ⇒
+    wfcl cl ∧ wfFS fs ∧ STD_streams fs ⇒
+    ∃io_events result.
+      semantics_dec_list
+        (init_state (basis_ffi cl fs)) init_env
+        all_decs
+        (Terminate Success io_events) ∧
+      extract_fs fs io_events = SOME result ∧
+      post result
+Proof
+  simp [] \\ rpt strip_tac
+  \\ ‘init_state (basis_ffi cl fs) =
+      init_state (basis_ffi cl fs) with eval_state :=
+      (init_state (basis_ffi cl fs)).eval_state’ by
+    gvs [ml_progTheory.init_state_def]
+  \\ first_assum $ once_rewrite_tac o single
+  \\ irule whole_prog_spec2_semantics_prog
+  \\ gvs [ml_progTheory.lookup_var_def]
+  \\ last_x_assum $ irule_at Any
+  \\ pop_assum $ assume_tac o GSYM \\ fs []
+  \\ last_x_assum $ irule_at Any \\ fs []
+  \\ drule_all IMP_STDIO \\ strip_tac
+  \\ pop_assum $ irule_at Any
+  \\ pop_assum $ irule_at Any
+QED
+
+Theorem whole_prog_spec_ffidiv_IMP:
+  whole_prog_ffidiv_spec main_v cl fs Q ∧
+  Decls init_env (init_state (basis_ffi cl fs)) decs res_env res_st
+  ⇒
+  ∀main_name.
+    let all_decs = SNOC (Dlet unknown_loc (Pcon NONE [])
+                     (App Opapp [Var (Short main_name); Con NONE []])) decs in
+    nsLookup res_env.v (Short main_name) = SOME main_v
+    ⇒
+    res_st.ffi = basis_ffi cl fs
+    ⇒
+    is_refs_basis res_st.refs
+    ⇒
+    wfcl cl ∧ wfFS fs ∧ STD_streams fs ⇒
+    ∃io_events fs' n c b.
+      semantics_dec_list
+        (init_state (basis_ffi cl fs)) init_env
+        all_decs
+        (Terminate
+           (FFI_outcome (Final_event (ExtCall n) c b FFI_diverged))
+           io_events) ∧
+      extract_fs fs io_events = SOME fs' ∧ Q n c b fs'
+Proof
+  simp [] \\ rpt strip_tac
+  \\ ‘init_state (basis_ffi cl fs) =
+      init_state (basis_ffi cl fs) with eval_state :=
+      (init_state (basis_ffi cl fs)).eval_state’ by
+    gvs [ml_progTheory.init_state_def]
+  \\ first_assum $ once_rewrite_tac o single
+  \\ irule whole_prog_spec_semantics_prog_ffidiv
+  \\ gvs [ml_progTheory.lookup_var_def]
+  \\ last_x_assum $ irule_at Any
+  \\ pop_assum $ assume_tac o GSYM \\ fs []
+  \\ last_x_assum $ irule_at Any \\ fs []
+  \\ drule_all IMP_STDIO_RUNTIME \\ strip_tac
   \\ pop_assum $ irule_at Any
   \\ pop_assum $ irule_at Any
 QED

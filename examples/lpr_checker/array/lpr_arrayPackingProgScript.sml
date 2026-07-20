@@ -197,4 +197,4 @@ QED
 Theorem main_semantics =
   prove_sem_thm "main"
                 "main_prog"
-                check_unsat_whole_prog_spec2;
+                main_whole_prog_spec2;
