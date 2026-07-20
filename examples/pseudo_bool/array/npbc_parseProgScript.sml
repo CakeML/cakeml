@@ -9,7 +9,7 @@ Libs
 
 val _ = translation_extends"npbc_arrayProg";
 
-val _ = (computeLib.the_compset := computeLib.set_skip (!computeLib.the_compset) “COND” (SOME 1));
+val _ = computeLib.upd_compset (fn c => computeLib.set_skip c “COND” (SOME 1));
 
 val r = translate strip_numbers_aux_def;
 val strip_numbers_aux_side_def = theorem "strip_numbers_aux_side_def";
@@ -3680,4 +3680,3 @@ Definition mk_usage_string_def:
 End
 
 val res = translate mk_usage_string_def;
-
