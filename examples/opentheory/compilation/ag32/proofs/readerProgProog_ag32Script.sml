@@ -3,7 +3,7 @@
   checker. The theorem reaches the next-state function of the
   verified hardware platform called Silver.
 *)
-Theory readerProgProof
+Theory readerProgProof_ag32
 Ancestors
   semanticsProps backendProof ag32_configProof ag32_memory
   ag32_memoryProof ag32_ffi_codeProof ag32_machine_config

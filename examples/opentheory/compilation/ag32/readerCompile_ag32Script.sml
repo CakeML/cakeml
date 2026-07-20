@@ -2,7 +2,7 @@
   In-logic compilation of the OpenTheory article checker to the
   Silver ISA.
 *)
-Theory readerCompile
+Theory readerCompile_ag32
 Ancestors
   readerProg
 Libs
