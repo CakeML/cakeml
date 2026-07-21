@@ -31,6 +31,10 @@ BVI now supports multi-arg calls/returns (with a separate constructor).
 
 ## Candle
 
+### Parser
+
+The parser now supports multi-line string literals.
+
 ## Examples
 
 ## Build infrastructure
