@@ -710,7 +710,6 @@ val st_f = get_ml_prog_state () |> get_state |> strip_comb |> fst;
 val st = mk_icomb (st_f, ``basis_ffi cls fs``);
 val _ = reset_translation ()
 
-(*
 Theorem parts_ok_basis_st:
    parts_ok (^st).ffi (basis_proj1, basis_proj2)
 Proof
@@ -732,7 +731,6 @@ Proof
   \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms)) \\ fs[]
   \\ srw_tac[DNF_ss][] \\ fs[ffi_exit_def]
 QED
-*)
 
 (* TODO: move somewhere else? *)
 Theorem SPLIT_exists:

@@ -37,6 +37,13 @@ BVI now supports multi-arg calls/returns (with a separate constructor).
 
 ## Proof engineering and tooling
 
+### New function for proving whole program correctness theorems
+
+The `basis_ffiLib.whole_prog_thm`, which is used to prove `semantics`
+results, has been deleted and a new `basis_ffiLib.prove_sem_thm` is to
+be used instead from now on. The old one used to be slow and clunky to
+use; the new one runs within a few seconds at each call site.
+
 ### simp additions
 
 The following simps have been added:
@@ -48,7 +55,7 @@ Theorem get_mode_fsupdate[simp]:
   get_mode (fsupdate fs fd' k pos content) fd = get_mode fs fd
 ```
 
-## Miscellaneous 
+## Miscellaneous
 
 `CONCAT_WITH` (misc) and `concatWith_CONCAT_WITH` (mlstring)
 have been removed due to being unused.

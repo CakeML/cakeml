@@ -793,7 +793,7 @@ Theorem main_whole_prog_spec:
                   ((=) (full_compile_64 (TL cl) (get_stdin fs) fs))
 Proof
   strip_tac
-  \\ simp[whole_prog_spec_def,UNCURRY]
+  \\ simp[basis_ffiTheory.whole_prog_spec_def,UNCURRY]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`
   \\ reverse conj_tac >-
