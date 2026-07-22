@@ -33,6 +33,8 @@ BVI now supports multi-arg calls/returns (with a separate constructor).
 
 ## Examples
 
+The CakePB example now has a verified CP encoder frontend.
+
 ## Build infrastructure
 
 ## Proof engineering and tooling
