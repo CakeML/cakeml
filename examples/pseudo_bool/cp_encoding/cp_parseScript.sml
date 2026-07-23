@@ -8,27 +8,24 @@ Ancestors
   cp mlsexp result_monad mllist
 
 (*
-  We have everything live in a big s-expression with
-  either 2 or 3 elements.
+  A CP problem is one s-expression: a list of exactly four tagged sections,
+  in this fixed order, all required.
 
 (
-  // the first element is a list of all the bounds
-  (
-    (...)
-    (...)
-    (...)
-  )
-  // the second one is a list of all the constraints
-  (
-    (...)
-    (...)
-    (...)
-  )
-  // the third (if it exists) indicates the variable to minimize/maximize, or
-  // it is the keyword "enumerate", which means to enumerate over all the
-  // variables specified in the bounds
-  (minimize x) | (maximize x) | enumerate
+  (version 1)
+  (variables (name lb ub) ...)
+  (constraints (name ctype args...) ...)
+  (prob_type <spec>)
 )
+
+  version   : currently must be 1.
+  variables : zero or more integer bounds (name lb ub).
+  constraints : zero or more (name ctype args...); names must be distinct.
+  prob_type : the problem type <spec>, exactly one of
+                decide | enumerate | (minimize x) | (maximize x)
+              where decide/enumerate are bare atoms and minimize/maximize
+              are lists over a variable name; enumerate ranges over all the
+              variables declared in `variables`.
 *)
 
 (* Shared combinator: parse every element of an s-expression list with `f`,
@@ -1061,10 +1058,9 @@ Definition sexp_constraints_def:
 End
 
 Definition sexp_prob_type_def:
-  (sexp_prob_type vs [] = return Decision) ∧
-  (sexp_prob_type vs [Expr [Atom x]] =
-      if x = «enumerate»
-      then return (Enumerate vs)
+  (sexp_prob_type vs [Atom x] =
+      if x = «decide» then return Decide
+      else if x = «enumerate» then return (Enumerate vs)
       else fail («invalid problem type sexpression\n»)) ∧
   (sexp_prob_type vs [Expr [Atom x; Atom y]] =
     if x = «minimize»
@@ -1125,17 +1121,25 @@ QED
 Definition sexp_cp_inst_def:
   sexp_cp_inst e =
   case e of
-    Expr (Expr bnds::Expr constraints::mopt) =>
-    do
-      (bb:(mlstring, int # int) alist) <- sexp_bnds bnds;
-      (cs:(mlstring # mlstring constraint) list) <- sexp_constraints constraints;
-      if check_distinct_names (MAP FST cs) then
-        do
-          (pty:mlstring prob_type) <- sexp_prob_type (MAP FST bb) mopt;
-          return ((bb,cs,pty ):cp_inst)
-        od
-      else fail («duplicate constraint names\n»)
-    od
+    Expr [Expr [Atom vkw; Atom ver];
+          Expr (Atom xkw :: bnds);
+          Expr (Atom ckw :: constraints);
+          Expr (Atom pkw :: pty)] =>
+      if vkw ≠ «version» ∨ ver ≠ «1» then fail («expected (version 1)\n»)
+      else if xkw ≠ «variables» then fail («expected (variables ...)\n»)
+      else if ckw ≠ «constraints» then fail («expected (constraints ...)\n»)
+      else if pkw ≠ «prob_type» then fail («expected (prob_type ...)\n»)
+      else
+      do
+        (bb:(mlstring, int # int) alist) <- sexp_bnds bnds;
+        (cs:(mlstring # mlstring constraint) list) <- sexp_constraints constraints;
+        if check_distinct_names (MAP FST cs) then
+          do
+            (pty':mlstring prob_type) <- sexp_prob_type (MAP FST bb) pty;
+            return ((bb,cs,pty'):cp_inst)
+          od
+        else fail («duplicate constraint names\n»)
+      od
   | _ => fail («invalid sexpression for top-level CP instance\n»)
 End
 
@@ -1620,40 +1624,49 @@ Proof
 QED
 
 Theorem test_cp_inst:
-  (* full instance: bounds + constraints + minimize objective *)
-  parse_cp_inst («(((X 0 10) (Y 0 10)) ((c1 plus X Y X) (c2 equals X 3)) (minimize X))») =
+  (* full instance: variables + constraints + minimize objective *)
+  parse_cp_inst («((version 1) (variables (X 0 10) (Y 0 10)) (constraints (c1 plus X Y X) (c2 equals X 3)) (prob_type (minimize X)))») =
     INR ([(«X»,0,10); («Y»,0,10)],
          [(«c1», Prim (Binop Plus (INL «X») (INL «Y») (INL «X»)));
           («c2», Prim (Cmpop NONE Equal (INL «X») (INR 3)))],
          Minimize «X») ∧
   (* enumeration *)
-  parse_cp_inst («(((X 0 10) (Y 0 10)) ((c1 plus X Y X) (c2 equals X 3)) (enumerate))») =
+  parse_cp_inst («((version 1) (variables (X 0 10) (Y 0 10)) (constraints (c1 plus X Y X) (c2 equals X 3)) (prob_type enumerate))») =
     INR ([(«X»,0,10); («Y»,0,10)],
          [(«c1», Prim (Binop Plus (INL «X») (INL «Y») (INL «X»)));
           («c2», Prim (Cmpop NONE Equal (INL «X») (INR 3)))],
          Enumerate [«X»;«Y»]) ∧
-  (* no objective (only 2 top-level entries) *)
-  parse_cp_inst («(() ())») =
-    INR ([], [], Decision) ∧
+  (* empty problem, decision *)
+  parse_cp_inst («((version 1) (variables) (constraints) (prob_type decide))») =
+    INR ([], [], Decide) ∧
   (* maximize *)
-  parse_cp_inst («(((A 0 5)) ((c all_different (A))) (maximize A))») =
+  parse_cp_inst («((version 1) (variables (A 0 5)) (constraints (c all_different (A))) (prob_type (maximize A)))») =
     INR ([(«A»,0,5)],
          [(«c», Counting (AllDifferent [INL «A»]))],
          Maximize «A») ∧
   (* constraint-level error propagates through cp_inst *)
-  parse_cp_inst («(() ((c unknown X Y)))») =
+  parse_cp_inst («((version 1) (variables) (constraints (c unknown X Y)) (prob_type decide))») =
     INL («unsupported constraint: unknown\n») ∧
-  (* malformed objective wrapper *)
-  parse_cp_inst («(() () minimize X)») =
+  (* malformed problem-type spec *)
+  parse_cp_inst («((version 1) (variables) (constraints) (prob_type minimize X))») =
     INL («invalid problem type sexpression\n») ∧
-  (* top-level sexpression must be an Expr of bounds/constraints/obj *)
+  (* wrong version *)
+  parse_cp_inst («((version 2) (variables) (constraints) (prob_type decide))») =
+    INL («expected (version 1)\n») ∧
+  (* misspelled section keyword *)
+  parse_cp_inst («((version 1) (vars) (constraints) (prob_type decide))») =
+    INL («expected (variables ...)\n») ∧
+  (* wrong number of top-level sections *)
+  parse_cp_inst («((version 1) (variables) (constraints))») =
+    INL («invalid sexpression for top-level CP instance\n») ∧
+  (* top-level sexpression must be the four-section Expr *)
   parse_cp_inst («foo») =
     INL («invalid sexpression for top-level CP instance\n») ∧
   (* malformed s-expression (unbalanced parens) → parse failure *)
   parse_cp_inst («(()») =
     INL («sexp parse failure\n») ∧
   (* duplicate constraint names rejected *)
-  parse_cp_inst («(((X 0 2) (Y 0 2) (Z 0 2)) ((c equals X Y) (c equals X Z)))») =
+  parse_cp_inst («((version 1) (variables (X 0 2) (Y 0 2) (Z 0 2)) (constraints (c equals X Y) (c equals X Z)) (prob_type decide))») =
     INL («duplicate constraint names\n»)
 Proof
   EVAL_TAC

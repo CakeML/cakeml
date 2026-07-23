@@ -1113,7 +1113,7 @@ Type constraints[pp] = ``: 'a constraint set``;
 (* The syntactic problem type *)
 Datatype:
   prob_type =
-    Decision
+    Decide
   | Minimize 'a
   | Maximize 'a
   | Enumerate ('a list)

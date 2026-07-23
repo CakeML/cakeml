@@ -94,7 +94,7 @@ End
 Definition encode_prob_type_def:
   encode_prob_type bnd pty =
   case pty of
-    Decision => (NONE, NONE)
+    Decide => (NONE, NONE)
   | Minimize v => (NONE, SOME (encode_ivar (bnd_lookup bnd) v, 0i))
   | Maximize v => (NONE, SOME (encode_nivar (bnd_lookup bnd) v, 0i))
   | Enumerate vs =>
