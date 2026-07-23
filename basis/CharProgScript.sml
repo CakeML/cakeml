@@ -28,6 +28,16 @@ val _ = trans ">=" stringSyntax.char_ge_tm;
 
 val _ = next_ml_names := ["isSpace"];
 val res = translate stringTheory.isSpace_def;
+val _ = next_ml_names := ["isLower"];
+val res = translate stringTheory.isLower_def;
+val _ = next_ml_names := ["isUpper"];
+val res = translate stringTheory.isUpper_def;
+val _ = next_ml_names := ["isDigit"];
+val res = translate stringTheory.isDigit_def;
+val _ = next_ml_names := ["isAlpha"];
+val res = translate stringTheory.isAlpha_def;
+val _ = next_ml_names := ["isAlphaNum"];
+val res = translate stringTheory.isAlphaNum_def;
 
 val _ = trans "fromByte" “mlstring$word8_to_char”;
 
