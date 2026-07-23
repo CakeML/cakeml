@@ -8,7 +8,7 @@ Ancestors
 Libs
   preamble mlstringSyntax astSyntax astToSexprLib
 
-val filename = "cake-sexpr-64"
+val filename = "cake-sexpr-x64-64"
 
 val _ = compiler64_prog_def
           |> CONV_RULE (RAND_CONV EVAL)

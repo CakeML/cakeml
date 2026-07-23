@@ -91,7 +91,7 @@ Theorem machine_code_sound:
 Proof
   strip_tac>>
   fs[installed_x64_def,main_code_def,packing_run_def]>>
-  drule main_compiled_thm>>
+  drule_at (Pos last) main_compiled_thm>>
   simp[AND_IMP_INTRO]>>
   disch_then drule>>
   disch_then (qspecl_then [`ms`,`mc`,`data_sp`,`cbspace`] mp_tac)>>
@@ -123,4 +123,3 @@ Proof
   strip_tac>>
   metis_tac[unsat_is_plane_packing]
 QED
-
