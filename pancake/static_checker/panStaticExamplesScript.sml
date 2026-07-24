@@ -5818,3 +5818,18 @@ val static_addcarry_nstruct_operand =
 
 val warns_addcarry_nstruct_operand =
   check_static_no_warnings $ static_check_pancake parse_addcarry_nstruct_operand;
+
+val ex_not_field = `
+  fun 1 f(2 x) {
+    return !x.0;
+  }
+`;
+
+val parse_not_field =
+  check_parse_success $ parse_pancake ex_not_field;
+
+val static_not_field =
+  check_static_success $ static_check_pancake parse_not_field;
+
+val warns_not_field =
+  check_static_no_warnings $ static_check_pancake parse_not_field;
