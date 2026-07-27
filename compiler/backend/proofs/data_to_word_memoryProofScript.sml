@@ -5651,6 +5651,22 @@ QED
 
 (* deref *)
 
+Theorem MEM_v_all_vs_EL:
+  ∀xs i x.
+    i < LENGTH xs ∧
+    MEM x (v_all_vs [EL i xs]) ⇒
+      MEM x (v_all_vs xs)
+Proof
+  Induct \\ gvs [v_all_vs_def] \\ rw []
+  \\ once_rewrite_tac [CONS_APPEND]
+  \\ once_rewrite_tac [v_all_vs_append]
+  \\ Cases_on `i = 0` \\ gvs []
+  \\ gvs [EL_CONS, PRE_SUB1]
+  \\ disj2_tac \\ gvs []
+  \\ last_x_assum irule \\ gvs []
+  \\ goal_assum $ drule_at Any \\ gvs []
+QED
+
 Definition heap_el_def:
   (heap_el (Pointer a u) n heap =
     case heap_lookup a heap of
@@ -5821,22 +5837,6 @@ Proof
 QED
 
 (* el *)
-
-Theorem MEM_v_all_vs_EL:
-  ∀xs i x.
-    i < LENGTH xs ∧
-    MEM x (v_all_vs [EL i xs]) ⇒
-      MEM x (v_all_vs xs)
-Proof
-  Induct \\ gvs [v_all_vs_def] \\ rw []
-  \\ once_rewrite_tac [CONS_APPEND]
-  \\ once_rewrite_tac [v_all_vs_append]
-  \\ Cases_on `i = 0` \\ gvs []
-  \\ gvs [EL_CONS, PRE_SUB1]
-  \\ disj2_tac \\ gvs []
-  \\ last_x_assum irule \\ gvs []
-  \\ goal_assum $ drule_at Any \\ gvs []
-QED
 
 Theorem blocks_unique_el:
   i < LENGTH xs ∧
@@ -15003,43 +15003,43 @@ Proof
 QED
 
 Theorem v_all_vs_list_to_v:
-  ∀xs stack ts t x.
-  MEM x (v_all_vs (list_to_v ts t xs::stack)) ⇒
-    MEM x (v_all_vs (t::(xs++stack)))
+  ∀xs stack ts t t1 a1 xs1.
+    t1 < ts ⇒
+    MEM (Block t1 a1 xs1) (v_all_vs (list_to_v ts t xs::stack)) ⇒
+      MEM (Block t1 a1 xs1) (v_all_vs (t::(xs++stack)))
 Proof
   Induct \\ gvs [list_to_v_def, v_all_vs_def] \\ rw []
-  >- cheat
   >- (
     pop_assum mp_tac
     \\ once_rewrite_tac [CONS_APPEND]
     \\ once_rewrite_tac [v_all_vs_append]
-    \\ strip_tac \\ gvs []
-    >- (
-      disj2_tac \\ gvs []
-      \\ once_rewrite_tac [CONS_APPEND]
-      \\ once_rewrite_tac [v_all_vs_append]
-      \\ gvs [])
-    \\ first_x_assum drule \\ gvs []
-    \\ once_rewrite_tac [CONS_APPEND]
-    \\ once_rewrite_tac [v_all_vs_append]
     \\ strip_tac \\ gvs [v_all_vs_def]
-    \\ rpt disj2_tac
-    \\ once_rewrite_tac [v_all_vs_append]
-    \\ gvs [])
-  \\ rpt (
+    >- (
+      disj2_tac
+      \\ once_rewrite_tac [CONS_APPEND]
+      \\ ntac 2 (once_rewrite_tac [v_all_vs_append])
+      \\ gvs [])
+    \\ last_x_assum $ drule_at (Pat `MEM _ _`) \\ gvs []
+    \\ once_rewrite_tac [CONS_APPEND]
+    \\ ntac 2 (once_rewrite_tac [v_all_vs_append])
+    \\ strip_tac \\ gvs [])
+  \\ ntac 3 (
     once_rewrite_tac [CONS_APPEND]
     \\ once_rewrite_tac [v_all_vs_append]
-    \\ gvs []
-    \\ disj2_tac)
+    \\ gvs [v_all_vs_def])
 QED
 
 Theorem blocks_unique_cons_multi:
+  FDOM tf ⊆ {n | n < ts} ∧
   blocks_unique ts (all_vs refs (t::(xs ++ stack))) ⇒
-    blocks_unique (ts + LENGTH ys1) (all_vs refs (list_to_v ts t xs::stack))
+    blocks_unique (ts + LENGTH xs) (all_vs refs (list_to_v ts t xs::stack))
 Proof
   simp [blocks_unique_def]
   \\ strip_tac
   \\ rpt gen_tac \\ strip_tac
+  \\ `t' ∈ FDOM tf` by cheat
+  \\ gvs [SUBSET_DEF]
+  \\ last_x_assum $ drule_then assume_tac \\ gvs []
   \\ `a1 = a2 ∧ xs1 = xs2 ∧ t' < ts` suffices_by gvs []
   \\ first_x_assum irule \\ gvs []
   \\ gvs [all_vs_def]
@@ -15308,7 +15308,7 @@ Proof
   \\ conj_tac
   >- (match_mp_tac FDOM_bind_each_lemma \\ fs [])
   \\ conj_tac
-  >- (irule blocks_unique_cons_multi \\ gvs [])
+  >- (drule_all blocks_unique_cons_multi \\ gvs [])
   \\ reverse conj_tac
   >-
    (rpt strip_tac
