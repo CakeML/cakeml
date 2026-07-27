@@ -1154,6 +1154,15 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   (SOME “C «Con» [Con NONE [V «a»; V «b»; V «c»]]”)
   ;
 
+(* 2026-07-20: add support for multi-line string literals:
+ * print "hello
+ * world"
+ *)
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "print \"hello\nworld\""
+  (SOME “App Opapp [V «print»; Lit (StrLit «hello\nworld»)]”)
+
 (* -------------------------------------------------------------------------
  * Declarations
  * ------------------------------------------------------------------------- *)

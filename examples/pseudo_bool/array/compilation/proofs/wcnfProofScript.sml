@@ -95,7 +95,7 @@ Theorem machine_code_sound:
 Proof
   strip_tac>>
   fs[installed_x64_def,cake_pb_wcnf_code_def,cake_pb_wcnf_run_def]>>
-  drule cake_pb_wcnf_compiled_thm>>
+  drule_at (Pos last) cake_pb_wcnf_compiled_thm>>
   simp[AND_IMP_INTRO]>>
   disch_then drule>>
   disch_then (qspecl_then [`ms`,`mc`,`data_sp`,`cbspace`] mp_tac)>>
@@ -212,4 +212,3 @@ Proof
     EVAL_TAC)>>
   gvs[wcnfProgTheory.maxsat_output_sem_def]
 QED
-

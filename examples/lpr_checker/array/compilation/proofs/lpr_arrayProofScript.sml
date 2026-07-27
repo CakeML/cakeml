@@ -147,7 +147,7 @@ Theorem machine_code_sound:
 Proof
   strip_tac>>
   fs[installed_x64_def,check_unsat_code_def,cake_lpr_run_def]>>
-  drule check_unsat_compiled_thm>>
+  drule_at (Pos last) check_unsat_compiled_thm>>
   simp[AND_IMP_INTRO]>>
   disch_then drule>>
   disch_then (qspecl_then [`ms`,`mc`,`data_sp`,`cbspace`] mp_tac)>>
@@ -465,4 +465,3 @@ Proof
   fs[parse_rng_print_rng]>>
   metis_tac[stdout_add_stderr]
 QED
-
