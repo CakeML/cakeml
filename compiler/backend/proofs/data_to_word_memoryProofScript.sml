@@ -5747,6 +5747,44 @@ QED
 
 (* el *)
 
+Theorem MEM_v_all_vs_EL:
+  ∀xs i x.
+    i < LENGTH xs ∧
+    MEM x (v_all_vs [EL i xs]) ⇒
+      MEM x (v_all_vs xs)
+Proof
+  Induct \\ gvs [v_all_vs_def] \\ rw []
+  \\ once_rewrite_tac [CONS_APPEND]
+  \\ once_rewrite_tac [v_all_vs_append]
+  \\ Cases_on `i = 0` \\ gvs []
+  \\ gvs [EL_CONS, PRE_SUB1]
+  \\ disj2_tac \\ gvs []
+  \\ last_x_assum irule \\ gvs []
+  \\ goal_assum $ drule_at Any \\ gvs []
+QED
+
+Theorem blocks_unique_el:
+  i < LENGTH xs ∧
+  blocks_unique ts (all_vs refs (Block t0 n xs::stack)) ⇒
+    blocks_unique ts (all_vs refs (xs❲i❳::Block t0 n xs::stack))
+Proof
+  (* TODO(Nick): Fix proof style *)
+  simp [blocks_unique_def]
+  \\ strip_tac
+  \\ rpt gen_tac \\ strip_tac
+  \\ first_x_assum irule \\ gvs []
+  \\ gvs [all_vs_def]
+  \\ rw [] \\ gvs [v_all_vs_def, v_all_vs_append, lookup_insert, AllCaseEqs()]
+  \\ (
+    metis_tac []
+    ORELSE (
+      rpt (qpat_x_assum `MEM _ (v_all_vs (_::_::_))` mp_tac)
+      \\ once_rewrite_tac [CONS_APPEND]
+      \\ once_rewrite_tac [v_all_vs_append]
+      \\ strip_tac \\ gvs [v_all_vs_def]
+      \\ metis_tac [MEM_v_all_vs_EL]))
+QED
+
 Theorem el_thm:
    abs_ml_inv conf (Block t0 n xs::stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
     i < LENGTH xs ==>
@@ -5790,7 +5828,7 @@ Proof
           \\ rw [EL_MEM])
        \\ metis_tac [])
     \\ metis_tac [])
-  \\ conj_tac >- cheat
+  \\ conj_tac >- (irule blocks_unique_el \\ gvs [])
   \\ strip_tac THEN1 (full_simp_tac std_ss [EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS])
   \\ rpt strip_tac
   \\ qpat_x_assum `!xx.bbb` match_mp_tac
@@ -5806,6 +5844,20 @@ Proof
 QED
 
 (* new byte array *)
+
+Theorem blocks_unique_new_byte_alt:
+  blocks_unique ts (all_vs refs stack) ⇒
+    blocks_unique ts
+      (all_vs (insert ptr (ByteArray fl bs) refs) (RefPtr b ptr::stack))
+Proof
+  simp [blocks_unique_def]
+  \\ strip_tac
+  \\ rpt gen_tac \\ strip_tac
+  \\ first_x_assum irule \\ gvs []
+  \\ gvs [all_vs_def]
+  \\ rw [] \\ gvs [v_all_vs_def, v_all_vs_append, lookup_insert, AllCaseEqs()]
+  \\ metis_tac []
+QED
 
 Theorem new_byte_alt_thm:
     abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
@@ -5896,7 +5948,7 @@ Proof
          \\ metis_tac [lookup_insert])
       \\ metis_tac [])
   \\ strip_tac THEN1 asm_rewrite_tac []
-  \\ conj_tac >- cheat
+  \\ conj_tac >- (irule blocks_unique_new_byte_alt \\ gvs [])
   \\ Q.ABBREV_TAC `f1 = f |+ (ptr,a)`
   \\ `f SUBMAP f1` by
    (Q.UNABBREV_TAC `f1` \\ full_simp_tac (srw_ss()) [SUBMAP_DEF,FAPPLY_FUPDATE_THM]
@@ -6038,6 +6090,51 @@ Proof
   \\ fs [SUBSET_DEF,LIST_TO_SET_DEF,MEM]
 QED
 
+Theorem MEM_v_all_vs_FST:
+  ∀xs h0 h1 x.
+  MEM (h0,h1) xs ∧
+  MEM x (v_all_vs [h0]) ⇒
+    MEM x (v_all_vs (MAP FST xs))
+Proof
+  Induct \\ gvs [v_all_vs_def] \\ rw [] \\ gvs []
+  \\ once_rewrite_tac [CONS_APPEND]
+  \\ once_rewrite_tac [v_all_vs_append]
+  \\ gvs []
+  \\ disj2_tac \\ gvs []
+  \\ last_x_assum irule \\ gvs []
+  \\ simp [SF SFY_ss]
+QED
+
+Theorem MEM_v_all_vs_SUBSET:
+  ∀ys xs x.
+    set ys ⊆ set xs ∧
+    MEM x (v_all_vs (MAP FST ys)) ⇒
+      MEM x (v_all_vs (MAP FST xs))
+Proof
+  Induct \\ gvs [v_all_vs_def] \\ rw []
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [CONS_APPEND]
+  \\ once_rewrite_tac [v_all_vs_append]
+  \\ strip_tac \\ gvs []
+  \\ PairCases_on `h` \\ gvs []
+  \\ irule MEM_v_all_vs_FST \\ gvs []
+  \\ simp [SF SFY_ss]
+QED
+
+Theorem blocks_unique_stack_permute:
+  set ys ⊆ set xs ∧
+  blocks_unique ts (all_vs refs (MAP FST xs ++ stack)) ⇒
+    blocks_unique ts (all_vs refs (MAP FST ys ++ stack))
+Proof
+  simp [blocks_unique_def]
+  \\ strip_tac
+  \\ rpt gen_tac \\ strip_tac
+  \\ first_x_assum irule \\ gvs []
+  \\ gvs [all_vs_def]
+  \\ rw [] \\ gvs [v_all_vs_def, v_all_vs_append, lookup_insert, AllCaseEqs()]
+  \\ metis_tac [MEM_v_all_vs_SUBSET]
+QED
+
 Theorem abs_ml_inv_stack_permute:
   !xs ys.
       abs_ml_inv conf (MAP FST xs ++ stack) refs
@@ -6058,7 +6155,7 @@ Proof
   \\ conj_tac
   >- fs[SUBSET_DEF,DRESTRICT_DEF,IN_INTER]
   \\ conj_tac
-  >- cheat
+  >- (drule_all blocks_unique_stack_permute \\ gvs [])
   \\ conj_tac
   >- (full_simp_tac std_ss [LIST_REL_APPEND_EQ,LENGTH_MAP]
      \\ conj_tac
@@ -6138,6 +6235,19 @@ QED
 
 (* duplicate *)
 
+Theorem blocks_unique_duplicate:
+  blocks_unique ts (all_vs refs (xs ++ stack)) ⇒
+    blocks_unique ts (all_vs refs (xs ++ xs ++ stack))
+Proof
+  simp [blocks_unique_def]
+  \\ strip_tac
+  \\ rpt gen_tac \\ strip_tac
+  \\ first_x_assum irule \\ gvs []
+  \\ gvs [all_vs_def]
+  \\ rw [] \\ gvs [v_all_vs_def, v_all_vs_append, lookup_insert, AllCaseEqs()]
+  \\ metis_tac []
+QED
+
 Theorem duplicate_thm:
    abs_ml_inv conf (xs ++ stack) refs (rs ++ roots,heap,be,a,sp,sp1,gens) limit ts /\
    (LENGTH xs = LENGTH rs) ==>
@@ -6148,7 +6258,7 @@ Proof
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
   \\ qexists_tac `tf` \\ full_simp_tac std_ss []
   \\ conj_tac >- fs [all_ts_def]
-  \\ conj_tac >- cheat
+  \\ conj_tac >- (irule blocks_unique_duplicate \\ gvs [])
   \\ imp_res_tac LIST_REL_APPEND_EQ \\ full_simp_tac std_ss []
   \\ full_simp_tac std_ss [APPEND_ASSOC]
   \\ full_simp_tac std_ss [reachable_refs_def,MEM_APPEND] \\ metis_tac []
@@ -6159,6 +6269,19 @@ Theorem duplicate1_thm =
                 |> SIMP_RULE std_ss [LENGTH,APPEND]
 
 (* move *)
+
+Theorem blocks_unique_move:
+  blocks_unique ts (all_vs refs (xs1 ++ xs2 ++ xs3 ++ stack)) ⇒
+    blocks_unique ts (all_vs refs (xs1 ++ xs3 ++ xs2 ++ stack))
+Proof
+  simp [blocks_unique_def]
+  \\ strip_tac
+  \\ rpt gen_tac \\ strip_tac
+  \\ first_x_assum irule \\ gvs []
+  \\ gvs [all_vs_def]
+  \\ rw [] \\ gvs [v_all_vs_def, v_all_vs_append, lookup_insert, AllCaseEqs()]
+  \\ metis_tac []
+QED
 
 Theorem move_thm:
    !xs1 rs1 xs2 rs2 xs3 rs3.
@@ -6176,7 +6299,7 @@ Proof
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
   \\ qexists_tac `tf` \\ full_simp_tac std_ss []
   \\ conj_tac >- (fs [all_ts_def,SUBSET_DEF] \\ metis_tac [])
-  \\ conj_tac >- cheat
+  \\ conj_tac >- (irule blocks_unique_move \\ gvs [])
   \\ strip_tac THEN1 fs[LIST_REL_APPEND_EQ]
   \\ full_simp_tac std_ss [reachable_refs_def,MEM_APPEND] \\ metis_tac []
 QED
@@ -6227,7 +6350,7 @@ Proof
   \\ qexists_tac `f` \\ fs []
   \\ qexists_tac `tf` \\ fs []
   \\ conj_tac >- (fs [all_ts_def,SUBSET_DEF] \\ metis_tac [])
-  \\ conj_tac >- cheat
+  \\ conj_tac >- (irule blocks_unique_Number \\ qexists `[]` \\ gvs [])
   \\ rw [] \\ fs [get_refs_def] \\ metis_tac []
 QED
 
@@ -8862,6 +8985,19 @@ Proof
   \\ eq_tac \\ rw []
 QED
 
+Theorem blocks_unique_CodePtr:
+  blocks_unique ts (all_vs refs (MAP FST vars)) ⇒
+    blocks_unique ts (all_vs refs (CodePtr lab::MAP FST vars))
+Proof
+  simp [blocks_unique_def]
+  \\ strip_tac
+  \\ rpt gen_tac \\ strip_tac
+  \\ first_x_assum irule \\ gvs []
+  \\ gvs [all_vs_def]
+  \\ rw [] \\ gvs [v_all_vs_def, v_all_vs_append, lookup_insert, AllCaseEqs()]
+  \\ metis_tac []
+QED
+
 Theorem memory_rel_CodePtr:
    memory_rel c be ts refs sp st m dm vars ==>
     memory_rel c be ts refs sp st m dm ((CodePtr lab,Loc lab 0)::vars)
@@ -8876,7 +9012,7 @@ Proof
   \\ fs [PULL_EXISTS] \\ rw [] \\ fs []
   \\ fs [get_refs_def] \\ res_tac
   \\ fs [all_ts_cons_no_block]
-  \\ cheat
+  \\ irule blocks_unique_CodePtr \\ gvs []
 QED
 
 Theorem memory_rel_Block_IMP:
@@ -9342,7 +9478,7 @@ Proof
           gvs [SUBSET_DEF, IN_DEF, all_ts_def] \\ rw []
           \\ res_tac \\ gvs [v_all_ts_def]
           \\ metis_tac[])
-        >- cheat
+        >- (irule blocks_unique_Number \\ qexists `[RefPtr F p]` \\ gvs [])
         >- gvs [v_inv_def, word_addr_def, get_addr_0]
         >- (
           first_x_assum irule \\ gvs []
@@ -9381,7 +9517,7 @@ Proof
           gvs [SUBSET_DEF, IN_DEF, all_ts_def] \\ rw []
           \\ res_tac \\ gvs [v_all_ts_def]
           \\ metis_tac[])
-        >- cheat
+        >- (irule blocks_unique_Word64 \\ qexists `[RefPtr F p]` \\ gvs [])
         >- gvs [v_inv_def, word_addr_def, get_addr_0]
         >- (
           first_x_assum irule \\ gvs []
@@ -14716,6 +14852,51 @@ Proof
   \\ fs [SUBSET_DEF] \\ rw [] \\ res_tac \\ fs []
 QED
 
+Theorem v_all_vs_list_to_v:
+  ∀xs stack ts t x.
+  MEM x (v_all_vs (list_to_v ts t xs::stack)) ⇒
+    MEM x (v_all_vs (t::(xs++stack)))
+Proof
+  Induct \\ gvs [list_to_v_def, v_all_vs_def] \\ rw []
+  >- cheat
+  >- (
+    pop_assum mp_tac
+    \\ once_rewrite_tac [CONS_APPEND]
+    \\ once_rewrite_tac [v_all_vs_append]
+    \\ strip_tac \\ gvs []
+    >- (
+      disj2_tac \\ gvs []
+      \\ once_rewrite_tac [CONS_APPEND]
+      \\ once_rewrite_tac [v_all_vs_append]
+      \\ gvs [])
+    \\ first_x_assum drule \\ gvs []
+    \\ once_rewrite_tac [CONS_APPEND]
+    \\ once_rewrite_tac [v_all_vs_append]
+    \\ strip_tac \\ gvs [v_all_vs_def]
+    \\ rpt disj2_tac
+    \\ once_rewrite_tac [v_all_vs_append]
+    \\ gvs [])
+  \\ rpt (
+    once_rewrite_tac [CONS_APPEND]
+    \\ once_rewrite_tac [v_all_vs_append]
+    \\ gvs []
+    \\ disj2_tac)
+QED
+
+Theorem blocks_unique_cons_multi:
+  blocks_unique ts (all_vs refs (t::(xs ++ stack))) ⇒
+    blocks_unique (ts + LENGTH ys1) (all_vs refs (list_to_v ts t xs::stack))
+Proof
+  simp [blocks_unique_def]
+  \\ strip_tac
+  \\ rpt gen_tac \\ strip_tac
+  \\ `a1 = a2 ∧ xs1 = xs2 ∧ t' < ts` suffices_by gvs []
+  \\ first_x_assum irule \\ gvs []
+  \\ gvs [all_vs_def]
+  \\ rw [] \\ gvs [v_all_vs_def, v_all_vs_append, lookup_insert, AllCaseEqs()]
+  \\ metis_tac [v_all_vs_list_to_v]
+QED
+
 Theorem cons_multi_thm:
   abs_ml_inv conf (t::xs ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
   3 * LENGTH xs <= sp /\ xs <> [] ==>
@@ -14977,7 +15158,7 @@ Proof
   \\ conj_tac
   >- (match_mp_tac FDOM_bind_each_lemma \\ fs [])
   \\ conj_tac
-  >- cheat
+  >- (irule blocks_unique_cons_multi \\ gvs [])
   \\ reverse conj_tac
   >-
    (rpt strip_tac
