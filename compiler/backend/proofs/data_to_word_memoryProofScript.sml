@@ -5359,10 +5359,6 @@ Proof
       \\ simp []
       \\ NO_TAC)
     ORELSE (
-      rpt (qpat_x_assum `MEM _ (v_all_vs (LUPDATE _ _ _))` mp_tac)
-      \\
-      bc_ref_inv_def
-
       rpt (qpat_x_assum `MEM _ (v_all_vs (_::_::_))` mp_tac)
       \\ once_rewrite_tac [CONS_APPEND]
       \\ once_rewrite_tac [v_all_vs_append]
