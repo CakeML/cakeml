@@ -168,6 +168,10 @@ examples/pseudo_bool/array
 examples/pseudo_bool/array/compilation
 examples/pseudo_bool/array/compilation/proofs
 examples/pseudo_bool/array/compilation/proofsARM8
+examples/pseudo_bool/cp_encoding
+examples/pseudo_bool/cp_encoding/array
+examples/pseudo_bool/cp_encoding/array/compilation
+examples/pseudo_bool/cp_encoding/array/compilation/proofs
 
 examples/opentheory
 examples/opentheory/compilation
