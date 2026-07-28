@@ -493,10 +493,11 @@ Proof
     \\ gvs [integerTheory.INT_GE,integerTheory.int_le]
     \\ qabbrev_tac ‘ff = λcolour. 1 − b2i (w (VertexHasColor u colour))’
     \\ ‘c < d ∨ d < c’ by decide_tac
-    >-
+   >-
      (qspecl_then [‘d’,‘n’,‘ff’] mp_tac GENLIST_SPLIT_LESS \\ simp []
       \\ qspecl_then [‘c’,‘d’,‘ff’] mp_tac GENLIST_SPLIT_LESS \\ simp []
       \\ rw [Abbr ‘ff’,iSUM_append,iSUM_def]
+      \\ simp [SYM neg_b2i,iSUM_append,iSUM_def]
       \\ qmatch_goalsub_abbrev_tac
            ‘iSUM (GENLIST f1 _) + iSUM (GENLIST f2 _) + iSUM (GENLIST f3 _)’
       \\ ‘iSUM (GENLIST f1 c) ≤ & c’ by
@@ -513,6 +514,7 @@ Proof
      (qspecl_then [‘c’,‘n’,‘ff’] mp_tac GENLIST_SPLIT_LESS \\ simp []
       \\ qspecl_then [‘d’,‘c’,‘ff’] mp_tac GENLIST_SPLIT_LESS \\ simp []
       \\ rw [Abbr ‘ff’,iSUM_append,iSUM_def]
+      \\ simp [SYM neg_b2i,iSUM_append,iSUM_def]
       \\ qmatch_goalsub_abbrev_tac
            ‘iSUM (GENLIST f1 _) + iSUM (GENLIST f2 _) + iSUM (GENLIST f3 _)’
       \\ ‘iSUM (GENLIST f1 d) ≤ & d’ by
@@ -524,7 +526,7 @@ Proof
       \\ ‘iSUM (GENLIST f3 (n − (c + 1))) ≤ & (n − (c + 1))’ by
        (irule iSUM_GENLIST_LEQ
         \\ unabbrev_all_tac \\ rw [EVERY_GENLIST,oneline b2i_def] \\ rw [])
-      \\ intLib.COOPER_TAC))
+     \\ intLib.COOPER_TAC))
   \\ rpt strip_tac
   \\ qabbrev_tac ‘c1 = (@c. w (VertexHasColor x c) ∧ c < n)’
   \\ gvs []

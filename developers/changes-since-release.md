@@ -41,6 +41,8 @@ The parser now supports multi-line string literals.
 
 ## Examples
 
+The CakePB example now has a verified CP encoder frontend.
+
 ## Build infrastructure
 
 ## Proof engineering and tooling

@@ -41,9 +41,13 @@ Definition b2i_def[simp]:
   b2i F = 0i
 End
 
+Definition lit_def[simp]:
+  (lit w (Pos v) = w v) ∧
+  (lit w (Neg v) = ¬(w v))
+End
+
 Definition eval_lit_def[simp]:
-  eval_lit w (Pos v) =     b2i (w v) ∧
-  eval_lit w (Neg v) = 1 - b2i (w v)
+  eval_lit w l = b2i (lit w l)
 End
 
 Definition negate_def[simp]:
@@ -108,6 +112,19 @@ Definition optimal_val_def:
     else
       NONE
 End
+
+Theorem neg_b2i:
+  1 - b2i p = b2i (~ p)
+Proof
+  Cases_on`p`>>simp[]
+QED
+
+Theorem lit_negate:
+  lit w (negate v) = ¬lit w v
+Proof
+  Cases_on ‘v’>>
+  simp[]
+QED
 
 Theorem NUM_LE:
   0 ≤ x ∧ 0 ≤ y ⇒
@@ -226,7 +243,7 @@ Definition pbf_vars_def:
   BIGUNION (IMAGE pbc_vars pbf)
 End
 
-Definition map_lit_def:
+Definition map_lit_def[simp]:
   (map_lit f (Pos v) = Pos (f v)) ∧
   (map_lit f (Neg v) = Neg (f v))
 End
