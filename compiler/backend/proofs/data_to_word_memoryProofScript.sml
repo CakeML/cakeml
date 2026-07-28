@@ -4161,7 +4161,7 @@ Proof
   \\ asm_exists_tac \\ fs []
 QED
 
-Theorem blocks_unique_ValueArray:
+Theorem blocks_unique_update_ref:
   blocks_unique ts (all_vs refs (xs ++ RefPtr b ptr::stack)) ⇒
     blocks_unique ts
       (all_vs (insert ptr (ValueArray xs) refs)
@@ -4254,7 +4254,7 @@ Proof
   THEN1 (fs [INJ_DEF,DRESTRICT_DEF])
   THEN1 (fs [SUBSET_DEF,DRESTRICT_DEF])
   THEN1 (fs [SUBSET_DEF,DRESTRICT_DEF,SUBSET_DEF,IN_INTER])
-  THEN1 (irule blocks_unique_ValueArray \\ gvs [])
+  THEN1 (irule blocks_unique_update_ref \\ gvs [])
   >- (match_mp_tac EVERY2_MEM_MONO
      \\ imp_res_tac LIST_REL_APPEND_IMP
      \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
@@ -9511,7 +9511,7 @@ Proof
     ORELSE (
       disj1_tac \\ disj2_tac
       \\ qpat_x_assum `lookup _ _ = SOME (Thunk _ (Block _ _ _))` $ irule_at Any
-      \\ gvs [v_all_vs_def])
+      \\ gvs [v_all_vs_def]))
 QED
 
 Theorem blocks_unique_Thunk2:
@@ -15002,13 +15002,13 @@ Proof
   \\ fs [SUBSET_DEF] \\ rw [] \\ res_tac \\ fs []
 QED
 
-Theorem v_all_vs_list_to_v:
+Theorem v_all_vs_list_to_v1:
   ∀xs stack ts t t1 a1 xs1.
-    t1 < ts ⇒
+    t1 < ts ∧
     MEM (Block t1 a1 xs1) (v_all_vs (list_to_v ts t xs::stack)) ⇒
       MEM (Block t1 a1 xs1) (v_all_vs (t::(xs++stack)))
 Proof
-  Induct \\ gvs [list_to_v_def, v_all_vs_def] \\ rw []
+  Induct \\ gvs [list_to_v_def, v_all_vs_def] \\ rw [] \\ gvs []
   >- (
     pop_assum mp_tac
     \\ once_rewrite_tac [CONS_APPEND]
@@ -15029,22 +15029,224 @@ Proof
     \\ gvs [v_all_vs_def])
 QED
 
-Theorem blocks_unique_cons_multi:
-  FDOM tf ⊆ {n | n < ts} ∧
+Theorem blocks_unique_cons_multi1:
   blocks_unique ts (all_vs refs (t::(xs ++ stack))) ⇒
-    blocks_unique (ts + LENGTH xs) (all_vs refs (list_to_v ts t xs::stack))
+    blocks_unique
+      (ts + LENGTH xs)
+      {x | x ∈ all_vs refs (list_to_v ts t xs::stack) ∧
+           ∀t1 a1 xs1. x = Block t1 a1 xs1 ⇒ t1 < ts}
 Proof
   simp [blocks_unique_def]
   \\ strip_tac
   \\ rpt gen_tac \\ strip_tac
-  \\ `t' ∈ FDOM tf` by cheat
-  \\ gvs [SUBSET_DEF]
-  \\ last_x_assum $ drule_then assume_tac \\ gvs []
   \\ `a1 = a2 ∧ xs1 = xs2 ∧ t' < ts` suffices_by gvs []
   \\ first_x_assum irule \\ gvs []
   \\ gvs [all_vs_def]
   \\ rw [] \\ gvs [v_all_vs_def, v_all_vs_append, lookup_insert, AllCaseEqs()]
-  \\ metis_tac [v_all_vs_list_to_v]
+  \\ metis_tac [v_all_vs_list_to_v1]
+QED
+
+Theorem blocks_unique_ValueArray:
+  blocks_unique ts (all_vs refs xs) ∧
+  lookup n refs = SOME (ValueArray l) ∧
+  MEM (Block t a ys) (v_all_vs l) ∧
+  ys ≠ [] ⇒
+    t < ts
+Proof
+  simp [blocks_unique_def]
+  \\ once_rewrite_tac [all_vs_def]
+  \\ strip_tac
+  \\ last_x_assum $ qspecl_then [`t`, `a`, `ys`, `a`, `ys`] mp_tac
+  \\ simp []
+  \\ disch_then irule \\ gvs []
+  \\ metis_tac []
+QED
+
+Theorem blocks_unique_Thunk:
+  blocks_unique ts (all_vs refs xs) ∧
+  lookup n refs = SOME (Thunk ev x) ∧
+  MEM (Block t a ys) (v_all_vs [x]) ∧
+  ys ≠ [] ⇒
+    t < ts
+Proof
+  simp [blocks_unique_def]
+  \\ once_rewrite_tac [all_vs_def]
+  \\ strip_tac
+  \\ last_x_assum $ qspecl_then [`t`, `a`, `ys`, `a`, `ys`] mp_tac
+  \\ simp []
+  \\ disch_then irule \\ gvs []
+  \\ metis_tac []
+QED
+
+Theorem blocks_unique_GT_ts:
+  blocks_unique ts (all_vs refs (t::(xs++stack))) ∧
+  t' ≥ ts ∧
+  xs1 ≠ [] ⇒
+    ¬(Block t' a1 xs1 ∈ all_vs refs (t::(xs++stack)))
+Proof
+  rw []
+  \\ CCONTR_TAC \\ gvs []
+  \\ qpat_x_assum `blocks_unique _ _` mp_tac
+  \\ simp [blocks_unique_def]
+  \\ qexistsl [`t'`, `a1`, `xs1`, `a1`, `xs1`]
+  \\ rw []
+QED
+
+Theorem Block_NOT_IN_all_vs:
+  ∀xs t t' a2 xs2 h stack refs.
+  Block t' a2 xs2 ∉ all_vs refs (t::h::(xs ++ stack)) ⇒
+    ∀m. m > 0 ⇒ ¬MEM (Block t' a2 xs2) (v_all_vs [list_to_v (t' + m) t xs])
+Proof
+  Induct \\ gvs []
+  >- (
+    simp [list_to_v_def, v_all_vs_def]
+    \\ rpt gen_tac
+    \\ simp [all_vs_def]
+    \\ once_rewrite_tac [CONS_APPEND]
+    \\ once_rewrite_tac [v_all_vs_append]
+    \\ simp [v_all_vs_def])
+  \\ simp [list_to_v_def, v_all_vs_def]
+  \\ rw []
+  \\ `Block t' a2 xs2 ∉ all_vs refs (t::h::(xs ++ stack))` by (
+    qpat_x_assum `Block _ a2 _ ∉ all_vs _ _` mp_tac
+    \\ simp [all_vs_def]
+    \\ ntac 4 (
+      once_rewrite_tac [CONS_APPEND]
+      \\ once_rewrite_tac [v_all_vs_append]
+      \\ simp [v_all_vs_def]))
+  \\ last_x_assum drule
+  \\ disch_then $ qspec_then `m + 1` assume_tac \\ gvs []
+  \\ once_rewrite_tac [CONS_APPEND]
+  \\ once_rewrite_tac [v_all_vs_append]
+  \\ simp []
+  \\ qpat_x_assum `Block _ a2 _ ∉ all_vs _ _` mp_tac
+  \\ simp [all_vs_def]
+  \\ ntac 2 (
+    once_rewrite_tac [CONS_APPEND]
+    \\ once_rewrite_tac [v_all_vs_append]
+    \\ simp [v_all_vs_def])
+QED
+
+Theorem v_all_vs_list_to_v2:
+  ∀xs t' a1 a2 xs1 xs2 ts t stack refs.
+  MEM (Block t' a1 xs1) (v_all_vs (list_to_v ts t xs::stack)) ∧
+  xs1 ≠ [] ∧
+  MEM (Block t' a2 xs2) (v_all_vs (list_to_v ts t xs::stack)) ∧
+  xs2 ≠ [] ∧
+  Block t' a1 xs1 ∉ all_vs refs (t::(xs ++ stack)) ∧
+  Block t' a2 xs2 ∉ all_vs refs (t::(xs ++ stack)) ⇒
+    a1 = a2 ∧ xs1 = xs2 ∧ t' < ts + LENGTH xs
+Proof
+  Induct \\ simp []
+  >- (
+    simp [list_to_v_def]
+    \\ rpt gen_tac
+    \\ strip_tac
+    \\ gvs [all_vs_def])
+  \\ rpt gen_tac
+  \\ simp [list_to_v_def, v_all_vs_def]
+  \\ once_rewrite_tac [CONS_APPEND]
+  \\ once_rewrite_tac [v_all_vs_append]
+  \\ simp []
+  \\ strip_tac \\ gvs []
+  \\ TRY (
+    spose_not_then kall_tac
+    \\ qpat_x_assum `Block _ a1 xs1 ∉ _` mp_tac
+    \\ simp [all_vs_def]
+    \\ disj2_tac
+    \\ ntac 3 (
+      once_rewrite_tac [CONS_APPEND]
+      \\ once_rewrite_tac [v_all_vs_append]
+      \\ simp [])
+    \\ NO_TAC)
+  \\ TRY (
+    spose_not_then kall_tac
+    \\ qpat_x_assum `Block _ a2 xs2 ∉ _` mp_tac
+    \\ simp [all_vs_def]
+    \\ disj2_tac
+    \\ ntac 3 (
+      once_rewrite_tac [CONS_APPEND]
+      \\ once_rewrite_tac [v_all_vs_append]
+      \\ simp [])
+    \\ NO_TAC)
+  >- (
+    spose_not_then kall_tac
+    \\ qpat_x_assum `Block _ a2 _ ∉ all_vs _ _` assume_tac
+    \\ drule Block_NOT_IN_all_vs
+    \\ simp []
+    \\ qexists `1` \\ gvs [])
+  >- (
+    spose_not_then kall_tac
+    \\ qpat_x_assum `Block _ a1 _ ∉ all_vs _ _` assume_tac
+    \\ drule Block_NOT_IN_all_vs
+    \\ simp []
+    \\ qexists `1` \\ gvs [])
+  \\ simp [ADD1]
+  \\ `a1 = a2 ∧ xs1 = xs2 ∧ t' < (ts + 1) + LENGTH xs` suffices_by simp []
+  \\ last_x_assum irule \\ gvs []
+  \\ qexistsl [`refs`, `stack`, `t`]
+  \\ simp []
+  \\ conj_tac
+  >- (
+    qpat_x_assum `Block _ a1 _ ∉ _ _ _` mp_tac
+    \\ simp [all_vs_def]
+    \\ ntac 3 (
+      once_rewrite_tac [CONS_APPEND]
+      \\ once_rewrite_tac [v_all_vs_append]
+      \\ simp [v_all_vs_def]))
+  \\ conj_tac
+  >- (
+    qpat_x_assum `Block _ a2 _ ∉ _ _ _` mp_tac
+    \\ simp [all_vs_def]
+    \\ ntac 3 (
+      once_rewrite_tac [CONS_APPEND]
+      \\ once_rewrite_tac [v_all_vs_append]
+      \\ simp [v_all_vs_def]))
+  \\ conj_tac
+  >- (
+    qpat_x_assum `MEM (Block _ a1 _) _` mp_tac
+    \\ once_rewrite_tac [CONS_APPEND]
+    \\ once_rewrite_tac [v_all_vs_append]
+    \\ simp [v_all_vs_def])
+  \\ qpat_x_assum `MEM (Block _ a2 _) _` mp_tac
+  \\ once_rewrite_tac [CONS_APPEND]
+  \\ once_rewrite_tac [v_all_vs_append]
+  \\ simp [v_all_vs_def]
+QED
+
+Theorem blocks_unique_cons_multi2:
+  blocks_unique ts (all_vs refs (t::(xs ++ stack))) ⇒
+  blocks_unique
+    (ts + LENGTH xs)
+    {x | x ∈ all_vs refs (list_to_v ts t xs::stack) ∧
+         ∀t1 a1 xs1. x = Block t1 a1 xs1 ⇒ t1 ≥ ts}
+Proof
+  rw []
+  \\ simp [blocks_unique_def, all_vs_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ TRY (drule_all blocks_unique_ValueArray \\ gvs [] \\ NO_TAC)
+  \\ TRY (drule_all blocks_unique_Thunk \\ gvs [] \\ NO_TAC)
+  \\ imp_res_tac blocks_unique_GT_ts \\ gvs []
+  \\ first_x_assum $ qspec_then `a1` assume_tac \\ gvs []
+  \\ first_x_assum $ qspec_then `a2` assume_tac \\ gvs []
+  \\ dxrule_all v_all_vs_list_to_v2 \\ gvs []
+QED
+
+Theorem blocks_unique_cons_multi:
+  blocks_unique ts (all_vs refs (t::(xs ++ stack))) ⇒
+    blocks_unique (ts + LENGTH xs) (all_vs refs (list_to_v ts t xs::stack))
+Proof
+  rw []
+  \\ simp [blocks_unique_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ Cases_on `t' < ts` \\ gvs []
+  >- (
+    drule blocks_unique_cons_multi1 \\ gvs []
+    \\ simp [blocks_unique_def]
+    \\ ntac 2 (disch_then dxrule \\ gvs []))
+  \\ drule blocks_unique_cons_multi2 \\ gvs []
+  \\ simp [blocks_unique_def]
+  \\ ntac 2 (disch_then dxrule \\ gvs [])
 QED
 
 Theorem cons_multi_thm:
