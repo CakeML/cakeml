@@ -7,6 +7,12 @@ Ancestors
 Libs
   preamble
 
+Theorem iSUM_APPEND[local]:
+  ∀xs ys. iSUM (xs ++ ys) = iSUM xs + iSUM ys
+Proof
+  Induct>>gvs[iSUM_def,integerTheory.INT_ADD_ASSOC]
+QED
+
 (*** STEP 1: Formalise the semantics of MAX-SAT ***)
 
 (* lprTheory already provides a concrete syntax for clauses
@@ -203,22 +209,21 @@ Theorem satisfies_clause_satisfies_pbc:
   satisfies_pbc w' (GreaterEqual,enc_clause C,1)
 Proof
   Induct_on`C`
-  >-
-    fs[satisfies_clause_def]>>
+  >- fs[satisfies_clause_def]>>
   rw[]>>
   gvs[interp_cclause_def,wf_clause_def]>>
   Cases_on`satisfies_literal w (interp_lit h)`>>
   fs[satisfies_clause_INSERT]
   >- (
     simp[satisfies_pbc_def,enc_clause_def,eval_lin_term_def,iSUM_def]>>
-    `eval_lit w' (enc_lit h) = 1` by
+    `b2i (lit w' (enc_lit h)) = 1` by
       (rw[enc_lit_def]>>gvs[interp_lit_def,satisfies_literal_def])>>
     simp[GSYM eval_lin_term_def,GSYM enc_clause_def]>>
     qsuff_tac`eval_lin_term w' (enc_clause C') ≥ 0`
     >- intLib.ARITH_TAC>>
     metis_tac[eval_lin_term_enc_clause_ge0])>>
   fs[satisfies_pbc_def,enc_clause_def,eval_lin_term_def,iSUM_def]>>
-  `eval_lit w' (enc_lit h) = 0` by
+  `b2i (lit w' (enc_lit h)) = 0` by
     (rw[enc_lit_def]>>gvs[interp_lit_def,satisfies_literal_def])>>
   fs[]
 QED
