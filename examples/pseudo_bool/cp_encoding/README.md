@@ -45,8 +45,20 @@ Formalization of the CP to ILP phase (misc constraints)
 [cp_to_ilp_primScript.sml](cp_to_ilp_primScript.sml):
 Formalization of the CP to ILP phase (prim constraints)
 
+[cp_to_ilp_schedulingScript.sml](cp_to_ilp_schedulingScript.sml):
+Formalization of the CP to ILP phase (scheduling constraints)
+
+[cp_to_ilp_sortingScript.sml](cp_to_ilp_sortingScript.sml):
+Formalization of the CP to ILP phase (sorting constraints)
+
 [ilpScript.sml](ilpScript.sml):
 An ILP-style language designed as an intermediate layer for CP encodings
 
 [ilp_to_pbScript.sml](ilp_to_pbScript.sml):
 Formalization of the ILP to PB phase
+
+[int_bitwiseExtraScript.sml](int_bitwiseExtraScript.sml):
+Reusable lemmas and definitions about representing natural numbers and
+integers as (little-endian) bit lists: round-trip, zero-padding, two's
+complement bit-width. Shared infrastructure for the CP encodings, and a
+candidate for upstreaming into int_bitwiseTheory.
