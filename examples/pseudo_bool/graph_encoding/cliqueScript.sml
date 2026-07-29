@@ -119,7 +119,7 @@ End
 Definition clique_obj_def:
   clique_obj v =
   SOME((GENLIST (λb. (1, Neg b)) v), 0)
-    : ((num lin_term # int) option)
+  : ((num lin_term # int) option)
 End
 
 Theorem iSUM_SNOC:
@@ -181,6 +181,13 @@ Proof
   Cases_on`vs b`>>fs[IN_APP]
 QED
 
+Theorem b2i_neg:
+  b2i (¬P a) = b2i (a ∉ P)
+Proof
+  ‘P a ⇔ a ∈ P’ suffices_by simp[b2i_def]>>
+  simp[IN_DEF]
+QED
+
 Theorem encode_correct_1:
   good_graph (v,e) ∧
   encode (v,e) = constraints ∧
@@ -199,10 +206,15 @@ Proof
       first_x_assum(qspecl_then[`x`,`y`] mp_tac)>>
       gvs[])>>
     fs[]
-    >- (Cases_on`y ∈ vs`>>fs[])
-    >- (Cases_on`x ∈ vs`>>fs[]))
+    >- (
+      Cases_on ‘y ∈ vs’>>
+      fs[IN_DEF])
+    >- (
+      Cases_on ‘x ∈ vs’>>
+      fs[IN_DEF]))
   >- (
     simp[eval_obj_def,clique_obj_def,eval_lin_term_def,MAP_GENLIST,o_DEF]>>
+    simp[Once b2i_neg]>>
     simp[iSUM_GENLIST_eq_k])
 QED
 
@@ -232,7 +244,8 @@ Proof
   simp[iSUM_GENLIST_eq_k]>>
   `w ∩ count v ∩ count v = w ∩ count v` by
     (rw[EXTENSION]>>metis_tac[])>>
-  simp[]
+  simp[Once b2i_neg]>>
+  simp[iSUM_GENLIST_eq_k]
 QED
 
 Theorem encode_correct:
