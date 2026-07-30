@@ -12996,7 +12996,7 @@ Proof
   \\ fs[Abbr`i`,small_int_def]
   \\ qmatch_goalsub_rename_tac`w2n w`
   \\ Q.ISPEC_THEN`w`mp_tac w2n_lt
-  \\ fs[good_dimindex_def,dimword_def] 
+  \\ fs[good_dimindex_def,dimword_def]
 QED
 
 val assign_WordOp64 =
