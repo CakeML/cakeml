@@ -4589,6 +4589,14 @@ Definition init_store_ok_def:
       byte_aligned curr
 End
 
+Theorem blocks_unique_empty[local]:
+  blocks_unique v (all_vs LN [])
+Proof
+  qsuff_tac ‘all_vs LN [] = {}’
+  >- rw [blocks_unique_def]
+  \\ gvs [all_vs_def, v_all_vs_def]
+QED
+
 Theorem state_rel_init:
     t.ffi = ffi ∧ t.handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
     code_rel c code t.code ∧
@@ -4645,7 +4653,7 @@ Proof
        unused_space_inv_def,bc_stack_ref_inv_def,FDOM_EQ_EMPTY]
     \\ fs [heap_expand_def,heap_lookup_def]
     \\ rw [] \\ fs [isForwardPointer_def,bc_ref_inv_def,reachable_refs_def,
-                    gc_kind_inv_def,data_up_to_def,be_ok_def]
+                    gc_kind_inv_def,data_up_to_def,be_ok_def,blocks_unique_empty]
     \\ fs [heap_split_0]
     \\ fs [gen_state_ok_def,EVERY_MAP,gen_start_ok_def,heap_split_0]
     \\ fs [heap_split_def,el_length_def] \\ every_case_tac
@@ -5771,40 +5779,6 @@ Proof
   \\ full_simp_tac(srw_ss())[MEM_toAList,lookup_inter_alt]
 QED
 
-Theorem state_rel_get_var_RefPtr:
-   state_rel c l1 l2 s t v1 locs ∧
-   get_var n s.locals = SOME (RefPtr b p) ⇒
-   ∃f u. get_var (adjust_var n) t = SOME (Word (get_addr c (FAPPLY f p) u))
-Proof
-  rw[]
-  \\ imp_res_tac state_rel_get_var_IMP
-  \\ fs[state_rel_def,wordSemTheory.get_var_def,dataSemTheory.get_var_def]
-  \\ full_simp_tac std_ss [Once (GSYM APPEND_ASSOC)]
-  \\ old_drule (GEN_ALL word_ml_inv_lookup)
-  \\ disch_then old_drule
-  \\ disch_then old_drule
-  \\ REWRITE_TAC[GSYM APPEND_ASSOC]
-  \\ qmatch_goalsub_abbrev_tac`vv ++ (rr ++ ls)`
-  \\ qmatch_abbrev_tac`P (vv ++ (rr ++ ls)) ⇒ _`
-  \\ strip_tac
-  \\ `P (rr ++ vv ++ ls)`
-  by (
-    unabbrev_all_tac
-    \\ match_mp_tac (GEN_ALL (MP_CANON word_ml_inv_rearrange))
-    \\ ONCE_REWRITE_TAC[CONJ_COMM]
-    \\ asm_exists_tac
-    \\ simp[] \\ metis_tac[] )
-  \\ pop_assum mp_tac
-  \\ pop_assum kall_tac
-  \\ simp[Abbr`P`,Abbr`rr`,word_ml_inv_def]
-  \\ strip_tac \\ rveq
-  \\ fs[abs_ml_inv_def]
-  \\ fs[bc_stack_ref_inv_def]
-  \\ fs[v_inv_def]
-  \\ simp[word_addr_def]
-  \\ metis_tac[]
-QED
-
 Theorem state_rel_get_var_Block:
    state_rel c l1 l2 s t v1 locs ∧
    get_var n s.locals = SOME (Block ts tag vs) ⇒
@@ -6922,9 +6896,10 @@ QED
 Theorem soundness_size_of:
   ∀lims roots r1 s1 root_vars
     (vars:'a word_loc heap_address list) n2 r2 s2 p1 refs.
-    (∀n. reachable_refs root_vars refs n ⇒
+    (∀n. reachable_refs root_vars refs n ∧ n ∈ FDOM f ⇒
          bc_ref_inv c n refs (f,tf,heap,be)) /\
-    LIST_REL (λv x. v_inv c v (x,f,tf,heap)) root_vars vars /\
+    no_thunks_in_refs refs /\
+    LIST_REL (λv x. v_inv c v refs (x,f,tf,heap)) root_vars vars /\
     PERM roots root_vars /\ good_dimindex (:'a) /\
     IMAGE ($' tf) (domain s1) SUBSET set p1 /\
     IMAGE ($' f) (domain refs DIFF domain r1) SUBSET set p1 /\
@@ -6998,12 +6973,18 @@ Proof
     \\ qexists_tac `p1` \\ fs [])
   >~ [‘RefPtr r1 r’] >-
    (fs [size_of_def] \\ rveq
-    \\ fs [v_inv_def] \\ rveq \\ fs [CaseEq"option"] \\ rveq \\ fs []
+    \\ rename [‘lookup r refs1’]
+    \\ ‘∀k e v. lookup r refs ≠ SOME (Thunk e v)’ by fs [no_thunks_in_refs_def]
+    \\ qpat_x_assum ‘v_inv _ _ _ _’ mp_tac
+    \\ simp [Once v_inv_def]
+    \\ strip_tac
+    \\ rpt var_eq_tac
+    \\ Cases_on ‘lookup r refs1’ \\ fs []
     THEN1
      (qexists_tac `p1` \\ fs [] \\ qsuff_tac `MEM (f ' r) p1`
-      THEN1 (once_rewrite_tac [traverse_heap_cases]\\ fs [])
+      THEN1 (once_rewrite_tac [traverse_heap_cases] \\ fs [])
       \\ fs [SUBSET_DEF] \\ first_x_assum match_mp_tac
-      \\ qexists_tac `r` \\ fs [] \\ fs [domain_lookup])
+      \\ qexists_tac `r` \\ fs [] \\ gvs [domain_lookup])
     \\ rename [‘lookup r refs1 = SOME v’]
     \\ reverse (Cases_on `v`) \\ fs []
     >~ [‘ByteArray b l’] >-
@@ -7022,30 +7003,8 @@ Proof
       \\ fs [SUBSET_DEF,PULL_EXISTS] \\ metis_tac [])
     >~ [‘Thunk t a’] >-
      (pairarg_tac \\ gvs [PULL_EXISTS]
-      \\ first_assum (qspec_then `r` mp_tac)
-      \\ impl_tac THEN1 fs [reachable_refs_def,get_refs_def]
-      \\ simp [bc_ref_inv_def,FLOOKUP_DEF]
-      \\ CASE_TAC \\ gvs []
-      \\ fs [subspt_lookup]
-      \\ first_assum old_drule
-      \\ strip_tac \\ fs [] \\ rveq \\ fs []
-      \\ strip_tac \\ fs []
-      \\ last_x_assum $ drule_at $ Pos $ el 2
-      \\ disch_then $ qspecl_then [`f ' r :: p1`,`refs`] mp_tac
-      \\ impl_tac THEN1
-       (fs [] \\ fs [lookup_delete,SUBSET_DEF,PULL_EXISTS]
-        \\ simp [SF DNF_ss]
-        \\ rpt strip_tac
-        \\ first_x_assum match_mp_tac
-        \\ fs [reachable_refs_def,get_refs_def]
-        \\ once_rewrite_tac [RTC_CASES1] \\ disj2_tac
-        \\ rename [`RTC _ r5 r6`] \\ qexists_tac `r5` \\ fs []
-        \\ simp [ref_edge_def,get_refs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]
-        \\ asm_exists_tac \\ fs [])
-      \\ strip_tac \\ qexists_tac `p2` \\ fs []
-      \\ rfs [lookup_len_def,el_length_def,ThunkBlock_def]
-      \\ once_rewrite_tac [traverse_heap_cases]
-      \\ rpt disj2_tac \\ fs [])
+      \\ gvs [subspt_lookup]
+      \\ res_tac \\ fs [])
     \\ rename [‘ValueArray l’]
     \\ pop_assum mp_tac
     \\ pairarg_tac \\ fs [] \\ rw []
@@ -7303,8 +7262,10 @@ QED
 Theorem soundness_size_of_gen:
   !lims (roots2:dataSem$v list) dups root_vars
    (vars:'a word_loc heap_address list) n2 r2 s2 refs c f tf heap be.
-    (!n. reachable_refs root_vars refs n ==> bc_ref_inv c n refs (f,tf,heap,be)) /\
-    LIST_REL (\v x. v_inv c v (x,f,tf,heap)) root_vars vars /\
+    (!n. reachable_refs root_vars refs n /\ n IN FDOM f ==>
+         bc_ref_inv c n refs (f,tf,heap,be)) /\
+    no_thunks_in_refs refs /\
+    LIST_REL (\v x. v_inv c v refs (x,f,tf,heap)) root_vars vars /\
     PERM roots2 (dups ++ root_vars) /\
     set dups SUBSET set root_vars /\
     good_dimindex (:'a) /\
@@ -7315,7 +7276,7 @@ Theorem soundness_size_of_gen:
          !x. reachable_addresses vars heap x ==> MEM x p2
 Proof
   rpt strip_tac
-  \\ `?dvars. LIST_REL (\v x. v_inv c v (x,f,tf,heap)) dups dvars` by
+  \\ `?dvars. LIST_REL (\v x. v_inv c v refs (x,f,tf,heap)) dups dvars` by
        (irule LIST_REL_exists_witness \\ rw []
         \\ fs [SUBSET_DEF] \\ res_tac
         \\ imp_res_tac LIST_REL_MEM_IMP \\ metis_tac [])
@@ -7346,7 +7307,7 @@ Theorem state_rel_gc_gen:
       FLOOKUP st (Temp 29w) = FLOOKUP t.store (Temp 29w) /\
       FLOOKUP st AllocSize = SOME (Word (alloc_size k)) /\
       (has_space (Word ((alloc_size k):'a word)) (t with <|store := st |>) = SOME F /\
-       c.gc_kind <> None ==>
+       c.gc_kind <> None ∧ no_thunks_in_refs s.refs ==>
          !roots2 dups n2 r2 s2.
            PERM roots2 (dups ++ FLAT (MAP extract_stack s.stack) ++
                         [the_global s.global]) /\
@@ -7460,6 +7421,7 @@ Proof
     \\ fs [bc_stack_ref_inv_def]
     \\ old_drule soundness_size_of_gen
     \\ disch_then old_drule
+    \\ disch_then old_drule
     \\ disch_then (qspecl_then [`s.limits`,`roots2`,`dups`,`n2`,`r2`,`s2`] mp_tac)
     \\ impl_tac THEN1 fs []
     \\ strip_tac
@@ -7516,6 +7478,7 @@ Proof
   \\ fs [bc_stack_ref_inv_def]
   \\ old_drule soundness_size_of_gen
   \\ disch_then old_drule
+  \\ disch_then old_drule
   \\ disch_then (qspecl_then [`s.limits`,`roots2`,`dups`,`n2`,`r2`,`s2`] mp_tac)
   \\ impl_tac THEN1 fs []
   \\ strip_tac
@@ -7563,7 +7526,8 @@ Theorem gc_lemma_gen:
         pop_env (t0 with <|stack := stack; store := st; memory := m|>) = SOME t2 /\
         FLOOKUP t2.store (Temp 29w) = FLOOKUP t.store (Temp 29w) /\
         FLOOKUP t2.store AllocSize = SOME (Word (alloc_size k)) /\
-        (has_space (Word ((alloc_size k):'a word)) t2 = SOME F /\ c.gc_kind <> None ==>
+        (has_space (Word ((alloc_size k):'a word)) t2 = SOME F /\
+         c.gc_kind <> None ∧ no_thunks_in_refs s.refs ==>
            !roots2 dups n2 r2 s2.
              PERM roots2 (dups ++ toList x ++ FLAT (MAP extract_stack s.stack) ++
                           [the_global s.global]) /\
@@ -7749,7 +7713,7 @@ Theorem alloc_lemma_gen:
       ((q:'a result option),r) ==>
     (q = SOME NotEnoughSpace ==>
      r.ffi = s.ffi /\ option_le r.stack_max s.stack_max /\
-     (c.gc_kind <> None ==>
+     (c.gc_kind <> None ∧ no_thunks_in_refs s.refs ==>
         !roots2 dups n2 r2 s2.
           PERM roots2 (dups ++ toList x ++ FLAT (MAP extract_stack s.stack) ++
                        [the_global s.global]) /\
@@ -7817,7 +7781,7 @@ Proof
           \\ imp_res_tac wordPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
           \\ UNABBREV_ALL_TAC
           \\ full_simp_tac(srw_ss())[wordSemTheory.set_store_def,state_rel_def])
-      \\ qpat_x_assum `c.gc_kind <> None ==> _` mp_tac
+      \\ qpat_x_assum `c.gc_kind <> None ∧ _ ==> _` mp_tac
       \\ impl_tac THEN1 fs []
       \\ disch_then (qspecl_then [`roots2`,`dups`,`n2`,`r2`,`s2`] mp_tac)
       \\ impl_tac THEN1 fs [] \\ fs [])
@@ -7890,7 +7854,7 @@ Theorem alloc_lemma:
       ((q:'a result option),r) ==>
     (q = SOME NotEnoughSpace ⇒
      r.ffi = s.ffi /\ option_le r.stack_max s.stack_max /\
-     (c.gc_kind <> None ==>
+     (c.gc_kind <> None ∧ no_thunks_in_refs s.refs ==>
        s.limits.heap_limit < size_of_heap (cut_locals names s) + k)) ∧
     (q ≠ SOME NotEnoughSpace ⇒
      state_rel c l1 l2 (s with <|locals := x; space := k|>) r NONE locs ∧
@@ -8268,7 +8232,7 @@ Theorem AllocVar_thm_gen:
     evaluate (AllocVar c limit names,t) = (q,r) /\
     limit < dimword (:'a) DIV 8 ==>
     (q = SOME NotEnoughSpace ==> r.ffi = s.ffi /\ option_le r.stack_max s.stack_max /\
-          (c.gc_kind <> None /\ w2n w DIV 4 < limit ==>
+          (c.gc_kind <> None /\ w2n w DIV 4 < limit /\ no_thunks_in_refs s.refs ==>
              !roots2 dups n2 r2 s2.
                PERM roots2 (dups ++ toList x ++ FLAT (MAP extract_stack s.stack) ++
                             [the_global s.global]) /\
@@ -8451,7 +8415,7 @@ Theorem AllocVar_thm:
     evaluate (AllocVar c limit names,t) = (q,r) /\
     limit < dimword (:'a) DIV 8 ==>
     (q = SOME NotEnoughSpace ⇒ r.ffi = s.ffi ∧ option_le r.stack_max s.stack_max ∧
-          (c.gc_kind <> None /\ w2n w DIV 4 < limit ⇒
+          (c.gc_kind <> None /\ w2n w DIV 4 < limit /\ no_thunks_in_refs s.refs ⇒
            s.limits.heap_limit < size_of_heap (cut_locals names s) + w2n w DIV 4 + 1)) ∧
     (q ≠ SOME NotEnoughSpace ⇒
       w2n w DIV 4 < limit /\
@@ -8495,7 +8459,7 @@ Theorem AllocVar_thm_nary:
     limit < dimword (:'a) DIV 8 ==>
     (q = SOME NotEnoughSpace ==>
        r.ffi = s.ffi /\ option_le r.stack_max s.stack_max /\
-       (c.gc_kind <> None /\ i < limit ==>
+       (c.gc_kind <> None /\ i < limit /\ no_thunks_in_refs s.refs ==>
           s.limits.heap_limit <
             size_of_heap_args vals (cut_locals x' s) + (i + 1))) /\
     (q <> SOME NotEnoughSpace ==>

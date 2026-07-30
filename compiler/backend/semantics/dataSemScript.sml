@@ -179,8 +179,13 @@ Definition size_of_heap_def:
       n
 End
 
+Definition no_thunks_in_refs_def:
+  no_thunks_in_refs refs ⇔ ∀k e v. lookup k refs ≠ SOME (Thunk e v)
+End
+
 Overload add_space_safe =
   ``λk ^s. s.safe_for_space
+           ∧ no_thunks_in_refs s.refs
            ∧ size_of_heap s + k <= s.limits.heap_limit``
 
 Overload heap_peak =
@@ -397,6 +402,7 @@ End
 Overload do_space_safe =
   ``λop vs ^s. if op_space_reset op
               then s.safe_for_space
+                   ∧ no_thunks_in_refs s.refs
                    ∧ size_of_heap_args vs s
                        + space_consumed s op vs
                      <= s.limits.heap_limit
@@ -796,6 +802,30 @@ Definition dest_Boolv_def:
   dest_Boolv _ = NONE
 End
 
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk (RefPtr b ptr) refs =
+    (case lookup ptr refs of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) =>
+         if b then BadRef else IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) =>
+         if b then BadRef else IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk v refs = NotThunk
+End
+
+Definition bad_thunk_update_def:
+  bad_thunk_update m v refs ⇔
+    m = Evaluated ∧ dest_thunk v refs ≠ NotThunk
+End
+
 Definition do_app_aux_def:
   do_app_aux op ^vs ^s =
     case (op,vs) of
@@ -1052,11 +1082,13 @@ Definition do_app_aux_def:
     | (ThunkOp th_op,vs) =>
         (case (th_op,vs) of
          | (AllocThunk m, [v]) =>
-             (let ptr = (LEAST ptr. ptr ∉ domain s.refs) in
+             (if bad_thunk_update m v s.refs then Error else
+              let ptr = (LEAST ptr. ptr ∉ domain s.refs) in
                 Rval (RefPtr F ptr,
                       s with refs := insert ptr (Thunk m v) s.refs))
-         | (UpdateThunk m, [RefPtr _ ptr; v]) =>
-             (case lookup ptr s.refs of
+         | (UpdateThunk m, [RefPtr F ptr; v]) =>
+             (if bad_thunk_update m v s.refs then Error else
+              case lookup ptr s.refs of
               | SOME (Thunk NotEvaluated _) =>
                  Rval (Unit,s with refs := insert ptr (Thunk m v) s.refs)
               | _ => Error)
@@ -1258,23 +1290,6 @@ End
 
 Definition install_sfs_def[simp]:
   install_sfs op ^s = s with safe_for_space := (op ≠ closLang$Install ∧ s.safe_for_space)
-End
-
-Datatype:
-  dest_thunk_ret
-    = BadRef
-    | NotThunk
-    | IsThunk thunk_mode v
-End
-
-Definition dest_thunk_def:
-  dest_thunk (RefPtr _ ptr) refs =
-    (case lookup ptr refs of
-     | NONE => BadRef
-     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
-     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
-     | SOME _ => NotThunk) ∧
-  dest_thunk v refs = NotThunk
 End
 
 Definition set_vars_def:
