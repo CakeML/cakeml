@@ -45,18 +45,16 @@ Proof
   Induct_on`ls`>>rw[iSUM_def]>>
   Cases_on`h`>>rw[eval_term_def]>>
   gvs[DISJ_IMP_THM,FORALL_AND_THM]>>
-  `eval_lit w r = 1 ∨ eval_lit w r = 0` by
-    (Cases_on`r`>>simp[]>>
-    Cases_on`w a`>>simp[])
+  `b2i (lit w r) = 1 ∨ b2i (lit w r) = 0` by (Cases_on`lit w r`>>simp[])
   >- (
-    simp[]>>eq_tac>>rw[]
-    >-
-      (qexists_tac`(1,r)`>>simp[])>>
-    (drule iSUM_one_coeff>>
+    eq_tac>>rw[]
+    >- (qexists_tac`(1,r)`>>gvs[eval_term_def])>>
+    drule iSUM_one_coeff>>
     disch_then(qspec_then`w` assume_tac)>>
-    intLib.ARITH_TAC))>>
-  simp[]  >>
-  `eval_term w (1,r) ≠ 1` by simp[]>>
+    intLib.ARITH_TAC)>>
+  gvs[eval_term_def]>>
+  eq_tac>>rw[]>>
+  gvs[eval_term_def]>>
   metis_tac[]
 QED
 

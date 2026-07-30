@@ -417,8 +417,8 @@ Proof
   metis_tac[sort_PERM,PERM_SYM]
 QED
 
-Theorem eval_lit_eq_flip:
-  q * eval_lit w r = q + (-q * eval_lit w (negate r))
+Theorem b2i_lit_eq_flip:
+  q * b2i (lit w r) = q + (-q * b2i (lit w (negate r)))
 Proof
   Cases_on`r` \\ EVAL_TAC
   \\ Cases_on`w a` \\ EVAL_TAC
@@ -440,7 +440,7 @@ Proof
     (* l1 = negate l2 *)
     fs[iSUM_def]>>
     qmatch_goalsub_abbrev_tac` A + _ + _`>>
-    REWRITE_TAC[Once eval_lit_eq_flip]>>
+    REWRITE_TAC[Once b2i_lit_eq_flip]>>
     `negate l2 = l1` by
       (Cases_on`l1`>>Cases_on`l2`>>fs[])>>
     fs[Abbr`A`]>>
@@ -486,7 +486,7 @@ Proof
   simp[GSYM integerTheory.INT_ADD]
   >- (
     qmatch_goalsub_abbrev_tac`&SUM _ + qq`>>
-    `qq = q * eval_lit w r` by
+    `qq = q * b2i (lit w r)` by
       (fs[Abbr`qq`]>>Cases_on`r`>>simp[mk_coeff_def]>>
       rename1`b2n( w a)`>>
       Cases_on`w a`>>simp[]>>
@@ -496,7 +496,7 @@ Proof
     pop_assum mp_tac>> rpt (pop_assum kall_tac)>> intLib.ARITH_TAC)
   >- (
     qmatch_goalsub_abbrev_tac`&SUM _ + qq`>>
-    `qq + q  = q * eval_lit w r` by (
+    `qq + q  = q * b2i (lit w r)` by (
       fs[Abbr`qq`]>>Cases_on`r`>>simp[mk_coeff_def]>>
       rename1`b2n (w a)`>>
       Cases_on`w a`>>simp[]>>

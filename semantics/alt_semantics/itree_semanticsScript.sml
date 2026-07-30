@@ -19,10 +19,12 @@ Definition thunk_op_def:
   thunk_op (s: v store_v list) th_op vs =
     case (th_op,vs) of
     | (AllocThunk m, [v]) =>
-        (let (s',n) = store_alloc (Thunk m v) s in
+        (if bad_thunk_update m v s then NONE else
+         let (s',n) = store_alloc (Thunk m v) s in
            SOME (s', Rval (Loc F n)))
-    | (UpdateThunk m, [Loc _ lnum; v]) =>
-        (case store_assign lnum (Thunk m v) s of
+    | (UpdateThunk m, [Loc F lnum; v]) =>
+        (if bad_thunk_update m v s then NONE else
+         case store_assign lnum (Thunk m v) s of
          | SOME s' => SOME (s', Rval (Conv NONE []))
          | NONE => NONE)
     | _ => NONE

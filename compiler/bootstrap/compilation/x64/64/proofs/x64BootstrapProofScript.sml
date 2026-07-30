@@ -257,6 +257,17 @@ in
   val char_eq_lemmas = cross cs cs |> map mk_eq |> map EVAL;
 end
 
+val tac =
+  rewrite_tac [safe_dec_thm,EVERY_DEF,safe_dec'_def,MAP_SND_SND,
+                  safe_exp_thm,safe_exp'_def,MAP_SND,namespaceTheory.id_to_n_def,
+                  ast_extrasTheory.every_exp_def |> CONV_RULE (DEPTH_CONV ETA_CONV),
+                  ast_extrasTheory.every_dec_def |> CONV_RULE (DEPTH_CONV ETA_CONV)]
+  \\ rewrite_tac [EVAL “«[]» ∉ kernel_ctors”, EVAL “«::» ∉ kernel_ctors”]
+  \\ rewrite_tac
+       ([EVAL “kernel_ctors”,mlstring_11,CONS_11,NOT_CONS_NIL,NOT_NIL_CONS,
+           IN_INSERT,NOT_IN_EMPTY,EVAL “kernel_ffi”] @ char_eq_lemmas)
+  \\ EVAL_TAC
+
 Theorem compiler64_prog_eq_candle_code_append: (* this is very slow *)
   ∃prog. compiler64_prog = candle_code ++ prog ∧ EVERY safe_dec prog
 Proof
@@ -265,17 +276,10 @@ Proof
   \\ rewrite_tac [LENGTH]
   \\ once_rewrite_tac [compiler64_prog_def]
   \\ PURE_REWRITE_TAC [rich_listTheory.DROP]
-  \\ rewrite_tac [APPEND]
-  \\ rewrite_tac [safe_dec_thm,EVERY_DEF,safe_dec'_def,MAP_SND_SND,
-                  safe_exp_thm,safe_exp'_def,MAP_SND,namespaceTheory.id_to_n_def,
-                  ast_extrasTheory.every_exp_def
-                    |> CONV_RULE (DEPTH_CONV ETA_CONV),
-                  ast_extrasTheory.every_dec_def
-                    |> CONV_RULE (DEPTH_CONV ETA_CONV)]
-  \\ rewrite_tac [EVAL “«[]» ∉ kernel_ctors”, EVAL “«::» ∉ kernel_ctors”]
-  \\ rewrite_tac
-       ([EVAL “kernel_ctors”,mlstring_11,CONS_11,NOT_CONS_NIL,NOT_NIL_CONS,
-           IN_INSERT,NOT_IN_EMPTY,EVAL “kernel_ffi”] @ char_eq_lemmas)
+  \\ conj_tac >- EVAL_TAC
+  \\ rewrite_tac [APPEND,locationTheory.unknown_loc_def,EVERY_DEF]
+  \\ rpt conj_tac
+  \\ tac
 QED
 
 Theorem prog_syntax_ok_candle_code[local]:
@@ -323,4 +327,3 @@ QED
 val _ = print "Checking that no cheats were used in the proofs.\n";
 val _ = candle_top_level_soundness |> check_thm;
 val _ = cake_compiled_thm |> check_thm;
-

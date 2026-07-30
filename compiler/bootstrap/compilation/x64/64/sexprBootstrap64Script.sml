@@ -10,7 +10,11 @@ Libs
 
 val filename = "cake-sexpr-64"
 
-val _ = ((write_ast_to_file filename) o rhs o concl) compiler64_prog_def;
+val _ = compiler64_prog_def
+          |> CONV_RULE (RAND_CONV EVAL)
+          |> concl
+          |> rhs
+          |> write_ast_to_file filename;
 
 (* The following code can be used to generared sexp with EVAL. This code is very slow.
 
@@ -105,4 +109,3 @@ val l2 = length (linesFrom filename2)
   |> length
 
 *)
-

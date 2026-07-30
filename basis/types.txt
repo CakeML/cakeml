@@ -193,6 +193,11 @@ Char.>: char -> char -> bool
 Char.<=: char -> char -> bool
 Char.>=: char -> char -> bool
 Char.isSpace: char -> bool
+Char.isLower: char -> bool
+Char.isUpper: char -> bool
+Char.isDigit: char -> bool
+Char.isAlpha: char -> bool
+Char.isAlphaNum: char -> bool
 Char.fromByte: Word8.word -> char
 Char.some: char -> char option
 Word64.fromInt: int -> Word64.word

@@ -3380,4 +3380,3 @@ Proof
   imp_res_tac the_le_IMP_option_le >>
   fs[option_le_max]
 QED
-
