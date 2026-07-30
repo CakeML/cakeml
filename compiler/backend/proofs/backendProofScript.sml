@@ -492,7 +492,7 @@ Theorem compile_inc_progs_defs[local] =
 
 Theorem cake_orac_eqs:
   state_co (\c (env_id, decs). inc_compile env_id c
-    (source_to_source$compile decs))
+    (source_to_source$inc_compile decs))
     (cake_orac asm_conf c' src config_tuple1 (\ps. (ps.env_id, ps.source_prog))) =
   cake_orac asm_conf c' src (SND o config_tuple1) (\ps. ps.flat_prog)
   /\
@@ -982,7 +982,7 @@ QED
 
 Theorem cake_orac_source_is_state:
   is_state_oracle
-    (\c (env_id, decs). inc_compile env_id c (source_to_source$compile decs))
+    (\c (env_id, decs). inc_compile env_id c (source_to_source$inc_compile decs))
     (cake_orac asm_conf c' syntax config_tuple1 (\ps. (ps.env_id, ps.source_prog)))
 Proof
   match_mp_tac is_state_oracle_cake_orac
@@ -2719,7 +2719,7 @@ Theorem backend_from_flat_tuple_cc_eq_compile_inc_progs:
   c.source_conf.pattern_cfg = prim_src_config.pattern_cfg ==>
   backend_from_flat_tuple_cc asm_conf c (SND (config_tuple1 c'))
     (MAP (flat_pattern$compile_dec prim_src_config.pattern_cfg)
-      (SND (inc_compile_prog env_id src_cfg (source_to_source$compile decs)))) =
+      (SND (inc_compile_prog env_id src_cfg (source_to_source$inc_compile decs)))) =
   let (c'', ps) = compile_inc_progs T asm_conf c' (env_id, decs) in
     OPTION_MAP (\(bs, ws). (bs,
         MAP upper_w2w ws,
@@ -2855,7 +2855,7 @@ Theorem step_invs_cake_orac[local]:
     env_id = (SND x).env_id /\
     (?d_st. decf st = SOME d_st /\ FST d_st = (FST x).source_conf)) ==>
   source_to_flatProof$src_orac_step_invs (SOME decf)
-    (source_to_source$compile) (SOME (EvalOracle st))
+    (source_to_source$inc_compile) (SOME (EvalOracle st))
 Proof
   rw []
   \\ simp [source_to_flatProofTheory.src_orac_step_invs_def]
@@ -2876,7 +2876,22 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
 QED
 
+(* source_dce, and hence source_to_source, requires the state to have no Eval
+   oracle installed; that holds for the initial state of a whole program *)
+Theorem add_eval_state_no_oracle[local]:
+  THE (prim_sem_env (ffi:'ffi ffi_state)) = (s0,env) ==>
+  env.v = nsEmpty /\
+  !x. (add_eval_state ev s0).eval_state = SOME x ==> ?ev'. x = EvalDecs ev'
+Proof
+  simp [prim_sem_env_eq] \\ strip_tac \\ gvs []
+  \\ Cases_on `ev`
+  \\ gvs [add_eval_state_def, namespaceTheory.nsEmpty_def,
+          source_evalProofTheory.mk_init_eval_state_def]
+QED
+
 Theorem source_to_source_semantics_prog_equiv[local]:
+  env.v = nsEmpty /\
+  (!x. s0.eval_state = SOME x ==> ?ev. x = EvalDecs ev) /\
   ~ semantics_prog s0 env prog Fail ==>
   semantics_prog s0 env (source_to_source$compile prog) res =
   semantics_prog s0 env prog res
@@ -2886,6 +2901,8 @@ Proof
 QED
 
 Theorem source_to_source_semantics_prog_intro[local]:
+  env.v = nsEmpty /\
+  (!x. s0.eval_state = SOME x ==> ?ev. x = EvalDecs ev) /\
   ~ semantics_prog s0 env prog Fail ==>
   (~ semantics_prog s0 env (source_to_source$compile prog) Fail ==>
     semantics_prog s0 env (source_to_source$compile prog) res) ==>
@@ -2909,8 +2926,8 @@ QED
 
 Theorem source_to_source_semantics_prog_oracle_intro[local]:
   ~ semantics_prog (s0 with eval_state := insert_gen_oracle ev I sf orac es) env prog Fail ==>
-  (~ semantics_prog (s0 with eval_state := insert_gen_oracle ev source_to_source$compile sf orac es) env prog Fail ==>
-      semantics_prog (s0 with eval_state := insert_gen_oracle ev source_to_source$compile sf orac es) env prog res) ==>
+  (~ semantics_prog (s0 with eval_state := insert_gen_oracle ev source_to_source$inc_compile sf orac es) env prog Fail ==>
+      semantics_prog (s0 with eval_state := insert_gen_oracle ev source_to_source$inc_compile sf orac es) env prog res) ==>
   semantics_prog (s0 with eval_state := insert_gen_oracle ev I sf orac es) env prog res
 Proof
   rw []
@@ -2943,7 +2960,8 @@ Proof
         (\ (cfg, id, ds). (id, (THE ev).config_v cfg, ds))
             o
         cake_orac asm_conf c'
-            (\i. case get_oracle (THE ev) (add_eval_state ev s0) env prog i of
+            (\i. case get_oracle (THE ev) (add_eval_state ev s0) env
+                        (source_to_source$compile prog) i of
                    SOME (id, (v : v), ds) => (id, ds)
                  | _ => ((0, 0), []))
             I (\ps. (ps.env_id,ps.source_prog))`
@@ -2958,7 +2976,7 @@ Proof
             (pure_cc (MAP (flat_pattern$compile_dec prim_src_config.pattern_cfg))
                 (backend_from_flat_tuple_cc asm_conf c))
             (state_co (λc (env_id,decs).
-                         source_to_flat$inc_compile_prog env_id c (source_to_source$compile decs))
+                         source_to_flat$inc_compile_prog env_id c (source_to_source$inc_compile decs))
                 (cake_orac asm_conf c' ((I ## SND) ∘ (source_evalProof$orac_s es).oracle)
                     config_tuple1 (\ps. (ps.env_id, ps.source_prog)))))
         (mk_flat_install_conf (backend_from_flat_tuple_cc asm_conf c)
@@ -2976,6 +2994,8 @@ Proof
   \\ Cases_on `ev` \\ fs []
   >- (
     fs [add_eval_state_def]
+    \\ `env.v = nsEmpty /\ s0.eval_state = NONE` by
+          gvs [prim_sem_env_eq, namespaceTheory.nsEmpty_def]
     \\ simp [Once (GSYM source_to_source_semantics_prog_equiv)]
     \\ irule source_to_flatProofTheory.compile_semantics
     \\ simp [source_to_source_semantics_prog_equiv]
@@ -2989,6 +3009,14 @@ Proof
     \\ EVAL_TAC
   )
   \\ gs [add_eval_state_def]
+  (* the source-to-source step must happen here, before the Eval oracle is
+     installed, since source_dce requires an oracle-free eval state *)
+  \\ irule source_to_source_semantics_prog_intro
+  \\ rpt (conj_tac
+          >- (fs [prim_sem_env_eq, namespaceTheory.nsEmpty_def,
+                  source_evalProofTheory.mk_init_eval_state_def]
+              \\ rw []))
+  \\ rw []
   \\ qspec_then `the_ev` irule eval_oracle_semantics_prog_intro
   \\ simp [CONJ_ASSOC]
   \\ conj_asm1_tac
@@ -3014,8 +3042,6 @@ Proof
     \\ simp [FORALL_PROD]
   )
   \\ rw []
-  \\ irule source_to_source_semantics_prog_intro
-  \\ rw []
   \\ fs [markerTheory.Abbrev_def, source_evalProofTheory.put_oracle_def]
   \\ irule source_to_source_semantics_prog_oracle_intro
   \\ rfs []
@@ -3027,7 +3053,7 @@ Proof
         o v_fun_abs UNIV the_ev.config_v)`
   \\ simp [source_to_flatProofTheory.precondition_def]
   \\ goal_assum (first_assum o mp_then Any mp_tac)
-  \\ qexists_tac `source_to_source$compile`
+  \\ qexists_tac `source_to_source$inc_compile`
   \\ simp [source_to_flatProofTheory.precondition1_def]
   (* should be done with install_conf_rel now *)
   \\ qpat_x_assum `flat_patternProof$install_conf_rel _ _ _` kall_tac

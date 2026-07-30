@@ -559,7 +559,7 @@ Definition compile_inc_progs_def:
   compile_inc_progs k asm_conf c p_tup =
     let (env_id,p) = p_tup in
     let ps = empty_progs with <| env_id := env_id; source_prog := p |> in
-    let p = source_to_source$compile p in
+    let p = source_to_source$inc_compile p in
     let (c',p) = source_to_flat$inc_compile env_id c.source_conf p in
     let ps = ps with <| flat_prog := keep_progs k p |> in
     let c = c with source_conf := c' in
@@ -622,7 +622,7 @@ QED
 
 Theorem compile_inc_progs_for_eval_eq:
   compile_inc_progs_for_eval asm_conf (env_id,c,p) =
-    let p = source_to_source$compile p in
+    let p = source_to_source$inc_compile p in
     let (c',p) = source_to_flat$inc_compile env_id c.source_conf p in
     let _ = empty_ffi «finished: source_to_flat» in
     let c = c with source_conf := c' in

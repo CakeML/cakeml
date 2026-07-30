@@ -266,6 +266,11 @@ intermediate language.
 [serialiser](serialiser):
 Proofs and automation for serialising HOL values.
 
+[source_dceScript.sml](source_dceScript.sml):
+This is a source-to-source transformation that removes declarations
+that bind values that are never used and whose evaluation cannot have
+any externally observable effect on the state.
+
 [source_letScript.sml](source_letScript.sml):
 This is a source-to-source transformation that lifts Let/Letrec expressions
 that sit at the top of Dlet:s into their own Dlet/Dletrec:s.

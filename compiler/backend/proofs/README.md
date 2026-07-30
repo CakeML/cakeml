@@ -117,6 +117,9 @@ Correctness proof for lab_filter
 [lab_to_targetProofScript.sml](lab_to_targetProofScript.sml):
 Correctness proof for lab_to_target
 
+[source_dceProofScript.sml](source_dceProofScript.sml):
+Correctness for the source_dce pass.
+
 [source_evalProofScript.sml](source_evalProofScript.sml):
 Proofs that the eval mode of the source semantics can
 be switched to one that includes an oracle.
