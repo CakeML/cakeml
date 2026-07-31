@@ -1,9 +1,9 @@
 (*
-  fib_heap merge implementation in Pancake
+  fib_heap_meld Implementation and Verification in Pancake
 *)
 Theory fib_heap_pan
 Ancestors
-  errorLogMonad panPtreeConversion panStatic set_sep address panSem panLang fibonacci_heap
+  errorLogMonad panPtreeConversion panStatic set_sep address panSem panLang fibonacci_heap fib_heap_meld
 Libs
   stringLib numLib intLib preamble helperLib
 
@@ -207,10 +207,10 @@ fun parse_pancake q =
 
 Quote meld_pan = parse_pancake:
   fun meld (a1,a2) {
-    if (a2 == 0) {
+    if a2 == 0 {
       return a1;
     }
-    if (a1 == 0) {
+    if a1 == 0 {
       return a2;
     }
 
@@ -452,20 +452,21 @@ QED
 End to End Proof
 ---------------------------------------------------------------*)
 Theorem end_to_end_meld:
-  (fts_mem (ann_fts 0w fts1) * fts_mem (ann_fts 0w fts2) * frame)
-    (fun2set(m,dm)) /\
   fib_heap_inv fh1 fts1 /\
   fib_heap_inv fh2 fts2 /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
+  (fts_mem (ann_fts 0w fts1) * fts_mem (ann_fts 0w fts2) * frame)
+    (fun2set(m,dm)) /\
   FLOOKUP s.locals «a1» = SOME (ValWord ((head_key fts1):'a word)) ∧
   FLOOKUP s.locals «a2» = SOME (ValWord (head_key fts2)) ∧ dimindex (:α) = 8 ∧
   m = s.memory ∧ dm = s.memaddrs
   ⇒
-  ∃fts' l m'. evaluate (meld_body,s) =
-    (SOME (Return (ValWord (head_key fts'))),
-     s with <|memory := m'; locals := l|>) /\
+  ∃fts' l m'.
+  fib_heap_inv (FUNION fh1 fh2) fts' /\
   (fts_mem (ann_fts 0w fts') * frame) (fun2set(m',dm)) /\
-  fib_heap_inv (FUNION fh1 fh2) fts'
+    evaluate (meld_body,s) =
+      (SOME (Return (ValWord (head_key fts'))),
+      s with <|memory := m'; locals := l|>)
 Proof
   rpt strip_tac >>
   qexists `fts_meld fts1 fts2` >>
