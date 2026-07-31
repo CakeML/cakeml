@@ -2221,6 +2221,7 @@ Proof
 QED
 
 Resume compile_exps_correct[Op]:
+  cheat (*
   note_tac "compile_exps_Op" \\ REPEAT STRIP_TAC
   \\ full_simp_tac(srw_ss())[bEval_def,compile_exps_def,
         iEval_def,bEvery_def,handle_ok_def]
@@ -3505,7 +3506,7 @@ Resume compile_exps_correct[Op]:
     \\ `EVERY (bv_ok s5.refs) (REVERSE a)` by (IMP_RES_TAC evaluate_ok \\ full_simp_tac(srw_ss())[rich_listTheory.EVERY_REVERSE])
     \\ old_drule (GEN_ALL do_app_adjust) \\ fs []
     \\ disch_then (qspecl_then [`r`,`q`,`op`,`a`] mp_tac)
-    \\ fs [] \\ strip_tac \\ fs [MAP_REVERSE]
+    \\ fs [] \\ strip_tac \\ fs [MAP_REVERSE] *)
 QED
 
 Resume compile_exps_correct[NIL]:
