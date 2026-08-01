@@ -310,7 +310,7 @@ Definition is_stratified_def:
   is_stratified lt circ reset latches ⇔
     ∀lat lit is ls' ls.
       lat ∈ latches ∧ reset lat = SOME lit ∧
-      (∀l. l ∈ { l' | lt l' l } ⇒ (ls' l ⇔ ls l)) ⇒
+      (∀l. l ∈ { l' | lt l' lat } ⇒ (ls' l ⇔ ls l)) ⇒
       eval_lit (is,ls') circ lit ⇔ eval_lit (is,ls) circ lit
 End
 
@@ -356,10 +356,16 @@ Proof
   rw [is_reset_def] >> metis_tac []
 QED
 
+Definition no_inversions_def:
+  (no_inversions R [] ⇔ T) ∧
+  (no_inversions R (x::rest) ⇔
+      (∀y. MEM y rest ⇒ ¬R y x) ∧ no_inversions R rest)
+End
+
 Theorem subset_is_reset_patch:
   ∀xs ls.
     is_stratified lt circ reset latches ∧ set xs ⊆ latches ∧
-    SORTED lt xs ∧ irreflexive lt ∧ transitive lt
+    no_inversions lt xs ∧ ALL_DISTINCT xs ∧ irreflexive lt
     ⇒
     is_reset (is, patch circ reset is ls xs) circ reset (set xs)
 Proof
@@ -370,19 +376,27 @@ Proof
   >-
    (simp [Req0 is_reset_insert_NONE]
     >> last_x_assum irule
-    >> drule SORTED_TL >> simp [])
+    >> fs [no_inversions_def])
   >> drule_then assume_tac is_reset_insert_SOME
   >> simp []
   >> conj_tac
-  >- (last_x_assum irule >> drule SORTED_TL >> simp [])
+  >- (last_x_assum irule >> fs [no_inversions_def])
   >> simp [eval_circuit_def]
   >> rename1 ‘l::xs’
-  >> ‘¬MEM l xs’ by (drule_all SORTED_ALL_DISTINCT >> simp [])
   >> drule_then assume_tac not_mem_patch_eq >> simp []
   >> fs [is_stratified_def]
   >> qmatch_goalsub_abbrev_tac ‘_ ⇔ eval_lit (is, ls') _ _’
   >> last_x_assum $ qspecl_then [‘l’, ‘lit’, ‘is’, ‘ls'’, ‘ls’] mp_tac
-  >> fs [irreflexive_def]
+  >> sg ‘∀l'. lt l' l ⇒ (ls' l' ⇔ ls l')’
+  >-
+   (rw []
+    >> Cases_on ‘l' = l’
+    >- gvs [irreflexive_def]
+    >> simp [Abbr ‘ls'’]
+    >> sg ‘¬MEM l' xs’
+    >- (CCONTR_TAC >> gvs [no_inversions_def])
+    >> drule_then assume_tac not_mem_patch_eq >> simp [])
+  >> simp []
 QED
 
 Theorem dep_eval_lit_eq:
