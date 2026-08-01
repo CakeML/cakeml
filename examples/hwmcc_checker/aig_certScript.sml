@@ -9,12 +9,6 @@ Libs
 
 (* Soundness ******************************************************************)
 
-Theorem set_QSORT[local,simp]:
-  ∀R ls. set (QSORT R ls) = set ls
-Proof
-  metis_tac [QSORT_PERM, PERM_LIST_TO_SET]
-QED
-
 Definition signal_imply_def:
   signal_imply ss circ ss' circ' signals signals' =
   LIST_REL (λq q'. preds_hold ss circ {q} ⇒ preds_hold ss' circ' {q'})
@@ -213,6 +207,96 @@ Definition is_witness_def:
     wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
 End
 
+(* To show that we can find a state where the reset functions are all satisfied,
+   we construct a topological order that we can pass to patch. *)
+
+Definition is_minimal_def:
+  is_minimal R s x ⇔ x ∈ s ∧ ∀y. y ∈ s ⇒ ¬R y x
+End
+
+Definition topo_sort_def:
+  topo_sort R s =
+  if FINITE s ∧ ∃x. is_minimal R s x then
+    let m = @x. is_minimal R s x in
+      m :: topo_sort R (s DELETE m)
+  else []
+Termination
+  wf_rel_tac ‘measure (CARD ∘ SND)’ >> rw []
+  >-
+   (gvs [CARD_EQ_0, GSYM NOT_ZERO, is_minimal_def]
+    >> metis_tac [MEMBER_NOT_EMPTY])
+  >- metis_tac [is_minimal_def]
+End
+
+Theorem topo_sort_empty[local,simp]:
+  topo_sort R ∅ = []
+Proof
+  simp [Once topo_sort_def, is_minimal_def]
+QED
+
+Theorem exists_is_minimal:
+  irreflexive R ∧ transitive R ⇒
+  FINITE s ∧ s ≠ ∅ ⇒ ∃x. is_minimal R s x
+Proof
+  strip_tac
+  >> Induct_on ‘FINITE s’
+  >> rw [is_minimal_def]
+  >> Cases_on ‘s = ∅’
+  >- fs [irreflexive_def]
+  >> metis_tac [irreflexive_def, transitive_def]
+QED
+
+Theorem set_topo_sort_sub[local]:
+  ∀R s. set (topo_sort R s) ⊆ s
+Proof
+  recInduct topo_sort_ind >> rw []
+  >> simp [Once topo_sort_def]
+  >> IF_CASES_TAC >> gvs []
+  >> conj_tac
+  >- metis_tac [is_minimal_def]
+  >> irule SUBSET_TRANS
+  >> metis_tac [DELETE_SUBSET]
+QED
+
+Theorem MEM_topo_sort[local]:
+  ∀R s y. MEM y (topo_sort R s) ⇒ y ∈ s
+Proof
+  metis_tac [set_topo_sort_sub, SUBSET_DEF]
+QED
+
+Theorem set_topo_sort_eq[local]:
+  ∀R s. irreflexive R ∧ transitive R ∧ FINITE s ⇒ set (topo_sort R s) = s
+Proof
+  recInduct topo_sort_ind >> rw []
+  >> Cases_on ‘s = ∅’ >> gvs []
+  >> simp [Once topo_sort_def]
+  >> drule_all_then assume_tac exists_is_minimal >> simp []
+  >> irule INSERT_DELETE
+  >> metis_tac [is_minimal_def]
+QED
+
+Theorem ALL_DISTINCT_topo_sort[local]:
+  ∀R s. ALL_DISTINCT (topo_sort R s)
+Proof
+  recInduct topo_sort_ind >> rw []
+  >> simp [Once topo_sort_def]
+  >> IF_CASES_TAC >> gvs []
+  >> strip_tac
+  >> drule MEM_topo_sort
+  >> simp []
+QED
+
+Theorem no_inversions_topo_sort[local]:
+  ∀R s. no_inversions R (topo_sort R s)
+Proof
+  recInduct topo_sort_ind >> rw []
+  >> simp [Once topo_sort_def]
+  >> IF_CASES_TAC >> gvs [no_inversions_def]
+  >> rw []
+  >> ‘is_minimal R s (@x. is_minimal R s x)’ by metis_tac [is_minimal_def]
+  >> drule_then assume_tac MEM_topo_sort
+  >> fs [is_minimal_def]
+QED
 
 (* Extends a trace for the model to a trace for the witness.
    This setup allows us to formulate the conclusion of
@@ -221,7 +305,7 @@ End
 Definition mk_trace_def:
   (mk_trace lt mlatches wcirc wreset wnext wpreds wcnstrs wlatches tr 0 =
    let
-     xs = QSORT lt (SET_TO_LIST (wlatches DIFF (mlatches ∩ wlatches)));
+     xs = topo_sort lt (wlatches DIFF (mlatches ∩ wlatches));
      (is, ls) = tr 0
    in
      (is, patch wcirc wreset is ls xs)) ∧
@@ -250,7 +334,6 @@ Definition is_stratified_full_def:
   FINITE latches ∧
   irreflexive lt ∧
   transitive lt ∧
-  total lt ∧   (* for QSORT_SORTED *)
   is_stratified lt circ reset latches
 End
 
@@ -296,6 +379,8 @@ Proof
     >> namedCases_on ‘tr 0’ ["is ls"] >> fs []
     >> gvs [mk_trace_def]
     >> qmatch_goalsub_abbrev_tac ‘patch _ _ _ _ xs’
+    >> sg ‘∀l. MEM l xs ⇔ l ∈ (wlatches DIFF mlatches ∩ wlatches)’
+    >- (simp [Abbr ‘xs’, Req0 set_topo_sort_eq])
     >> qmatch_goalsub_abbrev_tac ‘is_reset ss0’
     >> CONJ_TAC
       (* wlatches are in reset and wcnstrs
@@ -320,13 +405,14 @@ Proof
           irule (GSYM not_mem_patch_eq)>>
           simp[Abbr`xs`])
       >> rw[]
-      >> ‘wlatches = (mlatches ∩ wlatches) ∪ (set xs)’ by
-          (simp [Abbr ‘xs’, Req0 SET_TO_LIST_INV] >> SET_TAC [])
+      >> sg ‘wlatches = (mlatches ∩ wlatches) ∪ (set xs)’
+      >- (simp [Abbr ‘xs’, Req0 set_topo_sort_eq] >> SET_TAC [])
       >> pop_assum SUBST1_TAC
       >> simp [is_reset_union,Abbr`ss0`]
       >> irule subset_is_reset_patch
       >> first_assum $ irule_at (Pos last)  (* is_stratified *)
-      >> simp [Abbr ‘xs’, Req0 SET_TO_LIST_INV, Req0 QSORT_SORTED])
+      >> simp [Abbr ‘xs’, Req0 set_topo_sort_eq, ALL_DISTINCT_topo_sort,
+               no_inversions_topo_sort])
     >> simp [traces_agree_def, agree_on_def, Abbr`ss0`]
     >-
      (rw []
