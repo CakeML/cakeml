@@ -4469,28 +4469,32 @@ Definition sum_cmp_def:
          | INR n2 => c2 n1 n2)
 End
 
-Theorem sum_forall:
-  (∀x. P x) ⇔ (∀y. P (INL y)) ∧ (∀y. P (INR y))
-Proof
-  eq_tac \\ rw [] \\ simp [] \\ Cases_on ‘x’ \\ fs []
-QED
-
 Theorem TotOrd_sum:
   TotOrd c1 ∧ TotOrd c2 ⇒
   TotOrd (sum_cmp c1 c2)
 Proof
-  fs [totoTheory.TotOrd, sum_cmp_def, AllCaseEqs(), sum_forall]
+  fs [totoTheory.TotOrd, sum_cmp_def, AllCaseEqs(), sumTheory.FORALL_SUM]
   \\ simp [SF DNF_ss, PULL_EXISTS] \\ rw [] \\ res_tac
 QED
 
-Definition num_cmp_def:
-  num_cmp n1 (n2:num) =
+Theorem TotOrd_num_cmp:
+  TotOrd num_cmp
+Proof
+  simp [comparisonTheory.num_cmp_numOrd, totoTheory.TO_numOrd]
+QED
+
+(* the shape num_cmp shares with mlint$int_cmp *)
+Theorem num_cmp_thm:
+  num_cmp n1 n2 =
     if n1 < n2 then LESS else
     if n2 < n1 then GREATER else EQUAL
-End
-
-Theorem TotOrd_num_cmp:
-  TotOrd (num_cmp : num -> num -> ordering)
 Proof
-  fs [totoTheory.TotOrd, num_cmp_def, CaseEq"bool"]
+  rw [comparisonTheory.num_cmp_def]
+QED
+
+Theorem TotOrd_pair_cmp:
+  TotOrd c1 ∧ TotOrd c2 ⇒
+  TotOrd (pair_cmp c1 c2)
+Proof
+  rw [comparisonTheory.pair_cmp_lexTO, totoTheory.TO_lexTO]
 QED
