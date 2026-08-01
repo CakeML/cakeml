@@ -34,8 +34,8 @@ End
 
 Definition is_witness_reset_def:
   is_witness_reset
-    mcirc mreset mnext mpreds mcnstrs mlatches
-    wcirc wreset wnext wpreds wcnstrs wlatches
+    mcirc mreset mcnstrs mlatches
+    wcirc wreset wcnstrs wlatches
   ⇔
   ∀ss.
     (is_reset ss mcirc mreset mlatches ∧
@@ -47,8 +47,8 @@ End
 
 Definition is_witness_transition_def:
   is_witness_transition
-    mcirc mreset mnext mpreds mcnstrs mlatches
-    wcirc wreset wnext wpreds wcnstrs wlatches
+    mcirc mnext mcnstrs mlatches
+    wcirc wnext wcnstrs wlatches
   ⇔
   ∀ss₀ ss₁.
     (is_next ss₀ mcirc mnext mlatches (SND ss₁) ∧
@@ -62,8 +62,8 @@ End
 
 Definition is_witness_property_def:
   is_witness_property
-    mcirc mreset mnext mpreds mcnstrs mlatches
-    wcirc wreset wnext wpreds wcnstrs wlatches
+    mcirc mpreds mcnstrs
+    wcirc wpreds wcnstrs
   ⇔
   ∀ss.
     (preds_hold ss mcirc mcnstrs ∧
@@ -74,7 +74,7 @@ End
 
 Definition is_witness_base_def:
   is_witness_base
-    wcirc wreset wnext wpreds wcnstrs wlatches
+    wcirc wreset wpreds wcnstrs wlatches
   ⇔
     ∀ss.
       (is_reset ss wcirc wreset wlatches ∧
@@ -85,7 +85,7 @@ End
 
 Definition is_witness_step_def:
   is_witness_step
-    wcirc wreset wnext wpreds wcnstrs wlatches
+    wcirc wnext wpreds wcnstrs wlatches
   ⇔
     ∀ss₀ ss₁.
       (preds_hold ss₀ wcirc wpreds ∧
@@ -99,7 +99,7 @@ End
 
 Definition is_witness_liveness_def:
   is_witness_liveness
-    mcirc mreset mnext mpreds mcnstrs mqcirc mlive mlatches
+    mcirc mcnstrs mqcirc mlive
     wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
   ⇔
     (* This LENGTH property is not strictly necessary but makes the proof a bit
@@ -121,7 +121,7 @@ End
 
 Definition is_witness_decrease_def:
   is_witness_decrease
-    wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
+    wcirc wnext wpreds wcnstrs wqcirc wlive wlatches
   ⇔
     ∀ss₀ ss₁.
       (preds_hold ss₀ wcirc wcnstrs ∧
@@ -135,7 +135,7 @@ End
 
 Definition is_witness_closure_def:
   is_witness_closure
-    wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
+    wcirc wnext wpreds wcnstrs wqcirc wlive wlatches
   ⇔
     ∀ss₀ ss₁ ss₂.
       (preds_hold ss₀ wcirc wcnstrs ∧
@@ -152,7 +152,7 @@ End
 
 Definition is_witness_consistent_def:
   is_witness_consistent
-    wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
+    wcirc wnext wpreds wcnstrs wqcirc wlive wlatches
   ⇔
     ∀ss₀ ss₁ ss₂.
       (preds_hold ss₀ wcirc wcnstrs ∧
@@ -176,35 +176,35 @@ Definition is_witness_def:
     wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
   ⇔
   is_witness_reset
-    mcirc mreset mnext mpreds mcnstrs mlatches
-    wcirc wreset wnext wpreds wcnstrs wlatches
+    mcirc mreset mcnstrs mlatches
+    wcirc wreset wcnstrs wlatches
   ∧
   is_witness_transition
-    mcirc mreset mnext mpreds mcnstrs mlatches
-    wcirc wreset wnext wpreds wcnstrs wlatches
+    mcirc mnext mcnstrs mlatches
+    wcirc wnext wcnstrs wlatches
   ∧
   is_witness_property
-    mcirc mreset mnext mpreds mcnstrs mlatches
-    wcirc wreset wnext wpreds wcnstrs wlatches
+    mcirc mpreds mcnstrs
+    wcirc wpreds wcnstrs
   ∧
   is_witness_base
-    wcirc wreset wnext wpreds wcnstrs wlatches
+    wcirc wreset wpreds wcnstrs wlatches
   ∧
   is_witness_step
-    wcirc wreset wnext wpreds wcnstrs wlatches
+    wcirc wnext wpreds wcnstrs wlatches
   ∧
   is_witness_liveness
-    mcirc mreset mnext mpreds mcnstrs mqcirc mlive mlatches
+    mcirc mcnstrs mqcirc mlive
     wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
   ∧
   is_witness_decrease
-    wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
+    wcirc wnext wpreds wcnstrs wqcirc wlive wlatches
   ∧
   is_witness_closure
-    wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
+    wcirc wnext wpreds wcnstrs wqcirc wlive wlatches
   ∧
   is_witness_consistent
-    wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
+    wcirc wnext wpreds wcnstrs wqcirc wlive wlatches
 End
 
 (* To show that we can find a state where the reset functions are all satisfied,
@@ -356,13 +356,13 @@ Proof
 QED
 
 Theorem extend_model_trace_to_witness:
-  is_witness_reset
-    mcirc mreset mnext mpreds mcnstrs mlatches
-    wcirc wreset wnext wpreds wcnstrs wlatches ∧
-  is_witness_transition
-    mcirc mreset mnext mpreds mcnstrs mlatches
-    wcirc wreset wnext wpreds wcnstrs wlatches ∧
   dep_model mcirc mreset mnext mpreds mcnstrs minputs mlatches ∧
+  is_witness_reset
+    mcirc mreset mcnstrs mlatches
+    wcirc wreset wcnstrs wlatches ∧
+  is_witness_transition
+    mcirc mnext mcnstrs mlatches
+    wcirc wnext wcnstrs wlatches ∧
   is_stratified_full lt wcirc wreset wlatches
   ⇒
   ∃tr'. ∀n.
@@ -464,9 +464,9 @@ QED
 Theorem is_witness_base_step_safe:
   is_trace circ reset next cnstrs latches tr n ∧
   is_witness_base
-    circ reset next preds cnstrs latches ∧
+    circ reset preds cnstrs latches ∧
   is_witness_step
-    circ reset next preds cnstrs latches
+    circ next preds cnstrs latches
   ⇒
   preds_hold (tr n) circ preds
 Proof
@@ -485,9 +485,9 @@ QED
 Theorem is_inf_trace_is_witness_base_step_safe:
   is_inf_trace circ reset next cnstrs latches tr ∧
   is_witness_base
-    circ reset next preds cnstrs latches ∧
+    circ reset preds cnstrs latches ∧
   is_witness_step
-    circ reset next preds cnstrs latches
+    circ next preds cnstrs latches
   ⇒
   (∀n. preds_hold (tr n) circ preds)
 Proof
@@ -540,7 +540,7 @@ QED
 Theorem is_witness_closure_lives_hold[local]:
   ∀k.
     is_witness_closure
-      circ reset next preds cnstrs qcirc live latches ∧
+      circ next preds cnstrs qcirc live latches ∧
     lives_hold (pair_state (tr i) (tr j)) qcirc live ∧
     (∀n. preds_hold (tr n) circ preds) ∧
     (∀n. preds_hold (tr n) circ cnstrs) ∧
@@ -586,10 +586,10 @@ QED
 
 Theorem matching_transition_live:
   is_witness_decrease
-    circ reset next preds cnstrs qcirc live latches  ∧
+    circ next preds cnstrs qcirc live latches  ∧
   is_inf_trace circ reset next cnstrs latches tr ∧
   is_witness_closure
-    circ reset next preds cnstrs qcirc live latches ∧
+    circ next preds cnstrs qcirc live latches ∧
   matching_transition inputs' latches' tr i j ∧
   set (circuit_inputs circ) ⊆ inputs' ∧
   BIGUNION (IMAGE (set o lit_inputs o next) latches) ⊆ inputs' ∧
@@ -656,7 +656,7 @@ Proof
 QED
 
 Theorem is_witness_consistent_preds_holds:
-  is_witness_consistent wcirc wreset wnext wpreds wcnstrs wqcirc wlive
+  is_witness_consistent wcirc wnext wpreds wcnstrs wqcirc wlive
     wlatches ∧
   MEM q Q ∧ MEM Q wlive ∧
   preds_hold (pair_state (tr j) (tr (j + 1))) wqcirc {q} ∧
@@ -792,6 +792,7 @@ Proof
     by
     (rw []
      >> drule matching_transition_live >> simp []
+     >> disch_then drule
      >> disch_then irule >> simp []
      >> qpat_x_assum ‘∀_. _ ⇒ ∃_. matching_transition _ _ _ _ _’ $
           qspec_then `i` mp_tac
