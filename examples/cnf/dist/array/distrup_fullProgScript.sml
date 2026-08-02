@@ -1655,22 +1655,22 @@ Inductive events_ok:
   events_ok st events aevents (SOME (fmlls, Clist, b)) ∧
   is_validate_events validate_events ∧
   is_output_event #"V" #"1" output_event ∧
-  check_distrup_list Validate_Unsat fmlls Clist b = SOME (fmlls', Clist', b')
+  check_distrup_list ValidateUnsat fmlls Clist b = SOME (fmlls', Clist', b')
   ⇒
-  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) (SOME (fmlls', Clist', b'))
+  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [ValidateUnsat]) (SOME (fmlls', Clist', b'))
 [~validate_Fail:]
   events_ok st events aevents (SOME (fmlls, Clist, b)) ∧
   is_validate_events validate_events ∧
   is_output_event #"V" #"0" output_event ∧
-  check_distrup_list Validate_Unsat fmlls Clist b = NONE
+  check_distrup_list ValidateUnsat fmlls Clist b = NONE
   ⇒
-  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) NONE
+  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [ValidateUnsat]) NONE
 [~validate_None:]
   events_ok st events aevents NONE ∧
   is_validate_events validate_events ∧
   is_output_event #"V" #"0" output_event
   ⇒
-  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) NONE
+  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [ValidateUnsat]) NONE
 End
 
 Theorem check_top_NONE:
