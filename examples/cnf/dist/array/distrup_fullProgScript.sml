@@ -468,7 +468,8 @@ End
 
 Definition is_final_event_def:
   is_final_event event ⇔
-    ∃xs. event = IO_event (ExtCall «step») [] xs ∧
+    ∃xs. LENGTH xs = 17 ∧
+         event = IO_event (ExtCall «step») [] xs ∧
          SND (HD xs) ∉  {n2w (ORD #"a"); n2w (ORD #"i"); n2w (ORD #"d"); n2w (ORD #"V")}
 End
 
