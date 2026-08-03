@@ -1606,7 +1606,7 @@ Proof
     \\ gvs []
     \\ ‘t.clock ≠ 0’ by gvs [let_state_rel_def] \\ gvs [PULL_EXISTS]
     \\ goal_assum $ drule_at Any \\ gvs []
-    \\ ‘find_code (SOME force_loc) [RefPtr v0 ptr; v] t.code = SOME (args,
+    \\ ‘find_code (SOME force_loc) [RefPtr F ptr; v] t.code = SOME (args,
            compile_any q l (LENGTH args) (let_op_sing exp))’
       by gvs [find_code_def, AllCaseEqs(), let_state_rel_def, lookup_map,
               let_opt_def]
