@@ -803,7 +803,16 @@ Proof
   \\ Cases_on ‘h’ \\ gvs [v_rel_simps, dest_thunk_def]
   \\ drule_all state_rel_store_lookup \\ strip_tac
   \\ gvs [] \\ Cases_on ‘sv1’ \\ Cases_on ‘sv2’ \\ gvs []
-  \\ rename [‘Thunk md’] \\ Cases_on ‘md’ \\ gvs []
+  \\ rename [‘Thunk md’] \\ Cases_on ‘md’ \\ IF_CASES_TAC \\ gvs []
+QED
+
+Theorem state_rel_bad_thunk_update[local]:
+  state_rel f s1 s2 ∧ v_rel f v w ∧ ¬bad_thunk_update m v s1.refs ⇒
+  ¬bad_thunk_update m w s2.refs
+Proof
+  rw [bad_thunk_update_def]
+  \\ irule (cj 2 state_rel_dest_thunk)
+  \\ rpt (first_assum $ irule_at Any) \\ gvs []
 QED
 
 Theorem state_rel_update_thunk[local]:
@@ -889,6 +898,8 @@ Proof
    (gvs [semanticPrimitivesPropsTheory.do_app_cases]
     \\ gvs [oneline thunk_op_def, AllCaseEqs(), v_rel_simps, store_alloc_def]
     \\ gvs [state_with_id, v_rel_refl]
+    (* a thunk may only be updated if it is not already evaluated *)
+    \\ imp_res_tac state_rel_bad_thunk_update \\ gvs []
     >~ [‘store_assign’] >-
      (qexists_tac ‘f’ \\ gvs []
       \\ irule state_rel_assign
