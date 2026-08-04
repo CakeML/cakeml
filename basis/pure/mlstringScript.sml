@@ -986,6 +986,12 @@ Definition fast_ge_def:
     if strlen s1 = strlen s2 then mlstring_ge s1 s2 else strlen s1 ≥ strlen s2
 End
 
+Definition fast_compare_def:
+  fast_compare s1 s2 =
+    if fast_lt s1 s2 then LESS else
+    if fast_le s1 s2 then EQUAL else GREATER
+End
+
 (* Properties of string orderings *)
 
 val flip_ord_def = ternaryComparisonsTheory.invert_comparison_def
@@ -1383,6 +1389,21 @@ Theorem StrongLinearOrder_fast_lt:
 Proof
   rw[StrongLinearOrder, StrongOrder, trichotomous_fast_lt, irreflexive_fast_lt,
      transitive_fast_lt]
+QED
+
+Theorem fast_compare_thm:
+   fast_compare = TO_of_LinearOrder fast_lt
+Proof
+  rw[FUN_EQ_THM, fast_compare_def, TO_of_LinearOrder, fast_le_thm]
+  >> rpt (IF_CASES_TAC >> gvs[fast_lt_nonrefl])
+QED
+
+Theorem TotOrd_fast_compare:
+   TotOrd fast_compare
+Proof
+  rw[fast_compare_thm]
+  >> irule TotOrd_TO_of_Strong
+  >> rw[StrongLinearOrder_fast_lt]
 QED
 
 Definition collate_aux_def:
