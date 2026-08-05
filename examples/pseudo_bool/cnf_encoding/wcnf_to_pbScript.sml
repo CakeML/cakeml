@@ -1,9 +1,17 @@
 (*
   WCNF into pbc, written in a tutorial style
 *)
-open preamble pbcTheory pbc_normaliseTheory satSemTheory lprTheory cnf_to_pbTheory;
+Theory wcnf_to_pb
+Ancestors
+  pbc pbc_normalise satSem lpr cnf_to_pb
+Libs
+  preamble
 
-val _ = new_theory "wcnf_to_pb";
+Theorem iSUM_APPEND[local]:
+  ∀xs ys. iSUM (xs ++ ys) = iSUM xs + iSUM ys
+Proof
+  Induct>>gvs[iSUM_def,integerTheory.INT_ADD_ASSOC]
+QED
 
 (*** STEP 1: Formalise the semantics of MAX-SAT ***)
 
@@ -119,8 +127,8 @@ End
 
 (* Map abstract variables into string names *)
 Definition enc_string_def:
-  (enc_string (INL n) = concat [strlit"x";toString n]) ∧
-  (enc_string (INR n) = concat [strlit"_b";toString n])
+  (enc_string (INL n) = concat [«x»;toString n]) ∧
+  (enc_string (INR n) = concat [«_b»;toString n])
 End
 
 (* The end-to-end encoder using string names *)
@@ -201,22 +209,21 @@ Theorem satisfies_clause_satisfies_pbc:
   satisfies_pbc w' (GreaterEqual,enc_clause C,1)
 Proof
   Induct_on`C`
-  >-
-    fs[satisfies_clause_def]>>
+  >- fs[satisfies_clause_def]>>
   rw[]>>
   gvs[interp_cclause_def,wf_clause_def]>>
   Cases_on`satisfies_literal w (interp_lit h)`>>
   fs[satisfies_clause_INSERT]
   >- (
     simp[satisfies_pbc_def,enc_clause_def,eval_lin_term_def,iSUM_def]>>
-    `eval_lit w' (enc_lit h) = 1` by
+    `b2i (lit w' (enc_lit h)) = 1` by
       (rw[enc_lit_def]>>gvs[interp_lit_def,satisfies_literal_def])>>
     simp[GSYM eval_lin_term_def,GSYM enc_clause_def]>>
     qsuff_tac`eval_lin_term w' (enc_clause C') ≥ 0`
     >- intLib.ARITH_TAC>>
     metis_tac[eval_lin_term_enc_clause_ge0])>>
   fs[satisfies_pbc_def,enc_clause_def,eval_lin_term_def,iSUM_def]>>
-  `eval_lit w' (enc_lit h) = 0` by
+  `b2i (lit w' (enc_lit h)) = 0` by
     (rw[enc_lit_def]>>gvs[interp_lit_def,satisfies_literal_def])>>
   fs[]
 QED
@@ -341,13 +348,6 @@ Proof
   simp[]
 QED
 
-Theorem iSUM_APPEND:
-  iSUM(x++y) = iSUM x + iSUM y
-Proof
-  Induct_on`x`>>rw[iSUM_def]>>
-  intLib.ARITH_TAC
-QED
-
 Theorem MEM_enumerate_index:
   MEM (i,e) (enumerate k ls) ⇒
   i ≥ k
@@ -462,7 +462,7 @@ QED
   on the MAX-SAT objective *)
 Theorem full_encode_sem_concl:
   full_encode wfml = (obj,pbf) ∧
-  sem_concl (set pbf) obj concl ∧
+  sem_concl (set pbf) obj {} concl ∧
   conv_concl concl = SOME (SOME (lbg, ubg)) ⇒
   (case lbg of
     NONE => ¬∃w. sat_hard w wfml
@@ -475,10 +475,13 @@ Proof
   strip_tac>>
   gvs[full_encode_def]>>
   pairarg_tac>>gvs[]>>
-  qpat_x_assum`sem_concl _ _ _` mp_tac>>
+  qpat_x_assum`sem_concl _ _ _ _` mp_tac>>
   simp[LIST_TO_SET_MAP]>>
+  `{} = IMAGE enc_string {}` by fs[]>>
+  pop_assum SUBST1_TAC>>
   DEP_REWRITE_TAC[GSYM concl_INJ_iff]>>
   CONJ_TAC >- (
+    simp[]>>
     assume_tac enc_string_INJ>>
     drule INJ_SUBSET>>
     disch_then match_mp_tac>>
@@ -541,7 +544,7 @@ QED
 (* Special case *)
 Theorem full_encode_sem_concl_opt_cost:
   full_encode wfml = (obj,pbf) ∧
-  sem_concl (set pbf) obj concl ∧
+  sem_concl (set pbf) obj {} concl ∧
   conv_concl concl = SOME (SOME (lbg, ubg)) ⇒
   (lbg = NONE ⇒ opt_cost wfml = NONE) ∧
   (lbg = ubg ⇒ opt_cost wfml = lbg)
@@ -564,7 +567,9 @@ QED
 Theorem full_encode_sem_output:
   full_encode wfml = (obj,pbf) ∧
   full_encode wfml' = (obj',pbf') ∧
-  pbc$sem_output (set pbf) obj bound (set pbf') obj' output ∧
+  pbc$sem_output
+    (set pbf) obj {} bound
+    (set pbf') obj' {} output ∧
   conv_output bound output = SOME T ⇒
   ∀v.
     ((∃w. sat_hard w wfml ∧ cost w wfml ≤ v) ⇔
@@ -574,8 +579,11 @@ Proof
   gvs[full_encode_def]>>
   pairarg_tac>>gvs[]>>
   pairarg_tac>>gvs[]>>
-  qpat_x_assum`sem_output _ _ _ _ _ _ ` mp_tac>>
+  qpat_x_assum`sem_output _ _ _ _ _ _ _ _ ` mp_tac>>
   simp[LIST_TO_SET_MAP]>>
+  `{} = IMAGE enc_string {}` by
+    simp[]>>
+  pop_assum SUBST_ALL_TAC>>
   DEP_REWRITE_TAC[GSYM output_INJ_iff]>>
   CONJ_TAC >- (
     assume_tac enc_string_INJ>>
@@ -615,7 +623,8 @@ QED
 Theorem full_encode_sem_output_opt_cost:
   full_encode wfml = (obj,pbf) ∧
   full_encode wfml' = (obj',pbf') ∧
-  pbc$sem_output (set pbf) obj bound (set pbf') obj' output ∧
+  pbc$sem_output (set pbf) obj {} bound
+    (set pbf') obj' {} output ∧
   conv_output bound output = SOME T ⇒
   opt_cost wfml = opt_cost wfml'
 Proof
@@ -674,7 +683,7 @@ Definition parse_wclause_def:
     | SOME cl =>
       let cl = REVERSE cl in
       (case c of
-        INL s => if s = strlit"h" then SOME (0,cl) else NONE
+        INL s => if s = «h» then SOME (0,cl) else NONE
       | INR n => if n > 0 then SOME (Num n,cl) else NONE))
 End
 
@@ -702,14 +711,13 @@ End
 (*
   val wcnf =
   EVAL ``parse_wcnf
-  [strlit"c This is a comment";
-  strlit"cExample 1...another comment";
-  strlit"h 1 2 3 4 0";
-  strlit"1 -3 -5 6 7 0";
-  strlit"6 -1 -2 0";
-  strlit"4 1 6 -7 6 -7 0";]``
+  [«c This is a comment»;
+  «cExample 1...another comment»;
+  «h 1 2 3 4 0»;
+  «1 -3 -5 6 7 0»;
+  «6 -1 -2 0»;
+  «4 1 6 -7 6 -7 0»;]``
 
   val enc = EVAL`` full_encode (THE ^(rconc wcnf))``
 *)
 
-val _ = export_theory ();

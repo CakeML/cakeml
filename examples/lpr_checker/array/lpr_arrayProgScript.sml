@@ -1,9 +1,11 @@
 (*
   This refines lpr_list to use arrays
 *)
-open preamble basis md5ProgTheory lpr_composeProgTheory UnsafeProofTheory lprTheory lpr_listTheory HashtableProofTheory;
-
-val _ = new_theory "lpr_arrayProg"
+Theory lpr_arrayProg
+Ancestors
+  md5Prog lpr_composeProg UnsafeProof lpr lpr_list HashtableProof
+Libs
+  preamble basis
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -32,42 +34,47 @@ val index_side = Q.prove(`
   simp[index_side_def]>>
   intLib.ARITH_TAC) |> update_precondition;
 
-val _ = process_topdecs `
+Quote add_cakeml:
   exception Fail string;
-` |> append_prog
+End
 
 fun get_exn_conv name =
   EVAL ``lookup_cons (Short ^name) ^(get_env (get_ml_prog_state ()))``
   |> concl |> rand |> rand |> rand
 
-val fail = get_exn_conv ``"Fail"``
+val fail = get_exn_conv ``«Fail»``
 
-val Fail_exn_def = Define `
-  Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)`
+Definition Fail_exn_def:
+  Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)
+End
 
-val eq_w8o_def = Define`
-  eq_w8o v ⇔ v = w8o`
+Definition eq_w8o_def:
+  eq_w8o v ⇔ v = w8o
+End
 
 val _ = translate (eq_w8o_def |> SIMP_RULE std_ss [w8o_def]);
 
-val every_one_arr = process_topdecs`
+Quote add_cakeml:
   fun every_one_arr carr cs =
   case cs of [] => True
   | c::cs =>
     if eq_w8o (Unsafe.w8sub carr (index c)) then every_one_arr carr cs
-    else False` |> append_prog
+    else False
+End
 
-val format_failure_def = Define`
+Definition format_failure_def:
   format_failure (lno:num) s =
-  strlit "c Checking failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"`
+  «c Checking failed at line: » ^ toString lno ^ «. Reason: » ^ s ^ «\n»
+End
 
 val _ = translate format_failure_def;
 
-val unwrap_TYPE_def = Define`
+Definition unwrap_TYPE_def:
   unwrap_TYPE P x y =
-  ∃z. x = SOME z ∧ P z y`
+  ∃z. x = SOME z ∧ P z y
+End
 
-val delete_literals_sing_arr_def = process_topdecs`
+Quote add_cakeml:
   fun delete_literals_sing_arr lno carr cs =
   case cs of
     [] => 0
@@ -76,9 +83,8 @@ val delete_literals_sing_arr_def = process_topdecs`
       delete_literals_sing_arr lno carr cs
     else
       if every_one_arr carr cs then ~c
-      else raise Fail (format_failure lno "clause not empty or singleton after reduction")` |> append_prog
-
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
+      else raise Fail (format_failure lno "clause not empty or singleton after reduction")
+End
 
 Theorem any_el_eq_EL[simp]:
   LENGTH Clist > index h ⇒
@@ -107,7 +113,8 @@ Theorem every_one_arr_spec:
       W8ARRAY Carrv Clist *
       &BOOL (EVERY (λi. any_el (index i) Clist w8z = w8o) ls) v)
 Proof
-  Induct>>xcf "every_one_arr" (get_ml_prog_state ())>>
+  Induct>>rw[]>>
+  xcf "every_one_arr" (get_ml_prog_state ())>>
   fs[LIST_TYPE_def]
   >-
     (xmatch>>xcon>>xsimpl)
@@ -138,6 +145,7 @@ Theorem delete_literals_sing_arr_spec:
       (λe. &(Fail_exn e ∧ delete_literals_sing_list Clist ls = NONE)))
 Proof
   Induct>>simp[delete_literals_sing_list_def]>>
+  rpt strip_tac>>
   xcf "delete_literals_sing_arr" (get_ml_prog_state ())
   >- (
     fs[LIST_TYPE_def]>>
@@ -162,13 +170,11 @@ Proof
     metis_tac[])>>
   rpt xlet_autop>>
   xraise>>xsimpl>>
-  IF_CASES_TAC>-
-    metis_tac[NOT_EVERY]>>
-  simp[unwrap_TYPE_def,Fail_exn_def]>>
+  gvs[unwrap_TYPE_def,Fail_exn_def]>>
   metis_tac[]
 QED
 
-val is_AT_arr_aux = process_topdecs`
+Quote add_cakeml:
   fun is_AT_arr_aux lno fml ls c carr =
     case ls of
       [] => Inr c
@@ -181,17 +187,19 @@ val is_AT_arr_aux = process_topdecs`
       else
         (Unsafe.w8update carr (index nl) w8o;
         is_AT_arr_aux lno fml is (nl::c) carr)
-      end` |> append_prog
+      end
+End
 
 (* For every literal in every clause and their negations,
   the index is bounded above by n *)
-val bounded_fml_def = Define`
+Definition bounded_fml_def:
   bounded_fml n fmlls ⇔
   EVERY (λCopt.
     case Copt of
       NONE => T
     | SOME C => EVERY ($> n o index) C ∧ EVERY ($> n o index o $~) C
-    ) fmlls`
+    ) fmlls
+End
 
 Theorem delete_literals_sing_list_MEM:
   ∀C.
@@ -226,7 +234,8 @@ Theorem is_AT_arr_aux_spec:
           (is_AT_list_aux fmlls ls c Clist) v)
       (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ is_AT_list_aux fmlls ls c Clist = NONE)))
 Proof
-  Induct>>xcf "is_AT_arr_aux" (get_ml_prog_state ())>>
+  Induct>>rw[]>>
+  xcf "is_AT_arr_aux" (get_ml_prog_state ())>>
   simp[is_AT_list_aux_def]
   >- (
     fs[LIST_TYPE_def]>>
@@ -266,7 +275,6 @@ Proof
     xcon>>xsimpl>>
     simp[SUM_TYPE_def])>>
   rpt xlet_autop>>
-
   `index z < LENGTH Clist ∧ WORD8 w8o w8o_v` by (
     fs[w8o_v_thm]>>
     fs[bounded_fml_def,EVERY_EL]>>
@@ -280,7 +288,6 @@ Proof
     rpt (first_x_assum drule)>>
     rw[]>>
     qpat_x_assum`-z = _` sym_sub_tac>>fs[])>>
-
   rpt xlet_autop>>
   xapp>>
   xsimpl>>
@@ -289,12 +296,13 @@ Proof
   metis_tac[]
 QED
 
-val set_array = process_topdecs`
+Quote add_cakeml:
   fun set_array carr v cs =
   case cs of [] => ()
   | (c::cs) =>
     (Unsafe.w8update carr (index c) v;
-    set_array carr v cs)` |> append_prog
+    set_array carr v cs)
+End
 
 Theorem set_array_spec:
   ∀c cv Carrv Clist.
@@ -310,6 +318,7 @@ Theorem set_array_spec:
           W8ARRAY Carrv (set_list Clist v c))
 Proof
   Induct>>
+  rw[]>>
   xcf "set_array" (get_ml_prog_state ())>>
   rw[set_list_def]>>
   fs[LIST_TYPE_def]
@@ -320,12 +329,13 @@ Proof
   xsimpl
 QED
 
-val is_AT_arr = process_topdecs`
+Quote add_cakeml:
   fun is_AT_arr lno fml ls c carr =
     (set_array carr w8o c;
     case is_AT_arr_aux lno fml ls c carr of
       Inl c => (set_array carr w8z c; Inl ())
-    | Inr c => (set_array carr w8z c; Inr c))` |> append_prog
+    | Inr c => (set_array carr w8z c; Inr c))
+End
 
 Theorem LENGTH_set_list_bound[simp]:
   ∀c Clist.
@@ -430,6 +440,7 @@ Theorem is_AT_arr_spec:
           (is_AT_list fmlls ls c Clist) v)
       (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ is_AT_list fmlls ls c Clist = NONE)))
 Proof
+  rw[]>>
   xcf "is_AT_arr" (get_ml_prog_state ())>>
   `WORD8 w8z w8z_v ∧ WORD8 w8o w8o_v` by
     simp[w8z_v_thm,w8o_v_thm]>>
@@ -468,7 +479,7 @@ val _ = translate overlap_assignment_def;
 
 val _ = translate overlap_assignment_def;
 
-val check_RAT_arr = process_topdecs`
+Quote add_cakeml:
   fun check_RAT_arr lno fml carr np c ik i ci =
   (
   if List.member np ci then
@@ -483,7 +494,8 @@ val check_RAT_arr = process_topdecs`
       case is_AT_arr lno fml is (c @ delete_literals ci [np]) carr of
         Inl d => ()
       | _ => raise Fail (format_failure lno ("clause index not reduced to empty clause: " ^ Int.toString i))
-  else ())` |> append_prog
+  else ())
+End
 
 Theorem check_RAT_arr_spec:
   ∀i iv ci civ c cv pp ppv ik ikv fmlv fmlls fml lno lnov.
@@ -510,7 +522,9 @@ Theorem check_RAT_arr_spec:
           ))
       (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ check_RAT_list fmlls Clist pp c ik i ci = NONE)))
 Proof
-  simp[check_RAT_list_def]>>  xcf "check_RAT_arr" (get_ml_prog_state ())>>
+  simp[check_RAT_list_def]>>
+  rpt strip_tac>>
+  xcf "check_RAT_arr" (get_ml_prog_state ())>>
   fs[MEMBER_INTRO]>>
   xlet_autop>>
   reverse xif
@@ -580,7 +594,7 @@ Proof
   metis_tac[]
 QED
 
-val check_PR_arr = process_topdecs`
+Quote add_cakeml:
   fun check_PR_arr lno fml carr nw c ik i ci =
   if check_overlap ci nw then
     case Alist.lookup ik i of
@@ -592,7 +606,8 @@ val check_PR_arr = process_topdecs`
       (case is_AT_arr lno fml is (c @ delete_literals ci (flip_1 (overlap_assignment (flip_1 nw) c))) carr of
         Inl d => True
       | _ => raise Fail (format_failure lno ("clause index not reduced to empty clause: " ^ Int.toString i))))
-  else True` |> append_prog
+  else True
+End
 
 Theorem check_PR_arr_spec:
   ∀i iv ci civ c cv w wv ik ikv fmlv fmlls fml lno lnov.
@@ -619,6 +634,7 @@ Theorem check_PR_arr_spec:
           ))
       (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ check_PR_list fmlls Clist w c ik i ci = NONE)))
 Proof
+  rw[]>>
   xcf "check_PR_arr" (get_ml_prog_state ())>>
   simp[check_PR_list_def]>>
   xlet_autop>>
@@ -693,11 +709,12 @@ val res = translate filter_reindex_full_def; *)
 
 val res = translate min_opt_def;
 
-val list_min_opt_arr = process_topdecs`
+Quote add_cakeml:
   fun list_min_opt_arr min earr ls =
   case ls of [] => min
   | (i::is) =>
-    list_min_opt_arr (min_opt min (Array.lookup earr None (index i))) earr is` |> append_prog
+    list_min_opt_arr (min_opt min (Array.lookup earr None (index i))) earr is
+End
 
 Theorem list_min_opt_arr_spec:
   ∀ls lsv earliest earliestv min minv Earrv.
@@ -742,7 +759,7 @@ QED
 
 val res = translate REV_DEF;
 
-val every_check_RAT_inds_arr = process_topdecs`
+Quote add_cakeml:
   fun every_check_RAT_inds_arr lno fml carr np d ik mini ls acc =
   case ls of [] => List.rev acc
   | (i::is) =>
@@ -754,7 +771,7 @@ val every_check_RAT_inds_arr = process_topdecs`
        every_check_RAT_inds_arr lno fml carr np d ik mini is (i::acc))
   else
     rev_1 acc (i::is)
-    ` |> append_prog
+End
 
 Theorem every_check_RAT_inds_arr_spec:
   ∀ls lsv lno lnov pp ppv c cv ik ikv mini miniv fmlls fmllsv fmlv acc accv Carrv Clist.
@@ -784,6 +801,7 @@ Theorem every_check_RAT_inds_arr_spec:
       (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ every_check_RAT_inds_list fmlls Clist pp c ik mini ls acc = NONE)))
 Proof
   Induct>>
+  rw[]>>
   xcf "every_check_RAT_inds_arr" (get_ml_prog_state ())>>
   fs[LIST_TYPE_def,every_check_RAT_inds_list_def]>>
   xmatch >- (
@@ -827,7 +845,7 @@ Proof
   simp[LIST_TYPE_def]
 QED
 
-val every_check_PR_inds_arr = process_topdecs`
+Quote add_cakeml:
   fun every_check_PR_inds_arr lno fml carr nw d ik mini ls acc =
   case ls of [] => List.rev acc
   | (i::is) =>
@@ -839,7 +857,7 @@ val every_check_PR_inds_arr = process_topdecs`
        every_check_PR_inds_arr lno fml carr nw d ik mini is (i::acc))
   else
   rev_1 acc (i::is)
-  ` |> append_prog
+End
 
 Theorem every_check_PR_inds_arr_spec:
   ∀ls lsv lno lnov w wv c cv ik ikv mini miniv fmlls fmllsv fmlv acc accv Carrv Clist.
@@ -869,6 +887,7 @@ Theorem every_check_PR_inds_arr_spec:
       (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ every_check_PR_inds_list fmlls Clist w c ik mini ls acc = NONE)))
 Proof
   Induct>>
+  rw[]>>
   xcf "every_check_PR_inds_arr" (get_ml_prog_state ())>>
   fs[LIST_TYPE_def,every_check_PR_inds_list_def]>>
   xmatch >- (
@@ -913,7 +932,7 @@ Proof
   simp[LIST_TYPE_def]
 QED
 
-val is_PR_arr = process_topdecs`
+Quote add_cakeml:
   fun is_PR_arr lno fml inds carr earr p c wopt i0 ik =
   case is_AT_arr lno fml i0 c carr of
     (Inl d) => inds
@@ -933,7 +952,8 @@ val is_PR_arr = process_topdecs`
         | Some mini => (every_check_PR_inds_arr lno fml carr (flip_1 w) d ik mini inds [])
       end)
   else
-    raise Fail (format_failure lno "pivot must be non-zero")` |> append_prog
+    raise Fail (format_failure lno "pivot must be non-zero")
+End
 
 Theorem is_PR_arr_spec:
   NUM lno lnov ∧
@@ -1058,14 +1078,15 @@ Proof
   simp[LIST_TYPE_def]
 QED
 
-val list_delete_arr = process_topdecs`
+Quote add_cakeml:
   fun list_delete_arr ls fml =
     case ls of
       [] => ()
     | (i::is) =>
       if Array.length fml <= i then list_delete_arr is fml
       else
-        (Unsafe.update fml i None; list_delete_arr is fml)` |> append_prog
+        (Unsafe.update fml i None; list_delete_arr is fml)
+End
 
 Theorem list_delete_arr_spec:
   ∀ls lsv fmlls fmllsv.
@@ -1105,17 +1126,18 @@ QED
 
 val _ = translate safe_hd_def;
 
-val _ = translate list_max_def;
+val _ = translate MAX_LIST_def;
 val _ = translate list_max_index_def;
 
 (* bump up the length to a large number *)
-val resize_carr = process_topdecs`
+Quote add_cakeml:
   fun resize_carr c carr =
   let val lm = list_max_index c in
     if Word8Array.length carr <= lm
     then Word8Array.array (2*lm) w8z
     else carr
-  end` |> append_prog
+  end
+End
 
 Theorem resize_carr_spec:
   (LIST_TYPE INT) c cv ⇒
@@ -1126,6 +1148,7 @@ Theorem resize_carr_spec:
     (POSTv carrv.
       W8ARRAY carrv (resize_Clist c Clist))
 Proof
+  rw[]>>
   xcf "resize_carr" (get_ml_prog_state ())>>
   rpt xlet_autop>>
   simp[resize_Clist_def]>>xif
@@ -1137,13 +1160,14 @@ Proof
   xsimpl
 QED
 
-val update_earliest_arr = process_topdecs`
+Quote add_cakeml:
   fun update_earliest_arr earr v ls =
   case ls of [] => earr
   | n::ns =>
     let val updmin = list_min_opt_arr (Some v) earr [n] in
       update_earliest_arr (Array.updateResize earr None (index n) updmin) v ns
-    end` |> append_prog
+    end
+End
 
 Theorem LIST_REL_update_resize:
   LIST_REL R a b ∧ R a1 b1 ∧ R a2 b2 ⇒
@@ -1210,7 +1234,7 @@ QED
 val result = translate sorted_insert_def;
 
 
-val check_earliest_arr = process_topdecs`
+Quote add_cakeml:
   fun check_earliest_arr fml x old new is =
   case is of
     [] => True
@@ -1224,7 +1248,8 @@ val check_earliest_arr = process_topdecs`
           not(List.member x ci) andalso check_earliest_arr fml x old new is
       else
         check_earliest_arr fml x old new is)
-    else True` |> append_prog;
+    else True
+End
 
 Theorem check_earliest_arr_spec:
   ∀is isv new newv old oldv x xv fmlls fmllsv fmlv.
@@ -1242,7 +1267,8 @@ Theorem check_earliest_arr_spec:
        ARRAY fmlv fmllsv *
        &(BOOL (check_earliest fmlls x old new is) v))
 Proof
-  Induct>>xcf "check_earliest_arr" (get_ml_prog_state ())>>
+  Induct>>rw[]>>
+  xcf "check_earliest_arr" (get_ml_prog_state ())>>
   fs[LIST_TYPE_def,check_earliest_def]
   >- (
     xmatch>>xcon>>
@@ -1279,7 +1305,7 @@ val _ = translate list_min_aux_def;
 
 val _ = translate list_min_def;
 
-val hint_earliest_arr = process_topdecs`
+Quote add_cakeml:
   fun hint_earliest_arr c w ik fml inds earr =
   case w of
     None =>
@@ -1298,7 +1324,8 @@ val hint_earliest_arr = process_topdecs`
               earr)
       end
     end
-  | Some u => earr` |> append_prog
+  | Some u => earr
+End
 
 Theorem hint_earliest_arr_spec:
   LIST_TYPE INT c cv ∧
@@ -1345,12 +1372,13 @@ Proof
   match_mp_tac LIST_REL_update_resize>>fs[OPTION_TYPE_def]
 QED
 
-val every_less_def = Define`
-  every_less (mindel:num) cls ⇔ EVERY ($< mindel) cls`
+Definition every_less_def:
+  every_less (mindel:num) cls ⇔ EVERY ($< mindel) cls
+End
 
 val _ = translate every_less_def;
 
-val check_lpr_step_arr = process_topdecs`
+Quote add_cakeml:
   fun check_lpr_step_arr lno mindel step fml ls carr earr =
   case step of
     Delete cl =>
@@ -1368,7 +1396,7 @@ val check_lpr_step_arr = process_topdecs`
             (Array.updateResize fml None n (Some c), sorted_insert n ls, carr, earr) end
     else
       raise Fail (format_failure lno ("Overwrite not permitted for clause index <= " ^ Int.toString mindel))
-    ` |> append_prog
+End
 
 val LPR_LPRSTEP_TYPE_def = fetch "-" "LPR_LPRSTEP_TYPE_def";
 
@@ -1388,7 +1416,9 @@ Theorem list_max_index_bounded_clause:
   EVERY ($> n o index) l ∧ EVERY ($> n o index o $~) l
 Proof
   simp[list_max_index_def]>>
-  Induct>>rw[list_max_def,index_def]>>
+  Induct>>rw[] >>
+  fs[MAX_LIST_def,MAX_DEF,index_def]>>
+  rw[] >>
   intLib.ARITH_TAC
 QED
 
@@ -1422,8 +1452,8 @@ Theorem EVERY_index_resize_Clist:
 Proof
   rw[]>>
   simp[resize_Clist_def,list_max_index_def]>>
-  qmatch_goalsub_abbrev_tac`list_max lss`>>
-  qspec_then `lss` assume_tac list_max_max>>
+  qmatch_goalsub_abbrev_tac`MAX_LIST lss`>>
+  qspec_then `lss` assume_tac MAX_LIST_PROPERTY>>
   fs[EVERY_MEM,Abbr`lss`,MEM_MAP,PULL_EXISTS]>>
   ntac 2 strip_tac>>first_x_assum drule>>
   rw[]>>simp[index_def]>>rw[]>>
@@ -1484,11 +1514,9 @@ Proof
       rpt xlet_autop>>
       xraise>>xsimpl>> simp[unwrap_TYPE_def,Fail_exn_def]>>
       fs[every_less_def]>>
-      CONJ_TAC >- (
-        qexists_tac`Earrv`>>
-        qexists_tac`earliestv`>>
-        xsimpl>>metis_tac[])>>
-      metis_tac[NOT_EVERY]) >>
+      qexists_tac`Earrv`>>
+      qexists_tac`earliestv`>>
+      xsimpl>>metis_tac[])>>
   xmatch>>
   xlet_autop>>
   reverse xif
@@ -1521,12 +1549,13 @@ Proof
 QED
 
 (* A version of contains_clauses_list that returns an error clause (if any) *)
-val contains_clauses_list_err_def = Define`
+Definition contains_clauses_list_err_def:
   contains_clauses_list_err fml inds cls =
   case reindex fml inds of
     (_,inds') =>
   let inds'' = MAP canon_clause inds' in
-  oHD (FILTER (λcl. ¬MEM (canon_clause cl) inds'') cls)`
+  oHD (FILTER (λcl. ¬MEM (canon_clause cl) inds'') cls)
+End
 
 Theorem contains_clauses_list_err:
   contains_clauses_list fml inds cls ⇔
@@ -1543,14 +1572,15 @@ Proof
 QED
 
 (* SOME cls indicates failure to detect clause cls *)
-val contains_clauses_sing_list_def = Define`
+Definition contains_clauses_sing_list_def:
   (contains_clauses_sing_list fml [] cls ccls = SOME cls) ∧
   (contains_clauses_sing_list fml (i::is) cls ccls =
   case any_el i fml NONE of
     NONE => contains_clauses_sing_list fml is cls ccls
   | SOME v =>
     if canon_clause v = ccls then NONE
-    else contains_clauses_sing_list fml is cls ccls)`
+    else contains_clauses_sing_list fml is cls ccls)
+End
 
 Theorem contains_clauses_sing_list_eq:
   ∀inds fml cls.
@@ -1573,7 +1603,7 @@ val _ = translate canon_clause_def;
 (* Optimized combination of reindex and contains_clauses
   for checking that a single clause
   is contained in the formula (usually cls is the empty clause []) *)
-val contains_clauses_sing_arr =  (append_prog o process_topdecs)`
+Quote add_cakeml:
   fun contains_clauses_sing_arr fml ls cls ccls =
   case ls of
     [] => Some cls
@@ -1582,7 +1612,8 @@ val contains_clauses_sing_arr =  (append_prog o process_topdecs)`
     None => contains_clauses_sing_arr fml is cls ccls
   | Some v =>
     if canon_clause v = ccls then None
-    else contains_clauses_sing_arr fml is cls ccls`
+    else contains_clauses_sing_arr fml is cls ccls
+End
 
 Theorem contains_clauses_sing_arr_spec:
   ∀ls lsv fmlv fmlls fmllsv cls clsv ccls cclsv.
@@ -1625,15 +1656,16 @@ Proof
   simp[]
 QED
 
-val hash_ins = (append_prog o process_topdecs)`
+Quote add_cakeml:
   fun hash_ins ht k v =
   case Hashtable.lookup ht k of
     None => Hashtable.insert ht k [v]
-  | Some ls => Hashtable.insert ht k (v::ls)`
+  | Some ls => Hashtable.insert ht k (v::ls)
+End
 
 (* reindex that creates a hash table of the values
   canon flag decides whether to canonicalize clauses along the way *)
-val reindex_hash = (append_prog o process_topdecs)`
+Quote add_cakeml:
   fun reindex_hash fml canon ls ht =
   case ls of
     [] => ()
@@ -1642,10 +1674,11 @@ val reindex_hash = (append_prog o process_topdecs)`
     None => reindex_hash fml canon is ht
   | Some v =>
     (hash_ins ht (if canon then canon_clause v else v) i;
-    reindex_hash fml canon is ht)`
+    reindex_hash fml canon is ht)
+End
 
 (* badly named, but hash_contains returns an option with the first clause it fails to find *)
-val hash_contains = (append_prog o process_topdecs)`
+Quote add_cakeml:
   fun hash_contains hash clss =
   case clss of
     [] => None
@@ -1653,26 +1686,29 @@ val hash_contains = (append_prog o process_topdecs)`
   (case Hashtable.lookup hash (canon_clause i) of
     None => Some i
   | Some u =>
-    hash_contains hash is)`
+    hash_contains hash is)
+End
 
 (* Magic number 7 for base of rolling hash *)
-val hash_func_def = Define`
+Definition hash_func_def:
   (hash_func [] = 0n) ∧
   (hash_func (i::is) =
-    index i + 7 * (hash_func is))`
+    index i + 7 * (hash_func is))
+End
 
-val order_lists_def = Define`
+Definition order_lists_def:
   (order_lists [] [] = Equal) ∧
   (order_lists [] (y::ys) = Less) ∧
   (order_lists (x::xs) [] = Greater) ∧
   (order_lists (x::xs) (y::ys) =
     if (x:int) < y then Less
-    else if x > y then Greater else order_lists xs ys)`
+    else if x > y then Greater else order_lists xs ys)
+End
 
 val _ = translate hash_func_def;
 val _ = translate order_lists_def;
 
-val contains_clauses_arr =  (append_prog o process_topdecs)`
+Quote add_cakeml:
   fun contains_clauses_arr fml ls cls =
   case cls of
     [] => None
@@ -1683,7 +1719,8 @@ val contains_clauses_arr =  (append_prog o process_topdecs)`
       val u1 = reindex_hash fml True ls ht
     in
       hash_contains ht clss
-    end`
+    end
+End
 
 val order_lists_ind = fetch "-" "order_lists_ind";
 
@@ -1936,7 +1973,7 @@ Proof
   >- (
     xapp>>xsimpl>>
     qexists_tac`emp`>>xsimpl>>
-    `BOOL T (Conv (SOME (TypeStamp "True" 0)) [])` by EVAL_TAC>>
+    `BOOL T (Conv (SOME (TypeStamp «True» 0)) [])` by EVAL_TAC>>
     rpt (asm_exists_tac>>simp[])>>
     qexists_tac`FEMPTY`>>xsimpl)>>
   xapp>>
@@ -1953,5 +1990,3 @@ Proof
   drule reindex_characterize>>fs[]>>
   simp[MEM_MAP]
 QED
-
-val _ = export_theory();

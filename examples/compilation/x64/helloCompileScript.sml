@@ -1,13 +1,12 @@
 (*
   Compiles the hello example by evaluation inside the logic of HOL
 *)
-open preamble helloProgTheory compilationLib
+Theory helloCompile
+Ancestors
+  helloProg
+Libs
+  preamble eval_cake_compile_x64Lib
 
-val _ = new_theory "helloCompile"
+Theorem hello_compiled =
+  eval_cake_compile_x64 "" hello_prog_def "hello.S";
 
-val _ = (output_ILs := SOME "hello");
-
-val hello_compiled = save_thm("hello_compiled",
-  compile_x64 "hello" hello_prog_def);
-
-val _ = export_theory ();

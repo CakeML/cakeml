@@ -1,14 +1,13 @@
 (*
    Fast interpreter function for the Candle compute primitive.
  *)
+Theory compute_exec
+Ancestors
+  holSyntax holSyntaxExtra holSyntaxLib holKernel holKernelProof
+  compute_syntax compute_eval ml_monadBase mlvector
+Libs
+  preamble ml_monadBaseLib
 
-open preamble holSyntaxTheory holSyntaxExtraTheory holSyntaxLibTheory
-     holKernelTheory holKernelProofTheory compute_syntaxTheory
-     compute_evalTheory;
-open ml_monadBaseTheory ml_monadBaseLib;
-open mlvectorTheory
-
-val _ = new_theory "compute_exec";
 
 (* -------------------------------------------------------------------------
  * st_ex_monad setup
@@ -97,7 +96,9 @@ Definition exec_def:
   exec funs env ck (If x y z) =
     do
       v <- exec funs env ck x;
-      exec funs env ck (if v = Num 0 then z else y)
+      exec funs env ck (case v of
+                        | Num n    => if n = 0 then z else y
+                        | Pair _ _ => z)
     od ∧
   exec_list funs env ck [] acc =
     return acc ∧
@@ -109,8 +110,8 @@ Definition exec_def:
 Termination
   WF_REL_TAC ‘inv_image ($< LEX $<) $
               λx. case x of INL (_,_,ck,cv) => (ck, ce_size cv)
-                          | INR (_,_,ck,cv,_) => (ck, ce1_size cv)’
-  \\ rw [] \\ fs []
+                          | INR (_,_,ck,cv,_) => (ck, list_size ce_size cv)’
+  \\ rw [] \\ fs [] \\ rpt (TOP_CASE_TAC \\ fs [])
 End
 
 Definition monop_fst_def:
@@ -222,6 +223,3 @@ Definition cv2term_def:
   cv2term ((Num n):cv) = _CEXP_NUM (_NUMERAL (num2bit n)) ∧
   cv2term (Pair p q)   = _CEXP_PAIR (cv2term p) (cv2term q)
 End
-
-val _ = export_theory ();
-

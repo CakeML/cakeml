@@ -3,10 +3,7 @@ INCLUDES =
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 
-README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
-DIRS = $(wildcard */)
-README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
-	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
+sinclude $(CAKEMLDIR)/developers/readme.mk
 
 ARCH=x64
 WORD_SIZE=64
@@ -15,7 +12,7 @@ all: cake-$(ARCH)-$(WORD_SIZE).tar.gz cake.S cake
 
 #was: http://www.cse.chalmers.se/~myreen/cake-$(ARCH)-$(WORD_SIZE).tar.gz
 cake-$(ARCH)-$(WORD_SIZE).tar.gz:
-	curl -O https://people.mpi-sws.org/~hbecker/files/cake-$(ARCH)-$(WORD_SIZE).tar.gz
+	curl -LO https://github.com/CakeML/cakeml/releases/latest/download/cake-$(ARCH)-$(WORD_SIZE).tar.gz
 
 cake.S: cake-$(ARCH)-$(WORD_SIZE).tar.gz
 	tar -xvzf cake-$(ARCH)-$(WORD_SIZE).tar.gz --strip-components 1

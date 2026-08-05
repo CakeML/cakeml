@@ -2,11 +2,13 @@
   Proves a connection between the monadic translator's ArrowP
   judgement and CF's app judgement.
 *)
-open ml_monad_translatorBaseTheory ml_monad_translatorTheory cfHeapsBaseTheory set_sepTheory pred_setTheory cfStoreTheory Satisfy
-open semanticPrimitivesTheory cfTacticsLib evaluateTheory ml_translatorTheory
-open evaluateTheory
-
-val _ = new_theory"cfMonad"
+Theory cfMonad
+Ancestors
+  ml_monad_translatorBase ml_monad_translator cfHeapsBase set_sep
+  pred_set cfStore semanticPrimitives evaluate ml_translator
+  evaluate
+Libs
+  Satisfy cfTacticsLib
 
 (* Theorems to convert monadic specifications to cf specifications *)
 
@@ -63,35 +65,42 @@ fun EXTRACT_PURE_FACTS_TAC (g as (asl, w)) =
   end;
 (***********************************************************************************************)
 
-val REFS_PRED_lemma = Q.prove(
-`SPLIT (st2heap (p : 'ffi ffi_proj)  st) (h1, h2) /\ H refs h1 ==> REFS_PRED (H,p) refs st`,
-rw[REFS_PRED_def, STAR_def]
+Theorem REFS_PRED_lemma[local]:
+  SPLIT (st2heap (p : 'ffi ffi_proj)  st) (h1, h2) /\ H refs h1 ==> REFS_PRED (H,p) refs st
+Proof
+  rw[REFS_PRED_def, STAR_def]
 \\ qexists_tac `h1`
 \\ qexists_tac `h2`
 \\ fs[SAT_GC]
-);
+QED
 
-val HPROP_SPLIT3 = Q.prove(
-`(H1 * H2 * H3) h ==> ?h1 h2 h3. SPLIT3 h (h1, h2, h3) /\ H1 h1 /\ H2 h2 /\ H3 h3`,
-rw[STAR_def, SPLIT_def, SPLIT3_def]
+Theorem HPROP_SPLIT3[local]:
+  (H1 * H2 * H3) h ==> ?h1 h2 h3. SPLIT3 h (h1, h2, h3) /\ H1 h1 /\ H2 h2 /\ H3 h3
+Proof
+  rw[STAR_def, SPLIT_def, SPLIT3_def]
 \\ fs[DISJOINT_UNION]
-\\ metis_tac[]);
+\\ metis_tac[]
+QED
 
-val HPROP_SPLIT3_clock0 = Q.prove(
-`(H1 * H2 * H3) (st2heap p st) ==>
- ?h1 h2 h3. SPLIT3 (st2heap p (st with clock := 0)) (h1, h2, h3) /\ H1 h1 /\ H2 h2 /\ H3 h3`,
-rw[STAR_def, SPLIT_def, SPLIT3_def]
+Theorem HPROP_SPLIT3_clock0[local]:
+  (H1 * H2 * H3) (st2heap p st) ==>
+ ?h1 h2 h3. SPLIT3 (st2heap p (st with clock := 0)) (h1, h2, h3) /\ H1 h1 /\ H2 h2 /\ H3 h3
+Proof
+  rw[STAR_def, SPLIT_def, SPLIT3_def]
 \\ fs[DISJOINT_UNION, st2heap_def]
-\\ metis_tac[]);
+\\ metis_tac[]
+QED
 
-val REFS_PRED_from_SPLIT = Q.prove(
-  `!state (st : 'ffi semanticPrimitives$state) H p h1 h2.
+Theorem REFS_PRED_from_SPLIT[local]:
+  !state (st : 'ffi semanticPrimitives$state) H p h1 h2.
    H state h1 ==>
    SPLIT (st2heap p st) (h1,h2) ==>
-   REFS_PRED (H,p) state st`,
-   rw[REFS_PRED_def]
+   REFS_PRED (H,p) state st
+Proof
+  rw[REFS_PRED_def]
    \\ rw[STAR_def]
-   \\ metis_tac[SAT_GC]);
+   \\ metis_tac[SAT_GC]
+QED
 
 Theorem ArrowP_PURE_to_app:
    !A B f fv x1 xv1 xv2 xvl H Q ro state p.
@@ -479,4 +488,3 @@ Proof
   \\ simp[]
 QED
 
-val _ = export_theory();

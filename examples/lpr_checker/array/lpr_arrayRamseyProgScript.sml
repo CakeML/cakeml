@@ -1,9 +1,13 @@
 (*
   This builds a proof checker specialized to Ramsey number 4
 *)
-open preamble basis lpr_composeProgTheory UnsafeProofTheory lprTheory lpr_listTheory lpr_parsingTheory HashtableProofTheory lpr_arrayProgTheory lpr_arrayParsingProgTheory ramseyTheory;
-
-val _ = new_theory "lpr_arrayRamseyProg"
+Theory lpr_arrayRamseyProg
+Ancestors
+  lpr_composeProg UnsafeProof lpr lpr_list lpr_parsing
+  HashtableProof lpr_arrayProg lpr_arrayParsingProg ramsey
+  basis_ffi
+Libs
+  preamble basis
 
 val _ = temp_delsimps ["NORMEQ_CONV"] (*"*)
 val _ = diminish_srw_ss ["ABBREV"]
@@ -11,14 +15,13 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = translation_extends"lpr_arrayParsingProg";
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 (* This function is not specific to Ramsey, can take any encoder  *)
 
 (* 0 arg *)
-val check_unsat_0 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_0 enc =
-    TextIO.print_list (print_dimacs (enc ()))`
+    TextIO.print_list (print_dimacs (enc ()))
+End
 
 Definition check_unsat_0_sem_def:
   check_unsat_0_sem enc out =
@@ -44,7 +47,7 @@ Proof
   asm_exists_tac>>xsimpl>>
   simp[check_unsat_0_sem_def]>>
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
-  rw[]>>qexists_tac`strlit ""`>>
+  rw[]>>qexists_tac`«»`>>
   simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,STD_streams_stderr,add_stdo_nil]>>
   xsimpl
 QED
@@ -52,8 +55,9 @@ QED
 val res = translate miscTheory.enumerate_def;
 
 (* 1 arg *)
-val max_lit_fml_def = Define`
-  max_lit_fml fml = Num (max_lit 0 (MAP (max_lit 0) fml))`
+Definition max_lit_fml_def:
+  max_lit_fml fml = Num (max_lit 0 (MAP (max_lit 0) fml))
+End
 
 val res = translate max_lit_fml_def;
 
@@ -64,7 +68,7 @@ val max_lit_fml_side = Q.prove(
   simp[])
   |> update_precondition;
 
-val check_unsat_1 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_1 enc f =
   let val fml = enc ()
       val one = 1
@@ -80,15 +84,16 @@ val check_unsat_1 = (append_prog o process_topdecs) `
       Inl err => TextIO.output TextIO.stdErr err
     | Inr None => TextIO.print "s VERIFIED UNSAT\n"
     | Inr (Some l) => TextIO.output TextIO.stdErr "c empty clause not derived at end of proof\n"
-  end`
+  end
+End
 
 Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs enc f out =
   let fml = enc () in
-    (out ≠ strlit"" ⇒
+    (out ≠ «» ⇒
       ∃lpr.
         EVERY wf_lpr lpr ∧
-        out = strlit "s VERIFIED UNSAT\n" ∧
+        out = «s VERIFIED UNSAT\n» ∧
         let fmlls = misc$enumerate 1 fml in
         let base = REPLICATE (2*LENGTH fmlls) NONE in
         let mv = max_lit_fml fml in
@@ -129,7 +134,7 @@ Proof
   (* help instantiate fill_arr_spec *)
   qmatch_asmsub_abbrev_tac`NUM (LENGTH fmlls) nv`>>
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE (2*(LENGTH fmlls)) NONE)
-        (REPLICATE (2 * (LENGTH fmlls)) (Conv (SOME (TypeStamp "None" 2)) []))` by
+        (REPLICATE (2 * (LENGTH fmlls)) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   first_x_assum drule>>
   rpt (disch_then drule)>>
@@ -138,7 +143,7 @@ Proof
   (* help instantiate fill_earliest_spec *)
   qmatch_asmsub_abbrev_tac`NUM (2 * mv) _`>>
   `LIST_REL (OPTION_TYPE NUM) (REPLICATE (2 * mv + 3) NONE)
-          (REPLICATE (2 * mv + 3) (Conv (SOME (TypeStamp "None" 2)) []))` by
+          (REPLICATE (2 * mv + 3) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   first_x_assum drule>>
   disch_then drule>>
@@ -199,7 +204,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit""`>>xsimpl>>
+    qexists_tac`«»`>>xsimpl>>
     rename1`add_stderr fs err`>>
     qexists_tac`err`>>xsimpl>>
     simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -213,7 +218,7 @@ Proof
     \\ qexists_tac`emp`
     \\ qexists_tac`fs`>>xsimpl \\ rw[]>>
     qexists_tac`«s VERIFIED UNSAT\n»`>>
-    qexists_tac`strlit""`>>rw[]
+    qexists_tac`«»`>>rw[]
     >-
       (qexists_tac`lpr`>>simp[])
     >>
@@ -224,7 +229,7 @@ Proof
   qexists_tac`emp`>>xsimpl>>
   qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`strlit""`>>xsimpl>>
+  qexists_tac`«»`>>xsimpl>>
   rename1`add_stderr fs err`>>
   qexists_tac`err`>>xsimpl>>
   simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -232,8 +237,9 @@ Proof
 QED
 
 (* Translate the thunked enc call *)
-val enc_def = Define`
-  enc () = ramsey_lpr 4 18`
+Definition enc_def:
+  enc () = ramsey_lpr 4 18
+End
 
 val res = translate choose_def;
 val res = translate (COUNT_LIST_GENLIST);
@@ -265,19 +271,20 @@ End
 
 val r = translate usage_string_def;
 
-val check_unsat = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat u =
   case CommandLine.arguments () of
     [] => check_unsat_0 enc
   | [f] => check_unsat_1 enc f
-  | _ => TextIO.output TextIO.stdErr usage_string`
+  | _ => TextIO.output TextIO.stdErr usage_string
+End
 
 Definition check_unsat_sem_def:
   check_unsat_sem cl fs out =
   case TL cl of
     [] => check_unsat_0_sem enc out
   | [f] => check_unsat_1_sem fs enc f out
-  | _ => out = strlit ""
+  | _ => out = «»
 End
 
 Theorem check_unsat_spec:
@@ -292,6 +299,7 @@ Theorem check_unsat_spec:
       STDIO (add_stdout (add_stderr fs err) out) *
       &(check_unsat_sem cl fs out))
 Proof
+  rw[]>>
   xcf"check_unsat"(get_ml_prog_state())>>
   reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)>>
@@ -351,21 +359,7 @@ Proof
   \\ simp[GSYM add_stdo_with_numchars,with_same_numchars]
 QED
 
-local
-
-val name = "check_unsat"
-val (sem_thm,prog_tm) =
-  whole_prog_thm (get_ml_prog_state()) name (UNDISCH check_unsat_whole_prog_spec2)
-val check_unsat_prog_def = Define`check_unsat_prog = ^prog_tm`;
-
-in
-
 Theorem check_unsat_semantics =
-  sem_thm
-  |> REWRITE_RULE[GSYM check_unsat_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
-
-end
-
-val _ = export_theory();
+  prove_sem_thm "check_unsat"
+                "check_unsat_prog"
+                check_unsat_whole_prog_spec2;

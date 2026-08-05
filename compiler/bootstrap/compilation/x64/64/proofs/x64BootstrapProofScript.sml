@@ -1,50 +1,60 @@
 (*
   Proves an end-to-end correctness theorem for the bootstrapped compiler.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     compiler64ProgTheory x64BootstrapTheory replProofTheory
-     candle_prover_semanticsTheory
+Theory x64BootstrapProof
+Ancestors
+  semanticsProps backendProof x64_configProof compiler64Prog
+  x64Bootstrap replProof candle_prover_semantics mlstring
+Libs
+  preamble
 
-val _ = new_theory"x64BootstrapProof";
-
-val with_clos_conf_simp = prove(
-  ``(mc_init_ok (x64_backend_config with <| clos_conf := z ; bvl_conf updated_by
+Theorem with_clos_conf_simp[local]:
+    (mc_init_ok x64_config (x64_backend_config with <| clos_conf := z ; bvl_conf updated_by
                     (λc. c with <|inline_size_limit := t1; exp_cut := t2|>) |>) =
-     mc_init_ok x64_backend_config) /\
+     mc_init_ok x64_config x64_backend_config) /\
     (x.max_app <> 0 /\ (case x.known_conf of NONE => T | SOME k => k.val_approx_spt = LN) ==>
-     (backend_config_ok (x64_backend_config with clos_conf := x) =
-      backend_config_ok x64_backend_config))``,
+     (backend_config_ok x64_config (x64_backend_config with clos_conf := x) =
+      backend_config_ok x64_config x64_backend_config))
+Proof
   fs [mc_init_ok_def,FUN_EQ_THM,backend_config_ok_def]
-  \\ rw [] \\ eq_tac \\ rw [] \\ EVAL_TAC);
+  \\ rw [] \\ eq_tac \\ rw [] \\ EVAL_TAC
+QED
 
 Definition compiler_instance_def:
   compiler_instance =
-    <| init_state := config_to_inc_config cake_config ;
-       compiler_fun := compile_inc_progs_for_eval cake_config.lab_conf.asm_conf ;
+    <| init_state := info;
+       compiler_fun := compile_inc_progs_for_eval x64_config ;
        config_dom := UNIV ;
-       config_v := BACKEND_INC_CONFIG_v ;
+       config_v := BACKEND_CONFIG_v ;
        decs_dom := decs_allowed ;
        decs_v := LIST_v AST_DEC_v |>
 End
 
-Triviality compiler_instance_lemma:
-  INJ compiler_instance.config_v 𝕌(:inc_config) 𝕌(:semanticPrimitives$v) ∧
-  compiler_instance.init_state = config_to_inc_config cake_config ∧
-  compiler_instance.compiler_fun =
-    compile_inc_progs_for_eval cake_config.lab_conf.asm_conf
+Theorem compiler_instance_lemma[local]:
+  INJ compiler_instance.config_v 𝕌(:backend$config) 𝕌(:semanticPrimitives$v) ∧
+  compiler_instance.init_state = info ∧
+  compiler_instance.compiler_fun = compile_inc_progs_for_eval x64_config
 Proof
   fs [compiler_instance_def]
 QED
 
-Theorem cake_config_lab_conf_asm_conf:
-  cake_config.lab_conf.asm_conf = x64_config
+Theorem backend_config_ok_init_conf:
+  backend_config_ok x64_config init_conf
 Proof
-  once_rewrite_tac [cake_config_def] \\ EVAL_TAC
+  assume_tac x64_backend_config_ok
+  \\ gvs [backendProofTheory.backend_config_ok_def,init_conf_def]
+  \\ EVAL_TAC
+QED
+
+Theorem mc_init_ok_init_conf:
+  mc_init_ok x64_config init_conf mc = mc_init_ok x64_config x64_backend_config mc
+Proof
+  simp [mc_init_ok_def,init_conf_def]
 QED
 
 val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events"],
   semantics_compiler64_prog
+  |> SRULE [ml_progTheory.prog_syntax_ok_semantics, compiler64_compiled]
   |> Q.INST[‘eval_state_var’|->‘the_EvalDecs (mk_init_eval_state compiler_instance)’]
   |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_init_eval_state_def,the_EvalDecs_def]
   |> SIMP_RULE (srw_ss()) [GSYM source_evalProofTheory.mk_init_eval_state_def
@@ -56,13 +66,14 @@ val (cake_sem,cake_output) = cake_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_P
 val (cake_not_fail,cake_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_sem |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct_eval cake_compiled
-  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO,
-                         with_clos_conf_simp]
+  MATCH_MP compile_correct_eval (cj 1 compiler64_compiled)
+  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,
+                         GSYM AND_IMP_INTRO,with_clos_conf_simp]
   |> Q.INST [‘ev’|->‘SOME compiler_instance’]
-  |> SIMP_RULE (srw_ss()) [add_eval_state_def,opt_eval_config_wf_def,compiler_instance_lemma]
+  |> SIMP_RULE (srw_ss()) [add_eval_state_def,opt_eval_config_wf_def,
+                           compiler_instance_lemma,mc_init_ok_init_conf]
   |> C MATCH_MP cake_not_fail
-  |> C MATCH_MP x64_backend_config_ok
+  |> C MATCH_MP backend_config_ok_init_conf
   |> REWRITE_RULE[cake_sem_sing,AND_IMP_INTRO]
   |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
   |> C MATCH_MP (CONJ(UNDISCH x64_machine_config_ok)(UNDISCH x64_init_ok))
@@ -75,7 +86,7 @@ Theorem cake_compiled_thm =
 
 (* --- *)
 
-Triviality mk_compiler_fun_from_ci_tuple:
+Theorem mk_compiler_fun_from_ci_tuple[local]:
   mk_compiler_fun_from_ci c = (λ(x,y,z). mk_compiler_fun_from_ci c (x,y,z))
 Proof
   fs [FUN_EQ_THM,FORALL_PROD]
@@ -87,17 +98,16 @@ Theorem mk_init_eval_state_lemma =
        source_evalProofTheory.mk_init_eval_state_def]
   |> ONCE_REWRITE_RULE [mk_compiler_fun_from_ci_tuple]
   |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_compiler_fun_from_ci_def,
-        GSYM compiler_inst_def,cake_config_lab_conf_asm_conf];
-
-Overload config_env_str = “encode_backend_config (config_to_inc_config cake_config)”
+        GSYM compiler_inst_def];
 
 Overload init_eval_state_for =
   “λcl fs. (init_state (basis_ffi cl fs) with
         eval_state := SOME (mk_init_eval_state compiler_instance))”
 
 Theorem candle_soundness:
-  res ∈ semantics_prog (init_eval_state_for cl fs) init_env
-    (candle_code ++ prog) ∧ EVERY safe_dec prog ∧ res ≠ Fail ⇒
+  res ∈ semantics_prog (init_eval_state_for cl fs) init_env (candle_code ++ prog) ∧
+  EVERY safe_dec prog ∧ prog_syntax_ok candle_code ∧ res ≠ Fail
+  ⇒
   ∀e. e ∈ events_of res ⇒ ok_event e
 Proof
   rw [IN_DEF]
@@ -116,24 +126,25 @@ Theorem repl_not_fail =
   |> Q.GEN ‘s’ |> ISPEC (mk_init_eval_state_lemma |> concl |> rand |> rand)
   |> REWRITE_RULE [GSYM mk_init_eval_state_lemma]
   |> SIMP_RULE (srw_ss()) [IN_DEF]
-  |> Q.INST [‘conf’|->‘config_to_inc_config cake_config’]
+  |> Q.GEN ‘conf’ |> Q.SPEC ‘info’
   |> REWRITE_RULE [GSYM (SIMP_CONV (srw_ss()) [] “hasFreeFD fs”)];
 
 Overload basis_init_ok =
   “λcl fs. STD_streams fs ∧ wfFS fs ∧ wfcl cl ∧ hasFreeFD fs ∧
-           file_content fs «config_enc_str.txt» = SOME config_env_str”;
+           file_content fs «config_enc_str.txt» = SOME conf”;
 
 Theorem repl_not_fail_thm:
   has_repl_flag (TL cl) ∧ basis_init_ok cl fs ⇒
   Fail ∉ semantics_prog (init_eval_state_for cl fs) init_env compiler64_prog
 Proof
   rw [IN_DEF] \\ irule repl_not_fail \\ fs []
+  \\ simp [compiler64_compiled]
 QED
 
 val compile_correct_applied2 =
-  MATCH_MP compile_correct_eval cake_compiled
-  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO,
-                         with_clos_conf_simp]
+  MATCH_MP compile_correct_eval (cj 1 compiler64_compiled)
+  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,
+                         GSYM AND_IMP_INTRO,with_clos_conf_simp]
   |> Q.INST [‘ev’|->‘SOME compiler_instance’]
   |> SIMP_RULE (srw_ss()) [add_eval_state_def,opt_eval_config_wf_def,
       x64_configProofTheory.x64_backend_config_ok,compiler_instance_lemma]
@@ -144,12 +155,12 @@ Definition repl_ready_to_run_def:
     ∃cbspace data_sp.
       has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
       hasFreeFD fs ∧
-      file_content fs «config_enc_str.txt» = SOME config_env_str ∧
-      mc_conf_ok mc ∧ mc_init_ok x64_backend_config mc ∧
-      installed cake_code cbspace cake_data data_sp
-        cake_config.lab_conf.ffi_names
+      file_content fs «config_enc_str.txt» = SOME conf ∧
+      mc_conf_ok mc ∧ mc_init_ok x64_config x64_backend_config mc ∧
+      installed code cbspace data data_sp
+        info.lab_conf.ffi_names
         (heap_regs x64_backend_config.stack_conf.reg_names)
-        mc cake_config.lab_conf.shmem_extra ms
+        mc info.lab_conf.shmem_extra ms
 End
 
 Overload machine_sem = “λffi (mc,ms). targetSem$machine_sem mc ffi ms”
@@ -163,16 +174,19 @@ Theorem compile_correct_applied:
 Proof
   PairCases_on ‘ms’ \\ rw [IN_DEF,repl_ready_to_run_def]
   \\ irule compile_correct_applied2 \\ fs []
-  \\ first_x_assum $ irule_at Any
+  \\ ‘init_conf.stack_conf.reg_names =
+      x64_backend_config.stack_conf.reg_names’ by EVAL_TAC
+  \\ gvs [] \\ first_x_assum $ irule_at Any
+  \\ gvs [backend_config_ok_init_conf,mc_init_ok_init_conf]
 QED
 
-Triviality isPREFIX_MEM:
+Theorem isPREFIX_MEM[local]:
   ∀xs ys. isPREFIX xs ys ⇒ ∀x. MEM x xs ⇒ MEM x ys
 Proof
   Induct \\ fs [] \\ Cases_on ‘ys’ \\ fs [] \\ metis_tac []
 QED
 
-Triviality LPREFIX_MEM:
+Theorem LPREFIX_MEM[local]:
   ∀xs ys. LPREFIX (fromList xs) ys ⇒ ∀x. MEM x xs ⇒ x IN LSET ys
 Proof
   Induct \\ fs [] \\ Cases_on ‘ys’ \\ fs []
@@ -221,14 +235,14 @@ Proof
   \\ rw [] \\ Cases_on ‘o'’ \\ fs [safe_exp'_def]
 QED
 
-Triviality MAP_SND:
+Theorem MAP_SND[local]:
   MAP SND [] = [] ∧
   MAP SND ((x1,x2)::xs) = x2 :: MAP SND xs
 Proof
   fs []
 QED
 
-Triviality MAP_SND_SND:
+Theorem MAP_SND_SND[local]:
   MAP (SND ∘ SND) [] = [] ∧
   MAP (SND ∘ SND) ((x1,x2,x3)::xs) = x3 :: MAP (SND ∘ SND) xs
 Proof
@@ -243,6 +257,17 @@ in
   val char_eq_lemmas = cross cs cs |> map mk_eq |> map EVAL;
 end
 
+val tac =
+  rewrite_tac [safe_dec_thm,EVERY_DEF,safe_dec'_def,MAP_SND_SND,
+                  safe_exp_thm,safe_exp'_def,MAP_SND,namespaceTheory.id_to_n_def,
+                  ast_extrasTheory.every_exp_def |> CONV_RULE (DEPTH_CONV ETA_CONV),
+                  ast_extrasTheory.every_dec_def |> CONV_RULE (DEPTH_CONV ETA_CONV)]
+  \\ rewrite_tac [EVAL “«[]» ∉ kernel_ctors”, EVAL “«::» ∉ kernel_ctors”]
+  \\ rewrite_tac
+       ([EVAL “kernel_ctors”,mlstring_11,CONS_11,NOT_CONS_NIL,NOT_NIL_CONS,
+           IN_INSERT,NOT_IN_EMPTY,EVAL “kernel_ffi”] @ char_eq_lemmas)
+  \\ EVAL_TAC
+
 Theorem compiler64_prog_eq_candle_code_append: (* this is very slow *)
   ∃prog. compiler64_prog = candle_code ++ prog ∧ EVERY safe_dec prog
 Proof
@@ -251,17 +276,20 @@ Proof
   \\ rewrite_tac [LENGTH]
   \\ once_rewrite_tac [compiler64_prog_def]
   \\ PURE_REWRITE_TAC [rich_listTheory.DROP]
-  \\ rewrite_tac [APPEND]
-  \\ rewrite_tac [safe_dec_thm,EVERY_DEF,safe_dec'_def,MAP_SND_SND,
-                  safe_exp_thm,safe_exp'_def,MAP_SND,namespaceTheory.id_to_n_def,
-                  ast_extrasTheory.every_exp_def
-                    |> CONV_RULE (DEPTH_CONV ETA_CONV),
-                  ast_extrasTheory.every_dec_def
-                    |> CONV_RULE (DEPTH_CONV ETA_CONV)]
-  \\ rewrite_tac [EVAL “"[]" ∉ kernel_ctors”, EVAL “"::" ∉ kernel_ctors”]
-  \\ rewrite_tac
-       ([EVAL “kernel_ctors”,CONS_11,NOT_CONS_NIL,NOT_NIL_CONS,
-           IN_INSERT,NOT_IN_EMPTY,EVAL “kernel_ffi”] @ char_eq_lemmas)
+  \\ conj_tac >- EVAL_TAC
+  \\ rewrite_tac [APPEND,locationTheory.unknown_loc_def,EVERY_DEF]
+  \\ rpt conj_tac
+  \\ tac
+QED
+
+Theorem prog_syntax_ok_candle_code[local]:
+  prog_syntax_ok candle_code
+Proof
+  ‘prog_syntax_ok compiler64_prog’ by fs [compiler64_compiled]
+  \\ irule ml_progTheory.prog_syntax_ok_isPREFIX
+  \\ first_x_assum $ irule_at Any
+  \\ strip_assume_tac compiler64_prog_eq_candle_code_append
+  \\ gvs []
 QED
 
 Theorem events_of_extend_with_resource_limit:
@@ -293,11 +321,9 @@ Proof
   \\ drule_all events_of_extend_with_resource_limit \\ rw []
   \\ strip_assume_tac compiler64_prog_eq_candle_code_append \\ gvs []
   \\ drule_then irule candle_soundness
-  \\ fs [] \\ CCONTR_TAC \\ fs []
+  \\ fs [prog_syntax_ok_candle_code] \\ CCONTR_TAC \\ fs []
 QED
 
 val _ = print "Checking that no cheats were used in the proofs.\n";
 val _ = candle_top_level_soundness |> check_thm;
 val _ = cake_compiled_thm |> check_thm;
-
-val _ = export_theory();

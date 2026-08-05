@@ -45,4 +45,7 @@ sig
   val is_substring        : term -> bool
 
   val is_mlstring_literal : term -> bool
+
+  val mk_mlstring         : string -> term
+  val dest_mlstring       : term -> string
 end

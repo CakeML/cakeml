@@ -2,14 +2,18 @@
  An example showing how to use the monadic translator to translate polymorphic
  monadic array quicksort, including exceptions.
 *)
+Theory poly_array_sortProg
+Libs
+  preamble ml_monad_translator_interfaceLib
+Ancestors
+  ml_monad_translator
 
-open preamble ml_monad_translator_interfaceLib
+val _ = set_up_monadic_translator ();
 
-val _ = new_theory "poly_array_sortProg"
 
 fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 (* TODO still some problems with type variables - if 'a not used below,
    some translations fail *)
 
@@ -83,11 +87,12 @@ QED
 *******************************************************************************)
 
 (* borrowed from examples/quicksortProg *)
-val strict_weak_order_def = Define `
+Definition strict_weak_order_def:
   strict_weak_order r ⇔
     transitive r ∧
     (∀ x y. r x y ⇒ ¬ r y x) ∧
-    transitive (λ x y. ¬ r x y ∧ ¬ r y x)`;
+    transitive (λ x y. ¬ r x y ∧ ¬ r y x)
+End
 
 (* borrowed from examples/quicksortProg *)
 Theorem strict_weak_order_alt:
@@ -297,7 +302,7 @@ val scan_lower_def = allowing_rebind (mtDefine "scan_lower" `
 )
 
 
-val scan_upper_def = Define `
+Definition scan_upper_def:
   scan_upper (cmp : 'a -> 'a -> bool) pivot ub =
     if ub = 0n then return ub else do
     elem <- arr_sub (ub - 1);
@@ -305,7 +310,7 @@ val scan_upper_def = Define `
       scan_upper cmp pivot (ub - 1)
     else return (ub - 1)
   od
-`
+End
 
 Theorem scan_lower_index:
   ∀ cmp pivot lb s new_lb s' .
@@ -432,12 +437,12 @@ val partition_helper_def = allowing_rebind (mtDefine "partition_helper" `
   imp_res_tac scan_lower_index >>
   reverse (imp_res_tac scan_upper_index) >>
   fs[prim_recTheory.NOT_LESS_0]
-)
+);
 
 (* TODO fix s5 / s6 problem - can get away with it for now,
    but probably not in general... *)
 (*
-val partition_helper_def = tDefine "partition_helper" `
+Definition partition_helper_def:
   partition_helper (cmp : 'a -> 'a -> bool) pivot lb ub s =
     if ub ≤ lb then (return ub s) else (
       monad_bind (scan_lower cmp pivot lb)
@@ -460,7 +465,9 @@ val partition_helper_def = tDefine "partition_helper" `
         )
       s1 )
     ) s
-`
+Termination
+  ...
+End
 *)
 
 Theorem partition_helper_index:
@@ -506,7 +513,6 @@ Proof
     rveq >> fs[]
     ) >>
   ntac 4 (reverse(FULL_CASE_TAC >> rveq >> fs[])) >>
-  first_x_assum (qspec_then `<| arr := a'3' |>` mp_tac) >>
   strip_tac >> fs[] >> rfs[] >>
   strip_tac >> fs[] >>
   fs[Msub_Success, Mupdate_Success] >>
@@ -542,8 +548,6 @@ Proof
     rpt (disch_then drule) >>
     fs[] >> strip_tac >>
     rveq >> fs[] >>
-    first_x_assum (qspec_then `<| arr := a'6' |>` mp_tac) >>
-    fs[] >> strip_tac >>
     rename1 `scan_upper _ _ _ _ = (M_success new_ub, _)` >>
     rename1 `scan_lower _ _ _ _ = (M_success new_lb, _)` >>
     rename1 `Msub _ new_ub _ = M_success nub_elem` >>
@@ -656,17 +660,17 @@ QED
 
 *******************************************************************************)
 
-val array_set_aux_def = Define `
+Definition array_set_aux_def:
   (array_set_aux _ [] = return ()) ∧
   (array_set_aux n (x::xs) = do
     update_arr n x;
     array_set_aux (n + 1n) xs
   od)
-`;
+End
 
-val array_set_def = Define `
+Definition array_set_def:
   array_set l = array_set_aux 0n l
-`;
+End
 
 Theorem array_set_aux_Success:
   ∀ l n s . (LENGTH (DROP n s.arr) = LENGTH l)
@@ -704,24 +708,23 @@ Proof
   metis_tac[]
 QED
 
-val array_get_aux_def = tDefine "array_get_aux" `
+Definition array_get_aux_def:
   array_get_aux length n =
     if n ≥ length then return [] else do
       rest <- array_get_aux length (n + 1);
       elem <- arr_sub n;
       return (elem :: rest)
     od
-`
-(
+Termination
   WF_REL_TAC `measure (λ (length, n) . length - n)`
-)
+End
 
-val array_get_def = Define `
+Definition array_get_def:
   array_get () = do
     len <- arr_length;
     array_get_aux len 0n
   od
-`
+End
 
 Theorem array_get_aux_Success:
   ∀ length n s . (LENGTH s.arr = length)
@@ -984,15 +987,15 @@ Proof
       )
 QED
 
-val quicksort_def = Define `
+Definition quicksort_def:
   (quicksort cmp [] = return []) ∧
   (quicksort cmp (x::xs) = do
     alloc_arr (LENGTH (x::xs)) x;
     array_set (x::xs);
-    quicksort_aux cmp 0n (LENGTH (x::xs) - 1n);
+    quicksort_aux cmp 0n (LENGTH xs);
     array_get ()
   od)
-`;
+End
 
 Theorem quicksort_result:
   ∀ l l' cmp s s' .
@@ -1039,14 +1042,14 @@ QED
 
 val run_init_state_def = define_run state_type [] "init_state";
 
-val run_quicksort_def = Define `
+Definition run_quicksort_def:
   run_quicksort cmp l =
     run_init_state (quicksort l cmp) (init_state [])
-`;
+End
 
-val qsort_def = Define `
-  qsort cmp l = case run_quicksort l cmp of M_success result => result
-`;
+Definition qsort_def:
+  qsort cmp l = pmatch run_quicksort l cmp of M_success result => result
+End
 
 
 (*******************************************************************************
@@ -1193,7 +1196,6 @@ Proof
   first_x_assum drule >>
   rpt (disch_then drule) >>
   rw[] >>
-  first_x_assum drule >>
   fs[] >> rw[] >>
   imp_res_tac Mupdate_Success >>
   fs[LUPDATE_LENGTH]
@@ -1301,11 +1303,12 @@ val run_quicksort_v_thm = m_translate_run run_quicksort_def;
 
 val qsort_v_thm = translate qsort_def;
 
-val qsort_v_precond = Q.prove(
-  `∀ cmp l . strict_weak_order cmp ⇒ qsort_side cmp l`,
+Theorem qsort_v_precond[local]:
+  ∀ cmp l . strict_weak_order cmp ⇒ qsort_side cmp l
+Proof
   rw[fetch "-" "qsort_side_def"] >>
   metis_tac[run_quicksort_Success]
-)
+QED
 
 (* TODO update precondition doesn't seem to work here
 val _ = qsort_v_precond |> update_precondition
@@ -1316,7 +1319,8 @@ val qsort_v_thm = qsort_v_thm |> DISCH_ALL |>
                     (qsort_v_precond |> SPEC_ALL |> UNDISCH_ALL)) |>
                   DISCH_ALL
 
-val _ = save_thm("qsort_v_thm[allow_rebind]", qsort_v_thm)
+Theorem qsort_v_thm[allow_rebind] =
+  qsort_v_thm
 
 
 (*******************************************************************************
@@ -1337,5 +1341,3 @@ QED
 
 
 (******************************************************************************)
-
-val _ = export_theory ();

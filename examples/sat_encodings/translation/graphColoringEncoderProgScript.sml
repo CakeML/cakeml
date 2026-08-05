@@ -1,14 +1,15 @@
 (*
   Encoding program for the graph coloring problem
 *)
-open preamble basis miscTheory set_sepTheory listTheory cnfTheory;
-open boolExpToCnfTheory quantifierExpTheory orderEncodingBoolTheory;
-open numBoolExpTheory numBoolExtendedTheory numBoolRangeTheory;
-open unorderedSetsTheory graphColoringTheory;
-open (* for parsing: *) parsingTheory source_valuesTheory;
-open toCnfHelperTheory sat_encodersProgTheory;
-
-val _ = new_theory "graphColoringEncoderProg";
+Theory graphColoringEncoderProg
+Ancestors
+  misc set_sep list cnf boolExpToCnf quantifierExp
+  orderEncodingBool numBoolExp numBoolExtended numBoolRange
+  unorderedSets graphColoring
+  (* for parsing: *) parsing source_values
+  toCnfHelper sat_encodersProg
+Libs
+  preamble basis
 
 val _ = translation_extends "sat_encodersProg";
 
@@ -63,14 +64,14 @@ Definition encode_to_output_def:
   let colors = v2colorList (head v) in
     let graph = v2graph (head (tail v)) in
       case graph_ok graph of
-      | F => (List [strlit "Invalid input"])
+      | F => (List [«Invalid input»])
       | T =>
           let cnf = graphColoring_to_cnf colors graph in
             let (max_var, clauses) = get_max_var_and_clauses cnf in
               Append
-              (List [strlit "p cnf ";
-                     num_to_str max_var; strlit " ";
-                     num_to_str clauses; strlit "\n"])
+              (List [«p cnf »;
+                     num_to_str max_var; « »;
+                     num_to_str clauses; «\n»])
               (cnf_to_output cnf)
 End
 
@@ -90,23 +91,23 @@ Definition neighbours_to_output_inner_def:
   neighbours_to_output_inner [] = List [] ∧
   neighbours_to_output_inner (n::[]) = List [num_to_str n] ∧
   neighbours_to_output_inner (n::neighbours) =
-  Append (List [num_to_str n; strlit ", "]) (neighbours_to_output_inner neighbours)
+  Append (List [num_to_str n; «, »]) (neighbours_to_output_inner neighbours)
 End
 
 Definition neighbours_to_output_def:
   neighbours_to_output neighbours =
   Append (Append
-          (List [strlit "["])
+          (List [«[»])
           (neighbours_to_output_inner neighbours))
-         (List [strlit "]"])
+         (List [«]»])
 End
 
 Definition vertex_to_output_def:
   vertex_to_output w' vertex neighbours =
   Append (Append
-          (List [strlit "["; num_to_str vertex; strlit ", "])
+          (List [«[»; num_to_str vertex; «, »])
           (neighbours_to_output neighbours))
-         (List [strlit ", "; implode (w' vertex); strlit "]"])
+         (List [«, »; implode (w' vertex); «]»])
 End
 
 Definition graph_to_output_inner_def:
@@ -116,16 +117,16 @@ Definition graph_to_output_inner_def:
   graph_to_output_inner w' ((vertex, neighbours)::graph) =
   Append (Append
           (vertex_to_output w' vertex neighbours)
-          (List [strlit ",\n"]))
+          (List [«,\n»]))
          (graph_to_output_inner w' graph)
 End
 
 Definition graph_to_output_def:
   graph_to_output w' graph =
   Append (Append
-          (List [strlit "["])
+          (List [«[»])
           (graph_to_output_inner w' graph))
-         (List [strlit "]"])
+         (List [«]»])
 End
 
 Definition solve_to_output_def:
@@ -171,8 +172,9 @@ val res = translate main_function_def;
 val _ = type_of “main_function” = “:mlstring -> mlstring app_list”
         orelse failwith "The main_function has the wrong type.";
 
-val main = process_topdecs
-  `print_app_list (main_function (TextIO.inputAll TextIO.stdIn));`;
+Quote main = cakeml:
+  print_app_list (main_function (TextIO.inputAll (TextIO.openStdIn ())));
+End
 
 val prog =
   get_ml_prog_state ()
@@ -187,5 +189,3 @@ val prog =
 Definition graphColoring_encoder_prog_def:
   graphColoring_encoder_prog = ^prog
 End
-
-val _ = export_theory();

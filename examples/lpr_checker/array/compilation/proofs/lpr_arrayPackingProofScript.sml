@@ -3,24 +3,25 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     TextIOProofTheory
-     satSemTheory lprTheory lpr_listTheory lpr_arrayPackingProgTheory
-     lpr_parsingTheory lpr_arrayPackingCompileTheory lpr_composeProgTheory
-     lpr_listTheory packingTheory;
-
-val _ = new_theory"lpr_arrayPackingProof";
+Theory lpr_arrayPackingProof
+Ancestors
+  semanticsProps backendProof x64_configProof TextIOProof satSem
+  lpr lpr_list lpr_arrayPackingProg lpr_parsing
+  lpr_arrayPackingCompile lpr_composeProg lpr_list packing
+Libs
+  preamble
 
 val main_io_events_def = new_specification("main_io_events_def",["main_io_events"],
   main_semantics |> Q.GENL[`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (main_sem,main_output) = main_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
-val (main_not_fail,main_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail main_sem |> CONJ_PAIR
+val (main_not_fail,main_sem_sing) = main_sem
+  |> SRULE [lpr_packing_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct lpr_packing_compiled
+  MATCH_MP compile_correct (cj 1 lpr_packing_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP main_not_fail
   |> C MATCH_MP x64_backend_config_ok
@@ -30,16 +31,15 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val main_compiled_thm =
+Theorem main_compiled_thm =
   CONJ compile_correct_applied main_output
   |> DISCH_ALL
   (* |> check_thm *)
-  |> curry save_thm "main_compiled_thm";
 
 (* Prettifying the standard parts of all the theorems *)
-val installed_x64_def = Define `
+Definition installed_x64_def:
   installed_x64 ((code, data, cfg) :
-      (word8 list # word64 list # 64 backend$config))
+      (word8 list # word64 list # backend$config))
     mc ms
   <=>
     ?cbspace data_sp.
@@ -50,17 +50,18 @@ val installed_x64_def = Define `
         cfg.lab_conf.ffi_names
         (heap_regs x64_backend_config.stack_conf.reg_names) mc
         cfg.lab_conf.shmem_extra ms
-    `;
+End
 
-val main_code_def = Define `
-  main_code = (code, data, config)
-  `;
+Definition main_code_def:
+  main_code = (code, data, info)
+End
 
 (* A standard run of packing satisfying all the default assumptions *)
-val packing_run_def = Define`
+Definition packing_run_def:
   packing_run cl fs mc ms ⇔
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-  installed_x64 main_code mc ms`
+  installed_x64 main_code mc ms
+End
 
 Theorem parse_numbers_imp:
   parse_numbers rs ks cs = SOME (r,k,c) ⇒
@@ -85,12 +86,12 @@ Theorem machine_code_sound:
           out = concat (print_dimacs fml) ∧
           (unsatisfiable (interp fml) ⇒
             ∀f. ¬ is_plane_packing_col f k)
-    | NONE => out = strlit ""
-  else out = strlit ""
+    | NONE => out = «»
+  else out = «»
 Proof
   strip_tac>>
   fs[installed_x64_def,main_code_def,packing_run_def]>>
-  drule main_compiled_thm>>
+  drule_at (Pos last) main_compiled_thm>>
   simp[AND_IMP_INTRO]>>
   disch_then drule>>
   disch_then (qspecl_then [`ms`,`mc`,`data_sp`,`cbspace`] mp_tac)>>
@@ -113,8 +114,8 @@ Proof
   >- metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
   PairCases_on`x`>>simp[]>>
   qmatch_goalsub_abbrev_tac`add_stdout fs ls`>>
-  qexists_tac`ls`>>qexists_tac`strlit ""`>>
-  `add_stderr fs (strlit "") = fs` by
+  qexists_tac`ls`>>qexists_tac`«»`>>
+  `add_stderr fs «» = fs` by
     (match_mp_tac (GEN_ALL add_stdo_nil)>>
     metis_tac[STD_streams_stderr])>>
   simp[Abbr`ls`]>>
@@ -122,5 +123,3 @@ Proof
   strip_tac>>
   metis_tac[unsat_is_plane_packing]
 QED
-
-val _ = export_theory();

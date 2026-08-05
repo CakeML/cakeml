@@ -1,14 +1,14 @@
 (*
    Verification of fast interpreter for the Candle compute primitive.
  *)
+Theory compute_execProof
+Ancestors
+  holSyntax holSyntaxExtra holSyntaxLib holKernel holKernelProof
+  compute_syntax compute_eval compute_exec compute_evalProof
+  ml_monadBase mlvector
+Libs
+  preamble ml_monadBaseLib
 
-open preamble holSyntaxTheory holSyntaxExtraTheory holSyntaxLibTheory
-     holKernelTheory holKernelProofTheory compute_syntaxTheory
-     compute_evalTheory compute_execTheory compute_evalProofTheory;
-open ml_monadBaseTheory ml_monadBaseLib;
-open mlvectorTheory
-
-val _ = new_theory "compute_execProof";
 
 (* verification *)
 
@@ -105,7 +105,7 @@ Proof
   Induct \\ fs [cexp_value_def]
 QED
 
-Triviality cexp_vars_def[simp] = compute_syntaxProofTheory.cexp_vars_def;
+Theorem cexp_vars_def[local,simp] = compute_syntaxProofTheory.cexp_vars_def;
 
 Definition eqs_ok_def:
   eqs_ok eqs ⇔
@@ -370,7 +370,7 @@ Theorem exec_lemma =
   |> Q.SPECL [‘ck’,‘eqs’,‘e’,‘res’,‘[]’,‘to_ce eqs [] e’,‘s’,‘s1’]
   |> SIMP_RULE std_ss [MAP,subst_empty,listTheory.LIST_TO_SET];
 
-Triviality LIST_REL_MAP_lemma:
+Theorem LIST_REL_MAP_lemma[local]:
   ∀xs. LIST_REL R xs (MAP f xs) = EVERY (λx. R x (f x)) xs
 Proof
   Induct \\ fs []
@@ -445,6 +445,4 @@ Proof
   \\ gvs [EVERY_MEM,FORALL_PROD]
   \\ rw [] \\ res_tac \\ fs []
 QED
-
-val _ = export_theory ();
 

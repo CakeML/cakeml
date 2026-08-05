@@ -1,12 +1,14 @@
 (*
   grep example: search for file lines matching a regular expression.
 *)
-open preamble basis
-     charsetTheory regexpTheory regexp_parserTheory regexp_compilerTheory
+Theory grepProg
+Libs
+  preamble basis
+Ancestors
+  charset regexp regexp_parser regexp_compiler mlvector
+  cfApp basis_ffi
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "grepProg";
 
 val _ = translation_extends"basisProg";
 
@@ -126,8 +128,27 @@ val _ = translate balanced_mapTheory.fromList_def;
 val r = translate regexp_compareW_def;
 
 val _ = add_preferred_thy "-";
-val r = save_thm("mergesortN_ind", mergesortTheory.mergesortN_ind |> REWRITE_RULE[GSYM mllistTheory.drop_def]);
-val r = translate (mergesortTheory.mergesortN_def |> REWRITE_RULE[GSYM mllistTheory.drop_def]);
+Theorem mergesortN_ind =
+  mergesortTheory.mergesortN_ind |> REWRITE_RULE[GSYM mllistTheory.drop_def]
+val r = translate (mergesortTheory.mergesortN_def |> REWRITE_RULE[GSYM mllistTheory.drop_def,GSYM mllistTheory.take_def]);
+
+Theorem mergesortn_side[local]:
+  ∀x y z.
+  mergesortn_side x y z
+Proof
+  completeInduct_on`y`>>
+  rw[Once (fetch "-" "mergesortn_side_def")]>>
+  simp[arithmeticTheory.DIV2_def]
+  >- (
+    first_x_assum match_mp_tac>>
+    simp[]>>
+    match_mp_tac dividesTheory.DIV_POS>>
+    simp[])
+  >>
+    match_mp_tac DIV_LESS_EQ>>
+    simp[]
+QED
+val _ = mergesortn_side |> update_precondition;
 
 val _ = use_mem_intro := true;
 val r = translate build_or_def;
@@ -143,9 +164,8 @@ val r = translate Brz_def;
 (* Version of compile_regexp that avoids dom_Brz and Brzozo.
    The latter functions are probably untranslatable. *)
 
-val compile_regexp_with_limit_def =
- Define
-   `compile_regexp_with_limit r =
+Definition compile_regexp_with_limit_def:
+  compile_regexp_with_limit r =
       let r' = normalize r in
       case Brz balanced_map$empty
                (balanced_map$singleton r' ())
@@ -157,7 +177,8 @@ val compile_regexp_with_limit_def =
       in
          SOME(state_numbering,
           delta_vecs,
-          accepts_vec))`;
+          accepts_vec))
+End
 
 Theorem Brz_sound_wrt_Brzozo:
    Brz seen worklist acc d = SOME result ==> Brzozo seen worklist acc = result
@@ -193,9 +214,8 @@ QED
 
 val r = translate compile_regexp_with_limit_def;
 
-val regexp_matcher_with_limit_def =
- Define
-  `regexp_matcher_with_limit r s =
+Definition regexp_matcher_with_limit_def:
+  regexp_matcher_with_limit r s =
     case compile_regexp_with_limit r of
            NONE => NONE
          | SOME (state_numbering,deltaL,accepts) =>
@@ -204,7 +224,8 @@ val regexp_matcher_with_limit_def =
     let acceptsV = fromList accepts in
     let deltaV = fromList (MAP fromList deltaL)
     in
-      SOME(exec_dfa acceptsV deltaV start_state s))`;
+      SOME(exec_dfa acceptsV deltaV start_state s))
+End
 
 Theorem regexp_matcher_with_limit_sound:
    regexp_matcher_with_limit r s = SOME result ==> regexp_matcher r s = result
@@ -217,30 +238,39 @@ QED
 
 val r = translate regexp_matcher_with_limit_def;
 
-val mem_tolist = Q.prove(`MEM (toList l) (MAP toList ll) = MEM l ll`,
-  Induct_on `ll` >> fs[]);
+Theorem mem_tolist[local]:
+  MEM (toList l) (MAP toList ll) = MEM l ll
+Proof
+  Induct_on `ll` >> fs[]
+QED
 
-val EL_map_toList = Q.prove(`!n. n < LENGTH l ==> EL n' (EL n (MAP toList l)) = sub (EL n l) n'`,
+Theorem EL_map_toList[local]:
+  !n. n < LENGTH l ==> EL n' (EL n (MAP toList l)) = sub (EL n l) n'
+Proof
   Induct_on `l`
   >> fs[]
   >> rpt strip_tac
   >> Cases_on `n`
-  >> fs[mlvectorTheory.EL_toList]);
+  >> fs[mlvectorTheory.EL_toList]
+QED
 
-val length_tolist_cancel = Q.prove(
-  `!n. n < LENGTH l ==> LENGTH (EL n (MAP mlvector$toList l)) = length (EL n l)`,
+Theorem length_tolist_cancel[local]:
+  !n. n < LENGTH l ==> LENGTH (EL n (MAP mlvector$toList l)) = length (EL n l)
+Proof
   Induct_on `l`
   >> fs[]
   >> rpt strip_tac
   >> Cases_on `n`
-  >> fs[mlvectorTheory.length_toList]);
+  >> fs[mlvectorTheory.length_toList]
+QED
 
-val exec_dfa_side_imp = Q.prove(
-  `!finals table n s.
+Theorem exec_dfa_side_imp[local]:
+  !finals table n s.
    good_vec (MAP toList (toList table)) (toList finals)
     /\ EVERY (λc. MEM (ORD c) ALPHABET) (EXPLODE s)
     /\ n < length finals
-   ==> exec_dfa_side finals table n s`,
+   ==> exec_dfa_side finals table n s
+Proof
   Induct_on `s`
   >- fs[fetch "-" "exec_dfa_side_def"]
   >> PURE_ONCE_REWRITE_TAC [fetch "-" "exec_dfa_side_def"]
@@ -258,27 +288,32 @@ val exec_dfa_side_imp = Q.prove(
     >- metis_tac[]
     >> first_x_assum(ASSUME_TAC o Q.SPECL [`toList (EL n l)`,`ORD h`])
     >> first_x_assum(MATCH_MP_TAC o Q.SPECL [`n`,`ORD h`,`x1`])
-    >> rfs[mlvectorTheory.length_toList,mem_tolist,EL_map_toList,length_tolist_cancel]);
+    >> rfs[mlvectorTheory.length_toList,mem_tolist,EL_map_toList,length_tolist_cancel]
+QED
 
-val compile_regexp_with_limit_dom_brz = Q.prove(
-  `!r result.
+Theorem compile_regexp_with_limit_dom_brz[local]:
+  !r result.
     compile_regexp_with_limit r = SOME result
     ==> dom_Brz empty (singleton (normalize r) ())
-                (1,singleton (normalize r) 0, [])`,
+                (1,singleton (normalize r) 0, [])
+Proof
   rw[compile_regexp_with_limit_def, dom_Brz_def, MAXNUM_32_def]
   >> every_case_tac
-  >> metis_tac [IS_SOME_EXISTS]);
+  >> metis_tac [IS_SOME_EXISTS]
+QED
 
-val compile_regexp_with_limit_lookup = Q.prove(
-  `!r state_numbering delta accepts.
+Theorem compile_regexp_with_limit_lookup[local]:
+  !r state_numbering delta accepts.
    compile_regexp_with_limit r = SOME(state_numbering,delta,accepts)
-   ==> IS_SOME(lookup regexp_compare (normalize r) state_numbering)`,
+   ==> IS_SOME(lookup regexp_compare (normalize r) state_numbering)
+Proof
   rpt strip_tac
   >> `normalize r ∈ fdom regexp_compare state_numbering`
        by(metis_tac[compile_regexp_with_limit_dom_brz,
                     compile_regexp_good_vec,
                     compile_regexp_with_limit_sound])
-  >> fs[regexp_mapTheory.fdom_def]);
+  >> fs[regexp_mapTheory.fdom_def]
+QED
 
 Theorem tolist_fromlist_map_cancel:
    MAP mlvector$toList (MAP fromList ll) = ll
@@ -290,17 +325,21 @@ QED
 val compile_regexp_with_limit_side_def =
     fetch"-" "compile_regexp_with_limit_side_def"
 
-val lem = Q.prove
-(`!bst. balanced_map$null bst <=> (bst = Tip)`,
- Cases >> rw[balanced_mapTheory.null_def]);
+Theorem lem[local]:
+  !bst. balanced_map$null bst <=> (bst = Tip)
+Proof
+  Cases >> rw[balanced_mapTheory.null_def]
+QED
 
 val brz_side_def =
   fetch "-" "brz_side_def"
     |> simp_rule [deleteFindmin_side_thm,lem]
 
-val brz_side_thm = Q.prove
-(`!a b c d. brz_side a b c d`,
- Induct_on `d` >> rw[Once brz_side_def]);
+Theorem brz_side_thm[local]:
+  !a b c d. brz_side a b c d
+Proof
+  Induct_on `d` >> rw[Once brz_side_def]
+QED
 
 val regexp_matcher_with_limit_side_def = Q.prove
 (`!r s. regexp_matcher_with_limit_side r s ⇔ T`,
@@ -366,17 +405,20 @@ val r = translate (pegexecTheory.peg_exec_def);
 
 (* -- *)
 
-val all_charsets_def = Define `
-  all_charsets = Vector (GENLIST (\n. charset_sing (CHR n)) 256)`;
+Definition all_charsets_def:
+  all_charsets = Vector (GENLIST (\n. charset_sing (CHR n)) 256)
+End
 
 val all_charsets_eq = EVAL ``all_charsets``;
 
-val charset_sing_eq = prove(
-  ``!c. charset_sing c = sub all_charsets (ORD c)``,
+Theorem charset_sing_eq[local]:
+    !c. charset_sing c = sub all_charsets (ORD c)
+Proof
   Cases
   \\ `ORD (CHR n) = n` by fs [ORD_CHR]
   \\ asm_rewrite_tac [sub_def,all_charsets_def]
-  \\ fs [EL_GENLIST]);
+  \\ fs [EL_GENLIST]
+QED
 
 val r = translate all_charsets_eq;
 val r = translate charset_sing_eq;
@@ -429,228 +471,227 @@ val parse_regexp_side = Q.prove(
 
 (* -- *)
 
-val print_matching_lines = process_topdecs`
+Quote add_cakeml:
   fun print_matching_lines match prefix fd =
-    case TextIO.inputLine fd of None => ()
+    case TextIO.inputLineWith #"\n" fd of None => ()
     | Some ln => (if match ln then (TextIO.print prefix; TextIO.print ln) else ();
-                  print_matching_lines match prefix fd)`;
-val _ = append_prog print_matching_lines;
+                  print_matching_lines match prefix fd)
+End
 
 Theorem print_matching_lines_spec:
-   (STRING_TYPE --> BOOL) m mv ∧ STRING_TYPE pfx pfxv ∧
-   INSTREAM fd fdv ∧ fd ≠ 1 ∧ fd ≠ 2 ∧
-   IS_SOME (get_file_content fs fd) ∧ get_mode fs fd = SOME ReadMode ⇒
-   app (p:'ffi ffi_proj)
-     ^(fetch_v "print_matching_lines"(get_ml_prog_state())) [mv; pfxv; fdv]
-     (STDIO fs)
-     (POSTv uv.
-       &UNIT_TYPE () uv *
-       STDIO (add_stdout (fastForwardFD fs fd)
-                     (concat
-                        (MAP (strcat pfx)
-                           (FILTER m (MAP implode (linesFD fs fd)))))))
+  ∀fs.
+  (STRING_TYPE --> BOOL) m mv ∧ STRING_TYPE pfx pfxv
+  ⇒
+  app (p:'ffi ffi_proj)
+    print_matching_lines_v [mv; pfxv; fdv]
+      (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
+      (POSTv uv.
+         &UNIT_TYPE () uv *
+         STDIO (add_stdout (fastForwardFD fs fd)
+                  (concat (MAP (strcat pfx) (FILTER m lines)))) *
+         INSTREAM_LINES #"\n" fd fdv [] (fastForwardFD fs fd))
 Proof
-  Induct_on`linesFD fs fd` \\ rw[]
-  >- (
-    qpat_x_assum`[] = _`(assume_tac o SYM) \\ fs[]
-    \\ xcf"print_matching_lines"(get_ml_prog_state())
-    \\ xlet_auto >- xsimpl
-    \\ rfs[linesFD_nil_lineFD_NONE,OPTION_TYPE_def]
-    \\ xmatch
-    \\ xcon
-    \\ fs[lineFD_NONE_lineForwardFD_fastForwardFD]
-    \\ reverse(Cases_on`STD_streams (fastForwardFD fs fd)`) >- (fs[STDIO_def] \\ xsimpl)
-    \\ imp_res_tac STD_streams_stdout
-    \\ imp_res_tac add_stdo_nil
-    \\ xsimpl )
-  \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
-  \\ qpat_x_assum`_::_ = _`(assume_tac o SYM) \\ fs[]
-  \\ xcf"print_matching_lines"(get_ml_prog_state())
-  \\ xlet_auto >- xsimpl
-  \\ Cases_on`lineFD fs fd` \\ fs[GSYM linesFD_nil_lineFD_NONE]
-  \\ fs[OPTION_TYPE_def]
-  \\ xmatch
-  \\ rename1`lineFD _ _ = SOME ln`
-  \\ rveq
-  \\ xlet_auto >- xsimpl
-  (* TODO: xlet_auto doesn't handle if statements yet *)
-  \\ xlet`POSTv x. STDIO (add_stdout (lineForwardFD fs fd)
-                                     (if m (implode ln) then strcat pfx (implode ln) else strlit""))`
-  >- (
-    xif
-    >- (
-      (* TODO: xlet_auto failing on STDIO *)
-      xlet`POSTv x. STDIO (add_stdout (lineForwardFD fs fd) pfx)`
-      >- (xapp \\ instantiate \\ xsimpl
-          \\ CONV_TAC(SWAP_EXISTS_CONV) \\ qexists_tac`lineForwardFD fs fd`
-          \\ xsimpl )
-      \\ xapp \\ instantiate \\ xsimpl
-      (* TODO: make this less painful? *)
-      \\ CONV_TAC(SWAP_EXISTS_CONV) \\ qexists_tac`add_stdout (lineForwardFD fs fd) pfx`
-      \\ xsimpl \\ rw[]
-      (* TODO: make this less painful? *)
-      \\ imp_res_tac STD_streams_lineForwardFD
-      \\ imp_res_tac STD_streams_stdout
-      \\ imp_res_tac add_stdo_o
-      \\ xsimpl)
-    \\ xcon
-    \\ DEP_REWRITE_TAC[GEN_ALL add_stdo_nil]
+  Induct_on ‘lines’
+  \\ rpt strip_tac
+  \\ simp [Once STDIO_STD_streams] \\ xpull
+  \\ simp [Once INSTREAM_LINES_fd_neq] \\ xpull
+  \\ ‘CHAR #"\n" (Litv (Char #"\n"))’ by simp [CHAR_def]
+  >-
+   (xcf_with_def $ definition "print_matching_lines_v_def"
+    \\ xlet ‘POSTv v. SEP_EXISTS k.
+         STDIO (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
+         &OPTION_TYPE STRING_TYPE NONE v’
+    >- (xapp \\ qexistsl [‘emp’, ‘[]’, ‘fs’, ‘fd’, ‘#"\n"’] \\ xsimpl)
+    \\ gvs [OPTION_TYPE_def] \\ xmatch \\ xcon
+    \\ DEP_REWRITE_TAC [add_stdout_nil, STD_streams_fastForwardFD]
+    \\ simp [] \\ xsimpl
+    \\ rewrite_tac [Once STDIO_STD_streams] \\ xpull
+    \\ simp [Req0 add_stdout_nil]
     \\ xsimpl
-    \\ metis_tac[STD_streams_stdout,STD_streams_lineForwardFD])
-  \\ imp_res_tac linesFD_cons_imp \\ rveq \\ fs[]
-  \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
-  \\ first_x_assum(qspecl_then[`fs'`,`fd`]mp_tac)
-  \\ simp[AND_IMP_INTRO]
-  \\ impl_keep_tac
-  >- (
-    simp[Abbr`fs'`]
-    \\ qmatch_goalsub_rename_tac`add_stdout _ x`
-    \\ DEP_REWRITE_TAC[linesFD_add_stdout]
-    \\ simp[STD_streams_lineForwardFD,get_file_content_add_stdout] )
-  \\ strip_tac
+    \\ simp [INSTREAM_LINES_fastForwardFD])
+  \\ xcf_with_def $ definition "print_matching_lines_v_def"
+  \\ rename [‘INSTREAM_LINES _ _ _ (line::lines) _’]
+  \\ xlet ‘(POSTv v. SEP_EXISTS k.
+         STDIO (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
+         & (OPTION_TYPE STRING_TYPE (SOME line) v))’
+  >- (xapp \\ qexistsl [‘emp’, ‘line::lines’, ‘fs’, ‘fd’, ‘#"\n"’] \\ xsimpl)
+  \\ simp [Once INSTREAM_LINES_get_file_content] \\ xpull
+  \\ gvs [OPTION_TYPE_def] \\ xmatch
+  \\ xlet_auto >- xsimpl
+  \\ qmatch_goalsub_abbrev_tac ‘STDIO (forwardFD _ _ _) * INSTREAM_LINES₁’
+  \\ reverse $ Cases_on ‘m line’ \\ simp []
+  >-
+   (xlet ‘POSTv uv.
+             &UNIT_TYPE () uv *
+             STDIO (forwardFD fs fd k) *
+             INSTREAM_LINES₁’
+    >- (xif \\ instantiate \\ xcon \\ xsimpl)
+    \\ xapp \\ qexistsl [‘emp’, ‘forwardFD fs fd k’] \\ xsimpl
+    \\ DEP_REWRITE_TAC [fastForwardFD_forwardFD] \\ xsimpl)
+  \\ ‘STD_streams (forwardFD fs fd k)’ by (simp [STD_streams_forwardFD])
+  \\ xlet ‘POSTv uv.
+             &UNIT_TYPE () uv *
+             STDIO (add_stdout (forwardFD fs fd k) (pfx ^ line)) *
+             INSTREAM_LINES₁’
+  >-
+   (xif \\ instantiate
+    \\ xlet_auto >- xsimpl
+    \\ xapp
+    \\ instantiate \\ xsimpl
+    \\ qexistsl [‘INSTREAM_LINES₁’, ‘add_stdout (forwardFD fs fd k) pfx’]
+    \\ xsimpl
+    \\ drule STD_streams_stdout \\ strip_tac
+    \\ drule add_stdo_o \\ simp [] \\ xsimpl)
   \\ xapp
+  \\ qexistsl [‘emp’, ‘add_stdout (forwardFD fs fd k) (pfx ^ line)’]
   \\ xsimpl
-  \\ qmatch_goalsub_abbrev_tac`STDIO fs1 ==>> STDIO fs2 * _`
-  \\ `fs1 = fs2` suffices_by xsimpl
-  \\ fs[Abbr`fs1`,Abbr`fs2`]
-  \\ qpat_x_assum`_ = linesFD fs' fd`(assume_tac o SYM) \\ fs[]
-  \\ simp[Abbr`fs'`,linesFD_add_stdout]
-  \\ simp[add_stdout_lineForwardFD]
-  \\ simp[add_stdout_fastForwardFD,STD_streams_fastForwardFD]
-  \\ DEP_REWRITE_TAC[add_stdout_fastForwardFD]
-  \\ simp[STD_streams_add_stdout]
-  \\ DEP_REWRITE_TAC[GEN_ALL add_stdo_o]
-  \\ conj_tac >- metis_tac[STD_streams_stdout]
-  \\ rw[concat_cons]
+  \\ conj_tac
+  >-
+   (unabbrev_all_tac
+    \\ DEP_REWRITE_TAC [INSTREAM_LINES_add_stdout]
+    \\ simp [] \\ xsimpl)
+  \\ DEP_REWRITE_TAC [GSYM add_stdout_fastForwardFD]
+  \\ conj_tac >- simp []
+  \\ DEP_REWRITE_TAC [INSTREAM_LINES_add_stdout]
+  \\ conj_tac >- (DEP_REWRITE_TAC [STD_streams_fastForwardFD] \\ simp [])
+  \\ DEP_REWRITE_TAC [fastForwardFD_forwardFD]
+  \\ conj_tac >- simp []
+  \\ ‘STD_streams (fastForwardFD fs fd)’ by (simp [STD_streams_fastForwardFD])
+  \\ drule STD_streams_stdout \\ strip_tac
+  \\ drule_then assume_tac add_stdo_o \\ simp [concat_cons]
+  \\ xsimpl
 QED
 
-val notfound_string_def = Define`
-  notfound_string f = concat[strlit"cake_grep: ";f;strlit": No such file or directory\n"]`;
+Definition notfound_string_def:
+  notfound_string f = concat[«cake_grep: »;f;«: No such file or directory\n»]
+End
 
 val r = translate notfound_string_def;
 
-val print_matching_lines_in_file = process_topdecs`
+Quote add_cakeml:
   fun print_matching_lines_in_file m file =
     let val fd = TextIO.openIn file
     in (print_matching_lines m (String.concat[file,":"]) fd;
         TextIO.closeIn fd)
     end handle TextIO.BadFileName =>
-        TextIO.output TextIO.stdErr (notfound_string file)`;
-val _ = append_prog print_matching_lines_in_file;
+        TextIO.output TextIO.stdErr (notfound_string file)
+End
 
 Theorem print_matching_lines_in_file_spec:
    FILENAME f fv ∧ hasFreeFD fs ∧
    (STRING_TYPE --> BOOL) m mv
    ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v"print_matching_lines_in_file"(get_ml_prog_state()))
+   app (p:'ffi ffi_proj) print_matching_lines_in_file_v
      [mv; fv]
      (STDIO fs)
      (POSTv uv. &UNIT_TYPE () uv *
                 STDIO (if inFS_fname fs f
                    then add_stdout fs
                       (concat
-                          (MAP (strcat f o strcat (strlit":"))
-                            (FILTER m (all_lines fs f))))
+                          (MAP (strcat f o strcat «:»)
+                            (FILTER m (all_lines_file fs f))))
                    else add_stderr fs (notfound_string f)))
 Proof
-  xcf"print_matching_lines_in_file"(get_ml_prog_state())
-  \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
-  \\ reverse(Cases_on`consistentFS fs`)
-  >-(fs[STDIO_def,IOFS_def] >> xpull >> fs[wfFS_def,consistentFS_def] >> res_tac)
-  \\ qmatch_goalsub_abbrev_tac`_ * STDIO fs'`
-  \\ reverse(xhandle`POSTve
-       (λv. &UNIT_TYPE () v * STDIO fs')
-       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs f) * STDIO fs)`)
-  >- (
-    xcases
-    \\ fs[BadFileName_exn_def]
-    \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
-    \\ xlet_auto >- xsimpl
-    \\ xapp_spec output_stderr_spec \\ instantiate \\ xsimpl
-    \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`fs`
+  rpt strip_tac
+  \\ xcf_with_def $ definition "print_matching_lines_in_file_v_def"
+  \\ rewrite_tac [Once STDIO_STD_streams] \\ xpull
+  \\ drule_then assume_tac STD_streams_nextFD
+  \\ rewrite_tac [Once STDIO_consistentFS] \\ xpull
+  \\ reverse $ Cases_on ‘inFS_fname fs f’ \\ simp []
+  >-
+   (reverse $
+      xhandle ‘POSTe e. &(BadFileName_exn e ∧ ¬inFS_fname fs f) * STDIO fs’
+    >-
+     (fs [BadFileName_exn_def]
+      \\ xcases
+      \\ xlet_auto >- xsimpl
+      \\ xapp_spec output_stderr_spec \\ simp [])
+    \\ xlet_auto_spec (SOME openIn_STDIO_spec) >- xsimpl
     \\ xsimpl)
-  >- ( xsimpl )
-  \\ xlet_auto_spec(SOME (SPEC_ALL openIn_STDIO_spec))
-  >- ( xsimpl )
-  >- ( xsimpl )
-  \\ xlet_auto
-  >- ( xcon \\ xsimpl \\ fs[ml_translatorTheory.LIST_TYPE_def] )
-  \\ xlet_auto
-  >- ( xcon \\ xsimpl \\ fs[ml_translatorTheory.LIST_TYPE_def] )
-  \\ xlet_auto
-  >- ( xcon \\ xsimpl \\ fs[ml_translatorTheory.LIST_TYPE_def,FILENAME_def] )
+  \\ qmatch_goalsub_abbrev_tac ‘_ * STDIO fs'’
+  \\ reverse $ xhandle ‘POSTv v. &UNIT_TYPE () v * STDIO fs'’ >- xsimpl
+  \\ xlet ‘POSTv is.
+             STDIO (openFileFS f fs ReadMode 0) *
+             INSTREAM_LINES #"\n" (nextFD fs) is (all_lines_file fs f)
+               (openFileFS f fs ReadMode 0)’
+  >-
+   (xapp_spec openIn_spec_lines
+    \\ instantiate \\ qexistsl [‘emp’, ‘#"\n"’] \\ xsimpl)
+  \\ ntac 3 $ (xlet_auto >- (xcon \\ xsimpl))
   \\ qmatch_assum_rename_tac`lv = Conv _ [fv;_]`
-  \\ `LIST_TYPE STRING_TYPE [f;strlit":"] lv` by ( fs[LIST_TYPE_def,FILENAME_def] )
+  \\ `LIST_TYPE STRING_TYPE [f;«:»] lv` by ( fs[LIST_TYPE_def,FILENAME_def] )
   \\ rveq
   \\ xlet_auto >- xsimpl
-  \\ qmatch_asmsub_abbrev_tac`add_stdout fs out`
-  \\ imp_res_tac nextFD_ltX
-  \\ progress inFS_fname_ALOOKUP_EXISTS
-  \\ progress IS_SOME_get_file_content_openFileFS_nextFD \\ rfs[]
-  \\ imp_res_tac STD_streams_nextFD
-  \\ rpt(first_x_assum(qspecl_then[`0`,`ReadMode`]strip_assume_tac))
-  \\ xlet_auto >- (
-    xsimpl
-    \\ simp[get_mode_def]
-    \\ DEP_REWRITE_TAC[ALOOKUP_inFS_fname_openFileFS_nextFD]
-    \\ simp[] )
-  \\ xapp_spec closeIn_STDIO_spec
-  \\ instantiate
-  \\ qmatch_goalsub_abbrev_tac`STDIO fs'' ==>> _`
-  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`fs''`
+  \\ qmatch_goalsub_abbrev_tac ‘STDIO fs₁ * _’
+  \\ xlet ‘POSTv uv.
+         &UNIT_TYPE () uv *
+         STDIO (add_stdout (fastForwardFD fs₁ (nextFD fs))
+                  (concat (MAP (strcat (f ^ «:»)) (FILTER m (all_lines_file fs f))))) *
+         INSTREAM_LINES #"\n" (nextFD fs) is [] (fastForwardFD fs₁ (nextFD fs))’
+  >- (xapp \\ simp [strcat_def])
+  \\ qmatch_goalsub_abbrev_tac ‘STDIO fs₂ * _’
+  \\ xapp_spec closeIn_spec_lines
+  \\ qexistsl [‘emp’, ‘[]’, ‘fs₂’, ‘nextFD fs’, ‘#"\n"’]
   \\ xsimpl
-  \\ reverse(rw[Abbr`fs''`,Abbr`fs'`,Abbr`out`])
-  >- (
-    simp[validFileFD_def]
-    \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
-    \\ rfs[] )
-  \\ simp[o_DEF,mlstringTheory.concat_thm,mlstringTheory.strcat_thm]
-  \\ fs[linesFD_openFileFS_nextFD]
-  \\ srw_tac[ETA_ss][FILTER_MAP,o_DEF]
-  \\ simp[MAP_MAP_o,o_DEF]
-  \\ rewrite_tac[GSYM APPEND_ASSOC,GSYM CONS_APPEND]
-  \\ simp[GSYM add_stdo_ADELKEY,openFileFS_ADELKEY_nextFD]
-  \\ xsimpl
+  \\ drule_then assume_tac nextFD_maxFD
+  \\ conj_tac
+  >-
+   (drule_then assume_tac STD_streams_nextFD \\ simp []
+    \\ unabbrev_all_tac \\ simp [])
+  \\ simp [Abbr ‘fs₂’, Abbr ‘fs₁’]
+  \\ DEP_REWRITE_TAC [INSTREAM_LINES_add_stdout]
+  \\ conj_tac
+  >- (DEP_REWRITE_TAC [STD_streams_fastForwardFD, STD_streams_openFileFS] \\ simp [])
+  \\ conj_tac >- xsimpl
+  \\ conj_tac
+  >-
+   (rpt strip_tac
+    \\ simp [Abbr ‘fs'’]
+    \\ simp[GSYM add_stdo_ADELKEY, openFileFS_ADELKEY_nextFD, strcat_o]
+    \\ xsimpl)
+  \\ drule_all validFileFD_nextFD \\ simp []
 QED
 
-val usage_string_def = Define`
-  usage_string = strlit"Usage: grep <regex> <file> <file>...\n"`;
+Definition usage_string_def:
+  usage_string = «Usage: grep <regex> <file> <file>...\n»
+End
 
 val r = translate usage_string_def;
 
 val usage_string_v_thm = theorem"usage_string_v_thm";
 
-val parse_failure_string_def = Define`
-  parse_failure_string r = concat[strlit"Could not parse regexp: ";r;strlit"\n"]`;
+Definition parse_failure_string_def:
+  parse_failure_string r = concat[«Could not parse regexp: »;r;«\n»]
+End
 
 val r = translate parse_failure_string_def;
 
 (* TODO: This approach (with matcher argument as a function) does not play nicely with CF
-val match_line_def = Define`
+Definition match_line_def:
   match_line matcher (line:string) =
-  case matcher line of | SOME T => T | _ => F`;
+  case matcher line of | SOME T => T | _ => F
+End
 
 val r = translate match_line_def;
 *)
-val match_line_def = Define`
+Definition match_line_def:
   match_line r s =
-    case regexp_matcher_with_limit r s of | SOME T => T | _ => F`;
+    case regexp_matcher_with_limit r s of | SOME T => T | _ => F
+End
 
 val r = translate match_line_def;
 
-val build_matcher_def = Define`
+Definition build_matcher_def:
   build_matcher r s =
     if strlen s = 0 then
       match_line r []
     else
-      match_line r (FRONT (explode s))`;
+      match_line r (FRONT (explode s))
+End
 
 val r = translate build_matcher_def;
-
-val build_matcher_side = Q.prove(
-  `∀r s. build_matcher_side r s = T`,
-  rw[definition"build_matcher_side_def"]
-  \\ Cases_on`s` \\ fs[LENGTH_NIL]) |> update_precondition;
 
 val build_matcher_v_thm = theorem"build_matcher_v_thm";
 
@@ -666,7 +707,7 @@ Proof
   \\ simp[build_matcher_v_thm]
 QED
 
-val grep = process_topdecs`
+Quote add_cakeml:
   fun grep u =
     case CommandLine.arguments ()
     of [] => TextIO.output TextIO.stdErr usage_string
@@ -685,14 +726,14 @@ val grep = process_topdecs`
            *)
            (* TODO: similar issue with higher-order function, CF seems to need this eta  *)
            List.app (fn file => print_matching_lines_in_file (build_matcher r) file) files
-         (* end *)`;
-val _ = append_prog grep;
+         (* end *)
+End
 
 (* TODO: maybe these would be better with the arguments flipped? *)
 Overload addout = ``combin$C add_stdout``
 Overload adderr = ``combin$C add_stderr``
 
-val grep_sem_file_def = Define`
+Definition grep_sem_file_def:
   grep_sem_file L filename fs =
     case ALOOKUP fs.files filename of
     | NONE => adderr (notfound_string filename) fs
@@ -701,10 +742,11 @@ val grep_sem_file_def = Define`
         | SOME contents =>
         addout
           (concat
-            (MAP (λmatching_line. concat [filename;strlit":";implode matching_line;strlit"\n"])
-               (FILTER (λline. line ∈ L) (splitlines contents)))) fs`;
+            (MAP (λmatching_line. concat [filename;«:»;implode matching_line;«\n»])
+               (FILTER (λline. line ∈ L) (splitlines contents)))) fs
+End
 
-val grep_sem_def = Define`
+Definition grep_sem_def:
   (grep_sem (_::regexp::filenames) (fs : fsFFI$IO_fs) =
    if NULL filenames then adderr usage_string fs else
    case parse_regexp (explode regexp) of
@@ -715,7 +757,8 @@ val grep_sem_def = Define`
            grep_sem_file (regexp_lang r) filename
              o action)
          I filenames fs) ∧
-  (grep_sem _ fs = adderr usage_string fs)`;
+  (grep_sem _ fs = adderr usage_string fs)
+End
 
 val grep_sem_ind = theorem"grep_sem_ind";
 
@@ -817,14 +860,15 @@ Proof
   \\ rw[grep_sem_file_with_numchars,grep_sem_file_lemma']
 QED
 
-val grep_termination_assum_def = Define`
+Definition grep_termination_assum_def:
   (grep_termination_assum (_::regexp::filenames) ⇔
    if NULL filenames then T else
      case parse_regexp (explode regexp) of
      | NONE => T
      | SOME r => IS_SOME (Brz empty (singleton (normalize r) ())
                                     (1,singleton (normalize r) 0,[]) MAXNUM_32)) ∧
-  (grep_termination_assum _ ⇔ T)`;
+  (grep_termination_assum _ ⇔ T)
+End
 
 Theorem grep_spec:
    hasFreeFD fs ∧
@@ -929,7 +973,7 @@ Proof
     \\ simp[Abbr`s1`,Abbr`s2`]
     \\ AP_TERM_TAC
     \\ simp[FILTER_MAP,concat_cons,MAP_MAP_o,o_DEF,
-            all_lines_def,lines_of_def,implode_def]
+            all_lines_file_def,lines_of_def]
     \\ AP_TERM_TAC
     \\ simp[FILTER_EQ,build_matcher_def,FRONT_APPEND]
     \\ gen_tac
@@ -965,7 +1009,7 @@ Proof
     \\ Cases_on`n` \\ fs[] )
   \\ `FILENAME f xv`
   by (
-    fs[FILENAME_def,validArg_def,Abbr`f`,explode_implode,implode_def]
+    fs[FILENAME_def,validArg_def,Abbr`f`,explode_implode]
     \\ fs[EVERY_MEM] )
   \\ first_x_assum drule
   \\ `TAKE (n+1) fls = (TAKE n fls) ++ [EL n fls]` by ( simp[TAKE_EL_SNOC] )
@@ -990,14 +1034,5 @@ Proof
   \\ xsimpl
 QED
 
-val name = "grep"
-val spec = grep_whole_prog_spec |> UNDISCH
-val (sem_thm,prog_tm) = whole_prog_thm st name spec
-
-val grep_prog_def = Define`grep_prog = ^prog_tm`;
-
-val grep_semantics = save_thm("grep_semantics",
-  sem_thm |> REWRITE_RULE[GSYM grep_prog_def]
-  |> DISCH_ALL |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]);
-
-val _ = export_theory ();
+Theorem grep_semantics =
+  prove_sem_thm "grep" "grep_prog" grep_whole_prog_spec;

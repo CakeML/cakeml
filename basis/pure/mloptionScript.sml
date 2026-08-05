@@ -1,36 +1,40 @@
 (*
   Pure functions for the Option module.
 *)
-open preamble
+Theory mloption
+Ancestors
+  ternaryComparisons
+Libs
+  preamble
 
-val _ = new_theory"mloption"
-
-(*val _ = Datatype `option = *)
-
-val getOpt_def = Define`
+Definition getOpt_def:
   (getOpt (SOME v) a = v) /\
-  (getOpt NONE a = a)`;
+  (getOpt NONE a = a)
+End
 
-val filter_def  = Define`
-  filter f a = if f a then SOME(a) else NONE`;
+Definition filter_def:
+  filter f a = if f a then SOME(a) else NONE
+End
 
-val mapPartial_def = Define`
-  mapPartial f opt = OPTION_BIND opt f`;
+Definition mapPartial_def:
+  mapPartial f opt = OPTION_BIND opt f
+End
 
-val compose_def = Define`
+Definition compose_def:
   compose f g a = case g a of
     (SOME v) => SOME(f v)
-    | NONE => NONE`;
+    | NONE => NONE
+End
 
-val composePartial_def = Define`
+Definition composePartial_def:
   composePartial f g a = case g a of
     (SOME v) => f v
-    | NONE => NONE`;
+    | NONE => NONE
+End
 
-val compare_def = Define `
+Definition compare_def:
   compare f x y =
     case x of
-    | NONE => (case y of NONE => Equal | _ => Less)
-    | SOME vx => (case y of NONE => Greater | SOME vy => f vx vy)`
-
-val _ = export_theory()
+    | NONE => (case y of NONE => EQUAL | _ => LESS)
+    | SOME vx => (case y of NONE => GREATER | SOME vy => f vx vy)
+End

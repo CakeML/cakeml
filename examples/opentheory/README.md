@@ -4,10 +4,6 @@ Implementation of an OpenTheory reader based on the Candle kernel.
 This directory contains the script that does in-logic compilation of
 the OpenTheory article checker.
 
-[monadIO](monadIO):
-This directory contains a version of the OpenTheory article checker
-where the I/O part is built using the monadic translator.
-
 [prettyScript.sml](prettyScript.sml):
 A pretty printer producing mlstring app_lists.
 Based on the pretty printer from "ML from the working programmer".

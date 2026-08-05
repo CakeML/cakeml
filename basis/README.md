@@ -27,11 +27,6 @@ Defines basic arithmetic operations like +,-,*,/, and FMA,
 logical operations <, <=, >, >=, and =
 and to-/fromString functions for parsing and pretty-printing constants
 
-[DoubleProofScript.sml](DoubleProofScript.sml):
-Proofs that the to-/fromString functions in the Double
-module correctly produce a string representation from a double,
-and vice versa assuming that the FFI is implemented correctly.
-
 [HashtableProgScript.sml](HashtableProgScript.sml):
 A module about hash tables for the CakeML standard basis library.
 
@@ -40,13 +35,16 @@ Proof of the hashtable module
 
 [IntProgScript.sml](IntProgScript.sml):
 Module about the built-in integer type. Note that CakeML uses
-arbitrary precision integers (the mathematical intergers).
+arbitrary precision integers (the mathematical integers).
 
 [ListProgScript.sml](ListProgScript.sml):
-Module about the built-in list tyoe.
+Module about the built-in list type.
 
 [ListProofScript.sml](ListProofScript.sml):
-Proofs about the module about the list tyoe.
+Proofs about the module about the list type.
+
+[MapProgLib.sml](MapProgLib.sml):
+Functions for teaching the translator about fmap operations
 
 [MapProgScript.sml](MapProgScript.sml):
 This module contains CakeML code implementing a functional map type
@@ -61,7 +59,7 @@ HOL functions that aid converting to and from the byte arrays that
 CakeML foreign-function interface (FFI) uses.
 
 [OptionProgScript.sml](OptionProgScript.sml):
-Module about the option tyoe.
+Module about the option type.
 
 [PrettyPrinterProgScript.sml](PrettyPrinterProgScript.sml):
 Module providing pretty-printer implementation, and setup
@@ -77,8 +75,15 @@ forcing a full GC to run, a function for producing debug output.
 [RuntimeProofScript.sml](RuntimeProofScript.sml):
 Proof about the exit function in the Runtime module.
 
+[SetProgScript.sml](SetProgScript.sml):
+This module contains CakeML code implementing a functional set type
+using a self-balancing binary tree.
+
+[SexpProgScript.sml](SexpProgScript.sml):
+Module for parsing and pretty-printing s-expressions.
+
 [StringProgScript.sml](StringProgScript.sml):
-Module about the built-in string tyoe.
+Module about the built-in string type.
 
 [TextIOProgScript.sml](TextIOProgScript.sml):
 Module for text-based I/O with the underlying file system.
@@ -145,9 +150,7 @@ Lemmas about the file system model used by the proof about TextIO.
 Logical model of filesystem and I/O streams
 
 [mlbasicsProgScript.sml](mlbasicsProgScript.sml):
-Bind various built-in functions to function names that the parser
-expects, e.g. the parser generates a call to a function called "+"
-when it parses 1+2.
+Translates a variety of basic constructs.
 
 [pure](pure):
 HOL definitions of the pure functions used in the CakeML basis.

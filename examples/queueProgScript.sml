@@ -4,17 +4,21 @@ An example of a queue data structure implemented using CakeML arrays, verified
 using CF.
 
 *)
-open preamble basis
-
-val _ = new_theory "queueProg";
+Theory queueProg
+Ancestors
+  cfApp
+Libs
+  preamble basis
 
 val _ = translation_extends"basisProg";
 
-val _ = Datatype `exn_type = FullQueue | EmptyQueue`;
+Datatype:
+  exn_type = FullQueue | EmptyQueue
+End
 val _ = register_exn_type ``:exn_type``;
 
-val queue_decls = process_topdecs
-   ‘fun empty_queue sz err = Ref (Array.array sz err, 0, 0, 0)
+Quote add_cakeml:
+   fun empty_queue sz err = Ref (Array.array sz err, 0, 0, 0)
 
     fun full q =
       case !q of (a,f,r,c) => c = Array.length a
@@ -35,28 +39,30 @@ val queue_decls = process_topdecs
                 in
                   q := (a, (f + 1) mod Array.length a, r, c - 1);
                   e
-                end’;
+                end
+End
 
-val _ = append_prog queue_decls;
-
-val EmptyQueue_exn_def = Define`
-  EmptyQueue_exn v = QUEUEPROG_EXN_TYPE_TYPE EmptyQueue v`;
+Definition EmptyQueue_exn_def:
+  EmptyQueue_exn v = QUEUEPROG_EXN_TYPE_TYPE EmptyQueue v
+End
 
 val EmptyQueue_exn_def = EVAL ``EmptyQueue_exn v``;
 
-val lqueue_def = Define‘
+Definition lqueue_def:
   lqueue qels f r els ⇔
     f < LENGTH qels ∧ r < LENGTH qels ∧
     (f ≤ r ∧
      (∃pj rj. qels = pj ++ els ++ rj ∧ LENGTH pj = f ∧
               r + LENGTH rj = LENGTH qels) ∨
      r ≤ f ∧ (∃p s mj. qels = s ++ mj ++ p ∧ els = p ++ s ∧
-                       r = LENGTH s ∧ f = r + LENGTH mj))’;
+                       r = LENGTH s ∧ f = r + LENGTH mj))
+End
 
 Theorem lqueue_empty:
    i < LENGTH xs ⇒ lqueue xs i i []
 Proof
-  simp[lqueue_def] >> strip_tac >>
+  rw[lqueue_def] >>
+  DISJ1_TAC>>
   map_every qexists_tac [‘TAKE i xs’, ‘DROP i xs’] >> simp[]
 QED
 
@@ -111,14 +117,15 @@ QED
    operations can be expressed in terms of the abstract value
 *)
 
-val QUEUE_def = Define‘
+Definition QUEUE_def:
   QUEUE A sz els qv ⇔
     SEP_EXISTS av fv rv cv qelvs.
       REF qv (Conv NONE [av;fv;rv;cv]) *
       ARRAY av qelvs *
       & (0 < sz ∧ NUM (LENGTH els) cv ∧
          ∃qels f r. LIST_REL A qels qelvs ∧ NUM f fv ∧ NUM r rv ∧
-                    lqueue qels f r els ∧ LENGTH qels = sz)’;
+                    lqueue qels f r els ∧ LENGTH qels = sz)
+End
 (*
    type_of “QUEUE”;
 *)
@@ -134,13 +141,17 @@ Theorem empty_queue_spec:
       app (p:'ffi ffi_proj) ^(fetch_v "empty_queue" st) [nv; errv]
           emp (POSTv qv. QUEUE A n [] qv)
 Proof
+    strip_tac \\
     xcf "empty_queue" st \\
     xs_auto_tac >> simp[QUEUE_def] >> xsimpl >>
     qexists_tac `REPLICATE n a` >>
     simp[lqueue_def, LIST_REL_REPLICATE_same]
 QED
 
-val EqualityType_INT = prove(``EqualityType INT``, simp[EqualityType_NUM_BOOL])
+Theorem EqualityType_INT[local]:
+   EqualityType INT
+Proof simp[EqualityType_NUM_BOOL]
+QED
 
 val eq_int_thm = mlbasicsProgTheory.eq_v_thm
                    |> INST_TYPE [alpha |-> “:int”]
@@ -166,12 +177,13 @@ Theorem enqueue_spec:
           (QUEUE A mx vs qv * & (A x xv ∧ LENGTH vs < mx))
           (POSTv uv. QUEUE A mx (vs ++ [x]) qv)
 Proof
+    rpt strip_tac >>
     xcf "enqueue" st >>
     xpull >> xs_auto_tac >>
     xlet ‘POSTv bv. QUEUE A mx vs qv * &(BOOL (LENGTH vs = mx) bv)’
     >- (xapp >> xsimpl >> qexists_tac `emp` >> xsimpl >>
         map_every qexists_tac [`vs`, `mx`, `A`] >> xsimpl) >>
-    xs_auto_tac >> qexists_tac `F` >> simp[] >>
+    gvs [] >> xs_auto_tac >> qexists_tac `F` >> simp[] >>
     simp[QUEUE_def] >> xpull >> xs_auto_tac >> reverse (rw[])
     >- EVAL_TAC >>
     xs_auto_tac
@@ -200,10 +212,12 @@ Proof
   simp[EL_APPEND1, EL_APPEND2]
 QED
 
-val dequeue_spec_noexn = Q.prove(
-    `!qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "dequeue" st) [qv]
+Theorem dequeue_spec_noexn[local]:
+  !qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "dequeue" st) [qv]
           (QUEUE A mx vs qv * &(vs ≠ []))
-          (POSTv v. &(A (HD vs) v) * QUEUE A mx (TL vs) qv)`,
+          (POSTv v. &(A (HD vs) v) * QUEUE A mx (TL vs) qv)
+Proof
+  rpt strip_tac >>
     xcf "dequeue" st >> simp[QUEUE_def] >> xpull >> xs_auto_tac >>
     reverse(rw[]) >- EVAL_TAC >> xlet_auto >- xsimpl >> xif >>
     qexists_tac `F` >> simp[] >> xs_auto_tac
@@ -216,7 +230,8 @@ val dequeue_spec_noexn = Q.prove(
     strip_tac >>
     rpt (goal_assum (first_assum o mp_then Any mp_tac)) >>
     Cases_on `vs` >> fs[integerTheory.INT_SUB] >>
-    metis_tac[lqueue_dequeue, LIST_REL_REL_lqueue_HD]);
+    metis_tac[lqueue_dequeue, LIST_REL_REL_lqueue_HD]
+QED
 
 Theorem dequeue_spec:
    ∀p qv xv vs x A mx.
@@ -225,6 +240,7 @@ Theorem dequeue_spec:
        (POSTve (λv. &(vs ≠ [] ∧ A (HD vs) v) * QUEUE A mx (TL vs) qv)
                (λe. &(vs = [] ∧ EmptyQueue_exn e) * QUEUE A mx vs qv))
 Proof
+  rpt strip_tac >>
   xcf "dequeue" st >> simp[QUEUE_def] >> xpull >> xs_auto_tac >>
   reverse(rw[]) >- EVAL_TAC >> xlet_auto >- xsimpl >> xif
   >- ((* throws exception *)
@@ -243,5 +259,3 @@ Proof
   Cases_on `vs` >> fs[integerTheory.INT_SUB] >>
   metis_tac[lqueue_dequeue, LIST_REL_REL_lqueue_HD]
 QED
-
-val _ = export_theory ()

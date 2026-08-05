@@ -1,12 +1,13 @@
 (*
   patch example: apply a patch to a file.
 *)
-open preamble basis
-     charsetTheory diffTheory
+Theory patchProg
+Ancestors
+  charset diff cfApp basis_ffi
+Libs
+  preamble basis basisFunctionsLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "patchProg";
 
 val _ = translation_extends"basisProg";
 
@@ -27,39 +28,51 @@ val _ = find_def_for_const := def_of_const;
 
 val _ = translate parse_patch_header_def;
 
-val tokens_less_eq = Q.prove(`!s f. EVERY (\x. strlen x <= strlen s) (tokens f s)`,
+Theorem tokens_less_eq[local]:
+  !s f. EVERY (\x. strlen x <= strlen s) (tokens f s)
+Proof
   Induct >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC[SWAP_FORALL_THM]
   >> PURE_ONCE_REWRITE_TAC[TOKENS_eq_tokens_sym]
   >> recInduct TOKENS_ind >> rpt strip_tac
   >> fs[TOKENS_def] >> pairarg_tac >> reverse(Cases_on `l`) >> rw[]
-  >- (drule SPLITP_JOIN >> fs[implode_def,strlen_def])
+  >- (drule SPLITP_JOIN >> fs[strlen_def])
   >> fs[SPLITP_NIL_FST,SPLITP] >> every_case_tac >> fs[]
   >- (`!x. (λx. strlen x <= STRLEN r) x ==> (λx. strlen x <= SUC (STRLEN t)) x`
        by(rpt strip_tac >> PURE_ONCE_REWRITE_TAC[GSYM SPLITP_LENGTH] >> fs[])
        >> drule EVERY_MONOTONIC >> pop_assum kall_tac >> disch_then match_mp_tac >> rw[])
   >> `!x. (λx. strlen x <= STRLEN t) x ==> (λx. strlen x <= SUC (STRLEN t)) x` by fs[]
-  >> drule EVERY_MONOTONIC >> pop_assum kall_tac >> disch_then match_mp_tac >> rw[]);
+  >> drule EVERY_MONOTONIC >> pop_assum kall_tac >> disch_then match_mp_tac >> rw[]
+QED
 
-val tokens_sum_less_eq = Q.prove(`!s f. SUM(MAP strlen (tokens f s)) <= strlen s`,
+Theorem tokens_sum_less_eq[local]:
+  !s f. SUM(MAP strlen (tokens f s)) <= strlen s
+Proof
   Induct >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC[SWAP_FORALL_THM]
   >> PURE_REWRITE_TAC[TOKENS_eq_tokens_sym,explode_thm,MAP_MAP_o]
   >> recInduct TOKENS_ind >> rpt strip_tac
   >> fs[TOKENS_def] >> pairarg_tac >> fs[] >> Cases_on `l` >> rw[] >> rfs[]
   >> fs[SPLITP_NIL_FST] >> fs[SPLITP] >> every_case_tac
   >> fs[] >> rveq
-  >> CONV_TAC(RAND_CONV(ONCE_REWRITE_CONV[GSYM SPLITP_LENGTH])) >> fs[]);
+  >> CONV_TAC(RAND_CONV(ONCE_REWRITE_CONV[GSYM SPLITP_LENGTH])) >> fs[]
+QED
 
-val tokens_not_nil = Q.prove(`!s f. EVERY (\x. x <> strlit "") (tokens f s)`,
+Theorem tokens_not_nil[local]:
+  !s f. EVERY (\x. x <> «») (tokens f s)
+Proof
   Induct >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC[SWAP_FORALL_THM]
   >> PURE_REWRITE_TAC[TOKENS_eq_tokens_sym,explode_thm]
   >> recInduct TOKENS_ind >> rpt strip_tac
   >> rw[TOKENS_def] >> pairarg_tac >> fs[] >> reverse(Cases_on `l`)
-  >> fs[implode_def]);
+  >> fs[]
+QED
 
-val tokens_two_less = Q.prove(`!s f s1 s2. tokens f s = [s1;s2] ==> strlen s1 < strlen s /\ strlen s2 < strlen s`,
+Theorem tokens_two_less[local]:
+  !s f s1 s2. tokens f s = [s1;s2] ==> strlen s1 < strlen s /\ strlen s2 < strlen s
+Proof
   ntac 2 strip_tac >> qspecl_then [`s`,`f`] assume_tac tokens_sum_less_eq
   >> qspecl_then [`s`,`f`] assume_tac tokens_not_nil
-  >> Induct >> Cases >> Induct >> Cases >> rpt strip_tac >> fs[]);
+  >> Induct >> Cases >> Induct >> Cases >> rpt strip_tac >> fs[]
+QED
 
 Theorem hexDigit_IMP_digit:
   !c. isDigit c ==> isHexDigit c
@@ -74,45 +87,46 @@ val parse_patch_header_side = Q.prove(`!s. parse_patch_header_side s = T`,
   >> metis_tac[tokens_two_less]) |> update_precondition;
 
 val r = translate(depatch_line_def);
-val depatch_line_side = Q.prove(
-  `∀x. depatch_line_side x = T`,
-  EVAL_TAC \\ rw[]) |> update_precondition;
 
-val r = save_thm("patch_aux_ind",
+Theorem patch_aux_ind =
   patch_aux_ind |> REWRITE_RULE (map GSYM [mllistTheory.take_def,
-                                           mllistTheory.drop_def]));
+                                           mllistTheory.drop_def])
 val _ = add_preferred_thy"-";
 val _ = translate(patch_aux_def |> REWRITE_RULE (map GSYM [mllistTheory.take_def,
                                                            mllistTheory.drop_def]));
 
 val _ = translate patch_alg_def;
 
-val notfound_string_def = Define`
-  notfound_string f = concat[strlit"cake_patch: ";f;strlit": No such file or directory\n"]`;
+Definition notfound_string_def:
+  notfound_string f = concat[«cake_patch: »;f;«: No such file or directory\n»]
+End
 
 val r = translate notfound_string_def;
 
-val usage_string_def = Define`
-  usage_string = strlit"Usage: patch <file> <patch>\n"`;
+Definition usage_string_def:
+  usage_string = «Usage: patch <file> <patch>\n»
+End
 
 val r = translate usage_string_def;
 
-val rejected_patch_string_def = Define`
-  rejected_patch_string = strlit"cake_patch: Patch rejected\n"`;
+Definition rejected_patch_string_def:
+  rejected_patch_string = «cake_patch: Patch rejected\n»
+End
 
 val r = translate rejected_patch_string_def;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun patch' fname1 fname2 =
-    case TextIO.inputLinesFrom fname1 of
+    case TextIO.inputLinesFile #"\n" fname1 of
         None => TextIO.output TextIO.stdErr (notfound_string fname1)
       | Some lines1 =>
-        case TextIO.inputLinesFrom fname2 of
+        case TextIO.inputLinesFile #"\n" fname2 of
             None => TextIO.output TextIO.stdErr (notfound_string fname2)
           | Some lines2 =>
             case patch_alg lines2 lines1 of
                 None => TextIO.output TextIO.stdErr (rejected_patch_string)
-              | Some s => TextIO.print_list s`
+              | Some s => TextIO.print_list s
+End
 
 Theorem patch'_spec:
    FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\ hasFreeFD fs
@@ -124,13 +138,14 @@ Theorem patch'_spec:
        STDIO
        (if inFS_fname fs f1 then
         if inFS_fname fs f2 then
-        case patch_alg (all_lines fs f2) (all_lines fs f1) of
+        case patch_alg (all_lines_file fs f2) (all_lines_file fs f1) of
         | NONE => add_stderr fs rejected_patch_string
         | SOME s => add_stdout fs (concat s)
         else add_stderr fs (notfound_string f2)
         else add_stderr fs (notfound_string f1)))
 Proof
-  xcf"patch'"(get_ml_prog_state())
+  strip_tac
+  \\ xcf"patch'"(get_ml_prog_state())
   \\ xlet_auto >- xsimpl
   \\ reverse(Cases_on `inFS_fname fs f1`) \\ fs [OPTION_TYPE_def] \\ xmatch
   >- (xlet_auto >- xsimpl
@@ -147,24 +162,26 @@ Proof
   \\ xapp \\ rw[]
 QED
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun patch u =
     case CommandLine.arguments () of
         (f1::f2::[]) => patch' f1 f2
-      | _ => TextIO.output TextIO.stdErr usage_string`
+      | _ => TextIO.output TextIO.stdErr usage_string
+End
 
-val patch_sem_def = Define`
+Definition patch_sem_def:
   patch_sem cl fs =
     if (LENGTH cl = 3) then
     if inFS_fname fs (EL 1 cl) then
     if inFS_fname fs (EL 2 cl) then
-     case patch_alg (all_lines fs (EL 2 cl))
-                    (all_lines fs (EL 1 cl)) of
+     case patch_alg (all_lines_file fs (EL 2 cl))
+                    (all_lines_file fs (EL 1 cl)) of
        NONE => add_stderr fs (rejected_patch_string)
      | SOME s => add_stdout fs (concat s)
     else add_stderr fs (notfound_string (EL 2 cl))
     else add_stderr fs (notfound_string (EL 1 cl))
-    else add_stderr fs usage_string`;
+    else add_stderr fs usage_string
+End
 
 Theorem patch_spec:
    hasFreeFD fs
@@ -220,13 +237,5 @@ Proof
   \\ xsimpl
 QED
 
-val name = "patch"
-val (sem_thm,prog_tm) = whole_prog_thm st name (UNDISCH patch_whole_prog_spec)
-val patch_prog_def = Define`patch_prog = ^prog_tm`;
-
-val patch_semantics = save_thm("patch_semantics",
-  sem_thm |> REWRITE_RULE[GSYM patch_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO]);
-
-val _ = export_theory ();
+Theorem patch_semantics =
+  prove_sem_thm "patch" "patch_prog" patch_whole_prog_spec;

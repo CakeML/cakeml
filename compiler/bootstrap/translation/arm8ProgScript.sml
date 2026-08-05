@@ -1,6 +1,12 @@
 (*
   Translate the ARMv8 instruction encoder and ARMv8-specific config.
 *)
+Theory arm8Prog[no_sig_docs]
+Ancestors
+  arm8_target arm8 evaluate ml_translator x64Prog
+Libs
+  preamble ml_translatorLib inliningLib
+
 open preamble;
 open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
@@ -10,21 +16,21 @@ open inliningLib;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = set_grammar_ancestry ["arm8_target", "arm8"];
-
-val _ = new_theory "arm8Prog"
+val _ = computeLib.upd_compset (fn c => computeLib.set_skip c “COND” (SOME 1));
 
 val _ = translation_extends "x64Prog";
-val _ = ml_translatorLib.use_string_type true;
+val _ = ml_translatorLib.use_sub_check true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "arm8Prog");
 
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-val NOT_NIL_AND_LEMMA = Q.prove(
-  `(b <> [] /\ x) = if b = [] then F else x`,
-  Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
+Theorem NOT_NIL_AND_LEMMA[local]:
+  (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
@@ -51,21 +57,25 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-val IS_SOME_rw = Q.prove(`
+Theorem IS_SOME_rw[local]:
   (if IS_SOME a then b else c) =
     case a of
     SOME v => b
-  | NONE => c`,
-  Cases_on`a`>>rw[IS_SOME_DEF]);
+  | NONE => c
+Proof
+  Cases_on`a`>>rw[IS_SOME_DEF]
+QED
 
-val v2w_rw = Q.prove(`
-  v2w [P] = if P then 1w else 0w`,
-  rw[]>>EVAL_TAC);
+Theorem v2w_rw[local]:
+  v2w [P] = if P then 1w else 0w
+Proof
+  rw[]>>EVAL_TAC
+QED
 
 (* TODO? more Manual rewrites to get rid of MachineCode type, which probably isn't that expensive *)
 
-val exh_machine_code = Q.prove(`
-∀v f.
+Theorem exh_machine_code[local]:
+  ∀v f.
 (case
   case v of
     (n,imms,immr) =>
@@ -74,29 +84,38 @@ of
   ARM8 w => g w
 | BadCode v3 => h) =
   case v of (n,imms,immr) =>
-  g( f n imms immr)`,
-  rw[]>>PairCases_on`v`>>rw[])
+  g( f n imms immr)
+Proof
+  rw[]>>PairCases_on`v`>>rw[]
+QED
 
-val LIST_BIND_option = Q.prove(`
+Theorem LIST_BIND_option[local]:
   LIST_BIND (case P of NONE => a | SOME v => b v) f =
-  case P of NONE => LIST_BIND a f | SOME v => LIST_BIND (b v) f`,
-  Cases_on`P`>>rw[]);
+  case P of NONE => LIST_BIND a f | SOME v => LIST_BIND (b v) f
+Proof
+  Cases_on`P`>>rw[]
+QED
 
-val LIST_BIND_pair = Q.prove(`
+Theorem LIST_BIND_pair[local]:
   LIST_BIND (case P of (l,r) => a l r) f =
-  case P of (l,r) => LIST_BIND (a l r) f`,
-  Cases_on`P`>>rw[]);
+  case P of (l,r) => LIST_BIND (a l r) f
+Proof
+  Cases_on`P`>>rw[]
+QED
 
-val notw = Q.prove(`
-  !a. ~a = (-1w ?? a)`,
-  srw_tac[wordsLib.WORD_BIT_EQ_ss][]);
+Theorem notw[local]:
+  !a. ~a = (-1w ?? a)
+Proof
+  srw_tac[wordsLib.WORD_BIT_EQ_ss][]
+QED
 
 val defaults = [arm8_ast_def, arm8_encode_def, Encode_def,
   NoOperation_def, arm8_enc_mov_imm_def, e_data_def,
   EncodeLogicalOp_def, bop_enc_def, e_sf_def, v2w_rw,
   arm8_encode_fail_def, e_load_store_def, arm8_load_store_ast_def,
   e_LoadStoreImmediate_def, e_branch_def, asmSemTheory.is_test_def,
-  cmp_cond_def, dfn'Hint_def];
+  cmp_cond_def, dfn'Hint_def,
+  arm8_load_store_ast16_def, arm8_load_store_ast32_def];
 
 val arm8_enc_thms =
   arm8_enc_def
@@ -155,19 +174,37 @@ val binopimmth = reconstruct_case ``arm8_enc (Inst (Arith (Binop b n n0 (Imm c))
 
 val binopth = reconstruct_case ``arm8_enc(Inst (Arith (Binop b n n0 r)))`` (rand o rand o rand o rand) [binopregth,binopimmth];
 
-val shiftths =
-  shift
-  |> SIMP_RULE(srw_ss()++LET_ss++DatatypeSimps.expand_type_quants_ss[``:shift``])
-      (Q.ISPEC`(λ(f,n). P f n)` COND_RAND::
-       Q.ISPEC`LIST_BIND`COND_RAND ::
-       COND_RATOR ::
-      defaults)
-  |> SIMP_RULE (srw_ss()++LET_ss) ([LIST_BIND_option,LIST_BIND_pair]@defaults)
-  |> CONJUNCTS
-  |> map (fn th => th |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO])
+val (shiftreg_aux::shiftimm_aux::_) = shift |> SIMP_RULE (srw_ss() ++
+  DatatypeSimps.expand_type_quants_ss [``:64 reg_imm``])
+  [FORALL_AND_THM] |> CONJUNCTS |> map (SIMP_RULE (srw_ss() ++ LET_ss ++
+  DatatypeSimps.expand_type_quants_ss [``:shift``]) []);
 
-val shiftth = reconstruct_case ``arm8_enc(Inst (Arith (Shift s n n0 n1)))``
-  (rand o funpow 3 rator o funpow 3 rand) shiftths;
+val shiftreg = shiftreg_aux |> CONJUNCTS
+  |> map(fn th => th
+    |> SIMP_RULE (srw_ss()++LET_ss)
+        (Q.ISPEC`(λ(f,n). P f n)` COND_RAND::
+         Q.ISPEC`LIST_BIND`COND_RAND ::
+         COND_RATOR :: defaults)
+    |> SIMP_RULE (srw_ss()++LET_ss) ([LIST_BIND_option,LIST_BIND_pair]@defaults)
+    |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]);
+
+val shiftregth = reconstruct_case ``arm8_enc (Inst (Arith (Shift b n n0
+  (Reg n'))))`` (rand o rator o rator o rator o rand o rand o rand) shiftreg;
+
+val shiftimm = shiftimm_aux |> CONJUNCTS
+  |> map(fn th => th
+    |> SIMP_RULE (srw_ss()++LET_ss)
+        (Q.ISPEC`(λ(f,n). P f n)` COND_RAND::
+         Q.ISPEC`LIST_BIND`COND_RAND ::
+         COND_RATOR :: defaults)
+    |> SIMP_RULE (srw_ss()++LET_ss) ([LIST_BIND_option,LIST_BIND_pair]@defaults)
+    |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]);
+
+val shiftimmth = reconstruct_case ``arm8_enc (Inst (Arith (Shift b n n0
+  (Imm c))))`` (rand o rator o rator o rator o rand o rand o rand) shiftimm;
+
+val shiftth = reconstruct_case ``arm8_enc(Inst (Arith (Shift b n n0
+  r)))`` (rand o rand o rand o rand) [shiftregth,shiftimmth];
 
 val arm8_enc1_3_aux = binopth :: shiftth :: map (fn th => th |>
 SIMP_RULE (srw_ss()) defaults |> wc_simp |> we_simp |> gconv |>
@@ -234,21 +271,24 @@ val arm8_simp6 = arm8_enc6 |> SIMP_RULE (srw_ss() ++ LET_ss)
 val arm8_enc_thm = reconstruct_case ``arm8_enc i`` rand
 [arm8_simp1,arm8_simp2,arm8_simp3,arm8_simp4,arm8_simp5,arm8_simp6]
 
-val ct_curr_def = tDefine "ct_curr" `
+Definition ct_curr_def:
   ct_curr b (w:word64) =
      if
        ((1w && w) ≠ 0w ⇔ b) ∨
        if b then w = 0w else w = 0xFFFFFFFFFFFFFFFFw
      then
        0n
-     else 1 + ct_curr b (w ⋙ 1)`
-  (WF_REL_TAC`measure (w2n o SND)`
+     else 1 + ct_curr b (w ⋙ 1)
+Termination
+  WF_REL_TAC`measure (w2n o SND)`
   THEN SRW_TAC [] [wordsTheory.LSR_LESS]
   THEN Cases_on `w = 0w`
-  THEN FULL_SIMP_TAC (srw_ss()) [wordsTheory.word_0, wordsTheory.LSR_LESS]);
+  THEN FULL_SIMP_TAC (srw_ss()) [wordsTheory.word_0, wordsTheory.LSR_LESS]
+End
 
-val CountTrailing_eq = Q.prove(`
-  ∀b w. CountTrailing (b,w) = ct_curr b w`,
+Theorem CountTrailing_eq[local]:
+  ∀b w. CountTrailing (b,w) = ct_curr b w
+Proof
   ho_match_mp_tac (fetch "-" "ct_curr_ind")>>
   rpt strip_tac>>
   PURE_REWRITE_TAC[Once ct_curr_def,word_bit_test]>>
@@ -259,7 +299,8 @@ val CountTrailing_eq = Q.prove(`
     simp[])
   >>
     simp[Once CountTrailing_def,word_bit_test]>>
-    metis_tac[]);
+    metis_tac[]
+QED
 
 val res = translate ct_curr_def
 
@@ -284,21 +325,25 @@ val v2n_side = Q.prove(`
   EVAL_TAC>>
   fs[l2n_side]) |> update_precondition;
 
-val notw = Q.prove(`
-  !a. ~a = (-1w ?? (a))`,
-  srw_tac[wordsLib.WORD_BIT_EQ_ss][]);
+Theorem notw[local]:
+  !a. ~a = (-1w ?? (a))
+Proof
+  srw_tac[wordsLib.WORD_BIT_EQ_ss][]
+QED
 
 val res = translate (EVAL``w2v (w:word6)`` |> SIMP_RULE (srw_ss()) [word_bit_test,word_bit_def,word_bit])
 
-val Num_rw = Q.prove(`
+Theorem Num_rw[local]:
   (if len < 1 then NONE
   else
     f (Num len)) =
   if len < 1 then NONE
-    else f (Num (ABS len))`,
+    else f (Num (ABS len))
+Proof
   rw[]>>
   `0 ≤ len` by intLib.COOPER_TAC>>
-  metis_tac[integerTheory.INT_ABS_EQ_ID])
+  metis_tac[integerTheory.INT_ABS_EQ_ID]
+QED
 
 val res = translate (specv64 ``:'M`` DecodeBitMasks_def |> SIMP_RULE
   (srw_ss()++ARITH_ss) [hsb_compute, v2w_Ones, Replicate_def,
@@ -396,11 +441,23 @@ val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Store a b c =
 val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Store8 a b c =
                     arm8_enc (Inst (Mem Store8 a (Addr b c)))’
   |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Store16 a b c =
+                    arm8_enc (Inst (Mem Store16 a (Addr b c)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Store32 a b c =
+                    arm8_enc (Inst (Mem Store32 a (Addr b c)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Load a b c =
                     arm8_enc (Inst (Mem Load a (Addr b c)))’
   |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Load8 a b c =
                     arm8_enc (Inst (Mem Load8 a (Addr b c)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Load16 a b c =
+                    arm8_enc (Inst (Mem Load16 a (Addr b c)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Load32 a b c =
+                    arm8_enc (Inst (Mem Load32 a (Addr b c)))’
   |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_SubOverflow a b c d =
                     arm8_enc (Inst (Arith (SubOverflow a b c d)))’
@@ -420,17 +477,30 @@ val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_LongDiv a b c d e =
 val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Div a b c =
                     arm8_enc (Inst (Arith (Div a b c)))’
   |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Shift_Ror a b c =
-                    arm8_enc (Inst (Arith (Shift Ror a b c)))’
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Ror_Imm a b c =
+                    arm8_enc (Inst (Arith (Shift Ror a b (Imm c))))’
   |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Shift_Asr a b c =
-                    arm8_enc (Inst (Arith (Shift Asr a b c)))’
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Asr_Imm a b c =
+                    arm8_enc (Inst (Arith (Shift Asr a b (Imm c))))’
   |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Shift_Lsr a b c =
-                    arm8_enc (Inst (Arith (Shift Lsr a b c)))’
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Lsr_Imm a b c =
+                    arm8_enc (Inst (Arith (Shift Lsr a b (Imm c))))’
   |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Shift_Lsl a b c =
-                    arm8_enc (Inst (Arith (Shift Lsl a b c)))’
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Lsl_Imm a b c =
+                    arm8_enc (Inst (Arith (Shift Lsl a b (Imm c))))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Ror_Reg a b c =
+                    arm8_enc (Inst (Arith (Shift Ror a b (Reg c))))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Asr_Reg a b c =
+                    arm8_enc (Inst (Arith (Shift Asr a b (Reg c))))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Lsr_Reg a b c =
+                    arm8_enc (Inst (Arith (Shift Lsr a b (Reg c))))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Lsl_Reg a b c =
+                    arm8_enc (Inst (Arith (Shift Lsl a b (Reg c))))’
   |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Add_Imm a b c =
                     arm8_enc (Inst (Arith (Binop Add a b (Imm c))))’
@@ -475,10 +545,7 @@ val _ = translate (valid_immediate_def |> SIMP_RULE bool_ss
 Theorem arm8_config_v_thm[allow_rebind] =
   translate (arm8_config_def |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]|> econv)
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

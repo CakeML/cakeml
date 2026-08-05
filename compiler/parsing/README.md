@@ -36,8 +36,12 @@ structures, signatures, and between parentheses).
 [ocaml](ocaml):
 OCaml lexer and parser frontend for the Candle theorem prover.
 
-[parsingComputeLib.sml](parsingComputeLib.sml):
-compset for the lexer and parser.
+[pegexec_cml_foScript.sml](pegexec_cml_foScript.sml):
+First-order PEG exec instantiated to CakeML surface types:
+  input: (token # locs) list
+  values: mlptree list  (as in cmlPEG)
+  errors: string
+  rule keys: MMLnonT inf
 
 [proofs](proofs):
 Soundness and completeness proofs for the CakeML PEG.

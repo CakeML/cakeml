@@ -1,5 +1,5 @@
 Prove end-to-end correctness theorems for the examples as compiled to
-x86 machine code.
+x64 machine code.
 
 [catProofScript.sml](catProofScript.sml):
 Compose the cat semantics theorem and the compiler correctness
@@ -28,11 +28,6 @@ correctness theorem that reaches final machine code.
 
 [helloProofScript.sml](helloProofScript.sml):
 Compose the hello semantics theorem and the compiler correctness
-theorem with the compiler evaluation theorem to produce end-to-end
-correctness theorem that reaches final machine code.
-
-[iocatProofScript.sml](iocatProofScript.sml):
-Compose the iocat semantics theorem and the compiler correctness
 theorem with the compiler evaluation theorem to produce end-to-end
 correctness theorem that reaches final machine code.
 

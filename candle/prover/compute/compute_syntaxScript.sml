@@ -1,13 +1,14 @@
 (*
    Definitions of 'compute expressions' for the Candle compute primitive.
  *)
+Theory compute_syntax
+Ancestors
+  holSyntax holSyntaxExtra holSyntaxLib holKernel holKernelProof
+Libs
+  preamble
 
-open preamble holSyntaxTheory holSyntaxExtraTheory holSyntaxLibTheory
-     holKernelTheory holKernelProofTheory;
 
-val _ = new_theory "compute_syntax";
-
-val _ = numLib.prefer_num ();
+val _ = numLib.temp_prefer_num ();
 
 (* Numbers, bools *)
 
@@ -221,4 +222,3 @@ End
 
 val _ = Parse.add_infix ("SAFEMOD", 500, HOLgrammars.LEFT);
 
-val _ = export_theory ();

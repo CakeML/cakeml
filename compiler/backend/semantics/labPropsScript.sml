@@ -1,18 +1,19 @@
 (*
   Properties about labLang and its semantics
 *)
-open preamble ffiTheory wordSemTheory labSemTheory lab_to_targetTheory
-     semanticsPropsTheory;
-
-val _ = new_theory"labProps";
+Theory labProps
+Ancestors
+  ffi wordSem labSem lab_to_target semanticsProps
+Libs
+  preamble
 
 val _ = Parse.hide"mem";
 
-val extract_labels_def = Define`
+Definition extract_labels_def[simp]:
   (extract_labels [] = []) ∧
   (extract_labels ((Label l1 l2 _)::xs) = (l1,l2):: extract_labels xs) ∧
-  (extract_labels (x::xs) = extract_labels xs)`
-val _ = export_rewrites["extract_labels_def"];
+  (extract_labels (x::xs) = extract_labels xs)
+End
 
 val extract_labels_ind = theorem"extract_labels_ind";
 
@@ -23,23 +24,26 @@ Proof
   Induct>>fs[extract_labels_def]>>Cases_on`h`>>rw[extract_labels_def]
 QED
 
-val labs_of_def = Define`
+Definition labs_of_def[simp]:
   labs_of (LocValue _ (Lab n1 n2)) = {(n1,n2)} ∧
   labs_of (Jump (Lab n1 n2)) = {(n1,n2)} ∧
   labs_of (JumpCmp _ _ _ (Lab n1 n2)) = {(n1,n2)} ∧
-  labs_of _ = {}`;
-val _ = export_rewrites["labs_of_def"];
+  labs_of _ = {}
+End
 
-val line_get_labels_def = Define`
+Definition line_get_labels_def:
   line_get_labels (LabAsm a _ _ _) = labs_of a ∧
-  line_get_labels _ = {}`;
+  line_get_labels _ = {}
+End
 
-val sec_get_labels_def = Define`
+Definition sec_get_labels_def:
   sec_get_labels (Section _ lines) =
-    BIGUNION (IMAGE line_get_labels (set lines))`;
+    BIGUNION (IMAGE line_get_labels (set lines))
+End
 
-val get_labels_def = Define`
-  get_labels code = BIGUNION (IMAGE sec_get_labels (set code))`;
+Definition get_labels_def:
+  get_labels code = BIGUNION (IMAGE sec_get_labels (set code))
+End
 
 Theorem get_labels_cons:
    get_labels (x::xs) = sec_get_labels x ∪ get_labels xs
@@ -47,18 +51,20 @@ Proof
   rw[get_labels_def]
 QED
 
-val line_get_code_labels_def = Define`
+Definition line_get_code_labels_def[simp]:
   line_get_code_labels (Label _ l _) = {l} ∧
-  line_get_code_labels _ = {}`;
-val _ = export_rewrites["line_get_code_labels_def"];
+  line_get_code_labels _ = {}
+End
 
-val sec_get_code_labels_def = Define`
+Definition sec_get_code_labels_def:
   sec_get_code_labels (Section n1 lines) =
     (n1,0) INSERT
-    IMAGE (λn2. (n1,n2)) (BIGUNION (IMAGE line_get_code_labels (set lines)))`;
+    IMAGE (λn2. (n1,n2)) (BIGUNION (IMAGE line_get_code_labels (set lines)))
+End
 
-val get_code_labels_def = Define`
-  get_code_labels code = BIGUNION (IMAGE sec_get_code_labels (set code))`;
+Definition get_code_labels_def:
+  get_code_labels code = BIGUNION (IMAGE sec_get_code_labels (set code))
+End
 
 Theorem get_code_labels_nil[simp]:
    get_code_labels [] = {}
@@ -72,9 +78,10 @@ Proof
   rw[get_code_labels_def]
 QED
 
-val sec_ends_with_label_def = Define`
+Definition sec_ends_with_label_def:
   sec_ends_with_label (Section _ ls) ⇔
-    ¬NULL ls ∧ is_Label (LAST ls)`;
+    ¬NULL ls ∧ is_Label (LAST ls)
+End
 
 Theorem reg_imm_with_clock[simp]:
    reg_imm r (s with clock := z) = reg_imm r s
@@ -241,10 +248,11 @@ Proof
   every_case_tac >> EVAL_TAC >> rw[]
 QED
 
-val line_length_def = Define `
+Definition line_length_def:
   (line_length (Label k1 k2 l) = if l = 0 then 0 else 1) /\
   (line_length (Asm b bytes l) = LENGTH bytes) /\
-  (line_length (LabAsm a w bytes l) = LENGTH bytes)`
+  (line_length (LabAsm a w bytes l) = LENGTH bytes)
+End
 
 Theorem LENGTH_line_bytes[simp]:
    !x2. ~is_Label x2 ==> (LENGTH (line_bytes x2) = line_length x2)
@@ -252,10 +260,13 @@ Proof
   Cases \\ fs [is_Label_def,line_bytes_def,line_length_def] \\ rw []
 QED
 
-fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
-val case_eq_thms = pair_case_eq::bool_case_eq::map (prove_case_eq_thm o get_thms)
-  [``:'a line``,``:'a option``,``:'a asm_with_lab``,``:'a asm_or_cbw``,``:'a asm``,
-   ``:'a word_loc``,``:'a list``,``:'a sec``,``:'a ffi_result``] |> LIST_CONJ |> curry save_thm "case_eq_thms"
+Theorem case_eq_thms =
+  (pair_case_eq::
+   bool_case_eq::
+   map TypeBase.case_eq_of
+       [``:'a line``,``:'a option``,``:'a asm_with_lab``,``:'a asm_or_cbw``,
+        ``:'a asm``, ``:'a word_loc``,``:'a list``,``:'a sec``,``:'a ffi_result``])
+  |> LIST_CONJ
 
 Theorem evaluate_io_events_mono:
    ∀s1 r s2. evaluate s1 = (r,s2) ⇒ s1.ffi.io_events ≼ s2.ffi.io_events
@@ -419,9 +430,10 @@ Proof
   )
 QED
 
-val align_dm_def = Define `
+Definition align_dm_def:
   align_dm (s:('a,'c,'ffi) labSem$state) =
-    (s with mem_domain := s.mem_domain INTER byte_aligned)`
+    (s with mem_domain := s.mem_domain INTER byte_aligned)
+End
 
 Theorem align_dm_const[simp]:
    (align_dm s).clock = s.clock ∧
@@ -548,6 +560,32 @@ Proof
     \\ metis_tac[Q.SPECL[`8`,`n`](MP_CANON DIVISION) |> SIMP_RULE(srw_ss())[],ADD_0])
 QED
 
+Theorem mem_load_32_align_dm:
+   mem_load_32 s.mem s.mem_domain be x = SOME y ⇒
+   mem_load_32 s.mem (align_dm s).mem_domain be x = SOME y
+Proof
+  rw[mem_load_32_alt]
+  \\ every_case_tac \\ fs[]
+  \\ fs[align_dm_def]
+  \\ last_x_assum mp_tac \\ simp[]
+  \\ fs[IN_DEF,alignmentTheory.byte_aligned_def,alignmentTheory.byte_align_def]
+  \\ fs[alignmentTheory.aligned_align]
+QED
+
+Theorem mem_load32_align_dm:
+   good_dimindex (:α) ⇒
+   mem_load32 n (a:α addr) (align_dm s) = align_dm (mem_load32 n a s)
+Proof
+  strip_tac
+  \\ simp[mem_load32_def]
+  \\ every_case_tac \\ fs[]
+  \\ imp_res_tac mem_load_32_align_dm
+  \\ fs[]
+  \\ gs[mem_load_32_alt]
+  \\ every_case_tac \\ fs[]
+  \\ fs[align_dm_def]
+QED
+
 Theorem mem_load_byte_aux_align_dm:
    mem_load_byte_aux s.mem s.mem_domain be x = SOME y ⇒
    mem_load_byte_aux s.mem (align_dm s).mem_domain be x = SOME y
@@ -609,6 +647,32 @@ Proof
     \\ metis_tac[Q.SPECL[`8`,`n`](MP_CANON DIVISION) |> SIMP_RULE(srw_ss())[],ADD_0])
 QED
 
+Theorem mem_store_32_align_dm:
+   mem_store_32 mem s.mem_domain be x c = SOME y ⇒
+   mem_store_32 mem (align_dm s).mem_domain be x c = SOME y
+Proof
+  rw[mem_store_32_alt]
+  \\ every_case_tac \\ fs[]
+  \\ fs[align_dm_def]
+  \\ last_x_assum mp_tac \\ simp[]
+  \\ fs[IN_DEF,alignmentTheory.byte_aligned_def,alignmentTheory.byte_align_def]
+  \\ fs[alignmentTheory.aligned_align]
+QED
+
+Theorem mem_store32_align_dm:
+   good_dimindex (:α) ⇒
+   mem_store32 n (a:α addr) (align_dm s) = align_dm (mem_store32 n a s)
+Proof
+  strip_tac
+  \\ simp[mem_store32_def]
+  \\ every_case_tac \\ fs[]
+  \\ imp_res_tac mem_store_32_align_dm
+  \\ fs[]
+  \\ fs[mem_store_32_alt]
+  \\ fs[align_dm_def]
+  \\ every_case_tac \\ fs[]
+QED
+
 Theorem mem_store_byte_aux_align_dm:
    mem_store_byte_aux mem s.mem_domain be x c = SOME y ⇒
    mem_store_byte_aux mem (align_dm s).mem_domain be x c = SOME y
@@ -641,8 +705,8 @@ Theorem mem_op_align_dm:
 Proof
   Cases_on`m`
   \\ simp[mem_op_def,
-          mem_load_align_dm,mem_load_byte_align_dm,
-          mem_store_align_dm,mem_store_byte_align_dm]
+          mem_load_align_dm,mem_load32_align_dm,mem_load_byte_align_dm,
+          mem_store_align_dm,mem_store32_align_dm,mem_store_byte_align_dm]
 QED
 
 Theorem asm_inst_align_dm:
@@ -794,9 +858,10 @@ QED
 
 (** align_sdm **)
 
-val align_sdm_def = Define `
+Definition align_sdm_def:
   align_sdm (s:('a,'c,'ffi) labSem$state) =
-    (s with shared_mem_domain := s.shared_mem_domain INTER byte_aligned)`
+    (s with shared_mem_domain := s.shared_mem_domain INTER byte_aligned)
+End
 
 Theorem align_sdm_const[simp]:
    (align_sdm s).clock = s.clock ∧
@@ -895,6 +960,13 @@ Proof
   \\ every_case_tac \\ fs[]
 QED
 
+Theorem mem_load32_align_sdm:
+   mem_load32 n (a:α addr) (align_sdm s) = align_sdm (mem_load32 n a s)
+Proof
+  simp[mem_load32_def]
+  \\ every_case_tac \\ fs[]
+QED
+
 Theorem mem_load_byte_align_sdm:
    mem_load_byte n (a:α addr) (align_sdm s) = align_sdm (mem_load_byte n a s)
 Proof
@@ -909,6 +981,13 @@ Proof
   \\ every_case_tac \\ fs[]
 QED
 
+Theorem mem_store32_align_sdm:
+   mem_store32 n (a:α addr) (align_sdm s) = align_sdm (mem_store32 n a s)
+Proof
+  simp[mem_store32_def]
+  \\ every_case_tac \\ fs[align_sdm_def]
+QED
+
 Theorem mem_store_byte_align_sdm:
    mem_store_byte n (a:α addr) (align_sdm s) = align_sdm (mem_store_byte n a s)
 Proof
@@ -921,8 +1000,8 @@ Theorem mem_op_align_sdm:
 Proof
   Cases_on`m`
   \\ simp[mem_op_def,
-          mem_load_align_sdm,mem_load_byte_align_sdm,
-          mem_store_align_sdm,mem_store_byte_align_sdm]
+          mem_load_align_sdm,mem_load32_align_sdm,mem_load_byte_align_sdm,
+          mem_store_align_sdm,mem_store32_align_sdm,mem_store_byte_align_sdm]
 QED
 
 Theorem asm_inst_align_sdm:
@@ -1155,27 +1234,28 @@ QED
 
 
 (* asm_ok checks coming into lab_to_target *)
-val line_ok_pre_def = Define`
+Definition line_ok_pre_def:
   (line_ok_pre (c:'a asm_config) (Asm b bytes l) ⇔ asm_ok (cbw_to_asm b) c) ∧
-  (line_ok_pre c _ ⇔ T)`
+  (line_ok_pre c _ ⇔ T)
+End
 
-val sec_ok_pre_def = Define`
+Definition sec_ok_pre_def[simp]:
   sec_ok_pre c (Section k ls) ⇔
-    EVERY (line_ok_pre c) ls`;
-val _ = export_rewrites["sec_ok_pre_def"];
+    EVERY (line_ok_pre c) ls
+End
 
 Overload all_enc_ok_pre = ``λc ls. EVERY (sec_ok_pre c) ls``
 
 (* invariant: labels have correct section number and are non-zero *)
 
-val sec_label_ok_def = Define`
+Definition sec_label_ok_def[simp]:
   (sec_label_ok k (Label l1 l2 len) ⇔ l1 = k ∧ l2 ≠ 0) ∧
-  (sec_label_ok _ _ = T)`;
-val _ = export_rewrites["sec_label_ok_def"];
+  (sec_label_ok _ _ = T)
+End
 
-val sec_labels_ok_def = Define`
-  sec_labels_ok (Section k ls) ⇔ EVERY (sec_label_ok k) ls`;
-val _ = export_rewrites["sec_labels_ok_def"];
+Definition sec_labels_ok_def[simp]:
+  sec_labels_ok (Section k ls) ⇔ EVERY (sec_label_ok k) ls
+End
 
 Theorem sec_label_ok_extract_labels:
    EVERY (sec_label_ok n1) lines ∧
@@ -1235,4 +1315,3 @@ Definition no_share_mem_inst_def:
       SOME (Asm (ShareMem op re a) inst len)
 End
 
-val _ = export_theory();

@@ -1,10 +1,11 @@
 (*
   Define the target compiler configuration for ASL-derived ARMv8.
 *)
-open HolKernel Parse boolLib bossLib;
-open asmLib arm8_targetTheory armv86a_terminationTheory;
-
-val _ = new_theory "arm8_asl_target";
+Theory arm8_asl_target
+Ancestors
+  arm8_target armv86a_termination
+Libs
+  asmLib
 
 val _ = wordsLib.guess_lengths();
 val _ = monadsyntax.enable_monad "sail2_state_monad";
@@ -111,6 +112,4 @@ Definition arm8_asl_target_def:
      ; proj := arm8_asl_proj
      |>
 End
-
-val _ = export_theory();
 

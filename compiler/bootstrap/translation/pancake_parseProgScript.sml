@@ -1,16 +1,20 @@
 (*
-  Translate pancake's lexer
+  Translate pancake's parser
 *)
+Theory pancake_parseProg
+Ancestors
+  panPEG pancake_lexProg ml_translator
+Libs
+  preamble ml_translatorLib
+
 open preamble
      panPEGTheory
      pancake_lexProgTheory
-     ml_translatorLib ml_translatorTheory
+     ml_translatorLib ml_translatorTheory;
 
-val _ = new_theory "pancake_parseProg"
 val _ = translation_extends "pancake_lexProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "pancake_parseProg");
-val _ = ml_translatorLib.use_string_type true;
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE
@@ -116,22 +120,6 @@ Theorem parse_side_lemma = Q.prove(`
        AllCaseEqs(),
        pegexecTheory.evalcase_distinct,
        SIMP_CONV (srw_ss()) [pancake_peg_def] ``pancake_peg.start``,
-       IS_SOME_EXISTS]
-  >- (rename1 ‘_ = SOME (Result rr)’ \\
-      qexists_tac `Result rr`\\
-      pop_assum (REWRITE_TAC o single o GSYM) \\
-      rpt (AP_THM_TAC ORELSE AP_TERM_TAC) \\
-      rw[FUN_EQ_THM] \\
-      rpt(PURE_FULL_CASE_TAC >> gvs[FDOM_FLOOKUP]) \\
-      gvs [flookup_thm]) \\
-  assume_tac PEG_FunNT_wellformed \\
-  drule_then strip_assume_tac pegexecTheory.peg_exec_total \\
-  first_x_assum $ qspec_then `x` strip_assume_tac \\
-  gvs [pegexecTheory.peg_exec_def,
-       pegexecTheory.coreloop_def,
-       AllCaseEqs(),
-       pegexecTheory.evalcase_distinct,
-       SIMP_CONV (srw_ss()) [pancake_peg_def] ``pancake_peg.start``,
        IS_SOME_EXISTS] \\
   rename1 ‘_ = SOME (Result rr)’ \\
   qexists_tac `Result rr`\\
@@ -139,12 +127,9 @@ Theorem parse_side_lemma = Q.prove(`
   rpt (AP_THM_TAC ORELSE AP_TERM_TAC) \\
   rw[FUN_EQ_THM] \\
   rpt(PURE_FULL_CASE_TAC >> gvs[FDOM_FLOOKUP]) \\
-  gvs [flookup_thm]
-  )
+  gvs [flookup_thm])
   |> update_precondition;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

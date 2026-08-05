@@ -27,19 +27,7 @@ definition for the 64-bit version of the compiler.
 
 [test-hello.cml](test-hello.cml):
 A hello world program used for testing that the bootstrapped
-compiler was built succesfully.
-
-[to_dataBootstrapScript.sml](to_dataBootstrapScript.sml):
-Evaluate the 32-bit version of the compiler down to a DataLang
-program.
-
-[to_lab_x64BootstrapScript.sml](to_lab_x64BootstrapScript.sml):
-Evaluate the 64-bit version of the compiler down to a LabLang
-program (an assembly program).
+compiler was built successfully.
 
 [x64BootstrapScript.sml](x64BootstrapScript.sml):
-Evaluate the final part of the 64-bit version of the compiler
-into machine code for x64.
-
-[x64_config_encScript.sml](x64_config_encScript.sml):
-Encoding of compiler state
+Evaluate the 64-bit version of the compiler into x64 machine code.

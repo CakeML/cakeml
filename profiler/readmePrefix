@@ -1,0 +1,4 @@
+Basic profiling facilities for theories and proofs.
+
+Supports data export to a format that is understood by
+[FlameGraph](https://github.com/brendangregg/FlameGraph).

@@ -2,15 +2,19 @@
   A HOL4 port of Model/modelset.ml from the HOL Light distribution.
   Now unused, but was once the set theory behind our semantics.
 *)
-open preamble cardinalTheory
+Theory jrhSet
+Ancestors
+  cardinal relation
+Libs
+  preamble
 
-val _ = numLib.prefer_num()
+val _ = numLib.temp_prefer_num()
 
-val _ = new_theory"jrhSet"
-
-val ind_model_exists = Q.prove(
-  `∃x. (@s:num->bool. s ≠ {} ∧ FINITE s) x`,
-    metis_tac[IN_DEF, MEMBER_NOT_EMPTY, IN_SING, FINITE_DEF])
+Theorem ind_model_exists[local]:
+  ∃x. (@s:num->bool. s ≠ {} ∧ FINITE s) x
+Proof
+  metis_tac[IN_DEF, MEMBER_NOT_EMPTY, IN_SING, FINITE_DEF]
+QED
 
 val ind_model_ty =
   new_type_definition ("ind_model",ind_model_exists)
@@ -21,9 +25,11 @@ val mk_ind_onto   = prove_abs_fn_onto    ind_model_bij
 val dest_ind_11   = prove_rep_fn_one_one ind_model_bij
 val dest_ind_onto = prove_rep_fn_onto    ind_model_bij
 
-val inacc_exists = Q.prove(
-  `∃x:num. UNIV x`,
-  metis_tac[IN_UNIV,IN_DEF])
+Theorem inacc_exists[local]:
+  ∃x:num. UNIV x
+Proof
+  metis_tac[IN_UNIV,IN_DEF]
+QED
 
 val inacc_ty =
   new_type_definition ("I",inacc_exists)
@@ -40,14 +46,16 @@ Proof
   metis_tac[INFINITE_Unum]
 QED
 
-val lemma = Q.prove(
-  `∀s. s ≺ 𝕌(:I) ⇔ FINITE s`,
+Theorem lemma[local]:
+  ∀s. s ≺ 𝕌(:I) ⇔ FINITE s
+Proof
   rw[FINITE_CARD_LT] >>
   match_mp_tac CARDEQ_CARDLEQ >>
   simp[cardeq_REFL] >>
   match_mp_tac cardleq_ANTISYM >>
   simp[cardleq_def,INJ_DEF] >>
-  metis_tac[inacc_bij,dest_I_11,mk_I_11,IN_UNIV,IN_DEF])
+  metis_tac[inacc_bij,dest_I_11,mk_I_11,IN_UNIV,IN_DEF]
+QED
 
 Theorem I_AXIOM:
    𝕌(:ind_model) ≺ 𝕌(:I) ∧
@@ -94,14 +102,16 @@ Proof
   qexists_tac`{}`>>simp[]
 QED
 
-val I_PAIR_EXISTS = Q.prove(
-  `∃f:I#I->I. !x y. (f x = f y) ==> (x = y)`,
+Theorem I_PAIR_EXISTS[local]:
+  ∃f:I#I->I. !x y. (f x = f y) ==> (x = y)
+Proof
   qsuff_tac `𝕌(:I#I) ≼ 𝕌(:I)` >-
     simp[cardleq_def,INJ_DEF] >>
   match_mp_tac CARDEQ_SUBSET_CARDLEQ >>
   qsuff_tac`𝕌(:I#I) = 𝕌(:I) × 𝕌(:I)` >-
     metis_tac[cardeq_TRANS,SET_SQUARED_CARDEQ_SET,I_INFINITE] >>
-  simp[EXTENSION])
+  simp[EXTENSION]
+QED
 
 val INJ_LEMMA = METIS_PROVE[]``(!x y. (f x = f y) ==> (x = y)) <=> (!x y. (f x = f y) <=> (x = y))``
 
@@ -117,30 +127,36 @@ Proof
   HINT_EXISTS_TAC >> simp[UNIV_BOOL]
 QED
 
-val I_BOOL_EXISTS = Q.prove(
-  `∃f:bool->I. !x y. (f x = f y) ==> (x = y)`,
+Theorem I_BOOL_EXISTS[local]:
+  ∃f:bool->I. !x y. (f x = f y) ==> (x = y)
+Proof
   `𝕌(:bool) ≼ 𝕌(:I)` by metis_tac[CARD_BOOL_LT_I,cardlt_lenoteq] >>
-  fs[cardleq_def,INJ_DEF] >> metis_tac[])
+  fs[cardleq_def,INJ_DEF] >> metis_tac[]
+QED
 
 val I_BOOL_def =
   new_specification("I_BOOL_def",["I_BOOL"],
     REWRITE_RULE[INJ_LEMMA] I_BOOL_EXISTS)
 
-val I_IND_EXISTS = Q.prove(
-  `∃f:ind_model->I. !x y. (f x = f y) ==> (x = y)`,
+Theorem I_IND_EXISTS[local]:
+  ∃f:ind_model->I. !x y. (f x = f y) ==> (x = y)
+Proof
   `𝕌(:ind_model) ≼ 𝕌(:I)` by metis_tac[I_AXIOM,cardlt_lenoteq] >>
-  fs[cardleq_def,INJ_DEF] >> metis_tac[])
+  fs[cardleq_def,INJ_DEF] >> metis_tac[]
+QED
 
 val I_IND_def =
   new_specification("I_IND_def",["I_IND"],
     REWRITE_RULE[INJ_LEMMA] I_IND_EXISTS)
 
-val I_SET_EXISTS = Q.prove(
-  `∀s:I->bool. s ≺ 𝕌(:I) ⇒ ∃f:(I->bool)->I. !x y. x ⊆ s ∧ y ⊆ s ∧ (f x = f y) ==> (x = y)`,
+Theorem I_SET_EXISTS[local]:
+  ∀s:I->bool. s ≺ 𝕌(:I) ⇒ ∃f:(I->bool)->I. !x y. x ⊆ s ∧ y ⊆ s ∧ (f x = f y) ==> (x = y)
+Proof
   gen_tac >> disch_then(strip_assume_tac o MATCH_MP(CONJUNCT2 I_AXIOM)) >>
   fs[cardlt_lenoteq] >>
   fs[cardleq_def,INJ_DEF,IN_POW] >>
-  metis_tac[])
+  metis_tac[]
+QED
 
 val I_SET_def =
   new_specification("I_SET_def",["I_SET"],
@@ -153,13 +169,14 @@ Datatype:
            | Cartprod setlevel setlevel
 End
 
-val setlevel_def = Define`
+Definition setlevel_def:
   setlevel Ur_bool = IMAGE I_BOOL UNIV ∧
   setlevel Ur_ind = IMAGE I_IND UNIV ∧
   setlevel (Cartprod l1 l2) =
     IMAGE I_PAIR (setlevel l1 × setlevel l2) ∧
   setlevel (Powerset l) =
-    IMAGE (I_SET (setlevel l)) (POW (setlevel l))`
+    IMAGE (I_SET (setlevel l)) (POW (setlevel l))
+End
 
 Theorem setlevel_CARD:
    ∀l. setlevel l ≺ 𝕌(:I)
@@ -195,13 +212,16 @@ Proof
   metis_tac[setlevel_CARD,I_SET_def]
 QED
 
-val universe_def = Define`
-  universe = {(t,x) | x ∈ setlevel t}`
+Definition universe_def:
+  universe = {(t,x) | x ∈ setlevel t}
+End
 
-val v_exists = Q.prove(
-  `∃a. a ∈ universe`,
+Theorem v_exists[local]:
+  ∃a. a ∈ universe
+Proof
   qexists_tac`Ur_bool,I_BOOL T` >>
-  rw[universe_def,setlevel_def])
+  rw[universe_def,setlevel_def]
+QED
 
 val v_ty =
   new_type_definition ("V",SIMP_RULE std_ss [IN_DEF]v_exists)
@@ -212,9 +232,11 @@ val mk_V_onto   = prove_abs_fn_onto    v_bij
 val dest_V_11   = prove_rep_fn_one_one v_bij
 val dest_V_onto = prove_rep_fn_onto    v_bij
 
-val universe_IN = Q.prove(
-  `universe x ⇔ x ∈ universe`,
-  rw[IN_DEF])
+Theorem universe_IN[local]:
+  universe x ⇔ x ∈ universe
+Proof
+  rw[IN_DEF]
+QED
 
 Theorem V_bij:
    ∀l e. e ∈ setlevel l ⇔ dest_V(mk_V(l,e)) = (l,e)
@@ -223,18 +245,22 @@ Proof
   rw[universe_IN,universe_def]
 QED
 
-val droplevel_def = Define`
-  droplevel (Powerset l) = l`
+Definition droplevel_def:
+  droplevel (Powerset l) = l
+End
 
-val isasetlevel = Define`
+Definition isasetlevel:
   isasetlevel (Powerset _) = T ∧
-  isasetlevel _ = F`
+  isasetlevel _ = F
+End
 
-val level_def = Define`
-  level x = FST(dest_V x)`
+Definition level_def:
+  level x = FST(dest_V x)
+End
 
-val element_def = Define`
-  element x = SND(dest_V x)`
+Definition element_def:
+  element x = SND(dest_V x)
+End
 
 Theorem ELEMENT_IN_LEVEL:
    ∀x. (element x) ∈ setlevel (level x)
@@ -248,22 +274,27 @@ Proof
   rw[level_def,element_def,v_bij]
 QED
 
-val set_def = Define`
+Definition set_def:
   set x = @s. s ⊆ (setlevel(droplevel(level x))) ∧
-              I_SET (setlevel(droplevel(level x))) s = element x`
+              I_SET (setlevel(droplevel(level x))) s = element x
+End
 
-val isaset_def = Define`
-  isaset x ⇔ ∃l. level x = Powerset l`
+Definition isaset_def:
+  isaset x ⇔ ∃l. level x = Powerset l
+End
 
 val _ = Parse.add_infix("<:",425,Parse.NONASSOC)
 
-val inset_def = xDefine"inset"
-  `x <: s ⇔ level s = Powerset(level x) ∧ element x ∈ set s`
+Definition inset_def:
+  x <: s ⇔ level s = Powerset(level x) ∧ element x ∈ set s
+End
 
 val _ = Parse.add_infix("<=:",450,Parse.NONASSOC)
 
-val subset_def = xDefine"subset"`
-  s <=: t ⇔ level s = level t ∧ ∀x. x <: s ⇒ x <: t`
+Definition subset_def:
+  s <=: t ⇔ level s = level t ∧ ∀x. x <: s ⇒ x <: t
+End
+
 
 Theorem MEMBERS_ISASET:
    ∀x s. x <: s ⇒ isaset s
@@ -308,19 +339,22 @@ Proof
   metis_tac[I_SET_SETLEVEL]
 QED
 
-val EMPTY_EXISTS = Q.prove(
-  `∀l. ∃s. level s = l ∧ ∀x. ¬(x <: s)`,
+Theorem EMPTY_EXISTS[local]:
+  ∀l. ∃s. level s = l ∧ ∀x. ¬(x <: s)
+Proof
   Induct >> TRY (
     qexists_tac`mk_V(Powerset l,I_SET(setlevel l){})` >>
     simp[inset_def,MK_V_CLAUSES,MK_V_SET] >> NO_TAC ) >>
-  metis_tac[LEVEL_SET_EXISTS,MEMBERS_ISASET,isaset_def,theorem"setlevel_distinct"])
+  metis_tac[LEVEL_SET_EXISTS,MEMBERS_ISASET,isaset_def,theorem"setlevel_distinct"]
+QED
 
 val emptyset_def =
   new_specification("emptyset_def",["emptyset"],
     SIMP_RULE std_ss [SKOLEM_THM] EMPTY_EXISTS)
 
-val COMPREHENSION_EXISTS = Q.prove(
-  `∀s p. ∃t. level t = level s ∧ ∀x. x <: t ⇔ x <: s ∧ p x`,
+Theorem COMPREHENSION_EXISTS[local]:
+  ∀s p. ∃t. level t = level s ∧ ∀x. x <: t ⇔ x <: s ∧ p x
+Proof
   rpt gen_tac >>
   reverse(Cases_on`isaset s`) >- metis_tac[MEMBERS_ISASET] >>
   fs[isaset_def] >>
@@ -333,7 +367,8 @@ val COMPREHENSION_EXISTS = Q.prove(
     fs[SUBSET_DEF,Abbr`v`] ) >>
   simp[MK_V_SET,inset_def] >>
   fs[Abbr`v`] >>
-  metis_tac[SET,MK_V_SET])
+  metis_tac[SET,MK_V_SET]
+QED
 
 val _ = Parse.add_infix("suchthat",9,Parse.LEFT)
 
@@ -370,8 +405,9 @@ Proof
   metis_tac[SET_DECOMP]
 QED
 
-val POWERSET_EXISTS = Q.prove(
-  `∀s. ∃t. level t = Powerset(level s) ∧ ∀x. x <: t ⇔ x <=: s`,
+Theorem POWERSET_EXISTS[local]:
+  ∀s. ∃t. level t = Powerset(level s) ∧ ∀x. x <: t ⇔ x <=: s
+Proof
   gen_tac >> Cases_on`isaset s` >- (
     fs[isaset_def] >>
     qspec_then`Powerset l`(Q.X_CHOOSE_THEN`t`strip_assume_tac)
@@ -381,15 +417,17 @@ val POWERSET_EXISTS = Q.prove(
     metis_tac[ELEMENT_IN_LEVEL] ) >>
   fs[subset_def] >>
   metis_tac[MEMBERS_ISASET,SETLEVEL_EXISTS
-           ,ELEMENT_IN_LEVEL,isaset_def])
+           ,ELEMENT_IN_LEVEL,isaset_def]
+QED
 
 val powerset_def =
   new_specification("powerset_def",["powerset"],
     SIMP_RULE std_ss [SKOLEM_THM] POWERSET_EXISTS)
 
-val pair_def = Define`
+Definition pair_def:
   pair x y = mk_V(Cartprod (level x) (level y),
-                  I_PAIR(element x,element y))`
+                  I_PAIR(element x,element y))
+End
 
 Theorem PAIR_IN_LEVEL:
    ∀x y l m. x ∈ setlevel l ∧ y ∈ setlevel m
@@ -421,11 +459,13 @@ Proof
   rw[level_def,DEST_MK_PAIR]
 QED
 
-val fst_def = Define`
-  fst p = @x. ∃y. p = pair x y`
+Definition fst_def:
+  fst p = @x. ∃y. p = pair x y
+End
 
-val snd_def = Define`
-  snd p = @y. ∃x. p = pair x y`
+Definition snd_def:
+  snd p = @y. ∃x. p = pair x y
+End
 
 Theorem PAIR_CLAUSES:
    ∀x y. (fst(pair x y) = x) ∧ (snd(pair x y) = y)
@@ -433,10 +473,11 @@ Proof
   rw[fst_def,snd_def] >> metis_tac[PAIR_INJ]
 QED
 
-val CARTESIAN_EXISTS = Q.prove(
-  `∀s t. ∃u. level u = Powerset(Cartprod (droplevel(level s))
+Theorem CARTESIAN_EXISTS[local]:
+  ∀s t. ∃u. level u = Powerset(Cartprod (droplevel(level s))
                                           (droplevel(level t))) ∧
-              ∀z. z <: u ⇔ ∃x y. (z = pair x y) ∧ x <: s ∧ y <: t`,
+              ∀z. z <: u ⇔ ∃x y. (z = pair x y) ∧ x <: s ∧ y <: t
+Proof
   rpt gen_tac >>
   reverse(Cases_on`isaset s`) >- (
     metis_tac[EMPTY_EXISTS,MEMBERS_ISASET] ) >>
@@ -453,7 +494,8 @@ val CARTESIAN_EXISTS = Q.prove(
   simp[Abbr`Q`,suchthat_def] >>
   simp[Abbr`R`]>>
   fs[inset_def] >>
-  metis_tac[ELEMENT_IN_LEVEL,LEVEL_PAIR])
+  metis_tac[ELEMENT_IN_LEVEL,LEVEL_PAIR]
+QED
 
 val PRODUCT_def =
   new_specification("PRODUCT_def",["product"],
@@ -499,18 +541,23 @@ Proof
   metis_tac[EXTENSIONALITY_LEVEL,MEMBERS_ISASET,inset_def]
 QED
 
-val true_def = Define`
-  true = mk_V(Ur_bool,I_BOOL T)`
+Definition true_def:
+  true = mk_V(Ur_bool,I_BOOL T)
+End
 
-val false_def = Define`
-  false = mk_V(Ur_bool,I_BOOL F)`
+Definition false_def:
+  false = mk_V(Ur_bool,I_BOOL F)
+End
 
-val boolset_def = Define`
-  boolset = mk_V(Powerset Ur_bool,I_SET (setlevel Ur_bool) (setlevel Ur_bool))`
+Definition boolset_def:
+  boolset = mk_V(Powerset Ur_bool,I_SET (setlevel Ur_bool) (setlevel Ur_bool))
+End
 
-val setlevel_bool = Q.prove(
-  `∀b. I_BOOL b ∈ setlevel Ur_bool`,
-  simp[setlevel_def,I_BOOL_def])
+Theorem setlevel_bool[local]:
+  ∀b. I_BOOL b ∈ setlevel Ur_bool
+Proof
+  simp[setlevel_def,I_BOOL_def]
+QED
 
 Theorem IN_BOOL:
    ∀x. x <: boolset ⇔ x = true ∨ x = false
@@ -535,8 +582,9 @@ Proof
   metis_tac[TRUE_NE_FALSE,IN_BOOL]
 QED
 
-val indset_def = Define`
-  indset = mk_V(Powerset Ur_ind,I_SET (setlevel Ur_ind) (setlevel Ur_ind))`
+Definition indset_def:
+  indset = mk_V(Powerset Ur_ind,I_SET (setlevel Ur_ind) (setlevel Ur_ind))
+End
 
 Theorem INDSET_IND_MODEL:
    ∃f. (∀i:ind_model. f i <: indset) ∧ (∀i j. f i = f j ⇒ i = j)
@@ -559,32 +607,43 @@ val ch_def =
     Q.prove(`∃ch. ∀s. (∃x. x <: s) ⇒ ch s <: s`,
       simp[GSYM SKOLEM_THM] >> metis_tac[]))
 
-val IN_POWERSET = Q.prove
- (`!x s. x <: powerset s <=> x <=: s`,
-  metis_tac[powerset_def]);;
+Theorem IN_POWERSET[local]:
+  !x s. x <: powerset s <=> x <=: s
+Proof
+  metis_tac[powerset_def]
+QED
 
-val IN_PRODUCT = Q.prove
- (`!z s t. z <: product s t <=> ?x y. (z = pair x y) /\ x <: s /\ y <: t`,
-  metis_tac[PRODUCT_def]);;
+Theorem IN_PRODUCT[local]:
+  !z s t. z <: product s t <=> ?x y. (z = pair x y) /\ x <: s /\ y <: t
+Proof
+  metis_tac[PRODUCT_def]
+QED
 
-val IN_COMPREHENSION = Q.prove
- (`!p s x. x <: (s suchthat p) <=> x <: s /\ p x`,
-  metis_tac[suchthat_def]);;
+Theorem IN_COMPREHENSION[local]:
+  !p s x. x <: (s suchthat p) <=> x <: s /\ p x
+Proof
+  metis_tac[suchthat_def]
+QED
 
-val PRODUCT_INHABITED = Q.prove
- (`(?x. x <: s) /\ (?y. y <: t) ==> ?z. z <: product s t`,
-  metis_tac[IN_PRODUCT]);;
+Theorem PRODUCT_INHABITED[local]:
+  (?x. x <: s) /\ (?y. y <: t) ==> ?z. z <: product s t
+Proof
+  metis_tac[IN_PRODUCT]
+QED
 
-val funspace_def = Define`
+Definition funspace_def:
   funspace s t = (powerset(product s t) suchthat
-                  λu. ∀x. x <: s ⇒ ∃!y. pair x y <: u)`
+                  λu. ∀x. x <: s ⇒ ∃!y. pair x y <: u)
+End
 
-val apply_def = Define`
-  apply f x = @y. pair x y <: f`
+Definition apply_def:
+  apply f x = @y. pair x y <: f
+End
 
-val abstract_def = Define`
+Definition abstract_def:
   abstract s t f =
-    (product s t suchthat λz. ∀x y. pair x y = z ⇒ y = f x)`
+    (product s t suchthat λz. ∀x y. pair x y = z ⇒ y = f x)
+End
 
 Theorem APPLY_ABSTRACT:
    ∀f x s t. x <: s ∧ f x <: t ⇒ apply(abstract s t f) x = f x
@@ -625,11 +684,13 @@ Proof
   metis_tac[PAIR_INJ]
 QED
 
-val boolean_def = Define`
-  boolean b = if b then true else false`
+Definition boolean_def:
+  boolean b = if b then true else false
+End
 
-val holds_def = Define`
-  holds s x ⇔ apply s x = true`
+Definition holds_def:
+  holds s x ⇔ apply s x = true
+End
 
 Theorem BOOLEAN_IN_BOOLSET:
    ∀b. boolean b <: boolset
@@ -688,8 +749,6 @@ Proof
   metis_tac[PAIR_INJ]
 QED
 
-open relationTheory
-
 Theorem WF_inset:
    WF $<:
 Proof
@@ -705,7 +764,6 @@ Proof
   fs[inset_def]
 QED
 
-val inset_ind =
-  save_thm("inset_ind",MATCH_MP WF_INDUCTION_THM WF_inset)
+Theorem inset_ind =
+  MATCH_MP WF_INDUCTION_THM WF_inset
 
-val _ = export_theory()

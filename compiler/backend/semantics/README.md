@@ -69,6 +69,9 @@ Properties about the itree target semantics
 [target_itreeSemScript.sml](target_itreeSemScript.sml):
 An itree-based semantics for the target machine code
 
+[wordConvsScript.sml](wordConvsScript.sml):
+Syntactic properties used by wordLang across passes.
+
 [wordPropsScript.sml](wordPropsScript.sml):
 Properties about wordLang and its semantics
 

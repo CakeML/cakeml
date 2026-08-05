@@ -1,10 +1,12 @@
 (*
   Definition of CNF
 *)
+Theory cnf
+Ancestors
+  misc ASCIInumbers
+Libs
+  preamble
 
-open preamble miscTheory ASCIInumbersTheory;
-
-val _ = new_theory "cnf";
 
 (* ----------------------- Types --------------------------------------- *)
 
@@ -127,4 +129,3 @@ Definition negate_literal_def:
   | INR x => INL x
 End
 
-val _ = export_theory();

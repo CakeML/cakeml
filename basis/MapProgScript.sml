@@ -2,11 +2,11 @@
   This module contains CakeML code implementing a functional map type
   using a self-balancing binary tree.
 *)
-open preamble
-  ml_translatorLib ml_translatorTheory ml_progLib
-  balanced_mapTheory ArrayProgTheory basisFunctionsLib
-
-val _ = new_theory "MapProg"
+Theory MapProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
+Ancestors
+  ml_translator balanced_map ArrayProg
 
 val _ = translation_extends "ArrayProg";
 
@@ -14,11 +14,11 @@ val _ = (use_full_type_names := false);
 val _ = register_type ``:('a,'b) balanced_map$balanced_map``;
 val _ = (use_full_type_names := true);
 
-val _ = ml_prog_update open_local_block;
-
 val _ = (use_full_type_names := false);
 val _ = register_type ``:('a,'b) mlmap$map``;
 val _ = (use_full_type_names := true);
+
+val _ = ml_prog_update open_local_block;
 
 val _ = next_ml_names := ["size", "singleton"];
 val _ = translate size_def;
@@ -31,32 +31,42 @@ val _ = translate balanceL_def;
 val _ = translate balanceR_def;
 val _ = translate deleteFindMax_def;
 
-val deleteFindmax_side_thm = Q.prove (
-  `!m. m ≠ Tip ⇒ deletefindmax_side m`,
+Theorem deleteFindmax_side_thm[local]:
+  !m. m ≠ Tip ⇒ deletefindmax_side m
+Proof
   ho_match_mp_tac deleteFindMax_ind >>
   ONCE_REWRITE_TAC [theorem "deletefindmax_side_def"] >>
   rw [] >>
   ONCE_REWRITE_TAC [theorem "deletefindmax_side_def"] >>
   rw [] >>
-  metis_tac []) |> update_precondition;
+  metis_tac []
+QED
+val _ = update_precondition deleteFindmax_side_thm;
 
 val _ = translate deleteFindMin_def;
 
-val deleteFindmin_side_thm = Q.prove (
-  `!m. m ≠ Tip ⇒ deletefindmin_side m`,
+Theorem deleteFindmin_side_thm[local]:
+  !m. m ≠ Tip ⇒ deletefindmin_side m
+Proof
   ho_match_mp_tac deleteFindMin_ind >>
   ONCE_REWRITE_TAC [theorem "deletefindmin_side_def"] >>
   rw [] >>
   ONCE_REWRITE_TAC [theorem "deletefindmin_side_def"] >>
   rw [] >>
-  metis_tac []) |> update_precondition;
+  metis_tac []
+QED
+val _ = update_precondition deleteFindmin_side_thm;
 
 val _ = translate glue_def;
 
-val glue_side_thm = Q.prove (
-  `!m n. glue_side m n`,
+Theorem glue_side_thm[local]:
+  !m n. glue_side m n
+Proof
   rw [fetch "-" "glue_side_def"] >>
-  metis_tac [deleteFindmin_side_thm, deleteFindmax_side_thm, balanced_map_distinct]) |> update_precondition;
+  metis_tac [deleteFindmin_side_thm, deleteFindmax_side_thm,
+             balanced_map_distinct]
+QED
+val _ = update_precondition glue_side_thm;
 
 val _ = translate trim_help_greater_def;
 val _ = translate trim_help_lesser_def;
@@ -113,22 +123,27 @@ val _ = ml_prog_update (open_module "Map");
 
 (* provides the Map.map name for the map type *)
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc ["'a";"'b"] "map" (Atapp [Atvar "'a"; Atvar "'b"] (Short "map"))`` I);
+  ``Dtabbrev unknown_loc [«'a»;«'b»] «map»
+             (Atapp [Atvar «'a»; Atvar «'b»] (Short «map»))`` I);
 
 val _ = next_ml_names := ["lookup"];
-val _ = translate mlmapTheory.lookup_def;
+val mlmap_lookup_v_thm = translate mlmapTheory.lookup_def;
+val _ = next_ml_names := ["member"];
+val _ = translate mlmapTheory.member_def;
 val _ = next_ml_names := ["insert"];
-val _ = translate mlmapTheory.insert_def;
+val mlmap_insert_v_thm = translate mlmapTheory.insert_def;
 val _ = next_ml_names := ["delete"];
-val _ = translate mlmapTheory.delete_def;
+val mlmap_delete_v_thm = translate mlmapTheory.delete_def;
 val _ = next_ml_names := ["null"];
 val _ = translate mlmapTheory.null_def;
 val _ = next_ml_names := ["size"];
 val _ = translate mlmapTheory.size_def;
 val _ = next_ml_names := ["empty"];
 val _ = translate mlmapTheory.empty_def;
+val _ = next_ml_names := ["singleton"];
+val _ = translate mlmapTheory.singleton_def;
 val _ = next_ml_names := ["union"];
-val _ = translate mlmapTheory.union_def;
+val mlmap_union_v_thm = translate mlmapTheory.union_def;
 val _ = next_ml_names := ["unionWith"];
 val _ = translate mlmapTheory.unionWith_def;
 val _ = next_ml_names := ["unionWithKey"];
@@ -155,13 +170,120 @@ val _ = next_ml_names := ["filterWithKey"];
 val _ = translate mlmapTheory.filterWithKey_def;
 val _ = next_ml_names := ["filter"];
 val _ = translate mlmapTheory.filter_def;
+val _ = next_ml_names := ["compare"];
+val _ = translate mlmapTheory.compare_def;
 
 val _ = ml_prog_update (close_module NONE);
 
 (* this is here so that the type name is accessible without the full name *)
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc ["'a";"'b"] "map" (Atapp [Atvar "'a"; Atvar "'b"] (Short "map"))`` I);
+  ``Dtabbrev unknown_loc [«'a»;«'b»] «map»
+             (Atapp [Atvar «'a»; Atvar «'b»] (Short «map»))`` I);
 
 val _ = ml_prog_update close_local_block;
 
-val _ = export_theory ();
+(*----------------------------------------------------------------------*
+   general tooling for adding mlmap support for fmaps
+ *----------------------------------------------------------------------*)
+
+Definition FMAP_TYPE_def:
+  FMAP_TYPE cmp a b f v =
+    ∃m. mlmap$map_ok m ∧ mlmap$to_fmap m = f ∧ MAP_TYPE a b m v ∧
+        mlmap$cmp_of m = cmp
+End
+
+Theorem MAP_TYPE_empty_IMP_FMAP_TYPE[local]:
+  MAP_TYPE a b (mlmap$empty cmp) v ∧ TotOrd cmp ⇒
+  FMAP_TYPE cmp a b FEMPTY v
+Proof
+  rw [FMAP_TYPE_def]
+  \\ last_x_assum $ irule_at Any
+  \\ fs [mlmapTheory.empty_thm]
+QED
+
+Theorem IMP_FMAP_TYPE_FLOOKUP[local]:
+  (MAP_TYPE b a --> b --> OPTION_TYPE a) mlmap$lookup v ⇒
+  (FMAP_TYPE cmp b a --> b --> OPTION_TYPE a) FLOOKUP v
+Proof
+  fs [ml_translatorTheory.Arrow_def,FMAP_TYPE_def,
+      ml_translatorTheory.AppReturns_def]
+  \\ rw [] \\ simp [GSYM (mlmapTheory.lookup_thm)]
+QED
+
+Theorem IMP_FMAP_TYPE_FUPDATE[local]:
+  (MAP_TYPE b a --> (b:'a -> v -> bool) --> a --> MAP_TYPE b a) mlmap$insert v ⇒
+  (FMAP_TYPE cmp b a --> b --> a --> FMAP_TYPE cmp b a) fmap_update v
+Proof
+  fs [ml_translatorTheory.Arrow_def,FMAP_TYPE_def,
+      ml_translatorTheory.AppReturns_def] \\ rw []
+  \\ fs [fmap_update_def]
+  \\ last_x_assum drule \\ strip_tac
+  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac \\ fs []
+  \\ first_x_assum $ irule_at Any \\ rw []
+  \\ last_x_assum drule \\ strip_tac
+  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac \\ fs []
+  \\ first_x_assum $ irule_at Any \\ rw []
+  \\ last_x_assum drule \\ strip_tac
+  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac \\ fs []
+  \\ first_x_assum $ irule_at Any \\ rw []
+  \\ first_x_assum $ irule_at Any \\ rw []
+  \\ metis_tac [mlmapTheory.insert_thm]
+QED
+
+Theorem IMP_FMAP_TYPE_DOMSUB[local]:
+  (MAP_TYPE b a --> (b:'a -> v -> bool) --> MAP_TYPE b a) mlmap$delete v ⇒
+  (FMAP_TYPE cmp b a --> b --> FMAP_TYPE cmp b a) $\\ v
+Proof
+  fs [ml_translatorTheory.Arrow_def,FMAP_TYPE_def,
+      ml_translatorTheory.AppReturns_def] \\ rw []
+  \\ last_x_assum drule \\ strip_tac
+  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac \\ fs []
+  \\ first_x_assum $ irule_at Any \\ rw []
+  \\ last_x_assum drule \\ strip_tac
+  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac \\ fs []
+  \\ first_x_assum $ irule_at Any \\ rw []
+  \\ first_x_assum $ irule_at Any \\ rw []
+  \\ metis_tac [mlmapTheory.delete_thm]
+QED
+
+Theorem IMP_FMAP_TYPE_FUNION[local]:
+  (MAP_TYPE b a --> MAP_TYPE b a --> MAP_TYPE b a) mlmap$union v ⇒
+  (FMAP_TYPE cmp b a --> FMAP_TYPE cmp b a --> FMAP_TYPE cmp b a) FUNION v
+Proof
+  fs [ml_translatorTheory.Arrow_def,FMAP_TYPE_def,
+      ml_translatorTheory.AppReturns_def] \\ rw []
+  \\ last_x_assum drule \\ strip_tac
+  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac \\ fs []
+  \\ first_x_assum $ irule_at Any \\ rw []
+  \\ last_x_assum drule \\ strip_tac
+  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac \\ fs []
+  \\ first_x_assum $ irule_at Any \\ rw []
+  \\ first_x_assum $ irule_at Any \\ rw []
+  \\ metis_tac [mlmapTheory.union_thm]
+QED
+
+Theorem IMP_FMAP_TYPE_ops:
+  MAP_TYPE (key:'k -> v -> bool) (a:'a -> v -> bool) (mlmap$empty cmp) v ∧ TotOrd cmp ⇒
+  FMAP_TYPE cmp key a FEMPTY v ∧
+  ((MAP_TYPE key a --> key --> OPTION_TYPE a) mlmap$lookup v1 ⇒
+   (FMAP_TYPE cmp key a --> key --> OPTION_TYPE a) FLOOKUP v1) ∧
+  ((MAP_TYPE key a --> key --> a --> MAP_TYPE key a) mlmap$insert v1 ⇒
+   (FMAP_TYPE cmp key a --> key --> a --> FMAP_TYPE cmp key a) fmap_update v1) ∧
+  ((MAP_TYPE key a --> key --> MAP_TYPE key a) mlmap$delete v1 ⇒
+   (FMAP_TYPE cmp key a --> key --> FMAP_TYPE cmp key a) $\\ v1) ∧
+  ((MAP_TYPE key a --> MAP_TYPE key a --> MAP_TYPE key a) mlmap$union v1 ⇒
+   (FMAP_TYPE cmp key a --> FMAP_TYPE cmp key a --> FMAP_TYPE cmp key a) FUNION v1)
+Proof
+  rw []
+  >- (irule MAP_TYPE_empty_IMP_FMAP_TYPE \\ simp [])
+  >- (irule IMP_FMAP_TYPE_FLOOKUP \\ simp [])
+  >- (irule IMP_FMAP_TYPE_FUPDATE \\ simp [])
+  >- (irule IMP_FMAP_TYPE_DOMSUB \\ simp [])
+  >- (irule IMP_FMAP_TYPE_FUNION \\ simp [])
+QED
+
+Theorem mlmap_op_v_thms =
+  LIST_CONJ [mlmap_lookup_v_thm,
+             mlmap_union_v_thm,
+             mlmap_delete_v_thm,
+             mlmap_insert_v_thm];

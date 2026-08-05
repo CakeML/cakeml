@@ -2,11 +2,11 @@
   Correctness proof for the parser; showing that the parse_prog implementation
   conforms to the specification (semantics$parse).
 *)
-open preamble
-
-open semanticsTheory cmlParseTheory pegCompleteTheory pegSoundTheory
-
-val _ = new_theory "parserProof";
+Theory parserProof
+Ancestors
+  semantics cmlParse pegComplete pegSound
+Libs
+  preamble
 
 Theorem parse_prog_correct0:
   (parse_prog s = Failure fl fe ⇒ parse s = NONE) ∧
@@ -77,4 +77,3 @@ Proof
   drule $ cj 1 parse_prog_correct0 >> simp[]
 QED
 
-val _ = export_theory()

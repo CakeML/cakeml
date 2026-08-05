@@ -5,95 +5,70 @@
   lines from the file, then splits them into words, then takes the lengths of
   those word lists. A more efficient implementation is possible even in CakeML.
 *)
-
-open preamble basis
-     splitwordsTheory
+Theory wordcountProg
+Ancestors
+  splitwords cfApp basis_ffi
+Libs
+  preamble basis
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
-val _ = new_theory"wordcountProg";
-
 val _ = translation_extends"basisProg";
 
-val wc_lines_def = Define`
-  wc_lines lines = SUM (MAP (LENGTH o splitwords) lines)`;
+Definition wc_lines_def:
+  wc_lines lines = SUM (MAP (LENGTH o splitwords) lines)
+End
 
 val res = translate splitwords_def;
 val res = translate wc_lines_def;
 
 (* TODO: move *)
-val inputLinesFromAny = process_topdecs`
-  fun inputLinesFromAny fnameopt =
+Quote add_cakeml:
+  fun inputLinesFrom fnameopt =
     case fnameopt of
-      None => Some (TextIO.inputLines (TextIO.stdIn))
-    | Some fname => TextIO.inputLinesFrom fname`;
+      None => Some (TextIO.inputLinesStdIn #"\n")
+    | Some fname => TextIO.inputLinesFile #"\n" fname;
+End
 
-val () = append_prog inputLinesFromAny;
-
-Theorem inputLinesFromAny_spec:
-   OPTION_TYPE FILENAME fo fov ∧ (IS_SOME fo ⇒ hasFreeFD fs) ∧
-  (IS_NONE fo ⇒ (ALOOKUP fs.infds 0 = SOME (UStream(strlit"stdin"),ReadMode,0)))
-   ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v "inputLinesFromAny" (get_ml_prog_state()))
+Theorem inputLinesFrom_spec:
+  OPTION_TYPE FILENAME fo fov ∧
+  (IS_SOME fo ⇒ hasFreeFD fs) ∧
+  (IS_NONE fo ⇒ ∃text. stdin_content fs = SOME text) ⇒
+  app (p:'ffi ffi_proj) ^(fetch_v "inputLinesFrom" (get_ml_prog_state()))
     [fov] (STDIO fs)
     (POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
       (if IS_SOME fo ⇒ inFS_fname fs (THE fo)
-       then SOME (case fo of NONE => all_lines_inode fs (UStream(strlit"stdin"))
-                           | SOME f => all_lines fs f)
-       else NONE) sv * STDIO (if IS_SOME fo then fs else fastForwardFD fs 0))
+       then SOME (case fo of
+           NONE => (lines_of (implode (THE (stdin_content fs ))))
+         | SOME f => all_lines_file fs f)
+       else NONE) sv *
+      STDIO (if IS_SOME fo then fs else fastForwardFD fs 0))
 Proof
-  xcf"inputLinesFromAny"(get_ml_prog_state())
-  \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull )
-  \\ reverse(Cases_on`∃ll. wfFS (fs with numchars := ll)`) >- (fs[STDIO_def,IOFS_def] \\ xpull)
-  \\ Cases_on`fo` \\ fs[OPTION_TYPE_def]
-  \\ xmatch
+  rpt strip_tac
+  \\ xcf"inputLinesFrom"(get_ml_prog_state())
+  \\ Cases_on`fo` \\ fs[OPTION_TYPE_def] \\ xmatch
   >- (
-    `∃cnt. get_file_content fs 0 = SOME (cnt,0)`
-    by (
-      simp[get_file_content_def, PULL_EXISTS]
-      \\ fs[STD_streams_def]
-      \\ last_x_assum(qspecl_then[`0`,`ReadMode`,`inp`]mp_tac)
-      \\ simp[] \\ strip_tac
-      \\ fs[wfFS_def]
-      \\ imp_res_tac ALOOKUP_MEM
-      \\ first_x_assum(qspec_then`0`mp_tac)
-      \\ simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
-      \\ disch_then drule \\ strip_tac
-      \\ qmatch_goalsub_abbrev_tac`ALOOKUP aa bb = SOME _`
-      \\ Cases_on`ALOOKUP aa bb` \\ fs[Abbr`aa`,Abbr`bb`]
-      \\ imp_res_tac ALOOKUP_FAILS \\ fs[])
-    \\ reverse xlet_auto
-    >- (
-      xcon
-      \\ xsimpl
-      \\ simp[all_lines_def]
-      \\ fs[get_file_content_def]
-      \\ fs[STD_streams_def]
-      \\ last_x_assum(qspecl_then[`0`,`ReadMode`,`inp`]mp_tac)
-      \\ rw[]
-      \\ pairarg_tac \\ fs[]
-      \\ fs[lines_of_def] )
-    \\ qexists_tac`emp`
-    \\ xsimpl
-    \\ mp_tac stdin_v_thm
-    \\ drule STD_streams_get_mode
-    \\ simp[stdIn_def]
-    \\ EVAL_TAC )
-  \\ xapp
-  \\ fs[]
+    xlet_auto>>xsimpl>>
+    xcon>>xsimpl>>
+    fs[lines_of_gen_lines_of])>>
+  xapp>>xsimpl>>
+  first_x_assum $ irule_at Any>>
+  simp[]>>
+  first_x_assum $ irule_at Any>>
+  xsimpl
 QED
 (* -- *)
 
-val wordcount = process_topdecs`
+Quote add_cakeml:
   fun wordcount u =
-      case inputLinesFromAny
+      case inputLinesFrom
              (case CommandLine.arguments() of [fname] => Some fname | _ => None)
       of Some lines =>
         (TextIO.print (Int.toString (wc_lines lines)); TextIO.output1 TextIO.stdOut #" ";
-         TextIO.print (Int.toString (List.length lines)); TextIO.output1 TextIO.stdOut #"\n")`;
-val _ = append_prog wordcount;
+         TextIO.print (Int.toString (List.length lines)); TextIO.output1 TextIO.stdOut #"\n")
+End
 
-val wordcount_precond_def = Define`
+Definition wordcount_precond_def:
   wordcount_precond cl fs contents fs' ⇔
     case cl of
       [_; fname] =>
@@ -102,9 +77,9 @@ val wordcount_precond_def = Define`
         ALOOKUP fs.inode_tbl (File ino) = SOME contents ∧
         fs' = fs
     | _ =>
-      ALOOKUP fs.infds 0 = SOME (UStream(strlit"stdin"),ReadMode,0) ∧
-      ALOOKUP fs.inode_tbl (UStream (strlit"stdin")) = SOME contents ∧
-      fs' = fastForwardFD fs 0`;
+      stdin_content fs = SOME contents ∧
+      fs' = fastForwardFD fs 0
+End
 
 Theorem wordcount_precond_numchars:
    wordcount_precond cl fs contens fs' ⇒ fs'.numchars = fs.numchars
@@ -121,9 +96,9 @@ Theorem wordcount_spec:
      (POSTv uv. &UNIT_TYPE () uv *
                  STDIO (add_stdout fs'
                    (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
-                            strlit " ";
+                            « »;
                             mlint$toString (&(LENGTH (splitlines contents)));
-                            strlit "\n"]))
+                            «\n»]))
                 * COMMANDLINE cl)
 Proof
   simp [concat_def] \\
@@ -214,15 +189,15 @@ Proof
     \\ Cases_on`t` \\ fs[] \\ xsimpl
     \\ Cases_on`t'` \\ fs[] \\ xsimpl ) \\
   simp[Abbr`output`,Abbr`output'`] \\
-  fs [mlintTheory.toString_thm,implode_def,strcat_def,concat_def] \\
-  simp[wc_lines_def,str_def,implode_def] \\
+  fs [mlintTheory.toString_thm,strcat_def,concat_def] \\
+  simp[wc_lines_def,chr_to_str_def] \\
   qmatch_abbrev_tac`s1 ++ " " ++ s2 = t1 ++ " " ++ t2` \\
   `s1 = t1 ∧ s2 = t2` suffices_by rw[] \\
   simp[Abbr`s1`,Abbr`t1`,Abbr`s2`,Abbr`t2`] \\
   simp[mlintTheory.toString_thm,integerTheory.INT_ABS_NUM] \\
   rveq \\
   reverse conj_tac >- (
-    simp[all_lines_def,lines_of_def] \\
+    simp[all_lines_file_def,lines_of_def] \\
     fs[Abbr`fo`]
     \\ fs[wordcount_precond_def]
     \\ Cases_on`cl` \\ fs[wfcl_def]
@@ -235,7 +210,7 @@ Proof
   \\ Cases_on`cl` \\ fs[wfcl_def]
   \\ Cases_on`t` \\ fs[]
   \\ TRY (Cases_on`t'` \\ fs[])
-  \\ simp[all_lines_def,splitwords_lines_of,splitwords_def, mlstringTheory.TOKENS_eq_tokens_sym]
+  \\ simp[all_lines_file_def,splitwords_lines_of,splitwords_def, mlstringTheory.TOKENS_eq_tokens_sym]
 QED
 
 Theorem wordcount_whole_prog_spec:
@@ -245,9 +220,9 @@ Theorem wordcount_whole_prog_spec:
    ((=)
      (add_stdout fs'
        (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
-                strlit " ";
+                « »;
                 mlint$toString (&(LENGTH (splitlines contents)));
-                strlit "\n"])))
+                «\n»])))
 Proof
   disch_then assume_tac
   \\ imp_res_tac wordcount_precond_numchars
@@ -260,14 +235,5 @@ Proof
   \\ xsimpl
 QED
 
-val spec = wordcount_whole_prog_spec |> UNDISCH_ALL
-val (sem_thm,prog_tm) = whole_prog_thm (get_ml_prog_state()) "wordcount" spec
-val wordcount_prog_def = mk_abbrev"wordcount_prog" prog_tm;
-
-val wordcount_semantics = save_thm("wordcount_semantics",
-  sem_thm |> PURE_REWRITE_RULE[GSYM wordcount_prog_def]
-  |> DISCH_ALL
-  |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC,LENGTH]
-  |> SIMP_RULE (srw_ss()) []);
-
-val _ = export_theory();
+Theorem wordcount_semantics =
+  prove_sem_thm "wordcount" "wordcount_prog" wordcount_whole_prog_spec;

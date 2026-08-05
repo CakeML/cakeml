@@ -1,16 +1,13 @@
 (*
   Correctness proof for lab_to_target
 *)
-open preamble ffiTheory BasicProvers
-     wordSemTheory labSemTheory labPropsTheory
-     lab_to_targetTheory
-     lab_filterProofTheory
-     asmTheory asmSemTheory asmPropsTheory
-     targetSemTheory targetPropsTheory
-local open stack_removeProofTheory in end
-
-val _ = new_theory "lab_to_targetProof";
-val drule = old_drule
+Theory lab_to_targetProof
+Ancestors
+  ffi wordSem labSem labProps lab_to_target lab_filterProof asm
+  asmSem asmProps targetSem targetProps
+  stack_removeProof[qualified]
+Libs
+  preamble BasicProvers
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -18,23 +15,26 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 
 fun say0 pfx s g = (print (pfx ^ ": " ^ s ^ "\n"); ALL_TAC g)
 
-val evaluate_ignore_clocks = Q.prove(
-  `evaluate mc_conf ffi k ms = (r1,ms1,st1) /\ r1 <> TimeOut /\
+Theorem evaluate_ignore_clocks[local]:
+  evaluate mc_conf ffi k ms = (r1,ms1,st1) /\ r1 <> TimeOut /\
     evaluate mc_conf ffi k' ms = (r2,ms2,st2) /\ r2 <> TimeOut ==>
-    (r1,ms1,st1) = (r2,ms2,st2)`,
+    (r1,ms1,st1) = (r2,ms2,st2)
+Proof
   srw_tac[][] \\ imp_res_tac evaluate_add_clock \\ full_simp_tac(srw_ss())[]
   \\ pop_assum (qspec_then `k'` mp_tac)
   \\ pop_assum (qspec_then `k` mp_tac)
-  \\ full_simp_tac(srw_ss())[AC ADD_ASSOC ADD_COMM])
+  \\ full_simp_tac(srw_ss())[AC ADD_ASSOC ADD_COMM]
+QED
 
-val sec_loc_to_pc_def = Define`
+Definition sec_loc_to_pc_def:
   (sec_loc_to_pc n2 xs =
    if n2 = 0 then SOME 0
    else case xs of [] => NONE
    | (z::zs) =>
      if (?n1 k. z = Label n1 n2 k) then SOME 0
      else if is_Label z then sec_loc_to_pc n2 zs
-     else OPTION_MAP SUC (sec_loc_to_pc n2 zs))`;
+     else OPTION_MAP SUC (sec_loc_to_pc n2 zs))
+End
 
 val sec_loc_to_pc_ind = theorem"sec_loc_to_pc_ind"
 
@@ -92,31 +92,35 @@ QED
 
 val _ = temp_remove_rules_for_term"step";
 
-val enc_with_nop_def = Define `
+Definition enc_with_nop_def:
   enc_with_nop enc (b:'a asm) bytes =
     let init = enc b in
     let step = enc (asm$Inst Skip) in
       if LENGTH step = 0 then bytes = init else
         let n = (LENGTH bytes - LENGTH init) DIV LENGTH step in
-          bytes = init ++ FLAT (REPLICATE n step)`
+          bytes = init ++ FLAT (REPLICATE n step)
+End
 
-val enc_with_nop_thm = Q.prove(
-  `enc_with_nop enc (b:'a asm) bytes =
-      ?n. bytes = enc b ++ FLAT (REPLICATE n (enc (asm$Inst Skip)))`,
+Theorem enc_with_nop_thm[local]:
+  enc_with_nop enc (b:'a asm) bytes =
+      ?n. bytes = enc b ++ FLAT (REPLICATE n (enc (asm$Inst Skip)))
+Proof
   fs [enc_with_nop_def,LENGTH_NIL]
   \\ IF_CASES_TAC \\ fs [FLAT_REPLICATE_NIL]
   \\ EQ_TAC \\ rw [] THEN1 metis_tac []
   \\ fs [LENGTH_APPEND,LENGTH_FLAT,map_replicate,SUM_REPLICATE]
-  \\ full_simp_tac (std_ss++ARITH_ss) [GSYM LENGTH_NIL,MULT_DIV]);
+  \\ full_simp_tac (std_ss++ARITH_ss) [GSYM LENGTH_NIL,MULT_DIV]
+QED
 
-val asm_step_nop_def = Define `
+Definition asm_step_nop_def:
   asm_step_nop bytes c s1 i s2 <=>
     bytes_in_memory s1.pc bytes s1.mem s1.mem_domain /\
     enc_with_nop c.encode i bytes /\
     (case c.link_reg of NONE => T | SOME r => s1.lr = r) /\
     (s1.be <=> c.big_endian) /\ s1.align = c.code_alignment /\
     asm i (s1.pc + n2w (LENGTH bytes)) s1 = s2 /\ ~s2.failed /\
-    asm_ok i c`
+    asm_ok i c
+End
 
 val evaluate_nop_step =
   asm_step_IMP_evaluate_step
@@ -125,14 +129,18 @@ val evaluate_nop_step =
     |> SIMP_RULE (srw_ss()) [asm_def,inst_def,asm_ok_def,inst_ok_def,
          Once upd_pc_def,GSYM CONJ_ASSOC]
 
-val shift_interfer_0 = Q.prove(
-  `shift_interfer 0 = I`,
+Theorem shift_interfer_0[local]:
+  shift_interfer 0 = I
+Proof
   full_simp_tac(srw_ss())[shift_interfer_def,FUN_EQ_THM,shift_seq_def,
-      machine_config_component_equality]);
+      machine_config_component_equality]
+QED
 
-val upd_pc_with_pc = Q.prove(
-  `upd_pc s1.pc s1 = s1:'a asm_state`,
-  full_simp_tac(srw_ss())[asm_state_component_equality,upd_pc_def]);
+Theorem upd_pc_with_pc[local]:
+  upd_pc s1.pc s1 = s1:'a asm_state
+Proof
+  full_simp_tac(srw_ss())[asm_state_component_equality,upd_pc_def]
+QED
 
 Theorem shift_interfer_twice[simp]:
    shift_interfer l' (shift_interfer l c) =
@@ -141,8 +149,8 @@ Proof
   full_simp_tac(srw_ss())[shift_interfer_def,shift_seq_def,AC ADD_COMM ADD_ASSOC]
 QED
 
-val evaluate_nop_steps = Q.prove(
-  `!n s1 ms1 c.
+Theorem evaluate_nop_steps[local]:
+  !n s1 ms1 c.
       encoder_correct c.target /\
       c.prog_addresses = s1.mem_domain /\
       ffi_entry_pcs_disjoint c s1
@@ -163,7 +171,8 @@ val evaluate_nop_steps = Q.prove(
             (upd_pc
               (s1.pc +
                n2w (n * LENGTH (c.target.config.encode (Inst Skip)))) s1)
-            ms2`,
+            ms2
+Proof
   Induct \\ full_simp_tac(srw_ss())[] THEN1
    (rpt strip_tac \\ Q.LIST_EXISTS_TAC [`0`,`ms1`]
     \\ full_simp_tac(srw_ss())[shift_interfer_0,upd_pc_with_pc])
@@ -213,7 +222,8 @@ val evaluate_nop_steps = Q.prove(
   \\ first_x_assum (mp_tac o Q.SPEC `k`)
   \\ first_x_assum (mp_tac o Q.SPEC `k+l'`)
   \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]
-  \\ gvs [word_add_n2w]);
+  \\ gvs [word_add_n2w]
+QED
 
 Theorem ffi_entry_pcs_disjoint_LENGTH_shorter:
 !l1 l2.
@@ -229,7 +239,7 @@ Proof
   disj2_tac >>
   strip_tac >>
   disch_then assume_tac >>
-  first_x_assum drule >>
+  first_x_assum old_drule >>
   rpt strip_tac >>
   fs[LE_LT1]
 QED
@@ -259,7 +269,7 @@ Proof
    (conj_tac
     >- (
       fs[LENGTH_APPEND]
-      \\ drule ffi_entry_pcs_disjoint_LENGTH_shorter
+      \\ old_drule ffi_entry_pcs_disjoint_LENGTH_shorter
       \\ disch_then $ qspec_then `LENGTH (c.target.config.encode i)` assume_tac
       \\ fs[])
     \\ fs[bytes_in_memory_APPEND]
@@ -300,7 +310,7 @@ Proof
       \\ fs[addressTheory.word_arith_lemma1]
       \\ disj2_tac
       \\ ntac 2 strip_tac
-      \\ first_x_assum drule
+      \\ first_x_assum old_drule
       \\ gvs[]
     )
     THEN1 (fs[interference_ok_def,shift_seq_def])
@@ -332,20 +342,24 @@ QED
 
 (* define relation between labSem and targetSem states *)
 
-val lab_lookup_def = Define `
+Definition lab_lookup_def:
   lab_lookup k1 k2 labs =
     case lookup k1 labs of
     | NONE => NONE
-    | SOME f => lookup k2 f`
+    | SOME f => lookup k2 f
+End
 
-val lab_lookup_IMP = Q.prove(
-  `(lab_lookup l1 l2 labs = SOME x) ==>
-    (find_pos (Lab l1 l2) labs = x)`,
+Theorem lab_lookup_IMP[local]:
+  (lab_lookup l1 l2 labs = SOME x) ==>
+    (find_pos (Lab l1 l2) labs = x)
+Proof
   full_simp_tac(srw_ss())[lab_lookup_def,find_pos_def,lookup_any_def]
-  \\ BasicProvers.EVERY_CASE_TAC);
+  \\ BasicProvers.EVERY_CASE_TAC
+QED
 
-val labs_domain_def = Define`
-  labs_domain labs = { (n1, n2) | lab_lookup n1 n2 labs ≠ NONE }`;
+Definition labs_domain_def:
+  labs_domain labs = { (n1, n2) | lab_lookup n1 n2 labs ≠ NONE }
+End
 
 Theorem labs_domain_LN[simp]:
    labs_domain LN = {}
@@ -363,26 +377,29 @@ Proof
 QED
 
 
-val has_odd_inst_def = Define `
+Definition has_odd_inst_def:
   (has_odd_inst [] = F) /\
   (has_odd_inst ((Section k [])::xs) = has_odd_inst xs) /\
   (has_odd_inst ((Section k (y::ys))::xs) <=>
-     ~EVEN (line_length y) \/ has_odd_inst ((Section k ys)::xs))`
+     ~EVEN (line_length y) \/ has_odd_inst ((Section k ys)::xs))
+End
 
-val line_similar_def = Define `
+Definition line_similar_def:
   (line_similar (Label k1 k2 l) (Label k1' k2' l') <=> (k1 = k1') /\ (k2 = k2')) /\
   (line_similar (Asm b bytes l) (Asm b' bytes' l') <=> (b = b')) /\
   (line_similar (LabAsm a w bytes l) (LabAsm a' w' bytes' l') <=> (a = a')) /\
-  (line_similar _ _ <=> F)`
+  (line_similar _ _ <=> F)
+End
 
 val line_similar_ind = theorem"line_similar_ind";
 
-val code_similar_def = Define `
+Definition code_similar_def:
   (code_similar [] [] = T) /\
   (code_similar ((Section s1 lines1)::rest1) ((Section s2 lines2)::rest2) <=>
      code_similar rest1 rest2 /\
      EVERY2 line_similar lines1 lines2 /\ (s1 = s2)) /\
-  (code_similar _ _ = F)`
+  (code_similar _ _ = F)
+End
 
 val code_similar_ind = theorem "code_similar_ind";
 
@@ -418,9 +435,11 @@ Proof
   match_mp_tac EVERY2_refl >> simp[]
 QED
 
-val line_similar_trans = Q.prove(
-  `line_similar x y /\ line_similar y z ==> line_similar x z`,
-  Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs[line_similar_def]);
+Theorem line_similar_trans[local]:
+  line_similar x y /\ line_similar y z ==> line_similar x z
+Proof
+  Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs[line_similar_def]
+QED
 
 Theorem code_similar_trans:
    !c1 c2 c3. code_similar c1 c2 /\ code_similar c2 c3 ==> code_similar c1 c3
@@ -490,29 +509,32 @@ Proof
   metis_tac[line_similar_len_no_lab]
 QED
 
-val word_loc_val_def = Define `
+Definition word_loc_val_def:
   (word_loc_val p labs (Word w) = SOME w) /\
   (word_loc_val p labs (Loc k1 k2) =
      case lab_lookup k1 k2 labs of
      | NONE => NONE
-     | SOME q => SOME (p + n2w q))`;
+     | SOME q => SOME (p + n2w q))
+End
 
-val has_io_name_def = Define `
+Definition has_io_name_def:
   (has_io_name index [] = F) /\
   (has_io_name index ((Section k [])::xs) = has_io_name index xs) /\
   (has_io_name index ((Section k (y::ys))::xs) <=>
      has_io_name index ((Section k ys)::xs) \/
-     case y of LabAsm (CallFFI i) _ _ _ => (i = index) | _ => F)`
+     case y of LabAsm (CallFFI i) _ _ _ => (i = index) | _ => F)
+End
 
 val has_io_name_ind = theorem"has_io_name_ind"
 
-val word_loc_val_byte_def = Define `
+Definition word_loc_val_byte_def:
   word_loc_val_byte p labs m a be =
     case word_loc_val p labs (m (byte_align a)) of
     | SOME w => SOME (get_byte a w be)
-    | NONE => NONE`
+    | NONE => NONE
+End
 
-val line_ok_def = Define `
+Definition line_ok_def:
   (line_ok (c:'a asm_config) labs ffis pos (Label _ _ l) <=>
      EVEN pos /\ (l = 0)) /\
   (line_ok c labs ffis pos (Asm b bytes l) <=>
@@ -539,23 +561,26 @@ val line_ok_def = Define `
      | SOME t =>
      let w1 = n2w t- n2w pos in
        enc_with_nop c.encode (lab_inst w1 a) bytes /\
-       (LENGTH bytes = l) /\ asm_ok (lab_inst w1 a) c))`
+       (LENGTH bytes = l) /\ asm_ok (lab_inst w1 a) c))
+End
 
 val line_ok_ind = theorem"line_ok_ind";
 
-val lines_ok_def = Define`
+Definition lines_ok_def:
   (lines_ok c labs ffis pos [] = T) ∧
   (lines_ok c labs ffis pos (y::ys) ⇔
    line_ok c labs ffis pos y ∧
-   lines_ok c labs ffis (pos + line_length y) ys)`;
+   lines_ok c labs ffis (pos + line_length y) ys)
+End
 
-val all_enc_ok_def = Define `
+Definition all_enc_ok_def:
   (all_enc_ok c labs ffis pos [] = T) /\
   (all_enc_ok c labs ffis pos ((Section k [])::xs) <=>
      EVEN pos /\ all_enc_ok c labs ffis pos xs) /\
   (all_enc_ok c labs ffis pos ((Section k (y::ys))::xs) <=>
      line_ok c labs ffis pos y /\
-     all_enc_ok c labs ffis (pos + line_length y) ((Section k ys)::xs))`
+     all_enc_ok c labs ffis (pos + line_length y) ((Section k ys)::xs))
+End
 
 val all_enc_ok_ind = theorem"all_enc_ok_ind";
 
@@ -570,14 +595,15 @@ Proof
   simp[] >> metis_tac[]
 QED
 
-val pos_val_def = Define `
+Definition pos_val_def:
   (pos_val i pos [] = (pos:num)) /\
   (pos_val i pos ((Section k [])::xs) = pos_val i pos xs) /\
   (pos_val i pos ((Section k (y::ys))::xs) =
      if is_Label y
      then pos_val i (pos + line_length y) ((Section k ys)::xs)
      else if i = 0:num then pos
-          else pos_val (i-1) (pos + line_length y) ((Section k ys)::xs))`;
+          else pos_val (i-1) (pos + line_length y) ((Section k ys)::xs))
+End
 
 val pos_val_ind = theorem"pos_val_ind";
 
@@ -591,13 +617,14 @@ Proof
   \\ Cases_on `h` \\ full_simp_tac(srw_ss())[line_ok_def,line_length_def,is_Label_def]
 QED
 
-val sec_pos_val_def = Define`
+Definition sec_pos_val_def:
   (sec_pos_val i pos [] = NONE) ∧
   (sec_pos_val i pos (y::ys) =
    if is_Label y then
      sec_pos_val i (pos + line_length y) ys
    else if i = 0n then SOME pos
-   else sec_pos_val (i-1) (pos + line_length y) ys)`;
+   else sec_pos_val (i-1) (pos + line_length y) ys)
+End
 
 Theorem sec_pos_val_too_big:
    ∀i pos lines.
@@ -612,16 +639,18 @@ Proof
   Induct_on`lines` \\ rw[sec_pos_val_def]
 QED
 
-val pos_val_thm0 = Q.prove(
-  `∀i pos acc.
+Theorem pos_val_thm0[local]:
+  ∀i pos acc.
     pos_val i pos acc =
       case acc of [] => pos
       | Section k s :: ss =>
         case sec_pos_val i pos s of NONE =>
         pos_val (i - LENGTH (FILTER ($~ o is_Label) s)) (pos + SUM (MAP line_length s)) ss
-        | SOME x => x`,
+        | SOME x => x
+Proof
   ho_match_mp_tac pos_val_ind
-  \\ rw[pos_val_def,sec_pos_val_def,ADD1]);
+  \\ rw[pos_val_def,sec_pos_val_def,ADD1]
+QED
 
 Theorem pos_val_thm:
    (pos_val i pos [] = pos) ∧
@@ -633,7 +662,7 @@ Proof
   rw[Once pos_val_thm0] \\ rw[Once pos_val_thm0]
 QED
 
-val good_code_def = Define`
+Definition good_code_def:
   good_code c labs code ⇔
    EVERY sec_ends_with_label code /\
    EVERY sec_labels_ok code /\
@@ -641,7 +670,8 @@ val good_code_def = Define`
    EVERY (ALL_DISTINCT o extract_labels o Section_lines) code /\
    DISJOINT (domain labs) (set (MAP Section_num code)) ∧
    restrict_nonzero (get_labels code) ⊆ get_code_labels code ∪ labs_domain labs ∧
-   all_enc_ok_pre c code`;
+   all_enc_ok_pre c code
+End
 
 Definition num_pcs_def:
   num_pcs [] = (0:num) /\
@@ -684,7 +714,7 @@ Definition share_mem_domain_code_rel_def:
 End
 
 Definition share_mem_state_rel_def:
-  share_mem_state_rel mc_conf (s1:('a, 'a lab_to_target$config,'ffi) labSem$state) t1 ms1 <=>
+  share_mem_state_rel mc_conf (s1:('a, lab_to_target$config,'ffi) labSem$state) t1 ms1 <=>
      (* ffi interfers for mapped read/write are ok *)
      (!ms2 k index new_bytes t1 nb ad offs re pc' ad' st new_st i.
       mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
@@ -749,8 +779,8 @@ End
 (* The code buffer is set-up to immediately follow the current code:
   |---code---|---cb---|
 *)
-val state_rel_def = Define `
-  state_rel (mc_conf, code2, labs, p) (s1:('a,'a lab_to_target$config,'ffi) labSem$state) t1 ms1 <=>
+Definition state_rel_def:
+  state_rel (mc_conf, code2, labs, p) (s1:('a,lab_to_target$config,'ffi) labSem$state) t1 ms1 <=>
     target_state_rel mc_conf.target t1 ms1 /\ good_dimindex (:'a) /\
     (mc_conf.prog_addresses = t1.mem_domain) /\
     ~(mc_conf.halt_pc IN mc_conf.prog_addresses) /\
@@ -793,7 +823,7 @@ val state_rel_def = Define `
               (λa. get_reg_value (s1.cc_regs k a) (t1.regs a) I);
             pc := t1.regs s1.link_reg|>)
         (mc_conf.ccache_interfer k (a1,a2,ms2))) /\
-    s1.compile = compile_lab ∧
+    s1.compile = compile_lab mc_conf.target.config ∧
     (no_share_mem_inst code2 ==> (∀k. let (cfg,code) = s1.compile_oracle k in
             good_code mc_conf.target.config cfg.labels code ∧
             no_share_mem_inst code /\
@@ -804,7 +834,6 @@ val state_rel_def = Define `
             (k = 0 ⇒
             cfg.labels = labs ∧
             cfg.pos = LENGTH (prog_to_bytes code2) ∧
-            cfg.asm_conf = mc_conf.target.config ∧
             cfg.ffi_names = SOME(mc_conf.ffi_names)
             ))) ∧
     (!l1 l2 x.
@@ -875,7 +904,8 @@ val state_rel_def = Define `
     share_mem_state_rel mc_conf s1 t1 ms1 /\
     share_mem_domain_code_rel mc_conf p code2 s1.shared_mem_domain /\
     LENGTH mc_conf.ffi_names = LENGTH mc_conf.ffi_entry_pcs /\
-    no_install_or_no_share_mem code2 mc_conf.ffi_names`
+    no_install_or_no_share_mem code2 mc_conf.ffi_names
+End
 
 Theorem state_rel_clock:
   state_rel x s1 t1 ms ==>
@@ -927,8 +957,8 @@ Proof
 QED
 
 (* bytes_in_memory lemmas *)
-val prog_to_bytes_lemma = Q.prove(
-  `!code2 code1 pc i pos.
+Theorem prog_to_bytes_lemma[local]:
+  !code2 code1 pc i pos.
       code_similar code1 code2 /\
       all_enc_ok (mc_conf:('a,'state,'b) machine_config).target.config
         labs ffi_names pos code2 /\
@@ -938,7 +968,8 @@ val prog_to_bytes_lemma = Q.prove(
         (LENGTH bs + pos = pos_val pc pos code2) /\
         (LENGTH bs + pos + LENGTH (line_bytes j) = pos_val (pc+1) pos code2) /\
         line_similar i j /\
-        line_ok mc_conf.target.config labs ffi_names (pos_val pc pos code2) j`,
+        line_ok mc_conf.target.config labs ffi_names (pos_val pc pos code2) j
+Proof
   HO_MATCH_MP_TAC asm_code_length_ind \\ REPEAT STRIP_TAC
   THEN1 (Cases_on `code1` \\ full_simp_tac(srw_ss())[code_similar_def,asm_fetch_aux_def])
   THEN1
@@ -978,18 +1009,21 @@ val prog_to_bytes_lemma = Q.prove(
   \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
   \\ Q.LIST_EXISTS_TAC [`line_bytes x2 ++ bs`,
         `j`,`bs2`] \\ full_simp_tac(srw_ss())[] \\ `pc - 1 + 1 = pc` by decide_tac
-  \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC])
+  \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]
+QED
 
 val prog_to_bytes_lemma = prog_to_bytes_lemma
   |> Q.SPECL [`code2`,`code1`,`pc`,`i`,`0`]
   |> SIMP_RULE std_ss [];
 
-val bytes_in_mem_APPEND = Q.prove(
-  `!xs ys a m md md1.
+Theorem bytes_in_mem_APPEND[local]:
+  !xs ys a m md md1.
       bytes_in_mem a (xs ++ ys) m md md1 <=>
       bytes_in_mem a xs m md md1 /\
-      bytes_in_mem (a + n2w (LENGTH xs)) ys m md md1`,
-  Induct \\ full_simp_tac(srw_ss())[bytes_in_mem_def,ADD1,GSYM word_add_n2w,CONJ_ASSOC]);
+      bytes_in_mem (a + n2w (LENGTH xs)) ys m md md1
+Proof
+  Induct \\ full_simp_tac(srw_ss())[bytes_in_mem_def,ADD1,GSYM word_add_n2w,CONJ_ASSOC]
+QED
 
 Theorem bytes_in_mem_UPDATE:
    ∀ls a m md md2 w1 w2.
@@ -1008,10 +1042,10 @@ Proof
   rfs[GSYM word_add_n2w]
 QED
 
-val s1 = ``s1:('a,'a lab_to_target$config,'ffi) labSem$state``;
+val s1 = ``s1:('a,lab_to_target$config,'ffi) labSem$state``;
 
-val IMP_bytes_in_memory = Q.prove(
-  `code_similar code1 code2 /\
+Theorem IMP_bytes_in_memory[local]:
+  code_similar code1 code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     (asm_fetch_aux pc code1 = SOME i) /\
     bytes_in_mem p (prog_to_bytes code2) m (dm:'a word set) dm1 ==>
@@ -1020,20 +1054,23 @@ val IMP_bytes_in_memory = Q.prove(
       line_ok (mc_conf:('a,'state,'b) machine_config).target.config
         labs ffi_names (pos_val pc 0 code2) j /\
       (pos_val (pc+1) 0 code2 = pos_val pc 0 code2 + LENGTH (line_bytes j)) /\
-      line_similar i j`,
+      line_similar i j
+Proof
   rpt strip_tac
   \\ mp_tac prog_to_bytes_lemma \\ fs[] \\ rpt strip_tac
   \\ fs[bytes_in_mem_APPEND]
-  \\ Q.EXISTS_TAC `j` \\ fs[] \\ decide_tac);
+  \\ Q.EXISTS_TAC `j` \\ fs[] \\ decide_tac
+QED
 
-val IMP_bytes_in_memory_JumpReg = Q.prove(
-  `code_similar s1.code code2 /\
+Theorem IMP_bytes_in_memory_JumpReg[local]:
+  code_similar s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (Asm (Asmi (JumpReg r1)) l n)) ==>
     bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
       (mc_conf.target.config.encode (JumpReg r1)) t1.mem t1.mem_domain /\
-    asm_ok (JumpReg r1) (mc_conf: ('a,'state,'b) machine_config).target.config`,
+    asm_ok (JumpReg r1) (mc_conf: ('a,'state,'b) machine_config).target.config
+Proof
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
@@ -1043,18 +1080,16 @@ val IMP_bytes_in_memory_JumpReg = Q.prove(
   \\ fs[line_ok_def,enc_with_nop_thm] \\ srw_tac[][] \\ fs[]
   \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
-         bytes_in_memory_APPEND]);
+         bytes_in_memory_APPEND]
+QED
 
-fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
-val lab_thms = get_thms ``:lab``
-val option_thms = get_thms ``:'a option``
-val case_eq_thms0 = map prove_case_eq_thm [lab_thms, option_thms]
+val case_eq_thms0 = map TypeBase.case_eq_of [``:lab``, ``:'a option``]
 val bool_case_eq_thms = map (fn th =>
   let val v = th |> concl |> lhs |> rhs
   in th |> GEN v |> Q.ISPEC`T` |> SIMP_RULE bool_ss [] end) case_eq_thms0
 
-val IMP_bytes_in_memory_Jump = Q.prove(
-  `code_similar ^s1.code code2 /\
+Theorem IMP_bytes_in_memory_Jump[local]:
+  code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (Jump jtarget) l bytes n)) ==>
@@ -1064,7 +1099,8 @@ val IMP_bytes_in_memory_Jump = Q.prove(
       (enc = mc_conf.target.config.encode (Jump tt)) /\
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         enc t1.mem t1.mem_domain /\
-      asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).target.config`,
+      asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).target.config
+Proof
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
@@ -1077,10 +1113,11 @@ val IMP_bytes_in_memory_Jump = Q.prove(
   \\ fs[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
   \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
-         bytes_in_memory_APPEND]);
+         bytes_in_memory_APPEND]
+QED
 
-val IMP_bytes_in_memory_JumpCmp = Q.prove(
-  `code_similar ^s1.code code2 /\
+Theorem IMP_bytes_in_memory_JumpCmp[local]:
+  code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (JumpCmp cmp rr ri jtarget) l bytes n)) ==>
@@ -1090,7 +1127,8 @@ val IMP_bytes_in_memory_JumpCmp = Q.prove(
       (enc = mc_conf.target.config.encode (JumpCmp cmp rr ri tt)) /\
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         enc t1.mem t1.mem_domain /\
-      asm_ok (JumpCmp cmp rr ri tt) (mc_conf: ('a,'state,'b) machine_config).target.config`,
+      asm_ok (JumpCmp cmp rr ri tt) (mc_conf: ('a,'state,'b) machine_config).target.config
+Proof
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
@@ -1103,10 +1141,11 @@ val IMP_bytes_in_memory_JumpCmp = Q.prove(
   \\ fs[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
   \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
-         bytes_in_memory_APPEND]);
+         bytes_in_memory_APPEND]
+QED
 
-val IMP_bytes_in_memory_JumpCmp_1 = Q.prove(
-  `code_similar ^s1.code code2 /\
+Theorem IMP_bytes_in_memory_JumpCmp_1[local]:
+  code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (JumpCmp cmp rr ri jtarget) l bytes n)) ==>
@@ -1117,7 +1156,8 @@ val IMP_bytes_in_memory_JumpCmp_1 = Q.prove(
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         bytes t1.mem t1.mem_domain /\
       (pos_val (s1.pc+1) 0 code2 = pos_val s1.pc 0 code2 + LENGTH bytes) /\
-      asm_ok (JumpCmp cmp rr ri tt) (mc_conf: ('a,'state,'b) machine_config).target.config`,
+      asm_ok (JumpCmp cmp rr ri tt) (mc_conf: ('a,'state,'b) machine_config).target.config
+Proof
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
@@ -1130,24 +1170,27 @@ val IMP_bytes_in_memory_JumpCmp_1 = Q.prove(
   \\ Q.EXISTS_TAC `l'` \\ fs[enc_with_nop_thm,PULL_EXISTS,line_length_def]
   \\ imp_res_tac bytes_in_mem_IMP \\ fs[line_bytes_def]
   \\ rveq \\ fs[lab_inst_def]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
-val IMP_bytes_in_memory_Call = Q.prove(
-  `code_similar ^s1.code code2 /\
+Theorem IMP_bytes_in_memory_Call[local]:
+  code_similar ^s1.code code2 /\
     all_enc_ok
       (mc_conf: ('a,'state,'b) machine_config).target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem
       (t1:'a asm_state).mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (Call ww) l bytes n)) ==>
-    F`,
+    F
+Proof
   rpt strip_tac
   \\ full_simp_tac(srw_ss())[asm_fetch_def,LET_DEF]
   \\ imp_res_tac IMP_bytes_in_memory
   \\ Cases_on `j` \\ full_simp_tac(srw_ss())[line_similar_def] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[line_ok_def] \\ rev_full_simp_tac(srw_ss())[]);
+  \\ full_simp_tac(srw_ss())[line_ok_def] \\ rev_full_simp_tac(srw_ss())[]
+QED
 
-val IMP_bytes_in_memory_LocValue = Q.prove(
-  `code_similar ^s1.code code2 /\
+Theorem IMP_bytes_in_memory_LocValue[local]:
+  code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (LocValue reg (Lab l1 l2)) l bytes n)) ==>
@@ -1158,7 +1201,8 @@ val IMP_bytes_in_memory_LocValue = Q.prove(
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         bytes t1.mem t1.mem_domain /\
       (pos_val (s1.pc+1) 0 code2 = pos_val s1.pc 0 code2 + LENGTH bytes) /\
-      asm_ok (Loc reg tt) (mc_conf: ('a,'state,'b) machine_config).target.config`,
+      asm_ok (Loc reg tt) (mc_conf: ('a,'state,'b) machine_config).target.config
+Proof
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
@@ -1171,10 +1215,11 @@ val IMP_bytes_in_memory_LocValue = Q.prove(
   \\ fs[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
   \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
-         bytes_in_memory_APPEND] \\ srw_tac[][] \\ metis_tac[]);
+         bytes_in_memory_APPEND] \\ srw_tac[][] \\ metis_tac[]
+QED
 
-val IMP_bytes_in_memory_Inst = Q.prove(
-  `code_similar ^s1.code code2 /\
+Theorem IMP_bytes_in_memory_Inst[local]:
+  code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (Asm (Asmi(Inst i)) bytes len)) ==>
@@ -1185,7 +1230,8 @@ val IMP_bytes_in_memory_Inst = Q.prove(
       bytes_in_mem ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         bytes t1.mem t1.mem_domain s1.mem_domain /\
       (pos_val (s1.pc+1) 0 code2 = pos_val s1.pc 0 code2 + LENGTH bytes) /\
-      asm_ok (Inst i) (mc_conf: ('a,'state,'b) machine_config).target.config`,
+      asm_ok (Inst i) (mc_conf: ('a,'state,'b) machine_config).target.config
+Proof
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
@@ -1198,10 +1244,11 @@ val IMP_bytes_in_memory_Inst = Q.prove(
   \\ fs[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
   \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
-         bytes_in_memory_APPEND] \\ srw_tac[][]);
+         bytes_in_memory_APPEND] \\ srw_tac[][]
+QED
 
-val IMP_bytes_in_memory_Cbw = Q.prove(
-  `code_similar ^s1.code code2 /\
+Theorem IMP_bytes_in_memory_Cbw[local]:
+  code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (Asm (Cbw r1 r2) bytes len)) ==>
@@ -1212,7 +1259,8 @@ val IMP_bytes_in_memory_Cbw = Q.prove(
       bytes_in_mem ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         bytes t1.mem t1.mem_domain s1.mem_domain /\
       (pos_val (s1.pc+1) 0 code2 = pos_val s1.pc 0 code2 + LENGTH bytes) /\
-      asm_ok (Inst (Mem Store8 r2 (Addr r1 0w))) (mc_conf: ('a,'state,'b) machine_config).target.config`,
+      asm_ok (Inst (Mem Store8 r2 (Addr r1 0w))) (mc_conf: ('a,'state,'b) machine_config).target.config
+Proof
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
@@ -1225,10 +1273,11 @@ val IMP_bytes_in_memory_Cbw = Q.prove(
   \\ fs[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
   \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
-         bytes_in_memory_APPEND] \\ srw_tac[][]);
+         bytes_in_memory_APPEND] \\ srw_tac[][]
+QED
 
-val IMP_bytes_in_memory_CallFFI = Q.prove(
-  `code_similar ^s1.code code2 /\
+Theorem IMP_bytes_in_memory_CallFFI[local]:
+  code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (CallFFI name) l bytes n)) ==>
@@ -1237,7 +1286,8 @@ val IMP_bytes_in_memory_CallFFI = Q.prove(
       (enc = mc_conf.target.config.encode (Jump tt)) /\
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         enc t1.mem t1.mem_domain /\
-      asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).target.config`,
+      asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).target.config
+Proof
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
@@ -1248,10 +1298,11 @@ val IMP_bytes_in_memory_CallFFI = Q.prove(
   \\ fs[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
   \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
-         bytes_in_memory_APPEND]);
+         bytes_in_memory_APPEND]
+QED
 
-val IMP_bytes_in_memory_Halt = Q.prove(
-  `code_similar ^s1.code code2 /\
+Theorem IMP_bytes_in_memory_Halt[local]:
+  code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm Halt l bytes n)) ==>
@@ -1260,7 +1311,8 @@ val IMP_bytes_in_memory_Halt = Q.prove(
       (enc = mc_conf.target.config.encode (Jump tt)) /\
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         enc t1.mem t1.mem_domain /\
-      asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).target.config`,
+      asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).target.config
+Proof
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
@@ -1271,10 +1323,11 @@ val IMP_bytes_in_memory_Halt = Q.prove(
   \\ fs[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
   \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
-         bytes_in_memory_APPEND]);
+         bytes_in_memory_APPEND]
+QED
 
-val IMP_bytes_in_memory_Install = Q.prove(
-  `code_similar ^s1.code code2 /\
+Theorem IMP_bytes_in_memory_Install[local]:
+  code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm Install c l n)) ==>
@@ -1283,7 +1336,8 @@ val IMP_bytes_in_memory_Install = Q.prove(
       (enc = mc_conf.target.config.encode (Jump tt)) /\
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         enc t1.mem t1.mem_domain /\
-      asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).target.config`,
+      asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).target.config
+Proof
   fs[asm_fetch_def]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
@@ -1294,7 +1348,8 @@ val IMP_bytes_in_memory_Install = Q.prove(
   \\ fs[lab_inst_def,get_label_def] \\ srw_tac[][]
   \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
-         bytes_in_memory_APPEND]);
+         bytes_in_memory_APPEND]
+QED
 
 Theorem all_enc_ok_asm_fetch_aux_IMP_line_ok:
   !pc n code2.
@@ -1349,7 +1404,7 @@ Proof
     >- gvs[pos_val_def,all_enc_ok_def,asm_fetch_aux_def] >>
     Cases_on `pc` >>
     gvs[line_length_def,all_enc_ok_def,pos_val_def,line_ok_def,asm_fetch_aux_def] >>
-    drule pos_val_0 >>
+    old_drule pos_val_0 >>
     gvs[])
 QED
 
@@ -1392,7 +1447,7 @@ Proof
   \\ qabbrev_tac
      `bytes = mc_conf.target.config.encode (Inst (Mem mop r ad)) ++
         FLAT (REPLICATE n'' (mc_conf.target.config.encode (Inst Skip)))`
-  \\ drule $ GEN_ALL asm_fetch_aux_pos_val_LENGTH_EQ
+  \\ old_drule $ GEN_ALL asm_fetch_aux_pos_val_LENGTH_EQ
   \\ disch_then imp_res_tac
   \\ first_x_assum $ qspec_then `bytes` mp_tac
   \\ impl_tac
@@ -1402,22 +1457,25 @@ Proof
   \\ gvs[line_length_def,enc_with_nop_thm,FLAT_REPLICATE_NIL]
 QED
 
-val bytes_in_mem_IMP_memory = Q.prove(
-  `!xs a.
+Theorem bytes_in_mem_IMP_memory[local]:
+  !xs a.
       (!a. ~(a IN dm1) ==> m a = m1 a) ==>
       bytes_in_mem a xs m dm dm1 ==>
-      bytes_in_memory a xs m1 dm`,
-  Induct \\ full_simp_tac(srw_ss())[bytes_in_memory_def,bytes_in_mem_def]);
+      bytes_in_memory a xs m1 dm
+Proof
+  Induct \\ full_simp_tac(srw_ss())[bytes_in_memory_def,bytes_in_mem_def]
+QED
 
 (* read/write bytearrays for FFI *)
 
-val read_bytearray_state_rel = Q.prove(
-  `!n a x.
+Theorem read_bytearray_state_rel[local]:
+  !n a x.
       state_rel (mc_conf,code2,labs,p) s1 t1 ms1 /\
       (read_bytearray a n (mem_load_byte_aux s1.mem s1.mem_domain s1.be) = SOME x) ==>
       (read_bytearray a n
         (\a. if a IN mc_conf.prog_addresses then SOME (t1.mem a) else NONE) =
-       SOME x)`,
+       SOME x)
+Proof
   Induct
   \\ full_simp_tac(srw_ss())[read_bytearray_def]
   \\ rpt strip_tac
@@ -1427,11 +1485,13 @@ val read_bytearray_state_rel = Q.prove(
   \\ Cases_on `s1.mem (byte_align a)` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ FIRST_X_ASSUM (Q.SPEC_THEN `a` mp_tac) \\ full_simp_tac(srw_ss())[]
   \\ rpt strip_tac \\ full_simp_tac(srw_ss())[word_loc_val_def]
-  \\ rev_full_simp_tac(srw_ss())[word_loc_val_byte_def,word_loc_val_def]);
+  \\ rev_full_simp_tac(srw_ss())[word_loc_val_byte_def,word_loc_val_def]
+QED
 
-val IMP_has_io_name = Q.prove(
-  `(asm_fetch s1 = SOME (LabAsm (CallFFI index) l bytes n)) ==>
-    has_io_name index s1.code`,
+Theorem IMP_has_io_name[local]:
+  (asm_fetch s1 = SOME (LabAsm (CallFFI index) l bytes n)) ==>
+    has_io_name index s1.code
+Proof
   full_simp_tac(srw_ss())[asm_fetch_def]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`)
   \\ Q.SPEC_TAC (`s1.code`,`code`)
@@ -1439,21 +1499,25 @@ val IMP_has_io_name = Q.prove(
   \\ full_simp_tac(srw_ss())[asm_fetch_aux_def,has_io_name_def] \\ res_tac
   \\ Cases_on `is_Label y` \\ full_simp_tac(srw_ss())[]
   THEN1 (Cases_on `y` \\ full_simp_tac(srw_ss())[is_Label_def] \\ res_tac)
-  \\ Cases_on `pc = 0` \\ full_simp_tac(srw_ss())[] \\ res_tac \\ full_simp_tac(srw_ss())[]);
+  \\ Cases_on `pc = 0` \\ full_simp_tac(srw_ss())[] \\ res_tac \\ full_simp_tac(srw_ss())[]
+QED
 
-val bytes_in_mem_asm_write_bytearray_lemma = Q.prove(
-  `!xs p.
+Theorem bytes_in_mem_asm_write_bytearray_lemma[local]:
+  !xs p.
       (!a. ~(a IN k) ==> (m1 a = m2 a)) ==>
       bytes_in_mem p xs m1 d k ==>
-      bytes_in_mem p xs m2 d k`,
-  Induct \\ full_simp_tac(srw_ss())[bytes_in_mem_def]);
+      bytes_in_mem p xs m2 d k
+Proof
+  Induct \\ full_simp_tac(srw_ss())[bytes_in_mem_def]
+QED
 
-val bytes_in_mem_asm_write_bytearray = Q.prove(
-  `(∀a. byte_align a ∈ s1.mem_domain ⇒ a ∈ s1.mem_domain) ∧
+Theorem bytes_in_mem_asm_write_bytearray[local]:
+  (∀a. byte_align a ∈ s1.mem_domain ⇒ a ∈ s1.mem_domain) ∧
     (read_bytearray c1 (LENGTH new_bytes) (mem_load_byte_aux s1.mem s1.mem_domain s1.be) = SOME x) ==>
     bytes_in_mem p xs t1.mem t1.mem_domain s1.mem_domain ==>
     bytes_in_mem p xs
-      (asm_write_bytearray c1 new_bytes t1.mem) t1.mem_domain s1.mem_domain`,
+      (asm_write_bytearray c1 new_bytes t1.mem) t1.mem_domain s1.mem_domain
+Proof
   STRIP_TAC \\ match_mp_tac bytes_in_mem_asm_write_bytearray_lemma
   \\ POP_ASSUM MP_TAC
   \\ Q.SPEC_TAC (`c1`,`a`)
@@ -1470,20 +1534,23 @@ val bytes_in_mem_asm_write_bytearray = Q.prove(
   \\ full_simp_tac(srw_ss())[mem_load_byte_aux_def]
   \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ srw_tac[][combinTheory.APPLY_UPDATE_THM]
-  \\ full_simp_tac(srw_ss())[] \\ res_tac);
+  \\ full_simp_tac(srw_ss())[] \\ res_tac
+QED
 
-val write_bytearray_NOT_Loc = Q.prove(
-  `!xs c1 s1 a c.
+Theorem write_bytearray_NOT_Loc[local]:
+  !xs c1 s1 a c.
       (s1.mem a = Word c) ==>
-      (write_bytearray c1 xs s1.mem s1.mem_domain s1.be) a <> Loc n n0`,
+      (write_bytearray c1 xs s1.mem s1.mem_domain s1.be) a <> Loc n n0
+Proof
   Induct \\ full_simp_tac(srw_ss())[write_bytearray_def,mem_store_byte_aux_def]
   \\ rpt strip_tac \\ res_tac
   \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[labSemTheory.upd_mem_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM]
-  \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]);
+  \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
+QED
 
-val CallFFI_bytearray_lemma = Q.prove(
-  `byte_align (a:'a word) IN s1.mem_domain /\ good_dimindex (:'a) /\
+Theorem CallFFI_bytearray_lemma[local]:
+  byte_align (a:'a word) IN s1.mem_domain /\ good_dimindex (:'a) /\
     a IN t1.mem_domain /\
     a IN s1.mem_domain /\
     (s1.be = mc_conf.target.config.big_endian) /\
@@ -1492,7 +1559,8 @@ val CallFFI_bytearray_lemma = Q.prove(
        SOME (t1.mem a)) ==>
     (word_loc_val_byte p labs (write_bytearray c1 new_bytes s1.mem s1.mem_domain s1.be) a
        mc_conf.target.config.big_endian =
-     SOME (asm_write_bytearray c1 new_bytes t1.mem a))`,
+     SOME (asm_write_bytearray c1 new_bytes t1.mem a))
+Proof
   Q.SPEC_TAC (`s1`,`s1`) \\ Q.SPEC_TAC (`t1`,`t1`) \\ Q.SPEC_TAC (`c1`,`c1`)
   \\ Q.SPEC_TAC (`x`,`x`) \\ Q.SPEC_TAC (`new_bytes`,`xs`) \\ Induct
   \\ full_simp_tac(srw_ss())[asm_write_bytearray_def,write_bytearray_def,read_bytearray_def]
@@ -1515,28 +1583,33 @@ val CallFFI_bytearray_lemma = Q.prove(
   \\ full_simp_tac(srw_ss())[labSemTheory.upd_mem_def,word_loc_val_byte_def,APPLY_UPDATE_THM]
   \\ Cases_on `a = c1` \\ full_simp_tac(srw_ss())[word_loc_val_def,good_dimindex_get_byte_set_byte]
   \\ Cases_on `byte_align c1 = byte_align a` \\ full_simp_tac(srw_ss())[word_loc_val_def]
-  \\ full_simp_tac(srw_ss())[get_byte_set_byte_diff]);
+  \\ full_simp_tac(srw_ss())[get_byte_set_byte_diff]
+QED
 
 (* inst correct *)
 
-val MULT_ADD_LESS_MULT = Q.prove(
-  `!m n k l j. m < l /\ n < k /\ j <= k ==> m * j + n < l * k:num`,
+Theorem MULT_ADD_LESS_MULT[local]:
+  !m n k l j. m < l /\ n < k /\ j <= k ==> m * j + n < l * k:num
+Proof
   rpt strip_tac
   \\ `SUC m <= l` by asm_rewrite_tac [GSYM LESS_EQ]
   \\ `m * k + k <= l * k` by asm_simp_tac bool_ss [LE_MULT_RCANCEL,GSYM MULT]
   \\ `m * j <= m * k` by asm_simp_tac bool_ss [LE_MULT_LCANCEL]
-  \\ decide_tac);
+  \\ decide_tac
+QED
 
-val aligned_IMP_ADD_LESS_dimword = Q.prove(
-  `aligned k (x:'a word) /\ k <= dimindex (:'a) ==>
-    w2n x + (2 ** k - 1) < dimword (:'a)`,
+Theorem aligned_IMP_ADD_LESS_dimword[local]:
+  aligned k (x:'a word) /\ k <= dimindex (:'a) ==>
+    w2n x + (2 ** k - 1) < dimword (:'a)
+Proof
   Cases_on `x` \\ fs [aligned_w2n,dimword_def] \\ rw []
   \\ full_simp_tac std_ss [ONCE_REWRITE_RULE [ADD_COMM]LESS_EQ_EXISTS]
   \\ pop_assum (fn th => full_simp_tac std_ss [th])
   \\ full_simp_tac std_ss [MOD_EQ_0_DIVISOR]
   \\ var_eq_tac
   \\ full_simp_tac std_ss [EXP_ADD]
-  \\ match_mp_tac MULT_ADD_LESS_MULT \\ fs []);
+  \\ match_mp_tac MULT_ADD_LESS_MULT \\ fs []
+QED
 
 Theorem aligned_2_imp:
    aligned 2 (x:'a word) /\ dimindex (:'a) = 32 ==>
@@ -1592,16 +1665,18 @@ Proof
     metis_tac[aligned_3_imp]
 QED
 
-val dimword_eq_32_imp_or_bytes = Q.prove(
-  `dimindex (:'a) = 32 ==>
+Theorem dimword_eq_32_imp_or_bytes[local]:
+  dimindex (:'a) = 32 ==>
     (w2w ((w2w (x:'a word)):word8) ||
      w2w ((w2w (x ⋙ 8)):word8) ≪ 8 ||
      w2w ((w2w (x ⋙ 16)):word8) ≪ 16 ||
-     w2w ((w2w (x ⋙ 24)):word8) ≪ 24) = x`,
-  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [])
+     w2w ((w2w (x ⋙ 24)):word8) ≪ 24) = x
+Proof
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] []
+QED
 
-val dimword_eq_64_imp_or_bytes = Q.prove(
-  `dimindex (:'a) = 64 ==>
+Theorem dimword_eq_64_imp_or_bytes[local]:
+  dimindex (:'a) = 64 ==>
     (w2w ((w2w (x:'a word)):word8) ||
      w2w ((w2w (x ⋙ 8)):word8) ≪ 8 ||
      w2w ((w2w (x ⋙ 16)):word8) ≪ 16 ||
@@ -1609,35 +1684,42 @@ val dimword_eq_64_imp_or_bytes = Q.prove(
      w2w ((w2w (x ⋙ 32)):word8) ≪ 32 ||
      w2w ((w2w (x ⋙ 40)):word8) ≪ 40 ||
      w2w ((w2w (x ⋙ 48)):word8) ≪ 48 ||
-     w2w ((w2w (x ⋙ 56)):word8) ≪ 56) = x`,
-  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [])
+     w2w ((w2w (x ⋙ 56)):word8) ≪ 56) = x
+Proof
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] []
+QED
 
-val byte_align_32_eq = Q.prove(`
+Theorem byte_align_32_eq[local]:
   dimindex (:'a) = 32 ⇒
-  byte_align (a:'a word) +n2w (w2n a MOD 4) = a`,
+  byte_align (a:'a word) +n2w (w2n a MOD 4) = a
+Proof
   Cases_on`a`>>
   rw[alignmentTheory.byte_align_def]>>
   fs[alignmentTheory.align_w2n,word_add_n2w]>>rfs[dimword_def]>>
   Q.SPEC_THEN `4n` mp_tac DIVISION>>
   fs[]>>disch_then (Q.SPEC_THEN`n` assume_tac)>>
-  simp[])
+  simp[]
+QED
 
-val byte_align_64_eq = Q.prove(`
+Theorem byte_align_64_eq[local]:
   dimindex (:'a) = 64 ⇒
-  byte_align (a:'a word) +n2w (w2n a MOD 8) = a`,
+  byte_align (a:'a word) +n2w (w2n a MOD 8) = a
+Proof
   Cases_on`a`>>
   rw[alignmentTheory.byte_align_def]>>
   fs[alignmentTheory.align_w2n,word_add_n2w]>>rfs[dimword_def]>>
   Q.SPEC_THEN `8n` mp_tac DIVISION>>
   fs[]>>disch_then (Q.SPEC_THEN`n` assume_tac)>>
-  simp[])
+  simp[]
+QED
 
-val byte_align_32_IMP = Q.prove(`
+Theorem byte_align_32_IMP[local]:
   dimindex(:'a) = 32 ⇒
   (byte_align a = a ⇒ w2n a MOD 4 = 0) ∧
   (byte_align a + (1w:'a word) = a ⇒ w2n a MOD 4 = 1) ∧
   (byte_align a + (2w:'a word) = a ⇒ w2n a MOD 4 = 2) ∧
-  (byte_align a + (3w:'a word) = a ⇒ w2n a MOD 4 = 3)`,
+  (byte_align a + (3w:'a word) = a ⇒ w2n a MOD 4 = 3)
+Proof
   rw[]>>imp_res_tac byte_align_32_eq>>fs[]>>
   qpat_x_assum`_=a` mp_tac>>
   qabbrev_tac`ba = byte_align a`>>
@@ -1648,36 +1730,43 @@ val byte_align_32_IMP = Q.prove(`
   Q.ISPECL_THEN[`32n`,`w2n a MOD 4`] assume_tac bitTheory.MOD_ZERO_GT>>
   fs[]>>
   Q.ISPECL_THEN [`w2n a`,`4n`] assume_tac MOD_LESS>>
-  DECIDE_TAC);
+  DECIDE_TAC
+QED
 
-val MOD4_CASES = Q.prove(`
-  ∀n. n MOD 4 = 0 ∨ n MOD 4 = 1 ∨ n MOD 4 = 2 ∨ n MOD 4 = 3`,
+Theorem MOD4_CASES[local]:
+  ∀n. n MOD 4 = 0 ∨ n MOD 4 = 1 ∨ n MOD 4 = 2 ∨ n MOD 4 = 3
+Proof
   rw[]>>`n MOD 4 < 4` by fs []
   \\ IMP_RES_TAC (DECIDE
        ``n < 4 ==> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num)``)
-  \\ fs [])
+  \\ fs []
+QED
 
-val byte_align_32_CASES = Q.prove(`
+Theorem byte_align_32_CASES[local]:
   dimindex(:'a) = 32 ⇒
   byte_align a + (3w:'a word) = a ∨
   byte_align a + (2w:'a word) = a ∨
   byte_align a + (1w:'a word) = a ∨
-  byte_align a = a`,
+  byte_align a = a
+Proof
   rw[]>>imp_res_tac byte_align_32_eq>>
   pop_assum(qspec_then`a` assume_tac)>>
   Q.SPEC_THEN `w2n a` mp_tac MOD4_CASES>>rw[]>>
-  fs[])
+  fs[]
+QED
 
-val MOD8_CASES = Q.prove(`
+Theorem MOD8_CASES[local]:
   ∀n. n MOD 8 = 0 ∨ n MOD 8 = 1 ∨ n MOD 8 = 2 ∨ n MOD 8 = 3 ∨
-      n MOD 8 = 4 ∨ n MOD 8 = 5 ∨ n MOD 8 = 6 ∨ n MOD 8 = 7`,
+      n MOD 8 = 4 ∨ n MOD 8 = 5 ∨ n MOD 8 = 6 ∨ n MOD 8 = 7
+Proof
   rw[]>>`n MOD 8 < 8` by fs []
   \\ IMP_RES_TAC (DECIDE
        ``n < 8 ==> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num) \/
                    (n = 4) \/ (n = 5) \/ (n = 6) \/ (n = 7)``)
-  \\ fs [])
+  \\ fs []
+QED
 
-val byte_align_64_CASES = Q.prove(`
+Theorem byte_align_64_CASES[local]:
   dimindex(:'a) = 64 ⇒
   byte_align a + (7w:'a word) = a ∨
   byte_align a + (6w:'a word) = a ∨
@@ -1686,13 +1775,15 @@ val byte_align_64_CASES = Q.prove(`
   byte_align a + (3w:'a word) = a ∨
   byte_align a + (2w:'a word) = a ∨
   byte_align a + (1w:'a word) = a ∨
-  byte_align a = a`,
+  byte_align a = a
+Proof
   rw[]>>imp_res_tac byte_align_64_eq>>
   pop_assum(qspec_then`a` assume_tac)>>
   Q.SPEC_THEN `w2n a` mp_tac MOD8_CASES>>rw[]>>
-  fs[])
+  fs[]
+QED
 
-val byte_align_64_IMP = Q.prove(`
+Theorem byte_align_64_IMP[local]:
   dimindex(:'a) = 64 ⇒
   (byte_align a + (7w:'a word) = a ⇒ w2n a MOD 8 = 7) ∧
   (byte_align a + (6w:'a word) = a ⇒ w2n a MOD 8 = 6) ∧
@@ -1701,7 +1792,8 @@ val byte_align_64_IMP = Q.prove(`
   (byte_align a + (3w:'a word) = a ⇒ w2n a MOD 8 = 3) ∧
   (byte_align a + (2w:'a word) = a ⇒ w2n a MOD 8 = 2) ∧
   (byte_align a + (1w:'a word) = a ⇒ w2n a MOD 8 = 1) ∧
-  (byte_align a = a ⇒ w2n a MOD 8 = 0)`,
+  (byte_align a = a ⇒ w2n a MOD 8 = 0)
+Proof
   rw[]>>imp_res_tac byte_align_64_eq>>fs[]>>
   qpat_x_assum`_=a` mp_tac>>
   qabbrev_tac`ba = byte_align a`>>
@@ -1712,12 +1804,14 @@ val byte_align_64_IMP = Q.prove(`
   Q.ISPECL_THEN[`64n`,`w2n a MOD 8`] assume_tac bitTheory.MOD_ZERO_GT>>
   fs[]>>
   Q.ISPECL_THEN [`w2n a`,`8n`] assume_tac MOD_LESS>>
-  DECIDE_TAC)
+  DECIDE_TAC
+QED
 
-val arith_upd_lemma = Q.prove(
-  `(∀r. word_loc_val p labs (read_reg r s1) = SOME (t1.regs r)) ∧ ¬(arith_upd a s1).failed ⇒
+Theorem arith_upd_lemma[local]:
+  (∀r. word_loc_val p labs (read_reg r s1) = SOME (t1.regs r)) ∧ ¬(arith_upd a s1).failed ⇒
    ∀r. word_loc_val p labs (read_reg r (arith_upd a s1)) =
-       SOME ((arith_upd a t1).regs r)`,
+       SOME ((arith_upd a t1).regs r)
+Proof
   Cases_on`a`>>srw_tac[][arith_upd_def]>- (
     every_case_tac >> full_simp_tac(srw_ss())[] >>
     EVAL_TAC >> srw_tac[][] >>
@@ -1740,11 +1834,18 @@ val arith_upd_lemma = Q.prove(
   >- (
     EVAL_TAC >>
     every_case_tac >> full_simp_tac(srw_ss())[APPLY_UPDATE_THM] >> srw_tac[][] >>
-    pop_assum mp_tac >>
+    gvs [] >>
+    rpt $ pop_assum mp_tac >>
     EVAL_TAC >>
-    qmatch_assum_rename_tac`read_reg r _ = _` >>
-    first_x_assum(qspec_then`r`mp_tac) >>
-    simp[] >> EVAL_TAC >> srw_tac[][] )
+    rw [] >>
+    Cases_on`r` >> EVAL_TAC >> srw_tac[][] >> gvs [reg_imm_def]
+    >- (* TODO Don't rely on auto-generated names... *)
+     (first_assum(qspec_then`n`mp_tac) >>
+      first_x_assum(qspec_then‘n0’mp_tac) >>
+      simp[] >> EVAL_TAC >> srw_tac[][]) >>
+    qmatch_assum_rename_tac`read_reg r2 _ = _` >>
+    first_x_assum(qspec_then`r2`mp_tac) >>
+    simp[] >> EVAL_TAC >> srw_tac[][])
   >> (
     unabbrev_all_tac
     \\ first_assum(qspec_then`n0`mp_tac)
@@ -1755,7 +1856,8 @@ val arith_upd_lemma = Q.prove(
     \\ every_case_tac \\ fs[]
     \\ EVAL_TAC \\ rw[] \\ EVAL_TAC \\ fs[]
     \\ fs[read_reg_def]
-    \\ fs[labSemTheory.assert_def]));
+    \\ fs[labSemTheory.assert_def])
+QED
 
 (* The lab and asm versions should be in their individual props *)
 Theorem arith_upd_fp_regs[simp]:
@@ -1768,14 +1870,15 @@ Proof
   fs[]
 QED
 
-val fp_upd_lemma = Q.prove(`
+Theorem fp_upd_lemma[local]:
   (∀r. word_loc_val p labs (read_reg r s1) = SOME (t1.regs r)) ∧
   (!r. s1.fp_regs r = t1.fp_regs r) /\
    ¬(fp_upd f s1).failed ⇒
   (∀r. (fp_upd f s1).fp_regs r = (fp_upd f t1).fp_regs r) ∧
   ∀r.
     word_loc_val p labs (read_reg r (fp_upd f s1)) =
-    SOME ((fp_upd f t1).regs r)`,
+    SOME ((fp_upd f t1).regs r)
+Proof
   strip_tac>>Cases_on`f`>>fs[fp_upd_def,read_fp_reg_def,labSemTheory.read_fp_reg_def,upd_reg_def,labSemTheory.upd_reg_def]>>
   TRY(rw[]>>EVAL_TAC>>rw[]>>EVAL_TAC>>NO_TAC)
   >-
@@ -1794,7 +1897,8 @@ val fp_upd_lemma = Q.prove(`
   >>
     TOP_CASE_TAC>>rfs[]>>fs[labSemTheory.assert_def]>>
     IF_CASES_TAC>>fs[]>>
-    rw[]>>EVAL_TAC>>rw[]);
+    rw[]>>EVAL_TAC>>rw[]
+QED
 
 Theorem Inst_share_mem_pc_update_helper:
   share_mem_state_rel mc_conf s1 t1 ms1 /\
@@ -1844,6 +1948,30 @@ val share_mem_state_rel_tac =
   >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
   >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
 
+Theorem align2_not_align3_4w:
+  ¬ aligned 3 x ∧ aligned 2 (x:'a word) ∧ dimindex (:'a) = 64 ⇒
+  x = byte_align x + 4w ∧
+  x + 1w = byte_align x + 5w ∧
+  x + 2w = byte_align x + 6w ∧
+  x + 3w = byte_align x + 7w
+Proof
+  strip_tac>>
+  old_drule (Q.SPEC ‘x’ (GEN_ALL byte_align_64_CASES))>>
+  strip_tac
+  >~[‘byte_align x + 4w = x’]
+  >- (rw[]>>pop_assum (fn h => simp[Once (GSYM h),SimpLHS]))>>
+  TRY (qpat_x_assum ‘¬aligned 3 _’ mp_tac>>
+  pop_assum (fn h => fs[Once (GSYM h)])>>
+  strip_tac>>fs[byte_align_def,aligned_def]>>
+  gvs[align_align]>>NO_TAC)>>
+  qpat_x_assum ‘aligned 2 _’ mp_tac>>
+  pop_assum (fn h => fs[Once (GSYM h)])>>
+  fs[aligned_def,byte_align_def]>>
+  ‘aligned 2 (align 3 x)’ by fs[aligned_def,align_align_MAX]>>
+  fs[align_add_aligned_gen]>>
+  rfs[align_w2n,dimword_def]>>gvs[]
+QED
+
 Theorem Inst_lemma:
   ~(asm_inst i s1).failed /\
    state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,p) s1 t1 ms1 /\
@@ -1877,6 +2005,11 @@ Proof
       full_simp_tac(srw_ss())[reg_imm_def,binop_upd_def,labSemTheory.binop_upd_def] >>
       full_simp_tac(srw_ss())[upd_reg_def,labSemTheory.upd_reg_def,state_rel_def] >>
       TRY (Cases_on`b`)>>EVAL_TAC >> full_simp_tac(srw_ss())[state_rel_def]
+      >-
+       (rename1 ‘w2n (_ n')’
+        \\ qpat_x_assum ‘∀r. word_loc_val _ _ _ = SOME _’ mp_tac
+        \\ disch_then(qspec_then‘n'’assume_tac)
+        \\ gvs [word_loc_val_def])
       (*Div*)
       >-
         (unabbrev_all_tac \\ fs[]
@@ -1933,7 +2066,7 @@ Proof
     fs[]
     >-
       (`aligned 2 x` by fs [aligned_w2n]>>
-       drule aligned_2_imp>>
+       old_drule aligned_2_imp>>
        disch_then (strip_assume_tac o UNDISCH)>>
       `byte_align (x+1w) ∈ s1.mem_domain ∧
        byte_align (x+2w) ∈ s1.mem_domain ∧
@@ -1954,7 +2087,7 @@ Proof
           rfs[get_byte_def,byte_index_def]>>rveq>>
           Cases_on `c + t1.regs n'`>>
           rename1 `k < dimword (:α)`>>
-          drule aligned_IMP_ADD_LESS_dimword >>
+          old_drule aligned_IMP_ADD_LESS_dimword >>
           full_simp_tac std_ss [] \\ fs [] >>
           strip_tac \\ fs [word_add_n2w] >>
           rfs [ADD_MOD_EQ_LEMMA] >>
@@ -1965,7 +2098,7 @@ Proof
         ))
     >>
       `aligned 3 x` by fs [aligned_w2n]>>
-       drule aligned_3_imp>>
+       old_drule aligned_3_imp>>
        disch_then (strip_assume_tac o UNDISCH)>>
       `byte_align (x+1w) ∈ s1.mem_domain ∧
        byte_align (x+2w) ∈ s1.mem_domain ∧
@@ -1990,7 +2123,7 @@ Proof
           rfs[get_byte_def,byte_index_def]>>rveq>>
           Cases_on `c + t1.regs n'`>>
           rename1 `k < dimword (:α)`>>
-          drule aligned_IMP_ADD_LESS_dimword >>
+          old_drule aligned_IMP_ADD_LESS_dimword >>
           full_simp_tac std_ss [] \\ fs [] >>
           strip_tac \\ fs [word_add_n2w] >>
           rfs [ADD_MOD_EQ_LEMMA] >>
@@ -2025,6 +2158,113 @@ Proof
     >- rfs[]
     >- (fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
         share_mem_state_rel_tac))
+  >- (*Load32*)
+    (`good_dimindex(:'a)` by fs[state_rel_def]>>
+    fs[good_dimindex_def]>>
+    Cases_on`a`>>last_x_assum mp_tac>>
+    fs[mem_load32_def,labSemTheory.assert_def,labSemTheory.upd_reg_def,dec_clock_def,assert_def,
+       read_mem_word_compute,mem_load_def,upd_reg_def,upd_pc_def,mem_load_32_alt,
+       labSemTheory.addr_def,addr_def,read_reg_def,labSemTheory.mem_load_def]>>
+    TOP_CASE_TAC>>fs[]>>
+    pop_assum mp_tac>>TOP_CASE_TAC>>fs[]>>
+    ntac 2 strip_tac>>fs[state_rel_def]>>
+    `t1.regs n' = c'` by
+      (
+      qpat_x_assum `!bn. bn < _ ==> ~(MEM _ _)` kall_tac>>
+      first_x_assum(qspec_then`n'` assume_tac)>>
+      first_x_assum(qspec_then`n'` assume_tac)>>
+      rfs[word_loc_val_def])>>
+
+    ntac 2 (pop_assum mp_tac)>>TOP_CASE_TAC>>fs[]>>
+    pop_assum mp_tac>>TOP_CASE_TAC>>fs[]>>
+    ntac 2 strip_tac >>
+    fs[]
+    >- (* 32 word *)
+     (`aligned 2 x` by fs[aligned_w2n] >>
+       old_drule aligned_2_imp>>
+       disch_then (strip_assume_tac o UNDISCH)>>
+      `byte_align (x+1w) ∈ s1.mem_domain ∧
+       byte_align (x+2w) ∈ s1.mem_domain ∧
+       byte_align (x+3w) ∈ s1.mem_domain ∧
+       byte_align x ∈ s1.mem_domain` by fs[]>>
+       IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
+       (reverse (rw[])
+       >- (fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
+          share_mem_state_rel_tac)
+       >- rfs[]
+       >- metis_tac[]
+       >-
+         (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
+          fs[asmSemTheory.read_mem_def]>>
+          ‘byte_align (c + t1.regs n') ∈ s1.mem_domain’ by fs[]>>
+          qpat_x_assum `!a. byte_align a IN s1.mem_domain ==> _` imp_res_tac >>
+          fs[word_loc_val_byte_def]>>
+          ntac 4 (FULL_CASE_TAC>>fs[])>>
+          rfs[get_byte_def,byte_index_def]>>
+          fs[word_loc_val_def]>>
+          simp[GSYM WORD_w2w_OVER_BITWISE]>>
+          simp[w2w_LSL,word_bits_w2w,WORD_ALL_BITS,w2w_w2w])
+        >>
+          metis_tac[]
+        ))
+
+    >> (* word64 *)
+    Cases_on ‘aligned 3 x’>>fs[]
+     >- (old_drule aligned_3_imp>>
+         disch_then (strip_assume_tac o UNDISCH)>>
+         `byte_align (x+1w) ∈ s1.mem_domain ∧
+         byte_align (x+2w) ∈ s1.mem_domain ∧
+         byte_align (x+3w) ∈ s1.mem_domain ∧
+         byte_align x ∈ s1.mem_domain` by fs[]>>
+         IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
+         (reverse(rw[])
+          >- (fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
+              share_mem_state_rel_tac)
+          >- rfs[]
+          >- metis_tac[]
+          >-
+           (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
+            fs[asmSemTheory.read_mem_def]>>
+            ‘byte_align (c + t1.regs n') ∈ s1.mem_domain’ by fs[]>>
+            qpat_x_assum `!a. byte_align a IN s1.mem_domain ==> _` imp_res_tac >>
+            fs[word_loc_val_byte_def]>>
+            ntac 4 (FULL_CASE_TAC>>fs[])>>
+            rfs[get_byte_def,byte_index_def]>>
+            fs[word_loc_val_def]>>
+            simp[GSYM WORD_w2w_OVER_BITWISE]>>
+            simp[w2w_LSL,word_bits_w2w,WORD_ALL_BITS,w2w_w2w])
+          >>
+          metis_tac[]))
+     >>
+     ‘aligned 3 (byte_align x)’ by fs[byte_align_def,aligned_align]>>
+     old_drule aligned_3_imp>>
+     disch_then (strip_assume_tac o UNDISCH)>>
+     `byte_align (byte_align x+4w) ∈ s1.mem_domain ∧
+     byte_align (byte_align x+5w) ∈ s1.mem_domain ∧
+     byte_align (byte_align x+6w) ∈ s1.mem_domain ∧
+     byte_align (byte_align x+7w) ∈ s1.mem_domain` by fs[]>>
+     drule_all align2_not_align3_4w>>
+     strip_tac>>
+     IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
+     (reverse(rw[])
+      >- (fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
+          share_mem_state_rel_tac)
+      >- rfs[]
+      >- metis_tac[]
+      >-
+       (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
+        fs[asmSemTheory.read_mem_def]>>
+        ‘byte_align (c + t1.regs n') ∈ s1.mem_domain’ by fs[]>>
+        qpat_x_assum `!a. byte_align a IN s1.mem_domain ==> _` imp_res_tac >>
+        fs[word_loc_val_byte_def]>>
+        PURE_FULL_CASE_TAC>-fs[]>>
+        rfs[word_loc_val_def]>>
+        rfs[get_byte_def,byte_index_def]>>
+        fs[word_loc_val_def]>>
+        simp[GSYM WORD_w2w_OVER_BITWISE]>>
+        simp[w2w_LSL,word_bits_w2w,WORD_ALL_BITS,w2w_w2w])
+      >>
+      metis_tac[]))
   >-
     (*Store*)
     (`good_dimindex(:'a)` by fs[state_rel_def]>>
@@ -2045,7 +2285,7 @@ Proof
     fs[]
     >-
       (`aligned 2 x` by fs [aligned_w2n]>>
-       drule aligned_2_imp>>
+       old_drule aligned_2_imp>>
        disch_then (strip_assume_tac o UNDISCH)>>
       `byte_align (x+1w) ∈ s1.mem_domain ∧
        byte_align (x+2w) ∈ s1.mem_domain ∧
@@ -2069,7 +2309,7 @@ Proof
          IF_CASES_TAC>>fs[]
          >-
            (fs[get_byte_def,byte_index_def]>>
-           drule byte_align_32_IMP>>
+           old_drule byte_align_32_IMP>>
            rpt IF_CASES_TAC>>fs[]>>
            metis_tac[byte_align_32_CASES])
          >>
@@ -2093,7 +2333,7 @@ Proof
           share_mem_state_rel_tac)))
      >>
        (`aligned 3 x` by fs [aligned_w2n]>>
-       drule aligned_3_imp>>
+       old_drule aligned_3_imp>>
        disch_then (strip_assume_tac o UNDISCH)>>
        `byte_align (x+1w) ∈ s1.mem_domain ∧
        byte_align (x+2w) ∈ s1.mem_domain ∧
@@ -2120,7 +2360,7 @@ Proof
          IF_CASES_TAC>>fs[]
          >-
            (fs[get_byte_def,byte_index_def]>>
-           drule byte_align_64_IMP>>
+           old_drule byte_align_64_IMP>>
            rpt IF_CASES_TAC>>fs[]>>
            metis_tac[byte_align_64_CASES])
          >>
@@ -2190,7 +2430,273 @@ Proof
     >- rfs[]
     >- (
       fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
-      share_mem_state_rel_tac)))
+      share_mem_state_rel_tac))
+  >-
+    (* Store32 *)
+   (`good_dimindex(:'a)` by fs[state_rel_def]>>
+    fs[good_dimindex_def]>>
+    Cases_on`a`>>last_x_assum mp_tac>>
+    fs[mem_store32_def,labSemTheory.assert_def,mem_store_32_alt,mem_store_def,labSemTheory.addr_def,
+       addr_def,write_mem_word_compute,upd_pc_def,read_reg_def,assert_def,upd_mem_def,dec_clock_def,
+       labSemTheory.mem_store_def,read_reg_def,labSemTheory.upd_mem_def]>>
+    ntac 3 (TOP_CASE_TAC>>fs[])>>
+    ntac 4 (pop_assum mp_tac)>>
+    ntac 2 (TOP_CASE_TAC>>fs[])>>
+    ntac 5 strip_tac>>fs[state_rel_def]>>
+
+    qpat_assum `!a. byte_align a IN s1.mem_domain ==> _` imp_res_tac >>
+    fs[word_loc_val_byte_def]>>
+    pop_assum mp_tac>>TOP_CASE_TAC>>
+    strip_tac>>
+    qpat_x_assum `!n. n < s1.code_buffer.space_left ==> _` kall_tac >>
+    qpat_assum `!r.word_loc_val _ _ _ = SOME _` (qspec_then`n'` assume_tac)>>
+    qpat_x_assum`_=Word c''` SUBST_ALL_TAC>>
+    fs[word_loc_val_def]
+    >- (* store32 - word32 *)
+      (`aligned 2 x` by fs [aligned_w2n]>>
+       old_drule aligned_2_imp>>
+       disch_then (strip_assume_tac o UNDISCH)>>
+      `byte_align (x+1w) ∈ s1.mem_domain ∧
+       byte_align (x+2w) ∈ s1.mem_domain ∧
+       byte_align (x+3w) ∈ s1.mem_domain ∧
+       byte_align x ∈ s1.mem_domain` by fs[]>>
+       IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
+       (rw[]
+       >-
+         (simp[APPLY_UPDATE_THM]>>
+         qpat_x_assum `!a. byte_align a IN s1.mem_domain ==> _` imp_res_tac >>
+         fs[]>>
+         rpt(IF_CASES_TAC>>fs[]))
+       >-
+         metis_tac[]
+       >-
+         metis_tac[]
+       >-
+        (simp[APPLY_UPDATE_THM]>>
+         Cases_on ‘s1.be’>>fs[]>>gvs[]>>
+         rpt (IF_CASES_TAC>>fs[word_loc_val_def])>>
+         TRY (simp[good_dimindex_get_byte_set_byte,
+                   get_byte_set_byte_diff]>>
+              qpat_x_assum `!r. word_loc_val _ _ (read_reg r _) = SOME _`
+                                       (qspec_then`n` assume_tac)>>
+              rfs[word_loc_val_def,w2w_w2w,WORD_ALL_BITS]>>
+              rfs[word_lsr_n2w,word_bits_w2w]>>
+              simp[w2w_w2w,WORD_BITS_COMP_THM]>>NO_TAC)>>
+         TRY (qmatch_asmsub_abbrev_tac ‘aligned 2 X’>>
+              ‘X ≠ X + 1w ∧ X ≠ X + 2w ∧ X ≠ X + 3w ∧ X + 1w ≠ X + 2w ∧
+               X + 1w ≠ X + 3w ∧ X + 2w ≠ X + 3w’ by
+                (‘¬aligned 2 (X + 1w) ∧ ¬aligned 2 (X + 2w) ∧
+                  ¬aligned 2 (X + 3w)’
+                   by (rpt strip_tac>>
+                       pop_assum $ assume_tac o SIMP_RULE std_ss [aligned_def]>>
+                       rfs[align_add_aligned_gen]>>
+                       rfs[align_w2n,dimword_def])>>
+                 old_drule aligned_2_imp>>
+                 strip_tac>>rfs[aligned_def,byte_align_def,dimword_def])>>
+              TRY (qpat_assum ‘_ = a’ (fn h => rewrite_tac[GSYM h]))>>
+              simp[good_dimindex_get_byte_set_byte,
+                   get_byte_set_byte_diff]>>
+              qpat_x_assum `!r. word_loc_val _ _ (read_reg r _) = SOME _`
+                               (qspec_then`n` assume_tac)>>
+              rfs[word_loc_val_def,w2w_w2w,WORD_ALL_BITS]>>
+              rfs[word_lsr_n2w,word_bits_w2w]>>
+              simp[w2w_w2w,WORD_BITS_COMP_THM]>>NO_TAC)>>
+         simp[APPLY_UPDATE_THM]>>simp[]>>
+         qpat_x_assum `!a. byte_align a IN s1.mem_domain ==> _` imp_res_tac >>
+         FULL_CASE_TAC>>fs[]>>gvs[word_loc_val_def]>>
+         simp[good_dimindex_get_byte_set_byte,
+              get_byte_set_byte_diff])
+       >-
+         (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>
+         simp[APPLY_UPDATE_THM]>>
+         qexists_tac`t1.mem`>>rfs[]>>
+         rw[APPLY_UPDATE_THM]>>
+         rfs[])
+       >-
+         (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>
+         simp[APPLY_UPDATE_THM]>>
+         qexists_tac`t1.mem`>>rfs[]>>
+         rw[APPLY_UPDATE_THM]>>
+         rfs[])
+       >- rfs[]
+       >- (
+          fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
+          share_mem_state_rel_tac)))
+
+     >> (* store32 - word64 *)
+     Cases_on ‘aligned 3 x’>>fs[]
+    >-
+     (old_drule aligned_3_imp>>
+      disch_then (strip_assume_tac o UNDISCH)>>
+       `byte_align (x+1w) ∈ s1.mem_domain ∧
+       byte_align (x+2w) ∈ s1.mem_domain ∧
+       byte_align (x+3w) ∈ s1.mem_domain ∧
+       byte_align x ∈ s1.mem_domain` by fs[]>>
+       IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
+       (rw[]
+       >-
+         (simp[APPLY_UPDATE_THM]>>
+         qpat_x_assum `!a. byte_align a IN s1.mem_domain ==> _` imp_res_tac >>fs[]>>
+         rpt(IF_CASES_TAC>>fs[]))
+       >-
+         metis_tac[]
+       >-
+         metis_tac[]
+       >-
+        (simp[APPLY_UPDATE_THM]>>
+         Cases_on ‘s1.be’>>fs[]>>gvs[]>>
+         rpt (IF_CASES_TAC>>fs[word_loc_val_def])>>
+         TRY (simp[good_dimindex_get_byte_set_byte,
+                   get_byte_set_byte_diff]>>
+              qpat_x_assum `!r. word_loc_val _ _ (read_reg r _) = SOME _`
+                                (qspec_then`n` assume_tac)>>
+              rfs[word_loc_val_def]>>
+              simp[WORD_w2w_EXTRACT]>>
+              simp[word_extract_def]>>
+              simp[word_lsr_n2w]>>
+              simp[WORD_BITS_COMP_THM]>>
+              simp[word_bits_w2w]>>
+              simp[WORD_BITS_COMP_THM]>>
+              simp[WORD_w2w_EXTRACT]>>
+              simp[WORD_BITS_EXTRACT]>>
+              simp[WORD_EXTRACT_COMP_THM]>>
+              simp[WORD_EXTRACT_MIN_HIGH]>>NO_TAC)>>
+         TRY (qmatch_asmsub_abbrev_tac ‘aligned 3 X’>>
+              ‘X ≠ X + 1w ∧ X ≠ X + 2w ∧ X ≠ X + 3w ∧ X + 1w ≠ X + 2w ∧
+               X + 1w ≠ X + 3w ∧ X + 2w ≠ X + 3w’ by
+                (‘¬aligned 3 (X + 1w) ∧ ¬aligned 3 (X + 2w) ∧
+                  ¬aligned 3 (X + 3w)’
+                   by (rpt strip_tac>>
+                       pop_assum $ assume_tac o SIMP_RULE std_ss [aligned_def]>>
+                       rfs[align_add_aligned_gen]>>
+                       rfs[align_w2n,dimword_def])>>
+                 old_drule aligned_3_imp>>
+                 strip_tac>>rfs[aligned_def,byte_align_def,dimword_def])>>
+              TRY (qpat_assum ‘_ = a’ (fn h => rewrite_tac[GSYM h]))>>
+              simp[good_dimindex_get_byte_set_byte,
+                   get_byte_set_byte_diff]>>
+              qpat_x_assum `!r. word_loc_val _ _ (read_reg r _) = SOME _`
+                                (qspec_then`n` assume_tac)>>
+              rfs[word_loc_val_def]>>
+              simp[WORD_w2w_EXTRACT]>>
+              simp[word_extract_def]>>
+              simp[word_lsr_n2w]>>
+              simp[WORD_BITS_COMP_THM]>>
+              simp[word_bits_w2w]>>
+              simp[WORD_BITS_COMP_THM]>>
+              simp[WORD_w2w_EXTRACT]>>
+              simp[WORD_BITS_EXTRACT]>>
+              simp[WORD_EXTRACT_COMP_THM]>>
+              simp[WORD_EXTRACT_MIN_HIGH]>>NO_TAC)>>
+         simp[APPLY_UPDATE_THM]>>simp[]>>
+         qpat_x_assum `!a. byte_align a IN s1.mem_domain ==> _` imp_res_tac >>
+         FULL_CASE_TAC>>fs[]>>gvs[word_loc_val_def]>>
+         simp[good_dimindex_get_byte_set_byte,
+              get_byte_set_byte_diff])
+       >-
+         (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>
+         simp[APPLY_UPDATE_THM]>>
+         qexists_tac`t1.mem`>>rfs[]>>
+         rw[APPLY_UPDATE_THM]>>
+         rfs[])
+       >-
+         (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>
+         simp[APPLY_UPDATE_THM]>>
+         qexists_tac`t1.mem`>>rfs[]>>
+         rw[APPLY_UPDATE_THM]>>
+         rfs[])
+       >- rfs[]
+       >- (
+          fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
+          share_mem_state_rel_tac)))
+
+       >> (* word64, off by 4w *)
+     ‘aligned 3 (byte_align x)’ by fs[byte_align_def,aligned_align]>>
+     old_drule aligned_3_imp>>
+     disch_then (strip_assume_tac o UNDISCH)>>
+     `byte_align (byte_align x+4w) ∈ s1.mem_domain ∧
+     byte_align (byte_align x+5w) ∈ s1.mem_domain ∧
+     byte_align (byte_align x+6w) ∈ s1.mem_domain ∧
+     byte_align (byte_align x+7w) ∈ s1.mem_domain` by fs[]>>
+     drule_all align2_not_align3_4w>>
+     strip_tac>>
+     IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
+       (rw[]
+        >-
+         (simp[APPLY_UPDATE_THM]>>
+          qpat_x_assum `!a. byte_align a IN s1.mem_domain ==> _` imp_res_tac >>fs[]>>
+          rpt(IF_CASES_TAC>>fs[]))
+        >-
+         metis_tac[]
+        >-
+         metis_tac[]
+        >-
+         (simp[APPLY_UPDATE_THM]>>
+          Cases_on ‘s1.be’>>fs[]>>gvs[]>>
+          rpt (IF_CASES_TAC>>fs[word_loc_val_def])>>
+          TRY (simp[good_dimindex_get_byte_set_byte,
+                    get_byte_set_byte_diff]>>
+               qpat_x_assum `!r. word_loc_val _ _ (read_reg r _) = SOME _`                         (qspec_then`n` assume_tac)>>
+               rfs[word_loc_val_def]>>
+               simp[WORD_w2w_EXTRACT]>>
+               simp[word_extract_def]>>
+               simp[word_lsr_n2w]>>
+               simp[WORD_BITS_COMP_THM]>>
+               simp[word_bits_w2w]>>
+               simp[WORD_BITS_COMP_THM]>>
+               simp[WORD_w2w_EXTRACT]>>
+               simp[WORD_BITS_EXTRACT]>>
+               simp[WORD_EXTRACT_COMP_THM]>>
+               simp[WORD_EXTRACT_MIN_HIGH]>>NO_TAC)>>
+          TRY (qmatch_asmsub_abbrev_tac ‘aligned 3 X’>>
+               ‘X + 4w ≠ X + 5w ∧ X + 4w ≠ X + 6w ∧ X + 4w ≠ X + 7w ∧
+                X + 5w ≠ X + 6w ∧ X + 5w ≠ X + 7w ∧ X + 6w ≠ X + 7w’ by
+                 (‘¬aligned 3 (X + 5w) ∧ ¬aligned 3 (X + 6w) ∧
+                   ¬aligned 3 (X + 7w)’
+                    by (rpt strip_tac>>
+                        pop_assum $ assume_tac o SIMP_RULE std_ss [aligned_def]>>
+                        rpt (qpat_x_assum ‘_ = a’ kall_tac)>>
+                        rfs[align_add_aligned_gen]>>
+                        rfs[align_w2n,dimword_def])>>
+                  old_drule aligned_3_imp>>
+                  strip_tac>>rfs[aligned_def,byte_align_def,dimword_def])>>
+               TRY (qpat_assum ‘_ = a’ (fn h => rewrite_tac[GSYM h]))>>
+               simp[good_dimindex_get_byte_set_byte,
+                    get_byte_set_byte_diff]>>
+               qpat_x_assum `!r. word_loc_val _ _ (read_reg r _) = SOME _`
+                               (qspec_then`n` assume_tac)>>
+               rfs[word_loc_val_def]>>
+               simp[WORD_w2w_EXTRACT]>>
+               simp[word_extract_def]>>
+               simp[word_lsr_n2w]>>
+               simp[WORD_BITS_COMP_THM]>>
+               simp[word_bits_w2w]>>
+               simp[WORD_BITS_COMP_THM]>>
+               simp[WORD_w2w_EXTRACT]>>
+               simp[WORD_BITS_EXTRACT]>>
+               simp[WORD_EXTRACT_COMP_THM]>>
+               simp[WORD_EXTRACT_MIN_HIGH]>>NO_TAC)>>
+          simp[APPLY_UPDATE_THM]>>simp[]>>
+          IF_CASES_TAC>>fs[]>>
+          simp[word_loc_val_def]>>
+          gvs[get_byte_set_byte_diff]>>
+          qpat_x_assum `!a. byte_align a IN s1.mem_domain ==> _` imp_res_tac >>
+          FULL_CASE_TAC>>gvs[word_loc_val_def])
+        >-
+         (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>HINT_EXISTS_TAC>>fs[]>>
+          rw[APPLY_UPDATE_THM]>>
+          rfs[])
+        >-
+         (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>
+          simp[APPLY_UPDATE_THM]>>
+          qexists_tac`t1.mem`>>rfs[]>>
+          rw[APPLY_UPDATE_THM]>>
+          rfs[])
+        >- rfs[]
+        >- (
+         fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
+         share_mem_state_rel_tac))
+    ))
   THEN1
   (strip_tac>>CONJ_ASM1_TAC>-
     (Cases_on`f`>>TRY(EVAL_TAC>>fs[state_rel_def]>>NO_TAC)
@@ -2214,7 +2720,7 @@ Proof
   simp[GSYM word_add_n2w] >>
   fsrw_tac[ARITH_ss][] >>
   conj_tac >- metis_tac[] >>
-  conj_tac >- ( srw_tac[][] >> first_x_assum drule >> simp[] ) >>
+  conj_tac >- ( srw_tac[][] >> first_x_assum old_drule >> simp[] ) >>
   conj_tac >- metis_tac[] >>
   simp[CONJ_ASSOC] >>
   reverse conj_tac >-
@@ -2230,22 +2736,26 @@ QED
 
 (* compile correct *)
 
-val line_length_MOD_0 = Q.prove(
-  `encoder_correct mc_conf.target /\
+Theorem line_length_MOD_0[local]:
+  encoder_correct mc_conf.target /\
     (~EVEN p ==> (mc_conf.target.config.code_alignment = 0)) /\
     line_ok mc_conf.target.config labs ffi_names p h ==>
-    (line_length h MOD 2 ** mc_conf.target.config.code_alignment = 0)`,
+    (line_length h MOD 2 ** mc_conf.target.config.code_alignment = 0)
+Proof
   Cases_on `h` \\ TRY (Cases_on `a`) \\ full_simp_tac(srw_ss())[line_ok_def,line_length_def]
   \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[encoder_correct_def,target_ok_def,enc_ok_def]
   \\ fs(bool_case_eq_thms)
   \\ full_simp_tac(srw_ss())[LET_DEF,enc_with_nop_thm] \\ srw_tac[][LENGTH_FLAT,LENGTH_REPLICATE]
   \\ qpat_x_assum `2 ** nn = xx:num` (ASSUME_TAC o GSYM) \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[LET_DEF,map_replicate,SUM_REPLICATE]);
+  \\ full_simp_tac(srw_ss())[LET_DEF,map_replicate,SUM_REPLICATE]
+QED
 
-val pos_val_MOD_0_lemma = Q.prove(
-  `(0 MOD 2 ** mc_conf.target.config.code_alignment = 0)`,
-  full_simp_tac(srw_ss())[]);
+Theorem pos_val_MOD_0_lemma[local]:
+  (0 MOD 2 ** mc_conf.target.config.code_alignment = 0)
+Proof
+  full_simp_tac(srw_ss())[]
+QED
 
 val pos_val_MOD_0 = Q.prove(
   `!x pos code2.
@@ -2267,8 +2777,7 @@ val pos_val_MOD_0 = Q.prove(
   \\ Cases_on `EVEN pos` \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[EVEN_ADD]
   \\ `0:num < 2 ** mc_conf.target.config.code_alignment` by full_simp_tac(srw_ss())[]
-  \\ imp_res_tac (GSYM MOD_PLUS)
-  \\ pop_assum (fn th => once_rewrite_tac [th])
+  \\ once_rewrite_tac [GSYM MOD_PLUS]
   \\ imp_res_tac line_length_MOD_0 \\ full_simp_tac(srw_ss())[])
   |> Q.SPECL [`x`,`0`,`y`] |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
   |> SIMP_RULE std_ss [pos_val_MOD_0_lemma]
@@ -2289,23 +2798,24 @@ Proof
   PURE_REWRITE_TAC [addressTheory.n2w_and_1]>>
   FULL_SIMP_TAC std_ss [arithmeticTheory.EVEN_MOD2]>>
   `0 < 2n` by fs[]>>
-  drule (GSYM arithmeticTheory.MOD_PLUS)>>
-  disch_then(qspecl_then [`x`,`w2n p`] SUBST_ALL_TAC)>>
+  (qspecl_then [`2`,`x`,`w2n p`] SUBST_ALL_TAC)
+    (GSYM arithmeticTheory.MOD_PLUS)>>
   first_x_assum SUBST_ALL_TAC>>
   SIMP_TAC (std_ss++ARITH_ss) []>>
   PURE_REWRITE_TAC [GSYM addressTheory.n2w_and_1]>>
   simp[]
 QED
 
-val word_cmp_lemma = Q.prove(
-  `state_rel (mc_conf,code2,labs,p) s1 t1 ms1 /\
+Theorem word_cmp_lemma[local]:
+  state_rel (mc_conf,code2,labs,p) s1 t1 ms1 /\
     (word_cmp cmp (read_reg rr s1) (reg_imm ri s1) = SOME x) ==>
-    (x = word_cmp cmp (read_reg rr t1) (reg_imm ri t1))`,
+    (x = word_cmp cmp (read_reg rr t1) (reg_imm ri t1))
+Proof
   Cases_on `ri` \\ full_simp_tac(srw_ss())[labSemTheory.reg_imm_def,asmSemTheory.reg_imm_def]
   \\ full_simp_tac(srw_ss())[asmSemTheory.read_reg_def]
   \\ Cases_on `s1.regs rr` \\ full_simp_tac(srw_ss())[]
   \\ TRY (Cases_on `s1.regs n`) \\ full_simp_tac(srw_ss())[] \\ Cases_on `cmp`
-  \\ full_simp_tac(srw_ss())[labSemTheory.word_cmp_def,asmTheory.word_cmp_def]
+  \\ full_simp_tac(srw_ss())[wordSemTheory.word_cmp_def,asmTheory.word_cmp_def]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[state_rel_def]
   \\ qpat_x_assum `!bn. bn < _ ==> ~(MEM _ _)` kall_tac
   \\ first_x_assum (kall_tac o Q.SPEC `rr:num`)
@@ -2316,13 +2826,15 @@ val word_cmp_lemma = Q.prove(
   \\ rpt (qpat_x_assum `1w = xxx` (fn th => full_simp_tac(srw_ss())[GSYM th]))
   \\ rpt (qpat_x_assum `p + n2w xxx = t1.regs rr` (fn th => full_simp_tac(srw_ss())[GSYM th]))
   \\ res_tac \\ full_simp_tac(srw_ss())[]
-  \\ metis_tac[EVEN_add_AND]);
+  \\ metis_tac[EVEN_add_AND]
+QED
 
-val list_add_if_fresh_simp = Q.prove(`
+Theorem list_add_if_fresh_simp[local]:
   !n s. list_add_if_fresh s l =
     if find_index s l n = NONE then
       APPEND l [s]
-    else l`,
+    else l
+Proof
   Induct_on `l`
   >- fs [list_add_if_fresh_def, find_index_def]
   >-
@@ -2331,7 +2843,8 @@ val list_add_if_fresh_simp = Q.prove(`
      >> FIRST_X_ASSUM (fn thm => ASSUME_TAC(Q.SPEC `s` thm))
      >> fs [list_add_if_fresh_def, find_index_def]
      >> every_case_tac
-     >> fs [list_add_if_fresh_def, find_index_def]))
+     >> fs [list_add_if_fresh_def, find_index_def])
+QED
 
 Theorem list_add_if_fresh_thm:
    list_add_if_fresh s l =
@@ -2343,9 +2856,10 @@ QED
 
 val list_add_if_fresh_simp = Q.SPECL [`n`,`s`] list_add_if_fresh_simp
 
-val find_index_append = Q.prove(`
+Theorem find_index_append[local]:
   !n. find_index s (l++l') n =
-  (case find_index s l n of NONE => find_index s l' (n + LENGTH l) | SOME i => SOME i)`,
+  (case find_index s l n of NONE => find_index s l' (n + LENGTH l) | SOME i => SOME i)
+Proof
   Induct_on `l`
   >- fs [find_index_def]
   >-
@@ -2353,11 +2867,13 @@ val find_index_append = Q.prove(`
    >> FIRST_X_ASSUM (fn thm => ASSUME_TAC(Q.SPEC `n+1` thm))
    >> fs [find_index_def]
    >> every_case_tac
-   >> fs [find_index_def,ADD1]))
+   >> fs [find_index_def,ADD1])
+QED
 
-val has_io_name_find_index = Q.prove(`
+Theorem has_io_name_find_index[local]:
   !l s. has_io_name s l
-  ==> ?y. find_index (ExtCall s) (find_ffi_names l) 0 = SOME y`,
+  ==> ?y. find_index (ExtCall s) (find_ffi_names l) 0 = SOME y
+Proof
   ho_match_mp_tac find_ffi_names_ind
   >> rpt strip_tac
   >> fs[has_io_name_def,find_index_def, find_ffi_names_def,Q.INST [`n`|->`0`] list_add_if_fresh_simp,find_index_append]
@@ -2367,27 +2883,32 @@ val has_io_name_find_index = Q.prove(`
   >> fs[has_io_name_def,find_index_def, find_ffi_names_def,Q.INST [`n`|->`0`] list_add_if_fresh_simp,find_index_append]
   >- metis_tac [NOT_NONE_SOME]
   >- (Cases_on `find_index (ExtCall s) (find_ffi_names (Section k xs::rest)) 0`
-      >> metis_tac [NOT_NONE_SOME]))
+      >> metis_tac [NOT_NONE_SOME])
+QED
 
-val find_index_in_range = Q.prove(`
-  !n. find_index s l n = SOME x ==> x < n + LENGTH l /\ x >= n`,
+Theorem find_index_in_range[local]:
+  !n. find_index s l n = SOME x ==> x < n + LENGTH l /\ x >= n
+Proof
   Induct_on `l`
   >> fs [find_index_def]
   >> rpt strip_tac
   >> every_case_tac
   >> FIRST_X_ASSUM (fn thm => TRY(ASSUME_TAC(Q.SPEC `n+1` thm)))
-  >> rfs [find_index_def])
+  >> rfs [find_index_def]
+QED
 
-val find_index_in_range0 = Q.prove(`
-  find_index s l 0 = SOME x ==> x < LENGTH l /\ x >= 0`,
-  ASSUME_TAC (Q.SPEC `0` find_index_in_range) >> rfs [])
+Theorem find_index_in_range0[local]:
+  find_index s l 0 = SOME x ==> x < LENGTH l /\ x >= 0
+Proof
+  ASSUME_TAC (Q.SPEC `0` find_index_in_range) >> rfs []
+QED
 
 Theorem EL_get_ffi_index_MEM:
    MEM s ls ⇒ EL (get_ffi_index ls s) ls = s
 Proof
   rw[get_ffi_index_def,find_index_LEAST_EL]
   \\ numLib.LEAST_ELIM_TAC
-  \\ fs[MEM_EL,libTheory.the_def]
+  \\ fs[MEM_EL,miscTheory.the_def]
   \\ metis_tac[]
 QED
 
@@ -2400,6 +2921,7 @@ Proof
   \\ rw[has_io_name_def]
   \\ CASE_TAC \\ fs[]
   \\ CASE_TAC \\ fs[]
+  \\ rename1 ‘s = index ∨ _’
   \\ Cases_on`s = index` \\ fs[]
 QED
 
@@ -2407,11 +2929,11 @@ QED
 
 (* annotated line length *)
 
-val line_len_def = Define`
+Definition line_len_def[simp]:
   (line_len (Label _ _ l) = l) ∧
   (line_len (Asm _ _ l) = l) ∧
-  (line_len (LabAsm _ _ _ l) = l)`;
-val _ = export_rewrites["line_len_def"];
+  (line_len (LabAsm _ _ _ l) = l)
+End
 
 (* annotated section length *)
 
@@ -2431,7 +2953,7 @@ QED
 
 (* simple syntactic properties of compiler functions *)
 
-val enc_lines_again_simp_def = Define`
+Definition enc_lines_again_simp_def:
   (enc_lines_again_simp labs ffis pos enc [] = ([],T)) ∧
   (enc_lines_again_simp labs ffis pos enc (LabAsm a w bytes l::xs) =
     let w1 = get_jump_offset a ffis labs pos
@@ -2449,18 +2971,21 @@ val enc_lines_again_simp_def = Define`
     (Label k1 k2 l::rest,ok)) ∧
   (enc_lines_again_simp labs ffis pos enc (Asm x1 x2 l::xs) =
     let (rest,ok) = enc_lines_again_simp labs ffis (pos + l) enc xs in
-    (Asm x1 x2 l::rest,ok))`
+    (Asm x1 x2 l::rest,ok))
+End
 
 val enc_lines_again_simp_ind = theorem"enc_lines_again_simp_ind";
 
-val enc_lines_again_simp_EQ = Q.prove(`
+Theorem enc_lines_again_simp_EQ[local]:
   ∀labs ffis pos enc ls acc b.
   let (ls',flag) = enc_lines_again_simp labs ffis pos enc ls in
-  enc_lines_again labs ffis pos enc ls (acc,b) = (REVERSE acc ++ ls',sec_length ls' pos,b ∧ flag)`,
+  enc_lines_again labs ffis pos enc ls (acc,b) = (REVERSE acc ++ ls',sec_length ls' pos,b ∧ flag)
+Proof
   ho_match_mp_tac enc_lines_again_simp_ind >>
   fs[enc_lines_again_simp_def,enc_lines_again_def]>>rw[sec_length_def]>>
   rpt(pairarg_tac>>fs[])>>
-  rw[EQ_IMP_THM,sec_length_def])
+  rw[EQ_IMP_THM,sec_length_def]
+QED
 
 Theorem enc_lines_again_simp_len:
    ∀labs ffis pos enc lines res.
@@ -2575,12 +3100,14 @@ QED
 
 (* code_similar preservation *)
 
-val line_similar_add_nop = Q.prove(`
+Theorem line_similar_add_nop[local]:
   ∀ls ls' h.
   LIST_REL line_similar ls ls' ⇒
-  LIST_REL line_similar ls (add_nop h ls')`,
+  LIST_REL line_similar ls (add_nop h ls')
+Proof
   Induct_on`ls`>>rw[add_nop_def]>>
-  Cases_on`y`>>Cases_on`h`>>fs[add_nop_def,line_similar_def]);
+  Cases_on`y`>>Cases_on`h`>>fs[add_nop_def,line_similar_def]
+QED
 
 Theorem line_similar_pad_section:
    ∀nop l2 aux l1.
@@ -2600,7 +3127,7 @@ Proof
    first_x_assum (SUBST1_TAC o SYM) >>
    strip_tac>>
    match_mp_tac EVERY2_APPEND_suff >>
-   drule LIST_REL_APPEND_IMP >>
+   old_drule LIST_REL_APPEND_IMP >>
    rw[]
    >-
      (`LIST_REL line_similar aux (add_nop nop aux)` by
@@ -2628,12 +3155,14 @@ Proof
   simp[]
 QED
 
-val LIST_REL_enc_line = Q.prove(`
+Theorem LIST_REL_enc_line[local]:
   ∀ls ls'.
   LIST_REL line_similar ls ls' ⇔
-  LIST_REL line_similar (MAP (enc_line enc len) ls) ls'` ,
+  LIST_REL line_similar (MAP (enc_line enc len) ls) ls'
+Proof
   Induct>>rw[]>>Cases_on`h`>>rw[enc_line_def,EQ_IMP_THM]>>Cases_on`y`>>
-  fs[line_similar_def])
+  fs[line_similar_def]
+QED
 
 Theorem code_similar_enc_sec_list[simp]:
    ∀code1 code2 n.
@@ -2649,18 +3178,20 @@ Proof
    metis_tac[LIST_REL_enc_line]
 QED
 
-val enc_lines_again_IMP_similar = Q.prove(`
+Theorem enc_lines_again_IMP_similar[local]:
   ∀labs ffis pos enc lines acc ok lines' ok' curr.
   enc_lines_again labs ffis pos enc lines (acc,ok) = (lines',ok') ⇒
   LIST_REL line_similar curr (REVERSE acc) ⇒
-  LIST_REL line_similar (curr++lines) lines'`,
+  LIST_REL line_similar (curr++lines) lines'
+Proof
   Induct_on`lines`>>fs[enc_lines_again_def]>>rw[]>>
   fs[AND_IMP_INTRO]>>
   `curr ++ h ::lines = SNOC h curr ++ lines` by fs[]>>
   pop_assum SUBST1_TAC>>
   first_assum match_mp_tac>>
   Cases_on`h`>>fs[enc_lines_again_def]>>EVERY_CASE_TAC>>
-  asm_exists_tac>>fs[SNOC_APPEND,line_similar_def])
+  asm_exists_tac>>fs[SNOC_APPEND,line_similar_def]
+QED
 
 Theorem enc_secs_again_IMP_similar:
    ∀pos labs ffis enc code code1 ok.
@@ -2681,15 +3212,17 @@ val lines_upd_lab_len_AUX = Q.prove(
   \\ Cases \\ simp_tac std_ss [lines_upd_lab_len_def,LET_DEF]
   \\ pop_assum (fn th => once_rewrite_tac [GSYM th]) \\ fs []) |> GSYM
 
-val line_similar_lines_upd_lab_len = Q.prove(
-  `!l aux pos l1.
+Theorem line_similar_lines_upd_lab_len[local]:
+  !l aux pos l1.
       LIST_REL line_similar (FST (lines_upd_lab_len pos l [])) l1 =
-      LIST_REL line_similar l l1`,
+      LIST_REL line_similar l l1
+Proof
   Induct \\ fs [lines_upd_lab_len_def]
   \\ Cases \\ fs [lines_upd_lab_len_def]
   \\ once_rewrite_tac [lines_upd_lab_len_AUX]
   \\ fs [] \\ rw [] \\ eq_tac \\ rw []
-  \\ Cases_on `y` \\ fs [line_similar_def]);
+  \\ Cases_on `y` \\ fs [line_similar_def]
+QED
 
 Theorem code_similar_upd_lab_len:
    !code pos code1.
@@ -2793,14 +3326,16 @@ Proof
   \\ strip_tac \\ res_tac \\ fs[]
 QED
 
-val enc_lines_again_sec_labels_ok = Q.prove(`
+Theorem enc_lines_again_sec_labels_ok[local]:
   ∀labs ffis pos enc lines acc ok res ok' k.
     enc_lines_again labs ffis pos enc lines (acc,ok) = (res,ok') ∧
     EVERY (sec_label_ok k) acc ∧
     EVERY (sec_label_ok k) lines ⇒
-    EVERY (sec_label_ok k) res`,
+    EVERY (sec_label_ok k) res
+Proof
   recInduct enc_lines_again_ind \\ rw[enc_lines_again_def]
-  \\ rw[EVERY_REVERSE]);
+  \\ rw[EVERY_REVERSE]
+QED
 
 Theorem enc_secs_again_sec_labels_ok:
    ∀pos ffis labs enc ls res ok k.
@@ -2814,14 +3349,16 @@ Proof
   \\ asm_exists_tac \\ fs[]
 QED
 
-val lines_upd_lab_len_sec_label_ok = Q.prove(
-  `∀pos lines acc k.
+Theorem lines_upd_lab_len_sec_label_ok[local]:
+  ∀pos lines acc k.
      EVERY (sec_label_ok k) lines ∧
      EVERY (sec_label_ok k) acc ⇒
-     EVERY (sec_label_ok k) (FST (lines_upd_lab_len pos lines acc))`,
+     EVERY (sec_label_ok k) (FST (lines_upd_lab_len pos lines acc))
+Proof
   recInduct lines_upd_lab_len_ind
   \\ rw[lines_upd_lab_len_def]
-  \\ rw[EVERY_REVERSE]);
+  \\ rw[EVERY_REVERSE]
+QED
 
 Theorem upd_lab_len_sec_labels_ok:
    ∀n ls. EVERY sec_labels_ok ls ⇒ EVERY sec_labels_ok (upd_lab_len n ls)
@@ -2833,23 +3370,27 @@ Proof
   \\ rw[]
 QED
 
-val add_nop_sec_label_ok = Q.prove(
-  `∀nop aux.
+Theorem add_nop_sec_label_ok[local]:
+  ∀nop aux.
     EVERY (sec_label_ok k) aux ⇒
-    EVERY (sec_label_ok k) (add_nop nop aux)`,
+    EVERY (sec_label_ok k) (add_nop nop aux)
+Proof
   recInduct add_nop_ind
-  \\ rw[add_nop_def]);
+  \\ rw[add_nop_def]
+QED
 
-val pad_section_sec_label_ok = Q.prove(
-  `∀nop xs acc k.
+Theorem pad_section_sec_label_ok[local]:
+  ∀nop xs acc k.
     EVERY (sec_label_ok k) xs ∧
     EVERY (sec_label_ok k) acc ⇒
-    EVERY (sec_label_ok k) (pad_section nop xs acc)`,
+    EVERY (sec_label_ok k) (pad_section nop xs acc)
+Proof
   recInduct pad_section_ind
   \\ rw[pad_section_def]
   \\ rw[EVERY_REVERSE] \\ fs[]
   \\ first_x_assum match_mp_tac
-  \\ metis_tac[add_nop_sec_label_ok]);
+  \\ metis_tac[add_nop_sec_label_ok]
+QED
 
 Theorem pad_code_sec_labels_ok:
    ∀nop code.
@@ -2876,17 +3417,18 @@ QED
 
 (* invariant: lines are encoded and non-label lengths annotated *)
 
-val line_encd0_def = Define`
+Definition line_encd0_def:
   (line_encd0 enc (Asm b bytes len) ⇔
     enc (cbw_to_asm b) = bytes ∧ len = LENGTH bytes) ∧
   (line_encd0 enc (LabAsm l w bytes len) ⇔
      enc (lab_inst w l) = bytes ∧ LENGTH bytes ≤ len ∧
      (∃w'. len = LENGTH (enc (lab_inst w' l)))) ∧
-  (line_encd0 enc _ ⇔ T)`;
+  (line_encd0 enc _ ⇔ T)
+End
 
-val sec_encd0_def = Define`
-  sec_encd0 enc (Section _ ls) = EVERY (line_encd0 enc) ls`;
-val _ = export_rewrites["sec_encd0_def"];
+Definition sec_encd0_def[simp]:
+  sec_encd0 enc (Section _ ls) = EVERY (line_encd0 enc) ls
+End
 
 Overload all_encd0 = ``λenc l. EVERY (sec_encd0 enc) l``
 
@@ -2961,30 +3503,30 @@ QED
 (* invariant: annotated lengths are not too small *)
 (* this is a consequence of encd (below) and not treated separately much *)
 
-val line_length_leq_def = Define`
+Definition line_length_leq_def[simp]:
   (line_length_leq (LabAsm _ _ bytes l) ⇔
     LENGTH bytes ≤ l) ∧
   (line_length_leq (Asm _ bytes l) ⇔
     LENGTH bytes ≤ l) ∧
-  (line_length_leq _ ⇔ T)`;
-val _ = export_rewrites["line_length_leq_def"];
+  (line_length_leq _ ⇔ T)
+End
 
-val sec_length_leq_def = Define`
-  sec_length_leq (Section _ ls) = EVERY line_length_leq ls`;
-val _ = export_rewrites["sec_length_leq_def"];
+Definition sec_length_leq_def[simp]:
+  sec_length_leq (Section _ ls) = EVERY line_length_leq ls
+End
 
 Overload all_length_leq = ``λl. EVERY sec_length_leq l``
 
 (* invariant: label annotated lengths are 0 or 1 *)
 
-val label_one_def = Define`
+Definition label_one_def[simp]:
   (label_one (Label _ _ n) ⇔ n ≤ 1) ∧
-  (label_one _ ⇔ T)`;
-val _ = export_rewrites["label_one_def"];
+  (label_one _ ⇔ T)
+End
 
-val sec_label_one_def = Define`
-  sec_label_one (Section _ ls) = EVERY label_one ls`;
-val _ = export_rewrites["sec_label_one_def"];
+Definition sec_label_one_def[simp]:
+  sec_label_one (Section _ ls) = EVERY label_one ls
+End
 
 (* establishing label_one *)
 
@@ -3069,7 +3611,7 @@ QED
 
 (* invariant: lines are encoded and annotated lengths are correct *)
 
-val line_encd_def = Define`
+Definition line_encd_def:
   (line_encd enc labs ffis pos (Asm b bytes len) ⇔
     enc (cbw_to_asm b) = bytes ∧ len = LENGTH bytes) ∧
   (line_encd enc labs ffis pos (LabAsm Halt _ bytes len) ⇔
@@ -3093,21 +3635,24 @@ val line_encd_def = Define`
   (line_encd enc labs ffis pos (LabAsm (Call l) _ bytes len) ⇔
     enc (Call (n2w (find_pos l labs) + -n2w pos)) = bytes ∧
     LENGTH bytes ≤ len) ∧
-  (line_encd enc labs ffis pos _ ⇔ T)`;
+  (line_encd enc labs ffis pos _ ⇔ T)
+End
 
 val line_encd_ind = theorem"line_encd_ind";
 
-val lines_encd_def = Define`
+Definition lines_encd_def:
   (lines_encd enc labs ffis pos [] ⇔ T) ∧
   (lines_encd enc labs ffis pos (l::ls) ⇔
    line_encd enc labs ffis pos l ∧
-   lines_encd enc labs ffis (pos+line_len l) ls)`;
+   lines_encd enc labs ffis (pos+line_len l) ls)
+End
 
-val all_encd_def = Define`
+Definition all_encd_def:
   (all_encd enc labs ffis pos [] ⇔ T) ∧
   (all_encd enc labs ffis pos (Section k ls::ss) ⇔
    lines_encd enc labs ffis pos ls ∧
-   all_encd enc labs ffis (pos + SUM (MAP line_len ls)) ss)`;
+   all_encd enc labs ffis (pos + SUM (MAP line_len ls)) ss)
+End
 
 (* length_leq follows from encd *)
 
@@ -3176,11 +3721,13 @@ QED
 
 (* invariant: annotated lengths are correct *)
 
-val line_length_ok_def = Define`
-  line_length_ok l ⇔ LENGTH (line_bytes l) = line_len l`;
+Definition line_length_ok_def:
+  line_length_ok l ⇔ LENGTH (line_bytes l) = line_len l
+End
 
-val sec_length_ok_def = Define`
-  sec_length_ok (Section _ ls) = EVERY line_length_ok ls`;
+Definition sec_length_ok_def:
+  sec_length_ok (Section _ ls) = EVERY line_length_ok ls
+End
 
 (* simple consequences of length_ok *)
 
@@ -3196,20 +3743,23 @@ QED
 
 (* invariant: all labels annotated with length 0 *)
 
-val label_zero_def = Define`
+Definition label_zero_def[simp]:
   (label_zero (Label _ _ n) ⇔ n = 0) ∧
-  (label_zero _ ⇔ T)`;
-val _ = export_rewrites["label_zero_def"];
+  (label_zero _ ⇔ T)
+End
 
-val sec_label_zero_def = Define`
-  sec_label_zero (Section _ ls) = EVERY label_zero ls`;
+Definition sec_label_zero_def:
+  sec_label_zero (Section _ ls) = EVERY label_zero ls
+End
 
 (* label_zero preservation *)
 
-val EVERY_label_zero_add_nop = Q.prove(
-  `!xs. EVERY label_zero (add_nop nop xs) = EVERY label_zero xs`,
+Theorem EVERY_label_zero_add_nop[local]:
+  !xs. EVERY label_zero (add_nop nop xs) = EVERY label_zero xs
+Proof
   Induct \\ fs [add_nop_def,EVERY_REVERSE]
-  \\ Cases \\ fs [add_nop_def,EVERY_REVERSE]);
+  \\ Cases \\ fs [add_nop_def,EVERY_REVERSE]
+QED
 
 Theorem EVERY_label_zero_pad_section[simp]:
    ∀nop xs aux.
@@ -3356,14 +3906,15 @@ QED
 
 (* invariant: lines aligned *)
 
-val line_aligned_def = Define`
+Definition line_aligned_def:
   line_aligned m l ⇔
     line_len l MOD m = 0 ∧
-    line_length l MOD m = 0`;
+    line_length l MOD m = 0
+End
 
-val sec_aligned_def = Define`
-  sec_aligned noplen (Section _ ls) = EVERY (line_aligned noplen) ls`;
-val _ = export_rewrites["sec_aligned_def"];
+Definition sec_aligned_def[simp]:
+  sec_aligned noplen (Section _ ls) = EVERY (line_aligned noplen) ls
+End
 
 (* establishing aligned *)
 
@@ -3422,14 +3973,15 @@ QED
 
 (* invariant: all initial labels have annotated length 0 *)
 
-val label_prefix_zero_def = Define`
+Definition label_prefix_zero_def:
   label_prefix_zero ls ⇔
      (∀n. n < LENGTH ls ∧ (∀m. m ≤ n ⇒ is_Label (EL m ls)) ⇒
-        ∀m. m ≤ n ⇒ line_len (EL m ls) = 0)`;
+        ∀m. m ≤ n ⇒ line_len (EL m ls) = 0)
+End
 
-val sec_label_prefix_zero_def = Define`
-  sec_label_prefix_zero (Section k ls) ⇔ label_prefix_zero ls`;
-val _ = export_rewrites["sec_label_prefix_zero_def"];
+Definition sec_label_prefix_zero_def[simp]:
+  sec_label_prefix_zero (Section k ls) ⇔ label_prefix_zero ls
+End
 
 Theorem label_prefix_zero_cons:
    (label_prefix_zero (Label l1 l2 len::ls) ⇔ ((len = 0) ∧ label_prefix_zero ls)) ∧
@@ -3582,7 +4134,7 @@ QED
 
 (* invariant: lines encd with nops *)
 
-val line_enc_with_nop_def = Define`
+Definition line_enc_with_nop_def:
   (line_enc_with_nop enc labs ffis pos (Asm b bytes len) ⇔
     enc_with_nop enc (cbw_to_asm b) bytes ∧ LENGTH bytes = len) ∧
   (line_enc_with_nop enc labs ffis pos (LabAsm Halt _ bytes len) ⇔
@@ -3604,15 +4156,17 @@ val line_enc_with_nop_def = Define`
     enc_with_nop enc (Loc k (n2w (find_pos l labs) + -n2w pos)) bytes ∧
     LENGTH bytes = len) ∧
   (line_enc_with_nop enc labs ffis pos (LabAsm _ _ bytes len) ⇔ LENGTH bytes = len) ∧
-  (line_enc_with_nop enc labs ffis pos (Label _ _ len) ⇔ len = 0)`;
+  (line_enc_with_nop enc labs ffis pos (Label _ _ len) ⇔ len = 0)
+End
 
 val line_enc_with_nop_ind = theorem"line_enc_with_nop_ind";
 
-val lines_enc_with_nop_def = Define`
+Definition lines_enc_with_nop_def:
   (lines_enc_with_nop enc labs ffis pos [] ⇔ T) ∧
   (lines_enc_with_nop enc labs ffis pos (l::ls) ⇔
    line_enc_with_nop enc labs ffis pos l ∧
-   lines_enc_with_nop enc labs ffis (pos+line_length l) ls)`;
+   lines_enc_with_nop enc labs ffis (pos+line_length l) ls)
+End
 
 Theorem lines_enc_with_nop_append:
    ∀enc labs ffis pos l1 l2.
@@ -3623,13 +4177,14 @@ Proof
   Induct_on`l1` \\ rw[lines_enc_with_nop_def,EQ_IMP_THM]
 QED
 
-val all_enc_with_nop_def = Define`
+Definition all_enc_with_nop_def:
   (all_enc_with_nop enc labs ffis pos [] ⇔ T) ∧
   (all_enc_with_nop enc labs ffis pos (Section k []::xs) ⇔
    all_enc_with_nop enc labs ffis pos xs) ∧
   (all_enc_with_nop enc labs ffis pos (Section k (y::ys)::xs) ⇔
    line_enc_with_nop enc labs ffis pos y ∧
-   all_enc_with_nop enc labs ffis (pos + line_length y) (Section k ys::xs))`;
+   all_enc_with_nop enc labs ffis (pos + line_length y) (Section k ys::xs))
+End
 
 val all_enc_with_nop_ind = theorem"all_enc_with_nop_ind";
 
@@ -3735,11 +4290,11 @@ Proof
   rw[enc_with_nop_thm,pad_bytes_def]
   >- (qexists_tac`0` \\ simp[REPLICATE])
   \\ simp[TAKE_APPEND2]
-  \\ drule (GEN_ALL MOD_EQ_0_DIVISOR)
-  \\ disch_then (drule o #1 o EQ_IMP_RULE o SPEC_ALL)
+  \\ old_drule (GEN_ALL MOD_EQ_0_DIVISOR)
+  \\ disch_then (old_drule o #1 o EQ_IMP_RULE o SPEC_ALL)
   \\ qpat_x_assum`LENGTH _ MOD _ = _`assume_tac
-  \\ drule (GEN_ALL MOD_EQ_0_DIVISOR)
-  \\ disch_then (drule o #1 o EQ_IMP_RULE o SPEC_ALL)
+  \\ old_drule (GEN_ALL MOD_EQ_0_DIVISOR)
+  \\ disch_then (old_drule o #1 o EQ_IMP_RULE o SPEC_ALL)
   \\ rw[] \\ rw[] \\ fs[]
   \\ fs[NOT_LESS_EQUAL]
   \\ fs[GSYM RIGHT_SUB_DISTRIB]
@@ -3770,13 +4325,13 @@ Proof
     \\ qmatch_goalsub_rename_tac`REPLICATE z`
     \\ qexists_tac`SUC z`
     \\ rewrite_tac[REPLICATE_GENLIST]
-    \\ simp[GENLIST] )
+    \\ simp[GENLIST,SNOC_APPEND] )
   \\ Cases_on`a` \\ fs[line_enc_with_nop_def]
   \\ fs[enc_with_nop_thm,LENGTH_EQ_NUM_compute]
   \\ qmatch_goalsub_rename_tac`REPLICATE z`
   \\ qexists_tac`SUC z`
   \\ rewrite_tac[REPLICATE_GENLIST]
-  \\ simp[GENLIST]
+  \\ simp[GENLIST,SNOC_APPEND]
 QED
 
 Theorem lines_enc_with_nop_pad_section1:
@@ -3931,16 +4486,18 @@ QED
 
 (* invariant: label annotation correctly records alignment *)
 
-val line_lab_len_pos_ok_def = Define`
+Definition line_lab_len_pos_ok_def:
   (line_lab_len_pos_ok pos (Label _ _ l) ⇔
      if EVEN pos then l = 0 else l = 1) ∧
-  (line_lab_len_pos_ok _ _ ⇔ T)`;
+  (line_lab_len_pos_ok _ _ ⇔ T)
+End
 
-val lab_len_pos_ok_def = Define`
+Definition lab_len_pos_ok_def:
   (lab_len_pos_ok pos [] ⇔ T) ∧
   (lab_len_pos_ok pos (l::ls) ⇔
      line_lab_len_pos_ok pos l ∧
-     lab_len_pos_ok (pos + line_len l) ls)`;
+     lab_len_pos_ok (pos + line_len l) ls)
+End
 
 Theorem lab_len_pos_ok_append:
    ∀l1 pos l2.
@@ -3952,11 +4509,12 @@ Proof
   \\ metis_tac[]
 QED
 
-val all_lab_len_pos_ok_def = Define`
+Definition all_lab_len_pos_ok_def:
   (all_lab_len_pos_ok _ [] ⇔ T) ∧
   (all_lab_len_pos_ok pos (Section k ls::ss) ⇔
    lab_len_pos_ok pos ls ∧
-   all_lab_len_pos_ok (pos + sec_length ls 0) ss)`;
+   all_lab_len_pos_ok (pos + sec_length ls 0) ss)
+End
 
 val all_lab_len_pos_ok_ind = theorem"all_lab_len_pos_ok_ind";
 
@@ -4107,16 +4665,18 @@ QED
 
 (* invariant: jump offsets ok *)
 
-val line_offset_ok_def = Define`
+Definition line_offset_ok_def:
   (line_offset_ok labs ffis pos (LabAsm a w bytes _) ⇔
     w = get_jump_offset a ffis labs pos) ∧
-  (line_offset_ok _ _ _ _ ⇔ T)`;
+  (line_offset_ok _ _ _ _ ⇔ T)
+End
 
-val lines_offset_ok_def = Define`
+Definition lines_offset_ok_def:
   (lines_offset_ok labs ffis pos [] ⇔ T) ∧
   (lines_offset_ok labs ffis pos (l::ls) ⇔
    line_offset_ok labs ffis pos l ∧
-   lines_offset_ok labs ffis (pos + line_len l) ls)`;
+   lines_offset_ok labs ffis (pos + line_len l) ls)
+End
 
 Theorem lines_offset_ok_append:
    ∀labs ffis pos l1 l2.
@@ -4127,11 +4687,12 @@ Proof
   Induct_on`l1` \\ rw[lines_offset_ok_def,EQ_IMP_THM]
 QED
 
-val offset_ok_def = Define`
+Definition offset_ok_def:
   (offset_ok labs ffis pos [] ⇔ T) ∧
   (offset_ok labs ffis pos (Section k ls::ss) ⇔
    lines_offset_ok labs ffis pos ls ∧
-   offset_ok labs ffis (pos + SUM (MAP line_len ls)) ss)`;
+   offset_ok labs ffis (pos + SUM (MAP line_len ls)) ss)
+End
 
 val offset_ok_ind = theorem"offset_ok_ind";
 
@@ -4233,53 +4794,60 @@ QED
 
 (* invariant: referenced labels exist *)
 
-val line_labs_exist_def = Define`
+Definition line_labs_exist_def[simp]:
   (line_labs_exist labs (LabAsm a _ _ _) ⇔
     ∀n1 n2. (n1,n2) ∈ labs_of a ⇒ lab_lookup n1 n2 labs ≠ NONE) ∧
-  (line_labs_exist _ _ ⇔ T)`;
+  (line_labs_exist _ _ ⇔ T)
+End
 
 val line_labs_exist_ind = theorem "line_labs_exist_ind";
 
-val _ = export_rewrites["line_labs_exist_def"];
-
-val sec_labs_exist_def = Define`
-  sec_labs_exist labs (Section _ ls) ⇔ EVERY (line_labs_exist labs) ls`;
-val _ = export_rewrites["sec_labs_exist_def"];
+Definition sec_labs_exist_def[simp]:
+  sec_labs_exist labs (Section _ ls) ⇔ EVERY (line_labs_exist labs) ls
+End
 
 Overload all_labs_exist = ``λlabs code. EVERY (sec_labs_exist labs) code``
 
 (* Remove tail recursion from zero_labs_acc_exist *)
-val zero_labs_acc_of_eq_zero_labs_of = Q.prove(`
+Theorem zero_labs_acc_of_eq_zero_labs_of[local]:
   domain (zero_labs_acc_of l acc) =
-  IMAGE FST (restrict_zero (labs_of l)) ∪ domain acc`,
+  IMAGE FST (restrict_zero (labs_of l)) ∪ domain acc
+Proof
   Cases_on`l`>> (TRY (Cases_on`l'`))>>
   simp[backendPropsTheory.restrict_zero_def]>>
   rw[]>>
-  simp[EXTENSION]);
+  simp[EXTENSION]
+QED
 
-val line_get_zero_labs_acc_eq_line_get_zero_labels = Q.prove(`
+Theorem line_get_zero_labs_acc_eq_line_get_zero_labels[local]:
   domain (line_get_zero_labs_acc l acc) =
-  IMAGE FST (restrict_zero (line_get_labels l)) ∪ domain acc`,
+  IMAGE FST (restrict_zero (line_get_labels l)) ∪ domain acc
+Proof
   Cases_on`l`>>fs[line_get_zero_labs_acc_def,line_get_labels_def]>>
   simp[backendPropsTheory.restrict_zero_def]>>
-  fs[zero_labs_acc_of_eq_zero_labs_of,backendPropsTheory.restrict_zero_def]);
+  fs[zero_labs_acc_of_eq_zero_labs_of,backendPropsTheory.restrict_zero_def]
+QED
 
-val sec_get_zero_labs_acc_eq_sec_get_zero_labels = Q.prove(`
+Theorem sec_get_zero_labs_acc_eq_sec_get_zero_labels[local]:
   domain (sec_get_zero_labs_acc sec acc) =
-  IMAGE FST (restrict_zero (sec_get_labels sec)) ∪ domain acc`,
+  IMAGE FST (restrict_zero (sec_get_labels sec)) ∪ domain acc
+Proof
   Cases_on`sec`>>Induct_on`l`>>
   fs[sec_get_zero_labs_acc_def,sec_get_labels_def]>>
   simp[line_get_zero_labs_acc_eq_line_get_zero_labels]>>
   simp[EXTENSION,backendPropsTheory.restrict_zero_def]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
-val get_zero_labs_acc_eq_get_zero_labels = Q.prove(`
+Theorem get_zero_labs_acc_eq_get_zero_labels[local]:
   domain (FOLDR sec_get_zero_labs_acc acc code) =
-  IMAGE FST (restrict_zero (get_labels code)) ∪ domain acc`,
+  IMAGE FST (restrict_zero (get_labels code)) ∪ domain acc
+Proof
   Induct_on`code`>>fs[get_labels_def]>>
   simp[sec_get_zero_labs_acc_eq_sec_get_zero_labels]>>
   simp[EXTENSION,backendPropsTheory.restrict_zero_def]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
 Theorem zero_labs_acc_exist_eq:
   zero_labs_acc_exist labs code ⇔
@@ -4295,9 +4863,9 @@ Proof
   simp[SUBSET_DEF,EXISTS_PROD,FORALL_PROD]>>
   rw[EQ_IMP_THM]>>fs[backendPropsTheory.restrict_zero_def]>>
   rw[]>>
-  first_x_assum drule>>fs[]>>
+  first_x_assum old_drule>>fs[]>>
   every_case_tac>>fs[]
-QED;
+QED
 
 (* labs_exist preservation *)
 Theorem line_similar_line_labs_exist:
@@ -4455,20 +5023,22 @@ QED
 
 (* invariant: labels aligned at even positions *)
 
-val even_labels_def = Define`
+Definition even_labels_def:
   (even_labels pos [] ⇔ T) ∧
   (even_labels pos (Section _ []::ls) ⇔ even_labels pos ls) ∧
   (even_labels pos (Section k (y::ys)::ls) ⇔
    (is_Label y ⇒ EVEN pos) ∧
-   even_labels (pos + line_len y) (Section k ys::ls))`;
+   even_labels (pos + line_len y) (Section k ys::ls))
+End
 
 val even_labels_ind = theorem"even_labels_ind";
 
-val lines_even_labels_def = Define`
+Definition lines_even_labels_def:
   (lines_even_labels pos [] ⇔ T) ∧
   (lines_even_labels pos (y::ys) ⇔
    (is_Label y ⇒ EVEN pos) ∧
-   lines_even_labels (pos + line_len y) ys)`;
+   lines_even_labels (pos + line_len y) ys)
+End
 
 Theorem even_labels_alt:
    (even_labels pos [] ⇔ T) ∧
@@ -4484,13 +5054,14 @@ Proof
   \\ metis_tac[]
 QED
 
-val even_labels_strong_def = Define`
+Definition even_labels_strong_def:
   (even_labels_strong pos [] ⇔ T) ∧
   (even_labels_strong pos (Section _ []::ls) ⇔
     EVEN pos ∧ even_labels_strong pos ls) ∧
   (even_labels_strong pos (Section k (y::ys)::ls) ⇔
    (is_Label y ⇒ EVEN pos) ∧
-   even_labels_strong (pos + line_len y) (Section k ys::ls))`;
+   even_labels_strong (pos + line_len y) (Section k ys::ls))
+End
 
 Theorem even_labels_ends_imp_strong:
    ∀pos code.
@@ -4539,22 +5110,25 @@ Proof
   \\ asm_exists_tac \\ fs[]
 QED
 
-val all_enc_ok_split = Q.prove(`
+Theorem all_enc_ok_split[local]:
   ∀c labs ffis pos k lines xs.
   all_enc_ok c labs ffis pos (Section k lines::xs) ⇒
   all_enc_ok c labs ffis pos [Section k lines] ∧
-  all_enc_ok c labs ffis (pos + sec_length lines 0) xs`,
+  all_enc_ok c labs ffis (pos + sec_length lines 0) xs
+Proof
   Induct_on`lines`>>rw[all_enc_ok_def,sec_length_def,all_enc_ok_def]>>
   Cases_on`h`>>TRY(Cases_on`a`)>>
   fs[sec_length_def,sec_length_add,line_length_def,line_ok_def]>>rveq>>
   fs(bool_case_eq_thms) \\ imp_res_tac lab_lookup_IMP \\ rw[] >>
   rfs[]>>
-  metis_tac[ADD_ASSOC])
+  metis_tac[ADD_ASSOC]
+QED
 
-val all_enc_ok_even = Q.prove(`
+Theorem all_enc_ok_even[local]:
   ∀lines pos.
   all_enc_ok c labs ffis pos [Section k lines] ⇒
-  EVEN (sec_length lines pos)`,
+  EVEN (sec_length lines pos)
+Proof
   Induct>>fs[all_enc_ok_def,sec_length_def]>>Cases>>
   TRY(Cases_on`a`)>>
   rw[]>>fs[line_ok_def,line_length_def,sec_length_add,sec_length_def]>>
@@ -4562,15 +5136,17 @@ val all_enc_ok_even = Q.prove(`
   `n + sec_length lines pos = sec_length lines (n + pos)` by
     metis_tac[sec_length_add,ADD_COMM]>>
   fs[]>>
-  fs(bool_case_eq_thms) \\ imp_res_tac lab_lookup_IMP \\ rw[]);
+  fs(bool_case_eq_thms) \\ imp_res_tac lab_lookup_IMP \\ rw[]
+QED
 
-val all_enc_ok_lab_lookup_even = Q.prove(
-  `∀c labs ffis pos sec_list l1 l2 acc x.
+Theorem all_enc_ok_lab_lookup_even[local]:
+  ∀c labs ffis pos sec_list l1 l2 acc x.
       all_enc_ok c labs ffis pos sec_list ∧
       lab_lookup l1 l2 (compute_labels_alt pos sec_list acc) = SOME x ∧
       (∀x. lab_lookup l1 l2 acc = SOME x ==> EVEN x) ∧
       EVEN pos ⇒
-      EVEN x`,
+      EVEN x
+Proof
   Induct_on`sec_list`>>
   fs[all_enc_ok_def,compute_labels_alt_def]>>
   Cases \\ fs[compute_labels_alt_def] \\
@@ -4590,7 +5166,8 @@ val all_enc_ok_lab_lookup_even = Q.prove(
   \\ fs[all_enc_ok_cons]
   \\ match_mp_tac lines_ok_section_lab_lookup_even
   \\ asm_exists_tac \\ fs[]
-  \\ qexists_tac`[]` \\ simp[]);
+  \\ qexists_tac`[]` \\ simp[]
+QED
 
 Theorem line_ok_pre_light_imp_line_ok:
    ∀c labs ffis pos line.
@@ -4731,8 +5308,8 @@ Proof
   \\ simp[Once loc_to_pc_thm]
   \\ pairarg_tac \\ fs[]
   \\ fs[all_enc_ok_cons]
-  \\ drule lines_ok_lines_enc_with_nop \\ strip_tac
-  \\ drule lines_enc_with_nop_length_ok \\ strip_tac
+  \\ old_drule lines_ok_lines_enc_with_nop \\ strip_tac
+  \\ old_drule lines_enc_with_nop_length_ok \\ strip_tac
   \\ IF_CASES_TAC \\ fs[]
   >- (
     rveq
@@ -4769,9 +5346,9 @@ Proof
       \\ imp_res_tac sec_pos_val_0
       \\ simp[] )
     \\ simp[lookup_fromAList]
-    \\ drule (GEN_ALL ALOOKUP_section_labels)
+    \\ old_drule (GEN_ALL ALOOKUP_section_labels)
     \\ fs[sec_label_zero_def]
-    \\ disch_then drule \\ simp[]
+    \\ disch_then old_drule \\ simp[]
     \\ disch_then(qspecl_then[`pos`,`[]`]strip_assume_tac) \\ rfs[]
     \\ match_mp_tac EQ_SYM
     \\ simp[lookup_insert, lookup_fromAList]
@@ -5032,66 +5609,82 @@ Proof
   \\ simp[]
 QED
 
-val enc_lines_again_all_enc_ok_pre = Q.prove(`
+Theorem enc_lines_again_all_enc_ok_pre[local]:
   ∀labs ffis pos enc lines acc ok res ok' c.
   enc_lines_again labs ffis pos enc lines (acc,ok) = (res,ok') ∧
   EVERY (line_ok_pre c) lines ∧ EVERY (line_ok_pre c) acc ⇒
-  EVERY (line_ok_pre c) res`,
+  EVERY (line_ok_pre c) res
+Proof
   recInduct enc_lines_again_ind>>rw[enc_lines_again_def]>>
-  rw[EVERY_REVERSE]>>fs[line_ok_pre_def])
+  rw[EVERY_REVERSE]>>fs[line_ok_pre_def]
+QED
 
-val enc_secs_again_all_enc_ok_pre = Q.prove(`
+Theorem enc_secs_again_all_enc_ok_pre[local]:
   ∀pos labs ffis enc ls res ok c.
   enc_secs_again pos labs ffis enc ls = (res,ok) ∧ all_enc_ok_pre c ls ⇒
-  all_enc_ok_pre c res`,
+  all_enc_ok_pre c res
+Proof
   ho_match_mp_tac enc_secs_again_ind>>rw[enc_secs_again_def]>>
   rw[]>>
   rpt (pairarg_tac>>fs[])>>
   rw[]>>
-  match_mp_tac enc_lines_again_all_enc_ok_pre>>asm_exists_tac>>fs[])
+  match_mp_tac enc_lines_again_all_enc_ok_pre>>asm_exists_tac>>fs[]
+QED
 
-val line_ok_pre_add_nop = Q.prove(`
+Theorem line_ok_pre_add_nop[local]:
   EVERY (line_ok_pre c) xs ⇒
-  EVERY (line_ok_pre c) (add_nop nop xs)`,
-  Induct_on`xs`>>EVAL_TAC>>Cases>>fs[]>>rw[]>>EVAL_TAC>>fs[line_ok_pre_def])
+  EVERY (line_ok_pre c) (add_nop nop xs)
+Proof
+  Induct_on`xs`>>EVAL_TAC>>Cases>>fs[]>>rw[]>>EVAL_TAC>>fs[line_ok_pre_def]
+QED
 
-val line_ok_pre_pad_section = Q.prove(`
+Theorem line_ok_pre_pad_section[local]:
   ∀nop xs acc c.
   EVERY (line_ok_pre c) xs ∧ EVERY (line_ok_pre c) acc ⇒
-  EVERY (line_ok_pre c) (pad_section nop xs acc)`,
+  EVERY (line_ok_pre c) (pad_section nop xs acc)
+Proof
   ho_match_mp_tac pad_section_ind>>rw[pad_section_def]>>
   fs[EVERY_REVERSE]>>
   first_x_assum match_mp_tac>>fs[line_ok_pre_def]>>
-  metis_tac[line_ok_pre_add_nop])
+  metis_tac[line_ok_pre_add_nop]
+QED
 
-val all_enc_ok_pre_pad_code = Q.prove(`
+Theorem all_enc_ok_pre_pad_code[local]:
   ∀nop code c.
   all_enc_ok_pre c code ⇒
-  all_enc_ok_pre c (pad_code nop code)`,
+  all_enc_ok_pre c (pad_code nop code)
+Proof
   ho_match_mp_tac pad_code_ind>>rw[]>>EVAL_TAC>>rw[]>>
   rfs[]>>
-  match_mp_tac line_ok_pre_pad_section>>fs[])
+  match_mp_tac line_ok_pre_pad_section>>fs[]
+QED
 
-val all_enc_ok_pre_lines_upd_lab_len = Q.prove(`
+Theorem all_enc_ok_pre_lines_upd_lab_len[local]:
   ∀n lines acc.
   EVERY (line_ok_pre c) lines ∧
   EVERY (line_ok_pre c) acc ⇒
-  EVERY (line_ok_pre c) (FST (lines_upd_lab_len n lines acc))`,
+  EVERY (line_ok_pre c) (FST (lines_upd_lab_len n lines acc))
+Proof
   ho_match_mp_tac lines_upd_lab_len_ind>>rw[lines_upd_lab_len_def]>>
-  fs[EVERY_REVERSE,line_ok_pre_def])
+  fs[EVERY_REVERSE,line_ok_pre_def]
+QED
 
-val all_enc_ok_pre_upd_lab_len = Q.prove(`
+Theorem all_enc_ok_pre_upd_lab_len[local]:
   ∀n code.
   all_enc_ok_pre c code ⇒
-  all_enc_ok_pre c (upd_lab_len n code)`,
+  all_enc_ok_pre c (upd_lab_len n code)
+Proof
   ho_match_mp_tac upd_lab_len_ind>>rw[]>> EVAL_TAC>>fs[]>>
   pairarg_tac \\ fs[] \\
   qspecl_then[`n`,`lines`,`[]`]mp_tac all_enc_ok_pre_lines_upd_lab_len
-  \\ rw[])
+  \\ rw[]
+QED
 
-val EXP_IMP_ZERO_LT = Q.prove(
-  `(2n ** y = x) ⇒ 0 < x`,
-  metis_tac[bitTheory.TWOEXP_NOT_ZERO,NOT_ZERO_LT_ZERO]);
+Theorem EXP_IMP_ZERO_LT[local]:
+  (2n ** y = x) ⇒ 0 < x
+Proof
+  metis_tac[bitTheory.TWOEXP_NOT_ZERO,NOT_ZERO_LT_ZERO]
+QED
 
 Theorem line_ok_alignment:
    ∀c labs ffis pos line.
@@ -5131,8 +5724,8 @@ Proof
   \\ metis_tac[line_ok_alignment,ODD_EVEN]
 QED
 
-val remove_labels_loop_thm = Q.prove(
-  `∀n c init_pos init_labs ffis code code2 labs.
+Theorem remove_labels_loop_thm[local]:
+  ∀n c init_pos init_labs ffis code code2 labs.
     remove_labels_loop n c init_pos init_labs ffis code = SOME (code2,labs) ∧
     EVERY sec_ends_with_label code ∧
     EVERY sec_labels_ok code ∧
@@ -5159,7 +5752,8 @@ val remove_labels_loop_thm = Q.prove(
                lab_lookup l1 l2 labs = SOME x) /\
     !l1 l2 x2.
       loc_to_pc l1 l2 code = SOME x2 ==>
-      lab_lookup l1 l2 labs = SOME (pos_val x2 init_pos code2)`,
+      lab_lookup l1 l2 labs = SOME (pos_val x2 init_pos code2)
+Proof
   HO_MATCH_MP_TAC remove_labels_loop_ind  >> rpt gen_tac >> strip_tac
   >> simp[Once remove_labels_loop_def]
   >> rpt gen_tac
@@ -5182,7 +5776,7 @@ val remove_labels_loop_thm = Q.prove(
       >- (match_mp_tac enc_secs_again_all_enc_ok_pre>>metis_tac[])
       >- (match_mp_tac enc_secs_again_encd0 \\ metis_tac[] ))
     >> simp[] >> strip_tac >> fs []
-    >> drule enc_secs_again_IMP_similar
+    >> old_drule enc_secs_again_IMP_similar
     >> metis_tac [code_similar_trans,code_similar_loc_to_pc])
   \\ pairarg_tac \\ fs []
   \\ rpt var_eq_tac \\ fs []
@@ -5301,10 +5895,10 @@ val remove_labels_loop_thm = Q.prove(
     \\ match_mp_tac has_odd_inst_alignment
     \\ asm_exists_tac \\ srw_tac[][]
     \\ asm_exists_tac \\ srw_tac[][])
-  \\ drule pad_code_compute_labels
+  \\ old_drule pad_code_compute_labels
   \\ disch_then(qspecl_then[`init_pos`,`init_labs`]mp_tac)
   \\ impl_tac >- fs[]
-  \\ drule enc_secs_again_compute_labels \\ fs[]
+  \\ old_drule enc_secs_again_compute_labels \\ fs[]
   \\ rw [Abbr`labs`]
   \\ qhdtm_assum`compute_labels_alt`sym_sub_tac
   THEN1 (
@@ -5336,7 +5930,8 @@ val remove_labels_loop_thm = Q.prove(
   \\ match_mp_tac code_similar_pad_code
   \\ imp_res_tac enc_secs_again_IMP_similar
   \\ fs [code_similar_upd_lab_len,Abbr`code2`]
-  \\ metis_tac [code_similar_trans]);
+  \\ metis_tac [code_similar_trans]
+QED
 
 Theorem loc_to_pc_enc_sec_list[simp]:
    ∀l1 l2 code.
@@ -5366,13 +5961,15 @@ Proof
   >> BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[])
 QED
 
-val all_enc_ok_pre_enc_sec_list = Q.prove(`
+Theorem all_enc_ok_pre_enc_sec_list[local]:
   ∀code enc c.
   all_enc_ok_pre c code ⇒
-  all_enc_ok_pre c (enc_sec_list enc code)`,
+  all_enc_ok_pre c (enc_sec_list enc code)
+Proof
   fs[enc_sec_list_def]>>Induct>>fs[]>>
   Cases>>fs[enc_sec_def]>>rw[]>>
-  Induct_on`l`>>fs[]>>Cases>>fs[enc_line_def,line_ok_pre_def])
+  Induct_on`l`>>fs[]>>Cases>>fs[enc_line_def,line_ok_pre_def]
+QED
 
 Theorem remove_labels_thm:
    remove_labels clock conf init_pos init_labs ffi_names code = SOME (code2,labs) /\
@@ -5398,7 +5995,7 @@ Theorem remove_labels_thm:
 Proof
   simp[remove_labels_def]
   >> strip_tac
-  >> drule (GEN_ALL remove_labels_loop_thm)
+  >> old_drule (GEN_ALL remove_labels_loop_thm)
   >> impl_tac
   >- (
     simp[enc_sec_list_encd0,all_enc_ok_pre_enc_sec_list]
@@ -5532,11 +6129,12 @@ Proof
   Induct>>rw[lines_ok_def]>> metis_tac[line_ok_line_byte_length]
 QED
 
-val all_enc_ok_prog_to_bytes_EVEN = Q.prove(`
+Theorem all_enc_ok_prog_to_bytes_EVEN[local]:
   ∀code n c labs ffi pos.
    EVEN pos ∧
    all_enc_ok c labs ffi pos code ⇒
-   EVEN (LENGTH (prog_to_bytes code))`,
+   EVEN (LENGTH (prog_to_bytes code))
+Proof
   fs[prog_to_bytes_MAP]>>
   Induct>>fs[]>>Cases>>
   fs[all_enc_ok_cons]>>rw[EVEN_ADD]>>
@@ -5545,9 +6143,10 @@ val all_enc_ok_prog_to_bytes_EVEN = Q.prove(`
   `MAP line_length l = MAP LENGTH (MAP line_bytes l)` by
     metis_tac[lines_ok_MAP_line_byte_length]>>
   pop_assum SUBST_ALL_TAC >>simp[]>>
-  metis_tac[EVEN_ADD]);
+  metis_tac[EVEN_ADD]
+QED
 
-val loc_to_pc_append = Q.prove(`
+Theorem loc_to_pc_append[local]:
   ∀l1 l2 c1 c2 conf labs ffis pos.
   EVERY sec_labels_ok (c1++c2) ⇒
   loc_to_pc l1 l2 (c1++c2) =
@@ -5556,7 +6155,8 @@ val loc_to_pc_append = Q.prove(`
   | NONE =>
     case loc_to_pc l1 l2 c2 of
       SOME x => SOME (x + SUM (MAP (len_no_lab o Section_lines) c1))
-    | NONE => NONE`,
+    | NONE => NONE
+Proof
   Induct_on`c1`
   >-
     (fs[loc_to_pc_thm]>>
@@ -5565,7 +6165,8 @@ val loc_to_pc_append = Q.prove(`
   simp[Once loc_to_pc_thm,SimpLHS]>>
   simp[Once loc_to_pc_thm,SimpRHS]>>
   rw[]>>
-  rpt(TOP_CASE_TAC>>fs[]));
+  rpt(TOP_CASE_TAC>>fs[])
+QED
 
 Theorem all_enc_ok_append:
    ∀conf labs ffi n c1 c2.
@@ -5578,7 +6179,7 @@ Proof
   fs[all_enc_ok_cons]>>
   first_x_assum match_mp_tac>>
   fs[prog_to_bytes_MAP,LENGTH_FLAT]>>
-  drule lines_ok_MAP_line_byte_length>>
+  old_drule lines_ok_MAP_line_byte_length>>
   rw[]>>
   metis_tac[ADD_COMM]
 QED
@@ -5720,25 +6321,27 @@ Proof
   >-(
     TOP_CASE_TAC>>fs[]>>
     rw[]>>res_tac>>fs[]>>
-    drule sec_loc_to_pc_bound>>
+    old_drule sec_loc_to_pc_bound>>
     fs[])
   >>
     rw[]>>
     res_tac>>fs[]
 QED
 
-val find_ffi_names_append = Q.prove(`
+Theorem find_ffi_names_append[local]:
   ∀l1 l2.
   find_ffi_names (l1++l2) =
   (find_ffi_names l2) ++
-  FILTER (λn. ¬ MEM n (find_ffi_names l2)) (find_ffi_names l1) `,
+  FILTER (λn. ¬ MEM n (find_ffi_names l2)) (find_ffi_names l1)
+Proof
   ho_match_mp_tac find_ffi_names_ind>>rw[find_ffi_names_def]>>
   fs[FILTER_EQ_ID]>>
   TOP_CASE_TAC>>fs[]>>
   TOP_CASE_TAC>>fs[]>>
   fs[list_add_if_fresh_thm]>>rw[]>>
   fs[MEM_FILTER,FILTER_APPEND]>>
-  fs[]);
+  fs[]
+QED
 
 Theorem all_enc_ok_aligned_pos_val:
   !(mc_conf : ('a, 'b, 'c) machine_config) labs code2 pc ffi_names.
@@ -5785,13 +6388,13 @@ Theorem IMP_ffi_entry_pcs_disjoint_Asm:
 Proof
   rpt strip_tac >>
   fs[ffi_entry_pcs_disjoint_def, addressTheory.word_arith_lemma1] >>
-  drule code_similar_IMP_asm_fetch_aux_line_similar >>
+  old_drule code_similar_IMP_asm_fetch_aux_line_similar >>
   disch_then $ qspec_then `s1.pc` (assume_tac o
     REWRITE_RULE[OPTREL_def]) >>
   gvs[] >>
   Cases_on `y0` >> gvs[line_similar_def] >>
   gvs[share_mem_domain_code_rel_def] >>
-  first_x_assum drule >>
+  first_x_assum old_drule >>
   gvs[addressTheory.word_arith_lemma1, line_length_def] >>
   `LENGTH l = LENGTH bytes'` suffices_by simp[] >>
   drule_all asm_fetch_aux_pos_val_LENGTH_EQ >>
@@ -5814,13 +6417,13 @@ Theorem IMP_ffi_entry_pcs_disjoint_LabAsm:
 Proof
   rpt strip_tac >>
   fs[ffi_entry_pcs_disjoint_def, addressTheory.word_arith_lemma1] >>
-  drule code_similar_IMP_asm_fetch_aux_line_similar >>
+  old_drule code_similar_IMP_asm_fetch_aux_line_similar >>
   disch_then $ qspec_then `s1.pc` (assume_tac o
     REWRITE_RULE[OPTREL_def]) >>
   gvs[] >>
   Cases_on `y0` >> gvs[line_similar_def] >>
   gvs[share_mem_domain_code_rel_def] >>
-  first_x_assum drule >>
+  first_x_assum old_drule >>
   gvs[addressTheory.word_arith_lemma1, line_length_def] >>
   `LENGTH l = LENGTH bytes'` suffices_by simp[] >>
   drule_all asm_fetch_aux_pos_val_LENGTH_EQ >>
@@ -5904,8 +6507,8 @@ Proof
     ) >>
     `LENGTH (FILTER P ffis) < x` by gvs[] >>
     gvs[] >>
-    last_x_assum drule >>
-    first_x_assum drule >>
+    last_x_assum old_drule >>
+    first_x_assum old_drule >>
     gvs[EVERY_EL,EL_APPEND_EQN,Abbr`P`] >>
     Cases_on ‘LENGTH l’>>fs[]>>
     last_x_assum $ qspec_then ‘0’ assume_tac>>fs[]
@@ -5997,7 +6600,7 @@ Proof
   gvs[] >>
   `j < i` by decide_tac >>
   gvs[] >>
-  drule_at_then (Pos $ el 2) drule pos_val_mono >>
+  drule_at_then (Pos $ el 2) old_drule pos_val_mono >>
   disch_then drule_all >>
   simp[] >>
   qexists `p` >>
@@ -6095,22 +6698,22 @@ Theorem pos_val_asm_fetch_aux_distinct:
   a < LENGTH (line_bytes line) /\
   LENGTH (prog_to_bytes code2) < dimword (:'a) /\
   pc' <> pc ==>
-  ((n2w (a + pos_val pc p code2)): 'a word) <> n2w (pos_val pc' p code2)
+  a + pos_val pc p code2 <> pos_val pc' p code2
 Proof
   rpt strip_tac >>
   drule_then (qspec_then `0` assume_tac) pos_val_num_pcs >>
   `p + pos_val pc 0 code2 = pos_val pc p code2` by irule pos_val_acc_0 >>
   `p + pos_val pc' 0 code2 = pos_val pc' p code2` by irule pos_val_acc_0 >>
   gvs[] >>
-  drule pos_val_bound >>
+  old_drule pos_val_bound >>
   disch_then $ qspecl_then [`pc`, `0`] assume_tac >>
-  drule pos_val_bound >>
+  old_drule pos_val_bound >>
   disch_then $ qspecl_then [`pc'`, `0`] assume_tac >>
-  drule asm_fetch_aux_pos_val_SUC >>
+  old_drule asm_fetch_aux_pos_val_SUC >>
   disch_then imp_res_tac >>
   first_x_assum $ qspec_then `0` assume_tac >>
   gvs[] >>
-  drule pos_val_bound >>
+  old_drule pos_val_bound >>
   disch_then $ qspecl_then [`pc + 1`, `0`] assume_tac >>
   gvs[] >>
   drule_then assume_tac asm_fetch_SOME_IMP_LESS_num_pcs >>
@@ -6125,7 +6728,7 @@ Proof
   ) >>
   Cases_on `num_pcs code2 <= pc'`
   >- (
-    drule pos_val_GE_num_pcs >>
+    old_drule pos_val_GE_num_pcs >>
     disch_then $ qspec_then `0` assume_tac >>
     gvs[]
   ) >>
@@ -6134,15 +6737,15 @@ Proof
   `pos_val pc p code2 < pos_val pc' p code2` by (
     Cases_on `a` >>
     gvs[] >>
-    drule pos_val_inj >>
+    old_drule pos_val_inj >>
     gvs[]
   ) >>
-  drule pos_val_mono_inv >>
+  old_drule pos_val_mono_inv >>
   disch_then imp_res_tac >>
   gvs[] >>
   `pc' < pc + 1` suffices_by gvs[] >>
   `pos_val pc' 0 code2 < pos_val (pc+1) 0 code2` by gvs[] >>
-  drule pos_val_mono_inv >>
+  old_drule pos_val_mono_inv >>
   disch_then imp_res_tac >>
   gvs[]
 QED
@@ -6235,7 +6838,7 @@ fun share_mem_load_compile_correct_tac ffi_name new_t1 nb new_ffi =
       \\ impl_tac
       >- (
         simp[target_state_rel_def]
-        \\ drule find_index_LESS_LENGTH
+        \\ old_drule find_index_LESS_LENGTH
         \\ simp[]
         \\ disch_then kall_tac
         \\ fs[find_index_INDEX_OF, INDEX_OF_eq_SOME] )
@@ -6243,7 +6846,7 @@ fun share_mem_load_compile_correct_tac ffi_name new_t1 nb new_ffi =
       >- (
         gvs[is_valid_mapped_write_def,is_valid_mapped_read_def,good_dimindex_def]
         \\ gvs[enc_with_nop_thm]
-        \\ drule $ cj 1 $ cj 1 $ PURE_REWRITE_RULE [EQ_IMP_THM] bytes_in_memory_APPEND
+        \\ old_drule $ cj 1 $ cj 1 $ PURE_REWRITE_RULE [EQ_IMP_THM] bytes_in_memory_APPEND
         \\ strip_tac
         \\ drule_all bytes_in_memory_eq_mem
         \\ simp[]
@@ -6332,7 +6935,7 @@ fun share_mem_store_compile_correct_tac ffi_name new_t1 (nb: term frag list) new
       \\ impl_tac
       >- (
         simp[target_state_rel_def]
-        \\ drule find_index_LESS_LENGTH
+        \\ old_drule find_index_LESS_LENGTH
         \\ simp[]
         \\ disch_then kall_tac
         \\ fs[find_index_INDEX_OF, INDEX_OF_eq_SOME] )
@@ -6340,7 +6943,7 @@ fun share_mem_store_compile_correct_tac ffi_name new_t1 (nb: term frag list) new
       >- (
         gvs[is_valid_mapped_write_def,is_valid_mapped_read_def,good_dimindex_def]
         \\ gvs[enc_with_nop_thm]
-        \\ drule $ cj 1 $ cj 1 $ PURE_REWRITE_RULE [EQ_IMP_THM] bytes_in_memory_APPEND
+        \\ old_drule $ cj 1 $ cj 1 $ PURE_REWRITE_RULE [EQ_IMP_THM] bytes_in_memory_APPEND
         \\ strip_tac
         \\ drule_all bytes_in_memory_eq_mem
         \\ simp[]
@@ -6380,14 +6983,14 @@ val share_mem_eval_expand_tac =
   \\ qpat_assum `!pc op re a inst len i. asm_fetch_aux _ _ = SOME _ /\
       mmio_pcs_min_index _ = SOME _ ==> _` drule_all
   \\ strip_tac
-  \\ drule find_index_is_MEM
+  \\ old_drule find_index_is_MEM
   \\ fs[target_state_rel_def]
   \\ disch_then kall_tac
   \\ fs[share_mem_state_rel_def]
   \\ qpat_assum `!index' i'. mmio_pcs_min_index _ = SOME i' /\ index' < _ /\
-      _ ==> _` $ qspec_then `index` drule
+      _ ==> _` $ qspec_then `index` old_drule
   \\ (
-    impl_tac >- (drule find_index_LESS_LENGTH >> fs[])
+    impl_tac >- (old_drule find_index_LESS_LENGTH >> fs[])
     \\ disch_then assume_tac
     \\ `mc_conf.target.get_pc ms1 <> mc_conf.ccache_pc /\
         mc_conf.target.get_pc ms1 <> mc_conf.halt_pc` by (
@@ -6449,7 +7052,7 @@ Theorem no_share_mem_lemma:
   i = LENGTH ffi_names
 Proof
   rpt strip_tac >>
-  drule mmio_pcs_min_index_is_SOME >>
+  old_drule mmio_pcs_min_index_is_SOME >>
   rpt strip_tac >>
   gvs[no_install_or_no_share_mem_def,no_install_def,no_share_mem_inst_def,EVERY_EL] >>
   spose_not_then assume_tac>>fs[LESS_OR_EQ]>>
@@ -6541,7 +7144,7 @@ Proof
   Cases_on `p < num_pcs code`
   >- metis_tac[asm_fetch_aux_APPEND1] >>
   `num_pcs code <= p` by decide_tac >>
-  drule LESS_EQUAL_ADD >>
+  old_drule LESS_EQUAL_ADD >>
   strip_tac >>
   gvs[] >>
   metis_tac[asm_fetch_aux_APPEND2]
@@ -6569,7 +7172,7 @@ Theorem code_similar_IMP_both_no_share_mem:
   no_share_mem_inst sec_list
 Proof
   rpt strip_tac >>
-  drule code_similar_IMP_asm_fetch_aux_line_similar >>
+  old_drule code_similar_IMP_asm_fetch_aux_line_similar >>
   gvs[no_share_mem_inst_def,OPTREL_def,line_similar_def] >>
   rw[] >>
   first_x_assum $ qspec_then `p` assume_tac >>
@@ -6585,7 +7188,7 @@ Theorem code_similar_IMP_both_no_install_or_no_share_mem:
   no_install_or_no_share_mem sec_list ffi_names
 Proof
   rpt strip_tac >>
-  drule code_similar_IMP_asm_fetch_aux_line_similar >>
+  old_drule code_similar_IMP_asm_fetch_aux_line_similar >>
   gvs[OPTREL_def,no_install_or_no_share_mem_def] >>
   rw[]
   >- (
@@ -6681,14 +7284,13 @@ Proof
        \\ qabbrev_tac `ffi_names = TAKE (THE (mmio_pcs_min_index mc_conf.ffi_names)) mc_conf.ffi_names`
        \\ mp_tac IMP_bytes_in_memory_Inst
        \\ full_simp_tac(srw_ss())[]
-       \\ match_mp_tac IMP_IMP \\ strip_tac
-       THEN1 (full_simp_tac(srw_ss())[state_rel_def] \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[])
+       \\ impl_tac
+       THEN1 (full_simp_tac(srw_ss())[state_rel_def])
        \\ rpt strip_tac \\ pop_assum mp_tac \\ pop_assum mp_tac
        \\ qpat_abbrev_tac `jj = asm$Inst i` \\ rpt strip_tac
        \\ (Q.ISPECL_THEN [`mc_conf`,`t1`,`ms1`,`s1.ffi`,`jj`]MP_TAC
             asm_step_IMP_evaluate_step_nop) \\ full_simp_tac(srw_ss())[]
-       \\ strip_tac \\ pop_assum (mp_tac o Q.SPEC `bytes'`)
-       \\ `~(asm_inst i s1).failed` by (rpt strip_tac \\ full_simp_tac(srw_ss())[])
+       \\ disch_then (mp_tac o Q.SPEC `bytes'`)
        \\ impl_tac>-
         (imp_res_tac Inst_lemma \\ pop_assum (K all_tac)
          \\ full_simp_tac(srw_ss())[state_rel_def,asm_def,LET_DEF] \\ unabbrev_all_tac \\ full_simp_tac(srw_ss())[]
@@ -6703,17 +7305,16 @@ Proof
                t1.mem_domain s1.mem_domain` mp_tac
          \\ match_mp_tac bytes_in_mem_IMP_memory \\ full_simp_tac(srw_ss())[])
        \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
-       \\ qpat_x_assum`(res,s2) = _` (assume_tac o SYM)
        \\ rfs[] \\ fs[]
        \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`shift_interfer l mc_conf`,
             `code2`,`labs`,
             `(asm jj (t1.pc + n2w (LENGTH (bytes':word8 list))) t1)`,`ms2`])
-       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+       \\ impl_tac THEN1
         (unabbrev_all_tac \\ rpt strip_tac \\ full_simp_tac(srw_ss())[asm_def]
          THEN1 (full_simp_tac(srw_ss())[shift_interfer_def])
          \\ full_simp_tac(srw_ss())[GSYM PULL_FORALL]
          \\ match_mp_tac state_rel_shift_interfer
-         \\ drule Inst_lemma \\ fs[])
+         \\ old_drule Inst_lemma \\ fs[])
        \\ rpt strip_tac \\ full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,labSemTheory.upd_reg_def]
        \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock - 1 + k` mp_tac)
        \\ rpt strip_tac
@@ -6768,7 +7369,7 @@ Proof
           \\ irule LESS_EQ_LESS_TRANS
           \\ qexists_tac`LENGTH (prog_to_bytes code2)`
           \\ simp[]
-          \\ drule pos_val_bound
+          \\ old_drule pos_val_bound
           \\ disch_then(qspec_then`0`mp_tac o CONV_RULE SWAP_FORALL_CONV)
           \\ simp[] )
         \\ simp[]
@@ -6807,7 +7408,7 @@ Proof
             \\ irule LESS_EQ_LESS_TRANS
             \\ qexists_tac`LENGTH (prog_to_bytes code2)`
             \\ simp[]
-            \\ drule pos_val_bound
+            \\ old_drule pos_val_bound
             \\ disch_then(qspec_then`0`mp_tac o CONV_RULE SWAP_FORALL_CONV)
             \\ simp[] )
           \\ simp[]
@@ -6841,14 +7442,14 @@ Proof
     qmatch_asmsub_abbrev_tac`Inst jj`>>
     (Q.ISPECL_THEN [`mc_conf`,`t1`,`ms1`,`s1.ffi`,`Inst jj`]MP_TAC
             asm_step_IMP_evaluate_step_nop) \\ full_simp_tac(srw_ss())[]
-    \\ strip_tac \\ pop_assum (mp_tac o Q.SPEC `bytes'`)
+    \\ disch_then (mp_tac o Q.SPEC `bytes'`)
     \\ fs[asm_def] >>
     `inst jj t1 = t1 with mem := ((w1 =+ w2w w2) t1.mem)` by
       (unabbrev_all_tac >>
       simp[inst_def,mem_op_def,mem_store_def,alignmentTheory.aligned_0]>>
       EVAL_TAC>> simp[asm_state_component_equality]>>
       fs[state_rel_def]>>rw[]>>
-      first_x_assum drule>>simp[])
+      first_x_assum old_drule>>simp[])
     \\ impl_tac>-
       (fs[state_rel_def]>>
       conj_tac >- (
@@ -6870,7 +7471,7 @@ Proof
         PURE_REWRITE_TAC [GSYM WORD_ADD_ASSOC]>>
         `LENGTH bytes' + pos_val s1.pc 0 code2 <= LENGTH (prog_to_bytes code2)` by
           (qpat_x_assum`pos_val _ _ _ = _` sym_sub_tac>>
-          drule pos_val_bound>>
+          old_drule pos_val_bound>>
           disch_then(qspecl_then [`s1.pc+1`,`0`] assume_tac)>>
           fs[])>>
         rw[]>>
@@ -6893,7 +7494,7 @@ Proof
       conj_tac>- metis_tac[]>>
       conj_tac>-
         (rw[APPLY_UPDATE_THM]>>
-        first_x_assum drule>>
+        first_x_assum old_drule>>
         fs[])
       \\ conj_tac>-
         (strip_tac>>
@@ -6905,15 +7506,14 @@ Proof
         (match_mp_tac bytes_in_mem_UPDATE>>rw[]>>
         PURE_REWRITE_TAC [GSYM WORD_ADD_ASSOC]>>
         simp[word_add_n2w])
-      \\ conj_tac>-
-        (simp[bytes_in_mem_APPEND] >> conj_tac
-        >-
-          (* non-overlap of cb with itself *)
-          (match_mp_tac bytes_in_mem_UPDATE>>
+      \\ conj_tac >-
+        (simp[bytes_in_mem_APPEND]
+      \\ conj_tac >-
+        (* non-overlap of cb with itself *)
+        (match_mp_tac bytes_in_mem_UPDATE>>
           rw[])
-        >>
-          simp[bytes_in_mem_def,APPLY_UPDATE_THM]>>
-          first_x_assum drule>>fs[])
+      \\ simp[bytes_in_mem_def,APPLY_UPDATE_THM]>>
+         first_x_assum old_drule>>fs[])
       \\ simp[GSYM word_add_n2w]
        >> fs[upd_pc_def, inc_pc_def, share_mem_state_rel_def] >>
         share_mem_state_rel_tac)
@@ -6923,28 +7523,28 @@ Proof
     \\ Q.EXISTS_TAC `k + l - 1` \\ full_simp_tac(srw_ss())[]
     \\ `^s1.clock - 1 + k + l = ^s1.clock + (k + l - 1)` by decide_tac
     \\ fs[])
-  THEN1 (* share_mem_op *)
-   (say "share_mem_op"
+  THEN1 ( (* share_mem_op *)
+    say "share_mem_op"
     \\ Cases_on `m` >>
     fs[share_mem_op_def,share_mem_load_def,share_mem_store_def]>>
     gvs[pair_case_eq,option_case_eq, ffi_result_case_eq,CaseEq"word_loc"]>>
-     fs[asm_fetch_def,state_rel_def]>>
-     drule_all IMP_bytes_in_memory_ShareMem>>strip_tac>>
-     fs[share_mem_domain_code_rel_def]>>
-     qpat_assum `!pc op re a inst len i. asm_fetch_aux _ _ = SOME _ /\
-     mmio_pcs_min_index _ = SOME _ ==> _` drule_all>>strip_tac>>
-     fs[get_memop_info_def]>>
-     drule find_index_is_MEM>>strip_tac>>
-     simp[Once targetSemTheory.evaluate_def]>>
-     qpat_x_assum ‘target_state_rel _ _ _’ assume_tac>>
-     fs[target_state_rel_def]>>
+    fs[asm_fetch_def,state_rel_def]>>
+    drule_all IMP_bytes_in_memory_ShareMem>>strip_tac>>
+    fs[share_mem_domain_code_rel_def]>>
+    qpat_assum `!pc op re a inst len i. asm_fetch_aux _ _ = SOME _ /\
+    mmio_pcs_min_index _ = SOME _ ==> _` drule_all>>strip_tac>>
+    fs[get_memop_info_def]>>
+    old_drule find_index_is_MEM>>strip_tac>>
+    simp[Once targetSemTheory.evaluate_def]>>
+    qpat_x_assum ‘target_state_rel _ _ _’ assume_tac>>
+    fs[target_state_rel_def]>>
 
     qpat_assum ‘share_mem_state_rel _ _ _ _ ’ assume_tac>>
     fs[share_mem_state_rel_def]>>
     qpat_assum `!index' i'. mmio_pcs_min_index _ = SOME i' /\ index' < _ /\
-    _ ==> _` $ qspecl_then [`index`, `i`] drule>>
+    _ ==> _` $ qspecl_then [`index`, `i`] old_drule>>
 
-   (impl_tac>-(drule find_index_LESS_LENGTH >> fs[]))>>
+    (impl_tac>-(old_drule find_index_LESS_LENGTH >> fs[]))>>
     strip_tac>>
     `mc_conf.target.get_pc ms1 <> mc_conf.ccache_pc /\
     mc_conf.target.get_pc ms1 <> mc_conf.halt_pc` by (
@@ -6966,6 +7566,21 @@ Proof
     rfs[]>>
     ‘∀x. word_to_bytes_aux 1n x F = [get_byte 0w x F]’
       by (rewrite_tac[word_to_bytes_aux_def,ONE]>>simp[])>>
+    ‘∀x:'a word. TAKE 1 (word_to_bytes x F) = [get_byte 0w x F]’
+      by (qhdtm_x_assum ‘good_dimindex’ mp_tac >>
+          rw[good_dimindex_def] >>
+          rw[word_to_bytes_def,
+             CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV word_to_bytes_aux_def]) >>
+    ‘∀x:'a word. TAKE 2 (word_to_bytes x F) = word_to_bytes_aux 2 x F’
+      by (qhdtm_x_assum ‘good_dimindex’ mp_tac >>
+          rw[good_dimindex_def] >>
+          rw[word_to_bytes_def,
+             CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV word_to_bytes_aux_def]) >>
+    ‘∀x:'a word. TAKE 4 (word_to_bytes x F) = word_to_bytes_aux 4 x F’
+      by (qhdtm_x_assum ‘good_dimindex’ mp_tac >>
+          rw[good_dimindex_def] >>
+          rw[word_to_bytes_def,
+             CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV word_to_bytes_aux_def]) >>
     Cases_on ‘ALOOKUP mc_conf.mmio_info index’>>fs[]>>
     fs[]
     >>~- ([‘Halt (FFI_outcome _)’],
@@ -6978,8 +7593,6 @@ Proof
     (conj_asm1_tac >-
       enc_is_valid_mapped_access_tac)>>fs[]>>
     pairarg_tac>>fs[inc_pc_def,dec_clock_def]>>
-    irule_at Any EQ_SYM>>
-    simp[Once SWAP_EXISTS_THM]>>
     last_x_assum $ irule>>fs[]>>
     (conj_tac >-
      (rpt strip_tac>>
@@ -7010,8 +7623,8 @@ Proof
     fs[apply_oracle_def,shift_seq_def]>>
     qpat_x_assum ‘_ = ms1'’ $ assume_tac o GSYM>>fs[]>>
     qpat_x_assum ‘∀a b c d e f g h i j k l. _ ⇒ _’ mp_tac>>
-    disch_then $ drule>>fs[]>>
-    drule find_index_LESS_LENGTH>>strip_tac>>
+    disch_then $ old_drule>>fs[]>>
+    old_drule find_index_LESS_LENGTH>>strip_tac>>
     strip_tac>>
     (conj_tac >-
       (pop_assum mp_tac>>
@@ -7038,8 +7651,8 @@ Proof
     fs[target_state_rel_def,UPDATE_def]>>
     rw[word_loc_val_def]>>
     metis_tac[word_loc_val_def])
-  THEN1 (* Jump *)
-   (say "Jump"
+  THEN1 ( (* Jump *)
+    say "Jump"
     \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (Jump jtarget) l1 l2 l3)`
     \\ qmatch_assum_rename_tac
@@ -7079,7 +7692,7 @@ Proof
       \\ fs[]
       \\ Cases_on `lab_lookup n'' n0 labs`
       \\ gvs[lab_inst_def,enc_with_nop_thm, LENGTH_APPEND]
-      \\ drule lab_lookup_IMP
+      \\ old_drule lab_lookup_IMP
       \\ fs[]
     )
     \\ rpt strip_tac
@@ -7158,7 +7771,7 @@ Proof
         \\ fs[]
         \\ Cases_on `lab_lookup n'' n0 labs`
         \\ gvs[lab_inst_def,enc_with_nop_thm, LENGTH_APPEND]
-        \\ drule lab_lookup_IMP
+        \\ old_drule lab_lookup_IMP
         \\ fs[]
       )
       \\ rpt strip_tac
@@ -7416,7 +8029,7 @@ Proof
            SOME (get_ffi_index mc_conf.ffi_names (ExtCall s))) /\
         get_ffi_index mc_conf.ffi_names (ExtCall s) = get_ffi_index ffi_names (ExtCall s)` by (
        full_simp_tac(srw_ss())[state_rel_def]>>
-       first_x_assum $ qspecl_then [`ExtCall s`, `i`] drule >>
+       first_x_assum $ qspecl_then [`ExtCall s`, `i`] old_drule >>
        gvs[] >>
        impl_keep_tac
        >- (irule ffi_name_NOT_Mapped >> fs[]) >>
@@ -7429,7 +8042,7 @@ Proof
        fs[CaseEq"option"]>>irule OR_INTRO_THM2>>
        Cases_on ‘i ≤ LENGTH mc_conf.ffi_names’>>fs[]>-
         (
-        drule LENGTH_TAKE>>strip_tac>>
+        old_drule LENGTH_TAKE>>strip_tac>>
         irule find_index_APPEND1>>fs[]>>
         qexists_tac `DROP i mc_conf.ffi_names` >>
         fs[TAKE_DROP])>>
@@ -7497,11 +8110,11 @@ Proof
 
      fs[shift_interfer_def]>>
      fs[state_rel_def]>>
-     drule mmio_pcs_min_index_is_SOME>>
+     old_drule mmio_pcs_min_index_is_SOME>>
      strip_tac>>fs[]>>
      last_x_assum $ qspec_then ‘x''’ assume_tac>>fs[]>>
      Cases_on ‘x'' < i’>>fs[NOT_LESS]>>
-     drule find_index_LESS_LENGTH>>strip_tac>>fs[]>>
+     old_drule find_index_LESS_LENGTH>>strip_tac>>fs[]>>
      first_x_assum $ qspec_then ‘x''’ assume_tac>>gvs[])
     (* FFI_return *)
     \\ full_simp_tac(srw_ss())[]
@@ -7552,7 +8165,7 @@ Proof
         first_x_assum $ qspec_then `i'` assume_tac >>gvs[]
       )
       \\ `index < LENGTH mc_conf.ffi_names` by (
-        drule mmio_pcs_min_index_is_SOME >> gvs[]
+        old_drule mmio_pcs_min_index_is_SOME >> gvs[]
         )
       \\ qunabbrev_tac`index`
       \\ conj_tac
@@ -7565,7 +8178,7 @@ Proof
         \\ `aligned mc_conf.target.config.code_alignment p` by fs [alignmentTheory.aligned_bitwise_and]
         \\ qpat_x_assum `_ = t1.regs s1.link_reg` (fn th => rewrite_tac [GSYM th])
         \\ simp [ONCE_REWRITE_RULE [WORD_ADD_COMM] alignmentTheory.aligned_add_sub]
-        \\ drule all_enc_ok_aligned_pos_val \\ simp []
+        \\ old_drule all_enc_ok_aligned_pos_val \\ simp []
         \\ fs[read_ffi_bytearrays_def,read_ffi_bytearray_def]
         \\ disch_then (qspec_then`new_pc`mp_tac)
         \\ impl_tac >- metis_tac[has_odd_inst_alignment]
@@ -7641,11 +8254,11 @@ Proof
         fs[apply_oracle_def])>>
     qabbrev_tac ‘j = get_ffi_index ffi_names (ExtCall s)’>>
     fs[state_rel_def]>>
-    drule mmio_pcs_min_index_is_SOME>>
+    old_drule mmio_pcs_min_index_is_SOME>>
     strip_tac>>fs[]>>
     last_x_assum $ qspec_then ‘j’ assume_tac>>fs[]>>
     Cases_on ‘j < i’>>fs[NOT_LESS]>>
-    drule find_index_LESS_LENGTH>>strip_tac>>fs[]>>
+    old_drule find_index_LESS_LENGTH>>strip_tac>>fs[]>>
     first_x_assum $ qspec_then ‘j’ assume_tac>>gvs[])
   THEN1 (* Install *)
     (say "Install" >>
@@ -7740,12 +8353,12 @@ Proof
              fs [alignmentTheory.aligned_bitwise_and]
       \\ qpat_x_assum `_ = t1.regs r1` (fn th => rewrite_tac [GSYM th])
       \\ simp [ONCE_REWRITE_RULE [WORD_ADD_COMM] alignmentTheory.aligned_add_sub]
-      \\ drule all_enc_ok_aligned_pos_val \\ simp []
+      \\ old_drule all_enc_ok_aligned_pos_val \\ simp []
       \\ disch_then match_mp_tac \\ fs []
       \\ metis_tac[has_odd_inst_alignment])
     \\ qmatch_assum_abbrev_tac`target_state_rel _ t2 ms12`
     \\ qpat_assum`s1.compile _ _ = _`mp_tac
-    \\ `s1.compile = compile_lab` by fs[state_rel_def]
+    \\ `s1.compile = compile_lab mc_conf.target.config` by fs[state_rel_def]
     \\ pop_assum SUBST1_TAC
     \\ simp[compile_lab_def]
     \\ pairarg_tac \\ simp[]
@@ -7765,7 +8378,7 @@ Proof
        \\ reverse $ rfs[no_install_or_no_share_mem_def]
        >- (
          fs[no_install_def,asm_fetch_def] >>
-         drule code_similar_IMP_asm_fetch_aux_line_similar >>
+         old_drule code_similar_IMP_asm_fetch_aux_line_similar >>
          disch_then $ qspec_then `s1.pc` assume_tac >>
          gvs[DefnBase.one_line_ify NONE line_similar_def,OPTREL_def] >>
          pop_assum mp_tac >>
@@ -7777,7 +8390,7 @@ Proof
        qpat_assum`s1.compile_oracle 0 = _` SUBST1_TAC>>
        SIMP_TAC (srw_ss()) [] >>
        strip_tac>>
-       drule remove_labels_thm >> impl_tac>-
+       old_drule remove_labels_thm >> impl_tac>-
          (fs[good_code_def]>>
          rw[]>>fs[]>>
          Cases_on`lab_lookup l1' l2 cfg.labels`>>
@@ -7850,15 +8463,15 @@ Proof
         ntac 3 strip_tac>>
         reverse (TOP_CASE_TAC >> fs[])
         >-
-          (rw[]>> first_x_assum drule>>
+          (rw[]>> first_x_assum old_drule>>
           strip_tac>>
-          first_x_assum drule>>
+          first_x_assum old_drule>>
           simp[pos_val_append]>>
           rw[]>>
           metis_tac[code_similar_loc_to_pc,loc_to_pc_bound])
         >>
           TOP_CASE_TAC>>fs[]>>
-          first_x_assum drule>>rw[]>>
+          first_x_assum old_drule>>rw[]>>
           simp[pos_val_append]>>
           rw[]
           >-
@@ -7890,7 +8503,7 @@ Proof
             >- (
               rpt(first_x_assum(qspec_then`reg`mp_tac))
               \\ simp[word_loc_val_def] )
-            \\ first_x_assum drule
+            \\ first_x_assum old_drule
             \\ simp[])
           \\ simp[get_reg_value_def]
           \\ simp[word_loc_val_def] )
@@ -7916,7 +8529,7 @@ Proof
         \\ ntac 4 (pop_assum mp_tac)
         \\ TOP_CASE_TAC \\ simp[]
         \\ ntac 4 strip_tac
-        \\ first_x_assum drule \\ simp[])
+        \\ first_x_assum old_drule \\ simp[])
       \\ conj_tac >- (
         strip_tac \\
         qhdtm_x_assum`buffer_flush`mp_tac \\
@@ -7981,10 +8594,10 @@ Proof
         TOP_CASE_TAC >>
         strip_tac >>
         var_eq_tac >>
-        drule $ GEN_ALL no_share_mem_lemma >>
+        old_drule $ GEN_ALL no_share_mem_lemma >>
         rpt strip_tac >>
         gvs[Abbr`ffi_names`] >>
-        pop_assum drule >>
+        pop_assum old_drule >>
         impl_tac >-
         simp[no_install_or_no_share_mem_def] >>
         metis_tac[TAKE_LENGTH_ID] )
@@ -8016,7 +8629,7 @@ Proof
            pos_val_APPEND2 >>
          gvs[] >>
          pop_assum kall_tac >>
-         drule_then drule $ GEN_ALL no_share_mem_lemma >>
+         drule_then old_drule $ GEN_ALL no_share_mem_lemma >>
          impl_tac >- (
            irule code_similar_IMP_both_no_install_or_no_share_mem >>
            irule_at (Pos hd) code_similar_sym >>
@@ -8123,13 +8736,13 @@ Proof
     \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
 QED
 
-
 (* relating observable semantics *)
 
-val init_ok_def = Define `
+Definition init_ok_def:
   init_ok (mc_conf, p) s ms <=>
     ?code2 labs t1.
-      state_rel (mc_conf,code2,labs,p) s t1 ms`;
+      state_rel (mc_conf,code2,labs,p) s t1 ms
+End
 
 Theorem machine_sem_EQ_sem:
    !mc_conf p (ms:'state) ^s1.
@@ -8146,24 +8759,24 @@ Proof
   conj_tac
   >- (
     qx_gen_tac`ffi`>>strip_tac>> full_simp_tac(srw_ss())[]
-    \\ drule compile_correct \\ full_simp_tac(srw_ss())[]
-    \\ disch_then drule
+    \\ old_drule compile_correct \\ full_simp_tac(srw_ss())[]
+    \\ disch_then old_drule
     \\ imp_res_tac state_rel_clock
     \\ pop_assum (qspec_then `k` assume_tac)
-    \\ disch_then drule \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+    \\ disch_then old_drule \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[machine_sem_def,EXTENSION] \\ full_simp_tac(srw_ss())[IN_DEF]
     \\ Cases \\ full_simp_tac(srw_ss())[machine_sem_def]
     THEN1 (disj1_tac \\ qexists_tac `k+k'` \\ full_simp_tac(srw_ss())[] \\ every_case_tac \\ full_simp_tac(srw_ss())[])
     THEN1
      (eq_tac THEN1
        (srw_tac[][] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-        \\ drule (GEN_ALL evaluate_ignore_clocks) \\ full_simp_tac(srw_ss())[]
+        \\ old_drule (GEN_ALL evaluate_ignore_clocks) \\ full_simp_tac(srw_ss())[]
         \\ pop_assum (K all_tac)
-        \\ disch_then drule \\ full_simp_tac(srw_ss())[])
+        \\ disch_then old_drule \\ full_simp_tac(srw_ss())[])
       \\ srw_tac[][] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ asm_exists_tac \\ full_simp_tac(srw_ss())[])
     \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[FST_EQ_EQUIV]
     \\ PairCases_on `y`
-    \\ drule (GEN_ALL evaluate_ignore_clocks) \\ full_simp_tac(srw_ss())[]
+    \\ old_drule (GEN_ALL evaluate_ignore_clocks) \\ full_simp_tac(srw_ss())[]
     \\ every_case_tac \\ full_simp_tac(srw_ss())[]
     \\ pop_assum (K all_tac)
     \\ asm_exists_tac \\ full_simp_tac(srw_ss())[])
@@ -8180,9 +8793,9 @@ Proof
       last_assum(qspec_then`k`mp_tac)>>
       pop_assum mp_tac >> simp_tac(srw_ss())[] >>
       ntac 2 strip_tac >>
-      disch_then drule >>
+      disch_then old_drule >>
       first_x_assum(qspec_then`k`strip_assume_tac) >>
-      disch_then drule >> strip_tac >>
+      disch_then old_drule >> strip_tac >>
       first_x_assum(qspec_then`k`mp_tac)>>simp[]>>
       strip_tac >>
       spose_not_then strip_assume_tac >>
@@ -8190,7 +8803,7 @@ Proof
       `∃x y z. evaluate mc_conf s1.ffi k ms = (x,y,z)` by metis_tac[PAIR] >>
       `x = TimeOut` by (
         spose_not_then strip_assume_tac >>
-        drule (GEN_ALL evaluate_add_clock) >>
+        old_drule (GEN_ALL evaluate_add_clock) >>
         simp[] >> qexists_tac`k'`>>simp[] ) >>
       full_simp_tac(srw_ss())[] >>
       metis_tac[evaluate_add_clock_io_events_mono,SND,option_CASES,
@@ -8224,8 +8837,8 @@ Proof
       last_assum(qspec_then`k`mp_tac)>>
       pop_assum mp_tac >> simp_tac(srw_ss())[] >>
       ntac 2 strip_tac >>
-      disch_then drule >>
-      first_x_assum(qspec_then`k`(fn th => assume_tac th >> disch_then drule)) >>
+      disch_then old_drule >>
+      first_x_assum(qspec_then`k`(fn th => assume_tac th >> disch_then old_drule)) >>
       strip_tac >>
       reverse conj_tac >> strip_tac >- (
         qexists_tac`k+k'`>>simp[] ) >>
@@ -8249,19 +8862,19 @@ Proof
     first_x_assum(qspec_then`k`strip_assume_tac) >>
     asm_exists_tac >> simp[] >>
     rpt gen_tac >>
-    drule (GEN_ALL evaluate_add_clock) >> simp[] >>
+    old_drule (GEN_ALL evaluate_add_clock) >> simp[] >>
     disch_then kall_tac >>
     first_x_assum(qspec_then`k`mp_tac) >> simp[])
   \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[FST_EQ_EQUIV]
   \\ last_x_assum (qspec_then `k` mp_tac) \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `evaluate (s1 with clock := k)` \\ full_simp_tac(srw_ss())[]
-  \\ drule compile_correct
+  \\ old_drule compile_correct
   \\ Cases_on `q = Error` \\ full_simp_tac(srw_ss())[]
   \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
   \\ first_x_assum (qspec_then `k` assume_tac)
   \\ asm_exists_tac \\ full_simp_tac(srw_ss())[] \\ gen_tac
   \\ PairCases_on `y`
-  \\ drule (GEN_ALL evaluate_add_clock) \\ full_simp_tac(srw_ss())[]
+  \\ old_drule (GEN_ALL evaluate_add_clock) \\ full_simp_tac(srw_ss())[]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
 QED
 
@@ -8272,19 +8885,21 @@ val () = PolyML.SaveState.loadState "lab_to_target_syntactic";
 
 (* introducing make_init *)
 
-val set_bytes_def = Define `
+Definition set_bytes_def:
   (set_bytes a be [] = 0w) /\
-  (set_bytes a be (b::bs) = set_byte a b (set_bytes (a+1w) be bs) be) `
+  (set_bytes a be (b::bs) = set_byte a b (set_bytes (a+1w) be bs) be)
+End
 
-val make_word_def = Define `
+Definition make_word_def:
   make_word be m (a:'a word) =
     if dimindex (:'a) = 32 then
       Word (set_bytes a be [m a; m (a+1w); m (a+2w); m (a+3w)])
     else
       Word (set_bytes a be [m a; m (a+1w); m (a+2w); m (a+3w);
-                            m (a+4w); m (a+5w); m (a+6w); m (a+7w)]) `
+                            m (a+4w); m (a+5w); m (a+6w); m (a+7w)])
+End
 
-val make_init_def = Define `
+Definition make_init_def:
   make_init mc_conf (ffi:'ffi ffi_state) io_regs cc_regs t m dm sdm (ms:'state) code
     comp cbpos cbspace coracle =
     <| regs           := \k. Word ((t.regs k):'a word)
@@ -8309,11 +8924,12 @@ val make_init_def = Define `
      (* Initialize with code buffer empty *)
      ; code_buffer    := <|position:=cbpos; buffer:=[] ; space_left:=cbspace|>
      ; compile_oracle := coracle
-     |>`;
+     |>
+End
 
 val IMP_LEMMA = METIS_PROVE [] ``(a ==> b) ==> (b ==> c) ==> (a ==> c)``
 
-val compiler_oracle_ok_def = Define`
+Definition compiler_oracle_ok_def:
   compiler_oracle_ok coracle init_labs init_pos c ffis ⇔
     (* Assumptions about initial compile oracle *)
     (∀k:num. let (cfg,code) = coracle k in good_code c cfg.labels code /\
@@ -8321,13 +8937,13 @@ val compiler_oracle_ok_def = Define`
     (let (cfg,code) = coracle 0 in
         cfg.labels = init_labs ∧
         cfg.pos = init_pos ∧
-        cfg.asm_conf = c ∧
-        cfg.ffi_names = SOME ffis)`
+        cfg.ffi_names = SOME ffis)
+End
 
 (* mc_conf_ok: conditions on the machine configuration
    which will be discharged for the particular configuration of each target
 *)
-val mc_conf_ok_def = Define`
+Definition mc_conf_ok_def:
   mc_conf_ok (mc_conf:('a,'b,'c) machine_config) ⇔
     good_dimindex(:'a) ∧
     encoder_correct mc_conf.target ∧
@@ -8337,11 +8953,12 @@ val mc_conf_ok_def = Define`
     reg_ok mc_conf.len2_reg mc_conf.target.config /\
     reg_ok (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n)
       mc_conf.target.config ∧
-    enc_ok mc_conf.target.config`;
+    enc_ok mc_conf.target.config
+End
 
 Theorem get_shmem_info_APPEND:
 !secs pos ffi_names shmem_info ffis1 ffis2 info1 info2 new_ffi_names new_shmem_info.
-  get_shmem_info secs pos ffi_names (shmem_info: 'a shmem_info) =
+  get_shmem_info secs pos ffi_names (shmem_info: shmem_info_num list) =
     (new_ffi_names,new_shmem_info) /\
   ffi_names = ffis1 ++ ffis2 /\
   shmem_info = info1 ++ info2 ==>
@@ -8356,7 +8973,7 @@ Proof
 QED
 
 Theorem get_shmem_info_PREPEND:
-  get_shmem_info secs pos ffi_names (shmem_info: 'a shmem_info) =
+  get_shmem_info secs pos ffi_names (shmem_info: shmem_info_num list) =
     (new_ffi_names,new_shmem_info) ==>
   new_ffi_names = ffi_names ++ (FST $ get_shmem_info secs pos [] []) /\
   new_shmem_info = shmem_info ++ (SND $ get_shmem_info secs pos [] [])
@@ -8371,11 +8988,12 @@ Definition line_to_info_def:
     SOME (Asm (ShareMem m r ad) bytes l) =>
       let (name,nb) = get_memop_info m in
       [(SharedMem name,
-       <|entry_pc := n2w (pos_val (FST x) p secs)
+       <|entry_pc := (pos_val (FST x) p secs)
         ;nbytes:=nb
-        ;access_addr:=ad
+        ; addr_reg := (case ad of Addr r off => r)
+        ; addr_off := (case ad of Addr r off => w2n off)
         ;reg:=r
-        ;exit_pc:=n2w (pos_val (FST x) p secs + LENGTH bytes)|>
+        ;exit_pc:= (pos_val (FST x) p secs + LENGTH bytes)|>
         )]
     | _ => []
 End
@@ -8468,7 +9086,7 @@ Proof
   gvs[]
 QED
 
-Triviality FILTER_NOT_MEM_Mapped:
+Theorem FILTER_NOT_MEM_Mapped[local]:
   ~MEM "MappedRead" (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") l) /\
   ~MEM "MappedWrite" (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") l)
 Proof
@@ -8509,15 +9127,16 @@ Theorem MEM_get_shmem_info:
   get_memop_info op = (q,r:word8) ==>
   MEM
     (SharedMem q,
-    <|entry_pc:=n2w (pos_val pc p code2)
+    <|entry_pc:=(pos_val pc p code2)
       ;nbytes:=r
-      ;access_addr:=a
+      ; addr_reg := (case a of Addr r off => r)
+      ; addr_off := (case a of Addr r off => w2n off)
       ;reg:=re
-      ;exit_pc:=n2w (pos_val pc (p+LENGTH inst') code2)|>)
+      ;exit_pc:=(pos_val pc (p+LENGTH inst') code2)|>)
     (ZIP (get_shmem_info code2 p [] []))
 Proof
   rw[] >>
-  drule $ get_shmem_info_thm >>
+  old_drule $ get_shmem_info_thm >>
   disch_then $ qspecl_then [`p`,`[]`,`[]`] assume_tac >>
   gvs[UNZIP_MAP,MAP_GENLIST,combinTheory.o_DEF,ZIP_MAP_FST_SND_EQ] >>
   rw[MEM_FLAT,MEM_GENLIST,line_to_info_def] >>
@@ -8526,6 +9145,7 @@ Proof
   drule_then assume_tac asm_fetch_SOME_IMP_LESS_num_pcs >>
   first_x_assum $ irule_at (Pos hd) >>
   gvs[AllCaseEqs()] >>
+  Cases_on`a`>>fs[]>>
   `(LENGTH inst' + pos_val pc p code2) = pos_val pc (p + LENGTH inst') code2`
     suffices_by gvs[] >>
   irule pos_val_acc_sum >>
@@ -8539,7 +9159,7 @@ Theorem get_shmem_info_ALL_DISTINCT:
   ALL_DISTINCT (MAP (\rec. rec.entry_pc) $ SND $ get_shmem_info code2 p [] [])
 Proof
   rw[] >>
-  drule get_shmem_info_thm >>
+  old_drule get_shmem_info_thm >>
   disch_then $ qspecl_then [`p`,`[]`,`[]`] assume_tac >>
   gvs[UNZIP_MAP,MAP_GENLIST,combinTheory.o_DEF,MAP_MAP_o,MAP_FLAT,
     ALL_DISTINCT_FLAT,MEM_GENLIST] >>
@@ -8597,8 +9217,8 @@ QED
 
 Theorem line_to_info_offset_SND_eq:
   MAP SND (line_to_info code p accum) = MAP (\x. SND x with
-    <|entry_pc := n2w p + (SND x).entry_pc
-     ;exit_pc := n2w p + (SND x).exit_pc |>)
+    <|entry_pc := p + (SND x).entry_pc
+     ;exit_pc := p + (SND x).exit_pc |>)
     (line_to_info code 0 accum)
 Proof
   gvs[line_to_info_def] >>
@@ -8614,8 +9234,8 @@ Theorem get_shmem_info_init_pc_offset:
   all_enc_ok c labs ffis p' code ==>
   FST (get_shmem_info code 0 [] []) = FST (get_shmem_info code p [] []) /\
   MAP (\rec. rec with
-    <|entry_pc:=n2w p + rec.entry_pc
-     ;exit_pc:=n2w p + rec.exit_pc|>) (SND $ get_shmem_info code 0 [] []) =
+    <|entry_pc:= p + rec.entry_pc
+     ;exit_pc:= p + rec.exit_pc|>) (SND $ get_shmem_info code 0 [] []) =
   SND (get_shmem_info code p [] [])
 Proof
   strip_tac >>
@@ -8632,7 +9252,7 @@ Theorem mmio_pcs_min_index_get_shmem_info_ok:
   mmio_pcs_min_index new_ffi_names = SOME $ LENGTH ffis
 Proof
   rpt strip_tac >>
-  drule get_shmem_info_PREPEND >>
+  old_drule get_shmem_info_PREPEND >>
   drule_then assume_tac get_shmem_info_MappedRead_or_MappedWrite >>
   gvs[Sh_not_Ext] >>
   rpt strip_tac >>
@@ -8651,26 +9271,27 @@ Theorem get_shmem_info_ok_lemma:
     (asm_fetch_aux pc code2 = SOME (Asm (ShareMem op re a) inst len) /\
     mmio_pcs_min_index new_ffi_names = SOME i) ==>
     (?index.
-      find_index (n2w p + n2w (pos_val pc 0 code2)) (MAP (\rec. rec.entry_pc) new_shmem_info) 0 =
+      find_index (p + (pos_val pc 0 code2)) (MAP (\rec. rec.entry_pc) new_shmem_info) 0 =
         SOME index /\
       (let (name, nb) = get_memop_info op in
         EL (index+i) new_ffi_names = SharedMem name /\
         EL index new_shmem_info =
           <|entry_pc := (EL index new_shmem_info).entry_pc
            ;nbytes := nb
-           ;access_addr := a
+           ; addr_reg := (case a of Addr r off => r)
+           ; addr_off := (case a of Addr r off => w2n off)
            ;reg := re
-           ;exit_pc :=n2w p + n2w (pos_val pc 0 code2 + len)|>))) /\
+           ;exit_pc := p + (pos_val pc 0 code2 + len)|>))) /\
   (!pc line.
       asm_fetch_aux pc code2 = SOME line /\
       (!op re a inst len. line <> Asm (ShareMem op re a) inst len) ==>
       DISJOINT (set (MAP (\rec. rec.entry_pc) new_shmem_info))
-        {n2w p + n2w a + n2w (pos_val pc 0 code2) |
+        {p + a + (pos_val pc 0 code2) |
           a < LENGTH (line_bytes line)})
 Proof
   rw[] >>
   drule_all mmio_pcs_min_index_get_shmem_info_ok >>
-  drule get_shmem_info_PREPEND >>
+  old_drule get_shmem_info_PREPEND >>
   drule_then assume_tac get_shmem_info_MappedRead_or_MappedWrite >>
   gvs[] >>
   rpt strip_tac >>
@@ -8681,13 +9302,13 @@ Proof
     strip_tac >>
     first_x_assum $ qspec_then `p` assume_tac >>
     gvs[] >>
-    drule $ GEN_ALL get_shmem_info_ALL_DISTINCT >>
+    old_drule $ GEN_ALL get_shmem_info_ALL_DISTINCT >>
     gvs[] >>
     disch_then imp_res_tac >>
     gvs[find_index_ALL_DISTINCT_EL_eq,MEM_EL] >>
     `LENGTH (SND (get_shmem_info code2 p [] [])) =
       LENGTH (ZIP (get_shmem_info code2 p [] []))` by (
-      drule get_shmem_info_EMPTY_LENGTH_EQ >>
+      old_drule get_shmem_info_EMPTY_LENGTH_EQ >>
       Cases_on `get_shmem_info code2 p [] []` >>
       gvs[LENGTH_ZIP,AllCaseEqs()]
     ) >>
@@ -8696,12 +9317,12 @@ Proof
     gvs[EL_ZIP,get_shmem_info_EMPTY_LENGTH_EQ] >>
     gvs[EL_MAP] >>
     simp[pos_val_acc_0] >>
-    drule get_shmem_info_EMPTY_LENGTH_EQ >>
+    old_drule get_shmem_info_EMPTY_LENGTH_EQ >>
     strip_tac >>
     Cases_on `get_shmem_info code2 p [] []` >>
     gvs[EL_ZIP] >>
     qpat_x_assum `_ = EL n r'` $ assume_tac o PURE_REWRITE_RULE[Once EQ_SYM_EQ] >>
-    gvs[shmem_rec_accessors] >>
+    gvs[shmem_info_num_accessors] >>
     drule_all all_enc_ok_asm_fetch_aux_IMP_line_ok >>
     disch_then assume_tac >>
     gvs[line_ok_def] >>
@@ -8710,8 +9331,7 @@ Proof
     gvs[pos_val_acc_sum]
   ) >>
   gvs[pos_val_acc_0] >>
-  rw[] >>
-  drule get_shmem_info_thm >>
+  old_drule get_shmem_info_thm >>
   disch_then $ qspecl_then [`p`,`[]`,`[]`] assume_tac >>
   gvs[UNZIP_MAP,MAP_FLAT,MAP_GENLIST,combinTheory.o_DEF,MAP_MAP_o] >>
   gvs[IN_DISJOINT,MEM_FLAT,MEM_GENLIST,MEM_MAP] >>
@@ -8767,17 +9387,17 @@ Proof
   gvs[EL_TAKE] >>
   drule_then (qspec_then `0` assume_tac) pos_val_num_pcs >>
   gvs[] >>
-  last_x_assum drule >>
+  last_x_assum old_drule >>
   gvs[] >>
   strip_tac >>
-  drule find_index_is_MEM >>
+  old_drule find_index_is_MEM >>
   rpt strip_tac >>
-  drule find_index_MEM >>
+  old_drule find_index_MEM >>
   disch_then $ qspec_then `0` assume_tac >>
   gvs[] >>
   imp_res_tac asm_fetch_aux_pos_val_SUC >>
   pop_assum $ qspec_then `0` assume_tac >>
-  drule pos_val_bound >>
+  old_drule pos_val_bound >>
   disch_then $ qspecl_then [`pos+1`,`0`] assume_tac >>
   gvs[] >>
   qpat_x_assum `!k. _ < LENGTH (prog_to_bytes code2) ==> _` $
@@ -8824,7 +9444,7 @@ QED
 
 Theorem genlist_line_to_info_entry_pc_max:
   all_enc_ok c labs ffis p' code2 /\ enc_ok c ==>
-  EVERY (\x. w2n (SND x).entry_pc < pos_val (num_pcs code2) 0 code2)
+  EVERY (\x. (SND x).entry_pc < pos_val (num_pcs code2) 0 code2)
     (FLAT (GENLIST
       (λi. line_to_info code2 0 (i,asm_fetch_aux i code2))
       (num_pcs code2)))
@@ -8848,9 +9468,15 @@ Proof
   metis_tac[]
 QED
 
+Theorem find_index_MAP_w2n[local]:
+  !l (x:'a word) n. find_index (w2n x) (MAP w2n l) n = find_index x l n
+Proof
+  Induct >> simp[find_index_def] >> rw[] >> fs[w2n_11]
+QED
+
 (* This is set up for the very first compile call *)
-val IMP_state_rel_make_init = Q.prove(
-  `good_code mc_conf.target.config LN (code: 'a sec list) ∧
+Theorem IMP_state_rel_make_init[local]:
+  good_code mc_conf.target.config LN (code: 'a sec list) ∧
    mc_conf_ok mc_conf ∧
    (no_share_mem_inst code ==>
      compiler_oracle_ok coracle labs (LENGTH (prog_to_bytes code2)) mc_conf.target.config mc_conf.ffi_names) ∧
@@ -8862,15 +9488,15 @@ val IMP_state_rel_make_init = Q.prove(
       cbspace t m dm sdm io_regs cc_regs /\
    get_shmem_info code2 0 [] [] = (new_ffi_names, shmem_info) /\
    new_shmem_info = MAP (\rec. rec with
-    <|entry_pc:= mc_conf.target.get_pc ms + rec.entry_pc
-     ;exit_pc:= mc_conf.target.get_pc ms + rec.exit_pc|>) shmem_info /\
+    <|entry_pc:= w2n (mc_conf.target.get_pc ms) + rec.entry_pc
+     ;exit_pc:= w2n (mc_conf.target.get_pc ms) + rec.exit_pc|>) shmem_info /\
    DROP i mc_conf.ffi_names = new_ffi_names /\
    mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
-   MAP (\rec. rec.entry_pc) new_shmem_info = DROP i (mc_conf.ffi_entry_pcs) /\
+   MAP (\rec. rec.entry_pc) new_shmem_info = DROP i (MAP w2n mc_conf.ffi_entry_pcs) /\
    (mc_conf.mmio_info = ZIP (GENLIST (λindex. index + i) (LENGTH new_shmem_info),
-                              (MAP (\rec. (rec.nbytes, rec.access_addr, rec.reg,
-                                           rec.exit_pc))
-                                   new_shmem_info))) /\
+                              (MAP (\rec. (rec.nbytes,
+                                Addr rec.addr_reg (n2w rec.addr_off),
+                                rec.reg, n2w rec.exit_pc)) new_shmem_info))) /\
    no_install_or_no_share_mem code mc_conf.ffi_names /\
    (!bn. bn < cbspace ==>
       ~MEM (n2w bn + n2w (LENGTH (prog_to_bytes code2)) +
@@ -8879,15 +9505,17 @@ val IMP_state_rel_make_init = Q.prove(
    state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,
        mc_conf.target.get_pc ms)
      (make_init mc_conf (ffi:'ffi ffi_state) io_regs cc_regs t m dm sdm ms code
-      compile_lab (mc_conf.target.get_pc ms+n2w(LENGTH(prog_to_bytes code2))) cbspace coracle) t ms`,
-  rw[] \\ drule $ GEN_ALL remove_labels_thm
+      (compile_lab mc_conf.target.config)
+      (mc_conf.target.get_pc ms+n2w(LENGTH(prog_to_bytes code2))) cbspace coracle) t ms
+Proof
+  rw[] \\ old_drule $ GEN_ALL remove_labels_thm
   \\ impl_tac >- (
     fs[good_code_def,mc_conf_ok_def]
     \\ rw[lab_lookup_def]>>
     TOP_CASE_TAC>>fs[lookup_def])
   \\ qabbrev_tac `new_shmem_info=MAP (\rec. rec with
-      <|entry_pc:=mc_conf.target.get_pc ms + rec.entry_pc
-       ;exit_pc:=mc_conf.target.get_pc ms + rec.exit_pc|>) shmem_info`
+      <|entry_pc:=w2n (mc_conf.target.get_pc ms) + rec.entry_pc
+       ;exit_pc:=w2n (mc_conf.target.get_pc ms) + rec.exit_pc|>) shmem_info`
   \\ rw[]
   \\ fs[state_rel_def,
         word_loc_val_def,
@@ -8907,15 +9535,15 @@ val IMP_state_rel_make_init = Q.prove(
         qmatch_goalsub_abbrev_tac ‘ZIP (l1,MAP ff _)’>>
         ‘LENGTH l1 = LENGTH (MAP ff shmem_info)’ by fs[Abbr ‘l1’,LENGTH_GENLIST]>>
         fs[ALOOKUP_ZIP_MAP_SND]>>
-        ‘LENGTH shmem_info = LENGTH (DROP i mc_conf.ffi_entry_pcs)’
-          by (qpat_assum ‘MAP _ shmem_info = DROP _ _’ (fn h => rewrite_tac[GSYM h])>>
-              simp[])>>
+        `LENGTH shmem_info = LENGTH (DROP i (MAP w2n mc_conf.ffi_entry_pcs))`
+          by (qpat_assum `MAP _ shmem_info = DROP _ _` (fn h => assume_tac (Q.AP_TERM `LENGTH` h))>>
+              gvs[LENGTH_MAP,LENGTH_DROP])>>
         rw[Abbr ‘l1’]
         >- (‘shmem_info ≠ []’ by (strip_tac>>fs[])>>
             irule_at Any ALOOKUP_ALL_DISTINCT_MEM>>
             simp[MEM_ZIP,MAP_ZIP,ALL_DISTINCT_GENLIST,EL_GENLIST]>>
             qexists_tac ‘index - i’>>
-            reverse conj_asm1_tac>- fs[EL_GENLIST]>>fs[])>>
+            reverse conj_asm1_tac>- fs[EL_GENLIST]>>fs[LENGTH_MAP,LENGTH_DROP])>>
         rewrite_tac[ALOOKUP_FAILS]>>
         rpt strip_tac>>
         gvs[NOT_LESS,NOT_LESS_EQUAL,MEM_ZIP])>>
@@ -8925,13 +9553,13 @@ val IMP_state_rel_make_init = Q.prove(
     first_x_assum $ map_first_cj >>
     simp[] >>
     gvs[call_FFI_def, AllCaseEqs()] >>
-    drule mmio_pcs_min_index_is_SOME >>
+    old_drule mmio_pcs_min_index_is_SOME >>
     rpt strip_tac >>
     drule_all LESS_LESS_EQ_TRANS >>
     gvs[]
   )
-  \\ conj_tac >-
-    (ntac 2 strip_tac >>
+  \\ conj_tac >- (
+    ntac 2 strip_tac >>
     pairarg_tac >> fs[]>>
     drule_then assume_tac code_similar_sym >>
     drule_all_then assume_tac code_similar_IMP_both_no_share_mem >>
@@ -8942,11 +9570,11 @@ val IMP_state_rel_make_init = Q.prove(
   \\ conj_tac >- metis_tac[list_subset_TAKE,list_subset_trans]
   \\ conj_tac >- metis_tac[EVEN,all_enc_ok_prog_to_bytes_EVEN]
   \\ conj_tac >- (
-        imp_res_tac mmio_pcs_min_index_is_SOME>>
-        rpt strip_tac>>fs[]>>
-        fs[get_ffi_index_def,backendPropsTheory.the_eqn]>>
-        imp_res_tac find_index_MEM>>
-        first_x_assum $ qspecl_then [‘0’] assume_tac>>gvs[])
+    imp_res_tac mmio_pcs_min_index_is_SOME>>
+    rpt strip_tac>>fs[]>>
+    fs[get_ffi_index_def,backendPropsTheory.the_eqn]>>
+    imp_res_tac find_index_MEM>>
+    first_x_assum $ qspecl_then [‘0’] assume_tac>>gvs[])
   \\ conj_tac >- (
     simp[word_loc_val_byte_def,case_eq_thms]
     \\ metis_tac[SUBSET_DEF,word_loc_val_def] )
@@ -8954,6 +9582,10 @@ val IMP_state_rel_make_init = Q.prove(
   \\ conj_tac >- simp[bytes_in_mem_def]
   \\ conj_tac >- (
     rpt strip_tac >>
+    `MAP (\rec. n2w rec.entry_pc) new_shmem_info = DROP i (mc_conf.ffi_entry_pcs : 'a word list)` by (
+      qpat_x_assum `MAP _ new_shmem_info = DROP i (MAP w2n _)` (fn h =>
+        mp_tac (AP_TERM ``MAP (n2w:num -> 'a word)`` h)) >>
+      simp[MAP_MAP_o, o_DEF, n2w_w2n, MAP_DROP]) >>
     qpat_x_assum `!bn. bn < cbspace ==> _` $ imp_res_tac >>
     gvs[MEM_EL] >>
     drule_then assume_tac $ cj 1 mmio_pcs_min_index_is_SOME>>
@@ -8963,7 +9595,7 @@ val IMP_state_rel_make_init = Q.prove(
     >- gvs[EL_TAKE] >>
     `i <= n` by decide_tac >>
     gvs[] >>
-    drule get_shmem_info_thm >>
+    old_drule get_shmem_info_thm >>
     disch_then $ qspecl_then [`0`,`[]`,`[]`] assume_tac >>
     gvs[UNZIP_MAP,MAP_GENLIST,combinTheory.o_DEF,ZIP_MAP_FST_SND_EQ,MAP_MAP_o,
       Abbr`new_shmem_info`,EL_MAP] >>
@@ -8972,6 +9604,7 @@ val IMP_state_rel_make_init = Q.prove(
     gvs[] >>
     pop_assum kall_tac >>
     qpat_x_assum `_ = DROP i mc_conf.ffi_entry_pcs` $ assume_tac o GSYM >>
+    fs[GSYM word_add_n2w]>>
     qmatch_assum_abbrev_tac `DROP i mc_conf.ffi_entry_pcs = MAP offset_func flatten_genlist` >>
     gvs[] >>
     `n - i < LENGTH (MAP offset_func flatten_genlist)` by (
@@ -8984,13 +9617,13 @@ val IMP_state_rel_make_init = Q.prove(
     strip_tac >>
     drule_then (qspec_then `n-i` assume_tac) $ iffLR EVERY_EL >>
     gvs[Abbr`flatten_genlist`] >>
-    qmatch_asmsub_abbrev_tac `w2n entry_pc' < pos_val _ _ _` >>
+    qmatch_asmsub_abbrev_tac `entry_pc' < pos_val _ _ _` >>
     drule_then (fn t =>
       gvs[t,addressTheory.word_arith_lemma1]) $
       GEN_ALL pos_val_num_pcs
   )
   \\ conj_tac>-
-    (drule pos_val_0 \\ simp[])
+    (old_drule pos_val_0 \\ simp[])
   \\ conj_tac >- metis_tac[code_similar_sec_labels_ok]
   \\ conj_tac >- (
     gvs[share_mem_state_rel_def]
@@ -8998,30 +9631,30 @@ val IMP_state_rel_make_init = Q.prove(
     \\ gvs[IMP_CONJ_THM, AND_IMP_INTRO]
     \\ first_x_assum $ qspecl_then [`ms2`, `k`, `index`, `new_bytes`, `t1`, `B`, `C`] mp_tac
     \\ gvs[] >> strip_tac>>fs[]>>
-    drule mmio_pcs_min_index_is_SOME>>
+    old_drule mmio_pcs_min_index_is_SOME>>
     strip_tac>>fs[]>>
     first_x_assum $ qspec_then ‘index’ assume_tac>>gvs[]>>
     TOP_CASE_TAC>>fs[])
   \\ simp[share_mem_domain_code_rel_def]
   \\ fs[MAP_MAP_o,o_DEF,ELIM_UNCURRY]
-  \\ drule $ GEN_ALL get_shmem_info_ok_lemma
+  \\ old_drule $ GEN_ALL get_shmem_info_ok_lemma
   \\ disch_then $ qspecl_then [
       `w2n (mc_conf.target.get_pc ms)`,`new_shmem_info`,`mc_conf.ffi_names`,
       `TAKE i mc_conf.ffi_names`] mp_tac
   \\ gvs[]
   \\ impl_tac
   >- (
-    drule mmio_pcs_min_index_is_SOME >>
+    old_drule mmio_pcs_min_index_is_SOME >>
     strip_tac >>
     reverse $ rw[EVERY_EL]
    >- (
       qpat_abbrev_tac `info = get_shmem_info _ _ _ _` >>
       first_x_assum $ assume_tac o GSYM o ONCE_REWRITE_RULE[markerTheory.Abbrev_def] >>
       Cases_on `info` >>
-      drule $ GEN_ALL get_shmem_info_PREPEND >>
+      old_drule $ GEN_ALL get_shmem_info_PREPEND >>
       gvs[] >>
       strip_tac >>
-      drule $ GEN_ALL get_shmem_info_init_pc_offset >>
+      old_drule $ GEN_ALL get_shmem_info_init_pc_offset >>
       disch_then $ qspec_then `w2n (mc_conf.target.get_pc ms)` mp_tac >>
       strip_tac >>
       gvs[markerTheory.Abbrev_def] >>
@@ -9035,81 +9668,141 @@ val IMP_state_rel_make_init = Q.prove(
   >- (
     qpat_x_assum `!pc op re a inst len. asm_fetch_aux _ _ = _ ==> ?i._` $ imp_res_tac
     \\ qexists `index + i`
-    \\ drule find_index_LESS_LENGTH
-    \\ `LENGTH (MAP (\rec. rec.entry_pc) new_shmem_info) =
+    \\ old_drule find_index_LESS_LENGTH
+    \\ fs[GSYM word_add_n2w]
+    \\ `LENGTH (MAP (\rec. (n2w rec.entry_pc):'a word) new_shmem_info) =
         LENGTH mc_conf.ffi_entry_pcs - i`
-          by metis_tac[LENGTH_DROP]
+          by (qpat_x_assum `MAP _ new_shmem_info = DROP _ _` (fn h =>
+                assume_tac (Q.AP_TERM `LENGTH` h)) >>
+              gvs[LENGTH_MAP,LENGTH_DROP])
     \\ fs[LENGTH_MAP,LESS_SUB_ADD_LESS,EL_MAP,LENGTH_TAKE]
     \\ strip_tac
-    \\ qspecl_then [`TAKE i (mc_conf: ('a,'state,'b) machine_config).ffi_entry_pcs`,
-      `DROP i (mc_conf: ('a,'state,'b) machine_config).ffi_entry_pcs`,
-      `n2w (pos_val pc 0 code2) + (mc_conf.target.get_pc ms: 'a word)`,
-      `0`] assume_tac find_index_APPEND
-    \\ gvs[AllCaseEqs()]
-    \\ Cases_on `get_memop_info op`
-    >- (
-      drule find_index_shift
-      \\ fs[]
-      \\ disch_then $ qspec_then `i` assume_tac
-      \\ gvs[ELIM_UNCURRY,shmem_rec_component_equality]>>
-      irule ALOOKUP_ALL_DISTINCT_MEM>>
-      qmatch_goalsub_abbrev_tac ‘ZIP (l1, l2)’>>
-      ‘LENGTH l1 = LENGTH l2’ by (unabbrev_all_tac>>fs[LENGTH_GENLIST,LENGTH_MAP])>>
-      fs[MAP_ZIP,MEM_ZIP]>>unabbrev_all_tac>>fs[]>>
-      fs[ALL_DISTINCT_GENLIST]>>fs[MAP_MAP_o,o_DEF]>>gvs[]>>simp[EL_MAP]>>
-
-      qexists_tac ‘index’>>fs[EL_MAP]>>
-      fs[EL_GENLIST])
-    \\ qpat_x_assum `SOME _ = find_index _ _ _` $ assume_tac o GSYM
+    \\ `find_index (n2w (pos_val pc 0 code2) + mc_conf.target.get_pc ms)
+          (DROP i mc_conf.ffi_entry_pcs) 0 = SOME index` by (
+      ONCE_REWRITE_TAC[GSYM find_index_MAP_w2n] >>
+      simp[MAP_DROP] >>
+      `w2n (mc_conf.target.get_pc ms) + pos_val pc 0 code2 < dimword(:'a)` by (
+        drule find_index_is_MEM >> strip_tac >>
+        imp_res_tac MEM_DROP_IMP >>
+        fs[MEM_MAP] >> metis_tac[w2n_lt]) >>
+      ONCE_REWRITE_TAC[GSYM n2w_w2n |> Q.ISPEC `mc_conf.target.get_pc ms`] >>
+      rewrite_tac[word_add_n2w, w2n_n2w] >>
+      `pos_val pc 0 code2 < dimword(:'a)` by fs[] >>
+      simp[] >>
+      ONCE_REWRITE_TAC[ADD_COMM] >>
+      first_x_assum ACCEPT_TAC)
+    \\ old_drule find_index_shift >> fs[]
+    \\ disch_then $ qspec_then `i` assume_tac
     \\ `~MEM (n2w (pos_val pc 0 code2) + mc_conf.target.get_pc ms)
-        (TAKE i mc_conf.ffi_entry_pcs)` suffices_by (
-      strip_tac
-      \\ drule_then assume_tac (iffLR find_index_NOT_MEM)
-      \\ pop_assum $ qspec_then `0` assume_tac
-      \\ gvs[ELIM_UNCURRY,shmem_rec_component_equality,LENGTH_TAKE]
-    )
-    \\ `LENGTH (prog_to_bytes code2) < dimword (:α)` by gvs[]
-    \\ drule $ GEN_ALL asm_fetch_NOT_ffi_entry_pcs
-    \\ rpt $ disch_then $ drule_at Any
-    \\ disch_then $ qspec_then `0` $ mp_tac o PURE_REWRITE_RULE[WORD_ADD_0]
-    \\ impl_tac
-    >- (
-      drule $ GEN_ALL enc_ok_LENGTH_GT_0
-      \\ drule_all $ GEN_ALL all_enc_ok_asm_fetch_aux_IMP_line_ok
-      \\ gvs[line_ok_def,line_length_def,enc_with_nop_thm]
-      \\ rpt strip_tac
-      \\ pop_assum $ qspec_then `Inst (Mem op re a)` assume_tac
-      \\ gvs[]
-    )
-    \\ gvs[]
-  )
+          (TAKE i mc_conf.ffi_entry_pcs)` by (
+      `LENGTH (prog_to_bytes code2) < dimword(:'a)` by gvs[] >>
+      old_drule $ GEN_ALL asm_fetch_NOT_ffi_entry_pcs >>
+      rpt $ disch_then $ drule_at Any >>
+      disch_then $ qspec_then `0` mp_tac >>
+      simp[line_bytes_def, line_length_def] >>
+      impl_tac >- (
+        old_drule $ GEN_ALL enc_ok_LENGTH_GT_0 >>
+        drule_all $ GEN_ALL all_enc_ok_asm_fetch_aux_IMP_line_ok >>
+        gvs[line_ok_def,line_length_def,enc_with_nop_thm] >>
+        rpt strip_tac >> gvs[] >>
+        first_x_assum $ qspec_then `Inst (Mem op re a)` assume_tac >> gvs[]) >>
+      metis_tac[WORD_ADD_COMM, WORD_ADD_ASSOC])
+    \\ `find_index (n2w (pos_val pc 0 code2) + mc_conf.target.get_pc ms)
+          (TAKE i mc_conf.ffi_entry_pcs) 0 = NONE` by
+      fs[GSYM find_index_NOT_MEM]
+    \\ qspecl_then [
+        `TAKE i (mc_conf: ('a,'state,'b) machine_config).ffi_entry_pcs`,
+        `DROP i (mc_conf: ('a,'state,'b) machine_config).ffi_entry_pcs`,
+        `n2w (pos_val pc 0 code2) + (mc_conf.target.get_pc ms: 'a word)`,
+        `0`] assume_tac find_index_APPEND
+    \\ gvs[AllCaseEqs()]
+    \\ gvs[ELIM_UNCURRY,shmem_info_num_component_equality]>>
+    irule ALOOKUP_ALL_DISTINCT_MEM>>
+    qmatch_goalsub_abbrev_tac `ZIP (l1, l2)`>>
+    `LENGTH l1 = LENGTH l2` by (unabbrev_all_tac>>fs[LENGTH_GENLIST,LENGTH_MAP])>>
+    fs[MAP_ZIP,MEM_ZIP]>>unabbrev_all_tac>>fs[]>>
+    fs[ALL_DISTINCT_GENLIST]>>fs[MAP_MAP_o,o_DEF]>>gvs[]>>simp[EL_MAP]>>
+    qexists_tac `index`>>fs[EL_MAP]>>
+    fs[EL_GENLIST]>>
+    Cases_on `a` >> simp[n2w_w2n] >>
+    rewrite_tac[GSYM word_add_n2w] >> simp[n2w_w2n])
   >- (
     qpat_x_assum `!pc line. asm_fetch_aux _ _ = _ /\ _ ==> _` imp_res_tac
-    \\ gvs[IN_DISJOINT]
-    \\ rw[]
-    \\ pop_assum $ qspec_then `x` assume_tac
-    \\ gvs[]
-    \\ spose_not_then assume_tac
-    \\ `LENGTH (prog_to_bytes code2) < dimword (:α)` by gvs[]
-    \\ drule $ GEN_ALL asm_fetch_NOT_ffi_entry_pcs
-    \\ rpt $ disch_then $ drule_at Any
-    \\ rw[]
-    \\ qexists_tac `a`
-    \\ gvs[]
-    \\ metis_tac[MEM_APPEND,TAKE_DROP]
-  )
+    \\ simp[IN_DISJOINT] >> rpt strip_tac >> spose_not_then assume_tac >> gvs[]
+    \\ `LENGTH (prog_to_bytes code2) < dimword(:'a)` by gvs[]
+    (* TAKE case: asm_fetch_NOT_ffi_entry_pcs *)
+    \\ `~MEM (mc_conf.target.get_pc ms + n2w a + n2w (pos_val pc 0 code2))
+         (TAKE i mc_conf.ffi_entry_pcs)` by (
+      irule asm_fetch_NOT_ffi_entry_pcs >> gvs[] >> metis_tac[])
+    (* Get MEM in DROP via TAKE_DROP *)
+    \\ `MEM (mc_conf.target.get_pc ms + n2w a + n2w (pos_val pc 0 code2))
+         (DROP i mc_conf.ffi_entry_pcs)` by (
+      ONCE_REWRITE_TAC[WORD_ADD_COMM] >>
+      qpat_x_assum `MEM _ _` mp_tac >>
+      `mc_conf.ffi_entry_pcs = TAKE i mc_conf.ffi_entry_pcs ++ DROP i mc_conf.ffi_entry_pcs`
+        by simp[TAKE_DROP] >>
+      pop_assum (fn h => ONCE_REWRITE_TAC[h]) >>
+      rewrite_tac[MEM_APPEND] >> strip_tac >> gvs[])
+    (* Get w2n version in DROP *)
+    \\ `MEM (w2n (mc_conf.target.get_pc ms + n2w a + n2w (pos_val pc 0 code2)))
+         (DROP i (MAP w2n mc_conf.ffi_entry_pcs))` by (
+      rewrite_tac[GSYM MAP_DROP] >>
+      irule MEM_MAP_f >> first_x_assum ACCEPT_TAC)
+    (* w2n x >= w2n(get_pc ms) from new_shmem_info structure *)
+    \\ `w2n (mc_conf.target.get_pc ms) <=
+       w2n (mc_conf.target.get_pc ms + n2w a + n2w (pos_val pc 0 code2))` by (
+      qpat_x_assum `MEM _ (DROP i (MAP w2n _))` mp_tac >>
+      qpat_x_assum `MAP _ new_shmem_info = DROP i _` (SUBST1_TAC o GSYM) >>
+      qpat_x_assum `Abbrev (new_shmem_info = _)` mp_tac >>
+      simp[markerTheory.Abbrev_def] >> strip_tac >>
+      ASM_REWRITE_TAC[] >>
+      simp[MAP_MAP_o, o_DEF, MEM_MAP] >>
+      strip_tac >> simp[])
+    (* a + pos_val < LENGTH prog *)
+    \\ `a + pos_val pc 0 code2 < LENGTH (prog_to_bytes code2)` by (
+      imp_res_tac asm_fetch_aux_pos_val_SUC >>
+      pop_assum $ qspec_then `0` assume_tac >>
+      old_drule pos_val_bound >>
+      disch_then $ qspecl_then [`pc+1`,`0`] assume_tac >>
+      gvs[])
+    (* Apply DISJOINT to get contradiction *)
+    \\ qpat_x_assum `DISJOINT _ _` (mp_tac o REWRITE_RULE[DISJOINT_ALT])
+    \\ disch_then $ qspec_then `w2n (mc_conf.target.get_pc ms + n2w a + n2w (pos_val pc 0 code2))` mp_tac
+    \\ impl_tac >- (
+      rewrite_tac[GSYM MAP_DROP] >>
+      irule MEM_MAP_f >> first_x_assum ACCEPT_TAC)
+    \\ strip_tac >> pop_assum mp_tac >> simp[]
+    \\ qexists_tac `a` >> simp[]
+    (* Prove w2n equality: w2n(n2w a + n2w(pos_val) + get_pc ms) = a + (w2n(pc) + pos_val) *)
+    \\ ONCE_REWRITE_TAC[WORD_ADD_COMM] >> rewrite_tac[word_add_n2w]
+    \\ `a + pos_val pc 0 code2 < dimword(:'a)` by fs[]
+    \\ DEP_REWRITE_TAC[w2n_add_2] >> simp[w2n_n2w]
+    (* Show no overflow: a + pos_val + w2n(pc) < dimword *)
+    \\ spose_not_then assume_tac >> gvs[NOT_LESS]
+    \\ qpat_x_assum `w2n _ <= _` mp_tac >> simp[NOT_LESS_EQUAL]
+    \\ ONCE_REWRITE_TAC[WORD_ADD_COMM] >> rewrite_tac[word_add_n2w]
+    \\ simp[word_add_def, w2n_n2w]
+    \\ `w2n (mc_conf.target.get_pc ms) < dimword(:'a)` by simp[w2n_lt]
+    \\ `a + (w2n (mc_conf.target.get_pc ms) + pos_val pc 0 code2) < 2 * dimword(:'a)` by fs[]
+    \\ `(a + (w2n (mc_conf.target.get_pc ms) + pos_val pc 0 code2)) MOD dimword(:'a) =
+       a + (w2n (mc_conf.target.get_pc ms) + pos_val pc 0 code2) - dimword(:'a)` by (
+      `0 < dimword(:'a)` by simp[] >>
+      drule_all SUB_MOD >> strip_tac >>
+      `a + (w2n (mc_conf.target.get_pc ms) + pos_val pc 0 code2) - dimword(:'a) < dimword(:'a)` by fs[] >>
+      imp_res_tac LESS_MOD >> fs[])
+    \\ simp[] >> fs[])
   \\ drule_then (drule_then irule) $ GEN_ALL code_similar_IMP_both_no_install_or_no_share_mem
-);
+QED
 
 Theorem make_init_simp[simp]:
-    (make_init a b d e f g h i j k l m n p).ffi = b ∧
+  (make_init a b d e f g h i j k l m n p).ffi = b ∧
   (make_init a b d e f g h i j k l m n p).pc = 0 ∧
   (make_init a b d e f g h i j k l m n p).code = k
 Proof
   EVAL_TAC
 QED
 
-val semantics_make_init = save_thm("semantics_make_init",
+Theorem semantics_make_init =
   machine_sem_EQ_sem |> SPEC_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO]
   |> UNDISCH |> REWRITE_RULE []
   |> SIMP_RULE std_ss [init_ok_def,PULL_EXISTS,GSYM CONJ_ASSOC,GSYM AND_IMP_INTRO]
@@ -9118,19 +9811,19 @@ val semantics_make_init = save_thm("semantics_make_init",
   |> Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).target.get_pc ms`
   |> Q.SPEC `make_init (mc_conf: ('a,'state,'b) machine_config)
        ffi io_regs cc_regs t m dm sdm (ms:'state) code
-       compile_lab (mc_conf.target.get_pc ms + (n2w (LENGTH (prog_to_bytes (code2:'a labLang$prog)))))
+       (compile_lab mc_conf.target.config) (mc_conf.target.get_pc ms + (n2w (LENGTH (prog_to_bytes (code2:'a labLang$prog)))))
        cbspace coracle`
   |> SIMP_RULE std_ss [make_init_simp]
   |> MATCH_MP (MATCH_MP IMP_LEMMA IMP_state_rel_make_init)
-  |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
+  |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
 Theorem make_init_filter_skip:
    semantics
     (make_init mc_conf ffi io_regs cc_regs t m dm sdm ms (filter_skip code)
-       compile_lab cbpos cbspace((λ(a,b). (a,filter_skip b)) o coracle)) =
+       (compile_lab mc_conf.target.config) cbpos cbspace((λ(a,b). (a,filter_skip b)) o coracle)) =
    semantics
     (make_init mc_conf ffi io_regs cc_regs t m dm sdm ms code
-      (λc p. compile_lab c (filter_skip p)) cbpos cbspace coracle)
+      (λc p. (compile_lab mc_conf.target.config) c (filter_skip p)) cbpos cbspace coracle)
 Proof
   match_mp_tac (filter_skip_semantics)>>
   rw[]>>
@@ -9148,12 +9841,14 @@ Proof
   \\ fs [lab_filterTheory.not_skip_def,find_ffi_names_def]
 QED
 
-val all_enc_ok_pre_filter_skip = Q.prove(`
+Theorem all_enc_ok_pre_filter_skip[local]:
   ∀code c.
   all_enc_ok_pre c code ⇒
-  all_enc_ok_pre c (filter_skip code)`,
+  all_enc_ok_pre c (filter_skip code)
+Proof
   Induct>>TRY(Cases)>>fs[lab_filterTheory.filter_skip_def]>>rw[]>>
-  Induct_on`l`>>fs[]>>rw[])
+  Induct_on`l`>>fs[]>>rw[]
+QED
 
 Theorem MAP_Section_num_filter_skip[simp]:
    ∀code. MAP Section_num (filter_skip code) = MAP Section_num code
@@ -9219,7 +9914,7 @@ Proof
   IF_CASES_TAC>>fs[ALL_DISTINCT_APPEND]
 QED
 
-Triviality not_not_skip_IMP_Skip:
+Theorem not_not_skip_IMP_Skip[local]:
   ~not_skip inst' ==> ?l n. inst' = Asm (Asmi (Inst Skip)) l n
 Proof
   gvs[DefnBase.one_line_ify NONE lab_filterTheory.not_skip_def] >>
@@ -9239,8 +9934,7 @@ Proof
   >- (gvs[lab_filterTheory.not_skip_def,asm_fetch_aux_def] >> metis_tac[])
   >- (
     gvs[asm_fetch_aux_def] >>
-    last_x_assum mp_tac >>
-    last_x_assum mp_tac >>
+    rpt $ last_x_assum mp_tac >>
     IF_CASES_TAC
     >- (gvs[] >- metis_tac[]) >>
     gvs[] >>
@@ -9251,8 +9945,7 @@ Proof
   )
   >- (
     gvs[asm_fetch_aux_def] >>
-    last_x_assum mp_tac >>
-    last_x_assum mp_tac >>
+    rpt $ last_x_assum mp_tac >>
     IF_CASES_TAC
     >- metis_tac[] >>
     gvs[asm_fetch_aux_def] >>
@@ -9299,7 +9992,7 @@ Proof
     rw[] >>
     last_x_assum mp_tac >>
     simp[] >>
-    drule IMP_asm_fetch_aux_filter_skip >>
+    old_drule IMP_asm_fetch_aux_filter_skip >>
     simp[lab_filterTheory.not_skip_def] >>
     metis_tac[]) >>
   gvs[no_share_mem_inst_def] >>
@@ -9307,7 +10000,7 @@ Proof
   spose_not_then assume_tac >>
   last_x_assum mp_tac >>
   fs[] >>
-  drule asm_fetch_aux_filter_skip >>
+  old_drule asm_fetch_aux_filter_skip >>
   gvs[lab_filterTheory.not_skip_def] >>
   metis_tac[]
 QED
@@ -9426,7 +10119,7 @@ Proof
   irule_at (Pos hd) EQ_TRANS
   >- (
     irule_at (Pos last) asm_fetch_aux_APPEND1 >>
-    drule asm_fetch_SOME_IMP_LESS_num_pcs >>
+    old_drule asm_fetch_SOME_IMP_LESS_num_pcs >>
     metis_tac[]
   ) >>
   irule_at (Pos last) asm_fetch_aux_APPEND2 >>
@@ -9471,7 +10164,7 @@ Proof
         Q.prove (`(x::y) = [x] ++ y`,simp[])] >>
     reverse conj_tac
     >- (
-      drule no_share_mem_inst_APPEND_IMP >>
+      old_drule no_share_mem_inst_APPEND_IMP >>
       simp[]) >>
     dxrule $ cj 1 no_share_mem_inst_APPEND_IMP >>
     pop_assum kall_tac >>
@@ -9487,7 +10180,7 @@ Proof
     gvs[is_Label_def]
     >- (qexists `0` >>simp[]) >>
     TOP_CASE_TAC >>
-    drule asm_fetch_aux_MEM >>
+    old_drule asm_fetch_aux_MEM >>
     simp[is_Label_def] >>
     strip_tac >>
     irule_at (Pos hd) EQ_TRANS >>
@@ -9559,7 +10252,7 @@ Proof
   first_assum (fn thm => CONV_TAC (LHS_CONV $ REWRITE_CONV[Once $ GSYM thm])) >>
   first_assum (fn thm => CONV_TAC (RHS_CONV $ REWRITE_CONV[Once $ GSYM thm])) >>
   irule FILTER_mmio_pcs_min_index >>
-  drule get_shmem_info_MappedRead_or_MappedWrite >>
+  old_drule get_shmem_info_MappedRead_or_MappedWrite >>
   simp[]
 QED
 
@@ -9596,47 +10289,49 @@ Proof
 QED
 *)
 
-val semantics_compile_lemma = Q.prove(
-  ` mc_conf_ok mc_conf ∧
-    (no_share_mem_inst code ==>
-      compiler_oracle_ok coracle c'.labels (LENGTH bytes) c.asm_conf mc_conf.ffi_names) ∧
-    (* Assumptions on input code *)
-    good_code mc_conf.target.config LN code ∧
-    (* Config state *)
-    c.asm_conf = mc_conf.target.config /\
-    c.labels = LN ∧ c.pos = 0 ∧
-    lab_to_target$compile (c:'a lab_to_target$config) code = SOME (bytes,c') /\
-    (* FFI is either given or computed *)
-    c'.ffi_names = SOME mc_conf.ffi_names /\
-    good_init_state mc_conf ms bytes cbspace t m dm sdm io_regs cc_regs /\
-    (* set up mmio_info and ffi_entry_pcs for mmio *)
-    MAP (\rec. rec.entry_pc + mc_conf.target.get_pc ms) c'.shmem_extra =
-      DROP i mc_conf.ffi_entry_pcs /\
-    mc_conf.mmio_info = ZIP (GENLIST (λindex. index + i) (LENGTH c'.shmem_extra),
-                              (MAP (\rec. (rec.nbytes, rec.access_addr, rec.reg,
-                                           rec.exit_pc + mc_conf.target.get_pc ms))
-                                   c'.shmem_extra)) ∧
-    no_install_or_no_share_mem code mc_conf.ffi_names /\
-   (mmio_pcs_min_index mc_conf.ffi_names = SOME i) /\
-    (* to avoid the ffi_entry_pc wraps around and overlaps with the program or code buffer *)
-    cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a) /\
-    (* the original ffi names provided does not contain MappedRead or MappedWrite *)
-    (!ffis. c.ffi_names = SOME ffis ==> EVERY (λx. ∃s. x = ExtCall s) ffis) /\
-    semantics (make_init mc_conf ffi io_regs cc_regs t m dm sdm ms code
-      lab_to_target$compile (mc_conf.target.get_pc ms+n2w(LENGTH bytes)) cbspace
-      coracle
-    ) <> Fail ==>
-    machine_sem mc_conf ffi ms =
-    {semantics (make_init mc_conf ffi io_regs cc_regs t m dm sdm ms code
-      lab_to_target$compile (mc_conf.target.get_pc ms+n2w(LENGTH bytes)) cbspace
-      coracle
-    )}`,
+Theorem semantics_compile_lemma'[local]:
+  mc_conf_ok mc_conf ∧
+  (no_share_mem_inst code ==>
+    compiler_oracle_ok coracle c'.labels (LENGTH bytes) (asm_conf:'a asm_config) mc_conf.ffi_names) ∧
+  (* Assumptions on input code *)
+  good_code mc_conf.target.config LN code ∧
+  (* Config state *)
+  asm_conf = mc_conf.target.config /\
+  c.labels = LN ∧ c.pos = 0 ∧
+  lab_to_target$compile asm_conf (c:lab_to_target$config) code = SOME (bytes,c') /\
+  (* FFI is either given or computed *)
+  c'.ffi_names = SOME mc_conf.ffi_names /\
+  good_init_state mc_conf ms bytes cbspace t m dm sdm io_regs cc_regs /\
+  (* set up mmio_info and ffi_entry_pcs for mmio *)
+  MAP (\rec. w2n (mc_conf.target.get_pc ms) + rec.entry_pc) c'.shmem_extra =
+    DROP i (MAP w2n mc_conf.ffi_entry_pcs) /\
+  mc_conf.mmio_info = ZIP (GENLIST (λindex. index + i) (LENGTH c'.shmem_extra),
+                            (MAP (\rec. (rec.nbytes, Addr rec.addr_reg (n2w rec.addr_off),
+                              rec.reg, n2w rec.exit_pc + mc_conf.target.get_pc ms))
+                                 c'.shmem_extra)) /\
+  no_install_or_no_share_mem code mc_conf.ffi_names /\
+  (mmio_pcs_min_index mc_conf.ffi_names = SOME i) /\
+  (* to avoid the ffi_entry_pc wraps around and overlaps with the program or code buffer *)
+  cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a) /\
+  (* the original ffi names provided does not contain MappedRead or MappedWrite *)
+  (!ffis. c.ffi_names = SOME ffis ==> EVERY (λx. ∃s. x = ExtCall s) ffis) /\
+  semantics (make_init mc_conf ffi io_regs cc_regs t m dm sdm ms code
+    (lab_to_target$compile asm_conf) (mc_conf.target.get_pc ms+n2w(LENGTH bytes)) cbspace
+    coracle
+  ) <> Fail ==>
+  machine_sem mc_conf ffi ms =
+  {semantics (make_init mc_conf ffi io_regs cc_regs t m dm sdm ms code
+    (lab_to_target$compile asm_conf) (mc_conf.target.get_pc ms+n2w(LENGTH bytes)) cbspace
+    coracle
+  )}
+Proof
   fs[compile_def,compile_lab_def]>>
   pairarg_tac \\ fs[] \\
   CASE_TAC>>fs[]>>
   CASE_TAC>>fs[]>>
   rw[]>>
-  `compile =  (λc p. compile_lab c (filter_skip p)) ` by
+  `compile mc_conf.target.config =
+    (λc p. compile_lab mc_conf.target.config c (filter_skip p)) ` by
     fs[FUN_EQ_THM,compile_def]>>
   pop_assum SUBST_ALL_TAC>>
   gvs[] >>
@@ -9672,25 +10367,25 @@ val semantics_compile_lemma = Q.prove(
     fs[GSYM ALL_EL_MAP]
   )>>
   qmatch_asmsub_rename_tac `mmio_pcs_min_index (ffis ++ rest) = SOME i` >>
-  `mmio_pcs_min_index (ffis ++ rest) = SOME (LENGTH ffis)`
-  by (
+  `mmio_pcs_min_index (ffis ++ rest) = SOME (LENGTH ffis)` by (
     Cases_on`c.ffi_names`
     >- (
       gvs[] >>
-      drule get_shmem_info_MappedRead_or_MappedWrite >>
+      old_drule get_shmem_info_MappedRead_or_MappedWrite >>
       simp[Sh_not_Ext] >>
       strip_tac >>
-      drule $ GEN_ALL mmio_pcs_min_index_APPEND_thm >>
+      old_drule $ GEN_ALL mmio_pcs_min_index_APPEND_thm >>
       qmatch_assum_abbrev_tac`mmio_pcs_min_index (ffi' ++ _) = SOME _` >>
       disch_then $ qspec_then ‘ffi'’ mp_tac>>impl_tac >-
-       (irule find_ffi_names_EVERY>> gvs[Abbr`ffi'`]>>metis_tac[])>>
+       (irule find_ffi_names_EVERY>>
+        gvs[Abbr`ffi'`]>>metis_tac[])>>
       strip_tac>>fs[]
     ) >>
       gvs[] >>
-      drule get_shmem_info_MappedRead_or_MappedWrite >>
+      old_drule get_shmem_info_MappedRead_or_MappedWrite >>
       simp[Sh_not_Ext] >>
       strip_tac >>
-      drule $ GEN_ALL mmio_pcs_min_index_APPEND_thm >>
+      old_drule $ GEN_ALL mmio_pcs_min_index_APPEND_thm >>
       disch_then $ qspec_then ‘ffis’ mp_tac>>fs[]
   ) >>
   gvs[] >>
@@ -9712,6 +10407,7 @@ val semantics_compile_lemma = Q.prove(
     gvs[TAKE_LENGTH_APPEND]
   ) >>
   simp[DROP_LENGTH_APPEND,TAKE_LENGTH_APPEND] >>
+  simp[GSYM word_add_n2w, n2w_w2n]>>
   simp[no_install_or_no_share_mem_filter_skip] >>
   gvs[start_pc_ok_def,MEM_EL]>>
   rw[] >>
@@ -9721,7 +10417,7 @@ val semantics_compile_lemma = Q.prove(
   rw[]>>
   gvs[find_index_LEAST_EL] >>
   qpat_x_assum `(LEAST n'. _) = n` mp_tac >>
-  DEEP_INTRO_TAC whileTheory.LEAST_ELIM >>
+  DEEP_INTRO_TAC WhileTheory.LEAST_ELIM >>
   conj_tac
   >- (fs[MEM_EL] >> metis_tac[]) >>
   simp[] >>
@@ -9730,7 +10426,7 @@ val semantics_compile_lemma = Q.prove(
   first_x_assum $ assume_tac o GSYM >>
   gvs[addressTheory.word_arith_lemma1,EL_TAKE] >>
   qpat_x_assum `n2w _ = -n2w _ ` $ assume_tac >>
-  drule $ iffLR o GSYM $ cj 1 addressTheory.WORD_EQ_ADD_CANCEL >>
+  old_drule $ iffLR o GSYM $ cj 1 addressTheory.WORD_EQ_ADD_CANCEL >>
   disch_then $ qspec_then `n2w (ffi_offset * (n + 3))` mp_tac >>
   first_x_assum kall_tac >>
   PURE_REWRITE_TAC[cj 1 addressTheory.word_arith_lemma1,WORD_LITERAL_ADD,WORD_ADD_COMM] >>
@@ -9745,10 +10441,14 @@ val semantics_compile_lemma = Q.prove(
       drule_at_then (Pos $ el 2) irule LESS_TRANS >>
       simp[LESS_MONO_ADD]
   ) >>
-  gvs[ffi_offset_def])
+  gvs[ffi_offset_def]
+QED
+
+Theorem semantics_compile_lemma[local] =
+  semantics_compile_lemma'
   |> REWRITE_RULE [CONJ_ASSOC]
   |> MATCH_MP implements_intro_gen
-  |> REWRITE_RULE [GSYM CONJ_ASSOC]
+  |> REWRITE_RULE [GSYM CONJ_ASSOC];
 
 (* try to show the condition of semantics_compile is not vacuous *)
 (* prove that mmio_min_min_index actually exists,
@@ -9825,22 +10525,22 @@ QED
 *)
 
 Theorem semantics_compile:
-   mc_conf_ok mc_conf ∧
-   (no_share_mem_inst code ==>
-     compiler_oracle_ok coracle c'.labels (LENGTH bytes) c.asm_conf mc_conf.ffi_names) ∧
-   good_code c.asm_conf c.labels code ∧
-   c.asm_conf = mc_conf.target.config ∧
-   c.labels = LN ∧ c.pos = 0 ∧
-   compile c (code: 'a sec list) = SOME (bytes,c') ∧
-   c'.ffi_names = SOME mc_conf.ffi_names /\
-   good_init_state mc_conf ms bytes cbspace t m dm sdm io_regs cc_regs /\
-   mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
-   MAP (\rec. rec.entry_pc + mc_conf.target.get_pc ms) c'.shmem_extra =
-    DROP i mc_conf.ffi_entry_pcs /\
-   mc_conf.mmio_info = ZIP (GENLIST (λindex. index + i) (LENGTH c'.shmem_extra),
-                              (MAP (\rec. (rec.nbytes, rec.access_addr, rec.reg,
-                                           rec.exit_pc + mc_conf.target.get_pc ms))
-                                   c'.shmem_extra)) ∧
+  mc_conf_ok mc_conf ∧
+  (no_share_mem_inst code ==>
+    compiler_oracle_ok coracle c'.labels (LENGTH bytes) asm_conf mc_conf.ffi_names) ∧
+  good_code asm_conf c.labels code ∧
+  asm_conf = mc_conf.target.config ∧
+  c.labels = LN ∧ c.pos = 0 ∧
+  compile asm_conf c (code: 'a sec list) = SOME (bytes,c') ∧
+  c'.ffi_names = SOME mc_conf.ffi_names /\
+  good_init_state mc_conf ms bytes cbspace t m dm sdm io_regs cc_regs /\
+  mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
+  MAP (\rec. w2n (mc_conf.target.get_pc ms) + rec.entry_pc) c'.shmem_extra =
+   DROP i (MAP w2n mc_conf.ffi_entry_pcs) /\
+  mc_conf.mmio_info = ZIP (GENLIST (λindex. index + i) (LENGTH c'.shmem_extra),
+                              (MAP (\rec. (rec.nbytes, Addr rec.addr_reg (n2w rec.addr_off),
+                                rec.reg, n2w rec.exit_pc + mc_conf.target.get_pc ms))
+                                   c'.shmem_extra)) /\
   no_install_or_no_share_mem code mc_conf.ffi_names /\
   (* to avoid the ffi_entry_pc wraps around and overlaps with the program or code buffer *)
   cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a) /\
@@ -9849,7 +10549,7 @@ Theorem semantics_compile:
    implements' T (machine_sem mc_conf ffi ms)
      {semantics
         (make_init mc_conf ffi io_regs cc_regs t m (dm ∩ byte_aligned) (sdm ∩ byte_aligned) ms code
-           compile (mc_conf.target.get_pc ms + n2w (LENGTH bytes))
+           (compile asm_conf) (mc_conf.target.get_pc ms + n2w (LENGTH bytes))
            cbspace coracle)}
 Proof
   rw[]>>
@@ -9881,5 +10581,3 @@ Proof
   match_mp_tac semantics_compile_lemma \\
   fs[good_code_def]
 QED
-
-val _ = export_theory();

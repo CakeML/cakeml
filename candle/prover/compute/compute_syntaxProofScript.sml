@@ -1,13 +1,15 @@
 (*
    Proofs related to term embeddings for the Candle compute primitive.
  *)
+Theory compute_syntaxProof
+Ancestors
+  holSyntax holSyntaxExtra holSyntaxLib holKernel holKernelProof
+  compute_syntax
+Libs
+  preamble
 
-open preamble holSyntaxTheory holSyntaxExtraTheory holSyntaxLibTheory
-     holKernelTheory holKernelProofTheory compute_syntaxTheory;
 
-val _ = new_theory "compute_syntaxProof";
-
-val _ = numLib.prefer_num ();
+val _ = numLib.temp_prefer_num ();
 
 fun SIMPR ths = SIMP_RULE (srw_ss()) ths;
 fun SIMPC ths = SIMP_CONV (srw_ss()) ths;
@@ -1331,7 +1333,7 @@ Definition compute_thy_ok_def:
                 _CEXP_NUM (_NUMERAL _0) ∧
     (* Cexp_if *)
     (thy,[]) |- _CEXP_IF (_CEXP_NUM (_SUC _M)) _P1 _Q1 === _P1 ∧
-    (thy,[]) |- _CEXP_IF (_CEXP_PAIR _P2 _Q2) _P1 _Q1 === _P1 ∧
+    (thy,[]) |- _CEXP_IF (_CEXP_PAIR _P2 _Q2) _P1 _Q1 === _Q1 ∧
     (thy,[]) |- _CEXP_IF (_CEXP_NUM (_NUMERAL _0)) _P1 _Q1 === _Q1 ∧
     (* Cexp_fst, Cexp_snd *)
     (thy,[]) |- _CEXP_FST (_CEXP_PAIR _P1 _Q1) === _P1 ∧
@@ -1388,7 +1390,7 @@ Theorem CEXP_IF_eqn2:
   term_ok (sigof thy) p2 ∧ term_ok (sigof thy) q2 ∧
   p1 has_type Cexp ∧ q1 has_type Cexp ∧
   p2 has_type Cexp ∧ q2 has_type Cexp ⇒
-    (thy,[]) |- _CEXP_IF (_CEXP_PAIR p2 q2) p1 q1 === p1
+    (thy,[]) |- _CEXP_IF (_CEXP_PAIR p2 q2) p1 q1 === q1
 Proof
   rw [compute_thy_ok_def]
   \\ qpat_x_assum ‘_ |- _CEXP_IF (_CEXP_PAIR _ _ ) _ _ === _’ assume_tac
@@ -2232,6 +2234,3 @@ Proof
   rw [] \\ irule sym_equation
   \\ rw [bool2term_EQ_cexpterm]
 QED
-
-val _ = export_theory ();
-

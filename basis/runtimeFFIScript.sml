@@ -1,14 +1,15 @@
 (*
   Logical model of the Runtime module's exit function calls.
 *)
-open preamble
-     cfHeapsBaseTheory
+Theory runtimeFFI
+Ancestors
+  cfHeapsBase
+Libs
+  preamble
 
-val _ = new_theory"runtimeFFI";
-
-val ffi_exit_def = Define `
+Definition ffi_exit_def:
  ffi_exit (conf:word8 list) (bytes:word8 list) () = SOME(FFIdiverge:unit ffi_result)
-  `
+End
 
 Theorem ffi_exit_length:
     ffi_exit (conf:word8 list) (bytes:word8 list) u = SOME (FFIreturn bytes' args')
@@ -19,13 +20,19 @@ QED
 
 (* FFI part for the runtime *)
 
-val encode_def = Define `encode = K (List []):unit -> ffi`;
+Definition encode_def:
+  encode = K (List []):unit -> ffi
+End
 
-val decode_def = Define `decode = (K(SOME ())):ffi -> unit option`
+Definition decode_def:
+  decode = (K(SOME ())):ffi -> unit option
+End
 
-val encode_11 = prove(
-  ``!x y. encode x = encode y <=> x = y``,
-  rw [encode_def]);
+Theorem encode_11[local]:
+    !x y. encode x = encode y <=> x = y
+Proof
+  rw [encode_def]
+QED
 
 Theorem decode_encode:
    decode(encode cls) = SOME cls
@@ -33,8 +40,7 @@ Proof
 rw[decode_def,encode_def]
 QED
 
-val runtime_ffi_part_def = Define`
+Definition runtime_ffi_part_def:
   runtime_ffi_part = (encode,decode,
-    [("exit",ffi_exit)])`;
-
-val _ = export_theory();
+    [(«exit»,ffi_exit)])
+End

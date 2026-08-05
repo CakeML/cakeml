@@ -1,9 +1,11 @@
 (*
   Packing chromatic number
 *)
-open preamble satSemTheory lprTheory balanced_mapTheory;
-
-val _ = new_theory "packing";
+Theory packing
+Libs
+  preamble
+Ancestors
+  satSem lpr balanced_map
 
 Definition l1_dist_def:
   l1_dist (x1,y1) (x2,y2) =
@@ -594,5 +596,3 @@ Proof
   fs[satisfiable_def]>>
   metis_tac[satisfies_assg_of_encode]
 QED
-
-val _ = export_theory();

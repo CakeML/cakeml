@@ -9,10 +9,6 @@ Proves completeness of the type inferencer, i.e. if there is a type
 for the program, then the type inferencer will find a type (the most
 general type).
 
-[inferPropsScript.sml](inferPropsScript.sml):
-Various lemmas that are handy in the soundness and completeness
-proofs of the type inferencer.
-
 [inferSoundScript.sml](inferSoundScript.sml):
 Proves soundness of the type inferencer: any type assignment
 produced by the type inferencer is a valid type for the program.

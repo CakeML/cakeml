@@ -1,13 +1,13 @@
 (*
   Correctness proof for word_remove
 *)
-open preamble word_removeTheory wordSemTheory wordPropsTheory;
+Theory word_removeProof
+Ancestors
+  word_remove wordSem wordProps wordConvs
+Libs
+  preamble
 
-val _ = new_theory "word_removeProof";
-
-val _ = set_grammar_ancestry["word_remove","wordSem","wordProps"];
-
-val compile_state_def = Define`
+Definition compile_state_def:
   compile_state clk c s =
     s with <|
       clock := s.clock+clk;
@@ -15,7 +15,8 @@ val compile_state_def = Define`
       code := map (I ## remove_must_terminate) s.code;
       compile_oracle := (I ## (MAP (I ## I ## remove_must_terminate))) o s.compile_oracle;
       compile := c
-    |>`;
+    |>
+End
 
 Theorem compile_state_const[simp]:
    (compile_state clk c s).locals = s.locals ∧
@@ -54,21 +55,21 @@ QED
 
 
 Theorem compile_state_update[simp]:
-   compile_state clk c s with stack updated_by f1 = compile_state clk c (s with stack updated_by f1) ∧
-   compile_state clk c s with permute updated_by f2 = compile_state clk c (s with permute updated_by f2) ∧
-   compile_state clk c s with ffi updated_by f10 = compile_state clk c (s with ffi updated_by f10) ∧
-   compile_state clk c s with data_buffer updated_by f9 = compile_state clk c (s with data_buffer updated_by f9) ∧
-   compile_state clk c s with code_buffer updated_by f8 = compile_state clk c (s with code_buffer updated_by f8) ∧
-   compile_state clk c s with memory updated_by f7 = compile_state clk c (s with memory updated_by f7) ∧
-   compile_state clk c s with locals updated_by f6 = compile_state clk c (s with locals updated_by f6) ∧
-   compile_state clk c s with memory updated_by f5 = compile_state clk c (s with memory updated_by f5) ∧
-   compile_state clk c s with store updated_by f4 = compile_state clk c (s with store updated_by f4) ∧
-   compile_state clk c s with fp_regs updated_by f11 = compile_state clk c (s with fp_regs updated_by f11) ∧
-   compile_state clk c s with handler updated_by f3 = compile_state clk c (s with handler updated_by f3) /\
-   compile_state clk c s with locals_size updated_by f12 = compile_state clk c (s with locals_size updated_by f12) /\
-   compile_state clk c s with stack_size updated_by f13 = compile_state clk c (s with stack_size updated_by f13) /\
-   compile_state clk c s with stack_max updated_by f14 = compile_state clk c (s with stack_max updated_by f14) /\
-   compile_state clk c s with stack_limit updated_by f15 = compile_state clk c (s with stack_limit updated_by f15)
+   compile_state clk c s with stack := f1 = compile_state clk c (s with stack := f1) ∧
+   compile_state clk c s with permute := f2 = compile_state clk c (s with permute := f2) ∧
+   compile_state clk c s with ffi := f10 = compile_state clk c (s with ffi := f10) ∧
+   compile_state clk c s with data_buffer := f9 = compile_state clk c (s with data_buffer := f9) ∧
+   compile_state clk c s with code_buffer := f8 = compile_state clk c (s with code_buffer := f8) ∧
+   compile_state clk c s with memory := f7 = compile_state clk c (s with memory := f7) ∧
+   compile_state clk c s with locals := f6 = compile_state clk c (s with locals := f6) ∧
+   compile_state clk c s with memory := f5 = compile_state clk c (s with memory := f5) ∧
+   compile_state clk c s with store := f4 = compile_state clk c (s with store := f4) ∧
+   compile_state clk c s with fp_regs := f11 = compile_state clk c (s with fp_regs := f11) ∧
+   compile_state clk c s with handler := f3 = compile_state clk c (s with handler := f3) /\
+   compile_state clk c s with locals_size := f12 = compile_state clk c (s with locals_size := f12) /\
+   compile_state clk c s with stack_size := f13 = compile_state clk c (s with stack_size := f13) /\
+   compile_state clk c s with stack_max := f14 = compile_state clk c (s with stack_max := f14) /\
+   compile_state clk c s with stack_limit := f15 = compile_state clk c (s with stack_limit := f15)
 Proof
   EVAL_TAC
 QED
@@ -76,125 +77,153 @@ QED
 Theorem get_var_compile_state[simp]:
    get_var x (compile_state clk c s) = get_var x s
 Proof
-  EVAL_TAC
+  fs[compile_state_def]
 QED
 
 Theorem get_fp_var_compile_state[simp]:
    get_fp_var x (compile_state clk c s) = get_fp_var x s
 Proof
-  EVAL_TAC
+  fs[compile_state_def]
 QED
 
 Theorem get_vars_compile_state[simp]:
-   ∀xs s. get_vars xs (compile_state clk c s) = get_vars xs s
+   get_vars xs (compile_state clk c s) = get_vars xs s
 Proof
-  Induct \\ rw[get_vars_def]
+  fs[compile_state_def]
 QED
 
 Theorem set_var_compile_state[simp]:
    set_var x y (compile_state clk c s) = compile_state clk c (set_var x y s)
 Proof
-  rw[set_var_def]
+  fs[compile_state_def]
 QED
 
 Theorem unset_var_compile_state[simp]:
    unset_var x (compile_state clk c s) = compile_state clk c (unset_var x s)
 Proof
-  rw[unset_var_def]
+  fs[compile_state_def]
 QED
 
 Theorem set_fp_var_compile_state[simp]:
    set_fp_var x y (compile_state clk c s) = compile_state clk c (set_fp_var x y s)
 Proof
-  rw[set_fp_var_def]
+  fs[compile_state_def]
 QED
 
 Theorem set_vars_compile_state[simp]:
    set_vars xs ys (compile_state clk c s) = compile_state clk c (set_vars xs ys s)
 Proof
-  EVAL_TAC
+  fs[compile_state_def]
+QED
+
+Theorem get_store_compile_state[simp]:
+   get_store x (compile_state clk c s) = (get_store x s)
+Proof
+  fs[compile_state_def]
 QED
 
 Theorem set_store_compile_state[simp]:
    set_store x y (compile_state clk c s) = compile_state clk c (set_store x y s)
 Proof
-  EVAL_TAC
+  fs[compile_state_def]
 QED
 
 Theorem push_env_compile_state[simp]:
    push_env env h (compile_state clk c s) = compile_state clk c (push_env env h s)
 Proof
-  Cases_on`h` \\ TRY(PairCases_on`x`) \\ rw[push_env_def,UNCURRY]
+  fs[compile_state_def]
 QED
 
 Theorem pop_env_compile_state[simp]:
    pop_env (compile_state clk c s) = OPTION_MAP (compile_state clk c) (pop_env s)
 Proof
-  rw[pop_env_def] \\ ntac 4 (CASE_TAC \\ fs[])
+  gvs[ pop_env_def] >> EVERY_CASE_TAC >> gvs[]
 QED
 
 Theorem call_env_compile_state[simp]:
    call_env x lsz (compile_state clk c z) = compile_state clk c (call_env x lsz z)
 Proof
-  EVAL_TAC
+  fs[compile_state_def]
 QED
 
 Theorem flush_state_compile_state[simp]:
    flush_state x (compile_state clk c z) = compile_state clk c (flush_state x z)
 Proof
-  Cases_on `x` >> EVAL_TAC
+  Cases_on `x` >> fs[flush_state_def]
 QED
 
 Theorem has_space_compile_state[simp]:
    has_space n (compile_state clk c s) = has_space n s
 Proof
-  EVAL_TAC
+  fs[compile_state_def]
 QED
 
 Theorem gc_compile_state[simp]:
    gc (compile_state clk c s) = OPTION_MAP (compile_state clk c) (gc s)
 Proof
-  rw[gc_def] \\ ntac 5 (CASE_TAC \\ simp[])
+  fs[lambdify compile_state_def,OPTION_MAP_COMPOSE,o_DEF] >>
+  irule OPTION_MAP_CONG >> rw[state_component_equality] >>
+  drule gc_const >> fs[]
 QED
 
 Theorem alloc_compile_state[simp]:
    alloc w names (compile_state clk c s) = (I ## compile_state clk c) (alloc w names s)
 Proof
-  rw[alloc_def] \\ rpt (CASE_TAC \\ fs[])
+  fs[lambdify compile_state_def,iterateTheory.LAMBDA_PAIR,PAIR_MAP] >>
+  Cases_on `alloc w names s` >> simp[state_component_equality] >>
+  drule alloc_const >> gvs[]
 QED
 
 Theorem mem_load_compile_state[simp]:
    mem_load w (compile_state clk c s) = mem_load w s
 Proof
-  EVAL_TAC
+  fs[compile_state_def]
 QED
 
 Theorem mem_store_compile_state[simp]:
    mem_store x y (compile_state clk c s) = OPTION_MAP (compile_state clk c) (mem_store x y s)
 Proof
-  rw[mem_store_def]
+  gvs[mem_store_def] >> EVERY_CASE_TAC >> gvs[]
 QED
 
 Theorem word_exp_compile_state[simp]:
    ∀s y.  word_exp (compile_state clk c s) y = word_exp s y
 Proof
-  recInduct word_exp_ind
-  \\ rw[word_exp_def]
-  \\ fsrw_tac[ETA_ss][]
-  \\ `MAP (word_exp (compile_state clk c s)) wexps = MAP (word_exp s) wexps`
-  by fs[MAP_EQ_f] \\ fs[]
+  fs[compile_state_def]
 QED
 
 Theorem assign_compile_state[simp]:
    assign x y (compile_state clk c s) = OPTION_MAP (compile_state clk c) (assign x y s)
 Proof
-  rw[assign_def] \\ CASE_TAC \\ fs[]
+  gvs[assign_def] >> every_case_tac >> gvs[]
 QED
 
 Theorem inst_compile_state[simp]:
    inst i (compile_state clk c s) = OPTION_MAP (compile_state clk c) (inst i s)
 Proof
-  rw[inst_def] \\ rpt(TOP_CASE_TAC \\ fs[]) \\ fs[]
+  fs[inst_def] >>
+  every_case_tac >> rpt (pairarg_tac >> fs []) >>
+  fs []
+QED
+
+Theorem cut_state_compile_state[simp]:
+   cut_state names (compile_state clk c s) =
+   OPTION_MAP (compile_state clk c) (cut_state names s)
+Proof
+  simp[cut_state_def] >>
+  Cases_on `cut_env names s.locals` >> simp[]
+QED
+
+Theorem evaluate_add_clock_compile_state[local]:
+  evaluate (p, compile_state clk c s) = (res, compile_state 0 c s') ∧
+  res ≠ SOME TimeOut ⇒
+  ∀extra. evaluate (p, compile_state (clk + extra) c s) =
+          (res, compile_state extra c s')
+Proof
+  strip_tac >>
+  drule (GEN_ALL evaluate_add_clock) >> simp[] >>
+  disch_then (fn th => gen_tac >> mp_tac (SPEC_ALL th)) >>
+  simp[compile_state_def,state_component_equality]
 QED
 
 Theorem compile_state_dec_clock[simp]:
@@ -206,13 +235,13 @@ QED
 Theorem jump_exc_compile_state[simp]:
    jump_exc (compile_state clk c s) = OPTION_MAP (compile_state clk c ## I) (jump_exc s)
 Proof
-  rw[jump_exc_def] \\ ntac 5 (CASE_TAC \\ fs[])
+  fs[jump_exc_def] >> every_case_tac >> fs[]
 QED
 
 Theorem get_var_imm_compile_state[simp]:
    get_var_imm x (compile_state clk c s) = get_var_imm x s
 Proof
-  Cases_on`x` \\ rw[get_var_imm_def]
+  fs[compile_state_def]
 QED
 
 Theorem push_env_case_handler[simp]:
@@ -220,6 +249,14 @@ Theorem push_env_case_handler[simp]:
 Proof
   CASE_TAC \\ rw[push_env_def]
   \\ split_pair_case_tac \\ rw[push_env_def,FUN_EQ_THM]
+QED
+
+Theorem pair_map_I[local]:
+   (λ(k,v). (k,f v)) = (I ## f) /\
+   (λ(k,v). (f k,v)) = (f ## I)
+Proof
+  fs[FUN_EQ_THM] \\ rw[] \\
+  pairarg_tac \\ fs[]
 QED
 
 Theorem word_remove_correct:
@@ -234,10 +271,10 @@ Proof
   recInduct evaluate_ind
   \\ rw[evaluate_def,remove_must_terminate_def]
   \\ TRY (
-     fs[case_eq_thms] \\ rveq \\
+     fs[case_eq_thms,UNCURRY_EQ] \\ rveq \\
      fs[domain_map] \\
-     rpt(pairarg_tac \\ fs[]) \\
      metis_tac[] >> NO_TAC)
+  >~ [`cont_loop`] >- suspend "Loop"
   THEN1 ( (* MustTerminate *)
     qmatch_goalsub_rename_tac`remove_must_terminate _` \\
     pairarg_tac \\ fs[] \\
@@ -255,27 +292,24 @@ Proof
     pairarg_tac \\ fs[] \\
     reverse(fs[case_eq_thms] \\ rveq \\ fs[])
     >- ( qexists_tac`clk` \\ fs[] \\ NO_TAC ) \\
-    qpat_x_assum`(res,rst) = _`(assume_tac o SYM) \\ fs[] \\
-    `s1.compile = s.compile` by (imp_res_tac evaluate_consts \\ fs[]) \\ fs[] \\
-    qexists_tac`clk + clk'` \\ fs[] \\
+    fs[] \\ `s1.compile = s.compile` by (imp_res_tac evaluate_consts \\ fs[]) \\
+    fs[] \\ qexists_tac`clk + clk'` \\ fs[] \\
     imp_res_tac (GEN_ALL evaluate_add_clock) \\ fs[] \\
     first_x_assum(qspec_then`clk'`mp_tac) \\ fs[] \\
     fs[compile_state_def] \\ NO_TAC )
   THEN1 ( (* Install *)
-    fs[case_eq_thms] \\ rveq \\
-    pairarg_tac \\ fs[] \\
-    pairarg_tac \\ fs[] \\
-    fs[case_eq_thms] \\ rveq \\ fs[] \\
+    fs[case_eq_thms,UNCURRY_EQ] \\ rveq \\ fs[] \\
     fs[shift_seq_def] \\
-    qexists_tac`0` \\
-    simp[compile_state_def,state_component_equality,FUN_EQ_THM,map_union,map_fromAList,map_insert] \\
-    rpt(AP_TERM_TAC ORELSE AP_THM_TAC) \\ simp[FUN_EQ_THM,FORALL_PROD] \\ NO_TAC)
+    fs[compile_state_def,state_component_equality] \\
+    fs[map_union,map_fromAList,map_insert,FUN_EQ_THM] \\
+    fs[pair_map_I,SF ETA_ss])
   >~ [`share_inst`]
   >- ( (* ShareInst *)
-    gvs[DefnBase.one_line_ify NONE share_inst_def,
-      sh_mem_store_def,sh_mem_store_byte_def,
-      sh_mem_load_def,sh_mem_load_byte_def,
-      DefnBase.one_line_ify NONE sh_mem_set_var_def,AllCaseEqs()] \\
+    gvs[oneline share_inst_def,
+      sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def,
+      sh_mem_load16_def,sh_mem_store16_def,
+      sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
+      oneline sh_mem_set_var_def,AllCaseEqs()] \\
    simp[compile_state_def,state_component_equality,FUN_EQ_THM,map_union,map_fromAList,map_insert] ) \\
   TOP_CASE_TAC \\ fs[] \\
   TOP_CASE_TAC \\ fs[] \\
@@ -364,32 +398,33 @@ Proof
   \\ rw[]
 QED
 
-(* syntactic preservation all in one go *)
-val convs = [flat_exp_conventions_def, full_inst_ok_less_def,
-  every_inst_def, post_alloc_conventions_def, call_arg_convention_def,
-  wordLangTheory.every_stack_var_def, wordLangTheory.every_var_def,
-  extract_labels_def]
-
-Theorem remove_must_terminate_conventions:
-    ∀p c k.
-  let comp = remove_must_terminate p in
-  (flat_exp_conventions p ⇒ flat_exp_conventions comp) ∧
-  (full_inst_ok_less c p ⇒ full_inst_ok_less c comp) ∧
-  (post_alloc_conventions k p ⇒ post_alloc_conventions k comp) ∧
-  (every_inst two_reg_inst p ⇒ every_inst two_reg_inst comp) ∧
-  (extract_labels p = extract_labels comp)
-Proof
-  ho_match_mp_tac remove_must_terminate_ind>>rw[]>>
-  fs[remove_must_terminate_def]>>fs convs>>
-  TRY
-  (rename1`args = A`>>
-  Cases_on`ret`>>fs[]>>
-  PairCases_on`x`>>fs[]>>
-  Cases_on`h`>>fs[]>- metis_tac[]>>
-  PairCases_on`x`>>fs[]>>
-  metis_tac[])>>
-  EVERY_CASE_TAC>>fs[]>>
-  metis_tac[]
+Resume word_remove_correct[Loop]:
+  Cases_on `cut_state (names,LN) s` \\ fs[] \\
+  pairarg_tac \\ fs[] \\
+  `x.compile = s.compile` by
+    (fs[cut_state_def,cut_env_def] \\ every_case_tac \\ gvs[]) \\
+  reverse (Cases_on `cont_loop res'` \\ fs[])
+  >- ( (* not cont_loop *)
+    Cases_on `res' = SOME Error` \\
+    gvs[exit_loop_def,cont_loop_def] \\
+    fs[] \\ qexists_tac `clk` \\ fs[cont_loop_def] \\
+    every_case_tac \\ gvs[cont_loop_def,exit_loop_def] )
+  >- ( (* cont_loop *)
+    `res' <> SOME Error /\ res' <> SOME TimeOut` by
+      (Cases_on `res'` \\ gvs[cont_loop_def] \\
+       Cases_on `x'` \\ gvs[cont_loop_def]) \\
+    `s1.compile = x.compile` by (imp_res_tac evaluate_consts \\ fs[]) \\
+    fs[] \\
+    reverse (Cases_on `s1.clock = 0` \\ fs[])
+    >- ( (* clock <> 0, recursive *)
+      fs[STOP_def,remove_must_terminate_def] \\
+      qexists_tac `clk + clk'` \\
+      drule_all evaluate_add_clock_compile_state \\
+      disch_then (qspec_then `clk'` (fn th => simp[th]))  \\
+      simp[cont_loop_def])
+    >- ( (* clock = 0, TimeOut *)
+      qexists_tac `clk` \\ simp[cont_loop_def] \\
+      every_case_tac \\ gvs[cont_loop_def]) )
 QED
 
-val _ = export_theory();
+Finalise word_remove_correct;

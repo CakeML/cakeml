@@ -3,23 +3,24 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     TextIOProofTheory
-     cliqueProgTheory
-     cliqueTheory cliqueCompileTheory;
-
-val _ = new_theory"cliqueProof";
+Theory cliqueProof
+Ancestors
+  semanticsProps backendProof x64_configProof TextIOProof
+  cliqueProg clique cliqueCompile
+Libs
+  preamble
 
 val cake_pb_clique_io_events_def = new_specification("cake_pb_clique_io_events_def",["cake_pb_clique_io_events"],
   main_semantics |> Q.GENL[`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (cake_pb_clique_sem,cake_pb_clique_output) = cake_pb_clique_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
-val (cake_pb_clique_not_fail,cake_pb_clique_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_pb_clique_sem |> CONJ_PAIR
+val (cake_pb_clique_not_fail,cake_pb_clique_sem_sing) = cake_pb_clique_sem
+  |> SRULE [clique_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct clique_compiled
+  MATCH_MP compile_correct (cj 1 clique_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP cake_pb_clique_not_fail
   |> C MATCH_MP x64_backend_config_ok
@@ -29,16 +30,15 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val cake_pb_clique_compiled_thm =
+Theorem cake_pb_clique_compiled_thm =
   CONJ compile_correct_applied cake_pb_clique_output
   |> DISCH_ALL
   (* |> check_thm *)
-  |> curry save_thm "cake_pb_clique_compiled_thm";
 
 (* Prettifying the standard parts of all the theorems *)
-val installed_x64_def = Define `
+Definition installed_x64_def:
   installed_x64 ((code, data, cfg) :
-      (word8 list # word64 list # 64 backend$config))
+      (word8 list # word64 list # backend$config))
     mc ms
   <=>
     ?cbspace data_sp.
@@ -49,18 +49,19 @@ val installed_x64_def = Define `
         cfg.lab_conf.ffi_names
         (heap_regs x64_backend_config.stack_conf.reg_names) mc
         cfg.lab_conf.shmem_extra ms
-    `;
+End
 
-val cake_pb_clique_code_def = Define `
-  cake_pb_clique_code = (code, data, config)
-  `;
+Definition cake_pb_clique_code_def:
+  cake_pb_clique_code = (code, data, info)
+End
 
 (* A standard run of cake_pb_clique
   satisfying all the default assumptions *)
-val cake_pb_clique_run_def = Define`
+Definition cake_pb_clique_run_def:
   cake_pb_clique_run cl fs mc ms ⇔
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-  installed_x64 cake_pb_clique_code mc ms`
+  installed_x64 cake_pb_clique_code mc ms
+End
 
 Theorem machine_code_sound:
   cake_pb_clique_run cl fs mc ms ⇒
@@ -70,12 +71,12 @@ Theorem machine_code_sound:
   ∃out err.
     extract_fs fs (cake_pb_clique_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
-    (out ≠ strlit"" ⇒
+    (out ≠ «» ⇒
       ∃g.
         get_graph_dimacs fs (EL 1 cl) = SOME g ∧
         (
           (LENGTH cl = 2 ∧
-            out = concat (print_pbf (full_encode g))) ∨
+            out = concat (print_annot_prob (mk_prob (full_encode g)))) ∨
           (LENGTH cl = 3 ∧
             (
               out = clique_eq_str (max_clique_size g) ∨
@@ -89,7 +90,7 @@ Theorem machine_code_sound:
 Proof
   strip_tac>>
   fs[installed_x64_def,cake_pb_clique_code_def,cake_pb_clique_run_def]>>
-  drule cake_pb_clique_compiled_thm>>
+  drule_at (Pos last) cake_pb_clique_compiled_thm>>
   simp[AND_IMP_INTRO]>>
   disch_then drule>>
   disch_then (qspecl_then [`ms`,`mc`,`data_sp`,`cbspace`] mp_tac)>>
@@ -116,5 +117,3 @@ Proof
 QED
 
 val chk = machine_code_sound |> check_thm;
-
-val _ = export_theory();

@@ -2,11 +2,11 @@
   This is an example of applying the translator to the Unbalanced
   Set algorithm from Chris Okasaki's book.
 *)
-open preamble
-open okasaki_miscTheory pred_setTheory pred_setSimps
-open ml_translatorLib ListProgTheory;
-
-val _ = new_theory "UnbalancedSet"
+Theory UnbalancedSet
+Ancestors
+  okasaki_misc pred_set ListProg
+Libs
+  preamble pred_setSimps ml_translatorLib
 
 val _ = translation_extends "ListProg";
 
@@ -16,23 +16,27 @@ Datatype:
   tree = Empty | Tree tree 'a tree
 End
 
-val tree_to_set_def = Define `
+Definition tree_to_set_def:
 (tree_to_set Empty = {}) ∧
-(tree_to_set (Tree t1 x t2) = {x} ∪ tree_to_set t1 ∪ tree_to_set t2)`;
+(tree_to_set (Tree t1 x t2) = {x} ∪ tree_to_set t1 ∪ tree_to_set t2)
+End
 
 (* That the tree is a binary search tree *)
-val is_bst_def = Define `
+Definition is_bst_def:
 (is_bst lt Empty <=> T) ∧
 (is_bst lt (Tree t1 x t2) <=>
   is_bst lt t1 ∧
   is_bst lt t2 ∧
   (!y. y ∈ tree_to_set t1 ⇒ lt y x) ∧
-  (!y. y ∈ tree_to_set t2 ⇒ lt x y))`;
+  (!y. y ∈ tree_to_set t2 ⇒ lt x y))
+End
 
-val empty_def = mlDefine `
-empty = Empty`;
+Definition empty_def:
+empty = Empty
+End
+val r = translate empty_def;
 
-val member_def = mlDefine `
+Definition member_def:
 (member lt x Empty = F) ∧
 (member lt x (Tree a y b) =
   if lt x y then
@@ -40,9 +44,11 @@ val member_def = mlDefine `
   else if lt y x then
     member lt x b
   else
-    T)`;
+    T)
+End
+val r = translate member_def;
 
-val insert_def = mlDefine `
+Definition insert_def:
 (insert lt x Empty = Tree Empty x Empty) ∧
 (insert lt x (Tree a y b) =
   if lt x y then
@@ -50,7 +56,9 @@ val insert_def = mlDefine `
   else if lt y x then
     Tree a y (insert lt x b)
   else
-    Tree a y b)`;
+    Tree a y b)
+End
+val r = translate insert_def;
 
 
 (* Correctness proof *)
@@ -93,4 +101,3 @@ rw [is_bst_def, insert_def, tree_to_set_def, insert_set] >>
 metis_tac []
 QED
 
-val _ = export_theory ();

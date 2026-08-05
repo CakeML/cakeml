@@ -2,24 +2,25 @@
   The CakeML program implementing the word frequency application.
   This is produced by a combination of translation and CF verification.
 *)
-
-open preamble basis
-     splitwordsTheory balanced_mapTheory mlmapTheory
+Theory wordfreqProg
+Libs
+  preamble basis
+Ancestors
+  splitwords balanced_map mllist mlmap basis_ffi
 
 (* note: opening all these theories/libraries can take a while
    and it will print many warning messages which can be ignored *)
-
-val _ = new_theory "wordfreqProg";
-
 val _ = translation_extends"basisProg";
 
 (* Avoid printing potentially very long output *)
+val _ = hide_environments true;
 val _ = Globals.max_print_depth := 20
 
 (* Pure functions for word frequency counting *)
 
-val lookup0_def = Define`
-  lookup0 w t = case mlmap$lookup t w of NONE => 0n | SOME n => n`;
+Definition lookup0_def:
+  lookup0 w t = case mlmap$lookup t w of NONE => 0n | SOME n => n
+End
 
 Theorem lookup0_empty[simp]:
    !w cmp. lookup0 w (empty cmp) = 0
@@ -27,13 +28,15 @@ Proof
 EVAL_TAC \\ fs []
 QED
 
-val insert_word_def = Define`
+Definition insert_word_def:
   insert_word t w =
-    insert t w (lookup0 w t + 1)`;
+    insert t w (lookup0 w t + 1)
+End
 
-val insert_line_def = Define`
+Definition insert_line_def:
   insert_line t s =
-     FOLDL insert_word t (splitwords s)`;
+     FOLDL insert_word t (splitwords s)
+End
 
 (* and their verification *)
 
@@ -69,7 +72,7 @@ QED
 Theorem FOLDL_insert_line:
    ∀ls t t' s.
     map_ok t ∧ t' = FOLDL insert_line t ls ∧
-    EVERY (λw. ∃x. w = strcat x (strlit "\n")) ls ∧
+    EVERY (λw. ∃x. w = strcat x «\n») ls ∧
     s = concat ls
     ⇒
     map_ok t' ∧
@@ -80,7 +83,7 @@ Proof
   Induct \\ simp[concat_nil,concat_cons] \\ ntac 3 strip_tac \\
   rename1`insert_line t w` \\
   imp_res_tac insert_line_thm \\ fs[] \\
-  `strlit "\n" = str #"\n"` by EVAL_TAC \\
+  `«\n» = toString #"\n"` by EVAL_TAC \\
   `isSpace #"\n"` by EVAL_TAC \\
   first_x_assum drule \\
   rw[frequency_concat,splitwords_concat,frequency_concat_space,splitwords_concat_space] \\
@@ -94,30 +97,32 @@ val res = translate lookup0_def;
 val res = translate insert_word_def;
 val res = translate (insert_line_def |> REWRITE_RULE[splitwords_def]);
 
-val format_output_def = Define`
-  format_output (k,v) = concat [k; strlit": "; toString (&v); strlit"\n"]`;
+Definition format_output_def:
+  format_output (k,v) = concat [k; «: »; toString (&v); «\n»]
+End
 
 val res = translate format_output_def;
 
-val empty_def = Define `
-  empty = mlmap$empty compare`;
+Definition empty_def:
+  empty = mlmap$empty compare
+End
 
-val compute_wordfreq_output_def = Define `
+Definition compute_wordfreq_output_def:
   compute_wordfreq_output input_lines =
-    MAP format_output (toAscList (FOLDL insert_line empty input_lines))`
+    MAP format_output (toAscList (FOLDL insert_line empty input_lines))
+End
 
 val res = translate empty_def;
 val res = translate compute_wordfreq_output_def;
 
 (* Main wordfreq implementation *)
 
-val wordfreq = process_topdecs`
+Quote add_cakeml:
   fun wordfreq u =
-    case TextIO.inputLinesFrom (List.hd (CommandLine.arguments()))
+    case TextIO.inputLinesFile #"\n" (List.hd (CommandLine.arguments()))
     of Some lines =>
-      TextIO.print_list (compute_wordfreq_output lines)`;
-
-val () = append_prog wordfreq;
+      TextIO.print_list (compute_wordfreq_output lines);
+End
 
 (* Main wordfreq specification.
    Idea: for a given file_contents, the output of wordfreq should be the
@@ -131,10 +136,11 @@ val () = append_prog wordfreq;
    holds if output is valid for the file_contents, as described above.
 *)
 
-val valid_wordfreq_output_def = Define`
+Definition valid_wordfreq_output_def:
   valid_wordfreq_output file_contents output =
     ∃ws. set ws = set (splitwords file_contents) ∧ SORTED $< ws ∧
-         output = concat (MAP (λw. format_output (w, frequency file_contents w)) ws)`;
+         output = concat (MAP (λw. format_output (w, frequency file_contents w)) ws)
+End
 
 (* Although we have defined valid_wordfreq_output as a relation between
    file_contents and output, it is actually functional (there is only one correct
@@ -144,15 +150,15 @@ Theorem valid_wordfreq_output_exists:
    ∃output. valid_wordfreq_output file_chars output
 Proof
   rw[valid_wordfreq_output_def] \\
-  qexists_tac`QSORT $<= (nub (splitwords file_chars))` \\
+  qexists_tac`sort $<= (nub (splitwords file_chars))` \\
   qmatch_goalsub_abbrev_tac`set l1 = LIST_TO_SET l2` \\
-  `PERM (nub l2) l1` by metis_tac[QSORT_PERM] \\
+  `PERM (nub l2) l1` by metis_tac[sort_PERM] \\
   imp_res_tac PERM_LIST_TO_SET \\ fs[] \\
   simp[Abbr`l1`] \\
   match_mp_tac (MP_CANON ALL_DISTINCT_SORTED_WEAKEN) \\
   qexists_tac`$<=` \\ fs[mlstring_le_thm] \\
   conj_tac >- metis_tac[ALL_DISTINCT_PERM,all_distinct_nub] \\
-  match_mp_tac QSORT_SORTED \\
+  match_mp_tac sort_SORTED \\
   simp[transitive_def,total_def] \\
   metis_tac[mlstring_lt_trans,mlstring_lt_cases]
 QED
@@ -213,7 +219,7 @@ Proof
   qspecl_then[`lines_of file_contents`,`empty compare`]mp_tac FOLDL_insert_line \\
   simp[empty_thm,mlstringTheory.TotOrd_compare] \\
   impl_tac >- (
-    simp[lines_of_def,EVERY_MAP,implode_def,strcat_def] \\
+    simp[lines_of_def,EVERY_MAP,strcat_def] \\
     simp[EVERY_MEM] \\ metis_tac[explode_implode] ) \\
   strip_tac \\
   simp[Abbr`ls`] \\
@@ -289,7 +295,7 @@ Proof
   (* EXERCISE: step through the first few function calls in wordfreq using CF
      tactics like xlet_auto, xsimpl, xcon, etc. *)
 
-  (* Before you step through the call to TextIO.inputLinesFrom, the following
+  (* Before you step through the call to TextIO.inputLinesFile, the following
      may be useful first to establish `wfcl cl`, which constrains fname to be
      a valid filename:
   *)
@@ -333,9 +339,9 @@ Proof
   (* now let us unabbreviate xxxx and yyyy *)
   map_every qunabbrev_tac[`xxxx`,`yyyy`] \\ simp[] \\
 
-  (* EXERCISE: use the lemmas above to finish the proof, see also all_lines_def *)
+  (* EXERCISE: use the lemmas above to finish the proof, see also all_lines_file_def *)
   (*ex *)
-  metis_tac[all_lines_def,wordfreq_output_valid,wordfreq_output_spec_def,valid_wordfreq_output_unique]
+  metis_tac[all_lines_file_def,wordfreq_output_valid,wordfreq_output_spec_def,valid_wordfreq_output_unique]
   (* ex*)
 QED
 
@@ -357,13 +363,9 @@ Proof
   \\ xsimpl
 QED
 
-val (sem_thm,prog_tm) = whole_prog_thm (get_ml_prog_state ()) "wordfreq" (UNDISCH wordfreq_whole_prog_spec)
-val wordfreq_prog_def = Define `wordfreq_prog = ^prog_tm`;
+Theorem sem_thm[local] =
+  prove_sem_thm "wordfreq" "wordfreq_prog" wordfreq_whole_prog_spec;
 
-val wordfreq_semantics =
-  sem_thm |> ONCE_REWRITE_RULE[GSYM wordfreq_prog_def]
-  |> DISCH_ALL |> Q.GENL[`cl`,`contents`]
-  |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
-  |> curry save_thm "wordfreq_semantics";
-
-val _ = export_theory();
+Theorem wordfreq_semantics =
+  sem_thm |> Q.GENL[`cl`,`contents`]
+  |> SIMP_RULE bool_ss [];

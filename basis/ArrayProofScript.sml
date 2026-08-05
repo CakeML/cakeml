@@ -1,16 +1,18 @@
 (*
   Proofs about the Array module.
 *)
-open preamble ml_translatorTheory ml_translatorLib cfLib
-     mlbasicsProgTheory ArrayProgTheory
-
-val _ = new_theory"ArrayProof";
+Theory ArrayProof
+Ancestors
+  ml_translator mlbasicsProg ArrayProg
+Libs
+  preamble ml_translatorLib cfLib
 
 val _ = translation_extends "ArrayProg";
 
 val array_st = get_ml_prog_state();
 
 fun prove_array_spec op_name =
+  rpt strip_tac \\
   xcf op_name array_st \\ TRY xpull \\
   fs [cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def, cf_aw8update_def,
       cf_aalloc_empty_def, cf_aalloc_def, cf_asub_def, cf_alength_def, cf_aupdate_def] \\
@@ -73,87 +75,90 @@ Theorem array_fromList_spec:
     app (p:'ffi ffi_proj) ^(fetch_v "Array.fromList" array_st) [lv]
       emp (POSTv av. ARRAY av a)
 Proof
-    xcf "Array.fromList" array_st \\
-    xfun_spec `f`
-      `!ls lsv i iv a l_pre rest ar.
-        NUM i iv /\ LENGTH l_pre = i /\
-        LIST_TYPE A ls lsv /\ v_to_list lsv = SOME a /\ LENGTH ls = LENGTH rest
-      ==>
-      app p f [ar; lsv; iv]
-      (ARRAY ar (l_pre ++ rest))
-      (POSTv ret. & (ret = ar) * ARRAY ar (l_pre ++ a))` >- (
-        Induct
-          >- (rw[LIST_TYPE_def] \\
-          first_x_assum match_mp_tac \\
-          xmatch \\ xret \\
-          fs [LENGTH_NIL_SYM] \\
-          fs [semanticPrimitivesTheory.v_to_list_def] \\
-          xsimpl) \\
-        rw[LIST_TYPE_def] \\
-        fs[semanticPrimitivesTheory.v_to_list_def] \\
-        qpat_x_assum`_ = SOME _`mp_tac \\ CASE_TAC \\ rw[] \\
-        last_x_assum match_mp_tac \\
-        xmatch \\
-        Cases_on `rest` \\ fs[] \\
-        qmatch_assum_rename_tac`A h hv` \\
-        xlet `POSTv u. ARRAY ar (l_pre ++ hv::t)` >- (
-          xapp \\
-          instantiate \\
-          xsimpl ) \\
-        xlet `POSTv iv. ARRAY ar (l_pre ++ hv::t) * & NUM (LENGTH l_pre + 1) iv`
-        >- (
-          xapp \\
-          xsimpl \\
-          qexists_tac `&(LENGTH l_pre)` \\
-          fs [NUM_def, plus_def, integerTheory.INT_ADD]
-          ) \\
-        once_rewrite_tac[CONS_APPEND] \\
-        rewrite_tac[APPEND_ASSOC] \\
-        xapp \\ xsimpl ) \\
-    Cases_on `l` >>
-    fs [LIST_TYPE_def] >>
-    rfs [] >>
-    xmatch
-    >- (
-      fs [semanticPrimitivesTheory.v_to_list_def] >>
-      rw [] >>
-      xlet `POSTv uv. &UNIT_TYPE () uv`
+  rpt strip_tac \\
+  xcf "Array.fromList" array_st \\
+  xfun_spec `f`
+    `!ls lsv i iv a l_pre rest ar.
+      NUM i iv /\ LENGTH l_pre = i /\
+      LIST_TYPE A ls lsv /\ v_to_list lsv = SOME a /\ LENGTH ls = LENGTH rest
+    ==>
+    app p f [ar; lsv; iv]
+    (ARRAY ar (l_pre ++ rest))
+    (POSTv ret. & (ret = ar) * ARRAY ar (l_pre ++ a))` >- (
+      Induct
+        >- (rw[LIST_TYPE_def] \\
+        first_x_assum match_mp_tac \\
+        xmatch \\ xret \\
+        fs [LENGTH_NIL_SYM] \\
+        fs [semanticPrimitivesTheory.v_to_list_def] \\
+        xsimpl) \\
+      rw[LIST_TYPE_def] \\
+      fs[semanticPrimitivesTheory.v_to_list_def] \\
+      qpat_x_assum`_ = SOME _`mp_tac \\ CASE_TAC \\ rw[] \\
+      last_x_assum match_mp_tac \\
+      xmatch \\
+      Cases_on `rest` \\ fs[] \\
+      qmatch_assum_rename_tac`A h hv` \\
+      xlet `POSTv u. ARRAY ar (l_pre ++ hv::t)` >- (
+        xapp \\
+        instantiate \\
+        xsimpl ) \\
+      xlet `POSTv iv. ARRAY ar (l_pre ++ hv::t) * & NUM (LENGTH l_pre + 1) iv`
       >- (
-        xret >>
-        xsimpl) >>
-      xapp >>
-      simp []) >>
-    rw [] >>
-    xlet `POSTv lv. &NUM (LENGTH t + 1) lv`
-    >- (
-      xapp >>
-      xsimpl >>
-      qexists_tac `h::t` >>
-      qexists_tac `A` >>
-      simp [LIST_TYPE_def, ADD1]) >>
-    xlet `POSTv av. ARRAY av (REPLICATE (LENGTH t + 1) v2_1)`
-    >- (
-      xapp >>
-      simp []) >>
+        xapp \\
+        xsimpl \\
+        qexists_tac `&(LENGTH l_pre)` \\
+        fs [NUM_def, plus_def, integerTheory.INT_ADD]
+        ) \\
+      once_rewrite_tac[CONS_APPEND] \\
+      rewrite_tac[APPEND_ASSOC] \\
+      xapp \\ xsimpl \\ gvs []) \\
+  Cases_on `l` >>
+  fs [LIST_TYPE_def] >>
+  rfs [] >>
+  xmatch
+  >- (
     fs [semanticPrimitivesTheory.v_to_list_def] >>
-    every_case_tac >>
-    fs [] >>
     rw [] >>
-    first_x_assum (qspecl_then [`t`, `v2_2`, `Litv (IntLit &1)`, `x`, `[v2_1]`,
-                                `REPLICATE (LENGTH t) v2_1`] mp_tac) >>
-    simp [LENGTH_REPLICATE] >>
-    qpat_x_assum`_ = list_type_num`(assume_tac o SYM) \\ fs[GSYM ADD1] \\
-    disch_then xapp_spec >>
+    xlet `POSTv uv. &UNIT_TYPE () uv`
+    >- (
+      xret >>
+      xsimpl) >>
+    xapp >>
+    simp []) >>
+  rw [] >>
+  xlet `POSTv lv. &NUM (LENGTH t + 1) lv`
+  >- (
+    xapp >>
     xsimpl >>
-    rw [REPLICATE, GSYM ADD1]
+    qexists_tac `h::t` >>
+    qexists_tac `A` >>
+    simp [LIST_TYPE_def, ADD1]) >>
+  xlet `POSTv av. ARRAY av (REPLICATE (LENGTH t + 1) v2_1)`
+  >- (
+    xapp >>
+    simp []) >>
+  fs [semanticPrimitivesTheory.v_to_list_def] >>
+  every_case_tac >>
+  fs [] >>
+  rw [] >>
+  first_x_assum (qspecl_then [`t`, `v2_2`, `Litv (IntLit &1)`, `x`, `[v2_1]`,
+                              `REPLICATE (LENGTH t) v2_1`] mp_tac) >>
+  simp [LENGTH_REPLICATE] >>
+  qpat_x_assum`_ = list_type_num`(assume_tac o SYM) \\ fs[GSYM ADD1] \\
+  disch_then xapp_spec >>
+  xsimpl >>
+  rw [REPLICATE, GSYM ADD1]
 QED
 
 val eq_v_thm = fetch "mlbasicsProg" "eq_v_thm"
 val eq_num_v_thm = MATCH_MP (DISCH_ALL eq_v_thm) (EqualityType_NUM_BOOL |> CONJUNCT1)
 
-val num_eq_thm = Q.prove(
-  `!n nv x xv. NUM n nv /\ NUM x xv ==> (n = x <=> nv = xv)`,
-  metis_tac[EqualityType_NUM_BOOL, EqualityType_def]);
+Theorem num_eq_thm[local]:
+  !n nv x xv. NUM n nv /\ NUM x xv ==> (n = x <=> nv = xv)
+Proof
+  metis_tac[EqualityType_NUM_BOOL, EqualityType_def]
+QED
 
 Theorem array_tabulate_spec:
    !n nv f fv (A: 'a -> v -> bool).
@@ -161,7 +166,8 @@ Theorem array_tabulate_spec:
     app (p:'ffi ffi_proj) ^(fetch_v "Array.tabulate" array_st) [nv; fv]
     emp (POSTv av. SEP_EXISTS vs. ARRAY av vs * cond (EVERY2 A (GENLIST f n) vs))
 Proof
-  xcf "Array.tabulate" array_st
+  rpt strip_tac
+  \\ xcf "Array.tabulate" array_st
   \\ xfun_spec `u`
       `!x xv l_pre rest av.
         NUM x xv /\ LENGTH l_pre = x /\ LENGTH l_pre + LENGTH rest = n ==>
@@ -177,7 +183,7 @@ Proof
           \\ `xv = nv` by fs [NUM_def, INT_def]
           \\ instantiate \\ fs [])
       \\ xif >- (xret \\ xsimpl \\ `LENGTH rest = 0` by decide_tac \\ fs[] )
-      \\ fs [NUM_def, INT_def] \\ rfs[])
+      \\ gvs [NUM_def, INT_def] \\ Cases_on ‘rest’ >> gvs[])
     \\ rw[] \\ first_assum match_mp_tac
     \\ xlet `POSTv bv. & BOOL (xv = nv) bv * ARRAY av (l_pre ++ rest)`
       >- (xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[BOOL_def, NUM_def, INT_def])
@@ -248,8 +254,9 @@ val res = max_print_depth := 100
 *)
 
 
-val less_than_length_thm = Q.prove (
-  `!xs n. (n < LENGTH xs) ==> (?ys z zs. (xs = ys ++ z::zs) /\ (LENGTH ys = n))`,
+Theorem less_than_length_thm[local]:
+  !xs n. (n < LENGTH xs) ==> (?ys z zs. (xs = ys ++ z::zs) /\ (LENGTH ys = n))
+Proof
   rw[] \\
   qexists_tac`TAKE n xs` \\
   rw[] \\
@@ -257,18 +264,19 @@ val less_than_length_thm = Q.prove (
   qexists_tac`TL (DROP n xs)` \\
   Cases_on`DROP n xs` \\ fs[] \\
   metis_tac[TAKE_DROP,APPEND_ASSOC,CONS_APPEND]
-);
+QED
 
 
-val lupdate_breakdown_thm = Q.prove(
-  `!l val n. n < LENGTH l
-    ==> LUPDATE val n l = TAKE n l ++ [val] ++ DROP (n + 1) l`,
-    rw[] \\ drule less_than_length_thm
+Theorem lupdate_breakdown_thm[local]:
+  !l val n. n < LENGTH l
+    ==> LUPDATE val n l = TAKE n l ++ [val] ++ DROP (n + 1) l
+Proof
+  rw[] \\ drule less_than_length_thm
     \\ rw[] \\ simp_tac std_ss [TAKE_LENGTH_APPEND, GSYM APPEND_ASSOC, GSYM CONS_APPEND]
     \\simp_tac std_ss [DROP_APPEND2]
     \\ simp_tac std_ss [GSYM CONS_APPEND]
     \\ EVAL_TAC \\ rw[lupdate_append2]
-);
+QED
 
 Theorem array_copy_aux_spec:
    !src n srcv dstv di div nv max maxv bfr mid afr.
@@ -280,26 +288,26 @@ Theorem array_copy_aux_spec:
     (POSTv uv. ARRAY srcv src *
                ARRAY dstv (bfr ++ (TAKE (max -n) (DROP n src)) ++ afr))
 Proof
-      gen_tac \\ gen_tac \\ Induct_on `max - n` >>
-      xcf_with_def "Array.copy_aux" Array_copy_aux_v_def
-      >-(xlet_auto >> (xsimpl >> xif) >>
-         instantiate >> xcon >> xsimpl >> metis_tac[TAKE_0,LENGTH_NIL]) >>
-      xlet_auto >- xsimpl >>
-      xif >> instantiate >>
-      NTAC 4 (xlet_auto >- xsimpl) >>
-      xapp >> xsimpl >>
-      cases_on`mid` >> fs[] >>
-      qexists_tac`1 + n` >> qexists_tac`t` >>
-      qexists_tac`max` >> qexists_tac`bfr ++ [EL n src]` >> fs[] >>
-      qexists_tac`afr` >> rw[]
-      >-(`LENGTH bfr <= LENGTH bfr` by fs[] >>
-         imp_res_tac LUPDATE_APPEND2 >>
-         first_x_assum (assume_tac o Q.SPECL[`EL n src`, `[h] ⧺ t ⧺ afr`]) >>
-         fs[LUPDATE_def]) >>
-     cases_on`DROP n src` >- fs[DROP_NIL] >>
-     `EL (0 + n) src = EL 0 (DROP n src)` by fs[EL_DROP] >> fs[] >>
-     `DROP 1 (DROP n src) = t'` by fs[GSYM DROP_DROP_T] >>
-     fs[DROP_DROP_T]
+  gen_tac \\ gen_tac \\ Induct_on `max - n` >>
+  rpt strip_tac \\ xcf_with_def Array_copy_aux_v_def
+  >-(xlet_auto >> (xsimpl >> xif) >>
+     instantiate >> xcon >> xsimpl >> metis_tac[TAKE_0,LENGTH_NIL]) >>
+  xlet_auto >- xsimpl >>
+  xif >> instantiate >>
+  NTAC 4 (xlet_auto >- xsimpl) >>
+  xapp >> xsimpl >>
+  cases_on`mid` >> fs[] >>
+  qexists_tac`1 + n` >> qexists_tac`t` >>
+  qexists_tac`max` >> qexists_tac`bfr ++ [EL n src]` >> fs[] >>
+  qexists_tac`afr` >> rw[]
+  >-(`LENGTH bfr <= LENGTH bfr` by fs[] >>
+     imp_res_tac LUPDATE_APPEND2 >>
+     first_x_assum (assume_tac o Q.SPECL[`EL n src`, `[h] ⧺ t ⧺ afr`]) >>
+     fs[LUPDATE_def]) >>
+ cases_on`DROP n src` >- fs[DROP_NIL] >>
+ `EL (0 + n) src = EL 0 (DROP n src)` by fs[EL_DROP] >> fs[] >>
+ `DROP 1 (DROP n src) = t'` by fs[GSYM DROP_DROP_T] >>
+ fs[DROP_DROP_T]
 QED
 
 
@@ -310,9 +318,10 @@ Theorem array_copy_spec:
       (ARRAY srcv src * ARRAY dstv (bfr ++ mid ++ afr))
     (POSTv uv. ARRAY srcv src * ARRAY dstv (bfr ++ src ++ afr))
 Proof
-    xcf "Array.copy" array_st \\
-    xlet_auto >- xsimpl >> xapp >> xsimpl >> instantiate >>
-    fs[] >> instantiate >> metis_tac[TAKE_LENGTH_ID]
+  rpt strip_tac \\
+  xcf "Array.copy" array_st \\
+  xlet_auto >- xsimpl >> xapp >> xsimpl >> instantiate >>
+  fs[] >> instantiate >> metis_tac[TAKE_LENGTH_ID]
 QED
 
 Theorem array_app_aux_spec:
@@ -330,7 +339,8 @@ Theorem array_app_aux_spec:
 Proof
   ntac 2 gen_tac >>
   completeInduct_on `LENGTH l - idx` >>
-  xcf_with_def "Array.app_aux" Array_app_aux_v_def >>
+  rpt strip_tac >>
+  xcf_with_def Array_app_aux_v_def >>
   rw [] >>
   xlet `POSTv env_v. eff l idx * ARRAY a_v l * &BOOL (idx = LENGTH l) env_v`
   >- (
@@ -400,7 +410,8 @@ Theorem array_appi_aux_spec:
 Proof
   ntac 2 gen_tac >>
   completeInduct_on `LENGTH l - idx` >>
-  xcf_with_def "Array.appi_aux" Array_appi_aux_v_def >>
+  rpt strip_tac >>
+  xcf_with_def Array_appi_aux_v_def >>
   rw [] >>
   xlet `POSTv env_v. eff l idx * ARRAY a_v l * &BOOL (idx = LENGTH l) env_v`
   >- (
@@ -456,20 +467,23 @@ Proof
   rw [NUM_def]
 QED
 
-val list_rel_take_thm = Q.prove(
-  `!A xs ys n.
-      LIST_REL A xs ys ==> LIST_REL A (TAKE n xs) (TAKE n ys)`,
-    Induct_on `xs` \\ Induct_on `ys` \\ rw[LIST_REL_def, TAKE_def]
-);
+Theorem list_rel_take_thm[local]:
+  !A xs ys n.
+      LIST_REL A xs ys ==> LIST_REL A (TAKE n xs) (TAKE n ys)
+Proof
+  Induct_on `xs` \\ Induct_on `ys` \\ rw[LIST_REL_def, TAKE_def]
+QED
 
-val drop_pre_length_thm = Q.prove(
-  `!l. l <> [] ==> (DROP (LENGTH l - 1) l) = [(EL (LENGTH l - 1) l)]`,
+Theorem drop_pre_length_thm[local]:
+  !l. l <> [] ==> (DROP (LENGTH l - 1) l) = [(EL (LENGTH l - 1) l)]
+Proof
   rw[] \\ Induct_on `l` \\ rw[DROP, LENGTH, DROP_EL_CONS, DROP_LENGTH_NIL]
-);
+QED
 
 (*
-val ARRAY_TYPE_def = Define`
-  ARRAY_TYPE A a av = SEP_EXISTS vs. ARRAY av vs * & LIST_REL A a vs`;
+Definition ARRAY_TYPE_def:
+  ARRAY_TYPE A a av = SEP_EXISTS vs. ARRAY av vs * & LIST_REL A a vs
+End
 *)
 
 Theorem array_modify_aux_spec:
@@ -478,53 +492,53 @@ Theorem array_modify_aux_spec:
     ==> app (p:'ffi ffi_proj) Array_modify_aux_v [fv; av; maxv; nv]
     (ARRAY av vs) (POSTv uv. SEP_EXISTS vs1 vs2. ARRAY av (vs1 ++ vs2) * cond(EVERY2 A (TAKE n a) vs1) * cond(EVERY2 A (MAP f (DROP n a)) vs2))
 Proof
-    gen_tac \\ gen_tac \\ Induct_on `LENGTH a - n`
-      >-(xcf_with_def "Array.modify_aux" Array_modify_aux_v_def
-      \\ rw[] \\ xlet `POSTv bool. & (BOOL (nv = maxv) bool) * ARRAY av vs`
-        >- (xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def, BOOL_def])
-      \\ xif
-        >- (xcon \\ xsimpl \\ fs[NUM_def, INT_def, BOOL_def] \\ rw[DROP_LENGTH_NIL])
-      \\ `LENGTH a = n` by DECIDE_TAC \\ fs[NUM_def, INT_def] \\ rfs[])
-    \\ xcf_with_def "Array.modify_aux" Array_modify_aux_v_def
-    \\ xlet `POSTv bool. & (BOOL (nv = maxv) bool) * ARRAY av vs`
+  gen_tac \\ gen_tac \\ Induct_on `LENGTH a - n` \\ rpt strip_tac
+    >-(xcf_with_def Array_modify_aux_v_def
+    \\ rw[] \\ xlet `POSTv bool. & (BOOL (nv = maxv) bool) * ARRAY av vs`
       >- (xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def, BOOL_def])
     \\ xif
-      >- (xcon \\ xsimpl \\ qexists_tac `vs` \\ fs[NUM_def, INT_def, BOOL_def] \\ rw[DROP_LENGTH_NIL])
-    \\ xlet `POSTv vsub. &(vsub = EL n vs)* ARRAY av vs`
-      >-(xapp \\ fs[NUM_def, INT_def] \\ imp_res_tac LIST_REL_LENGTH \\ fs[])
-    \\ xlet `POSTv res. & (A (f (EL n a)) res) * ARRAY av vs`
-        >-(xapp \\ xsimpl \\ instantiate \\ qexists_tac `(EL n a)` \\ fs[LIST_REL_EL_EQN])
-    \\ xlet `POSTv u. ARRAY av (LUPDATE res n vs)`
-      >-(xapp \\ xsimpl \\ instantiate \\ imp_res_tac LIST_REL_LENGTH \\ fs[NUM_def, INT_def] \\ rfs[])
-    \\ xlet `POSTv n1. & NUM (n + 1) n1 * ARRAY av (LUPDATE res n vs)`
-      >-(xapp \\ xsimpl \\ qexists_tac `&n` \\ fs[NUM_def, INT_def, integerTheory.INT_ADD])
-    \\ first_x_assum (qspecl_then [`LUPDATE (f (EL n a)) n a`, `n + 1`] mp_tac) \\ rw[]
-    \\ xapp \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def] \\ rw[EVERY2_LUPDATE_same]
-    \\ qexists_tac `TAKE n x`
-    \\ simp[RIGHT_EXISTS_AND_THM]
-    \\ conj_tac
-      >-(`(TAKE n (TAKE (n + 1) (LUPDATE (f (EL n a)) n a))) = (TAKE n a)` by fs[lupdate_breakdown_thm, TAKE_APPEND1, TAKE_TAKE]
-          \\ metis_tac[list_rel_take_thm])
-    \\ first_x_assum(qspec_then`ARB`kall_tac)
-    \\ qexists_tac`[EL n x] ++ x'`
-    \\ reverse conj_tac
-    >- (
-      imp_res_tac LIST_REL_LENGTH
-      \\ rfs[LENGTH_LUPDATE,LENGTH_TAKE]
-      \\ fs[LIST_EQ_REWRITE]
-      \\ qx_gen_tac`z`
-      \\ Cases_on`z<n` \\ simp[EL_APPEND1,EL_APPEND2,EL_TAKE]
-      \\ rw[] \\ `z = n` by decide_tac \\ simp[] )
-    \\ rfs[LIST_REL_EL_EQN,EL_MAP,EL_DROP,EL_LUPDATE,EL_TAKE]
-    \\ Cases \\ fs[]
-    >- ( rpt(first_x_assum(qspec_then`n`mp_tac) \\ simp[]) )
-    \\ qmatch_goalsub_rename_tac`A _ (EL z l2)`
-    \\ strip_tac
-    \\ first_x_assum(qspec_then`z`mp_tac)
-    \\ simp[]
-    \\ fs[ADD1]
-    \\ qpat_x_assum`_ = LENGTH x`(SUBST_ALL_TAC o SYM)
-    \\ fs[]
+      >- (xcon \\ xsimpl \\ fs[NUM_def, INT_def, BOOL_def] \\ rw[DROP_LENGTH_NIL])
+    \\ `LENGTH a = n` by DECIDE_TAC \\ fs[NUM_def, INT_def] \\ rfs[])
+  \\ xcf_with_def Array_modify_aux_v_def
+  \\ xlet `POSTv bool. & (BOOL (nv = maxv) bool) * ARRAY av vs`
+    >- (xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def, BOOL_def])
+  \\ xif
+    >- (xcon \\ xsimpl \\ qexists_tac `vs` \\ fs[NUM_def, INT_def, BOOL_def] \\ rw[DROP_LENGTH_NIL])
+  \\ xlet `POSTv vsub. &(vsub = EL n vs)* ARRAY av vs`
+    >-(xapp \\ fs[NUM_def, INT_def] \\ imp_res_tac LIST_REL_LENGTH \\ fs[])
+  \\ xlet `POSTv res. & (A (f (EL n a)) res) * ARRAY av vs`
+      >-(xapp \\ xsimpl \\ instantiate \\ qexists_tac `(EL n a)` \\ fs[LIST_REL_EL_EQN])
+  \\ xlet `POSTv u. ARRAY av (LUPDATE res n vs)`
+    >-(xapp \\ xsimpl \\ instantiate \\ imp_res_tac LIST_REL_LENGTH \\ fs[NUM_def, INT_def] \\ rfs[])
+  \\ xlet `POSTv n1. & NUM (n + 1) n1 * ARRAY av (LUPDATE res n vs)`
+    >-(xapp \\ xsimpl \\ qexists_tac `&n` \\ fs[NUM_def, INT_def, integerTheory.INT_ADD])
+  \\ first_x_assum (qspecl_then [`LUPDATE (f (EL n a)) n a`, `n + 1`] mp_tac) \\ rw[]
+  \\ xapp \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def] \\ rw[EVERY2_LUPDATE_same]
+  \\ qexists_tac `TAKE n x`
+  \\ simp[RIGHT_EXISTS_AND_THM]
+  \\ conj_tac
+    >-(`(TAKE n (TAKE (n + 1) (LUPDATE (f (EL n a)) n a))) = (TAKE n a)` by fs[lupdate_breakdown_thm, TAKE_APPEND1, TAKE_TAKE]
+        \\ metis_tac[list_rel_take_thm])
+  \\ first_x_assum(qspec_then`ARB`kall_tac)
+  \\ qexists_tac`[EL n x] ++ x'`
+  \\ reverse conj_tac
+  >- (
+    imp_res_tac LIST_REL_LENGTH
+    \\ rfs[LENGTH_LUPDATE,LENGTH_TAKE]
+    \\ fs[LIST_EQ_REWRITE]
+    \\ qx_gen_tac`z`
+    \\ Cases_on`z<n` \\ simp[EL_APPEND1,EL_APPEND2,EL_TAKE]
+    \\ rw[] \\ `z = n` by decide_tac \\ simp[] )
+  \\ rfs[LIST_REL_EL_EQN,EL_MAP,EL_DROP,EL_LUPDATE,EL_TAKE]
+  \\ Cases \\ fs[]
+  >- ( rpt(first_x_assum(qspec_then`n`mp_tac) \\ simp[]) )
+  \\ qmatch_goalsub_rename_tac`A _ (EL z l2)`
+  \\ strip_tac
+  \\ first_x_assum(qspec_then`z`mp_tac)
+  \\ simp[]
+  \\ fs[ADD1]
+  \\ qpat_x_assum`_ = LENGTH x`(SUBST_ALL_TAC o SYM)
+  \\ fs[]
 QED
 
 
@@ -534,7 +548,8 @@ Theorem array_modify_spec:
     ==> app (p:'ffi ffi_proj) ^(fetch_v "Array.modify" array_st) [fv; av]
     (ARRAY av vs) (POSTv uv. SEP_EXISTS vs1. ARRAY av vs1 * cond(EVERY2 A (MAP f a) vs1))
 Proof
-    xcf "Array.modify" array_st
+    rpt strip_tac
+    \\ xcf "Array.modify" array_st
     \\ xlet `POSTv len. & NUM (LENGTH a) len * ARRAY av vs`
       >-(xapp \\ xsimpl \\ imp_res_tac LIST_REL_LENGTH \\ fs[INT_def, NUM_def])
     \\ xapp \\ xsimpl \\ instantiate
@@ -548,14 +563,14 @@ Theorem array_modifyi_aux_spec:
     (ARRAY av vs) (POSTv uv. SEP_EXISTS vs1 vs2. ARRAY av (vs1 ++ vs2) * cond(EVERY2 A (TAKE n a) vs1) *
       cond(EVERY2 A (MAPi (\i. f (n + i)) (DROP n a)) vs2))
 Proof
-    gen_tac \\ gen_tac \\ Induct_on `LENGTH a - n`
-      >-(xcf_with_def "Array.modifyi_aux" Array_modifyi_aux_v_def
+    gen_tac \\ gen_tac \\ Induct_on `LENGTH a - n` \\ rpt strip_tac
+      >-(xcf_with_def Array_modifyi_aux_v_def
         \\ xlet `POSTv bool. & BOOL (nv=maxv) bool * ARRAY av vs`
           >-(xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[INT_def, NUM_def, BOOL_def])
         \\ xif
           >-(xcon \\ xsimpl \\ fs[NUM_def, INT_def] \\ rw[DROP_LENGTH_NIL])
         \\ `LENGTH a = n` by DECIDE_TAC \\ fs[NUM_def, INT_def] \\ rfs[])
-    \\ xcf_with_def "Array.modifyi_aux" Array_modifyi_aux_v_def
+    \\ xcf_with_def Array_modifyi_aux_v_def
     \\ xlet `POSTv bool. & BOOL (nv=maxv) bool * ARRAY av vs`
       >-(xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[INT_def, NUM_def, BOOL_def])
     \\ xif
@@ -601,7 +616,8 @@ Theorem array_modifyi_spec:
     ==> app (p:'ffi ffi_proj) ^(fetch_v "Array.modifyi" array_st) [fv; av]
     (ARRAY av vs) (POSTv uv. SEP_EXISTS vs1. ARRAY av vs1 * cond(EVERY2 A (MAPi f a) vs1))
 Proof
-    xcf "Array.modifyi" array_st
+    rpt strip_tac
+    \\ xcf "Array.modifyi" array_st
     \\ xlet `POSTv len. & NUM (LENGTH a) len * ARRAY av vs`
       >-(xapp \\ xsimpl \\ imp_res_tac LIST_REL_LENGTH \\ fs[INT_def, NUM_def])
     \\ xapp \\ xsimpl \\ metis_tac [BETA_THM]
@@ -742,14 +758,14 @@ Theorem array_foldr_aux_spec:
       ==> app (p:'ffi ffi_proj) Array_foldr_aux_v [fv; initv; av; nv]
       (ARRAY av vs) (POSTv val. & A (FOLDR f init (TAKE n a)) val * ARRAY av vs)
 Proof
-    gen_tac \\ Induct_on `n`
-      >-(xcf_with_def "Array.foldr_aux" Array_foldr_aux_v_def
+    gen_tac \\ Induct_on `n` \\ rpt strip_tac
+      >-(xcf_with_def Array_foldr_aux_v_def
       \\ xlet `POSTv bool. SEP_EXISTS ov. & BOOL (nv = ov) bool * ARRAY av vs * & NUM 0 ov`
         >-(xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def])
       \\ xif
         >-(xvar \\ xsimpl)
       \\ fs[NUM_def, INT_def] \\ rfs[])
-    \\ xcf_with_def "Array.foldr_aux" Array_foldr_aux_v_def
+    \\ xcf_with_def Array_foldr_aux_v_def
     \\ xlet `POSTv bool. SEP_EXISTS ov. & BOOL (nv = ov) bool * ARRAY av vs * & NUM 0 ov`
       >-(xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def])
     \\ xif
@@ -771,14 +787,15 @@ Theorem array_foldr_spec:
     ==> app (p:'ffi ffi_proj) ^(fetch_v "Array.foldr" array_st) [fv; initv; av]
       (ARRAY av vs) (POSTv val. & A (FOLDR f init a) val * ARRAY av vs)
 Proof
-      xcf "Array.foldr" array_st
+      rpt strip_tac
+      \\ xcf "Array.foldr" array_st
       \\ xlet `POSTv len. & NUM (LENGTH vs) len * ARRAY av vs`
         >-(xapp \\ xsimpl)
       \\ xapp \\ xsimpl \\ instantiate \\ imp_res_tac LIST_REL_LENGTH
       \\ fs[] \\metis_tac[TAKE_LENGTH_ID]
 QED
 
-Triviality IMP_app:
+Theorem IMP_app[local]:
   f = Closure v1 env (Fun v2 x) ∧
   app p (Closure (v1 with v := nsBind env x1 v1.v) v2 x) (x2::xs) H Q ⇒
   app p f (x1::x2::xs) H Q
@@ -824,7 +841,7 @@ Proof
   \\ fs [evaluateTheory.evaluate_def]
   \\ rw [semanticPrimitivesTheory.do_app_def]
   \\ gvs [ARRAY_def,SEP_EXISTS_THM,cond_STAR,NUM_def,INT_def]
-  \\ gvs [cell_def,one_def,EVAL “pat_bindings Pany []”]
+  \\ gvs [cell_def,one_def,EVAL “pat_bindings Pany”]
   \\ ‘store_lookup loc st.refs = SOME (Varray arrlsv)’ by
    (fs [semanticPrimitivesTheory.store_lookup_def]
     \\ ‘Mem loc (Varray arrlsv) IN st2heap p st’ by
@@ -901,7 +918,7 @@ Theorem array_updateResize_spec:
     (POSTv v. ARRAY v (update_resize arrlsv defaultv xv n))
 Proof
   rw []
-  \\ xcf_with_def "" Array_updateResize_v_def
+  \\ xcf_with_def Array_updateResize_v_def
   \\ Cases_on ‘n < LENGTH arrlsv’
   >-
    (xhandle ‘(POSTv v. ARRAY v (update_resize arrlsv defaultv xv n))’
@@ -945,4 +962,111 @@ Proof
   \\ xvar \\ fs [] \\ xsimpl
 QED
 
-val _ = export_theory();
+Theorem array_exists_aux_spec:
+  ∀n nv.
+  NUM max maxv ∧
+  NUM n nv ∧
+  LIST_REL R ls arr ∧
+  (R --> BOOL) f fv ∧
+  n ≤ max ∧
+  max = LENGTH ls
+  ⇒
+  app (p:'ffi ffi_proj) Array_exists_aux_v [fv; arrv; maxv; nv]
+    (ARRAY arrv arr)
+    (POSTv v. ARRAY arrv arr * &BOOL (EXISTS f (DROP n ls)) v)
+Proof
+  Induct_on`max - n`>>rw[]
+  \\ xcf_with_def Array_exists_aux_v_def
+  >- (
+    xlet_auto >> xsimpl>>
+    xif >> instantiate>>
+    xcon>>xsimpl>>
+    DEP_REWRITE_TAC[DROP_LENGTH_NIL_rwt]>>
+    simp[]>>EVAL_TAC)>>
+  xlet_auto >- xsimpl >>
+  xif >> instantiate >>
+  gvs[LIST_REL_EL_EQN]>>
+  xlet_auto >- xsimpl>>
+  rename1`EL n arr`>>
+  `DROP n ls = EL n ls :: DROP (n+1) ls` by
+    (irule DROP_EL_CONS>>
+    gvs[])>>
+  first_x_assum (qspec_then`n` assume_tac)>>gvs[]>>
+  xlet_auto >-xsimpl>>
+  xif>- (xcon>>xsimpl)>>
+  xlet_auto >- xsimpl>>
+  xapp>>
+  xsimpl
+QED
+
+Theorem array_exists_spec:
+  LIST_REL R ls arr ∧
+  (R --> BOOL) f fv
+  ⇒
+  app (p:'ffi ffi_proj) Array_exists_v [fv; arrv]
+    (ARRAY arrv arr)
+    (POSTv v. ARRAY arrv arr * &BOOL (EXISTS f ls) v)
+Proof
+  rw[]>>xcf_with_def Array_exists_v_def>>
+  xlet_auto >- xsimpl>>
+  imp_res_tac LIST_REL_LENGTH>>
+  xapp>> xsimpl>>
+  first_x_assum (irule_at Any)>>
+  first_x_assum (irule_at Any)>>
+  simp[]
+QED
+
+Theorem array_all_aux_spec:
+  ∀n nv.
+  NUM max maxv ∧
+  NUM n nv ∧
+  LIST_REL R ls arr ∧
+  (R --> BOOL) f fv ∧
+  n ≤ max ∧
+  max = LENGTH ls
+  ⇒
+  app (p:'ffi ffi_proj) Array_all_aux_v [fv; arrv; maxv; nv]
+    (ARRAY arrv arr)
+    (POSTv v. ARRAY arrv arr * &BOOL (EVERY f (DROP n ls)) v)
+Proof
+  Induct_on`max - n`>>rw[]
+  \\ xcf_with_def Array_all_aux_v_def
+  >- (
+    xlet_auto >> xsimpl>>
+    xif >> instantiate>>
+    xcon>>xsimpl>>
+    DEP_REWRITE_TAC[DROP_LENGTH_NIL_rwt]>>
+    simp[]>>EVAL_TAC)>>
+  xlet_auto >- xsimpl >>
+  xif >> instantiate >>
+  gvs[LIST_REL_EL_EQN]>>
+  xlet_auto >- xsimpl>>
+  rename1`EL n arr`>>
+  `DROP n ls = EL n ls :: DROP (n+1) ls` by
+    (irule DROP_EL_CONS>>
+    gvs[])>>
+  first_x_assum (qspec_then`n` assume_tac)>>gvs[]>>
+  xlet_auto >-xsimpl>>
+  xif>- (
+    xlet_auto >- xsimpl>>
+    xapp>>
+    xsimpl)>>
+  xcon>>xsimpl
+QED
+
+Theorem array_all_spec:
+  LIST_REL R ls arr ∧
+  (R --> BOOL) f fv
+  ⇒
+  app (p:'ffi ffi_proj) Array_all_v [fv; arrv]
+    (ARRAY arrv arr)
+    (POSTv v. ARRAY arrv arr * &BOOL (EVERY f ls) v)
+Proof
+  rw[]>>xcf_with_def Array_all_v_def>>
+  xlet_auto >- xsimpl>>
+  imp_res_tac LIST_REL_LENGTH>>
+  xapp>> xsimpl>>
+  first_x_assum (irule_at Any)>>
+  first_x_assum (irule_at Any)>>
+  simp[]
+QED

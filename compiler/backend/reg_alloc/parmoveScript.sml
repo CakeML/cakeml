@@ -5,9 +5,11 @@
     algorithm for parallel moves
   http://gallium.inria.fr/~xleroy/publi/parallel-move.pdf
 *)
-open preamble;
-
-val _ = new_theory "parmove";
+Theory parmove
+Ancestors
+  misc
+Libs
+  preamble
 
 (* Non-deterministic algorithm *)
 
@@ -42,8 +44,9 @@ Overload "\226\150\183*" = ``RTC $▷``
 
 (* invariant on states *)
 
-val windmill_def = Define `
-  windmill (moves:('a # 'a) list) = ALL_DISTINCT (MAP FST moves)`;
+Definition windmill_def:
+  windmill (moves:('a # 'a) list) = ALL_DISTINCT (MAP FST moves)
+End
 
 Theorem windmill_cons:
    windmill (x::ls) ⇔ ¬MEM (FST x) (MAP FST ls) ∧ windmill ls
@@ -51,11 +54,11 @@ Proof
   rw[windmill_def]
 QED
 
-val path_def = Define`
+Definition path_def[simp]:
   (path [] ⇔ T) ∧ (path [_] ⇔ T) ∧
   (path ((c,b')::(b,a)::p) ⇔
-     (b = b') ∧ path ((b,a)::p))`;
-val _ = export_rewrites["path_def"];
+     (b = b') ∧ path ((b,a)::p))
+End
 
 Theorem path_change_start:
    ∀y z x. path (SNOC x y) ∧ FST x = FST z ⇒ path (SNOC z y)
@@ -75,27 +78,32 @@ Proof
   Cases >> Cases >> simp[]
 QED
 
-val path_imp_mem = Q.prove(
-  `path (x::y) ⇒
-   ¬NULL y ⇒ MEM (SND x) (MAP FST y)`,
+Theorem path_imp_mem[local]:
+  path (x::y) ⇒
+   ¬NULL y ⇒ MEM (SND x) (MAP FST y)
+Proof
   Induct_on`y`>>simp[]>>
-  Cases_on`x`>>Cases>>fs[])
+  Cases_on`x`>>Cases>>fs[]
+QED
 
-val path_imp_mem2 = Q.prove(
-  `path x ⇒
+Theorem path_imp_mem2[local]:
+  path x ⇒
    ∀y. MEM y (MAP SND x) ∧
        y ≠ SND(LAST x) ⇒
-       MEM y (MAP FST x)`,
+       MEM y (MAP FST x)
+Proof
   Induct_on`x` >> simp[]>>
   Cases_on`x`>>Cases>>simp[]>>
   Cases_on`h`>>fs[] >>
   strip_tac >> fs[] >>
-  rw[] >> metis_tac[])
+  rw[] >> metis_tac[]
+QED
 
-val NoRead_path = Q.prove(
-  `∀σ. path σ ∧ windmill σ ∧ LENGTH σ ≥ 2 ∧
+Theorem NoRead_path[local]:
+  ∀σ. path σ ∧ windmill σ ∧ LENGTH σ ≥ 2 ∧
    FST (HD σ) ≠ SND (LAST σ) ⇒
-   NoRead (TL σ) (FST (HD σ))`,
+   NoRead (TL σ) (FST (HD σ))
+Proof
   Induct >> simp[] >> Cases >> simp[] >>
   Cases_on`σ`>>fs[]>> Cases_on`h`>>fs[]>>
   strip_tac >> var_eq_tac >> fs[] >>
@@ -106,17 +114,19 @@ val NoRead_path = Q.prove(
   conj_asm1_tac >- metis_tac[] >>
   strip_tac >>
   imp_res_tac path_imp_mem2 >>
-  fs[] >> metis_tac[] )
+  fs[] >> metis_tac[]
+QED
 
-val wf_def = Define`
+Definition wf_def:
   wf (μ,σ,τ) ⇔
     windmill (μ++σ) ∧
     EVERY IS_SOME (MAP FST μ) ∧
     EVERY IS_SOME (MAP SND μ) ∧
     (¬NULL σ ⇒ EVERY IS_SOME (MAP SND (FRONT σ))) ∧
     EVERY IS_SOME (MAP FST σ) ∧
-    path σ`;
-val _ = overload_on(UnicodeChars.turnstile,``wf``);
+    path σ
+End
+Overload "⊢" = “wf”
 
 Theorem wf_init:
    windmill μ ∧
@@ -148,8 +158,9 @@ QED
 
 (* semantics of moves *)
 
-val parsem_def = Define`
-  parsem μ ρ = ρ =++ (ZIP(MAP FST μ, MAP (ρ o SND) μ))`;
+Definition parsem_def:
+  parsem μ ρ = ρ =++ (ZIP(MAP FST μ, MAP (ρ o SND) μ))
+End
 
 Theorem parsem_nil[simp]:
    parsem [] = I
@@ -304,9 +315,10 @@ Proof
   \\ metis_tac[]
 QED
 
-val seqsem_def = Define`
+Definition seqsem_def:
   (seqsem [] ρ = ρ) ∧
-  (seqsem ((d,s)::τ) ρ = seqsem τ ((d =+ ρ s) ρ))`;
+  (seqsem ((d,s)::τ) ρ = seqsem τ ((d =+ ρ s) ρ))
+End
 
 val seqsem_ind = theorem"seqsem_ind";
 
@@ -325,8 +337,9 @@ QED
 
 (* semantics of the state *)
 
-val sem_def = Define`
-  sem (μ,σ,τ) ρ = parsem (μ++σ) (seqsem (REVERSE τ) ρ)`;
+Definition sem_def:
+  sem (μ,σ,τ) ρ = parsem (μ++σ) (seqsem (REVERSE τ) ρ)
+End
 
 Theorem sem_init:
    sem (μ,[],[]) = parsem μ
@@ -342,16 +355,21 @@ QED
 
 (* semantic preservation *)
 
-val eqenv_def = Define`
-  eqenv ρ1 ρ2 ⇔ ∀r. IS_SOME r ⇒ (ρ1 r = ρ2 r)`;
+Definition eqenv_def:
+  eqenv ρ1 ρ2 ⇔ ∀r. IS_SOME r ⇒ (ρ1 r = ρ2 r)
+End
 val _ = set_fixity"\226\137\161"(Infix(NONASSOC,450));
 Overload "\226\137\161" = ``eqenv``
 
-val eqenv_sym = Q.prove(
-  `p1 ≡ p2 ⇒ p2 ≡ p1`, rw[eqenv_def]);
+Theorem eqenv_sym[local]:
+  p1 ≡ p2 ⇒ p2 ≡ p1
+Proof
+  rw[eqenv_def]
+QED
 
-val step_sem = Q.prove(
-  `∀s1 s2. s1 ▷ s2 ⇒ ⊢ s1 ⇒ (∀ρ. sem s1 ρ ≡ sem s2 ρ)`,
+Theorem step_sem[local]:
+  ∀s1 s2. s1 ▷ s2 ⇒ ⊢ s1 ⇒ (∀ρ. sem s1 ρ ≡ sem s2 ρ)
+Proof
   ho_match_mp_tac step_ind >>
   conj_tac >- (
     rw[sem_def,FUN_EQ_THM,wf_def,eqenv_def] >> rpt (AP_THM_TAC) >>
@@ -423,7 +441,8 @@ val step_sem = Q.prove(
   simp[seqsem_append,seqsem_def,APPLY_UPDATE_THM] >>
   AP_THM_TAC >>
   match_mp_tac parsem_NoRead >>
-  rw[]);
+  rw[]
+QED
 
 Theorem steps_sem:
    ∀s1 s2. s1 ▷* s2 ∧ ⊢ s1 ⇒ (∀ρ. sem s1 ρ ≡ sem s2 ρ)
@@ -481,8 +500,9 @@ Overload "\226\134\170*" = ``RTC $↪``
 (* ⊢ s1 condition not included in paper;
    not sure if necessary, but couldn't get
    their proof to work *)
-val dstep_step = Q.prove(
-  `∀s1 s2. s1 ↪ s2 ⇒ ⊢ s1 ⇒ s1 ▷* s2`,
+Theorem dstep_step[local]:
+  ∀s1 s2. s1 ↪ s2 ⇒ ⊢ s1 ⇒ s1 ▷* s2
+Proof
   ho_match_mp_tac dstep_ind >> rw[] >>
   TRY(
     qpat_abbrev_tac`n = NONE` >>
@@ -491,7 +511,8 @@ val dstep_step = Q.prove(
     `r ≠ NONE` by (strip_tac >> fs[]) >>
     srw_tac[DNF_ss][step_cases]) >>
   match_mp_tac RTC_SUBSET >> rw[step_cases] >>
-  metis_tac[CONS_APPEND,APPEND] );
+  metis_tac[CONS_APPEND,APPEND]
+QED
 
 Theorem dsteps_steps:
    ∀s1 s2. s1 ↪* s2 ⇒ ⊢ s1 ⇒ s1 ▷* s2
@@ -502,7 +523,7 @@ QED
 
 (* functional algorithm *)
 
-val fstep_def = Define`
+Definition fstep_def:
   fstep st =
   case st of
   | ([],[],_) => st
@@ -520,7 +541,8 @@ val fstep_def = Define`
                 if s' = d
                 then (t,SNOC (d',NONE) b',(d,s)::(NONE,d)::l)
                 else (t,b,(d,s)::l))
-      t`;
+      t
+End
 
 val not_or = METIS_PROVE[]``¬a ∨ b ⇔ a ⇒ b``;
 
@@ -534,9 +556,9 @@ val tac =
       rw[dstep_cases] >>
       TRY(map_every qexists_tac[`FST(LAST t')`,`SND(LAST t')`,`FRONT t'`]) >>
       rw[APPEND_FRONT_LAST] >>
-      fs[whileTheory.OLEAST_def,MEM_MAP,MEM_EL] >>
+      fs[WhileTheory.OLEAST_def,MEM_MAP,MEM_EL] >>
       metis_tac[] ) >>
-  fs[whileTheory.OLEAST_def] >>
+  fs[WhileTheory.OLEAST_def] >>
   BasicProvers.CASE_TAC >- (
       fs[DROP_NIL] >> rw[] >>
       pop_assum mp_tac >>
@@ -581,11 +603,12 @@ Proof
   >> tac
 QED
 
-val pmov_def = tDefine"pmov"`
+Definition pmov_def:
   pmov s = case s of
     | ([],[],_) => s
-    | _ => pmov (fstep s)`
-  (WF_REL_TAC`measure (λ(μ,σ,τ). 2 * LENGTH μ + LENGTH σ)` >>
+    | _ => pmov (fstep s)
+Termination
+  WF_REL_TAC`measure (λ(μ,σ,τ). 2 * LENGTH μ + LENGTH σ)` >>
    rw[fstep_def] >- (
      fs[NULL_LENGTH,LENGTH_NIL,splitAtPki_def] >>
      simp[UNCURRY] >> rw[] >>
@@ -604,14 +627,15 @@ val pmov_def = tDefine"pmov"`
        fs[NULL_LENGTH,LENGTH_NIL] >>
        simp[LENGTH_FRONT,PRE_SUB1,LENGTH_NOT_NULL,NULL_LENGTH,LENGTH_NIL] >>
        NO_TAC) >>
-     fs[whileTheory.OLEAST_def] >> rw[] >>
+     fs[WhileTheory.OLEAST_def] >> rw[] >>
      pop_assum mp_tac >>
      numLib.LEAST_ELIM_TAC >>
      conj_tac >- metis_tac[] >>
      rw[] >> simp[LENGTH_TAKE,ADD1] >>
      rfs[DROP_CONS_EL] >> rw[] >>
      simp[ADD1] >>
-     metis_tac[]))
+     metis_tac[])
+End
 
 val pmov_ind = theorem"pmov_ind";
 
@@ -639,9 +663,10 @@ QED
 
 (* The top-level parallel move compiler *)
 
-val parmove_def = Define `
+Definition parmove_def:
   parmove (xs:('a # 'a) list) =
-    REVERSE(SND(SND(pmov (MAP (\(x,y). (SOME x, SOME y)) xs, [],[]))))`;
+    REVERSE(SND(SND(pmov (MAP (\(x,y). (SOME x, SOME y)) xs, [],[]))))
+End
 
 Theorem parmove_correct:
    windmill xs ⇒
@@ -803,12 +828,12 @@ QED
 
 (* the compiler does not use uninitialised temporaries *)
 
-val not_use_temp_before_assign_def = Define`
+Definition not_use_temp_before_assign_def[simp]:
    (not_use_temp_before_assign [] = T) ∧
    (not_use_temp_before_assign ((d,NONE)::ls) = F) ∧
    (not_use_temp_before_assign ((NONE,s)::ls) = T) ∧
-   (not_use_temp_before_assign ((d,s)::ls) = not_use_temp_before_assign ls)`
-val _ = export_rewrites["not_use_temp_before_assign_def"];
+   (not_use_temp_before_assign ((d,s)::ls) = not_use_temp_before_assign ls)
+End
 
 val not_use_temp_before_assign_ind = theorem"not_use_temp_before_assign_ind";
 
@@ -998,8 +1023,9 @@ QED
 
 (* the compiler retains all non-trivial moves *)
 
-val state_to_list_def = Define`
-  state_to_list p = APPEND (FST p) (FST(SND p)) ++ SND(SND p)`;
+Definition state_to_list_def:
+  state_to_list p = APPEND (FST p) (FST(SND p)) ++ SND(SND p)
+End
 
 Theorem step_preserves_moves:
    ∀s1 s2. s1 ▷ s2 ⇒
@@ -1057,15 +1083,17 @@ QED
 
 (* mapping an injective function over compiled moves *)
 
-val map_state_def = Define`
-  map_state f = let m = MAP (f ## f) in m ## m ## m`;
+Definition map_state_def:
+  map_state f = let m = MAP (f ## f) in m ## m ## m
+End
 
-val inj_on_state_def = Define`
+Definition inj_on_state_def:
   inj_on_state f p =
      let ls0 = state_to_list p in
      let ls = MAP FST ls0 ++ MAP SND ls0 in
      (∀x y. MEM x ls ∧ MEM y ls ∧ f x = f y ⇒ x = y) ∧
-     (∀x. f x = NONE ⇔ x = NONE)`;
+     (∀x. f x = NONE ⇔ x = NONE)
+End
 
 Theorem step_inj_on_state:
    ∀s1 s2. s1 ▷ s2 ⇒ inj_on_state f s1 ⇒ inj_on_state f s2
@@ -1148,15 +1176,17 @@ Proof
   \\ metis_tac[]
 QED
 
-val steps_MAP_INJ = Q.prove(
-  `∀s1 s2. s1 ▷* s2 ⇒
+Theorem steps_MAP_INJ[local]:
+  ∀s1 s2. s1 ▷* s2 ⇒
     inj_on_state f s1 ⇒
-    map_state f s1 ▷* map_state f s2`,
+    map_state f s1 ▷* map_state f s2
+Proof
   ho_match_mp_tac RTC_INDUCT
   \\ rw[]
   \\ imp_res_tac step_inj_on_state
   \\ fs[]
-  \\ metis_tac[step_MAP_INJ,RTC_RULES]);
+  \\ metis_tac[step_MAP_INJ,RTC_RULES]
+QED
 
 Theorem fstep_MAP_INJ:
    ∀p. inj_on_state f p ⇒ fstep (map_state f p) = map_state f (fstep p)
@@ -1300,5 +1330,3 @@ Proof
   \\ fs[]
   \\ simp[map_state_def]
 QED
-
-val _ = export_theory();

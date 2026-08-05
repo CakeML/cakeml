@@ -5,11 +5,13 @@
   with no axioms, with all but infinity axiom, with all three axioms) have
   models (under suitable assumptions).
 *)
-open preamble
-     setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holBoolSyntaxTheory holAxiomsSyntaxTheory
-     holSemanticsTheory holSemanticsExtraTheory holSoundnessTheory holExtensionTheory holBoolTheory holModelConservativityTheory
-
-val _ = new_theory"holConsistency"
+Theory holConsistency
+Ancestors
+  setSpec holSyntaxLib holSyntax holSyntaxExtra holBoolSyntax
+  holAxiomsSyntax holSemantics holSemanticsExtra holSoundness
+  holExtension holBool holModelConservativity
+Libs
+  preamble
 
 val _ = Parse.hide "mem";
 
@@ -22,10 +24,11 @@ Definition definitional_extension_def:
     (ctxt1 extends ctxt2 /\ (!p. ~MEM (NewAxiom p) (TAKE (LENGTH ctxt1 - LENGTH ctxt2) ctxt1)))
 End
 
-val consistent_theory_def = Define`
+Definition consistent_theory_def:
   consistent_theory thy ⇔
-        (thy,[]) |- (Var (strlit"x") Bool === Var (strlit"x") Bool) ∧
-      ¬((thy,[]) |- (Var (strlit"x") Bool === Var (strlit"y") Bool))`
+        (thy,[]) |- (Var «x» Bool === Var «x» Bool) ∧
+      ¬((thy,[]) |- (Var «x» Bool === Var «y» Bool))
+End
 
 Theorem proves_consistent:
    is_set_theory ^mem ⇒
@@ -51,8 +54,8 @@ Proof
     rfs[typeof_equation] >>
     fs[ground_terms_uninst_def] >>
     qexists_tac `Bool` >> fs[ground_types_def,tyvars_def]) >>
-  qexists_tac`λ(x,ty). if (x,ty) = (strlit"x",Bool) then True else
-                       if (x,ty) = (strlit"y",Bool) then False else
+  qexists_tac`λ(x,ty). if (x,ty) = («x»,Bool) then True else
+                       if (x,ty) = («y»,Bool) then False else
                        @v. v <: ext_type_frag_builtins δ (TYPE_SUBSTf (K Bool) ty)` >>
   conj_asm1_tac >- (
     reverse conj_asm2_tac >-
@@ -80,7 +83,7 @@ Proof
   disch_then drule >>
   fs[valuates_frag_builtins] >>
   disch_then drule >>
-  disch_then(qspecl_then [`Var (strlit "x") Bool`,`Var (strlit "y") Bool`] mp_tac) >>
+  disch_then(qspecl_then [`Var «x» Bool`,`Var «y» Bool`] mp_tac) >>
   impl_tac >- (
     simp[] >>
     conj_tac >> match_mp_tac terms_of_frag_uninst_term_ok >>
@@ -220,4 +223,3 @@ Proof
             extends_trans,hol_ctxt_extends_init,indset_inhabited]
 QED
 
-val _ = export_theory()

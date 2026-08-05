@@ -2,20 +2,17 @@
   Prove top-level correctness theorem for complete compiler, i.e. the
   combination of parsing, type inference, compiler backend.
 *)
-open preamble
-     compilerTheory
-     semanticsTheory targetSemTheory
-     evaluatePropsTheory typeSoundTheory typeSoundInvariantsTheory
-     pegSoundTheory pegCompleteTheory
-     inferTheory inferSoundTheory inferCompleteTheory
-     inferPropsTheory envRelTheory
-     backendProofTheory
-
-val _ = new_theory"compilerProof";
+Theory compilerProof
+Ancestors
+  compiler semantics targetSem evaluateProps typeSound
+  typeSoundInvariants pegSound pegComplete infer inferSound
+  inferComplete inferProps envRel lab_to_targetProof backendProof
+Libs
+  preamble
 
 val _ = diminish_srw_ss ["ABBREV"]
 
-val config_ok_def = Define`
+Definition config_ok_def:
   config_ok (cc:α compiler$config) mc ⇔
     env_rel prim_tenv cc.inferencer_config ∧
     inf_set_tids_ienv prim_type_ids cc.inferencer_config ∧ (* TODO: ok? *)
@@ -24,10 +21,11 @@ val config_ok_def = Define`
     ¬cc.skip_type_inference ∧
     ¬cc.only_print_types ∧
     ¬cc.only_print_sexp ∧
-    backend_config_ok cc.backend_config ∧
-    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
+    backend_config_ok cc.asm_config cc.backend_config ∧
+    mc_conf_ok mc ∧ mc_init_ok cc.asm_config cc.backend_config mc
+End
 
-val initial_condition_def = Define`
+Definition initial_condition_def:
   initial_condition (st:'ffi semantics$state) (cc:α compiler$config) mc ⇔
     (st.sem_st,st.sem_env) = THE (prim_sem_env st.sem_st.ffi) ∧
     (?ctMap.
@@ -44,8 +42,9 @@ val initial_condition_def = Define`
     ¬cc.skip_type_inference ∧
     ¬cc.only_print_types ∧
     ¬cc.only_print_sexp ∧
-    backend_config_ok cc.backend_config ∧
-    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
+    backend_config_ok cc.asm_config cc.backend_config ∧
+    mc_conf_ok mc ∧ mc_init_ok cc.asm_config cc.backend_config mc
+End
 
 Theorem parse_prog_correct:
   (parse_prog s = Failure y1 y2 ⇒ parse s = NONE) ∧
@@ -60,7 +59,7 @@ Theorem infertype_prog_correct:
    inf_set_tids_ienv (count start_type_id) ienv ∧
    set_tids_tenv (count start_type_id) st.tenv
    ⇒
-   ∃c' x. infertype_prog ienv p = if can_type_prog st p then Success c' else Failure x
+   ∃c' x. infertype_prog ienv p = if can_type_prog st p then M_success c' else M_failure x
 Proof
   strip_tac
   \\ simp[inferTheory.infertype_prog_def,
@@ -88,30 +87,30 @@ Proof
 QED
 
 Theorem compile_tap_compile:
-  ∀conf p res td.
-    backend_passes$compile_tap conf p = (res,td) ⇒
-    backend$compile conf p = res
+  ∀asm_conf conf p res td.
+    backend_passes$compile_tap asm_conf conf p = (res,td) ⇒
+    backend$compile asm_conf conf p = res
 Proof
   metis_tac [backend_passesTheory.compile_alt,FST]
 QED
 
 Definition read_limits_def:
-  read_limits cc mc ms = backendProof$read_limits cc.backend_config mc ms
+  read_limits cc mc ms = backendProof$read_limits cc.asm_config cc.backend_config mc ms
 End
 
 Definition is_safe_for_space_def:
-  is_safe_for_space ffi cc = backendProof$is_safe_for_space ffi cc.backend_config
+  is_safe_for_space ffi cc = backendProof$is_safe_for_space ffi cc.asm_config cc.backend_config
 End
 
 Theorem compile_correct_gen:
    ∀(st:'ffi semantics$state) (cc:α compiler$config) prelude input mc data_sp cbspace.
     initial_condition st cc mc ⇒
     case FST (compiler$compile cc prelude input) of
-    | Failure (ParseError e) => semantics st prelude input = CannotParse
-    | Failure (TypeError e) => semantics st prelude input = IllTyped
-    | Failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
-    | Failure (ConfigError e) => T (* configuration string is malformed *)
-    | Success (code,data,c) =>
+    | M_failure (ParseError e) => semantics st prelude input = CannotParse
+    | M_failure (TypeError e) => semantics st prelude input = IllTyped
+    | M_failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
+    | M_failure (ConfigError e) => T (* configuration string is malformed *)
+    | M_success (code,data,c) =>
       ∃behaviours source_decs.
         (semantics st prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
@@ -181,11 +180,11 @@ Theorem compile_correct_lemma:
   ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace.
     config_ok cc mc ⇒
     case FST (compiler$compile cc prelude input) of
-    | Failure (ParseError e) => semantics_init ffi prelude input = CannotParse
-    | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
-    | Failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
-    | Failure (ConfigError e) => T (* configuration string is malformed *)
-    | Success (code,data,c) =>
+    | M_failure (ParseError e) => semantics_init ffi prelude input = CannotParse
+    | M_failure (TypeError e) => semantics_init ffi prelude input = IllTyped
+    | M_failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
+    | M_failure (ConfigError e) => T (* configuration string is malformed *)
+    | M_success (code,data,c) =>
       ∃behaviours source_decs.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
@@ -233,7 +232,7 @@ QED
 Theorem compile_correct_safe_for_space:
   ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace code data c c'.
     config_ok cc mc ⇒
-    compiler$compile cc prelude input = (Success (code,data,c), c') ⇒
+    compiler$compile cc prelude input = (M_success (code,data,c), c') ⇒
       ∃behaviours source_decs.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
@@ -266,11 +265,11 @@ Theorem compile_correct = Q.prove(`
   ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace.
     config_ok cc mc ⇒
     case FST (compiler$compile cc prelude input) of
-    | Failure (ParseError e) => semantics_init ffi prelude input = CannotParse
-    | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
-    | Failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
-    | Failure (ConfigError e) => T (* configuration string is malformed *)
-    | Success (code,data,c) =>
+    | M_failure (ParseError e) => semantics_init ffi prelude input = CannotParse
+    | M_failure (TypeError e) => semantics_init ffi prelude input = IllTyped
+    | M_failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
+    | M_failure (ConfigError e) => T (* configuration string is malformed *)
+    | M_success (code,data,c) =>
       ∃behaviours.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         ∀ms.
@@ -282,7 +281,7 @@ Theorem compile_correct = Q.prove(`
              for the one without the ⊆ and extend_with_resource_limit *)`,
   rw [] \\ mp_tac (SPEC_ALL compile_correct_lemma)
   \\ fs [] \\ TOP_CASE_TAC \\ fs []
-  \\ rename [‘(Success a,_)’]
+  \\ rename [‘(M_success a,_)’]
   \\ PairCases_on `a` \\ fs [] \\ strip_tac \\ fs []
   \\ rw [] \\ first_x_assum drule \\ rw []
   \\ match_mp_tac SUBSET_TRANS
@@ -305,5 +304,3 @@ Proof
     rw [unconvert_t_def, inf_set_tids_def,typeSystemTheory.check_freevars_def]) >>
   rw [typeSystemTheory.prim_type_nums_def]
 QED
-
-val _ = export_theory();

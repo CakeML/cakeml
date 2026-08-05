@@ -3,13 +3,16 @@
   implementation. In particular, anything the article checker proves
   follows by logical inference in Candle's version of the HOL logic.
 *)
-open preamble ml_monadBaseTheory holKernelTheory holKernelProofTheory
-     holSyntaxTheory holSyntaxExtraTheory readerTheory reader_initTheory
-     TextIOProgTheory;
+Theory readerProof
+Libs
+  preamble
+Ancestors
+  ml_monadBase holKernel holKernelProof holSyntax holSyntaxExtra
+  reader reader_init TextIOProg TextIOProof
 
-val _ = new_theory"readerProof";
+val _ = monadsyntax.temp_add_monadsyntax ();
+val _ = monadsyntax.temp_enable_monad "st_ex";
 
-Overload return[local] = “st_ex_return”;
 Overload failwith[local] = “raise_Failure”;
 
 val case_eq_thms =
@@ -278,8 +281,8 @@ QED
 Theorem init_reader_not_clash[simp]:
   init_reader () refs ≠ (M_failure (Clash tm), refs')
 Proof
-  rw [init_reader_def, st_ex_bind_def, st_ex_return_def, case_eq_thms,
-      select_sym_def, ind_type_def]
+  rw [init_reader_def, st_ex_bind_def, st_ex_ignore_bind_def,
+      st_ex_return_def, case_eq_thms, select_sym_def, ind_type_def]
 QED
 
 (* -------------------------------------------------------------------------
@@ -419,8 +422,9 @@ Proof
   \\ every_case_tac \\ fs [] \\ rveq
   \\ first_x_assum drule_all \\ rw []
   \\ fs [type_ok_def]
-  \\ drule_all assoc_ALOOKUP \\ rw []
-  \\ rfs [STATE_def, CONTEXT_def]
+  \\ gvs [STATE_def, CONTEXT_def]
+  \\ imp_res_tac extends_theory_ok \\ fs[init_theory_ok]
+  \\ imp_res_tac theory_ok_sig \\ fs [is_std_sig_def]
 QED
 
 Theorem get_const_type_thm:
@@ -1581,8 +1585,8 @@ Proof
   simp_tac std_ss [init_reader_success]
   \\ sg ‘STATE init_refs.the_context init_refs’
   >- (EVAL_TAC \\ rw [])
-  \\ rw [init_reader_def, st_ex_bind_def, ind_type_def, select_sym_def,
-         st_ex_return_def]
+  \\ rw [init_reader_def, st_ex_bind_def, st_ex_ignore_bind_def,
+         ind_type_def, select_sym_def, st_ex_return_def]
   \\ fs [case_eq_thms] \\ rveq
   \\ qpat_x_assum ‘_ = mk_eta_ax _ _’ (assume_tac o SYM)
   \\ dxrule_then drule_all mk_eta_ax_thm
@@ -1613,7 +1617,7 @@ Proof
   \\ ‘TERM (d'::d::init_refs.the_context) select_const’
     by (fs [new_constant_def, add_constants_def, get_the_term_constants_def,
             set_the_term_constants_def, raise_Failure_def, case_eq_thms,
-            st_ex_bind_def, add_def_def]
+            st_ex_bind_def, st_ex_ignore_bind_def, add_def_def]
         \\ FULL_CASE_TAC \\ rw []
         \\ fs [get_the_context_def, set_the_context_def] \\ rw []
         \\ fs [STATE_def, TERM_def] \\ rw [select_const_def]
@@ -1625,7 +1629,8 @@ Proof
   \\ fsrw_tac [SATISFY_ss] []
   \\ last_x_assum (mp_then Any drule mk_infinity_ax_thm)
   \\ (impl_tac >-
-   (fs [new_type_def, st_ex_bind_def, add_type_def, st_ex_return_def,
+   (fs [new_type_def, st_ex_bind_def, st_ex_ignore_bind_def,
+        add_type_def, st_ex_return_def,
         raise_Failure_def, case_eq_thms, bool_case_eq, COND_RATOR, can_def,
         otherwise_def, get_type_arity_def, get_the_type_constants_def,
         set_the_type_constants_def, add_def_def, get_the_context_def,
@@ -1662,45 +1667,37 @@ QED
  * Program specification (shared)
  * ------------------------------------------------------------------------- *)
 
-Definition read_stdin_def:
-  read_stdin fs refs =
-    let fs' = fastForwardFD fs 0;
-        stdin = UStream «stdin» in
-      case readLines init_state
-          (MAP (tokenize o str_prefix) (all_lines_inode fs stdin)) refs of
-        (M_success (s, _), refs) =>
-          (add_stdout fs' (concat (append (msg_success s refs.the_context))),
-           refs, SOME s)
-      | (M_failure (Failure e), refs) =>
-          (add_stderr fs' e, refs, NONE)
+Definition flush_stdin_def[simp]:
+  flush_stdin inp fs =
+    case inp of
+      NONE => fastForwardFD fs 0
+    | SOME _ => fs
 End
 
-(*
- * Almost like the one above. I'm keeping both for the sake of
- * benchmarking. Eventually the non-buffered version can go.
- *)
-
-Definition read_file_def:
-  read_file fs refs fnm =
-    (if inFS_fname fs fnm then
-       (case readLines init_state
-             (FLAT (MAP (MAP tokenize o tokens is_newline)
-                   (all_lines fs fnm))) refs of
-        | (M_success (s,_), refs) =>
-            (add_stdout fs (concat (append (msg_success s refs.the_context))),
-             refs, SOME s)
-        | (M_failure (Failure e), refs) =>
-            (add_stderr fs e, refs, NONE))
-     else
-       (add_stderr fs (msg_bad_name fnm), refs, NONE))
+Definition read_from_def:
+  read_from fs refs inp =
+    case
+      readLines init_state
+        (FLAT
+           (MAP (MAP tokenize ∘ tokens is_newline) (all_lines_from fs inp)))
+        refs
+    of
+      (M_success (s, _), refs) =>
+        (flush_stdin inp
+           (add_stdout fs (concat (append (msg_success s refs.the_context)))),
+         refs, SOME s)
+    | (M_failure (Failure e), refs) =>
+        (flush_stdin inp (add_stderr fs e), refs, NONE)
 End
 
 Definition reader_main_def:
   reader_main fs refs cl =
     let refs = SND (init_reader () refs) in
       case cl of
-        [] => read_stdin fs refs
-      | [fnm] => read_file fs refs fnm
+        [] => read_from fs refs NONE
+      | [fnm] => if ¬inFS_fname fs fnm
+                 then (add_stderr fs (msg_bad_name fnm), refs, NONE)
+                 else read_from fs refs (SOME fnm)
       | _ => (add_stderr fs msg_usage, refs, NONE)
 End
 
@@ -1714,8 +1711,8 @@ Proof
   rw [READER_STATE_def, init_state_def, STATE_def, lookup_def]
 QED
 
-Definition flush_stdin_def[simp]:
-  flush_stdin cl fs =
+Definition flush_stdin_cl_def[simp]:
+  flush_stdin_cl cl fs =
     case cl of
       [] => fastForwardFD fs 0
     | _ => fs
@@ -1726,19 +1723,22 @@ Theorem reader_proves:
   (∀asl c.
      MEM (Sequent asl c) s.thms ⇒
        (thyof refs.the_context, asl) |- c) ∧
-  outp = add_stdout (flush_stdin cl fs)
-                    (concat (append (msg_success s refs.the_context))) ∧
+  outp = flush_stdin_cl cl
+           (add_stdout fs (concat (append (msg_success s refs.the_context)))) ∧
   refs.the_context extends init_ctxt
 Proof
-  rw [reader_main_def, case_eq_thms, read_stdin_def, read_file_def,
-      bool_case_eq, PULL_EXISTS]
+  strip_tac
+  \\ fs [reader_main_def, AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [read_from_def, AllCaseEqs()]
+  \\ rw [case_eq_thms, bool_case_eq, PULL_EXISTS]
   \\ Cases_on `init_reader () init_refs`
   \\ drule init_reader_ok \\ rw []
-  \\ ‘READER_STATE defs init_state’
-    by fs [READER_STATE_init_state]
+  \\ ‘READER_STATE defs init_state’ by fs [READER_STATE_init_state]
   \\ drule readLines_thm \\ simp []
   \\ disch_then drule \\ rw []
-  \\ fs [READER_STATE_def, EVERY_MEM, STATE_def, CONTEXT_def] \\ rveq
+  \\ fs [READER_STATE_def, EVERY_MEM, STATE_def, CONTEXT_def]
+  \\ rveq
   \\ metis_tac [THM_def]
 QED
 
@@ -1782,8 +1782,8 @@ Theorem reader_success_stderr:
   no_errors fs fs' ⇒
     ∃st. s = SOME st
 Proof
-  rw [reader_main_def, read_stdin_def, read_file_def, case_eq_thms,
-      no_errors_def, msg_bad_name_def, msg_usage_def]
+  rw [reader_main_def, read_from_def, case_eq_thms, no_errors_def,
+      msg_bad_name_def, msg_usage_def]
   \\ rfs []
   \\ fs [case_eq_thms, bool_case_eq] \\ rw [] \\ fs []
   \\ drule TextIOProofTheory.STD_streams_stderr \\ strip_tac
@@ -1792,13 +1792,12 @@ Proof
          TextIOProofTheory.up_stdo_def, fsFFITheory.fsupdate_def,
          fsFFITheory.get_file_content_def,
          fsFFIPropsTheory.fastForwardFD_def, TextIOProofTheory.stdin_def]
-  \\ fs [libTheory.the_def, UNCURRY, AFUPDKEY_ALOOKUP, case_eq_thms,
+  \\ fs [miscTheory.the_def, UNCURRY, AFUPDKEY_ALOOKUP, case_eq_thms,
          bool_case_eq]
   \\ fs [mlstringTheory.concat_thm, msg_bad_name_def]
+  \\ rpt (pairarg_tac \\ gvs []) \\ gvs []
   \\ SELECT_ELIM_TAC \\ fs []
   \\ rpt strip_tac
   \\ drule readLines_Fail_not_empty
   \\ Cases_on `e` \\ fs []
 QED
-
-val _ = export_theory();

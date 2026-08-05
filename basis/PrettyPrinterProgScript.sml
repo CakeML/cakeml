@@ -2,18 +2,15 @@
   Module providing pretty-printer implementation, and setup
   of the global builtin pretty-printer functions.
 *)
-open
-  preamble
-  ml_translatorLib
-  ml_progLib
-  mlprettyprinterTheory
-  astSyntax
-local open IntProgTheory addPrettyPrintersLib in end
 
-val _ = (
-  new_theory "PrettyPrinterProg";
-  translation_extends "IntProg"
-)
+Theory PrettyPrinterProg
+Ancestors
+  mlprettyprinter IntProg[qualified]
+Libs
+  preamble ml_translatorLib ml_progLib astSyntax
+  addPrettyPrintersLib[qualified]
+
+val _ = translation_extends "IntProg"
 
 val previous_prog_pps = get_prog (get_ml_prog_state ())
   |> addPrettyPrintersLib.pps_of_global_tys;
@@ -37,7 +34,7 @@ val res = translate pp_paren_contents_def;
 
 val _ = translate escape_str_app_list_def;
 
-Triviality escape_str_app_list_side:
+Theorem escape_str_app_list_side[local]:
   !i s. escape_str_app_list_side i s <=> i <= strlen s
 Proof
   recInduct escape_str_app_list_ind
@@ -128,5 +125,3 @@ val res = translate pp_word64_def;
 
 (* setup pretty-printers for previously existing global types *)
 val _ = ml_prog_update (addPrettyPrintersLib.add_pps previous_prog_pps)
-
-val _ = export_theory ()

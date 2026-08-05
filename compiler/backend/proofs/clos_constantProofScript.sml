@@ -2,9 +2,11 @@
   Some functions that flatten a closLang/BVL/BVI/dataLang const tree
   into a sequence of operations that share common data.
 *)
-open preamble closLangTheory clos_to_bvlTheory closSemTheory;
-
-val _ = new_theory "clos_constantProof";
+Theory clos_constantProof
+Ancestors
+  closLang clos_to_bvl closSem
+Libs
+  preamble
 
 (*
 Definition make_const_def:
@@ -123,7 +125,7 @@ Proof
   Induct \\ fs [build_map_def,ADD1]
 QED
 
-Triviality LIST_REL_eq:
+Theorem LIST_REL_eq[local]:
   ∀l rs. LIST_REL (λc r. f r = c) l rs ⇔ l = MAP f rs
 Proof
   Induct \\ Cases_on ‘rs’ \\ fs [] \\ metis_tac []
@@ -329,7 +331,7 @@ QED
 
 Theorem compile_const_thm:
   (∀i. c ≠ ConstInt i) ∧ (∀t. c ≠ ConstCons t []) ⇒
-  compile_const c = Build (MAP update_tag (to_parts c))
+  compile_const c = BlockOp (Build (MAP update_tag (to_parts c)))
 Proof
   Cases_on ‘c’ \\ fs [compile_const_def,to_parts_def,update_tag_def]
   \\ Cases_on ‘l’ \\ fs []
@@ -372,4 +374,3 @@ Proof
   \\ rw [] \\ fs [make_const_def,MAP_MAP_o,o_DEF]
 QED
 
-val _ = export_theory();

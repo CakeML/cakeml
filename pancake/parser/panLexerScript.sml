@@ -1,5 +1,5 @@
 (**
- * The beginnings of a lexer for the Pancake language.
+ * A lexer for the Pancake language.
  *)
 
 (**
@@ -8,51 +8,54 @@
  * Author: Craig McLaughlin
  * Date: March--April 2022
  *)
+Theory panLexer
+Ancestors
+  arithmetic string list location ASCIInumbers mlstring
+Libs
+  stringLib numLib intLib ASCIInumbersLib
 
-open HolKernel Parse boolLib bossLib stringLib numLib;
-
-open arithmeticTheory stringTheory intLib listTheory locationTheory;
-open ASCIInumbersTheory ASCIInumbersLib;
-open mlstringTheory;
-
-val _ = new_theory "panLexer";
 
 Datatype:
-  keyword = SkipK | StoreK | StoreBK | IfK | ElseK | WhileK
-  | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK
-  | LdsK | LdbK | LdwK | BaseK | InK | FunK | TrueK | FalseK
+  keyword = SkipK | StK | StwK | St8K | St16K | St32K | IfK | ElseK | WhileK
+  | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK | BiwK | NamedK
+  | LdsK | Ld8K | LdwK | Ld16K | Ld32K | BaseK | TopK | InK | FunK | ExportK | TrueK | FalseK
+  | InlineK
 End
 
 Datatype:
-  token = AndT | OrT | XorT | NotT
-  | EqT | NeqT | LessT | GreaterT | GeqT | LeqT
+  token = AndT | OrT | BoolAndT | BoolOrT | XorT | NotT
+  | EqT | NeqT | LessT | GreaterT | GeqT | LeqT | LowerT | HigherT | HigheqT | LoweqT
   | PlusT | MinusT | DotT | StarT
   | LslT | LsrT | AsrT | RorT
-  | IntT int | IdentT string | ForeignIdent string (* @ffi_str except @base *)
+  | IntT int | IdentT string | ForeignIdent string (* @ffi_str except @base, @biw, @top *)
   | LParT | RParT | CommaT | SemiT | ColonT | DArrowT | AddrT
   | LBrakT | RBrakT | LCurT | RCurT
   | AssignT
+  | StaticT
+  | NoinlineT
+  | DefaultShT
   | KeywordT keyword
+  | AnnotCommentT string
   | LexErrorT mlstring
 End
 
 Datatype:
-  atom = NumberA int | WordA string | SymA string | ErrA mlstring
+  atom = NumberA int | WordA string | SymA string | ErrA mlstring | AnnotCommentA string
 End
 
 Definition isAtom_singleton_def:
-  isAtom_singleton c = MEM c "+-&^|*().,;:[]{}"
+  isAtom_singleton c = MEM c "+-^*().,;:[]{}"
 End
 
 Definition isAtom_begin_group_def:
   (* # is for only for RorT,
   * and should remove it to avoid collision with
   * C-preprocessor later *)
-  isAtom_begin_group c = MEM c "#=><!"
+  isAtom_begin_group c = MEM c "#=><!&|"
 End
 
 Definition isAtom_in_group_def:
-  isAtom_in_group c = MEM c "=<>"
+  isAtom_in_group c = MEM c "=<>|&+"
 End
 
 Definition isAlphaNumOrWild_def:
@@ -71,6 +74,8 @@ End
 
 Definition get_token_def:
   get_token s =
+  if s = "&&" then BoolAndT else
+  if s = "||" then BoolOrT else
   if s = "&" then AndT else
   if s = "|" then OrT else
   if s = "^" then XorT else
@@ -80,6 +85,10 @@ Definition get_token_def:
   if s = ">" then GreaterT else
   if s = ">=" then GeqT else
   if s = "<=" then LeqT else
+  if s = "<+" then LowerT else
+  if s = ">+" then HigherT else
+  if s = ">=+" then HigheqT else
+  if s = "<=+" then LoweqT else
   if s = "=>" then DArrowT else
   if s = "!" then NotT else
   if s = "+" then PlusT else
@@ -106,8 +115,11 @@ End
 Definition get_keyword_def:
   get_keyword s =
   if s = "skip" then (KeywordT SkipK) else
-  if s = "stw" then (KeywordT StoreK) else
-  if s = "st8" then (KeywordT StoreBK) else
+  if s = "st" then (KeywordT StK) else
+  if s = "stw" then (KeywordT StwK) else
+  if s = "st8" then (KeywordT St8K) else
+  if s = "st16" then (KeywordT St16K) else
+  if s = "st32" then (KeywordT St32K) else
   if s = "if" then (KeywordT IfK) else
   if s = "else" then (KeywordT ElseK) else
   if s = "while" then (KeywordT WhileK) else
@@ -122,11 +134,18 @@ Definition get_keyword_def:
   if s = "handle" then (KeywordT HandleK) else
   if s = "lds" then (KeywordT LdsK) else
   if s = "ldw" then (KeywordT LdwK) else
-  if s = "ld8" then (KeywordT LdbK) else
+  if s = "ld8" then (KeywordT Ld8K) else
+  if s = "ld16" then (KeywordT Ld16K) else
+  if s = "ld32" then (KeywordT Ld32K) else
   if s = "@base" then (KeywordT BaseK) else
+  if s = "@top" then (KeywordT BaseK) else
+  if s = "@biw" then (KeywordT BiwK) else
   if s = "true" then (KeywordT TrueK) else
   if s = "false" then (KeywordT FalseK) else
   if s = "fun" then (KeywordT FunK) else
+  if s = "export" then (KeywordT ExportK) else
+  if s = "inline" then (KeywordT InlineK) else
+  if s = "struct" then (KeywordT NamedK) else
   if s = "" then LexErrorT $ «Expected keyword, found empty string» else
   if 2 <= LENGTH s ∧ EL 0 s = #"@" then ForeignIdent (DROP 1 s)
   else
@@ -140,6 +159,7 @@ Definition token_of_atom_def:
   | WordA s => get_keyword s
   | SymA s => get_token s
   | ErrA s => LexErrorT s
+  | AnnotCommentA s => AnnotCommentT s
 End
 
 Definition read_while_def:
@@ -172,23 +192,26 @@ Definition loc_row_def:
 End
 
 Definition skip_comment_def:
-  skip_comment "" _ = NONE ∧
-  skip_comment (x::xs) loc =
+  skip_comment "" _ _ = NONE ∧
+  skip_comment (x::xs) loc i =
   (case x of
-   | #"\n" => SOME (xs, next_loc 1 loc)
-   | _ => skip_comment xs (next_loc 1 loc))
+   | #"\n" => SOME (next_line loc, i + 1n)
+   | _ => skip_comment xs (next_loc 1 loc) (i + 1n))
 End
 
-Theorem skip_comment_thm:
-  ∀xs l l' str. (skip_comment xs l = SOME (str, l')) ⇒
-                              LENGTH str < LENGTH xs
-Proof
-  Induct
-  >> fs[skip_comment_def]
-  >> rw[]
-  >> res_tac
-  >> gvs[]
-QED
+(* return SOME (loc, i, j) -> i characters in comment, DROP j characters to
+   continue parsing (after the closing '*/') at loc *)
+Definition skip_block_comment_def:
+  skip_block_comment "" _ _ = NONE ∧
+  skip_block_comment [_] _ _ = NONE ∧
+  skip_block_comment (x::y::xs) loc i =
+  if (x = #"*" ∧ y = #"/") ∨ (x = #"@" ∧ y = #"/") then
+    SOME (next_loc 2 loc, i, i + 2)
+  else if x = #"\n" then
+    skip_block_comment (y::xs) (next_line loc) (i + 1n)
+  else
+    skip_block_comment (y::xs) (next_loc 1 loc) (i + 1n)
+End
 
 Definition unhex_alt_def:
   unhex_alt x = if isHexDigit x then UNHEX x else 0n
@@ -216,46 +239,45 @@ Definition next_atom_def:
             Locs loc (next_loc (LENGTH n) loc),
             rest)
     else if isPREFIX "//" (c::cs) then (* comment *)
-      (case (skip_comment (TL cs) (next_loc 2 loc)) of
+      (case (skip_comment (TL cs) (next_loc 2 loc) 0n) of
        | NONE => SOME (ErrA «Malformed comment», Locs loc (next_loc 2 loc), "")
-       | SOME (rest, loc') => next_atom rest loc')
+       | SOME (loc', len) => next_atom (DROP (len + 1) cs) loc')
+    else if isPREFIX "/@" (c::cs) then (* annotation block comment *)
+      (case (skip_block_comment (TL cs) (next_loc 3 loc) 0n) of
+       | NONE => SOME (ErrA «Malformed comment», Locs loc (next_loc 3 loc), "")
+       | SOME (loc', i, len) => SOME (AnnotCommentA (TAKE i (TL cs)),
+            Locs loc loc', DROP (len + 1) cs))
+    else if isPREFIX "/*" (c::cs) then (* block comment *)
+      (case (skip_block_comment (TL cs) (next_loc 2 loc) 0n) of
+       | NONE => SOME (ErrA «Malformed comment», Locs loc (next_loc 2 loc), "")
+       | SOME (loc', _, len) => next_atom (DROP (len + 1) cs) loc')
     else if isAtom_singleton c then
       SOME (SymA (STRING c []), Locs loc loc, cs)
     else if isAtom_begin_group c then
       let (n, rest) = read_while isAtom_in_group cs [c] in
       SOME (SymA n, Locs loc (next_loc (LENGTH n - 1) loc), rest)
-    else if isAlpha c ∨ c = #"@" then (* read identifier *)
+    else if isAlpha c ∨ c = #"@" ∨ c = #"_" then (* read identifier *)
       let (n, rest) = read_while isAlphaNumOrWild cs [c] in
       SOME (WordA n, Locs loc (next_loc (LENGTH n) loc), rest)
     else (* input not recognised *)
-      SOME (ErrA $ concat [«Unrecognised symbol: »; str c], Locs loc loc, cs)
+      SOME (ErrA $ concat [«Unrecognised symbol: »; toString c], Locs loc loc, cs)
 Termination
-  WF_REL_TAC ‘measure (LENGTH o FST)’
-  >> REPEAT STRIP_TAC
-  >> fs[skip_comment_thm]
-  >> Cases_on ‘cs’ >> fs[]
-  >> sg ‘STRLEN p_1 < STRLEN t’
-  >- metis_tac[skip_comment_thm]
-  >> fs[LESS_EQ_IFF_LESS_SUC, LE]
+  WF_REL_TAC `measure (LENGTH o FST)`
+  \\ simp []
 End
 
 Theorem next_atom_LESS:
   ∀input l s l' rest.
     next_atom input l = SOME (s, l', rest) ⇒ LENGTH rest < LENGTH input
 Proof
-  recInduct next_atom_ind >> rw[next_atom_def]
-  >- metis_tac[DECIDE “x < y ⇒ x < SUC y”]
-  >- metis_tac[DECIDE “x < y ⇒ x < SUC y”]
-  >- (pairarg_tac >> drule read_while_thm >> gvs[])
-  >- (pairarg_tac >> drule read_while_thm >> gvs[])
-  >- (gvs[CaseEqs ["option", "prod", "list"]]
-      >> drule_then assume_tac skip_comment_thm
-      >> sg ‘STRLEN rest < STRLEN (TL cs)’ >> rw[]
-      >> sg ‘STRLEN (TL cs) < SUC (STRLEN cs)’ >> rw[LENGTH_TL]
-      >> Cases_on ‘cs’ >> simp[])
-  >- (pairarg_tac >> drule read_while_thm >> gvs[])
-  >- (pairarg_tac >> drule read_while_thm >> gvs[])
-  >- (pairarg_tac >> drule read_while_thm >> gvs[])
+  recInduct next_atom_ind \\ simp [next_atom_def]
+  \\ rw []
+  \\ TRY (first_x_assum drule)
+  \\ fs [miscTheory.UNCURRY_eq_pair, CaseEq "option", CaseEq "prod"]
+  \\ gvs []
+  \\ imp_res_tac read_while_thm
+  \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs []
 QED
 
 Definition next_token_def:
@@ -282,7 +304,7 @@ Definition pancake_lex_aux_def:
  (case next_token input loc of
   | NONE => []
   | SOME (token, Locs locB locE, rest) =>
-      (token, Locs locB locE) :: pancake_lex_aux rest (next_loc 1 loc))
+      (token, Locs locB locE) :: pancake_lex_aux rest locE)
 Termination
   WF_REL_TAC ‘measure (LENGTH o FST)’ >> rw[]
   >> imp_res_tac next_token_LESS
@@ -301,7 +323,5 @@ Definition safe_pancake_lex_def:
 End
 
 (* Tests :
-   EVAL “pancake_ex "x + 1 --Then check y\n && y - 2 <= -3 || !z”;
+   EVAL ``pancake_lex "x + 1 --Then check y\n && y - 2 <= -3 || !z"``;
 *)
-
-val _ = export_theory();

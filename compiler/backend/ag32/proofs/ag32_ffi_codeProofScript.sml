@@ -2,12 +2,13 @@
   Verify the deep embeddings of the ag32 implementation of the CakeML
   basis FFI primitives.
 *)
-open preamble ag32_memoryTheory ag32_decompilerLib
-local open blastLib ag32_targetProofTheory in end
+Theory ag32_ffi_codeProof
+Ancestors
+  ag32_prog ag32_memory ag32_targetProof[qualified]
+Libs
+  preamble ag32_decompilerLib blastLib[qualified]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"ag32_ffi_codeProof";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["DIV_NUMERAL_THM"]
@@ -407,11 +408,13 @@ fun rnwc_next n =
         ag32Theory.dfn'LoadConstant_def])) >> strip_tac
     end
 
-val ltNumeral = Q.prove(
-  ‘(x < NUMERAL (BIT2 n) ⇔ x < NUMERAL (BIT1 n) \/ x = NUMERAL (BIT1 n)) /\
+Theorem ltNumeral[local]:
+  (x < NUMERAL (BIT2 n) ⇔ x < NUMERAL (BIT1 n) \/ x = NUMERAL (BIT1 n)) /\
    (x < NUMERAL (BIT1 n) ⇔
-      x < PRE (NUMERAL (BIT1 n)) \/ x = PRE (NUMERAL (BIT1 n)))’,
-  REWRITE_TAC[BIT1, BIT2, NUMERAL_DEF] >> simp[])
+      x < PRE (NUMERAL (BIT1 n)) \/ x = PRE (NUMERAL (BIT1 n)))
+Proof
+  REWRITE_TAC[BIT1, BIT2, NUMERAL_DEF] >> simp[]
+QED
 
 fun instn0 th i =
     first_assum (qspec_then [QUOTE (Int.toString i)]
@@ -428,11 +431,13 @@ fun instn0 th i =
 
 val instn = instn0 ag32_ffi_read_num_written_code_def
 
-val sub_common = Q.prove(
-  ‘u <= v ⇒ ((x:word32) + (n2w u) = y + (n2w v) ⇔ x = y + n2w (v - u))’,
+Theorem sub_common[local]:
+  u <= v ⇒ ((x:word32) + (n2w u) = y + (n2w v) ⇔ x = y + n2w (v - u))
+Proof
   strip_tac >> drule LESS_EQ_ADD_EXISTS >> rw[] >> simp[] >>
   REWRITE_TAC [GSYM word_add_n2w] >>
-  REWRITE_TAC [WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL]);
+  REWRITE_TAC [WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL]
+QED
 
 fun glAbbr i =
   TRY (qpat_x_assum [QUOTE ("Abbrev (s" ^ Int.toString i ^ " = _)")]
@@ -2331,25 +2336,31 @@ val codedefs = [ag32_ffi_read_code_def, ag32_ffi_read_set_id_code_def,
                 ag32_ffi_read_num_written_code_def,
                 ag32_ffi_read_load_lengths_code_def]
 
-val bytes_in_memory_update = Q.prove(
-  ‘∀bs a. k ∉ md ∧ bytes_in_memory a bs mf md ⇒
-          bytes_in_memory a bs ((k =+ v) mf) md’,
+Theorem bytes_in_memory_update[local]:
+  ∀bs a. k ∉ md ∧ bytes_in_memory a bs mf md ⇒
+          bytes_in_memory a bs ((k =+ v) mf) md
+Proof
   Induct >> simp[bytes_in_memory_def] >>
-  metis_tac[combinTheory.UPDATE_APPLY]);
+  metis_tac[combinTheory.UPDATE_APPLY]
+QED
 
-val bytes_in_memory_prefix = Q.prove(
-  ‘∀bs sfx a. bytes_in_memory a (bs ++ sfx) mf md ⇒
-              bytes_in_memory a bs mf md’,
-  Induct >> simp[bytes_in_memory_def] >> metis_tac[]);
+Theorem bytes_in_memory_prefix[local]:
+  ∀bs sfx a. bytes_in_memory a (bs ++ sfx) mf md ⇒
+              bytes_in_memory a bs mf md
+Proof
+  Induct >> simp[bytes_in_memory_def] >> metis_tac[]
+QED
 
-val asm_write_bytearray_avoiding = Q.prove(
-  ‘∀a bs.
-     x ∉ {a + n2w i | i < LENGTH bs } ⇒ asm_write_bytearray a bs f x = f x’,
+Theorem asm_write_bytearray_avoiding[local]:
+  ∀a bs.
+     x ∉ {a + n2w i | i < LENGTH bs } ⇒ asm_write_bytearray a bs f x = f x
+Proof
   simp[] >> Induct_on ‘bs’ >> simp[asm_write_bytearray_def] >>
   simp[combinTheory.UPDATE_def] >> rw[]
   >- (first_x_assum (qspec_then ‘0’ mp_tac) >> simp[]) >>
   first_x_assum (qspec_then ‘SUC j’ (mp_tac o Q.GEN ‘j’)) >> simp[] >>
-  strip_tac >> first_x_assum irule >> fs[GSYM word_add_n2w, ADD1]);
+  strip_tac >> first_x_assum irule >> fs[GSYM word_add_n2w, ADD1]
+QED
 
 fun glAbbrs i = EVERY (List.tabulate(i, fn j => glAbbr (i - j)))
 
@@ -2360,17 +2371,23 @@ Proof
   map_every (fn q => Q.ISPEC_THEN q mp_tac w2n_lt) [‘b1’, ‘b2’] >> simp[]
 QED
 
-val ltSUC = Q.prove(
-  ‘x < SUC y ⇔ x = 0 ∨ ∃x0. x = SUC x0 ∧ x0 < y’,
-  Cases_on ‘x’ >> simp[]);
+Theorem ltSUC[local]:
+  x < SUC y ⇔ x = 0 ∨ ∃x0. x = SUC x0 ∧ x0 < y
+Proof
+  Cases_on ‘x’ >> simp[]
+QED
 
-val n2w_o_SUC = Q.prove(
-  ‘n2w o SUC = word_add 1w o n2w’,
-  simp[FUN_EQ_THM, ADD1, word_add_n2w]);
+Theorem n2w_o_SUC[local]:
+  n2w o SUC = word_add 1w o n2w
+Proof
+  simp[FUN_EQ_THM, ADD1, word_add_n2w]
+QED
 
-val word_add_o = Q.prove(
-  ‘word_add m o (word_add n o f) = word_add (m + n) o f’,
-  simp[FUN_EQ_THM]);
+Theorem word_add_o[local]:
+  word_add m o (word_add n o f) = word_add (m + n) o f
+Proof
+  simp[FUN_EQ_THM]
+QED
 
 
 
@@ -2384,13 +2401,15 @@ Proof
        GSYM word_add_n2w, CONJ_ASSOC, n2w_o_SUC, word_add_o]
 QED
 
-val WORD_ADD_CANCEL_LBARE = Q.prove(
-  ‘y ≤ x ⇒ (n2w x = n2w y + z ⇔ z = n2w (x - y))’,
+Theorem WORD_ADD_CANCEL_LBARE[local]:
+  y ≤ x ⇒ (n2w x = n2w y + z ⇔ z = n2w (x - y))
+Proof
   strip_tac >> eq_tac
   >- (disch_then (mp_tac o AP_TERM “(+) (- (n2w y) : α word)” ) >>
       simp_tac bool_ss [WORD_ADD_ASSOC, WORD_ADD_LINV] >> simp[] >>
       simp[WORD_LITERAL_ADD]) >>
-  simp[word_add_n2w]);
+  simp[word_add_n2w]
+QED
 
 val lbare' = CONV_RULE (PATH_CONV "rlr" (REWR_CONV EQ_SYM_EQ THENC
                                          LAND_CONV (REWR_CONV WORD_ADD_COMM)))
@@ -2824,16 +2843,20 @@ val instn = instn0 (LIST_CONJ [ag32_ffi_get_arg_count_code_def,
                                ag32_ffi_get_arg_count_main_code_def,
                                ag32_ffi_return_code_def])
 
-val ag32_ffi_return_LET = Q.prove(
-  ‘ag32_ffi_return (LET f v) = LET (ag32_ffi_return o f) v’,
-  simp[]);
+Theorem ag32_ffi_return_LET[local]:
+  ag32_ffi_return (LET f v) = LET (ag32_ffi_return o f) v
+Proof
+  simp[]
+QED
 
 val ag32_ffi_get_arg_count_entrypoint_thm =
     EVAL “ag32_ffi_get_arg_count_entrypoint”
 
-val div_lemma = Q.prove(
-  ‘0 < c ⇒ (c * x + y) DIV c = x + y DIV c ∧ (c * x) DIV c = x’,
-  metis_tac[ADD_DIV_ADD_DIV, MULT_COMM, MULT_DIV]);
+Theorem div_lemma[local]:
+  0 < c ⇒ (c * x + y) DIV c = x + y DIV c ∧ (c * x) DIV c = x
+Proof
+  metis_tac[ADD_DIV_ADD_DIV, MULT_COMM, MULT_DIV]
+QED
 
 val gmw = gmw0 (fn i =>
                    simp0[ffi_code_start_offset_thm] >>
@@ -2923,10 +2946,10 @@ Proof
   qexists_tac `0` >> simp[]
 QED
 
-val ag32_ffi_get_arg_length_loop1_code_def = Define‘
+Definition ag32_ffi_get_arg_length_loop1_code_def:
   ag32_ffi_get_arg_length_loop1_code =
     GENLIST (λi. EL (i + 2) ag32_ffi_get_arg_length_loop_code) 4
-’;
+End
 
 val instn = instn0
               (CONV_RULE (RAND_CONV EVAL)
@@ -2976,13 +2999,13 @@ val loop_code_def' = Q.prove(
 val instn = instn0 loop_code_def'
 val combined = combined0 instn gmw
 
-val has_n_args_def = Define‘
+Definition has_n_args_def:
   (has_n_args mem a 0 ⇔ T) ∧
   (has_n_args (mem : word32 -> word8) a (SUC n) ⇔
      ∃off. mem (a + n2w off) = 0w ∧
            (∀i. i < off ⇒ mem (a + n2w i) ≠ 0w) ∧
            has_n_args mem (a + n2w off + 1w) n)
-’;
+End
 
 Theorem ag32_ffi_get_arg_length_loop_code_thm:
    has_n_args s.MEM (s.R 5w) argc ∧ w2n (s.R 6w) ≤ argc ∧
@@ -3022,7 +3045,7 @@ Proof
   Q.REFINE_EXISTS_TAC ‘k + k2’ >> simp0[FUNPOW_ADD] >> simp0[Once LET_THM] >>
   rev_full_simp_tac (srw_ss()) [] >>
   ‘(OLEAST n. s2.MEM (s2.R 5w + n2w n) = 0w) = SOME zoff’
-    by (glAbbrs 2 >> DEEP_INTRO_TAC whileTheory.OLEAST_INTRO >> simp[] >>
+    by (glAbbrs 2 >> DEEP_INTRO_TAC WhileTheory.OLEAST_INTRO >> simp[] >>
         conj_tac >- (goal_assum drule) >> rw[] >>
         ‘¬(zoff < n) ∧ ¬(n < zoff)’ suffices_by simp[] >> metis_tac[]) >>
   qpat_x_assum ‘Abbrev (s3 = _)’ mp_tac >>
@@ -3120,9 +3143,9 @@ Theorem ag32_ffi_get_arg_length_code_thm:
         n2w (ffi_code_start_offset + ag32_ffi_get_arg_length_entrypoint + j)
         ∉ md) ∧
    w2n l0 + 256 * w2n l1 ≤ cline_size ∧
-   LENGTH (SND (get_mem_arg ((n2w(ffi_code_start_offset - 1) =+ n2w(THE(ALOOKUP FFI_codes "get_arg_length"))) s.MEM)
+   LENGTH (SND (get_mem_arg ((n2w(ffi_code_start_offset - 1) =+ n2w(THE(ALOOKUP FFI_codes «get_arg_length»))) s.MEM)
      (n2w (startup_code_size + 4)) (w2n l0 + 256 * w2n l1))) < dimword(:32) ∧
-   has_n_args ((n2w(ffi_code_start_offset - 1) =+ n2w(THE(ALOOKUP FFI_codes "get_arg_length"))) s.MEM)
+   has_n_args ((n2w(ffi_code_start_offset - 1) =+ n2w(THE(ALOOKUP FFI_codes «get_arg_length»))) s.MEM)
      (n2w (startup_code_size + 4)) (w2n l0 + (256 * w2n l1) + 1)
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_get_arg_length s)
@@ -3413,7 +3436,7 @@ Proof
         ,ag32Theory.dfn'Normal_def, ag32Theory.norm_def
         ,ag32Theory.ALU_def, ag32Theory.ri2word_def, ag32Theory.incPC_def]
     \\ simp[ag32_ffi_get_arg_find1_thm]
-    \\ simp[whileTheory.OLEAST_def]
+    \\ simp[WhileTheory.OLEAST_def]
     \\ IF_CASES_TAC \\ fs[]
     \\ simp[APPLY_UPDATE_THM]
     \\ simp[word_add_n2w]
@@ -3516,7 +3539,7 @@ Proof
     (SIMP_RULE bool_ss [PULL_EXISTS] ag32_ffi_get_arg_find_decomp1_thm)>>
   simp[] >>
   ‘(OLEAST n. s1.MEM (s1.R 5w + n2w n) = 0w) = SOME off’
-    by (DEEP_INTRO_TAC whileTheory.OLEAST_INTRO >> simp[Abbr`s1`] >>
+    by (DEEP_INTRO_TAC WhileTheory.OLEAST_INTRO >> simp[Abbr`s1`] >>
         conj_tac >- goal_assum drule >> qx_gen_tac `n` >> strip_tac >>
         ‘¬(n < off) ∧ ¬(off < n)’ suffices_by simp[] >> metis_tac[]) >>
    simp[ag32_ffi_get_arg_find1_thm, combinTheory.UPDATE_def] >>
@@ -3545,7 +3568,7 @@ Proof
       ,ag32Theory.dfn'Normal_def, ag32Theory.norm_def
       ,ag32Theory.ALU_def, ag32Theory.ri2word_def, ag32Theory.incPC_def]
   \\ simp[ag32_ffi_get_arg_find1_thm]
-  \\ simp[whileTheory.OLEAST_def]
+  \\ simp[WhileTheory.OLEAST_def]
   \\ IF_CASES_TAC \\ fs[]
   \\ simp[APPLY_UPDATE_THM]
   \\ simp[word_add_n2w]
@@ -3563,11 +3586,13 @@ Proof
   \\ simp[]
 QED
 
-val ag32_ffi_get_arg_setup_decomp_thm' = Q.prove(
-  ‘ag32_ffi_get_arg_setup_decomp (s,md) = (ag32_ffi_get_arg_setup s, md)’,
+Theorem ag32_ffi_get_arg_setup_decomp_thm'[local]:
+  ag32_ffi_get_arg_setup_decomp (s,md) = (ag32_ffi_get_arg_setup s, md)
+Proof
   Cases_on ‘ag32_ffi_get_arg_setup_decomp (s,md)’ >> simp[] >>
   mp_tac ag32_ffi_get_arg_setup_decomp_thm >> simp[] >>
-  fs[ag32_ffi_get_arg_setup_decomp_def]);
+  fs[ag32_ffi_get_arg_setup_decomp_def]
+QED
 
 val ag32_ffi_get_arg_setup_decomp_pre' =
     let
@@ -3581,7 +3606,7 @@ val ag32_ffi_get_arg_setup_decomp_pre' =
                              ag32_progTheory.mem_unchanged_def] THENC
        SIMP_CONV (bool_ss ++ COND_elim_ss) [
          CONV_RULE EVAL
-          (ASSUME “n2w (THE (ALOOKUP FFI_codes "get_arg") +
+          (ASSUME “n2w (THE (ALOOKUP FFI_codes «get_arg») +
                         ffi_code_start_offset - 4) ∈ md : word32 set”)])
         “ag32_ffi_get_arg_setup_decomp_pre(s,md)” |> EQT_ELIM |> DISCH_ALL
     end
@@ -3637,7 +3662,7 @@ Theorem ag32_ffi_get_arg_code_thm:
    bytes_in_memory (s.R 3w) [l0; l1] s.MEM md ∧
    n2w (ffi_code_start_offset - 1) ∉ md ∧
    256 * w2n l1 + w2n l0 ≤ cline_size ∧
-   (let m1 = ((n2w (ffi_code_start_offset - 1) =+ (n2w (THE (ALOOKUP FFI_codes "get_arg")))) s.MEM) in
+   (let m1 = ((n2w (ffi_code_start_offset - 1) =+ (n2w (THE (ALOOKUP FFI_codes «get_arg»)))) s.MEM) in
     let a = (n2w (startup_code_size + 4)) in
     let index = (256 * w2n l1 + w2n l0) in
     let start = if 0 < index then FST (get_mem_arg m1 a (index-1)) + 1w else a in
@@ -3748,9 +3773,12 @@ QED
 
 (* ag32_ffi_open_in *)
 
-val ag32_ffi_open_in_fail_code_def = Define `
-  ag32_ffi_open_in_fail_code = ag32_ffi_fail_code "open_in"`
-    |> REWRITE_RULE [ag32_ffi_fail_code_def]
+Definition ag32_ffi_open_in_fail_code_def:
+  ag32_ffi_open_in_fail_code = ag32_ffi_fail_code «open_in»
+End
+val ag32_ffi_open_in_fail_code_def = ag32_ffi_open_in_fail_code_def
+                                       |> REWRITE_RULE [ag32_ffi_fail_code_def];
+
 
 val (ag32_ffi_open_in_fail_SPEC,
      ag32_ffi_open_in_fail_decomp_def) = ag32_decompile
@@ -3804,9 +3832,11 @@ QED
 
 (* ag32_ffi_open_out *)
 
-val ag32_ffi_open_out_fail_code_def = Define `
-  ag32_ffi_open_out_fail_code = ag32_ffi_fail_code "open_out"`
-    |> REWRITE_RULE [ag32_ffi_fail_code_def]
+Definition ag32_ffi_open_out_fail_code_def:
+  ag32_ffi_open_out_fail_code = ag32_ffi_fail_code «open_out»
+End
+val ag32_ffi_open_out_fail_code_def = ag32_ffi_open_out_fail_code_def
+                                        |> REWRITE_RULE [ag32_ffi_fail_code_def];
 
 val (ag32_ffi_open_out_fail_SPEC,
      ag32_ffi_open_out_fail_decomp_def) = ag32_decompile
@@ -3858,9 +3888,11 @@ QED
 
 (* ag32_ffi_close *)
 
-val ag32_ffi_close_fail_code_def = Define `
-  ag32_ffi_close_fail_code = ag32_ffi_fail_code "close"`
-    |> REWRITE_RULE [ag32_ffi_fail_code_def]
+Definition ag32_ffi_close_fail_code_def:
+  ag32_ffi_close_fail_code = ag32_ffi_fail_code «close»
+End
+val ag32_ffi_close_fail_code_def = ag32_ffi_close_fail_code_def
+                                     |> REWRITE_RULE [ag32_ffi_fail_code_def];
 
 val (ag32_ffi_close_fail_SPEC,
      ag32_ffi_close_fail_decomp_def) = ag32_decompile
@@ -3903,7 +3935,7 @@ Proof
          ag32Theory.incPC_def,
          ag32Theory.ri2word_def,
          combinTheory.UPDATE_def,
-         EVAL ``THE (ALOOKUP FFI_codes "close")``,
+         EVAL ``THE (ALOOKUP FFI_codes «close»)``,
          EVAL ``ffi_code_start_offset``,
          EVAL ``ag32_ffi_close_entrypoint``,
          EVAL ``LENGTH ag32_ffi_close_code``]
@@ -4058,5 +4090,3 @@ Proof
   \\ EVAL_TAC
   \\ rpt(IF_CASES_TAC \\ simp[])
 QED
-
-val _ = export_theory();

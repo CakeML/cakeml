@@ -1,53 +1,50 @@
 (*
   Proves an end-to-end correctness theorem for the bootstrapped compiler.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory
-     ag32_configProofTheory ag32_machine_configTheory
-     ag32_memoryProofTheory ag32_basis_ffiProofTheory ag32_ffi_codeProofTheory
-     compiler32ProgTheory ag32BootstrapTheory
+Theory ag32BootstrapProof
+Ancestors
+  repl_decs_allowed semanticsProps backendProof ag32_configProof
+  ag32_machine_config ag32_memoryProof ag32_basis_ffiProof
+  ag32_ffi_codeProof compiler32Prog ag32Bootstrap
+Libs
+  preamble
 
-val _ = new_theory"ag32BootstrapProof";
-
-val with_clos_conf_simp = prove(
-  ``(mc_init_ok (ag32_backend_config with <| clos_conf := z ; bvl_conf updated_by
+Theorem with_clos_conf_simp[local]:
+    (mc_init_ok ag32_config (ag32_backend_config with <| clos_conf := z ; bvl_conf updated_by
                     (λc. c with <|inline_size_limit := t1; exp_cut := t2|>) |>) =
-     mc_init_ok ag32_backend_config) /\
+     mc_init_ok ag32_config ag32_backend_config) /\
     (x.max_app <> 0 /\ (case x.known_conf of NONE => T | SOME k => k.val_approx_spt = LN) ==>
-     (backend_config_ok (ag32_backend_config with clos_conf := x) =
-      backend_config_ok ag32_backend_config))``,
+     (backend_config_ok ag32_config (ag32_backend_config with clos_conf := x) =
+      backend_config_ok ag32_config ag32_backend_config))
+Proof
   fs [mc_init_ok_def,FUN_EQ_THM,backend_config_ok_def]
-  \\ rw [] \\ eq_tac \\ rw [] \\ EVAL_TAC);
+  \\ rw [] \\ eq_tac \\ rw [] \\ EVAL_TAC
+QED
 
-Overload cake_config = “ag32Bootstrap$config”;
+Overload cake_config = “ag32Bootstrap$info”;
 
 Definition compiler_instance_def:
   compiler_instance =
-    <| init_state := config_to_inc_config cake_config ;
-       compiler_fun := compile_inc_progs_for_eval cake_config.lab_conf.asm_conf ;
+    <| init_state := cake_config ;
+       compiler_fun := compile_inc_progs_for_eval ag32_config ;
        config_dom := UNIV ;
-       config_v := BACKEND_INC_CONFIG_v ;
+       config_v := BACKEND_CONFIG_v ;
        decs_dom := decs_allowed ;
        decs_v := LIST_v AST_DEC_v |>
 End
 
-Triviality compiler_instance_lemma:
-  INJ compiler_instance.config_v 𝕌(:inc_config) 𝕌(:semanticPrimitives$v) ∧
-  compiler_instance.init_state = config_to_inc_config cake_config ∧
+Theorem compiler_instance_lemma[local]:
+  INJ compiler_instance.config_v 𝕌(:backend$config) 𝕌(:semanticPrimitives$v) ∧
+  compiler_instance.init_state = cake_config ∧
   compiler_instance.compiler_fun =
-    compile_inc_progs_for_eval cake_config.lab_conf.asm_conf
+    compile_inc_progs_for_eval ag32_config
 Proof
   fs [compiler_instance_def]
 QED
 
-Theorem cake_config_lab_conf_asm_conf:
-  cake_config.lab_conf.asm_conf = ag32_config
-Proof
-  once_rewrite_tac [ag32BootstrapTheory.config_def] \\ EVAL_TAC
-QED
-
 val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events"],
   semantics_compiler32_prog
+  |> SRULE [ml_progTheory.prog_syntax_ok_semantics, compiler32_compiled]
   |> Q.INST[‘eval_state_var’|->‘the_EvalDecs (mk_init_eval_state compiler_instance)’]
   |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_init_eval_state_def,the_EvalDecs_def]
   |> SIMP_RULE (srw_ss()) [GSYM source_evalProofTheory.mk_init_eval_state_def
@@ -58,30 +55,38 @@ val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events
 val (cake_sem,cake_output) = cake_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
 val (cake_not_fail,cake_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_sem |> CONJ_PAIR
 
-val ffi_names =
-  ``config.lab_conf.ffi_names``
-  |> (REWRITE_CONV[ag32BootstrapTheory.config_def] THENC EVAL);
+Theorem extcalls_ffi_names:
+  extcalls cake_config.lab_conf.ffi_names = ffis
+Proof
+  rewrite_tac [compiler32_compiled]
+  \\ qspec_tac (‘cake_config.lab_conf.ffi_names’,‘xs’) \\ Cases
+  \\ gvs [extcalls_def,backendTheory.ffinames_to_string_list_def,
+          miscTheory.the_def]
+  \\ Induct_on ‘x’ \\ gvs []
+  \\ gvs [extcalls_def,backendTheory.ffinames_to_string_list_def,
+          miscTheory.the_def]
+  \\ Cases
+  \\ gvs [extcalls_def,backendTheory.ffinames_to_string_list_def,
+          miscTheory.the_def]
+QED
 
-val LENGTH_code =
-  ``LENGTH code``
-  |> (REWRITE_CONV[ag32BootstrapTheory.code_def] THENC listLib.LENGTH_CONV);
+val ffis = ffis_def |> CONV_RULE (RAND_CONV EVAL);
+val ffi_names = extcalls_ffi_names |> SRULE [ffis]
 
-val LENGTH_data =
-  ``LENGTH data``
-  |> (REWRITE_CONV[ag32BootstrapTheory.data_def] THENC listLib.LENGTH_CONV);
-
-val shmem =
-  ``config.lab_conf.shmem_extra``
-  |> (REWRITE_CONV[ag32BootstrapTheory.config_def] THENC EVAL);
+val LENGTH_code = “LENGTH code” |> SCONV [compiler32_compiled];
+val LENGTH_data = “LENGTH data” |> SCONV [compiler32_compiled];
+val shmem = “info.lab_conf.shmem_extra” |> SCONV [compiler32_compiled];
 
 Overload cake_machine_config =
-  ``ag32_machine_config (extcalls config.lab_conf.ffi_names) (LENGTH code) (LENGTH data)``
+  “ag32_machine_config (extcalls info.lab_conf.ffi_names) (LENGTH code) (LENGTH data)”
 
 Theorem target_state_rel_cake_start_asm_state:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (init_memory code data (extcalls config.lab_conf.ffi_names) (cl,inp)) ms ⇒
-   ∃n. target_state_rel ag32_target (init_asm_state code data (extcalls config.lab_conf.ffi_names) (cl,inp)) (FUNPOW Next n ms) ∧
+   is_ag32_init_state (init_memory code data (extcalls info.lab_conf.ffi_names) (cl,inp)) ms ⇒
+   ∃n. target_state_rel ag32_target
+          (init_asm_state code data (extcalls info.lab_conf.ffi_names) (cl,inp))
+          (FUNPOW Next n ms) ∧
        ((FUNPOW Next n ms).io_events = ms.io_events) ∧
        (∀x. x ∉ (ag32_startup_addresses) ⇒
          ((FUNPOW Next n ms).MEM x = ms.MEM x))
@@ -90,7 +95,7 @@ Proof
   \\ drule (GEN_ALL init_asm_state_RTC_asm_step)
   \\ disch_then drule
   \\ simp_tac std_ss []
-  \\ disch_then(qspecl_then[`code`,`data`,`extcalls config.lab_conf.ffi_names`]mp_tac)
+  \\ disch_then(qspecl_then[`code`,`data`,`extcalls info.lab_conf.ffi_names`]mp_tac)
   \\ impl_tac >- ( EVAL_TAC>> fs[ffi_names,LENGTH_data,LENGTH_code,extcalls_def])
   \\ strip_tac
   \\ drule (GEN_ALL target_state_rel_ag32_init)
@@ -107,11 +112,12 @@ val cake_startup_clock_def =
   |> SIMP_RULE bool_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM]);
 
 val compile_correct_applied =
-  MATCH_MP compile_correct_eval cake_compiled
-  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO,
-                         with_clos_conf_simp]
+  MATCH_MP compile_correct_eval (cj 1 compiler32_compiled)
+  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,
+                         GSYM AND_IMP_INTRO,with_clos_conf_simp]
   |> Q.INST [‘ev’|->‘SOME compiler_instance’]
-  |> SIMP_RULE (srw_ss()) [add_eval_state_def,opt_eval_config_wf_def,compiler_instance_lemma]
+  |> SIMP_RULE (srw_ss()) [add_eval_state_def,opt_eval_config_wf_def,
+                           compiler_instance_lemma]
   |> C MATCH_MP cake_not_fail
   |> C MATCH_MP ag32_backend_config_ok
   |> REWRITE_RULE[cake_sem_sing,AND_IMP_INTRO]
@@ -131,16 +137,25 @@ Theorem cake_compiled_thm =
 Theorem cake_installed:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (init_memory code data (extcalls config.lab_conf.ffi_names) (cl,inp)) ms0 ⇒
-   installed code 0 data 0 config.lab_conf.ffi_names
+   is_ag32_init_state (init_memory code data
+                         (extcalls info.lab_conf.ffi_names) (cl,inp)) ms0 ⇒
+   installed code 0 data 0 info.lab_conf.ffi_names
      (heap_regs ag32_backend_config.stack_conf.reg_names)
-     (cake_machine_config) config.lab_conf.shmem_extra
+     (cake_machine_config) info.lab_conf.shmem_extra
      (FUNPOW Next (cake_startup_clock ms0 inp cl) ms0)
 Proof
   rewrite_tac[ffi_names, extcalls_def, shmem]
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac ‘init_memory _ _ ff’
-  \\ ‘^(ffi_names |> concl |> rand |> rand) = MAP ExtCall ff’ by simp [Abbr‘ff’]
+  \\ qmatch_goalsub_abbrev_tac ‘installed _ _ _ _ dd’
+  \\ ‘dd = SOME (MAP ExtCall ff)’ by
+   (unabbrev_all_tac
+    \\ assume_tac (cj 1 compiler32_compiled)
+    \\ drule ag32_configProofTheory.compile_imp_ffi_names
+    \\ gvs [compiler32_compiled]
+    \\ gvs [GSYM compiler32_compiled,ffis]
+    \\ simp [backendTheory.set_oracle_def,
+             ag32_configTheory.ag32_backend_config_def])
   \\ asm_rewrite_tac []
   \\ irule ag32_installed
   \\ unabbrev_all_tac
@@ -150,8 +165,7 @@ Proof
   \\ disch_then drule
   \\ strip_tac
   \\ simp[ag32_memoryTheory.ffi_exitpcs_def]
-  \\ conj_tac >- (simp[LENGTH_code] \\ EVAL_TAC)
-  \\ conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC)
+  \\ rpt (conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC))
   \\ asm_exists_tac \\ simp[]
   \\ last_x_assum $ irule_at Any \\ fs []
 QED
@@ -192,27 +206,29 @@ Theorem ALOOKUP_fastForwardFD_infds_neq:
    fd ≠ fd' ⇒ (ALOOKUP (fastForwardFD fs fd).infds fd' = ALOOKUP fs.infds fd')
 Proof
   rw[fsFFIPropsTheory.fastForwardFD_def]
-  \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[miscTheory.the_def]
   \\ pairarg_tac \\ simp[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[miscTheory.the_def]
   \\ simp[AFUPDKEY_ALOOKUP]
   \\ CASE_TAC
 QED
 
 Theorem FST_ALOOKUP_fastForwardFD_infds:
-   OPTION_MAP FST (ALOOKUP (fastForwardFD fs fd).infds fd') = OPTION_MAP FST (ALOOKUP fs.infds fd')
+   OPTION_MAP FST (ALOOKUP (fastForwardFD fs fd).infds fd') =
+   OPTION_MAP FST (ALOOKUP fs.infds fd')
 Proof
   rw[fsFFIPropsTheory.fastForwardFD_def]
-  \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[miscTheory.the_def]
   \\ pairarg_tac \\ simp[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[miscTheory.the_def]
   \\ simp[AFUPDKEY_ALOOKUP]
   \\ CASE_TAC \\ simp[]
   \\ CASE_TAC \\ simp[]
 QED
 
 Theorem FST_ALOOKUP_add_stdo_infds:
-   OPTION_MAP FST (ALOOKUP (add_stdo fd nm fs out).infds fd') = OPTION_MAP FST (ALOOKUP fs.infds fd')
+   OPTION_MAP FST (ALOOKUP (add_stdo fd nm fs out).infds fd') =
+   OPTION_MAP FST (ALOOKUP fs.infds fd')
 Proof
   mp_tac TextIOProofTheory.add_stdo_MAP_FST_infds
   \\ strip_tac
@@ -230,7 +246,7 @@ QED
 Theorem ALOOKUP_add_stdout_inode_tbl:
    STD_streams fs ⇒ (
    ALOOKUP (add_stdout fs out).inode_tbl fnm =
-   if fnm = UStream(strlit"stdout") then
+   if fnm = UStream «stdout» then
      SOME (THE (ALOOKUP fs.inode_tbl fnm) ++ explode out)
    else ALOOKUP fs.inode_tbl fnm)
 Proof
@@ -253,7 +269,7 @@ QED
 Theorem ALOOKUP_add_stderr_inode_tbl:
    STD_streams fs ⇒ (
    ALOOKUP (add_stderr fs err).inode_tbl fnm =
-   if fnm = UStream(strlit"stderr") then
+   if fnm = UStream «stderr» then
      SOME (THE (ALOOKUP fs.inode_tbl fnm) ++ explode err)
    else ALOOKUP fs.inode_tbl fnm)
 Proof
@@ -342,9 +358,12 @@ Theorem cake_extract_writes:
      (err = explode cerr)
 Proof
   strip_tac
-  \\ drule(GEN_ALL(DISCH_ALL cake_output))
-  \\ disch_then(qspec_then`stdin_fs inp`mp_tac)
-  \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
+  \\ qabbrev_tac ‘fs = stdin_fs inp’
+  \\ ‘IS_SOME (stdin_content fs) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs’ by
+    (simp[wfFS_stdin_fs, STD_streams_stdin_fs, Abbr‘fs’,
+          TextIOProofTheory.stdin_content_def, stdin_fs_def])
+  \\ drule_all(GEN_ALL(DISCH_ALL cake_output))
+  \\ unabbrev_all_tac
   \\ simp[compilerTheory.full_compile_32_def]
   \\ pairarg_tac \\ simp[]
   \\ ntac 2 (IF_CASES_TAC \\ fs[]
@@ -369,6 +388,7 @@ Proof
       \\ simp[AFUPDKEY_ALOOKUP]
       \\ disch_then match_mp_tac
       \\ rw[fsFFIPropsTheory.inFS_fname_def]
+      \\ fs[]
       >- (
         fs[CaseEq"option",CaseEq"bool",FORALL_PROD]
         \\ rw[] \\ CCONTR_TAC \\ fs[]
@@ -376,7 +396,8 @@ Proof
       >- (
         pop_assum mp_tac
         \\ rw[] \\ fs[] \\ rw[]
-        \\ pop_assum mp_tac \\ rw[])
+        \\ pop_assum mp_tac \\ rw[]
+        \\ fs[])
       >- ( rw[] \\ rw[OPTREL_def]))))>>
   IF_CASES_TAC>>fs[]
   \\ (simp[TextIOProofTheory.add_stdout_fastForwardFD, STD_streams_stdin_fs]
@@ -501,7 +522,7 @@ QED
 Theorem cake_ag32_next:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ wfcl cl ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (init_memory code data (extcalls config.lab_conf.ffi_names) (cl,inp)) ms0
+   is_ag32_init_state (init_memory code data (extcalls info.lab_conf.ffi_names) (cl,inp)) ms0
   ⇒
    ∃k1. ∀k. k1 ≤ k ⇒
      let ms = FUNPOW Next k ms0 in
@@ -517,12 +538,12 @@ Proof
   \\ disch_then drule
   \\ disch_then drule
   \\ disch_then(qspec_then`stdin_fs inp`mp_tac)
-  \\ impl_tac >- fs[STD_streams_stdin_fs, wfFS_stdin_fs]
+  \\ impl_tac >-
+   (fs[STD_streams_stdin_fs, wfFS_stdin_fs]
+    \\ gvs [TextIOProofTheory.stdin_content_def, stdin_fs_def])
   \\ strip_tac
   \\ irule ag32_next
-  \\ conj_tac >- simp[ffi_names,extcalls_def]
-  \\ conj_tac >- (simp[ffi_names,extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC)
-  \\ conj_tac >- (simp[ffi_names,extcalls_def] \\ EVAL_TAC)
+  \\ rpt (conj_tac >- (simp[ffi_names,extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC))
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ goal_assum(first_assum o mp_then Any mp_tac)
@@ -537,4 +558,5 @@ Proof
   \\ metis_tac[]
 QED
 
-val _ = export_theory();
+val _ = check_thm cake_extract_writes;
+val _ = check_thm cake_ag32_next;

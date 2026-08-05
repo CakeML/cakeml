@@ -1,12 +1,13 @@
 (*
   diff example: find a patch representing the difference between two files.
 *)
-open preamble basis
-     charsetTheory lcsTheory diffTheory
+Theory diffProg
+Ancestors
+  charset lcs diff basis_ffi
+Libs
+  preamble basis basisFunctionsLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "diffProg";
 
 val _ = translation_extends"basisProg";
 
@@ -52,7 +53,7 @@ val dynamic_lcs_side_def = Q.prove(
   rw[fetch "-" "dynamic_lcs_side_def",dynamic_lcs_rows_side_def,LENGTH_REPLICATE])
   |> update_precondition;
 
-val _ = translate(diff_alg2_def |> REWRITE_RULE [GSYM mllistTheory.drop_def]);
+val _ = translate(diff_alg2_def |> REWRITE_RULE [GSYM mllistTheory.drop_def,GSYM mllistTheory.take_def, GSYM ml_translatorTheory.sub_check_def]);
 
 val longest_common_suffix_length_side = Q.prove(
   `!l l' n. longest_common_suffix_length_side l l' n = (LENGTH l = LENGTH l')`,
@@ -68,26 +69,29 @@ val diff_alg2_side_def = Q.prove(`
   !l r. diff_alg2_side l r  ⇔ T`,
   rw[fetch "-" "diff_alg2_side_def"]
   >> rw[longest_common_suffix_length_side]
-  >> fs[mllistTheory.drop_def]) |> update_precondition;
+  >> fs[mllistTheory.drop_def,mllistTheory.take_def,ml_translatorTheory.sub_check_def]) |> update_precondition;
 
-val notfound_string_def = Define`
-  notfound_string f = concat[strlit"cake_diff: ";f;strlit": No such file or directory\n"]`;
+Definition notfound_string_def:
+  notfound_string f = concat[«cake_diff: »;f;«: No such file or directory\n»]
+End
 
 val r = translate notfound_string_def;
 
-val usage_string_def = Define`
-  usage_string = strlit"Usage: diff <file> <file>\n"`;
+Definition usage_string_def:
+  usage_string = «Usage: diff <file> <file>\n»
+End
 
 val r = translate usage_string_def;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun diff' fname1 fname2 =
-    case TextIO.inputLinesFrom fname1 of
+    case TextIO.inputLinesFile #"\n" fname1 of
         None => TextIO.output TextIO.stdErr (notfound_string fname1)
       | Some lines1 =>
-        case TextIO.inputLinesFrom fname2 of
+        case TextIO.inputLinesFile #"\n" fname2 of
             None => TextIO.output TextIO.stdErr (notfound_string fname2)
-          | Some lines2 => TextIO.print_list (diff_alg2 lines1 lines2)`
+          | Some lines2 => TextIO.print_list (diff_alg2 lines1 lines2)
+End
 
 Theorem diff'_spec:
    FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\
@@ -102,19 +106,20 @@ Theorem diff'_spec:
          if inFS_fname fs f1 then
          if inFS_fname fs f2 then
            add_stdout fs (
-              concat ((diff_alg2 (all_lines fs f1)
-                                 (all_lines fs f2))))
+              concat ((diff_alg2 (all_lines_file fs f1)
+                                 (all_lines_file fs f2))))
          else add_stderr fs (notfound_string f2)
          else add_stderr fs (notfound_string f1)))
 Proof
-  xcf"diff'"(get_ml_prog_state())
-  \\ xlet_auto_spec(SOME inputLinesFrom_spec)
+  rpt strip_tac
+  \\ xcf"diff'"(get_ml_prog_state())
+  \\ xlet_auto_spec(SOME inputLinesFile_spec)
   >- xsimpl
   \\ reverse(Cases_on `inFS_fname fs f1`) \\ fs[OPTION_TYPE_def]
   \\ xmatch
   >- (xlet_auto >- xsimpl
       \\ xapp_spec output_stderr_spec \\ xsimpl)
-  \\ xlet_auto_spec(SOME inputLinesFrom_spec)
+  \\ xlet_auto_spec(SOME inputLinesFile_spec)
   >- xsimpl
   \\ reverse(Cases_on `inFS_fname fs f2`) \\ fs[OPTION_TYPE_def]
   \\ xmatch
@@ -124,13 +129,14 @@ Proof
   \\ xapp \\ rw[]
 QED
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun diff u =
     case CommandLine.arguments () of
         (f1::f2::[]) => diff' f1 f2
-      | _ => TextIO.output TextIO.stdErr usage_string`;
+      | _ => TextIO.output TextIO.stdErr usage_string
+End
 
-val diff_sem_def = Define`
+Definition diff_sem_def:
   diff_sem cl fs =
     if (LENGTH cl = 3) then
     if inFS_fname fs (EL 1 cl) then
@@ -138,11 +144,12 @@ val diff_sem_def = Define`
     add_stdout fs (
       concat
         (diff_alg2
-           (all_lines fs (EL 1 cl))
-           (all_lines fs (EL 2 cl))))
+           (all_lines_file fs (EL 1 cl))
+           (all_lines_file fs (EL 2 cl))))
     else add_stderr fs (notfound_string (EL 2 cl))
     else add_stderr fs (notfound_string (EL 1 cl))
-    else add_stderr fs usage_string`;
+    else add_stderr fs usage_string
+End
 
 Theorem diff_spec:
    hasFreeFD fs
@@ -195,13 +202,5 @@ Proof
   \\ xsimpl
 QED
 
-val name = "diff"
-val (sem_thm,prog_tm) = whole_prog_thm st name (UNDISCH diff_whole_prog_spec)
-val diff_prog_def = Define`diff_prog = ^prog_tm`;
-
-val diff_semantics = save_thm("diff_semantics",
-  sem_thm |> REWRITE_RULE[GSYM diff_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO]);
-
-val _ = export_theory ();
+Theorem diff_semantics =
+  prove_sem_thm "diff" "diff_prog" diff_whole_prog_spec;

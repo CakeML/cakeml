@@ -1,8 +1,5 @@
 Semantics for Pancake and its intermediate languages.
 
-[compactDSLSemScript.sml](compactDSLSemScript.sml):
-semantics for timeLang
-
 [crepPropsScript.sml](crepPropsScript.sml):
 crepLang Properties
 
@@ -24,11 +21,8 @@ Semantics of panLang
 [pan_commonPropsScript.sml](pan_commonPropsScript.sml):
 Common Properties for Pancake ILS
 
-[timeFunSemScript.sml](timeFunSemScript.sml):
-semantics for timeLang
+[pan_itreePropsScript.sml](pan_itreePropsScript.sml):
+Misc Lemmas for Pancake ITree semantics and correspondence proof.
 
-[timePropsScript.sml](timePropsScript.sml):
-semantics for timeLang
-
-[timeSemScript.sml](timeSemScript.sml):
-semantics for timeLang
+[pan_itreeSemScript.sml](pan_itreeSemScript.sml):
+An itree semantics for Pancake.

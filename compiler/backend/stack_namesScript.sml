@@ -2,30 +2,31 @@
   This compiler phase renames the registers to fit with the target
   architecture.
 *)
+Theory stack_names
+Ancestors
+  stackLang
+Libs
+  preamble
 
-open preamble stackLangTheory
 
-val _ = new_theory "stack_names";
-
-val _ = set_grammar_ancestry["stackLang"];
-
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Overload find_name = ``tlookup``
 
-val ri_find_name_def = Define `
+Definition ri_find_name_def:
   (ri_find_name f (Reg r) = Reg (find_name f r)) /\
-  (ri_find_name f (Imm w) = Imm w)`
+  (ri_find_name f (Imm w) = Imm w)
+End
 
-val inst_find_name_def = Define `
+Definition inst_find_name_def:
   inst_find_name f i =
-    dtcase i of
+    case i of
     | Skip => Skip
     | Const r w => Const (find_name f r) w
     | Arith (Binop bop d r ri) =>
         Arith (Binop bop (find_name f d) (find_name f r) (ri_find_name f ri))
-    | Arith (Shift sop d r i) =>
-        Arith (Shift sop (find_name f d) (find_name f r) i)
+    | Arith (Shift sop d r ri) =>
+        Arith (Shift sop (find_name f d) (find_name f r) (ri_find_name f ri))
     | Arith (Div r1 r2 r3) =>
         Arith (Div (find_name f r1) (find_name f r2) (find_name f r3))
     | Arith (AddCarry r1 r2 r3 r4) =>
@@ -44,31 +45,34 @@ val inst_find_name_def = Define `
     | FP (FPEqual r f1 f2) => FP (FPEqual (find_name f r) f1 f2)
     | FP (FPMovToReg r1 r2 d) => FP (FPMovToReg (find_name f r1) (find_name f r2) d)
     | FP (FPMovFromReg d r1 r2) => FP (FPMovFromReg d (find_name f r1) (find_name f r2))
-    | i => i`
+    | i => i
+End
 
-val dest_find_name_def = Define`
+Definition dest_find_name_def:
   dest_find_name f (INR r) = INR (find_name f r) ∧
-  dest_find_name f x = x`;
+  dest_find_name f x = x
+End
 
 local val comp_quotation = `
   comp f p =
-    dtcase p of
+    case p of
     | Halt r => Halt (find_name f r)
     | Raise r => Raise (find_name f r)
-    | Return r1 r2 => Return (find_name f r1) (find_name f r2)
+    | Break n => Break n
+    | Continue n => Continue n
+    | Return r => Return (find_name f r)
     | Inst i => Inst (inst_find_name f i)
     | LocValue i l1 l2 => LocValue (find_name f i) l1 l2
     | Seq p1 p2 => Seq (comp f p1) (comp f p2)
     | If c r ri p1 p2 =>
         If c (find_name f r) (ri_find_name f ri) (comp f p1) (comp f p2)
-    | While c r ri p1 =>
-        While c (find_name f r) (ri_find_name f ri) (comp f p1)
+    | Loop p1 => Loop (comp f p1)
     | Call ret dest exc =>
-        Call (dtcase ret of
+        Call (case ret of
               | NONE => NONE
               | SOME (p1,lr,l1,l2) => SOME (comp f p1,find_name f lr,l1,l2))
              (dest_find_name f dest)
-             (dtcase exc of
+             (case exc of
               | NONE => NONE
               | SOME (p2,l1,l2) => SOME (comp f p2,l1,l2))
     | Install r1 r2 r3 r4 r5 => Install (find_name f r1) (find_name f r2)
@@ -85,7 +89,7 @@ val comp_def = Define comp_quotation
 Theorem comp_pmatch = Q.prove(
   `∀f p.` @
     (comp_quotation |>
-     map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+     map (fn QUOTE s => Portable.replace_string {from="case",to="pmatch"} s |> QUOTE
          | aq => aq)),
    rpt(
     rpt strip_tac
@@ -94,18 +98,19 @@ Theorem comp_pmatch = Q.prove(
     >> fs[Once comp_def]));
 end
 
-val prog_comp_def = Define `
-  prog_comp f (n,p) = (n,comp f p)`
+Definition prog_comp_def:
+  prog_comp f (n,p) = (n,comp f p)
+End
 
-val compile_def = Define `
-  compile f prog = MAP (prog_comp f) prog`;
+Definition compile_def:
+  compile f prog = MAP (prog_comp f) prog
+End
 
 (* some defaults *)
 
-val names_ok_def = Define `
+Definition names_ok_def:
   names_ok names reg_count avoid_regs =
     let xs = GENLIST (find_name names) (reg_count - LENGTH avoid_regs) in
       ALL_DISTINCT xs /\
-      EVERY (\x. x < reg_count /\ ~(MEM x avoid_regs)) xs`
-
-val _ = export_theory();
+      EVERY (\x. x < reg_count /\ ~(MEM x avoid_regs)) xs
+End

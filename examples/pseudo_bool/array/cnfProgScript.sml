@@ -1,14 +1,13 @@
 (*
   CNF encoder and checker
 *)
-open preamble basis lpr_parsingTheory cnf_to_pbTheory npbc_parseProgTheory;
-open cfLib basisFunctionsLib;
-
-val _ = new_theory "cnfProg";
+Theory cnfProg
+Ancestors
+  basis_ffi lpr_parsing cnf_to_pb npbc_parseProg
+Libs
+  preamble basis cfLib basisFunctionsLib
 
 val _ = translation_extends "npbc_parseProg";
-
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
 (* TODO: COPIED from lpr_arrayFullProgScript.sml *)
 Theorem fastForwardFD_ADELKEY_same[simp]:
@@ -37,14 +36,15 @@ val _ = translate parse_clause_def;
 
 val _ = translate lpr_parsingTheory.nocomment_line_def;
 
-val format_dimacs_failure_def = Define`
+Definition format_dimacs_failure_def:
   format_dimacs_failure (lno:num) s =
-  strlit "c DIMACS parse failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"`
+  «c DIMACS parse failed at line: » ^ toString lno ^ «. Reason: » ^ s ^ «\n»
+End
 
 val _ = translate format_dimacs_failure_def;
 
-val b_inputLineTokens_specialize =
-  b_inputLineTokens_spec_lines
+val inputLineTokens_specialize =
+  inputLineTokens_spec_lines
   |> Q.GEN `f` |> Q.SPEC`lpr_parsing$blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_1_v`
   |> Q.GEN `g` |> Q.ISPEC`lpr_parsing$tokenize`
@@ -52,16 +52,17 @@ val b_inputLineTokens_specialize =
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
   |> SIMP_RULE std_ss [blanks_1_v_thm,tokenize_1_v_thm,blanks_def] ;
 
-val parse_dimacs_body_arr = process_topdecs`
+Quote add_cakeml:
   fun parse_dimacs_body_arr lno maxvar fd acc =
-  case TextIO.b_inputLineTokens #"\n" fd blanks_1 tokenize_1 of
+  case TextIO.inputLineTokens #"\n" fd blanks_1 tokenize_1 of
     None => Inr (List.rev acc)
   | Some l =>
     if nocomment_line l then
       (case parse_clause maxvar l of
         None => Inl (format_dimacs_failure lno "failed to parse line")
       | Some cl => parse_dimacs_body_arr (lno+1) maxvar fd (cl::acc))
-    else parse_dimacs_body_arr (lno+1) maxvar fd acc` |> append_prog;
+    else parse_dimacs_body_arr (lno+1) maxvar fd acc
+End
 
 Theorem parse_dimacs_body_arr_spec:
   !lines fd fdv fs maxvar maxvarv acc accv lno lnov.
@@ -83,6 +84,7 @@ Theorem parse_dimacs_body_arr_spec:
 Proof
   Induct
   \\ simp []
+  \\ rpt strip_tac
   \\ xcf "parse_dimacs_body_arr" (get_ml_prog_state ())
   THEN1 (
     xlet ‘(POSTv v.
@@ -91,7 +93,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     THEN1 (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac `emp`
       \\ qexists_tac ‘[]’
       \\ qexists_tac ‘fs’
@@ -110,7 +112,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
                 & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (lpr_parsing$toks h)) v)’
     THEN1 (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac `emp`
       \\ qexists_tac ‘h::lines’
       \\ qexists_tac ‘fs’
@@ -168,9 +170,9 @@ Proof
   metis_tac[]
 QED
 
-val parse_dimacs_toks_arr = process_topdecs`
+Quote add_cakeml:
   fun parse_dimacs_toks_arr lno fd =
-  case TextIO.b_inputLineTokens #"\n" fd blanks_1 tokenize_1 of
+  case TextIO.inputLineTokens #"\n" fd blanks_1 tokenize_1 of
     None => Inl (format_dimacs_failure lno "failed to find header")
   | Some l =>
     if nocomment_line l then
@@ -184,7 +186,8 @@ val parse_dimacs_toks_arr = process_topdecs`
             Inr (vars,(clauses,acc))
           else
             Inl (format_dimacs_failure lno "incorrect number of clauses")))
-    else parse_dimacs_toks_arr (lno+1) fd` |> append_prog;
+    else parse_dimacs_toks_arr (lno+1) fd
+End
 
 Theorem parse_dimacs_toks_arr_spec:
   !lines fd fdv fs lno lnov.
@@ -204,6 +207,7 @@ Theorem parse_dimacs_toks_arr_spec:
 Proof
   Induct
   \\ simp []
+  \\ rw[]
   \\ xcf "parse_dimacs_toks_arr" (get_ml_prog_state ())
   THEN1 (
     xlet ‘(POSTv v.
@@ -212,7 +216,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     THEN1 (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac `emp`
       \\ qexists_tac ‘[]’
       \\ qexists_tac ‘fs’
@@ -232,7 +236,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
                 & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (lpr_parsing$toks h)) v)’
     THEN1 (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac `emp`
       \\ qexists_tac ‘h::lines’
       \\ qexists_tac ‘fs’
@@ -328,16 +332,17 @@ Proof
 QED
 
 (* parse_dimacs_toks with simple wrapper *)
-val parse_dimacs_full = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_dimacs_full fname =
   let
-    val fd = TextIO.b_openIn fname
+    val fd = TextIO.openIn fname
     val res = parse_dimacs_toks_arr 0 fd
-    val close = TextIO.b_closeIn fd;
+    val close = TextIO.closeIn fd;
   in
     res
   end
-  handle TextIO.BadFileName => Inl (notfound_string fname)`;
+  handle TextIO.BadFileName => Inl (notfound_string fname)
+End
 
 Theorem parse_dimacs_full_spec:
   STRING_TYPE f fv ∧
@@ -350,7 +355,7 @@ Theorem parse_dimacs_full_spec:
     (POSTv v.
     & (∃err. (SUM_TYPE STRING_TYPE (PAIR_TYPE NUM (PAIR_TYPE NUM (LIST_TYPE (LIST_TYPE INT))))
     (if inFS_fname fs f then
-    (case parse_dimacs_toks (MAP lpr_parsing$toks (all_lines fs f)) of
+    (case parse_dimacs_toks (MAP lpr_parsing$toks (all_lines_file fs f)) of
       NONE => INL err
     | SOME x => INR x)
     else INL err) v)) * STDIO fs)
@@ -369,7 +374,7 @@ Proof
       &(~inFS_fname fs f) *
       STDIO fs`
     >-
-      (xlet_auto_spec (SOME b_openIn_STDIO_spec) \\ xsimpl)
+      (xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl)
     >>
       fs[BadFileName_exn_def]>>
       xcases>>rw[]>>
@@ -379,7 +384,7 @@ Proof
   qmatch_goalsub_abbrev_tac`$POSTv Qval`>>
   xhandle`$POSTv Qval` \\ xsimpl >>
   qunabbrev_tac`Qval`>>
-  xlet_auto_spec (SOME (b_openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`)) \\ xsimpl >>
+  xlet_auto_spec (SOME (openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`)) \\ xsimpl >>
   qmatch_goalsub_abbrev_tac`STDIO fss`>>
   qmatch_goalsub_abbrev_tac`INSTREAM_LINES #"\n" fdd fddv lines fss`>>
   xlet`(POSTv v.
@@ -398,7 +403,7 @@ Proof
     metis_tac[])>>
   xlet `POSTv v. STDIO fs`
   >- (
-    xapp_spec b_closeIn_spec_lines >>
+    xapp_spec closeIn_spec_lines >>
     qexists_tac `emp`>>
     qexists_tac `lines'` >>
     qexists_tac `forwardFD fss fdd k` >>
@@ -429,17 +434,18 @@ val res = translate clause_to_pbc_def;
 val res = translate fml_to_pbf_def;
 
 (* parse input from f1 and run encoder into npbc *)
-val parse_and_enc = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_and_enc f1 =
   case parse_dimacs_full f1 of
     Inl err => Inl err
   | Inr (a,(b,fml)) =>
-    Inr (fml_to_pbf fml,(a,b))`
+    Inr (fml_to_pbf fml,(a,b))
+End
 
 Definition get_fml_def:
   get_fml fs f =
   if inFS_fname fs f then
-    parse_dimacs (all_lines fs f)
+    parse_dimacs (all_lines_file fs f)
   else NONE
 End
 
@@ -517,13 +523,6 @@ End
 
 val res = translate plainLim_nf_def;
 
-val plainlim_nf_side = Q.prove(`
-   ∀x y z. plainlim_nf_side x y z = T`,
-  EVAL_TAC>>
-  rw[])
-  |> update_precondition;
-
-
 val res = translate pbc_normaliseTheory.mk_map_def;
 val res = translate pbc_normaliseTheory.name_to_num_var_def;
 
@@ -541,11 +540,15 @@ val res = translate cnf_init_state_def;
 val res = translate plainLim_ns_def;
 
 Definition UNSAT_string_def:
-  UNSAT_string = strlit "s VERIFIED UNSAT\n"
+  UNSAT_string = «s VERIFIED UNSAT\n»
 End
 
 Definition SAT_string_def:
-  SAT_string = strlit "s VERIFIED SAT\n"
+  SAT_string = «s VERIFIED SAT\n»
+End
+
+Definition NO_CONCLUSION_string_def:
+  NO_CONCLUSION_string = «s VERIFIED NO CONCLUSION\n»
 End
 
 (* And empty formula *)
@@ -559,36 +562,40 @@ val res = translate default_nobjf_def;
 Definition ores_to_string_def:
   (ores_to_string (INL s) = INL s) ∧
   (ores_to_string (INR (out,bnd,h)) =
-    if out ≠ NoOutput then INL (strlit "c Unexpected output section.\n")
+    if out ≠ NoOutput then INL «c Unexpected output section.\n»
     else
     case h of
       DUnsat => INR UNSAT_string
     | DSat => INR SAT_string
-    | _ => INL (strlit "c Unexpected conclusion for decision problem.\n"))
+    | DNoConcl => INR NO_CONCLUSION_string
+    | _ => INL «c Unexpected conclusion for decision problem.\n»)
 End
 
-val res = translate (ores_to_string_def |> SIMP_RULE std_ss [UNSAT_string_def,SAT_string_def]);
+val res = translate (ores_to_string_def |> SIMP_RULE std_ss [UNSAT_string_def,SAT_string_def,NO_CONCLUSION_string_def]);
 
-val check_unsat_2 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_2 f1 f2 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (fml,(nv,nc)) =>
-    case default_nobjf of (nobjt,nfmlt) =>
+    let val n = None in
     (case
       ores_to_string (
-        check_unsat_top False (plainlim_ns nv) fml None nfmlt nobjt f2) of
+        check_unsat_top False (plainlim_ns nv) fml n n [] n n f2) of
       Inl err => TextIO.output TextIO.stdErr err
-    | Inr s => TextIO.print s)`
+    | Inr s => TextIO.print s)
+    end
+End
 
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 out ⇔
-  (out ≠ strlit"" ⇒
+  (out ≠ «» ⇒
   ∃fml.
     get_fml fs f1 = SOME fml ∧
     (
     out = UNSAT_string ∧ unsatisfiable (interp fml) ∨
-    out = SAT_string ∧ satisfiable (interp fml)))
+    out = SAT_string ∧ satisfiable (interp fml) ∨
+    out = NO_CONCLUSION_string))
 End
 
 Theorem check_unsat_2_spec:
@@ -625,10 +632,7 @@ Proof
   PairCases_on`y`>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
-  assume_tac (fetch "-" "default_nobjf_v_thm")>>
-  gvs[default_nobjf_def,PAIR_TYPE_def]>>
-  qpat_x_assum`_ = default_nobjf_v` (assume_tac o SYM)>>
-  xmatch>>
+  xlet_autop>>
   xlet_autop>>
   xlet_autop>>
   xlet`POSTv v. STDIO fs * &BOOL F v`
@@ -644,7 +648,7 @@ Proof
           res v ∧
         case res of
          INR (output,bound,concl) =>
-           sem_concl (set (fml_to_pbf fml)) NONE concl
+           sem_concl (set (fml_to_pbf fml)) NONE {} concl
         | INL l => T)`
   >- (
     drule_at (Pos (el 2)) check_unsat_top_spec>>
@@ -654,10 +658,13 @@ Proof
     xsimpl>>
     fs[FILENAME_def,validArg_def,OPTION_TYPE_def]>>
     rpt (first_x_assum (irule_at Any))>>
-    qexists_tac`NONE`>>qexists_tac`NONE`>>xsimpl>>
-    simp[OPTION_TYPE_def]>>
+    qexists_tac`NONE`>>qexists_tac`NONE`>>
+    qexists_tac`NONE`>>qexists_tac`NONE`>>
+    qexists_tac`[]`>>
+    xsimpl>>
+    simp[OPTION_TYPE_def,LIST_TYPE_def]>>
     rw[]>> asm_exists_tac>>simp[]>>
-    every_case_tac>>fs[])>>
+    every_case_tac>>fs[npbcTheory.pres_set_spt_def])>>
   xlet_autop>>
   Cases_on`ores_to_string res`>>fs[SUM_TYPE_def]>>
   xmatch
@@ -667,7 +674,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     simp[]>>
     qexists_tac`x`>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -676,7 +683,7 @@ Proof
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
   qexists_tac`y`>>
-  qexists_tac`strlit ""`>>
+  qexists_tac`«»`>>
   simp[STD_streams_stderr,add_stdo_nil]>>
   reverse CONJ_TAC>- xsimpl>>
   rw[]>>
@@ -699,21 +706,21 @@ QED
 Definition num_lit_string_def:
   (num_lit_string (i,n:num) =
   if i ≥ 0 then
-   toString (Num (ABS i)) ^ strlit" x" ^ toString n
+   toString (Num (ABS i)) ^ « x» ^ toString n
   else
-   toString (Num (ABS i)) ^ strlit" ~x" ^ toString n)
+   toString (Num (ABS i)) ^ « ~x» ^ toString n)
 End
 
 Definition num_lhs_string_def:
   num_lhs_string xs =
-  concatWith (strlit" ") (MAP num_lit_string xs)
+  concatWith « » (MAP num_lit_string xs)
 End
 
 Definition npbc_string_def:
-  (npbc_string (xs,n:num) =
+  (npbc_string (xs,n:int) =
     concat [
       num_lhs_string xs;
-      strlit" >= ";toString n; strlit ";\n"])
+      « >= »;toString n; «;\n»])
 End
 
 Definition print_npbf_def:
@@ -725,16 +732,17 @@ val res = translate num_lhs_string_def;
 val res = translate npbc_string_def;
 val res = translate print_npbf_def;
 
-val check_unsat_1 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_1 f1 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (fml,(nv,nc)) =>
-    TextIO.print_list (print_npbf fml)`
+    TextIO.print_list (print_npbf fml)
+End
 
 Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs f1 out ⇔
-  (out ≠ strlit"" ⇒
+  (out ≠ «» ⇒
   ∃fml.
     get_fml fs f1 = SOME fml ∧
     out = concat (print_npbf (fml_to_pbf fml)))
@@ -774,23 +782,24 @@ Proof
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
   qexists_tac`concat(print_npbf(fml_to_pbf fml))`>>
-  qexists_tac`strlit ""`>>
+  qexists_tac`«»`>>
   simp[STD_streams_stderr,add_stdo_nil]>>
   xsimpl
 QED
 
 Definition usage_string_def:
-  usage_string = strlit "Usage: cake_pb_cnf <DIMACS CNF file> <optional: PB proof file>\n"
+  usage_string = «Usage: cake_pb_cnf <DIMACS CNF file> <optional: PB proof file>\n»
 End
 
 val r = translate usage_string_def;
 
-val main = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun main u =
   case CommandLine.arguments () of
     [f1] => check_unsat_1 f1
   | [f1,f2] => check_unsat_2 f1 f2
-  | _ => TextIO.output TextIO.stdErr usage_string`
+  | _ => TextIO.output TextIO.stdErr (mk_usage_string usage_string)
+End
 
 Definition main_sem_def:
   main_sem fs cl out =
@@ -798,7 +807,7 @@ Definition main_sem_def:
     check_unsat_1_sem fs (EL 1 cl) out
   else if LENGTH cl = 3 then
     check_unsat_2_sem fs (EL 1 cl) out
-  else out = strlit ""
+  else out = «»
 End
 
 Theorem STDIO_refl:
@@ -829,11 +838,13 @@ Proof
   Cases_on`t`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
+    assume_tac (theorem "usage_string_v_thm")>>
+    xlet_autop>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     rename1`COMMANDLINE cl`>>
     qexists_tac`COMMANDLINE cl`>>xsimpl>>
-    qexists_tac `usage_string` >>
-    simp [theorem "usage_string_v_thm"] >>
+    qexists_tac `mk_usage_string usage_string` >>
+    simp [] >>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -855,11 +866,13 @@ Proof
     fs[wfcl_def]>>
     rw[]>>metis_tac[STDIO_refl])>>
   xmatch>>
+  assume_tac (theorem "usage_string_v_thm")>>
+  xlet_autop>>
   xapp_spec output_stderr_spec \\ xsimpl>>
   rename1`COMMANDLINE cl`>>
   qexists_tac`COMMANDLINE cl`>>xsimpl>>
-  qexists_tac `usage_string` >>
-  simp [theorem "usage_string_v_thm"] >>
+  qexists_tac `mk_usage_string usage_string` >>
+  simp [] >>
   qexists_tac`fs`>>xsimpl>>
   rw[]>>
   fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -885,21 +898,7 @@ Proof
   \\ simp[GSYM add_stdo_with_numchars,with_same_numchars]
 QED
 
-local
-
-val name = "main"
-val (sem_thm,prog_tm) =
-  whole_prog_thm (get_ml_prog_state()) name (UNDISCH main_whole_prog_spec2)
-val main_prog_def = Define`main_prog = ^prog_tm`;
-
-in
-
 Theorem main_semantics =
-  sem_thm
-  |> REWRITE_RULE[GSYM main_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
-
-end
-
-val _ = export_theory();
+  prove_sem_thm "main"
+                "main_prog"
+                main_whole_prog_spec2;

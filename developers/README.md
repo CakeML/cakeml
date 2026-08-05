@@ -24,6 +24,11 @@ broken HOL4 scripts following changes to HOL4. Update the new_str
 declaration below and run this with poly --script fix_scripts.sml in
 the dir that needs fixing; it will recurse into INCLUDES dirs.
 
+[lint_build_dirs.sml](lint_build_dirs.sml):
+This SML program performs sanity checks on `build-sequence` and
+`build-exludes`, and makes sure all directories that contain a Holmakefile
+are either built or explicitly excluded.
+
 [readme_gen.sml](readme_gen.sml):
 This SML program generates a `README.md` summary for the files
 given as command-line arguments to this script. The contents of the

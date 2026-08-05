@@ -1,10 +1,11 @@
 (*
   Pure functions for the Rat module.
 *)
-open preamble mlstringTheory mlintTheory;
-open ratLib gcdTheory ratTheory;
-
-val _ = new_theory "mlrat";
+Theory mlrat
+Ancestors
+  mlstring mlint gcd rat
+Libs
+  preamble ratLib
 
 (* representation type *)
 
@@ -143,10 +144,12 @@ Proof
        realTheory.real_sub]
 QED
 
-val inv_div = Q.prove(
-  ‘x ≠ 0r ∧ y ≠ 0 ⇒ (inv (x / y) = y / x)’,
+Theorem inv_div[local]:
+  x ≠ 0r ∧ y ≠ 0 ⇒ (inv (x / y) = y / x)
+Proof
   simp[realTheory.real_div, realTheory.REAL_INV_MUL, realTheory.REAL_INV_EQ_0,
-       realTheory.REAL_INV_INV, realTheory.REAL_MUL_COMM]);
+       realTheory.REAL_INV_INV, realTheory.REAL_MUL_COMM]
+QED
 
 Theorem real_of_int_eq_num[simp]:
    ((real_of_int i = &n) <=> (i = &n)) /\
@@ -355,4 +358,3 @@ Proof
   simp[intrealTheory.INT_FLOOR]
 QED
 
-val _ = export_theory ();

@@ -5,22 +5,21 @@
   state a formal connection between the generated code and the input
   HOL functions.
 *)
-open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory libTheory evaluateTheory semanticPrimitivesTheory
-open ml_progLib ml_progTheory evaluateTheory
-open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
-open cfHeapsBaseTheory basisFunctionsLib
-open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib
-open holKernelTheory holKernelProofTheory
-open basisProgTheory
-open holAxiomsSyntaxTheory (* for setting up the context *)
-local open holKernelPmatchTheory in end
+Theory ml_hol_kernel_funsProg
+Libs
+  preamble ml_translatorLib ml_progLib cfTacticsLib Satisfy
+  basisFunctionsLib ml_monadStoreLib ml_monad_translatorLib
+Ancestors
+  ml_translator ml_pmatch patternMatches ast evaluate
+  semanticPrimitives ml_prog evaluate set_sep cf cfStore
+  cfHeapsBase ml_monadBase ml_monad_translator holKernel
+  holKernelProof basisProg holAxiomsSyntax
+  holKernelPmatch[qualified]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "ml_hol_kernel_funsProg";
 val _ = translation_extends "basisProg"
 
 val _ = (use_full_type_names := false);
@@ -49,22 +48,26 @@ val _ = ml_prog_update open_local_block;
 
 (* Initialize the translation *)
 
-val init_type_constants_def = Define `
-  init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]`;
+Definition init_type_constants_def:
+  init_type_constants = [(«bool»,0); («fun»,2:num)]
+End
 
-val init_term_constants_def = Define `
-  init_term_constants = [(strlit"=",
-    Tyapp (strlit"fun")
-      [Tyvar (strlit"A");
-       Tyapp (strlit"fun")
-         [Tyvar (strlit"A");
-          Tyapp (strlit"bool") []]])]`;
+Definition init_term_constants_def:
+  init_term_constants = [(«=»,
+    Tyapp «fun»
+      [Tyvar «A»;
+       Tyapp «fun»
+         [Tyvar «A»;
+          Tyapp «bool» []]])]
+End
 
-val init_axioms_def = Define `
-  init_axioms = []:thm list`;
+Definition init_axioms_def:
+  init_axioms = []:thm list
+End
 
-val init_context_def = Define `
-  init_context = ^(rhs(concl(holSyntaxTheory.init_ctxt_def)))`;
+Definition init_context_def:
+  init_context = ^(rhs(concl(holSyntaxTheory.init_ctxt_def)))
+End
 
 val refs_init_list = [
   ("the_type_constants", init_type_constants_def, get_the_type_constants_def,
@@ -100,7 +103,10 @@ val (monad_parameters, store_translation, exn_specs) =
 
 (* mechanism for adding type checking annotations *)
 
-val pure_seq_intro = prove(“x = y ⇒ ∀z. x = pure_seq z y”, fs [pure_seq_def]);
+Theorem pure_seq_intro[local]:
+  x = y ⇒ ∀z. x = pure_seq z y
+Proof fs [pure_seq_def]
+QED
 
 fun mlstring_check s = “mlstring$strlen ^s”
 fun type_check ty = “case ^ty of Tyvar _ => () | _ => abc” |> subst [“abc:unit”|->“()”]
@@ -172,9 +178,11 @@ val res = translate check_tm_tm_def;
 (*
 val res = translate mlstringTheory.explode_aux_def;
 val res = translate mlstringTheory.explode_def;
-val explode_aux_side_thm = Q.prove(
-  `∀s n m. n + m = strlen s ==> explode_aux_side s n m `,
-  Induct_on`m` \\ rw[Once (theorem"explode_aux_side_def")]);
+Theorem explode_aux_side_thm[local]:
+  ∀s n m. n + m = strlen s ==> explode_aux_side s n m
+Proof
+  Induct_on`m` \\ rw[Once (theorem"explode_aux_side_def")]
+QED
 val explode_side_thm = Q.prove(
   `explode_side x`,
   rw[definition"explode_side_def",explode_aux_side_thm])
@@ -218,12 +226,6 @@ val _ = ml_prog_update open_local_block;
 
 val res = translate alphavars_def;
 val res = translate holKernelPmatchTheory.raconv_def;
-
-Theorem raconv_side = Q.prove(`
-  !x y z. raconv_side x y z`,
-  ho_match_mp_tac holKernelTheory.raconv_ind
-  \\ ntac 4 (rw [Once (fetch "-" "raconv_side_def")]))
-  |> update_precondition;
 
 val res = translate (check [‘tm1’,‘tm2’] aconv_def);
 
@@ -303,7 +305,7 @@ val res = translate concl_def;
 
 val _ = ml_prog_update open_local_block;
 
-val type_compare_def = tDefine "type_compare" `
+Definition type_compare_def:
   (type_compare t1 t2 =
      case (t1,t2) of
      | (Tyvar x1,Tyvar x2) => mlstring$compare x1 x2
@@ -321,10 +323,8 @@ val type_compare_def = tDefine "type_compare" `
      | (t1::ts1,t2::ts2) =>
          (case type_compare t1 t2 of
           | Equal => type_list_compare ts1 ts2
-          | other => other))`
-  (WF_REL_TAC `measure (\x. case x of
-                  INR (x,_) => type1_size x
-                | INL (x,_) => type_size x)`)
+          | other => other))
+End
 
 val type_cmp_thm = Q.prove(
   `(type_cmp = type_compare) /\
@@ -339,11 +339,11 @@ val type_cmp_thm = Q.prove(
   |> CONJUNCT1;
 
 val _ = add_preferred_thy "-";
-val _ = save_thm("type_cmp_ind",
-          (fetch "-" "type_compare_ind") |> RW [GSYM type_cmp_thm]);
+Theorem type_cmp_ind =
+  (fetch "-" "type_compare_ind") |> RW [GSYM type_cmp_thm]
 val res = translate (type_compare_def |> RW [GSYM type_cmp_thm]);
 
-val term_compare_def = Define `
+Definition term_compare_def:
   term_compare t1 t2 =
      case (t1,t2) of
        (Var x1 ty1,Var x2 ty2) =>
@@ -377,21 +377,24 @@ val term_compare_def = Define `
          case term_compare s1' s2' of
            Less => Less
          | Equal => term_compare t1' t2'
-         | Greater => Greater`;
+         | Greater => Greater
+End
 
-val term_cmp_thm = Q.prove(
-  `term_cmp = term_compare`,
+Theorem term_cmp_thm[local]:
+  term_cmp = term_compare
+Proof
   fs [FUN_EQ_THM]
   \\ HO_MATCH_MP_TAC (fetch "-" "term_compare_ind")
   \\ REPEAT STRIP_TAC \\ fs []
   \\ ONCE_REWRITE_TAC [holSyntaxExtraTheory.term_cmp_thm]
   \\ ONCE_REWRITE_TAC [term_compare_def]
   \\ REPEAT BasicProvers.CASE_TAC
-  \\ fs [comparisonTheory.pair_cmp_def])
+  \\ fs [comparisonTheory.pair_cmp_def]
+QED
 
 val _ = add_preferred_thy "-";
-val _ = save_thm("term_cmp_ind",
-          (fetch "-" "term_compare_ind") |> RW [GSYM term_cmp_thm]);
+Theorem term_cmp_ind =
+  (fetch "-" "term_compare_ind") |> RW [GSYM term_cmp_thm]
 val res = translate (term_compare_def |> RW [GSYM term_cmp_thm]);
 
 val res = translate (check [‘ty’] holKernelPmatchTheory.codomain_def);
@@ -447,7 +450,8 @@ val _ = ml_prog_update open_local_block;
 
 val fdM_def = new_definition("fdM_def",``fdM = first_dup``)
 val fdM_intro = SYM fdM_def
-val fdM_ind = save_thm("fdM_ind",REWRITE_RULE[MEMBER_INTRO]first_dup_ind)
+Theorem fdM_ind =
+  REWRITE_RULE[MEMBER_INTRO]first_dup_ind
 val fdM_eqs = REWRITE_RULE[MEMBER_INTRO,fdM_intro]first_dup_def
 val def = fdM_eqs |> translate
 val def = REWRITE_RULE[fdM_intro]add_constants_def |> m_translate
@@ -464,7 +468,7 @@ val def = add_type_def |> m_translate
 Definition call_new_type_def[simp]:
   call_new_type (n:mlstring, arity:int) =
     if 0 ≤ arity then new_type (n, Num (ABS arity))
-    else raise_Fail (strlit "negative arity")
+    else raise_Fail «negative arity»
 End
 
 val _ = next_ml_names := ["new_type_num"];
@@ -517,7 +521,7 @@ val def = new_basic_definition_def |> check [‘tm’] |> m_translate
 
 val def = holSyntaxExtraTheory.instance_subst_def |> PURE_REWRITE_RULE [MEM_EXISTS] |> translate_no_ind
 
-Triviality instance_subst_ind:
+Theorem instance_subst_ind[local]:
   instance_subst_ind
 Proof
   rewrite_tac [fetch "-" "instance_subst_ind_def"]
@@ -535,30 +539,17 @@ val _ = instance_subst_ind |> update_precondition;
 val def = holSyntaxTheory.is_reserved_name_def |> translate
 val def = check_overloads_def |> m_translate
 
-Overload monad_bind[local] = ``st_ex_bind``
-Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload return[local] = ``st_ex_return``
+val _ = monadsyntax.temp_enable_monad "st_ex";
+
 Overload failwith[local] = ``raise_Fail``
 
 val def = holSyntaxTheory.wellformed_compute_def |> translate
-
-Theorem wellformed_compute_side_thm[local]:
-  wellformed_compute_side x
-Proof
-  qid_spec_tac ‘x’ >>
-  ho_match_mp_tac holSyntaxTheory.wellformed_compute_ind >>
-  rpt strip_tac >>
-  rw[Once(fetch "-" "wellformed_compute_side_def")]
-QED
-
-val _ = update_precondition wellformed_compute_side_thm
 
 Definition allTypes_ty_def:
   allTypes_ty = allTypes'
 End
 
-Triviality allTypes'_eqn:
+Theorem allTypes'_eqn[local]:
   allTypes' ty =
     case ty of
       Tyapp s tys =>
@@ -581,7 +572,7 @@ val def = holSyntaxTheory.allTypes_def
           |> REWRITE_RULE[GSYM allTypes_ty_def]
           |> translate
 
-Triviality allCInsts_eqn =
+Theorem allCInsts_eqn[local] =
   holSyntaxTheory.allCInsts_def
   |> SIMP_RULE std_ss [holSyntaxTheory.builtin_const_def,
                        holSyntaxTheory.init_ctxt_def,FILTER,
@@ -592,24 +583,24 @@ Triviality allCInsts_eqn =
 
 val def = allCInsts_eqn |> translate
 
-(* MAP Tyvar (MAP implode (QSORT string_le (MAP explode (type_vars_in_term P)))) *)
+(* MAP Tyvar (MAP implode (sort string_le (MAP explode (type_vars_in_term P)))) *)
 
 val def = REPLICATE |> translate
 
 val def = holSyntaxTheory.dependency_compute_def
-          |> PURE_REWRITE_RULE[GSYM QSORT_type_vars_in_term,GSYM allTypes_ty_def]
+          |> PURE_REWRITE_RULE[GSYM sort_type_vars_in_term,GSYM allTypes_ty_def]
           |> translate
 
-val def = list_max_def |> translate
+val def = MAX_LIST_def |> translate
 
-(*Theorem list_max_strlen_lemma:
-  list_max (MAP strlen (tyvars ty)) = list_max (MAP strlen (type_vars_in_term ty))
+(*Theorem MAX_LIST_strlen_lemma:
+  MAX_LIST (MAP strlen (tyvars ty)) = MAX_LIST (MAP strlen (type_vars_in_term ty))
 Proof
 QED*)
 
 (*val def = FOLDL |> translate*)
 
-Triviality lambda_lemma:
+Theorem lambda_lemma[local]:
   (λx y. (λ(a,b) c. P a b c) y x) = λc (a,b). P a b c
 Proof
   rw[ELIM_UNCURRY]
@@ -638,7 +629,7 @@ Theorem normalise_tyvars_subst_alt_eqn:
 Proof
   ho_match_mp_tac holSyntaxExtraTheory.normalise_tyvars_subst_ind >>
   rw[normalise_tyvars_subst_alt_def,holSyntaxExtraTheory.normalise_tyvars_subst_def] >>
-  gvs[mlstringTheory.implode_def] >>
+  gvs[] >>
   gvs[EVERY_MEM,EXISTS_MEM] >>
   MAP_EVERY qid_spec_tac [‘n’,‘subst’] >>
   Induct_on ‘tys’ >>
@@ -662,7 +653,7 @@ val def = holSyntaxExtraTheory.unify_types_def
                                 PURE_REWRITE_RULE[GSYM FUN_EQ_THM] (GSYM (cj 1 holKernelProofTheory.type_subst))]
           |> translate_no_ind
 
-Triviality unify_types_ind:
+Theorem unify_types_ind[local]:
   unify_types_ind
 Proof
   rewrite_tac [fetch "-" "unify_types_ind_def"]
@@ -686,7 +677,7 @@ val def = holSyntaxExtraTheory.unify_def
 
 val def = holSyntaxExtraTheory.orth_ctxt_compute_def
           |> PURE_REWRITE_RULE[holSyntaxLibTheory.mlstring_sort_def,
-                               GSYM QSORT_type_vars_in_term]
+                               GSYM sort_type_vars_in_term]
           |> translate
 
 val def = holSyntaxCyclicityTheory.unify_LR_def |> translate
@@ -774,5 +765,3 @@ val def = m_translate constants_def;
 
 val _ = Globals.max_print_depth := 10;
 val _ = print_asts := false;
-
-val _ = export_theory();

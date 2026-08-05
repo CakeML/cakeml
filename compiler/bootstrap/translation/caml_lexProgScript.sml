@@ -1,11 +1,14 @@
 (*
   Translation of the OCaml lexer.
  *)
+Theory caml_lexProg[no_sig_docs]
+Ancestors
+  caml_lex parserProg ml_translator
+Libs
+  preamble ml_translatorLib
 
 open preamble caml_lexTheory;
 open parserProgTheory ml_translatorLib ml_translatorTheory;
-
-val _ = new_theory "caml_lexProg";
 
 val _ = translation_extends "parserProg";
 
@@ -54,13 +57,6 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-(* The token type takes a while. These types are to be used with functions
- * that are translated using HOL_STRING_TYPE, so we need to set
- * use_string_type.
- *)
-
-val _ = ml_translatorLib.use_string_type true;
-
 val r = register_type “:caml_lex$token”;
 
 val r = translate isInt_PMATCH;
@@ -75,11 +71,6 @@ val r = translate isIdent_PMATCH;
 val r = translate destIdent_PMATCH;
 val r = translate isPragma_PMATCH;
 val r = translate destPragma_PMATCH;
-
-(* The rest of the lexer works on character lists.
- *)
-
-val _ = ml_translatorLib.use_string_type false;
 
 val r = translate hex2num_def;
 val r = translate dec2num_def;
@@ -142,8 +133,8 @@ Proof
     \\ intLib.ARITH_TAC)
   \\ simp [oct2num_def, s2n_def, numposrepTheory.l2n_def,
            lexer_implTheory.unhex_alt_def]
-  \\ rename [‘8 * ((if isHexDigit a then _ else 0) MOD 8 +
-           8 * (if isHexDigit b then _ else 0) MOD 8) +
+  \\ rename [‘8 * (((if isHexDigit a then _ else 0) MOD 8) +
+           8 * ((if isHexDigit b then _ else 0) MOD 8)) +
            (if isHexDigit c then _ else 0) MOD 8 < 256’]
   \\ ‘isHexDigit a ∧ isHexDigit c ∧ isHexDigit b’
     by (Cases_on ‘a’ \\ Cases_on ‘c’
@@ -157,21 +148,15 @@ QED
 
 val _ = update_precondition scan_escseq_side;
 
-val r = translate caml_lexTheory.next_sym_def;
+val r = translate scan_float1_def;
+val r = translate scan_float2_def
+val r = translate scan_float3_def
+val r = translate (scan_number_def |> REWRITE_RULE [GSYM sub_check_def]);
+val r = translate scan_float_or_int_def;
 
-Theorem next_sym_side[local]:
-  ∀x y. next_sym_side x y
-Proof
-  ho_match_mp_tac next_sym_ind \\ rw []
-  \\ simp [Once (fetch "-" "next_sym_side_def")]
-QED
-
-val _ = update_precondition next_sym_side;
+val r = translate (caml_lexTheory.next_sym_def |> REWRITE_RULE [GSYM sub_check_def]);
 
 val r = translate caml_lexTheory.lexer_fun_def;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val () = ml_translatorLib.clean_on_exit := true;
-
-val _ = export_theory ();

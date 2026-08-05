@@ -5,14 +5,15 @@
   to the tree so that users don't have to provide the compare function
   as an explicit argument everywhere.
 *)
-open preamble balanced_mapTheory
+Theory mlmap
+Ancestors
+  balanced_map
+Libs
+  preamble
 
-val _ = set_grammar_ancestry ["balanced_map"];
 val _ = ParseExtras.tight_equality();
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory"mlmap"
 
 (* implementation definitions *)
 
@@ -102,6 +103,19 @@ Definition exists_def:
   exists f (Map cmp t) = balanced_map$exists f t
 End
 
+Definition member_def:
+  member k (Map cmp t) = balanced_map$member cmp k t
+End
+
+Definition singleton_def:
+  singleton cmp k v = Map cmp (balanced_map$singleton k v)
+End
+
+Definition compare_def:
+  compare vcmp (Map cmp m1: ('a, 'b) map) (Map _ m2: ('a, 'b) map) =
+    balanced_map$compare cmp vcmp m1 m2
+End
+
 (* definitions for proofs *)
 
 Definition map_ok_def:
@@ -178,13 +192,15 @@ Proof
   fs [empty_def,cmp_of_def]
 QED
 
-val fmap_FLOOKUP_EQ = prove(
-  ``f1 = f2 <=> FLOOKUP f1 = FLOOKUP f2``,
+Theorem fmap_FLOOKUP_EQ[local]:
+    f1 = f2 <=> FLOOKUP f1 = FLOOKUP f2
+Proof
   fs [GSYM fmap_EQ_THM,FLOOKUP_DEF,FUN_EQ_THM]
   \\ eq_tac \\ rw []
   THEN1 metis_tac [SOME_11,NOT_NONE_SOME]
   \\ first_x_assum (qspec_then `x` mp_tac)
-  \\ rw [] \\ fs [IN_DEF]);
+  \\ rw [] \\ fs [IN_DEF]
+QED
 
 Theorem TotOrd_key_set[simp]:
    TotOrd cmp ==> key_set cmp k = {k}
@@ -623,4 +639,3 @@ Proof
   \\ fs [FLOOKUP_DEF]
 QED
 
-val _ = export_theory()

@@ -2,13 +2,12 @@
   Utility functions over tokens.
   TODO: perhaps should just appear in tokensTheory.
 *)
+Theory tokenUtils
+Ancestors
+  tokens grammar[qualified]
+Libs
+  preamble
 
-open preamble tokensTheory
-
-local open grammarTheory in end
-
-val _ = new_theory "tokenUtils"
-val _ = set_grammar_ancestry ["tokens", "grammar"]
 
 Definition isInt_def[simp]:
   isInt (IntT i) = T ∧
@@ -136,4 +135,3 @@ Definition destREPLIDT_def[simp]:
   (destREPLIDT _ = NONE)
 End
 
-val _ = export_theory()

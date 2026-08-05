@@ -1,13 +1,12 @@
 (*
   This phase collects all source-to-source transformations.
  *)
+Theory source_to_source
+Ancestors
+  source_let source_lift_consts misc[qualified]
+Libs
+  preamble
 
-open preamble;
-open source_letTheory source_lift_constsTheory;
-
-val _ = new_theory "source_to_source";
-
-val _ = set_grammar_ancestry ["source_let", "source_lift_consts", "misc"];
 
 Definition compile_def:
   compile prog =
@@ -15,5 +14,3 @@ Definition compile_def:
     let prog = source_lift_consts$compile_decs prog in
       prog
 End
-
-val _ = export_theory ();

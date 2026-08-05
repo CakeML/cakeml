@@ -1,39 +1,52 @@
 (*
   Correctness proof for data_simp
 *)
-open preamble data_simpTheory dataSemTheory dataPropsTheory;
+Theory data_simpProof
+Ancestors
+  data_simp dataSem dataProps
+Libs
+  preamble
 
-val _ = new_theory"data_simpProof";
-
-val _ = set_grammar_ancestry ["data_simp", "dataSem", "dataProps"];
-
-val evaluate_Seq_Skip = Q.prove(
-  `!c s. evaluate (Seq c Skip,s) = evaluate (c,s)`,
+Theorem evaluate_Seq_Skip[local]:
+  !c s. evaluate (Seq c Skip,s) = evaluate (c,s)
+Proof
   fs [evaluate_def,LET_DEF] \\ REPEAT STRIP_TAC
-  \\ Cases_on `evaluate (c,s)` \\ fs [] \\ SRW_TAC [] []);
+  \\ Cases_on `evaluate (c,s)` \\ fs [] \\ SRW_TAC [] []
+QED
 
-val evaluate_pSeq = Q.prove(
-  `evaluate (pSeq c1 c2, s) = evaluate (Seq c1 c2, s)`,
-  SRW_TAC [] [pSeq_def] \\ fs [evaluate_Seq_Skip]);
+Theorem evaluate_pSeq[local]:
+  evaluate (pSeq c1 c2, s) = evaluate (Seq c1 c2, s)
+Proof
+  SRW_TAC [] [pSeq_def] \\ fs [evaluate_Seq_Skip]
+QED
 
-val evaluate_simp = Q.prove(
-  `!c1 s c2. evaluate (simp c1 c2,s) = evaluate (Seq c1 c2,s)`,
+(* The Seq-with-Skip continuation is the identity on a result pair: the
+   inner lambda from unfolding `evaluate (Seq _ Skip)` collapses. *)
+Theorem lam_skip_id[local]:
+  (λ(res,s1). if res = NONE then evaluate (Skip,s1) else (res,s1)) x = x
+Proof
+  Cases_on `x` \\ Cases_on `q` \\ rw[evaluate_def]
+QED
+
+Theorem evaluate_simp[local]:
+  !c1 s c2. evaluate (simp c1 c2,s) = evaluate (Seq c1 c2,s)
+Proof
   recInduct evaluate_ind \\ reverse (REPEAT STRIP_TAC) THEN1
    (Cases_on `handler` \\ fs [simp_def,evaluate_pSeq]
     \\ Cases_on `x` \\ fs [simp_def,evaluate_pSeq]
     \\ fs [evaluate_def]
     \\ every_case_tac >> fs[evaluate_def,LET_THM]
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
-    \\ Cases_on `evaluate (r,set_var q a r'')` \\ fs []
-    \\ Cases_on `q'` \\ fs [] \\ rveq
-    \\ fs [] \\ rveq \\ fs [])
+    \\ rename1 `evaluate (r,set_var q a r'') = (hres,hst)`
+    \\ Cases_on `hres` \\ gvs [])
   \\ fs [simp_def,evaluate_def,LET_DEF,evaluate_pSeq,evaluate_pSeq]
-  \\ Cases_on `evaluate (c1,s)` \\ fs []
-  \\ Cases_on `evaluate (c2,r)` \\ fs []
-  \\ Cases_on `evaluate (c2,set_var n a r)` \\ fs []
-  \\ rw[] >> every_case_tac \\ fs [evaluate_def] \\ fs []
+  \\ Cases_on `evaluate (c1,s)` \\ fs [lam_skip_id]
+  \\ Cases_on `evaluate (c2,r)` \\ fs [lam_skip_id]
+  \\ Cases_on `evaluate (c2,set_var n a r)` \\ fs [lam_skip_id]
+  \\ rw[] >> every_case_tac \\ fs [evaluate_def,lam_skip_id] \\ fs []
   \\ CONV_TAC (DEPTH_CONV (PairRules.PBETA_CONV))
-  \\ every_case_tac >> fs[evaluate_def]);
+  \\ every_case_tac >> fs[evaluate_def,lam_skip_id]
+QED
 
 Theorem simp_correct:
    !c s. evaluate (simp c Skip,s) = evaluate (c,s)
@@ -50,4 +63,3 @@ Proof
   \\ metis_tac[]
 QED
 
-val _ = export_theory();

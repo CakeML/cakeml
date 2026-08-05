@@ -1,15 +1,18 @@
 (*
   Definitions for manipulating (deeply embedded) HOL syntax.
 *)
-open preamble mlstringTheory
+Theory holSyntaxLib
+Ancestors
+  mlstring
+Libs
+  preamble
 
-val _ = new_theory"holSyntaxLib"
-
-val ALPHAVARS_def = Define`
+Definition ALPHAVARS_def:
   (ALPHAVARS [] tmp ⇔ (FST tmp = SND tmp)) ∧
   (ALPHAVARS (tp::oenv) tmp ⇔
     (tmp = tp) ∨
-    (FST tp ≠ FST tmp) ∧ (SND tp ≠ SND tmp) ∧ ALPHAVARS oenv tmp)`
+    (FST tp ≠ FST tmp) ∧ (SND tp ≠ SND tmp) ∧ ALPHAVARS oenv tmp)
+End
 
 Theorem ALPHAVARS_REFL:
    ∀env t. EVERY (UNCURRY $=) env ==> ALPHAVARS env (t,t)
@@ -23,9 +26,10 @@ Proof
    Induct >> simp[ALPHAVARS_def] >> rw[] >> res_tac >> simp[]
 QED
 
-val REV_ASSOCD_def = Define`
+Definition REV_ASSOCD_def:
   (REV_ASSOCD a [] d = d) ∧
-  (REV_ASSOCD a (p::t) d = if SND p = a then FST p else REV_ASSOCD a t d)`
+  (REV_ASSOCD a (p::t) d = if SND p = a then FST p else REV_ASSOCD a t d)
+End
 
 Theorem REV_ASSOCD:
    (∀a d. REV_ASSOCD a [] d = d) ∧
@@ -77,21 +81,24 @@ Datatype:
   result = Clash 'a | Result 'a
 End
 
-val IS_RESULT_def = Define`
+Definition IS_RESULT_def[simp]:
   IS_RESULT(Clash _) = F ∧
-  IS_RESULT(Result _) = T`
+  IS_RESULT(Result _) = T
+End
 
-val IS_CLASH_def = Define`
+Definition IS_CLASH_def[simp]:
   IS_CLASH(Clash _) = T ∧
-  IS_CLASH(Result _) = F`
+  IS_CLASH(Result _) = F
+End
 
-val RESULT_def = Define`
-  RESULT(Result t) = t`
+Definition RESULT_def[simp]:
+  RESULT(Result t) = t
+End
 
-val CLASH_def = Define`
-  CLASH(Clash t) = t`
+Definition CLASH_def[simp]:
+  CLASH(Clash t) = t
+End
 
-val _ = export_rewrites["IS_RESULT_def","IS_CLASH_def","RESULT_def","CLASH_def"]
 
 Theorem NOT_IS_CLASH_IS_RESULT:
    ∀x. IS_CLASH x ⇔ ¬IS_RESULT x
@@ -141,8 +148,9 @@ Proof
   Cases \\ simp[]
 QED
 
-val LIST_INSERT_def = Define`
-  LIST_INSERT x xs = if MEM x xs then xs else x::xs`
+Definition LIST_INSERT_def:
+  LIST_INSERT x xs = if MEM x xs then xs else x::xs
+End
 
 Theorem MEM_LIST_INSERT:
    ∀l x. set (LIST_INSERT x l) = x INSERT set l
@@ -151,8 +159,9 @@ Proof
   rw[EXTENSION] >> metis_tac[]
 QED
 
-val LIST_UNION_def = Define`
-  LIST_UNION xs ys = FOLDR LIST_INSERT ys xs`
+Definition LIST_UNION_def:
+  LIST_UNION xs ys = FOLDR LIST_INSERT ys xs
+End
 
 Theorem MEM_LIST_UNION:
    ∀l1 l2. set (LIST_UNION l1 l2) = set l1 ∪ set l2
@@ -167,19 +176,17 @@ Proof
   Induct >> simp[MEM_LIST_UNION] >> metis_tac[]
 QED
 
-Theorem LIST_UNION_NIL:
+Theorem LIST_UNION_NIL[simp]:
    ∀l2. (LIST_UNION [] l2 = l2)
 Proof
   simp[LIST_UNION_def]
 QED
-val _ = export_rewrites["LIST_UNION_NIL"]
 
-Theorem set_LIST_UNION:
+Theorem set_LIST_UNION[simp]:
    ∀l1 l2. set (LIST_UNION l1 l2) = set l1 ∪ set l2
 Proof
   rw[EXTENSION,MEM_LIST_UNION]
 QED
-val _ = export_rewrites["set_LIST_UNION"]
 
 Theorem LIST_UNION_NIL_2:
    ∀ls. ALL_DISTINCT ls ⇒ LIST_UNION ls [] = ls
@@ -196,13 +203,15 @@ Proof
   fs[LIST_UNION_def,LIST_INSERT_def]
 QED
 
-val INORDER_INSERT_def = Define`
+Definition INORDER_INSERT_def:
   INORDER_INSERT x xs =
     APPEND (FILTER (λy. string_lt y x) xs)
-   (APPEND [x] (FILTER (λy. string_lt x y) xs))`
+   (APPEND [x] (FILTER (λy. string_lt x y) xs))
+End
 
-val LENGTH_INORDER_INSERT = Q.prove(
-  `!xs. ALL_DISTINCT (x::xs) ==> (LENGTH (INORDER_INSERT x xs) = SUC (LENGTH xs))`,
+Theorem LENGTH_INORDER_INSERT[local]:
+  !xs. ALL_DISTINCT (x::xs) ==> (LENGTH (INORDER_INSERT x xs) = SUC (LENGTH xs))
+Proof
   FULL_SIMP_TAC std_ss [INORDER_INSERT_def,LENGTH_APPEND,LENGTH]
   \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT] \\ REPEAT STRIP_TAC
   \\ ONCE_REWRITE_TAC [DECIDE ``1 + n = SUC n``]
@@ -212,31 +221,36 @@ val LENGTH_INORDER_INSERT = Q.prove(
   \\ Q.MATCH_ASSUM_RENAME_TAC `MEM y xs`
   \\ FULL_SIMP_TAC std_ss []
   \\ Cases_on `x = y` \\ FULL_SIMP_TAC std_ss []
-  \\ METIS_TAC [stringTheory.string_lt_cases,stringTheory.string_lt_antisym]);
+  \\ METIS_TAC [stringTheory.string_lt_cases,stringTheory.string_lt_antisym]
+QED
 
-val ALL_DISTINCT_INORDER_INSERT = Q.prove(
-  `!xs h. ALL_DISTINCT xs ==> ALL_DISTINCT (INORDER_INSERT h xs)`,
+Theorem ALL_DISTINCT_INORDER_INSERT[local]:
+  !xs h. ALL_DISTINCT xs ==> ALL_DISTINCT (INORDER_INSERT h xs)
+Proof
   FULL_SIMP_TAC (srw_ss()) [ALL_DISTINCT,INORDER_INSERT_def,
     ALL_DISTINCT_APPEND,MEM_FILTER] \\ REPEAT STRIP_TAC
   \\ TRY (MATCH_MP_TAC FILTER_ALL_DISTINCT)
   \\ FULL_SIMP_TAC (srw_ss()) [stringTheory.string_lt_nonrefl]
-  \\ METIS_TAC [stringTheory.string_lt_antisym]);
+  \\ METIS_TAC [stringTheory.string_lt_antisym]
+QED
 
-val ALL_DISTINCT_FOLDR_INORDER_INSERT = Q.prove(
-  `!xs. ALL_DISTINCT (FOLDR INORDER_INSERT [] xs)`,
+Theorem ALL_DISTINCT_FOLDR_INORDER_INSERT[local]:
+  !xs. ALL_DISTINCT (FOLDR INORDER_INSERT [] xs)
+Proof
   Induct \\ SIMP_TAC std_ss [ALL_DISTINCT,FOLDR] \\ REPEAT STRIP_TAC
-  \\ MATCH_MP_TAC ALL_DISTINCT_INORDER_INSERT \\ FULL_SIMP_TAC std_ss []);
+  \\ MATCH_MP_TAC ALL_DISTINCT_INORDER_INSERT \\ FULL_SIMP_TAC std_ss []
+QED
 
-Theorem MEM_FOLDR_INORDER_INSERT:
+Theorem MEM_FOLDR_INORDER_INSERT[simp]:
    !xs x. MEM x (FOLDR INORDER_INSERT [] xs) = MEM x xs
 Proof
   Induct \\ FULL_SIMP_TAC std_ss [FOLDR,INORDER_INSERT_def,MEM,MEM_APPEND,
     MEM_FILTER] \\ METIS_TAC [stringTheory.string_lt_cases]
 QED
-val _ = export_rewrites["MEM_FOLDR_INORDER_INSERT"]
 
-val STRING_SORT_def = Define`
-  STRING_SORT xs = FOLDR INORDER_INSERT [] xs`
+Definition STRING_SORT_def:
+  STRING_SORT xs = FOLDR INORDER_INSERT [] xs
+End
 
 Theorem PERM_STRING_SORT:
    ∀ls. ALL_DISTINCT ls ⇒ PERM ls (STRING_SORT ls)
@@ -256,23 +270,21 @@ Proof
   metis_tac[FILTER_ALL_DISTINCT,ALL_DISTINCT_PERM,string_lt_antisym,string_lt_cases,MEM_PERM]
 QED
 
-Theorem LENGTH_STRING_SORT:
+Theorem LENGTH_STRING_SORT[simp]:
    ∀ls. ALL_DISTINCT ls ⇒ (LENGTH (STRING_SORT ls) = LENGTH ls)
 Proof
   metis_tac[PERM_STRING_SORT,PERM_LENGTH]
 QED
-val _ = export_rewrites["LENGTH_STRING_SORT"]
 
-Theorem MEM_STRING_SORT:
+Theorem MEM_STRING_SORT[simp]:
    ∀ls. set (STRING_SORT ls) = set ls
 Proof
   Induct >>
   simp[STRING_SORT_def,INORDER_INSERT_def,EXTENSION,MEM_FILTER] >>
   rw[] >> metis_tac[string_lt_cases]
 QED
-val _ = export_rewrites["MEM_STRING_SORT"]
 
-Theorem ALL_DISTINCT_STRING_SORT:
+Theorem ALL_DISTINCT_STRING_SORT[simp]:
    !xs. ALL_DISTINCT (STRING_SORT xs)
 Proof
   Induct
@@ -285,7 +297,6 @@ Proof
   >> METIS_TAC [stringTheory.string_lt_antisym,stringTheory.string_lt_trans,
         stringTheory.string_lt_cases]
 QED
-val _ = export_rewrites["ALL_DISTINCT_STRING_SORT"]
 
 Theorem STRING_SORT_SORTED:
    ∀ls. SORTED $< (STRING_SORT ls)
@@ -326,8 +337,9 @@ Proof
   rw[EXTENSION,MEM_MAP,PULL_EXISTS,mlstringTheory.implode_explode]
 QED
 
-val mlstring_sort_def = Define`
-  mlstring_sort ls = MAP implode (STRING_SORT (MAP explode ls))`
+Definition mlstring_sort_def:
+  mlstring_sort ls = MAP implode (STRING_SORT (MAP explode ls))
+End
 
 Theorem mlstring_sort_eq:
    ∀l1 l2. ALL_DISTINCT l1 ∧ ALL_DISTINCT l2 ⇒
@@ -351,5 +363,3 @@ Proof
     REWRITE_RULE[pred_setTheory.EXTENSION,GSYM mlstring_sort_def]
       set_MAP_implode_STRING_SORT_MAP_explode]
 QED
-
-val _ = export_theory()

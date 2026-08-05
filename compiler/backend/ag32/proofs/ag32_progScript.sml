@@ -2,12 +2,13 @@
   Defines an ag32 instantiation of the machine-code Hoare triple for
   the decompiler.
 *)
-open preamble
-open set_sepTheory progTheory ag32Theory temporal_stateTheory
+Theory ag32_prog
+Libs
+  preamble
+Ancestors
+  set_sep prog ag32 ag32_memory temporal_state
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val () = new_theory "ag32_prog"
 
 Theorem v2w_F_T: (* TODO: move *)
   (v2w [F] = 0w) /\ (v2w [T] = 1w)
@@ -22,83 +23,111 @@ QED
 
 (* basic definitions *)
 
-val _ = Datatype `
+Datatype:
   ag32_el = aState ag32_state
           | aMem word32 word8
-          | aPc word32`;
+          | aPc word32
+End
 
 val ag32_el_11 = DB.fetch "-" "ag32_el_11";
 val ag32_el_distinct = DB.fetch "-" "ag32_el_distinct";
 
 Type ag32_set = ``:ag32_el set``
 
-val ag32_instr_def = Define`
+Definition ag32_instr_def:
   ag32_instr (a, w: word32) =
   { aMem (a+3w) ((31 >< 24) w) ;
     aMem (a+2w) ((23 >< 16) w) ;
     aMem (a+1w) ((15 ><  8) w) ;
-    aMem (a+0w) (( 7 ><  0) w) }`;
+    aMem (a+0w) (( 7 ><  0) w) }
+End
 
-val ag32_proj'_def = Define `
+Definition ag32_proj'_def:
   ag32_proj' (fs,ms,pc) (s:ag32_state) =
     (if fs then { aState s } else {}) UNION
     IMAGE (\a. aMem a (s.MEM a)) ms UNION
-    (if pc then { aPc (s.PC) } else {})`;
+    (if pc then { aPc (s.PC) } else {})
+End
 
-val ag32_proj_def   = Define `ag32_proj s = ag32_proj' (T,UNIV,T) s`;
-val ag32_proj''_def = Define `ag32_proj'' x s = ag32_proj s DIFF ag32_proj' x s`;
+Definition ag32_proj_def:
+  ag32_proj s = ag32_proj' (T,UNIV,T) s
+End
+Definition ag32_proj''_def:
+  ag32_proj'' x s = ag32_proj s DIFF ag32_proj' x s
+End
 
-val AG32_MODEL_def = Define`
+Definition AG32_MODEL_def:
    AG32_MODEL = (ag32_proj, (\x y. y = Next x), ag32_instr, (=), K F)
-                :(ag32_state, ag32_el, word32 # word32) processor`
+                :(ag32_state, ag32_el, word32 # word32) processor
+End
 
-val aP_def = Define `aP x = SEP_EQ {aPc x}`;
-val aM_def = Define `aM a x = SEP_EQ {aMem a x}`;
-val aS_def = Define `aS x = SEP_EQ {aState x}`;
-val aB_def = Define `aB md m = SEP_EQ { aMem a (m a) | a IN md }`;
+Definition aP_def:
+  aP x = SEP_EQ {aPc x}
+End
+Definition aM_def:
+  aM a x = SEP_EQ {aMem a x}
+End
+Definition aS_def:
+  aS x = SEP_EQ {aState x}
+End
+Definition aB_def:
+  aB md m = SEP_EQ { aMem a (m a) | a IN md }
+End
 
-val aD_def = Define `aD md = SEP_EXISTS m. aB md m`;
-val aPC_def = Define `aPC x = aP x * cond (aligned 2 x)`;
+Definition aD_def:
+  aD md = SEP_EXISTS m. aB md m
+End
+Definition aPC_def:
+  aPC x = aP x * cond (aligned 2 x)
+End
 
 (* lemmas about proj *)
 
-val ag32_proj'_SUBSET_ag32_proj = prove(
-  ``!y s. ag32_proj' y s SUBSET ag32_proj s``,
+Theorem ag32_proj'_SUBSET_ag32_proj[local]:
+    !y s. ag32_proj' y s SUBSET ag32_proj s
+Proof
   strip_tac \\ PairCases_on `y`
-  \\ rw [ag32_proj_def,ag32_proj'_def,SUBSET_DEF]);
+  \\ rw [ag32_proj_def,ag32_proj'_def,SUBSET_DEF]
+QED
 
-val SPLIT_ag32_proj = prove(
-  ``!x s. SPLIT (ag32_proj s) (ag32_proj' x s, ag32_proj'' x s)``,
+Theorem SPLIT_ag32_proj[local]:
+    !x s. SPLIT (ag32_proj s) (ag32_proj' x s, ag32_proj'' x s)
+Proof
   rpt strip_tac
   \\ `ag32_proj' x s SUBSET ag32_proj s` by metis_tac [ag32_proj'_SUBSET_ag32_proj]
   \\ simp [SPLIT_def,EXTENSION,IN_UNION,IN_DIFF,ag32_proj''_def]
   \\ simp [DISJOINT_DEF,EXTENSION,IN_INTER,NOT_IN_EMPTY,IN_DIFF]
-  \\ metis_tac [SUBSET_DEF]);
+  \\ metis_tac [SUBSET_DEF]
+QED
 
 val PUSH_IN_INTO_IF = METIS_PROVE []
   ``!g x y z. (x IN (if g then y else z)) = if g then x IN y else x IN z``;
 
-val SUBSET_ag32_proj = prove(
-  ``!u s. u SUBSET ag32_proj s <=> ?y. u = ag32_proj' y s``,
+Theorem SUBSET_ag32_proj[local]:
+    !u s. u SUBSET ag32_proj s <=> ?y. u = ag32_proj' y s
+Proof
   rw [] \\ eq_tac \\ rw [] \\ rw [ag32_proj'_SUBSET_ag32_proj]
   \\ qexists_tac `((?y. aState y IN u),
                    { a | a| ?x. aMem a x IN u },(?y. aPc y IN u))`
   \\ fs [ag32_proj'_def,ag32_proj_def,EXTENSION,SUBSET_DEF,PUSH_IN_INTO_IF]
   \\ rw [] \\ eq_tac \\ rw [] THEN1 metis_tac []
-  \\ res_tac \\ fs []);
+  \\ res_tac \\ fs []
+QED
 
-val SPLIT_ag32_proj_EXISTS = prove(
-  ``!s u v. SPLIT (ag32_proj s) (u,v) =
-            ?y. (u = ag32_proj' y s) /\ (v = ag32_proj'' y s)``,
+Theorem SPLIT_ag32_proj_EXISTS[local]:
+    !s u v. SPLIT (ag32_proj s) (u,v) =
+            ?y. (u = ag32_proj' y s) /\ (v = ag32_proj'' y s)
+Proof
   rpt strip_tac \\ eq_tac \\ rpt strip_tac \\ asm_rewrite_tac [SPLIT_ag32_proj]
   \\ fs [SPLIT_def,ag32_proj'_def,ag32_proj''_def]
   \\ `u SUBSET (ag32_proj s)` by
        (full_simp_tac std_ss [EXTENSION,SUBSET_DEF,IN_UNION] \\ metis_tac [])
   \\ fs [SUBSET_ag32_proj] \\ qexists_tac `y` \\ rewrite_tac []
   \\ fs [EXTENSION,IN_DIFF,IN_UNION,DISJOINT_DEF,NOT_IN_EMPTY,IN_INTER]
-  \\ metis_tac []);
+  \\ metis_tac []
+QED
 
-val IN_ag32_proj = prove(``
+Theorem IN_ag32_proj[local]:
   (!x s. aPc x IN (ag32_proj s) <=> (x = s.PC)) /\
   (!x s. aPc x IN (ag32_proj' (fs,ms,pc) s) <=> (x = s.PC) /\ pc) /\
   (!x s. aPc x IN (ag32_proj'' (fs,ms,pc) s) <=> (x = s.PC) /\ ~pc) /\
@@ -107,11 +136,14 @@ val IN_ag32_proj = prove(``
   (!x s. aState x IN (ag32_proj'' (fs,ms,pc) s) <=> (x = s) /\ ~fs) /\
   (!p x s. aMem p x IN (ag32_proj s) <=> (x = s.MEM p)) /\
   (!p x s. aMem p x IN (ag32_proj' (fs,ms,pc) s) <=> (x = s.MEM p) /\ p IN ms) /\
-  (!p x s. aMem p x IN (ag32_proj'' (fs,ms,pc) s) <=> (x = s.MEM p) /\ ~(p IN ms))``,
-  rw [ag32_proj'_def,ag32_proj''_def,ag32_proj_def] \\ metis_tac []);
+  (!p x s. aMem p x IN (ag32_proj'' (fs,ms,pc) s) <=> (x = s.MEM p) /\ ~(p IN ms))
+Proof
+  rw [ag32_proj'_def,ag32_proj''_def,ag32_proj_def] \\ metis_tac []
+QED
 
-val ag32_proj''_11 = prove(
-  ``!y y' s s'. (ag32_proj'' y' s' = ag32_proj'' y s) ==> (y = y')``,
+Theorem ag32_proj''_11[local]:
+    !y y' s s'. (ag32_proj'' y' s' = ag32_proj'' y s) ==> (y = y')
+Proof
   rpt strip_tac \\ CCONTR_TAC
   \\ rename [`x <> y`]
   \\ PairCases_on `x`
@@ -136,24 +168,29 @@ val ag32_proj''_11 = prove(
        (?x. aPc x IN ag32_proj'' (y0,y1,y2) s'))` by
       (Q.PAT_X_ASSUM `ag32_proj'' _ _ = ag32_proj'' _ _` (K ALL_TAC)
        \\ full_simp_tac bool_ss [IN_ag32_proj] \\ metis_tac [])
-    \\ fs [EXTENSION] \\ metis_tac []));
+    \\ fs [EXTENSION] \\ metis_tac [])
+QED
 
-val DELETE_ag32_proj = prove(``
+Theorem DELETE_ag32_proj[local]:
   (!s. (ag32_proj' (fs,ms,pc) s) DELETE aState s =
        (ag32_proj' (F,ms,pc) s)) /\
   (!b s. (ag32_proj' (fs,ms,pc) s) DELETE aMem b (s.MEM b) =
          (ag32_proj' (fs,ms DELETE b,pc) s)) /\
   (!s. (ag32_proj' (fs,ms,pc) s) DELETE aPc (s.PC) =
-       (ag32_proj' (fs,ms,F) s))``,
+       (ag32_proj' (fs,ms,F) s))
+Proof
   rw [ag32_proj'_def,EXTENSION,IN_UNION,GSPECIFICATION,LEFT_AND_OVER_OR,
     EXISTS_OR_THM,IN_DELETE,IN_INSERT,NOT_IN_EMPTY,PUSH_IN_INTO_IF]
-  \\ Cases_on `x` \\ SRW_TAC [] [] \\ metis_tac []);
+  \\ Cases_on `x` \\ SRW_TAC [] [] \\ metis_tac []
+QED
 
-val EMPTY_ag32_proj = prove(``
-  (ag32_proj' (fs,ms,pc) s = {}) <=> ~fs /\ (ms = {}) /\ ~pc``,
+Theorem EMPTY_ag32_proj[local]:
+  (ag32_proj' (fs,ms,pc) s = {}) <=> ~fs /\ (ms = {}) /\ ~pc
+Proof
   rw [ag32_proj'_def,EXTENSION]
   \\ SRW_TAC [] [ag32_proj'_def,EXTENSION,IN_UNION,GSPECIFICATION,LEFT_AND_OVER_OR,
-    EXISTS_OR_THM,IN_DELETE,IN_INSERT,NOT_IN_EMPTY,PUSH_IN_INTO_IF]);
+    EXISTS_OR_THM,IN_DELETE,IN_INSERT,NOT_IN_EMPTY,PUSH_IN_INTO_IF]
+QED
 
 (* theorems for construction of |- SPEC AG32_MODEL ... *)
 
@@ -230,18 +267,21 @@ Proof
   \\ asm_simp_tac std_ss [AC CONJ_COMM CONJ_ASSOC]
 QED
 
-val CODE_POOL_ag32_proj_LEMMA = prove(
-  ``!x y z. (x = (z INSERT y)) <=> (z INSERT y) SUBSET x /\
-            ((x DIFF (z INSERT y)) = {})``,
-  fs [EXTENSION,SUBSET_DEF,IN_INSERT,NOT_IN_EMPTY,IN_DIFF] \\ metis_tac []);
+Theorem CODE_POOL_ag32_proj_LEMMA[local]:
+    !x y z. (x = (z INSERT y)) <=> (z INSERT y) SUBSET x /\
+            ((x DIFF (z INSERT y)) = {})
+Proof
+  fs [EXTENSION,SUBSET_DEF,IN_INSERT,NOT_IN_EMPTY,IN_DIFF] \\ metis_tac []
+QED
 
-val CODE_POOL_ag32_proj = prove(
-  ``CODE_POOL ag32_instr {(p,c)} (ag32_proj' (fs,ms,pc) s) <=>
+Theorem CODE_POOL_ag32_proj[local]:
+    CODE_POOL ag32_instr {(p,c)} (ag32_proj' (fs,ms,pc) s) <=>
       ({p+3w;p+2w;p+1w;p} = ms) /\ ~fs /\ ~pc /\
       (s.MEM (p + 0w) = ( 7 ><  0) c) /\
       (s.MEM (p + 1w) = (15 ><  8) c) /\
       (s.MEM (p + 2w) = (23 >< 16) c) /\
-      (s.MEM (p + 3w) = (31 >< 24) c)``,
+      (s.MEM (p + 3w) = (31 >< 24) c)
+Proof
   simp_tac bool_ss [CODE_POOL_def,IMAGE_INSERT,IMAGE_EMPTY,BIGUNION_INSERT,
     BIGUNION_EMPTY,UNION_EMPTY,ag32_instr_def,CODE_POOL_ag32_proj_LEMMA,
     GSYM DELETE_DEF, INSERT_SUBSET, EMPTY_SUBSET,IN_ag32_proj]
@@ -250,25 +290,28 @@ val CODE_POOL_ag32_proj = prove(
   \\ Cases_on `(15 ><  8) c = s.MEM (p + 1w)` \\ asm_simp_tac std_ss []
   \\ Cases_on `( 7 ><  0) c = s.MEM (p + 0w)` \\ asm_simp_tac std_ss [WORD_ADD_0]
   \\ asm_simp_tac std_ss [DELETE_ag32_proj,EMPTY_ag32_proj,DIFF_INSERT]
-  \\ asm_simp_tac std_ss [AC CONJ_COMM CONJ_ASSOC,DIFF_EMPTY,EMPTY_ag32_proj]);
+  \\ asm_simp_tac std_ss [AC CONJ_COMM CONJ_ASSOC,DIFF_EMPTY,EMPTY_ag32_proj]
+QED
 
 val AG32_SPEC_CODE =
   SPEC_CODE |> ISPEC ``AG32_MODEL``
   |> SIMP_RULE std_ss [AG32_MODEL_def]
   |> REWRITE_RULE [GSYM AG32_MODEL_def];
 
-val IMP_AG32_SPEC_LEMMA = prove(
-  ``!p q.
+Theorem IMP_AG32_SPEC_LEMMA[local]:
+    !p q.
       (!fs ms pc s. ?s'.
         (p (ag32_proj' (fs,ms,pc) s) ==>
         (Next s = s') /\ q (ag32_proj' (fs,ms,pc) s') /\
         (ag32_proj'' (fs,ms,pc) s = ag32_proj'' (fs,ms,pc) s'))) ==>
-      SPEC AG32_MODEL p {} q``,
+      SPEC AG32_MODEL p {} q
+Proof
   simp_tac std_ss [RIGHT_EXISTS_IMP_THM] \\ rewrite_tac [AG32_SPEC_SEMANTICS]
   \\ simp_tac std_ss [FORALL_PROD]
   \\ rpt strip_tac \\ RES_TAC
   \\ full_simp_tac bool_ss [rel_sequence_def]
-  \\ qexists_tac `SUC 0` \\ metis_tac [PAIR,optionTheory.SOME_11]);
+  \\ qexists_tac `SUC 0` \\ metis_tac [PAIR,optionTheory.SOME_11]
+QED
 
 val _ = wordsLib.guess_lengths();
 Theorem BYTES_TO_WORD_LEMMA:
@@ -277,13 +320,14 @@ Proof
   SRW_TAC [wordsLib.WORD_EXTRACT_ss] []
 QED
 
-val IMP_AG32_SPEC = save_thm("IMP_AG32_SPEC",
+Theorem IMP_AG32_SPEC =
   (ONCE_REWRITE_RULE [STAR_COMM] o REWRITE_RULE [AG32_SPEC_CODE] o
    SPECL [``CODE_POOL ag32_instr c * p'``,
-          ``CODE_POOL ag32_instr c * q'``]) IMP_AG32_SPEC_LEMMA);
+          ``CODE_POOL ag32_instr c * q'``]) IMP_AG32_SPEC_LEMMA
 
-val mem_unchanged_def = Define `
-  mem_unchanged md m1 m2 = (!a. ~(a IN md) ==> m1 a = m2 a)`;
+Definition mem_unchanged_def:
+  mem_unchanged md m1 m2 = (!a. ~(a IN md) ==> m1 a = m2 a)
+End
 
 Theorem mem_unchanged_same[simp]:
    mem_unchanged md m m
@@ -361,9 +405,10 @@ QED
 
 (* SPEC implies FUNPOW Next *)
 
-val code_set_def = Define `
+Definition code_set_def:
   code_set a [] = {} /\
-  code_set a (i::is) = (a:word32,i) INSERT code_set (a+4w) is`;
+  code_set a (i::is) = (a:word32,i) INSERT code_set (a+4w) is
+End
 
 Theorem IN_code_set:
    !a xs p x.
@@ -464,5 +509,3 @@ Proof
   \\ rpt (pop_assum kall_tac)
   \\ blastLib.BBLAST_TAC
 QED
-
-val () = export_theory()

@@ -1,8 +1,5 @@
 This directory contains the ARMv7-specific part of the compiler backend.
 
-[arm7_compileLib.sml](arm7_compileLib.sml):
-Provides a compset for the ARMv7-specific parts of the backend
-
 [arm7_configScript.sml](arm7_configScript.sml):
 Define the compiler configuration for ARMv7
 

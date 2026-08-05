@@ -2,14 +2,13 @@
   Lemma used in repl_typesTheory: that evaluate_skip's invariant
   holds at initialisation.
 *)
+Theory evaluate_init
+Ancestors
+  evaluate semanticPrimitives evaluateProps namespaceProps
+  ml_prog evaluate_skip
+Libs
+  preamble helperLib[qualified]
 
-open preamble
-open evaluateTheory semanticPrimitivesTheory evaluatePropsTheory
-open namespacePropsTheory ml_progTheory
-open evaluate_skipTheory
-local open helperLib in end
-
-val _ = new_theory "evaluate_init";
 
 (* TODO: move *)
 
@@ -64,7 +63,8 @@ End
 Theorem ref_ok_thm:
   ref_ok s (Refv v) = v_ok s v ∧
   ref_ok s (Varray vs) = EVERY (v_ok s) vs ∧
-  ref_ok s (W8array a) = T
+  ref_ok s (W8array a) = T ∧
+  ref_ok s (Thunk _ v) = v_ok s v
 Proof
   rw [ref_ok_def, ref_rel_def, v_ok_def, LIST_REL_EL_EQN, EVERY_EL]
 QED
@@ -113,10 +113,7 @@ Theorem v_ok_thm:
   (∀env f n. v_ok s (Recclosure env f n) ⇔ env_ok s env) ∧
   (∀vs. v_ok s (Vectorv vs) ⇔ EVERY (v_ok s) vs) ∧
   (∀lit. v_ok s (Litv lit)) ∧
-  (∀ fp. v_ok s (FP_WordTree fp)) ∧
-  (∀ fp. v_ok s (FP_BoolTree fp)) ∧
-  (∀ r. v_ok s (Real r)) ∧
-  (∀loc. v_ok s (Loc loc) ⇔ loc < LENGTH s.refs) ∧
+  (∀loc b. v_ok s (Loc b loc) ⇔ loc < LENGTH s.refs) ∧
   (∀env ns. v_ok s (Env env ns) ⇔ env_ok s env)
 Proof
   rw [v_ok_def, v_rel_def, OPTREL_def, env_ok_def, FLOOKUP_FUN_FMAP,
@@ -159,58 +156,75 @@ local
           (∀env. res = Rval env ⇒ env_ok t env) ∧
           (∀v. res = Rerr (Rraise v) ⇒ v_ok t v)’ ]
     |> CONV_RULE (DEPTH_CONV BETA_CONV);
-  val ind_goals =
-    ind_thm |> concl |> dest_imp |> fst
-            |> helperLib.list_dest dest_conj
 in
-  fun get_goal s =
-    first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-    |> helperLib.list_dest dest_forall
-    |> last
   fun evaluate_ok () = ind_thm |> concl |> rand
   fun the_ind_thm () = ind_thm
 end
 
-Theorem evaluate_ok_Nil:
-  ^(get_goal "[]")
+Theorem evaluate_ok:
+  ^(evaluate_ok ())
 Proof
+  match_mp_tac (the_ind_thm ())
+  \\ rpt conj_tac
+  >~ [`[] : exp list`] >- suspend "Nil"
+  >~ [`_::_::_ : exp list`] >- suspend "Cons"
+  >~ [`Lit`] >- suspend "Lit"
+  >~ [`Raise`] >- suspend "Raise"
+  >~ [`Handle`] >- suspend "Handle"
+  >~ [`Con`] >- suspend "Con"
+  >~ [`ast$Var`] >- suspend "Var"
+  >~ [`ast$Fun`] >- suspend "Fun"
+  >~ [`ast$App`] >- suspend "App"
+  >~ [`Log`] >- suspend "Log"
+  >~ [`ast$If`] >- suspend "If"
+  >~ [`Mat`] >- suspend "Mat"
+  >~ [`ast$Let`] >- suspend "Let"
+  >~ [`Letrec`] >- suspend "Letrec"
+  >~ [`Tannot`] >- suspend "Tannot"
+  >~ [`Lannot`] >- suspend "Lannot"
+  >~ [`[] : (pat # exp) list`] >- suspend "pmatch_Nil"
+  >~ [`_::_ : (pat # exp) list`] >- suspend "pmatch_Cons"
+  >~ [`[]:dec list`] >- suspend "decs_Nil"
+  >~ [`_::_::_:dec list`] >- suspend "decs_Cons"
+  >~ [`Dlet`] >- suspend "decs_Dlet"
+  >~ [`Dletrec`] >- suspend "decs_Dletrec"
+  >~ [`Dtype`] >- suspend "decs_Dtype"
+  >~ [`Dtabbrev`] >- suspend "decs_Dtabbrev"
+  >~ [`Denv`] >- suspend "decs_Denv"
+  >~ [`Dexn`] >- suspend "decs_Dexn"
+  >~ [`Dmod`] >- suspend "decs_Dmod"
+  >~ [`Dlocal`] >- suspend "decs_Dlocal"
+  \\ simp []
+QED
+
+Resume evaluate_ok[Nil]:
   rw [evaluate_def] \\ gs []
 QED
 
-Theorem evaluate_ok_Cons:
-  ^(get_goal "_::_::_")
-Proof
+Resume evaluate_ok[Cons]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["result", "prod"]]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
   \\ irule evaluate_v_ok_mono \\ gs [SF SFY_ss]
 QED
 
-Theorem evaluate_ok_Lit:
-  ^(get_goal "Lit l")
-Proof
+Resume evaluate_ok[Lit]:
   rw [evaluate_def] \\ gs []
   \\ simp [v_ok_thm]
 QED
 
-Theorem evaluate_ok_Raise:
-  ^(get_goal "Raise e")
-Proof
+Resume evaluate_ok[Raise]:
   rw [evaluate_def] \\ gs []
   \\ gvs [CaseEqs ["result", "prod"]]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
 QED
 
-Theorem evaluate_ok_Handle:
-  ^(get_goal "Handle e")
-Proof
+Resume evaluate_ok[Handle]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["prod", "result", "error_result", "bool"]]
 QED
 
-Theorem evaluate_ok_Con:
-  ^(get_goal "Con cn es")
-Proof
+Resume evaluate_ok[Con]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["prod", "result", "option"]]
   \\ gvs [build_conv_def, CaseEqs ["option", "prod"], v_ok_thm]
@@ -223,18 +237,14 @@ Proof
   \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO]
 QED
 
-Theorem evaluate_ok_Var:
-  ^(get_goal "ast$Var n")
-Proof
+Resume evaluate_ok[Var]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"]]
   \\ gs [env_ok_def, env_rel_def, v_ok_def]
   \\ drule_all_then strip_assume_tac nsAll2_nsLookup1 \\ gs []
 QED
 
-Theorem evaluate_ok_Fun:
-  ^(get_goal "ast$Fun n e")
-Proof
+Resume evaluate_ok[Fun]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"], v_ok_thm]
 QED
@@ -253,9 +263,16 @@ Proof
   rw [do_eval_res_def, do_eval_def]
 QED
 
-Theorem evaluate_ok_Eval:
-  op = Eval ⇒ ^(get_goal "App")
-Proof
+Resume evaluate_ok[App]:
+  rpt gen_tac
+  \\ Cases_on `op = Eval`
+  >- suspend "App_Eval"
+  \\ Cases_on `op = Opapp`
+  >- suspend "App_Opapp"
+  >- suspend "App_Op"
+QED
+
+Resume evaluate_ok[App_Eval]:
   simp [evaluate_def]
   \\ strip_tac
   \\ strip_tac
@@ -472,12 +489,6 @@ Proof
       \\ irule_at Any v_rel_update
       \\ first_assum (irule_at Any)
       \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
-    >- (
-      irule ref_rel_mono
-      \\ first_assum (irule_at Any) \\ rw []
-      \\ irule_at Any v_rel_update
-      \\ first_assum (irule_at Any)
-      \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
     \\ rw [Once listTheory.LIST_REL_EL_EQN]
     \\ irule_at Any v_rel_update \\ gs[v_ok_def]
     \\ first_x_assum $ irule_at Any \\ rw [v_ok_def]
@@ -486,6 +497,14 @@ Proof
   >- (
     gvs [do_app_cases, v_ok_thm, store_alloc_def, with_same_refs_and_ffi])
   \\ Cases_on ‘op = Vsub’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+         store_lookup_def]
+    \\ drule_then assume_tac state_ok_refs_ok
+    \\ fs [EVERY_EL]
+    \\ first_x_assum drule
+    \\ rw [ref_ok_thm, EVERY_EL])
+  \\ Cases_on ‘op = Vsub_unsafe’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def]
@@ -514,15 +533,12 @@ Proof
   \\ Cases_on ‘op = Implode’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
-  \\ Cases_on ‘∃opb. op = Chopb opb’ \\ gs []
+  \\ Cases_on ‘op = XorAw8Str_unsafe’ \\ gs []
   >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
-  \\ Cases_on ‘op = Chr’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
-  \\ Cases_on ‘op = Ord’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+         store_lookup_def, copy_array_def, store_assign_def]
+    \\ gs [state_ok_def, state_rel_def, EL_LUPDATE, FLOOKUP_FUN_FMAP]
+    \\ rw [] \\ gs [ref_rel_def])
   \\ Cases_on ‘op = CopyAw8Aw8’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
@@ -540,14 +556,6 @@ Proof
     \\ gs [state_ok_def, state_rel_def, EL_LUPDATE, FLOOKUP_FUN_FMAP]
     \\ rw [] \\ gs [ref_rel_def])
   \\ Cases_on ‘op = CopyStrStr’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def])
-  \\ Cases_on ‘∃n. op = WordToInt n’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def])
-  \\ Cases_on ‘∃n. op = WordFromInt n’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def, copy_array_def, store_assign_def])
@@ -579,55 +587,6 @@ Proof
     \\ irule v_rel_update
     \\ first_assum (irule_at Any)
     \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
-  \\ Cases_on ‘∃top. op = FP_top top’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def,
-         v_ok_def, v_rel_def])
-  \\ Cases_on ‘∃bop. op = FP_bop bop’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def,
-         v_ok_def, v_rel_def])
-  \\ Cases_on ‘∃uop. op = FP_uop uop’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def,
-         v_ok_def, v_rel_def])
-  \\ Cases_on ‘∃cmp. op = FP_cmp cmp’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def,
-         v_ok_def, v_rel_def])
-  \\ Cases_on ‘∃bop. op = Real_bop bop’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def,
-         v_ok_def, v_rel_def])
-  \\ Cases_on ‘∃uop. op = Real_uop uop’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def,
-         v_ok_def, v_rel_def])
-  \\ Cases_on ‘∃cmp. op = Real_cmp cmp’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def,
-         v_ok_def, v_rel_def, Boolv_def]
-    \\ TOP_CASE_TAC
-    \\ gs[v_rel_def, stamp_rel_cases, state_ok_def, state_rel_def])
-  \\ Cases_on ‘∃opn. op = Opn opn’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def])
-  \\ Cases_on ‘∃opb. op = Opb opb’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def])
-  \\ Cases_on ‘∃sz opw. op = Opw sz opw’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def])
   \\ Cases_on ‘∃sz sh n. op = Shift sz sh n’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
@@ -636,6 +595,22 @@ Proof
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def, copy_array_def, store_assign_def])
+  \\ Cases_on ‘∃test ty. op = Test test ty’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+         store_lookup_def, copy_array_def, store_assign_def])
+  \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ \\ gs []
+  >- (
+    gvs [do_app_def, AllCaseEqs(), oneline do_conversion_def, check_type_def, chr_exn_v_def]
+    \\ gvs [v_ok_thm, stamp_ok_def, chr_stamp_def, Once stamp_rel_cases]
+    \\ gvs [state_ok_def, state_rel_def])
+  \\ Cases_on ‘∃a ty. op = Arith a ty’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+         store_lookup_def, copy_array_def, store_assign_def,
+         CaseEq"sum"]
+    \\ Cases_on ‘a’ \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
+    \\ gvs[do_arith_def,CaseEq"list",v_ok_thm] )
   \\ Cases_on ‘op = Opderef’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
@@ -664,48 +639,119 @@ Proof
     \\ irule v_rel_update
     \\ first_assum (irule_at Any)
     \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
-  \\ Cases_on ‘op = FpFromWord’ \\ gs[]
+  \\ Cases_on ‘∃m. op = ThunkOp (AllocThunk m)’ \\ gs[]
   >- (
-    gvs[do_app_cases, v_ok_thm]
-    \\ ‘s with <| refs := s.refs; ffi := s.ffi |> = s’ suffices_by gs[]
-    \\ gs[state_component_equality])
-  \\ Cases_on ‘op = FpToWord’ \\ gs[]
+    gvs [do_app_cases, v_ok_thm, thunk_op_def, AllCaseEqs()]
+    \\ pairarg_tac \\ gvs []
+    \\ gvs [store_alloc_def, state_ok_def, v_ok_thm, state_rel_def, EVERY_EL,
+            INJ_IFF, FLOOKUP_FUN_FMAP, EL_APPEND_EQN]
+    \\ rw [] \\ gvs [FUN_FMAP_DEF, ref_rel_def, NOT_LESS, LESS_OR_EQ,
+                     ref_ok_def]
+    >- (
+      irule ref_rel_mono
+      \\ first_assum (irule_at Any) \\ rw []
+      \\ irule_at Any v_rel_update
+      \\ first_assum (irule_at Any)
+      \\ gvs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
+    \\ gvs [v_ok_def]
+    \\ irule_at Any v_rel_update
+    \\ first_assum (irule_at Any)
+    \\ gvs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
+  \\ Cases_on ‘∃m. op = ThunkOp (UpdateThunk m)’ \\ gs[]
   >- (
-    gvs[do_app_cases, v_ok_thm]
-    \\ ‘s with <| refs := s.refs; ffi := s.ffi |> = s’ suffices_by gs[]
-    \\ gs[state_component_equality])
-  \\ Cases_on ‘op = RealFromFP’ \\ gs[]
-  >- (
-    gvs[do_app_cases, v_ok_thm]
-    \\ ‘s with <| refs := s.refs; ffi := s.ffi |> = s’ suffices_by gs[]
-    \\ gs[state_component_equality])
+    gvs [do_app_cases, thunk_op_def, AllCaseEqs(), v_ok_thm, store_assign_def,
+         state_ok_def, v_ok_def, state_rel_def, FLOOKUP_FUN_FMAP]
+    \\ rw [v_rel_def, EL_LUPDATE, ref_rel_def])
+  \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
+  >- gvs [do_app_def, AllCaseEqs(), thunk_op_def]
   \\ Cases_on ‘op’ \\ gs []
+  \\ Cases_on ‘t’ \\ gs []
 QED
 
 Theorem do_app_ok[allow_rebind] = SIMP_RULE (srw_ss()) [LET_THM] do_app_ok;
 
-Theorem evaluate_ok_Op:
-  op ≠ Opapp ∧ op ≠ Eval ⇒ ^(get_goal "App")
+Theorem dest_thunk_ok:
+  state_ok s ∧
+  dest_thunk vs s.refs = IsThunk m v ∧
+  do_opapp [v; Conv NONE []] = SOME (env,e) ⇒
+    state_ok (dec_clock s) ∧ env_ok (dec_clock s) env
 Proof
+  rw []
+  >- gvs [dec_clock_def, state_ok_def, state_rel_def]
+  \\ gvs [do_opapp_def, AllCaseEqs()]
+  >- (
+    gvs [dec_clock_def, env_ok_def, env_rel_def]
+    \\ irule_at Any nsAll2_nsBind \\ gvs []
+    \\ conj_tac >- simp [v_rel_def]
+    \\ gvs [state_ok_def, state_rel_def, FLOOKUP_FUN_FMAP]
+    \\ gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def]
+    \\ first_x_assum drule \\ rw [ref_rel_def, v_rel_def, env_rel_def])
+  \\ simp [env_ok_def, env_rel_def, dec_clock_def]
+  \\ irule_at Any nsAll2_nsBind \\ gvs []
+  \\ conj_tac >- simp [v_rel_def]
+  \\ simp [semanticPrimitivesPropsTheory.build_rec_env_merge]
+  \\ irule_at Any nsAll2_nsAppend \\ gvs []
+  \\ irule_at Any nsAll2_alist_to_ns \\ gvs []
+  \\ gs [EVERY2_MAP, LAMBDA_PROD, v_rel_def, env_rel_def]
+  \\ rw [ELIM_UNCURRY, LIST_REL_EL_EQN]
+  \\ gvs [state_ok_def, state_rel_def, FLOOKUP_FUN_FMAP]
+  \\ gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def]
+  \\ first_x_assum drule \\ rw [ref_rel_def, v_rel_def, env_rel_def]
+QED
+
+Resume evaluate_ok[App_Op]:
   strip_tac
-  \\ ‘~ (getOpClass op = EvalOp)’ by (Cases_on ‘op’ \\ gs[])
-  \\ ‘~ (getOpClass op = FunApp)’ by (Cases_on ‘op’ \\ gs[])
+  \\ ‘~ (getOpClass op = EvalOp)’ by (
+    Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
+  \\ ‘~ (getOpClass op = FunApp)’ by (
+    Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
   \\ rpt strip_tac
   \\ gs[evaluate_def, Excl "getOpClass_def"]
   \\ Cases_on ‘getOpClass op’ \\ gs[Excl "getOpClass_def"]
+  >>~ [‘getOpClass op = Force’]
+  >- (
+    Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
+    \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
+    >- (
+      drule_all dest_thunk_ok \\ rw [] \\ gvs []
+      \\ qpat_x_assum ‘state_ok st2’ mp_tac
+      \\ rw [state_ok_def, state_rel_def] \\ gvs [FLOOKUP_FUN_FMAP]
+      >- simp [INJ_DEF, FUN_FMAP_DEF]
+      \\ rw []
+      \\ gvs [oneline update_thunk_def, AllCaseEqs(), store_assign_def,
+              EL_LUPDATE]
+      \\ IF_CASES_TAC \\ gvs [ref_rel_def, v_ok_def])
+    >- (drule_all dest_thunk_ok \\ gvs []))
+  >- (
+    Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
+    \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
+    \\ (
+      drule_all dest_thunk_ok \\ rw [] \\ gvs []
+      \\ imp_res_tac (CONJUNCT1 evaluate_next_type_stamp_mono)
+      \\ imp_res_tac (CONJUNCT1 evaluate_next_exn_stamp_mono)
+      \\ imp_res_tac (CONJUNCT1 evaluate_refs_length_mono)
+      \\ gvs [dec_clock_def, env_ok_def]
+      \\ irule env_rel_update
+      \\ first_assum (irule_at Any)
+      \\ gvs [oneline update_thunk_def, AllCaseEqs(), store_assign_def,
+              FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO]))
+  >- (
+    Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
+    \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
+    >- (
+      gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def]
+      \\ qpat_x_assum ‘state_ok st'’ mp_tac
+      \\ rw [state_ok_def, state_rel_def] \\ gvs [FLOOKUP_FUN_FMAP]
+      \\ first_x_assum drule \\ rw [ref_rel_def, v_ok_def])
+    \\ drule_all dest_thunk_ok \\ rw [] \\ gvs []
+    \\ gvs [EVERY_EL, v_ok_def, oneline update_thunk_def, AllCaseEqs(),
+            store_assign_def])
+  >- (
+    Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
+    \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
+    \\ drule_all dest_thunk_ok \\ gvs [])
   \\ gvs [CaseEqs ["prod", "result", "option"]]
   \\ dxrule_then assume_tac (iffRL EVERY_REVERSE)
-  \\ TRY (
-    rename1 ‘evaluate st env (REVERSE es) = (st2, Rval vs)’
-    \\ ‘st2.fp_state.canOpt = Strict’
-      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv
-          \\ gs[state_ok_def, state_rel_def]))
-  \\ TRY (
-    rename1 ‘evaluate st env (REVERSE es) = (st2, Rval vs2)’
-    \\ ‘~ st2.fp_state.real_sem’
-      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv
-          \\ gs[state_ok_def, state_rel_def])
-    \\ gs[] \\ NO_TAC)
   \\ drule_all_then assume_tac do_app_ok \\ gs []
   \\ gs [env_ok_def]
   \\ drule_then assume_tac (CONJUNCT1 evaluate_next_type_stamp_mono)
@@ -739,9 +785,7 @@ Proof
   \\ rw [ELIM_UNCURRY, LIST_REL_EL_EQN]
 QED
 
-Theorem evaluate_ok_Opapp:
-  op = Opapp ⇒ ^(get_goal "App")
-Proof
+Resume evaluate_ok[App_Opapp]:
   simp [evaluate_def]
   \\ strip_tac
   \\ strip_tac
@@ -780,14 +824,6 @@ Proof
   \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO]
 QED
 
-Theorem evaluate_ok_App:
-  ^(get_goal "App")
-Proof
-  Cases_on ‘op = Opapp’ >- (match_mp_tac evaluate_ok_Opapp \\ gs [])
-  \\ Cases_on ‘op = Eval’ >- (match_mp_tac evaluate_ok_Eval \\ gs [])
-  \\ match_mp_tac evaluate_ok_Op \\ gs []
-QED
-
 Theorem v_ok_do_log:
   state_ok s ∧
   v_ok s v ∧
@@ -797,18 +833,14 @@ Proof
   \\ gs [do_log_def, CaseEq "bool"]
 QED
 
-Theorem evaluate_ok_Log:
-  ^(get_goal "Log")
-Proof
+Resume evaluate_ok[Log]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option", "prod", "result", "bool", "exp_or_val"]]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
   \\ drule_all_then assume_tac v_ok_do_log \\ gs []
 QED
 
-Theorem evaluate_ok_If:
-  ^(get_goal "If")
-Proof
+Resume evaluate_ok[If]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option", "prod", "result", "bool", "exp_or_val"]]
 QED
@@ -820,10 +852,9 @@ Proof
       bind_exn_v_def, bind_stamp_def]
 QED
 
-Theorem evaluate_ok_Mat:
-  ^(get_goal "Mat")
-Proof
-  simp [evaluate_def]
+Resume evaluate_ok[Mat]:
+  rpt gen_tac
+  \\ simp [evaluate_def]
   \\ strip_tac
   \\ rpt gen_tac
   \\ strip_tac
@@ -837,9 +868,7 @@ Proof
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
 QED
 
-Theorem evaluate_ok_Let:
-  ^(get_goal "Let")
-Proof
+Resume evaluate_ok[Let]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option", "prod", "result", "bool"]]
   \\ imp_res_tac evaluate_sing \\ gvs []
@@ -859,9 +888,7 @@ Proof
   \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO]
 QED
 
-Theorem evaluate_ok_Letrec:
-  ^(get_goal "Letrec")
-Proof
+Resume evaluate_ok[Letrec]:
   rw [evaluate_def] \\ gs [SF SFY_ss]
   \\ rename1 ‘env_ok st (env with v := build_rec_env funs env env.v)’
   \\ ‘env_ok st (env with v := build_rec_env funs env env.v)’
@@ -881,47 +908,15 @@ Proof
   \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO]
 QED
 
-Theorem evaluate_ok_Tannot:
-  ^(get_goal "Tannot")
-Proof
+Resume evaluate_ok[Tannot]:
   rw [evaluate_def]
 QED
 
-Theorem evaluate_ok_Lannot:
-  ^(get_goal "Lannot")
-Proof
+Resume evaluate_ok[Lannot]:
   rw [evaluate_def]
 QED
 
-Theorem EVERY_do_fpoptimise:
-  ∀ ann vs st.
-    EVERY (v_ok st) vs ⇒
-    EVERY (v_ok st) (do_fpoptimise ann vs)
-Proof
-  ho_match_mp_tac do_fpoptimise_ind
-  \\ rw[do_fpoptimise_def, v_ok_def, v_rel_def]
-  \\ irule LIST_REL_do_fpoptimise \\ gs[]
-QED
-
-Theorem evaluate_ok_FpOptimise:
-  ^(get_goal "FpOptimise")
-Proof
-  rw [evaluate_def]
-  \\ ‘st.fp_state.canOpt = Strict’ by gs [state_ok_def, state_rel_def]
-  \\ ‘st with fp_state := st.fp_state = st’ by gs[state_component_equality]
-  \\ gvs [CaseEqs["prod","result"]]
-  \\ rename1 ‘evaluate st env [e] = (st2, _)’
-  \\ ‘st2 with fp_state := st2.fp_state with canOpt := Strict = st2’
-     by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv
-         \\ gs [state_component_equality, fpState_component_equality])
-  \\ gvs[]
-  \\ irule EVERY_do_fpoptimise
-  \\ gs[]
-QED
-
-Theorem evaluate_ok_pmatch_Nil:
-  ^(get_goal "[]:(pat # exp) list")
-Proof
+Resume evaluate_ok[pmatch_Nil]:
   rw [evaluate_def] \\ gs []
 QED
 
@@ -942,9 +937,7 @@ Proof
   \\ rw [ELIM_UNCURRY]
 QED
 
-Theorem evaluate_ok_pmatch_Cons:
-  ^(get_goal "_::_:(pat # exp) list")
-Proof
+Resume evaluate_ok[pmatch_Cons]:
   rw [evaluate_def] \\ gs [CaseEqs ["match_result"]]
   \\ rename1 ‘env_ok st (env with v := nsAppend (alist_to_ns env1) env.v)’
   \\ drule pmatch_ok \\ rw [] \\ gs []
@@ -965,9 +958,7 @@ Proof
   \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO]
 QED
 
-Theorem evaluate_ok_decs_Nil:
-  ^(get_goal "[]:dec list")
-Proof
+Resume evaluate_ok[decs_Nil]:
   rw [evaluate_decs_def, extend_dec_env_def]
   \\ gs [env_ok_def, env_rel_def, ctor_rel_def]
 QED
@@ -992,10 +983,9 @@ Proof
   \\ irule env_rel_nsAppend \\ gs []
 QED
 
-Theorem evaluate_ok_decs_Cons:
-  ^(get_goal "_::_::_:dec list")
-Proof
-  simp [evaluate_decs_def]
+Resume evaluate_ok[decs_Cons]:
+  rpt gen_tac
+  \\ simp [evaluate_decs_def]
   \\ strip_tac \\ rpt gen_tac \\ strip_tac
   \\ qpat_x_assum ‘_ = (t,res)’ mp_tac
   \\ TOP_CASE_TAC \\ fs []
@@ -1028,9 +1018,7 @@ Proof
   \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO]
 QED
 
-Theorem evaluate_ok_decs_Dlet:
-  ^(get_goal "Dlet")
-Proof
+Resume evaluate_ok[decs_Dlet]:
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["prod", "result", "match_result"]]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
@@ -1040,9 +1028,7 @@ Proof
   \\ gvs [LIST_REL_EL_EQN, v_ok_def, EVERY_EL, ELIM_UNCURRY, EL_MAP]
 QED
 
-Theorem evaluate_ok_decs_Dletrec:
-  ^(get_goal "Dletrec")
-Proof
+Resume evaluate_ok[decs_Dletrec]:
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["prod", "result"]]
   \\ gs [env_rel_def, ctor_rel_def, env_ok_def,
@@ -1108,10 +1094,9 @@ Proof
   \\ simp [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO]
 QED
 
-Theorem evaluate_ok_decs_Dtype:
-  ^(get_goal "Dtype")
-Proof
-  simp [evaluate_decs_def]
+Resume evaluate_ok[decs_Dtype]:
+  rpt gen_tac
+  \\ simp [evaluate_decs_def]
   \\ strip_tac
   \\ gvs [CaseEq "bool"]
   \\ drule_all_then (qspec_then ‘LENGTH tds’ assume_tac)
@@ -1136,9 +1121,7 @@ Proof
   \\ simp [LIST_REL_EL_EQN, ELIM_UNCURRY, ADD1]
 QED
 
-Theorem evaluate_ok_decs_Dtabbrev:
-  ^(get_goal "Dtabbrev")
-Proof
+Resume evaluate_ok[decs_Dtabbrev]:
   rw [evaluate_decs_def]
   \\ gs [env_ok_def, env_rel_def, ctor_rel_def]
 QED
@@ -1150,16 +1133,12 @@ Proof
   rw [state_ok_def, state_rel_def, declare_env_def]
 QED
 
-Theorem evaluate_ok_decs_Denv:
-  ^(get_goal "Denv")
-Proof
+Resume evaluate_ok[decs_Denv]:
   rw [evaluate_decs_def]
   \\ gs [state_ok_declare_env]
 QED
 
-Theorem evaluate_ok_decs_Dexn:
-  ^(get_goal "Dexn")
-Proof
+Resume evaluate_ok[decs_Dexn]:
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["option", "prod"]]
   \\ drule_all_then (qspec_then ‘1’ assume_tac)
@@ -1168,18 +1147,15 @@ Proof
          FLOOKUP_FUN_FMAP]
 QED
 
-Theorem evaluate_ok_decs_Dmod:
-  ^(get_goal "Dmod")
-Proof
+Resume evaluate_ok[decs_Dmod]:
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["option", "prod", "result"]]
   \\ gs [env_ok_def, env_rel_def, ctor_rel_def]
 QED
 
-Theorem evaluate_ok_decs_Dlocal:
-  ^(get_goal "Dlocal")
-Proof
-  simp [evaluate_decs_def]
+Resume evaluate_ok[decs_Dlocal]:
+  rpt gen_tac
+  \\ simp [evaluate_decs_def]
   \\ strip_tac
   \\ rpt gen_tac \\ strip_tac
   \\ qpat_x_assum ‘_ = (t,res)’ mp_tac
@@ -1201,31 +1177,10 @@ Proof
   \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO]
 QED
 
-Theorem evaluate_ok:
-  ^(evaluate_ok ())
-Proof
-  match_mp_tac (the_ind_thm ())
-  \\ rpt conj_tac \\ rpt gen_tac
-  \\ rewrite_tac [evaluate_ok_Nil, evaluate_ok_Cons,
-                  evaluate_ok_Lit, evaluate_ok_Raise,
-                  evaluate_ok_Handle, evaluate_ok_Con,
-                  evaluate_ok_Var, evaluate_ok_Fun,
-                  evaluate_ok_App, evaluate_ok_Log,
-                  evaluate_ok_If, evaluate_ok_Mat,
-                  evaluate_ok_Let, evaluate_ok_Letrec,
-                  evaluate_ok_Tannot, evaluate_ok_Lannot,
-                  evaluate_ok_FpOptimise,
-                  evaluate_ok_pmatch_Nil, evaluate_ok_pmatch_Cons,
-                  evaluate_ok_decs_Nil, evaluate_ok_decs_Cons,
-                  evaluate_ok_decs_Dlet, evaluate_ok_decs_Dletrec,
-                  evaluate_ok_decs_Dtype,
-                  evaluate_ok_decs_Dtabbrev,
-                  evaluate_ok_decs_Denv, evaluate_ok_decs_Dexn,
-                  evaluate_ok_decs_Dmod, evaluate_ok_decs_Dlocal]
-QED
+Finalise evaluate_ok;
 
 (* -------------------------------------------------------------------------
- *
+ *  top-level results
  * ------------------------------------------------------------------------- *)
 
 Theorem state_ok_init:
@@ -1259,5 +1214,3 @@ Proof
   \\ rw [state_ok_init, env_ok_init]
   \\ irule env_ok_extend_dec_env \\ gs []
 QED
-
-val _ = export_theory();

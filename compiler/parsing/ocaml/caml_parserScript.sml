@@ -1,15 +1,13 @@
 (*
   Parser entry-point for the OCaml parser.
  *)
+Theory caml_parser
+Ancestors
+  misc[qualified] caml_lex camlPEG camlPtreeConversion mlstring
+  mlint
+Libs
+  preamble
 
-open preamble caml_lexTheory camlPEGTheory camlPtreeConversionTheory;
-open mlintTheory mlstringTheory;
-
-val _ = new_theory "caml_parser";
-
-val _ = set_grammar_ancestry [
-  "misc", "caml_lex", "camlPEG", "camlPtreeConversion",
-  "mlstring", "mlint" ];
 
 val _ = monadsyntax.temp_enable_monad "sum";
 
@@ -67,6 +65,4 @@ Definition run_def:
           INL (loc, err) => INL (loc, err)
         | INR tree => INR tree
 End
-
-val _ = export_theory ();
 

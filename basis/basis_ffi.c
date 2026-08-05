@@ -2,17 +2,20 @@
   Implements the foreign function interface (FFI) used in the CakeML basis
   library, as a thin wrapper around the relevant system calls.
 */
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <math.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #ifdef EVAL
-#include <sys/time.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
 #include <signal.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/time.h>
 #endif
 
 /* This flag is on by default. It catches CakeML's out-of-memory exit codes
@@ -143,7 +146,7 @@ void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
   #ifdef EVAL
   int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
   #else
-  int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC);
+  int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
   #endif
   if (0 <= fd){
     a[0] = 0;
@@ -225,6 +228,14 @@ void cml_exit(int arg) {
   exit(arg);
 }
 
+void cml_err(int arg) {
+  if (arg == 3) {
+    fprintf(stderr,"Memory not ready for entry. You may have not run the init code yet, or be trying to enter during an FFI call.\n");
+  }
+
+  cml_exit(arg);
+}
+
 void ffiexit (unsigned char *c, long clen, unsigned char *a, long alen) {
   assert(alen == 1);
   exit((int)a[0]);
@@ -282,33 +293,87 @@ void ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
   #endif
 }
 
-typedef union {
-  double d;
-  char bytes[8];
-} double_bytes;
-
-// FFI calls for floating-point parsing
-void ffidouble_fromString (char *c, long clen, char *a, long alen) {
-  double_bytes d;
-  sscanf(c, "%lf",&d.d);
-  assert (8 == alen);
-  for (int i = 0; i < 8; i++){
-    a[i] = d.bytes[i];
-  }
+void fficustom (unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(0 <= alen);
+  assert(0 <= clen);
 }
 
-void ffidouble_toString (char *c, long clen, char *a, long alen) {
-  double_bytes d;
-  assert (256 == alen);
-  for (int i = 0; i < 8; i++){
-    d.bytes[i] = a[i];
-  }
-  //snprintf always terminates with a 0 byte if space was sufficient
-  int bytes_written = snprintf(&a[0], 255, "%.20g", d.d);
-  // snprintf returns number of bytes it would have written if the buffer was
-  // large enough -> check that it did not write more than the buffer size - 1
-  // for the 0 byte
-  assert (bytes_written <= 255);
+// ---------------------------------------------------------------------------
+// Functions on doubles for the Double module
+// ---------------------------------------------------------------------------
+
+typedef union {
+    double num;
+    char bytes[sizeof(double)];
+} double_bytes;
+
+typedef union {
+    int64_t num;
+    char bytes[sizeof(int64_t)];
+} int_bytes;
+
+void ffidouble_fromString(char *c, long clen, char *a, long alen) {
+    double_bytes d;
+    char *endp;
+    errno = 0;
+    d.num = strtod(c, &endp);
+    if (errno == ERANGE || endp && *endp != '\0') {
+        a[0] = 1;
+    } else {
+        a[0] = 0;
+        memcpy(&a[1], d.bytes, sizeof d.bytes);
+    }
+}
+
+void ffidouble_toString(char *c, long clen, char *a, long alen) {
+    double_bytes d;
+    memcpy(d.bytes, a, sizeof d.bytes);
+    snprintf(a, 255, "%.20g", d.num);
+}
+
+void ffidouble_fromInt(char *c, long clen, char *a, long alen) {
+    double_bytes d;
+    int_bytes i;
+    memcpy(i.bytes, a, sizeof i.bytes);
+    d.num = (double) i.num;
+    memcpy(a, d.bytes, sizeof d.bytes);
+}
+
+void ffidouble_toInt(char *c, long clen, char *a, long alen) {
+    double_bytes d;
+    int_bytes i;
+    memcpy(d.bytes, a, sizeof d.bytes);
+    i.num = (int64_t) d.num;
+    memcpy(a, i.bytes, sizeof i.bytes);
+}
+
+void ffidouble_pow(char *c, long clen, char *a, long alen) {
+    double_bytes x, y;
+    memcpy(x.bytes, a, sizeof x.bytes);
+    memcpy(y.bytes, &a[8], sizeof y.bytes);
+    x.num = pow(x.num, y.num);
+    memcpy(a, x.bytes, sizeof x.bytes);
+}
+
+void ffidouble_ln(char *c, long clen, char *a, long alen) {
+    double_bytes d;
+    memcpy(d.bytes, a, sizeof d.bytes);
+    d.num = log(d.num);
+    memcpy(a, d.bytes, sizeof d.bytes);
+}
+
+void ffidouble_exp(char *c, long clen, char *a, long alen) {
+    double_bytes d;
+    memcpy(d.bytes, a, sizeof d.bytes);
+    d.num = exp(d.num);
+    memcpy(a, d.bytes, sizeof d.bytes);
+}
+
+void ffidouble_floor(char *c, long clen, char *a, long alen) {
+    double_bytes d;
+    memcpy(d.bytes, a, sizeof d.bytes);
+    d.num = floor(d.num);
+    memcpy(a, d.bytes, sizeof d.bytes);
 }
 
 void cml_clear() {

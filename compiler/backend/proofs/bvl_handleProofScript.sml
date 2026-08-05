@@ -1,11 +1,11 @@
 (*
   Correctness proof for bvl_handle
 *)
-open preamble bvl_handleTheory bvlSemTheory bvlPropsTheory;
-
-val _ = new_theory"bvl_handleProof";
-
-val _ = set_grammar_ancestry["bvlSem","bvl_handle","bvlProps"];
+Theory bvl_handleProof
+Ancestors
+  bvlSem bvl_handle bvlProps bvl_constProof[qualified]
+Libs
+  preamble
 
 Theorem can_raise_thm:
   (∀e env s (s:('a,'b) state).
@@ -55,6 +55,8 @@ Proof
    (rpt (CASE_TAC \\ fs [])
     \\ first_x_assum (qspec_then ‘a'::xs’ mp_tac)
     \\ imp_res_tac evaluate_IMP_LENGTH \\ fs [ADD1])
+  >-
+   (rw [] \\ gvs [EL_APPEND])
   \\ once_rewrite_tac [evaluate_CONS] \\ fs []
 QED
 
@@ -153,11 +155,12 @@ Proof
   rw [SmartLet_def] \\ fs [NULL_EQ,evaluate_def]
 QED
 
-val let_ok_def = Define `
+Definition let_ok_def:
   (let_ok (Let xs b) <=> EVERY isVar xs /\ bVarBound (LENGTH xs) [b]) /\
-  (let_ok _ = F)`;
+  (let_ok _ = F)
+End
 
-val handle_ok_def = tDefine "handle_ok" `
+Definition handle_ok_def:
   (handle_ok [] <=> T) /\
   (handle_ok ((x:bvl$exp)::y::xs) <=>
      handle_ok [x] /\ handle_ok (y::xs)) /\
@@ -178,19 +181,23 @@ val handle_ok_def = tDefine "handle_ok" `
          EVERY isVar xs /\ bVarBound (LENGTH xs) [b] /\
          handle_ok [b] /\ handle_ok [x2]
      | _ => F) /\
-  (handle_ok [Call ticks dest xs] <=> handle_ok xs)`
-  (WF_REL_TAC `measure (exp1_size)`
+  (handle_ok [Force loc n] <=> T) ∧
+  (handle_ok [Call ticks dest xs] <=> handle_ok xs)
+Termination
+  WF_REL_TAC `measure (exp1_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
+   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
+End
 
-val evaluate_GENLIST = save_thm("evaluate_GENLIST",
+Theorem evaluate_GENLIST =
   evaluate_genlist_vars
   |> Q.SPECL[`0`,`env ++ ys`,`LENGTH (env:bvlSem$v list)`,`s`]
-  |> SIMP_RULE(srw_ss()++ETA_ss)[TAKE_APPEND1]);
+  |> SIMP_RULE(srw_ss()++ETA_ss)[TAKE_APPEND1]
 
-val env_rel_def = Define `
+Definition env_rel_def:
   env_rel l env env1 =
-    LIST_RELi (\i v1 v2. has_var i l ==> v1 = v2) env env1`
+    LIST_RELi (\i v1 v2. has_var i l ==> v1 = v2) env env1
+End
 
 Theorem env_rel_mk_Union:
    !env env1. env_rel (mk_Union lx ly) env env1 <=>
@@ -293,7 +300,7 @@ Proof
     \\ TRY (match_mp_tac ALOOKUP_MAPi_APPEND2)
     \\ fs [MEM_FILTER,MEM_GENLIST,ALOOKUP_NONE,o_DEF,MAPi_ID] \\ NO_TAC)
   \\ fs [] \\ reverse (Cases_on `has_var (LENGTH env) l1`) \\ fs []
-  \\ fs [evaluate_def,do_app_def,MAPi_def,MAPi_APPEND]
+  \\ fs [evaluate_def,do_app_def,do_int_app_def,MAPi_def,MAPi_APPEND]
   \\ fs [EL_APPEND2] \\ match_mp_tac IMP_EL_SING \\ fs []
 QED
 
@@ -303,16 +310,19 @@ Proof
   fs [LIST_RELi_EL_EQN,env_rel_def]
 QED
 
-val opt_lemma = Q.prove(
-  `x = y <=> (x = SOME () <=> y = SOME ())`,
-  Cases_on `x` \\ Cases_on `y` \\ fs []);
+Theorem opt_lemma[local]:
+  x = y <=> (x = SOME () <=> y = SOME ())
+Proof
+  Cases_on `x` \\ Cases_on `y` \\ fs []
+QED
 
-val OptionalLetLet_IMP = Q.prove(
-  `(ys,l,s',nr') = OptionalLetLet y (LENGTH env) lx s1 limit nr /\
+Theorem OptionalLetLet_IMP[local]:
+  (ys,l,s',nr') = OptionalLetLet y (LENGTH env) lx s1 limit nr /\
     (∀env2 extra.
       env_rel l env env2 ⇒ evaluate ([y],env2 ++ extra,s) = res) /\
     env_rel l env env1 /\ b ==>
-    evaluate (ys,env1 ++ extra,s) = res /\ b`,
+    evaluate (ys,env1 ++ extra,s) = res /\ b
+Proof
   rw [OptionalLetLet_def,evaluate_def]
   \\ drule evaluate_LetLet \\ fs []
   \\ fs [GSYM db_varsTheory.vars_flatten_def,GSYM db_varsTheory.vars_to_list_def]
@@ -320,7 +330,8 @@ val OptionalLetLet_IMP = Q.prove(
   \\ fs [spt_eq_thm,db_varsTheory.wf_db_to_set]
   \\ rw [] \\ once_rewrite_tac [opt_lemma]
   \\ rewrite_tac [GSYM db_varsTheory.lookup_db_to_set]
-  \\ fs []);
+  \\ fs []
+QED
 
 Theorem OptionalLetLet_limit:
    (ys,l,s',nr') = OptionalLetLet e (LENGTH env) lx s1 limit nr /\
@@ -427,6 +438,11 @@ Theorem compile_correct = Q.prove(`
       \\ Cases \\ fs [ADD1]) \\ res_tac \\ fs [])
   THEN1 (* Op *)
    (fs [env_rel_mk_Union] \\ rpt gen_tac \\ strip_tac
+    \\ Cases_on `op = ThunkOp ForceThunk` \\ gvs []
+    >- (
+      gvs [AllCaseEqs()]
+      \\ rpt strip_tac
+      \\ simp [evaluate_def] \\ gvs [])
     \\ drule (GEN_ALL OptionalLetLet_IMP) \\ strip_tac
     \\ pop_assum match_mp_tac
     \\ drule (GEN_ALL OptionalLetLet_limit)
@@ -438,6 +454,12 @@ Theorem compile_correct = Q.prove(`
     \\ imp_res_tac do_app_err \\ fs [] \\ res_tac \\ fs [])
   THEN1 (* Tick *)
    (Cases_on `s.clock = 0` \\ fs [] \\ rw [evaluate_def] \\ res_tac \\ fs [])
+  THEN1 (* Force *)
+   (rw [] \\ gvs []
+    \\ gvs [AllCaseEqs(), evaluate_def, PULL_EXISTS]
+    \\ imp_res_tac env_rel_length \\ gvs [EL_APPEND]
+    \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS, env_rel_def,
+            LIST_RELi_EL_EQN])
   THEN1 (* Call *)
    (fs [env_rel_mk_Union] \\ rpt gen_tac \\ strip_tac
     \\ drule (GEN_ALL OptionalLetLet_IMP) \\ strip_tac
@@ -450,7 +472,8 @@ Theorem compile_correct = Q.prove(`
   |> Q.SPECL [`xs`,`env`,`s1`,`ys`,`env`,`res`,`s2`,`[]`]
   |> SIMP_RULE std_ss [APPEND_NIL,env_rel_refl];
 
-val _ = save_thm("compile_correct[allow_rebind]",compile_correct);
+Theorem compile_correct[allow_rebind] =
+  compile_correct
 
 Theorem compile_correct[allow_rebind]:
    (evaluate ([x],env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
@@ -647,7 +670,7 @@ Proof
 QED
 
 Theorem handle_ok_Var_Const_list:
-   EVERY (\x. ?v i. x = Var v \/ x = Op (Const i) []) xs ==> handle_ok xs
+   EVERY (\x. ?v i. x = Var v \/ x = Op (IntOp (Const i)) []) xs ==> handle_ok xs
 Proof
   Induct_on `xs` \\ fs [handle_ok_def,PULL_EXISTS] \\ rw []
   \\ Cases_on `xs` \\ fs [handle_ok_def]
@@ -690,12 +713,14 @@ Proof
   \\ fs [LetLet_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,isVar_def]
   \\ imp_res_tac compile_IMP_LENGTH \\ fs []
   \\ TRY (match_mp_tac handle_ok_OptionalLetLet)
+  \\ imp_res_tac compile_IMP_bVarBound
   \\ fs [handle_ok_def]
-  \\ TRY ( conj_tac >- ( strip_tac \\ fs[LENGTH_NIL] ) )
-  \\ TRY (imp_res_tac compile_IMP_bVarBound \\ fs [] \\ NO_TAC)
-  \\ conj_tac THEN1
-   (conj_tac THEN1
-     (once_rewrite_tac [bVarBound_MEM]
+  >- (rw[] \\ fs[])
+  \\ conj_tac
+  >- (
+    conj_tac
+    >- (
+      once_rewrite_tac [bVarBound_MEM]
       \\ fs [MEM_GENLIST,PULL_EXISTS] \\ rw []
       \\ every_case_tac \\ fs []
       \\ imp_res_tac ALOOKUP_MAPi \\ fs [])
@@ -705,6 +730,7 @@ Proof
     \\ match_mp_tac bVarBound_compile \\ fs [])
   \\ rw [SmartLet_def] \\ fs [handle_ok_def]
   \\ IF_CASES_TAC \\ fs[]
+  >- fs[GENLIST_EQ_NIL]
   \\ rpt (pop_assum kall_tac)
   \\ match_mp_tac handle_ok_Var_Const_list
   \\ fs [EVERY_GENLIST]
@@ -781,10 +807,10 @@ Proof
   \\ rveq \\ fs[NULL_EQ] \\ rw[bvl_handleTheory.OptionalLetLet_def]
   \\ fs[]
   \\ fsrw_tac[DNF_ss][SUBSET_DEF]
-  \\ EVAL_TAC
+  \\ EVAL_TAC \\ rw []
 QED
 
-Triviality get_code_labels_dest_handle_Raise:
+Theorem get_code_labels_dest_handle_Raise[local]:
   ∀c x. dest_handle_Raise c = SOME x ⇒
         get_code_labels c = get_code_labels x
 Proof
@@ -792,7 +818,7 @@ Proof
   \\ rpt strip_tac \\ gvs [dest_handle_Raise_def,AllCaseEqs()]
 QED
 
-Triviality get_code_labels_handle_adj_vars:
+Theorem get_code_labels_handle_adj_vars[local]:
   (∀x d l. get_code_labels (handle_adj_vars d l x) = get_code_labels x) ∧
   (∀x d l. MAP get_code_labels (handle_adj_vars1 d l x) = MAP get_code_labels x)
 Proof
@@ -857,4 +883,3 @@ Proof
   \\ metis_tac [compile_exp_code_labels, SUBSET_UNION, SUBSET_TRANS, UNION_SUBSET]
 QED
 
-val _ = export_theory();

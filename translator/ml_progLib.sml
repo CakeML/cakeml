@@ -7,6 +7,7 @@ struct
 
 open preamble;
 open ml_progTheory astSyntax packLib alist_treeLib comparisonTheory;
+local open mlstringSyntax in end;
 
 fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
 
@@ -25,14 +26,14 @@ val nsLookup_tm = prim_mk_const {Name = "nsLookup", Thy = "namespace"}
 val nsLookup_pf_tms = [prim_mk_const {Name = "nsLookup_Mod1", Thy = "ml_prog"},
     prim_mk_const {Name = "nsLookup_Short", Thy = "ml_prog"}]
 
-fun str_dest tm = stringSyntax.fromHOLstring tm |> explode |> map ord
+fun str_dest tm = mlstringSyntax.dest_mlstring tm |> explode |> map ord
 
 val env_type = type_of (prim_mk_const {Name = "empty_env", Thy = "ml_prog"})
 
 local
 
 val nsLookup_repr_set = let
-    val irrefl_thm = MATCH_MP good_cmp_Less_irrefl_trans string_cmp_good
+    val irrefl_thm = MATCH_MP good_cmp_Less_irrefl_trans mlstringTheory.good_cmp_compare
   in alist_treeLib.mk_alist_reprs irrefl_thm EVAL
     str_dest (list_compare Int.compare)
   end
@@ -128,7 +129,7 @@ fun nsLookup_conv tm = REPEATC (BETA_CONV ORELSEC FIRST_CONV
 
 val () = computeLib.add_convs
     (map (fn t => (t, 2, QCHANGED_CONV nsLookup_conv)) nsLookup_pf_tms)
-val () = computeLib.add_thms [nsLookup_eq] computeLib.the_compset
+val () = computeLib.upd_compset (computeLib.add_thms [nsLookup_eq])
 
 (* helper functions *)
 
@@ -157,10 +158,12 @@ fun prove_assum_by_conv conv th = let
 
 val prove_assum_by_eval = prove_assum_by_conv reduce_conv
 
+(*
 val eval_every_exp_one_con_check =
   SIMP_CONV (srw_ss()) [semanticPrimitivesTheory.do_con_check_def,ML_code_env_def]
   THENC DEPTH_CONV nsLookup_conv
   THENC reduce_conv;
+*)
 
 fun is_const_str str = can prim_mk_const {Thy=current_theory(), Name=str};
 
@@ -335,12 +338,12 @@ val loc = unknown_loc;
 val init_state =
   ML_code ([SPEC_ALL init_state_def],[init_env_def],[],ML_code_NIL);
 
-fun mk_comment (s1, s2) = pairSyntax.mk_pair (stringSyntax.fromMLstring s1,
-    stringSyntax.fromMLstring s2)
+fun mk_comment (s1, s2) = pairSyntax.mk_pair (mlstringSyntax.mk_mlstring s1,
+    mlstringSyntax.mk_mlstring s2)
 
 fun dest_comment t = let
     val (s1, s2) = pairSyntax.dest_pair t
-  in (stringSyntax.fromHOLstring s1, stringSyntax.fromHOLstring s2) end
+  in (mlstringSyntax.dest_mlstring s1, mlstringSyntax.dest_mlstring s2) end
 
 fun dest_comment_name t = let
     val (s1, s2) = dest_comment t
@@ -397,12 +400,11 @@ fun add_Dtabbrev loc l1_tm l2_tm l3_tm = ML_code_upd "add_Dtabbrev"
 fun add_Dlet eval_thm var_str = let
     val (_, eval_thm_xs) = strip_comb (concl eval_thm)
     val mp_thm = ML_code_Dlet_var |> SPECL (tl eval_thm_xs
-        @ [stringSyntax.fromMLstring var_str,unknown_loc])
+        @ [mlstringSyntax.mk_mlstring var_str,unknown_loc])
   in ML_code_upd "add_Dlet" mp_thm
     [solve_ml_imp_mp eval_thm,
      solve_ml_imp_conv (SIMP_CONV bool_ss []
                         THENC SIMP_CONV bool_ss [ML_code_env_def]),
-     solve_ml_imp_conv eval_every_exp_one_con_check,
      let_env_abbrev ALL_CONV, let_st_abbrev reduce_conv]
   end
 
@@ -416,7 +418,7 @@ end
 fun add_Denv eval_thm var_str = let
     val (_, eval_thm_xs) = strip_comb (concl eval_thm)
     val mp_thm = ML_code_Denv |> SPECL (
-      stringSyntax.fromMLstring var_str :: tl eval_thm_xs)
+      mlstringSyntax.mk_mlstring var_str :: tl eval_thm_xs)
   in ML_code_upd "add_Denv" mp_thm
     [solve_ml_imp_mp eval_thm,
         solve_ml_imp_conv (SIMP_CONV bool_ss []
@@ -431,8 +433,7 @@ val (n,v,exp) = (v_tm,w,body)
 
 fun add_Dlet_Fun loc n v exp v_name = ML_code_upd "add_Dlet_Fun"
     (SPECL [n, v, exp, loc] ML_code_Dlet_Fun)
-    [solve_ml_imp_conv eval_every_exp_one_con_check,
-     let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
+    [let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
      let_v_abbrev v_name ALL_CONV,
      let_env_abbrev ALL_CONV]
 
@@ -472,7 +473,6 @@ fun add_Dletrec loc funs v_names = let
   in ML_code_upd "add_Dletrec"
     (SPECL [funs, loc] ML_code_Dletrec)
     [solve_ml_imp_conv EVAL,
-     solve_ml_imp_conv eval_every_exp_one_con_check,
      let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
      proc]
   end
@@ -513,7 +513,7 @@ fun add_dec dec_tm pick_name s =
     val prefix = get_mod_prefix s
     fun f str = prefix ^ pick_name str ^ "_v"
     val xs = listSyntax.dest_list x1 |> fst
-               |> map (f o stringSyntax.fromHOLstring o rand o rator)
+               |> map (f o mlstringSyntax.dest_mlstring o rand o rator)
     in add_Dletrec loc x1 xs s end
   else if is_Dlet dec_tm
           andalso is_Fun (rand dec_tm)
@@ -522,7 +522,7 @@ fun add_dec dec_tm pick_name s =
     val v_tm = dest_Pvar p
     val (w,body) = dest_Fun f
     val prefix = get_mod_prefix s
-    val v_name = prefix ^ pick_name (stringSyntax.fromHOLstring v_tm) ^ "_v"
+    val v_name = prefix ^ pick_name (mlstringSyntax.dest_mlstring v_tm) ^ "_v"
     in add_Dlet_Fun loc v_tm w body v_name s end
   else if is_Dlet dec_tm
           andalso is_Lit (rand dec_tm)
@@ -549,12 +549,12 @@ fun add_dec dec_tm pick_name s =
     val (_,args) = dest_App f
     val var_name = dest_Var (listSyntax.dest_list args |> fst |> hd)
     val prefix = get_mod_prefix s
-    val v_name = prefix ^ pick_name (stringSyntax.fromHOLstring n) ^ "_v"
+    val v_name = prefix ^ pick_name (mlstringSyntax.dest_mlstring n) ^ "_v"
     in add_Dlet_Var_Ref_Var loc n var_name v_name s end
   else if is_Dmod dec_tm then let
     val (name,(*spec,*)decs) = dest_Dmod dec_tm
     val ds = fst (listSyntax.dest_list decs)
-    val name_str = stringSyntax.fromHOLstring name
+    val name_str = mlstringSyntax.dest_mlstring name
     val s = open_module name_str s handle HOL_ERR _ =>
             failwith ("add_top: failed to open module " ^ name_str)
     fun each [] s = s
@@ -562,14 +562,14 @@ fun add_dec dec_tm pick_name s =
            val s = add_dec d pick_name s handle HOL_ERR e =>
                    failwith ("add_top: in module " ^ name_str ^
                              "failed to add " ^ term_to_string d ^ "\n " ^
-                             #message e)
+                             message_of e)
            in each ds s end
     val s = each ds s
     val spec = (* SOME (optionSyntax.dest_some spec)
                   handle HOL_ERR _ => *) NONE
     val s = close_module spec s handle HOL_ERR e =>
             failwith ("add_top: failed to close module " ^ name_str ^ "\n " ^
-                             #message e)
+                             message_of e)
     in s end
   else failwith("add_dec does not support this shape: " ^ term_to_string dec_tm);
 

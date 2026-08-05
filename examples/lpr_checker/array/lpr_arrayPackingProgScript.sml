@@ -2,17 +2,19 @@
   This builds a proof checker specialized to the
   packing chromatic number bounds
 *)
-open preamble basis lpr_composeProgTheory UnsafeProofTheory lprTheory lpr_listTheory lpr_parsingTheory HashtableProofTheory lpr_arrayProgTheory lpr_arrayParsingProgTheory packingTheory;
-
-val _ = new_theory "lpr_arrayPackingProg"
+Theory lpr_arrayPackingProg
+Ancestors
+  lpr_composeProg UnsafeProof lpr lpr_list lpr_parsing
+  HashtableProof lpr_arrayProg lpr_arrayParsingProg packing
+  basis_ffi
+Libs
+  preamble basis
 
 val _ = temp_delsimps ["NORMEQ_CONV"] (*"*)
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = translation_extends"lpr_arrayParsingProg";
-
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
 val usage_string = ‘
 Input: <r = radius> <k = total colors> <c = center color, 1 ≤ c ≤ k>
@@ -47,20 +49,22 @@ val r = translate parse_numbers_def;
 
 (* NOTE: still written in the old style since this doesn't actually use the UNSAT checker *)
 (* 3 arg *)
-val check_unsat_3 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_3 enc r k c =
     case parse_numbers r k c of
       Some (r,(k,c)) =>
       TextIO.print_list (print_dimacs (enc r k c))
     | None =>
-      TextIO.output TextIO.stdErr usage_string`
+      TextIO.output TextIO.stdErr usage_string
+End
 
-val check_unsat_3_sem_def = Define`
+Definition check_unsat_3_sem_def:
   check_unsat_3_sem fs enc r k c err =
     case parse_numbers r k c of
       SOME (r,k,c) =>
       add_stdout fs (concat (print_dimacs (enc r k c)))
-    | NONE => add_stderr fs err`
+    | NONE => add_stderr fs err
+End
 
 Theorem check_unsat_3_spec:
   STRING_TYPE r rv ∧
@@ -120,23 +124,25 @@ val res = translate packingTheory.fix_col_def;
 val res = translate packingTheory.in_ball_def;
 val res = translate packingTheory.vertices_def;
 val res = translate packingTheory.fix_cols_def;
-val res = translate packingTheory.restrict_col_def;
+val res = translate (packingTheory.restrict_col_def |> REWRITE_RULE [GSYM sub_check_def]);
 val res = translate packingTheory.restrict_cols_def;
 val res = translate packingTheory.full_restrict_def;
 val res = translate packingTheory.encode_def;
 val res = translate full_encode_def;
 
-val main = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun main u =
   case CommandLine.arguments () of
     [r,k,c] => check_unsat_3 full_encode r k c
-  | _ => TextIO.output TextIO.stdErr usage_string`
+  | _ => TextIO.output TextIO.stdErr usage_string
+End
 
-val main_sem_def = Define`
+Definition main_sem_def:
   main_sem cl fs err =
   case TL cl of
     [r;k;c] => check_unsat_3_sem fs full_encode r k c err
-  | _ => add_stderr fs err`
+  | _ => add_stderr fs err
+End
 
 Theorem main_spec:
   hasFreeFD fs
@@ -147,6 +153,7 @@ Theorem main_spec:
     (POSTv uv. &UNIT_TYPE () uv *
     COMMANDLINE cl * SEP_EXISTS err. STDIO (main_sem cl fs err))
 Proof
+  rw[]>>
   xcf"main"(get_ml_prog_state())>>
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)>>
   rpt xlet_autop >>
@@ -187,21 +194,7 @@ Proof
   \\ simp[GSYM add_stdo_with_numchars,with_same_numchars]
 QED
 
-local
-
-val name = "main"
-val (sem_thm,prog_tm) =
-  whole_prog_thm (get_ml_prog_state()) name (UNDISCH main_whole_prog_spec2)
-val main_prog_def = Define`main_prog = ^prog_tm`;
-
-in
-
 Theorem main_semantics =
-  sem_thm
-  |> REWRITE_RULE[GSYM main_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
-
-end
-
-val _ = export_theory();
+  prove_sem_thm "main"
+                "main_prog"
+                main_whole_prog_spec2;

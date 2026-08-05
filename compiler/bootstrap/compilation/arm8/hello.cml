@@ -1,0 +1,4 @@
+(*
+   A simple hello world program in CakeML
+*)
+print "Hello, World!\n";

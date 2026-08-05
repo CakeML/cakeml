@@ -2,12 +2,11 @@
   The syntax and semantics of the input and output to the
   pattern-match compiler.
 *)
-open preamble astTheory semanticPrimitivesTheory pattern_commonTheory;
-
-val _ = new_theory "pattern_semantics";
-
-val _ = set_grammar_ancestry ["pattern_common", "semanticPrimitives"];
-
+Theory pattern_semantics
+Ancestors
+  pattern_common semanticPrimitives ast
+Libs
+  preamble
 
 Type kind[local] = ``:num``
 Type tag[local] = ``:num``
@@ -93,7 +92,7 @@ Definition pmatch_def:
     | PTypeFailure => PTypeFailure)
 Termination
   WF_REL_TAC `measure (\x. case x of INL (r,p,_) => pat_size p
-                                   | INR (r,ps,_) => pat1_size ps)`
+                                   | INR (r,ps,_) => list_size pat_size ps)`
 End
 
 Definition match_def:
@@ -163,4 +162,3 @@ Definition dt_eval_def:
      | SOME b => dt_eval refs v (if b then dt1 else dt2))
 End
 
-val _ = export_theory();

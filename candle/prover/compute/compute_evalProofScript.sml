@@ -1,15 +1,15 @@
 (*
    Proofs about the interpreter function for the Candle compute primitive.
  *)
+Theory compute_evalProof
+Libs
+  preamble ml_monadBaseLib
+Ancestors
+  holSyntax holSyntaxExtra holSyntaxLib holKernel holKernelProof
+  compute_eval compute_syntax compute_syntaxProof ml_monadBase
 
-open preamble holSyntaxTheory holSyntaxExtraTheory holSyntaxLibTheory
-     holKernelTheory holKernelProofTheory;
-open compute_evalTheory compute_syntaxTheory compute_syntaxProofTheory;
-open ml_monadBaseTheory ml_monadBaseLib;
 
-val _ = new_theory "compute_evalProof";
-
-val _ = numLib.prefer_num ();
+val _ = numLib.temp_prefer_num ();
 
 fun SIMPR ths = SIMP_RULE (srw_ss()) ths;
 fun SIMPC ths = SIMP_CONV (srw_ss()) ths;
@@ -1545,7 +1545,7 @@ Proof
       \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
       \\ resolve_then Any irule sym_equation replaceL3
       \\ first_assum (irule_at Any)
-      \\ resolve_then Any irule sym_equation replaceL1
+      \\ resolve_then Any irule sym_equation replaceL2
       \\ first_assum (irule_at Any)
       \\ fs [cexp2term_def, cexp_vars_def]
       \\ irule_at Any CEXP_IF_eqn2 \\ gs []
@@ -1772,6 +1772,3 @@ Proof
   \\ reverse CASE_TAC >- (strip_tac \\ gvs [])
   \\ rw [] \\ gs [SF SFY_ss]
 QED
-
-val _ = export_theory ();
-

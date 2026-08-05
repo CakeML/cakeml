@@ -1,13 +1,12 @@
 (*
   Definition of a PEG for (a subset of) OCaml.
  *)
+Theory camlPEG
+Ancestors
+  caml_lex pegexec peg mlstring
+Libs
+  preamble finite_mapSyntax
 
-open preamble caml_lexTheory;
-open pegexecTheory pegTheory;
-open finite_mapSyntax;
-open mlstringTheory;
-
-val _ = new_theory "camlPEG";
 
 val _ = enable_monadsyntax ();
 val _ = enable_monad "option";
@@ -41,13 +40,6 @@ Definition mk_linfix_def:
   mk_linfix tgt acc [t] = acc ∧
   mk_linfix tgt acc (opt::t::rest) =
     mk_linfix tgt (mkNd tgt [acc; opt; t]) rest
-End
-
-(* TODO: unused *)
-Definition mk_rinfix_def:
-  mk_rinfix tgt [] = mkNd tgt [] ∧
-  mk_rinfix tgt [t] = mkNd tgt [t] ∧
-  mk_rinfix tgt (t::opt::rest) = mkNd tgt [t; opt; mk_rinfix tgt rest]
 End
 
 Definition peg_linfix_def:
@@ -242,8 +234,8 @@ Datatype:
     | nTypeRepr | nTypeReprs | nConstrDecl | nConstrArgs | nRecord
     | nExcDefinition
     (* patterns *)
-    | nPAny | nPList | nPPar | nPBase | nPCons | nPAs | nPOps | nPattern
-    | nPatterns
+    | nPAny | nPList | nPPar | nPBase | nPRecFields | nPCons | nPAs | nPOps
+    | nPattern | nPatterns
     (* types *)
     | nTypeList | nTypeLists
     | nTVar | nTBase | nTConstr | nTProd | nTFun | nType
@@ -284,7 +276,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nHolInfixOp));
       (* -- Names and paths ------------------------------------------------ *)
       (INL nValueName,
-       choicel [pegf (tokIdP identMixed) (bindNT nValueName);
+       choicel [pegf (tokIdP (identMixed ∘ explode)) (bindNT nValueName);
                 seql [tokeq LparT; pnt nOperatorName; tokeq RparT]
                      (bindNT nValueName)]);
       (INL nOperatorName,
@@ -300,13 +292,13 @@ Definition camlPEG_def[nocompute]:
                       pnt nAssignOp ])
             (bindNT nOperatorName));
       (INL nConstrName,
-       pegf (tokIdP identUpperLower) (bindNT nConstrName));
+       pegf (tokIdP (identUpperLower ∘ explode)) (bindNT nConstrName));
       (INL nTypeConstrName,
-       pegf (tokIdP identLower) (bindNT nTypeConstrName));
+       pegf (tokIdP (identLower ∘ explode)) (bindNT nTypeConstrName));
       (INL nModuleName,
-       pegf (tokIdP identUpperLower) (bindNT nModuleName));
+       pegf (tokIdP (identUpperLower ∘ explode)) (bindNT nModuleName));
       (INL nFieldName,
-       pegf (tokIdP identLower) (bindNT nFieldName));
+       pegf (tokIdP (identLower ∘ explode)) (bindNT nFieldName));
       (INL nValuePath,
        seql [try (seql [pnt nModulePath; tokeq DotT] I); pnt nValueName]
             (bindNT nValuePath));
@@ -546,16 +538,17 @@ Definition camlPEG_def[nocompute]:
        seql [pnt nUpdate; try (seql [tokeq SemiT; pnt nUpdates] I)]
             (bindNT nUpdates));
       (INL nERecUpdate,
-       seql [tokeq LbraceT; pnt nExpr; tokeq WithT; pnt nUpdates;
+       seql [pnt nConstr; tokeq LbraceT; pnt nExpr; tokeq WithT; pnt nUpdates;
              try (tokeq SemiT); tokeq RbraceT]
             (bindNT nERecUpdate));
       (INL nEBase,
        choicel [
          pegf (pnt nLiteral) (bindNT nEBase);
          pegf (pnt nValuePath) (bindNT nEBase);
+         (* N.B. nERecUpdate goes before nConstr, because they coincide *)
+         pegf (pnt nERecUpdate) (bindNT nEBase);
          pegf (pnt nConstr) (bindNT nEBase);
          pegf (pnt nEList) (bindNT nEBase);
-         pegf (pnt nERecUpdate) (bindNT nEBase);
          seql [tokeq LparT; tokeq RparT] (bindNT nEBase); (* unit *)
          seql [tokeq BeginT; tokeq EndT] (bindNT nEBase); (* unit *)
          seql [tokeq LparT; pnt nExpr;
@@ -565,7 +558,7 @@ Definition camlPEG_def[nocompute]:
        ]);
       (* -- Expr15 --------------------------------------------------------- *)
       (INL nPrefixOp,
-       pegf (tokSymP validPrefixSym)
+       pegf (tokSymP (validPrefixSym ∘ explode))
             (bindNT nPrefixOp));
       (INL nEPrefix,
        seql [try (pnt nPrefixOp); pnt nEBase] (bindNT nEPrefix));
@@ -582,7 +575,7 @@ Definition camlPEG_def[nocompute]:
       (* -- Expr14.5 ------------------------------------------------------- *)
       (INL nERecProj,
        seql [pnt nEIndex;
-             try (seql [tokeq DotT; pnt nFieldName] I)]
+             try (seql [tokeq DotT; pnt nConstr; tokeq DotT; pnt nFieldName] I)]
             (bindNT nERecProj));
       (* -- Expr14 --------------------------------------------------------- *)
       (INL nEAssert,
@@ -649,7 +642,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nENeg));
       (* -- Expr11 --------------------------------------------------------- *)
       (INL nShiftOp,
-       pegf (choicel [tokSymP validShiftOp; tokeq LslT; tokeq LsrT; tokeq AsrT])
+       pegf (choicel [tokSymP (validShiftOp ∘ explode); tokeq LslT; tokeq LsrT; tokeq AsrT])
             (bindNT nShiftOp));
       (INL nEShift,
        seql [pnt nENeg; try (seql [pnt nShiftOp; pnt nEShift] I)]
@@ -657,14 +650,14 @@ Definition camlPEG_def[nocompute]:
       (* -- Expr10 --------------------------------------------------------- *)
       (INL nMultOp,
        pegf (choicel [tokeq StarT; tokeq ModT; tokeq LandT; tokeq LorT;
-                      tokeq LxorT; tokSymP validMultOp])
+                      tokeq LxorT; tokSymP (validMultOp ∘ explode)])
             (bindNT nMultOp));
       (INL nEMult,
        peg_linfix (INL nEMult) (pnt nEShift) (pnt nMultOp));
       (* -- Expr9 ---------------------------------------------------------- *)
       (INL nAddOp,
        pegf (choicel [tokeq PlusT; tokeq MinusT; tokeq MinusFT;
-                      tokSymP validAddOp])
+                      tokSymP (validAddOp ∘ explode)])
             (bindNT nAddOp));
       (INL nEAdd,
        peg_linfix (INL nEAdd) (pnt nEMult) (pnt nAddOp));
@@ -674,7 +667,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nECons));
       (* -- Expr7 ---------------------------------------------------------- *)
       (INL nCatOp,
-       pegf (tokSymP validCatOp)
+       pegf (tokSymP (validCatOp ∘ explode))
             (bindNT nCatOp));
       (INL nECat,
        seql [pnt nECons; try (seql [pnt nCatOp; pnt nECat] I)]
@@ -682,7 +675,7 @@ Definition camlPEG_def[nocompute]:
       (* -- Expr6 ---------------------------------------------------------- *)
       (INL nRelOp,
        pegf (choicel [tokeq EqualT; tokeq LessT; tokeq GreaterT; tokeq NeqT;
-                      tokSymP validRelOp])
+                      tokSymP (validRelOp ∘ explode)])
             (bindNT nRelOp));
       (INL nERel,
        peg_linfix (INL nERel) (pnt nECat) (pnt nRelOp));
@@ -775,13 +768,21 @@ Definition camlPEG_def[nocompute]:
        choicel [pegf (pnt nLiteral) (bindNT nPatLiteral);
                 seql [tokeq MinusT; tok isInt mktokLf]
                      (bindNT nPatLiteral)]);
-      (INL nPBase, (* ::= any / var / lit / list / '(' p ')' *)
+      (INL nPBase, (* ::= any / var / lit / list / '(' p ')' / constr *)
        pegf (choicel [pnt nPatLiteral; pnt nValueName; pnt nPAny; pnt nPList;
-                      pnt nPPar])
+                      pnt nPPar; pnt nConstr])
             (bindNT nPBase));
       (* -- Pat2 ----------------------------------------------------------- *)
-      (INL nPCons, (* ::= constr p? *)
-       pegf (choicel [seql [pnt nConstr; try (pnt nPBase)] I;
+      (INL nPRecFields, (* '{' field (';' field)* ';'? '}' *)
+       seql [tokeq LbraceT;
+             pnt nFieldName;
+             rpt (seql [tokeq SemiT; pnt nFieldName] I) FLAT;
+             try (tokeq SemiT);
+             tokeq RbraceT]
+            (bindNT nPRecFields));
+      (INL nPCons, (* ::= constr ('{' fields '}' | p?) *)
+       pegf (choicel [seql [pnt nConstr;
+                            choicel [pnt nPRecFields; pnt nPBase]] I;
                       pnt nPBase])
             (bindNT nPCons));
       (INL nPAs, (* ::= p ('as' id)* *)
@@ -794,8 +795,13 @@ Definition camlPEG_def[nocompute]:
             (bindNT nPOps));
       (INL nPattern,
        pegf (pnt nPOps) (bindNT nPattern));
+      (* This rule is used for the patterns in let (rec) and fun, and since
+       * these allow curried pattern arguments, we must not let applications
+       * and similar be unparenthesized. This is why we accept nPBase instead
+       * of nPattern. nPBase contains single-token patterns, and patterns
+       * enclosed in [] or (). *)
       (INL nPatterns,
-       seql [pnt nPattern; try (pnt nPatterns)]
+       seql [pnt nPBase; try (pnt nPatterns)]
             (bindNT nPatterns));
       (INL nStart,
        seql [try (pnt nModuleItems)] (bindNT nStart))
@@ -835,13 +841,12 @@ in
     ths
 end
 
-val FDOM_camlPEG = save_thm(
-  "FDOM_camlPEG",
+Theorem FDOM_camlPEG =
   SIMP_CONV (srw_ss()) [camlPEG_def,
                         finite_mapTheory.FRANGE_FUPDATE_DOMSUB,
                         finite_mapTheory.DOMSUB_FUPDATE_THM,
                         finite_mapTheory.FUPDATE_LIST_THM]
-            ``FDOM camlPEG.rules``);
+            ``FDOM camlPEG.rules``
 
 val spec0 =
     peg_nt_thm |> Q.GEN `G`  |> Q.ISPEC `camlPEG`
@@ -1047,31 +1052,32 @@ val topo_nts =
         “nLiteral”, “nIdent”, “nEList”, “nEConstr”, “nERecUpdate”, “nERecCons”,
         “nEBase”, “nEPrefix”, “nEIndex”, “nERecProj”, “nELazy”, “nEAssert”,
         “nEFunapp”, “nEApp”, “nPAny”, “nPList”, “nPPar”, “nPatLiteral”,
-        “nPBase”, “nPCons”, “nPAs”, “nPOps”, “nPattern”, “nPatterns”,
-        “nLetBinding”, “nLetBindings”, “nLetRecBinding”, “nLetRecBindings”,
-        “nPatternMatches”, “nPatternMatch”, “nEMatch”, “nETry”, “nEFun”,
-        “nEFunction”, “nELet”, “nELetRec”, “nEWhile”, “nEFor”, “nEUnclosed”,
-        “nENeg”, “nEShift”, “nEMult”, “nEAdd”, “nECons”, “nECat”, “nERel”,
-        “nEAnd”, “nEOr”, “nEHolInfix”, “nEProd”, “nEAssign”, “nEIf”, “nESeq”,
-        “nExpr”, “nTypeDefinition”, “nTVar”, “nTBase”, “nTConstr”, “nTProd”,
-        “nTFun”, “nType”, “nTypeList”, “nTypeLists”, “nTypeParams”, “nTypeDef”,
-        “nTypeDefs”, “nConstrDecl”, “nTypeReprs”, “nTypeRepr”, “nTypeInfo”,
-        “nUpdate”, “nUpdates”, “nArrIdx”, “nStrIdx”, “nFieldDec”, “nFieldDecs”,
-        “nRecord”, “nConstrArgs”, “nExcDefinition”, “nTopLet”, “nTopLetRec”,
-        “nOpen”, “nSemis”, “nExprItem”, “nExprItems”, “nModuleDef”,
-        “nModTypeName”, “nModTypePath”, “nSigSpec”, “nExcType”, “nValType”,
-        “nOpenMod”, “nIncludeMod”, “nModTypeAsc”, “nModTypeAssign”, “nSigItem”,
-        “nSigItems”, “nModuleType”, “nModAscApp”, “nModAscApps”,
+        “nPBase”, “nPRecFields”, “nPCons”, “nPAs”, “nPOps”, “nPattern”,
+        “nPatterns”, “nLetBinding”, “nLetBindings”, “nLetRecBinding”,
+        “nLetRecBindings”, “nPatternMatches”, “nPatternMatch”, “nEMatch”,
+        “nETry”, “nEFun”, “nEFunction”, “nELet”, “nELetRec”, “nEWhile”, “nEFor”,
+        “nEUnclosed”, “nENeg”, “nEShift”, “nEMult”, “nEAdd”, “nECons”, “nECat”,
+        “nERel”, “nEAnd”, “nEOr”, “nEHolInfix”, “nEProd”, “nEAssign”, “nEIf”,
+        “nESeq”, “nExpr”, “nTypeDefinition”, “nTVar”, “nTBase”, “nTConstr”,
+        “nTProd”, “nTFun”, “nType”, “nTypeList”, “nTypeLists”, “nTypeParams”,
+        “nTypeDef”, “nTypeDefs”, “nConstrDecl”, “nTypeReprs”, “nTypeRepr”,
+        “nTypeInfo”, “nUpdate”, “nUpdates”, “nArrIdx”, “nStrIdx”, “nFieldDec”,
+        “nFieldDecs”, “nRecord”, “nConstrArgs”, “nExcDefinition”, “nTopLet”,
+        “nTopLetRec”, “nOpen”, “nSemis”, “nExprItem”, “nExprItems”,
+        “nModuleDef”, “nModTypeName”, “nModTypePath”, “nSigSpec”, “nExcType”,
+        “nValType”, “nOpenMod”, “nIncludeMod”, “nModTypeAsc”, “nModTypeAssign”,
+        “nSigItem”, “nSigItems”, “nModuleType”, “nModAscApp”, “nModAscApps”,
         “nCakeMLPragma”, “nModuleTypeDef”, “nModExpr”, “nDefinition”,
         “nDefItem”, “nModuleItem”, “nModuleItems”, “nStart”];
 
-val cml_wfpeg_thm = save_thm(
-  "cml_wfpeg_thm",
-  LIST_CONJ (List.foldl wfnt [] topo_nts))
+Theorem cml_wfpeg_thm =
+  LIST_CONJ (List.foldl wfnt [] topo_nts)
 
-val subexprs_pnt = Q.prove(
-  `subexprs (pnt n) = {pnt n}`,
-  simp [pegTheory.subexprs_def, pnt_def]);
+Theorem subexprs_pnt[local]:
+  subexprs (pnt n) = {pnt n}
+Proof
+  simp [pegTheory.subexprs_def, pnt_def]
+QED
 
 Theorem PEG_exprs =
    “Gexprs camlPEG”
@@ -1103,5 +1109,3 @@ Theorem coreloop_Start_total =
 
 Theorem owhile_Start_total =
   SIMP_RULE (srw_ss()) [pegexecTheory.coreloop_def] coreloop_Start_total;
-
-val _ = export_theory ();

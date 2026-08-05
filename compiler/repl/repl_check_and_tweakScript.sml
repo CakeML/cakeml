@@ -3,40 +3,31 @@
   defines the function that implements this and proves that the
   function will only produce type checked and allowed declarations.
 *)
-open preamble
-open semanticsPropsTheory evaluateTheory semanticPrimitivesTheory
-open inferTheory compilerTheory repl_decs_allowedTheory printTweaksTheory
+Theory repl_check_and_tweak
+Ancestors
+  semanticsProps evaluate semanticPrimitives infer compiler
+  repl_decs_allowed printTweaks
+Libs
+  preamble
 
 val _ = Parse.hide "types"
-
-val _ = new_theory "repl_check_and_tweak";
-
-val _ = permahide “decs”;
 
 Definition check_and_tweak_def:
   check_and_tweak (decs, types, input_str) =
     case add_print_then_read types decs of
-    | Success (new_decs,new_types) =>
+    | M_success (new_decs,new_types) =>
         if decs_allowed new_decs then INR (new_decs, new_types)
-        else INL (strlit "ERROR: input contains reserved constructor/FFI names")
-    | Failure (loc,msg) =>
-        INL (concat [strlit "ERROR: "; msg; strlit " at ";
+        else INL «ERROR: input contains reserved constructor/FFI names»
+    | M_failure (loc,msg) =>
+        INL (concat [«ERROR: »; msg; « at »;
                      locs_to_string input_str loc])
 End
 
 (* main correctness result *)
 
-Definition infertype_prog_inc_def:
-  infertype_prog_inc (ienv, next_id) prog =
-  case infer_ds ienv prog (init_infer_state <| next_id := next_id |>) of
-    (Success new_ienv, st) =>
-    (Success (extend_dec_ienv new_ienv ienv, st.next_id))
-  | (Failure x, _) => Failure x
-End
-
 Theorem check_and_tweak: (* used in replProof *)
   check_and_tweak (decs,types,input_str) = INR (safe_decs,new_types) ⇒
-  infertype_prog_inc (SND types) safe_decs = Success (SND new_types) ∧
+  infertype_prog_inc (SND types) safe_decs = M_success (SND new_types) ∧
   decs_allowed safe_decs
 Proof
   fs [check_and_tweak_def,AllCaseEqs()] \\ rw []
@@ -51,5 +42,3 @@ Definition roll_back_def:
              (new_tn:type_names, new_ienv:inf_env, new_next_id:num)) =
     (old_tn, old_ienv, new_next_id)
 End
-
-val _ = export_theory();

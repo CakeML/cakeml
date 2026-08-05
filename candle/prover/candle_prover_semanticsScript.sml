@@ -1,24 +1,17 @@
 (*
   Top-level soundness theorem for the Candle theorem prover.
  *)
+Theory candle_prover_semantics
+Ancestors
+  misc[qualified] semanticPrimitivesProps namespaceProps evaluate
+  candle_prover_inv candle_basis_evaluate candle_kernelProg
+  semantics semanticPrimitives evaluateProps sptree perms
+  candle_kernel_funs candle_kernel_vals candle_prover_evaluate
+  ast_extras holKernelProof basisProg ml_hol_kernel_funsProg
+  ml_prog
+Libs
+  preamble helperLib ml_translatorLib ml_progLib[qualified]
 
-open preamble helperLib;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     evaluateTheory namespacePropsTheory evaluatePropsTheory
-     sptreeTheory candle_kernelProgTheory
-open permsTheory candle_kernel_funsTheory candle_kernel_valsTheory
-     candle_prover_invTheory candle_prover_evaluateTheory ast_extrasTheory
-     candle_basis_evaluateTheory semanticsTheory;
-open holKernelProofTheory basisProgTheory ml_hol_kernel_funsProgTheory;
-open ml_translatorLib ml_progTheory;
-local open ml_progLib in end
-
-val _ = new_theory "candle_prover_semantics";
-
-val _ = set_grammar_ancestry [
-  "misc", "semanticPrimitivesProps", "namespaceProps", "evaluate",
-   "candle_prover_inv", "candle_basis_evaluate", "candle_kernelProg",
-   "semantics" ];
 
 val _ = translation_extends "candle_kernelProg";
 
@@ -81,7 +74,9 @@ Theorem env_ok_basis_env:
   env_ok ctxt basis_env
 Proof
   assume_tac basis_Decls_thm
-  \\ gs [Decls_def]
+  \\ ‘prog_syntax_ok basis’ by EVAL_TAC (* cv_eval instead? *)
+  \\ drule_all Decls_IMP_Prog \\ strip_tac
+  \\ gs [Prog_def]
   \\ drule_then (qspec_then ‘ctxt’ mp_tac) evaluate_basis_v_ok_decs
   \\ simp [basis_decs_ok, post_state_ok_basis_state, env_ok_init_env]
   \\ impl_tac
@@ -135,16 +130,16 @@ Proof
 QED
 
 Theorem LLOOKUPs[local]:
-  (Loc loc = the_type_constants ⇒
+  (Loc T loc = the_type_constants ⇒
      LLOOKUP (candle_init_state ffi).refs loc =
      SOME (Refv init_type_constants_v)) ∧
-  (Loc loc = the_term_constants ⇒
+  (Loc T loc = the_term_constants ⇒
      LLOOKUP (candle_init_state ffi).refs loc =
      SOME (Refv init_term_constants_v)) ∧
-  (Loc loc = the_axioms ⇒
+  (Loc T loc = the_axioms ⇒
      LLOOKUP (candle_init_state ffi).refs loc =
      SOME (Refv init_axioms_v)) ∧
-  (Loc loc = the_context ⇒
+  (Loc T loc = the_context ⇒
      LLOOKUP (candle_init_state ffi).refs loc =
      SOME (Refv init_context_v))
 Proof
@@ -188,8 +183,9 @@ Proof
   \\ irule_at Any STATE_init_refs
   \\ simp [candle_init_state_refs,kernel_locs]
   \\ rw [LLOOKUP_EQ_EL, EL_APPEND_EQN, candle_init_state_def, refs_defs,
-         compute_thms_refs_def, compute_default_clock_refs_def]
-  \\ ‘loc = 0’ by fs []
+         compute_thms_refs_def, compute_default_clock_refs_def,
+         bool_ty_refs_def, aty_refs_def, bty_refs_def]
+  \\ ‘loc ∈ {0;1}’ by fs []
   \\ fs [ref_ok_def]
 QED
 
@@ -320,7 +316,7 @@ local
       val th1 = env_ok_conv sg1
       val th2 = env_ok_conv sg2
     in
-      INST [“mn:string”|->mn] (MATCH_MP (MATCH_MP write_mod_th th1) th2)
+      INST [“mn:mlstring”|->mn] (MATCH_MP (MATCH_MP write_mod_th th1) th2)
     end
   and prove_write tm = (* write nm v env *)
     let
@@ -331,7 +327,7 @@ local
       val th1 = env_ok_conv sg1
       val th2 = prove_v_ok v
     in
-      INST [“nm:string”|->n] (MATCH_MP (MATCH_MP write_th th1) th2)
+      INST [“nm:mlstring”|->n] (MATCH_MP (MATCH_MP write_th th1) th2)
     end
   and prove_write_cons tm = (* write_cons n (TypeStamp s t) env *)
     let
@@ -350,7 +346,7 @@ local
                 pred_setSyntax.mk_in (nm, kernel_ctors_term))
       val th2 = SIMP_CONV list_ss [kernel_types_def, kernel_ctors_def] goal
       val th3 =
-        INST [“n:num”|->m, “s:string”|->nm, “t:num”|->t, “nm:string”|->n]
+        INST [“n:num”|->m, “s:mlstring”|->nm, “t:num”|->t, “nm:mlstring”|->n]
              (MATCH_MP write_cons_th th1)
     in
       MATCH_MP th3 (EQT_ELIM th2)
@@ -368,7 +364,7 @@ local
       val m = s |> dest_pair |> #2 |> rand
       val k = s |> dest_pair |> #1
     in
-      INST [“n:num”|->k, “m:num”|->m, “nm:string”|->n]
+      INST [“n:num”|->k, “m:num”|->m, “nm:mlstring”|->n]
            (MATCH_MP write_exn_th th1)
     end
   and env_ok_conv tm =
@@ -428,6 +424,7 @@ Theorem semantics_thm:
   semantics_prog (init_state ffi with eval_state := es)
                  init_env (candle_code ++ prog) res ∧
   eval_state_ok es ∧
+  prog_syntax_ok candle_code ∧
   EVERY safe_dec prog ∧
   ffi.io_events = [] ∧
   res ≠ Fail ⇒
@@ -449,7 +446,8 @@ Proof
     \\ rw [Once init_state_def]
     \\ gvs [evaluate_decs_append, CaseEqs ["prod", "semanticPrimitives$result"]]
     >- (
-      gs [ml_progTheory.Decls_def]
+      drule_all Decls_IMP_Prog \\ strip_tac
+      \\ gs [ml_progTheory.Prog_def]
       \\ dxrule_then (qspec_then ‘k’ mp_tac) evaluate_decs_add_to_clock
       \\ qpat_x_assum ‘evaluate_decs _ _ _ = (s1, Rval _)’ assume_tac
       \\ dxrule_then (qspec_then ‘ck1’ mp_tac) evaluate_decs_add_to_clock
@@ -474,7 +472,8 @@ Proof
         gs [state_ok_def]
         \\ first_assum (irule_at Any) \\ gs [])
       \\ first_assum (irule_at Any) \\ gs [])
-    \\ gs [ml_progTheory.Decls_def]
+    \\ drule_all Decls_IMP_Prog \\ strip_tac
+    \\ gs [ml_progTheory.Prog_def]
     \\ dxrule_then (qspec_then ‘k’ mp_tac) evaluate_decs_add_to_clock
     \\ dxrule_then (qspec_then ‘ck1’ mp_tac) evaluate_decs_add_to_clock
     \\ rw [] \\ gs [CaseEqs ["semanticPrimitives$result"]])
@@ -498,7 +497,8 @@ Proof
     \\ assume_tac candle_prog_thm
     \\ dxrule_then (qspec_then ‘es’ mp_tac) Decls_set_eval_state
     \\ rw [Once init_state_def]
-    \\ gs [Decls_def]
+    \\ drule_all Decls_IMP_Prog \\ strip_tac
+    \\ gs [ml_progTheory.Prog_def]
     \\ gvs [evaluate_decs_append, CaseEqs ["semanticPrimitives$result", "prod"], combine_dec_result_def]
     >- (
       dxrule_then (qspec_then ‘k’ mp_tac) evaluate_decs_add_to_clock
@@ -542,6 +542,7 @@ End
 
 Theorem events_of_semantics:
   semantics_prog (init_state ffi) init_env (candle_code ++ prog) res ∧
+  prog_syntax_ok candle_code ∧
   EVERY safe_dec prog ∧ ffi.io_events = [] ∧ res ≠ Fail ⇒
   ∀e. e IN events_of res ⇒ ok_event e
 Proof
@@ -559,6 +560,7 @@ QED
 Theorem events_of_semantics_with_eval_state:
   semantics_prog (init_state ffi with eval_state := ev)
     init_env (candle_code ++ prog) res ∧ eval_state_ok ev ∧
+  prog_syntax_ok candle_code ∧
   EVERY safe_dec prog ∧ ffi.io_events = [] ∧ res ≠ Fail ⇒
   ∀e. e IN events_of res ⇒ ok_event e
 Proof
@@ -568,5 +570,3 @@ Proof
   \\ fs [every_LNTH,LSET_def,EVERY_MEM,IN_DEF] \\ rw []
   \\ res_tac
 QED
-
-val _ = export_theory ();

@@ -2,17 +2,21 @@
   Demonstration of using the translator on functions containing PMATCH-based
   pattern matching.
 *)
-open HolKernel Parse boolLib bossLib;
-open patternMatchesLib ml_translatorLib patternMatchesSyntax patternMatchesTheory;
+Theory ml_pmatch_demo
+Ancestors
+  patternMatches ml_pmatch ml_optimise
+Libs
+  patternMatchesLib ml_translatorLib patternMatchesSyntax
+
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "ml_pmatch_demo";
-
 (* basic example *)
 
-val foo_def = Define `
-  foo f x k = case f x of ([t]::[y]::ys) => t + y + (3:num) + k | _ => 5`
+Definition foo_def:
+  foo f x k = case f x of ([t]::[y]::ys) => t + y + (3:num) + k | _ => 5
+End
 
 val c = (PMATCH_INTRO_CONV THENC PMATCH_SIMP_CONV)
 
@@ -22,28 +26,27 @@ val res = translate def;
 
 (* red-black tree example *)
 
-val _ = Datatype `
+Datatype:
   tree = Empty
        | Red tree 'a tree
-       | Black tree 'a tree`;
+       | Black tree 'a tree
+End
 
-(* causes the normal case-of syntax to be parsed as PMATCH *)
-val _ = patternMatchesSyntax.ENABLE_PMATCH_CASES();
-
-val balance_black_def = Define `
+Definition balance_black_def:
   balance_black a n b =
-    case (a,b) of
+    pmatch (a,b) of
     | (Red (Red a x b) y c,d) => Red (Black a x b) y (Black c n d)
     | (Red a x (Red b y c),d) => Red (Black a x b) y (Black c n d)
     | (a,Red (Red b y c) z d) => Red (Black a n b) y (Black c z d)
     | (a,Red b y (Red c z d)) => Red (Black a n b) y (Black c z d)
-    | other => Black a n b`
+    | other => Black a n b
+End
 
 val res = translate balance_black_def;
 
-(* tricky case from BVL *)
+(* tricky pmatch from BVL *)
 
-val _ = Datatype `
+Datatype:
   exp = Var num
       | If exp exp exp
       | Let (exp list) exp
@@ -51,7 +54,8 @@ val _ = Datatype `
       | Handle exp exp
       | Tick exp
       | Call num (num option) (exp list)
-      | Op num (exp list) `
+      | Op num (exp list)
+End
 
 val dest_Seq_def = PmatchHeuristics.with_classic_heuristic Define `
   (dest_Seq (Let [e1;e2] (Var 1)) = SOME (e1,e2)) /\
@@ -60,7 +64,7 @@ val dest_Seq_def = PmatchHeuristics.with_classic_heuristic Define `
 Theorem dest_Seq_pmatch:
   ∀exp.
   dest_Seq exp =
-    case exp of
+    pmatch exp of
       Let [e1;e2] (Var 1) => SOME (e1,e2)
      | _ => NONE
 Proof
@@ -86,7 +90,7 @@ End
 
 Datatype:
   term
-  = Var mlstring type
+  = Vart mlstring type
   | Const mlstring type
   | Comb term term
   | Abs term term
@@ -94,17 +98,19 @@ End
 
 Definition TRANS_def:
   TRANS c1 c2 =
-    case (c1,c2) of
-    | (Comb (Comb (Const (strlit "=") _) l) m1,
-       Comb (Comb (Const (strlit "=") _) m2) r) => "yes"
+    pmatch (c1,c2) of
+    | (Comb (Comb (Const «=» _) l) m1,
+       Comb (Comb (Const «=» _) m2) r) => "yes"
     | _ => "no"
 End
 
 val res = translate TRANS_def;
 
-val PAIR_EQ_COLLAPSE = Q.prove (
-`(((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))`,
-Cases_on `x` THEN SIMP_TAC std_ss [] THEN METIS_TAC[])
+Theorem PAIR_EQ_COLLAPSE[local]:
+  (((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))
+Proof
+  Cases_on `x` THEN SIMP_TAC std_ss [] THEN METIS_TAC[]
+QED
 
 val pabs_elim_ss =
     simpLib.conv_ss
@@ -145,64 +151,74 @@ val tac =
   FULL_SIMP_TAC (rc_ss []) [PMATCH_EVAL, PMATCH_ROW_COND_def,
     PMATCH_INCOMPLETE_def]
 
-val codomain_def = Define `
-  codomain ty = dtcase ty of Tyapp n (y::x::xs) => x | _ => ty`;
+Definition codomain_def:
+  codomain ty = case ty of Tyapp n (y::x::xs) => x | _ => ty
+End
 
-val codomain_PMATCH = Q.prove(
-  `^(rhs(concl(SPEC_ALL codomain_def))) =
-    case ty of Tyapp n (y::x::xs) => x | _ => ty`,
-  rpt tac)
+Theorem codomain_PMATCH[local]:
+   ^(rhs(concl(SPEC_ALL codomain_def))) =
+    pmatch ty of Tyapp n (y::x::xs) => x | _ => ty
+Proof
+  rpt tac
+QED
 val codomain_def = fix codomain_def "codomain_def" codomain_PMATCH
 
-val rev_assocd_def = Define `
+Definition rev_assocd_def:
   rev_assocd a l d =
-    dtcase l of
-      [] => d
-    | ((x,y)::l) => if y = a then x else rev_assocd a l d`;
-
-val rev_assocd_PMATCH = Q.prove(
-  `^(rhs(concl(SPEC_ALL rev_assocd_def))) =
     case l of
+      [] => d
+    | ((x,y)::l) => if y = a then x else rev_assocd a l d
+End
+
+Theorem rev_assocd_PMATCH[local]:
+   ^(rhs(concl(SPEC_ALL rev_assocd_def))) =
+    pmatch l of
        (x,y)::l1 => if y = a then x else rev_assocd a l1 d
-     | _ => d`,
-  rpt tac)
+     | _ => d
+Proof
+  rpt tac
+QED
 val rev_assocd_def = fix rev_assocd_def "rev_assocd_def" rev_assocd_PMATCH
 
-val alphavars_def = Define `
+Definition alphavars_def:
   alphavars env tm1 tm2 =
-    dtcase env of
+    case env of
       [] => (tm1 = tm2)
     | (t1,t2)::oenv =>
          ((t1 = tm1) /\ (t2 = tm2)) \/
-         ((t1 <> tm1) /\ (t2 <> tm2) /\ alphavars oenv tm1 tm2)`;
+         ((t1 <> tm1) /\ (t2 <> tm2) /\ alphavars oenv tm1 tm2)
+End
 
-val raconv_def = Define `
+Definition raconv_def:
   raconv env tm1 tm2 =
-    dtcase (tm1,tm2) of
-      (Var _ _, Var _ _) => alphavars env tm1 tm2
+    case (tm1,tm2) of
+      (Vart _ _, Vart _ _) => alphavars env tm1 tm2
     | (Const _ _, Const _ _) => (tm1 = tm2)
     | (Comb s1 t1, Comb s2 t2) => raconv env s1 s2 /\ raconv env t1 t2
     | (Abs v1 t1, Abs v2 t2) =>
-       (dtcase (v1,v2) of
-          (Var n1 ty1, Var n2 ty2) => (ty1 = ty2) /\
+       (case (v1,v2) of
+          (Vart n1 ty1, Vart n2 ty2) => (ty1 = ty2) /\
                                       raconv ((v1,v2)::env) t1 t2
         | _ => F)
-    | _ => F`;
+    | _ => F
+End
 
-val raconv_PMATCH = Q.prove(
-  `^(rhs(concl(SPEC_ALL raconv_def))) =
-    case (tm1,tm2) of
-    | (Var _ _, Var _ _) => alphavars env tm1 tm2
+Theorem raconv_PMATCH[local]:
+  ^(rhs(concl(SPEC_ALL raconv_def))) =
+    pmatch (tm1,tm2) of
+    | (Vart _ _, Vart _ _) => alphavars env tm1 tm2
     | (Const _ _, Const _ _) => (tm1 = tm2)
     | (Comb s1 t1, Comb s2 t2)
         => raconv env s1 s2 ∧ raconv env t1 t2
     | (Abs v1 t1, Abs v2 t2)
-        => (case (v1,v2) of
-            | (Var n1 ty1,Var n2 ty2)
+        => (pmatch (v1,v2) of
+            | (Vart n1 ty1,Vart n2 ty2)
                 => (ty1 = ty2) ∧ raconv ((v1,v2)::env) t1 t2
             | _ => F)
-    | _ => F`,
-  rpt tac)
+    | _ => F
+Proof
+  rpt tac
+QED
 
 val raconv_def = fix raconv_def "raconv_def" raconv_PMATCH
 
@@ -212,33 +228,37 @@ val res = translate codomain_def;
 val res = translate rev_assocd_def
 val res = translate alphavars_def;
 
-val variant_def = Define `variant _ v = v`;
+Definition variant_def:
+  variant _ v = v
+End
 
 val res = translate variant_def
 
-val vfree_in_def = Define `
+Definition vfree_in_def:
   vfree_in v tm =
-    dtcase tm of
+    case tm of
       Abs bv bod => v <> bv /\ vfree_in v bod
     | Comb s t => vfree_in v s \/ vfree_in v t
-    | _ => (tm = v)`;
+    | _ => (tm = v)
+End
 
 val res = translate vfree_in_def
 
-val is_var_def = Define `
+Definition is_var_def:
   is_var tm =
-    dtcase tm of
-      Var bv bod => T
-    | _ => F`
+    case tm of
+      Vart bv bod => T
+    | _ => F
+End
 
 val res = translate is_var_def
 val res = translate listTheory.FILTER
 val res = translate listTheory.EXISTS_DEF
 
-val vsubst_aux_def = Define `
+Definition vsubst_aux_def:
   vsubst_aux ilist tm =
-    dtcase tm of
-      Var _ _ => rev_assocd tm ilist tm
+    case tm of
+      Vart _ _ => rev_assocd tm ilist tm
     | Const _ _ => tm
     | Comb s t => let s' = vsubst_aux ilist s in
                   let t' = vsubst_aux ilist t in
@@ -252,13 +272,13 @@ val vsubst_aux_def = Define `
                   if EXISTS (\(t,x). vfree_in v t /\ vfree_in x s) ilist'
                   then let v' = variant [s'] v in
                          Abs v' (vsubst_aux ((v',v)::ilist') s)
-                  else Abs v s'`;
+                  else Abs v s'
+End
 
 val res = translate vsubst_aux_def;
 
-val foo1_def = Define `
-  foo1 theta tm = vsubst_aux theta tm`
+Definition foo1_def:
+  foo1 theta tm = vsubst_aux theta tm
+End
 
 val res = translate foo1_def
-
-val _ = export_theory();

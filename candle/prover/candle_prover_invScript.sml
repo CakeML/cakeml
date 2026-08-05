@@ -2,19 +2,15 @@
   Definitions of invariants that are to be maintained during
   evaluate of Candle prover
  *)
+Theory candle_prover_inv
+Ancestors
+  candle_kernel_vals ast_extras evaluate namespaceProps perms
+  holKernelProof[qualified] semanticPrimitivesProps
+  misc[qualified] semanticPrimitives evaluateProps sptree
+  candle_kernelProg ml_hol_kernel_funsProg
+Libs
+  preamble helperLib ml_progLib[qualified]
 
-open preamble helperLib;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     evaluateTheory namespacePropsTheory evaluatePropsTheory
-     sptreeTheory candle_kernelProgTheory ml_hol_kernel_funsProgTheory;
-open permsTheory candle_kernel_valsTheory ast_extrasTheory;
-local open ml_progLib in end
-
-val _ = new_theory "candle_prover_inv";
-
-val _ = set_grammar_ancestry [
-  "candle_kernel_vals", "ast_extras", "evaluate", "namespaceProps", "perms",
-  "holKernelProof", "semanticPrimitivesProps", "misc"];
 
 (* -------------------------------------------------------------------------
  * Expressions are safe if they do not construct anything with a name from the
@@ -111,19 +107,10 @@ Inductive v_ok:
 [~Lit:]
   (∀ctxt lit.
      v_ok ctxt (Litv lit))
-[~FP_WordTree:]
-  (∀ ctxt fp.
-     v_ok ctxt (FP_WordTree fp))
-[~FP_BoolTree:]
-  (∀ ctxt fp.
-     v_ok ctxt (FP_BoolTree fp))
-[~Real:]
-  (∀ ctxt r.
-     v_ok ctxt (Real r))
 [~Loc:]
-  (∀ctxt loc.
+  (∀ctxt loc b.
      loc ∉ kernel_locs ⇒
-       v_ok ctxt (Loc loc))
+       v_ok ctxt (Loc b loc))
 [~Env:]
   (∀ctxt env ns.
      env_ok ctxt env ⇒
@@ -167,7 +154,7 @@ Proof
 QED
 
 Theorem kernel_vals_Loc[simp]:
-  ¬kernel_vals ctxt (Loc loc)
+  ¬kernel_vals ctxt (Loc b loc)
 Proof
   rw [Once v_ok_cases] \\ gs [do_partial_app_def, CaseEqs ["exp", "v"]]
 QED
@@ -178,10 +165,7 @@ Theorem v_ok_def =
    “v_ok ctxt (Recclosure env f n)”,
    “v_ok ctxt (Vectorv vs)”,
    “v_ok ctxt (Litv lit)”,
-   “v_ok ctxt (FP_WordTree fp)”,
-   “v_ok ctxt (FP_BoolTree fp)”,
-   “v_ok ctxt (Real r)”,
-   “v_ok ctxt (Loc loc)”,
+   “v_ok ctxt (Loc b loc)”,
    “v_ok ctxt (Env env ns)”]
   |> map (SIMP_CONV (srw_ss()) [Once v_ok_cases])
   |> LIST_CONJ;
@@ -221,19 +205,20 @@ Theorem kernel_vals_ind = v_ok_ind
 Definition ref_ok_def:
   ref_ok ctxt (Varray vs) = EVERY (v_ok ctxt) vs ∧
   ref_ok ctxt (Refv v) = v_ok ctxt v ∧
-  ref_ok ctxt (W8array vs) = T
+  ref_ok ctxt (W8array vs) = T ∧
+  ref_ok ctxt (Thunk m v) = v_ok ctxt v
 End
 
 Definition kernel_loc_ok_def:
   kernel_loc_ok s loc refs ⇔
     ∃v. LLOOKUP refs loc = SOME (Refv v) ∧
-        (the_type_constants = Loc loc ⇒
+        (the_type_constants = Loc T loc ⇒
            LIST_TYPE (PAIR_TYPE STRING_TYPE NUM) s.the_type_constants v) ∧
-        (the_term_constants = Loc loc ⇒
+        (the_term_constants = Loc T loc ⇒
            LIST_TYPE (PAIR_TYPE STRING_TYPE TYPE_TYPE) s.the_term_constants v) ∧
-        (the_axioms = Loc loc ⇒
+        (the_axioms = Loc T loc ⇒
            LIST_TYPE THM_TYPE s.the_axioms v) ∧
-        (the_context = Loc loc ⇒
+        (the_context = Loc T loc ⇒
            LIST_TYPE UPDATE_TYPE s.the_context v)
 End
 
@@ -384,7 +369,7 @@ Proof
 QED
 
 Theorem v_ok_Cons:
-  v_ok ctxt (Conv (SOME (TypeStamp "::" 1)) [x; y]) ⇔ v_ok ctxt x ∧ v_ok ctxt y
+  v_ok ctxt (Conv (SOME (TypeStamp «::» 1)) [x; y]) ⇔ v_ok ctxt x ∧ v_ok ctxt y
 Proof
   simp [Once v_ok_cases] \\ fs [kernel_types_def]
   \\ eq_tac \\ rw [] \\ rw []
@@ -868,5 +853,3 @@ Proof
   \\ disch_then (C (resolve_then Any irule) sub_conv_ok)
   \\ first_assum $ irule_at Any
 QED
-
-val _ = export_theory ();

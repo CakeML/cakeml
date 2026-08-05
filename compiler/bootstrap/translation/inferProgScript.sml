@@ -1,20 +1,24 @@
 (*
   Translate the compiler's type inferencer.
 *)
+Theory inferProg[no_sig_docs]
+Ancestors
+  ml_monadBase parserProg reg_allocProg infer ml_translator semanticPrimitives
+  inferProps
+Libs
+  preamble ml_translatorLib
+
 open preamble parserProgTheory
-     reg_allocProgTheory inferTheory
+     reg_allocProgTheory
      ml_translatorLib ml_translatorTheory
-     semanticPrimitivesTheory inferPropsTheory
+     semanticPrimitivesTheory inferPropsTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "inferProg"
-
 val _ = translation_extends "reg_allocProg";
-val _ = ml_translatorLib.use_string_type true;
+val _ = ml_translatorLib.use_sub_check true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "inferProg");
-val _ = ml_translatorLib.use_string_type true;
 
 (* translator setup *)
 
@@ -66,9 +70,11 @@ val _ = (find_def_for_const := def_of_const);
 
 (* type inference: t_walkstar and t_unify *)
 
-val PRECONDITION_INTRO = Q.prove(
-  `(b ==> (x = y)) ==> (x = if PRECONDITION b then y else x)`,
-  Cases_on `b` THEN SIMP_TAC std_ss [PRECONDITION_def]);
+Theorem PRECONDITION_INTRO[local]:
+  (b ==> (x = y)) ==> (x = if PRECONDITION b then y else x)
+Proof
+  Cases_on `b` THEN SIMP_TAC std_ss [PRECONDITION_def]
+QED
 
 Theorem t_vwalk_ind:
    !P.
@@ -114,9 +120,11 @@ Proof
   METIS_TAC [unifyTheory.t_walkstar_ind]
 QED
 
-val expand_lemma = Q.prove(
-  `t_walkstar s = \x. t_walkstar s x`,
-  SIMP_TAC std_ss [FUN_EQ_THM]);
+Theorem expand_lemma[local]:
+  t_walkstar s = \x. t_walkstar s x
+Proof
+  SIMP_TAC std_ss [FUN_EQ_THM]
+QED
 
 val _ = translate
   (unifyTheory.t_walkstar_eqn
@@ -148,9 +156,11 @@ Proof
   THEN POP_ASSUM HO_MATCH_MP_TAC THEN METIS_TAC []
 QED
 
-val EXISTS_LEMMA = Q.prove(
-  `!xs P. EXISTS P xs = EXISTS I (MAP P xs)`,
-  Induct THEN SRW_TAC [] []);
+Theorem EXISTS_LEMMA[local]:
+  !xs P. EXISTS P xs = EXISTS I (MAP P xs)
+Proof
+  Induct THEN SRW_TAC [] []
+QED
 
 val _ = translate
   (unifyTheory.t_oc_eqn
@@ -242,14 +252,15 @@ Theorem ts_unify_side_def[allow_rebind] = Q.prove(`
   |> update_precondition;
 
 val r = translate alist_nub_def;
-val r = translate (ns_nub_def |> DefnBase.one_line_ify NONE);
+val r = translate (oneline ns_nub_def);
 
-val _ = save_thm("anub_ind",REWRITE_RULE[MEMBER_INTRO]miscTheory.anub_ind)
+Theorem anub_ind =
+  REWRITE_RULE[MEMBER_INTRO]miscTheory.anub_ind
 val _ = translate (REWRITE_RULE[MEMBER_INTRO] miscTheory.anub_def)
 
 val _ = (extra_preprocessing :=
-  [MEMBER_INTRO, MAP, OPTION_BIND_THM, inferTheory.st_ex_bind_def,
-   inferTheory.st_ex_return_def, failwith_def, guard_def, read_def, write_def]);
+  [MEMBER_INTRO, MAP, OPTION_BIND_THM, st_ex_bind_def, st_ex_ignore_bind_def,
+   st_ex_return_def, failwith_def, guard_def, read_def, write_def]);
 
 val _ = translate (def_of_const ``id_to_string``)
 val _ = translate (def_of_const ``lookup_st_ex``)
@@ -265,10 +276,12 @@ val _ = translate (def_of_const ``infer_type_subst``)
 val _ = translate rich_listTheory.COUNT_LIST_AUX_def
 val _ = translate rich_listTheory.COUNT_LIST_compute
 
-val pair_abs_hack = Q.prove(
-  `(\(v2:string,v1:infer_t). (v2,0,v1)) =
-    (\v3. case v3 of (v2,v1) => (v2,0:num,v1))`,
-  SIMP_TAC (srw_ss()) [FUN_EQ_THM,FORALL_PROD]);
+Theorem pair_abs_hack[local]:
+  (\(v2:mlstring,v1:infer_t). (v2,0,v1)) =
+    (\v3. case v3 of (v2,v1) => (v2,0:num,v1))
+Proof
+  SIMP_TAC (srw_ss()) [FUN_EQ_THM,FORALL_PROD]
+QED
 
 fun fix_infer_induction_thm def = let
   val const = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL |> concl
@@ -299,17 +312,23 @@ fun fix_infer_induction_thm def = let
   val _ = save_thm(ind_name,ind)
   in () end handle HOL_ERR _ => ();
 
-val if_apply = Q.prove(
-  `!b. (if b then x1 else x2) x = if b then x1 x else x2 x`,
-  Cases THEN SRW_TAC [] []);
+Theorem if_apply[local]:
+  !b. (if b then x1 else x2) x = if b then x1 x else x2 x
+Proof
+  Cases THEN SRW_TAC [] []
+QED
 
-val option_case_apply = Q.prove(
-  `!oo. option_CASE oo x1 x2 x = option_CASE oo (x1 x) (\y. x2 y x)`,
-  Cases THEN SRW_TAC [] []);
+Theorem option_case_apply[local]:
+  !oo. option_CASE oo x1 x2 x = option_CASE oo (x1 x) (\y. x2 y x)
+Proof
+  Cases THEN SRW_TAC [] []
+QED
 
-val pr_CASE = Q.prove(
-  `pair_CASE (x,y) f = f x y`,
-  SRW_TAC [] []);
+Theorem pr_CASE[local]:
+  pair_CASE (x,y) f = f x y
+Proof
+  SRW_TAC [] []
+QED
 
 val op_apply =
   let
@@ -321,10 +340,12 @@ val op_apply =
     val rthm3 = Q.ISPEC `\g. g (y : 'b)` rthm2
   in BETA_RULE rthm3 |> Q.GEN ‘x’ end;
 
-val list_apply = Q.prove(
-  `!op. (list_CASE op x1 x2) y =
-         (list_CASE op (x1 y) (\z1 z2. x2 z1 z2 y))`,
-  Cases THEN SRW_TAC [] []);
+Theorem list_apply[local]:
+  !op. (list_CASE op x1 x2) y =
+         (list_CASE op (x1 y) (\z1 z2. x2 z1 z2 y))
+Proof
+  Cases THEN SRW_TAC [] []
+QED
 
 (* Converts PMATCH case expressions applied to an argument, e.g.
 
@@ -380,19 +401,14 @@ val _ = translate infer_tTheory.get_tyname_def;
 
 Theorem ty_var_name_eq:
   ty_var_name n =
-    concat [strlit "'";
-            if n < 28 then str (CHR (n + ORD #"a")) else mlint$toString (&n)]
+    concat [«'»;
+            if n < 28 then toString (CHR (n + ORD #"a")) else mlint$toString (&n)]
 Proof
-  rw [infer_tTheory.ty_var_name_def,mlstringTheory.implode_def]
-  \\ fs [mlstringTheory.concat_def,mlstringTheory.str_def,mlstringTheory.implode_def]
+  rw [infer_tTheory.ty_var_name_def]
+  \\ fs [mlstringTheory.concat_def,mlstringTheory.chr_to_str_def]
 QED
 
 val _ = translate ty_var_name_eq;
-
-val ty_var_name_side =
-  ``ty_var_name_side x``
-  |> SIMP_CONV arith_ss [fetch "-" "ty_var_name_side_def"]
-  |> update_precondition;
 
 val _ = translate infer_tTheory.commas_def;
 val _ = translate infer_tTheory.add_parens_def;
@@ -426,7 +442,7 @@ Proof
   \\ metis_tac[unifyTheory.t_unify_wfs]
 QED
 
-Triviality LET3_APP:
+Theorem LET3_APP[local]:
   (let (a, b, c) = x in y a b c) z = (let (a, b, c) = x in y a b c z)
 Proof
   simp [ELIM_UNCURRY]
@@ -439,26 +455,34 @@ val def = infer_def ``constrain_op``
 
 val r = translate def
 
-val MAP_type_name_subst = prove(
-  ``MAP (type_name_subst tenvT) ts =
-    MAP (\x. type_name_subst tenvT x) ts``,
-  CONV_TAC (DEPTH_CONV ETA_CONV) \\ simp []);
+Theorem MAP_type_name_subst[local]:
+    MAP (type_name_subst tenvT) ts =
+    MAP (\x. type_name_subst tenvT x) ts
+Proof
+  CONV_TAC (DEPTH_CONV ETA_CONV) \\ simp []
+QED
 
-val lemma = prove(
-  ``MAP (\(x,y). foo x y) = MAP (\z. foo (FST z) (SND z))``,
-  AP_TERM_TAC \\ fs [FUN_EQ_THM,FORALL_PROD]);
+Theorem lemma[local]:
+    MAP (\(x,y). foo x y) = MAP (\z. foo (FST z) (SND z))
+Proof
+  AP_TERM_TAC \\ fs [FUN_EQ_THM,FORALL_PROD]
+QED
 
 val _ = translate (typeSystemTheory.build_ctor_tenv_def
          |> REWRITE_RULE [MAP_type_name_subst]
                     |> SIMP_RULE std_ss [lemma]);
 
-val EVERY_INTRO = Q.prove(
-  `(!x::set s. P x) = EVERY P s`,
-  SIMP_TAC std_ss [res_quanTheory.RES_FORALL,EVERY_MEM]);
+Theorem EVERY_INTRO[local]:
+  (!x::set s. P x) = EVERY P s
+Proof
+  SIMP_TAC std_ss [res_quanTheory.RES_FORALL,EVERY_MEM]
+QED
 
-val EVERY_EQ_EVERY = Q.prove(
-  `!xs. EVERY P xs = EVERY I (MAP P xs)`,
-  Induct THEN SRW_TAC [] []);
+Theorem EVERY_EQ_EVERY[local]:
+  !xs. EVERY P xs = EVERY I (MAP P xs)
+Proof
+  Induct THEN SRW_TAC [] []
+QED
 
 val _ = translate (infer_def ``check_freevars``
                    |> RW1 [EVERY_EQ_EVERY])
@@ -486,12 +510,12 @@ val inter_p_lemma1 = prove(
 
 val x_var = inter_p_lemma1 |> CONJUNCT1 |> concl |> dest_eq |> fst |> rand
 
-val infer_p_ind = save_thm("infer_p_ind",
+Theorem infer_p_ind =
   inferTheory.infer_p_ind
   |> Q.SPEC `\v1 v2 v3. !^x_var. P0 v1 v2 v3 ^x_var`
   |> Q.SPEC `\v1 v2 v3. !^x_var. P1 v1 v2 v3 ^x_var`
   |> Q.GENL [`P0`,`P1`]
-  |> CONV_RULE (DEPTH_CONV BETA_CONV));
+  |> CONV_RULE (DEPTH_CONV BETA_CONV)
 
 val res = translate inter_p_lemma1;
 
@@ -530,14 +554,14 @@ val inter_e_lemma1 = prove(
   every_case_tac \\ fs [])
   |> REWRITE_RULE [infer_e_lemma];
 
-val infer_e_ind = save_thm("infer_e_ind",
+Theorem infer_e_ind =
   inferTheory.infer_e_ind
   |> Q.SPEC `\v1 v2 v3. !^x_var. P0 v1 v2 v3 ^x_var`
   |> Q.SPEC `\v1 v2 v3. !^x_var. P1 v1 v2 v3 ^x_var`
   |> Q.SPEC `\v1 v2 v3 v4 v5. !^x_var. P2 v1 v2 v3 v4 v5 ^x_var`
   |> Q.SPEC `\v1 v2 v3. !^x_var. P3 v1 v2 v3 ^x_var`
   |> Q.GENL [`P0`,`P1`,`P2`,`P3`]
-  |> CONV_RULE (DEPTH_CONV BETA_CONV));
+  |> CONV_RULE (DEPTH_CONV BETA_CONV)
 
 val res = translate inter_e_lemma1;
 
@@ -577,21 +601,21 @@ Proof
          \\ imp_res_tac infer_e_wfs \\ fs[])
   THEN1 (metis_tac [infer_p_side_thm])
   THEN1 (fs [bool_case_eq] \\ rveq >>
-         PairCases_on `x26` >>
+         rename1 `SND x26` \\ PairCases_on `x26` >>
          imp_res_tac infer_p_wfs >>
          fs [])
   THEN1 (fs [bool_case_eq] \\ rveq >> fs [pair_abs_hack] >>
          first_x_assum match_mp_tac \\ fs [] >>
-         PairCases_on `x26` >> fs [] >>
+         rename1 `SND x26` \\ PairCases_on `x26` >> fs [] >>
          imp_res_tac infer_p_wfs >>
          imp_res_tac unifyTheory.t_unify_wfs >> fs [])
   THEN1 (fs [bool_case_eq] \\ rveq >> fs [pair_abs_hack] >>
-         PairCases_on `x26` >> fs [] >>
+         rename1 `SND x26` \\ PairCases_on `x26` >> fs [] >>
          imp_res_tac infer_p_wfs >>
          imp_res_tac infer_e_wfs >>
          imp_res_tac unifyTheory.t_unify_wfs >> fs [])
   THEN1 (fs [bool_case_eq] \\ rveq >> fs [pair_abs_hack] >>
-         PairCases_on `x26` >> fs [] >>
+         rename1 `SND x26` \\ PairCases_on `x26` >> fs [] >>
          imp_res_tac infer_p_wfs >>
          imp_res_tac infer_e_wfs >>
          imp_res_tac unifyTheory.t_unify_wfs >> fs [])
@@ -602,22 +626,26 @@ val _ = print "Translated infer_d\n";
 
 val infer_d_side_def = fetch "-" "infer_d_side_def";
 
-val generalise_list_length = Q.prove (
-  `!min start s x.
-    LENGTH x = LENGTH (SND (SND (generalise_list min start s (MAP f (MAP SND x)))))`,
+Theorem generalise_list_length[local]:
+  !min start s x.
+    LENGTH x = LENGTH (SND (SND (generalise_list min start s (MAP f (MAP SND x)))))
+Proof
   induct_on `x` >>
   srw_tac[] [generalise_def] >>
   srw_tac[] [] >>
-  metis_tac [SND]);
+  metis_tac [SND]
+QED
 
-val gen_d_ind_def = tDefine "gen_d_ind" `
+Definition gen_d_ind_def:
   (gen_d_ind (Dmod n ds) = gen_ds_ind ds) /\
   (gen_d_ind (Dlocal lds ds) = (gen_ds_ind lds /\ gen_ds_ind ds)) /\
   (gen_d_ind _ = T) /\
   (gen_ds_ind [] = T) /\
-  (gen_ds_ind (x::xs) = (gen_d_ind x /\ gen_ds_ind xs))`
-  (WF_REL_TAC `measure (\x. case x of INL d => dec_size d
-                                    | INR ds => dec1_size ds)`)
+  (gen_ds_ind (x::xs) = (gen_d_ind x /\ gen_ds_ind xs))
+Termination
+  WF_REL_TAC `measure (\x. case x of INL d => dec_size d
+                                   | INR ds => list_size dec_size ds)`
+End
 
 val infer_p_wfs_dest = infer_p_wfs |> BODY_CONJUNCTS
     |> map (CONV_RULE (ONCE_DEPTH_CONV (REWR_CONV CONJ_COMM)))
@@ -642,44 +670,53 @@ Proof
   fs []
 QED
 
-val MEM_anub = prove(``
+Theorem MEM_anub[local]:
   ∀e1M ls k v1.
   MEM (k,v1) (anub e1M ls) ⇒
-  MEM (k,v1) e1M``,
-  ho_match_mp_tac anub_ind>>rw[anub_def]>>metis_tac[]);
+  MEM (k,v1) e1M
+Proof
+  ho_match_mp_tac miscTheory.anub_ind>>rw[anub_def]>>metis_tac[]
+QED
 
-val nsSub_translate_def = tDefine "nsSub_translate"
-  `nsSub_translate path R b1 b2 ⇔
-   case b1 of (Bind e1V e1M) => case b2 of (Bind e2V e2M) =>
-     EVERY (λ(k,v1).
-       case ALOOKUP e2V k of
-         NONE => F
-       | SOME v2 => R (mk_id (REVERSE path) k) v1 v2) (anub e1V []) ∧
-     EVERY (λ(k,v1).
-       case ALOOKUP e2M k of
-         NONE => F
-       | SOME v2 => nsSub_translate (k::path) R v1 v2) (anub e1M [])`
-  (wf_rel_tac `measure (\(p,r,env,_). namespace_size (\x.0) (\x.0) (\x.0) env)`
-   >> rw[]
-   >> imp_res_tac MEM_anub >> last_x_assum kall_tac
-   >> Induct_on `e1M`
-   >> rw [namespaceTheory.namespace_size_def]
-   >> fs [namespaceTheory.namespace_size_def]);
+Definition nsSub_translate_def:
+  nsSub_translate path R b1 b2 ⇔
+  case b1 of (Bind e1V e1M) => case b2 of (Bind e2V e2M) =>
+    EVERY (λ(k,v1).
+      case ALOOKUP e2V k of
+        NONE => F
+      | SOME v2 => R (mk_id (REVERSE path) k) v1 v2) (anub e1V []) ∧
+    EVERY (λ(k,v1).
+      case ALOOKUP e2M k of
+        NONE => F
+      | SOME v2 => nsSub_translate (k::path) R v1 v2) (anub e1M [])
+Termination
+  wf_rel_tac `measure (\(p,r,env,_). namespace_size (\x.0) (\x.0) (\x.0) env)`
+  >> rw[]
+  >> imp_res_tac MEM_anub >> last_x_assum kall_tac
+  >> Induct_on `e1M`
+  >> rw [namespaceTheory.namespace_size_def]
+  >> fs [namespaceTheory.namespace_size_def]
+End
 
-val ALOOKUP_MEM_anub = prove(
-  ``∀ls acc k v.
+Theorem ALOOKUP_MEM_anub[local]:
+    ∀ls acc k v.
     MEM (k,v) (anub ls acc) ⇔
-    (ALOOKUP ls k = SOME v ∧ ¬MEM k acc)``,
-    ho_match_mp_tac anub_ind>>rw[anub_def]>>IF_CASES_TAC>>fs[]>>
-    metis_tac[]);
+    (ALOOKUP ls k = SOME v ∧ ¬MEM k acc)
+Proof
+    ho_match_mp_tac miscTheory.anub_ind>>rw[anub_def]>>IF_CASES_TAC>>fs[]>>
+    metis_tac[]
+QED
 
-val MEM_ALOOKUP = prove(``
-  ∀ls k. MEM k (MAP FST ls) ⇒ ∃v. ALOOKUP ls k = SOME v``,
+Theorem MEM_ALOOKUP[local]:
+  ∀ls k. MEM k (MAP FST ls) ⇒ ∃v. ALOOKUP ls k = SOME v
+Proof
   Induct>>fs[MEM_MAP,FORALL_PROD,EXISTS_PROD,PULL_EXISTS]>>rw[]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
-val nsSub_thm = prove(``
-  ∀ls R e1 e2. nsSub_compute ls R e1 e2 ⇔ nsSub_translate ls R e1 e2``,
+Theorem nsSub_thm[local]:
+  ∀ls R e1 e2. nsSub_compute ls R e1 e2 ⇔ nsSub_translate ls R e1 e2
+Proof
   ho_match_mp_tac (fetch "-" "nsSub_translate_ind")>>
   rw[]>>
   simp[Once nsSub_translate_def]>> every_case_tac>>
@@ -699,7 +736,8 @@ val nsSub_thm = prove(``
   >>
     (fs[ALOOKUP_MEM_anub,EVERY_MEM,FORALL_PROD]>>
     imp_res_tac MEM_ALOOKUP>>fs[]>>
-    res_tac>>fs[]>>every_case_tac>>fs[]))
+    res_tac>>fs[]>>every_case_tac>>fs[])
+QED
 
 val res = translate infertype_prog_def;
 
@@ -709,10 +747,7 @@ Theorem infertype_prog_side_thm = Q.prove(`
   \\ match_mp_tac (CONJUNCT2 infer_d_side_thm) \\ fs [])
   |> update_precondition;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

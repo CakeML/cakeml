@@ -23,8 +23,10 @@ Word8
 Word8Array
 Array
 Map
+Set
 Hashtable
 CommandLine
 Double
 TextIO
+Sexp
 basis

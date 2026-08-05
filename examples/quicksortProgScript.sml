@@ -1,11 +1,11 @@
 (*
   In-place quick sort on a polymorphic array.
 *)
-open preamble semanticPrimitivesTheory
-open ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
-open basisProgTheory ArrayProofTheory
-
-val _ = new_theory "quicksortProg";
+Theory quicksortProg
+Ancestors
+  semanticPrimitives ml_translator basisProg ArrayProof
+Libs
+  preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -15,16 +15,18 @@ val _ = translation_extends"basisProg";
 
 (* TODO: move *)
 
-val list_rel_perm_help = Q.prove (
-  `!l1 l2.
+Theorem list_rel_perm_help[local]:
+  !l1 l2.
     PERM l1 l2
     ⇒
     !l3 l4.
       LIST_REL r (MAP FST l1) (MAP SND l1)
       ⇒
-      LIST_REL r (MAP FST l2) (MAP SND l2)`,
+      LIST_REL r (MAP FST l2) (MAP SND l2)
+Proof
   ho_match_mp_tac PERM_IND >>
-  rw []);
+  rw []
+QED
 
 Theorem list_rel_perm:
    !r l1 l2 l3 l4.
@@ -40,30 +42,35 @@ Proof
   rw [MAP_ZIP]
 QED
 
-val split_list = Q.prove (
-  `!l x. x < LENGTH l ⇒ ?l1 l2. x = LENGTH l1 ∧ l = l1++[EL x l]++l2`,
+Theorem split_list[local]:
+  !l x. x < LENGTH l ⇒ ?l1 l2. x = LENGTH l1 ∧ l = l1++[EL x l]++l2
+Proof
   induct_on `l` >>
   rw [] >>
   Cases_on `x` >>
   fs [] >>
-  metis_tac [APPEND, LENGTH]);
+  metis_tac [APPEND, LENGTH]
+QED
 
-val split_list2 = Q.prove (
-  `!l1 l2 l3 l4.
+Theorem split_list2[local]:
+  !l1 l2 l3 l4.
     LENGTH l1 < LENGTH l3 ∧ l1++l2 = l3++l4
     ⇒
-    ?l1'. l3 = l1++l1'`,
+    ?l1'. l3 = l1++l1'
+Proof
   induct_on `l1` >>
   rw [] >>
   Cases_on `l3` >>
   fs [] >>
-  metis_tac []);
+  metis_tac []
+QED
 
-val perm_swap_help = Q.prove (
-  `!l x y.
+Theorem perm_swap_help[local]:
+  !l x y.
     x < LENGTH l ∧ y < LENGTH l ∧ y < x
     ⇒
-    PERM l (LUPDATE (EL x l) y (LUPDATE (EL y l) x l))`,
+    PERM l (LUPDATE (EL x l) y (LUPDATE (EL y l) x l))
+Proof
   rw [] >>
   `?l1 l2. LENGTH l1 = x ∧ l = l1++[EL x l]++l2`
   by metis_tac [split_list] >>
@@ -85,7 +92,8 @@ val perm_swap_help = Q.prove (
   fs [FILTER_APPEND, EL_APPEND_EQN] >>
   Cases_on `l1''` >>
   fs [] >>
-  rw [FILTER_APPEND]);
+  rw [FILTER_APPEND]
+QED
 
 Theorem perm_swap:
    !l x y.
@@ -112,12 +120,14 @@ Proof
   fs [LUPDATE_def]
 QED
 
-val el_append_length1 = Q.prove (
-  `!n l1 l2. EL (n + LENGTH l1) (l1 ++ l2) = EL n l2`,
+Theorem el_append_length1[local]:
+  !n l1 l2. EL (n + LENGTH l1) (l1 ++ l2) = EL n l2
+Proof
   Induct_on `l1` >>
   rw [EL_CONS] >>
   `PRE (n + SUC (LENGTH l1)) = n + LENGTH l1` by decide_tac >>
-  metis_tac []);
+  metis_tac []
+QED
 
 Theorem front_zip:
    !l1 l2.
@@ -135,11 +145,12 @@ Proof
   rw []
 QED
 
-val strict_weak_order_def = Define `
+Definition strict_weak_order_def:
   strict_weak_order r ⇔
     transitive r ∧
     (!x y. r x y ⇒ ~r y x) ∧
-    transitive (\x y. ~r x y ∧ ¬r y x)`;
+    transitive (\x y. ~r x y ∧ ¬r y x)
+End
 
 Theorem strict_weak_order_alt:
    strict_weak_order r ⇔
@@ -170,7 +181,7 @@ QED
 
 fun basis_st () = get_ml_prog_state ()
 
-val partition = process_topdecs `
+Quote add_cakeml:
 fun partition cmp a pivot lower upper =
 let
   fun scan_lower lower =
@@ -212,10 +223,9 @@ let
 in
   part_loop (lower - 1) (upper + 1)
 end;
-`;
-val _ = append_prog partition;
+End
 
-val partition_pred_def = Define `
+Definition partition_pred_def:
   partition_pred cmp offset p_v pivot elems elem_vs part1 part2 ⇔
     (* Neither part is empty *)
     part1 ≠ [] ∧ part2 ≠ [] ∧
@@ -231,11 +241,14 @@ val partition_pred_def = Define `
       (* The elements of the first part aren't greater than the pivot *)
       EVERY (\e. ¬cmp pivot e) elems1 ∧
       (* The elements of the second part aren't less than the pivot *)
-      EVERY (\e. ¬cmp e pivot) elems2`;
+      EVERY (\e. ¬cmp e pivot) elems2
+End
 
-val perm_helper = Q.prove(
-  `!a b c. PERM b c ∧ PERM a b ⇒ PERM a c`,
-  metis_tac [PERM_SYM, PERM_TRANS]);
+Theorem perm_helper[local]:
+  !a b c. PERM b c ∧ PERM a b ⇒ PERM a c
+Proof
+  metis_tac [PERM_SYM, PERM_TRANS]
+QED
 
 Theorem partition_spec:
    !a ffi_p cmp cmp_v arr_v pivot pivot_v lower_v upper_v elem_vs1 elem_vs2 elem_vs3 elems2.
@@ -265,6 +278,7 @@ Theorem partition_spec:
         ARRAY arr_v (elem_vs1 ++ part1 ++ part2 ++ elem_vs3) *
         &(partition_pred cmp (LENGTH elem_vs1) p_v pivot elems2 elem_vs2 part1 part2))
 Proof
+  rpt strip_tac >>
   xcf "partition" (basis_st()) >>
   qmatch_assum_abbrev_tac `INT (&lower) lower_v` >>
   qmatch_assum_abbrev_tac `INT (&upper) upper_v` >>
@@ -351,7 +365,7 @@ Proof
       xapp >>
       xsimpl >>
       rw [BOOL_def] >>
-      metis_tac []) >>
+      gvs [] >> metis_tac []) >>
     xif
     >- (
       (* Set up the invariant for the recursive call.
@@ -456,7 +470,7 @@ Proof
       xapp >>
       xsimpl >>
       rw [BOOL_def] >>
-      metis_tac []) >>
+      gvs [] >> metis_tac []) >>
     xif
     >- (
       first_x_assum (qspecl_then [`i-1`] mp_tac) >>
@@ -505,7 +519,7 @@ Proof
   `(SEP_EXISTS loc.
      (λs.
         ∃v.
-          v ⊆ s ∧ s ⊆ v ∧ arr_v = Loc loc ∧
+          v ⊆ s ∧ s ⊆ v ∧ arr_v = Loc T loc ∧
           v ⊆ {Mem loc (Varray (elem_vs1 ++ elem_vs2 ++ elem_vs3))} ∧
           Mem loc (Varray (elem_vs1 ++ elem_vs2 ++ elem_vs3)) ∈ v))
     =
@@ -771,9 +785,10 @@ Proof
         `cmp pivot (EL (n + new_upper − LENGTH lower_part) elems2')`
         suffices_by metis_tac [strict_weak_order_def] >>
         fs [EL_APPEND_EQN]) >>
+      conj_tac >- fs [] >>
       conj_tac
       (* We got the lower index value right in the above exists_tac *)
-      >- simp [integerTheory.INT_SUB] >>
+      >- gvs [integerTheory.INT_SUB] >>
       conj_tac
       (* There is a stopping element in the new lower partition, plus new
        * middle. The one we just swapped in will do. *)
@@ -979,7 +994,7 @@ Proof
   >- metis_tac []
 QED
 
-val quicksort = process_topdecs `
+Quote add_cakeml:
 fun quicksort cmp a =
 let
   fun quicksort_help lower upper =
@@ -997,8 +1012,7 @@ in
     if l = 0 then () else quicksort_help 0 (l - 1)
   end
 end;
-`;
-val _ = append_prog quicksort;
+End
 
 val eq_int_v_thm =
   MATCH_MP
@@ -1030,6 +1044,7 @@ Theorem quicksort_spec:
               (* We use "not greater than" as equivalent to "less or equal" *)
               SORTED (\x y. ¬(cmp y x)) elems'))
 Proof
+  rpt strip_tac >>
   xcf "quicksort" (basis_st()) >>
   (* The loop invariant for the main loop. Note that we have to quantify over
    * what's in the array because it changes on the recursive calls. *)
@@ -1202,5 +1217,3 @@ Proof
   rw [] >>
   metis_tac [PERM_SYM]
 QED
-
-val _ = export_theory ();

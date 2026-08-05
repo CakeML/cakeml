@@ -1,11 +1,12 @@
 (*
   Theorems and definitions to support adding runtime type checking annotations.
  *)
+Theory runtime_check
+Ancestors
+  ml_translator holKernel mlstring
+Libs
+  preamble ml_translatorLib
 
-open preamble ml_translatorTheory ml_translatorLib holKernelTheory
-     mlstringTheory;
-
-val _ = new_theory "runtime_check";
 
 Theorem pure_seq_intro:
   x = y ⇒ ∀z. x = pure_seq z y
@@ -54,6 +55,4 @@ Definition check_tm_tm_def:
   check_tm_tm [] = () ∧
   check_tm_tm ((tm,tm')::l) = pure_seq ^tm (pure_seq ^tm' (check_tm_tm l))
 End
-
-val _ = export_theory ();
 

@@ -1,9 +1,11 @@
 (*
    Parsing interface for DIMACS and LPR
 *)
-open preamble miscTheory lprTheory mlintTheory;
-
-val _ = new_theory "lpr_parsing";
+Theory lpr_parsing
+Ancestors
+  misc lpr mlint
+Libs
+  preamble
 
 (*
   Parses a list of strings (1 per line of a file) in
@@ -13,16 +15,18 @@ val _ = new_theory "lpr_parsing";
 *)
 
 (* Everything recognized as a "blank" *)
-val blanks_def = Define`
-  blanks (c:char) ⇔ c = #" " ∨ c = #"\n" ∨ c = #"\t" ∨ c = #"\r"`
+Definition blanks_def:
+  blanks (c:char) ⇔ c = #" " ∨ c = #"\n" ∨ c = #"\t" ∨ c = #"\r"
+End
 
-val tokenize_def = Define`
+Definition tokenize_def:
   tokenize (s:mlstring) =
   case mlint$fromString s of
     NONE => INL s
-  | SOME i => INR i`
+  | SOME i => INR i
+End
 
-val fromString_unsafe_def = Define`
+Definition fromString_unsafe_def:
   fromString_unsafe str =
     if strlen str = 0
     then 0i
@@ -30,26 +34,30 @@ val fromString_unsafe_def = Define`
             strsub str 0 = #"-"
       then ~&fromChars_unsafe (strlen str - 1)
                               (substring str 1 (strlen str - 1))
-      else &fromChars_unsafe (strlen str) str`;
+      else &fromChars_unsafe (strlen str) str
+End
 
-val tokenize_fast_def = Define`
+Definition tokenize_fast_def:
   tokenize_fast (s:mlstring) =
   if strlen s = 0 then INL s
   else if strsub s 0 = #"c" ∨ strsub s 0 = #"d" then INL s
-  else INR (fromString_unsafe s)`
+  else INR (fromString_unsafe s)
+End
 
-val toks_def = Define`
-  toks s = MAP tokenize (tokens blanks s)`
+Definition toks_def:
+  toks s = MAP tokenize (tokens blanks s)
+End
 
-val toks_fast_def = Define`
-  toks_fast s = MAP tokenize_fast (tokens blanks s)`
+Definition toks_fast_def:
+  toks_fast s = MAP tokenize_fast (tokens blanks s)
+End
 
 (* DIMACS parser *)
 
 (*
   A clause line must end with 0, cannot contain 0s elsewhere, and is within the var bound
 *)
-val parse_clause_aux_def = Define`
+Definition parse_clause_aux_def:
   (parse_clause_aux maxvar [] (acc:cclause) = NONE) ∧
   (parse_clause_aux maxvar [c] acc = if c = INR 0i then SOME acc else NONE) ∧
   (parse_clause_aux maxvar (x::xs) acc =
@@ -58,13 +66,15 @@ val parse_clause_aux_def = Define`
       if l = 0 ∨ Num (ABS l) > maxvar then NONE
       else parse_clause_aux maxvar xs (l::acc)
     | INL (_:mlstring) => NONE
-  )`
+  )
+End
 
-val parse_clause_def = Define`
+Definition parse_clause_def:
   parse_clause maxvar xs =
   case parse_clause_aux maxvar xs [] of
     NONE => NONE
-  | SOME ls => SOME (REVERSE ls)`
+  | SOME ls => SOME (REVERSE ls)
+End
 
 Theorem parse_clause_aux_wf_clause:
   ∀mv ls acc acc'.
@@ -110,10 +120,11 @@ Definition toStdString_def:
   toStdString i = int_to_string #"-" i
 End
 
-val print_clause_def = Define`
-  (print_clause [] = strlit "0\n") ∧
+Definition print_clause_def:
+  (print_clause [] = «0\n») ∧
   (print_clause (x::xs) =
-    toStdString x ^ strlit(" ") ^ print_clause xs)`
+    toStdString x ^ « » ^ print_clause xs)
+End
 
 Theorem tokens_unchanged:
   EVERY ($~ o P) (explode ls) ∧ ¬ NULL (explode ls) ⇒
@@ -130,7 +141,7 @@ Proof
   simp [toStdString_def]
 QED
 
-Triviality isDigit_not_blanks:
+Theorem isDigit_not_blanks[local]:
   isDigit c ==> ~ blanks c
 Proof
   CCONTR_TAC \\ fs [blanks_def] \\ fs [isDigit_def]
@@ -154,7 +165,7 @@ Proof
   >-
     EVAL_TAC
   >>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = « »` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]
 QED
 
@@ -170,7 +181,7 @@ Proof
   >-
     EVAL_TAC
   >>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = « »` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   disch_then kall_tac>>
   simp[tokens_blanks_toStdString]>>
@@ -196,44 +207,46 @@ Proof
   disch_then (qspec_then`[]` assume_tac)>>simp[]
 QED
 
-val parse_header_line_def = Define`
+Definition parse_header_line_def:
   parse_header_line ls =
   case ls of
     [p; cnf; vars; numcls] =>
-    if p = INL (strlit "p") ∧ cnf = INL (strlit "cnf")
+    if p = INL «p» ∧ cnf = INL «cnf»
     then
       case (vars, numcls)
       of
         (INR v,INR c) => if v ≥ 0 ∧ c ≥ 0 then SOME (Num v,Num c) else NONE
       | _ => NONE
     else NONE
-  | _ => NONE`
+  | _ => NONE
+End
 
-val print_header_line_def = Define`
+Definition print_header_line_def:
   print_header_line v len =
-  strlit ("p cnf ") ^  toStdString (&v) ^ strlit(" ") ^ toStdString (&len) ^ strlit("\n")`
+  «p cnf » ^  toStdString (&v) ^ « » ^ toStdString (&len) ^ «\n»
+End
 
 Theorem parse_header_line_print_header_line:
   parse_header_line (toks (print_header_line v len)) = SOME(v,len)
 Proof
   rw[print_header_line_def, toks_def]>>
   qmatch_goalsub_abbrev_tac`aa ^ bb ^ _ ^ cc ^ dd`>>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = « »` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
-  `aa = strlit"p" ^ strlit" " ^ strlit"cnf" ^ strlit" "` by
+  `aa = «p» ^ « » ^ «cnf» ^ « »` by
     (fs[Abbr`aa`]>>EVAL_TAC)>>
   strip_tac>>
   first_assum(qspecl_then[`aa ^ bb`,`cc ^ dd`] assume_tac)>>fs[]>>
-  `cc ^ dd = cc ^ dd ^ strlit""` by EVAL_TAC>>
+  `cc ^ dd = cc ^ dd ^ «»` by EVAL_TAC>>
   pop_assum SUBST_ALL_TAC>>
-  `blanks #"\n" ∧ str #"\n" = strlit "\n"` by EVAL_TAC>>
+  `blanks #"\n" ∧ toString #"\n" = «\n»` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   unabbrev_all_tac>>
   simp[tokens_blanks_toStdString]>>
   rw[]>>
-  `tokens blanks (strlit "p") = [strlit "p"]` by EVAL_TAC>>
-  `tokens blanks (strlit "cnf") = [strlit "cnf"]` by EVAL_TAC>>
-  `tokens blanks (strlit "") = []` by EVAL_TAC>>
+  `tokens blanks «p» = [«p»]` by EVAL_TAC>>
+  `tokens blanks «cnf» = [«cnf»]` by EVAL_TAC>>
+  `tokens blanks «» = []` by EVAL_TAC>>
   simp[tokenize_def,parse_header_line_def]>>
   simp[tokens_blanks_toStdString]>>
   EVAL_TAC>>
@@ -245,18 +258,20 @@ QED
 *)
 
 (* lines which are not comments don't start with a single "c" *)
-val nocomment_line_def = Define`
-  (nocomment_line (INL c::cs) = (c ≠ strlit "c")) ∧
-  (nocomment_line _ = T)`
+Definition nocomment_line_def:
+  (nocomment_line (INL c::cs) = (c ≠ «c»)) ∧
+  (nocomment_line _ = T)
+End
 
 (* Produces the list of clauses in order they are read *)
-val parse_dimacs_body_def = Define`
+Definition parse_dimacs_body_def:
   (parse_dimacs_body maxvar [] acc = SOME (REVERSE acc)) ∧
   (parse_dimacs_body maxvar (s::ss) acc =
     case parse_clause maxvar s of
       NONE => NONE
     | SOME cl => parse_dimacs_body maxvar ss (cl::acc)
-  )`
+  )
+End
 
 Theorem LENGTH_parse_dimacs_body:
   ∀ss mv acc res.
@@ -270,7 +285,7 @@ Proof
 QED
 
 (* Parse the tokenized DIMACS file as a list of clauses *)
-val parse_dimacs_toks_def = Define`
+Definition parse_dimacs_toks_def:
   parse_dimacs_toks tokss =
   let nocomments = FILTER nocomment_line tokss in
   case nocomments of
@@ -283,15 +298,17 @@ val parse_dimacs_toks_def = Define`
           | SOME acc => SOME (vars,clauses,acc)
         else NONE
       | NONE => NONE)
-  | [] => NONE`
+  | [] => NONE
+End
 
 (* Parse a list of strings in DIMACS format and return a ccnf *)
-val parse_dimacs_def = Define`
+Definition parse_dimacs_def:
   parse_dimacs strs =
   let tokss = MAP toks strs in
   case parse_dimacs_toks tokss of
     NONE => NONE
-  | SOME (nvars, nclauses, ls) => SOME ls`
+  | SOME (nvars, nclauses, ls) => SOME ls
+End
 
 Theorem parse_dimacs_body_wf:
   ∀ss vars acc acc'.
@@ -331,16 +348,18 @@ Proof
   asm_exists_tac>>simp[]
 QED
 
-val max_lit_def = Define`
+Definition max_lit_def:
   (max_lit k [] = k) ∧
-  (max_lit k (x::xs) = if k < ABS x then max_lit (ABS x) xs else max_lit k xs)`
+  (max_lit k (x::xs) = if k < ABS x then max_lit (ABS x) xs else max_lit k xs)
+End
 
-val print_dimacs_def = Define`
+Definition print_dimacs_def:
   print_dimacs fml =
   let len = LENGTH fml in
   let v = max_lit 0 (MAP (max_lit 0) fml) in
   print_header_line (Num v) len ::
-  MAP print_clause fml`
+  MAP print_clause fml
+End
 
 Theorem FILTER_print_clause:
   FILTER nocomment_line
@@ -351,7 +370,7 @@ Proof
   rw[]>>
   Cases_on`x`>>simp[print_clause_def]
   >- EVAL_TAC >>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = « »` by EVAL_TAC>>
   simp[toks_def]>>
   drule mlstringTheory.tokens_append>>simp[]>>
   simp[tokens_blanks_toStdString,tokenize_def,nocomment_line_def]
@@ -370,18 +389,18 @@ QED
 
 Theorem print_header_line_first:
   ∃ls. tokens blanks (print_header_line a b) =
-  strlit"p"::ls
+  «p»::ls
 Proof
   rw[print_header_line_def]>>
   qmatch_goalsub_abbrev_tac`aa ^ bb ^ _ ^ dd ^ ee`>>
-  `aa = strlit"p" ^ strlit" " ^ strlit"cnf" ^ strlit" "` by
+  `aa = «p» ^ « » ^ «cnf» ^ « »` by
     (fs[Abbr`aa`]>>EVAL_TAC)>>
   simp[]>>
   PURE_REWRITE_TAC[GSYM mlstringTheory.strcat_assoc]>>
   PURE_REWRITE_TAC[Once mlstringTheory.strcat_assoc]>>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = « »` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
-  `tokens blanks (strlit "p") = [strlit "p"]` by EVAL_TAC>>
+  `tokens blanks «p» = [«p»]` by EVAL_TAC>>
   simp[]
 QED
 
@@ -440,7 +459,7 @@ Proof
   simp[Once toks_def]>>
   assume_tac print_header_line_first>>fs[]>>
   pop_assum sym_sub_tac>>
-  `tokenize (strlit "p") = INL (strlit "p")` by EVAL_TAC>>
+  `tokenize «p» = INL «p»` by EVAL_TAC>>
   simp[nocomment_line_def]>>
   simp[parse_header_line_print_header_line]>>
   unabbrev_all_tac>>
@@ -470,7 +489,7 @@ QED
 
 (* Parse everything until the next non-positive
   and returns it *)
-val parse_until_nn_def = Define`
+Definition parse_until_nn_def:
   (parse_until_nn [] acc = NONE) ∧
   (parse_until_nn (x::xs) acc =
     case x of
@@ -480,7 +499,8 @@ val parse_until_nn_def = Define`
       SOME (Num (-l), REVERSE acc, xs)
     else
       parse_until_nn xs (Num l::acc)
-  )`
+  )
+End
 
 Theorem parse_until_nn_length[local]:
   ∀ls acc a b c.
@@ -494,7 +514,7 @@ Proof
 QED
 
 (* Gets the rest of the witness *)
-val parse_until_zero_def = Define`
+Definition parse_until_zero_def:
   (parse_until_zero [] acc = NONE) ∧
   (parse_until_zero (x::xs) acc =
     case x of
@@ -504,9 +524,10 @@ val parse_until_zero_def = Define`
       SOME (REVERSE acc, xs)
     else
       parse_until_zero xs (l::acc)
-  )`
+  )
+End
 
-val parse_until_k_def = Define`
+Definition parse_until_k_def:
   (parse_until_k k [] acc = NONE) ∧
   (parse_until_k k (x::xs) acc =
     case x of
@@ -520,9 +541,10 @@ val parse_until_k_def = Define`
       | SOME (w ,rest) =>
         SOME (REVERSE acc, SOME (k::w), rest)
     else
-      parse_until_k k xs (l::acc))`
+      parse_until_k k xs (l::acc))
+End
 
-val parse_clause_witness_def = Define`
+Definition parse_clause_witness_def:
   (parse_clause_witness [] = NONE) ∧
   (parse_clause_witness (x::xs) =
     case x of
@@ -531,7 +553,8 @@ val parse_clause_witness_def = Define`
     if l = 0:int then
       SOME ([], NONE , xs)
     else
-      parse_until_k l xs [l])`
+      parse_until_k l xs [l])
+End
 
 Theorem parse_until_k_wf:
   ∀ls k acc xs opt res.
@@ -573,7 +596,7 @@ Proof
   metis_tac[]
 QED
 
-val parse_PR_hint_def = tDefine "parse_PR_hint" `
+Definition parse_PR_hint_def:
   parse_PR_hint id xs acc =
   if id = 0 then
     if xs = [] then SOME acc
@@ -582,15 +605,17 @@ val parse_PR_hint_def = tDefine "parse_PR_hint" `
   case parse_until_nn xs [] of
     NONE => NONE
   | SOME (n,clause,rest) =>
-      parse_PR_hint n rest ((id,clause)::acc)`
-  (WF_REL_TAC `measure (LENGTH o (FST o SND))`>>
+      parse_PR_hint n rest ((id,clause)::acc)
+Termination
+  WF_REL_TAC `measure (LENGTH o (FST o SND))`>>
   rw[]>>
-  drule parse_until_nn_length>>fs[])
+  drule parse_until_nn_length>>fs[]
+End
 
 (* LPR parser *)
-val parse_lprstep_def = Define`
+Definition parse_lprstep_def:
   (parse_lprstep (cid::first::rest) =
-  if first = INL (strlit "d") then
+  if first = INL «d» then
     (* deletion line *)
     (case parse_until_nn rest [] of
        SOME (n, ls, []) => if n = 0 then SOME (Delete ls) else NONE
@@ -613,7 +638,8 @@ val parse_lprstep_def = Define`
               SOME (PR (Num l) clause witness hint sp)
     else NONE
   ) ∧
-  (parse_lprstep _ = NONE)`
+  (parse_lprstep _ = NONE)
+End
 
 Theorem parse_lprstep_wf:
   parse_lprstep ls = SOME lpr ⇒
@@ -631,7 +657,7 @@ Proof
 QED
 
 (* Mostly semantic!*)
-val parse_lpr_def = Define`
+Definition parse_lpr_def:
   (parse_lpr [] = SOME []) ∧
   (parse_lpr (l::ls) =
     case parse_lprstep (MAP tokenize_fast (tokens blanks l)) of
@@ -640,7 +666,8 @@ val parse_lpr_def = Define`
       (case parse_lpr ls of
         NONE => NONE
       | SOME ss => SOME (step :: ss))
-    )`
+    )
+End
 
 Theorem parse_lpr_wf:
   ∀ls lpr.
@@ -656,9 +683,9 @@ Proof
 QED
 
 (* Parsing of top-level proofs *)
-val parse_proofstep_def = Define`
+Definition parse_proofstep_def:
   (parse_proofstep (first::rest) =
-  if first = INL (strlit "d") then
+  if first = INL «d» then
     (* deletion line *)
     case parse_until_zero rest [] of
       SOME (cl ,[]) => SOME (Del cl)
@@ -667,20 +694,24 @@ val parse_proofstep_def = Define`
     case parse_until_zero (first::rest) [] of
       SOME (cl,[]) => SOME (Add cl)
     | _ => NONE) ∧
-  (parse_proofstep _ = NONE)`
+  (parse_proofstep _ = NONE)
+End
 
-val parse_proof_toks_aux_def = Define`
+Definition parse_proof_toks_aux_def:
   (parse_proof_toks_aux [] acc = SOME (REVERSE acc)) ∧
   (parse_proof_toks_aux (t::ts) acc =
   case parse_proofstep t of
     NONE => NONE
-  | SOME step => parse_proof_toks_aux ts (step::acc))`
+  | SOME step => parse_proof_toks_aux ts (step::acc))
+End
 
-val parse_proof_toks_def = Define`
-  parse_proof_toks ls = parse_proof_toks_aux ls []`
+Definition parse_proof_toks_def:
+  parse_proof_toks ls = parse_proof_toks_aux ls []
+End
 
-val parse_proof_def = Define`
-  parse_proof strs = parse_proof_toks (MAP toks strs)`
+Definition parse_proof_def:
+  parse_proof strs = parse_proof_toks (MAP toks strs)
+End
 
 Theorem parse_until_zero_wf_clause:
   ∀t acc c rest.
@@ -721,24 +752,26 @@ Proof
   asm_exists_tac>>simp[]
 QED
 
-val print_proofstep_def = Define`
+Definition print_proofstep_def:
   (print_proofstep (Add cl) = print_clause cl) ∧
-  (print_proofstep (Del cl) = strlit"d " ^ print_clause cl)`
+  (print_proofstep (Del cl) = «d » ^ print_clause cl)
+End
 
-val print_proof_def = Define`
-  print_proof pf = MAP print_proofstep pf`
+Definition print_proof_def:
+  print_proof pf = MAP print_proofstep pf
+End
 
 Theorem toks_strcat_d:
-  toks (strlit"d " ^ y) = INL (strlit"d"):: toks y
+  toks («d » ^ y) = INL «d»:: toks y
 Proof
   simp[toks_def]>>
-  `strlit"d " = strlit"d" ^ str(#" ")` by
+  `«d » = «d» ^ toString(#" ")` by
     EVAL_TAC>>
   simp[]>>
   DEP_REWRITE_TAC [mlstringTheory.tokens_append]>>simp[]>>
   CONJ_TAC>-
     EVAL_TAC>>
-  qexists_tac`strlit"d"`>>EVAL_TAC
+  qexists_tac`«d»`>>EVAL_TAC
 QED
 
 Theorem parse_until_zero_print_clause:
@@ -752,7 +785,7 @@ Proof
   >-
     EVAL_TAC
   >>
-  `strlit" " = str #" "` by EVAL_TAC>>
+  `« » = toString #" "` by EVAL_TAC>>
   simp[]>>
   DEP_REWRITE_TAC[mlstringTheory.tokens_append]>>simp[]>>
   CONJ_TAC >- EVAL_TAC>>
@@ -783,7 +816,7 @@ Proof
     Cases_on`l`>>simp[print_clause_def]
     >-
       EVAL_TAC>>
-    `strlit" " = str #" "` by EVAL_TAC>>
+    `« » = toString #" "` by EVAL_TAC>>
     simp[toks_def]>>
     DEP_REWRITE_TAC[mlstringTheory.tokens_append]>>
     simp[tokens_blanks_toStdString,tokenize_def]>>
@@ -811,7 +844,7 @@ Proof
 QED
 
 (* Parse a range spec of the form i-j *)
-val parse_rng_def = Define`
+Definition parse_rng_def:
   parse_rng ij =
   let (i,j) = splitl (λc. c <> #"-") ij in
     (case mlint$fromNatString i of
@@ -820,10 +853,12 @@ val parse_rng_def = Define`
     if strlen j = 0 then NONE else
     case mlint$fromNatString (substring j 1 (strlen j - 1)) of
       NONE => NONE
-    | SOME j => SOME (i,j))`
+    | SOME j => SOME (i,j))
+End
 
-val print_rng_def = Define`
-  print_rng (i:num) (j:num) = toString i ^ «-» ^ toString j`
+Definition print_rng_def:
+  print_rng (i:num) (j:num) = toString i ^ «-» ^ toString j
+End
 
 Theorem parse_rng_print_rng:
   parse_rng (print_rng i j) = SOME (i,j)
@@ -840,8 +875,7 @@ Proof
       metis_tac[ASCIInumbersTheory.EVERY_isDigit_num_to_dec_string]>>
     pop_assum mp_tac>>match_mp_tac MONO_EVERY>>
     EVAL_TAC>>rw[])>>
-  simp[SPLITP,mlstringTheory.implode_def,mlstringTheory.substring_def]>>
-  simp[GSYM mlstringTheory.implode_def]>>
+  simp[SPLITP,mlstringTheory.substring_def]>>
   `1:num = SUC 0` by simp[]>>
   pop_assum SUBST_ALL_TAC>>
   simp[Once SEG_SUC_CONS]>>
@@ -939,14 +973,16 @@ Definition parse_vb_until_nn_def:
   )
 End
 
-val parse_vb_until_nn_length = Q.prove(`
+Theorem parse_vb_until_nn_length[local]:
   ∀ls acc a b c.
   parse_vb_until_nn ls acc = (a,b,c) ∧ a ≠ 0 ⇒
-  LENGTH c < LENGTH ls`,
+  LENGTH c < LENGTH ls
+Proof
   Induct>>fs[parse_vb_until_nn_def]>>
   rw[]>>every_case_tac>>fs[]>>
   first_x_assum drule>>
-  fs[]);
+  fs[]
+QED
 
 Definition parse_vb_PR_hint_def:
   parse_vb_PR_hint id xs acc =
@@ -1059,34 +1095,34 @@ Definition good_char_def:
 End
 
 val dimacsraw = ``[
-  strlit "c this is a comment";
-  strlit "p cnf 5 8 ";
-  strlit "    1  4 0";
-  strlit "    1  5 0";
-  strlit "c this is a comment";
-  strlit "    2  4 0";
-  strlit "    2  5 0";
-  strlit "    3  4 0";
-  strlit "    3  5 0";
-  strlit "-1 -2 -3 0";
-  strlit "c this is a comment";
-  strlit "   -4 -5 0";
+  «c this is a comment»;
+  «p cnf 5 8 »;
+  «    1  4 0»;
+  «    1  5 0»;
+  «c this is a comment»;
+  «    2  4 0»;
+  «    2  5 0»;
+  «    3  4 0»;
+  «    3  5 0»;
+  «-1 -2 -3 0»;
+  «c this is a comment»;
+  «   -4 -5 0»;
   ]``;
 
 val cnf = rconc (EVAL ``THE (parse_dimacs ^(dimacsraw))``);
 
 val lprraw = ``[
-  strlit"8 d 0";
-  strlit"9 6 1 0 1 2 8 0";
-  strlit"10 6 2 0 3 4 8 0";
-  strlit"11 6 3 0 5 6 8 0";
-  strlit"12 -6 4 0 1 5 7 3 0";
-  strlit"12 d 1 5 3 0";
-  strlit"13 -6 5 0 2 6 7 4 0";
-  strlit"13 d 2 6 4 0";
-  strlit"14 6 0 9 10 11 7 0";
-  strlit"14 d 9 10 11 7 0";
-  strlit"16 0 14 12 13 8 0";
+  «8 d 0»;
+  «9 6 1 0 1 2 8 0»;
+  «10 6 2 0 3 4 8 0»;
+  «11 6 3 0 5 6 8 0»;
+  «12 -6 4 0 1 5 7 3 0»;
+  «12 d 1 5 3 0»;
+  «13 -6 5 0 2 6 7 4 0»;
+  «13 d 2 6 4 0»;
+  «14 6 0 9 10 11 7 0»;
+  «14 d 9 10 11 7 0»;
+  «16 0 14 12 13 8 0»;
   ]``;
 
 val res = EVAL ``good_char (strsub (HD ^(lprraw)) 0)``
@@ -1106,4 +1142,3 @@ val res = EVAL ``good_char (strsub (HD ^(clprraw)) 0)``
 
 val res = EVAL``parse_pr ^(clprraw)``
 
-val _ = export_theory ();

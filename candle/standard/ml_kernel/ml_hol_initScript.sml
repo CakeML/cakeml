@@ -2,12 +2,12 @@
   Prove that the state of the kernel can be initialised in a way that
   meets the invariants (STATE and HOL_STORE).
 *)
-open preamble
-open ml_hol_kernelProgTheory ml_hol_kernel_funsProgTheory holKernelProofTheory
-open ml_monad_translatorBaseTheory ml_translatorLib evaluateTheory
-open evaluateTheory cfStoreTheory
-
-val _ = new_theory"ml_hol_init"
+Theory ml_hol_init
+Ancestors
+  ml_hol_kernelProg ml_hol_kernel_funsProg holKernelProof
+  ml_monad_translatorBase evaluate evaluate cfStore
+Libs
+  preamble ml_translatorLib
 
 val EVAL_STATE_CONV = ((STRIP_QUANT_CONV o RAND_CONV o RAND_CONV o RAND_CONV) EVAL) THENC (SIMP_CONV (srw_ss()) []);
 
@@ -30,7 +30,5 @@ Proof
       ((SIMP_CONV bool_ss [REFS_PRED_def]) THENC EVAL_STATE_CONV) INIT_HOL_STORE)
   \\ pop_assum drule \\ fs []
   \\ disch_then (qspec_then `p` assume_tac)
-  \\ fs [st2heap_def]
+  \\ fs [st2heap_def, bool_ty_refs_def, aty_refs_def, bty_refs_def]
 QED
-
-val _ = export_theory()

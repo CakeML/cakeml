@@ -1,31 +1,28 @@
 (*
   Prove soundness of the type inferencer for the expression-level.
 *)
-open preamble;
-open libTheory typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory infer_tTheory;
-open astPropsTheory;
-open inferPropsTheory envRelTheory;
-open typeSysPropsTheory;
-open namespacePropsTheory;
-
-local open typeSoundInvariantsTheory in
-end
+Theory infer_eSound
+Ancestors
+  ml_monadBase typeSystem ast semanticPrimitives infer unify infer_t
+  inferProps envRel typeSysProps namespaceProps
+  typeSoundInvariants[qualified]
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "infer_eSound";
-
-
 (* ---------- sub_completion ---------- *)
 
-val sub_completion_unify = Q.prove (
-`!st t1 t2 s1 n ts s2 n.
+Theorem sub_completion_unify[local]:
+  !st t1 t2 s1 n ts s2 n.
   (t_unify st.subst t1 t2 = SOME s1) ∧
   sub_completion n (st.next_uvar + 1) s1 ts s2
   ⇒
-  sub_completion n st.next_uvar st.subst ((t1,t2)::ts) s2`,
-rw [sub_completion_def, pure_add_constraints_def] >>
-full_simp_tac (srw_ss()++ARITH_ss) [SUBSET_DEF, count_add1]);
+  sub_completion n st.next_uvar st.subst ((t1,t2)::ts) s2
+Proof
+  rw [sub_completion_def, pure_add_constraints_def] >>
+full_simp_tac (srw_ss()++ARITH_ss) [SUBSET_DEF, count_add1]
+QED
 
 Theorem sub_completion_unify2:
  !t1 t2 s1 ts s2 n s3 next_uvar.
@@ -37,20 +34,22 @@ Proof
 rw [sub_completion_def, pure_add_constraints_def]
 QED
 
-val sub_completion_infer = Q.prove (
-`!l ienv e st1 t st2 n ts2 s.
-  infer_e l ienv e st1 = (Success t, st2) ∧
+Theorem sub_completion_infer[local]:
+  !l ienv e st1 t st2 n ts2 s.
+  infer_e l ienv e st1 = (M_success t, st2) ∧
   sub_completion n st2.next_uvar st2.subst ts2 s
   ⇒
-  ?ts1. sub_completion n st1.next_uvar st1.subst (ts1 ++ ts2) s`,
-rw [sub_completion_def, pure_add_constraints_append] >>
+  ?ts1. sub_completion n st1.next_uvar st1.subst (ts1 ++ ts2) s
+Proof
+  rw [sub_completion_def, pure_add_constraints_append] >>
 imp_res_tac infer_e_constraints >>
 imp_res_tac infer_e_next_uvar_mono >>
 qexists_tac `ts` >>
 rw [] >|
 [qexists_tac `st2.subst` >>
      rw [],
- full_simp_tac (srw_ss()++ARITH_ss) [SUBSET_DEF]]);
+ full_simp_tac (srw_ss()++ARITH_ss) [SUBSET_DEF]]
+QED
 
 Theorem sub_completion_add_constraints:
  !s1 ts1 s2 n next_uvar s3 ts2.
@@ -70,34 +69,38 @@ fs [pure_add_constraints_def, pure_add_constraints_append] >>
 metis_tac []
 QED
 
-val sub_completion_more_vars = Q.prove (
-`!m n1 n2 s1 ts s2.
-  sub_completion m (n1 + n2) s1 ts s2 ⇒ sub_completion m n1 s1 ts s2`,
-rw [sub_completion_def] >>
+Theorem sub_completion_more_vars[local]:
+  !m n1 n2 s1 ts s2.
+  sub_completion m (n1 + n2) s1 ts s2 ⇒ sub_completion m n1 s1 ts s2
+Proof
+  rw [sub_completion_def] >>
 rw [] >>
-full_simp_tac (srw_ss()++ARITH_ss) [SUBSET_DEF]);
+full_simp_tac (srw_ss()++ARITH_ss) [SUBSET_DEF]
+QED
 
-val sub_completion_infer_es = Q.prove (
-`!l cenv es st1 t st2 n ts2 s.
-  infer_es l cenv es st1 = (Success t, st2) ∧
+Theorem sub_completion_infer_es[local]:
+  !l cenv es st1 t st2 n ts2 s.
+  infer_es l cenv es st1 = (M_success t, st2) ∧
   sub_completion n st2.next_uvar st2.subst ts2 s
   ⇒
-  ?ts1. sub_completion n st1.next_uvar st1.subst (ts1 ++ ts2) s`,
-induct_on `es` >>
+  ?ts1. sub_completion n st1.next_uvar st1.subst (ts1 ++ ts2) s
+Proof
+  induct_on `es` >>
 rw [infer_e_def, success_eqns] >-
 metis_tac [APPEND] >>
 res_tac >>
 imp_res_tac sub_completion_infer >>
-metis_tac [APPEND_ASSOC]);
+metis_tac [APPEND_ASSOC]
+QED
 
 Theorem sub_completion_infer_p:
   (!l cenv p st t env st' tvs extra_constraints s.
-    infer_p l cenv p st = (Success (t,env), st') ∧
+    infer_p l cenv p st = (M_success (t,env), st') ∧
     sub_completion tvs st'.next_uvar st'.subst extra_constraints s
     ⇒
     ?ts. sub_completion tvs st.next_uvar st.subst (ts++extra_constraints) s) ∧
   (!l cenv ps st ts env st' tvs extra_constraints s.
-    infer_ps l cenv ps st = (Success (ts,env), st') ∧
+    infer_ps l cenv ps st = (M_success (ts,env), st') ∧
     sub_completion tvs st'.next_uvar st'.subst extra_constraints s
     ⇒
     ?ts. sub_completion tvs st.next_uvar st.subst (ts++extra_constraints) s)
@@ -137,13 +140,14 @@ Proof
       metis_tac [APPEND_ASSOC])
 QED
 
-val sub_completion_infer_pes = Q.prove (
-`!l ienv pes t1 t2 st1 t st2 n ts2 s.
-  infer_pes l ienv pes t1 t2 st1 = (Success (), st2) ∧
+Theorem sub_completion_infer_pes[local]:
+  !l ienv pes t1 t2 st1 t st2 n ts2 s.
+  infer_pes l ienv pes t1 t2 st1 = (M_success (), st2) ∧
   sub_completion n st2.next_uvar st2.subst ts2 s
   ⇒
-  ?ts1. sub_completion n st1.next_uvar st1.subst (ts1 ++ ts2) s`,
-induct_on `pes` >>
+  ?ts1. sub_completion n st1.next_uvar st1.subst (ts1 ++ ts2) s
+Proof
+  induct_on `pes` >>
 rw [infer_e_def, success_eqns] >-
 metis_tac [APPEND] >>
 PairCases_on `h` >>
@@ -159,15 +163,17 @@ fs [] >>
 imp_res_tac sub_completion_unify2 >>
 imp_res_tac sub_completion_infer_p >>
 fs [] >>
-metis_tac [APPEND, APPEND_ASSOC]);
+metis_tac [APPEND, APPEND_ASSOC]
+QED
 
-val sub_completion_infer_funs = Q.prove (
-`!l ienv funs st1 t st2 n ts2 s.
-  infer_funs l ienv funs st1 = (Success t, st2) ∧
+Theorem sub_completion_infer_funs[local]:
+  !l ienv funs st1 t st2 n ts2 s.
+  infer_funs l ienv funs st1 = (M_success t, st2) ∧
   sub_completion n st2.next_uvar st2.subst ts2 s
   ⇒
-  ?ts1. sub_completion n st1.next_uvar st1.subst (ts1 ++ ts2) s`,
-induct_on `funs` >>
+  ?ts1. sub_completion n st1.next_uvar st1.subst (ts1 ++ ts2) s
+Proof
+  induct_on `funs` >>
 rw [infer_e_def, success_eqns] >-
 metis_tac [APPEND] >>
 PairCases_on `h` >>
@@ -175,7 +181,8 @@ fs [infer_e_def, success_eqns] >>
 res_tac >>
 imp_res_tac sub_completion_infer >>
 fs [] >>
-metis_tac [sub_completion_more_vars, APPEND_ASSOC]);
+metis_tac [sub_completion_more_vars, APPEND_ASSOC]
+QED
 
 Theorem sub_completion_apply:
  !n uvars s1 ts s2 t1 t2.
@@ -201,25 +208,28 @@ fs [] >>
 metis_tac [t_unify_apply2, t_unify_wfs]
 QED
 
-val sub_completion_apply_list = Q.prove (
-`!n uvars s1 ts s2 ts1 ts2.
+Theorem sub_completion_apply_list[local]:
+  !n uvars s1 ts s2 ts1 ts2.
   t_wfs s1 ∧
   (MAP (t_walkstar s1) ts1 = MAP (t_walkstar s1) ts2) ∧
   sub_completion n uvars s1 ts s2
   ⇒
-  (MAP (t_walkstar s2) ts1 = MAP (t_walkstar s2) ts2)`,
-induct_on `ts1` >>
+  (MAP (t_walkstar s2) ts1 = MAP (t_walkstar s2) ts2)
+Proof
+  induct_on `ts1` >>
 rw [] >>
 cases_on `ts2` >>
 fs [] >>
-metis_tac [sub_completion_apply]);
+metis_tac [sub_completion_apply]
+QED
 
-val sub_completion_check = Q.prove (
-`!tvs m s uvar s' extra_constraints.
+Theorem sub_completion_check[local]:
+  !tvs m s uvar s' extra_constraints.
 sub_completion m (uvar + tvs) s' extra_constraints s
 ⇒
-EVERY (λn. check_freevars m [] (convert_t (t_walkstar s (Infer_Tuvar (uvar + n))))) (COUNT_LIST tvs)`,
-induct_on `tvs` >>
+EVERY (λn. check_freevars m [] (convert_t (t_walkstar s (Infer_Tuvar (uvar + n))))) (COUNT_LIST tvs)
+Proof
+  induct_on `tvs` >>
 rw [sub_completion_def, COUNT_LIST_SNOC, EVERY_SNOC] >>
 fs [sub_completion_def] >|
 [qpat_x_assum `!m' s. P m' s` match_mp_tac >>
@@ -231,13 +241,14 @@ fs [sub_completion_def] >|
  fs [SUBSET_DEF] >>
      `uvar+tvs < uvar + SUC tvs`
             by full_simp_tac (srw_ss()++ARITH_ss) [SUBSET_DEF] >>
-     metis_tac [check_t_to_check_freevars,ADD_COMM]]);
+     metis_tac [check_t_to_check_freevars,ADD_COMM]]
+QED
 
 (* ---------- Soundness ---------- *)
 
 Theorem infer_p_sound:
   (!l ienv p st t tenv env st' tvs extra_constraints s.
-    infer_p l ienv p st = (Success (t,env), st') ∧
+    infer_p l ienv p st = (M_success (t,env), st') ∧
     t_wfs st.subst ∧
     tenv_ctor_ok tenv.c ∧
     ienv.inf_c = tenv.c ∧
@@ -247,7 +258,7 @@ Theorem infer_p_sound:
     ⇒
     type_p tvs tenv p (convert_t (t_walkstar s t)) (convert_env s env)) ∧
   (!l ienv ps st ts tenv env st' tvs extra_constraints s.
-    infer_ps l ienv ps st = (Success (ts,env), st') ∧
+    infer_ps l ienv ps st = (M_success (ts,env), st') ∧
     t_wfs st.subst ∧
     tenv_ctor_ok tenv.c ∧
     ienv.inf_c = tenv.c ∧
@@ -378,14 +389,15 @@ Proof
       metis_tac [])
 QED
 
-val letrec_lemma = Q.prove (
-`!funs funs_ts s st.
+Theorem letrec_lemma[local]:
+  !funs funs_ts s st.
   (MAP (λn. convert_t (t_walkstar s (Infer_Tuvar (st.next_uvar + n)))) (COUNT_LIST (LENGTH funs)) =
    MAP (\t. convert_t (t_walkstar s t)) funs_ts)
   ⇒
   (MAP2 (λ(f,x,e) t. (f,t)) funs (MAP (λn. convert_t (t_walkstar s (Infer_Tuvar (st.next_uvar + n)))) (COUNT_LIST (LENGTH funs))) =
-   MAP2 (λ(x,y,z) t. (x,convert_t (t_walkstar s t))) funs funs_ts)`,
-induct_on `funs` >>
+   MAP2 (λ(x,y,z) t. (x,convert_t (t_walkstar s t))) funs funs_ts)
+Proof
+  induct_on `funs` >>
 srw_tac[] [] >>
 cases_on `funs_ts` >>
 fsrw_tac[] [COUNT_LIST_def] >>
@@ -394,21 +406,24 @@ srw_tac[] [] >|
      rw [],
  qpat_x_assum `!x. P x` match_mp_tac >>
      qexists_tac `st with next_uvar := st.next_uvar + 1` >>
-     fsrw_tac[] [MAP_MAP_o, combinTheory.o_DEF, DECIDE ``x + SUC y = x + 1 + y``]]);
+     fsrw_tac[] [MAP_MAP_o, combinTheory.o_DEF, DECIDE ``x + SUC y = x + 1 + y``]]
+QED
 
-val map_zip_lem = Q.prove (
-`!funs ts.
+Theorem map_zip_lem[local]:
+  !funs ts.
   (LENGTH funs = LENGTH ts)
   ⇒
   (MAP (λx. FST ((λ((x',y,z),t). (x',convert_t (t_walkstar s t))) x)) (ZIP (funs,ts))
    =
-   MAP FST funs)`,
-induct_on `funs` >>
+   MAP FST funs)
+Proof
+  induct_on `funs` >>
 rw [] >>
 cases_on `ts` >>
 fs [] >>
 PairCases_on `h` >>
-rw []);
+rw []
+QED
 
 Theorem word_tc_cases:
     (word_tc wz = Tword8_num ⇔ wz = W8) ∧
@@ -434,33 +449,54 @@ val binop_tac =
  srw_tac[] [type_op_cases, Tint_def, Tstring_def, Tref_def, Tfn_def, Texn_def, Tchar_def,word_tc_cases] >>
  metis_tac [MAP, infer_e_next_uvar_mono, check_env_more, word_size_nchotomy];
 
-val constrain_op_sub_completion = Q.prove (
-`sub_completion (num_tvs tenv) st.next_uvar st.subst extra_constraints s ∧
- constrain_op l op ts st' = (Success t,st)
+Theorem constrain_op_sub_completion[local]:
+ sub_completion (num_tvs tenv) st.next_uvar st.subst extra_constraints s ∧
+ constrain_op l op ts st' = (M_success t,st)
  ⇒
- ∃c. sub_completion (num_tvs tenv) st'.next_uvar st'.subst c s`,
+ ∃c. sub_completion (num_tvs tenv) st'.next_uvar st'.subst c s
+Proof
  rw [] >>
  fs [constrain_op_success] >>
  every_case_tac >>
  fs [success_eqns] >>
  TRY pairarg_tac >>
- fs [] >>
+ gvs [CaseEq"bool", success_eqns] >>
  rw [] >>
  fs [infer_st_rewrs, success_eqns] >>
- metis_tac [sub_completion_unify2, sub_completion_unify]);
+ PROVE_TAC [sub_completion_unify2, sub_completion_unify,
+            sub_completion_add_constraints]
+QED
 
-val constrain_op_sound = Q.prove (
-`t_wfs st.subst ∧
+Theorem constrain_op_sound[local]:
+ t_wfs st.subst ∧
  sub_completion (num_tvs tenv) st'.next_uvar st'.subst c s ∧
- constrain_op l op ts st = (Success t,st')
+ constrain_op l op ts st = (M_success t,st')
  ⇒
- type_op op (MAP (convert_t o t_walkstar s) ts) (convert_t (t_walkstar s t))`,
- fs[constrain_op_success] >>
- rw [] >>
- fs [fresh_uvar_def,infer_st_rewrs,Tchar_def,Tword64_def] >> rw[] >>
- TRY pairarg_tac >>
- fs [success_eqns] >>
- binop_tac);
+ type_op op (MAP (convert_t o t_walkstar s) ts) (convert_t (t_walkstar s t))
+Proof
+  fs[constrain_op_success] >>
+  rw [] >>
+  fs [fresh_uvar_def,infer_st_rewrs,Tchar_def,Tword64_def] >> rw[] >>
+  TRY pairarg_tac >>
+  fs [success_eqns] >~
+  [‘Test t1 t2’] >-
+   (Cases_on ‘t1’ \\ Cases_on ‘t2’ using semanticPrimitivesPropsTheory.prim_type_cases
+    \\ binop_tac)
+  >~ [‘FromTo p1 p2’] >- (
+    Cases_on ‘p1’ using semanticPrimitivesPropsTheory.prim_type_cases
+    \\ Cases_on ‘p2’ using semanticPrimitivesPropsTheory.prim_type_cases
+    \\ gvs[supported_conversion_def]
+    \\ binop_tac )
+  >~ [‘Arith a p’] >- (
+    gvs[CaseEq"option",CaseEq"bool",failwith_def,
+        st_ex_bind_def,st_ex_return_def,CaseEq"exc",CaseEq"prod"]
+    \\ Cases_on`a` \\ Cases_on ‘p’ using semanticPrimitivesPropsTheory.prim_type_cases
+    \\ gvs[supported_arith_def,LENGTH_EQ_NUM_compute, REPLICATE_compute,
+           add_constraints_def, st_ex_bind_def,CaseEq"prod",CaseEq"exc",
+           st_ex_return_def,add_constraint_def,CaseEq"option"]
+    \\ binop_tac )
+  \\ binop_tac
+QED
 
 Theorem infer_deBruijn_subst_walkstar:
    !ts t s.
@@ -469,19 +505,63 @@ Theorem infer_deBruijn_subst_walkstar:
     =
     t_walkstar s (infer_deBruijn_subst ts t)
 Proof
- ho_match_mp_tac infer_deBruijn_subst_ind
- >> rw [infer_deBruijn_subst_def, EL_MAP]
- >- metis_tac [SUBMAP_REFL, t_walkstar_idempotent]
- >> rw [t_walkstar_eqn1, MAP_EQ_EVERY2, LIST_REL_EL_EQN]
- >> `MEM (EL n ts') ts'` by (rw [MEM_EL] >> metis_tac [])
- >> first_x_assum drule
- >> disch_then drule
- >> simp [EL_MAP]
+  gen_tac \\ ho_match_mp_tac infer_t_ind
+  >> rw [infer_deBruijn_subst_alt, EL_MAP]
+  >- metis_tac [SUBMAP_REFL, t_walkstar_idempotent]
+  >> rw [t_walkstar_eqn1, MAP_EQ_EVERY2, LIST_REL_EL_EQN]
+  >> `MEM (EL n l) l` by (rw [MEM_EL] >> metis_tac [])
+  >> first_x_assum drule
+  >> disch_then drule
+  >> simp [EL_MAP]
 QED
+
+val log_tac =
+ ( (* Log *)
+   imp_res_tac t_unify_wfs
+   >> imp_res_tac infer_e_wfs
+   >> imp_res_tac sub_completion_wfs
+   >> `t_wfs s` by metis_tac []
+   >> rw [t_walkstar_eqn1, convert_t_def]
+   >> NO_TAC)
+ ORELSE
+ ( (* Log *)
+   imp_res_tac (CONJUNCT1 infer_e_wfs)
+   >> fs []
+   >> imp_res_tac t_unify_wfs
+   >> fs []
+   >> first_x_assum drule
+   >> first_x_assum drule
+   >> rename1 `infer_e _ _ e _ = (M_success t1, st1)`
+   >> rename1 `infer_e _ _ e1 st1 = (M_success t2, st2)`
+   >> `ienv_ok (count st1.next_uvar) ienv` by metis_tac [ienv_ok_more, infer_e_next_uvar_mono]
+   >> simp []
+   >> disch_then drule
+   >> strip_tac
+   >> disch_then drule
+   >> strip_tac
+   >> rename1 `t_unify s1 _ _ = SOME s2`
+   >> `t_walkstar s1 t1 = t_walkstar s1 (Infer_Tapp [] Tbool_num)`
+     by (irule t_unify_apply >> metis_tac [])
+   >> `t_walkstar s2 t2 = t_walkstar s2 (Infer_Tapp [] Tbool_num)`
+     by (irule t_unify_apply >> metis_tac [])
+   >> fs []
+   >> drule sub_completion_unify2
+   >> disch_then drule
+   >> strip_tac
+   >> qpat_x_assum `t_unify _ _ _ = _` mp_tac
+   >> drule sub_completion_unify2
+   >> disch_then drule
+   >> rw []
+   >> imp_res_tac sub_completion_infer
+   >> first_x_assum drule
+   >> first_x_assum drule
+   >> imp_res_tac sub_completion_apply
+   >> `t_wfs s` by metis_tac [sub_completion_wfs]
+   >> simp [t_walkstar_eqn1, convert_t_def]);
 
 Theorem infer_e_sound:
  (!l ienv e st st' tenv tenvE t extra_constraints s.
-    infer_e l ienv e st = (Success t, st') ∧
+    infer_e l ienv e st = (M_success t, st') ∧
     ienv_ok (count st.next_uvar) ienv ∧
     env_rel_sound s ienv tenv tenvE ∧
     t_wfs st.subst ∧
@@ -489,7 +569,7 @@ Theorem infer_e_sound:
     ⇒
     type_e tenv tenvE e (convert_t (t_walkstar s t))) ∧
  (!l ienv es st st' tenv tenvE ts extra_constraints s.
-    infer_es l ienv es st = (Success ts, st') ∧
+    infer_es l ienv es st = (M_success ts, st') ∧
     ienv_ok (count st.next_uvar) ienv ∧
     env_rel_sound s ienv tenv tenvE ∧
     t_wfs st.subst ∧
@@ -497,7 +577,7 @@ Theorem infer_e_sound:
     ⇒
     type_es tenv tenvE es (MAP (convert_t o t_walkstar s) ts)) ∧
  (!l ienv pes t1 t2 st st' tenv tenvE extra_constraints s.
-    infer_pes l ienv pes t1 t2 st = (Success (), st') ∧
+    infer_pes l ienv pes t1 t2 st = (M_success (), st') ∧
     ienv_ok (count st.next_uvar) ienv ∧
     env_rel_sound s ienv tenv tenvE ∧
     t_wfs st.subst ∧
@@ -505,7 +585,7 @@ Theorem infer_e_sound:
     ⇒
     type_pes (num_tvs tenvE) 0 tenv tenvE pes (convert_t (t_walkstar s t1)) (convert_t (t_walkstar s t2))) ∧
  (!l ienv funs st st' tenv tenvE extra_constraints s ts.
-    infer_funs l ienv funs st = (Success ts, st') ∧
+    infer_funs l ienv funs st = (M_success ts, st') ∧
     ienv_ok (count st.next_uvar) ienv ∧
     env_rel_sound s ienv tenv tenvE ∧
     t_wfs st.subst ∧
@@ -582,6 +662,8 @@ Proof
  (* Lit word8 *)
  >- binop_tac
  (* Lit word64 *)
+ >- binop_tac
+ (* Lit float64 *)
  >- binop_tac
  >- ( (* Var *)
    drule env_rel_sound_lookup_some
@@ -724,82 +806,10 @@ Proof
      qexists_tac `count st'.next_uvar` >>
      fs [sub_completion_def] >>
      metis_tac [check_t_more2, DECIDE ``!x. x + 0 = x:num``])
- >- ( (* Log *)
-   imp_res_tac t_unify_wfs
-   >> imp_res_tac infer_e_wfs
-   >> imp_res_tac sub_completion_wfs
-   >> `t_wfs s` by metis_tac []
-   >> rw [t_walkstar_eqn1, convert_t_def])
- >- ( (* Log *)
-   imp_res_tac (CONJUNCT1 infer_e_wfs)
-   >> fs []
-   >> imp_res_tac t_unify_wfs
-   >> fs []
-   >> first_x_assum drule
-   >> first_x_assum drule
-   >> rename1 `infer_e _ _ e _ = (Success t1, st1)`
-   >> rename1 `infer_e _ _ e1 st1 = (Success t2, st2)`
-   >> `ienv_ok (count st1.next_uvar) ienv` by metis_tac [ienv_ok_more, infer_e_next_uvar_mono]
-   >> simp []
-   >> disch_then drule
-   >> strip_tac
-   >> disch_then drule
-   >> strip_tac
-   >> rename1 `t_unify s1 _ _ = SOME s2`
-   >> `t_walkstar s1 t1 = t_walkstar s1 (Infer_Tapp [] Tbool_num)`
-     by (irule t_unify_apply >> metis_tac [])
-   >> `t_walkstar s2 t2 = t_walkstar s2 (Infer_Tapp [] Tbool_num)`
-     by (irule t_unify_apply >> metis_tac [])
-   >> fs []
-   >> drule sub_completion_unify2
-   >> disch_then drule
-   >> strip_tac
-   >> qpat_x_assum `t_unify _ _ _ = _` mp_tac
-   >> drule sub_completion_unify2
-   >> disch_then drule
-   >> rw []
-   >> imp_res_tac sub_completion_infer
-   >> first_x_assum drule
-   >> first_x_assum drule
-   >> imp_res_tac sub_completion_apply
-   >> `t_wfs s` by metis_tac [sub_completion_wfs]
-   >> simp [t_walkstar_eqn1, convert_t_def])
- >- ( (* If *)
-   imp_res_tac (CONJUNCT1 infer_e_wfs)
-   >> fs []
-   >> imp_res_tac t_unify_wfs
-   >> fs []
-   >> first_x_assum drule
-   >> first_x_assum drule
-   >> rename1 `infer_e _ _ e _ = (Success t1, st1)`
-   >> rename1 `infer_e _ _ e1 st1 = (Success t2, st2)`
-   >> `ienv_ok (count st1.next_uvar) ienv` by metis_tac [ienv_ok_more, infer_e_next_uvar_mono]
-   >> simp []
-   >> disch_then drule
-   >> strip_tac
-   >> disch_then drule
-   >> strip_tac
-   >> rename1 `t_unify s1 _ _ = SOME s2`
-   >> `t_walkstar s1 t1 = t_walkstar s1 (Infer_Tapp [] Tbool_num)`
-     by (irule t_unify_apply >> metis_tac [])
-   >> `t_walkstar s2 t2 = t_walkstar s2 (Infer_Tapp [] Tbool_num)`
-     by (irule t_unify_apply >> metis_tac [])
-   >> fs []
-   >> drule sub_completion_unify2
-   >> disch_then drule
-   >> strip_tac
-   >> qpat_x_assum `t_unify _ _ _ = _` mp_tac
-   >> drule sub_completion_unify2
-   >> disch_then drule
-   >> rw []
-   >> imp_res_tac sub_completion_infer
-   >> first_x_assum drule
-   >> first_x_assum drule
-   >> imp_res_tac sub_completion_apply
-   >> `t_wfs s` by metis_tac [sub_completion_wfs]
-   >> simp [t_walkstar_eqn1, convert_t_def])
- >-
- (* If *)
+ >- log_tac
+ >- log_tac
+ >- log_tac
+ >- (* If *)
      (imp_res_tac sub_completion_unify2 >>
      imp_res_tac sub_completion_infer >>
      imp_res_tac sub_completion_infer >>
@@ -920,9 +930,9 @@ Proof
      >> metis_tac []))
  >- ( (* Letrec *)
    qmatch_assum_abbrev_tac
-       `infer_funs _ (_ with inf_v := nsAppend bindings _) _ _ = (Success funs_ts, st1)`
+       `infer_funs _ (_ with inf_v := nsAppend bindings _) _ _ = (M_success funs_ts, st1)`
    >> rename1 `pure_add_constraints st1.subst _ st2.subst`
-   >> rename1 `infer_e _ _ _ _ = (Success t, st3)`
+   >> rename1 `infer_e _ _ _ _ = (M_success t, st3)`
    >> drule (List.nth (CONJUNCTS infer_e_wfs, 3))
    >> rw []
    >> `t_wfs st2.subst ∧ t_wfs st3.subst ∧ t_wfs s`
@@ -1051,7 +1061,6 @@ Proof
      first_x_assum irule >> rw [] >>
      imp_res_tac sub_completion_unify2 >>
      metis_tac [APPEND_ASSOC, APPEND, sub_completion_add_constraints])
- >- metis_tac [sub_completion_infer_es]
  >- metis_tac [sub_completion_infer_es]
  >- metis_tac [sub_completion_infer_es]
  >- metis_tac [infer_e_wfs, infer_e_next_uvar_mono, ienv_ok_more]
@@ -1207,5 +1216,3 @@ Proof
           fs [MEM_MAP, MEM_EL] >>
           metis_tac [FST]])
 QED
-
-val _ = export_theory ();

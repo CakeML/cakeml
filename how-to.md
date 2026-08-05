@@ -182,6 +182,7 @@ Haskell. Below is a list of differences between CakeML and SML.
 - alpha-numeric variable and function names begin with a lowercase letter
 - CakeML lacks SML's records, functors, open and (at present) signatures
 - CakeML capitalises `True`, `False` and `Ref`
+- CakeML does not have the Match exception and Bind is raised in its place
 
 ### Semantic differences
 
@@ -491,6 +492,6 @@ The definitive definition of the syntax and semantics of CakeML can be
 found at: https://code.cakeml.org/tree/master/semantics
 
 The CakeML team aims to be open and accessible. Feel free to join the
-CakeML Slack channel using the invitation link at https://cakeml.org.
+CakeML channel in the [HOL Zulip chat](https://hol.zulipchat.com/).
 Ask questions and contribute to the project or build your own project
 based on CakeML.

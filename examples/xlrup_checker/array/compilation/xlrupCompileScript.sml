@@ -1,11 +1,12 @@
 (*
   Compiles the xlrup example by evaluation inside the logic of HOL
 *)
-open preamble compilationLib xlrup_arrayFullProgTheory
+Theory xlrupCompile
+Ancestors
+  xlrup_arrayFullProg
+Libs
+  preamble eval_cake_compile_x64Lib
 
-val _ = new_theory "xlrupCompile"
+Theorem xlrup_array_compiled =
+  eval_cake_compile_x64 "" check_unsat_prog_def "cake_xlrup.S";
 
-val xlrup_array_compiled = save_thm("xlrup_array_compiled",
-  compile_x64 "cake_xlrup" check_unsat_prog_def);
-
-val _ = export_theory ();

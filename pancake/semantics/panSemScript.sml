@@ -1,34 +1,53 @@
 (*
   Semantics of panLang
 *)
+Theory panSem
+Ancestors
+  panLang alignment[qualified] finite_map[qualified]
+  misc[qualified] (* for read_bytearray *)
+  wordLang[qualified] (* for word_op and word_sh *)
+  ffi[qualified]
+  lprefix_lub[qualified]
+Libs
+  preamble blastLib
 
-open preamble panLangTheory;
-local open alignmentTheory
-           miscTheory     (* for read_bytearray *)
-           wordLangTheory (* for word_op and word_sh *)
-           ffiTheory in end;
 
-val _ = new_theory"panSem";
-val _ = set_grammar_ancestry [
-  "panLang", "alignment",
-  "finite_map", "misc", "wordLang",  "ffi", "lprefix_lub"]
-
+(* TODO: rename or remove *)
 Datatype:
   word_lab = Word ('a word)
-           | Label funname
 End
 
 Datatype:
   v = Val ('a word_lab)
-    | Struct (v list)
+    | RStruct (v list)
+    | NStruct stcname ((fldname # v) list)
 End
 
 Overload ValWord  = “\w. Val (Word w)”
-Overload ValLabel = “\l. Val (Label l)”
+
+Definition isWord_def:
+  isWord (Word _) = T ∧
+  isWord _        = F
+End
+
+Definition theWord_def:
+  theWord (Word w) = w
+End
+
+Definition isValWord_def:
+  isValWord (ValWord _) = T ∧
+  isValWord _           = F
+End
+
+Definition theValWord_def:
+  theValWord (ValWord w) = w
+End
 
 Datatype:
   state =
     <| locals      : varname |-> 'a v
+     ; globals     : varname |-> 'a v
+     ; structs     : (stcname # struct_info) list
      ; code        : funname |-> ((varname # shape) list # ('a panLang$prog))
                      (* arguments (with shape), body *)
      ; eshapes     : eid |-> shape
@@ -39,6 +58,7 @@ Datatype:
      ; be          : bool
      ; ffi         : 'ffi ffi_state
      ; base_addr   : 'a word
+     ; top_addr   : 'a word
   (* ; gaddrs      : decname |-> ('a word) (* num? *) *)
   (* TODISC: this maps decname to its starting address in the memory and relative size *)|>
 End
@@ -57,62 +77,115 @@ End
 
 val s = ``(s:('a,'ffi) panSem$state)``
 
-
-Theorem MEM_IMP_v_size:
-   !xs a. MEM a xs ==> (v_size l a < 1 + v1_size l xs)
-Proof
-  Induct >> fs [] >>
-  rpt strip_tac >> rw [fetch "-" "v_size_def"] >>
-  res_tac >> decide_tac
-QED
-
-
 Definition shape_of_def:
   shape_of (ValWord _) = One /\
-  shape_of (ValLabel _) = One /\
-  shape_of (Struct vs) = Comb (MAP shape_of vs)
-Termination
-  wf_rel_tac `measure (\v. v_size ARB v)` >>
-  fs [MEM_IMP_v_size]
+  shape_of (RStruct vs) = Comb (MAP shape_of vs) /\
+  shape_of (NStruct nm _) = Named nm
 End
 
 Definition mem_load_byte_def:
   mem_load_byte m dm be w =
   case m (byte_align w) of
-    | Label _ => NONE
     | Word v =>
        if byte_align w IN dm
        then SOME (get_byte w v be) else NONE
 End
 
+Definition mem_load_32_def:
+  mem_load_32 m dm be (w:'a word) =
+  if aligned 2 w
+  then
+    case m (byte_align w) of
+    | Word v =>
+        if byte_align w IN dm
+        then SOME (word_of_bytes be (0w:word32)
+          [get_byte w v be; get_byte (w + 1w) v be;
+           get_byte (w + 2w) v be; get_byte (w + 3w) v be])
+        else NONE
+  else NONE
+End
+
+Theorem mem_load_32_alt:
+  mem_load_32 m dm be (w:'a word) =
+  if aligned 2 w
+  then
+    case m (byte_align w) of
+    | Word v =>
+        if byte_align w IN dm
+        then
+          let b0 = get_byte w v be in
+          let b1 = get_byte (w + 1w) v be in
+          let b2 = get_byte (w + 2w) v be in
+          let b3 = get_byte (w + 3w) v be in
+          let v' =
+              (if be
+               then
+                 (w2w b0) ≪ 24 ‖ (w2w b1) ≪ 16 ‖ (w2w b2) ≪ 8 ‖ (w2w b3)
+               else
+                 (w2w b0) ‖ (w2w b1) ≪ 8 ‖ (w2w b2) ≪ 16 ‖ (w2w b3) ≪ 24)
+          in SOME (v': word32)
+        else NONE
+  else NONE
+Proof
+  rw[mem_load_32_def] >>
+  every_case_tac >> rw[] >>
+  simp[word_of_bytes_def] >>
+  EVAL_TAC >>
+  BBLAST_TAC
+QED
+
 Definition mem_load_def:
-  (mem_load sh addr dm (m: 'a word -> 'a word_lab) =
+  (mem_load sh addr dm (m: 'a word -> 'a word_lab) stcs =
    case sh of
    | One =>
      if addr IN dm
      then SOME (Val (m addr))
      else NONE
    | Comb shapes =>
-     case mem_loads shapes addr dm m of
-      | SOME vs => SOME (Struct vs)
-      | NONE => NONE) /\
-
-  (mem_loads [] addr dm m = SOME []) /\
-  (mem_loads (shape::shapes) addr dm m =
-   case (mem_load shape addr dm m,
-         mem_loads shapes (addr + bytes_in_word * n2w (size_of_shape shape)) dm m) of
+     (case mem_loads shapes addr dm m stcs of
+      | SOME vs => SOME (RStruct vs)
+      | NONE => NONE)
+   | Named nm =>
+     (case dropWhile (\(n,i). ~(n = nm)) stcs of
+      | (nm,info)::stcs' =>
+          (case mem_load_flds info.fields addr dm m stcs' of
+            | SOME vflds => SOME (NStruct nm vflds)
+            | NONE => NONE)
+      | _ => NONE)
+  ) /\
+  (mem_loads [] addr dm m stcs = SOME []) /\
+  (mem_loads (shape::shapes) addr dm m stcs =
+   case (mem_load shape addr dm m stcs,
+         mem_loads shapes (addr + bytes_in_word * n2w (size_of_sh_with_ctxt stcs shape)) dm m stcs) of
     | SOME v, SOME vs => SOME (v :: vs)
+    | _ => NONE) /\
+  (mem_load_flds [] addr dm m stcs = SOME []) /\
+  (mem_load_flds ((fld,shape)::fields) addr dm m stcs =
+   case (mem_load shape addr dm m stcs,
+         mem_load_flds fields (addr + bytes_in_word * n2w (size_of_sh_with_ctxt stcs shape)) dm m stcs) of
+    | SOME v, SOME vflds => SOME ((fld,v) :: vflds)
     | _ => NONE)
 Termination
-  wf_rel_tac ‘measure (\x. case ISR x of
-                            | T => list_size shape_size (FST (OUTR x))
-                            | F => shape_size (FST (OUTL x)))’ >>
+  wf_rel_tac
+    ‘inv_image
+      (* lexicographic combination of (struct info list size, shape/s size): *)
+      (measure LENGTH
+      LEX measure
+        (\x. case x of
+          | INL x => shape_size x
+          | INR x => list_size shape_size x))
+      (* getting pair from args: *)
+      (\x. case x of
+        | INL x => (SND $ SND $ SND $ SND x, INL $ FST x)
+        | INR(INL x) => (SND $ SND $ SND $ SND x, INR $ FST x)
+        | INR(INR x) => (SND $ SND $ SND $ SND x, INR $ MAP SND $ FST x))’ >>
+  rw [] >>
+  disj1_tac >>
+  irule LESS_LESS_EQ_TRANS >>
+  irule_at Any LENGTH_dropWhile_LESS_EQ >>
+  qmatch_asmsub_abbrev_tac `dropWhile ff` >>
+  qexists `ff` >>
   rw []
-  >- (
-   qid_spec_tac ‘shapes’ >>
-   Induct >> rw [] >> fs [list_size_def, shape_size_def]) >>
-  fs [list_size_def, shape_size_def] >>
-  fs [list_size_def, shape_size_def]
 End
 
 Definition pan_op_def:
@@ -120,31 +193,67 @@ Definition pan_op_def:
   pan_op _ _ = NONE
 End
 
+Definition pan_primop_def:
+  pan_primop AddCarry args =
+  if LENGTH args = 3 ∧ EVERY isValWord args then
+    let
+      l  = theValWord (EL 0 args);
+      r  = theValWord (EL 1 args);
+      ci = theValWord (EL 2 args);
+      (res, co) = word_add_carry l r ci
+    in
+      SOME (RStruct [ValWord res; ValWord co])
+  else NONE
+End
+
 Definition eval_def:
   (eval ^s (Const w) = SOME (ValWord w)) /\
-  (eval s  (Var v) = FLOOKUP s.locals v) /\
-  (eval s (Label fname) =
-    case FLOOKUP s.code fname of
-     | SOME _ => SOME (ValLabel fname)
-     | _ => NONE) /\
-(*
-  (eval s (GetAddr dname) =
-    OPTION_MAP ValWord (FLOOKUP s.gaddrs dname)) /\ *)
-
-  (eval s (Struct es) =
+  (eval s  (Var Local v) = FLOOKUP s.locals v) /\
+  (eval s  (Var Global v) = FLOOKUP s.globals v) /\
+  (eval s (RStruct es) =
     case (OPT_MMAP (eval s) es) of
-     | SOME vs => SOME (Struct vs)
+     | SOME vs => SOME (RStruct vs)
      | NONE => NONE) /\
-  (eval s (Field index e) =
+  (eval s (RField index e) =
     case eval s e of
-     | SOME (Struct vs) =>
+     | SOME (RStruct vs) =>
        if index < LENGTH vs then SOME (EL index vs)
        else NONE
      | _ => NONE) /\
+  (eval s (NStruct nm eflds) =
+    let (field_names, field_exps) = UNZIP eflds in
+    (case ALOOKUP s.structs nm of
+      | SOME info =>
+        let (field_names', field_shapes) = UNZIP info.fields in
+        if field_names' = field_names then (* assumed sorted *)
+          case (OPT_MMAP (eval s) field_exps) of
+          | SOME field_vals =>
+            if EVERY (\(s,v). s = shape_of v) (ZIP (field_shapes, field_vals)) then
+              SOME (NStruct nm (ZIP (field_names, field_vals)))
+            else NONE
+          | NONE => NONE
+        else NONE
+      | NONE => NONE)
+  ) /\
+  (eval s (NField fld e) =
+    (case eval s e of
+     | SOME (NStruct nm vflds) =>
+       if ALOOKUP s.structs nm <> NONE
+       then ALOOKUP vflds fld else NONE
+     | _ => NONE)) /\
   (eval s (Load shape addr) =
+    if is_wf_shape s.structs shape then
+      case eval s addr of
+      | SOME (ValWord w) => mem_load shape w s.memaddrs s.memory s.structs
+      | _ => NONE
+    else NONE) /\
+  (eval s (Load32 addr) =
     case eval s addr of
-     | SOME (ValWord w) => mem_load shape w s.memaddrs s.memory
-     | _ => NONE) /\
+     | SOME (ValWord w) =>
+        (case mem_load_32 s.memory s.memaddrs s.be w of
+           | NONE => NONE
+           | SOME w => SOME (ValWord (w2w w)))
+        | _ => NONE) /\
   (eval s (LoadByte addr) =
     case eval s addr of
      | SOME (ValWord w) =>
@@ -176,14 +285,16 @@ Definition eval_def:
      | SOME (ValWord w) => OPTION_MAP ValWord (word_sh sh w n)
      | _ => NONE) /\
   (eval s BaseAddr =
-        SOME (ValWord s.base_addr))
+        SOME (ValWord s.base_addr)) /\
+  (eval s TopAddr =
+        SOME (ValWord s.top_addr)) /\
+  (eval s BytesInWord =
+        SOME (ValWord bytes_in_word))
 Termination
   wf_rel_tac `measure (exp_size ARB o SND)`
-  \\ rpt strip_tac \\ imp_res_tac MEM_IMP_exp_size
-  \\ TRY (first_x_assum (assume_tac o Q.SPEC `ARB`))
-  \\ decide_tac
+  \\ rpt strip_tac \\ gs [UNZIP_MAP]
+  \\ fs [MEM_SPLIT, MAP_EQ_APPEND, list_size_append, EXISTS_PROD, MAP_EQ_CONS]
 End
-
 
 (* TODISC: why NONE is returned here on write failure *)
 Definition mem_store_byte_def:
@@ -193,7 +304,6 @@ Definition mem_store_byte_def:
      if byte_align w IN dm
      then SOME ((byte_align w =+ Word (set_byte w b v be)) m)
      else NONE
-   | Label _ => NONE
 End
 
 Definition write_bytearray_def:
@@ -202,7 +312,6 @@ Definition write_bytearray_def:
      case mem_store_byte (write_bytearray (a+1w) bs m dm be) dm be a b of
      | SOME m => m
      | NONE => m)
-
 End
 
 (*
@@ -214,6 +323,52 @@ Definition write_bytearray_def:
      | NONE => NONE)
 End
 *)
+
+Definition mem_store_32_def:
+  mem_store_32 m dm be (w:'a word) (hw:word32) =
+  if aligned 2 w
+  then
+    case m (byte_align w) of
+    | Word v =>
+        if byte_align w IN dm
+        then
+          let v0 = set_byte w (get_byte (0w:word32) hw be) v be in
+          let v1 = set_byte (w + 1w) (get_byte 1w hw be) v0 be in
+          let v2 = set_byte (w + 2w) (get_byte 2w hw be) v1 be in
+          let v3 = set_byte (w + 3w) (get_byte 3w hw be) v2 be in
+            SOME ((byte_align w =+ Word v3) m)
+        else NONE
+  else NONE
+End
+
+Theorem mem_store_32_alt:
+  mem_store_32 m dm be (w:'a word) (hw:word32) =
+  if aligned 2 w
+  then
+    case m (byte_align w) of
+    | Word v =>
+        if byte_align w IN dm
+        then
+          if be
+          then
+            let v0 = set_byte w (w2w (hw ⋙  24)) v be in
+            let v1 = set_byte (w + 1w) (w2w (hw ⋙  16)) v0 be in
+            let v2 = set_byte (w + 2w) (w2w (hw ⋙  8)) v1 be in
+            let v3 = set_byte (w + 3w) (w2w hw) v2 be in
+              SOME ((byte_align w =+ Word v3) m)
+          else
+            let v0 = set_byte w (w2w hw) v be in
+            let v1 = set_byte (w + 1w) (w2w (hw ⋙  8)) v0 be in
+            let v2 = set_byte (w + 2w) (w2w (hw ⋙  16)) v1 be in
+            let v3 = set_byte (w + 3w) (w2w (hw ⋙  24)) v2 be in
+              SOME ((byte_align w =+ Word v3) m)
+        else NONE
+  else NONE
+Proof
+  rw[mem_store_32_def] >>
+  every_case_tac >> rw[] >>
+  EVAL_TAC
+QED
 
 Definition mem_store_def:
   mem_store (addr:'a word) (w:'a word_lab) dm m =
@@ -232,16 +387,46 @@ End
 
 Definition flatten_def:
   (flatten (Val w) = [w]) ∧
-  (flatten (Struct vs) = FLAT (MAP flatten vs))
+  (flatten (RStruct vs) = FLAT (MAP flatten vs)) ∧
+  (flatten (NStruct nm flds) = FLAT (MAP flatten (MAP SND flds)))
 Termination
-  wf_rel_tac `measure (\v. v_size ARB v)` >>
-  fs [MEM_IMP_v_size]
+  wf_rel_tac `measure (v_size ARB)`
+  \\ rpt strip_tac
+  \\ fs [MEM_SPLIT, MAP_EQ_APPEND, list_size_append, EXISTS_PROD, MAP_EQ_CONS]
 End
 
 Definition set_var_def:
   set_var v value ^s =
     (s with locals := s.locals |+ (v,value))
 End
+
+Definition set_global_def:
+  set_global v value ^s =
+    (s with globals := s.globals |+ (v,value))
+End
+
+Definition set_kvar_def:
+  set_kvar vk v value ^s =
+  case vk of
+    Local => set_var v value s
+  | Global => set_global v value s
+End
+
+Definition lookup_kvar_def:
+  lookup_kvar vk v ^s =
+  case vk of
+    Local => FLOOKUP s.locals v
+  | Global => FLOOKUP s.globals v
+End
+
+Theorem kvar_simps[simp]:
+  (set_kvar Local v value s = set_var v value s) ∧
+  (set_kvar Global v value s = set_global v value s) ∧
+  (lookup_kvar Local v s = FLOOKUP s.locals  v) ∧
+  (lookup_kvar Global v s = FLOOKUP s.globals v)
+Proof
+  simp[set_kvar_def,lookup_kvar_def]
+QED
 
 Definition upd_locals_def:
    upd_locals varargs ^s =
@@ -282,11 +467,40 @@ Definition lookup_code_def:
 End
 
 Definition is_valid_value_def:
-  is_valid_value locals v value =
-    case FLOOKUP locals v of
+  is_valid_value s vk v value =
+  case lookup_kvar vk v s of
      | SOME w => shape_of value = shape_of w
      | NONE => F
 End
+
+Theorem is_valid_value_simps:
+  (is_valid_value s Local v value =
+    case FLOOKUP s.locals v of
+     | SOME w => shape_of value = shape_of w
+     | NONE => F) ∧
+  (is_valid_value s Global v value =
+    case FLOOKUP s.globals v of
+     | SOME w => shape_of value = shape_of w
+     | NONE => F)
+Proof
+  simp[is_valid_value_def,lookup_kvar_def]
+QED
+
+Theorem is_valid_value_simps2[simp]:
+  (is_valid_value (s with clock := k) vk v vl = is_valid_value s vk v vl) ∧
+  (is_valid_value (s with ffi := ffi) vk v vl = is_valid_value s vk v vl) ∧
+  (is_valid_value (s with code := cd) vk v vl = is_valid_value s vk v vl) ∧
+  (is_valid_value (s with memory := m) vk v vl = is_valid_value s vk v vl) ∧
+  (lookup_kvar vk v (s with clock := k) = lookup_kvar vk v s) ∧
+  (lookup_kvar vk v (s with ffi := ffi) = lookup_kvar vk v s) ∧
+  (lookup_kvar vk v (s with code := cd) = lookup_kvar vk v s) ∧
+  (lookup_kvar vk v (s with memory := m) = lookup_kvar vk v s)
+Proof
+  simp[is_valid_value_def,lookup_kvar_def]
+QED
+
+Theorem kvar_defs = LIST_CONJ [set_var_def,set_global_def,set_kvar_def,is_valid_value_def,
+                                lookup_kvar_def];
 
 Definition res_var_def:
   (res_var lc (n, NONE) = lc \\ n) /\
@@ -294,77 +508,91 @@ Definition res_var_def:
 End
 
 Definition sh_mem_load_def:
-  sh_mem_load v (addr:'a word) nb ^s =
+  sh_mem_load vk v (addr:'a word) nb ^s =
   if nb = 0 then
     (if addr IN s.sh_memaddrs then
        (case call_FFI s.ffi (SharedMem MappedRead) [n2w nb] (word_to_bytes addr F) of
           FFI_final outcome => (SOME (FinalFFI outcome), empty_locals s)
         | FFI_return new_ffi new_bytes =>
-            (NONE, (set_var v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi))
+            (NONE, (set_kvar vk v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi))
      else (SOME Error, s))
   else
     (if (byte_align addr) IN s.sh_memaddrs then
        (case call_FFI s.ffi (SharedMem MappedRead) [n2w nb] (word_to_bytes addr F) of
           FFI_final outcome => (SOME (FinalFFI outcome), empty_locals s)
         | FFI_return new_ffi new_bytes =>
-            (NONE, (set_var v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi))
+            (NONE, (set_kvar vk v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi))
      else (SOME Error, s))
 End
 
 Definition sh_mem_store_def:
-  sh_mem_store v (addr:'a word) nb ^s =
-  case FLOOKUP s.locals v of
-    SOME (ValWord w) =>
-      (if nb = 0 then
-         (if addr IN s.sh_memaddrs then
-            (case call_FFI s.ffi (SharedMem MappedWrite) [n2w nb]
-                           (word_to_bytes w F ++ word_to_bytes addr F) of
-               FFI_final outcome => (SOME (FinalFFI outcome), s)
-             | FFI_return new_ffi new_bytes =>
-                 (NONE, s with ffi := new_ffi))
-          else (SOME Error, s))
-       else
-         (if (byte_align addr) IN s.sh_memaddrs then
-            (case call_FFI s.ffi (SharedMem MappedWrite) [n2w nb]
-                           (TAKE nb (word_to_bytes w F)
-                            ++ word_to_bytes addr F) of
-               FFI_final outcome => (SOME (FinalFFI outcome), s)
-             | FFI_return new_ffi new_bytes =>
-                 (NONE, s with ffi := new_ffi))
-          else (SOME Error, s)))
-  | _ => (SOME Error, s)
+  sh_mem_store w (addr:'a word) nb ^s =
+  if nb = 0 then
+    (if addr IN s.sh_memaddrs then
+       (case call_FFI s.ffi (SharedMem MappedWrite) [n2w nb]
+                      (word_to_bytes w F ++ word_to_bytes addr F) of
+          FFI_final outcome => (SOME (FinalFFI outcome), s)
+        | FFI_return new_ffi new_bytes =>
+            (NONE, s with ffi := new_ffi))
+     else (SOME Error, s))
+  else
+    (if (byte_align addr) IN s.sh_memaddrs then
+       (case call_FFI s.ffi (SharedMem MappedWrite) [n2w nb]
+                      (TAKE nb (word_to_bytes w F)
+                       ++ word_to_bytes addr F) of
+          FFI_final outcome => (SOME (FinalFFI outcome), s)
+        | FFI_return new_ffi new_bytes =>
+            (NONE, s with ffi := new_ffi))
+     else (SOME Error, s))
 End
 
-Definition sh_mem_op_def:
-  (sh_mem_op Load r (ad:'a word) (s:('a,'ffi) panSem$state) = sh_mem_load r ad 0 s) ∧
-  (sh_mem_op Store r ad s = sh_mem_store r ad 0 s) ∧
-  (sh_mem_op Load8 r ad s = sh_mem_load r ad 1 s) ∧
-  (sh_mem_op Store8 r ad s = sh_mem_store r ad 1 s)(* ∧
-  (sh_mem_op Load32 r ad s = sh_mem_load r ad s 4) ∧
-  (sh_mem_op Store32 r ad s = sh_mem_store r ad s 4)*)
+Definition nb_op_def:
+  nb_op Op8 = 1:num ∧
+  nb_op Op16 = 2 ∧
+  nb_op OpW = 0 ∧
+  nb_op Op32 = 4
 End
 
 Definition evaluate_def:
   (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
-  (evaluate (Dec v e prog, s) =
+  (evaluate (Dec v sh e prog, s) =
     case (eval s e) of
      | SOME value =>
-        let (res,st) = evaluate (prog,s with locals := s.locals |+ (v,value)) in
-        (res, st with locals := res_var st.locals (v, FLOOKUP s.locals v))
-        | NONE => (SOME Error, s)) /\
-  (evaluate (Assign v src,s) =
+        if sh = shape_of value then
+          let (res,st) = evaluate (prog,s with locals := s.locals |+ (v,value)) in
+          (res, st with locals := res_var st.locals (v, FLOOKUP s.locals v))
+        else (SOME Error, s)
+     | NONE => (SOME Error, s)) /\
+  (evaluate (Assign vk v src,s) =
     case (eval s src) of
      | SOME value =>
-        if is_valid_value s.locals v value
-        then (NONE, s with locals := s.locals |+ (v,value))
+        if is_valid_value s vk v value then
+          (NONE, set_kvar vk v value s)
         else (SOME Error, s)
-        | NONE => (SOME Error, s)) /\
+     | NONE => (SOME Error, s)) /\
+  (evaluate (Primitive v pop es,s) =
+    case (OPT_MMAP (eval s) es) of
+    | SOME vs =>
+      (case pan_primop pop vs of
+       | SOME value =>
+           if is_valid_value s Local v value
+           then (NONE, set_var v value s)
+           else (SOME Error, s)
+       | NONE => (SOME Error, s))
+    | _ => (SOME Error, s)) /\
   (evaluate (Store dst src,s) =
     case (eval s dst, eval s src) of
      | (SOME (ValWord addr), SOME value) =>
        (case mem_stores addr (flatten value) s.memaddrs s.memory of
          | SOME m => (NONE, s with memory := m)
          | NONE => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
+  (evaluate (Store32 dst src,s) =
+    case (eval s dst, eval s src) of
+     | (SOME (ValWord adr), SOME (ValWord w)) =>
+        (case mem_store_32 s.memory s.memaddrs s.be adr (w2w w) of
+          | SOME m => (NONE, s with memory := m)
+          | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
   (evaluate (StoreByte dst src,s) =
     case (eval s dst, eval s src) of
@@ -373,16 +601,16 @@ Definition evaluate_def:
           | SOME m => (NONE, s with memory := m)
           | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
-  (evaluate (ShMem op v ad,s) =
+  (evaluate (ShMemLoad op vk v ad,s) =
     case eval s ad of
     | SOME (ValWord addr) =>
-        (if is_load op
-         then (case FLOOKUP s.locals v of
-                 SOME (Val _) => sh_mem_op op v addr s
-               | _ => (SOME Error, s))
-         else (case FLOOKUP s.locals v of
-                 SOME (ValWord _) => sh_mem_op op v addr s
-               | _ => (SOME Error, s)))
+        (case lookup_kvar vk v s of
+           SOME (ValWord _) => sh_mem_load vk v addr (nb_op op) s
+         | _ => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
+  (evaluate (ShMemStore op ad e,s) =
+     case (eval s ad,eval s e) of
+     | (SOME (ValWord addr), SOME (ValWord bytes)) => sh_mem_store bytes addr (nb_op op) s
      | _ => (SOME Error, s)) /\
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
@@ -410,7 +638,7 @@ Definition evaluate_def:
   (evaluate (Return e,s) =
     case (eval s e) of
       | SOME value =>
-         if size_of_shape (shape_of value) <= 32
+         if size_of_sh_with_ctxt s.structs (shape_of value) <= 32
          then (SOME (Return value),empty_locals s)
          else (SOME Error,s)
       | _ => (SOME Error,s)) /\
@@ -418,16 +646,17 @@ Definition evaluate_def:
     case (FLOOKUP s.eshapes eid, eval s e) of
       | (SOME sh, SOME value) =>
          if shape_of value = sh ∧
-            size_of_shape (shape_of value) <= 32
+            size_of_sh_with_ctxt s.structs (shape_of value) <= 32
          then (SOME (Exception eid value),empty_locals s)
          else (SOME Error,s)
      | _ => (SOME Error,s)) /\
   (evaluate (Tick,s) =
     if s.clock = 0 then (SOME TimeOut,empty_locals s)
     else (NONE,dec_clock s)) /\
-  (evaluate (Call caltyp trgt argexps,s) =
-    case (eval s trgt, OPT_MMAP (eval s) argexps) of
-     | (SOME (ValLabel fname), SOME args) =>
+  (evaluate (Annot _ _,s) = (NONE, s)) /\
+  (evaluate (Call caltyp fname argexps,s) =
+    case OPT_MMAP (eval s) argexps of
+     | SOME args =>
         (case lookup_code s.code fname args of
           | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s)
            else
@@ -440,9 +669,10 @@ Definition evaluate_def:
               | (SOME (Return retv),st) =>
                   (case caltyp of
                     | NONE      => (SOME (Return retv),empty_locals st)
-                    | SOME (rt,  _) =>
-                       if is_valid_value s.locals rt retv
-                       then (NONE, set_var rt retv (st with locals := s.locals))
+                    | SOME (NONE, _) => (NONE, st with locals := s.locals)
+                    | SOME (SOME (rk, rt),  _) =>
+                       if is_valid_value s rk rt retv
+                       then (NONE, set_kvar rk rt retv (st with locals := s.locals))
                        else (SOME Error,st))
               | (SOME (Exception eid exn),st) =>
                   (case caltyp of
@@ -452,21 +682,42 @@ Definition evaluate_def:
                       if eid = eid' then
                        case FLOOKUP s.eshapes eid of
                         | SOME sh =>
-                            if shape_of exn = sh ∧ is_valid_value s.locals evar exn then
+                            if shape_of exn = sh ∧ is_valid_value s Local evar exn then
                               evaluate (p, set_var evar exn (st with locals := s.locals))
                             else (SOME Error,st)
                         | NONE => (SOME Error,st)
                       else (SOME (Exception eid exn), empty_locals st))
               | (res,st) => (res,empty_locals st))
          | _ => (SOME Error,s))
-    | (_, _) => (SOME Error,s)) /\
+     | _ => (SOME Error,s))/\
+  (evaluate (DecCall rt shape fname argexps prog1,s) =
+    case OPT_MMAP (eval s) argexps of
+     | SOME args =>
+        (case lookup_code s.code fname args of
+          | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s)
+           else
+           let eval_prog = fix_clock ((dec_clock s) with locals := newlocals)
+                                     (evaluate (prog, (dec_clock s) with locals:= newlocals)) in
+           (case eval_prog of
+              | (NONE,st) => (SOME Error,st)
+              | (SOME Break,st) => (SOME Error,st)
+              | (SOME Continue,st) => (SOME Error,st)
+              | (SOME (Return retv),st) =>
+                  if shape_of retv = shape then
+                    let (res',st') = evaluate (prog1, set_var rt retv (st with locals := s.locals)) in
+                      (res',st' with locals := res_var st'.locals (rt, FLOOKUP s.locals rt))
+                  else
+                    (SOME Error, st)
+              | (res,st) => (res,empty_locals st))
+           | _ => (SOME Error,s))
+     | _ => (SOME Error,s)) /\
   (evaluate (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =
    case (eval s ptr1, eval s len1, eval s ptr2, eval s len2) of
       | SOME (ValWord sz1),SOME (ValWord ad1),SOME (ValWord sz2),SOME (ValWord ad2) =>
         (case (read_bytearray sz1 (w2n ad1) (mem_load_byte s.memory s.memaddrs s.be),
                read_bytearray sz2 (w2n ad2) (mem_load_byte s.memory s.memaddrs s.be)) of
          | SOME bytes,SOME bytes2 =>
-           (case call_FFI s.ffi (ExtCall (explode ffi_index)) bytes bytes2 of
+           (case call_FFI s.ffi (ExtCall ffi_index) bytes bytes2 of
             | FFI_final outcome => (SOME (FinalFFI outcome), empty_locals s)
             | FFI_return new_ffi new_bytes =>
                 let nmem = write_bytearray sz2 new_bytes s.memory s.memaddrs s.be in
@@ -476,13 +727,9 @@ Definition evaluate_def:
 Termination
   wf_rel_tac `(inv_image (measure I LEX measure (prog_size (K 0)))
                (\(xs,^s). (s.clock,xs)))` >>
-  rpt strip_tac >> TRY (full_simp_tac(srw_ss())[] >> DECIDE_TAC) >>
-  imp_res_tac fix_clock_IMP_LESS_EQ >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac (GSYM fix_clock_IMP_LESS_EQ) >>
-  full_simp_tac(srw_ss())[set_var_def,upd_locals_def,dec_clock_def, LET_THM] >>
-  rpt (pairarg_tac >> full_simp_tac(srw_ss())[]) >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >>
-  decide_tac
+  rw[] >>
+  gvs[set_var_def,upd_locals_def,dec_clock_def, UNCURRY_eq_pair,
+      oneline fix_clock_def, AllCaseEqs()]
 End
 
 val evaluate_ind = theorem"evaluate_ind";
@@ -507,20 +754,13 @@ Theorem evaluate_clock:
    !prog s r s'. (evaluate (prog,s) = (r,s')) ==>
                  s'.clock <= s.clock
 Proof
-  recInduct evaluate_ind >>
-  REPEAT STRIP_TAC >>
-  POP_ASSUM MP_TAC >> ONCE_REWRITE_TAC [evaluate_def] >>
-  rw [] >> every_case_tac >>
-  fs [set_var_def, upd_locals_def, empty_locals_def, dec_clock_def, LET_THM] >>
-  rveq >> fs [] >>
-  rpt (pairarg_tac >> fs []) >>
-  every_case_tac >> fs [] >> rveq >>
-  imp_res_tac fix_clock_IMP_LESS_EQ >>
-  imp_res_tac LESS_EQ_TRANS >> fs [] >> rfs [] >>
-  ‘s.clock <= s.clock + 1’ by DECIDE_TAC >>
-  res_tac >> fs []>>
-  Cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def]>>
-  every_case_tac>>fs[set_var_def,empty_locals_def]>>rveq>>fs[]
+  recInduct evaluate_ind >> rpt strip_tac >>
+  qpat_x_assum ‘evaluate _ = _’ mp_tac >>
+  rw[Once evaluate_def] >>
+  gvs[AllCaseEqs(), UNCURRY_eq_pair,
+      set_var_def, set_global_def, upd_locals_def, empty_locals_def, dec_clock_def,
+      sh_mem_load_def,sh_mem_store_def, lookup_kvar_def, oneline fix_clock_def,
+      set_kvar_def, SF DNF_ss]
 QED
 
 Theorem fix_clock_evaluate:
@@ -532,17 +772,17 @@ Proof
 QED
 
 (* we save evaluate theorems without fix_clock *)
-val evaluate_ind = save_thm("evaluate_ind[allow_rebind]",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
+Theorem evaluate_ind[allow_rebind] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_ind
 
-val evaluate_def = save_thm("evaluate_def[allow_rebind,compute]",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_def);
+Theorem evaluate_def[allow_rebind,compute] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_def
 
 (* observational semantics *)
 
 Definition semantics_def:
   semantics ^s start =
-   let prog = Call NONE (Label start) [] in
+   let prog = Call NONE start [] in
     if ∃k. case FST (evaluate (prog,s with clock := k)) of
             | SOME TimeOut => F
             | SOME (FinalFFI _) => F
@@ -567,7 +807,56 @@ Definition semantics_def:
               (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
 End
 
+(* declaration semantics *)
+
+Definition evaluate_decls_def:
+  evaluate_decls ^s [] =
+    SOME s ∧
+  evaluate_decls s (Name nm flds::ds) =
+    (evaluate_decls s ds) ∧
+  evaluate_decls s (Decl sh v e::ds) =
+    (case eval (s with locals := FEMPTY) e of
+      SOME res =>
+        (if sh = shape_of res then
+            evaluate_decls (s with globals := s.globals |+ (v,res)) ds
+          else
+            NONE)
+    | NONE => NONE) ∧
+  evaluate_decls s (Function fi::ds) =
+    if EVERY ((is_wf_shape s.structs) o SND) fi.params
+       /\ is_wf_shape s.structs fi.return then
+      evaluate_decls (s with code := s.code |+ (fi.name,(fi.params,fi.body))) ds
+    else NONE
+End
+
+Definition decs_stcnames_def:
+  decs_stcnames st_ctxt [] = SOME st_ctxt ∧
+  decs_stcnames st_ctxt (Name nm flds::ds) =
+    (case ALOOKUP st_ctxt nm of
+    | SOME info => NONE
+    | NONE =>
+      if ALL_DISTINCT $ MAP FST flds then
+        let shs = MAP SND flds in
+        if EVERY (is_wf_shape st_ctxt) shs then
+          let info = <| fields := flds
+                      ; size := size_of_sh_with_ctxt st_ctxt (Comb shs) |> in
+            decs_stcnames ((nm,info)::st_ctxt) ds
+        else NONE
+      else NONE) ∧
+  decs_stcnames st_ctxt (Decl sh v e::ds) =
+    (decs_stcnames st_ctxt ds) ∧
+  decs_stcnames st_ctxt (Function fi::ds) =
+    (decs_stcnames st_ctxt ds)
+End
+
+Definition semantics_decls_def:
+  semantics_decls ^s start decls =
+  case decs_stcnames [] decls of
+  | NONE => Fail
+  | SOME st_ctxt =>
+    case evaluate_decls (s with structs := st_ctxt) decls of
+    | NONE => Fail
+    | SOME s' => semantics s' start
+End
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-
-val _ = export_theory();

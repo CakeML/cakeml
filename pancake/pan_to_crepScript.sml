@@ -1,11 +1,11 @@
 (*
   Compilation from panLang to crepLang.
 *)
-open preamble pan_commonTheory panLangTheory crepLangTheory
-
-val _ = new_theory "pan_to_crep"
-
-val _ = set_grammar_ancestry ["pan_common", "panLang","crepLang", "backend_common"];
+Theory pan_to_crep
+Ancestors
+  pan_common panLang crepLang crep_inline backend_common[qualified]
+Libs
+  preamble
 
 Datatype:
   context =
@@ -39,24 +39,31 @@ End
 Definition compile_exp_def:
   (compile_exp ctxt ((Const c):'a panLang$exp) =
    ([(Const c): 'a crepLang$exp], One)) /\
-  (compile_exp ctxt (Var vname) =
+  (compile_exp ctxt (Var Local vname) =
    case FLOOKUP ctxt.vars vname of
    | SOME (shape, ns) => (MAP Var ns, shape)
    | NONE => ([Const 0w], One)) /\
-  (compile_exp ctxt (Label fname) = ([Label fname], One)) /\
-  (compile_exp ctxt (Struct es) =
+  (compile_exp ctxt (Var Global vname) = ([Const 0w], One)) /\ (* should never happen *)
+  (compile_exp ctxt (RStruct es) =
    let cexps = MAP (compile_exp ctxt) es in
    (FLAT (MAP FST cexps), Comb (MAP SND cexps))) /\
-  (compile_exp ctxt (Field index e) =
+  (compile_exp ctxt (RField index e) =
    let (cexp, shape) = compile_exp ctxt e in
    case shape of
-   | One => ([Const 0w], One)
-   | Comb shapes => comp_field index shapes cexp) /\
+   | Comb shapes => comp_field index shapes cexp
+   | _ => ([Const 0w], One)) /\
+  (compile_exp ctxt (NStruct nm flds) = ([Const 0w], One)) /\ (* should never happen *)
+  (compile_exp ctxt (NField fld e) = ([Const 0w], One)) /\ (* should never happen *)
   (compile_exp ctxt (Load sh e) =
    let (cexp, shape) = compile_exp ctxt e in
    case cexp of
    | e::es => (load_shape (0w) (size_of_shape sh) e, sh)
    | _ => ([Const 0w], One)) /\
+  (compile_exp ctxt (Load32 e) =
+   let (cexp, shape) = compile_exp ctxt e in
+   case (cexp, shape) of
+   | (e::es, One) => ([Load32 e], One)
+   | (_, _) => ([Const 0w], One)) /\
   (compile_exp ctxt (LoadByte e) =
    let (cexp, shape) = compile_exp ctxt e in
    case (cexp, shape) of
@@ -83,7 +90,9 @@ Definition compile_exp_def:
    case FST (compile_exp ctxt e) of
    | [] => ([Const 0w], One)
    | e::es => ([Shift sh e n], One)) /\
-  (compile_exp ctxt BaseAddr = ([BaseAddr], One))
+  (compile_exp ctxt BaseAddr = ([BaseAddr], One)) /\
+  (compile_exp ctxt TopAddr = ([TopAddr], One)) /\
+  (compile_exp ctxt BytesInWord = ([Const bytes_in_word], One))
 Termination
   wf_rel_tac `measure (\e. panLang$exp_size ARB (SND e))` >>
   rpt strip_tac >>
@@ -104,14 +113,16 @@ Definition ret_var_def:
   (ret_var One ns = oHD ns) /\
   (ret_var (Comb sh) ns =
      if size_of_shape (Comb sh) = 1 then oHD ns
-     else NONE)
+     else NONE) /\
+  (ret_var (Named sh) ns = NONE) (* should never happen *)
 End
 
 Definition ret_hdl_def:
    (ret_hdl One ns = Skip) /\
    (ret_hdl (Comb sh) ns =
      if 1 < size_of_shape (Comb sh) then (assign_ret ns)
-     else Skip)
+     else Skip) /\
+  (ret_hdl (Named sh) ns = Skip) (* should never happen *)
 End
 
 (* defining it with inner case to enable rewriting later *)
@@ -125,7 +136,7 @@ End
 
 Definition compile_def:
   (compile _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
-  (compile ctxt (Dec v e p) =
+  (compile ctxt (Dec v s e p) =
    let (es, sh) = compile_exp ctxt e;
        vmax = ctxt.vmax;
        nvars = GENLIST (λx. vmax + SUC x) (size_of_shape sh);
@@ -134,7 +145,7 @@ Definition compile_def:
             if size_of_shape sh = LENGTH es
             then nested_decs nvars es (compile nctxt p)
             else Skip) /\
-  (compile ctxt (Assign v e) =
+  (compile ctxt (Assign Local v e) =
    let (es, sh) = compile_exp ctxt e in
    case FLOOKUP ctxt.vars v of
     | SOME (vshp, ns) =>
@@ -147,6 +158,17 @@ Definition compile_def:
                        (nested_seq (MAP2 Assign ns (MAP Var temps)))
       else Skip:'a crepLang$prog
     | NONE => Skip) /\
+  (compile ctxt (Assign Global v e) = Skip) /\
+  (compile ctxt (Primitive v pop es) =
+   let cexps = MAP (compile_exp ctxt) es;
+       ces   = FLAT (MAP FST cexps) in
+   case FLOOKUP ctxt.vars v of
+   | NONE => Skip
+   | SOME (vshp, ns) =>
+       let vmax = ctxt.vmax;
+           temps = GENLIST (λx. vmax + SUC x) (LENGTH ces) in
+         nested_decs temps ces
+                     (Primitive ns pop temps)) /\
   (compile ctxt (Store ad v) =
    case compile_exp ctxt ad of
     | (e::es',sh') =>
@@ -158,6 +180,10 @@ Definition compile_def:
                  (nested_seq (stores (Var adv) (MAP Var temps) 0w))
             else Skip
     | (_,_) => Skip) /\
+  (compile ctxt (Store32 dest src) =
+   case (compile_exp ctxt dest, compile_exp ctxt src) of
+    | (ad::ads, _), (e::es, _) => Store32 ad e
+    | _ => Skip) /\
   (compile ctxt (StoreByte dest src) =
    case (compile_exp ctxt dest, compile_exp ctxt src) of
     | (ad::ads, _), (e::es, _) => StoreByte ad e
@@ -197,38 +223,67 @@ Definition compile_def:
    | _ => Skip) /\
   (compile ctxt Break = Break) /\
   (compile ctxt Continue = Continue) /\
-  (compile ctxt (Call rtyp e es) =
-   let (cs, sh) = compile_exp ctxt e;
-       cexps = MAP (compile_exp ctxt) es;
+  (compile ctxt (Call rtyp ce es) =
+   let cexps = MAP (compile_exp ctxt) es;
        args = FLAT (MAP FST cexps) in
-    case cs of
-    | ce::ces =>
-     (case rtyp of
-       | NONE => Call NONE ce args
-       | SOME (rt, hdl) =>
+     case rtyp of
+     | NONE => Call NONE ce args
+     | SOME (NONE, hdl) =>
+         (case hdl of
+          | NONE => Call (SOME (NONE, Skip, NONE)) ce args
+          | SOME (eid, evar, p) =>
+              (case FLOOKUP ctxt.eids eid of
+               | NONE => Call (SOME (NONE, Skip, NONE)) ce args
+               | SOME neid =>
+                   let comp_hdl = compile ctxt p;
+                       hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
+                     Call (SOME (NONE, Skip,
+                                 (SOME (neid, hndlr)))) ce args))
+     | SOME (SOME(rk,rt), hdl) =>
          (case wrap_rt (FLOOKUP ctxt.vars rt) of
           | NONE =>
-            (case hdl of
-              | NONE => Call NONE ce args
-              | SOME (eid, evar, p) =>
-                (case FLOOKUP ctxt.eids eid of
-                   | NONE => Call NONE ce args
-                   | SOME neid =>
-                     let comp_hdl = compile ctxt p;
-                        hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
-                     Call (SOME (NONE, Skip, (SOME (neid, hndlr)))) ce args))
+              (case hdl of
+               | NONE => Call NONE ce args
+               | SOME (eid, evar, p) =>
+                   (case FLOOKUP ctxt.eids eid of
+                    | NONE => Call NONE ce args
+                    | SOME neid =>
+                        let comp_hdl = compile ctxt p;
+                            hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
+                          Call (SOME (NONE, Skip, (SOME (neid, hndlr)))) ce args))
           | SOME (sh, ns) =>
-            (case hdl of
-             | NONE => Call (SOME ((ret_var sh ns), (ret_hdl sh ns), NONE)) ce args
-             | SOME (eid, evar, p) =>
-                (case FLOOKUP ctxt.eids eid of
-                  | NONE => Call (SOME ((ret_var sh ns), (ret_hdl sh ns), NONE)) ce args
-                  | SOME neid =>
-                    let comp_hdl = compile ctxt p;
-                        hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
-                      Call (SOME ((ret_var sh ns), (ret_hdl sh ns),
-                              (SOME (neid, hndlr)))) ce args))))
-    | [] => Skip) /\
+              (case hdl of
+               | NONE => Call (SOME ((ret_var sh ns), (ret_hdl sh ns), NONE)) ce args
+               | SOME (eid, evar, p) =>
+                   (case FLOOKUP ctxt.eids eid of
+                    | NONE => Call (SOME ((ret_var sh ns), (ret_hdl sh ns), NONE)) ce args
+                    | SOME neid =>
+                        let comp_hdl = compile ctxt p;
+                            hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
+                          Call (SOME ((ret_var sh ns), (ret_hdl sh ns),
+                                      (SOME (neid, hndlr)))) ce args)))) /\
+  (compile ctxt (DecCall v s ce es p) =
+   let
+     cexps = MAP (compile_exp ctxt) es;
+     args = FLAT (MAP FST cexps);
+     vmax = ctxt.vmax;
+     nvars = GENLIST (λx. vmax + SUC x) (size_of_shape s);
+     nctxt = ctxt with  <|vars := ctxt.vars |+ (v, (s, nvars));
+                          vmax := ctxt.vmax + size_of_shape s|> in
+     case wrap_rt (SOME(s,nvars)) of
+       NONE => Call (SOME (NONE, compile nctxt p, NONE)) ce args
+     | SOME(sh,ns) =>
+         let ret_dec = case ret_var s ns of
+                         NONE => I
+                       |  SOME n => Dec n (Const 0w);
+             p' = compile nctxt p;
+             ret_decl = case ret_var s ns of
+                          NONE => nested_decs nvars (load_globals 0w (LENGTH nvars)) p'
+                        | SOME _ => p'
+         in ret_dec $
+                    Call (SOME ((ret_var s ns), ret_decl, NONE)) ce args
+
+  ) /\
   (compile ctxt (ExtCall f ptr1 len1 ptr2 len2) =
    let
      (ptr1',sh1) = compile_exp ctxt ptr1;
@@ -246,16 +301,24 @@ Definition compile_def:
          $ Dec (n+4) lc'
          $ crepLang$ExtCall f (n+1) (n+2) (n+3) (n+4)
      | _ => Skip) /\
-  (compile ctxt (ShMem op r ad) =
+  (compile ctxt (ShMemStore op r ad) =
+   (case (compile_exp ctxt r,compile_exp ctxt ad) of
+      ((e::_,_),(a::_, _)) =>
+        let n = FOLDR MAX 0 $ var_cexp e
+        in
+          Dec (n+1) a $ ShMem (store_op op) (n+1) e
+    | _ => Skip)) ∧
+  (compile ctxt (ShMemLoad op Local r ad) =
    (case compile_exp ctxt ad of
       (a::_, _) =>
         (case FLOOKUP ctxt.vars r of
-           SOME (_, r'::_) => ShMem op r' a
+           SOME (_, r'::_) => ShMem (load_op op) r' a
          | _ => Skip)
-    | _ => Skip)) ∧
-  (compile ctxt Tick = Tick)
+     | _ => Skip)) ∧
+  (compile ctxt (ShMemLoad op Global r ad) = Skip) ∧
+  (compile ctxt Tick = Tick) ∧
+  (compile _ (Annot _ _) = Skip)
 End
-
 
 Definition mk_ctxt_def:
   mk_ctxt vmap fs m (es:panLang$eid |-> 'a word) =
@@ -293,13 +356,12 @@ Definition comp_func_def:
 End
 
 Definition get_eids_def:
-  get_eids prog =
-   let eids = remove_dup (FLAT (MAP (exp_ids o SND o SND) prog));
-       ns   = GENLIST (λx. n2w x) (LENGTH eids);
+  get_eids (prog:('b#'c#'a panLang$prog) list) =
+   let eids = nub (FLAT (MAP (exp_ids o SND o SND) prog));
+       ns   = GENLIST (λx. (n2w x):'a word) (LENGTH eids);
        es   = MAP2 (λx y. (x,y)) eids ns in
     alist_to_fmap es
 End
-
 
 Definition make_funcs_def:
   make_funcs prog =
@@ -317,14 +379,19 @@ Definition crep_vars_def:
       GENLIST I len
 End
 
-
-Definition compile_prog_def:
-  compile_prog prog =
-  let comp = comp_func (make_funcs prog) (get_eids prog) in
+Definition compile_to_crep_def:
+  compile_to_crep prog =
+  let prog = functions prog;
+      comp = comp_func (make_funcs prog) (get_eids prog) in
     MAP (λ(name, params, body).
           (name,
            crep_vars params,
            comp params body)) prog
 End
 
-val _ = export_theory();
+Definition compile_prog_def:
+  compile_prog prog =
+  let inl_fs_names = MAP FST (functions (FILTER inlinable prog));
+      to_crep = compile_to_crep prog in
+    compile_inl_top inl_fs_names to_crep
+End

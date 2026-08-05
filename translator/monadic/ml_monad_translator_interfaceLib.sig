@@ -3,7 +3,13 @@
 
   Intended usage (omit config functions as necessary):
 
-    open preamble ml_monad_translator_interfaceLib
+    Theory ...
+    Libs
+      ... ml_monad_translator_interfaceLib
+    Ancestors
+      ...
+
+    val _ = set_up_monadic_translator ();
 
     val config =
       {global_state_config | local_state_config} |>
@@ -40,6 +46,8 @@
 
 signature ml_monad_translator_interfaceLib =
 sig
+
+  val set_up_monadic_translator : unit -> unit
 
   type term = Term.term
   type thm = Thm.thm

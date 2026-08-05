@@ -3,10 +3,12 @@
   be extended to a model of the context obtained by applying one of the
   non-axiomatic context updates.
 *)
-open preamble mlstringTheory setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
-     holSemanticsTheory holSemanticsExtraTheory holSoundnessTheory
-
-val _ = new_theory"holExtension"
+Theory holExtension
+Ancestors
+  mlstring setSpec holSyntaxLib holSyntax holSyntaxExtra
+  holSemantics holSemanticsExtra holSoundness
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -16,11 +18,13 @@ val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U->bool``
 
-val sound_update_def = xDefine"sound_update"`
+Definition sound_update_def:
   sound_update0 ^mem ctxt upd ⇔
     ∀i. i models (thyof ctxt) ⇒
       ∃i'. equal_on (sigof ctxt) i i' ∧
-           i' models (thyof (upd::ctxt))`
+           i' models (thyof (upd::ctxt))
+End
+
 
 Overload sound_update = ``sound_update0 ^mem``
 
@@ -400,7 +404,7 @@ Proof
   imp_res_tac WELLTYPED_LEMMA >>
   imp_res_tac proves_theory_ok >>
   imp_res_tac theory_ok_sig >> fs[] >>
-  `name ∉ {strlit "fun";strlit "bool"} ∧ abs ≠ strlit "=" ∧ rep ≠ strlit "="` by (
+  `name ∉ {«fun»;«bool»} ∧ abs ≠ «=» ∧ rep ≠ «=»` by (
     fs[is_std_sig_def] >>
     imp_res_tac ALOOKUP_MEM >>
     fs[MEM_MAP,EXISTS_PROD] >>
@@ -763,7 +767,7 @@ Proof
   `x <: b` by (
     simp[Abbr`x`,Abbr`b`] >>
     fs[is_valuation_def,is_term_valuation_def] >>
-    first_x_assum (qspecl_then[`strlit "r"`,`typeof witness`]mp_tac) >>
+    first_x_assum (qspecl_then[`«r»`,`typeof witness`]mp_tac) >>
     impl_tac >- (
       match_mp_tac type_ok_extend >>
       qexists_tac`tysof ctxt` >> simp[] ) >>
@@ -878,4 +882,3 @@ Proof
   fs[EVERY_MEM]
 QED
 
-val _ = export_theory()

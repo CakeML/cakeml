@@ -1,10 +1,11 @@
 (*
   Produces a verified CakeML program that checks VIPR proofs
 *)
-open preamble basis basisProgTheory cfLib basisFunctionsLib
-     vipr_checkerTheory milpTheory;
-
-val _ = new_theory "viprProg"
+Theory viprProg
+Libs
+  preamble basis cfLib basisFunctionsLib
+Ancestors
+  basisProg vipr_checker milp basis_ffi
 
 val _ = translation_extends "basisProg";
 
@@ -37,7 +38,7 @@ val r = translate check_lcs_def;
 val r = translate check_sol_def;
 val r = translate absurdity_def;
 val r = translate dominates_def;
-val r = translate check_last_def;
+val r = translate (check_last_def |> REWRITE_RULE [GSYM sub_check_def]);
 val r = translate get_obj_def;
 val r = translate le_inf_def;
 val r = translate inf_le_def;
@@ -55,12 +56,11 @@ val r = translate add_def;
 
 val r = translate op_str_def;
 val r = translate print_coeff_var_def;
-val r = translate combine_rle_def;
 val r = translate spt_center_def;
-val r = translate apsnd_cons_def;
-val r = translate spt_centers_def;
 val r = translate spt_right_def;
 val r = translate spt_left_def;
+val r = translate spts_to_alist_add_pause_def;
+val r = translate spts_to_alist_aux_def;
 val r = translate spts_to_alist_def;
 val r = translate toSortedAList_def;
 val r = translate print_lc_def;
@@ -111,27 +111,28 @@ val r = translate read_vipr_def;
 val r = translate read_der_line_def;
 
 val init_state_v_thm = translate init_state_def;
-val checker_step_v_thm = translate checker_step_def;
+val checker_step_v_thm = translate (checker_step_def |> REWRITE_RULE [GSYM sub_check_def]);
 val print_outcome_v_thm = translate print_outcome_def;
 
 (* ---- *)
 
 Definition usage_message_def:
-  usage_message = concat [strlit "Usage:\n";
-                          strlit "to read from stdin:   cake_vipr\n";
-                          strlit "to read from a file:  cake_vipr FILE\n"]
+  usage_message = concat [«Usage:\n»;
+                          «to read from stdin:   cake_vipr\n»;
+                          «to read from a file:  cake_vipr FILE\n»]
 End
 
 val r = translate (usage_message_def |> CONV_RULE (RAND_CONV EVAL));
 val r = translate oHD_def;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun main u =
     let
       val cl = CommandLine.arguments ()
       val r = TextIO.foldLines #"\n" checker_step init_state (ohd cl)
     in print (print_outcome (Option.valOf r)) end
-    handle e => TextIO.output TextIO.stdErr usage_message`;
+    handle e => TextIO.output TextIO.stdErr usage_message
+End
 
 val main_v_def = fetch "-" "main_v_def";
 
@@ -139,7 +140,7 @@ Theorem lines_of_gen_lines_of:
   lines_of_gen #"\n" xs =
   lines_of xs
 Proof
-  rw[lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,str_def]
+  rw[lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,chr_to_str_def]
 QED
 
 Theorem main_spec_stdin:
@@ -154,7 +155,7 @@ Theorem main_spec_stdin:
                 COMMANDLINE cl)
 Proof
   strip_tac
-  \\ xcf_with_def () main_v_def
+  \\ xcf_with_def main_v_def
   \\ reverse $ xhandle ‘(POSTv uv. &UNIT_TYPE () uv *
                 STDIO (add_stdout (fastForwardFD fs 0) $
                          run_vipr (lines_of (implode text))) *
@@ -214,7 +215,7 @@ Theorem main_spec_file:
                 COMMANDLINE cl)
 Proof
   strip_tac
-  \\ xcf_with_def () main_v_def
+  \\ xcf_with_def main_v_def
   \\ reverse $ xhandle ‘(POSTv uv. &UNIT_TYPE () uv *
                 STDIO (add_stdout fs $
                          run_vipr (lines_of (implode text))) *
@@ -295,29 +296,37 @@ Proof
   \\ gvs [GSYM add_stdo_with_numchars,with_same_numchars]
 QED
 
-val (stdin_thm,prog_tm) = whole_prog_thm
-                            (get_ml_prog_state())
-                            "main"
-                            (UNDISCH vipr_stdin_whole_prog_spec);
+Theorem vipr_sudin_or_file_whole_prog_spec:
+   hasFreeFD fs ∧
+   (if from_file then
+      file_content fs (EL 1 cl) = SOME text ∧ 1 < LENGTH cl ∧ filename_ok (EL 1 cl)
+    else stdin_content fs = SOME text ∧ LENGTH cl < 2)
+  ⇒
+   whole_prog_spec main_v cl fs NONE ((=) $ if from_file then
+                                              (add_stdout fs $
+                                                run_vipr (lines_of (implode text)))
+                                            else
+                                              (add_stdout (fastForwardFD fs 0) $
+                                                 run_vipr (lines_of (implode text))))
+Proof
+  Cases_on ‘from_file’ \\ rewrite_tac [] \\ rpt strip_tac
+  >- (drule_all vipr_file_whole_prog_spec \\ fs [])
+  >- (drule_all vipr_stdin_whole_prog_spec \\ fs [])
+QED
 
-val (file_thm,prog_tm) = whole_prog_thm
-                            (get_ml_prog_state())
-                            "main"
-                            (UNDISCH vipr_file_whole_prog_spec);
+val sem_thm =
+  prove_sem_thm "main" "vipr_prog" vipr_sudin_or_file_whole_prog_spec;
 
-Definition vipr_prog_def:
-  vipr_prog = ^prog_tm
-End
-
-Triviality clean_up:
+Theorem clean_up[local]:
   (b' ⇒ c) ⇒ ∀b. (b ⇒ b') ⇒ b ⇒ c
 Proof
   fs []
 QED
 
 Theorem vipr_stdin_semantics =
-  stdin_thm
-  |> REWRITE_RULE[GSYM vipr_prog_def]
+  sem_thm
+  |> Q.INST [‘from_file’|->‘F’]
+  |> REWRITE_RULE []
   |> DISCH_ALL
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO]
   |> MATCH_MP clean_up
@@ -327,8 +336,8 @@ Theorem vipr_stdin_semantics =
   |> (fn th => MATCH_MP th TRUTH);
 
 Theorem vipr_file_semantics =
-  file_thm
-  |> REWRITE_RULE[GSYM vipr_prog_def]
+  sem_thm
+  |> Q.INST [‘from_file’|->‘T’]
   |> DISCH_ALL
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO]
   |> MATCH_MP clean_up
@@ -336,5 +345,3 @@ Theorem vipr_file_semantics =
              filename_ok (EL 1 cl) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs’
   |> CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV (srw_ss()) []))
   |> (fn th => MATCH_MP th TRUTH);
-
-val _ = export_theory();

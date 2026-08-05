@@ -1,11 +1,12 @@
 (*
   Compiles the packing example by evaluation inside the logic of HOL
 *)
-open preamble compilationLib lpr_arrayPackingProgTheory
+Theory lpr_arrayPackingCompile
+Ancestors
+  lpr_arrayPackingProg
+Libs
+  preamble eval_cake_compile_x64Lib
 
-val _ = new_theory "lpr_arrayPackingCompile"
+Theorem lpr_packing_compiled =
+  eval_cake_compile_x64 "" main_prog_def "cake_direct.S";
 
-val lpr_array_compiled = save_thm("lpr_packing_compiled",
-  compile_x64 "cake_direct" main_prog_def);
-
-val _ = export_theory ();

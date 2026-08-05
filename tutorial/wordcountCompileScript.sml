@@ -2,12 +2,13 @@
   Compile the wordcount program to machine code by evaluation of the compiler
   in the logic.
 *)
+Theory wordcountCompile
+Ancestors
+  wordcountProg
+Libs
+  preamble eval_cake_compile_x64Lib
 
-open preamble wordcountProgTheory compilationLib
 
-val _ = new_theory"wordcountCompile";
+Theorem wordcount_compiled =
+  eval_cake_compile_x64 "" wordcount_prog_def "wordcount.S";
 
-val wordcount_compiled = save_thm("wordcount_compiled",
-  compile_x64 "wordcount" wordcount_prog_def);
-
-val _ = export_theory();

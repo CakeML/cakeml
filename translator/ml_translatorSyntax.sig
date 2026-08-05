@@ -47,7 +47,8 @@ sig
   val FALSE : term
 
   val BOOL        : term
-  val WORD       : term
+  val WORD        : term
+  val FLOAT64     : term
   val NUM         : term
   val INT         : term
   val CHAR        : term

@@ -2,55 +2,61 @@
   Module that contains a few special functions, e.g. a function for
   forcing a full GC to run, a function for producing debug output.
 *)
-open preamble ml_translatorLib ml_progLib cfDivTheory
-     mloptionTheory basisFunctionsLib
-
-val _ = new_theory "RuntimeProg";
+Theory RuntimeProg
+Ancestors
+  cfDiv mloption
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "cfDiv";
 
 val _ = ml_prog_update (open_module "Runtime");
 
-val fullGC_def = Define `
-  fullGC (u:unit) = force_unit_type u (force_gc_to_run 0 0)`;
+Definition fullGC_def:
+  fullGC (u:unit) = force_unit_type u (force_gc_to_run 0 0)
+End
 
 val () = next_ml_names := ["fullGC"];
 val result = translate fullGC_def;
 
-val fail_def = Define `
-  fail (u:unit) = force_unit_type u (force_out_of_memory_error u)`;
+Definition fail_def:
+  fail (u:unit) = force_unit_type u (force_out_of_memory_error u)
+End
 
 val () = next_ml_names := ["fail"];
 val result = translate fail_def;
 
-val debugMsg_def = Define `
-  debugMsg s = empty_ffi s`;
+Definition debugMsg_def:
+  debugMsg s = empty_ffi s
+End
 
 val () = next_ml_names := ["debugMsg"];
 val result = translate debugMsg_def;
 
 val exit =
  ``[Dletrec (unknown_loc)
-     ["exit","i",
-      Let (SOME "y") (App (WordFromInt W8) [Var (Short "i")])
-        (Let (SOME "x") (App Aw8alloc [Lit(IntLit 1);
-                                       Var (Short "y")])
-             (App (FFI "exit") [Lit(StrLit ""); Var (Short "x")]))]]``
+     [«exit»,«i»,
+      Let (SOME «y») (App (FromTo IntT (WordT W8)) [Var (Short «i»)])
+        (Let (SOME «x») (App Aw8alloc [Lit(IntLit 1);
+                                       Var (Short «y»)])
+             (App (FFI «exit») [Lit(StrLit «»); Var (Short «x»)]))]]``
 
 val _ = append_prog exit
 
-val abort = process_topdecs `fun abort u = case u of () => exit 1`
+Quote add_cakeml:
+  fun abort u = case u of () => exit 1
+End
 
-val _ = append_prog abort
-
-val _ = process_topdecs `
+Quote add_cakeml:
   fun assert cond msg =
-  if cond
-  then ()
-  else (debugMsg msg;
-        abort());`
-  |> append_prog;
+    if cond
+    then ()
+    else (debugMsg msg;
+          abort());
+End
+
+Quote add_cakeml:
+  fun customFFI str_arg arr_arg = #(custom) str_arg arr_arg;
+End
 
 val _ = ml_prog_update (close_module NONE);
-
-val _ = export_theory();

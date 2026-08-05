@@ -1,11 +1,11 @@
 (*
   Helper functions for producing cnf output
 *)
-
-open preamble basis miscTheory;
-open boolExpToCnfTheory;
-
-val _ = new_theory "toCnfHelper";
+Theory toCnfHelper
+Ancestors
+  misc boolExpToCnf mlstring mlint
+Libs
+  preamble basis
 
 
 (* ------------------------------ CNF to output ------------------------ *)
@@ -13,8 +13,8 @@ val _ = new_theory "toCnfHelper";
 Definition literal_to_output_def:
   literal_to_output l =
   case l of
-  | INL x => List [num_to_str (x); (strlit " ")]
-  | INR y => List [strlit "-"; num_to_str (y); (strlit " ")]
+  | INL x => List [num_to_str (x); « »]
+  | INR y => List [«-»; num_to_str (y); « »]
 End
 
 Definition clause_to_output_def:
@@ -27,7 +27,7 @@ End
 Definition cnf_to_output_def:
   cnf_to_output CnfEmpty = List [] ∧
   cnf_to_output (CnfClause c) =
-  Append (clause_to_output c) (List [strlit "0\n"]) ∧
+  Append (clause_to_output c) (List [«0\n»]) ∧
   cnf_to_output (CnfAnd cnf1 cnf2) =
   Append (cnf_to_output cnf1) (cnf_to_output cnf2)
 End
@@ -47,5 +47,3 @@ Definition get_max_var_and_clauses_def:
     let (max2, numC2) = get_max_var_and_clauses c2 in
       (MAX max1 max2, numC1 + numC2)
 End
-
-val _ = export_theory();

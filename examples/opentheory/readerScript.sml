@@ -2,9 +2,13 @@
   Shallowly embedded (monadic) functions that implement the OpenTheory
   article checker.
 *)
-open preamble ml_hol_kernelProgTheory mlintTheory StringProgTheory prettyTheory;
+Theory reader
+Ancestors
+  ml_hol_kernelProg mlint StringProg pretty
+Libs
+  preamble
 
-val _ = new_theory "reader";
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 val st_ex_monadinfo : monadinfo = {
   bind = “st_ex_bind”,
@@ -139,7 +143,7 @@ Definition s2c_def:
 End
 
 (*
- * Line splitter for b_inputAllTokensFrom.
+ * Line splitter for inputAllTokensFile.
  * (See readerProgScript.sml.)
  *)
 
@@ -157,21 +161,24 @@ End
 
 Type name = ``mlstring list # mlstring``
 
-val name_to_string_def = Define`
+Definition name_to_string_def:
   (name_to_string ([],s) = s) ∧
   (name_to_string (n::ns,s) =
-   strcat (strcat n («.»)) (name_to_string ns s))`;
+   strcat (strcat n («.»)) (name_to_string ns s))
+End
 
-val charlist_to_name_def = Define`
+Definition charlist_to_name_def:
   (charlist_to_name ns a [#"""] = (REVERSE ns,implode(REVERSE a))) ∧
   (charlist_to_name ns a (#"\"::#"."::cs) = charlist_to_name ns (#"."::a) cs) ∧
   (charlist_to_name ns a (#"\"::#"""::cs) = charlist_to_name ns (#"""::a) cs) ∧
   (charlist_to_name ns a (#"\"::#"\"::cs) = charlist_to_name ns (#"\"::a) cs) ∧
   (charlist_to_name ns a (#"."::cs) = charlist_to_name (implode(REVERSE a)::ns) [] cs) ∧
-  (charlist_to_name ns a (c::cs) = charlist_to_name ns (c::a) cs)`;
+  (charlist_to_name ns a (c::cs) = charlist_to_name ns (c::a) cs)
+End
 
-val qstring_to_name_def = Define`
-  qstring_to_name s = charlist_to_name [] [] (TL(explode s))`;
+Definition qstring_to_name_def:
+  qstring_to_name s = charlist_to_name [] [] (TL(explode s))
+End
 *)
 
 Datatype:
@@ -780,7 +787,7 @@ End
 
 (*
  * Does not drop the newline character from the input, because
- * b_inputAllTokensFrom does this on its own.
+ * inputAllTokensFile does this on its own.
  *)
 
 Definition tokenize_def:
@@ -859,13 +866,12 @@ End
  * PMATCH definitions.
  * ------------------------------------------------------------------------- *)
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
 val PMATCH_ELIM_CONV = patternMatchesLib.PMATCH_ELIM_CONV;
 
 Theorem getNum_PMATCH:
    ∀obj.
      getNum obj =
-       case obj of
+       pmatch obj of
          Num n => return n
        | _ => failwith «getNum»
 Proof
@@ -875,7 +881,7 @@ QED
 Theorem getName_PMATCH:
    ∀obj.
      getName obj =
-       case obj of
+       pmatch obj of
          Name n => return n
        | _ => failwith «getName»
 Proof
@@ -885,7 +891,7 @@ QED
 Theorem getList_PMATCH:
    ∀obj.
      getList obj =
-       case obj of
+       pmatch obj of
          List n => return n
        | _ => failwith «getList»
 Proof
@@ -895,7 +901,7 @@ QED
 Theorem getTypeOp_PMATCH:
    ∀obj.
      getTypeOp obj =
-       case obj of
+       pmatch obj of
          TypeOp n => return n
        | _ => failwith «getTypeOp»
 Proof
@@ -905,7 +911,7 @@ QED
 Theorem getType_PMATCH:
    ∀obj.
      getType obj =
-       case obj of
+       pmatch obj of
          Type n => return n
        | _ => failwith «getType»
 Proof
@@ -915,7 +921,7 @@ QED
 Theorem getConst_PMATCH:
    ∀obj.
      getConst obj =
-       case obj of
+       pmatch obj of
          Const n => return n
        | _ => failwith «getConst»
 Proof
@@ -925,7 +931,7 @@ QED
 Theorem getVar_PMATCH:
    ∀obj.
      getVar obj =
-       case obj of
+       pmatch obj of
          Var n => return n
        | _ => failwith «getVar»
 Proof
@@ -935,7 +941,7 @@ QED
 Theorem getTerm_PMATCH:
    ∀obj.
      getTerm obj =
-       case obj of
+       pmatch obj of
          Term n => return n
        | _ => failwith «getTerm»
 Proof
@@ -945,7 +951,7 @@ QED
 Theorem getThm_PMATCH:
    ∀obj.
      getThm obj =
-       case obj of
+       pmatch obj of
          Thm n => return n
        | _ => failwith «getThm»
 Proof
@@ -955,7 +961,7 @@ QED
 Theorem getPair_PMATCH:
    ∀obj.
      getPair obj =
-       case obj of
+       pmatch obj of
          List [x;y] => return (x,y)
        | _ => failwith «getPair»
 Proof
@@ -966,7 +972,7 @@ QED
 Theorem unescape_PMATCH:
    ∀str.
      unescape str =
-       case str of
+       pmatch str of
          #"\\":: #"\\" ::cs => #"\\"::unescape cs
        | c1::c::cs    => c1::unescape (c::cs)
        | cs           => cs
@@ -974,4 +980,3 @@ Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [Once unescape_def]
 QED
 
-val _ = export_theory()

@@ -4,7 +4,7 @@ Different puzzles and problems encoded to suitable versatile datatypes.
 Encoding of graph coloring problem
 
 [hamiltonianpathScript.sml](hamiltonianpathScript.sml):
-Encoding of Hamiltonain path problem
+Encoding of Hamiltonian path problem
 
 [kakuroScript.sml](kakuroScript.sml):
 Encode kakuro to cnf
@@ -13,7 +13,7 @@ Encode kakuro to cnf
 Encode killerSudoku to cnf
 
 [nqueensScript.sml](nqueensScript.sml):
-Encoding of n-queeens problem to cnf
+Encoding of n-queens problem to cnf
 
 [numberSudokuScript.sml](numberSudokuScript.sml):
 Encoding of sudoku to numBoolRange and to cnf

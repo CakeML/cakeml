@@ -1,12 +1,12 @@
 (*
   Compiles the simple compression schema
 *)
-
-open preamble compilationLib compressionProgTheory;
-
-val _ = new_theory "compressionCompile"
+Theory compressionCompile
+Ancestors
+  compressionProg
+Libs
+  preamble eval_cake_compile_x64Lib
 
 Theorem compression_compiled =
-  compile_x64 "compression" compression_prog_def;
+  eval_cake_compile_x64 "" compression_prog_def "compression.S";
 
-val _ = export_theory ();

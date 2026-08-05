@@ -2,14 +2,15 @@
   This simple compiler phase walks the program and gives each closure
   a unique numeric name.
 *)
-open preamble closLangTheory;
-
-val _ = new_theory"clos_number";
-val _ = set_grammar_ancestry ["closLang"]
+Theory clos_number
+Ancestors
+  closLang
+Libs
+  preamble
 
 (* add fresh code locations *)
 
-val renumber_code_locs_def = tDefine "renumber_code_locs" `
+Definition renumber_code_locs_def:
   (renumber_code_locs_list n [] = (n,[])) /\
   (renumber_code_locs_list n (x::xs) =
      let (n,x) = renumber_code_locs n x in
@@ -51,15 +52,16 @@ val renumber_code_locs_def = tDefine "renumber_code_locs" `
        (n,Handle t x1 x2)) /\
   (renumber_code_locs n (Call t ticks dest xs) =
      let (n,xs) = renumber_code_locs_list n xs in
-       (n,Op t Add xs)) (* this case cannot occur *)`
- (WF_REL_TAC `inv_image $< (λx. case x of INL p => exp3_size (SND p) | INR p => exp_size (SND p))` >>
+       (n,Op t (IntOp Add) xs)) (* this case cannot occur *)
+Termination
+  WF_REL_TAC `inv_image $< (λx. case x of INL p => list_size exp_size (SND p) | INR p => exp_size (SND p))` >>
  rw [] >>
  TRY decide_tac >>
  Induct_on `fns` >>
  srw_tac [ARITH_ss] [exp_size_def] >>
  Cases_on `h` >>
- rw [exp_size_def] >>
- decide_tac);
+ rw [exp_size_def, basicSizeTheory.pair_size_def]
+End
 
 val renumber_code_locs_ind = theorem"renumber_code_locs_ind";
 
@@ -72,16 +74,17 @@ Proof
     METIS_TAC[PAIR,FST,SND]
 QED
 
-val compile_inc_def = Define `
+Definition compile_inc_def:
   compile_inc n xs =
     (* leave space in the naming for the daisy chaining of clos_to_bvl *)
     let n1 = misc$make_even (n + MAX (LENGTH xs) 1) in
     let (m,ys) = renumber_code_locs_list n1 xs in
       (* embed the name of the first free slot (n) in the code *)
       (* no code will be generated for this pure Const expression *)
-      (m, Op backend_common$None (Const (&n)) [] :: ys)`;
+      (m, Op backend_common$None (IntOp (Const (&n))) [] :: ys)
+End
 
-val ignore_table_def = Define`
-  ignore_table f st (code,aux) = let (st',code') = f st code in (st',(code',aux))`;
+Definition ignore_table_def:
+  ignore_table f st (code,aux) = let (st',code') = f st code in (st',(code',aux))
+End
 
-val _ = export_theory()

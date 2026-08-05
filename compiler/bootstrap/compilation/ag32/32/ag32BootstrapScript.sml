@@ -2,17 +2,12 @@
   Evaluate the final part of the 32-bit version of the compiler
   into machine code for ag32, i.e. the Silver ISA.
 *)
-open preamble to_lab_ag32BootstrapTheory compilationLib
+Theory ag32Bootstrap
+Ancestors
+  compiler32Prog
+Libs
+  preamble eval_cake_compile_ag32Lib
 
-val _ = new_theory "ag32Bootstrap";
+Theorem compiler32_compiled =
+  eval_cake_compile_ag32 "" compiler32_prog_def "cake.S";
 
-val () = ml_translatorLib.reset_translation();
-
-val bootstrap_thm =
-  compilationLib.cbv_to_bytes_ag32
-    stack_to_lab_thm lab_prog_def
-    "code" "data" "config" "cake.S";
-
-val cake_compiled = save_thm("cake_compiled", bootstrap_thm);
-
-val _ = export_theory();

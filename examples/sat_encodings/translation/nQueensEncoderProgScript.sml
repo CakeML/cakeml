@@ -1,14 +1,15 @@
 (*
   Encoding program for the n-queens problem
 *)
+Theory nQueensEncoderProg
+Ancestors
+  misc set_sep list cnf boolExpToCnf quantifierExp
+  orderEncodingBool nqueens
+  (* for parsing: *) parsing source_values
+  toCnfHelper sat_encodersProg
+Libs
+  preamble basis
 
-open preamble basis miscTheory set_sepTheory listTheory cnfTheory;
-open boolExpToCnfTheory quantifierExpTheory orderEncodingBoolTheory;
-open nqueensTheory;
-open (* for parsing: *) parsingTheory source_valuesTheory;
-open toCnfHelperTheory sat_encodersProgTheory;
-
-val _ = new_theory "nQueensEncoderProg";
 
 val _ = translation_extends "sat_encodersProg";
 
@@ -38,7 +39,7 @@ Definition encode_to_output_def:
     let cnf_exp = nqueens_to_cnf n in
       let (max_var, clauses) = get_max_var_and_clauses cnf_exp in
         Append
-        (List [strlit "p cnf "; num_to_str max_var; strlit " "; num_to_str clauses; strlit "\n"])
+        (List [«p cnf »; num_to_str max_var; « »; num_to_str clauses; «\n»])
         (cnf_to_output cnf_exp)
 End
 
@@ -55,20 +56,20 @@ Definition sat_to_assignment_def:
 End
 
 Definition bool_to_output_def:
-  bool_to_output T = strlit "X" ∧
-  bool_to_output F = strlit "O"
+  bool_to_output T = «X» ∧
+  bool_to_output F = «O»
 End
 
 Definition row_to_output_def:
   row_to_output [] = List [] ∧
   row_to_output (c::cells) =
-  Append (List [bool_to_output c; (strlit " ")]) (row_to_output cells)
+  Append (List [bool_to_output c; « »]) (row_to_output cells)
 End
 
 Definition problem_to_output_def:
   problem_to_output [] = List [] ∧
   problem_to_output (row::rows) =
-  Append (row_to_output row) (Append (List [strlit "\n"]) (problem_to_output rows))
+  Append (row_to_output row) (Append (List [«\n»]) (problem_to_output rows))
 End
 
 Definition get_solved_rows_def:
@@ -112,8 +113,9 @@ val res = translate main_function_def;
 val _ = type_of “main_function” = “:mlstring -> mlstring app_list”
         orelse failwith "The main_function has the wrong type.";
 
-val main = process_topdecs
-  `print_app_list (main_function (TextIO.inputAll TextIO.stdIn));`;
+Quote main = cakeml:
+  print_app_list (main_function (TextIO.inputAll (TextIO.openStdIn ())));
+End
 
 val prog =
   get_ml_prog_state ()
@@ -128,6 +130,3 @@ val prog =
 Definition nQueens_encoder_prog_def:
   nQueens_encoder_prog = ^prog
 End
-
-
-val _ = export_theory();

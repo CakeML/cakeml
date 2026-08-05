@@ -1,16 +1,17 @@
 (*
   Translation of the functions in caml_parserScript.sml
  *)
+Theory caml_parserProg[no_sig_docs]
+Ancestors
+  misc[qualified] camlPEG camlPtreeConversion caml_parser
+  ml_translator caml_lexProg
+Libs
+  preamble ml_translatorLib
 
 open preamble camlPEGTheory camlPtreeConversionTheory caml_parserTheory;
 open caml_lexProgTheory;
 open ml_translatorLib ml_translatorTheory;
 
-val _ = new_theory "caml_parserProg";
-
-val _ = set_grammar_ancestry [
-  "misc", "camlPEG", "camlPtreeConversion", "caml_parser",
-  "ml_translator" ];
 
 val _ = translation_extends "caml_lexProg";
 
@@ -40,7 +41,6 @@ fun list_mk_fun_type [ty] = ty
   | list_mk_fun_type _ = fail()
 
 val _ = add_preferred_thy "-";
-(*val _ = add_preferred_thy "termination";*)
 
 Theorem NOT_NIL_AND_LEMMA:
    (b <> [] /\ x) = if b = [] then F else x
@@ -72,11 +72,7 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-val _ = ml_translatorLib.use_string_type false;
-
 val r = translate string_lt_def;
-
-val _ = ml_translatorLib.use_string_type true;
 
 (* -------------------------------------------------------------------------
  * Ptree conversion
@@ -109,7 +105,6 @@ val _ = update_precondition ptree_op_side;
 
 val r = preprocess ptree_Literal_def |> translate;
 
-
 Theorem ptree_literal_side[local]:
   ∀x. camlptreeconversion_ptree_literal_side x
 Proof
@@ -138,6 +133,8 @@ QED
 
 val _ = update_precondition precparse_side;
 
+val r = preprocess ptree_PRecFields_def |> translate;
+
 val r = preprocess ptree_PPattern_def |> translate;
 
 Theorem ptree_PPattern_side[local]:
@@ -152,7 +149,7 @@ QED
 
 val _ = update_precondition ptree_PPattern_side;
 
-val r = preprocess ptree_Pattern_def |> translate;
+val r = preprocess ptree_Pattern_PMATCH |> translate;
 
 (* This takes a long time.
  *)
@@ -188,7 +185,7 @@ Proof
     \\ simp [SF CONJ_ss]
     \\ rpt strip_tac
     \\ simp [Once (fetch "-" "camlptreeconversion_ptree_expr_side_def")]
-    \\ rw [] \\ gs [caml_lexTheory.isSymbol_thm])
+    \\ rw [] \\ gs [caml_lexTheory.isSymbol_thm, caml_lexTheory.isFloat_thm])
   \\ rw []
   \\ simp [Once (fetch "-" "camlptreeconversion_ptree_expr_side_def")]
 QED
@@ -225,6 +222,13 @@ val r = preprocess ptree_TypeDefinition_def |> translate;
 val r = preprocess ptree_ModuleType_def |> translate;
 val r = preprocess ptree_Definition_def |> translate;
 
+Theorem destresult_side[local]:
+  pegexec_destresult_side v = (?r. v = Result r)
+Proof
+  rw [fetch "-" "pegexec_destresult_side_def"]
+  \\ Cases_on `v` \\ gs []
+QED
+
 Theorem ptree_definition_side:
   (∀x. camlptreeconversion_ptree_definition_side x) ∧
   (∀x. camlptreeconversion_ptree_modexpr_side x) ∧
@@ -239,9 +243,10 @@ Proof
            parserProgTheory.peg_exec_side_def,
            parserProgTheory.coreloop_side_def]
   \\ rename [‘lexer_fun inp’]
-  \\ qspec_then ‘lexer_fun inp’ strip_assume_tac
+  \\ qspec_then ‘lexer_fun$lexer_fun inp’ strip_assume_tac
                 cmlPEGTheory.owhile_TopLevelDecs_total
   \\ fs [parserProgTheory.INTRO_FLOOKUP, SF ETA_ss]
+  \\ simp [destresult_side, cmlPEGTheory.parse_TopLevelDecs_total]
 QED
 
 val _ = List.map update_precondition (CONJUNCTS ptree_definition_side);
@@ -254,7 +259,7 @@ val r = preprocess ptree_Start_def |> translate;
 
 val _ = extra_preprocessing := [MEMBER_INTRO,MAP]
 
-Triviality and_or_imp_lemma:
+Theorem and_or_imp_lemma[local]:
   (b ∨ c ⇔ if b then T else c) ∧
   (b ∧ c ⇔ if b then c else F) ∧
   ((b ⇒ c) ⇔ if b then c else T) ∧
@@ -291,7 +296,5 @@ QED
 
 val _ = update_precondition run_side;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val () = ml_translatorLib.clean_on_exit := true;
 
-val _ = export_theory ();

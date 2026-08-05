@@ -2,15 +2,12 @@
   Definition of CakeML's Context-Free Grammar.
   The grammar specifies how token lists should be converted to syntax trees.
 *)
+Theory gram
+Ancestors
+  tokens grammar location
+Libs
+  grammarLib
 
-open HolKernel Parse boolLib bossLib
-
-open tokensTheory grammarTheory locationTheory
-
-open grammarLib
-
-val _ = new_theory "gram"
-val _ = set_grammar_ancestry ["tokens", "grammar", "location"]
 
 val tokmap0 =
     List.foldl (fn ((s,t), acc) => Binarymap.insert(acc,s,t))
@@ -18,21 +15,21 @@ val tokmap0 =
                [("(", ``LparT``), (")", ``RparT``), (",", ``CommaT``),
                 ("[", ``LbrackT``),
                 ("]", ``RbrackT``),
-                (";", ``SemicolonT``), (":=", ``SymbolT ":="``),
+                (";", ``SemicolonT``), (":=", ``SymbolT «:=»``),
                 (":>", ``SealT``),
                 ("->", ``ArrowT``), ("=>", ``DarrowT``),
                 ("*", ``StarT``),
-                ("::", “SymbolT "::"”),
+                ("::", “SymbolT «::»”),
                 ("|", ``BarT``), ("=", ``EqualsT``), (":", ``ColonT``),
                 ("_", ``UnderbarT``),
                 ("and", ``AndT``),
                 ("andalso", ``AndalsoT``),
                 ("as", ``AsT``),
-                ("before", ``AlphaT "before"``),
-                ("Bind", ``AlphaT "Bind"``),
+                ("before", ``AlphaT «before»``),
+                ("Bind", ``AlphaT «Bind»``),
                 ("case", ``CaseT``),
                 ("datatype", ``DatatypeT``),
-                ("Div", ``AlphaT "Div"``),
+                ("Div", ``AlphaT «Div»``),
                 ("else", ``ElseT``),
                 ("end", ``EndT``),
                 ("exception", ``ExceptionT``),
@@ -41,10 +38,10 @@ val tokmap0 =
                 ("handle", ``HandleT``),
                 ("if", ``IfT``),
                 ("in", ``InT``),
-                ("IntError", ``AlphaT "IntError"``),
+                ("IntError", ``AlphaT «IntError»``),
                 ("let", ``LetT``),
                 ("local", ``LocalT``),
-                ("o", ``AlphaT "o"``),
+                ("o", ``AlphaT «o»``),
                 ("of", ``OfT``),
                 ("op", ``OpT``),
                 ("orelse", ``OrelseT``),
@@ -138,19 +135,19 @@ val cmlG_def = mk_grammar_def ginfo
  TypeAbbrevDec ::= "type" TypeName "=" Type;
 
  (* expressions - base cases and function applications *)
- UQConstructorName ::= ^(``{AlphaT s | s ≠ "" ∧ isUpper (HD s)}``);
+ UQConstructorName ::= ^(``{AlphaT s | s ≠ «» ∧ isUpper (strsub s 0)}``);
  ConstructorName ::=
      UQConstructorName
-  | ^(``{LongidT str s | str,s | s ≠ "" ∧ isAlpha (HD s) ∧ isUpper (HD s)}``);
- V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"} ∧
-                       s ≠ "" ∧ ¬isUpper (HD s)}``)
-    |  ^(“{SymbolT s | validPrefixSym s}”);
+  | ^(``{LongidT str s | str,s | s ≠ «» ∧ isAlpha (strsub s 0) ∧ isUpper (strsub s 0)}``);
+ V ::= ^(``{AlphaT s | s ∉ {«before»; «div»; «mod»; «o»} ∧
+                       s ≠ «» ∧ ¬isUpper (strsub s 0)}``)
+    |  ^(“{SymbolT s | validPrefixSym (explode s)}”);
  FQV ::= V
       |  ^(``{LongidT str s | str,s |
-              s ≠ "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s))}``) ;
- OpID ::= ^(``{LongidT str s | str,s | s ≠ ""}``)
-       |  ^(``{AlphaT s | s ≠ ""}``)
-       |  ^(``{SymbolT s | s ≠ ""}``)
+              s ≠ «» ∧ (isAlpha (strsub s 0) ⇒ ¬isUpper (strsub s 0))}``) ;
+ OpID ::= ^(``{LongidT str s | str,s | s ≠ «»}``)
+       |  ^(``{AlphaT s | s ≠ «»}``)
+       |  ^(``{SymbolT s | s ≠ «»}``)
        |  "*" | "=" ;
 
  Eliteral ::= <IntT> | <CharT> | <StringT> | <WordT> | <FFIT> ;
@@ -165,12 +162,12 @@ val cmlG_def = mk_grammar_def ginfo
  Eapp ::= Eapp Ebase | Ebase;
 
  (* expressions - binary operators *)
- MultOps ::= ^(``{AlphaT "div"; AlphaT "mod"; StarT} ∪
-                 {SymbolT s | validMultSym s}``);
- AddOps ::= ^(``{SymbolT s | validAddSym s}``);
- RelOps ::= ^(``{SymbolT s | validRelSym s}``) | "=";
+ MultOps ::= ^(``{AlphaT «div»; AlphaT «mod»; StarT} ∪
+                 {SymbolT s | validMultSym (explode s)}``);
+ AddOps ::= ^(``{SymbolT s | validAddSym (explode s)}``);
+ RelOps ::= ^(``{SymbolT s | validRelSym (explode s)}``) | "=";
  CompOps ::= "o" | ":=";
- ListOps ::= ^(``{SymbolT s | validListSym s}``);
+ ListOps ::= ^(``{SymbolT s | validListSym (explode s)}``);
  Emult ::= Emult MultOps Eapp | Eapp;
  Eadd ::= Eadd AddOps Emult | Emult;
  Elistop ::= Eadd ListOps Elistop | Eadd;
@@ -183,7 +180,6 @@ val cmlG_def = mk_grammar_def ginfo
  Ehandle ::= ElogicOR | ElogicOR "handle" PEs ;
  E ::= "if" E "then" E "else" E | "case" E "of" PEs | "fn" Pattern "=>" E
     | "raise" E |  Ehandle;
- E' ::= "if" E "then" E "else" E' | "raise" E' | ElogicOR ;
 
  (* function and value declarations *)
  FDecl ::= V PbaseList1 "=" E ;
@@ -202,12 +198,16 @@ val cmlG_def = mk_grammar_def ginfo
  Ptuple ::= "(" ")" | "(" PatternList ")";
  PatternList ::= Pattern | Pattern "," PatternList ;
  PbaseList1 ::= Pbase | Pbase PbaseList1 ;
- PE ::= Pattern "=>" E;
- PE' ::= Pattern "=>" E';
- PEs ::= PE | PE' "|" PEs;
+ PE ::= "case" E "of" PEs
+     |  "if" E "then" E "else" PE
+     |  "fn" Pattern "=>" E
+     |  "raise" PE
+     |  ElogicOR PEsfx ;
+ PEsfx ::= | "handle" PEs | "|" PEs;
+ PEs ::= Pattern "=>" PE;
 
  (* modules *)
- StructName ::= ^(``{AlphaT s | s ≠ ""}``) ;
+ StructName ::= ^(``{AlphaT s | s ≠ «»}``) ;
  SpecLine ::= "val" V ":" Type
            |  "type" TypeName OptTypEqn
            |  "exception" Dconstructor
@@ -251,11 +251,13 @@ in
   save_thm("nt_distinct_ths",  LIST_CONJ (recurse ntlist))
 end
 
-val Ndl_def = Define`
-  (Ndl n l = Nd (n, unknown_loc) l)`
+Definition Ndl_def:
+  (Ndl n l = Nd (n, unknown_loc) l)
+End
 
-val Lfl_def = Define`
-  (Lfl t = Lf (t, unknown_loc))`
+Definition Lfl_def:
+  (Lfl t = Lf (t, unknown_loc))
+End
 
 val _ = computeLib.add_persistent_funs ["nt_distinct_ths"]
 
@@ -268,7 +270,7 @@ val ast =
                 Ndl (mkNT nMultOps) [Lfl (TK StarT)];
                 Ndl (mkNT nEapp) [mkI 4]
               ];
-              Ndl (mkNT nMultOps) [Lfl (TK (SymbolT "/"))];
+              Ndl (mkNT nMultOps) [Lfl (TK (SymbolT «/»))];
               Ndl (mkNT nEapp) [mkI 5]
             ]``
 
@@ -281,5 +283,3 @@ val check_results =
 
 val _ = if aconv (rhs (concl check_results)) T then print "valid_ptree: OK\n"
         else raise Fail "valid_ptree: failed"
-
-val _ = export_theory()

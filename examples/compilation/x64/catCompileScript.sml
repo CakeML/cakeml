@@ -1,11 +1,12 @@
 (*
   Compiles the cat example by evaluation inside the logic of HOL
 *)
-open preamble compilationLib catProgTheory
+Theory catCompile
+Ancestors
+  catProg
+Libs
+  preamble eval_cake_compile_x64Lib
 
-val _ = new_theory "catCompile"
+Theorem cat_compiled =
+  eval_cake_compile_x64 "" cat_prog_def "cat.S";
 
-val cat_compiled = save_thm("cat_compiled",
-  compile_x64 "cat" cat_prog_def);
-
-val _ = export_theory ();

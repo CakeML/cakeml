@@ -1,13 +1,12 @@
 (*
   Close the kernel module from ml_hol_kernel_funsProg
 *)
-open preamble;
-open ml_translatorLib ml_monad_translatorLib ml_progLib
-     ml_hol_kernel_funsProgTheory ml_pmatchTheory;
-open holKernelTheory;
-local open holKernelPmatchTheory in end
-
-val _ = new_theory "ml_hol_kernelProg";
+Theory ml_hol_kernelProg
+Ancestors
+  ml_hol_kernel_funsProg ml_pmatch holKernel
+  holKernelPmatch[qualified]
+Libs
+  preamble ml_translatorLib ml_monad_translatorLib ml_progLib
 
 val _ = m_translation_extends "ml_hol_kernel_funsProg"
 
@@ -61,4 +60,3 @@ Theorem EqualityType_UPDATE_TYPE = EqualityType_rule [] “:update”;
 
 val _ = (print_asts := true);
 
-val _ = export_theory();

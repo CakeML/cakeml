@@ -15,20 +15,22 @@ open preamble ml_monadBaseLib ml_monadStoreLib ml_monad_translatorLib
 
 ******************************************************************************)
 
-(* Add monadic syntax: do x <- f y; ... od *)
-val _ = ParseExtras.temp_loose_equality();
-val _ = monadsyntax.temp_add_monadsyntax()
+fun set_up_monadic_translator () = let
+  (* Add monadic syntax: do x <- f y; ... od *)
+  val _ = ParseExtras.temp_loose_equality();
+  val _ = monadsyntax.temp_add_monadsyntax()
 
-(* Parser overloadings *)
-val _ = Parse.temp_overload_on("monad_bind",``st_ex_bind``);
-val _ = Parse.temp_overload_on("monad_unitbind",``st_ex_ignore_bind``);
-val _ = Parse.temp_overload_on("monad_ignore_bind",``st_ex_ignore_bind``);
-val _ = Parse.temp_overload_on("return",``st_ex_return``);
+  (* Parser overloadings *)
+  val _ = Parse.temp_overload_on("monad_bind",ml_monadBaseSyntax.st_ex_bind_tm);
+  val _ = Parse.temp_overload_on("monad_unitbind",ml_monadBaseSyntax.st_ex_ignore_bind_tm);
+  val _ = Parse.temp_overload_on("monad_ignore_bind",ml_monadBaseSyntax.st_ex_ignore_bind_tm);
+  val _ = Parse.temp_overload_on("return",ml_monadBaseSyntax.st_ex_return_tm);
 
-(* Hide "state" due to semanticPrimitives *)
-val _ = hide "state";
+  (* Hide "state" due to semanticPrimitives *)
+  val _ = hide "state";
 
-val _ = (use_full_type_names := false);
+  val _ = (use_full_type_names := false);
+in () end
 
 
 (******************************************************************************
@@ -38,7 +40,7 @@ val _ = (use_full_type_names := false);
 ******************************************************************************)
 
 fun toUppers(str) = String.implode (map Char.toUpper (String.explode str));
-val unit_ty = type_of ``()``;
+val unit_ty = oneSyntax.one_ty;
 
 
 datatype translator_mode = GLOBAL | LOCAL;
@@ -150,10 +152,10 @@ fun register_exception_type exn_type =
   let val exn_name = (exn_type |> dest_type |> fst |> toUppers)
       val exn_type_def_name = exn_name ^ "_TYPE_def"
   in (
-    register_type ``:unit``;
-    register_type ``:'a # 'b``;
-    register_type ``:'a list``;
-    register_type ``:'a option``;
+    register_type oneSyntax.one_ty;
+    register_type (pairSyntax.mk_prod(alpha,beta));
+    register_type (listSyntax.mk_list_type alpha);
+    register_type (optionSyntax.mk_option alpha);
     register_exn_type exn_type;
     #store_exn_invariant_name internal_state := exn_name;
     theorem exn_type_def_name
@@ -269,7 +271,7 @@ fun with_heap_propositions hprop_field_names (translator_config : config) =
 
       fun mk_star_hprop hprop NONE = SOME hprop
         | mk_star_hprop hprop (SOME old_hprop) =
-            SOME (list_mk_icomb (``STAR``, [old_hprop, hprop]))
+            SOME (list_mk_icomb (prim_mk_const{Thy="set_sep",Name="STAR"}, [old_hprop, hprop]))
 
       fun overload_parser field_name = (
         overload_on (field_name,
@@ -293,14 +295,15 @@ fun with_heap_propositions hprop_field_names (translator_config : config) =
  *  Mark state fields as stdio.
  *)
 fun with_stdio field_name (translator_config : config) =
-  with_heap_propositions [(``MONAD_IO``, field_name)] translator_config
+  with_heap_propositions [(prim_mk_const{Thy="TextIOProof",Name="MONAD_IO"}, field_name)] translator_config
 
 (*
  *  Mark state fields as stdio and commandline.
  *)
 fun with_commandline commandline_name stdio_name (translator_config : config) =
   with_heap_propositions
-    [(``MONAD_IO``, stdio_name), (``COMMANDLINE``, commandline_name)]
+    [(prim_mk_const{Thy="TextIOProof",Name="MONAD_IO"}, stdio_name),
+     (prim_mk_const{Thy="CommandLineProof",Name="COMMANDLINE"}, commandline_name)]
     translator_config
 
 (*
@@ -357,7 +360,7 @@ in
     val store_inv_name = ( !(#store_invariant_name internal_state) )
     val state_ty = ( !(#state_type internal_state) )
     val state_predicate =
-      if state_ty = unit_ty then ``UNIT_TYPE``
+      if state_ty = unit_ty then ml_translatorSyntax.UNIT_TYPE
       else Term [QUOTE store_inv_name]
     val field = Term [QUOTE field_name]
     val st_field = Term [QUOTE "st.", QUOTE field_name]
@@ -405,11 +408,11 @@ in
     val state_exn_name = ( !(#store_exn_invariant_name internal_state) )
     val state_exn_ty = ( !(#exn_type internal_state) )
     val state_exn_predicate =
-      if state_exn_ty = unit_ty then ``UNIT_TYPE``
+      if state_exn_ty = unit_ty then ml_translatorSyntax.UNIT_TYPE
       else Term [QUOTE state_exn_name, QUOTE "_TYPE"]
 
     val access_thm_list = mapfilter
-      (fn ((_, name), (thm, Thm)) => (name^"_"^field_name, thm)
+      (fn ((_, name), (thm, Thm, _)) => (name^"_"^field_name, thm)
         | _ => raise Fail "")
       (apropos ``EvalM _ _ _ _ _ (^hprop_comb,_)``)
 
@@ -444,7 +447,7 @@ in
     save_thm(field_name^"_INTRO", hprop_comb_intro);
     print ("Saved intro theorem for "^field_name^": "^field_name^"_INTRO.\n\n");
     mapfilter save_access_thm access_thm_list;
-    ignore_type ``:IO_fs``
+    ignore_type (mk_thy_type{Thy="fsFFI",Tyop="IO_fs",Args=[]})
   end;
 
   fun add_access_patterns () =
@@ -552,12 +555,14 @@ local
 
   (* Theorems to push/pull state term into compound terms *)
   (* TODO - add more theorems, these will not be enough *)
+  val cond_inst_ty = pairSyntax.mk_prod(ml_monadBaseSyntax.mk_exc_ty(beta,gamma), alpha)
+  val let_inst_ty = pairSyntax.mk_prod(ml_monadBaseSyntax.mk_exc_ty(gamma,delta), beta)
   val push_thms = [
-                   COND_RATOR |> INST_TYPE [beta |-> ``:('b, 'c) exc # 'a``],
-                   LET_RATOR |> INST_TYPE [gamma |-> ``:('c, 'd) exc # 'b``],
+                   COND_RATOR |> INST_TYPE [beta |-> cond_inst_ty],
+                   LET_RATOR |> INST_TYPE [gamma |-> let_inst_ty],
                    literal_case_RATOR |>
-                      INST_TYPE [gamma |-> ``:('c, 'd) exc # 'b``],
-                   LET2_RATOR |> INST_TYPE [gamma |-> ``:('c, 'd) exc # 'b``]
+                      INST_TYPE [gamma |-> let_inst_ty],
+                   LET2_RATOR |> INST_TYPE [gamma |-> let_inst_ty]
                    ]
   val pull_thms = List.map GSYM push_thms
 

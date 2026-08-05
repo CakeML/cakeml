@@ -3,51 +3,42 @@
   Candle kernel and REPL module, i.e. everything in the user-visible
   initial environment of the read-eval-print loop.
 *)
-open preamble basicComputeLib inferenceComputeLib repl_moduleProgTheory
-     repl_check_and_tweakTheory
+Theory repl_init_types[no_sig_docs]
+Ancestors
+  infer_cv repl_moduleProg repl_check_and_tweak
+Libs
+  preamble basicComputeLib cv_transLib
 
-val _ = new_theory "repl_init_types"
+val _ = cv_trans_deep_embedding EVAL repl_moduleProgTheory.repl_prog_def;
 
-(* -- evaluate type inferencer on repl_prog -- *)
+val _ = cv_auto_trans inferTheory.init_config_def;
 
-val cmp = wordsLib.words_compset ()
-val () = computeLib.extend_compset
-    [computeLib.Extenders
-      [inferenceComputeLib.add_inference_compset,
-       basicComputeLib.add_basic_compset],
-     computeLib.Defs
-      [repl_check_and_tweakTheory.infertype_prog_inc_def,
-       repl_moduleProgTheory.repl_prog_def],
-     computeLib.Tys []
-    ] cmp
-val inf_eval = computeLib.CBV_CONV cmp;
+val eval_res_thm =
+  cv_eval “infertype_prog_inc (init_config, start_type_id) repl_prog”;
 
-val _ = (max_print_depth := 20);
-
-local
-  val test = inf_eval “infertype_prog_inc (init_config, start_type_id) repl_prog”
-in
-  val print_types = let
-    val x = test |> concl |> rhs
-    val _ = if can (match_term ``infer$Success _``) x then () else
-            if can (match_term ``infer$Failure _``) x then let
-              val msg = x |> rand |> rand |> rand |> stringSyntax.fromHOLstring
-                        handle HOL_ERR _ =>
-                        failwith ("Type inference failed. " ^
-                          "(Also failed to fully evaluate type inferencer error message)")
-              in failwith ("Type inference failed with message: " ^ msg) end
-            else failwith "Failed to fully evaluate type inferencer applied to repl_prog."
-    val _ = print "\nTypes of all basis, Candle and Repl functions:\n\n"
-    val x = x |> rand |> rator |> rand
-    val strs = EVAL ``inf_env_to_types_string ^x``
-                 |> concl |> rand |> listSyntax.dest_list |> fst
-                 |> map (stringSyntax.fromHOLstring o rand) |> map print
-    val _ = print "\n"
-    in () end
-  val result_tm = test |> concl |> rand |> rand
-  val def = Define ‘repl_prog_types = ^result_tm’
-  val result = test |> CONV_RULE (PATH_CONV "rr" (REWR_CONV (GSYM def)))
-end
+val print_types = let
+  val x = eval_res_thm |> concl |> rhs
+  val _ = if can (match_term ``M_success _``) x then () else
+          if can (match_term ``M_failure _``) x then let
+            val msg = x |> rand |> rand |> rand |> stringSyntax.fromHOLstring
+                      handle HOL_ERR _ =>
+                      failwith ("Type inference failed. " ^
+                        "(Also failed to fully evaluate type inferencer error message)")
+            in failwith ("Type inference failed with message: " ^ msg) end
+          else failwith "Failed to fully evaluate type inferencer applied to repl_prog."
+  val _ = print "\nTypes of all basis, Candle and Repl functions:\n\n"
+  val x = x |> rand |> rator |> rand
+  val strs = EVAL ``inf_env_to_types_string ^x``
+               |> concl |> rand |> listSyntax.dest_list |> fst
+               |> map (stringSyntax.fromHOLstring o rand) |> map print
+  val _ = print "\n"
+  in () end
+val result_tm = eval_res_thm |> concl |> rand |> rand
+Definition repl_prog_types_def:
+  repl_prog_types = ^result_tm
+End
+val result = eval_res_thm
+               |> CONV_RULE (PATH_CONV "rr" (REWR_CONV (GSYM repl_prog_types_def)));
 
 Theorem repl_prog_types_thm = result;
 
@@ -65,26 +56,44 @@ Definition repl_prog_env_def:
   repl_prog_env = merge_env ^env init_env
 End
 
+val _ = cv_trans locationTheory.unknown_loc_def
+
+Theorem CommandLine_arguments_lemma[local] =
+  “case infertype_prog_inc (init_config,start_type_id) repl_prog of
+   | M_failure _ => F
+   | M_success env => infertype_prog_inc env
+    [Dlet unknown_loc Pany
+      (App Opapp
+        [Var (Long «CommandLine» (Short «arguments»));
+         Con NONE []])] = M_success env”
+  |> cv_eval |> SRULE [repl_prog_types_thm];
+
 Theorem infertype_prog_inc_CommandLine_arguments:
   infertype_prog_inc repl_prog_types
     [Dlet unknown_loc Pany
       (App Opapp
-        [Var (Long "CommandLine" (Short "arguments"));
-         Con NONE []])] = Success repl_prog_types
+        [Var (Long «CommandLine» (Short «arguments»));
+         Con NONE []])] = M_success repl_prog_types
 Proof
-  rewrite_tac [fetch "-" "repl_prog_types_def"]
-  \\ CONV_TAC inf_eval
+  rewrite_tac [CommandLine_arguments_lemma]
 QED
+
+Theorem Repl_charsFrom_lemma[local] =
+  “case infertype_prog_inc (init_config,start_type_id) repl_prog of
+   | M_failure _ => F
+   | M_success env => infertype_prog_inc env
+    [Dlet unknown_loc Pany
+      (App Opapp
+        [Var (Long «Repl» (Short «charsFrom»));
+         Lit (StrLit «config_enc_str.txt»)])] = M_success env”
+  |> cv_eval |> SRULE [repl_prog_types_thm];
 
 Theorem infertype_prog_inc_Repl_charsFrom:
   infertype_prog_inc repl_prog_types
     [Dlet unknown_loc Pany
       (App Opapp
-        [Var (Long "Repl" (Short "charsFrom"));
-         Lit (StrLit "config_enc_str.txt")])] = Success repl_prog_types
+        [Var (Long «Repl» (Short «charsFrom»));
+         Lit (StrLit «config_enc_str.txt»)])] = M_success repl_prog_types
 Proof
-  rewrite_tac [fetch "-" "repl_prog_types_def"]
-  \\ CONV_TAC inf_eval
+  rewrite_tac [Repl_charsFrom_lemma]
 QED
-
-val _ = export_theory ();

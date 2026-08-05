@@ -1,10 +1,9 @@
 (*
   A simple instantiation of the ffi type.
 *)
-open HolKernel Parse boolLib bossLib;
-open libTheory ffiTheory;
-
-val _ = new_theory "simpleIO"
+Theory simpleIO
+Ancestors
+  misc ffi
 
 Datatype:
   simpleIO = <| input :  word8 llist; output :  word8 llist |>
@@ -48,4 +47,3 @@ Definition simpleIO_oracle_def:
     else Oracle_final FFI_failed
 End
 
-val _ = export_theory()

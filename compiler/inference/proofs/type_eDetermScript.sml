@@ -1,44 +1,41 @@
 (*
   Prove determinism lemmas about the type inferencer.
 *)
-open preamble;
-open libTheory typeSystemTheory astTheory semanticPrimitivesTheory evaluateTheory inferTheory unifyTheory;
-open astPropsTheory;
-open typeSysPropsTheory;
-open inferPropsTheory;
-open infer_eSoundTheory;
-open infer_eCompleteTheory;
-open envRelTheory namespacePropsTheory;
-open namespaceTheory
+Theory type_eDeterm
+Ancestors
+  typeSystem ast semanticPrimitives evaluate infer unify
+  typeSysProps inferProps infer_eSound infer_eComplete envRel
+  namespaceProps namespace
+Libs
+  preamble
 
-val _ = new_theory "type_eDeterm";
-
-val sub_completion_empty = Q.prove (
-`!m n s s'. sub_completion m n s [] s' ⇔ count n ⊆ FDOM s' ∧ (∀uv. uv ∈ FDOM s' ⇒ check_t m ∅ (t_walkstar s' (Infer_Tuvar uv))) ∧ s = s'`,
- rw [sub_completion_def, pure_add_constraints_def] >>
- metis_tac []);
+Theorem sub_completion_empty[local]:
+  !m n s s'. sub_completion m n s [] s' ⇔ count n ⊆ FDOM s' ∧ (∀uv. uv ∈ FDOM s' ⇒ check_t m ∅ (t_walkstar s' (Infer_Tuvar uv))) ∧ s = s'
+Proof
+  rw [sub_completion_def, pure_add_constraints_def] >>
+ metis_tac []
+QED
 
 Theorem type_p_pat_bindings:
  (∀tvs tenv p t new_bindings.
-  type_p tvs tenv p t new_bindings ⇒ MAP FST new_bindings = pat_bindings p []) ∧
+  type_p tvs tenv p t new_bindings ⇒ MAP FST new_bindings = pat_bindings p) ∧
  (∀tvs tenv ps ts new_bindings.
-  type_ps tvs tenv ps ts new_bindings ⇒ MAP FST new_bindings = pats_bindings ps [])
+  type_ps tvs tenv ps ts new_bindings ⇒ MAP FST new_bindings = pats_bindings ps)
 Proof
  ho_match_mp_tac type_p_ind >>
- rw [pat_bindings_def] >>
- metis_tac [semanticPrimitivesPropsTheory.pat_bindings_accum]
+ rw [pat_bindings_def]
 QED
 
 Theorem infer_pe_complete:
    ienv_ok {} ienv ∧
     env_rel_complete FEMPTY ienv tenv (bind_tvar tvs Empty) ∧
-    ALL_DISTINCT (pat_bindings p []) ∧
+    ALL_DISTINCT (pat_bindings p) ∧
     type_p tvs tenv p t1 tenv1 ∧
     type_e tenv (bind_tvar tvs Empty) e t1
     ⇒
     ?t t' new_bindings st st' s constrs s'.
-      infer_e loc ienv e (init_infer_state ss) = (Success t, st) ∧
-      infer_p loc ienv p st = (Success (t', new_bindings), st') ∧
+      infer_e loc ienv e (init_infer_state ss) = (M_success t, st) ∧
+      infer_p loc ienv p st = (M_success (t', new_bindings), st') ∧
       t_unify st'.subst t t' = SOME s ∧
       sub_completion tvs st'.next_uvar s constrs s' ∧
       FDOM s' = count st'.next_uvar ∧
@@ -121,8 +118,7 @@ Proof
     fs[SUBSET_DEF,EXTENSION] >> rw[] >> res_tac >> DECIDE_TAC ) >>
   fs[simp_tenv_invC_def,convert_env_def] >>
   imp_res_tac type_p_pat_bindings>>fs[]>>
-  imp_res_tac infer_p_bindings>>
-  pop_assum(qspec_then`[]` assume_tac)>>fs[]>>
+  imp_res_tac infer_p_bindings>>fs[]>>
   fs[EVERY_MEM,FORALL_PROD]>>rw[]
   >-
     (`ALOOKUP new_bindings p_1 = SOME p_2` by
@@ -149,10 +145,11 @@ Proof
     metis_tac[check_freevars_empty_convert_unconvert_id]
 QED
 
-val unconvert_11 = Q.prove (
-`!t1 t2. check_freevars 0 [] t1 ∧ check_freevars 0 [] t2 ⇒
-  (unconvert_t t1 = unconvert_t t2 ⇔ t1 = t2)`,
- ho_match_mp_tac unconvert_t_ind >>
+Theorem unconvert_11[local]:
+  !t1 t2. check_freevars 0 [] t1 ∧ check_freevars 0 [] t2 ⇒
+  (unconvert_t t1 = unconvert_t t2 ⇔ t1 = t2)
+Proof
+  ho_match_mp_tac unconvert_t_ind >>
  rw [unconvert_t_def] >>
  Cases_on `t2` >>
  fs [unconvert_t_def, check_freevars_def] >>
@@ -165,15 +162,16 @@ val unconvert_11 = Q.prove (
  `x < LENGTH l` by metis_tac [LENGTH_MAP] >>
  `EL x (MAP (λa. unconvert_t a) ts) = EL x (MAP (λa. unconvert_t a) l)` by metis_tac [] >>
  rfs [EL_MAP] >>
- metis_tac [EL_MEM]);
+ metis_tac [EL_MEM]
+QED
 
 Theorem infer_e_type_pe_determ:
  !loc ienv p e st st' t t' tenv' s.
   ALL_DISTINCT (MAP FST tenv') ∧
   ienv_ok {} ienv ∧
   env_rel_complete FEMPTY ienv tenv Empty ∧
-  infer_e loc ienv e (init_infer_state ss) = (Success t, st) ∧
-  infer_p loc ienv p st = (Success (t', tenv'), st') ∧
+  infer_e loc ienv e (init_infer_state ss) = (M_success t, st) ∧
+  infer_p loc ienv p st = (M_success (t', tenv'), st') ∧
   t_unify st'.subst t t' = SOME s ∧
   EVERY (\(n, t). check_t 0 {} (t_walkstar s t)) tenv'
   ⇒
@@ -232,14 +230,13 @@ Proof
   metis_tac[]
 QED
 
-val env_rel_sound_weaken = Q.prove(
+Theorem env_rel_sound_weaken = Q.prove(
   `env_rel_sound FEMPTY ienv tenv tenvE ∧ t_wfs s ⇒
    env_rel_sound s ienv tenv tenvE`,
   fs[env_rel_sound_def]>>rw[]>>res_tac>>
   qexists_tac`tvs'`>>fs[]>>
   match_mp_tac tscheme_approx_weakening>>fs[]>>
   qexists_tac`num_tvs tenvE`>>qexists_tac`FEMPTY`>>fs[SUBMAP_FEMPTY])|>GEN_ALL
-  |> curry save_thm "env_rel_sound_weaken";
 
 Theorem type_pe_determ_infer_e:
  !loc ienv p e st st' t t' new_bindings s.
@@ -256,8 +253,8 @@ Theorem type_pe_determ_infer_e:
   tenv_inv FEMPTY ienv.inf_v tenv.v ∧*)
   env_rel_sound FEMPTY ienv tenv Empty ∧
   ienv_ok {} ienv ∧
-  infer_e loc ienv e (init_infer_state ss) = (Success t, st) ∧
-  infer_p loc ienv p st = (Success (t', new_bindings), st') ∧
+  infer_e loc ienv e (init_infer_state ss) = (M_success t, st) ∧
+  infer_p loc ienv p st = (M_success (t', new_bindings), st') ∧
   t_unify st'.subst t t' = SOME s ∧
   type_pe_determ tenv Empty p e
   ⇒
@@ -462,7 +459,7 @@ Theorem infer_funs_complete:
   infer_funs loc
     (ienv with inf_v:= nsAppend (alist_to_ns (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) funs (MAP (λn. Infer_Tuvar n)
        (COUNT_LIST (LENGTH funs))))) ienv.inf_v) funs ((init_infer_state ss) with next_uvar:= (init_infer_state ss).next_uvar + LENGTH funs) =
-    (Success funs_ts,st) ∧
+    (M_success funs_ts,st) ∧
   st.next_uvar = st'.next_uvar ∧
   st.next_id = st'.next_id ∧
   pure_add_constraints st.subst
@@ -637,5 +634,3 @@ Proof
     match_mp_tac (el 4 (CONJUNCTS infer_e_check_s))>>
     asm_exists_tac>>fs[ienv_ok_def,init_infer_state_def,check_s_def]
 QED
-
-val _ = export_theory ();

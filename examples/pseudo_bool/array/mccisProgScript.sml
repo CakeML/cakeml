@@ -1,18 +1,17 @@
 (*
   MCIS (connected) encode and checker
 *)
-open preamble basis pbc_normaliseTheory graphProgTheory mcisTheory graph_basicTheory;
-
-val _ = new_theory "mccisProg"
+Theory mccisProg
+Ancestors
+  basis_ffi pbc_normalise graphProg mcis graph_basic
+Libs
+  preamble basis
 
 val _ = translation_extends"graphProg";
-
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
 (* The encoder *)
 val res = translate enc_string_def;
 
-val res = translate pbcTheory.map_obj_def;
 val res = translate unmapped_obj_def;
 
 val res = translate log2_def;
@@ -23,15 +22,15 @@ val _ = translate pbcTheory.negate_def;
 val _ = translate iff_and_def;
 val _ = translate iff_or_def;
 val _ = translate walk_base_def;
-val _ = translate walk_aux_def;
-val _ = translate walk_ind_def;
+val _ = translate (walk_aux_def |> REWRITE_RULE[GSYM sub_check_def]);
+val _ = translate (walk_ind_def |> REWRITE_RULE[GSYM sub_check_def]);
 
 val res = translate walk_k_eq;
 
-val res = translate full_encode_mccis_eq;
+val res = translate (full_encode_mccis_eq |> REWRITE_RULE[GSYM sub_check_def])
 
 (* parse input from f1 f2 and run encoder into pbc *)
-val parse_and_enc = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_and_enc f1 f2 =
   case parse_lad f1 of
     Inl err => Inl err
@@ -39,7 +38,8 @@ val parse_and_enc = (append_prog o process_topdecs) `
   (case parse_lad f2 of
     Inl err => Inl err
   | Inr gt =>
-    Inr (fst gp, full_encode_mccis gp gt))`
+    Inr (fst gp, full_encode_mccis gp gt))
+End
 
 Theorem parse_and_enc_spec:
   STRING_TYPE f1 f1v ∧
@@ -59,7 +59,10 @@ Theorem parse_and_enc_spec:
             (OPTION_TYPE (PAIR_TYPE
               (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
             INT))
-            (LIST_TYPE (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))
+            (LIST_TYPE
+              (PAIR_TYPE
+              (OPTION_TYPE STRING_TYPE)
+              (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT))))
             )) res v ∧
        case res of
         INL err =>
@@ -94,15 +97,15 @@ QED
 (* Pretty print conclusion *)
 Definition mccis_eq_str_def:
   mccis_eq_str (n:num) =
-  strlit "s VERIFIED MAX CCIS SIZE |CCIS| = " ^
-    toString n ^ strlit"\n"
+  «s VERIFIED MAX CCIS SIZE |CCIS| = » ^
+    toString n ^ «\n»
 End
 
 Definition mccis_bound_str_def:
   mccis_bound_str (l:num) (u:num) =
-  strlit "s VERIFIED MAX CCIS SIZE BOUND "^
-    toString l ^ strlit " <= |CCIS| <= " ^
-    toString u ^ strlit"\n"
+  «s VERIFIED MAX CCIS SIZE BOUND »^
+    toString l ^ « <= |CCIS| <= » ^
+    toString u ^ «\n»
 End
 
 Definition print_mccis_str_def:
@@ -123,7 +126,7 @@ End
 
 Definition check_unsat_3_sem_def:
   check_unsat_3_sem fs f1 f2 out ⇔
-  (out ≠ strlit"" ⇒
+  (out ≠ «» ⇒
   ∃gp gt bounds.
     get_graph_lad fs f1 = SOME gp ∧
     get_graph_lad fs f2 = SOME gt ∧
@@ -136,10 +139,10 @@ Definition map_concl_to_string_def:
   (map_concl_to_string n (INR (out,bnd,c)) =
     case conv_concl n c of
       SOME bounds => INR (print_mccis_str bounds)
-    | NONE => INL (strlit "c Unexpected conclusion for MCIS problem.\n"))
+    | NONE => INL «c Unexpected conclusion for MCIS problem.\n»)
 End
 
-val res = translate conv_concl_def;
+val res = translate (conv_concl_def |> REWRITE_RULE [GSYM sub_check_def]) ;
 
 val conv_concl_side = Q.prove(
   `∀x y. conv_concl_side x y <=> T`,
@@ -152,18 +155,31 @@ val res = translate mccis_bound_str_def;
 val res = translate print_mccis_str_def;
 val res = translate map_concl_to_string_def;
 
-val check_unsat_3 = (append_prog o process_topdecs) `
+Definition mk_prob_def:
+  mk_prob objf = (NONE,objf):mlstring list option #
+    ((int # mlstring pbc$lit) list # int) option #
+    (mlstring option #
+      (pbop # (int # mlstring pbc$lit) list # int)) list
+End
+
+val res = translate mk_prob_def;
+
+Quote add_cakeml:
   fun check_unsat_3 f1 f2 f3 =
   case parse_and_enc f1 f2 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (n,objf) =>
-    let val objft = default_objf in
+    let val probt = default_prob
+        val prob = mk_prob objf
+        val prob = strip_annot_prob prob
+    in
       (case
         map_concl_to_string n
-          (check_unsat_top_norm False objf objft f3) of
+        (check_unsat_top_norm False prob probt f3) of
         Inl err => TextIO.output TextIO.stdErr err
       | Inr s => TextIO.print s)
-    end`
+    end
+End
 
 Theorem check_unsat_3_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -206,24 +222,21 @@ Proof
     xsimpl)>>
   Cases_on`y`>>fs[PAIR_TYPE_def]>>
   xmatch>>
-  assume_tac npbc_parseProgTheory.default_objf_v_thm>>
+  assume_tac npbc_parseProgTheory.default_prob_v_thm>>
   xlet`POSTv v.
     STDIO fs *
-    &(PAIR_TYPE
-      (OPTION_TYPE (PAIR_TYPE
-        (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
-      INT))
-      (LIST_TYPE (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))
-      ) default_objf v`
+    &prob_TYPE default_prob v`
   >-
     (xvar>>xsimpl)>>
+  xlet_autop>>
+  xlet_autop>>
   xlet`POSTv v. STDIO fs * &BOOL F v`
   >-
     (xcon>>xsimpl)>>
   drule npbc_parseProgTheory.check_unsat_top_norm_spec>>
-  qpat_x_assum`objf_TYPE r _`assume_tac>>
+  qpat_x_assum`prob_TYPE (strip_annot_prob _) _`assume_tac>>
   disch_then drule>>
-  qpat_x_assum`objf_TYPE default_objf _`assume_tac>>
+  qpat_x_assum`prob_TYPE default_prob _`assume_tac>>
   disch_then drule>>
   strip_tac>>
   xlet_auto
@@ -241,7 +254,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -254,7 +267,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -265,17 +278,19 @@ Proof
     qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
     rw[]>>
     qexists_tac`print_mccis_str x`>>simp[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
+    gvs[oneline pb_parseTheory.strip_annot_prob_def, mk_prob_def]>>
+    rename1`full_encode_mccis gpp gtt`>>
+    Cases_on`full_encode_mccis gpp gtt`>>
+    gvs[pbcTheory.pres_set_list_def,get_graph_lad_def, AllCaseEqs()]>>
     (drule_at Any) full_encode_mccis_sem_concl>>
     fs[]>>
     Cases_on`x`>> disch_then (drule_at Any)>>
-    disch_then(qspec_then`gt'` mp_tac)>>
-    impl_tac>-
-      fs[get_graph_lad_def,AllCaseEqs()]>>
     rw[]>>
-    qexists_tac`(q,r)`>>
+    rename1`(qq,rr)`>>
+    qexists_tac`(qq,rr)`>>
     simp[mccis_sem_def]>>
     metis_tac[])
 QED
@@ -283,20 +298,22 @@ QED
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 f2 out ⇔
   case get_graph_lad fs f1 of
-    NONE => out = strlit ""
+    NONE => out = «»
   | SOME gpp =>
   case get_graph_lad fs f2 of
-    NONE => out = strlit ""
+    NONE => out = «»
   | SOME gtt =>
-    out = concat (print_pbf (full_encode_mccis gpp gtt))
+    out = concat (print_annot_prob
+      (mk_prob (full_encode_mccis gpp gtt)))
 End
 
-val check_unsat_2 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_2 f1 f2 =
   case parse_and_enc f1 f2 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (n,objf) =>
-    TextIO.print_list (print_pbf objf)`
+    TextIO.print_list (print_annot_prob (mk_prob objf))
+End
 
 Theorem check_unsat_2_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -336,27 +353,29 @@ Proof
   Cases_on`y`>>gvs[PAIR_TYPE_def]>>
   xmatch>>
   xlet_autop>>
+  xlet_autop>>
   xapp_spec print_list_spec>>xsimpl>>
   asm_exists_tac>>xsimpl>>
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`strlit ""`>>
+  qexists_tac`«»`>>
   simp[STD_streams_stderr,add_stdo_nil]>>
   xsimpl
 QED
 
 Definition usage_string_def:
-  usage_string = strlit "Usage: cake_pb_mccis <LAD file (pattern)> <LAD file (target)> <optional: PB proof file>\n"
+  usage_string = «Usage: cake_pb_mccis <LAD file (pattern)> <LAD file (target)> <optional: PB proof file>\n»
 End
 
 val r = translate usage_string_def;
 
-val main = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun main u =
   case CommandLine.arguments () of
     [f1,f2] => check_unsat_2 f1 f2
   | [f1,f2,f3] => check_unsat_3 f1 f2 f3
-  | _ => TextIO.output TextIO.stdErr usage_string`
+  | _ => TextIO.output TextIO.stdErr (mk_usage_string usage_string)
+End
 
 Definition main_sem_def:
   main_sem fs cl out =
@@ -364,7 +383,7 @@ Definition main_sem_def:
     check_unsat_2_sem fs (EL 1 cl) (EL 2 cl) out
   else if LENGTH cl = 4 then
     check_unsat_3_sem fs (EL 1 cl) (EL 2 cl) out
-  else out = strlit ""
+  else out = «»
 End
 
 Theorem STDIO_refl:
@@ -395,11 +414,13 @@ Proof
   Cases_on`t`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
+    assume_tac (theorem "usage_string_v_thm")>>
+    xlet_autop>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     rename1`COMMANDLINE cl`>>
     qexists_tac`COMMANDLINE cl`>>xsimpl>>
-    qexists_tac `usage_string` >>
-    simp [theorem "usage_string_v_thm"] >>
+    qexists_tac `mk_usage_string usage_string` >>
+    simp [] >>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -407,11 +428,13 @@ Proof
   Cases_on`t'`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
+    assume_tac (theorem "usage_string_v_thm")>>
+    xlet_autop>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     rename1`COMMANDLINE cl`>>
     qexists_tac`COMMANDLINE cl`>>xsimpl>>
-    qexists_tac `usage_string` >>
-    simp [theorem "usage_string_v_thm"] >>
+    qexists_tac `mk_usage_string usage_string` >>
+    simp [] >>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -431,11 +454,13 @@ Proof
     fs[wfcl_def]>>
     rw[]>>metis_tac[STDIO_refl])>>
   xmatch>>
+  assume_tac (theorem "usage_string_v_thm")>>
+  xlet_autop>>
   xapp_spec output_stderr_spec \\ xsimpl>>
   rename1`COMMANDLINE cl`>>
   qexists_tac`COMMANDLINE cl`>>xsimpl>>
-  qexists_tac `usage_string` >>
-  simp [theorem "usage_string_v_thm"] >>
+  qexists_tac `mk_usage_string usage_string` >>
+  simp [] >>
   qexists_tac`fs`>>xsimpl>>
   rw[]>>
   fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -461,21 +486,7 @@ Proof
   \\ simp[GSYM add_stdo_with_numchars,with_same_numchars]
 QED
 
-local
-
-val name = "main"
-val (sem_thm,prog_tm) =
-  whole_prog_thm (get_ml_prog_state()) name (UNDISCH main_whole_prog_spec2)
-val main_prog_def = Define`main_prog = ^prog_tm`;
-
-in
-
 Theorem main_semantics =
-  sem_thm
-  |> REWRITE_RULE[GSYM main_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
-
-end
-
-val _ = export_theory();
+  prove_sem_thm "main"
+                "main_prog"
+                main_whole_prog_spec2;

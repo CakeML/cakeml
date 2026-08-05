@@ -1,18 +1,16 @@
 (*
   Semantics of crepLang
 *)
+Theory crepSem
+Ancestors
+  crepLang alignment[qualified] finite_map[qualified]
+  misc[qualified] (* for read_bytearray *)
+  wordLang[qualified] (* for word_op and word_sh *)
+  panSem[qualified] (* for word_lab datatype  *)
+  ffi[qualified] lprefix_lub[qualified]
+Libs
+  preamble
 
-open preamble crepLangTheory;
-local open alignmentTheory
-           miscTheory     (* for read_bytearray *)
-           wordLangTheory (* for word_op and word_sh *)
-           panSemTheory   (* for word_lab datatype  *)
-           ffiTheory in end;
-
-val _ = new_theory"crepSem";
-val _ = set_grammar_ancestry [
-  "crepLang", "alignment",
-  "finite_map", "misc", "wordLang", "panSem", "ffi",  "lprefix_lub"]
 
 (* re-defining them again to avoid varname from panSem *)
 Type varname = ``:num``
@@ -29,7 +27,8 @@ Datatype:
      ; clock       : num
      ; be          : bool
      ; ffi         : 'ffi ffi_state
-     ; base_addr   : 'a word |>
+     ; base_addr   : 'a word
+     ; top_addr   : 'a word |>
 End
 
 val state_component_equality = theorem"state_component_equality";
@@ -91,13 +90,16 @@ End
 Definition eval_def:
   (eval (s:('a,'ffi) crepSem$state) ((Const w):'a crepLang$exp) = SOME (Word w)) ∧
   (eval s (Var v) = FLOOKUP s.locals v) ∧
-  (eval s (Label fname) =
-   case FLOOKUP s.code fname of
-    | SOME _ => SOME (Label fname)
-    | _ => NONE) /\
   (eval s (Load addr) =
     case eval s addr of
      | SOME (Word w) => mem_load w s
+     | _ => NONE) /\
+  (eval s (Load32 addr) =
+    case eval s addr of
+     | SOME (Word w) =>
+        (case mem_load_32 s.memory s.memaddrs s.be w of
+           | NONE => NONE
+           | SOME w => SOME (Word (w2w w)))
      | _ => NONE) /\
   (eval s (LoadByte addr) =
     case eval s addr of
@@ -130,7 +132,9 @@ Definition eval_def:
      | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
      | _ => NONE) /\
   (eval s BaseAddr =
-        SOME (Word s.base_addr))
+        SOME (Word s.base_addr)) /\
+  (eval s TopAddr =
+        SOME (Word s.top_addr))
 Termination
   wf_rel_tac `measure (exp_size ARB o SND)`
   \\ rpt strip_tac \\ imp_res_tac MEM_IMP_exp_size
@@ -207,9 +211,24 @@ Definition sh_mem_op_def:
   (sh_mem_op Load r (ad:'a word) (s:('a,'ffi) crepSem$state) = sh_mem_load r ad 0 s) ∧
   (sh_mem_op Store r ad s = sh_mem_store r ad 0 s) ∧
   (sh_mem_op Load8 r ad s = sh_mem_load r ad 1 s) ∧
-  (sh_mem_op Store8 r ad s = sh_mem_store r ad 1 s)(* ∧
-  (sh_mem_op Load32 r ad s = sh_mem_load r ad s 4) ∧
-  (sh_mem_op Store32 r ad s = sh_mem_store r ad s 4)*)
+  (sh_mem_op Store8 r ad s = sh_mem_store r ad 1 s) ∧
+  (sh_mem_op Load16 r ad s = sh_mem_load r ad 2 s) ∧
+  (sh_mem_op Store16 r ad s = sh_mem_store r ad 2 s) ∧
+  (sh_mem_op Load32 r ad s = sh_mem_load r ad 4 s) ∧
+  (sh_mem_op Store32 r ad s = sh_mem_store r ad 4 s)
+End
+
+Definition crep_primop_def:
+  crep_primop AddCarry args =
+  if LENGTH args = 3 ∧ EVERY isWord args then
+    let
+      l  = theWord (EL 0 args);
+      r  = theWord (EL 1 args);
+      ci = theWord (EL 2 args);
+      (res, co) = word_add_carry l r ci
+    in
+      SOME [Word res; Word co]
+  else NONE
 End
 
 Definition evaluate_def:
@@ -220,6 +239,18 @@ Definition evaluate_def:
         let (res,st) = evaluate (prog,s with locals := s.locals |+ (v,value)) in
         (res, st with locals := res_var st.locals (v, FLOOKUP s.locals v))
         | NONE => (SOME Error, s)) ∧
+  (evaluate (Primitive lhss pop rhss, s) =
+   case (OPT_MMAP (FLOOKUP s.locals) rhss) of
+   | SOME ws =>
+     (case (crep_primop pop ws) of
+      | SOME res_ws =>
+          if LENGTH lhss = LENGTH res_ws ∧
+             EVERY (λv. IS_SOME (FLOOKUP s.locals v)) lhss ∧
+             ALL_DISTINCT lhss
+          then (NONE, s with locals := s.locals |++ ZIP (lhss, res_ws))
+          else (SOME Error, s)
+      | NONE => (SOME Error, s))
+   | NONE => (SOME Error, s)) ∧
   (evaluate (Assign v src,s) =
     case (eval s src) of
     | NONE => (SOME Error, s)
@@ -231,6 +262,13 @@ Definition evaluate_def:
     case (eval s dst, eval s src) of
      | (SOME (Word adr), SOME w) =>
         (case mem_store adr w s.memaddrs s.memory of
+          | SOME m => (NONE, s with memory := m)
+          | NONE => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
+  (evaluate (Store32 dst src,s) =
+    case (eval s dst, eval s src) of
+     | (SOME (Word adr), SOME (Word w)) =>
+        (case mem_store_32 s.memory s.memaddrs s.be adr (w2w w) of
           | SOME m => (NONE, s with memory := m)
           | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
@@ -288,9 +326,9 @@ Definition evaluate_def:
  (evaluate (Tick,s) =
    if s.clock = 0 then (SOME TimeOut,empty_locals s)
    else (NONE,dec_clock s)) /\
- (evaluate (Call caltyp trgt argexps,s) =
-   case (eval s trgt, OPT_MMAP (eval s) argexps) of
-    | (SOME (Label fname), SOME args) =>
+ (evaluate (Call caltyp fname argexps,s) =
+   case OPT_MMAP (eval s) argexps of
+    | SOME args =>
        (case lookup_code s.code fname args (LENGTH args) of
          | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s) else
            let eval_prog = fix_clock ((dec_clock s) with locals:= newlocals)
@@ -317,14 +355,14 @@ Definition evaluate_def:
                       else (SOME (Exception eid), empty_locals st))
               | (res,st) => (res,empty_locals st))
          | _ => (SOME Error,s))
-    | (_, _) => (SOME Error,s)) /\
+    | _ => (SOME Error,s)) /\
   (evaluate (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =
    case (FLOOKUP s.locals len1, FLOOKUP s.locals ptr1, FLOOKUP s.locals len2, FLOOKUP s.locals ptr2) of
      | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
        (case (read_bytearray w2 (w2n w) (mem_load_byte s.memory s.memaddrs s.be),
               read_bytearray w4 (w2n w3) (mem_load_byte s.memory s.memaddrs s.be)) of
         | SOME bytes,SOME bytes2 =>
-            (case call_FFI s.ffi (ExtCall (explode ffi_index)) bytes bytes2 of
+            (case call_FFI s.ffi (ExtCall ffi_index) bytes bytes2 of
              | FFI_final outcome => (SOME (FinalFFI outcome),s)
              | FFI_return new_ffi new_bytes =>
                  let nmem = write_bytearray w4 new_bytes s.memory s.memaddrs s.be in
@@ -343,41 +381,65 @@ Termination
   decide_tac
 End
 
-
-Theorem evaluate_clock:
-   !prog s r s'. (evaluate (prog,s) = (r,s')) ==>
-                 s'.clock <= s.clock
+Theorem clock_eq_simp[local,simp]:
+  (set_var v w s).clock = s.clock ∧
+  (empty_locals s).clock = s.clock ∧
+  (set_globals gv w s).clock = s.clock
 Proof
-  recInduct evaluate_ind >> REPEAT STRIP_TAC >>
-  POP_ASSUM MP_TAC >> ONCE_REWRITE_TAC [evaluate_def] >>
-  rw [] >> every_case_tac >>
-  fs [set_var_def, dec_clock_def, set_globals_def, empty_locals_def, LET_THM] >>
-  rveq >> fs [] >>
-  rpt (pairarg_tac >> fs []) >>
-  every_case_tac >> fs [] >> rveq >>
-  imp_res_tac fix_clock_IMP_LESS_EQ >>
-  imp_res_tac LESS_EQ_TRANS >> fs [] >>
-  TRY (Cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def]>>
-       every_case_tac>>fs[set_var_def,empty_locals_def]>>rveq>>fs[])>>
-  rpt (res_tac >> fs [])
+  simp [set_var_def, empty_locals_def, set_globals_def]
 QED
 
-val fix_clock_evaluate = Q.prove(
-  `fix_clock s (evaluate (prog,s)) = evaluate (prog,s)`,
+Theorem sh_mem_load_clock[local]:
+  sh_mem_load v addr nb s = (r, s') ⇒ s'.clock = s.clock
+Proof
+  rw [oneline sh_mem_load_def, AllCaseEqs()] >> simp []
+QED
+
+Theorem sh_mem_store_clock[local]:
+  sh_mem_store v addr nb s = (r, s') ⇒ s'.clock = s.clock
+Proof
+  rw [oneline sh_mem_store_def, AllCaseEqs()] >> simp []
+QED
+
+Theorem sh_mem_op_clock[local]:
+  sh_mem_op op v addr s = (r,s') ⇒ s'.clock = s.clock
+Proof
+  rw [oneline sh_mem_op_def, AllCaseEqs()]
+  >> imp_res_tac sh_mem_load_clock
+  >> imp_res_tac sh_mem_store_clock
+  >> simp []
+QED
+
+Theorem evaluate_clock:
+  ∀prog s r s'. evaluate (prog, s) = (r, s') ⇒ s'.clock ≤ s.clock
+Proof
+  recInduct evaluate_ind >> rpt strip_tac
+  >> qpat_x_assum ‘evaluate _ = _’ mp_tac
+  >> once_rewrite_tac [evaluate_def] >> rw []
+  (* Next two tactics take a few seconds *)
+  >> gvs [dec_clock_def, AllCaseEqs()] >> rpt (pairarg_tac >> gvs [])
+  >> imp_res_tac sh_mem_op_clock >> simp []
+  >> imp_res_tac fix_clock_IMP_LESS_EQ >> gvs [AllCaseEqs()]
+QED
+
+Theorem fix_clock_evaluate[local]:
+  fix_clock s (evaluate (prog,s)) = evaluate (prog,s)
+Proof
   Cases_on `evaluate (prog,s)` \\ fs [fix_clock_def]
-  \\ imp_res_tac evaluate_clock \\ fs [GSYM NOT_LESS, state_component_equality]);
+  \\ imp_res_tac evaluate_clock \\ fs [GSYM NOT_LESS, state_component_equality]
+QED
 
-val evaluate_ind = save_thm("evaluate_ind[allow_rebind]",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
+Theorem evaluate_ind[allow_rebind] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_ind
 
-val evaluate_def = save_thm("evaluate_def[allow_rebind,compute]",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_def);
+Theorem evaluate_def[allow_rebind,compute] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_def
 
 (* observational semantics *)
 
 Definition semantics_def:
   semantics ^s start =
-   let prog = Call NONE (Label start) [] in
+   let prog = Call NONE start [] in
     if ∃k. case FST (evaluate (prog,s with clock := k)) of
             | SOME TimeOut => F
             | SOME (FinalFFI _) => F
@@ -403,5 +465,3 @@ Definition semantics_def:
 End
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-
-val _ = export_theory();

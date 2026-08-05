@@ -1,0 +1,6 @@
+INCLUDES = Infra semantics
+OPTIONS = QUIT_ON_FAILURE
+
+all: $(DEFAULT_TARGETS) README.md
+
+sinclude $(CAKEMLDIR)/developers/readme.mk

@@ -1,11 +1,12 @@
 (*
   Compiles the helloErr example by evaluation inside the logic of HOL
 *)
-open preamble compilationLib helloErrProgTheory
+Theory helloErrCompile
+Ancestors
+  helloErrProg
+Libs
+  preamble eval_cake_compile_x64Lib
 
-val _ = new_theory "helloErrCompile"
+Theorem helloErr_compiled =
+  eval_cake_compile_x64 "" helloErr_prog_def "helloErr.S";
 
-val helloErr_compiled = save_thm("helloErr_compiled",
-  compile_x64 "helloErr" helloErr_prog_def);
-
-val _ = export_theory ();

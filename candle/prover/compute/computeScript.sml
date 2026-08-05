@@ -1,14 +1,15 @@
 (*
   Implementation of the compute primitive.
  *)
+Theory compute
+Ancestors
+  holSyntax holSyntaxExtra holKernel holKernelProof ml_monadBase
+  compute_syntax compute_eval compute_exec
+Libs
+  preamble
 
-open preamble holSyntaxTheory holSyntaxExtraTheory holKernelTheory
-     holKernelProofTheory ml_monadBaseTheory;
-open compute_syntaxTheory compute_evalTheory compute_execTheory;
 
-val _ = new_theory "compute";
-
-val _ = numLib.prefer_num ();
+val _ = numLib.temp_prefer_num ();
 
 val st_ex_monadinfo : monadinfo = {
   bind = “st_ex_bind”,
@@ -112,7 +113,7 @@ Definition compute_thms_def:
     (* CEXP_LESS  *) _CEXP_LESS (_CEXP_PAIR _P1 _Q1) (_CEXP_PAIR _P2 _Q2) ===
                      _CEXP_NUM (_NUMERAL _0);
     (* CEXP_IF    *) _CEXP_IF (_CEXP_NUM (_SUC _M)) _P1 _Q1 === _P1;
-    (* CEXP_IF    *) _CEXP_IF (_CEXP_PAIR _P2 _Q2) _P1 _Q1 === _P1;
+    (* CEXP_IF    *) _CEXP_IF (_CEXP_PAIR _P2 _Q2) _P1 _Q1 === _Q1;
     (* CEXP_IF    *) _CEXP_IF (_CEXP_NUM (_NUMERAL _0)) _P1 _Q1 === _Q1;
     (* CEXP_FST   *) _CEXP_FST (_CEXP_PAIR _P1 _Q1) === _P1;
     (* CEXP_FST   *) _CEXP_FST (_CEXP_NUM _M) === _CEXP_NUM (_NUMERAL _0);
@@ -282,5 +283,3 @@ Definition compute_def:
           return (Sequent [] c)
         od
 End
-
-val _ = export_theory ();

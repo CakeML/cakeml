@@ -36,15 +36,15 @@
        All values below 1 are treated as 1.
 
 *)
-open preamble
-     ml_translatorTheory ml_translatorLib ml_progLib basisFunctionsLib
-     candle_kernelProgTheory cfLib
-
-val _ = new_theory"repl_moduleProg";
+Theory repl_moduleProg
+Ancestors
+  ml_translator candle_kernelProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib cfLib
 
 val _ = translation_extends "candle_kernelProg";
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun pp_type ty =
     ((case ty of Tyvar _ => () | _ => ());
      PrettyPrinter.token "<type>");
@@ -59,9 +59,12 @@ val _ = (append_prog o process_topdecs) `
      PrettyPrinter.token "<thm>");
   fun pp_update up =
     ((case up of Newaxiom _ => () | _ => ());
-     PrettyPrinter.token "<update>"); `
+     PrettyPrinter.token "<update>");
+End
 
-val _ = (append_prog o process_topdecs) ‘exception Interrupt;’;
+Quote add_cakeml:
+  exception Interrupt;
+End
 
 val _ = ml_prog_update (open_module "Interrupt");
 
@@ -92,7 +95,7 @@ Theorem freq_eval_thm = declare_new_ref "freq" “1000:int”;
 
 val _ = ml_prog_update open_local_block;
 
-val _ = (append_prog o process_topdecs) ‘
+Quote add_cakeml:
   fun inc () =
     let val res = !count in
       count := res - 1;
@@ -100,11 +103,11 @@ val _ = (append_prog o process_topdecs) ‘
         (count := max 1 (!freq) ; True)
       else False
     end;
-  ’;
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val _ = (append_prog o process_topdecs) ‘
+Quote add_cakeml:
   fun check () =
     let val _ = #(poll_sigint) "" sigint in
       if Word8Array.sub sigint 0 = Word8.fromInt 1 then
@@ -112,19 +115,19 @@ val _ = (append_prog o process_topdecs) ‘
       else ()
     end;
   fun poll () = if inc () then check () else ();
-  ’;
+End
 
 val _ = ml_prog_update close_local_blocks;
 
 val _ = ml_prog_update (close_module NONE);
 
 val tidy_up =
-  SIMP_RULE (srw_ss()) (LENGTH :: (DB.find "refs_def" |> map (fst o snd)));
+  SIMP_RULE (srw_ss()) (LENGTH :: (DB.find "refs_def" |> map (#1 o #2)));
 
 val _ = ml_prog_update (open_module "Repl");
 
 (* declares: val exn = ref Bind; *)
-val bind_e = ``App Opref [Con (SOME (Short "Bind")) []]``
+val bind_e = ``App Opref [Con (SOME (Short «Bind»)) []]``
 val eval_thm = let
   val env = get_ml_prog_state () |> ml_progLib.get_env
   val st = get_ml_prog_state () |> ml_progLib.get_state
@@ -144,8 +147,8 @@ val _ = ml_prog_update (add_Dlet eval_thm "exn");
 
 Theorem exn_def[allow_rebind]          = fetch "-" "exn_def"                        |> tidy_up;
 Theorem isEOF_def[allow_rebind]        = declare_new_ref "isEOF"        “F”         |> tidy_up;
-Theorem nextString_def[allow_rebind]   = declare_new_ref "nextString"   “strlit ""” |> tidy_up;
-Theorem errorMessage_def[allow_rebind] = declare_new_ref "errorMessage" “strlit ""” |> tidy_up;
+Theorem nextString_def[allow_rebind]   = declare_new_ref "nextString"   “«»” |> tidy_up;
+Theorem errorMessage_def[allow_rebind] = declare_new_ref "errorMessage" “«»” |> tidy_up;
 
 val _ = ml_prog_update open_local_block;
 
@@ -158,16 +161,17 @@ val char_cons_v_thm = translate char_cons_def;
 
 val _ = ml_prog_update open_local_in_block;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun charsFrom fname =
     case TextIO.foldChars char_cons [] (Some fname) of
       Some res => List.rev res
     | None     => (print ("ERROR: Unable to read file: " ^ fname ^ "\n");
-                   raise Bind); `
+                   raise Bind);
+End
 
 val _ = ml_prog_update open_local_block;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun init_readNextString () =
     let
       val _ = TextIO.print "Welcome to the CakeML read-eval-print loop.\n"
@@ -175,12 +179,14 @@ val _ = (append_prog o process_topdecs) `
       val str = charsFrom fname
     in
       (isEOF := False; nextString := String.implode str)
-    end; `
+    end;
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val _ = (append_prog o process_topdecs) `
-  val readNextString = Ref init_readNextString; `
+Quote add_cakeml:
+  val readNextString = Ref init_readNextString;
+End
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
@@ -189,7 +195,9 @@ val _ = ml_prog_update (close_module NONE);
 
 val repl_prog = get_ml_prog_state () |> remove_snocs |> ml_progLib.get_prog;
 
-val repl_prog_def = Define `repl_prog = ^repl_prog`;
+Definition repl_prog_def:
+  repl_prog = ^repl_prog
+End
 
 Theorem Decls_repl_prog =
   ml_progLib.get_Decls_thm (get_ml_prog_state ())
@@ -197,7 +205,7 @@ Theorem Decls_repl_prog =
 
 (* verification of Repl.charsFrom *)
 
-Triviality foldl_char_cons:
+Theorem foldl_char_cons[local]:
   ∀xs ys. foldl char_cons ys xs = REVERSE xs ++ ys
 Proof
   Induct \\ fs [mllistTheory.foldl_def,char_cons_def]
@@ -210,7 +218,8 @@ Theorem charsFrom_spec:
     (STDIO fs)
     (POSTv retv. STDIO fs * cond (LIST_TYPE CHAR content retv))
 Proof
-  xcf_with_def "Repl.charsFrom" (fetch "-" "Repl_charsFrom_v_def")
+  strip_tac
+  \\ xcf_with_def (fetch "-" "Repl_charsFrom_v_def")
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xlet ‘POSTv retv. STDIO fs *
@@ -237,4 +246,3 @@ Proof
   \\ fs [foldl_char_cons]
 QED
 
-val _ = export_theory();

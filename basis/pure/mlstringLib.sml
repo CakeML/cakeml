@@ -46,7 +46,8 @@ fun mlstring_case_conv tm =
       boolSimps.bool_ss++stringSimps.STRING_ss++listSimps.LIST_ss++
       (simpLib.std_conv_ss{conv=stringLib.char_EQ_CONV,
                            name="char_EQ_CONV",
-                           pats=[``x:char = y``]})
+                           pats=[mk_eq(mk_var("x",stringSyntax.char_ty),
+                                       mk_var("y",stringSyntax.char_ty))]})
     val the_rws = [
       mlstringTheory.mlstring_11,
       mlstringTheory.mlstring_case_def]
@@ -63,5 +64,11 @@ fun mlstring_case_conv tm =
   in
     TRANS th1 sth
   end
+
+local open mlstringTheory in
+val add_mlstring_compset = computeLib.extend_compset
+  [computeLib.Tys [mlstringSyntax.mlstring_ty],
+   computeLib.Defs [chr_to_str_def, concat_thm, explode_thm]]
+end
 
 end

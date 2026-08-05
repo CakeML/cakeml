@@ -1,10 +1,11 @@
 (*
   Encoding of graph coloring problem
 *)
-
-open preamble miscTheory unorderedSetsTheory;
-
-val _ = new_theory "graphColoring";
+Theory graphColoring
+Ancestors
+  misc unorderedSets
+Libs
+  preamble
 
 
 (* --------------------- Types ---------------------- *)
@@ -76,4 +77,3 @@ Definition assignment_to_vertexColorAssignment_def:
 End
 
 
-val _ = export_theory();

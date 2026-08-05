@@ -1,0 +1,44 @@
+A verified VCG and verified compiler for Dafny.
+
+[compilation](compilation):
+Compilation scripts for the Dafny to CakeML backend.
+
+[dafny_astScript.sml](dafny_astScript.sml):
+Abstract Syntax Tree for a subset of Dafny.
+
+[dafny_compilerScript.sml](dafny_compilerScript.sml):
+Definition of the Dafny to CakeML compiler.
+
+[dafny_freshenScript.sml](dafny_freshenScript.sml):
+Implements the freshen pass, where names are updated to be unique.
+
+[dafny_miscScript.sml](dafny_miscScript.sml):
+Various definitions that are used by multiple files, but don't quite fit in
+any of them.
+
+[dafny_remove_assertScript.sml](dafny_remove_assertScript.sml):
+Replaces assert with skip to ignore the former during compilation.
+
+[dafny_to_cakemlScript.sml](dafny_to_cakemlScript.sml):
+Defines the translation of Dafny's to CakeML's AST.
+
+[examples](examples):
+Contains programs to test the verified Dafny compiler.
+
+[proofs](proofs):
+Correctness proofs for the Dafny compiler.
+
+[result_monadScript.sml](result_monadScript.sml):
+Definition of a specialized Either monad, where an error is an mlstring.
+
+[semantics](semantics):
+Definition of Dafny's semantics.
+
+[sexp_to_dafnyScript.sml](sexp_to_dafnyScript.sml):
+Parses an S-expression into a Dafny AST.
+
+[translation](translation):
+Translation scripts for the Dafny compiler.
+
+[vcg](vcg):
+Verification condition generation (VCG) for Dafny.

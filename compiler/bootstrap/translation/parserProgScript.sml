@@ -1,19 +1,22 @@
 (*
   Translate the compiler's parser.
 *)
+Theory parserProg[no_sig_docs]
+Ancestors
+  cmlParse cmlPEG lexerProg ml_translator semanticPrimitives
+Libs
+  preamble ml_translatorLib
+
 open preamble
      cmlParseTheory cmlPEGTheory lexerProgTheory
      ml_translatorLib ml_translatorTheory
-     semanticPrimitivesTheory
+     semanticPrimitivesTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "parserProg"
 
 val _ = translation_extends "lexerProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "parserProg");
-val _ = ml_translatorLib.use_string_type true;
 
 (* translator setup *)
 
@@ -84,7 +87,7 @@ QED
 
 val _ = translate locnle;
 
-Triviality validaddsym_side_lemma:
+Theorem validaddsym_side_lemma[local]:
   ∀x. validaddsym_side x = T
 Proof
   simp[fetch "-" "validaddsym_side_def"]
@@ -92,6 +95,26 @@ QED
 val _ = update_precondition validaddsym_side_lemma;
 
 val _ = translate (def_of_const ``cmlPEG``);
+
+Theorem not_mlstring_emp[simp]:
+  x ≠  «» ⇒
+  0 < strlen x
+Proof
+  Cases_on`x`>>rw[]>>
+  Cases_on`s`>>gvs[]
+QED
+
+Theorem cmlpeg_side[local]:
+  cmlpeg_side ⇔ T
+Proof
+  fs[fetch "-" "cmlpeg_side_def",
+    fetch "-" "peg_v_side_def",
+    fetch "-" "peg_longv_side_def",
+    fetch "-" "peg_uqconstructorname_side_def"
+    ]
+QED
+
+val _ = update_precondition cmlpeg_side;
 
 Theorem INTRO_FLOOKUP:
    (if n ∈ FDOM G.rules then
@@ -133,7 +156,7 @@ val _ = (extra_preprocessing :=
 Theorem maybe_handleRef_eq:
   !p. maybe_handleRef p =
       case p of
-      | (Pcon (SOME (Short n)) [pat]) => if n = "Ref" then Pref pat else p
+      | (Pcon (SOME (Short n)) [pat]) => if n = «Ref» then Pref pat else p
       | _ => p
 Proof
   recInduct cmlPtreeConversionTheory.maybe_handleRef_ind
@@ -161,7 +184,7 @@ val res = translate def;
 
 val _ = def_of_const “ptree_SignatureValue” |> translate
 
-Triviality ptree_Decls:
+Theorem ptree_Decls[local]:
   ptree_Decls x =
      case x of
      | Lf t => ptree_Decls (Lf t)
@@ -171,7 +194,7 @@ Proof
   \\ rename [‘Nd p’] \\ PairCases_on ‘p’ \\ fs []
 QED
 
-Triviality ptree_Structure:
+Theorem ptree_Structure[local]:
   ptree_Structure x =
      case x of
      | Lf t => ptree_Structure (Lf t)
@@ -195,7 +218,7 @@ val def =
 
 val res = translate_no_ind def;
 
-Triviality ind_lemma:
+Theorem ind_lemma[local]:
   ptree_decl_ind
 Proof
   rewrite_tac [fetch "-" "ptree_decl_ind_def"]
@@ -230,10 +253,6 @@ Theorem parse_prog_side_lemma = Q.prove(`
   THEN CONV_TAC (DEPTH_CONV ETA_CONV) THEN FULL_SIMP_TAC std_ss [])
   |> update_precondition;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
-
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

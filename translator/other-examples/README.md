@@ -2,7 +2,7 @@ A few other examples of HOL functions that can be translated into CakeML.
 
 [auxiliary](auxiliary):
 This directory contains definitions used for miscellaneous translator
-examples from used in the original ICFP paper about the translator.
+examples used in the original ICFP paper about the translator.
 
 [example_91Script.sml](example_91Script.sml):
 This is a simple example of applying the translator to
@@ -16,13 +16,19 @@ a balanced binary tree from HOL.
 This is a simple example of applying the translator to an
 algorithm-level model of a copying garbage collector.
 
+[example_fmapProgScript.sml](example_fmapProgScript.sml):
+This is a simple example of applying the translator to functions over
+finite maps. Finite maps are compiled to CakeML's balanced-tree Map
+module by registering a total order for each key type with
+MapProgLib.add_fmap_for_cmp.
+
 [example_parser_genScript.sml](example_parser_genScript.sml):
 This is a simple example of applying the translator to a
 parser generator.
 
 [example_primality_testScript.sml](example_primality_testScript.sml):
 This is a simple example of applying the translator to an
-efficient primaliy tester formalised by Joe Hurd.
+efficient primality tester formalised by Joe Hurd.
 
 [example_qsortScript.sml](example_qsortScript.sml):
 This is a simple example of applying the translator to a

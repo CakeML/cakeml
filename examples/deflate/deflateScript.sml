@@ -1,18 +1,13 @@
 (*
 Implementation of Deflate encoding and decoding
 *)
+Theory deflate
+Ancestors
+  string rich_list alist list sorting arithmetic LZSS huffman rle
+  deflateTable
+Libs
+  preamble stringLib
 
-open preamble;
-open stringLib stringTheory;
-open rich_listTheory alistTheory listTheory;
-open sortingTheory arithmeticTheory;
-open LZSSTheory;
-open huffmanTheory;
-open rleTheory;
-open deflateTableTheory;
-
-
-val _ = new_theory "deflate";
 
 Overload END_BLOCK = “256:num”;
 
@@ -418,4 +413,3 @@ Proof
 QED
 
 
-val _ = export_theory();

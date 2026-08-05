@@ -1,12 +1,12 @@
 (*
 First simple compressor
 *)
-
-open preamble;
-open stringLib stringTheory string_numTheory ASCIInumbersTheory;
-open rich_listTheory alistTheory listTheory;
-open sortingTheory arithmeticTheory;
-val _ = new_theory "compression";
+Theory compression
+Libs
+  preamble stringLib
+Ancestors
+  string string_num ASCIInumbers rich_list alist list sorting
+  mllist arithmetic
 
 
 (********************************************)
@@ -117,7 +117,7 @@ End
 Definition create_fixed_dict_def:
   create_fixed_dict s =
   let
-    keys = QSORT (λ x y. LENGTH y < LENGTH x) $ extract_keys s
+    keys = sort (λ x y. LENGTH y < LENGTH x) $ extract_keys s
   in
     ZIP (keys, gen_fix_codes $ LENGTH keys)
 End
@@ -196,5 +196,3 @@ Proof
   \\ CASE_TAC
   \\ simp[]
 QED
-
-val _ = export_theory();

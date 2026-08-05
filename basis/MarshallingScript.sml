@@ -2,29 +2,35 @@
   HOL functions that aid converting to and from the byte arrays that
   CakeML foreign-function interface (FFI) uses.
 *)
-open preamble
-
-val _ = new_theory "Marshalling";
+Theory Marshalling
+Ancestors
+  words
+Libs
+  preamble
 
 (* encode/decode nums as 2 or 8 bytes *)
 (* similar to n2l & l2n but with padding *)
-val n2w2_def = Define`
-  n2w2 (i : num) : word8 list = [n2w (i DIV 256); n2w i]`
+Definition n2w2_def:
+  n2w2 (i : num) : word8 list = [n2w (i DIV 256); n2w i]
+End
 
-val n2w8_def = Define`
+Definition n2w8_def:
   n2w8 (i : num) : word8 list =
    [n2w (i DIV 256**7); n2w (i DIV 256**6);
     n2w (i DIV 256**5); n2w (i DIV 256**4);
     n2w (i DIV 256**3); n2w (i DIV 256**2);
-    n2w (i DIV 256); n2w i]`
+    n2w (i DIV 256); n2w i]
+End
 
-val w22n_def = Define`
-  w22n ([b1; b0] : word8 list) = w2n b1 * 256 + w2n b0`
+Definition w22n_def:
+  w22n ([b1; b0] : word8 list) = w2n b1 * 256 + w2n b0
+End
 
-val w82n_def = Define`
+Definition w82n_def:
   w82n ([b7; b6; b5; b4; b3; b2; b1; b0] : word8 list) =
   256 * ( 256 * ( 256 * ( 256 * ( 256 * ( 256 * ( 256 *
-  w2n b7 + w2n b6) + w2n b5) + w2n b4) + w2n b3) + w2n b2) + w2n b1) + w2n b0`
+  w2n b7 + w2n b6) + w2n b5) + w2n b4) + w2n b3) + w2n b2) + w2n b1) + w2n b0
+End
 
 Theorem w22n_n2w2:
    !i. i < 2**(2*8) ==> w22n (n2w2 i) = i
@@ -95,4 +101,3 @@ Theorem LENGTH_n2w8:
 Proof
   fs[n2w8_def]
 QED
-val _ = export_theory()

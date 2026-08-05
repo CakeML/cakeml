@@ -1,11 +1,12 @@
 (*
   Encode unordered sets to natural numbers
 *)
+Theory unorderedSets
+Ancestors
+  misc mlint cnf boolExpToCnf quantifierExp numBoolRange
+Libs
+  preamble
 
-open preamble miscTheory mlintTheory cnfTheory;
-open boolExpToCnfTheory quantifierExpTheory numBoolRangeTheory;
-
-val _ = new_theory "unorderedSets";
 
 (* ------------------- Types ---------------------------------- *)
 
@@ -607,4 +608,3 @@ Proof
   >> gs[numVarAssignment_range_ok_lemma, encode_assignment_unorderedSet_def]
 QED
 
-val _ = export_theory();

@@ -1,9 +1,11 @@
 (*
   Some lemmas about the semantics.
 *)
-open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory setSpecTheory
-
-val _ = new_theory"holSemanticsExtra"
+Theory holSemanticsExtra
+Ancestors
+  holSyntaxLib holSyntax holSyntaxExtra holSemantics setSpec
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -201,11 +203,11 @@ Theorem termsem_Equal:
       termsem (tmsof Γ) i v (Equal ty) = ^Equalsem [typesem (FST i) (FST v) ty]
 Proof
   rw[termsem_def,LET_THM] >> fs[is_structure_def] >>
-  qspecl_then[`tmsof Γ`,`i`,`(strlit "=")`]mp_tac instance_def >> fs[is_std_sig_def]>>
-  disch_then(qspec_then`[(ty,Tyvar(strlit "A"))]`mp_tac)>>
+  qspecl_then[`tmsof Γ`,`i`,`«=»`]mp_tac instance_def >> fs[is_std_sig_def]>>
+  disch_then(qspec_then`[(ty,Tyvar «A»)]`mp_tac)>>
   simp[REV_ASSOCD] >> disch_then kall_tac >>
   Q.PAT_ABBREV_TAC`aa = tyvars X` >>
-  `aa = [(strlit "A")]` by simp[tyvars_def,Abbr`aa`,LIST_UNION_def,LIST_INSERT_def] >>
+  `aa = [«A»]` by simp[tyvars_def,Abbr`aa`,LIST_UNION_def,LIST_INSERT_def] >>
   Q.PAT_ABBREV_TAC`tt = typesem (tyaof i) Y o TYPE_SUBST Z o Tyvar` >>
   `is_type_valuation tt` by (
     simp[Abbr`tt`,is_type_valuation_def] >>
@@ -216,8 +218,8 @@ Proof
     fs[is_valuation_def,is_type_valuation_def] ) >>
   qunabbrev_tac`aa` >>
   fs[is_std_interpretation_def,interprets_def] >>
-  `MAP implode (STRING_SORT ["A"]) = [strlit "A"]` by
-    simp[STRING_SORT_def,INORDER_INSERT_def,mlstringTheory.implode_def] >>
+  `MAP implode (STRING_SORT ["A"]) = [«A»]` by
+    simp[STRING_SORT_def,INORDER_INSERT_def] >>
   simp[] >> simp[Abbr`tt`,REV_ASSOCD]
 QED
 
@@ -417,6 +419,7 @@ Proof
     simp[Abbr`P`,Abbr`sw`,combinTheory.o_DEF,UNCURRY,LAMBDA_PROD] ) >>
   qunabbrev_tac`ls` >>
   simp[ALOOKUP_FILTER,Abbr`P`,Abbr`sw`,combinTheory.o_DEF,LAMBDA_PROD] >- (
+    simp[IF_NONE_EQUALS_OPTION] >>
     rw[combinTheory.APPLY_UPDATE_THM,APPLY_UPDATE_LIST_ALOOKUP] >>
     qmatch_assum_abbrev_tac`P ⇒ ALOOKUP ls vv = NONE` >>
     Q.ISPECL_THEN[`ls`,`termsem Γ i v`,`z`,`tyr`]mp_tac ALOOKUP_MAP_dest_var >>
@@ -584,10 +587,11 @@ QED
 
 (* one interpretation being compatible with another in a signature *)
 
-val equal_on_def = Define`
+Definition equal_on_def:
   equal_on (sig:sig) i i' ⇔
   (∀name. name ∈ FDOM (tysof sig) ⇒ tyaof i' name = tyaof i name) ∧
-  (∀name. name ∈ FDOM (tmsof sig) ⇒ tmaof i' name = tmaof i name)`
+  (∀name. name ∈ FDOM (tmsof sig) ⇒ tmaof i' name = tmaof i name)
+End
 
 Theorem equal_on_refl:
    ∀sig i. equal_on sig i i
@@ -774,9 +778,9 @@ QED
 (* special cases of interprets *)
 
 val rwt = MATCH_MP (PROVE[]``P x ⇒ ((∀x. P x ⇒ Q) ⇔ Q)``) is_type_valuation_exists
-val interprets_nil = save_thm("interprets_nil",
+Theorem interprets_nil =
   interprets_def |> SPEC_ALL |> Q.GEN`vs` |> Q.SPEC`[]`
-  |> SIMP_RULE (std_ss++listSimps.LIST_ss) [rwt] |> GEN_ALL)
+  |> SIMP_RULE (std_ss++listSimps.LIST_ss) [rwt] |> GEN_ALL
 
 Theorem interprets_one:
    i interprets name on [v] as f ⇔
@@ -897,4 +901,3 @@ Proof
   metis_tac[]
 QED
 
-val _ = export_theory()

@@ -1,90 +1,93 @@
 (*
   Instantiate the CakeML FFI oracle for the oracle of the basis library.
 *)
-open preamble ml_translatorTheory ml_translatorLib ml_progLib
-     cfLib basisFunctionsLib set_sepTheory
-     fsFFITheory fsFFIPropsTheory
-     CommandLineProofTheory TextIOProofTheory
-     runtimeFFITheory RuntimeProofTheory
+Theory basis_ffi
+Ancestors
+  ml_translator set_sep clFFI fsFFI fsFFIProps CommandLineProof
+  TextIOProg TextIOProof runtimeFFI RuntimeProof
+Libs
+  preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"basis_ffi";
 
 (*---------------------------------------------------------------------------*)
 (* GENERALISED FFI *)
 
-val basis_ffi_oracle_def = Define `
+Definition basis_ffi_oracle_def:
   basis_ffi_oracle =
     \name (cls,fs) conf bytes.
-     if name = ExtCall "write" then
+     if name = ExtCall «write» then
        case ffi_write conf bytes fs of
        | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = ExtCall "read" then
+     if name = ExtCall «read» then
        case ffi_read conf bytes fs of
        | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = ExtCall "get_arg_count" then
+     if name = ExtCall «get_arg_count» then
        case ffi_get_arg_count conf bytes cls of
        | SOME(FFIreturn bytes cls) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = ExtCall "get_arg_length" then
+     if name = ExtCall «get_arg_length» then
        case ffi_get_arg_length conf bytes cls of
        | SOME(FFIreturn bytes cls) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = ExtCall "get_arg" then
+     if name = ExtCall «get_arg» then
        case ffi_get_arg conf bytes cls of
        | SOME(FFIreturn bytes cls) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = ExtCall "open_in" then
+     if name = ExtCall «open_in» then
        case ffi_open_in conf bytes fs of
        | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = ExtCall "open_out" then
+     if name = ExtCall «open_out» then
        case ffi_open_out conf bytes fs of
        | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = ExtCall "close" then
+     if name = ExtCall «close» then
        case ffi_close conf bytes fs of
        | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = ExtCall "exit" then
+     if name = ExtCall «exit» then
        case ffi_exit conf bytes () of
        | SOME(FFIreturn bytes ()) => Oracle_return (cls,fs) bytes
        | SOME(FFIdiverge) => Oracle_final FFI_diverged
        | NONE => Oracle_final FFI_failed else
-     Oracle_final FFI_failed`
+     Oracle_final FFI_failed
+End
 
 (* standard streams are initialized *)
-val basis_ffi_def = Define `
+Definition basis_ffi_def:
   basis_ffi cl fs =
     <| oracle := basis_ffi_oracle
      ; ffi_state := (cl, fs)
-     ; io_events := [] |>`;
+     ; io_events := [] |>
+End
 
-val basis_proj1_def = Define `
+Definition basis_proj1_def:
   basis_proj1 = (λ(cls, fs).
     FEMPTY |++ ((mk_proj1 cl_ffi_part cls)
                 ++ (mk_proj1 fs_ffi_part fs)
                 ++ (mk_proj1 runtime_ffi_part ()
-                )))`;
+                )))
+End
 
-val basis_proj2_def = Define `
+Definition basis_proj2_def:
   basis_proj2 =
     [mk_proj2 cl_ffi_part;
      mk_proj2 fs_ffi_part;
-     mk_proj2 runtime_ffi_part]`;
+     mk_proj2 runtime_ffi_part]
+End
 
 Theorem basis_proj1_write:
-   basis_proj1 ffi ' "write" = encode(SND ffi)
+   basis_proj1 ffi ' «write» = encode(SND ffi)
 Proof
   PairCases_on`ffi` \\ EVAL_TAC
 QED
 
 (* builds the file system from a list of events *)
 
-val extract_fs_with_numchars_def = Define `
+Definition extract_fs_with_numchars_def:
   (extract_fs_with_numchars init_fs [] = SOME init_fs) ∧
   (extract_fs_with_numchars init_fs ((IO_event (ExtCall name) conf bytes)::xs) =
     case (ALOOKUP (SND(SND fs_ffi_part)) name) of
@@ -96,7 +99,8 @@ val extract_fs_with_numchars_def = Define `
                        | _ => NONE)
     | NONE => extract_fs_with_numchars init_fs xs) ∧
    (extract_fs_with_numchars init_fs (_::xs) =
-     extract_fs_with_numchars init_fs xs)`
+     extract_fs_with_numchars init_fs xs)
+End
 
 Theorem extract_fs_with_numchars_APPEND:
    !xs ys init_fs. extract_fs_with_numchars init_fs (xs ++ ys) =
@@ -112,10 +116,11 @@ Proof
   \\ rpt CASE_TAC
 QED
 
-val extract_fs_def = Define`
+Definition extract_fs_def:
   extract_fs init_fs events =
     OPTION_MAP (numchars_fupd (K init_fs.numchars))
-    (extract_fs_with_numchars init_fs events)`;
+    (extract_fs_with_numchars init_fs events)
+End
 
 Theorem extract_fs_with_numchars_keeps_iostreams:
    ∀ls fs fs' off.
@@ -213,7 +218,7 @@ Proof
 QED
 
 (*
-val extract_stdo_def = Define`
+Definition extract_stdo_def:
   (extract_stdo fd [] = "") ∧
   (extract_stdo fd (IO_event name conf bytes::xs) =
    if name = "write" ∧
@@ -223,7 +228,8 @@ val extract_stdo_def = Define`
    then
      MAP (CHR o w2n o FST) (TAKE (w2n(SND(HD(TL bytes)))) (DROP 3 bytes))
      ++ extract_stdo fd xs
-   else extract_stdo fd xs)`
+   else extract_stdo fd xs)
+End
 
 Overload extract_stdout = ``extract_stdo stdOut``
 Overload extract_stderr = ``extract_stdo stdErr``
@@ -281,18 +287,19 @@ Theorem extract_stdo_extract_fs
   \\ rw[] \\ fs[]
   stdo_def
 
-val is_write_def = Define`
+Definition is_write_def[simp]:
   (is_write fd (IO_event name _ ((fd',st)::_)) ⇔ name="write" ∧ fd' = fd ∧ st = 0w) ∧
-  (is_write _ _ ⇔ F)`;
-val _ = export_rewrites["is_write_def"];
+  (is_write _ _ ⇔ F)
+End
 
-val extract_write_def = Define`
-  extract_write (IO_event _ _ (_::(_,nw)::bytes)) = TAKE (w2n nw) (MAP FST bytes)`;
-val _ = export_rewrites["extract_write_def"];
+Definition extract_write_def[simp]:
+  extract_write (IO_event _ _ (_::(_,nw)::bytes)) = TAKE (w2n nw) (MAP FST bytes)
+End
 
-val extract_writes_def = Define
-  `extract_writes fd io_events =
-     FLAT (MAP extract_write (FILTER (is_write fd) io_events))`;
+Definition extract_writes_def:
+  extract_writes fd io_events =
+     FLAT (MAP extract_write (FILTER (is_write fd) io_events))
+End
 
 Overload extract_stdout = ``extract_writes 1w``
 Overload extract_stderr = ``extract_writes 2w``;
@@ -309,11 +316,12 @@ fs_ffi_part_def
 ffi_read_def
 read_def
 
-val extract_stdout_def = Define`
+Definition extract_stdout_def:
   extract_stdout io_events =
     @out.
       ∀fs. wfFS fs ∧ STD_streams fs ⇒
-          ∃ll. extract_fs fs io_events = SOME (add_stdout fs out with numchars := ll)`;
+          ∃ll. extract_fs fs io_events = SOME (add_stdout fs out with numchars := ll)
+End
 
 Theorem extract_stdout_intro
   `wfFS fs ∧ STD_streams fs ∧
@@ -362,16 +370,16 @@ QED *)
 Theorem RTC_call_FFI_rel_IMP_basis_events:
    !fs st st'. call_FFI_rel^* st st' ==> st.oracle = basis_ffi_oracle ==>
   (extract_fs_with_numchars fs st.io_events
-     = fsFFI$decode (basis_proj1 st.ffi_state ' "write") ==>
+     = fsFFI$decode (basis_proj1 st.ffi_state ' «write») ==>
    extract_fs_with_numchars fs st'.io_events
-     = fsFFI$decode (basis_proj1 st'.ffi_state ' "write"))
+     = fsFFI$decode (basis_proj1 st'.ffi_state ' «write»))
 Proof
   strip_tac
   \\ HO_MATCH_MP_TAC RTC_INDUCT \\ rw [] \\ fs []
   \\ fs [evaluatePropsTheory.call_FFI_rel_def]
   \\ fs [ffiTheory.call_FFI_def]
 (*  \\ Cases_on `st.final_event = NONE` \\ fs [] \\ rw []*)
-  \\ Cases_on `n = ExtCall ""` \\ fs [] THEN1 (rveq \\ fs [])
+  \\ Cases_on `n = ExtCall «»` \\ fs [] THEN1 (rveq \\ fs [])
   \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
   \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
   \\ Cases_on `f` \\ fs []
@@ -391,7 +399,7 @@ QED
   init_state ffi  *)
 Theorem extract_fs_basis_ffi:
    !ll. extract_fs fs (basis_ffi cls fs).io_events =
-   decode (basis_proj1 (basis_ffi cls fs).ffi_state ' "write")
+   decode (basis_proj1 (basis_ffi cls fs).ffi_state ' «write»)
 Proof
   rw[ml_progTheory.init_state_def,extract_fs_def,extract_fs_with_numchars_def,
      basis_ffi_def,basis_proj1_write,IO_fs_component_equality]
@@ -440,7 +448,7 @@ Proof
      IOx_def,SEP_EXISTS_THM,SEP_CLAUSES,IO_def,one_def]
 QED
 
-(*call_main_thm_basis uses call_main_thm2 to get Semantics_prog, and then uses the previous two
+(*call_main_thm_basis uses call_main_thm2 to get semantics_dec_list, and then uses the previous two
   theorems to prove the outcome of extract_output. If RTC_call_FFI_rel_IMP* uses proj1, after
   showing that post-condition which gives effects your programs output is an FFI_part and
   assuming that parts_ok is satisfied, an assumption about proj1 and the ffi_state should be
@@ -449,33 +457,36 @@ QED
 
 fun mk_main_call s =
   ``(Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;
-val fname = mk_var("fname",``:string``);
+val fname = mk_var("fname",``:mlstring``);
 val main_call = mk_main_call fname;
 
-val whole_prog_spec_def = Define`
+Definition whole_prog_spec_def:
   whole_prog_spec fv cl fs sprop post ⇔
     ∃fs'.
     app (basis_proj1, basis_proj2) fv [Conv NONE []]
       (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME p => p)
       (POSTv uv. &UNIT_TYPE () uv * STDIO fs') ∧
-    post (fs' with numchars := fs.numchars)`;
+    post (fs' with numchars := fs.numchars)
+End
 
-val whole_prog_ffidiv_spec_def = Define`
+Definition whole_prog_ffidiv_spec_def:
   whole_prog_ffidiv_spec fv cl fs post ⇔
     ∃fs' n' c' b'.
     app (basis_proj1, basis_proj2) fv [Conv NONE []]
       (COMMANDLINE cl * STDIO fs * RUNTIME)
       (POSTf n. λc b. STDIO fs' * RUNTIME * &(n = n' /\ c = c' /\ b = b')) ∧
-    post n' c' b' (fs' with numchars := fs.numchars)`;
+    post n' c' b' (fs' with numchars := fs.numchars)
+End
 
-val whole_prog_spec2_def = Define`
+Definition whole_prog_spec2_def:
   whole_prog_spec2 fv cl fs sprop post ⇔
     app (basis_proj1, basis_proj2) fv [Conv NONE []]
       (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME p => p)
       (POSTv uv. &UNIT_TYPE () uv *
       SEP_EXISTS fs'.
         STDIO fs' * &(post (fs' with numchars := fs.numchars))
-      )`;
+      )
+End
 
 Theorem whole_prog_spec2_semantics_prog:
    ∀fname fv.
@@ -486,7 +497,7 @@ Theorem whole_prog_spec2_semantics_prog:
      (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME Q => Q) h1)
    ==>
    ∃io_events fs'.
-     semantics_prog (init_state (basis_ffi cl fs) with eval_state := es) env1
+     semantics_dec_list (init_state (basis_ffi cl fs) with eval_state := es) env1
        (SNOC ^main_call prog) (Terminate Success io_events) /\
      extract_fs fs io_events = SOME fs' ∧ Q fs'
 Proof
@@ -525,7 +536,7 @@ Proof
          Abbr`ffip`,cfStoreTheory.ffi2heap_def]
   \\ Cases_on `parts_ok st3.ffi (basis_proj1, basis_proj2)`
   \\ fs[FLOOKUP_DEF, MAP_MAP_o, n2w_ORD_CHR_w2n, basis_proj1_write]
-  \\ FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`"write"`)
+  \\ FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`«write»`)
   \\ fs[basis_proj1_write,STAR_def,cond_def]
   \\ metis_tac[]
 QED
@@ -539,12 +550,12 @@ Theorem whole_prog_spec_semantics_prog:
      (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME Q => Q) h1)
    ==>
    ∃io_events fs'.
-     semantics_prog (init_state (basis_ffi cl fs) with eval_state := es) env1
+     semantics_dec_list (init_state (basis_ffi cl fs) with eval_state := es) env1
        (SNOC ^main_call prog) (Terminate Success io_events) /\
      extract_fs fs io_events = SOME fs' ∧ Q fs'
 Proof
   rw[]>>
-  match_mp_tac (whole_prog_spec2_semantics_prog|> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
+  match_mp_tac (whole_prog_spec2_semantics_prog |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
   asm_exists_tac>>
   simp[]>>
   qexists_tac`sprop`>>rw[]
@@ -567,7 +578,7 @@ Theorem whole_prog_spec_semantics_prog_ffidiv:
      (COMMANDLINE cl * STDIO fs * RUNTIME) h1)
    ==>
    ∃io_events fs' n c b.
-     semantics_prog (init_state (basis_ffi cl fs) with eval_state := es) env1
+     semantics_dec_list (init_state (basis_ffi cl fs) with eval_state := es) env1
        (SNOC ^main_call prog)
        (Terminate (FFI_outcome(Final_event (ExtCall n) c b FFI_diverged)) io_events) /\
      extract_fs fs io_events = SOME fs' ∧ Q n c b fs'
@@ -604,21 +615,21 @@ Proof
          Abbr`ffip`,cfStoreTheory.ffi2heap_def]
   \\ Cases_on `parts_ok st3.ffi (basis_proj1, basis_proj2)`
   \\ fs[FLOOKUP_DEF, MAP_MAP_o, n2w_ORD_CHR_w2n, basis_proj1_write]
-  \\ FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`"write"`)
+  \\ FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`«write»`)
   \\ fs[basis_proj1_write,STAR_def,cond_def]
   \\ metis_tac[]
 QED
 
-val basis_ffi_length_thms = save_thm("basis_ffi_length_thms",
+Theorem basis_ffi_length_thms =
   LIST_CONJ
     [ffi_write_length,ffi_read_length,ffi_open_in_length,ffi_open_out_length,
      ffi_close_length, clFFITheory.ffi_get_arg_count_length,
      clFFITheory.ffi_get_arg_length_length,  clFFITheory.ffi_get_arg_length,
-     ffi_exit_length]);
+     ffi_exit_length]
 
-val basis_ffi_part_defs = save_thm("basis_ffi_part_defs",
+Theorem basis_ffi_part_defs =
   LIST_CONJ
-    [fs_ffi_part_def,clFFITheory.cl_ffi_part_def,runtime_ffi_part_def]);
+    [fs_ffi_part_def,clFFITheory.cl_ffi_part_def,runtime_ffi_part_def]
 
 (* This is used to show to show one of the parts of parts_ok for the state after a spec *)
 Theorem oracle_parts:
@@ -706,9 +717,10 @@ Proof
   \\ `st.ffi.oracle = basis_ffi_oracle`
   by( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC)
   \\ rw[cfStoreTheory.parts_ok_def]
-  \\ TRY ( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC )
-  \\ TRY ( imp_res_tac oracle_parts \\ rfs[] \\ NO_TAC)
-  \\ TRY ( imp_res_tac oracle_parts_div \\ rfs[] \\ NO_TAC)
+  >- EVAL_TAC
+  >- (simp[Abbr`st`] \\ EVAL_TAC)
+  >~ [‘_ |++ _’] >- (imp_res_tac oracle_parts \\ gvs [])
+  >~ [‘SOME FFIdiverge’] >- (imp_res_tac oracle_parts_div \\ rfs[])
   \\ qpat_x_assum`MEM _ basis_proj2`mp_tac
   \\ simp[basis_proj2_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj2_def]
   \\ TRY (qpat_x_assum`_ = SOME _`mp_tac)
@@ -736,4 +748,393 @@ Proof
   fs [semanticPrimitivesTheory.state_component_equality]
 QED
 
-val _ = export_theory();
+Theorem iobuff_loc_eq:
+  iobuff_loc = Loc T 1
+Proof
+  simp [TextIOProgTheory.iobuff_loc_def]
+  \\ simp (find "refs_def" |> map snd |> map (fn (x,_,_) => x))
+QED
+
+Definition is_refs_basis_def:
+  is_refs_basis refs =
+    ?bs1 bs2 rest.
+       refs = W8array bs1 :: W8array bs2 :: rest /\
+       2052 <= LENGTH bs2
+End
+
+Theorem SPLIT_eq_SUBSET[local]:
+  (∃h_i. h_i ⊆ s ∧ P h_i) ⇒
+  (∃h_i h_k. SPLIT s (h_i,h_k) ∧ P h_i)
+Proof
+  rw [] \\ pop_assum $ irule_at Any
+  \\ qexists ‘s DIFF h_i’
+  \\ fs [SPLIT_def,IN_DISJOINT,EXTENSION,SUBSET_DEF]
+  \\ metis_tac []
+QED
+
+Theorem IMP_STDIO_general[local]:
+  res_st.ffi = basis_ffi cl fs ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
+  is_refs_basis res_st.refs ∧
+  (∃other. p other ∧ other ⊆ store2heap_aux 2 (TL (TL res_st.refs)))
+  ⇒
+  ∃h_i h_k.
+    SPLIT (st2heap (basis_proj1,basis_proj2) res_st) (h_i,h_k) ∧
+    (COMMANDLINE cl * STDIO fs * p) h_i
+Proof
+  fs[cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap,
+     cfStoreTheory.Mem_NOT_IN_ffi2heap, cfStoreTheory.ffi2heap_def,
+     is_refs_basis_def]
+  \\ qmatch_goalsub_abbrev_tac`parts_ok ffii (basis_proj1,basis_proj2)`
+  \\ strip_tac
+  \\ `parts_ok ffii (basis_proj1,basis_proj2)` by
+    (fs[Abbr`ffii`]
+     \\ rw[cfStoreTheory.parts_ok_def]
+     >- EVAL_TAC
+     >- EVAL_TAC
+     >~ [‘_ |++ _’]
+     >- (imp_res_tac oracle_parts
+         \\ first_x_assum $ qspec_then ‘res_st’ mp_tac
+         \\ fs [basis_ffi_def])
+    \\ qpat_x_assum`MEM _ basis_proj2`mp_tac
+    \\ simp[basis_proj2_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj2_def]
+    \\ TRY (qpat_x_assum`_ = SOME _`mp_tac)
+    \\ simp[basis_proj1_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj1_def,FUPDATE_LIST_THM]
+    \\ rw[] \\ rw[] \\ pairarg_tac \\ fs[FLOOKUP_UPDATE] \\ rw[]
+    \\ fs [AllCaseEqs(), SF DNF_ss, basis_ffi_def]
+    \\ fs[FAPPLY_FUPDATE_THM,cfHeapsBaseTheory.mk_ffi_next_def]
+    \\ TRY PURE_FULL_CASE_TAC
+    \\ fs[]
+    \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms))
+    \\ fs[fs_ffi_no_ffi_div,cl_ffi_no_ffi_div]
+    \\ srw_tac[DNF_ss][] \\ simp[basis_ffi_oracle_def])
+  \\ fs[Abbr`ffii`, SEP_CLAUSES]
+  \\ simp [cfStoreTheory.store2heap_def,cfStoreTheory.store2heap_aux_def]
+  \\ irule SPLIT_eq_SUBSET
+  \\ simp [COMMANDLINE_def, SEP_CLAUSES, IOx_def, cl_ffi_part_def, IO_def,
+           SEP_EXISTS_THM, one_STAR, PULL_EXISTS, GSYM STAR_ASSOC]
+  \\ simp [STDIO_def, SEP_CLAUSES, IOx_def, cl_ffi_part_def, IO_def, GSYM STAR_ASSOC,
+           SEP_EXISTS_THM, one_STAR, PULL_EXISTS, IOFS_def, fs_ffi_part_def, cond_STAR]
+  \\ simp [SEP_EXISTS_THM, IOFS_iobuff_def, cond_STAR, W8ARRAY_def, iobuff_loc_eq,
+           SEP_CLAUSES, GSYM STAR_ASSOC]
+  \\ simp_tac (std_ss ++ helperLib.sep_cond_ss) [cond_STAR, cell_def, one_STAR]
+  \\ simp [cell_def, one_def, PULL_EXISTS, GREATER_EQ]
+  \\ qrefinel [‘_’,‘[]’,‘fs.numchars’,‘[]’]
+  \\ ‘((fs with numchars := fs.numchars)) = fs’
+    by fs [IO_fs_component_equality]
+  \\ asm_rewrite_tac []
+  \\ pop_assum kall_tac
+  \\ qpat_abbrev_tac ‘x1 = FFI_part (encode cl) _ _ _’
+  \\ qpat_abbrev_tac ‘x2 = FFI_part _ _ _ _’
+  \\ qrefinel [‘_’,‘bs2’]
+  \\ qexists_tac ‘Mem 1 (W8array bs2) INSERT x1 INSERT x2 INSERT other’
+  \\ conj_tac
+  >-
+   (unabbrev_all_tac \\ gvs []
+    \\ gvs [cfStoreTheory.FFI_part_NOT_IN_store2heap_aux]
+    \\ gvs [SF DNF_ss, basis_proj1_def, basis_ffi_def,FLOOKUP_SIMP,
+            alistTheory.flookup_fupdate_list,APPEND,
+            runtimeFFITheory.runtime_ffi_part_def,
+            mk_proj1_def, cl_ffi_part_def, fs_ffi_part_def]
+    \\ gvs [basis_proj2_def, mk_proj2_def, cl_ffi_part_def, fs_ffi_part_def]
+    \\ gvs [IO_fs_component_equality]
+    \\ gvs [SUBSET_DEF] \\ metis_tac [])
+  \\ simp []
+  \\ qpat_x_assum ‘p other’ mp_tac
+  \\ match_mp_tac (METIS_PROVE [] “x1 = x2 ⇒ x1 ⇒ x2”)
+  \\ AP_TERM_TAC
+  \\ gvs []
+  \\ rw [EXTENSION]
+  \\ eq_tac
+  \\ rw [] \\ gvs [SUBSET_DEF, Abbr‘x1’, Abbr‘x2’]
+  \\ res_tac
+  \\ CCONTR_TAC \\ fs [cfStoreTheory.FFI_part_NOT_IN_store2heap_aux]
+  \\ imp_res_tac cfStoreTheory.store2heap_aux_IN_bound \\ fs []
+QED
+
+Theorem IMP_STDIO[local]:
+  res_st.ffi = basis_ffi cl fs ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
+  is_refs_basis res_st.refs ⇒
+  ∃h_i h_k.
+    SPLIT (st2heap (basis_proj1,basis_proj2) res_st) (h_i,h_k) ∧
+    (COMMANDLINE cl * STDIO fs * &T) h_i
+Proof
+  strip_tac
+  \\ irule IMP_STDIO_general
+  \\ simp [cond_def]
+QED
+
+Theorem IMP_STDIO_RUNTIME[local]:
+  res_st.ffi = basis_ffi cl fs ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
+  is_refs_basis res_st.refs
+  ⇒
+  ∃h_i h_k.
+    SPLIT (st2heap (basis_proj1,basis_proj2) res_st) (h_i,h_k) ∧
+    (COMMANDLINE cl * STDIO fs * RUNTIME) h_i
+Proof
+  fs[cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap,
+     cfStoreTheory.Mem_NOT_IN_ffi2heap, cfStoreTheory.ffi2heap_def,
+     is_refs_basis_def]
+  \\ qmatch_goalsub_abbrev_tac`parts_ok ffii (basis_proj1,basis_proj2)`
+  \\ strip_tac
+  \\ `parts_ok ffii (basis_proj1,basis_proj2)` by
+    (fs[Abbr`ffii`]
+     \\ rw[cfStoreTheory.parts_ok_def]
+     >- EVAL_TAC
+     >- EVAL_TAC
+     >~ [‘_ |++ _’]
+     >- (imp_res_tac oracle_parts
+         \\ first_x_assum $ qspec_then ‘res_st’ mp_tac
+         \\ fs [basis_ffi_def])
+    \\ qpat_x_assum`MEM _ basis_proj2`mp_tac
+    \\ simp[basis_proj2_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj2_def]
+    \\ TRY (qpat_x_assum`_ = SOME _`mp_tac)
+    \\ simp[basis_proj1_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj1_def,FUPDATE_LIST_THM]
+    \\ rw[] \\ rw[] \\ pairarg_tac \\ fs[FLOOKUP_UPDATE] \\ rw[]
+    \\ fs [AllCaseEqs(), SF DNF_ss, basis_ffi_def]
+    \\ fs[FAPPLY_FUPDATE_THM,cfHeapsBaseTheory.mk_ffi_next_def]
+    \\ TRY PURE_FULL_CASE_TAC
+    \\ fs[]
+    \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms))
+    \\ fs[fs_ffi_no_ffi_div,cl_ffi_no_ffi_div]
+    \\ srw_tac[DNF_ss][] \\ simp[basis_ffi_oracle_def])
+  \\ fs[Abbr`ffii`, SEP_CLAUSES]
+  \\ simp [cfStoreTheory.store2heap_def,cfStoreTheory.store2heap_aux_def]
+  \\ irule SPLIT_eq_SUBSET
+  \\ simp [COMMANDLINE_def, SEP_CLAUSES, IOx_def, cl_ffi_part_def, IO_def,
+           SEP_EXISTS_THM, one_STAR, PULL_EXISTS, GSYM STAR_ASSOC]
+  \\ simp [STDIO_def, SEP_CLAUSES, IOx_def, cl_ffi_part_def, IO_def, GSYM STAR_ASSOC,
+           SEP_EXISTS_THM, one_STAR, PULL_EXISTS, IOFS_def, fs_ffi_part_def, cond_STAR]
+  \\ simp [SEP_EXISTS_THM, IOFS_iobuff_def, cond_STAR, W8ARRAY_def, iobuff_loc_eq,
+           SEP_CLAUSES, GSYM STAR_ASSOC]
+  \\ simp_tac (std_ss ++ helperLib.sep_cond_ss) [cond_STAR, cell_def, one_STAR,
+                                                 RUNTIME_def]
+  \\ simp [STDIO_def, SEP_CLAUSES, IOx_def, cl_ffi_part_def, IO_def, GSYM STAR_ASSOC,
+           SEP_EXISTS_THM, one_STAR, PULL_EXISTS, IOFS_def, fs_ffi_part_def, cond_STAR,
+           runtime_ffi_part_def]
+  \\ simp [cell_def, one_def, PULL_EXISTS, GREATER_EQ]
+  \\ qrefinel [‘_’,‘[]’,‘fs.numchars’,‘[]’]
+  \\ ‘((fs with numchars := fs.numchars)) = fs’
+    by fs [IO_fs_component_equality]
+  \\ asm_rewrite_tac []
+  \\ pop_assum kall_tac
+  \\ qpat_abbrev_tac ‘x1 = FFI_part (encode cl) _ _ _’
+  \\ qpat_abbrev_tac ‘x2 = FFI_part _ _ _ _’
+  \\ qrefinel [‘_’,‘bs2’,‘[]’]
+  \\ qpat_abbrev_tac ‘x3 = FFI_part _ _ _ _’
+  \\ qexists_tac ‘Mem 1 (W8array bs2) INSERT x1 INSERT x2 INSERT x3 INSERT {}’
+  \\ conj_tac
+  >-
+   (unabbrev_all_tac \\ gvs []
+    \\ gvs [cfStoreTheory.FFI_part_NOT_IN_store2heap_aux]
+    \\ gvs [SF DNF_ss, basis_proj1_def, basis_ffi_def,FLOOKUP_SIMP,
+            alistTheory.flookup_fupdate_list,APPEND,
+            runtimeFFITheory.runtime_ffi_part_def,
+            mk_proj1_def, cl_ffi_part_def, fs_ffi_part_def]
+    \\ gvs [basis_proj2_def, mk_proj2_def, runtime_ffi_part_def, cl_ffi_part_def, fs_ffi_part_def]
+    \\ gvs [IO_fs_component_equality]
+    \\ gvs [SUBSET_DEF, EXTENSION] \\ metis_tac [])
+  \\ simp []
+  \\ unabbrev_all_tac
+  \\ gvs []
+  \\ rw [EXTENSION]
+  \\ eq_tac
+  \\ rw [] \\ gvs [SUBSET_DEF]
+  \\ res_tac
+  \\ CCONTR_TAC \\ fs [cfStoreTheory.FFI_part_NOT_IN_store2heap_aux]
+  \\ imp_res_tac cfStoreTheory.store2heap_aux_IN_bound \\ fs []
+QED
+
+Theorem whole_prog_spec_IMP':
+  whole_prog_spec main_v cl fs NONE post ∧
+  Decls init_env (init_state (basis_ffi cl fs) with eval_state := es) decs res_env res_st
+  ⇒
+  ∀main_name.
+    let all_decs = SNOC (Dlet unknown_loc (Pcon NONE [])
+                     (App Opapp [Var (Short main_name); Con NONE []])) decs in
+    nsLookup res_env.v (Short main_name) = SOME main_v
+    ⇒
+    res_st.ffi = basis_ffi cl fs
+    ⇒
+    is_refs_basis res_st.refs
+    ⇒
+    wfcl cl ∧ wfFS fs ∧ STD_streams fs ⇒
+    ∃io_events result.
+      semantics_dec_list
+        (init_state (basis_ffi cl fs) with eval_state := es) init_env
+        all_decs
+        (Terminate Success io_events) ∧
+      extract_fs fs io_events = SOME result ∧
+      post result
+Proof
+  simp [] \\ rpt strip_tac
+  \\ irule whole_prog_spec_semantics_prog
+  \\ gvs [ml_progTheory.lookup_var_def]
+  \\ last_x_assum $ irule_at Any
+  \\ pop_assum $ assume_tac o GSYM \\ fs []
+  \\ last_x_assum $ irule_at Any \\ fs []
+  \\ drule_all IMP_STDIO \\ strip_tac
+  \\ pop_assum $ irule_at Any
+  \\ pop_assum $ irule_at Any
+QED
+
+Theorem whole_prog_spec_IMP:
+  whole_prog_spec main_v cl fs NONE post ∧
+  Decls init_env (init_state (basis_ffi cl fs)) decs res_env res_st
+  ⇒
+  ∀main_name.
+    let all_decs = SNOC (Dlet unknown_loc (Pcon NONE [])
+                     (App Opapp [Var (Short main_name); Con NONE []])) decs in
+    nsLookup res_env.v (Short main_name) = SOME main_v
+    ⇒
+    res_st.ffi = basis_ffi cl fs
+    ⇒
+    is_refs_basis res_st.refs
+    ⇒
+    wfcl cl ∧ wfFS fs ∧ STD_streams fs ⇒
+    ∃io_events result.
+      semantics_dec_list
+        (init_state (basis_ffi cl fs)) init_env
+        all_decs
+        (Terminate Success io_events) ∧
+      extract_fs fs io_events = SOME result ∧
+      post result
+Proof
+  simp [] \\ rpt strip_tac
+  \\ ‘init_state (basis_ffi cl fs) =
+      init_state (basis_ffi cl fs) with eval_state :=
+      (init_state (basis_ffi cl fs)).eval_state’ by
+    gvs [ml_progTheory.init_state_def]
+  \\ first_assum $ once_rewrite_tac o single
+  \\ irule whole_prog_spec_semantics_prog
+  \\ gvs [ml_progTheory.lookup_var_def]
+  \\ last_x_assum $ irule_at Any
+  \\ pop_assum $ assume_tac o GSYM \\ fs []
+  \\ last_x_assum $ irule_at Any \\ fs []
+  \\ drule_all IMP_STDIO \\ strip_tac
+  \\ pop_assum $ irule_at Any
+  \\ pop_assum $ irule_at Any
+QED
+
+Theorem whole_prog_spec_SOME_IMP:
+  whole_prog_spec main_v cl fs (SOME p) post ∧
+  Decls init_env (init_state (basis_ffi cl fs)) decs res_env res_st
+  ⇒
+  ∀main_name.
+    let all_decs = SNOC (Dlet unknown_loc (Pcon NONE [])
+                     (App Opapp [Var (Short main_name); Con NONE []])) decs in
+    nsLookup res_env.v (Short main_name) = SOME main_v
+    ⇒
+    res_st.ffi = basis_ffi cl fs
+    ⇒
+    is_refs_basis res_st.refs
+    ⇒
+    wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
+    (∃other. p other ∧ other ⊆ store2heap_aux 2 (TL (TL res_st.refs))) ⇒
+    ∃io_events result.
+      semantics_dec_list
+        (init_state (basis_ffi cl fs)) init_env
+        all_decs
+        (Terminate Success io_events) ∧
+      extract_fs fs io_events = SOME result ∧
+      post result
+Proof
+  simp [] \\ rpt strip_tac
+  \\ ‘init_state (basis_ffi cl fs) =
+      init_state (basis_ffi cl fs) with eval_state :=
+      (init_state (basis_ffi cl fs)).eval_state’ by
+    gvs [ml_progTheory.init_state_def]
+  \\ first_assum $ once_rewrite_tac o single
+  \\ irule whole_prog_spec_semantics_prog
+  \\ gvs [ml_progTheory.lookup_var_def]
+  \\ last_x_assum $ irule_at Any
+  \\ pop_assum $ assume_tac o GSYM \\ fs []
+  \\ last_x_assum $ irule_at Any \\ fs []
+  \\ drule_all (SRULE [PULL_EXISTS] IMP_STDIO_general)
+  \\ strip_tac
+  \\ pop_assum $ irule_at Any
+  \\ pop_assum $ irule_at Any
+QED
+
+Theorem whole_prog_spec2_IMP:
+  whole_prog_spec2 main_v cl fs NONE post ∧
+  Decls init_env (init_state (basis_ffi cl fs)) decs res_env res_st
+  ⇒
+  ∀main_name.
+    let all_decs = SNOC (Dlet unknown_loc (Pcon NONE [])
+                     (App Opapp [Var (Short main_name); Con NONE []])) decs in
+    nsLookup res_env.v (Short main_name) = SOME main_v
+    ⇒
+    res_st.ffi = basis_ffi cl fs
+    ⇒
+    is_refs_basis res_st.refs
+    ⇒
+    wfcl cl ∧ wfFS fs ∧ STD_streams fs ⇒
+    ∃io_events result.
+      semantics_dec_list
+        (init_state (basis_ffi cl fs)) init_env
+        all_decs
+        (Terminate Success io_events) ∧
+      extract_fs fs io_events = SOME result ∧
+      post result
+Proof
+  simp [] \\ rpt strip_tac
+  \\ ‘init_state (basis_ffi cl fs) =
+      init_state (basis_ffi cl fs) with eval_state :=
+      (init_state (basis_ffi cl fs)).eval_state’ by
+    gvs [ml_progTheory.init_state_def]
+  \\ first_assum $ once_rewrite_tac o single
+  \\ irule whole_prog_spec2_semantics_prog
+  \\ gvs [ml_progTheory.lookup_var_def]
+  \\ last_x_assum $ irule_at Any
+  \\ pop_assum $ assume_tac o GSYM \\ fs []
+  \\ last_x_assum $ irule_at Any \\ fs []
+  \\ drule_all IMP_STDIO \\ strip_tac
+  \\ pop_assum $ irule_at Any
+  \\ pop_assum $ irule_at Any
+QED
+
+Theorem whole_prog_spec_ffidiv_IMP:
+  whole_prog_ffidiv_spec main_v cl fs Q ∧
+  Decls init_env (init_state (basis_ffi cl fs)) decs res_env res_st
+  ⇒
+  ∀main_name.
+    let all_decs = SNOC (Dlet unknown_loc (Pcon NONE [])
+                     (App Opapp [Var (Short main_name); Con NONE []])) decs in
+    nsLookup res_env.v (Short main_name) = SOME main_v
+    ⇒
+    res_st.ffi = basis_ffi cl fs
+    ⇒
+    is_refs_basis res_st.refs
+    ⇒
+    wfcl cl ∧ wfFS fs ∧ STD_streams fs ⇒
+    ∃io_events fs' n c b.
+      semantics_dec_list
+        (init_state (basis_ffi cl fs)) init_env
+        all_decs
+        (Terminate
+           (FFI_outcome (Final_event (ExtCall n) c b FFI_diverged))
+           io_events) ∧
+      extract_fs fs io_events = SOME fs' ∧ Q n c b fs'
+Proof
+  simp [] \\ rpt strip_tac
+  \\ ‘init_state (basis_ffi cl fs) =
+      init_state (basis_ffi cl fs) with eval_state :=
+      (init_state (basis_ffi cl fs)).eval_state’ by
+    gvs [ml_progTheory.init_state_def]
+  \\ first_assum $ once_rewrite_tac o single
+  \\ irule whole_prog_spec_semantics_prog_ffidiv
+  \\ gvs [ml_progTheory.lookup_var_def]
+  \\ last_x_assum $ irule_at Any
+  \\ pop_assum $ assume_tac o GSYM \\ fs []
+  \\ last_x_assum $ irule_at Any \\ fs []
+  \\ drule_all IMP_STDIO_RUNTIME \\ strip_tac
+  \\ pop_assum $ irule_at Any
+  \\ pop_assum $ irule_at Any
+QED
+
+val ref_eq_nil_pat = “_ = [] : v store_v list”
+Theorem basis_refs_eqs =
+  find "refs_def"
+    |> map (fn (_,(x,_,_)) => x)
+    |> filter (can (match_term ref_eq_nil_pat) o concl)
+    |> LIST_CONJ;

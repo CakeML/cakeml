@@ -1,14 +1,15 @@
 (*
   Encoding program for the killer sudoku puzzle
 *)
-open preamble basis miscTheory set_sepTheory listTheory cnfTheory;
-open boolExpToCnfTheory quantifierExpTheory orderEncodingBoolTheory;
-open numBoolExpTheory numBoolExtendedTheory numBoolRangeTheory;
-open unorderedSetsTheory sudokuTheory numberSudokuTheory killerSudokuTheory;
-open (* for parsing: *) parsingTheory source_valuesTheory;
-open toCnfHelperTheory sat_encodersProgTheory;
-
-val _ = new_theory "killerSudokuEncoderProg";
+Theory killerSudokuEncoderProg
+Ancestors
+  misc set_sep list cnf boolExpToCnf quantifierExp
+  orderEncodingBool numBoolExp numBoolExtended numBoolRange
+  unorderedSets sudoku numberSudoku killerSudoku
+  (* for parsing: *) parsing source_values
+  toCnfHelper sat_encodersProg
+Libs
+  preamble basis
 
 val _ = translation_extends "sat_encodersProg";
 
@@ -62,12 +63,12 @@ Definition encode_to_output_def:
   encode_to_output v_exp =
   let cages = v2cageList v_exp in
     case killerSudoku_ok cages of
-    | F => (List [strlit "Invalid input"])
+    | F => (List [«Invalid input»])
     | T =>
         let cnf_exp = killerSudoku_to_cnf cages in
           let (max_var, clauses) = get_max_var_and_clauses cnf_exp in
             Append
-            (List [strlit "p cnf "; num_to_str max_var; strlit " "; num_to_str clauses; strlit "\n"])
+            (List [«p cnf »; num_to_str max_var; « »; num_to_str clauses; «\n»])
             (cnf_to_output cnf_exp)
 End
 
@@ -87,13 +88,13 @@ End
 Definition row_to_output_def:
   row_to_output [] = List [] ∧
   row_to_output (c::cells) =
-  Append (List [num_to_str c; (strlit " ")]) (row_to_output cells)
+  Append (List [num_to_str c; « »]) (row_to_output cells)
 End
 
 Definition sudoku_to_output_def:
   sudoku_to_output [] = List [] ∧
   sudoku_to_output (row::rows) =
-  Append (row_to_output row) (Append (List [strlit "\n"]) (sudoku_to_output rows))
+  Append (row_to_output row) (Append (List [«\n»]) (sudoku_to_output rows))
 End
 
 Definition solve_to_output_def:
@@ -135,8 +136,9 @@ val res = translate main_function_def;
 val _ = type_of “main_function” = “:mlstring -> mlstring app_list”
         orelse failwith "The main_function has the wrong type.";
 
-val main = process_topdecs
-  `print_app_list (main_function (TextIO.inputAll TextIO.stdIn));`;
+Quote main = cakeml:
+  print_app_list (main_function (TextIO.inputAll (TextIO.openStdIn ())));
+End
 
 val prog =
   get_ml_prog_state ()
@@ -151,5 +153,3 @@ val prog =
 Definition killerSudoku_encoder_prog_def:
   killerSudoku_encoder_prog = ^prog
 End
-
-val _ = export_theory();

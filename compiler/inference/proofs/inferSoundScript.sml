@@ -2,15 +2,16 @@
   Proves soundness of the type inferencer: any type assignment
   produced by the type inferencer is a valid type for the program.
 *)
-open preamble
-open typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory infer_tTheory
-     astPropsTheory inferPropsTheory typeSysPropsTheory infer_eSoundTheory envRelTheory type_eDetermTheory
-     infer_eCompleteTheory namespacePropsTheory
+Theory inferSound
+Ancestors
+  typeSystem ast semanticPrimitives infer unify infer_t
+  inferProps typeSysProps infer_eSound envRel type_eDeterm
+  infer_eComplete namespaceProps
+Libs
+  preamble
 
-val _ = new_theory "inferSound";
-
-val letrec_lemma2 = Q.prove (
-`!funs_ts l l' s s'.
+Theorem letrec_lemma2[local]:
+  !funs_ts l l' s s'.
  (!t1 t2. t_walkstar s t1 = t_walkstar s t2 ⇒  t_walkstar s' t1 = t_walkstar s' t2) ∧
  (LENGTH funs_ts = LENGTH l) ∧
  (LENGTH funs_ts = LENGTH l') ∧
@@ -18,8 +19,9 @@ val letrec_lemma2 = Q.prove (
  ⇒
  (MAP2 (λ(f,x,e) t. (f,t)) l (MAP (λn. convert_t (t_walkstar s' (Infer_Tuvar n))) l')
   =
-  MAP2 (λ(x,y,z) t. (x,convert_t (t_walkstar s' t))) l funs_ts)`,
-induct_on `funs_ts` >>
+  MAP2 (λ(x,y,z) t. (x,convert_t (t_walkstar s' t))) l funs_ts)
+Proof
+  induct_on `funs_ts` >>
 cases_on `l` >>
 cases_on `l'` >>
 rw [] >>
@@ -27,15 +29,18 @@ fs [] >|
 [PairCases_on `h` >>
      rw [] >>
      metis_tac [],
- metis_tac []]);
+ metis_tac []]
+QED
 
-val sub_completion_empty = Q.prove (
-`!m n s s'. sub_completion m n s [] s' ⇔ count n ⊆ FDOM s' ∧ (∀uv. uv ∈ FDOM s' ⇒ check_t m ∅ (t_walkstar s' (Infer_Tuvar uv))) ∧ s = s'`,
- rw [sub_completion_def, pure_add_constraints_def] >>
- metis_tac []);
+Theorem sub_completion_empty[local]:
+  !m n s s'. sub_completion m n s [] s' ⇔ count n ⊆ FDOM s' ∧ (∀uv. uv ∈ FDOM s' ⇒ check_t m ∅ (t_walkstar s' (Infer_Tuvar uv))) ∧ s = s'
+Proof
+  rw [sub_completion_def, pure_add_constraints_def] >>
+ metis_tac []
+QED
 
-val generalise_none = Q.prove (
-`(!t s' t' x.
+Theorem generalise_none[local]:
+  (!t s' t' x.
    check_t 0 x t ∧
    generalise 0 0 FEMPTY t = (0, s', t')
    ⇒
@@ -46,8 +51,9 @@ val generalise_none = Q.prove (
    generalise_list 0 0 FEMPTY ts = (0, s', ts')
    ⇒
    s' = FEMPTY ∧
-   EVERY (check_t 0 {}) ts)`,
- ho_match_mp_tac infer_t_induction >>
+   EVERY (check_t 0 {}) ts)
+Proof
+  ho_match_mp_tac infer_t_induction >>
  rw [generalise_def, check_t_def, LET_THM, LAMBDA_PROD]
  >- (`?n s' t'. generalise_list 0 0 FEMPTY ts = (n,s',t')` by metis_tac [pair_CASES] >>
      fs [] >>
@@ -62,13 +68,16 @@ val generalise_none = Q.prove (
  `?n s' t'. generalise_list 0 n' s'' ts = (n,s',t')` by metis_tac [pair_CASES] >>
  fs [] >>
  rw [] >>
- metis_tac []);
+ metis_tac []
+QED
 
-val lookup_var_empty = Q.prove(`
+Theorem lookup_var_empty[local]:
   lookup_var x (bind_tvar tvs Empty) tenv =
-  lookup_var x Empty tenv`,
+  lookup_var x Empty tenv
+Proof
   rw[bind_tvar_def,lookup_var_def,lookup_varE_def]>>
-  EVERY_CASE_TAC>>fs[tveLookup_def]);
+  EVERY_CASE_TAC>>fs[tveLookup_def]
+QED
 
 (* TODO: This should be generalized eventually *)
 Theorem env_rel_complete_bind:
@@ -89,15 +98,18 @@ QED
   The current relation might be wrong *)
 
 (* the set of ids n1 .... n2-1 *)
-val set_ids_def = Define`
-  set_ids n1 (n2:num) = {m | n1 ≤ m ∧ m < n2}`
+Definition set_ids_def:
+  set_ids n1 (n2:num) = {m | n1 ≤ m ∧ m < n2}
+End
 
-val set_ids_eq = Q.prove(`
+Theorem set_ids_eq[local]:
   set_ids n1 n2 =
-  set (GENLIST (λx. x + n1) (n2-n1))`,
+  set (GENLIST (λx. x + n1) (n2-n1))
+Proof
   fs[set_ids_def,EXTENSION,MEM_MAP,MEM_GENLIST]>>
   rw[EQ_IMP_THM]>>
-  qexists_tac`x-n1`>>fs[]);
+  qexists_tac`x-n1`>>fs[]
+QED
 
 Theorem set_ids_same[simp]:
    set_ids x x = {}
@@ -123,13 +135,13 @@ fun str_tac strs = ConseqConv.CONSEQ_CONV_TAC
 
 Theorem infer_d_sound:
    (!d tenv ienv st1 st2 ienv'.
-    infer_d ienv d st1 = (Success ienv', st2) ∧
+    infer_d ienv d st1 = (M_success ienv', st2) ∧
     env_rel tenv ienv ∧
     start_type_id ≤ st1.next_id
     ⇒
     type_d T tenv d (set_ids st1.next_id st2.next_id) (ienv_to_tenv ienv')) ∧
   (!ds tenv ienv st1 st2 ienv'.
-    infer_ds ienv ds st1 = (Success ienv', st2) ∧
+    infer_ds ienv ds st1 = (M_success ienv', st2) ∧
     env_rel tenv ienv ∧
     start_type_id ≤ st1.next_id
     ⇒
@@ -175,7 +187,7 @@ Proof
     strip_tac >>
     pairarg_tac >>
     rename1 `generalise_list _ _ _ _ = (tvs, s2, ts)` >>
-    rename1 `Success (t2,bindings), st1'` >>
+    rename1 `M_success (t2,bindings), st1'` >>
     `?ec1 last_sub.
           ts = MAP (t_walkstar last_sub) (MAP SND bindings) ∧
           t_wfs last_sub ∧
@@ -232,9 +244,9 @@ Proof
         old_drule (GEN_ALL env_rel_complete_bind) >>
         disch_then (qspec_then `tvs'` assume_tac) >>
         old_drule (GEN_ALL infer_pe_complete) >>
-        `ALL_DISTINCT (pat_bindings p [])` by
+        `ALL_DISTINCT (pat_bindings p)` by
           (imp_res_tac type_p_pat_bindings>>
-          `MAP FST bindings = pat_bindings p []` by
+          `MAP FST bindings = pat_bindings p` by
             (pop_assum sym_sub_tac>>
             simp[convert_env_def,MAP_MAP_o,MAP_EQ_f,FORALL_PROD])>>
           fs[])>>
@@ -682,8 +694,8 @@ Proof
     (* infer_ds (d::ds) *)
     rw[]>>
     fs[infer_d_def,success_eqns]>>
-    rename1 `infer_d ienv1 _ _ = (Success ienv2, sti)` >>
-    rename1 `infer_ds _ _ _ = (Success ienv3, _)` >>
+    rename1 `infer_d ienv1 _ _ = (M_success ienv2, sti)` >>
+    rename1 `infer_ds _ _ _ = (M_success ienv3, _)` >>
     rpt(first_x_assum old_drule)>>
     rpt(disch_then old_drule)>>
     strip_tac>>strip_tac>>
@@ -735,7 +747,7 @@ Theorem db_subst_infer_subst_swap2:
 Proof
 ho_match_mp_tac infer_t_induction >>
 rw [convert_t_def, deBruijn_subst_def, EL_MAP, t_walkstar_eqn1,
-    infer_deBruijn_subst_def, MAP_MAP_o, combinTheory.o_DEF, check_t_def,
+    infer_deBruijn_subst_alt, MAP_MAP_o, combinTheory.o_DEF, check_t_def,
     LENGTH_COUNT_LIST]
 QED
 
@@ -879,25 +891,28 @@ Proof
   metis_tac []
 QED
 
-val check_freevars_nub = Q.prove (
-`(!t x fvs.
+Theorem check_freevars_nub[local]:
+  (!t x fvs.
   check_freevars x fvs t ⇒
   check_freevars x (nub fvs) t) ∧
  (!ts x fvs.
   EVERY (check_freevars x fvs) ts ⇒
-  EVERY (check_freevars x (nub fvs)) ts)`,
-Induct >>
-rw [check_freevars_def] >> metis_tac[]);
+  EVERY (check_freevars x (nub fvs)) ts)
+Proof
+  Induct >>
+rw [check_freevars_def] >> metis_tac[]
+QED
 
-val check_specs_sound = Q.prove (
-  `!mn tenvT idecls1 ienv1 specs st1 idecls2 ienv2 st2.
-    check_specs mn tenvT idecls1 ienv1 specs st1 = (Success (idecls2,ienv2), st2) ∧
+Theorem check_specs_sound[local]:
+  !mn tenvT idecls1 ienv1 specs st1 idecls2 ienv2 st2.
+    check_specs mn tenvT idecls1 ienv1 specs st1 = (M_success (idecls2,ienv2), st2) ∧
     tenv_abbrev_ok tenvT
     ⇒
     ?decls3 ienv3.
       type_specs mn tenvT specs decls3 (ienv_to_tenv ienv3) ∧
       convert_decls idecls2 = union_decls decls3 (convert_decls idecls1) ∧
-      ienv2 = extend_dec_ienv ienv3 ienv1`,
+      ienv2 = extend_dec_ienv ienv3 ienv1
+Proof
   ho_match_mp_tac check_specs_ind >>
   rw [check_specs_def, success_eqns]
   >- (
@@ -1013,11 +1028,12 @@ val check_specs_sound = Q.prove (
     qexists_tac `decls3` >>
     simp [ienv_to_tenv_def, extend_dec_tenv_def, extend_dec_ienv_def,
           union_decls_def, convert_decls_def] >>
-    metis_tac [GSYM nsAppend_assoc, nsAppend_nsSing, INSERT_SING_UNION, UNION_ASSOC]));
+    metis_tac [GSYM nsAppend_assoc, nsAppend_nsSing, INSERT_SING_UNION, UNION_ASSOC])
+QED
 
 Theorem infer_top_sound:
    !idecls ienv t_op st1 idecls' ienv' st2 tenv.
-    infer_top idecls ienv t_op st1 = (Success (idecls',ienv'), st2) ∧
+    infer_top idecls ienv t_op st1 = (M_success (idecls',ienv'), st2) ∧
     env_rel tenv ienv
     ⇒
     type_top T (convert_decls idecls) tenv t_op (convert_decls idecls') (ienv_to_tenv ienv')
@@ -1036,7 +1052,7 @@ Proof
     disch_then old_drule >>
     rw [] >>
     rename1 `check_signature _ ienv.inf_t _ idecls2 ienv2 sig st2 =
-               (Success (idecls3,ienv3), st3)` >>
+               (M_success (idecls3,ienv3), st3)` >>
     Cases_on `sig` >>
     fs [check_signature_def, typeSystemTheory.check_signature_cases,
         success_eqns]
@@ -1087,7 +1103,7 @@ QED
 
 Theorem infer_prog_sound:
    !idecls ienv prog st1 idecls' ienv' st2 tenv.
-    infer_prog idecls ienv prog st1 = (Success (idecls',ienv'), st2) ∧
+    infer_prog idecls ienv prog st1 = (M_success (idecls',ienv'), st2) ∧
     env_rel tenv ienv
     ⇒
     type_prog T (convert_decls idecls) tenv prog (convert_decls idecls') (ienv_to_tenv ienv')
@@ -1105,8 +1121,8 @@ Proof
   old_drule infer_top_sound >>
   disch_then old_drule >>
   strip_tac >>
-  rename1 `infer_top idecls1 ienv1 _ _ = (Success (idecls2, ienv2), _)` >>
-  rename1 `infer_prog _ _ _ _ = (Success (idecls3, ienv3), _)` >>
+  rename1 `infer_top idecls1 ienv1 _ _ = (M_success (idecls2, ienv2), _)` >>
+  rename1 `infer_prog _ _ _ _ = (M_success (idecls3, ienv3), _)` >>
   qexists_tac `ienv_to_tenv ienv2` >>
   qexists_tac `ienv_to_tenv ienv3` >>
   qexists_tac `convert_decls idecls2` >>
@@ -1119,5 +1135,3 @@ Proof
   infer_top_invariant]
 QED
 *)
-
-val _ = export_theory ();

@@ -1,0 +1,2 @@
+A simple example of how a standalone CakeML program can be produced from
+a functional program defined as functions in HOL.

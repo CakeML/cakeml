@@ -1,19 +1,22 @@
 (*
   Proof about the command-line module of the CakeML standard basis library.
 *)
-open preamble ml_translatorTheory ml_progLib ml_translatorLib cfLib
-     CommandLineProgTheory clFFITheory Word8ArrayProofTheory cfMonadTheory
-
-val _ = new_theory"CommandLineProof";
+Theory CommandLineProof
+Ancestors
+  cfMain cfLetAuto ml_translator CommandLineProg clFFI Word8ArrayProof cfMonad
+Libs
+  preamble ml_progLib ml_translatorLib cfLib
 
 val _ = translation_extends"CommandLineProg";
 
-val wfcl_def = Define`
-  wfcl cl <=> EVERY validArg cl ∧ LENGTH cl < 256 * 256 /\ cl <> []`;
+Definition wfcl_def:
+  wfcl cl <=> EVERY validArg cl ∧ LENGTH cl < 256 * 256 /\ cl <> []
+End
 
-val COMMANDLINE_def = Define `
+Definition COMMANDLINE_def:
   COMMANDLINE cl =
-    IOx cl_ffi_part cl * &wfcl cl`
+    IOx cl_ffi_part cl * &wfcl cl
+End
 
 val set_thm =
   COMMANDLINE_def
@@ -25,10 +28,9 @@ val set_thm =
   |> Q.SPEC`cl`
 val set_tm = set_thm |> concl |> find_term(pred_setSyntax.is_insert)
 
-val COMMANDLINE_precond = Q.prove(
+Theorem COMMANDLINE_precond = Q.prove(
   `wfcl cl ⇒ (COMMANDLINE cl) ^set_tm`,
   rw[set_thm]) |> UNDISCH
-  |> curry save_thm "COMMANDLINE_precond";
 
 Theorem COMMANDLINE_FFI_part_hprop:
    FFI_part_hprop (COMMANDLINE x)
@@ -49,7 +51,8 @@ Theorem CommandLine_read16bit:
      (W8ARRAY av a)
      (POSTv v. W8ARRAY av a * & NUM (w2n (EL 0 a) + 256 * w2n (EL 1 a)) v)
 Proof
-  xcf_with_def "CommandLine.read16bit" CommandLine_read16bit_v_def
+  rpt strip_tac
+  \\ xcf_with_def CommandLine_read16bit_v_def
   \\ xlet_auto THEN1 xsimpl
   \\ xlet_auto THEN1 (fs [] \\ xsimpl)
   \\ xlet_auto THEN1 (fs [] \\ xsimpl)
@@ -68,7 +71,8 @@ Theorem CommandLine_write16bit:
      (W8ARRAY av a)
      (POSTv v. W8ARRAY av (n2w n::n2w (n DIV 256)::TL (TL a)))
 Proof
-  xcf_with_def "CommandLine.write16bit" CommandLine_write16bit_v_def
+  rpt strip_tac
+  \\ xcf_with_def CommandLine_write16bit_v_def
   \\ xlet_auto THEN1 xsimpl
   \\ xlet_auto THEN1 (fs [] \\ xsimpl)
   \\ xlet_auto THEN1 (fs [] \\ xsimpl)
@@ -79,35 +83,39 @@ Proof
   \\ EVAL_TAC
 QED
 
-val SUC_SUC_LENGTH = prove(
-  ``SUC (SUC (LENGTH (TL (TL (REPLICATE (MAX 2 n) x))))) = (MAX 2 n)``,
-  Cases_on `n` \\ fs [] THEN1 EVAL_TAC
-  \\ Cases_on `n'` \\ fs [] THEN1 EVAL_TAC
-  \\ fs [ADD1] \\ rw [MAX_DEF]
-  \\ fs [EVAL ``REPLICATE 2 x``]
-  \\ once_rewrite_tac [ADD_COMM]
-  \\ rewrite_tac [GSYM REPLICATE_APPEND]
-  \\ fs [EVAL ``REPLICATE 2 x``]);
+Theorem SUC_SUC_MAX2[local]:
+    SUC (SUC (MAX 2 n - 2)) = (MAX 2 n)
+Proof
+  Cases_on `n` \\ fs []
+  \\ Cases_on `n'` \\ fs [ADD1]
+  \\ simp[MAX_DEF]
+QED
 
-val two_byte_sum = prove(
-  ``k < 65536 ==> k MOD 256 + 256 * (k DIV 256) MOD 256 = k``,
+Theorem two_byte_sum[local]:
+    k < 65536 ==> k MOD 256 + 256 * ((k DIV 256) MOD 256) = k
+Proof
   rw []
   \\ `(k DIV 256) MOD 256 = k DIV 256` by
         (match_mp_tac LESS_MOD \\ fs [DIV_LT_X,wfcl_def]) \\ fs []
   \\ `(k DIV 256) * 256 + k MOD 256 = k` by metis_tac [DIVISION,EVAL ``0 < 256n``]
-  \\ fs []);
+  \\ fs []
+QED
 
-val LESS_LENGTH_EXISTS = prove(
-  ``!xs n. n < LENGTH xs ==> ?ys y ts. xs = ys ++ y::ts /\ LENGTH ys = n``,
+Theorem LESS_LENGTH_EXISTS[local]:
+    !xs n. n < LENGTH xs ==> ?ys y ts. xs = ys ++ y::ts /\ LENGTH ys = n
+Proof
   Induct \\ fs [] \\ Cases_on `n` \\ fs []
   \\ rw [] \\ res_tac \\ fs [] \\ rveq \\ fs []
-  \\ qexists_tac `h::ys` \\ fs []);
+  \\ qexists_tac `h::ys` \\ fs []
+QED
 
-val DROP_SUC_LENGTH_MAP = prove(
-  ``(DROP (SUC (LENGTH ys)) (MAP f ys ⧺ y::ts)) = ts``,
+Theorem DROP_SUC_LENGTH_MAP[local]:
+    (DROP (SUC (LENGTH ys)) (MAP f ys ⧺ y::ts)) = ts
+Proof
   qsuff_tac `MAP f ys ⧺ y::ts = (MAP f ys ⧺ [y]) ++ ts /\
              SUC (LENGTH ys) = LENGTH (MAP f ys ⧺ [y])`
-  THEN1 simp_tac std_ss [DROP_LENGTH_APPEND] \\ fs []);
+  THEN1 simp_tac std_ss [DROP_LENGTH_APPEND] \\ fs []
+QED
 
 Theorem CommandLine_cloop_spec:
    !n nv av cv a.
@@ -124,12 +132,12 @@ Proof
   \\ MAP_EVERY qid_spec_tac [`events`, `a`, `cv`, `av`, `nv`, `n`]
   \\ Induct \\ rw []
   THEN1
-   (xcf_with_def "CommandLine.cloop" CommandLine_cloop_v_def
+   (xcf_with_def CommandLine_cloop_v_def
     \\ xlet_auto THEN1 xsimpl
     \\ xif \\ asm_exists_tac \\ fs []
     \\ xvar \\ fs [COMMANDLINE_def, cl_ffi_part_def, IOx_def, IO_def]
     \\ xsimpl \\ qexists_tac `events` \\ xsimpl)
-  \\ xcf_with_def "CommandLine.cloop" CommandLine_cloop_v_def
+  \\ xcf_with_def CommandLine_cloop_v_def
   \\ xlet_auto THEN1 xsimpl
   \\ xif \\ asm_exists_tac \\ fs []
   \\ rpt (xlet_auto THEN1 xsimpl)
@@ -145,7 +153,7 @@ Proof
     \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def,COMMANDLINE_def,IO_def]
     \\ xsimpl
     \\ qmatch_goalsub_abbrev_tac `FFI_part s u ns`
-    \\ map_every qexists_tac [`emp`, `s`, `u`, `ns`, `events`]
+    \\ qexistsl [`emp`, `s`, `u`, `ns`, `events`]
     \\ xsimpl
     \\ unabbrev_all_tac \\ fs []
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_length_def,
@@ -156,7 +164,7 @@ Proof
   \\ rpt (xlet_auto THEN1 xsimpl)
   \\ qmatch_goalsub_abbrev_tac`W8ARRAY av1 bytes`
   \\ `strlen x < 65536` by
-       (fs [wfcl_def,SUC_SUC_LENGTH,Abbr`x`] \\ `n < LENGTH cl` by fs []
+       (fs [wfcl_def,Abbr`x`] \\ `n < LENGTH cl` by fs []
         \\ fs [EVERY_EL] \\ first_x_assum drule \\ fs [validArg_def])
   \\ xlet `POSTv v. W8ARRAY av1 (MAP (n2w o ORD) (explode x) ++ DROP (strlen x) bytes) *
        W8ARRAY av [n2w (strlen x); n2w (strlen x DIV 256)] * COMMANDLINE cl`
@@ -169,16 +177,17 @@ Proof
     \\ qabbrev_tac `extra = W8ARRAY av [n2w (strlen x); n2w (strlen x DIV 256)]`
     \\ xsimpl
     \\ qmatch_goalsub_abbrev_tac `FFI_part s u ns`
-    \\ map_every qexists_tac [`extra`, `s`, `u`, `ns`, `events`]
+    \\ qexistsl [`extra`, `s`, `u`, `ns`, `events`]
     \\ xsimpl
     \\ unabbrev_all_tac \\ fs []
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_def,
            GSYM cfHeapsBaseTheory.encode_list_def,LENGTH_EQ_NUM_compute]
-    \\ fs [wfcl_def,SUC_SUC_LENGTH,two_byte_sum] \\ xsimpl
+    \\ fs [wfcl_def,SUC_SUC_MAX2,two_byte_sum] \\ xsimpl
+    \\ xsimpl
     \\ qpat_abbrev_tac `new_events = events ++ _`
     \\ qexists_tac `new_events` \\ xsimpl)
   \\ xlet_auto
-  THEN1 (xsimpl \\ fs [SUC_SUC_LENGTH,two_byte_sum,mlstringTheory.LENGTH_explode])
+  THEN1 (xsimpl \\ fs [two_byte_sum,mlstringTheory.LENGTH_explode])
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ qpat_abbrev_tac `Q = $POSTv _`
   \\ simp [COMMANDLINE_def,cl_ffi_part_def,IOx_def,IO_def]
@@ -199,7 +208,7 @@ Proof
   \\ `strlen x = LENGTH (MAP ((n2w:num->word8) ∘ ORD) (explode x))` by fs [mlstringTheory.LENGTH_explode]
   \\ asm_rewrite_tac [TAKE_LENGTH_APPEND]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND,EL_LENGTH_APPEND,NULL,HD]
-  \\ fs [MAP_MAP_o, CHR_w2n_n2w_ORD, GSYM mlstringTheory.implode_def]
+  \\ fs [MAP_MAP_o, CHR_w2n_n2w_ORD]
   \\ fs[DROP_APPEND,DROP_LENGTH_TOO_LONG]
 QED
 
@@ -212,7 +221,7 @@ Proof
   rw [] \\ qpat_abbrev_tac `Q = $POSTv _`
   \\ simp [COMMANDLINE_def,cl_ffi_part_def,IOx_def,IO_def]
   \\ xpull \\ qunabbrev_tac `Q`
-  \\ xcf_with_def "CommandLine.cline" CommandLine_cline_v_def
+  \\ xcf_with_def CommandLine_cline_v_def
   \\ fs [UNIT_TYPE_def] \\ rveq
   \\ xmatch
   \\ xlet_auto >- xsimpl
@@ -227,7 +236,7 @@ Proof
     \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def,IO_def]
     \\ xsimpl
     \\ qmatch_goalsub_abbrev_tac `FFI_part s u ns`
-    \\ map_every qexists_tac [`emp`, `s`, `u`, `ns`, `events`]
+    \\ qexistsl [`emp`, `s`, `u`, `ns`, `events`]
     \\ xsimpl
     \\ unabbrev_all_tac \\ fs []
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_count_def,
@@ -262,7 +271,8 @@ Theorem CommandLine_name_spec:
     (COMMANDLINE cl)
     (POSTv namev. & STRING_TYPE (HD cl) namev * COMMANDLINE cl)
 Proof
-  xcf_with_def "CommandLine.name" CommandLine_name_v_def
+  rpt strip_tac
+  \\ xcf_with_def CommandLine_name_v_def
   \\ xlet `POSTv cs. & LIST_TYPE STRING_TYPE cl cs * COMMANDLINE cl`
   >-(xapp \\ rw[] \\ fs [])
   \\ Cases_on`cl=[]` >- ( fs[COMMANDLINE_def] \\ xpull \\ fs[wfcl_def] )
@@ -273,14 +283,15 @@ QED
 val tl_v_thm = fetch "ListProg" "tl_v_thm";
 val mlstring_tl_v_thm = tl_v_thm |> INST_TYPE [alpha |-> mlstringSyntax.mlstring_ty]
 
-val name_def = Define `
-  name () = (\cl. (M_success (HD cl), cl))`;
+Definition name_def:
+  name () = (\cl. (M_success (HD cl), cl))
+End
 
 Theorem EvalM_name:
    Eval env exp (UNIT_TYPE u) /\
-    (nsLookup env.v (Long "CommandLine" (Short "name")) =
+    (nsLookup env.v (Long «CommandLine» (Short «name»)) =
       SOME CommandLine_name_v) ==>
-    EvalM F env st (App Opapp [Var (Long "CommandLine" (Short "name")); exp])
+    EvalM F env st (App Opapp [Var (Long «CommandLine» (Short «name»)); exp])
       (MONAD STRING_TYPE exc_ty (name u))
       (COMMANDLINE,p:'ffi ffi_proj)
 Proof
@@ -295,7 +306,8 @@ Theorem CommandLine_arguments_spec:
     (POSTv argv. & LIST_TYPE STRING_TYPE
        (TL cl) argv * COMMANDLINE cl)
 Proof
-  xcf_with_def "CommandLine.arguments" CommandLine_arguments_v_def
+  rpt strip_tac
+  \\ xcf_with_def CommandLine_arguments_v_def
   \\ xlet `POSTv cs. & LIST_TYPE STRING_TYPE cl cs * COMMANDLINE cl`
   >-(xapp \\ rw[] \\ fs [])
   \\ Cases_on`cl=[]` >- ( fs[COMMANDLINE_def] \\ xpull \\ fs[wfcl_def] )
@@ -303,14 +315,15 @@ Proof
   \\ Cases_on `cl` \\ rw[TL_DEF]
 QED
 
-val arguments_def = Define `
-  arguments () = (\cl. (M_success (TL cl), cl))`
+Definition arguments_def:
+  arguments () = (\cl. (M_success (TL cl), cl))
+End
 
 Theorem EvalM_arguments:
    Eval env exp (UNIT_TYPE u) /\
-    (nsLookup env.v (Long "CommandLine" (Short "arguments")) =
+    (nsLookup env.v (Long «CommandLine» (Short «arguments»)) =
        SOME CommandLine_arguments_v) ==>
-    EvalM F env st (App Opapp [Var (Long "CommandLine" (Short "arguments")); exp])
+    EvalM F env st (App Opapp [Var (Long «CommandLine» (Short «arguments»)); exp])
       (MONAD (LIST_TYPE STRING_TYPE) exc_ty (arguments u))
       (COMMANDLINE,p:'ffi ffi_proj)
 Proof
@@ -338,5 +351,3 @@ Theorem COMMANDLINE_HPROP_INJ[hprop_inj]:
 Proof
   prove_hprop_inj_tac UNIQUE_COMMANDLINE
 QED
-
-val _ = export_theory();

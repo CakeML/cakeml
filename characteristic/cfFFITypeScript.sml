@@ -2,15 +2,17 @@
   Defines a type that can be used for embedding different FFI models
   for parts of the FFI state.
 *)
-open preamble;
-
-val _ = new_theory "cfFFIType"
+Theory cfFFIType
+Ancestors
+  mlstring
+Libs
+  preamble
 
 (*
 
 This file defines a type that behaves like the following one:
 
-  ffi = Str string
+  ffi = Str mlstring
       | Num num
       | Cons ffi ffi
       | List (ffi list)
@@ -18,7 +20,7 @@ This file defines a type that behaves like the following one:
       | Fun (ffi_inner -> ffi)
       | Inner ffi_inner
 
-  ffi_inner = iStr string
+  ffi_inner = iStr mlstring
             | iNum num
             | iCons ffi_inner ffi_inner
             | iList (ffi_inner list)
@@ -29,59 +31,69 @@ important injectivity (suffix: "_11") are here.
 
 *)
 
-val _ = Datatype `
-  ffi_inner = iStr string
+Datatype:
+  ffi_inner = iStr mlstring
             | iNum num
             | iCons ffi_inner ffi_inner
             | iList (ffi_inner list)
-            | iStream (num llist)`
+            | iStream (num llist)
+End
 
-val _ = Datatype `
-  ffi = FFI_TYPE (ffi_inner -> ffi_inner)`
+Datatype:
+  ffi = FFI_TYPE (ffi_inner -> ffi_inner)
+End
 
-val ffi_app_def = Define `
-  ffi_app x n = case x of FFI_TYPE f => f n`;
+Definition ffi_app_def:
+  ffi_app x n = case x of FFI_TYPE f => f n
+End
 
 (* constructors *)
 
-val Num_def = zDefine `
+Definition Num_def[nocompute]:
   ((Num i):ffi) =
-    FFI_TYPE (\n. if n = iNum 0 then iNum 0 else iNum i)`
+    FFI_TYPE (\n. if n = iNum 0 then iNum 0 else iNum i)
+End
 
-val Str_def = zDefine `
+Definition Str_def[nocompute]:
   ((Str i):ffi) =
-    FFI_TYPE (\n. if n = iNum 0 then iNum 1 else iStr i)`
+    FFI_TYPE (\n. if n = iNum 0 then iNum 1 else iStr i)
+End
 
-val Cons_def = zDefine `
+Definition Cons_def[nocompute]:
   ((Cons (x:ffi) (y:ffi)):ffi) =
     FFI_TYPE (\n. if n = iNum 0 then iNum 2 else
                     case n of
                     | iCons (iNum 0) m => ffi_app x m
                     | iCons (iNum 1) m => ffi_app y m
-                    | _ => iNum 0)`
+                    | _ => iNum 0)
+End
 
-val List_def = zDefine `
+Definition List_def[nocompute]:
   ((List (xs:ffi list)):ffi) =
     FFI_TYPE (\n. if n = iNum 0 then iNum 3 else
                   if n = iNum 1 then iNum (LENGTH xs) else
                     case n of
                     | iCons (iNum k) m => ffi_app (EL k xs) m
-                    | _ => iNum 0)`
+                    | _ => iNum 0)
+End
 
-val Stream_def = zDefine `
+Definition Stream_def[nocompute]:
   ((Stream i):ffi) =
-    FFI_TYPE (\n. if n = iNum 0 then iNum 4 else iStream i)`
+    FFI_TYPE (\n. if n = iNum 0 then iNum 4 else iStream i)
+End
 
-val Fun_def = zDefine `
+Definition Fun_def[nocompute]:
   ((Fun (f:ffi_inner -> ffi)):ffi) =
     FFI_TYPE (\n. if n = iNum 0 then iNum 5 else
                     case n of
                     | iCons x y => ffi_app (f x) y
-                    | _ => iNum 0)`;
+                    | _ => iNum 0)
+End
 
-val Inner_def = zDefine `
+Definition Inner_def[nocompute]:
   ((Inner i):ffi) =
-    FFI_TYPE (\n. if n = iNum 0 then iNum 6 else i)`;
+    FFI_TYPE (\n. if n = iNum 0 then iNum 6 else i)
+End
 
 (* injectivity *)
 
@@ -147,17 +159,15 @@ QED
 
 (* distinctness *)
 
-val ffi_distinct = prove(
+Theorem ffi_distinct[simp] = prove(
   ``ALL_DISTINCT [Num n; Str s; Cons x y; List l; Stream ll; Fun f; Inner i]``,
   rw [] \\ fs [Num_def,Str_def,Cons_def,List_def,Stream_def,
                Fun_def,Inner_def,FUN_EQ_THM]
   \\ qexists_tac `iNum 0` \\ fs [])
   |> SIMP_RULE std_ss [ALL_DISTINCT,MEM,GSYM CONJ_ASSOC] |> GEN_ALL
-  |> curry save_thm "ffi_distinct[simp]";
 
 (* destructors *)
-
-val destNum_def = new_specification("destNum_def",["destNum"],prove(``
+Theorem destNum_exists[local]:
   ?destNum.
     (!n. destNum (Num n) = SOME n) /\
     (!s. destNum (Str s) = NONE) /\
@@ -165,14 +175,19 @@ val destNum_def = new_specification("destNum_def",["destNum"],prove(``
     (!l. destNum (List l) = NONE) /\
     (!ll. destNum (Stream ll) = NONE) /\
     (!f. destNum (Fun f) = NONE) /\
-    (!i. destNum (Inner i) = NONE)``,
+    (!i. destNum (Inner i) = NONE)
+Proof
   qexists_tac `(\f. if ffi_app f (iNum 0) = iNum 0
                     then SOME (@n. Num n = f) else NONE)`
   \\ rw [] \\ fs [Num_def,Str_def,Cons_def,List_def,Inner_def,
-                  Stream_def,Fun_def,ffi_app_def]));
-val _ = export_rewrites ["destNum_def"];
+                  Stream_def,Fun_def,ffi_app_def]
+QED
+val destNum_def_name = "destNum_def";
+val destNum_def = new_specification(
+  destNum_def_name,["destNum"],destNum_exists);
+val _ = export_rewrites [destNum_def_name];
 
-val destStr_def = new_specification("destStr_def",["destStr"],prove(``
+Theorem destStr_exists[local]:
   ?destStr.
     (!n. destStr (Num n) = NONE) /\
     (!s. destStr (Str s) = SOME s) /\
@@ -180,12 +195,17 @@ val destStr_def = new_specification("destStr_def",["destStr"],prove(``
     (!l. destStr (List l) = NONE) /\
     (!ll. destStr (Stream ll) = NONE) /\
     (!f. destStr (Fun f) = NONE) /\
-    (!i. destStr (Inner i) = NONE)``,
+    (!i. destStr (Inner i) = NONE)
+Proof
   qexists_tac `(\f. if ffi_app f (iNum 0) = iNum 1
                     then SOME (@n. Str n = f) else NONE)`
   \\ rw [] \\ fs [Num_def,Str_def,Cons_def,List_def,Inner_def,
-                  Stream_def,Fun_def,ffi_app_def]));
-val _ = export_rewrites ["destStr_def"];
+                  Stream_def,Fun_def,ffi_app_def]
+QED
+val destStr_def_name = "destStr_def"
+val destStr_def = new_specification(
+  destStr_def_name,["destStr"],destStr_exists);
+val _ = export_rewrites [destStr_def_name];
 
 Theorem destStr_o_Str[simp]:
    destStr o Str = SOME
@@ -193,7 +213,7 @@ Proof
 rw[FUN_EQ_THM]
 QED
 
-val destCons_def = new_specification("destCons_def",["destCons"],prove(``
+Theorem destCons_exists[local]:
   ?destCons.
     (!n. destCons (Num n) = NONE) /\
     (!s. destCons (Str s) = NONE) /\
@@ -201,16 +221,21 @@ val destCons_def = new_specification("destCons_def",["destCons"],prove(``
     (!l. destCons (List l) = NONE) /\
     (!ll. destCons (Stream ll) = NONE) /\
     (!f. destCons (Fun f) = NONE) /\
-    (!i. destCons (Inner i) = NONE)``,
+    (!i. destCons (Inner i) = NONE)
+Proof
   qexists_tac `(\f. if ffi_app f (iNum 0) = iNum 2
                     then SOME (@n. Cons (FST n) (SND n) = f) else NONE)`
   \\ rw [] \\ fs [Num_def,Str_def,Cons_def,List_def,Inner_def,
                   Stream_def,Fun_def,ffi_app_def]
   \\ `!n. FST n = x ∧ SND n = y <=> n = (x,y)` by fs [FORALL_PROD]
-  \\ asm_rewrite_tac [] \\ fs []));
-val _ = export_rewrites ["destCons_def"];
+  \\ asm_rewrite_tac [] \\ fs []
+QED
+val destCons_def_name = "destCons_def";
+val destCons_def = new_specification(
+  destCons_def_name,["destCons"],destCons_exists);
+val _ = export_rewrites [destCons_def_name];
 
-val destList_def = new_specification("destList_def",["destList"],prove(``
+Theorem destList_exists[local]:
   ?destList.
     (!n. destList (Num n) = NONE) /\
     (!s. destList (Str s) = NONE) /\
@@ -218,14 +243,19 @@ val destList_def = new_specification("destList_def",["destList"],prove(``
     (!l. destList (List l) = SOME l) /\
     (!ll. destList (Stream ll) = NONE) /\
     (!f. destList (Fun f) = NONE) /\
-    (!i. destList (Inner i) = NONE)``,
+    (!i. destList (Inner i) = NONE)
+Proof
   qexists_tac `(\f. if ffi_app f (iNum 0) = iNum 3
                     then SOME (@n. List n = f) else NONE)`
   \\ rw [] \\ fs [Num_def,Str_def,Cons_def,List_def,Inner_def,
-                  Stream_def,Fun_def,ffi_app_def]));
-val _ = export_rewrites ["destList_def"];
+                  Stream_def,Fun_def,ffi_app_def]
+QED
+val destList_def_name = "destList_def";
+val destList_def = new_specification(
+  destList_def_name,["destList"],destList_exists);
+val _ = export_rewrites [destList_def_name];
 
-val destStream_def = new_specification("destStream_def",["destStream"],prove(``
+Theorem destStream_exists[local]:
   ?destStream.
     (!n. destStream (Num n) = NONE) /\
     (!s. destStream (Str s) = NONE) /\
@@ -233,14 +263,19 @@ val destStream_def = new_specification("destStream_def",["destStream"],prove(``
     (!l. destStream (List l) = NONE) /\
     (!ll. destStream (Stream ll) = SOME ll) /\
     (!f. destStream (Fun f) = NONE) /\
-    (!i. destStream (Inner i) = NONE)``,
+    (!i. destStream (Inner i) = NONE)
+Proof
   qexists_tac `(\f. if ffi_app f (iNum 0) = iNum 4
                     then SOME (@n. Stream n = f) else NONE)`
   \\ rw [] \\ fs [Num_def,Str_def,Cons_def,List_def,Inner_def,
-                  Stream_def,Fun_def,ffi_app_def]));
-val _ = export_rewrites ["destStream_def"];
+                  Stream_def,Fun_def,ffi_app_def]
+QED
+val destStream_def_name = "destStream_def";
+val destStream_def = new_specification(
+  destStream_def_name,["destStream"],destStream_exists);
+val _ = export_rewrites [destStream_def_name];
 
-val destFun_def = new_specification("destFun_def",["destFun"],prove(``
+Theorem destFun_exists[local]:
   ?destFun.
     (!n. destFun (Num n) = NONE) /\
     (!s. destFun (Str s) = NONE) /\
@@ -248,14 +283,19 @@ val destFun_def = new_specification("destFun_def",["destFun"],prove(``
     (!l. destFun (List l) = NONE) /\
     (!ll. destFun (Stream ll) = NONE) /\
     (!f. destFun (Fun f) = SOME f) /\
-    (!i. destFun (Inner i) = NONE)``,
+    (!i. destFun (Inner i) = NONE)
+Proof
   qexists_tac `(\f. if ffi_app f (iNum 0) = iNum 5
                     then SOME (@n. Fun n = f) else NONE)`
   \\ rw [] \\ fs [Num_def,Str_def,Cons_def,List_def,Inner_def,
-                  Stream_def,Fun_def,ffi_app_def]));
-val _ = export_rewrites ["destFun_def"];
+                  Stream_def,Fun_def,ffi_app_def]
+QED
+val destFun_def_name = "destFun_def";
+val destFun_def = new_specification(
+  "destFun_def",["destFun"],destFun_exists);
+val _ = export_rewrites [destFun_def_name];
 
-val destInner_def = new_specification("destInner_def",["destInner"],prove(``
+Theorem destInner_exists[local]:
   ?destInner.
     (!n. destInner (Num n) = NONE) /\
     (!s. destInner (Str s) = NONE) /\
@@ -263,16 +303,21 @@ val destInner_def = new_specification("destInner_def",["destInner"],prove(``
     (!l. destInner (List l) = NONE) /\
     (!ll. destInner (Stream ll) = NONE) /\
     (!f. destInner (Fun f) = NONE) /\
-    (!i. destInner (Inner i) = SOME i)``,
+    (!i. destInner (Inner i) = SOME i)
+Proof
   qexists_tac `(\f. if ffi_app f (iNum 0) = iNum 6
                     then SOME (@n. Inner n = f) else NONE)`
   \\ rw [] \\ fs [Num_def,Str_def,Cons_def,List_def,Inner_def,
-                  Stream_def,Fun_def,ffi_app_def]));
-val _ = export_rewrites ["destInner_def"];
+                  Stream_def,Fun_def,ffi_app_def]
+QED
+val destInner_def_name = "destInner_def";
+val destInner_def = new_specification(
+  destInner_def_name,["destInner"],destInner_exists);
+val _ = export_rewrites [destInner_def_name];
 
-val dest_iStr_def = Define`
-  dest_iStr (iStr s) = s`;
-val _ = export_rewrites ["dest_iStr_def"];
+Definition dest_iStr_def[simp]:
+  dest_iStr (iStr s) = s
+End
 
 (* clean up *)
 
@@ -280,5 +325,3 @@ val _ = map delete_binding ["ffi_app_def","Num_def","Str_def",
           "Cons_def","List_def","Stream_def","Fun_def","Inner_def"];
 
 val _ = delete_const "ffi_app";
-
-val _ = export_theory()

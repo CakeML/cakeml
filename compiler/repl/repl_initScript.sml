@@ -1,11 +1,12 @@
 (*
   Proves repl_types for the initial env and types from which the REPL starts.
 *)
-open preamble
-     ml_progTheory ml_progLib repl_typesTheory basis_ffiTheory
-     repl_init_envProgTheory repl_moduleProgTheory repl_init_typesTheory
-
-val _ = new_theory "repl_init";
+Theory repl_init
+Ancestors
+  ml_prog repl_types basis_ffi repl_init_envProg repl_moduleProg
+  repl_init_types
+Libs
+  preamble ml_progLib helperLib
 
 val _ = Parse.hide "types"
 
@@ -14,7 +15,7 @@ val _ = (max_print_depth := 12);
 val th2 = Decls_repl_prog |> REWRITE_RULE [GSYM repl_prog_def,SNOC]
           |> CONV_RULE (RAND_CONV EVAL)
           |> Q.GEN ‘ffi’ |> Q.ISPEC ‘basis_ffi cl fs’
-          |> REWRITE_RULE (APPEND::(DB.find "refs_def" |> map (fst o snd)))
+          |> REWRITE_RULE (APPEND::(DB.find "refs_def" |> map (#1 o #2)))
 
 Overload repl_prog_env = (th2 |> concl |> rator |> rand);
 
@@ -31,14 +32,14 @@ Proof
 QED
 
 Definition the_Loc_def:
-  the_Loc (semanticPrimitives$Loc n) = n
+  the_Loc (semanticPrimitives$Loc _ n) = n
 End
 
 Definition repl_rs_def:
-  repl_rs = [(Long "Repl" (Short "isEOF"),        Bool, the_Loc isEOF_loc);
-             (Long "Repl" (Short "nextString"),   Str,  the_Loc nextString_loc);
-             (Long "Repl" (Short "errorMessage"), Str,  the_Loc errorMessage_loc);
-             (Long "Repl" (Short "exn"),          Exn,  the_Loc exn)]
+  repl_rs = [(Long «Repl» (Short «isEOF»),        Bool, the_Loc isEOF_loc);
+             (Long «Repl» (Short «nextString»),   Str,  the_Loc nextString_loc);
+             (Long «Repl» (Short «errorMessage»), Str,  the_Loc errorMessage_loc);
+             (Long «Repl» (Short «exn»),          Exn,  the_Loc exn)]
 End
 
 Overload repl_init_env =
@@ -78,7 +79,7 @@ Proof
   \\ CASE_TAC \\ fs []
 QED
 
-Triviality app_frame:
+Theorem app_frame[local]:
   app p f xs P Q ⇒ ∀H. app p f xs (P * H) (Q *+ H)
 Proof
   rw []
@@ -94,7 +95,7 @@ Proof
   \\ qexists_tac ‘K T’ \\ fs []
 QED
 
-Triviality app_frame_POSTv:
+Theorem app_frame_POSTv[local]:
   app p f xs P ($POSTv Q) ⇒ ∀H. app p f xs (P * H) (POSTv v. Q v * H)
 Proof
   rw [] \\ drule_then (qspec_then ‘H’ mp_tac) app_frame
@@ -130,7 +131,7 @@ Theorem Repl_charsFrom_lemma[local] =
   |> SIMP_RULE std_ss [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM]
   |> Q.GEN ‘p’ |> Q.ISPEC ‘(basis_proj1, basis_proj2)’ |> SPEC_ALL
   |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]
-  |> Q.GEN ‘fname’ |> Q.SPEC ‘strlit "config_enc_str.txt"’
+  |> Q.GEN ‘fname’ |> Q.SPEC ‘«config_enc_str.txt»’
   |> REWRITE_RULE [GSYM AND_IMP_INTRO]
   |> UNDISCH |> UNDISCH
   |> Q.GEN ‘fnamev’ |> SIMP_RULE std_ss [EVAL “FILENAME «config_enc_str.txt» fnamev”]
@@ -165,7 +166,7 @@ Theorem parts_ok_basis_ffi:
   parts_ok (basis_ffi cls fs) (basis_proj1,basis_proj2)
 Proof
   mp_tac basis_ffiTheory.parts_ok_basis_st
-  \\ fs (DB.find "TextIOProg_st" |> map (fst o snd))
+  \\ fs (DB.find "TextIOProg_st" |> map (#1 o #2))
 QED
 
 Theorem st2heap_basis:
@@ -186,7 +187,7 @@ Proof
   \\ fs [set_sepTheory.STAR_def,PULL_EXISTS]
   \\ drule_at Any (DISCH_ALL STDIO_precond |> REWRITE_RULE [AND_IMP_INTRO])
   \\ disch_then (drule_at Any)
-  \\ fs (DB.find "refs_def" |> map (fst o snd))
+  \\ fs (DB.find "refs_def" |> map (#1 o #2))
   \\ disch_then $ irule_at Any
   \\ fs [CommandLineProofTheory.COMMANDLINE_def,set_sepTheory.cond_STAR]
   \\ fs [clFFITheory.cl_ffi_part_def]
@@ -204,7 +205,7 @@ Proof
     \\ fs [repl_prog_st_def]
     \\ every_case_tac \\ fs []
     \\ gvs []
-    \\ qmatch_goalsub_abbrev_tac ‘W8array (_::ys)’
+    \\ qmatch_goalsub_abbrev_tac ‘_ :: W8array (_::ys) :: _’
     \\ qexists_tac ‘0w::ys’ \\ fs [EVAL  “store2heap_aux 0 (W8array x :: xs)”]
     \\ unabbrev_all_tac \\ EVAL_TAC)
   \\ rpt (pop_assum $ irule_at Any)
@@ -222,7 +223,7 @@ Proof
 QED
 
 Theorem repl_types_repl_prog:
-  Decls init_env
+  Prog init_env
     (init_state (basis_ffi cl fs) with
      eval_state := SOME (EvalDecs (s with env_id_counter := ns))) xs env
     st ∧
@@ -230,12 +231,13 @@ Theorem repl_types_repl_prog:
     (init_state (basis_ffi cl fs) with
      <|clock := ck; eval_state := SOME (EvalDecs s)|>) init_env (xs ++ ys) =
   (s1,res) ∧ s.env_id_counter = ns ∧ repl_prog ≼ xs ∧
+  prog_syntax_ok repl_prog ∧
   (repl_prog_st cl fs).refs ≼ st.refs ∧
   (repl_prog_st cl fs).next_type_stamp ≤ st.next_type_stamp ∧
   (repl_prog_st cl fs).next_exn_stamp ≤ st.next_exn_stamp ∧
   st.ffi = (repl_prog_st cl fs).ffi ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
-  st.fp_state = (init_state (basis_ffi cl fs)).fp_state ∧
-  hasFreeFD fs ∧ file_content fs «config_enc_str.txt» = SOME content ⇒
+  hasFreeFD fs ∧ file_content fs «config_enc_str.txt» = SOME content
+  ⇒
   res = Rerr (Rabort Rtimeout_error) ∨
   ∃ck1 r1 env_cl e_cl s_cl res_cl.
     evaluate_decs (st with clock := ck1) (merge_env env init_env) ys =
@@ -250,7 +252,7 @@ Theorem repl_types_repl_prog:
      ∃cl_v.
        LIST_TYPE STRING_TYPE (TL cl) cl_v ∧ res_cl = Rval [cl_v] ∧
        ∀ck junk. ∃env_pr e_pr res_pr s_pr.
-         do_opapp [Repl_charsFrom_v; Litv (StrLit "config_enc_str.txt")] =
+         do_opapp [Repl_charsFrom_v; Litv (StrLit «config_enc_str.txt»)] =
          SOME (env_pr,e_pr) ∧
          evaluate
            (s_cl with
@@ -264,6 +266,8 @@ Theorem repl_types_repl_prog:
 Proof
   assume_tac repl_prog_types_thm
   \\ assume_tac th2
+  \\ Cases_on ‘prog_syntax_ok repl_prog’ \\ asm_rewrite_tac []
+  \\ dxrule_all Decls_IMP_Prog \\ strip_tac
   \\ assume_tac repl_rs_thm
   \\ rpt strip_tac
   \\ gvs [evaluate_decs_append,merge_env_intro]
@@ -271,8 +275,8 @@ Proof
       fs [semanticPrimitivesTheory.eval_decs_state_component_equality]
   \\ fs [] \\ pop_assum kall_tac
   \\ qabbrev_tac ‘st4 = init_state (basis_ffi cl fs) with eval_state := SOME (EvalDecs s)’
-  \\ qpat_x_assum ‘Decls init_env st4 _ _ _’ mp_tac
-  \\ simp [Once Decls_def] \\ strip_tac
+  \\ qpat_x_assum ‘Prog init_env st4 _ _ _’ mp_tac
+  \\ simp [Once Prog_def] \\ strip_tac
   \\ Cases_on ‘res = Rerr (Rabort Rtimeout_error)’ \\ fs []
   \\ Cases_on ‘evaluate_decs (st4 with clock := ck) init_env xs’ \\ gvs []
   \\ Cases_on ‘r = Rerr (Rabort Rtimeout_error)’ >- gvs []
@@ -294,7 +298,7 @@ Proof
     \\ irule_at Any repl_types_init
     \\ first_x_assum $ irule_at $ Pos hd
     \\ last_x_assum mp_tac
-    \\ fs [Decls_def,merge_env_intro] \\ rw []
+    \\ fs [Prog_def,merge_env_intro] \\ rw []
     \\ drule evaluatePropsTheory.evaluate_decs_set_clock
     \\ disch_then (qspec_then ‘q.clock’ mp_tac)
     \\ fs [] \\ rw []
@@ -362,5 +366,3 @@ Proof
   \\ irule repl_types_set_clock
   \\ asm_rewrite_tac []
 QED
-
-val _ = export_theory();

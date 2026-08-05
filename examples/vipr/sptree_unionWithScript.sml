@@ -1,9 +1,11 @@
 (*
   Define unionWith for sptrees
 *)
-open preamble sptreeTheory
-
-val _ = new_theory "sptree_unionWith"
+Theory sptree_unionWith
+Ancestors
+  sptree
+Libs
+  preamble
 
 Definition unionWith_def:
   unionWith f LN t = t ∧
@@ -66,4 +68,3 @@ Proof
   \\ every_case_tac \\ gvs [lookup_def,lookup_mk_BN_BS]
 QED
 
-val _ = export_theory ()

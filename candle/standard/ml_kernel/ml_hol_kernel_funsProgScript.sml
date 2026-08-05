@@ -4,23 +4,24 @@
   monadic translator proves certificate theorems that state a formal
   connection between the generated code and the input HOL functions.
 *)
-open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory libTheory evaluateTheory semanticPrimitivesTheory
-open ml_progLib ml_progTheory evaluateTheory
-open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
-open cfHeapsBaseTheory basisFunctionsLib
-open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib
-open holKernelTheory
-open basisProgTheory
-open holAxiomsSyntaxTheory (* for setting up the context *)
-local open holKernelPmatchTheory in end
-open runtime_checkTheory runtime_checkLib; (* Adds runtime type checks *)
+Theory ml_hol_kernel_funsProg
+Ancestors
+  ml_translator ml_pmatch patternMatches ast evaluate
+  semanticPrimitives ml_prog evaluate set_sep cf cfStore
+  cfHeapsBase ml_monadBase ml_monad_translator holKernel
+  basisProg
+  holAxiomsSyntax (* for setting up the context *)
+  runtime_check (* Adds runtime type checks *)
+  holKernelPmatch[qualified]
+Libs
+  preamble ml_translatorLib ml_progLib cfTacticsLib Satisfy
+  basisFunctionsLib ml_monadStoreLib ml_monad_translatorLib
+  runtime_checkLib (* Adds runtime type checks *)
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "ml_hol_kernel_funsProg";
 val _ = translation_extends "basisProg"
 
 val _ = (use_full_type_names := false);
@@ -45,8 +46,8 @@ val HOL_EXN_TYPE_def = theorem"HOL_EXN_TYPE_def";
 (* add an abbreviation mapping hol_type to type for HOL Light *)
 
 val _ = ml_prog_update
-  (add_Dtabbrev “unknown_loc” “[]:string list” “"hol_type"”
-                “Atapp [] (Short "type")”);
+  (add_Dtabbrev “unknown_loc” “[]:mlstring list” “«hol_type»”
+                “Atapp [] (Short «type»)”);
 
 val _ = ml_prog_update (open_module "Kernel");
 
@@ -54,30 +55,34 @@ val _ = ml_prog_update open_local_block;
 
 (* Initialize the translation *)
 
-val init_type_constants_def = Define `
-  init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]`;
+Definition init_type_constants_def:
+  init_type_constants = [(«bool»,0); («fun»,2:num)]
+End
 
-val init_term_constants_def = Define `
-  init_term_constants = [(strlit"=",
-    Tyapp (strlit"fun")
-      [Tyvar (strlit"A");
-       Tyapp (strlit"fun")
-         [Tyvar (strlit"A");
-          Tyapp (strlit"bool") []]])]`;
+Definition init_term_constants_def:
+  init_term_constants = [(«=»,
+    Tyapp «fun»
+      [Tyvar «A»;
+       Tyapp «fun»
+         [Tyvar «A»;
+          Tyapp «bool» []]])]
+End
 
-val init_axioms_def = Define `
-  init_axioms = []:thm list`;
+Definition init_axioms_def:
+  init_axioms = []:thm list
+End
 
-Triviality init_axioms_alt:
-  init_axioms = case [Sequent [] (Var (strlit "") (Tyvar (strlit "")))] of
+Theorem init_axioms_alt[local]:
+  init_axioms = case [Sequent [] (Var «» (Tyvar «»))] of
                 | [] => []
                 | (_ :: xs) => xs
 Proof
   EVAL_TAC
 QED
 
-val init_context_def = Define `
-  init_context = ^(rhs(concl(holSyntaxTheory.init_ctxt_def)))`;
+Definition init_context_def:
+  init_context = ^(rhs(concl(holSyntaxTheory.init_ctxt_def)))
+End
 
 val refs_init_list = [
   ("the_type_constants", init_type_constants_def, get_the_type_constants_def,
@@ -127,9 +132,11 @@ val res = translate check_tm_tm_def;
 (*
 val res = translate mlstringTheory.explode_aux_def;
 val res = translate mlstringTheory.explode_def;
-val explode_aux_side_thm = Q.prove(
-  `∀s n m. n + m = strlen s ==> explode_aux_side s n m `,
-  Induct_on`m` \\ rw[Once (theorem"explode_aux_side_def")]);
+Theorem explode_aux_side_thm[local]:
+  ∀s n m. n + m = strlen s ==> explode_aux_side s n m
+Proof
+  Induct_on`m` \\ rw[Once (theorem"explode_aux_side_def")]
+QED
 val explode_side_thm = Q.prove(
   `explode_side x`,
   rw[definition"explode_side_def",explode_aux_side_thm])
@@ -173,12 +180,6 @@ val _ = ml_prog_update open_local_block;
 
 val res = translate alphavars_def;
 val res = translate holKernelPmatchTheory.raconv_def;
-
-Theorem raconv_side = Q.prove(`
-  !x y z. raconv_side x y z`,
-  ho_match_mp_tac holKernelTheory.raconv_ind
-  \\ ntac 4 (rw [Once (fetch "-" "raconv_side_def")]))
-  |> update_precondition;
 
 val res = translate (check [‘tm1’,‘tm2’] aconv_def);
 
@@ -258,7 +259,7 @@ val res = translate concl_def;
 
 val _ = ml_prog_update open_local_block;
 
-val type_compare_def = tDefine "type_compare" `
+Definition type_compare_def:
   (type_compare t1 t2 =
      case (t1,t2) of
      | (Tyvar x1,Tyvar x2) => mlstring$compare x1 x2
@@ -276,10 +277,8 @@ val type_compare_def = tDefine "type_compare" `
      | (t1::ts1,t2::ts2) =>
          (case type_compare t1 t2 of
           | Equal => type_list_compare ts1 ts2
-          | other => other))`
-  (WF_REL_TAC `measure (\x. case x of
-                  INR (x,_) => type1_size x
-                | INL (x,_) => type_size x)`)
+          | other => other))
+End
 
 val type_cmp_thm = Q.prove(
   `(type_cmp = type_compare) /\
@@ -294,11 +293,11 @@ val type_cmp_thm = Q.prove(
   |> CONJUNCT1;
 
 val _ = add_preferred_thy "-";
-val _ = save_thm("type_cmp_ind",
-          (fetch "-" "type_compare_ind") |> RW [GSYM type_cmp_thm]);
+Theorem type_cmp_ind =
+  (fetch "-" "type_compare_ind") |> RW [GSYM type_cmp_thm]
 val res = translate (type_compare_def |> RW [GSYM type_cmp_thm]);
 
-val term_compare_def = Define `
+Definition term_compare_def:
   term_compare t1 t2 =
      case (t1,t2) of
        (Var x1 ty1,Var x2 ty2) =>
@@ -332,21 +331,24 @@ val term_compare_def = Define `
          case term_compare s1' s2' of
            Less => Less
          | Equal => term_compare t1' t2'
-         | Greater => Greater`;
+         | Greater => Greater
+End
 
-val term_cmp_thm = Q.prove(
-  `term_cmp = term_compare`,
+Theorem term_cmp_thm[local]:
+  term_cmp = term_compare
+Proof
   fs [FUN_EQ_THM]
   \\ HO_MATCH_MP_TAC (fetch "-" "term_compare_ind")
   \\ REPEAT STRIP_TAC \\ fs []
   \\ ONCE_REWRITE_TAC [holSyntaxExtraTheory.term_cmp_thm]
   \\ ONCE_REWRITE_TAC [term_compare_def]
   \\ REPEAT BasicProvers.CASE_TAC
-  \\ fs [comparisonTheory.pair_cmp_def])
+  \\ fs [comparisonTheory.pair_cmp_def]
+QED
 
 val _ = add_preferred_thy "-";
-val _ = save_thm("term_cmp_ind",
-          (fetch "-" "term_compare_ind") |> RW [GSYM term_cmp_thm]);
+Theorem term_cmp_ind =
+  (fetch "-" "term_compare_ind") |> RW [GSYM term_cmp_thm]
 val res = translate (term_compare_def |> RW [GSYM term_cmp_thm]);
 
 val res = translate (check [‘ty’] holKernelPmatchTheory.codomain_def);
@@ -379,7 +381,10 @@ val def = mk_type_def |> check [‘tyop’,‘args’] |> m_translate;
 
 val _ = ml_prog_update open_local_block;
 
-val def = mk_fun_ty_def |> check [‘ty1’,‘ty2’] |> m_translate;
+val def = bool_ty_def |> translate;
+val def = mk_fun_ty_def |> check [‘ty1’,‘ty2’] |> translate;
+val def = aty_def |> translate;
+val def = bty_def |> translate;
 
 Definition call_type_of_def[simp]:
   call_type_of tm = type_of tm
@@ -445,7 +450,7 @@ val def = add_type_def |> m_translate
 Definition call_new_type_def[simp]:
   call_new_type (n:mlstring, arity:int) =
     if 0 ≤ arity then new_type (n, Num (ABS arity))
-    else raise_Failure (strlit "negative arity")
+    else raise_Failure «negative arity»
 End
 
 val _ = next_ml_names := ["new_type_num"];
@@ -473,6 +478,7 @@ val def = inst_def |> check [‘tyin’,‘tm’] |> m_translate
 
 val _ = ml_prog_update open_local_block;
 
+val def = safe_mk_eq_def |> check [‘l’,‘r’] |> m_translate
 val def = mk_eq_def |> check [‘l’,‘r’] |> m_translate
 val def = list_to_hypset_def |> translate
 
@@ -489,7 +495,13 @@ val MK_COMB_lemma = prove(
   every_case_tac)
   |> CONV_RULE (RAND_CONV (SIMP_CONV std_ss [holKernelPmatchTheory.MK_COMB_def]));
 val def = MK_COMB_lemma |> m_translate
+
 val def = holKernelPmatchTheory.ABS_def |> check [‘v’] |> m_translate
+(* workaround contamination of translator's guts by DoubleProg.abs *)
+Overload abs_v = “abs_1_v”
+Theorem abs_v_def = DB.fetch "-" "abs_1_v_def"
+Theorem abs_v_thm = DB.fetch "-" "abs_1_v_thm"
+
 val def = holKernelPmatchTheory.BETA_def |> check [‘tm’] |> m_translate
 
 val _ = next_ml_names := ["DEDUCT_ANTISYM_RULE"];
@@ -508,19 +520,19 @@ val def = list_to_hypset_def |> translate
 
 val _ = ml_prog_update open_local_in_block;
 
-Triviality axioms_eq:
+Theorem axioms_eq[local]:
   axioms u = one_CASE u get_the_axioms
 Proof
   fs [axioms_def]
 QED
 
-Triviality types_eq:
+Theorem types_eq[local]:
   types u = one_CASE u get_the_type_constants
 Proof
   fs [types_def]
 QED
 
-Triviality constants_eq:
+Theorem constants_eq[local]:
   constants u = one_CASE u get_the_term_constants
 Proof
   fs [constants_def]
@@ -535,5 +547,3 @@ val def = m_translate constants_eq;
 
 val _ = Globals.max_print_depth := 10;
 val _ = print_asts := false;
-
-val _ = export_theory();

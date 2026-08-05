@@ -1,16 +1,16 @@
 (*
   Proof of correctness for the compute primitive.
  *)
+Theory computeProof
+Libs
+  preamble
+Ancestors
+  holSyntax holSyntaxExtra holKernel holKernelProof ml_monadBase
+  compute_syntax compute_syntaxProof compute_eval
+  compute_evalProof compute_execProof compute
 
-open preamble holSyntaxTheory holSyntaxExtraTheory holKernelTheory
-     holKernelProofTheory ml_monadBaseTheory;
-open compute_syntaxTheory compute_syntaxProofTheory;
-open compute_evalTheory compute_evalProofTheory;
-open computeTheory;
 
-val _ = new_theory "computeProof";
-
-val _ = numLib.prefer_num ();
+val _ = numLib.temp_prefer_num ();
 
 Theorem compute_init_thy_ok:
   compute_init ths ∧
@@ -472,5 +472,3 @@ Proof
   \\ resolve_then Any irule trans_equation_simple sym_equation
   \\ first_x_assum (irule_at Any) \\ gs [sym_equation]
 QED
-
-val _ = export_theory ();

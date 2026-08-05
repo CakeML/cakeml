@@ -1,12 +1,13 @@
 (*
   Correctness proof for clos_fvs
 *)
-open preamble closLangTheory clos_fvsTheory closSemTheory closPropsTheory;
-local open backendPropsTheory in end;
+Theory clos_fvsProof
+Ancestors
+  closLang clos_fvs closSem closProps backendProps[qualified]
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "clos_fvsProof";
 
 Theorem LENGTH_remove_fvs:
    !fvs xs. LENGTH (remove_fvs fvs xs) = LENGTH xs
@@ -32,9 +33,10 @@ Proof
   strip_assume_tac(SPEC_ALL remove_fvs_SING) \\ rw[]
 QED
 
-val code_rel_def = Define `
+Definition code_rel_def:
   code_rel fvs e1 e2 <=>
-    e2 = remove_fvs fvs e1`;
+    e2 = remove_fvs fvs e1
+End
 
 Theorem code_rel_IMP_LENGTH:
    !xs ys. code_rel fvs xs ys ==> LENGTH xs = LENGTH ys
@@ -51,15 +53,16 @@ QED
 
 (* value relation *)
 
-val f_rel_def = Define `
+Definition f_rel_def:
   f_rel fvs (a1, e1) (a2, e2) <=>
-     a1 = a2 /\ code_rel (a1+fvs) [e1] [e2]`;
+     a1 = a2 /\ code_rel (a1+fvs) [e1] [e2]
+End
 
 Inductive v_rel:
   (!i. v_rel (Number i) (Number i)) /\
   (!w. v_rel (Word64 w) (Word64 w)) /\
   (!w. v_rel (ByteVector w) (ByteVector w)) /\
-  (!n. v_rel (RefPtr n) (RefPtr n)) /\
+  (!n b. v_rel (RefPtr b n) (RefPtr b n)) /\
   (!tag xs ys.
      LIST_REL v_rel xs ys ==>
        v_rel (Block tag xs) (Block tag ys)) /\
@@ -75,18 +78,19 @@ Inductive v_rel:
        v_rel (Recclosure loc args1 env1 funs1 k) (Recclosure loc args2 env2 funs2 k))
 End
 
-val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ [
+Theorem v_rel_simps[simp] =
+  LIST_CONJ [
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Number n) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Block n p) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Word64 p) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (ByteVector p) x``,
-  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (RefPtr p) x``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (RefPtr b p) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Closure x1 x2 x3 x4 x5) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Recclosure y1 y2 y3 y4 y5) x``,
   prove(``v_rel (Boolv b) x <=> x = Boolv b``,
         Cases_on `b` \\ fs [Boolv_def,Once v_rel_cases]),
   prove(``v_rel Unit x <=> x = Unit``,
-        fs [closSemTheory.Unit_def,Once v_rel_cases])])
+        fs [closSemTheory.Unit_def,Once v_rel_cases])]
 
 (* state relation *)
 
@@ -94,10 +98,13 @@ Inductive ref_rel:
   (!bs. ref_rel (ByteArray bs) (ByteArray bs)) /\
   (!xs ys.
     LIST_REL v_rel xs ys ==>
-    ref_rel (ValueArray xs) (ValueArray ys))
+    ref_rel (ValueArray xs) (ValueArray ys)) /\
+  (!m v w.
+    v_rel v w ==>
+    ref_rel (Thunk m v) (Thunk m w))
 End
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel (s:('c, 'ffi) closSem$state) (t:('c, 'ffi) closSem$state) <=>
     (!n. SND (SND (s.compile_oracle n)) = []) /\
     s.code = FEMPTY /\ t.code = FEMPTY /\
@@ -107,43 +114,52 @@ val state_rel_def = Define `
     LIST_REL (OPTREL v_rel) s.globals t.globals /\
     fmap_rel ref_rel s.refs t.refs /\
     s.compile = pure_cc compile_inc t.compile /\
-    t.compile_oracle = pure_co compile_inc o s.compile_oracle`;
+    t.compile_oracle = pure_co compile_inc o s.compile_oracle
+End
 
 (* *)
 
-val v_rel_IMP_v_to_bytes_lemma = prove(
-  ``!x y.
+Theorem v_rel_IMP_v_to_bytes_lemma[local]:
+    !x y.
       v_rel x y ==>
       !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
-           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))``,
+           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))
+Proof
   ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def]
   \\ Cases_on `tag = cons_tag` \\ fs []
   \\ res_tac \\ fs [case_eq_thms]
   \\ Cases_on `ns` \\ fs []
   \\ eq_tac \\ rw [] \\ fs []
-  \\ Cases_on `h` \\ fs []);
+  \\ Cases_on `h` \\ fs []
+QED
 
-val v_rel_IMP_v_to_bytes = prove(
-  ``v_rel x y ==> v_to_bytes y = v_to_bytes x``,
-  rw [v_to_bytes_def] \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []);
+Theorem v_rel_IMP_v_to_bytes[local]:
+    v_rel x y ==> v_to_bytes y = v_to_bytes x
+Proof
+  rw [v_to_bytes_def] \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []
+QED
 
-val v_rel_IMP_v_to_words_lemma = prove(
-  ``!x y.
+Theorem v_rel_IMP_v_to_words_lemma[local]:
+    !x y.
       v_rel x y ==>
       !ns. (v_to_list x = SOME (MAP Word64 ns)) <=>
-           (v_to_list y = SOME (MAP Word64 ns))``,
+           (v_to_list y = SOME (MAP Word64 ns))
+Proof
   ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def]
   \\ Cases_on `tag = cons_tag` \\ fs []
   \\ res_tac \\ fs [case_eq_thms]
   \\ Cases_on `ns` \\ fs []
   \\ eq_tac \\ rw [] \\ fs []
-  \\ Cases_on `h` \\ fs []);
+  \\ Cases_on `h` \\ fs []
+QED
 
-val v_rel_IMP_v_to_words = prove(
-  ``v_rel x y ==> v_to_words y = v_to_words x``,
-  rw [v_to_words_def] \\ drule v_rel_IMP_v_to_words_lemma \\ fs []);
+Theorem v_rel_IMP_v_to_words[local]:
+    v_rel x y ==> v_to_words y = v_to_words x
+Proof
+  rw [v_to_words_def] \\ drule v_rel_IMP_v_to_words_lemma \\ fs []
+QED
 
 
 (* *)
@@ -225,39 +241,89 @@ Proof
    \\ irule EVERY2_APPEND_suff \\ simp []
 QED
 
-val simple_state_rel = prove(
-  ``simple_state_rel v_rel state_rel``,
+Theorem simple_state_rel[local]:
+    simple_state_rel v_rel state_rel
+Proof
   fs [simple_state_rel_def, state_rel_def]
   \\ rw [] \\ fs [fmap_rel_def, FLOOKUP_DEF] \\ rfs []
   \\ TRY (first_x_assum drule \\ fs [ref_rel_cases])
   \\ fs [FAPPLY_FUPDATE_THM]
-  \\ rw [] \\ fs [ref_rel_cases]);
+  \\ rw [] \\ fs [ref_rel_cases]
+QED
 
-val do_app_lemma = prove(
-  ``state_rel s t /\ LIST_REL v_rel xs ys ==>
+Theorem do_app_lemma[local]:
+    state_rel s t /\ LIST_REL v_rel xs ys ==>
     case do_app opp xs s of
       | Rerr err1 => ?err2. do_app opp ys t = Rerr err2 /\
                             exc_rel v_rel err1 err2
       | Rval (x, s1) => ?y t1. v_rel x y /\ state_rel s1 t1 /\
-                               do_app opp ys t = Rval (y, t1)``,
+                               do_app opp ys t = Rval (y, t1)
+Proof
   match_mp_tac simple_val_rel_do_app
-  \\ fs [simple_state_rel, simple_val_rel_def] \\ rw [] \\ fs [v_rel_cases]);
+  \\ fs [simple_state_rel, simple_val_rel_def] \\ rw [] \\ fs [v_rel_cases]
+QED
 
-val do_install_lemma = prove(
-  ``state_rel s t /\ LIST_REL v_rel xs ys ==>
+Theorem do_install_lemma[local]:
+    state_rel s t /\ LIST_REL v_rel xs ys ==>
     case do_install xs s of
       | (Rerr err1, s1) => ?err2 t1. do_install ys t = (Rerr err2, t1) /\
                             exc_rel v_rel err1 err2 /\ state_rel s1 t1
       | (Rval exps1, s1) => ?exps2 t1. state_rel s1 t1 /\ (~ (exps1 = [])) /\
                                code_rel 0 exps1 exps2 /\
-                               do_install ys t = (Rval exps2, t1)``,
+                               do_install ys t = (Rval exps2, t1)
+Proof
   ho_match_mp_tac (Q.SPEC `compile_inc` simple_val_rel_do_install)
   \\ fs [simple_compile_state_rel_def, simple_state_rel]
   \\ fs [compile_inc_def, pairTheory.FORALL_PROD, compile_def,
             LENGTH_remove_fvs, code_rel_def, state_rel_def]
   \\ rw [shift_seq_def, backendPropsTheory.pure_co_def, FUN_EQ_THM,
             simple_val_rel_def]
-  \\ fs [v_rel_cases]);
+  \\ fs [v_rel_cases]
+QED
+
+Theorem state_rel_opt_rel_refs[local]:
+  (state_rel s1 s2 ∧ FLOOKUP s1.refs n = r1 ⇒
+     ∃r2. FLOOKUP s2.refs n = r2 ∧ OPTREL ref_rel r1 r2) ∧
+  (state_rel s1 s2 ∧ FLOOKUP s2.refs n = r2 ⇒
+     ∃r1. FLOOKUP s1.refs n = r1 ∧ OPTREL ref_rel r1 r2)
+Proof
+  rw [] \\ gvs [state_rel_def, fmap_rel_def, FLOOKUP_DEF] \\ rw []
+QED
+
+Theorem state_rel_clocks_eqs[local]:
+  state_rel s1 s2 ⇒ s1.clock = s2.clock
+Proof
+  rw [state_rel_def, state_component_equality]
+QED
+
+Theorem state_rel_dec_clock[local]:
+  state_rel s1 s2 ⇒ state_rel (dec_clock 1 s1) (dec_clock 1 s2)
+Proof
+  rw [state_rel_def, dec_clock_def, state_component_equality]
+QED
+
+Theorem rel_update_thunk[local]:
+  state_rel s1 s2 ∧
+  LIST_REL v_rel vs ys ⇒
+    (update_thunk [RefPtr v ptr] s1.refs vs = NONE ⇒
+       update_thunk [RefPtr v ptr] s2.refs ys = NONE) ∧
+    (update_thunk [RefPtr v ptr] s1.refs vs = SOME refs1 ⇒
+       ∃refs2. update_thunk [RefPtr v ptr] s2.refs ys = SOME refs2 ∧
+               state_rel (s1 with refs := refs1) (s2 with refs := refs2))
+Proof
+  rw []
+  \\ gvs [oneline update_thunk_def, AllCaseEqs()] \\ rw []
+  \\ gvs [oneline dest_thunk_def, AllCaseEqs()]
+  \\ (
+    gvs [Once v_rel_cases, oneline store_thunk_def, AllCaseEqs()]
+    \\ rpt (
+      imp_res_tac state_rel_opt_rel_refs \\ rw []
+      \\ gvs [oneline OPTREL_THM]
+      \\ FULL_CASE_TAC \\ gvs []
+      \\ rgs [Once ref_rel_cases])
+    \\ gvs [state_rel_def, fmap_rel_def, FAPPLY_FUPDATE_THM] \\ rw []
+    \\ simp [Once ref_rel_cases])
+QED
 
 (* evaluate level correctness *)
 
@@ -387,7 +453,20 @@ Proof
       \\ fs []
       \\ CCONTR_TAC
       \\ fs [])
-    (* op <> Install *)
+    \\ IF_CASES_TAC \\ rveq \\ fs [] >- ((* Op = ThunkOp ForceThunk *)
+      gvs [AllCaseEqs(), PULL_EXISTS]
+      \\ (
+        gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
+        \\ imp_res_tac (cj 1 state_rel_opt_rel_refs)
+        \\ qpat_x_assum `OPTREL ref_rel _ _` mp_tac
+        \\ simp [oneline OPTREL_THM] \\ CASE_TAC \\ gvs []
+        \\ rgs [Once ref_rel_cases]
+        \\ imp_res_tac state_rel_clocks_eqs \\ gvs [PULL_EXISTS]
+        \\ imp_res_tac state_rel_dec_clock \\ gvs []
+        \\ last_x_assum drule_all \\ rw [AppUnit_def, remove_fvs_def]
+        \\ goal_assum drule \\ rw []
+        \\ drule_all rel_update_thunk \\ rw []))
+    (* op <> Install ∧ op <> ThunkOp ForceThunk *)
     \\ drule EVERY2_REVERSE \\ disch_tac
     \\ drule (GEN_ALL do_app_lemma)
     \\ disch_then drule
@@ -479,20 +558,18 @@ Proof
   \\ `s1.max_app = t1.max_app` by fs [state_rel_def]
   \\ fs [case_eq_thms] \\ rveq \\ fs []
   THEN1 (* dest_closure returns NONE *) (
-    rw[evaluate_def]
+    first_assum $ irule_at $ Pos last
+    \\ rw[evaluate_def]
+    \\ qsuff_tac ‘dest_closure t1.max_app loc_opt f2 (y::ys) = NONE’ >- gvs []
     \\ fs [dest_closure_def]
-    \\ fs [case_eq_thms] \\ rveq \\ fs[]
-    >- (
-      rw[] \\ fs[CaseEq"bool"]
-      \\ imp_res_tac LIST_REL_LENGTH \\ fs [] )
+    \\ gvs [AllCaseEqs()]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ gvs [LIST_REL_EL_EQN]
+    \\ Cases_on ‘i < LENGTH fns’ \\ gvs []
+    \\ res_tac
     \\ rpt(pairarg_tac \\ fs[]) \\ rveq
-    \\ imp_res_tac LIST_REL_LENGTH
-    \\ qpat_x_assum`_ ⇒ _`mp_tac
-    \\ simp[Once COND_RAND]
-    \\ Cases_on`i < LENGTH fns` \\ fs[]
-    \\ imp_res_tac LIST_REL_EL_EQN
-    \\ rfs[f_rel_def] \\ rveq
-    \\ strip_tac \\ fs[] )
+    \\ fs [f_rel_def]
+    \\ gvs [AllCaseEqs()])
   THEN1 (* dest_closure returns SOME Partial_app *)
    (imp_res_tac dest_closure_SOME_IMP
     \\ rveq \\ fs [] \\ rveq
@@ -730,4 +807,3 @@ Proof
   \\ rw[] \\ fs[]
 QED
 
-val _ = export_theory();
