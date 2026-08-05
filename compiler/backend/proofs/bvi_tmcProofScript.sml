@@ -2952,13 +2952,32 @@ Proof
   >> ‘j ∈ FRANGE f’ by gvs [FRANGE_FLOOKUP]
 QED
 
+Theorem holes_unchanged_except_finalised:
+  ∀f p ptr r1 r2 tag fin1 left child right fin2.
+    holes_unchanged_except f (r1 \\ ptr) r2 EMPTY ∧
+    FLOOKUP r1 ptr = SOME (MutBlock tag fin1 left child right) ∧
+    ptr ∉ FRANGE f ⇒
+    holes_unchanged_except f r1 r2⟨ptr ↦ MutBlock tag fin2 left child right⟩ EMPTY
+Proof
+  rw []
+  >> gvs [holes_unchanged_except_def]
+  >> rw []
+  >> Cases_on ‘ptr = ptr'’
+  >- gvs [DOMSUB_FLOOKUP, FLOOKUP_SIMP]
+  >> gvs [FLOOKUP_SIMP]
+  >> first_x_assum irule
+  >> gvs [DOMSUB_FLOOKUP_NEQ]
+QED
+
 Theorem evaluate_finalise_cons:
   ∀v2 t_refs f s_refs v1.
     state_ref_rel f s_refs t_refs ∧
     mb_rel f t_refs v1 v2 ⇒
     ∃v3 t_refs'.
-      finalise_cons v2 t_refs = SOME (v3, t_refs') ∧
-      v_rel f v1 v3
+      finalise_cons v2 t_refs = SOME (v3,t_refs') ∧
+      v_rel f v1 v3 ∧
+      state_ref_rel f s_refs t_refs' ∧
+      holes_unchanged_except f t_refs t_refs' EMPTY
 Proof
   recInduct finalise_cons_ind
   >> rw []
@@ -2974,8 +2993,8 @@ Proof
         >> first_x_assum drule
         >> strip_tac
         >> gvs [])
-      >> CASE_TAC
-      >> gvs [state_ref_rel_def]
+      >> CASE_TAC >> gvs []
+      >> gvs [state_ref_rel_def, holes_unchanged_except_refl]
       >> Cases_on ‘FLOOKUP s_refs n’
       >- gvs [FLOOKUP_DEF]
       >> last_x_assum drule
@@ -2983,26 +3002,19 @@ Proof
       >> gvs [ref_rel_cases, v_rel_cases])
     >> Cases_on ‘FLOOKUP refs ptr’ >> gvs []
     >> Cases_on ‘x’ >> gvs []
-    >> drule_all state_ref_rel_sub
-    >> strip_tac
-    >> CASE_TAC
-    >-
-     (first_x_assum drule_all
-      >> strip_tac
-      >> gvs [])
-    >> CASE_TAC
-    >> irule LIST_REL_APPEND_suff
-    >> gvs []
+    >> imp_res_tac state_ref_rel_sub
     >> first_x_assum drule_all
-    >> strip_tac >> gvs [v_rel_cases])
+    >> strip_tac >> gvs [] >> irule_at Any LIST_REL_APPEND_suff >> gvs [v_rel_cases]
+    >> irule_at Any state_ref_rel_filled >> gvs []
+    >> irule holes_unchanged_except_finalised >> gvs [])
   >~ [‘Number i’] >-
-   (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def])
+   (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def, holes_unchanged_except_def])
   >~ [‘Word64 w’] >-
-   (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def])
+   (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def, holes_unchanged_except_def])
   >~ [‘Block xs ys’] >-
-   (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def])
+   (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def, holes_unchanged_except_def])
   >~ [‘CodePtr p’] >-
-   (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def])
+   (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def, holes_unchanged_except_def])
 QED
 
 Theorem code_rel_cases:
@@ -3117,6 +3129,7 @@ Theorem evaluate_cb:
                 mb_rel f_work (t_work.refs \\ hole_ptr) res_v res_v' ∧
                 hole_has_val f env env2 t_work.refs res_v'))
 Proof
+
   reverse $ Induct
   >- (rpt gen_tac
       >> strip_tac
@@ -3290,6 +3303,7 @@ Proof
               >> gvs []
               >> first_assum $ irule_at Any
               >> gvs [hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP])))
+
   >- (rpt gen_tac
       >> strip_tac
       >> rename [‘CallBlock tag left child right’]
@@ -3417,18 +3431,20 @@ Proof
           >> strip_tac
           >> gvs [])
         >> conj_tac
-        >- cheat
-        >> conj_tac
+        >- gvs [state_rel_def]
+        >> conj_asm1_tac
         >-
          (irule only_fresh_del
           >> first_assum $ irule_at $ Pos $ el 2
           >> irule fresh_not_in_range_f
           >> gvs [state_rel_def]
           >> first_assum $ irule_at Any)
+        >> irule holes_unchanged_except_trans
+        >> first_x_assum $ irule_at $ Pos last
+        >> gvs []
         >> irule holes_unchanged_except_del_SING
-        >> cheat
-        (*>> first_assum $ irule_at $ Pos $ el 2
-        >> irule_at Any fresh_ptr_fresh*))
+        >> first_assum $ irule_at $ Pos $ el 2
+        >> irule_at Any fresh_ptr_fresh)
       (* Aux *)
       >-
        (first_x_assum drule
