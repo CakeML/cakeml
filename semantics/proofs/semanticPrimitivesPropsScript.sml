@@ -805,9 +805,7 @@ Proof
   fs[]
   >- (
     fs[lit_same_type_def]>>
-    every_case_tac>>fs[])
-  >- (every_case_tac>>gvs[])
-  >- (every_case_tac>>gvs[])>>
+    every_case_tac>>fs[])>>
   pop_assum mp_tac>>
   TOP_CASE_TAC>>fs[]>>
   TOP_CASE_TAC>>fs[]
@@ -835,30 +833,21 @@ Proof
   >- (
     Cases_on`z`>>fs[do_eq_def]>>
     Cases_on`p`>>fs[do_eq_def])
-  >>~-(
-    [`Boolv`],
-    fs[Boolv_def]>>
-    every_case_tac>>gvs[]>>
-    Cases_on`z`>>gvs[do_eq_def,Boolv_def]>>
-    every_case_tac>>fs[])
-  >>~-(
-    [`FP_WordTree`],
-    Cases_on`z`>>gvs[do_eq_def]>>
-    every_case_tac>>fs[]>>
-    Cases_on`l`>>gvs[do_eq_def]>>
-    every_case_tac>>fs[])>>
+  >>
   Cases_on`z`>>gvs[do_eq_def]>>
   every_case_tac>>fs[]
 QED
 
+(* Note: this cannot be strengthened to do_eq x y = Eq_val T, because
+   do_eq (Loc F n) (Loc F n) = Eq_type_error. *)
 Theorem simple_val_rel_do_eq:
   simple_val_rel vr ⇒
   (∀x y.
     vr x y ⇒
-    do_eq x y = Eq_val T) ∧
+    do_eq x y = do_eq y y) ∧
   (∀xs ys.
     LIST_REL vr xs ys ⇒
-    do_eq_list xs ys = Eq_val T)
+    do_eq_list xs ys = do_eq_list ys ys)
 Proof
   strip_tac>>
   ho_match_mp_tac do_eq_ind>>
@@ -866,7 +855,9 @@ Proof
   imp_res_tac simple_val_rel_vr>>
   gvs[]>>
   rw[do_eq_def]>>
-  gvs[LIST_REL_EL_EQN,is_clos_iff]
+  gvs[LIST_REL_EL_EQN,is_clos_iff]>>
+  TOP_CASE_TAC>>gvs[]>>
+  IF_CASES_TAC>>gvs[]
 QED
 
 Theorem simple_val_rel_do_eq_2:
@@ -890,48 +881,19 @@ Proof
     rw[]>>
     TOP_CASE_TAC>>gs[]>>
     TOP_CASE_TAC>>gs[]>>
-    metis_tac[simple_val_rel_do_eq])
+    `do_eq y y = Eq_val T` by metis_tac[do_eq_sym,do_eq_trans]>>
+    `do_eq x y = Eq_val T` by metis_tac[simple_val_rel_do_eq]>>
+    gvs[])
   >- (
     Cases_on`bs`>>
     gvs[do_eq_def])>>
   imp_res_tac simple_val_rel_vr>>
-  gvs[]
-  >>~-(
-    [`do_eq (Env _ _) _ = _`],
-    Cases_on`b`>>
-    fs[do_eq_def,is_clos_iff]>>
-    Cases_on`p`>>simp[do_eq_def])
-  >>~- (
-    [`do_eq (FP_BoolTree _) _ = _`],
-    Cases_on`b`>>
-    fs[do_eq_def,is_clos_iff]>>
-    simp[Boolv_def]>>
-    every_case_tac>>gvs[do_eq_def])
-  >>~- (
-    [`do_eq (Vectorv _) _ = _`],
-    Cases_on`b`>>
-    fs[do_eq_def,is_clos_iff]>>
-    imp_res_tac LIST_REL_LENGTH>>rw[])
-  >>~- (
-    [`do_eq (Conv _ _) _ = _`],
-    every_case_tac>>gvs[do_eq_def,is_clos_iff]
-    >- (rw[]>>gvs[LIST_REL_EL_EQN,ctor_same_type_refl])
-    >- (
-      TOP_CASE_TAC>>fs[]>>
-      imp_res_tac LIST_REL_LENGTH>>
-      gs[Boolv_def]>>
-      every_case_tac>>fs[]))>>
-  every_case_tac>>gvs[do_eq_def,is_clos_iff]
-QED
-
-Theorem vr_fp_translate:
-  simple_val_rel vr ∧
-  vr x y ⇒
-  fp_translate x = fp_translate y
-Proof
-  rw[]>>drule_all simple_val_rel_vr>>
-  every_case_tac>>rw[]>>
-  fs[fp_translate_def,is_clos_iff]
+  gvs[]>>
+  Cases_on`b`>>gvs[do_eq_def,is_clos_iff]>>
+  every_case_tac>>gvs[do_eq_def,is_clos_iff]>>
+  imp_res_tac LIST_REL_LENGTH>>
+  gvs[ctor_same_type_refl]>>
+  Cases_on`p`>>gvs[do_eq_def]
 QED
 
 Theorem vr_v_to_char_list:
@@ -1046,10 +1008,7 @@ Proof
   gvs[AllCaseEqs()]>>
   imp_res_tac simple_val_rel_vr>>
   gvs[]>>
-  gvs[do_app_def,AllCaseEqs(),is_clos_iff,store_alloc_def]
-  >>~-(
-    [`fp_translate`],
-    metis_tac[vr_fp_translate])>>
+  gvs[do_app_def,AllCaseEqs(),is_clos_iff,store_alloc_def]>>
   imp_res_tac LIST_REL_store_lookup>>
   gvs[sv_rel_cases]>>
   imp_res_tac LIST_REL_LENGTH>>gvs[]
@@ -1102,18 +1061,12 @@ Theorem simple_val_rel_rewrites:
   simple_val_rel vr ⇒
   (∀x y.
     vr (Litv x) (Litv y) ⇔ x = y) ∧
-  (∀x y.
-    vr (Loc x) (Loc y) ⇔ x = y) ∧
+  (∀b1 x b2 y.
+    vr (Loc b1 x) (Loc b2 y) ⇔ b1 = b2 ∧ x = y) ∧
   (∀a b x y.
     vr (Conv a b) (Conv x y) ⇔ a = x ∧ LIST_REL vr b y) ∧
   (∀x y.
     vr (Boolv x) (Boolv y) ⇔ x = y) ∧
-  (∀x y.
-    vr (FP_BoolTree x) (FP_BoolTree y) ⇔ x = y) ∧
-  (∀x y.
-    vr (FP_WordTree x) (FP_WordTree y) ⇔ x = y) ∧
-  (∀x y.
-    vr (Real x) (Real y) ⇔ x = y) ∧
   (∀x y.
     vr (Vectorv x) (Vectorv y) ⇔ LIST_REL vr x y)
 Proof
@@ -1160,9 +1113,6 @@ Proof
   simp[simple_val_rel_rewrites, simple_val_rel_list_to_v,RIGHT_AND_OVER_OR,result_rel_Rval2,EXISTS_OR_THM,simple_val_rel_rewrites]>>
   imp_res_tac LIST_REL_LENGTH>>
   fs[]
-  >>~-(
-    [`fp_translate`],
-    metis_tac[vr_fp_translate])
   >>~- (
     [`v_to_list`],
     imp_res_tac vr_v_to_list>>

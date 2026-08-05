@@ -17,12 +17,11 @@
        need to be made.
 
  *)
-
-open preamble astTheory mlmapTheory mlstringTheory;
-
-val _ = new_theory "source_lift_consts";
-
-val _ = set_grammar_ancestry ["ast", "mlstring", "mlmap", "misc"];
+Theory source_lift_consts
+Ancestors
+  ast mlstring mlmap misc[qualified]
+Libs
+  preamble
 
 (* --------------------------------------------------------- *
     Set up for handling variable sets and fresh names
@@ -43,12 +42,12 @@ End
 
 Definition bump_all_def:
   bump_all [] n = n ∧
-  bump_all (x::xs) n = bump_all xs (bump (implode x) n)
+  bump_all (x::xs) n = bump_all xs (bump x n)
 End
 
 Definition bump_pat_def:
   bump_pat n Pany = (n:num) ∧
-  bump_pat n (Pvar vname) = bump (implode vname) n ∧
+  bump_pat n (Pvar vname) = bump vname n ∧
   bump_pat n (Plit l) = n ∧
   bump_pat n (Pref p) = bump_pat n p ∧
   bump_pat n (Pas p x) = bump_pat n p ∧
@@ -60,12 +59,12 @@ End
 
 Definition delete_all_def:
   delete_all [] s = s ∧
-  delete_all (n::ns) s = delete (delete_all ns s) (implode n)
+  delete_all (n::ns) s = delete (delete_all ns s) n
 End
 
 Definition disjoint_def:
   disjoint [] s = T ∧
-  disjoint (n::ns) s = case lookup s (implode n) of
+  disjoint (n::ns) s = case lookup s n of
                        | NONE => disjoint ns s
                        | SOME (_:unit) => F
 End
@@ -104,7 +103,7 @@ Definition no_const_fun_def:
 End
 
 Definition annotate_exp_def:
-  (annotate_exp (t:string list) (ast$Lit l) =
+  (annotate_exp (t:mlstring list) (ast$Lit l) =
      (Constant (Lit l),0,str_empty)) ∧
   (annotate_exp t (Con cn es) =
      let (es,n,fvs) = annotate_exps t es in
@@ -113,7 +112,7 @@ Definition annotate_exp_def:
        else (Con cn es,n,fvs)) ∧
   (annotate_exp t (Fun x e) =
      let (e,n,fvs1) = annotate_exp (x :: t) e in
-     let fvs = delete fvs1 (implode x) in
+     let fvs = delete fvs1 x in
        if disjoint t fvs then
          (Constant (Fun x (no_const_fun e)),n,fvs)
        else
@@ -127,8 +126,8 @@ Definition annotate_exp_def:
   (annotate_exp t (Var x) =
      case x of
      | Short vname =>
-        (Var x, bump (implode vname) 0,
-          insert str_empty (implode vname) ())
+        (Var x, bump vname 0,
+          insert str_empty vname ())
      | _ => (Var x,0,str_empty)) ∧
   (annotate_exp t (ast$App op es) =
      let (es,n,fvs) = annotate_exps t es in
@@ -147,7 +146,7 @@ Definition annotate_exp_def:
      let (e1,n1,fvs1) = annotate_exp t e1 in
      let (e2,n2,fvs2) = annotate_exp (x::t) e2 in
        (Let (SOME x) e1 e2, MAX n1 n2,
-         union fvs1 (delete fvs2 (implode x)))) ∧
+         union fvs1 (delete fvs2 x))) ∧
   (annotate_exp t (Let NONE e1 e2) =
      let (e1,n1,fvs1) = annotate_exp t e1 in
      let (e2,n2,fvs2) = annotate_exp t e2 in
@@ -168,7 +167,6 @@ Definition annotate_exp_def:
          union fvs fvs1)) ∧
   (annotate_exp t (Tannot e _) = annotate_exp t e) ∧
   (annotate_exp t (Lannot e _) = annotate_exp t e) ∧
-  (annotate_exp t (FpOptimise sc e) = annotate_exp t e) /\
   (* -- boilerplate -- *)
   (annotate_exps t [] = ([],0,str_empty)) ∧
   (annotate_exps t (e::es) =
@@ -180,7 +178,7 @@ Definition annotate_exp_def:
            (e::es,MAX n n',union fvs fvs1)) ∧
   (annotate_pes t [] = ([],0,str_empty)) ∧
   (annotate_pes t ((p,e)::pes) =
-     let pbs = pat_bindings p [] in
+     let pbs = pat_bindings p in
      let (e,n,fvs) = annotate_exp (pbs ++ t) e in
      let fvs' = delete_all pbs fvs in
      let (pes,n',fvs1) = annotate_pes t pes in
@@ -188,7 +186,7 @@ Definition annotate_exp_def:
   (annotate_funs t [] = ([],0,str_empty)) ∧
   (annotate_funs t ((f,x,e)::funs) =
      let (e,n,fvs) = annotate_exp (x :: t) e in
-     let fvs' = delete fvs (implode x) in
+     let fvs' = delete fvs x in
      let (funs,n',fvs1) = annotate_funs t funs in
        ((f,x,e)::funs,MAX n n',union fvs' fvs1))
 Termination
@@ -198,8 +196,8 @@ Termination
    | INR (INR (INL (t,pes))) =>
        list_size (pair_size pat_size exp_size) pes
    | INR (INR (INR (t,funs))) =>
-       list_size (pair_size (list_size char_size)
-                  (pair_size (list_size char_size) exp_size)) funs’
+       list_size (pair_size mlstring_size
+                  (pair_size mlstring_size exp_size)) funs’
 End
 
 (* --------------------------------------------------------- *
@@ -236,7 +234,7 @@ Definition lift_exp_def:
        else
          let (e1,n1,xs1) = lift_exp F xs n e in
          let new_name = make_name n1 in
-           (Var (Short (explode new_name)),n1+1,(new_name,e1)::xs1)
+           (Var (Short new_name),n1+1,(new_name,e1)::xs1)
      else lift_exp allow xs n e) ∧
   (lift_exp allow xs n (ast$Lit l) =
      (Lit l,n,xs)) ∧
@@ -284,7 +282,6 @@ Definition lift_exp_def:
      let (pes,n,xs) = lift_pes allow xs n pes in
        (Handle e pes,n,xs)) ∧
   (lift_exp allow xs n (Lannot e _) = lift_exp allow xs n e) ∧
-  (lift_exp allow xs n (FpOptimise sc e) = lift_exp allow xs n e) ∧
   (* -- boilerplate -- *)
   (lift_exps allow xs n [] = ([],n,xs)) ∧
   (lift_exps allow xs n (e::es) =
@@ -308,8 +305,8 @@ Termination
    | INR (INR (INL (t,xs,x,pes))) =>
        list_size (pair_size pat_size exp_size) pes
    | INR (INR (INR (t,xs,x,funs))) =>
-       list_size (pair_size (list_size char_size)
-                  (pair_size (list_size char_size) exp_size)) funs’
+       list_size (pair_size mlstring_size
+                  (pair_size mlstring_size exp_size)) funs’
 End
 
 (* --------------------------------------------------------- *
@@ -320,7 +317,7 @@ Definition make_local_def:
   make_local xs d =
     if NULL xs then d else
       Dlocal (MAP (λ(n,e).
-        Dlet unknown_loc (Pvar (explode n)) e) (REVERSE xs)) [d]
+        Dlet unknown_loc (Pvar n) e) (REVERSE xs)) [d]
 End
 
 Definition compile_dec_def:
@@ -555,32 +552,32 @@ QED
  * --------------------------------------------------------- *)
 
 Triviality test1: (* no lift outside of closures *)
-  compile_dec (Dlet unknown_loc (Pvar "a") (Con NONE [Lit (IntLit 1); Lit (IntLit 2)]))
+  compile_dec (Dlet unknown_loc (Pvar «a») (Con NONE [Lit (IntLit 1); Lit (IntLit 2)]))
   =
-  Dlet unknown_loc (Pvar "a") (Con NONE [Lit (IntLit 1); Lit (IntLit 2)])
+  Dlet unknown_loc (Pvar «a») (Con NONE [Lit (IntLit 1); Lit (IntLit 2)])
 Proof
   EVAL_TAC
 QED
 
 Triviality test2: (* constants lifted from within closures *)
-  compile_dec (Dlet unknown_loc (Pvar "a")
-    (Fun "a" (Con NONE [Lit (IntLit 1); Lit (IntLit 2)])))
+  compile_dec (Dlet unknown_loc (Pvar «a»)
+    (Fun «a» (Con NONE [Lit (IntLit 1); Lit (IntLit 2)])))
   =
   Dlocal
-     [Dlet unknown_loc (Pvar "constant_") (Con NONE [Lit (IntLit 1); Lit (IntLit 2)])]
-     [Dlet unknown_loc (Pvar "a") (Fun "a" (Var (Short "constant_")))]
+     [Dlet unknown_loc (Pvar «constant_») (Con NONE [Lit (IntLit 1); Lit (IntLit 2)])]
+     [Dlet unknown_loc (Pvar «a») (Fun «a» (Var (Short «constant_»)))]
 Proof
   EVAL_TAC
 QED
 
 Triviality test3: (* constants are *not* lifted under Equality *)
   compile_dec
-    (Dlet unknown_loc (Pvar "a")
-      (Fun "a" (App Equality [Var (Short "a");
+    (Dlet unknown_loc (Pvar «a»)
+      (Fun «a» (App Equality [Var (Short «a»);
                               Con NONE [Lit (IntLit 1); Lit (IntLit 2)]])))
   =
-    (Dlet unknown_loc (Pvar "a")
-      (Fun "a" (App Equality [Var (Short "a");
+    (Dlet unknown_loc (Pvar «a»)
+      (Fun «a» (App Equality [Var (Short «a»);
                               Con NONE [Lit (IntLit 1); Lit (IntLit 2)]])))
 Proof
   EVAL_TAC
@@ -588,39 +585,37 @@ QED
 
 Triviality test4: (* constants are lifted under App *)
   compile_dec
-    (Dlet unknown_loc (Pvar "a")
-      (Fun "a" (App ListAppend [Var (Short "a");
+    (Dlet unknown_loc (Pvar «a»)
+      (Fun «a» (App ListAppend [Var (Short «a»);
                                 Con NONE [Lit (IntLit 1); Lit (IntLit 2)]])))
   =
   Dlocal
-     [Dlet unknown_loc (Pvar "constant_")
+     [Dlet unknown_loc (Pvar «constant_»)
         (Con NONE [Lit (IntLit 1); Lit (IntLit 2)])]
-     [Dlet unknown_loc (Pvar "a")
-        (Fun "a" (App ListAppend [Var (Short "a"); Var (Short "constant_")]))]
+     [Dlet unknown_loc (Pvar «a»)
+        (Fun «a» (App ListAppend [Var (Short «a»); Var (Short «constant_»)]))]
 Proof
   EVAL_TAC
 QED
 
 Triviality test5: (* curried functions are not taken apart *)
   compile_dec
-    (Dlet unknown_loc (Pvar "a") (Fun "a" (Fun "b" (Lit (IntLit 5)))))
+    (Dlet unknown_loc (Pvar «a») (Fun «a» (Fun «b» (Lit (IntLit 5)))))
   =
-  Dlet unknown_loc (Pvar "a") (Fun "a" (Fun "b" (Lit (IntLit 5))))
+  Dlet unknown_loc (Pvar «a») (Fun «a» (Fun «b» (Lit (IntLit 5))))
 Proof
   EVAL_TAC
 QED
 
 Triviality test6: (* constants from within closures are lifted *)
   compile_dec
-    (Dlet unknown_loc (Pvar "a") (Fun "a" (Con NONE [Fun "b" (Lit (IntLit 5))])))
+    (Dlet unknown_loc (Pvar «a») (Fun «a» (Con NONE [Fun «b» (Lit (IntLit 5))])))
   =
   Dlocal
-     [Dlet unknown_loc (Pvar "constant_")
-        (Con NONE [Fun "b" (Lit (IntLit 5))])]
-     [Dlet unknown_loc (Pvar "a")
-        (Fun "a" (Var (Short "constant_")))]
+     [Dlet unknown_loc (Pvar «constant_»)
+        (Con NONE [Fun «b» (Lit (IntLit 5))])]
+     [Dlet unknown_loc (Pvar «a»)
+        (Fun «a» (Var (Short «constant_»)))]
 Proof
   EVAL_TAC
 QED
-
-val _ = export_theory ();
