@@ -996,6 +996,200 @@ Proof
   >- metis_tac[EVERY2_LUPDATE_same]
 QED
 
+Theorem store_assign_sv_rel:
+  LIST_REL (sv_rel R) sa sb ∧ sv_rel R z w ⇒
+  (store_assign n z sa = NONE ⇔ store_assign n w sb = NONE) ∧
+  (∀sb2. store_assign n w sb = SOME sb2 ⇒
+     ∃sa2. store_assign n z sa = SOME sa2 ∧ LIST_REL (sv_rel R) sa2 sb2)
+Proof
+  rw[store_assign_def]>>
+  imp_res_tac LIST_REL_LENGTH>>gvs[]>>
+  metis_tac[sv_rel_store_v_same_type,LIST_REL_EL_EQN,EVERY2_LUPDATE_same]
+QED
+
+Theorem store_assign_NONE_Refv:
+  LIST_REL (sv_rel R) sa sb ∧ R x y ∧ store_assign n (Refv y) sb = NONE ⇒
+  store_assign n (Refv x) sa = NONE
+Proof
+  rw[]>>irule LIST_REL_store_assign_NONE>>
+  rpt (goal_assum (first_assum o mp_then Any mp_tac))>>simp[]
+QED
+
+Theorem store_assign_NONE_W8:
+  LIST_REL (sv_rel R) sa sb ∧ store_assign n (W8array w) sb = NONE ⇒
+  store_assign n (W8array w) sa = NONE
+Proof
+  rw[]>>irule LIST_REL_store_assign_NONE>>
+  rpt (goal_assum (first_assum o mp_then Any mp_tac))>>simp[]
+QED
+
+Theorem store_assign_NONE_Varray:
+  LIST_REL (sv_rel R) sa sb ∧ LIST_REL R xs ys ∧
+  store_assign n (Varray ys) sb = NONE ⇒
+  store_assign n (Varray xs) sa = NONE
+Proof
+  rw[]>>irule LIST_REL_store_assign_NONE>>
+  rpt (goal_assum (first_assum o mp_then Any mp_tac))>>simp[]
+QED
+
+Theorem store_assign_Thunk_NONE:
+  LIST_REL (sv_rel R) sa sb ∧ R v w ⇒
+  (store_assign n (Thunk m v) sa = NONE ⇔ store_assign n (Thunk m w) sb = NONE)
+Proof
+  rw[]>>irule (cj 1 store_assign_sv_rel)>>
+  qexists_tac`R`>>simp[]
+QED
+
+Theorem store_assign_Thunk_SOME:
+  LIST_REL (sv_rel R) sa sb ∧ R v w ∧ store_assign n (Thunk m w) sb = SOME sb2 ⇒
+  ∃sa2. store_assign n (Thunk m v) sa = SOME sa2 ∧ LIST_REL (sv_rel R) sa2 sb2
+Proof
+  rw[]>>irule (cj 2 store_assign_sv_rel)>>
+  first_x_assum (irule_at Any)>>simp[]
+QED
+
+(* The shape of a related value is determined by the value it is related to. *)
+Theorem simple_val_rel_cases:
+  simple_val_rel vr ⇒
+  (∀x l. vr x (Litv l) ⇔ x = Litv l) ∧
+  (∀x b n. vr x (Loc b n) ⇔ x = Loc b n) ∧
+  (∀x stmp ys. vr x (Conv stmp ys) ⇔ ∃xs. x = Conv stmp xs ∧ LIST_REL vr xs ys) ∧
+  (∀x ys. vr x (Vectorv ys) ⇔ ∃xs. x = Vectorv xs ∧ LIST_REL vr xs ys) ∧
+  (∀x e n b. vr x (Closure e n b) ⇔ is_clos x) ∧
+  (∀x e f n. vr x (Recclosure e f n) ⇔ is_clos x) ∧
+  (∀x e id. vr x (Env e id) ⇔ ∃envx. x = Env envx id)
+Proof
+  simp[simple_val_rel_def]>>rw[]
+QED
+
+Theorem simple_val_rel_check_type:
+  simple_val_rel vr ∧ vr x y ∧ check_type ty y ⇒ x = y
+Proof
+  rw[]>> drule_all simple_val_rel_vr>>
+  Cases_on`ty` using prim_type_cases>>
+  gvs[check_type_def,Boolv_def]>>
+  every_case_tac>>gvs[]
+QED
+
+Theorem simple_val_rel_check_type_iff:
+  simple_val_rel vr ∧ vr x y ⇒ (check_type ty x ⇔ check_type ty y)
+Proof
+  rw[]>> drule_all simple_val_rel_vr>>
+  Cases_on`ty` using prim_type_cases>>
+  gvs[check_type_def,Boolv_def]>>
+  every_case_tac>>rw[]>>gvs[is_clos_iff]>>
+  Cases_on`xs`>>gvs[]
+QED
+
+Theorem simple_val_rel_check_type_split:
+  simple_val_rel vr ∧ vr x y ⇒ x = y ∨ (¬check_type ty x ∧ ¬check_type ty y)
+Proof
+  rw[]>>Cases_on`check_type ty y`
+  >- metis_tac[simple_val_rel_check_type]>>
+  metis_tac[simple_val_rel_check_type_iff]
+QED
+
+Theorem LIST_REL_check_type:
+  simple_val_rel vr ⇒
+  ∀xs ys. LIST_REL vr xs ys ∧ EVERY (check_type ty) ys ⇒ xs = ys
+Proof
+  strip_tac>> Induct_on`LIST_REL`>>rw[]>>
+  metis_tac[simple_val_rel_check_type]
+QED
+
+Theorem LIST_REL_EVERY_check_type:
+  simple_val_rel vr ⇒
+  ∀xs ys. LIST_REL vr xs ys ⇒
+    (EVERY (check_type ty) xs ⇔ EVERY (check_type ty) ys)
+Proof
+  strip_tac>> Induct_on`LIST_REL`>>rw[]>>
+  metis_tac[simple_val_rel_check_type_iff]
+QED
+
+Theorem simple_val_rel_dest_Litv:
+  simple_val_rel vr ∧ vr x y ⇒ dest_Litv x = dest_Litv y
+Proof
+  rw[]>>drule_all simple_val_rel_vr>>
+  Cases_on`y`>>gvs[]>>rw[]>>gvs[is_clos_iff]>>gvs[]
+QED
+
+Theorem simple_val_rel_do_test:
+  simple_val_rel vr ∧ vr x y ∧ vr a b ⇒
+  do_test tst ty y b = do_test tst ty x a
+Proof
+  strip_tac>>
+  Cases_on`tst`>>
+  gvs[do_test_def]>>
+  imp_res_tac simple_val_rel_dest_Litv>>
+  gvs[]>>
+  `(check_type ty x ⇔ check_type ty y) ∧ (check_type ty a ⇔ check_type ty b)`
+     by metis_tac[simple_val_rel_check_type_iff]>>
+  gvs[]>>
+  IF_CASES_TAC>>gvs[]>>
+  `x = y ∧ a = b` by metis_tac[simple_val_rel_check_type]>>
+  gvs[]
+QED
+
+Theorem vr_v_to_list_NONE:
+  simple_val_rel vr ∧ vr x y ∧ v_to_list y = NONE ⇒ v_to_list x = NONE
+Proof
+  rw[]>>drule vr_v_to_list>>disch_then drule>>gvs[OPTREL_def]
+QED
+
+Theorem vr_v_to_list_SOME:
+  simple_val_rel vr ∧ vr x y ∧ v_to_list y = SOME l ⇒
+  ∃xl. v_to_list x = SOME xl ∧ LIST_REL vr xl l
+Proof
+  rw[]>>drule vr_v_to_list>>disch_then drule>>gvs[OPTREL_def]
+QED
+
+Theorem simple_val_rel_bad_thunk_update:
+  simple_val_rel vr ∧ LIST_REL (sv_rel vr) s t ∧ vr v w ⇒
+  (bad_thunk_update m v s ⇔ bad_thunk_update m w t)
+Proof
+  rw[bad_thunk_update_def]>>
+  drule_all simple_val_rel_vr>>
+  Cases_on`w`>>gvs[dest_thunk_def,is_clos_iff]>>
+  rw[]>>gvs[dest_thunk_def]>>
+  imp_res_tac LIST_REL_OPTREL_store_lookup>>
+  pop_assum (qspec_then`n` mp_tac)>>
+  simp[OPTREL_def]>>
+  rw[]>>simp[]>>
+  gvs[sv_rel_cases]>>
+  every_case_tac>>gvs[]
+QED
+
+Theorem simple_val_rel_thunk_op:
+  simple_val_rel vr ∧ LIST_REL (sv_rel vr) sa sb ∧ LIST_REL vr xs ys ⇒
+  (thunk_op (sb,ffi) th_op ys =
+     (NONE:((v store_v list # 'ffi ffi_state) # (v,v) result) option) ⇒
+   thunk_op (sa,ffi) th_op xs = NONE) ∧
+  (∀sb2 ffi2 rb. thunk_op (sb,ffi) th_op ys = SOME ((sb2,ffi2),rb) ⇒
+     ∃sa2 ra. thunk_op (sa,ffi) th_op xs = SOME ((sa2,ffi2),ra) ∧
+              LIST_REL (sv_rel vr) sa2 sb2 ∧ result_rel vr vr ra rb)
+Proof
+  strip_tac>>
+  `∀m v w. vr v w ⇒ (bad_thunk_update m v sa ⇔ bad_thunk_update m w sb)`
+     by metis_tac[simple_val_rel_bad_thunk_update]>>
+  Cases_on`th_op`>>
+  Cases_on`ys`>>gvs[thunk_op_def]>>
+  rename1`LIST_REL vr _ ytl`>>
+  Cases_on`ytl`>>gvs[thunk_op_def]>>
+  every_case_tac>>
+  gvs[simple_val_rel_cases,store_alloc_def,is_clos_iff]>>
+  imp_res_tac LIST_REL_LENGTH>>gvs[]>>
+  first_x_assum drule>>strip_tac>>gvs[]>>
+  imp_res_tac store_assign_Thunk_NONE>>
+  imp_res_tac store_assign_Thunk_SOME>>
+  gvs[]
+QED
+
+Theorem simple_val_rel_thunk_op_NONE =
+  simple_val_rel_thunk_op |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
+
+Theorem simple_val_rel_thunk_op_SOME =
+  simple_val_rel_thunk_op |> SPEC_ALL |> UNDISCH |> CONJUNCT2 |> DISCH_ALL
+
 Theorem simple_val_rel_do_app_rev_NONE:
   simple_val_rel vr ∧
   LIST_REL (sv_rel vr) s t ∧
@@ -1003,58 +1197,50 @@ Theorem simple_val_rel_do_app_rev_NONE:
   do_app (t,ffi) op ys = NONE ⇒
   do_app (s,ffi) op xs = NONE
 Proof
+  strip_tac>>gvs[]>>
+  qpat_x_assum`do_app _ _ _ = NONE` mp_tac>>
   simp[Once do_app_def]>>
-  rw[]>>
-  gvs[AllCaseEqs()]>>
-  imp_res_tac simple_val_rel_vr>>
-  gvs[]>>
-  gvs[do_app_def,AllCaseEqs(),is_clos_iff,store_alloc_def]>>
+  strip_tac>>
+  gvs[AllCaseEqs(),simple_val_rel_cases,is_clos_iff]>>
+  simp[do_app_def]>>
   imp_res_tac LIST_REL_store_lookup>>
-  gvs[sv_rel_cases]>>
-  imp_res_tac LIST_REL_LENGTH>>gvs[]
+  gvs[sv_rel_cases,store_alloc_def]
+  >>~- (
+    [`do_arith`],
+    IF_CASES_TAC>>gvs[]>>
+    TRY (drule LIST_REL_check_type>>disch_then drule>>
+         disch_then (qspec_then`ty` mp_tac)>>simp[]>>NO_TAC)>>
+    drule LIST_REL_EVERY_check_type>>disch_then drule>>
+    disch_then (qspec_then`ty` mp_tac)>>simp[]>>
+    strip_tac>>
+    gvs[NOT_EVERY,combinTheory.o_DEF,EVERY_MEM,EXISTS_MEM])
+  >>~- (
+    [`do_conversion`],
+    IF_CASES_TAC>>simp[]>>
+    drule simple_val_rel_check_type_split>>disch_then drule>>
+    disch_then (qspec_then`ty1` strip_assume_tac)>>gvs[])
+  >>~- (
+    [`do_eq`],
+    drule simple_val_rel_do_eq_2>>strip_tac>>res_tac>>gvs[])
+  >>~- (
+    [`do_test`],
+    drule simple_val_rel_do_test>>strip_tac>>res_tac>>gvs[])
+  >>~- (
+    [`thunk_op`],
+    metis_tac[simple_val_rel_thunk_op_NONE])
+  >>~- (
+    [`v_to_char_list`],
+    drule vr_v_to_char_list>>disch_then drule>>strip_tac>>gvs[])
   >>~- (
     [`v_to_list`],
-    imp_res_tac vr_v_to_list>>
-    gvs[OPTREL_def]>>
-    metis_tac[LIST_REL_vr_vs_to_string])
-  >>~- (
-    [`store_assign _ _ _ = NONE`],
-    drule LIST_REL_store_assign_NONE>>
-    rpt(disch_then (drule_at Any))>>
-    disch_then match_mp_tac>>
-    simp[sv_rel_def]>>
-    metis_tac[EVERY2_LUPDATE_same])
-  >- (
-    drule simple_val_rel_do_eq_2>>
-    strip_tac>>
-    metis_tac[])
-  >- metis_tac[vr_v_to_char_list]
-  >- rw[]
-  >- (
-    strip_tac>>gs[]>>
-    first_x_assum match_mp_tac>>
-    IF_CASES_TAC>>gs[]>>
-    TOP_CASE_TAC>>fs[]>>
-    drule LIST_REL_store_assign_NONE>>
-    rpt(disch_then (drule_at Any))>>
-    qmatch_asmsub_abbrev_tac`store_assign _ ww s`>>
-    disch_then(qspec_then`ww` mp_tac)>>
-    simp[Abbr`ww`,sv_rel_def]>>
-    CONJ_TAC >-
-      metis_tac[EVERY2_LUPDATE_same]>>
-    CCONTR_TAC>>fs[])
-  >- rw[]
-  >- (
-    strip_tac>>gs[]>>
-    first_x_assum match_mp_tac>>
-    IF_CASES_TAC>>gs[]>>
-    TOP_CASE_TAC>>fs[]>>
-    drule LIST_REL_store_assign_NONE>>
-    rpt(disch_then (drule_at Any))>>
-    qmatch_asmsub_abbrev_tac`store_assign _ ww s`>>
-    disch_then(qspec_then`ww` mp_tac)>>
-    simp[Abbr`ww`,sv_rel_def]>>
-    CCONTR_TAC>>fs[])
+    imp_res_tac vr_v_to_list_NONE>>imp_res_tac vr_v_to_list_SOME>>gvs[]>>
+    imp_res_tac LIST_REL_vr_vs_to_string>>gvs[])>>
+  imp_res_tac LIST_REL_LENGTH>>gvs[]>>
+  imp_res_tac store_assign_NONE_Refv>>
+  imp_res_tac store_assign_NONE_W8>>
+  imp_res_tac EVERY2_LUPDATE_same>>
+  imp_res_tac store_assign_NONE_Varray>>
+  gvs[]
 QED
 
 Theorem simple_val_rel_rewrites:
@@ -1092,6 +1278,65 @@ Proof
 Cases_on `r` >> srw_tac[][]
 QED
 
+Theorem store_assign_SOME_Refv:
+  LIST_REL (sv_rel R) sa sb ∧ R x y ∧ store_assign n (Refv y) sb = SOME sb2 ⇒
+  ∃sa2. store_assign n (Refv x) sa = SOME sa2 ∧ LIST_REL (sv_rel R) sa2 sb2
+Proof
+  rw[]>>irule LIST_REL_store_assign_SOME>>
+  rpt (goal_assum (first_assum o mp_then Any mp_tac))>>simp[]
+QED
+
+Theorem store_assign_SOME_W8:
+  LIST_REL (sv_rel R) sa sb ∧ store_assign n (W8array w) sb = SOME sb2 ⇒
+  ∃sa2. store_assign n (W8array w) sa = SOME sa2 ∧ LIST_REL (sv_rel R) sa2 sb2
+Proof
+  rw[]>>irule LIST_REL_store_assign_SOME>>
+  rpt (goal_assum (first_assum o mp_then Any mp_tac))>>simp[]
+QED
+
+Theorem store_assign_SOME_Varray:
+  LIST_REL (sv_rel R) sa sb ∧ LIST_REL R xs ys ∧
+  store_assign n (Varray ys) sb = SOME sb2 ⇒
+  ∃sa2. store_assign n (Varray xs) sa = SOME sa2 ∧ LIST_REL (sv_rel R) sa2 sb2
+Proof
+  rw[]>>irule LIST_REL_store_assign_SOME>>
+  rpt (goal_assum (first_assum o mp_then Any mp_tac))>>simp[]
+QED
+
+Theorem store_assign_SOME_Varray_LUPDATE:
+  LIST_REL (sv_rel R) sa sb ∧ LIST_REL R xs ys ∧ R x y ∧
+  store_assign n (Varray (LUPDATE y k ys)) sb = SOME sb2 ⇒
+  ∃sa2. store_assign n (Varray (LUPDATE x k xs)) sa = SOME sa2 ∧
+        LIST_REL (sv_rel R) sa2 sb2
+Proof
+  rw[]>>irule store_assign_SOME_Varray>>
+  first_x_assum (irule_at Any)>>
+  simp[EVERY2_LUPDATE_same]
+QED
+
+Theorem simple_val_rel_check_type_refl:
+  simple_val_rel vr ∧ check_type ty v ⇒ vr v v
+Proof
+  strip_tac>>
+  Cases_on`ty` using prim_type_cases>>
+  gvs[check_type_def]>>rw[]>>
+  gvs[simple_val_rel_rewrites]
+QED
+
+Theorem do_arith_INL:
+  do_arith a ty vs = SOME (INL exn) ⇒ exn = div_exn_v ∨ exn = chr_exn_v
+Proof
+  Cases_on `ty` using prim_type_cases>>
+  gvs[oneline do_arith_def, AllCaseEqs()]>>rw[]>>gvs[]
+QED
+
+Theorem do_conversion_INL:
+  do_conversion v ty1 ty2 = SOME (INL exn) ⇒ exn = div_exn_v ∨ exn = chr_exn_v
+Proof
+  Cases_on `ty2` using prim_type_cases>>
+  gvs[oneline do_conversion_def, AllCaseEqs()]>>rw[]>>gvs[]
+QED
+
 Theorem simple_val_rel_do_app_rev_SOME:
   simple_val_rel vr ∧
   LIST_REL (sv_rel vr) s t ∧
@@ -1102,43 +1347,62 @@ Theorem simple_val_rel_do_app_rev_SOME:
     LIST_REL (sv_rel vr) s' t' ∧
     result_rel vr vr sres tres
 Proof
-  simp[Once do_app_cases]>>
-  rw[]>>
-  gvs[do_app_cases,AllCaseEqs(),is_clos_iff,store_alloc_def]>>
-  imp_res_tac simple_val_rel_vr>>
-  imp_res_tac LIST_REL_LENGTH>>
+  strip_tac>>gvs[]>>
+  qpat_x_assum`do_app _ _ _ = SOME _` mp_tac>>
+  simp[Once do_app_def]>>
+  strip_tac>>
+  gvs[AllCaseEqs(),simple_val_rel_cases,is_clos_iff]>>
+  simp[do_app_def]>>
   imp_res_tac LIST_REL_store_lookup>>
-  simp[PULL_EXISTS]>>
-  gvs[div_exn_v_def,sub_exn_v_def,chr_exn_v_def,sv_rel_cases,nat_to_v_def]>>
-  simp[simple_val_rel_rewrites, simple_val_rel_list_to_v,RIGHT_AND_OVER_OR,result_rel_Rval2,EXISTS_OR_THM,simple_val_rel_rewrites]>>
-  imp_res_tac LIST_REL_LENGTH>>
-  fs[]
+  gvs[sv_rel_cases,store_alloc_def,simple_val_rel_rewrites,
+      simple_val_rel_list_to_v,result_rel_Rval2]>>
+  imp_res_tac LIST_REL_LENGTH>>gvs[]
+  >>~- (
+    [`do_arith`],
+    drule LIST_REL_check_type>>disch_then drule>>
+    disch_then (qspec_then`ty` mp_tac)>>simp[]>>strip_tac>>gvs[]>>
+    imp_res_tac do_arith_INL>>
+    imp_res_tac do_arith_check_type>>
+    imp_res_tac simple_val_rel_check_type_refl>>
+    gvs[div_exn_v_def,chr_exn_v_def,simple_val_rel_rewrites])
+  >>~- (
+    [`do_conversion`],
+    drule simple_val_rel_check_type_split>>disch_then drule>>
+    disch_then (qspec_then`ty1` strip_assume_tac)>>gvs[]>>
+    imp_res_tac do_conversion_INL>>
+    imp_res_tac do_conversion_check_type>>
+    imp_res_tac simple_val_rel_check_type_refl>>
+    gvs[div_exn_v_def,chr_exn_v_def,simple_val_rel_rewrites])
+  >>~- (
+    [`do_eq`],
+    drule simple_val_rel_do_eq_2>>strip_tac>>res_tac>>
+    gvs[simple_val_rel_rewrites])
+  >>~- (
+    [`do_test`],
+    drule simple_val_rel_do_test>>strip_tac>>res_tac>>
+    gvs[simple_val_rel_rewrites])
+  >>~- (
+    [`thunk_op`],
+    metis_tac[simple_val_rel_thunk_op])
+  >>~- (
+    [`v_to_char_list`],
+    drule vr_v_to_char_list>>disch_then drule>>strip_tac>>
+    gvs[simple_val_rel_rewrites])
   >>~- (
     [`v_to_list`],
-    imp_res_tac vr_v_to_list>>
-    gvs[OPTREL_def]>>
-    metis_tac[LIST_REL_vr_vs_to_string,EVERY2_APPEND])
+    imp_res_tac vr_v_to_list_NONE>>imp_res_tac vr_v_to_list_SOME>>gvs[]>>
+    imp_res_tac LIST_REL_vr_vs_to_string>>
+    gvs[simple_val_rel_rewrites,simple_val_rel_list_to_v]>>
+    drule simple_val_rel_list_to_v>>strip_tac>>simp[]>>
+    irule EVERY2_APPEND_suff>>simp[])
   >>~- (
-    [`store_assign _ (Varray _) _ = SOME _`],
-    qmatch_goalsub_abbrev_tac`Varray ww`>>
-    drule LIST_REL_store_assign_SOME>>
-    rpt(disch_then (drule_at Any))>>
-    disch_then(qspec_then`Varray ww` mp_tac)>>
-    simp[Abbr`ww`]>>
-    impl_tac>-
-      metis_tac[EVERY2_LUPDATE_same]>>
-    strip_tac>>simp[simple_val_rel_rewrites])
-  >>~- (
-    [`store_assign _ _ _ = SOME _`],
-    drule LIST_REL_store_assign_SOME>>
-    rpt(disch_then (drule_at Any))>>
-    disch_then match_mp_tac>>
-    simp[sv_rel_def])>>
-  fs[LIST_REL_EL_EQN]
-  >- (* do_eq *)
-    metis_tac[simple_val_rel_do_eq_2]
-  >- metis_tac[vr_v_to_char_list]
-  >- simp[EL_MAP,simple_val_rel_rewrites]
-  >- simp[EL_REPLICATE,simple_val_rel_rewrites]
+    [`store_assign`],
+    imp_res_tac store_assign_SOME_Refv>>
+    imp_res_tac store_assign_SOME_W8>>
+    imp_res_tac store_assign_SOME_Varray_LUPDATE>>
+    imp_res_tac EVERY2_LUPDATE_same>>
+    imp_res_tac store_assign_SOME_Varray>>
+    gvs[simple_val_rel_rewrites])>>
+  gvs[simple_val_rel_rewrites,sub_exn_v_def,div_exn_v_def,chr_exn_v_def,
+      nat_to_v_def,LIST_REL_EL_EQN,EL_MAP,EL_REPLICATE]
 QED
-
