@@ -551,7 +551,7 @@ QED
     Some simple sanity tests
  * --------------------------------------------------------- *)
 
-Triviality test1: (* no lift outside of closures *)
+Theorem test1[local]: (* no lift outside of closures *)
   compile_dec (Dlet unknown_loc (Pvar «a») (Con NONE [Lit (IntLit 1); Lit (IntLit 2)]))
   =
   Dlet unknown_loc (Pvar «a») (Con NONE [Lit (IntLit 1); Lit (IntLit 2)])
@@ -559,7 +559,7 @@ Proof
   EVAL_TAC
 QED
 
-Triviality test2: (* constants lifted from within closures *)
+Theorem test2[local]: (* constants lifted from within closures *)
   compile_dec (Dlet unknown_loc (Pvar «a»)
     (Fun «a» (Con NONE [Lit (IntLit 1); Lit (IntLit 2)])))
   =
@@ -570,7 +570,7 @@ Proof
   EVAL_TAC
 QED
 
-Triviality test3: (* constants are *not* lifted under Equality *)
+Theorem test3[local]: (* constants are *not* lifted under Equality *)
   compile_dec
     (Dlet unknown_loc (Pvar «a»)
       (Fun «a» (App Equality [Var (Short «a»);
@@ -583,7 +583,7 @@ Proof
   EVAL_TAC
 QED
 
-Triviality test4: (* constants are lifted under App *)
+Theorem test4[local]: (* constants are lifted under App *)
   compile_dec
     (Dlet unknown_loc (Pvar «a»)
       (Fun «a» (App ListAppend [Var (Short «a»);
@@ -598,7 +598,7 @@ Proof
   EVAL_TAC
 QED
 
-Triviality test5: (* curried functions are not taken apart *)
+Theorem test5[local]: (* curried functions are not taken apart *)
   compile_dec
     (Dlet unknown_loc (Pvar «a») (Fun «a» (Fun «b» (Lit (IntLit 5)))))
   =
@@ -607,7 +607,7 @@ Proof
   EVAL_TAC
 QED
 
-Triviality test6: (* constants from within closures are lifted *)
+Theorem test6[local]: (* constants from within closures are lifted *)
   compile_dec
     (Dlet unknown_loc (Pvar «a») (Fun «a» (Con NONE [Fun «b» (Lit (IntLit 5))])))
   =
