@@ -358,13 +358,14 @@ Theorem cake_extract_writes:
      (err = explode cerr)
 Proof
   strip_tac
-  \\ drule(GEN_ALL(DISCH_ALL cake_output))
-  \\ disch_then(qspec_then`stdin_fs inp`mp_tac)
-  \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
+  \\ qabbrev_tac ‘fs = stdin_fs inp’
+  \\ ‘IS_SOME (stdin_content fs) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs’ by
+    (simp[wfFS_stdin_fs, STD_streams_stdin_fs, Abbr‘fs’,
+          TextIOProofTheory.stdin_content_def, stdin_fs_def])
+  \\ drule_all(GEN_ALL(DISCH_ALL cake_output))
+  \\ unabbrev_all_tac
   \\ simp[compilerTheory.full_compile_32_def]
   \\ pairarg_tac \\ simp[]
-  \\ impl_tac
-  >- (gvs [TextIOProofTheory.stdin_content_def, stdin_fs_def])
   \\ ntac 2 (IF_CASES_TAC \\ fs[]
   >- (
     simp[TextIOProofTheory.add_stdo_def]
@@ -556,3 +557,6 @@ Proof
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ metis_tac[]
 QED
+
+val _ = check_thm cake_extract_writes;
+val _ = check_thm cake_ag32_next;

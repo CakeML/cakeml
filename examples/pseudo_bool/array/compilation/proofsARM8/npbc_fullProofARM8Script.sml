@@ -100,7 +100,7 @@ Theorem machine_code_sound:
 Proof
   strip_tac>>
   fs[installed_arm8_asl_def,cake_pb_code_def,cake_pb_run_def]>>
-  drule cake_pb_compiled_thm>>
+  drule_at (Pos last) cake_pb_compiled_thm>>
   simp[AND_IMP_INTRO]>>
   disch_then drule>>
   disch_then (qspecl_then [`ms`,`mc`,`data_sp`,`cbspace`] mp_tac)>>
@@ -128,4 +128,3 @@ Proof
 QED
 
 val chk = machine_code_sound |> check_thm;
-

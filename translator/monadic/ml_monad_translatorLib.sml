@@ -276,7 +276,9 @@ val translator_state = {
   EXN_TYPE = ref (get_term "UNIT_TYPE"),
   exn_type = ref unit_ty, (* WHAT IS THE DIFFERENCE BETWEEN THESE LAST TWO? *)
   VALID_STORE_THM = ref (NONE : thm option),
-  type_theories = ref ([current_theory(), "ml_translator"] : string list),
+  (* theories other than the one being built that supply type invariants;
+     see all_type_theories *)
+  type_theories = ref (["ml_translator"] : string list),
   exn_handles = ref ([] : (term * thm) list),
   exn_raises = ref ([] : (term * thm) list),
   exn_functions_defs = ref ([] : (thm * thm) list),
@@ -316,6 +318,12 @@ val translator_state = {
   Helper functions.
 
 ******************************************************************************)
+
+(* The theory being built also supplies type invariants, for types translated
+   after it was entered.  Its name is only available once a segment is open, so
+   it is read here rather than stored in translator_state. *)
+fun all_type_theories () =
+  current_theory() :: (!(#type_theories translator_state));
 
 (* This is not used in this file, but is in the signature *)
 fun add_access_pattern th =
@@ -1065,8 +1073,10 @@ fun init_translation (monad_translation_params : monadic_translation_parameters)
       #exn_type st :=
         (type_of (!(#EXN_TYPE st)) |> dest_type |> snd |> List.hd);
       #VALID_STORE_THM st := store_pred_exists_thm;
-      #type_theories st :=
-        (current_theory() :: (add_type_theories @ ["ml_translator"]));
+      (* NB: this overwrites, so any theories inherited from an earlier
+         m_translation_extends are dropped.  No script currently both extends
+         and initialises, so this is not reachable in practice. *)
+      #type_theories st := (add_type_theories @ ["ml_translator"]);
       #store_pinv_def st := store_pinv_def_opt;
 
       (* Exceptions *)
@@ -1306,10 +1316,10 @@ local
       val (name, name_thy) =
         if ty <> unit_ty then get_name ty else ("UNIT_TYPE", "UNIT_TYPE")
       val inv_def = tryfind (fn thy_name => fetch thy_name (name ^ "_def"))
-                            (!(#type_theories translator_state))
+                            (all_type_theories ())
           handle HOL_ERR _ =>
                  tryfind (fn thy_name => fetch thy_name (name_thy ^ "_def"))
-                         (!(#type_theories translator_state))
+                         (all_type_theories ())
           handle  HOL_ERR _ =>
             let
               val thms = DB.find (name ^ "_def") |> List.map (#1 o snd)
@@ -3987,7 +3997,7 @@ local
      (pack_option pack_thm)                     (!(#VALID_STORE_THM st)),
       pack_thm                                  (!(#EXN_TYPE_def st)),
       pack_term                                 (!(#EXN_TYPE st)),
-     (pack_list pack_string)                    (!(#type_theories st)),
+     (pack_list pack_string)                    (all_type_theories ()),
      (pack_list (pack_pair pack_term pack_thm)) (!(#exn_handles st)),
      (pack_list (pack_pair pack_term pack_thm)) (!(#exn_raises st)),
      (pack_list (pack_pair pack_thm pack_thm))  (!(#exn_functions_defs st)),
@@ -4027,25 +4037,17 @@ local
         farrays_functions_defs, local_state_init_H, store_pinv_def,
         dynamic_refs_bindings, local_code_abbrevs, mem_derive_case_ref
       ] => let
-
-        (* Need to add the current theory to type_theories or we cannot
-           access definitions generated after extending! *)
+        (* The theory this state was saved from is recorded in the packed list,
+           so its definitions remain reachable after extending. *)
         val type_theories_unpacked = type_theories |>
                                      (unpack_list unpack_string)
-
-        val curr_thy =
-          case List.find (fn thy => thy = current_theory())
-                  type_theories_unpacked
-          of
-              NONE => [current_theory ()]
-            | _ => []
       in
         #refs_type st := (refs_type |> unpack_type);
         #exn_type st := (exn_type |> unpack_type);
         #VALID_STORE_THM st := (VALID_STORE_THM |> (unpack_option unpack_thm));
         #EXN_TYPE_def st := (EXN_TYPE_def |> unpack_thm);
         #EXN_TYPE st := (EXN_TYPE |> unpack_term);
-        #type_theories st := (type_theories_unpacked @ curr_thy);
+        #type_theories st := type_theories_unpacked;
         #exn_handles st := (exn_handles |>
                             (unpack_list (unpack_pair unpack_term unpack_thm)));
         #exn_raises st := (exn_raises |>

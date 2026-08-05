@@ -8,11 +8,8 @@ Libs
   preamble ml_monadBaseLib
 
 val _ = monadsyntax.temp_add_monadsyntax()
-
-Overload monad_bind[local] = ``st_ex_bind``
-Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload return[local] = ``st_ex_return``
+val _ = monadsyntax.temp_disable_monad "state";
+val _ = monadsyntax.temp_enable_monad "st_ex";
 
 (* Data type for the exceptions *)
 Datatype:
@@ -127,7 +124,7 @@ Definition enc_secs_64_def:
     | M_failure _ => []
 End
 
-val msimps = [st_ex_bind_def,st_ex_return_def];
+val msimps = [st_ex_bind_def,st_ex_ignore_bind_def,st_ex_return_def];
 
 Theorem Msub_eqn[simp]:
     ∀e n ls v.
@@ -280,4 +277,3 @@ Proof
   rw[]>>
   fs[enc_sec_list_def]
 QED
-

@@ -539,10 +539,8 @@ val _ = instance_subst_ind |> update_precondition;
 val def = holSyntaxTheory.is_reserved_name_def |> translate
 val def = check_overloads_def |> m_translate
 
-Overload monad_bind[local] = ``st_ex_bind``
-Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload return[local] = ``st_ex_return``
+val _ = monadsyntax.temp_enable_monad "st_ex";
+
 Overload failwith[local] = ``raise_Fail``
 
 val def = holSyntaxTheory.wellformed_compute_def |> translate
