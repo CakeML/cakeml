@@ -3117,7 +3117,6 @@ Theorem evaluate_cb:
                 mb_rel f_work (t_work.refs \\ hole_ptr) res_v res_v' ∧
                 hole_has_val f env env2 t_work.refs res_v'))
 Proof
-
   reverse $ Induct
   >- (rpt gen_tac
       >> strip_tac
@@ -3291,7 +3290,6 @@ Proof
               >> gvs []
               >> first_assum $ irule_at Any
               >> gvs [hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP])))
-
   >- (rpt gen_tac
       >> strip_tac
       >> rename [‘CallBlock tag left child right’]
@@ -3403,7 +3401,6 @@ Proof
           >> irule non_fresh_not_in_frange
           >> rpt $ first_assum $ irule_at Any
           >> gvs [FDOM_DEF])
-
         >> strip_tac
         >> rename [‘state_rel _ u t_aux’]
         >> ‘state_ref_rel f_aux u.refs t_aux.refs’ by gvs [state_rel_def]
@@ -3580,7 +3577,6 @@ Proof
         >> rpt $ first_assum $ irule_at Any
         >> gvs []
         >> cheat)
-
       (* Work *)
       >> first_x_assum drule
       >> strip_tac
@@ -3694,49 +3690,42 @@ Proof
       >> gvs []
       >> gvs [alloc_hole_has_val_def]
       >> qexists ‘RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)’
-      >> cheat
-                (*
+      >> qpat_x_assum ‘holes_unchanged_except _ _ _ _’ mp_tac
+      >> simp [holes_unchanged_except_def]
+      >> strip_tac
+      >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
+      >> last_assum drule
+      >> last_x_assum rev_drule
+      >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
+      >> strip_tac
+      >> strip_tac
+      >> qpat_x_assum ‘LENGTH _ = LENGTH _’ kall_tac
+      >> gvs []
+      >> gvs [rw_block_args]
+      >> irule mb_rel_cons
       >> conj_tac
       >-
-       (gvs [rw_block_args]
-        >> irule mb_rel_cons
-        >> conj_tac
+       (irule non_fresh_not_in_frange
+        >> first_assum $ irule_at $ Pos last
+        >> gvs [FLOOKUP_SIMP, FDOM_DEF])
+      >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF, DOMSUB_FLOOKUP_THM]
+      >> imp_res_tac env_rel_submap
+      >> imp_res_tac wf_vars_list_rel
+      >> gvs [MAP_REVERSE]
+      >> drule mb_rel_del
+      >> disch_then $ qspecl_then [‘hole_ptr’, ‘tag'’, ‘F’, ‘left'’, ‘LEAST ptr. ptr ∉ FDOM s'.refs’, ‘right'’] mp_tac
+      >> impl_tac
+      >-
+       (conj_tac
         >-
-         (irule non_fresh_not_in_frange
-          >> rpt $ first_assum $ irule_at Any
-          >> gvs [FLOOKUP_SIMP, FDOM_DEF])
-        >> gvs [FLOOKUP_SIMP, DOMSUB_FLOOKUP_THM, holes_unchanged_except_def]
-
-        >> first_x_assum drule
+         (gvs [DOMSUB_FLOOKUP_THM, FLOOKUP_SIMP, FLOOKUP_DEF]
+          >> cheat)
         >> gvs []
-        >> strip_tac
-        >> qpat_x_assum ‘LENGTH _ = LENGTH _’ kall_tac
-        >> gvs []
-
-
-        >> imp_res_tac env_rel_submap
-        >> imp_res_tac wf_vars_list_rel
-        >> gvs [MAP_REVERSE]
-        >> drule mb_rel_del
-        >> disch_then $ qspecl_then [‘hole_ptr’, ‘tag'’, ‘F’, ‘left'’, ‘LEAST ptr. ptr ∉ FDOM s'.refs’, ‘right'’] mp_tac
-        >> impl_tac
-        >-
-         (conj_tac
-          >-
-           (gvs [DOMSUB_FLOOKUP_THM]
-            >> gvs [holes_unchanged_except_def]
-            >> first_x_assum irule
-            >> gvs [FLOOKUP_SIMP])
-          >> gvs []
-          >> irule non_fresh_not_in_frange
-          >> rpt $ first_assum $ irule_at Any
-          >> gvs [FLOOKUP_SIMP])
-        >> strip_tac
-        >> gvs [DOMSUB_COMMUTES])
-      >> gvs [holes_unchanged_except_def, backend_commonTheory.small_enough_int_def]
-      >> first_x_assum $ irule_at Any
-      >> gvs [FLOOKUP_SIMP]
-                        *))
+        >> irule non_fresh_not_in_frange
+        >> first_assum $ irule_at $ Pos last
+        >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF])
+      >> strip_tac
+      >> gvs [DOMSUB_COMMUTES])
 QED
 
 Theorem evaluate_pres_opt_code:
