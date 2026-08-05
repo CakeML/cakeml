@@ -308,3 +308,76 @@ val res = EVAL “compile_prog 1004 [(1000n, 1n, ^test_rec)]”;
 val res_new = EVAL “compile_prog 2000 [(1000n, 1n, ^test1);(1004, 1n, ^test2)]”;
 
 
+    
+val let1 = “Let [e1;e2;LetCall 2 0 2004 [Var 0] (Op (BlockOp (Cons 0)) [Var 1; Var 2]); e3;e4] e”
+
+val let2 = “Let [e1;e2] (LetCall 2 0 2004 [Var 0] )”
+
+
+
+
+Definition remap_add_def:
+  (remap_add _ 0n (shift:num) = [shift]) ∧
+  (remap_add [] (SUC n) shift = 0::remap_add [] n shift) ∧
+  (remap_add (remap::remapping) (SUC n) shift = remap::remap_add remapping n shift)
+End
+
+val test_remap = EVAL “remap_add [] 2 2”
+        
+(* Let opt *)
+Definition lcop_unfold_def:
+  (lcop_unfold remapping _ (Var n) = Var (n + SUM (TAKE (n + 1) remapping))) ∧
+  (lcop_unfold remapping curr_v (If g e1 e2) =
+   If g (lcop_unfold remapping curr_v e1) (lcop_unfold remapping curr_v e2)) ∧
+  (lcop_unfold remapping curr_v (Let vs e) = lcop_unfold_lets remapping curr_v vs e []) ∧
+  (lcop_unfold remapping curr_v (Op op es) = Op op (MAP (lcop_unfold remapping curr_v) es)) ∧
+  (lcop_unfold _ _ e = e) (* TODO *) ∧
+
+  (lcop_unfold_lets remapping curr_v [] e racc = Let (REVERSE racc) (lcop_unfold remapping curr_v e)) ∧
+  (lcop_unfold_lets remapping curr_v (x::xs) e racc =
+   case x of
+     LetCall nret ticks f args body =>
+       let new_remap = remap_add remapping curr_v nret;
+           body_shift = curr_v + SUM (TAKE (curr_v + 1) remapping)
+       in
+       Let (REVERSE racc)
+           (LetCall nret ticks f (MAP (lcop_unfold remapping curr_v) args)
+                    (lcop_unfold_lets new_remap (curr_v + 1) xs e [lcop_unfold [body_shift] nret body]))
+       | _ => lcop_unfold_lets remapping (curr_v + 1) xs e ((lcop_unfold remapping curr_v x)::racc))
+Termination
+  wf_rel_tac ‘measure (λx.
+                         case x of
+                           INL (_, _, e)         => 2 * exp_size e
+                         | INR (_, _, xs, e, _)  => 2 * (list_size exp_size xs + exp_size e) + 1)’
+End
+
+
+val lcop_test1 = EVAL “lcop_unfold [] 0 (Let [Op (IntOp (Const 0)) [];
+                                              Op (IntOp (Const 1)) [];
+                                              LetCall 2 0 300 [Var 0;Var 1]
+                                                      (Op (BlockOp (Cons 0)) [Var 0; Var 1]);
+                                             ] (Op (BlockOp (Cons 0)) [Var 2; Var 2]))”
+
+
+val lcop_test = EVAL “lcop_unfold [] 0 (Let [Op (IntOp (Const 0)) [];
+                                             Op (IntOp (Const 1)) [];
+                                             LetCall 2 0 300 [Var 0;Var 1]
+                                                     (Op (BlockOp (Cons 0)) [Var 0; Var 1]);
+                                             Op (IntOp (Const 0)) [];
+                                             Op (IntOp (Const 1)) [];
+                                             LetCall 2 0 300 [Var 3;Var 4]
+                                                     (Op (BlockOp (Cons 0)) [Var 0; Var 1]);
+                                            ] (Op (BlockOp (Cons 0)) [Var 2; Var 5]))”
+
+                                              
+(* Let [Op (IntOp (Const 0)) []; Op (IntOp (Const 1)) []]
+       (LetCall 2 0 300 [Var 0; Var 1]
+          (Let
+             [Op (BlockOp (Cons 0)) [Var 2; Var 3]; Op (IntOp (Const 0)) [];
+              Op (IntOp (Const 1)) []]
+             (LetCall 2 0 300 [Var 5; Var 6]
+                (Let [Op (BlockOp (Cons 0)) [Var 7; Var 8]]
+                   (Op (BlockOp (Cons 0)) [Var 4; Var 9])))))
+*)
+
+                     
