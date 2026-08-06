@@ -35,6 +35,9 @@ One of the more notable differences is that exception handling is
 now bundled together with function calls: exceptions can only be
 caught at the point of function calls.
 
+[bvi_inlineScript.sml](bvi_inlineScript.sml):
+A deliberately small BVI inliner for CPR worker-wrapper functions.
+
 [bvi_letScript.sml](bvi_letScript.sml):
 This is a BVI transformation that propagates variable lookups that
 are immediately assigned to a new variable in Let bindings. This
