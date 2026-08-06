@@ -685,9 +685,8 @@ End
 
 Definition hole_not_finalised_def:
   hole_not_finalised refs ptr ⇔
-    ∀tag fin left child right.
-      FLOOKUP refs ptr = SOME (MutBlock tag fin left child right) ⇒
-      ¬fin
+    ∃tag left child right.
+      FLOOKUP refs ptr = SOME (MutBlock tag F left child right)
 End
 
 Definition holes_still_not_finalised_def:
@@ -3898,7 +3897,6 @@ Proof
   >> gvs []
 QED
 
-(* BROKEN - I think there needs to be a new assumption? *)
 Theorem holes_still_not_finalised_trans:
   ∀f f' refs refs' refs'' changed.
     holes_still_not_finalised f refs refs' ∧
@@ -4009,10 +4007,7 @@ Resume evaluate_rewrite_tmc[call_block]:
   >> conj_tac
   >- imp_res_tac holes_unchanged_except_trans
   >> conj_tac
-
-  >-
-   (
-        )
+  >- imp_res_tac holes_still_not_finalised_trans
   >> gen_tac
   >> strip_tac
   >> drule_all evaluate_pres_opt_code
