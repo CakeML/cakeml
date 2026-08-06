@@ -681,18 +681,6 @@ Definition holes_unchanged_except_def:
        ∃finalised' child'.
          FLOOKUP refs' ptr = SOME (MutBlock tag finalised' left child' right) ∧
          (ptr ∉ changed ⇒ child = child')
-
-    (*∀ptr val.
-       ptr ∉ FRANGE f ∧
-       ptr ∉ changed ∧
-       FLOOKUP refs ptr = SOME val ⇒
-       FLOOKUP refs' ptr = SOME val) ∧
-    (∀ptr tag left child right.
-       ptr ∉ FRANGE f ∧
-       ptr ∈ changed ∧
-       FLOOKUP refs ptr = SOME (MutBlock tag left child right) ⇒
-       ∃child'.
-         FLOOKUP refs' ptr = SOME (MutBlock tag left child' right)*)
 End
 
 Definition only_fresh_def:
@@ -3066,6 +3054,34 @@ Proof
   >> simp []
 QED
 
+Definition hole_not_finalised_def:
+  hole_not_finalised refs ptr ⇔
+    ∀tag fin left child right.
+      FLOOKUP refs ptr = SOME (MutBlock tag fin left child right) ⇒
+      ¬fin
+End
+
+Definition holes_still_not_finalised_def:
+  holes_still_not_finalised f refs refs' ⇔
+    ∀ptr.
+      ptr ∉ FRANGE f ∧
+      hole_not_finalised refs ptr ⇒
+      hole_not_finalised refs' ptr
+End
+
+Theorem holes_still_not_finalised_del:
+  ∀f refs refs' ptr tag l c r.
+    holes_still_not_finalised f refs⟨ptr ↦ MutBlock tag F l c r⟩ refs' ⇒
+    holes_still_not_finalised f refs refs'
+Proof
+  rw []
+  >> gvs [holes_still_not_finalised_def, hole_not_finalised_def]
+  >> rw []
+  >> first_x_assum drule
+  >> gvs [FLOOKUP_SIMP]
+  >> IF_CASES_TAC >> gvs []
+QED
+
 Theorem evaluate_cb:
   ∀cb loc f opt env env2 ^s s' t r clock.
     evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
@@ -3105,6 +3121,7 @@ Theorem evaluate_cb:
            f ⊑ f_aux ∧
            only_fresh f f_aux refs ∧
            holes_unchanged_except f refs t_aux.refs {hole_ptr} ∧
+           holes_still_not_finalised f refs t_aux.refs ∧
            ∀res_v.
              r = Rval [res_v] ⇒
              ∃res_v'.
@@ -3115,6 +3132,7 @@ Theorem evaluate_cb:
           ptr = LENGTH env ∧
           idx = LENGTH env + 1 ∧
           (∃c. hole_has_val f env env2 s'.refs c) ∧
+          hole_not_finalised s'.refs hole_ptr ∧
           EL ptr env2 = RefPtr F hole_ptr ⇒
           ∃r_work f_work t_work.
             evaluate ([cb_to_bvi_worker cb loc_opt ptr idx], env2, s') = (r_work,t_work) ∧
@@ -3158,7 +3176,7 @@ Proof
             >> gvs [alloc_hole_has_val_def, do_app_def, do_app_aux_def]
             >> gvs [bvlSemTheory.find_code_def, EL_APPEND_EQN]
             >> qexists ‘f’
-            >> gvs [state_rel_def, only_fresh_refl, holes_unchanged_except_refl, opt_res_rel_def])
+            >> gvs [state_rel_def, only_fresh_refl, holes_unchanged_except_refl, opt_res_rel_def, holes_still_not_finalised_def])
           >> gvs [cb_to_bvi_worker_def, optimise_call_def, evaluate_def, evaluate_APPEND]
           >> imp_res_tac env_rel_length_opt
           >> gvs [bvlSemTheory.find_code_def, EL_APPEND_EQN]
@@ -3249,6 +3267,7 @@ Proof
               >> conj_tac
               >- (gvs [opt_res_rel_def])
               >- (gvs []
+                  >> conj_tac >- cheat
                   >> rw []
                   >> gvs []
                   >> first_assum $ irule_at Any
@@ -3518,13 +3537,16 @@ Proof
             >> first_assum $ irule_at $ Pos hd
             >> imp_res_tac fresh_not_in_range_f
             >> gvs [])
-          >> irule holes_unchanged_except_changed
-          >> first_assum $ irule_at Any
-          >> irule_at Any holes_unchanged_except_del_SING
-          >> gvs [flookup_com_neq]
-          >> first_assum $ irule_at Any
-          >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
-          >> gvs [])
+          >> conj_tac
+          >-
+           (irule holes_unchanged_except_changed
+            >> first_assum $ irule_at Any
+            >> irule_at Any holes_unchanged_except_del_SING
+            >> gvs [flookup_com_neq]
+            >> first_assum $ irule_at Any
+            >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
+            >> gvs [])
+          >> rpt $ imp_res_tac holes_still_not_finalised_del)
         >> gvs []
         >> qexistsl [‘r_aux’, ‘t_aux’, ‘f_aux’]
         >> conj_tac
@@ -3553,6 +3575,8 @@ Proof
           >> first_assum $ irule_at Any
           >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
           >> gvs [])
+        >> conj_tac
+        >- rpt $ imp_res_tac holes_still_not_finalised_del
         >> imp_res_tac evaluate_SING_IMP
         >> gvs [rw_block_args]
         >> irule_at Any mb_rel_cons
@@ -3568,7 +3592,9 @@ Proof
             >> gvs [FLOOKUP_SIMP]
             >> strip_tac
             >> gvs [FLOOKUP_SIMP]
-            >> cheat)
+            >> gvs [holes_still_not_finalised_def, hole_not_finalised_def]
+            >> first_x_assum rev_drule
+            >> gvs [FLOOKUP_SIMP])
           >> gvs []
           >> irule non_fresh_not_in_frange
           >> rpt $ first_assum $ irule_at Any
@@ -3592,7 +3618,9 @@ Proof
         >> irule_at Any non_fresh_not_in_frange
         >> rpt $ first_assum $ irule_at Any
         >> gvs []
-        >> cheat)
+        >> gvs [holes_still_not_finalised_def, hole_not_finalised_def]
+        >> first_x_assum rev_drule
+        >> gvs [FLOOKUP_SIMP])
       (* Work *)
       >> first_x_assum drule
       >> strip_tac
@@ -3659,7 +3687,7 @@ Proof
         >> gvs [state_rel_def])
       >> strip_tac
       >> gvs []
-      >> ‘¬finalised’ by cheat (* assumption *)
+      >> ‘¬finalised’ by gvs [hole_not_finalised_def]
       >> gvs []
       >> reverse $ Cases_on ‘r’
       >-
@@ -3735,7 +3763,11 @@ Proof
        (conj_tac
         >-
          (gvs [DOMSUB_FLOOKUP_THM, FLOOKUP_SIMP, FLOOKUP_DEF]
-          >> cheat)
+          >> ntac 2 $ imp_res_tac holes_still_not_finalised_del
+          >> gvs [holes_still_not_finalised_def]
+          >> pop_assum drule_all
+          >> strip_tac
+          >> gvs [hole_not_finalised_def, FLOOKUP_DEF])
         >> gvs []
         >> irule non_fresh_not_in_frange
         >> first_assum $ irule_at $ Pos last
