@@ -4030,7 +4030,7 @@ Resume evaluate_rewrite_tmc[call_block]:
       >> imp_res_tac evaluate_refs_SUBSET)
     >> conj_tac
     >- imp_res_tac holes_unchanged_except_trans
-    >> cheat)
+    >> imp_res_tac holes_still_not_finalised_trans)
   >> reverse $ imp_res_tac bvi_to_cb_cases
   >-
    (gvs [rewrite_worker_def, evaluate_def]
@@ -4070,7 +4070,7 @@ Resume evaluate_rewrite_tmc[call_block]:
       >> first_assum $ irule_at Any
       >> gvs [])
     >> conj_tac
-    >- cheat
+    >- imp_res_tac holes_still_not_finalised_trans
     >> rw []
     >> first_assum $ irule_at Any
     >> irule hole_has_val_submap
@@ -4115,7 +4115,7 @@ Resume evaluate_rewrite_tmc[call_block]:
     >> first_assum $ irule_at Any
     >> gvs [])
   >> conj_tac
-  >- cheat
+  >- imp_res_tac holes_still_not_finalised_trans
   >> rw []
   >> first_assum $ irule_at Any
   >> irule hole_has_val_submap
