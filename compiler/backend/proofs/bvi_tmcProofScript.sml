@@ -1031,20 +1031,20 @@ Proof
 QED
 
 Definition mb_rel_def:
-  (mb_rel f refs (Block tag xs) (RefPtr b ptr) =
-   if b ∨ ptr ∈ FRANGE f then F else
+  (mb_rel f refs_old refs (Block tag xs) (RefPtr b ptr) =
+   if b ∨ ptr ∈ FRANGE f ∨ ptr ∈ FDOM refs_old then F else
      case FLOOKUP refs ptr of
      | SOME (MutBlock tag' fin' left' child' right') =>
          (tag = tag' ∧
           ∃left child right.
             xs = left ++ [child] ++ right ∧
             LIST_REL (v_rel f) left left' ∧
-            mb_rel f (refs \\ ptr) child child' ∧
+            mb_rel f refs_old (refs \\ ptr) child child' ∧
             LIST_REL (v_rel f) right right')
      | _ => F) ∧
-  (mb_rel f refs v1 v2 = v_rel f v1 v2)
+  (mb_rel f _ refs v1 v2 = v_rel f v1 v2)
 Termination
-  wf_rel_tac ‘measure $ CARD o FDOM o FST o SND’
+  wf_rel_tac ‘measure $ CARD o FDOM o FST o SND o SND’
   >> rpt gen_tac
   >> strip_tac
   >> gvs [finite_mapTheory.FDOM_DOMSUB, FLOOKUP_DEF]
@@ -1054,13 +1054,14 @@ Termination
 End
 
 Theorem mb_rel_cons:
-  ∀refs ptr f tag fin left left' v v' right right'.
-    mb_rel f (refs \\ ptr) v v' ∧
+  ∀refs_old refs ptr f tag fin left left' v v' right right'.
+    mb_rel f refs_old (refs \\ ptr) v v' ∧
     LIST_REL (v_rel f) left left' ∧
     LIST_REL (v_rel f) right right' ∧
     FLOOKUP refs ptr = SOME (MutBlock tag fin left' v' right') ∧
-    ptr ∉ FRANGE f ⇒
-    mb_rel f refs (Block tag (left ++ [v] ++ right)) (RefPtr F ptr)
+    ptr ∉ FRANGE f ∧
+    ptr ∉ FDOM refs_old ⇒
+    mb_rel f refs_old refs (Block tag (left ++ [v] ++ right)) (RefPtr F ptr)
 Proof
   rw []
   >> simp [mb_rel_def]
@@ -1069,12 +1070,13 @@ Proof
 QED
 
 Theorem mb_rel_del:
-  ∀f refs v1 v2 ptr tag fin left ptr' right.
-    mb_rel f refs v1 v2 ∧
+  ∀f refs_old refs v1 v2 ptr tag fin left ptr' right.
+    mb_rel f refs_old refs v1 v2 ∧
     FLOOKUP refs ptr = SOME (MutBlock tag fin left (RefPtr F ptr') right) ∧
     ptr' ∉ FDOM refs ∧
+    ptr' ∉ FDOM refs_old ∧
     ptr' ∉ FRANGE f ⇒
-    mb_rel f (refs \\ ptr) v1 v2
+    mb_rel f refs_old (refs \\ ptr) v1 v2
 Proof
   recInduct mb_rel_ind
   >> rw [mb_rel_def]
@@ -2138,7 +2140,7 @@ Theorem evaluate_fill_hole:
       ∀v.
         r = Rval [v] ⇒
         ∃v_fill.
-          mb_rel f_fill (t_fill.refs \\ hole_ptr) v v_fill ∧
+          mb_rel f_fill s'.refs (t_fill.refs \\ hole_ptr) v v_fill ∧
           hole_has_val f env1 env2 t_fill.refs v_fill
 Proof
   rw []
@@ -2214,7 +2216,7 @@ Theorem evaluate_fill_hole_val:
       holes_unchanged_except f s'.refs t_fill.refs {hole_ptr} ∧
       holes_still_not_finalised f s'.refs t_fill.refs ∧
       ∃v_fill.
-        mb_rel f_fill (t_fill.refs \\ hole_ptr) v v_fill ∧
+        mb_rel f_fill s'.refs (t_fill.refs \\ hole_ptr) v v_fill ∧
         hole_has_val f env1 env2 t_fill.refs v_fill
 Proof
   rw []
@@ -2768,7 +2770,7 @@ Theorem evaluate_rewrite_tmc:
                ∀res_v.
                  r = Rval [res_v] ⇒
                  ∃res_v'.
-                   mb_rel f_work (t_work.refs \\ hole_ptr) res_v res_v' ∧
+                   mb_rel f_work s'.refs (t_work.refs \\ hole_ptr) res_v res_v' ∧
                    hole_has_val f env1 env2 t_work.refs res_v')))
 Proof
   ho_match_mp_tac $ MATCH_MP WF_INDUCTION_THM WF_I_I
@@ -2927,7 +2929,7 @@ Definition hypothesis_def:
                      ∀res_v.
                        r' = Rval [res_v] ⇒
                        ∃res_v'.
-                         mb_rel f_work (t_work.refs \\ hole_ptr) res_v res_v' ∧
+                         mb_rel f_work s'³'.refs (t_work.refs \\ hole_ptr) res_v res_v' ∧
                          hole_has_val f' env1' env2' t_work.refs res_v')
 End
 
@@ -3023,15 +3025,46 @@ Proof
   >> gvs [DOMSUB_FLOOKUP_NEQ]
 QED
 
+Theorem holes_still_not_finalised_sub:
+  ptr ∉ FDOM refs ∧
+  holes_still_not_finalised f refs refs' ⇒
+  holes_still_not_finalised f refs (refs' \\ ptr)
+Proof
+  rw [holes_still_not_finalised_def]
+  >> first_x_assum drule_all
+  >> strip_tac
+  >> gvs [hole_not_finalised_def]
+  >> Cases_on ‘ptr = ptr'’
+  >- gvs [DOMSUB_FLOOKUP, FDOM_DEF, FLOOKUP_DEF]
+  >> gvs [DOMSUB_FLOOKUP_NEQ]
+QED
+
+Theorem holes_still_not_finalised_non_dom:
+  ∀f refs refs' ptr tag l c r.
+    holes_still_not_finalised f refs refs' ∧
+    ptr ∉ FDOM refs ⇒
+    holes_still_not_finalised f refs refs'⟨ptr ↦ MutBlock tag T l c r⟩
+Proof
+  rw [holes_still_not_finalised_def]
+  >> first_x_assum drule_all
+  >> strip_tac
+  >> gvs [hole_not_finalised_def, FLOOKUP_SIMP]
+  >> IF_CASES_TAC
+  >- gvs [FLOOKUP_DEF]
+  >> gvs []
+QED
+
 Theorem evaluate_finalise_cons:
   ∀v2 t_refs f s_refs v1.
     state_ref_rel f s_refs t_refs ∧
-    mb_rel f t_refs v1 v2 ⇒
+    mb_rel f s_refs t_refs v1 v2 ∧
+    holes_still_not_finalised f s_refs t_refs ⇒
     ∃v3 t_refs'.
       finalise_cons v2 t_refs = SOME (v3,t_refs') ∧
       v_rel f v1 v3 ∧
       state_ref_rel f s_refs t_refs' ∧
-      holes_unchanged_except f t_refs t_refs' EMPTY
+      holes_unchanged_except f t_refs t_refs' EMPTY ∧
+      holes_still_not_finalised f s_refs t_refs'
 Proof
   recInduct finalise_cons_ind
   >> rw []
@@ -3057,10 +3090,13 @@ Proof
     >> Cases_on ‘FLOOKUP refs ptr’ >> gvs []
     >> Cases_on ‘x’ >> gvs []
     >> imp_res_tac state_ref_rel_sub
+    >> imp_res_tac holes_still_not_finalised_sub
     >> first_x_assum drule_all
     >> strip_tac >> gvs [] >> irule_at Any LIST_REL_APPEND_suff >> gvs [v_rel_cases]
     >> irule_at Any state_ref_rel_filled >> gvs []
-    >> irule holes_unchanged_except_finalised >> gvs [])
+    >> irule_at Any holes_unchanged_except_finalised >> gvs []
+    >> irule holes_still_not_finalised_non_dom
+    >> gvs [])
   >~ [‘Number i’] >-
    (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def, holes_unchanged_except_def])
   >~ [‘Word64 w’] >-
@@ -3120,6 +3156,23 @@ Proof
   >> simp []
 QED
 
+Theorem mb_rel_refs_old_subset:
+  ∀f r2 r3 v1 v2 r1.
+    mb_rel f r2 r3 v1 v2 ∧
+    r1 SUBMAP r2 ⇒
+    mb_rel f r1 r3 v1 v2
+Proof
+  recInduct mb_rel_ind
+  >> rw [mb_rel_def]
+  >-
+   (spose_not_then assume_tac
+    >> gvs [SUBMAP_DEF])
+  >> CASE_TAC >- gvs []
+  >> CASE_TAC >> gvs []
+  >> rpt $ first_assum $ irule_at Any
+  >> gvs []
+QED
+
 Theorem evaluate_cb:
   ∀cb loc f opt env env2 ^s s' t r clock.
     evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
@@ -3153,6 +3206,7 @@ Theorem evaluate_cb:
       (∀refs extras ptr idx hole_ptr.
          state_ref_rel f s.refs refs ∧
          (∃c. alloc_hole_has_val f refs extras ptr idx c) ∧
+         s'.refs ⊑ refs ∧
          EL ptr extras = RefPtr F hole_ptr ⇒
          ∃r_aux t_aux f_aux.
            evaluate ([cb_to_bvi_worker_aux (shift_cb (LENGTH extras) cb) loc_opt ptr idx],extras ++ env2,s' with refs := refs) = (r_aux,t_aux) ∧
@@ -3165,7 +3219,7 @@ Theorem evaluate_cb:
            ∀res_v.
              r = Rval [res_v] ⇒
              ∃res_v'.
-               mb_rel f_aux (t_aux.refs \\ hole_ptr) res_v res_v' ∧
+               mb_rel f_aux s'.refs (t_aux.refs \\ hole_ptr) res_v res_v' ∧
                alloc_hole_has_val f t_aux.refs extras ptr idx res_v') ∧
       (opt ⇒
        (∀ptr idx work hole_ptr.
@@ -3185,7 +3239,7 @@ Theorem evaluate_cb:
             ∀res_v.
               r = Rval [res_v] ⇒
               ∃res_v'.
-                mb_rel f_work (t_work.refs \\ hole_ptr) res_v res_v' ∧
+                mb_rel f_work s'.refs (t_work.refs \\ hole_ptr) res_v res_v' ∧
                 hole_has_val f env env2 t_work.refs res_v'))
 Proof
 
@@ -3310,8 +3364,8 @@ Proof
               >- (gvs [opt_res_rel_def])
               >- (gvs []
                   >> rw []
-                  >> gvs []
-                  >> first_assum $ irule_at Any
+                  >> irule_at Any mb_rel_refs_old_subset
+                  >> first_assum $ irule_at $ Pos hd
                   >> gvs [hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP, holes_still_not_finalised_def]
                   >> first_x_assum drule
                   >> impl_tac
@@ -3431,8 +3485,14 @@ Proof
            (irule state_ref_rel_filled
             >> gvs [state_rel_def]
             >> imp_res_tac fresh_not_in_range_f)
-          >> gvs [alloc_hole_has_val_def, FLOOKUP_SIMP, backend_commonTheory.small_enough_int_def, state_rel_def]
-          >> imp_res_tac fresh_not_in_range_f)
+          >> conj_tac
+          >-
+           (gvs [alloc_hole_has_val_def, FLOOKUP_SIMP, backend_commonTheory.small_enough_int_def, state_rel_def]
+            >> imp_res_tac fresh_not_in_range_f)
+          >> gvs []
+          >> disj1_tac
+          >> qspec_then ‘s'.refs’ assume_tac fresh_ptr_fresh
+          >> gvs [])
         >> strip_tac
         >> gvs []
         >> imp_res_tac evaluate_SING_IMP
@@ -3480,13 +3540,18 @@ Proof
           >> strip_tac
           >> imp_res_tac wf_vars_list_rel
           >> gvs [MAP_REVERSE]
-          >> irule non_fresh_not_in_frange
+          >> irule_at Any non_fresh_not_in_frange
           >> rpt $ first_assum $ irule_at Any
-          >> gvs [FDOM_DEF])
+          >> gvs [FDOM_DEF]
+          >> qspec_then ‘s'.refs’ assume_tac fresh_ptr_fresh
+          >> gvs [])
         >> strip_tac
         >> rename [‘state_rel _ u t_aux’]
         >> ‘state_ref_rel f_aux u.refs t_aux.refs’ by gvs [state_rel_def]
-        >> drule_all evaluate_finalise_cons
+        >> drule evaluate_finalise_cons
+        >> rpt $ disch_then $ drule_at Any
+        >>
+
         >> strip_tac
         >> gvs []
         >> qexists ‘f_aux’
