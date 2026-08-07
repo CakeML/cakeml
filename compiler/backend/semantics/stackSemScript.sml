@@ -92,8 +92,8 @@ Datatype:
      ; mdomain : ('a word) set
      ; sh_mdomain : ('a word) set
      ; bitmaps : 'a word list
-     ; compile : 'c -> (num # 'a stackLang$prog) list -> (word8 list # 'c) option
-     ; compile_oracle : num -> 'c # (num # 'a stackLang$prog) list # 'a word list
+     ; compile : 'c -> (metadata # num # 'a stackLang$prog) list -> (word8 list # 'c) option
+     ; compile_oracle : num -> 'c # (metadata # num # 'a stackLang$prog) list # 'a word list
      ; code_buffer : ('a,8) buffer
      ; data_buffer : ('a,'a) buffer
      ; gc_fun  : 'a gc_fun_type
@@ -900,14 +900,14 @@ Definition evaluate_def:
          SOME (bytes, cb), SOME (data, db) =>
         let new_oracle = shift_seq 1 s.compile_oracle in
         (case s.compile cfg progs, progs of
-          | SOME (bytes',cfg'), (k,prog)::_ =>
+          | SOME (bytes',cfg'), (md,k,prog)::_ =>
             if bytes = bytes' ∧ data = bm ∧ FST(new_oracle 0) = cfg' then
             let s' =
                 s with <|
                   bitmaps := s.bitmaps ++ bm
                 ; code_buffer := cb
                 ; data_buffer := db
-                ; code := union s.code (fromAList progs)
+                ; code := union s.code (fromAList (MAP SND progs))
                 (* This order is convenient because it means all of s.code's entries are preserved *)
                 (* TODO: this might need to be a new field, cc_save_regs *)
                 ; regs := (DRESTRICT s.regs s.ffi_save_regs) |+ (ptr,Loc k 0)

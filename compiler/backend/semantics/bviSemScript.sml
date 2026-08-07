@@ -23,8 +23,8 @@ Datatype:
     <| refs    : num |-> bvlSem$v ref
      ; clock   : num
      ; global  : num option
-     ; compile : 'c -> (num # num # bvi$exp) list -> (word8 list # word64 list # 'c) option
-     ; compile_oracle : num -> 'c # (num # num # bvi$exp) list
+     ; compile : 'c -> (metadata # num # num # bvi$exp) list -> (word8 list # word64 list # 'c) option
+     ; compile_oracle : num -> 'c # (metadata # num # num # bvi$exp) list
      ; code    : (num # bvi$exp) num_map
      ; ffi     : 'ffi ffi_state |>
 End
@@ -180,13 +180,14 @@ Definition do_install_def:
                then Rerr(Rabort Rtype_error) else
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in
-                 if DISJOINT (domain s.code) (set (MAP FST progs)) ∧ ALL_DISTINCT (MAP FST progs) then
+                 if DISJOINT (domain s.code) (set (MAP (FST o SND) progs)) ∧
+                    ALL_DISTINCT (MAP (FST o SND) progs) then
                  (case s.compile cfg progs, progs of
-                  | SOME (bytes',data',cfg'), (k,prog)::_ =>
+                  | SOME (bytes',data',cfg'), (md,k,prog)::_ =>
                       if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
                         let s' =
                           s with <|
-                             code := union s.code (fromAList progs)
+                             code := union s.code (fromAList (MAP SND progs))
                            ; compile_oracle := new_oracle |>
                         in
                           Rval (CodePtr k, s')

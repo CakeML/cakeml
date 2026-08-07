@@ -423,7 +423,8 @@ Theorem evaluate_code_bitmaps:
    evaluate (c,s) = (r,s1) ⇒
    ∃n.
     s1.compile_oracle = shift_seq n s.compile_oracle ∧
-    s1.code = FOLDL union s.code (MAP (fromAList o FST o SND) (GENLIST s.compile_oracle n)) ∧
+    s1.code = FOLDL union s.code
+      (MAP (fromAList o MAP SND o FST o SND) (GENLIST s.compile_oracle n)) ∧
     s1.bitmaps = s.bitmaps ++ FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n))
 Proof
   recInduct evaluate_ind >>

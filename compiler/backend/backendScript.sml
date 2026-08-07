@@ -317,7 +317,7 @@ Definition to_livesets_0_def:
   let word_conf = c.word_to_word_conf in
   let alg = word_conf.reg_alg in
   let p =
-    MAP (λ(name_num,arg_count,prog).
+    MAP (λ(md,name_num,arg_count,prog).
     let prog = word_simp$compile_exp prog in
     let maxv = max_var prog + 1 in
     let inst_prog = inst_select asm_conf maxv prog in
@@ -328,9 +328,9 @@ Definition to_livesets_0_def:
     let two_prog = three_to_two_reg_prog asm_conf.two_reg_arith cp_prog in
     let unreach_prog = remove_unreach two_prog in
     let rm_prog = remove_dead_prog unreach_prog in
-        (name_num,arg_count,rm_prog))
+        (md,name_num,arg_count,rm_prog))
       p in
-    let data = MAP (\(name_num,arg_count,prog).
+    let data = MAP (\(md,name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
     (get_clash_tree prog [],heu_moves,spillcosts,
       get_forced asm_conf prog [],get_stack_only prog)) p
@@ -366,7 +366,7 @@ Definition from_livesets_def:
   let alg = word_conf.reg_alg in
   let prog_with_oracles = ZIP (n_oracles,ZIP(data,p)) in
   let p =
-    MAP (λ(col_opt,((tree,heu_moves,spillcosts,forced,fs),name_num,arg_count,prog)).
+    MAP (λ(col_opt,((tree,heu_moves,spillcosts,forced,fs),md,name_num,arg_count,prog)).
       case oracle_colour_ok k col_opt tree prog forced of
         NONE =>
           let cp =
@@ -374,8 +374,8 @@ Definition from_livesets_def:
               M_success col =>
                 (apply_colour (total_colour col) prog)
             | M_failure _ => prog (*cannot happen*)) in
-          (name_num,arg_count,remove_must_terminate cp)
-      | SOME col_prog => (name_num,arg_count,remove_must_terminate col_prog)) prog_with_oracles in
+          (md,name_num,arg_count,remove_must_terminate cp)
+      | SOME col_prog => (md,name_num,arg_count,remove_must_terminate col_prog)) prog_with_oracles in
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   from_word asm_conf c names p
 End
@@ -440,14 +440,14 @@ Proof
   IF_CASES_TAC>>
   strip_tac>>rveq>>fs[]>>
   match_mp_tac LIST_EQ>>
-  qmatch_goalsub_abbrev_tac`data_to_word$stubs _ _ ++ p2`
-  \\ qmatch_goalsub_abbrev_tac`MAP f (data_to_word$stubs _ _)`
+  qmatch_goalsub_abbrev_tac`data_to_word$stubs_md _ _ ++ p2`
+  \\ qmatch_goalsub_abbrev_tac`MAP f (data_to_word$stubs_md _ _)`
   \\ REWRITE_TAC[GSYM MAP_APPEND]
   \\ qpat_abbrev_tac`pp = _ ++ p2`
   \\ simp[MAP_MAP_o]
   \\ rw[]>>
   simp[EL_MAP,MIN_DEF,EL_ZIP,full_compile_single_def,EL_ZIP,LENGTH_TAKE]
-  \\ qpat_abbrev_tac`len = _ + LENGTH (data_to_word$stubs _ _)`
+  \\ qpat_abbrev_tac`len = _ + LENGTH (data_to_word$stubs_md _ _)`
   \\ `len = LENGTH pp` by simp[Abbr`pp`,Abbr`p2`]
   \\ qunabbrev_tac`len` \\ fs[] >>
   rw[]>>fs[EL_MAP,EL_ZIP,full_compile_single_def,compile_single_def,Abbr`f`]>>
@@ -540,10 +540,10 @@ Datatype:
    ; flat_prog : flatLang$exp list
    ; clos_prog : closLang$exp list # (num # num # closLang$exp) list
    ; bvl_prog : (num # num # bvl$exp) list
-   ; bvi_prog : (num # num # bvi$exp) list
-   ; data_prog : (num # num # dataLang$prog) list
-   ; word_prog : (num # num # 'a wordLang$prog) list
-   ; stack_prog : (num # 'a stackLang$prog) list
+   ; bvi_prog : (metadata # num # num # bvi$exp) list
+   ; data_prog : (metadata # num # num # dataLang$prog) list
+   ; word_prog : (metadata # num # num # 'a wordLang$prog) list
+   ; stack_prog : (metadata # num # 'a stackLang$prog) list
    ; cur_bm : 'a word list
    ; lab_prog : 'a sec list
    ; target_prog : (word8 list # 'a word list) option

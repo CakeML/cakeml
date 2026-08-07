@@ -317,7 +317,7 @@ Definition compile_part_def:
 End
 
 Definition compile_prog_def:
-  compile_prog prog = MAP compile_part prog
+  compile_prog prog = MAP (\(md,p). (md, compile_part p)) prog
 End
 
 Theorem compile_exp_eq:

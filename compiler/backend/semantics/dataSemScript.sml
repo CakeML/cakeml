@@ -61,7 +61,7 @@ Datatype:
      ; global      : num option
      ; handler     : num
      ; refs        : v ref num_map
-     ; compile     : 'c -> (num # num # dataLang$prog) list -> (word8 list # word64 list # 'c) option
+     ; compile     : 'c -> (metadata # num # num # dataLang$prog) list -> (word8 list # word64 list # 'c) option
      ; clock       : num
      ; code        : (num # dataLang$prog) num_map
      ; ffi         : 'ffi ffi_state
@@ -70,7 +70,7 @@ Datatype:
      ; limits      : limits
      ; safe_for_space   : bool
      ; peak_heap_length : num
-     ; compile_oracle   : num -> 'c # (num # num # dataLang$prog) list |>
+     ; compile_oracle   : num -> 'c # (metadata # num # num # dataLang$prog) list |>
 End
 
 val s = ``(s:('c,'ffi) dataSem$state)``
@@ -511,12 +511,12 @@ Definition do_install_def:
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in
                  (case s.compile cfg progs, progs of
-                  | SOME (bytes',data',cfg'), (k,prog)::_ =>
+                  | SOME (bytes',data',cfg'), (md,k,prog)::_ =>
                       if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
                         let s' =
                           s with <|
                              safe_for_space := F ;
-                             code := union s.code (fromAList progs) ;
+                             code := union s.code (fromAList (MAP SND progs)) ;
                              compile_oracle := new_oracle |>
                         in
                           Rval (CodePtr k, s')

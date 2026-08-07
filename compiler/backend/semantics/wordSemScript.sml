@@ -214,8 +214,8 @@ Datatype:
      ; mdomain : ('a word) set
      ; sh_mdomain : ('a word) set
      ; permute : num -> num -> num (* sequence of bijective mappings *)
-     ; compile : 'c -> (num # num # 'a wordLang$prog) list -> (word8 list # 'a word list # 'c) option
-     ; compile_oracle : num -> 'c # (num # num # 'a wordLang$prog) list
+     ; compile : 'c -> (metadata # num # num # 'a wordLang$prog) list -> (word8 list # 'a word list # 'c) option
+     ; compile_oracle : num -> 'c # (metadata # num # num # 'a wordLang$prog) list
      ; code_buffer : ('a,8) buffer
      ; data_buffer : ('a,'a) buffer
      ; gc_fun  : 'a gc_fun_type
@@ -1127,13 +1127,13 @@ Definition evaluate_def:
          SOME (bytes, cb), SOME (data, db) =>
         let new_oracle = shift_seq 1 s.compile_oracle in
         (case s.compile cfg progs, progs of
-          | SOME (bytes',data',cfg'), (k,prog)::_ =>
+          | SOME (bytes',data',cfg'), (md,k,prog)::_ =>
             if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
             let s' =
                 s with <|
                   code_buffer := cb
                 ; data_buffer := db
-                ; code := union s.code (fromAList progs)
+                ; code := union s.code (fromAList (MAP SND progs))
                 (* This order is convenient because it means all of s.code's entries are preserved *)
                 ; locals := insert ptr (Loc k 0) env
                 ; fp_regs := FEMPTY

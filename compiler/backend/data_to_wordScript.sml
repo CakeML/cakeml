@@ -2611,7 +2611,7 @@ Definition comp_def:
 End
 
 Definition compile_part_def:
-  compile_part c (n,arg_count,p) = (n,arg_count+1n,FST (comp c n 2 p))
+  compile_part c (md,n,arg_count,p) = (md,n,arg_count+1n,FST (comp c n 2 p))
 End
 
 Definition MemCopy_code_def:
@@ -2820,6 +2820,17 @@ Definition stub_names_def:
     (data_num_stubs - Bignum_location)
 End
 
+(* the stubs, with metadata attached; the name of each stub is looked up in
+   stub_names so that the names are not written down twice *)
+Definition stubs_md_def:
+  stubs_md (:'a) data_conf =
+    MAP (λ(n,arg_count,p).
+           (Metadata (case ALOOKUP (stub_names ()) n of
+                      | SOME s => s
+                      | NONE => strlit "") [Stub], n, arg_count, p))
+        (stubs (:'a) data_conf)
+End
+
 Theorem check_stubs_length:
    word_num_stubs + LENGTH (stubs (:α) c) = data_num_stubs
 Proof
@@ -2837,7 +2848,7 @@ Definition compile_def:
     let data_conf =
       (data_conf with <| has_fp_ops := (1 < asm_conf.fp_reg_count);
                       has_fp_tern := (asm_conf.ISA = ARMv7 /\ 2 < asm_conf.fp_reg_count) |>) in
-    let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) prog in
+    let p = stubs_md (:α) data_conf ++ MAP (compile_part data_conf) prog in
       word_to_word$compile word_conf (asm_conf:'a asm_config) p
 End
 
@@ -2848,7 +2859,7 @@ Definition compile_0_def:
                          has_fp_tern := (asm_conf.ISA = ARMv7 /\
                                          2 < asm_conf.fp_reg_count) |>)
     in
-      stubs (:'a) data_conf ++ MAP (compile_part data_conf) prog
+      stubs_md (:'a) data_conf ++ MAP (compile_part data_conf) prog
 End
 
 (* compute bignum call graph *)

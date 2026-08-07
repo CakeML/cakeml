@@ -19,7 +19,7 @@ Datatype:
 End
 
 Definition compile_single_def:
-  compile_single two_reg_arith reg_count alg c ((name_num:num,arg_count,prog),col_opt) =
+  compile_single two_reg_arith reg_count alg c ((md,name_num:num,arg_count,prog),col_opt) =
   let prog = word_simp$compile_exp prog in
   let maxv = max_var prog + 1 in
   let inst_prog = inst_select c maxv prog in
@@ -31,13 +31,13 @@ Definition compile_single_def:
   let unreach_prog = remove_unreach two_prog in
   let rm_prog = remove_dead_prog unreach_prog in
   let reg_prog = word_alloc name_num c alg reg_count rm_prog col_opt in
-    (name_num,arg_count,reg_prog)
+    (md,name_num,arg_count,reg_prog)
 End
 
 Definition full_compile_single_def:
   full_compile_single two_reg_arith reg_count alg c p =
-  let (name_num,arg_count,reg_prog) = compile_single two_reg_arith reg_count alg c p in
-    (name_num,arg_count,remove_must_terminate reg_prog)
+  let (md,name_num,arg_count,reg_prog) = compile_single two_reg_arith reg_count alg c p in
+    (md,name_num,arg_count,remove_must_terminate reg_prog)
 End
 
 Definition next_n_oracle_def:
@@ -58,7 +58,7 @@ End
 
 Definition full_compile_single_for_eval_def:
   full_compile_single_for_eval two_reg_arith reg_count alg c p =
-    let ((name_num,arg_count,prog),col_opt) = p in
+    let ((md,name_num,arg_count,prog),col_opt) = p in
     let prog = word_simp$compile_exp prog in
     let _ = empty_ffi «finished: word_simp» in
     let maxv = max_var prog + 1 in
@@ -82,7 +82,7 @@ Definition full_compile_single_for_eval_def:
     let _ = empty_ffi «finished: word_alloc» in
     let rmt_prog = remove_must_terminate reg_prog in
     let _ = empty_ffi «finished: word_remove» in
-      (name_num,arg_count,rmt_prog)
+      (md,name_num,arg_count,rmt_prog)
 End
 
 Theorem full_compile_single_for_eval_eq:
@@ -99,9 +99,10 @@ Theorem compile_alt:
     let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
     let (n_oracles,col) = next_n_oracle (LENGTH progs) word_conf.col_oracle in
     let alg = word_conf.reg_alg in
-    let names = MAP (λ(x,y,z). x) progs in
-    let args = MAP (λ(x,y,z). y) progs in
-    let ps = MAP (\(x,y,z). z) progs in
+    let mds = MAP (λ(w,x,y,z). w) progs in
+    let names = MAP (λ(w,x,y,z). x) progs in
+    let args = MAP (λ(w,x,y,z). y) progs in
+    let ps = MAP (\(w,x,y,z). z) progs in
     let simp_ps = MAP word_simp$compile_exp ps in
     let _ = empty_ffi «finished: word_simp» in
     let inst_ps = MAP (λp. inst_select asm_conf (max_var p +1) p) simp_ps in
@@ -124,7 +125,7 @@ Theorem compile_alt:
     let _ = empty_ffi «finished: word_alloc» in
     let rmt_ps = MAP remove_must_terminate reg_ps in
     let _ = empty_ffi «finished: word_remove» in
-    (col,ZIP(names,ZIP(args,rmt_ps)))
+    (col,ZIP(mds,ZIP(names,ZIP(args,rmt_ps))))
 Proof
   fs[compile_def,next_n_oracle_def]>>
   rw[LIST_EQ_REWRITE]>>

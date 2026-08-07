@@ -230,7 +230,8 @@ Definition ConcatByte_code_def:
 End
 
 Definition stubs_def:
-  stubs start n = [(AllocGlobal_location, AllocGlobal_code);
+  stubs start n = MAP (\(loc,x). (Metadata (strlit "") [Stub], loc, x))
+                  [(AllocGlobal_location, AllocGlobal_code);
                    (CopyGlobals_location, CopyGlobals_code);
                    (InitGlobals_location, InitGlobals_code start n);
                    (ListLength_location, ListLength_code);
@@ -325,7 +326,7 @@ Overload "nss"[local] = ``bvl_to_bvi_namespaces``
 
 Definition compile_aux_def:
   compile_aux (k,args,p) =
-    List[(num_stubs + nss * k + 1, args, bvi_let$compile_exp p)]
+    List[(empty_metadata, num_stubs + nss * k + 1, args, bvi_let$compile_exp p)]
 End
 
 Definition compile_exps_def:
@@ -482,15 +483,15 @@ QED
 Definition compile_single_def:
   compile_single n (name,arg_count,exp) =
     let (c,aux,n1) = compile_exps n [exp] in
-      (List [(num_stubs + nss * name,arg_count,bvi_let$compile_exp (HD c))]
-        ++ aux, n1)
+      (List [(empty_metadata,num_stubs + nss * name,arg_count,
+              bvi_let$compile_exp (HD c))] ++ aux, n1)
 End
 
 Theorem compile_single_eq:
   compile_single n (name,arg_count,exp) =
     let (c,aux,n1) = compile_exps_sing n exp in
-      (List [(num_stubs + nss * name,arg_count,bvi_let$compile_exp c)]
-        ++ aux, n1)
+      (List [(empty_metadata,num_stubs + nss * name,arg_count,
+              bvi_let$compile_exp c)] ++ aux, n1)
 Proof
   gvs [compile_single_def,compile_exps_sing]
   \\ rpt (pairarg_tac \\ gvs [])
@@ -580,7 +581,7 @@ Definition compile_def:
     let (n3, code') = bvi_tmc$compile_prog c.do_tmc (num_stubs + 3) code' in
     let (bvi_inlines, code') = bvi_inline$compile_prog code' in
       (loc, code', inlines, bvi_inlines, n1, n2, n3,
-       get_names (MAP FST code') names)
+       get_names (MAP (FST o SND) code') names)
 End
 
 Definition bvl_to_bvi_compile_inc_all_def:

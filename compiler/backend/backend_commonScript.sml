@@ -21,6 +21,10 @@ Definition empty_metadata_def:
   empty_metadata = Metadata (strlit "") []
 End
 
+Definition add_annotation_def:
+  add_annotation a (Metadata s annots) = Metadata s (annots ++ [a])
+End
+
 Datatype:
   opw = Andw | Orw | Xor | Add | Sub
 End

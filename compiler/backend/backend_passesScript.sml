@@ -14,10 +14,10 @@ Datatype:
            | Flat (flatLang$exp list)
            | Clos (closLang$exp list) ((num # num # closLang$exp) list)
            | Bvl ((num # num # bvl$exp) list) (mlstring sptree$num_map)
-           | Bvi ((num # num # bvi$exp) list) (mlstring sptree$num_map)
-           | Data ((num # num # dataLang$prog) list) (mlstring sptree$num_map)
-           | Word ((num # num # α wordLang$prog) list) (mlstring sptree$num_map)
-           | Stack ((num # α stackLang$prog) list) (mlstring sptree$num_map)
+           | Bvi ((metadata # num # num # bvi$exp) list) (mlstring sptree$num_map)
+           | Data ((metadata # num # num # dataLang$prog) list) (mlstring sptree$num_map)
+           | Word ((metadata # num # num # α wordLang$prog) list) (mlstring sptree$num_map)
+           | Stack ((metadata # num # α stackLang$prog) list) (mlstring sptree$num_map)
            | Lab (α sec list) (mlstring sptree$num_map)
 End
 
@@ -131,7 +131,7 @@ Definition to_bvi_all_def:
     let (n3,code3) = bvi_tmc$compile_prog c0.do_tmc (bvl_num_stubs + 3) code2 in
     let (bvi_inlines,code') = bvi_inline$compile_prog code3 in
     let (s,p,l,bl,n1,n2,n3,names) =
-      (loc,code',inlines,bvi_inlines,n1,n2,n3,get_names (MAP FST code') names) in
+      (loc,code',inlines,bvi_inlines,n1,n2,n3,get_names (MAP (FST o SND) code') names) in
     let names = sptree$union (sptree$fromAList $ (data_to_word$stub_names () ++
       word_to_stack$stub_names () ++ stack_alloc$stub_names () ++
       stack_remove$stub_names ())) names in
@@ -166,13 +166,13 @@ QED
 Definition to_data_all_def:
   to_data_all (c:config) p =
     let (ps,c,p,names) = to_bvi_all c p in
-    let p = MAP (λ(a,n,e). (a,n,FST (compile n (COUNT_LIST n) T [] [e]))) p in
+    let p = MAP (λ(md,a,n,e). (md,a,n,FST (compile n (COUNT_LIST n) T [] [e]))) p in
     let ps = ps ++ [(«after bvi_to_data»,Data p names)] in
-    let p = MAP (λ(a,n,e). (a,n,FST (data_live$compile e LN))) p in
+    let p = MAP (λ(md,a,n,e). (md,a,n,FST (data_live$compile e LN))) p in
     let ps = ps ++ [(«after data_live»,Data p names)] in
-    let p = MAP (λ(a,n,e). (a,n,data_simp$simp e Skip)) p in
+    let p = MAP (λ(md,a,n,e). (md,a,n,data_simp$simp e Skip)) p in
     let ps = ps ++ [(«after data_simp»,Data p names)] in
-    let p = MAP (λ(a,n,e). (a,n,data_space$compile e)) p in
+    let p = MAP (λ(md,a,n,e). (md,a,n,data_space$compile e)) p in
     let ps = ps ++ [(«after data_space»,Data p names)] in
       ((ps: (mlstring # 'a any_prog) list),c,p,names)
 End
@@ -193,34 +193,34 @@ QED
 Definition word_internal_all_def:
   word_internal_all asm_conf ps names p =
     let two_reg_arith = asm_conf.two_reg_arith in
-    let p = MAP (λ((name_num,arg_count,prog)).
-                  ((name_num,arg_count,word_simp$compile_exp prog))) p in
+    let p = MAP (λ((md,name_num,arg_count,prog)).
+                  ((md,name_num,arg_count,word_simp$compile_exp prog))) p in
     let ps = ps ++ [(«after word_simp»,Word p names)] in
-    let p = MAP (λ((name_num,arg_count,prog)).
-                  ((name_num,arg_count,
+    let p = MAP (λ((md,name_num,arg_count,prog)).
+                  ((md,name_num,arg_count,
                      inst_select asm_conf (max_var prog + 1) prog))) p in
     let ps = ps ++ [(«after word_inst»,Word p names)] in
-    let p = MAP (λ((name_num,arg_count,prog)).
-                  ((name_num,arg_count,full_ssa_cc_trans arg_count prog))) p in
+    let p = MAP (λ((md,name_num,arg_count,prog)).
+                  ((md,name_num,arg_count,full_ssa_cc_trans arg_count prog))) p in
     let ps = ps ++ [(«after word_ssa»,Word p names)] in
-    let p = MAP (λ((name_num,arg_count,prog)).
-                  ((name_num,arg_count,remove_dead_prog prog))) p in
+    let p = MAP (λ((md,name_num,arg_count,prog)).
+                  ((md,name_num,arg_count,remove_dead_prog prog))) p in
     let ps = ps ++ [(«after remove_dead in word_ssa»,Word p names)] in
-    let p = MAP (λ((name_num,arg_count,prog)).
-                  ((name_num,arg_count,word_common_subexp_elim prog))) p in
+    let p = MAP (λ((md,name_num,arg_count,prog)).
+                  ((md,name_num,arg_count,word_common_subexp_elim prog))) p in
     let ps = ps ++ [(«after word_cse»,Word p names)] in
-    let p = MAP (λ((name_num,arg_count,prog)).
-                  ((name_num,arg_count,copy_prop prog))) p in
+    let p = MAP (λ((md,name_num,arg_count,prog)).
+                  ((md,name_num,arg_count,copy_prop prog))) p in
     let ps = ps ++ [(«after word_copy»,Word p names)] in
-    let p = MAP (λ((name_num,arg_count,prog)).
-                  ((name_num,arg_count,
+    let p = MAP (λ((md,name_num,arg_count,prog)).
+                  ((md,name_num,arg_count,
                    three_to_two_reg_prog two_reg_arith prog))) p in
     let ps = ps ++ [(«after three_to_two_reg from word_inst»,Word p names)] in
-    let p = MAP (λ((name_num,arg_count,prog)).
-                  ((name_num,arg_count,remove_unreach prog))) p in
+    let p = MAP (λ((md,name_num,arg_count,prog)).
+                  ((md,name_num,arg_count,remove_unreach prog))) p in
     let ps = ps ++ [(«after word_unreach»,Word p names)] in
-    let p = MAP (λ((name_num,arg_count,prog)).
-                  ((name_num,arg_count,remove_dead_prog prog))) p in
+    let p = MAP (λ((md,name_num,arg_count,prog)).
+                  ((md,name_num,arg_count,remove_dead_prog prog))) p in
     let ps = ps ++ [(«after remove_dead in word_alloc»,Word p names)] in
     (p,ps)
 End
@@ -235,14 +235,14 @@ Definition to_word_all_def:
             <|has_fp_ops := (1 < asm_conf.fp_reg_count);
               has_fp_tern :=
                 (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
-    let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) p in
+    let p = stubs_md (:α) data_conf ++ MAP (compile_part data_conf) p in
     let ps = ps ++ [(«after data_to_word»,Word p names)] in
     let (p,ps) = word_internal_all asm_conf ps names p in
     let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
     let alg = word_conf.reg_alg in
     let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
-                  ((name_num,arg_count,
+    let p = MAP (λ((md,name_num,arg_count,prog),col_opt).
+                  ((md,name_num,arg_count,
                    remove_must_terminate
                      (word_alloc name_num asm_conf alg reg_count prog col_opt)))) (ZIP (p,n_oracles)) in
     let ps = ps ++ [(«after word_alloc (and remove_must_terminate)»,Word p names)] in
@@ -410,8 +410,8 @@ Definition from_word_0_all_def:
     let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
     let alg = word_conf.reg_alg in
     let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
-                  ((name_num,arg_count,
+    let p = MAP (λ((md,name_num,arg_count,prog),col_opt).
+                  ((md,name_num,arg_count,
                    remove_must_terminate
                      (word_alloc name_num asm_conf alg reg_count prog col_opt)))) (ZIP (p,n_oracles)) in
     let ps = ps ++ [(«after word_alloc (and remove_must_terminate)»,Word p names)] in
@@ -446,7 +446,7 @@ Definition from_data_all_def:
             <|has_fp_ops := (1 < asm_conf.fp_reg_count);
               has_fp_tern :=
                 (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
-    let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) p in
+    let p = stubs_md (:α) data_conf ++ MAP (compile_part data_conf) p in
     let ps = ps ++ [(«after data_to_word»,Word p names)] in
       from_word_0_all ps asm_conf c names p
 End
