@@ -3,11 +3,23 @@
 *)
 Theory backend_common
 Ancestors[qualified]
-  arithmetic integer words
+  arithmetic integer words mlstring
 Ancestors
   sptree (* for delete *)
 Libs
   preamble
+
+Datatype:
+  annotation = MustInline | Stub | BVI_Worker
+End
+
+Datatype:
+  metadata = Metadata mlstring (annotation list)
+End
+
+Definition empty_metadata_def:
+  empty_metadata = Metadata (strlit "") []
+End
 
 Datatype:
   opw = Andw | Orw | Xor | Add | Sub

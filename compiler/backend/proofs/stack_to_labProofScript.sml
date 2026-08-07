@@ -226,7 +226,7 @@ Proof
 QED
 
 Theorem MAP_prog_to_section_FST[local]:
-  MAP (λs. case s of Section n v => n) (MAP prog_to_section prog) =
+  MAP (λs. case s of Section n v _ => n) (MAP prog_to_section prog) =
   MAP FST prog
 Proof
   match_mp_tac LIST_EQ>>rw[EL_MAP]>>Cases_on`EL x prog`>>fs[prog_to_section_def]>>
@@ -332,8 +332,8 @@ End
 Theorem code_installed'_cons_label:
    !lines pos.
       is_Label h ==>
-      code_installed' pos lines (Section n (h::xs)::other) =
-      code_installed' pos lines (Section n xs::other)
+      code_installed' pos lines (Section n (h::xs) md::other) =
+      code_installed' pos lines (Section n xs md::other)
 Proof
   Induct \\ fs [code_installed'_def]
   \\ rw [] \\ fs [labSemTheory.asm_fetch_aux_def]
@@ -342,14 +342,14 @@ QED
 Theorem code_installed'_cons_non_label = Q.prove(`
   !lines pos.
       ~is_Label h ==>
-      code_installed' (pos+1) lines (Section n (h::xs)::other) =
-      code_installed' pos lines (Section n xs::other)`,
+      code_installed' (pos+1) lines (Section n (h::xs) md::other) =
+      code_installed' pos lines (Section n xs md::other)`,
   Induct \\ fs [code_installed'_def]
   \\ rw [] \\ fs [labSemTheory.asm_fetch_aux_def])
   |> Q.SPECL [`lines`,`0`] |> SIMP_RULE std_ss [];
 
 Theorem code_installed'_simp:
-   !lines. code_installed' 0 lines (Section n (lines ++ rest)::other)
+   !lines. code_installed' 0 lines (Section n (lines ++ rest) md::other)
 Proof
   Induct \\ fs [code_installed'_def]
   \\ fs [labSemTheory.asm_fetch_aux_def]
@@ -360,7 +360,7 @@ QED
 Theorem loc_to_pc_skip_section:
    !lines.
       n <> p ==>
-      loc_to_pc n 0 (Section p lines :: xs) =
+      loc_to_pc n 0 (Section p lines md :: xs) =
       case loc_to_pc n 0 xs of
       | NONE => NONE
       | SOME k => SOME (k + LENGTH (FILTER (\x. ~(is_Label x)) lines))
@@ -373,7 +373,7 @@ QED
 Theorem asm_fetch_aux_add:
    !ys pc rest.
       asm_fetch_aux (pc + LENGTH (FILTER (λx. ¬is_Label x) ys))
-        (Section pos ys::rest) = asm_fetch_aux pc rest
+        (Section pos ys md::rest) = asm_fetch_aux pc rest
 Proof
   Induct \\ fs [labSemTheory.asm_fetch_aux_def,ADD1]
 QED
@@ -407,7 +407,7 @@ Theorem code_installed_cons:
    !xs ys pos pc.
       code_installed' pc xs rest ==>
       code_installed' (pc + LENGTH (FILTER (λx. ¬is_Label x) ys)) xs
-        (Section pos ys :: rest)
+        (Section pos ys md :: rest)
 Proof
   Induct \\ fs [] \\ fs [code_installed'_def]
   \\ ntac 4 strip_tac \\ IF_CASES_TAC \\ fs []
@@ -438,7 +438,7 @@ Theorem labs_correct_hd:
     ∀extra l.
   ALL_DISTINCT (extract_labels (extra++l)) ∧
   EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels (extra++l)) ⇒
-  labs_correct (LENGTH (FILTER (\x. ~(is_Label x)) extra)) l (Section n (extra++l) ::code)
+  labs_correct (LENGTH (FILTER (\x. ~(is_Label x)) extra)) l (Section n (extra++l) m ::code)
 Proof
   Induct_on`l`>>fs[labs_correct_def]>>rw[]
   >-
@@ -468,8 +468,8 @@ QED
 Definition labels_ok_def:
   labels_ok code ⇔
   (*Section names are distinct*)
-  ALL_DISTINCT (MAP (λs. case s of Section n _ => n) code) ∧
-  EVERY (λs. case s of Section n lines =>
+  ALL_DISTINCT (MAP (λs. case s of Section n _ _ => n) code) ∧
+  EVERY (λs. case s of Section n lines _ =>
     let labs = extract_labels lines in
     EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) labs ∧
     ALL_DISTINCT labs) code
@@ -499,7 +499,7 @@ QED
 Theorem labels_ok_labs_correct:
     ∀code.
   labels_ok code ⇒
-  EVERY ( λs. case s of Section n lines =>
+  EVERY ( λs. case s of Section n lines _ =>
       case loc_to_pc n 0 code of
        SOME pc => labs_correct pc lines code
       | _ => T) code
@@ -515,7 +515,7 @@ Proof
     `n ≠ n'` by
       (fs[MEM_MAP]>>
       last_x_assum kall_tac>>
-      last_x_assum (qspec_then`Section n' l'` assume_tac)>>rfs[])>>
+      last_x_assum (qspec_then`Section n' l' m'` assume_tac)>>rfs[])>>
     fs[loc_to_pc_skip_section]>>
     BasicProvers.EVERY_CASE_TAC>>fs[]>>
     pop_assum mp_tac>>
@@ -3270,7 +3270,7 @@ QED
 *)
 
 Theorem MAP_prog_to_section_FST[local]:
-  MAP (λs. case s of Section n v => n) (MAP prog_to_section prog) =
+  MAP (λs. case s of Section n v _ => n) (MAP prog_to_section prog) =
   MAP FST prog
 Proof
   match_mp_tac LIST_EQ>>rw[EL_MAP]>>Cases_on`EL x prog`>>fs[prog_to_section_def]>>
@@ -3880,7 +3880,7 @@ Theorem flatten_labels[local]:
      ⇒
      BIGUNION (IMAGE line_get_labels (set (append l))) ⊆
      set (MAP (λl. (n,l)) (cs ++ bs)) ∪
-     sec_get_code_labels (Section n (append l)) ∪
+     sec_get_code_labels (Section n (append l) md) ∪
      get_code_labels m
 Proof
   recInduct stack_to_labTheory.flatten_ind
@@ -3986,7 +3986,7 @@ Theorem flatten_preserves_handler_labels:
    flatten t m n p cs bs = (l,x,y)
    ⇒
    stack_get_handler_labels n m ⊆
-     sec_get_code_labels (Section n (append l))
+     sec_get_code_labels (Section n (append l) md)
 Proof
   recInduct stack_to_labTheory.flatten_ind
   \\ rpt gen_tac \\ strip_tac
@@ -4920,7 +4920,7 @@ Theorem asm_fetch_aux_no_share_mem_inst_CONS:
   ∀xs.
   EVERY (λln. ∀op re a inst len. ln ≠ Asm (ShareMem op re a) inst len) xs ∧
   no_share_mem_inst ls ⇒
-  no_share_mem_inst (Section k xs::ls)
+  no_share_mem_inst (Section k xs md::ls)
 Proof
   Induct>>rw[no_share_mem_inst_def, asm_fetch_aux_def]>>
   IF_CASES_TAC>>fs[]>-fs[no_share_mem_inst_def]>>
@@ -5182,7 +5182,7 @@ Theorem asm_fetch_aux_no_install_CONS:
   ∀xs.
   EVERY (λln. ∀w bytes l. ln ≠ LabAsm Install w bytes l) xs ∧
   no_install ls ⇒
-  no_install (Section k xs::ls)
+  no_install (Section k xs md::ls)
 Proof
   Induct>>rw[labPropsTheory.no_install_def, asm_fetch_aux_def]>>
   IF_CASES_TAC>>fs[]>-fs[labPropsTheory.no_install_def]>>

@@ -24,8 +24,8 @@ Definition enc_line_def:
 End
 
 Definition enc_sec_def:
-  enc_sec (c:'a asm_config) skip_len (Section k xs) =
-    Section k (MAP (enc_line c skip_len) xs)
+  enc_sec (c:'a asm_config) skip_len (Section k xs md) =
+    Section k (MAP (enc_line c skip_len) xs) md
 End
 
 Definition enc_sec_list_def:
@@ -53,10 +53,10 @@ End
 
 Definition enc_secs_again_def:
   enc_secs_again pos labs ffis (c:'a asm_config) [] = ([],T) ∧
-  enc_secs_again pos labs ffis c (Section s lines::rest) =
+  enc_secs_again pos labs ffis c (Section s lines md::rest) =
     let (lines1,pos1,ok) = enc_lines_again labs ffis pos c lines ([],T);
         (rest1,ok1) = enc_secs_again pos1 labs ffis c rest
-    in (Section s lines1::rest1,ok ∧ ok1)
+    in (Section s lines1 md::rest1,ok ∧ ok1)
 End
 
 Theorem enc_line_eq[local]:

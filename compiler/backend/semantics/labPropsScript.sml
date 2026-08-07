@@ -37,7 +37,7 @@ Definition line_get_labels_def:
 End
 
 Definition sec_get_labels_def:
-  sec_get_labels (Section _ lines) =
+  sec_get_labels (Section _ lines _) =
     BIGUNION (IMAGE line_get_labels (set lines))
 End
 
@@ -57,7 +57,7 @@ Definition line_get_code_labels_def[simp]:
 End
 
 Definition sec_get_code_labels_def:
-  sec_get_code_labels (Section n1 lines) =
+  sec_get_code_labels (Section n1 lines _) =
     (n1,0) INSERT
     IMAGE (λn2. (n1,n2)) (BIGUNION (IMAGE line_get_code_labels (set lines)))
 End
@@ -79,7 +79,7 @@ Proof
 QED
 
 Definition sec_ends_with_label_def:
-  sec_ends_with_label (Section _ ls) ⇔
+  sec_ends_with_label (Section _ ls _) ⇔
     ¬NULL ls ∧ is_Label (LAST ls)
 End
 
@@ -1250,7 +1250,7 @@ Definition line_ok_pre_def:
 End
 
 Definition sec_ok_pre_def[simp]:
-  sec_ok_pre c (Section k ls) ⇔
+  sec_ok_pre c (Section k ls _) ⇔
     EVERY (line_ok_pre c) ls
 End
 
@@ -1264,7 +1264,7 @@ Definition sec_label_ok_def[simp]:
 End
 
 Definition sec_labels_ok_def[simp]:
-  sec_labels_ok (Section k ls) ⇔ EVERY (sec_label_ok k) ls
+  sec_labels_ok (Section k ls _) ⇔ EVERY (sec_label_ok k) ls
 End
 
 Theorem sec_label_ok_extract_labels:

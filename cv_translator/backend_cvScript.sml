@@ -10,6 +10,8 @@ Ancestors
 
 val _ = cv_memLib.use_long_names := true;
 
+val _ = cv_trans backend_commonTheory.empty_metadata_def;
+
 Definition collect_conses_def:
   (collect_conses p (Raise e) = collect_conses p e) ∧
   (collect_conses p (Handle e pes) =

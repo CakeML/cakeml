@@ -4,7 +4,7 @@
 *)
 Theory labLang
 Ancestors
-  asm
+  backend_common asm
 Libs
   preamble
 
@@ -46,14 +46,17 @@ End
 (* A section consists a name (num) and a list of assembly lines. *)
 
 Datatype:
-  sec = Section num (('a line) list)
+  sec = Section num (('a line) list) backend_common$metadata
 End
 
 Definition Section_num_def[simp]:
-  Section_num (Section k _) = k
+  Section_num (Section k _ _) = k
 End
 Definition Section_lines_def[simp]:
-  Section_lines (Section _ lines) = lines
+  Section_lines (Section _ lines _) = lines
+End
+Definition Section_metadata_def[simp]:
+  Section_metadata (Section _ _ md) = md
 End
 
 (* A full assembly program consists of a list of sections. *)

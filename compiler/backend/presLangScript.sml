@@ -1287,7 +1287,7 @@ Definition lab_line_to_display_def:
 End
 
 Definition lab_fun_to_display_def:
-  lab_fun_to_display names (Section n lines) =
+  lab_fun_to_display names (Section n lines _) =
     List (String (attach_name names (SOME n))
            :: MAP (lab_line_to_display names) lines)
 End
@@ -1580,8 +1580,8 @@ val lab_test =
      (insert 50 «foo» (insert 60 «bar» LN))
      [Section 50 [Label 50 1 0;
                   Asm (Asmi (Inst (Const 5 (70w:word32)))) [] 0;
-                  Label 50 2 0];
-      Section 60 [Label 50 5 0]]”
+                  Label 50 2 0] empty_metadata;
+      Section 60 [Label 50 5 0] empty_metadata]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"));
 
