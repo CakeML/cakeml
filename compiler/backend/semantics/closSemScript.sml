@@ -139,15 +139,15 @@ Definition do_install_def:
             | (SOME bytes, SOME data) =>
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in
-                (if DISJOINT (FDOM s.code) (set (MAP FST (SND progs))) /\
-                    ALL_DISTINCT (MAP FST (SND progs)) then
+                (if DISJOINT (FDOM s.code) (set (MAP FST (MAP SND (SND progs)))) /\
+                    ALL_DISTINCT (MAP FST (MAP SND (SND progs))) then
                  (case s.compile cfg progs, progs of
                   | SOME (bytes',data',cfg'), (exps,aux) =>
                       if bytes = bytes' ∧ data = data' ∧
                          FST(new_oracle 0) = cfg' ∧ exps <> [] then
                        (let s' =
                           s with <|
-                             code := s.code |++ aux
+                             code := s.code |++ MAP SND aux
                            ; compile_oracle := new_oracle
                            ; clock := s.clock - 1
                            |>

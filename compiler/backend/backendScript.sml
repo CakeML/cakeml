@@ -538,8 +538,8 @@ Datatype:
   <| env_id : num # num
    ; source_prog : ast$dec list
    ; flat_prog : flatLang$exp list
-   ; clos_prog : closLang$exp list # (num # num # closLang$exp) list
-   ; bvl_prog : (num # num # bvl$exp) list
+   ; clos_prog : closLang$exp list # (metadata # num # num # closLang$exp) list
+   ; bvl_prog : (metadata # num # num # bvl$exp) list
    ; bvi_prog : (metadata # num # num # bvi$exp) list
    ; data_prog : (metadata # num # num # dataLang$prog) list
    ; word_prog : (metadata # num # num # 'a wordLang$prog) list
@@ -570,7 +570,8 @@ Definition compile_inc_progs_def:
     let ps = ps with <| flat_prog := keep_progs k p |> in
     let c = c with source_conf := c' in
     let p = flat_to_clos_inc_compile p in
-    let ps = ps with <| clos_prog := (keep_progs k ## keep_progs k) p |> in
+    let ps = ps with
+      <| clos_prog := (keep_progs k ## (add_empty_metadata o keep_progs k)) p |> in
     let (c',p) = clos_to_bvl_compile_inc c.clos_conf p in
     let c = c with clos_conf := c' in
     let ps = ps with <| bvl_prog := keep_progs k p |> in

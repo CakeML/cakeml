@@ -602,9 +602,9 @@ QED
 
 Definition compile_prog_def:
   compile_prog max_app prog =
-    let (new_exps, aux) = compile_exps max_app (MAP (SND o SND) prog) [] in
-      MAP2 (λ(loc,args,_) exp. (loc + num_stubs max_app, args, exp))
-        prog new_exps ++ aux
+    let (new_exps, aux) = compile_exps max_app (MAP (SND o SND o SND) prog) [] in
+      MAP2 (λ(md,loc,args,_) exp. (md, loc + num_stubs max_app, args, exp))
+        prog new_exps ++ add_empty_metadata aux
 End
 
 Theorem compile_prog_eq = compile_prog_def |> SRULE [compile_exp_sing_eq];
@@ -718,7 +718,7 @@ Definition code_merge_def:
     | ([],_) => ys
     | (_,[]) => xs
     | (x1::xs1,y1::ys1) =>
-        if FST x1 < (FST y1):num then
+        if FST (SND x1) < (FST (SND y1)):num then
           x1::code_merge xs1 ys
         else
           y1::code_merge xs ys1
@@ -756,10 +756,10 @@ Termination
 End
 
 Definition chain_exps_def:
-  (chain_exps i [] = [(i, 0n, Op None (IntOp (Const 0)) [])]) ∧
-  (chain_exps i [e] = [(i, 0n, e)]) ∧
+  (chain_exps i [] = [(empty_metadata, i, 0n, Op None (IntOp (Const 0)) [])]) ∧
+  (chain_exps i [e] = [(empty_metadata, i, 0n, e)]) ∧
   (chain_exps i (e::es) =
-    (i, 0,
+    (empty_metadata, i, 0,
      closLang$Let None [e] (closLang$Call None 0 (i + 1n) [])) :: chain_exps (i + 1) es)
 End
 
@@ -774,7 +774,7 @@ Definition compile_common_def:
     let (n,es) = renumber_code_locs_list loc es in
     let (kc, es) = clos_known$compile c.known_conf es in
     let (es,g,aux) = clos_call$compile c.do_call es in
-    let prog = chain_exps c.next_loc es ++ aux in
+    let prog = chain_exps c.next_loc es ++ add_empty_metadata aux in
     let prog = clos_annotate$compile prog in
       (c with <| start := c.next_loc; next_loc := n; known_conf := kc;
                  call_state := (g,aux) |>,
@@ -861,7 +861,7 @@ QED
 
 Definition make_name_alist_def:
   make_name_alist nums prog nstubs dec_start (dec_length:num) =
-    let src_names = get_src_names (MAP (SND o SND) prog) LN in
+    let src_names = get_src_names (MAP (SND o SND o SND) prog) LN in
       fromAList(MAP(λn.(n, if n < nstubs then
                              if n = nstubs-1 then implode "bvl_init" else
                              if n = nstubs-2 then implode "bvl_force" else
@@ -882,12 +882,15 @@ Definition compile_def:
   compile c0 es =
     let (c, prog) = compile_common c0 es in
     let n = num_stubs c.max_app in
-    let init_stubs = toAList (init_code c.max_app) in
-    let init_globs = [(n - 1, 0n, init_globals c.max_app (n + c.start))] in
-    let force_stub = [(n - 2, 2n, force_thunk_code)] in
+    let init_stubs = MAP (λ(loc,x). (Metadata (implode "bvl_stub") [Stub], loc, x))
+                        (toAList (init_code c.max_app)) in
+    let init_globs = [(Metadata (implode "bvl_init") [Stub],
+                       n - 1, 0n, init_globals c.max_app (n + c.start))] in
+    let force_stub = [(Metadata (implode "bvl_force") [Stub],
+                       n - 2, 2n, force_thunk_code)] in
     let comp_progs = compile_prog c.max_app prog in
     let prog' = init_stubs ++ force_stub ++ init_globs ++ comp_progs in
-    let func_names = make_name_alist (MAP FST prog') prog n
+    let func_names = make_name_alist (MAP (FST o SND) prog') prog n
                        c0.next_loc (LENGTH es) in
     let c = c with start := n - 1 in
       (c, code_sort prog', func_names)
@@ -925,7 +928,7 @@ Definition compile_inc_def:
     let (n,real_es) = extract_name es in
         clos_to_bvl$compile_prog max_app
           (clos_to_bvl$chain_exps n real_es ++ prog)
-    : (num, num # exp) alist
+    : (metadata # num # num # exp) list
 End
 
 Definition clos_to_bvl_compile_inc_def:

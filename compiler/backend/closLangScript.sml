@@ -223,6 +223,6 @@ Definition assign_get_code_label_def:
   (assign_get_code_label x = {})
 End
 
-Type clos_prog = ``: closLang$exp list # (num # num # closLang$exp) list``
+Type clos_prog = ``: closLang$exp list # (metadata # num # num # closLang$exp) list``
 
 Type clos_cc = ``:'c -> clos_prog -> (word8 list # word64 list # 'c) option``

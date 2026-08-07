@@ -12,8 +12,8 @@ Libs
 Datatype:
   any_prog = Source (ast$dec list)
            | Flat (flatLang$exp list)
-           | Clos (closLang$exp list) ((num # num # closLang$exp) list)
-           | Bvl ((num # num # bvl$exp) list) (mlstring sptree$num_map)
+           | Clos (closLang$exp list) ((metadata # num # num # closLang$exp) list)
+           | Bvl ((metadata # num # num # bvl$exp) list) (mlstring sptree$num_map)
            | Bvi ((metadata # num # num # bvi$exp) list) (mlstring sptree$num_map)
            | Data ((metadata # num # num # dataLang$prog) list) (mlstring sptree$num_map)
            | Word ((metadata # num # num # α wordLang$prog) list) (mlstring sptree$num_map)
@@ -76,22 +76,25 @@ Definition to_bvl_all_def:
     let (kc,es) = clos_known$compile c0.known_conf es in
     let ps = ps ++ [(«after clos_known»,Clos es [])] in
     let (es,g,aux) = clos_call$compile c0.do_call es in
-    let ps = ps ++ [(«after clos_call»,Clos es aux)] in
-    let prog = chain_exps c0.next_loc es ++ aux in
+    let ps = ps ++ [(«after clos_call»,Clos es (add_empty_metadata aux))] in
+    let prog = chain_exps c0.next_loc es ++ add_empty_metadata aux in
     let prog = clos_annotate$compile prog in
     let ps = ps ++ [(«after clos_annotate»,Clos [] prog)] in
     let c1 = c0 with
          <|start := c0.next_loc; next_loc := n; known_conf := kc;
            call_state := (g,aux)|> in
-    let init_stubs = toAList (init_code c1.max_app) in
+    let init_stubs = MAP (λ(loc,x). (Metadata (implode "bvl_stub") [Stub], loc, x))
+                        (toAList (init_code c1.max_app)) in
     let init_globs =
-            [(num_stubs c1.max_app − 2, 2, force_thunk_code);
-             (num_stubs c1.max_app − 1, 0,
+            [(Metadata (implode "bvl_force") [Stub],
+              num_stubs c1.max_app − 2, 2, force_thunk_code);
+             (Metadata (implode "bvl_init") [Stub],
+              num_stubs c1.max_app − 1, 0,
               init_globals c1.max_app (num_stubs c1.max_app + c1.start))] in
     let comp_progs = clos_to_bvl$compile_prog c1.max_app prog in
     let prog' = init_stubs ++ init_globs ++ comp_progs in
     let func_names =
-            make_name_alist (MAP FST prog') prog (num_stubs c1.max_app)
+            make_name_alist (MAP (FST o SND) prog') prog (num_stubs c1.max_app)
               c0.next_loc (LENGTH es0) in
     let ps = ps ++ [(«after clos_to_bvl»,Bvl prog' func_names)] in
     let c2 = c1 with start := num_stubs c1.max_app − 1 in
@@ -119,11 +122,11 @@ Definition to_bvi_all_def:
     let split_seq = c0.split_main_at_seq in
     let cut_size = c0.exp_cut in
     let (inlines,prog1) = bvl_inline$tick_compile_prog limit LN p in
-    let prog = MAP (λ(name,arity,exp). (name,arity, HD (remove_ticks [exp]))) prog1 in
+    let prog = MAP (λ(md,name,arity,exp). (md,name,arity, HD (remove_ticks [exp]))) prog1 in
     let ps = ps ++ [(«after bvl_inline and remove_ticks»,Bvl prog names)] in
-    let prog = MAP (λ(name,arity,exp). (name,arity, let_op_sing exp)) prog in
+    let prog = MAP (λ(md,name,arity,exp). (md,name,arity, let_op_sing exp)) prog in
     let ps = ps ++ [(«after let_op_sing»,Bvl prog names)] in
-    let prog = MAP (λ(name,arity,exp). (name,arity,
+    let prog = MAP (λ(md,name,arity,exp). (md,name,arity,
                        bvl_handle$compile_any split_seq cut_size arity exp)) prog in
     let ps = ps ++ [(«after bvl_handle»,Bvl prog names)] in
     let (loc,code,n1) = bvl_to_bvi$compile_prog start 0 prog in

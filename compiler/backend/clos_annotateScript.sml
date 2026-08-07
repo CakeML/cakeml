@@ -410,11 +410,12 @@ End
 
 Definition compile_def:
   compile prog =
-    MAP (λ(n,args,exp). (n,args, HD (annotate args [exp]))) prog
+    MAP (λ(md,n,args,exp). (md,n,args, HD (annotate args [exp]))) prog
 End
 
 Definition compile_inc_def:
-  compile_inc (e,aux) = (annotate 0 e,clos_annotate$compile aux)
+  compile_inc (e,aux) =
+    (annotate 0 e,clos_annotate$compile (add_empty_metadata aux))
 End
 
 (* cv versions *)
@@ -438,13 +439,14 @@ QED
 
 Theorem compile_eq:
   compile prog =
-    MAP (λ(n,args,exp). (n,args, annotate_sing args exp)) prog
+    MAP (λ(md,n,args,exp). (md,n,args, annotate_sing args exp)) prog
 Proof
   simp[compile_def, annotate_sing_eq]
 QED
 
 Theorem compile_inc_eq:
-  compile_inc (e,aux) = (annotate_list 0 e, clos_annotate$compile aux)
+  compile_inc (e,aux) =
+    (annotate_list 0 e, clos_annotate$compile (add_empty_metadata aux))
 Proof
   simp[compile_inc_def, annotate_sing_eq]
 QED

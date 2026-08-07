@@ -731,7 +731,7 @@ val evaluate_code_ind =
        (case evaluate (xs,env,s) of (_,s1) =>
           ∃n.
             s1.compile_oracle = shift_seq n s.compile_oracle ∧
-            let ls = FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n)) in
+            let ls = FLAT (MAP (MAP SND o SND o SND) (GENLIST s.compile_oracle n)) in
             s1.code = s.code |++ ls ∧
             ALL_DISTINCT (MAP FST ls) ∧
             DISJOINT (FDOM s.code) (set(MAP FST ls)))`
@@ -739,7 +739,7 @@ val evaluate_code_ind =
        (case evaluate_app x1 x2 x3 s of (_,s1) =>
           ∃n.
             s1.compile_oracle = shift_seq n s.compile_oracle ∧
-            let ls = FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n)) in
+            let ls = FLAT (MAP (MAP SND o SND o SND) (GENLIST s.compile_oracle n)) in
             s1.code = s.code |++ ls ∧
             ALL_DISTINCT (MAP FST ls) ∧
             DISJOINT (FDOM s.code) (set(MAP FST ls)))`;
@@ -825,7 +825,7 @@ val evaluate_code_lemma = prove(
 Theorem evaluate_code:
    (evaluate (xs,env,s) = (res,s1)) ==>
       ∃n. s1.compile_oracle = shift_seq n s.compile_oracle ∧
-          let ls = FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n)) in
+          let ls = FLAT (MAP (MAP SND o SND o SND) (GENLIST s.compile_oracle n)) in
           s1.code = s.code |++ ls ∧
           ALL_DISTINCT (MAP FST ls) ∧
           DISJOINT (FDOM s.code) (set (MAP FST ls))
@@ -838,7 +838,7 @@ QED
 Theorem evaluate_app_code:
    (evaluate_app lopt f args s = (res,s1)) ==>
       ∃n. s1.compile_oracle = shift_seq n s.compile_oracle ∧
-          let ls = FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n)) in
+          let ls = FLAT (MAP (MAP SND o SND o SND) (GENLIST s.compile_oracle n)) in
           s1.code = s.code |++ ls ∧
           ALL_DISTINCT (MAP FST ls) ∧
           DISJOINT (FDOM s.code) (set (MAP FST ls))
@@ -1862,7 +1862,7 @@ Definition ssgc_free_def:
     (∀n m v. FLOOKUP s.refs n = SOME (Thunk m v) ⇒ vsgc_free v) ∧
     (∀v. MEM (SOME v) s.globals ⇒ vsgc_free v) ∧
     (∀n exp aux. SND (s.compile_oracle n) = (exp, aux) ⇒ EVERY esgc_free exp ∧
-         elist_globals (MAP (SND o SND) aux) = {||})
+         elist_globals (MAP (SND o SND) (MAP SND aux)) = {||})
 End
 
 Theorem ssgc_free_clockupd[simp]:
@@ -3331,7 +3331,7 @@ QED
 Definition SUBMAP_rel_def:
   SUBMAP_rel z1 z2 ⇔
     z2 = z1 with code := z2.code ∧ z1.code ⊑ z2.code ∧
-    oracle_monotonic (set ∘ MAP FST ∘ SND ∘ SND) $<
+    oracle_monotonic (set ∘ MAP FST ∘ MAP SND ∘ SND ∘ SND) $<
         (FDOM z2.code) z1.compile_oracle
 End
 

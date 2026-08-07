@@ -751,7 +751,7 @@ Termination
 End
 
 Definition clos_fun_to_display_def:
-  clos_fun_to_display names (n,argc,body) =
+  clos_fun_to_display names (md,n,argc,body) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
            Tuple (REVERSE $ GENLIST display_num_as_varn argc);
@@ -817,7 +817,7 @@ Termination
 End
 
 Definition bvl_fun_to_display_def:
-  bvl_fun_to_display names (n,argc,body) =
+  bvl_fun_to_display names (md,n,argc,body) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
            Tuple (REVERSE $ GENLIST display_num_as_varn argc);
@@ -1494,7 +1494,7 @@ End
 
 Definition clos_to_strs_def:
   clos_to_strs (decs,funs) =
-    let names = clos_to_bvl$get_src_names (decs ++ MAP (SND o SND) funs) LN in
+    let names = clos_to_bvl$get_src_names (decs ++ MAP (SND o SND o SND) funs) LN in
       Append (map_to_append (str_tree_to_strs «\n\n» o
                              display_to_str_tree o
                              clos_dec_to_display names) decs)
@@ -1513,9 +1513,9 @@ End
 val bvl_test =
   “concat $ append $ bvl_to_strs
      (insert 50 «foo» (insert 60 «bar» LN))
-     [(50,2,Let [Var 0; Var 1]
+     [(empty_metadata,50,2,Let [Var 0; Var 1]
               $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3]);
-      (60,2,Let [Var 0; Var 1]
+      (empty_metadata,60,2,Let [Var 0; Var 1]
               $ Call 0 (SOME 50) [Var 2; Var 0])]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"))

@@ -228,10 +228,10 @@ Theorem must_inline_eq = must_inline_def |> SRULE [is_rec_sing];
 
 Definition tick_inline_all_def:
   (tick_inline_all limit cs [] aux = (cs,REVERSE aux)) /\
-  (tick_inline_all limit cs ((n,arity:num,e1)::xs) aux =
+  (tick_inline_all limit cs ((md,n,arity:num,e1)::xs) aux =
      let e2 = HD (tick_inline cs [e1]) in
      let cs2 = if must_inline n limit e2 then insert n (arity,e2) cs else cs in
-       tick_inline_all limit cs2 xs ((n,arity,e2)::aux))
+       tick_inline_all limit cs2 xs ((md,n,arity,e2)::aux))
 End
 
 Theorem tick_inline_all_eq =
@@ -414,8 +414,8 @@ End
 Theorem let_op_sing_eq = let_op_sing_def |> SRULE [let_op_one];
 
 Definition optimise_def:
-  optimise split_seq cut_size (name,arity, exp) =
-    (name,arity,bvl_handle$compile_any split_seq cut_size arity
+  optimise split_seq cut_size (md,name,arity, exp) =
+    (md,name,arity,bvl_handle$compile_any split_seq cut_size arity
                   (let_op_sing (HD (remove_ticks [exp]))))
 End
 

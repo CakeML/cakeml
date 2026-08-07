@@ -481,16 +481,16 @@ Proof
 QED
 
 Definition compile_single_def:
-  compile_single n (name,arg_count,exp) =
+  compile_single n (md,name,arg_count,exp) =
     let (c,aux,n1) = compile_exps n [exp] in
-      (List [(empty_metadata,num_stubs + nss * name,arg_count,
+      (List [(md,num_stubs + nss * name,arg_count,
               bvi_let$compile_exp (HD c))] ++ aux, n1)
 End
 
 Theorem compile_single_eq:
-  compile_single n (name,arg_count,exp) =
+  compile_single n (md,name,arg_count,exp) =
     let (c,aux,n1) = compile_exps_sing n exp in
-      (List [(empty_metadata,num_stubs + nss * name,arg_count,
+      (List [(md,num_stubs + nss * name,arg_count,
               bvi_let$compile_exp c)] ++ aux, n1)
 Proof
   gvs [compile_single_def,compile_exps_sing]
@@ -513,7 +513,7 @@ End
 
 Definition compile_prog_def:
   compile_prog start n prog =
-    let k = alloc_glob_count (MAP (\(_,_,p). p) prog) in
+    let k = alloc_glob_count (MAP (\(_,_,_,p). p) prog) in
     let (code,n1) = compile_list n prog in
       (InitGlobals_location, bvl_to_bvi$stubs (num_stubs + nss * start) k ++ append code, n1)
 End
