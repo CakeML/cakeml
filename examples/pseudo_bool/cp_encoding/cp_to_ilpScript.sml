@@ -1091,15 +1091,6 @@ Proof
     mlstringTheory.StrongLinearOrder_fast_lt]
 QED
 
-(* NOTE: could move upstream to mlintTheory (next to int_cmp_def) *)
-Theorem TotOrd_int_cmp:
-  TotOrd mlint$int_cmp
-Proof
-  rw[totoTheory.TotOrd,mlintTheory.int_cmp_def]>>
-  every_case_tac>>gvs[]>>
-  intLib.ARITH_TAC
-QED
-
 (* Total order on varc: variables (INL, by fast_compare) before
   constants (INR, by int_cmp) *)
 Definition varc_compare_def:
@@ -1118,14 +1109,14 @@ Proof
   >- (
     Cases_on`x`>>Cases_on`y`>>
     gvs[varc_compare_def]>>
-    metis_tac[TotOrd_fast_compare,TotOrd_int_cmp,totoTheory.TotOrd])
+    metis_tac[TotOrd_fast_compare,mlintTheory.TotOrd_int_cmp,totoTheory.TotOrd])
   >- (
     Cases_on`x`>>Cases_on`y`>>
     gvs[varc_compare_def]>>
-    metis_tac[TotOrd_fast_compare,TotOrd_int_cmp,totoTheory.TotOrd])>>
+    metis_tac[TotOrd_fast_compare,mlintTheory.TotOrd_int_cmp,totoTheory.TotOrd])>>
   Cases_on`x`>>Cases_on`y`>>Cases_on`z`>>
   gvs[varc_compare_def]>>
-  metis_tac[TotOrd_fast_compare,TotOrd_int_cmp,totoTheory.TotOrd]
+  metis_tac[TotOrd_fast_compare,mlintTheory.TotOrd_int_cmp,totoTheory.TotOrd]
 QED
 
 Datatype:

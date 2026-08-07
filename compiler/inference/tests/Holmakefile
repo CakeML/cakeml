@@ -1,5 +1,15 @@
 INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis ..
 
-all: $(DEFAULT_TARGETS) README.md
+all: $(DEFAULT_TARGETS) README.md check-basis-types
+.PHONY: all check-basis-types
 
 sinclude $(CAKEMLDIR)/developers/readme.mk
+
+# basisTypeCheckScript.sml writes the inferred basis signature to
+# new_types.txt. This must agree with the checked-in basis/types.txt, which is
+# otherwise only checked much later in the regression, by running the compiled
+# cake binary in unverified/sexpr-bootstrap.
+check-basis-types: basisTypeCheckTheory.uo
+	diff --context $(CAKEMLDIR)/basis/types.txt new_types.txt
+
+EXTRA_CLEANS = new_types.txt

@@ -10,6 +10,7 @@ open MapProgTheory;
 (*
   val _  = translation_extends "MapProg";
   val th = miscTheory.TotOrd_num_cmp;
+  val th = mlstringTheory.TotOrd_compare;
 *)
 
 fun add_fmap_for_cmp th = let
@@ -50,7 +51,7 @@ fun add_fmap_for_cmp th = let
   val _ = add_user_proved_v_thm flookup_thm
   (* delete *)
   val th1 = cj 4 ops_thm
-  val th2 = cj 3 mlmap_op_v_thms
+  val th2 = cj 4 mlmap_op_v_thms
   val tm1 = th1 |> concl |> dest_imp |> fst |> rator |> rator
   val tm2 = th2 |> concl |> rator |> rator
   val (i1,i2) = match_term tm2 tm1
@@ -59,7 +60,7 @@ fun add_fmap_for_cmp th = let
   val _ = add_user_proved_v_thm domsub_thm
   (* update *)
   val th1 = cj 3 ops_thm
-  val th2 = cj 4 mlmap_op_v_thms
+  val th2 = cj 5 mlmap_op_v_thms
   val tm1 = th1 |> concl |> dest_imp |> fst |> rator |> rator
   val tm2 = th2 |> concl |> rator |> rator
   val (i1,i2) = match_term tm2 tm1
@@ -68,13 +69,22 @@ fun add_fmap_for_cmp th = let
   val _ = add_user_proved_v_thm fmap_update_thm
   (* union *)
   val th1 = cj 5 ops_thm
-  val th2 = cj 2 mlmap_op_v_thms
+  val th2 = cj 3 mlmap_op_v_thms
   val tm1 = th1 |> concl |> dest_imp |> fst |> rator |> rator
   val tm2 = th2 |> concl |> rator |> rator
   val (i1,i2) = match_term tm2 tm1
   val th2a = INST i1 (INST_TYPE i2 th2)
   val funion_thm = MATCH_MP th1 th2a
   val _ = add_user_proved_v_thm funion_thm
+  (* fdiff_fdom *)
+  val th1 = cj 6 ops_thm
+  val th2 = cj 2 mlmap_op_v_thms
+  val tm1 = th1 |> concl |> dest_imp |> fst |> rator |> rator
+  val tm2 = th2 |> concl |> rator |> rator
+  val (i1,i2) = match_term tm2 tm1
+  val th2a = INST i1 (INST_TYPE i2 th2)
+  val fdiff_fdom_thm = MATCH_MP th1 th2a
+  val _ = add_user_proved_v_thm fdiff_fdom_thm
   in () end;
 
 end

@@ -126,6 +126,8 @@ val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc [«'a»;«'b»] «map»
              (Atapp [Atvar «'a»; Atvar «'b»] (Short «map»))`` I);
 
+val _ = next_ml_names := ["diff"];
+val mlmap_diff_v_thm = translate mlmapTheory.diff_def;
 val _ = next_ml_names := ["lookup"];
 val mlmap_lookup_v_thm = translate mlmapTheory.lookup_def;
 val _ = next_ml_names := ["member"];
@@ -262,6 +264,24 @@ Proof
   \\ metis_tac [mlmapTheory.union_thm]
 QED
 
+Theorem IMP_FMAP_TYPE_fdiff_fdom[local]:
+  (MAP_TYPE b a --> MAP_TYPE b c --> MAP_TYPE b a) mlmap$diff v ⇒
+  (FMAP_TYPE cmp b a --> FMAP_TYPE cmp b c --> FMAP_TYPE cmp b a) mlmap$fdiff_fdom v
+Proof
+  fs [ml_translatorTheory.Arrow_def,FMAP_TYPE_def,
+      ml_translatorTheory.AppReturns_def] \\ rw []
+  \\ last_x_assum drule \\ strip_tac
+  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac \\ fs []
+  \\ first_x_assum $ irule_at Any \\ rw []
+  \\ last_x_assum drule \\ strip_tac
+  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac \\ fs []
+  \\ first_x_assum $ irule_at Any \\ rw []
+  \\ first_x_assum $ irule_at Any \\ rw []
+  >~ [‘mlmap$cmp_of (mlmap$diff c m)’]
+  >- (Cases_on ‘c’ \\ Cases_on ‘m’ \\ gvs [mlmapTheory.diff_def,mlmapTheory.cmp_of_def])
+  \\ metis_tac [mlmapTheory.diff_thm]
+QED
+
 Theorem IMP_FMAP_TYPE_ops:
   MAP_TYPE (key:'k -> v -> bool) (a:'a -> v -> bool) (mlmap$empty cmp) v ∧ TotOrd cmp ⇒
   FMAP_TYPE cmp key a FEMPTY v ∧
@@ -272,7 +292,9 @@ Theorem IMP_FMAP_TYPE_ops:
   ((MAP_TYPE key a --> key --> MAP_TYPE key a) mlmap$delete v1 ⇒
    (FMAP_TYPE cmp key a --> key --> FMAP_TYPE cmp key a) $\\ v1) ∧
   ((MAP_TYPE key a --> MAP_TYPE key a --> MAP_TYPE key a) mlmap$union v1 ⇒
-   (FMAP_TYPE cmp key a --> FMAP_TYPE cmp key a --> FMAP_TYPE cmp key a) FUNION v1)
+   (FMAP_TYPE cmp key a --> FMAP_TYPE cmp key a --> FMAP_TYPE cmp key a) FUNION v1) ∧
+  ((MAP_TYPE key a --> MAP_TYPE key c --> MAP_TYPE key a) mlmap$diff v1 ⇒
+   (FMAP_TYPE cmp key a --> FMAP_TYPE cmp key c --> FMAP_TYPE cmp key a) mlmap$fdiff_fdom v1)
 Proof
   rw []
   >- (irule MAP_TYPE_empty_IMP_FMAP_TYPE \\ simp [])
@@ -280,10 +302,12 @@ Proof
   >- (irule IMP_FMAP_TYPE_FUPDATE \\ simp [])
   >- (irule IMP_FMAP_TYPE_DOMSUB \\ simp [])
   >- (irule IMP_FMAP_TYPE_FUNION \\ simp [])
+  >- (irule IMP_FMAP_TYPE_fdiff_fdom \\ simp [])
 QED
 
 Theorem mlmap_op_v_thms =
   LIST_CONJ [mlmap_lookup_v_thm,
+             mlmap_diff_v_thm,
              mlmap_union_v_thm,
              mlmap_delete_v_thm,
              mlmap_insert_v_thm];
