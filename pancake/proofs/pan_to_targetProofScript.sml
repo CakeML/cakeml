@@ -1263,7 +1263,7 @@ Theorem pan_to_target_compile_semantics:
   s.locals = FEMPTY ∧
   s.globals = FEMPTY ∧
   size_of_eids pan_code < dimword (:α) ∧
-  FDOM s.eshapes = FDOM ((get_eids(functions pan_code)):mlstring |-> 'a word) ∧
+  s.eshapes = FEMPTY ∧
   backend_config_ok mc.target.config c ∧ lab_to_targetProof$mc_conf_ok mc ∧
   mc_init_ok mc.target.config c mc ∧ mc.target.config.ISA ≠ Ag32 ∧
   0w <₊ mc.target.get_reg ms mc.len_reg ∧

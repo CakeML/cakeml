@@ -197,6 +197,12 @@ val _ = pan_globals_compile_decs_ind |> update_precondition;
 
 val _ = translate $ spec32 is_function_def;
 
+val _ = translate $ spec32 is_decl_def;
+
+val _ = translate $ spec32 is_exn_decl_def;
+
+val _ = translate $ spec32 is_name_def;
+
 val _ = translate $ spec32 resort_decls_def;
 
 val _ = translate fperm_name_def;
@@ -206,6 +212,8 @@ val _ = translate $ spec32 fperm_def;
 val _ = translate $ spec32 fperm_decs_def;
 
 val _ = translate $ spec32 functions_def;
+
+val _ = translate $ spec32 exceptions_def;
 
 val _ = translate $ spec32 new_main_name_def;
 
