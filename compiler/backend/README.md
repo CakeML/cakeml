@@ -195,9 +195,6 @@ unique global identifier. It removes andalso and orelse and
 replaces them with if, and removes the AallocEmpty primitive op and
 replaces it with an alloc call with 0.
 
-[flat_elimScript.sml](flat_elimScript.sml):
-Implementation for flatLang dead-code elimination.
-
 [flat_patternScript.sml](flat_patternScript.sml):
 Interface between flatLang and pattern compiler.
 

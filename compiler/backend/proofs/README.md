@@ -102,9 +102,6 @@ Part of the correctness proof for data_to_word
 Some proof tools, mostly quite experimental, used in some of
 the proofs in this directory
 
-[flat_elimProofScript.sml](flat_elimProofScript.sml):
-Correctness proof for flatLang dead code elimination
-
 [flat_patternProofScript.sml](flat_patternProofScript.sml):
 Correctness proof for flat_pattern
 

@@ -13,7 +13,7 @@
 *)
 Theory source_to_flat
 Ancestors
-  ast flatLang evaluate flat_elim flat_pattern
+  ast flatLang evaluate flat_pattern
 Libs
   preamble
 
@@ -429,7 +429,6 @@ End
 
 Definition compile_flat_def:
   compile_flat pcfg = MAP (flat_pattern$compile_dec pcfg)
-    o flat_elim$remove_flat_prog
 End
 
 Definition glob_alloc_def:
@@ -490,7 +489,6 @@ Definition compile_def:
       (c', p')
 End
 
-(* note that flat_elim is always disabled in the eval/incremental case *)
 Definition inc_compile_def:
   inc_compile env_id c p =
     let (c', p') = inc_compile_prog env_id c p in

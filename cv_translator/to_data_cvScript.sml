@@ -607,20 +607,6 @@ val _ = cv_trans $ GSYM $ cj 1 compile_exp_alt_thm
 
 val _ = cv_trans flat_patternTheory.compile_dec_def
 
-(* flat_elim *)
-
-val _ = cv_auto_trans_pre "" flat_elimTheory.has_Eval_def;
-
-Theorem flat_elim_has_Eval_pre[cv_pre]:
-  (∀v. flat_elim_has_Eval_pre v) ∧
-  (∀v. flat_elim_has_Eval_list_pre v) ∧
-  (∀v. flat_elim_has_Eval_pats_pre v) ∧
-  (∀v. flat_elim_has_Eval_funs_pre v)
-Proof
-  ho_match_mp_tac flat_elimTheory.has_Eval_ind >>
-  rw[] >> rw[Once $ fetch "-" "flat_elim_has_Eval_pre_cases"]
-QED
-
 Theorem cv_size_map_snd:
   ∀z. cv_size(cv_map_snd z) ≤ cv_size z
 Proof
@@ -629,152 +615,7 @@ Proof
   Cases_on ‘z’ >> rw[]
 QED
 
-val pre = cv_auto_trans_pre_rec "" (flat_elimTheory.find_loc_def |> PURE_REWRITE_RULE[o_DEF,GSYM MAP_MAP_o])
-  (WF_REL_TAC `measure (λ e . case e of
-                              | INL x => cv_size x
-                              | INR y => cv_size y)` >>
-   cv_termination_tac
-   >- (irule LESS_EQ_LESS_TRANS >>
-       irule_at (Pos last) cv_size_map_snd >>
-       rw[oneline cvTheory.cv_snd_def] >>
-       rpt(PURE_FULL_CASE_TAC >> gvs[]))
-   >- (irule LESS_EQ_LESS_TRANS >>
-       irule_at (Pos last) cv_size_map_snd >>
-       irule LESS_EQ_LESS_TRANS >>
-       irule_at (Pos last) cv_size_map_snd >>
-       rw[oneline cvTheory.cv_snd_def] >>
-       rpt(PURE_FULL_CASE_TAC >> gvs[]))
-   >- (irule LESS_EQ_LESS_TRANS >>
-       irule_at (Pos last) cv_size_map_snd >>
-       rw[oneline cvTheory.cv_snd_def] >>
-       rpt(PURE_FULL_CASE_TAC >> gvs[])))
-
-Theorem flat_elim_find_loc_pre[cv_pre]:
-  (∀v. flat_elim_find_loc_pre v) ∧
-  (∀v. flat_elim_find_locL_pre v)
-Proof
-  ho_match_mp_tac flat_elimTheory.find_loc_ind >>
-  rw[] >> rw[Once $ fetch "-" "flat_elim_find_loc_pre_cases"] >>
-  rw[MAP_MAP_o]
-QED
-
-val pre = cv_auto_trans_pre_rec "" (flat_elimTheory.find_lookups_def |> PURE_REWRITE_RULE[GSYM MAP_MAP_o,o_THM])
-  (WF_REL_TAC `measure (λ e . case e of
-                              | INL x => cv_size x
-                              | INR y => cv_size y)` >>
-   cv_termination_tac
-   >- (irule LESS_EQ_LESS_TRANS >>
-       irule_at (Pos last) cv_size_map_snd >>
-       rw[oneline cvTheory.cv_snd_def] >>
-       rpt(PURE_FULL_CASE_TAC >> gvs[]))
-   >- (irule LESS_EQ_LESS_TRANS >>
-       irule_at (Pos last) cv_size_map_snd >>
-       irule LESS_EQ_LESS_TRANS >>
-       irule_at (Pos last) cv_size_map_snd >>
-       rw[oneline cvTheory.cv_snd_def] >>
-       rpt(PURE_FULL_CASE_TAC >> gvs[]))
-   >- (irule LESS_EQ_LESS_TRANS >>
-       irule_at (Pos last) cv_size_map_snd >>
-       rw[oneline cvTheory.cv_snd_def] >>
-       rpt(PURE_FULL_CASE_TAC >> gvs[])))
-
-Theorem flat_elim_find_lookups_pre[cv_pre]:
-  (∀v. flat_elim_find_lookups_pre v) ∧
-  (∀v. flat_elim_find_lookupsL_pre v)
-Proof
-  ho_match_mp_tac flat_elimTheory.find_lookups_ind >>
-  rw[] >> rw[Once pre] >> gvs[GSYM MAP_MAP_o]
-QED
-
-val _ = cv_auto_trans flat_elimTheory.total_pat_def;
-
-Definition is_pure_alt_def:
-    (is_pure_alt (Handle t e pes) = is_pure_alt e) ∧
-    (is_pure_alt (Lit t l) = T) ∧
-    (is_pure_alt (Con t id_option es) = is_pure_alts es) ∧
-    (is_pure_alt (Var_local t str) = T) ∧
-    (is_pure_alt (Fun t name body) = T) ∧
-    (is_pure_alt (App t (GlobalVarInit g) es) = is_pure_alts es) ∧
-    (is_pure_alt (If t e1 e2 e3) = (is_pure_alt e1 ∧ is_pure_alt e2 ∧ is_pure_alt e3)) ∧
-    (is_pure_alt (Mat t e1 pes) =
-      (is_pure_alt e1 ∧ is_pure_alts (MAP SND pes) ∧ EXISTS total_pat (MAP FST pes))) ∧
-    (is_pure_alt (Let t opt e1 e2) = (is_pure_alt e1 ∧ is_pure_alt e2)) ∧
-    (is_pure_alt (Letrec t funs e) = is_pure_alt e) ∧
-    (is_pure_alt _ = F) ∧
-    (is_pure_alts [] = T) ∧
-    (is_pure_alts (x::xs) = (is_pure_alt x ∧ is_pure_alts xs))
-Termination
-  WF_REL_TAC `measure (λ e . sum_CASE e exp_size $ list_size exp_size)` >>
-  rw[list_size_pair_size_MAP_FST_SND]
-End
-
-val pre = cv_auto_trans_pre_rec "" is_pure_alt_def
-  (WF_REL_TAC `measure (λ e . sum_CASE e cv_size cv_size)` >>
-   cv_termination_tac >>
-   irule LESS_EQ_LESS_TRANS >>
-   irule_at (Pos last) cv_size_map_snd >>
-   rw[oneline cvTheory.cv_snd_def] >>
-   rpt(PURE_FULL_CASE_TAC >> gvs[]))
-
-Theorem is_pure_alt_pre[cv_pre]:
-  (∀v. is_pure_alt_pre v) ∧
-  (∀v. is_pure_alts_pre v)
-Proof
-  ho_match_mp_tac is_pure_alt_ind >>
-  rw[] >> rw[Once pre]
-QED
-
-Theorem is_pure_alt_thm:
-  (∀v. is_pure_alt v = is_pure v) ∧
-  (∀v. is_pure_alts v = EVERY is_pure v)
-Proof
-  ho_match_mp_tac is_pure_alt_ind >>
-  rw[is_pure_alt_def,flat_elimTheory.is_pure_def] >>
-  metis_tac[]
-QED
-
-val _ = cv_trans $ GSYM $ cj 1 is_pure_alt_thm
-
-Definition is_hidden_alt_def:
-    (is_hidden_alt (Raise t e) = is_hidden_alt e) ∧
-    (is_hidden_alt (Handle t e pes) = F) ∧
-    (is_hidden_alt (Lit t l) = T) ∧
-    (is_hidden_alt (Con t id_option es) = is_hidden_alts es) ∧
-    (is_hidden_alt (Var_local t str) = T) ∧
-    (is_hidden_alt (Fun t name body) = T) ∧
-    (is_hidden_alt (App t (Src Opapp) l) = F) ∧
-    (is_hidden_alt (App t (GlobalVarInit g) [e]) = is_hidden_alt e) ∧
-    (is_hidden_alt (App t (GlobalVarLookup g) [e]) = F) ∧
-    (is_hidden_alt (If t e1 e2 e3) = (is_hidden_alt e1 ∧ is_hidden_alt e2 ∧ is_hidden_alt e3)) ∧
-    (is_hidden_alt (Mat t e1 [p,e2]) = (is_hidden_alt e1 ∧ is_hidden_alt e2)) ∧
-    (is_hidden_alt (Let t opt e1 e2) = (is_hidden_alt e1 ∧ is_hidden_alt e2)) ∧
-    (is_hidden_alt (Letrec t funs e) = is_hidden_alt e) ∧
-    (is_hidden_alt _ = F) ∧
-    (is_hidden_alts [] = T) ∧
-    (is_hidden_alts (x::xs) = (is_hidden_alt x ∧ is_hidden_alts xs))
-End
-
-val pre = cv_trans_pre "" is_hidden_alt_def
-
-Theorem is_hidden_alt_pre[cv_pre]:
-  (∀v. is_hidden_alt_pre v) ∧
-  (∀v. is_hidden_alts_pre v)
-Proof
-  ho_match_mp_tac is_hidden_alt_ind >>
-  rw[] >> rw[Once $ fetch "-" "is_hidden_alt_pre_cases"]
-QED
-
-Theorem is_hidden_alt_thm:
-  (∀v. is_hidden_alt v = is_hidden v) ∧
-  (∀v. is_hidden_alts v = EVERY is_hidden v)
-Proof
-  ho_match_mp_tac is_hidden_alt_ind >>
-  rw[is_hidden_alt_def,flat_elimTheory.is_hidden_def] >>
-  metis_tac[]
-QED
-
-val _ = cv_trans $ GSYM $ cj 1 is_hidden_alt_thm
-
+(*
 Definition spt_fold_union_def:
   (spt_fold_union acc LN = acc) ∧
   (spt_fold_union acc (LS a) = sptree$union a acc) ∧
@@ -799,8 +640,7 @@ Proof
   rw[] >> rw[Once pre] >>
   gvs[spt_fold_union_thm]
 QED
-
-val _ = cv_auto_trans flat_elimTheory.remove_flat_prog_def;
+*)
 
 val _ = cv_auto_trans backendTheory.to_flat_def;
 

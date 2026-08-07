@@ -112,13 +112,6 @@ val _ = (length (hyp res) = 0)
         orelse failwith "Unproved side condition: source_to_source_compile";
 
 (* ------------------------------------------------------------------------- *)
-(* flat_elim                                                                 *)
-(* ------------------------------------------------------------------------- *)
-
-val res = translate sptreeTheory.subspt_eq;
-val res = translate flat_elimTheory.remove_flat_prog_def;
-
-(* ------------------------------------------------------------------------- *)
 (* flat_pattern                                                              *)
 (* ------------------------------------------------------------------------- *)
 
