@@ -16,6 +16,12 @@ a balanced binary tree from HOL.
 This is a simple example of applying the translator to an
 algorithm-level model of a copying garbage collector.
 
+[example_fmapProgScript.sml](example_fmapProgScript.sml):
+This is a simple example of applying the translator to functions over
+finite maps. Finite maps are compiled to CakeML's balanced-tree Map
+module by registering a total order for each key type with
+MapProgLib.add_fmap_for_cmp.
+
 [example_parser_genScript.sml](example_parser_genScript.sml):
 This is a simple example of applying the translator to a
 parser generator.

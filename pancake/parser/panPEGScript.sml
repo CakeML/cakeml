@@ -19,12 +19,12 @@ Datatype:
             | IfNT | WhileNT | CallNT | RetNT | HandleNT
             | ExtCallNT | RaiseNT | ReturnNT
             | DecCallNT | RetCallNT
-            | ArgListNT | NotNT
+            | ArgListNT
             | ParamListNT
             | EBoolAndNT | EEqNT | ECmpNT
             | ELoadNT | ELoadByteNT | ELoad32NT
             | EXorNT | EOrNT | EAndNT
-            | EShiftNT | EAddNT | EMulNT | EFieldNT | EBaseNT
+            | EShiftNT | EAddNT | EMulNT | ENotNT | EFieldNT | EBaseNT
             | RawStructNT | NmdStructNT | NmdFieldListNT | NmdFieldNT
             | ShapedIdentNT | ShapeNT | ShapeCombNT
             | EqOpsNT | CmpOpsNT | ShiftOpsNT | AddOpsNT | MulOpsNT
@@ -321,9 +321,11 @@ Definition pancake_peg_def[nocompute]:
                            rpt (seql [mknt AddOpsNT; mknt EMulNT] I)
                                FLAT]
                           (mksubtree EAddNT));
-        (INL EMulNT, seql [mknt EFieldNT;
-                           rpt (seql [mknt MulOpsNT; mknt EFieldNT] I) FLAT]
+        (INL EMulNT, seql [mknt ENotNT;
+                           rpt (seql [mknt MulOpsNT; mknt ENotNT] I) FLAT]
                           (mksubtree EMulNT));
+        (INL ENotNT, seql [try (keep_tok NotT); mknt EFieldNT]
+                           (mksubtree ENotNT));
         (INL EFieldNT, seql [mknt EBaseNT;
                             rpt (seql [consume_tok DotT;
                                        choicel [keep_nat; keep_ident]
@@ -333,14 +335,11 @@ Definition pancake_peg_def[nocompute]:
         (INL EBaseNT, choicel [seql [consume_tok LParT;
                                      mknt ExpNT;
                                      consume_tok RParT] I;
-                               mknt NotNT;
                                keep_kw TrueK; keep_kw FalseK;
                                mknt RawStructNT; mknt NmdStructNT;
                                keep_kw BaseK; keep_kw BiwK; keep_kw TopK;
                                keep_int; keep_ident
                               ]);
-        (INL NotNT, seql [consume_tok NotT; mknt EBaseNT]
-                           (mksubtree NotNT));
         (INL RawStructNT, seql [consume_tok LessT; mknt ArgListNT;
                              consume_tok GreaterT]
                             (mksubtree RawStructNT));
@@ -709,8 +708,8 @@ end
 
 val topo_nts = [“MulOpsNT”, “AddOpsNT”, “ShiftOpsNT”, “CmpOpsNT”,
                 “EqOpsNT”, “ShapeNT”,
-                “ShapeCombNT”, “ShapedIdentNT”, “NotNT”, “RawStructNT”, “NmdFieldNT”, “NmdFieldListNT”, “NmdStructNT”,
-                “EBaseNT”, “EFieldNT”, “EMulNT”, “EAddNT”, “EShiftNT”, “EAndNT”, “EXorNT”, “EOrNT”,
+                “ShapeCombNT”, “ShapedIdentNT”, “RawStructNT”, “NmdFieldNT”, “NmdFieldListNT”, “NmdStructNT”,
+                “EBaseNT”, “EFieldNT”, “ENotNT”, “EMulNT”, “EAddNT”, “EShiftNT”, “EAndNT”, “EXorNT”, “EOrNT”,
                 “ELoad32NT”, “ELoadByteNT”, “ELoadNT”, “ECmpNT”, “EEqNT”, “EBoolAndNT”,
                 “ExpNT”, “ArgListNT”, “ReturnNT”,
                 “RaiseNT”, “ExtCallNT”,

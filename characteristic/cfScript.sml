@@ -571,10 +571,10 @@ QED
 Theorem v_of_pat_insts_length:
    (!envC pat insts wildcards v insts_rest wildcards_rest.
        v_of_pat envC pat insts wildcards = SOME (v, insts_rest, wildcards_rest) ==>
-       (LENGTH insts = LENGTH (pat_bindings pat []) + LENGTH insts_rest)) /\
+       (LENGTH insts = LENGTH (pat_bindings pat) + LENGTH insts_rest)) /\
     (!envC pats insts wildcards vs insts_rest wildcards_rest.
        v_of_pat_list envC pats insts wildcards = SOME (vs, insts_rest, wildcards_rest) ==>
-       (LENGTH insts = LENGTH (pats_bindings pats []) + LENGTH insts_rest))
+       (LENGTH insts = LENGTH (pats_bindings pats) + LENGTH insts_rest))
 Proof
   HO_MATCH_MP_TAC v_of_pat_ind \\ rpt strip_tac \\
   fs [v_of_pat_def, pat_bindings_def, LENGTH_NIL] \\ rw []
@@ -582,13 +582,11 @@ Proof
   THEN1 (every_case_tac \\ fs [])
   THEN1 (
     (* v_of_pat _ (Pcon _ _) _ _ *)
-    every_case_tac \\ fs [] \\ rw [] \\
-    once_rewrite_tac [semanticPrimitivesPropsTheory.pat_bindings_accum] \\ fs []
+    every_case_tac \\ fs [] \\ rw [] \\ fs []
   )
   THEN1 (
     (* v_of_pat_list _ (_::_) _ _ *)
-    every_case_tac \\ fs [] \\ rw [] \\
-    once_rewrite_tac [semanticPrimitivesPropsTheory.pat_bindings_accum] \\ fs []
+    every_case_tac \\ fs [] \\ rw [] \\ fs [LENGTH_APPEND]
   )
 QED
 
@@ -655,12 +653,12 @@ QED
 Theorem v_of_pat_NONE_extend_insts:
    (!envC pat insts wildcards insts'.
        v_of_pat envC pat insts wildcards = NONE ==>
-       LENGTH insts >= LENGTH (pat_bindings pat []) ==>
+       LENGTH insts >= LENGTH (pat_bindings pat) ==>
        LENGTH wildcards >= pat_wildcards pat ==>
        v_of_pat envC pat (insts ++ insts') wildcards = NONE) /\
     (!envC pats insts wildcards insts'.
        v_of_pat_list envC pats insts wildcards = NONE ==>
-       LENGTH insts >= LENGTH (pats_bindings pats []) ==>
+       LENGTH insts >= LENGTH (pats_bindings pats) ==>
        LENGTH wildcards >= pats_wildcards pats ==>
        v_of_pat_list envC pats (insts ++ insts') wildcards = NONE)
 Proof
@@ -684,23 +682,15 @@ Proof
   THEN1 (
     fs [v_of_pat_def, pat_bindings_def, pat_wildcards_def] \\
     every_case_tac \\ fs [] \\
-    fs [Once (snd (CONJ_PAIR semanticPrimitivesPropsTheory.pat_bindings_accum))]
-    THEN1 (
-      `LENGTH insts >= LENGTH (pat_bindings pat [])` by (fs []) \\
-      `LENGTH wildcards >= pat_wildcards pat` by (fs []) \\
-      fs []
-    )
-    THEN1 (
-      rw [] \\
-      progress (fst (CONJ_PAIR v_of_pat_insts_length)) \\
-      progress (fst (CONJ_PAIR v_of_pat_wildcards_count)) \\
-      rename1 `LENGTH insts = _ + LENGTH rest2` \\
-      rename1 `LENGTH wildcards = _ + LENGTH w_rest2` \\
-      `LENGTH rest2 >= LENGTH (pats_bindings pats [])` by (fs []) \\
-      `LENGTH w_rest2 >= pats_wildcards pats` by (fs []) \\ fs [] \\
-      progress (fst (CONJ_PAIR v_of_pat_extend_insts)) \\
-      pop_assum (qspec_then `insts'` assume_tac) \\ fs [] \\ rw [] \\ fs []
-    )
+    rw [] \\
+    progress (fst (CONJ_PAIR v_of_pat_insts_length)) \\
+    progress (fst (CONJ_PAIR v_of_pat_wildcards_count)) \\
+    rename1 `LENGTH insts = _ + LENGTH rest2` \\
+    rename1 `LENGTH wildcards = _ + LENGTH w_rest2` \\
+    `LENGTH rest2 >= LENGTH (pats_bindings pats)` by (fs []) \\
+    `LENGTH w_rest2 >= pats_wildcards pats` by (fs []) \\ fs [] \\
+    progress (fst (CONJ_PAIR v_of_pat_extend_insts)) \\
+    pop_assum (qspec_then `insts'` assume_tac) \\ fs [] \\ rw [] \\ fs []
   )
 QED
 
@@ -709,13 +699,13 @@ Theorem v_of_pat_remove_rest_insts:
        v_of_pat envC pat insts wildcards = SOME (v, rest, wildcards_rest) ==>
        ?insts'.
          insts = insts' ++ rest /\
-         LENGTH insts' = LENGTH (pat_bindings pat []) /\
+         LENGTH insts' = LENGTH (pat_bindings pat) /\
          v_of_pat envC pat insts' wildcards = SOME (v, [], wildcards_rest)) /\
     (!pats envC insts wildcards vs rest wildcards_rest.
        v_of_pat_list envC pats insts wildcards = SOME (vs, rest, wildcards_rest) ==>
        ?insts'.
          insts = insts' ++ rest /\
-         LENGTH insts' = LENGTH (pats_bindings pats []) /\
+         LENGTH insts' = LENGTH (pats_bindings pats) /\
          v_of_pat_list envC pats insts' wildcards = SOME (vs, [], wildcards_rest))
 Proof
   HO_MATCH_MP_TAC astTheory.pat_induction \\ rpt strip_tac \\
@@ -731,29 +721,23 @@ Proof
     fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [] \\ rw [] \\
     qpat_assum `v_of_pat _ _ _ _ = _` (first_assum o progress_with) \\
     qpat_assum `v_of_pat_list _ _ _ _ = _` (first_assum o progress_with) \\
-    rw []
+    rw [] \\
+    rename1 `LENGTH insts_pats = LENGTH (pats_bindings pats)` \\
+    rename1 `LENGTH insts_pat = LENGTH (pat_bindings pat)` \\
+    rename1 `v_of_pat_list _ _ (_ ++ rest) _` \\
+    fs [APPEND_ASSOC] \\ every_case_tac \\ fs []
     THEN1 (
-      once_rewrite_tac [snd (CONJ_PAIR semanticPrimitivesPropsTheory.pat_bindings_accum)] \\
-      fs []
-    )
-    THEN1 (
-      rename1 `LENGTH insts_pats = LENGTH (pats_bindings pats [])` \\
-      rename1 `LENGTH insts_pat = LENGTH (pat_bindings pat [])` \\
-      rename1 `v_of_pat_list _ _ (_ ++ rest) _` \\
-      fs [APPEND_ASSOC] \\ every_case_tac \\ fs []
-      THEN1 (
-        progress_then (qspec_then `rest` assume_tac)
-          (fst (CONJ_PAIR v_of_pat_NONE_extend_insts)) \\
-        `LENGTH (insts_pat ++ insts_pats) >= LENGTH (pat_bindings pat [])`
-          by (fs []) \\
-        `LENGTH wildcards >= pat_wildcards pat` by (
-          progress (fst (CONJ_PAIR v_of_pat_wildcards_count)) \\ fs []
-        ) \\ fs []
-      ) \\
-      rename1 `v_of_pat_list _ _ rest' _ = _` \\
-      qpat_x_assum `v_of_pat _ _ (_ ++ _) _ = _` (first_assum o progress_with) \\
-      `rest' = insts_pats` by (metis_tac [APPEND_11_LENGTH]) \\ fs [] \\ rw [] \\ fs []
-    )
+      progress_then (qspec_then `rest` assume_tac)
+        (fst (CONJ_PAIR v_of_pat_NONE_extend_insts)) \\
+      `LENGTH (insts_pat ++ insts_pats) >= LENGTH (pat_bindings pat)`
+        by (fs []) \\
+      `LENGTH wildcards >= pat_wildcards pat` by (
+        progress (fst (CONJ_PAIR v_of_pat_wildcards_count)) \\ fs []
+      ) \\ fs []
+    ) \\
+    rename1 `v_of_pat_list _ _ rest' _ = _` \\
+    qpat_x_assum `v_of_pat _ _ (_ ++ _) _ = _` (first_assum o progress_with) \\
+    `rest' = insts_pats` by (metis_tac [APPEND_11_LENGTH]) \\ fs [] \\ rw [] \\ fs []
   )
 QED
 
@@ -795,7 +779,7 @@ End
 Theorem v_of_pat_norest_insts_length:
    !envC pat insts wildcards v.
       v_of_pat_norest envC pat insts wildcards = SOME v ==>
-      LENGTH insts = LENGTH (pat_bindings pat [])
+      LENGTH insts = LENGTH (pat_bindings pat)
 Proof
   rpt strip_tac \\ fs [v_of_pat_norest_def] \\ every_case_tac \\ fs [] \\
   rw [] \\ progress (fst (CONJ_PAIR v_of_pat_insts_length)) \\ fs []
@@ -855,7 +839,7 @@ Definition validate_pat_def:
   validate_pat envC s pat v env =
     (pat_typechecks envC s pat v /\
      pat_without_Pref_Pas pat /\
-     ALL_DISTINCT (pat_bindings pat []))
+     ALL_DISTINCT (pat_bindings pat))
 End
 
 (* Lemmas that relate [v_of_pat] and [pmatch], the pattern-matching function
@@ -878,11 +862,11 @@ Theorem v_of_pat_pmatch:
    (!envC s pat v env_v insts wildcards wildcards_rest.
       v_of_pat envC pat insts wildcards = SOME (v, [], wildcards_rest) ==>
       pmatch envC s pat v env_v = Match
-        (ZIP (pat_bindings pat [], REVERSE insts) ++ env_v)) /\
+        (ZIP (pat_bindings pat, REVERSE insts) ++ env_v)) /\
     (!envC s pats vs env_v insts wildcards wildcards_rest.
       v_of_pat_list envC pats insts wildcards = SOME (vs, [], wildcards_rest) ==>
       pmatch_list envC s pats vs env_v = Match
-        (ZIP (pats_bindings pats [], REVERSE insts) ++ env_v))
+        (ZIP (pats_bindings pats, REVERSE insts) ++ env_v))
 Proof
   HO_MATCH_MP_TAC pmatch_ind \\ rpt strip_tac \\ rw [] \\
   try_finally (
@@ -911,7 +895,6 @@ Proof
     Cases_on ‘pmatch envC s pat v env_v’ \\ gvs [] \\
     progress (fst (CONJ_PAIR v_of_pat_remove_rest_insts)) \\ rw [] \\
     res_tac \\
-    once_rewrite_tac [snd (CONJ_PAIR semanticPrimitivesPropsTheory.pat_bindings_accum)] \\
     fs [] \\ progress (fst (CONJ_PAIR v_of_pat_remove_rest_insts)) \\ rw [] \\
     fs [REVERSE_APPEND] \\ progress (snd (CONJ_PAIR v_of_pat_insts_length)) \\
     fs [GSYM ZIP_APPEND] \\ once_rewrite_tac [GSYM APPEND_ASSOC] \\
@@ -923,7 +906,7 @@ Theorem v_of_pat_norest_pmatch:
    !envC s pat v env_v insts wildcards.
      v_of_pat_norest envC pat insts wildcards = SOME v ==>
      pmatch envC s pat v env_v = Match
-       (ZIP (pat_bindings pat [], REVERSE insts) ++ env_v)
+       (ZIP (pat_bindings pat, REVERSE insts) ++ env_v)
 Proof
   rpt strip_tac \\ fs [v_of_pat_norest_def] \\
   irule (fst (CONJ_PAIR v_of_pat_pmatch)) \\
@@ -935,13 +918,13 @@ Theorem pmatch_v_of_pat:
       pmatch envC s pat v env_v = Match env_v' ==>
       pat_without_Pref_Pas pat ==>
       ?insts wildcards.
-        env_v' = ZIP (pat_bindings pat [], REVERSE insts) ++ env_v /\
+        env_v' = ZIP (pat_bindings pat, REVERSE insts) ++ env_v /\
         v_of_pat envC pat insts wildcards = SOME (v, [], [])) /\
     (!envC s pats vs env_v env_v'.
       pmatch_list envC s pats vs env_v = Match env_v' ==>
       EVERY (\pat. pat_without_Pref_Pas pat) pats ==>
       ?insts wildcards.
-        env_v' = ZIP (pats_bindings pats [], REVERSE insts) ++ env_v /\
+        env_v' = ZIP (pats_bindings pats, REVERSE insts) ++ env_v /\
         v_of_pat_list envC pats insts wildcards = SOME (vs, [], []))
 Proof
   HO_MATCH_MP_TAC pmatch_ind \\ rpt strip_tac \\ rw [] \\
@@ -978,7 +961,7 @@ Proof
   THEN1 (
     gvs [pmatch_def,AllCaseEqs()] \\
     fs [pat_bindings_def] \\
-    once_rewrite_tac [semanticPrimitivesPropsTheory.pat_bindings_accum] \\ fs [] \\
+    fs [] \\
     fs [AllCaseEqs(),PULL_EXISTS] \\
     rename1 `v_of_pat _ _ insts1 wildcards1 = _` \\
     rename1 `v_of_pat_list _ _ insts2 wildcards2 = _` \\
@@ -1002,7 +985,7 @@ Theorem pmatch_v_of_pat_norest:
       pmatch envC s pat v env_v = Match env_v' ==>
       pat_without_Pref_Pas pat ==>
       ?insts wildcards.
-        env_v' = ZIP (pat_bindings pat [], REVERSE insts) ++ env_v /\
+        env_v' = ZIP (pat_bindings pat, REVERSE insts) ++ env_v /\
         v_of_pat_norest envC pat insts wildcards = SOME v
 Proof
   rpt strip_tac \\ progress (fst (CONJ_PAIR pmatch_v_of_pat)) \\ fs [] \\
@@ -1019,7 +1002,7 @@ Definition cf_cases_def:
       ((if (?insts wildcards. v_of_pat_norest env.c pat insts wildcards = SOME v) then
           (!insts wildcards. v_of_pat_norest env.c pat insts wildcards = SOME v ==>
              can_pmatch_all env.c [] (MAP FST rows) v /\
-             row_cf (extend_env (REVERSE (pat_bindings pat [])) insts env) H Q)
+             row_cf (extend_env (REVERSE (pat_bindings pat)) insts env) H Q)
         else cf_cases v nomatch_exn rows env H Q) /\
        (!s. validate_pat env.c s pat v env.v))
     ) H Q

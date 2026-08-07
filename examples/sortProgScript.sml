@@ -499,12 +499,5 @@ Proof
   \\ xsimpl
 QED
 
-val (sem_thm,prog_tm) = whole_prog_thm (get_ml_prog_state ()) "sort" (UNDISCH sort_whole_prog_spec)
-Definition sort_prog_def:
-  sort_prog = ^prog_tm
-End
-
 Theorem sort_semantics =
-  sem_thm |> ONCE_REWRITE_RULE[GSYM sort_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  prove_sem_thm "sort" "sort_prog" sort_whole_prog_spec;

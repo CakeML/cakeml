@@ -677,11 +677,9 @@ Theorem flatten_exp_eq =
   |> REWRITE_RULE [GSYM flatten_exp_list_def]
 
 val _ = word_cseTheory.empty_data_def |> CONV_RULE (RAND_CONV EVAL) |> cv_trans;
-val _ = cv_auto_trans word_cseTheory.is_seen_def;
-val _ = cv_auto_trans word_cseTheory.canonicalMoveRegs3_def;
 
 Definition lookup_listCmp_def:
-  lookup_listCmp = lookup listCmp
+  lookup_listCmp = balanced_map$lookup listCmp
 End
 
 val _ = cv_trans (word_cseTheory.listCmp_def |> SRULE [GREATER_DEF]);
@@ -720,19 +718,57 @@ Proof
   Induct_on ‘t’ \\ simp [Once pre]
 QED
 
-val _ = word_cseTheory.arithOpToNum_def |> cv_trans;
-val _ = word_cseTheory.shiftToNum_def |> cv_trans;
-val _ = word_cseTheory.fpToNumList_def |> cv_trans;
-val _ = cv_trans word_cseTheory.firstRegOfArith_def;
+val _ = cv_trans word_cseTheory.keep_data_def;
+val _ = cv_auto_trans word_cseTheory.invalidate_data_def;
+val _ = cv_trans word_cseTheory.invalidate_regs_def;
+val _ = cv_trans word_cseTheory.register_read_def;
+val _ = cv_trans word_cseTheory.register_reads_def;
+val _ = cv_auto_trans word_cseTheory.canonicalRegs_def;
 val _ = cv_trans word_cseTheory.canonicalRegs'_def;
-val _ = cv_trans word_cseTheory.canonicalImmReg'_def;
 val _ = cv_trans word_cseTheory.canonicalImmReg_def;
+val _ = cv_trans word_cseTheory.canonicalImmReg'_def;
+val _ = cv_auto_trans word_cseTheory.canonicalMultRegs_def;
+val _ = cv_trans word_cseTheory.map_insert_def;
+val _ = cv_auto_trans word_cseTheory.canonicalMoveRegs_def;
 val _ = cv_trans word_cseTheory.canonicalArith_def;
-val _ = cv_trans word_cseTheory.are_reads_seen_def;
-val _ = cv_trans word_cseTheory.is_complex_def;
+val _ = cv_trans word_cseTheory.canonicalFp_def;
+val _ = cv_trans word_cseTheory.wordToNum_def;
+val _ = cv_trans word_cseTheory.shiftToNum_def;
+val _ = cv_trans word_cseTheory.arithOpToNum_def;
+val _ = cv_trans word_cseTheory.regImmToNumList_def;
+val _ = cv_trans word_cseTheory.arithToNumList_def;
+val _ = cv_auto_trans word_cseTheory.instToNumList_def;
+val _ = cv_trans word_cseTheory.firstRegOfArith_def;
+val _ = cv_trans word_cseTheory.arithWrites_def;
+val _ = cv_trans word_cseTheory.arithReads_def;
+val _ = cv_trans word_cseTheory.fpWrites_def;
+val _ = cv_auto_trans (word_cseTheory.add_to_data_aux_def
+                         |> SRULE [GSYM insert_listCmp_def,GSYM lookup_listCmp_def]);
+val _ = cv_trans word_cseTheory.add_to_data_def;
+val _ = cv_auto_trans (word_cseTheory.add_to_data_const_def
+                         |> SRULE [GSYM insert_listCmp_def,GSYM lookup_listCmp_def]);
+val _ = cv_trans word_cseTheory.memOpToNum_def;
+val _ = cv_trans word_cseTheory.loadToNumList_def;
+val _ = cv_auto_trans (word_cseTheory.add_to_load_aux_def
+                         |> SRULE [GSYM insert_listCmp_def,GSYM lookup_listCmp_def]);
+val _ = cv_trans word_cseTheory.can_mem_arith_def;
 val _ = cv_trans word_cseTheory.is_store_def;
-val _ = cv_trans word_cseTheory.canonicalExp_def;
-val _ = cv_trans word_cseTheory.OpCurrHeapToNumList_def;
+val _ = cv_auto_trans word_cseTheory.word_cseInst_def;
+val _ = cv_trans word_cseTheory.dest_Var_def;
+val _ = cv_auto_trans (word_cseTheory.bm_inter_eq_acc_def
+                         |> SRULE [GSYM insert_listCmp_def,GSYM lookup_listCmp_def]);
+val _ = cv_auto_trans word_cseTheory.bm_inter_eq_def;
+val _ = cv_auto_trans word_cseTheory.merge_data_def;
+
+val pre = cv_auto_trans_pre "" word_cseTheory.word_cse_def;
+Theorem word_cse_word_cse_pre[cv_pre,local]:
+  ∀data v. word_cse_word_cse_pre data v
+Proof
+  qsuff_tac ‘∀v data. word_cse_word_cse_pre data v’ >- gvs []
+  \\ Induct \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val _ = cv_trans word_cseTheory.word_common_subexp_elim_def;
 
 val _ = word_allocTheory.next_var_rename_def |> cv_trans;
 val _ = word_allocTheory.list_next_var_rename_def |> cv_trans;

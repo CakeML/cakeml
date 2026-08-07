@@ -1758,7 +1758,25 @@ Proof
     Cases_on ‘res’ \\ gvs [do_app_def, AllCaseEqs(), thunk_op_def]
     \\ rpt (pairarg_tac \\ gvs [])
     >- metis_tac [SUBMAP_REFL]
+    >- (
+      reverse $ rw [GSYM PULL_EXISTS]
+      >- (
+        gvs [bad_thunk_update_def, oneline dest_thunk_def, AllCaseEqs()]
+        \\ Cases_on `v` \\ gvs [v_rel_cases, store_alloc_def]
+        \\ drule_all state_rel_store_lookup \\ rw [OPTREL_def] \\ gvs []
+        \\ rename1 `ref_rel _ x y`
+        \\ Cases_on `x` \\ Cases_on `y` \\ gvs [ref_rel_def])
+      \\ metis_tac [SUBMAP_REFL])
     >- metis_tac [SUBMAP_REFL]
+    \\ `¬bad_thunk_update m y t.refs` by (
+      gvs [store_alloc_def]
+      \\ gvs [bad_thunk_update_def] \\ rw []
+      \\ gvs [oneline dest_thunk_def, AllCaseEqs(), v_rel_cases,
+              store_lookup_def, SF DNF_ss]
+      \\ drule_all state_rel_store_lookup \\ rw [OPTREL_def] \\ gvs []
+      \\ gvs [store_lookup_def]
+      \\ qpat_x_assum `ref_rel _ _ _` mp_tac
+      \\ simp [oneline ref_rel_def] \\ TOP_CASE_TAC \\ gvs [])
     \\ qexists ‘fr |+ (LENGTH s.refs,LENGTH t.refs)’ \\ gvs []
     \\ rpt (irule_at Any SUBMAP_REFL \\ gvs [])
     \\ gvs [store_alloc_def]
@@ -1798,6 +1816,13 @@ Proof
     Cases_on ‘res’ \\ gvs [do_app_def, AllCaseEqs(), thunk_op_def, OPTREL_def]
     \\ rpt (irule_at Any SUBMAP_REFL) \\ gs [v_rel_def]
     \\ rename1 ‘v_rel fr ft fe v w’
+    \\ `bad_thunk_update m v s.refs ⇔ bad_thunk_update m w t.refs` by (
+      gvs [bad_thunk_update_def, oneline dest_thunk_def, AllCaseEqs()]
+      \\ Cases_on `v` \\ Cases_on `w` \\ gvs [v_rel_cases]
+      \\ drule_all state_rel_store_lookup \\ rw [OPTREL_def] \\ gvs []
+      \\ rename1 `ref_rel _ x y`
+      \\ Cases_on `x` \\ Cases_on `y` \\ gvs [ref_rel_def])
+    \\ gvs []
     \\ ‘ref_rel (v_rel fr ft fe) (Thunk m v) (Thunk m w)’
       by gs [ref_rel_def]
     \\ drule_all state_rel_store_assign \\ rw [OPTREL_def]

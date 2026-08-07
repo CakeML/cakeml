@@ -278,6 +278,38 @@ Definition flat_to_v_def:
   flat_to_v _ = Vectorv []
 End
 
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk [Loc b n] st =
+    (case store_lookup n st of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) =>
+         if b then BadRef else IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) =>
+         if b then BadRef else IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk vs st = NotThunk
+End
+
+Definition update_thunk_def:
+  update_thunk [Loc F n] st [v] =
+    (case dest_thunk [v] st of
+     | NotThunk => store_assign n (Thunk Evaluated v) st
+     | _ => NONE) ∧
+  update_thunk _ st _ = NONE
+End
+
+Definition bad_thunk_update_def:
+  bad_thunk_update m v refs ⇔
+    m = Evaluated ∧ dest_thunk [v] refs ≠ NotThunk
+End
+
 Definition do_app_def:
   do_app s op (vs:flatSem$v list) =
   case (op, vs) of
@@ -564,10 +596,12 @@ Definition do_app_def:
   | (Src (ThunkOp th_op), vs) =>
      (case (th_op,vs) of
       | (AllocThunk m, [v]) =>
-          (let (r,n) = store_alloc (Thunk m v) s.refs in
+          (if bad_thunk_update m v s.refs then NONE else
+           let (r,n) = store_alloc (Thunk m v) s.refs in
              SOME (s with refs := r, Rval (Loc F n)))
-      | (UpdateThunk m, [Loc _ lnum; v]) =>
-          (case store_assign lnum (Thunk m v) s.refs of
+      | (UpdateThunk m, [Loc F lnum; v]) =>
+          (if bad_thunk_update m v s.refs then NONE else
+           case store_assign lnum (Thunk m v) s.refs of
            | SOME r => SOME (s with refs := r, Rval (Conv NONE []))
            | NONE => NONE)
       | _ => NONE)
@@ -719,31 +753,6 @@ Definition do_eval_def:
     | _ => NONE)
 End
 
-Datatype:
-  dest_thunk_ret
-    = BadRef
-    | NotThunk
-    | IsThunk thunk_mode v
-End
-
-Definition dest_thunk_def:
-  dest_thunk [Loc _ n] st =
-    (case store_lookup n st of
-     | NONE => BadRef
-     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
-     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
-     | SOME _ => NotThunk) ∧
-  dest_thunk vs st = NotThunk
-End
-
-Definition update_thunk_def:
-  update_thunk [Loc _ n] st [v] =
-    (case dest_thunk [v] st of
-     | NotThunk => store_assign n (Thunk Evaluated v) st
-     | _ => NONE) ∧
-  update_thunk _ st _ = NONE
-End
-
 Definition AppUnit_def:
   AppUnit x = flatLang$App None (Src Opapp) [x; Con None NONE []]
 End
@@ -825,7 +834,7 @@ Definition evaluate_def:
         | Match_type_error => (s, Rerr (Rabort Rtype_error))
         | No_match => (s, Rerr (Rraise v))
         | Match (env', p', e') =>
-           if ALL_DISTINCT (pat_bindings p' [])
+           if ALL_DISTINCT (pat_bindings p')
            then evaluate (env with v := env' ++ env.v) s [e']
            else (s, Rerr (Rabort Rtype_error)))
    | res => res) ∧
@@ -895,7 +904,7 @@ Definition evaluate_def:
         | Match_type_error => (s, Rerr (Rabort Rtype_error))
         | No_match => (s, Rerr (Rraise bind_exn_v))
         | Match (env', p', e') =>
-           if ALL_DISTINCT (pat_bindings p' [])
+           if ALL_DISTINCT (pat_bindings p')
            then evaluate (env with v := env' ++ env.v) s [e']
            else (s, Rerr (Rabort Rtype_error)))
    | res => res) ∧

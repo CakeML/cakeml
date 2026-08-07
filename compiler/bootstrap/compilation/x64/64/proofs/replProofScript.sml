@@ -434,7 +434,7 @@ val _ = map Parse.hide ["types","types_v","parse","parse_v"];
 
 Theorem repl_types_alt:
   repl_types T (ffi,rs) (types,s,env) ∧
-  infertype_prog_inc types decs = Success new_t ⇒
+  infertype_prog_inc types decs = M_success new_t ⇒
   evaluate_decs s env decs ≠ (new_s,Rerr (Rabort Rtype_error))
 Proof
   rw [] \\ imp_res_tac repl_types_thm \\ fs []
@@ -552,7 +552,7 @@ Proof
   (* case split on result of check_and_tweak *)
   \\ rename [‘evaluate _ _ [Mat _ _]’]
   \\ Cases_on ‘check_and_tweak (decs,types,input_str)’
-  \\ gvs [inferProgTheory.INFER_EXC_TYPE_def]
+  \\ gvs []
   THEN1
    (rename [‘_ = INL msg’]
     \\ simp [Once evaluate_def]

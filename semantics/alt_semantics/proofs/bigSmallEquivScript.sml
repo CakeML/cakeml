@@ -971,9 +971,12 @@ Proof
           ) >>
         once_rewrite_tac[cj 2 evaluate_cases] >> simp[] >>
         gvs[evaluate_ctxts_cons] >>
-        gvs[evaluate_ctxt_cases, update_thunk_def, AllCaseEqs(), SF SFY_ss] >>
+        gvs[evaluate_ctxt_cases, oneline update_thunk_def, AllCaseEqs(),
+            SF SFY_ss] >>
         gvs[Once $ cj 2 evaluate_cases] >>
-        gvs[opClass_cases] >> metis_tac[]
+        gvs[opClass_cases] >>
+        Cases_on `b` >> gvs[oneline dest_thunk_def, AllCaseEqs()] >>
+        metis_tac[]
         ) >>
       once_rewrite_tac[cj 2 evaluate_cases] >> simp[] >>
       every_case_tac >> gvs[SF DNF_ss, SF SFY_ss] >>
@@ -1261,7 +1264,7 @@ Proof
   rw[Once evaluate_dec_cases, Once dec_diverges_cases, GSYM untyped_safety_exp] >>
   gvs[]
   >- (
-    Cases_on ‘ALL_DISTINCT (pat_bindings p []) ∧
+    Cases_on ‘ALL_DISTINCT (pat_bindings p) ∧
               every_exp (one_con_check env.c) e’ >>
     gvs[GSYM small_big_exp_equiv, to_small_st_def] >>
     eq_tac >- metis_tac[] >> rw[] >>
@@ -2224,7 +2227,7 @@ Theorem evaluate_match_T_total:
   ∀pes env s v err. ∃r. evaluate_match T env s v pes err r
 Proof
   Induct >> rw[Once evaluate_cases, SF DNF_ss] >> PairCases_on `h` >> gvs[] >>
-  Cases_on `ALL_DISTINCT (pat_bindings h0 [])` >> gvs[] >>
+  Cases_on `ALL_DISTINCT (pat_bindings h0)` >> gvs[] >>
   Cases_on `pmatch env.c s.refs h0 v []` >> gvs[] >>
   metis_tac[big_clocked_total]
 QED
@@ -2340,7 +2343,7 @@ Proof
     qspecl_then [‘s’,‘s0’,‘e’,‘l’] assume_tac evaluate_state_T_total >>
     gvs[] >> PairCases_on ‘r’ >>
     Cases_on ‘r1’ >> gvs[SF SFY_ss] >> disj2_tac >>
-    Cases_on ‘ALL_DISTINCT (pat_bindings p [])’ >> gvs[SF SFY_ss] >>
+    Cases_on ‘ALL_DISTINCT (pat_bindings p)’ >> gvs[SF SFY_ss] >>
     Cases_on ‘pmatch (collapse_env env s2).c r0.refs p a []’ >> gvs[SF SFY_ss] >>
     metis_tac[evaluate_dec_ctxts_T_total]
     )

@@ -472,14 +472,14 @@ Proof
   rw []
   >- metis_tac[]
   >- (
-    Cases_on`ALL_DISTINCT (pat_bindings p [])`>>
+    Cases_on`ALL_DISTINCT (pat_bindings p)`>>
     gvs[]>>
     first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>
     simp[]>>
     rw[]>>first_x_assum (irule_at Any)>>simp[])
   >- (
-    Cases_on`ALL_DISTINCT (pat_bindings p [])`>>
+    Cases_on`ALL_DISTINCT (pat_bindings p)`>>
     gvs[]>>
     PURE_REWRITE_TAC [Once (GSYM with_same_clock)]>>
     first_x_assum irule>>
@@ -510,14 +510,14 @@ Proof
   rw []
   >- metis_tac[]
   >- (
-    Cases_on`ALL_DISTINCT (pat_bindings p [])`>>
+    Cases_on`ALL_DISTINCT (pat_bindings p)`>>
     gvs[]>>
     first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>
     simp[]>>
     rw[]>>first_x_assum (irule_at Any)>>simp[])
   >- (
-    Cases_on`ALL_DISTINCT (pat_bindings p [])`>>
+    Cases_on`ALL_DISTINCT (pat_bindings p)`>>
     gvs[]>>
     PURE_REWRITE_TAC [Once (GSYM with_same_clock)]>>
     first_x_assum irule>>
@@ -1133,7 +1133,7 @@ Proof
   PairCases_on `cd` >> rename1 `clk,d` >> gvs[FORALL_PROD, LEX_DEF_THM, SF DNF_ss] >>
   Cases_on `d` >> rw[Once evaluate_dec_cases, SF DNF_ss]
   >- ( (* Dlet *)
-    Cases_on `ALL_DISTINCT (pat_bindings p []) ∧
+    Cases_on `ALL_DISTINCT (pat_bindings p) ∧
               every_exp (one_con_check env.c) e` >> gvs[] >>
     qspecl_then [`st with clock := clk`,`env`,`e`] assume_tac big_clocked_total >>
     gvs[] >> Cases_on `r` >> gvs[SF SFY_ss] >>

@@ -292,9 +292,10 @@ Definition conv_Exp_def:
                       SOME $ NStruct nm flds
                    od
       | _ => NONE
-    else if isNT nodeNT NotNT then
+    else if isNT nodeNT ENotNT then
       case args of
-        [t] => lift (Cmp Equal (Const 0w)) (conv_Exp t)
+        [t] => conv_Exp t
+      | [_; t] => lift (Cmp Equal (Const 0w)) (conv_Exp t)
       | _ => NONE
     else if isNT nodeNT ELoadByteNT then
       case args of

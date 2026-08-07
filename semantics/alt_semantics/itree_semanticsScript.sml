@@ -19,10 +19,12 @@ Definition thunk_op_def:
   thunk_op (s: v store_v list) th_op vs =
     case (th_op,vs) of
     | (AllocThunk m, [v]) =>
-        (let (s',n) = store_alloc (Thunk m v) s in
+        (if bad_thunk_update m v s then NONE else
+         let (s',n) = store_alloc (Thunk m v) s in
            SOME (s', Rval (Loc F n)))
-    | (UpdateThunk m, [Loc _ lnum; v]) =>
-        (case store_assign lnum (Thunk m v) s of
+    | (UpdateThunk m, [Loc F lnum; v]) =>
+        (if bad_thunk_update m v s then NONE else
+         case store_assign lnum (Thunk m v) s of
          | SOME s' => SOME (s', Rval (Conv NONE []))
          | NONE => NONE)
     | _ => NONE
@@ -454,7 +456,7 @@ Definition continue_def:
   continue s v ((Cmat [] err_v, env) :: c) =
     Estep (env, s, Exn err_v, c) ∧
   continue s v ((Cmat ((p,e)::pes) err_v, env) :: c) = (
-    if ALL_DISTINCT (pat_bindings p []) then (
+    if ALL_DISTINCT (pat_bindings p) then (
       case pmatch env.c s p v [] of
         Match_type_error => Etype_error
       | No_match => Estep (env, s, Val v, (Cmat pes err_v, env)::c)
@@ -578,7 +580,7 @@ End
 
 Definition dstep_def:
   dstep benv st (Decl $ Dlet locs p e) c = (
-    if ALL_DISTINCT (pat_bindings p []) ∧
+    if ALL_DISTINCT (pat_bindings p) ∧
        every_exp (one_con_check (collapse_env benv c).c) e then
       dreturn st c (ExpVal (collapse_env benv c) (Exp e) [] locs p)
     else Dtype_error ) ∧
@@ -611,7 +613,7 @@ Definition dstep_def:
   dstep benv st (Env env) c = dcontinue env st c ∧
 
   dstep benv st (ExpVal env (Val v) [] locs p) c = (
-    if ALL_DISTINCT (pat_bindings p []) then
+    if ALL_DISTINCT (pat_bindings p) then
       case pmatch (collapse_env benv c).c st.refs p v [] of
       | Match new_vals =>
           dreturn st c (Env <| v := alist_to_ns new_vals; c := nsEmpty |>)
