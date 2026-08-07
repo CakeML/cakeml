@@ -5289,21 +5289,16 @@ Theorem compile_get_code_labels:
 Proof
   rw[bvl_to_bviTheory.compile_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
-  (* bvi_inline only ever removes labels *)
   \\ old_drule bvi_inlineProofTheory.compile_prog_code_labels
   \\ strip_tac
   \\ irule SUBSET_TRANS
   \\ first_assum (irule_at (Pos hd))
-  (* bvi_tailrec keeps the old labels and adds only its own fresh names *)
   \\ old_drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_good_code_labels)
   \\ disch_then irule
   \\ reverse conj_tac
   >- (rw [SUBSET_DEF] \\ metis_tac [])
-  (* the bvl_to_bvi core *)
   \\ old_drule (GEN_ALL compile_prog_get_code_labels)
   \\ disch_then (fn th => irule SUBSET_TRANS \\ irule_at (Pos hd) th)
-  (* underneath: bvl_inline shrinks the label set, and the two passes above
-     the core both keep the names the core produced *)
   \\ old_drule (GEN_ALL bvl_inlineProofTheory.compile_prog_get_code_labels)
   \\ strip_tac
   \\ qpat_x_assum `bvi_inline$compile_prog _ = _`

@@ -1673,11 +1673,8 @@ Proof
   simp [oracle_monotonic_def]
 QED
 
-(* The namespace-sliced projection used by monotonic_labels_bvl_to_bvi needs the
-   same stripping: bvi_inline is name preserving, so a projection that only looks
-   at MAP FST o SND cannot see it. Without this the outermost state_co is
-   bvi_inline rather than bvi_tailrec, and the arm's irule targets the wrong
-   layer. *)
+(* bvi_inline is name preserving, so the namespace-sliced projection used
+   by monotonic_labels_bvl_to_bvi cannot see it either. *)
 Theorem oracle_monotonic_bvi_inline_inter[simp]:
   oracle_monotonic (λx. set (MAP FST (SND x)) ∩ s) R init
     (state_co bvi_inline_compile_inc co) =
@@ -3573,8 +3570,7 @@ Proof
   \\ disch_then(qspec_then`0`mp_tac) \\ simp[] \\ strip_tac
   \\ `stubs (:'a) c4.data_conf = stubs (:'a) c4_data_conf` by ( simp[Abbr`c4_data_conf`] )
   \\ qmatch_assum_rename_tac`_ _ code = (n2,p3)`
-  (* p3 is the program before bvi_inline, which preserves names, so the
-     name-level facts about the bvi program carry over to p3 and to p4 *)
+  (* p3 is the bvi program before bvi_inline, which preserves names *)
   \\ qpat_assum `bvi_inline$compile_prog _ = _`
        (strip_assume_tac o REWRITE_RULE [bvi_inlineTheory.compile_prog_def])
   \\ imp_res_tac bvi_inlineProofTheory.compile_inc_MAP_FST

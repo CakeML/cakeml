@@ -17,6 +17,13 @@ Definition bvi_mk_tick_def:
   bvi_mk_tick n e = FUNPOW bvi$Tick n e
 End
 
+(* First-order form for cv_compute, which has no [FUNPOW]. *)
+Theorem bvi_mk_tick_eq:
+  bvi_mk_tick n e = if n = 0 then e else bvi$Tick (bvi_mk_tick (n − 1) e)
+Proof
+  Cases_on ‘n’ >> simp [bvi_mk_tick_def, FUNPOW_SUC]
+QED
+
 (* [Op] reverses its argument list, so a wrapper that boxes the worker's
    [rets] results in order lists them reversed under the [Cons]. *)
 Definition canonical_wrapper_def:
@@ -29,20 +36,13 @@ Definition canonical_wrapper_def:
   (canonical_wrapper name arity _ ⇔ F)
 End
 
-(* Future CPR protocols extend this predicate while retaining the same
-   name-preserving substitution interface. *)
 Definition wrapper_ok_def:
   wrapper_ok name arity body ⇔ canonical_wrapper name arity body
 End
 
-(* [cs] is a cache of code-table entries.  The correctness invariant needed
-   for a hit is that the cached label, arity, and body correspond to the code
-   table (up to the expression relation used by the pass).  No separate
-   "cannot escape Ret" invariant is required: an ordinary BVI Call whose body
-   lets Ret escape produces a source type error, and source type-error
-   executions are outside the compiler-correctness theorem.  Thus the
-   substitution mechanism is sound for any corresponding code body; the
-   deliberately narrow [wrapper_ok] test is CPR policy, not semantic safety. *)
+(* [cs] is a cache of code-table entries.  The correctness invariant
+   needed for a hit is that the cached label, arity, and body correspond
+   to the code table (up to the expression relation used by the pass). *)
 Definition inline_exp_def:
   (inline_exp cs (bvi$Var n) = bvi$Var n) ∧
   (inline_exp cs (bvi$If x y z) =
@@ -130,8 +130,6 @@ Definition compile_prog_def:
   compile_prog prog = compile_inc LN prog
 End
 
-(* Small executable examples.  They also pin the intentionally narrow
-   eligibility interface until CPR itself starts producing wrappers. *)
 Theorem canonical_four_result_wrapper:
   wrapper_ok 10 3
     (LetCall 4 0 11 (GENLIST Var 3)
