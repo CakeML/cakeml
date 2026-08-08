@@ -4773,15 +4773,14 @@ Resume evaluate_rewrite_tmc[tick]:
    (gvs [GSYM PULL_FORALL]
     >> rpt $ first_assum $ irule_at Any
     >> gvs []
-    >> gvs [only_fresh_refl, holes_unchanged_except_refl]
+    >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
     >> rw []
     >-
      (gvs [rewrite_wrapper_def, evaluate_def]
       >> rpt $ first_assum $ irule_at Any
-      >> conj_tac
-      >> gvs [only_fresh_refl, holes_unchanged_except_refl])
+      >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl])
     >> first_assum $ irule_at Any
-    >> gvs [rewrite_worker_def, evaluate_def, opt_res_rel_def, holes_unchanged_except_refl, only_fresh_refl])
+    >> gvs [rewrite_worker_def, evaluate_def, opt_res_rel_def, holes_unchanged_except_refl, only_fresh_refl, holes_still_not_finalised_refl])
   >> gvs [GSYM PULL_FORALL]
   >> first_x_assum $ qspecl_then [‘[x]’, ‘dec_clock 1 s’] mp_tac
   >> impl_tac >- gvs [dec_clock_def]
