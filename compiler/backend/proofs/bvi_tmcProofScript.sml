@@ -4471,6 +4471,8 @@ Resume evaluate_rewrite_tmc[if]:
      (irule holes_unchanged_except_trans
       >> first_assum $ irule_at Any
       >> gvs [])
+    >> conj_tac
+    >- imp_res_tac holes_still_not_finalised_trans
     >> gen_tac
     >> strip_tac
     >> gvs []
@@ -4480,21 +4482,11 @@ Resume evaluate_rewrite_tmc[if]:
     >> strip_tac
     >> gvs []
     >> rw []
+    >-
+     (drule wrapper_strip_if_else
+      >> strip_tac
       >-
-       (drule wrapper_strip_if_else
-        >> strip_tac
-        >-
-         (gvs [evaluate_def]
-          >> rpt $ first_assum $ irule_at Any
-          >> conj_tac
-          >- imp_res_tac SUBMAP_TRANS
-          >> conj_tac
-          >-
-           (irule only_fresh_trans
-            >> rpt $ first_assum $ irule_at Any
-            >> imp_res_tac evaluate_refs_SUBSET)
-          >> imp_res_tac holes_unchanged_except_trans)
-        >> gvs [evaluate_def]
+       (gvs [evaluate_def]
         >> rpt $ first_assum $ irule_at Any
         >> conj_tac
         >- imp_res_tac SUBMAP_TRANS
@@ -4503,7 +4495,21 @@ Resume evaluate_rewrite_tmc[if]:
          (irule only_fresh_trans
           >> rpt $ first_assum $ irule_at Any
           >> imp_res_tac evaluate_refs_SUBSET)
-        >> imp_res_tac holes_unchanged_except_trans)
+        >> conj_tac
+        >- imp_res_tac holes_unchanged_except_trans
+        >> imp_res_tac holes_still_not_finalised_trans)
+      >> gvs [evaluate_def]
+      >> rpt $ first_assum $ irule_at Any
+      >> conj_tac
+      >- imp_res_tac SUBMAP_TRANS
+      >> conj_tac
+      >-
+       (irule only_fresh_trans
+        >> rpt $ first_assum $ irule_at Any
+        >> imp_res_tac evaluate_refs_SUBSET)
+      >> conj_tac
+      >- imp_res_tac holes_unchanged_except_trans
+      >> imp_res_tac holes_still_not_finalised_trans)
     >> gvs []
     >> first_x_assum $ qspecl_then [‘c’] mp_tac
     >> impl_tac
@@ -4511,11 +4517,15 @@ Resume evaluate_rewrite_tmc[if]:
      (drule env_rel_strip_extras
       >> strip_tac
       >> gvs []
-      >> irule unchanged_hole_has_val
-      >> qexists ‘EMPTY’
-      >> gvs []
-      >> first_assum $ irule_at $ Pos hd
-      >> gvs [])
+      >> conj_tac
+      >-
+       (irule unchanged_hole_has_val
+        >> qexists ‘EMPTY’
+        >> gvs []
+        >> first_assum $ irule_at $ Pos hd
+        >> gvs [])
+      >> ntac 2 $ imp_res_tac holes_still_not_finalised_def
+      >> gvs [hole_has_val_def])
     >> strip_tac
     >> gvs [rewrite_worker_def, evaluate_def]
     >> imp_res_tac env_rel_length_opt
@@ -4537,8 +4547,13 @@ Resume evaluate_rewrite_tmc[if]:
       >> irule holes_unchanged_except_subset
       >> first_assum $ irule_at Any
       >> gvs [])
+    >> conj_tac
+    >- imp_res_tac holes_still_not_finalised_trans
     >> rw []
-    >> rpt $ first_assum $ irule_at Any
+    >> irule_at Any mb_rel_refs_old_subset
+    >> first_assum $ irule_at Any
+    >> conj_tac
+    >- imp_res_tac evaluate_refs_SUBSET
     >> irule hole_has_val_submap
     >> first_assum $ irule_at Any
     >> gvs [])
