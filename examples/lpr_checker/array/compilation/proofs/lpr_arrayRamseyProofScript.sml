@@ -12,7 +12,7 @@ Libs
   preamble
 
 val check_unsat_io_events_def = new_specification("check_unsat_io_events_def",["check_unsat_io_events"],
-  check_unsat_semantics |> Q.GENL[`cl`,`fs`]
+  check_unsat_semantics |> Q.GENL[`ext`,`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (check_unsat_sem,check_unsat_output) = check_unsat_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
@@ -72,11 +72,11 @@ QED
 
 Theorem machine_code_sound:
   ramsey_run cl fs mc ms ⇒
-  machine_sem mc (basis_ffi cl fs) ms ⊆
+  machine_sem mc (basis_ffi ext cl fs) ms ⊆
     extend_with_resource_limit
-      {Terminate Success (check_unsat_io_events cl fs)} ∧
+      {Terminate Success (check_unsat_io_events ext cl fs)} ∧
   ∃out err.
-    extract_fs fs (check_unsat_io_events cl fs) =
+    extract_fs ext (cl,fs) (check_unsat_io_events ext cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
   (out ≠ «» ⇒
     if LENGTH cl = 1 then

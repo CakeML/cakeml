@@ -23,9 +23,9 @@ QED
 
 Theorem wordcount_stdin_semantics_raw[local]:
   ∃io_events.
-    semantics_prog (init_state (basis_ffi [«wordcount»] (stdin_fs input))) init_env
+    semantics_prog (init_state (basis_ffi no_ext [«wordcount»] (stdin_fs input))) init_env
       wordcount_prog (Terminate Success io_events) ∧
-    (extract_fs (stdin_fs input) io_events =
+    (extract_fs no_ext ([«wordcount»],stdin_fs input) io_events =
        SOME (add_stdout (fastForwardFD (stdin_fs input) 0)
               (concat
                 [mlint$toString (&LENGTH (TOKENS isSpace input)); « »;

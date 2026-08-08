@@ -12,7 +12,7 @@ Libs
   preamble
 
 val main_io_events_def = new_specification("main_io_events_def",["main_io_events"],
-  main_semantics |> Q.GENL[`cl`,`fs`]
+  main_semantics |> Q.GENL[`ext`,`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (main_sem,main_output) = main_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
@@ -73,11 +73,11 @@ QED
 
 Theorem machine_code_sound:
   packing_run cl fs mc ms ⇒
-  machine_sem mc (basis_ffi cl fs) ms ⊆
+  machine_sem mc (basis_ffi ext cl fs) ms ⊆
     extend_with_resource_limit
-      {Terminate Success (main_io_events cl fs)} ∧
+      {Terminate Success (main_io_events ext cl fs)} ∧
   ∃out err.
-    extract_fs fs (main_io_events cl fs) =
+    extract_fs ext (cl,fs) (main_io_events ext cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
   if LENGTH cl = 4 then
     case parse_numbers (EL 1 cl) (EL 2 cl) (EL 3 cl) of
