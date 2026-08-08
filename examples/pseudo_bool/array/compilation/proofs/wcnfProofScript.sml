@@ -98,7 +98,7 @@ Proof
   drule_at (Pos last) cake_pb_wcnf_compiled_thm>>
   simp[AND_IMP_INTRO]>>
   disch_then drule>>
-  disch_then (qspecl_then [`ms`,`mc`,`data_sp`,`cbspace`] mp_tac)>>
+  disch_then (qspecl_then [`ms`,`mc`,`ext`,`data_sp`,`cbspace`] mp_tac)>>
   simp[]>> strip_tac>>
   fs[main_sem_def]>>
   every_case_tac>>fs[]
@@ -195,6 +195,7 @@ Theorem machine_code_sound_equiopt:
 Proof
   rw[]>>
   drule machine_code_sound>>rw[]>>
+  first_x_assum (qspec_then `ext` mp_tac)>>rw[]>>
   first_x_assum (irule_at Any)>>
   rw[]>>drule isSuffix_exists>>
   pop_assum kall_tac>>
