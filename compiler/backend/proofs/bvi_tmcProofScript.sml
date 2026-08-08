@@ -4148,7 +4148,10 @@ Resume evaluate_rewrite_tmc[call_block]:
     >> conj_tac
     >- imp_res_tac holes_still_not_finalised_trans
     >> rw []
+    >> irule_at Any mb_rel_refs_old_subset
     >> first_assum $ irule_at Any
+    >> conj_tac
+    >- imp_res_tac evaluate_refs_SUBSET
     >> irule hole_has_val_submap
     >> drule_all hole_has_val_unappend
     >> strip_tac
@@ -4193,7 +4196,10 @@ Resume evaluate_rewrite_tmc[call_block]:
   >> conj_tac
   >- imp_res_tac holes_still_not_finalised_trans
   >> rw []
+  >> irule_at Any mb_rel_refs_old_subset
   >> first_assum $ irule_at Any
+  >> conj_tac
+  >- imp_res_tac evaluate_refs_SUBSET
   >> irule hole_has_val_submap
   >> drule_all hole_has_val_unappend
   >> strip_tac
