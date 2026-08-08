@@ -1031,7 +1031,7 @@ Proof
 QED
 
 Definition mb_rel_def:
-  (mb_rel f refs_old refs (Block tag xs) (RefPtr b ptr) =
+  (mb_rel f (refs_old : num |-> v ref) refs (Block tag xs) (RefPtr b ptr) =
    if b ∨ ptr ∈ FRANGE f ∨ ptr ∈ FDOM refs_old then F else
      case FLOOKUP refs ptr of
      | SOME (MutBlock tag' fin' left' child' right') =>
@@ -3055,15 +3055,15 @@ Proof
 QED
 
 Theorem evaluate_finalise_cons:
-  ∀v2 t_refs f s_refs v1.
-    state_ref_rel f s_refs t_refs ∧
-    mb_rel f s_refs t_refs v1 v2 ∧
+  ∀v2 t_refs (f :num |-> num) f' u_refs v1 (s_refs : num |-> v ref).
+    state_ref_rel f' u_refs t_refs ∧
+    mb_rel f' s_refs t_refs v1 v2 ∧
     holes_still_not_finalised f s_refs t_refs ⇒
     ∃v3 t_refs'.
       finalise_cons v2 t_refs = SOME (v3,t_refs') ∧
-      v_rel f v1 v3 ∧
-      state_ref_rel f s_refs t_refs' ∧
-      holes_unchanged_except f t_refs t_refs' EMPTY ∧
+      v_rel f' v1 v3 ∧
+      state_ref_rel f' u_refs t_refs' ∧
+      holes_unchanged_except f' t_refs t_refs' EMPTY ∧
       holes_still_not_finalised f s_refs t_refs'
 Proof
   recInduct finalise_cons_ind
@@ -3074,15 +3074,15 @@ Proof
      (CASE_TAC
       >-
        (gvs [state_ref_rel_def]
-        >> ‘n ∈ FDOM s_refs’ by gvs [FLOOKUP_DEF]
-        >> Cases_on ‘FLOOKUP s_refs n’
+        >> ‘n ∈ FDOM u_refs’ by gvs [FLOOKUP_DEF]
+        >> Cases_on ‘FLOOKUP u_refs n’
         >- gvs [FLOOKUP_DEF]
         >> first_x_assum drule
         >> strip_tac
         >> gvs [])
       >> CASE_TAC >> gvs []
       >> gvs [state_ref_rel_def, holes_unchanged_except_refl]
-      >> Cases_on ‘FLOOKUP s_refs n’
+      >> Cases_on ‘FLOOKUP u_refs n’
       >- gvs [FLOOKUP_DEF]
       >> last_x_assum drule
       >> strip_tac
@@ -3159,14 +3159,14 @@ QED
 Theorem mb_rel_refs_old_subset:
   ∀f r2 r3 v1 v2 r1.
     mb_rel f r2 r3 v1 v2 ∧
-    r1 SUBMAP r2 ⇒
+    (FDOM r1) SUBSET (FDOM r2) ⇒
     mb_rel f r1 r3 v1 v2
 Proof
   recInduct mb_rel_ind
   >> rw [mb_rel_def]
   >-
    (spose_not_then assume_tac
-    >> gvs [SUBMAP_DEF])
+    >> gvs [SUBSET_DEF])
   >> CASE_TAC >- gvs []
   >> CASE_TAC >> gvs []
   >> rpt $ first_assum $ irule_at Any
@@ -3206,7 +3206,7 @@ Theorem evaluate_cb:
       (∀refs extras ptr idx hole_ptr.
          state_ref_rel f s.refs refs ∧
          (∃c. alloc_hole_has_val f refs extras ptr idx c) ∧
-         s'.refs ⊑ refs ∧
+         (FDOM s'.refs) SUBSET (FDOM refs) ∧
          EL ptr extras = RefPtr F hole_ptr ⇒
          ∃r_aux t_aux f_aux.
            evaluate ([cb_to_bvi_worker_aux (shift_cb (LENGTH extras) cb) loc_opt ptr idx],extras ++ env2,s' with refs := refs) = (r_aux,t_aux) ∧
@@ -3242,7 +3242,6 @@ Theorem evaluate_cb:
                 mb_rel f_work s'.refs (t_work.refs \\ hole_ptr) res_v res_v' ∧
                 hole_has_val f env env2 t_work.refs res_v'))
 Proof
-
   reverse $ Induct
   >- (rpt gen_tac
       >> strip_tac
@@ -3422,7 +3421,6 @@ Proof
               >> gvs []
               >> first_assum $ irule_at Any
               >> gvs [hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP])))
-
   >- (rpt gen_tac
       >> strip_tac
       >> rename [‘CallBlock tag left child right’]
@@ -3489,10 +3487,7 @@ Proof
           >-
            (gvs [alloc_hole_has_val_def, FLOOKUP_SIMP, backend_commonTheory.small_enough_int_def, state_rel_def]
             >> imp_res_tac fresh_not_in_range_f)
-          >> gvs []
-          >> disj1_tac
-          >> qspec_then ‘s'.refs’ assume_tac fresh_ptr_fresh
-          >> gvs [])
+          >> gvs [SUBSET_INSERT_RIGHT])
         >> strip_tac
         >> gvs []
         >> imp_res_tac evaluate_SING_IMP
@@ -3549,9 +3544,9 @@ Proof
         >> rename [‘state_rel _ u t_aux’]
         >> ‘state_ref_rel f_aux u.refs t_aux.refs’ by gvs [state_rel_def]
         >> drule evaluate_finalise_cons
-        >> rpt $ disch_then $ drule_at Any
-        >>
-
+        >> disch_then drule
+        >> drule_then assume_tac holes_still_not_finalised_del
+        >> disch_then drule
         >> strip_tac
         >> gvs []
         >> qexists ‘f_aux’
@@ -3572,15 +3567,12 @@ Proof
           >> irule fresh_not_in_range_f
           >> gvs [state_rel_def]
           >> first_assum $ irule_at Any)
-        >> conj_tac
-        >-
-         (irule holes_unchanged_except_trans
-          >> first_x_assum $ irule_at $ Pos last
-          >> gvs []
-          >> irule holes_unchanged_except_del_SING
-          >> first_assum $ irule_at $ Pos $ el 2
-          >> irule_at Any fresh_ptr_fresh)
-        >> cheat) (* evaluate_finalise_cons concl *)
+        >> irule holes_unchanged_except_trans
+        >> first_x_assum $ irule_at $ Pos last
+        >> gvs []
+        >> irule holes_unchanged_except_del_SING
+        >> first_assum $ irule_at $ Pos $ el 2
+        >> irule_at Any fresh_ptr_fresh)
       (* Aux *)
       >-
        (first_x_assum drule
@@ -3637,11 +3629,14 @@ Proof
               >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
               >> gvs [FLOOKUP_DEF])
             >> gvs [])
-          >> qexistsl [‘Number 0’, ‘tag’, ‘(MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))’, ‘(MAP (λn. env2❲n❳) (REVERSE left))’]
-          >> gvs [LENGTH_MAP, backend_commonTheory.small_enough_int_def]
           >> conj_tac
-          >- imp_res_tac fresh_not_in_range_f
-          >> gvs [FLOOKUP_SIMP])
+          >-
+           (qexistsl [‘Number 0’, ‘tag’, ‘(MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))’, ‘(MAP (λn. env2❲n❳) (REVERSE left))’]
+            >> gvs [LENGTH_MAP, backend_commonTheory.small_enough_int_def]
+            >> conj_tac
+            >- imp_res_tac fresh_not_in_range_f
+            >> gvs [FLOOKUP_SIMP])
+          >> gvs [SUBSET_INSERT_RIGHT])
         >> strip_tac
         >> reverse $ Cases_on ‘r’
         >-
@@ -3713,6 +3708,12 @@ Proof
             >> first_x_assum rev_drule
             >> gvs [FLOOKUP_SIMP])
           >> gvs []
+          >> conj_tac
+          >-
+           (spose_not_then assume_tac
+            >> imp_res_tac SUBSET_DEF
+            >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
+            >> gvs [])
           >> irule non_fresh_not_in_frange
           >> rpt $ first_assum $ irule_at Any
           >> gvs [FLOOKUP_SIMP])
@@ -3734,10 +3735,14 @@ Proof
         >> gvs [MAP_REVERSE]
         >> irule_at Any non_fresh_not_in_frange
         >> rpt $ first_assum $ irule_at Any
-        >> gvs []
         >> gvs [holes_still_not_finalised_def, hole_not_finalised_def]
         >> first_x_assum rev_drule
-        >> gvs [FLOOKUP_SIMP])
+        >> gvs [FLOOKUP_SIMP]
+        >> strip_tac
+        >> spose_not_then assume_tac
+        >> imp_res_tac SUBSET_DEF
+        >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
+        >> gvs [])
       (* Work *)
       >> first_x_assum drule
       >> strip_tac
@@ -3799,9 +3804,12 @@ Proof
           >> gvs [])
         >> gvs [alloc_hole_has_val_def, backend_commonTheory.small_enough_int_def]
         >> gvs [FLOOKUP_SIMP, LENGTH_MAP]
-        >> irule fresh_not_in_range_f
-        >> qexists ‘s.refs’
-        >> gvs [state_rel_def])
+        >> conj_tac
+        >-
+         (irule fresh_not_in_range_f
+          >> qexists ‘s.refs’
+          >> gvs [state_rel_def])
+        >> gvs [SUBSET_INSERT_RIGHT])
       >> strip_tac
       >> gvs []
       >> ‘¬finalised’ by gvs [hole_not_finalised_def]
@@ -3853,7 +3861,6 @@ Proof
       >> conj_tac
       >- ntac 2 $ imp_res_tac holes_still_not_finalised_del
       >> imp_res_tac evaluate_SING_IMP
-      >> gvs []
       >> gvs [alloc_hole_has_val_def]
       >> qexists ‘RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)’
       >> qpat_x_assum ‘holes_unchanged_except _ _ _ _’ mp_tac
@@ -3869,6 +3876,10 @@ Proof
       >> gvs []
       >> gvs [rw_block_args]
       >> irule mb_rel_cons
+      >> conj_tac
+      >-
+       (qspec_then ‘s'.refs’ assume_tac fresh_ptr_fresh
+        >> gvs [])
       >> conj_tac
       >-
        (irule non_fresh_not_in_frange
