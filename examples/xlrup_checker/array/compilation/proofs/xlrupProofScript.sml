@@ -11,7 +11,7 @@ Libs
   preamble
 
 val cake_xlrup_io_events_def = new_specification("cake_xlrup_io_events_def",["cake_xlrup_io_events"],
-  check_unsat_semantics |> Q.GENL[`cl`,`fs`]
+  check_unsat_semantics |> Q.GENL[`ext`,`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (cake_xlrup_sem,cake_xlrup_output) = cake_xlrup_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
@@ -64,11 +64,11 @@ End
 
 Theorem machine_code_sound:
   cake_xlrup_run cl fs mc ms ⇒
-  machine_sem mc (basis_ffi cl fs) ms ⊆
+  machine_sem mc (basis_ffi ext cl fs) ms ⊆
     extend_with_resource_limit
-      {Terminate Success (cake_xlrup_io_events cl fs)} ∧
+      {Terminate Success (cake_xlrup_io_events ext cl fs)} ∧
   ∃out err.
-    extract_fs fs (cake_xlrup_io_events cl fs) =
+    extract_fs ext (cl,fs) (cake_xlrup_io_events ext cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
   if LENGTH cl = 2 then
     if inFS_fname fs (EL 1 cl)

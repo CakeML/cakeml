@@ -11,7 +11,7 @@ Libs
   preamble
 
 val wordfreq_io_events_def = new_specification("wordfreq_io_events_def",["wordfreq_io_events"],
-  wordfreq_semantics |> Q.GENL[`fs`,`pname`,`fname`]
+  wordfreq_semantics |> Q.GENL[`ext`,`fs`,`pname`,`fname`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM),RIGHT_EXISTS_AND_THM]);
 
 val (wordfreq_sem,wordfreq_output) = wordfreq_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
@@ -71,9 +71,9 @@ Theorem wordfreq_compiled_thm:
     (get_file_contents fs fname = SOME file_contents) ∧
     x64_installed compiler_output cbspace data_sp mc ms ⇒
     ∃io_events ascii_output.
-      machine_sem mc (basis_ffi [pname; fname] fs) ms ⊆
+      machine_sem mc (basis_ffi ext [pname; fname] fs) ms ⊆
       extend_with_resource_limit {Terminate Success io_events} ∧
-      (extract_fs fs io_events = SOME (add_stdout fs ascii_output)) ∧
+      (extract_fs ext ([pname; fname],fs) io_events = SOME (add_stdout fs ascii_output)) ∧
       valid_wordfreq_output file_contents ascii_output
 Proof
   strip_tac

@@ -12,7 +12,7 @@ Libs
   preamble
 
 val check_unsat_io_events_def = new_specification("check_unsat_io_events_def",["check_unsat_io_events"],
-  check_unsat_semantics |> Q.GENL[`cl`,`fs`]
+  check_unsat_semantics |> Q.GENL[`ext`,`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (check_unsat_sem,check_unsat_output) = check_unsat_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
@@ -93,11 +93,11 @@ QED
 
 Theorem machine_code_sound:
   cake_lpr_run cl fs mc ms ⇒
-  machine_sem mc (basis_ffi cl fs) ms ⊆
+  machine_sem mc (basis_ffi ext cl fs) ms ⊆
     extend_with_resource_limit
-      {Terminate Success (check_unsat_io_events cl fs)} ∧
+      {Terminate Success (check_unsat_io_events ext cl fs)} ∧
   ∃out err.
-    extract_fs fs (check_unsat_io_events cl fs) =
+    extract_fs ext (cl,fs) (check_unsat_io_events ext cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
   (out ≠ «» ⇒
   if LENGTH cl = 2 then
@@ -254,12 +254,12 @@ Theorem par_check_sound:
   interval_cover 0 (LENGTH pf) (MAP (λ(cl,fs,mc,ms,i,j). (i,j)) nodes)
   ⇒
   EVERY (λ(cl,fs,mc,ms,i,j).
-    machine_sem mc (basis_ffi cl fs) ms ⊆
+    machine_sem mc (basis_ffi ext cl fs) ms ⊆
     extend_with_resource_limit
-      {Terminate Success (check_unsat_io_events cl fs)}) nodes ∧
+      {Terminate Success (check_unsat_io_events ext cl fs)}) nodes ∧
   (
     EVERY (λ(cl,fs,mc,ms,i,j).
-      extract_fs fs (check_unsat_io_events cl fs) =
+      extract_fs ext (cl,fs) (check_unsat_io_events ext cl fs) =
         SOME (add_stdout fs
           (success_str (implode (md5 fmlstr)) (implode (md5 pfstr)) (print_rng i j)))
     ) nodes ⇒
@@ -269,11 +269,11 @@ Theorem par_check_sound:
 Proof
   strip_tac>>
   `EVERY (λ(cl,fs,mc,ms,i,j).
-  machine_sem mc (basis_ffi cl fs) ms ⊆
+  machine_sem mc (basis_ffi ext cl fs) ms ⊆
     extend_with_resource_limit
-      {Terminate Success (check_unsat_io_events cl fs)} ∧
+      {Terminate Success (check_unsat_io_events ext cl fs)} ∧
   ∃out err.
-    extract_fs fs (check_unsat_io_events cl fs) =
+    extract_fs ext (cl,fs) (check_unsat_io_events ext cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
     (out ≠ «» ⇒
       ∃fml pf.
@@ -322,7 +322,7 @@ Definition check_successful_def:
     file_content fs (EL 1 cl) = SOME fmlstr ∧
     file_content fs (EL 2 cl) = SOME pfstr ∧
     parse_rng_or_check (EL 3 cl) = SOME (INR (i,j)) ∧
-    extract_fs fs (check_unsat_io_events cl fs) =
+    extract_fs ext (cl,fs) (check_unsat_io_events ext cl fs) =
       SOME (add_stdout (add_stderr fs err)
         (success_str (implode (md5 fmlstr)) (implode (md5 pfstr)) (print_rng i j)))
 End
@@ -383,7 +383,7 @@ Definition check_successful_par_def:
       inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
       file_content fs (EL 1 cl) = SOME fmlstr ∧
       file_content fs (EL 2 cl) = SOME pfstr ∧
-      extract_fs fs (check_unsat_io_events cl fs) =
+      extract_fs ext (cl,fs) (check_unsat_io_events ext cl fs) =
         SOME (add_stdout (add_stderr fs err) out))) ∧
     (∃cl fs mc ms.
       cake_lpr_run cl fs mc ms ∧
@@ -392,7 +392,7 @@ Definition check_successful_par_def:
       file_content fs (EL 1 cl) = SOME fmlstr ∧
       file_content fs (EL 2 cl) = SOME pfstr ∧
       all_lines_file fs (EL 4 cl) = outstr ∧
-      extract_fs fs (check_unsat_io_events cl fs) =
+      extract_fs ext (cl,fs) (check_unsat_io_events ext cl fs) =
         SOME (add_stdout fs
           (concat [«s VERIFIED INTERVALS COVER 0-» ; toString (LENGTH (lines_of (strlit pfstr))); «\n»])))
 End
