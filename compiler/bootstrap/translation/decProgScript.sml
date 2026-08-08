@@ -6,7 +6,7 @@ Ancestors
   ast ml_translator ml_pmatch[qualified] semanticPrimitives
   repl_init_envProg ast_extras
 Libs
-  preamble ml_translatorLib ml_progLib
+  preamble ml_translatorLib ml_progLib MapProgLib
 
 open preamble astTheory semanticPrimitivesTheory;
 open ml_translatorLib ml_translatorTheory ml_progLib;
@@ -67,3 +67,15 @@ val r = translate namespaceTheory.id_to_n_def;
 val r = translate repl_decs_allowedTheory.safe_exp_pmatch;
 val r = translate candle_prover_invTheory.safe_dec_def;
 val r = translate repl_decs_allowedTheory.decs_allowed_def;
+
+(* --- *)
+
+(* teach the translator how to translate fmap operations for key types:
+    - mlstring
+    - int
+ (* - num *)
+*)
+
+val _ = MapProgLib.add_fmap_for_cmp mlstringTheory.TotOrd_fast_compare;
+val _ = MapProgLib.add_fmap_for_cmp mlintTheory.TotOrd_int_cmp;
+(* val _ = MapProgLib.add_fmap_for_cmp miscTheory.TotOrd_num_cmp; *)
