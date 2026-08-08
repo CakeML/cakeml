@@ -2610,6 +2610,42 @@ QED
 
 val _ = cv_trans bvi_letTheory.compile_exp_eq;
 
+(* bvi_inline *)
+
+val pre = cv_trans_pre "" bvi_inlineTheory.bvi_mk_tick_eq;
+Theorem bvi_inline_bvi_mk_tick_pre[cv_pre,local]:
+  ∀n e. bvi_inline_bvi_mk_tick_pre n e
+Proof
+  Induct \\ simp [Once pre]
+QED
+
+val _ = cv_auto_trans bvi_inlineTheory.canonical_wrapper_def;
+val _ = cv_auto_trans bvi_inlineTheory.wrapper_ok_def;
+
+val pre = cv_auto_trans_pre "" (bvi_inlineTheory.inline_exp_def |> measure_args [1,1]);
+Theorem bvi_inline_inline_exp_pre[cv_pre,local]:
+  (∀cs v. bvi_inline_inline_exp_pre cs v) ∧
+  (∀cs v. bvi_inline_inline_exps_pre cs v)
+Proof
+  ho_match_mp_tac bvi_inlineTheory.inline_exp_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val pre = cv_auto_trans_pre ""
+             (bvi_inlineTheory.remove_ticks_exp_def
+                |> PURE_REWRITE_RULE [oneline OPTION_MAP_DEF, o_THM]);
+Theorem bvi_inline_remove_ticks_exp_pre[cv_pre,local]:
+  (∀v. bvi_inline_remove_ticks_exp_pre v) ∧
+  (∀v. bvi_inline_remove_ticks_exps_pre v)
+Proof
+  ho_match_mp_tac bvi_inlineTheory.remove_ticks_exp_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val _ = cv_auto_trans bvi_inlineTheory.inline_all_def;
+val _ = cv_auto_trans bvi_inlineTheory.compile_inc_def;
+val _ = cv_auto_trans bvi_inlineTheory.compile_prog_def;
+
 (* bvl_to_bvi *)
 
 val _ = cv_auto_trans bvl_to_bviTheory.get_names_def;
