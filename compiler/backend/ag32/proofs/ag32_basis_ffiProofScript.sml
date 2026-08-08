@@ -864,7 +864,7 @@ Definition ag32_ffi_rel_def:
   ag32_ffi_rel ms ffi ⇔
     (MAP get_ag32_io_event ms.io_events =
      MAP get_output_io_event ffi.io_events) ∧
-    (ffi.oracle = basis_ffi_oracle) ∧
+    (ffi.oracle = basis_ffi_oracle no_ext) ∧
     (ag32_fs_ok (SND ffi.ffi_state)) ∧
     (ag32_stdin_implemented (SND ffi.ffi_state) ms.MEM) ∧
     (ag32_cline_implemented (FST ffi.ffi_state) ms.MEM)
@@ -884,10 +884,16 @@ Definition extract_writes_def:
     FLAT (MAP (MAP (CHR o w2n) o THE) (FILTER IS_SOME (MAP (combin$C OPTION_BIND (extract_write fd)) oevents)))
 End
 
+Theorem no_ext_apply[local,simp]:
+  no_ext nm st conf bs = Oracle_final FFI_failed
+Proof
+  rw[basis_ffiTheory.no_ext_def]
+QED
+
 (* TODO: why is this proof so slow? make it faster? *)
 Theorem extract_fs_extract_writes:
    ∀ls fs fs' off off' out rest.
-   (extract_fs fs ls = SOME fs') ∧
+   (extract_fs no_ext (cls,fs) ls = SOME fs') ∧
    (* can only read/write up to output_buffer_size - this could be made more nuanced *)
    (fs.numchars = LGENLIST (K output_buffer_size) NONE) ∧
    (* UStream of interest exists at the start *)
@@ -915,8 +921,15 @@ Proof
   >- (
     rw[basis_ffiTheory.extract_fs_def, extract_writes_def]
     \\ fs[basis_ffiTheory.extract_fs_with_numchars_def]
-    \\ rveq \\ fs[] )
+    \\ rveq \\ fs[])
   \\ Cases
+  \\ rename1 ‘IO_event nm’
+  \\ Cases_on ‘nm’
+  >~ [‘SharedMem _’]
+  >- (
+    rw[basis_ffiTheory.extract_fs_def,
+    basis_ffiTheory.extract_fs_with_numchars_def,
+    basis_ffiTheory.no_ext_def])
   \\ rpt gen_tac
   \\ fs[basis_ffiTheory.extract_fs_def, PULL_EXISTS]
   \\ rw[]
@@ -924,40 +937,38 @@ Proof
   \\ fs[get_output_io_event_def]
   \\ reverse(rw[])
   >- (
-    fs[extract_writes_def]
-    \\ first_x_assum irule
-    \\ fs[CaseEq"option"]
-    \\ Cases_on`f`
-    \\ gvs[basis_ffiTheory.extract_fs_with_numchars_def,AllCaseEqs()]
-    >- (qexists_tac`fs` \\ gvs[])
-    >- (fs[CaseEq"ffi_result"]
+      fs[extract_writes_def]
+      \\ first_x_assum irule
+      \\ fs[CaseEq"option"]
+      \\ gvs[basis_ffiTheory.extract_fs_with_numchars_def,AllCaseEqs()]
+      >- (
+        qexists_tac`fs` \\ gvs[])
+      >- (
+      fs[CaseEq"ffi_result"]
       \\ qexists_tac`fs'` \\ fs[]
       \\ fs[fsFFITheory.fs_ffi_part_def]
       \\ rveq
       \\ fs[CaseEq"bool"] \\ rveq
       >- (
         fs[fsFFITheory.ffi_open_in_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[] \\ rfs[]
-        \\ TRY (rpt conj_tac \\ first_x_assum MATCH_ACCEPT_TAC)
         \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
         \\ fs[fsFFITheory.openFile_def]
         \\ fs[fsFFIPropsTheory.inFS_fname_def]
         \\ imp_res_tac ALOOKUP_MEM
         \\ fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
-        \\ metis_tac[] )
+        \\ metis_tac[])
       >- (
         fs[fsFFITheory.ffi_open_out_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[] \\ rfs[]
-        \\ TRY (rpt conj_tac \\ first_x_assum MATCH_ACCEPT_TAC)
         \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
         \\ fs[fsFFITheory.openFile_truncate_def]
         \\ fs[fsFFIPropsTheory.inFS_fname_def]
         \\ imp_res_tac ALOOKUP_MEM
         \\ fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
-        \\ metis_tac[] )
+        \\ metis_tac[])
       >- (
         fs[fsFFITheory.ffi_read_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[] \\ rfs[]
         \\ fs[CaseEq"list"]
         \\ fs[OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[]
-        \\ TRY (rpt conj_tac \\ first_x_assum MATCH_ACCEPT_TAC)
         \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
         \\ fs[fsFFITheory.read_def]
         \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
@@ -979,6 +990,7 @@ Proof
         \\ rveq \\ fs[]
         \\ fs[ALOOKUP_ADELKEY]
         \\ fs[fsFFIPropsTheory.inFS_fname_def]
+        \\ PairCases_on `z` \\ fs[]
         \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_closes_iostreams)
         \\ simp[ALOOKUP_ADELKEY]
         \\ Cases_on`w82n l = fd` \\ fs[]
@@ -989,23 +1001,21 @@ Proof
         \\ simp[OPTREL_def]
         \\ rpt strip_tac
         \\ fs[] \\ rveq \\ fs[]
-        \\ qpat_assum `ALOOKUP z.infds x = SOME x0` (K (PairCases_on`x0`))
-        \\ qpat_assum `ALOOKUP z.infds x = SOME (x00,_,_)`
-              (K(reverse(Cases_on`x00` \\ fs[]) >- metis_tac[]))
+        \\ qpat_assum `ALOOKUP z1.infds x = SOME x0` (K (PairCases_on`x0`))
+        \\ qpat_assum `ALOOKUP z1.infds x = SOME (x00,_,_)`
+        (K(reverse(Cases_on`x00` \\ fs[]) >- metis_tac[]))
         \\ pop_assum mp_tac \\ simp[]
         \\ first_x_assum drule
         \\ simp[OPTREL_def]
         \\ rpt strip_tac
-        \\ fs[] \\ rveq \\ fs[]))
-      >- metis_tac[]
-    )
+        \\ fs[] \\ rveq \\ fs[])))
   \\ fs[basis_ffiTheory.extract_fs_with_numchars_def,
-    AllCaseEqs()]
+  AllCaseEqs()]
   \\ rveq
   \\ fs[fsFFITheory.fs_ffi_part_def]
   \\ fs[CaseEq"option",CaseEq"ffi_result"]
   \\ fs[basis_ffiTheory.extract_fs_with_numchars_def,
-    AllCaseEqs()]
+  AllCaseEqs()]
   \\ rveq
   \\ last_x_assum drule
   \\ fs[fsFFITheory.ffi_write_def]
@@ -1013,17 +1023,17 @@ Proof
   \\ strip_tac
   \\ reverse IF_CASES_TAC
   >- (
-    Cases_on`l0` \\ fs[LUPDATE_def]
-    \\ fs[OPTION_CHOICE_EQUALS_OPTION]
-    \\ TRY pairarg_tac \\ fs[]
-    \\ fs[extract_writes_def, extract_write_def]
-    \\ first_x_assum irule
-    \\ rveq
-    \\ fs[] \\ rfs[]
-    \\ metis_tac[])
+  Cases_on`l0` \\ fs[LUPDATE_def]
+  \\ fs[OPTION_CHOICE_EQUALS_OPTION]
+  \\ rpt (pairarg_tac \\ fs[])
+  \\ fs[extract_writes_def, extract_write_def]
+  \\ first_x_assum irule
+  \\ rveq
+  \\ fs[] \\ rfs[]
+  \\ metis_tac[])
   \\ Cases_on`l0` \\ fs[LUPDATE_def]
   \\ fs[OPTION_CHOICE_EQUALS_OPTION]
-  \\ TRY pairarg_tac \\ fs[]
+  \\ rpt (pairarg_tac \\ fs[])
   \\ PairCases_on`h`
   \\ fs[] \\ rveq
   \\ fs[fsFFITheory.write_def]
@@ -1031,7 +1041,8 @@ Proof
   \\ rfs[fsFFITheory.fsupdate_def]
   \\ rveq \\ fs[AFUPDKEY_ALOOKUP, LDROP1_THM]
   \\ rfs[]
-  \\ qmatch_asmsub_abbrev_tac`extract_fs_with_numchars fs'`
+  \\ PairCases_on`z` \\ fs[]
+  \\ qmatch_asmsub_abbrev_tac`extract_fs_with_numchars no_ext (cls,fs')`
   \\ qmatch_asmsub_abbrev_tac`AFUPDKEY fnm (K new_content)`
   \\ fs[extract_writes_def, extract_write_def]
   \\ simp[TAKE_APPEND]
@@ -1039,35 +1050,35 @@ Proof
   \\ simp[TAKE_LENGTH_TOO_LONG]
   \\ reverse(Cases_on`w82n l = fd`) \\ fs[]
   >- (
-    first_x_assum irule
-    \\ simp[]
-    \\ IF_CASES_TAC
-    >- (
-      rveq \\ fs[]
-      \\ first_x_assum drule
-      \\ simp[Once OPTREL_def, EXISTS_PROD]
-      \\ metis_tac[] )
-    \\ reverse(Cases_on`fnm` \\ rfs[])
-    >- metis_tac[NOT_SOME_NONE]
-    \\ first_assum(qspec_then`w82n l`mp_tac)
-    \\ impl_tac >- fs[]
-    \\ qpat_x_assum`ALOOKUP fs.infds (w82n l) = _`mp_tac
-    \\ simp_tac(srw_ss())[Once OPTREL_def, EXISTS_PROD]
-    \\ ntac 2 strip_tac
-    \\ last_assum drule
-    \\ simp_tac(srw_ss())[fsFFIPropsTheory.inFS_fname_def]
-    \\ strip_tac
-    \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_keeps_iostreams)
-    \\ disch_then drule
-    \\ simp[Abbr`fs'`, AFUPDKEY_ALOOKUP]
-    \\ qmatch_goalsub_abbrev_tac`_ + zz ≤ _`
-    \\ strip_tac
-    \\ fs[fsFFIPropsTheory.inFS_fname_def]
-    \\ rw[]
-    \\ fs[OPTREL_def, FORALL_PROD]
-    \\ PURE_CASE_TAC \\ fs[]
-    \\ PURE_CASE_TAC \\ fs[]
-    \\ metis_tac[NOT_SOME_NONE,SOME_11])
+  first_x_assum irule
+  \\ simp[]
+  \\ IF_CASES_TAC
+  >- (
+  rveq \\ fs[]
+  \\ first_x_assum drule
+  \\ simp[Once OPTREL_def, EXISTS_PROD]
+  \\ metis_tac[] )
+  \\ reverse(Cases_on`fnm` \\ rfs[])
+  >- metis_tac[NOT_SOME_NONE]
+  \\ first_assum(qspec_then`w82n l`mp_tac)
+  \\ impl_tac >- fs[]
+  \\ qpat_x_assum`ALOOKUP fs.infds (w82n l) = _`mp_tac
+  \\ simp_tac(srw_ss())[Once OPTREL_def, EXISTS_PROD]
+  \\ ntac 2 strip_tac
+  \\ last_assum drule
+  \\ simp_tac(srw_ss())[fsFFIPropsTheory.inFS_fname_def]
+  \\ strip_tac
+  \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_keeps_iostreams)
+  \\ disch_then drule
+  \\ simp[Abbr`fs'`, AFUPDKEY_ALOOKUP]
+  \\ qmatch_goalsub_abbrev_tac`_ + zz ≤ _`
+  \\ strip_tac
+  \\ fs[fsFFIPropsTheory.inFS_fname_def]
+  \\ rw[]
+  \\ fs[OPTREL_def, FORALL_PROD]
+  \\ PURE_CASE_TAC \\ fs[]
+  \\ PURE_CASE_TAC \\ fs[]
+  \\ metis_tac[NOT_SOME_NONE,SOME_11])
   \\ fs[MAP_TAKE]
   \\ qmatch_goalsub_abbrev_tac`written ++ _`
   \\ rveq \\ fs[]
@@ -1081,31 +1092,32 @@ Proof
   \\ fs[Abbr`new_content`]
   \\ `LENGTH written = nw`
   by (
-    simp[Abbr`written`, LENGTH_TAKE_EQ]
-    \\ rw[] \\ fs[Abbr`nw`] )
+  simp[Abbr`written`, LENGTH_TAKE_EQ]
+  \\ rw[] \\ fs[Abbr`nw`] )
   \\ fs[Abbr`off`, DROP_LENGTH_TOO_LONG]
   \\ `nw ≤ LENGTH rest` by fs[Abbr`nw`]
   \\ rfs[] \\ fs[]
   \\ qpat_x_assum`_ ⇒ _`mp_tac
   \\ impl_tac
   >- (
-    rw[]
-    \\ fs[CaseEq"option"]
-    \\ CCONTR_TAC \\ fs[]
-    \\ rveq
-    \\ first_x_assum(qspec_then`fd'`mp_tac)
-    \\ simp[OPTREL_def, FORALL_PROD]
-    \\ metis_tac[] )
+  rw[]
+  \\ fs[CaseEq"option"]
+  \\ CCONTR_TAC \\ fs[]
+  \\ rveq
+  \\ first_x_assum(qspec_then`fd'`mp_tac)
+  \\ simp[OPTREL_def, FORALL_PROD]
+  \\ metis_tac[] )
   \\ strip_tac
   \\ rveq \\ fs[]
   \\ first_x_assum irule
   \\ fs[fsFFIPropsTheory.inFS_fname_def]
   \\ rw[] \\ PURE_CASE_TAC \\ fs[]
   >- (
-    first_x_assum drule>>
-    fs[])
+  first_x_assum drule>>
+  fs[])
   \\ metis_tac[]
 QED
+
 
 Theorem ag32_ffi_write_thm:
    bytes_in_memory (s.R 1w) conf s.MEM md ∧
@@ -4102,7 +4114,7 @@ Proof
   \\ simp[]
   \\ qhdtm_x_assum`call_FFI`mp_tac
   \\ simp[ffiTheory.call_FFI_def]
-  \\ `ffi.oracle = basis_ffi_oracle` by fs[ag32_ffi_rel_def]
+  \\ `ffi.oracle = basis_ffi_oracle no_ext` by fs[ag32_ffi_rel_def]
   \\ simp[basis_ffiTheory.basis_ffi_oracle_def]
   \\ pairarg_tac \\ simp[]
   \\ simp[CaseEq"option",CaseEq"oracle_result",CaseEq"bool",CaseEq"ffi_result"]
@@ -4400,7 +4412,7 @@ Proof
   \\ simp[]
   \\ qhdtm_x_assum`call_FFI`mp_tac
   \\ simp[ffiTheory.call_FFI_def]
-  \\ `ffi.oracle = basis_ffi_oracle` by fs[ag32_ffi_rel_def]
+  \\ `ffi.oracle = basis_ffi_oracle no_ext` by fs[ag32_ffi_rel_def]
   \\ simp[basis_ffiTheory.basis_ffi_oracle_def]
   \\ pairarg_tac \\ simp[]
   \\ simp[CaseEq"option",CaseEq"oracle_result",CaseEq"bool",CaseEq"ffi_result"]
@@ -4675,7 +4687,7 @@ Proof
   \\ simp[]
   \\ qhdtm_x_assum`call_FFI`mp_tac
   \\ simp[ffiTheory.call_FFI_def]
-  \\ `ffi.oracle = basis_ffi_oracle` by fs[ag32_ffi_rel_def]
+  \\ `ffi.oracle = basis_ffi_oracle no_ext` by fs[ag32_ffi_rel_def]
   \\ simp[basis_ffiTheory.basis_ffi_oracle_def]
   \\ pairarg_tac \\ simp[]
   \\ simp[CaseEq"option",CaseEq"oracle_result",CaseEq"bool",CaseEq"ffi_result"]
@@ -4890,7 +4902,7 @@ Proof
   \\ simp[]
   \\ qhdtm_x_assum`call_FFI`mp_tac
   \\ simp[ffiTheory.call_FFI_def]
-  \\ `ffi.oracle = basis_ffi_oracle` by fs[ag32_ffi_rel_def]
+  \\ `ffi.oracle = basis_ffi_oracle no_ext` by fs[ag32_ffi_rel_def]
   \\ simp[basis_ffiTheory.basis_ffi_oracle_def]
   \\ pairarg_tac \\ simp[]
   \\ simp[CaseEq"option",CaseEq"oracle_result",CaseEq"bool",CaseEq"ffi_result"]
@@ -5099,7 +5111,7 @@ Proof
   \\ simp[]
   \\ qhdtm_x_assum`call_FFI`mp_tac
   \\ simp[ffiTheory.call_FFI_def]
-  \\ `ffi.oracle = basis_ffi_oracle` by fs[ag32_ffi_rel_def]
+  \\ `ffi.oracle = basis_ffi_oracle no_ext` by fs[ag32_ffi_rel_def]
   \\ simp[basis_ffiTheory.basis_ffi_oracle_def]
   \\ pairarg_tac \\ simp[]
   \\ simp[CaseEq"option",CaseEq"oracle_result",CaseEq"bool",CaseEq"ffi_result"]
@@ -5312,7 +5324,7 @@ Proof
   \\ simp[]
   \\ qhdtm_x_assum`call_FFI`mp_tac
   \\ simp[ffiTheory.call_FFI_def]
-  \\ `ffi.oracle = basis_ffi_oracle` by fs[ag32_ffi_rel_def]
+  \\ `ffi.oracle = basis_ffi_oracle no_ext` by fs[ag32_ffi_rel_def]
   \\ simp[basis_ffiTheory.basis_ffi_oracle_def]
   \\ pairarg_tac \\ simp[]
   \\ simp[CaseEq"option",CaseEq"oracle_result",CaseEq"bool",CaseEq"ffi_result"]
@@ -5542,7 +5554,7 @@ Proof
   \\ simp[]
   \\ qhdtm_x_assum`call_FFI`mp_tac
   \\ simp[ffiTheory.call_FFI_def]
-  \\ `ffi.oracle = basis_ffi_oracle` by fs[ag32_ffi_rel_def]
+  \\ `ffi.oracle = basis_ffi_oracle no_ext` by fs[ag32_ffi_rel_def]
   \\ simp[basis_ffiTheory.basis_ffi_oracle_def]
   \\ pairarg_tac \\ simp[]
   \\ simp[CaseEq"option",CaseEq"oracle_result",CaseEq"bool",CaseEq"ffi_result"]
@@ -5795,7 +5807,7 @@ Proof
   \\ simp[]
   \\ qhdtm_x_assum`call_FFI`mp_tac
   \\ simp[ffiTheory.call_FFI_def]
-  \\ `ffi.oracle = basis_ffi_oracle` by fs[ag32_ffi_rel_def]
+  \\ `ffi.oracle = basis_ffi_oracle no_ext` by fs[ag32_ffi_rel_def]
   \\ simp[basis_ffiTheory.basis_ffi_oracle_def]
   \\ pairarg_tac \\ simp[]
   \\ simp[CaseEq"option",CaseEq"oracle_result",CaseEq"bool",CaseEq"ffi_result"]
@@ -6128,7 +6140,7 @@ Proof
   \\ simp[]
   \\ qhdtm_x_assum`call_FFI`mp_tac
   \\ simp[ffiTheory.call_FFI_def]
-  \\ `ffi.oracle = basis_ffi_oracle` by fs[ag32_ffi_rel_def]
+  \\ `ffi.oracle = basis_ffi_oracle no_ext` by fs[ag32_ffi_rel_def]
   \\ simp[basis_ffiTheory.basis_ffi_oracle_def]
   \\ strip_tac
   \\ var_eq_tac
@@ -7344,7 +7356,7 @@ Theorem ag32_next:
    Abbrev(ms = FUNPOW Next startup_clock ms0) ∧
    (ms.io_events = ms0.io_events) ∧
    (∀x. x ∉ ag32_startup_addresses ⇒ (ms.MEM x = ms0.MEM x)) ∧
-   machine_sem (ag32_machine_config ffi_names (LENGTH code) (LENGTH data)) (basis_ffi cl (stdin_fs inp))
+   machine_sem (ag32_machine_config ffi_names (LENGTH code) (LENGTH data)) (basis_ffi no_ext cl (stdin_fs inp))
      ms ⊆ extend_with_resource_limit {Terminate Success io_events}
   ⇒
    ∃k1. ∀k. k1 ≤ k ⇒
