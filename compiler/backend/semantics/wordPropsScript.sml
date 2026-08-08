@@ -4688,8 +4688,8 @@ Proof
 QED
 
 Definition no_alloc_code_def:
-  no_alloc_code (code : (num # ('a wordLang$prog)) num_map) ⇔
-  ∀ k n p . lookup k code = SOME (n, p) ⇒ no_alloc p
+  no_alloc_code (code : (num # ('a wordLang$prog) # metadata) num_map) ⇔
+  ∀ k n p md. lookup k code = SOME (n, p, md) ⇒ no_alloc p
 End
 
 Theorem no_alloc_find_code:
@@ -4705,8 +4705,8 @@ Proof
 QED
 
 Definition no_install_code_def:
-    no_install_code (code : (num # ('a wordLang$prog)) num_map) ⇔
-        ∀ k n p . lookup k code = SOME (n, p) ⇒ no_install p
+    no_install_code (code : (num # ('a wordLang$prog) # metadata) num_map) ⇔
+        ∀ k n p md. lookup k code = SOME (n, p, md) ⇒ no_install p
 End
 
 Theorem no_install_find_code:
@@ -4770,8 +4770,8 @@ Proof
 QED
 
 Definition no_mt_code_def:
-  no_mt_code (code : (num # ('a wordLang$prog)) num_map) <=>
-  ! k n p . lookup k code = SOME (n, p) ==> no_mt p
+  no_mt_code (code : (num # ('a wordLang$prog) # metadata) num_map) <=>
+  ! k n p md. lookup k code = SOME (n, p, md) ==> no_mt p
 End
 
 Theorem no_mt_find_code:

@@ -51,9 +51,9 @@ Datatype:
     <| globals : (bvlSem$v option) list
      ; refs    : num |-> bvlSem$v ref
      ; clock   : num
-     ; compile : 'c -> (metadata # num # num # bvl$exp) list -> (word8 list # word64 list # 'c) option
-     ; compile_oracle : num -> 'c # (metadata # num # num # bvl$exp) list
-     ; code    : (num # bvl$exp) num_map
+     ; compile : 'c -> (num # num # bvl$exp # metadata) list -> (word8 list # word64 list # 'c) option
+     ; compile_oracle : num -> 'c # (num # num # bvl$exp # metadata) list
+     ; code    : (num # bvl$exp # metadata) num_map
      ; ffi     : 'ffi ffi_state |>
 End
 
@@ -134,14 +134,14 @@ Definition do_install_def:
             | (SOME bytes, SOME data) =>
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in
-                (if DISJOINT (domain s.code) (set (MAP (FST o SND) progs)) /\
+                (if DISJOINT (domain s.code) (set (MAP FST progs)) /\
                     ALL_DISTINCT (MAP (FST o SND) progs) then
                  (case s.compile cfg progs, progs of
-                  | SOME (bytes',data',cfg'), (md,k,prog)::_ =>
+                  | SOME (bytes',data',cfg'), (k,_)::_ =>
                       if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
                         let s' =
                           s with <|
-                             code := union s.code (fromAList (MAP SND progs))
+                             code := union s.code (fromAList progs)
                            ; compile_oracle := new_oracle |>
                         in
                           Rval (CodePtr k, s')
@@ -557,7 +557,7 @@ Definition find_code_def:
   (find_code (SOME p) args code =
      case lookup p code of
      | NONE => NONE
-     | SOME (arity,exp) => if LENGTH args = arity then SOME (args,exp)
+     | SOME (arity,exp,md) => if LENGTH args = arity then SOME (args,exp)
                                                   else NONE) /\
   (find_code NONE args code =
      if args = [] then NONE else
@@ -565,7 +565,7 @@ Definition find_code_def:
        | CodePtr loc =>
            (case sptree$lookup loc code of
             | NONE => NONE
-            | SOME (arity,exp) => if LENGTH args = arity + 1
+            | SOME (arity,exp,md) => if LENGTH args = arity + 1
                                   then SOME (FRONT args,exp)
                                   else NONE)
        | other => NONE)

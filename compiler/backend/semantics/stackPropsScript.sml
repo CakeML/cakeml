@@ -424,7 +424,7 @@ Theorem evaluate_code_bitmaps:
    ∃n.
     s1.compile_oracle = shift_seq n s.compile_oracle ∧
     s1.code = FOLDL union s.code
-      (MAP (fromAList o MAP SND o FST o SND) (GENLIST s.compile_oracle n)) ∧
+      (MAP (fromAList o FST o SND) (GENLIST s.compile_oracle n)) ∧
     s1.bitmaps = s.bitmaps ++ FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n))
 Proof
   recInduct evaluate_ind >>
@@ -1160,16 +1160,16 @@ End
 (* elabs gives a set of existing code labels *)
 Definition stack_good_code_labels_def:
   stack_good_code_labels p elabs ⇔
-  BIGUNION (IMAGE get_code_labels (set (MAP SND p))) ⊆
-  BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
+  BIGUNION (IMAGE get_code_labels (set (MAP (FST o SND) p))) ⊆
+  BIGUNION (set (MAP (λ(n,pp,md). stack_get_handler_labels n pp) p)) ∪
   IMAGE (λn. n,0) (set (MAP FST p)) ∪ IMAGE (λn. n,0) elabs ∪
   IMAGE (λn. n,1) (set (MAP FST p)) ∪ IMAGE (λn. n,1) elabs
 End
 
 Definition stack_good_handler_labels_def:
   stack_good_handler_labels p ⇔
-  restrict_nonzero (BIGUNION (IMAGE get_code_labels (set (MAP SND p)))) ⊆
-  BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
+  restrict_nonzero (BIGUNION (IMAGE get_code_labels (set (MAP (FST o SND) p)))) ⊆
+  BIGUNION (set (MAP (λ(n,pp,md). stack_get_handler_labels n pp) p)) ∪
   IMAGE (λn. n,1) (set (MAP FST p))
 End
 

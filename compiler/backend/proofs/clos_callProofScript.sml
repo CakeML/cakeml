@@ -157,7 +157,9 @@ End
 Definition make_g_def:
   make_g d code =
     if IMAGE SUC (domain d) ⊆ (FDOM code) then
-      SOME (d, MAP (\k. (FST k + 1, THE (FLOOKUP code (FST k + 1)))) (toAList d))
+      SOME (d, MAP (\k. (FST k + 1,
+                         (I ## FST) (THE (FLOOKUP code (FST k + 1)))))
+                   (toAList d))
     else NONE
 End
 
@@ -178,7 +180,7 @@ Proof
 QED
 
 Theorem make_g_subg:
-   make_g cfg (FEMPTY |++ aux) = SOME new /\ wfg (cfg,aux) ==>
+   make_g cfg (FEMPTY |++ add_metadata empty_metadata aux) = SOME new /\ wfg (cfg,aux) ==>
     subg (cfg,aux) new
 Proof
   rw [] \\ imp_res_tac make_g_wfg \\ fs [wfg_def,subg_def]
@@ -224,7 +226,7 @@ Theorem make_g_IMP_subg:
     ALL_DISTINCT (MAP FST progs1) /\
     make_g r1 (code |++ progs1) = SOME g1 /\ subspt r0 r1 /\
     set (MAP FST progs1) SUBSET IMAGE SUC (domain r1) ==>
-    subg (r1,progs1 ⧺ SND g0) g1
+    subg (r1,MAP (I ## I ## FST) progs1 ⧺ SND g0) g1
 Proof
   rw [] \\ imp_res_tac make_g_wfg
   \\ fs [make_g_def] \\ rveq \\ fs [] \\ fs [subg_def,wfg_def]
@@ -260,7 +262,7 @@ End
 
 Definition code_includes_def:
   code_includes al code ⇔
-    ∀k v. ALOOKUP al k = SOME v ⇒ FLOOKUP code k = SOME v
+    ∀k v. ALOOKUP al k = SOME v ⇒ ∃md. FLOOKUP code k = SOME (FST v, SND v, md)
 End
 
 Definition recclosure_rel_def:
@@ -1287,7 +1289,8 @@ Proof
 QED
 
 Theorem code_includes_ALOOKUP:
-   code_includes al code ∧ ALOOKUP al loc = SOME r ⇒ FLOOKUP code loc = SOME r
+   code_includes al code ∧ ALOOKUP al loc = SOME r ⇒
+   ∃md. FLOOKUP code loc = SOME (FST r, SND r, md)
 Proof
   rw[code_includes_def]
 QED
@@ -2085,7 +2088,7 @@ Proof
 QED
 
 Definition code_inv_def:
-  code_inv g1_opt l1 (s_code:num |-> num # closLang$exp)
+  code_inv g1_opt l1 (s_code:num |-> num # closLang$exp # metadata)
         s_cc s_co t_code t_cc t_co <=>
     s_code = FEMPTY /\
     s_cc = state_cc clos_call$compile_inc t_cc /\
@@ -2094,7 +2097,7 @@ Definition code_inv_def:
         FST (FST (s_co 0)) = g /\
         oracle_monotonic (set o code_locs o FST o SND) (<)
             (domain g UNION l1) s_co /\
-        t_code = alist_to_fmap aux /\
+        t_code = alist_to_fmap (add_metadata empty_metadata aux) /\
         (IS_SOME g1_opt ==> g1_opt = SOME (g, aux))) /\
     (!k. let (cfg,exp,aux) = s_co (k:num) in
         syntax_ok exp /\ aux = [])
@@ -4503,8 +4506,8 @@ Theorem semantics_calls:
    compile T x = (y,g0,aux) /\ every_Fn_SOME x ∧ every_Fn_vs_NONE x /\
    ALL_DISTINCT (code_locs x) /\
    FST (FST (co 0)) = g0 /\
-   code_inv NONE (set (code_locs x)) FEMPTY cc co (FEMPTY |++ aux) cc1 co1 ==>
-   semantics (ffi:'ffi ffi_state) max_app (FEMPTY |++ aux) co1 cc1 y =
+   code_inv NONE (set (code_locs x)) FEMPTY cc co (FEMPTY |++ add_metadata empty_metadata aux) cc1 co1 ==>
+   semantics (ffi:'ffi ffi_state) max_app (FEMPTY |++ add_metadata empty_metadata aux) co1 cc1 y =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc x
 Proof
   strip_tac
@@ -4560,10 +4563,10 @@ Theorem semantics_compile:
    compile do_call x = (y,g1,aux) ∧
    (if do_call then
     syntax_ok x ∧ g1 = FST (FST (co 0)) ∧
-    code_inv NONE (set (code_locs x)) FEMPTY cc co (FEMPTY |++ aux) cc1 co1
+    code_inv NONE (set (code_locs x)) FEMPTY cc co (FEMPTY |++ add_metadata empty_metadata aux) cc1 co1
     else cc = state_cc (CURRY I) cc1 ∧
          co1 = state_co (CURRY I) co) ⇒
-   semantics ffi max_app (FEMPTY |++ aux) co1 cc1 y
+   semantics ffi max_app (FEMPTY |++ add_metadata empty_metadata aux) co1 cc1 y
    =
    semantics ffi max_app FEMPTY co cc x
 Proof
@@ -4586,7 +4589,8 @@ End
 (* TODO: move *)
 Theorem FUNION_FEMPTY_FUPDATE_LIST:
    DISJOINT (FDOM code) (set (MAP FST aux)) ==>
-    FUNION code (FEMPTY |++ aux) = code |++ aux
+    FUNION code (FEMPTY |++ add_metadata empty_metadata aux) =
+    code |++ add_metadata empty_metadata aux
 Proof
   rw [fmap_EXT] \\ fs [FDOM_FUPDATE_LIST,FUNION_DEF]
   \\ fs [IN_DISJOINT]

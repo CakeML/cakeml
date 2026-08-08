@@ -312,12 +312,12 @@ Definition compile_exp_def:
 End
 
 Definition compile_part_def:
-  compile_part (name:num, arg_count, exp) =
-    (name, arg_count, compile_exp arg_count exp)
+  compile_part (name:num, arg_count, exp, md) =
+    (name, arg_count, compile_exp arg_count exp, md)
 End
 
 Definition compile_prog_def:
-  compile_prog prog = MAP (\(md,p). (md, compile_part p)) prog
+  compile_prog prog = MAP compile_part prog
 End
 
 Theorem compile_exp_eq:

@@ -73,7 +73,7 @@ Proof
 QED
 
 Theorem prog_comp_lemma[local]:
-  prog_comp = \(n,p). (n,FST (comp n (next_lab p 2) p))
+  prog_comp = \(n,p). (n,((\p. FST (comp n (next_lab p 2) p)) ## I) p)
 Proof
   full_simp_tac(srw_ss())[FUN_EQ_THM,FORALL_PROD,prog_comp_def]
 QED
@@ -88,7 +88,7 @@ Theorem lookup_IMP_lookup_compile[local]:
    lookup dest s.code = SOME x /\
    dest ≠ gc_stub_location ==>
     ?m1 n1. lookup dest (fromAList (compile c (toAList s.code))) =
-            SOME (FST (comp m1 n1 x))
+            SOME (FST (comp m1 n1 (FST x)), SND x)
 Proof
   full_simp_tac(srw_ss())[lookup_fromAList,compile_def] \\ srw_tac[][ALOOKUP_APPEND]
   \\ `ALOOKUP (stubs c) dest = NONE` by
@@ -5135,9 +5135,9 @@ Proof
 QED
 
 Theorem find_code_IMP_lookup[local]:
-  find_code dest regs (s:'a num_map) = SOME x ==>
-    ?k. sptree$lookup k s = SOME x /\
-        (find_code dest regs = ((lookup k):'a num_map -> 'a option))
+  find_code dest regs (s:('b # 'c) num_map) = SOME x ==>
+    ?k md. sptree$lookup k s = SOME (x,md) /\
+        (!c. find_code dest regs c = OPTION_MAP FST (lookup k c))
 Proof
   Cases_on `dest` \\ full_simp_tac(srw_ss())[find_code_def,FUN_EQ_THM]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ metis_tac []
@@ -5278,7 +5278,8 @@ QED
 Theorem ALOOKUP_prog_comp:
   ∀xs a y.
     ALOOKUP xs a = SOME y ⇒
-    ALOOKUP (MAP prog_comp xs) a = SOME (FST (comp a (next_lab y 2) y))
+    ALOOKUP (MAP prog_comp xs) a =
+      SOME (FST (comp a (next_lab (FST y) 2) (FST y)), SND y)
 Proof
   Induct \\ fs [ALOOKUP_def,FORALL_PROD]
   \\ rw [prog_comp_def] \\ fs []
@@ -5287,7 +5288,7 @@ QED
 Theorem lookup_fromAList_prog_comp:
   lookup x s.code = SOME p ⇒
   lookup x (fromAList (MAP prog_comp (toAList s.code))) =
-    SOME (FST (comp x (next_lab p 2) p))
+    SOME (FST (comp x (next_lab (FST p) 2) (FST p)), SND p)
 Proof
   fs [lookup_fromAList] \\ rw []
   \\ irule ALOOKUP_prog_comp
@@ -5299,8 +5300,8 @@ Theorem comp_correct:
      evaluate (p,s) = (r,t) /\ r <> SOME Error /\ alloc_arg p /\
      (!k prog. lookup k s.code = SOME prog ==>
                k ≠ gc_stub_location /\
-               alloc_arg prog) /\
-     (∀n k p. MEM (k,p) (FST (SND (s.compile_oracle n))) ⇒
+               alloc_arg (FST prog)) /\
+     (∀n k p md. MEM (k,p,md) (FST (SND (s.compile_oracle n))) ⇒
               k ≠ gc_stub_location /\ alloc_arg p) /\
      s.gc_fun = word_gc_fun c ∧ s.use_alloc ∧
      LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
@@ -5908,8 +5909,8 @@ val _ = augment_srw_ss[rewrites[with_same_regs_lemma]];
 
 Theorem compile_semantics:
    (!k prog. lookup k s.code = SOME prog ==>
-             k <> gc_stub_location ∧ alloc_arg prog) /\
-    (∀n k p.  MEM (k,p) (FST (SND (s.compile_oracle n))) ⇒
+             k <> gc_stub_location ∧ alloc_arg (FST prog)) /\
+    (∀n k p md.  MEM (k,p,md) (FST (SND (s.compile_oracle n))) ⇒
               k ≠ gc_stub_location ∧ alloc_arg p) /\
    (s:('a,'c,'b)stackSem$state).gc_fun = (word_gc_fun c:α gc_fun_type) /\
    LENGTH s.bitmaps + LENGTH s.data_buffer.buffer + s.data_buffer.space_left < dimword (:α) − 1 ∧
@@ -6073,15 +6074,15 @@ Definition make_init_def:
 End
 
 Theorem prog_comp_lambda:
-   prog_comp = λ(n,p). ^(rhs (concl (SPEC_ALL prog_comp_def)))
+   prog_comp = λ(n,p,md). ^(rhs (concl (SPEC_ALL prog_comp_def)))
 Proof
   srw_tac[][FUN_EQ_THM,prog_comp_def,LAMBDA_PROD,FORALL_PROD]
 QED
 
 Theorem make_init_semantics:
    (!k prog. ALOOKUP code k = SOME prog ==>
-             k <> gc_stub_location ∧ alloc_arg prog) /\
-   (∀n k p.  MEM (k,p) (FST (SND (oracle n))) ⇒
+             k <> gc_stub_location ∧ alloc_arg (FST prog)) /\
+   (∀n k p md.  MEM (k,p,md) (FST (SND (oracle n))) ⇒
              k <> gc_stub_location ∧ alloc_arg p) /\
    s.use_stack ∧ s.use_store ∧ ~s.use_alloc /\ s.code = fromAList (compile c code) /\
    s.compile_oracle = (I ## MAP prog_comp ## I) o oracle /\
@@ -6237,8 +6238,8 @@ Proof
 QED
 
 Theorem stack_alloc_stack_asm_convs:
-    EVERY (λ(n,p). stack_asm_name c p) prog ∧
-  EVERY (λ(n,p). (stack_asm_remove (c:'a asm_config) p)) prog ∧
+    EVERY (λ(n,p,md). stack_asm_name c p) prog ∧
+  EVERY (λ(n,p,md). (stack_asm_remove (c:'a asm_config) p)) prog ∧
   (* conf_ok is too strong, but we already have it anyway *)
   conf_ok (:'a) conf ∧
   addr_offset_ok c 0w ∧
@@ -6248,8 +6249,8 @@ Theorem stack_alloc_stack_asm_convs:
   c.valid_imm (INL Add) 1w ∧
   c.valid_imm (INL Sub) 1w
   ⇒
-  EVERY (λ(n,p). stack_asm_name c p) (compile conf prog) ∧
-  EVERY (λ(n,p). stack_asm_remove c p) (compile conf prog)
+  EVERY (λ(n,p,md). stack_asm_name c p) (compile conf prog) ∧
+  EVERY (λ(n,p,md). stack_asm_remove c p) (compile conf prog)
 Proof
   fs[compile_def]>>rw[]>>
     TRY (EVAL_TAC>>every_case_tac >>
@@ -6270,9 +6271,9 @@ QED
 Theorem stack_alloc_reg_bound:
    10 ≤ sp ∧
     EVERY (\p. reg_bound p sp)
-       (MAP SND prog1) ==>
+       (MAP (FST o SND) prog1) ==>
     EVERY (\p. reg_bound p sp)
-       (MAP SND (compile dc prog1))
+       (MAP (FST o SND) (compile dc prog1))
 Proof
   fs[stack_allocTheory.compile_def]>>
   strip_tac>>CONJ_TAC
@@ -6302,8 +6303,8 @@ Proof
 QED
 
 Theorem stack_alloc_call_args:
-   EVERY (λp. call_args p 1 2 3 4 0) (MAP SND prog1) ==>
-   EVERY (λp. call_args p 1 2 3 4 0) (MAP SND (compile dc prog1))
+   EVERY (λp. call_args p 1 2 3 4 0) (MAP (FST o SND) prog1) ==>
+   EVERY (λp. call_args p 1 2 3 4 0) (MAP (FST o SND) (compile dc prog1))
 Proof
   fs[stack_allocTheory.compile_def]>>
   strip_tac>>CONJ_TAC

@@ -255,7 +255,7 @@ Theorem LongDiv1_thm':
    !k n1 n2 m i1 i2 (t2:('a,'c,'ffi) wordSem$state)
         r1 r2 m1 is1 c:data_to_word$config.
       single_div_loop (n2w k,[n1;n2],m,[i1;i2]) = (m1,is1) /\
-      lookup LongDiv1_location t2.code = SOME (7,LongDiv1_code c) /\
+      (?md. lookup LongDiv1_location t2.code = SOME (7,LongDiv1_code c,md)) /\
       lookup 0 t2.locals = SOME (Loc r1 r2) /\
       lookup 2 t2.locals = SOME (Word (n2w k)) /\
       lookup 4 t2.locals = SOME (Word n2) /\
@@ -366,7 +366,7 @@ Theorem LongDiv1_thm:
    !k n1 n2 m i1 i2 (t2:('a,'c,'ffi) wordSem$state)
         r1 r2 m1 is1 c:data_to_word$config.
       single_div_loop (n2w k,[n1;n2],m,[i1;i2]) = (m1,is1) /\
-      lookup LongDiv1_location t2.code = SOME (7,LongDiv1_code c) /\
+      (?md. lookup LongDiv1_location t2.code = SOME (7,LongDiv1_code c,md)) /\
       lookup 0 t2.locals = SOME (Loc r1 r2) /\
       lookup 2 t2.locals = SOME (Word (n2w k)) /\
       lookup 4 t2.locals = SOME (Word n2) /\
@@ -815,7 +815,7 @@ Theorem evaluate_LongDiv_code':
    !(t:('a,'c,'ffi) wordSem$state) l1 l2 c w x1 x2 y d1 m1.
       single_div_pre x1 x2 y /\
       single_div x1 x2 y = (d1,m1:'a word) /\
-      lookup LongDiv1_location t.code = SOME (7,LongDiv1_code c) /\
+      (?md. lookup LongDiv1_location t.code = SOME (7,LongDiv1_code c,md)) /\
       lookup 0 t.locals = SOME (Loc l1 l2) /\
       lookup 2 t.locals = SOME (Word x1) /\
       lookup 4 t.locals = SOME (Word x2) /\
@@ -851,7 +851,7 @@ Proof
   \\ fs [multiwordTheory.single_div_full_def]
   \\ Cases_on `(single_div_loop (n2w (dimindex (:α)),[0w; y],0w,[x2; x1]))`
   \\ fs [] \\ rveq
-  \\ `lookup LongDiv1_location t2.code = SOME (7,LongDiv1_code c) /\
+  \\ `(?md. lookup LongDiv1_location t2.code = SOME (7,LongDiv1_code c,md)) /\
       lookup 0 t2.locals = SOME (Loc l1 l2)` by
     (qunabbrev_tac `t2` \\ fs [lookup_insert])
   \\ rpt_drule LongDiv1_thm'
@@ -866,7 +866,7 @@ Theorem evaluate_LongDiv_code:
    !(t:('a,'c,'ffi) wordSem$state) l1 l2 c w x1 x2 y d1 m1.
       single_div_pre x1 x2 y /\
       single_div x1 x2 y = (d1,m1:'a word) /\
-      lookup LongDiv1_location t.code = SOME (7,LongDiv1_code c) /\
+      (?md. lookup LongDiv1_location t.code = SOME (7,LongDiv1_code c,md)) /\
       lookup 0 t.locals = SOME (Loc l1 l2) /\
       lookup 2 t.locals = SOME (Word x1) /\
       lookup 4 t.locals = SOME (Word x2) /\
@@ -901,7 +901,7 @@ Proof
   \\ fs [multiwordTheory.single_div_full_def]
   \\ Cases_on `(single_div_loop (n2w (dimindex (:α)),[0w; y],0w,[x2; x1]))`
   \\ fs [] \\ rveq
-  \\ `lookup LongDiv1_location t2.code = SOME (7,LongDiv1_code c) /\
+  \\ `(?md. lookup LongDiv1_location t2.code = SOME (7,LongDiv1_code c,md)) /\
       lookup 0 t2.locals = SOME (Loc l1 l2)` by
     (qunabbrev_tac `t2` \\ fs [lookup_insert])
   \\ rpt_drule LongDiv1_thm
@@ -1000,7 +1000,7 @@ End
 
 Theorem lookup_Arith_location:
    state_rel c l1 l2 x t NONE locs /\ int_op index i1 i2 = SOME r ==>
-    lookup (Arith_location index) t.code = SOME (3,Arith_code index)
+    ?md. lookup (Arith_location index) t.code = SOME (3,Arith_code index,md)
 Proof
   rw [] \\ drule lookup_RefByte_location
   \\ fs [int_op_def] \\ every_case_tac \\ fs []
@@ -1009,7 +1009,7 @@ QED
 
 Theorem Replicate_code_thm:
    !n a r m1 a1 a2 a3 a4 a5.
-      lookup Replicate_location r.code = SOME (5,Replicate_code) /\
+      (?md. lookup Replicate_location r.code = SOME (5,Replicate_code,md)) /\
       store_list (a + bytes_in_word) (REPLICATE n v)
         (r:('a,'c,'ffi) wordSem$state).memory r.mdomain = SOME m1 /\
       get_var a1 r = SOME (Loc l1 l2) /\
@@ -1056,7 +1056,7 @@ QED
 
 Theorem Replicate_code_alt_thm:
    !n a r m1 a1 a2 a3 a4 a5 var.
-      lookup Replicate_location r.code = SOME (5,Replicate_code) /\
+      (?md. lookup Replicate_location r.code = SOME (5,Replicate_code,md)) /\
       store_list (a + bytes_in_word) (REPLICATE n v)
         (r:('a,'c,'ffi) wordSem$state).memory r.mdomain = SOME m1 /\
       get_var a2 r = SOME (Word a) /\
@@ -2512,7 +2512,7 @@ Proof
   \\ Cases_on `q = SOME Error` THEN1 fs []
   \\ TOP_CASE_TAC \\ fs []
   \\ TOP_CASE_TAC \\ fs [wordSemTheory.add_ret_loc_def,wordSemTheory.find_code_def]
-  \\ `lookup (Arith_location index) t.code = SOME (3, Arith_code index)` by
+  \\ `?md. lookup (Arith_location index) t.code = SOME (3, Arith_code index, md)` by
     (fs [state_rel_thm]
      \\ qpat_x_assum `int_op index i1 i2 = SOME r` mp_tac
      \\ rw [int_op_def]

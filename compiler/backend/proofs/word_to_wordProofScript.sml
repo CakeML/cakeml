@@ -36,7 +36,7 @@ Theorem compile_single_lem:
   ⇒
   ∃perm'.
   let (res,rst) = evaluate(prog,st with permute:=perm') in
-  let (_,_,cprog) = (compile_single t k a c ((name,n,prog),col)) in
+  let (_,_,cprog,_) = (compile_single t k a c ((name,n,prog,md),col)) in
   if (res = SOME Error) then T else
   let (res',rcst) = evaluate(cprog,st) in
     res = res' ∧
@@ -169,8 +169,8 @@ Theorem find_code_thm[local]:
          ∃t k a c col.
          lookup n l = SOME (SND (compile_single t k a c ((n,v),col)))) ∧
   find_code o1 (add_ret_loc o' x) st.code st.stack_size = SOME (args,prog, locsize) ⇒
-  ∃t k a c col n prog'.
-  SND(compile_single t k a c ((n,LENGTH args,prog),col)) = (LENGTH args,prog') ∧
+  ∃t k a c col n md prog'.
+  SND(compile_single t k a c ((n,LENGTH args,prog,md),col)) = (LENGTH args,prog',md) ∧
   find_code o1 (add_ret_loc o' x) l st.stack_size = SOME(args,prog', locsize)
 Proof
   Cases_on`o1`>>simp[find_code_def]>>srw_tac[][]
@@ -860,7 +860,7 @@ Theorem compile_word_to_word_thm:
     let (res,rst) = evaluate (prog,st with permute := perm') in
       if res = SOME Error then T else
       let (res1,rst1) = evaluate (prog,
-        st with <|code           := map (I ## remove_must_terminate) l;
+        st with <|code           := map (I ## remove_must_terminate ## I) l;
                   clock          :=st.clock+clk;
                   termdep        :=0;
                   compile        := cc;
@@ -875,7 +875,7 @@ Proof
   simp[]>>rw[]>>
   qpat_abbrev_tac`prog = Call _ _ _ _`>>
   old_drule compile_single_correct>>fs[]>>
-  disch_then(qspecl_then[`prog`,`λconf. cc conf o ((MAP (I ## I ## remove_must_terminate)))`] mp_tac)>>
+  disch_then(qspecl_then[`prog`,`λconf. cc conf o ((MAP (I ## I ## remove_must_terminate ## I)))`] mp_tac)>>
   impl_tac>-(
     simp[FUN_EQ_THM,full_compile_single_def,LAMBDA_PROD,MAP_MAP_o,o_DEF]>>
     rw[]>>AP_TERM_TAC>>
@@ -940,9 +940,10 @@ Proof
 QED
 
 Theorem full_compile_single_no_share_inst:
-  no_share_inst (SND (SND (FST prog_info))) ==>
+  no_share_inst (FST (SND (SND (FST prog_info)))) ==>
   no_share_inst
-    (SND (SND (full_compile_single two_reg_arith reg_count alg c prog_info)))
+    (FST (SND (SND (full_compile_single two_reg_arith reg_count alg c
+                      prog_info))))
 Proof
   PairCases_on `prog_info`
   \\ rw []
@@ -956,15 +957,15 @@ QED
 
 (* syntax going into stackLang *)
 Theorem compile_to_word_conventions:
-  EVERY (λ(_,_,prg). no_share_inst prg ∨ ac.ISA ≠ Ag32) p ⇒
+  EVERY (λ(_,_,prg,_). no_share_inst prg ∨ ac.ISA ≠ Ag32) p ⇒
   let (_,progs) = compile wc ac p in
   MAP FST progs = MAP FST p ∧
-  EVERY2 labels_rel (MAP (extract_labels o SND o SND) p)
-                    (MAP (extract_labels o SND o SND) progs) ∧
-  EVERY (λ(n,m,prog).
+  EVERY2 labels_rel (MAP (extract_labels o FST o SND o SND) p)
+                    (MAP (extract_labels o FST o SND o SND) progs) ∧
+  EVERY (λ(n,m,prog,md).
     flat_exp_conventions prog ∧
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
-    (EVERY (λ(n,m,prog). every_inst (inst_ok_less ac) prog) p ∧
+    (EVERY (λ(n,m,prog,md). every_inst (inst_ok_less ac) prog) p ∧
      addr_offset_ok ac 0w ∧ hw_offset_ok ac 0w ∧ byte_offset_ok ac 0w ⇒
       full_inst_ok_less ac prog) ∧
     (ac.two_reg_arith ⇒ every_inst two_reg_inst prog) ∧
@@ -2109,7 +2110,7 @@ Proof
 QED
 
 Theorem no_mt_full_compile_single:
-  no_mt (SND (SND (FST x))) ==>
+  no_mt (FST (SND (SND (FST x)))) ==>
   full_compile_single tt kk aa c x =
   compile_single tt kk aa c x
 Proof

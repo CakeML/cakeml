@@ -214,15 +214,15 @@ Datatype:
      ; mdomain : ('a word) set
      ; sh_mdomain : ('a word) set
      ; permute : num -> num -> num (* sequence of bijective mappings *)
-     ; compile : 'c -> (metadata # num # num # 'a wordLang$prog) list -> (word8 list # 'a word list # 'c) option
-     ; compile_oracle : num -> 'c # (metadata # num # num # 'a wordLang$prog) list
+     ; compile : 'c -> (num # num # 'a wordLang$prog # metadata) list -> (word8 list # 'a word list # 'c) option
+     ; compile_oracle : num -> 'c # (num # num # 'a wordLang$prog # metadata) list
      ; code_buffer : ('a,8) buffer
      ; data_buffer : ('a,'a) buffer
      ; gc_fun  : 'a gc_fun_type
      ; handler : num (*position of current handle frame on stack*)
      ; clock   : num
      ; termdep : num (* count of how many MustTerminates we can still enter *)
-     ; code    : (num # ('a wordLang$prog)) num_map
+     ; code    : (num # ('a wordLang$prog) # metadata) num_map
      ; be      : bool (*is big-endian*)
      ; ffi     : 'ffi ffi_state |>
 End
@@ -615,7 +615,7 @@ Definition find_code_def:
   (find_code (SOME p) args code ssize =
      case sptree$lookup p code of
      | NONE => NONE
-     | SOME (arity,exp) => if LENGTH args = arity then SOME (args,exp,sptree$lookup p ssize)
+     | SOME (arity,exp,md) => if LENGTH args = arity then SOME (args,exp,sptree$lookup p ssize)
                                                   else NONE) /\
   (find_code NONE args code ssize =
      if args = [] then NONE else
@@ -623,7 +623,7 @@ Definition find_code_def:
        | Loc loc 0 =>
            (case lookup loc code of
             | NONE => NONE
-            | SOME (arity,exp) => if LENGTH args = arity + 1
+            | SOME (arity,exp,md) => if LENGTH args = arity + 1
                                   then SOME (FRONT args,exp,sptree$lookup loc ssize)
                                   else NONE)
        | other => NONE)
@@ -1127,13 +1127,13 @@ Definition evaluate_def:
          SOME (bytes, cb), SOME (data, db) =>
         let new_oracle = shift_seq 1 s.compile_oracle in
         (case s.compile cfg progs, progs of
-          | SOME (bytes',data',cfg'), (md,k,prog)::_ =>
+          | SOME (bytes',data',cfg'), (k,_)::_ =>
             if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
             let s' =
                 s with <|
                   code_buffer := cb
                 ; data_buffer := db
-                ; code := union s.code (fromAList (MAP SND progs))
+                ; code := union s.code (fromAList progs)
                 (* This order is convenient because it means all of s.code's entries are preserved *)
                 ; locals := insert ptr (Loc k 0) env
                 ; fp_regs := FEMPTY

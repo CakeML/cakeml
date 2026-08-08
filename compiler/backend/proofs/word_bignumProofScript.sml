@@ -215,7 +215,7 @@ Definition code_rel_def:
        ALOOKUP (SND cs) prog = SOME (n,p2) ==>
        ?cs1 l2 i2 cs2.
          compile n 2 1 cs1 prog = (p2,l2,i2,cs2) /\
-         lookup n code = SOME (1n,Seq p2 (Return 0 [0])) /\
+         (?md. lookup n code = SOME (1n,Seq p2 (Return 0 [0]),md)) /\
          code_subset cs2 cs
 End
 
@@ -403,7 +403,7 @@ Theorem has_compiled_lemma[local]:
     has_compiled p cs = INL x /\ code_subset cs cs2 ==>
     ?cs0 p1 l1 i1 cs' cs1.
       compile x 2 1 cs' p = (p1,l1,i1,cs1) /\ code_subset cs1 cs2 /\
-      lookup x t1.code = SOME (1,Seq p1 (Return 0 [0]))
+      (?md. lookup x t1.code = SOME (1,Seq p1 (Return 0 [0]),md))
 Proof
   Cases_on `cs`
   \\ Cases_on `cs2`
@@ -690,10 +690,10 @@ Theorem compile_thm:
                 ?l i cs p1 l1 i1 cs1.
                   compile n l i cs body = (p1,l1,i1,cs1) /\
                   0 < i ∧ syntax_ok_aux body ∧ code_subset cs1 cs2 /\
-                  lookup n t1.code = SOME (1,Seq p1 (Return 0 [0]))) /\
+                  (?md. lookup n t1.code = SOME (1,Seq p1 (Return 0 [0]),md))) /\
         (!body. prog = LoopBody body ==>
                 p9 = Return 0 [0] /\
-                lookup n t1.code = SOME (1,Seq p1 (Return 0 [0]))) /\
+                (?md. lookup n t1.code = SOME (1,Seq p1 (Return 0 [0]),md))) /\
         get_var 0 t1 = SOME ret_val /\ good_dimindex (:'a) ==>
         ?t2 res.
           (evaluate (Seq p1 p9,t1) = res) /\

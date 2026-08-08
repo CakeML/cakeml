@@ -2611,7 +2611,7 @@ Definition comp_def:
 End
 
 Definition compile_part_def:
-  compile_part c (md,n,arg_count,p) = (md,n,arg_count+1n,FST (comp c n 2 p))
+  compile_part c (n,arg_count,p,md) = (n,arg_count+1n,FST (comp c n 2 p),md)
 End
 
 Definition MemCopy_code_def:
@@ -2825,9 +2825,10 @@ End
 Definition stubs_md_def:
   stubs_md (:'a) data_conf =
     MAP (λ(n,arg_count,p).
-           (Metadata (case ALOOKUP (stub_names ()) n of
+           (n, arg_count, p,
+            Metadata (case ALOOKUP (stub_names ()) n of
                       | SOME s => s
-                      | NONE => strlit "") [Stub], n, arg_count, p))
+                      | NONE => strlit "") [Stub]))
         (stubs (:'a) data_conf)
 End
 
@@ -2865,16 +2866,16 @@ End
 (* compute bignum call graph *)
 
 val th_FF = EVAL ``full_call_graph AnyArith_location
-       (fromAList (stubs (:'a) (data_conf with <| call_empty_ffi := F ;
+       (fromAList (stubs_md (:'a) (data_conf with <| call_empty_ffi := F ;
                                                      has_longdiv := F |>)))``
 val th_FT = EVAL ``full_call_graph AnyArith_location
-       (fromAList (stubs (:'a) (data_conf with <| call_empty_ffi := F ;
+       (fromAList (stubs_md (:'a) (data_conf with <| call_empty_ffi := F ;
                                                      has_longdiv := T |>)))``
 val th_TF = EVAL ``full_call_graph AnyArith_location
-       (fromAList (stubs (:'a) (data_conf with <| call_empty_ffi := T ;
+       (fromAList (stubs_md (:'a) (data_conf with <| call_empty_ffi := T ;
                                                      has_longdiv := F |>)))``
 val th_TT = EVAL ``full_call_graph AnyArith_location
-       (fromAList (stubs (:'a) (data_conf with <| call_empty_ffi := T ;
+       (fromAList (stubs_md (:'a) (data_conf with <| call_empty_ffi := T ;
                                                      has_longdiv := T |>)))``
 
 Definition AnyArith_call_tree_def:
@@ -2895,7 +2896,7 @@ End
 
 Theorem AnyArith_call_tree_thm:
   structure_le
-    (full_call_graph AnyArith_location (fromAList (stubs (:'a) (data_conf))))
+    (full_call_graph AnyArith_location (fromAList (stubs_md (:'a) (data_conf))))
     AnyArith_call_tree
 Proof
   Cases_on `data_conf.call_empty_ffi`

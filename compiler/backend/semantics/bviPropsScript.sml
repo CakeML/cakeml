@@ -371,9 +371,9 @@ Proof
 QED
 
 Theorem FOLDL_union_GENLIST_split[local]:
-  FOLDL union (FOLDL union c (MAP (fromAList o MAP SND o SND) (GENLIST f a)))
-              (MAP (fromAList o MAP SND o SND) (GENLIST (\i. f (i + a)) b)) =
-  FOLDL union c (MAP (fromAList o MAP SND o SND) (GENLIST f (a + b)))
+  FOLDL union (FOLDL union c (MAP (fromAList o SND) (GENLIST f a)))
+              (MAP (fromAList o SND) (GENLIST (\i. f (i + a)) b)) =
+  FOLDL union c (MAP (fromAList o SND) (GENLIST f (a + b)))
 Proof
   `(\i. f (i + a)) = (\i. f (a + i))` by simp[FUN_EQ_THM, ADD_COMM]
   \\ pop_assum (fn th => rewrite_tac[th])
@@ -385,7 +385,7 @@ Theorem evaluate_code:
      (evaluate (xs,env,s1) = (vs,s2)) ==>
      ∃n.
        s2.compile_oracle = shift_seq n s1.compile_oracle ∧
-       s2.code = FOLDL union s1.code (MAP (fromAList o MAP SND o SND)
+       s2.code = FOLDL union s1.code (MAP (fromAList o SND)
          (GENLIST s1.compile_oracle n))
 Proof
   recInduct evaluate_ind \\ rw [evaluate_def]
@@ -722,7 +722,7 @@ Theorem get_code_labels_def[simp,compute,allow_rebind] =
 
 Definition good_code_labels_def:
   good_code_labels p elabs ⇔
-    BIGUNION (set (MAP (get_code_labels o SND o SND) p)) ⊆ set (MAP FST p) ∪ elabs
+    BIGUNION (set (MAP (get_code_labels o FST o SND o SND) p)) ⊆ set (MAP FST p) ∪ elabs
 End
 
 (* --- switching a compiler pass off --------------------------------------

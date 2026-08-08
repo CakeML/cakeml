@@ -524,8 +524,8 @@ End
 
 Definition good_code_labels_def:
   good_code_labels p elabs ⇔
-  EVERY (λ(n,m,pp). good_handlers n pp) p ∧
-  (BIGUNION (set (MAP (λ(n,m,pp). (get_code_labels pp)) p))) ⊆
+  EVERY (λ(n,m,pp,md). good_handlers n pp) p ∧
+  (BIGUNION (set (MAP (λ(n,m,pp,md). (get_code_labels pp)) p))) ⊆
   (set (MAP FST p) ∪ elabs)
 End
 

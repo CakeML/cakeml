@@ -275,16 +275,17 @@ Overload in_ns_2[local] = ``λn. n MOD bvl_to_bvi_namespaces = 2``
 
 Definition code_rel_def:
   code_rel c1 c2 ⇔
-    ∀loc arity exp op.
-      lookup loc c1 = SOME (arity, exp) ⇒
+    ∀loc arity exp op md.
+      lookup loc c1 = SOME (arity, exp, md) ⇒
       (check_exp loc arity exp = NONE ⇒
-        lookup loc c2 = SOME (arity, exp)) ∧
+        lookup loc c2 = SOME (arity, exp, md)) ∧
       (check_exp loc arity exp = SOME op ⇒
         ∃n.
           ∀exp_aux exp_opt.
           compile_exp loc n arity exp = SOME (exp_aux, exp_opt) ⇒
-            lookup loc c2 = SOME (arity, exp_aux) ∧
-            lookup n c2 = SOME (arity + 1, exp_opt))
+            lookup loc c2 = SOME (arity, exp_aux, md) ∧
+            lookup n c2 = SOME (arity + 1, exp_opt,
+                                add_annotation BVI_Worker md))
 End
 
 Theorem code_rel_find_code_SOME[local]:
@@ -654,11 +655,12 @@ QED
 
 Definition optimized_code_def:
   optimized_code loc arity exp n c op =
-    ∃exp_aux exp_opt.
+    ∃exp_aux exp_opt md.
         compile_exp loc n arity exp = SOME (exp_aux, exp_opt) ∧
         check_exp loc arity exp     = SOME op ∧
-        lookup loc c                = SOME (arity, exp_aux) ∧
-        lookup n c                  = SOME (arity + 1, exp_opt)
+        lookup loc c                = SOME (arity, exp_aux, md) ∧
+        lookup n c                  = SOME (arity + 1, exp_opt,
+                                            add_annotation BVI_Worker md)
 End
 
 Theorem code_rel_subspt:
@@ -716,13 +718,13 @@ Proof
 QED
 
 Theorem compile_each_untouched:
-   ∀next prog prog2 loc exp arity.
+   ∀next prog prog2 loc exp arity md.
      free_names next loc ∧
-     lookup loc (fromAList prog) = SOME (arity, exp) ∧
+     lookup loc (fromAList prog) = SOME (arity, exp, md) ∧
      check_exp loc arity exp = NONE ∧
      compile_exp loc next arity exp = NONE ∧
      compile_each next prog = (next1, prog2) ⇒
-       lookup loc (fromAList prog2) = SOME (arity, exp)
+       lookup loc (fromAList prog2) = SOME (arity, exp, md)
 Proof
   ho_match_mp_tac compile_each_ind \\ rw []
   \\ fs [fromAList_def, lookup_def]
@@ -766,13 +768,14 @@ Theorem compile_each_touched:
      ALL_DISTINCT (MAP FST prog) ∧
      EVERY (free_names next o FST) prog ∧
      free_names next loc ∧
-     lookup loc (fromAList prog) = SOME (arity, exp) ∧
+     lookup loc (fromAList prog) = SOME (arity, exp, md) ∧
      check_exp loc arity exp = SOME op ∧
      compile_each next prog = (next1, prog2) ⇒
        ∃k. ∀exp_aux exp_opt.
          compile_exp loc (next + bvl_to_bvi_namespaces * k) arity exp = SOME (exp_aux, exp_opt) ⇒
-           lookup loc (fromAList prog2) = SOME (arity, exp_aux) ∧
-           lookup (next + bvl_to_bvi_namespaces * k) (fromAList prog2) = SOME (arity + 1, exp_opt)
+           lookup loc (fromAList prog2) = SOME (arity, exp_aux, md) ∧
+           lookup (next + bvl_to_bvi_namespaces * k) (fromAList prog2) =
+             SOME (arity + 1, exp_opt, add_annotation BVI_Worker md)
 Proof
   ho_match_mp_tac compile_each_ind \\ rw []
   \\ fs [fromAList_def, lookup_def]
@@ -1300,8 +1303,8 @@ Theorem evaluate_rewrite_tail:
        evaluate (xs, env2, s') = (r, t') /\
        state_rel t t' /\
        (opt ⇒
-         ∀op n exp arity.
-           lookup loc s.code = SOME (arity, exp) ∧
+         ∀op n exp arity md.
+           lookup loc s.code = SOME (arity, exp, md) ∧
            optimized_code loc arity exp n s'.code op ∧
            op_type op = ty /\
            (∃op1 tt ty r.
@@ -2753,9 +2756,9 @@ QED
 Theorem compile_each_good_code_labels:
    ∀n c n2 c2.
    bvi_tailrec$compile_each n c = (n2,c2) ∧
-   BIGUNION (set (MAP (bviProps$get_code_labels o SND o SND) c)) ⊆ all ∧
+   BIGUNION (set (MAP (bviProps$get_code_labels o FST o SND o SND) c)) ⊆ all ∧
    { n + k * bvl_to_bvi_namespaces | k | n + k * bvl_to_bvi_namespaces < n2 } ⊆ all ⇒
-   BIGUNION (set (MAP (bviProps$get_code_labels o SND o SND) c2)) ⊆ all
+   BIGUNION (set (MAP (bviProps$get_code_labels o FST o SND o SND) c2)) ⊆ all
 Proof
   recInduct bvi_tailrecTheory.compile_each_ind
   \\ simp[bvi_tailrecTheory.compile_each_def]

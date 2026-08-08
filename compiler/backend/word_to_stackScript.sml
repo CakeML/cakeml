@@ -594,10 +594,10 @@ End
 
 Definition compile_word_to_stack_def:
   (compile_word_to_stack asm_conf perf k [] bitmaps = ([],[],bitmaps)) /\
-  (compile_word_to_stack asm_conf perf k ((md,i,n,p)::progs) bitmaps =
+  (compile_word_to_stack asm_conf perf k ((i,n,p,md)::progs) bitmaps =
      let (prog,f,bitmaps) = compile_prog asm_conf perf p n k bitmaps in
      let (progs,fs,bitmaps) = compile_word_to_stack asm_conf perf k progs bitmaps in
-       ((md,i,prog)::progs,f::fs,bitmaps))
+       ((i,prog,md)::progs,f::fs,bitmaps))
 End
 
 Definition compile_def:
@@ -608,14 +608,14 @@ Definition compile_def:
     let init_bitmaps =
         if perf then (List [16w], 1n) else (List [4w], 1n) in
     let (progs,fs,bitmaps) = compile_word_to_stack asm_conf perf k progs init_bitmaps in
-    let sfs = fromAList (MAP (λ((md,i,_),n). (i,n)) (ZIP (progs,fs))) in
+    let sfs = fromAList (MAP (λ((i,_,_),n). (i,n)) (ZIP (progs,fs))) in
       (append (FST bitmaps),
        <| bitmaps_length := SND bitmaps;
           stack_frame_size := sfs |>, 0::fs,
-       (Metadata (implode "_Raise") [Stub],
-          raise_stub_location,raise_stub perf k) ::
-       (Metadata (implode "_StoreConsts") [Stub],
-          store_consts_stub_location,store_consts_stub k) ::
+       (raise_stub_location,raise_stub perf k,
+          Metadata (implode "_Raise") [Stub]) ::
+       (store_consts_stub_location,store_consts_stub k,
+          Metadata (implode "_StoreConsts") [Stub]) ::
        progs)
 End
 

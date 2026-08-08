@@ -30,7 +30,7 @@ QED
 
 Definition collect_info_def:
   (collect_info [] f = f) /\
-  (collect_info ((md,n,b:'a stackLang$prog)::xs) f =
+  (collect_info ((n,b:'a stackLang$prog,md)::xs) f =
      collect_info xs (case seq_stack_alloc b of
                       | NONE => f
                       | SOME k => insert n k f))
@@ -108,5 +108,5 @@ QED
 Definition compile_def:
   compile prog =
     let i = collect_info prog LN in
-      MAP (\(md,n,b:'a stackLang$prog). (md,n,comp_top i b)) prog
+      MAP (\(n,b:'a stackLang$prog,md). (n,comp_top i b,md)) prog
 End

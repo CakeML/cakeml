@@ -15,7 +15,7 @@ val _ = Parse.bring_to_front_overload"domain"{Thy="sptree",Name="domain"};
 (**************************** ANALYSIS LEMMAS *****************************)
 
 Theorem lookup_analyse_word_code:
-     ∀ code n arity prog. ALOOKUP code n = SOME (arity, prog)
+     ∀ code n arity prog md. ALOOKUP code n = SOME (arity, prog, md)
     ⇒ lookup n (analyse_word_code code) = SOME (find_word_ref prog)
 Proof
     Induct >> fs[FORALL_PROD] >> fs[analyse_word_code_def] >>
@@ -351,13 +351,14 @@ QED
 
 Definition code_rel_def:
     code_rel (reachable:num_set) s_code
-        (t_code :(num # ('a wordLang$prog)) num_map) =
+        (t_code :(num # ('a wordLang$prog) # metadata) num_map) =
         ∀ n . n ∈ domain reachable ⇒
             lookup n s_code = lookup n t_code
 End
 
 Definition code_closed_def:
-    code_closed reachable c1 ⇔ ∃ code1 . c1 = fromAList code1 ∧
+    code_closed reachable (c1:(num # ('a wordLang$prog) # metadata) num_map) ⇔
+        ∃ code1 . c1 = fromAList code1 ∧
         ∀ n m . n ∈ domain reachable ∧
         is_reachable (analyse_word_code code1) n m ⇒
         m ∈ domain reachable

@@ -54,7 +54,7 @@ QED
 Definition aux_code_installed_def:
   (aux_code_installed [] t <=> T) /\
   (aux_code_installed ((name,arg_count,body)::rest) t <=>
-     (sptree$lookup name t = SOME (arg_count,body)) /\
+     (?md. sptree$lookup name t = SOME (arg_count,body,md)) /\
      aux_code_installed rest t)
 End
 
@@ -81,13 +81,16 @@ Overload in_ns_1[local] = ``λn. n MOD bvl_to_bvi_namespaces = 1``
 Definition names_ok_def:
   names_ok s_code t_code s_oracle <=>
     (!n k prog. s_oracle n = (k,prog) ==>
-                EVERY (\(name,arity,exp). handle_ok [exp]) prog) /\
+                EVERY (\(name,arity,exp,md). handle_ok [exp]) prog) /\
     let next = FST (FST (s_oracle 0n)) in
       (!n. n IN sptree$domain t_code /\ num_stubs <= n ==>
            if in_ns_1 n then n < num_stubs + nss * next
            else in_ns_0 n /\
                 (n - num_stubs) DIV bvl_to_bvi_namespaces IN sptree$domain s_code)
 End
+
+Overload stub_entry[local] =
+  “λc:num # bvi$exp. (FST c, SND c, Metadata (strlit "") [Stub])”
 
 Definition state_rel_def:
   state_rel (b:num->num) s (t:('c,'ffi) bviSem$state) <=>
@@ -111,20 +114,21 @@ Definition state_rel_def:
     (s.clock = t.clock) /\
     t.compile_oracle = state_co compile_inc s.compile_oracle /\
     s.compile = state_cc compile_inc t.compile /\
-    (lookup AllocGlobal_location t.code = SOME AllocGlobal_code) ∧
-    (lookup CopyGlobals_location t.code = SOME CopyGlobals_code) ∧
-    (lookup ListLength_location t.code = SOME ListLength_code) ∧
-    (lookup FromListByte_location t.code = SOME FromListByte_code) ∧
-    (lookup ToListByte_location t.code = SOME ToListByte_code) ∧
-    (lookup SumListLength_location t.code = SOME SumListLength_code) ∧
-    (lookup ConcatByte_location t.code = SOME ConcatByte_code) ∧
+    (lookup AllocGlobal_location t.code = SOME (stub_entry AllocGlobal_code)) ∧
+    (lookup CopyGlobals_location t.code = SOME (stub_entry CopyGlobals_code)) ∧
+    (lookup ListLength_location t.code = SOME (stub_entry ListLength_code)) ∧
+    (lookup FromListByte_location t.code = SOME (stub_entry FromListByte_code)) ∧
+    (lookup ToListByte_location t.code = SOME (stub_entry ToListByte_code)) ∧
+    (lookup SumListLength_location t.code =
+       SOME (stub_entry SumListLength_code)) ∧
+    (lookup ConcatByte_location t.code = SOME (stub_entry ConcatByte_code)) ∧
     (* (lookup InitGlobals_location t.code = SOME InitGlobals_code start) ∧ *)
     names_ok s.code t.code s.compile_oracle /\
-    (!name arity exp.
-       (lookup name s.code = SOME (arity,exp)) ==>
+    (!name arity exp md.
+       (lookup name s.code = SOME (arity,exp,md)) ==>
        ?n. let (c1,aux1,n1) = compile_exps n [exp] in
              (lookup (num_stubs + nss * name) t.code =
-                SOME (arity,bvi_let$compile_exp (HD c1))) /\
+                SOME (arity,bvi_let$compile_exp (HD c1),md)) /\
              aux_code_installed (append aux1) t.code /\
              handle_ok [exp])
 End
@@ -733,7 +737,7 @@ val iEvalOp_def = bviSemTheory.do_app_def;
 
 Theorem evaluate_CopyGlobals_code[local]:
   ∀n l1 s.
-   lookup CopyGlobals_location s.code = SOME (3,SND CopyGlobals_code) ∧
+   (?md. lookup CopyGlobals_location s.code = SOME (3,SND CopyGlobals_code,md)) ∧
    FLOOKUP s.refs p = SOME (ValueArray ls) ∧
    FLOOKUP s.refs p1 = SOME (ValueArray l1) ∧
    p ≠ p1 ∧
@@ -785,7 +789,7 @@ val _ = print "Proved evaluate_CopyGlobals_code\n";
 Theorem evaluate_AllocGlobal_code[local]:
    FLOOKUP s.refs p = SOME (ValueArray (Number(&(SUC n))::ls)) ∧ n ≤ LENGTH ls ∧
    s.global = SOME p ∧
-   lookup CopyGlobals_location s.code = SOME (3,SND CopyGlobals_code)
+   (?md. lookup CopyGlobals_location s.code = SOME (3,SND CopyGlobals_code,md))
    ⇒
    ∃p1 c extra.
      (p1 ≠ p ⇒ p1 ∉ FDOM s.refs) ∧
@@ -842,7 +846,7 @@ Proof
   \\ qpat_abbrev_tac ‘new_refs = _ |+ _ |+ _’
   \\ simp [GSYM integerTheory.INT_ADD,int_arithTheory.elim_minus_ones]
   \\ qabbrev_tac ‘s1 = s with <| refs := new_refs ; global := SOME new_p; ffi := s.ffi |>’
-  \\ ‘lookup CopyGlobals_location s1.code = SOME (3,SND CopyGlobals_code)’
+  \\ ‘(?md. lookup CopyGlobals_location s1.code = SOME (3,SND CopyGlobals_code,md))’
         by fs [Abbr‘s1’]
   \\ old_drule (GEN_ALL evaluate_CopyGlobals_code)
   \\ disch_then $ qspecl_then [‘new_p’,‘p’] mp_tac
@@ -864,7 +868,7 @@ QED
 
 Theorem evaluate_ListLength_code:
    !lv vs n.
-      lookup ListLength_location s.code = SOME (2,SND ListLength_code) /\
+      (?md. lookup ListLength_location s.code = SOME (2,SND ListLength_code,md)) /\
       v_to_list lv = SOME vs ==>
       ∃p1 c.
         evaluate ([SND ListLength_code],[lv;Number (&n)],inc_clock c s) =
@@ -896,7 +900,7 @@ QED
 Theorem evaluate_FromListByte_code:
    ∀lv vs n bs (s:('c,'ffi) bviSem$state).
     v_to_list lv = SOME (MAP (Number o $&) vs) ∧ LENGTH vs ≤ LENGTH bs ∧
-    lookup FromListByte_location s.code = SOME (3,SND FromListByte_code) ∧
+    (?md. lookup FromListByte_location s.code = SOME (3,SND FromListByte_code,md)) ∧
     EVERY (λn. n < 256) vs ∧
     FLOOKUP s.refs p = SOME (ByteArray fl bs) ∧ n = LENGTH bs - LENGTH vs
     ⇒
@@ -942,7 +946,7 @@ QED
 
 Theorem evaluate_ToListByte_code:
   ∀bs rest p (s:('c,'ffi) bviSem$state).
-    lookup ToListByte_location s.code = SOME (3,SND ToListByte_code) ∧
+    (?md. lookup ToListByte_location s.code = SOME (3,SND ToListByte_code,md)) ∧
     FLOOKUP s.refs p = SOME (ByteArray fl (bs ++ rest))
     ⇒
     ∃c.
@@ -989,7 +993,7 @@ QED
 
 Theorem evaluate_SumListLength_code:
    ∀lv ps wss n.
-   lookup SumListLength_location s.code = SOME (2,SND SumListLength_code) ∧
+   (?md. lookup SumListLength_location s.code = SOME (2,SND SumListLength_code,md)) ∧
    v_to_list lv = SOME (MAP (RefPtr T) ps) ∧
    MAP (FLOOKUP s.refs) ps = MAP (SOME o ByteArray T) wss
    ⇒
@@ -1029,8 +1033,8 @@ QED
 
 Theorem evaluate_ConcatByte_code:
    ∀lv ps wss (s:('c,'ffi) bviSem$state) ds1 ds2 n.
-   lookup SumListLength_location s.code = SOME (2,SND SumListLength_code) ∧
-   lookup ConcatByte_location s.code = SOME (3,SND ConcatByte_code) ∧
+   (?md. lookup SumListLength_location s.code = SOME (2,SND SumListLength_code,md)) ∧
+   (?md. lookup ConcatByte_location s.code = SOME (3,SND ConcatByte_code,md)) ∧
    v_to_list lv = SOME (MAP (RefPtr T) ps) ∧ dst ∉ set ps ∧
    MAP (FLOOKUP s.refs) ps = MAP (SOME o ByteArray T) wss ∧
    FLOOKUP s.refs dst = SOME (ByteArray T (ds1++ds2)) ∧
@@ -2564,7 +2568,7 @@ Resume compile_exps_correct[Op]:
       \\ strip_tac \\ rveq \\ fs []
       \\ qexists_tac `t2`
       \\ qexists_tac `b2`
-      \\ `lookup ToListByte_location t2.code = SOME (3,SND ToListByte_code)` by
+      \\ `(?md. lookup ToListByte_location t2.code = SOME (3,SND ToListByte_code,md))` by
               (fs [state_rel_def] \\ EVAL_TAC) \\ fs []
       \\ old_drule (GEN_ALL evaluate_ToListByte_code)
       \\ `FLOOKUP t2.refs (b2 n') = SOME (ByteArray b' l)` by
@@ -3153,7 +3157,7 @@ Resume compile_exps_correct[Op]:
       \\ imp_res_tac evaluate_IMP_LENGTH
       \\ fs[LENGTH_EQ_NUM_compute] \\ rw[]
       \\ simp[Once iEval_def]
-      \\ `lookup ListLength_location t2.code = SOME (2,SND ListLength_code)`
+      \\ `(?md. lookup ListLength_location t2.code = SOME (2,SND ListLength_code,md))`
       by ( fs[state_rel_def,ListLength_code_def])
       \\ qabbrev_tac`p = (LEAST ptr. ptr ∉ FDOM (bvi_to_bvl t2).refs)`
       \\ qmatch_goalsub_abbrev_tac`_ |+ (ptr,_)`
@@ -3273,7 +3277,7 @@ Resume compile_exps_correct[Op]:
       \\ qpat_x_assum`_ = SOME _`mp_tac
       \\ DEEP_INTRO_TAC some_intro \\ fs[]
       \\ strip_tac
-      \\ `lookup SumListLength_location t2.code = SOME (2,SND SumListLength_code)`
+      \\ `(?md. lookup SumListLength_location t2.code = SOME (2,SND SumListLength_code,md))`
       by ( fs[state_rel_def,SumListLength_code_def])
       \\ old_drule evaluate_SumListLength_code
       \\ disch_then(qspec_then`adjust_bv b2 lv`mp_tac)
@@ -3293,7 +3297,7 @@ Resume compile_exps_correct[Op]:
       \\ disch_then(qspec_then`0`(qx_choose_then`c1`strip_assume_tac))
       \\ qabbrev_tac`dst = LEAST ptr. ptr ∉ FDOM t2.refs`
       \\ qabbrev_tac`t3 = t2 with refs := t2.refs |+ (dst, ByteArray T (REPLICATE (LENGTH (FLAT wss)) 0w))`
-      \\ `lookup SumListLength_location t3.code = SOME (2,SND SumListLength_code)`
+      \\ `(?md. lookup SumListLength_location t3.code = SOME (2,SND SumListLength_code,md))`
       by ( fs[state_rel_def,SumListLength_code_def,Abbr`t3`])
       \\ old_drule (evaluate_ConcatByte_code |> Q.INST [‘b’ |-> ‘T’])
       \\ simp[Once(GSYM AND_IMP_INTRO),RIGHT_FORALL_IMP_THM]

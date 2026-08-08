@@ -12,8 +12,8 @@ Definition compile_state_def:
     s with <|
       clock := s.clock+clk;
       termdep := 0;
-      code := map (I ## remove_must_terminate) s.code;
-      compile_oracle := (I ## (MAP (I ## I ## remove_must_terminate))) o s.compile_oracle;
+      code := map (I ## remove_must_terminate ## I) s.code;
+      compile_oracle := (I ## (MAP (I ## I ## remove_must_terminate ## I))) o s.compile_oracle;
       compile := c
     |>
 End
@@ -24,10 +24,10 @@ Theorem compile_state_const[simp]:
    (compile_state clk c s).ffi = s.ffi ∧
    (compile_state clk c s).code_buffer = s.code_buffer ∧
    (compile_state clk c s).data_buffer = s.data_buffer ∧
-   (compile_state clk c s).code = map (I ## remove_must_terminate) s.code ∧
+   (compile_state clk c s).code = map (I ## remove_must_terminate ## I) s.code ∧
    (compile_state clk c s).clock = s.clock + clk ∧
    (compile_state clk c s).termdep = 0 ∧
-   (compile_state clk c s).compile_oracle = (I ## (MAP (I ## I ## remove_must_terminate))) o s.compile_oracle ∧
+   (compile_state clk c s).compile_oracle = (I ## (MAP (I ## I ## remove_must_terminate ## I))) o s.compile_oracle ∧
    (compile_state clk c s).compile = c ∧
    (compile_state clk c s).stack = s.stack ∧
    (compile_state clk c s).store = s.store ∧
@@ -47,7 +47,7 @@ Proof
 QED
 
 Theorem find_code_map_I[simp]:
-   find_code d l (map (I ## f) t) lsz  = OPTION_MAP (I ## f ## I) (find_code d l t lsz)
+   find_code d l (map (I ## f ## I) t) lsz = OPTION_MAP (I ## f ## I) (find_code d l t lsz)
 Proof
   Cases_on`d` \\ rw[find_code_def,lookup_map]
   \\ rpt(TOP_CASE_TAC \\ fs[])
@@ -262,7 +262,7 @@ QED
 Theorem word_remove_correct:
   ∀prog st res rst.
   evaluate (prog,st) = (res,rst) ∧
-  st.compile = (λcfg. c cfg o (MAP (I ## I ## remove_must_terminate))) ∧
+  st.compile = (λcfg. c cfg o (MAP (I ## I ## remove_must_terminate ## I))) ∧
   res ≠ SOME Error ⇒
   ∃clk.
      evaluate (remove_must_terminate prog, compile_state clk c st) =

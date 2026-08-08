@@ -1231,7 +1231,7 @@ Proof
   \\ fs [wordSemTheory.state_component_equality]
   \\ rename1 `state_rel x0 l1 l2 s t2 NONE []`
   \\ sg `?l2. code_rel t2.code l2 /\
-              map (I ## remove_must_terminate) l2 = l`
+              map (I ## remove_must_terminate ## I) l2 = l`
   THEN1 (
     fs [boolTheory.SKOLEM_THM,METIS_PROVE [] ``(b ==> ?x. P x) <=> ?x. b ==> P x``]
     \\ fs [spt_eq,lookup_map,eq_shape_map]
@@ -2046,10 +2046,10 @@ Proof
 QED
 
 Theorem stub_labels:
-    EVERY (λ(n,m,p).
+    EVERY (λ(n,m,p,md).
     EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) (extract_labels p)  ∧
                      ALL_DISTINCT (extract_labels p))
-    (stubs (:'a) data_conf)
+    (stubs_md (:'a) data_conf)
 Proof
   simp[data_to_wordTheory.stubs_def,generated_bignum_stubs_eq]>>
   rpt conj_tac >>
@@ -2181,7 +2181,7 @@ QED
 
 Theorem compile_no_share_inst:
   data_to_word$compile data_conf word_conf asm_conf prog = (xx,prog') ⇒
-  EVERY (λ(n,m,pp). no_share_inst pp) prog'
+  EVERY (λ(n,m,pp,md). no_share_inst pp) prog'
 Proof
   rw[data_to_wordTheory.compile_def] >>
   gvs[ELIM_UNCURRY,word_to_wordTheory.compile_def,
@@ -2189,7 +2189,7 @@ Proof
     remove_must_terminate_no_share_inst] >>
   irule MONO_EVERY >>
   simp[] >>
-  qexists `no_share_inst o SND o SND o FST` >>
+  qexists `no_share_inst o FST o SND o SND o FST` >>
   conj_tac
   >- (rw[] >>
       irule remove_must_terminate_no_share_inst >>
@@ -2212,8 +2212,8 @@ QED
 
 Theorem data_to_word_compile_lab_pres:
     let (c,p) = compile data_conf word_conf asm_conf prog in
-    MAP FST p = MAP FST (stubs(:α) data_conf) ++ MAP FST prog ∧
-    EVERY (λn,m,(p:α wordLang$prog).
+    MAP FST p = MAP FST (stubs_md(:α) data_conf) ++ MAP FST prog ∧
+    EVERY (λ(n,m,(p:α wordLang$prog),md).
       let labs = extract_labels p in
       EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧
       ALL_DISTINCT labs) p
@@ -2241,7 +2241,7 @@ Proof
   full_simp_tac std_ss [GSYM MAP_APPEND]>>
   qabbrev_tac`pp = p1 ++ p2` >>
   fs[EL_MAP,MEM_EL,FORALL_PROD]>>
-  `EVERY (λ(n,m,p).
+  `EVERY (λ(n,m,p,md).
     EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) (extract_labels p)  ∧ ALL_DISTINCT (extract_labels p)) pp` by
     (unabbrev_all_tac>>fs[EVERY_MEM]>>CONJ_TAC
     >-
@@ -2368,7 +2368,7 @@ QED
 Theorem data_to_word_compile_conventions:
     good_dimindex(:'a) ==>
   let (c,p) = compile data_conf wc ac prog in
-  EVERY (λ(n,m,prog).
+  EVERY (λ(n,m,prog,md).
     flat_exp_conventions (prog:'a wordLang$prog) ∧
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
     ((data_conf.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
@@ -2436,13 +2436,14 @@ Proof
 QED
 
 Theorem data_to_word_names:
-   word_to_word$compile c1 c2 (stubs(:α)c.data_conf ++ MAP (compile_part c3) prog) = (col,p) ==>
-    MAP FST p = (MAP FST (stubs(:α)c.data_conf))++MAP FST prog
+   word_to_word$compile c1 c2
+     (stubs_md(:α)c.data_conf ++ MAP (compile_part c3) prog) = (col,p) ==>
+    MAP FST p = (MAP FST (stubs_md(:α)c.data_conf))++MAP FST prog
 Proof
   rw[]>>assume_tac(GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
-  pop_assum (qspecl_then [`c1`,`stubs(:α)c.data_conf++(MAP (compile_part c3) prog)`,`c2`] mp_tac)>>impl_tac
+  pop_assum (qspecl_then [`c1`,`stubs_md(:α)c.data_conf++(MAP (compile_part c3) prog)`,`c2`] mp_tac)>>impl_tac
   >- (irule_at Any EVERY_MONOTONIC>>
-      qexists ‘λx. no_share_inst (SND $ SND x)’>>simp[FORALL_PROD]>>
+      qexists ‘λx. no_share_inst (FST $ SND $ SND x)’>>simp[FORALL_PROD]>>
       irule_at Any stubs_no_share_inst>>
       fs[EVERY_MAP,LAMBDA_PROD]>>
       simp[compile_part_def]>>
@@ -2701,8 +2702,9 @@ Proof
 QED
 
 Theorem stubs_labels[local]:
-  BIGUNION (set (MAP (λ(n,m,pp). word_get_code_labels pp)  (stubs (:'a) dc)))
-  ⊆ set (MAP FST (stubs (:'a) dc))
+  BIGUNION (set (MAP (λ(n,m,pp,md). word_get_code_labels pp)
+                   (stubs_md (:'a) dc)))
+  ⊆ set (MAP FST (stubs_md (:'a) dc))
 Proof
   rpt(EVAL_TAC>>
   IF_CASES_TAC>>
@@ -2784,7 +2786,7 @@ QED
 
 Theorem data_to_word_good_handlers:
   (data_to_word$compile data_conf word_conf asm_conf prog) = (xx,prog') ⇒
-  EVERY (λ(n,m,pp). good_handlers n pp) prog'
+  EVERY (λ(n,m,pp,md). good_handlers n pp) prog'
 Proof
   fs[data_to_wordTheory.compile_def]>>
   rw[]>>
@@ -2804,7 +2806,7 @@ Proof
 QED
 
 Theorem data_to_word_good_handlers_incr:
-  EVERY (λ(n,m,pp). good_handlers n pp) (MAP (compile_part dc) progs)
+  EVERY (λ(n,m,pp,md). good_handlers n pp) (MAP (compile_part dc) progs)
 Proof
   simp[EVERY_MAP,LAMBDA_PROD,compile_part_def,data_to_word_comp_good_handlers]>>
   fs[EVERY_MEM,FORALL_PROD]

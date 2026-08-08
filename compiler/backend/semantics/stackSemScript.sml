@@ -92,8 +92,8 @@ Datatype:
      ; mdomain : ('a word) set
      ; sh_mdomain : ('a word) set
      ; bitmaps : 'a word list
-     ; compile : 'c -> (metadata # num # 'a stackLang$prog) list -> (word8 list # 'c) option
-     ; compile_oracle : num -> 'c # (metadata # num # 'a stackLang$prog) list # 'a word list
+     ; compile : 'c -> (num # 'a stackLang$prog # metadata) list -> (word8 list # 'c) option
+     ; compile_oracle : num -> 'c # (num # 'a stackLang$prog # metadata) list # 'a word list
      ; code_buffer : ('a,8) buffer
      ; data_buffer : ('a,'a) buffer
      ; gc_fun  : 'a gc_fun_type
@@ -101,7 +101,7 @@ Datatype:
      ; use_store : bool
      ; use_alloc : bool
      ; clock   : num
-     ; code    : ('a stackLang$prog) num_map
+     ; code    : ('a stackLang$prog # metadata) num_map
      ; ffi     : 'ffi ffi_state
      ; ffi_save_regs : num set
      ; be      : bool (* is big-endian *) |>
@@ -643,10 +643,10 @@ Definition get_var_imm_def:
 End
 
 Definition find_code_def:
-  (find_code (INL p) regs code = sptree$lookup p code) /\
+  (find_code (INL p) regs code = OPTION_MAP FST (sptree$lookup p code)) /\
   (find_code (INR r) regs code =
      case FLOOKUP regs r of
-       SOME (Loc loc 0) => lookup loc code
+       SOME (Loc loc 0) => OPTION_MAP FST (lookup loc code)
      | other => NONE)
 End
 
@@ -682,7 +682,7 @@ End
 Definition loc_check_def:
   loc_check code (l1,l2) <=>
     (l2 = 0 /\ l1 ∈ domain code) \/
-    ?n e. lookup n code = SOME e /\ (l1,l2) IN get_labels e
+    ?n e. OPTION_MAP FST (lookup n code) = SOME e /\ (l1,l2) IN get_labels e
 End
 
 Definition copy_words_for_pattern_def:
@@ -743,7 +743,7 @@ End
 Definition check_store_consts_opt_def:
   check_store_consts_opt t1 t2 NONE _ = T ∧
   check_store_consts_opt t1 t2 (SOME n) c =
-    (lookup n c = SOME (Seq (StoreConsts t1 t2 NONE) (Return 0)))
+    (OPTION_MAP FST (lookup n c) = SOME (Seq (StoreConsts t1 t2 NONE) (Return 0)))
 End
 
 Definition dest_Seq_def:
@@ -850,7 +850,7 @@ Definition evaluate_def:
   (evaluate (RawCall dest,s) =
     case sptree$lookup dest s.code of
     | NONE => (SOME Error,s)
-    | SOME prog =>
+    | SOME (prog,md) =>
        (case dest_Seq prog of
         | SOME (_,body) =>
            if s.clock = 0 then (SOME TimeOut,empty_env s) else
@@ -900,14 +900,14 @@ Definition evaluate_def:
          SOME (bytes, cb), SOME (data, db) =>
         let new_oracle = shift_seq 1 s.compile_oracle in
         (case s.compile cfg progs, progs of
-          | SOME (bytes',cfg'), (md,k,prog)::_ =>
+          | SOME (bytes',cfg'), (k,_)::_ =>
             if bytes = bytes' ∧ data = bm ∧ FST(new_oracle 0) = cfg' then
             let s' =
                 s with <|
                   bitmaps := s.bitmaps ++ bm
                 ; code_buffer := cb
                 ; data_buffer := db
-                ; code := union s.code (fromAList (MAP SND progs))
+                ; code := union s.code (fromAList progs)
                 (* This order is convenient because it means all of s.code's entries are preserved *)
                 (* TODO: this might need to be a new field, cc_save_regs *)
                 ; regs := (DRESTRICT s.regs s.ffi_save_regs) |+ (ptr,Loc k 0)

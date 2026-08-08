@@ -299,7 +299,7 @@ Theorem evaluate_code:
      (evaluate (xs,env,s1) = (vs,s2)) ==>
      ∃n.
        s2.compile_oracle = shift_seq n s1.compile_oracle ∧
-       s2.code = FOLDL union s1.code (MAP (fromAList o MAP SND o SND)
+       s2.code = FOLDL union s1.code (MAP (fromAList o SND)
          (GENLIST s1.compile_oracle n))
 Proof
   recInduct evaluate_ind \\ rw []

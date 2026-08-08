@@ -2970,9 +2970,9 @@ QED
 
 (*** word_to_word ***)
 Theorem compile_single_not_created_subprogs:
-  not_created_subprogs P (SND (SND (FST prog_opt))) ==>
-  not_created_subprogs P (SND (SND
-    (compile_single two_reg_arith reg_count alg c prog_opt)))
+  not_created_subprogs P (FST (SND (SND (FST prog_opt)))) ==>
+  not_created_subprogs P (FST (SND (SND
+    (compile_single two_reg_arith reg_count alg c prog_opt))))
 Proof
   PairCases_on `prog_opt`>>
   strip_tac>>
@@ -2992,15 +2992,15 @@ QED
 Theorem word_good_handlers_word_to_word_incr_helper[local]:
   ∀oracles.
   LENGTH progs = LENGTH oracles ⇒
-  EVERY (λ(n,m,pp). word_good_handlers n pp) progs ⇒
-  EVERY (λ(n,m,pp). word_good_handlers n pp)
+  EVERY (λ(n,m,pp,md). word_good_handlers n pp) progs ⇒
+  EVERY (λ(n,m,pp,md). word_good_handlers n pp)
   (MAP (full_compile_single tra reg_count1
         ralg asm_c) (ZIP (progs,oracles)))
 Proof
   rw[]>>
   rfs[EVERY_MAP,LENGTH_GENLIST,EVERY_MEM,MEM_ZIP,PULL_EXISTS]>>
   rw[full_compile_single_def]>>
-  Cases_on`EL n progs`>>Cases_on`r`>>
+  Cases_on`EL n progs`>>Cases_on`r`>>Cases_on`r'`>>
   fs[compile_single_def]>>
   fs[word_good_handlers_remove_must_terminate,word_good_handlers_word_alloc]>>
   simp[word_good_handlers_remove_dead_prog]>>
@@ -3013,8 +3013,8 @@ Proof
 QED
 
 Theorem word_good_handlers_word_to_word_incr:
-  EVERY (λ(n,m,pp). word_good_handlers n pp) progs ⇒
-  EVERY (λ(n,m,pp). word_good_handlers n pp)
+  EVERY (λ(n,m,pp,md). word_good_handlers n pp) progs ⇒
+  EVERY (λ(n,m,pp,md). word_good_handlers n pp)
     (MAP (\p. full_compile_single tra reg_count1 ralg asm_c (p, NONE)) progs)
 Proof
   strip_tac>>
@@ -3023,8 +3023,8 @@ Proof
 QED
 
 Theorem word_good_handlers_word_to_word:
-  EVERY (λ(n,m,pp). word_good_handlers n pp) progs ⇒
-  EVERY (λ(n,m,pp). word_good_handlers n pp) (SND (compile wc ac progs))
+  EVERY (λ(n,m,pp,md). word_good_handlers n pp) progs ⇒
+  EVERY (λ(n,m,pp,md). word_good_handlers n pp) (SND (compile wc ac progs))
 Proof
   fs[word_to_wordTheory.compile_def]>>
   rpt(pairarg_tac>>fs[])>>
@@ -3050,7 +3050,7 @@ Proof
     fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP,MEM_ZIP]>>
     rw[full_compile_single_def]>>
     rpt(pairarg_tac>>gvs[])>>
-    Cases_on`EL n progs`>>Cases_on`r`>>
+    Cases_on`EL n progs`>>Cases_on`r`>>Cases_on`r'`>>
     gvs[compile_single_def]>>
     fs[word_get_code_labels_remove_must_terminate,word_get_code_labels_word_alloc]>>
     dxrule (word_get_code_labels_remove_dead_prog|>SIMP_RULE std_ss [SUBSET_DEF])>>

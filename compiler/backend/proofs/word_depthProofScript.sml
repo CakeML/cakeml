@@ -318,7 +318,7 @@ Resume max_depth_call_graph_lemma[Call]:
         \\ PairCases_on `y` \\ fs []
         \\ reverse conj_tac THEN1 (match_mp_tac MEM_max_depth_graphs \\ fs [])
         \\ fs [max_depth_graphs_def,option_le_X_MAX_X])
-      \\ `?a body. lookup name funs2 = SOME (a, body)` by
+      \\ `?a body md. lookup name funs2 = SOME (a, body, md)` by
        (fs [SUBSET_DEF,domain_lookup] \\ rw [] \\ res_tac \\ fs []
         \\ rename [`_ = SOME vv`] \\ PairCases_on `vv` \\ fs [])
       \\ fs [subspt_lookup] \\ res_tac \\ fs [] \\ rveq \\ fs []
@@ -341,7 +341,8 @@ Resume max_depth_call_graph_lemma[Call]:
       \\ fs [] \\ rpt strip_tac \\ fs [])
   \\ TOP_CASE_TAC \\ simp []
   \\ TOP_CASE_TAC \\ simp []
-  \\ rename [`lookup name funs = SOME (a,body)`]
+  \\ TOP_CASE_TAC \\ simp []
+  \\ rename [`lookup name funs = SOME (a,body,md)`]
   \\ qpat_x_assum `~_:bool` mp_tac
   \\ TOP_CASE_TAC \\ simp []
   THEN1 ((* TailCall *)
@@ -486,8 +487,8 @@ Resume max_depth_call_graph_lemma[Call]:
     \\ simp[find_code_def]
     \\ disch_then (qspecl_then [`funs`,`n`,`ns`,`funs2`] mp_tac)
     \\ strip_tac
-    \\ `lookup name funs2 = SOME (a,body) /\
-        lookup name s.code = SOME (a,body)`
+    \\ `?md. lookup name funs2 = SOME (a,body,md) /\
+        lookup name s.code = SOME (a,body,md)`
           by (fs [subspt_lookup,lookup_delete,call_env_def]
                        \\ fs [domain_lookup] \\ metis_tac [])
     \\ fs [max_depth_graphs_def]
@@ -619,8 +620,8 @@ Resume max_depth_call_graph_lemma[Call]:
          `name`,`[name]`,`funs2`] mp_tac)
     \\ impl_tac THEN1 (fs [subspt_lookup,lookup_delete,call_env_def]
                        \\ fs [domain_lookup] \\ metis_tac [])
-    \\ `lookup name funs2 = SOME (a,body) /\
-        lookup name s.code = SOME (a,body)`
+    \\ `?md. lookup name funs2 = SOME (a,body,md) /\
+        lookup name s.code = SOME (a,body,md)`
           by (fs [subspt_lookup,lookup_delete,call_env_def]
                        \\ fs [domain_lookup] \\ metis_tac [])
     \\ fs [max_depth_graphs_def]
@@ -683,8 +684,8 @@ Resume max_depth_call_graph_lemma[Call]:
          `name`,`[name]`,`funs2`] mp_tac)
     \\ impl_tac THEN1 (fs [subspt_lookup,lookup_delete,call_env_def]
                        \\ fs [domain_lookup] \\ metis_tac [])
-    \\ `lookup name funs2 = SOME (a,body) /\
-        lookup name s.code = SOME (a,body)`
+    \\ `?md. lookup name funs2 = SOME (a,body,md) /\
+        lookup name s.code = SOME (a,body,md)`
           by (fs [subspt_lookup,lookup_delete,call_env_def]
                        \\ fs [domain_lookup] \\ metis_tac [])
     \\ fs [max_depth_graphs_def]
@@ -788,9 +789,9 @@ QED
 Finalise max_depth_call_graph_lemma;
 
 Theorem max_depth_call_graph:
-  !prog s res s1 funs n a.
+  !prog s res s1 funs n a md.
     evaluate (prog, s) = (res,s1) /\ subspt funs s.code /\
-    lookup n funs = SOME (a,prog) /\
+    lookup n funs = SOME (a,prog,md) /\
     s.locals_size = lookup n s.stack_size /\ res <> SOME Error ==>
     option_le s1.stack_max
       (OPTION_MAP2 MAX s.stack_max

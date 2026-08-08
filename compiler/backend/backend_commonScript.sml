@@ -25,8 +25,8 @@ Definition add_annotation_def:
   add_annotation a (Metadata s annots) = Metadata s (annots ++ [a])
 End
 
-Definition add_empty_metadata_def:
-  add_empty_metadata xs = MAP (\x. (empty_metadata,x)) xs
+Definition add_metadata_def:
+  add_metadata md xs = MAP (\(n,args,e). (n,args,e,md)) xs
 End
 
 Datatype:

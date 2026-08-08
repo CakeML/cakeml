@@ -794,15 +794,15 @@ End
 
 Definition compile_each_def:
   (compile_each next [] = (next, [])) ∧
-  (compile_each next ((md, loc, arity, exp)::xs) =
+  (compile_each next ((loc, arity, exp, md)::xs) =
     case compile_exp loc next arity exp of
     | NONE =>
         let (n, ys) = compile_each next xs in
-          (n, (md, loc, arity, exp)::ys)
+          (n, (loc, arity, exp, md)::ys)
     | SOME (exp_aux, exp_opt) =>
         let (n, ys) = compile_each (next + bvl_to_bvi_namespaces) xs in
-        (n, (md, loc, arity, exp_aux)::
-            (add_annotation BVI_Worker md, next, arity + 1, exp_opt)::ys))
+        (n, (loc, arity, exp_aux, md)::
+            (next, arity + 1, exp_opt, add_annotation BVI_Worker md)::ys))
 End
 
 Definition compile_prog_def:

@@ -134,10 +134,10 @@ End
 
 Definition code_rel_def:
   code_rel jump off k code1 code2 <=>
-    (!n prog.
-      lookup n code1 = SOME prog ==>
-      reg_bound prog k /\
-      lookup n code2 = SOME (comp jump off k prog)) ∧
+    (!n x.
+      lookup n code1 = SOME x ==>
+      reg_bound (FST x) k /\
+      lookup n code2 = SOME (comp jump off k (FST x), SND x)) ∧
     domain code2 = domain code1 ∪ {0;1;2}
 End (* exact characterization for Install *)
 
@@ -166,13 +166,13 @@ Definition state_rel_def:
     s1.compile = (λc p. s2.compile c (MAP (prog_comp jump off k) p)) /\
     (* s2.data_buffer = empty_buffer /\ *)
     s2.compile_oracle = (λn. (I ## MAP (prog_comp jump off k) ## I (*K []*)) (s1.compile_oracle n)) /\
-    (∀n i p. MEM (i,p) (FST(SND(s1.compile_oracle n ))) ⇒ reg_bound p k ∧ num_stubs ≤ i+1) ∧
+    (∀n i p md. MEM (i,p,md) (FST(SND(s1.compile_oracle n ))) ⇒ reg_bound p k ∧ num_stubs ≤ i+1) ∧
     good_dimindex (:'a) /\
     (!n.
        n < k ==>
        FLOOKUP s2.regs n = FLOOKUP s1.regs n) /\
     code_rel jump off k s1.code s2.code /\
-    lookup stack_err_lab s2.code = SOME (halt_inst 2w) /\
+    (?md. lookup stack_err_lab s2.code = SOME (halt_inst 2w,md)) /\
     FLOOKUP s2.regs (k+2) = FLOOKUP s1.store CurrHeap /\
     {k;k+1;k+2} SUBSET s2.ffi_save_regs /\
     is_SOME_Word (FLOOKUP s1.store BitmapBase) /\
@@ -234,10 +234,11 @@ Theorem find_code_lemma[local]:
     find_code dest s.regs s.code = SOME x ==>
     find_code dest t1.regs t1.code = SOME (comp jump off k x) /\ reg_bound x k
 Proof
-  CASE_TAC \\ full_simp_tac(srw_ss())[find_code_def,state_rel_def,code_rel_def]
-  \\ strip_tac \\ res_tac
+  CASE_TAC \\ full_simp_tac(srw_ss())[find_code_def,state_rel_def,code_rel_def,
+       optionTheory.OPTION_MAP_EQ_SOME]
+  \\ strip_tac \\ res_tac \\ fs []
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
-  \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ res_tac
+  \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ res_tac \\ fs []
 QED
 
 Theorem find_code_lemma2[local]:
@@ -246,12 +247,13 @@ Theorem find_code_lemma2[local]:
     find_code dest (s.regs \\ x1) s.code = SOME x ==>
     find_code dest (t1.regs \\ x1) t1.code = SOME (comp jump off k x) /\ reg_bound x k
 Proof
-  CASE_TAC \\ full_simp_tac(srw_ss())[find_code_def,state_rel_def,code_rel_def]
-  \\ strip_tac \\ res_tac
+  CASE_TAC \\ full_simp_tac(srw_ss())[find_code_def,state_rel_def,code_rel_def,
+       optionTheory.OPTION_MAP_EQ_SOME]
+  \\ strip_tac \\ res_tac \\ fs []
   \\ fs[DOMSUB_FLOOKUP_THM]
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
-  \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ res_tac
-  \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ res_tac
+  \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ res_tac \\ fs []
+  \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ res_tac \\ fs []
 QED
 
 Theorem state_rel_set_var[simp]:
@@ -1242,7 +1244,7 @@ Proof
 QED
 
 Theorem prog_comp_eta:
-   prog_comp = \jump off k (n,p). (n,comp jump off k p)
+   prog_comp = \jump off k (n,p). (n,(comp jump off k ## I) p)
 Proof
   srw_tac[][FUN_EQ_THM,prog_comp_def,FORALL_PROD,LAMBDA_PROD]
 QED
@@ -1750,8 +1752,9 @@ Proof
     \\ reverse (Cases_on `word_cmp Lower c c'`) \\ full_simp_tac(srw_ss())[] THEN1 (
       srw_tac[][] \\ qexists_tac`0`\\simp[])
     \\ Cases_on `lookup dest s.code` \\ full_simp_tac(srw_ss())[]
-    \\ `lookup dest t1.code = SOME (comp jump off k x) /\
-        reg_bound x k /\ s.clock = t1.clock` by
+    \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]
+    \\ `lookup dest t1.code = SOME (comp jump off k x0,x1) /\
+        reg_bound x0 k /\ s.clock = t1.clock` by
      (qpat_x_assum `bb ==> bbb` (K all_tac)
       \\ full_simp_tac(srw_ss())[state_rel_def,code_rel_def] \\ res_tac \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[])
     \\ full_simp_tac(srw_ss())[] \\ Cases_on `t1.clock = 0` \\ full_simp_tac(srw_ss())[]
@@ -3225,8 +3228,8 @@ QED
 Theorem init_code_thm:
    init_code_pre k bitmaps data_sp s /\ code_rel jump off k code s.code /\
     s.compile_oracle = (I ## MAP (prog_comp jump off k) ## I) o coracle /\
-    (∀n i p. MEM (i,p) (FST(SND(coracle n))) ⇒ reg_bound p k ∧ num_stubs ≤ i+1) ∧
-    lookup stack_err_lab s.code = SOME (halt_inst 2w) /\
+    (∀n i p md. MEM (i,p,md) (FST(SND(coracle n))) ⇒ reg_bound p k ∧ num_stubs ≤ i+1) ∧
+    (?md. lookup stack_err_lab s.code = SOME (halt_inst 2w,md)) /\
     max_stack_alloc <= max_heap ==>
     case evaluate (init_code gen_gc max_heap k,s) of
     | (SOME res,t) => F
@@ -3848,16 +3851,16 @@ End
 
 Definition init_pre_def:
   init_pre gen_gc max_heap bitmaps data_sp k start s <=>
-    lookup 0 s.code = SOME (Seq (init_code gen_gc max_heap k)
-                                (Call NONE (INL start) NONE)) /\
+    (?md. lookup 0 s.code = SOME (Seq (init_code gen_gc max_heap k)
+                                (Call NONE (INL start) NONE),md)) /\
     init_code_pre k bitmaps data_sp s /\ max_stack_alloc ≤ max_heap
 End
 
 Theorem evaluate_init_code:
    init_pre gen_gc max_heap bitmaps data_sp k start s /\
     s.compile_oracle = ((I ## MAP (prog_comp jump off k) ## I) o coracle) /\
-    (∀n i p. MEM (i,p) (FST(SND(coracle n))) ⇒ reg_bound p k ∧ num_stubs ≤ i+1) ∧
-    lookup stack_err_lab s.code = SOME (halt_inst 2w) /\
+    (∀n i p md. MEM (i,p,md) (FST(SND(coracle n))) ⇒ reg_bound p k ∧ num_stubs ≤ i+1) ∧
+    (?md. lookup stack_err_lab s.code = SOME (halt_inst 2w,md)) /\
     code_rel jump off k code s.code ==>
     case evaluate (init_code gen_gc max_heap k,s) of
     | (NONE,t) => ?r. make_init_opt gen_gc max_heap bitmaps data_sp coracle jump off k code s = SOME r /\
@@ -3902,11 +3905,11 @@ Proof
 QED
 
 Theorem init_semantics:
-   lookup stack_err_lab s.code = SOME (halt_inst 2w) /\
+   (?md. lookup stack_err_lab s.code = SOME (halt_inst 2w,md)) /\
     code_rel jump off k code s.code /\
     init_pre gen_gc max_heap bitmaps data_sp k start s ∧
     s.compile_oracle = ((I ## MAP (prog_comp jump off k) ## I) o coracle) /\
-    (∀n i p. MEM (i,p) (FST(SND(coracle n))) ⇒ reg_bound p k ∧ num_stubs ≤ i+1)
+    (∀n i p md. MEM (i,p,md) (FST(SND(coracle n))) ⇒ reg_bound p k ∧ num_stubs ≤ i+1)
     ==>
     case evaluate (init_code gen_gc max_heap k,s) of
     | (NONE,t) =>
@@ -3971,9 +3974,9 @@ QED
 Theorem make_init_opt_SOME_semantics:
    init_pre gen_gc max_heap bitmaps data_sp k start s2 /\
     s2.compile_oracle = ((I ## MAP (prog_comp jump off k) ## I) o coracle) /\
-    (∀n i p. MEM (i,p) (FST(SND(coracle n))) ⇒ reg_bound p k ∧ num_stubs ≤ i+1) ∧
+    (∀n i p md. MEM (i,p,md) (FST(SND(coracle n))) ⇒ reg_bound p k ∧ num_stubs ≤ i+1) ∧
     code_rel jump off k code s2.code /\
-    lookup stack_err_lab s2.code = SOME (halt_inst 2w) ==>
+    (?md. lookup stack_err_lab s2.code = SOME (halt_inst 2w,md)) ==>
     ?s1.
       make_init_opt gen_gc max_heap bitmaps data_sp coracle jump off k code s2 = SOME s1 /\
       (semantics start s1 <> Fail ==>
@@ -3986,7 +3989,7 @@ Proof
 QED
 
 Theorem IMP_code_rel[local]:
-  EVERY (\(n,p). reg_bound p k /\ num_stubs ≤ n+1) code1 /\
+  EVERY (\(n,p,md). reg_bound p k /\ num_stubs ≤ n+1) code1 /\
    code2 = fromAList (compile jump off gen_gc max_heap k start code1) ==>
    code_rel jump off k (fromAList code1) code2
 Proof
@@ -4028,9 +4031,9 @@ End
 
 Definition discharge_these_def:
   discharge_these jump off gen_gc max_heap k start coracle code s2 ⇔
-      EVERY (\(n,p). reg_bound p k /\ num_stubs ≤ n+1) code /\
-      (∀n i p.
-        MEM (i,p) (FST (SND (coracle n))) ⇒ reg_bound p k ∧ num_stubs ≤ i + 1) ∧
+      EVERY (\(n,p,md). reg_bound p k /\ num_stubs ≤ n+1) code /\
+      (∀n i p md.
+        MEM (i,p,md) (FST (SND (coracle n))) ⇒ reg_bound p k ∧ num_stubs ≤ i + 1) ∧
       s2.compile_oracle = (I ## MAP (prog_comp jump off k) ## I) ∘ coracle ∧
       s2.code = fromAList (compile jump off gen_gc max_heap k start code) ∧
       8 ≤ k ∧ 1 ∈ domain s2.code ∧
@@ -4170,7 +4173,7 @@ QED
 Theorem FST_prog_comp[simp]:
    FST (prog_comp jump off k pp) = FST pp
 Proof
-  Cases_on`pp` \\ EVAL_TAC
+  PairCases_on`pp` \\ EVAL_TAC
 QED
 
 Theorem stack_remove_lab_pres:
@@ -4278,8 +4281,8 @@ Proof
 QED
 
 Theorem stack_remove_stack_asm_name:
-  EVERY (λ(n,p). stack_asm_name c p) prog ∧
-  EVERY (λ(n,p). (stack_asm_remove (c:'a asm_config) p)) prog ∧
+  EVERY (λ(n,p,md). stack_asm_name c p) prog ∧
+  EVERY (λ(n,p,md). (stack_asm_remove (c:'a asm_config) p)) prog ∧
   addr_offset_ok c 0w ∧
   good_dimindex (:'a) ∧
   (∀n. n ≤ max_stack_alloc ⇒
@@ -4293,7 +4296,7 @@ Theorem stack_remove_stack_asm_name:
   reg_name (k+2) c ∧
   reg_name (k+1) c ∧
   reg_name k c ∧ k ≠ 0 ⇒
-  EVERY (λ(n,p). stack_asm_name c p)
+  EVERY (λ(n,p,md). stack_asm_name c p)
   (compile jump c.addr_offset gen_gc max_heap k start prog)
 Proof
   rw[compile_def]
@@ -4319,8 +4322,8 @@ QED
 
 Theorem stack_remove_call_args:
    compile jump off gen_gc n k pos p = p' /\
-    EVERY (λp. call_args p 1 2 3 4 0) (MAP SND p) ==>
-    EVERY (λp. call_args p 1 2 3 4 0) (MAP SND p')
+    EVERY (λp. call_args p 1 2 3 4 0) (MAP (FST o SND) p) ==>
+    EVERY (λp. call_args p 1 2 3 4 0) (MAP (FST o SND) p')
 Proof
   rw[]>>
   unabbrev_all_tac>>fs[]>>

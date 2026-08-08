@@ -42,7 +42,7 @@ val find_word_ref_ind = theorem "find_word_ref_ind";
 
 Definition analyse_word_code_def:
     (analyse_word_code [] = LN:num_set num_map) ∧
-    (analyse_word_code ((n, args, prog)::t) =
+    (analyse_word_code ((n, args, prog, md)::t) =
         insert n (find_word_ref prog) (analyse_word_code t))
 End
 

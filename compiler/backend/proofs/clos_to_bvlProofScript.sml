@@ -620,7 +620,7 @@ QED
 
 Theorem evaluate_generic_app_full[local]:
   !n args st rem_args vs l tag exp clo.
-    lookup l st.code = SOME (rem_args + 2, exp) ∧
+    lookup l st.code = SOME (rem_args + 2, exp, md) ∧
     n + 1 = LENGTH args ∧
     n > rem_args ∧
     rem_args < max_app
@@ -738,9 +738,10 @@ Theorem evaluate_mk_cl_call[local]:
   !cl env s tag p n args args' exp exp2 xs.
     evaluate ([cl],env,s) = (Rval [Block tag (CodePtr p::Number &n::xs)], s) ∧
     evaluate (args,env,s) = (Rval args', s) ∧
-    lookup p s.code = SOME (n+2, exp) ∧
-    lookup (generic_app_fn_location (LENGTH args' - 1)) s.code =
-      SOME (LENGTH args' + 1, generate_generic_app max_app (LENGTH args' - 1)) ∧
+    lookup p s.code = SOME (n+2, exp, md) ∧
+    (?md1. lookup (generic_app_fn_location (LENGTH args' - 1)) s.code =
+      SOME (LENGTH args' + 1,
+            generate_generic_app max_app (LENGTH args' - 1), md1)) ∧
     LENGTH args' - 1 ≥ n ∧
     n < max_app ∧
     LENGTH args ≠ 0
@@ -786,8 +787,8 @@ Proof
 QED
 
 Theorem evaluate_partial_app_fn[local]:
-  !num_args args' num_args' prev_args tag num tag' l l' fvs exp code.
-    lookup l code = SOME (LENGTH args' + LENGTH prev_args + 1,exp) /\
+  !num_args args' num_args' prev_args tag num tag' l l' fvs exp md code.
+    lookup l code = SOME (LENGTH args' + LENGTH prev_args + 1,exp,md) /\
     LENGTH prev_args ≠ 0 ∧
     LENGTH prev_args < num_args ∧
     num_args = LENGTH prev_args + LENGTH args'
@@ -827,7 +828,7 @@ QED
 
 Definition code_installed_def:
   code_installed aux code =
-    EVERY (\(n,num_args,exp). lookup n code = SOME (num_args,exp)) aux
+    EVERY (\(n,num_args,exp). ?md. lookup n code = SOME (num_args,exp,md)) aux
 End
 
 Definition closure_code_installed_def:
@@ -837,7 +838,9 @@ Definition closure_code_installed_def:
       n ≠ 0 ∧
       ?aux c aux1.
         (compile_exps max_app [exp] aux = ([c],aux1)) /\
-        (lookup p code = SOME (n+1,SND (code_for_recc_case (LENGTH env + LENGTH exps_ps) n c))) /\
+        (?md. lookup p code =
+           SOME (n+1,SND (code_for_recc_case (LENGTH env + LENGTH exps_ps) n c),
+                 md)) /\
         code_installed aux1 code) exps_ps
 End
 
@@ -1076,8 +1079,8 @@ Definition compile_oracle_inv_def:
      !n cfg e ps.
        s_co n = (cfg,e,ps) ==>
        every_Fn_SOME e ∧ every_Fn_vs_SOME e /\
-       EVERY (λp. every_Fn_SOME [SND (SND p)]) ps /\
-       EVERY (λp. every_Fn_vs_SOME [SND (SND p)]) ps
+       EVERY (λp. every_Fn_SOME [FST (SND (SND p))]) ps /\
+       EVERY (λp. every_Fn_vs_SOME [FST (SND (SND p))]) ps
 End
 
 (*
@@ -1117,17 +1120,20 @@ Definition state_rel_def:
                  (FLOOKUP t.refs m = SOME y) /\
                  ref_rel (v_rel s.max_app f t.refs t.code) x y) /\
     (!n. n < s.max_app ⇒
-         lookup (generic_app_fn_location n) t.code = SOME (n + 2, generate_generic_app s.max_app n)) ∧
+         ?md. lookup (generic_app_fn_location n) t.code =
+                SOME (n + 2, generate_generic_app s.max_app n, md)) ∧
     (!tot n. tot < s.max_app ∧ n < tot ⇒
-      lookup (partial_app_fn_location s.max_app tot n) t.code = SOME (tot - n + 1, generate_partial_app_closure_fn tot n)) ∧
-    lookup (num_stubs s.max_app - 2) t.code = SOME (2,force_thunk_code) ∧
+      ?md. lookup (partial_app_fn_location s.max_app tot n) t.code =
+             SOME (tot - n + 1, generate_partial_app_closure_fn tot n, md)) ∧
+    (?md. lookup (num_stubs s.max_app - 2) t.code =
+            SOME (2,force_thunk_code,md)) ∧
     compile_oracle_inv s.max_app s.code s.compile s.compile_oracle
                                  t.code t.compile t.compile_oracle ∧
-    (!name arity c.
-      (FLOOKUP s.code name = SOME (arity,c)) ==>
+    (!name arity c md.
+      (FLOOKUP s.code name = SOME (arity,c,md)) ==>
       ?aux1 c2 aux2.
         (compile_exps s.max_app [c] aux1 = ([c2],aux2)) /\
-        (lookup (name + (num_stubs s.max_app)) t.code = SOME (arity,c2)) /\
+        (lookup (name + (num_stubs s.max_app)) t.code = SOME (arity,c2,md)) /\
         code_installed aux2 t.code)
 End
 
@@ -2286,7 +2292,7 @@ val bEvalOp_def = bvlSemTheory.do_app_def;
 
 Theorem evaluate_mk_cl_call_spec[local]:
   !s env tag p n args exp xs.
-    lookup p s.code = SOME (n+2, exp) ∧
+    lookup p s.code = SOME (n+2, exp, md) ∧
     lookup (generic_app_fn_location (LENGTH args - 1)) s.code =
       SOME (LENGTH args + 1, generate_generic_app max_app (LENGTH args - 1)) ∧
     LENGTH args - 1 ≥ n ∧
@@ -3435,8 +3441,8 @@ Theorem compile_exps_correct:
     (tmp = (xs,env,s1)) ∧
     (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
     (compile_exps s1.max_app xs aux1 = (ys,aux2)) /\
-    every_Fn_SOME xs ∧ FEVERY (λp. every_Fn_SOME [SND (SND p)]) s1.code ∧
-    every_Fn_vs_SOME xs ∧ FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s1.code ∧
+    every_Fn_SOME xs ∧ FEVERY (λp. every_Fn_SOME [FST (SND (SND p))]) s1.code ∧
+    every_Fn_vs_SOME xs ∧ FEVERY (λp. every_Fn_vs_SOME [FST (SND (SND p))]) s1.code ∧
     code_installed aux2 t1.code /\
     env_rel s1.max_app f1 t1.refs t1.code env env' /\
     state_rel f1 s1 t1 ==>
@@ -3446,14 +3452,14 @@ Theorem compile_exps_correct:
        state_rel f2 s2 t2 /\
        f1 SUBMAP f2 /\
        (FDIFF t1.refs (FRANGE f1)) SUBMAP (FDIFF t2.refs (FRANGE f2)) ∧
-       FEVERY (λp. every_Fn_SOME [SND (SND p)]) s2.code ∧
-       FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s2.code ∧
+       FEVERY (λp. every_Fn_SOME [FST (SND (SND p))]) s2.code ∧
+       FEVERY (λp. every_Fn_vs_SOME [FST (SND (SND p))]) s2.code ∧
        s2.clock = t2.clock) ∧
   (!loc_opt func args ^s1 res s2 env (t1:('c,'ffi) bvlSem$state) args' func' f1.
     evaluate_app loc_opt func args s1 = (res,s2) ∧
     res ≠ Rerr(Rabort Rtype_error) ∧
-    FEVERY (λp. every_Fn_SOME [SND (SND p)]) s1.code ∧
-    FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s1.code ∧
+    FEVERY (λp. every_Fn_SOME [FST (SND (SND p))]) s1.code ∧
+    FEVERY (λp. every_Fn_vs_SOME [FST (SND (SND p))]) s1.code ∧
     v_rel s1.max_app f1 t1.refs t1.code func func' ∧
     LIST_REL (v_rel s1.max_app f1 t1.refs t1.code) args args' ∧
     state_rel f1 s1 t1
@@ -3478,8 +3484,8 @@ Theorem compile_exps_correct:
       state_rel f2 s2 t2 ∧
       f1 ⊑ f2 ∧
       FDIFF t1.refs (FRANGE f1) ⊑ FDIFF t2.refs (FRANGE f2) ∧
-      FEVERY (λp. every_Fn_SOME [SND (SND p)]) s2.code ∧
-      FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s2.code ∧
+      FEVERY (λp. every_Fn_SOME [FST (SND (SND p))]) s2.code ∧
+      FEVERY (λp. every_Fn_vs_SOME [FST (SND (SND p))]) s2.code ∧
       s2.clock = t2.clock)
 Proof
   ho_match_mp_tac closSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
@@ -3878,8 +3884,8 @@ Proof
         \\ rpt strip_tac
         \\ fs [lookup_fromAList]
         \\ fs [GSYM MEM_ALOOKUP] \\ fs [SUBSET_DEF])
-      \\ `FEVERY (λp. every_Fn_SOME [SND (SND p)]) (p1.code |++ progs1) ∧
-          FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) (p1.code |++ progs1)` by
+      \\ `FEVERY (λp. every_Fn_SOME [FST (SND (SND p))]) (p1.code |++ progs1) ∧
+          FEVERY (λp. every_Fn_vs_SOME [FST (SND (SND p))]) (p1.code |++ progs1)` by
        (strip_tac \\ match_mp_tac FEVERY_FUPDATE_LIST_SUFF \\ fs []
         \\ fs [compile_oracle_inv_def,state_rel_def]
         \\ rpt (first_x_assum (qspec_then `0` mp_tac)) \\ fs [])
@@ -7694,8 +7700,8 @@ Theorem compile_prog_semantics:
        code_installed aux2 code2) ∧
    clos_to_bvl$compile_prog max_app prog1 = prog2 ∧
    init_code code1 code2 max_app ∧
-   FEVERY (λp. every_Fn_SOME [SND (SND p)]) code1 ∧
-   FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) code1 ∧
+   FEVERY (λp. every_Fn_SOME [FST (SND (SND p))]) code1 ∧
+   FEVERY (λp. every_Fn_vs_SOME [FST (SND (SND p))]) code1 ∧
    lookup nsm1 code2 = SOME (0, init_globals max_app (num_stubs max_app + start)) /\
    lookup (num_stubs max_app - 2) code2 = SOME (2,force_thunk_code) ∧
    compile_oracle_inv max_app code1 cc1 co1 code2 cc2 co2 ∧
@@ -9209,13 +9215,14 @@ QED
 
 Theorem compile_prog_code_labels:
    0 < max_app ∧
-   EVERY no_Labels (MAP (SND o SND) prog) ∧
-   EVERY (obeys_max_app max_app) (MAP (SND o SND) prog) ∧
-   every_Fn_SOME (MAP (SND o SND) prog)
+   EVERY no_Labels (MAP (FST o SND o SND) prog) ∧
+   EVERY (obeys_max_app max_app) (MAP (FST o SND o SND) prog) ∧
+   every_Fn_SOME (MAP (FST o SND o SND) prog)
    ⇒
-   BIGUNION (set (MAP (get_code_labels o SND o SND)
+   BIGUNION (set (MAP (get_code_labels o FST o SND o SND)
                    (compile_prog max_app prog))) SUBSET
-   IMAGE (((+) (clos_to_bvl$num_stubs max_app))) (BIGUNION (set (MAP get_code_labels (MAP (SND o SND) prog)))) ∪
+   IMAGE (((+) (clos_to_bvl$num_stubs max_app)))
+     (BIGUNION (set (MAP get_code_labels (MAP (FST o SND o SND) prog)))) ∪
    domain (init_code max_app) ∪ {num_stubs max_app − 2}
 Proof
   rw[clos_to_bvlTheory.compile_prog_def]

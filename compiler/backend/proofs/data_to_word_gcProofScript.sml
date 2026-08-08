@@ -4429,12 +4429,12 @@ QED
    ------------------------------------------------------- *)
 
 Definition code_rel_def:
-  code_rel c s_code (t_code: (num # 'a wordLang$prog) num_map) <=>
-    domain t_code = domain s_code UNION set (MAP FST (stubs (:'a) c)) /\
-    EVERY (\(n,x). lookup n t_code = SOME x) (stubs (:'a) c) /\
-    !n arg_count prog.
-      (lookup n s_code = SOME (arg_count:num,prog)) ==>
-      (lookup n t_code = SOME (arg_count+1,FST (comp c n 2 prog)))
+  code_rel c s_code (t_code: (num # 'a wordLang$prog # metadata) num_map) <=>
+    domain t_code = domain s_code UNION set (MAP FST (stubs_md (:'a) c)) /\
+    EVERY (\(n,x). lookup n t_code = SOME x) (stubs_md (:'a) c) /\
+    !n arg_count prog md.
+      (lookup n s_code = SOME (arg_count:num,prog,md)) ==>
+      (lookup n t_code = SOME (arg_count+1,FST (comp c n 2 prog),md))
 End
 
 Definition stack_rel_def:
@@ -4459,10 +4459,10 @@ End
 
 Definition code_oracle_rel_def:
   code_oracle_rel c
-      (s_compile:'c -> (num # num # dataLang$prog) list ->
+      (s_compile:'c -> (num # num # dataLang$prog # metadata) list ->
                        (word8 list # word64 list # 'c) option)
       s_compile_oracle t_store
-      (t_compile:'c -> (num # num # 'a wordLang$prog) list ->
+      (t_compile:'c -> (num # num # 'a wordLang$prog # metadata) list ->
                        (word8 list # 'a word list # 'c) option)
       t_compile_oracle t_code_buffer t_data_buffer <=>
     t_code_buffer.buffer = [] /\
@@ -8675,16 +8675,16 @@ Theorem memory_rel_get_var_IMP =
 
 Theorem lookup_RefByte_location:
    state_rel c l1 l2 x t NONE locs ==>
-    lookup RefByte_location t.code = SOME (4,RefByte_code c) /\
-    lookup RefArray_location t.code = SOME (3,RefArray_code c) /\
-    lookup FromList_location t.code = SOME (4,FromList_code c) /\
-    lookup Replicate_location t.code = SOME (5,Replicate_code) /\
-    lookup AnyArith_location t.code = SOME (4,AnyArith_code c) /\
-    lookup Add_location t.code = SOME (3,Add_code) /\
-    lookup Sub_location t.code = SOME (3,Sub_code) /\
-    lookup Mul_location t.code = SOME (3,Mul_code) /\
-    lookup Div_location t.code = SOME (3,Div_code) /\
-    lookup Mod_location t.code = SOME (3,Mod_code)
+    (?md. lookup RefByte_location t.code = SOME (4,RefByte_code c,md)) /\
+    (?md. lookup RefArray_location t.code = SOME (3,RefArray_code c,md)) /\
+    (?md. lookup FromList_location t.code = SOME (4,FromList_code c,md)) /\
+    (?md. lookup Replicate_location t.code = SOME (5,Replicate_code,md)) /\
+    (?md. lookup AnyArith_location t.code = SOME (4,AnyArith_code c,md)) /\
+    (?md. lookup Add_location t.code = SOME (3,Add_code,md)) /\
+    (?md. lookup Sub_location t.code = SOME (3,Sub_code,md)) /\
+    (?md. lookup Mul_location t.code = SOME (3,Mul_code,md)) /\
+    (?md. lookup Div_location t.code = SOME (3,Div_code,md)) /\
+    (?md. lookup Mod_location t.code = SOME (3,Mod_code,md))
 Proof
   fs [state_rel_def,code_rel_def,stubs_def]
 QED

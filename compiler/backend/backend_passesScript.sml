@@ -12,12 +12,12 @@ Libs
 Datatype:
   any_prog = Source (ast$dec list)
            | Flat (flatLang$exp list)
-           | Clos (closLang$exp list) ((metadata # num # num # closLang$exp) list)
-           | Bvl ((metadata # num # num # bvl$exp) list) (mlstring sptree$num_map)
-           | Bvi ((metadata # num # num # bvi$exp) list) (mlstring sptree$num_map)
-           | Data ((metadata # num # num # dataLang$prog) list) (mlstring sptree$num_map)
-           | Word ((metadata # num # num # α wordLang$prog) list) (mlstring sptree$num_map)
-           | Stack ((metadata # num # α stackLang$prog) list) (mlstring sptree$num_map)
+           | Clos (closLang$exp list) ((num # num # closLang$exp # metadata) list)
+           | Bvl ((num # num # bvl$exp # metadata) list) (mlstring sptree$num_map)
+           | Bvi ((num # num # bvi$exp # metadata) list) (mlstring sptree$num_map)
+           | Data ((num # num # dataLang$prog # metadata) list) (mlstring sptree$num_map)
+           | Word ((num # num # α wordLang$prog # metadata) list) (mlstring sptree$num_map)
+           | Stack ((num # α stackLang$prog # metadata) list) (mlstring sptree$num_map)
            | Lab (α sec list) (mlstring sptree$num_map)
 End
 
@@ -76,25 +76,26 @@ Definition to_bvl_all_def:
     let (kc,es) = clos_known$compile c0.known_conf es in
     let ps = ps ++ [(«after clos_known»,Clos es [])] in
     let (es,g,aux) = clos_call$compile c0.do_call es in
-    let ps = ps ++ [(«after clos_call»,Clos es (add_empty_metadata aux))] in
-    let prog = chain_exps c0.next_loc es ++ add_empty_metadata aux in
+    let ps = ps ++ [(«after clos_call»,Clos es (add_metadata empty_metadata aux))] in
+    let prog = chain_exps c0.next_loc es ++ add_metadata empty_metadata aux in
     let prog = clos_annotate$compile prog in
     let ps = ps ++ [(«after clos_annotate»,Clos [] prog)] in
     let c1 = c0 with
          <|start := c0.next_loc; next_loc := n; known_conf := kc;
            call_state := (g,aux)|> in
-    let init_stubs = MAP (λ(loc,x). (Metadata (implode "bvl_stub") [Stub], loc, x))
+    let init_stubs = MAP (λ(loc,args,x). (loc, args, x,
+                            Metadata (implode "bvl_stub") [Stub]))
                         (toAList (init_code c1.max_app)) in
     let init_globs =
-            [(Metadata (implode "bvl_force") [Stub],
-              num_stubs c1.max_app − 2, 2, force_thunk_code);
-             (Metadata (implode "bvl_init") [Stub],
-              num_stubs c1.max_app − 1, 0,
-              init_globals c1.max_app (num_stubs c1.max_app + c1.start))] in
+            [(num_stubs c1.max_app − 2, 2, force_thunk_code,
+              Metadata (implode "bvl_force") [Stub]);
+             (num_stubs c1.max_app − 1, 0,
+              init_globals c1.max_app (num_stubs c1.max_app + c1.start),
+              Metadata (implode "bvl_init") [Stub])] in
     let comp_progs = clos_to_bvl$compile_prog c1.max_app prog in
     let prog' = init_stubs ++ init_globs ++ comp_progs in
     let func_names =
-            make_name_alist (MAP (FST o SND) prog') prog (num_stubs c1.max_app)
+            make_name_alist (MAP FST prog') prog (num_stubs c1.max_app)
               c0.next_loc (LENGTH es0) in
     let ps = ps ++ [(«after clos_to_bvl»,Bvl prog' func_names)] in
     let c2 = c1 with start := num_stubs c1.max_app − 1 in
@@ -122,19 +123,19 @@ Definition to_bvi_all_def:
     let split_seq = c0.split_main_at_seq in
     let cut_size = c0.exp_cut in
     let (inlines,prog1) = bvl_inline$tick_compile_prog limit LN p in
-    let prog = MAP (λ(md,name,arity,exp). (md,name,arity, HD (remove_ticks [exp]))) prog1 in
+    let prog = MAP (λ(name,arity,exp,md). (name,arity, HD (remove_ticks [exp]),md)) prog1 in
     let ps = ps ++ [(«after bvl_inline and remove_ticks»,Bvl prog names)] in
-    let prog = MAP (λ(md,name,arity,exp). (md,name,arity, let_op_sing exp)) prog in
+    let prog = MAP (λ(name,arity,exp,md). (name,arity, let_op_sing exp,md)) prog in
     let ps = ps ++ [(«after let_op_sing»,Bvl prog names)] in
-    let prog = MAP (λ(md,name,arity,exp). (md,name,arity,
-                       bvl_handle$compile_any split_seq cut_size arity exp)) prog in
+    let prog = MAP (λ(name,arity,exp,md). (name,arity,
+                       bvl_handle$compile_any split_seq cut_size arity exp,md)) prog in
     let ps = ps ++ [(«after bvl_handle»,Bvl prog names)] in
     let (loc,code,n1) = bvl_to_bvi$compile_prog start 0 prog in
     let (n2,code2) = bvi_tailrec$compile_prog c0.do_tailrec (bvl_num_stubs + 2) code in
     let (n3,code3) = bvi_tmc$compile_prog c0.do_tmc (bvl_num_stubs + 3) code2 in
     let (bvi_inlines,code') = bvi_inline$compile_prog code3 in
     let (s,p,l,bl,n1,n2,n3,names) =
-      (loc,code',inlines,bvi_inlines,n1,n2,n3,get_names (MAP (FST o SND) code') names) in
+      (loc,code',inlines,bvi_inlines,n1,n2,n3,get_names (MAP FST code') names) in
     let names = sptree$union (sptree$fromAList $ (data_to_word$stub_names () ++
       word_to_stack$stub_names () ++ stack_alloc$stub_names () ++
       stack_remove$stub_names ())) names in
@@ -169,13 +170,13 @@ QED
 Definition to_data_all_def:
   to_data_all (c:config) p =
     let (ps,c,p,names) = to_bvi_all c p in
-    let p = MAP (λ(md,a,n,e). (md,a,n,FST (compile n (COUNT_LIST n) T [] [e]))) p in
+    let p = MAP (λ(a,n,e,md). (a,n,FST (compile n (COUNT_LIST n) T [] [e]),md)) p in
     let ps = ps ++ [(«after bvi_to_data»,Data p names)] in
-    let p = MAP (λ(md,a,n,e). (md,a,n,FST (data_live$compile e LN))) p in
+    let p = MAP (λ(a,n,e,md). (a,n,FST (data_live$compile e LN),md)) p in
     let ps = ps ++ [(«after data_live»,Data p names)] in
-    let p = MAP (λ(md,a,n,e). (md,a,n,data_simp$simp e Skip)) p in
+    let p = MAP (λ(a,n,e,md). (a,n,data_simp$simp e Skip,md)) p in
     let ps = ps ++ [(«after data_simp»,Data p names)] in
-    let p = MAP (λ(md,a,n,e). (md,a,n,data_space$compile e)) p in
+    let p = MAP (λ(a,n,e,md). (a,n,data_space$compile e,md)) p in
     let ps = ps ++ [(«after data_space»,Data p names)] in
       ((ps: (mlstring # 'a any_prog) list),c,p,names)
 End
@@ -196,34 +197,34 @@ QED
 Definition word_internal_all_def:
   word_internal_all asm_conf ps names p =
     let two_reg_arith = asm_conf.two_reg_arith in
-    let p = MAP (λ((md,name_num,arg_count,prog)).
-                  ((md,name_num,arg_count,word_simp$compile_exp prog))) p in
+    let p = MAP (λ((name_num,arg_count,prog,md)).
+                  ((name_num,arg_count,word_simp$compile_exp prog,md))) p in
     let ps = ps ++ [(«after word_simp»,Word p names)] in
-    let p = MAP (λ((md,name_num,arg_count,prog)).
-                  ((md,name_num,arg_count,
-                     inst_select asm_conf (max_var prog + 1) prog))) p in
+    let p = MAP (λ((name_num,arg_count,prog,md)).
+                  ((name_num,arg_count,
+                     inst_select asm_conf (max_var prog + 1) prog,md))) p in
     let ps = ps ++ [(«after word_inst»,Word p names)] in
-    let p = MAP (λ((md,name_num,arg_count,prog)).
-                  ((md,name_num,arg_count,full_ssa_cc_trans arg_count prog))) p in
+    let p = MAP (λ((name_num,arg_count,prog,md)).
+                  ((name_num,arg_count,full_ssa_cc_trans arg_count prog,md))) p in
     let ps = ps ++ [(«after word_ssa»,Word p names)] in
-    let p = MAP (λ((md,name_num,arg_count,prog)).
-                  ((md,name_num,arg_count,remove_dead_prog prog))) p in
+    let p = MAP (λ((name_num,arg_count,prog,md)).
+                  ((name_num,arg_count,remove_dead_prog prog,md))) p in
     let ps = ps ++ [(«after remove_dead in word_ssa»,Word p names)] in
-    let p = MAP (λ((md,name_num,arg_count,prog)).
-                  ((md,name_num,arg_count,word_common_subexp_elim prog))) p in
+    let p = MAP (λ((name_num,arg_count,prog,md)).
+                  ((name_num,arg_count,word_common_subexp_elim prog,md))) p in
     let ps = ps ++ [(«after word_cse»,Word p names)] in
-    let p = MAP (λ((md,name_num,arg_count,prog)).
-                  ((md,name_num,arg_count,copy_prop prog))) p in
+    let p = MAP (λ((name_num,arg_count,prog,md)).
+                  ((name_num,arg_count,copy_prop prog,md))) p in
     let ps = ps ++ [(«after word_copy»,Word p names)] in
-    let p = MAP (λ((md,name_num,arg_count,prog)).
-                  ((md,name_num,arg_count,
-                   three_to_two_reg_prog two_reg_arith prog))) p in
+    let p = MAP (λ((name_num,arg_count,prog,md)).
+                  ((name_num,arg_count,
+                   three_to_two_reg_prog two_reg_arith prog,md))) p in
     let ps = ps ++ [(«after three_to_two_reg from word_inst»,Word p names)] in
-    let p = MAP (λ((md,name_num,arg_count,prog)).
-                  ((md,name_num,arg_count,remove_unreach prog))) p in
+    let p = MAP (λ((name_num,arg_count,prog,md)).
+                  ((name_num,arg_count,remove_unreach prog,md))) p in
     let ps = ps ++ [(«after word_unreach»,Word p names)] in
-    let p = MAP (λ((md,name_num,arg_count,prog)).
-                  ((md,name_num,arg_count,remove_dead_prog prog))) p in
+    let p = MAP (λ((name_num,arg_count,prog,md)).
+                  ((name_num,arg_count,remove_dead_prog prog,md))) p in
     let ps = ps ++ [(«after remove_dead in word_alloc»,Word p names)] in
     (p,ps)
 End
@@ -244,10 +245,10 @@ Definition to_word_all_def:
     let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
     let alg = word_conf.reg_alg in
     let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
-    let p = MAP (λ((md,name_num,arg_count,prog),col_opt).
-                  ((md,name_num,arg_count,
+    let p = MAP (λ((name_num,arg_count,prog,md),col_opt).
+                  ((name_num,arg_count,
                    remove_must_terminate
-                     (word_alloc name_num asm_conf alg reg_count prog col_opt)))) (ZIP (p,n_oracles)) in
+                     (word_alloc name_num asm_conf alg reg_count prog col_opt),md))) (ZIP (p,n_oracles)) in
     let ps = ps ++ [(«after word_alloc (and remove_must_terminate)»,Word p names)] in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
       ((ps: (mlstring # 'a any_prog) list),c,p,names)
@@ -413,10 +414,10 @@ Definition from_word_0_all_def:
     let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
     let alg = word_conf.reg_alg in
     let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
-    let p = MAP (λ((md,name_num,arg_count,prog),col_opt).
-                  ((md,name_num,arg_count,
+    let p = MAP (λ((name_num,arg_count,prog,md),col_opt).
+                  ((name_num,arg_count,
                    remove_must_terminate
-                     (word_alloc name_num asm_conf alg reg_count prog col_opt)))) (ZIP (p,n_oracles)) in
+                     (word_alloc name_num asm_conf alg reg_count prog col_opt),md))) (ZIP (p,n_oracles)) in
     let ps = ps ++ [(«after word_alloc (and remove_must_terminate)»,Word p names)] in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
       from_word_all ps asm_conf c names p

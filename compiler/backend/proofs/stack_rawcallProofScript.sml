@@ -24,7 +24,7 @@ Definition state_ok_def:
   state_ok i code <=>
     !n v.
       sptree$lookup n i = SOME v ==>
-      ?p. sptree$lookup n code = SOME (Seq (StackAlloc v) p)
+      ?p md. sptree$lookup n code = SOME (Seq (StackAlloc v) p, md)
 End
 
 Definition state_rel_def:
@@ -40,7 +40,7 @@ Definition state_rel_def:
       !n b.
         sptree$lookup n s.code = SOME b ==>
         ?i. state_ok i s.code /\
-            lookup n c = SOME (comp_top i b)
+            lookup n c = SOME (comp_top i (FST b), SND b)
 End
 
 Theorem state_rel_thm =
@@ -581,11 +581,17 @@ Proof
    (rename [`BitmapLoad`] \\ simple_case)
 QED
 
+Theorem compile_eta:
+  compile code = MAP (\(n,y). (n,(comp_top (collect_info code LN) ## I) y)) code
+Proof
+  fs [compile_def,MAP_EQ_f,FORALL_PROD]
+QED
+
 Theorem domain_fromAList_compile:
   domain (fromAList (compile code)) = domain (fromAList code)
 Proof
   fs [EXTENSION]
-  \\ fs [domain_lookup,lookup_fromAList,compile_def,alistTheory.ALOOKUP_MAP]
+  \\ fs [domain_lookup,lookup_fromAList,compile_eta,alistTheory.ALOOKUP_MAP]
   \\ fs [ALOOKUP_toAList]
 QED
 
@@ -651,7 +657,7 @@ Proof
        (simp [domain_fromAList_compile]
         \\ conj_asm1_tac \\ simp [state_ok_collect_info]
         \\ rw [] \\ asm_exists_tac \\ simp []
-        \\ simp [compile_def,lookup_fromAList,ALOOKUP_MAP]
+        \\ simp [compile_eta,lookup_fromAList,ALOOKUP_MAP]
         \\ fs [ALOOKUP_toAList,lookup_fromAList]) >>
       strip_tac >>
       qpat_x_assum`_ ≠ SOME TimeOut`mp_tac >>
@@ -675,7 +681,7 @@ Proof
         \\ simp [domain_fromAList_compile]
         \\ conj_asm1_tac \\ simp [state_ok_collect_info]
         \\ rw [] \\ asm_exists_tac \\ simp []
-        \\ simp [compile_def,lookup_fromAList,ALOOKUP_MAP]
+        \\ simp [compile_eta,lookup_fromAList,ALOOKUP_MAP]
         \\ fs [ALOOKUP_toAList,lookup_fromAList]) >>
       strip_tac >>
       old_dxrule(GEN_ALL evaluate_add_clock) >>
@@ -699,7 +705,7 @@ Proof
       \\ simp [domain_fromAList_compile]
       \\ conj_asm1_tac \\ simp [state_ok_collect_info]
       \\ rw [] \\ asm_exists_tac \\ simp []
-      \\ simp [compile_def,lookup_fromAList,ALOOKUP_MAP]
+      \\ simp [compile_eta,lookup_fromAList,ALOOKUP_MAP]
       \\ fs [ALOOKUP_toAList,lookup_fromAList]) >>
     strip_tac >>
     asm_exists_tac >> simp[] >>
@@ -720,7 +726,7 @@ Proof
     conj_asm1_tac \\ simp [state_ok_collect_info] >>
     conj_tac THEN1
      (rw [] \\ asm_exists_tac \\ fs []
-      \\ simp [compile_def,lookup_fromAList,ALOOKUP_MAP]
+      \\ simp [compile_eta,lookup_fromAList,ALOOKUP_MAP]
       \\ fs [ALOOKUP_toAList,lookup_fromAList]) >>
     srw_tac[][] >>
     qpat_x_assum`_ ≠ SOME TimeOut`mp_tac >>
@@ -750,7 +756,7 @@ Proof
      (simp [domain_fromAList_compile]
       \\ conj_asm1_tac \\ simp [state_ok_collect_info]
       \\ rw [] \\ asm_exists_tac \\ simp []
-      \\ simp [compile_def,lookup_fromAList,ALOOKUP_MAP]
+      \\ simp [compile_eta,lookup_fromAList,ALOOKUP_MAP]
       \\ fs [ALOOKUP_toAList,lookup_fromAList])) >>
     rveq \\ fs [] >>
     strip_tac >> pop_assum mp_tac >> pop_assum mp_tac >>
@@ -796,7 +802,7 @@ Proof
    (simp [domain_fromAList_compile]
     \\ conj_asm1_tac \\ simp [state_ok_collect_info]
     \\ rw [] \\ asm_exists_tac \\ simp []
-    \\ simp [compile_def,lookup_fromAList,ALOOKUP_MAP]
+    \\ simp [compile_eta,lookup_fromAList,ALOOKUP_MAP]
     \\ fs [ALOOKUP_toAList,lookup_fromAList]) >>
   strip_tac >>
   reverse conj_tac >- (
@@ -860,10 +866,10 @@ Proof
 QED
 
 Theorem stack_alloc_stack_asm_convs:
-  EVERY (λ(n,p). stack_asm_name c p) (compile prog) =
-  EVERY (λ(n,p). stack_asm_name c p) prog ∧
-  EVERY (λ(n,p). stack_asm_remove c p) (compile prog) =
-  EVERY (λ(n,p). stack_asm_remove c p) prog
+  EVERY (λ(n,p,md). stack_asm_name c p) (compile prog) =
+  EVERY (λ(n,p,md). stack_asm_name c p) prog ∧
+  EVERY (λ(n,p,md). stack_asm_remove c p) (compile prog) =
+  EVERY (λ(n,p,md). stack_asm_remove c p) prog
 Proof
   fs [compile_def] \\ rename [`comp_top i`]
   \\ Induct_on `prog` \\ fs [FORALL_PROD,stack_asm_name_comp]
@@ -890,8 +896,8 @@ Proof
 QED
 
 Theorem stack_rawcall_reg_bound:
-  EVERY (\p. reg_bound p sp) (MAP SND (compile prog1)) =
-  EVERY (\p. reg_bound p sp) (MAP SND prog1)
+  EVERY (\p. reg_bound p sp) (MAP (FST o SND) (compile prog1)) =
+  EVERY (\p. reg_bound p sp) (MAP (FST o SND) prog1)
 Proof
   fs [compile_def] \\ rename [`comp_top i`]
   \\ Induct_on `prog1` \\ fs [FORALL_PROD,reg_bound_comp]
@@ -918,8 +924,8 @@ Proof
 QED
 
 Theorem stack_alloc_call_args:
-   EVERY (λp. call_args p 1 2 3 4 0) (MAP SND (compile prog1)) =
-   EVERY (λp. call_args p 1 2 3 4 0) (MAP SND prog1)
+   EVERY (λp. call_args p 1 2 3 4 0) (MAP (FST o SND) (compile prog1)) =
+   EVERY (λp. call_args p 1 2 3 4 0) (MAP (FST o SND) prog1)
 Proof
   fs [compile_def] \\ rename [`comp_top i`]
   \\ Induct_on `prog1` \\ fs [FORALL_PROD,call_args_comp]
