@@ -4440,7 +4440,6 @@ Resume evaluate_rewrite_tmc[if]:
       >> irule hole_has_val_submap
       >> first_assum $ irule_at Any
       >> gvs [])
-
     (* Else inductive hypothesis *)
     >> Cases_on ‘v1 = Boolv F’ >> gvs []
     >> ‘v1' = Boolv F’ by (drule $ iffLR v_rel_cases >> gvs [bvlSemTheory.Boolv_def])
