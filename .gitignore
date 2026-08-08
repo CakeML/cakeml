@@ -9,6 +9,7 @@
 .hol
 .HOLMK
 .hollogs
+.holbuild
 
 # TacticToe
 *Script_ttt.sml
