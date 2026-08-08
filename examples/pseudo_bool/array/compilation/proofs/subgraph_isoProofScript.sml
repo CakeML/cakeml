@@ -93,7 +93,7 @@ Proof
   drule_at (Pos last) cake_pb_iso_compiled_thm>>
   simp[AND_IMP_INTRO]>>
   disch_then drule>>
-  disch_then (qspecl_then [`ms`,`mc`,`data_sp`,`cbspace`] mp_tac)>>
+  disch_then (qspecl_then [`ms`,`mc`,`ext`,`data_sp`,`cbspace`] mp_tac)>>
   simp[]>> strip_tac>>
   fs[main_sem_def]>>
   every_case_tac>>fs[]

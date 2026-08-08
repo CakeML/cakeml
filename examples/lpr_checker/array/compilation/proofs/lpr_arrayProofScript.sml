@@ -150,7 +150,7 @@ Proof
   drule_at (Pos last) check_unsat_compiled_thm>>
   simp[AND_IMP_INTRO]>>
   disch_then drule>>
-  disch_then (qspecl_then [`ms`,`mc`,`data_sp`,`cbspace`] mp_tac)>>
+  disch_then (qspecl_then [`ms`,`mc`,`ext`,`data_sp`,`cbspace`] mp_tac)>>
   simp[]>>
   strip_tac>>
   gvs[]>>
@@ -268,7 +268,7 @@ Theorem par_check_sound:
   )
 Proof
   strip_tac>>
-  `EVERY (λ(cl,fs,mc,ms,i,j).
+  sg `EVERY (λ(cl,fs,mc,ms,i,j).
   machine_sem mc (basis_ffi ext cl fs) ms ⊆
     extend_with_resource_limit
       {Terminate Success (check_unsat_io_events ext cl fs)} ∧
@@ -281,14 +281,15 @@ Proof
       parse_proof (all_lines_file fs (EL 2 cl)) = SOME pf ∧
       i ≤ j ∧ j ≤ LENGTH pf ∧
       (satisfiable (interp (run_proof fml (TAKE i pf))) ⇒
-       satisfiable (interp (run_proof fml (TAKE j pf)))))) nodes` by (
+       satisfiable (interp (run_proof fml (TAKE j pf)))))) nodes`
+  >- (
     fs[EVERY_MEM,FORALL_PROD]>>
     rw[]>>first_x_assum drule>>
     strip_tac>>
     drule machine_code_sound>> rpt(disch_then drule)>>
     simp[]>>  rpt(disch_then drule)>>
     rw[]>>
-    asm_exists_tac>>simp[]>>
+    first_x_assum (qspec_then `ext` mp_tac)>>rw[]>>asm_exists_tac>>simp[]>>
     strip_tac>>gvs[])>>
   CONJ_TAC >- (
     pop_assum mp_tac>>match_mp_tac MONO_EVERY>>
@@ -314,7 +315,7 @@ Proof
 QED
 
 Definition check_successful_def:
-  check_successful fmlstr pfstr (i:num,j:num) =
+  check_successful ext fmlstr pfstr (i:num,j:num) =
   ∃cl fs mc ms err.
     cake_lpr_run cl fs mc ms ∧
     LENGTH cl = 5 ∧
@@ -331,13 +332,13 @@ Theorem par_check_sound_2:
   parse_dimacs (lines_of (strlit fmlstr)) = SOME fml ∧
   parse_proof (lines_of (strlit pfstr)) = SOME pf ∧
   interval_cover 0 (LENGTH pf) ranges ∧
-  EVERY (check_successful fmlstr pfstr) ranges ⇒
+  EVERY (check_successful ext fmlstr pfstr) ranges ⇒
   (satisfiable (interp fml) ⇒ satisfiable (interp (run_proof fml pf)))
 Proof
   rw[]>>
   drule interval_cover_satisfiable>>
   disch_then(qspecl_then[`pf`,`fml`] mp_tac)>>
-  impl_tac>-(
+  impl_tac >- (
     fs[EVERY_MEM,FORALL_PROD,MEM_MAP,EXISTS_PROD,PULL_EXISTS,run_proof_empty]>>
     rw[]>>first_x_assum drule>>
     simp[check_successful_def]>>rw[]>>
@@ -347,8 +348,9 @@ Proof
     imp_res_tac all_lines_file_lines_of>>
     fs[cake_lpr_run_def]>>
     drule STD_streams_stdout>>rw[]>>
+    first_x_assum (qspec_then `ext` mp_tac)>>rw[]>>
     drule add_stdout_inj>>
-    disch_then(qspec_then`out'` mp_tac)>>
+    disch_then(qspec_then`out` mp_tac)>>
     rw[]>>gvs[stdout_add_stderr,success_str_nonempty])>>
   simp[]
 QED
@@ -374,7 +376,7 @@ Proof
 QED
 
 Definition check_successful_par_def:
-  check_successful_par fmlstr pfstr =
+  check_successful_par ext fmlstr pfstr =
   ∃outstr.
     (∀out. MEM out outstr ⇒
     (∃cl fs mc ms err.
@@ -400,7 +402,7 @@ End
 Theorem par_check_sound_3:
   parse_dimacs (lines_of (strlit fmlstr)) = SOME fml ∧
   parse_proof (lines_of (strlit pfstr)) = SOME pf ∧
-  check_successful_par fmlstr pfstr ⇒
+  check_successful_par ext fmlstr pfstr ⇒
   (satisfiable (interp fml) ⇒ satisfiable (interp (run_proof fml pf)))
 Proof
   rw[check_successful_par_def]>>
@@ -410,13 +412,13 @@ Proof
   rw[]>>
   `STD_streams fs` by fs[cake_lpr_run_def]>>
   drule STD_streams_stdout>>rw[]>>
+  first_x_assum (qspec_then `ext` mp_tac)>>rw[]>>
   drule add_stdout_inj>>
   disch_then drule>>
   simp[stdout_add_stderr]>>
   rw[]>>fs[concat_success_str]>>
   qpat_x_assum`_ ⇒ _` mp_tac>>
-  impl_tac >-
-    simp[mlstringTheory.concat_def]>>
+  impl_tac >- simp[mlstringTheory.concat_def]>>
   every_case_tac>>rw[]>>
   drule lpr_composeProgTheory.check_lines_correct>>
   rw[]>>
@@ -429,6 +431,7 @@ Proof
   rw[]>>
   gs[]>>
   asm_exists_tac>> simp[]>>
+  qexists_tac`ext`>>
   simp[EVERY_MEM,FORALL_PROD]>>
   rw[]>>
   fs[SUBSET_DEF]>>first_x_assum drule>>
@@ -444,7 +447,7 @@ Proof
   rpt(asm_exists_tac>>simp[])>>
   drule machine_code_sound>>
   rpt(disch_then drule)>>simp[]>>
-  strip_tac>>fs[]>>
+  strip_tac>>first_x_assum (qspec_then `ext` mp_tac)>>rw[]>>fs[]>>
   qmatch_asmsub_abbrev_tac`add_stdout (add_stderr fs' _) ss`>>
   `ss = out''` by (
     fs[cake_lpr_run_def]>>
@@ -459,7 +462,7 @@ Proof
     metis_tac[concat_success_str]>>
   rw[]>>
   qmatch_asmsub_rename_tac`print_rng i j`>>
-  `out = print_rng i j` by
+  `out' = print_rng i j` by
     metis_tac[success_str_inj]>>
   rveq>>
   fs[parse_rng_print_rng]>>
