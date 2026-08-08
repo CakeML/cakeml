@@ -937,13 +937,13 @@ Proof
   \\ fs[get_output_io_event_def]
   \\ reverse(rw[])
   >- (
-      fs[extract_writes_def]
-      \\ first_x_assum irule
-      \\ fs[CaseEq"option"]
-      \\ gvs[basis_ffiTheory.extract_fs_with_numchars_def,AllCaseEqs()]
-      >- (
-        qexists_tac`fs` \\ gvs[])
-      >- (
+    fs[extract_writes_def]
+    \\ first_x_assum irule
+    \\ fs[CaseEq"option"]
+    \\ gvs[basis_ffiTheory.extract_fs_with_numchars_def,AllCaseEqs()]
+    >- (
+      qexists_tac`fs` \\ gvs[])
+    >- (
       fs[CaseEq"ffi_result"]
       \\ qexists_tac`fs'` \\ fs[]
       \\ fs[fsFFITheory.fs_ffi_part_def]
@@ -1003,19 +1003,19 @@ Proof
         \\ fs[] \\ rveq \\ fs[]
         \\ qpat_assum `ALOOKUP z1.infds x = SOME x0` (K (PairCases_on`x0`))
         \\ qpat_assum `ALOOKUP z1.infds x = SOME (x00,_,_)`
-        (K(reverse(Cases_on`x00` \\ fs[]) >- metis_tac[]))
+              (K(reverse(Cases_on`x00` \\ fs[]) >- metis_tac[]))
         \\ pop_assum mp_tac \\ simp[]
         \\ first_x_assum drule
         \\ simp[OPTREL_def]
         \\ rpt strip_tac
         \\ fs[] \\ rveq \\ fs[])))
   \\ fs[basis_ffiTheory.extract_fs_with_numchars_def,
-  AllCaseEqs()]
+    AllCaseEqs()]
   \\ rveq
   \\ fs[fsFFITheory.fs_ffi_part_def]
   \\ fs[CaseEq"option",CaseEq"ffi_result"]
   \\ fs[basis_ffiTheory.extract_fs_with_numchars_def,
-  AllCaseEqs()]
+    AllCaseEqs()]
   \\ rveq
   \\ last_x_assum drule
   \\ fs[fsFFITheory.ffi_write_def]
@@ -1023,14 +1023,14 @@ Proof
   \\ strip_tac
   \\ reverse IF_CASES_TAC
   >- (
-  Cases_on`l0` \\ fs[LUPDATE_def]
-  \\ fs[OPTION_CHOICE_EQUALS_OPTION]
-  \\ rpt (pairarg_tac \\ fs[])
-  \\ fs[extract_writes_def, extract_write_def]
-  \\ first_x_assum irule
-  \\ rveq
-  \\ fs[] \\ rfs[]
-  \\ metis_tac[])
+    Cases_on`l0` \\ fs[LUPDATE_def]
+    \\ fs[OPTION_CHOICE_EQUALS_OPTION]
+    \\ rpt (pairarg_tac \\ fs[])
+    \\ fs[extract_writes_def, extract_write_def]
+    \\ first_x_assum irule
+    \\ rveq
+    \\ fs[] \\ rfs[]
+    \\ metis_tac[])
   \\ Cases_on`l0` \\ fs[LUPDATE_def]
   \\ fs[OPTION_CHOICE_EQUALS_OPTION]
   \\ rpt (pairarg_tac \\ fs[])
@@ -1050,35 +1050,35 @@ Proof
   \\ simp[TAKE_LENGTH_TOO_LONG]
   \\ reverse(Cases_on`w82n l = fd`) \\ fs[]
   >- (
-  first_x_assum irule
-  \\ simp[]
-  \\ IF_CASES_TAC
-  >- (
-  rveq \\ fs[]
-  \\ first_x_assum drule
-  \\ simp[Once OPTREL_def, EXISTS_PROD]
-  \\ metis_tac[] )
-  \\ reverse(Cases_on`fnm` \\ rfs[])
-  >- metis_tac[NOT_SOME_NONE]
-  \\ first_assum(qspec_then`w82n l`mp_tac)
-  \\ impl_tac >- fs[]
-  \\ qpat_x_assum`ALOOKUP fs.infds (w82n l) = _`mp_tac
-  \\ simp_tac(srw_ss())[Once OPTREL_def, EXISTS_PROD]
-  \\ ntac 2 strip_tac
-  \\ last_assum drule
-  \\ simp_tac(srw_ss())[fsFFIPropsTheory.inFS_fname_def]
-  \\ strip_tac
-  \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_keeps_iostreams)
-  \\ disch_then drule
-  \\ simp[Abbr`fs'`, AFUPDKEY_ALOOKUP]
-  \\ qmatch_goalsub_abbrev_tac`_ + zz ≤ _`
-  \\ strip_tac
-  \\ fs[fsFFIPropsTheory.inFS_fname_def]
-  \\ rw[]
-  \\ fs[OPTREL_def, FORALL_PROD]
-  \\ PURE_CASE_TAC \\ fs[]
-  \\ PURE_CASE_TAC \\ fs[]
-  \\ metis_tac[NOT_SOME_NONE,SOME_11])
+    first_x_assum irule
+    \\ simp[]
+    \\ IF_CASES_TAC
+    >- (
+      rveq \\ fs[]
+      \\ first_x_assum drule
+      \\ simp[Once OPTREL_def, EXISTS_PROD]
+      \\ metis_tac[] )
+    \\ reverse(Cases_on`fnm` \\ rfs[])
+    >- metis_tac[NOT_SOME_NONE]
+    \\ first_assum(qspec_then`w82n l`mp_tac)
+    \\ impl_tac >- fs[]
+    \\ qpat_x_assum`ALOOKUP fs.infds (w82n l) = _`mp_tac
+    \\ simp_tac(srw_ss())[Once OPTREL_def, EXISTS_PROD]
+    \\ ntac 2 strip_tac
+    \\ last_assum drule
+    \\ simp_tac(srw_ss())[fsFFIPropsTheory.inFS_fname_def]
+    \\ strip_tac
+    \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_keeps_iostreams)
+    \\ disch_then drule
+    \\ simp[Abbr`fs'`, AFUPDKEY_ALOOKUP]
+    \\ qmatch_goalsub_abbrev_tac`_ + zz ≤ _`
+    \\ strip_tac
+    \\ fs[fsFFIPropsTheory.inFS_fname_def]
+    \\ rw[]
+    \\ fs[OPTREL_def, FORALL_PROD]
+    \\ PURE_CASE_TAC \\ fs[]
+    \\ PURE_CASE_TAC \\ fs[]
+    \\ metis_tac[NOT_SOME_NONE,SOME_11])
   \\ fs[MAP_TAKE]
   \\ qmatch_goalsub_abbrev_tac`written ++ _`
   \\ rveq \\ fs[]
@@ -1090,31 +1090,30 @@ Proof
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac`off + nw`
   \\ fs[Abbr`new_content`]
-  \\ `LENGTH written = nw`
-  by (
-  simp[Abbr`written`, LENGTH_TAKE_EQ]
-  \\ rw[] \\ fs[Abbr`nw`] )
+  \\ `LENGTH written = nw` by (
+    simp[Abbr`written`, LENGTH_TAKE_EQ]
+    \\ rw[] \\ fs[Abbr`nw`] )
   \\ fs[Abbr`off`, DROP_LENGTH_TOO_LONG]
   \\ `nw ≤ LENGTH rest` by fs[Abbr`nw`]
   \\ rfs[] \\ fs[]
   \\ qpat_x_assum`_ ⇒ _`mp_tac
   \\ impl_tac
   >- (
-  rw[]
-  \\ fs[CaseEq"option"]
-  \\ CCONTR_TAC \\ fs[]
-  \\ rveq
-  \\ first_x_assum(qspec_then`fd'`mp_tac)
-  \\ simp[OPTREL_def, FORALL_PROD]
-  \\ metis_tac[] )
+    rw[]
+    \\ fs[CaseEq"option"]
+    \\ CCONTR_TAC \\ fs[]
+    \\ rveq
+    \\ first_x_assum(qspec_then`fd'`mp_tac)
+    \\ simp[OPTREL_def, FORALL_PROD]
+    \\ metis_tac[] )
   \\ strip_tac
   \\ rveq \\ fs[]
   \\ first_x_assum irule
   \\ fs[fsFFIPropsTheory.inFS_fname_def]
   \\ rw[] \\ PURE_CASE_TAC \\ fs[]
   >- (
-  first_x_assum drule>>
-  fs[])
+    first_x_assum drule>>
+    fs[])
   \\ metis_tac[]
 QED
 
