@@ -599,11 +599,11 @@ Theorem semantics_compiler32_prog:
   IS_SOME (stdin_content fs) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ⇒
   ∃io_events.
     semantics_dec_list
-      (init_state (basis_ffi cl fs) with
+      (init_state (basis_ffi ext cl fs) with
        eval_state :=
          SOME (EvalDecs (eval_state_var with env_id_counter := (0,0,1))))
       init_env compiler32_prog (Terminate Success io_events) ∧
-    extract_fs fs io_events =
+    extract_fs ext (cl,fs) io_events =
       SOME (full_compile_32 (TL cl) (get_stdin fs) fs)
 Proof
   strip_tac
