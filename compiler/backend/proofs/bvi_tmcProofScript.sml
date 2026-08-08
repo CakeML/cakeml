@@ -4258,8 +4258,10 @@ Resume evaluate_rewrite_tmc[list]:
       >> rpt $ goal_assum $ drule_at Any
       >> irule evaluate_refs_SUBSET
       >> goal_assum $ drule_at Any)
-    >> irule holes_unchanged_except_trans
-    >> rpt $ goal_assum $ drule_at Any)
+    >-
+     (irule holes_unchanged_except_trans
+      >> rpt $ goal_assum $ drule_at Any)
+    >> imp_res_tac holes_still_not_finalised_trans)
   >> rename [‘state_rel f3 t t'’]
   >> qexists ‘f3’ >> fs []
   >> rw []
@@ -4269,8 +4271,10 @@ Resume evaluate_rewrite_tmc[list]:
     >> rpt $ goal_assum $ drule_at Any
     >> irule evaluate_refs_SUBSET
     >> goal_assum $ drule_at Any)
-  >> irule holes_unchanged_except_trans
-  >> rpt $ goal_assum $ drule_at Any
+  >-
+   (irule holes_unchanged_except_trans
+    >> rpt $ goal_assum $ drule_at Any)
+  >> imp_res_tac holes_still_not_finalised_trans
 QED
 
 Resume evaluate_rewrite_tmc[var]:
