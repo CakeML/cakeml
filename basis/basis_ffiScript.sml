@@ -460,9 +460,10 @@ Proof
   >~ [‘SharedMem _’]
   >- (simp[extract_fs_with_numchars_def, basis_ffi_oracle_SharedMem, MAP_ZIP])
   \\ reverse (Cases_on ‘is_basis_ffi_name m’)
-  >- (gs[is_basis_ffi_name_def]
-      \\ simp[extract_fs_with_numchars_def, basis_ffi_oracle_ext, MAP_ZIP,
-              is_basis_ffi_name_def, fsFFITheory.fs_ffi_part_def])
+  >- (
+    gs[is_basis_ffi_name_def]
+    \\ simp[extract_fs_with_numchars_def, basis_ffi_oracle_ext, MAP_ZIP,
+            is_basis_ffi_name_def, fsFFITheory.fs_ffi_part_def])
   \\ gs[is_basis_ffi_name_def]
   \\ Cases_on ‘st.ffi_state’
   \\ gvs[extract_fs_with_numchars_def, basis_ffi_oracle_def, MAP_ZIP,
