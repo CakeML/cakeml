@@ -4290,6 +4290,8 @@ Resume evaluate_rewrite_tmc[var]:
   >- irule only_fresh_refl
   >> conj_asm1_tac
   >- irule holes_unchanged_except_refl
+  >> conj_asm1_tac
+  >- irule holes_still_not_finalised_refl
   >> strip_tac
   >> gvs [rewrite_wrapper_def]
   >> rw []
