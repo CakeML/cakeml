@@ -5467,6 +5467,7 @@ Resume evaluate_rewrite_tmc[letcall]:
                       >> rpt $ first_assum $ irule_at Any
                       >> imp_res_tac evaluate_refs_SUBSET)
                   >> conj_asm1_tac >- imp_res_tac holes_unchanged_except_trans
+                  >> conj_asm1_tac >- imp_res_tac holes_still_not_finalised_trans
                   >> rw []
                   >- gvs [rewrite_wrapper_def]
                   >> gvs [rewrite_worker_def, evaluate_def, fill_hole_def]
@@ -5500,6 +5501,7 @@ Resume evaluate_rewrite_tmc[letcall]:
                       >> conj_asm1_tac
                       >- (fs [dec_clock_def]
                           >> metis_tac [holes_unchanged_except_trans, only_fresh_trans, SUBMAP_TRANS, SUBSET_TRANS])
+                      >> conj_asm1_tac >- imp_res_tac holes_still_not_finalised_trans
                       >> rw []
                       >- gvs [rewrite_wrapper_def]
                       >> gvs [rewrite_worker_def]
@@ -5515,6 +5517,7 @@ Resume evaluate_rewrite_tmc[letcall]:
                   >> rpt $ first_assum $ irule_at Any
                   >> imp_res_tac evaluate_refs_SUBSET)
               >> conj_asm1_tac >- imp_res_tac holes_unchanged_except_trans
+              >> conj_asm1_tac >- imp_res_tac holes_still_not_finalised_trans
               >> rw []
               >- gvs [rewrite_wrapper_def]
               >> gvs [rewrite_worker_def, evaluate_def, fill_hole_def]
@@ -5550,6 +5553,7 @@ Resume evaluate_rewrite_tmc[letcall]:
                   >> rpt $ first_assum $ irule_at Any
                   >> imp_res_tac evaluate_refs_SUBSET)
               >> conj_asm1_tac >- metis_tac [holes_unchanged_except_trans]
+              >> conj_asm1_tac >- imp_res_tac holes_still_not_finalised_trans
               >> rw []
               >- gvs [rewrite_wrapper_def]
               >> gvs [rewrite_worker_def, evaluate_def, fill_hole_def]
@@ -5584,6 +5588,8 @@ Resume evaluate_rewrite_tmc[letcall]:
               >> conj_asm1_tac
               >- (fs [dec_clock_def]
                   >> metis_tac [holes_unchanged_except_trans, only_fresh_trans, SUBMAP_TRANS, SUBSET_TRANS])
+              >> conj_asm1_tac
+              >- imp_res_tac holes_still_not_finalised_trans
               >> rw []
               >- gvs [rewrite_wrapper_def]
               >> gvs [rewrite_worker_def]
@@ -5599,14 +5605,18 @@ Resume evaluate_rewrite_tmc[letcall]:
               >> rpt $ first_assum $ irule_at Any
               >> imp_res_tac evaluate_refs_SUBSET)
           >> conj_asm1_tac >- metis_tac [holes_unchanged_except_trans]
+          >> conj_tac >- imp_res_tac holes_still_not_finalised_trans
           >> rw []
           >- gvs [rewrite_wrapper_def]
           >> gvs [rewrite_worker_def, evaluate_def, fill_hole_def]
           >> qexists ‘f_wrap’
           >> gvs [opt_res_rel_def]
-          >> irule holes_unchanged_except_subset
-          >> first_assum $ irule_at Any
-          >> gvs []))
+          >> conj_tac
+          >-
+           (irule holes_unchanged_except_subset
+            >> first_assum $ irule_at Any
+            >> gvs [])
+          >> imp_res_tac holes_still_not_finalised_trans)
 QED
 
 Resume evaluate_rewrite_tmc[return]:
