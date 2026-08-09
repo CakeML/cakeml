@@ -415,51 +415,13 @@ val _ = cv_auto_trans encode_pat_alt_def
 
 val _ = cv_trans $ GSYM $ cj 1 encode_pat_alt_thm
 
-Definition exh_pat_alt_def:
-  exh_pat_alt Any = T /\
-  exh_pat_alt (Or p1 p2) = (exh_pat_alt p1 \/ exh_pat_alt p2) /\
-  exh_pat_alt (Cons NONE ps) = exh_pats_alt ps /\
-  exh_pat_alt _ = F ∧
-  exh_pats_alt [] = T ∧
-  exh_pats_alt (x::xs) = (exh_pat_alt x ∧ exh_pats_alt xs)
-End
+val _ = cv_trans pattern_exhTheory.mk_refs_def;
+val _ = cv_trans pattern_exhTheory.mk_conses_def;
+val _ = cv_trans pattern_exhTheory.add_head_def;
+val _ = cv_trans pattern_exhTheory.mk_prods_def;
+val _ = cv_trans pattern_exhTheory.expand_def;
 
-val _ = cv_trans exh_pat_alt_def
-
-Theorem exh_pat_alt_thm:
-  (∀p. exh_pat_alt p = exh_pat p) ∧
-  (∀ps. exh_pats_alt ps = EVERY exh_pat ps)
-Proof
-  Induct >>
-  rw[exh_pat_alt_def,pattern_compTheory.exh_pat_def] >>
-  rename1 ‘Cons cc’ >> Cases_on ‘cc’ >>
-  rw[exh_pat_alt_def,pattern_compTheory.exh_pat_def] >>
-  metis_tac[]
-QED
-
-val _ = cv_trans $ GSYM $ cj 1 exh_pat_alt_thm
-
-Definition sib_exists_alt_def:
-  sib_exists_alt [] t l = F ∧
-  sib_exists_alt ((Cons (SOME (t1,_)) ps) :: xs) t l =
-    (if (t = t1 ∧ l = LENGTH ps) then T else sib_exists_alt xs t l) ∧
-  sib_exists_alt _ _ _ = F
-End
-
-val _ = cv_trans sib_exists_alt_def
-
-Theorem sib_exists_alt_thm:
-  ∀xs tl. sib_exists xs tl = sib_exists_alt xs (FST tl) (SND tl)
-Proof
-  simp[FORALL_PROD] >>
-  recInduct sib_exists_alt_ind >>
-  rw[sib_exists_alt_def,pattern_compTheory.sib_exists_def] >>
-  metis_tac[]
-QED
-
-val _ = cv_trans sib_exists_alt_thm
-
-val _ = cv_auto_trans pattern_compTheory.exh_rows_def
+val _ = cv_auto_trans pattern_exhTheory.exh_rows_fuel_def;
 
 val _ = cv_auto_trans pattern_compTheory.pat_to_guard_def
 

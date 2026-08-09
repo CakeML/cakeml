@@ -27,6 +27,12 @@ avoiding potentially quadratic behavior due to left-associative concatenations (
 
 ## Compiler backend and runtime
 
+### Compilation of pattern matching
+
+The exhaustiveness checker for pattern-match rows has been replaced by a much better one:
+the new function implements the exhaustiveness case of Maranget's usefulness algorithm
+adapted to sibling annotations in place of a typing environment.
+
 ### BVI
 
 BVI now supports multi-arg calls/returns (with a separate constructor).
