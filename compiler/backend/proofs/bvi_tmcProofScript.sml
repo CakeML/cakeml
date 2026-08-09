@@ -5291,13 +5291,13 @@ Resume evaluate_rewrite_tmc[force]:
   >> imp_res_tac dest_thunk_rel
   >> gvs [dest_thunk_ret_rel_def, CaseEq "thunk_mode"]
   >- (first_assum $ irule_at Any
-      >> gvs [only_fresh_refl, holes_unchanged_except_refl]
+      >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
       >> rw []
       >- gvs [rewrite_wrapper_def]
       >> gvs [rewrite_worker_def]
       >> ho_match_mp_tac evaluate_fill_hole_val
       >> rpt $ first_assum $ irule_at Any
-      >> gvs [evaluate_def, holes_unchanged_except_refl, only_fresh_refl])
+      >> gvs [evaluate_def, holes_unchanged_except_refl, only_fresh_refl, holes_still_not_finalised_refl])
   >> gvs [CaseEq "option", CaseEq "prod"]
   >> drule find_code_rel
   >> ‘LIST_REL (v_rel f) [EL n env1; v1] [EL n env2; v2]’ by
@@ -5319,13 +5319,13 @@ Resume evaluate_rewrite_tmc[force]:
       >> qexists ‘f’
       >> conj_tac
       >- gvs [state_rel_def]
-      >> gvs [only_fresh_refl, holes_unchanged_except_refl]
+      >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
       >> rw []
       >- gvs [rewrite_wrapper_def]
       >> gvs [rewrite_worker_def]
       >> gvs [evaluate_def, fill_hole_def]
       >> qexists ‘f’
-      >> gvs [opt_res_rel_def, state_rel_def, holes_unchanged_except_refl, only_fresh_refl])
+      >> gvs [opt_res_rel_def, state_rel_def, holes_unchanged_except_refl, only_fresh_refl, holes_still_not_finalised_refl])
   >> gvs []
   >- (‘∃q u. evaluate ([exp],args,dec_clock 1 s) = (q,u)’ by
         (Cases_on ‘evaluate ([exp],args,dec_clock 1 s)’ >> gvs [])
