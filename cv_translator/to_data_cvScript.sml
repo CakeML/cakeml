@@ -421,7 +421,7 @@ val _ = cv_trans pattern_exhTheory.add_head_def;
 val _ = cv_trans pattern_exhTheory.mk_prods_def;
 val _ = cv_trans pattern_exhTheory.expand_def;
 
-val _ = cv_auto_trans pattern_exhTheory.exh_rows_fuel_def;
+val _ = cv_auto_trans pattern_exhTheory.exh_rows_eq;
 
 val _ = cv_auto_trans pattern_compTheory.pat_to_guard_def
 

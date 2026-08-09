@@ -441,7 +441,7 @@ QED
 Definition comp_def:
   comp rows =
     let rows0 = move_const_up rows in
-    let rows1 = (if exh_rows_fuel rows0 then insert_Any rows0 else rows0) in
+    let rows1 = (if exh_rows rows0 then insert_Any rows0 else rows0) in
       pats_to_code rows1
 End
 
@@ -452,7 +452,6 @@ Proof
   fs [comp_def] \\ strip_tac
   \\ drule match_move_const_up
   \\ disch_then (assume_tac o GSYM) \\ fs []
-  \\ metis_tac [pat_to_code_thm,exh_rows_thm,exh_rows_fuel_imp,
-                match_insert_Any]
+  \\ metis_tac [pat_to_code_thm,exh_rows_thm,match_insert_Any]
 QED
 

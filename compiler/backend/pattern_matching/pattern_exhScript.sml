@@ -394,33 +394,61 @@ End
 
 
 (* -------------------------------------------------------------------- *
-   A fuelled version, for execution.
+   A tail-recursive version, for execution.
 
    exh_matrix is a mutual recursion justified by a non-structural
-   measure, which cv_translation cannot take.  exh_fuel is a single
-   recursion, structural in its fuel, that keeps the matrices still to be
-   checked in a worklist.  It either agrees with exh_matrix or runs out
-   of fuel and says F, so accepting is always safe -- exh_rows_fuel_imp
-   below.  This is the version the compiler runs.
+   measure, which cv_translation cannot take.  exh_all is a single
+   tail recursion that keeps the matrices still to be checked in a
+   worklist.  It computes exactly the same answer -- exh_rows_eq below --
+   so it is the equation the compiler is run through.
+
+   Its termination is justified by counting the steps the original
+   recursion takes: exh_steps has exactly the recursion structure of
+   exh_matrix, hence exactly the same termination argument, and every
+   step exh_all makes consumes one of those steps.
  * -------------------------------------------------------------------- *)
 
-Definition exh_fuel_def:
-  exh_fuel (n:num) ms =
-    if n = 0 then F else
-      case ms of
-      | [] => T
-      | ([]::ms) => F
-      | ((r::rows)::ms) =>
-          if NULL r then exh_fuel (n-1) ms else
-            case col_ctors (r::rows) of
-            | NONE => exh_fuel (n-1) (default_mat (r::rows) :: ms)
-            | SOME cs => exh_fuel (n-1) (spec_mats cs (r::rows) ++ ms)
+Definition exh_steps_def:
+  exh_steps [] = (1:num) /\
+  exh_steps (r::rows) =
+    (if NULL r then 1 else
+       case col_ctors (r::rows) of
+       | NONE => 1 + exh_steps (default_mat (r::rows))
+       | SOME cs => 1 + exh_steps_list (spec_mats cs (r::rows))) /\
+  exh_steps_list [] = 0 /\
+  exh_steps_list (m::ms) = exh_steps m + exh_steps_list ms
 Termination
-  WF_REL_TAC ‘measure FST’ \\ fs []
+  WF_REL_TAC ‘inv_image ($< LEX $< LEX $<)
+    (\x. case x of
+         | INL rows => (mat_weight rows, mat_len rows, 0:num)
+         | INR ms => (mats_weight ms, mats_len ms, LENGTH ms + 1))’
+  \\ rw [mats_weight_def,mats_len_def,arithmeticTheory.MAX_DEF]
+  THEN1 (imp_res_tac mats_weight_spec_mats \\ fs [])
+  \\ ‘mat_weight (default_mat (r::rows)) <= mat_weight (r::rows)’ by
+       fs [mat_weight_default_mat]
+  \\ Cases_on ‘mat_weight (default_mat (r::rows)) = mat_weight (r::rows)’ \\ fs []
+  \\ ‘r <> []’ by (Cases_on ‘r’ \\ fs [])
+  \\ imp_res_tac mat_len_default_mat_less \\ fs []
 End
 
-Definition exh_rows_fuel_def:
-  exh_rows_fuel rows = exh_fuel 1000000 [or_rows rows]
+Theorem exh_steps_list_append[local]:
+  !xs ys. exh_steps_list (xs ++ ys) = exh_steps_list xs + exh_steps_list ys
+Proof
+  Induct \\ fs [exh_steps_def]
+QED
+
+Definition exh_all_def:
+  exh_all [] = T /\
+  exh_all ([]::ms) = F /\
+  exh_all ((r::rows)::ms) =
+    (if NULL r then exh_all ms else
+       case col_ctors (r::rows) of
+       | NONE => exh_all (default_mat (r::rows) :: ms)
+       | SOME cs => exh_all (spec_mats cs (r::rows) ++ ms))
+Termination
+  WF_REL_TAC ‘measure exh_steps_list’
+  \\ rw [exh_steps_def,exh_steps_list_append]
+  \\ simp [Once exh_steps_def]
 End
 
 Theorem exh_mats_append[local]:
@@ -429,22 +457,18 @@ Proof
   Induct \\ fs [exh_matrix_def] \\ metis_tac []
 QED
 
-Theorem exh_fuel_imp[local]:
-  !n ms. exh_fuel n ms ==> exh_mats ms
+Theorem exh_all_thm[local]:
+  !ms. exh_all ms <=> exh_mats ms
 Proof
-  ho_match_mp_tac exh_fuel_ind \\ rw []
-  \\ pop_assum mp_tac
-  \\ simp [Once exh_fuel_def]
-  \\ every_case_tac
-  \\ rw [] \\ gvs [exh_matrix_def]
-  \\ fs [exh_mats_append]
+  ho_match_mp_tac exh_all_ind \\ rw [exh_all_def,exh_matrix_def]
+  \\ simp [Once exh_matrix_def]
+  \\ every_case_tac \\ fs [exh_mats_append]
 QED
 
-Theorem exh_rows_fuel_imp:
-  exh_rows_fuel rows ==> exh_rows rows
+Theorem exh_rows_eq:
+  exh_rows rows <=> exh_all [or_rows rows]
 Proof
-  fs [exh_rows_fuel_def,exh_rows_def] \\ strip_tac
-  \\ imp_res_tac exh_fuel_imp \\ fs [exh_matrix_def]
+  fs [exh_rows_def,exh_all_thm,exh_matrix_def]
 QED
 
 

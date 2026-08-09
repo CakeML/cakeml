@@ -15,13 +15,6 @@
 
   Tuples are Cons NONE, references are Ref, and Any is a wildcard.
 
-  The positive tests are stated for exh_rows_fuel, the fuelled version the
-  compiler runs, and the negative ones for exh_rows, the unfuelled
-  specification.  Each is then the stronger of the two statements, since
-  exh_rows_fuel_imp gives exh_rows_fuel rows ==> exh_rows rows: accepting
-  with fuel implies accepting without it, and rejecting without fuel
-  implies rejecting with it.
-
   Recall what exhaustiveness means here (exh_rows_thm in pattern_exhTheory):
 
     match refs rows v <> NONE /\ exh_rows rows
@@ -101,56 +94,56 @@ fun rows ps =
  * ------------------------------------------------------------------ *)
 
 Theorem test_any:
-  exh_rows_fuel ^(rows [any])
+  exh_rows ^(rows [any])
 Proof
   EVAL_TAC
 QED
 
 (* case () of () => .. *)
 Theorem test_unit:
-  exh_rows_fuel ^(rows [“Cons NONE []”])
+  exh_rows ^(rows [“Cons NONE []”])
 Proof
   EVAL_TAC
 QED
 
 (* case p of (_,_) => .. *)
 Theorem test_tuple_wild:
-  exh_rows_fuel ^(rows [pair_p any any])
+  exh_rows ^(rows [pair_p any any])
 Proof
   EVAL_TAC
 QED
 
 (* case b of True => .. | False => .. *)
 Theorem test_bool:
-  exh_rows_fuel ^(rows [tt, ff])
+  exh_rows ^(rows [tt, ff])
 Proof
   EVAL_TAC
 QED
 
 (* colour, with the rows out of order and one of them duplicated *)
 Theorem test_colour_unordered:
-  exh_rows_fuel ^(rows [blue, red, blue, green])
+  exh_rows ^(rows [blue, red, blue, green])
 Proof
   EVAL_TAC
 QED
 
 (* case n of 1 => .. | _ => .. *)
 Theorem test_lit_then_any:
-  exh_rows_fuel ^(rows [one, any])
+  exh_rows ^(rows [one, any])
 Proof
   EVAL_TAC
 QED
 
 (* case n of 1 | _ => .. *)
 Theorem test_or_with_any:
-  exh_rows_fuel ^(rows [or_p one any])
+  exh_rows ^(rows [or_p one any])
 Proof
   EVAL_TAC
 QED
 
 (* the same tag at two different arities are two distinct siblings *)
 Theorem test_same_tag_two_arities:
-  exh_rows_fuel ^(rows [“Cons (SOME (0,(SOME [(0,0);(0,1)]):(num#num) list option)) []”,
+  exh_rows ^(rows [“Cons (SOME (0,(SOME [(0,0);(0,1)]):(num#num) list option)) []”,
                    “Cons (SOME (0,(SOME [(0,0);(0,1)]):(num#num) list option)) [Any]”])
 Proof
   EVAL_TAC
@@ -158,7 +151,7 @@ QED
 
 (* a single-constructor type, e.g. a record *)
 Theorem test_single_ctor:
-  exh_rows_fuel ^(rows [“Cons (SOME (0,(SOME [(0,2)]):(num#num) list option)) [Any;Any]”])
+  exh_rows ^(rows [“Cons (SOME (0,(SOME [(0,2)]):(num#num) list option)) [Any;Any]”])
 Proof
   EVAL_TAC
 QED
@@ -170,28 +163,28 @@ QED
 
 (* the first row carries no sibling info; the second row pins the type down *)
 Theorem test_sibs_on_later_row:
-  exh_rows_fuel ^(rows [“Cons (SOME (0,NONE)) []”, ff])
+  exh_rows ^(rows [“Cons (SOME (0,NONE)) []”, ff])
 Proof
   EVAL_TAC
 QED
 
 (* the sibling info is only available below a tuple *)
 Theorem test_sibs_below_tuple:
-  exh_rows_fuel ^(rows [“Cons NONE [Cons (SOME (0,NONE)) []]”, “Cons NONE [^ff]”])
+  exh_rows ^(rows [“Cons NONE [Cons (SOME (0,NONE)) []]”, “Cons NONE [^ff]”])
 Proof
   EVAL_TAC
 QED
 
 (* an empty sibling list: the row's own tag is the only well-typed value *)
 Theorem test_empty_sibs:
-  exh_rows_fuel ^(rows [“Cons (SOME (0,(SOME []):(num#num) list option)) []”])
+  exh_rows ^(rows [“Cons (SOME (0,(SOME []):(num#num) list option)) []”])
 Proof
   EVAL_TAC
 QED
 
 (* an extra row at an arity the type does not have is harmless *)
 Theorem test_wrong_arity_row:
-  exh_rows_fuel ^(rows [wrap_p any, “Cons (SOME (0,^wsib)) [Any;Any]”])
+  exh_rows ^(rows [wrap_p any, “Cons (SOME (0,^wsib)) [Any;Any]”])
 Proof
   EVAL_TAC
 QED
@@ -203,7 +196,7 @@ QED
 
 (* case xs of [] => .. | [_] => .. | _::_::_ => .. *)
 Theorem test_list_three_cases:
-  exh_rows_fuel ^(rows [nil_p,
+  exh_rows ^(rows [nil_p,
                    cons_p any nil_p,
                    cons_p any (cons_p any any)])
 Proof
@@ -212,7 +205,7 @@ QED
 
 (* case x of NONE => .. | SOME [] => .. | SOME (_::_) => .. *)
 Theorem test_option_of_list:
-  exh_rows_fuel ^(rows [none_p,
+  exh_rows ^(rows [none_p,
                    some_p nil_p,
                    some_p (cons_p any any)])
 Proof
@@ -221,7 +214,7 @@ QED
 
 (* three levels of option *)
 Theorem test_option_cubed:
-  exh_rows_fuel ^(rows [none_p,
+  exh_rows ^(rows [none_p,
                    some_p none_p,
                    some_p (some_p none_p),
                    some_p (some_p (some_p any))])
@@ -234,7 +227,7 @@ QED
            | Node (Node _,_,Leaf)     => ..
            | Node (Node _,_,Node _)   => .. *)
 Theorem test_tree:
-  exh_rows_fuel ^(rows [leaf_p,
+  exh_rows ^(rows [leaf_p,
                    node_p leaf_p any any,
                    node_p (node_p any any any) any leaf_p,
                    node_p (node_p any any any) any (node_p any any any)])
@@ -244,7 +237,7 @@ QED
 
 (* case xs of [] => .. | true::_ => .. | false::[] => .. | false::_::_ => .. *)
 Theorem test_list_of_bool:
-  exh_rows_fuel ^(rows [nil_p,
+  exh_rows ^(rows [nil_p,
                    cons_p tt any,
                    cons_p ff nil_p,
                    cons_p ff (cons_p any any)])
@@ -254,7 +247,7 @@ QED
 
 (* nested tuples: ((T,_),_) | ((F,T),_) | ((F,F),_) *)
 Theorem test_nested_tuples:
-  exh_rows_fuel ^(rows [pair_p (pair_p tt any) any,
+  exh_rows ^(rows [pair_p (pair_p tt any) any,
                    pair_p (pair_p ff tt) any,
                    pair_p (pair_p ff ff) any])
 Proof
@@ -263,7 +256,7 @@ QED
 
 (* a single-constructor type nested inside itself *)
 Theorem test_single_ctor_nested:
-  exh_rows_fuel ^(rows [wrap_p (wrap_p any)])
+  exh_rows ^(rows [wrap_p (wrap_p any)])
 Proof
   EVAL_TAC
 QED
@@ -275,7 +268,7 @@ QED
 
 (* (T,_) | (_,T) | (F,F) *)
 Theorem test_bool_pair_diag:
-  exh_rows_fuel ^(rows [pair_p tt any,
+  exh_rows ^(rows [pair_p tt any,
                    pair_p any tt,
                    pair_p ff ff])
 Proof
@@ -284,7 +277,7 @@ QED
 
 (* (T,T) | (T,F) | (F,_) *)
 Theorem test_bool_pair_split:
-  exh_rows_fuel ^(rows [pair_p tt tt,
+  exh_rows ^(rows [pair_p tt tt,
                    pair_p tt ff,
                    pair_p ff any])
 Proof
@@ -293,7 +286,7 @@ QED
 
 (* ([],_) | (_,[]) | (_::_,_::_) *)
 Theorem test_list_pair:
-  exh_rows_fuel ^(rows [pair_p nil_p any,
+  exh_rows ^(rows [pair_p nil_p any,
                    pair_p any nil_p,
                    pair_p (cons_p any any) (cons_p any any)])
 Proof
@@ -302,7 +295,7 @@ QED
 
 (* all nine colour pairs, in scrambled order *)
 Theorem test_colour_pair_full:
-  exh_rows_fuel ^(rows [pair_p green blue,
+  exh_rows ^(rows [pair_p green blue,
                    pair_p blue red,
                    pair_p red red,
                    pair_p blue blue,
@@ -317,7 +310,7 @@ QED
 
 (* (T,_,_) | (F,T,_) | (F,F,T) | (F,F,F) *)
 Theorem test_bool_triple:
-  exh_rows_fuel ^(rows [triple_p tt any any,
+  exh_rows ^(rows [triple_p tt any any,
                    triple_p ff tt any,
                    triple_p ff ff tt,
                    triple_p ff ff ff])
@@ -327,7 +320,7 @@ QED
 
 (* only the second column is discriminated, the rest are wildcards *)
 Theorem test_wide_tuple_one_column:
-  exh_rows_fuel ^(rows [“Cons NONE [Any; ^tt; Any; Any]”,
+  exh_rows ^(rows [“Cons NONE [Any; ^tt; Any; Any]”,
                    “Cons NONE [Any; ^ff; Any; Any]”])
 Proof
   EVAL_TAC
@@ -336,7 +329,7 @@ QED
 (* a literal column does not prevent exhaustiveness via another column:
      case (n,b) of (1,_) => .. | (_,True) => .. | (_,False) => .. *)
 Theorem test_lit_column_ignored:
-  exh_rows_fuel ^(rows [pair_p one any,
+  exh_rows ^(rows [pair_p one any,
                    pair_p any tt,
                    pair_p any ff])
 Proof
@@ -345,7 +338,7 @@ QED
 
 (* column 1 is covered by rows 2 and 3; row 1 only narrows column 2's type *)
 Theorem test_coverage_from_other_rows:
-  exh_rows_fuel ^(rows [pair_p any “Cons (SOME (0,NONE)) []”,
+  exh_rows ^(rows [pair_p any “Cons (SOME (0,NONE)) []”,
                    pair_p tt any,
                    pair_p ff any])
 Proof
@@ -359,35 +352,35 @@ QED
 
 (* case b of True | False => .. *)
 Theorem test_or_bool:
-  exh_rows_fuel ^(rows [or_p tt ff])
+  exh_rows ^(rows [or_p tt ff])
 Proof
   EVAL_TAC
 QED
 
 (* case c of Red | Green => .. | Blue => .. *)
 Theorem test_or_colour:
-  exh_rows_fuel ^(rows [or_p red green, blue])
+  exh_rows ^(rows [or_p red green, blue])
 Proof
   EVAL_TAC
 QED
 
 (* an Or inside a constructor argument *)
 Theorem test_or_in_argument:
-  exh_rows_fuel ^(rows [wrap_p (or_p red green), wrap_p blue])
+  exh_rows ^(rows [wrap_p (or_p red green), wrap_p blue])
 Proof
   EVAL_TAC
 QED
 
 (* case xs of [] | _::_ => .. *)
 Theorem test_or_list:
-  exh_rows_fuel ^(rows [or_p nil_p (cons_p any any)])
+  exh_rows ^(rows [or_p nil_p (cons_p any any)])
 Proof
   EVAL_TAC
 QED
 
 (* the whole diagonal matrix squeezed into a single Or row *)
 Theorem test_or_whole_matrix:
-  exh_rows_fuel ^(rows [or_p (pair_p tt any)
+  exh_rows ^(rows [or_p (pair_p tt any)
                         (or_p (pair_p any tt) (pair_p ff ff))])
 Proof
   EVAL_TAC
@@ -395,7 +388,7 @@ QED
 
 (* an Or in one column, constructors in the other *)
 Theorem test_or_column:
-  exh_rows_fuel ^(rows [pair_p (or_p red green) any,
+  exh_rows ^(rows [pair_p (or_p red green) any,
                    pair_p blue tt,
                    pair_p blue ff])
 Proof
@@ -408,26 +401,26 @@ QED
  * ------------------------------------------------------------------ *)
 
 Theorem test_ref_any:
-  exh_rows_fuel ^(rows [ref_p any])
+  exh_rows ^(rows [ref_p any])
 Proof
   EVAL_TAC
 QED
 
 (* case r of ref True => .. | ref False => .. *)
 Theorem test_ref_bool:
-  exh_rows_fuel ^(rows [ref_p tt, ref_p ff])
+  exh_rows ^(rows [ref_p tt, ref_p ff])
 Proof
   EVAL_TAC
 QED
 
 Theorem test_ref_in_tuple:
-  exh_rows_fuel ^(rows [pair_p (ref_p any) any])
+  exh_rows ^(rows [pair_p (ref_p any) any])
 Proof
   EVAL_TAC
 QED
 
 Theorem test_ref_nested:
-  exh_rows_fuel ^(rows [ref_p (pair_p any (ref_p any))])
+  exh_rows ^(rows [ref_p (pair_p any (ref_p any))])
 Proof
   EVAL_TAC
 QED
@@ -438,19 +431,19 @@ QED
  * ------------------------------------------------------------------ *)
 
 Theorem test_duplicate_rows:
-  exh_rows_fuel ^(rows [tt, tt, ff, tt])
+  exh_rows ^(rows [tt, tt, ff, tt])
 Proof
   EVAL_TAC
 QED
 
 Theorem test_rows_after_any:
-  exh_rows_fuel ^(rows [any, tt])
+  exh_rows ^(rows [any, tt])
 Proof
   EVAL_TAC
 QED
 
 Theorem test_redundant_last_row:
-  exh_rows_fuel ^(rows [nil_p,
+  exh_rows ^(rows [nil_p,
                    cons_p any any,
                    cons_p nil_p nil_p])
 Proof
