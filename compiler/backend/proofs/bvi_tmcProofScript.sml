@@ -2048,6 +2048,16 @@ Proof
   EVAL_TAC
 QED
 
+Theorem finalise_cons_refs_SUBSET:
+  ∀v1 refs1 v2 refs2.
+    finalise_cons v1 refs1 = SOME (v2,refs2) ⇒
+    FDOM refs1 ⊆ FDOM refs2
+Proof
+  recInduct finalise_cons_ind
+  >> rw [] >> gvs [finalise_cons_def, AllCaseEqs ()]
+  >> imp_res_tac $ iffRL SUBSET_INSERT_DELETE
+QED
+
 Theorem do_app_refs_SUBSET:
   (do_app op a r = Rval (q,t)) ⇒ FDOM r.refs SUBSET FDOM t.refs
 Proof
@@ -2055,7 +2065,7 @@ Proof
   >> imp_res_tac bvlPropsTheory.do_app_refs_SUBSET
   >> gvs [bvi_to_bvl_refs]
   >> gvs [SUBSET_INSERT_RIGHT]
-  >- (cheat)
+  >- imp_res_tac finalise_cons_refs_SUBSET
   >> Cases_on ‘a’ >> gvs [do_install_def, AllCaseEqs ()]
   >> Cases_on ‘r.compile_oracle 0’
   >> gvs [AllCaseEqs ()]
