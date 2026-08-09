@@ -4899,311 +4899,339 @@ Resume evaluate_rewrite_tmc[call_non_opt]:
   >> pop_assum kall_tac
   >> rename [‘state_rel f' u u'’, ‘result_rel _ _ _ v_xs'’]
   >> reverse $ gvs [CaseEq "result"]
-  >- (* Error case *) (rename [‘evaluate (xs,env2,s') = (Rerr e',t')’, ‘exc_rel (eor_rel f') e _’]
-                       >> gvs [GSYM PULL_FORALL]
-                       >> rpt $ first_assum $ irule_at Any
-                       >> gen_tac
-                       >> strip_tac
-                       >> rw []
-                       >- gvs [evaluate_def, rewrite_wrapper_def]
-                       >> gvs [evaluate_def, rewrite_worker_def, fill_hole_def]
-                       >> IF_CASES_TAC
-                       >- gvs []
-                       >> gvs []
-                       >> rpt $ first_assum $ irule_at Any
-                       >> conj_tac
-                       >- gvs [opt_res_rel_def]
-                       >> irule holes_unchanged_except_subset
-                       >> first_assum $ irule_at Any
-                       >> gvs [])
-  >- (* value case *) (gvs [GSYM PULL_FORALL, CaseEq "option", CaseEq "prod"]
-                       >> drule_all find_code_rel
-                       >> strip_tac
-                       >> gvs []
-                       >> ‘u.clock = u'.clock’ by gvs [state_rel_def]
-                       >> IF_CASES_TAC
-                       >- (qexistsl [‘u' with clock := 0’, ‘f'’, ‘Rerr (Rabort Rtimeout_error)’]
-                            >> gvs [state_rel_with_clock]
-                            >> rw []
-                            >- gvs [rewrite_wrapper_def]
-                            >> gvs [rewrite_worker_def]
-                            >> gvs [evaluate_def, fill_hole_def]
-                            >> IF_CASES_TAC
-                            >- gvs []
-                            >> gvs []
-                            >> first_assum $ irule_at Any
-                            >> gvs [opt_res_rel_def, state_rel_with_clock]
-                            >> irule holes_unchanged_except_subset
-                            >> first_assum $ irule_at Any
-                            >> gvs [])
-                       >> gvs [CaseEq "prod"]
-                       >> first_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ticks + 1) u’] mp_tac
-                       >> impl_tac
-                       >- (imp_res_tac evaluate_clock >> gvs [dec_clock_def])
-                       >> rpt $ disch_then drule
-                       >> drule state_rel_dec
-                       >> Cases_on ‘u.clock’
-                       >- gvs []
-                       >> gvs []
-                       >> disch_then $ qspec_then ‘ticks + 1’ mp_tac
-                       >> impl_tac
-                       >- gvs []
-                       >> strip_tac
-                       >> disch_then drule
-                       >> disch_then $ qspec_then ‘loc'’ mp_tac
-                       >> impl_tac
-                       >- gvs [CaseEq "result", CaseEq "error_result"]
-                       >> strip_tac
-                       >> Cases_on ‘exp = body'’
-                       >- (gvs []
-                           >> pop_assum kall_tac
-                           >> qmatch_asmsub_rename_tac ‘result_rel _ _ cres _’
-                           >> reverse $ Cases_on ‘∃v_raise h. cres = Rerr (Rraise (Exn v_raise)) ∧ handler = SOME h’
-                           >- (gvs []
-                               >> qexistsl [‘t''’, ‘f''’, ‘r''’]
-                               >> ‘(cres,s'') = (r,t) ∧ ∀vs. r ≠ Rerr (Rraise (Ret vs))’ by
-                                 (Cases_on ‘cres’ >> gvs []
-                                  >> every_case_tac >> gvs [])
-                               >> gvs []
-                               >> conj_tac
-                               >- (Cases_on ‘r''’ >> gvs [] >> every_case_tac >> gvs [])
-                               >> conj_tac
-                               >- imp_res_tac SUBMAP_TRANS
-                               >> conj_tac
-                               >-
-                                (irule only_fresh_trans
-                                 >> rpt $ first_assum $ irule_at Any
-                                 >> imp_res_tac evaluate_refs_SUBSET)
-                               >> conj_tac
-                               >-
-                                (irule holes_unchanged_except_trans
-                                 >> first_assum $ irule_at Any
-                                 >> gvs []
-                                 >> irule holes_unchanged_except_subset
-                                 >> first_assum $ irule_at Any
-                                 >> gvs [])
-                               >> rw []
-                               >- gvs [rewrite_wrapper_def]
-                               >- (gvs [rewrite_worker_def]
-                                   >> ho_match_mp_tac evaluate_fill_hole
-                                   >> rpt $ first_assum $ irule_at Any
-                                   >> gvs [evaluate_def]
-                                   >> IF_CASES_TAC
-                                   >- gvs []
-                                   >> gvs []
-                                   >> conj_tac
-                                   >-
-                                    (Cases_on ‘cres’ >> gvs []
-                                     >> every_case_tac >> gvs [])
-                                   >> conj_tac
-                                   >- imp_res_tac SUBMAP_TRANS
-                                   >> conj_tac
-                                   >-
-                                    (irule holes_unchanged_except_trans
-                                     >> first_assum $ irule_at Any
-                                     >> gvs []
-                                     >> irule holes_unchanged_except_subset
-                                     >> first_assum $ irule_at Any
-                                     >> gvs [])
-                                   >> irule only_fresh_trans
-                                   >> rpt $ first_assum $ irule_at Any
-                                   >> imp_res_tac evaluate_refs_SUBSET))
-                           >- (gvs []
-                               >> qmatch_asmsub_rename_tac ‘eor_rel _ (Exn v_raise) tv’
-                               >> Cases_on ‘tv’ >> gvs []
-                               >> rename [‘state_rel _ k k'’, ‘v_rel _ _ v_raise'’, ‘LIST_REL _ vs vs'’]
-                               >> ‘env_rel opt f'' (v_raise::env) (v_raise'::env2)’ by
-                                 (imp_res_tac env_rel_submap
-                                  >> imp_res_tac env_rel_cons)
-                               >> Cases_on ‘evaluate ([h],v_raise::env,k)’ >> gvs []
-                               >- (‘q ≠ Rerr (Rabort Rtype_error) ∧ ∀vs. q ≠ Rerr (Rraise (Ret vs))’ by
-                                     (Cases_on ‘q’ >> gvs [] >> every_case_tac >> gvs [])
-                                   >> first_x_assum $ qspecl_then [‘[h]’, ‘k’] mp_tac
-                                   >> impl_tac
-                                   >- (imp_res_tac evaluate_clock >> gvs [dec_clock_def])
-                                   >> disch_then drule
-                                   >> asm_simp_tac std_ss [EVERY_DEF]
-                                   >> rpt $ disch_then drule
-                                   >> impl_tac
-                                   >- gvs []
-                                   >> disch_then $ qspec_then ‘loc’ mp_tac
-                                   >> strip_tac
-                                   >> gvs []
-                                   >> ‘(q,r') = (r,t)’ by (Cases_on ‘q’ >> gvs [] >> every_case_tac >> gvs [])
-                                   >> gvs []
-                                   >> qexistsl [‘t''’, ‘f'³'’, ‘r''’]
-                                   >> conj_tac
-                                   >- (Cases_on ‘r''’ >> gvs [] >> every_case_tac >> gvs [])
-                                   >> rpt $ first_assum $ irule_at Any
-                                   >- (conj_asm1_tac
-                                       >- imp_res_tac SUBMAP_TRANS
-                                       >> conj_asm1_tac
-                                       >-
-                                        (irule only_fresh_trans
-                                         >> rpt $ first_assum $ irule_at $ Pos last
-                                         >> imp_res_tac evaluate_refs_SUBSET
-                                         >> gvs []
-                                         >> conj_tac
-                                         >- imp_res_tac SUBSET_TRANS
-                                         >> irule only_fresh_trans
-                                         >> rpt $ first_assum $ irule_at Any)
-                                       >> conj_tac
-                                       >-
-                                        (irule holes_unchanged_except_trans
-                                         >> first_assum $ irule_at $ Pos last
-                                         >> gvs []
-                                         >> conj_tac
-                                         >- imp_res_tac SUBMAP_TRANS
-                                         >> conj_tac
-                                         >-
-                                          (irule only_fresh_trans
-                                           >> rpt $ first_assum $ irule_at $ Pos last
-                                           >> imp_res_tac evaluate_refs_SUBSET)
-                                         >> irule holes_unchanged_except_trans
-                                         >> rpt $ first_assum $ irule_at $ Pos last)
-                                       >> rw []
-                                       >- gvs [rewrite_wrapper_def]
-                                       >> gvs [rewrite_worker_def]
-                                       >> ho_match_mp_tac evaluate_fill_hole
-                                       >> rpt $ first_assum $ irule_at Any
-                                       >> gvs [evaluate_def]
-                                       >> conj_tac
-                                       >- (Cases_on ‘r''’ >> gvs [] >> every_case_tac >> gvs [])
-                                       >> irule holes_unchanged_except_trans
-                                       >> rpt $ first_assum $ irule_at $ Pos last
-                                       >> conj_tac
-                                       >- imp_res_tac SUBMAP_TRANS
-                                       >> conj_tac
-                                       >-
-                                        (irule only_fresh_trans
-                                         >> rpt $ first_assum $ irule_at $ Pos last
-                                         >> imp_res_tac evaluate_refs_SUBSET)
-                                       >> irule holes_unchanged_except_trans
-                                       >> first_assum $ irule_at $ Pos last
-                                       >> gvs []))))
-                       >- (gvs []
-                           >> first_x_assum drule
-                           >> disch_then drule
-                           >> strip_tac
-                           >> gvs []
-                           >> qmatch_asmsub_rename_tac ‘result_rel _ _ cres _’
-                           >> reverse $ Cases_on ‘∃v_raise h. cres = Rerr (Rraise (Exn v_raise)) ∧ handler = SOME h’
-                           >- (gvs []
-                               >> qexistsl [‘t_wrap’, ‘f_wrap’, ‘r_wrap’]
-                               >> ‘(cres,s'') = (r,t) ∧ ∀vs. r ≠ Rerr (Rraise (Ret vs))’ by
-                                 (Cases_on ‘cres’ >> gvs [] >> every_case_tac >> gvs [])
-                               >> gvs []
-                               >> conj_tac
-                               >- (Cases_on ‘r_wrap’ >> gvs [] >> every_case_tac >> gvs [])
-                               >> conj_tac
-                               >- imp_res_tac SUBMAP_TRANS
-                               >> conj_tac
-                               >-
-                                (irule only_fresh_trans
-                                 >> rpt $ first_assum $ irule_at $ Pos last
-                                 >> imp_res_tac evaluate_refs_SUBSET)
-                               >> conj_tac
-                               >-
-                                (irule holes_unchanged_except_trans
-                                 >> first_assum $ irule_at $ Pos last
-                                 >> gvs [])
-                               >> rw []
-                               >- gvs [rewrite_wrapper_def]
-                               >> gvs [rewrite_worker_def]
-                               >> ho_match_mp_tac evaluate_fill_hole
-                               >> rpt $ first_assum $ irule_at Any
-                               >> gvs [evaluate_def]
-                               >> IF_CASES_TAC
-                               >- gvs []
-                               >> gvs []
-                               >> conj_tac
-                               >- (Cases_on ‘r_wrap’ >> gvs [] >> every_case_tac >> gvs [])
-                               >> conj_tac
-                               >- imp_res_tac SUBMAP_TRANS
-                               >> conj_tac
-                               >-
-                                (irule holes_unchanged_except_trans
-                                 >> first_assum $ irule_at Any
-                                 >> gvs []
-                                 >> irule holes_unchanged_except_subset
-                                 >> first_assum $ irule_at Any
-                                 >> gvs [])
-                               >> irule only_fresh_trans
-                               >> rpt $ first_assum $ irule_at Any
-                               >> imp_res_tac evaluate_refs_SUBSET)
-                           >- (gvs []
-                               >> qmatch_asmsub_rename_tac ‘eor_rel _ (Exn v_raise) tv’
-                               >> Cases_on ‘tv’ >> gvs []
-                               >> rename [‘state_rel _ k k'’, ‘v_rel _ _ v_raise'’, ‘LIST_REL _ vs vs'’]
-                               >> ‘env_rel opt f_wrap (v_raise::env) (v_raise'::env2)’ by
-                                 (imp_res_tac env_rel_submap
-                                  >> imp_res_tac env_rel_cons)
-                               >> Cases_on ‘evaluate ([h],v_raise::env,k)’ >> gvs []
-                               >> ‘q ≠ Rerr (Rabort Rtype_error) ∧ ∀vs. q ≠ Rerr (Rraise (Ret vs))’ by
-                                 (Cases_on ‘q’ >> gvs [] >> every_case_tac >> gvs [])
-                               >> first_x_assum $ qspecl_then [‘[h]’, ‘k’] mp_tac
-                               >> impl_tac
-                               >- (imp_res_tac evaluate_clock >> gvs [dec_clock_def])
-                               >> disch_then drule
-                               >> asm_simp_tac std_ss [EVERY_DEF]
-                               >> rpt $ disch_then drule
-                               >> impl_tac
-                               >- gvs []
-                               >> disch_then $ qspec_then ‘loc’ mp_tac
-                               >> strip_tac
-                               >> gvs []
-                               >> ‘(q,r') = (r,t)’ by (Cases_on ‘q’ >> gvs [] >> every_case_tac >> gvs [])
-                               >> gvs []
-                               >> qexistsl [‘t'³'’, ‘f'³'’, ‘r''’]
-                               >> conj_tac
-                               >- (Cases_on ‘r''’ >> gvs [] >> every_case_tac >> gvs [])
-                               >> rpt $ first_assum $ irule_at Any
-                               >> conj_asm1_tac
-                               >- imp_res_tac SUBMAP_TRANS
-                               >> conj_asm1_tac
-                               >-
-                                (irule only_fresh_trans
-                                 >> rpt $ first_assum $ irule_at $ Pos last
-                                 >> imp_res_tac evaluate_refs_SUBSET
-                                 >> gvs []
-                                 >> conj_tac
-                                 >- imp_res_tac SUBSET_TRANS
-                                 >> irule only_fresh_trans
-                                 >> rpt $ first_assum $ irule_at Any)
-                               >> conj_tac
-                               >-
-                                (irule holes_unchanged_except_trans
-                                 >> first_assum $ irule_at $ Pos last
-                                 >> gvs []
-                                 >> conj_tac
-                                 >- imp_res_tac SUBMAP_TRANS
-                                 >> conj_tac
-                                 >-
-                                  (irule only_fresh_trans
-                                   >> rpt $ first_assum $ irule_at $ Pos last
-                                   >> imp_res_tac evaluate_refs_SUBSET)
-                                 >> irule holes_unchanged_except_trans
-                                 >> rpt $ first_assum $ irule_at $ Pos last)
-                               >> rw []
-                               >- gvs [rewrite_wrapper_def]
-                               >> gvs [rewrite_worker_def]
-                               >> ho_match_mp_tac evaluate_fill_hole
-                               >> rpt $ first_assum $ irule_at Any
-                               >> gvs [evaluate_def]
-                               >> conj_tac
-                               >- (Cases_on ‘r''’ >> gvs [] >> every_case_tac >> gvs [])
-                               >> irule holes_unchanged_except_trans
-                               >> rpt $ first_assum $ irule_at $ Pos last
-                               >> conj_tac
-                               >- imp_res_tac SUBMAP_TRANS
-                               >> conj_tac
-                               >-
-                                (irule only_fresh_trans
-                                 >> rpt $ first_assum $ irule_at $ Pos last
-                                 >> imp_res_tac evaluate_refs_SUBSET)
-                               >> irule holes_unchanged_except_trans
-                               >> first_assum $ irule_at $ Pos last
-                               >> gvs [])))
+  (* Error case *)
+  >-
+   (rename [‘evaluate (xs,env2,s') = (Rerr e',t')’, ‘exc_rel (eor_rel f') e _’]
+    >> gvs [GSYM PULL_FORALL]
+    >> rpt $ first_assum $ irule_at Any
+    >> gen_tac
+    >> strip_tac
+    >> rw []
+    >- gvs [evaluate_def, rewrite_wrapper_def]
+    >> gvs [evaluate_def, rewrite_worker_def, fill_hole_def]
+    >> IF_CASES_TAC
+    >- gvs []
+    >> gvs []
+    >> rpt $ first_assum $ irule_at Any
+    >> conj_tac
+    >- gvs [opt_res_rel_def]
+    >> irule holes_unchanged_except_subset
+    >> first_assum $ irule_at Any
+    >> gvs [])
+  >> gvs [GSYM PULL_FORALL, CaseEq "option", CaseEq "prod"]
+  >> drule_all find_code_rel
+  >> strip_tac
+  >> gvs []
+  >> ‘u.clock = u'.clock’ by gvs [state_rel_def]
+  >> IF_CASES_TAC
+  >-
+   (qexistsl [‘u' with clock := 0’, ‘f'’, ‘Rerr (Rabort Rtimeout_error)’]
+    >> gvs [state_rel_with_clock]
+    >> rw []
+    >- gvs [rewrite_wrapper_def]
+    >> gvs [rewrite_worker_def]
+    >> gvs [evaluate_def, fill_hole_def]
+    >> IF_CASES_TAC
+    >- gvs []
+    >> gvs []
+    >> first_assum $ irule_at Any
+    >> gvs [opt_res_rel_def, state_rel_with_clock]
+    >> irule holes_unchanged_except_subset
+    >> first_assum $ irule_at Any
+    >> gvs [])
+  >> gvs [CaseEq "prod"]
+  >> first_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ticks + 1) u’] mp_tac
+  >> impl_tac
+  >- (imp_res_tac evaluate_clock >> gvs [dec_clock_def])
+  >> rpt $ disch_then drule
+  >> drule state_rel_dec
+  >> Cases_on ‘u.clock’
+  >- gvs []
+  >> gvs []
+  >> disch_then $ qspec_then ‘ticks + 1’ mp_tac
+  >> impl_tac
+  >- gvs []
+  >> strip_tac
+  >> disch_then drule
+  >> disch_then $ qspec_then ‘loc'’ mp_tac
+  >> impl_tac
+  >- gvs [CaseEq "result", CaseEq "error_result"]
+  >> strip_tac
+  >> Cases_on ‘exp = body'’
+  >-
+   (gvs []
+    >> pop_assum kall_tac
+    >> qmatch_asmsub_rename_tac ‘result_rel _ _ cres _’
+    >> reverse $ Cases_on ‘∃v_raise h. cres = Rerr (Rraise (Exn v_raise)) ∧ handler = SOME h’
+    >-
+     (gvs []
+      >> qexistsl [‘t''’, ‘f''’, ‘r''’]
+      >> ‘(cres,s'') = (r,t) ∧ ∀vs. r ≠ Rerr (Rraise (Ret vs))’ by
+        (Cases_on ‘cres’ >> gvs []
+         >> every_case_tac >> gvs [])
+      >> gvs []
+      >> conj_tac
+      >- (Cases_on ‘r''’ >> gvs [] >> every_case_tac >> gvs [])
+      >> conj_tac
+      >- imp_res_tac SUBMAP_TRANS
+      >> conj_tac
+      >-
+       (irule only_fresh_trans
+        >> rpt $ first_assum $ irule_at Any
+        >> imp_res_tac evaluate_refs_SUBSET)
+      >> conj_tac
+      >-
+       (irule holes_unchanged_except_trans
+        >> first_assum $ irule_at Any
+        >> gvs []
+        >> irule holes_unchanged_except_subset
+        >> first_assum $ irule_at Any
+        >> gvs [])
+      >> conj_tac
+      >- imp_res_tac holes_still_not_finalised_trans
+      >> rw []
+      >- gvs [rewrite_wrapper_def]
+      >-
+       (gvs [rewrite_worker_def]
+        >> ho_match_mp_tac evaluate_fill_hole
+        >> rpt $ first_assum $ irule_at Any
+        >> gvs [evaluate_def]
+        >> IF_CASES_TAC
+        >- gvs []
+        >> gvs []
+        >> conj_tac
+        >-
+         (Cases_on ‘cres’ >> gvs []
+          >> every_case_tac >> gvs [])
+        >> conj_tac
+        >- imp_res_tac SUBMAP_TRANS
+        >> conj_tac
+        >-
+         (irule holes_unchanged_except_trans
+          >> first_assum $ irule_at Any
+          >> gvs []
+          >> irule holes_unchanged_except_subset
+          >> first_assum $ irule_at Any
+          >> gvs [])
+        >> conj_tac
+        >- imp_res_tac holes_still_not_finalised_trans
+        >> irule only_fresh_trans
+        >> rpt $ first_assum $ irule_at Any
+        >> imp_res_tac evaluate_refs_SUBSET))
+    >-
+     (gvs []
+      >> qmatch_asmsub_rename_tac ‘eor_rel _ (Exn v_raise) tv’
+      >> Cases_on ‘tv’ >> gvs []
+      >> rename [‘state_rel _ k k'’, ‘v_rel _ _ v_raise'’, ‘LIST_REL _ vs vs'’]
+      >> ‘env_rel opt f'' (v_raise::env) (v_raise'::env2)’ by
+        (imp_res_tac env_rel_submap
+         >> imp_res_tac env_rel_cons)
+      >> Cases_on ‘evaluate ([h],v_raise::env,k)’ >> gvs []
+      >> ‘q ≠ Rerr (Rabort Rtype_error) ∧ ∀vs. q ≠ Rerr (Rraise (Ret vs))’ by
+        (Cases_on ‘q’ >> gvs [] >> every_case_tac >> gvs [])
+      >> first_x_assum $ qspecl_then [‘[h]’, ‘k’] mp_tac
+      >> impl_tac
+      >- (imp_res_tac evaluate_clock >> gvs [dec_clock_def])
+      >> disch_then drule
+      >> asm_simp_tac std_ss [EVERY_DEF]
+      >> rpt $ disch_then drule
+      >> impl_tac
+      >- gvs []
+      >> disch_then $ qspec_then ‘loc’ mp_tac
+      >> strip_tac
+      >> gvs []
+      >> ‘(q,r') = (r,t)’ by (Cases_on ‘q’ >> gvs [] >> every_case_tac >> gvs [])
+      >> gvs []
+      >> qexistsl [‘t''’, ‘f'³'’, ‘r''’]
+      >> conj_tac
+      >- (Cases_on ‘r''’ >> gvs [] >> every_case_tac >> gvs [])
+      >> rpt $ first_assum $ irule_at Any
+      >> conj_asm1_tac
+      >- imp_res_tac SUBMAP_TRANS
+      >> conj_asm1_tac
+      >-
+       (irule only_fresh_trans
+        >> rpt $ first_assum $ irule_at $ Pos last
+        >> imp_res_tac evaluate_refs_SUBSET
+        >> gvs []
+        >> conj_tac
+        >- imp_res_tac SUBSET_TRANS
+        >> irule only_fresh_trans
+        >> rpt $ first_assum $ irule_at Any)
+      >> conj_tac
+      >-
+       (irule holes_unchanged_except_trans
+        >> first_assum $ irule_at $ Pos last
+        >> gvs []
+        >> conj_tac
+        >- imp_res_tac SUBMAP_TRANS
+        >> conj_tac
+        >-
+         (irule only_fresh_trans
+          >> rpt $ first_assum $ irule_at $ Pos last
+          >> imp_res_tac evaluate_refs_SUBSET)
+        >> irule holes_unchanged_except_trans
+        >> rpt $ first_assum $ irule_at $ Pos last)
+      >> conj_tac
+      >- imp_res_tac holes_still_not_finalised_trans
+      >> rw []
+      >- gvs [rewrite_wrapper_def]
+      >> gvs [rewrite_worker_def]
+      >> ho_match_mp_tac evaluate_fill_hole
+      >> rpt $ first_assum $ irule_at Any
+      >> gvs [evaluate_def]
+      >> conj_tac
+      >- (Cases_on ‘r''’ >> gvs [] >> every_case_tac >> gvs [])
+      >> conj_tac
+      >-
+       (irule holes_unchanged_except_trans
+        >> rpt $ first_assum $ irule_at $ Pos last
+        >> conj_tac
+        >- imp_res_tac SUBMAP_TRANS
+        >> conj_tac
+        >-
+         (irule only_fresh_trans
+          >> rpt $ first_assum $ irule_at $ Pos last
+          >> imp_res_tac evaluate_refs_SUBSET)
+        >> irule holes_unchanged_except_trans
+        >> first_assum $ irule_at $ Pos last
+        >> gvs [])
+      >> imp_res_tac holes_still_not_finalised_trans))
+  >-
+   (gvs []
+    >> first_x_assum drule
+    >> disch_then drule
+    >> strip_tac
+    >> gvs []
+    >> qmatch_asmsub_rename_tac ‘result_rel _ _ cres _’
+    >> reverse $ Cases_on ‘∃v_raise h. cres = Rerr (Rraise (Exn v_raise)) ∧ handler = SOME h’
+    >-
+     (gvs []
+      >> qexistsl [‘t_wrap’, ‘f_wrap’, ‘r_wrap’]
+      >> ‘(cres,s'') = (r,t) ∧ ∀vs. r ≠ Rerr (Rraise (Ret vs))’ by
+        (Cases_on ‘cres’ >> gvs [] >> every_case_tac >> gvs [])
+      >> gvs []
+      >> conj_tac
+      >- (Cases_on ‘r_wrap’ >> gvs [] >> every_case_tac >> gvs [])
+      >> conj_tac
+      >- imp_res_tac SUBMAP_TRANS
+      >> conj_tac
+      >-
+       (irule only_fresh_trans
+        >> rpt $ first_assum $ irule_at $ Pos last
+        >> imp_res_tac evaluate_refs_SUBSET)
+      >> conj_tac
+      >-
+       (irule holes_unchanged_except_trans
+        >> first_assum $ irule_at $ Pos last
+        >> gvs [])
+      >> conj_tac
+      >- imp_res_tac holes_still_not_finalised_trans
+      >> rw []
+      >- gvs [rewrite_wrapper_def]
+      >> gvs [rewrite_worker_def]
+      >> ho_match_mp_tac evaluate_fill_hole
+      >> rpt $ first_assum $ irule_at Any
+      >> gvs [evaluate_def]
+      >> IF_CASES_TAC
+      >- gvs []
+      >> gvs []
+      >> conj_tac
+      >- (Cases_on ‘r_wrap’ >> gvs [] >> every_case_tac >> gvs [])
+      >> conj_tac
+      >- imp_res_tac SUBMAP_TRANS
+      >> conj_tac
+      >-
+       (irule holes_unchanged_except_trans
+        >> first_assum $ irule_at Any
+        >> gvs []
+        >> irule holes_unchanged_except_subset
+        >> first_assum $ irule_at Any
+        >> gvs [])
+      >> conj_tac
+      >- imp_res_tac holes_still_not_finalised_trans
+      >> irule only_fresh_trans
+      >> rpt $ first_assum $ irule_at Any
+      >> imp_res_tac evaluate_refs_SUBSET)
+    >-
+     (gvs []
+      >> qmatch_asmsub_rename_tac ‘eor_rel _ (Exn v_raise) tv’
+      >> Cases_on ‘tv’ >> gvs []
+      >> rename [‘state_rel _ k k'’, ‘v_rel _ _ v_raise'’, ‘LIST_REL _ vs vs'’]
+      >> ‘env_rel opt f_wrap (v_raise::env) (v_raise'::env2)’ by
+        (imp_res_tac env_rel_submap
+         >> imp_res_tac env_rel_cons)
+      >> Cases_on ‘evaluate ([h],v_raise::env,k)’ >> gvs []
+      >> ‘q ≠ Rerr (Rabort Rtype_error) ∧ ∀vs. q ≠ Rerr (Rraise (Ret vs))’ by
+        (Cases_on ‘q’ >> gvs [] >> every_case_tac >> gvs [])
+      >> first_x_assum $ qspecl_then [‘[h]’, ‘k’] mp_tac
+      >> impl_tac
+      >- (imp_res_tac evaluate_clock >> gvs [dec_clock_def])
+      >> disch_then drule
+      >> asm_simp_tac std_ss [EVERY_DEF]
+      >> rpt $ disch_then drule
+      >> impl_tac
+      >- gvs []
+      >> disch_then $ qspec_then ‘loc’ mp_tac
+      >> strip_tac
+      >> gvs []
+      >> ‘(q,r') = (r,t)’ by (Cases_on ‘q’ >> gvs [] >> every_case_tac >> gvs [])
+      >> gvs []
+      >> qexistsl [‘t'³'’, ‘f'³'’, ‘r''’]
+      >> conj_tac
+      >- (Cases_on ‘r''’ >> gvs [] >> every_case_tac >> gvs [])
+      >> rpt $ first_assum $ irule_at Any
+      >> conj_asm1_tac
+      >- imp_res_tac SUBMAP_TRANS
+      >> conj_asm1_tac
+      >-
+       (irule only_fresh_trans
+        >> rpt $ first_assum $ irule_at $ Pos last
+        >> imp_res_tac evaluate_refs_SUBSET
+        >> gvs []
+        >> conj_tac
+        >- imp_res_tac SUBSET_TRANS
+        >> irule only_fresh_trans
+        >> rpt $ first_assum $ irule_at Any)
+      >> conj_tac
+      >-
+       (irule holes_unchanged_except_trans
+        >> first_assum $ irule_at $ Pos last
+        >> gvs []
+        >> conj_tac
+        >- imp_res_tac SUBMAP_TRANS
+        >> conj_tac
+        >-
+         (irule only_fresh_trans
+          >> rpt $ first_assum $ irule_at $ Pos last
+          >> imp_res_tac evaluate_refs_SUBSET)
+        >> irule holes_unchanged_except_trans
+        >> rpt $ first_assum $ irule_at $ Pos last)
+      >> conj_tac
+      >- imp_res_tac holes_still_not_finalised_trans
+      >> rw []
+      >- gvs [rewrite_wrapper_def]
+      >> gvs [rewrite_worker_def]
+      >> ho_match_mp_tac evaluate_fill_hole
+      >> rpt $ first_assum $ irule_at Any
+      >> gvs [evaluate_def]
+      >> conj_tac
+      >- (Cases_on ‘r''’ >> gvs [] >> every_case_tac >> gvs [])
+      >> conj_tac
+      >-
+       (irule holes_unchanged_except_trans
+        >> rpt $ first_assum $ irule_at $ Pos last
+        >> conj_tac
+        >- imp_res_tac SUBMAP_TRANS
+        >> conj_tac
+        >-
+         (irule only_fresh_trans
+          >> rpt $ first_assum $ irule_at $ Pos last
+          >> imp_res_tac evaluate_refs_SUBSET)
+        >> irule holes_unchanged_except_trans
+        >> first_assum $ irule_at $ Pos last
+        >> gvs [])
+      >> imp_res_tac holes_still_not_finalised_trans))
 QED
 
 Definition dest_thunk_ret_rel_def:
