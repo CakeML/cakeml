@@ -25,11 +25,20 @@ avoiding potentially quadratic behavior due to left-associative concatenations (
 (previously quadratic -- oops!). This should allow users to output large strings
 (as in: much larger than 2kB) without the program hanging (#1425).
 
+### FFI oracle
+
+The `basis_ffi_oracle` has been redfined to have an extra parameter
+meant to model "additional underspecified FFIs". (#1446)
+
 ## Compiler backend and runtime
 
 ### BVI
 
 BVI now supports multi-arg calls/returns (with a separate constructor).
+
+### Thunks
+
+Thunks can now be inlined by the GC (#1440).
 
 ## Pancake
 
@@ -39,9 +48,17 @@ BVI now supports multi-arg calls/returns (with a separate constructor).
 
 The parser now supports multi-line string literals.
 
+### Soundness
+
+The top-level soundness theorem is now more precise about the FFI (#1446).
+
+Consistency is proved for the actual Candle context (#1445).
+
 ## Examples
 
-The CakePB example now has a verified CP encoder frontend.
+The CakePB example now has a verified CP encoder frontend (#1436).
+
+The distrup checker has minor fixes (#1441).
 
 ## Build infrastructure
 
@@ -64,6 +81,10 @@ The following simps have been added:
 Theorem get_mode_fsupdate[simp]:
   get_mode (fsupdate fs fd' k pos content) fd = get_mode fs fd
 ```
+
+### Finite map translation
+
+The translator can now deal nicely with finite maps (#1442)
 
 ## Miscellaneous
 
