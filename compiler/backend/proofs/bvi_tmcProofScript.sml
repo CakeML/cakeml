@@ -1201,7 +1201,8 @@ Theorem state_rel_alloc:
       (s with refs := s.refs⟨src ↦ rv⟩) (s' with refs := s'.refs⟨tgt ↦ rw⟩) ∧
     f ⊑ f⟨src ↦ tgt⟩ ∧
     only_fresh f (f⟨src ↦ tgt⟩) s'.refs ∧
-    holes_unchanged_except f s'.refs (s'.refs⟨tgt ↦ rw⟩) ∅
+    holes_unchanged_except f s'.refs (s'.refs⟨tgt ↦ rw⟩) ∅ ∧
+    holes_still_not_finalised f s'.refs (s'.refs⟨tgt ↦ rw⟩)
 Proof
   rpt gen_tac >> strip_tac
   >> ‘src ∉ FDOM f’ by gvs [state_rel_def, state_ref_rel_def]
@@ -1215,7 +1216,10 @@ Proof
           >> irule FLOOKUP_SUBMAP >> first_assum $ irule_at Any >> gvs [])
       >> irule fmap_inj_update >> gvs [])
   >- (gvs [only_fresh_def] >> rw [] >> gvs [FRANGE_FUPDATE, DOMSUB_NOT_IN_DOM])
-  >> gvs [holes_unchanged_except_def, FLOOKUP_SIMP] >> rw [] >> gvs [FLOOKUP_DEF]
+  >- (gvs [holes_unchanged_except_def, FLOOKUP_SIMP] >> rw [] >> gvs [FLOOKUP_DEF])
+  >> gvs [holes_still_not_finalised_def, FLOOKUP_SIMP, hole_not_finalised_def, SUBSET_DEF]
+  >> rw []
+  >> gvs [FLOOKUP_DEF]
 QED
 
 Theorem state_ref_rel_lookup:
@@ -1703,16 +1707,57 @@ val memop_strcmp_tac =
   >> gvs [ref_rel_cases, bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
 
+(* DELETE *)
+val memop_finalise_tac =
+  gvs [finalise_cons_def]
+  >> qexists ‘f’
+  >> gvs [state_rel_def, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
+
+Theorem do_app_op_finalise_rel:
+  ∀v1 v1' v2 refs f s s'.
+    finalise_cons v1 s.refs = SOME (v2,refs) ∧
+    state_rel f s s' ∧
+    v_rel f v1 v1' ⇒
+    ∃f' v2' refs'.
+      finalise_cons v1' s'.refs = SOME (v2',refs') ∧
+      f SUBMAP f' ∧
+      v_rel f' v2 v2' ∧
+      state_rel f' (s with refs := refs) (s' with refs := refs') ∧
+      only_fresh f f' s'.refs ∧
+      holes_unchanged_except f s'.refs refs' ∅ ∧
+      holes_still_not_finalised f s'.refs refs'
+Proof
+  cheat
+QED
+
+val memop_finalise_tac =
+drule do_app_op_finalise_rel
+>> disch_then drule
+>> gvs [v_rel_cases]
+>> strip_tac
+>> rpt $ first_assum $ irule_at Any
+>> gvs [v_rel_cases]
+
+val memop_finalise_block_tac =
+drule do_app_op_finalise_rel
+>> disch_then drule
+>> gvs [v_rel_cases]
+>> disch_then $ qspec_then ‘Block n ys’ mp_tac
+>> gvs []
+>> strip_tac
+>> rpt $ first_assum $ irule_at Any
+>> gvs [v_rel_cases]
+
 Resume do_app_op_rel[MemOp]:
   Cases_on ‘m’
   >> gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
           no_mutcons_op_def, v_rel_cases]
-  >> cheat (*
   >> FIRST [memop_mutblock_tac >> NO_TAC, memop_finalise_tac >> NO_TAC,
             memop_create_tac >> NO_TAC, memop_update_val_tac >> NO_TAC,
             memop_update_byte_tac >> NO_TAC, memop_el_ref_tac >> NO_TAC,
             memop_el_block_tac >> NO_TAC, memop_read_tac >> NO_TAC,
-            memop_configgc_tac >> NO_TAC, memop_strcmp_tac >> NO_TAC] *)
+            memop_configgc_tac >> NO_TAC, memop_strcmp_tac >> NO_TAC,
+            memop_finalise_tac >> NO_TAC, memop_finalise_block_tac >> NO_TAC]
 QED
 
 Resume do_app_op_rel[ThunkOp]:
