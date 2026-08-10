@@ -878,10 +878,34 @@ Proof
   \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw [] \\ fs []
 QED
 
-Theorem perms_ok_sexp_to_pretty_string_v[simp]:
-  perms_ok ps sexp_to_pretty_string_v
+Theorem perms_ok_append_aux_v[simp]:
+  perms_ok ps append_aux_v
 Proof
-  rw[perms_ok_def, SexpProgTheory.sexp_to_pretty_string_v_def,
+  rw[perms_ok_def, std_preludeTheory.append_aux_v_def,
+     astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw [] \\ fs []
+QED
+
+Theorem perms_ok_append_v[simp]:
+  perms_ok ps append_v
+Proof
+  rw[perms_ok_def, std_preludeTheory.append_v_def,
+     astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw [] \\ fs []
+QED
+
+Theorem perms_ok_sexp_to_app_list_v[simp]:
+  perms_ok ps sexp_to_app_list_v
+Proof
+  rw[perms_ok_def, SexpProgTheory.sexp_to_app_list_v_def,
+     astTheory.pat_bindings_def, perms_ok_env_def] \\ gvs []
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw [] \\ fs []
+QED
+
+Theorem perms_ok_sexp_to_string_v[simp]:
+  perms_ok ps sexp_to_string_v
+Proof
+  rw[perms_ok_def, SexpProgTheory.sexp_to_string_v_def,
      astTheory.pat_bindings_def, perms_ok_env_def]
   \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw [] \\ fs []
 QED

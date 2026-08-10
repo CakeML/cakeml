@@ -149,9 +149,9 @@ Definition thm_to_string_def:
   thm_to_string (ctxt:update list) (th:thm) =
     concat
       ([«# The following is a theorem of higher-order logic\n\n»] ++
-       [sexp_to_pretty_string (thm_to_v th)] ++
-       [«\n# which is proved in the following context\n»] ++
-       FLAT (MAP (λdef. [«\n»; sexp_to_pretty_string (update_to_v def)]) ctxt))
+       [sexp_to_string (thm_to_v th)] ++
+       [«\n\n# which is proved in the following context:\n»] ++
+       FLAT (MAP (λdef. [«\n»; sexp_to_string (update_to_v def); «\n»]) ctxt))
 End
 
 (* it has an inverse: *)
@@ -180,22 +180,36 @@ Proof
   Cases_on ‘s’ \\ simp []
 QED
 
+Theorem char_list_to_defs_newline[local]:
+  char_list_to_defs (STRING #"\n" c) = char_list_to_defs c
+Proof
+  once_rewrite_tac [char_list_to_defs_def]
+  \\ AP_THM_TAC
+  \\ once_rewrite_tac [parse_def]
+  \\ once_rewrite_tac [lex_def]
+  \\ once_rewrite_tac [lex_aux_def]
+  \\ EVAL_TAC
+QED
+
 Theorem string_to_thm_thm_to_string:
   string_to_thm (thm_to_string ctxt th) = (ctxt,th)
 Proof
   fs [thm_to_string_def,concat_append]
   \\ simp [string_to_thm_def,parse_space]
   \\ simp_tac std_ss [GSYM APPEND_ASSOC]
-  \\ rewrite_tac [parse_sexp_to_pretty_string, OUTR]
+  \\ DEP_REWRITE_TAC [parse_sexp_to_string]
+  \\ conj_tac >- EVAL_TAC
+  \\ rewrite_tac [OUTR]
   \\ simp_tac std_ss [thm_to_v_thm] \\ simp []
   \\ simp [Once char_list_to_defs_def,parse_space]
   \\ simp [GSYM char_list_to_defs_def]
   \\ Induct_on ‘ctxt’ >- EVAL_TAC
   \\ rw [] \\ fs [concat_def,to_explode]
   \\ simp [Once char_list_to_defs_def,parse_space]
-  \\ rewrite_tac [parse_sexp_to_pretty_string] \\ simp []
-  \\ simp [Once char_list_to_defs_def,parse_space]
-  \\ simp [GSYM char_list_to_defs_def]
+  \\ rewrite_tac [GSYM APPEND_ASSOC]
+  \\ DEP_REWRITE_TAC [parse_sexp_to_string]
+  \\ conj_tac >- EVAL_TAC
+  \\ simp [char_list_to_defs_newline]
 QED
 
 Theorem thm_to_string_injective:
@@ -223,7 +237,7 @@ val up =
 in
 
 val _ =
-  EVAL “thm_to_string [^up]
+  EVAL “thm_to_string [^up;^up;^up]
      (Sequent [] (Const «T» ^bool_ty))”
   |> concl |> rand |> rand |> stringSyntax.fromHOLstring |> print;
 
