@@ -5307,7 +5307,6 @@ Theorem dest_thunk_rel:
     n < LENGTH env1 ⇒
     dest_thunk_ret_rel f (dest_thunk (EL n env1) s1.refs) (dest_thunk (EL n env2) s2.refs)
 Proof
-  cheat (*
   rw []
   >> imp_res_tac env_rel_el
   >> gvs [v_rel_cases, dest_thunk_def, dest_thunk_ret_rel_def, CaseEq "option", state_rel_def, state_ref_rel_def]
@@ -5317,13 +5316,15 @@ Proof
   >> first_x_assum drule
   >> strip_tac
   >> gvs [CaseEq "ref", CaseEq "thunk_mode", ref_rel_cases]
+  >> rw []
+  >- (Cases_on ‘tm’ >> gvs [])
   >> qexistsl [‘tm’, ‘x'’, ‘y’]
   >> gvs []
   >> conj_tac
   >- (Cases_on ‘tm’ >> gvs [])
   >> conj_tac
   >- (Cases_on ‘tm’ >> gvs [])
-  >> Cases_on ‘x'’ >> gvs [v_rel_cases] *)
+  >> Cases_on ‘x'’ >> gvs [v_rel_cases]
 QED
 
 Resume evaluate_rewrite_tmc[force]:
