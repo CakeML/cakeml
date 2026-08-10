@@ -1707,14 +1707,8 @@ val memop_strcmp_tac =
   >> gvs [ref_rel_cases, bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
 
-(* DELETE *)
-val memop_finalise_tac =
-  gvs [finalise_cons_def]
-  >> qexists ‘f’
-  >> gvs [state_rel_def, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
-
 Theorem do_app_op_finalise_rel:
-  ∀v1 v1' v2 refs f s s'.
+  ∀v1 refs v1' v2 f s s'.
     finalise_cons v1 s.refs = SOME (v2,refs) ∧
     state_rel f s s' ∧
     v_rel f v1 v1' ⇒
@@ -1727,7 +1721,22 @@ Theorem do_app_op_finalise_rel:
       holes_unchanged_except f s'.refs refs' ∅ ∧
       holes_still_not_finalised f s'.refs refs'
 Proof
-  cheat
+  recInduct finalise_cons_ind
+  >> rw [] >> gvs [finalise_cons_def, v_rel_cases]
+  >-
+   (reverse $ gvs [AllCaseEqs ()]
+    >-
+     (gvs [state_rel_def, state_ref_rel_def]
+      >> last_x_assum drule
+      >> strip_tac
+      >> gvs [ref_rel_cases])
+    >> qrefinel [‘f’, ‘_’, ‘s'.refs’]
+    >> gvs [state_rel_def, state_ref_rel_def, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
+    >> last_x_assum $ drule
+    >> strip_tac
+    >> gvs [ref_rel_cases])
+  >> qexists ‘f’
+  >> gvs [state_rel_def, state_ref_rel_def, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
 QED
 
 val memop_finalise_tac =
