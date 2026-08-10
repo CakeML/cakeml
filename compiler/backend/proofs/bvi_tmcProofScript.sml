@@ -690,7 +690,7 @@ Definition hole_not_finalised_def:
 End
 
 Definition holes_still_not_finalised_def:
-  holes_still_not_finalised f refs refs' ⇔
+  holes_still_not_finalised f (refs :β |-> γ ref) (refs' :β |-> γ ref) ⇔
     ∀ptr.
       ptr ∉ FRANGE f ∧
       hole_not_finalised refs ptr ⇒
@@ -776,6 +776,29 @@ Proof
     >> first_x_assum drule_all
     >> strip_tac
     >> gvs [FLOOKUP_DEF])
+  >> strip_tac
+  >> gvs []
+QED
+
+Theorem holes_still_not_finalised_trans:
+  ∀f f' refs refs' refs'' changed.
+    holes_still_not_finalised f refs refs' ∧
+    holes_still_not_finalised f' refs' refs'' ∧
+    only_fresh f f' refs ∧
+    f ⊑ f' ⇒
+    holes_still_not_finalised f refs refs''
+Proof
+  rw [holes_still_not_finalised_def]
+  >> last_x_assum drule_all
+  >> strip_tac
+  >> last_x_assum $ drule_at Any
+  >> impl_tac
+  >-
+   (spose_not_then assume_tac
+    >> gvs [only_fresh_def]
+    >> first_x_assum drule_all
+    >> strip_tac
+    >> gvs [FLOOKUP_DEF, hole_not_finalised_def])
   >> strip_tac
   >> gvs []
 QED
@@ -1128,6 +1151,17 @@ Proof
   >> gvs []
 QED
 
+Theorem holes_still_not_finalised_frange_update:
+  ∀f p k v refs.
+    FLOOKUP f p = SOME k ⇒
+    holes_still_not_finalised f refs (refs⟨k ↦ v⟩)
+Proof
+  rw [holes_still_not_finalised_def, FLOOKUP_SIMP]
+  >> gvs [hole_not_finalised_def]
+  >> ‘k ≠ ptr’ by (CCONTR_TAC >> gvs [IN_FRANGE_FLOOKUP] >> metis_tac [])
+  >> gvs [FLOOKUP_SIMP]
+QED
+
 Theorem ref_rel_submap:
   ∀f f' v w. ref_rel f v w ∧ f ⊑ f' ⇒ ref_rel f' v w
 Proof
@@ -1335,10 +1369,11 @@ Theorem do_build_v_rel:
     ∃f' v' refs2'.
       do_build m' i parts refs2 = (v', refs2') ∧ v_rel f' v v' ∧
       state_ref_rel f' refs1' refs2' ∧ fmap_inj f' ∧ f ⊑ f' ∧
-      only_fresh f f' refs2 ∧ holes_unchanged_except f refs2 refs2' ∅
+      only_fresh f f' refs2 ∧ holes_unchanged_except f refs2 refs2' ∅ ∧
+      holes_still_not_finalised f refs2 refs2'
 Proof
   Induct_on ‘parts’ >> rw [bvlSemTheory.do_build_def]
-  >- (qexists ‘f’ >> gvs [only_fresh_refl, holes_unchanged_except_refl])
+  >- (qexists ‘f’ >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl])
   >> Cases_on ‘h’ >> gvs [bvlSemTheory.do_part_def]
   >- (last_x_assum (qspecl_then [‘m⦇i↦Block n (MAP m l)⦈’,‘i+1’,‘refs1’,‘v’,
         ‘refs1'’,‘f’,‘m'⦇i↦Block n (MAP m' l)⦈’,‘refs2’] mp_tac)
@@ -1384,8 +1419,22 @@ Proof
       >- (irule SUBMAP_TRANS >> first_assum $ irule_at Any >> gvs [])
       >- (irule only_fresh_trans >> first_assum $ irule_at Any
           >> first_assum $ irule_at Any >> gvs [SUBSET_DEF])
-      >> irule holes_unchanged_except_trans >> first_assum $ irule_at Any
-      >> first_assum $ irule_at Any >> gvs [])
+      >- (irule holes_unchanged_except_trans >> first_assum $ irule_at Any
+          >> first_assum $ irule_at Any >> gvs [])
+      >> irule holes_still_not_finalised_trans
+      >> first_assum $ irule_at $ Pos last
+      >> first_assum $ irule_at Any
+      >> gvs []
+      >-
+       (gvs [holes_still_not_finalised_def, hole_not_finalised_def]
+        >> rw []
+        >> gvs [FLOOKUP_SIMP]
+        >> IF_CASES_TAC
+        >- gvs [FLOOKUP_DEF]
+        >> gvs [])
+      >> irule holes_still_not_finalised_frange_update
+      >> qexists ‘src’
+      >> gvs [FLOOKUP_DEF])
   >> (last_x_assum (qspecl_then [‘m⦇i↦Word64 c⦈’,‘i+1’,‘refs1’,‘v’,
         ‘refs1'’,‘f’,‘m'⦇i↦Word64 c⦈’,‘refs2’] mp_tac)
       >> impl_tac
@@ -1400,7 +1449,8 @@ Theorem do_build_const_v_rel:
     ∃f' v' refs2'.
       do_build_const l refs2 = (v', refs2') ∧ v_rel f' v v' ∧
       state_ref_rel f' refs1' refs2' ∧ fmap_inj f' ∧ f ⊑ f' ∧
-      only_fresh f f' refs2 ∧ holes_unchanged_except f refs2 refs2' ∅
+      only_fresh f f' refs2 ∧ holes_unchanged_except f refs2 refs2' ∅ ∧
+      holes_still_not_finalised f refs2 refs2'
 Proof
   rw [bvlSemTheory.do_build_const_def]
   >> drule do_build_v_rel >> rpt (disch_then drule)
@@ -1421,7 +1471,8 @@ Theorem do_app_op_rel:
       state_rel f' t t' ∧
       f SUBMAP f' ∧
       only_fresh f f' s'.refs ∧
-      holes_unchanged_except f s'.refs t'.refs ∅
+      holes_unchanged_except f s'.refs t'.refs ∅ ∧
+      holes_still_not_finalised f s'.refs t'.refs
 Proof
   rw []
   >> Cases_on ‘op’
@@ -1442,7 +1493,7 @@ Resume do_app_op_rel[IntOp]:
    (gvs [do_app_def, do_app_aux_def, CaseEq "option"]
     >> imp_res_tac LIST_REL_LENGTH
     >> first_assum $ irule_at Any
-    >> gvs [v_rel_cases, only_fresh_refl, holes_unchanged_except_refl, NULL_LENGTH])
+    >> gvs [v_rel_cases, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl, NULL_LENGTH])
   >~ [‘LessConstSmall n’] >-
    (gvs [AllCaseEqs (), v_rel_cases, do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
     >> Cases_on ‘vs’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def]
@@ -1450,27 +1501,27 @@ Resume do_app_op_rel[IntOp]:
     >- (Cases_on ‘t'’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def, bvl_to_bvi_id, bvlSemTheory.Boolv_def])
     >> gvs [bvlSemTheory.Boolv_def, bvl_to_bvi_id]
     >> first_assum $ irule_at Any
-    >> gvs [only_fresh_refl, holes_unchanged_except_refl])
+    >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl])
   >> gvs [AllCaseEqs (), v_rel_cases, do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
   >> reverse $ Cases_on ‘vs’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def]
   >> Cases_on ‘t’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def]
   >> Cases_on ‘t'’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def, bvl_to_bvi_id, bvlSemTheory.Boolv_def]
   >> first_assum $ irule_at Any
-  >> gvs [only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
 QED
 
 Resume do_app_op_rel[WordOp]:
   gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def]
   >> drule_all do_word_app_v_rel >> strip_tac >> gvs []
   >> qexists ‘f’
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> drule do_word_app_v_rel_refl >> simp []
 QED
 
 Resume do_app_op_rel[Label]:
   gvs [AllCaseEqs (), v_rel_cases, do_app_def, do_app_aux_def]
   >> first_assum $ irule_at Any
-  >> gvs [only_fresh_refl, holes_unchanged_except_refl, state_rel_def, code_rel_def, domain_lookup]
+  >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl, state_rel_def, code_rel_def, domain_lookup]
   >> Cases_on ‘v’
   >> last_x_assum $ drule
   >> strip_tac
@@ -1489,11 +1540,11 @@ Resume do_app_op_rel[GlobOp]:
    (gvs [do_app_def, do_app_aux_def, AllCaseEqs (), v_rel_cases]
     >> ‘OPTREL (λp p'. FLOOKUP f p = SOME p') s.global s'.global’ by gvs [state_rel_def]
     >> gvs [OPTREL_def]
-    >> qexists ‘f’ >> gvs [only_fresh_refl, holes_unchanged_except_refl])
+    >> qexists ‘f’ >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl])
   >~ [‘do_app (GlobOp SetGlobalsPtr)’] >-
    (gvs [do_app_def, do_app_aux_def, AllCaseEqs (), v_rel_cases]
     >> qexists ‘f’
-    >> simp [only_fresh_refl, holes_unchanged_except_refl]
+    >> simp [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
     >> rpt conj_tac
     >- simp [bvlSemTheory.Unit_def]
     >> gvs [state_rel_def, OPTREL_def])
@@ -1507,7 +1558,7 @@ Resume do_app_op_rel[GlobOp]:
     >> first_x_assum drule >> strip_tac >> gvs [ref_rel_cases]
     >> ‘n < LENGTH ys’ by (imp_res_tac LIST_REL_LENGTH >> gvs [])
     >> ‘v_rel f (EL n xs) (EL n ys)’ by gvs [LIST_REL_EL_EQN]
-    >> qexists ‘f’ >> simp [only_fresh_refl, holes_unchanged_except_refl]
+    >> qexists ‘f’ >> simp [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
     >> qpat_x_assum ‘v_rel f (EL n xs) _’ mp_tac
     >> simp [Once v_rel_cases])
   (* SetGlobal *)
@@ -1528,6 +1579,8 @@ Resume do_app_op_rel[GlobOp]:
      >> irule EVERY2_LUPDATE_same >> simp [Once v_rel_cases] >> gvs [])
     ORELSE
     (irule holes_unchanged_except_frange_update >> first_assum $ irule_at Any)
+    ORELSE
+    (irule holes_still_not_finalised_frange_update >> first_assum $ irule_at Any)
     ORELSE
     simp [bvlSemTheory.Unit_def])
 QED
@@ -1562,7 +1615,7 @@ val memop_read_tac =
   qexists ‘f’
   >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
   >> drule_all state_ref_rel_lookup >> strip_tac
-  >> gvs [ref_rel_cases, bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [ref_rel_cases, bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> imp_res_tac LIST_REL_LENGTH >> gvs []
   >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
 
@@ -1573,7 +1626,7 @@ val memop_el_ref_tac =
   >> drule_all state_ref_rel_lookup >> strip_tac >> gvs [ref_rel_cases]
   >> qmatch_asmsub_rename_tac ‘LIST_REL (v_rel f) xs ws’
   >> imp_res_tac LIST_REL_LENGTH
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> ‘Num i'' < LENGTH xs’ by intLib.ARITH_TAC
   >> ‘v_rel f (EL (Num i'') xs) (EL (Num i'') ws)’ by gvs [LIST_REL_EL_EQN]
   >> pop_assum mp_tac >> simp [Once v_rel_cases];
@@ -1582,7 +1635,7 @@ val memop_el_ref_tac =
 val memop_el_block_tac =
   qexists ‘f’
   >> imp_res_tac LIST_REL_LENGTH
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> ‘v_rel f (EL (Num i'') xs'') (EL (Num i'') ys)’ by gvs [LIST_REL_EL_EQN]
   >> pop_assum mp_tac >> simp [Once v_rel_cases];
 
@@ -1600,6 +1653,7 @@ val memop_update_val_tac =
   >> rpt conj_tac
   >> (intLib.ARITH_TAC
       ORELSE (irule holes_unchanged_except_frange_update >> first_assum $ irule_at Any)
+      ORELSE (irule holes_still_not_finalised_frange_update >> first_assum $ irule_at Any)
       ORELSE (gvs [state_rel_def] >> irule state_ref_rel_update
               >> simp [ref_rel_cases] >> irule EVERY2_LUPDATE_same
               >> simp [Once v_rel_cases] >> gvs []));
@@ -1615,12 +1669,13 @@ val memop_update_byte_tac =
   >> rpt conj_tac
   >> (intLib.ARITH_TAC
       ORELSE (irule holes_unchanged_except_frange_update >> first_assum $ irule_at Any)
+      ORELSE (irule holes_still_not_finalised_frange_update >> first_assum $ irule_at Any)
       ORELSE (gvs [state_rel_def] >> irule state_ref_rel_update >> simp [ref_rel_cases]));
 
 (* Turning a stack of mutable conses into a Block (FinaliseCons). *)
 val memop_finalise_tac =
   qexists ‘f’
-  >> simp [only_fresh_refl, holes_unchanged_except_refl]
+  >> simp [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
   >> gvs [bviSemTheory.finalise_cons_def, AllCaseEqs ()]
   >> imp_res_tac state_ref_rel_lookup
@@ -1637,7 +1692,7 @@ val memop_mutblock_tac =
 val memop_configgc_tac =
   qexists ‘f’
   >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl,
-          bvlSemTheory.Unit_def];
+          holes_still_not_finalised_refl, bvlSemTheory.Unit_def];
 
 (* Comparing two ByteArray references without changing the state (StringCmp).
    Both byte arrays are equal on the two sides, so the comparison agrees. *)
@@ -1645,7 +1700,7 @@ val memop_strcmp_tac =
   qexists ‘f’
   >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
   >> imp_res_tac state_ref_rel_lookup
-  >> gvs [ref_rel_cases, bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [ref_rel_cases, bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
 
 Resume do_app_op_rel[MemOp]:
@@ -1717,8 +1772,10 @@ Resume do_app_op_rel[FFI]:
       >> simp [ref_rel_cases]
       >> first_assum $ irule_at Any)
   >> gvs [holes_unchanged_except_def, FLOOKUP_SIMP]
-  >> rw [] >> gvs [IN_FRANGE_FLOOKUP]
-  >> metis_tac []
+  >> conj_tac
+  >- (rw [] >> gvs [IN_FRANGE_FLOOKUP] >> metis_tac [])
+  >> irule holes_still_not_finalised_frange_update
+  >> first_assum $ irule_at Any
 QED
 
 (* Structural block operations with a fresh, state-preserving result
@@ -1727,7 +1784,7 @@ QED
 val block_simple_tac =
   qexists ‘f’
   >> rpt (qpat_x_assum ‘v_rel f _ _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases]))
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> imp_res_tac LIST_REL_LENGTH
   >> gvs [bvlSemTheory.Boolv_def]
   >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
@@ -1736,31 +1793,31 @@ val block_simple_tac =
 val block_el_block_tac =
   qexists ‘f’
   >> qpat_x_assum ‘v_rel f (Block _ _) _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> qmatch_asmsub_rename_tac ‘LIST_REL (v_rel f) aa bb’
   >> imp_res_tac LIST_REL_LENGTH >> gvs []
   >> ‘v_rel f (EL n aa) (EL n bb)’ by gvs [LIST_REL_EL_EQN]
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl];
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl];
 
 (* ElemAt reading an element out of a ValueArray reference. *)
 val block_el_ref_tac =
   qexists ‘f’
   >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
   >> qpat_x_assum ‘v_rel f (RefPtr _ _) _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> drule_all state_ref_rel_lookup >> strip_tac >> gvs [ref_rel_cases]
   >> qmatch_asmsub_rename_tac ‘LIST_REL (v_rel f) aa bb’
   >> imp_res_tac LIST_REL_LENGTH >> gvs []
   >> ‘v_rel f (EL n aa) (EL n bb)’ by gvs [LIST_REL_EL_EQN]
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl];
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl];
 
 (* ConsExtend: result is an append of (a prefix of) two related blocks. *)
 val block_consextend_tac =
   qexists ‘f’
   >> qpat_x_assum ‘v_rel f (Block _ _) _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> rpt (qpat_x_assum ‘v_rel f (Number _) _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases]))
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> imp_res_tac LIST_REL_LENGTH >> gvs []
   >> simp [Once v_rel_cases]
   >> irule EVERY2_APPEND_suff >> conj_tac
@@ -1772,14 +1829,14 @@ val block_fromlist_tac =
   >> qpat_x_assum ‘v_rel f (Number _) _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
   >> drule_all v_to_list_v_rel >> strip_tac
   >> imp_res_tac LIST_REL_LENGTH
-  >> gvs [only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> simp [Once v_rel_cases];
 
 (* ListAppend: append two lists. *)
 val block_listappend_tac =
   qexists ‘f’
   >> imp_res_tac v_to_list_v_rel
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> irule list_to_v_v_rel >> irule EVERY2_APPEND_suff >> gvs [];
 
 (* Equal: structural equality preserved by the renaming (uses do_eq_v_rel). *)
@@ -1790,7 +1847,7 @@ val block_equal_tac =
   >> qspecl_then [‘s.refs’,‘x1'’,‘x2'’,‘s'.refs’,‘y’,‘y'’] mp_tac (cj 1 do_eq_v_rel)
   >> impl_tac >- gvs []
   >> strip_tac
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
 
 (* EqualConst on a string constant (a compare-by-contents byte array). *)
@@ -1798,9 +1855,9 @@ val block_equalconst_ba_tac =
   qexists ‘f’
   >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
   >> qpat_x_assum ‘v_rel f (RefPtr _ _) _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> drule_all state_ref_rel_lookup >> strip_tac >> gvs [ref_rel_cases]
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
 
 (* Build: evaluate a constant, possibly allocating byte arrays for strings. *)
@@ -1821,7 +1878,7 @@ val block_boolnot_tac =
   >> qpat_x_assum ‘v_rel f _ y’ mp_tac
   >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def]
   >> strip_tac
-  >> gvs [bvlSemTheory.Boolv_def, bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvlSemTheory.Boolv_def, bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
 
 Resume do_app_op_rel[BlockOp]:
@@ -1957,7 +2014,7 @@ Resume do_app_op_rel[Install]:
            (mp_tac o ONCE_REWRITE_RULE [arithmeticTheory.MULT_COMM])
       >> simp [])
   >- simp [only_fresh_refl]
-  >> simp [holes_unchanged_except_refl]
+  >> simp [holes_unchanged_except_refl, holes_still_not_finalised_refl]
 QED
 
 Finalise do_app_op_rel;
@@ -2886,7 +2943,7 @@ Resume evaluate_rewrite_tmc[op_non_opt]:
   >> conj_asm1_tac
   >- imp_res_tac holes_unchanged_except_trans
   >> conj_asm1_tac
-  >- cheat (* needs to be a conclusion of do_app_op_rel *)
+  >- imp_res_tac holes_still_not_finalised_trans
   >> rw []
   >- gvs [rewrite_wrapper_def]
   >> gvs [rewrite_worker_def]
@@ -3980,29 +4037,6 @@ Proof
   >- gvs [bvi_to_cb_def, call_to_cb_def, CaseEq "prod"]
   >> gvs [bvi_to_cb_def, dest_Cons_def, AllCaseEqs ()]
   >> imp_res_tac bvi_to_cb_aux_no_mutcons
-  >> gvs []
-QED
-
-Theorem holes_still_not_finalised_trans:
-  ∀f f' refs refs' refs'' changed.
-    holes_still_not_finalised f refs refs' ∧
-    holes_still_not_finalised f' refs' refs'' ∧
-    only_fresh f f' refs ∧
-    f ⊑ f' ⇒
-    holes_still_not_finalised f refs refs''
-Proof
-  rw [holes_still_not_finalised_def]
-  >> last_x_assum drule_all
-  >> strip_tac
-  >> last_x_assum $ drule_at Any
-  >> impl_tac
-  >-
-   (spose_not_then assume_tac
-    >> gvs [only_fresh_def]
-    >> first_x_assum drule_all
-    >> strip_tac
-    >> gvs [FLOOKUP_DEF, hole_not_finalised_def])
-  >> strip_tac
   >> gvs []
 QED
 
