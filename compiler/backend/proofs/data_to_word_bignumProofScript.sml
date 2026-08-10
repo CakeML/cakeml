@@ -1162,7 +1162,7 @@ Theorem AnyArith_thm:
        evaluate (AnyArith_code c,t) = (q,r) /\
        if q = SOME NotEnoughSpace then
          r.ffi = t.ffi /\
-         (c.gc_kind <> None ==>
+         (c.gc_kind <> None ∧ no_thunks_in_refs s.refs ==>
             let il = bignum_size s.limits.arch_64_bit i in
             let jl = bignum_size s.limits.arch_64_bit j in
               il + jl <= 2 ** c.len_size ==>
@@ -2197,7 +2197,7 @@ Theorem eval_Call_Arith_max_stack_NONE:
                 [adjust_var a1; adjust_var a2] NONE),t)) = (q,r') ∧
         (q = SOME NotEnoughSpace ⇒
          r'.ffi = s.ffi /\
-         (c.gc_kind <> None ==>
+         (c.gc_kind <> None ∧ no_thunks_in_refs s.refs ==>
             let il = bignum_size s.limits.arch_64_bit i1 in
             let jl = bignum_size s.limits.arch_64_bit i2 in
               il + jl <= 2 ** c.len_size ==>
@@ -2477,7 +2477,7 @@ Theorem eval_Call_Arith:
         option_le r'.stack_max max /\
         (q = SOME NotEnoughSpace ⇒
          r'.ffi = s.ffi /\
-         (c.gc_kind <> None ==>
+         (c.gc_kind <> None ∧ no_thunks_in_refs s.refs ==>
             let il = bignum_size s.limits.arch_64_bit i1 in
             let jl = bignum_size s.limits.arch_64_bit i2 in
               il + jl <= 2 ** c.len_size ==>

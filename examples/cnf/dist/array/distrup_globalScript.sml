@@ -32,8 +32,7 @@ Inductive step:
   step st (Act id (Import n c)) (st with procs := st.procs |+ (id,lst'))
 [~events_ok_Produce:]
   FLOOKUP st.procs id = SOME(SOME vlst) ∧
-  events_ok (SOME vlst) events' [Lrup n c hints] (SOME vlst') ∧
-  MEM c st.facts
+  events_ok (SOME vlst) events' [Lrup n c hints] (SOME vlst')
   ⇒
   step st (Act id (Lrup n c hints)) (st with <|procs := st.procs |+ (id,SOME vlst');
                                            facts := c::st.facts|>)
@@ -155,25 +154,6 @@ Proof
           rw[OPTREL_SOME] >>
           rw[] >>
           ‘cst.procs |+ (id,NONE) = cst.procs’ suffices_by simp[] >>
-          rw[fmap_eq_flookup,FLOOKUP_UPDATE] >> rw[] >> rw[])
-      >- (irule_at (Pos hd) step_import >>
-          gvs[state_rel_def] >>
-          drule_all fmap_rel_FLOOKUP_imp2 >>
-          rw[OPTREL_SOME] >>
-          rw[] >>
-          irule fmap_rel_FUPDATE_I >>
-          simp[] >>
-          drule_all_then strip_assume_tac check_distrup_list >>
-          gvs[distrupTheory.check_distrup_def] >>
-          conj_tac >- metis_tac[] >>
-          irule fmap_rel_fdomsub >>
-          simp[])
-      >- (irule_at (Pos hd) step_spin >>
-          gvs[state_rel_def] >>
-          drule_all fmap_rel_FLOOKUP_imp2 >>
-          rw[OPTREL_SOME] >>
-          rw[] >>
-          ‘cst.procs |+ (id,NONE) = cst.procs’ suffices_by simp[] >>
           rw[fmap_eq_flookup,FLOOKUP_UPDATE] >> rw[] >> rw[]))
   >~ [‘events_ok _ _ [Lrup _ _ _] (SOME _)’]
   >- (qhdtm_x_assum ‘events_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[events_ok_cases] >>
@@ -193,42 +173,11 @@ Proof
           simp[] >>
           conj_tac >- metis_tac[] >>
           irule fmap_rel_fdomsub >>
-          simp[])
-      >- (irule_at (Pos hd) step_produce_succeed >>
-          gvs[state_rel_def] >>
-          drule_all fmap_rel_FLOOKUP_imp2 >>
-          rw[OPTREL_SOME] >>
-          simp[] >>
-          drule_all_then strip_assume_tac check_distrup_list >>
-          gvs[distrupTheory.check_distrup_def] >>
-          conj_tac
-          >- (drule ccnfTheory.is_rup_sound >>
-              rw[sat_infer_def]) >>
-          irule fmap_rel_FUPDATE_I >>
-          simp[] >>
-          conj_tac >- metis_tac[] >>
-          irule fmap_rel_fdomsub >>
           simp[]))
   >~ [‘events_ok _ _ [Lrup _ _ _] NONE’]
   >- (qhdtm_x_assum ‘events_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[events_ok_cases] >>
       gvs[events_ok_NIL] >>
       rw[act_rel_cases,label_rel_cases]
-      >- (irule_at (Pos hd) step_produce_fail >>
-          gvs[state_rel_def] >>
-          drule_all fmap_rel_FLOOKUP_imp2 >>
-          rw[OPTREL_SOME] >>
-          simp[] >>
-          irule fmap_rel_FUPDATE_I >>
-          simp[] >>
-          irule fmap_rel_fdomsub >>
-          simp[])
-      >- (irule_at (Pos hd) step_spin >>
-          gvs[state_rel_def] >>
-          drule_all fmap_rel_FLOOKUP_imp2 >>
-          rw[OPTREL_SOME] >>
-          simp[] >>
-          ‘cst.procs |+ (id,NONE) = cst.procs’ suffices_by simp[] >>
-          rw[fmap_eq_flookup,FLOOKUP_UPDATE] >> rw[] >> rw[])
       >- (irule_at (Pos hd) step_produce_fail >>
           gvs[state_rel_def] >>
           drule_all fmap_rel_FLOOKUP_imp2 >>
@@ -294,26 +243,6 @@ Proof
   qhdtm_x_assum ‘events_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[events_ok_cases] >>
   gvs[events_ok_NIL] >>
   rw[act_rel_cases,label_rel_cases]
-  >- (irule_at (Pos hd) step_delete >>
-      gvs[state_rel_def] >>
-      drule_all fmap_rel_FLOOKUP_imp2 >>
-      rw[OPTREL_SOME] >>
-      simp[] >>
-      drule_all_then strip_assume_tac check_distrup_list >>
-      gvs[distrupTheory.check_distrup_def] >>
-      irule fmap_rel_FUPDATE_I >>
-      simp[] >>
-      gvs[delete_ids_eq_DRESTRICT] >>
-      conj_tac >- metis_tac[] >>
-      irule fmap_rel_fdomsub >>
-      simp[])
-  >- (irule_at (Pos hd) step_spin >>
-      gvs[state_rel_def] >>
-      drule_all fmap_rel_FLOOKUP_imp2 >>
-      rw[OPTREL_SOME] >>
-      simp[] >>
-      ‘cst.procs |+ (id,NONE) = cst.procs’ suffices_by simp[] >>
-      rw[fmap_eq_flookup,FLOOKUP_UPDATE] >> rw[] >> rw[])
   >- (irule_at (Pos hd) step_delete >>
       gvs[state_rel_def] >>
       drule_all fmap_rel_FLOOKUP_imp2 >>

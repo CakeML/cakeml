@@ -13,7 +13,7 @@ Libs
 
 val hello_io_events_def =
   new_specification("hello_io_events_def",["hello_io_events"],
-  hello_semantics |> Q.GENL[`cl`,`fs`]
+  hello_semantics |> Q.INST [`ext`|->`no_ext`] |> Q.GENL[`cl`,`fs`]
   |> SIMP_RULE std_ss [GSYM RIGHT_EXISTS_IMP_THM]
   |> SIMP_RULE std_ss [SKOLEM_THM]);
 
