@@ -827,10 +827,10 @@ Theorem semantics_compiler64_prog:
   ∃io_events.
     semantics_dec_list
       (init_state
-        (basis_ffi cl fs) with
+        (basis_ffi ext cl fs) with
          eval_state := SOME (EvalDecs (eval_state_var with env_id_counter := (0,0,1))))
       init_env compiler64_prog (Terminate Success io_events) ∧
-    extract_fs fs io_events =
+    extract_fs ext (cl,fs) io_events =
       SOME (full_compile_64 (TL cl) (get_stdin fs) fs)
 Proof
   strip_tac

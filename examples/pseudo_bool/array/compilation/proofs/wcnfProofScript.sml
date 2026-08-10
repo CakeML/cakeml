@@ -11,7 +11,7 @@ Libs
   preamble
 
 val cake_pb_wcnf_io_events_def = new_specification("cake_pb_wcnf_io_events_def",["cake_pb_wcnf_io_events"],
-  main_semantics |> Q.GENL[`cl`,`fs`]
+  main_semantics |> Q.GENL[`ext`,`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (cake_pb_wcnf_sem,cake_pb_wcnf_output) = cake_pb_wcnf_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
@@ -65,11 +65,11 @@ End
 
 Theorem machine_code_sound:
   cake_pb_wcnf_run cl fs mc ms ⇒
-  machine_sem mc (basis_ffi cl fs) ms ⊆
+  machine_sem mc (basis_ffi ext cl fs) ms ⊆
     extend_with_resource_limit
-      {Terminate Success (cake_pb_wcnf_io_events cl fs)} ∧
+      {Terminate Success (cake_pb_wcnf_io_events ext cl fs)} ∧
   ∃out err.
-    extract_fs fs (cake_pb_wcnf_io_events cl fs) =
+    extract_fs ext (cl,fs) (cake_pb_wcnf_io_events ext cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
     (out ≠ «» ⇒
       (
@@ -98,7 +98,7 @@ Proof
   drule_at (Pos last) cake_pb_wcnf_compiled_thm>>
   simp[AND_IMP_INTRO]>>
   disch_then drule>>
-  disch_then (qspecl_then [`ms`,`mc`,`data_sp`,`cbspace`] mp_tac)>>
+  disch_then (qspecl_then [`ms`,`mc`,`ext`,`data_sp`,`cbspace`] mp_tac)>>
   simp[]>> strip_tac>>
   fs[main_sem_def]>>
   every_case_tac>>fs[]
@@ -182,7 +182,7 @@ QED
 Theorem machine_code_sound_equiopt:
   cake_pb_wcnf_run cl fs mc ms ⇒
   ∃out err.
-    extract_fs fs (cake_pb_wcnf_io_events cl fs) =
+    extract_fs ext (cl,fs) (cake_pb_wcnf_io_events ext cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
     (
     LENGTH cl = 4 ∧
@@ -195,6 +195,7 @@ Theorem machine_code_sound_equiopt:
 Proof
   rw[]>>
   drule machine_code_sound>>rw[]>>
+  first_x_assum (qspec_then `ext` mp_tac)>>rw[]>>
   first_x_assum (irule_at Any)>>
   rw[]>>drule isSuffix_exists>>
   pop_assum kall_tac>>
