@@ -131,9 +131,9 @@ QED
 
 Theorem option_dec'_eq_OPTION_MAP:
   ∀f t. option_dec' f t =
-	case option_dec' I t of
-	  NONE => NONE
-	| SOME res => SOME (f res)
+  case option_dec' I t of
+    NONE => NONE
+  | SOME res => SOME (f res)
 Proof
   Cases_on ‘t’ \\ fs [option_dec'_def]
   \\ rw[]
