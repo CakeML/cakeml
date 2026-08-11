@@ -58,9 +58,11 @@ Definition finalise_cons_def:
   (finalise_cons (RefPtr b ptr) refs =
     case FLOOKUP refs ptr of
     | SOME (MutBlock tag finalised l c r) =>
-        (case finalise_cons c (refs \\ ptr) of
-         | SOME (c',refs') => SOME (Block tag (l ++ [c'] ++ r),refs'⟨ptr ↦ MutBlock tag T l c r⟩)
-         | NONE => NONE)
+        if ~finalised then
+          (case finalise_cons c (refs \\ ptr) of
+           | SOME (c',refs') => SOME (Block tag (l ++ [c'] ++ r),refs'⟨ptr ↦ MutBlock tag T l c r⟩)
+           | NONE => NONE)
+        else NONE
     | SOME res => SOME (RefPtr b ptr,refs)
     | NONE => NONE) ∧
   (finalise_cons v refs = SOME (v,refs))

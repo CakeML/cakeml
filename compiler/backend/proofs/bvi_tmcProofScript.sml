@@ -1059,6 +1059,7 @@ Definition mb_rel_def:
      case FLOOKUP refs ptr of
      | SOME (MutBlock tag' fin' left' child' right') =>
          (tag = tag' ∧
+          fin' = F ∧
           ∃left child right.
             xs = left ++ [child] ++ right ∧
             LIST_REL (v_rel f) left left' ∧
@@ -1077,11 +1078,11 @@ Termination
 End
 
 Theorem mb_rel_cons:
-  ∀refs_old refs ptr f tag fin left left' v v' right right'.
+  ∀refs_old refs ptr f tag left left' v v' right right'.
     mb_rel f refs_old (refs \\ ptr) v v' ∧
     LIST_REL (v_rel f) left left' ∧
     LIST_REL (v_rel f) right right' ∧
-    FLOOKUP refs ptr = SOME (MutBlock tag fin left' v' right') ∧
+    FLOOKUP refs ptr = SOME (MutBlock tag F left' v' right') ∧
     ptr ∉ FRANGE f ∧
     ptr ∉ FDOM refs_old ⇒
     mb_rel f refs_old refs (Block tag (left ++ [v] ++ right)) (RefPtr F ptr)
@@ -1093,9 +1094,9 @@ Proof
 QED
 
 Theorem mb_rel_del:
-  ∀f refs_old refs v1 v2 ptr tag fin left ptr' right.
+  ∀f refs_old refs v1 v2 ptr tag left ptr' right.
     mb_rel f refs_old refs v1 v2 ∧
-    FLOOKUP refs ptr = SOME (MutBlock tag fin left (RefPtr F ptr') right) ∧
+    FLOOKUP refs ptr = SOME (MutBlock tag F left (RefPtr F ptr') right) ∧
     ptr' ∉ FDOM refs ∧
     ptr' ∉ FDOM refs_old ∧
     ptr' ∉ FRANGE f ⇒
@@ -3839,7 +3840,7 @@ Proof
         >> gvs [rw_block_args]
         >> irule_at Any mb_rel_cons
         >> drule mb_rel_del
-        >> disch_then $ qspecl_then [‘hole_ptr’, ‘tag'’, ‘F’, ‘left'’, ‘LEAST ptr. ptr ∉ FDOM refs’, ‘right'’] mp_tac
+        >> disch_then $ qspecl_then [‘hole_ptr’, ‘tag'’, ‘left'’, ‘LEAST ptr. ptr ∉ FDOM refs’, ‘right'’] mp_tac
         >> impl_tac
         >-
          (conj_tac
@@ -4036,7 +4037,7 @@ Proof
       >> imp_res_tac wf_vars_list_rel
       >> gvs [MAP_REVERSE]
       >> drule mb_rel_del
-      >> disch_then $ qspecl_then [‘hole_ptr’, ‘tag'’, ‘F’, ‘left'’, ‘LEAST ptr. ptr ∉ FDOM s'.refs’, ‘right'’] mp_tac
+      >> disch_then $ qspecl_then [‘hole_ptr’, ‘tag'’, ‘left'’, ‘LEAST ptr. ptr ∉ FDOM s'.refs’, ‘right'’] mp_tac
       >> impl_tac
       >-
        (conj_tac
