@@ -1769,6 +1769,22 @@ Resume do_app_op_rel[MemOp]:
             memop_finalise_tac >> NO_TAC, memop_finalise_block_tac >> NO_TAC]
 QED
 
+Theorem dest_thunk_rel:
+  ∀v v' refs refs' f.
+    bvlSem$dest_thunk v refs = NotThunk ∧
+    v_rel f v v' ∧
+    state_ref_rel f refs refs' ⇒
+    bvlSem$dest_thunk v' refs' = NotThunk
+Proof
+  rw []
+  >> gvs [v_rel_cases, state_ref_rel_def, bvlSemTheory.dest_thunk_def]
+  >> Cases_on ‘FLOOKUP refs n’ >- gvs [FLOOKUP_DEF]
+  >> first_x_assum drule
+  >> strip_tac
+  >> gvs [FLOOKUP_DEF]
+  >> rpt CASE_TAC >> gvs [ref_rel_cases]
+QED
+
 Resume do_app_op_rel[ThunkOp]:
   Cases_on ‘t’
   >> gvs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def, AllCaseEqs ()]
@@ -1785,7 +1801,10 @@ Resume do_app_op_rel[ThunkOp]:
     >> simp [bvl_to_bvi_refs] >> qexists ‘f’
     >> simp [only_fresh_refl, bvlSemTheory.Unit_def]
     >> rpt conj_tac
-    >- cheat
+    >-
+     (gvs [bvlSemTheory.bad_thunk_update_def]
+      >> rw []
+      >> imp_res_tac dest_thunk_rel)
     >- simp [Once v_rel_cases]
     >- (gvs [state_rel_def] >> irule state_ref_rel_update >> simp [ref_rel_cases])
     >-
@@ -1810,7 +1829,9 @@ Resume do_app_op_rel[ThunkOp]:
       >> simp [SUBMAP_FUPDATE_FLOOKUP, FLOOKUP_DEF]
       >> gvs [state_ref_rel_def, fresh_ptr_fresh])
   >> strip_tac >> simp [Once v_rel_cases]
-  >> cheat
+  >> gvs [bvlSemTheory.bad_thunk_update_def]
+      >> rw []
+  >> imp_res_tac dest_thunk_rel
 QED
 
 Resume do_app_op_rel[FFI]:
