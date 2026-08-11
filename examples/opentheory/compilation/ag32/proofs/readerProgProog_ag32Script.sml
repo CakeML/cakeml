@@ -15,7 +15,7 @@ val _ = numLib.prefer_num ();
 
 val reader_io_events_def =
   new_specification ("reader_io_events_def", ["reader_io_events"],
-  reader_semantics |> Q.GENL [`cl`,`fs`]
+  reader_semantics |> Q.INST [`ext`|->`no_ext`] |> Q.GENL [`cl`,`fs`]
   |> SIMP_RULE std_ss [GSYM RIGHT_EXISTS_IMP_THM]
   |> SIMP_RULE std_ss [SKOLEM_THM]);
 

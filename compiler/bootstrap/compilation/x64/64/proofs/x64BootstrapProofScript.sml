@@ -3,6 +3,7 @@
 *)
 Theory x64BootstrapProof
 Ancestors
+  holLightConsistency
   semanticsProps backendProof x64_configProof compiler64Prog
   x64Bootstrap replProof candle_prover_semantics mlstring
 Libs
@@ -59,7 +60,7 @@ val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events
   |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_init_eval_state_def,the_EvalDecs_def]
   |> SIMP_RULE (srw_ss()) [GSYM source_evalProofTheory.mk_init_eval_state_def
                            |> SIMP_RULE (srw_ss()) []]
-  |> Q.GENL[`cl`,`fs`]
+  |> Q.GENL[`ext`,`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (cake_sem,cake_output) = cake_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
@@ -101,11 +102,11 @@ Theorem mk_init_eval_state_lemma =
         GSYM compiler_inst_def];
 
 Overload init_eval_state_for =
-  “λcl fs. (init_state (basis_ffi cl fs) with
+  “λext cl fs. (init_state (basis_ffi ext cl fs) with
         eval_state := SOME (mk_init_eval_state compiler_instance))”
 
 Theorem candle_soundness:
-  res ∈ semantics_prog (init_eval_state_for cl fs) init_env (candle_code ++ prog) ∧
+  res ∈ semantics_prog (init_eval_state_for ext cl fs) init_env (candle_code ++ prog) ∧
   EVERY safe_dec prog ∧ prog_syntax_ok candle_code ∧ res ≠ Fail
   ⇒
   ∀e. e ∈ events_of res ⇒ ok_event e
@@ -135,7 +136,7 @@ Overload basis_init_ok =
 
 Theorem repl_not_fail_thm:
   has_repl_flag (TL cl) ∧ basis_init_ok cl fs ⇒
-  Fail ∉ semantics_prog (init_eval_state_for cl fs) init_env compiler64_prog
+  Fail ∉ semantics_prog (init_eval_state_for ext cl fs) init_env compiler64_prog
 Proof
   rw [IN_DEF] \\ irule repl_not_fail \\ fs []
   \\ simp [compiler64_compiled]
@@ -148,7 +149,7 @@ val compile_correct_applied2 =
   |> Q.INST [‘ev’|->‘SOME compiler_instance’]
   |> SIMP_RULE (srw_ss()) [add_eval_state_def,opt_eval_config_wf_def,
       x64_configProofTheory.x64_backend_config_ok,compiler_instance_lemma]
-  |> Q.GEN ‘ffi’ |> Q.ISPEC ‘basis_ffi cl fs’
+  |> Q.GEN ‘ffi’ |> Q.ISPEC ‘basis_ffi ext cl fs’
 
 Definition repl_ready_to_run_def:
   repl_ready_to_run cl fs (mc,ms) ⇔
@@ -166,11 +167,11 @@ End
 Overload machine_sem = “λffi (mc,ms). targetSem$machine_sem mc ffi ms”
 
 Theorem compile_correct_applied:
-  Fail ∉ semantics_prog (init_eval_state_for cl fs) init_env compiler64_prog ∧
+  Fail ∉ semantics_prog (init_eval_state_for ext cl fs) init_env compiler64_prog ∧
   repl_ready_to_run cl fs ms ⇒
-  machine_sem (basis_ffi cl fs) ms ⊆
+  machine_sem (basis_ffi ext cl fs) ms ⊆
     extend_with_resource_limit
-      (semantics_prog (init_eval_state_for cl fs) init_env compiler64_prog)
+      (semantics_prog (init_eval_state_for ext cl fs) init_env compiler64_prog)
 Proof
   PairCases_on ‘ms’ \\ rw [IN_DEF,repl_ready_to_run_def]
   \\ irule compile_correct_applied2 \\ fs []
@@ -305,13 +306,14 @@ Proof
 QED
 
 Theorem candle_top_level_soundness:
-  repl_ready_to_run cl fs ms ∧ res ∈ machine_sem (basis_ffi cl fs) ms ⇒
+  repl_ready_to_run cl fs ms ∧ res ∈ machine_sem (basis_ffi ext cl fs) ms ⇒
   res ≠ Fail ∧
   ∀e. e ∈ events_of res ⇒ ok_event e
 Proof
   strip_tac
   \\ drule_all_then strip_assume_tac repl_ready_to_run_imp
   \\ imp_res_tac repl_not_fail_thm
+  \\ first_x_assum $ qspec_then ‘ext’ assume_tac
   \\ drule_all compile_correct_applied
   \\ strip_tac
   \\ ‘res ≠ Fail’ by
@@ -324,6 +326,91 @@ Proof
   \\ fs [prog_syntax_ok_candle_code] \\ CCONTR_TAC \\ fs []
 QED
 
+(* Every byte string the kernel writes on its own channel decodes back to the
+   theorem and the context it was proved in, and that context extends the
+   initial one. So a reader of the channel can decide the shape of the context
+   and, when it is one of the shapes a HOL Light session builds, conclude that
+   the theory the theorem lives in is consistent. *)
+
+Theorem candle_top_level_consistency_axiom_free:
+  repl_ready_to_run cl fs ms ∧ res ∈ machine_sem (basis_ffi ext cl fs) ms ⇒
+  res ≠ Fail ∧
+  ∀out y. IO_event (ExtCall kernel_ffi) out y ∈ events_of res ⇒
+    ∃ctxt th.
+      THM ctxt th ∧ thm2bytes ctxt th = out ∧
+      string_to_thm (bytes2str out) = (ctxt,th) ∧
+      ctxt extends init_ctxt ∧
+      (axiom_free ctxt ⇒ consistent_theory (thyof ctxt))
+Proof
+  strip_tac
+  \\ drule_all candle_top_level_soundness
+  \\ strip_tac \\ simp []
+  \\ rpt strip_tac
+  \\ first_x_assum drule
+  \\ simp [candle_kernel_valsTheory.ok_event_def]
+  \\ strip_tac
+  \\ first_assum $ irule_at Any
+  \\ gvs [candle_kernel_valsTheory.bytes2str_thm2bytes,
+          print_thmTheory.string_to_thm_thm_to_string]
+  \\ strip_tac
+  \\ irule init_light_consistent \\ gs []
+QED
+
+Theorem candle_top_level_consistency_fhol_light:
+  repl_ready_to_run cl fs ms ∧ res ∈ machine_sem (basis_ffi ext cl fs) ms ⇒
+  res ≠ Fail ∧
+  ∀out y. IO_event (ExtCall kernel_ffi) out y ∈ events_of res ⇒
+    ∃ctxt th.
+      THM ctxt th ∧ thm2bytes ctxt th = out ∧
+      string_to_thm (bytes2str out) = (ctxt,th) ∧
+      ctxt extends init_ctxt ∧
+      (fhol_light_ctxt ctxt ⇒ consistent_theory (thyof ctxt))
+Proof
+  strip_tac
+  \\ drule_all candle_top_level_soundness
+  \\ strip_tac \\ simp []
+  \\ rpt strip_tac
+  \\ first_x_assum drule
+  \\ simp [candle_kernel_valsTheory.ok_event_def]
+  \\ strip_tac
+  \\ first_assum $ irule_at Any
+  \\ gvs [candle_kernel_valsTheory.bytes2str_thm2bytes,
+          print_thmTheory.string_to_thm_thm_to_string]
+  \\ strip_tac
+  \\ irule fhol_light_consistent \\ gs []
+QED
+
+Theorem candle_top_level_consistency_hol_light:
+  repl_ready_to_run cl fs ms ∧ res ∈ machine_sem (basis_ffi ext cl fs) ms ⇒
+  res ≠ Fail ∧
+  ∀out y. IO_event (ExtCall kernel_ffi) out y ∈ events_of res ⇒
+    ∃ctxt th.
+      THM ctxt th ∧ thm2bytes ctxt th = out ∧
+      string_to_thm (bytes2str out) = (ctxt,th) ∧
+      ctxt extends init_ctxt ∧
+      (hol_light_ctxt ctxt ∧ (∃inf. is_infinite V_mem inf) ⇒
+         consistent_theory (thyof ctxt))
+Proof
+  strip_tac
+  \\ drule_all candle_top_level_soundness
+  \\ strip_tac \\ simp []
+  \\ rpt strip_tac
+  \\ first_x_assum drule
+  \\ simp [candle_kernel_valsTheory.ok_event_def]
+  \\ strip_tac
+  \\ first_assum $ irule_at Any
+  \\ gvs [candle_kernel_valsTheory.bytes2str_thm2bytes,
+          print_thmTheory.string_to_thm_thm_to_string]
+  (* keep the existential intact: hol_light_consistent's hypothesis is where
+     the set-theory universe type gets fixed, and the conclusion does not
+     mention it *)
+  \\ disch_then (CONJUNCTS_THEN assume_tac)
+  \\ drule_then irule hol_light_consistent \\ gs []
+QED
+
 val _ = print "Checking that no cheats were used in the proofs.\n";
 val _ = candle_top_level_soundness |> check_thm;
+val _ = candle_top_level_consistency_axiom_free |> check_thm;
+val _ = candle_top_level_consistency_fhol_light |> check_thm;
+val _ = candle_top_level_consistency_hol_light |> check_thm;
 val _ = cake_compiled_thm |> check_thm;
