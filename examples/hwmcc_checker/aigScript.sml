@@ -313,7 +313,7 @@ Definition is_stratified_def:
     ∀lat lit is ls' ls.
       lat ∈ latches ∧ reset lat = SOME lit ∧
       (∀l. l ∈ { l' | lt l' lat } ⇒ (ls' l ⇔ ls l)) ⇒
-      eval_lit (is,ls') circ lit ⇔ eval_lit (is,ls) circ lit
+      (eval_lit (is,ls') circ lit ⇔ eval_lit (is,ls) circ lit)
 End
 
 Definition patch_def:

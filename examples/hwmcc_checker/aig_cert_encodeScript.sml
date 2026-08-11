@@ -4,7 +4,9 @@
 Theory aig_cert_encode
 Ancestors
   aig aig_cert
-  topological_sort  (* todo maybe should move; is for stratification *)
+  (* TODO maybe should move; is for stratification *)
+  mllist (* for mapPartial_thm *)
+  topological_sort
 Libs
   preamble
 
@@ -2634,6 +2636,7 @@ Proof
   >> last_x_assum drule >> simp []
 QED
 
+(* Computes the latches a literal depends on. *)
 Definition latch_deps_def:
   (latch_deps (circ: ('a, 'i, 'l) circuit) lit =
    let (v, _) = lit in
@@ -2650,11 +2653,86 @@ Termination
   >> drule circ_lookup_LENGTH_lt >> simp []
 End
 
+Theorem latch_deps_cons_name_eq[local]:
+  n' ≠ n ⇒
+  latch_deps ((n',ins)::circ) (Name n,b) = latch_deps circ (Name n,b)
+Proof
+  simp [Once latch_deps_def, SimpLHS]
+  >> simp [Once latch_deps_def, SimpRHS]
+  >> simp [circ_lookup_def]
+QED
+
+Theorem latch_deps_eval_eq:
+  (∀lit.
+     (∀l. MEM l (latch_deps circ lit) ⇒ (ls' l ⇔ ls l)) ⇒
+     (eval_lit (is,ls') circ lit ⇔ eval_lit (is,ls) circ lit)) ∧
+  (∀lit n b.
+    (∀l. MEM l (latch_deps circ lit) ⇒ (ls' l ⇔ ls l)) ∧
+    lit = (Name n, b) ⇒
+    (eval_circuit (is,ls') circ n ⇔ eval_circuit (is,ls) circ n))
+Proof
+  Induct_on ‘circ’ >> rw []
+  >~ [‘eval_circuit _ (_::_) _ ⇔ _’] >- suspend "eval_circuit_step"
+  (* eval_lit base and step case *)
+  >> namedCases_on ‘lit’ ["v b"]
+  >- (
+    reverse $ namedCases_on ‘v’ ["n", "b'"]
+    >> simp [eval_circuit_def]
+    >> Cases_on ‘b'’
+    >> fs [eval_circuit_def, Once latch_deps_def]
+  )
+  >> reverse $ namedCases_on ‘v’ ["n", "b'"]
+  >-
+   (Cases_on ‘b'’
+    >> simp [eval_circuit_def]
+    >> fs [eval_circuit_def, Once latch_deps_def])
+  >> simp [eval_circuit_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> IF_CASES_TAC >> gvs []
+  >- cheat
+  >> qsuff_tac ‘eval_circuit (is,ls') circ n ⇔ eval_circuit (is,ls) circ n’
+  >- metis_tac []
+  >> drule_then assume_tac $
+       INST_TYPE [“:γ” |-> “:β”, “:β” |-> “:γ”] latch_deps_cons_name_eq
+  >> fs []
+  >> qpat_x_assum ‘∀_ _. _ ⇒ (eval_circuit _ _ _ ⇔ _)’ drule
+  >> simp []
+QED
+
+Resume latch_deps_eval_eq[eval_circuit_step]:
+  cheat
+QED
+
+Finalise latch_deps_eval_eq[local]
+
+Theorem latch_deps_eval_lit_eq[local] = cj 1 latch_deps_eval_eq
+Theorem latch_deps_eval_circuit_eq[local] =
+  cj 2 latch_deps_eval_eq |> SRULE []  (* rewrite _ = (_, _) away *)
+
+(*
+(* Computes the inputs a literal depends on. *)
+Definition input_deps_def:
+  (input_deps (circ: ('a, 'i, 'l) circuit) lit =
+   let (v, _) = lit in
+     case v of
+     | Base (Input i) => [i]
+     | Name a =>
+         (case circ_lookup circ a of
+          | NONE => []
+          | SOME (lits, rest) =>
+            FLAT (MAP (input_deps rest) lits))
+     | _ => [])
+Termination
+  wf_rel_tac ‘measure (LENGTH o FST)’ >> rw []
+  >> drule circ_lookup_LENGTH_lt >> simp []
+End
+*)
+
 (* Returns the tuple (latch, latch dependencies), if latch has a defined reset
    function. The tuple can be interpreted as a set of edges from a latch to
    each of the dependencies of its reset function. *)
 Definition reset_edges_def:
-  reset_edge
+  reset_edges
     (circ: ('a, 'i, 'l) circuit) (reset: 'l -> ('a, 'i, 'l) lit option) latch
   =
   case reset latch of
@@ -2662,7 +2740,7 @@ Definition reset_edges_def:
   | SOME lit => SOME (latch, latch_deps circ lit)
 End
 
-(* Generates the depedency graph for the dependency graph of latches' reset
+(* Generates the dependency graph for the dependency graph of latches' reset
    functions.
    If this graph is acyclic, we know there exists an order that satisfies
    is_stratified_full. *)
@@ -2670,7 +2748,7 @@ Definition reset_graph_def:
   reset_graph
     (circ: ('a, 'i, 'l) circuit) (reset: 'l -> ('a, 'i, 'l) lit option) latches
   =
-  mapPartial (reset_edge circ reset) latches
+  mapPartial (reset_edges circ reset) latches
 End
 
 (* Constructs the witness for is_stratified_full from the dependency graph of
@@ -2681,7 +2759,9 @@ Definition reset_order_def:
   reset_order
     (circ: ('a, 'i, 'l) circuit) (reset: 'l -> ('a, 'i, 'l) lit option) latches
   =
-  TC_depends_on (reset_graph circ reset latches)
+  (* ᵀ gives us R x y ⇔ "x is a dependency of y", as opposed to
+     "x depends on y" *)
+  (TC_depends_on (reset_graph circ reset latches))ᵀ
 End
 
 Theorem transitive_reset_order[local]:
@@ -2701,10 +2781,62 @@ Proof
   >> simp [irreflexive_def, reset_order_def]
 QED
 
+Theorem reset_SOME_Latch_reset_order[local]:
+  ∀latches circ reset lat l b.
+    MEM lat latches ∧
+    reset lat = SOME (Base (Latch l), b)
+    ⇒
+    reset_order circ reset latches l lat
+Proof
+  rw [reset_order_def]
+  >> simp [TC_depends_on_def]
+  >> irule TC_SUBSET
+  >> simp [depends_on1_def, reset_graph_def, MEM_MAP, PULL_EXISTS]
+  >> cheat
+QED
+
+Theorem latch_deps_reset_order:
+  (* MEM lat latches ∧ *) (* not sure whether this is needed *)
+  reset lat = SOME lit ∧
+  MEM l (latch_deps circ lit)
+  ⇒
+  reset_order circ reset latches l lat
+Proof
+  cheat
+QED
+
 Theorem is_stratified_reset_order[local]:
   is_stratified (reset_order circ reset latches) circ reset (set latches)
 Proof
-  cheat
+  rw [is_stratified_def]
+  >> irule latch_deps_eval_lit_eq
+  >> rpt strip_tac
+  >> first_x_assum irule
+  >> cheat
+
+     (*
+  rw [is_stratified_def]
+  >> namedCases_on ‘lit’ ["v b"]
+  >> reverse $ namedCases_on ‘v’ ["n", "b'"]
+  >- (
+    Cases_on ‘b'’
+    >> simp [eval_circuit_def]
+    >> rename1 ‘reset lat’
+    (* TODO Can we use latch_deps_eval_eq instead? *)
+    >> qsuff_tac ‘reset_order circ reset latches l lat’
+    >- metis_tac []
+    >> simp [reset_SOME_Latch_reset_order]
+  )
+  >> simp [eval_circuit_def]
+  >> qsuff_tac ‘eval_circuit (is,ls') circ n ⇔ eval_circuit (is,ls) circ n’
+  >- metis_tac []
+
+  >> irule latch_deps_eval_circuit_eq
+  >> qexists ‘b’
+  >> rpt strip_tac
+  >> first_assum irule
+  >> cheat
+*)
 QED
 
 Theorem exists_is_stratified_full:
