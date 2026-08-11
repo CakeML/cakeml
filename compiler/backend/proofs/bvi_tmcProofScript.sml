@@ -5740,7 +5740,7 @@ Resume evaluate_rewrite_tmc[letcall]:
            (irule holes_unchanged_except_subset
             >> first_assum $ irule_at Any
             >> gvs [])
-          >> imp_res_tac holes_still_not_finalised_trans)
+          >> imp_res_tac holes_still_not_finalised_trans))
 QED
 
 Resume evaluate_rewrite_tmc[return]:
