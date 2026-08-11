@@ -1770,7 +1770,6 @@ Resume do_app_op_rel[MemOp]:
 QED
 
 Resume do_app_op_rel[ThunkOp]:
-  cheat (*
   Cases_on ‘t’
   >> gvs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def, AllCaseEqs ()]
   >~ [‘Thunk NotEvaluated’] >-
@@ -1786,10 +1785,14 @@ Resume do_app_op_rel[ThunkOp]:
     >> simp [bvl_to_bvi_refs] >> qexists ‘f’
     >> simp [only_fresh_refl, bvlSemTheory.Unit_def]
     >> rpt conj_tac
+    >- cheat
     >- simp [Once v_rel_cases]
     >- (gvs [state_rel_def] >> irule state_ref_rel_update >> simp [ref_rel_cases])
-    >> gvs [holes_unchanged_except_def, FLOOKUP_SIMP]
-    >> rw [] >> gvs [IN_FRANGE_FLOOKUP] >> metis_tac [])
+    >-
+     (gvs [holes_unchanged_except_def, FLOOKUP_SIMP]
+      >> rw [] >> gvs [IN_FRANGE_FLOOKUP] >> metis_tac [])
+    >> irule holes_still_not_finalised_frange_update
+    >> first_assum $ irule_at Any)
   (* AllocThunk *)
   >> qmatch_goalsub_rename_tac ‘Thunk mode v'’
   >> simp [bvl_to_bvi_refs]
@@ -1806,7 +1809,8 @@ Resume do_app_op_rel[ThunkOp]:
       >> irule v_rel_submap >> first_assum $ irule_at Any
       >> simp [SUBMAP_FUPDATE_FLOOKUP, FLOOKUP_DEF]
       >> gvs [state_ref_rel_def, fresh_ptr_fresh])
-  >> strip_tac >> simp [Once v_rel_cases] *)
+  >> strip_tac >> simp [Once v_rel_cases]
+  >> cheat
 QED
 
 Resume do_app_op_rel[FFI]:
