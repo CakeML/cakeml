@@ -1769,7 +1769,7 @@ Resume do_app_op_rel[MemOp]:
             memop_finalise_tac >> NO_TAC, memop_finalise_block_tac >> NO_TAC]
 QED
 
-Theorem dest_thunk_rel:
+Theorem dest_thunk_not_thunk_rel:
   ∀v v' refs refs' f.
     bvlSem$dest_thunk v refs = NotThunk ∧
     v_rel f v v' ∧
@@ -1804,7 +1804,7 @@ Resume do_app_op_rel[ThunkOp]:
     >-
      (gvs [bvlSemTheory.bad_thunk_update_def]
       >> rw []
-      >> imp_res_tac dest_thunk_rel)
+      >> imp_res_tac dest_thunk_not_thunk_rel)
     >- simp [Once v_rel_cases]
     >- (gvs [state_rel_def] >> irule state_ref_rel_update >> simp [ref_rel_cases])
     >-
@@ -1831,7 +1831,7 @@ Resume do_app_op_rel[ThunkOp]:
   >> strip_tac >> simp [Once v_rel_cases]
   >> gvs [bvlSemTheory.bad_thunk_update_def]
       >> rw []
-  >> imp_res_tac dest_thunk_rel
+  >> imp_res_tac dest_thunk_not_thunk_rel
 QED
 
 Resume do_app_op_rel[FFI]:
