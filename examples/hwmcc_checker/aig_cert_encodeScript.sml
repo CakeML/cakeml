@@ -4,6 +4,7 @@
 Theory aig_cert_encode
 Ancestors
   aig aig_cert
+  topological_sort  (* todo maybe should move; is for stratification *)
 Libs
   preamble
 
@@ -2607,4 +2608,113 @@ Proof
   >> irule_at Any o iffLR $ eval_circuit_encode_is_witness_consistent
   >> irule_at Any o iffLR $ eval_circuit_encode_is_witness_liveness
  *)
+QED
+
+(* Given a circuit and a name, finds the first match, returning its
+   input literals and the rest of the circuit. *)
+(* To motivate this function, consider the simple circuit
+   [(Name 0, [(Name 0, F)])]
+   Repeatedly applying ALOOKUP to find the dependencies of Name 0 would lead to
+   a loop. In contrast, by using the rest returned by circ_lookup, the second
+   invocation of circ_lookup would return NONE, breaking the loop. *)
+Definition circ_lookup_def:
+  (circ_lookup (h::tl) n =
+   let (n', ins) = h in
+     if n' = n then SOME (ins,  tl) else circ_lookup tl n) ∧
+  circ_lookup [] n = NONE
+End
+
+Theorem circ_lookup_LENGTH_lt[local]:
+  ∀circ n. circ_lookup circ n = SOME (ins, rest) ⇒ LENGTH rest < LENGTH circ
+Proof
+  Induct >> rw [circ_lookup_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> rename1 ‘if n' = n then _ else _’
+  >> Cases_on ‘n' = n’ >> gvs []
+  >> last_x_assum drule >> simp []
+QED
+
+Definition latch_deps_def:
+  (latch_deps (circ: ('a, 'i, 'l) circuit) lit =
+   let (v, _) = lit in
+     case v of
+     | Base (Latch l) => [l]
+     | Name a =>
+         (case circ_lookup circ a of
+          | NONE => []
+          | SOME (lits, rest) =>
+            FLAT (MAP (latch_deps rest) lits))
+     | _ => [])
+Termination
+  wf_rel_tac ‘measure (LENGTH o FST)’ >> rw []
+  >> drule circ_lookup_LENGTH_lt >> simp []
+End
+
+(* Returns the tuple (latch, latch dependencies), if latch has a defined reset
+   function. The tuple can be interpreted as a set of edges from a latch to
+   each of the dependencies of its reset function. *)
+Definition reset_edges_def:
+  reset_edge
+    (circ: ('a, 'i, 'l) circuit) (reset: 'l -> ('a, 'i, 'l) lit option) latch
+  =
+  case reset latch of
+  | NONE => NONE
+  | SOME lit => SOME (latch, latch_deps circ lit)
+End
+
+(* Generates the depedency graph for the dependency graph of latches' reset
+   functions.
+   If this graph is acyclic, we know there exists an order that satisfies
+   is_stratified_full. *)
+Definition reset_graph_def:
+  reset_graph
+    (circ: ('a, 'i, 'l) circuit) (reset: 'l -> ('a, 'i, 'l) lit option) latches
+  =
+  mapPartial (reset_edge circ reset) latches
+End
+
+(* Constructs the witness for is_stratified_full from the dependency graph of
+   latches' reset functions.
+   If the graph is acyclic, the order is irreflexive and thus the reset
+   functions are stratified. *)
+Definition reset_order_def:
+  reset_order
+    (circ: ('a, 'i, 'l) circuit) (reset: 'l -> ('a, 'i, 'l) lit option) latches
+  =
+  TC_depends_on (reset_graph circ reset latches)
+End
+
+Theorem transitive_reset_order[local]:
+  transitive (reset_order circ reset latches)
+Proof
+  simp [reset_order_def, TC_depends_on_def]
+QED
+
+Theorem irreflexive_reset_order[local]:
+  ALL_DISTINCT (MAP FST (reset_graph circ reset latches)) ∧
+  ¬has_cycle (reset_graph circ reset latches)
+  ⇒
+  irreflexive (reset_order circ reset latches)
+Proof
+  strip_tac
+  >> drule_all has_cycle_correct
+  >> simp [irreflexive_def, reset_order_def]
+QED
+
+Theorem is_stratified_reset_order[local]:
+  is_stratified (reset_order circ reset latches) circ reset (set latches)
+Proof
+  cheat
+QED
+
+Theorem exists_is_stratified_full:
+  ALL_DISTINCT (MAP FST (reset_graph circ reset latches)) ∧
+  ¬has_cycle (reset_graph circ reset latches)
+  ⇒
+  ∃lt. is_stratified_full lt circ reset (set latches)
+Proof
+  strip_tac
+  >> qexists ‘reset_order circ reset latches’
+  >> simp [is_stratified_full_def, transitive_reset_order,
+           irreflexive_reset_order, is_stratified_reset_order]
 QED

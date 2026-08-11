@@ -306,6 +306,8 @@ Definition dep_reset_def:
       dep_lit inputs latches lit
 End
 
+(* TODO Is there a better name for this? It feels like this is a component of
+   stratification, but not the entirety (since stratified_full exists) *)
 Definition is_stratified_def:
   is_stratified lt circ reset latches ⇔
     ∀lat lit is ls' ls.
