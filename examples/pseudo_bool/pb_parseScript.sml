@@ -25,18 +25,45 @@ Definition lhs_string_def:
 End
 
 Definition op_string_def:
-  (op_string Equal = « = ») ∧
   (op_string GreaterEqual = « >= ») ∧
   (op_string Greater = « > ») ∧
   (op_string LessEqual = « <= ») ∧
   (op_string Less = « < »)
 End
 
+Definition rel_string_def:
+  (rel_string REq = « = ») ∧
+  (rel_string (RIneq op) = op_string op)
+End
+
+Definition lits_string_def:
+  lits_string ls = concatWith « » (MAP lit_string ls)
+End
+
+(* An unreified constraint prints exactly as before, with no arrow *)
 Definition pbc_string_def:
-  (pbc_string (pbop,xs,i) =
+  (pbc_string (Fwd [] rel,xs,i) =
     concat [
       lhs_string xs;
-      op_string pbop;
+      rel_string rel;
+      int_to_string #"-" i; « ;\n»]) ∧
+  (pbc_string (Fwd ls rel,xs,i) =
+    concat [
+      lits_string ls; « ==> »;
+      lhs_string xs;
+      rel_string rel;
+      int_to_string #"-" i; « ;\n»]) ∧
+  (pbc_string (Bwd ls op,xs,i) =
+    concat [
+      lits_string ls; « <== »;
+      lhs_string xs;
+      op_string op;
+      int_to_string #"-" i; « ;\n»]) ∧
+  (pbc_string (Iff ls op,xs,i) =
+    concat [
+      lits_string ls; « <==> »;
+      lhs_string xs;
+      op_string op;
       int_to_string #"-" i; « ;\n»])
 End
 
@@ -182,26 +209,74 @@ End
 
 Definition parse_op_def:
   parse_op cmp =
-  if cmp = «>=» then SOME GreaterEqual
-  else if cmp = «=» then SOME Equal
-  else if cmp = «>» then SOME Greater
-  else if cmp = «<=» then SOME LessEqual
-  else if cmp = «<» then SOME Less
+  if cmp = «>=» then SOME (RIneq GreaterEqual)
+  else if cmp = «=» then SOME REq
+  else if cmp = «>» then SOME (RIneq Greater)
+  else if cmp = «<=» then SOME (RIneq LessEqual)
+  else if cmp = «<» then SOME (RIneq Less)
   else NONE
+End
+
+Definition is_arrow_def:
+  is_arrow s ⇔ s = «==>» ∨ s = «<==» ∨ s = «<==>»
+End
+
+(* No arrow may also be a comparison. parse_constraint_npbc's unreified
+  path matches INL cmp :: INR deg :: rest, so were an arrow to parse as a
+  comparison it would accept a line whose comparison token is an arrow —
+  e.g. a preserved_add whose preserved variable is missing. *)
+Theorem parse_op_arrow:
+  ∀s. is_arrow s ⇒ parse_op s = NONE
+Proof
+  rw[is_arrow_def]>>EVAL_TAC
+QED
+
+(* Scan a non-empty guard of bare literals terminated by an arrow.
+  NONE means the line has no reification, so its prefix is a linear term. *)
+Definition parse_reif_aux_def:
+  (parse_reif_aux [] acc = NONE) ∧
+  (parse_reif_aux (INR n::rest) acc = NONE) ∧
+  (parse_reif_aux (INL s::rest) acc =
+    if is_arrow s then
+      (if acc = [] then NONE else SOME (s,REVERSE acc,rest))
+    else
+      case parse_lit s of
+        NONE => NONE
+      | SOME l => parse_reif_aux rest (l::acc))
+End
+
+(* Bwd and Iff take a pbop, so REq has no head here *)
+Definition mk_hd_def:
+  mk_hd arrow ls rel =
+  if arrow = «==>» then SOME (Fwd ls rel)
+  else
+    case rel of
+      REq => NONE
+    | RIneq op =>
+      if arrow = «<==» then SOME (Bwd ls op)
+      else if arrow = «<==>» then SOME (Iff ls op)
+      else NONE
 End
 
 Definition parse_constraint_def:
   parse_constraint line =
-  case OPTION_MAP parse_constraint_LHS (strip_term_line line) of
+  case strip_term_line line of
     NONE => NONE
-  | SOME(rest,lhs) =>
-    (case rest of
-      [INL cmp; INR deg] =>
-      (case parse_op cmp of
-        NONE => NONE
-      | SOME op =>
-        SOME ((op,lhs,deg):mlstring pbc))
-    | _ => NONE)
+  | SOME ls =>
+    let (arrow,gs,body) =
+      (case parse_reif_aux ls [] of
+        NONE => («==>»,[],ls)
+      | SOME (arrow,gs,rest) => (arrow,gs,rest)) in
+    (case parse_constraint_LHS body of (rest,lhs) =>
+      (case rest of
+        [INL cmp; INR deg] =>
+        (case parse_op cmp of
+          NONE => NONE
+        | SOME rel =>
+          (case mk_hd arrow gs rel of
+            NONE => NONE
+          | SOME hd => SOME ((hd,lhs,deg):mlstring pbc)))
+      | _ => NONE))
 End
 
 (* strips off the head of a line as an annotation *)
@@ -225,6 +300,42 @@ End
   EVAL ``parse_annot (toks «2 ~x1 1 ~x3 >= 1;»)``;
   EVAL ``parse_constraint (toks «2 ~x1 1 ~x3 >= 1 ;»)``;
   EVAL ``parse_annot_constraint (toks «@aaa 2 ~x1 1 ~x3 >= 1;»)``;
+
+  Reification, and the constraints each form normalises to. The big-M
+  coefficient is the degree minus a lower bound on the linear term, so
+  compaction happens first and an already-trivial constraint gains no
+  guard terms. In the npbc output a negative coefficient denotes a
+  negated literal.
+
+  EVAL ``parse_constraint (toks «z1 z2 ~z3 ==> +1 x1 +2 x2 >= 2;»)``;
+  EVAL ``parse_constraint (toks «z1 <== 1 x1 <= 5;»)``;
+  EVAL ``parse_constraint (toks «z1 z2 <==> 1 x1 > 3;»)``;
+  EVAL ``parse_constraint (toks «==> 1 x1 >= 1;»)``;              (* NONE: empty guard *)
+
+  EVAL ``MAP to_npbc (to_ges term_le
+    (Fwd [Pos 1;Pos 2;Neg 3] (RIneq GreaterEqual),[(1,Pos 4);(2,Pos 5)],2))``;
+      [([(-2,1); (-2,2); (2,3); (1,4); (2,5)],2)]
+  EVAL ``MAP to_npbc (to_ges term_le
+    (Fwd [Pos 1] (RIneq GreaterEqual),[(3,Pos 4);(2,Neg 4)],3))``;
+      [([(-1,1); (1,4)],1)]                  (* 3 x1 2 ~x1 compacts to 1 x1 first *)
+  EVAL ``MAP to_npbc (to_ges term_le
+    (Fwd [Pos 1;Pos 2] (RIneq GreaterEqual),[(1,Pos 4)],-1))``;
+      [([(1,4)],-1)]                         (* already trivial, no guard added *)
+  EVAL ``MAP to_npbc (to_ges term_le
+    (Fwd [Pos 4] (RIneq GreaterEqual),[(1,Pos 4)],1))``;
+      [([],0)]                               (* guard is the constraint's own var *)
+  EVAL ``MAP to_npbc (to_ges term_le
+    (Bwd [Pos 1] LessEqual,[(1,Pos 4)],9223372036854775807))``;
+      [([(9223372036854775808,1); (1,4)],9223372036854775808)]
+  EVAL ``MAP to_npbc (to_ges term_le
+    (Fwd [Pos 1;Pos 2;Neg 3] REq,[(1,Pos 4)],2))``;
+      [([(-2,1); (-2,2); (2,3); (1,4)],2); ([(-1,4)],-1)]
+  EVAL ``MAP to_npbc (to_ges term_le
+    (Bwd [Pos 1;Pos 2] GreaterEqual,[(1,Pos 4);(1,Pos 5)],1))``;
+      one constraint per guard literal, left to right
+  EVAL ``MAP to_npbc (to_ges term_le
+    (Iff [Pos 1;Pos 2] GreaterEqual,[(1,Pos 4);(1,Pos 5)],1))``;
+      the forward constraint, then one per guard literal
 *)
 
 Definition parse_constraints_def:
@@ -514,20 +625,48 @@ Definition map_f_ns_def:
       SOME ((c,l')::ys,f_ns''))
 End
 
+Definition map_f_ns_lits_def:
+  (map_f_ns_lits f_ns [] = SOME ([],f_ns)) ∧
+  (map_f_ns_lits f_ns (l::ls) =
+  case apply_lit f_ns l of
+    NONE => NONE
+  | SOME (l',f_ns') =>
+    case map_f_ns_lits f_ns' ls of NONE => NONE
+    | SOME (ys,f_ns'') =>
+      SOME (l'::ys,f_ns''))
+End
+
+(* A proof-file constraint is accepted exactly when its head expands to a
+  single normalised constraint, since lstep/sstep hold one npbc *)
+Definition mk_npbc_def:
+  mk_npbc f_ns arrow gs rel lhs deg =
+  case map_f_ns_lits f_ns gs of NONE => NONE
+  | SOME (gs',f_ns') =>
+    (case map_f_ns f_ns' lhs of NONE => NONE
+    | SOME (lhs',f_ns'') =>
+      (case mk_hd arrow gs' rel of
+        NONE => NONE
+      | SOME hd =>
+        (case to_ges term_le (hd,lhs',deg) of
+          [c] => SOME (to_npbc c,f_ns'')
+        | _ => NONE)))
+End
+
 Definition parse_constraint_npbc_def:
   parse_constraint_npbc f_ns line =
-  case parse_constraint_LHS line of (rest,lhs) =>
-  (case rest of (INL cmp :: INR deg :: rest) =>
-    if cmp = «>=» then
-      case map_f_ns f_ns lhs of NONE => NONE
-      | SOME (lhs',f_ns') =>
-        SOME (
-          pbc_to_npbc (GreaterEqual,lhs',deg),
-          rest,
-          f_ns')
-    else
-      NONE
-  | _ => NONE)
+  let (arrow,gs,body) =
+    (case parse_reif_aux line [] of
+      NONE => («==>»,[],line)
+    | SOME (arrow,gs,rest) => (arrow,gs,rest)) in
+  (case parse_constraint_LHS body of (rest,lhs) =>
+    (case rest of (INL cmp :: INR deg :: rest') =>
+      (case parse_op cmp of
+        NONE => NONE
+      | SOME rel =>
+        (case mk_npbc f_ns arrow gs rel lhs deg of
+          NONE => NONE
+        | SOME (c,f_ns') => SOME (c,rest',f_ns')))
+    | _ => NONE))
 End
 
 (* A rup hint must be a sequence of numbers *)
