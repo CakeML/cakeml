@@ -301,39 +301,38 @@ End
   EVAL ``parse_constraint (toks «2 ~x1 1 ~x3 >= 1 ;»)``;
   EVAL ``parse_annot_constraint (toks «@aaa 2 ~x1 1 ~x3 >= 1;»)``;
 
-  Reification, and the constraints each form normalises to. The big-M
-  coefficient is the degree minus a lower bound on the linear term, so
-  compaction happens first and an already-trivial constraint gains no
-  guard terms. In the npbc output a negative coefficient denotes a
-  negated literal.
+  Reification, and the constraints each form normalises to. The body is
+  normalised first, so the big-M coefficient is its degree, and a
+  constraint whose degree is not positive gains no guard terms. In the
+  npbc output a negative coefficient denotes a negated literal.
 
   EVAL ``parse_constraint (toks «z1 z2 ~z3 ==> +1 x1 +2 x2 >= 2;»)``;
   EVAL ``parse_constraint (toks «z1 <== 1 x1 <= 5;»)``;
   EVAL ``parse_constraint (toks «z1 z2 <==> 1 x1 > 3;»)``;
   EVAL ``parse_constraint (toks «==> 1 x1 >= 1;»)``;              (* NONE: empty guard *)
 
-  EVAL ``MAP to_npbc (to_ges term_le
+  EVAL ``MAP inject (to_gnpbc
     (Fwd [Pos 1;Pos 2;Neg 3] (RIneq GreaterEqual),[(1,Pos 4);(2,Pos 5)],2))``;
       [([(-2,1); (-2,2); (2,3); (1,4); (2,5)],2)]
-  EVAL ``MAP to_npbc (to_ges term_le
+  EVAL ``MAP inject (to_gnpbc
     (Fwd [Pos 1] (RIneq GreaterEqual),[(3,Pos 4);(2,Neg 4)],3))``;
       [([(-1,1); (1,4)],1)]                  (* 3 x1 2 ~x1 compacts to 1 x1 first *)
-  EVAL ``MAP to_npbc (to_ges term_le
+  EVAL ``MAP inject (to_gnpbc
     (Fwd [Pos 1;Pos 2] (RIneq GreaterEqual),[(1,Pos 4)],-1))``;
       [([(1,4)],-1)]                         (* already trivial, no guard added *)
-  EVAL ``MAP to_npbc (to_ges term_le
+  EVAL ``MAP inject (to_gnpbc
     (Fwd [Pos 4] (RIneq GreaterEqual),[(1,Pos 4)],1))``;
       [([],0)]                               (* guard is the constraint's own var *)
-  EVAL ``MAP to_npbc (to_ges term_le
+  EVAL ``MAP inject (to_gnpbc
     (Bwd [Pos 1] LessEqual,[(1,Pos 4)],9223372036854775807))``;
       [([(9223372036854775808,1); (1,4)],9223372036854775808)]
-  EVAL ``MAP to_npbc (to_ges term_le
+  EVAL ``MAP inject (to_gnpbc
     (Fwd [Pos 1;Pos 2;Neg 3] REq,[(1,Pos 4)],2))``;
       [([(-2,1); (-2,2); (2,3); (1,4)],2); ([(-1,4)],-1)]
-  EVAL ``MAP to_npbc (to_ges term_le
+  EVAL ``MAP inject (to_gnpbc
     (Bwd [Pos 1;Pos 2] GreaterEqual,[(1,Pos 4);(1,Pos 5)],1))``;
       one constraint per guard literal, left to right
-  EVAL ``MAP to_npbc (to_ges term_le
+  EVAL ``MAP inject (to_gnpbc
     (Iff [Pos 1;Pos 2] GreaterEqual,[(1,Pos 4);(1,Pos 5)],1))``;
       the forward constraint, then one per guard literal
 *)
@@ -647,8 +646,8 @@ Definition mk_npbc_def:
       (case mk_hd arrow gs' rel of
         NONE => NONE
       | SOME hd =>
-        (case to_ges term_le (hd,lhs',deg) of
-          [c] => SOME (to_npbc c,f_ns'')
+        (case to_gnpbc (hd,lhs',deg) of
+          [gc] => SOME (inject gc,f_ns'')
         | _ => NONE)))
 End
 

@@ -77,13 +77,11 @@ val r = translate normalise_lhs_def;
 val r = translate flip_coeffs_def;
 val r = translate pbcTheory.negate_op_def;
 val r = translate ge_of_def;
-val r = translate lin_term_lb_def;
 val r = translate pbcTheory.negate_def;
-val r = translate reify_def;
 val r = translate rel_ges_def;
-val r = translate bwd_ges_def;
-val r = translate to_ges_def;
 val r = translate to_npbc_def;
+val r = translate to_gnpbc_def;
+val r = translate inject_def;
 
 val r = translate parse_constraint_LHS_aux_def;
 val r = translate parse_constraint_LHS_def;

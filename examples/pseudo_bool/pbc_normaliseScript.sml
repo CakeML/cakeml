@@ -478,31 +478,6 @@ Proof
     simp[])
 QED
 
-(* A lower bound on a linear term, computed by the same compaction and
-  normalisation that to_npbc applies. *)
-Definition lin_term_lb_def:
-  lin_term_lb tle xs =
-    let (xs',m') = compact_lhs (sort tle xs) 0 in
-    let (xs'',m'') = normalise_lhs xs' [] 0 in
-      m' + m''
-End
-
-(* At num variables only: normalise_lhs_normalises is stated there.
-  lin_term_lb itself is polymorphic. *)
-Theorem lin_term_lb_le:
-  lin_term_lb tle (xs:num lin_term) ≤ eval_lin_term w xs
-Proof
-  rw[lin_term_lb_def]>>
-  rpt (pairarg_tac>>gvs[])>>
-  drule compact_lhs_sound>>
-  disch_then(qspec_then`w` assume_tac)>>
-  drule normalise_lhs_normalises>>
-  disch_then(qspec_then`w` assume_tac)>>
-  gvs[GSYM eval_lin_term_def]>>
-  `0 ≤ (&(SUM (MAP (eval_term w) xs'')):int)` by simp[]>>
-  intLib.ARITH_TAC
-QED
-
 (* An intermediate constraint in ≥ form: a linear term and its degree *)
 Definition sat_ge_def:
   sat_ge w (xs,n) ⇔ eval_lin_term w xs ≥ n
@@ -544,50 +519,6 @@ Proof
   intLib.ARITH_TAC
 QED
 
-(* The big-M encoding is equivalent to the implication, not merely
-  implied by it, for any n at least the shortfall d - lower bound. *)
-Theorem satisfies_reify:
-  0 ≤ n ∧ (∀w. d - n ≤ eval_lin_term w xs) ⇒
-  (eval_lin_term w (MAP (λl. (n,negate l)) ls) + eval_lin_term w xs ≥ d ⇔
-   (EVERY (lit w) ls ⇒ eval_lin_term w xs ≥ d))
-Proof
-  strip_tac>>
-  Cases_on`EVERY (lit w) ls`>>simp[]
-  >- (
-    drule (cj 1 eval_lin_term_reify)>>
-    simp[])>>
-  qspec_then`ls` assume_tac eval_lin_term_reify>>
-  gvs[]>>
-  first_x_assum(qspec_then`w` assume_tac)>>
-  intLib.ARITH_TAC
-QED
-
-(* Reify a ≥ constraint by a conjunction of literals. Soundness needs
-  only that lin_term_lb is a lower bound (reify_thm); the minimal choice
-  taken here is what makes the emitted constraint match VeriPB's. *)
-Definition reify_def:
-  reify tle ls (xs,n) =
-    let m = n - lin_term_lb tle xs in
-    if m ≤ 0 then (xs,n)
-    else (MAP (λl. (m,negate l)) ls ++ xs, n)
-End
-
-Theorem reify_thm:
-  ∀c:num lin_term # int.
-  sat_ge w (reify tle ls c) ⇔
-  (EVERY (lit w) ls ⇒ sat_ge w c)
-Proof
-  Cases>>
-  rw[reify_def,sat_ge_def]
-  >- (
-    `lin_term_lb tle q ≤ eval_lin_term w q` by metis_tac[lin_term_lb_le]>>
-    `eval_lin_term w q ≥ r` by intLib.ARITH_TAC>>
-    simp[])>>
-  DEP_REWRITE_TAC[satisfies_reify]>>
-  simp[lin_term_lb_le]>>
-  intLib.ARITH_TAC
-QED
-
 Definition rel_ges_def:
   (rel_ges (RIneq op) xs n = [ge_of op xs n]) ∧
   (rel_ges REq xs n = [(xs,n); (flip_coeffs xs,-n)])
@@ -602,41 +533,6 @@ Proof
   intLib.ARITH_TAC
 QED
 
-(* Σ op n ⟹ ⋀L contraposes to one constraint per literal of L *)
-Definition bwd_ges_def:
-  bwd_ges tle ls op xs n =
-    MAP (λl. reify tle [negate l] (ge_of (negate_op op) xs n)) ls
-End
-
-Theorem bwd_ges_thm:
-  ∀ls.
-  EVERY (sat_ge w) (bwd_ges tle ls op (xs:num lin_term) n) ⇔
-  (do_op op (eval_lin_term w xs) n ⇒ EVERY (lit w) ls)
-Proof
-  Induct>>
-  gvs[bwd_ges_def,reify_thm,lit_negate,negate_op_thm]>>
-  metis_tac[]
-QED
-
-(* Every surface constraint expands to a list of ≥ constraints *)
-Definition to_ges_def:
-  (to_ges tle (Fwd ls rel,xs,n) = MAP (reify tle ls) (rel_ges rel xs n)) ∧
-  (to_ges tle (Bwd ls op,xs,n) = bwd_ges tle ls op xs n) ∧
-  (to_ges tle (Iff ls op,xs,n) =
-    reify tle ls (ge_of op xs n) :: bwd_ges tle ls op xs n)
-End
-
-Theorem to_ges_thm:
-  EVERY (sat_ge w) (to_ges tle (c:num pbc)) ⇔
-  satisfies_pbc w c
-Proof
-  PairCases_on`c`>>
-  Cases_on`c0`>>
-  simp[to_ges_def,satisfies_pbc_def,bwd_ges_thm,EVERY_MAP,reify_thm]>>
-  simp[GSYM rel_ges_thm,EVERY_MEM]>>
-  metis_tac[]
-QED
-
 Definition to_npbc_def:
   to_npbc (lhs,n) =
     let (lhs',m') = compact_lhs (sort term_le lhs) 0 in
@@ -644,22 +540,115 @@ Definition to_npbc_def:
       (lhs'',n-(m'+m'')):npbc
 End
 
-Theorem to_npbc_thm:
-  satisfies_npbc w (to_npbc c) ⇔ sat_ge w c
+Theorem to_npbc_value:
+  ∀xs n ys d.
+  to_npbc (xs,n) = (ys,d) ⇒
+  &SUM (MAP (eval_term w) ys) = eval_lin_term w xs - n + d
 Proof
-  Cases_on`c`>>
-  rw[to_npbc_def,sat_ge_def]>>
+  rw[to_npbc_def]>>
   rpt (pairarg_tac>>gvs[])>>
   drule compact_lhs_sound>>
   disch_then(qspec_then`w` assume_tac)>>
   drule normalise_lhs_normalises>>
   disch_then(qspec_then`w` assume_tac)>>
-  gvs[GSYM eval_lin_term_def,satisfies_npbc_def]>>
+  gvs[GSYM eval_lin_term_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem to_npbc_thm:
+  satisfies_npbc w (to_npbc c) ⇔ sat_ge w c
+Proof
+  Cases_on`c`>>
+  `∃ys d. to_npbc (q,r) = (ys,d)` by metis_tac[PAIR]>>
+  drule to_npbc_value>>
+  disch_then(qspec_then`w` assume_tac)>>
+  gvs[satisfies_npbc_def,sat_ge_def]>>
+  intLib.ARITH_TAC
+QED
+
+(* Σ op n ⟹ ⋀L contraposes to one constraint per literal of L *)
+Theorem bwd_gnpbcs_thm[local]:
+  ∀ls.
+  EVERY (λ(gs,c). EVERY (lit w) gs ⇒ satisfies_npbc w c)
+    (MAP (λl. ([negate l], to_npbc (ge_of (negate_op op) xs n))) ls) ⇔
+  (do_op op (eval_lin_term w xs) n ⇒ EVERY (lit w) ls)
+Proof
+  Induct>>
+  gvs[to_npbc_thm,lit_negate,negate_op_thm]>>
+  metis_tac[]
+QED
+
+(* Every surface constraint expands to a list of normalised constraints,
+  each carrying the conjunction of literals guarding it.
+
+  NOTE: guard literals are not deduplicated. z1 z1 ==> C gives coefficient
+  2n on ~z1 rather than n, and z1 z1 <== C emits the same constraint twice,
+  shifting the IDs of every later constraint. *)
+Definition to_gnpbc_def:
+  (to_gnpbc (Fwd ls rel,xs,n) =
+    MAP (λc. (ls, to_npbc c)) (rel_ges rel xs n)) ∧
+  (to_gnpbc (Bwd ls op,xs,n) =
+    let c = to_npbc (ge_of (negate_op op) xs n) in
+      MAP (λl. ([negate l], c)) ls) ∧
+  (to_gnpbc (Iff ls op,xs,n) =
+    let c = to_npbc (ge_of (negate_op op) xs n) in
+      (ls, to_npbc (ge_of op xs n)) :: MAP (λl. ([negate l], c)) ls)
+End
+
+Theorem to_gnpbc_thm:
+  EVERY (λ(gs,c). EVERY (lit w) gs ⇒ satisfies_npbc w c)
+    (to_gnpbc (p:num pbc)) ⇔
+  satisfies_pbc w p
+Proof
+  PairCases_on`p`>>
+  Cases_on`p0`>>
+  simp[to_gnpbc_def,satisfies_pbc_def,bwd_gnpbcs_thm,EVERY_MAP,to_npbc_thm]>>
+  simp[GSYM rel_ges_thm,EVERY_MEM]>>
+  metis_tac[]
+QED
+
+(* Add the guard literals to a normalised constraint, negated and with the
+  degree as coefficient. A normalised LHS has minimum 0, so the degree is
+  exactly the shortfall; a non-positive degree is already satisfied. *)
+Definition inject_def:
+  inject (ls,(xs,n)) =
+    if n ≤ 0 then (xs,n)
+    else add (xs,n) (to_npbc (MAP (λl. (n,negate l)) ls,0))
+End
+
+Theorem inject_thm:
+  satisfies_npbc w (inject (ls,c)) ⇔
+  (EVERY (lit w) ls ⇒ satisfies_npbc w c)
+Proof
+  Cases_on`c`>>
+  rw[inject_def]
+  >- (
+    `r ≤ &SUM (MAP (eval_term w) q)` by (
+      `0 ≤ (&SUM (MAP (eval_term w) q)):int` by simp[]>>
+      intLib.ARITH_TAC)>>
+    simp[satisfies_npbc_def])>>
+  `∃gs g. to_npbc (MAP (λl. (r,negate l)) ls,0) = (gs,g)` by metis_tac[PAIR]>>
+  drule to_npbc_value>>
+  disch_then(qspec_then`w` assume_tac)>>
+  gvs[add_def]>>
+  pairarg_tac>>gvs[]>>
+  drule add_lists_thm>>
+  disch_then(qspec_then`w` assume_tac)>>
+  gvs[satisfies_npbc_def]>>
+  `0 ≤ r` by intLib.ARITH_TAC>>
+  `0 ≤ (&SUM (MAP (eval_term w) q)):int` by simp[]>>
+  Cases_on`EVERY (lit w) ls`>>simp[]
+  >- (
+    `eval_lin_term w (MAP (λl. (r,negate l)) ls) = 0` by
+      metis_tac[eval_lin_term_reify]>>
+    intLib.ARITH_TAC)>>
+  `r ≤ eval_lin_term w (MAP (λl. (r,negate l)) ls)` by
+    metis_tac[eval_lin_term_reify]>>
   intLib.ARITH_TAC
 QED
 
 Definition normalise_def:
-  normalise pbf = MAP to_npbc (FLAT (MAP (to_ges term_le) pbf))
+  normalise pbf = MAP inject (FLAT (MAP to_gnpbc pbf))
 End
 
 Theorem normalise_thm:
@@ -667,9 +656,11 @@ Theorem normalise_thm:
   satisfies w (set pbf)
 Proof
   simp[normalise_def]>>
-  `∀ls. npbc$satisfies w (set (MAP to_npbc ls)) ⇔ EVERY (sat_ge w) ls` by (
-    Induct>>simp[to_npbc_thm])>>
-  simp[EVERY_FLAT,EVERY_MAP,to_ges_thm]>>
+  `∀ls. npbc$satisfies w (set (MAP inject ls)) ⇔
+    EVERY (λ(gs,c). EVERY (lit w) gs ⇒ satisfies_npbc w c) ls` by (
+    Induct>>simp[]>>
+    Cases>>simp[inject_thm])>>
+  simp[EVERY_FLAT,EVERY_MAP,to_gnpbc_thm]>>
   simp[pbcTheory.satisfies_def,EVERY_MEM]
 QED
 
@@ -777,10 +768,30 @@ Proof
   simp[]
 QED
 
+Theorem compact_inject:
+  compact c ⇒ compact (inject (gs,c))
+Proof
+  Cases_on`c`>>
+  rw[inject_def]>>
+  irule compact_add>>
+  simp[compact_to_npbc]
+QED
+
+Theorem compact_to_gnpbc:
+  EVERY (λgc. compact (inject gc)) (to_gnpbc p)
+Proof
+  PairCases_on`p`>>
+  Cases_on`p0`>>
+  simp[to_gnpbc_def,EVERY_MEM,MEM_MAP]>>
+  rw[]>>
+  irule compact_inject>>
+  simp[compact_to_npbc]
+QED
+
 Theorem normalise_compact:
   EVERY compact (normalise pbf)
 Proof
-  simp[normalise_def,EVERY_MAP,compact_to_npbc]
+  simp[normalise_def,EVERY_MAP,EVERY_FLAT,compact_to_gnpbc]
 QED
 
 Theorem full_normalise_optimal_val:

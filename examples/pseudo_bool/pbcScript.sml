@@ -55,7 +55,7 @@ Overload RIneq = “SOME : pbop -> pbop option”
 
   Bwd and Iff take a pbop rather than a pbrel because ¬(Σ = n) is a
   disjunction, so those forms are not a conjunction of ≥ constraints
-  over the same variables — the form to_ges produces. Fwd takes a
+  over the same variables — the form to_gnpbc produces. Fwd takes a
   pbrel, so ⋀L ⟹ Σ = n remains expressible, as two constraints.
 *)
 Datatype:
