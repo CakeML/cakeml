@@ -17,7 +17,7 @@ Libs
 
 Datatype:
   keyword = SkipK | StK | StwK | St8K | St16K | St32K | IfK | ElseK | WhileK
-  | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK | BiwK | NamedK
+  | BrK | ContK | ThrowK | RetK | TicK | VarK | WithK | HandleK | BiwK | NamedK
   | LdsK | Ld8K | LdwK | Ld16K | Ld32K | BaseK | TopK | InK | FunK | ExportK | TrueK | FalseK
   | InlineK | ExceptionK
 End
@@ -125,7 +125,7 @@ Definition get_keyword_def:
   if s = "while" then (KeywordT WhileK) else
   if s = "break" then (KeywordT BrK) else
   if s = "continue" then (KeywordT ContK) else
-  if s = "raise" then (KeywordT RaiseK) else
+  if s = "throw" then (KeywordT ThrowK) else
   if s = "return" then (KeywordT RetK) else
   if s = "tick" then (KeywordT TicK) else
   if s = "var" then (KeywordT VarK) else

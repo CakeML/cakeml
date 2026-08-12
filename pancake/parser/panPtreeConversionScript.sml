@@ -462,7 +462,7 @@ Definition conv_NonRecStmt_def:
              SOME $ ExtCall name' ptr' clen' array' alen'
           od
       | _ => NONE
-    else if isNT nodeNT RaiseNT then
+    else if isNT nodeNT ThrowNT then
       case args of
         [id; e] => do eid <- conv_ident id;
                       e' <- conv_Exp e;

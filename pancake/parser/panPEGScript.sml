@@ -17,7 +17,7 @@ Datatype:
             | FunNT | ProgNT | BlockNT | StmtNT | ExpNT
             | DecNT | GlobalDecNT | AssignNT | StoreNT | StoreByteNT | Store32NT
             | IfNT | WhileNT | CallNT | RetNT | HandleNT
-            | ExtCallNT | RaiseNT | ReturnNT
+            | ExtCallNT | ThrowNT | ReturnNT
             | DecCallNT | RetCallNT
             | ArgListNT
             | ParamListNT
@@ -201,7 +201,7 @@ Definition pancake_peg_def[nocompute]:
                               mknt SharedStoreNT;
                               keep_kw BrK; keep_kw ContK;
                               mknt ExtCallNT;
-                              mknt RaiseNT; mknt RetCallNT; mknt ReturnNT;
+                              mknt ThrowNT; mknt RetCallNT; mknt ReturnNT;
                               keep_kw TicK;
                               seql [consume_tok LCurT; try_ProgNT] I
                               ]);
@@ -263,8 +263,8 @@ Definition pancake_peg_def[nocompute]:
                               consume_tok CommaT; mknt ExpNT;
                               consume_tok RParT]
                              (mksubtree ExtCallNT));
-        (INL RaiseNT, seql [consume_kw RaiseK; keep_ident; mknt ExpNT]
-                           (mksubtree RaiseNT));
+        (INL ThrowNT, seql [consume_kw ThrowK; keep_ident; mknt ExpNT]
+                           (mksubtree ThrowNT));
         (INL RetCallNT, seql [consume_kw RetK;
                               choicel [seql [consume_tok StarT; mknt ExpNT] I;
                                        keep_ident];
@@ -712,7 +712,7 @@ val topo_nts = [“MulOpsNT”, “AddOpsNT”, “ShiftOpsNT”, “CmpOpsNT”
                 “EBaseNT”, “EFieldNT”, “ENotNT”, “EMulNT”, “EAddNT”, “EShiftNT”, “EAndNT”, “EXorNT”, “EOrNT”,
                 “ELoad32NT”, “ELoadByteNT”, “ELoadNT”, “ECmpNT”, “EEqNT”, “EBoolAndNT”,
                 “ExpNT”, “ArgListNT”, “ReturnNT”,
-                “RaiseNT”, “ExtCallNT”,
+                “ThrowNT”, “ExtCallNT”,
                 “HandleNT”, “RetNT”, “RetCallNT”, “CallNT”,
                 “WhileNT”, “IfNT”, “StoreByteNT”, “Store32NT”,
                 “StoreNT”, “AssignNT”,

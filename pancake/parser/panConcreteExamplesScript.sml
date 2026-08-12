@@ -157,7 +157,7 @@ val ex5 = ‘
     var b = 5;
     b = b + 1;
     if b >= 5 {
-      raise Err 5;
+      throw Err 5;
     }
   }’;
 
@@ -170,7 +170,7 @@ val ex6 = ‘
     {var b = 5;
      b = b + 1;};
      if b >= 5 {
-       raise Err 5;
+       throw Err 5;
      }
   }’;
 
