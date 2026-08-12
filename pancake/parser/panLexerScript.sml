@@ -17,7 +17,7 @@ Libs
 
 Datatype:
   keyword = SkipK | StK | StwK | St8K | St16K | St32K | IfK | ElseK | WhileK
-  | BrK | ContK | ThrowK | RetK | TicK | VarK | WithK | HandleK | BiwK | NamedK
+  | BrK | ContK | ThrowK | RetK | TicK | VarK | TryK | CatchK | BiwK | NamedK
   | LdsK | Ld8K | LdwK | Ld16K | Ld32K | BaseK | TopK | InK | FunK | ExportK | TrueK | FalseK
   | InlineK | ExceptionK
 End
@@ -28,7 +28,7 @@ Datatype:
   | PlusT | MinusT | DotT | StarT
   | LslT | LsrT | AsrT | RorT
   | IntT int | IdentT string | ForeignIdent string (* @ffi_str except @base, @biw, @top *)
-  | LParT | RParT | CommaT | SemiT | ColonT | DArrowT | AddrT
+  | LParT | RParT | CommaT | SemiT | ColonT | AddrT
   | LBrakT | RBrakT | LCurT | RCurT
   | AssignT
   | StaticT
@@ -89,7 +89,6 @@ Definition get_token_def:
   if s = ">+" then HigherT else
   if s = ">=+" then HigheqT else
   if s = "<=+" then LoweqT else
-  if s = "=>" then DArrowT else
   if s = "!" then NotT else
   if s = "+" then PlusT else
   if s = "-" then MinusT else
@@ -130,8 +129,8 @@ Definition get_keyword_def:
   if s = "tick" then (KeywordT TicK) else
   if s = "var" then (KeywordT VarK) else
   if s = "in" then (KeywordT InK) else
-  if s = "with" then (KeywordT WithK) else
-  if s = "handle" then (KeywordT HandleK) else
+  if s = "try" then (KeywordT TryK) else
+  if s = "catch" then (KeywordT CatchK) else
   if s = "lds" then (KeywordT LdsK) else
   if s = "ldw" then (KeywordT LdwK) else
   if s = "ld8" then (KeywordT Ld8K) else

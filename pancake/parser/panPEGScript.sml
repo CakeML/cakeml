@@ -188,6 +188,7 @@ Definition pancake_peg_def[nocompute]:
                                mknt WhileNT]);
         (INL StmtNT, choicel [keep_kw SkipK;
                               mknt CallNT;
+                              mknt HandleNT;
                               mknt AssignNT; mknt StoreNT;
                               mknt StoreByteNT;
                               mknt Store32NT;
@@ -243,18 +244,24 @@ Definition pancake_peg_def[nocompute]:
         (INL WhileNT, seql [consume_kw WhileK; mknt ExpNT;
                             consume_tok LCurT; try_ProgNT] (mksubtree WhileNT));
         (INL CallNT, seql [try (choicel [keep_kw RetK; mknt RetNT]);
-                           choicel [seql [consume_tok StarT; mknt ExpNT] I;
-                                    keep_ident];
+                           keep_ident;
                            consume_tok LParT; try (mknt ArgListNT);
                            consume_tok RParT]
                           (mksubtree CallNT));
-        (INL RetNT, seql [keep_ident; consume_tok AssignT;
-                          try (mknt HandleNT)]
+        (INL RetNT, seql [keep_ident; consume_tok AssignT]
                           (mksubtree RetNT));
-        (INL HandleNT, seql [consume_kw WithK; keep_ident;
-                             consume_kw InK; keep_ident;
-                             consume_tok DArrowT; consume_tok LCurT; try_ProgNT;
-                             consume_kw HandleK]
+        (INL HandleNT, seql [consume_kw TryK;
+                             mknt RetNT;
+                             keep_ident;
+                             consume_tok LParT; try (mknt ArgListNT);
+                             consume_tok RParT;
+                             consume_kw CatchK;
+                             consume_tok LParT;
+                             keep_ident;
+                             keep_ident;
+                             consume_tok RParT;
+                             consume_tok LCurT; try_ProgNT;
+                             consume_kw CatchK]
                             (mksubtree HandleNT));
         (INL ExtCallNT, seql [keep_ffi_ident;
                               consume_tok LParT; mknt ExpNT;

@@ -612,28 +612,19 @@ Definition conv_DecCall_def:
   conv_DecCall _ = NONE
 End
 
+Definition conv_Ret_def:
+  conv_Ret tree =
+  if tokcheck tree (kw RetK) then
+    SOME $ NONE
+  else
+    case argsNT tree RetNT of (* TODO: drop *)
+    | SOME [id] => do var <- conv_ident id;
+                      SOME $ SOME (SOME(Global,var), NONE)
+                   od
+    | _ => NONE
+End
+
 Definition conv_Prog_def:
-  (conv_Handle tree =
-    case argsNT tree HandleNT of
-    | SOME [eid; id; p] => do excp <- conv_ident eid;
-                              var <- conv_ident id;
-                              prog <- conv_Prog p;
-                              SOME $ SOME (excp, var, prog)
-                           od
-    | _ => NONE) ∧
-  (conv_Ret tree =
-   if tokcheck tree (kw RetK) then
-     SOME $ NONE
-   else
-     case argsNT tree RetNT of
-     | SOME [id; t] => do var <- conv_ident id;
-                          hdl <- conv_Handle t;
-                          SOME $ SOME (SOME(Global,var), hdl)
-                       od
-     | SOME [id] => do var <- conv_ident id;
-                       SOME $ SOME (SOME(Global,var), NONE)
-                    od
-     | _ => NONE) ∧
   (conv_Prog (Nd nodeNT args) =
      let nd = Nd nodeNT args in
      if isNT nodeNT DecNT then
@@ -671,6 +662,21 @@ Definition conv_Prog_def:
                          DecCall i' s' e' args' p'
            od
        | _ => NONE
+     else if isNT nodeNT HandleNT then
+       case args of
+       | [ret; f; ts; eid; id; p] =>
+           (case argsNT ret RetNT of
+            | SOME [rid] =>
+              do rvar <- conv_ident rid;
+                 fname <- conv_ident f;
+                 args <- conv_ArgList ts;
+                 ename <- conv_ident eid;
+                 evar <- conv_ident id;
+                 prog <- conv_Prog p;
+                 SOME $ add_locs_annot nd $ panLang$Call (SOME(SOME(Global,rvar), SOME (ename,evar,prog))) fname args
+              od
+            | _ => NONE)
+       | _ => NONE
      else if isNT nodeNT CallNT then
        case args of
          [] => NONE
@@ -686,22 +692,11 @@ Definition conv_Prog_def:
                         SOME $ add_locs_annot nd $ TailCall e' args'
                      od)
             | NONE =>
-                (case conv_Handle r of
-                   NONE =>
-                     do e' <- conv_ident r;
-                        args' <- (case ts of [] => SOME []
-                                          | args::_ => conv_ArgList args);
-                        SOME $ add_locs_annot nd $ StandAloneCall NONE e' args'
-                     od
-                 | SOME h =>
-                     (case ts of
-                      | [] => NONE
-                      | r::ts =>
-                          do e' <- conv_ident r;
-                             args' <- (case ts of [] => SOME []
-                                               | args::_ => conv_ArgList args);
-                             SOME $ add_locs_annot nd $ StandAloneCall h e' args'
-                          od))
+                (do e' <- conv_ident r;
+                    args' <- (case ts of [] => SOME []
+                                      | args::_ => conv_ArgList args);
+                    SOME $ add_locs_annot nd $ StandAloneCall NONE e' args'
+                 od)
             | SOME(SOME r') =>
                 (case ts of
                    [] => NONE
@@ -729,9 +724,7 @@ Definition conv_Prog_def:
      else OPTION_MAP (add_locs_annot nd) (conv_NonRecStmt (Nd nodeNT args))) ∧
   conv_Prog leaf = OPTION_MAP (add_locs_annot leaf) (conv_NonRecStmt leaf)
 Termination
-  WF_REL_TAC ‘measure (λx. case x of
-                             INR x => sum_CASE x ptree_size ptree_size
-                           | INL x => ptree_size x)’
+  WF_REL_TAC ‘measure ptree_size’
   >> rw[] >> gvs[argsNT_def]
   >- (
     drule MEM_list_size>>
@@ -745,8 +738,7 @@ Termination
           gs[LAST_EL, MEM_EL]>>
           qexists_tac ‘PRE (LENGTH ts)’>>gs[]>>
           Cases_on ‘ts’>>gs[])>>
-    gs[])>>
-  Cases_on ‘tree’ >> gvs[argsNT_def]
+    gs[])
 End
 
 Definition conv_inline_def:
