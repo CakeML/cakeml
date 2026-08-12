@@ -468,9 +468,6 @@ Proof
   AP_TERM_TAC \\ fs [FUN_EQ_THM,FORALL_PROD]
 QED
 
-val _ = translate
-  (alist_to_fmap_def |> RW [GSYM fmap_update_def] |> INST_TYPE [alpha|->“:mlstring”]);
-
 val _ = translate (typeSystemTheory.build_ctor_tenv_def
          |> REWRITE_RULE [MAP_type_name_subst]
                     |> SIMP_RULE std_ss [lemma]);

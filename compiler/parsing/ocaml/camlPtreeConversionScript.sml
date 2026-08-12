@@ -3190,9 +3190,6 @@ Definition peg_def:
   peg (Success (_: (tokens$token # locs) list) x _) = return x
 End
 
-Overload cmlpegexec[local] =
-  ``λn t. peg_exec cmlPEG$cmlPEG (cmlPEG$pnt n) t [] NONE [] done failed``;
-
 Definition ptree_Definition_def:
   (ptree_Definition (Lf (_, locs)) =
     fail (locs, «Expected a top-level definition non-terminal»)) ∧
@@ -3213,7 +3210,7 @@ Definition ptree_Definition_def:
               fail (locs, «The CakeML lexer failed»)
             else
               do
-                pts <- peg (destResult (cmlpegexec gram$nTopLevelDecs toks));
+                pts <- peg (cml_parse_nTopLevelDecs toks);
                 pt <- option $ oHD pts;
                 option $ cmlPtreeConversion$ptree_TopLevelDecs pt
               od ++ fail (locs, «The CakeML parser failed»)

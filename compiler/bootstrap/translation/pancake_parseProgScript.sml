@@ -102,33 +102,47 @@ val _ = translate keep_nat_def;
 
 val _ = translate keep_int_def;
 
-val _ = translate pancake_peg_def;
+Definition peg_pancake_rules_def:
+  peg_pancake_rules n fk k tf3 errs eo r i =
+  case FLOOKUP pancake_peg.rules n of
+  | NONE => Looped
+  | SOME x => pegexec$EV x i r eo errs (appf1 tf3 k) fk
+End
 
-val _ = translate parse_def;
+val r = peg_pancake_rules_def
+  |> RW [pancake_peg_def, oneline OPTION_BIND_def]
+  |> SRULE [FUPDATE_LIST, parserProgTheory.option_CASE_FLOOKUP_SIMP, FOLDL]
+  |> translate;
 
-Theorem parse_side_lemma = Q.prove(`
-  !x. parse_side x = T`,
-  SIMP_TAC std_ss [fetch "-" "parse_side_def",
-                   parserProgTheory.peg_exec_side_def,
-                   parserProgTheory.coreloop_side_def] \\
-  rpt strip_tac \\
-  assume_tac PEG_wellformed \\
-  drule_then strip_assume_tac pegexecTheory.peg_exec_total \\
-  first_x_assum $ qspec_then `x` strip_assume_tac \\
-  gvs [pegexecTheory.peg_exec_def,
-       pegexecTheory.coreloop_def,
-       AllCaseEqs(),
-       pegexecTheory.evalcase_distinct,
-       SIMP_CONV (srw_ss()) [pancake_peg_def] ``pancake_peg.start``,
-       IS_SOME_EXISTS] \\
-  rename1 ‘_ = SOME (Result rr)’ \\
-  qexists_tac `Result rr`\\
-  pop_assum (REWRITE_TAC o single o GSYM) \\
-  rpt (AP_THM_TAC ORELSE AP_TERM_TAC) \\
-  rw[FUN_EQ_THM] \\
-  rpt(PURE_FULL_CASE_TAC >> gvs[FDOM_FLOOKUP]) \\
-  gvs [flookup_thm])
-  |> update_precondition;
+val r = parse_def
+  |> RW [pegexecTheory.peg_exec_def, GSYM peg_pancake_rules_def,
+         pegexecTheory.coreloop_def, parserProgTheory.INTRO_FLOOKUP]
+  |> SRULE [pancake_peg_def]
+  |> translate;
+
+Theorem parse_side_lemma:
+  !x. parse_side x = T
+Proof
+  SIMP_TAC std_ss [fetch "-" "parse_side_def"]
+  \\ rpt strip_tac
+  \\ assume_tac PEG_wellformed
+  \\ drule_then strip_assume_tac pegexecTheory.peg_exec_total
+  \\ first_x_assum $ qspec_then `x` strip_assume_tac
+  \\ pop_assum mp_tac
+  \\ rewrite_tac [pegexecTheory.coreloop_def,
+                  pegexecTheory.peg_exec_def, GSYM peg_pancake_rules_def,
+                  parserProgTheory.INTRO_FLOOKUP]
+  \\ simp [pancake_peg_def]
+  \\ qmatch_goalsub_abbrev_tac ‘OWHILE _ f2’ \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac ‘OWHILE _ g2’
+  \\ gvs [AllCaseEqs()]
+  \\ qsuff_tac ‘f2 = g2’ >- (strip_tac \\ gvs [])
+  \\ unabbrev_all_tac
+  \\ rpt $ pop_assum kall_tac
+  \\ simp [pancake_peg_def, SF ETA_ss]
+QED
+
+val _ = update_precondition parse_side_lemma;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

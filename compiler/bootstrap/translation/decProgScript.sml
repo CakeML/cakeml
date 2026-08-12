@@ -78,4 +78,24 @@ val r = translate repl_decs_allowedTheory.decs_allowed_def;
 
 val _ = MapProgLib.add_fmap_for_cmp mlstringTheory.TotOrd_fast_compare;
 val _ = MapProgLib.add_fmap_for_cmp mlintTheory.TotOrd_int_cmp;
-(* val _ = MapProgLib.add_fmap_for_cmp miscTheory.TotOrd_num_cmp; *)
+val _ = MapProgLib.add_fmap_for_cmp miscTheory.TotOrd_num_cmp;
+
+val RW = REWRITE_RULE;
+
+val _ = translate (alist_to_fmap_def |> RW [GSYM fmap_update_def]
+                                     |> INST_TYPE [alpha|->“:mlstring”]);
+
+val _ = translate (alist_to_fmap_def |> RW [GSYM fmap_update_def]
+                                     |> INST_TYPE [alpha|->“:int”]);
+
+val _ = translate (alist_to_fmap_def |> RW [GSYM fmap_update_def]
+                                     |> INST_TYPE [alpha|->“:num”]);
+
+val _ = translate (miscTheory.fmap_update_def |> GSYM |> oneline
+                                              |> INST_TYPE [alpha|->“:mlstring”]);
+
+val _ = translate (miscTheory.fmap_update_def |> GSYM |> oneline
+                                              |> INST_TYPE [alpha|->“:int”]);
+
+val _ = translate (miscTheory.fmap_update_def |> GSYM |> oneline
+                                              |> INST_TYPE [alpha|->“:num”]);

@@ -395,13 +395,10 @@ Proof
 QED
 
 val coreloop_def' =
-( pegexecTheory.coreloop_def
+  pegexecTheory.coreloop_def
     |> REWRITE_RULE [INTRO_FLOOKUP]
-    |> SPEC_ALL |> ONCE_REWRITE_RULE [FUN_EQ_THM]);
-
-val r = translate coreloop_def';
-
-val r = translate (pegexecTheory.peg_exec_def);
+    |> SPEC_ALL |> ONCE_REWRITE_RULE [FUN_EQ_THM]
+    |> INST_TYPE [beta |-> “:reNT”];
 
 (* -- *)
 
@@ -445,19 +442,27 @@ val uncharset_char_side = Q.prove(
     \\ `n MOD 256 < 256` by simp[]
     \\ simp[]) |> update_precondition;
 
-val r = translate rePEG_def;
-
-val r = translate parse_regexp_def;
+Theorem option_CASE_FLOOKUP_SIMP:
+  option_CASE (FLOOKUP FEMPTY n) f h = f ∧
+  option_CASE (FLOOKUP (m |+ (a,b)) n) f h =
+  if n = a then h b else option_CASE (FLOOKUP m n) f h
+Proof
+  rw [] \\ gvs [FLOOKUP_SIMP]
+QED
 
 val termination_lemma =
   MATCH_MP pegexecTheory.coreloop_total wfG_rePEG
-  |> SIMP_RULE(srw_ss())[coreloop_def'];
+  |> SIMP_RULE(srw_ss())[coreloop_def', rePEG_def,
+       FUPDATE_LIST, option_CASE_FLOOKUP_SIMP]
+  |> GEN_ALL;
+
+val _ = translate
+  (parse_regexp_def |> SRULE [pegexecTheory.peg_exec_def,coreloop_def', rePEG_def,
+       FUPDATE_LIST, option_CASE_FLOOKUP_SIMP]);
 
 val parse_regexp_side = Q.prove(
   `∀x. parse_regexp_side x = T`,
   rw[definition"parse_regexp_side_def"] \\
-  rw[definition"peg_exec_side_def"] \\
-  rw[definition"coreloop_side_def"] \\
   qspec_then`MAP add_loc x`strip_assume_tac (GEN_ALL termination_lemma) \\
   qmatch_abbrev_tac`IS_SOME (OWHILE f g h)` \\
   qmatch_assum_abbrev_tac`OWHILE f g' h = SOME _` \\
