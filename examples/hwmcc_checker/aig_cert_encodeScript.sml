@@ -2499,117 +2499,7 @@ Proof
   >> simp [IMP_DISJ_THM]
 QED
 
-(* aig_cert_side - side conditions *)
-
-
-(*
-    return
-      (mcirc, mreset, mnext, mpreds, mcnstrs, mlive, mlatches,
-       wcirc, wreset, wnext, wpreds, wcnstrs, wlive, wlatches,
-       interv, klatches)
-*)
-
-Definition encodings_unsat_def:
-  encodings_unsat
-    mcirc mreset mnext mpreds mcnstrs mlive mlatches
-    wcirc wreset wnext wpreds wcnstrs wlive wlatches
-    interv klatches
-  ⇔
-   ¬(∃ss.
-      eval_circuit ss
-        (encode_is_witness_reset mcirc mreset mcnstrs mlatches wcirc
-           wreset wcnstrs wlatches klatches) (Named (Ext «reset»))) ∧
-   ¬(∃ss.
-      eval_circuit ss
-        (encode_is_witness_transition mcirc mnext mcnstrs mlatches wcirc
-           wnext wcnstrs wlatches klatches) (Named (Ext «transition»))) ∧
-   ¬(∃ss.
-      eval_circuit ss
-        (encode_is_witness_property mcirc mcnstrs mpreds wcirc wcnstrs
-           wpreds) (Named (Ext «property»))) ∧
-  (¬∃ss.
-     (eval_circuit ss
-       (encode_is_witness_base wcirc wreset wcnstrs wpreds wlatches)
-         (Named (Ext «base»)))) ∧
-   ¬(∃ss.
-      eval_circuit ss
-        (encode_is_witness_step wcirc wnext wcnstrs wpreds wlatches)
-        (Named (Ext «step»))) ∧
-   ¬(∃ss.
-      eval_circuit ss
-        (encode_is_witness_liveness mcirc mcnstrs mlive wcirc wnext
-           wcnstrs wpreds wlive wlatches interv) (Named (Ext «liveness»))) ∧
-  (¬∃ss.
-     (eval_circuit ss
-        (encode_is_witness_decrease wcirc wnext wcnstrs wpreds wlive
-           wlatches interv)
-       (Named (Ext «decrease»)))) ∧
-  (¬∃ss.
-     (eval_circuit ss
-        (encode_is_witness_closure wcirc wnext wcnstrs wpreds wlive
-           wlatches interv)
-       (Named (Ext «closure»)))) ∧
-  (¬∃ss.
-     (eval_circuit ss
-       (encode_is_witness_consistent wcirc wnext wcnstrs wpreds wlive
-          wlatches interv) (Named (Ext «consistent»))))
-End
-
-Theorem encoding_is_safe:
-  LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive wlive ∧
-  set klatches = set mlatches ∩ set wlatches ∧
-  encodings_unsat
-    mcirc mreset mnext mpreds mcnstrs mlive mlatches
-    wcirc wreset wnext wpreds wcnstrs wlive wlatches
-    interv klatches
-  ⇒
-  is_safe
-    mcirc mreset mnext (set mcnstrs) (set mlatches) (set mpreds)
-Proof
-  rewrite_tac [encodings_unsat_def]
-  >> strip_tac
-  >> irule_at Any $
-       INST_TYPE
-       [“:α” |-> “:β”, “:β” |-> “:γ”, “:γ” |-> “:α”, “:ε” |-> “:δ”,
-        “:ζ” |-> “:δ”, “:δ” |-> “:β”]
-         is_witness_is_safe
-  >> conj_tac
-  >- cheat  (* possible to compute minputs for dep_model *)
-  >> rewrite_tac [is_witness_def]
-  >> MAP_EVERY (irule_at Any o iffLR) [
-       eval_circuit_encode_is_witness_reset,
-       eval_circuit_encode_is_witness_transition,
-       eval_circuit_encode_is_witness_property,
-       eval_circuit_encode_is_witness_base,
-       eval_circuit_encode_is_witness_step,
-       eval_circuit_encode_is_witness_liveness,
-       eval_circuit_encode_is_witness_decrease,
-       eval_circuit_encode_is_witness_closure,
-       eval_circuit_encode_is_witness_consistent,
-     ]
-  (* Should take care of all properties *)
-  >> rpt $ qpat_x_assum ‘¬∃ss. eval_circuit ss _ _’ $ irule_at Any
-  >> simp []
-  (* stratification *)
-  >> simp [is_stratified_full_def]
-  >> cheat
-(* for debugging
-  >> qrefinel [
-      ‘_’, ‘qleft_live mlive’, ‘qleft mcirc’,
-      ‘wcirc’, ‘set wcnstrs’, ‘set wlatches’,
-      ‘qinterv_live_l_r interv wlive’, ‘wnext’,
-      ‘set wpreds’, ‘qinterv_l_r interv wcirc’, ‘wreset’
-    ]
-  >> irule_at Any o iffLR $ eval_circuit_encode_is_witness_reset
-  >> irule_at Any o iffLR $ eval_circuit_encode_is_witness_transition
-  >> irule_at Any o iffLR $ eval_circuit_encode_is_witness_property
-  >> irule_at Any o iffLR $ eval_circuit_encode_is_witness_step
-  >> irule_at Any o iffLR $ eval_circuit_encode_is_witness_decrease
-  >> irule_at Any o iffLR $ eval_circuit_encode_is_witness_closure
-  >> irule_at Any o iffLR $ eval_circuit_encode_is_witness_consistent
-  >> irule_at Any o iffLR $ eval_circuit_encode_is_witness_liveness
- *)
-QED
+(** Stratification ************************************************************)
 
 (* Given a circuit and a name, finds the first match, returning its
    input literals and the rest of the circuit. *)
@@ -2652,13 +2542,24 @@ Termination
   >> drule circ_lookup_LENGTH_lt >> simp []
 End
 
-Theorem latch_deps_cons_name_eq[local]:
+Theorem latch_deps_cons_name_neq[local]:
   n' ≠ n ⇒
   latch_deps ((n',ins)::circ) (Name n,b) = latch_deps circ (Name n,b)
 Proof
   simp [Once latch_deps_def, SimpLHS]
   >> simp [Once latch_deps_def, SimpRHS]
   >> simp [circ_lookup_def]
+QED
+
+Theorem MEM_latch_deps_name_eq:
+  MEM x ins ∧ MEM l (latch_deps circ x) ⇒
+  MEM l (latch_deps ((n,ins)::circ) (Name n,b))
+Proof
+  strip_tac
+  >> simp [Once latch_deps_def, circ_lookup_def]
+  >> simp [MEM_FLAT, MEM_MAP, PULL_EXISTS]
+  >> qpat_assum ‘MEM _ (latch_deps _ _)’ $ irule_at Any
+  >> simp []
 QED
 
 Theorem latch_deps_eval_eq:
@@ -2671,42 +2572,74 @@ Theorem latch_deps_eval_eq:
     (eval_circuit (is,ls') circ n ⇔ eval_circuit (is,ls) circ n))
 Proof
   Induct_on ‘circ’ >> rw []
-  >~ [‘eval_circuit _ (_::_) _ ⇔ _’] >- suspend "eval_circuit_step"
-  (* eval_lit base and step case *)
-  >> namedCases_on ‘lit’ ["v b"]
+  >~ [‘eval_lit _ [] _ ⇔ _’] >- suspend "eval_lit_nil"
+  >~ [‘eval_lit _ (_::_) _ ⇔ _’] >- suspend "eval_lit_cons"
+  >~ [‘eval_circuit _ (_::_) _ ⇔ _’] >- suspend "eval_circuit_cons"
+QED
+
+Resume latch_deps_eval_eq[eval_lit_nil]:
+  namedCases_on ‘lit’ ["v b"]
+  >> reverse $ namedCases_on ‘v’ ["n", "b'"]
+  >> simp [eval_circuit_def]
+  >> Cases_on ‘b'’
+  >> fs [eval_circuit_def, Once latch_deps_def]
+QED
+
+Resume latch_deps_eval_eq[eval_lit_cons]:
+  namedCases_on ‘lit’ ["v b"]
+  >> reverse $ namedCases_on ‘v’ ["n", "b'"]
   >- (
-    reverse $ namedCases_on ‘v’ ["n", "b'"]
+    Cases_on ‘b'’
     >> simp [eval_circuit_def]
-    >> Cases_on ‘b'’
     >> fs [eval_circuit_def, Once latch_deps_def]
   )
-  >> reverse $ namedCases_on ‘v’ ["n", "b'"]
-  >-
-   (Cases_on ‘b'’
-    >> simp [eval_circuit_def]
-    >> fs [eval_circuit_def, Once latch_deps_def])
   >> simp [eval_circuit_def]
   >> rpt (pairarg_tac >> gvs [])
   >> IF_CASES_TAC >> gvs []
-  >- cheat
+  >- (
+    qsuff_tac
+      ‘EVERY (λa. eval_lit (is,ls') circ a) ins ⇔
+         EVERY (λa. eval_lit (is,ls) circ a) ins’
+    >- simp []
+    >> irule EVERY_CONG >> rw []
+    >> first_x_assum irule >> rw []
+    >> first_x_assum irule
+    >> drule_all MEM_latch_deps_name_eq >> simp []
+  )
   >> qsuff_tac ‘eval_circuit (is,ls') circ n ⇔ eval_circuit (is,ls) circ n’
-  >- metis_tac []
+  >- simp []
   >> drule_then assume_tac $
-       INST_TYPE [“:γ” |-> “:β”, “:β” |-> “:γ”] latch_deps_cons_name_eq
+       INST_TYPE [“:γ” |-> “:β”, “:β” |-> “:γ”] latch_deps_cons_name_neq
   >> fs []
   >> qpat_x_assum ‘∀_ _. _ ⇒ (eval_circuit _ _ _ ⇔ _)’ drule
   >> simp []
 QED
 
-Resume latch_deps_eval_eq[eval_circuit_step]:
-  cheat
+Resume latch_deps_eval_eq[eval_circuit_cons]:
+  simp [eval_circuit_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> IF_CASES_TAC >> gvs []
+  >- (
+    irule EVERY_CONG >> rw []
+    >> first_x_assum irule >> rw []
+    >> first_x_assum irule
+    >> drule_all MEM_latch_deps_name_eq >> simp []
+  )
+  >> first_x_assum irule
+  >> qexists ‘b’ >> rw []
+  >> first_x_assum irule
+  >> drule_then assume_tac $
+       INST_TYPE [“:γ” |-> “:β”, “:β” |-> “:γ”] latch_deps_cons_name_neq
+  >> simp []
 QED
 
 Finalise latch_deps_eval_eq[local]
 
 Theorem latch_deps_eval_lit_eq[local] = cj 1 latch_deps_eval_eq
 Theorem latch_deps_eval_circuit_eq[local] =
-  cj 2 latch_deps_eval_eq |> SRULE []  (* rewrite _ = (_, _) away *)
+  cj 2 latch_deps_eval_eq
+    |> SIMP_RULE (pure_ss ++ UNWIND_ss) []  (* unwinds _ = (_, _)  *)
+
 
 (* Returns the tuple (latch, latch dependencies), if latch has a defined reset
    function. The tuple can be interpreted as a set of edges from a latch to
@@ -2811,4 +2744,100 @@ Proof
   >> qexists ‘reset_order circ reset latches’
   >> simp [is_stratified_full_def, transitive_reset_order,
            irreflexive_reset_order, is_stratified_reset_order]
+QED
+
+(** Top-level theorems ********************************************************)
+
+
+Definition encodings_unsat_def:
+  encodings_unsat
+    mcirc mreset mnext mpreds mcnstrs mlive mlatches
+    wcirc wreset wnext wpreds wcnstrs wlive wlatches
+    interv klatches
+  ⇔
+   ¬(∃ss.
+      eval_circuit ss
+        (encode_is_witness_reset mcirc mreset mcnstrs mlatches wcirc
+           wreset wcnstrs wlatches klatches) (Named (Ext «reset»))) ∧
+   ¬(∃ss.
+      eval_circuit ss
+        (encode_is_witness_transition mcirc mnext mcnstrs mlatches wcirc
+           wnext wcnstrs wlatches klatches) (Named (Ext «transition»))) ∧
+   ¬(∃ss.
+      eval_circuit ss
+        (encode_is_witness_property mcirc mcnstrs mpreds wcirc wcnstrs
+           wpreds) (Named (Ext «property»))) ∧
+  (¬∃ss.
+     (eval_circuit ss
+       (encode_is_witness_base wcirc wreset wcnstrs wpreds wlatches)
+         (Named (Ext «base»)))) ∧
+   ¬(∃ss.
+      eval_circuit ss
+        (encode_is_witness_step wcirc wnext wcnstrs wpreds wlatches)
+        (Named (Ext «step»))) ∧
+   ¬(∃ss.
+      eval_circuit ss
+        (encode_is_witness_liveness mcirc mcnstrs mlive wcirc wnext
+           wcnstrs wpreds wlive wlatches interv) (Named (Ext «liveness»))) ∧
+  (¬∃ss.
+     (eval_circuit ss
+        (encode_is_witness_decrease wcirc wnext wcnstrs wpreds wlive
+           wlatches interv)
+       (Named (Ext «decrease»)))) ∧
+  (¬∃ss.
+     (eval_circuit ss
+        (encode_is_witness_closure wcirc wnext wcnstrs wpreds wlive
+           wlatches interv)
+       (Named (Ext «closure»)))) ∧
+  (¬∃ss.
+     (eval_circuit ss
+       (encode_is_witness_consistent wcirc wnext wcnstrs wpreds wlive
+          wlatches interv) (Named (Ext «consistent»))))
+End
+
+Definition stratified_condition_def:
+  stratified_condition circ reset latches =
+  let g = reset_graph circ reset latches in
+    ALL_DISTINCT (MAP FST g) ∧ ¬has_cycle g
+End
+
+Theorem encoding_is_safe:
+  LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive wlive ∧
+  set klatches = set mlatches ∩ set wlatches ∧
+  stratified_condition wcirc wreset wlatches ∧
+  encodings_unsat
+    mcirc mreset mnext mpreds mcnstrs mlive mlatches
+    wcirc wreset wnext wpreds wcnstrs wlive wlatches
+    interv klatches
+  ⇒
+  is_safe
+    mcirc mreset mnext (set mcnstrs) (set mlatches) (set mpreds)
+Proof
+  rewrite_tac [encodings_unsat_def]
+  >> strip_tac
+  >> irule_at Any $
+       INST_TYPE
+       [“:α” |-> “:β”, “:β” |-> “:γ”, “:γ” |-> “:α”, “:ε” |-> “:δ”,
+        “:ζ” |-> “:δ”, “:δ” |-> “:β”]
+         is_witness_is_safe
+  >> conj_tac
+  >- cheat  (* possible to compute minputs for dep_model *)
+  >> rewrite_tac [is_witness_def]
+  >> MAP_EVERY (irule_at Any o iffLR) [
+       eval_circuit_encode_is_witness_reset,
+       eval_circuit_encode_is_witness_transition,
+       eval_circuit_encode_is_witness_property,
+       eval_circuit_encode_is_witness_base,
+       eval_circuit_encode_is_witness_step,
+       eval_circuit_encode_is_witness_liveness,
+       eval_circuit_encode_is_witness_decrease,
+       eval_circuit_encode_is_witness_closure,
+       eval_circuit_encode_is_witness_consistent,
+     ]
+  (* Should take care of all properties *)
+  >> rpt $ qpat_x_assum ‘¬∃ss. eval_circuit ss _ _’ $ irule_at Any
+  >> simp []
+  (* Stratification *)
+  >> irule exists_is_stratified_full
+  >> fs [stratified_condition_def]
 QED
