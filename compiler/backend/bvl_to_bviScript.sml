@@ -10,7 +10,7 @@ Theory bvl_to_bvi
 Ancestors
   bvl bvi backend_common bvl_inline[qualified]
   bvl_const[qualified] bvl_handle[qualified] bvi_let[qualified]
-  bvi_tailrec[qualified] dataLang[qualified]
+  bvi_tailrec[qualified] bvi_inline[qualified] dataLang[qualified]
 Libs
   preamble
 
@@ -522,6 +522,7 @@ Datatype:
             ; next_name1 : num (* there should be as many of       *)
             ; next_name2 : num (* these as bvl_to_bvi_namespaces-1 *)
             ; inlines : (num # bvl$exp) spt
+            ; bvi_inlines : (num # bvi$exp) spt
             |>
 End
 
@@ -533,6 +534,7 @@ Definition default_config_def:
      ; next_name1 := num_stubs + 1
      ; next_name2 := num_stubs + 2
      ; inlines := LN
+     ; bvi_inlines := LN
      |>
 End
 
@@ -564,7 +566,9 @@ Definition compile_def:
            c.split_main_at_seq c.exp_cut prog in
     let (loc, code, n1) = compile_prog start 0 prog in
     let (n2, code') = bvi_tailrec$compile_prog (num_stubs + 2) code in
-      (loc, code', inlines, n1, n2, get_names (MAP FST code') names)
+    let (bvi_inlines,code') = bvi_inline$compile_prog code' in
+      (loc, code', inlines, bvi_inlines, n1, n2,
+       get_names (MAP FST code') names)
 End
 
 Definition bvl_to_bvi_compile_inc_all_def:
@@ -576,6 +580,7 @@ Definition bvl_to_bvi_compile_inc_all_def:
     let c = c with <| next_name1 := nn1 |> in
     let (nn2, p) = bvi_tailrec$compile_prog c.next_name2 p in
     let c = c with <| next_name2 := nn2 |> in
+    let (bvi_inlines,p) = bvi_inline$compile_inc c.bvi_inlines p in
+    let c = c with <| bvi_inlines := bvi_inlines |> in
       (c, p)
 End
-
