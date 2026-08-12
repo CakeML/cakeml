@@ -7,7 +7,7 @@ Theory readerProgProof_ag32
 Ancestors
   semanticsProps backendProof ag32_configProof ag32_memory
   ag32_memoryProof ag32_ffi_codeProof ag32_machine_config
-  ag32_basis_ffiProof readerProg readerCompile holSoundness
+  ag32_basis_ffiProof readerProg readerCompile_ag32 holSoundness
 Libs
   preamble
 
