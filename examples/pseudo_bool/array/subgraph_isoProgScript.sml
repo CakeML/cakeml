@@ -46,7 +46,7 @@ Theorem parse_and_enc_spec:
        (LIST_TYPE
         (PAIR_TYPE
         (OPTION_TYPE STRING_TYPE)
-         (PAIR_TYPE PBC_PBOP_TYPE
+         (PAIR_TYPE (PBC_PBHD_TYPE STRING_TYPE)
             (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))) res v ∧
       case res of
         INL err =>
@@ -112,7 +112,7 @@ Definition mk_prob_def:
   mk_prob fml = (NONE,NONE,fml):mlstring list option #
     ((int # mlstring pbc$lit) list # int) option #
     (mlstring option #
-      (pbop # (int # mlstring pbc$lit) list # int)) list
+      (mlstring pbhd # (int # mlstring pbc$lit) list # int)) list
 End
 
 val res = translate mk_prob_def;

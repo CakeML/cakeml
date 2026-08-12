@@ -12,7 +12,6 @@ val _ = translation_extends"npbc_parseProg";
 (* Translation for parsing an OPB file *)
 val r = translate nocomment_line_def;
 
-val r = translate parse_op_def;
 val r = translate parse_constraint_def;
 val r = translate parse_annot_def;
 val r = translate parse_annot_constraint_def;

@@ -104,7 +104,7 @@ Definition mk_constraint_def:
   mk_constraint e x y =
   if y ≤ x ∨ is_edge e x y then []
   else
-    [((x,y),(GreaterEqual,[(1,Neg x);(1,Neg y)], 1)):(annot # num pbc)]
+    [((x,y),(PGe,[(1,Neg x);(1,Neg y)], 1)):(annot # num pbc)]
 End
 
 (* Encoding *)
@@ -487,7 +487,7 @@ Theorem full_encode_eq =
   full_encode_def
   |> SIMP_RULE (srw_ss()) [FORALL_PROD,encode_def]
   |> SIMP_RULE (srw_ss()) [mk_constraint_def]
-  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,MAP_if]
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,MAP_if]
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN,FOLDN_APPEND_op]
   |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
   |> SIMP_RULE (srw_ss()) [if_APPEND];
@@ -497,7 +497,7 @@ Theorem full_encode_eq =
 Definition maximal_clique_constraints_def:
   maximal_clique_constraints (v,e) =
   GENLIST (λx.
-    (INR x, (GreaterEqual,
+    (INR x, (PGe,
       (1, Pos x) :: MAP (λy. (1,Pos y)) (strict_not_neighbours (v,e) x), 1))
   ) v
 End
@@ -511,7 +511,7 @@ End
 Theorem satisfies_pbc_MAP_Pos:
   ∀ls.
   satisfies_pbc vs
-    (GreaterEqual,MAP (λy. (1,Pos y)) ls,1)
+    (PGe,MAP (λy. (1,Pos y)) ls,1)
   ⇔
   ∃y. MEM y ls ∧ y ∈ vs
 Proof
@@ -662,7 +662,7 @@ Theorem full_mencode_eq =
   full_mencode_def
   |> SIMP_RULE (srw_ss()) [FORALL_PROD,mencode_def,encode_def]
   |> SIMP_RULE (srw_ss()) [mk_constraint_def,maximal_clique_constraints_def]
-  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,MAP_if]
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,MAP_if]
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN,FOLDN_APPEND_op]
   |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
   |> SIMP_RULE (srw_ss()) [if_APPEND];

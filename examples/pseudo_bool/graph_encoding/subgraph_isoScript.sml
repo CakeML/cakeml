@@ -21,26 +21,26 @@ Type map_var = ``:num # num``
 Definition has_mapping_al1_def:
   has_mapping_al1 (a:num) vt =
   ((«al1» ^ toString a)
-  ,(GreaterEqual, (GENLIST (λv. (1, Pos (a,v))) vt), 1):map_var pbc)
+  ,(PGe, (GENLIST (λv. (1, Pos (a,v))) vt), 1):map_var pbc)
 End
 
 Definition has_mapping_am1_def:
   has_mapping_am1 (a:num) vt =
   ((«am1» ^ toString a)
-  ,(LessEqual, (GENLIST (λv. (1, Pos (a,v))) vt), 1):map_var pbc)
+  ,(PLe, (GENLIST (λv. (1, Pos (a,v))) vt), 1):map_var pbc)
 End
 
 Definition one_one_def:
   one_one u vp =
   ((«inj» ^ toString u)
-  ,(GreaterEqual, GENLIST (λb. (1, Neg (b,u))) vp, &vp-1): map_var pbc)
+  ,(PGe, GENLIST (λb. (1, Neg (b,u))) vp, &vp-1): map_var pbc)
 End
 
 Definition edge_map_def:
   edge_map (a:num,b:num) (u:num) et =
   (
   concat [«adj»; toString a; «_»; toString u; «_»; toString b]
-  ,(GreaterEqual,
+  ,(PGe,
     (1,Neg (a,u)) ::
       MAP (λv. (1,Pos (b,v))) (neighbours et u),
     1): map_var pbc)
@@ -498,7 +498,7 @@ Theorem full_encode_eq =
   full_encode_def
   |> SIMP_RULE (srw_ss()) [FORALL_PROD,encode_def]
   |> SIMP_RULE (srw_ss()) [all_has_mapping_def,all_one_one_def,all_edge_map_def,has_mapping_al1_def,has_mapping_am1_def,one_one_def,edge_map_def]
-  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def]
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def]
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN,FOLDN_APPEND,FOLDN_APPEND_op]
   |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
   |> SIMP_RULE (srw_ss()) [];

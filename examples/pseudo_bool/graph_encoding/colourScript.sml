@@ -145,27 +145,27 @@ End
 Definition gen_constraint_def:
   gen_constraint (n:num) ((v,e):graph) (Edge x y c) =
     (if c < n ∧ x < v ∧ y < v ∧ is_edge e x y ∧ x ≠ y then
-       SOME (GreaterEqual, [(1i, Neg (VertexHasColor x c));
+       SOME (PGe, [(1i, Neg (VertexHasColor x c));
                             (1i, Neg (VertexHasColor y c))], 1i)
      else NONE) ∧
   (gen_constraint (n:num) ((v,e):graph) (AtLeastOneColor vertex) =
     if vertex < v then
-      SOME (GreaterEqual,
+      SOME (PGe,
             GENLIST (λcolour. (1i,Pos (VertexHasColor vertex colour))) n, 1i)
     else NONE) ∧
   (gen_constraint (n:num) ((v,e):graph) (AtMostOneColor vertex) =
     if vertex < v then
-      SOME (GreaterEqual,
+      SOME (PGe,
             GENLIST (λcolour. (1i,Neg (VertexHasColor vertex colour))) n, & (n - 1))
     else NONE) ∧
   (gen_constraint (n:num) ((v,e):graph) (VC_Imp_CU c) =
     if c < n then
-      SOME (GreaterEqual,
+      SOME (PGe,
             (& v, Pos (ColorUsed c)) :: GENLIST (λu. (1i,Neg (VertexHasColor u c))) v, & v)
     else NONE) ∧
   (gen_constraint (n:num) ((v,e):graph) (CU_Imp_VC c) =
     if c < n then
-      SOME (GreaterEqual,
+      SOME (PGe,
             (1i, Neg (ColorUsed c)) :: GENLIST (λu. (1i,Pos (VertexHasColor u c))) v, 1i)
     else NONE)
 End
@@ -220,12 +220,6 @@ Proof
   \\ rw [] \\ res_tac \\ intLib.COOPER_TAC
 QED
 
-Theorem iSUM_append:
-  ∀xs ys. iSUM (xs ++ ys) = iSUM xs + iSUM ys
-Proof
-  Induct \\ gvs [iSUM_def,integerTheory.INT_ADD_ASSOC]
-QED
-
 Theorem iSUM_EQ_LENGTH:
   ∀xs. EVERY (λx. x = 1) xs ⇒ iSUM xs = & LENGTH xs
 Proof
@@ -250,7 +244,7 @@ Theorem iSUM_NOT_GE_LENGTH:
        ¬(iSUM xs ≥ &v)
 Proof
   Induct \\ rw [] \\ gvs [iSUM_def,ADD1,GSYM integerTheory.INT_ADD]
-  \\ gvs [MEM_SPLIT,iSUM_append,iSUM_def]
+  \\ gvs [MEM_SPLIT,iSUM_def]
   \\ imp_res_tac iSUM_LEQ_LENGTH \\ intLib.COOPER_TAC
 QED
 
@@ -261,13 +255,13 @@ Theorem iSUM_one_less:
 Proof
   Induct \\ gvs [] \\ rw []
   \\ Cases_on ‘n = t’ \\ gvs []
-  \\ simp [GENLIST,SNOC_APPEND,iSUM_append,iSUM_def]
+  \\ simp [GENLIST,SNOC_APPEND,iSUM_def]
   >-
    (‘∀k. k < n ⇒ f k = 1’ by gvs []
     \\ pop_assum mp_tac
     \\ qid_spec_tac ‘n’ \\ Induct
     \\ gvs [iSUM_def] \\ rw []
-    \\ simp [GENLIST,SNOC_APPEND,iSUM_append,iSUM_def]
+    \\ simp [GENLIST,SNOC_APPEND,iSUM_def]
     \\ gvs [GSYM integerTheory.INT_OF_NUM_ADD, integerTheory.int_ge, ADD1])
   \\ last_x_assum $ qspecl_then [‘t’,‘f’] mp_tac
   \\ impl_tac >- gvs []
@@ -332,7 +326,7 @@ Theorem CARD_colours_used_lemma[local]:
     iSUM (GENLIST (λc. b2i (c ∈ colours_used f v)) k) =
     & CARD (colours_used f v ∩ count k)
 Proof
-  Induct \\ gvs [iSUM_def,GENLIST,SNOC_APPEND,iSUM_append]
+  Induct \\ gvs [iSUM_def,GENLIST,SNOC_APPEND]
   \\ rw [CARD_INTER_count,GSYM integerTheory.INT_ADD]
   \\ last_x_assum irule
   \\ first_x_assum $ irule_at Any \\ gvs []
@@ -496,8 +490,8 @@ Proof
    >-
      (qspecl_then [‘d’,‘n’,‘ff’] mp_tac GENLIST_SPLIT_LESS \\ simp []
       \\ qspecl_then [‘c’,‘d’,‘ff’] mp_tac GENLIST_SPLIT_LESS \\ simp []
-      \\ rw [Abbr ‘ff’,iSUM_append,iSUM_def]
-      \\ simp [SYM neg_b2i,iSUM_append,iSUM_def]
+      \\ rw [Abbr ‘ff’,iSUM_def]
+      \\ simp [SYM neg_b2i,iSUM_def]
       \\ qmatch_goalsub_abbrev_tac
            ‘iSUM (GENLIST f1 _) + iSUM (GENLIST f2 _) + iSUM (GENLIST f3 _)’
       \\ ‘iSUM (GENLIST f1 c) ≤ & c’ by
@@ -513,8 +507,8 @@ Proof
     >-
      (qspecl_then [‘c’,‘n’,‘ff’] mp_tac GENLIST_SPLIT_LESS \\ simp []
       \\ qspecl_then [‘d’,‘c’,‘ff’] mp_tac GENLIST_SPLIT_LESS \\ simp []
-      \\ rw [Abbr ‘ff’,iSUM_append,iSUM_def]
-      \\ simp [SYM neg_b2i,iSUM_append,iSUM_def]
+      \\ rw [Abbr ‘ff’,iSUM_def]
+      \\ simp [SYM neg_b2i,iSUM_def]
       \\ qmatch_goalsub_abbrev_tac
            ‘iSUM (GENLIST f1 _) + iSUM (GENLIST f2 _) + iSUM (GENLIST f3 _)’
       \\ ‘iSUM (GENLIST f1 d) ≤ & d’ by
@@ -834,7 +828,7 @@ Theorem full_encode_eq =
   full_encode_def
   |> SIMP_RULE (srw_ss()) [FORALL_PROD,encode_def,flat_genlist_def]
   |> SIMP_RULE (srw_ss()) [gen_named_constraint_def]
-  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,
                            map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,MAP_if]
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN,FOLDN_APPEND_op]
   |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]

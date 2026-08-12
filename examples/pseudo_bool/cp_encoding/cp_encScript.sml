@@ -13,9 +13,9 @@ Definition cencode_bound_var_def:
   let bX = encode_ivar bnd (X:mlstring) in
   [
     (SOME(concat[«i[»;X;«][lb]»])
-      ,(pbc$GreaterEqual,bX,lb));
+      ,(PGe,bX,lb));
     (SOME(concat[«i[»;X;«][ub]»])
-      ,(pbc$LessEqual,bX,ub));
+      ,(PLe,bX,ub));
   ]
 End
 
