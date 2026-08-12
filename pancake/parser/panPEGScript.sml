@@ -184,11 +184,11 @@ Definition pancake_peg_def[nocompute]:
                               seql [mknt StmtNT; consume_tok SemiT; mknt ProgNT] (mksubtree ProgNT);
                               consume_tok RCurT
                              ]);
-        (INL BlockNT, choicel [mknt IfNT;
+        (INL BlockNT, choicel [mknt HandleNT;
+                               mknt IfNT;
                                mknt WhileNT]);
         (INL StmtNT, choicel [keep_kw SkipK;
                               mknt CallNT;
-                              mknt HandleNT;
                               mknt AssignNT; mknt StoreNT;
                               mknt StoreByteNT;
                               mknt Store32NT;
@@ -253,15 +253,14 @@ Definition pancake_peg_def[nocompute]:
         (INL HandleNT, seql [consume_kw TryK;
                              mknt RetNT;
                              keep_ident;
-                             consume_tok LParT; try (mknt ArgListNT);
+                             consume_tok LParT; try_default (mknt ArgListNT) NotT;
                              consume_tok RParT;
                              consume_kw CatchK;
                              consume_tok LParT;
                              keep_ident;
                              keep_ident;
                              consume_tok RParT;
-                             consume_tok LCurT; try_ProgNT;
-                             consume_kw CatchK]
+                             consume_tok LCurT; try_ProgNT]
                             (mksubtree HandleNT));
         (INL ExtCallNT, seql [keep_ffi_ident;
                               consume_tok LParT; mknt ExpNT;

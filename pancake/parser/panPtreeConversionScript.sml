@@ -253,9 +253,11 @@ End
   * for precise details. *)
 Definition conv_Exp_def:
   (conv_ArgList tree =
-    case argsNT tree ArgListNT of
-      SOME (t::ts) => OPT_MMAP conv_Exp (t::ts)
-    | _ => NONE) ∧
+   if tokcheck tree NotT then SOME []
+   else
+     case argsNT tree ArgListNT of
+       SOME (t::ts) => OPT_MMAP conv_Exp (t::ts)
+     | _ => NONE) ∧
   (conv_FieldList tree =
     case argsNT tree NmdFieldListNT of
       SOME (t::ts) => OPT_MMAP conv_Field (t::ts)
@@ -921,6 +923,7 @@ End
 Definition localise_topdec_def:
   localise_topdec ls (Decl sh v e) = Decl sh v e ∧
   localise_topdec ls (Name nm fld) = Name nm fld ∧
+  localise_topdec ls (ExnDecl nm sh) = ExnDecl nm sh ∧
   localise_topdec ls (Function fi) =
   Function $ fi with body := localise_prog (FOLDL (\m p. insert m p ()) ls (MAP FST fi.params)) fi.body
 End

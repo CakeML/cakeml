@@ -611,3 +611,22 @@ val named_structs =
   ’
 
 val named_structs_parse = check_success $ parse_pancake named_structs;
+
+(* Exception declarations and syntax *)
+val exception_declaration =
+ ‘
+  exception ExampleException : 1;
+
+  fun f() { return 1; }
+
+  fun g() {
+    var 1 x = 0;
+    try x = f()
+    catch(ExampleException x) {
+      x = 3;
+    }
+    return x;
+  }
+  ’
+
+val exception_declaration_parse = check_success $ parse_pancake exception_declaration;
