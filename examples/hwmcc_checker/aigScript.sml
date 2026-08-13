@@ -9,6 +9,49 @@ Libs
 
 val _ = numLib.prefer_num();
 
+(** Various set definitions/theorems ******************************************)
+
+Definition IMAGE_PARTIAL_DEF:
+  IMAGE_PARTIAL f xs = {y | ∃x. x ∈ xs ∧ f x = SOME y}
+End
+
+Theorem IMAGE_PARTIAL_EMPTY[simp]:
+  IMAGE_PARTIAL f ∅ = ∅
+Proof
+  simp [IMAGE_PARTIAL_DEF]
+QED
+
+Theorem IMAGE_PARTIAL_INSERT:
+  IMAGE_PARTIAL f (x INSERT s) =
+  case f x of
+  | NONE => IMAGE_PARTIAL f s
+  | SOME y => y INSERT IMAGE_PARTIAL f s
+Proof
+  simp [IMAGE_PARTIAL_DEF, INSERT_DEF]
+  >> CASE_TAC
+  >> rw [EXTENSION]
+  >> metis_tac [NOT_NONE_SOME, SOME_11]
+QED
+
+Definition pair_set_def:
+  pair_set xs = IMAGE INL xs ∪ IMAGE INR xs
+End
+
+Theorem SUBSET_pair_set:
+  IMAGE OUTL x ⊆ y ∧
+  IMAGE OUTR x ⊆ y
+  ⇒
+  x ⊆ pair_set y
+Proof
+  rw[pair_set_def,SUBSET_DEF,PULL_EXISTS]>>
+  first_x_assum drule_all>>
+  first_x_assum drule_all>>
+  rename1`xx ∈ _`>>
+  Cases_on`xx`>>rw[]
+QED
+
+(** AIG ***********************************************************************)
+
 (* Things that appear in base positions.
    Ff corresponds to the constant false. *)
 Datatype:
@@ -670,10 +713,6 @@ Proof
   >> metis_tac [dep_eval_lit_eq, agree_on_def]
 QED
 
-Definition pair_set_def:
-  pair_set xs = IMAGE INL xs ∪ IMAGE INR xs
-End
-
 Definition dep_qcirc_def:
   dep_qcirc inputs qcirc live latches ⇔
     dep_circuit (pair_set inputs) (pair_set latches) qcirc ∧
@@ -735,6 +774,22 @@ Proof
   Cases_on`next l`>>rw[lit_latches_def,lit_inputs_def]>>
   Cases_on`q`>>fs[var_latches_def,var_inputs_def]>>
   Cases_on`b`>>gvs[bvar_latches_def,bvar_inputs_def]
+QED
+
+Theorem dep_reset_subset:
+  BIGUNION (IMAGE (set ∘ lit_latches) (IMAGE_PARTIAL reset latches)) ⊆ latches' ∧
+  BIGUNION (IMAGE (set ∘ lit_inputs)  (IMAGE_PARTIAL reset latches)) ⊆ inputs' ⇒
+  dep_reset inputs' latches' reset latches
+Proof
+  rw [dep_reset_def, IMAGE_PARTIAL_DEF, SUBSET_DEF, PULL_EXISTS]
+  >> first_x_assum (drule_at Any)
+  >> first_x_assum (drule_at Any)
+  >> rename1 ‘dep_lit _ _ lit’
+  >> namedCases_on ‘lit’ ["v b"]
+  >> namedCases_on ‘v’ ["n", "b'"] >> simp [dep_lit_def, dep_var_def]
+  >> Cases_on ‘b'’ >> simp [dep_bvar_def]
+  >> simp [lit_inputs_def, var_inputs_def, bvar_inputs_def]
+  >> simp [lit_latches_def, var_latches_def, bvar_latches_def]
 QED
 
 (* TODO Wouldn't this be better called _subset? *)
@@ -830,17 +885,4 @@ Proof
   >> first_x_assum drule >> rw []
   >> qexists ‘j’
   >> fs [matching_transition_def, Abbr ‘g’, agree_on_iff_restrict_ss_eq]
-QED
-
-Theorem SUBSET_pair_set:
-  IMAGE OUTL x ⊆ y ∧
-  IMAGE OUTR x ⊆ y
-  ⇒
-  x ⊆ pair_set y
-Proof
-  rw[pair_set_def,SUBSET_DEF,PULL_EXISTS]>>
-  first_x_assum drule_all>>
-  first_x_assum drule_all>>
-  rename1`xx ∈ _`>>
-  Cases_on`xx`>>rw[]
 QED

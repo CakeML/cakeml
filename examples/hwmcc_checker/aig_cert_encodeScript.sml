@@ -2803,28 +2803,6 @@ End
 
 (** dep_model *****************************************************************)
 
-(* TODO move to aigScript *)
-Definition reset_lits_def:
-  reset_lits reset latch_args = {lit | ∃l. l ∈ latch_args ∧ reset l = SOME lit}
-End
-
-(* TODO move to aigScript *)
-Theorem dep_reset_subset:
-  BIGUNION (IMAGE (set ∘ lit_latches) (reset_lits reset latches)) ⊆ latches' ∧
-  BIGUNION (IMAGE (set ∘ lit_inputs)  (reset_lits reset latches)) ⊆ inputs' ⇒
-  dep_reset inputs' latches' reset latches
-Proof
-  rw [dep_reset_def, reset_lits_def, SUBSET_DEF, PULL_EXISTS]
-  >> first_x_assum (drule_at Any)
-  >> first_x_assum (drule_at Any)
-  >> rename1 ‘dep_lit _ _ lit’
-  >> namedCases_on ‘lit’ ["v b"]
-  >> namedCases_on ‘v’ ["n", "b'"] >> simp [dep_lit_def, dep_var_def]
-  >> Cases_on ‘b'’ >> simp [dep_bvar_def]
-  >> simp [lit_inputs_def, var_inputs_def, bvar_inputs_def]
-  >> simp [lit_latches_def, var_latches_def, bvar_latches_def]
-QED
-
 (* dep_circuit *)
 
 Definition dep_cond_def:
@@ -2834,7 +2812,7 @@ Definition dep_cond_def:
     BIGUNION (IMAGE (set ∘ lit_latches) (set preds)) ⊆ set latches ∧
     BIGUNION (IMAGE (set ∘ lit_latches) (set cnstrs)) ⊆ set latches ∧
     BIGUNION
-      (IMAGE (set ∘ lit_latches) (reset_lits reset (set latches))) ⊆
+      (IMAGE (set ∘ lit_latches) (IMAGE_PARTIAL reset (set latches))) ⊆
       set latches
 End
 
@@ -2868,7 +2846,7 @@ Proof
        ‘set (circuit_inputs mcirc) ∪
         BIGUNION (IMAGE (set ∘ lit_inputs ∘ mnext) (set mlatches)) ∪
         BIGUNION
-          (IMAGE (set ∘ lit_inputs) (reset_lits mreset (set mlatches))) ∪
+          (IMAGE (set ∘ lit_inputs) (IMAGE_PARTIAL mreset (set mlatches))) ∪
         BIGUNION (IMAGE (set ∘ lit_inputs) (set mpreds)) ∪
         BIGUNION (IMAGE (set ∘ lit_inputs) (set mcnstrs))’
     >> conj_tac
