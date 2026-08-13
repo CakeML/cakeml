@@ -688,14 +688,14 @@ Definition conv_Prog_def:
               e' <- conv_ident e;
               args' <- conv_ArgList args;
               if is_add_with_carry e' then
-                          (case r' of
-                           | SOME(SOME (_, vn), NONE) =>
-                               SOME $ add_locs_annot nd $
-                                 Primitive vn AddCarry args'
-                           | _ => NONE)
-                        else
-                          SOME $ add_locs_annot nd $
-                            panLang$Call r' e' args'
+                (case r' of
+                 | SOME(SOME (_, vn), NONE) =>
+                     SOME $ add_locs_annot nd $
+                          Primitive vn AddCarry args'
+                 | _ => NONE)
+              else
+                SOME $ add_locs_annot nd $
+                     panLang$Call r' e' args'
            od
        | _ => NONE
      else if isNT nodeNT ProgNT then
