@@ -127,7 +127,7 @@ Definition size_of_def:
                                  (n + LENGTH vs + 1, refs, seen)
      | SOME (Thunk _ v) => let (n,refs,seen) = size_of lims [v] (delete r refs) seen in
                              (n + 2, refs, seen)
-     | SOME (MutBlock tg ls c rs) =>
+     | SOME (MutBlock tg fin ls c rs) =>
          let (n,refs,seen) = size_of lims (ls ++ [c] ++ rs) (delete r refs) seen in
            (n + LENGTH ls + LENGTH rs + 2, refs, seen)) /\
   (size_of lims [Block ts tag []]) refs seen = (0, refs, seen) /\
@@ -570,6 +570,11 @@ Definition lim_safe_def[simp]:
       4 * tag < 2 ** (arch_size lims) DIV 16 /\
       4 * tag < 2 ** (arch_size lims - lims.length_limit - 2)
       )
+∧ (lim_safe lims (MemOp (MutCons tag i)) xs =
+      (LENGTH xs < 2 ** lims.length_limit /\
+       LENGTH xs < 2 ** (arch_size lims - 4) /\
+       4 * tag < 2 ** (arch_size lims) DIV 16 /\
+       4 * tag < 2 ** (arch_size lims - lims.length_limit - 2)))
 ∧ (lim_safe lims (BlockOp (FromList tag)) xs =
    (case xs of
     | [len;lv] =>
@@ -829,6 +834,29 @@ Definition bad_thunk_update_def:
     m = Evaluated ∧ dest_thunk v refs ≠ NotThunk
 End
 
+(* mirrors bviSem$finalise_cons, but threads the timestamp counter so that
+   each block produced by the finalisation gets a fresh time stamp *)
+Definition finalise_cons_def:
+  (finalise_cons (RefPtr b ptr) refs ts =
+    case lookup ptr refs of
+    | SOME (MutBlock tag finalised l c r) =>
+        if ~finalised then
+          (case finalise_cons c (delete ptr refs) ts of
+           | SOME (c',refs',ts') =>
+               SOME (Block (case ts' of NONE => 0 | SOME n => n) tag (l ++ [c'] ++ r),
+                     insert ptr (MutBlock tag T l c r) refs',
+                     OPTION_MAP SUC ts')
+           | NONE => NONE)
+        else NONE
+    | SOME res => SOME (RefPtr b ptr,refs,ts)
+    | NONE => NONE) ∧
+  (finalise_cons v refs ts = SOME (v,refs,ts))
+Termination
+  WF_REL_TAC ‘measure (sptree$size o FST o SND)’
+  \\ rw [] \\ imp_res_tac miscTheory.lookup_zero
+  \\ fs [sptreeTheory.size_delete]
+End
+
 Definition do_app_aux_def:
   do_app_aux op ^vs ^s =
     case (op,vs) of
@@ -1041,6 +1069,27 @@ Definition do_app_aux_def:
                               (ValueArray (LUPDATE x (Num i) xs)) s.refs)
              else Error)
          | _ => Error)
+    | (MemOp (MutCons tag i),xs) =>
+        (let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
+           if i >= LENGTH xs then Error else
+             let l = TAKE i xs in
+             let c = EL i xs in
+             let r = DROP (i+1) xs in
+               Rval (RefPtr F ptr,
+                     check_lim (s with refs :=
+                                  insert ptr (MutBlock tag F l c r) s.refs)
+                               (LENGTH xs)))
+    | (MemOp UpdateCons,[RefPtr _ ptr; Number i; x]) =>
+        (case lookup ptr s.refs of
+         | SOME (MutBlock tag finalised l c r) =>
+             if i <> & LENGTH l \/ finalised then Error else
+               Rval (Unit, s with refs := insert ptr (MutBlock tag F l x r) s.refs)
+         | _ => Error)
+    | (MemOp FinaliseCons,[x]) =>
+        (case finalise_cons x s.refs s.tstamps of
+         | SOME (v,refs',ts') =>
+             Rval (v, s with <| refs := refs' ; tstamps := ts' |>)
+         | NONE => Error)
     | (IntOp intop, vs) =>
         (case do_int_app intop vs of
         | SOME res => Rval (res ,s)

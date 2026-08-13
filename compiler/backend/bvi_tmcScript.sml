@@ -412,7 +412,9 @@ Theorem bvi_to_cb_aux_wf_inr:
       cb = CallBlock tag l child r
 Proof
   recInduct bvi_to_cb_aux_ind
-  >> rw [] >> gvs [bvi_to_cb_aux_def, call_to_cb_def, wf_cb_def, bind_def, shift_cb_def, CaseEq "prod", CaseEq "option", CaseEq "sum", CaseEq "list", wf_vars_empty, wf_vars_shift_sing, small_enough_int_def, length_shift_vars, GSYM INT]
+  >> rw [] >> gvs [bvi_to_cb_aux_def, call_to_cb_def, wf_cb_def, bind_def, shift_cb_def, CaseEq "prod",
+                   CaseEq "option", CaseEq "sum", CaseEq "list", wf_vars_empty, wf_vars_shift_sing,
+                   small_enough_int_def, length_shift_vars, GSYM INT]
   >-
    (imp_res_tac wf_vars_bind
     >> gvs [])

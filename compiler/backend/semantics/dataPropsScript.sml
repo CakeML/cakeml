@@ -34,7 +34,7 @@ Definition approx_of_def:
          approx_of lims vs (delete r refs) + LENGTH vs + 1
      | SOME (Thunk _ v) =>
          approx_of lims [v] (delete r refs) + 2
-     | SOME (MutBlock tg ls c rs) =>
+     | SOME (MutBlock tg fin ls c rs) =>
          approx_of lims (ls ++ [c] ++ rs) (delete r refs) +
          LENGTH ls + LENGTH rs + 2) /\
   (approx_of lims [Block ts tag []] refs = 0) /\
