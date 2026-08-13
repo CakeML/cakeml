@@ -723,6 +723,7 @@ Proof
   Cases_on ‘ss’ >> simp [agree_on_def]
 QED
 
+(* TODO Wouldn't this be better called _subset? *)
 Theorem dep_latch_lit_next:
   BIGUNION (IMAGE (set ∘ lit_latches ∘ next) latches) ⊆ latches' ∧
   BIGUNION (IMAGE (set ∘ lit_inputs ∘ next) latches) ⊆ inputs' ⇒
@@ -736,6 +737,7 @@ Proof
   Cases_on`b`>>gvs[bvar_latches_def,bvar_inputs_def]
 QED
 
+(* TODO Wouldn't this be better called _subset? *)
 Theorem dep_lits_lits:
   BIGUNION (IMAGE (set ∘ lit_latches) lits) ⊆ latches' ∧
   BIGUNION (IMAGE (set ∘ lit_inputs) lits) ⊆ inputs' ⇒

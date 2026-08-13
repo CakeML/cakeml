@@ -2755,27 +2755,27 @@ Definition encodings_unsat_def:
     wcirc wreset wnext wpreds wcnstrs wlive wlatches
     interv klatches
   ⇔
-   ¬(∃ss.
+   (¬∃ss.
       eval_circuit ss
         (encode_is_witness_reset mcirc mreset mcnstrs mlatches wcirc
            wreset wcnstrs wlatches klatches) (Named (Ext «reset»))) ∧
-   ¬(∃ss.
+   (¬∃ss.
       eval_circuit ss
         (encode_is_witness_transition mcirc mnext mcnstrs mlatches wcirc
            wnext wcnstrs wlatches klatches) (Named (Ext «transition»))) ∧
-   ¬(∃ss.
+   (¬∃ss.
       eval_circuit ss
         (encode_is_witness_property mcirc mcnstrs mpreds wcirc wcnstrs
            wpreds) (Named (Ext «property»))) ∧
-  (¬∃ss.
+   (¬∃ss.
      (eval_circuit ss
        (encode_is_witness_base wcirc wreset wcnstrs wpreds wlatches)
          (Named (Ext «base»)))) ∧
-   ¬(∃ss.
+   (¬∃ss.
       eval_circuit ss
         (encode_is_witness_step wcirc wnext wcnstrs wpreds wlatches)
         (Named (Ext «step»))) ∧
-   ¬(∃ss.
+   (¬∃ss.
       eval_circuit ss
         (encode_is_witness_liveness mcirc mcnstrs mlive wcirc wnext
            wcnstrs wpreds wlive wlatches interv) (Named (Ext «liveness»))) ∧
@@ -2795,16 +2795,54 @@ Definition encodings_unsat_def:
           wlatches interv) (Named (Ext «consistent»))))
 End
 
-Definition stratified_condition_def:
-  stratified_condition circ reset latches =
+Definition stratified_cond_def:
+  stratified_cond circ reset latches =
   let g = reset_graph circ reset latches in
     ALL_DISTINCT (MAP FST g) ∧ ¬has_cycle g
+End
+
+(** dep_model *****************************************************************)
+
+(* TODO move to aigScript *)
+Definition reset_lits_def:
+  reset_lits reset latch_args = {lit | ∃l. l ∈ latch_args ∧ reset l = SOME lit}
+End
+
+(* TODO move to aigScript *)
+Theorem dep_reset_subset:
+  BIGUNION (IMAGE (set ∘ lit_latches) (reset_lits reset latches)) ⊆ latches' ∧
+  BIGUNION (IMAGE (set ∘ lit_inputs)  (reset_lits reset latches)) ⊆ inputs' ⇒
+  dep_reset inputs' latches' reset latches
+Proof
+  rw [dep_reset_def, reset_lits_def, SUBSET_DEF, PULL_EXISTS]
+  >> first_x_assum (drule_at Any)
+  >> first_x_assum (drule_at Any)
+  >> rename1 ‘dep_lit _ _ lit’
+  >> namedCases_on ‘lit’ ["v b"]
+  >> namedCases_on ‘v’ ["n", "b'"] >> simp [dep_lit_def, dep_var_def]
+  >> Cases_on ‘b'’ >> simp [dep_bvar_def]
+  >> simp [lit_inputs_def, var_inputs_def, bvar_inputs_def]
+  >> simp [lit_latches_def, var_latches_def, bvar_latches_def]
+QED
+
+(* dep_circuit *)
+
+Definition dep_cond_def:
+  dep_cond circ reset next preds cnstrs latches ⇔
+    set (circuit_latches circ) ⊆ set latches ∧
+    BIGUNION (IMAGE (set ∘ lit_latches ∘ next) (set latches)) ⊆ set latches ∧
+    BIGUNION (IMAGE (set ∘ lit_latches) (set preds)) ⊆ set latches ∧
+    BIGUNION (IMAGE (set ∘ lit_latches) (set cnstrs)) ⊆ set latches ∧
+    BIGUNION
+      (IMAGE (set ∘ lit_latches) (reset_lits reset (set latches))) ⊆
+      set latches
 End
 
 Theorem encoding_is_safe:
   LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive wlive ∧
   set klatches = set mlatches ∩ set wlatches ∧
-  stratified_condition wcirc wreset wlatches ∧
+  stratified_cond wcirc wreset wlatches ∧
+  dep_cond mcirc mreset mnext mpreds mcnstrs mlatches ∧
   encodings_unsat
     mcirc mreset mnext mpreds mcnstrs mlive mlatches
     wcirc wreset wnext wpreds wcnstrs wlive wlatches
@@ -2813,6 +2851,7 @@ Theorem encoding_is_safe:
   is_safe
     mcirc mreset mnext (set mcnstrs) (set mlatches) (set mpreds)
 Proof
+  (* unfolding encodings_unsat_def early to get access to the type variables *)
   rewrite_tac [encodings_unsat_def]
   >> strip_tac
   >> irule_at Any $
@@ -2821,7 +2860,32 @@ Proof
         “:ζ” |-> “:δ”, “:δ” |-> “:β”]
          is_witness_is_safe
   >> conj_tac
-  >- cheat  (* possible to compute minputs for dep_model *)
+  (* Show that we can satisfy dep_model; boils down to showing that mlatches
+     contains all the latches mentioned in the circuit, properties, etc. *)
+  >- (
+    fs [dep_model_def, dep_cond_def]
+    >> qexists
+       ‘set (circuit_inputs mcirc) ∪
+        BIGUNION (IMAGE (set ∘ lit_inputs ∘ mnext) (set mlatches)) ∪
+        BIGUNION
+          (IMAGE (set ∘ lit_inputs) (reset_lits mreset (set mlatches))) ∪
+        BIGUNION (IMAGE (set ∘ lit_inputs) (set mpreds)) ∪
+        BIGUNION (IMAGE (set ∘ lit_inputs) (set mcnstrs))’
+    >> conj_tac
+    >- (
+      irule dep_circuit_subset
+      >> irule_at Any dep_circuit_inputs_latches
+      >> simp [SUBSET_DEF]
+    )
+    >> conj_tac
+    >- (irule dep_reset_subset >> simp [SUBSET_DEF])
+    >> conj_tac
+    >- (irule dep_latch_lit_next >> simp [SUBSET_DEF])
+    (* only dep_lits ... ∧ dep_lits ... should remain *)
+    >> conj_tac
+    >> irule dep_lits_lits
+    >> simp [SUBSET_DEF]
+  )
   >> rewrite_tac [is_witness_def]
   >> MAP_EVERY (irule_at Any o iffLR) [
        eval_circuit_encode_is_witness_reset,
@@ -2839,5 +2903,5 @@ Proof
   >> simp []
   (* Stratification *)
   >> irule exists_is_stratified_full
-  >> fs [stratified_condition_def]
+  >> fs [stratified_cond_def]
 QED
