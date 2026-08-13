@@ -243,9 +243,9 @@ Definition pancake_peg_def[nocompute]:
                         (mksubtree IfNT));
         (INL WhileNT, seql [consume_kw WhileK; mknt ExpNT;
                             consume_tok LCurT; try_ProgNT] (mksubtree WhileNT));
-        (INL CallNT, seql [try (choicel [keep_kw RetK; mknt RetNT]);
+        (INL CallNT, seql [try_default (choicel [keep_kw RetK; mknt RetNT]) NotT;
                            keep_ident;
-                           consume_tok LParT; try (mknt ArgListNT);
+                           consume_tok LParT; try_default (mknt ArgListNT) NotT;
                            consume_tok RParT]
                           (mksubtree CallNT));
         (INL RetNT, seql [keep_ident; consume_tok AssignT]

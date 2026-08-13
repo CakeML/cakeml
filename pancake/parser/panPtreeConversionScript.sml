@@ -683,41 +683,21 @@ Definition conv_Prog_def:
        | _ => NONE
      else if isNT nodeNT CallNT then
        case args of
-         [] => NONE
-       | r::ts =>
-           (case conv_Ret r of
-              SOME NONE =>
-                (case ts of
-                   [] => NONE
-                 | r::ts =>
-                     do e' <- conv_ident r;
-                        args' <- (case ts of [] => SOME []
-                                          | args::_ => conv_ArgList args);
-                        SOME $ add_locs_annot nd $ TailCall e' args'
-                     od)
-            | NONE =>
-                (do e' <- conv_ident r;
-                    args' <- (case ts of [] => SOME []
-                                      | args::_ => conv_ArgList args);
-                    SOME $ add_locs_annot nd $ StandAloneCall NONE e' args'
-                 od)
-            | SOME(SOME r') =>
-                (case ts of
-                   [] => NONE
-                 | e::xs =>
-                     do e' <- conv_ident e;
-                        args' <- (case xs of [] => SOME []
-                                          | args::_ => conv_ArgList args);
-                        if is_add_with_carry e' then
+       | [r;e;args] =>
+           do r' <- conv_Ret r;
+              e' <- conv_ident e;
+              args' <- conv_ArgList args;
+              if is_add_with_carry e' then
                           (case r' of
-                           | (SOME (_, vn), NONE) =>
+                           | SOME(SOME (_, vn), NONE) =>
                                SOME $ add_locs_annot nd $
                                  Primitive vn AddCarry args'
                            | _ => NONE)
                         else
                           SOME $ add_locs_annot nd $
-                            panLang$Call (SOME r') e' args'
-                     od))
+                            panLang$Call r' e' args'
+           od
+       | _ => NONE
      else if isNT nodeNT ProgNT then
        case args of
          t::ts => if ts ≠ []
