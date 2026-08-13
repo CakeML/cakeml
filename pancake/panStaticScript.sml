@@ -1765,6 +1765,9 @@ Definition static_check_progs_def:
   static_check_progs fctxt gctxt sctxt ectxt (Name _ _::decls) =
     (* not a function *)
     static_check_progs fctxt gctxt sctxt ectxt decls ∧
+  static_check_progs fctxt gctxt sctxt ectxt (ExnDecl _ _::decls) =
+    (* not a function *)
+    static_check_progs fctxt gctxt sctxt ectxt decls ∧
   static_check_progs fctxt gctxt sctxt ectxt (Decl _ _ _::decls) =
     (* not a function *)
     static_check_progs fctxt gctxt sctxt ectxt decls ∧
