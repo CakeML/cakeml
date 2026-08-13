@@ -23,7 +23,7 @@ Datatype:
 End
 
 Datatype:
-  token = AndT | OrT | BoolAndT | BoolOrT | XorT | NotT
+  token = AndT | OrT | BoolAndT | BoolOrT | XorT | NotT | ArrowT
   | EqT | NeqT | LessT | GreaterT | GeqT | LeqT | LowerT | HigherT | HigheqT | LoweqT
   | PlusT | MinusT | DotT | StarT
   | LslT | LsrT | AsrT | RorT
@@ -80,6 +80,7 @@ Definition get_token_def:
   if s = "|" then OrT else
   if s = "^" then XorT else
   if s = "==" then EqT else
+  if s = "=>" then ArrowT else
   if s = "!=" then NeqT else
   if s = "<" then LessT else
   if s = ">" then GreaterT else

@@ -617,15 +617,17 @@ val exception_declaration =
  ‘
   exception ExampleException : 1;
 
-  fun f() { return 1; }
+  fun f() { throw ExampleException 1; }
 
   fun g() {
     var 1 x = 0;
-    try x = f()
-    catch(ExampleException x) {
-      x = 3;
+    var 1 y = 0;
+    try
+      y = f()
+    catch ExampleException => x {
+      y = x + 1;
     }
-    return x;
+    return y;
   }
   ’
 

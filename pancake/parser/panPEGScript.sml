@@ -251,15 +251,14 @@ Definition pancake_peg_def[nocompute]:
         (INL RetNT, seql [keep_ident; consume_tok AssignT]
                           (mksubtree RetNT));
         (INL HandleNT, seql [consume_kw TryK;
-                             mknt RetNT;
+                             try_default (mknt RetNT) NotT;
                              keep_ident;
                              consume_tok LParT; try_default (mknt ArgListNT) NotT;
                              consume_tok RParT;
                              consume_kw CatchK;
-                             consume_tok LParT;
                              keep_ident;
+                             consume_tok ArrowT;
                              keep_ident;
-                             consume_tok RParT;
                              consume_tok LCurT; try_ProgNT]
                             (mksubtree HandleNT));
         (INL ExtCallNT, seql [keep_ffi_ident;

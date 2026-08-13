@@ -618,8 +618,10 @@ Definition conv_Ret_def:
   conv_Ret tree =
   if tokcheck tree (kw RetK) then
     SOME $ NONE
+  else if tokcheck tree NotT then
+    SOME $ (SOME (NONE, NONE))
   else
-    case argsNT tree RetNT of (* TODO: drop *)
+    case argsNT tree RetNT of
     | SOME [id] => do var <- conv_ident id;
                       SOME $ SOME (SOME(Global,var), NONE)
                    od
