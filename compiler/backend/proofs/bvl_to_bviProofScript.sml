@@ -147,6 +147,15 @@ Proof
   \\ rpt (first_x_assum $ qspec_then `ptr` assume_tac \\ gvs [])
 QED
 
+Theorem state_rel_FLOOKUP_MutBlock:
+  state_rel b s t ∧
+  FLOOKUP s.refs ptr = SOME (MutBlock tg fin l c r) ⇒
+    FLOOKUP t.refs (b ptr) = SOME (MutBlock tg fin l c r)
+Proof
+  rw [state_rel_def]
+  \\ rpt (first_x_assum $ qspec_then `ptr` assume_tac \\ gvs [])
+QED
+
 Theorem state_rel_FLOOKUP_Thunk:
   state_rel b s t ∧
   FLOOKUP s.refs ptr = SOME (Thunk m v) ⇒
@@ -2221,7 +2230,6 @@ Proof
 QED
 
 Resume compile_exps_correct[Op]:
-  cheat (*
   note_tac "compile_exps_Op" \\ REPEAT STRIP_TAC
   \\ full_simp_tac(srw_ss())[bEval_def,compile_exps_def,
         iEval_def,bEvery_def,handle_ok_def]
@@ -2251,6 +2259,11 @@ Resume compile_exps_correct[Op]:
         fs[compile_op_def]
         \\ qexists_tac`c` \\ simp[]
         \\ rw[evaluate_APPEND,bviSemTheory.evaluate_def] )
+      \\ Cases_on`(∃tag i. op = MemOp (MutCons tag i)) ∨
+                  op = MemOp UpdateCons ∨ op = MemOp FinaliseCons`
+      >- (gvs [compile_op_def]
+          \\ qexists_tac `c` \\ gvs [bviSemTheory.evaluate_def])
+      \\ fs []
       \\ cases_on_op `op`
       \\ fs[compile_op_def,iEval_def,compile_int_thm,iEval_append]
       \\ qexists_tac`c`>>simp[]>>
@@ -2449,8 +2462,8 @@ Resume compile_exps_correct[Op]:
       \\ conj_tac >- (
         gvs [bad_thunk_update_def, oneline bvlSemTheory.dest_thunk_def,
              AllCaseEqs(), adjust_bv_def]
-        >- metis_tac [state_rel_FLOOKUP_valueArray]
-        >- metis_tac [state_rel_FLOOKUP_byteArray])
+        \\ metis_tac [state_rel_FLOOKUP_valueArray, state_rel_FLOOKUP_byteArray,
+                      state_rel_FLOOKUP_MutBlock])
       \\ conj_tac >- (qunabbrev_tac `b3` \\ rw [])
       \\ reverse conj_tac >- (
         rpt strip_tac \\ unabbrev_all_tac
@@ -2475,8 +2488,8 @@ Resume compile_exps_correct[Op]:
       >- (
         gvs [bad_thunk_update_def, oneline bvlSemTheory.dest_thunk_def,
              AllCaseEqs(), adjust_bv_def]
-        >- metis_tac [state_rel_FLOOKUP_valueArray]
-        >- metis_tac [state_rel_FLOOKUP_byteArray])
+        \\ metis_tac [state_rel_FLOOKUP_valueArray, state_rel_FLOOKUP_byteArray,
+                      state_rel_FLOOKUP_MutBlock])
       \\ simp [bvl_to_bvi_def, bvi_to_bvl_def]
       \\ qmatch_goalsub_abbrev_tac `state_rel _ _ tt`
       \\ `tt = t2 with refs := t2.refs |+ (b2 ptr,Thunk m (adjust_bv b2 h))` by (
@@ -3489,15 +3502,11 @@ Resume compile_exps_correct[Op]:
         \\ imp_res_tac evaluate_refs_SUBSET
         \\ METIS_TAC[SUBSET_DEF,LEAST_NOTIN_FDOM] )
     \\ Cases_on`∃b. op = MemOp (CopyByte b)` \\ fs[] >- (Cases_on`b` \\ fs[])
-    (* ops reserved for bvi_tmc: bvlSem$do_app is Error, contradicting the Rval hyp *)
-    \\ Cases_on`∃tag i. op = MemOp (MutCons tag i)` \\ fs[]
-    >- (gvs [bvlSemTheory.do_app_def])
-    \\ Cases_on`op = MemOp UpdateCons` \\ fs[]
-    >- (gvs [bvlSemTheory.do_app_def])
-    \\ Cases_on`op = MemOp FinaliseCons` \\ fs[]
-    >- (gvs [bvlSemTheory.do_app_def])
+    (* the ops reserved for bvi_tmc are the remaining ones compile_op does not
+       leave alone; each is ruled out by bvlSem$do_app being Error on it *)
     \\ `compile_op op c1 = Op op c1` by
       (cases_on_op `op` \\ full_simp_tac(srw_ss())[compile_op_def]
+       \\ TRY (gvs [bvlSemTheory.do_app_def] \\ NO_TAC)
        \\ Cases_on `i` \\ fs[]
        \\ NO_TAC)
     \\ full_simp_tac(srw_ss())[iEval_def]
@@ -3506,7 +3515,7 @@ Resume compile_exps_correct[Op]:
     \\ `EVERY (bv_ok s5.refs) (REVERSE a)` by (IMP_RES_TAC evaluate_ok \\ full_simp_tac(srw_ss())[rich_listTheory.EVERY_REVERSE])
     \\ old_drule (GEN_ALL do_app_adjust) \\ fs []
     \\ disch_then (qspecl_then [`r`,`q`,`op`,`a`] mp_tac)
-    \\ fs [] \\ strip_tac \\ fs [MAP_REVERSE] *)
+    \\ fs [] \\ strip_tac \\ fs [MAP_REVERSE]
 QED
 
 Resume compile_exps_correct[NIL]:
@@ -5277,7 +5286,6 @@ Proof
     \\ simp[EVERY_MEM, MEM_FILTER] \\ rw[] \\ strip_tac
     \\ `MEM (FST e) (MAP FST r)` by (simp[MEM_MAP] \\ metis_tac[])
     \\ first_x_assum drule \\ fs[])
-  (* the original bvi_tailrec input_condition + oracle obligation *)
   \\ simp [state_co_def,UNCURRY]
   \\ reverse conj_asm2_tac
   THEN1
@@ -5342,94 +5350,6 @@ Proof
   \\ rpt(qpat_x_assum`in_ns _ _`mp_tac) \\ EVAL_TAC \\ rw[]
 QED
 
-(* === ORIGINAL PROOF of compile_semantics (pre-bvi_tmc); superseded by the proof above ===
-  rw [full_cc_def,full_co_def]
-  \\ old_drule (bvl_inlineProofTheory.compile_prog_semantics
-          |> ONCE_REWRITE_RULE [bvi_letProofTheory.IMP_COMM] |> GEN_ALL)
-  \\ fs [] \\ fs [compile_def]
-  \\ rpt (pairarg_tac \\ fs []) \\ rveq
-  \\ disch_then (assume_tac o GSYM) \\ fs []
-  \\ old_drule (compile_prog_semantics |> REWRITE_RULE [CONJ_ASSOC]
-            |> ONCE_REWRITE_RULE [CONJ_COMM] |> Q.GENL [`n`,`n'`,`start'`,`prog'`])
-  \\ disch_then (qspec_then `0` mp_tac) \\ fs []
-  \\ impl_tac
-  THEN1
-   (fs [state_co_def,UNCURRY]
-    \\ imp_res_tac bvl_inlineProofTheory.compile_prog_handle_ok \\ fs []
-    \\ imp_res_tac bvl_inlineProofTheory.compile_prog_names \\ fs []
-    \\ fs [bvl_inlineTheory.compile_inc_def,UNCURRY,EVERY_MEM,MEM_MAP,EXISTS_PROD]
-    \\ rw [] \\ fs [bvl_inlineTheory.optimise_def]
-    \\ fs [bvl_handleProofTheory.compile_any_handle_ok])
-  \\ disch_then (assume_tac o GSYM) \\ fs []
-  \\ old_drule (bvi_tailrecProofTheory.compile_prog_semantics
-            |> REWRITE_RULE [CONJ_ASSOC]
-            |> ONCE_REWRITE_RULE [CONJ_COMM] |> Q.GENL [`n`,`prog2`])
-  \\ disch_then (qspec_then `num_stubs + 2` mp_tac) \\ fs []
-  \\ reverse impl_tac
-  THEN1 (disch_then (assume_tac o GSYM) \\ fs [])
-  \\ simp [state_co_def,UNCURRY]
-  \\ reverse conj_asm2_tac
-  THEN1
-   (rw [] \\ old_drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
-    \\ disch_then old_drule \\ strip_tac \\ fs []
-    \\ match_mp_tac LESS_EQ_LESS_TRANS
-    \\ qexists_tac `num_stubs`
-    \\ imp_res_tac compile_prog_avoids_nss_2 \\ fs[]
-    \\ imp_res_tac bvl_inlineProofTheory.compile_prog_names
-    \\ old_drule bvi_tailrecProofTheory.compile_prog_next_mono
-    \\ strip_tac \\ fs [])
-  \\ fs [bvi_tailrecProofTheory.input_condition_def,GSYM ALL_EL_MAP]
-  \\ fs [GSYM in_ns_def,EVAL ``in_ns 2 2``]
-  \\ conj_asm1_tac
-  >- (
-    old_drule bvl_inlineProofTheory.compile_prog_names
-    \\ strip_tac
-    \\ old_drule compile_prog_distinct_locs
-    \\ impl_tac >- fs[]
-    \\ strip_tac
-    \\ conj_tac >- (
-      fs[EVERY_MEM,bvi_tailrecProofTheory.free_names_def]
-      \\ rw[] \\ res_tac
-      \\ strip_tac \\ rveq
-      \\ pop_assum mp_tac
-      \\ simp_tac(srw_ss())[] )
-    \\ conj_tac >- fs[]
-    \\ fs[EVERY_MAP] \\ fs[EVERY_MEM,MEM_FILTER]
-    \\ rw[] \\ strip_tac \\ first_x_assum old_drule
-    \\ simp_tac std_ss []
-    \\ once_rewrite_tac[GSYM in_ns_add_num_stubs]
-    \\ asm_simp_tac(std_ss++ARITH_ss)[])
-  \\ rpt gen_tac \\ strip_tac
-  \\ qmatch_goalsub_abbrev_tac`compile_inc next1 prog1`
-  \\ Cases_on`compile_inc next1 prog1`
-  \\ old_drule compile_inc_lemma
-  \\ `ALL_DISTINCT (MAP FST prog1)`
-  by (
-    simp[Abbr`prog1`,bvl_inlineTheory.compile_inc_def]
-    \\ pairarg_tac \\ fs[]
-    \\ fs[bvl_inlineTheory.tick_compile_prog_def]
-    \\ imp_res_tac bvl_inlineProofTheory.tick_inline_all_names \\ fs[]
-    \\ metis_tac[] )
-  \\ fs[] \\ strip_tac
-  \\ last_x_assum(qspec_then`k`mp_tac) \\ simp[]
-  \\ strip_tac
-  \\ fs[EVERY_MEM,EVERY_MAP,MEM_MAP,PULL_EXISTS,MEM_FILTER]
-  \\ reverse conj_tac
-  >- (
-    rw[]
-    \\ `in_ns 0 (FST x) ∨ in_ns 1 (FST x)` by metis_tac[]
-    \\ pop_assum mp_tac \\ EVAL_TAC \\ rw[] )
-  \\ simp[bvi_tailrecProofTheory.free_names_def]
-  \\ rw[] \\ strip_tac
-  \\ first_x_assum old_drule
-  \\ pop_assum(assume_tac o SYM)
-  \\ `in_ns 2 (FST x)`
-  by ( fs[in_ns_def,backend_commonTheory.bvl_to_bvi_namespaces_def] )
-  \\ IF_CASES_TAC
-  >- ( ntac 2 (pop_assum mp_tac) \\ EVAL_TAC \\ rw[] )
-  \\ strip_tac
-  \\ rpt(qpat_x_assum`in_ns _ _`mp_tac) \\ EVAL_TAC \\ rw[]
-*)
 
 (* -- old version of the above proof --
 Theorem compile_semantics:
@@ -5552,58 +5472,6 @@ Proof
   \\ fs[EVERY_MEM, backend_commonTheory.data_num_stubs_def, backend_commonTheory.bvl_num_stubs_def]
 QED
 
-(* === ORIGINAL PROOF of compile_distinct_names (pre-cheat); superseded by the nss=4/bvi_tmc proof above ===
-  fs[bvl_to_bviTheory.compile_def]>>
-  strip_tac>>
-  rpt (pairarg_tac>>fs[]>>rveq>>fs[])>>
-  old_drule (GEN_ALL compile_prog_distinct_locs) >>
-  fs [bvl_to_bviTheory.compile_prog_def] >>
-  rpt (pairarg_tac>>fs[]>>rveq>>fs[])>>
-  strip_tac>>
-  EVAL_TAC>>
-  REWRITE_TAC[GSYM append_def] >>
-  fs[EVERY_MEM]>>
-  `ALL_DISTINCT (MAP FST prog)` by
-    metis_tac [bvl_inlineProofTheory.compile_prog_names,PAIR,FST,SND] >>
-  imp_res_tac (SIMP_RULE std_ss [] compile_list_distinct_locs)>>
-  rfs[backend_commonTheory.bvl_num_stubs_def,
-      bvl_inlineProofTheory.compile_prog_names]>>
-  fs[EVERY_MEM]
-  \\ simp[PULL_FORALL] \\ strip_tac
-  \\ reverse conj_tac >- (
-    match_mp_tac (
-      bvi_tailrecProofTheory.compile_prog_ALL_DISTINCT
-      |> UNDISCH_ALL
-      |> CONJUNCT1
-      |> DISCH_ALL
-      |> GEN_ALL)
-    \\ asm_exists_tac \\ simp[]
-    \\ EVAL_TAC \\ fs [GSYM append_def]
-    \\ CCONTR_TAC \\ fs []
-    \\ res_tac \\ fs [EXISTS_MEM]
-    \\ qpat_x_assum `!e. _ ==> between _ _ e` mp_tac
-    \\ qpat_x_assum `!e. _ ==> between _ _ e` mp_tac
-    \\ EVAL_TAC
-    \\ strip_tac \\ fs [MEM_FILTER,bvi_tailrecProofTheory.free_names_def]
-    \\ PairCases_on `e` \\ fs [GSYM append_def]
-    \\ qexists_tac `e0` \\ fs []
-    \\ rveq \\ fs [MEM_MAP,EXISTS_PROD,ODD_ADD]
-    \\ res_tac \\ fs[]
-    \\ qpat_x_assum`¬in_ns 2 _`mp_tac
-    \\ EVAL_TAC \\ strip_tac
-    \\ `(3 * (n02+k) + 2) MOD 3 ≠ 2` by fs[]
-    \\ `¬in_ns 2 (nss * (n02+k) + 2)` by (EVAL_TAC \\ fs[])
-    \\ fs[])
-  \\ strip_tac
-  \\ old_drule bvi_tailrecProofTheory.compile_prog_MEM
-  \\ simp[]
-  \\ EVAL_TAC
-  \\ rw[] \\ simp[]
-  \\ fs[GSYM append_def]
-  \\ res_tac
-  \\ pop_assum mp_tac
-  \\ EVAL_TAC \\ rw[]
-*)
 
 Theorem ALL_DISTINCT_MAP_FST_SND_full_co:
    ALL_DISTINCT (MAP FST (SND (co n))) ∧
@@ -5621,7 +5489,7 @@ Proof
   \\ qexists_tac `M` \\ qexists_tac `YS` \\ simp[]
   \\ conj_asm1_tac
   >- (
-    (* ALL_DISTINCT (MAP FST YS) -- the original (pre-bvi_tmc) proof *)
+    (* ALL_DISTINCT (MAP FST YS) *)
     simp[Abbr`YS`, backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
     \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog m2 xs`
     \\ Cases_on`bvi_tailrec$compile_prog m2 xs`
@@ -5679,37 +5547,6 @@ Proof
   \\ rw[] \\ fs[] \\ rfs[]
 QED
 
-(* === ORIGINAL PROOF of ALL_DISTINCT_MAP_FST_SND_full_co (pre-cheat); superseded by the proof above ===
-  rw[full_co_def, UNCURRY, backendPropsTheory.FST_state_co,
-        backendPropsTheory.SND_state_co]
-  \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog m xs`
-  \\ Cases_on`bvi_tailrec$compile_prog m xs`
-  \\ old_drule bvi_tailrecProofTheory.compile_prog_ALL_DISTINCT
-  \\ impl_tac
-  >- (
-    simp[Abbr`xs`]
-    \\ simp[backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
-    \\ qmatch_goalsub_abbrev_tac`bvl_to_bvi$compile_inc v p`
-    \\ Cases_on`bvl_to_bvi$compile_inc v p`
-    \\ old_drule compile_inc_DISTINCT
-    \\ impl_tac
-    >- (
-      simp[Abbr`p`]
-      \\ simp[bvl_inlineTheory.compile_inc_def, UNCURRY]
-      \\ simp[bvl_inlineTheory.tick_compile_prog_def]
-      \\ simp[bvl_inlineProofTheory.MAP_FST_tick_inline_all] )
-    \\ rw[]
-    \\ old_drule (GEN_ALL compile_inc_next_range)
-    \\ simp[MEM_MAP, PULL_EXISTS, GSYM ALL_EL_MAP, EVERY_MEM, EXISTS_PROD]
-    \\ rpt strip_tac
-    \\ first_x_assum old_drule
-    \\ simp[bvi_tailrecProofTheory.free_names_def]
-    \\ rw[] \\ strip_tac \\ rw[]
-    \\ qpat_x_assum`_ MOD _ = _`mp_tac
-    \\ qpat_x_assum`_ MOD _ = _`mp_tac
-    \\ EVAL_TAC \\ simp[] )
-  \\ simp[]
-*)
 
 Theorem destLet_code_labels:
    destLet x = (y,z) ⇒
