@@ -2445,6 +2445,11 @@ val def = assign_Define `
                WriteWord64_on_32 c header dest 5 3],l)))
       : 'a wordLang$prog # num`;
 
+val def = assign_Define `
+  assign_FinaliseCons (l:num) (dest:num) v1 =
+                 (Assign (adjust_var dest) (Var (adjust_var v1)),l)
+      : 'a wordLang$prog # num`;
+
 Theorem all_assign_defs =
   LIST_CONJ (!assign_defs)
 
@@ -2461,9 +2466,12 @@ Definition assign_def:
     | BlockOp (ElemAt n) => arg1 args (assign_ElemAt c n l dest) (Skip,l)
     | MemOp DerefByte => arg2 args (assign_DerefByte c l dest) (Skip,l)
     | MemOp Update => arg3 args (assign_Update c l dest) (Skip,l)
+    | MemOp UpdateCons => arg3 args (assign_Update c l dest) (Skip,l)
     | MemOp UpdateByte => arg3 args (assign_UpdateByte c l dest) (Skip,l)
+    | MemOp FinaliseCons => arg1 args (assign_FinaliseCons l dest) (Skip,l)
     | BlockOp ListAppend => arg2 args (assign_ListAppend c secn l dest names) (Skip,l)
     | BlockOp (Cons tag) => assign_Cons c l dest tag args
+    | MemOp (MutCons tag _) => assign_Cons c l dest tag args
     | MemOp ConfigGC => arg2 args (assign_ConfigGC c secn l dest names) (Skip,l)
     | BlockOp (Build parts) => assign_Build c secn l dest names parts
     | BlockOp (ConsExtend tag) => assign_ConsExtend c secn l dest names tag args
