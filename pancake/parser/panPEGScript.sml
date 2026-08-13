@@ -271,8 +271,7 @@ Definition pancake_peg_def[nocompute]:
         (INL ThrowNT, seql [consume_kw ThrowK; keep_ident; mknt ExpNT]
                            (mksubtree ThrowNT));
         (INL RetCallNT, seql [consume_kw RetK;
-                              choicel [seql [consume_tok StarT; mknt ExpNT] I;
-                                       keep_ident];
+                              keep_ident;
                               consume_tok LParT; try (mknt ArgListNT);
                               consume_tok RParT]
                             (mksubtree RetCallNT));
