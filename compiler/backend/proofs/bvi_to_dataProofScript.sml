@@ -66,8 +66,8 @@ Definition data_to_bvi_ref_def[simp]:
   data_to_bvi_ref (ValueArray l)   = ValueArray (MAP data_to_bvi_v l)
 ∧ data_to_bvi_ref (ByteArray b bl) = ByteArray b bl
 ∧ data_to_bvi_ref (Thunk m v)      = Thunk m (data_to_bvi_v v)
-∧ data_to_bvi_ref (MutBlock tg ls c rs) =
-    MutBlock tg (MAP data_to_bvi_v ls) (data_to_bvi_v c) (MAP data_to_bvi_v rs)
+∧ data_to_bvi_ref (MutBlock tg fin ls c rs) =
+    MutBlock tg fin (MAP data_to_bvi_v ls) (data_to_bvi_v c) (MAP data_to_bvi_v rs)
 End
 
 (* State relation *)
@@ -365,7 +365,11 @@ Theorem data_to_bvi_ref_eq[simp]:
   (∀v l.     data_to_bvi_ref v = ValueArray l
     <=> ∃l'. v = ValueArray l' ∧ l = MAP data_to_bvi_v l') ∧
   (∀v m w.   data_to_bvi_ref v = Thunk m w
-    <=> ∃w'. v = Thunk m w' ∧ w = data_to_bvi_v w')
+    <=> ∃w'. v = Thunk m w' ∧ w = data_to_bvi_v w') ∧
+  (∀v tg fin ls c rs. data_to_bvi_ref v = MutBlock tg fin ls c rs
+    <=> ∃ls' c' rs'. v = MutBlock tg fin ls' c' rs' ∧
+                     ls = MAP data_to_bvi_v ls' ∧ c = data_to_bvi_v c' ∧
+                     rs = MAP data_to_bvi_v rs')
 Proof
   rw [] \\ Cases_on `v` \\ fs [data_to_bvi_ref_def] \\ METIS_TAC []
 QED
@@ -375,9 +379,9 @@ Theorem data_to_bvi_ref_eq'[simp] =
 (DEPTH_FORALL_CONV (LHS_CONV (SYM_CONV))))) data_to_bvi_ref_eq)
 
 val [data_to_bvi_eq_ByteArray, data_to_bvi_eq_ValueArray,
-     data_to_bvi_eq_Thunk] =
+     data_to_bvi_eq_Thunk, data_to_bvi_eq_MutBlock] =
   zip ["data_to_bvi_eq_ByteArray", "data_to_bvi_eq_ValueArray",
-       "data_to_bvi_eq_Thunk"]
+       "data_to_bvi_eq_Thunk", "data_to_bvi_eq_MutBlock"]
       (CONJUNCTS data_to_bvi_ref_eq)  |> map save_thm;
 
 (* Construction of the pre-image of `data_to_bvi_result` *)
@@ -496,6 +500,30 @@ Proof
   \\ Cases_on ‘b’ \\ simp [] \\ EVAL_TAC
 QED
 
+(* bviSem$finalise_cons is simulated by dataSem$finalise_cons: the extra
+   time stamps taken by the dataLang version are invisible to the projection *)
+Theorem data_to_bvi_finalise_cons:
+  ∀v refs ts brefs bv brefs'.
+    (∀n. FLOOKUP brefs n = OPTION_MAP data_to_bvi_ref (lookup n refs)) ∧
+    bviSem$finalise_cons (data_to_bvi_v v) brefs = SOME (bv,brefs')
+    ⇒ ∃pv refs' ts'.
+        dataSem$finalise_cons v refs ts = SOME (pv,refs',ts') ∧
+        bv = data_to_bvi_v pv ∧
+        ∀n. FLOOKUP brefs' n = OPTION_MAP data_to_bvi_ref (lookup n refs')
+Proof
+  ho_match_mp_tac dataSemTheory.finalise_cons_ind \\ rpt strip_tac
+  \\ gvs [Once dataSemTheory.finalise_cons_def,
+          Once bviSemTheory.finalise_cons_def, ETA_AX]
+  \\ Cases_on `lookup ptr refs` \\ gvs []
+  \\ Cases_on `x` \\ gvs []
+  \\ gvs [AllCaseEqs()]
+  \\ last_x_assum (qspec_then `brefs \\ ptr` mp_tac)
+  \\ simp [DOMSUB_FLOOKUP_THM, lookup_delete]
+  \\ impl_tac >- rw []
+  \\ strip_tac \\ gvs []
+  \\ rw [FLOOKUP_UPDATE, lookup_insert]
+QED
+
 fun cases_on_op q = Cases_on q
   >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘BlockOp b_’]) (Cases_on `b_`))
   >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘GlobOp g_’]) (Cases_on `g_`))
@@ -517,7 +545,6 @@ Theorem data_to_bvi_do_app:
        res = data_to_bvi_v pres ∧
        state_rel s1 s2
 Proof
-  cheat (*
   strip_tac
   \\ ‘∃this_is_case. this_is_case op’ by (qexists_tac ‘K T’ \\ fs [])
   \\ cases_on_op `op`
@@ -570,11 +597,24 @@ Proof
       fs[bvi_to_bvl_def,bvl_to_bvi_def,lookup_map,lookup_insert,FLOOKUP_SIMP] >>
       rw [])
   >~ [`do_app (MemOp (MutCons _ _))`]
-  >- cheat (* bvi_tmc TODO(MM): MutBlock ops at data level not yet implemented *)
+  >- (rw [bviSemTheory.do_app_def, bviSemTheory.do_app_aux_def, do_app_aux_def]
+      \\ gvs [AllCaseEqs()]
+      \\ gvs [state_rel_def, check_lim_def]
+      \\ imp_res_tac refs_rel_LEAST_eq \\ gvs []
+      \\ rw [FLOOKUP_UPDATE, lookup_map, lookup_insert, MAP_TAKE, MAP_DROP]
+      \\ gvs [EL_MAP])
   >~ [`do_app (MemOp UpdateCons)`]
-  >- cheat (* bvi_tmc TODO(MM): MutBlock ops at data level not yet implemented *)
+  >- (rw [bviSemTheory.do_app_def, bviSemTheory.do_app_aux_def, do_app_aux_def]
+      \\ gvs [AllCaseEqs(), MAP_EQ_CONS, bvlSemTheory.do_app_def]
+      \\ gvs [state_rel_def, lookup_map, AllCaseEqs()]
+      \\ rw [FLOOKUP_UPDATE, lookup_insert, lookup_map])
   >~ [`do_app (MemOp FinaliseCons)`]
-  >- cheat (* bvi_tmc TODO(MM): MutBlock ops at data level not yet implemented *)
+  >- (rw [bviSemTheory.do_app_def, bviSemTheory.do_app_aux_def, do_app_aux_def]
+      \\ gvs [AllCaseEqs(), MAP_EQ_CONS, bvlSemTheory.do_app_def]
+      \\ gvs [state_rel_def, lookup_map]
+      \\ drule_all data_to_bvi_finalise_cons
+      \\ disch_then (qspec_then `t.tstamps` strip_assume_tac)
+      \\ gvs [])
   \\ ntac 2 (fs [ do_app_aux_def
                 , bvlSemTheory.do_app_def
                 , bviSemTheory.do_app_def
@@ -641,7 +681,7 @@ Proof
   >- (rw [data_to_bvi_ref_def]
       \\ gvs [bvlSemTheory.bad_thunk_update_def, bad_thunk_update_def] \\ rw []
       \\ gvs [oneline bvlSemTheory.dest_thunk_def, oneline dest_thunk_def,
-              AllCaseEqs()]) *)
+              AllCaseEqs()])
 QED
 
 Theorem state_rel_peak_safe:
