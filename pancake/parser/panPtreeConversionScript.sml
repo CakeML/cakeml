@@ -619,11 +619,11 @@ Definition conv_Ret_def:
   if tokcheck tree (kw RetK) then
     SOME $ NONE
   else if tokcheck tree NotT then
-    SOME $ (SOME (NONE, NONE))
+    SOME $ (SOME NONE)
   else
     case argsNT tree RetNT of
     | SOME [id] => do var <- conv_ident id;
-                      SOME $ SOME (SOME(Global,var), NONE)
+                      SOME $ SOME (SOME(Global,var))
                    od
     | _ => NONE
 End
@@ -669,17 +669,15 @@ Definition conv_Prog_def:
      else if isNT nodeNT HandleNT then
        case args of
        | [ret; f; ts; eid; id; p] =>
-           (case argsNT ret RetNT of
-            | SOME [rid] =>
-              do rvar <- conv_ident rid;
-                 fname <- conv_ident f;
-                 args <- conv_ArgList ts;
-                 ename <- conv_ident eid;
-                 evar <- conv_ident id;
-                 prog <- conv_Prog p;
-                 SOME $ add_locs_annot nd $ panLang$Call (SOME(SOME(Global,rvar), SOME (ename,evar,prog))) fname args
-              od
-            | _ => NONE)
+           do r' <- conv_Ret ret;
+              r'' <- r';
+              fname <- conv_ident f;
+              args <- conv_ArgList ts;
+              ename <- conv_ident eid;
+              evar <- conv_ident id;
+              prog <- conv_Prog p;
+              SOME $ add_locs_annot nd $ panLang$Call (SOME(r'', SOME (ename,evar,prog))) fname args
+           od
        | _ => NONE
      else if isNT nodeNT CallNT then
        case args of
@@ -689,13 +687,13 @@ Definition conv_Prog_def:
               args' <- conv_ArgList args;
               if is_add_with_carry e' then
                 (case r' of
-                 | SOME(SOME (_, vn), NONE) =>
+                 | SOME(SOME (_, vn)) =>
                      SOME $ add_locs_annot nd $
                           Primitive vn AddCarry args'
                  | _ => NONE)
               else
                 SOME $ add_locs_annot nd $
-                     panLang$Call r' e' args'
+                     panLang$Call (OPTION_MAP (λx. (x,NONE)) r') e' args'
            od
        | _ => NONE
      else if isNT nodeNT ProgNT then

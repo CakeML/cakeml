@@ -41,7 +41,7 @@ fun parse_pancake q =
 
 (* All examples should parse *)
 val check_parse_success = assert $ sumSyntax.is_inl o rhs o concl
-
+val check_parse_failure = assert $ sumSyntax.is_inr o rhs o concl
 
 
 (*
@@ -517,8 +517,10 @@ val warns_stmt_after_retcall =
 
 
 val ex_stmt_after_raise = `
+  exception Err : 1;
+
   fun 1 f () {
-    raise Err 1;
+    throw Err 1;
     skip;
   }
 `;
@@ -531,7 +533,6 @@ val static_stmt_after_raise =
 
 val warns_stmt_after_raise =
   check_static_has_warnings $ static_check_pancake parse_stmt_after_raise;
-
 
 val ex_annot_after_ret = `
   fun 1 f () {
@@ -5707,13 +5708,7 @@ val ex_addcarry_standalone = `
 `;
 
 val parse_addcarry_standalone =
-  check_parse_success $ parse_pancake ex_addcarry_standalone;
-
-val static_addcarry_standalone =
-  check_static_failure $ static_check_pancake parse_addcarry_standalone;
-
-val warns_addcarry_standalone =
-  check_static_no_warnings $ static_check_pancake parse_addcarry_standalone;
+  check_parse_failure $ parse_pancake ex_addcarry_standalone;
 
 
 val ex_addcarry_tail = `
@@ -5726,13 +5721,7 @@ val ex_addcarry_tail = `
 `;
 
 val parse_addcarry_tail =
-  check_parse_success $ parse_pancake ex_addcarry_tail;
-
-val static_addcarry_tail =
-  check_static_failure $ static_check_pancake parse_addcarry_tail;
-
-val warns_addcarry_tail =
-  check_static_no_warnings $ static_check_pancake parse_addcarry_tail;
+  check_parse_failure $ parse_pancake ex_addcarry_tail;
 
 (* Error: Assignment to global value *)
 
@@ -5833,3 +5822,58 @@ val static_not_field =
 
 val warns_not_field =
   check_static_no_warnings $ static_check_pancake parse_not_field;
+
+(* Error: shape mismatch in exception *)
+
+val ex_exception_shape_mismatch = `
+  exception Err : {1,1};
+
+  fun 1 f () {
+    throw Err 1;
+  }
+`;
+
+val parse_exception_shape_mismatch =
+  check_parse_success $ parse_pancake ex_exception_shape_mismatch;
+
+val static_exception_shape_mismatch =
+  check_static_failure $ static_check_pancake parse_exception_shape_mismatch;
+
+val warns_exception_shape_mismatch =
+  check_static_no_warnings $ static_check_pancake parse_exception_shape_mismatch;
+
+val ex_exception_shape_mismatch2 = `
+  exception Err : {1,1};
+
+  fun 1 f () {
+    var 1 x = 0;
+    try f()
+    catch Err => x { x = x + 1;
+    }
+    return 0;
+  }
+`;
+
+val parse_exception_shape_mismatch2 =
+  check_parse_success $ parse_pancake ex_exception_shape_mismatch2;
+
+val static_exception_shape_mismatch2 =
+  check_static_failure $ static_check_pancake parse_exception_shape_mismatch2;
+
+val warns_exception_shape_mismatch2 =
+  check_static_no_warnings $ static_check_pancake parse_exception_shape_mismatch2;
+
+val ex_undeclared_exception = `
+  fun 1 f () {
+    throw Err 1;
+  }
+`;
+
+val parse_undeclared_exception =
+  check_parse_success $ parse_pancake ex_undeclared_exception;
+
+val static_undeclared_exception =
+  check_static_failure $ static_check_pancake parse_undeclared_exception;
+
+val warns_undeclared_exception =
+  check_static_no_warnings $ static_check_pancake parse_undeclared_exception;
