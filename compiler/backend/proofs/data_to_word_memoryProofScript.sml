@@ -10824,10 +10824,13 @@ Proof
   \\ drule_all memory_rel_MutBlock_IMP_F \\ fs []
 QED
 
+(* the MutBlock exclusion is needed: a MutBlock is laid out with a BlockTag
+   header, whose bits 2 and 3 are both clear, so the conclusion below fails *)
 Theorem memory_rel_RefPtr_IMP:
   memory_rel c be ts refs sp st m dm ((RefPtr bl p,v)::vars) ∧
   good_dimindex (:α) ∧
-  (∀t a. lookup p refs ≠ SOME (Thunk t a)) ⇒
+  (∀t a. lookup p refs ≠ SOME (Thunk t a)) ∧
+  (∀tg fin l cv rs. lookup p refs ≠ SOME (MutBlock tg fin l cv rs)) ⇒
     ∃w a x.
       v = Word w ∧ w ' 0 ∧ (*(word_bit 4 x ⇒ word_bit 2 x) ∧ *)
       (word_bit 3 x ⇔ ¬word_bit 2 x) ∧
@@ -10839,8 +10842,7 @@ Proof
   \\ drule memory_rel_RefPtr_IMP_lemma \\ rw [] \\ gvs []
   \\ Cases_on `res` \\ gvs []
   >- (drule_all memory_rel_ValueArray_IMP \\ rw[] \\ gvs [])
-  >- (drule_all memory_rel_ByteArray_IMP \\ rw [] \\ gvs [])
-  \\ cheat
+  \\ drule_all memory_rel_ByteArray_IMP \\ rw [] \\ gvs []
 QED
 
 Theorem memory_rel_RefPtr_gen_IMP:
@@ -10853,6 +10855,9 @@ Theorem memory_rel_RefPtr_gen_IMP:
        ∃a x. get_real_addr c st w = SOME a ∧
              m a = Word x ∧ a ∈ dm ∧
              (x && 0b111100w) ≠ n2w ((0 + 6) * 4)
+  (* a MutBlock carries a BlockTag header, for which the bit pattern below
+     does not hold; this theorem has no users, so the case is left trivial *)
+  | MutBlock _ _ _ _ _ => T
   | _ =>
     ∃w a x.
       v = Word w ∧ w ' 0 ∧ (*(word_bit 4 x ⇒ word_bit 2 x) ∧ *)
@@ -10875,7 +10880,7 @@ Proof
     \\ gvs [word_and_def, fcpTheory.FCP_BETA, make_header_def, word_or_def,
             word_lsl_def]
     \\ EVAL_TAC \\ gvs [])
-  \\ cheat
+  \\ gvs []
 QED
 
 Theorem Smallnum_bits:
