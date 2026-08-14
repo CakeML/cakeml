@@ -7282,57 +7282,18 @@ Theorem all_ts_head_eq:
    v  ∈ all_vs refs stack
    ⇒ all_ts refs stack = all_ts refs (v::stack)
 Proof
-  cheat (* TODO: needs a MutBlock group of bullets
-
   rw [FUN_EQ_THM]
   \\ EQ_TAC
   >- (rw [all_ts_def,all_vs_def] \\ metis_tac [])
   \\ fs [all_ts_def,all_vs_def] \\ rw []
-  >- metis_tac []
-  >- (Cases_on `v` \\ fs [v_all_ts_def]
-     >- (rw [] \\ drule_then assume_tac v_all_vs_MEM2 \\ rw []
-        \\ qexists_tac `x` \\ rw []
-        >- metis_tac [find_ref_def]
-        \\ ho_match_mp_tac v_all_vs_ts_MEM
-        \\ qexists_tac `Block n0 n' l'`
-        \\ rw [v_all_ts_def])
-     \\ drule_then assume_tac v_all_vs_MEM2 \\ rw []
-     \\ qexists_tac `x'` \\ rw [v_all_ts_def]
-     >- metis_tac [find_ref_def]
-     \\ rw [] \\ ho_match_mp_tac v_all_vs_ts_MEM
-     \\ qexists_tac `Block n0 n' l'` \\ rw [v_all_ts_def])
-  >- metis_tac []
-  >- metis_tac []
-  >- (Cases_on `v` \\ fs [v_all_ts_def]
-     >- (rw []
-        \\ drule_then assume_tac v_all_vs_MEM2
-        \\ rw []
-        \\ qexists_tac `x'` \\ rw []
-        >- metis_tac [find_ref_def]
-        \\ ho_match_mp_tac v_all_vs_ts
-        \\ metis_tac [])
-    \\ drule_then assume_tac v_all_vs_MEM2 \\ rw []
-    \\ qexists_tac `x'`\\ rw [v_all_ts_def]
-    >- metis_tac [find_ref_def]
-    \\ ho_match_mp_tac v_all_vs_ts_MEM
-    \\ qexists_tac `Block n0 n' l`
-    \\ rw [v_all_ts_def])
-  >- metis_tac []
-  >- metis_tac []
-  >- (Cases_on `v` \\ fs [v_all_ts_def]
-     >- (rw []
-        \\ drule_then assume_tac v_all_vs_MEM2
-        \\ rw []
-        \\ qexists_tac `x` \\ rw []
-        \\ ho_match_mp_tac v_all_vs_ts
-        \\ metis_tac [])
-    \\ drule_then assume_tac v_all_vs_MEM2 \\ rw []
-    \\ qexists_tac `x'`\\ rw [v_all_ts_def]
-    \\ ho_match_mp_tac v_all_vs_ts_MEM
-    \\ qexists_tac `Block n0 n l`
-    \\ rw [v_all_ts_def])
-  >- metis_tac []
-  *)
+  \\ TRY (metis_tac [] \\ NO_TAC)
+  \\ Cases_on `v` \\ fs [v_all_ts_def]
+  \\ drule_then assume_tac v_all_vs_MEM2 \\ rw []
+  \\ qmatch_asmsub_abbrev_tac `MEM (Block _ _ _) (v_all_vs [ww])`
+  \\ qexists_tac `ww` \\ rw [Abbr`ww`]
+  \\ TRY (ho_match_mp_tac v_all_vs_ts_MEM \\ first_assum $ irule_at Any
+          \\ rw [v_all_ts_def] \\ NO_TAC)
+  \\ gvs [] \\ TRY disj1_tac \\ first_assum $ irule_at Any \\ gvs []
 QED
 
 Theorem memory_rel_El':
