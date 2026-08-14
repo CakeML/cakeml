@@ -13042,7 +13042,7 @@ Theorem word_eq_thm0:
                 (b <=> (res = 1w)) /\
                 l <= l1 + n * dimword (:'a))
 Proof
-  cheat (*
+
   ho_match_mp_tac vb_eq_size_ind \\ rpt conj_tac
   \\ once_rewrite_tac [vb_eq_size_def] \\ simp []
   >~ [`((Number _,_)::_::_)`]
@@ -13162,10 +13162,12 @@ Proof
       \\ old_drule (GEN_ALL memory_rel_ValueArray_IMP) \\ fs[]
       \\ old_drule (GEN_ALL memory_rel_ByteArray_IMP) \\ fs[]
       \\ old_drule (GEN_ALL memory_rel_Thunk_IMP) \\ fs[]
+      \\ old_drule (GEN_ALL memory_rel_MutBlock_IMP_F) \\ fs[]
       \\ qhdtm_x_assum`memory_rel`kall_tac
       \\ old_drule (GEN_ALL memory_rel_ValueArray_IMP) \\ fs[]
       \\ old_drule (GEN_ALL memory_rel_ByteArray_IMP) \\ fs[]
       \\ old_drule (GEN_ALL memory_rel_Thunk_IMP) \\ fs[]
+      \\ old_drule (GEN_ALL memory_rel_MutBlock_IMP_F) \\ fs[]
       \\ strip_tac \\ fs[])
     \\ fs[] \\ clean_tac \\ fs[] \\ clean_tac
     \\ rpt_drule memory_rel_ByteArray_words_IMP
@@ -13353,7 +13355,7 @@ Proof
   \\ PURE_ONCE_REWRITE_TAC[MAX_COMM]
   \\ fs[ETA_THM]
   \\ fs[LEFT_ADD_DISTRIB]
-  *)
+
 QED
 
 Theorem word_eq_thm:
