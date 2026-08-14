@@ -4121,6 +4121,39 @@ Proof
   metis_tac [v_inv_eq, v_inv_ValueArray_insert_lemma, v_inv_Ref]
 QED
 
+(* inserting a *fresh* MutBlock ref cannot disturb any existing v_inv: the only
+   way v_inv inspects refs is through a RefPtr, and those are confined to
+   FDOM f, which sits inside domain refs *)
+Theorem v_inv_MutBlock_insert_lemma:
+  !ck v1 refs y f tf heap.
+    v_inv conf v1 refs (y,f,tf,heap) /\
+    ~(ptr IN domain refs) /\ FDOM f SUBSET domain refs ==>
+      v_inv_ck ck conf v1 (insert ptr (MutBlock tag fin l cv r) refs) (y,f,tf,heap)
+Proof
+  completeInduct_on `ck` \\ gvs []
+  \\ rpt gen_tac \\ rpt disch_tac
+  \\ simp [Once v_inv_ck_cases]
+  \\ Cases_on `v1` \\ gvs [v_inv_def]
+  >- (Cases_on `small_int (:'a) i` \\ gvs [])
+  >- (Cases_on `l' = []` \\ gvs [] \\ irule_at Any EQ_REFL \\ gvs []
+      \\ gvs [LIST_REL_EL_EQN])
+  \\ `n <> ptr` by
+       (CCONTR_TAC \\ gvs [] \\ gvs [SUBSET_DEF,domain_lookup] \\ res_tac \\ gvs [])
+  \\ gvs [lookup_insert]
+  \\ gvs [oneline dest_thunk_def, AllCaseEqs(), lookup_insert]
+  \\ metis_tac []
+QED
+
+Theorem v_inv_MutBlock_insert:
+  !conf v1 refs v2 f tf heap ptr tag fin l cv r.
+    v_inv conf v1 refs (v2,f,tf,heap) /\
+    ~(ptr IN domain refs) /\ FDOM f SUBSET domain refs ==>
+      v_inv conf v1 (insert ptr (MutBlock tag fin l cv r) refs) (v2,f,tf,heap)
+Proof
+  metis_tac [v_inv_eq, v_inv_MutBlock_insert_lemma]
+QED
+
+
 Theorem heap_store_ThunkBlock_thm:
   ∀ha.
     (heap_store (heap_length ha) [ThunkBlock ev1 v1] (ha ++ ThunkBlock ev2 v2::hb) =
