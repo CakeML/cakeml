@@ -9807,7 +9807,7 @@ Theorem memory_rel_Thunk_IMP:
       memory_rel c be ts refs sp st m dm
         ((z,m (a + bytes_in_word))::(RefPtr bl p,v)::vars)
 Proof
-  cheat (*
+
   fs [Once memory_rel_def, word_ml_inv_def, PULL_EXISTS, abs_ml_inv_def,
       bc_stack_ref_inv_def,v_inv_def, word_addr_def]
   \\ reverse $ rw [get_addr_0] \\ gvs []
@@ -9943,6 +9943,61 @@ Proof
       \\ EVAL_TAC \\ gvs [])
     >- (
       rw [] \\ gvs [dest_thunk_def, AllCaseEqs(), word_addr_def]
+      >~ [‘ptr_bits’] >- (
+        simp [GSYM PULL_EXISTS]
+        \\ conj_tac >- (
+          gvs []
+          \\ simp [memory_rel_def]
+          \\ asm_exists_tac \\ gvs []
+          \\ simp [word_ml_inv_def, PULL_EXISTS]
+          \\ simp [abs_ml_inv_def]
+          \\ pure_rewrite_tac [GSYM CONJ_ASSOC]
+          \\ asm_exists_tac \\ gvs []
+          \\ simp [word_addr_def]
+          \\ simp [bc_stack_ref_inv_def]
+          \\ qexistsl [‘f’, ‘tf’] \\ gvs []
+          \\ rw []
+          >- (
+            gvs [SUBSET_DEF, IN_DEF, all_ts_def] \\ rw []
+            \\ res_tac \\ gvs [v_all_ts_def]
+            \\ metis_tac[])
+          >- (drule_all blocks_unique_Thunk \\ gvs [])
+          >- gvs [v_inv_def, word_addr_def]
+          >- (
+            first_x_assum irule \\ gvs []
+            \\ gvs [reachable_refs_def]
+            >- (
+              qexists ‘RefPtr F p’ \\ gvs [get_refs_def]
+              \\ simp [Once RTC_CASES1]
+              \\ disj2_tac \\ gvs []
+              \\ first_x_assum $ irule_at Any
+              \\ gvs [ref_edge_def, get_refs_def])
+            >- metis_tac []))
+        \\ gvs [heap_in_memory_store_def]
+        \\ ‘∃tg zs. heap_lookup (f ' n) heap = SOME (BlockRep tg zs)’ by (
+          first_x_assum $ qspec_then ‘n’ mp_tac \\ gvs []
+          \\ impl_tac
+          >- (
+            gvs [reachable_refs_def]
+            \\ qexists ‘RefPtr F p’ \\ gvs []
+            \\ gvs [get_refs_def]
+            \\ irule RTC_SINGLE
+            \\ gvs [ref_edge_def, get_refs_def])
+          \\ gvs [bc_ref_inv_def]
+          \\ TOP_CASE_TAC \\ gvs [FLOOKUP_DEF] \\ rw []
+          \\ goal_assum drule)
+        \\ gvs [BlockRep_def]
+        \\ rpt_drule get_real_addr_get_addr \\ disch_then kall_tac
+        \\ imp_res_tac heap_lookup_SPLIT \\ gvs []
+        \\ gvs [word_heap_APPEND]
+        \\ gvs [word_heap_def, word_el_def, word_list_def, good_dimindex_def]
+        \\ pairarg_tac \\ gvs []
+        \\ SEP_R_TAC \\ gvs [word_payload_def]
+        \\ simp [fcpTheory.CART_EQ, PULL_EXISTS]
+        \\ qexistsl [‘3’, ‘3’]
+        \\ gvs [word_and_def, fcpTheory.FCP_BETA, make_header_def, word_or_def,
+                word_lsl_def]
+        \\ EVAL_TAC \\ gvs [])
       >~ [‘ValueArray’] >- (
         simp [GSYM PULL_EXISTS]
         \\ conj_tac >- (
@@ -10132,7 +10187,7 @@ Proof
   \\ fs [fcpTheory.FCP_BETA,word_lsl_def,word_index]
   \\ Cases_on ‘ev’
   \\ fs [thunk_tag_to_bits_def]
-  \\ EVAL_TAC *)
+  \\ EVAL_TAC
 QED
 
 Theorem memory_rel_Thunk_inlined:
