@@ -39,8 +39,11 @@ Quote add_cakeml:
   case TextIO.inputAllFrom (Some fwitness) of
     None => TextIO.output TextIO.stdErr "cannot read witness file\n"
   | Some witness =>
-  case (print "parsing..."; parse_and_process model witness) of
+  case (print "parsing...\n"; parse model witness) of
     Error (msg, _) => TextIO.output TextIO.stdErr msg
+  | Return (maig, (waig, ms)) =>
+  case (print "processing and checking...\n"; process_and_check maig waig ms) of
+    Error msg => TextIO.output TextIO.stdErr msg
   | Return
       (mcirc, (mreset, (mnext, (mpreds, (mcnstrs, (mlive, (mlatches,
         (wcirc, (wreset, (wnext, (wpreds, (wcnstrs, (wlive, (wlatches,
@@ -52,26 +55,34 @@ Quote add_cakeml:
         val ostrm = TextIO.openOut oname
         val _     = TextIO.output ostrm cert
       in TextIO.closeOut ostrm end
-      val _ = print "parsing finished! continuing with encodings..."
+      val _ = print "making reset...\n"
       val _ = write (
         make_reset_string mcirc mreset mcnstrs mlatches wcirc wreset wcnstrs
           wlatches klatches)
+      val _ = print "making transition...\n"
       val _ = write (
         make_transition_string mcirc mnext mcnstrs mlatches wcirc wnext wcnstrs
           wlatches klatches)
+      val _ = print "making property...\n"
       val _ = write (
         make_property_string mcirc mcnstrs mpreds wcirc wcnstrs wpreds)
+      val _ = print "making base...\n"
       val _ = write (
         make_base_string wcirc wreset wcnstrs wpreds wlatches)
+      val _ = print "making step...\n"
       val _ = write (
         make_step_string wcirc wnext wcnstrs wpreds wlatches)
+      val _ = print "making liveness...\n"
       val _ = write (
         make_liveness_string mcirc mcnstrs mlive
           wcirc wnext wcnstrs wpreds wlive wlatches interv)
+      val _ = print "making decrease...\n"
       val _ = write (
         make_decrease_string wcirc wnext wcnstrs wpreds wlive wlatches interv)
+      val _ = print "making closure...\n"
       val _ = write (
         make_closure_string wcirc wnext wcnstrs wpreds wlive wlatches interv)
+      val _ = print "making consistent...\n"
       val _ = write (
         make_consistent_string wcirc wnext wcnstrs wpreds wlive wlatches interv)
     in () end

@@ -104,3 +104,44 @@ val r = translate aig_cert_encodeTheory.encode_is_witness_liveness_def;
 val r = translate aig_cert_encodeTheory.encode_is_witness_decrease_def;
 val r = translate aig_cert_encodeTheory.encode_is_witness_closure_def;
 val r = translate aig_cert_encodeTheory.encode_is_witness_consistent_def;
+
+val r = translate aig_cert_encodeTheory.circ_lookup_def;
+val r = translate aig_cert_encodeTheory.latch_deps_def;
+val r = translate aig_cert_encodeTheory.reset_edges_def;
+val r = translate aig_cert_encodeTheory.reset_graph_def;
+
+val r = translate sptreeTheory.mk_BN_def;
+val r = translate sptreeTheory.mk_BS_def;
+val r = translate sptreeTheory.inter_def;
+val r = translate sptreeTheory.union_def;
+val r = translate sptreeTheory.map_def;
+val r = translate sptreeTheory.spt_fold_def;
+val r = translate sptreeTheory.spt_left_def;
+val r = translate sptreeTheory.spt_center_def;
+val r = translate sptreeTheory.spt_right_def;
+val r = translate sptreeTheory.subspt_eq;
+
+val r = translate spt_closureTheory.closure_spt_def;
+
+val r = translate topological_sortTheory.trans_clos_def;
+val r = translate topological_sortTheory.needs_def;
+val r = translate topological_sortTheory.partition_def;
+val r = translate topological_sortTheory.top_sort_aux_def;
+val r = translate topological_sortTheory.top_sort_def;
+
+(* TODO potential inefficiency: unnecessary conversion to num.
+     It might be more efficient for latch_deps to be directly over sptree/num_set *)
+val r = translate topological_sortTheory.to_nums_def;
+val r = translate topological_sortTheory.top_sort_any_def;
+
+Theorem top_sort_any_side[local]:
+  ∀x. top_sort_any_side x ⇔ T
+Proof
+  rw [definition "top_sort_any_side_def", NULL_EQ_NIL]
+QED
+val _ = top_sort_any_side |> update_precondition;
+
+val r = translate
+          (topological_sortTheory.has_cycle_def |> REWRITE_RULE [MEMBER_INTRO]);
+
+val r = translate aig_cert_encodeTheory.stratified_cond_def;
