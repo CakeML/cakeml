@@ -50,8 +50,8 @@ Overload RIneq = “SOME : pbop -> pbop option”
   The head of a constraint carries its reification guard L:
 
     Fwd L rel    ⋀L ⟹ Σ rel n     (L = [] is an unreified constraint)
-    Bwd L op     Σ op n ⟹ ⋀L
-    Iff L op     ⋀L ⟺ Σ op n
+    Bwd l op     Σ op n ⟹ l
+    Iff l op     l ⟺ Σ op n
 
   Bwd and Iff take a pbop rather than a pbrel because ¬(Σ = n) is a
   disjunction, so those forms are not a conjunction of ≥ constraints
@@ -61,8 +61,8 @@ Overload RIneq = “SOME : pbop -> pbop option”
 Datatype:
   pbhd =
     Fwd ('a lit list) pbrel
-  | Bwd ('a lit list) pbop
-  | Iff ('a lit list) pbop
+  | Bwd ('a lit) pbop
+  | Iff ('a lit) pbop
 End
 
 Type pbc[pp] = ``:('a pbhd # 'a lin_term # int)``
@@ -163,10 +163,10 @@ QED
 Definition satisfies_pbc_def:
   (satisfies_pbc w (Fwd ls rel,xs,n) ⇔
     (EVERY (lit w) ls ⇒ do_rel rel (eval_lin_term w xs) n)) ∧
-  (satisfies_pbc w (Bwd ls op,xs,n) ⇔
-    (do_op op (eval_lin_term w xs) n ⇒ EVERY (lit w) ls)) ∧
-  (satisfies_pbc w (Iff ls op,xs,n) ⇔
-    (EVERY (lit w) ls ⇔ do_op op (eval_lin_term w xs) n))
+  (satisfies_pbc w (Bwd l op,xs,n) ⇔
+    (do_op op (eval_lin_term w xs) n ⇒ lit w l)) ∧
+  (satisfies_pbc w (Iff l op,xs,n) ⇔
+    (lit w l ⇔ do_op op (eval_lin_term w xs) n))
 End
 
 Theorem satisfies_pbc_plain[simp]:
@@ -333,8 +333,8 @@ End
 
 Definition pbhd_vars_def[simp]:
   (pbhd_vars (Fwd ls rel) = set (MAP lit_var ls)) ∧
-  (pbhd_vars (Bwd ls op) = set (MAP lit_var ls)) ∧
-  (pbhd_vars (Iff ls op) = set (MAP lit_var ls))
+  (pbhd_vars (Bwd l op) = {lit_var l}) ∧
+  (pbhd_vars (Iff l op) = {lit_var l})
 End
 
 Definition pbc_vars_def:
@@ -378,6 +378,12 @@ Proof
   Cases_on`h`>>simp[map_lit_o]
 QED
 
+Theorem lit_map_lit:
+  lit w (map_lit f x) ⇔ lit (w o f) x
+Proof
+  Cases_on`x`>>rw[]
+QED
+
 Theorem lit_EVERY_map_lit:
   ∀ls. EVERY (lit w) (MAP (map_lit f) ls) ⇔ EVERY (lit (w o f)) ls
 Proof
@@ -390,6 +396,13 @@ Theorem map_lit_I:
 Proof
   simp[FUN_EQ_THM]>>
   Cases>>simp[]
+QED
+
+Theorem map_lit_cong:
+  f (lit_var x) = g (lit_var x) ⇒
+  map_lit f x = map_lit g x
+Proof
+  Cases_on`x`>>gvs[]
 QED
 
 Theorem MAP_map_lit_cong:
@@ -429,6 +442,13 @@ Proof
   Cases_on`r`>>gvs[]
 QED
 
+Theorem lit_cong:
+  w (lit_var x) = w' (lit_var x) ⇒
+  (lit w x ⇔ lit w' x)
+Proof
+  Cases_on`x`>>gvs[]
+QED
+
 Theorem lit_EVERY_cong:
   (∀x. MEM x (MAP lit_var ls) ⇒ w x = w' x) ⇒
   (EVERY (lit w) ls ⇔ EVERY (lit w') ls)
@@ -459,8 +479,8 @@ QED
 
 Definition map_pbhd_def[simp]:
   (map_pbhd f (Fwd ls rel) = Fwd (MAP (map_lit f) ls) rel) ∧
-  (map_pbhd f (Bwd ls op) = Bwd (MAP (map_lit f) ls) op) ∧
-  (map_pbhd f (Iff ls op) = Iff (MAP (map_lit f) ls) op)
+  (map_pbhd f (Bwd l op) = Bwd (map_lit f l) op) ∧
+  (map_pbhd f (Iff l op) = Iff (map_lit f l) op)
 End
 
 Definition map_pbc_def:
@@ -486,7 +506,8 @@ Theorem satisfies_map_pbc:
 Proof
   PairCases_on`pbc`>>
   Cases_on`pbc0`>>
-  simp[satisfies_pbc_def,map_pbc_def,eval_lin_term_MAP,lit_EVERY_map_lit]
+  simp[satisfies_pbc_def,map_pbc_def,eval_lin_term_MAP,lit_EVERY_map_lit,
+    lit_map_lit]
 QED
 
 Theorem satisfies_map_pbf:
@@ -502,7 +523,7 @@ Theorem map_pbc_o:
 Proof
   PairCases_on`pbc`>>
   Cases_on`pbc0`>>
-  simp[map_pbc_def,map_lin_term_o,MAP_map_lit_o]
+  simp[map_pbc_def,map_lin_term_o,MAP_map_lit_o,map_lit_o]
 QED
 
 Theorem map_pbc_I:
@@ -510,19 +531,23 @@ Theorem map_pbc_I:
   map_pbc f pbc = pbc
 Proof
   PairCases_on`pbc`>>
-  Cases_on`pbc0`>>
+  namedCases_on`pbc0` ["ls rel","l op","l op"]>>
   simp[pbc_vars_def,map_pbc_def]>>
   strip_tac>>
   DEP_REWRITE_TAC[MAP_map_lit_I,MAP_map_lin_term_I]>>
-  metis_tac[]
+  rw[]>>
+  Cases_on`l`>>gvs[]
 QED
 
 Theorem map_pbhd_cong:
   (∀x. x ∈ pbhd_vars hd ⇒ f x = g x) ⇒
   map_pbhd f hd = map_pbhd g hd
 Proof
-  Cases_on`hd`>>rw[]>>
-  match_mp_tac MAP_map_lit_cong>>
+  namedCases_on`hd` ["ls rel","l op","l op"]>>rw[]
+  >- (
+    match_mp_tac MAP_map_lit_cong>>
+    gvs[])>>
+  match_mp_tac map_lit_cong>>
   gvs[]
 QED
 
@@ -598,11 +623,16 @@ Proof
     match_mp_tac eval_lin_term_cong_vars>>
     gvs[pbc_vars_def]>>
     metis_tac[])>>
-  namedCases_on`c0` ["ls rel","ls op","ls op"]>>
-  `EVERY (lit w) ls ⇔ EVERY (lit w') ls` by (
-    match_mp_tac lit_EVERY_cong>>
-    gvs[pbc_vars_def]>>
-    metis_tac[])>>
+  namedCases_on`c0` ["ls rel","l op","l op"]
+  >- (
+    `EVERY (lit w) ls ⇔ EVERY (lit w') ls` by (
+      match_mp_tac lit_EVERY_cong>>
+      gvs[pbc_vars_def]>>
+      metis_tac[])>>
+    fs[satisfies_pbc_def])>>
+  `lit w l ⇔ lit w' l` by (
+    match_mp_tac lit_cong>>
+    gvs[pbc_vars_def])>>
   fs[satisfies_pbc_def]
 QED
 

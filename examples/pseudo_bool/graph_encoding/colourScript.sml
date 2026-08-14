@@ -604,11 +604,11 @@ QED
 Definition annot_string_def:
   annot_string a =
   case a of
-  | Edge u v c => SOME (concat [«e_»; toString u; «_»; toString v; «_c»; toString1 c])
-  | AtLeastOneColor u => SOME (concat [«colgeq_»; toString u])
-  | AtMostOneColor u  => SOME (concat [«colleq_»; toString u])
-  | VC_Imp_CU c => SOME (concat [«vc_impl_cu_»; toString1 c])
-  | CU_Imp_VC c => SOME (concat [«cu_impl_vc_»; toString1 c])
+  | Edge u v c => [concat [«e_»; toString u; «_»; toString v; «_c»; toString1 c]]
+  | AtLeastOneColor u => [concat [«colgeq_»; toString u]]
+  | AtMostOneColor u  => [concat [«colleq_»; toString u]]
+  | VC_Imp_CU c => [concat [«vc_impl_cu_»; toString1 c]]
+  | CU_Imp_VC c => [concat [«cu_impl_vc_»; toString1 c]]
 End
 
 Definition full_encode_def:
@@ -637,8 +637,8 @@ Definition mk_key_ann_def:
 End
 
 Definition mk_key_def:
-  mk_key NONE = NONE ∧
-  mk_key (SOME ann) = mk_key_ann ann
+  mk_key [ann] = mk_key_ann ann ∧
+  mk_key _ = NONE
 End
 
 Theorem mk_key_test[local]:
@@ -668,7 +668,7 @@ Definition lazy_constraint_aux_def:
 End
 
 Definition lazy_constraint_def:
-  lazy_constraint n g (c: mlstring option # mlstring pbc) ⇔
+  lazy_constraint n g (c: mlstring list # mlstring pbc) ⇔
     case mk_key (FST c) of
       NONE => F
     | SOME i => lazy_constraint_aux n g i (SND c)

@@ -53,26 +53,23 @@ Definition pbc_string_def:
       lhs_string xs;
       rel_string rel;
       int_to_string #"-" i; « ;\n»]) ∧
-  (pbc_string (Bwd ls op,xs,i) =
+  (pbc_string (Bwd l op,xs,i) =
     concat [
-      lits_string ls; « <== »;
+      lit_string l; « <== »;
       lhs_string xs;
       op_string op;
       int_to_string #"-" i; « ;\n»]) ∧
-  (pbc_string (Iff ls op,xs,i) =
+  (pbc_string (Iff l op,xs,i) =
     concat [
-      lits_string ls; « <==> »;
+      lit_string l; « <==> »;
       lhs_string xs;
       op_string op;
       int_to_string #"-" i; « ;\n»])
 End
 
 Definition annot_pbc_string_def:
-  annot_pbc_string (annot,str) =
-    let s = pbc_string str in
-      case annot of NONE => s
-      | SOME l =>
-      concat [ «@»;l; « »;s]
+  annot_pbc_string (annots,str) =
+    concat (MAP (λl. concat [«@»;l; « »]) annots ++ [pbc_string str])
 End
 
 (* printing a string pbf, possibly with string annotation *)
@@ -245,7 +242,8 @@ Definition parse_reif_aux_def:
       | SOME l => parse_reif_aux rest (l::acc))
 End
 
-(* Bwd and Iff take a pbop, so REq has no head here *)
+(* Bwd and Iff take a pbop, so REq has no head here, and a single
+  literal, so a longer guard has no head either *)
 Definition mk_hd_def:
   mk_hd arrow ls rel =
   if arrow = «==>» then SOME (Fwd ls rel)
@@ -253,9 +251,11 @@ Definition mk_hd_def:
     case rel of
       REq => NONE
     | RIneq op =>
-      if arrow = «<==» then SOME (Bwd ls op)
-      else if arrow = «<==>» then SOME (Iff ls op)
-      else NONE
+      (case ls of [l] =>
+        if arrow = «<==» then SOME (Bwd l op)
+        else if arrow = «<==>» then SOME (Iff l op)
+        else NONE
+      | _ => NONE)
 End
 
 Definition parse_constraint_def:
@@ -279,15 +279,16 @@ Definition parse_constraint_def:
       | _ => NONE))
 End
 
-(* strips off the head of a line as an annotation *)
+(* strips off the head of a line as a list of annotations *)
 Definition parse_annot_def:
   parse_annot line =
   case line of
     (INL s)::ls =>
     if strlen s ≥ 1 ∧ strsub s 0 = #"@" then
-      (SOME (substring s 1 (strlen s - 1)), ls)
-    else (NONE, line)
-  | _ => (NONE, line)
+      (let (annots,rest) = parse_annot ls in
+        (substring s 1 (strlen s - 1)::annots, rest))
+    else ([], line)
+  | _ => ([], line)
 End
 
 Definition parse_annot_constraint_def:
@@ -300,6 +301,7 @@ End
   EVAL ``parse_annot (toks «2 ~x1 1 ~x3 >= 1;»)``;
   EVAL ``parse_constraint (toks «2 ~x1 1 ~x3 >= 1 ;»)``;
   EVAL ``parse_annot_constraint (toks «@aaa 2 ~x1 1 ~x3 >= 1;»)``;
+  EVAL ``parse_annot_constraint (toks «@aaa @bbb 2 ~x1 1 ~x3 >= 1;»)``;
 
   Reification, and the constraints each form normalises to. The body is
   normalised first, so the big-M coefficient is its degree, and a
@@ -308,8 +310,9 @@ End
 
   EVAL ``parse_constraint (toks «z1 z2 ~z3 ==> +1 x1 +2 x2 >= 2;»)``;
   EVAL ``parse_constraint (toks «z1 <== 1 x1 <= 5;»)``;
-  EVAL ``parse_constraint (toks «z1 z2 <==> 1 x1 > 3;»)``;
+  EVAL ``parse_constraint (toks «z1 <==> 1 x1 > 3;»)``;
   EVAL ``parse_constraint (toks «==> 1 x1 >= 1;»)``;              (* NONE: empty guard *)
+  EVAL ``parse_constraint (toks «z1 z2 <== 1 x1 >= 1;»)``;        (* NONE: <== takes one literal *)
 
   EVAL ``MAP inject (to_gnpbc
     (Fwd [Pos 1;Pos 2;Neg 3] (RIneq GreaterEqual),[(1,Pos 4);(2,Pos 5)],2))``;
@@ -324,17 +327,14 @@ End
     (Fwd [Pos 4] (RIneq GreaterEqual),[(1,Pos 4)],1))``;
       [([],0)]                               (* guard is the constraint's own var *)
   EVAL ``MAP inject (to_gnpbc
-    (Bwd [Pos 1] LessEqual,[(1,Pos 4)],9223372036854775807))``;
+    (Bwd (Pos 1) LessEqual,[(1,Pos 4)],9223372036854775807))``;
       [([(9223372036854775808,1); (1,4)],9223372036854775808)]
   EVAL ``MAP inject (to_gnpbc
     (Fwd [Pos 1;Pos 2;Neg 3] REq,[(1,Pos 4)],2))``;
       [([(-2,1); (-2,2); (2,3); (1,4)],2); ([(-1,4)],-1)]
   EVAL ``MAP inject (to_gnpbc
-    (Bwd [Pos 1;Pos 2] GreaterEqual,[(1,Pos 4);(1,Pos 5)],1))``;
-      one constraint per guard literal, left to right
-  EVAL ``MAP inject (to_gnpbc
-    (Iff [Pos 1;Pos 2] GreaterEqual,[(1,Pos 4);(1,Pos 5)],1))``;
-      the forward constraint, then one per guard literal
+    (Iff (Pos 1) GreaterEqual,[(1,Pos 4);(1,Pos 5)],1))``;
+      the forward constraint, then the backward one
 *)
 
 Definition parse_constraints_def:
@@ -1860,19 +1860,21 @@ EVAL``parse_b_obj_term_npbc (plainVar_nf,()) (toks_fast «new 1 x1 2 : subproof�
 Definition parse_preserve_def:
   (parse_preserve f_ns rest =
    case strip_obju_end rest of
-   | SOME (INL c::cs) =>
-    (case parse_var f_ns c of
-      NONE => NONE
-    | SOME (x,f_ns') =>
-    (case parse_constraint_npbc f_ns' cs of
-      SOME (constr,[],f_ns'') =>
-        SOME (x,constr,f_ns'')
-      | _ => NONE))
+   | SOME (INL c::INL s::cs) =>
+    if s = «:» then
+      (case parse_var f_ns c of
+        NONE => NONE
+      | SOME (x,f_ns') =>
+      (case parse_constraint_npbc f_ns' cs of
+        SOME (constr,[],f_ns'') =>
+          SOME (x,constr,f_ns'')
+        | _ => NONE))
+    else NONE
   | _ => NONE)
 End
 
 (*
-  EVAL``parse_preserve (plainVar_nf,()) (toks_fast «x1 1 x1 2 x2 >= 5 : subproof»)``
+  EVAL``parse_preserve (plainVar_nf,()) (toks_fast «x1 : 1 x1 2 x2 >= 5 : subproof»)``
 *)
 
 Definition parse_epres_def:

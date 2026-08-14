@@ -292,7 +292,7 @@ Proof
 QED
 
 Definition annot_string_def:
-  annot_string ((x,y):annot) = SOME (concat[«noedge»; toString (x+1) ; «_» ; toString (y+1)])
+  annot_string ((x,y):annot) = [concat[«noedge»; toString (x+1) ; «_» ; toString (y+1)]]
 End
 
 Definition full_encode_def:
@@ -567,8 +567,8 @@ Proof
 QED
 
 Definition mannot_string_def:
-  (mannot_string (INL ((x,y):annot)) = SOME (concat[«noedge»; toString (x+1) ; «_» ; toString (y+1)])) ∧
-  (mannot_string (INR (x:num)) = SOME (concat[«maximal»; toString (x+1)]))
+  (mannot_string (INL ((x,y):annot)) = [concat[«noedge»; toString (x+1) ; «_» ; toString (y+1)]]) ∧
+  (mannot_string (INR (x:num)) = [concat[«maximal»; toString (x+1)]])
 End
 
 Definition full_mencode_def:

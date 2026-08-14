@@ -45,7 +45,7 @@ Theorem parse_and_enc_spec:
      SUM_TYPE STRING_TYPE
        (LIST_TYPE
         (PAIR_TYPE
-        (OPTION_TYPE STRING_TYPE)
+        (LIST_TYPE STRING_TYPE)
          (PAIR_TYPE (PBC_PBHD_TYPE STRING_TYPE)
             (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))) res v ∧
       case res of
@@ -111,7 +111,7 @@ val res = translate (res_to_string_def |> SIMP_RULE std_ss [UNSAT_string_def,SAT
 Definition mk_prob_def:
   mk_prob fml = (NONE,NONE,fml):mlstring list option #
     ((int # mlstring pbc$lit) list # int) option #
-    (mlstring option #
+    (mlstring list #
       (mlstring pbhd # (int # mlstring pbc$lit) list # int)) list
 End
 

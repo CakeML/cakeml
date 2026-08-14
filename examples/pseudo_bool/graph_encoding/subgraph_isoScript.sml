@@ -455,7 +455,7 @@ QED
 
 Definition full_encode_def:
   full_encode gp gt =
-  MAP (SOME ## map_pbc enc_string) (encode gp gt)
+  MAP ((λa. [a]) ## map_pbc enc_string) (encode gp gt)
 End
 
 Theorem full_encode_correct:

@@ -566,18 +566,6 @@ Proof
   intLib.ARITH_TAC
 QED
 
-(* Σ op n ⟹ ⋀L contraposes to one constraint per literal of L *)
-Theorem bwd_gnpbcs_thm[local]:
-  ∀ls.
-  EVERY (λ(gs,c). EVERY (lit w) gs ⇒ satisfies_npbc w c)
-    (MAP (λl. ([negate l], to_npbc (ge_of (negate_op op) xs n))) ls) ⇔
-  (do_op op (eval_lin_term w xs) n ⇒ EVERY (lit w) ls)
-Proof
-  Induct>>
-  gvs[to_npbc_thm,lit_negate,negate_op_thm]>>
-  metis_tac[]
-QED
-
 (* Every surface constraint expands to a list of normalised constraints,
   each carrying the conjunction of literals guarding it.
 
@@ -587,12 +575,11 @@ QED
 Definition to_gnpbc_def:
   (to_gnpbc (Fwd ls rel,xs,n) =
     MAP (λc. (ls, to_npbc c)) (rel_ges rel xs n)) ∧
-  (to_gnpbc (Bwd ls op,xs,n) =
-    let c = to_npbc (ge_of (negate_op op) xs n) in
-      MAP (λl. ([negate l], c)) ls) ∧
-  (to_gnpbc (Iff ls op,xs,n) =
-    let c = to_npbc (ge_of (negate_op op) xs n) in
-      (ls, to_npbc (ge_of op xs n)) :: MAP (λl. ([negate l], c)) ls)
+  (to_gnpbc (Bwd l op,xs,n) =
+    [([negate l], to_npbc (ge_of (negate_op op) xs n))]) ∧
+  (to_gnpbc (Iff l op,xs,n) =
+    [([l], to_npbc (ge_of op xs n));
+     ([negate l], to_npbc (ge_of (negate_op op) xs n))])
 End
 
 Theorem to_gnpbc_thm:
@@ -602,7 +589,8 @@ Theorem to_gnpbc_thm:
 Proof
   PairCases_on`p`>>
   Cases_on`p0`>>
-  simp[to_gnpbc_def,satisfies_pbc_def,bwd_gnpbcs_thm,EVERY_MAP,to_npbc_thm]>>
+  simp[to_gnpbc_def,satisfies_pbc_def,EVERY_MAP,to_npbc_thm,lit_negate,
+    negate_op_thm]>>
   simp[GSYM rel_ges_thm,EVERY_MEM]>>
   metis_tac[]
 QED
@@ -920,10 +908,10 @@ End
 Definition name_to_num_pbhd_def:
   name_to_num_pbhd (Fwd ls rel) s =
     (let (ls1,s1) = name_to_num_lits ls s [] in (Fwd ls1 rel,s1)) ∧
-  name_to_num_pbhd (Bwd ls op) s =
-    (let (ls1,s1) = name_to_num_lits ls s [] in (Bwd ls1 op,s1)) ∧
-  name_to_num_pbhd (Iff ls op) s =
-    (let (ls1,s1) = name_to_num_lits ls s [] in (Iff ls1 op,s1))
+  name_to_num_pbhd (Bwd l op) s =
+    (let (l1,s1) = name_to_num_lit l s in (Bwd l1 op,s1)) ∧
+  name_to_num_pbhd (Iff l op) s =
+    (let (l1,s1) = name_to_num_lit l s in (Iff l1 op,s1))
 End
 
 Definition name_to_num_pbf_def:
@@ -1185,9 +1173,12 @@ Proof
   \\ gvs [name_to_num_pbhd_def]
   \\ rpt gen_tac \\ strip_tac
   \\ rpt (pairarg_tac \\ gvs [])
-  \\ drule name_to_num_lits
-  \\ disch_then $ qspec_then ‘[]’ mp_tac
-  \\ gvs [LIST_TO_SET_MAP]
+  >- (
+    drule name_to_num_lits
+    \\ disch_then $ qspec_then ‘[]’ mp_tac
+    \\ gvs [LIST_TO_SET_MAP])
+  \\ drule_all name_to_num_lit
+  \\ gvs []
 QED
 
 Theorem map_pbhd_lookup_index_stable:

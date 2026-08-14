@@ -1294,8 +1294,8 @@ End
 
 Definition encode_def:
   encode (vp,ep) (vt,et) =
-  MAP (SOME ## I) (encode_base (vp,ep) (vt,et)) ++
-  MAP (λc. (NONE,c)) (encode_connected (vp,ep) vt)
+  MAP ((λa. [a]) ## I) (encode_base (vp,ep) (vt,et)) ++
+  MAP (λc. ([],c)) (encode_connected (vp,ep) vt)
 End
 
 Theorem walk_k_free:
@@ -2020,7 +2020,7 @@ Definition full_encode_mcis_def:
   full_encode_mcis gp gt =
   (map_obj enc_string
     (unmapped_obj (FST gp)),
-  MAP (SOME ## map_pbc enc_string) (encode_base gp gt))
+  MAP ((λa. [a]) ## map_pbc enc_string) (encode_base gp gt))
 End
 
 Theorem full_encode_mcis_sem_concl:
@@ -2168,7 +2168,7 @@ Theorem walk_k_eq =
   |> SIMP_RULE (srw_ss()) [if_APPEND];
 
 val enc_encode_connected =
-  ``MAP (\c. (NONE:mlstring option,(map_pbc enc_string c))) (encode_connected (p_1,p_2) vt)``
+  ``MAP (\c. ([]:mlstring list,(map_pbc enc_string c))) (encode_connected (p_1,p_2) vt)``
   |> SIMP_CONV (srw_ss()) [encode_connected_thm]
   |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,
     map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,LET_DEF,MAP_if]
