@@ -96,6 +96,20 @@ Proof
   Cases_on `x` \\ Cases_on `y` \\ fs [] \\ rw [MAX_DEF]
 QED
 
+(* ops that are not allowed_op have stack_consumed = NONE, which has to
+   propagate through do_stack's safe_for_space computation *)
+Theorem OPTION_MAP2_NONE[simp]:
+  OPTION_MAP2 f NONE y = NONE ∧ OPTION_MAP2 f x NONE = NONE
+Proof
+  Cases_on `x` \\ fs []
+QED
+
+Theorem the_NONE[simp]:
+  the x NONE = x
+Proof
+  fs [miscTheory.the_def]
+QED
+
 Theorem initial_state_simp[simp]:
   (initial_state f c co cc ts l ss k).clock = k ∧
   (initial_state f c co cc ts l ss k).locals = LN ∧

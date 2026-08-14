@@ -225,7 +225,7 @@ End
 
 (* Determines which operations are safe for space *)
 Definition allowed_op_def:
-  allowed_op op _ = (op <> closLang$Install)
+  allowed_op op _ = (op <> closLang$Install /\ !t i. op <> MemOp (MutCons t i))
 End
 
 Definition v_to_list_def:
@@ -1076,9 +1076,7 @@ Definition do_app_aux_def:
              let c = EL i xs in
              let r = DROP (i+1) xs in
                Rval (RefPtr F ptr,
-                     check_lim (s with refs :=
-                                  insert ptr (MutBlock tag F l c r) s.refs)
-                               (LENGTH xs)))
+                     s with refs := insert ptr (MutBlock tag F l c r) s.refs))
     | (MemOp UpdateCons,[RefPtr _ ptr; Number i; x]) =>
         (case lookup ptr s.refs of
          | SOME (MutBlock tag finalised l c r) =>
