@@ -4183,6 +4183,104 @@ Theorem v_inv_MutBlock_insert:
 Proof
   metis_tac [v_inv_eq, v_inv_MutBlock_insert_lemma]
 QED
+
+(* ---- MutCons: the Cons allocation, but the value handed back is a fresh ref *)
+
+Theorem all_ts_SUBSET_gen[local]:
+  (!x. ((?n r'. lookup n refs1 = SOME r' /\ find_ref r' x) \/ MEM x stack1) ==>
+       ((?n r'. lookup n refs2 = SOME r' /\ find_ref r' x) \/ MEM x stack2)) ==>
+  all_ts refs1 stack1 SUBSET all_ts refs2 stack2
+Proof
+  rw [all_ts_def, SUBSET_DEF] \\ metis_tac []
+QED
+
+Theorem all_ts_mutcons[local]:
+  ptr NOTIN domain refs ==>
+  all_ts refs ((l ++ [c] ++ r) ++ stack) SUBSET
+  all_ts (insert ptr (MutBlock tag F l c r) refs) (RefPtr F ptr::stack)
+Proof
+  strip_tac \\ irule all_ts_SUBSET_gen \\ rw []
+  \\ TRY (disj1_tac \\ qexists_tac `ptr` \\ gvs [lookup_insert] \\ NO_TAC)
+  \\ TRY (disj1_tac \\ qexists_tac `n` \\ gvs [lookup_insert]
+          \\ IF_CASES_TAC \\ gvs [domain_lookup] \\ NO_TAC)
+  \\ gvs []
+QED
+
+Theorem blocks_unique_mutcons[local]:
+  blocks_unique ts (all_vs refs ((l ++ [c] ++ r) ++ stack)) ==>
+  blocks_unique ts
+    (all_vs (insert ptr (MutBlock tag F l c r) refs) (RefPtr F ptr::stack))
+Proof
+  simp [blocks_unique_def] \\ strip_tac \\ rpt gen_tac \\ strip_tac
+  \\ first_x_assum irule \\ gvs []
+  \\ gvs [all_vs_def]
+  \\ rw [] \\ gvs [v_all_vs_def, v_all_vs_append, lookup_insert, AllCaseEqs()]
+  \\ simp [SF SFY_ss] \\ metis_tac []
+QED
+
+Theorem ref_edge_MutBlock[local]:
+  ref_edge (insert ptr (MutBlock tag fin l c r) refs) x y =
+    if x = ptr then MEM y (get_refs (Block 0 ARB (l ++ [c] ++ r)))
+               else ref_edge refs x y
+Proof
+  simp_tac std_ss [FUN_EQ_THM,ref_edge_def] \\ rpt strip_tac
+  \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
+  \\ Cases_on `x = ptr` \\ full_simp_tac (srw_ss()) []
+  \\ rw [lookup_insert]
+QED
+
+(* the only new edge leaves ptr and lands inside the payload, which is exactly
+   what used to sit on the stack *)
+Triviality reachable_refs_MutCons_lemma:
+  !r1 n.
+    RTC (ref_edge (insert ptr (MutBlock tag F l c r) refs)) r1 n ==>
+    n <> ptr ==>
+    RTC (ref_edge refs) r1 n \/
+    ?s. MEM s (get_refs (Block 0 ARB (l ++ [c] ++ r))) /\ RTC (ref_edge refs) s n
+Proof
+  ho_match_mp_tac RTC_INDUCT \\ rw []
+  \\ gvs [ref_edge_MutBlock]
+  \\ Cases_on `r1 = ptr` \\ gvs []
+  >- metis_tac []
+  \\ metis_tac [RTC_RULES]
+QED
+
+Theorem reachable_refs_MutCons[local]:
+  reachable_refs (RefPtr F ptr::stack)
+    (insert ptr (MutBlock tag F l c r) refs) n /\
+  n <> ptr /\ ptr NOTIN domain refs ==>
+  reachable_refs ((l ++ [c] ++ r) ++ stack) refs n
+Proof
+  rw [reachable_refs_def]
+  \\ drule reachable_refs_MutCons_lemma \\ rw []
+  \\ gvs [get_refs_def, MEM_FLAT, MEM_MAP]
+  (* a path that starts at ptr cannot get anywhere: ptr is fresh in refs *)
+  \\ TRY (qpat_x_assum `RTC (ref_edge refs) ptr n` mp_tac
+          \\ simp [Once RTC_CASES1] \\ rw []
+          \\ gvs [ref_edge_def]
+          \\ Cases_on `lookup ptr refs` \\ gvs [domain_lookup] \\ NO_TAC)
+  \\ metis_tac []
+QED
+
+(* lifting a v_inv across the MutCons allocation: refs gains a fresh ref and f
+   gains its binding, and the heap only grew *)
+Triviality v_inv_MutCons_step:
+  v_inv conf v refs (y,f,tf,heap) /\ ~(ptr IN domain refs) /\
+  FDOM f SUBSET domain refs /\ heap_store_rel heap heap2 ==>
+    v_inv conf v (insert ptr (MutBlock tag F l c r) refs)
+      (y,f |+ (ptr,a),tf,heap2)
+Proof
+  rpt strip_tac
+  \\ `~(ptr IN FDOM f)` by (full_simp_tac (srw_ss()) [SUBSET_DEF] \\ metis_tac [])
+  \\ `f SUBMAP (f |+ (ptr,a))` by
+       (full_simp_tac (srw_ss()) [SUBMAP_DEF,FAPPLY_FUPDATE_THM] \\ metis_tac [])
+  \\ `v_inv conf v (insert ptr (MutBlock tag F l c r) refs) (y,f,tf,heap)` by
+       (irule v_inv_MutBlock_insert \\ full_simp_tac std_ss [])
+  \\ match_mp_tac (GEN_ALL v_inv_SUBMAP)
+  \\ first_assum $ irule_at Any
+  \\ full_simp_tac std_ss [SUBMAP_REFL]
+QED
+
 Theorem heap_store_ThunkBlock_thm:
   ∀ha.
     (heap_store (heap_length ha) [ThunkBlock ev1 v1] (ha ++ ThunkBlock ev2 v2::hb) =
