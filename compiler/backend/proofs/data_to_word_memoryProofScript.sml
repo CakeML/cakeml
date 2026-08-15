@@ -4183,8 +4183,6 @@ Theorem v_inv_MutBlock_insert:
 Proof
   metis_tac [v_inv_eq, v_inv_MutBlock_insert_lemma]
 QED
-
-
 Theorem heap_store_ThunkBlock_thm:
   ∀ha.
     (heap_store (heap_length ha) [ThunkBlock ev1 v1] (ha ++ ThunkBlock ev2 v2::hb) =
@@ -7790,6 +7788,26 @@ Proof
   \\ SEP_W_TAC \\ fs [AC STAR_ASSOC STAR_COMM]
 QED
 
+(* mirrors memory_rel_Update: writing the hole of an unfinalised MutBlock is
+   the same single memory write as updating a reference's payload *)
+Theorem memory_rel_UpdateCons:
+   memory_rel c be ts refs sp st m dm
+     ((h,w)::(RefPtr bl nn,ptr)::(Number (&index),i)::vars) /\
+    lookup nn refs = SOME (MutBlock tag F l cv r) /\
+    good_dimindex (:'a) /\
+    index = LENGTH l ==>
+    ?ptr_w i_w x y:'a word.
+      ptr = Word ptr_w /\ i = Word i_w /\
+      get_real_addr c st ptr_w = SOME x /\
+      get_real_offset i_w = SOME y /\
+      (x + y) IN dm /\
+      memory_rel c be ts (insert nn (MutBlock tag F l h r) refs) sp st
+        ((x + y =+ w) m) dm
+        ((h,w)::(RefPtr bl nn,ptr)::(Number (&index),i)::vars)
+Proof
+  cheat
+QED
+
 Definition store_list_def:
   (store_list a [] (m:'a word -> 'a word_loc) dm = SOME m) /\
   (store_list a (w::ws) m dm =
@@ -8406,6 +8424,47 @@ Proof
   \\ fs [el_length_def,heap_length_APPEND,heap_length_heap_expand,
          GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,ADD1]
   \\ fs [AC STAR_ASSOC STAR_COMM] \\ fs [STAR_ASSOC]
+QED
+
+(* mirrors memory_rel_Cons1: a MutBlock is laid out exactly like the Block it
+   finalises to, so the allocation is the Cons allocation; what differs is that
+   the abstract value handed back is a RefPtr into refs rather than a Block,
+   and no timestamp is consumed *)
+Theorem memory_rel_MutCons:
+   memory_rel c be ts refs sp st m dm (ZIP (vals,ws) ++ vars) /\
+    LENGTH vals = LENGTH (ws:'a word_loc list) /\ vals <> [] /\
+    encode_header c (4 * tag) (LENGTH ws) = SOME hd /\
+    LENGTH ws < sp /\ good_dimindex (:'a) /\
+    index < LENGTH vals /\ ptr NOTIN domain refs /\
+    (!gs. c.gc_kind <> Generational gs) ==>
+    ?free (curr:'a word) m1.
+      FLOOKUP st NextFree = SOME (Word free) /\
+      FLOOKUP st CurrHeap = SOME (Word curr) /\
+      let w = free + bytes_in_word * n2w (LENGTH ws + 1) in
+        store_list free (Word hd::ws) m dm = SOME m1 /\
+        memory_rel c be ts
+          (insert ptr (MutBlock tag F (TAKE index vals) (EL index vals)
+                                      (DROP (index + 1) vals)) refs)
+          (sp - (LENGTH ws + 1))
+          (st |+ (NextFree,Word w)) m1 dm
+          ((RefPtr F ptr,make_cons_ptr c (free - curr) tag (LENGTH ws))::vars)
+Proof
+  cheat
+QED
+
+(* the deep one: FinaliseCons is a no-op at word level.  Each MutBlock on the
+   chain already sits in the heap as the very BlockRep its finalised Block
+   needs, so the word value and the memory are unchanged; all that happens is
+   that refs gets the fin flags set and tf gains one timestamp per finalised
+   cell (which is why bc_ref_inv forbids a timestamp on an unfinalised
+   MutBlock's cell) *)
+Theorem memory_rel_FinaliseCons:
+   memory_rel c be ts refs sp st m dm ((v,w)::vars) /\
+    finalise_cons v refs (SOME ts) = SOME (v',refs',ts') ==>
+    IS_SOME ts' /\
+    memory_rel c be (THE ts') refs' sp st m dm ((v',w)::vars)
+Proof
+  cheat
 QED
 
 Theorem memory_rel_Cons_empty:
