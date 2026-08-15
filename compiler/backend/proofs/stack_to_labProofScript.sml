@@ -2431,8 +2431,10 @@ Proof
               (λa.
                  get_reg_value (t1.cc_regs 0 a)
                    (if t1.link_reg = a then Loc n l
-                    else read_reg a t1) Word); pc := t1.pc+2;
+                    else read_reg a t1) Word);
+          fp_regs := (\n. t1.cc_fp_regs 0 n); pc := t1.pc+2;
           cc_regs := shift_seq 1 t1.cc_regs;
+          cc_fp_regs := shift_seq 1 t1.cc_fp_regs;
           code := t1.code ++ new_code;
           compile_oracle := shift_seq 1 t1.compile_oracle;
           code_buffer := cb;
@@ -2551,6 +2553,7 @@ Proof
                     qexists_tac ‘dec_clock t1
                     with <| regs := t1.regs⦇r ↦ Word (word_of_bytes F 0w new_bytes)⦈;
                             io_regs := shift_seq 1 t1.io_regs;
+                            io_fp_regs := shift_seq 1 t1.io_fp_regs;
                             pc:=t1.pc+1; ffi := new_ffi|>’ >>
          simp[]>>
          fs[code_installed_def,call_args_def] >>
@@ -2569,6 +2572,7 @@ Proof
                     qexists_tac ‘dec_clock t1
                     with <| regs := t1.regs⦇r ↦ Word (word_of_bytes F 0w new_bytes)⦈;
                             io_regs := shift_seq 1 t1.io_regs;
+                            io_fp_regs := shift_seq 1 t1.io_fp_regs;
                             pc:=t1.pc+1; ffi := new_ffi|>’ >>
          simp[]>>
          fs[code_installed_def,call_args_def] >>
@@ -2587,6 +2591,7 @@ Proof
                     qexists_tac ‘dec_clock t1
                     with <| regs := t1.regs⦇r ↦ Word (word_of_bytes F 0w new_bytes)⦈;
                             io_regs := shift_seq 1 t1.io_regs;
+                            io_fp_regs := shift_seq 1 t1.io_fp_regs;
                             pc:=t1.pc+1; ffi := new_ffi|>’ >>
          simp[]>>
          fs[code_installed_def,call_args_def] >>
@@ -2605,6 +2610,7 @@ Proof
                     qexists_tac ‘dec_clock t1
                     with <| regs := t1.regs⦇r ↦ Word (word_of_bytes F 0w new_bytes)⦈;
                             io_regs := shift_seq 1 t1.io_regs;
+                            io_fp_regs := shift_seq 1 t1.io_fp_regs;
                             pc:=t1.pc+1; ffi := new_ffi|>’ >>
          simp[]>>
          fs[code_installed_def,call_args_def] >>
@@ -2621,6 +2627,7 @@ Proof
     strip_tac>>
     qexists_tac`0` >>
     qexists_tac`dec_clock t1 with <| io_regs := shift_seq 1 t1.io_regs;
+                           io_fp_regs := shift_seq 1 t1.io_fp_regs;
                            pc:=t1.pc+1; ffi := new_ffi|>` >>
     fs[state_rel_def,stackSemTheory.dec_clock_def,dec_clock_def,inc_pc_def]>>
     fs[code_installed_def,call_args_def] >>

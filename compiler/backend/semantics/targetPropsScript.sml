@@ -631,6 +631,18 @@ Proof
   \\ rpt (CASE_TAC \\ gvs[])
 QED
 
+Theorem target_io_regs_callee_saved:
+  MEM r mc.callee_saved_regs ⇒ target_io_regs mc ffi ms k name r = NONE
+Proof
+  rw[target_io_regs_def] \\ rpt (CASE_TAC \\ gvs[])
+QED
+
+Theorem target_cc_regs_callee_saved:
+  MEM r mc.callee_saved_regs ⇒ target_cc_regs mc ffi ms k r = NONE
+Proof
+  rw[target_cc_regs_def] \\ rpt (CASE_TAC \\ gvs[])
+QED
+
 Theorem next_interference_ExtCall:
   mc.target.get_pc ms ∉ mc.prog_addresses DIFF set mc.ffi_entry_pcs ∧
   mc.target.get_pc ms ≠ mc.halt_pc ∧
@@ -668,6 +680,102 @@ Proof
   \\ irule next_interference_intro
   \\ qexists_tac ‘1’
   \\ simp[Once find_next_interference_def, apply_oracle_def]
+QED
+
+Theorem next_interference_MappedRead:
+  mc.target.get_pc ms ∉ mc.prog_addresses DIFF set mc.ffi_entry_pcs ∧
+  mc.target.get_pc ms ≠ mc.halt_pc ∧
+  mc.target.get_pc ms ≠ mc.ccache_pc ∧
+  find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME index ∧
+  EL index mc.ffi_names = SharedMem MappedRead ∧
+  ALOOKUP mc.mmio_info index = SOME (nb,Addr r off,reg,pc') ∧
+  (nb = 0w ⇒
+   w2n (mc.target.get_reg ms r + off) MOD (dimindex (:'b) DIV 8) = 0) ∧
+  mc.target.get_reg ms r + off ∈ mc.shared_addresses ∧
+  is_valid_mapped_read (mc.target.get_pc ms) nb (Addr r off) reg pc'
+    mc.target ms mc.prog_addresses ∧
+  call_FFI ffi (EL index mc.ffi_names) [nb]
+    (word_to_bytes (mc.target.get_reg ms r + off) F) =
+    FFI_return new_ffi new_bytes ⇒
+  next_interference (mc:('b,'a,'c) machine_config) ffi ms =
+    SOME (FfiApp index new_bytes ms (mc.ffi_interfer 0 (index,new_bytes,ms)),
+          mc with ffi_interfer := shift_seq 1 mc.ffi_interfer,
+          new_ffi)
+Proof
+  rpt strip_tac
+  \\ irule next_interference_intro
+  \\ qexists_tac ‘1’
+  \\ simp[Once find_next_interference_def, apply_oracle_def]
+  \\ gvs[AC WORD_ADD_COMM WORD_ADD_ASSOC]
+QED
+
+Theorem next_interference_MappedWrite:
+  mc.target.get_pc ms ∉ mc.prog_addresses DIFF set mc.ffi_entry_pcs ∧
+  mc.target.get_pc ms ≠ mc.halt_pc ∧
+  mc.target.get_pc ms ≠ mc.ccache_pc ∧
+  find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME index ∧
+  EL index mc.ffi_names = SharedMem MappedWrite ∧
+  ALOOKUP mc.mmio_info index = SOME (nb,Addr r off,reg,pc') ∧
+  (nb = 0w ⇒
+   w2n (mc.target.get_reg ms r + off) MOD (dimindex (:'b) DIV 8) = 0) ∧
+  mc.target.get_reg ms r + off ∈ mc.shared_addresses ∧
+  is_valid_mapped_write (mc.target.get_pc ms) nb (Addr r off) reg pc'
+    mc.target ms mc.prog_addresses ∧
+  call_FFI ffi (EL index mc.ffi_names) [nb]
+    ((let w = mc.target.get_reg ms reg in
+        if nb = 0w then word_to_bytes w F
+        else word_to_bytes_aux (w2n nb) w F) ++
+     word_to_bytes (mc.target.get_reg ms r + off) F) =
+    FFI_return new_ffi new_bytes ⇒
+  next_interference (mc:('b,'a,'c) machine_config) ffi ms =
+    SOME (FfiApp index new_bytes ms (mc.ffi_interfer 0 (index,new_bytes,ms)),
+          mc with ffi_interfer := shift_seq 1 mc.ffi_interfer,
+          new_ffi)
+Proof
+  rpt strip_tac
+  \\ irule next_interference_intro
+  \\ qexists_tac ‘1’
+  \\ simp[Once find_next_interference_def, apply_oracle_def]
+  \\ gvs[AC WORD_ADD_COMM WORD_ADD_ASSOC]
+QED
+
+Theorem next_interference_SharedMem:
+  mc.target.get_pc ms ∉ mc.prog_addresses DIFF set mc.ffi_entry_pcs ∧
+  mc.target.get_pc ms ≠ mc.halt_pc ∧
+  mc.target.get_pc ms ≠ mc.ccache_pc ∧
+  find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME index ∧
+  EL index mc.ffi_names = SharedMem op ∧
+  ALOOKUP mc.mmio_info index = SOME (nb,Addr r off,reg,pc') ∧
+  (nb = 0w ⇒
+   w2n (mc.target.get_reg ms r + off) MOD (dimindex (:'b) DIV 8) = 0) ∧
+  mc.target.get_reg ms r + off ∈ mc.shared_addresses ∧
+  (op = MappedRead ⇒
+     is_valid_mapped_read (mc.target.get_pc ms) nb (Addr r off) reg pc'
+       mc.target ms mc.prog_addresses ∧
+     call_FFI ffi (EL index mc.ffi_names) [nb]
+       (word_to_bytes (mc.target.get_reg ms r + off) F) =
+       FFI_return new_ffi new_bytes) ∧
+  (op = MappedWrite ⇒
+     is_valid_mapped_write (mc.target.get_pc ms) nb (Addr r off) reg pc'
+       mc.target ms mc.prog_addresses ∧
+     call_FFI ffi (EL index mc.ffi_names) [nb]
+       ((let w = mc.target.get_reg ms reg in
+           if nb = 0w then word_to_bytes w F
+           else word_to_bytes_aux (w2n nb) w F) ++
+        word_to_bytes (mc.target.get_reg ms r + off) F) =
+       FFI_return new_ffi new_bytes) ⇒
+  next_interference (mc:('b,'a,'c) machine_config) ffi ms =
+    SOME (FfiApp index new_bytes ms (mc.ffi_interfer 0 (index,new_bytes,ms)),
+          mc with ffi_interfer := shift_seq 1 mc.ffi_interfer,
+          new_ffi)
+Proof
+  Cases_on ‘op’ \\ strip_tac
+  >- (gvs[] \\ irule next_interference_MappedRead
+      \\ gvs[AC WORD_ADD_COMM WORD_ADD_ASSOC]
+      \\ metis_tac[])
+  \\ gvs[] \\ irule next_interference_MappedWrite
+  \\ gvs[AC WORD_ADD_COMM WORD_ADD_ASSOC]
+  \\ metis_tac[]
 QED
 
 Theorem evaluate_EQ_evaluate_lemma:
@@ -1215,41 +1323,5 @@ Proof
   \\ strip_tac
   \\ gvs[target_state_rel_def, post_ccache_asm_def]
   \\ rw[] \\ gvs[]
-QED
-
-(* the old packaged conclusions imply the per-call clauses; used to
-   re-discharge verified-environment instantiations (e.g. ag32) *)
-
-Theorem target_state_rel_IMP_ffi_clauses:
-  target_state_rel t
-    (t1 with <|regs := (λa. get_reg_value
-                              (if MEM a cs then NONE else or a)
-                              (t1.regs a) I);
-               mem := m; pc := p|>) ms' ⇒
-  t.state_ok ms' ∧ t.get_pc ms' = p ∧
-  (∀a. a ∈ t1.mem_domain ⇒ t.get_byte ms' a = m a) ∧
-  (∀r. MEM r cs ∧ r < t.config.reg_count ∧ ¬MEM r t.config.avoid_regs ⇒
-       t.get_reg ms' r = t1.regs r)
-Proof
-  rw[target_state_rel_def]
-  \\ first_x_assum (qspec_then ‘r’ mp_tac)
-  \\ simp[get_reg_value_def]
-QED
-
-Theorem target_state_rel_IMP_ccache_clauses:
-  target_state_rel t
-    (t1 with <|regs := (r0 =+ t1.regs r0)
-                 (λa. get_reg_value (if MEM a cs then NONE else or a)
-                        (t1.regs a) I);
-               pc := p|>) ms' ⇒
-  t.state_ok ms' ∧ t.get_pc ms' = p ∧
-  (∀a. a ∈ t1.mem_domain ⇒ t.get_byte ms' a = t1.mem a) ∧
-  (∀r. (MEM r cs ∨ r = r0) ∧ r < t.config.reg_count ∧
-       ¬MEM r t.config.avoid_regs ⇒
-       t.get_reg ms' r = t1.regs r)
-Proof
-  rw[target_state_rel_def]
-  \\ first_x_assum (qspec_then ‘r’ mp_tac)
-  \\ rw[combinTheory.APPLY_UPDATE_THM, get_reg_value_def]
 QED
 

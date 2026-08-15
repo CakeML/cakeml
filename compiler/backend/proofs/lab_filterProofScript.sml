@@ -829,7 +829,9 @@ Proof
             (drule_all share_mem_op_FFI_return_filter_correct >>
             rw[] >>
             first_x_assum $ qspecl_then
-              [`s2' with io_regs := shift_seq 1 s2'.io_regs`,`res`,`s2`] assume_tac >>
+              [`s2' with <| io_regs := shift_seq 1 s2'.io_regs ;
+                            io_fp_regs := shift_seq 1 s2'.io_fp_regs |>`,
+               `res`,`s2`] assume_tac >>
             gvs[] >>
             last_x_assum $ qspec_then `0` assume_tac >>
             gvs[state_rel_def] >>
@@ -1011,10 +1013,12 @@ Proof
       rw[]>>
       first_x_assum(qspec_then `t1 with <|
         regs := (t1.ptr_reg =+ Loc n'' 0) (λa. get_reg_value (t1.cc_regs 0 a) (read_reg a t1) Word);
+        fp_regs := (λn. t1.cc_fp_regs 0 n);
         pc := pc';
         code := t1.code ++ SND(t1.compile_oracle 0);
         compile_oracle := shift_seq 1 t1.compile_oracle;
-        code_buffer := cb; clock:=t1.clock-1 ; cc_regs:= shift_seq 1 t1.cc_regs|>` mp_tac)>>
+        code_buffer := cb; clock:=t1.clock-1 ; cc_regs:= shift_seq 1 t1.cc_regs;
+        cc_fp_regs := shift_seq 1 t1.cc_fp_regs|>` mp_tac)>>
       simp[state_component_equality]>>
       impl_tac>- (
         rw[filter_skip_MAP,shift_seq_def]

@@ -6209,7 +6209,6 @@ Theorem ag32_good_init_state:
    (∀x. x ∉ ag32_startup_addresses ⇒
       ((FUNPOW Next startup_clock ms0).MEM x = ms0.MEM x))
    ⇒
-   ∃io_regs cc_regs.
    good_init_state (ag32_machine_config ffi_names (LENGTH code) (LENGTH data))
      (FUNPOW Next startup_clock ms0)
      code 0
@@ -6222,8 +6221,6 @@ Theorem ag32_good_init_state:
         ∪ {w | n2w (code_start_offset (LENGTH ffi_names) + LENGTH code) <=+ w ∧
                w <+ n2w(code_start_offset (LENGTH ffi_names) + LENGTH code + 4 * LENGTH data) })
        {}
-     io_regs
-     cc_regs
 Proof
   strip_tac
   \\ imp_res_tac SUBSET_ffi_names_IMP_LENGTH_LESS_EQ
@@ -6310,7 +6307,6 @@ Proof
     rw[asmPropsTheory.interference_ok_def]
     \\ simp[EVAL``(ag32_machine_config _ _ _).target``]
     \\ simp[EVAL``(ag32_machine_config _ _ _).next_interfer``] )
-  \\ simp[LEFT_EXISTS_AND_THM]
   \\ conj_tac >- (
     simp[targetSemTheory.ffi_interfer_ok_def]
     \\ simp[ag32_machine_config_def]
@@ -6318,25 +6314,21 @@ Proof
     \\ simp[EVAL``ag32_target.config``,targetSemTheory.get_reg_value_def]
     \\ simp[ag32_ffi_interfer_def]
     \\ simp[LENGTH_ag32_ffi_code]
-    \\ qexists_tac`λk f n. case f of
-                           | SharedMem s => NONE
-                           | ExtCall i =>
-                             if n = 0 then OPTION_MAP n2w (ALOOKUP ffi_exitpcs i)
-                             else if i = «» then if n = 5 then SOME 0w else NONE
-                             else if n < 9 then SOME 0w else NONE`
     \\ rpt gen_tac
-    \\ strip_tac>>
-    drule lab_to_targetProofTheory.mmio_pcs_min_index_is_SOME>>
-    strip_tac>>
-    Cases_on ‘index < i’>>fs[NOT_LESS]>>
-    TRY (first_x_assum $ qspec_then ‘index’ assume_tac>>
-         fs[EL_MAP,Abbr ‘num_ffis’]>>NO_TAC)
+    \\ strip_tac
+    \\ drule lab_to_targetProofTheory.mmio_pcs_min_index_is_SOME
+    \\ strip_tac
+    \\ reverse (Cases_on ‘index < i’) \\ fs[NOT_LESS]
+    >- (
+      first_x_assum $ qspec_then ‘index’ assume_tac
+      \\ fs[EL_MAP,Abbr ‘num_ffis’])
     \\ Cases_on`EL index ffi_names = «»`
     \\ srw_tac[ETA_ss][]
     \\ fs[asmPropsTheory.target_state_rel_def]
     \\ fs[ag32_targetTheory.ag32_target_def]
     \\ fs[ag32_targetTheory.ag32_ok_def]
     \\ fs[ag32_targetTheory.ag32_config_def]
+    \\ simp[APPLY_UPDATE_THM]
     >- (
       rw[]
       \\ gvs[EL_MAP,Abbr`num_ffis`]
@@ -6366,12 +6358,6 @@ Proof
       \\ first_x_assum irule
       \\ simp[MEM_EL]
       \\ asm_exists_tac \\ simp[] )
-    \\ reverse conj_tac
-    >- (
-      simp[APPLY_UPDATE_THM]
-      \\ rpt strip_tac
-      \\ fs[IS_SOME_EXISTS,Abbr`num_ffis`,EL_MAP]
-      \\ rpt(IF_CASES_TAC \\ simp[targetSemTheory.get_reg_value_def]))
     \\ rw[]
     \\ `EL index ffi_names ∈ set(MAP FST FFI_codes)` by (
       fs[SUBSET_DEF]
@@ -6437,10 +6423,11 @@ Proof
     rw[targetSemTheory.ccache_interfer_ok_def, ag32_machine_config_def,
        lab_to_targetTheory.ffi_offset_def, ag32_ccache_interfer_def,
        heap_size_def, EVAL``ag32_target.config``]
-    \\ qmatch_goalsub_abbrev_tac`0w =+ v0`
-    \\ qexists_tac`λk n. if n = 0 then SOME v0 else NONE`
-    \\ EVAL_TAC \\ rw[]
-    \\ IF_CASES_TAC \\ simp[targetSemTheory.get_reg_value_def] )
+    \\ fs[asmPropsTheory.target_state_rel_def]
+    \\ fs[ag32_targetTheory.ag32_target_def]
+    \\ fs[ag32_targetTheory.ag32_ok_def]
+    \\ fs[ag32_targetTheory.ag32_config_def]
+    \\ simp[APPLY_UPDATE_THM] )
   \\ conj_asm1_tac >- (
     simp[targetSemTheory.code_loaded_def]
     \\ fs[asmPropsTheory.target_state_rel_def]

@@ -4548,6 +4548,14 @@ Proof
   srw_tac[][state_rel_def] \\ fs []
 QED
 
+(* the relation places no constraint on the FP registers *)
+Theorem state_rel_with_fp_regs:
+   state_rel a b c s1 (s2:('a,'c,'ffi) wordSem$state) d e ⇒
+   state_rel a b c s1 (s2 with fp_regs := f) d e
+Proof
+  srw_tac[][state_rel_def] \\ fs []
+QED
+
 (* -------------------------------------------------------
     init
    ------------------------------------------------------- *)
@@ -8313,11 +8321,14 @@ Proof
          \\ fs [lookup_inter_alt,domain_inter])
       \\ drule_all state_rel_cut_env_cut_env
       \\ strip_tac
+      \\ qabbrev_tac ‘t1 = t with <|locals := union y2 y1; fp_regs := FEMPTY|>’
+      \\ ‘state_rel c l1 l2 (s with locals := x) t1 NONE locs’ by
+           (simp [Abbr‘t1’] \\ drule state_rel_with_fp_regs \\ simp [])
+      \\ qpat_x_assum ‘state_rel _ _ _ _ (t with locals := _) _ _’ kall_tac
       \\ drule_at (Pos $ el 2) alloc_fail \\ gvs []
       \\ disch_then old_drule
-      \\ qabbrev_tac ‘t1 = t with locals := union y2 y1’
       \\ ‘t with
-          <|locals := insert 1 (Word (-1w)) (union y2 y1);
+          <|locals := insert 1 (Word (-1w)) (union y2 y1); fp_regs := FEMPTY;
             memory := t.memory; ffi := s.ffi|> =
           t1 with locals := insert 1 (Word (-1w)) t1.locals’ by
             gvs [Abbr‘t1’,wordSemTheory.state_component_equality]
@@ -8369,10 +8380,10 @@ Proof
          cut_env_insert_1,cut_env_adjust_sets_ODD]
   \\ drule_all cut_env_IMP_cut_env
   \\ strip_tac \\ gvs []
-  \\ qabbrev_tac ‘t1 = t with locals := y’
+  \\ qabbrev_tac ‘t1 = t with <|locals := y; fp_regs := FEMPTY|>’
   \\ qabbrev_tac ‘nw = alloc_size (w2n w DIV 4 + 1) : 'a word’
   \\ ‘t with
-      <|locals := insert 1 (Word nw) y;
+      <|locals := insert 1 (Word nw) y; fp_regs := FEMPTY;
         memory := t.memory; ffi := t.ffi|> =
       t1 with locals := insert 1 (Word nw) t1.locals’ by
     gvs [Abbr‘t1’,wordSemTheory.state_component_equality]
@@ -8384,6 +8395,9 @@ Proof
      \\ fs [lookup_inter_alt,domain_inter])
   \\ drule_all state_rel_cut_env_cut_env
   \\ strip_tac
+  \\ ‘state_rel c l1 l2 (s with locals := x) t1 NONE locs’ by
+       (simp [Abbr‘t1’] \\ drule state_rel_with_fp_regs \\ simp [])
+  \\ qpat_x_assum ‘state_rel _ _ _ _ (t with locals := _) _ _’ kall_tac
   \\ old_drule alloc_alt_gen \\ gvs []
   \\ disch_then old_drule
   \\ pairarg_tac \\ gvs []
