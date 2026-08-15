@@ -430,8 +430,15 @@ Definition bc_ref_inv_def:
     | (SOME x, SOME (MutBlock tg fin l c r)) =>
         (* a MutBlock is laid out exactly as the Block it finalises to; it is
            mutable but carries an immutable BlockTag, so it is invisible to the
-           generational GC's isRef -- hence only the other GC kinds *)
+           generational GC's isRef -- hence only the other GC kinds.
+
+           While it is unfinalised, no timestamp may point at its cell: on
+           finalisation the very same pointer becomes a Block, which adds a
+           binding to tf, and INJ tf would break if one were there already.
+           MutCons allocates out of the unused space, so this holds on
+           creation; finalisation discharges it by setting fin. *)
         (∀gs. conf.gc_kind ≠ Generational gs) ∧
+        (¬fin ⇒ x ∉ IMAGE (FAPPLY tf) (FDOM tf)) ∧
         (∃zs. heap_lookup x heap = SOME (BlockRep tg zs) ∧
               EVERY2 (λz y. v_inv conf y refs (z,f,tf,heap)) zs (l ++ [c] ++ r))
     | _ => F
@@ -855,6 +862,16 @@ Proof
     \\ goal_assum $ drule_at Any \\ gvs []
     \\ first_x_assum $ drule_at (Pat `heap_lookup _ _ = SOME _`) \\ rw []
     \\ Cases_on `z` \\ gvs [ADDR_MAP_def, ADDR_APPLY_def])
+  >~ [‘lookup n refs = SOME (MutBlock tg fin ll cv rr)’] >-
+   (strip_tac \\ conj_tac
+    >- (* the fresh-cell condition survives the GC's remapping: g is injective *)
+       (rw [] \\ CCONTR_TAC \\ gvs [f_o_f_DEF, INJ_DEF] \\ metis_tac [])
+    \\ res_tac \\ full_simp_tac (srw_ss()) [LENGTH_ADDR_MAP,EVERY2_ADDR_MAP]
+    \\ rpt strip_tac \\ qpat_x_assum `EVERY2 qqq zs _` MP_TAC
+    \\ match_mp_tac EVERY2_IMP_EVERY2 \\ simp_tac std_ss [] \\ rpt strip_tac
+    \\ Cases_on `x'` \\ full_simp_tac (srw_ss()) [ADDR_APPLY_def]
+    \\ res_tac \\ fs [ADDR_APPLY_def]
+    \\ metis_tac [ADDR_APPLY_def])
   \\ res_tac \\ full_simp_tac (srw_ss()) [LENGTH_ADDR_MAP,EVERY2_ADDR_MAP]
   \\ rpt strip_tac \\ qpat_x_assum `EVERY2 qqq zs _` MP_TAC
   \\ match_mp_tac EVERY2_IMP_EVERY2 \\ simp_tac std_ss [] \\ rpt strip_tac
@@ -1102,7 +1119,9 @@ Proof
     \\ disj2_tac \\ gvs [ref_edge_def, get_refs_def, MEM_FLAT, MEM_MAP]
     \\ pop_assum $ irule_at Any \\ gvs [])
   >- (
-    drule LIST_REL_gc_heap_inline_DataElement \\ gvs [BlockRep_def]
+    (* tf is untouched here, so the fresh-cell condition is an assumption *)
+    conj_tac >- (rw [] \\ metis_tac [])
+    \\ drule LIST_REL_gc_heap_inline_DataElement \\ gvs [BlockRep_def]
     \\ disch_then drule \\ rw [] \\ simp []
     \\ pop_assum mp_tac
     \\ rw [LIST_REL_EL_EQN] >- gvs [LIST_REL_EL_EQN]
@@ -3348,6 +3367,12 @@ Proof
   >~ [‘lookup n refs = SOME (MutBlock mtag mfin ml mc mr)’] >-
    (full_simp_tac std_ss [BlockRep_def]
     \\ imp_res_tac heap_store_rel_lemma \\ full_simp_tac (srw_ss()) []
+    (* the new timestamp points at the freshly allocated cell a, which was
+       unused, so it cannot be an existing MutBlock's cell *)
+    \\ conj_tac
+    >- (strip_tac \\ gen_tac \\ Cases_on `x' = ts` \\ gvs [FAPPLY_FUPDATE_THM]
+        >- (CCONTR_TAC \\ gvs [isSomeDataElement_def])
+        \\ metis_tac [])
     \\ qpat_x_assum `EVERY2 PP zs _` MP_TAC
     \\ match_mp_tac EVERY2_IMP_EVERY2 \\ full_simp_tac (srw_ss()) []
     \\ rpt strip_tac \\ res_tac \\ rveq
@@ -3538,6 +3563,9 @@ Proof
     fs[BlockRep_def]
     \\ imp_res_tac heap_store_rel_lemma
     \\ fs[]
+    (* tf only shrinks here, so the fresh-cell condition is inherited *)
+    \\ conj_tac
+    >- (rw [] \\ gvs [DRESTRICT_DEF] \\ metis_tac [])
     \\ match_mp_tac EVERY2_MEM_MONO
     \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
     \\ simp[FORALL_PROD] \\ rw[]
@@ -3709,6 +3737,9 @@ Proof
     fs[BlockRep_def]
     \\ imp_res_tac heap_store_rel_lemma
     \\ fs[]
+    (* tf only shrinks here, so the fresh-cell condition is inherited *)
+    \\ conj_tac
+    >- (rw [] \\ gvs [DRESTRICT_DEF] \\ metis_tac [])
     \\ match_mp_tac EVERY2_MEM_MONO
     \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
     \\ simp[FORALL_PROD] \\ rw[]
@@ -4582,7 +4613,9 @@ Proof
       \\ ho_match_mp_tac MEM_v_all_vs
       \\ simp [EL_MEM])
     >- gvs [all_ts_append])
-  >- (qexists_tac `zs'` \\ conj_tac
+  >- ((* tf only shrinks here, so the fresh-cell condition is inherited *)
+     conj_tac >- (rw [] \\ gvs [DRESTRICT_DEF] \\ metis_tac [])
+     \\ qexists_tac `zs'` \\ conj_tac
      >- (first_x_assum ho_match_mp_tac \\ rw [] \\ CCONTR_TAC \\ metis_tac [INJ_DEF])
      >- (match_mp_tac EVERY2_MEM_MONO
         \\ imp_res_tac LIST_REL_APPEND_IMP
@@ -4809,7 +4842,9 @@ Proof
       \\ ho_match_mp_tac MEM_v_all_vs
       \\ simp [EL_MEM])
     >- gvs [all_ts_append])
-  >- (qexists_tac `zs'` \\ conj_tac
+  >- ((* tf only shrinks here, so the fresh-cell condition is inherited *)
+     conj_tac >- (rw [] \\ gvs [DRESTRICT_DEF] \\ metis_tac [])
+     \\ qexists_tac `zs'` \\ conj_tac
      >- (first_x_assum ho_match_mp_tac \\ rw [] \\ CCONTR_TAC \\ metis_tac [INJ_DEF])
      >- (match_mp_tac EVERY2_MEM_MONO
         \\ imp_res_tac LIST_REL_APPEND_IMP
@@ -5037,7 +5072,9 @@ Proof
     \\ simp [lookup_insert]
     \\ ho_match_mp_tac MEM_v_all_vs
     \\ simp [EL_MEM])
-  >- (qexists_tac `zs` \\ conj_tac
+  >- ((* tf only shrinks here, so the fresh-cell condition is inherited *)
+     conj_tac >- (rw [] \\ gvs [DRESTRICT_DEF] \\ metis_tac [])
+     \\ qexists_tac `zs` \\ conj_tac
      >- (first_x_assum ho_match_mp_tac \\ rw [] \\ CCONTR_TAC \\ metis_tac [INJ_DEF])
      >- (match_mp_tac EVERY2_MEM_MONO
         \\ imp_res_tac LIST_REL_APPEND_IMP
@@ -5334,6 +5371,8 @@ Proof
     \\ fs [heap_lookup_def,heap_lookup_APPEND,Bytes_def,
            el_length_def,SUM_APPEND,ThunkBlock_def,heap_length_APPEND]
     \\ rw [] \\ fs [] \\ rfs [heap_length_def,el_length_def] \\ fs [NOT_LESS])
+  (* tf only shrinks here, so the fresh-cell condition is inherited *)
+  \\ conj_tac >- (rw [] \\ gvs [DRESTRICT_DEF] \\ metis_tac [])
   \\ once_rewrite_tac [CONJ_COMM] \\ qexists_tac `zs` \\ fs []
   \\ conj_tac
   THEN1
@@ -5600,6 +5639,8 @@ Proof
     \\ res_tac \\ full_simp_tac std_ss [] \\ simp_tac (srw_ss()) [BlockRep_def]
     \\ imp_res_tac heap_store_rel_lemma
     \\ full_simp_tac (srw_ss()) []
+    (* tf only shrinks here, so the fresh-cell condition is inherited *)
+    \\ conj_tac >- (rw [] \\ gvs [DRESTRICT_DEF] \\ metis_tac [])
     \\ qexists_tac `zs` \\ conj_tac
     >- (first_x_assum ho_match_mp_tac \\ full_simp_tac std_ss [BlockRep_def])
     \\ qpat_x_assum `EVERY2 PPP zs _` MP_TAC
@@ -5914,6 +5955,8 @@ Proof
     \\ res_tac \\ full_simp_tac std_ss [] \\ simp_tac (srw_ss()) [BlockRep_def]
     \\ imp_res_tac heap_store_rel_lemma
     \\ full_simp_tac (srw_ss()) []
+    (* tf only shrinks here, so the fresh-cell condition is inherited *)
+    \\ conj_tac >- (rw [] \\ gvs [DRESTRICT_DEF] \\ metis_tac [])
     \\ qexists_tac `zs` \\ conj_tac
     >- (first_x_assum ho_match_mp_tac \\ full_simp_tac std_ss [BlockRep_def])
     \\ qpat_x_assum `EVERY2 PPP zs _` MP_TAC
@@ -6580,6 +6623,9 @@ Proof
   \\ Cases_on `lookup n refs` \\ fs []
   \\ rename [‘lookup n refs = SOME x_ref’]
   \\ Cases_on ‘x_ref’ \\ rw []
+  >~ [‘_ ∉ FDOM (DRESTRICT _ _)’] >-
+   ((* tf only shrinks here, so the fresh-cell condition is inherited *)
+    gvs [DRESTRICT_DEF] \\ metis_tac [])
   >~ [‘RefBlock’] >-
    (qexists_tac `zs` \\ rw []
     \\ match_mp_tac EVERY2_MEM_MONO
@@ -15793,6 +15839,34 @@ Proof
     \\ simp [bc_ref_inv_def] \\ fs []
     \\ fs [RefBlock_def, Bytes_def, ThunkBlock_def, BlockRep_def]
     \\ ntac 3 TOP_CASE_TAC \\ fs []
+    (* the MutBlock fresh-cell condition: each new timestamp binds to an address
+       in the freshly allocated region, which was unused in the old heap and so
+       cannot be an existing MutBlock's cell *)
+    \\ TRY (match_mp_tac (DECIDE ``((p ==> q) /\ (p ==> r)) ==> (p ==> q /\ r)``)
+        \\ conj_tac
+        >- (rw [] \\ CCONTR_TAC \\ gvs []
+            \\ Cases_on `x'' IN FDOM tf`
+            >- (`x'' < ts` by (qpat_x_assum `FDOM tf SUBSET _` mp_tac \\ fs [SUBSET_DEF])
+                \\ `(bind_each tf ts (heap_length ha) 3 (LENGTH ys1)) ' x'' = tf ' x''` by
+                     (irule bind_each_eq_tf \\ fs [SUBSET_DEF])
+                \\ qpat_x_assum `!y. _ = tf ' y ==> _` (qspec_then `x''` mp_tac) \\ gvs [])
+            \\ `heap_length ha <= (bind_each tf ts (heap_length ha) 3 (LENGTH ys1)) ' x''` by
+                 (CCONTR_TAC \\ fs [NOT_LESS_EQUAL]
+                  \\ imp_res_tac bind_each_eq_lt_FDOM \\ fs [])
+            \\ `(bind_each tf ts (heap_length ha) 3 (LENGTH ys1)) ' x'' <
+                  heap_length ha + 3 * LENGTH ys1` by
+                 (CCONTR_TAC \\ fs [NOT_LESS]
+                  \\ `3 * LENGTH ys1 + heap_length ha <=
+                        (bind_each tf ts (heap_length ha) 3 (LENGTH ys1)) ' x''` by decide_tac
+                  \\ imp_res_tac bind_each_eq_ge_FDOM \\ fs [])
+            \\ `3 * LENGTH ys1 <= sp + sp1` by
+                 (`heap_length Allocd <= sp + sp1` by fs []
+                  \\ `3 * LENGTH ys1 = heap_length Allocd` by
+                       metis_tac [list_to_BlockReps_heap_length]
+                  \\ fs [])
+            \\ qpat_x_assum `heap_lookup _ _ = SOME (DataElement _ _ _)` mp_tac
+            \\ unlength_tac [heap_lookup_APPEND, heap_length_APPEND]
+            \\ rw [] \\ fs [heap_lookup_def, el_length_def]))
     \\ unlength_tac [heap_lookup_APPEND, heap_length_APPEND]
     \\ `0 < heap_length Allocd /\ heap_length Allocd <= sp + sp1` by fs []
     \\ old_drule (GEN_ALL v_inv_LIST_REL)
