@@ -24,6 +24,12 @@ Datatype:
                   (* oracle: sequence of havoc on registers at each FFI call *)
      ; io_regs    : num (* seq number *) -> ffiname (* ffi name *) -> num (* register *) -> 'a word option
      ; cc_regs    : num -> num -> 'a word option (* same as io_regs but for calling clear cache *)
+                  (* oracles: sequence of havoc on FP registers at each FFI
+                     call / clear-cache call; a SharedMem call consumes an
+                     io_fp_regs position without using it (the machine-level
+                     counter is shared with ExtCall) *)
+     ; io_fp_regs : num (* seq number *) -> num (* FP register *) -> word64
+     ; cc_fp_regs : num -> num -> word64
      ; code       : 'a labLang$prog
      ; compile    : 'c -> 'a labLang$prog -> (word8 list # 'c) option
      ; compile_oracle : num -> 'c # 'a labLang$prog
@@ -507,7 +513,9 @@ Definition evaluate_def:
     | SOME (Asm (ShareMem m r ad) _ _) =>
        (case share_mem_op m r ad s of
         | SOME (FFI_final outcome,s') => (Halt (FFI_outcome outcome),s')
-        | SOME (FFI_return _ _,s') => evaluate (s' with io_regs := shift_seq 1 s'.io_regs)
+        | SOME (FFI_return _ _,s') =>
+            evaluate (s' with <| io_regs := shift_seq 1 s'.io_regs ;
+                                 io_fp_regs := shift_seq 1 s'.io_fp_regs |>)
         | NONE => (Error, s))
     | SOME (LabAsm Halt _ _ _) =>
        (case s.regs s.ptr_reg of
@@ -555,9 +563,11 @@ Definition evaluate_def:
                               ; code_buffer := cb
                               ; code := s.code ++ prog
                               ; cc_regs := shift_seq 1 s.cc_regs
+                              ; cc_fp_regs := shift_seq 1 s.cc_fp_regs
                               ; regs := (s.ptr_reg =+ Loc k 0)
                                           (λa. get_reg_value  (s.cc_regs 0 a)
                                                    (s.regs a) Word)
+                              ; fp_regs := (λn. s.cc_fp_regs 0 n)
                               ; compile_oracle := new_oracle
                               ; clock := s.clock - 1
                               |>)
@@ -578,13 +588,16 @@ Definition evaluate_def:
               | FFI_final outcome => (Halt (FFI_outcome outcome),s)
               | FFI_return new_ffi new_bytes =>
                   let new_io_regs = shift_seq 1 s.io_regs in
+                  let new_io_fp_regs = shift_seq 1 s.io_fp_regs in
                   let new_m = write_bytearray w4 new_bytes s.mem s.mem_domain s.be in
                     evaluate (s with <|
                                    mem := new_m ;
                                    ffi := new_ffi ;
                                    io_regs := new_io_regs ;
+                                   io_fp_regs := new_io_fp_regs ;
                                    regs := (\a. get_reg_value (s.io_regs 0 (ExtCall ffi_index) a)
                                                   (s.regs a) Word);
+                                   fp_regs := (\n. s.io_fp_regs 0 n);
                                    pc := new_pc ;
                                    clock := s.clock - 1 |>))
           | _ => (Error,s))

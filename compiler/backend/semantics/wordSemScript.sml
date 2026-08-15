@@ -1136,6 +1136,7 @@ Definition evaluate_def:
                 ; code := union s.code (fromAList progs)
                 (* This order is convenient because it means all of s.code's entries are preserved *)
                 ; locals := insert ptr (Loc k 0) env
+                ; fp_regs := FEMPTY
                 ; compile_oracle := new_oracle
                 ; stack_max := NONE (* Install is not safe for space *)
                 ; stack_size := LN
@@ -1180,6 +1181,7 @@ Definition evaluate_def:
                 let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
                   (NONE, s with <| memory := new_m ;
                                    locals := env ;
+                                   fp_regs := FEMPTY;
                                    ffi := new_ffi |>))
           | _ => (SOME Error,s)))
     | res => (SOME Error,s)) /\
