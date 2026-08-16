@@ -825,12 +825,19 @@ Proof
       irule unreify_reify >> fs [cp_sat_def])
 QED
 
+(* A constraint carries at most one annotation here, and a pbc carries a
+  list of them *)
+Definition annot_list_def:
+  (annot_list NONE = []) ∧
+  (annot_list (SOME s) = [s])
+End
+
 Definition full_encode_def:
   full_encode (bnd,cs,pty) =
   let (pres,obj) = encode_prob_type bnd pty in
   (OPTION_MAP (MAP format_string) pres,
     map_obj format_string obj,
-    MAP (I ## map_pbc format_string) (encode bnd cs))
+    MAP (annot_list ## map_pbc format_string) (encode bnd cs))
 End
 
 (* Check validity and convert a PB conclusion into a CP one *)
