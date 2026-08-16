@@ -1,4 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/developers $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

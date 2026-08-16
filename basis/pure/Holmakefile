@@ -1,6 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/misc $(HOLDIR)/examples/formal-languages/regular \
-    $(HOLDIR)/examples/data-structures/balanced_bst
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 
