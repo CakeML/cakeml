@@ -3158,16 +3158,6 @@ Proof
   \\ fs [FLOOKUP_UPDATE] \\ rw [] \\ Cases_on `x = n` \\ fs []
 QED
 
-(*
-Theorem FLOOKUP_fp_regs[local]:
-  !regs n v f s.
-      FLOOKUP (FEMPTY |++ MAP (λr. (r,read_fp_reg r s)) regs) n = SOME v ==>
-      s.fp_regs n = v
-Proof
-  recInduct SNOC_INDUCT \\ fs [FUPDATE_LIST,FOLDL_SNOC,MAP_SNOC]
-  \\ fs [FLOOKUP_UPDATE] \\ rw [] \\ Cases_on `x = n` \\ fs [read_fp_reg_def]
-QED*)
-
 Theorem state_rel_make_init:
    state_rel (make_init code coracle regs save_regs s) (s:('a,'c,'ffi) labSem$state) <=>
     (∀n prog.
