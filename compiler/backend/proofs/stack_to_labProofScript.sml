@@ -3027,7 +3027,7 @@ QED
 Definition make_init_def:
   make_init code coracle regs save_regs (s:('a,'c,'ffi) labSem$state) =
     <| regs    := FEMPTY |++ (MAP (\r. r, read_reg r s) regs)
-     ; fp_regs    := FEMPTY (*TODO: is this right? *)
+     ; fp_regs    := FEMPTY
      ; memory  := s.mem
      ; mdomain := s.mem_domain
      ; sh_mdomain := s.shared_mem_domain

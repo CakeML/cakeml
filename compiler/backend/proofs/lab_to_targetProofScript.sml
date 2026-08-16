@@ -9186,8 +9186,6 @@ Resume compile_correct[Install]:
       rw[]>>fs[]>>
       match_mp_tac all_enc_ok_labs_mono
       >- metis_tac[] >>
-      (* TODO: remove qexists `l1` *)
-      (* irule (Pos hd) $ DECIDE``A ==> A`` *)
       qexists `l1` >>
       gvs[asm_fetch_def] >>
       rev_drule code_similar_IMP_asm_fetch_aux_line_similar >>
