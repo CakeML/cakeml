@@ -108,6 +108,24 @@ val r = translate bvi_tailrecTheory.rewrite_PMATCH;
 val r = translate bvi_tailrecTheory.compile_prog_def;
 
 (* ------------------------------------------------------------------------- *)
+(* bvi_tmc                                                                   *)
+(* ------------------------------------------------------------------------- *)
+
+(* pure_exp/pure_exps is given by one mutually recursive definition, which is
+   what cv_trans needs but which this translator's preprocessor cannot reduce
+   to one line per function.  We therefore translate the equivalent non-mutual
+   equations for pure_exps instead (the same split as bvi_let$compile_def vs
+   bvi_let$compile_sing_def) and define pure_exp on top of them. *)
+
+val r = translate bvi_tmcTheory.pure_exps_eqns;
+val r = translate bvi_tmcTheory.pure_exp_eq;
+
+(* bvi_to_cb_aux_sing/bvi_to_cb_aux, by contrast, the preprocessor handles as
+   it stands. *)
+
+val r = translate bvi_tmcTheory.bvi_to_cb_aux_def;
+
+(* ------------------------------------------------------------------------- *)
 (* bvl_to_bvi                                                                *)
 (* ------------------------------------------------------------------------- *)
 
