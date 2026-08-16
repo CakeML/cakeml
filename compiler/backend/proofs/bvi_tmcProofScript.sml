@@ -2541,6 +2541,43 @@ Proof
   >> gvs []
 QED
 
+Triviality evaluate_pure_exp_lemma:
+  (∀e n.
+     pure_exp n e ⇒
+     ∀env.
+       n ≤ LENGTH env ⇒
+       ∃v. ∀(s:('c,'ffi) bviSem$state). evaluate ([e],env,s) = (Rval v,s)) ∧
+  (∀(x:bvi$exp option). T) ∧
+  (∀xs n.
+     pure_exps n xs ⇒
+     ∀env.
+       n ≤ LENGTH env ⇒
+       ∃v. ∀(s:('c,'ffi) bviSem$state). evaluate (xs,env,s) = (Rval v,s))
+Proof
+  ho_match_mp_tac bviTheory.exp_induction
+  >> rw []
+  >> gvs [pure_exp_def, evaluate_def]
+  >- (* Let *)
+   (qpat_x_assum ‘∀n. pure_exps n xs ⇒ _’ drule >> strip_tac
+    >> first_x_assum drule >> strip_tac >> gvs []
+    >> qpat_x_assum ‘∀n. pure_exp n e ⇒ _’ drule >> strip_tac
+    >> first_x_assum irule >> gvs [])
+  >- (* Op *)
+   (qpat_x_assum ‘∀n. pure_exps n xs ⇒ _’ drule >> strip_tac
+    >> first_x_assum drule >> strip_tac >> gvs []
+    >> Cases_on ‘x’ >> gvs [pure_op_def, do_app_def, do_app_aux_def]
+    >- (* IntOp *)
+     (Cases_on ‘i’ >> Cases_on ‘xs’ >> gvs [pure_op_def, evaluate_def])
+    (* BlockOp *)
+    >> Cases_on ‘b’ >> gvs [pure_op_def, do_app_def, do_app_aux_def, bvl_to_bvi_id])
+  (* cons *)
+  >> once_rewrite_tac [evaluate_CONS]
+  >> qpat_x_assum ‘∀n. pure_exp n e ⇒ _’ drule >> strip_tac
+  >> first_x_assum drule >> strip_tac >> gvs []
+  >> qpat_x_assum ‘∀n. pure_exps n xs ⇒ _’ drule >> strip_tac
+  >> first_x_assum drule >> strip_tac >> gvs []
+QED
+
 Theorem evaluate_pure_exps:
   ∀n xs.
     pure_exps n xs ⇒
@@ -2550,75 +2587,63 @@ Theorem evaluate_pure_exps:
         ∀s.
           evaluate (xs,env,s) = (Rval v,s)
 Proof
-  recInduct pure_exps_ind
-  >> rw []
-  >> gvs [pure_exps_def, evaluate_def]
-  >-
-   (last_x_assum drule
-    >> strip_tac
-    >> gvs [])
-  >-
-   (last_x_assum drule
-    >> strip_tac
-    >> gvs []
-    >> Cases_on ‘op’ >> gvs [pure_op_def, do_app_def, do_app_aux_def]
-    >- (* IntOp *)
-     (Cases_on ‘i’ >> Cases_on ‘args’ >> gvs [pure_op_def, evaluate_def])
-    (* BlockOp *)
-    >> Cases_on ‘b’ >> gvs [pure_op_def, do_app_def, do_app_aux_def, bvl_to_bvi_id])
-  >> last_x_assum drule
-  >> strip_tac
-  >> gvs []
-  >> first_x_assum drule
-  >> strip_tac
-  >> gvs []
+  metis_tac [evaluate_pure_exp_lemma]
 QED
 
-Theorem evaluate_bvi_to_cb_aux_inl:
-  ∀n loc tag args bs vs.
-    bvi_to_cb_aux n loc tag args = SOME (bs,INL vs) ⇒
-    bs = args ∧
-    ∀env.
-      n ≤ LENGTH env ⇒
-      ∃v.
-        ∀s.
-          evaluate (args,env,s) = (Rval v,s) ∧
-          evaluate (MAP (λn. Var n) vs,v,s) = (Rval v,s)
+Triviality evaluate_bvi_to_cb_aux_inl_lemma:
+  (∀n loc tag exp bs vs.
+     bvi_to_cb_aux_sing n loc tag exp = SOME (bs,INL vs) ⇒
+     bs = [exp] ∧
+     ∀env.
+       n ≤ LENGTH env ⇒
+       ∃v.
+         ∀(s:('c,'ffi) bviSem$state).
+           evaluate ([exp],env,s) = (Rval v,s) ∧
+           evaluate (MAP (λn. Var n) vs,v,s) = (Rval v,s)) ∧
+  (∀n loc tag args bs vs.
+     bvi_to_cb_aux n loc tag args = SOME (bs,INL vs) ⇒
+     bs = args ∧
+     ∀env.
+       n ≤ LENGTH env ⇒
+       ∃v.
+         ∀(s:('c,'ffi) bviSem$state).
+           evaluate (args,env,s) = (Rval v,s) ∧
+           evaluate (MAP (λn. Var n) vs,v,s) = (Rval v,s))
 Proof
-  recInduct bvi_to_cb_aux_ind >> rw [bvi_to_cb_aux_def, call_to_cb_def] >> gvs [evaluate_def]
+  ho_match_mp_tac bvi_to_cb_aux_ind >> rw [bvi_to_cb_aux_def, call_to_cb_def] >> gvs [evaluate_def]
   >- gvs [CaseEq "prod", CaseEq "option", CaseEq "sum"]
   >- gvs [CaseEq "prod", CaseEq "option", CaseEq "sum"]
   >- gvs [CaseEq "option", CaseEq "prod", CaseEq "sum", evaluate_def]
   >-
-   (imp_res_tac evaluate_pure_exps
-    >> qexists ‘v’
+   (gvs [AllCaseEqs()]
+    >> ‘pure_exps n [Op op args]’ by gvs [pure_exp_def]
+    >> ‘∃w. ∀(s:('c,'ffi) bviSem$state). evaluate ([Op op args],env,s) = (Rval w,s)’
+         by metis_tac [evaluate_pure_exps]
+    >> qexists ‘w’
     >> gen_tac
-    >> first_x_assum $ qspec_then ‘s’ assume_tac
-    >> gvs [CaseEq "option", CaseEq "prod", CaseEq "sum", CaseEq "result", evaluate_def])
-  >- gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
-  >- gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
-  >- (gvs [pure_exps_def] >> qexists ‘[env❲v30❳]’ >> gvs [])
-  >- gvs [pure_exps_def]
-  >-
-   (gvs [pure_exps_def]
-    >> imp_res_tac evaluate_pure_exps
-    >> pop_assum kall_tac
-    >> gvs []
-    >> ‘n ≤ LENGTH (v ++ env)’ by gvs []
-    >> imp_res_tac evaluate_pure_exps
-    >> pop_assum kall_tac
-    >> gvs []
-    >> qexists ‘v'³'’
-    >> gen_tac
-    >> gvs []
-    >> pop_assum $ qspec_then ‘s’ assume_tac
+    >> first_assum $ qspec_then ‘s’ assume_tac
     >> imp_res_tac evaluate_SING_IMP
-    >> gvs [])
-  >- gvs [pure_exps_def]
-  >- gvs [pure_exps_def]
-  >- gvs [pure_exps_def]
-  >- gvs [pure_exps_def]
-  >- gvs [pure_exps_def]
+    >> gvs [evaluate_def, AllCaseEqs()])
+  >- gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
+  >- gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
+  >- (rename1 ‘pure_exp n (Var k)’
+      >> gvs [pure_exp_def] >> qexists ‘[env❲k❳]’ >> gvs [])
+  >- gvs [pure_exp_def]
+  >-
+   (rename1 ‘pure_exp n (Let es e)’
+    >> ‘pure_exps n [Let es e]’ by gvs [pure_exp_def]
+    >> ‘∃w. ∀(s:('c,'ffi) bviSem$state). evaluate ([Let es e],env,s) = (Rval w,s)’
+         by metis_tac [evaluate_pure_exps]
+    >> qexists ‘w’
+    >> gen_tac
+    >> first_assum $ qspec_then ‘s’ assume_tac
+    >> imp_res_tac evaluate_SING_IMP
+    >> gvs [evaluate_def])
+  >- gvs [pure_exp_def]
+  >- gvs [pure_exp_def]
+  >- gvs [pure_exp_def]
+  >- gvs [pure_exp_def]
+  >- gvs [pure_exp_def]
   >-
    (gvs [CaseEq "option"]
     >> gvs [CaseEq "prod"]
@@ -2655,27 +2680,44 @@ Proof
   >> gvs [APPEND]
 QED
 
-Theorem evaluate_bvi_to_cb_aux_inr:
-  ∀n loc tag args env s t r bs cb.
-    bvi_to_cb_aux n loc tag args = SOME (bs,INR cb) ∧
-    evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (r,t) ∧
-    n ≤ LENGTH env ⇒
-    ∃as u.
-      evaluate (bs,env,s) = (as,u) ∧
-      (∀vs.
-         as = Rval vs ⇒
-         evaluate ([cb_to_bvi loc cb],vs,u) = (r,t) ∧
-         ∀extras.
-           evaluate ([cb_to_bvi loc cb],vs ++ extras,u) = (r,t)) ∧
-      (∀e.
-         as = Rerr e ⇒
-         (as,u) = (r,t))
+Theorem evaluate_bvi_to_cb_aux_inl = cj 2 evaluate_bvi_to_cb_aux_inl_lemma;
+
+Triviality evaluate_bvi_to_cb_aux_inr_lemma:
+  (∀n loc tag exp env s t r bs cb.
+     bvi_to_cb_aux_sing n loc tag exp = SOME (bs,INR cb) ∧
+     evaluate ([Op (BlockOp (Cons tag)) [exp]],env,
+               (s:('c,'ffi) bviSem$state)) = (r,t) ∧
+     n ≤ LENGTH env ⇒
+     ∃as u.
+       evaluate (bs,env,s) = (as,u) ∧
+       (∀vs.
+          as = Rval vs ⇒
+          evaluate ([cb_to_bvi loc cb],vs,u) = (r,t) ∧
+          ∀extras.
+            evaluate ([cb_to_bvi loc cb],vs ++ extras,u) = (r,t)) ∧
+       (∀e.
+          as = Rerr e ⇒
+          (as,u) = (r,t))) ∧
+  (∀n loc tag args env s t r bs cb.
+     bvi_to_cb_aux n loc tag args = SOME (bs,INR cb) ∧
+     evaluate ([Op (BlockOp (Cons tag)) args],env,
+               (s:('c,'ffi) bviSem$state)) = (r,t) ∧
+     n ≤ LENGTH env ⇒
+     ∃as u.
+       evaluate (bs,env,s) = (as,u) ∧
+       (∀vs.
+          as = Rval vs ⇒
+          evaluate ([cb_to_bvi loc cb],vs,u) = (r,t) ∧
+          ∀extras.
+            evaluate ([cb_to_bvi loc cb],vs ++ extras,u) = (r,t)) ∧
+       (∀e.
+          as = Rerr e ⇒
+          (as,u) = (r,t)))
 Proof
-  recInduct bvi_to_cb_aux_ind
+  ho_match_mp_tac bvi_to_cb_aux_ind
   >> rw []
   >> imp_res_tac bvi_to_cb_aux_wf_inr
   >> gvs []
-  >- gvs [bvi_to_cb_aux_def]
   >- (* call *)
    (gvs [bvi_to_cb_aux_def, call_to_cb_def, CaseEq "prod", CaseEq "option"]
     >> rename [‘bind 0 args = (vs,n')’]
@@ -2717,6 +2759,10 @@ Proof
   >- gvs [bvi_to_cb_aux_def]
   >- gvs [bvi_to_cb_aux_def]
   >- gvs [bvi_to_cb_aux_def]
+  (* [] *)
+  >- gvs [bvi_to_cb_aux_def]
+  (* [exp] - dispatch to the single-expression case *)
+  >- (gvs [bvi_to_cb_aux_def] >> first_x_assum drule >> gvs [])
   (* Cons *)
   >> rename [‘CallBlock _ left child right’, ‘evaluate ([Op _ (x1::x2::xs)],_,_) = _’]
   >> gvs [bvi_to_cb_aux_def, CaseEq "prod", CaseEq "option", CaseEq "sum", CaseEq "call_block", CaseEq "list"]
@@ -2822,6 +2868,8 @@ Proof
   >> strip_tac
   >> gvs [CaseEq "prod", CaseEq "result", do_app_def, do_app_aux_def, evaluate_shift_cb_sing]
 QED
+
+Theorem evaluate_bvi_to_cb_aux_inr = cj 2 evaluate_bvi_to_cb_aux_inr_lemma;
 
 Theorem evaluate_bvi_to_cb:
   ∀cb n loc x env s t r bs.
@@ -4084,27 +4132,40 @@ Proof
   >> gvs []
 QED
 
-Theorem bvi_to_cb_aux_no_mutcons:
-  ∀n loc tag args cb bs.
-    bvi_to_cb_aux n loc tag args = SOME (bs,cb) ∧
-    no_mutcons (Op (BlockOp (Cons tag)) args) ⇒
-    EVERY (λx. no_mutcons x) bs
+Triviality bvi_to_cb_aux_no_mutcons_lemma:
+  (∀n loc tag exp cb bs.
+     bvi_to_cb_aux_sing n loc tag exp = SOME (bs,cb) ∧
+     no_mutcons (Op (BlockOp (Cons tag)) [exp]) ⇒
+     EVERY (λx. no_mutcons x) bs) ∧
+  (∀n loc tag args cb bs.
+     bvi_to_cb_aux n loc tag args = SOME (bs,cb) ∧
+     no_mutcons (Op (BlockOp (Cons tag)) args) ⇒
+     EVERY (λx. no_mutcons x) bs)
 Proof
-  recInduct bvi_to_cb_aux_ind
+  ho_match_mp_tac bvi_to_cb_aux_ind
   >> rw []
-  >- gvs [bvi_to_cb_aux_def]
+  (* Call *)
   >- gvs [bvi_to_cb_aux_def, call_to_cb_def, AllCaseEqs ()]
+  (* Op *)
   >-
    (Cases_on ‘op’ >> gvs [bvi_to_cb_aux_def, dest_Cons_def, AllCaseEqs ()]
     >> Cases_on ‘b’ >> gvs [bvi_to_cb_aux_def, dest_Cons_def, AllCaseEqs ()])
+  (* remaining single expressions, [] and [exp] *)
   >- gvs [bvi_to_cb_aux_def]
   >- gvs [bvi_to_cb_aux_def]
   >- gvs [bvi_to_cb_aux_def]
   >- gvs [bvi_to_cb_aux_def]
   >- gvs [bvi_to_cb_aux_def]
   >- gvs [bvi_to_cb_aux_def]
+  >- gvs [bvi_to_cb_aux_def]
+  >- gvs [bvi_to_cb_aux_def]
+  >- gvs [bvi_to_cb_aux_def]
+  >- gvs [bvi_to_cb_aux_def]
+  (* cons *)
   >> gvs [bvi_to_cb_aux_def, AllCaseEqs ()]
 QED
+
+Theorem bvi_to_cb_aux_no_mutcons = cj 2 bvi_to_cb_aux_no_mutcons_lemma;
 
 Theorem bvi_to_cb_no_mutcons:
   ∀cb bs n loc x.

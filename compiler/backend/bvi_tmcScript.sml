@@ -21,20 +21,30 @@ Definition pure_op_def:
   (pure_op (ThunkOp _) _ = F)
 End
 
-Definition pure_exps_def:
+Definition pure_exp_def:
+  (pure_exp n (Var v) = (v < n)) ∧
+  (pure_exp n (If e1 e2 e3) = F) ∧
+  (pure_exp n (Let es e) = (pure_exp n e ∧ pure_exps n es)) ∧
+  (pure_exp n (Raise _) = F) ∧
+  (pure_exp n (Tick e) = F) ∧
+  (pure_exp n (Call _ _ _ _) = F) ∧
+  (pure_exp n (Force _ _) = F) ∧
+  (pure_exp n (LetCall _ _ _ _ _) = F) ∧
+  (pure_exp n (Return _) = F) ∧
+  (pure_exp n (Op op args) = (pure_op op args ∧ pure_exps n args)) ∧
   (pure_exps n [] = T) ∧
-  (pure_exps n [Var v] = (v < n)) ∧
-  (pure_exps n [If e1 e2 e3] = F) ∧
-  (pure_exps n [Let es e] = (pure_exps n [e] ∧ pure_exps n es)) ∧
-  (pure_exps n [Raise _] = F) ∧
-  (pure_exps n [Tick e] = F) ∧
-  (pure_exps n [Call _ _ _ _] = F) ∧
-  (pure_exps n [Force _ _] = F) ∧
-  (pure_exps n [LetCall _ _ _ _ _] = F) ∧
-  (pure_exps n [Return _] = F) ∧
-  (pure_exps n [Op op args] = (pure_op op args ∧ pure_exps n args)) ∧
-  (pure_exps n (h1::h2::t) = (pure_exps n [h1] ∧ pure_exps n (h2::t)))
+  (pure_exps n (h::t) = (pure_exp n h ∧ pure_exps n t))
+Termination
+  WF_REL_TAC ‘measure $ λx. case x of
+                            | INL (_,e) => exp_size e
+                            | INR (_,es) => list_size exp_size es’
 End
+
+Theorem pure_exps_sing[simp]:
+  ∀n h. pure_exps n [h] ⇔ pure_exp n h
+Proof
+  rw [pure_exp_def]
+QED
 
 Theorem pure_exps_cons:
   ∀n h t.
@@ -42,7 +52,33 @@ Theorem pure_exps_cons:
     pure_exps n t ⇔
     pure_exps n (h::t)
 Proof
-  Induct_on ‘t’ >> rw [pure_exps_def]
+  rw [pure_exp_def]
+QED
+
+(* The equations below express pure_exps without the auxiliary pure_exp.  This
+   is the shape the ml_translator prefers (cf. bvi_let$compile_def), whereas the
+   mutually recursive pure_exp_def above is the shape cv_trans requires. *)
+Theorem pure_exps_eqns:
+  (pure_exps n [] ⇔ T) ∧
+  (pure_exps n [bvi$Var v] ⇔ v < n) ∧
+  (pure_exps n [bvi$If e1 e2 e3] ⇔ F) ∧
+  (pure_exps n [bvi$Let les le] ⇔ pure_exps n [le] ∧ pure_exps n les) ∧
+  (pure_exps n [bvi$Raise re] ⇔ F) ∧
+  (pure_exps n [bvi$Tick te] ⇔ F) ∧
+  (pure_exps n [bvi$Call ct cd cargs ch] ⇔ F) ∧
+  (pure_exps n [bvi$Force fl fw] ⇔ F) ∧
+  (pure_exps n [bvi$LetCall la lb lc largs lce] ⇔ F) ∧
+  (pure_exps n [bvi$Return res] ⇔ F) ∧
+  (pure_exps n [bvi$Op oop oargs] ⇔ pure_op oop oargs ∧ pure_exps n oargs) ∧
+  (pure_exps n (x1::x2::xs) ⇔ pure_exps n [x1] ∧ pure_exps n (x2::xs))
+Proof
+  rw [pure_exp_def]
+QED
+
+Theorem pure_exp_eq:
+  ∀n e. pure_exp n e = pure_exps n [e]
+Proof
+  rw []
 QED
 
 Theorem pure_exps_append:
@@ -52,7 +88,7 @@ Theorem pure_exps_append:
     pure_exps n (es1 ++ es2)
 Proof
   Induct_on ‘es1’
-  >- gvs [pure_exps_def]
+  >- gvs [pure_exp_def]
   >> rw []
   >> irule $ iffLR pure_exps_cons
   >> imp_res_tac pure_exps_cons
@@ -172,12 +208,11 @@ QED
    If an effectful operation appears right of the recursive call, the expression is not eligible for transformation and NONE is returned.
    If multiple recursive calls are found, all but the last are let bound. *)
 Definition bvi_to_cb_aux_def:
-  (bvi_to_cb_aux _ _ _ [] = SOME ([],INL [])) ∧
-  (bvi_to_cb_aux n loc tag [Call t loc' args h] =
+  (bvi_to_cb_aux_sing n loc tag (Call t loc' args h) =
    case call_to_cb loc t loc' args h of
    | SOME (bs,cb) => SOME (bs,INR (CallBlock tag [] cb []))
    | _ => NONE) ∧
-  (bvi_to_cb_aux n loc tag [Op op args] =
+  (bvi_to_cb_aux_sing n loc tag (Op op args) =
    case dest_Cons op of
    | SOME tag' =>
        (* BlockOp Cons - try to recurse *)
@@ -185,7 +220,7 @@ Definition bvi_to_cb_aux_def:
         | NONE => NONE
         | SOME (bs,INL vs) =>
             (* No recursive call - whole thing gets let-bound *)
-            if pure_exps n [Op op args] then
+            if pure_exp n (Op op args) then
               SOME ([Op op args],INL [0])
             else NONE
         | SOME (bs,INR cb) =>
@@ -193,21 +228,23 @@ Definition bvi_to_cb_aux_def:
             SOME (bs, INR (CallBlock tag [] cb [])))
    | NONE =>
        (* Not a BlockOp Cons - whole thing gets let-bound *)
-       if pure_exps n [Op op args] then
+       if pure_exp n (Op op args) then
          SOME ([Op op args],INL [0])
        else NONE) ∧
-  (bvi_to_cb_aux n _ _ [exp] =
+  (bvi_to_cb_aux_sing n _ _ exp =
    (* Some other expression - whole thing gets let-bound *)
-   if pure_exps n [exp] then
+   if pure_exp n exp then
      SOME ([exp],INL [0])
     else NONE) ∧
+  (bvi_to_cb_aux _ _ _ [] = SOME ([],INL [])) ∧
+  (bvi_to_cb_aux n loc tag [exp] = bvi_to_cb_aux_sing n loc tag exp) ∧
   (bvi_to_cb_aux n loc tag (h::t) =
    (* Recurse right to left to find last occurence of recursive call *)
    case bvi_to_cb_aux n loc tag t of
    | NONE => NONE
    | SOME (bs2,INL vs2) =>
        (* No recursive call to the right. See if the first has one. *)
-       (case bvi_to_cb_aux n loc tag [h] of
+       (case bvi_to_cb_aux_sing n loc tag h of
         | NONE => NONE
         | SOME (bs1,INL vs1) =>
             (* No recursive call, keep building binders. *)
@@ -228,6 +265,10 @@ Definition bvi_to_cb_aux_def:
            let cb' = CallBlock tag (0::l) child r in
              SOME (h::bs2,INR cb')
        | _ => NONE)
+Termination
+  WF_REL_TAC ‘measure $ λx. case x of
+                            | INL (_,_,_,e) => exp_size e
+                            | INR (_,_,_,es) => list_size exp_size es’
 End
 
 Definition wf_vars_def:
@@ -367,15 +408,20 @@ Proof
   >> gvs [length_shift_vars]
 QED
 
-Theorem bvi_to_cb_aux_wf_inl:
-  ∀n loc tag args bs vs.
-    bvi_to_cb_aux n loc tag args = SOME (bs,INL vs) ⇒
-    pure_exps n bs ∧
-    wf_vars (LENGTH bs) vs ∧
-    small_enough_int (&LENGTH vs)
+Triviality bvi_to_cb_aux_wf_inl_lemma:
+  (∀n loc tag exp bs vs.
+     bvi_to_cb_aux_sing n loc tag exp = SOME (bs,INL vs) ⇒
+     pure_exps n bs ∧
+     wf_vars (LENGTH bs) vs ∧
+     small_enough_int (&LENGTH vs)) ∧
+  (∀n loc tag args bs vs.
+     bvi_to_cb_aux n loc tag args = SOME (bs,INL vs) ⇒
+     pure_exps n bs ∧
+     wf_vars (LENGTH bs) vs ∧
+     small_enough_int (&LENGTH vs))
 Proof
-  recInduct bvi_to_cb_aux_ind
-  >> rw [] >> gvs [bvi_to_cb_aux_def, pure_exps_def, CaseEq "call_block", CaseEq "prod", CaseEq "option", CaseEq "sum", CaseEq "list", small_enough_int_def, length_shift_vars]
+  ho_match_mp_tac bvi_to_cb_aux_ind
+  >> rw [] >> gvs [bvi_to_cb_aux_def, pure_exp_def, CaseEq "call_block", CaseEq "prod", CaseEq "option", CaseEq "sum", CaseEq "list", small_enough_int_def, length_shift_vars]
   >- gvs [wf_vars_def]
   >- gvs [wf_vars_def]
   >- gvs [wf_vars_def]
@@ -394,6 +440,8 @@ Proof
   >> gvs []
 QED
 
+Theorem bvi_to_cb_aux_wf_inl = cj 2 bvi_to_cb_aux_wf_inl_lemma;
+
 Theorem bvi_to_cb_aux_sing:
   ∀n loc tag arg bs cb.
     bvi_to_cb_aux n loc tag [arg] = SOME (bs,INR cb) ⇒
@@ -404,14 +452,19 @@ Proof
   >> Cases_on ‘arg’ >> gvs [bvi_to_cb_aux_def, bind_def, CaseEq "prod", CaseEq "sum", CaseEq "option"]
 QED
 
-Theorem bvi_to_cb_aux_wf_inr:
-  ∀n loc tag args bs cb.
-    bvi_to_cb_aux n loc tag args = SOME (bs,INR cb) ⇒
-    wf_cb (LENGTH bs) cb ∧
-    ∃l child r.
-      cb = CallBlock tag l child r
+Triviality bvi_to_cb_aux_wf_inr_lemma:
+  (∀n loc tag exp bs cb.
+     bvi_to_cb_aux_sing n loc tag exp = SOME (bs,INR cb) ⇒
+     wf_cb (LENGTH bs) cb ∧
+     ∃l child r.
+       cb = CallBlock tag l child r) ∧
+  (∀n loc tag args bs cb.
+     bvi_to_cb_aux n loc tag args = SOME (bs,INR cb) ⇒
+     wf_cb (LENGTH bs) cb ∧
+     ∃l child r.
+       cb = CallBlock tag l child r)
 Proof
-  recInduct bvi_to_cb_aux_ind
+  ho_match_mp_tac bvi_to_cb_aux_ind
   >> rw [] >> gvs [bvi_to_cb_aux_def, call_to_cb_def, wf_cb_def, bind_def, shift_cb_def, CaseEq "prod",
                    CaseEq "option", CaseEq "sum", CaseEq "list", wf_vars_empty, wf_vars_shift_sing,
                    small_enough_int_def, length_shift_vars, GSYM INT]
@@ -433,6 +486,8 @@ Proof
     >> gvs [])
   >> imp_res_tac wf_cb_shift_sing
 QED
+
+Theorem bvi_to_cb_aux_wf_inr = cj 2 bvi_to_cb_aux_wf_inr_lemma;
 
 Definition bvi_to_cb_def:
   (bvi_to_cb n loc (Call call_ts call_loc call_args call_h) =
@@ -500,12 +555,15 @@ Definition cb_to_bvi_def:
        bvi$Call ts (SOME loc) args' NONE)
 End
 
-Theorem bvi_to_cb_aux_size:
-  ∀n loc tag args bs sum.
-    bvi_to_cb_aux n loc tag args = SOME (bs,sum) ⇒
-    list_size exp_size bs ≤ list_size exp_size args
+Triviality bvi_to_cb_aux_size_lemma:
+  (∀n loc tag exp bs sum.
+     bvi_to_cb_aux_sing n loc tag exp = SOME (bs,sum) ⇒
+     list_size exp_size bs ≤ exp_size exp + 1) ∧
+  (∀n loc tag args bs sum.
+     bvi_to_cb_aux n loc tag args = SOME (bs,sum) ⇒
+     list_size exp_size bs ≤ list_size exp_size args)
 Proof
-  recInduct bvi_to_cb_aux_ind
+  ho_match_mp_tac bvi_to_cb_aux_ind
   >> rw [] >> gvs [bvi_to_cb_aux_def]
   >- gvs [bvi_to_cb_aux_def, CaseEq "option", CaseEq "prod", call_to_cb_def]
   >-
@@ -515,6 +573,8 @@ Proof
   >> gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
   >> gvs [list_size_append, AllCaseEqs()]
 QED
+
+Theorem bvi_to_cb_aux_size = cj 2 bvi_to_cb_aux_size_lemma;
 
 Theorem bvi_to_cb_size:
   ∀n loc x bs cb.
@@ -585,6 +645,42 @@ Termination
   WF_REL_TAC ‘measure $ cb_size o FST’
   \\ rw [call_block_size_shift, cb_size_def]
 End
+
+Theorem shift_cb_zero:
+  ∀x. shift_cb 0 x = x
+Proof
+  Induct >> gvs [shift_cb_def, shift_vars_zero]
+QED
+
+(* Same as cb_to_bvi_worker_aux, but with the shift carried as an accumulator
+   so that the recursion is on a subterm of the call block.  This version is
+   the one used by the cv translation. *)
+Definition cb_to_bvi_worker_aux_alt_def:
+  (cb_to_bvi_worker_aux_alt sh (RCall call_ts call_args) loc_opt ptr idx =
+   optimise_call call_ts loc_opt (shift_vars sh call_args) (Var ptr)
+     (Op (IntOp (Const &idx)) [])) ∧
+  (cb_to_bvi_worker_aux_alt sh (CallBlock tag left child right) loc_opt ptr idx =
+   Let [mut_cons tag (shift_vars sh left) (shift_vars sh right)] $
+   Let [update_cons (Var (ptr + 1)) (Op (IntOp (Const &idx)) []) (Var 0)] $
+     cb_to_bvi_worker_aux_alt (sh + 2) child loc_opt 1 (LENGTH right))
+End
+
+Theorem cb_to_bvi_worker_aux_alt_thm:
+  ∀cb sh loc_opt ptr idx.
+    cb_to_bvi_worker_aux_alt sh cb loc_opt ptr idx =
+    cb_to_bvi_worker_aux (shift_cb sh cb) loc_opt ptr idx
+Proof
+  Induct
+  >> gvs [cb_to_bvi_worker_aux_alt_def, cb_to_bvi_worker_aux_def, shift_cb_def,
+          length_shift_vars, shift_cb_dist]
+QED
+
+Theorem cb_to_bvi_worker_aux_eq:
+  cb_to_bvi_worker_aux cb loc_opt ptr idx =
+  cb_to_bvi_worker_aux_alt 0 cb loc_opt ptr idx
+Proof
+  gvs [cb_to_bvi_worker_aux_alt_thm, shift_cb_zero]
+QED
 
 Definition cb_to_bvi_worker_def:
   (cb_to_bvi_worker (RCall call_ts call_args) loc_opt ptr idx =
