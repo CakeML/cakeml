@@ -8667,6 +8667,146 @@ Proof
   \\ simp [dest_thunk_def |> oneline]
 QED
 
+(* ---- FinaliseCons: the MutBlock at ptr keeps its payload and only flips its
+   fin flag, and the value handed back is the Block that payload denotes.
+   Neither all_ts, all_vs, ref_edge nor dest_thunk can observe fin, so the
+   only real work is relocating the payload from the ref into the new Block. *)
+
+Theorem blocks_unique_SUBSET[local]:
+  blocks_unique ts vs2 ∧ vs1 ⊆ vs2 ⇒ blocks_unique ts vs1
+Proof
+  rw [blocks_unique_def, SUBSET_DEF] \\ metis_tac []
+QED
+
+Theorem blocks_unique_INSERT[local]:
+  blocks_unique ts vs ⇒ blocks_unique (SUC ts) (Block ts tag l INSERT vs)
+Proof
+  rw [blocks_unique_def] \\ gvs []
+  \\ metis_tac [prim_recTheory.LESS_REFL, prim_recTheory.LESS_SUC]
+QED
+
+Theorem all_ts_CONS_SUBSET[local]:
+  all_ts refs stack ⊆ all_ts refs (x::stack)
+Proof
+  irule all_ts_SUBSET_gen \\ rw [] \\ metis_tac []
+QED
+
+Theorem in_all_vs_stack[local]:
+  MEM v (v_all_vs stack) ⇒ v ∈ all_vs refs stack
+Proof
+  rw [all_vs_def]
+QED
+
+Theorem in_all_vs_MutBlock[local]:
+  lookup n refs = SOME (MutBlock tg fin l c r) ∧
+  MEM v (v_all_vs (l ++ [c] ++ r)) ⇒
+  v ∈ all_vs refs stack
+Proof
+  rw [all_vs_def, v_all_vs_append]
+  \\ disj1_tac \\ disj2_tac
+  \\ qexistsl [‘n’,‘tg’,‘fin’,‘l’,‘c’,‘r’] \\ gvs []
+QED
+
+Theorem all_vs_CONS_SUBSET[local]:
+  x ∈ all_vs refs stack ⇒ all_vs refs (x::stack) ⊆ all_vs refs stack
+Proof
+  rw [SUBSET_DEF]
+  \\ qpat_x_assum ‘_ ∈ all_vs _ (_::_)’ mp_tac
+  \\ once_rewrite_tac [CONS_APPEND]
+  \\ disch_then (strip_assume_tac o
+                 SIMP_RULE (srw_ss()) [all_vs_def, v_all_vs_append])
+  \\ TRY (simp [all_vs_def, SF SFY_ss] \\ NO_TAC)
+  \\ TRY (irule in_all_vs_MutBlock \\ first_assum $ irule_at Any
+          \\ gvs [v_all_vs_append] \\ NO_TAC)
+  \\ irule v_in_all_vs
+  \\ qpat_x_assum ‘MEM _ (v_all_vs [_])’ $ irule_at Any \\ gvs []
+QED
+
+Theorem all_vs_MutBlock_centre[local]:
+  lookup ptr refs = SOME (MutBlock tag fin left cen right) ⇒
+  all_vs refs (cen::stack) ⊆ all_vs refs stack
+Proof
+  strip_tac \\ irule all_vs_CONS_SUBSET
+  \\ irule in_all_vs_MutBlock \\ first_assum $ irule_at Any
+  \\ irule MEM_v_all_vs \\ simp []
+QED
+
+(* every value reachable after finalisation was reachable before, except the
+   new Block itself *)
+Theorem all_vs_MutBlock_T[local]:
+  lookup ptr refs = SOME (MutBlock tag F left cen right) ⇒
+  all_vs (insert ptr (MutBlock tag T left cen right) refs)
+         (Block ts2 tag (left ++ [res] ++ right)::vars) ⊆
+  Block ts2 tag (left ++ [res] ++ right) INSERT
+  all_vs refs (res::RefPtr b ptr::vars)
+Proof
+  rw [SUBSET_DEF]
+  \\ qpat_x_assum ‘_ ∈ all_vs _ _’ mp_tac
+  \\ disch_then (strip_assume_tac o SIMP_RULE (srw_ss())
+       [all_vs_def, v_all_vs_def, v_all_vs_append, lookup_insert, AllCaseEqs()])
+  \\ TRY (simp [] \\ NO_TAC)
+  \\ gvs []
+  \\ disj2_tac
+  \\ TRY (simp [all_vs_def, SF SFY_ss] \\ NO_TAC)
+  \\ TRY (irule in_all_vs_MutBlock
+          \\ first_assum (fn th => irule_at (Pos hd) th \\ gvs [v_all_vs_append])
+          \\ NO_TAC)
+  \\ irule in_all_vs_stack
+  \\ ‘res::RefPtr b ptr::vars = [res] ++ ([RefPtr b ptr] ++ vars)’ by simp []
+  \\ pop_assum (fn th => rewrite_tac [th])
+  \\ gvs [v_all_vs_append]
+QED
+
+(* the hole of a MutBlock is reachable from the pointer to it *)
+Theorem reachable_refs_MutBlock_centre[local]:
+  lookup ptr refs = SOME (MutBlock tag fin left cen right) ∧
+  reachable_refs (cen::RefPtr b ptr::vars) refs n ⇒
+  reachable_refs (RefPtr b ptr::vars) refs n
+Proof
+  rw [reachable_refs_def] \\ gvs []
+  >~ [‘MEM r (get_refs cen)’]
+  >- (qexistsl [‘RefPtr b ptr’,‘ptr’] \\ simp [get_refs_def]
+      \\ irule (cj 2 RTC_RULES) \\ qexists ‘r’ \\ simp []
+      \\ gvs [ref_edge_def, get_refs_def, MEM_FLAT, MEM_MAP]
+      \\ metis_tac [])
+  \\ metis_tac []
+QED
+
+Theorem ref_edge_insert_MutBlock[local]:
+  lookup ptr refs = SOME (MutBlock tg fin1 l c r) ⇒
+  ref_edge (insert ptr (MutBlock tg fin2 l c r) refs) = ref_edge refs
+Proof
+  rw [FUN_EQ_THM, ref_edge_MutBlock] \\ rw [] \\ gvs [ref_edge_def]
+QED
+
+(* the payload of the finalised cell moves into the new Block, so the refs it
+   reaches are the ones the pointer used to reach *)
+Theorem reachable_refs_MutBlock_T[local]:
+  lookup ptr refs = SOME (MutBlock tag F left cen right) ∧
+  reachable_refs (Block ts2 tag (left ++ [res] ++ right)::vars)
+                 (insert ptr (MutBlock tag T left cen right) refs) n ⇒
+  reachable_refs (res::RefPtr b ptr::vars) refs n
+Proof
+  strip_tac
+  \\ drule ref_edge_insert_MutBlock
+  \\ disch_then (qspec_then ‘T’ assume_tac)
+  \\ gvs [reachable_refs_def, get_refs_def, MEM_FLAT, MEM_MAP]
+  \\ TRY (qexistsl [‘res’,‘r’] \\ gvs [] \\ NO_TAC)
+  \\ TRY (qexistsl [‘x’,‘r’] \\ gvs [] \\ NO_TAC)
+  \\ qexistsl [‘RefPtr b ptr’,‘ptr’] \\ simp [get_refs_def]
+  \\ irule (cj 2 RTC_RULES) \\ qexists ‘r’ \\ simp []
+  \\ gvs [ref_edge_def, get_refs_def, MEM_FLAT, MEM_MAP]
+  \\ metis_tac []
+QED
+
+Theorem dest_thunk_insert_MutBlock[local]:
+  lookup ptr refs = SOME (MutBlock tg fin1 l c r) ⇒
+  dest_thunk v (insert ptr (MutBlock tg fin2 l c r) refs) = dest_thunk v refs
+Proof
+  rw [dest_thunk_def |> oneline]
+  \\ every_case_tac \\ gvs [lookup_insert, AllCaseEqs()]
+QED
+
 Theorem bc_stack_ref_inv_MutBlock_centre:
   bc_stack_ref_inv c ts (RefPtr b ptr::vars) refs (x::xs,heap,be) ∧
   lookup ptr refs = SOME (MutBlock tag F left cen right) ⇒
@@ -8688,7 +8828,15 @@ Proof
   \\ qexists ‘zs’ \\ gvs []
   \\ qexists ‘f’ \\ gvs []
   \\ qexists ‘tf’ \\ gvs []
-  \\ cheat
+  \\ rpt conj_tac
+  >- (irule SUBSET_TRANS \\ irule_at Any all_ts_CONS_SUBSET \\ gvs [])
+  >- (irule blocks_unique_SUBSET \\ irule_at Any all_vs_MutBlock_centre \\ gvs []
+      \\ first_assum $ irule_at Any)
+  >- (gvs [LIST_REL_EL_EQN]
+      \\ first_x_assum $ qspec_then ‘LENGTH left’ mp_tac
+      \\ simp [EL_APPEND_EQN])
+  \\ rw [] \\ first_x_assum irule \\ gvs []
+  \\ irule reachable_refs_MutBlock_centre \\ first_assum $ irule_at Any \\ gvs []
 QED
 
 Theorem bc_stack_ref_inv_union_del_ins_lemma[local]:
@@ -8757,7 +8905,11 @@ Proof
     \\ qexists ‘x’ \\ gvs [])
   \\ rpt conj_tac
   >~ [‘blocks_unique’]
-  >- cheat
+  >-
+   (irule blocks_unique_SUBSET
+    \\ irule_at Any all_vs_MutBlock_T
+    \\ qexists ‘F’ \\ simp []
+    \\ irule blocks_unique_INSERT \\ simp [])
   >~ [‘v_inv c (Block ts2 tag (left ++ [res] ++ right))’]
   >-
    (simp [v_inv_def, FLOOKUP_UPDATE]
@@ -8777,7 +8929,10 @@ Proof
     \\ irule v_inv_MutBlock_fin \\ first_assum $ irule_at Any \\ gvs [])
   \\ rpt strip_tac
   \\ sg ‘bc_ref_inv c n refs (f,tf,heap,be)’
-  >- cheat
+  >-
+   (first_x_assum irule \\ simp []
+    \\ irule reachable_refs_MutBlock_T
+    \\ first_assum $ irule_at Any \\ gvs [])
   \\ simp [Once bc_ref_inv_def]
   \\ pop_assum mp_tac
   \\ simp [Once bc_ref_inv_def]
@@ -8786,16 +8941,28 @@ Proof
   >-
    (strip_tac
     \\ gvs [BlockRep_def,LIST_REL_EL_EQN]
-    \\ rpt strip_tac \\ first_x_assum drule
-    \\ cheat)
+    \\ rpt strip_tac \\ first_x_assum drule \\ strip_tac
+    \\ irule v_inv_SUBMAP \\ qexistsl [‘f’,‘heap’,‘tf’]
+    \\ gvs [SUBMAP_FUPDATE_EQN, heap_store_rel_def]
+    \\ irule v_inv_MutBlock_fin \\ first_assum $ irule_at Any \\ gvs [])
   \\ Cases_on ‘lookup n refs’ \\ fs []
   \\ rename [‘lookup n refs = SOME y’] \\ Cases_on ‘y’ \\ fs []
+  >~ [‘ThunkBlock’]
+  >-
+   (strip_tac \\ gvs []
+    \\ drule dest_thunk_insert_MutBlock \\ simp []
+    \\ disch_then kall_tac
+    \\ irule v_inv_SUBMAP \\ qexistsl [‘f’,‘heap’,‘tf’]
+    \\ gvs [SUBMAP_FUPDATE_EQN, heap_store_rel_def]
+    \\ irule v_inv_MutBlock_fin \\ first_assum $ irule_at Any \\ gvs [])
+  >~ [‘RefBlock’]
   >-
    (strip_tac \\ gvs [RefBlock_def]
     \\ gvs [BlockRep_def,LIST_REL_EL_EQN]
-    \\ rpt strip_tac \\ first_x_assum drule
-    \\ cheat)
-  >- cheat
+    \\ rpt strip_tac \\ first_x_assum drule \\ strip_tac
+    \\ irule v_inv_SUBMAP \\ qexistsl [‘f’,‘heap’,‘tf’]
+    \\ gvs [SUBMAP_FUPDATE_EQN, heap_store_rel_def]
+    \\ irule v_inv_MutBlock_fin \\ first_assum $ irule_at Any \\ gvs [])
   \\ strip_tac
   \\ gvs [FAPPLY_FUPDATE_THM, SF DNF_ss]
   \\ gvs [BlockRep_def,LIST_REL_EL_EQN]
@@ -8808,8 +8975,10 @@ Proof
     \\ fs [FLOOKUP_DEF]
     \\ metis_tac [])
   \\ gvs [BlockRep_def,LIST_REL_EL_EQN]
-  \\ rpt strip_tac \\ first_x_assum drule
-  \\ cheat
+  \\ rpt strip_tac \\ first_x_assum drule \\ strip_tac
+  \\ irule v_inv_SUBMAP \\ qexistsl [‘f’,‘heap’,‘tf’]
+  \\ gvs [SUBMAP_FUPDATE_EQN, heap_store_rel_def]
+  \\ irule v_inv_MutBlock_fin \\ first_assum $ irule_at Any \\ gvs []
 QED
 
 Theorem bc_stack_ref_inv_FinaliseCons_lemma[local]:
