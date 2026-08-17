@@ -10,6 +10,8 @@ Libs
 
 val _ = translation_extends "aig_cert_fullProg";
 
+(* TODO Can we turn this into a cleaner, general mechanism using Quote and move it
+   to preamble perhaps? *)
 (* Copied from examples/xlrup_checker/array/xlrup_arrayFullProgScript.sml *)
 val usage_string = ‘
 
@@ -28,8 +30,13 @@ val usage_string_tm =
 Definition usage_string_def:
   usage_string = strlit ^usage_string_tm
 End
-
 val r = translate usage_string_def;
+
+Definition add_prefix_def:
+  add_prefix NONE s = s ∧
+  add_prefix (SOME pfx) s = pfx ^ s
+End
+val r = translate add_prefix_def;
 
 Quote add_cakeml:
   fun make_cert fmodel fwitness prefix =
@@ -39,52 +46,56 @@ Quote add_cakeml:
   case TextIO.inputAllFrom (Some fwitness) of
     None => TextIO.output TextIO.stdErr "cannot read witness file\n"
   | Some witness =>
-  case (print "parsing...\n"; parse model witness) of
+  case ((* print "parsing...\n";  *)parse model witness) of
     Error (msg, _) => TextIO.output TextIO.stdErr msg
   | Return (maig, (waig, ms)) =>
-  case (print "processing and checking...\n"; process_and_check maig waig ms) of
+  case ((* print "processing and checking...\n"; *) process_and_check maig waig ms) of
     Error msg => TextIO.output TextIO.stdErr msg
   | Return
       (mcirc, (mreset, (mnext, (mpreds, (mcnstrs, (mlive, (mlatches,
         (wcirc, (wreset, (wnext, (wpreds, (wcnstrs, (wlive, (wlatches,
           (interv, klatches))))))))))))))) =>
     let
-      fun write (name, cert) = let
-        val oname =
-          (case prefix of None => name | Some pfx => pfx ^ name) ^ ".cnf"
-        val ostrm = TextIO.openOut oname
-        val _     = TextIO.output ostrm cert
-      in TextIO.closeOut ostrm end
-      val _ = print "making reset...\n"
-      val _ = write (
+      (* val _ = print "making reset...\n" *)
+      val (name, str) =
         make_reset_string mcirc mreset mcnstrs mlatches wcirc wreset wcnstrs
-          wlatches klatches)
-      val _ = print "making transition...\n"
-      val _ = write (
+          wlatches klatches
+      val _ = outputFile (add_prefix prefix name) str
+      (* val _ = print "making transition...\n" *)
+      val (name, str) =
         make_transition_string mcirc mnext mcnstrs mlatches wcirc wnext wcnstrs
-          wlatches klatches)
-      val _ = print "making property...\n"
-      val _ = write (
-        make_property_string mcirc mcnstrs mpreds wcirc wcnstrs wpreds)
-      val _ = print "making base...\n"
-      val _ = write (
-        make_base_string wcirc wreset wcnstrs wpreds wlatches)
-      val _ = print "making step...\n"
-      val _ = write (
-        make_step_string wcirc wnext wcnstrs wpreds wlatches)
-      val _ = print "making liveness...\n"
-      val _ = write (
+          wlatches klatches
+      val _ = outputFile (add_prefix prefix name) str
+      (* val _ = print "making property...\n" *)
+      val (name, str) =
+        make_property_string mcirc mcnstrs mpreds wcirc wcnstrs wpreds
+      val _ = outputFile (add_prefix prefix name) str
+      (* val _ = print "making base...\n" *)
+      val (name, str) =
+        make_base_string wcirc wreset wcnstrs wpreds wlatches
+      val _ = outputFile (add_prefix prefix name) str
+      (* val _ = print "making step...\n" *)
+      val (name, str) =
+        make_step_string wcirc wnext wcnstrs wpreds wlatches
+      val _ = outputFile (add_prefix prefix name) str
+      (* val _ = print "making liveness...\n" *)
+      val (name, str) =
         make_liveness_string mcirc mcnstrs mlive
-          wcirc wnext wcnstrs wpreds wlive wlatches interv)
-      val _ = print "making decrease...\n"
-      val _ = write (
-        make_decrease_string wcirc wnext wcnstrs wpreds wlive wlatches interv)
-      val _ = print "making closure...\n"
-      val _ = write (
-        make_closure_string wcirc wnext wcnstrs wpreds wlive wlatches interv)
-      val _ = print "making consistent...\n"
-      val _ = write (
-        make_consistent_string wcirc wnext wcnstrs wpreds wlive wlatches interv)
+          wcirc wnext wcnstrs wpreds wlive wlatches interv
+      val _ = outputFile (add_prefix prefix name) str
+      (* val _ = print "making decrease...\n" *)
+      val (name, str) =
+        make_decrease_string wcirc wnext wcnstrs wpreds wlive wlatches interv
+      val _ = outputFile (add_prefix prefix name) str
+      (* val _ = print "making closure...\n" *)
+      val (name, str) =
+        make_closure_string wcirc wnext wcnstrs wpreds wlive wlatches interv
+      val _ = outputFile (add_prefix prefix name) str
+     (* val _ = print "making consistent...\n" *)
+      val (name, str) =
+        make_consistent_string wcirc wnext wcnstrs wpreds wlive wlatches interv
+      val _ = outputFile (add_prefix prefix name) str
+      val _ = print "SUCCESS"
     in () end
 End
 

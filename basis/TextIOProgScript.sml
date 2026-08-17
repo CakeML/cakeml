@@ -212,11 +212,19 @@ Quote add_cakeml:
     (Word8Array.update iobuff 4 (Word8.fromInt(Char.ord c)); write (get_out fd) 1 0; ())
 End
 
-(* writes a string into a file *)
+(* writes a string into a stream *)
 Quote add_cakeml:
   fun output fd s = output_aux fd s 0 (String.size s)
   fun print s = output stdOut s
   fun print_err s = output stdErr s
+End
+
+(* writes a string into a file *)
+Quote add_cakeml:
+  fun outputFile name string = let
+    val ostrm = TextIO.openOut name
+    val _     = TextIO.output ostrm string
+  in TextIO.closeOut ostrm end
 End
 
 Quote add_cakeml:
