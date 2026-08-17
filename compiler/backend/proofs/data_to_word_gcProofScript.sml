@@ -6990,40 +6990,39 @@ Proof
       \\ qexists_tac `r` \\ fs [] \\ gvs [domain_lookup])
     \\ rename [‘lookup r refs1 = SOME v’]
     \\ reverse (Cases_on `v`) \\ fs []
+    (* a MutBlock's payload is traversed exactly like a ValueArray's; the size
+       accounting lines up because lookup_len of BlockRep tg zs is
+       LENGTH zs + 1 = LENGTH ls + LENGTH rs + 2, which is what size_of charges
+       for a MutBlock ref *)
     >~ [‘MutBlock tg fin ls cv rs’] >-
-     (* TODO: MutBlock is now representable (bc_ref_inv gained a real MutBlock
-        case), so this branch needs the ValueArray argument rather than a
-        contradiction.  Verified so far, in order:
-          pairarg_tac \\ fs [] \\ rw []
-          \\ first_assum (qspec_then `r` mp_tac)
-          \\ (impl_tac THEN1 fs [reachable_refs_def,get_refs_def])
-          \\ rewrite_tac [bc_ref_inv_def] \\ fs [subspt_lookup]
-          \\ `lookup r refs = SOME (MutBlock tg fin ls cv rs)` by (res_tac \\ fs [])
-          \\ fs [FLOOKUP_DEF,BlockRep_def] \\ strip_tac
-          \\ first_x_assum (qspecl_then
-                [`ls ++ [cv] ++ rs`,`zs`,`f ' r :: p1`,`refs`] mp_tac)
-          \\ impl_tac
-          >- (fs [] \\ old_drule EVERY2_SWAP
-              \\ fs [lookup_delete,SUBSET_DEF,PULL_EXISTS] \\ rw []
-              (* one goal closes with: Cases_on `x' = r` \\ gvs [] \\ metis_tac [] *)
-              (* the other is the open bit: transfer
-                   reachable_refs (ls ++ [cv] ++ rs) refs n'
-                 to reachable_refs [RefPtr r1 r] refs n' via one ref_edge step,
-                 using lookup r refs = SOME (MutBlock ...).  Selecting the
-                 hypothesis is what is stuck: match_mp_tac/ho_match_mp_tac all
-                 fail on the assumption
-                   !n. reachable_refs [RefPtr r1 r] refs n /\\ n IN FDOM f ==>
-                       bc_ref_inv c n refs (f,tf,heap,be)
-                 and qpat_x_assum does not match it either. *)
-              cheat)
-          \\ strip_tac \\ qexists_tac `p2` \\ fs []
-          \\ rfs [lookup_len_def,el_length_def]
-          \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-          \\ once_rewrite_tac [traverse_heap_cases] \\ rpt disj2_tac \\ fs []
-        The size accounting lines up: lookup_len of BlockRep tg zs is
-        LENGTH zs + 1 = LENGTH ls + LENGTH rs + 2, which is exactly what
-        size_of charges for a MutBlock ref. *)
-     cheat
+     (pop_assum mp_tac
+      \\ pairarg_tac \\ fs [] \\ rw []
+      \\ first_assum (qspec_then `r` mp_tac)
+      \\ (impl_tac THEN1 fs [reachable_refs_def,get_refs_def])
+      \\ rewrite_tac [bc_ref_inv_def]
+      \\ fs [subspt_lookup]
+      \\ first_assum old_drule \\ strip_tac \\ fs []
+      \\ fs [FLOOKUP_DEF,BlockRep_def]
+      \\ strip_tac
+      \\ last_x_assum
+           (qspecl_then [`ls ++ [cv] ++ rs`,`zs`,`f ' r :: p1`,`refs`] mp_tac)
+      \\ impl_tac THEN1
+       (fs [] \\ old_drule EVERY2_SWAP \\ fs [lookup_delete,SUBSET_DEF,PULL_EXISTS]
+        \\ rw [] \\ fs []
+        \\ last_x_assum match_mp_tac
+        \\ fs [reachable_refs_def,get_refs_def]
+        (* one ref_edge step out of r reaches all three parts of the payload *)
+        \\ once_rewrite_tac [RTC_CASES1] \\ disj2_tac
+        \\ qexists_tac `r'` \\ fs []
+        \\ simp [ref_edge_def,get_refs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]
+        >- (disj1_tac \\ disj1_tac \\ qexists_tac `x` \\ fs [])
+        >- (disj1_tac \\ disj2_tac \\ gvs [])
+        \\ disj2_tac \\ qexists_tac `x` \\ fs [])
+      \\ strip_tac \\ qexists_tac `p2` \\ fs []
+      \\ rfs [lookup_len_def,el_length_def]
+      \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+      \\ once_rewrite_tac [traverse_heap_cases]
+      \\ rpt disj2_tac \\ fs [])
     >~ [‘ByteArray b l’] >-
      (rveq \\ fs [] \\ fs []
       \\ first_x_assum (qspec_then `r` mp_tac)
