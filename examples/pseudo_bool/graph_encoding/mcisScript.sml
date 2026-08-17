@@ -117,7 +117,7 @@ End
 Definition has_mapping_al1_def:
   has_mapping_al1 (a:num) vt =
   ((«al1» ^ toString a)
-  ,(GreaterEqual,
+  ,(PGe,
     (1, Pos (Unmapped a)) ::
     GENLIST (λv. (1, Pos (Mapped a v))) vt,
     1): enc pbc)
@@ -126,7 +126,7 @@ End
 Definition has_mapping_am1_def:
   has_mapping_am1 (a:num) vt =
   ((«am1» ^ toString a)
-  ,(LessEqual,
+  ,(PLe,
     (1, Pos (Unmapped a)) ::
     GENLIST (λv. (1, Pos (Mapped a v))) vt,
     1): enc pbc)
@@ -141,7 +141,7 @@ End
 Definition one_one_def:
   one_one u vp =
   ((«inj» ^ toString u)
-  ,(GreaterEqual,
+  ,(PGe,
     (GENLIST (λb. (1, Neg (Mapped b u))) vp),
     (&vp-1)): enc pbc)
 End
@@ -156,7 +156,7 @@ Definition edge_map_def:
   if a = b then [] else
   [
   (concat [«adj»; toString a; «_»; toString u; «_»; toString b]
-  ,(GreaterEqual,
+  ,(PGe,
     (1,Neg (Mapped a u)) ::
     (1,Pos (Unmapped b)) ::
     MAP (λv. (1,Pos (Mapped b v))) (neighbours et u),
@@ -169,7 +169,7 @@ Definition not_edge_map_def:
   else
   [
   (concat [«adj»; toString a; «_»; toString u; «_»; toString b]
-  ,(GreaterEqual,
+  ,(PGe,
     (1,Neg (Mapped a u)) ::
     (1,Pos (Unmapped b)) ::
     MAP (λv. (1,Pos (Mapped b v))) (not_neighbours (vt,et) u),
@@ -184,7 +184,7 @@ Definition all_full_edge_map_def:
       if is_edge ep a a ⇎ is_edge et u u
       then [
         (concat [«adj»; toString a; «_»; toString u; «_SELF»],
-        (GreaterEqual, [(1,Neg (Mapped a u))], 1):enc pbc)]
+        (PGe, [(1,Neg (Mapped a u))], 1):enc pbc)]
       else
         FLAT (MAP (λb. edge_map (a,b) u et) (neighbours ep a)) ++
         FLAT (MAP (λb. not_edge_map (a,b) u vt et) (not_neighbours (vp,ep) a) )) vp)) vt)
@@ -551,7 +551,8 @@ Proof
         simp[satisfies_pbc_def,iSUM_def,eval_lin_term_def]>>
         Cases_on`a ∈ vs`>>simp[iSUM_def]>>
         `f a ≠ u` by metis_tac[MEM_neighbours]>>
-        simp[])>>
+        simp[]>>
+        metis_tac[])>>
       simp[MEM_FLAT,MEM_MAP,PULL_EXISTS,MEM_if]>>
       rw[]
       >-(
@@ -760,7 +761,7 @@ Proof
 QED
 
 Theorem satisfies_pbc_geq_1:
-  satisfies_pbc w (GreaterEqual,xs, 1) ∧
+  satisfies_pbc w (PGe,xs, 1) ∧
   EVERY ($= 1) (MAP FST xs) ⇒
   ∃x. MEM x (MAP SND xs)  ∧ eval_lit w x = 1
 Proof
@@ -787,9 +788,9 @@ QED
 (* Encode variable x <-> y_1 ∧ y_2 ...., where y_i are literals *)
 Definition iff_and_def:
   iff_and x ys =
-    (GreaterEqual,(1, Pos x)::MAP (λy.(1, negate y)) ys,1):'a pbc ::
+    (PGe,(1, Pos x)::MAP (λy.(1, negate y)) ys,1):'a pbc ::
     MAP (λy.
-      (GreaterEqual, [(1, Neg x); (1,y)], 1)) ys
+      (PGe, [(1, Neg x); (1,y)], 1)) ys
 End
 
 Theorem iff_and:
@@ -801,28 +802,21 @@ Proof
   rw[EQ_IMP_THM]
   >- (
     rw[EVERY_MEM]>>first_x_assum drule>>
-    Cases_on`y`>>Cases_on`w a`>>simp[iSUM_def])>>
-  drule iSUM_geq_1>>
-  impl_tac>- (
-    rw[MEM_MAP]>- metis_tac[]>>
-    Cases_on`y'`>>simp[]
-    >- (
-      qexists_tac`(¬ (w a))`>>
-      Cases_on`w a`>>simp[])>>
-    metis_tac[])>>
-  rw[]>>Cases_on`i`>>
-  gs[MAP_MAP_o,EL_MAP]>>
-  fs[EVERY_EL]>>
-  first_x_assum drule>>
-  rw[]>>gvs[lit_negate]
+    Cases_on`lit w y`>>simp[])>>
+  qpat_x_assum`_ + iSUM _ ≥ 1` mp_tac>>
+  qpat_x_assum`EVERY _ _` mp_tac>>
+  rpt(pop_assum kall_tac)>>
+  qid_spec_tac`ys`>>
+  Induct>>rw[iSUM_def]>>
+  Cases_on`w x`>>gvs[]
 QED
 
 (* Encode variable x <-> y_1 ∨ y_2 ...., where y_i are literals *)
 Definition iff_or_def:
   iff_or x ys =
-    (GreaterEqual, (1, Neg x)::MAP (λy.(1, y)) ys, 1):'a pbc ::
+    (PGe, (1, Neg x)::MAP (λy.(1, y)) ys, 1):'a pbc ::
     MAP (λy.
-      (GreaterEqual, [(1, Pos x); (1, negate y)], 1)) ys
+      (PGe, [(1, Pos x); (1, negate y)], 1)) ys
 End
 
 Theorem iff_or:
@@ -833,21 +827,15 @@ Proof
   fs[satisfies_pbc_def,satisfies_def,MEM_MAP,PULL_EXISTS,eval_lin_term_def]>>
   rw[EQ_IMP_THM]
   >- (
-    drule iSUM_geq_1>>
-    impl_tac>- (
-      rw[] >- (qexists_tac`F`>>simp[])>>
-      gvs[MEM_MAP]>>
-      Cases_on`y'`>>simp[]
-      >- metis_tac[]>>
-      qexists_tac`¬ (w a)`>>
-      Cases_on`w a`>>simp[])>>
-    rw[]>>Cases_on`i`>>gs[]>>
-    gs[MAP_MAP_o,EL_MAP]>>
-    simp[EXISTS_MEM,MEM_EL]>>
-    metis_tac[EL_MEM])>>
+    qpat_x_assum`_ + iSUM _ ≥ 1` mp_tac>>
+    gvs[]>>
+    rpt(pop_assum kall_tac)>>
+    qid_spec_tac`ys`>>
+    Induct>>rw[iSUM_def]>>
+    Cases_on`lit w h`>>gvs[])>>
   fs[EXISTS_MEM]>>
-  first_x_assum drule>>simp[iSUM_def]>>
-  Cases_on`w x`>>simp[lit_negate]
+  first_x_assum drule>>
+  Cases_on`w x`>>simp[]
 QED
 
 Theorem iff_or_satisfies:
@@ -882,7 +870,7 @@ Definition walk_base_def:
     (* x_{f,g}^1 <-> !x_f,bot ∧ !x_g,bot *)
     iff_and (Walk f g 0) [Neg (Unmapped f); Neg (Unmapped g)]
   else
-    [(GreaterEqual, [(1,Neg (Walk f g 0))], 1): enc pbc]
+    [(PGe, [(1,Neg (Walk f g 0))], 1): enc pbc]
 End
 
 Definition walk_aux_def:
@@ -1299,15 +1287,15 @@ Definition encode_connected_def:
   FLAT (GENLIST (λf.
     FLAT (GENLIST (λg.
       if f < g then
-        [(GreaterEqual, [(1, Pos(Unmapped f));(1, Pos(Unmapped g));(1, Pos(Walk f g k))], 1)]
+        [(PGe, [(1, Pos(Unmapped f));(1, Pos(Unmapped g));(1, Pos(Walk f g k))], 1)]
       else []) vp)) vp) ++
   walk_k (vp,ep) k
 End
 
 Definition encode_def:
   encode (vp,ep) (vt,et) =
-  MAP (SOME ## I) (encode_base (vp,ep) (vt,et)) ++
-  MAP (λc. (NONE,c)) (encode_connected (vp,ep) vt)
+  MAP ((λa. [a]) ## I) (encode_base (vp,ep) (vt,et)) ++
+  MAP (λc. ([],c)) (encode_connected (vp,ep) vt)
 End
 
 Theorem walk_k_free:
@@ -1539,7 +1527,8 @@ Proof
         simp[satisfies_pbc_def,iSUM_def,eval_lin_term_def]>>
         Cases_on`a ∈ vs`>>simp[iSUM_def]>>
         `f a ≠ u` by metis_tac[MEM_neighbours]>>
-        simp[])>>
+        simp[]>>
+        metis_tac[])>>
       simp[MEM_FLAT,MEM_MAP,PULL_EXISTS,MEM_if]>>
       rw[]
       >- (
@@ -2031,7 +2020,7 @@ Definition full_encode_mcis_def:
   full_encode_mcis gp gt =
   (map_obj enc_string
     (unmapped_obj (FST gp)),
-  MAP (SOME ## map_pbc enc_string) (encode_base gp gt))
+  MAP ((λa. [a]) ## map_pbc enc_string) (encode_base gp gt))
 End
 
 Theorem full_encode_mcis_sem_concl:
@@ -2123,7 +2112,7 @@ Theorem full_encode_mcis_eq =
   |> SIMP_RULE (srw_ss()) [FORALL_PROD,encode_base_def]
   |> SIMP_RULE (srw_ss()) [all_has_mapping_def,all_one_one_def,all_full_edge_map_def,
     has_mapping_al1_def,has_mapping_am1_def,one_one_def,edge_map_def,not_edge_map_def]
-  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,
     map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,MAP_if]
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN,FOLDN_APPEND,FOLDN_APPEND_op]
   |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
@@ -2161,7 +2150,7 @@ Theorem encode_connected_thm:
   FLAT (GENLIST (λf.
     FLAT (GENLIST (λg.
       if f < g then
-        [(GreaterEqual, [(1, Pos(Unmapped f));(1, Pos(Unmapped g));(1, Pos(Walk f g k))], 1)]
+        [(PGe, [(1, Pos(Unmapped f));(1, Pos(Unmapped g));(1, Pos(Walk f g k))], 1)]
       else []) vp)) vp) ++
   walk_k (vp,ep) k
 Proof
@@ -2179,10 +2168,10 @@ Theorem walk_k_eq =
   |> SIMP_RULE (srw_ss()) [if_APPEND];
 
 val enc_encode_connected =
-  ``MAP (\c. (NONE:mlstring option,(map_pbc enc_string c))) (encode_connected (p_1,p_2) vt)``
+  ``MAP (\c. ([]:mlstring list,(map_pbc enc_string c))) (encode_connected (p_1,p_2) vt)``
   |> SIMP_CONV (srw_ss()) [encode_connected_thm]
   |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,
-    pbc_ge_def,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,LET_DEF,MAP_if]
+    map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,LET_DEF,MAP_if]
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN]
   |> PURE_REWRITE_RULE[GSYM APPEND_ASSOC]
   |> SIMP_RULE std_ss [FOLDN_APPEND]
@@ -2194,7 +2183,7 @@ Theorem full_encode_mccis_eq =
   |> SIMP_RULE (srw_ss()) [FORALL_PROD,encode_def,encode_base_def]
   |> SIMP_RULE (srw_ss()) [all_has_mapping_def,all_one_one_def,all_full_edge_map_def,
     has_mapping_al1_def,has_mapping_am1_def,one_one_def,edge_map_def,not_edge_map_def]
-  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,
     map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,LET_DEF,MAP_if]
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN]
   |> PURE_REWRITE_RULE[GSYM APPEND_ASSOC]

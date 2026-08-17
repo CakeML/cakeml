@@ -7,12 +7,6 @@ Ancestors
 Libs
   preamble
 
-Theorem iSUM_APPEND[local]:
-  ∀xs ys. iSUM (xs ++ ys) = iSUM xs + iSUM ys
-Proof
-  Induct>>gvs[iSUM_def,integerTheory.INT_ADD_ASSOC]
-QED
-
 (*** STEP 1: Formalise the semantics of MAX-SAT ***)
 
 (* lprTheory already provides a concrete syntax for clauses
@@ -107,12 +101,12 @@ Definition wclause_to_pbc_def:
   wclause_to_pbc (i,n,C) =
   let C = nub (FILTER (λl. l ≠ 0) C) in
   if n = 0 then (* hard clauses *)
-    ([(GreaterEqual,enc_clause C,1:int)],[])
+    ([(PGe,enc_clause C,1:int)],[])
   else (* soft clauses *)
   if LENGTH C = 1 then
     ([],[((&n:int), negate (enc_lit (HD C)))])
   else
-    ([(GreaterEqual,(1,Neg (INR i)) :: enc_clause C,1)],
+    ([(PGe,(1,Neg (INR i)) :: enc_clause C,1)],
      [((&n:int),Neg (INR i))])
 End
 
@@ -177,7 +171,7 @@ End
 
 Theorem satisfies_pbc_satisfies_clause:
   wf_clause C ∧
-  satisfies_pbc w (GreaterEqual,enc_clause C,1) ⇒
+  eval_lin_term w (enc_clause C) ≥ 1 ⇒
   satisfies_clause (w o INL) (interp_cclause C)
 Proof
   Induct_on`C`>>rw[satisfies_clause_def,satisfies_pbc_def]
@@ -206,7 +200,7 @@ Theorem satisfies_clause_satisfies_pbc:
   wf_clause C ∧
   (∀v. w' (INL v) = w v) ∧
   satisfies_clause w (interp_cclause C) ⇒
-  satisfies_pbc w' (GreaterEqual,enc_clause C,1)
+  eval_lin_term w' (enc_clause C) ≥ 1
 Proof
   Induct_on`C`
   >- fs[satisfies_clause_def]>>
@@ -241,15 +235,6 @@ Theorem EVERY_FILTER:
   EVERY P (FILTER P ls)
 Proof
   Induct_on`ls`>>rw[]
-QED
-
-Theorem satisfies_pbc_cons:
-  satisfies_pbc w (op,cl::xs,n) =
-  satisfies_pbc w (op,xs,n - eval_term w cl)
-Proof
-  rw[satisfies_pbc_def,eval_lin_term_def,iSUM_def]>>
-  Cases_on`op`>>simp[]>>
-  intLib.ARITH_TAC
 QED
 
 Theorem weight_clause_FILTER:
@@ -306,12 +291,11 @@ Proof
     gvs[interp_cclause_def,satisfies_clause_def,wf_clause_def]>>
     rw[enc_lit_def]>>fs[interp_lit_def,satisfies_literal_def]>>
     intLib.ARITH_TAC)>>
-  fs[wclause_to_pbc_def,satisfies_pbc_cons]>>
+  fs[wclause_to_pbc_def]>>
   Cases_on`w (INR k)`>>fs[]
   >- (
-    rw[]>>
-    metis_tac[satisfies_pbc_satisfies_clause]
-    )>>
+    drule_all satisfies_pbc_satisfies_clause>>
+    simp[o_DEF])>>
   rw[]>>
   intLib.ARITH_TAC
 QED
@@ -411,7 +395,7 @@ Proof
   >-
     simp[miscTheory.enumerate_def,iSUM_def]>>
   rw[]>>
-  simp[miscTheory.enumerate_def,iSUM_APPEND]>>
+  simp[miscTheory.enumerate_def]>>
   qmatch_goalsub_abbrev_tac`A + B = &(C + D)`>>
   qsuff_tac`A = &D ∧ B = &C`
   >- (
