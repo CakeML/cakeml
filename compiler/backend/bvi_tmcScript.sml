@@ -408,7 +408,7 @@ Proof
   >> gvs [length_shift_vars]
 QED
 
-Triviality bvi_to_cb_aux_wf_inl_lemma:
+Theorem bvi_to_cb_aux_wf_inl_lemma[local]:
   (∀n loc tag exp bs vs.
      bvi_to_cb_aux_sing n loc tag exp = SOME (bs,INL vs) ⇒
      pure_exps n bs ∧
@@ -452,7 +452,7 @@ Proof
   >> Cases_on ‘arg’ >> gvs [bvi_to_cb_aux_def, bind_def, CaseEq "prod", CaseEq "sum", CaseEq "option"]
 QED
 
-Triviality bvi_to_cb_aux_wf_inr_lemma:
+Theorem bvi_to_cb_aux_wf_inr_lemma[local]:
   (∀n loc tag exp bs cb.
      bvi_to_cb_aux_sing n loc tag exp = SOME (bs,INR cb) ⇒
      wf_cb (LENGTH bs) cb ∧
@@ -555,7 +555,7 @@ Definition cb_to_bvi_def:
        bvi$Call ts (SOME loc) args' NONE)
 End
 
-Triviality bvi_to_cb_aux_size_lemma:
+Theorem bvi_to_cb_aux_size_lemma[local]:
   (∀n loc tag exp bs sum.
      bvi_to_cb_aux_sing n loc tag exp = SOME (bs,sum) ⇒
      list_size exp_size bs ≤ exp_size exp + 1) ∧

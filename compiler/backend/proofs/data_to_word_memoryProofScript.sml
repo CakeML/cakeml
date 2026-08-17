@@ -4184,11 +4184,58 @@ Proof
   metis_tac [v_inv_eq, v_inv_MutBlock_insert_lemma]
 QED
 
+(* v_inv cannot see a MutBlock's finalised flag: ref_ptr_annot ignores it and
+   dest_thunk sends every MutBlock to NotThunk.  Flipping the flag therefore
+   preserves v_inv -- this is what makes FinaliseCons a no-op at word level. *)
+Theorem v_inv_MutBlock_fin_lemma[local]:
+  !ck v1 refs y f tf heap.
+    v_inv conf v1 refs (y,f,tf,heap) /\
+    lookup ptr refs = SOME (MutBlock tag fin1 ll cv rr) ==>
+      v_inv_ck ck conf v1 (insert ptr (MutBlock tag fin2 ll cv rr) refs)
+        (y,f,tf,heap)
+Proof
+  completeInduct_on `ck` \\ gvs []
+  \\ rpt gen_tac \\ rpt disch_tac
+  \\ simp [Once v_inv_ck_cases]
+  \\ Cases_on `v1` \\ gvs [v_inv_def]
+  >- (Cases_on `small_int (:'a) i` \\ gvs [])
+  >- (Cases_on `l = []` \\ gvs [] \\ irule_at Any EQ_REFL \\ gvs []
+      \\ gvs [LIST_REL_EL_EQN])
+  \\ gvs [lookup_insert]
+  \\ gvs [oneline dest_thunk_def, AllCaseEqs(), lookup_insert]
+  \\ rw [] \\ gvs []
+  \\ metis_tac []
+QED
+
+(* bound variables deliberately avoid the names used at the use sites, so that
+   irule/MATCH_MP_TAC does not fail on a free/bound name clash *)
+Theorem v_inv_MutBlock_fin:
+  !cnf vv rfs yy ff tff hp pp tg b1 b2 l1 c1 r1.
+    v_inv cnf vv rfs (yy,ff,tff,hp) /\
+    lookup pp rfs = SOME (MutBlock tg b1 l1 c1 r1) ==>
+      v_inv cnf vv (insert pp (MutBlock tg b2 l1 c1 r1) rfs) (yy,ff,tff,hp)
+Proof
+  metis_tac [v_inv_eq, v_inv_MutBlock_fin_lemma]
+QED
+
 (* ---- MutCons: the Cons allocation, but the value handed back is a fresh ref *)
 
 Theorem all_ts_SUBSET_gen[local]:
   (!x. ((?n r'. lookup n refs1 = SOME r' /\ find_ref r' x) \/ MEM x stack1) ==>
        ((?n r'. lookup n refs2 = SOME r' /\ find_ref r' x) \/ MEM x stack2)) ==>
+  all_ts refs1 stack1 SUBSET all_ts refs2 stack2
+Proof
+  rw [all_ts_def, SUBSET_DEF] \\ metis_tac []
+QED
+
+(* like all_ts_SUBSET_gen, but the witness on the right may be a different
+   value, as long as it carries the timestamp -- needed when a value only
+   survives inside a newly built Block *)
+Theorem all_ts_SUBSET_ts[local]:
+  (!x t. (((?n r'. lookup n refs1 = SOME r' /\ find_ref r' x) \/ MEM x stack1) /\
+          MEM t (v_all_ts x)) ==>
+         ?x'. ((?n r'. lookup n refs2 = SOME r' /\ find_ref r' x') \/
+               MEM x' stack2) /\ MEM t (v_all_ts x')) ==>
   all_ts refs1 stack1 SUBSET all_ts refs2 stack2
 Proof
   rw [all_ts_def, SUBSET_DEF] \\ metis_tac []
@@ -4231,7 +4278,7 @@ QED
 
 (* the only new edge leaves ptr and lands inside the payload, which is exactly
    what used to sit on the stack *)
-Triviality reachable_refs_MutCons_lemma:
+Theorem reachable_refs_MutCons_lemma[local]:
   !r1 n.
     RTC (ref_edge (insert ptr (MutBlock tag F l c r) refs)) r1 n ==>
     n <> ptr ==>
@@ -4264,7 +4311,7 @@ QED
 
 (* lifting a v_inv across the MutCons allocation: refs gains a fresh ref and f
    gains its binding, and the heap only grew *)
-Triviality v_inv_MutCons_step:
+Theorem v_inv_MutCons_step[local]:
   v_inv conf v refs (y,f,tf,heap) /\ ~(ptr IN domain refs) /\
   FDOM f SUBSET domain refs /\ heap_store_rel heap heap2 ==>
     v_inv conf v (insert ptr (MutBlock tag F l c r) refs)
@@ -8550,19 +8597,272 @@ Proof
   cheat
 QED
 
-(* the deep one: FinaliseCons is a no-op at word level.  Each MutBlock on the
-   chain already sits in the heap as the very BlockRep its finalised Block
-   needs, so the word value and the memory are unchanged; all that happens is
-   that refs gets the fin flags set and tf gains one timestamp per finalised
-   cell (which is why bc_ref_inv forbids a timestamp on an unfinalised
-   MutBlock's cell) *)
+Theorem INJ_FUPDATE:
+  INJ (FAPPLY tf) (FDOM tf) s ∧ ts2 ∉ FDOM tf ∧ x ∉ FRANGE tf ∧ x ∈ s ⇒
+  INJ (FAPPLY tf⟨ts2 ↦ x⟩) (FDOM tf⟨ts2 ↦ x⟩) s
+Proof
+  gvs [INJ_DEF, FRANGE_DEF, FAPPLY_FUPDATE_THM] \\ metis_tac []
+QED
+
+Theorem finalise_cons_none[local]:
+  ∀v refs ts_opt v' refs' ts'.
+    finalise_cons v refs ts_opt = SOME (v',refs',ts') ∧
+    lookup ptr refs = NONE ⇒
+    lookup ptr refs' = NONE
+Proof
+  ho_match_mp_tac finalise_cons_ind \\ rpt conj_tac
+  \\ gvs [finalise_cons_def, AllCaseEqs()]
+  \\ rw [] \\ gvs []
+  \\ rw [lookup_insert]
+  \\ rpt strip_tac \\ gvs []
+  \\ first_x_assum irule
+  \\ gvs [lookup_delete]
+QED
+
+Theorem v_inv_swap_refs:
+  ∀c v refs1 x f tf heap refs.
+    v_inv c v refs1 (x,f,tf,heap) ∧
+    (∀n. sptree$lookup n refs = lookup n refs1) ⇒
+    v_inv c v refs (x,f,tf,heap)
+Proof
+  qsuff_tac
+  ‘∀ck c v refs1 x f tf heap refs.
+     v_inv_ck ck c v refs1 (x,f,tf,heap) ∧
+     (∀n. sptree$lookup n refs = lookup n refs1) ⇒
+     v_inv_ck ck c v refs (x,f,tf,heap)’
+  >- (rewrite_tac [v_inv_eq] \\ metis_tac [])
+  \\ Induct_on ‘v_inv_ck’
+  \\ rw []
+  \\ once_rewrite_tac [v_inv_ck_cases]
+  \\ rw [] \\ gvs []
+  \\ ‘dest_thunk v refs = dest_thunk v refs1’ by gvs [dest_thunk_def |> oneline]
+  \\ gvs []
+  \\ gvs [BlockRep_def]
+  \\ gvs [LIST_REL_EL_EQN]
+QED
+
+Theorem bc_stack_ref_inv_swap_refs:
+  bc_stack_ref_inv c ts vars refs (xs,heap,be) ∧
+  (∀n. sptree$lookup n refs = lookup n refs1) ⇒
+  bc_stack_ref_inv c ts vars refs1 (xs,heap,be)
+Proof
+  rw [bc_stack_ref_inv_def]
+  \\ qexists ‘f’ \\ qexists ‘tf’ \\ fs []
+  \\ gvs [domain_lookup, SUBSET_DEF]
+  \\ conj_tac >- fs [all_ts_def, all_vs_def]
+  \\ conj_tac >- fs [all_ts_def, all_vs_def]
+  \\ conj_tac >- (fs [LIST_REL_EL_EQN] \\ metis_tac [v_inv_swap_refs])
+  \\ rw []
+  \\ ‘∀v. v_inv c v refs1 = v_inv c v refs’ by
+    (simp [FUN_EQ_THM, FORALL_PROD] \\ metis_tac [v_inv_swap_refs])
+  \\ sg ‘bc_ref_inv c n refs (f,tf,heap,be)’
+  >-
+   (first_x_assum irule \\ gvs []
+    \\ gvs [reachable_refs_def]
+    \\ sg ‘ref_edge refs1 = ref_edge refs’
+    >- gvs [FUN_EQ_THM, ref_edge_def]
+    \\ metis_tac [])
+  \\ pop_assum mp_tac
+  \\ rewrite_tac [bc_ref_inv_def]
+  \\ simp [dest_thunk_def |> oneline]
+QED
+
+Theorem bc_stack_ref_inv_MutBlock_centre:
+  bc_stack_ref_inv c ts (RefPtr b ptr::vars) refs (x::xs,heap,be) ∧
+  lookup ptr refs = SOME (MutBlock tag F left cen right) ⇒
+  ∃ptr_n zs.
+    x = Pointer ptr_n (ref_ptr_annot c (lookup ptr refs)) ∧
+    heap_lookup ptr_n heap = SOME (BlockRep tag zs) ∧
+    LENGTH zs = LENGTH left + 1 + LENGTH right ∧
+    bc_stack_ref_inv c ts (cen :: RefPtr b ptr :: vars) refs
+                          (EL (LENGTH left) zs :: x :: xs,heap,be)
+Proof
+  rw [bc_stack_ref_inv_def]
+  \\ gvs [v_inv_def]
+  \\ first_assum $ qspec_then ‘ptr’ mp_tac
+  \\ impl_tac >- simp [reachable_refs_def, SF DNF_ss, get_refs_def]
+  \\ simp [Once bc_ref_inv_def, FLOOKUP_DEF]
+  \\ strip_tac
+  \\ gvs []
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ qexists ‘zs’ \\ gvs []
+  \\ qexists ‘f’ \\ gvs []
+  \\ qexists ‘tf’ \\ gvs []
+  \\ cheat
+QED
+
+Theorem bc_stack_ref_inv_union_del_ins_lemma[local]:
+  bc_stack_ref_inv c ts vars (union refs frame) (xs,heap,be) ∧
+  lookup ptr refs = SOME x ⇒
+  bc_stack_ref_inv c ts vars (union (delete ptr refs) (insert ptr x frame)) (xs,heap,be)
+Proof
+  rw [] \\ irule bc_stack_ref_inv_swap_refs
+  \\ last_x_assum $ irule_at Any \\ rw []
+  \\ rewrite_tac [sptreeTheory.lookup_union, sptreeTheory.lookup_delete]
+  \\ simp [lookup_insert]
+  \\ Cases_on ‘lookup n refs’ \\ gvs []
+  \\ rw [] \\ gvs []
+QED
+
+Theorem bc_stack_ref_inv_MutBlock_F:
+  bc_stack_ref_inv c ts2
+    (res::RefPtr b ptr::vars) refs
+    (zs❲LENGTH left❳:: Pointer ptr_n
+       (Word (ptr_bits c tag (LENGTH left + (LENGTH right + 1))))::xs,heap,be) ∧
+  heap_lookup ptr_n heap = SOME (BlockRep tag zs) ∧
+  lookup ptr refs = SOME (MutBlock tag F left cen right) ⇒
+  bc_stack_ref_inv c (SUC ts2)
+    (Block ts2 tag (left ++ [res] ++ right)::vars)
+    (insert ptr (MutBlock tag T left cen right) refs)
+    (Pointer ptr_n
+       (Word (ptr_bits c tag (LENGTH left + (LENGTH right + 1))))::xs,heap,be)
+Proof
+  strip_tac
+  \\ gvs [bc_stack_ref_inv_def]
+  \\ qexists ‘f’
+  \\ qexists ‘tf |+ (ts2, f ' ptr)’
+  \\ irule_at Any INJ_FUPDATE
+  \\ simp []
+  \\ qpat_x_assum ‘v_inv c (RefPtr b ptr) refs _’ mp_tac
+  \\ simp [Once v_inv_def]
+  \\ strip_tac \\ gvs []
+  \\ first_assum $ qspec_then ‘ptr’ mp_tac
+  \\ impl_tac >- simp [reachable_refs_def, SF DNF_ss, get_refs_def]
+  \\ simp [Once bc_ref_inv_def]
+  \\ simp [Once FLOOKUP_DEF]
+  \\ strip_tac
+  \\ simp []
+  \\ sg ‘ts2 ∉ FDOM tf’
+  >- (CCONTR_TAC \\ gvs [SUBSET_DEF] \\ res_tac \\ gvs [])
+  \\ sg ‘f⟨ptr⟩ ∉ FRANGE tf’
+  >- (gvs [FRANGE_DEF] \\ metis_tac [])
+  \\ sg ‘FDOM f ⊆ ptr INSERT domain refs’
+  >- gvs [SUBSET_DEF]
+  \\ sg ‘FDOM tf ⊆ {n | n < SUC ts2}’
+  >- (irule SUBSET_TRANS \\ first_assum $ irule_at Any \\ gvs [SUBSET_DEF])
+  \\ asm_rewrite_tac [GSYM CONJ_ASSOC]
+  \\ conj_tac >- gvs [BlockRep_def, isSomeDataElement_def]
+  \\ conj_tac >- simp [all_ts_def, SF DNF_ss, v_all_ts_def]
+  \\ conj_tac
+  >-
+   (irule SUBSET_TRANS
+    \\ last_assum $ irule_at $ Pos hd
+    \\ irule all_ts_SUBSET_ts \\ rw []
+    >- (qexists ‘x’ \\ conj_tac
+        >- (disj1_tac \\ qexists ‘n’ \\ gvs [lookup_insert] \\ rw [] \\ gvs [])
+        \\ gvs [])
+    >- (qexists ‘Block ts2 tag (left ++ [res] ++ right)’
+        \\ gvs [v_all_ts_def, MEM_FLAT, MEM_MAP] \\ metis_tac [])
+    >- gvs [v_all_ts_def]
+    \\ qexists ‘x’ \\ gvs [])
+  \\ rpt conj_tac
+  >~ [‘blocks_unique’]
+  >- cheat
+  >~ [‘v_inv c (Block ts2 tag (left ++ [res] ++ right))’]
+  >-
+   (simp [v_inv_def, FLOOKUP_UPDATE]
+    \\ qexists ‘zs'’ \\ gvs [LIST_REL_EL_EQN]
+    \\ rw [] \\ first_x_assum drule \\ strip_tac
+    \\ irule v_inv_SUBMAP \\ qexistsl [‘f’,‘heap’,‘tf’]
+    \\ gvs [SUBMAP_FUPDATE_EQN, heap_store_rel_def]
+    \\ irule v_inv_MutBlock_fin \\ first_assum $ irule_at Any \\ gvs []
+    \\ Cases_on ‘n = LENGTH left’ \\ gvs [EL_APPEND_EQN]
+    \\ gvs [BlockRep_def])
+  >~ [‘LIST_REL _ _ _’]
+  >-
+   (gvs [LIST_REL_EL_EQN]
+    \\ rw [] \\ first_x_assum drule \\ strip_tac
+    \\ irule v_inv_SUBMAP \\ qexistsl [‘f’,‘heap’,‘tf’]
+    \\ gvs [SUBMAP_FUPDATE_EQN, heap_store_rel_def]
+    \\ irule v_inv_MutBlock_fin \\ first_assum $ irule_at Any \\ gvs [])
+  \\ rpt strip_tac
+  \\ sg ‘bc_ref_inv c n refs (f,tf,heap,be)’
+  >- cheat
+  \\ simp [Once bc_ref_inv_def]
+  \\ pop_assum mp_tac
+  \\ simp [Once bc_ref_inv_def]
+  \\ Cases_on ‘FLOOKUP f n’ \\ gvs []
+  \\ Cases_on ‘n = ptr’ \\ gvs [lookup_insert]
+  >-
+   (strip_tac
+    \\ gvs [BlockRep_def,LIST_REL_EL_EQN]
+    \\ rpt strip_tac \\ first_x_assum drule
+    \\ cheat)
+  \\ Cases_on ‘lookup n refs’ \\ fs []
+  \\ rename [‘lookup n refs = SOME y’] \\ Cases_on ‘y’ \\ fs []
+  >-
+   (strip_tac \\ gvs [RefBlock_def]
+    \\ gvs [BlockRep_def,LIST_REL_EL_EQN]
+    \\ rpt strip_tac \\ first_x_assum drule
+    \\ cheat)
+  >- cheat
+  \\ strip_tac
+  \\ gvs [FAPPLY_FUPDATE_THM, SF DNF_ss]
+  \\ gvs [BlockRep_def,LIST_REL_EL_EQN]
+  \\ conj_tac
+  >-
+   (rw []
+    \\ last_x_assum mp_tac
+    \\ simp [INJ_DEF]
+    \\ strip_tac \\ fs []
+    \\ fs [FLOOKUP_DEF]
+    \\ metis_tac [])
+  \\ gvs [BlockRep_def,LIST_REL_EL_EQN]
+  \\ rpt strip_tac \\ first_x_assum drule
+  \\ cheat
+QED
+
+Theorem bc_stack_ref_inv_FinaliseCons_lemma[local]:
+  ∀v refs ts_opt v' refs' ts' ts vars w frame x xs.
+    finalise_cons v refs ts_opt = SOME (v',refs',ts') ∧ ts_opt = SOME ts ∧
+    bc_stack_ref_inv c ts (v::vars) (union refs frame) (x::xs,heap,be) ⇒
+    IS_SOME ts' /\
+    bc_stack_ref_inv c (THE ts') (v'::vars) (union refs' frame) (x::xs,heap,be)
+Proof
+  ho_match_mp_tac finalise_cons_ind \\ rpt conj_tac
+  >~ [‘Number’]  >- gvs [finalise_cons_def]
+  >~ [‘Word64’]  >- gvs [finalise_cons_def]
+  >~ [‘CodePtr’] >- gvs [finalise_cons_def]
+  >~ [‘Block’]   >- gvs [finalise_cons_def]
+  \\ rpt gen_tac \\ disch_tac
+  \\ rpt gen_tac \\ disch_tac
+  \\ gvs [finalise_cons_def, AllCaseEqs()]
+  \\ rename [‘MutBlock tag F left cen right’]
+  \\ ‘lookup ptr (union refs frame) = SOME (MutBlock tag F left cen right)’
+        by gvs [lookup_union]
+  \\ drule_all bc_stack_ref_inv_MutBlock_centre \\ strip_tac \\ gvs []
+  \\ drule_all bc_stack_ref_inv_union_del_ins_lemma \\ strip_tac
+  \\ last_x_assum drule
+  \\ rename [‘bc_stack_ref_inv c (THE ts2) (c2::RefPtr b ptr::vars) (union refs2 _)’]
+  \\ Cases_on ‘ts2’ \\ gvs []
+  \\ rename [‘_ = SOME (res,refs2,SOME ts2)’]
+  \\ strip_tac
+  \\ drule bc_stack_ref_inv_MutBlock_F
+  \\ ‘lookup ptr refs2 = NONE’ by
+    (drule_then irule finalise_cons_none \\ simp [lookup_delete])
+  \\ simp [lookup_union,lookup_insert,lookup_delete]
+  \\ strip_tac
+  \\ dxrule_then irule bc_stack_ref_inv_swap_refs
+  \\ simp [lookup_insert,lookup_union] \\ rw []
+QED
+
 Theorem memory_rel_FinaliseCons:
    memory_rel c be ts refs sp st m dm ((v,w)::vars) /\
     finalise_cons v refs (SOME ts) = SOME (v',refs',ts') ==>
     IS_SOME ts' /\
     memory_rel c be (THE ts') refs' sp st m dm ((v',w)::vars)
 Proof
-  cheat
+  fs [memory_rel_def] \\ strip_tac
+  \\ last_assum $ irule_at Any \\ simp []
+  \\ gvs [word_ml_inv_def, PULL_EXISTS]
+  \\ qpat_x_assum ‘LIST_REL _ _ _’ $ irule_at Any
+  \\ irule_at Any EQ_REFL
+  \\ gvs [abs_ml_inv_def]
+  \\ rename [‘bc_stack_ref_inv c ts (v::MAP FST vars) refs (x::xs,heap,be)’]
+  \\ rename [‘finalise_cons v refs (SOME ts) = SOME (v1,refs1,ts1)’]
+  \\ ‘bc_stack_ref_inv c ts (v::MAP FST vars) (union refs LN) (x::xs,heap,be)’ by fs []
+  \\ drule_at (Pos $ el 3) bc_stack_ref_inv_FinaliseCons_lemma
+  \\ disch_then drule \\ simp []
 QED
 
 Theorem memory_rel_Cons_empty:

@@ -2541,7 +2541,7 @@ Proof
   >> gvs []
 QED
 
-Triviality evaluate_pure_exp_lemma:
+Theorem evaluate_pure_exp_lemma[local]:
   (∀e n.
      pure_exp n e ⇒
      ∀env.
@@ -2590,7 +2590,7 @@ Proof
   metis_tac [evaluate_pure_exp_lemma]
 QED
 
-Triviality evaluate_bvi_to_cb_aux_inl_lemma:
+Theorem evaluate_bvi_to_cb_aux_inl_lemma[local]:
   (∀n loc tag exp bs vs.
      bvi_to_cb_aux_sing n loc tag exp = SOME (bs,INL vs) ⇒
      bs = [exp] ∧
@@ -2682,7 +2682,7 @@ QED
 
 Theorem evaluate_bvi_to_cb_aux_inl = cj 2 evaluate_bvi_to_cb_aux_inl_lemma;
 
-Triviality evaluate_bvi_to_cb_aux_inr_lemma:
+Theorem evaluate_bvi_to_cb_aux_inr_lemma[local]:
   (∀n loc tag exp env s t r bs cb.
      bvi_to_cb_aux_sing n loc tag exp = SOME (bs,INR cb) ∧
      evaluate ([Op (BlockOp (Cons tag)) [exp]],env,
@@ -4132,7 +4132,7 @@ Proof
   >> gvs []
 QED
 
-Triviality bvi_to_cb_aux_no_mutcons_lemma:
+Theorem bvi_to_cb_aux_no_mutcons_lemma[local]:
   (∀n loc tag exp cb bs.
      bvi_to_cb_aux_sing n loc tag exp = SOME (bs,cb) ∧
      no_mutcons (Op (BlockOp (Cons tag)) [exp]) ⇒

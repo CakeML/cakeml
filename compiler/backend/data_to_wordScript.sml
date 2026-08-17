@@ -1306,6 +1306,13 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_MutCons (c:data_to_word$config) (l:num) (dest:num) tag args =
+    case c.gc_kind of
+    | Generational _ => (GiveUp,l)
+    | _ => assign_Cons (c:data_to_word$config) (l:num) (dest:num) tag args
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
   assign_ConfigGC (c:data_to_word$config)
             (secn:num) (l:num) (dest:num) (names:num_set option) v1 v2 =
              (list_Seq [SilentFFI c 3 (adjust_sets (get_names names));
@@ -2471,7 +2478,7 @@ Definition assign_def:
     | MemOp FinaliseCons => arg1 args (assign_FinaliseCons l dest) (Skip,l)
     | BlockOp ListAppend => arg2 args (assign_ListAppend c secn l dest names) (Skip,l)
     | BlockOp (Cons tag) => assign_Cons c l dest tag args
-    | MemOp (MutCons tag _) => assign_Cons c l dest tag args
+    | MemOp (MutCons tag _) => assign_MutCons c l dest tag args
     | MemOp ConfigGC => arg2 args (assign_ConfigGC c secn l dest names) (Skip,l)
     | BlockOp (Build parts) => assign_Build c secn l dest names parts
     | BlockOp (ConsExtend tag) => assign_ConsExtend c secn l dest names tag args
