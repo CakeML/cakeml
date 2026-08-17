@@ -9404,11 +9404,19 @@ Proof
   \\ once_rewrite_tac [CONS_APPEND]
   \\ disch_then (strip_assume_tac o
                  SIMP_RULE (srw_ss()) [all_vs_def, v_all_vs_append])
-  \\ TRY (simp [all_vs_def, SF SFY_ss] \\ NO_TAC)
-  \\ TRY (irule in_all_vs_MutBlock \\ first_assum $ irule_at Any
-          \\ gvs [v_all_vs_append] \\ NO_TAC)
-  \\ irule v_in_all_vs
-  \\ qpat_x_assum ‘MEM _ (v_all_vs [_])’ $ irule_at Any \\ gvs []
+  (* ValueArray, Thunk, the three parts of a MutBlock, the new head, the
+     rest of the stack *)
+  >- simp [all_vs_def, SF SFY_ss]
+  >- simp [all_vs_def, SF SFY_ss]
+  >- (irule in_all_vs_MutBlock \\ first_assum $ irule_at Any
+      \\ gvs [v_all_vs_append])
+  >- (irule in_all_vs_MutBlock \\ first_assum $ irule_at Any
+      \\ gvs [v_all_vs_append])
+  >- (irule in_all_vs_MutBlock \\ first_assum $ irule_at Any
+      \\ gvs [v_all_vs_append])
+  >- (irule v_in_all_vs
+      \\ qpat_x_assum ‘MEM _ (v_all_vs [_])’ $ irule_at Any \\ gvs [])
+  \\ simp [all_vs_def, SF SFY_ss]
 QED
 
 Theorem all_vs_MutBlock_centre[local]:
@@ -9433,14 +9441,33 @@ Proof
   \\ qpat_x_assum ‘_ ∈ all_vs _ _’ mp_tac
   \\ disch_then (strip_assume_tac o SIMP_RULE (srw_ss())
        [all_vs_def, v_all_vs_def, v_all_vs_append, lookup_insert, AllCaseEqs()])
-  \\ TRY (simp [] \\ NO_TAC)
-  \\ gvs []
-  \\ disj2_tac
-  \\ TRY (simp [all_vs_def, SF SFY_ss] \\ NO_TAC)
-  \\ TRY (irule in_all_vs_MutBlock
-          \\ first_assum (fn th => irule_at (Pos hd) th \\ gvs [v_all_vs_append])
-          \\ NO_TAC)
-  \\ irule in_all_vs_stack
+  (* refs: ValueArray, Thunk, then the MutBlock at ptr (whose payload is
+     unchanged) and the MutBlocks elsewhere; then the new stack: the new Block
+     itself, its left part, the written value, its right part, and the rest *)
+  >- (disj2_tac \\ simp [all_vs_def, SF SFY_ss])
+  >- (disj2_tac \\ simp [all_vs_def, SF SFY_ss])
+  >- (gvs [] \\ disj2_tac \\ irule in_all_vs_MutBlock
+      \\ first_assum (fn th => irule_at (Pos hd) th \\ gvs [v_all_vs_append]))
+  >- (gvs [] \\ disj2_tac \\ irule in_all_vs_MutBlock
+      \\ first_assum (fn th => irule_at (Pos hd) th \\ gvs [v_all_vs_append]))
+  >- (gvs [] \\ disj2_tac \\ irule in_all_vs_MutBlock
+      \\ first_assum (fn th => irule_at (Pos hd) th \\ gvs [v_all_vs_append]))
+  >- (disj2_tac \\ irule in_all_vs_MutBlock
+      \\ first_assum (fn th => irule_at (Pos hd) th \\ gvs [v_all_vs_append]))
+  >- (disj2_tac \\ irule in_all_vs_MutBlock
+      \\ first_assum (fn th => irule_at (Pos hd) th \\ gvs [v_all_vs_append]))
+  >- (disj2_tac \\ irule in_all_vs_MutBlock
+      \\ first_assum (fn th => irule_at (Pos hd) th \\ gvs [v_all_vs_append]))
+  >- simp []
+  >- (disj2_tac \\ irule in_all_vs_MutBlock
+      \\ first_assum (fn th => irule_at (Pos hd) th \\ gvs [v_all_vs_append]))
+  >- (disj2_tac \\ irule in_all_vs_stack
+      \\ ‘res::RefPtr b ptr::vars = [res] ++ ([RefPtr b ptr] ++ vars)’ by simp []
+      \\ pop_assum (fn th => rewrite_tac [th])
+      \\ gvs [v_all_vs_append])
+  >- (disj2_tac \\ irule in_all_vs_MutBlock
+      \\ first_assum (fn th => irule_at (Pos hd) th \\ gvs [v_all_vs_append]))
+  \\ disj2_tac \\ irule in_all_vs_stack
   \\ ‘res::RefPtr b ptr::vars = [res] ++ ([RefPtr b ptr] ++ vars)’ by simp []
   \\ pop_assum (fn th => rewrite_tac [th])
   \\ gvs [v_all_vs_append]
@@ -9480,12 +9507,18 @@ Proof
   \\ drule ref_edge_insert_MutBlock
   \\ disch_then (qspec_then ‘T’ assume_tac)
   \\ gvs [reachable_refs_def, get_refs_def, MEM_FLAT, MEM_MAP]
-  \\ TRY (qexistsl [‘res’,‘r’] \\ gvs [] \\ NO_TAC)
-  \\ TRY (qexistsl [‘x’,‘r’] \\ gvs [] \\ NO_TAC)
-  \\ qexistsl [‘RefPtr b ptr’,‘ptr’] \\ simp [get_refs_def]
-  \\ irule (cj 2 RTC_RULES) \\ qexists ‘r’ \\ simp []
-  \\ gvs [ref_edge_def, get_refs_def, MEM_FLAT, MEM_MAP]
-  \\ metis_tac []
+  (* the new Block's left part, the written value, its right part, the rest of
+     the stack; the two payload parts are still reached through ptr *)
+  >- (qexistsl [‘RefPtr b ptr’,‘ptr’] \\ simp [get_refs_def]
+      \\ irule (cj 2 RTC_RULES) \\ qexists ‘r’ \\ simp []
+      \\ gvs [ref_edge_def, get_refs_def, MEM_FLAT, MEM_MAP]
+      \\ metis_tac [])
+  >- (qexistsl [‘res’,‘r’] \\ gvs [])
+  >- (qexistsl [‘RefPtr b ptr’,‘ptr’] \\ simp [get_refs_def]
+      \\ irule (cj 2 RTC_RULES) \\ qexists ‘r’ \\ simp []
+      \\ gvs [ref_edge_def, get_refs_def, MEM_FLAT, MEM_MAP]
+      \\ metis_tac [])
+  \\ qexistsl [‘x’,‘r’] \\ gvs []
 QED
 
 Theorem dest_thunk_insert_MutBlock[local]:
