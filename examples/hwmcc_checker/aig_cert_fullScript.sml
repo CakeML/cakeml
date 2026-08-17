@@ -177,7 +177,7 @@ End
      intersection with the witness latches. *)
 Definition process_mlatches_range_def:
   process_mlatches_range
-    mcirc mreset mnext mpreds mcnstrs mlatch_start mmax_latch wlatches
+    mcirc mreset mnext mpreds mcnstrs mlatch_start mmax_latch mlive wlatches
   =
   let
     mlatches = [mlatch_start .. mmax_latch];
@@ -188,6 +188,7 @@ Definition process_mlatches_range_def:
     next_latches = FLAT (MAP (lit_latches ∘ mnext) mlatches);
     reset_lits = list$mapPartial mreset mlatches;
     reset_lit_latches = FLAT (MAP lit_latches reset_lits);
+    live_latches = FLAT (MAP lit_latches (FLAT mlive));
   in
     do
       assert «circuit mentions latches outside of mlatches»
@@ -200,6 +201,8 @@ Definition process_mlatches_range_def:
         (range_is_subset next_latches mlatch_start mmax_latch);
       assert «reset literals mention latches outside of mlatches»
         (range_is_subset reset_lit_latches mlatch_start mmax_latch);
+      assert «signals mention latches outside of mlatches»
+        (range_is_subset live_latches mlatch_start mmax_latch);
       return (mlatches, klatches)
     od
 End
@@ -208,10 +211,10 @@ val monad_thms = [oneline bind_def, guard_def]
 
 Theorem process_mlatches_range_return:
   process_mlatches_range
-    mcirc mreset mnext mpreds mcnstrs mlatch_start mmax_latch wlatches =
+    mcirc mreset mnext mpreds mcnstrs mlatch_start mmax_latch mlive wlatches =
   return (mlatches, klatches) ⇒
   set klatches = set mlatches ∩ set wlatches ∧
-  dep_cond mcirc mreset mnext mpreds mcnstrs mlatches
+  dep_cond mcirc mreset mnext mpreds mcnstrs mlive mlatches
 Proof
   simp [process_mlatches_range_def, dep_cond_def]
   >> rw monad_thms
@@ -227,7 +230,7 @@ Definition process_and_check_def:
       preprocess maig waig ms;
     (mlatches, klatches) <-
       process_mlatches_range mcirc mreset mnext mpreds mcnstrs
-        mlatch_start mmax_latch wlatches;
+        mlatch_start mmax_latch mlive wlatches;
     assert «length mismatch in number of liveness properties/signals»
       (LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive wlive);
    assert «witness not stratified» (stratified_cond wcirc wreset wlatches);
@@ -251,17 +254,20 @@ Theorem process_and_check_return:
     interv klatches
   ⇒
   is_safe
-    mcirc mreset mnext (set mcnstrs) (set mlatches) (set mpreds)
+    mcirc mreset mnext (set mcnstrs) (set mlatches) (set mpreds) ∧
+  is_live
+    mcirc mreset mnext (set mcnstrs) (qleft mcirc) (qleft_live mlive)
+    (set mlatches)
 Proof
   simp [process_and_check_def]
   >> rpt (pairarg_tac >> gvs [])
-  >> rw monad_thms >> gvs [AllCaseEqs()]
-  >> rpt (pairarg_tac >> gvs [])
+  >> strip_tac >> gvs (AllCaseEqs ()::monad_thms)
+  >> rpt (pairarg_tac >> gvs [AllCaseEqs ()])
   >> dxrule_all_then assume_tac process_mlatches_range_return
   >> irule $
        INST_TYPE
          [“:α” |-> “:num”, “:β” |-> “:num”, “:γ” |-> “:num”, “:δ” |-> “:num”]
-         encoding_is_safe
+         encoding_is_safe_and_live
   >> qpat_assum ‘encodings_unsat _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _’ $ irule_at Any
   >> simp []
 QED

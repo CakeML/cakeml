@@ -337,6 +337,13 @@ Definition dep_lits_def:
     ∀lit. lit ∈ lits ⇒ dep_lit inputs latches lit
 End
 
+Theorem dep_lits_INSERT:
+  dep_lits inputs latches (x INSERT xs) ⇔
+    dep_lits inputs latches {x} ∧ dep_lits inputs latches xs
+Proof
+  simp [dep_lits_def] >> metis_tac []
+QED
+
 Definition dep_latch_lit_def:
   dep_latch_lit inputs latches (latch_lit: 'l -> ('a,'i,'l) lit) latch_args ⇔
     ∀l. l ∈ latch_args ⇒ dep_lit inputs latches (latch_lit l)

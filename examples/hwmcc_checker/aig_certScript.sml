@@ -494,6 +494,7 @@ Proof
   rw [is_inf_trace_eq] >> metis_tac [is_witness_base_step_safe]
 QED
 
+(* TODO Do we really need the entirety of is_witness here? *)
 Theorem is_witness_is_safe:
   is_witness
     mcirc mreset mnext mpreds mcnstrs mqcirc mlive mlatches
@@ -689,6 +690,8 @@ Theorem is_witness_is_live:
     wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches ∧
   dep_model
     mcirc mreset mnext mpreds mcnstrs minput mlatches ∧
+  (* TODO Does dep_qcirc really need the same minput?
+     If not, the proof of encoding_is_safe_and_live may become tidier *)
   dep_qcirc minput mqcirc mlive mlatches ∧
   is_stratified_full lt wcirc wreset wlatches
   ⇒

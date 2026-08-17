@@ -431,6 +431,65 @@ Definition qleft_def:
   qleft (circ: ('a, 'i, 'l) circuit) = circuit_map_base INL INL circ
 End
 
+Theorem qleft_cons:
+  qleft (g::circ) = and_map_base INL INL g::qleft circ
+Proof
+  simp [qleft_def, circuit_map_base_def]
+QED
+
+Theorem eval_circuit_pair_qleft:
+  ∀circ.
+    (∀n.
+       eval_circuit (pair_state s₁ s₂) (qleft circ) n ⇔
+       eval_circuit s₁ circ n) ∧
+    (∀lit.
+       eval_lit (pair_state s₁ s₂) (qleft circ) (lit_map_base INL INL lit) ⇔
+       eval_lit s₁ circ lit)
+Proof
+  Induct >> rw []
+  >- simp [qleft_def, circuit_map_base_def]
+  >- (
+    simp [qleft_def, circuit_map_base_def]
+    >> Cases_on ‘lit’
+    >> rename1 ‘lit_map_base _ _ (v, _)’ >> Cases_on ‘v’
+    >> simp [lit_map_base_def, var_map_base_def, eval_circuit_def]
+    >> rename1 ‘bvar_map _ _ b’ >> Cases_on ‘b’
+    >> simp [bvar_map_def, eval_circuit_def]
+    >> Cases_on ‘s₁’ >> Cases_on ‘s₂’ >> simp [pair_state_def, eval_bvar_def]
+  )
+  >- (
+    simp [eval_circuit_def, qleft_cons]
+    >> rw [] >> rpt (pairarg_tac >> gvs [])
+    >> gvs [and_map_base_def]
+    >> IF_CASES_TAC >> gvs []
+    >> simp [EVERY_MAP]
+  )
+  >> Cases_on ‘lit’
+  >> rename1 ‘lit_map_base _ _ (v, _)’ >> Cases_on ‘v’
+  >> simp [lit_map_base_def, var_map_base_def, eval_circuit_def]
+  >> qmatch_goalsub_abbrev_tac ‘(r ⇔ X) ⇔ (r ⇔ Y)’
+  >> qsuff_tac ‘X ⇔ Y’ >- simp []
+  >> simp [Abbr ‘X’, Abbr ‘Y’]
+  >- (
+    simp [qleft_cons, eval_circuit_def]
+    >> rpt (pairarg_tac >> gvs [])
+    >> gvs [and_map_base_def]
+    >> IF_CASES_TAC >> gvs []
+    >> simp [EVERY_MAP])
+  >> rename1 ‘bvar_map _ _ b’ >> Cases_on ‘b’
+  >> simp [bvar_map_def, eval_circuit_def]
+  >> Cases_on ‘s₁’ >> Cases_on ‘s₂’ >> simp [pair_state_def, eval_bvar_def]
+QED
+
+Theorem dep_circuit_pair_qleft:
+  dep_circuit (pair_set minput) (pair_set (set mlatches)) (qleft mcirc) =
+  dep_circuit minput (set mlatches) mcirc
+Proof
+  simp [dep_circuit_def, FORALL_PAIR_STATE, agree_on_pair,
+        eval_circuit_pair_qleft]
+  >> metis_tac []
+QED
+
 Definition qleft_live_def:
   qleft_live (live: ('a, 'i, 'l) lit list list) = live_map_base INL INL live
 End
@@ -2734,20 +2793,24 @@ Proof
   >> simp []
 QED
 
-Theorem exists_is_stratified_full:
-  ALL_DISTINCT (MAP FST (reset_graph circ reset latches)) ∧
-  ¬has_cycle (reset_graph circ reset latches)
+Definition stratified_cond_def:
+  stratified_cond circ reset latches =
+  let g = reset_graph circ reset latches in
+    ALL_DISTINCT (MAP FST g) ∧ ¬has_cycle g
+End
+
+Theorem stratified_cond_is_stratified_full:
+  stratified_cond circ reset latches
   ⇒
   ∃lt. is_stratified_full lt circ reset (set latches)
 Proof
-  strip_tac
+  rw [stratified_cond_def]
   >> qexists ‘reset_order circ reset latches’
   >> simp [is_stratified_full_def, transitive_reset_order,
            irreflexive_reset_order, is_stratified_reset_order]
 QED
 
 (** Top-level theorems ********************************************************)
-
 
 Definition encodings_unsat_def:
   encodings_unsat
@@ -2795,91 +2858,134 @@ Definition encodings_unsat_def:
           wlatches interv) (Named (Ext «consistent»))))
 End
 
-Definition stratified_cond_def:
-  stratified_cond circ reset latches =
-  let g = reset_graph circ reset latches in
-    ALL_DISTINCT (MAP FST g) ∧ ¬has_cycle g
-End
-
 (** dep_model *****************************************************************)
 
 (* dep_circuit *)
 
 Definition dep_cond_def:
-  dep_cond circ reset next preds cnstrs latches ⇔
+  dep_cond circ reset next preds cnstrs live latches ⇔
     set (circuit_latches circ) ⊆ set latches ∧
     BIGUNION (IMAGE (set ∘ lit_latches ∘ next) (set latches)) ⊆ set latches ∧
     BIGUNION (IMAGE (set ∘ lit_latches) (set preds)) ⊆ set latches ∧
     BIGUNION (IMAGE (set ∘ lit_latches) (set cnstrs)) ⊆ set latches ∧
     BIGUNION
       (IMAGE (set ∘ lit_latches) (IMAGE_PARTIAL reset (set latches))) ⊆
-      set latches
+      set latches ∧
+    BIGUNION (IMAGE (set ∘ lit_latches) (set (FLAT live))) ⊆ set latches
 End
 
-Theorem encoding_is_safe:
+Theorem dep_lits_pair_map_lit_map_base_inl:
+  ∀live.
+    dep_lits (pair_set inputs) (pair_set latches)
+     (set ((MAP (lit_map_base INL INL)) live))
+    ⇔
+    dep_lits inputs latches (set live)
+Proof
+  Induct
+  >- simp [dep_lits_def]
+  >> rw []
+  >> once_rewrite_tac [dep_lits_INSERT]
+  >> simp []
+  >> rename1 ‘lit_map_base INL INL h’
+  >> qsuff_tac
+     ‘dep_lits (pair_set inputs) (pair_set latches) {lit_map_base INL INL h} ⇔
+        dep_lits inputs latches {h}’
+  >- simp []
+  >> namedCases_on ‘h’ ["v b"]
+  >> Cases_on ‘v’
+  >- simp [lit_map_base_def, var_map_base_def, dep_lits_def]
+  >> rename1 ‘Base b'’
+  >> Cases_on ‘b'’
+  >> simp [lit_map_base_def, var_map_base_def, dep_lits_def, bvar_map_def,
+           pair_set_def]
+QED
+
+Theorem dep_lits_pair_qleft_live:
+  dep_lits (pair_set inputs) (pair_set latches) (set (FLAT (qleft_live mlive)))
+  ⇔
+  dep_lits inputs latches (set (FLAT mlive))
+Proof
+  simp [qleft_live_def, live_map_base_def, GSYM MAP_FLAT]
+  >> simp [dep_lits_pair_map_lit_map_base_inl]
+QED
+
+Theorem encoding_is_safe_and_live:
   LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive wlive ∧
   set klatches = set mlatches ∩ set wlatches ∧
   stratified_cond wcirc wreset wlatches ∧
-  dep_cond mcirc mreset mnext mpreds mcnstrs mlatches ∧
+  dep_cond mcirc mreset mnext mpreds mcnstrs mlive mlatches ∧
   encodings_unsat
     mcirc mreset mnext mpreds mcnstrs mlive mlatches
     wcirc wreset wnext wpreds wcnstrs wlive wlatches
     interv klatches
   ⇒
   is_safe
-    mcirc mreset mnext (set mcnstrs) (set mlatches) (set mpreds)
+    mcirc mreset mnext (set mcnstrs) (set mlatches) (set mpreds) ∧
+  is_live
+    mcirc mreset mnext (set mcnstrs) (qleft mcirc) (qleft_live mlive)
+    (set mlatches)
 Proof
-  (* unfolding encodings_unsat_def early to get access to the type variables *)
-  rewrite_tac [encodings_unsat_def]
-  >> strip_tac
-  >> irule_at Any $
-       INST_TYPE
-       [“:α” |-> “:β”, “:β” |-> “:γ”, “:γ” |-> “:α”, “:ε” |-> “:δ”,
-        “:ζ” |-> “:δ”, “:δ” |-> “:β”]
-         is_witness_is_safe
-  >> conj_tac
-  (* Show that we can satisfy dep_model; boils down to showing that mlatches
-     contains all the latches mentioned in the circuit, properties, etc. *)
+  strip_tac
+  >> sg
+       ‘is_witness
+          mcirc mreset mnext (set mpreds) (set mcnstrs)
+          (qleft mcirc) (qleft_live mlive) (set mlatches)
+          wcirc wreset wnext (set wpreds) (set wcnstrs)
+          (qinterv_l_r interv wcirc) (qinterv_live_l_r interv wlive)
+          (set wlatches)’
   >- (
-    fs [dep_model_def, dep_cond_def]
-    >> qexists
-       ‘set (circuit_inputs mcirc) ∪
-        BIGUNION (IMAGE (set ∘ lit_inputs ∘ mnext) (set mlatches)) ∪
-        BIGUNION
-          (IMAGE (set ∘ lit_inputs) (IMAGE_PARTIAL mreset (set mlatches))) ∪
-        BIGUNION (IMAGE (set ∘ lit_inputs) (set mpreds)) ∪
-        BIGUNION (IMAGE (set ∘ lit_inputs) (set mcnstrs))’
-    >> conj_tac
+    rewrite_tac [is_witness_def]
+    >> MAP_EVERY (irule_at Any o iffLR) [
+         eval_circuit_encode_is_witness_reset,
+         eval_circuit_encode_is_witness_transition,
+         eval_circuit_encode_is_witness_property,
+         eval_circuit_encode_is_witness_base,
+         eval_circuit_encode_is_witness_step,
+         eval_circuit_encode_is_witness_liveness,
+         eval_circuit_encode_is_witness_decrease,
+         eval_circuit_encode_is_witness_closure,
+         eval_circuit_encode_is_witness_consistent,
+       ]
+    >> qexistsl [‘klatches’, ‘klatches’]
+    >> fs [encodings_unsat_def]
+  )
+  >> sg
+     ‘∃minput.
+        dep_model mcirc mreset mnext (set mpreds) (set mcnstrs) minput
+          (set mlatches) ∧
+        dep_qcirc minput (qleft mcirc) (qleft_live mlive) (set mlatches)’
+  >- (
+    qabbrev_tac
+      ‘minput =
+         set (circuit_inputs mcirc) ∪
+         BIGUNION (IMAGE (set ∘ lit_inputs ∘ mnext) (set mlatches)) ∪
+         BIGUNION
+           (IMAGE (set ∘ lit_inputs) (IMAGE_PARTIAL mreset (set mlatches))) ∪
+         BIGUNION (IMAGE (set ∘ lit_inputs) (set mpreds)) ∪
+         BIGUNION (IMAGE (set ∘ lit_inputs) (set mcnstrs)) ∪
+         BIGUNION (IMAGE (set ∘ lit_inputs) (set (FLAT mlive)))’
+    >> qexists ‘minput’
+    >> rewrite_tac [dep_model_def, dep_qcirc_def, GSYM CONJ_ASSOC]
+    >> simp [dep_circuit_pair_qleft, dep_lits_pair_qleft_live]
+    >> fs [dep_cond_def]
+    >> sg ‘dep_circuit minput (set mlatches) mcirc’
     >- (
       irule dep_circuit_subset
       >> irule_at Any dep_circuit_inputs_latches
-      >> simp [SUBSET_DEF]
+      >> simp [SUBSET_DEF, Abbr ‘minput’]
     )
-    >> conj_tac
-    >- (irule dep_reset_subset >> simp [SUBSET_DEF])
-    >> conj_tac
-    >- (irule dep_latch_lit_next >> simp [SUBSET_DEF])
-    (* only dep_lits ... ∧ dep_lits ... should remain *)
-    >> conj_tac
+    >> sg ‘dep_reset minput (set mlatches) mreset (set mlatches)’
+    >- (irule dep_reset_subset >> simp [SUBSET_DEF, Abbr ‘minput’])
+    >> sg ‘dep_latch_lit minput (set mlatches) mnext (set mlatches)’
+    >- (irule dep_latch_lit_next >> simp [SUBSET_DEF, Abbr ‘minput’])
+    >> simp []
+    (* only conjuncts of dep_lits ... should remain *)
+    >> rpt conj_tac
     >> irule dep_lits_lits
-    >> simp [SUBSET_DEF]
+    >> simp [SUBSET_DEF, Abbr ‘minput’]
   )
-  >> rewrite_tac [is_witness_def]
-  >> MAP_EVERY (irule_at Any o iffLR) [
-       eval_circuit_encode_is_witness_reset,
-       eval_circuit_encode_is_witness_transition,
-       eval_circuit_encode_is_witness_property,
-       eval_circuit_encode_is_witness_base,
-       eval_circuit_encode_is_witness_step,
-       eval_circuit_encode_is_witness_liveness,
-       eval_circuit_encode_is_witness_decrease,
-       eval_circuit_encode_is_witness_closure,
-       eval_circuit_encode_is_witness_consistent,
-     ]
-  (* Should take care of all properties *)
-  >> rpt $ qpat_x_assum ‘¬∃ss. eval_circuit ss _ _’ $ irule_at Any
+  >> drule_all stratified_cond_is_stratified_full >> strip_tac
+  >> drule_all_then assume_tac is_witness_is_safe
+  >> drule_all_then assume_tac is_witness_is_live
   >> simp []
-  (* Stratification *)
-  >> irule exists_is_stratified_full
-  >> fs [stratified_cond_def]
 QED
