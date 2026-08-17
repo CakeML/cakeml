@@ -4328,6 +4328,157 @@ Proof
   \\ full_simp_tac std_ss [SUBMAP_REFL]
 QED
 
+Theorem take_el_drop[local]:
+  !index vals. index < LENGTH vals ==>
+    TAKE index vals ++ [EL index vals] ++ DROP (index+1) vals = vals
+Proof
+  rpt strip_tac
+  \\ once_rewrite_tac [GSYM APPEND_ASSOC]
+  \\ rewrite_tac [APPEND]
+  \\ `EL index vals::DROP (index+1) vals = DROP index vals` by
+       simp [rich_listTheory.DROP_EL_CONS]
+  \\ asm_rewrite_tac [TAKE_DROP]
+QED
+
+(* a value that is not a thunk cannot become one by adding a fresh ref *)
+Theorem dest_thunk_insert_fresh[local]:
+  ptr NOTIN domain refs /\ dest_thunk v refs = NotThunk ==>
+  dest_thunk v (insert ptr x refs) = NotThunk
+Proof
+  rw [dest_thunk_def |> oneline] \\ every_case_tac
+  \\ gvs [lookup_insert, AllCaseEqs(), domain_lookup]
+QED
+
+(* mirrors cons_thm_alt: the allocation is the Cons allocation, but the value
+   handed back is a RefPtr into refs, so f (not tf) gains a binding and no
+   timestamp is consumed *)
+Theorem mutcons_thm_alt[local]:
+  abs_ml_inv conf (l ++ [c] ++ r ++ stack) refs
+             (roots,heap,be,a,sp,sp1,gens) limit ts /\
+  LENGTH (l ++ [c] ++ r) < sp /\ ptr NOTIN domain refs /\
+  (!gs. conf.gc_kind <> Generational gs) ==>
+  ?rs roots2 heap2.
+    (roots = rs ++ roots2) /\ (LENGTH rs = LENGTH (l ++ [c] ++ r)) /\
+    (heap_store_unused_alt a (sp+sp1) (BlockRep tag rs) heap = (heap2,T)) /\
+    abs_ml_inv conf (RefPtr F ptr::stack)
+      (insert ptr (MutBlock tag F l c r) refs)
+      (Pointer a (Word (ptr_bits conf tag (LENGTH (l ++ [c] ++ r))))::roots2,
+       heap2,be,a+el_length (BlockRep tag rs),
+       sp-el_length (BlockRep tag rs),sp1,gens) limit ts
+Proof
+  simp_tac std_ss [abs_ml_inv_def]
+  \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def,LIST_REL_def]
+  \\ imp_res_tac LIST_REL_SPLIT1 \\ full_simp_tac std_ss []
+  \\ Q.LIST_EXISTS_TAC [`ys1`,`ys2`] \\ full_simp_tac std_ss []
+  \\ imp_res_tac EVERY2_LENGTH \\ full_simp_tac std_ss []
+  \\ qpat_x_assum `unused_space_inv a (sp+sp1) heap` (fn th =>
+    MATCH_MP (IMP_heap_store_unused_alt |> REWRITE_RULE [GSYM AND_IMP_INTRO]
+      |> GEN_ALL) th
+    |> ASSUME_TAC)
+  \\ POP_ASSUM (qspec_then `(BlockRep tag ys1)` mp_tac) \\ match_mp_tac IMP_IMP
+  \\ full_simp_tac std_ss [isDataElement_lemmas]
+  \\ strip_tac THEN1 (fs [BlockRep_def,el_length_def] \\ DECIDE_TAC)
+  \\ strip_tac \\ full_simp_tac std_ss []
+  \\ strip_tac THEN1
+   (full_simp_tac (srw_ss()) [roots_ok_def,MEM,BlockRep_def]
+    \\ reverse (rpt strip_tac \\ res_tac) THEN1 metis_tac [heap_store_rel_def]
+    \\ full_simp_tac (srw_ss()) [el_length_def,isSomeDataElement_def])
+  \\ strip_tac THEN1
+   (full_simp_tac (srw_ss()) [roots_ok_def,MEM,BlockRep_def,heap_ok_def,
+      isForwardPointer_def] \\ once_rewrite_tac [EQ_SYM_EQ]
+    \\ rpt strip_tac \\ metis_tac [heap_store_rel_def])
+  \\ strip_tac THEN1
+   (fs [gc_kind_inv_def] \\ Cases_on `conf.gc_kind` \\ fs [])
+  \\ strip_tac THEN1 (full_simp_tac std_ss [el_length_def,BlockRep_def] \\ fs [])
+  \\ qexists_tac `f |+ (ptr,a)` \\ qexists_tac `tf`
+  \\ `~(ptr IN FDOM f)` by (full_simp_tac (srw_ss()) [SUBSET_DEF] \\ metis_tac [])
+  \\ conj_tac THEN1
+   (qpat_x_assum `INJ ($' f) (FDOM f) _` mp_tac
+    \\ rewrite_tac [INJ_DEF]
+    \\ simp_tac (srw_ss()) [FAPPLY_FUPDATE_THM]
+    \\ metis_tac [])
+  \\ conj_tac THEN1 (fs [SUBSET_DEF, sptreeTheory.domain_insert] \\ metis_tac [])
+  \\ conj_tac THEN1
+   (match_mp_tac INJ_SUBSET
+    \\ FIRST_ASSUM (match_exists_tac o concl)
+    \\ fs [SUBSET_DEF])
+  \\ conj_tac THEN1
+   (irule SUBSET_TRANS \\ irule_at Any all_ts_mutcons \\ simp [])
+  \\ conj_tac THEN1 fs []
+  \\ conj_tac THEN1 (irule blocks_unique_mutcons \\ simp [])
+  \\ conj_tac THEN1
+   (conj_tac
+    THEN1 (simp [v_inv_def, lookup_insert, ref_ptr_annot_def, FAPPLY_FUPDATE_THM]
+           \\ gvs [])
+    \\ fs [LIST_REL_EL_EQN] \\ rw [] \\ first_x_assum drule \\ strip_tac
+    \\ irule v_inv_MutCons_step \\ rw [] \\ metis_tac [])
+  \\ rpt strip_tac
+  \\ Cases_on `n = ptr`
+  THEN1
+   (gvs [bc_ref_inv_def, FLOOKUP_UPDATE, lookup_insert]
+    \\ conj_tac
+    THEN1 (CCONTR_TAC \\ gvs [] \\ qpat_x_assum `INJ ($' tf) _ _` mp_tac
+           \\ simp [INJ_DEF] \\ metis_tac [])
+    \\ qexists_tac `ys1` \\ gvs []
+    \\ fs [LIST_REL_EL_EQN] \\ rw []
+    \\ first_x_assum drule \\ strip_tac
+    \\ irule v_inv_MutCons_step \\ rw [] \\ metis_tac [])
+  \\ drule_all reachable_refs_MutCons \\ strip_tac
+  \\ `n IN FDOM f` by gvs []
+  \\ first_x_assum drule_all
+  \\ simp [Once bc_ref_inv_def]
+  \\ simp [Once bc_ref_inv_def, FLOOKUP_UPDATE, lookup_insert]
+  \\ Cases_on `FLOOKUP f n` \\ gvs []
+  \\ Cases_on `lookup n refs` \\ gvs []
+  \\ rename [`lookup n refs = SOME x_ref`] \\ Cases_on `x_ref` \\ gvs []
+  >~ [`Bytes`]
+  >- (strip_tac \\ fs [Bytes_def, LET_THM]
+      \\ imp_res_tac heap_store_rel_lemma \\ metis_tac [])
+  >~ [`RefBlock`]
+  >- (strip_tac \\ gvs [RefBlock_def]
+      \\ imp_res_tac heap_store_rel_lemma \\ gvs []
+      \\ qpat_x_assum `LIST_REL _ _ _` mp_tac
+      \\ match_mp_tac EVERY2_IMP_EVERY2 \\ simp []
+      \\ rpt strip_tac
+      \\ irule v_inv_MutCons_step \\ rw [] \\ metis_tac [])
+  >~ [`ThunkBlock`]
+  >- (strip_tac \\ gvs [ThunkBlock_def]
+      \\ imp_res_tac heap_store_rel_lemma \\ gvs []
+      \\ conj_tac >- (rw [] \\ irule dest_thunk_insert_fresh \\ gvs [])
+      \\ irule v_inv_MutCons_step \\ rw [] \\ metis_tac [])
+  \\ strip_tac \\ gvs [BlockRep_def]
+  \\ imp_res_tac heap_store_rel_lemma \\ gvs []
+  \\ qpat_x_assum `LIST_REL _ _ _` mp_tac
+  \\ match_mp_tac EVERY2_IMP_EVERY2 \\ simp []
+  \\ rpt strip_tac
+  \\ irule v_inv_MutCons_step \\ rw [] \\ metis_tac []
+QED
+
+Theorem mutcons_thm[local]:
+  abs_ml_inv conf (xs ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
+  LENGTH xs < sp /\ index < LENGTH xs /\ ptr NOTIN domain refs /\
+  (!gs. conf.gc_kind <> Generational gs) ==>
+  ?rs roots2 heap2.
+    (roots = rs ++ roots2) /\ (LENGTH rs = LENGTH xs) /\
+    (heap_store_unused_alt a (sp+sp1) (BlockRep tag rs) heap = (heap2,T)) /\
+    abs_ml_inv conf (RefPtr F ptr::stack)
+      (insert ptr (MutBlock tag F (TAKE index xs) (EL index xs)
+                                  (DROP (index+1) xs)) refs)
+      (Pointer a (Word (ptr_bits conf tag (LENGTH xs)))::roots2,
+       heap2,be,a+el_length (BlockRep tag rs),
+       sp-el_length (BlockRep tag rs),sp1,gens) limit ts
+Proof
+  rpt strip_tac
+  \\ drule_then assume_tac take_el_drop
+  \\ `abs_ml_inv conf
+        (TAKE index xs ++ [EL index xs] ++ DROP (index+1) xs ++ stack) refs
+        (roots,heap,be,a,sp,sp1,gens) limit ts` by asm_rewrite_tac []
+  \\ drule mutcons_thm_alt
+  \\ asm_rewrite_tac []
+  \\ disch_then (qspecl_then [`tag`,`ptr`] mp_tac)
+  \\ asm_rewrite_tac []
+QED
+
 Theorem heap_store_ThunkBlock_thm:
   ∀ha.
     (heap_store (heap_length ha) [ThunkBlock ev1 v1] (ha ++ ThunkBlock ev2 v2::hb) =
@@ -8594,7 +8745,72 @@ Theorem memory_rel_MutCons:
           (st |+ (NextFree,Word w)) m1 dm
           ((RefPtr F ptr,make_cons_ptr c (free - curr) tag (LENGTH ws))::vars)
 Proof
-  cheat
+  simp_tac std_ss [LET_THM]
+  \\ rewrite_tac [CONJ_ASSOC]
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ fs [memory_rel_def,PULL_EXISTS] \\ rw []
+  \\ fs [word_ml_inv_def,PULL_EXISTS] \\ clean_tac
+  \\ fs [MAP_ZIP]
+  \\ old_drule (GEN_ALL mutcons_thm)
+  \\ disch_then (qspecl_then [`tag`,`ptr`,`index`] strip_assume_tac)
+  \\ rfs [] \\ fs [] \\ clean_tac
+  \\ rewrite_tac [GSYM CONJ_ASSOC]
+  \\ once_rewrite_tac [METIS_PROVE [] ``b1 /\ b2 /\ b3 <=> b2 /\ b1 /\ b3:bool``]
+  \\ fs []
+  \\ asm_exists_tac \\ fs [word_addr_def]
+  \\ fs [heap_in_memory_store_def,FLOOKUP_UPDATE]
+  \\ qpat_abbrev_tac `ll = el_length _`
+  \\ `ll = LENGTH ws + 1` by (UNABBREV_ALL_TAC \\ EVAL_TAC \\ fs [] \\ NO_TAC)
+  \\ UNABBREV_ALL_TAC \\ fs []
+  \\ `n2w (a + sp' - (LENGTH ws + 1)) =
+      n2w (a + sp') - n2w (LENGTH ws + 1):'a word`
+          by fs [addressTheory.word_arith_lemma2]
+  \\ fs [WORD_LEFT_ADD_DISTRIB,get_addr_def,make_cons_ptr_def,get_lowerbits_def]
+  \\ fs [el_length_def,BlockRep_def]
+  \\ imp_res_tac heap_store_unused_IMP_length \\ fs []
+  \\ fs [LIST_REL_APPEND_EQ,minus_lemma]
+  \\ fs [bytes_in_word_mul_eq_shift]
+  \\ fs [GSYM bytes_in_word_mul_eq_shift]
+  \\ `LENGTH ws + 1 <= sp' + sp1` by decide_tac
+  \\ pop_assum mp_tac \\ simp_tac std_ss [Once LESS_EQ_EXISTS] \\ strip_tac
+  \\ clean_tac \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ fs [heap_store_unused_alt_def,el_length_def]
+  \\ every_case_tac \\ fs []
+  \\ imp_res_tac heap_lookup_SPLIT \\ fs [] \\ clean_tac
+  \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+  \\ fs [heap_store_lemma] \\ clean_tac \\ fs []
+  \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def,
+         SEP_CLAUSES,word_heap_heap_expand]
+  \\ fs [word_list_exists_ADD |> Q.SPECL [`m+1`,`n`]
+         |> ONCE_REWRITE_RULE [ADD_COMM]]
+  \\ `(make_header c (n2w tag << 2) (LENGTH ws)) = hd` by
+       (fs [encode_header_def,make_header_def] \\ every_case_tac \\ fs []
+        \\ fs [WORD_MUL_LSL,word_mul_n2w,EXP_ADD] \\ NO_TAC)
+  \\ fs [] \\ old_drule encode_header_IMP \\ fs [] \\ strip_tac
+  \\ simp [WORD_MUL_LSL,word_mul_n2w]
+  \\ fs [SEP_CLAUSES,STAR_ASSOC]
+  \\ `LENGTH ws + 1 = LENGTH (Word hd::ws)` by fs []
+  \\ full_simp_tac std_ss []
+  \\ qpat_x_assum `_ (fun2set (m,dm))` mp_tac
+  \\ qpat_abbrev_tac `ll = word_list_exists _ (LENGTH _)`
+  \\ simp_tac std_ss [AC STAR_COMM STAR_ASSOC]
+  \\ qunabbrev_tac `ll` \\ strip_tac
+  \\ old_drule store_list_thm
+  \\ strip_tac \\ fs []
+  \\ fs [EVERY2_f_EQ] \\ clean_tac \\ fs []
+  \\ fs [el_length_def,heap_length_APPEND,heap_length_heap_expand,
+         GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,ADD1]
+  \\ fs [AC STAR_ASSOC STAR_COMM] \\ fs [STAR_ASSOC]
+  \\ pop_assum mp_tac \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+  \\ fs [AC STAR_ASSOC STAR_COMM] \\ fs [STAR_ASSOC]
+  \\ rpt strip_tac
+  \\ simp [Once get_lowerbits_or_1]
+  \\ fs [heap_length_def,el_length_def]
+  \\ pop_assum mp_tac \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+  \\ fs [AC STAR_ASSOC STAR_COMM] \\ fs [STAR_ASSOC]
+  \\ fs [el_length_def,heap_length_APPEND,heap_length_heap_expand,
+         GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,ADD1]
+  \\ fs [AC STAR_ASSOC STAR_COMM] \\ fs [STAR_ASSOC]
 QED
 
 Theorem INJ_FUPDATE:
