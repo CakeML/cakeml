@@ -46,6 +46,10 @@ BVI now supports multi-arg calls/returns (with a separate constructor).
 
 Thunks can now be inlined by the GC (#1440).
 
+### targetSem
+
+targetSem is now more lax about the FFI/clear-cache havocs (#1458)
+
 ## Pancake
 
 ## Candle
