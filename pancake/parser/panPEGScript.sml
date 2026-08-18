@@ -318,7 +318,7 @@ Definition pancake_peg_def[nocompute]:
                                FLAT]
                           (mksubtree EAndNT));
         (INL EShiftNT, seql [mknt EAddNT;
-                             rpt (seql [mknt ShiftOpsNT; keep_nat] I)
+                             rpt (seql [mknt ShiftOpsNT; mknt EAddNT] I)
                                  FLAT]
                             (mksubtree EShiftNT));
         (INL EAddNT, seql [mknt EMulNT;

@@ -78,7 +78,7 @@ Definition compile_exp_def:
   (compile_exp ctxt tmp l (Shift sh e e') =
    let (p, le, tmp, l) = compile_exp ctxt tmp l e in
    let (p', le', tmp', l) = compile_exp ctxt tmp l e' in
-     (p', Shift sh le le', tmp', l)) /\
+     (p ++ p', Shift sh le le', tmp', l)) /\
   (compile_exps ctxt tmp l cps = (* to generate ind thm *)
    case cps of
    | [] => ([], [], tmp, l)
