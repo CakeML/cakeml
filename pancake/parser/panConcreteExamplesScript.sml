@@ -249,7 +249,18 @@ val ex9 = ‘
    return @top;
  }’;
 
-val treeEx10 = check_success $ parse_pancake ex9;
+val treeEx9 = check_success $ parse_pancake ex9;
+
+(** Shifts *)
+val ex10 = ‘
+ fun testfun() {
+   var a = 1 << 2;
+   a = a >>> 1 + 1;
+   a = a << a #>> 2 >> 3;
+   return 1;
+ }’;
+
+val treeEx10 = check_success $ parse_pancake ex10;
 
 (** Function call syntax. *)
 
