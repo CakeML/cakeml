@@ -31,6 +31,10 @@ avoiding potentially quadratic behavior due to left-associative concatenations (
 
 BVI now supports multi-arg calls/returns (with a separate constructor).
 
+A new pass, `bvi_tmc`, performs tail recursion modulo cons, turning
+self-recursive calls under a constructor into tail calls. The compiler
+pass is Ry Wiese's MSc thesis work.
+
 ## Pancake
 
 ## Candle
