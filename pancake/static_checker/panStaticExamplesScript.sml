@@ -5848,7 +5848,8 @@ val ex_exception_shape_mismatch2 = `
   fun 1 f () {
     var 1 x = 0;
     try f()
-    catch Err => x { x = x + 1;
+    catch Err => x {
+      x = x + 1;
     }
     return 0;
   }
