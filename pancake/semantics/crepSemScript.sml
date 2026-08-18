@@ -129,7 +129,7 @@ Definition eval_def:
      | _ => NONE) /\
   (eval s (Shift sh e1 e2) =
     case (eval s e1, eval s e2) of
-     | (SOME (Word w1), SOME (Word w2)) => OPTION_MAP Word (word_sh sh w1 w2)
+     | (SOME (Word w1), SOME (Word w2)) => OPTION_MAP Word (word_sh sh w1 (w2n w2))
      | _ => NONE) /\
   (eval s BaseAddr =
         SOME (Word s.base_addr)) /\
