@@ -306,10 +306,10 @@ Overload extract_stderr = ``extract_writes 2w``;
 
 Theorem extract_writes_thm
   `extract_fs init_fs io_events = SOME fs ∧
-   get_file_content init_fs = SOME (init,pos)
+   get_fd_content init_fs = SOME (init,pos)
    ⇒
   `
-  (type_of``get_file_content``
+  (type_of``get_fd_content``
 ffi_write_def
 write_def
 fs_ffi_part_def

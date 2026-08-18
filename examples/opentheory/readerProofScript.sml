@@ -1769,7 +1769,7 @@ QED
 
 Definition no_errors_def:
   no_errors fs fs' ⇔
-    get_file_content fs 2 = get_file_content fs' 2
+    get_fd_content fs 2 = get_fd_content fs' 2
 End
 
 Theorem reader_success_stderr:
@@ -1787,7 +1787,7 @@ Proof
   \\ qpat_x_assum ‘_ = _ ’ mp_tac
   \\ fs [TextIOProofTheory.add_stdo_def, TextIOProofTheory.stdo_def,
          TextIOProofTheory.up_stdo_def, fsFFITheory.fsupdate_def,
-         fsFFITheory.get_file_content_def,
+         fsFFITheory.get_fd_content_def,
          fsFFIPropsTheory.fastForwardFD_def, TextIOProofTheory.stdin_def]
   \\ fs [miscTheory.the_def, UNCURRY, AFUPDKEY_ALOOKUP, case_eq_thms,
          bool_case_eq]

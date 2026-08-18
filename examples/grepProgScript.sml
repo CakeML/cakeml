@@ -517,7 +517,7 @@ Proof
          INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
          & (OPTION_TYPE STRING_TYPE (SOME line) v))’
   >- (xapp \\ qexistsl [‘emp’, ‘line::lines’, ‘fs’, ‘fd’, ‘#"\n"’] \\ xsimpl)
-  \\ simp [Once INSTREAM_LINES_get_file_content] \\ xpull
+  \\ simp [Once INSTREAM_LINES_get_fd_content] \\ xpull
   \\ gvs [OPTION_TYPE_def] \\ xmatch
   \\ xlet_auto >- xsimpl
   \\ qmatch_goalsub_abbrev_tac ‘STDIO (forwardFD _ _ _) * INSTREAM_LINES₁’

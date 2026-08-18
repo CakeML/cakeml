@@ -340,10 +340,10 @@ Proof
 QED
 *)
 
-Theorem get_file_content_eof:
-   get_file_content fs fd = SOME (content,pos) ⇒ eof fd fs = SOME (¬(pos < LENGTH content))
+Theorem get_fd_content_eof:
+   get_fd_content fs fd = SOME (content,pos) ⇒ eof fd fs = SOME (¬(pos < LENGTH content))
 Proof
-  rw[get_file_content_def,eof_def]
+  rw[get_fd_content_def,eof_def]
   \\ pairarg_tac \\ fs[]
 QED
 
@@ -523,10 +523,10 @@ Proof
 QED
 
 Theorem fastForwardFD_0:
-   (∀content pos. get_file_content fs fd = SOME (content,pos) ⇒ LENGTH content ≤ pos) ⇒
+   (∀content pos. get_fd_content fs fd = SOME (content,pos) ⇒ LENGTH content ≤ pos) ⇒
    fastForwardFD fs fd = fs
 Proof
-  rw[fastForwardFD_def,get_file_content_def]
+  rw[fastForwardFD_def,get_fd_content_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[miscTheory.the_def]
   \\ pairarg_tac \\ fs[]
   \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[miscTheory.the_def]
@@ -610,10 +610,10 @@ Proof
 QED
 
 Theorem fsupdate_unchanged:
-  get_file_content fs fd = SOME(content, pos) ==>
+  get_fd_content fs fd = SOME(content, pos) ==>
     fsupdate fs fd 0 pos content = fs
 Proof
-    fs[fsupdate_def,get_file_content_def,validFD_def,IO_fs_component_equality]>>
+    fs[fsupdate_def,get_fd_content_def,validFD_def,IO_fs_component_equality]>>
     rw[] >> pairarg_tac >> fs[AFUPDKEY_unchanged] >> rw[]
 QED
 
@@ -724,49 +724,49 @@ Proof
  rw [fsupdate_def] \\ every_case_tac \\ simp []
 QED
 
-(* get_file_content *)
+(* get_fd_content *)
 
-Theorem get_file_content_numchars:
-  !fs fd. get_file_content fs fd =
-              get_file_content (fs with numchars := ll) fd
+Theorem get_fd_content_numchars:
+  !fs fd. get_fd_content fs fd =
+              get_fd_content (fs with numchars := ll) fd
 Proof
- fs[get_file_content_def]
+ fs[get_fd_content_def]
 QED
 
-Theorem get_file_content_validFD:
-   get_file_content fs fd = SOME(c,p) ⇒ validFD fd fs
+Theorem get_fd_content_validFD:
+   get_fd_content fs fd = SOME(c,p) ⇒ validFD fd fs
 Proof
-  fs[get_file_content_def,validFD_def] >> rw[] >> pairarg_tac >>
+  fs[get_fd_content_def,validFD_def] >> rw[] >> pairarg_tac >>
   imp_res_tac ALOOKUP_MEM >> fs[ALOOKUP_MEM,MEM_MAP] >>
   qexists_tac`(fd,x)` >> fs[]
 QED
 
-Theorem get_file_content_fsupdate:
-   !fs fd x i c u. get_file_content fs fd = SOME u ⇒
-  get_file_content (fsupdate fs fd x i c) fd = SOME(c,i)
+Theorem get_fd_content_fsupdate:
+   !fs fd x i c u. get_fd_content fs fd = SOME u ⇒
+  get_fd_content (fsupdate fs fd x i c) fd = SOME(c,i)
 Proof
-  rw[get_file_content_def, fsupdate_def] >>
+  rw[get_fd_content_def, fsupdate_def] >>
   pairarg_tac >> fs[AFUPDKEY_ALOOKUP]
 QED
 
-Theorem get_file_content_fsupdate_unchanged:
+Theorem get_fd_content_fsupdate_unchanged:
    !fs fd u fnm pos fd' fnm' pos' x i c.
-   get_file_content fs fd = SOME u ⇒
+   get_fd_content fs fd = SOME u ⇒
    ALOOKUP fs.infds fd = SOME (fnm,pos) ⇒
    ALOOKUP fs.infds fd' = SOME (fnm',pos') ⇒ fnm ≠ fnm' ⇒
-  get_file_content (fsupdate fs fd' x i c) fd = SOME u
+  get_fd_content (fsupdate fs fd' x i c) fd = SOME u
 Proof
-  rw[get_file_content_def, fsupdate_def] >>
+  rw[get_fd_content_def, fsupdate_def] >>
   pairarg_tac >> fs[AFUPDKEY_ALOOKUP] >>
   rpt(CASE_TAC >> fs[])
 QED
 
-Theorem get_file_content_bumpFD[simp]:
+Theorem get_fd_content_bumpFD[simp]:
   !fs fd c pos n.
-   get_file_content (bumpFD fd fs n) fd =
-   OPTION_MAP (I ## (+) n) (get_file_content fs fd)
+   get_fd_content (bumpFD fd fs n) fd =
+   OPTION_MAP (I ## (+) n) (get_fd_content fs fd)
 Proof
- rw[get_file_content_def,bumpFD_def,AFUPDKEY_ALOOKUP]
+ rw[get_fd_content_def,bumpFD_def,AFUPDKEY_ALOOKUP]
  \\ CASE_TAC \\ fs[]
  \\ pairarg_tac \\ fs[] \\ rw[]
  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[]
@@ -860,11 +860,11 @@ Proof
   rw[openFileFS_def,openFile_fupd_numchars] >> rpt CASE_TAC
 QED
 
-Theorem IS_SOME_get_file_content_openFileFS_nextFD:
+Theorem IS_SOME_get_fd_content_openFileFS_nextFD:
    !fs f off md. consistentFS fs ∧ inFS_fname fs f ∧ nextFD fs ≤ fs.maxFD
-   ⇒ IS_SOME (get_file_content (openFileFS f fs md off) (nextFD fs))
+   ⇒ IS_SOME (get_fd_content (openFileFS f fs md off) (nextFD fs))
 Proof
-   rw[get_file_content_def]
+   rw[get_fd_content_def]
   \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ fs[]
   \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD \\ simp[]
 QED
@@ -956,12 +956,12 @@ Proof
   \\ Cases_on`x` \\ fs[]
 QED
 
-Theorem get_file_content_forwardFD[simp]:
+Theorem get_fd_content_forwardFD[simp]:
    !fs fd c pos n.
-    get_file_content (forwardFD fs fd n) fd =
-    OPTION_MAP (I ## (+) n) (get_file_content fs fd)
+    get_fd_content (forwardFD fs fd n) fd =
+    OPTION_MAP (I ## (+) n) (get_fd_content fs fd)
 Proof
-  rw[get_file_content_def,forwardFD_def,AFUPDKEY_ALOOKUP]
+  rw[get_fd_content_def,forwardFD_def,AFUPDKEY_ALOOKUP]
   \\ CASE_TAC \\ fs[]
   \\ pairarg_tac \\ fs[] \\ rw[]
   \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[]
@@ -974,10 +974,10 @@ Proof
 QED
 
 Theorem fastForwardFD_forwardFD:
-   get_file_content fs fd = SOME (content,pos) ∧ pos + n ≤ LENGTH content ⇒
+   get_fd_content fs fd = SOME (content,pos) ∧ pos + n ≤ LENGTH content ⇒
    fastForwardFD (forwardFD fs fd n) fd = fastForwardFD fs fd
 Proof
-  rw[fastForwardFD_def,get_file_content_def,forwardFD_def,AFUPDKEY_ALOOKUP]
+  rw[fastForwardFD_def,get_fd_content_def,forwardFD_def,AFUPDKEY_ALOOKUP]
   \\ rw[]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[miscTheory.the_def]
@@ -996,7 +996,7 @@ QED
 
 Definition lineFD_def:
   lineFD fs fd = do
-    (content, pos) <- get_file_content fs fd;
+    (content, pos) <- get_fd_content fs fd;
     assert (pos < LENGTH content);
     let (l,r) = SPLITP ((=)#"\n") (DROP pos content) in
       SOME(l++"\n") od
@@ -1006,7 +1006,7 @@ End
 
 Definition linesFD_def:
  linesFD fs fd =
-   case get_file_content fs fd of
+   case get_fd_content fs fd of
    | NONE => []
    | SOME (content,pos) =>
        MAP (λx. x ++ "\n")
@@ -1096,7 +1096,7 @@ Theorem linesFD_openFileFS_nextFD:
    consistentFS fs ∧ inFS_fname fs f ∧ nextFD fs ≤ fs.maxFD ⇒
    linesFD (openFileFS f fs md 0) (nextFD fs) = MAP explode (all_lines_file fs f)
 Proof
-  rw[linesFD_def,get_file_content_def,ALOOKUP_inFS_fname_openFileFS_nextFD]
+  rw[linesFD_def,get_fd_content_def,ALOOKUP_inFS_fname_openFileFS_nextFD]
   \\ rw[all_lines_file_def,lines_of_def]
   \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
   \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
@@ -1107,7 +1107,7 @@ QED
 
 Definition lineForwardFD_def:
   lineForwardFD fs fd =
-    case get_file_content fs fd of
+    case get_fd_content fs fd of
     | NONE => fs
     | SOME (content, pos) =>
       if pos < LENGTH content
@@ -1124,7 +1124,7 @@ Proof
   \\ TOP_CASE_TAC \\ fs[miscTheory.the_def]
   \\ TOP_CASE_TAC \\ fs[miscTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ fs[forwardFD_def,AFUPDKEY_ALOOKUP,get_file_content_def]
+  \\ fs[forwardFD_def,AFUPDKEY_ALOOKUP,get_fd_content_def]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[miscTheory.the_def]
   \\ fs[IO_fs_component_equality,AFUPDKEY_o]
@@ -1136,9 +1136,9 @@ Proof
   \\ rw[MAX_DEF,NULL_EQ] \\ fs[]
 QED
 
-Theorem IS_SOME_get_file_content_lineForwardFD[simp]:
-   IS_SOME (get_file_content (lineForwardFD fs fd) fd) =
-   IS_SOME (get_file_content fs fd)
+Theorem IS_SOME_get_fd_content_lineForwardFD[simp]:
+   IS_SOME (get_fd_content (lineForwardFD fs fd) fd) =
+   IS_SOME (get_fd_content fs fd)
 Proof
   rw[lineForwardFD_def]
   \\ CASE_TAC \\ simp[]
@@ -1151,7 +1151,7 @@ Theorem lineFD_NONE_lineForwardFD_fastForwardFD:
    lineFD fs fd = NONE ⇒
    lineForwardFD fs fd = fastForwardFD fs fd
 Proof
-  rw[lineFD_def,lineForwardFD_def,fastForwardFD_def,get_file_content_def]
+  rw[lineFD_def,lineForwardFD_def,fastForwardFD_def,get_fd_content_def]
   \\ fs[miscTheory.the_def]
   \\ pairarg_tac \\ fs[miscTheory.the_def]
   \\ rveq \\ fs[miscTheory.the_def]
@@ -1223,7 +1223,7 @@ Proof
   \\ CASE_TAC \\ fs[]
   \\ CASE_TAC \\ fs[]
   \\ pairarg_tac \\ fs[]
-  \\ simp[get_file_content_def]
+  \\ simp[get_fd_content_def]
   \\ simp[forwardFD_def,AFUPDKEY_ALOOKUP]
   \\ CASE_TAC \\ fs[]
 QED
@@ -1250,8 +1250,8 @@ Proof
     \\ simp[FORALL_PROD] )
 QED
 
-Theorem get_file_content_lineForwardFD_forwardFD:
-   ∀fs fd. get_file_content fs fd = SOME (x,pos) ⇒
+Theorem get_fd_content_lineForwardFD_forwardFD:
+   ∀fs fd. get_fd_content fs fd = SOME (x,pos) ⇒
      lineForwardFD fs fd = forwardFD fs fd (LENGTH(FST(SPLITP((=)#"\n")(DROP pos x))) +
                                             if NULL(SND(SPLITP((=)#"\n")(DROP pos x))) then 0 else 1)
 Proof
@@ -1407,22 +1407,22 @@ Proof
   metis_tac[SOME_11,PAIR,FST,SND,lemma]
 QED
 
-Theorem get_file_content_stdout:
+Theorem get_fd_content_stdout:
   STD_streams fs ⇒
-  ∃content pos. get_file_content fs 1 = SOME (content, pos)
+  ∃content pos. get_fd_content fs 1 = SOME (content, pos)
 Proof
-  simp [STD_streams_def, get_file_content_def]
+  simp [STD_streams_def, get_fd_content_def]
   \\ rpt strip_tac
   \\ rename [‘ALOOKUP fs.inode_tbl (UStream «stdout») = SOME out’]
   \\ qexistsl [‘out’, ‘STRLEN out’, ‘(UStream «stdout», WriteMode, STRLEN out)’]
   \\ simp []
 QED
 
-Theorem get_file_content_stderr:
+Theorem get_fd_content_stderr:
   STD_streams fs ⇒
-  ∃content pos. get_file_content fs 2 = SOME (content, pos)
+  ∃content pos. get_fd_content fs 2 = SOME (content, pos)
 Proof
-  simp [STD_streams_def, get_file_content_def]
+  simp [STD_streams_def, get_fd_content_def]
   \\ rpt strip_tac
   \\ rename [‘ALOOKUP fs.inode_tbl (UStream «stderr») = SOME err’]
   \\ qexistsl [‘err’, ‘STRLEN err’, ‘(UStream «stderr», WriteMode, STRLEN err)’]

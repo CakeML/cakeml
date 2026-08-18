@@ -80,13 +80,21 @@ Proof
   rw[IO_fs_component_equality]
 QED
 
-Definition get_file_content_def:
-    get_file_content fs fd =
+Definition get_fd_content_def:
+    get_fd_content fs fd =
       do
         (ino, md, off) <- ALOOKUP fs.infds fd ;
         c <- ALOOKUP fs.inode_tbl ino;
         return (c, off)
       od
+End
+
+(* Returns the (string) content of a file. *)
+Definition get_file_content_def:
+  get_file_content fs fname =
+  case ALOOKUP fs.files fname of
+  | NONE => NONE
+  | SOME iname => ALOOKUP fs.inode_tbl (File iname)
 End
 
 (* find smallest unused descriptor index *)

@@ -2923,7 +2923,7 @@ QED
 
 (* TODO: This gap is very annoying *)
 Theorem fast_forwardFD_forwardFD_exists:
-  get_file_content fs fd = SOME (c,off) ⇒
+  get_fd_content fs fd = SOME (c,off) ⇒
   ∃k. fastForwardFD fs fd = forwardFD fs fd k
 Proof
   EVAL_TAC>>
@@ -2969,7 +2969,7 @@ Theorem check_unsat'_spec:
 Proof
   rw[]>>
   reverse (Cases_on `
-    ∃c off. get_file_content fs fd = SOME (c,off)`)
+    ∃c off. get_fd_content fs fd = SOME (c,off)`)
   >- (
     fs[INSTREAM_LINES_def,INSTREAM_STR_def]>>
     xpull)>>
@@ -3137,7 +3137,7 @@ Proof
         fastForwardFD (forwardFD fs fd k) fd =
         forwardFD (forwardFD fs fd k) fd k'` by
         (match_mp_tac (GEN_ALL fast_forwardFD_forwardFD_exists)>>
-        simp[fsFFIPropsTheory.get_file_content_forwardFD])>>
+        simp[fsFFIPropsTheory.get_fd_content_forwardFD])>>
       simp[forwardFD_o]>>
       qexists_tac`k+k'`>>
       xsimpl)>>

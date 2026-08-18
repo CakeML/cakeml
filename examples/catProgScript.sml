@@ -95,7 +95,7 @@ Proof
        [‘INSTREAM_STR fd is rest (forwardFD fs fd k)’,
         ‘forwardFD fs fd k’, ‘c’]
     \\ simp [] \\ xsimpl)
-  \\ once_rewrite_tac [INSTREAM_STR_get_file_content] \\ xpull
+  \\ once_rewrite_tac [INSTREAM_STR_get_fd_content] \\ xpull
   \\ xapp
   \\ qexistsl [‘emp’, ‘add_stdout (forwardFD fs fd k) (toString c)’, ‘fd’]
   \\ xsimpl

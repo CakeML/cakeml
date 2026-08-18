@@ -469,7 +469,7 @@ Proof
   \\ simp[FORALL_PROD,EXISTS_PROD]
   \\ conj_tac >- metis_tac[] \\ rw[]
   \\ imp_res_tac stdin_11 \\ rw[]
-  \\ imp_res_tac stdin_get_file_content
+  \\ imp_res_tac stdin_get_fd_content
   \\ xlet_auto >- xsimpl
   \\ xif
   >-
@@ -501,7 +501,7 @@ Proof
   >> xlet_auto >- xsimpl
   \\ rename [‘stdin fs inp pos’]
   \\ ‘stdin_content fs = SOME inp ∧ pos = 0’ by
-    (gvs [stdin_def,get_file_content_def]
+    (gvs [stdin_def,get_fd_content_def]
      \\ fs [stdin_content_def,IS_SOME_EXISTS])
   \\ gvs []
   >> xif
