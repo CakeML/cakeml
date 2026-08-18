@@ -280,9 +280,9 @@ Definition eval_def:
      | (SOME (ValWord w1), SOME (ValWord w2)) =>
           SOME (ValWord (if word_cmp cmp w1 w2 then 1w else 0w))
      | _ => NONE) /\
-  (eval s (Shift sh e n) =
-    case eval s e of
-     | SOME (ValWord w) => OPTION_MAP ValWord (word_sh sh w n)
+  (eval s (Shift sh e1 e2) =
+    case (eval s e1, eval s e2) of
+     | (SOME (ValWord w1), SOME (ValWord w2)) => OPTION_MAP ValWord (word_sh sh w1 w2)
      | _ => NONE) /\
   (eval s BaseAddr =
         SOME (ValWord s.base_addr)) /\

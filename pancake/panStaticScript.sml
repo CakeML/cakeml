@@ -991,18 +991,23 @@ Definition static_check_exp_def:
       (* return exp info *)
       return <| sh_bd := WordB NotBased |>
     od ∧
-  static_check_exp ctxt (Shift sop exp n) =
+  static_check_exp ctxt (Shift sop exp1 exp2) =
     do
-      (* check shifted exp *)
-      eret <- static_check_exp ctxt exp;
+      (* check shifted exps *)
+      eret1 <- static_check_exp ctxt exp1;
+      eret2 <- static_check_exp ctxt exp2;
       (* check exp shape *)
-      if ~(sh_bd_has_shape One eret.sh_bd) then
+      if ~(sh_bd_has_shape One eret1.sh_bd) then
         error (ShapeErr $ get_non_word_msg
           (strlit "shifted expression")
-          (sh_bd_to_str eret.sh_bd) ctxt.loc ctxt.scope)
+          (sh_bd_to_str eret1.sh_bd) ctxt.loc ctxt.scope)
+      else if ~(sh_bd_has_shape One eret2.sh_bd) then
+        error (ShapeErr $ get_non_word_msg
+          (strlit "shift expression")
+          (sh_bd_to_str eret2.sh_bd) ctxt.loc ctxt.scope)
       else return ();
       (* return exp info *)
-      return eret
+      return eret2
     od ∧
   static_check_exp ctxt BaseAddr =
     (* return exp info *)

@@ -75,9 +75,10 @@ Definition compile_exp_def:
    let (p', le', tmp', l) = compile_exp ctxt tmp l e' in
      (prog_if cmp p p' le le' (tmp' + 1) (tmp' + 2) l, Var (tmp' + 1), tmp' + 3,
       list_insert [tmp' + 1; tmp' + 2] l)) /\
-  (compile_exp ctxt tmp l (Shift sh e n) =
-   let (p, le, tmp, l) = compile_exp ctxt tmp l e in (p, Shift sh le n, tmp, l)) /\
-
+  (compile_exp ctxt tmp l (Shift sh e e') =
+   let (p, le, tmp, l) = compile_exp ctxt tmp l e in
+   let (p', le', tmp', l) = compile_exp ctxt tmp l e' in
+     (p', Shift sh le le', tmp', l)) /\
   (compile_exps ctxt tmp l cps = (* to generate ind thm *)
    case cps of
    | [] => ([], [], tmp, l)
