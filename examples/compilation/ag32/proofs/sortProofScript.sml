@@ -13,13 +13,14 @@ Libs
 
 Theorem sort_stdin_semantics:
   ∃io_events.
-    semantics_prog (init_state (basis_ffi [«sort»] (stdin_fs input))) init_env
+    semantics_prog (init_state (basis_ffi no_ext [«sort»] (stdin_fs input))) init_env
       sort_prog (Terminate Success io_events) ∧
     (∃output. PERM output (lines_of (implode input)) ∧ SORTED mlstring_le output ∧
-     (extract_fs (stdin_fs input) io_events =
+     (extract_fs no_ext ([«sort»],stdin_fs input) io_events =
       SOME (add_stdout (fastForwardFD (stdin_fs input) 0) (concat output))))
 Proof
-  qspecl_then[`stdin_fs input`,`[«sort»]`]mp_tac (GEN_ALL sort_semantics)
+  qspecl_then[`stdin_fs input`,`[«sort»]`]mp_tac
+    (GEN_ALL (Q.INST [`ext`|->`no_ext`] sort_semantics))
   \\ simp [sort_compiled,ml_progTheory.prog_syntax_ok_semantics]
   \\ `stdin (stdin_fs input) input 0` by EVAL_TAC
   \\ drule TextIOProofTheory.stdin_get_file_content

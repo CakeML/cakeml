@@ -6074,3 +6074,155 @@ Proof
   >> conj_tac >> rw []
   >> qexists_tac `k` >> fs []
 QED
+
+(* -------------------------------------------------------------------------
+   Code labels: the pass only introduces calls to the fresh worker names it
+   allocates, so every label of the output is a label of the input or one of
+   the names strictly below the final next-name.
+   ------------------------------------------------------------------------- *)
+
+Theorem get_code_labels_MAP_Var[local,simp]:
+  BIGUNION (set (MAP get_code_labels (MAP (λn. Var n) vs))) = ∅
+Proof
+  Induct_on ‘vs’ \\ gvs []
+QED
+
+Theorem cb_to_bvi_worker_aux_code_labels[local]:
+  ∀cb loc_opt ptr idx.
+    get_code_labels (cb_to_bvi_worker_aux cb loc_opt ptr idx) = {loc_opt}
+Proof
+  recInduct bvi_tmcTheory.cb_to_bvi_worker_aux_ind
+  \\ simp [bvi_tmcTheory.cb_to_bvi_worker_aux_def, bvi_tmcTheory.optimise_call_def,
+           bvi_tmcTheory.mut_cons_def, bvi_tmcTheory.update_cons_def,
+           closLangTheory.assign_get_code_label_def]
+QED
+
+Theorem cb_to_bvi_worker_code_labels[local]:
+  get_code_labels (cb_to_bvi_worker cb loc_opt ptr idx) = {loc_opt}
+Proof
+  Cases_on ‘cb’
+  \\ simp [bvi_tmcTheory.cb_to_bvi_worker_def, bvi_tmcTheory.optimise_call_def,
+           bvi_tmcTheory.mut_cons_def, bvi_tmcTheory.update_cons_def,
+           closLangTheory.assign_get_code_label_def,
+           cb_to_bvi_worker_aux_code_labels]
+QED
+
+Theorem cb_to_bvi_wrapper_code_labels[local]:
+  get_code_labels (cb_to_bvi_wrapper tag left child right loc_opt) = {loc_opt}
+Proof
+  simp [bvi_tmcTheory.cb_to_bvi_wrapper_def, bvi_tmcTheory.mut_cons_def,
+        bvi_tmcTheory.finalise_cons_def,
+        closLangTheory.assign_get_code_label_def,
+        cb_to_bvi_worker_aux_code_labels]
+QED
+
+Theorem bvi_to_cb_aux_code_labels_lemma[local]:
+  (∀n loc tag exp bs r.
+     bvi_to_cb_aux_sing n loc tag exp = SOME (bs,r) ⇒
+     BIGUNION (set (MAP get_code_labels bs)) ⊆ get_code_labels exp) ∧
+  (∀n loc tag args bs r.
+     bvi_to_cb_aux n loc tag args = SOME (bs,r) ⇒
+     BIGUNION (set (MAP get_code_labels bs)) ⊆
+     BIGUNION (set (MAP get_code_labels args)))
+Proof
+  ho_match_mp_tac bvi_tmcTheory.bvi_to_cb_aux_ind
+  \\ rw []
+  \\ gvs [bvi_tmcTheory.bvi_to_cb_aux_def, bvi_tmcTheory.call_to_cb_def, CaseEq "call_block",
+          CaseEq "prod", CaseEq "option", CaseEq "sum", CaseEq "list"]
+  \\ gvs [SUBSET_DEF] \\ rw [] \\ res_tac \\ gvs []
+QED
+
+Theorem bvi_to_cb_code_labels[local]:
+  ∀n loc exp bs cb.
+    bvi_to_cb n loc exp = SOME (bs,cb) ⇒
+    BIGUNION (set (MAP get_code_labels bs)) ⊆ get_code_labels exp
+Proof
+  Cases_on ‘exp’
+  \\ gvs [bvi_tmcTheory.bvi_to_cb_def, bvi_tmcTheory.call_to_cb_def, CaseEq "prod", CaseEq "option",
+          CaseEq "sum"]
+  \\ rw []
+  >- gvs [SUBSET_DEF]
+  \\ drule (cj 2 bvi_to_cb_aux_code_labels_lemma)
+  \\ gvs [SUBSET_DEF]
+QED
+
+Theorem rewrite_wrapper_code_labels[local]:
+  ∀loc loc_opt n exp y.
+    rewrite_wrapper loc loc_opt n exp = SOME y ⇒
+    get_code_labels y ⊆ get_code_labels exp ∪ {loc_opt}
+Proof
+  recInduct bvi_tmcTheory.rewrite_wrapper_ind
+  \\ rw [bvi_tmcTheory.rewrite_wrapper_def]
+  \\ gvs [CaseEq "option", CaseEq "prod", CaseEq "call_block",
+          cb_to_bvi_wrapper_code_labels]
+  \\ imp_res_tac bvi_to_cb_code_labels
+  \\ gvs [SUBSET_DEF] \\ rw [] \\ res_tac \\ gvs []
+QED
+
+Theorem rewrite_worker_code_labels[local]:
+  ∀loc loc_opt p i n exp.
+    get_code_labels (rewrite_worker loc loc_opt p i n exp) ⊆
+    get_code_labels exp ∪ {loc_opt}
+Proof
+  recInduct bvi_tmcTheory.rewrite_worker_ind
+  \\ rw [bvi_tmcTheory.rewrite_worker_def, bvi_tmcTheory.fill_hole_def,
+         closLangTheory.assign_get_code_label_def]
+  \\ every_case_tac
+  \\ gvs [bvi_tmcTheory.fill_hole_def, closLangTheory.assign_get_code_label_def,
+          cb_to_bvi_worker_code_labels]
+  \\ imp_res_tac bvi_to_cb_code_labels
+  \\ gvs [SUBSET_DEF] \\ rw [] \\ res_tac \\ gvs []
+QED
+
+Theorem compile_exp_code_labels[local]:
+  compile_exp loc next arity exp = SOME (exp_w,exp_k) ⇒
+  get_code_labels exp_w ⊆ get_code_labels exp ∪ {next} ∧
+  get_code_labels exp_k ⊆ get_code_labels exp ∪ {next}
+Proof
+  rw [bvi_tmcTheory.compile_exp_def, CaseEq "option"]
+  \\ imp_res_tac rewrite_wrapper_code_labels
+  \\ gvs [rewrite_worker_code_labels]
+QED
+
+Theorem compile_prog_good_code_labels:
+  ∀n c n2 c2.
+    compile_prog n c = (n2,c2) ∧
+    BIGUNION (set (MAP (get_code_labels o SND o SND) c)) ⊆ all ∧
+    { n + k * bvl_to_bvi_namespaces | k | n + k * bvl_to_bvi_namespaces < n2 } ⊆ all ⇒
+    BIGUNION (set (MAP (get_code_labels o SND o SND) c2)) ⊆ all
+Proof
+  recInduct bvi_tmcTheory.compile_prog_ind
+  \\ simp [bvi_tmcTheory.compile_prog_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ rpt gen_tac \\ strip_tac
+  \\ gvs [CaseEq "option", CaseEq "prod"]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ drule compile_prog_next_mono \\ strip_tac
+  \\ ‘next < n’ by gvs [backend_commonTheory.bvl_to_bvi_namespaces_def]
+  \\ ‘next ∈ all’ by
+       (fs [SUBSET_DEF, PULL_EXISTS]
+        \\ first_x_assum (qspec_then ‘0’ mp_tac) \\ simp [])
+  \\ drule compile_exp_code_labels \\ strip_tac
+  \\ rpt conj_tac
+  >- (gvs [SUBSET_DEF] \\ rw [] \\ res_tac \\ gvs [])
+  >- (gvs [SUBSET_DEF] \\ rw [] \\ res_tac \\ gvs [])
+  \\ first_x_assum irule
+  \\ gvs [SUBSET_DEF, PULL_EXISTS] \\ rw []
+  \\ qpat_x_assum ‘∀kk. _ ⇒ next + kk * bvl_to_bvi_namespaces ∈ all’
+       (qspec_then ‘k' + 1’ mp_tac)
+  \\ simp [RIGHT_ADD_DISTRIB]
+QED
+
+Theorem compile_prog_keeps_names:
+  ∀next xs next' ys.
+    compile_prog next xs = (next',ys) ∧ MEM x (MAP FST xs) ⇒
+    MEM x (MAP FST ys)
+Proof
+  recInduct bvi_tmcTheory.compile_prog_ind
+  \\ simp [bvi_tmcTheory.compile_prog_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ rpt gen_tac
+  \\ gvs [CaseEq "option", CaseEq "prod"]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ rw [] \\ gvs []
+QED

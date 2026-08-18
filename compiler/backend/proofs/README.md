@@ -7,6 +7,12 @@ Composes the correctness theorems for all of the compiler phases.
 [backend_itreeProofScript.sml](backend_itreeProofScript.sml):
 Compiler correctness for the itree CakeML semantics
 
+[bvi_inlineProofScript.sml](bvi_inlineProofScript.sml):
+Correctness of the CPR worker-wrapper BVI inliner. The cache [cs] is
+persistent across incremental compilation: a cache hit causes the
+matching call to be inlined, and cache entries are trusted only when
+their bodies and arities agree with the compiled code table.
+
 [bvi_letProofScript.sml](bvi_letProofScript.sml):
 Correctness proof for bvi_let
 

@@ -1109,7 +1109,7 @@ Proof
   \\ EVAL_TAC
 QED
 
-val ffi_inst = type_of “basis_ffi _ _” |> dest_type |> snd |> hd
+val ffi_inst = type_of “basis_ffi _ _ _” |> dest_type |> snd |> hd
 
 (*
   max_print_depth := 15
@@ -1122,7 +1122,7 @@ Theorem evaluate_decs_compiler64_prog:
   has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
   s.compiler_state = BACKEND_CONFIG_v conf ∧
   file_content fs «config_enc_str.txt» = SOME (encode_backend_config conf) ∧
-  evaluate_decs (init_state (basis_ffi cl fs) with
+  evaluate_decs (init_state (basis_ffi ext cl fs) with
                             <| clock := ck; eval_state := (SOME (EvalDecs s)) |>)
       init_env compiler64_prog = (s1,res) ⇒
   res ≠ Rerr (Rabort Rtype_error)
@@ -1135,7 +1135,7 @@ Proof
   \\ strip_tac
   \\ assume_tac (Decls_FRONT_compiler64_prog
        |> REWRITE_RULE [ml_progTheory.ML_code_env_def]
-       |> Q.GEN ‘ffi’ |> Q.ISPEC ‘basis_ffi cl fs’
+       |> Q.GEN ‘ffi’ |> Q.ISPEC ‘basis_ffi ext cl fs’
        |> Q.INST [‘eval_state_var’|->‘s’])
   \\ dxrule ml_progTheory.Decls_IMP_Prog
   \\ ‘prog_syntax_ok (FRONT compiler64_prog)’ by
@@ -1255,7 +1255,7 @@ Proof
            namespaceTheory.nsOptBind_def,evaluate_Lit]
   \\ qmatch_goalsub_abbrev_tac ‘evaluate st8 env8’
   \\ qspecl_then
-       [‘st8’,‘env8’,‘Short «start_repl»’,‘Short « v0»’,‘basis_ffi cl fs’,‘TL cl’] mp_tac
+       [‘st8’,‘env8’,‘Short «start_repl»’,‘Short « v0»’,‘basis_ffi ext cl fs’,‘TL cl’] mp_tac
     (Q.GENL [‘st’,‘env’,‘start_repl_str’,‘arg_str’,‘ffi’,‘cl’,‘s1’,‘s’] evaluate_start_repl)
   \\ simp [Abbr‘st8’,Abbr‘env8’,Abbr‘ev’]
   \\ fs [backend_enc_decTheory.encode_backend_config_thm]
@@ -1285,7 +1285,7 @@ Theorem semantics_prog_compiler64_prog:
   s.compiler_state = BACKEND_CONFIG_v conf ∧
   file_content fs «config_enc_str.txt» = SOME (encode_backend_config conf) ⇒
   Fail ∉ semantics_prog
-           (init_state (basis_ffi cl fs) with eval_state := SOME (EvalDecs s))
+           (init_state (basis_ffi ext cl fs) with eval_state := SOME (EvalDecs s))
            init_env compiler64_prog
 Proof
   fs [IN_DEF,semanticsTheory.semantics_prog_def] \\ rpt strip_tac

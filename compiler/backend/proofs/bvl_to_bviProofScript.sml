@@ -7,7 +7,7 @@ Ancestors
   bvl_handleProof[qualified] backendProps bvlProps
   bvl_constProof[qualified] bvi_letProof[qualified]
   bvl_inlineProof[qualified] bvi_tailrecProof[qualified]
-  bvi_tmcProof[qualified]
+  bvi_inlineProof[qualified] bvi_tmcProof[qualified]
   bvl_to_bvi bviProps
 Libs
   preamble helperLib[qualified]
@@ -4740,7 +4740,8 @@ Definition full_cc_def:
     let cut = c.exp_cut in
       state_cc (compile_inc limit split cut) (state_cc compile_inc
         (state_cc bvi_tailrec$compile_prog
-          (state_cc bvi_tmc$compile_prog cc)))
+          (state_cc bvi_tmc$compile_prog
+            (state_cc bvi_inline$compile_inc cc))))
 End
 
 Definition full_co_def:
@@ -4748,9 +4749,10 @@ Definition full_co_def:
     let limit = c.inline_size_limit in
     let split = c.split_main_at_seq in
     let cut = c.exp_cut in
-      state_co bvi_tmc$compile_prog (state_co bvi_tailrec$compile_prog
-        (state_co compile_inc
-          (state_co (compile_inc limit split cut) co)))
+      state_co bvi_inline$compile_inc
+        (state_co bvi_tmc$compile_prog (state_co bvi_tailrec$compile_prog
+          (state_co compile_inc
+            (state_co (compile_inc limit split cut) co))))
 End
 
 Theorem compile_prog_avoids_nss_2:
@@ -5071,12 +5073,29 @@ Proof
   \\ imp_res_tac tailrec_compile_exp_no_mutcons \\ gvs []
 QED
 
+(* A name outside namespace 2 cannot be one of bvi_tailrec's fresh names,
+   which are all congruent to num_stubs + 2 modulo the namespace count. *)
+(* NB free_names must be qualified: bvi_tmcProof defines an identically
+   printing (and identically stated) constant of the same name. *)
+Theorem EVERY_free_names_not_in_ns_2[local]:
+   EVERY (λn. ¬in_ns 2 (n − num_stubs)) (MAP FST xs) ⇒
+   EVERY (bvi_tailrecProof$free_names (num_stubs + 2) o FST) xs
+Proof
+  rw[EVERY_MEM, EVERY_MAP, in_ns_def,
+     bvi_tailrecProofTheory.free_names_def]
+  \\ res_tac \\ CCONTR_TAC \\ gvs []
+  \\ first_x_assum drule
+  \\ qpat_x_assum `_ = FST e` (assume_tac o GSYM) \\ gvs []
+  \\ assume_tac (EVAL ``nss``) \\ simp [arithmeticTheory.MOD_TIMES]
+QED
+
 Theorem compile_semantics:
-   compile start c names prog = (start', prog', inlines, n1, n2, n3, names') ∧
+   compile start c names prog = (start',prog',inlines,bvi_inlines,n1,n2,n3,names') ∧
    FST (FST (co 0)) = inlines /\
    FST (SND (FST (co 0))) = n1 /\
    FST (SND (SND (FST (co 0)))) = n2 /\
    FST (SND (SND (SND (FST (co 0))))) = n3 /\
+   FST (SND (SND (SND (SND (FST (co 0)))))) = bvi_inlines /\
    (∀n. ALL_DISTINCT (MAP FST (SND (co n))) ∧
         num_stubs ≤ FST(SND(SND(FST(co n)))) ∧ in_ns 2 (FST(SND(SND(FST(co n))))) ∧
         num_stubs ≤ FST(SND(SND(SND(FST(co n))))) ∧
@@ -5110,8 +5129,8 @@ Proof
             |> ONCE_REWRITE_RULE [CONJ_COMM] |> Q.GENL [`n`,`prog2`])
   \\ disch_then (qspec_then `num_stubs + 2` mp_tac) \\ fs []
   \\ reverse impl_tac
+  (* conclusion branch: thread the bvi_tmc pass through *)
   THEN1
-   (* conclusion branch: thread the bvi_tmc pass through *)
    (disch_then (assume_tac o GSYM) \\ fs []
     \\ qpat_x_assum `bviSem$semantics _ (fromAList code') _ _ _ = _`
          (assume_tac o GSYM) \\ fs[]
@@ -5119,12 +5138,22 @@ Proof
               |> REWRITE_RULE [CONJ_ASSOC]
               |> ONCE_REWRITE_RULE [CONJ_COMM] |> Q.GENL [`n`,`prog2`])
     \\ disch_then (qspec_then `num_stubs + 3` mp_tac) \\ fs []
-    \\ reverse impl_tac
-    THEN1 (disch_then (assume_tac o GSYM) \\ fs [])
+    \\ reverse impl_keep_tac
+    (* conclusion branch: thread the bvi_inline pass through *)
+    THEN1
+     (disch_then assume_tac \\ fs []
+      \\ old_drule (bvi_inlineProofTheory.compile_prog_semantics
+              |> ONCE_REWRITE_RULE [bvi_letProofTheory.IMP_COMM] |> GEN_ALL)
+      \\ `ALL_DISTINCT (MAP FST code'')` by
+           (drule bvi_tmcProofTheory.compile_prog_ALL_DISTINCT
+            \\ fs [bvi_tmcProofTheory.input_condition_def])
+      \\ disch_then old_drule
+      \\ impl_tac >- simp [backendPropsTheory.FST_state_co]
+      \\ simp [])
     \\ simp [state_co_def,UNCURRY]
     \\ reverse conj_asm2_tac
+    (* domain condition: ns-3 names of bvi_tmc output bounded *)
     THEN1
-     (* domain condition: ns-3 names of bvi_tmc output bounded *)
      (rw[]
       \\ old_drule (GEN_ALL bvi_tmcProofTheory.compile_prog_MEM)
       \\ disch_then old_drule \\ strip_tac
@@ -5147,8 +5176,8 @@ Proof
       \\ asm_simp_tac std_ss [arithmeticTheory.MOD_TIMES]
       \\ simp[arithmeticTheory.MOD_TIMES])
     \\ conj_tac
+    (* input_condition for the bvi_tailrec output code' (ns 3) *)
     >-
-     (* input_condition for the bvi_tailrec output code' (ns 3) *)
      (`!x. MEM x (MAP FST code') /\ x MOD nss = 3 ==> x <= num_stubs` by (
         rpt strip_tac
         \\ old_drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
@@ -5351,64 +5380,19 @@ Proof
 QED
 
 
-(* -- old version of the above proof --
-Theorem compile_semantics:
-   compile start c prog = (start', prog', n1, n2) ∧
-   ALL_DISTINCT (MAP FST prog) ∧
-   c.next_name2 = num_stubs + 2 + x * nss ∧
-   (∀n. EVERY ((λe. handle_ok [e]) o SND o SND) (SND (co n))) ∧
-   c.next_name1 ≤ FST (FST (co 0)) (* TODO:fix*) ∧
-   semantics (ffi0:'ffi ffi_state) romAList prog) co (state_cc compile_inc cc) start ≠ Fail
-   ⇒
-   semantics ffi0 (fromAList prog') (state_co compile_inc co) cc start' =
-   semantics ffi0 (fromAList prog) co (state_cc compile_inc cc) start
-Proof
-  srw_tac[][compile_def]
-  \\ fs [LET_THM]
-  \\ rpt (pairarg_tac \\ fs []) \\ rveq
-  \\ old_drule (GEN_ALL compile_prog_semantics)
-  \\ fs [bvl_inlineProofTheory.MAP_FST_compile_prog]
-  \\ disch_then (qspec_then `ffi0` mp_tac)
-  \\ rewrite_tac [GSYM AND_IMP_INTRO]
-  \\ rename1 `_ c.exp_cut prog = (_,prog3)`
-  \\ `ALL_DISTINCT (MAP FST prog3)` by
-        metis_tac [bvl_inlineProofTheory.MAP_FST_compile_prog,PAIR,FST,SND]
-  \\ fs []
-  \\ impl_tac THEN1 metis_tac [bvl_inlineProofTheory.compile_prog_handle_ok]
-  \\ impl_tac
-  THEN1
-   (imp_res_tac bvl_inlineProofTheory.compile_prog_semantics
-    \\ metis_tac [PAIR,FST,SND])
-  \\ strip_tac
-  \\ sg `EVERY (free_names c.next_name2 o FST) code /\
-         ALL_DISTINCT (MAP FST code)`
-  THEN1
-   (old_drule compile_prog_distinct_locs
-    \\ fs [bvl_inlineProofTheory.MAP_FST_compile_prog]
-    \\ fs [EVERY_MEM,MEM_FILTER,bvi_tailrecProofTheory.free_names_def,
-           FORALL_PROD,MEM_MAP,PULL_EXISTS,between_def]
-    \\ rpt strip_tac \\ rveq \\ fs []
-    \\ res_tac \\ fs []
-    \\ `¬in_ns 2 (((k + x) * nss)+2)` by metis_tac[ADD_ASSOC,ADD_COMM,
-                                                   RIGHT_ADD_DISTRIB]
-    \\ fs[])
-  \\ old_drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_semantics)
-  \\ disch_then old_drule
-  \\ simp [bvi_tailrecTheory.compile_prog_def]
-  \\ disch_then (qspecl_then [`loc`,`ffi0`] mp_tac)
-  \\ metis_tac [bvl_inlineProofTheory.compile_prog_semantics,PAIR,FST,SND]
-QED
-*)
-
 Theorem compile_distinct_names:
-    bvl_to_bvi$compile n0 c ns p2 = (k,p3,n1,n2,ns') /\
+    bvl_to_bvi$compile n0 c ns p2 = (k,p3,l,bl,n1,n2,ns') /\
    ALL_DISTINCT (MAP FST p2) /\
    c.next_name2 = bvl_num_stubs + 2 + n02 * nss
    ==>
    EVERY (λn. data_num_stubs ≤ n) (MAP FST p3) /\
    ALL_DISTINCT (MAP FST p3)
 Proof
-  fs[bvl_to_bviTheory.compile_def] >> strip_tac >> rpt (pairarg_tac>>fs[]>>rveq>>fs[])
+  fs[bvl_to_bviTheory.compile_def,bvi_inlineTheory.compile_prog_def]
+  >> strip_tac >> rpt (pairarg_tac>>fs[]>>rveq>>fs[])
+  (* bvi_inline preserves the set of names, so the goal is about the
+     bvi_tmc output *)
+  \\ imp_res_tac bvi_inlineProofTheory.compile_inc_MAP_FST \\ fs[]
   \\ `ALL_DISTINCT (MAP FST prog)` by
        metis_tac [bvl_inlineProofTheory.compile_prog_names,PAIR,FST,SND]
   \\ `ALL_DISTINCT (MAP FST code) /\
@@ -5482,12 +5466,19 @@ Theorem ALL_DISTINCT_MAP_FST_SND_full_co:
 Proof
   rw[full_co_def, UNCURRY, backendPropsTheory.FST_state_co,
         backendPropsTheory.SND_state_co]
+  (* bvi_inline runs last and preserves the names *)
+  \\ qmatch_goalsub_abbrev_tac`bvi_inline$compile_inc cs ys`
+  \\ Cases_on`bvi_inline$compile_inc cs ys`
+  \\ old_drule bvi_inlineProofTheory.compile_inc_ALL_DISTINCT
+  \\ impl_tac
+  >- (simp[Abbr`ys`]
   \\ qmatch_goalsub_abbrev_tac`bvi_tmc$compile_prog M YS`
-  \\ Cases_on`bvi_tmc$compile_prog M YS`
-  \\ qsuff_tac `ALL_DISTINCT (MAP FST r) ∧ EVERY (free_names q ∘ FST) r` >- simp[]
-  \\ irule bvi_tmcProofTheory.compile_prog_ALL_DISTINCT
-  \\ qexists_tac `M` \\ qexists_tac `YS` \\ simp[]
-  \\ conj_asm1_tac
+      \\ Cases_on`bvi_tmc$compile_prog M YS`
+      \\ qsuff_tac `ALL_DISTINCT (MAP FST r') ∧
+                  EVERY (bvi_tmcProof$free_names q' ∘ FST) r'` >- simp[]
+      \\ irule bvi_tmcProofTheory.compile_prog_ALL_DISTINCT
+      \\ qexists_tac `M` \\ qexists_tac `YS` \\ simp[]
+      \\ conj_asm1_tac
   >- (
     (* ALL_DISTINCT (MAP FST YS) *)
     simp[Abbr`YS`, backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
@@ -5518,33 +5509,34 @@ Proof
     \\ qpat_x_assum`_ MOD _ = _`mp_tac
     \\ EVAL_TAC \\ simp[]
     \\ rpt strip_tac \\ fs[EVAL ``nss``])
-  (* EVERY (free_names M ∘ FST) YS : every YS name avoids ns 3, while M ≡ 3 *)
-  \\ simp[Abbr`YS`, backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
-  \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog m2 xs`
-  \\ Cases_on`bvi_tailrec$compile_prog m2 xs`
-  \\ simp[EVERY_MEM, bvi_tmcProofTheory.free_names_def, bvi_tailrecProofTheory.free_names_def]
-  \\ rpt strip_tac
-  \\ `MEM (FST e) (MAP FST r')` by (simp[MEM_MAP] \\ metis_tac[])
-  \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
-  \\ disch_then drule \\ strip_tac
-  \\ `FST e MOD nss = 3` by
+      (* EVERY (free_names M ∘ FST) YS : every YS name avoids ns 3, while M ≡ 3 *)
+      \\ simp[Abbr`YS`, backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
+      \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog m2 xs`
+      \\ Cases_on`bvi_tailrec$compile_prog m2 xs`
+      \\ simp[EVERY_MEM, bvi_tmcProofTheory.free_names_def, bvi_tailrecProofTheory.free_names_def]
+      \\ rpt strip_tac
+      \\ `MEM (FST e) (MAP FST r'')` by (simp[MEM_MAP] \\ qexists_tac `e` \\ simp[])
+      \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
+      \\ disch_then drule \\ strip_tac
+      \\ `FST e MOD nss = 3` by
        (qpat_x_assum `M + k * nss = FST e` (assume_tac o GSYM)
         \\ asm_simp_tac std_ss [] \\ assume_tac (EVAL ``nss``)
         \\ simp[Once arithmeticTheory.ADD_COMM] \\ simp[arithmeticTheory.MOD_TIMES] \\ fs[])
-  \\ TRY (
+      \\ TRY (
        `FST e MOD nss = 2` by
          (qpat_x_assum `FST e = m2 + k' * nss` assume_tac
           \\ asm_simp_tac std_ss [] \\ assume_tac (EVAL ``nss``)
           \\ simp[Once arithmeticTheory.ADD_COMM] \\ simp[arithmeticTheory.MOD_TIMES] \\ fs[])
        \\ fs[] \\ NO_TAC)
-  \\ qpat_x_assum `Abbrev (xs = _)` mp_tac
-  \\ qmatch_goalsub_abbrev_tac `compile_inc V P`
-  \\ Cases_on `compile_inc V P` \\ strip_tac
-  \\ `xs = r''` by fs[markerTheory.Abbrev_def] \\ rveq
-  \\ drule (GEN_ALL compile_inc_next_range)
-  \\ disch_then drule
-  \\ `FST e MOD nss <> 0 /\ FST e MOD nss <> 1` by fs[]
-  \\ rw[] \\ fs[] \\ rfs[]
+      \\ qpat_x_assum `Abbrev (xs = _)` mp_tac
+      \\ qmatch_goalsub_abbrev_tac `compile_inc V P`
+      \\ Cases_on `compile_inc V P` \\ strip_tac
+      \\ `xs = r'''` by fs[markerTheory.Abbrev_def] \\ rveq
+      \\ drule (GEN_ALL compile_inc_next_range)
+      \\ disch_then drule
+      \\ `FST e MOD nss <> 0 /\ FST e MOD nss <> 1` by fs[]
+      \\ rw[] \\ fs[] \\ rfs[])
+  \\ simp[]
 QED
 
 
@@ -5777,6 +5769,51 @@ Proof
   \\ rpt conj_tac
   \\ CONV_TAC(LAND_CONV EVAL) \\ simp[] \\ EVAL_TAC
   \\ simp[]
+QED
+
+(* The code-label containment for the whole pass boundary, composing all four
+   stages of [compile]: bvl_inline, compile_prog, bvi_tailrec and bvi_inline.
+   The last two only ever shrink the label set relative to the names they keep,
+   so the shape matches compile_prog_get_code_labels above, widened by the
+   fresh names bvi_tailrec allocates. *)
+Theorem compile_get_code_labels:
+   ∀start c names prog loc code inlines bvi_inlines n1 n2 n3 names'.
+   bvl_to_bvi$compile start c names prog =
+     (loc,code,inlines,bvi_inlines,n1,n2,n3,names') ⇒
+   BIGUNION (set (MAP (get_code_labels o SND o SND) code)) ⊆
+     num_stubs + start * nss INSERT
+     set (MAP FST code) ∪
+     IMAGE (λk. num_stubs + (k * nss))
+       (BIGUNION (set (MAP (get_code_labels o SND o SND) prog))) ∪
+     { num_stubs + 2 + k * nss | k | num_stubs + 2 + k * nss < n2 } ∪
+     { num_stubs + 3 + k * nss | k | num_stubs + 3 + k * nss < n3 }
+Proof
+  rw[bvl_to_bviTheory.compile_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ old_drule bvi_inlineProofTheory.compile_prog_code_labels
+  \\ strip_tac
+  \\ irule SUBSET_TRANS
+  \\ first_assum (irule_at (Pos hd))
+  \\ old_drule (GEN_ALL bvi_tmcProofTheory.compile_prog_good_code_labels)
+  \\ disch_then irule
+  \\ reverse conj_tac
+  >- (rw [SUBSET_DEF] \\ metis_tac [])
+  \\ old_drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_good_code_labels)
+  \\ disch_then irule
+  \\ reverse conj_tac
+  >- (rw [SUBSET_DEF] \\ metis_tac [])
+  \\ old_drule (GEN_ALL compile_prog_get_code_labels)
+  \\ disch_then (fn th => irule SUBSET_TRANS \\ irule_at (Pos hd) th)
+  \\ old_drule (GEN_ALL bvl_inlineProofTheory.compile_prog_get_code_labels)
+  \\ strip_tac
+  \\ qpat_x_assum `bvi_inline$compile_prog _ = _`
+       (mp_tac o REWRITE_RULE [bvi_inlineTheory.compile_prog_def])
+  \\ strip_tac
+  \\ imp_res_tac bvi_inlineProofTheory.compile_inc_MAP_FST
+  \\ imp_res_tac bvi_tailrecProofTheory.compile_prog_keeps_names
+  \\ imp_res_tac bvi_tmcProofTheory.compile_prog_keeps_names
+  \\ fs [SUBSET_DEF]
+  \\ metis_tac []
 QED
 
 Theorem compile_list_code_labels_domain:

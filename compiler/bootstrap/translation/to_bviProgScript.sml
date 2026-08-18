@@ -108,6 +108,27 @@ val r = translate bvi_tailrecTheory.rewrite_PMATCH;
 val r = translate bvi_tailrecTheory.compile_prog_def;
 
 (* ------------------------------------------------------------------------- *)
+(* bvi_inline                                                                *)
+(* ------------------------------------------------------------------------- *)
+
+val r = translate bvi_inlineTheory.bvi_mk_tick_def;
+
+val r = translate bvi_inlineTheory.canonical_wrapper_def;
+val r = translate bvi_inlineTheory.wrapper_ok_def;
+
+val r = translate bvi_inlineTheory.inline_exp_def;
+
+val r = translate (bvi_inlineTheory.remove_ticks_exp_def
+                     |> PURE_REWRITE_RULE [oneline OPTION_MAP_DEF, o_THM]);
+
+val r = translate bvi_inlineTheory.inline_all_def;
+val r = translate bvi_inlineTheory.compile_inc_def;
+val r = translate bvi_inlineTheory.compile_prog_def;
+
+val _ = r |> hyp |> null orelse
+        failwith "Unproved side condition in the translation of bvi_inlineTheory.compile_prog_def.";
+
+(* ------------------------------------------------------------------------- *)
 (* bvi_tmc                                                                   *)
 (* ------------------------------------------------------------------------- *)
 

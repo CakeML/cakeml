@@ -52,9 +52,11 @@ Definition compile_def:
     let (c',p,names) = clos_to_bvl$compile c.clos_conf p in
     let c = c with clos_conf := c' in
     let _ = empty_ffi «finished: clos_to_bvl» in
-    let (s,p,l,n1,n2,n3,names) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf names p in
+    let (s,p,l,bl,n1,n2,n3,names) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf names p in
     let c = c with clos_conf updated_by (λc. c with start:=s) in
-    let c = c with bvl_conf updated_by (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2; next_name3 := n3 |>) in
+    let c = c with bvl_conf updated_by (λc. c with
+      <| inlines := l; bvi_inlines := bl;
+         next_name1 := n1; next_name2 := n2; next_name3 := n3 |>) in
     let _ = empty_ffi «finished: bvl_to_bvi» in
     let p = bvi_to_data$compile_prog p in
     let _ = empty_ffi «finished: bvi_to_data» in
@@ -104,12 +106,14 @@ End
 Definition to_bvi_def:
   to_bvi c p =
   let (c,p,names) = to_bvl c p in
-  let (s,p,l,n1,n2,n3,names) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf names p in
+  let (s,p,l,bl,n1,n2,n3,names) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf names p in
   let names = sptree$union (sptree$fromAList $ (data_to_word$stub_names () ++
     word_to_stack$stub_names () ++ stack_alloc$stub_names () ++
     stack_remove$stub_names ())) names in
   let c = c with clos_conf updated_by (λc. c with start := s) in
-  let c = c with bvl_conf updated_by (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2; next_name3 := n3 |>) in
+  let c = c with bvl_conf updated_by (λc. c with
+    <| inlines := l; bvi_inlines := bl;
+       next_name1 := n1; next_name2 := n2; next_name3 := n3 |>) in
   (c,p,names)
 End
 
@@ -259,12 +263,14 @@ End
 
 Definition from_bvl_def:
   from_bvl asm_conf c names p =
-  let (s,p,l,n1,n2,n3,names) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf names p in
+  let (s,p,l,bl,n1,n2,n3,names) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf names p in
   let names = sptree$union (sptree$fromAList $ (data_to_word$stub_names () ++
     word_to_stack$stub_names () ++ stack_alloc$stub_names () ++
     stack_remove$stub_names ())) names in
   let c = c with clos_conf updated_by (λc. c with start:=s) in
-  let c = c with bvl_conf updated_by (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2; next_name3 := n3 |>) in
+  let c = c with bvl_conf updated_by (λc. c with
+    <| inlines := l; bvi_inlines := bl;
+       next_name1 := n1; next_name2 := n2; next_name3 := n3 |>) in
   from_bvi asm_conf c names p
 End
 

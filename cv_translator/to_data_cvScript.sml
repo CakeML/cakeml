@@ -415,51 +415,13 @@ val _ = cv_auto_trans encode_pat_alt_def
 
 val _ = cv_trans $ GSYM $ cj 1 encode_pat_alt_thm
 
-Definition exh_pat_alt_def:
-  exh_pat_alt Any = T /\
-  exh_pat_alt (Or p1 p2) = (exh_pat_alt p1 \/ exh_pat_alt p2) /\
-  exh_pat_alt (Cons NONE ps) = exh_pats_alt ps /\
-  exh_pat_alt _ = F ∧
-  exh_pats_alt [] = T ∧
-  exh_pats_alt (x::xs) = (exh_pat_alt x ∧ exh_pats_alt xs)
-End
+val _ = cv_trans pattern_exhTheory.mk_refs_def;
+val _ = cv_trans pattern_exhTheory.mk_conses_def;
+val _ = cv_trans pattern_exhTheory.add_head_def;
+val _ = cv_trans pattern_exhTheory.mk_prods_def;
+val _ = cv_trans pattern_exhTheory.expand_def;
 
-val _ = cv_trans exh_pat_alt_def
-
-Theorem exh_pat_alt_thm:
-  (∀p. exh_pat_alt p = exh_pat p) ∧
-  (∀ps. exh_pats_alt ps = EVERY exh_pat ps)
-Proof
-  Induct >>
-  rw[exh_pat_alt_def,pattern_compTheory.exh_pat_def] >>
-  rename1 ‘Cons cc’ >> Cases_on ‘cc’ >>
-  rw[exh_pat_alt_def,pattern_compTheory.exh_pat_def] >>
-  metis_tac[]
-QED
-
-val _ = cv_trans $ GSYM $ cj 1 exh_pat_alt_thm
-
-Definition sib_exists_alt_def:
-  sib_exists_alt [] t l = F ∧
-  sib_exists_alt ((Cons (SOME (t1,_)) ps) :: xs) t l =
-    (if (t = t1 ∧ l = LENGTH ps) then T else sib_exists_alt xs t l) ∧
-  sib_exists_alt _ _ _ = F
-End
-
-val _ = cv_trans sib_exists_alt_def
-
-Theorem sib_exists_alt_thm:
-  ∀xs tl. sib_exists xs tl = sib_exists_alt xs (FST tl) (SND tl)
-Proof
-  simp[FORALL_PROD] >>
-  recInduct sib_exists_alt_ind >>
-  rw[sib_exists_alt_def,pattern_compTheory.sib_exists_def] >>
-  metis_tac[]
-QED
-
-val _ = cv_trans sib_exists_alt_thm
-
-val _ = cv_auto_trans pattern_compTheory.exh_rows_def
+val _ = cv_auto_trans pattern_exhTheory.exh_rows_eq;
 
 val _ = cv_auto_trans pattern_compTheory.pat_to_guard_def
 
@@ -2609,6 +2571,42 @@ Proof
 QED
 
 val _ = cv_trans bvi_letTheory.compile_exp_eq;
+
+(* bvi_inline *)
+
+val pre = cv_trans_pre "" bvi_inlineTheory.bvi_mk_tick_eq;
+Theorem bvi_inline_bvi_mk_tick_pre[cv_pre,local]:
+  ∀n e. bvi_inline_bvi_mk_tick_pre n e
+Proof
+  Induct \\ simp [Once pre]
+QED
+
+val _ = cv_auto_trans bvi_inlineTheory.canonical_wrapper_def;
+val _ = cv_auto_trans bvi_inlineTheory.wrapper_ok_def;
+
+val pre = cv_auto_trans_pre "" (bvi_inlineTheory.inline_exp_def |> measure_args [1,1]);
+Theorem bvi_inline_inline_exp_pre[cv_pre,local]:
+  (∀cs v. bvi_inline_inline_exp_pre cs v) ∧
+  (∀cs v. bvi_inline_inline_exps_pre cs v)
+Proof
+  ho_match_mp_tac bvi_inlineTheory.inline_exp_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val pre = cv_auto_trans_pre ""
+             (bvi_inlineTheory.remove_ticks_exp_def
+                |> PURE_REWRITE_RULE [oneline OPTION_MAP_DEF, o_THM]);
+Theorem bvi_inline_remove_ticks_exp_pre[cv_pre,local]:
+  (∀v. bvi_inline_remove_ticks_exp_pre v) ∧
+  (∀v. bvi_inline_remove_ticks_exps_pre v)
+Proof
+  ho_match_mp_tac bvi_inlineTheory.remove_ticks_exp_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val _ = cv_auto_trans bvi_inlineTheory.inline_all_def;
+val _ = cv_auto_trans bvi_inlineTheory.compile_inc_def;
+val _ = cv_auto_trans bvi_inlineTheory.compile_prog_def;
 
 (* bvi_tmc *)
 
