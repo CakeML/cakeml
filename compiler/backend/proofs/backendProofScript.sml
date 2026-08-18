@@ -3703,7 +3703,7 @@ Proof
   \\ disch_tac \\ fs []
   \\ fs [attach_bitmaps_def] \\ rveq \\ fs [] \\
   fs[targetSemTheory.installed_def] \\
-  qmatch_assum_abbrev_tac`good_init_state mc ms bytes cbspace tar_st m dm sdm io_regs cc_regs` \\
+  qmatch_assum_abbrev_tac`good_init_state mc ms bytes cbspace tar_st m dm sdm` \\
   qpat_x_assum`Abbrev(p7 = _)` mp_tac>>
   qmatch_goalsub_abbrev_tac`compile _ _ _ stk stoff`>>
   strip_tac \\
@@ -3715,7 +3715,7 @@ Proof
         has_fp_tern := (mc.target.config.ISA = ARMv7 /\ 2 < mc.target.config.fp_reg_count) |>)`
   \\ qabbrev_tac`lab_st:('a,lab_to_target$config,'ffi) labSem$state =
       (lab_to_targetProof$make_init
-      mc ffi io_regs cc_regs tar_st m (dm ∩ byte_aligned) (sdm ∩ byte_aligned) ms p7 (lab_to_target$compile mc.target.config)
+      mc ffi tar_st m (dm ∩ byte_aligned) (sdm ∩ byte_aligned) ms p7 (lab_to_target$compile mc.target.config)
        (mc.target.get_pc ms + n2w (LENGTH bytes)) cbspace lab_oracle)`
 
   \\ qabbrev_tac`stack_st_opt =
@@ -3937,9 +3937,10 @@ Proof
     \\ simp[ensure_fp_conf_ok_def]
     \\ AP_THM_TAC \\ AP_THM_TAC
     \\ simp[full_make_init_compile]
-    \\ simp[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m n).compile``]
-    \\ simp[Abbr`stoff`] )
-  \\ `lab_st.ffi = ffi` by ( fs[Abbr`lab_st`] ) \\
+    \\ simp[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l).compile``]
+    \\ simp[Abbr`stoff`] ) \\
+
+  `lab_st.ffi = ffi` by ( fs[Abbr`lab_st`] ) \\
   `word_st.ffi = ffi` by (
     simp[Abbr`word_st`,word_to_stackProofTheory.make_init_def] \\
     fs[Abbr`stack_st`,Abbr`lab_st`,Abbr`stack_st_opt`] \\
@@ -4067,6 +4068,8 @@ Proof
     simp_tac std_ss [Once EVERY_FST_SND] \\
     qunabbrev_tac`stack_st` \\
     fs[Abbr`lab_st`,make_init_def] \\
+    fs[targetPropsTheory.target_io_regs_callee_saved,
+       targetPropsTheory.target_cc_regs_callee_saved] \\
     fs[mc_init_ok_def, mc_conf_ok_def, Abbr`stk`,byte_aligned_MOD] \\
     `max_heap_limit (:'a) c4_data_conf = max_heap_limit (:'a) c.data_conf` by
       (simp[Abbr`c4_data_conf`] \\ EVAL_TAC) \\
@@ -4271,7 +4274,7 @@ Proof
     rewrite_tac [implements'_def,extend_with_resource_limit'_def] \\
     simp[]
     \\ fs[full_make_init_compile]
-    \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m n).compile``]
+    \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l).compile``]
     \\ fs[Abbr`stoff`]
     \\ fs[EVAL``(word_to_stackProof$make_init _ a b c d).compile``]
     \\ fs[Abbr`kkk`,Abbr`stk`,Abbr`stack_st`] \\ rfs[]
@@ -4290,7 +4293,7 @@ Proof
     \\ simp_tac std_ss []
     \\ disch_then(SUBST1_TAC o SYM)
     \\ simp[full_make_init_compile, Abbr`lab_st`]
-    \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m n).compile``]
+    \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l).compile``]
     \\ simp[append_def]) \\
   simp[Abbr`z`] \\
   match_mp_tac implements'_strengthen \\
@@ -4399,7 +4402,7 @@ Proof
     \\ simp_tac std_ss []
     \\ disch_then(SUBST_ALL_TAC o SYM)
     \\ fs[full_make_init_compile, Abbr`lab_st`]
-    \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m n).compile``]
+    \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l).compile``]
     \\ simp[append_def]) \\
 
   strip_tac \\

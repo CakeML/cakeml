@@ -2305,7 +2305,8 @@ Theorem evaluate_SilentFFI_3:
   state_rel c l1 l2 s t NONE locs /\
   wordSem$cut_env (adjust_sets ns) t.locals = SOME env ==>
   wordSem$evaluate (SilentFFI c 3 (adjust_sets ns), t) =
-    (NONE, t with <|locals := env; memory := t.memory; ffi := t.ffi|>)
+    (NONE, t with <|locals := env; fp_regs := FEMPTY;
+                    memory := t.memory; ffi := t.ffi|>)
 Proof
   strip_tac
   \\ imp_res_tac state_rel_FLOOKUP_heap
@@ -6623,21 +6624,26 @@ Proof
   \\ `∃y. wordSem$cut_env (adjust_sets ns) t.locals = SOME y` by
        metis_tac [data_to_word_gcProofTheory.cut_env_IMP_cut_env]
   \\ `evaluate (SilentFFI c 3 (adjust_sets ns), t) =
-        (NONE, t with <|locals := y; memory := t.memory; ffi := t.ffi|>)` by
+        (NONE, t with <|locals := y; fp_regs := FEMPTY;
+                        memory := t.memory; ffi := t.ffi|>)` by
        (irule evaluate_SilentFFI_3 \\ metis_tac [])
   \\ fs []
   \\ fs [wordSemTheory.evaluate_def]
-  \\ `t with <|locals := y; memory := t.memory; ffi := s.ffi|> = t with locals := y` by
+  \\ `t with <|locals := y; fp_regs := FEMPTY; memory := t.memory; ffi := s.ffi|> =
+      t with <|locals := y; fp_regs := FEMPTY|>` by
        (qpat_x_assum `t.ffi = s.ffi` mp_tac \\ simp [wordSemTheory.state_component_equality])
   \\ fs []
   \\ `state_rel c l1 l2 (s with locals := env_narrow) (t with locals := y) NONE locs` by
        (irule data_to_word_gcProofTheory.state_rel_cut_env_cut_env \\ metis_tac [])
+  \\ drule data_to_word_gcProofTheory.state_rel_with_fp_regs
+  \\ disch_then (qspec_then `FEMPTY` assume_tac)
   \\ imp_res_tac cut_env_idempotent
   (* Apply alloc_lemma directed at the narrow-cut state_rel (operand t with locals := y). *)
-  \\ qpat_abbrev_tac `alll = alloc _ _ (t with locals := y)`
+  \\ qpat_abbrev_tac `alll = alloc _ _ (t with <|locals := y; fp_regs := FEMPTY|>)`
   \\ `?x1 x2. alll = (x1,x2)` by (Cases_on `alll` \\ fs [])
   \\ unabbrev_all_tac \\ fs []
-  \\ qpat_x_assum `state_rel c l1 l2 (s with locals := env_narrow) (t with locals := y) NONE locs`
+  \\ qpat_x_assum `state_rel c l1 l2 (s with locals := env_narrow)
+         (t with <|locals := y; fp_regs := FEMPTY|>) NONE locs`
        (mp_then Any mp_tac data_to_word_gcProofTheory.alloc_lemma)
   \\ disch_then (qspecl_then [`env_narrow`,`x2`,`x1`,`ns`] mp_tac)
   \\ fs [EVAL ``alloc_size 0``]
@@ -6670,7 +6676,8 @@ Proof
         \\ drule data_to_word_gcProofTheory.cut_env_IMP_cut_env
         \\ disch_then (qspecl_then [`env_narrow`,`ns`] mp_tac) \\ simp [])
   \\ `evaluate (SilentFFI c 3 (adjust_sets ns), x2) =
-        (NONE, x2 with <|locals := y'; memory := x2.memory; ffi := x2.ffi|>)` by
+        (NONE, x2 with <|locals := y'; fp_regs := FEMPTY;
+                         memory := x2.memory; ffi := x2.ffi|>)` by
        (irule evaluate_SilentFFI_3 \\ metis_tac [])
   \\ fs []
   \\ fs [wordSemTheory.evaluate_def]

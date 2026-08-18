@@ -51,6 +51,10 @@ pass is Ry Wiese's MSc thesis work.
 The `data_to_word` invariants now allow thunks to be inlined (#1440).
 The intention is that the GC will, in the future, inline evalated thunks.
 
+### targetSem
+
+targetSem is now more lax about the FFI/clear-cache havocs (#1458)
+
 ## Pancake
 
 ## Candle

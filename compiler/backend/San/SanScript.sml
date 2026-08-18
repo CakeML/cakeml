@@ -327,7 +327,7 @@ Proof
 QED
 
 Theorem san_ffi_interfer_ok:
-  ffi_interfer_ok (32w: word64) ARB san_config
+  ffi_interfer_ok (32w: word64) san_config
 Proof
   rw[ffi_interfer_ok_def,san_config_def] \\
   gvs[GSYM san_mmio_pcs_min_index_0] \\
