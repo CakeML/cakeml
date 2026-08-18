@@ -48,7 +48,8 @@ pass is Ry Wiese's MSc thesis work.
 
 ### Thunks
 
-Thunks can now be inlined by the GC (#1440).
+The `data_to_word` invariants now allow thunks to be inlined (#1440).
+The intention is that the GC will, in the future, inline evalated thunks.
 
 ## Pancake
 
