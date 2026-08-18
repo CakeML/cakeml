@@ -25,6 +25,15 @@ val _ = add_strliteral_form{inj=“implode”, ldelim = "«"};
    implode a simple wrapper. *)
 Overload strlit[inferior] = “implode”
 
+Theorem INFINITE_mlstring:
+  INFINITE 𝕌(:mlstring)
+Proof
+  sg ‘INJ implode 𝕌(:string) 𝕌(:mlstring)’
+  >- simp [INJ_DEF]
+  >> drule INFINITE_INJ
+  >> simp []
+QED
+
 Definition strlen_def[simp]:
   strlen (strlit s) = LENGTH s
 End

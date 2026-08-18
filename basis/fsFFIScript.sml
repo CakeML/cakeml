@@ -43,6 +43,35 @@ Datatype:
            |>
 End
 
+
+Definition get_iname_def:
+  get_iname (File iname) = iname ∧
+  get_iname (UStream iname) = iname
+End
+
+Theorem fresh_iname_exists[local]:
+  ∀fsys. ∃iname.
+    ALOOKUP fsys.inode_tbl (File iname)    = NONE ∧
+    ALOOKUP fsys.inode_tbl (UStream iname) = NONE
+Proof
+  rw [ALOOKUP_NONE]
+  >> qsuff_tac ‘∃iname. ¬MEM iname (MAP (get_iname ∘ FST) fsys.inode_tbl)’
+  >- (simp [MEM_MAP] >> metis_tac [get_iname_def, FST])
+  >> sg ‘FINITE (set (MAP (get_iname ∘ FST) fsys.inode_tbl))’ >- simp []
+  >> metis_tac [INFINITE_mlstring, IN_INFINITE_NOT_FINITE]
+QED
+
+(*
+   ⊢ ∀fsys.
+       ALOOKUP fsys.inode_tbl (File (fresh_iname fsys)) = NONE ∧
+       ALOOKUP fsys.inode_tbl (UStream (fresh_iname fsys)) = NONE
+*)
+val fresh_iname_spec = new_specification(
+  "fresh_iname_spec",
+  ["fresh_iname"],
+  fresh_iname_exists |> SIMP_RULE bool_ss [SKOLEM_THM]);
+
+
 val IO_fs_component_equality = theorem"IO_fs_component_equality";
 
 Theorem with_same_numchars:
@@ -85,10 +114,22 @@ Definition openFileFS_def:
     | SOME (_, fs') => fs'
 End
 
+(* Ensures that a file is available in the filesystem. *)
+Definition ensureFile_def:
+  ensureFile fsys fnm =
+  case ALOOKUP fsys.files fnm of
+  | SOME iname => fsys
+  | NONE =>
+      let iname = fresh_iname fsys in
+        fsys with
+             <| files := (fnm, iname)::fsys.files;
+                inode_tbl := (File iname, "")::fsys.inode_tbl |>
+End
+
 (* adds a new file in infds and truncate it *)
 Definition openFile_truncate_def:
   openFile_truncate fnm fsys md =
-    let fd = nextFD fsys in
+    let fsys = ensureFile fsys fnm; fd = nextFD fsys in
       do
         assert (fd <= fsys.maxFD) ;
         iname <- ALOOKUP fsys.files fnm;
@@ -210,7 +251,7 @@ End
 (* open for writing
 * position: the beginning of the file.
 * The file is truncated to zero length if it already exists.
-* TODO: It is created if it does not already exists.*)
+*)
 Definition ffi_open_out_def:
   ffi_open_out (conf: word8 list) bytes fs =
     do
