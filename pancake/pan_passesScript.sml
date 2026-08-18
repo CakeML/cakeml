@@ -330,6 +330,11 @@ Definition pan_fun_to_display_def:
           Tuple [String fld;
                   String (strlit ":");
                   String (shape_to_str shape)]) flds)]
+    | ExnDecl nm sh => Tuple
+        [String (strlit "exception");
+         String nm;
+         String «:»;
+         String (shape_to_str sh)]
 End
 
 Definition pan_to_strs_def:

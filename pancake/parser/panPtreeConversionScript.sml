@@ -253,9 +253,11 @@ End
   * for precise details. *)
 Definition conv_Exp_def:
   (conv_ArgList tree =
-    case argsNT tree ArgListNT of
-      SOME (t::ts) => OPT_MMAP conv_Exp (t::ts)
-    | _ => NONE) ∧
+   if tokcheck tree NotT then SOME []
+   else
+     case argsNT tree ArgListNT of
+       SOME (t::ts) => OPT_MMAP conv_Exp (t::ts)
+     | _ => NONE) ∧
   (conv_FieldList tree =
     case argsNT tree NmdFieldListNT of
       SOME (t::ts) => OPT_MMAP conv_Field (t::ts)
@@ -462,7 +464,7 @@ Definition conv_NonRecStmt_def:
              SOME $ ExtCall name' ptr' clen' array' alen'
           od
       | _ => NONE
-    else if isNT nodeNT RaiseNT then
+    else if isNT nodeNT ThrowNT then
       case args of
         [id; e] => do eid <- conv_ident id;
                       e' <- conv_Exp e;
@@ -584,6 +586,17 @@ Definition conv_GlobalDec_def:
   conv_GlobalDec _ = NONE
 End
 
+Definition conv_ExnDec_def:
+  conv_ExnDec tree =
+    case argsNT tree ExnDecNT of
+      SOME [id; sh] =>
+        do eid <- conv_ident id;
+           sh' <- conv_Shape sh;
+           SOME (eid, sh')
+        od
+    | _ => NONE
+End
+
 Definition conv_DecCall_def:
   (conv_DecCall (^Nd nodeNT args) =
    if isNT nodeNT DecCallNT then
@@ -601,28 +614,21 @@ Definition conv_DecCall_def:
   conv_DecCall _ = NONE
 End
 
+Definition conv_Ret_def:
+  conv_Ret tree =
+  if tokcheck tree (kw RetK) then
+    SOME $ NONE
+  else if tokcheck tree NotT then
+    SOME $ (SOME NONE)
+  else
+    case argsNT tree RetNT of
+    | SOME [id] => do var <- conv_ident id;
+                      SOME $ SOME (SOME(Global,var))
+                   od
+    | _ => NONE
+End
+
 Definition conv_Prog_def:
-  (conv_Handle tree =
-    case argsNT tree HandleNT of
-    | SOME [eid; id; p] => do excp <- conv_ident eid;
-                              var <- conv_ident id;
-                              prog <- conv_Prog p;
-                              SOME $ SOME (excp, var, prog)
-                           od
-    | _ => NONE) ∧
-  (conv_Ret tree =
-   if tokcheck tree (kw RetK) then
-     SOME $ NONE
-   else
-     case argsNT tree RetNT of
-     | SOME [id; t] => do var <- conv_ident id;
-                          hdl <- conv_Handle t;
-                          SOME $ SOME (SOME(Global,var), hdl)
-                       od
-     | SOME [id] => do var <- conv_ident id;
-                       SOME $ SOME (SOME(Global,var), NONE)
-                    od
-     | _ => NONE) ∧
   (conv_Prog (Nd nodeNT args) =
      let nd = Nd nodeNT args in
      if isNT nodeNT DecNT then
@@ -660,54 +666,36 @@ Definition conv_Prog_def:
                          DecCall i' s' e' args' p'
            od
        | _ => NONE
+     else if isNT nodeNT HandleNT then
+       case args of
+       | [ret; f; ts; eid; id; p] =>
+           do r' <- conv_Ret ret;
+              r'' <- r';
+              fname <- conv_ident f;
+              args <- conv_ArgList ts;
+              ename <- conv_ident eid;
+              evar <- conv_ident id;
+              prog <- conv_Prog p;
+              SOME $ add_locs_annot nd $ panLang$Call (SOME(r'', SOME (ename,evar,prog))) fname args
+           od
+       | _ => NONE
      else if isNT nodeNT CallNT then
        case args of
-         [] => NONE
-       | r::ts =>
-           (case conv_Ret r of
-              SOME NONE =>
-                (case ts of
-                   [] => NONE
-                 | r::ts =>
-                     do e' <- conv_ident r;
-                        args' <- (case ts of [] => SOME []
-                                          | args::_ => conv_ArgList args);
-                        SOME $ add_locs_annot nd $ TailCall e' args'
-                     od)
-            | NONE =>
-                (case conv_Handle r of
-                   NONE =>
-                     do e' <- conv_ident r;
-                        args' <- (case ts of [] => SOME []
-                                          | args::_ => conv_ArgList args);
-                        SOME $ add_locs_annot nd $ StandAloneCall NONE e' args'
-                     od
-                 | SOME h =>
-                     (case ts of
-                      | [] => NONE
-                      | r::ts =>
-                          do e' <- conv_ident r;
-                             args' <- (case ts of [] => SOME []
-                                               | args::_ => conv_ArgList args);
-                             SOME $ add_locs_annot nd $ StandAloneCall h e' args'
-                          od))
-            | SOME(SOME r') =>
-                (case ts of
-                   [] => NONE
-                 | e::xs =>
-                     do e' <- conv_ident e;
-                        args' <- (case xs of [] => SOME []
-                                          | args::_ => conv_ArgList args);
-                        if is_add_with_carry e' then
-                          (case r' of
-                           | (SOME (_, vn), NONE) =>
-                               SOME $ add_locs_annot nd $
-                                 Primitive vn AddCarry args'
-                           | _ => NONE)
-                        else
-                          SOME $ add_locs_annot nd $
-                            panLang$Call (SOME r') e' args'
-                     od))
+       | [r;e;args] =>
+           do r' <- conv_Ret r;
+              e' <- conv_ident e;
+              args' <- conv_ArgList args;
+              if is_add_with_carry e' then
+                (case r' of
+                 | SOME(SOME (_, vn)) =>
+                     SOME $ add_locs_annot nd $
+                          Primitive vn AddCarry args'
+                 | _ => NONE)
+              else
+                SOME $ add_locs_annot nd $
+                     panLang$Call (OPTION_MAP (λx. (x,NONE)) r') e' args'
+           od
+       | _ => NONE
      else if isNT nodeNT ProgNT then
        case args of
          t::ts => if ts ≠ []
@@ -718,9 +706,7 @@ Definition conv_Prog_def:
      else OPTION_MAP (add_locs_annot nd) (conv_NonRecStmt (Nd nodeNT args))) ∧
   conv_Prog leaf = OPTION_MAP (add_locs_annot leaf) (conv_NonRecStmt leaf)
 Termination
-  WF_REL_TAC ‘measure (λx. case x of
-                             INR x => sum_CASE x ptree_size ptree_size
-                           | INL x => ptree_size x)’
+  WF_REL_TAC ‘measure ptree_size’
   >> rw[] >> gvs[argsNT_def]
   >- (
     drule MEM_list_size>>
@@ -734,8 +720,7 @@ Termination
           gs[LAST_EL, MEM_EL]>>
           qexists_tac ‘PRE (LENGTH ts)’>>gs[]>>
           Cases_on ‘ts’>>gs[])>>
-    gs[])>>
-  Cases_on ‘tree’ >> gvs[argsNT_def]
+    gs[])
 End
 
 Definition conv_inline_def:
@@ -796,7 +781,10 @@ Definition conv_TopDec_def:
        | SOME (sh,v,e) => SOME $ Decl sh v e
        | _ => (case conv_StructName tree of
                | SOME (nm,flds) => SOME $ Name nm flds
-               | _ => NONE))
+               | _ =>
+                   (case conv_ExnDec tree of
+                      SOME (eid, sh) => SOME $ ExnDecl eid sh
+                    | NONE => NONE)))
 End
 
 Definition conv_TopDecList_def:
@@ -915,6 +903,7 @@ End
 Definition localise_topdec_def:
   localise_topdec ls (Decl sh v e) = Decl sh v e ∧
   localise_topdec ls (Name nm fld) = Name nm fld ∧
+  localise_topdec ls (ExnDecl nm sh) = ExnDecl nm sh ∧
   localise_topdec ls (Function fi) =
   Function $ fi with body := localise_prog (FOLDL (\m p. insert m p ()) ls (MAP FST fi.params)) fi.body
 End

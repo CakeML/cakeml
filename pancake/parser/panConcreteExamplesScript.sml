@@ -157,7 +157,7 @@ val ex5 = ‘
     var b = 5;
     b = b + 1;
     if b >= 5 {
-      raise Err 5;
+      throw Err 5;
     }
   }’;
 
@@ -170,7 +170,7 @@ val ex6 = ‘
     {var b = 5;
      b = b + 1;};
      if b >= 5 {
-       raise Err 5;
+       throw Err 5;
      }
   }’;
 
@@ -611,3 +611,24 @@ val named_structs =
   ’
 
 val named_structs_parse = check_success $ parse_pancake named_structs;
+
+(* Exception declarations and syntax *)
+val exception_declaration =
+ ‘
+  exception ExampleException : 1;
+
+  fun f() { throw ExampleException 1; }
+
+  fun g() {
+    var 1 x = 0;
+    var 1 y = 0;
+    try
+      y = f()
+    catch ExampleException => x {
+      y = x + 1;
+    }
+    return y;
+  }
+  ’
+
+val exception_declaration_parse = check_success $ parse_pancake exception_declaration;

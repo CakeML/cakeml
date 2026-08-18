@@ -225,7 +225,10 @@ Definition compile_decs_def:
       ; return updated_by (compile_shape ctxt.structs) |> in
     (Function fi'::ds', ctxt')) ∧
   (compile_decs ctxt (Name nm flds::ds) =
-    compile_decs ctxt ds)
+    compile_decs ctxt ds) ∧
+  (compile_decs ctxt (ExnDecl nm sh::ds) =
+    let (ds', ctxt') = compile_decs ctxt ds in
+    (ExnDecl nm (compile_shape ctxt.structs sh)::ds', ctxt'))
 End
 
 (* Returns struct context *)

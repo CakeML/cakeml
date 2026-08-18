@@ -163,6 +163,7 @@ Datatype:
     locals       : (varname , local_info ) map  (* tracked var state *)
   ; globals      : (varname , global_info) map  (* declared globals *)
   ; funcs        : (funname , func_info  ) map  (* all function info *)
+  ; exns         : (eid, shape) map             (* all exception decl info*)
   ; structs      : (stcname # struct_info) list (* struct name context *)
   ; scope        : scope                        (* current scope info *)
   ; in_loop      : bool                         (* loop status *)
@@ -1183,11 +1184,37 @@ Definition static_check_prog_def:
         (* check for out of scope exception variable *)
       | SOME (eid, evar, prog) =>
           do
+            (* check exception declared *)
+            sh <- case lookup ctxt.exns eid of
+                    NONE => error (ScopeErr $ concat [
+                              strlit "exception "; eid; strlit " is not declared\n"])
+                  | SOME sh => return sh;
+
+            (* check handler variable exists *)
             evinf <- check_local_var ctxt evar;
-            static_check_prog (ctxt with locals :=
-                insert ctxt.locals evar (evinf with
-                  <| vsh_bd := sh_bd_from_bd Trusted evinf.vsh_bd |>
-              )) prog;
+
+            (* check handler variable shape matches exception shape *)
+            if ~(sh_bd_has_shape sh evinf.vsh_bd) then
+              error (ShapeErr $ concat [
+                strlit "handler variable "; evar;
+                strlit " does not match shape of exception "; eid; strlit "\n"])
+            else return ();
+
+            sb <-
+              case sh_bd_from_sh ctxt.structs Trusted sh of
+              (* return exp info with stored shape *)
+              | SOME sb => return sb
+              (* should never occur if static checker implemented correctly *)
+              | NONE => error (ScopeErr $ get_implementation_err_msg
+                (strlit "static analysis failed to convert in-scope shape")
+                ctxt.loc ctxt.scope);
+
+            (* type-check handler body *)
+            static_check_prog
+              (ctxt with locals :=
+                insert ctxt.locals evar
+                  (evinf with <| vsh_bd := sb |>))
+              prog;
             return ()
           od;
       (* return prog info with updated var *)
@@ -1331,11 +1358,37 @@ Definition static_check_prog_def:
         (* check for out of scope exception variable *)
       | SOME (eid, evar, prog) =>
           do
+            (* check exception declared *)
+            sh <- case lookup ctxt.exns eid of
+                    NONE => error (ScopeErr $ concat [
+                              strlit "exception "; eid; strlit " is not declared\n"])
+                  | SOME sh => return sh;
+
+            (* check handler variable exists *)
             evinf <- check_local_var ctxt evar;
-            static_check_prog (ctxt with locals :=
-                insert ctxt.locals evar (evinf with
-                  <| vsh_bd := sh_bd_from_bd Trusted evinf.vsh_bd |>
-              )) prog;
+
+            (* check handler variable shape matches exception shape *)
+            if ~(sh_bd_has_shape sh evinf.vsh_bd) then
+              error (ShapeErr $ concat [
+                strlit "handler variable "; evar;
+                strlit " does not match shape of exception "; eid; strlit "\n"])
+            else return ();
+
+            sb <-
+              case sh_bd_from_sh ctxt.structs Trusted sh of
+              (* return exp info with stored shape *)
+              | SOME sb => return sb
+              (* should never occur if static checker implemented correctly *)
+              | NONE => error (ScopeErr $ get_implementation_err_msg
+                (strlit "static analysis failed to convert in-scope shape")
+                ctxt.loc ctxt.scope);
+
+            (* type-check handler body *)
+            static_check_prog
+              (ctxt with locals :=
+                insert ctxt.locals evar
+                  (evinf with <| vsh_bd := sb |>))
+              prog;
             return ()
           od;
       (* return prog info *)
@@ -1471,15 +1524,27 @@ Definition static_check_prog_def:
     od ∧
   static_check_prog ctxt (Raise eid exp) =
     do
-      (* check exception value exp *)
-      static_check_exp ctxt exp;
-      (* return prog info *)
-      return <|
-          exits_fun  := T
-        ; exits_loop := F
-        ; last       := RaiseLast
-        ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+      (* check exception declared *)
+      sh <- case lookup ctxt.exns eid of
+              NONE => error (ScopeErr $ concat [
+                        strlit "exception "; eid; strlit " is not declared\n"])
+            | SOME sh => return sh;
+
+      (* check exception value expression *)
+      eret <- static_check_exp ctxt exp;
+
+      (* check shape match *)
+      if ~(sh_bd_has_shape sh eret.sh_bd) then
+        error (ShapeErr $ concat [
+          strlit "raised exception "; eid;
+          strlit " has wrong value shape\n"])
+      else return ();
+
+      return <| exits_fun := T
+              ; exits_loop := F
+              ; last := RaiseLast
+              ; var_delta := empty mlstring$compare
+              ; curr_loc := ctxt.loc |>
     od ∧
   static_check_prog ctxt (Store addr exp) =
     do
@@ -1694,16 +1759,19 @@ End
     (unit) static_result
 *)
 Definition static_check_progs_def:
-  static_check_progs fctxt gctxt sctxt [] =
+  static_check_progs fctxt gctxt sctxt ectxt [] =
     (* no more decls *)
     return () ∧
-  static_check_progs fctxt gctxt sctxt (Name _ _::decls) =
+  static_check_progs fctxt gctxt sctxt ectxt (Name _ _::decls) =
     (* not a function *)
-    static_check_progs fctxt gctxt sctxt decls ∧
-  static_check_progs fctxt gctxt sctxt (Decl _ _ _::decls) =
+    static_check_progs fctxt gctxt sctxt ectxt decls ∧
+  static_check_progs fctxt gctxt sctxt ectxt (ExnDecl _ _::decls) =
     (* not a function *)
-    static_check_progs fctxt gctxt sctxt decls ∧
-  static_check_progs fctxt gctxt sctxt (Function fi::decls) =
+    static_check_progs fctxt gctxt sctxt ectxt decls ∧
+  static_check_progs fctxt gctxt sctxt ectxt (Decl _ _ _::decls) =
+    (* not a function *)
+    static_check_progs fctxt gctxt sctxt ectxt decls ∧
+  static_check_progs fctxt gctxt sctxt ectxt (Function fi::decls) =
     do
       (param_names, param_shapes) <<- UNZIP fi.params;
       param_sbs <-
@@ -1719,6 +1787,7 @@ Definition static_check_progs_def:
                   FOLDL (\m (v,sb). insert m v <| vsh_bd := sb |>)
                     (empty mlstring$compare) param_sbs
                 ; globals := gctxt
+                ; exns := ectxt
                 ; funcs := fctxt
                 ; structs := sctxt
                 ; scope := FunScope fi.name (strlit "")
@@ -1735,7 +1804,7 @@ Definition static_check_progs_def:
             get_scope_desc (FunScope fi.name (strlit "")); strlit "\n"])
       else return ();
       (* check remaining functions *)
-      static_check_progs fctxt gctxt sctxt decls
+      static_check_progs fctxt gctxt sctxt ectxt decls
     od
 End
 
@@ -1744,17 +1813,18 @@ End
     ((varname, global_info) map, (funname, func_info) map) static_result
 *)
 Definition static_check_decls_def:
-  static_check_decls fctxt gctxt sctxt [] =
+  static_check_decls fctxt gctxt sctxt ectxt [] =
     (* no more decls *)
-    return (fctxt, gctxt) ∧
-  static_check_decls fctxt gctxt sctxt (Name _ _::decls) =
+    return (fctxt, gctxt, ectxt) ∧
+  static_check_decls fctxt gctxt sctxt ectxt (Name _ _::decls) =
     (* already processed *)
-    static_check_decls fctxt gctxt sctxt decls ∧
-  static_check_decls fctxt gctxt sctxt (Decl shape vname exp::decls) =
+    static_check_decls fctxt gctxt sctxt ectxt decls ∧
+  static_check_decls fctxt gctxt sctxt ectxt (Decl shape vname exp::decls) =
     do
       (* setup initial checking context *)
       ctxt <<- <| locals := empty mlstring$compare
                 ; globals := gctxt
+                ; exns := ectxt
                 ; funcs := empty mlstring$compare
                 ; structs := sctxt
                 ; scope := DeclScope vname
@@ -1778,9 +1848,20 @@ Definition static_check_decls_def:
       (* check remaining decls *)
       static_check_decls fctxt (insert gctxt vname
           <| vshape := shape |>
-        ) sctxt decls
+        ) sctxt ectxt decls
     od ∧
-  static_check_decls fctxt gctxt sctxt (Function fi::decls) =
+  static_check_decls fctxt gctxt sctxt ectxt (ExnDecl eid sh :: decls) =
+    do
+      (* check redeclaration *)
+      if member eid ectxt then
+        error (ScopeErr $ concat [
+          strlit "exception "; eid; strlit " is redeclared\n"])
+      else return ();
+
+      (* continue with updated exception environment *)
+      static_check_decls fctxt gctxt sctxt (insert ectxt eid sh) decls
+    od ∧
+  static_check_decls fctxt gctxt sctxt ectxt (Function fi::decls) =
     do
       (* check for redeclaration *) (* TODO: decl locs *)
       if member fi.name fctxt then
@@ -1848,7 +1929,7 @@ Definition static_check_decls_def:
       (* check remaining decls *)
       static_check_decls (insert fctxt fi.name
           <| ret_shape := fi.return ; params := fi.params |>
-        ) gctxt sctxt decls
+        ) gctxt sctxt ectxt decls
     od
 End
 
@@ -1899,10 +1980,10 @@ Definition static_check_def:
     do
       (* check decls and build context *)
       sctxt <- static_check_names [] decls;
-      (fctxt, gctxt) <-
+      (fctxt, gctxt, ectxt) <-
         static_check_decls (empty mlstring$compare)
-        (empty mlstring$compare) sctxt decls;
+        (empty mlstring$compare) sctxt (empty mlstring$compare) decls;
       (* check function bodies with context *)
-      static_check_progs fctxt gctxt sctxt decls
+      static_check_progs fctxt gctxt sctxt ectxt decls
     od
 End
