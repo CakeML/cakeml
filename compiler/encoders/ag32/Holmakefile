@@ -1,4 +1,4 @@
-INCLUDES = $(HOLDIR)/examples/l3-machine-code/common ../asm
+INCLUDES = $(HOLDIR)/examples/l3-machine-code/common
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

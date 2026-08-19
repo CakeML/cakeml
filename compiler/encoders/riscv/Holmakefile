@@ -1,7 +1,6 @@
 INCLUDES = $(HOLDIR)/examples/l3-machine-code/common\
            $(HOLDIR)/examples/l3-machine-code/riscv/model\
-           $(HOLDIR)/examples/l3-machine-code/riscv/step\
-           ../asm
+           $(HOLDIR)/examples/l3-machine-code/riscv/step
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

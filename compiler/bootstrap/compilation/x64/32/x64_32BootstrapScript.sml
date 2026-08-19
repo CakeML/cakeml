@@ -1,7 +1,7 @@
 (*
   Evaluation of the 32-bit version of the compiler into x64 machine code.
 *)
-Theory x64Bootstrap
+Theory x64_32Bootstrap
 Ancestors
   compiler32Prog
 Libs

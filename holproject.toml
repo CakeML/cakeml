@@ -3,13 +3,10 @@ name = "cakeml"
 holpath = "CAKEMLDIR"
 
 exclude = [
-  "candle/overloading",
-  "compiler/benchmarks",
-  "compiler/bootstrap/compilation/x64/32",
-  "translator/monadic/examples",
-  "translator/other-examples",
-  "tutorial",
-  "unverified/sexpr-bootstrap/x64/32"
+  "compiler/backend/San",                        # broken, see #1104
+  "compiler/benchmarks/cakeml_benchmarks/sml",   # plain SML programs, built by their own Makefile
+  "compiler/benchmarks/mlton_benchmarks/sml",
+  "tutorial/problems"                            # exercises generated from tutorial/solutions
 ]
 
 external_includes = [

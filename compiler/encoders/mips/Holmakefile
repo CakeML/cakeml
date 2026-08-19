@@ -1,7 +1,6 @@
 INCLUDES = $(HOLDIR)/examples/l3-machine-code/common\
            $(HOLDIR)/examples/l3-machine-code/mips/model\
-           $(HOLDIR)/examples/l3-machine-code/mips/step\
-           ../asm
+           $(HOLDIR)/examples/l3-machine-code/mips/step
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

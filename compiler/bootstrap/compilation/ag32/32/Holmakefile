@@ -1,9 +1,5 @@
 ARCH = ag32
 WORD_SIZE = 32
-INCLUDES = $(CAKEMLDIR)/semantics $(CAKEMLDIR)/basis $(CAKEMLDIR)/cv_translator ../../../..\
-					 ../../../../encoders/asm ../../../../encoders/$(ARCH)\
-					 ../../../../backend/$(ARCH) ../../../translation
-
 all: $(DEFAULT_TARGETS) README.md cake-$(ARCH)-$(WORD_SIZE).tar.gz
 .PHONY: all
 

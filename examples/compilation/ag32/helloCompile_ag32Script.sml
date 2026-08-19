@@ -1,7 +1,7 @@
 (*
   Compiles the hello example by evaluation inside the logic of HOL
 *)
-Theory helloCompile
+Theory helloCompile_ag32
 Ancestors
   helloProg
 Libs

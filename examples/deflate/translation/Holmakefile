@@ -1,5 +1,4 @@
-INCLUDES = $(CAKEMLDIR)/examples/deflate  $(CAKEMLDIR)/misc $(CAKEMLDIR)/translator \
-            $(CAKEMLDIR)/examples $(HOLDIR)/examples/bootstrap
+INCLUDES = $(HOLDIR)/examples/bootstrap
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

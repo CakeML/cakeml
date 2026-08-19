@@ -2,7 +2,7 @@
   Produces an sexp print-out of the bootstrap translated compiler
   definition for the 32-bit version of the compiler.
 *)
-Theory x64Sexpr
+Theory x64_32Sexpr
 Ancestors
   compiler32Prog
 Libs
