@@ -3,10 +3,10 @@
 *)
 Theory cake_tigerProgProof
 Ancestors
-  fsFFIProps  (* all_lines_file *)
   cake_tigerProg
 Libs
   preamble
+  basis
 
 (* TODO Would be nice if we had also a record for the semantic representation
    of AIG (instead of passing around 6-tuples or so) *)
@@ -62,29 +62,69 @@ Definition is_unsat_def:
   is_unsat cnf = ¬satisfiable_cnf (set cnf)
 End
 
-(* TODO main_sem is not quite right; it's missing the command line/prefix
-   information *)
+(* Asserts that cnf is saved in the file system. *)
+Definition cnf_saved_def:
+  cnf_saved fs pfx name cnf =
+  ∃limit.
+    lits_within limit cnf ∧
+    get_file_content fs (make_fname pfx name) =
+      SOME (explode (cnf_to_string (cnf, limit)))
+End
 
-(* 1. getting the model (parsing + processing) was successful
+(* Asserts that cnfs for the checker are saved in the file system. *)
+Definition cnf_checks_saved_def:
+  cnf_checks_saved fs pfx
+    reset transition property base step liveness decrease closure consistent
+  =
+  LIST_REL (cnf_saved fs pfx)
+    [«reset»; «transition»; «property»; «base»; «step»;
+     «liveness»; «decrease»; «closure»; «consistent»]
+    [reset; transition; property; base; step;
+     liveness; decrease; closure; consistent]
+End
+
+(* Asserts that if SUCCESS was output, then:
+   1. getting the model (parsing + processing) was successful
    2. there exist 9 CNF formulas, such that
-     2.1 if they are all unsatisfiable, then the model is safe and live
-     2.2 their string representations are saved in the file system *)
-Definition main_sem_def:
-  main_sem fs f1 out ⇔
+     2.1 their string representations are saved in the file system
+     2.2 if they are all unsatisfiable, then the model is safe and live *)
+Definition make_cert_sem_def:
+  make_cert_sem fs fs' fmodel out prefix ⇔
     (out = «SUCCESS» ⇒
      ∃mcirc mreset mnext mpreds mcnstrs mlive mlatches
-      (* TODO remove annotation once we have added "are saved in FS" *)
-      (reset: num lit list list) transition property base step liveness decrease closure
-      consistent.
-       get_model fs f1 =
-         SOME (mcirc, mreset, mnext, mpreds, mcnstrs, mlive, mlatches) ∧
-       (* TODO are saved in FS *)
-       (EVERY is_unsat
-          [reset; transition; property; base; step;
-           liveness; decrease; closure; consistent] ⇒
+      reset transition property base step liveness decrease closure consistent.
+        get_model fs fmodel =
+          SOME (mcirc, mreset, mnext, mpreds, mcnstrs, mlive, mlatches) ∧
+        cnf_checks_saved fs' prefix
+           reset transition property base step liveness decrease
+           closure consistent ∧
+        (EVERY is_unsat
+           [reset; transition; property; base; step; liveness; decrease;
+            closure; consistent]
+         ⇒
           is_safe
             mcirc mreset mnext (set mcnstrs) (set mlatches) (set mpreds) ∧
           is_live
             mcirc mreset mnext (set mcnstrs) (qleft mcirc) (qleft_live mlive)
             (set mlatches)))
 End
+
+(* TODO Definition main_sem_def *)
+
+(** CFCML *******************************************************************)
+
+val _ = translation_extends "cake_tigerProg";
+
+val prog = get_ml_prog_state ()
+
+Theorem make_cert_spec:
+  app (p:'ffi ffi_proj) ^(fetch_v "make_cert" prog)
+    [fmodelv; fwitnessv; prefixv]
+    (STDIO fs)
+    (POSTv uv.
+       &UNIT_TYPE () uv *
+       SEP_EXISTS fs'. STDIO fs' * &(make_cert_sem fs fs' fmodel out prefix))
+Proof
+  xcf "make_cert" prog
+  >> cheat
+QED

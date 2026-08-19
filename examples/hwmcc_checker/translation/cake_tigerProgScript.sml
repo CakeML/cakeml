@@ -32,11 +32,11 @@ Definition usage_string_def:
 End
 val r = translate usage_string_def;
 
-Definition add_prefix_def:
-  add_prefix NONE s = s ∧
-  add_prefix (SOME pfx) s = pfx ^ s
+Definition make_fname_def:
+  (make_fname NONE s = s ^ «.cnf») ∧
+  (make_fname (SOME pfx) s = concat [pfx; s; «.cnf»])
 End
-val r = translate add_prefix_def;
+val r = translate make_fname_def;
 
 Quote add_cakeml:
   fun make_cert fmodel fwitness prefix =
@@ -60,41 +60,41 @@ Quote add_cakeml:
       val (name, str) =
         make_reset_string mcirc mreset mcnstrs mlatches wcirc wreset wcnstrs
           wlatches klatches
-      val _ = outputFile (add_prefix prefix name) str
+      val _ = outputFile (make_fname prefix name) str
       (* val _ = print "making transition...\n" *)
       val (name, str) =
         make_transition_string mcirc mnext mcnstrs mlatches wcirc wnext wcnstrs
           wlatches klatches
-      val _ = outputFile (add_prefix prefix name) str
+      val _ = outputFile (make_fname prefix name) str
       (* val _ = print "making property...\n" *)
       val (name, str) =
         make_property_string mcirc mcnstrs mpreds wcirc wcnstrs wpreds
-      val _ = outputFile (add_prefix prefix name) str
+      val _ = outputFile (make_fname prefix name) str
       (* val _ = print "making base...\n" *)
       val (name, str) =
         make_base_string wcirc wreset wcnstrs wpreds wlatches
-      val _ = outputFile (add_prefix prefix name) str
+      val _ = outputFile (make_fname prefix name) str
       (* val _ = print "making step...\n" *)
       val (name, str) =
         make_step_string wcirc wnext wcnstrs wpreds wlatches
-      val _ = outputFile (add_prefix prefix name) str
+      val _ = outputFile (make_fname prefix name) str
       (* val _ = print "making liveness...\n" *)
       val (name, str) =
         make_liveness_string mcirc mcnstrs mlive
           wcirc wnext wcnstrs wpreds wlive wlatches interv
-      val _ = outputFile (add_prefix prefix name) str
+      val _ = outputFile (make_fname prefix name) str
       (* val _ = print "making decrease...\n" *)
       val (name, str) =
         make_decrease_string wcirc wnext wcnstrs wpreds wlive wlatches interv
-      val _ = outputFile (add_prefix prefix name) str
+      val _ = outputFile (make_fname prefix name) str
       (* val _ = print "making closure...\n" *)
       val (name, str) =
         make_closure_string wcirc wnext wcnstrs wpreds wlive wlatches interv
-      val _ = outputFile (add_prefix prefix name) str
+      val _ = outputFile (make_fname prefix name) str
      (* val _ = print "making consistent...\n" *)
       val (name, str) =
         make_consistent_string wcirc wnext wcnstrs wpreds wlive wlatches interv
-      val _ = outputFile (add_prefix prefix name) str
+      val _ = outputFile (make_fname prefix name) str
       val _ = print "SUCCESS"
     in () end
 End
