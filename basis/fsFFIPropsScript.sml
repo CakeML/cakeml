@@ -1508,3 +1508,37 @@ Proof
   \\ fs [openFileFS_def,inFS_fname_def,openFile_def]
   \\ rw [] \\ fs [validFileFD_def]
 QED
+
+(* ensureFile lemmas *)
+
+Theorem ensureFile_infds[simp]:
+  (ensureFile fs fname).infds = fs.infds
+Proof
+  simp [ensureFile_def] >> CASE_TAC >> simp [IO_fs_component_equality]
+QED
+
+Theorem ensureFile_numchars[simp]:
+  (ensureFile fs fname).numchars = fs.numchars
+Proof
+  simp [ensureFile_def] >> CASE_TAC >> simp [IO_fs_component_equality]
+QED
+
+Theorem ensureFile_maxFD[simp]:
+  (ensureFile fs fname).maxFD = fs.maxFD
+Proof
+  simp [ensureFile_def] >> CASE_TAC >> simp [IO_fs_component_equality]
+QED
+
+Theorem nextFD_ensureFile[simp]:
+  nextFD (ensureFile fs fname) = nextFD fs
+Proof
+  simp [nextFD_def]
+QED
+
+Theorem ensureFile_UStream[simp]:
+  ALOOKUP (ensureFile fs fname).inode_tbl (UStream nm)
+  =
+  ALOOKUP fs.inode_tbl (UStream nm)
+Proof
+  simp [ensureFile_def] >> Cases_on ‘ALOOKUP fs.files fname’ >> simp []
+QED

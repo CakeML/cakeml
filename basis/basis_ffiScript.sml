@@ -154,9 +154,10 @@ Proof
         fsFFITheory.ffi_close_def]
   \\ fs[OPTION_CHOICE_EQUALS_OPTION, CaseEq"list"]
   \\ TRY pairarg_tac \\ fs[] \\ rveq \\ fs[]
+  >~ [‘openFile_truncate’] >-
+   (gvs [openFile_truncate_def, AFUPDKEY_ALOOKUP, CaseEqs ["option", "bool"]])
   \\ fs[fsFFITheory.closeFD_def,
         fsFFITheory.read_def,
-        fsFFITheory.openFile_truncate_def,
         fsFFITheory.openFile_def,
         fsFFITheory.write_def]
   \\ TRY pairarg_tac \\ fs[]
