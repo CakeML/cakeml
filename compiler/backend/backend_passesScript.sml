@@ -127,8 +127,8 @@ Definition to_bvi_all_def:
                        bvl_handle$compile_any split_seq cut_size arity exp)) prog in
     let ps = ps ++ [(«after bvl_handle»,Bvl prog names)] in
     let (loc,code,n1) = bvl_to_bvi$compile_prog start 0 prog in
-    let (n2,code2) = bvi_tailrec$compile_prog (bvl_num_stubs + 2) code in
-    let (n3,code3) = bvi_tmc$compile_prog (bvl_num_stubs + 3) code2 in
+    let (n2,code2) = bvi_tailrec$compile_prog c0.do_tailrec (bvl_num_stubs + 2) code in
+    let (n3,code3) = bvi_tmc$compile_prog c0.do_tmc (bvl_num_stubs + 3) code2 in
     let (bvi_inlines,code') = bvi_inline$compile_prog code3 in
     let (s,p,l,bl,n1,n2,n3,names) =
       (loc,code',inlines,bvi_inlines,n1,n2,n3,get_names (MAP FST code') names) in
@@ -147,7 +147,7 @@ Definition to_bvi_all_def:
 End
 
 Theorem to_bvi_thm:
-  SND (to_bvi_all c p ) = to_bvi c p
+  SND (to_bvi_all c p) = to_bvi c p
 Proof
   assume_tac to_bvl_thm
   \\ fs [to_bvi_all_def,to_bvi_def,bvl_to_bviTheory.compile_def,
