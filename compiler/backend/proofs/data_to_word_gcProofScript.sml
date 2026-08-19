@@ -6987,6 +6987,9 @@ Proof
     \\ simp [Once v_inv_def]
     \\ strip_tac
     \\ rpt var_eq_tac
+    (* the MutBlock conjunct of v_inv's RefPtr case gets in the way of the
+       first_assum picks below *)
+    \\ TRY (qpat_x_assum `!tg fin l c r'. _ ==> ~_` kall_tac)
     \\ Cases_on ‘lookup r refs1’ \\ fs []
     THEN1
      (qexists_tac `p1` \\ fs [] \\ qsuff_tac `MEM (f ' r) p1`
@@ -6995,6 +6998,39 @@ Proof
       \\ qexists_tac `r` \\ fs [] \\ gvs [domain_lookup])
     \\ rename [‘lookup r refs1 = SOME v’]
     \\ reverse (Cases_on `v`) \\ fs []
+    (* a MutBlock's payload is traversed exactly like a ValueArray's; the size
+       accounting lines up because lookup_len of BlockRep tg zs is
+       LENGTH zs + 1 = LENGTH ls + LENGTH rs + 2, which is what size_of charges
+       for a MutBlock ref *)
+    >~ [‘MutBlock tg fin ls cv rs’] >-
+     (pop_assum mp_tac
+      \\ pairarg_tac \\ fs [] \\ rw []
+      \\ first_assum (qspec_then `r` mp_tac)
+      \\ (impl_tac THEN1 fs [reachable_refs_def,get_refs_def])
+      \\ rewrite_tac [bc_ref_inv_def]
+      \\ fs [subspt_lookup]
+      \\ first_assum old_drule \\ strip_tac \\ fs []
+      \\ fs [FLOOKUP_DEF,BlockRep_def]
+      \\ strip_tac
+      \\ last_x_assum
+           (qspecl_then [`ls ++ [cv] ++ rs`,`zs`,`f ' r :: p1`,`refs`] mp_tac)
+      \\ impl_tac THEN1
+       (fs [] \\ old_drule EVERY2_SWAP \\ fs [lookup_delete,SUBSET_DEF,PULL_EXISTS]
+        \\ rw [] \\ fs []
+        \\ last_x_assum match_mp_tac
+        \\ fs [reachable_refs_def,get_refs_def]
+        (* one ref_edge step out of r reaches all three parts of the payload *)
+        \\ once_rewrite_tac [RTC_CASES1] \\ disj2_tac
+        \\ qexists_tac `r'` \\ fs []
+        \\ simp [ref_edge_def,get_refs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]
+        >- (disj1_tac \\ disj1_tac \\ qexists_tac `x` \\ fs [])
+        >- (disj1_tac \\ disj2_tac \\ gvs [])
+        \\ disj2_tac \\ qexists_tac `x` \\ fs [])
+      \\ strip_tac \\ qexists_tac `p2` \\ fs []
+      \\ rfs [lookup_len_def,el_length_def]
+      \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+      \\ once_rewrite_tac [traverse_heap_cases]
+      \\ rpt disj2_tac \\ fs [])
     >~ [‘ByteArray b l’] >-
      (rveq \\ fs [] \\ fs []
       \\ first_x_assum (qspec_then `r` mp_tac)
