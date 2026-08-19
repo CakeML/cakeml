@@ -6,5 +6,8 @@ CNF encoder and checker
 [compilation](compilation):
 Compiling the CNF and WCNF encoders + PB checker.
 
+[mcnfProgScript.sml](mcnfProgScript.sml):
+MCNF (multi-objective MaxSAT) encoder and checker
+
 [wcnfProgScript.sml](wcnfProgScript.sml):
 WCNF encoder and checker

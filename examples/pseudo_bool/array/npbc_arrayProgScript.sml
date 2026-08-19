@@ -5999,7 +5999,15 @@ Theorem check_cstep_arr_spec:
 Proof
   rw[]>>
   xcf "check_cstep_arr" (get_ml_prog_state ())>>
-  rw[check_cstep_list_def]>>
+  rw[check_cstep_list_def,check_cstep_dom_list_def,
+    check_cstep_sstep_list_def,check_cstep_checkeddelete_list_def,
+    check_cstep_uncheckeddelete_list_def,check_cstep_transfer_list_def,
+    check_cstep_strengthentocore_list_def,check_cstep_loadorder_list_def,
+    check_cstep_unloadorder_list_def,check_cstep_storeorder_list_def,
+    check_cstep_obj_list_def,check_cstep_changeobj_list_def,
+    check_cstep_checkobj_list_def,check_cstep_assertobj_list_def,
+    check_cstep_changepres_list_def,check_cstep_sol_list_def,
+    check_cstep_checkpres_list_def]>>
   Cases_on`cstep`>>fs[NPBC_CHECK_CSTEP_TYPE_def]
   >- ( (* Dom*)
     xmatch>>

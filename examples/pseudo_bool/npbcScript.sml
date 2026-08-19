@@ -2278,7 +2278,26 @@ Definition conf_valid'_def:
            eval_obj obj p' ≤ eval_obj obj p
 End
 
-Theorem dominance_conf_valid:
+Definition conf_valid_esc_def:
+  conf_valid_esc C D pres po obj esc ⇔
+    ∀p.
+      satisfies p C ⇒
+      (∃p'.
+           (∀x. x ∈ pres ⇒ p x = p' x) ∧
+           satisfies p' (C ∪ D) ∧
+           po p' p ∧
+           eval_obj obj p' ≤ eval_obj obj p) ∨
+      esc p
+End
+
+Theorem conf_valid_esc_F:
+  conf_valid_esc C D pres po obj (λp. F) ⇔
+  conf_valid' C D pres po obj
+Proof
+  rw[conf_valid_esc_def,conf_valid'_def]
+QED
+
+Theorem dominance_conf_valid_esc:
   transitive po ∧
   finite_support po z ∧ FINITE z ∧
   (∀x. x ∈ pres ⇒ w x = NONE) ∧
@@ -2287,16 +2306,17 @@ Theorem dominance_conf_valid:
   (case obj of
    | NONE => T
    | SOME obj => C ∪ D ∪ {not c} ⊨ {obj_constraint w obj}) ∧
-  conf_valid' C D pres po obj ⇒
-  conf_valid' C (D ∪ {c}) pres po obj
+  (∀x y. esc x ∧ po x y ⇒ esc y) ∧
+  conf_valid_esc C D pres po obj esc ⇒
+  conf_valid_esc C (D ∪ {c}) pres po obj esc
 Proof
-  rw[conf_valid'_def]>>
+  rw[conf_valid_esc_def]>>
   CCONTR_TAC>>
   gs[]>>
   fs[METIS_PROVE [] ``(A ∨ ¬B) ⇔ (¬A ⇒ ¬B)``]>>
   qabbrev_tac`s =
   {p |
-   satisfies p C ∧
+   satisfies p C ∧ ¬esc p ∧
    ∀p'. (∀x. x ∈ pres ⇒ p x = p' x) ∧
         po p' p ∧ eval_obj obj p' ≤ eval_obj obj p ⇒
         ¬satisfies p' (C ∪ D ∪ {c})}`>>
@@ -2309,7 +2329,7 @@ Proof
     (match_mp_tac FINITE_support_find_min>>
     fs[])>>
   qpat_x_assum`s ≠ _ ` kall_tac>>
-  `satisfies p C ∧
+  `satisfies p C ∧ ¬esc p ∧
   ∀p'.
     (∀x. x ∈ pres ⇒ p x = p' x) ∧
     po p' p ∧ eval_obj obj p' ≤ eval_obj obj p ⇒
@@ -2335,13 +2355,33 @@ Proof
      \\ gvs [sat_implies_def,Abbr‘p''’]
      \\ rewrite_tac [GSYM satisfies_npbc_obj_constraint]
      \\ first_x_assum irule \\ fs [not_thm]) >>
-  gs[Abbr`s`]>>
+  gs[Abbr`s`]
+  >- metis_tac[]>>
   rename1`satisfies_npbc pprime c`>>
   `po pprime p` by
     metis_tac[transitive_def]>>
   `!x. x ∈ pres ⇒ (p' x = pprime x)` by
     gvs[Abbr`p''`,assign_def]>>
   metis_tac[integerTheory.INT_LE_TRANS]
+QED
+
+Theorem dominance_conf_valid:
+  transitive po ∧
+  finite_support po z ∧ FINITE z ∧
+  (∀x. x ∈ pres ⇒ w x = NONE) ∧
+  C ∪ D ∪ {not c} ⊨ C ⇂ w ∧
+  sat_strict_ord (C ∪ D ∪ {not c}) po w ∧
+  (case obj of
+   | NONE => T
+   | SOME obj => C ∪ D ∪ {not c} ⊨ {obj_constraint w obj}) ∧
+  conf_valid' C D pres po obj ⇒
+  conf_valid' C (D ∪ {c}) pres po obj
+Proof
+  strip_tac>>
+  rewrite_tac[GSYM conf_valid_esc_F]>>
+  irule dominance_conf_valid_esc>>
+  gvs[conf_valid_esc_F]>>
+  metis_tac[]
 QED
 
 Theorem satisfies_subst_thm:
@@ -3549,6 +3589,113 @@ Proof
     fs [satisfies_def,PULL_EXISTS,subst_thm,satisfies_npbc_obj_constraint])
 QED
 
+Theorem good_aspo_dominance_esc:
+  fresh_aux as fml c obj w ∧
+  good_aspo (((f,g,us,vs,as),xs)) ∧
+  (∀x. x ∈ pres ⇒ w x = NONE) ∧
+  C ⊆ fml ∧
+  (∀w.
+    satisfies w C ⇒
+    (∃w'.
+      (∀x. x ∈ pres ⇒ w x = w' x) ∧
+      satisfies w' fml ∧
+      po_of_aspo ((f,g,us,vs,as),xs) w' w ∧
+      eval_obj obj w' ≤ eval_obj obj w) ∨ esc w) ∧
+  (∀x y. esc x ∧ po_of_aspo ((f,g,us,vs,as),xs) x y ⇒ esc y) ∧
+  sub_leq =
+    (λn.
+      case ALOOKUP (ZIP (us,xs)) n of
+        SOME (v,b) =>
+          SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+      | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (vs, xs)) n)) ∧
+  sub_geq =
+    (λn.
+      case ALOOKUP (ZIP (vs,xs)) n of
+        SOME (v,b) =>
+          SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+      | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (us, xs)) n)) ∧
+  fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ C ⇂ w ∧
+  fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ (set f) ⇂ sub_leq ∧
+  unsatisfiable (
+    fml ∪ {not c} ∪
+    (set f) ⇂ sub_geq ∪
+    (set g) ⇂ sub_geq
+  ) ∧
+  (case obj of
+    NONE => T
+  | SOME obj =>
+    fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ {obj_constraint w obj}) ⇒
+  (∀w.
+    satisfies w C ⇒
+    (∃w'.
+      (∀x. x ∈ pres ⇒ w x = w' x) ∧
+      satisfies_npbc w' c ∧
+      satisfies w' fml ∧
+      po_of_aspo (((f,g,us,vs,as),xs)) w' w ∧
+      eval_obj obj w' ≤ eval_obj obj w) ∨ esc w)
+Proof
+  rw[]>>
+  `conf_valid_esc C (fml DIFF C) pres (po_of_aspo ((f,g,us,vs,as),xs)) obj esc` by (
+    fs[conf_valid_esc_def]>>rw[]>>
+    last_x_assum drule>>
+    rw[]
+    >- (
+      disj1_tac>>
+      pop_assum (irule_at Any)>>
+      fs[satisfies_def,SUBSET_DEF])>>
+    simp[])>>
+  drule_at (Pos last) dominance_conf_valid_esc>>
+  `C ∪ (fml DIFF C) = fml` by (
+    fs[EXTENSION,SUBSET_DEF]>>
+    metis_tac[])>>
+  disch_then (drule_at Any)>>
+  disch_then (qspecl_then [`set (MAP FST xs)`,`w`,`c`] mp_tac)>>
+  simp[finite_support_po_of_aspo]>>
+  impl_tac>- (
+    fs[good_aspo_def,fresh_aux_def]>>
+    CONJ_TAC >- (
+      irule_at Any sat_implies_more_left_spec>>
+      rpt(first_x_assum (irule_at Any))>>
+      qexists_tac`w`>>simp[]>>
+      rw[]
+      >- (
+        gvs[EXTENSION,npbf_vars_def]>>
+        metis_tac[])
+      >- (
+        CCONTR_TAC>>
+        gvs[]>> drule npbf_vars_subst>>
+        gvs[SUBSET_DEF,npbf_vars_def]>>
+        metis_tac[]))>>
+    CONJ_TAC >- (
+      irule imp_sat_strict_ord_po_of_aspo>>
+      gvs[])>>
+    gvs[AllCasePreds()]>>
+    irule_at Any sat_implies_more_left_spec>>
+    rpt(first_x_assum (irule_at Any))>>
+    qexists_tac`w`>>simp[]>>
+    rw[]>>
+    gvs[EXTENSION,npbf_vars_def]>>
+    metis_tac[npbc_vars_obj_constraint])>>
+  simp[conf_valid_esc_def]>>
+  rw[]>>
+  pop_assum drule>>
+  rw[]
+  >- (
+    disj1_tac>>
+    pop_assum (irule_at Any)>>
+    fs[satisfies_def]>>
+    metis_tac[])>>
+  simp[]
+QED
+
 Theorem good_aspo_dominance:
   fresh_aux as fml c obj w ∧
   good_aspo (((f,g,us,vs,as),xs)) ∧
@@ -3601,53 +3748,10 @@ Theorem good_aspo_dominance:
       po_of_aspo (((f,g,us,vs,as),xs)) w' w ∧
       eval_obj obj w' ≤ eval_obj obj w)
 Proof
-  rw[]>>
-  `conf_valid' C (fml DIFF C) pres (po_of_aspo ((f,g,us,vs,as),xs)) obj` by (
-    fs[conf_valid'_def]>>rw[]>>
-    last_x_assum drule>>
-    rw[]>>
-    pop_assum (irule_at Any)>>
-    fs[satisfies_def,SUBSET_DEF])>>
-  drule_at (Pos last) dominance_conf_valid>>
-  `C ∪ (fml DIFF C) = fml` by (
-    fs[EXTENSION,SUBSET_DEF]>>
-    metis_tac[])>>
-  disch_then (drule_at Any)>>
-  disch_then (qspec_then`set (MAP FST xs)` mp_tac)>>
-  simp[finite_support_po_of_aspo]>>
-  disch_then (qspec_then`c` mp_tac)>>
-  impl_tac>- (
-    fs[good_aspo_def,fresh_aux_def]>>
-    CONJ_TAC >- (
-      irule_at Any sat_implies_more_left_spec>>
-      rpt(first_x_assum (irule_at Any))>>
-      qexists_tac`w`>>simp[]>>
-      rw[]
-      >- (
-        gvs[EXTENSION,npbf_vars_def]>>
-        metis_tac[])
-      >- (
-        CCONTR_TAC>>
-        gvs[]>> drule npbf_vars_subst>>
-        gvs[SUBSET_DEF,npbf_vars_def]>>
-        metis_tac[]))>>
-    CONJ_TAC >- (
-      irule imp_sat_strict_ord_po_of_aspo>>
-      gvs[])>>
-    gvs[AllCasePreds()]>>
-    irule_at Any sat_implies_more_left_spec>>
-    rpt(first_x_assum (irule_at Any))>>
-    qexists_tac`w`>>simp[]>>
-    rw[]>>
-    gvs[EXTENSION,npbf_vars_def]>>
-    metis_tac[npbc_vars_obj_constraint])>>
-  simp[conf_valid'_def]>>
-  rw[]>>
-  pop_assum drule>>
-  rw[]>>
-  pop_assum (irule_at Any)>>
-  fs[satisfies_def]>>
-  metis_tac[]
+  strip_tac>>
+  qspec_then `λw. F` mp_tac (Q.GEN `esc` good_aspo_dominance_esc)>>
+  impl_tac >- gvs[]>>
+  simp[]
 QED
 
 (* Conclusion and outputs *)

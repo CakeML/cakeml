@@ -4122,179 +4122,161 @@ Definition mk_perm_def:
     | _ => mk_perm vimap ns))
 End
 
-Definition check_cstep_list_def:
-  check_cstep_list cstep fml zeros inds vimap vomap pc =
-  case cstep of
-    Dom c s pfs idopt =>
-    (case pc.ord of
+Definition check_cstep_dom_list_def:
+  check_cstep_dom_list c s pfs idopt
+    (fml: (npbc # bool) option list) (zeros:word8 list) (inds:num list)
+    (vimap:vimap_ty) (vomap:mlstring) (pc:proof_conf) =
+  (case pc.ord of
+    NONE => NONE
+  | SOME spo =>
+  if check_pres pc.pres s ∧
+    check_fresh_aspo_list c s pc.ord vimap vomap then
+  ( let nc = not c in
+    let id = pc.id in
+    let (rinds,inds',vimap') = get_set_indices fml inds s vimap in
+    let corels = core_fmlls fml rinds in
+    let fml_not_c = update_resize fml NONE (SOME (nc,F)) id in
+    let s = mk_subst s in
+    let w = subst_fun s in
+    let (dsubs,dscopes,dindex) = dom_subgoals spo w c pc.obj in
+    case extract_scopes_list dscopes s F fml dsubs pfs of
       NONE => NONE
-    | SOME spo =>
-    if check_pres pc.pres s ∧
-      check_fresh_aspo_list c s pc.ord vimap vomap then
-    ( let nc = not c in
-      let id = pc.id in
-      let (rinds,inds',vimap') = get_set_indices fml inds s vimap in
-      let corels = core_fmlls fml rinds in
-      let fml_not_c = update_resize fml NONE (SOME (nc,F)) id in
-      let s = mk_subst s in
-      let w = subst_fun s in
-      let (dsubs,dscopes,dindex) = dom_subgoals spo w c pc.obj in
-      case extract_scopes_list dscopes s F fml dsubs pfs of
+    | SOME cpfs =>
+      (case check_scopes_list cpfs F
+        fml_not_c id (id+1) zeros of
         NONE => NONE
-      | SOME cpfs =>
-        (case check_scopes_list cpfs F
-          fml_not_c id (id+1) zeros of
-          NONE => NONE
-        | SOME (fml',id',zeros') =>
-          let rfml = rollback fml' id id' in
-          if do_dom_check idopt fml' rfml inds' w corels c nc pfs dsubs dindex then
-            SOME(
-              update_resize rfml NONE (SOME (c,pc.tcb)) id',
-              zeros',
-              sorted_insert id' inds',
-              update_vimap T vimap' id' (FST c),
-              vomap,
-              pc with id := id'+1)
-          else NONE))
-    else NONE)
-  | Sstep sstep =>
-    (case check_sstep_list sstep pc.pres pc.ord pc.obj pc.tcb
-      fml inds pc.id vimap vomap zeros of
-      SOME(fml',inds',vimap',id',zeros') =>
-        SOME(fml',zeros', inds', vimap', vomap, pc with id := id')
-    | NONE => NONE)
-  | CheckedDelete n s pfs idopt => (
-    if check_tcb_idopt pc.tcb idopt then
-      (case lookup_core_only_list T fml n of
-        NONE => NONE
-      | SOME c =>
-          (let nfml = delete_list n fml in
-          case check_red_list pc.pres pc.ord pc.obj T pc.tcb
-            nfml inds pc.id c s pfs idopt vimap vomap zeros of
-            SOME (ncf',inds',vimap',id',zeros') =>
-            SOME (ncf',zeros', inds',
-              vimap', vomap, pc with <| id := id' |>)
-          | NONE => NONE) )
-    else NONE)
-  | UncheckedDelete ls => (
-    (* Either no order or all ids are in core *)
-    if ¬pc.tcb ∧ pc.ord = NONE
-    then
-      SOME (list_delete_list ls fml, zeros, inds,
-        vimap, vomap, pc with chk := F)
-    else
-    case all_core_list fml inds [] of NONE => NONE
-    | SOME inds' =>
-      SOME (list_delete_list ls fml, zeros, inds',
-        vimap, vomap, pc with chk := F))
-  | Transfer ls =>
-    (case core_from_inds fml ls of NONE => NONE
+      | SOME (fml',id',zeros') =>
+        let rfml = rollback fml' id id' in
+        if do_dom_check idopt fml' rfml inds' w corels c nc pfs dsubs dindex then
+          SOME(
+            update_resize rfml NONE (SOME (c,pc.tcb)) id',
+            zeros',
+            sorted_insert id' inds',
+            update_vimap T vimap' id' (FST c),
+            vomap,
+            pc with id := id'+1)
+        else NONE))
+  else NONE)
+End
+
+Definition check_cstep_sstep_list_def:
+  check_cstep_sstep_list sstep
+    (fml: (npbc # bool) option list) (zeros:word8 list) (inds:num list)
+    (vimap:vimap_ty) (vomap:mlstring) (pc:proof_conf) =
+  (case check_sstep_list sstep pc.pres pc.ord pc.obj pc.tcb
+    fml inds pc.id vimap vomap zeros of
+    SOME(fml',inds',vimap',id',zeros') =>
+      SOME(fml',zeros', inds', vimap', vomap, pc with id := id')
+  | NONE => NONE)
+End
+
+Definition check_cstep_checkeddelete_list_def:
+  check_cstep_checkeddelete_list n s pfs idopt
+    (fml: (npbc # bool) option list) (zeros:word8 list) (inds:num list)
+    (vimap:vimap_ty) (vomap:mlstring) (pc:proof_conf) =
+  (if check_tcb_idopt pc.tcb idopt then
+    (case lookup_core_only_list T fml n of
+      NONE => NONE
+    | SOME c =>
+        (let nfml = delete_list n fml in
+        case check_red_list pc.pres pc.ord pc.obj T pc.tcb
+          nfml inds pc.id c s pfs idopt vimap vomap zeros of
+          SOME (ncf',inds',vimap',id',zeros') =>
+          SOME (ncf',zeros', inds',
+            vimap', vomap, pc with <| id := id' |>)
+        | NONE => NONE) )
+  else NONE)
+End
+
+Definition check_cstep_uncheckeddelete_list_def:
+  check_cstep_uncheckeddelete_list ls
+    (fml: (npbc # bool) option list) (zeros:word8 list) (inds:num list)
+    (vimap:vimap_ty) (vomap:mlstring) (pc:proof_conf) =
+  (* Either no order or all ids are in core *)
+  (if ¬pc.tcb ∧ pc.ord = NONE
+  then
+    SOME (list_delete_list ls fml, zeros, inds,
+      vimap, vomap, pc with chk := F)
+  else
+  case all_core_list fml inds [] of NONE => NONE
+  | SOME inds' =>
+    SOME (list_delete_list ls fml, zeros, inds',
+      vimap, vomap, pc with chk := F))
+End
+
+Definition check_cstep_transfer_list_def:
+  check_cstep_transfer_list ls
+    (fml: (npbc # bool) option list) (zeros:word8 list) (inds:num list)
+    (vimap:vimap_ty) (vomap:mlstring) (pc:proof_conf) =
+  (case core_from_inds fml ls of NONE => NONE
+  | SOME fml' =>
+    SOME (fml', zeros, inds, vimap, vomap, pc))
+End
+
+Definition check_cstep_strengthentocore_list_def:
+  check_cstep_strengthentocore_list b
+    (fml: (npbc # bool) option list) (zeros:word8 list) (inds:num list)
+    (vimap:vimap_ty) (vomap:mlstring) (pc:proof_conf) =
+  (let inds' = reindex fml inds in
+  let pc' = pc with tcb := b in
+  if b
+  then
+    (case core_from_inds fml inds' of NONE => NONE
     | SOME fml' =>
-      SOME (fml', zeros, inds, vimap, vomap, pc))
-  | StrengthenToCore b =>
-    (let inds' = reindex fml inds in
-    let pc' = pc with tcb := b in
-    if b
-    then
-      (case core_from_inds fml inds' of NONE => NONE
-      | SOME fml' =>
-        SOME (fml',zeros,inds', vimap, vomap, pc'))
-    else
-      SOME (fml,zeros,inds',vimap, vomap, pc'))
-  | LoadOrder nn xs =>
-    (let inds' = reindex fml inds in
-      case ALOOKUP pc.orders nn of NONE => NONE
-      | SOME ord' =>
-        if guard_ord_t ord' xs then
-          case core_from_inds fml inds' of NONE => NONE
-          | SOME fml' =>
-          SOME (fml',zeros, inds',
-            mk_perm vimap (MAP FST xs),vomap,pc with ord := mk_ordsub ord' xs)
-        else NONE)
-  | UnloadOrder =>
-    (case pc.ord of NONE => NONE
-    | SOME spo =>
-        SOME (fml, zeros, inds,
-          vimap, vomap, pc with ord := NONE))
-  | StoreOrder nn vars gspec f pfsr pfst =>
-    (case check_storeorder vars gspec f pfst pfsr of NONE => NONE
-    | SOME aord =>
+      SOME (fml',zeros,inds', vimap, vomap, pc'))
+  else
+    SOME (fml,zeros,inds',vimap, vomap, pc'))
+End
+
+Definition check_cstep_loadorder_list_def:
+  check_cstep_loadorder_list nn xs
+    (fml: (npbc # bool) option list) (zeros:word8 list) (inds:num list)
+    (vimap:vimap_ty) (vomap:mlstring) (pc:proof_conf) =
+  (let inds' = reindex fml inds in
+    case ALOOKUP pc.orders nn of NONE => NONE
+    | SOME ord' =>
+      if guard_ord_t ord' xs then
+        case core_from_inds fml inds' of NONE => NONE
+        | SOME fml' =>
+        SOME (fml',zeros, inds',
+          mk_perm vimap (MAP FST xs),vomap,pc with ord := mk_ordsub ord' xs)
+      else NONE)
+End
+
+Definition check_cstep_unloadorder_list_def:
+  check_cstep_unloadorder_list
+    (fml: (npbc # bool) option list) (zeros:word8 list) (inds:num list)
+    (vimap:vimap_ty) (vomap:mlstring) (pc:proof_conf) =
+  (case pc.ord of NONE => NONE
+  | SOME spo =>
       SOME (fml, zeros, inds,
-        vimap, vomap,
-        pc with orders := (nn ,aord)::pc.orders))
-  | Obj w mi bopt => (
-    let corels = core_fmlls fml inds in
-    case check_obj pc.obj w (MAP SND corels) bopt of
-      NONE => NONE
-    | SOME (new,w) =>
-      let bound' = update_bound pc.chk pc.bound new in
-      let dbound' = update_dbound pc.dbound new in
-      if mi then
-        if pc.obj ≠ NONE then
-          let c = model_improving pc.obj new in
-          SOME (
-            update_resize fml NONE (SOME (c,T)) pc.id,
-            zeros,
-            sorted_insert pc.id inds,
-            update_vimap T vimap pc.id (FST c),
-            vomap,
-            pc with
-            <| id := pc.id+1;
-               bound := bound';
-               dbound := dbound' |>)
-        else NONE
-      else
-        SOME (fml, zeros, inds, vimap, vomap,
-          pc with
-          <| bound := bound';
-             dbound := dbound' |>))
-  | ChangeObj b fc' pfs =>
-    (case check_change_obj_list b fml pc.id pc.obj
-        fc' pfs zeros of
-      NONE => NONE
-    | SOME (fml',fc',id',zeros') =>
-      SOME (
-        fml', zeros', inds,
-        vimap, mk_vomap (strlen vomap) fc',
-        pc with <| id:=id'; obj:=SOME fc' |>))
-  | CheckObj fc' =>
-    if check_eq_obj pc.obj fc'
-    then SOME (fml, zeros, inds, vimap, vomap, pc)
-    else NONE
-  | AssertObj i => (
+        vimap, vomap, pc with ord := NONE))
+End
+
+Definition check_cstep_storeorder_list_def:
+  check_cstep_storeorder_list nn vars gspec f pfsr pfst
+    (fml: (npbc # bool) option list) (zeros:word8 list) (inds:num list)
+    (vimap:vimap_ty) (vomap:mlstring) (pc:proof_conf) =
+  (case check_storeorder vars gspec f pfst pfsr of NONE => NONE
+  | SOME aord =>
+    SOME (fml, zeros, inds,
+      vimap, vomap,
+      pc with orders := (nn ,aord)::pc.orders))
+End
+
+Definition check_cstep_obj_list_def:
+  check_cstep_obj_list w mi bopt
+    (fml: (npbc # bool) option list) (zeros:word8 list) (inds:num list)
+    (vimap:vimap_ty) (vomap:mlstring) (pc:proof_conf) =
+  (let corels = core_fmlls fml inds in
+  case check_obj pc.obj w (MAP SND corels) bopt of
+    NONE => NONE
+  | SOME (new,w) =>
+    let bound' = update_bound pc.chk pc.bound new in
+    let dbound' = update_dbound pc.dbound new in
+    if mi then
       if pc.obj ≠ NONE then
-        let c = model_improving pc.obj i in
-        let dbound' = update_dbound pc.dbound i in
-          SOME (
-            update_resize fml NONE (SOME (c,T)) pc.id,
-            zeros,
-            sorted_insert pc.id inds,
-            update_vimap T vimap pc.id (FST c),
-            vomap,
-            pc with
-            <| id := pc.id+1;
-               dbound := dbound' |>)
-      else NONE
-    )
-  | ChangePres b v c pfs =>
-    (case check_change_pres_list b fml pc.id pc.pres
-        v c pfs zeros of
-      NONE => NONE
-    | SOME (fml',pres',id',zeros') =>
-      SOME (
-        fml', zeros', inds,
-        vimap, vomap,
-        pc with <| id:=id'; pres:=SOME pres' |>))
-  | Sol w =>
-    (if pc.obj ≠ NONE ∨ ¬pc.chk then NONE
-    else
-    let corels = core_fmlls fml inds in
-    case check_obj pc.obj w (MAP SND corels) NONE of
-      NONE => NONE
-    | SOME (new,w) =>
-      let bound' = update_bound pc.chk pc.bound new in
-      let dbound' = update_dbound pc.dbound new in
-      let c = model_banning pc.pres w in
+        let c = model_improving pc.obj new in
         SOME (
           update_resize fml NONE (SOME (c,T)) pc.id,
           zeros,
@@ -4304,12 +4286,142 @@ Definition check_cstep_list_def:
           pc with
           <| id := pc.id+1;
              bound := bound';
-             dbound := dbound';
-             enum := pc.enum+1 |>))
+             dbound := dbound' |>)
+      else NONE
+    else
+      SOME (fml, zeros, inds, vimap, vomap,
+        pc with
+        <| bound := bound';
+           dbound := dbound' |>))
+End
+
+Definition check_cstep_changeobj_list_def:
+  check_cstep_changeobj_list b fc' pfs
+    (fml: (npbc # bool) option list) (zeros:word8 list) (inds:num list)
+    (vimap:vimap_ty) (vomap:mlstring) (pc:proof_conf) =
+  (case check_change_obj_list b fml pc.id pc.obj
+      fc' pfs zeros of
+    NONE => NONE
+  | SOME (fml',fc',id',zeros') =>
+    SOME (
+      fml', zeros', inds,
+      vimap, mk_vomap (strlen vomap) fc',
+      pc with <| id:=id'; obj:=SOME fc' |>))
+End
+
+Definition check_cstep_checkobj_list_def:
+  check_cstep_checkobj_list fc'
+    (fml: (npbc # bool) option list) (zeros:word8 list) (inds:num list)
+    (vimap:vimap_ty) (vomap:mlstring) (pc:proof_conf) =
+  (if check_eq_obj pc.obj fc'
+  then SOME (fml, zeros, inds, vimap, vomap, pc)
+  else NONE)
+End
+
+Definition check_cstep_assertobj_list_def:
+  check_cstep_assertobj_list i
+    (fml: (npbc # bool) option list) (zeros:word8 list) (inds:num list)
+    (vimap:vimap_ty) (vomap:mlstring) (pc:proof_conf) =
+  (if pc.obj ≠ NONE then
+    let c = model_improving pc.obj i in
+    let dbound' = update_dbound pc.dbound i in
+      SOME (
+        update_resize fml NONE (SOME (c,T)) pc.id,
+        zeros,
+        sorted_insert pc.id inds,
+        update_vimap T vimap pc.id (FST c),
+        vomap,
+        pc with
+        <| id := pc.id+1;
+           dbound := dbound' |>)
+  else NONE)
+End
+
+Definition check_cstep_changepres_list_def:
+  check_cstep_changepres_list b v c pfs
+    (fml: (npbc # bool) option list) (zeros:word8 list) (inds:num list)
+    (vimap:vimap_ty) (vomap:mlstring) (pc:proof_conf) =
+  (case check_change_pres_list b fml pc.id pc.pres
+      v c pfs zeros of
+    NONE => NONE
+  | SOME (fml',pres',id',zeros') =>
+    SOME (
+      fml', zeros', inds,
+      vimap, vomap,
+      pc with <| id:=id'; pres:=SOME pres' |>))
+End
+
+Definition check_cstep_sol_list_def:
+  check_cstep_sol_list w
+    (fml: (npbc # bool) option list) (zeros:word8 list) (inds:num list)
+    (vimap:vimap_ty) (vomap:mlstring) (pc:proof_conf) =
+  (if pc.obj ≠ NONE ∨ ¬pc.chk then NONE
+  else
+  let corels = core_fmlls fml inds in
+  case check_obj pc.obj w (MAP SND corels) NONE of
+    NONE => NONE
+  | SOME (new,w) =>
+    let bound' = update_bound pc.chk pc.bound new in
+    let dbound' = update_dbound pc.dbound new in
+    let c = model_banning pc.pres w in
+      SOME (
+        update_resize fml NONE (SOME (c,T)) pc.id,
+        zeros,
+        sorted_insert pc.id inds,
+        update_vimap T vimap pc.id (FST c),
+        vomap,
+        pc with
+        <| id := pc.id+1;
+           bound := bound';
+           dbound := dbound';
+           enum := pc.enum+1 |>))
+End
+
+Definition check_cstep_checkpres_list_def:
+  check_cstep_checkpres_list ls'
+    (fml: (npbc # bool) option list) (zeros:word8 list) (inds:num list)
+    (vimap:vimap_ty) (vomap:mlstring) (pc:proof_conf) =
+  (if check_eq_pres pc.pres ls'
+  then SOME (fml, zeros, inds, vimap, vomap, pc)
+  else NONE)
+End
+
+Definition check_cstep_list_def:
+  check_cstep_list cstep fml zeros inds vimap vomap pc =
+  case cstep of
+    Dom c s pfs idopt =>
+      check_cstep_dom_list c s pfs idopt fml zeros inds vimap vomap pc
+  | Sstep sstep =>
+      check_cstep_sstep_list sstep fml zeros inds vimap vomap pc
+  | CheckedDelete n s pfs idopt =>
+      check_cstep_checkeddelete_list n s pfs idopt fml zeros inds vimap vomap pc
+  | UncheckedDelete ls =>
+      check_cstep_uncheckeddelete_list ls fml zeros inds vimap vomap pc
+  | Transfer ls =>
+      check_cstep_transfer_list ls fml zeros inds vimap vomap pc
+  | StrengthenToCore b =>
+      check_cstep_strengthentocore_list b fml zeros inds vimap vomap pc
+  | LoadOrder nn xs =>
+      check_cstep_loadorder_list nn xs fml zeros inds vimap vomap pc
+  | UnloadOrder =>
+      check_cstep_unloadorder_list fml zeros inds vimap vomap pc
+  | StoreOrder nn vars gspec f pfsr pfst =>
+      check_cstep_storeorder_list nn vars gspec f pfsr pfst
+        fml zeros inds vimap vomap pc
+  | Obj w mi bopt =>
+      check_cstep_obj_list w mi bopt fml zeros inds vimap vomap pc
+  | ChangeObj b fc' pfs =>
+      check_cstep_changeobj_list b fc' pfs fml zeros inds vimap vomap pc
+  | CheckObj fc' =>
+      check_cstep_checkobj_list fc' fml zeros inds vimap vomap pc
+  | AssertObj i =>
+      check_cstep_assertobj_list i fml zeros inds vimap vomap pc
+  | ChangePres b v c pfs =>
+      check_cstep_changepres_list b v c pfs fml zeros inds vimap vomap pc
+  | Sol w =>
+      check_cstep_sol_list w fml zeros inds vimap vomap pc
   | CheckPres ls' =>
-    if check_eq_pres pc.pres ls'
-    then SOME (fml, zeros, inds, vimap, vomap, pc)
-    else NONE
+      check_cstep_checkpres_list ls' fml zeros inds vimap vomap pc
 End
 
 Theorem MEM_core_fmlls:
@@ -4480,6 +4592,496 @@ Proof
   gvs[any_el_update_resize]>>rw[]
 QED
 
+Definition list_conf_rel_def:
+  list_conf_rel fml fmlls zeros inds vimap vomap (pc:proof_conf) ⇔
+    fml_rel fml fmlls ∧
+    ind_rel fmlls inds ∧
+    vimap_rel fmlls vimap ∧
+    vomap_rel pc.obj vomap ∧
+    (∀n. n ≥ pc.id ⇒ any_el n fmlls NONE = NONE) ∧
+    EVERY (λw. w = 0w) zeros
+End
+
+Theorem fml_rel_check_cstep_dom_list:
+  list_conf_rel fml fmlls zeros inds vimap vomap pc ∧
+  check_cstep_dom_list c s pfs idopt fmlls zeros inds vimap vomap pc =
+    SOME (fmlls',zeros',inds',vimap',vomap',pc') ⇒
+  ∃fml'.
+    check_cstep_dom c s pfs idopt fml pc = SOME (fml', pc') ∧
+    list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
+    pc.id ≤ pc'.id
+Proof
+  rw[list_conf_rel_def]>>
+  gvs[check_cstep_dom_list_def,AllCaseEqs(),check_cstep_dom_def]>>
+  rpt(pairarg_tac>>gvs[])>>
+  gvs[AllCaseEqs()]>>
+  drule_all vimap_rel_vomap_rel_check_fresh_aspo_list >>
+  disch_then $ irule_at Any >>
+  DEP_REWRITE_TAC[fml_rel_extract_scopes_list]>>
+  simp[PULL_EXISTS]>>
+  drule_at (Pos last) fml_rel_check_scopes_list >>
+  disch_then(qspec_then`insert pc.id (not c,F) fml` mp_tac)>>
+  impl_tac >- (
+    simp[fml_rel_update_resize,any_el_update_resize])>>
+  strip_tac>>simp[]>>
+  drule check_scopes_list_id>>
+  drule check_scopes_list_id_upper>>
+  drule check_scopes_list_mindel>>
+  simp[any_el_update_resize]>>
+  ntac 3 strip_tac>>
+  gvs[insert_fml_def]>>
+  CONJ_TAC>- (
+    fs[do_dom_check_def]>>
+    every_case_tac>>fs[]
+    >- (
+      (drule_at Any) split_goals_hash_imp_split_goals>>
+      disch_then(qspec_then `mk_core_fml F fml` mp_tac)>>
+      impl_tac >- (
+        simp[range_mk_core_fml]>>
+        match_mp_tac revalue_SUBSET>>
+        match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
+      match_mp_tac split_goals_same_goals>>
+      simp[EXTENSION,FORALL_PROD,MEM_toAList,lookup_map_opt,MEM_MAP_OPT,AllCaseEqs(),lookup_mk_core_fml]>>
+      simp[MEM_core_fmlls]>>rw[]>>
+      DEP_REWRITE_TAC[GSYM fml_rel_lookup_core_only]>>
+      rw[EQ_IMP_THM]>>fs[]>>
+      irule MEM_get_set_indices_mk_subst>>
+      first_x_assum (irule_at Any)>>
+      fs[lookup_core_only_list_def,AllCaseEqs()])>>
+    metis_tac[fml_rel_check_contradiction_fml] )>>
+  CONJ_TAC>- (
+    match_mp_tac fml_rel_update_resize>>
+    match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
+  CONJ_TAC >- (
+    match_mp_tac ind_rel_update_resize_sorted_insert>>
+    match_mp_tac ind_rel_rollback_2>>
+    fs[]>>
+    metis_tac[ind_rel_get_set_indices])>>
+  CONJ_TAC >- (
+    match_mp_tac vimap_rel_update_resize_update_vimap>>
+    match_mp_tac fml_rel_fml_rel_vimap_rel>>fs[]>>
+    CONJ_TAC >- metis_tac[vimap_rel_get_set_indices]>>
+    match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
+  CONJ_TAC >- simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
+  metis_tac[check_scopes_list_zeros]
+QED
+
+Theorem fml_rel_check_cstep_sstep_list:
+  list_conf_rel fml fmlls zeros inds vimap vomap pc ∧
+  check_cstep_sstep_list sstep fmlls zeros inds vimap vomap pc =
+    SOME (fmlls',zeros',inds',vimap',vomap',pc') ⇒
+  ∃fml'.
+    check_cstep_sstep sstep fml pc = SOME (fml', pc') ∧
+    list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
+    pc.id ≤ pc'.id
+Proof
+  rw[list_conf_rel_def]>>
+  gvs[check_cstep_sstep_list_def,AllCaseEqs(),check_cstep_sstep_def]>>
+  drule_all fml_rel_check_sstep_list>>
+  rw[]>>simp[]
+QED
+
+Theorem fml_rel_check_cstep_checkeddelete_list:
+  list_conf_rel fml fmlls zeros inds vimap vomap pc ∧
+  check_cstep_checkeddelete_list n s pfs idopt fmlls zeros inds vimap vomap pc =
+    SOME (fmlls',zeros',inds',vimap',vomap',pc') ⇒
+  ∃fml'.
+    check_cstep_checkeddelete n s pfs idopt fml pc = SOME (fml', pc') ∧
+    list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
+    pc.id ≤ pc'.id
+Proof
+  rw[list_conf_rel_def]>>
+  gvs[check_cstep_checkeddelete_list_def,AllCaseEqs(),
+    check_cstep_checkeddelete_def]>>
+  drule fml_rel_lookup_core_only>>
+  rw[]>>gvs[]>>
+  simp[PULL_EXISTS]>>
+  qexists_tac`id'`>>
+  simp[]>>
+  drule_at (Pos last) fml_rel_check_red_list>>
+  disch_then match_mp_tac>>
+  simp[]>>
+  CONJ_TAC >- (
+    drule fml_rel_list_delete_list>>
+    disch_then(qspec_then`[n]` mp_tac)>>
+    simp[list_delete_list_def])>>
+  CONJ_TAC >- (
+    drule ind_rel_list_delete_list>>
+    disch_then(qspec_then`[n]` mp_tac)>>
+    simp[list_delete_list_def])>>
+  CONJ_TAC >- (
+    drule vimap_rel_list_delete_list>>
+    disch_then(qspec_then`[n]` mp_tac)>>
+    simp[list_delete_list_def])>>
+  metis_tac[any_el_list_delete_list,list_delete_list_def]
+QED
+
+Theorem fml_rel_check_cstep_uncheckeddelete_list:
+  list_conf_rel fml fmlls zeros inds vimap vomap pc ∧
+  check_cstep_uncheckeddelete_list ls fmlls zeros inds vimap vomap pc =
+    SOME (fmlls',zeros',inds',vimap',vomap',pc') ⇒
+  ∃fml'.
+    check_cstep_uncheckeddelete ls fml pc = SOME (fml', pc') ∧
+    list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
+    pc.id ≤ pc'.id
+Proof
+  rw[list_conf_rel_def]>>
+  gvs[check_cstep_uncheckeddelete_list_def,AllCaseEqs(),
+    check_cstep_uncheckeddelete_def]
+  >- (
+    CONJ_TAC >-
+      metis_tac[fml_rel_list_delete_list]>>
+    CONJ_TAC >-
+      metis_tac[ind_rel_list_delete_list]>>
+    CONJ_TAC >-
+      metis_tac[vimap_rel_list_delete_list]>>
+    simp[any_el_list_delete_list])
+  >- (
+    drule_all fml_rel_all_core>>strip_tac>>
+    simp[]>>
+    CONJ_TAC >-
+      metis_tac[fml_rel_list_delete_list]>>
+    CONJ_TAC >-
+      metis_tac[ind_rel_list_delete_list]>>
+    CONJ_TAC >-
+      metis_tac[vimap_rel_list_delete_list]>>
+    simp[any_el_list_delete_list])
+QED
+
+Theorem fml_rel_check_cstep_transfer_list:
+  list_conf_rel fml fmlls zeros inds vimap vomap pc ∧
+  check_cstep_transfer_list ls fmlls zeros inds vimap vomap pc =
+    SOME (fmlls',zeros',inds',vimap',vomap',pc') ⇒
+  ∃fml'.
+    check_cstep_transfer ls fml pc = SOME (fml', pc') ∧
+    list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
+    pc.id ≤ pc'.id
+Proof
+  rw[list_conf_rel_def]>>
+  gvs[check_cstep_transfer_list_def,AllCaseEqs(),check_cstep_transfer_def]>>
+  drule_all core_from_inds_do_transfer>>
+  drule any_el_core_from_inds>>
+  strip_tac>>fs[]>>
+  fs[ind_rel_def]>>
+  rw[]>>
+  `vimap_rel fmlls' vimap` by
+    metis_tac[vimap_rel_core_from_inds]>>
+  metis_tac[IS_SOME_EXISTS,option_CLAUSES]
+QED
+
+Theorem fml_rel_check_cstep_strengthentocore_list:
+  list_conf_rel fml fmlls zeros inds vimap vomap pc ∧
+  check_cstep_strengthentocore_list b fmlls zeros inds vimap vomap pc =
+    SOME (fmlls',zeros',inds',vimap',vomap',pc') ⇒
+  ∃fml'.
+    check_cstep_strengthentocore b fml pc = SOME (fml', pc') ∧
+    list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
+    pc.id ≤ pc'.id
+Proof
+  rw[list_conf_rel_def]>>
+  gvs[check_cstep_strengthentocore_list_def,AllCaseEqs(),
+    check_cstep_strengthentocore_def]>>
+  drule_all ind_rel_reindex
+  >- (
+    drule any_el_core_from_inds>>
+    rw[]
+    >- (
+      simp[fml_rel_def,lookup_map]>>
+      fs[ind_rel_def]>>rw[]
+      >-
+        metis_tac[fml_rel_def] >>
+      `any_el x fmlls NONE = NONE` by
+        metis_tac[IS_SOME_EXISTS,option_CLAUSES]>>
+      simp[]>>
+      metis_tac[fml_rel_def])
+    >- (
+      fs[ind_rel_def]>>
+      rw[]>>
+      metis_tac[IS_SOME_EXISTS,option_CLAUSES])
+    >- (
+      fs[vimap_rel_def]>>rw[]>>
+      first_x_assum match_mp_tac>>
+      first_x_assum(qspec_then`i` mp_tac)>>
+      rw[any_el_ALT]>>gvs[]>>
+      fs[MEM_MAP]
+      >- (
+        pairarg_tac>>fs[]>>
+        metis_tac[FST,PAIR,SND])>>
+      metis_tac[FST,PAIR,SND])
+      )
+  >-
+    fs[]
+QED
+
+Theorem fml_rel_check_cstep_loadorder_list:
+  list_conf_rel fml fmlls zeros inds vimap vomap pc ∧
+  check_cstep_loadorder_list nn xs fmlls zeros inds vimap vomap pc =
+    SOME (fmlls',zeros',inds',vimap',vomap',pc') ⇒
+  ∃fml'.
+    check_cstep_loadorder nn xs fml pc = SOME (fml', pc') ∧
+    list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
+    pc.id ≤ pc'.id
+Proof
+  rw[list_conf_rel_def]>>
+  gvs[check_cstep_loadorder_list_def,AllCaseEqs(),check_cstep_loadorder_def]>>
+  drule_all ind_rel_reindex>>
+  drule any_el_core_from_inds>>
+  strip_tac>>fs[]>>
+  strip_tac>>fs[]>>
+  CONJ_TAC >- (
+    simp[fml_rel_def,lookup_map]>>
+    fs[ind_rel_def]>>rw[]
+    >-
+      metis_tac[fml_rel_def] >>
+    `any_el x fmlls NONE = NONE` by
+      metis_tac[IS_SOME_EXISTS,option_CLAUSES]>>
+    simp[]>>
+    metis_tac[fml_rel_def])>>
+  CONJ_TAC >- (
+    fs[ind_rel_def]>>
+    rw[]>>
+    metis_tac[IS_SOME_EXISTS,option_CLAUSES])>>
+  drule_all vimap_rel_core_from_inds>>
+  metis_tac[vimap_rel_mk_perm]
+QED
+
+Theorem fml_rel_check_cstep_unloadorder_list:
+  list_conf_rel fml fmlls zeros inds vimap vomap pc ∧
+  check_cstep_unloadorder_list fmlls zeros inds vimap vomap pc =
+    SOME (fmlls',zeros',inds',vimap',vomap',pc') ⇒
+  ∃fml'.
+    check_cstep_unloadorder fml pc = SOME (fml', pc') ∧
+    list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
+    pc.id ≤ pc'.id
+Proof
+  rw[list_conf_rel_def]>>
+  gvs[check_cstep_unloadorder_list_def,AllCaseEqs(),
+    check_cstep_unloadorder_def]
+QED
+
+Theorem fml_rel_check_cstep_storeorder_list:
+  list_conf_rel fml fmlls zeros inds vimap vomap pc ∧
+  check_cstep_storeorder_list nn vars gspec f pfsr pfst
+    fmlls zeros inds vimap vomap pc =
+    SOME (fmlls',zeros',inds',vimap',vomap',pc') ⇒
+  ∃fml'.
+    check_cstep_storeorder nn vars gspec f pfsr pfst fml pc = SOME (fml', pc') ∧
+    list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
+    pc.id ≤ pc'.id
+Proof
+  rw[list_conf_rel_def]>>
+  gvs[check_cstep_storeorder_list_def,AllCaseEqs(),
+    check_cstep_storeorder_def,check_storeorder_def]>>
+  metis_tac[fml_rel_check_spec_list]
+QED
+
+Theorem fml_rel_check_cstep_obj_list:
+  list_conf_rel fml fmlls zeros inds vimap vomap pc ∧
+  check_cstep_obj_list w mi bopt fmlls zeros inds vimap vomap pc =
+    SOME (fmlls',zeros',inds',vimap',vomap',pc') ⇒
+  ∃fml'.
+    check_cstep_obj w mi bopt fml pc = SOME (fml', pc') ∧
+    list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
+    pc.id ≤ pc'.id
+Proof
+  rw[list_conf_rel_def]>>
+  gvs[check_cstep_obj_list_def,AllCaseEqs(),check_cstep_obj_def]>>
+  rw[PULL_EXISTS]>>
+  `set (MAP SND (core_fmlls fmlls inds)) =
+    set (MAP SND (toAList (mk_core_fml T fml)))` by (
+    rw[EXTENSION,MEM_MAP,EXISTS_PROD,MEM_toAList,MEM_core_fmlls]>>
+    simp[lookup_mk_core_fml]>>
+    metis_tac[ind_rel_lookup_core_only_list,fml_rel_lookup_core_only])>>
+  drule check_obj_cong>>rw[]>>fs[]>>
+  rw[]
+  >- metis_tac[fml_rel_update_resize]
+  >- metis_tac[ind_rel_update_resize_sorted_insert]
+  >- metis_tac[vimap_rel_update_resize_update_vimap]>>
+  simp[any_el_update_resize]
+QED
+
+Theorem fml_rel_check_cstep_changeobj_list:
+  list_conf_rel fml fmlls zeros inds vimap vomap pc ∧
+  check_cstep_changeobj_list b fc' pfs fmlls zeros inds vimap vomap pc =
+    SOME (fmlls',zeros',inds',vimap',vomap',pc') ⇒
+  ∃fml'.
+    check_cstep_changeobj b fc' pfs fml pc = SOME (fml', pc') ∧
+    list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
+    pc.id ≤ pc'.id
+Proof
+  rw[list_conf_rel_def]>>
+  fs[check_cstep_changeobj_def,check_cstep_changeobj_list_def]>>
+  gvs[AllCaseEqs(),check_change_obj_list_def,check_change_obj_def]>>
+  qpat_x_assum`_ = SOME cpfs` mp_tac>>
+  DEP_REWRITE_TAC [GSYM fml_rel_extract_clauses_list]>>
+  simp[]>>
+  `subst_fun emp_vec = (λx:num. NONE)` by
+    (simp[FUN_EQ_THM,subst_fun_def,emp_vec_def]>>
+    EVAL_TAC>>rw[])>>
+  strip_tac>>
+  rfs[]>>
+  `pc.id ≤ pc.id` by fs[]>>
+  drule_all fml_rel_check_subproofs_list>>
+  fs[do_change_check_def]>>
+  pairarg_tac>>fs[]>>
+  strip_tac>>simp[]>>
+  drule check_subproofs_list_id>>
+  drule check_subproofs_list_id_upper>>
+  drule check_subproofs_list_mindel>>
+  ntac 3 strip_tac>>
+  CONJ_ASM1_TAC >- (
+    match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
+  CONJ_TAC >- (
+    match_mp_tac ind_rel_rollback_2>>
+    simp[]>>
+    metis_tac[ind_rel_reindex])>>
+  CONJ_TAC >-
+    metis_tac[fml_rel_fml_rel_vimap_rel]>>
+  CONJ_TAC >-
+    metis_tac[vomap_rel_mk_vomap]>>
+  simp[any_el_rollback]>>
+  metis_tac[check_subproofs_list_zeros]
+QED
+
+Theorem fml_rel_check_cstep_checkobj_list:
+  list_conf_rel fml fmlls zeros inds vimap vomap pc ∧
+  check_cstep_checkobj_list fc' fmlls zeros inds vimap vomap pc =
+    SOME (fmlls',zeros',inds',vimap',vomap',pc') ⇒
+  ∃fml'.
+    check_cstep_checkobj fc' fml pc = SOME (fml', pc') ∧
+    list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
+    pc.id ≤ pc'.id
+Proof
+  rw[list_conf_rel_def]>>
+  fs[check_cstep_checkobj_def,check_cstep_checkobj_list_def]
+QED
+
+Theorem fml_rel_check_cstep_assertobj_list:
+  list_conf_rel fml fmlls zeros inds vimap vomap pc ∧
+  check_cstep_assertobj_list i fmlls zeros inds vimap vomap pc =
+    SOME (fmlls',zeros',inds',vimap',vomap',pc') ⇒
+  ∃fml'.
+    check_cstep_assertobj i fml pc = SOME (fml', pc') ∧
+    list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
+    pc.id ≤ pc'.id
+Proof
+  rw[list_conf_rel_def]>>
+  gvs[check_cstep_assertobj_def,check_cstep_assertobj_list_def]>>
+  rw[]
+  >- metis_tac[fml_rel_update_resize]
+  >- metis_tac[ind_rel_update_resize_sorted_insert]
+  >- metis_tac[vimap_rel_update_resize_update_vimap]>>
+  simp[any_el_update_resize]
+QED
+
+Theorem fml_rel_check_cstep_changepres_list:
+  list_conf_rel fml fmlls zeros inds vimap vomap pc ∧
+  check_cstep_changepres_list b v c pfs fmlls zeros inds vimap vomap pc =
+    SOME (fmlls',zeros',inds',vimap',vomap',pc') ⇒
+  ∃fml'.
+    check_cstep_changepres b v c pfs fml pc = SOME (fml', pc') ∧
+    list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
+    pc.id ≤ pc'.id
+Proof
+  rw[list_conf_rel_def]>>
+  fs[check_cstep_changepres_def,check_cstep_changepres_list_def]>>
+  gvs[AllCaseEqs(),check_change_pres_list_def,check_change_pres_def]>>
+  qpat_x_assum`_ = SOME cpfs` mp_tac>>
+  DEP_REWRITE_TAC [GSYM fml_rel_extract_clauses_list]>>
+  simp[]>>
+  `subst_fun emp_vec = (λx:num. NONE)` by
+    (simp[FUN_EQ_THM,subst_fun_def,emp_vec_def]>>
+    EVAL_TAC>>rw[])>>
+  strip_tac>>
+  rfs[]>>
+  `pc.id ≤ pc.id` by fs[]>>
+  drule_all fml_rel_check_subproofs_list>>
+  fs[do_change_check_def]>>
+  pairarg_tac>>fs[]>>
+  strip_tac>>simp[]>>
+  drule check_subproofs_list_id>>
+  drule check_subproofs_list_id_upper>>
+  drule check_subproofs_list_mindel>>
+  ntac 3 strip_tac>>
+  CONJ_ASM1_TAC >- (
+    match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
+  CONJ_TAC >- (
+    match_mp_tac ind_rel_rollback_2>>
+    simp[]>>
+    metis_tac[ind_rel_reindex])>>
+  CONJ_TAC >-
+    metis_tac[fml_rel_fml_rel_vimap_rel]>>
+  simp[any_el_rollback]>>
+  metis_tac[check_subproofs_list_zeros]
+QED
+
+Theorem fml_rel_check_cstep_sol_list:
+  list_conf_rel fml fmlls zeros inds vimap vomap pc ∧
+  check_cstep_sol_list w fmlls zeros inds vimap vomap pc =
+    SOME (fmlls',zeros',inds',vimap',vomap',pc') ⇒
+  ∃fml'.
+    check_cstep_sol w fml pc = SOME (fml', pc') ∧
+    list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
+    pc.id ≤ pc'.id
+Proof
+  rw[list_conf_rel_def]>>
+  gvs[check_cstep_sol_list_def,AllCaseEqs(),check_cstep_sol_def]>>
+  rw[PULL_EXISTS]>>
+  `set (MAP SND (core_fmlls fmlls inds)) =
+    set (MAP SND (toAList (mk_core_fml T fml)))` by (
+    rw[EXTENSION,MEM_MAP,EXISTS_PROD,MEM_toAList,MEM_core_fmlls]>>
+    simp[lookup_mk_core_fml]>>
+    metis_tac[ind_rel_lookup_core_only_list,fml_rel_lookup_core_only])>>
+  drule check_obj_cong>>rw[]>>fs[]>>
+  rw[]
+  >- metis_tac[fml_rel_update_resize]
+  >- metis_tac[ind_rel_update_resize_sorted_insert]
+  >- metis_tac[vimap_rel_update_resize_update_vimap]>>
+  simp[any_el_update_resize]
+QED
+
+Theorem fml_rel_check_cstep_checkpres_list:
+  list_conf_rel fml fmlls zeros inds vimap vomap pc ∧
+  check_cstep_checkpres_list ls' fmlls zeros inds vimap vomap pc =
+    SOME (fmlls',zeros',inds',vimap',vomap',pc') ⇒
+  ∃fml'.
+    check_cstep_checkpres ls' fml pc = SOME (fml', pc') ∧
+    list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
+    pc.id ≤ pc'.id
+Proof
+  rw[list_conf_rel_def]>>
+  fs[check_cstep_checkpres_def,check_cstep_checkpres_list_def]
+QED
+
+Theorem fml_rel_check_cstep_list_conf_rel:
+  list_conf_rel fml fmlls zeros inds vimap vomap pc ∧
+  check_cstep_list cstep fmlls zeros inds vimap vomap pc =
+    SOME (fmlls',zeros',inds',vimap',vomap',pc') ⇒
+  ∃fml'.
+    check_cstep cstep fml pc = SOME (fml', pc') ∧
+    list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
+    pc.id ≤ pc'.id
+Proof
+  Cases_on`cstep`>>
+  simp[check_cstep_list_def,check_cstep_def]
+  >~ [‘check_cstep_dom_list’] >- metis_tac[fml_rel_check_cstep_dom_list]
+  >~ [‘check_cstep_sstep_list’] >- metis_tac[fml_rel_check_cstep_sstep_list]
+  >~ [‘check_cstep_checkeddelete_list’] >- metis_tac[fml_rel_check_cstep_checkeddelete_list]
+  >~ [‘check_cstep_uncheckeddelete_list’] >- metis_tac[fml_rel_check_cstep_uncheckeddelete_list]
+  >~ [‘check_cstep_transfer_list’] >- metis_tac[fml_rel_check_cstep_transfer_list]
+  >~ [‘check_cstep_strengthentocore_list’] >- metis_tac[fml_rel_check_cstep_strengthentocore_list]
+  >~ [‘check_cstep_loadorder_list’] >- metis_tac[fml_rel_check_cstep_loadorder_list]
+  >~ [‘check_cstep_unloadorder_list’] >- metis_tac[fml_rel_check_cstep_unloadorder_list]
+  >~ [‘check_cstep_storeorder_list’] >- metis_tac[fml_rel_check_cstep_storeorder_list]
+  >~ [‘check_cstep_obj_list’] >- metis_tac[fml_rel_check_cstep_obj_list]
+  >~ [‘check_cstep_changeobj_list’] >- metis_tac[fml_rel_check_cstep_changeobj_list]
+  >~ [‘check_cstep_checkobj_list’] >- metis_tac[fml_rel_check_cstep_checkobj_list]
+  >~ [‘check_cstep_assertobj_list’] >- metis_tac[fml_rel_check_cstep_assertobj_list]
+  >~ [‘check_cstep_changepres_list’] >- metis_tac[fml_rel_check_cstep_changepres_list]
+  >~ [‘check_cstep_sol_list’] >- metis_tac[fml_rel_check_cstep_sol_list]
+  >~ [‘check_cstep_checkpres_list’] >- metis_tac[fml_rel_check_cstep_checkpres_list]
+QED
+
 Theorem fml_rel_check_cstep_list:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
@@ -4499,277 +5101,13 @@ Theorem fml_rel_check_cstep_list:
     EVERY (λw. w = 0w) zeros' ∧
     pc.id ≤ pc'.id
 Proof
-  Cases_on`cstep`>>rw[]
-  >~ [‘Dom’] >- (
-    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
-    rpt(pairarg_tac>>gvs[])>>
-    gvs[AllCaseEqs()]>>
-    drule_all vimap_rel_vomap_rel_check_fresh_aspo_list >>
-    disch_then $ irule_at Any >>
-    DEP_REWRITE_TAC[fml_rel_extract_scopes_list]>>
-    simp[PULL_EXISTS]>>
-    drule_at (Pos last) fml_rel_check_scopes_list >>
-    disch_then(qspec_then`insert pc.id (not p,F) fml` mp_tac)>>
-    impl_tac >- (
-      simp[fml_rel_update_resize,any_el_update_resize])>>
-    strip_tac>>simp[]>>
-    drule check_scopes_list_id>>
-    drule check_scopes_list_id_upper>>
-    drule check_scopes_list_mindel>>
-    simp[any_el_update_resize]>>
-    ntac 3 strip_tac>>
-    gvs[insert_fml_def]>>
-    CONJ_TAC>- (
-      fs[do_dom_check_def]>>
-      every_case_tac>>fs[]
-      >- (
-        (drule_at Any) split_goals_hash_imp_split_goals>>
-        disch_then(qspec_then `mk_core_fml F fml` mp_tac)>>
-        impl_tac >- (
-          simp[range_mk_core_fml]>>
-          match_mp_tac revalue_SUBSET>>
-          match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
-        match_mp_tac split_goals_same_goals>>
-        simp[EXTENSION,FORALL_PROD,MEM_toAList,lookup_map_opt,MEM_MAP_OPT,AllCaseEqs(),lookup_mk_core_fml]>>
-        simp[MEM_core_fmlls]>>rw[]>>
-        DEP_REWRITE_TAC[GSYM fml_rel_lookup_core_only]>>
-        rw[EQ_IMP_THM]>>fs[]>>
-        irule MEM_get_set_indices_mk_subst>>
-        first_x_assum (irule_at Any)>>
-        fs[lookup_core_only_list_def,AllCaseEqs()])>>
-      metis_tac[fml_rel_check_contradiction_fml] )>>
-    CONJ_TAC>- (
-      match_mp_tac fml_rel_update_resize>>
-      match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
-    CONJ_TAC >- (
-      match_mp_tac ind_rel_update_resize_sorted_insert>>
-      match_mp_tac ind_rel_rollback_2>>
-      fs[]>>
-      metis_tac[ind_rel_get_set_indices])>>
-    CONJ_TAC >- (
-      match_mp_tac vimap_rel_update_resize_update_vimap>>
-      match_mp_tac fml_rel_fml_rel_vimap_rel>>fs[]>>
-      CONJ_TAC >- metis_tac[vimap_rel_get_set_indices]>>
-      match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
-    CONJ_TAC >- simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
-    metis_tac[check_scopes_list_zeros])
-  >~ [‘Sstep’] >- (
-    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
-    drule_all fml_rel_check_sstep_list>>
-    rw[]>>simp[])
-  >~ [‘CheckedDelete’] >- (
-    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
-    drule fml_rel_lookup_core_only>>
-    rw[]>>gvs[]>>
-    simp[PULL_EXISTS]>>
-    qexists_tac`id'`>>
-    simp[]>>
-    drule_at (Pos last) fml_rel_check_red_list>>
-    disch_then match_mp_tac>>
-    simp[]>>
-    CONJ_TAC >- (
-      drule fml_rel_list_delete_list>>
-      disch_then(qspec_then`[n]` mp_tac)>>
-      simp[list_delete_list_def])>>
-    CONJ_TAC >- (
-      drule ind_rel_list_delete_list>>
-      disch_then(qspec_then`[n]` mp_tac)>>
-      simp[list_delete_list_def])>>
-    CONJ_TAC >- (
-      drule vimap_rel_list_delete_list>>
-      disch_then(qspec_then`[n]` mp_tac)>>
-      simp[list_delete_list_def])>>
-    metis_tac[any_el_list_delete_list,list_delete_list_def])
-  >~ [‘UncheckedDelete’] >- (
-    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]
-    >- (
-      CONJ_TAC >-
-        metis_tac[fml_rel_list_delete_list]>>
-      CONJ_TAC >-
-        metis_tac[ind_rel_list_delete_list]>>
-      CONJ_TAC >-
-        metis_tac[vimap_rel_list_delete_list]>>
-      simp[any_el_list_delete_list])
-    >- (
-      drule_all fml_rel_all_core>>strip_tac>>
-      simp[]>>
-      CONJ_TAC >-
-        metis_tac[fml_rel_list_delete_list]>>
-      CONJ_TAC >-
-        metis_tac[ind_rel_list_delete_list]>>
-      CONJ_TAC >-
-        metis_tac[vimap_rel_list_delete_list]>>
-      simp[any_el_list_delete_list]))
-  >~ [‘Transfer’] >- (
-    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
-    drule_all core_from_inds_do_transfer>>
-    drule any_el_core_from_inds>>
-    strip_tac>>fs[]>>
-    fs[ind_rel_def]>>
-    rw[]>>
-    `vimap_rel fmlls' vimap` by
-      metis_tac[vimap_rel_core_from_inds]>>
-    metis_tac[IS_SOME_EXISTS,option_CLAUSES])
-  >~ [‘StrengthenToCore’] >- (
-    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
-    drule_all ind_rel_reindex
-    >- (
-      drule any_el_core_from_inds>>
-      rw[]
-      >- (
-        simp[fml_rel_def,lookup_map]>>
-        fs[ind_rel_def]>>rw[]
-        >-
-          metis_tac[fml_rel_def] >>
-        `any_el x fmlls NONE = NONE` by
-          metis_tac[IS_SOME_EXISTS,option_CLAUSES]>>
-        simp[]>>
-        metis_tac[fml_rel_def])
-      >- (
-        fs[ind_rel_def]>>
-        rw[]>>
-        metis_tac[IS_SOME_EXISTS,option_CLAUSES])
-      >- (
-        fs[vimap_rel_def]>>rw[]>>
-        first_x_assum match_mp_tac>>
-        first_x_assum(qspec_then`i` mp_tac)>>
-        rw[any_el_ALT]>>gvs[]>>
-        fs[MEM_MAP]
-        >- (
-          pairarg_tac>>fs[]>>
-          metis_tac[FST,PAIR,SND])>>
-        metis_tac[FST,PAIR,SND])
-        )
-    >-
-      fs[])
-  >~ [‘LoadOrder’] >- (
-    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
-    drule_all ind_rel_reindex>>
-    drule any_el_core_from_inds>>
-    strip_tac>>fs[]>>
-    strip_tac>>fs[]>>
-    CONJ_TAC >- (
-      simp[fml_rel_def,lookup_map]>>
-      fs[ind_rel_def]>>rw[]
-      >-
-        metis_tac[fml_rel_def] >>
-      `any_el x fmlls NONE = NONE` by
-        metis_tac[IS_SOME_EXISTS,option_CLAUSES]>>
-      simp[]>>
-      metis_tac[fml_rel_def])>>
-    CONJ_TAC >- (
-      fs[ind_rel_def]>>
-      rw[]>>
-      metis_tac[IS_SOME_EXISTS,option_CLAUSES])>>
-    drule_all vimap_rel_core_from_inds>>
-    metis_tac[vimap_rel_mk_perm])
-  >~ [‘UnloadOrder’] >- (
-    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def])
-  >~ [‘StoreOrder’] >- (
-    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def,check_storeorder_def]>>
-    metis_tac[fml_rel_check_spec_list])
-  >~ [‘Obj’] >- (
-    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
-    rw[PULL_EXISTS]>>
-    `set (MAP SND (core_fmlls fmlls inds)) =
-      set (MAP SND (toAList (mk_core_fml T fml)))` by (
-      rw[EXTENSION,MEM_MAP,EXISTS_PROD,MEM_toAList,MEM_core_fmlls]>>
-      simp[lookup_mk_core_fml]>>
-      metis_tac[ind_rel_lookup_core_only_list,fml_rel_lookup_core_only])>>
-    drule check_obj_cong>>rw[]>>fs[]>>
-    rw[]
-    >- metis_tac[fml_rel_update_resize]
-    >- metis_tac[ind_rel_update_resize_sorted_insert]
-    >- metis_tac[vimap_rel_update_resize_update_vimap]>>
-    simp[any_el_update_resize])
-  >~ [‘ChangeObj’] >- (
-    fs[check_cstep_def,check_cstep_list_def]>>
-    gvs[AllCaseEqs(),check_change_obj_list_def,check_change_obj_def]>>
-    qpat_x_assum`_ = SOME cpfs` mp_tac>>
-    DEP_REWRITE_TAC [GSYM fml_rel_extract_clauses_list]>>
-    simp[]>>
-    `subst_fun emp_vec = (λx:num. NONE)` by
-      (simp[FUN_EQ_THM,subst_fun_def,emp_vec_def]>>
-      EVAL_TAC>>rw[])>>
-    strip_tac>>
-    rfs[]>>
-    `pc.id ≤ pc.id` by fs[]>>
-    drule_all fml_rel_check_subproofs_list>>
-    fs[do_change_check_def]>>
-    pairarg_tac>>fs[]>>
-    strip_tac>>simp[]>>
-    drule check_subproofs_list_id>>
-    drule check_subproofs_list_id_upper>>
-    drule check_subproofs_list_mindel>>
-    ntac 3 strip_tac>>
-    CONJ_ASM1_TAC >- (
-      match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
-    CONJ_TAC >- (
-      match_mp_tac ind_rel_rollback_2>>
-      simp[]>>
-      metis_tac[ind_rel_reindex])>>
-    CONJ_TAC >-
-      metis_tac[fml_rel_fml_rel_vimap_rel]>>
-    CONJ_TAC >-
-      metis_tac[vomap_rel_mk_vomap]>>
-    simp[any_el_rollback]>>
-    metis_tac[check_subproofs_list_zeros])
-  >~ [‘CheckObj’] >- (
-    fs[check_cstep_def,check_cstep_list_def])
-  >~ [‘AssertObj’] >- (
-    gvs[check_cstep_def,check_cstep_list_def]>>
-    rw[]
-    >- metis_tac[fml_rel_update_resize]
-    >- metis_tac[ind_rel_update_resize_sorted_insert]
-    >- metis_tac[vimap_rel_update_resize_update_vimap]>>
-    simp[any_el_update_resize])
-  >~ [‘ChangePres’] >- (
-    fs[check_cstep_def,check_cstep_list_def]>>
-    gvs[AllCaseEqs(),check_change_pres_list_def,check_change_pres_def]>>
-    qpat_x_assum`_ = SOME cpfs` mp_tac>>
-    DEP_REWRITE_TAC [GSYM fml_rel_extract_clauses_list]>>
-    simp[]>>
-    `subst_fun emp_vec = (λx:num. NONE)` by
-      (simp[FUN_EQ_THM,subst_fun_def,emp_vec_def]>>
-      EVAL_TAC>>rw[])>>
-    strip_tac>>
-    rfs[]>>
-    `pc.id ≤ pc.id` by fs[]>>
-    drule_all fml_rel_check_subproofs_list>>
-    fs[do_change_check_def]>>
-    pairarg_tac>>fs[]>>
-    strip_tac>>simp[]>>
-    drule check_subproofs_list_id>>
-    drule check_subproofs_list_id_upper>>
-    drule check_subproofs_list_mindel>>
-    ntac 3 strip_tac>>
-    CONJ_ASM1_TAC >- (
-      match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
-    CONJ_TAC >- (
-      match_mp_tac ind_rel_rollback_2>>
-      simp[]>>
-      metis_tac[ind_rel_reindex])>>
-    CONJ_TAC >-
-      metis_tac[fml_rel_fml_rel_vimap_rel]>>
-    simp[any_el_rollback]>>
-    metis_tac[check_subproofs_list_zeros])
-  >~ [‘CheckPres’] >- (
-    fs[check_cstep_def,check_cstep_list_def])
-  >~ [‘Sol’] >- (
-    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
-    rw[PULL_EXISTS]>>
-    `set (MAP SND (core_fmlls fmlls inds)) =
-      set (MAP SND (toAList (mk_core_fml T fml)))` by (
-      rw[EXTENSION,MEM_MAP,EXISTS_PROD,MEM_toAList,MEM_core_fmlls]>>
-      simp[lookup_mk_core_fml]>>
-      metis_tac[ind_rel_lookup_core_only_list,fml_rel_lookup_core_only])>>
-    drule check_obj_cong>>rw[]>>fs[]>>
-    rw[]
-    >- metis_tac[fml_rel_update_resize]
-    >- metis_tac[ind_rel_update_resize_sorted_insert]
-    >- metis_tac[vimap_rel_update_resize_update_vimap]>>
-    simp[any_el_update_resize]
-  )
+  strip_tac>>
+  `list_conf_rel fml fmlls zeros inds vimap vomap pc` by
+    simp[list_conf_rel_def]>>
+  drule_all fml_rel_check_cstep_list_conf_rel>>
+  strip_tac>>
+  gvs[list_conf_rel_def]>>
+  metis_tac[]
 QED
 
 Definition check_csteps_list_def:
