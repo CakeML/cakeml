@@ -372,18 +372,18 @@ Proof
     fs [eval_def] >>
     every_case_tac >> fs [] >> EVAL_TAC)
   >~ [‘Shift’] >-
-   (rpt gen_tac >> rpt strip_tac >>
-    fs [panSemTheory.eval_def] >>
-    fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
-    fs [compile_exp_def,localised_exp_simps] >>
+   (rpt strip_tac >>
+    gvs[panSemTheory.eval_def,AllCaseEqs(),
+        compile_exp_def,localised_exp_simps,
+        panLangTheory.size_of_shape_def, shape_of_def, flatten_def,
+        eval_def, PULL_EXISTS
+       ] >>
     cases_on ‘compile_exp ct e’ >>
-    first_x_assum drule_all >>
-    rpt strip_tac >> fs [] >>
-    fs [panLangTheory.size_of_shape_def, shape_of_def, flatten_def] >>
-    rveq >>
-    fs [panLangTheory.size_of_shape_def, shape_of_def] >> rveq >>
-    fs [eval_def] >>  every_case_tac >>
-    fs [panLangTheory.size_of_shape_def, shape_of_def])>>
+    cases_on ‘compile_exp ct e'’ >>
+    gvs[] >>
+    res_tac >>
+    gvs[] >>
+    metis_tac[])>>
   rpt strip_tac >>
   fs [panSemTheory.eval_def] >>
   fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
@@ -860,7 +860,17 @@ Proof
     cases_on ‘compile_exp ct e’ >> fs []) >>
    first_x_assum drule >>
    disch_then (qspec_then ‘ct’ mp_tac) >>
-   cases_on ‘compile_exp ct e'’ >> fs []) >>
+   cases_on ‘compile_exp ct e'’ >> fs [])
+  >- (
+   rename [‘eval s (Shift sh e e')’] >>
+   rpt strip_tac >>
+   gvs[panSemTheory.eval_def,AllCaseEqs(),compile_exp_def,
+       localised_exp_simps,var_cexp_def] >>
+   cases_on ‘compile_exp ct e’ >>
+   cases_on ‘compile_exp ct e'’ >>
+   gvs[] >>
+   res_tac >>
+   gvs[MEM_FLAT,MEM_MAP]) >>
   rpt gen_tac >> strip_tac >>
   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
       CaseEq "word_lab"] >> rveq >>

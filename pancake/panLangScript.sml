@@ -59,7 +59,7 @@ Datatype:
       | Op binop (exp list)
       | Panop panop (exp list)
       | Cmp cmp exp exp
-      | Shift shift exp num
+      | Shift shift exp exp
       | BaseAddr
       | TopAddr
       | BytesInWord
@@ -250,23 +250,6 @@ Definition size_of_eids_def:
   size_of_eids prog = LENGTH(FILTER is_exn_decl prog)
 End
 
-(*
-  for time_to_pancake compiler:
-
-Definition Assigns_def:
-  (Assigns [] n = Skip) ∧
-  (Assigns (v::vs) n =
-    Seq (Assign v n) (Assigns vs n))
-End
-
-Definition Decs_def:
-  (Decs [] p = p) /\
-  (Decs ((v,e)::es) p =
-    Dec v e (Decs es p))
-End
-
-*)
-
 Definition var_exp_def:
   (var_exp (Const w) = ([]:mlstring list)) ∧
   (var_exp (Var Local v) = [v]) ∧
@@ -281,7 +264,7 @@ Definition var_exp_def:
   (var_exp (Op bop es) = FLAT (MAP var_exp es)) ∧
   (var_exp (Panop op es) = FLAT (MAP var_exp es)) ∧
   (var_exp (Cmp c e1 e2) = var_exp e1 ++ var_exp e2) ∧
-  (var_exp (Shift sh e num) = var_exp e) ∧
+  (var_exp (Shift sh e1 e2) = var_exp e1 ++ var_exp e2) ∧
   (var_exp BaseAddr = []) ∧
   (var_exp TopAddr = []) ∧
   (var_exp BytesInWord = [])
@@ -305,7 +288,7 @@ Definition global_var_exp_def:
   (global_var_exp (Op bop es) = FLAT (MAP global_var_exp es)) ∧
   (global_var_exp (Panop op es) = FLAT (MAP global_var_exp es)) ∧
   (global_var_exp (Cmp c e1 e2) = global_var_exp e1 ++ global_var_exp e2) ∧
-  (global_var_exp (Shift sh e num) = global_var_exp e)
+  (global_var_exp (Shift sh e1 e2) = global_var_exp e1 ++ global_var_exp e2)
 Termination
   wf_rel_tac `measure (\e. exp_size ARB e)` >>
   rpt strip_tac >>

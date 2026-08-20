@@ -142,8 +142,8 @@ Definition compile_exp_def:
     Panop pop (compile_exps ctxt es)) ∧
   (compile_exp ctxt (Cmp cmp e1 e2) =
     Cmp cmp (compile_exp ctxt e1) (compile_exp ctxt e2)) ∧
-  (compile_exp ctxt (Shift sh e n) =
-    Shift sh (compile_exp ctxt e) n) ∧
+  (compile_exp ctxt (Shift sh e e') =
+    Shift sh (compile_exp ctxt e) (compile_exp ctxt e')) ∧
   (compile_exp ctxt e = e) ∧
   (compile_exps ctxt [] = []) ∧
   (compile_exps ctxt (e::es) =

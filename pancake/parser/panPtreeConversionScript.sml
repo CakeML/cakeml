@@ -235,16 +235,6 @@ Definition conv_params_def:
   | _ => NONE
 End
 
-Definition conv_Shift_def:
-  conv_Shift [] e = SOME e ∧
-  conv_Shift [x] e = NONE ∧
-  (conv_Shift (t1::t2::ts) e =
-    do op <- conv_shift t1;
-       n <- conv_nat t2;
-       conv_Shift ts (Shift op e n)
-    od)
-End
-
 (** Convert a expression parse tree into the corresponding AST.
   *
   * The definition is slightly complicated by the requirement that
@@ -340,7 +330,7 @@ Definition conv_Exp_def:
       | _ => NONE
     else if isNT nodeNT EShiftNT then
       case args of
-        (e::es) => conv_Shift es ' (conv_Exp e)
+        e::es => conv_shifts es ' (conv_Exp e)
       | _ => NONE
     else if EXISTS (isNT nodeNT) binaryExps then
       case args of
@@ -376,7 +366,14 @@ Definition conv_Exp_def:
          Panop bop es => conv_panops ts (Panop op [res; e])
        | e' => conv_panops ts (Panop op [e'; e])
     od) ∧
-  conv_panops _ _ = NONE (* Impossible: ruled out by grammar. *)
+  conv_panops _ _ = NONE ∧ (* Impossible: ruled out by grammar. *)
+  conv_shifts [] e = SOME e ∧
+  (conv_shifts (t1::t2::ts) res =
+    do op <- conv_shift t1;
+       e <- conv_Exp t2;
+       conv_shifts ts (Shift op res e)
+    od) ∧
+  conv_shifts _ _ = NONE (* Impossible: ruled out by grammar. *)
 Termination
   WF_REL_TAC ‘measure (λx. case x of
                            | INL x => ptree_size x
@@ -384,7 +381,8 @@ Termination
                            | INR(INR(INL x)) => ptree_size x
                            | INR(INR(INR(INL x))) => ptree_size x
                            | INR(INR(INR(INR(INL x)))) => list_size ptree_size (FST x)
-                           | INR(INR(INR(INR(INR x)))) => list_size ptree_size (FST x))’ >> rw[]
+                           | INR(INR(INR(INR(INR(INL x))))) => list_size ptree_size (FST x)
+                           | INR(INR(INR(INR(INR(INR x))))) => list_size ptree_size (FST x))’ >> rw[]
   >> simp[]
   >- (
     drule MEM_list_size
@@ -837,7 +835,7 @@ Definition localise_exp_def:
   localise_exp ls (Op binop exps) = Op binop (localise_exps ls exps) ∧
   localise_exp ls (Panop panop exps) = Panop panop (localise_exps ls exps) ∧
   localise_exp ls (Cmp cmp exp1 exp2) = Cmp cmp (localise_exp ls exp1) (localise_exp ls exp2) ∧
-  localise_exp ls (Shift shift exp num) = Shift shift (localise_exp ls exp) num ∧
+  localise_exp ls (Shift shift exp1 exp2) = Shift shift (localise_exp ls exp1) (localise_exp ls exp2) ∧
   localise_exp ls e = e ∧
   localise_exps ls [] = [] ∧
   localise_exps ls (e::es) = localise_exp ls e::localise_exps ls es

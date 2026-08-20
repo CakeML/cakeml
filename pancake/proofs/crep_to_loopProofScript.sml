@@ -429,11 +429,10 @@ Proof
   ho_match_mp_tac compile_exp_ind >>
   rpt conj_tac >> rpt gen_tac >> strip_tac >>
   TRY (
-  fs [Once compile_exp_def] >> rveq >>
-  TRY (pairarg_tac >> fs [] >> rveq >> NO_TAC) >>
-  fs [nested_seq_def, comp_syntax_ok_def, cut_sets_def] >> NO_TAC)
-  >- (
-   rename [‘compile_exp _ _ _ (Load32 e)’] >>
+    fs [Once compile_exp_def] >> rveq >>
+    TRY (pairarg_tac >> fs [] >> rveq >> NO_TAC) >>
+    fs [nested_seq_def, comp_syntax_ok_def, cut_sets_def] >> NO_TAC)
+  >~ [‘compile_exp _ _ _ (Load32 e)’] >- (
    rpt gen_tac >> strip_tac >>
    conj_asm1_tac
    >- (
@@ -454,8 +453,7 @@ Proof
    fs [cut_sets_nested_seq] >>
    fs [Abbr ‘np’] >> pop_assum kall_tac >>
    fs [nested_seq_def, cut_sets_def, Once insert_insert])
-  >- (
-   rename [‘compile_exp _ _ _ (LoadByte e)’] >>
+  >~ [‘compile_exp _ _ _ (LoadByte e)’] >- (
    rpt gen_tac >> strip_tac >>
    conj_asm1_tac
    >- (
@@ -476,16 +474,19 @@ Proof
    fs [cut_sets_nested_seq] >>
    fs [Abbr ‘np’] >> pop_assum kall_tac >>
    fs [nested_seq_def, cut_sets_def, Once insert_insert])
-  >- (
-   rename [‘compile_exp _ _ _ (Op _ _)’] >>
+  >~ [‘compile_exp _ _ _ (Op _ _)’] >- (
    fs [Once compile_exp_def] >>
    pairarg_tac >> fs [] >> rveq >>
    cases_on ‘e’
    >- fs [compile_exp_def] >>
    fs [] >>
    fs [Once compile_exp_def])
-  >- (
-   rename [‘compile_exp _ _ _ (Crepop _ _)’] >>
+  >~ [‘compile_exp _ _ _ (Shift sh e e')’] >- (
+   fs [Once compile_exp_def] >>
+   pairarg_tac >> fs [] >> rveq >>
+   pairarg_tac >> fs [] >> rveq >>
+   gvs[cut_sets_nested_seq,comp_syn_ok_nested_seq])
+  >~ [‘compile_exp _ _ _ (Crepop _ _)’] >- (
    simp [Once compile_exp_def] >>
    pairarg_tac >> fs [] >> rveq >>
    rpt gen_tac >> disch_then strip_assume_tac >>
@@ -648,7 +649,14 @@ Proof
    >- (res_tac >> fs [])
    >- (res_tac >> fs []) >>
    fs [nested_seq_def] >>
-   fs [assigned_vars_seq_split, assigned_vars_def]) >>
+   fs [assigned_vars_seq_split, assigned_vars_def])
+  >- (rw[compile_exp_def] >>
+      rpt(pairarg_tac >> gvs[]) >>
+      imp_res_tac compile_exp_out_rel >>
+      fs [assigned_vars_nested_seq_split] >>
+      gvs[] >>
+      res_tac >>
+      intLib.COOPER_TAC) >>
   rpt gen_tac >> strip_tac >>
   pop_assum mp_tac >> fs [] >>
   once_rewrite_tac [compile_exp_def] >>
@@ -703,6 +711,23 @@ Proof
      rpt(pairarg_tac >> fs [] >> rveq) >>
      fs [locals_touched_def, crepLangTheory.var_cexp_def, ETA_AX,AllCaseEqs()]
      )
+  >~ [‘Shift sh e e'’] >-
+    (rw[Once compile_exp_def] >>
+     rpt(pairarg_tac >> gvs[]) >>
+     gvs[locals_touched_def,crepLangTheory.var_cexp_def, SF DNF_ss] >>
+     imp_res_tac compile_exp_out_rel_cases >>
+     res_tac >>
+     gvs[comp_syn_cut_sets_mem_domain]
+     >- (last_x_assum $ drule_at (Pat ‘MEM _ (locals_touched _)’) >>
+         intLib.COOPER_TAC)
+     >- (last_x_assum $ drule_at (Pat ‘MEM _ (locals_touched _)’) >>
+         impl_tac
+         >- (rw[] >> res_tac >>
+             gvs[comp_syn_cut_sets_mem_domain]) >>
+         intLib.COOPER_TAC) >>
+     first_x_assum irule >>
+     rw[] >> res_tac >>
+     gvs[comp_syn_cut_sets_mem_domain])
   >~ [‘compile_exps’] >-
    (rpt gen_tac >>
     strip_tac >>
@@ -1060,13 +1085,46 @@ Proof
    (rw [] >>
     fs [crepSemTheory.eval_def, CaseEq "option", CaseEq "word_lab",
         compile_exp_def] >>
-    rveq >> fs [] >>
-    pairarg_tac >> fs [] >> rveq >>
-    fs [loopSemTheory.evaluate_def] >>
-    last_x_assum drule_all >>
-    strip_tac >> rfs [] >>
-    qexists_tac ‘ck’ >> fs [] >>
-    fs [loopSemTheory.eval_def, wlab_wloc_def])
+    rpt(pairarg_tac >> gvs []) >>
+    first_x_assum drule_all >>
+    strip_tac >>
+    first_x_assum $ drule_at (Pat ‘_ = _’) >>
+    rpt $ disch_then drule >>
+    impl_tac >- (imp_res_tac compile_exp_out_rel >> gvs[]) >>
+    strip_tac >>
+    rev_drule evaluate_add_clock_eq >>
+    disch_then $ qspec_then ‘ck'’ assume_tac >>
+    gvs[] >>
+    FULL_SIMP_TAC std_ss [ADD_ASSOC] >>
+    irule_at (Pos hd) EQ_TRANS >>
+    irule_at (Pos hd) evaluate_none_nested_seq_append >>
+    first_assum $ irule_at $ (Pat ‘evaluate _ = _’) >>
+    simp[loopSemTheory.eval_def] >>
+    rev_drule_at (Pos last) nested_seq_pure_evaluation >>
+    ntac 2 $ disch_then drule >>
+    simp[GSYM PULL_EXISTS] >>
+    impl_tac
+    >- (simp[PULL_EXISTS] >>
+        imp_res_tac compile_exp_out_rel_cases >>
+        gvs[] >>
+        first_x_assum $ irule_at $ Pos hd >>
+        simp[] >>
+        imp_res_tac comp_exp_assigned_vars_tmp_bound_cases >>
+        qexists ‘tmp'’ >>
+        simp[] >>
+        strip_tac >> strip_tac >>
+        irule compile_exp_le_tmp_domain >>
+        first_x_assum $ irule_at (Pat ‘_ = _’) >>
+        simp[] >>
+        conj_tac
+        >- (rpt strip_tac >>
+            drule_all eval_some_var_cexp_local_lookup >>
+            strip_tac >>
+            gvs[locals_rel_def] >>
+            res_tac >>
+            gvs[]) >>
+        gvs[locals_rel_def]) >>
+    simp[wlab_wloc_def])
   >~ [‘Cmp’] >-
    (rw [] >>
     fs [crepSemTheory.eval_def, CaseEq "option", CaseEq "word_lab"] >>
@@ -1335,7 +1393,14 @@ Proof
    rw [] >>
    pop_assum mp_tac >>
    rw [Once compile_exp_def, AllCaseEqs()] >> rveq >>
-   pairarg_tac >> fs []) >>
+   rpt(pairarg_tac >> gvs []) >>
+   match_mp_tac survives_nested_seq_intro >>
+   res_tac >> simp[] >>
+   imp_res_tac compile_exp_out_rel >> rveq >>
+   fs [] >>
+   imp_res_tac cut_sets_union_domain_subset >>
+   fs [SUBSET_DEF]
+  ) >>
   rpt gen_tac >> strip_tac >>
   cases_on ‘e’ >> fs []
   >- (
@@ -1465,7 +1530,11 @@ Proof
    rw [] >>
    qpat_x_assum ‘compile_exp _ _ _ (Shift _ _ _) = _’ mp_tac >>
    rw [Once compile_exp_def, AllCaseEqs()] >> rveq >>
-   pairarg_tac >> fs []) >>
+   rpt(pairarg_tac >> gvs []) >>
+   fs [assigned_vars_nested_seq_split] >>
+   imp_res_tac compile_exp_out_rel >>
+   fs []
+  ) >>
   rpt gen_tac >> strip_tac >>
   cases_on ‘e’ >> fs []
   >- (
@@ -4222,4 +4291,3 @@ Proof
   rpt strip_tac>>gvs[MEM_MAP,MEM_ZIP]>>
   pairarg_tac>>gs[crep_to_loopTheory.first_name_def]
 QED
-
