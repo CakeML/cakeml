@@ -52,6 +52,12 @@ targetSem is now more lax about the FFI/clear-cache havocs (#1458)
 
 ## Pancake
 
+A parser bug related to field accesses has been fixed (#1438).
+
+Exeception syntax has been improved (#1450)
+
+Variable length shifts are now supported (#1460).
+
 ## Candle
 
 ### Parser
