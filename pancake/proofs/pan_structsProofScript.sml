@@ -51,8 +51,8 @@ Definition convert_eshapes_def:
 End
 
 Definition convert_code_def:
-  convert_code ctxt = FMAP_MAP2 ((\(nm, (params, prog)).
-    (MAP (I ## compile_shape ctxt.structs) params, compile (ctxt with locals := params) prog)))
+  convert_code ctxt = FMAP_MAP2 ((\(nm, (params, prog, rshape)).
+    (MAP (I ## compile_shape ctxt.structs) params, compile (ctxt with locals := params) prog, compile_shape ctxt.structs rshape)))
 End
 
 Definition convert_s_def:
@@ -913,7 +913,7 @@ QED
 
 Theorem lookup_code_flds_ok[local]:
   OPT_MMAP (eval s) argexps = SOME args ∧
-  lookup_code s.code fname args = SOME (prog, newlocals) ∧
+  lookup_code s.code fname args = SOME (prog, newlocals, rshape) ∧
   alist_to_fmap ctxt.locals = FMAP_MAP2 (shape_of o SND) s.locals ∧
   alist_to_fmap ctxt.globals = FMAP_MAP2 (shape_of o SND ) s.globals ∧
   ctxt.structs = MAP (\(nm, info). (nm, info.fields)) s.structs ∧
@@ -928,7 +928,7 @@ Theorem lookup_code_flds_ok[local]:
   (? new_l.
   lookup_code (convert_s ctxt s).code fname (MAP convert_v args) =
     SOME (compile (ctxt with locals := new_l) prog,
-        FMAP_MAP2 (λ(nm,v). convert_v v) newlocals) ∧
+        FMAP_MAP2 (λ(nm,v). convert_v v) newlocals, (compile_shape ctxt.structs rshape)) ∧
     alist_to_fmap new_l = FMAP_MAP2 (shape_of o SND) newlocals
   ) ∧
   FEVERY (\(nm, v). v_flds_ok s.structs v) newlocals ∧
@@ -1178,7 +1178,7 @@ Proof
     >> gvs [bool_case_eq, convert_res_def, is_cont_res_def, empty_locals_def,
         FEVERY_FEMPTY, convert_s_def, FMAP_MAP2_FEMPTY, dec_clock_def,
         pair_case_eq, option_case_eq, result_case_eq, markerTheory.label_def,
-        res_vs_def]
+        res_vs_def, shape_of_convert_v_rev]
     (* Return and Exception cases remain *)
     >~ [`evaluate _ = (SOME (Exception _ _), _)`]
     >- (
