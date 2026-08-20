@@ -1116,7 +1116,35 @@ Proof
  fs[GSYM validFD_numchars,GSYM openFileFS_fupd_numchars,inFS_fname_numchars]
 QED
 
-(* openOut, openAppend here *)
+(* TODO openAppend here *)
+
+Theorem openOut_IOFS_spec:
+   FILENAME s sv ∧
+   hasFreeFD fs ⇒ (* Is hasFreeFD required? *)
+   app (p:'ffi ffi_proj) TextIO_openOut_v [sv]
+     (IOFS fs)
+     (POSTv fdv.
+        &(OUTSTREAM (nextFD fs) fdv ∧
+          validFD (nextFD fs) (openFileFS s fs WriteMode 0)) *
+      IOFS (openFileFS s (ensureFile fs s) WriteMode 0))
+  (* Does this need POSTve or not? *)
+Proof
+  cheat
+QED
+
+Theorem openOut_STDIO_spec:
+   FILENAME s sv ∧
+   hasFreeFD fs ⇒ (* Is hasFreeFD required? *)
+   app (p:'ffi ffi_proj) TextIO_openOut_v [sv]
+     (STDIO fs)
+     (POSTv fdv.
+        &(OUTSTREAM (nextFD fs) fdv ∧
+          validFD (nextFD fs) (openFileFS s fs WriteMode 0)) *
+      STDIO (openFileFS s (ensureFile fs s) WriteMode 0))
+  (* Does this need POSTve or not? *)
+Proof
+  cheat
+QED
 
 Theorem raw_closeIn_spec:
    ∀fdw fdv fs.
@@ -1728,6 +1756,20 @@ Proof
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
   \\ xapp_spec output_STDIO_spec
   \\ tac
+QED
+
+Theorem outputFile_spec:
+  FILENAME name namev ∧
+  STRING_TYPE content contentv
+  ⇒
+  app (p:'ffi ffi_proj) TextIO_outputFile_v
+    [namev; contentv]
+    (STDIO fs)
+    (POSTv uv. &UNIT_TYPE () uv * STDIO (write_file fs name (explode content)))
+Proof
+  rw []
+  >> xcf_with_def TextIO_outputFile_v_def
+  >> cheat
 QED
 
 Definition print_def:

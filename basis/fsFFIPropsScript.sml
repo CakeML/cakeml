@@ -1542,3 +1542,15 @@ Theorem ensureFile_UStream[simp]:
 Proof
   simp [ensureFile_def] >> Cases_on ‘ALOOKUP fs.files fname’ >> simp []
 QED
+
+Definition write_file_def:
+  write_file fs fname content =
+  case ALOOKUP fs.files fname of
+  | SOME iname =>
+    fs with inode_tbl updated_by (AFUPDKEY (File iname) (K content))
+  | NONE =>
+      let iname = fresh_iname fs in
+        fs with
+           <| files updated_by CONS (fname, iname);
+              inode_tbl updated_by CONS (File iname, content) |>
+End

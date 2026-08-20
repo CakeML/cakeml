@@ -41,16 +41,16 @@ val r = translate make_fname_def;
 Quote add_cakeml:
   fun make_cert fmodel fwitness prefix =
   case TextIO.inputAllFrom (Some fmodel) of
-    None => TextIO.output TextIO.stdErr "cannot read model file\n"
+    None => TextIO.print_err "cannot read model file\n"
   | Some model =>
   case TextIO.inputAllFrom (Some fwitness) of
-    None => TextIO.output TextIO.stdErr "cannot read witness file\n"
+    None => TextIO.print_err "cannot read witness file\n"
   | Some witness =>
   case ((* print "parsing...\n";  *)parse model witness) of
-    Error (msg, _) => TextIO.output TextIO.stdErr msg
+    Error (msg, _) => TextIO.print_err msg
   | Return (maig, (waig, ms)) =>
   case ((* print "processing and checking...\n"; *) process_and_check maig waig ms) of
-    Error msg => TextIO.output TextIO.stdErr msg
+    Error msg => TextIO.print_err msg
   | Return
       (mcirc, (mreset, (mnext, (mpreds, (mcnstrs, (mlive, (mlatches,
         (wcirc, (wreset, (wnext, (wpreds, (wcnstrs, (wlive, (wlatches,

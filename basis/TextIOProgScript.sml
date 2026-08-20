@@ -218,15 +218,6 @@ Quote add_cakeml:
   fun print s = output stdOut s
   fun print_err s = output stdErr s
 End
-
-(* writes a string into a file *)
-Quote add_cakeml:
-  fun outputFile name string = let
-    val ostrm = TextIO.openOut name
-    val _     = TextIO.output ostrm string
-  in TextIO.closeOut ostrm end
-End
-
 Quote add_cakeml:
   fun print_list ls =
     case ls of [] => () | (x::xs) => (print x; print_list xs)
@@ -248,6 +239,14 @@ Quote add_cakeml:
           if Word8Array.sub iobuff 0 = Word8.fromInt 0
           then () else raise InvalidFD
     end
+End
+
+(* writes a string into a file *)
+Quote add_cakeml:
+  fun outputFile name string = let
+    val ostrm = openOut name
+    val _     = output ostrm string
+  in closeOut ostrm end
 End
 
 val _ = ml_prog_update open_local_block;
