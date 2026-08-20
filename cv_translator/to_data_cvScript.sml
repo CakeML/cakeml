@@ -2528,13 +2528,15 @@ QED
 val _ = cv_auto_trans bvi_tailrecTheory.check_exp_eq;
 val _ = cv_auto_trans bvi_tailrecTheory.compile_exp_def;
 
-val pre = cv_auto_trans_pre "" bvi_tailrecTheory.compile_prog_def;
-Theorem bvi_tailrec_compile_prog_pre[cv_pre]:
-  ∀next v. bvi_tailrec_compile_prog_pre next v
+val pre = cv_auto_trans_pre "" bvi_tailrecTheory.compile_each_def;
+Theorem bvi_tailrec_compile_each_pre[cv_pre]:
+  ∀next v. bvi_tailrec_compile_each_pre next v
 Proof
-  ho_match_mp_tac bvi_tailrecTheory.compile_prog_ind
+  ho_match_mp_tac bvi_tailrecTheory.compile_each_ind
   \\ rpt strip_tac \\ simp [Once pre]
 QED
+
+val pre = cv_trans bvi_tailrecTheory.compile_prog_def;
 
 (* bvi_let *)
 
@@ -2625,14 +2627,15 @@ QED
 val _ = cv_auto_trans bvi_tmcTheory.cb_to_bvi_worker_aux_alt_def;
 val _ = cv_trans bvi_tmcTheory.cb_to_bvi_worker_aux_eq;
 
-val pre = cv_auto_trans_pre "" bvi_tmcTheory.compile_prog_def;
-
-Theorem bvi_tmc_compile_prog_pre[cv_pre]:
-  ∀next v. bvi_tmc_compile_prog_pre next v
+val pre = cv_auto_trans_pre "" bvi_tmcTheory.compile_each_def;
+Theorem bvi_tmc_compile_each_pre[cv_pre]:
+  ∀next v. bvi_tmc_compile_each_pre next v
 Proof
-  ho_match_mp_tac bvi_tmcTheory.compile_prog_ind
+  ho_match_mp_tac bvi_tmcTheory.compile_each_ind
   \\ rw [] \\ simp [Once pre]
 QED
+
+val _ = cv_trans bvi_tmcTheory.compile_prog_def;
 
 (* bvl_to_bvi *)
 
