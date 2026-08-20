@@ -5,6 +5,19 @@ User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
 
+Aug 20th 2026
+-------------------
+
+### Variable length shifts
+
+Pancake now supports variable length shifts.
+
+    fun 1 f() {
+      var a = 1 + 1 << 2;    // previously, the RHS of << only admitted numerical constants
+      a = 1 + 1 << a;        // this is now permitted
+      return 1 + 1 << a + 3; // shift lengths can be arbitrary expressions, so this too is permitted
+    }
+
 Aug 18th 2026
 -------------------
 

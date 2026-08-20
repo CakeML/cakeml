@@ -26,7 +26,7 @@ Definition comp_exp_def :
   (comp_exp ctxt (BaseAddr) = Lookup CurrHeap) /\
   (comp_exp ctxt (TopAddr) = Op Add [Lookup CurrHeap; Shift Lsl (Lookup HeapLength) (Const 1w)]) /\
   (comp_exp ctxt (Load exp) = Load (comp_exp ctxt exp)) /\
-  (comp_exp ctxt (Shift s exp n) = Shift s (comp_exp ctxt exp) (Const (n2w n))) /\
+  (comp_exp ctxt (Shift s exp1 exp2) = Shift s (comp_exp ctxt exp1) (comp_exp ctxt exp2)) /\
   (comp_exp ctxt (Op op wexps) =
    let wexps = MAP (comp_exp ctxt) wexps in
    Op op wexps)

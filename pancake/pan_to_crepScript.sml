@@ -86,10 +86,12 @@ Definition compile_exp_def:
    case (ce, ce') of
    | (e::es, e'::es') => ([Cmp cmp e e'], One)
    | (_, _) => ([Const 0w], One)) /\
-  (compile_exp ctxt (Shift sh e n) =
-   case FST (compile_exp ctxt e) of
-   | [] => ([Const 0w], One)
-   | e::es => ([Shift sh e n], One)) /\
+  (compile_exp ctxt (Shift sh e e') =
+   let ce  = FST (compile_exp ctxt e);
+       ce' = FST (compile_exp ctxt e') in
+   case (ce,ce') of
+   | (e::es, e'::es') => ([Shift sh e e'], One)
+   | _ => ([Const 0w], One)) /\
   (compile_exp ctxt BaseAddr = ([BaseAddr], One)) /\
   (compile_exp ctxt TopAddr = ([TopAddr], One)) /\
   (compile_exp ctxt BytesInWord = ([Const bytes_in_word], One))

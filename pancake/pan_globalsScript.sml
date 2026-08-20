@@ -40,8 +40,8 @@ Definition compile_exp_def:
    Panop pop (MAP (compile_exp ctxt) es)) ∧
   (compile_exp ctxt (Cmp cmp e e') =
    Cmp cmp (compile_exp ctxt e) (compile_exp ctxt e')) ∧
-  (compile_exp ctxt (Shift sh e n) =
-   Shift sh (compile_exp ctxt e) n) ∧
+  (compile_exp ctxt (Shift sh e e') =
+   Shift sh (compile_exp ctxt e) (compile_exp ctxt e')) ∧
   (compile_exp ctxt TopAddr = Op Sub [TopAddr; Const ctxt.max_globals_size]) ∧
   (compile_exp ctxt e = e)
 Termination
