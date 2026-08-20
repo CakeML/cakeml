@@ -40,6 +40,9 @@ Definition is_pure_def:
   (is_pure (MemOp (RefByte _)) = F) /\
   (is_pure (MemOp RefArray) = F) /\
   (is_pure (MemOp Update) = F) /\
+  (is_pure (MemOp (MutCons _ _)) = F) /\
+  (is_pure (MemOp UpdateCons) = F) /\
+  (is_pure (MemOp FinaliseCons) = F) /\
   (is_pure (MemOp UpdateByte) = F) /\
   (is_pure (MemOp FromListByte) = F) /\
   (is_pure (MemOp (CopyByte _)) = F) /\
@@ -75,6 +78,9 @@ Theorem is_pure_pmatch:
     | MemOp (RefByte _) => F
     | MemOp RefArray => F
     | MemOp Update => F
+    | MemOp (MutCons _ _) => F
+    | MemOp UpdateCons => F
+    | MemOp FinaliseCons => F
     | MemOp UpdateByte => F
     | MemOp FromListByte => F
     | MemOp (CopyByte _) => F

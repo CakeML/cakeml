@@ -2744,6 +2744,149 @@ Proof
   \\ asm_rewrite_tac []
 QED
 
+Theorem assign_MutCons:
+  (∃t k. op = MemOp (MutCons t k)) ==> ^assign_thm_goal
+Proof
+  rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ rpt_drule0 state_rel_cut_IMP
+  \\ qpat_x_assum `state_rel c l1 l2 s t NONE locs` kall_tac \\ strip_tac
+  \\ gvs [dataLangTheory.op_requires_names_def,
+          dataLangTheory.op_space_reset_def,
+          dataSemTheory.cut_state_opt_def]
+  \\ fs [assign_def]
+  \\ reverse (Cases_on `c.gc_kind`) \\ fs []
+  >- ((* Generational: the code gives up, and MutCons is not safe for space *)
+      gvs [do_app,allowed_op_def,AllCaseEqs()])
+  \\ Cases_on `args = []` \\ fs []
+  \\ TRY ((* MutCons always has a hole, so it cannot have zero arguments *)
+          gvs [do_app,allowed_op_def,AllCaseEqs()]
+          \\ imp_res_tac get_vars_IMP_LENGTH \\ gvs [] \\ NO_TAC)
+  \\ CASE_TAC \\ fs []
+  \\ TRY ((* no header: giving up is sound, MutCons is never safe for space *)
+          gvs [do_app,allowed_op_def,AllCaseEqs()] \\ NO_TAC)
+  \\ fs [do_app,allowed_op_def] \\ every_case_tac \\ fs []
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ clean_tac
+  \\ fs [consume_space_def] \\ clean_tac
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ `shift_length c - shift (:'a) < dimword (:'a)` by
+       (fs [state_rel_thm] \\ assume_tac dimindex_lt_dimword \\ decide_tac)
+  \\ simp [state_rel_thm] \\ eval_tac
+  \\ fs [state_rel_thm,option_le_max_right] \\ eval_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ disch_then drule0 \\ fs [NOT_LESS,DECIDE ``n + 1 <= m <=> n < m:num``]
+  \\ strip_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ qabbrev_tac `new = LEAST ptr. ptr ∉ domain s.refs`
+  \\ `new ∉ domain s.refs` by metis_tac [LEAST_NOTIN_spt_DOMAIN]
+  \\ `vals <> [] /\ (LENGTH vals = LENGTH ws)` by
+       (Cases_on `args` \\ Cases_on `vals` \\ fs [])
+  \\ `k < LENGTH vals` by fs []
+  \\ `!gs. c.gc_kind <> Generational gs` by fs []
+  \\ rpt_drule0 memory_rel_MutCons
+  \\ disch_then (qspecl_then [`new`,`k`] mp_tac)
+  \\ impl_tac >- fs []
+  \\ strip_tac
+  \\ fs [list_Seq_def] \\ eval_tac
+  \\ fs [wordSemTheory.set_store_def]
+  \\ qpat_abbrev_tac `t5 = t with <| locals := _ |>`
+  \\ pairarg_tac \\ fs []
+  \\ `t.memory = t5.memory /\ t.mdomain = t5.mdomain` by
+       (unabbrev_all_tac \\ fs []) \\ fs []
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ drule0 evaluate_StoreEach
+  \\ disch_then (qspecl_then [`3::MAP adjust_var args`,`1`] mp_tac)
+  (* both non-generational gc kinds are still in play, so the side conditions
+     of evaluate_StoreEach have to be discharged on each of them *)
+  \\ impl_tac
+  \\ TRY (fs [wordSemTheory.get_vars_def,Abbr`t5`,wordSemTheory.get_var_def,
+               lookup_insert,get_vars_with_store,get_vars_adjust_var]
+           \\ `(t with locals := t.locals) = t` by
+                 fs [wordSemTheory.state_component_equality] \\ fs [] \\ NO_TAC)
+  \\ clean_tac \\ fs [] \\ UNABBREV_ALL_TAC
+  \\ fs [lookup_insert,FAPPLY_FUPDATE_THM,adjust_var_11,FLOOKUP_UPDATE,
+         code_oracle_rel_def,FLOOKUP_UPDATE]
+  \\ rw [] \\ fs [] \\ rw [] \\ fs []
+  \\ fs [inter_insert_ODD_adjust_set,option_le_max_right]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ fs [make_cons_ptr_def,get_lowerbits_def]
+QED
+
+Theorem assign_UpdateCons:
+  op = MemOp UpdateCons ==> ^assign_thm_goal
+Proof
+  strip_tac
+  \\ rpt strip_tac
+  \\ gvs [dataLangTheory.op_requires_names_def,
+          dataLangTheory.op_space_reset_def,
+          dataSemTheory.cut_state_opt_def]
+  \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
+  \\ fs [do_app,allowed_op_def] \\ every_case_tac \\ fs [] \\ clean_tac
+  \\ fs [integerTheory.NUM_OF_INT,LENGTH_EQ_3] \\ clean_tac
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs [bvlSemTheory.Unit_def] \\ rveq
+  \\ fs [GSYM bvlSemTheory.Unit_def] \\ rveq
+  \\ fs [assign_def] \\ eval_tac \\ fs [state_rel_thm]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ disch_then drule0 \\ fs []
+  \\ imp_res_tac get_vars_3_IMP \\ fs []
+  \\ fs [integerTheory.NUM_OF_INT,LENGTH_EQ_3] \\ clean_tac
+  \\ imp_res_tac get_vars_3_IMP \\ fs [] \\ strip_tac
+  \\ drule0 reorder_lemma \\ strip_tac
+  \\ drule0 (memory_rel_UpdateCons |> GEN_ALL) \\ fs []
+  \\ strip_tac \\ clean_tac
+  \\ `word_exp t (real_offset c (adjust_var a2)) = SOME (Word y)` by
+        (match_mp_tac (GEN_ALL get_real_offset_lemma)
+         \\ fs [wordSemTheory.get_var_def] \\ NO_TAC)
+  \\ `word_exp t (real_addr c (adjust_var a1)) = SOME (Word x)` by
+        (match_mp_tac (GEN_ALL get_real_addr_lemma)
+         \\ fs [wordSemTheory.get_var_def] \\ NO_TAC)
+  \\ fs [] \\ eval_tac \\ fs [EVAL ``word_exp s1 Unit``]
+  \\ fs [wordSemTheory.mem_store_def]
+  \\ fs [lookup_insert,adjust_var_11]
+  \\ rw [] \\ fs [option_le_max_right]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ match_mp_tac memory_rel_Unit \\ fs []
+  \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+  \\ rw [] \\ fs []
+QED
+
+Theorem assign_FinaliseCons:
+  op = MemOp FinaliseCons ==> ^assign_thm_goal
+Proof
+  strip_tac
+  \\ rpt strip_tac
+  \\ gvs [dataLangTheory.op_requires_names_def,
+          dataLangTheory.op_space_reset_def,
+          dataSemTheory.cut_state_opt_def]
+  \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
+  \\ fs [do_app,allowed_op_def] \\ every_case_tac \\ fs [] \\ clean_tac
+  \\ fs [LENGTH_EQ_1] \\ clean_tac
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs [LENGTH_EQ_1] \\ clean_tac
+  \\ imp_res_tac get_vars_1_IMP
+  \\ fs [assign_def] \\ eval_tac \\ fs [state_rel_thm]
+  \\ imp_res_tac state_rel_IMP_tstamps
+  \\ Cases_on `s.tstamps` \\ fs []
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ disch_then drule0 \\ fs [] \\ strip_tac
+  (* the whole content of the step is this one memory_rel theorem *)
+  \\ drule_all memory_rel_FinaliseCons \\ strip_tac
+  \\ fs [lookup_insert,adjust_var_11]
+  \\ rw [] \\ fs [option_le_max_right]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+QED
+
 Theorem LENGTH_EQ_5:
    (LENGTH xs = 5 <=> ?a1 a2 a3 a4 a5. xs = [a1;a2;a3;a4;a5]) /\
     (5 = LENGTH xs <=> ?a1 a2 a3 a4 a5. xs = [a1;a2;a3;a4;a5])

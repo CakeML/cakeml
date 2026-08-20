@@ -284,13 +284,18 @@ val _ = translate arg2_pmatch;
 val _ = translate arg3_pmatch;
 val _ = translate arg4_pmatch;
 
+val loc_values = find "location_def"
+  |> filter (fn ((m,_),_) => m = "data_to_word")
+  |> map (fn (_,(d,_,_)) => d |> concl |> dest_eq |> fst |> EVAL)
+  |> LIST_CONJ;
+
 fun tweak_assign_def th =
-  th |> SIMP_RULE std_ss [assign_rw]
+  th |> SIMP_RULE std_ss [assign_rw, loc_values]
      |> inline_simp |> conv32 |> we_simp
      |> SIMP_RULE std_ss [SHIFT_ZERO,shift_left_rwt]
      |> SIMP_RULE std_ss [word_mul_def,LET_THM] |> gconv;
 
-val res = all_assign_defs |> CONJUNCTS |> map tweak_assign_def |> map translate;
+val res = all_assign_defs |> CONJUNCTS |> rev |> map tweak_assign_def |> map translate;
 val res = translate (assign_def |> tweak_assign_def);
 
 Theorem lemma[local]:
@@ -699,7 +704,8 @@ val _ = translate word_to_stackTheory.stub_names_def
 val _ = translate stack_allocTheory.stub_names_def
 val _ = translate stack_removeTheory.stub_names_def
 val res = translate (data_to_wordTheory.compile_def
-                     |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv32_RHS);
+                     |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def, loc_values]
+                     |> conv32_RHS);
 
 (* explorer specific functions *)
 

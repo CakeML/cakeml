@@ -52,7 +52,7 @@ Definition mul_const_def:
     else if c = 1w then exp
     else (case dest_2exp 0n c of
       | NONE => Crepop Mul [exp; Const c]
-      | SOME i => Shift Lsl exp i
+      | SOME i => Shift Lsl exp (Const (n2w i))
     )
 End
 
@@ -74,7 +74,7 @@ Definition simp_exp_def:
   simp_exp (Load exp) = Load (simp_exp exp) /\
   simp_exp (Op bop exps) = Op bop (MAP simp_exp exps) /\
   simp_exp (Cmp cmp exp1 exp2) = Cmp cmp (simp_exp exp1) (simp_exp exp2) /\
-  simp_exp (Shift s exp n) = Shift s (simp_exp exp) n /\
+  simp_exp (Shift s exp1 exp2) = Shift s (simp_exp exp1) (simp_exp exp2) /\
   simp_exp exp = exp
 Termination
   WF_REL_TAC `measure (exp_size (K 0))`

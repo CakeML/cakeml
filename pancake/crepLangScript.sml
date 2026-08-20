@@ -34,7 +34,7 @@ Datatype:
       | Op binop (exp list)
       | Crepop crepop (exp list)
       | Cmp cmp exp exp
-      | Shift shift exp num
+      | Shift shift exp exp
       | BaseAddr
       | TopAddr
 End
@@ -135,7 +135,7 @@ Definition var_cexp_def:
   (var_cexp (Op bop es) = FLAT (MAP var_cexp es)) ∧
   (var_cexp (Crepop cop es) = FLAT (MAP var_cexp es)) ∧
   (var_cexp (Cmp c e1 e2) = var_cexp e1 ++ var_cexp e2) ∧
-  (var_cexp (Shift sh e num) = var_cexp e) ∧
+  (var_cexp (Shift sh e1 e2) = var_cexp e1 ++ var_cexp e2) ∧
   (var_cexp BaseAddr = []) ∧
   (var_cexp TopAddrl = [])
 Termination
@@ -200,7 +200,7 @@ Definition exps_def:
   (exps (Op bop es) = FLAT (MAP exps es)) ∧
   (exps (Crepop pop es) = FLAT (MAP exps es)) ∧
   (exps (Cmp c e1 e2) = exps e1 ++ exps e2) ∧
-  (exps (Shift sh e num) = exps e) ∧
+  (exps (Shift sh e1 e2) = exps e1 ++ exps e2) ∧
   (exps BaseAddr = [BaseAddr]) ∧
   (exps TopAddr = [TopAddr])
 Termination
