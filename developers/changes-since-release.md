@@ -49,7 +49,7 @@ self-recursive calls under a constructor into tail calls. The compiler
 pass is Ry Wiese's MSc thesis work.
 
 Two new compiler flags/configs `--tmc=true/false` and `--tailrec=true/false`,
-both default to true. They can be used to turn of `bvi_tmc` and bvi_tailrec`.
+both default to true. They can be used to turn of `bvi_tmc` and `bvi_tailrec`.
 
 ### Thunks
 
