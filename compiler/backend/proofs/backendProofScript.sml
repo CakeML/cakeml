@@ -404,7 +404,7 @@ QED
 val cake_orac_config_inv_f =
   ``(\ (sc, cc, bc, mc). (sc.pattern_cfg, cc.max_app, cc.do_call, IS_SOME cc.known_conf,
         known_static_conf cc.known_conf, cc.do_mti, bc.inline_size_limit,
-        bc.split_main_at_seq, bc.exp_cut, mc))
+        bc.split_main_at_seq, bc.exp_cut, bc.do_tailrec, bc.do_tmc, mc))
     o (\c. (c.source_conf, c.clos_conf, c.bvl_conf, c.data_conf,
             c.word_to_word_conf.reg_alg, c.stack_conf, (asm_conf: 'a asm_config)))``
 
@@ -763,12 +763,12 @@ Theorem bvl_to_bvi_compile_semantics2:
   (?v. FST (co 0) = (inlines, n1, n2, n3, bvi_inlines, v)) ∧
   (∀n. ALL_DISTINCT (MAP FST (SND (co n)))) ∧
   ALL_DISTINCT (MAP FST prog) ∧
-  is_state_oracle bvi_tailrec_compile_prog
+  is_state_oracle (bvi_tailrec_compile_prog c.do_tailrec)
     (state_co bvl_to_bvi_compile_inc
       (state_co (bvl_inline_compile_inc c.inline_size_limit
           c.split_main_at_seq c.exp_cut) co)) ∧
-  is_state_oracle bvi_tmc_compile_prog
-    (state_co bvi_tailrec_compile_prog
+  is_state_oracle (bvi_tmc_compile_prog c.do_tmc)
+    (state_co (bvi_tailrec_compile_prog c.do_tailrec)
       (state_co bvl_to_bvi_compile_inc
         (state_co (bvl_inline_compile_inc c.inline_size_limit
             c.split_main_at_seq c.exp_cut) co)))
@@ -798,18 +798,18 @@ Proof
              backend_commonTheory.bvl_to_bvi_namespaces_def]
   )
   (* step: ns-2 next-name evolves by bvi_tailrec, ns-3 by bvi_tmc *)
-  \\ qpat_x_assum `is_state_oracle bvi_tailrec_compile_prog _` assume_tac
+  \\ qpat_x_assum `is_state_oracle (bvi_tailrec_compile_prog _) _` assume_tac
   \\ drule is_state_oracle_k
   \\ disch_then (qspecl_then [`n`] assume_tac)
   \\ fs [backendPropsTheory.FST_state_co]
-  \\ qpat_x_assum `is_state_oracle bvi_tmc_compile_prog _` assume_tac
+  \\ qpat_x_assum `is_state_oracle (bvi_tmc_compile_prog _) _` assume_tac
   \\ drule is_state_oracle_k
   \\ disch_then (qspecl_then [`n`] assume_tac)
   \\ fs [backendPropsTheory.FST_state_co]
-  \\ qmatch_goalsub_abbrev_tac `bvi_tailrec_compile_prog tst tpr`
-  \\ Cases_on `bvi_tailrec_compile_prog tst tpr`
-  \\ qmatch_goalsub_abbrev_tac `bvi_tmc_compile_prog cst cpr`
-  \\ Cases_on `bvi_tmc_compile_prog cst cpr`
+  \\ qmatch_goalsub_abbrev_tac `bvi_tailrec_compile_prog c.do_tailrec tst tpr`
+  \\ Cases_on `bvi_tailrec_compile_prog c.do_tailrec tst tpr`
+  \\ qmatch_goalsub_abbrev_tac `bvi_tmc_compile_prog c.do_tmc cst cpr`
+  \\ Cases_on `bvi_tmc_compile_prog c.do_tmc cst cpr`
   \\ imp_res_tac bvi_tailrecProofTheory.compile_prog_next_mono
   \\ imp_res_tac bvi_tmcProofTheory.compile_prog_next_mono
   \\ fs [PAIR_FST_SND_EQ, backendPropsTheory.FST_state_co]
@@ -835,12 +835,12 @@ Theorem full_make_init_semantics2 = full_make_init_semantics
 Theorem data_num_stubs_LE_tailrec_compile:
   data_num_stubs <= nn2 /\ EVERY ($<= data_num_stubs) (MAP FST (orac n)) ==>
   EVERY ($<= data_num_stubs)
-    (MAP FST (state_co_progs bvi_tailrec_compile_prog nn2 orac n))
+    (MAP FST (state_co_progs (bvi_tailrec_compile_prog do_it) nn2 orac n))
 Proof
   disch_tac
   \\ fs [state_co_progs_def]
-  \\ qmatch_goalsub_abbrev_tac `bvi_tailrec_compile_prog st_n prog_n`
-  \\ Cases_on `bvi_tailrec_compile_prog st_n prog_n`
+  \\ qmatch_goalsub_abbrev_tac `bvi_tailrec_compile_prog do_it st_n prog_n`
+  \\ Cases_on `bvi_tailrec_compile_prog do_it st_n prog_n`
   \\ rw [EVERY_MEM]
   \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
   \\ disch_then drule
@@ -852,8 +852,8 @@ Proof
   \\ unabbrev_all_tac
   \\ Q.SPEC_TAC (`n`, `n`)
   \\ Induct \\ fs [state_orac_states_def]
-  \\ qmatch_goalsub_abbrev_tac `bvi_tailrec_compile_prog st_n prog_n`
-  \\ Cases_on `bvi_tailrec_compile_prog st_n prog_n`
+  \\ qmatch_goalsub_abbrev_tac `bvi_tailrec_compile_prog do_it st_n prog_n`
+  \\ Cases_on `bvi_tailrec_compile_prog do_it st_n prog_n`
   \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
   \\ rw []
 QED
@@ -1678,8 +1678,8 @@ Proof
 QED
 
 Theorem tailrec_compile_prog_MEM_not_nss_2:
-  ∀ys xs n1 n e.
-  bvi_tailrec_compile_prog n xs = (n1,ys) ∧ MEM e (MAP FST ys) ∧
+  ∀ys xs n1 n e do_it.
+  bvi_tailrec_compile_prog do_it n xs = (n1,ys) ∧ MEM e (MAP FST ys) ∧
   n MOD bvl_to_bvi_namespaces = 2 /\ e MOD bvl_to_bvi_namespaces ≠ 2 ⇒
   MEM e (MAP FST xs)
 Proof
@@ -1690,8 +1690,8 @@ Proof
 QED
 
 Theorem tmc_compile_prog_MEM_not_nss_3:
-  ∀ys xs n1 n e.
-  bvi_tmc_compile_prog n xs = (n1,ys) ∧ MEM e (MAP FST ys) ∧
+  ∀ys xs n1 n e do_it.
+  bvi_tmc_compile_prog do_it n xs = (n1,ys) ∧ MEM e (MAP FST ys) ∧
   n MOD bvl_to_bvi_namespaces = 3 /\ e MOD bvl_to_bvi_namespaces ≠ 3 ⇒
   MEM e (MAP FST xs)
 Proof
@@ -1703,7 +1703,7 @@ QED
 
 Theorem is_state_oracle_tailrec_cake_orac:
   compile asm_conf c prog = SOME (b,bm,c') ==>
-  is_state_oracle bvi_tailrec_compile_prog
+  is_state_oracle (bvi_tailrec_compile_prog c.bvl_conf.do_tailrec)
     (state_co bvl_to_bvi_compile_inc (state_co
       (bvl_inline_compile_inc c.bvl_conf.inline_size_limit
         c.bvl_conf.split_main_at_seq c.bvl_conf.exp_cut)
@@ -1726,8 +1726,9 @@ QED
 
 Theorem is_state_oracle_tmc_cake_orac:
   compile asm_conf c prog = SOME (b,bm,c') ==>
-  is_state_oracle bvi_tmc_compile_prog
-    (state_co bvi_tailrec_compile_prog (state_co bvl_to_bvi_compile_inc (state_co
+  is_state_oracle (bvi_tmc_compile_prog c.bvl_conf.do_tmc)
+    (state_co (bvi_tailrec_compile_prog c.bvl_conf.do_tailrec)
+      (state_co bvl_to_bvi_compile_inc (state_co
       (bvl_inline_compile_inc c.bvl_conf.inline_size_limit
         c.bvl_conf.split_main_at_seq c.bvl_conf.exp_cut)
       (cake_orac asm_conf c' syntax config_tuple2 (λps. ps.bvl_prog)))))
@@ -2127,7 +2128,7 @@ Proof
     \\ drule_then (mp_tac o GSYM) bvl_to_bvi_orac_eq
     \\ simp [full_co_def]
     \\ disch_then kall_tac
-    \\ qmatch_goalsub_abbrev_tac `state_co bvi_tmc_compile_prog inner`
+    \\ qmatch_goalsub_abbrev_tac `state_co (bvi_tmc_compile_prog _) inner`
     \\ sg `oracle_monotonic
           (\x. set (MAP FST (SND x)) INTER
                PREIMAGE (\i. i MOD bvl_to_bvi_namespaces) {2}) $<
@@ -3798,7 +3799,7 @@ Proof
   \\ strip_tac
   \\ disch_then(qspec_then`0`mp_tac) \\ simp[] \\ strip_tac
   \\ `stubs (:'a) c4.data_conf = stubs (:'a) c4_data_conf` by ( simp[Abbr`c4_data_conf`] )
-  \\ qmatch_assum_rename_tac`bvi_tmc_compile_prog _ _ = (_,p3)`
+  \\ qmatch_assum_rename_tac`bvi_tmc_compile_prog _ _ _ = (_,p3)`
   (* bvi_inline runs after bvi_tmc and preserves names *)
   \\ qpat_assum `bvi_inline$compile_prog _ = _`
        (strip_assume_tac o REWRITE_RULE [bvi_inlineTheory.compile_prog_def])

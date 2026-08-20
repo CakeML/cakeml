@@ -867,6 +867,14 @@ Proof
   \\ TRY(qexists_tac`k+1` \\ simp[] \\ NO_TAC)
 QED
 
+Theorem compile_prog_next_mono:
+   ∀b n xs n1 ys. compile_prog b n xs = (n1,ys) ⇒ ∃k. n1 = n + bvl_to_bvi_namespaces * k
+Proof
+  rw [bvi_tailrecTheory.compile_prog_def] \\ gvs []
+  \\ TRY (qexists_tac `0` \\ simp [] \\ NO_TAC)
+  \\ imp_res_tac compile_each_next_mono \\ qexists_tac `k` \\ simp []
+QED
+
 Theorem compile_each_MEM:
    compile_each n xs = (n1,ys) /\ MEM e (MAP FST ys) ==>
    MEM e (MAP FST xs) \/ (n <= e /\ e < n1 /\ (∃k. e = n + k * bvl_to_bvi_namespaces))
@@ -900,6 +908,14 @@ Proof
   \\ fs []
   \\ rpt disj2_tac
   \\ qexists_tac`k'' + 1` \\ simp[]
+QED
+
+Theorem compile_prog_MEM:
+   compile_prog b n xs = (n1,ys) /\ MEM e (MAP FST ys) ==>
+   MEM e (MAP FST xs) \/ (n <= e /\ e < n1 /\ (∃k. e = n + k * bvl_to_bvi_namespaces))
+Proof
+  rw [bvi_tailrecTheory.compile_prog_def] \\ gvs []
+  \\ metis_tac [compile_each_MEM]
 QED
 
 Theorem compile_each_intro[local]:
@@ -982,6 +998,16 @@ Proof
   \\ disch_then drule
   \\ simp [MEM_MAP]
   \\ metis_tac [compile_each_intro, more_free_names]
+QED
+
+Theorem compile_prog_ALL_DISTINCT:
+   compile_prog b n xs = (n1,ys) /\ ALL_DISTINCT (MAP FST xs) /\
+   EVERY (free_names n o FST) xs ==>
+   ALL_DISTINCT (MAP FST ys) /\
+   EVERY (free_names n1 o FST) ys
+Proof
+  rw [bvi_tailrecTheory.compile_prog_def] \\ gvs []
+  \\ metis_tac [compile_each_ALL_DISTINCT]
 QED
 
 Definition namespace_rel_def:
@@ -2606,6 +2632,27 @@ Proof
   \\ qexists_tac `k` \\ fs []
 QED
 
+Theorem compile_prog_semantics:
+   input_condition n prog ∧
+   (∀k n cfg prog. co k = ((n,cfg),prog) ⇒ input_condition n prog) ∧
+   (∀k. MEM k (MAP FST prog2) ∧ in_ns_2 k ⇒ k < FST(FST (co 0))) ∧
+   SND (compile_prog b n prog) = prog2 ∧
+   semantics ffi (fromAList prog) co (state_cc (compile_prog b) cc) start ≠
+      ffi$Fail ⇒
+   semantics ffi (fromAList prog) co (state_cc (compile_prog b) cc) start =
+   semantics ffi (fromAList prog2) (state_co (compile_prog b) co) cc start
+Proof
+  Cases_on `b`
+  >-
+   (`bvi_tailrec$compile_prog T = compile_each` by
+      fs [FUN_EQ_THM, bvi_tailrecTheory.compile_prog_def]
+    \\ fs [] \\ metis_tac [compile_each_semantics])
+  \\ `bvi_tailrec$compile_prog F = CURRY I` by
+       fs [FUN_EQ_THM, bvi_tailrecTheory.compile_prog_def]
+  \\ fs [] \\ rw []
+  \\ irule semantics_CURRY_I \\ fs []
+QED
+
 Theorem compile_each_labels:
    !next1 code1 next2 code2.
      compile_each next1 code1 = (next2, code2)
@@ -2642,6 +2689,14 @@ Proof
   \\ rw[bvi_tailrecTheory.compile_each_def]
   \\ rpt(pairarg_tac \\ fs[])
   \\ fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[]
+QED
+
+Theorem compile_prog_keeps_names:
+   ∀b next xs next' ys.
+     compile_prog b next xs = (next',ys) ∧ MEM x (MAP FST xs) ⇒ MEM x (MAP FST ys)
+Proof
+  rw [bvi_tailrecTheory.compile_prog_def] \\ gvs []
+  \\ metis_tac [compile_each_keeps_names]
 QED
 
 Theorem get_code_labels_rewrite:
@@ -2727,4 +2782,15 @@ Proof
   \\ gen_tac
   \\ rpt(first_x_assum(qspec_then`SUC k`mp_tac))
   \\ simp[ADD1,LEFT_ADD_DISTRIB]
+QED
+
+Theorem compile_prog_good_code_labels:
+   ∀b n c n2 c2.
+   bvi_tailrec$compile_prog b n c = (n2,c2) ∧
+   BIGUNION (set (MAP (bviProps$get_code_labels o SND o SND) c)) ⊆ all ∧
+   { n + k * bvl_to_bvi_namespaces | k | n + k * bvl_to_bvi_namespaces < n2 } ⊆ all ⇒
+   BIGUNION (set (MAP (bviProps$get_code_labels o SND o SND) c2)) ⊆ all
+Proof
+  rw [bvi_tailrecTheory.compile_prog_def] \\ gvs []
+  \\ metis_tac [compile_each_good_code_labels]
 QED
