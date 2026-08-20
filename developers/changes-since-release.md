@@ -2,6 +2,8 @@ Changes since release v3400:
 
 ## Source language and front‑end
 
+No changes in source language or front-end since last release.
+
 ## Basis library
 
 ### List
@@ -45,6 +47,9 @@ BVI now supports multi-arg calls/returns (with a separate constructor).
 A new pass, `bvi_tmc`, performs tail recursion modulo cons, turning
 self-recursive calls under a constructor into tail calls. The compiler
 pass is Ry Wiese's MSc thesis work.
+
+Two new compiler flags/configs `--tmc=true/false` and `--tailrec=true/false`,
+both default to true. They can be used to turn of `bvi_tmc` and bvi_tailrec`.
 
 ### Thunks
 
