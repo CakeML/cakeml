@@ -50,21 +50,21 @@ Definition get_iname_def:
 End
 
 Theorem fresh_iname_exists[local]:
-  ∀fsys. ∃iname.
-    ALOOKUP fsys.inode_tbl (File iname)    = NONE ∧
-    ALOOKUP fsys.inode_tbl (UStream iname) = NONE
+  ∀tbl. ∃iname.
+    ALOOKUP tbl (File iname)    = NONE ∧
+    ALOOKUP tbl (UStream iname) = NONE
 Proof
   rw [ALOOKUP_NONE]
-  >> qsuff_tac ‘∃iname. ¬MEM iname (MAP (get_iname ∘ FST) fsys.inode_tbl)’
+  >> qsuff_tac ‘∃iname. ¬MEM iname (MAP (get_iname ∘ FST) tbl)’
   >- (simp [MEM_MAP] >> metis_tac [get_iname_def, FST])
-  >> sg ‘FINITE (set (MAP (get_iname ∘ FST) fsys.inode_tbl))’ >- simp []
+  >> sg ‘FINITE (set (MAP (get_iname ∘ FST) tbl))’ >- simp []
   >> metis_tac [INFINITE_mlstring, IN_INFINITE_NOT_FINITE]
 QED
 
 (*
-   ⊢ ∀fsys.
-       ALOOKUP fsys.inode_tbl (File (fresh_iname fsys)) = NONE ∧
-       ALOOKUP fsys.inode_tbl (UStream (fresh_iname fsys)) = NONE
+   ⊢ ∀tbl.
+       ALOOKUP tbl (File (fresh_iname tbl)) = NONE ∧
+       ALOOKUP tbl (UStream (fresh_iname tbl)) = NONE
 *)
 val fresh_iname_spec = new_specification(
   "fresh_iname_spec",
@@ -122,28 +122,33 @@ Definition openFileFS_def:
     | SOME (_, fs') => fs'
 End
 
-(* Ensures that a file is available in the filesystem. *)
-Definition ensureFile_def:
-  ensureFile fsys fnm =
+(* Sets the content of a file, creating it if it does not already exist. *)
+Definition write_file_def:
+  write_file fsys fnm content =
   case ALOOKUP fsys.files fnm of
-  | SOME iname => fsys
+  | SOME iname =>
+      fsys with inode_tbl updated_by (AFUPDKEY (File iname) (K content))
   | NONE =>
-      let iname = fresh_iname fsys in
+      let iname = fresh_iname fsys.inode_tbl in
         fsys with
              <| files := (fnm, iname)::fsys.files;
-                inode_tbl := (File iname, "")::fsys.inode_tbl |>
+                inode_tbl := (File iname, content)::fsys.inode_tbl |>
+End
+
+(* Ensures that a file is present in the filesystem and empty. *)
+Definition emptyFile_def:
+  emptyFile fsys fnm = write_file fsys fnm ""
 End
 
 (* adds a new file in infds and truncate it *)
 Definition openFile_truncate_def:
   openFile_truncate fnm fsys md =
-    let fsys = ensureFile fsys fnm; fd = nextFD fsys in
+    let fsys = emptyFile fsys fnm; fd = nextFD fsys in
       do
         assert (fd <= fsys.maxFD) ;
         iname <- ALOOKUP fsys.files fnm;
         ALOOKUP fsys.inode_tbl (File iname);
-        return (fd, (fsys with infds := (nextFD fsys, (File iname, md, 0)) :: fsys.infds)
-                          with inode_tbl updated_by (AFUPDKEY (File iname) (\x."")))
+        return (fd, (fsys with infds := (fd, (File iname, md, 0)) :: fsys.infds))
       od
 End
 
@@ -266,7 +271,6 @@ Definition ffi_open_out_def:
       assert(9 <= LENGTH bytes);
       fname <- getNullTermStr conf;
       (fd, fs') <- openFile_truncate (implode fname) fs WriteMode;
-      assert(fd <= 255);
       return (FFIreturn (0w :: n2w8 fd ++ DROP 9 bytes) fs')
     od ++
     do

@@ -1119,29 +1119,27 @@ QED
 (* TODO openAppend here *)
 
 Theorem openOut_IOFS_spec:
-   FILENAME s sv ∧
-   hasFreeFD fs ⇒ (* Is hasFreeFD required? *)
-   app (p:'ffi ffi_proj) TextIO_openOut_v [sv]
-     (IOFS fs)
-     (POSTv fdv.
-        &(OUTSTREAM (nextFD fs) fdv ∧
-          validFD (nextFD fs) (openFileFS s fs WriteMode 0)) *
-      IOFS (openFileFS s (ensureFile fs s) WriteMode 0))
-  (* Does this need POSTve or not? *)
+  FILENAME s sv ∧
+  hasFreeFD fs ⇒
+  app (p:'ffi ffi_proj) TextIO_openOut_v [sv]
+    (IOFS fs)
+    (POSTv fdv.
+       &(OUTSTREAM (nextFD fs) fdv ∧
+       validFileFD (nextFD fs) (openFileFS s (emptyFile fs s) WriteMode 0).infds) *
+     IOFS (openFileFS s (emptyFile fs s) WriteMode 0))
 Proof
   cheat
 QED
 
 Theorem openOut_STDIO_spec:
-   FILENAME s sv ∧
-   hasFreeFD fs ⇒ (* Is hasFreeFD required? *)
-   app (p:'ffi ffi_proj) TextIO_openOut_v [sv]
-     (STDIO fs)
-     (POSTv fdv.
-        &(OUTSTREAM (nextFD fs) fdv ∧
-          validFD (nextFD fs) (openFileFS s fs WriteMode 0)) *
-      STDIO (openFileFS s (ensureFile fs s) WriteMode 0))
-  (* Does this need POSTve or not? *)
+  FILENAME s sv ∧
+  hasFreeFD fs ⇒
+  app (p:'ffi ffi_proj) TextIO_openOut_v [sv]
+    (STDIO fs)
+    (POSTv fdv.
+       &(OUTSTREAM (nextFD fs) fdv ∧
+       validFileFD (nextFD fs) (openFileFS s (emptyFile fs s) WriteMode 0).infds) *
+     STDIO (openFileFS s (emptyFile fs s) WriteMode 0))
 Proof
   cheat
 QED
@@ -1244,7 +1242,7 @@ QED
 
 Theorem raw_closeIn_STDIO_spec:
    ∀fd fs fdv.
-     INSTREAM fd fdv /\ fd >= 3 /\ fd <= fs.maxFD ⇒
+     INSTREAM fd fdv ⇒
      app (p:'ffi ffi_proj) TextIO_raw_closeIn_v [fdv]
        (STDIO fs)
        (POSTve
@@ -1256,15 +1254,17 @@ Proof
   map_every qexists_tac [`emp`,`fs with numchars := ll`,`fd`] >>
   xsimpl >> rw[] >> qexists_tac`ll` >> fs[validFileFD_def] >> xsimpl >>
   fs[STD_streams_def,ALOOKUP_ADELKEY] \\
-  Cases_on`fd = 0` \\ fs[]
-  \\ Cases_on`fd = 1` \\ fs[]
-  \\ Cases_on`fd = 2` \\ fs[]
-  \\ metis_tac[]
+  qexists ‘inp’ >>
+  `ALOOKUP fs.infds 0 = SOME (UStream «stdin», ReadMode, inp)` by simp[] >>
+  `ALOOKUP fs.infds 1 = SOME (UStream «stdout», WriteMode, STRLEN out)` by simp[] >>
+  `ALOOKUP fs.infds 2 = SOME (UStream «stderr», WriteMode, STRLEN err)` by simp[] >>
+  `fd ≠ 0 ∧ fd ≠ 1 ∧ fd ≠ 2` by (rpt strip_tac >> fs[]) >>
+  metis_tac[]
 QED
 
 Theorem closeOut_STDIO_spec:
    ∀fd fs fdv.
-     OUTSTREAM fd fdv /\ fd >= 3 /\ fd <= fs.maxFD ⇒
+     OUTSTREAM fd fdv ⇒
      app (p:'ffi ffi_proj) TextIO_closeOut_v [fdv]
        (STDIO fs)
        (POSTve
@@ -1276,10 +1276,12 @@ Proof
   map_every qexists_tac [`emp`,`fs with numchars := ll`,`fd`] >>
   xsimpl >> rw[] >> qexists_tac`ll` >> fs[validFileFD_def] >> xsimpl >>
   fs[STD_streams_def,ALOOKUP_ADELKEY] \\
-  Cases_on`fd = 0` \\ fs[]
-  \\ Cases_on`fd = 1` \\ fs[]
-  \\ Cases_on`fd = 2` \\ fs[]
-  \\ metis_tac[]
+  qexists ‘inp’ >>
+  `ALOOKUP fs.infds 0 = SOME (UStream «stdin», ReadMode, inp)` by simp[] >>
+  `ALOOKUP fs.infds 1 = SOME (UStream «stdout», WriteMode, STRLEN out)` by simp[] >>
+  `ALOOKUP fs.infds 2 = SOME (UStream «stderr», WriteMode, STRLEN err)` by simp[] >>
+  `fd ≠ 0 ∧ fd ≠ 1 ∧ fd ≠ 2` by (rpt strip_tac >> fs[]) >>
+  metis_tac[]
 QED
 
 Theorem writei_spec:
@@ -1760,7 +1762,8 @@ QED
 
 Theorem outputFile_spec:
   FILENAME name namev ∧
-  STRING_TYPE content contentv
+  STRING_TYPE content contentv ∧
+  hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) TextIO_outputFile_v
     [namev; contentv]
@@ -1769,7 +1772,28 @@ Theorem outputFile_spec:
 Proof
   rw []
   >> xcf_with_def TextIO_outputFile_v_def
-  >> cheat
+  >> xlet_auto_spec (SOME openOut_STDIO_spec)
+  >- xsimpl
+  >> qmatch_asmsub_abbrev_tac ‘validFileFD fd fs₁.infds’
+  >> sg ‘get_fd_content fs₁ fd = SOME ("", 0) ∧ get_mode fs₁ fd = SOME WriteMode’
+  >- (
+    fs [Abbr ‘fd’, Abbr ‘fs₁’]
+    >> cheat
+  )
+  >> xlet_auto_spec (SOME output_STDIO_spec)
+  >- xsimpl
+  >> xapp_spec closeOut_STDIO_spec
+  >> qpat_assum ‘OUTSTREAM _ _’ $ irule_at Any
+  >> xsimpl
+  >> qmatch_goalsub_abbrev_tac ‘STDIO fs₂ ==>> STDIO _ * _’
+  >> qexistsl [‘fs₂’, ‘emp’]
+  >> conj_tac >- xsimpl
+  >> conj_tac
+  >- (
+    rw []
+    >> cheat
+  )
+  >> simp [Abbr ‘fs₂’]
 QED
 
 Definition print_def:

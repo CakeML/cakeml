@@ -36,6 +36,7 @@ its definition and to free up the name for a different definition.
 
 `get_file_content` now defines a function that returns the contents of a file
 (not a file descriptor).
+
 ### fsFFIProps
 
 `get_mode_fsupdate` has been added and included as a simp:
@@ -43,5 +44,9 @@ its definition and to free up the name for a different definition.
 Theorem get_mode_fsupdate[simp]:
   get_mode (fsupdate fs fd' k pos content) fd = get_mode fs fd
 ```
+
+### TextIOProof
+
+`raw_closeIn_STDIO_spec` and `closeOut_STDIO_spec` assumptions have been weakened.
 
 ## Miscellaneous 

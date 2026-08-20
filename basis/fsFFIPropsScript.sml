@@ -1509,48 +1509,47 @@ Proof
   \\ rw [] \\ fs [validFileFD_def]
 QED
 
-(* ensureFile lemmas *)
+(* write_file lemmas *)
 
-Theorem ensureFile_infds[simp]:
-  (ensureFile fs fname).infds = fs.infds
+Theorem write_file_IO_fs_eq[simp]:
+  (write_file fs fname content).infds = fs.infds ∧
+  (write_file fs fname content).numchars = fs.numchars ∧
+  (write_file fs fname content).maxFD = fs.maxFD
 Proof
-  simp [ensureFile_def] >> CASE_TAC >> simp [IO_fs_component_equality]
+  simp [write_file_def] >> CASE_TAC >> simp [IO_fs_component_equality]
 QED
 
-Theorem ensureFile_numchars[simp]:
-  (ensureFile fs fname).numchars = fs.numchars
-Proof
-  simp [ensureFile_def] >> CASE_TAC >> simp [IO_fs_component_equality]
-QED
-
-Theorem ensureFile_maxFD[simp]:
-  (ensureFile fs fname).maxFD = fs.maxFD
-Proof
-  simp [ensureFile_def] >> CASE_TAC >> simp [IO_fs_component_equality]
-QED
-
-Theorem nextFD_ensureFile[simp]:
-  nextFD (ensureFile fs fname) = nextFD fs
+Theorem nextFD_write_file[simp]:
+  nextFD (write_file fs fname content) = nextFD fs
 Proof
   simp [nextFD_def]
 QED
 
-Theorem ensureFile_UStream[simp]:
-  ALOOKUP (ensureFile fs fname).inode_tbl (UStream nm)
+Theorem write_file_UStream[simp]:
+  ALOOKUP (write_file fs fname content).inode_tbl (UStream nm)
   =
   ALOOKUP fs.inode_tbl (UStream nm)
 Proof
-  simp [ensureFile_def] >> Cases_on ‘ALOOKUP fs.files fname’ >> simp []
+  simp [write_file_def]
+  >> Cases_on ‘ALOOKUP fs.files fname’
+  >> simp [AFUPDKEY_ALOOKUP]
+  >> CASE_TAC
 QED
 
-Definition write_file_def:
-  write_file fs fname content =
-  case ALOOKUP fs.files fname of
-  | SOME iname =>
-    fs with inode_tbl updated_by (AFUPDKEY (File iname) (K content))
-  | NONE =>
-      let iname = fresh_iname fs in
-        fs with
-           <| files updated_by CONS (fname, iname);
-              inode_tbl updated_by CONS (File iname, content) |>
-End
+(* emptyFile lemmas *)
+
+Theorem emptyFile_IO_fs_eq[simp]:
+  (emptyFile fs fname).infds = fs.infds ∧
+  (emptyFile fs fname).numchars = fs.numchars ∧
+  (emptyFile fs fname).maxFD = fs.maxFD
+Proof
+  simp [emptyFile_def]
+QED
+
+Theorem emptyFile_UStream[simp]:
+  ALOOKUP (emptyFile fs fname).inode_tbl (UStream nm)
+  =
+  ALOOKUP fs.inode_tbl (UStream nm)
+Proof
+  simp [emptyFile_def]
+QED
