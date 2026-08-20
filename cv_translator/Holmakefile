@@ -1,5 +1,3 @@
-INCLUDES = $(HOLDIR)/examples/bootstrap
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

@@ -1,4 +1,4 @@
-INCLUDES = $(HOLDIR)/examples/bootstrap $(HOLDIR)/examples/Crypto
+INCLUDES = $(HOLDIR)/examples/Crypto
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

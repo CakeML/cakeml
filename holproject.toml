@@ -18,6 +18,12 @@ external_includes = [
   "$(HOLDIR)/examples/data-structures/balanced_bst",
   "$(HOLDIR)/examples/l3-machine-code/arm8/asl-equiv",
   "$(HOLDIR)/examples/l3-machine-code/common",
+  "$(HOLDIR)/examples/bootstrap",
+  "$(HOLDIR)/examples/l3-machine-code/arm/model",
+  "$(HOLDIR)/examples/l3-machine-code/arm8/model",
+  "$(HOLDIR)/examples/l3-machine-code/mips/model",
+  "$(HOLDIR)/examples/l3-machine-code/riscv/model",
+  "$(HOLDIR)/examples/l3-machine-code/x64/model",
 ]
 
 
