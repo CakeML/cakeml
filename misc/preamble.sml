@@ -100,7 +100,7 @@ fun println s = print (strcat s "\n");
 (* -- *)
 
 (* TODO: move to listLib (and move MAP3 to listTheory) *)
-(* val (map3_tm,mk_map3,dest_map3,is_map3) = syntax_fns4 "misc" "MAP3" 
+(* val (map3_tm,mk_map3,dest_map3,is_map3) = syntax_fns4 "misc" "MAP3"
 
 local
   val (m3n,m3c) = CONJ_PAIR MAP3_def
