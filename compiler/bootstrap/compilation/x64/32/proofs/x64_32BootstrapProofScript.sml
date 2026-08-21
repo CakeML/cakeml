@@ -1,10 +1,10 @@
 (*
   Proves an end-to-end correctness theorem for the bootstrapped compiler.
 *)
-Theory x64BootstrapProof
+Theory x64_32BootstrapProof
 Ancestors
   repl_decs_allowed semanticsProps backendProof x64_configProof
-  compiler32Prog x64Bootstrap
+  compiler32Prog x64_32Bootstrap
 Libs
   preamble
 

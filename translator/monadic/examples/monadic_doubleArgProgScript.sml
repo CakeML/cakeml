@@ -2,7 +2,7 @@
   An example showing how to use the monadic translator to translate monadic
   doubling functions, including using references (no arrays, no exceptions).
  *)
-Theory doubleArgProg
+Theory monadic_doubleArgProg
 Libs
   preamble ml_monad_translator_interfaceLib
 Ancestors

@@ -1,5 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/compiler/dafny/vcg $(CAKEMLDIR)/compiler/dafny/proofs $(CAKEMLDIR)/translator
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

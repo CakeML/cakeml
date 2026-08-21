@@ -3,7 +3,7 @@
   monadic functions using IO primitives from the basis library.
 *)
 
-Theory helloProg
+Theory monadic_helloProg
 (* Load the interface to the monadic translator, and basis for IO *)
 Ancestors
   basisProg ml_monad_translator
