@@ -833,32 +833,6 @@ Proof
   metis_tac [do_app_cfg_swap, SUBSET_REFL]
 QED
 
-Theorem do_app_adj_orac[local]:
-  op ≠ Install ∧ adj_orac_ok cc f s ⇒
-    (∀v t. do_app op args s = Rval (v,t) ⇒
-       do_app op args (adj_orac cc f s) = Rval (v, adj_orac cc f t) ∧
-       adj_orac_ok cc f t) ∧
-    (∀e. do_app op args s = Rerr e ⇒
-       do_app op args (adj_orac cc f s) = Rerr e)
-Proof
-  strip_tac
-  \\ `(adj_orac cc f s) with <| refs := s.refs; clock := s.clock;
-        global := s.global; ffi := s.ffi |> = adj_orac cc f s`
-       by gvs [adj_orac_def, state_component_equality]
-  \\ `domain s.code = domain (adj_orac cc f s).code` by gvs [adj_orac_def]
-  \\ conj_tac \\ rpt gen_tac \\ strip_tac
-  >-
-   (drule_all do_app_cfg_swap_Rval
-    \\ gvs []
-    \\ strip_tac
-    \\ imp_res_tac do_app_code
-    \\ imp_res_tac do_app_oracle
-    \\ gvs [adj_orac_def, adj_orac_ok_def, state_component_equality]
-    \\ metis_tac [])
-  \\ drule_all do_app_cfg_swap_Rerr
-  \\ gvs []
-QED
-
 Theorem do_install_Rerr_type[local]:
   do_install args s = Rerr e ⇒ e = Rabort Rtype_error
 Proof
@@ -867,9 +841,10 @@ QED
 
 Theorem do_install_adj_orac[local]:
   ∀args (s:('a,'ffi) bviSem$state) v t cc (f:'a -> 'b).
+    adj_orac_ok cc f s ∧
     (do_install args s :
        (bvlSem$v # ('a,'ffi) bviSem$state, bviSem$exn_or_ret) result) =
-      Rval (v,t) ∧ adj_orac_ok cc f s ⇒
+      Rval (v,t) ⇒
     (do_install args (adj_orac cc f s) :
        (bvlSem$v # ('b,'ffi) bviSem$state, bviSem$exn_or_ret) result) =
       Rval (v, adj_orac cc f t) ∧
@@ -887,6 +862,38 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem do_app_adj_orac[local]:
+  adj_orac_ok cc f s ⇒
+    (∀v t. do_app op args s = Rval (v,t) ⇒
+       do_app op args (adj_orac cc f s) = Rval (v, adj_orac cc f t) ∧
+       adj_orac_ok cc f t) ∧
+    (∀e. do_app op args s = Rerr e ∧ e ≠ Rabort Rtype_error ⇒
+       do_app op args (adj_orac cc f s) = Rerr e)
+Proof
+  strip_tac
+  \\ reverse (Cases_on `op = Install`)
+  >-
+   (`(adj_orac cc f s) with <| refs := s.refs; clock := s.clock;
+        global := s.global; ffi := s.ffi |> = adj_orac cc f s`
+       by gvs [adj_orac_def, state_component_equality]
+    \\ `domain s.code = domain (adj_orac cc f s).code` by gvs [adj_orac_def]
+    \\ conj_tac \\ rpt gen_tac \\ strip_tac
+    >-
+     (drule_all do_app_cfg_swap_Rval
+      \\ gvs []
+      \\ strip_tac
+      \\ imp_res_tac do_app_code
+      \\ imp_res_tac do_app_oracle
+      \\ gvs [adj_orac_def, adj_orac_ok_def, state_component_equality]
+      \\ metis_tac [])
+    \\ drule_all do_app_cfg_swap_Rerr
+    \\ gvs [])
+  \\ gvs [do_app_def]
+  \\ conj_tac \\ rpt gen_tac \\ strip_tac
+  >- (drule_all do_install_adj_orac \\ simp [])
+  \\ imp_res_tac do_install_Rerr_type \\ gvs []
+QED
+
 Theorem evaluate_adj_orac_rel[local]:
   ∀xs env (s:('a,'ffi) bviSem$state).
     ∀res t1 cc f (s2:('b,'ffi) bviSem$state).
@@ -902,11 +909,6 @@ Proof
   \\ res_tac \\ gvs [adj_orac_simps]
   (* only the Op case is left; there the compiler oracle can be touched *)
   \\ first_x_assum (qspecl_then [`cc`,`f`] strip_assume_tac) \\ gvs []
-  \\ Cases_on `op = Install`
-  \\ TRY (gvs [do_app_def]
-          \\ TRY (imp_res_tac do_install_Rerr_type \\ gvs [] \\ NO_TAC)
-          \\ drule_all do_install_adj_orac \\ strip_tac \\ gvs []
-          \\ NO_TAC)
   \\ drule_all do_app_adj_orac \\ strip_tac \\ res_tac \\ gvs []
 QED
 

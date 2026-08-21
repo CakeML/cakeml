@@ -273,9 +273,9 @@ QED
 Theorem compile_prog_next_mono:
   ∀b n xs n1 ys. compile_prog b n xs = (n1,ys) ⇒ ∃k. n1 = n + bvl_to_bvi_namespaces * k
 Proof
-  rw [bvi_tmcTheory.compile_prog_def] \\ gvs []
-  \\ TRY (qexists_tac `0` \\ simp [] \\ NO_TAC)
-  \\ imp_res_tac compile_each_next_mono \\ qexists_tac `k` \\ simp []
+  rpt gen_tac \\ Cases_on `b` \\ gvs [bvi_tmcTheory.compile_prog_def]
+  >- (strip_tac \\ imp_res_tac compile_each_next_mono \\ qexists_tac `k` \\ simp [])
+  \\ rw [] \\ qexists_tac `0` \\ simp []
 QED
 
 Theorem compile_each_MEM:
