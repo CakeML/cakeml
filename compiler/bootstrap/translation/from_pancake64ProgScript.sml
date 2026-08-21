@@ -506,8 +506,6 @@ val res = translate kw_def;
 
 val res = translate $ spec64 isSubOp_def;
 
-val res = translate $ preprocess $ spec64 conv_Shift_def;
-
 val res = translate $ conv_panop_def;
 
 

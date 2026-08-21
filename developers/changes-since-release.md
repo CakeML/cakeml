@@ -42,9 +42,14 @@ adapted to sibling annotations in place of a typing environment.
 
 BVI now supports multi-arg calls/returns (with a separate constructor).
 
+A new pass, `bvi_tmc`, performs tail recursion modulo cons, turning
+self-recursive calls under a constructor into tail calls. The compiler
+pass is Ry Wiese's MSc thesis work.
+
 ### Thunks
 
-Thunks can now be inlined by the GC (#1440).
+The `data_to_word` invariants now allow thunks to be inlined (#1440).
+The intention is that the GC will, in the future, inline evalated thunks.
 
 ### targetSem
 
@@ -57,6 +62,12 @@ Function return value shape is now part of the semantics of Pancake. (#1466)
 Pancake's returns are now directly compiled to multi-valued returns at crep-loop-word. (#1466)
 
 Crep now has multi-leveled Break/Continue. (#1466)
+
+A parser bug related to field accesses has been fixed (#1438).
+
+Exeception syntax has been improved (#1450)
+
+Variable length shifts are now supported (#1460).
 
 ## Candle
 

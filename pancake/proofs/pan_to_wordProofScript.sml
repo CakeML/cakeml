@@ -816,7 +816,7 @@ Proof
   rw $ [loopPropsTheory.every_prog_def,loop_inst_ok_def,crep_to_loopTheory.prog_if_def,crepPropsTheory.every_exp_def] @ butlast(CONJUNCTS crep_to_loopTheory.compile_exp_def) \\
   rpt(pairarg_tac \\ gvs[]) \\
   gvs[loopPropsTheory.every_prog_def,loop_inst_ok_def,crep_to_loopTheory.prog_if_def]
-  THEN1 (gvs[DefnBase.one_line_ify NONE crep_to_loopTheory.compile_crepop_def,AllCaseEqs(),
+  THEN1 (gvs[oneline crep_to_loopTheory.compile_crepop_def,AllCaseEqs(),
              loopPropsTheory.every_prog_def,loop_inst_ok_def] \\
          rw[EVERY_MEM,MEM_MAPi] \\
          rw[loopPropsTheory.every_prog_def,loop_inst_ok_def] \\
@@ -824,7 +824,7 @@ Proof
                               crep_to_loopProofTheory.compile_exps_alt] \\
          rpt(pairarg_tac \\ gvs[]) \\
          metis_tac[EVERY_MEM])
-  THEN1 (gvs[DefnBase.one_line_ify NONE crep_to_loopTheory.compile_crepop_def,AllCaseEqs(),
+  THEN1 (gvs[oneline crep_to_loopTheory.compile_crepop_def,AllCaseEqs(),
              loopPropsTheory.every_prog_def,loop_inst_ok_def] \\
          rw[EVERY_MEM,MEM_MAPi] \\
          rw[loopPropsTheory.every_prog_def,loop_inst_ok_def] \\
