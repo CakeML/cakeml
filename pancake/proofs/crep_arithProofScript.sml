@@ -147,6 +147,16 @@ Proof
   rw [simp_exp_correct1]
 QED
 
+Theorem opt_mmap_simp_exp_correct:
+  OPT_MMAP (crepSem$eval s) es = SOME vs ⇒
+  OPT_MMAP (eval (mapc f s)) (MAP simp_exp es) = SOME vs
+Proof
+  strip_tac \\ fs[OPT_MMAP_MAP_o]
+  \\ qpat_assum `OPT_MMAP _ _ = _` $ REWRITE_TAC o single o GSYM
+  \\ irule OPT_MMAP_CONG \\ rw[]
+  \\ imp_res_tac pan_commonPropsTheory.opt_mmap_mem_func \\ gvs[simp_exp_correct]
+QED
+
 Overload mapcs[local] = ``mapc (\(s,n,p). (n, simp_prog p))``
 
 Theorem lookup_code[local]:
@@ -191,7 +201,7 @@ Proof
     \\ simp [simp_exp_correct, lookup_code]
     \\ fs [AllCaseEqs ()]
     \\ gvs [empty_locals_def, dec_clock_def]
-    \\ TRY (rename [`Case (Call (SOME (_, _, handler)) _ _ )`] \\ Cases_on `handler`)
+    \\ TRY (rename [`Case (Call (SOME (_, handler)) _ _ )`] \\ Cases_on `handler`)
     \\ simp []
     \\ simp [PAIR_FST_SND_EQ]
   )
@@ -209,5 +219,5 @@ Proof
   \\ gvs [set_globals_def, empty_locals_def, dec_clock_def]
   \\ res_tac
   \\ rw [] \\ fs []
-  \\ fs [sh_mem_op_code]
+  \\ fs [sh_mem_op_code, opt_mmap_simp_exp_correct]
 QED

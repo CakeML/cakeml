@@ -57,6 +57,12 @@ targetSem is now more lax about the FFI/clear-cache havocs (#1458)
 
 ## Pancake
 
+Function return value shape is now part of the semantics of Pancake. (#1466)
+
+Pancake's returns are now directly compiled to multi-valued returns at crep-loop-word. (#1466)
+
+Crep now has multi-leveled Break/Continue. (#1466)
+
 A parser bug related to field accesses has been fixed (#1438).
 
 Exeception syntax has been improved (#1450)

@@ -447,10 +447,10 @@ Definition crep_prog_to_display_def:
     [String «mem»; crep_exp_to_display e1;
      String «:=»; String «byte»; crep_exp_to_display e2]) ∧
   (crep_prog_to_display Tick = empty_item «tick») ∧
-  (crep_prog_to_display Break = empty_item «break») ∧
-  (crep_prog_to_display Continue = empty_item «continue») ∧
-  (crep_prog_to_display (Return e) =
-     Item NONE «return» [crep_exp_to_display e]) ∧
+  (crep_prog_to_display (Break n) = item_with_num «break» n) ∧
+  (crep_prog_to_display (Continue n) = item_with_num «continue» n) ∧
+  (crep_prog_to_display (Return es) =
+     Item NONE «return» (MAP crep_exp_to_display es)) ∧
   (crep_prog_to_display (Raise w) =
      item_with_word «raise» w) ∧
   (crep_prog_to_display (Seq prog1 prog2) =
@@ -462,19 +462,17 @@ Definition crep_prog_to_display_def:
          Item NONE «tail_call»
               [String f;
                Tuple (MAP crep_exp_to_display args)]
-     | SOME (NONE,p,handler) =>
+     | SOME ([],handler) =>
          Item NONE «call»
               [String f;
                Tuple (MAP crep_exp_to_display args);
-               crep_prog_to_display p;
                crep_prog_to_display_handler handler]
-     | SOME (SOME v,p,handler) =>
-         Tuple [num_to_display v;
+     | SOME (vs,handler) =>
+         Tuple [Tuple (MAP num_to_display vs);
                 String «:=»;
                 Item NONE «call»
                      [String f;
                       Tuple (MAP crep_exp_to_display args);
-                      crep_prog_to_display p;
                       crep_prog_to_display_handler handler]]) ∧
   (crep_prog_to_display_handler NONE = empty_item «no_handler») ∧
   (crep_prog_to_display_handler (SOME (w,p)) =
