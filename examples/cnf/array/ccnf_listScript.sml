@@ -3,7 +3,7 @@
 *)
 Theory ccnf_list
 Ancestors
-  cnf ccnf
+  cnf ccnf syntax_helper
 Libs
   preamble blastLib
 
@@ -291,6 +291,25 @@ Proof
   rw[bnd_clause_def]
 QED
 
+(* The assignment array is indexed by original variable, so bounding the
+  variables of a parsed formula bounds its converted clauses *)
+Theorem bnd_clause_conv_cfml:
+  EVERY (EVERY (λl. var_lit l < b)) cfml ⇒
+  EVERY (λv. bnd_clause v b) (conv_cfml cfml)
+Proof
+  rw[conv_cfml_def,EVERY_MEM,MEM_MAP]>>
+  rename1`MEM c cfml`>>
+  first_x_assum drule>>
+  rw[bnd_clause_def,mlvectorTheory.length_def,mlvectorTheory.sub_def,
+    to_cclause_def]>>
+  gvs[EL_MAP]>>
+  qmatch_goalsub_abbrev_tac`to_ilit lit`>>
+  `MEM lit c` by metis_tac[MEM_EL]>>
+  first_x_assum drule>>
+  Cases_on`lit`>>rw[var_lit_def,to_ilit_def]>>
+  intLib.ARITH_TAC
+QED
+
 Theorem all_assigned_list'_SOME:
   ∀dml b v i res.
   bnd_clause v (LENGTH dml) ∧
@@ -390,6 +409,13 @@ Definition fml_rel_def:
   ∀n.
     any_el n fmlls NONE = FLOOKUP fml n
 End
+
+Theorem fml_rel_any_el:
+  fml_rel fml fmlls ⇒
+  any_el i fmlls NONE = FLOOKUP fml i
+Proof
+  rw[fml_rel_def]
+QED
 
 Definition bnd_fml_def:
   bnd_fml fmlls sz ⇔
@@ -993,6 +1019,60 @@ Proof
   metis_tac[]
 QED
 
+Definition delete_ids_vb_list_def:
+  delete_ids_vb_list fmlls s i len =
+  let (m,i) = parse_vb_int s i len in
+  if m <= 0
+  then fmlls
+  else delete_ids_vb_list (delete_list fmlls (Num m)) s i len
+Termination
+  WF_REL_TAC` measure (λ(f,x,i,r). r-i)`>>
+  rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
+  UNCURRY_EQ,AllCaseEqs()] >> rveq >>
+  fs[] >>
+  last_x_assum (assume_tac o GSYM) >>
+  drule_all parse_vb_num_aux_i >>
+  fs[]
+End
+
+Theorem LENGTH_delete_ids_vb_list[simp]:
+  ∀fmlls s i len.
+  LENGTH (delete_ids_vb_list fmlls s i len) = LENGTH fmlls
+Proof
+  ho_match_mp_tac delete_ids_vb_list_ind>>
+  rw[]>>
+  simp[Once delete_ids_vb_list_def]>>
+  pairarg_tac>>rw[]
+QED
+
+Theorem fml_rel_delete_ids_vb_list:
+  ∀fml s i len fmlls.
+  fml_rel fml fmlls ⇒
+  fml_rel (delete_ids_vb fml s i len) (delete_ids_vb_list fmlls s i len)
+Proof
+  ho_match_mp_tac delete_ids_vb_ind>>
+  rw[]>>
+  simp[Once delete_ids_vb_def,Once delete_ids_vb_list_def]>>
+  pairarg_tac>>rw[]>>
+  first_x_assum irule>>
+  metis_tac[fml_rel_delete_list]
+QED
+
+Theorem bnd_fml_delete_ids_vb_list:
+  ∀fmlls s i len sz.
+  bnd_fml fmlls sz ⇒
+  bnd_fml (delete_ids_vb_list fmlls s i len) sz
+Proof
+  ho_match_mp_tac delete_ids_vb_list_ind>>
+  rw[]>>
+  simp[Once delete_ids_vb_list_def]>>
+  pairarg_tac>>rw[]>>
+  first_x_assum irule>>
+  fs[bnd_fml_def,any_el_ALT]>>
+  rw[delete_list_def,EL_LUPDATE]>>
+  metis_tac[]
+QED
+
 Theorem bnd_clause_le:
   bnd_clause c n ∧ n ≤ n' ⇒
   bnd_clause c n'
@@ -1234,6 +1314,65 @@ Proof
   first_x_assum(qspec_then`n` assume_tac)>>
   rfs[any_el_ALT]>>
   metis_tac[]
+QED
+
+(* Building the initial formula array.
+  The IDs are assigned consecutively from k, so the array is filled by
+  repeated resizing updates starting from an array of size n. *)
+Definition build_fml_list_def:
+  build_fml_list k ls n =
+  FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i)
+    (REPLICATE n NONE) (enumerate k ls)
+End
+
+Theorem any_el_REPLICATE_NONE[simp]:
+  any_el i (REPLICATE n NONE) NONE = NONE
+Proof
+  rw[any_el_ALT,EL_REPLICATE]
+QED
+
+(* A later update wins, so the folded array is read by the reversed lookup *)
+Theorem any_el_FOLDL_update_resize:
+  ∀ls acc.
+  any_el i (FOLDL (λacc (j,v). update_resize acc NONE (SOME v) j) acc ls) NONE =
+  case ALOOKUP (REVERSE ls) i of
+    NONE => any_el i acc NONE
+  | SOME v => SOME v
+Proof
+  Induct>>simp[FORALL_PROD,ALOOKUP_APPEND]>>
+  simp[any_el_update_resize]>>
+  rpt gen_tac>>
+  TOP_CASE_TAC>>rw[]
+QED
+
+Theorem any_el_build_fml_list:
+  any_el i (build_fml_list k ls n) NONE = FLOOKUP (build_fml k ls) i
+Proof
+  simp[build_fml_list_def,any_el_FOLDL_update_resize]>>
+  DEP_REWRITE_TAC[alookup_distinct_reverse]>>
+  simp[MAP_REVERSE,ALL_DISTINCT_MAP_FST_enumerate,ALOOKUP_enumerate,
+    lookup_build_fml]>>
+  rw[]
+QED
+
+Theorem fml_rel_build_fml_list:
+  fml_rel (build_fml k ls) (build_fml_list k ls n)
+Proof
+  rw[fml_rel_def,any_el_build_fml_list]
+QED
+
+Theorem fml_rel_REPLICATE_NONE:
+  fml_rel FEMPTY (REPLICATE n NONE)
+Proof
+  rw[fml_rel_def]
+QED
+
+Theorem bnd_fml_build_fml_list:
+  EVERY (λv. bnd_clause v sz) ls ⇒
+  bnd_fml (build_fml_list k ls n) sz
+Proof
+  rw[bnd_fml_def,any_el_build_fml_list]>>
+  gvs[lookup_build_fml,EVERY_EL]
 QED
 
 (* TODO: split refinement allowing fml to be kept as a finite map but dm_rel is changed *)

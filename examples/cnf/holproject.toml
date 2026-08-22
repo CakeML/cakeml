@@ -1,0 +1,7 @@
+name = "cnf"
+
+[projects.cakeml]
+path = "../.."
+exclude = [
+  "examples/xlrup_checker"   # same script names as xlrup/
+]

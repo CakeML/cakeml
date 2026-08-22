@@ -26,6 +26,13 @@ Proof
   Cases_on`x`>>rw[OPTION_TYPE_def]
 QED
 
+Theorem PAIR_TYPE_SPLIT:
+  PAIR_TYPE a b x v ⇔
+  ∃x1 x2 v1 v2. x = (x1,x2) ∧ v = Conv NONE [v1; v2] ∧ a x1 v1 ∧ b x2 v2
+Proof
+  Cases_on`x`>>EVAL_TAC>>rw[]
+QED
+
 Theorem W8ARRAY_refl:
   (W8ARRAY fml fmllsv ==>> W8ARRAY fml fmllsv) ∧
   (W8ARRAY fml fmllsv ==>> W8ARRAY fml fmllsv * GC)
@@ -47,12 +54,19 @@ Definition Fail_exn_def:
   Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)
 End
 
+(* Carried by the Fail exception a checker step raises *)
 Definition format_failure_def:
   format_failure (lno:num) s =
   «c Checking failed at line: » ^ toString lno ^ «. Reason: » ^ s
 End
 
 val res = translate format_failure_def;
+
+(* Used to state a spec whose result is only meaningful when the
+  underlying list-level function succeeds *)
+Definition unwrap_TYPE_def:
+  unwrap_TYPE P x y = ∃z. x = SOME z ∧ P z y
+End
 
 (* TODO:
   w8ult should be native,
@@ -625,7 +639,7 @@ val res = translate parse_vb_num_aux_def;
 
 val parse_vb_num_aux_side_def = theorem "parse_vb_num_aux_side_def"
 
-Theorem parse_vb_num_aux_side[local]:
+Theorem parse_vb_num_aux_side:
  !a b c d e.
  c <= strlen a ==> parse_vb_num_aux_side a b c d e
 Proof
@@ -962,123 +976,54 @@ Proof
   xsimpl
 QED
 
-(* Parsing helpers *)
-
-(* TODO: Mostly copied from mlintTheory *)
-val result = translate (fromChar_unsafe_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
-
-Definition fromChars_range_unsafe_tail_def:
-  fromChars_range_unsafe_tail b n str mul acc =
-  if n ≤ b then acc
-  else
-    let m = n - 1 in
-    fromChars_range_unsafe_tail b m str (mul * 10)
-      (acc + fromChar_unsafe (strsub str m) * mul)
-Termination
-  WF_REL_TAC`measure (λ(b,n,_). n)`>>
-  rw[]
+Quote add_cakeml:
+  fun delete_ids_vb_arr fml s i1 len =
+    case parse_vb_int s i1 len of (m,i) =>
+    if m <= 0 then ()
+    else
+      (delete_arr fml m; delete_ids_vb_arr fml s i len)
 End
 
-Theorem fromChars_range_unsafe_tail_eq:
-  ∀n l s mul acc.
-  fromChars_range_unsafe_tail l (n+l) s mul acc =
-  (fromChars_range_unsafe l n s) * mul + acc
+Theorem delete_ids_vb_arr_spec:
+  ∀fmlls s i l fmllsv sv iv lv.
+  LIST_REL (OPTION_TYPE a) fmlls fmllsv ∧
+  STRING_TYPE s sv ∧
+  NUM i iv ∧
+  NUM l lv ∧
+  l ≤ strlen s
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "delete_ids_vb_arr" (get_ml_prog_state()))
+    [fmlv; sv; iv; lv]
+    (ARRAY fmlv fmllsv)
+    (POSTv resv.
+      &UNIT_TYPE () resv *
+      SEP_EXISTS fmllsv'.
+      ARRAY fmlv fmllsv' *
+      &(LIST_REL (OPTION_TYPE a) (delete_ids_vb_list fmlls s i l) fmllsv') )
 Proof
-  Induct
-  >-
-    rw[Once fromChars_range_unsafe_tail_def,fromChars_range_unsafe_def]>>
-  rw[]>>
-  simp[Once fromChars_range_unsafe_tail_def,ADD1,fromChars_range_unsafe_def]>>
-  fs[ADD1]
+  ho_match_mp_tac delete_ids_vb_list_ind>>
+  rpt strip_tac>>
+  simp[Once delete_ids_vb_list_def]>>
+  xcf "delete_ids_vb_arr" (get_ml_prog_state ())>>
+  xlet_auto
+  >- (
+    xsimpl>>
+    fs[definition "parse_vb_int_side_def",
+       definition "parse_vb_num_side_def"]>>
+    fs[parse_vb_num_aux_side])>>
+  Cases_on`parse_vb_int s i l`>>
+  gvs[PAIR_TYPE_def]>>
+  xmatch>>
+  xlet_autop>>
+  xif
+  >- (xcon>>xsimpl)>>
+  `∃n. q = &n` by (qexists_tac`Num q`>>intLib.ARITH_TAC)>>
+  gvs[GSYM NUM_def]>>
+  xlet_autop>>
+  xapp>>
+  fs[]
 QED
-
-Theorem fromChars_range_unsafe_alt:
-  fromChars_range_unsafe l n s =
-  fromChars_range_unsafe_tail l (n+l) s 1 0
-Proof
-  rw[fromChars_range_unsafe_tail_eq]
-QED
-
-val result = translate fromChars_range_unsafe_tail_def;
-
-val fromchars_range_unsafe_tail_side_def = theorem"fromchars_range_unsafe_tail_side_def";
-
-Theorem fromchars_range_unsafe_tail_side_def[allow_rebind]:
-  ∀a1 a0 a2 a3 a4.
-  fromchars_range_unsafe_tail_side a0 a1 a2 a3 a4 ⇔
-   ¬(a1 ≤ a0) ⇒
-   (T ∧ a1 < 1 + strlen a2 ∧ 0 < strlen a2) ∧
-   fromchars_range_unsafe_tail_side a0 (a1 − 1) a2 (a3 * 10)
-     (a4 + fromChar_unsafe (strsub a2 (a1 − 1)) * a3)
-Proof
-  Induct>>
-  rw[Once fromchars_range_unsafe_tail_side_def]>>
-  simp[]>>eq_tac>>rw[ADD1]>>
-  gvs[]
-QED
-
-val result = translate fromChars_range_unsafe_alt;
-
-val res = translate_no_ind (mlintTheory.fromChars_unsafe_def
-  |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
-
-Theorem fromChars_unsafe_ind[local]:
-  fromchars_unsafe_ind
-Proof
-  rewrite_tac [fetch "-" "fromchars_unsafe_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac
-  \\ rpt strip_tac
-  \\ fs [FORALL_PROD]
-  \\ fs [padLen_DEC_eq,ADD1]
-QED
-
-val _ = fromChars_unsafe_ind |> update_precondition;
-
-val result = translate fromString_unsafe_def;
-
-val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
-val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
-val fromchars_range_unsafe_side_def = fetch "-" "fromchars_range_unsafe_side_def";
-
-Theorem fromchars_unsafe_side_thm[local]:
-   ∀n s. n ≤ strlen s ⇒ fromchars_unsafe_side n s
-Proof
-  completeInduct_on`n` \\ rw[]
-  \\ rw[Once fromchars_unsafe_side_def,fromchars_range_unsafe_side_def,fromchars_range_unsafe_tail_side_def]
-QED
-
-Theorem fromString_unsafe_side[local]:
-  ∀x. fromstring_unsafe_side x = T
-Proof
-  Cases
-  \\ rw[fromstring_unsafe_side_def]
-  \\ Cases_on`s` \\ fs[mlstringTheory.substring_def]
-  \\ simp_tac bool_ss [ONE,SEG_SUC_CONS,SEG_LENGTH_ID]
-  \\ match_mp_tac fromchars_unsafe_side_thm
-  \\ rw[]
-QED
-
-val _ = update_precondition fromString_unsafe_side;
-
-val res = translate blanks_def;
-val res = translate tokenize_def;
-
-val res = translate mk_lit_def;
-
-val res = translate parse_until_zero_aux_def;
-val res = translate parse_until_zero_def;
-
-val res = translate parse_until_zero_nn_aux_def;
-val res = translate parse_until_zero_nn_def;
-
-val res = translate is_int_def;
-val res = translate tokenize_fast_def;
-
-val res = translate starts_with_def;
 
 Theorem LIST_REL_update_resize:
   LIST_REL R a b ∧ R a1 b1 ∧ R a2 b2 ⇒
@@ -1183,4 +1128,3 @@ Proof
   first_assum (irule_at Any)>>
   fs[contains_emp_list_def,LIST_REL_EL_EQN]
 QED
-

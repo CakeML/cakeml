@@ -86,27 +86,29 @@ Proof
 QED
 
 (* Conversions *)
-Definition to_ilit_def:
-  to_ilit (l : num lit) =
-  case l of
-    Pos n => (&n):int
-  | Neg n => -&n
-End
-
 Definition to_cclause_def:
   to_cclause (c:num clause) =
   (MAP to_ilit c):cclause
 End
 
 Theorem satisfies_ilit_to_ilit:
-  lit_var l ≠ 0 ⇒
+  var_lit l ≠ 0 ⇒
   (satisfies_ilit w (to_ilit l) ⇔
   satisfies_lit w l)
 Proof
   rw[satisfies_ilit_def,satisfies_lit_def,to_ilit_def]>>
   TOP_CASE_TAC>>
-  gvs[lit_var_def]>>
+  gvs[var_lit_def]>>
   `F` by intLib.ARITH_TAC
+QED
+
+Theorem satisfies_lit_mk_lit:
+  l ≠ 0 ⇒
+  (satisfies_lit w (mk_lit l) ⇔ satisfies_ilit w l)
+Proof
+  rw[mk_lit_def,satisfies_lit_def,satisfies_ilit_def]>>
+  AP_TERM_TAC>>
+  intLib.ARITH_TAC
 QED
 
 Theorem satisfies_cclause_to_cclause:
@@ -683,6 +685,39 @@ Proof
   fs[]
 QED
 
+(* Delete the clauses whose ids are encoded in s between i and len.
+  Ids are doubled, so parse_vb_int reads one back directly and a
+  non-positive value ends the record, as in unit_prop_vb_vec. *)
+Definition delete_ids_vb_def:
+  delete_ids_vb fml s i len =
+  let (m,i) = parse_vb_int s i len in
+  if m <= 0
+  then fml
+  else delete_ids_vb (fml \\ (Num m)) s i len
+Termination
+  WF_REL_TAC` measure (λ(f,x,i,r). r-i)`>>
+  rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
+  UNCURRY_EQ,AllCaseEqs()] >> rveq >>
+  fs[] >>
+  last_x_assum (assume_tac o GSYM) >>
+  drule_all parse_vb_num_aux_i >>
+  fs[]
+End
+
+Theorem satisfies_fml_gen_delete_ids_vb:
+  ∀fml s i len.
+  satisfies_fml_gen f w (FRANGE fml) ⇒
+  satisfies_fml_gen f w (FRANGE (delete_ids_vb fml s i len))
+Proof
+  ho_match_mp_tac delete_ids_vb_ind>>
+  rw[]>>
+  simp[Once delete_ids_vb_def]>>
+  pairarg_tac>>
+  rw[]>>
+  first_x_assum irule>>
+  metis_tac[satisfies_fml_gen_delete]
+QED
+
 Definition contains_emp_def:
   contains_emp fml =
   let ls = MAP SND (fmap_to_alist fml) in
@@ -701,4 +736,97 @@ Proof
   first_x_assum (irule_at Any)>>
   EVAL_TAC>>
   simp[]
+QED
+
+(*** Converting a parsed formula into the checker's representation ***)
+
+Definition conv_cfml_def:
+  conv_cfml cfml = MAP (Vector o to_cclause) cfml
+End
+
+Theorem conv_cfml_sound:
+  EVERY (EVERY nz_lit) cfml ⇒
+  (satisfies_vcfml w (set (conv_cfml cfml)) ⇔
+   satisfies_cnf w (set cfml))
+Proof
+  rw[satisfies_vcfml_def,satisfies_cnf_def,satisfies_fml_gen_def,conv_cfml_def,
+    MEM_MAP,PULL_EXISTS,EVERY_MEM]>>
+  simp[GSYM EVERY_MEM]>>
+  match_mp_tac EVERY_CONG>>rw[]>>
+  simp[satisfies_vcclause_def,toList_thm]>>
+  match_mp_tac satisfies_cclause_to_cclause>>
+  gvs[EVERY_MEM,clause_vars_def,MEM_MAP]>>
+  metis_tac[]
+QED
+
+(* A DIMACS body line read directly into the checker's representation,
+  without the intermediate num lit list *)
+Definition parse_vclause_def:
+  parse_vclause maxvar ls =
+  case parse_until_zero ls of
+    SOME (ls,[]) =>
+    if EVERY (λl. Num (ABS l) ≤ maxvar) ls
+    then SOME ((Vector ls):vcclause)
+    else NONE
+  | _ => NONE
+End
+
+Theorem var_lit_mk_lit[local]:
+  var_lit (mk_lit l) = Num (ABS l)
+Proof
+  rw[mk_lit_def]
+QED
+
+Theorem parse_vclause:
+  parse_vclause maxvar ls =
+  OPTION_MAP (Vector o to_cclause) (parse_lits maxvar ls)
+Proof
+  rw[parse_vclause_def,parse_lits_def]>>
+  every_case_tac>>
+  gvs[check_maxvar_def,EVERY_MAP,var_lit_mk_lit,to_cclause_def,
+    MAP_MAP_o,o_DEF,to_ilit_mk_lit]>>
+  fs[EVERY_MEM,EXISTS_MEM]>>
+  metis_tac[]
+QED
+
+(* The whole body lifts through the conversion *)
+Theorem parse_body_gen_parse_vclause:
+  ∀ss mv acc.
+  parse_body_gen parse_vclause mv ss (conv_cfml acc) =
+  OPTION_MAP conv_cfml (parse_body_gen parse_lits mv ss acc)
+Proof
+  Induct>>rw[parse_body_gen_def]
+  >- simp[conv_cfml_def,MAP_REVERSE]>>
+  simp[parse_vclause]>>
+  Cases_on`parse_lits mv h`>>simp[]>>
+  first_x_assum (qspecl_then [`mv`,`x::acc`] mp_tac)>>
+  simp[conv_cfml_def]
+QED
+
+Theorem parse_dimacs_toks_gen_parse_vclause:
+  parse_dimacs_toks_gen parse_vclause tokss =
+  OPTION_MAP (λ(v,n,cs). (v,n,conv_cfml cs))
+    (parse_dimacs_toks_gen parse_lits tokss)
+Proof
+  simp[parse_dimacs_toks_gen_def]>>
+  every_case_tac>>
+  gvs[]>>
+  qspecl_then [`t`,`q`,`[]`] mp_tac parse_body_gen_parse_vclause>>
+  simp[conv_cfml_def]
+QED
+
+(*** Recovering the parsed formula from the checker's representation ***)
+
+Definition unconv_cfml_def:
+  unconv_cfml vcfml = MAP (MAP mk_lit o toList) vcfml
+End
+
+Theorem unconv_cfml_conv_cfml:
+  EVERY (EVERY nz_lit) cfml ⇒
+  unconv_cfml (conv_cfml cfml) = cfml
+Proof
+  rw[unconv_cfml_def,conv_cfml_def,MAP_MAP_o,o_DEF,toList_thm,
+    to_cclause_def]>>
+  gvs[MAP_EQ_ID,EVERY_MEM]>>
+  metis_tac[mk_lit_to_ilit]
 QED
