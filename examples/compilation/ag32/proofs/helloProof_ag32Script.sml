@@ -3,11 +3,11 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-Theory helloProof
+Theory helloProof_ag32
 Ancestors
   mlstring semanticsProps backendProof ag32_configProof ag32_memory
   ag32_memoryProof ag32_ffi_codeProof ag32_machine_config
-  ag32_basis_ffiProof helloProg helloCompile
+  ag32_basis_ffiProof helloProg helloCompile_ag32
 Libs
   preamble
 

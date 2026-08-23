@@ -1,5 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/misc .. ../..  ../../proofs ../../ffi
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

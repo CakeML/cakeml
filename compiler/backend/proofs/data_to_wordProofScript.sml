@@ -794,11 +794,17 @@ Resume data_compile_correct[MakeSpace]:
     \\ pairarg_tac \\ fs []
     \\ drule_all state_rel_cut_env_cut_env \\ strip_tac
     \\ rename [‘_ = (res1,s1)’]
-    \\ ‘alloc (alloc_size k) (adjust_sets names) (t with locals := y) = (res1,s1)’ by
+    \\ ‘state_rel c l1 l2 (s with locals := x)
+          (t with <|locals := y; fp_regs := FEMPTY|>) NONE locs’ by
+         (drule state_rel_with_fp_regs \\ simp [])
+    \\ ‘alloc (alloc_size k) (adjust_sets names)
+          (t with <|locals := y; fp_regs := FEMPTY|>) = (res1,s1)’ by
       (‘t with
-           <|locals := insert 1 (Word (alloc_size k)) y; memory := t.memory;
-             ffi := t.ffi|> =
-        (t with locals := y) with locals := insert 1 (Word (alloc_size k)) (t with locals := y).locals’ by
+           <|locals := insert 1 (Word (alloc_size k)) y; fp_regs := FEMPTY;
+             memory := t.memory; ffi := t.ffi|> =
+        (t with <|locals := y; fp_regs := FEMPTY|>) with
+          locals := insert 1 (Word (alloc_size k))
+                      (t with <|locals := y; fp_regs := FEMPTY|>).locals’ by
           gvs [wordSemTheory.state_component_equality]
        \\ full_simp_tac std_ss [alloc_locals_insert_1])
     \\ `dataSem$cut_env names x = SOME x` by

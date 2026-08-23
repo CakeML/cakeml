@@ -1617,7 +1617,7 @@ Definition eq_pure_list_alt:
    (case eq_direct x y of
     | SOME z => List [z]
     | NONE =>
-      case dest_Op dest_Cons x, dest_Op dest_Cons y of
+      case dest_Op clos_op$dest_Cons x, dest_Op clos_op$dest_Cons y of
       | (NONE, NONE) => List [Op None (BlockOp Equal) [x;y]]
       | (SOME (t1,xs), SOME (t2,ys)) =>
            if t1 ≠ t2 ∨ LENGTH xs ≠ LENGTH ys then List [MakeBool F]
@@ -1711,7 +1711,7 @@ QED
 
 Definition cons_measure_alt_def:
   cons_measure_alt x =
-  (case dest_Op dest_Cons x of
+  (case dest_Op clos_op$dest_Cons x of
    | NONE => 0
    | SOME (_,xs) => cons_measures_alt xs + LENGTH xs + 1) ∧
   cons_measures_alt [] = 0 ∧
@@ -2571,6 +2571,68 @@ Proof
 QED
 
 val _ = cv_trans bvi_letTheory.compile_exp_eq;
+
+(* bvi_inline *)
+
+val pre = cv_trans_pre "" bvi_inlineTheory.bvi_mk_tick_eq;
+Theorem bvi_inline_bvi_mk_tick_pre[cv_pre,local]:
+  ∀n e. bvi_inline_bvi_mk_tick_pre n e
+Proof
+  Induct \\ simp [Once pre]
+QED
+
+val _ = cv_auto_trans bvi_inlineTheory.canonical_wrapper_def;
+val _ = cv_auto_trans bvi_inlineTheory.wrapper_ok_def;
+
+val pre = cv_auto_trans_pre "" (bvi_inlineTheory.inline_exp_def |> measure_args [1,1]);
+Theorem bvi_inline_inline_exp_pre[cv_pre,local]:
+  (∀cs v. bvi_inline_inline_exp_pre cs v) ∧
+  (∀cs v. bvi_inline_inline_exps_pre cs v)
+Proof
+  ho_match_mp_tac bvi_inlineTheory.inline_exp_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val pre = cv_auto_trans_pre ""
+             (bvi_inlineTheory.remove_ticks_exp_def
+                |> PURE_REWRITE_RULE [oneline OPTION_MAP_DEF, o_THM]);
+Theorem bvi_inline_remove_ticks_exp_pre[cv_pre,local]:
+  (∀v. bvi_inline_remove_ticks_exp_pre v) ∧
+  (∀v. bvi_inline_remove_ticks_exps_pre v)
+Proof
+  ho_match_mp_tac bvi_inlineTheory.remove_ticks_exp_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val _ = cv_auto_trans bvi_inlineTheory.inline_all_def;
+val _ = cv_auto_trans bvi_inlineTheory.compile_inc_def;
+val _ = cv_auto_trans bvi_inlineTheory.compile_prog_def;
+
+(* bvi_tmc *)
+
+val _ = cv_auto_trans bvi_tmcTheory.pure_exp_def;
+
+val pre = cv_auto_trans_pre "" bvi_tmcTheory.bvi_to_cb_aux_def;
+
+Theorem bvi_tmc_bvi_to_cb_aux_pre[cv_pre]:
+  (∀n loc tag v. bvi_tmc_bvi_to_cb_aux_sing_pre n loc tag v) ∧
+  (∀n loc tag v. bvi_tmc_bvi_to_cb_aux_pre n loc tag v)
+Proof
+  ho_match_mp_tac bvi_tmcTheory.bvi_to_cb_aux_ind
+  \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = cv_auto_trans bvi_tmcTheory.cb_to_bvi_worker_aux_alt_def;
+val _ = cv_trans bvi_tmcTheory.cb_to_bvi_worker_aux_eq;
+
+val pre = cv_auto_trans_pre "" bvi_tmcTheory.compile_prog_def;
+
+Theorem bvi_tmc_compile_prog_pre[cv_pre]:
+  ∀next v. bvi_tmc_compile_prog_pre next v
+Proof
+  ho_match_mp_tac bvi_tmcTheory.compile_prog_ind
+  \\ rw [] \\ simp [Once pre]
+QED
 
 (* bvl_to_bvi *)
 

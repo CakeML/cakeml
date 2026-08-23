@@ -86,10 +86,12 @@ Definition compile_exp_def:
    case (ce, ce') of
    | (e::es, e'::es') => ([Cmp cmp e e'], One)
    | (_, _) => ([Const 0w], One)) /\
-  (compile_exp ctxt (Shift sh e n) =
-   case FST (compile_exp ctxt e) of
-   | [] => ([Const 0w], One)
-   | e::es => ([Shift sh e n], One)) /\
+  (compile_exp ctxt (Shift sh e e') =
+   let ce  = FST (compile_exp ctxt e);
+       ce' = FST (compile_exp ctxt e') in
+   case (ce,ce') of
+   | (e::es, e'::es') => ([Shift sh e e'], One)
+   | _ => ([Const 0w], One)) /\
   (compile_exp ctxt BaseAddr = ([BaseAddr], One)) /\
   (compile_exp ctxt TopAddr = ([TopAddr], One)) /\
   (compile_exp ctxt BytesInWord = ([Const bytes_in_word], One))
@@ -355,12 +357,25 @@ Definition comp_func_def:
     compile (mk_ctxt vmap fs vmax eids) body
 End
 
+(*
 Definition get_eids_def:
   get_eids (prog:('b#'c#'a panLang$prog) list) =
    let eids = nub (FLAT (MAP (exp_ids o SND o SND) prog));
        ns   = GENLIST (λx. (n2w x):'a word) (LENGTH eids);
        es   = MAP2 (λx y. (x,y)) eids ns in
     alist_to_fmap es
+End
+*)
+
+(* extract eids from exception declarations *)
+Definition get_eids_from_decls_def:
+  get_eids_from_decls (decls:'a decl list) =
+    let eids = MAP FST (exceptions decls);
+        (*eids = nub eids;*)
+        ns   = GENLIST (λx. (n2w x):'a word) (LENGTH eids);
+        es   = MAP2 (λx y. (x,y)) eids ns
+    in
+      alist_to_fmap es
 End
 
 Definition make_funcs_def:
@@ -380,9 +395,9 @@ Definition crep_vars_def:
 End
 
 Definition compile_to_crep_def:
-  compile_to_crep prog =
-  let prog = functions prog;
-      comp = comp_func (make_funcs prog) (get_eids prog) in
+  compile_to_crep decls =
+  let prog = functions decls;
+      comp = comp_func (make_funcs prog) (get_eids_from_decls decls) in
     MAP (λ(name, params, body).
           (name,
            crep_vars params,

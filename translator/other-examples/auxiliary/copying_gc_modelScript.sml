@@ -1,7 +1,7 @@
 (*
   Algorithm of a copying garbage collector.
 *)
-Theory copying_gc
+Theory copying_gc_model
 Ancestors
   pred_set arithmetic pair list combin finite_map sum relation
 

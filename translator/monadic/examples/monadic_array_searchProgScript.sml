@@ -2,7 +2,7 @@
   An example showing how to use the monadic translator to translate monadic
   array search functions, including exceptions.
  *)
-Theory array_searchProg
+Theory monadic_array_searchProg
 Libs
   preamble ml_monad_translator_interfaceLib
 Ancestors

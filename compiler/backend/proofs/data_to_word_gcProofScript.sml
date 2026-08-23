@@ -4548,6 +4548,14 @@ Proof
   srw_tac[][state_rel_def] \\ fs []
 QED
 
+(* the relation places no constraint on the FP registers *)
+Theorem state_rel_with_fp_regs:
+   state_rel a b c s1 (s2:('a,'c,'ffi) wordSem$state) d e ⇒
+   state_rel a b c s1 (s2 with fp_regs := f) d e
+Proof
+  srw_tac[][state_rel_def] \\ fs []
+QED
+
 (* -------------------------------------------------------
     init
    ------------------------------------------------------- *)
@@ -6979,6 +6987,9 @@ Proof
     \\ simp [Once v_inv_def]
     \\ strip_tac
     \\ rpt var_eq_tac
+    (* the MutBlock conjunct of v_inv's RefPtr case gets in the way of the
+       first_assum picks below *)
+    \\ TRY (qpat_x_assum `!tg fin l c r'. _ ==> ~_` kall_tac)
     \\ Cases_on ‘lookup r refs1’ \\ fs []
     THEN1
      (qexists_tac `p1` \\ fs [] \\ qsuff_tac `MEM (f ' r) p1`
@@ -6987,6 +6998,39 @@ Proof
       \\ qexists_tac `r` \\ fs [] \\ gvs [domain_lookup])
     \\ rename [‘lookup r refs1 = SOME v’]
     \\ reverse (Cases_on `v`) \\ fs []
+    (* a MutBlock's payload is traversed exactly like a ValueArray's; the size
+       accounting lines up because lookup_len of BlockRep tg zs is
+       LENGTH zs + 1 = LENGTH ls + LENGTH rs + 2, which is what size_of charges
+       for a MutBlock ref *)
+    >~ [‘MutBlock tg fin ls cv rs’] >-
+     (pop_assum mp_tac
+      \\ pairarg_tac \\ fs [] \\ rw []
+      \\ first_assum (qspec_then `r` mp_tac)
+      \\ (impl_tac THEN1 fs [reachable_refs_def,get_refs_def])
+      \\ rewrite_tac [bc_ref_inv_def]
+      \\ fs [subspt_lookup]
+      \\ first_assum old_drule \\ strip_tac \\ fs []
+      \\ fs [FLOOKUP_DEF,BlockRep_def]
+      \\ strip_tac
+      \\ last_x_assum
+           (qspecl_then [`ls ++ [cv] ++ rs`,`zs`,`f ' r :: p1`,`refs`] mp_tac)
+      \\ impl_tac THEN1
+       (fs [] \\ old_drule EVERY2_SWAP \\ fs [lookup_delete,SUBSET_DEF,PULL_EXISTS]
+        \\ rw [] \\ fs []
+        \\ last_x_assum match_mp_tac
+        \\ fs [reachable_refs_def,get_refs_def]
+        (* one ref_edge step out of r reaches all three parts of the payload *)
+        \\ once_rewrite_tac [RTC_CASES1] \\ disj2_tac
+        \\ qexists_tac `r'` \\ fs []
+        \\ simp [ref_edge_def,get_refs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]
+        >- (disj1_tac \\ disj1_tac \\ qexists_tac `x` \\ fs [])
+        >- (disj1_tac \\ disj2_tac \\ gvs [])
+        \\ disj2_tac \\ qexists_tac `x` \\ fs [])
+      \\ strip_tac \\ qexists_tac `p2` \\ fs []
+      \\ rfs [lookup_len_def,el_length_def]
+      \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+      \\ once_rewrite_tac [traverse_heap_cases]
+      \\ rpt disj2_tac \\ fs [])
     >~ [‘ByteArray b l’] >-
      (rveq \\ fs [] \\ fs []
       \\ first_x_assum (qspec_then `r` mp_tac)
@@ -8313,11 +8357,14 @@ Proof
          \\ fs [lookup_inter_alt,domain_inter])
       \\ drule_all state_rel_cut_env_cut_env
       \\ strip_tac
+      \\ qabbrev_tac ‘t1 = t with <|locals := union y2 y1; fp_regs := FEMPTY|>’
+      \\ ‘state_rel c l1 l2 (s with locals := x) t1 NONE locs’ by
+           (simp [Abbr‘t1’] \\ drule state_rel_with_fp_regs \\ simp [])
+      \\ qpat_x_assum ‘state_rel _ _ _ _ (t with locals := _) _ _’ kall_tac
       \\ drule_at (Pos $ el 2) alloc_fail \\ gvs []
       \\ disch_then old_drule
-      \\ qabbrev_tac ‘t1 = t with locals := union y2 y1’
       \\ ‘t with
-          <|locals := insert 1 (Word (-1w)) (union y2 y1);
+          <|locals := insert 1 (Word (-1w)) (union y2 y1); fp_regs := FEMPTY;
             memory := t.memory; ffi := s.ffi|> =
           t1 with locals := insert 1 (Word (-1w)) t1.locals’ by
             gvs [Abbr‘t1’,wordSemTheory.state_component_equality]
@@ -8369,10 +8416,10 @@ Proof
          cut_env_insert_1,cut_env_adjust_sets_ODD]
   \\ drule_all cut_env_IMP_cut_env
   \\ strip_tac \\ gvs []
-  \\ qabbrev_tac ‘t1 = t with locals := y’
+  \\ qabbrev_tac ‘t1 = t with <|locals := y; fp_regs := FEMPTY|>’
   \\ qabbrev_tac ‘nw = alloc_size (w2n w DIV 4 + 1) : 'a word’
   \\ ‘t with
-      <|locals := insert 1 (Word nw) y;
+      <|locals := insert 1 (Word nw) y; fp_regs := FEMPTY;
         memory := t.memory; ffi := t.ffi|> =
       t1 with locals := insert 1 (Word nw) t1.locals’ by
     gvs [Abbr‘t1’,wordSemTheory.state_component_equality]
@@ -8384,6 +8431,9 @@ Proof
      \\ fs [lookup_inter_alt,domain_inter])
   \\ drule_all state_rel_cut_env_cut_env
   \\ strip_tac
+  \\ ‘state_rel c l1 l2 (s with locals := x) t1 NONE locs’ by
+       (simp [Abbr‘t1’] \\ drule state_rel_with_fp_regs \\ simp [])
+  \\ qpat_x_assum ‘state_rel _ _ _ _ (t with locals := _) _ _’ kall_tac
   \\ old_drule alloc_alt_gen \\ gvs []
   \\ disch_then old_drule
   \\ pairarg_tac \\ gvs []

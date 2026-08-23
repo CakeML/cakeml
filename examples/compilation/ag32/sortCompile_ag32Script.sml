@@ -1,7 +1,7 @@
 (*
   Compiles the sort example by evaluation inside the logic of HOL
 *)
-Theory sortCompile
+Theory sortCompile_ag32
 Ancestors
   sortProg
 Libs

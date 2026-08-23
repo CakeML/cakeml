@@ -280,9 +280,9 @@ Definition eval_def:
      | (SOME (ValWord w1), SOME (ValWord w2)) =>
           SOME (ValWord (if word_cmp cmp w1 w2 then 1w else 0w))
      | _ => NONE) /\
-  (eval s (Shift sh e n) =
-    case eval s e of
-     | SOME (ValWord w) => OPTION_MAP ValWord (word_sh sh w n)
+  (eval s (Shift sh e1 e2) =
+    case (eval s e1, eval s e2) of
+     | (SOME (ValWord w1), SOME (ValWord w2)) => OPTION_MAP ValWord (word_sh sh w1 (w2n w2))
      | _ => NONE) /\
   (eval s BaseAddr =
         SOME (ValWord s.base_addr)) /\
@@ -823,10 +823,15 @@ Definition evaluate_decls_def:
             NONE)
     | NONE => NONE) ∧
   evaluate_decls s (Function fi::ds) =
-    if EVERY ((is_wf_shape s.structs) o SND) fi.params
-       /\ is_wf_shape s.structs fi.return then
+    (if EVERY ((is_wf_shape s.structs) o SND) fi.params
+       ∧ is_wf_shape s.structs fi.return then
       evaluate_decls (s with code := s.code |+ (fi.name,(fi.params,fi.body))) ds
-    else NONE
+    else NONE) ∧
+  evaluate_decls s (ExnDecl eid sh :: ds) =
+    if FLOOKUP s.eshapes eid = NONE ∧ is_wf_shape s.structs sh then
+      evaluate_decls (s with eshapes := s.eshapes |+ (eid, sh)) ds
+    else
+      NONE
 End
 
 Definition decs_stcnames_def:
@@ -846,6 +851,8 @@ Definition decs_stcnames_def:
   decs_stcnames st_ctxt (Decl sh v e::ds) =
     (decs_stcnames st_ctxt ds) ∧
   decs_stcnames st_ctxt (Function fi::ds) =
+    (decs_stcnames st_ctxt ds) ∧
+  decs_stcnames st_ctxt (ExnDecl eid sh::ds) =
     (decs_stcnames st_ctxt ds)
 End
 

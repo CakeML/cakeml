@@ -2,7 +2,7 @@
   Compile the wordcount program to machine code by evaluation of the compiler
   in the logic.
 *)
-Theory wordcountCompile
+Theory wordcountCompile_ag32
 Ancestors
   wordcountProg
 Libs

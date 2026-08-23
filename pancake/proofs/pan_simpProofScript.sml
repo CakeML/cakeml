@@ -54,15 +54,12 @@ Theorem size_of_eids_compile_eq:
    size_of_eids (compile_prog pan_code) =
    size_of_eids pan_code
 Proof
-  rw [] >>
-  fs [panLangTheory.size_of_eids_def] >>
-  fs [pan_simpTheory.compile_prog_def,MAP_MAP_o] >>
-  ntac 3 AP_TERM_TAC >>
-  rw[MAP_EQ_f] >>
-  Cases_on ‘p’ >> gvs[] >>
-  fs [exp_ids_compile_eq]
+  Induct
+  >- rw[compile_prog_def,panLangTheory.size_of_eids_def] >>
+  Cases >>
+  gvs[compile_prog_def,panLangTheory.size_of_eids_def,
+      panLangTheory.is_exn_decl_def]
 QED
-
 
 Theorem evaluate_SmartSeq:
   evaluate (SmartSeq p q,s) = evaluate (Seq p q,^s)
@@ -1326,6 +1323,11 @@ Proof
       gvs[state_rel_def,state_component_equality,FLOOKUP_UPDATE] >>
       rw[]
   )
+  >- (first_x_assum $ qspec_then ‘t with eshapes := t.eshapes⟨eid ↦ sh⟩’ mp_tac >>
+      impl_keep_tac
+      >- gvs[state_rel_def,state_component_equality] >>
+      strip_tac >>
+      gvs[] >> gvs[state_rel_def,state_component_equality])
 QED
 
 Theorem decs_stcnames_compile_prog:

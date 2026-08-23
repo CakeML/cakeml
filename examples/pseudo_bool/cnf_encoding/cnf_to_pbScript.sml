@@ -15,13 +15,13 @@ Definition clause_to_pbc_def:
       (1,Pos (Num (ABS l)))
     else
       (1:int,Neg (Num (ABS l)))) cl in
-  (GreaterEqual,ls,1:int)
+  (PGe,ls,1:int)
 End
 
 Definition fml_to_pbf_def:
   fml_to_pbf fml =
   let pbf = MAP clause_to_pbc fml in
-  MAP pbc_to_npbc pbf
+  normalise pbf
 End
 
 Theorem iSUM_one_coeff:
@@ -82,7 +82,7 @@ Proof
 QED
 
 Theorem FST_clause_to_pbc[simp]:
-  FST (clause_to_pbc x) = GreaterEqual
+  FST (clause_to_pbc x) = PGe
 Proof
   rw[clause_to_pbc_def]
 QED
@@ -92,17 +92,11 @@ Theorem fml_to_pbf_sound:
   (satisfies w (interp fml) ⇔
   satisfies w (set (fml_to_pbf fml)))
 Proof
-  rw[npbcTheory.satisfies_def,lprTheory.interp_def,satSemTheory.satisfies_def,PULL_EXISTS,EVERY_MEM,fml_to_pbf_def,MEM_MAP]>>
-  eq_tac>>rw[]>>
-  res_tac
-  >- (
-    DEP_REWRITE_TAC[GSYM pbc_to_npbc_thm] >>
-    simp[]>>
-    metis_tac[clause_to_pbc_sound])>>
-  DEP_REWRITE_TAC[clause_to_pbc_sound]>>
-  fs[]>>
-  DEP_REWRITE_TAC[pbc_to_npbc_thm] >>
-  fs[]
+  rw[fml_to_pbf_def,normalise_thm]>>
+  gvs[EVERY_MEM]>>
+  rw[pbcTheory.satisfies_def,lprTheory.interp_def,satSemTheory.satisfies_def,
+    PULL_EXISTS,MEM_MAP]>>
+  metis_tac[clause_to_pbc_sound]
 QED
 
 Theorem fml_to_pbf_parse_dimacs:

@@ -1416,6 +1416,20 @@ Proof
     >> simp [convert_s_def, convert_code_def, state_component_equality]
     >> simp [FMAP_MAP2_FUPDATE, Cong MAP_CONG, PAIR_MAP, ELIM_UNCURRY]
   )
+  >- (
+    first_x_assum (drule_at (Pat `compile_decs _ _= _`))
+    >> simp []
+    >> imp_res_tac compile_decs_structs
+    >> simp []
+    >> strip_tac
+    >> gs [is_wf_shape_compile_shape, EVERY_MAP, ELIM_UNCURRY]
+    >> conj_asm1_tac
+    >- simp[convert_s_def,convert_eshapes_def,FLOOKUP_FMAP_MAP2]
+    >> drule_then irule (Q.prove (`evaluate_decls s decs = r /\ s' = s ==>
+            evaluate_decls s' decs = r`, simp []))
+    >> simp [convert_s_def, convert_eshapes_def, state_component_equality]
+    >> simp [FMAP_MAP2_FUPDATE, Cong MAP_CONG, PAIR_MAP, ELIM_UNCURRY]
+  )
 QED
 
 Theorem decs_stcnames_compile_decs:
@@ -1554,15 +1568,15 @@ Proof
 QED
 
 Theorem compile_decs_no_names[local]:
-  !ctxt decs. EVERY (λd. is_function d ∨ is_decl d)
+  !ctxt decs. EVERY (λd. is_function d ∨ is_decl d ∨ is_exn_decl d)
     (FST (compile_decs ctxt decs))
 Proof
   recInduct (name_ind_cases [] compile_decs_ind)
-  >> rw [compile_decs_def, ELIM_UNCURRY, is_function_def, is_decl_def]
+  >> rw [compile_decs_def, ELIM_UNCURRY, is_function_def, is_decl_def, is_exn_decl_def]
 QED
 
 Theorem compile_top_no_names:
-  EVERY (λd. is_function d ∨ is_decl d) (pan_structs$compile_top pan_code)
+  EVERY (λd. is_function d ∨ is_decl d ∨ is_exn_decl d) (pan_structs$compile_top pan_code)
 Proof
   simp [compile_top_def, compile_decs_no_names]
 QED
@@ -1596,4 +1610,3 @@ Theorem size_of_shape_compile_pass_eq:
 Proof
   metis_tac [size_of_sh_with_ctxt_eq, size_of_compile_shape, compile_shape_no_name]
 QED
-

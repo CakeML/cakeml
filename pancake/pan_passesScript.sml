@@ -171,8 +171,8 @@ Definition pan_exp_to_display_def:
     = Item NONE (strlit "RawField") [num_to_display n; pan_exp_to_display e]) ∧
   (pan_exp_to_display (NField f e) (*#!TEST*)
     = Item NONE (strlit "NamedField") [String f; pan_exp_to_display e]) ∧
-  (pan_exp_to_display (Shift sh e n)
-    = insert_es (shift_to_display sh) [pan_exp_to_display e; num_to_display n])
+  (pan_exp_to_display (Shift sh e e')
+    = insert_es (shift_to_display sh) [pan_exp_to_display e; pan_exp_to_display e'])
 End
 
 Definition dest_annot_def:
@@ -330,6 +330,11 @@ Definition pan_fun_to_display_def:
           Tuple [String fld;
                   String (strlit ":");
                   String (shape_to_str shape)]) flds)]
+    | ExnDecl nm sh => Tuple
+        [String (strlit "exception");
+         String nm;
+         String «:»;
+         String (shape_to_str sh)]
 End
 
 Definition pan_to_strs_def:
@@ -365,8 +370,8 @@ Definition crep_exp_to_display_def:
   (crep_exp_to_display (Crepop p xs)
     = case p of
       | Mul => Item NONE «Mul» (MAP crep_exp_to_display xs)) ∧
-  (crep_exp_to_display (Shift sh e n)
-    = insert_es (shift_to_display sh) [crep_exp_to_display e; num_to_display n])
+  (crep_exp_to_display (Shift sh e e')
+    = insert_es (shift_to_display sh) [crep_exp_to_display e; crep_exp_to_display e'])
 End
 
 Definition crep_seqs_def:
@@ -518,11 +523,11 @@ Definition loop_exp_to_display_def:
   (loop_exp_to_display (Op bop exs)
     = Item NONE «Op» (asm_binop_to_display bop
         :: MAP loop_exp_to_display exs)) /\
-  (loop_exp_to_display (Shift sh exp num)
+  (loop_exp_to_display (Shift sh exp exp')
     = Item NONE «Shift» [
       shift_to_display sh;
       loop_exp_to_display exp;
-      num_to_display num
+      loop_exp_to_display exp';
     ])
 End
 

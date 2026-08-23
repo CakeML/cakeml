@@ -40,8 +40,8 @@ Definition compile_exp_def:
    Panop pop (MAP (compile_exp ctxt) es)) ∧
   (compile_exp ctxt (Cmp cmp e e') =
    Cmp cmp (compile_exp ctxt e) (compile_exp ctxt e')) ∧
-  (compile_exp ctxt (Shift sh e n) =
-   Shift sh (compile_exp ctxt e) n) ∧
+  (compile_exp ctxt (Shift sh e e') =
+   Shift sh (compile_exp ctxt e) (compile_exp ctxt e')) ∧
   (compile_exp ctxt TopAddr = Op Sub [TopAddr; Const ctxt.max_globals_size]) ∧
   (compile_exp ctxt e = e)
 Termination
@@ -158,24 +158,27 @@ Definition compile_def:
 End
 
 Definition compile_decs_def:
-    compile_decs ctxt [] = ([],[],ctxt) ∧
+    compile_decs ctxt [] = ([],[]:'a decl list,[]:'a decl list,ctxt) ∧
     (compile_decs ctxt (Decl sh v e::ds) =
      let
        s = ctxt.globals_size + bytes_in_word*n2w(size_of_shape sh);
        ctxt' = ctxt with <|globals  := ctxt.globals |+ (v,sh,s);
                            globals_size := s|>;
-       (decs,funs,ctxt'') = compile_decs ctxt' ds
+       (decs,funs,exns,ctxt'') = compile_decs ctxt' ds
      in
-        (Store (Op Sub [TopAddr; Const s]) (compile_exp ctxt e)::decs,funs,ctxt'')) ∧
+        (Store (Op Sub [TopAddr; Const s]) (compile_exp ctxt e)::decs,funs,exns,ctxt'')) ∧
     (compile_decs ctxt (Function fi::ds) =
-     let (decs,funs,ctxt'') = compile_decs ctxt ds
-     in (decs,Function (fi with body := compile ctxt fi.body)::funs,ctxt'')) ∧
+     let (decs,funs,exns,ctxt'') = compile_decs ctxt ds
+     in (decs,Function (fi with body := compile ctxt fi.body)::funs,exns,ctxt'')) ∧
+    (compile_decs ctxt (ExnDecl eid sh::ds) =
+     let (decs,funs,exns,ctxt'') = compile_decs ctxt ds
+     in (decs,funs,ExnDecl eid sh::exns,ctxt'')) ∧
     (compile_decs ctxt (Name nm flds::ds) = compile_decs ctxt ds) (* should never happen *)
 End
 
 Definition resort_decls_def:
   resort_decls decs =
-  FILTER ($¬ o is_function) decs ++ FILTER is_function decs
+  FILTER (is_name) decs ++ FILTER (is_exn_decl) decs ++ FILTER (is_decl) decs ++ FILTER is_function decs
 End
 
 Definition fperm_name_def:
@@ -226,6 +229,7 @@ Definition dec_shapes_def:
   dec_shapes(Function _::ds) = dec_shapes ds ∧
   dec_shapes(Decl sh _ _::ds) = sh::dec_shapes ds ∧
   dec_shapes(Name _ _::ds) = dec_shapes ds ∧
+  dec_shapes(ExnDecl _ _::ds) = dec_shapes ds ∧
   dec_shapes [] = []
 End
 
@@ -237,7 +241,7 @@ Definition compile_top_def:
       let nds = resort_decls decs;
           start' = new_main_name decs;
           nds' = fperm_decs start start' nds;
-          (decls,funs,ctxt) = compile_decs
+          (decls,funs,exns,ctxt) = compile_decs
                               <| globals := FEMPTY; globals_size := 0w;
                                  max_globals_size := bytes_in_word*n2w(SUM(MAP size_of_shape (dec_shapes nds')))
                               |> nds';
@@ -250,5 +254,5 @@ Definition compile_top_def:
                                ;  return := One
                               |>
       in
-        new_main::funs
+        exns ++ new_main::funs
 End

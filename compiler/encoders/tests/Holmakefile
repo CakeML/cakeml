@@ -1,11 +1,3 @@
-INCLUDES = .. ../arm8 ../x64 ../mips ../riscv \
-    ../arm8/proofs ../x64/proofs ../mips/proofs ../riscv/proofs \
-    $(HOLDIR)/examples/l3-machine-code/arm/model \
-    $(HOLDIR)/examples/l3-machine-code/arm8/model \
-    $(HOLDIR)/examples/l3-machine-code/x64/model \
-    $(HOLDIR)/examples/l3-machine-code/mips/model \
-    $(HOLDIR)/examples/l3-machine-code/riscv/model
-
 all: $(DEFAULT_TARGETS) README.md
 
 sinclude $(CAKEMLDIR)/developers/readme.mk

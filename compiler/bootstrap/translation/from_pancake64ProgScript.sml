@@ -201,6 +201,12 @@ val _ = pan_globals_compile_decs_ind |> update_precondition;
 
 val _ = translate $ spec64 is_function_def;
 
+val _ = translate $ spec64 is_decl_def;
+
+val _ = translate $ spec64 is_exn_decl_def;
+
+val _ = translate $ spec64 is_name_def;
+
 val _ = translate $ spec64 resort_decls_def;
 
 val _ = translate fperm_name_def;
@@ -210,6 +216,8 @@ val _ = translate $ spec64 fperm_def;
 val _ = translate $ spec64 fperm_decs_def;
 
 val _ = translate $ spec64 functions_def;
+
+val _ = translate $ spec64 exceptions_def;
 
 val _ = translate $ spec64 new_main_name_def;
 
@@ -326,9 +334,7 @@ val _ = translate $ spec64 comp_func_def;
 val _ = translate $ make_funcs_def;
 
 val _ = translate $ INST_TYPE[alpha|->“:64”,
-                              beta|->“:mlstring”,
-                              gamma|->“:(mlstring # shape) list”,
-                              delta|->“:64”] get_eids_def;
+                              beta|->“:64”] get_eids_from_decls_def;
 
 val _ = translate $ spec64 compile_to_crep_def;
 
@@ -514,8 +520,6 @@ val res = translate kw_def;
 
 val res = translate $ spec64 isSubOp_def;
 
-val res = translate $ preprocess $ spec64 conv_Shift_def;
-
 val res = translate $ conv_panop_def;
 
 
@@ -556,12 +560,14 @@ val res = translate $ spec64 $ conv_GlobalDec_def;
 
 val res = translate $ spec64 $ conv_DecCall_def;
 
+val res = preprocess $ spec64 conv_Ret_def;
+
 val res = preprocess $ spec64 conv_Prog_def |> translate_no_ind;
 
 Theorem conv_Prog_ind:
-  panptreeconversion_conv_handle_ind
+  panptreeconversion_conv_prog_ind
 Proof
-  PURE_REWRITE_TAC [fetch "-" "panptreeconversion_conv_handle_ind_def"]
+  PURE_REWRITE_TAC [fetch "-" "panptreeconversion_conv_prog_ind_def"]
   \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac (spec64 $ latest_ind ())

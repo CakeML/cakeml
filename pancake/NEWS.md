@@ -5,6 +5,55 @@ User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
 
+Aug 20th 2026
+-------------------
+
+### Variable length shifts
+
+Pancake now supports variable length shifts.
+
+    fun 1 f() {
+      var a = 1 + 1 << 2;    // previously, the RHS of << only admitted numerical constants
+      a = 1 + 1 << a;        // this is now permitted
+      return 1 + 1 << a + 3; // shift lengths can be arbitrary expressions, so this too is permitted
+    }
+
+Aug 18th 2026
+-------------------
+
+### Exception declarations
+
+Pancake now supports exception declarations, and has a revised
+exception syntax. For example:
+
+    exception Err : 1; // Declare an exception Err with payload of shape 1
+    
+    fun 1 f() {
+      throw Err (5+1); // Throw exception Err with payload 6 attached.
+    }
+
+    fun g() {
+      var x = 0;
+      try f()
+      catch Err => x { // If f throws Err, run handler with the payload assigned to x
+        x = x + 1;
+      }
+      return x; // in this case, returns 7
+    }
+
+Between `try` and `catch`, only function calls of the form `f(args)`
+or `x = f(args)` are allowed. Note also that the occurrence of `x` in
+the `catch` clause is not a binding occurrence.
+
+Jul 30th 2026
+-------------------
+
+### Parser bug fix
+
+The relative precedence of negation and field access has been fixed.
+`!x.0` now correctly parses as `!(x.0)` instead of `(!x).0`.
+
+
 May 26th 2026
 -------------------
 
