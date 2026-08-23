@@ -44,28 +44,48 @@ Datatype:
 End
 
 
-Definition get_iname_def:
+Definition get_iname_def[simp]:
   get_iname (File iname) = iname ∧
   get_iname (UStream iname) = iname
 End
 
 Theorem fresh_iname_exists[local]:
-  ∀tbl. ∃iname.
-    ALOOKUP tbl (File iname)    = NONE ∧
-    ALOOKUP tbl (UStream iname) = NONE
+  ∀(itable: (inode # char list) list) (files: (mlstring # mlstring) list)
+    (infds: (num # (inode # mode # num)) list). ∃iname.
+    (* Prevent fresh_iname from selecting a non-existing iname that
+       a file or file descriptor may be pointing to. *)
+    (∀fname. ALOOKUP files fname ≠ SOME iname) ∧
+    (∀fd inode off.
+       ALOOKUP infds fd = SOME (inode, off) ⇒ get_iname inode ≠ iname) ∧
+    ALOOKUP itable (File iname)    = NONE ∧
+    ALOOKUP itable (UStream iname) = NONE
 Proof
-  rw [ALOOKUP_NONE]
-  >> qsuff_tac ‘∃iname. ¬MEM iname (MAP (get_iname ∘ FST) tbl)’
-  >- (simp [MEM_MAP] >> metis_tac [get_iname_def, FST])
-  >> sg ‘FINITE (set (MAP (get_iname ∘ FST) tbl))’ >- simp []
+  rpt strip_tac
+  >> qabbrev_tac
+     ‘inames = MAP SND files ++ MAP (get_iname ∘ FST) itable ++
+               MAP (get_iname ∘ FST ∘ SND) infds’
+  >> qsuff_tac ‘∃iname. ¬MEM iname inames’
+  >- (
+    strip_tac
+    >> qexists ‘iname’
+    >> conj_tac >- (
+      rpt strip_tac
+      >> drule_then assume_tac ALOOKUP_MEM
+      >> fs [MEM_APPEND, MEM_MAP, Abbr ‘inames’]
+      >> metis_tac [get_iname_def, SND]
+    )
+    >> conj_tac >- (
+      rpt strip_tac
+      >> drule_then assume_tac ALOOKUP_MEM
+      >> fs [MEM_APPEND, MEM_MAP, Abbr ‘inames’]
+      >> metis_tac [get_iname_def, FST, SND]
+    )
+    >> fs [ALOOKUP_NONE, MEM_MAP, MEM_APPEND, Abbr ‘inames’]
+    >> metis_tac [get_iname_def, FST])
+  >> sg ‘FINITE (set inames)’ >- simp []
   >> metis_tac [INFINITE_mlstring, IN_INFINITE_NOT_FINITE]
 QED
 
-(*
-   ⊢ ∀tbl.
-       ALOOKUP tbl (File (fresh_iname tbl)) = NONE ∧
-       ALOOKUP tbl (UStream (fresh_iname tbl)) = NONE
-*)
 val fresh_iname_spec = new_specification(
   "fresh_iname_spec",
   ["fresh_iname"],
@@ -129,7 +149,7 @@ Definition write_file_def:
   | SOME iname =>
       fsys with inode_tbl updated_by (AFUPDKEY (File iname) (K content))
   | NONE =>
-      let iname = fresh_iname fsys.inode_tbl in
+      let iname = fresh_iname fsys.inode_tbl fsys.files fsys.infds in
         fsys with
              <| files := (fnm, iname)::fsys.files;
                 inode_tbl := (File iname, content)::fsys.inode_tbl |>

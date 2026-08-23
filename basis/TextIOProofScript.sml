@@ -17,6 +17,12 @@ val _ = preamble.option_monadsyntax.temp_add_option_monadsyntax();
 
 (* heap predicate for the file-system state *)
 
+Theorem ADELKEY_cons:
+  ADELKEY k ((k,v)::xs) = ADELKEY k xs
+Proof
+  simp [ADELKEY_def]
+QED
+
 Definition IOFS_iobuff_def:
   IOFS_iobuff =
     SEP_EXISTS v. W8ARRAY iobuff_loc v * cond (LENGTH v >= 2052)
@@ -64,6 +70,16 @@ Proof
   EQ_TAC >> rpt DISCH_TAC >> IMP_RES_TAC FRAME_UNIQUE_IO >> fs[]
 QED
 
+Theorem IOFS_consistentFS:
+  IOFS fs = IOFS fs * &(consistentFS fs)
+Proof
+  Cases_on ‘consistentFS fs’ \\ simp [SEP_CLAUSES]
+  \\ simp [FUN_EQ_THM, SEP_F_def] \\ rpt strip_tac
+  \\ gvs [IOFS_def, wfFS_def, cond_def, STAR_def, SEP_EXISTS_THM,
+          consistentFS_def]
+  \\ res_tac
+QED
+
 (* "end-user" property *)
 (* abstracts away the lazy list and ensure that standard streams are opened on
  * their respective standard fds at the right position *)
@@ -82,11 +98,9 @@ QED
 Theorem STDIO_consistentFS:
   STDIO fs = STDIO fs * &(consistentFS fs)
 Proof
-  Cases_on ‘consistentFS fs’ \\ simp [SEP_CLAUSES]
-  \\ simp [FUN_EQ_THM, SEP_F_def] \\ rpt strip_tac
-  \\ gvs [STDIO_def, IOFS_def, wfFS_def, cond_def, STAR_def, SEP_EXISTS_THM,
-          consistentFS_def]
-  \\ res_tac
+  simp [STDIO_def]
+  >> simp [Once IOFS_consistentFS, SimpLHS]
+  >> simp [SEP_CLAUSES, AC STAR_ASSOC STAR_COMM]
 QED
 
 (* Used by the monadic translator *)
@@ -1118,6 +1132,13 @@ QED
 
 (* TODO openAppend here *)
 
+Theorem MAP_MAP_n2w_ORD[local]:
+  (!xs. MAP (n2w ∘ ORD) (MAP (CHR ∘ (w2n:word8 -> num)) xs) = xs) /\
+  (!xs. MAP (CHR ∘ (w2n:word8 -> num)) (MAP (n2w ∘ ORD) xs) = xs)
+Proof
+  conj_tac \\ Induct \\ fs []
+QED
+
 Theorem openOut_IOFS_spec:
   FILENAME s sv ∧
   hasFreeFD fs ⇒
@@ -1128,7 +1149,68 @@ Theorem openOut_IOFS_spec:
        validFileFD (nextFD fs) (openFileFS s (emptyFile fs s) WriteMode 0).infds) *
      IOFS (openFileFS s (emptyFile fs s) WriteMode 0))
 Proof
-  cheat
+  rw []
+  >> xcf_with_def TextIO_openOut_v_def
+  >> simp [Once IOFS_consistentFS] >> xpull
+  (* simp now to avoid the following unfortunate situation down the line:
+     ∃events.
+       ∀x. wfFS fs ⇒
+         one (FFI_part st f ns x) ==>> one (FFI_part st f ns events) *)
+  (* NOTE It would be good to have a deeper understanding on what goes wrong
+       when we try to do the simp only after xffi. *)
+  >> simp [IOFS_def, fs_ffi_part_def, IOx_def, IO_def] >> xpull
+  >> ntac 5 xlet_autop
+  >> rename1 ‘W8ARRAY fd0 (REPLICATE 9 0w)’
+  >> xlet
+       ‘POSTv u.
+          &(UNIT_TYPE () u) *
+          W8ARRAY fd0 (0w :: n2w8(nextFD fs)) *
+          IOFS (openFileFS s (emptyFile fs s) WriteMode 0)’
+  >- (
+    xffi >> xsimpl
+    >> qmatch_goalsub_abbrev_tac ‘FFI_part st f ns events’
+    >> qexistsl
+         [‘MAP (n2w o ORD) (explode s) ++ [0w]’,
+          ‘IOFS_iobuff’, ‘st’, ‘f’, ‘ns’, ‘events’]
+    >> conj_tac >- simp [Abbr ‘ns’]
+    >> conj_tac >- fs [STRING_TYPE_def, MAP_MAP_n2w_ORD, chr_to_str_def, strcat_thm]
+    >> conj_tac >- simp [Abbr ‘ns’]
+    >> conj_tac >- xsimpl
+    (* simplifying expression in case ... of *)
+    >> simp [Abbr ‘f’, Abbr ‘st’, mk_ffi_next_def, ffi_open_out_def]
+    >> DEP_REWRITE_TAC [getNullTermStr_add_null]
+    >> conj_tac >- fs [MEM_MAP, ORD_BOUND, ORD_eq_0, FILENAME_def]
+    >> simp [MAP_MAP_n2w_ORD]
+    >> simp [openFile_truncate_def]
+    >> imp_res_tac nextFD_ltX >> simp []
+    >> drule ALOOKUP_emptyFile_SOME
+    >> disch_then $ qspec_then ‘s’ assume_tac >> fs []
+    (* finished simplifying expression in case ... of  *)
+    >> simp [IOFS_def, IOx_def, IO_def, fs_ffi_part_def, mk_ffi_next_def]
+    >> xsimpl
+    >> strip_tac
+    >> qpat_abbrev_tac ‘new_events = events ++ _’ >> qexists ‘new_events’
+    >> conj_tac
+    >- (DEP_REWRITE_TAC [wfFS_openFile, wfFS_emptyFile] >> simp [])
+    >> simp [openFileFS_def, openFile_def]
+    >> xsimpl
+  )
+  >> ntac 2 xlet_autop
+  >> xlet_auto >- (xsimpl >> gvs [WORD_def])
+  >> xif >> qpat_assum ‘BOOL _ _’ $ irule_at (Pos hd) >> simp []
+  >> xlet_auto >- (xsimpl >> simp [LENGTH_n2w8])
+  >> xcon
+  >> simp [IOFS_def, IOx_def, IO_def, fs_ffi_part_def]
+  >> xsimpl
+  >> rpt strip_tac
+  >> rename1 ‘FFI_part _ _ _ events’ >> qexists ‘events’ >> xsimpl
+  >> conj_tac >- (
+    fs [OUTSTREAM_def, OUTSTREAM_TYPE_def, STRING_TYPE_def]
+    >> simp [n2w8_def]
+    >> irule nextFD_ltX >> simp []
+  )
+  >> irule validFileFD_openFileFS >> simp []
+  >> irule nextFD_maxFD >> simp []
 QED
 
 Theorem openOut_STDIO_spec:
@@ -1141,7 +1223,22 @@ Theorem openOut_STDIO_spec:
        validFileFD (nextFD fs) (openFileFS s (emptyFile fs s) WriteMode 0).infds) *
      STDIO (openFileFS s (emptyFile fs s) WriteMode 0))
 Proof
-  cheat
+  rw [STDIO_def]
+  >> simp [Once IOFS_consistentFS]
+  >> xpull
+  >> xapp_spec openOut_IOFS_spec
+  >> rename1 ‘IOFS (_ with numchars := ll)’
+  >> qexistsl [‘emp’, ‘s’, ‘fs with numchars := ll’]
+  >> xsimpl >> rw []
+  >> qexists ‘ll’
+  >> fs [nextFD_numchars]
+  >> conj_tac >- (
+    irule validFileFD_openFileFS >> simp []
+    >> irule nextFD_maxFD >> simp []
+  )
+  >> conj_tac >- (irule STD_streams_openFileFS >> simp [])
+  >> simp [emptyFile_with_numchars, openFileFS_fupd_numchars]
+  >> xsimpl
 QED
 
 Theorem raw_closeIn_spec:
@@ -1771,6 +1868,7 @@ Theorem outputFile_spec:
     (POSTv uv. &UNIT_TYPE () uv * STDIO (write_file fs name (explode content)))
 Proof
   rw []
+  >> simp [Once STDIO_consistentFS, Once STDIO_STD_streams] >> xpull
   >> xcf_with_def TextIO_outputFile_v_def
   >> xlet_auto_spec (SOME openOut_STDIO_spec)
   >- xsimpl
@@ -1778,7 +1876,12 @@ Proof
   >> sg ‘get_fd_content fs₁ fd = SOME ("", 0) ∧ get_mode fs₁ fd = SOME WriteMode’
   >- (
     fs [Abbr ‘fd’, Abbr ‘fs₁’]
-    >> cheat
+    >> conj_tac >- (
+      irule get_fd_content_openFileFS_nextFD >> simp []
+      >> irule get_file_content_emptyFile >> simp [])
+    >> irule get_mode_openFileFS_nextFD >> simp []
+    >> irule_at Any get_file_content_emptyFile
+    >> simp []
   )
   >> xlet_auto_spec (SOME output_STDIO_spec)
   >- xsimpl
@@ -1790,8 +1893,39 @@ Proof
   >> conj_tac >- xsimpl
   >> conj_tac
   >- (
-    rw []
-    >> cheat
+    rw [Abbr ‘fs₂’, Abbr ‘fs₁’]
+    >> simp [STDIO_def]
+    >> xsimpl
+    >> rw []
+    >> rename1 ‘_ with <| infds updated_by _ ; numchars := ncs |>’
+    >> qexists ‘ncs’
+    >> qmatch_goalsub_abbrev_tac ‘IOFS X ==>> IOFS Y * _’
+    >> qsuff_tac ‘X = Y’
+    >- (simp [] >> xsimpl)
+    >> unabbrev_all_tac
+    >> simp [openFileFS_def, openFile_def]
+    >> sg ‘nextFD fs ≤ fs.maxFD’
+    >- (irule nextFD_maxFD >> simp [])
+    >> simp [emptyFile_def]
+    >> drule ALOOKUP_write_file_SOME
+    >> disch_then $ qspecl_then [‘name’, ‘""’] mp_tac
+    >> drule ALOOKUP_write_file_SOME
+    >> disch_then $ qspecl_then [‘name’, ‘explode content’] mp_tac
+    >> rpt strip_tac
+    >> simp [fsupdate_def, IO_fs_component_equality]
+    >> conj_tac
+    >- (
+      gvs [write_file_def]
+      >> CASE_TAC
+      >> gvs [AFUPDKEY_def, insert_atI_def, AFUPDKEY_o]
+    )
+    >> conj_tac
+    >- (
+      gvs [write_file_def]
+      >> CASE_TAC
+      >> gvs []
+    )
+    >> simp [ADELKEY_cons, ADELKEY_unchanged]
   )
   >> simp [Abbr ‘fs₂’]
 QED
@@ -5898,13 +6032,6 @@ Proof
 QED
 
 (*** END TODO COPIED ***)
-
-Theorem MAP_MAP_n2w_ORD[local]:
-  (!xs. MAP (n2w ∘ ORD) (MAP (CHR ∘ (w2n:word8 -> num)) xs) = xs) /\
-  (!xs. MAP (CHR ∘ (w2n:word8 -> num)) (MAP (n2w ∘ ORD) xs) = xs)
-Proof
-  conj_tac \\ Induct \\ fs []
-QED
 
 Theorem input1_spec_str:
   app (p:'ffi ffi_proj) TextIO_input1_v [is]
