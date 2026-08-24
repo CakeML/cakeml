@@ -10,7 +10,7 @@ Libs
 Datatype:
   context =
   <| vars  : panLang$varname |-> shape # num list;
-     funcs : panLang$funname |-> (panLang$varname # shape) list;
+     funcs : panLang$funname |-> ((panLang$varname # shape) list # shape);
      eids  : panLang$eid     |-> 'a word;
      vmax  : num|>
 End
@@ -192,15 +192,8 @@ Definition compile_def:
     | _ => Skip) /\
   (compile ctxt (Return rt) =
    let (ces,sh) = compile_exp ctxt rt in
-   if size_of_shape sh = 0 then Return (Const 0w)
-   else case ces of
-         | [] => Skip
-         | e::es => if size_of_shape sh = 1 then (Return e) else
-          let temps = GENLIST (λx. ctxt.vmax + SUC x) (size_of_shape sh) in
-           if size_of_shape sh = LENGTH (e::es)
-           then Seq (nested_decs temps (e::es)
-                                 (nested_seq (store_globals 0w (MAP Var temps)))) (Return (Const 0w))
-        else Skip) /\
+   if size_of_shape sh = 0 then Return []
+   else Return ces) ∧
   (compile ctxt (Raise eid excp) =
     case FLOOKUP ctxt.eids eid of
     | SOME n =>
@@ -223,24 +216,27 @@ Definition compile_def:
    | (ce::ces, _) =>
      While ce (compile ctxt p)
    | _ => Skip) /\
-  (compile ctxt Break = Break) /\
-  (compile ctxt Continue = Continue) /\
+  (compile ctxt Break = Break 0) /\
+  (compile ctxt Continue = Continue 0) /\
   (compile ctxt (Call rtyp ce es) =
    let cexps = MAP (compile_exp ctxt) es;
        args = FLAT (MAP FST cexps) in
      case rtyp of
      | NONE => Call NONE ce args
      | SOME (NONE, hdl) =>
+         let rts =
+            (case FLOOKUP ctxt.funcs ce of
+               | NONE => []
+               | SOME (args, rshape) => GENLIST (λx. ctxt.vmax + SUC x) (size_of_shape rshape)) in
          (case hdl of
-          | NONE => Call (SOME (NONE, Skip, NONE)) ce args
+          | NONE => nested_decs rts (REPLICATE (LENGTH rts) (Const 0w)) (Call (SOME (rts, NONE)) ce args)
           | SOME (eid, evar, p) =>
               (case FLOOKUP ctxt.eids eid of
-               | NONE => Call (SOME (NONE, Skip, NONE)) ce args
+               | NONE => nested_decs rts (REPLICATE (LENGTH rts) (Const 0w)) (Call (SOME (rts, NONE)) ce args)
                | SOME neid =>
                    let comp_hdl = compile ctxt p;
                        hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
-                     Call (SOME (NONE, Skip,
-                                 (SOME (neid, hndlr)))) ce args))
+                     nested_decs rts (REPLICATE (LENGTH rts) (Const 0w)) (Call (SOME (rts, (SOME (neid, hndlr)))) ce args)))
      | SOME (SOME(rk,rt), hdl) =>
          (case wrap_rt (FLOOKUP ctxt.vars rt) of
           | NONE =>
@@ -252,18 +248,17 @@ Definition compile_def:
                     | SOME neid =>
                         let comp_hdl = compile ctxt p;
                             hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
-                          Call (SOME (NONE, Skip, (SOME (neid, hndlr)))) ce args))
+                          Call (SOME ([], (SOME (neid, hndlr)))) ce args))
           | SOME (sh, ns) =>
               (case hdl of
-               | NONE => Call (SOME ((ret_var sh ns), (ret_hdl sh ns), NONE)) ce args
+               | NONE => Call (SOME (ns, NONE)) ce args
                | SOME (eid, evar, p) =>
                    (case FLOOKUP ctxt.eids eid of
-                    | NONE => Call (SOME ((ret_var sh ns), (ret_hdl sh ns), NONE)) ce args
+                    | NONE => Call (SOME (ns, NONE)) ce args
                     | SOME neid =>
                         let comp_hdl = compile ctxt p;
                             hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
-                          Call (SOME ((ret_var sh ns), (ret_hdl sh ns),
-                                      (SOME (neid, hndlr)))) ce args)))) /\
+                          Call (SOME (ns, (SOME (neid, hndlr)))) ce args)))) /\
   (compile ctxt (DecCall v s ce es p) =
    let
      cexps = MAP (compile_exp ctxt) es;
@@ -271,20 +266,10 @@ Definition compile_def:
      vmax = ctxt.vmax;
      nvars = GENLIST (λx. vmax + SUC x) (size_of_shape s);
      nctxt = ctxt with  <|vars := ctxt.vars |+ (v, (s, nvars));
-                          vmax := ctxt.vmax + size_of_shape s|> in
-     case wrap_rt (SOME(s,nvars)) of
-       NONE => Call (SOME (NONE, compile nctxt p, NONE)) ce args
-     | SOME(sh,ns) =>
-         let ret_dec = case ret_var s ns of
-                         NONE => I
-                       |  SOME n => Dec n (Const 0w);
-             p' = compile nctxt p;
-             ret_decl = case ret_var s ns of
-                          NONE => nested_decs nvars (load_globals 0w (LENGTH nvars)) p'
-                        | SOME _ => p'
-         in ret_dec $
-                    Call (SOME ((ret_var s ns), ret_decl, NONE)) ce args
-
+                          vmax := ctxt.vmax + size_of_shape s|>;
+     ret_dec = nested_decs nvars (REPLICATE (LENGTH nvars) (Const 0w));
+     p' = compile nctxt p in
+   ret_dec $ Seq (Call (SOME (nvars, NONE)) ce args) p'
   ) /\
   (compile ctxt (ExtCall f ptr1 len1 ptr2 len2) =
    let
@@ -359,8 +344,8 @@ End
 
 (*
 Definition get_eids_def:
-  get_eids (prog:('b#'c#'a panLang$prog) list) =
-   let eids = nub (FLAT (MAP (exp_ids o SND o SND) prog));
+  get_eids (prog:('b#'c#'a panLang$prog #'d) list) =
+   let eids = nub (FLAT (MAP (exp_ids o FST o SND o SND) prog));
        ns   = GENLIST (λx. (n2w x):'a word) (LENGTH eids);
        es   = MAP2 (λx y. (x,y)) eids ns in
     alist_to_fmap es
@@ -382,7 +367,8 @@ Definition make_funcs_def:
   make_funcs prog =
   let fnames = MAP FST prog;
       params = MAP (FST o SND) prog;
-      fs = MAP2 (λx y. (x,y)) fnames params in
+      returns = MAP (SND o SND o SND) prog;
+      fs = MAP3 (λx y z. (x,y,z)) fnames params returns in
     alist_to_fmap fs
 End
 
@@ -398,7 +384,7 @@ Definition compile_to_crep_def:
   compile_to_crep decls =
   let prog = functions decls;
       comp = comp_func (make_funcs prog) (get_eids_from_decls decls) in
-    MAP (λ(name, params, body).
+    MAP (λ(name, params, body, return).
           (name,
            crep_vars params,
            comp params body)) prog
