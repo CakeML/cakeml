@@ -11,7 +11,7 @@ Ancestors
   export_x64 arm8_config export_arm8 riscv_config export_riscv
   mips_config export_mips arm7_config export_arm7 ag32_config
   export_ag32 panPtreeConversion pan_to_target panStatic
-  pan_passes
+  pan_passes news
 Libs
   preamble
 
@@ -81,6 +81,8 @@ OPTIONS:
   --explore     outputs intermediate forms of the compiled program
 
   --pancake     takes a pancake program as input
+
+  --pancake_news   prints a list of recent user-facing pancake changes
 
   --no_warn     silences pancake warning output
 
@@ -665,6 +667,10 @@ Definition has_pancake_flag_def:
   has_pancake_flag ls = MEM «--pancake» ls
 End
 
+Definition has_pancake_flag_def:
+  has_pancake_news_flag ls = MEM «--pancake_news» ls
+End
+
 Definition format_compiler_result_def:
   format_compiler_result bytes_export (M_failure err) =
     (List[]:mlstring app_list, error_to_str err) ∧
@@ -754,6 +760,8 @@ Definition full_compile_64_def:
     add_stdout fs help_string
   else if has_version_flag cl then
     add_stdout fs current_build_info_str
+  else if has_pancake_news_flag cl then
+    add_stdout fs news
   else
     let (out, err) =
         if has_pancake_flag cl then
@@ -830,6 +838,8 @@ Definition full_compile_32_def:
     add_stdout fs help_string
   else if has_version_flag cl then
     add_stdout fs current_build_info_str
+  else if has_pancake_news_flag cl then
+    add_stdout fs news
   else
     let (out, err) =
         if has_pancake_flag cl then

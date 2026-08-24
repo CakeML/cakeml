@@ -428,7 +428,9 @@ val res = translate (has_help_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 val res = translate print_option_def
 val res = translate current_build_info_str_def
 val res = translate compilerTheory.help_string_def;
-
+val res = translate newsTheory.news_def
+val res = translate (has_pancake_news_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
+    
 Definition nonzero_exit_code_for_error_msg_def:
                                                  nonzero_exit_code_for_error_msg e =
 if compiler$is_error_msg e then
