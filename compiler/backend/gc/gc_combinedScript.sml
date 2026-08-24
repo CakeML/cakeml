@@ -24,7 +24,7 @@ Definition gc_combined_def:
   gc_combined conf None (roots,heap,gs:gen_state,_,_) =
     (roots,heap,0,0,gs,T) /\
   gc_combined conf Simple (roots,heap,gs,_,_) =
-    (let (roots,heap,a,c) = full_gc (roots,heap,conf.limit) in
+    (let (roots,heap,a,c) = full_gc (K F) (roots,heap,conf.limit) in
        (roots,heap ++ heap_expand (conf.limit-a),a,conf.limit-a,gs,c)) /\
   gc_combined conf (Generational limits) (roots,heap,gs,rs,do_partial) =
     if do_partial then

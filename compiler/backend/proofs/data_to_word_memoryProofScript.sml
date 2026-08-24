@@ -1270,7 +1270,7 @@ Theorem full_gc_thm:
    abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
    conf.gc_kind = Simple ==>
     ?roots2 heap2 a2.
-      (full_gc (roots,heap,limit) = (roots2,heap2,a2,T)) /\
+      (full_gc (K F) (roots,heap,limit) = (roots2,heap2,a2,T)) /\
        abs_ml_inv conf stack refs
         (roots2,heap2 ++ heap_expand (limit - a2),be,
          a2,limit - a2,0,gens) limit ts /\
@@ -1309,7 +1309,7 @@ Proof
     \\ fs [reachable_addresses_def,IN_DEF]
     \\ asm_exists_tac \\ fs [])
   \\ conj_tac THEN1
-   (qpat_x_assum `full_gc (roots,heap,limit) = xxx` (ASSUME_TAC o GSYM)
+   (qpat_x_assum `full_gc _ (roots,heap,limit) = xxx` (ASSUME_TAC o GSYM)
     \\ imp_res_tac full_gc_ok \\ NTAC 3 (POP_ASSUM (K ALL_TAC))
     \\ full_simp_tac std_ss [] \\ metis_tac [])
   \\ fs [gc_kind_inv_def] \\ CASE_TAC \\ fs []

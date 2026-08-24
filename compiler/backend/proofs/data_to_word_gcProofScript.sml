@@ -878,7 +878,7 @@ QED
 
 Theorem word_gc_move_roots_thm:
    !x a n heap limit pa x1 h1 a1 n1 heap1 pa1 m m1 xs i1 c1 w frame.
-      (gc_move_list (x,[],a,n,heap,T,limit) = (x1,h1,a1,n1,heap1,T)) /\
+      (gc_move_list (K F) (x,[],a,n,heap,T,limit) = (x1,h1,a1,n1,heap1,T)) /\
       heap_length heap <= dimword (:'a) DIV 2 ** shift_length conf /\
       (word_heap curr heap conf * word_list pa xs * frame) (fun2set (m,dm)) /\
       (word_gc_move_roots conf (MAP (word_addr conf) x,n2w a,pa,curr,m,dm) =
@@ -909,6 +909,7 @@ Proof
   \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
   \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+  \\ gvs [gc_smart_move_K_F]
   \\ `c'` by imp_res_tac copying_gcTheory.gc_move_list_ok \\ full_simp_tac(srw_ss())[]
   \\ old_drule (word_gc_move_thm |> GEN_ALL |> SIMP_RULE std_ss [])
   \\ once_rewrite_tac [CONJ_ASSOC]
@@ -931,7 +932,7 @@ QED
 
 Theorem word_gc_move_list_thm:
    !x a n heap limit pa x1 h1 a1 n1 heap1 pa1 m m1 xs i1 c1 frame k k1.
-      (copying_gc$gc_move_list (x,[],a,n,heap,T,limit) = (x1,h1,a1,n1,heap1,T)) /\
+      (copying_gc$gc_move_list (K F) (x,[],a,n,heap,T,limit) = (x1,h1,a1,n1,heap1,T)) /\
       heap_length heap <= dimword (:'a) DIV 2 ** shift_length conf /\
       (word_gc_move_list conf (k,n2w (LENGTH x),n2w a,pa,curr,m,dm) =
         (k1,i1,pa1,m1,c1)) /\
@@ -969,6 +970,7 @@ Proof
   \\ pop_assum kall_tac
   \\ NTAC 2 (pop_assum mp_tac)
   \\ full_simp_tac(srw_ss())[word_list_def] \\ SEP_R_TAC \\ rpt strip_tac
+  \\ gvs [gc_smart_move_K_F]
   \\ old_drule (word_gc_move_thm |> GEN_ALL |> SIMP_RULE std_ss [])
   \\ once_rewrite_tac [CONJ_ASSOC]
   \\ once_rewrite_tac [CONJ_COMM]
@@ -1003,8 +1005,9 @@ Proof
 QED
 
 Theorem word_gc_move_loop_thm:
-   !h1 h2 a n heap c0 limit h11 a1 n1 heap1 i1 pa1 m1 c1 xs frame m k.
-      (gc_move_loop (h1,h2,a,n,heap,c0,limit) = (h11,a1,n1,heap1,T)) /\ c0 /\
+   !is_th h1 h2 a n heap c0 limit h11 a1 n1 heap1 i1 pa1 m1 c1 xs frame m k.
+      (gc_move_loop is_th (h1,h2,a,n,heap,c0,limit) = (h11,a1,n1,heap1,T)) /\ c0 /\
+      is_th = K F ∧
       heap_length heap <= dimword (:'a) DIV 2 ** shift_length conf /\
       heap_length heap * (dimindex (:'a) DIV 8) < dimword (:'a) /\
       conf.len_size + 2 < dimindex (:'a) /\
@@ -1033,7 +1036,7 @@ Proof
     \\ full_simp_tac(srw_ss())[]
     \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
     \\ qexists_tac `xs` \\ full_simp_tac(srw_ss())[AC STAR_COMM STAR_ASSOC])
-  \\ qpat_x_assum `gc_move_loop _ = _` mp_tac
+  \\ qpat_x_assum `gc_move_loop _ _ = _` mp_tac
   \\ once_rewrite_tac [gc_move_loop_def]
   \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[LET_THM]
@@ -1095,7 +1098,7 @@ Proof
     \\ first_x_assum match_mp_tac
     \\ qexists_tac `xs` \\ qexists_tac `m` \\ full_simp_tac(srw_ss())[]
     \\ qexists_tac `k - 1` \\ fs [])
-  \\ qpat_x_assum `gc_move_list _ = _` mp_tac
+  \\ qpat_x_assum `gc_move_list _ _ = _` mp_tac
   \\ once_rewrite_tac [gc_move_list_ALT] \\ strip_tac
   \\ full_simp_tac(srw_ss())[LET_THM]
   \\ pop_assum mp_tac
@@ -1137,7 +1140,7 @@ Proof
 QED
 
 Theorem word_full_gc_thm:
-   (full_gc (roots,heap,limit) = (roots1,heap1,a1,T)) /\
+   (full_gc (K F) (roots,heap,limit) = (roots1,heap1,a1,T)) /\
     heap_length heap <= dimword (:'a) DIV 2 ** shift_length conf /\
     heap_length heap * (dimindex (:'a) DIV 8) < dimword (:'a) /\
     conf.len_size + 2 < dimindex (:'a) /\
@@ -1200,7 +1203,7 @@ Proof
 QED
 
 Theorem full_gc_IMP:
-   full_gc (xs,heap,limit) = (t,heap2,n,T) ==>
+   full_gc (K F) (xs,heap,limit) = (t,heap2,n,T) ==>
     n <= limit /\ limit = heap_length heap
 Proof
   full_simp_tac(srw_ss())[full_gc_def,LET_THM]
@@ -3821,7 +3824,7 @@ Theorem word_gc_fun_lemma_Simple = Q.prove(`
     good_dimindex (:'a) /\
     heap_in_memory_store heap a sp sp1 gens c s m dm limit /\
     LIST_REL (\v w. word_addr c v = w) hs (s ' Globals::MAP SND stack) /\
-    full_gc (hs,heap,limit) = (roots2,heap2,heap_length heap2,T) /\
+    full_gc (K F) (hs,heap,limit) = (roots2,heap2,heap_length heap2,T) /\
     c.gc_kind = Simple ==>
     let heap1 = heap2 ++ heap_expand (limit - heap_length heap2) in
       ?stack1 m1 s1 a1.
