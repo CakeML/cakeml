@@ -667,7 +667,7 @@ Definition has_pancake_flag_def:
   has_pancake_flag ls = MEM «--pancake» ls
 End
 
-Definition has_pancake_flag_def:
+Definition has_pancake_news_flag_def:
   has_pancake_news_flag ls = MEM «--pancake_news» ls
 End
 
