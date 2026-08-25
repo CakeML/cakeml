@@ -699,6 +699,7 @@ Theorem op_type_sound:
  !ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
    good_ctMap ctMap ∧
    op ≠ Opapp ∧
+   op ≠ PtrEq ∧
    type_s ctMap store tenvS ∧
    type_op op ts t ∧
    check_freevars 0 [] t ∧
@@ -1604,8 +1605,15 @@ Proof
    >- (
      Cases_on ‘op’ >> gs[getOpClass_def]
      >> Cases_on ‘ts’ >> fs[type_op_def])
+   >> Cases_on ‘getOpClass op = PtrEqOp’
+   >- (
+     gvs [getOpClass_PtrEqOp, getOpClass_def]
+     >> gvs [type_op_cases]
+     >> gvs [AllCaseEqs()]
+     >> metis_tac [Tbool_def, type_v_Boolv, eq_same_type])
    >> fs [bind_tvar_def]
    >> `good_ctMap ctMap` by simp [good_ctMap_def]
+   >> `op ≠ PtrEq` by metis_tac [getOpClass_PtrEqOp]
    >> drule op_type_sound
    >> rpt (disch_then drule)
    >> disch_then (qspec_then `s1.ffi` mp_tac)
