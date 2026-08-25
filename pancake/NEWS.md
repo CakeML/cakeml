@@ -29,7 +29,7 @@ Pancake now supports exception declarations, and has a revised
 exception syntax. For example:
 
     exception Err : 1; // Declare an exception Err with payload of shape 1
-    
+
     fun 1 f() {
       throw Err (5+1); // Throw exception Err with payload 6 attached.
     }
@@ -130,6 +130,19 @@ The Pancake compiler now unconditionally compiles with GC set to `none`; any
 `--gc=...` flag passed alongside `--pancake` is silently ignored. This removes
 the unused GC runtime that Zhewen Shen's BSc thesis (p. 35) noted was being
 linked into every Pancake binary.
+
+February 6th 2026
+-------------------
+
+### Function inlining
+
+The new `inline` keyword before function signatures marks functions
+that are to be considered for inlining. Function calls with exception
+handlers are never inlined. Syntax example:
+
+    inline fun 1 add5(1 x) { return x + 5; }
+
+<sub>Feature enabled: `inline`</sub>
 
 August 26th 2025
 -------------------
