@@ -429,14 +429,17 @@ val res = translate print_option_def
 val res = translate current_build_info_str_def
 val res = translate compilerTheory.help_string_def;
 val res = translate newsTheory.news_def
+val res = translate (newsTheory.query_news_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 val res = translate (has_pancake_news_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
+val res = translate parse_pancake_feature_def
+val res = translate print_bool_def
 
 Definition nonzero_exit_code_for_error_msg_def:
-                                                 nonzero_exit_code_for_error_msg e =
-if compiler$is_error_msg e then
-  (let a = empty_ffi «nonzero_exit» in
-     ml_translator$force_out_of_memory_error ())
-else ()
+  nonzero_exit_code_for_error_msg e =
+  if compiler$is_error_msg e then
+    (let a = empty_ffi «nonzero_exit» in
+       ml_translator$force_out_of_memory_error ())
+  else ()
 End
 
 val res = translate compilerTheory.is_error_msg_def;

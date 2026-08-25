@@ -80,5 +80,5 @@ val feature_lines_tm =
 
 Definition query_news_def:
   query_news s =
-  MEM ^feature_lines_tm s
+  MEM s ^feature_lines_tm
 End
