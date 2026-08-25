@@ -54,6 +54,7 @@ structure astSyntax = struct
   val Or = prim_mk_const{Thy="ast",Name="Or"};
   val Orelse = prim_mk_const{Thy="ast",Name="Orelse"};
   val Pany = prim_mk_const{Thy="ast",Name="Pany"};
+  val PtrEq = prim_mk_const{Thy="ast",Name="PtrEq"};
   val Ror = prim_mk_const{Thy="ast",Name="Ror"};
   val Strcat = prim_mk_const{Thy="ast",Name="Strcat"};
   val Strlen = prim_mk_const{Thy="ast",Name="Strlen"};

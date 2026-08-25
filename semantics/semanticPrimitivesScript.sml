@@ -261,6 +261,9 @@ Datatype:
    ; next_type_stamp : num
    ; next_exn_stamp : num
    ; eval_state :  eval_state option
+   (* oracle deciding whether each successive PtrEq returns the result of
+      structural equality (T) or is attenuated to false (F) *)
+   ; ptr_eq_oracle : num -> bool
    |>
 End
 

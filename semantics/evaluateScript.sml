@@ -141,6 +141,15 @@ Definition evaluate_def[nocompute]:
               | (st2, Rerr e) => (( st2 with<| eval_state :=
                   (reset_env_generation st'.eval_state st2.eval_state) |>), Rerr e))
         | (st1, Rerr e) => (st1, Rerr e))
+    | PtrEqOp =>
+       (case REVERSE vs of
+          [v1; v2] =>
+            (case do_eq v1 v2 of
+               Eq_type_error => (st', Rerr (Rabort Rtype_error))
+             | Eq_val b =>
+                 (st' with ptr_eq_oracle := (λn. st'.ptr_eq_oracle (n + 1)),
+                  Rval [Boolv (b ∧ st'.ptr_eq_oracle 0)]))
+        | _ => (st', Rerr (Rabort Rtype_error)))
     | Simple =>
         (case do_app (st'.refs,st'.ffi) op (REVERSE vs) of
           NONE => (st', Rerr (Rabort Rtype_error))

@@ -81,6 +81,9 @@ Datatype:
   (* Operations on words *)
   | Shift word_size shift num
   | Equality
+  (* Pointer equality: true implies structural equality, but may
+     spuriously return false for structurally equal values *)
+  | PtrEq
   | Test test prim_type
   (* Function application *)
   | Opapp
@@ -142,6 +145,7 @@ Datatype:
     EvalOp (* Eval primitive *)
   | FunApp (* function application *)
   | Force (* forcing a thunk *)
+  | PtrEqOp (* pointer equality *)
   | Simple (* arithmetic operation, no finite-precision/reals *)
 End
 
@@ -151,6 +155,7 @@ Definition getOpClass_def[simp]:
   | Opapp => FunApp
   | Eval => EvalOp
   | ThunkOp t => (if t = ForceThunk then Force else Simple)
+  | PtrEq => PtrEqOp
   | _ => Simple
 End
 
