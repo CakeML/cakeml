@@ -99,25 +99,22 @@ End
 
 (* Asserts that cnf is saved in the file system. *)
 Definition cnf_saved_def:
-  cnf_saved fs pfx name cnf =
-  ∃content.
-    get_file_content fs (make_fname pfx name) = SOME content ∧
-    is_cnf_str cnf content
+  cnf_saved fs name cnf =
+    ∃content. get_file_content fs name = SOME content ∧ is_cnf_str cnf content
 End
 
 (* Asserts that cnfs for the checker are saved in the file system. *)
 Definition cnf_checks_saved_def:
-  cnf_checks_saved fs pfx
+  cnf_checks_saved fs fnames
     reset transition property base step liveness decrease closure consistent
   =
-  LIST_REL (cnf_saved fs pfx)
-    [«reset»; «transition»; «property»; «base»; «step»;
-     «liveness»; «decrease»; «closure»; «consistent»]
+  LIST_REL (cnf_saved fs) fnames
     [reset; transition; property; base; step;
      liveness; decrease; closure; consistent]
 End
 
-(* Asserts that if out = «SUCCESS», then:
+(* Asserts that if out = «SUCCESS» and the files to be written do not yet
+   exist in the filesystem, then:
    1. getting the model (parsing + processing) was successful
    2. there exist 9 CNF formulas, such that
      2.1 their string representations are saved in the file system
@@ -125,17 +122,27 @@ End
    Note that, on success, fs' is the file system right after the
    last certificate has been written to disk. In particular, it is before
    printing SUCCESS to stdout. The connection to printing SUCCESS to stdout is
-   in the CFCML specification of make_cert. *)
+   in the CFCML specification of make_cert.
+   The reason we assume that the files do not yet exist is because of
+   hard links: suppose that all the files we write already exist and are
+   pointing to the same inode. In that case, all files will have the same
+   content, namely the content of the last write. *)
 Definition make_cert_sem_def:
   make_cert_sem fs fs' fmodel out prefix ⇔
-    (out = «SUCCESS» ⇒
+  let
+    fnames =
+      MAP (make_fname prefix)
+        [«reset»; «transition»; «property»; «base»; «step»; «liveness»;
+         «decrease»; «closure»; «consistent»]
+  in
+    (out = «SUCCESS» ∧ EVERY (λf. ALOOKUP fs.files f = NONE) fnames ⇒
      ∃mcirc mreset mnext mpreds mcnstrs mlive mlatches
       reset transition property base step liveness decrease closure consistent.
         get_model fs fmodel =
           SOME (mcirc, mreset, mnext, mpreds, mcnstrs, mlive, mlatches) ∧
-        cnf_checks_saved fs' prefix
-           reset transition property base step liveness decrease
-           closure consistent ∧
+        LIST_REL (cnf_saved fs') fnames
+          [reset; transition; property; base; step; liveness; decrease;
+           closure; consistent] ∧
         (EVERY is_unsat
            [reset; transition; property; base; step; liveness; decrease;
             closure; consistent]
@@ -691,6 +698,7 @@ QED
 
 (*** make_cert ****************************************************************)
 
+(* Tactic to close goals after printing an error. *)
 val print_err_tac =
   xsimpl >> rw []
   >> qmatch_goalsub_abbrev_tac ‘add_stderr _ msg’
@@ -699,28 +707,6 @@ val print_err_tac =
   >> DEP_REWRITE_TAC [add_stdout_nil]
   >> conj_tac >- (irule STD_streams_add_stderr >> simp [])
   >> xsimpl
-(*
-val make_cnf_and_write_tac =
-  (* Simplify environment to avoid CF grinding to a halt *)
-  simp [extend_env_def, astTheory.pat_bindings_def]
-  >> xlet_autop
-  >> qmatch_asmsub_abbrev_tac ‘PAIR_TYPE STRING_TYPE STRING_TYPE out_string’
-  >> PairCases_on ‘out_string’
-  >> gvs [PAIR_TYPE_def]
-  >> xmatch
-  >> xlet_autop
-  >> xlet_auto
-  >- (
-    xsimpl
-    >> Cases_on ‘prefix’
-    >> gvs [make_fname_def, concat_def, FILENAME_def,
-            make_reset_string_def, make_transition_string_def,
-            make_property_string_def, make_base_string_def,
-            make_step_string_def, make_liveness_string_def,
-            make_decrease_string_def, make_closure_string_def,
-            make_consistent_string_def]
-  )
-*)
 
 (* Tactic to dispatch the sideconditions of the write_{reset,transition,...}
    functions. *)
@@ -730,28 +716,37 @@ val write_side_tac : tactic =
   >> qpat_assum ‘is_cnf_str _ _’ $ irule_at Any
   >> simp [] >> xsimpl
 
-(*
-Theorem bar:
-  n' ≠ n ⇒
-  get_file_content (write_file fs n' content) n = get_file_content fs n
+Theorem make_fname_name_neq[local,simp]:
+  make_fname pfx s' ≠ make_fname pfx s ⇔ s' ≠ s
 Proof
-  rw [get_file_content_def, write_file_def]
-  >> CASE_TAC >> gvs []
-  >> CASE_TAC >> gvs []
-  >- metis_tac [fresh_iname_spec]
-  >> simp [AFUPDKEY_ALOOKUP, AllCaseEqs()]
+  simp [make_fname_def, concat_def]
+  >> rpt (CASE_TAC >> simp [])
 QED
 
-Theorem foo:
-  n' ≠ n
-  ⇒
-  (cnf_saved (write_file fs (make_fn prefix n') content') prefix n cnf
-   ⇔
-   cnf_saved fs prefix n' cnf)
+Theorem ALOOKUP_write_file_files_neq[local]:
+  n' ≠ n ⇒ (ALOOKUP (write_file fs n' str).files n = ALOOKUP fs.files n)
 Proof
-  rw [cnf_saved_def]
+  rw [write_file_def] >> CASE_TAC >> gvs []
 QED
-*)
+
+Theorem cnf_saved_write_file_files_neq[local]:
+  n' ≠ n ∧ ALOOKUP fs.files n' = NONE ⇒
+  (cnf_saved (write_file fs n' content') n cnf ⇔ cnf_saved fs n cnf)
+Proof
+  rw [cnf_saved_def, get_file_content_def, write_file_def]
+  >> CASE_TAC >> gvs []
+  >> metis_tac [fresh_iname_spec]
+QED
+
+Theorem cnf_saved_write_file_files_eq[local]:
+  consistentFS fs ⇒
+  (cnf_saved (write_file fs n content) n cnf ⇔ is_cnf_str cnf content)
+Proof
+  rw [cnf_saved_def, get_file_content_def, write_file_def]
+  >> CASE_TAC >> gvs [AFUPDKEY_ALOOKUP]
+  >> CASE_TAC >> gvs [consistentFS_def, ALOOKUP_NONE]
+  >> metis_tac []
+QED
 
 Theorem make_cert_spec:
   FILENAME fmodel fmodelv ∧
@@ -773,9 +768,8 @@ Theorem make_cert_spec:
 Proof
   rw []
   >> xcf "make_cert" prog
-  >> simp [Once STDIO_STD_streams] >> xpull
-  >> xlet_auto >- (xcon >> xsimpl)
-  (* NOTE next xlet slow: ~24s *)
+  >> simp [Once STDIO_STD_streams, Once STDIO_consistentFS] >> xpull
+  >> xlet_autop
   >> xlet ‘POSTv sv.
        &OPTION_TYPE STRING_TYPE
          (monad_bind (file_content fs fmodel) (SOME ∘ implode)) sv *
@@ -784,7 +778,7 @@ Proof
   >> Cases_on ‘file_content fs fmodel’ >> gvs [OPTION_TYPE_def]
   >> xmatch
   >- (xapp >> xsimpl >> qexistsl [‘emp’, ‘fs’] >> print_err_tac)
-  >> xlet_auto >- (xcon >> xsimpl)
+  >> xlet_autop
   >> xlet ‘POSTv sv.
        &OPTION_TYPE STRING_TYPE
          (monad_bind (file_content fs fwitness) (SOME ∘ implode)) sv *
@@ -793,7 +787,7 @@ Proof
   >> Cases_on ‘file_content fs fwitness’ >> gvs [OPTION_TYPE_def]
   >> xmatch
   >- (xapp >> xsimpl >> qexistsl [‘emp’, ‘fs’] >> print_err_tac)
-  >> xlet_auto >- xsimpl
+  >> xlet_autop
   >> qmatch_asmsub_abbrev_tac ‘parse model witness’
   >> reverse $ Cases_on ‘parse model witness’
   >- (
@@ -808,7 +802,7 @@ Proof
   >> PairCases_on ‘res’
   >> gvs [ERRORMONAD_ERROR_TYPE_def, PAIR_TYPE_def]
   >> xmatch
-  >> xlet_auto >- xsimpl
+  >> xlet_autop
   >> reverse $ Cases_on ‘process_and_check res0 res1 res2’
   >- (
     qmatch_asmsub_rename_tac ‘error err’
@@ -832,13 +826,19 @@ Proof
   >> conj_tac
 
   >- (
-    simp [make_cert_sem_def]
+    rw [make_cert_sem_def]
     (* Showing get_model is successful *)
     >> simp [get_model_def]
     >> drule_then assume_tac parse_imp_parse_model >> simp []
     >> drule_then assume_tac process_and_check_imp_process_model >> simp []
-    (* Showing cnf_checks_saved *)
-    >> simp [cnf_checks_saved_def]
+    (* Showing cnf_saved *)
+    >> simp [Abbr ‘fs'’, Req0 cnf_saved_write_file_files_eq,
+             cnf_saved_write_file_files_neq, ALOOKUP_write_file_files_neq]
+    (* Showing is_cnf_str *)
+    >> rpt (qpat_assum ‘is_cnf_str _ _’ $ irule_at Any)
+    (* Showing unsat ⇒ safe + live *)
+    >> simp [GSYM encodings_unsat_def]
+    (* TODO probably get rest of our conditions from process_and_check *)
     >> cheat
   )
   >> xsimpl
