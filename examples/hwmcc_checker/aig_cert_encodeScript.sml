@@ -2254,20 +2254,32 @@ QED
 
 (* Main encoder theorems ******************************************************)
 
+Definition reset_encoding_is_unsat_def:
+  reset_encoding_is_unsat
+    mcirc mreset mcnstrs mlatches
+    wcirc wreset wcnstrs wlatches klatches
+  ⇔
+  (¬∃ss.
+    (eval_circuit ss
+       (encode_is_witness_reset
+          mcirc mreset mcnstrs mlatches
+          wcirc wreset wcnstrs wlatches klatches)
+       (Named (Ext «reset»))))
+End
+
 Theorem eval_circuit_encode_is_witness_reset:
   (set klatches) = (set mlatches) ∩ (set wlatches)
   ⇒
-  ((¬∃ss.
-      (eval_circuit ss
-                    (encode_is_witness_reset
-                     mcirc mreset mcnstrs mlatches
-                     wcirc wreset wcnstrs wlatches klatches)
-                    (Named (Ext «reset»)))) =
-  is_witness_reset
-  mcirc mreset (set mcnstrs) (set mlatches)
-  wcirc wreset (set wcnstrs) (set wlatches))
+  (reset_encoding_is_unsat
+    mcirc mreset mcnstrs mlatches
+    wcirc wreset wcnstrs wlatches klatches
+   =
+   is_witness_reset
+     mcirc mreset (set mcnstrs) (set mlatches)
+     wcirc wreset (set wcnstrs) (set wlatches))
 Proof
   simp [
+      reset_encoding_is_unsat_def,
       is_witness_reset_def, encode_is_witness_reset_def,
       eval_circuit_encode_imply,
       eval_lit_encode_preds_hold_Named,
@@ -2276,21 +2288,32 @@ Proof
   >> metis_tac []
 QED
 
-Theorem eval_circuit_encode_is_witness_transition:
-  (set klatches) = (set mlatches) ∩ (set wlatches)
-  ⇒
-  ((¬∃ss.
+Definition transition_encoding_is_unsat_def:
+  transition_encoding_is_unsat
+    mcirc mnext mcnstrs mlatches
+    wcirc wnext wcnstrs wlatches klatches
+  ⇔
+  (¬∃ss.
      (eval_circuit ss
        (encode_is_witness_transition
           mcirc mnext mcnstrs mlatches
           wcirc wnext wcnstrs wlatches klatches)
-       (Named (Ext «transition»)))) ⇔
+       (Named (Ext «transition»))))
+End
+
+Theorem eval_circuit_encode_is_witness_transition:
+  (set klatches) = (set mlatches) ∩ (set wlatches)
+  ⇒
+  (transition_encoding_is_unsat
+    mcirc mnext mcnstrs mlatches
+    wcirc wnext wcnstrs wlatches klatches ⇔
   is_witness_transition
     mcirc mnext (set mcnstrs) (set mlatches)
     wcirc wnext (set wcnstrs) (set wlatches))
 Proof
   strip_tac
   >> simp [
+      transition_encoding_is_unsat_def,
       encode_is_witness_transition_def,
       eval_circuit_encode_imply,
       encode_is_next_def, encode_is_next_with_def,
@@ -2318,18 +2341,30 @@ Proof
   >> metis_tac []
 QED
 
-Theorem eval_circuit_encode_is_witness_property:
+Definition property_encoding_is_unsat_def:
+  property_encoding_is_unsat
+    mcirc mcnstrs mpreds
+    wcirc wcnstrs wpreds
+  ⇔
   (¬∃ss.
      (eval_circuit ss
        (encode_is_witness_property
           mcirc mcnstrs mpreds
           wcirc wcnstrs wpreds)
-       (Named (Ext «property»)))) =
+       (Named (Ext «property»))))
+End
+
+Theorem eval_circuit_encode_is_witness_property:
+  property_encoding_is_unsat
+    mcirc mcnstrs mpreds
+    wcirc wcnstrs wpreds
+  =
   is_witness_property
     mcirc (set mpreds) (set mcnstrs)
     wcirc (set wpreds) (set wcnstrs)
 Proof
   simp [
+      property_encoding_is_unsat_def,
       encode_is_witness_property_def,
       eval_circuit_encode_imply,
       eval_lit_encode_preds_hold_Named,
@@ -2338,16 +2373,26 @@ Proof
   >> metis_tac []
 QED
 
-Theorem eval_circuit_encode_is_witness_base:
+Definition base_encoding_is_unsat_def:
+  base_encoding_is_unsat
+    wcirc wreset wcnstrs wpreds wlatches
+  ⇔
   (¬∃ss.
      (eval_circuit ss
        (encode_is_witness_base
           wcirc wreset wcnstrs wpreds wlatches)
-       (Named (Ext «base»)))) =
+       (Named (Ext «base»))))
+End
+
+Theorem eval_circuit_encode_is_witness_base:
+  base_encoding_is_unsat
+    wcirc wreset wcnstrs wpreds wlatches
+  =
   is_witness_base
     wcirc wreset (set wpreds) (set wcnstrs) (set wlatches)
 Proof
   simp [
+      base_encoding_is_unsat_def,
       encode_is_witness_base_def,
       eval_circuit_encode_imply,
       eval_lit_encode_preds_hold_Named,
@@ -2357,15 +2402,25 @@ Proof
   >> metis_tac []
 QED
 
-Theorem eval_circuit_encode_is_witness_step:
+Definition step_encoding_is_unsat_def:
+  step_encoding_is_unsat
+    wcirc wnext wcnstrs wpreds wlatches
+  ⇔
   (¬∃ss.
      (eval_circuit ss
        (encode_is_witness_step
           wcirc wnext wcnstrs wpreds wlatches)
-       (Named (Ext «step»)))) =
+       (Named (Ext «step»))))
+End
+
+Theorem eval_circuit_encode_is_witness_step:
+  step_encoding_is_unsat
+    wcirc wnext wcnstrs wpreds wlatches
+   =
   is_witness_step wcirc wnext (set wpreds) (set wcnstrs) (set wlatches)
 Proof
   simp [
+      step_encoding_is_unsat_def,
       encode_is_witness_step_def,
       eval_circuit_encode_imply,
       eval_lit_encode_preds_hold_Named,
@@ -2379,15 +2434,26 @@ Proof
   >> metis_tac []
 QED
 
-Theorem eval_circuit_encode_is_witness_liveness:
-  LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive wlive
-  ⇒
+Definition liveness_encoding_is_unsat_def:
+  liveness_encoding_is_unsat
+    mcirc mcnstrs mlive
+    wcirc wnext wcnstrs wpreds wlive wlatches interv
+  ⇔
   (¬∃ss.
      (eval_circuit ss
        (encode_is_witness_liveness
           mcirc mcnstrs mlive
           wcirc wnext wcnstrs wpreds wlive wlatches interv)
-       (Named (Ext «liveness»)))) =
+       (Named (Ext «liveness»))))
+End
+
+Theorem eval_circuit_encode_is_witness_liveness:
+  LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive wlive
+  ⇒
+  liveness_encoding_is_unsat
+    mcirc mcnstrs mlive
+    wcirc wnext wcnstrs wpreds wlive wlatches interv
+  =
   is_witness_liveness
     mcirc (set mcnstrs) (qleft mcirc) (qleft_live mlive)
     wcirc wreset wnext (set wpreds) (set wcnstrs)
@@ -2397,6 +2463,7 @@ Proof
   >> qmatch_goalsub_abbrev_tac
        ‘is_witness_liveness _ _ _ mlive' _ _ _ _ _ _ wlive' _’
   >> simp [
+      liveness_encoding_is_unsat_def,
       encode_is_witness_liveness_def,
       eval_circuit_encode_imply,
       encode_is_next_def, encode_is_next_with_def, is_next_def,
@@ -2434,17 +2501,27 @@ Proof
   >> metis_tac []
 QED
 
-Theorem eval_circuit_encode_is_witness_decrease:
+Definition decrease_encoding_is_unsat_def:
+  decrease_encoding_is_unsat
+    wcirc wnext wcnstrs wpreds wlive wlatches interv
+  ⇔
   (¬∃ss.
      (eval_circuit ss
        (encode_is_witness_decrease
           wcirc wnext wcnstrs wpreds wlive wlatches interv)
-       (Named (Ext «decrease»)))) =
+       (Named (Ext «decrease»))))
+End
+
+Theorem eval_circuit_encode_is_witness_decrease:
+  decrease_encoding_is_unsat
+    wcirc wnext wcnstrs wpreds wlive wlatches interv
+  =
   is_witness_decrease
     wcirc wnext (set wpreds) (set wcnstrs)
     (qinterv_l_r interv wcirc) (qinterv_live_l_r interv wlive) (set wlatches)
 Proof
   simp [
+      decrease_encoding_is_unsat_def,
       encode_is_witness_decrease_def,
       eval_circuit_encode_imply,
       eval_lit_encode_preds_hold_Named,
@@ -2466,17 +2543,27 @@ Proof
   >> metis_tac []
 QED
 
-Theorem eval_circuit_encode_is_witness_closure:
+Definition closure_encoding_is_unsat_def:
+  closure_encoding_is_unsat
+    wcirc wnext wcnstrs wpreds wlive wlatches interv
+  ⇔
   (¬∃ss.
      (eval_circuit ss
        (encode_is_witness_closure
           wcirc wnext wcnstrs wpreds wlive wlatches interv)
-       (Named (Ext «closure»)))) =
+       (Named (Ext «closure»))))
+End
+
+Theorem eval_circuit_encode_is_witness_closure:
+  closure_encoding_is_unsat
+    wcirc wnext wcnstrs wpreds wlive wlatches interv
+   =
   is_witness_closure
     wcirc wnext (set wpreds) (set wcnstrs)
     (qinterv_l_r interv wcirc) (qinterv_live_l_r interv wlive) (set wlatches)
 Proof
   simp [
+      closure_encoding_is_unsat_def,
       encode_is_witness_closure_def,
       eval_circuit_encode_imply,
       eval_lit_encode_preds_hold_Named,
@@ -2500,17 +2587,27 @@ Proof
   >> metis_tac []
 QED
 
-Theorem eval_circuit_encode_is_witness_consistent:
+Definition consistent_encoding_is_unsat_def:
+  consistent_encoding_is_unsat
+    wcirc wnext wcnstrs wpreds wlive wlatches interv
+  ⇔
   (¬∃ss.
      (eval_circuit ss
        (encode_is_witness_consistent
           wcirc wnext wcnstrs wpreds wlive wlatches interv)
-       (Named (Ext «consistent»)))) =
+       (Named (Ext «consistent»))))
+End
+
+Theorem eval_circuit_encode_is_witness_consistent:
+  consistent_encoding_is_unsat
+    wcirc wnext wcnstrs wpreds wlive wlatches interv
+   =
   is_witness_consistent
     wcirc wnext (set wpreds) (set wcnstrs)
     (qinterv_l_r interv wcirc) (qinterv_live_l_r interv wlive) (set wlatches)
 Proof
   simp [
+      consistent_encoding_is_unsat_def,
       encode_is_witness_consistent_def,
       eval_circuit_encode_imply,
       encode_is_next_with_def,
@@ -2818,44 +2915,28 @@ Definition encodings_unsat_def:
     wcirc wreset wnext wpreds wcnstrs wlive wlatches
     interv klatches
   ⇔
-   (¬∃ss.
-      eval_circuit ss
-        (encode_is_witness_reset mcirc mreset mcnstrs mlatches wcirc
-           wreset wcnstrs wlatches klatches) (Named (Ext «reset»))) ∧
-   (¬∃ss.
-      eval_circuit ss
-        (encode_is_witness_transition mcirc mnext mcnstrs mlatches wcirc
-           wnext wcnstrs wlatches klatches) (Named (Ext «transition»))) ∧
-   (¬∃ss.
-      eval_circuit ss
-        (encode_is_witness_property mcirc mcnstrs mpreds wcirc wcnstrs
-           wpreds) (Named (Ext «property»))) ∧
-   (¬∃ss.
-     (eval_circuit ss
-       (encode_is_witness_base wcirc wreset wcnstrs wpreds wlatches)
-         (Named (Ext «base»)))) ∧
-   (¬∃ss.
-      eval_circuit ss
-        (encode_is_witness_step wcirc wnext wcnstrs wpreds wlatches)
-        (Named (Ext «step»))) ∧
-   (¬∃ss.
-      eval_circuit ss
-        (encode_is_witness_liveness mcirc mcnstrs mlive wcirc wnext
-           wcnstrs wpreds wlive wlatches interv) (Named (Ext «liveness»))) ∧
-  (¬∃ss.
-     (eval_circuit ss
-        (encode_is_witness_decrease wcirc wnext wcnstrs wpreds wlive
-           wlatches interv)
-       (Named (Ext «decrease»)))) ∧
-  (¬∃ss.
-     (eval_circuit ss
-        (encode_is_witness_closure wcirc wnext wcnstrs wpreds wlive
-           wlatches interv)
-       (Named (Ext «closure»)))) ∧
-  (¬∃ss.
-     (eval_circuit ss
-       (encode_is_witness_consistent wcirc wnext wcnstrs wpreds wlive
-          wlatches interv) (Named (Ext «consistent»))))
+    (reset_encoding_is_unsat
+       mcirc mreset mcnstrs mlatches
+       wcirc wreset wcnstrs wlatches klatches) ∧
+    (transition_encoding_is_unsat
+       mcirc mnext mcnstrs mlatches
+       wcirc wnext wcnstrs wlatches klatches) ∧
+    (property_encoding_is_unsat
+       mcirc mcnstrs mpreds
+       wcirc wcnstrs wpreds) ∧
+    (base_encoding_is_unsat
+       wcirc wreset wcnstrs wpreds wlatches) ∧
+    (step_encoding_is_unsat
+       wcirc wnext wcnstrs wpreds wlatches) ∧
+    (liveness_encoding_is_unsat
+       mcirc mcnstrs mlive
+       wcirc wnext wcnstrs wpreds wlive wlatches interv) ∧
+    (decrease_encoding_is_unsat
+       wcirc wnext wcnstrs wpreds wlive wlatches interv) ∧
+    (closure_encoding_is_unsat
+       wcirc wnext wcnstrs wpreds wlive wlatches interv) ∧
+    (consistent_encoding_is_unsat
+       wcirc wnext wcnstrs wpreds wlive wlatches interv)
 End
 
 (** dep_model *****************************************************************)

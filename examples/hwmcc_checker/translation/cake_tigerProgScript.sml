@@ -33,10 +33,109 @@ End
 val r = translate usage_string_def;
 
 Definition make_fname_def:
-  (make_fname NONE s = s ^ «.cnf») ∧
-  (make_fname (SOME pfx) s = concat [pfx; s; «.cnf»])
+  make_fname pfx s = concat [pfx; s; «.cnf»]
 End
 val r = translate make_fname_def;
+
+(* By splitting the writes we can write separate CFCML specifications for them,
+   making the proof of make_cert's postcondition cleaner.
+   By writing immediately after generating the string (as opposed to doing all
+   writing at the end), we don't need to keep all strings around at the same
+   time. *)
+
+Quote add_cakeml:
+  fun write_reset
+    prefix mcirc mreset mcnstrs mlatches wcirc wreset wcnstrs wlatches klatches
+  =
+  let
+    (* val _ = print "making reset...\n" *)
+    val (name, str) =
+      make_reset_string mcirc mreset mcnstrs mlatches wcirc wreset wcnstrs
+        wlatches klatches
+  in TextIO.outputFile (make_fname prefix name) str end
+End
+
+Quote add_cakeml:
+  fun write_transition
+    prefix mcirc mnext mcnstrs mlatches wcirc wnext wcnstrs wlatches klatches
+  =
+  let
+    (* val _ = print "making transition...\n" *)
+    val (name, str) =
+      make_transition_string mcirc mnext mcnstrs mlatches wcirc wnext wcnstrs
+        wlatches klatches
+  in TextIO.outputFile (make_fname prefix name) str end
+End
+
+Quote add_cakeml:
+  fun write_property prefix mcirc mcnstrs mpreds wcirc wcnstrs wpreds
+  =
+  let
+    (* val _ = print "making property...\n" *)
+    val (name, str) =
+      make_property_string mcirc mcnstrs mpreds wcirc wcnstrs wpreds
+  in TextIO.outputFile (make_fname prefix name) str end
+End
+
+Quote add_cakeml:
+  fun write_base prefix wcirc wreset wcnstrs wpreds wlatches
+  =
+  let
+    (* val _ = print "making base...\n" *)
+    val (name, str) = make_base_string wcirc wreset wcnstrs wpreds wlatches
+  in TextIO.outputFile (make_fname prefix name) str end
+End
+
+Quote add_cakeml:
+  fun write_step prefix wcirc wnext wcnstrs wpreds wlatches
+  =
+  let
+    (* val _ = print "making step...\n" *)
+    val (name, str) = make_step_string wcirc wnext wcnstrs wpreds wlatches
+  in TextIO.outputFile (make_fname prefix name) str end
+End
+
+Quote add_cakeml:
+  fun write_liveness
+    prefix mcirc mcnstrs mlive wcirc wnext wcnstrs wpreds wlive wlatches interv
+  =
+  let
+    (* val _ = print "making liveness...\n" *)
+    val (name, str) =
+      make_liveness_string
+       mcirc mcnstrs mlive wcirc wnext wcnstrs wpreds wlive wlatches interv
+  in TextIO.outputFile (make_fname prefix name) str end
+End
+
+Quote add_cakeml:
+  fun write_decrease prefix wcirc wnext wcnstrs wpreds wlive wlatches interv
+  =
+  let
+    (* val _ = print "making decrease...\n" *)
+    val (name, str) =
+      make_decrease_string wcirc wnext wcnstrs wpreds wlive wlatches interv
+  in TextIO.outputFile (make_fname prefix name) str end
+End
+
+Quote add_cakeml:
+  fun write_closure prefix wcirc wnext wcnstrs wpreds wlive wlatches interv
+  =
+  let
+    (* val _ = print "making closure...\n" *)
+    val (name, str) =
+      make_closure_string wcirc wnext wcnstrs wpreds wlive wlatches interv
+  in TextIO.outputFile (make_fname prefix name) str end
+End
+
+Quote add_cakeml:
+  fun write_consistent prefix wcirc wnext wcnstrs wpreds wlive wlatches interv
+  =
+  let
+    (* val _ = print "making consistent...\n" *)
+    val (name, str) =
+      make_consistent_string wcirc wnext wcnstrs wpreds wlive wlatches interv
+  in TextIO.outputFile (make_fname prefix name) str end
+End
 
 Quote add_cakeml:
   fun make_cert fmodel fwitness prefix =
@@ -54,62 +153,40 @@ Quote add_cakeml:
   | Return
       (mcirc, (mreset, (mnext, (mpreds, (mcnstrs, (mlive, (mlatches,
         (wcirc, (wreset, (wnext, (wpreds, (wcnstrs, (wlive, (wlatches,
-          (interv, klatches))))))))))))))) =>
-    let
-      (* val _ = print "making reset...\n" *)
-      val (name, str) =
-        make_reset_string mcirc mreset mcnstrs mlatches wcirc wreset wcnstrs
-          wlatches klatches
-      val _ = outputFile (make_fname prefix name) str
-      (* val _ = print "making transition...\n" *)
-      val (name, str) =
-        make_transition_string mcirc mnext mcnstrs mlatches wcirc wnext wcnstrs
-          wlatches klatches
-      val _ = outputFile (make_fname prefix name) str
-      (* val _ = print "making property...\n" *)
-      val (name, str) =
-        make_property_string mcirc mcnstrs mpreds wcirc wcnstrs wpreds
-      val _ = outputFile (make_fname prefix name) str
-      (* val _ = print "making base...\n" *)
-      val (name, str) =
-        make_base_string wcirc wreset wcnstrs wpreds wlatches
-      val _ = outputFile (make_fname prefix name) str
-      (* val _ = print "making step...\n" *)
-      val (name, str) =
-        make_step_string wcirc wnext wcnstrs wpreds wlatches
-      val _ = outputFile (make_fname prefix name) str
-      (* val _ = print "making liveness...\n" *)
-      val (name, str) =
-        make_liveness_string mcirc mcnstrs mlive
-          wcirc wnext wcnstrs wpreds wlive wlatches interv
-      val _ = outputFile (make_fname prefix name) str
-      (* val _ = print "making decrease...\n" *)
-      val (name, str) =
-        make_decrease_string wcirc wnext wcnstrs wpreds wlive wlatches interv
-      val _ = outputFile (make_fname prefix name) str
-      (* val _ = print "making closure...\n" *)
-      val (name, str) =
-        make_closure_string wcirc wnext wcnstrs wpreds wlive wlatches interv
-      val _ = outputFile (make_fname prefix name) str
-     (* val _ = print "making consistent...\n" *)
-      val (name, str) =
-        make_consistent_string wcirc wnext wcnstrs wpreds wlive wlatches interv
-      val _ = outputFile (make_fname prefix name) str
-      val _ = print "SUCCESS"
-    in () end
+          (interv, klatches))))))))))))))) => (
+      write_reset
+        prefix mcirc mreset mcnstrs mlatches wcirc wreset wcnstrs
+        wlatches klatches;
+      write_transition
+        prefix mcirc mnext mcnstrs mlatches wcirc wnext wcnstrs
+        wlatches klatches;
+      write_property prefix mcirc mcnstrs mpreds wcirc wcnstrs wpreds;
+      write_base prefix wcirc wreset wcnstrs wpreds wlatches;
+      write_step prefix wcirc wnext wcnstrs wpreds wlatches;
+      write_liveness
+        prefix mcirc mcnstrs mlive wcirc wnext wcnstrs wpreds wlive wlatches
+        interv;
+      write_decrease prefix wcirc wnext wcnstrs wpreds wlive wlatches interv;
+      write_closure prefix wcirc wnext wcnstrs wpreds wlive wlatches interv;
+      write_consistent prefix wcirc wnext wcnstrs wpreds wlive wlatches interv;
+      print "SUCCESS"
+    )
 End
 
 Quote add_cakeml:
-  fun main_function () =
+  fun main () =
   case CommandLine.arguments () of
-    [fmodel, fwitness] => make_cert fmodel fwitness None
-  | [fmodel, fwitness, prefix] =>
-      make_cert fmodel fwitness (Some prefix)
+    [fmodel, fwitness] => make_cert fmodel fwitness ""
+  | [fmodel, fwitness, prefix] => make_cert fmodel fwitness prefix
   | _ => TextIO.output TextIO.stdErr usage_string
 End
 
+(* TODO Remove once we have a proper CF spec *)
+(* for testing (type inference) ***********************************************)
+
+(*
 Quote main = cakeml:
-  main_function ();
+  main ();
 End
 
 val prog =
@@ -126,10 +203,6 @@ Definition cake_tiger_prog_def:
   cake_tiger_prog = ^prog
 End
 
-(* TODO Remove once we have a proper CF spec *)
-(* for testing (type inference) ***********************************************)
-
-(*
 val _ = cv_auto_trans inferTheory.init_config_def;
 
 val _ = cv_trans_deep_embedding EVAL cake_tiger_prog_def;

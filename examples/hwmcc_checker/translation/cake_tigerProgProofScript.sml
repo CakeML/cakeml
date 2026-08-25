@@ -3,7 +3,11 @@
 *)
 Theory cake_tigerProgProof
 Ancestors
+  errorMonad (* for bind_def *)
+  aig_to_cnf  (* for aig_to_cnf_def_correct *)
   aig_parseProg  (* for ERRORMONAD_ERROR_TYPE_def *)
+  aig_cert_encode  (* for reset_encoding_is_unsat *)
+  aig_cert_full  (* for make_reset_string_def *)
   cake_tigerProg
 Libs
   preamble
@@ -21,6 +25,15 @@ Definition parse_model_def:
     | error _ => NONE
     | return (maig, _) => SOME maig
 End
+
+Theorem parse_imp_parse_model[local]:
+  parse model witness = return (maig, waig, ms) ⇒
+  parse_model model = SOME maig
+Proof
+  rw []
+  >> gvs [parse_def, parse_model_def, oneline bind_def, AllCaseEqs()]
+  >> rpt (pairarg_tac >> gvs [AllCaseEqs()])
+QED
 
 (* Converts the parsed AIG into the semantic definition from aigScript. *)
 Definition process_model_def:
@@ -46,6 +59,22 @@ Definition process_model_def:
     (mcirc, mreset, mnext, mpreds, mcnstrs, mlive, mlatches)
 End
 
+Theorem process_and_check_imp_process_model[local]:
+  process_and_check maig waig ms =
+    return
+      (mcirc, mreset, mnext, mpreds, mcnstrs, mlive, mlatches, rest)
+  ⇒
+  process_model maig =
+    (mcirc, mreset, mnext, mpreds, mcnstrs, mlive, mlatches)
+Proof
+  simp [process_and_check_def, process_model_def, process_mlatches_range_def,
+        aig_cert_fullTheory.preprocess_def, guard_def, oneline bind_def,
+        AllCaseEqs()]
+  >> rpt (pairarg_tac >> gvs [AllCaseEqs()])
+  >> rpt strip_tac >> gvs [lookup_fromAList, FUN_EQ_THM]
+QED
+
+
 (* Reads the model from a file in the file system.
    Part of the trusted computing base. *)
 Definition get_model_def:
@@ -63,13 +92,17 @@ Definition is_unsat_def:
   is_unsat cnf = ¬satisfiable_cnf (set cnf)
 End
 
+(* Asserts that str is a string represnetation of cnf. *)
+Definition is_cnf_str_def:
+  is_cnf_str cnf str ⇔ ∃limit. str = explode (cnf_to_string (cnf, limit))
+End
+
 (* Asserts that cnf is saved in the file system. *)
 Definition cnf_saved_def:
   cnf_saved fs pfx name cnf =
-  ∃limit.
-    lits_within limit cnf ∧
-    get_file_content fs (make_fname pfx name) =
-      SOME (explode (cnf_to_string (cnf, limit)))
+  ∃content.
+    get_file_content fs (make_fname pfx name) = SOME content ∧
+    is_cnf_str cnf content
 End
 
 (* Asserts that cnfs for the checker are saved in the file system. *)
@@ -120,13 +153,543 @@ Proof
   simp [make_cert_sem_def]
 QED
 
-(* TODO Definition main_sem_def *)
+Definition main_sem_def:
+  main_sem cl fs fs' out =
+  if LENGTH cl = 3 then
+    make_cert_sem fs fs' cl❲1❳ «» out
+  else if LENGTH cl = 4 then
+    make_cert_sem fs fs' cl❲1❳ cl❲3❳ out
+  else out = «»
+End
 
-(** CFCML *******************************************************************)
+(** CFCML *********************************************************************)
 
 val _ = translation_extends "cake_tigerProg";
 
 val prog = get_ml_prog_state ()
+
+(*** write_{reset,transition,...} *********************************************)
+
+Overload "CIRCUIT_TYPE" =
+  “LIST_TYPE
+     (PAIR_TYPE NUM (LIST_TYPE (PAIR_TYPE (AIG_VAR_TYPE NUM NUM NUM) BOOL)))”
+
+Overload "LIT_TYPE" = “PAIR_TYPE (AIG_VAR_TYPE NUM NUM NUM) BOOL”
+
+Overload "LIT_LIST" = “LIST_TYPE LIT_TYPE”
+
+Overload "LATCH_LIT_TYPE" = “NUM --> LIT_TYPE”
+
+Overload "LATCH_OPTION_LIT_TYPE" = “NUM --> OPTION_TYPE LIT_TYPE”
+
+Overload "INTERV_TYPE" =
+  “AIG_VAR_TYPE NUM NUM NUM --> OPTION_TYPE (PAIR_TYPE NUM BOOL)”
+
+Theorem write_reset_spec:
+  FILENAME prefix prefixv ∧
+  strlen prefix + 9 < 65536 ∧
+  CIRCUIT_TYPE mcirc mcircv ∧
+  LATCH_OPTION_LIT_TYPE mreset mresetv ∧
+  LIT_LIST mcnstrs mcnstrsv ∧
+  LIST_TYPE NUM mlatches mlatchesv ∧
+  CIRCUIT_TYPE wcirc wcircv ∧
+  LATCH_OPTION_LIT_TYPE wreset wresetv ∧
+  LIT_LIST wcnstrs wcnstrsv ∧
+  LIST_TYPE NUM wlatches wlatchesv ∧
+  LIST_TYPE NUM klatches klatchesv ∧
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) write_reset_v
+    [prefixv; mcircv; mresetv; mcnstrsv; mlatchesv;
+     wcircv; wresetv; wcnstrsv; wlatchesv; klatchesv]
+    (STDIO fs)
+    (POSTv uv.
+       &UNIT_TYPE () uv *
+       SEP_EXISTS cnf content.
+         &(is_cnf_str cnf content ∧
+           (is_unsat cnf ⇔
+            reset_encoding_is_unsat
+              mcirc mreset mcnstrs mlatches
+              wcirc wreset wcnstrs wlatches klatches)) *
+         STDIO (write_file fs (make_fname prefix «reset») content))
+Proof
+  rw []
+  >> xcf "write_reset" prog
+  >> simp [Once STDIO_STD_streams] >> xpull
+  >> xlet_autop
+  >> qmatch_asmsub_abbrev_tac ‘PAIR_TYPE STRING_TYPE STRING_TYPE out_string’
+  >> PairCases_on ‘out_string’
+  >> gvs [PAIR_TYPE_def]
+  >> xmatch
+  >> xlet_autop
+  >> xapp_spec outputFile_spec
+  >> qexistsl [‘emp’, ‘make_fname prefix out_string0’, ‘fs’, ‘out_string1’]
+  >> conj_tac
+  >- (
+    gvs [make_fname_def, concat_def]
+    >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
+    >> gvs [FILENAME_def, make_reset_string_def]
+  )
+  >> xsimpl
+  >> rw []
+  >> gvs [make_reset_string_def]
+  >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
+  >> namedCases_on ‘cnf_limit’ ["cnf limit"]
+  >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
+  >> xsimpl
+  >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
+  >> gvs []
+  >> drule_then assume_tac aig_to_cnf_def_correct
+  >> simp [is_unsat_def, reset_encoding_is_unsat_def]
+  >> metis_tac [PAIR]
+QED
+
+Theorem write_transition_spec:
+  FILENAME prefix prefixv ∧
+  strlen prefix + 14 < 65536 ∧
+  CIRCUIT_TYPE mcirc mcircv ∧
+  LATCH_LIT_TYPE mnext mnextv ∧
+  LIT_LIST mcnstrs mcnstrsv ∧
+  LIST_TYPE NUM mlatches mlatchesv ∧
+  CIRCUIT_TYPE wcirc wcircv ∧
+  LATCH_LIT_TYPE wnext wnextv ∧
+  LIT_LIST wcnstrs wcnstrsv ∧
+  LIST_TYPE NUM wlatches wlatchesv ∧
+  LIST_TYPE NUM klatches klatchesv ∧
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) write_transition_v
+    [prefixv; mcircv; mnextv; mcnstrsv; mlatchesv;
+     wcircv; wnextv; wcnstrsv; wlatchesv; klatchesv]
+    (STDIO fs)
+    (POSTv uv.
+       &UNIT_TYPE () uv *
+       SEP_EXISTS cnf content.
+         &(is_cnf_str cnf content ∧
+           (is_unsat cnf ⇔
+            transition_encoding_is_unsat
+              mcirc mnext mcnstrs mlatches
+              wcirc wnext wcnstrs wlatches klatches)) *
+         STDIO (write_file fs (make_fname prefix «transition») content))
+Proof
+  rw []
+  >> xcf "write_transition" prog
+  >> simp [Once STDIO_STD_streams] >> xpull
+  >> xlet_autop
+  >> qmatch_asmsub_abbrev_tac ‘PAIR_TYPE STRING_TYPE STRING_TYPE out_string’
+  >> PairCases_on ‘out_string’
+  >> gvs [PAIR_TYPE_def]
+  >> xmatch
+  >> xlet_autop
+  >> xapp_spec outputFile_spec
+  >> qexistsl [‘emp’, ‘make_fname prefix out_string0’, ‘fs’, ‘out_string1’]
+  >> conj_tac
+  >- (
+    gvs [make_fname_def, concat_def]
+    >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
+    >> gvs [FILENAME_def, make_transition_string_def]
+  )
+  >> xsimpl
+  >> rw []
+  >> gvs [make_transition_string_def]
+  >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
+  >> namedCases_on ‘cnf_limit’ ["cnf limit"]
+  >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
+  >> xsimpl
+  >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
+  >> gvs []
+  >> drule_then assume_tac aig_to_cnf_def_correct
+  >> simp [is_unsat_def, transition_encoding_is_unsat_def]
+  >> metis_tac [PAIR]
+QED
+
+Theorem write_property_spec:
+  FILENAME prefix prefixv ∧
+  strlen prefix + 12 < 65536 ∧
+  CIRCUIT_TYPE mcirc mcircv ∧
+  LIT_LIST mcnstrs mcnstrsv ∧
+  LIT_LIST mpreds mpredsv ∧
+  CIRCUIT_TYPE wcirc wcircv ∧
+  LIT_LIST wcnstrs wcnstrsv ∧
+  LIT_LIST wpreds wpredsv ∧
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) write_property_v
+    [prefixv; mcircv; mcnstrsv; mpredsv; wcircv; wcnstrsv; wpredsv]
+    (STDIO fs)
+    (POSTv uv.
+       &UNIT_TYPE () uv *
+       SEP_EXISTS cnf content.
+         &(is_cnf_str cnf content ∧
+           (is_unsat cnf ⇔
+            (property_encoding_is_unsat
+               mcirc mcnstrs mpreds
+               wcirc wcnstrs wpreds))) *
+         STDIO (write_file fs (make_fname prefix «property») content))
+Proof
+  rw []
+  >> xcf "write_property" prog
+  >> simp [Once STDIO_STD_streams] >> xpull
+  >> xlet_autop
+  >> qmatch_asmsub_abbrev_tac ‘PAIR_TYPE STRING_TYPE STRING_TYPE out_string’
+  >> PairCases_on ‘out_string’
+  >> gvs [PAIR_TYPE_def]
+  >> xmatch
+  >> xlet_autop
+  >> xapp_spec outputFile_spec
+  >> qexistsl [‘emp’, ‘make_fname prefix out_string0’, ‘fs’, ‘out_string1’]
+  >> conj_tac
+  >- (
+    gvs [make_fname_def, concat_def]
+    >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
+    >> gvs [FILENAME_def, make_property_string_def]
+  )
+  >> xsimpl
+  >> rw []
+  >> gvs [make_property_string_def]
+  >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
+  >> namedCases_on ‘cnf_limit’ ["cnf limit"]
+  >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
+  >> xsimpl
+  >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
+  >> gvs []
+  >> drule_then assume_tac aig_to_cnf_def_correct
+  >> simp [is_unsat_def, property_encoding_is_unsat_def]
+  >> metis_tac [PAIR]
+QED
+
+Theorem write_base_spec:
+  FILENAME prefix prefixv ∧
+  strlen prefix + 8 < 65536 ∧
+  CIRCUIT_TYPE wcirc wcircv ∧
+  LATCH_OPTION_LIT_TYPE wreset wresetv ∧
+  LIT_LIST wcnstrs wcnstrsv ∧
+  LIT_LIST wpreds wpredsv ∧
+  LIST_TYPE NUM wlatches wlatchesv ∧
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) write_base_v
+    [prefixv; wcircv; wresetv; wcnstrsv; wpredsv; wlatchesv]
+    (STDIO fs)
+    (POSTv uv.
+       &UNIT_TYPE () uv *
+       SEP_EXISTS cnf content.
+         &(is_cnf_str cnf content ∧
+           (is_unsat cnf ⇔
+            (base_encoding_is_unsat
+               wcirc wreset wcnstrs wpreds wlatches))) *
+         STDIO (write_file fs (make_fname prefix «base») content))
+Proof
+  rw []
+  >> xcf "write_base" prog
+  >> simp [Once STDIO_STD_streams] >> xpull
+  >> xlet_autop
+  >> qmatch_asmsub_abbrev_tac ‘PAIR_TYPE STRING_TYPE STRING_TYPE out_string’
+  >> PairCases_on ‘out_string’
+  >> gvs [PAIR_TYPE_def]
+  >> xmatch
+  >> xlet_autop
+  >> xapp_spec outputFile_spec
+  >> qexistsl [‘emp’, ‘make_fname prefix out_string0’, ‘fs’, ‘out_string1’]
+  >> conj_tac
+  >- (
+    gvs [make_fname_def, concat_def]
+    >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
+    >> gvs [FILENAME_def, make_base_string_def]
+  )
+  >> xsimpl
+  >> rw []
+  >> gvs [make_base_string_def]
+  >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
+  >> namedCases_on ‘cnf_limit’ ["cnf limit"]
+  >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
+  >> xsimpl
+  >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
+  >> gvs []
+  >> drule_then assume_tac aig_to_cnf_def_correct
+  >> simp [is_unsat_def, base_encoding_is_unsat_def]
+  >> metis_tac [PAIR]
+QED
+
+Theorem write_step_spec:
+  FILENAME prefix prefixv ∧
+  strlen prefix + 8 < 65536 ∧
+  CIRCUIT_TYPE wcirc wcircv ∧
+  LATCH_LIT_TYPE wnext wnextv ∧
+  LIT_LIST wcnstrs wcnstrsv ∧
+  LIT_LIST wpreds wpredsv ∧
+  LIST_TYPE NUM wlatches wlatchesv ∧
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) write_step_v
+    [prefixv; wcircv; wnextv; wcnstrsv; wpredsv; wlatchesv]
+    (STDIO fs)
+    (POSTv uv.
+       &UNIT_TYPE () uv *
+       SEP_EXISTS cnf content.
+         &(is_cnf_str cnf content ∧
+           (is_unsat cnf ⇔
+            (step_encoding_is_unsat
+               wcirc wnext wcnstrs wpreds wlatches))) *
+         STDIO (write_file fs (make_fname prefix «step») content))
+Proof
+  rw []
+  >> xcf "write_step" prog
+  >> simp [Once STDIO_STD_streams] >> xpull
+  >> xlet_autop
+  >> qmatch_asmsub_abbrev_tac ‘PAIR_TYPE STRING_TYPE STRING_TYPE out_string’
+  >> PairCases_on ‘out_string’
+  >> gvs [PAIR_TYPE_def]
+  >> xmatch
+  >> xlet_autop
+  >> xapp_spec outputFile_spec
+  >> qexistsl [‘emp’, ‘make_fname prefix out_string0’, ‘fs’, ‘out_string1’]
+  >> conj_tac
+  >- (
+    gvs [make_fname_def, concat_def]
+    >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
+    >> gvs [FILENAME_def, make_step_string_def]
+  )
+  >> xsimpl
+  >> rw []
+  >> gvs [make_step_string_def]
+  >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
+  >> namedCases_on ‘cnf_limit’ ["cnf limit"]
+  >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
+  >> xsimpl
+  >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
+  >> gvs []
+  >> drule_then assume_tac aig_to_cnf_def_correct
+  >> simp [is_unsat_def, step_encoding_is_unsat_def]
+  >> metis_tac [PAIR]
+QED
+
+Theorem write_liveness_spec:
+  FILENAME prefix prefixv ∧
+  strlen prefix + 12 < 65536 ∧
+  CIRCUIT_TYPE mcirc mcircv ∧
+  LIT_LIST mcnstrs mcnstrsv ∧
+  LIST_TYPE LIT_LIST mlive mlivev ∧
+  CIRCUIT_TYPE wcirc wcircv ∧
+  LATCH_LIT_TYPE wnext wnextv ∧
+  LIT_LIST wcnstrs wcnstrsv ∧
+  LIT_LIST wpreds wpredsv ∧
+  LIST_TYPE LIT_LIST wlive wlivev ∧
+  LIST_TYPE NUM wlatches wlatchesv ∧
+  INTERV_TYPE interv intervv ∧
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) write_liveness_v
+    [prefixv; mcircv; mcnstrsv; mlivev;
+     wcircv; wnextv; wcnstrsv; wpredsv; wlivev; wlatchesv; intervv]
+    (STDIO fs)
+    (POSTv uv.
+       &UNIT_TYPE () uv *
+       SEP_EXISTS cnf content.
+         &(is_cnf_str cnf content ∧
+           (is_unsat cnf ⇔
+            (liveness_encoding_is_unsat
+               mcirc mcnstrs mlive
+               wcirc wnext wcnstrs wpreds wlive wlatches interv))) *
+         STDIO (write_file fs (make_fname prefix «liveness») content))
+Proof
+  rw []
+  >> xcf "write_liveness" prog
+  >> simp [Once STDIO_STD_streams] >> xpull
+  >> xlet_autop
+  >> qmatch_asmsub_abbrev_tac ‘PAIR_TYPE STRING_TYPE STRING_TYPE out_string’
+  >> PairCases_on ‘out_string’
+  >> gvs [PAIR_TYPE_def]
+  >> xmatch
+  >> xlet_autop
+  >> xapp_spec outputFile_spec
+  >> qexistsl [‘emp’, ‘make_fname prefix out_string0’, ‘fs’, ‘out_string1’]
+  >> conj_tac
+  >- (
+    gvs [make_fname_def, concat_def]
+    >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
+    >> gvs [FILENAME_def, make_liveness_string_def]
+  )
+  >> xsimpl
+  >> rw []
+  >> gvs [make_liveness_string_def]
+  >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
+  >> namedCases_on ‘cnf_limit’ ["cnf limit"]
+  >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
+  >> xsimpl
+  >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
+  >> gvs []
+  >> drule_then assume_tac aig_to_cnf_def_correct
+  >> simp [is_unsat_def, liveness_encoding_is_unsat_def]
+  >> metis_tac [PAIR]
+QED
+
+Theorem write_decrease_spec:
+  FILENAME prefix prefixv ∧
+  strlen prefix + 12 < 65536 ∧
+  CIRCUIT_TYPE wcirc wcircv ∧
+  LATCH_LIT_TYPE wnext wnextv ∧
+  LIT_LIST wcnstrs wcnstrsv ∧
+  LIT_LIST wpreds wpredsv ∧
+  LIST_TYPE LIT_LIST wlive wlivev ∧
+  LIST_TYPE NUM wlatches wlatchesv ∧
+  INTERV_TYPE interv intervv ∧
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) write_decrease_v
+    [prefixv; wcircv; wnextv; wcnstrsv; wpredsv; wlivev; wlatchesv; intervv]
+    (STDIO fs)
+    (POSTv uv.
+       &UNIT_TYPE () uv *
+       SEP_EXISTS cnf content.
+         &(is_cnf_str cnf content ∧
+           (is_unsat cnf ⇔
+            (decrease_encoding_is_unsat
+               wcirc wnext wcnstrs wpreds wlive wlatches interv))) *
+         STDIO (write_file fs (make_fname prefix «decrease») content))
+Proof
+  rw []
+  >> xcf "write_decrease" prog
+  >> simp [Once STDIO_STD_streams] >> xpull
+  >> xlet_autop
+  >> qmatch_asmsub_abbrev_tac ‘PAIR_TYPE STRING_TYPE STRING_TYPE out_string’
+  >> PairCases_on ‘out_string’
+  >> gvs [PAIR_TYPE_def]
+  >> xmatch
+  >> xlet_autop
+  >> xapp_spec outputFile_spec
+  >> qexistsl [‘emp’, ‘make_fname prefix out_string0’, ‘fs’, ‘out_string1’]
+  >> conj_tac
+  >- (
+    gvs [make_fname_def, concat_def]
+    >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
+    >> gvs [FILENAME_def, make_decrease_string_def]
+  )
+  >> xsimpl
+  >> rw []
+  >> gvs [make_decrease_string_def]
+  >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
+  >> namedCases_on ‘cnf_limit’ ["cnf limit"]
+  >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
+  >> xsimpl
+  >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
+  >> gvs []
+  >> drule_then assume_tac aig_to_cnf_def_correct
+  >> simp [is_unsat_def, decrease_encoding_is_unsat_def]
+  >> metis_tac [PAIR]
+QED
+
+Theorem write_closure_spec:
+  FILENAME prefix prefixv ∧
+  strlen prefix + 11 < 65536 ∧
+  CIRCUIT_TYPE wcirc wcircv ∧
+  LATCH_LIT_TYPE wnext wnextv ∧
+  LIT_LIST wcnstrs wcnstrsv ∧
+  LIT_LIST wpreds wpredsv ∧
+  LIST_TYPE LIT_LIST wlive wlivev ∧
+  LIST_TYPE NUM wlatches wlatchesv ∧
+  INTERV_TYPE interv intervv ∧
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) write_closure_v
+    [prefixv; wcircv; wnextv; wcnstrsv; wpredsv; wlivev; wlatchesv; intervv]
+    (STDIO fs)
+    (POSTv uv.
+       &UNIT_TYPE () uv *
+       SEP_EXISTS cnf content.
+         &(is_cnf_str cnf content ∧
+           (is_unsat cnf ⇔
+            (closure_encoding_is_unsat
+               wcirc wnext wcnstrs wpreds wlive wlatches interv))) *
+         STDIO (write_file fs (make_fname prefix «closure») content))
+Proof
+  rw []
+  >> xcf "write_closure" prog
+  >> simp [Once STDIO_STD_streams] >> xpull
+  >> xlet_autop
+  >> qmatch_asmsub_abbrev_tac ‘PAIR_TYPE STRING_TYPE STRING_TYPE out_string’
+  >> PairCases_on ‘out_string’
+  >> gvs [PAIR_TYPE_def]
+  >> xmatch
+  >> xlet_autop
+  >> xapp_spec outputFile_spec
+  >> qexistsl [‘emp’, ‘make_fname prefix out_string0’, ‘fs’, ‘out_string1’]
+  >> conj_tac
+  >- (
+    gvs [make_fname_def, concat_def]
+    >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
+    >> gvs [FILENAME_def, make_closure_string_def]
+  )
+  >> xsimpl
+  >> rw []
+  >> gvs [make_closure_string_def]
+  >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
+  >> namedCases_on ‘cnf_limit’ ["cnf limit"]
+  >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
+  >> xsimpl
+  >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
+  >> gvs []
+  >> drule_then assume_tac aig_to_cnf_def_correct
+  >> simp [is_unsat_def, closure_encoding_is_unsat_def]
+  >> metis_tac [PAIR]
+QED
+
+Theorem write_consistent_spec:
+  FILENAME prefix prefixv ∧
+  strlen prefix + 14 < 65536 ∧
+  CIRCUIT_TYPE wcirc wcircv ∧
+  LATCH_LIT_TYPE wnext wnextv ∧
+  LIT_LIST wcnstrs wcnstrsv ∧
+  LIT_LIST wpreds wpredsv ∧
+  LIST_TYPE LIT_LIST wlive wlivev ∧
+  LIST_TYPE NUM wlatches wlatchesv ∧
+  INTERV_TYPE interv intervv ∧
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) write_consistent_v
+    [prefixv; wcircv; wnextv; wcnstrsv; wpredsv; wlivev; wlatchesv; intervv]
+    (STDIO fs)
+    (POSTv uv.
+       &UNIT_TYPE () uv *
+       SEP_EXISTS cnf content.
+         &(is_cnf_str cnf content ∧
+           (is_unsat cnf ⇔
+            (consistent_encoding_is_unsat
+               wcirc wnext wcnstrs wpreds wlive wlatches interv))) *
+         STDIO (write_file fs (make_fname prefix «consistent») content))
+Proof
+  rw []
+  >> xcf "write_consistent" prog
+  >> simp [Once STDIO_STD_streams] >> xpull
+  >> xlet_autop
+  >> qmatch_asmsub_abbrev_tac ‘PAIR_TYPE STRING_TYPE STRING_TYPE out_string’
+  >> PairCases_on ‘out_string’
+  >> gvs [PAIR_TYPE_def]
+  >> xmatch
+  >> xlet_autop
+  >> xapp_spec outputFile_spec
+  >> qexistsl [‘emp’, ‘make_fname prefix out_string0’, ‘fs’, ‘out_string1’]
+  >> conj_tac
+  >- (
+    gvs [make_fname_def, concat_def]
+    >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
+    >> gvs [FILENAME_def, make_consistent_string_def]
+  )
+  >> xsimpl
+  >> rw []
+  >> gvs [make_consistent_string_def]
+  >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
+  >> namedCases_on ‘cnf_limit’ ["cnf limit"]
+  >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
+  >> xsimpl
+  >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
+  >> gvs []
+  >> drule_then assume_tac aig_to_cnf_def_correct
+  >> simp [is_unsat_def, consistent_encoding_is_unsat_def]
+  >> metis_tac [PAIR]
+QED
+
+(*** make_cert ****************************************************************)
 
 val print_err_tac =
   xsimpl >> rw []
@@ -136,14 +699,70 @@ val print_err_tac =
   >> DEP_REWRITE_TAC [add_stdout_nil]
   >> conj_tac >- (irule STD_streams_add_stderr >> simp [])
   >> xsimpl
+(*
+val make_cnf_and_write_tac =
+  (* Simplify environment to avoid CF grinding to a halt *)
+  simp [extend_env_def, astTheory.pat_bindings_def]
+  >> xlet_autop
+  >> qmatch_asmsub_abbrev_tac ‘PAIR_TYPE STRING_TYPE STRING_TYPE out_string’
+  >> PairCases_on ‘out_string’
+  >> gvs [PAIR_TYPE_def]
+  >> xmatch
+  >> xlet_autop
+  >> xlet_auto
+  >- (
+    xsimpl
+    >> Cases_on ‘prefix’
+    >> gvs [make_fname_def, concat_def, FILENAME_def,
+            make_reset_string_def, make_transition_string_def,
+            make_property_string_def, make_base_string_def,
+            make_step_string_def, make_liveness_string_def,
+            make_decrease_string_def, make_closure_string_def,
+            make_consistent_string_def]
+  )
+*)
+
+(* Tactic to dispatch the sideconditions of the write_{reset,transition,...}
+   functions. *)
+val write_side_tac : tactic =
+  xsimpl
+  >> rw []
+  >> qpat_assum ‘is_cnf_str _ _’ $ irule_at Any
+  >> simp [] >> xsimpl
+
+(*
+Theorem bar:
+  n' ≠ n ⇒
+  get_file_content (write_file fs n' content) n = get_file_content fs n
+Proof
+  rw [get_file_content_def, write_file_def]
+  >> CASE_TAC >> gvs []
+  >> CASE_TAC >> gvs []
+  >- metis_tac [fresh_iname_spec]
+  >> simp [AFUPDKEY_ALOOKUP, AllCaseEqs()]
+QED
+
+Theorem foo:
+  n' ≠ n
+  ⇒
+  (cnf_saved (write_file fs (make_fn prefix n') content') prefix n cnf
+   ⇔
+   cnf_saved fs prefix n' cnf)
+Proof
+  rw [cnf_saved_def]
+QED
+*)
 
 Theorem make_cert_spec:
   FILENAME fmodel fmodelv ∧
   FILENAME fwitness fwitnessv ∧
-  OPTION_TYPE STRING_TYPE prefix prefixv ∧
+  FILENAME prefix prefixv ∧
+  (* 14 = max length of property name + file extension
+     TODO Factor out the string constants and compute their length here *)
+  strlen prefix + 14 < 65536 ∧
   hasFreeFD fs
   ⇒
-  app (p:'ffi ffi_proj) ^(fetch_v "make_cert" prog)
+  app (p:'ffi ffi_proj) make_cert_v
     [fmodelv; fwitnessv; prefixv]
     (STDIO fs)
     (POSTv uv.
@@ -154,10 +773,9 @@ Theorem make_cert_spec:
 Proof
   rw []
   >> xcf "make_cert" prog
-  >> reverse $ Cases_on ‘STD_streams fs’
-  >- (fs [STDIO_def] >> xpull)
+  >> simp [Once STDIO_STD_streams] >> xpull
   >> xlet_auto >- (xcon >> xsimpl)
-  (* next xlet slow: ~24s *)
+  (* NOTE next xlet slow: ~24s *)
   >> xlet ‘POSTv sv.
        &OPTION_TYPE STRING_TYPE
          (monad_bind (file_content fs fmodel) (SOME ∘ implode)) sv *
@@ -204,13 +822,28 @@ Proof
   >> PairCases_on ‘aigs’
   >> gvs [ERRORMONAD_ERROR_TYPE_def, PAIR_TYPE_def]
   >> xmatch
-  (* reset string *)
-  >> xlet_auto >- xsimpl
-  >> qmatch_asmsub_abbrev_tac ‘PAIR_TYPE STRING_TYPE STRING_TYPE reset_string’
-  >> PairCases_on ‘reset_string’
-  >> gvs [PAIR_TYPE_def]
-  >> xmatch
-  >> xlet_auto >- xsimpl
-  (* outputFile *)
-  >> cheat
+  >> ntac 9 (xlet_auto >- write_side_tac)
+  >> xapp >> xsimpl
+  >> qmatch_goalsub_abbrev_tac ‘STDIO fs'’
+  >> qexistsl [‘emp’, ‘fs'’]
+  >> conj_tac >- xsimpl
+  >> rw []
+  >> qexistsl [‘fs'’, ‘«SUCCESS»’]
+  >> conj_tac
+
+  >- (
+    simp [make_cert_sem_def]
+    (* Showing get_model is successful *)
+    >> simp [get_model_def]
+    >> drule_then assume_tac parse_imp_parse_model >> simp []
+    >> drule_then assume_tac process_and_check_imp_process_model >> simp []
+    (* Showing cnf_checks_saved *)
+    >> simp [cnf_checks_saved_def]
+    >> cheat
+  )
+  >> xsimpl
 QED
+
+(*** main *********************************************************************)
+
+(* TODO *)
