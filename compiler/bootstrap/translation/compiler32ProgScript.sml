@@ -500,7 +500,7 @@ Proof
     \\ xsimpl)
   \\ xlet_auto>-xsimpl
   \\ xif
-  >- (simp[full_compile_64_def]
+  >- (simp[full_compile_32_def]
       \\ xapp
       \\ irule_at (Pos hd) news_news_v_thm
       \\ xsimpl
@@ -513,7 +513,7 @@ Proof
   >- (xmatch
       \\ xlet_auto >- xsimpl
       \\ xlet_auto >- xsimpl
-      \\ simp[full_compile_64_def]
+      \\ simp[full_compile_32_def]
       \\ xapp
       \\ first_assum $ irule_at $ Pos hd
       \\ qexists ‘fs’
