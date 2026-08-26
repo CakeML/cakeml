@@ -1762,15 +1762,19 @@ Proof
   \\ rw[] \\ metis_tac[]
 QED
 
-(* the oracle bit consumed by a PtrEqual is exactly the machine-level word
-   equality of the two argument registers; vacuous for every other op *)
+(* the oracle bit a PtrEqual consumes is the machine-level word equality of its
+   two argument registers; vacuous for other ops and for values that are not
+   structurally equal, since no bit is consumed in those cases *)
 Definition ptr_eq_hyp_def:
   ptr_eq_hyp op args (s:('c,'ffi) dataSem$state)
                      (t:('a,'c,'ffi) wordSem$state) ⇔
-    ∀a1 a2. op = BlockOp PtrEqual ∧ args = [a1;a2] ⇒
-            (s.ptr_eq_oracle 0 ⇔
-               ∃w:'a word. get_var (adjust_var a1) t = SOME (Word w) ∧
-                           get_var (adjust_var a2) t = SOME (Word w))
+    ∀a1 a2 v1 v2.
+      op = BlockOp PtrEqual ∧ args = [a1;a2] ∧
+      get_var a1 s.locals = SOME v1 ∧ get_var a2 s.locals = SOME v2 ∧
+      do_eq s.refs v1 v2 = Eq_val T ⇒
+      (s.ptr_eq_oracle 0 ⇔
+         ∃w:'a word. get_var (adjust_var a1) t = SOME (Word w) ∧
+                     get_var (adjust_var a2) t = SOME (Word w))
 End
 
 val assign_thm_goal =
@@ -11615,7 +11619,8 @@ Proof
   \\ gvs [AllCaseEqs()]
   >- (* do_eq = Eq_val T: the consumed oracle bit equals the machine word
         equality, by ptr_eq_hyp *)
-   (imp_res_tac state_rel_get_vars_IMP \\ fs [LENGTH_EQ_2] \\ clean_tac
+   (imp_res_tac state_rel_get_vars_IMP
+    \\ fs [LENGTH_EQ_2] \\ clean_tac
     \\ fs [get_var_def]
     \\ fs [state_rel_thm] \\ eval_tac
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
