@@ -1215,6 +1215,25 @@ Resume eval_simulation[App]:
         )
       )
     )
+  >~ [`getOpClass op = PtrEqOp`]
+  >- (
+    gvs [AllCaseEqs(), listTheory.SWAP_REVERSE_SYM]
+    \\ imp_res_tac do_eq
+    >- (
+      qmatch_asmsub_rename_tac
+        `evaluate t env' (REVERSE es) = (t2,Rval [w; _])`
+      \\ qmatch_asmsub_rename_tac `evaluate s env (REVERSE es) = (s2,Rval _)`
+      \\ `t2.ptr_eq_oracle = s2.ptr_eq_oracle` by fs [s_rel_def]
+      \\ qexists_tac `t2 with ptr_eq_oracle := (λn. t2.ptr_eq_oracle (n + 1))`
+      \\ gvs []
+      \\ gvs [s_rel_def, semanticPrimitivesTheory.state_component_equality]
+      \\ qexists_tac `[w]` \\ simp []
+    )
+    \\ qmatch_asmsub_rename_tac
+         `evaluate t env' (REVERSE es) = (t2,Rval [w; _])`
+    \\ qexists_tac `t2` \\ simp []
+    \\ qexists_tac `[w]` \\ simp []
+  )
   \\ eval_cases_tac
   \\ drule_then (drule_then assume_tac) do_app_sim
   \\ insts_tac
@@ -1595,6 +1614,7 @@ Proof
       \\ rveq \\ full_simp_tac bool_ss [PAIR_EQ]
       \\ gvs [AllCaseEqs()]
       \\ imp_res_tac record_forward_trans_sym)
+    >~ [`getOpClass op = PtrEqOp`] >- (gvs [AllCaseEqs()] \\ res_tac \\ fs [])
     \\ full_simp_tac bool_ss [do_eval_res_def, bool_case_eq, pair_case_eq,
         option_case_eq, result_case_eq, dec_clock_def]
     \\ rveq \\ full_simp_tac bool_ss [PAIR_EQ]
@@ -1743,6 +1763,7 @@ Resume insert_oracle_correct[App]:
     \\ imp_res_simp_tac insert_declare_env
     \\ agrees_impl_tac
     \\ simp [])
+  >~ [`getOpClass op = PtrEqOp`] >- gvs [AllCaseEqs()]
   \\ eval_cases_tac
   \\ gs[]
 QED
@@ -1866,6 +1887,8 @@ Proof
     >- (drule_then irule record_forward_trans \\ gvs [])
     >- (drule_then irule record_forward_trans \\ gvs [])
     >- (disj2_tac \\ drule_then irule record_forward_trans \\ gvs []))
+  \\ gvs [AllCaseEqs()]
+  \\ imp_res_simp_tac evaluate_is_record_forward \\ gvs []
 QED
 
 (* Constructs the oracle from an evaluation by using the recorded
@@ -2391,6 +2414,7 @@ Proof
       \\ fs [bool_case_eq, Q.ISPEC `(a, b)` EQ_SYM_EQ]
       \\ gvs []
       >~ [`getOpClass op = Force`] >- gvs [AllCaseEqs(), dec_clock_def]
+      >~ [`getOpClass op = PtrEqOp`] >- gvs [AllCaseEqs()]
       \\ fs [option_case_eq, pair_case_eq, bool_case_eq, result_case_eq]
       \\ insts_tac
       \\ fs [dec_clock_def]

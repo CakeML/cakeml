@@ -762,9 +762,10 @@ Theorem evaluate_App_PtrEq:
     [v1; v2] =>
       (case do_eq v1 v2 of
          Eq_type_error => (st', Rerr (Rabort Rtype_error))
-       | Eq_val b =>
+       | Eq_val T =>
            (st' with ptr_eq_oracle := (λn. st'.ptr_eq_oracle (n + 1)),
-            Rval [Boolv (b ∧ st'.ptr_eq_oracle 0)]))
+            Rval [Boolv (st'.ptr_eq_oracle 0)])
+       | Eq_val F => (st', Rval [Boolv F]))
   | _ => (st', Rerr (Rabort Rtype_error))
 Proof
   rw [evaluate_def, fix_clock_evaluate]
@@ -775,13 +776,11 @@ Theorem ptr_eq_sound:
   evaluate st env [App PtrEq es] = (st', Rval [v]) ⇒
   ∃st1 v1 v2 b.
     evaluate st env (REVERSE es) = (st1, Rval [v2; v1]) ∧
-    st' = st1 with ptr_eq_oracle := (λn. st1.ptr_eq_oracle (n + 1)) ∧
     v = Boolv b ∧
     (b ⇒ do_eq v1 v2 = Eq_val T)
 Proof
   rw [evaluate_def, fix_clock_evaluate]
-  \\ gvs [AllCaseEqs()]
-  \\ Cases_on ‘b’ \\ gvs [SWAP_REVERSE_SYM]
+  \\ gvs [AllCaseEqs(), SWAP_REVERSE_SYM]
 QED
 
 Theorem evaluate_set_next_stamps:
