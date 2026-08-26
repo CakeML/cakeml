@@ -391,7 +391,8 @@ QED
 Definition flat_state_rel_def:
     flat_state_rel reachable ^s ^t ⇔
       s.clock = t.clock ∧ s.refs = t.refs ∧
-      s.ffi = t.ffi ∧ globals_rel reachable s.globals t.globals ∧
+      s.ffi = t.ffi ∧ s.ptr_eq_oracle = t.ptr_eq_oracle ∧
+      globals_rel reachable s.globals t.globals ∧
       domain (find_refs_globals s.refs) ⊆ domain reachable ∧
       EVERY (EVERY ($~ ∘ v_has_Eval) ∘ store_v_vs) s.refs
 End
@@ -1631,9 +1632,9 @@ Proof
 QED
 
 Theorem flat_removal_thm:
-  ∀ ffi k decs new_state result roots tree
+  ∀ ffi k pe decs new_state result roots tree
       reachable removed_decs .
-      evaluate_decs (initial_state ffi k ec) decs = (new_state, result) ∧
+      evaluate_decs (initial_state ffi k ec pe) decs = (new_state, result) ∧
       result ≠ SOME (Rabort Rtype_error) ∧
       (roots, tree) = analyse_code decs ∧
       reachable = closure_spt roots tree ∧
@@ -1641,11 +1642,11 @@ Theorem flat_removal_thm:
       remove_unreachable reachable decs = removed_decs
   ⇒ ∃ s .
       s.ffi = new_state.ffi /\
-      evaluate_decs (initial_state ffi k ec) removed_decs = (s, result)
+      evaluate_decs (initial_state ffi k ec pe) removed_decs = (s, result)
 Proof
   rpt strip_tac >> drule flat_decs_removal_lemma >>
   rpt (disch_then drule) >> strip_tac >>
-  pop_assum (qspec_then `initial_state ffi k ec` mp_tac) >>
+  pop_assum (qspec_then `initial_state ffi k ec pe` mp_tac) >>
   impl_tac >> gvs[] >>
   qspecl_then [`tree`,`roots`] mp_tac closure_spt_thm >> strip_tac >>
   rw[initial_state_def]
@@ -1664,7 +1665,7 @@ Proof
 QED
 
 Theorem flat_remove_eval_sim:
-   eval_sim ffi ds1 (remove_flat_prog ds1) ec ec
+   eval_sim ffi pe ds1 (remove_flat_prog ds1) ec ec
                     (\d1 d2. d2 = remove_flat_prog d1) F
 Proof
   rw [eval_sim_def] \\ qexists_tac `0` \\ fs [remove_flat_prog_def]

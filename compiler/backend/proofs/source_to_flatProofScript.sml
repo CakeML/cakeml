@@ -723,7 +723,8 @@ Inductive s_rel:
     ~ NULL s'.refs ∧
     LIST_REL (sv_rel genv) s.refs (TL s'.refs) ∧
     s.clock = s'.clock ∧
-    s.ffi = s'.ffi
+    s.ffi = s'.ffi ∧
+    s.ptr_eq_oracle = s'.ptr_eq_oracle
     ⇒
     s_rel genv s s')
 End
@@ -1106,6 +1107,8 @@ Proof
       every_case_tac >>
       full_simp_tac(srw_ss())[] >>
       metis_tac [Boolv_11, do_eq, eq_result_11, eq_result_distinct, v_rel_lems])
+  >~ [‘PtrEq’] >- (
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases])
   >~ [‘Arith a ty’] >- (
       gvs [oneline semanticPrimitivesTheory.do_app_def,AllCaseEqs()]
       \\ gvs [oneline flatSemTheory.do_app_def,AllCaseEqs()]
@@ -4457,7 +4460,36 @@ Resume compile_correct[App]:
       imp_res_tac SUBMAP_TRANS >> gvs[] >>
       imp_res_tac subglobals_trans >> gvs[] >>
       drule_then irule orac_forward_rel_trans >> gvs[]
-      )) >>
+      ))
+  >~ [‘getOpClass op = PtrEqOp’]
+  >- (
+    strip_tac
+    \\ gvs [AllCaseEqs()]
+    >- (
+      `op = PtrEq` by
+        (Cases_on `op` \\ fs [astTheory.getOpClass_def] \\ Cases_on `t'` \\ gvs [])
+      \\ gvs [result_rel_cases]
+      \\ fs [evaluate_def, compile_exps_reverse, astOp_to_flatOp_def]
+      \\ gvs [listTheory.SWAP_REVERSE_SYM]
+      \\ fs [flatSemTheory.do_app_def]
+      \\ `genv_c_ok genv'.c` by fs [invariant_def]
+      \\ imp_res_tac do_eq \\ fs []
+      \\ qexists_tac `genv'`
+      \\ `st'.ptr_eq_oracle = s'_i1.ptr_eq_oracle` by fs [s_rel_cases]
+      \\ fs [v_rel_lems]
+      \\ fs [invariant_def, s_rel_cases]
+    )
+    \\ `op = PtrEq` by
+         (Cases_on `op` \\ fs [astTheory.getOpClass_def] \\ Cases_on `t'` \\ gvs [])
+    \\ gvs [result_rel_cases]
+    \\ fs [evaluate_def, compile_exps_reverse, astOp_to_flatOp_def]
+    \\ gvs [listTheory.SWAP_REVERSE_SYM]
+    \\ fs [flatSemTheory.do_app_def]
+    \\ `genv_c_ok genv'.c` by fs [invariant_def]
+    \\ imp_res_tac do_eq \\ fs []
+    \\ qexists_tac `genv'`
+    \\ fs [v_rel_lems]
+  ) >>
   fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, option_case_eq, pair_case_eq] >>
   rw [] >>
   rveq >> fs [] >>
@@ -4469,7 +4501,8 @@ Resume compile_correct[App]:
   (impl_tac >- fs [invariant_def, s_rel_cases]) >>
   rw [] >>
   `astOp_to_flatOp op ≠ Src Opapp ∧ astOp_to_flatOp op ≠ Src Eval ∧
-   astOp_to_flatOp op ≠ Src (ThunkOp ForceThunk)`
+   astOp_to_flatOp op ≠ Src (ThunkOp ForceThunk) ∧
+   astOp_to_flatOp op ≠ Src PtrEq`
   by (
     rw [astOp_to_flatOp_def] >>
     Cases_on `op` >>
@@ -4478,6 +4511,7 @@ Resume compile_correct[App]:
     Cases_on `t'` >> gvs []) >>
   fs [evaluate_def, compile_exps_reverse] >>
   imp_res_tac do_app_state_unchanged >>
+  imp_res_tac flatPropsTheory.do_app_ptr_eq_oracle >>
   imp_res_tac do_app_const >>
   rename [`result_rel v_rel genv2`] >>
   qexists_tac `genv2` >>
@@ -5371,7 +5405,7 @@ Theorem invariant_begin_alloc_blanks:
     (init_genv with v := init_globs)
     (cfg.next with vidx := 1, cfg'.next, {})
     s1
-    (initial_state s1.ffi s1.clock eval_conf with
+    (initial_state s1.ffi s1.clock eval_conf s1.ptr_eq_oracle with
                <|refs := [Refv (Conv NONE [])]; globals := init_globs |>)
 Proof
   rw []
@@ -5380,7 +5414,7 @@ Proof
   \\ fs [compile_prog_def]
   \\ rfs []
   \\ rpt (pairarg_tac \\ fs [])
-  \\ simp [EVAL ``(initial_state ffi clock ec).eval_config``,
+  \\ simp [EVAL ``(initial_state ffi clock ec pe).eval_config``,
     env_gen_inv_def, eval_ref_inv_def]
   \\ fs [empty_config_def]
   \\ imp_res_tac compile_decs_idx_prev
@@ -5425,7 +5459,7 @@ Theorem compile_prog_correct:
   r <> Rerr (Rabort Rtype_error)
   ⇒
   ? s_i1 s_i1' genv' r_i1.
-  s_i1 = initial_state s.ffi s.clock eval_conf ∧
+  s_i1 = initial_state s.ffi s.clock eval_conf s.ptr_eq_oracle ∧
   evaluate_decs s_i1 ds' = (s_i1', r_i1) ∧
   s_rel genv' s' s_i1' ∧
   (! res. r = Rval res ⇒ r_i1 = NONE) ∧
@@ -5437,8 +5471,8 @@ Proof
   \\ rw []
   \\ fs [glob_alloc_def, alloc_env_ref_def, do_app_def, Unitv_def,
     evaluate_def, store_alloc_def]
-  \\ fs [EVAL ``(initial_state _ _ _).globals``,
-    EVAL ``(initial_state _ _ _).refs``]
+  \\ fs [EVAL ``(initial_state _ _ _ _).globals``,
+    EVAL ``(initial_state _ _ _ _).refs``]
   \\ drule invariant_begin_alloc_blanks
   \\ simp [compile_prog_def]
   \\ imp_res_tac compile_decs_idx_prev
@@ -5486,7 +5520,7 @@ Theorem compile_prog_semantics:
   precondition1 interp g s1 env1 conf eval_conf prog ⇒
    ¬semantics_prog s1 env1 prog Fail ⇒
    semantics_prog s1 env1 prog
-      (semantics eval_conf s1.ffi
+      (semantics eval_conf s1.ffi s1.ptr_eq_oracle
           (SND (compile_prog conf prog)))
 Proof
   rw[semantics_prog_def,SND_eq]
@@ -5593,10 +5627,10 @@ QED
 
 Theorem compile_flat_correct:
    flat_patternProof$install_conf_rel cfg ec1 ec2 /\
-   semantics ec1 ffi prog <> Fail
+   semantics ec1 ffi pe prog <> Fail
    ==>
-   semantics ec1 ffi prog =
-   semantics ec2 ffi (compile_flat cfg prog)
+   semantics ec1 ffi pe prog =
+   semantics ec2 ffi pe (compile_flat cfg prog)
 Proof
   rw [compile_flat_def]
   \\ metis_tac [flat_patternProofTheory.compile_decs_semantics,
@@ -5614,7 +5648,7 @@ Theorem compile_semantics:
  ⇒
    ¬semantics_prog s env prog Fail ⇒
    semantics_prog s env prog
-      (semantics ec s.ffi (SND (compile cfg prog)))
+      (semantics ec s.ffi s.ptr_eq_oracle (SND (compile cfg prog)))
 Proof
   rw [compile_def]
   \\ pairarg_tac \\ fs []

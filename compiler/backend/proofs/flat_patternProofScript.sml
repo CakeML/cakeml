@@ -701,13 +701,14 @@ Definition state_rel_def:
     LIST_REL (sv_rel v_rel) s.refs t.refs /\
     t.ffi = s.ffi /\
     LIST_REL (OPTREL v_rel) s.globals t.globals /\
-    install_conf_rel cfg s.eval_config t.eval_config
+    install_conf_rel cfg s.eval_config t.eval_config /\
+    t.ptr_eq_oracle = s.ptr_eq_oracle
 End
 
 Theorem state_rel_initial_state:
   install_conf_rel cfg ic1 ic2 ==>
-  state_rel cfg (initial_state ffi k ic1)
-    (initial_state ffi k ic2)
+  state_rel cfg (initial_state ffi k ic1 pe)
+    (initial_state ffi k ic2 pe)
 Proof
   fs [state_rel_def, initial_state_def]
   \\ metis_tac []
@@ -1917,7 +1918,7 @@ QED
 
 Theorem compile_decs_eval_sim:
   install_conf_rel cfg ic1 ic2 ==>
-  eval_sim ffi prog prog' ic1 ic2
+  eval_sim ffi pe prog prog' ic1 ic2
     (\decs decs'. MAP (compile_dec cfg2) decs = decs') F
 Proof
   simp [eval_sim_def]
@@ -1928,7 +1929,7 @@ Proof
   \\ simp []
   \\ imp_res_tac state_rel_initial_state
   \\ disch_then (qspecl_then
-    [`cfg`, `initial_state ffi k ic2`, `cfg2`] mp_tac)
+    [`cfg`, `initial_state ffi k ic2 pe`, `cfg2`] mp_tac)
   \\ simp [state_rel_initial_state]
   \\ rw []
   \\ fs [OPTREL_def]
@@ -1938,9 +1939,9 @@ QED
 
 Theorem compile_decs_semantics:
   install_conf_rel cfg ic1 ic2 /\
-  semantics ic1 ffi prog <> Fail ==>
-  semantics ic1 ffi prog =
-  semantics ic2 ffi (MAP (compile_dec cfg1) prog)
+  semantics ic1 ffi pe prog <> Fail ==>
+  semantics ic1 ffi pe prog =
+  semantics ic2 ffi pe (MAP (compile_dec cfg1) prog)
 Proof
   rw []
   \\ irule (DISCH_ALL (MATCH_MP (hd (RES_CANON IMP_semantics_eq))

@@ -59,7 +59,9 @@ Datatype:
     ffi     : 'ffi ffi_state;
     globals : (v option) list;
     (* eval or install mode *)
-    eval_config : 'c install_config
+    eval_config : 'c install_config;
+    (* oracle deciding whether a structurally-equal PtrEq answers T *)
+    ptr_eq_oracle : num -> bool
   |>
 End
 
@@ -321,6 +323,13 @@ Definition do_app_def:
     (case do_eq v1 v2 of
      | Eq_type_error => NONE
      | Eq_val b => SOME (s, Rval (Boolv b)))
+  | (Src PtrEq, [v1; v2]) =>
+    (case do_eq v1 v2 of
+     | Eq_type_error => NONE
+     | Eq_val T =>
+         SOME (s with ptr_eq_oracle := (λn. s.ptr_eq_oracle (n + 1)),
+               Rval (Boolv (s.ptr_eq_oracle 0)))
+     | Eq_val F => SOME (s, Rval (Boolv F)))
   | (Src (Test test test_ty), [v1; v2]) =>
     (case do_test test test_ty v1 v2 of
      | Eq_type_error => NONE
@@ -990,24 +999,25 @@ Theorem evaluate_ind[allow_rebind] =
   REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
 
 Definition initial_state_def:
-  initial_state ffi k ec =
+  initial_state ffi k ec pe =
     <| clock       := k
      ; refs        := []
      ; ffi         := ffi
      ; globals     := []
      ; eval_config := ec
+     ; ptr_eq_oracle := pe
      |> :('c,'ffi) flatSem$state
 End
 
 Definition semantics_def:
-  semantics (ec:'c install_config) (ffi:'ffi ffi_state) prog =
-    if ∃k. SND (evaluate_decs (initial_state ffi k ec) prog)
+  semantics (ec:'c install_config) (ffi:'ffi ffi_state) pe prog =
+    if ∃k. SND (evaluate_decs (initial_state ffi k ec pe) prog)
            = SOME (Rabort Rtype_error)
       then Fail
     else
     case some res.
       ∃k s r outcome.
-        evaluate_decs (initial_state ffi k ec) prog = (s,r) ∧
+        evaluate_decs (initial_state ffi k ec pe) prog = (s,r) ∧
         (case r of
          | SOME (Rabort (Rffi_error e)) => outcome = FFI_outcome e
          | SOME (Rabort _) => F
@@ -1018,7 +1028,7 @@ Definition semantics_def:
        Diverge
          (lprefix_lub$build_lprefix_lub
            (IMAGE (λk. fromList
-             (FST (evaluate_decs (initial_state ffi k ec) prog)).ffi.io_events)
+             (FST (evaluate_decs (initial_state ffi k ec pe) prog)).ffi.io_events)
                UNIV))
 End
 
