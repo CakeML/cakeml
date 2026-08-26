@@ -111,22 +111,22 @@ Proof
 QED
 
 Theorem initial_state_simp[simp]:
-  (initial_state f c co cc ts l ss k).clock = k ∧
-  (initial_state f c co cc ts l ss k).locals = LN ∧
-  (initial_state f c co cc ts l ss k).code = c ∧
-  (initial_state f c co cc ts l ss k).ffi = f ∧
-  (initial_state f c co cc ts l ss k).compile_oracle = co ∧
-  (initial_state f c co cc ts l ss k).compile = cc ∧
-  (initial_state f c co cc ts l ss k).stack = [] ∧
-  (initial_state f c co cc ts l ss k).peak_heap_length = 0
+  (initial_state f c co cc pe ts l ss k).clock = k ∧
+  (initial_state f c co cc pe ts l ss k).locals = LN ∧
+  (initial_state f c co cc pe ts l ss k).code = c ∧
+  (initial_state f c co cc pe ts l ss k).ffi = f ∧
+  (initial_state f c co cc pe ts l ss k).compile_oracle = co ∧
+  (initial_state f c co cc pe ts l ss k).compile = cc ∧
+  (initial_state f c co cc pe ts l ss k).stack = [] ∧
+  (initial_state f c co cc pe ts l ss k).peak_heap_length = 0
 Proof
   srw_tac[][initial_state_def]
 QED
 
 Theorem initial_state_with_simp[simp]:
-   (initial_state f c co cc ts l ss k with clock := k' = initial_state f c co cc ts l ss k') ∧
-   (initial_state f c co cc ts l ss k with stack := [] = initial_state f c co cc ts l ss k) ∧
-   (initial_state f c co cc ts l ss k with locals := LN = initial_state f c co cc ts l ss k)
+   (initial_state f c co cc pe ts l ss k with clock := k' = initial_state f c co cc pe ts l ss k') ∧
+   (initial_state f c co cc pe ts l ss k with stack := [] = initial_state f c co cc pe ts l ss k) ∧
+   (initial_state f c co cc pe ts l ss k with locals := LN = initial_state f c co cc pe ts l ss k)
 Proof
   srw_tac[][initial_state_def]
 QED
@@ -168,6 +168,7 @@ Theorem do_stack_const[simp]:
 ∧ (do_stack op vs s).limits             = s.limits
 ∧ (do_stack op vs s).peak_heap_length   = s.peak_heap_length
 ∧ (do_stack op vs s).compile_oracle     = s.compile_oracle
+∧ (do_stack op vs s).ptr_eq_oracle      = s.ptr_eq_oracle
 Proof
   EVAL_TAC
 QED
@@ -1811,6 +1812,7 @@ Theorem FUNPOW_dec_clock_code[simp]:
     ((FUNPOW dec_clock n t).peak_heap_length = t.peak_heap_length) /\
     ((FUNPOW dec_clock n t).stack_frame_sizes = t.stack_frame_sizes) /\
     ((FUNPOW dec_clock n t).locals_size = t.locals_size) /\
+    ((FUNPOW dec_clock n t).ptr_eq_oracle = t.ptr_eq_oracle) /\
     ((FUNPOW dec_clock n t).clock = t.clock - n)
 Proof
   Induct_on `n` \\ full_simp_tac(srw_ss())[FUNPOW_SUC,dec_clock_def] \\ DECIDE_TAC
@@ -1914,7 +1916,8 @@ QED
 
 Theorem set_var_const[simp]:
    (set_var x y z).ffi = z.ffi ∧
-   (set_var x y z).clock = z.clock
+   (set_var x y z).clock = z.clock ∧
+   (set_var x y z).ptr_eq_oracle = z.ptr_eq_oracle
 Proof
   EVAL_TAC
 QED
@@ -1927,7 +1930,8 @@ QED
 
 Theorem set_vars_const[simp]:
    (set_vars xs ys z).ffi = z.ffi ∧
-   (set_vars xs ys z).clock = z.clock
+   (set_vars xs ys z).clock = z.clock ∧
+   (set_vars xs ys z).ptr_eq_oracle = z.ptr_eq_oracle
 Proof
   EVAL_TAC
 QED
@@ -1940,7 +1944,8 @@ QED
 
 Theorem call_env_const[simp]:
    (call_env x s y).ffi = y.ffi ∧
-   (call_env x s y).clock = y.clock
+   (call_env x s y).clock = y.clock ∧
+   (call_env x s y).ptr_eq_oracle = y.ptr_eq_oracle
 Proof
   EVAL_TAC
 QED
@@ -1958,7 +1963,8 @@ Theorem push_env_const[simp]:
    (push_env x y z).compile_oracle = z.compile_oracle ∧
    (push_env x y z).compile = z.compile ∧
    (push_env x y z).refs = z.refs ∧
-   (push_env x y z).global = z.global
+   (push_env x y z).global = z.global ∧
+   (push_env x y z).ptr_eq_oracle = z.ptr_eq_oracle
 Proof
   Cases_on`y`>> EVAL_TAC
 QED
@@ -1981,7 +1987,8 @@ Theorem pop_env_const:
    pop_env a = SOME b ⇒
    b.ffi = a.ffi /\
    b.clock = a.clock /\
-   b.stack_max = a.stack_max
+   b.stack_max = a.stack_max /\
+   b.ptr_eq_oracle = a.ptr_eq_oracle
 Proof
    EVAL_TAC >>
    every_case_tac >> EVAL_TAC >>
@@ -2054,7 +2061,8 @@ QED
 Theorem cut_state_opt_const:
   cut_state_opt x y = SOME z ⇒
    z.ffi = y.ffi ∧
-   z.global = y.global
+   z.global = y.global ∧
+   z.ptr_eq_oracle = y.ptr_eq_oracle
 Proof
    EVAL_TAC >>
    every_case_tac >> EVAL_TAC >>
@@ -2089,13 +2097,15 @@ Theorem dec_clock_const[simp]:
    (dec_clock s).compile_oracle = s.compile_oracle ∧
    (dec_clock s).compile = s.compile ∧
    (dec_clock s).refs = s.refs ∧
-   (dec_clock s).global = s.global
+   (dec_clock s).global = s.global ∧
+   (dec_clock s).ptr_eq_oracle = s.ptr_eq_oracle
 Proof
   EVAL_TAC
 QED
 
 Theorem add_space_const[simp]:
-   (add_space s k).ffi = s.ffi
+   (add_space s k).ffi = s.ffi ∧
+   (add_space s k).ptr_eq_oracle = s.ptr_eq_oracle
 Proof
   EVAL_TAC
 QED
@@ -2163,7 +2173,7 @@ Proof
 QED
 
 Theorem semantics_Div_IMP_LPREFIX:
-  semantics ffi prog co cc lim ss start = Diverge l ==> LPREFIX (fromList ffi.io_events) l
+  semantics ffi prog co cc pe lim ss start = Diverge l ==> LPREFIX (fromList ffi.io_events) l
 Proof
   simp[semantics_def]
   \\ IF_CASES_TAC \\ fs[]
@@ -2191,7 +2201,7 @@ Proof
 QED
 
 Theorem semantics_Term_IMP_PREFIX:
-  semantics ffi prog co cc lim ss start = Terminate tt l ==> ffi.io_events ≼ l
+  semantics ffi prog co cc pe lim ss start = Terminate tt l ==> ffi.io_events ≼ l
 Proof
   simp[semantics_def] \\ IF_CASES_TAC \\ fs[]
   \\ DEEP_INTRO_TAC some_intro \\ fs[] \\ rw[]
@@ -2200,10 +2210,10 @@ QED
 
 Theorem Resource_limit_hit_implements_semantics:
   implements {Terminate Resource_limit_hit ffi.io_events}
-       {semantics ffi (fromAList prog) co cc lim ss start}
+       {semantics ffi (fromAList prog) co cc pe lim ss start}
 Proof
   fs [implements_def,extend_with_resource_limit_def]
-  \\ Cases_on `semantics ffi (fromAList prog) co cc lim ss start` \\ fs []
+  \\ Cases_on `semantics ffi (fromAList prog) co cc pe lim ss start` \\ fs []
   \\ imp_res_tac semantics_Div_IMP_LPREFIX \\ fs []
   \\ imp_res_tac semantics_Term_IMP_PREFIX \\ fs []
 QED
@@ -2871,8 +2881,8 @@ Proof
 QED
 
 Theorem semantics_zero_limits:
-  dataSem$semantics ffi code co cc lim ss start =
-  dataSem$semantics ffi code co cc zero_limits LN start
+  dataSem$semantics ffi code co cc pe lim ss start =
+  dataSem$semantics ffi code co cc pe zero_limits LN start
 Proof
   rw[semantics_def,initial_state_def] >>
   fs[Once evaluate_zero_limits_FST, Once evaluate_stack_frame_sizes_FST,
@@ -2986,7 +2996,8 @@ Definition cc_co_only_diff_def:
     s.tstamps = t.tstamps /\
     s.limits = t.limits /\
     s.safe_for_space = t.safe_for_space /\
-    s.peak_heap_length = t.peak_heap_length
+    s.peak_heap_length = t.peak_heap_length /\
+    s.ptr_eq_oracle = t.ptr_eq_oracle
 End
 
 (*fs[] is slower than full_simp_tac(srw_ss())[]*)
@@ -3393,4 +3404,18 @@ Proof
   rfs[] >>
   imp_res_tac the_le_IMP_option_le >>
   fs[option_le_max]
+QED
+
+(* PtrEqual allocates nothing and calls no stubs; these facts are relied on
+   by the data_to_word correctness proof for its assign clause *)
+Theorem PtrEqual_cost_facts:
+  op_space_reset (BlockOp PtrEqual) = F ∧
+  op_requires_names (BlockOp PtrEqual) = F ∧
+  space_consumed s (BlockOp PtrEqual) vs = 0 ∧
+  stack_consumed sfs lims (BlockOp PtrEqual) vs = SOME 0 ∧
+  lim_safe lims (BlockOp PtrEqual) vs
+Proof
+  EVAL_TAC
+  \\ simp [Once $ oneline space_consumed_def]
+  \\ every_case_tac \\ simp []
 QED

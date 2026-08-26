@@ -1037,7 +1037,8 @@ Definition state_rel_def:
     namespace_rel s.code t.code ∧
     (∀n. let ((next,cfg),prog) = s.compile_oracle n in
             input_condition next prog) ∧
-    (∀n. n ∈ domain t.code ∧ in_ns_2 n ⇒ n < FST(FST(s.compile_oracle 0)))
+    (∀n. n ∈ domain t.code ∧ in_ns_2 n ⇒ n < FST(FST(s.compile_oracle 0))) ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle
 End
 
 Theorem state_rel_const:
@@ -2446,13 +2447,13 @@ Theorem evaluate_compile_each:
    (∀n. MEM n (MAP FST (SND (compile_each next prog))) ∧ in_ns_2 n ⇒ n < FST (FST (co 0))) ∧
    evaluate ([Call 0 (SOME start) [] NONE], [],
              initial_state ffi0 (fromAList prog) co
-                 (state_cc compile_each cc) k) = (r, s) ∧
+                 (state_cc compile_each cc) pe k) = (r, s) ∧
    r ≠ Rerr (Rabort Rtype_error) ⇒
    ∃s2.
      evaluate
       ([Call 0 (SOME start) [] NONE], [],
         initial_state ffi0 (fromAList (SND (compile_each next prog)))
-            (state_co compile_each co) cc k)
+            (state_co compile_each co) cc pe k)
       = (r, s2) ∧
      state_rel s s2
 Proof
@@ -2486,10 +2487,10 @@ Theorem compile_each_semantics:
    (∀k n cfg prog. co k = ((n,cfg),prog) ⇒ input_condition n prog) ∧
    (∀k. MEM k (MAP FST prog2) ∧ in_ns_2 k ⇒ k < FST(FST (co 0))) ∧
    SND (compile_each n prog) = prog2 ∧
-   semantics ffi (fromAList prog) co (state_cc compile_each cc) start ≠
+   semantics ffi (fromAList prog) co (state_cc compile_each cc) pe start ≠
       ffi$Fail ⇒
-   semantics ffi (fromAList prog) co (state_cc compile_each cc) start =
-   semantics ffi (fromAList prog2) (state_co compile_each co) cc start
+   semantics ffi (fromAList prog) co (state_cc compile_each cc) pe start =
+   semantics ffi (fromAList prog2) (state_co compile_each co) cc pe start
 Proof
    simp [GSYM AND_IMP_INTRO]
    \\ ntac 4 strip_tac
@@ -2617,8 +2618,8 @@ Proof
   \\ rpt gen_tac \\ rveq
   \\ drule (GEN_ALL evaluate_compile_each)
   \\ rpt(disch_then drule)
-  \\ disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["start","k","ffi0","cc"])))
-  \\ disch_then (qspecl_then [`start`,`k`,`ffi`,`cc`] mp_tac)
+  \\ disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["start","k","ffi0","cc","pe"])))
+  \\ disch_then (qspecl_then [`start`,`k`,`ffi`,`cc`,`pe`] mp_tac)
   \\ qmatch_goalsub_abbrev_tac`p = (_,_)`
   \\ Cases_on`p` \\ pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])
   \\ simp []
@@ -2637,10 +2638,10 @@ Theorem compile_prog_semantics:
    (∀k n cfg prog. co k = ((n,cfg),prog) ⇒ input_condition n prog) ∧
    (∀k. MEM k (MAP FST prog2) ∧ in_ns_2 k ⇒ k < FST(FST (co 0))) ∧
    SND (compile_prog b n prog) = prog2 ∧
-   semantics ffi (fromAList prog) co (state_cc (compile_prog b) cc) start ≠
+   semantics ffi (fromAList prog) co (state_cc (compile_prog b) cc) pe start ≠
       ffi$Fail ⇒
-   semantics ffi (fromAList prog) co (state_cc (compile_prog b) cc) start =
-   semantics ffi (fromAList prog2) (state_co (compile_prog b) co) cc start
+   semantics ffi (fromAList prog) co (state_cc (compile_prog b) cc) pe start =
+   semantics ffi (fromAList prog2) (state_co (compile_prog b) co) cc pe start
 Proof
   Cases_on `b`
   >-

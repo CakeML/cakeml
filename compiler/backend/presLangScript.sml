@@ -246,6 +246,7 @@ Definition op_to_display_def:
                          [test_to_display test;
                           prim_type_to_display ty]
   | Equality => empty_item «Equality»
+  | PtrEq => empty_item «PtrEq»
   | Opapp => empty_item «Opapp»
   | Opassign => empty_item «Opassign»
   | Opref => empty_item «Opref»
@@ -612,6 +613,7 @@ Definition clos_op_to_display_def:
     | BlockOp ListAppend => String «ListAppend»
     | BlockOp (Constant c) => Item NONE «Constant» [const_to_display c]
     | BlockOp Equal => String «Equal»
+    | BlockOp PtrEqual => String «PtrEqual»
     | BlockOp (EqualConst c) => Item NONE «EqualConst» [const_part_to_display c]
     | BlockOp (Build bs) => Item NONE «Build» (MAP const_part_to_display bs)
     | MemOp Ref => String «Ref»

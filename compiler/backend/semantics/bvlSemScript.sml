@@ -54,7 +54,8 @@ Datatype:
      ; compile : 'c -> (num # num # bvl$exp) list -> (word8 list # word64 list # 'c) option
      ; compile_oracle : num -> 'c # (num # num # bvl$exp) list
      ; code    : (num # bvl$exp) num_map
-     ; ffi     : 'ffi ffi_state |>
+     ; ffi     : 'ffi ffi_state
+     ; ptr_eq_oracle : num -> bool |>
 End
 
 Definition v_to_list_def:
@@ -477,6 +478,13 @@ Definition do_app_def:
         (case do_eq s.refs x1 x2 of
          | Eq_val b => Rval (Boolv b, s)
          | _ => Error)
+    | (BlockOp PtrEqual,[x1;x2]) =>
+        (case do_eq s.refs x1 x2 of
+         | Eq_val T =>
+             Rval (Boolv (s.ptr_eq_oracle 0),
+                   s with ptr_eq_oracle := (λn. s.ptr_eq_oracle (n + 1)))
+         | Eq_val F => Rval (Boolv F, s)
+         | _ => Error)
     | (MemOp Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
           Rval (RefPtr T ptr, s with refs := s.refs |+ (ptr,ValueArray xs))
@@ -735,21 +743,22 @@ Theorem evaluate_ind[allow_rebind] =
 (* observational semantics *)
 
 Definition initial_state_def:
-  initial_state ffi code co cc k = <|
+  initial_state ffi code co cc pe k = <|
     clock := k;
     ffi := ffi;
     code := code;
     compile := cc;
     compile_oracle := co;
     globals := [];
-    refs := FEMPTY
+    refs := FEMPTY;
+    ptr_eq_oracle := pe
   |>
 End
 
 Definition semantics_def:
-  semantics init_ffi code co cc start =
+  semantics init_ffi code co cc pe start =
   let es = [Call 0 (SOME start) []] in
-  let init = initial_state init_ffi code co cc in
+  let init = initial_state init_ffi code co cc pe in
     if ∃k. FST (evaluate (es,[],init k)) = Rerr (Rabort Rtype_error)
       then Fail
     else

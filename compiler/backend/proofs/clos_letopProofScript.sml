@@ -116,7 +116,8 @@ Definition state_rel_def:
     LIST_REL (OPTREL v_rel) s.globals t.globals /\
     FMAP_REL ref_rel s.refs t.refs /\
     s.compile = pure_cc compile_inc t.compile /\
-    t.compile_oracle = pure_co compile_inc o s.compile_oracle
+    t.compile_oracle = pure_co compile_inc o s.compile_oracle ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle
 End
 
 (* *)
@@ -696,12 +697,12 @@ QED
 
 Theorem semantics_let_op:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (pure_cc compile_inc cc) xs <> Fail ==>
+     co (pure_cc compile_inc cc) pe xs <> Fail ==>
    (!n. SND (SND (co n)) = []) /\ 1 <= max_app ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     (pure_co compile_inc o co) cc (let_op xs) =
+     (pure_co compile_inc o co) cc pe (let_op xs) =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (pure_cc compile_inc cc) xs
+     co (pure_cc compile_inc cc) pe xs
 Proof
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
@@ -709,7 +710,7 @@ Proof
   \\ drule let_op_correct
   \\ simp []
   \\ disch_then (qspec_then `initial_state ffi max_app FEMPTY
-                               (pure_co compile_inc o co) cc k` mp_tac)
+                               (pure_co compile_inc o co) cc pe k` mp_tac)
   \\ impl_tac
   THEN1 fs [state_rel_def, initial_state_def, FMAP_REL_def]
   \\ strip_tac

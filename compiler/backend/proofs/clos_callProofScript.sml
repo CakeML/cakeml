@@ -371,7 +371,8 @@ Definition state_rel_def:
     (s.max_app = t.max_app) ∧
     LIST_REL (OPTREL (v_rel g l t.code)) s.globals t.globals ∧
     fmap_rel (ref_rel (v_rel g l t.code)) s.refs t.refs ∧
-    s.code = FEMPTY
+    s.code = FEMPTY ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle
 End
 
 Theorem state_rel_max_app:
@@ -4499,13 +4500,13 @@ Proof
 QED
 
 Theorem semantics_calls:
-   semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc x <> Fail ==>
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc pe x <> Fail ==>
    compile T x = (y,g0,aux) /\ every_Fn_SOME x ∧ every_Fn_vs_NONE x /\
    ALL_DISTINCT (code_locs x) /\
    FST (FST (co 0)) = g0 /\
    code_inv NONE (set (code_locs x)) FEMPTY cc co (FEMPTY |++ aux) cc1 co1 ==>
-   semantics (ffi:'ffi ffi_state) max_app (FEMPTY |++ aux) co1 cc1 y =
-   semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc x
+   semantics (ffi:'ffi ffi_state) max_app (FEMPTY |++ aux) co1 cc1 pe y =
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc pe x
 Proof
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
@@ -4521,7 +4522,7 @@ Proof
   \\ old_drule evaluate_code
   \\ strip_tac \\ fs [initial_state_def]
   \\ disch_then (qspecl_then [`[]`,
-      `initial_state ffi max_app (FOLDL $|+ FEMPTY aux) co1 cc1 k`,
+      `initial_state ffi max_app (FOLDL $|+ FEMPTY aux) co1 cc1 pe k`,
       `set (code_locs x) DIFF domain (FST (FST (co 0)))`,
       `(FST (FST (co 0)), aux)`] mp_tac)
   \\ fs []
@@ -4556,16 +4557,16 @@ Proof
 QED
 
 Theorem semantics_compile:
-   semantics ffi max_app FEMPTY co cc x ≠ Fail ∧
+   semantics ffi max_app FEMPTY co cc pe x ≠ Fail ∧
    compile do_call x = (y,g1,aux) ∧
    (if do_call then
     syntax_ok x ∧ g1 = FST (FST (co 0)) ∧
     code_inv NONE (set (code_locs x)) FEMPTY cc co (FEMPTY |++ aux) cc1 co1
     else cc = state_cc (CURRY I) cc1 ∧
          co1 = state_co (CURRY I) co) ⇒
-   semantics ffi max_app (FEMPTY |++ aux) co1 cc1 y
+   semantics ffi max_app (FEMPTY |++ aux) co1 cc1 pe y
    =
-   semantics ffi max_app FEMPTY co cc x
+   semantics ffi max_app FEMPTY co cc pe x
 Proof
   reverse(Cases_on`do_call`)
   \\ rw[compile_def]

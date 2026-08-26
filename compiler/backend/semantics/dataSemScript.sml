@@ -70,7 +70,8 @@ Datatype:
      ; limits      : limits
      ; safe_for_space   : bool
      ; peak_heap_length : num
-     ; compile_oracle   : num -> 'c # (num # num # dataLang$prog) list |>
+     ; compile_oracle   : num -> 'c # (num # num # dataLang$prog) list
+     ; ptr_eq_oracle    : num -> bool |>
 End
 
 val s = ``(s:('c,'ffi) dataSem$state)``
@@ -1058,6 +1059,13 @@ Definition do_app_aux_def:
         (case do_eq s.refs x1 x2 of
          | Eq_val b => Rval (Boolv b, s)
          | _ => Error)
+    | (BlockOp PtrEqual,[x1;x2]) =>
+        (case do_eq s.refs x1 x2 of
+         | Eq_val T =>
+             Rval (Boolv (s.ptr_eq_oracle 0),
+                   s with ptr_eq_oracle := (λn. s.ptr_eq_oracle (n + 1)))
+         | Eq_val F => Rval (Boolv F, s)
+         | _ => Error)
     | (MemOp Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
           Rval (RefPtr T ptr, s with <| refs := insert ptr (ValueArray xs) s.refs|>)
@@ -1589,7 +1597,7 @@ Theorem evaluate_ind[allow_rebind] =
 (* observational semantics *)
 
 Definition initial_state_def:
-  initial_state ffi code coracle cc stamps lims ss k = <|
+  initial_state ffi code coracle cc pe stamps lims ss k = <|
     locals := LN
   ; locals_size := SOME 0
   ; stack := []
@@ -1601,6 +1609,7 @@ Definition initial_state_def:
   ; code := code
   ; compile := cc
   ; compile_oracle := coracle
+  ; ptr_eq_oracle := pe
   ; ffi := ffi
   ; space := 0
   ; tstamps := if stamps then SOME 0 else NONE
@@ -1612,9 +1621,9 @@ Definition initial_state_def:
 End
 
 Definition semantics_def:
-  semantics init_ffi code coracle cc lims ss start  =
+  semantics init_ffi code coracle cc pe lims ss start  =
   let p = Call NONE (SOME start) [] NONE in
-  let init = initial_state init_ffi code coracle cc T lims ss in
+  let init = initial_state init_ffi code coracle cc pe T lims ss in
     if ∃k. case FST(evaluate (p,init k)) of
              | SOME (Rerr e) => e ≠ Rabort Rtimeout_error /\ (!f. e ≠ Rabort(Rffi_error f))
              | NONE => T | _ => F
@@ -1636,10 +1645,10 @@ Definition semantics_def:
 End
 
 Definition data_lang_safe_for_space_def:
-  data_lang_safe_for_space init_ffi code (lims:dataSem$limits) (ss:num num_map) start =
+  data_lang_safe_for_space init_ffi pe code (lims:dataSem$limits) (ss:num num_map) start =
     !ck.
       let p = Call NONE (SOME start) [] NONE in
-      let init = initial_state init_ffi code ARB ARB T lims ss in
+      let init = initial_state init_ffi code ARB ARB pe T lims ss in
       let (res,s) = dataSem$evaluate (p,(init ck): (unit,'ffi) dataSem$state) in
         s.safe_for_space
 End

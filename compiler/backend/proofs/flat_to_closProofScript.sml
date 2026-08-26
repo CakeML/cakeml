@@ -102,7 +102,8 @@ Definition state_rel_def:
     LENGTH t.globals ≠ 0 ∧
  (* HD t.globals = SOME (Closure NONE [] [] 1 clos_interpreter) ∧ *)
     LIST_REL (OPTREL v_rel) s.globals (TL t.globals) ∧
-    install_config_rel' s.eval_config t.compile_oracle t.compile
+    install_config_rel' s.eval_config t.compile_oracle t.compile ∧
+    s.ptr_eq_oracle = t.ptr_eq_oracle
 End
 
 Theorem v_rel_to_list:
@@ -191,27 +192,27 @@ Proof
 QED
 
 Definition initial_state'_def:
-  initial_state' b ffi ma code co cc k =
+  initial_state' b ffi ma code co cc pe k =
     <| max_app := ma; clock := k; ffi := ffi; code := code; compile := cc;
        compile_oracle := co;
        globals := [SOME (if b then
                            Closure NONE [] [] 1 clos_interpreter
                          else Unit)];
-       refs := FEMPTY|>
+       refs := FEMPTY; ptr_eq_oracle := pe|>
 End
 
 Theorem initate_state'_clock[simp,local]:
-  (initial_state' b ffi max_app FEMPTY co cc k' with clock := k) =
-  initial_state' b ffi max_app FEMPTY co cc k ∧
-  (initial_state' b ffi max_app FEMPTY co cc k).clock = k
+  (initial_state' b ffi max_app FEMPTY co cc pe k' with clock := k) =
+  initial_state' b ffi max_app FEMPTY co cc pe k ∧
+  (initial_state' b ffi max_app FEMPTY co cc pe k).clock = k
 Proof
   fs [initial_state'_def]
 QED
 
 Theorem state_rel_initial_state:
   0 < max_app /\ install_config_rel' ec co cc ==>
-  state_rel (initial_state ffi k ec)
-            (initial_state' b ffi max_app FEMPTY co cc k)
+  state_rel (initial_state ffi k ec pe)
+            (initial_state' b ffi max_app FEMPTY co cc pe k)
 Proof
   fs [state_rel_def,flatSemTheory.initial_state_def,initial_state'_def,store_rel_def]
 QED
@@ -882,31 +883,15 @@ Proof
   Induct \\ Cases_on ‘l2’ \\ fs [ORD_BOUND,ORD_11]
 QED
 
-Theorem op_eq_gc:
-  op = Src ConfigGC \/
-  op = Src Equality ==>
-  ^op_goal
+Theorem do_eq_v_rel[local]:
+  (!v1 v2 x1 x2 b.
+    v_rel v1 x1 /\ v_rel v2 x2 /\ do_eq v1 v2 = Eq_val b ==>
+    do_eq x1 x2 = Eq_val b) /\
+  (!v1 v2 x1 x2 b.
+    LIST_REL v_rel v1 x1 /\ LIST_REL v_rel v2 x2 /\ do_eq_list v1 v2 = Eq_val b ==>
+    do_eq_list x1 x2 = Eq_val b)
 Proof
-  rpt strip_tac \\ rveq \\ fs []
-  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
-         CaseEq "ast$lit",store_assign_def,option_case_eq]
-  \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
-  \\ fs [] \\ rveq \\ fs [PULL_EXISTS,SWAP_REVERSE_SYM] \\ rveq \\ fs []
-  THEN1
-   (ntac 2 (pop_assum mp_tac) \\ once_rewrite_tac [v_rel_cases] \\ fs []
-    \\ rw [] \\ fs [compile_op_def,evaluate_def,do_app_def,Unit_def] \\ EVAL_TAC)
-  \\ fs [CaseEq"eq_result"] \\ rveq \\ fs []
-  \\ fs [compile_op_def,evaluate_def,do_app_def]
-  \\ qsuff_tac `
-       (!v1 v2 x1 x2 b.
-         v_rel v1 x1 /\ v_rel v2 x2 /\ do_eq v1 v2 = Eq_val b ==>
-         do_eq x1 x2 = Eq_val b) /\
-       (!v1 v2 x1 x2 b.
-         LIST_REL v_rel v1 x1 /\ LIST_REL v_rel v2 x2 /\ do_eq_list v1 v2 = Eq_val b ==>
-         do_eq_list x1 x2 = Eq_val b)`
-  THEN1 (rw [] \\ res_tac \\ fs [])
-  \\ rpt (pop_assum kall_tac)
-  \\ ho_match_mp_tac flatSemTheory.do_eq_ind \\ rw []
+  ho_match_mp_tac flatSemTheory.do_eq_ind \\ rw []
   \\ fs [v_rel_def,flatSemTheory.do_eq_def,bool_case_eq] \\ rveq \\ fs []
   \\ imp_res_tac LIST_REL_LENGTH
   THEN1
@@ -918,6 +903,29 @@ Proof
   \\ rveq \\ fs [ctor_same_type_def]
   \\ fs [CaseEq"eq_result",bool_case_eq] \\ rveq \\ fs []
   \\ fs [do_eq_def]
+QED
+
+Theorem op_eq_gc:
+  op = Src PtrEq \/
+  op = Src ConfigGC \/
+  op = Src Equality ==>
+  ^op_goal
+Proof
+  rpt strip_tac \\ rveq \\ fs []
+  >- (gvs [flatSemTheory.do_app_def, AllCaseEqs(), SWAP_REVERSE_SYM]
+      \\ fs [compile_op_def, evaluate_def, do_app_def]
+      \\ imp_res_tac do_eq_v_rel \\ fs []
+      \\ fs [state_rel_def])
+  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+         CaseEq "ast$lit",store_assign_def,option_case_eq]
+  \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
+  \\ fs [] \\ rveq \\ fs [PULL_EXISTS,SWAP_REVERSE_SYM] \\ rveq \\ fs []
+  THEN1
+   (ntac 2 (pop_assum mp_tac) \\ once_rewrite_tac [v_rel_cases] \\ fs []
+    \\ rw [] \\ fs [compile_op_def,evaluate_def,do_app_def,Unit_def] \\ EVAL_TAC)
+  \\ fs [CaseEq"eq_result"] \\ rveq \\ fs []
+  \\ fs [compile_op_def,evaluate_def,do_app_def]
+  \\ imp_res_tac do_eq_v_rel \\ fs []
 QED
 
 Theorem v_rel_v_to_char_list:
@@ -2021,9 +2029,9 @@ QED
 
 Theorem evaluate_compile_prog_initial_state:
   0 < max_app ⇒
-  (evaluate (compile_prog ds,[], initial_state ffi max_app FEMPTY co cc k) =
+  (evaluate (compile_prog ds,[], initial_state ffi max_app FEMPTY co cc pe k) =
    case evaluate (compile_decs ds,[],
-          initial_state' (has_install_list (compile_decs ds)) ffi max_app FEMPTY co cc k) of
+          initial_state' (has_install_list (compile_decs ds)) ffi max_app FEMPTY co cc pe k) of
    | (Rval vs1,s1) => (Rval (Unit::vs1),s1)
    | res => res)
 Proof
@@ -2039,9 +2047,9 @@ QED
 
 Theorem evaluate_compile_prog_initial_state_FST_Err:
   0 < max_app ⇒
-  (FST (evaluate (compile_prog ds,[], initial_state ffi max_app FEMPTY co cc k)) = Rerr e ⇔
+  (FST (evaluate (compile_prog ds,[], initial_state ffi max_app FEMPTY co cc pe k)) = Rerr e ⇔
    FST (evaluate (compile_decs ds,[], initial_state' (has_install_list (compile_decs ds))
-                                                    ffi max_app FEMPTY co cc k)) = Rerr e)
+                                                    ffi max_app FEMPTY co cc pe k)) = Rerr e)
 Proof
   fs [compile_prog_def,clos_interpTheory.attach_interpreter_def]
   \\ simp [Once closPropsTheory.evaluate_CONS]
@@ -2057,9 +2065,9 @@ QED
 
 Theorem compile_semantics':
    0 < max_app /\ no_Mat_decs ds /\ install_config_rel' ec co cc ==>
-   flatSem$semantics ec (ffi:'ffi ffi_state) ds ≠ Fail ==>
-   closSem$semantics ffi max_app FEMPTY co cc (compile_prog ds) =
-   flatSem$semantics ec ffi ds
+   flatSem$semantics ec (ffi:'ffi ffi_state) pe ds ≠ Fail ==>
+   closSem$semantics ffi max_app FEMPTY co cc pe (compile_prog ds) =
+   flatSem$semantics ec ffi pe ds
 Proof
   strip_tac
   \\ simp[flatSemTheory.semantics_def]
@@ -2185,9 +2193,9 @@ End
 
 Theorem compile_semantics:
   0 < max_app ∧ no_Mat_decs ds ∧ install_config_rel ec co cc ⇒
-  semantics ec ffi ds ≠ Fail ⇒
-  semantics ffi max_app FEMPTY co cc (compile_prog ds) =
-  semantics ec ffi ds
+  semantics ec ffi pe ds ≠ Fail ⇒
+  semantics ffi max_app FEMPTY co cc pe (compile_prog ds) =
+  semantics ec ffi pe ds
 Proof
   rpt strip_tac
   \\ drule_at (Pos last) compile_semantics'

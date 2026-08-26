@@ -1128,7 +1128,8 @@ Definition state_rel_def:
       ?aux1 c2 aux2.
         (compile_exps s.max_app [c] aux1 = ([c2],aux2)) /\
         (lookup (name + (num_stubs s.max_app)) t.code = SOME (arity,c2)) /\
-        code_installed aux2 t.code)
+        code_installed aux2 t.code) /\
+    t.ptr_eq_oracle = s.ptr_eq_oracle
 End
 
 Theorem state_rel_globals[local]:
@@ -1604,6 +1605,19 @@ Proof
     \\ disch_then old_drule
     \\ strip_tac
     \\ `do_eq t1.refs y1 y2 = Eq_val b` by metis_tac [] \\ fs [])
+  \\ Cases_on `op = BlockOp PtrEqual` THEN1
+   (srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def]
+    \\ gvs [AllCaseEqs()]
+    \\ `INJ ($' f) (FDOM f) (FRANGE f) ∧
+        (∀x y bs. FLOOKUP f x = SOME y ⇒
+                  FLOOKUP t1.refs y ≠ SOME (ByteArray T bs))`
+          by (fs [state_rel_def] \\ metis_tac[])
+    \\ old_drule (do_eq |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> GEN_ALL)
+    \\ disch_then old_drule \\ strip_tac
+    \\ gvs []
+    \\ fs [state_rel_def]
+    \\ res_tac \\ gvs []
+    \\ first_assum ACCEPT_TAC)
   \\ Cases_on `op = MemOp ToListByte` THEN1
    (fs [] \\ rveq \\ fs [do_app_def]
     \\ Cases_on `xs` \\ fs [closSemTheory.do_app_def,bvlSemTheory.do_app_def]
@@ -6177,41 +6191,41 @@ val evaluate_add_to_clock_io_events_mono_alt_bvl =
   |> SIMP_RULE std_ss [] |> GEN_ALL;
 
 Definition eval_sim_def:
-  eval_sim ffi max_app code1 co1 cc1 es1 code2 co2 cc2 start rel =
+  eval_sim ffi max_app pe code1 co1 cc1 es1 code2 co2 cc2 start rel =
     !k res1 s2.
-      evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 k) = (res1,s2) /\
+      evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 pe k) = (res1,s2) /\
       res1 <> Rerr (Rabort Rtype_error) /\
       rel code1 co1 cc1 es1 code2 co2 cc2 start ==>
       ?ck res2 t2.
         bvlSem$evaluate ([Call 0 (SOME start) []],[],
-          initial_state ffi code2 co2 cc2 (k+ck)) = (res2,t2) /\
+          initial_state ffi code2 co2 cc2 pe (k+ck)) = (res2,t2) /\
         result_rel (\x y. T) (\x y. T) res1 res2 /\ s2.ffi = t2.ffi
 End
 
 Theorem initial_state_with_clock[local]:
-    (initial_state ffi ma code co cc k with clock :=
-      (initial_state ffi ma code co cc k).clock + ck) =
-    initial_state ffi ma code co cc (k + ck)
+    (initial_state ffi ma code co cc pe k with clock :=
+      (initial_state ffi ma code co cc pe k).clock + ck) =
+    initial_state ffi ma code co cc pe (k + ck)
 Proof
   fs [closSemTheory.initial_state_def]
 QED
 
 Theorem initial_state_with_clock_bvl[local]:
-    (initial_state ffi code co cc k with clock :=
-      (initial_state ffi code co cc k).clock + ck) =
-    initial_state ffi code co cc (k + ck) /\
-    (bvlProps$inc_clock ck (initial_state ffi code co cc k) =
-    initial_state ffi code co cc (k + ck))
+    (initial_state ffi code co cc pe k with clock :=
+      (initial_state ffi code co cc pe k).clock + ck) =
+    initial_state ffi code co cc pe (k + ck) /\
+    (bvlProps$inc_clock ck (initial_state ffi code co cc pe k) =
+    initial_state ffi code co cc pe (k + ck))
 Proof
   fs [bvlSemTheory.initial_state_def,inc_clock_def]
 QED
 
 Theorem IMP_semantics_eq:
-   eval_sim ffi max_app code1 co1 cc1 es1 code2 co2 cc2 start rel /\
-   closSem$semantics (ffi:'ffi ffi_state) max_app code1 co1 cc1 es1 <> Fail ==>
+   eval_sim ffi max_app pe code1 co1 cc1 es1 code2 co2 cc2 start rel /\
+   closSem$semantics (ffi:'ffi ffi_state) max_app code1 co1 cc1 pe es1 <> Fail ==>
    rel code1 co1 cc1 es1 code2 co2 cc2 start ==>
-   bvlSem$semantics ffi code2 co2 cc2 start =
-   closSem$semantics ffi max_app code1 co1 cc1 es1
+   bvlSem$semantics ffi code2 co2 cc2 pe start =
+   closSem$semantics ffi max_app code1 co1 cc1 pe es1
 Proof
   rewrite_tac [GSYM AND_IMP_INTRO]
   \\ strip_tac
@@ -6228,7 +6242,7 @@ Proof
     \\ IF_CASES_TAC \\ fs [] THEN1
      (first_x_assum (qspec_then `k'` mp_tac)
       \\ strip_tac
-      \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 k')`
+      \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 pe k')`
       \\ fs [eval_sim_def]
       \\ last_x_assum old_drule \\ fs []
       \\ CCONTR_TAC \\ fs[]
@@ -6241,8 +6255,8 @@ Proof
     \\ conj_tac
     >-
      (gen_tac \\ strip_tac \\ rveq \\ fs []
-      \\ qabbrev_tac `st1 = initial_state ffi max_app code1 co1 cc1`
-      \\ qabbrev_tac `st2 = initial_state ffi code2 co2 cc2`
+      \\ qabbrev_tac `st1 = initial_state ffi max_app code1 co1 cc1 pe`
+      \\ qabbrev_tac `st2 = initial_state ffi code2 co2 cc2 pe`
       \\ old_drule evaluate_add_to_clock_io_events_mono_alt_bvl
       \\ qpat_x_assum `evaluate (es1,[],st1 k) = _` assume_tac
       \\ old_drule evaluate_add_to_clock_io_events_mono_alt
@@ -6284,7 +6298,7 @@ Proof
   \\ IF_CASES_TAC \\ fs []
   THEN1
    (last_x_assum (qspec_then `k` assume_tac) \\ rfs [FST_EQ_LEMMA]
-    \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 k)` \\ fs []
+    \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 pe k)` \\ fs []
     \\ rveq \\ fs [eval_sim_def]
     \\ first_x_assum old_drule \\ fs []
     \\ CCONTR_TAC \\ fs []
@@ -6339,7 +6353,7 @@ Proof
   \\ unabbrev_all_tac \\ simp [PULL_EXISTS]
   \\ simp [LNTH_fromList, PULL_EXISTS, GSYM FORALL_AND_THM]
   \\ rpt gen_tac
-  \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 k)`
+  \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 pe k)`
   \\ rveq \\ fs [eval_sim_def]
   \\ first_x_assum old_drule \\ fs []
   \\ impl_tac
@@ -6468,14 +6482,14 @@ Proof
 QED
 
 Theorem chain_exps_semantics:
-   semantics ffi max_app code co cc es ≠ Fail ∧ (* es ≠ [] ∧*)
+   semantics ffi max_app code co cc pe es ≠ Fail ∧ (* es ≠ [] ∧*)
    DISJOINT (IMAGE ((+)start) (count (LENGTH es))) (FDOM code) ∧
    oracle_monotonic (set ∘ MAP FST ∘ SND ∘ SND) $<
         (IMAGE ((+)start) (count (LENGTH es)) ∪ FDOM code) co
   ⇒
    ∃e.
-   semantics ffi max_app (alist_to_fmap (chain_exps start es) ⊌ code) co cc [e] =
-   semantics ffi max_app code co cc es ∧
+   semantics ffi max_app (alist_to_fmap (chain_exps start es) ⊌ code) co cc pe [e] =
+   semantics ffi max_app code co cc pe es ∧
    ALOOKUP (chain_exps start es) start = SOME (0,e)
 Proof
   rw[]
@@ -6488,7 +6502,7 @@ Proof
     \\ fs[oneline closSemTheory.do_int_app_def]
     \\ DEEP_INTRO_TAC some_intro \\ rw[]
     \\ EVAL_TAC )
-  \\`∃e.  eval_sim ffi max_app code co cc es (alist_to_fmap (chain_exps start es) ⊌ code) co cc [e]
+  \\`∃e.  eval_sim ffi max_app pe code co cc es (alist_to_fmap (chain_exps start es) ⊌ code) co cc [e]
             (K (K (K (K (K (K (K (K T)))))))) F ∧
           (ALOOKUP (chain_exps start es) start  = SOME (0,e))`
   by (
@@ -6543,13 +6557,13 @@ Proof
 QED
 
 Theorem chain_exps_semantics_call:
-   semantics ffi max_app code co cc es ≠ Fail ∧
+   semantics ffi max_app code co cc pe es ≠ Fail ∧
    DISJOINT (IMAGE ((+)start) (count (LENGTH es))) (FDOM code) ∧
    oracle_monotonic (set ∘ MAP FST ∘ SND ∘ SND) $<
         (IMAGE ((+)start) (count (LENGTH es)) ∪ FDOM code) co
   ⇒
-   semantics ffi max_app (alist_to_fmap (chain_exps start es) ⊌ code) co cc ([Call None 0 start []]) =
-   semantics ffi max_app code co cc es
+   semantics ffi max_app (alist_to_fmap (chain_exps start es) ⊌ code) co cc pe ([Call None 0 start []]) =
+   semantics ffi max_app code co cc pe es
 Proof
   rw[]
   \\ old_drule chain_exps_semantics
@@ -7050,7 +7064,7 @@ End
 
 Theorem semantics_cond_call_compile_inc:
     semantics ffi max_app FEMPTY co
-        (clos_state_cc (cond_call_compile_inc do_call) cc) es ≠ Fail /\
+        (clos_state_cc (cond_call_compile_inc do_call) cc) pe es ≠ Fail /\
     clos_call$compile do_call es = (es', g, aux) /\
     code = alist_to_fmap aux /\
     (do_call ==> clos_callProof$syntax_ok es /\
@@ -7062,9 +7076,9 @@ Theorem semantics_cond_call_compile_inc:
               clos_callProof$syntax_ok exp ∧ aux = []))
     ==>
     semantics ffi max_app code
-        (state_co (cond_call_compile_inc do_call) co) cc es' =
+        (state_co (cond_call_compile_inc do_call) co) cc pe es' =
     semantics ffi max_app FEMPTY co
-        (clos_state_cc (cond_call_compile_inc do_call) cc) es
+        (clos_state_cc (cond_call_compile_inc do_call) cc) pe es
 Proof
   fs [clos_callTheory.cond_call_compile_inc_def, clos_state_cc_def]
   \\ reverse CASE_TAC >- (rw [clos_callTheory.compile_def]
@@ -7097,16 +7111,16 @@ QED
 
 Theorem semantics_cond_mti_compile_inc:
     semantics ffi max_app FEMPTY co
-        (pure_cc (cond_mti_compile_inc do_mti max_app) cc) xs ≠ Fail ∧
+        (pure_cc (cond_mti_compile_inc do_mti max_app) cc) pe xs ≠ Fail ∧
     (do_mti ⇒
          (∀n. SND (SND (co n)) = [] ∧
              EVERY no_mti (FST (SND (co n)))) ∧
              1 <= max_app ∧ EVERY no_mti xs) ⇒
      semantics ffi max_app FEMPTY
-         (pure_co (cond_mti_compile_inc do_mti max_app) o co) cc
+         (pure_co (cond_mti_compile_inc do_mti max_app) o co) cc pe
          (compile do_mti max_app xs) =
      semantics ffi max_app FEMPTY co
-         (pure_cc (cond_mti_compile_inc do_mti max_app) cc) xs
+         (pure_cc (cond_mti_compile_inc do_mti max_app) cc) pe xs
 Proof
   rw []
   \\ irule (GEN_ALL clos_mtiProofTheory.semantics_compile)
@@ -7508,7 +7522,7 @@ QED
 
 Theorem compile_common_semantics:
    closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1
-    (compile_common_inc c cc) es1 ≠ Fail ∧
+    (compile_common_inc c cc) pe es1 ≠ Fail ∧
    compile_common c es1 = (c', code2) ∧
    (∀n. SND (SND (co1 n)) = []) ∧
    (c.do_mti ⇒ 1 ≤ c.max_app ∧ EVERY no_mti es1 ∧
@@ -7552,8 +7566,8 @@ Theorem compile_common_semantics:
        (clos_knownProof$known_co c.known_conf
            (state_co (ignore_table clos_number$compile_inc)
              (pure_co (cond_mti_compile_inc c.do_mti c.max_app) o co1))))
-     cc ([Call None 0 c'.start []]) =
-   closSem$semantics ffi c.max_app FEMPTY co1 (compile_common_inc c cc) es1
+     cc pe ([Call None 0 c'.start []]) =
+   closSem$semantics ffi c.max_app FEMPTY co1 (compile_common_inc c cc) pe es1
 Proof
   strip_tac
   \\ fs [common_def]
@@ -7685,7 +7699,7 @@ Proof
 QED
 
 Theorem compile_prog_semantics:
-   semantics (ffi:'ffi ffi_state) max_app code1 co1 cc1 [Call None 0 start []] ≠ Fail ∧
+   semantics (ffi:'ffi ffi_state) max_app code1 co1 cc1 pe [Call None 0 start []] ≠ Fail ∧
    (∀name arity c.
      FLOOKUP code1 name = SOME (arity,c) ⇒
      ∃aux1 c2 aux2.
@@ -7701,8 +7715,8 @@ Theorem compile_prog_semantics:
    compile_oracle_inv max_app code1 cc1 co1 code2 cc2 co2 ∧
    code_installed prog2 code2
    ⇒
-   bvlSem$semantics ffi code2 (co2 : num -> 'c # (num # num # bvl$exp) list) cc2 nsm1 =
-   closSem$semantics ffi max_app code1 (co1 : 'c clos_co) cc1 [Call None 0 start []]
+   bvlSem$semantics ffi code2 (co2 : num -> 'c # (num # num # bvl$exp) list) cc2 pe nsm1 =
+   closSem$semantics ffi max_app code1 (co1 : 'c clos_co) cc1 pe [Call None 0 start []]
 Proof
   rw[]
   \\ irule (GEN_ALL IMP_semantics_eq)
@@ -7718,7 +7732,7 @@ Proof
   \\ rw[init_globals_def]
   \\ rw[bvlSemTheory.evaluate_def, bvlSemTheory.do_app_def, bvlSemTheory.do_int_app_def]
   \\ fs[bvlSemTheory.dec_clock_def]
-  \\ Q.ISPECL_THEN[`max_app`,`max_app`,`initial_state ffi code2 co2 cc2 kk with globals := [NONE]`]
+  \\ Q.ISPECL_THEN[`max_app`,`max_app`,`initial_state ffi code2 co2 cc2 pe kk with globals := [NONE]`]
         (mp_tac o Q.GEN`kk`)evaluate_init
   \\ simp[GSYM PULL_FORALL]
   \\ impl_tac
@@ -7729,22 +7743,22 @@ Proof
   \\ simp[partial_app_label_table_loc_def]
   \\ simp[GSYM global_table_def]
   \\ simp[LUPDATE_def]
-  \\ fs[EVAL``(initial_state ffi max_app code co cc k).code``]
+  \\ fs[EVAL``(initial_state ffi max_app code co cc pe k).code``]
   \\ fs[closSemTheory.find_code_def, CaseEq"option", CaseEq"prod"]
   \\ first_assum old_drule \\ strip_tac
   \\ simp[bvlSemTheory.find_code_def]
-  \\ fs[EVAL``(initial_state ffi max_app code co cc k).clock``]
+  \\ fs[EVAL``(initial_state ffi max_app code co cc pe k).clock``]
   \\ old_drule (CONJUNCT1 compile_exps_correct |> SIMP_RULE std_ss [] |> INST_TYPE[gamma|->beta])
   \\ simp[closSemTheory.dec_clock_def]
   \\ disch_then old_drule
   \\ rveq
   \\ disch_then(qspec_then`[]`mp_tac o CONV_RULE SWAP_FORALL_CONV)
   \\ simp[env_rel_def]
-  \\ fs[EVAL``(initial_state ffi max_app code co cc k).code``]
+  \\ fs[EVAL``(initial_state ffi max_app code co cc pe k).code``]
   \\ imp_res_tac FEVERY_FLOOKUP \\ fs[]
-  \\ fs[EVAL``(initial_state ffi max_app code co cc k).clock``]
-  \\ disch_then(qspec_then`initial_state ffi code2 co2 cc2 k with globals := [SOME (global_table max_app)]`mp_tac)
-  \\ fs[EVAL``(initial_state ffi code co cc k).code``]
+  \\ fs[EVAL``(initial_state ffi max_app code co cc pe k).clock``]
+  \\ disch_then(qspec_then`initial_state ffi code2 co2 cc2 pe k with globals := [SOME (global_table max_app)]`mp_tac)
+  \\ fs[EVAL``(initial_state ffi code co cc pe k).code``]
   \\ disch_then(qspec_then`FEMPTY`mp_tac)
   \\ impl_tac
   >- (
@@ -8896,7 +8910,7 @@ QED
 
 Theorem compile_semantics:
    semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co
-     (compile_common_inc c (pure_cc (compile_inc c.max_app) cc)) es ≠ Fail ∧
+     (compile_common_inc c (pure_cc (compile_inc c.max_app) cc)) pe es ≠ Fail ∧
    compile c es = (c', prog, names) ∧
    syntax_oracle_ok c c' es co
    ⇒
@@ -8907,9 +8921,9 @@ Theorem compile_semantics:
         (clos_knownProof$known_co c.known_conf
           (state_co (ignore_table clos_number$compile_inc)
             (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co))))
-       cc c'.start =
+       cc pe c'.start =
    semantics ffi c.max_app FEMPTY co
-     (compile_common_inc c (pure_cc (compile_inc c.max_app) cc)) es
+     (compile_common_inc c (pure_cc (compile_inc c.max_app) cc)) pe es
 Proof
   strip_tac
   \\ imp_res_tac compile_all_distinct_locs

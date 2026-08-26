@@ -79,11 +79,13 @@ Theorem do_app_Rval_swap:
     do_app op a
       ((t1:('c,'d) bvlSem$state) with
        <| globals := s1.globals; refs := s1.refs;
-          clock := s1.clock; ffi := s1.ffi |>) =
+          clock := s1.clock; ffi := s1.ffi;
+          ptr_eq_oracle := s1.ptr_eq_oracle |>) =
     Rval
       (x0,t1 with
        <| globals := x1.globals; refs := x1.refs;
-          clock := x1.clock; ffi := x1.ffi |>)
+          clock := x1.clock; ffi := x1.ffi;
+          ptr_eq_oracle := x1.ptr_eq_oracle |>)
 Proof
   strip_tac \\ Cases_on ‘op’ \\ gvs [do_app_def,AllCaseEqs()]
   \\ rpt (pairarg_tac \\ fs [])
@@ -155,20 +157,21 @@ Proof
 QED
 
 Theorem initial_state_simp[simp]:
-   (initial_state f c co cc k).code = c ∧
-   (initial_state f c co cc k).ffi = f ∧
-   (initial_state f c co cc k).clock = k ∧
-   (initial_state f c co cc k).compile = cc ∧
-   (initial_state f c co cc k).compile_oracle = co ∧
-   (initial_state f c co cc k).refs = FEMPTY ∧
-   (initial_state f c co cc k).globals = []
+   (initial_state f c co cc pe k).code = c ∧
+   (initial_state f c co cc pe k).ffi = f ∧
+   (initial_state f c co cc pe k).clock = k ∧
+   (initial_state f c co cc pe k).compile = cc ∧
+   (initial_state f c co cc pe k).compile_oracle = co ∧
+   (initial_state f c co cc pe k).refs = FEMPTY ∧
+   (initial_state f c co cc pe k).globals = [] ∧
+   (initial_state f c co cc pe k).ptr_eq_oracle = pe
 Proof
    srw_tac[][initial_state_def]
 QED
 
 Theorem initial_state_with_simp[simp]:
-   initial_state f c co cc k with clock := k1 = initial_state f c co cc k1 ∧
-   initial_state f c co cc k with code := c1 = initial_state f c1 co cc k
+   initial_state f c co cc pe k with clock := k1 = initial_state f c co cc pe k1 ∧
+   initial_state f c co cc pe k with code := c1 = initial_state f c1 co cc pe k
 Proof
   EVAL_TAC
 QED
@@ -572,10 +575,10 @@ Proof
 QED
 
 Theorem evaluate_add_clock_initial_state:
-   evaluate (es,env,initial_state ffi code co cc k) = (r,s') ∧
+   evaluate (es,env,initial_state ffi code co cc pe k) = (r,s') ∧
     r ≠ Rerr (Rabort Rtimeout_error) ⇒
     ∀extra.
-      evaluate (es,env,initial_state ffi code co cc (k + extra)) =
+      evaluate (es,env,initial_state ffi code co cc pe (k + extra)) =
       (r,s' with clock := s'.clock + extra)
 Proof
   rpt strip_tac

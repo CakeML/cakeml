@@ -74,6 +74,9 @@ Datatype:
      | ListAppend        (* appends two lists *)
      | Constant const    (* produces a constant value *)
      | Equal             (* structural equality *)
+     | PtrEqual          (* pointer equality: true implies structural equality,
+                            but may spuriously return false; consumes one bit of
+                            the state's ptr_eq_oracle on each true answer *)
      | EqualConst const_part (* equal to integer/string/word constant *)
      | Build (const_part list)  (* implementation of Constant above *)
 End
@@ -189,6 +192,7 @@ Definition pure_op_def:
     | MemOp Update => F
     | Install => F
     | ThunkOp _ => F
+    | BlockOp PtrEqual => F
     | _ => T
 End
 

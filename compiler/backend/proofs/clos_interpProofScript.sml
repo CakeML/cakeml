@@ -23,7 +23,8 @@ Definition state_rel_def:
     s.refs = t.refs ∧
     s.compile = pure_cc (insert_interp ## I) t.compile ∧
     t.compile_oracle = pure_co (insert_interp ## I) o s.compile_oracle ∧
-    oHD (s.globals) = SOME (SOME (Closure NONE [] [] 1 clos_interpreter))
+    oHD (s.globals) = SOME (SOME (Closure NONE [] [] 1 clos_interpreter)) ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle
 End
 
 Definition state_rel_1_def:
@@ -36,7 +37,8 @@ Definition state_rel_1_def:
     s.globals = t.globals ∧
     s.refs = t.refs ∧
     s.compile = pure_cc (insert_interp ## I) t.compile ∧
-    t.compile_oracle = pure_co (insert_interp ## I) o s.compile_oracle
+    t.compile_oracle = pure_co (insert_interp ## I) o s.compile_oracle ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle
 End
 
 Theorem LIST_REL_eq'[local]:
@@ -1116,7 +1118,8 @@ Definition state_rel'_def:
     FEVERY (λ(k,v). ∀vs. v = ValueArray vs ⇒ EVERY v_ok vs) t.refs ∧
     FEVERY (λ(k,v). ∀m w. v = Thunk m w ⇒ v_ok w) t.refs ∧
     s.compile = pure_cc (insert_interp ## I) t.compile ∧
-    t.compile_oracle = pure_co (insert_interp ## I) o s.compile_oracle
+    t.compile_oracle = pure_co (insert_interp ## I) o s.compile_oracle ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle
 End
 
 Theorem lookup_vars_ok:
@@ -1345,19 +1348,19 @@ QED
  * ------------------------------------------------------------------------- *)
 
 Theorem init_globals[local]:
-  (initial_state ffi max_app f co cc ck).globals = []
+  (initial_state ffi max_app f co cc pe ck).globals = []
 Proof
   EVAL_TAC
 QED
 
 Theorem semantics_attach_interpreter:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (pure_cc (insert_interp ## I) cc) (attach_interpreter xs) <> Fail ==>
+     co (pure_cc (insert_interp ## I) cc) pe (attach_interpreter xs) <> Fail ==>
    (∀n. SND (SND (co n)) = []) ∧ 0 < max_app ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     (pure_co (insert_interp ## I) ∘ co) cc (attach_interpreter xs) =
+     (pure_co (insert_interp ## I) ∘ co) cc pe (attach_interpreter xs) =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (pure_cc (insert_interp ## I) cc) (attach_interpreter xs)
+     co (pure_cc (insert_interp ## I) cc) pe (attach_interpreter xs)
 Proof
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq \\ rw []
@@ -1376,7 +1379,7 @@ Proof
     \\ qspecl_then [‘xs’,‘[]’,‘iis’] mp_tac evaluate_interp_thm
     \\ disch_then drule \\ fs []
     \\ disch_then $ qspec_then ‘initial_state ffi max_app
-                                FEMPTY (pure_co (insert_interp ## I) ∘ co) cc k with
+                                FEMPTY (pure_co (insert_interp ## I) ∘ co) cc pe k with
                         globals := [SOME (Closure NONE [] [] 1 clos_interpreter)]’ mp_tac
     \\ impl_tac
     >- (simp [Abbr‘iis’,state_rel_def,initial_state_def]
@@ -1391,7 +1394,7 @@ Proof
                    (evaluate_change_oracle |> SIMP_RULE std_ss [] |> CONJUNCT1)
     \\ fs []
     \\ disch_then $ qspec_then ‘initial_state ffi max_app
-                                FEMPTY (pure_co (insert_interp ## I) ∘ co) cc k’ mp_tac
+                                FEMPTY (pure_co (insert_interp ## I) ∘ co) cc pe k’ mp_tac
     \\ impl_tac
     >- (simp [Abbr‘iis’,state_rel'_def,initial_state_def,FEVERY_FEMPTY]
         \\ fs [attach_interpreter_def,has_install_def] \\ EVAL_TAC)

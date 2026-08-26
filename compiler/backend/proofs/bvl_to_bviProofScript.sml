@@ -120,6 +120,7 @@ Definition state_rel_def:
     (lookup ConcatByte_location t.code = SOME ConcatByte_code) ∧
     (* (lookup InitGlobals_location t.code = SOME InitGlobals_code start) ∧ *)
     names_ok s.code t.code s.compile_oracle /\
+    t.ptr_eq_oracle = s.ptr_eq_oracle /\
     (!name arity exp.
        (lookup name s.code = SOME (arity,exp)) ==>
        ?n. let (c1,aux1,n1) = compile_exps n [exp] in
@@ -841,7 +842,8 @@ Proof
   \\ gvs [AllCaseEqs()]
   \\ qpat_abbrev_tac ‘new_refs = _ |+ _ |+ _’
   \\ simp [GSYM integerTheory.INT_ADD,int_arithTheory.elim_minus_ones]
-  \\ qabbrev_tac ‘s1 = s with <| refs := new_refs ; global := SOME new_p; ffi := s.ffi |>’
+  \\ qabbrev_tac ‘s1 = s with <| refs := new_refs ; global := SOME new_p; ffi := s.ffi ;
+                                 ptr_eq_oracle := s.ptr_eq_oracle |>’
   \\ ‘lookup CopyGlobals_location s1.code = SOME (3,SND CopyGlobals_code)’
         by fs [Abbr‘s1’]
   \\ old_drule (GEN_ALL evaluate_CopyGlobals_code)
@@ -980,7 +982,8 @@ Proof
   \\ simp [Once evaluate_def,do_app_def,do_app_aux_def,dec_clock_def,
         bvlSemTheory.do_app_def,inc_clock_def,bvl_to_bvi_def,bvi_to_bvl_def]
   \\ first_x_assum (qspecl_then [`x::rest`,`p`,
-      `s with <|refs := s.refs; ffi := s.ffi|>`] mp_tac) \\ fs [] \\ strip_tac
+      `s with <|refs := s.refs; ffi := s.ffi;
+                ptr_eq_oracle := s.ptr_eq_oracle|>`] mp_tac) \\ fs [] \\ strip_tac
   \\ fs [inc_clock_def]
   \\ qexists_tac `c+1` \\ fs [list_to_v_def,EVAL ``cons_tag``]
   \\ rewrite_tac [APPEND,GSYM APPEND_ASSOC]
@@ -1591,6 +1594,13 @@ Proof
     \\ old_drule do_eq_adjust \\ fs []
     \\ fs [SWAP_REVERSE_SYM]
     \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def])
+  \\ Cases_on `op = BlockOp PtrEqual` \\ fs [] THEN1
+   (strip_tac
+    \\ `t2.ptr_eq_oracle = s5.ptr_eq_oracle` by fs [state_rel_def]
+    \\ gvs [AllCaseEqs(), SWAP_REVERSE_SYM]
+    \\ old_drule do_eq_adjust \\ fs []
+    \\ fs [bvlSemTheory.do_app_def, bvi_to_bvl_def]
+    \\ fs [state_rel_def, bvl_to_bvi_def, bvi_to_bvl_def])
   \\ Cases_on `op = MemOp BoundsCheckArray` THEN1
    (fs [] \\ strip_tac
     \\ `?x1 x2. REVERSE a = [x1;x2]` by (every_case_tac \\ fs [] \\ NO_TAC)
@@ -2580,7 +2590,8 @@ Resume compile_exps_correct[Op]:
            do_app_aux_def,bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def]
       \\ Cases_on `ToListByte_code` \\ fs [] \\ rveq \\ fs [dec_clock_def]
       \\ fs [list_to_v_def,EVAL ``nil_tag``]
-      \\ `t2 with <|refs := t2.refs; clock := c' + t2.clock; ffi := t2.ffi|> =
+      \\ `t2 with <|refs := t2.refs; clock := c' + t2.clock; ffi := t2.ffi;
+                    ptr_eq_oracle := t2.ptr_eq_oracle|> =
           t2 with clock := c' + t2.clock` by fs [state_component_equality] \\ fs []
       \\ conj_tac
       THEN1 (qid_spec_tac `l` \\ Induct \\ fs [list_to_v_def,adjust_bv_def])
@@ -4228,20 +4239,21 @@ Proof
 QED
 
 Theorem bvi_stubs_evaluate:
-   ∀kk start ffi0 code k.
+   ∀kk start ffi0 code k pe.
      0 < k ∧ num_stubs ≤ start ⇒
   let t0 = <| global := SOME 0
             ; ffi := ffi0
             ; clock := k
             ; compile := cc
             ; compile_oracle := co
-            ; code := fromAList (stubs start kk ++ code);
+            ; code := fromAList (stubs start kk ++ code)
+            ; ptr_eq_oracle := pe;
               refs := FEMPTY |+
                 (0,ValueArray ([Number 1] ++
                   REPLICATE ((MIN (MAX kk 1) InitGlobals_max) - 1) (Number 0))) |>
                 :('c,'ffi) bviSem$state in
       evaluate ([Call 0 (SOME InitGlobals_location) [] NONE],[],
-        initial_state ffi0 (fromAList (stubs start kk ++ code)) co cc (k+1)) =
+        initial_state ffi0 (fromAList (stubs start kk ++ code)) co cc pe (k+1)) =
    let (r,s) = evaluate ([Call 0 (SOME start) [] NONE],[],t0) in
      ((case r of Rerr(Rraise (Exn v)) => Rval [v] | _ => r), s)
 Proof
@@ -4352,7 +4364,7 @@ QED
 Theorem compile_prog_evaluate:
    compile_prog start n prog = (start', prog', n') ∧
    evaluate ([Call 0 (SOME start) []],[],
-             initial_state ffi0 (fromAList prog) co (state_cc compile_inc cc) k) = (r,s) ∧
+             initial_state ffi0 (fromAList prog) co (state_cc compile_inc cc) pe k) = (r,s) ∧
    0 < k ∧
    ALL_DISTINCT (MAP FST prog) ∧
    handle_ok (MAP (SND o SND) prog) ∧
@@ -4362,7 +4374,7 @@ Theorem compile_prog_evaluate:
    ⇒
    ∃ck b2 s2.
    evaluate ([Call 0 (SOME start') [] NONE],[],
-             initial_state ffi0 (fromAList prog') (state_co compile_inc co) cc (k+ck)) =
+             initial_state ffi0 (fromAList prog') (state_co compile_inc co) cc pe (k+ck)) =
      (map_result (MAP (adjust_bv b2)) (λv. Exn (adjust_bv b2 v))
        (case r of Rerr(Rraise v) => Rval [v] | _ => r),s2) ∧
    state_rel b2 s (s2:('c,'ffi) bviSem$state)
@@ -4378,7 +4390,7 @@ Proof
   simp[state_ok_def] >>
   qpat_abbrev_tac `kk = alloc_glob_count (MAP (λ(_,_,p). p) prog)` >>
   (Q.ISPECL_THEN[`state_co compile_inc co`,`cc`,`kk`,
-       `num_stubs + nss * start`,`ffi0`,`append code`,`k`] mp_tac)
+       `num_stubs + nss * start`,`ffi0`,`append code`,`k`,`pe`] mp_tac)
     (Q.GENL[`co`,`cc`] bvi_stubs_evaluate) >>
   simp[] >>
   qmatch_goalsub_abbrev_tac`_ = _ (evaluate (_,[],t1))` >>
@@ -4498,7 +4510,7 @@ Proof
   disch_then (qspecl_then [`state_co compile_inc co`,`cc`,`kk`] mp_tac) >>
   `num_stubs ≤ num_stubs + nss * start` by fs[] >>
   disch_then old_drule >>
-  disch_then(qspecl_then[`ffi0`,`append code`]mp_tac) >>
+  disch_then(qspecl_then[`ffi0`,`append code`,`pe`]mp_tac) >>
   simp[] >>
   rpt var_eq_tac >>
   fsrw_tac[ARITH_ss][inc_clock_def] >>
@@ -4513,10 +4525,10 @@ Theorem compile_prog_semantics:
    handle_ok (MAP (SND o SND) prog) ∧
    (∀n. EVERY ((λe. handle_ok [e]) o SND o SND) (SND (co n))) ∧
    n' ≤ FST (FST ((co:num -> (num # 'c) # (num # num # bvl$exp) list) 0)) ∧
-   semantics (ffi0:'ffi ffi_state) (fromAList prog) co (state_cc compile_inc cc) start ≠ Fail
+   semantics (ffi0:'ffi ffi_state) (fromAList prog) co (state_cc compile_inc cc) pe start ≠ Fail
    ⇒
-   semantics ffi0 (fromAList prog') (state_co compile_inc co) cc start' =
-   semantics ffi0 (fromAList prog) co (state_cc compile_inc cc) start
+   semantics ffi0 (fromAList prog') (state_co compile_inc co) cc pe start' =
+   semantics ffi0 (fromAList prog) co (state_cc compile_inc cc) pe start
 Proof
   simp[GSYM AND_IMP_INTRO] >> ntac 5 strip_tac >>
   simp[bvlSemTheory.semantics_def] >>
@@ -4678,7 +4690,7 @@ Proof
   rpt gen_tac >>
   old_drule (GEN_ALL compile_prog_evaluate) >>
   fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
-  disch_then(qspecl_then[`k`,`ffi0`,`co`,`cc`]mp_tac)>>simp[]>>
+  disch_then(qspecl_then[`pe`,`k`,`ffi0`,`co`,`cc`]mp_tac)>>simp[]>>
   Cases_on`k=0`>>simp[]>-(
     full_simp_tac(srw_ss())[bviSemTheory.evaluate_def,bvlSemTheory.evaluate_def]>>
     every_case_tac >> full_simp_tac(srw_ss())[] >>
@@ -5112,10 +5124,10 @@ Theorem compile_semantics:
         num_stubs ≤ FST(SND(SND(SND(FST(co n))))) ∧
         in_ns 3 (FST(SND(SND(SND(FST(co n))))))) /\
    ALL_DISTINCT (MAP FST prog) ==>
-   semantics (ffi0:'ffi ffi_state) (fromAList prog) co (full_cc c cc) start ≠ Fail
+   semantics (ffi0:'ffi ffi_state) (fromAList prog) co (full_cc c cc) pe start ≠ Fail
    ⇒
-   semantics ffi0 (fromAList prog') (full_co c co) cc start' =
-   semantics ffi0 (fromAList prog) co (full_cc c cc) start
+   semantics ffi0 (fromAList prog') (full_co c co) cc pe start' =
+   semantics ffi0 (fromAList prog) co (full_cc c cc) pe start
 Proof
   rw [full_cc_def,full_co_def]
   \\ old_drule (bvl_inlineProofTheory.compile_prog_semantics
@@ -5143,7 +5155,7 @@ Proof
   (* conclusion branch: thread the bvi_tmc pass through *)
   THEN1
    (disch_then (assume_tac o GSYM) \\ fs []
-    \\ qpat_x_assum `bviSem$semantics _ (fromAList code') _ _ _ = _`
+    \\ qpat_x_assum `bviSem$semantics _ (fromAList code') _ _ _ _ = _`
          (assume_tac o GSYM) \\ fs[]
     \\ old_drule (bvi_tmcProofTheory.compile_prog_semantics
               |> REWRITE_RULE [CONJ_ASSOC]

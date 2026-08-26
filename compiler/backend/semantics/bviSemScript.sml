@@ -26,7 +26,8 @@ Datatype:
      ; compile : 'c -> (num # num # bvi$exp) list -> (word8 list # word64 list # 'c) option
      ; compile_oracle : num -> 'c # (num # num # bvi$exp) list
      ; code    : (num # bvi$exp) num_map
-     ; ffi     : 'ffi ffi_state |>
+     ; ffi     : 'ffi ffi_state
+     ; ptr_eq_oracle : num -> bool |>
 End
 
 Definition dec_clock_def:
@@ -44,14 +45,16 @@ Definition bvi_to_bvl_def:
     <| refs := s.refs
      ; clock := s.clock
      ; code := map (K ARB) s.code
-     ; ffi := s.ffi |>
+     ; ffi := s.ffi
+     ; ptr_eq_oracle := s.ptr_eq_oracle |>
 End
 
 Definition bvl_to_bvi_def:
   (bvl_to_bvi:('c,'ffi) bvlSem$state->('c,'ffi) bviSem$state->('c,'ffi) bviSem$state) s t =
     t with <| refs := s.refs
             ; clock := s.clock
-            ; ffi := s.ffi |>
+            ; ffi := s.ffi
+            ; ptr_eq_oracle := s.ptr_eq_oracle |>
 End
 
 Definition finalise_cons_def:
@@ -398,20 +401,21 @@ Theorem evaluate_ind[allow_rebind] =
 (* observational semantics *)
 
 Definition initial_state_def:
-  initial_state ffi code co cc k = <|
+  initial_state ffi code co cc pe k = <|
     clock := k;
     ffi := ffi;
     code := code;
     compile := cc;
     compile_oracle := co;
     refs := FEMPTY;
-    global := NONE |>
+    global := NONE;
+    ptr_eq_oracle := pe |>
 End
 
 Definition semantics_def:
-  semantics init_ffi code co cc start =
+  semantics init_ffi code co cc pe start =
   let es = [bvi$Call 0 (SOME start) [] NONE] in
-  let init = initial_state init_ffi code co cc in
+  let init = initial_state init_ffi code co cc pe in
     if ∃k e. FST (evaluate (es,[],init k)) = Rerr e ∧ e ≠ Rabort Rtimeout_error
        ∧ (!f. e ≠ Rabort (Rffi_error f))
       then Fail

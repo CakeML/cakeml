@@ -254,7 +254,8 @@ Definition state_rel_def:
       (FLOOKUP s.code name = SOME (arity,c)) ==>
       ?c2.
         (shift (FST (alt_free [c])) 0 arity LN = [c2]) /\
-        (FLOOKUP t.code name = SOME (arity,c2)))
+        (FLOOKUP t.code name = SOME (arity,c2))) ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle
 End
 
 Theorem state_rel_max_app:
@@ -1585,22 +1586,22 @@ QED
 
 Theorem semantics_annotate:
    semantics (ffi:'ffi ffi_state) max_app (alist_to_fmap prog) co
-     (pure_cc compile_inc cc) xs <> Fail ==>
+     (pure_cc compile_inc cc) pe xs <> Fail ==>
    every_Fn_vs_NONE xs /\
    every_Fn_vs_NONE (MAP (SND o SND) prog) /\
    (∀n. every_Fn_vs_NONE (FST (SND (co n))) ∧
         every_Fn_vs_NONE (MAP (SND ∘ SND) (SND (SND (co n))))) ==>
    semantics (ffi:'ffi ffi_state) max_app (alist_to_fmap (compile prog))
-     (pure_co compile_inc ∘ co) cc (annotate 0 xs) =
+     (pure_co compile_inc ∘ co) cc pe (annotate 0 xs) =
    semantics (ffi:'ffi ffi_state) max_app (alist_to_fmap prog)
-     co (pure_cc compile_inc cc) xs
+     co (pure_cc compile_inc cc) pe xs
 Proof
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
   \\ fs [] \\ fs [eval_sim_def] \\ rw []
   \\ drule (annotate_correct |> GEN_ALL) \\ fs []
   \\ qabbrev_tac `ff = initial_state ffi max_app (alist_to_fmap (compile prog))
-       (pure_co compile_inc ∘ co) cc`
+       (pure_co compile_inc ∘ co) cc pe`
   \\ disch_then (qspec_then `ff k` mp_tac)
   \\ qunabbrev_tac `ff`
   \\ disch_then (qspec_then `[]` mp_tac)

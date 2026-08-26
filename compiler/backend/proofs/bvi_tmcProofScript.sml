@@ -170,7 +170,8 @@ Definition state_rel_def:
     (∀n. let ((next,cfg),prog) = s.compile_oracle n in
             input_condition next prog) ∧
     (∀n. n ∈ domain t.code ∧ in_ns_3 n ⇒ n < FST(FST(s.compile_oracle 0))) ∧
-    fmap_inj f
+    fmap_inj f ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle
 End
 
 (* Structural facts about compile_each and the namespace allocation.
@@ -1955,6 +1956,16 @@ val block_equal_tac =
   >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
 
+val block_ptr_equal_tac =
+  qexists ‘f’
+  >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
+  >> ‘fmap_inj f ∧ s'.ptr_eq_oracle = s.ptr_eq_oracle’ by gvs [state_rel_def]
+  >> imp_res_tac (cj 1 do_eq_v_rel)
+  >> gvs [bvi_to_bvl_def, bvl_to_bvi_def, only_fresh_refl,
+          holes_unchanged_except_refl, holes_still_not_finalised_refl]
+  >> gvs [state_rel_def]
+  >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
+
 (* EqualConst on a string constant (a compare-by-contents byte array). *)
 val block_equalconst_ba_tac =
   qexists ‘f’
@@ -1994,6 +2005,7 @@ Resume do_app_op_rel[BlockOp]:
             block_el_ref_tac >> NO_TAC, block_consextend_tac >> NO_TAC,
             block_fromlist_tac >> NO_TAC, block_listappend_tac >> NO_TAC,
             block_equal_tac >> NO_TAC, block_equalconst_ba_tac >> NO_TAC,
+            block_ptr_equal_tac >> NO_TAC,
             block_build_tac >> NO_TAC, block_boolnot_tac >> NO_TAC]
 QED
 
@@ -2013,6 +2025,7 @@ Resume do_app_op_rel[Install]:
       OPTREL (λp p'. FLOOKUP f p = SOME p') s.global s'.global ∧
       s'.ffi = s.ffi ∧ code_rel s.code s'.code ∧
       namespace_rel s.code s'.code ∧ fmap_inj f ∧
+      s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
       (∀n. let ((next,cfg),prog) = s.compile_oracle n in
               input_condition next prog) ∧
       (∀n. n ∈ domain s'.code ∧ in_ns_3 n ⇒ n < FST (FST (s.compile_oracle 0)))`
@@ -5876,13 +5889,13 @@ Theorem evaluate_compile_each:
    (∀n. MEM n (MAP FST (SND (compile_each next prog))) ∧ in_ns_3 n ⇒ n < FST (FST (co 0))) ∧
    evaluate ([Call 0 (SOME start) [] NONE], [],
              initial_state ffi0 (fromAList prog) co
-                 (state_cc compile_each cc) k) = (r, s) ∧
+                 (state_cc compile_each cc) pe k) = (r, s) ∧
    r ≠ Rerr (Rabort Rtype_error) ⇒
    ∃f s2 r2.
      evaluate
       ([Call 0 (SOME start) [] NONE], [],
         initial_state ffi0 (fromAList (SND (compile_each next prog)))
-            (state_co compile_each co) cc k)
+            (state_co compile_each co) cc pe k)
      = (r2, s2) ∧
      result_rel (LIST_REL (v_rel f)) (eor_rel f) r r2 ∧
      state_rel f s s2
@@ -5935,9 +5948,9 @@ Theorem compile_each_semantics:
   (∀k n cfg prog. co k = ((n,cfg),prog) ⇒ input_condition n prog) ∧
   (∀k. MEM k (MAP FST prog2) ∧ in_ns_3 k ⇒ k < FST(FST (co 0))) ∧
   SND (compile_each n prog) = prog2 ∧
-  semantics ffi (fromAList prog) co (state_cc compile_each cc) start ≠ ffi$Fail ⇒
-  semantics ffi (fromAList prog) co (state_cc compile_each cc) start =
-  semantics ffi (fromAList prog2) (state_co compile_each co) cc start
+  semantics ffi (fromAList prog) co (state_cc compile_each cc) pe start ≠ ffi$Fail ⇒
+  semantics ffi (fromAList prog) co (state_cc compile_each cc) pe start =
+  semantics ffi (fromAList prog2) (state_co compile_each co) cc pe start
 Proof
   simp [GSYM AND_IMP_INTRO]
   >> ntac 4 strip_tac
@@ -6084,8 +6097,8 @@ Proof
   >> rpt gen_tac >> rveq
   >> drule (GEN_ALL evaluate_compile_each)
   >> rpt(disch_then drule)
-  >> disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["start","k","ffi0","cc"])))
-  >> disch_then (qspecl_then [`start`,`k`,`ffi`,`cc`] mp_tac)
+  >> disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["start","k","ffi0","cc","pe"])))
+  >> disch_then (qspecl_then [`start`,`k`,`ffi`,`cc`,`pe`] mp_tac)
   >> qmatch_goalsub_abbrev_tac`p = (_,_)`
   >> Cases_on`p` >> pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])
   >> simp []
@@ -6100,15 +6113,16 @@ Proof
   >> qexists_tac `k` >> fs []
 QED
 
+
 Theorem compile_prog_semantics:
   input_condition n prog ∧
   (∀k n cfg prog. co k = ((n,cfg),prog) ⇒ input_condition n prog) ∧
   (∀k. MEM k (MAP FST prog2) ∧ in_ns_3 k ⇒ k < FST(FST (co 0))) ∧
   SND (compile_prog b n prog) = prog2 ∧
-  semantics ffi (fromAList prog) co (state_cc (compile_prog b) cc) start ≠
+  semantics ffi (fromAList prog) co (state_cc (compile_prog b) cc) pe start ≠
     ffi$Fail ⇒
-  semantics ffi (fromAList prog) co (state_cc (compile_prog b) cc) start =
-  semantics ffi (fromAList prog2) (state_co (compile_prog b) co) cc start
+  semantics ffi (fromAList prog) co (state_cc (compile_prog b) cc) pe start =
+  semantics ffi (fromAList prog2) (state_co (compile_prog b) co) cc pe start
 Proof
   Cases_on `b`
   >-
