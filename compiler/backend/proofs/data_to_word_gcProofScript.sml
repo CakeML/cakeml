@@ -4625,7 +4625,7 @@ Theorem state_rel_init:
     lim.has_fp_tops = c.has_fp_tern /\
     conf_ok (:'a) c /\
     init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ==>
-    state_rel c l1 l2 (initial_state ffi code co cc T lim t.stack_size t.clock)
+    state_rel c l1 l2 (initial_state ffi code co cc pe T lim t.stack_size t.clock)
                       (t:('a,'c,'ffi) state) NONE []
 Proof
   simp_tac std_ss [word_list_exists_ADD,conf_ok_def,init_store_ok_def]

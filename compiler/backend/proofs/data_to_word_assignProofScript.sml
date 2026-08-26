@@ -1762,11 +1762,23 @@ Proof
   \\ rw[] \\ metis_tac[]
 QED
 
+(* the oracle bit consumed by a PtrEqual is exactly the machine-level word
+   equality of the two argument registers; vacuous for every other op *)
+Definition ptr_eq_hyp_def:
+  ptr_eq_hyp op args (s:('c,'ffi) dataSem$state)
+                     (t:('a,'c,'ffi) wordSem$state) ⇔
+    ∀a1 a2. op = BlockOp PtrEqual ∧ args = [a1;a2] ⇒
+            (s.ptr_eq_oracle 0 ⇔
+               ∃w:'a word. get_var (adjust_var a1) t = SOME (Word w) ∧
+                           get_var (adjust_var a2) t = SOME (Word w))
+End
+
 val assign_thm_goal =
   ``state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) NONE locs ∧
    (op_requires_names op ≠ (names_opt = NONE)) ∧
    cut_state_opt names_opt s = SOME x ∧
    get_vars args s.locals = SOME vals ∧
+   ptr_eq_hyp op args x t ∧
    t.termdep > 1 ∧
    do_app op vals x = Rval (v,s2) ==>
    ?q r.
@@ -11587,6 +11599,72 @@ Proof
   \\ match_mp_tac memory_rel_insert \\ fs []
   \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
   \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [])
+QED
+
+Theorem assign_PtrEqual:
+  op = BlockOp PtrEqual ==> ^assign_thm_goal
+Proof
+  rpt strip_tac
+  \\ gvs [dataLangTheory.op_requires_names_def,
+          dataLangTheory.op_space_reset_def,
+          dataSemTheory.cut_state_opt_def]
+  \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  \\ fs [do_app]
+  \\ gvs [AllCaseEqs()]
+  >- (* do_eq = Eq_val T: the consumed oracle bit equals the machine word
+        equality, by ptr_eq_hyp *)
+   (imp_res_tac state_rel_get_vars_IMP \\ fs [LENGTH_EQ_2] \\ clean_tac
+    \\ fs [get_var_def]
+    \\ fs [state_rel_thm] \\ eval_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL) \\ strip_tac
+    \\ rpt_drule0 memory_rel_simple_eq \\ strip_tac \\ rveq
+    \\ fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF]
+    \\ simp [assign_def, arg2_def, assign_BoolTest_def]
+    \\ simp [wordSemTheory.evaluate_def, wordSemTheory.get_var_imm_def,
+             asmTheory.word_cmp_def]
+    \\ `s.ptr_eq_oracle 0 ⇔ (w1 = w2)` by
+         (fs [ptr_eq_hyp_def, wordSemTheory.get_var_def] \\ metis_tac [])
+    \\ IF_CASES_TAC
+    \\ gvs [wordSemTheory.word_exp_def, wordSemTheory.set_var_def,
+            allowed_op_def]
+    >- (fs [lookup_insert, adjust_var_11] \\ rw [] \\ fs []
+        \\ simp [inter_insert_ODD_adjust_set, GSYM Boolv_def,
+                 option_le_max_right]
+        \\ simp [inter_insert_ODD_adjust_set]
+        \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+        \\ match_mp_tac memory_rel_insert \\ fs []
+        \\ match_mp_tac memory_rel_Boolv_T \\ fs [])
+    \\ fs [lookup_insert, adjust_var_11] \\ rw [] \\ fs []
+    \\ simp [inter_insert_ODD_adjust_set, GSYM Boolv_def,
+             option_le_max_right]
+    \\ simp [inter_insert_ODD_adjust_set]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ match_mp_tac memory_rel_Boolv_F \\ fs [])
+  (* do_eq = Eq_val F: the two words must differ (memory_rel_ptr_eq),
+     so the machine also answers F and no oracle bit is consumed *)
+  \\ imp_res_tac state_rel_get_vars_IMP \\ fs [LENGTH_EQ_2] \\ clean_tac
+  \\ fs [get_var_def]
+  \\ fs [state_rel_thm] \\ eval_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL) \\ strip_tac
+  \\ rpt_drule0 memory_rel_simple_eq \\ strip_tac \\ rveq
+  \\ fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF]
+  \\ `w1 ≠ w2` by (strip_tac \\ rveq \\ rpt_drule0 memory_rel_ptr_eq \\ fs [])
+  \\ simp [assign_def, arg2_def, assign_BoolTest_def]
+  \\ simp [wordSemTheory.evaluate_def, wordSemTheory.get_var_imm_def,
+           asmTheory.word_cmp_def]
+  \\ gvs [wordSemTheory.word_exp_def, wordSemTheory.set_var_def,
+          allowed_op_def]
+  \\ fs [lookup_insert, adjust_var_11] \\ rw [] \\ fs []
+  \\ simp [inter_insert_ODD_adjust_set, GSYM Boolv_def, option_le_max_right]
+  \\ simp [inter_insert_ODD_adjust_set]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ match_mp_tac memory_rel_Boolv_F \\ fs []
 QED
 
 Theorem assign_WordTest[allow_rebind]:
