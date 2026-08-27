@@ -103,16 +103,6 @@ Definition cnf_saved_def:
     ∃content. get_file_content fs name = SOME content ∧ is_cnf_str cnf content
 End
 
-(* Asserts that cnfs for the checker are saved in the file system. *)
-Definition cnf_checks_saved_def:
-  cnf_checks_saved fs fnames
-    reset transition property base step liveness decrease closure consistent
-  =
-  LIST_REL (cnf_saved fs) fnames
-    [reset; transition; property; base; step;
-     liveness; decrease; closure; consistent]
-End
-
 (* Asserts that if out = «SUCCESS» and the files to be written do not yet
    exist in the filesystem, then:
    1. getting the model (parsing + processing) was successful
@@ -127,6 +117,8 @@ End
    hard links: suppose that all the files we write already exist and are
    pointing to the same inode. In that case, all files will have the same
    content, namely the content of the last write. *)
+(* TODO Enable unlinking (requires additions to fsFFI + basis_ffi.c) to
+   remove the precondition of the files to be written not yet existing*)
 Definition make_cert_sem_def:
   make_cert_sem fs fs' fmodel out prefix ⇔
   let
@@ -824,7 +816,6 @@ Proof
   >> rw []
   >> qexistsl [‘fs'’, ‘«SUCCESS»’]
   >> conj_tac
-
   >- (
     rw [make_cert_sem_def]
     (* Showing get_model is successful *)
@@ -837,9 +828,8 @@ Proof
     (* Showing is_cnf_str *)
     >> rpt (qpat_assum ‘is_cnf_str _ _’ $ irule_at Any)
     (* Showing unsat ⇒ safe + live *)
+    >> drule process_and_check_return
     >> simp [GSYM encodings_unsat_def]
-    (* TODO probably get rest of our conditions from process_and_check *)
-    >> cheat
   )
   >> xsimpl
 QED
