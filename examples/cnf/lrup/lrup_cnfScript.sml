@@ -18,10 +18,6 @@ Libs
   Semantics of a formula
  ***)
 
-Definition sols_def:
-  sols (fml:num clause list) = {w | satisfies_cnf w (set fml)}
-End
-
 (***
   A parser and printer for CNF in CakeML
  ***)
@@ -56,12 +52,34 @@ val cnf_raw = ``[
   «p cnf 5 4 »;
   «    1  4 0»;
   «c this is a comment»;
-  «    2  4 0»;
+  «»;
+  «    2  2  4 0»;
   «-1 -2 -3 0»;
   «   -4 -5 0»;
   ]``;
 
 val test = rconc (EVAL ``THE (parse_cnf ^(cnf_raw))``);
+
+(* Blank lines are skipped, and a clause is stored as it was written,
+  repeated literal and all *)
+Theorem parse_vcnf_toks_test[local]:
+  parse_vcnf_toks (MAP toks ^(cnf_raw)) =
+  SOME (5,4,
+    [Vector [1; 4]; Vector [2; 2; 4]; Vector [-1; -2; -3]; Vector [-4; -5]])
+Proof
+  EVAL_TAC
+QED
+
+(* A run that echoes its input prints unconv_cfml of what it stored, so
+  the echoed formula is the one that was written, repeated literal and all *)
+Theorem unconv_cfml_test[local]:
+  OPTION_MAP (λ(mv,ncl,vcfml). unconv_cfml vcfml)
+    (parse_vcnf_toks (MAP toks ^(cnf_raw))) =
+  SOME [[Pos 1; Pos 4]; [Pos 2; Pos 2; Pos 4];
+        [Neg 1; Neg 2; Neg 3]; [Neg 4; Neg 5]]
+Proof
+  EVAL_TAC
+QED
 
 (* CNF printer *)
 
@@ -121,9 +139,9 @@ Proof
   assume_tac print_header_line_first>>fs[]>>
   pop_assum sym_sub_tac>>
   `tokenize «p» = INL «p»` by EVAL_TAC>>
-  simp[nocomment_line_def]>>
+  simp[keep_line_def]>>
   simp[GSYM toks_def,parse_header_line_print_header_line]>>
-  simp[FILTER_nocomment_print_lits]>>
+  simp[FILTER_keep_line_print_lits]>>
   simp[Abbr`b`]>>
   qmatch_goalsub_abbrev_tac`parse_body_gen _ _ ss []`>>
   `LIST_REL (λs c. parse_lits a s = SOME c) ss cs` by

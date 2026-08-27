@@ -42,6 +42,10 @@ Definition toks_def:
   toks s = MAP tokenize (tokens blanks s)
 End
 
+(* The concrete formats number variables from 1, reserving 0 as the clause
+  terminator. var_lit is polymorphic, so the type is pinned here. *)
+Overload nz_lit = ``(λ(l:num lit). var_lit l ≠ 0)``
+
 (* Parse an integer as a literal. *)
 Definition mk_lit_def:
   mk_lit l =
@@ -159,10 +163,12 @@ Proof
   metis_tac[nz_lit_mk_lit]
 QED
 
-(* lines which are not comments don't start with a single "c" *)
-Definition nocomment_line_def:
-  (nocomment_line (INL c::cs) = (c ≠ «c»)) ∧
-  (nocomment_line _ = T)
+(* Lines to keep: comments start with a single "c", and blank lines
+  tokenize to the empty list. *)
+Definition keep_line_def:
+  (keep_line (INL c::cs) ⇔ (c ≠ «c»)) ∧
+  (keep_line [] ⇔ F) ∧
+  (keep_line _ = T)
 End
 
 (***
@@ -241,8 +247,8 @@ QED
   declared line count. *)
 Definition parse_dimacs_toks_gen_def:
   parse_dimacs_toks_gen pl tokss =
-  let nocomments = FILTER nocomment_line tokss in
-  case nocomments of
+  let kept = FILTER keep_line tokss in
+  case kept of
     s::ss =>
       (case parse_header_line s of
         SOME (vars,numls) =>
@@ -437,9 +443,9 @@ Proof
   simp[check_maxvar_def]
 QED
 
-Theorem FILTER_nocomment_print_lits:
+Theorem FILTER_keep_line_print_lits:
   EVERY (EVERY nz_lit) ls ⇒
-  FILTER nocomment_line
+  FILTER keep_line
     (MAP toks (MAP (print_lits #"\n") ls)) =
     (MAP toks (MAP (print_lits #"\n") ls))
 Proof
@@ -456,7 +462,7 @@ Proof
   disch_then (fn th => simp[th])>>
   simp[tokens_blanks_print_lit]>>
   DEP_REWRITE_TAC[tokenize_print_lit]>>
-  simp[nocomment_line_def]
+  simp[keep_line_def]
 QED
 
 Theorem tokens_blanks_toString:
@@ -607,36 +613,6 @@ Definition parse_vb_int_def:
       then (&(m DIV 2):int)
       else (-&(m DIV 2):int)) in
   (v,i)
-End
-
-Definition parse_vb_nums_aux_def:
-  parse_vb_nums_aux (s:mlstring) (i:num) (len:num) (acc:num list) =
-  let (m,i) = parse_vb_num s i len in
-  if m = 0
-  then
-    acc
-  else
-    parse_vb_nums_aux s i len (m::acc)
-Termination
-  WF_REL_TAC` measure (λ(x,s,i,r). i-s)`>>
-  rw[]>> fs[parse_vb_num_def] >>
-  drule_all parse_vb_num_aux_i >>
-  fs[]
-End
-
-(* Clausify reverses the order of the input *)
-Definition clausify_aux_def:
-  (clausify_aux [] acc = acc) ∧
-  (clausify_aux (x::xs) acc =
-    let v =
-      (if x MOD 2 = 0n
-      then (&(x DIV 2):int)
-      else (-&(x DIV 2):int)) in
-      clausify_aux xs (v::acc))
-End
-
-Definition clausify_def:
-  clausify cls = clausify_aux cls []
 End
 
 (* Decode a doubled literal: even is positive, odd negative *)

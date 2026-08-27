@@ -207,7 +207,7 @@ fun main () =
   let
     val step_arr = Word8Array.array 17 (Word8.fromInt 0)
     val buf_arr = Word8Array.array 0 (Word8.fromInt 0)
-    val fml = Array.array 4096 None
+    val fml = Array.array 4096 vcc_none
     val carr = Word8Array.array 1024 (Word8.fromInt 0)
     val b = Word8.fromInt 1
   in
@@ -1694,7 +1694,7 @@ QED
 
 Theorem check_top_SOME:
   NUM lno lnov ∧
-  LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
+  LIST_REL vcclause_TYPE fmlls fmllsv ∧
   WORD8 b bv ∧
   DISTRUP_DISTRUP_TYPE inst instv ∧
   bnd_fml fmlls (LENGTH Clist) ∧
@@ -1719,7 +1719,7 @@ Theorem check_top_SOME:
               v1 = Conv (SOME (TypeStamp «Some» 2))
                 [Conv NONE [v11;v12;v13]] ∧
               WORD8 b' v13 ∧
-              LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls' fmllsv'
+              LIST_REL vcclause_TYPE fmlls' fmllsv'
             )
       )
 Proof
@@ -1938,7 +1938,7 @@ Theorem loop_SOME:
   ∀inputs lno lnov events aevents fmlls fmllsv Clist step_arr step_arrv
     buf_arr buf_arrv b bv stv fmlv Carrv.
     NUM lno lnov ∧
-    LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
+    LIST_REL vcclause_TYPE fmlls fmllsv ∧
     WORD8 b bv ∧
     bnd_fml fmlls (LENGTH Clist) ∧
     events_ok st events aevents (SOME (fmlls, Clist, b)) ∧
@@ -2240,7 +2240,7 @@ Proof
 QED
 
 Definition init_st_def:
-  init_st = (SOME (REPLICATE 4096n (NONE:vcclause option), REPLICATE 1024n (0w:word8), (1w:word8)))
+  init_st = (SOME (REPLICATE 4096n vcc_none, REPLICATE 1024n (0w:word8), (1w:word8)))
 End
 
 Theorem main_spec:
@@ -2261,12 +2261,13 @@ Proof
   first_x_assum $ irule_at Any>>
   irule_at Any events_ok_init>>
   qexists_tac`inputs`>>
-  qexists ‘REPLICATE 4096 NONE’ >>
+  qexists ‘REPLICATE 4096 vcc_none’ >>
   xsimpl >>
   conj_tac >-
    (gvs [ccnf_listTheory.bnd_fml_def,miscTheory.any_el_ALT,EL_REPLICATE, SF CONJ_ss]) >>
   conj_tac >-
-   (gvs [LIST_REL_EL_EQN,OPTION_TYPE_def,EL_REPLICATE]) >>
+   (gvs [LIST_REL_EL_EQN,EL_REPLICATE,
+         ccnf_arrayProgTheory.vcc_none_v_thm]) >>
   rw [] >> rename [‘CUSTOM_FFI Terminate [] xx’] >>
   gvs[init_st_def]>>
   pop_assum $ irule_at Any >>

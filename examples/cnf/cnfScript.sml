@@ -72,10 +72,6 @@ Definition var_lit_def[simp]:
   (var_lit (Neg v) = v)
 End
 
-(* var_lit is polymorphic, so the type must be pinned here:
-  the concrete formats number variables from 1, reserving 0. *)
-Overload nz_lit = ``(λ(l:num lit). var_lit l ≠ 0)``
-
 Definition clause_vars_def:
   (clause_vars (c:'a clause) = set (MAP var_lit c))
 End

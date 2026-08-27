@@ -27,7 +27,7 @@ Definition check_lrup_def:
   | Lrupvb n vc s =>
     if is_rup_vb fml vc s
     then
-      SOME (fml |+ (n, vc))
+      SOME (insert_vcc fml n vc)
     else NONE
 End
 
@@ -54,8 +54,8 @@ Proof
     metis_tac[satisfies_fml_gen_delete_ids_vb])>>
   drule is_rup_vb_sound>>
   disch_then $ drule_at Any>>
-  fs[satisfies_vcfml_def]>>
-  metis_tac[SRULE [] satisfies_fml_gen_insert]
+  fs[satisfies_vcfml_def,insert_vcc_def]>>
+  metis_tac[SRULE [] satisfies_fml_gen_insert,satisfies_vcclause_canon_vcc]
 QED
 
 (* The main operational theorem about check_lrups *)
@@ -84,7 +84,7 @@ Definition check_lrups_unsat_def:
 End
 
 Theorem check_lrups_unsat_sound:
-  check_lrups_unsat ls (build_fml cid cfml) ⇒
+  check_lrups_unsat ls (build_cfml cid cfml) ⇒
   ¬ ∃w.
     satisfies_vcfml w (set cfml)
 Proof
@@ -92,7 +92,7 @@ Proof
   CCONTR_TAC>>
   gvs[AllCasePreds()]>>
   drule check_lrups_sound>>
-  simp[range_build_fml]>>
+  simp[range_build_cfml]>>
   metis_tac[contains_emp_unsat]
 QED
 
@@ -100,12 +100,12 @@ QED
   the checker's internal representation *)
 Theorem check_lrups_unsat_conv_sound:
   EVERY (EVERY nz_lit) cfml ∧
-  check_lrups_unsat lrups (build_fml cid (conv_cfml cfml)) ⇒
-  sols cfml = {}
+  check_lrups_unsat lrups (build_cfml cid (conv_cfml cfml)) ⇒
+  unsatisfiable_cnf (set cfml)
 Proof
   strip_tac>>
   drule check_lrups_unsat_sound>>
-  simp[EXTENSION,sols_def]>>
+  simp[unsatisfiable_cnf_def,satisfiable_cnf_def]>>
   metis_tac[conv_cfml_sound]
 QED
 

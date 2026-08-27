@@ -153,70 +153,65 @@ QED
 (*** Building the initial formula array ***)
 
 Quote add_cakeml:
-  fun fill_arr arr i ls =
+  fun fill_cfml_arr arr i ls =
     case ls of [] => arr
     | (v::vs) =>
-      fill_arr (Array.updateResize arr None i (Some v)) (i+1) vs
+      fill_cfml_arr (insert_clause_arr arr i v) (i+1) vs
 End
 
-Theorem fill_arr_spec:
+Theorem fill_cfml_arr_spec:
   ∀ls lsv arrv arrls arrlsv i iv.
   NUM i iv ∧
-  LIST_TYPE a ls lsv ∧
-  LIST_REL (OPTION_TYPE a) arrls arrlsv
+  LIST_TYPE vcclause_TYPE ls lsv ∧
+  LIST_REL vcclause_TYPE arrls arrlsv
   ⇒
-  app (p:'ffi ffi_proj) ^(fetch_v"fill_arr"(get_ml_prog_state()))
+  app (p:'ffi ffi_proj) ^(fetch_v"fill_cfml_arr"(get_ml_prog_state()))
   [arrv; iv; lsv]
   (ARRAY arrv arrlsv)
   (POSTv resv.
     SEP_EXISTS arrlsv'. ARRAY resv arrlsv' *
-    &LIST_REL (OPTION_TYPE a)
-      (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i)
+    &LIST_REL vcclause_TYPE
+      (FOLDL (λacc (i,v). update_resize acc vcc_none (canon_vcc v) i)
         arrls (enumerate i ls)) arrlsv')
 Proof
   Induct>>rw[]>>
-  xcf "fill_arr" (get_ml_prog_state ())>>
+  xcf "fill_cfml_arr" (get_ml_prog_state ())>>
   fs[LIST_TYPE_def,miscTheory.enumerate_def]>>
   xmatch
   >- (xvar>>xsimpl)>>
-  rpt xlet_autop>>
+  xlet_autop>>
   xlet`POSTv resv.
     SEP_EXISTS arrlsv'. ARRAY resv arrlsv' *
-    &LIST_REL (OPTION_TYPE a) (update_resize arrls NONE (SOME h) i) arrlsv'`
-  >- (
-    xapp_spec array_updateResize_spec>>
-    xsimpl>>
-    first_x_assum (irule_at Any)>>
-    rw[]>>
-    irule LIST_REL_update_resize>>
-    gvs[OPTION_TYPE_def])>>
+    &LIST_REL vcclause_TYPE (insert_vcc_list arrls i h) arrlsv'`
+  >- (xapp>>xsimpl)>>
+  gvs[insert_vcc_list_def]>>
   xapp>>xsimpl
 QED
 
 Quote add_cakeml:
-  fun build_fml_arr n k ls =
-    fill_arr (Array.array n None) k ls
+  fun build_cfml_arr n k ls =
+    fill_cfml_arr (Array.array n vcc_none) k ls
 End
 
-Theorem build_fml_arr_spec:
+Theorem build_cfml_arr_spec:
   NUM n nv ∧
   NUM k kv ∧
-  LIST_TYPE a ls lsv
+  LIST_TYPE vcclause_TYPE ls lsv
   ⇒
-  app (p:'ffi ffi_proj) ^(fetch_v"build_fml_arr"(get_ml_prog_state()))
+  app (p:'ffi ffi_proj) ^(fetch_v"build_cfml_arr"(get_ml_prog_state()))
   [nv; kv; lsv]
   emp
   (POSTv resv.
     SEP_EXISTS arrlsv. ARRAY resv arrlsv *
-    &LIST_REL (OPTION_TYPE a) (build_fml_list k ls n) arrlsv)
+    &LIST_REL vcclause_TYPE (build_cfml_list k ls n) arrlsv)
 Proof
   rw[]>>
-  xcf "build_fml_arr" (get_ml_prog_state ())>>
-  xlet_autop>>
+  xcf "build_cfml_arr" (get_ml_prog_state ())>>
   xlet_auto_spec (SOME array_alloc_spec)>>
   xapp>>
   xsimpl>>
   first_x_assum (irule_at Any)>>
-  qexistsl_tac [`k`,`REPLICATE n NONE`]>>
-  simp[build_fml_list_def,LIST_REL_REPLICATE_same,OPTION_TYPE_def]
+  qexistsl_tac [`k`,`REPLICATE n vcc_none`]>>
+  simp[build_cfml_list_def,build_fml_list_def,LIST_REL_REPLICATE_same,
+    vcc_none_v_thm,FOLDL_update_resize_canon_vcc]
 QED

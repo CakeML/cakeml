@@ -24,7 +24,7 @@ val _ = parse_header_line_side_thm |> update_precondition;
 
 val _ = translate var_lit_def;
 val _ = translate parse_vclause_def;
-val _ = translate nocomment_line_def;
+val _ = translate keep_line_def;
 
 val blanks_v_thm = fetch "ccnf_parseProg" "blanks_v_thm";
 val tokenize_v_thm = fetch "ccnf_parseProg" "tokenize_v_thm";
@@ -46,7 +46,7 @@ Quote add_cakeml:
   case TextIO.inputLineTokens #"\n" fd blanks tokenize of
     None => Inr (List.rev acc)
   | Some l =>
-    if nocomment_line l then
+    if keep_line l then
       (case parse_vclause maxvar l of
         None => Inl (format_dimacs_failure lno "failed to parse line")
       | Some cl =>
@@ -69,7 +69,7 @@ Theorem parse_body_arr_spec:
       (∃err.
       SUM_TYPE STRING_TYPE VCFML_TYPE
         (case parse_body_gen parse_vclause maxvar
-          (FILTER nocomment_line (MAP toks lines)) acc of
+          (FILTER keep_line (MAP toks lines)) acc of
           NONE => INL err
         | SOME x => INR x) v) *
       SEP_EXISTS k lines'.
@@ -160,7 +160,7 @@ Quote add_cakeml:
   case TextIO.inputLineTokens #"\n" fd blanks tokenize of
     None => Inl (format_dimacs_failure lno "failed to find header")
   | Some l =>
-    if nocomment_line l then
+    if keep_line l then
       (case parse_header_line l of
         None => Inl (format_dimacs_failure lno "failed to parse header")
       | Some res => case res of (vars,ncl) =>
@@ -263,7 +263,7 @@ Proof
   xlet `(POSTv v.
       & (∃err. SUM_TYPE STRING_TYPE VCFML_TYPE
       (case parse_body_gen parse_vclause hdr0
-        (FILTER nocomment_line (MAP toks lines)) [] of
+        (FILTER keep_line (MAP toks lines)) [] of
         NONE => INL err
       | SOME x => INR x) v) *
       SEP_EXISTS k lines'.
@@ -546,7 +546,7 @@ Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 out ⇔
   (out ≠ «» ⇒
     out = «s VERIFIED UNSAT\n» ∧
-    ∃fml. get_cnf fs f1 = SOME fml ∧ sols fml = {})
+    ∃fml. get_cnf fs f1 = SOME fml ∧ unsatisfiable_cnf (set fml))
 End
 
 Theorem check_unsat_2_spec:
@@ -583,7 +583,7 @@ Proof
     STDIO fs *
     SEP_EXISTS res.
       &(SUM_TYPE STRING_TYPE BOOL res v ∧
-        (res = INR T ⇒ sols cfml = {}))`
+        (res = INR T ⇒ unsatisfiable_cnf (set cfml)))`
   >- (
     xapp>>
     rw[]

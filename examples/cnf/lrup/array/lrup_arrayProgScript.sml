@@ -22,7 +22,7 @@ Quote add_cakeml:
       (delete_ids_vb_arr fml s 1 (String.size s); (fml, carr, b))
   | Lrupvb n c s =>
       (case is_rup_vb_arr lno fml carr b c s of (carr,b) =>
-        (Array.updateResize fml None n (Some c), carr, b))
+        (insert_clause_arr fml n c, carr, b))
 End
 
 val LRUP_LRUP_TYPE_def = fetch "-" "LRUP_LRUP_TYPE_def";
@@ -30,7 +30,7 @@ val LRUP_LRUP_TYPE_def = fetch "-" "LRUP_LRUP_TYPE_def";
 Theorem check_lrup_arr_spec:
   NUM lno lnov ∧
   LRUP_LRUP_TYPE lrup lrupv ∧
-  LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
+  LIST_REL vcclause_TYPE fmlls fmllsv ∧
   WORD8 b bv ∧
   bnd_fml fmlls (LENGTH Clist)
   ⇒
@@ -50,7 +50,7 @@ Theorem check_lrup_arr_spec:
               NONE => F
             | SOME (fmlls', Clist', b') =>
                 bnd_fml fmlls' (LENGTH Clist') ∧
-                LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls' fmllsv' ∧
+                LIST_REL vcclause_TYPE fmlls' fmllsv' ∧
                 WORD8 b' v3 ∧
                 Clist' = clist'
             ))
@@ -91,14 +91,17 @@ Proof
     every_case_tac>>gvs[])>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
-  rpt xlet_autop>>
+  xlet`POSTv resv.
+    W8ARRAY Carrv' Clist' *
+    SEP_EXISTS fmllsv'. ARRAY resv fmllsv' *
+    &LIST_REL vcclause_TYPE (insert_vcc_list fmlls n v) fmllsv'`
+  >- (
+    xapp>>xsimpl>>
+    qexistsl_tac [`v`,`n`,`fmlls`]>>
+    simp[])>>
   xcon>>xsimpl>>
-  gvs[]>>
-  CONJ_TAC >- (
-    irule bnd_fml_update_resize>>
-    metis_tac[bnd_fml_is_rup_vb_list])>>
-  irule LIST_REL_update_resize>>
-  simp[OPTION_TYPE_def]
+  irule bnd_fml_insert_vcc_list>>
+  metis_tac[bnd_fml_is_rup_vb_list]
 QED
 
 (*** Reading and checking a proof file, one record at a time ***)
@@ -293,7 +296,7 @@ End
 Theorem check_unsat''_spec:
   ∀lines fmlls Clist b fs fmlv fmllsv Carrv lno lnov bv.
   NUM lno lnov ∧
-  LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
+  LIST_REL vcclause_TYPE fmlls fmllsv ∧
   WORD8 b bv ∧
   bnd_fml fmlls (LENGTH Clist)
   ⇒
@@ -309,7 +312,7 @@ Theorem check_unsat''_spec:
           INSTREAM_LINES nulc fd fdv [] (forwardFD fs fd k) *
           ARRAY v fmllsv' *
           &(unwrap_TYPE
-            (LIST_REL (OPTION_TYPE vcclause_TYPE))
+            (LIST_REL vcclause_TYPE)
             (parse_and_run_file_list lines fmlls Clist b) fmllsv'))
       (λe.
         SEP_EXISTS k fmlv' fmllsv' lines'.
@@ -406,7 +409,7 @@ Quote add_cakeml:
   fun check_unsat' vcfml fname n nc =
   let
     val fd = TextIO.openIn fname
-    val fml = build_fml_arr nc 1 vcfml
+    val fml = build_cfml_arr nc 1 vcfml
     val carr = Word8Array.array n bw0
     val chk = Inr (check_unsat'' fd 1 fml carr bw1)
       handle Fail s => Inl s
@@ -445,7 +448,7 @@ Theorem check_unsat'_spec:
     STDIO fs *
     SEP_EXISTS res.
       &(SUM_TYPE STRING_TYPE BOOL res v ∧
-        (res = INR T ⇒ sols cfml = {})))
+        (res = INR T ⇒ unsatisfiable_cnf (set cfml))))
 Proof
   rw[]>>
   xcf"check_unsat'"(get_ml_prog_state ())>>
@@ -476,11 +479,11 @@ Proof
   qmatch_goalsub_abbrev_tac`STDIO fss`>>
   xlet_autop>>
   xlet_autop>>
-  qabbrev_tac`fmlls = build_fml_list 1 (conv_cfml cfml) nc`>>
+  qabbrev_tac`fmlls = build_cfml_list 1 (conv_cfml cfml) nc`>>
   qabbrev_tac`Clist = REPLICATE n (0w:word8)`>>
   `bnd_fml fmlls (LENGTH Clist)` by (
     simp[Abbr`fmlls`,Abbr`Clist`]>>
-    irule bnd_fml_build_fml_list>>
+    irule bnd_fml_build_cfml_list>>
     irule bnd_clause_conv_cfml>>
     fs[])>>
   qabbrev_tac`lines = all_lines_file_gen nulc fs f`>>
@@ -494,7 +497,7 @@ Proof
         NONE => resv = Conv (SOME (TypeStamp «Inl» 4)) [v0] ∧ ∃s. STRING_TYPE s v0
       | SOME fmlls'' =>
         resv = Conv (SOME (TypeStamp «Inr» 4)) [fmlv'] ∧
-        LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls'' fmllsv'
+        LIST_REL vcclause_TYPE fmlls'' fmllsv'
       )`
   >- (
     simp[]>>
@@ -543,7 +546,7 @@ Proof
           &(v = Conv (SOME (TypeStamp «Inr» 4)) [fmlv']) *
           ARRAY fmlv' fmllsv') *
         &(unwrap_TYPE
-          (LIST_REL (OPTION_TYPE vcclause_TYPE))
+          (LIST_REL vcclause_TYPE)
           (parse_and_run_file_list lines fmlls Clist 1w) fmllsv')`
     >- (
       xlet`POSTv v.
@@ -552,7 +555,7 @@ Proof
           INSTREAM_LINES nulc (nextFD fs) is [] (forwardFD fss (nextFD fs) k) *
           ARRAY v fmllsv' *
           &(unwrap_TYPE
-            (LIST_REL (OPTION_TYPE vcclause_TYPE))
+            (LIST_REL vcclause_TYPE)
             (parse_and_run_file_list lines fmlls Clist 1w) fmllsv')`
       >- (
         xapp_spec check_unsat''_spec>>

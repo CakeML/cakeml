@@ -15,7 +15,7 @@ Definition check_lrup_list_def:
   | Lrupvb n C s =>
     (case is_rup_vb_list fml dml b C s of
       (T, dml', b') =>
-      SOME (update_resize fml NONE (SOME C) n, dml', b')
+      SOME (insert_vcc_list fml n C, dml', b')
     | _ => NONE)
 End
 
@@ -35,7 +35,7 @@ Proof
     (simp[fml_rel_delete_ids_vb_list]>>metis_tac[])>>
   (* Lrupvb *)
   drule_all is_rup_vb_list>>rw[]>>
-  simp[fml_rel_update_resize]>>
+  simp[fml_rel_insert_vcc_list]>>
   metis_tac[]
 QED
 
@@ -49,7 +49,7 @@ Proof
   Cases_on`lrup`>>gvs[AllCaseEqs()]
   >- metis_tac[bnd_fml_delete_ids_vb_list]>>
   drule_all bnd_fml_is_rup_vb_list>>
-  metis_tac[bnd_fml_update_resize]
+  metis_tac[bnd_fml_insert_vcc_list]
 QED
 
 Definition check_lrups_list_def:
@@ -106,10 +106,10 @@ QED
   formula rather than on the checker's internal representation *)
 Theorem check_lrups_unsat_list_sound:
   check_lrups_unsat_list lrups
-    (build_fml_list kc (conv_cfml cfml) nc)
+    (build_cfml_list kc (conv_cfml cfml) nc)
     (REPLICATE n 0w) 1w ∧
   EVERY (EVERY nz_lit) cfml ⇒
-  sols cfml = {}
+  unsatisfiable_cnf (set cfml)
 Proof
   strip_tac>>
   irule check_lrups_unsat_conv_sound>>
@@ -117,7 +117,43 @@ Proof
   qexistsl_tac [`kc`,`lrups`]>>
   irule check_lrups_unsat_list>>
   rpt (first_x_assum (irule_at Any))>>
-  irule_at Any fml_rel_build_fml_list>>
+  irule_at Any fml_rel_build_cfml_list>>
   irule_at Any dm_rel_FEMPTY_REPLICATE>>
   metis_tac[]
+QED
+
+(* Unit propagation commits to the first non-falsified literal and then
+  requires every other literal to be falsified, so a clause carrying a
+  repeated literal would be rejected whenever it is cited as a hint.
+  Clauses are canonicalised on entry to the formula array to prevent that.
+
+  Records are NUL-separated, and the variable-byte encoding of 0 is the NUL
+  byte itself, so a record carries no terminator of its own: the literals
+  end at the end of the chunk. Literals are doubled (+k as 2k, -k as 2k+1)
+  and so are the clause ids. *)
+
+(* p cnf 1 2 / "1 1 0" / "-1 0", refuted by the empty clause with id 3
+  from hints 1 and 2. Hint 1 is the input clause repeating a literal. *)
+Theorem check_lrups_unsat_list_dup_cnf[local]:
+  check_lrups_unsat_list
+    (THE (parse_lrups [implode (MAP CHR [97;6]); implode (MAP CHR [2;4])]))
+    (build_cfml_list 1 (conv_cfml [[Pos 1; Pos 1]; [Neg 1]]) 10)
+    (REPLICATE 4 0w) 1w
+Proof
+  EVAL_TAC
+QED
+
+(* p cnf 2 3 / "1 2 0" / "1 -2 0" / "-1 0". Clause 4 = "1 1" is derived by
+  RUP from 1 and 2, then the empty clause with id 5 from hints 4 and 3.
+  Hint 4 is a derived clause repeating a literal. *)
+Theorem check_lrups_unsat_list_dup_derived[local]:
+  check_lrups_unsat_list
+    (THE (parse_lrups
+      [implode (MAP CHR [97;8;2;2]); implode (MAP CHR [2;4]);
+       implode (MAP CHR [97;10]);    implode (MAP CHR [8;6])]))
+    (build_cfml_list 1
+      (conv_cfml [[Pos 1; Pos 2]; [Pos 1; Neg 2]; [Neg 1]]) 10)
+    (REPLICATE 4 0w) 1w
+Proof
+  EVAL_TAC
 QED

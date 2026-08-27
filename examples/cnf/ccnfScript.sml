@@ -3,7 +3,7 @@
 *)
 Theory ccnf
 Ancestors
-  cnf syntax_helper mlvector
+  cnf syntax_helper mlvector mllist
 Libs
   preamble
 
@@ -83,6 +83,151 @@ Theorem satisfies_ilit_negate:
 Proof
   rw[satisfies_ilit_def]>>
   `F` by intLib.ARITH_TAC
+QED
+
+(* Canonical form for a clause.
+
+  Syntactically, nothing stops a clause from repeating a literal
+  ("1 1") or carrying an opposite pair ("-1 1"). Repeats break unit
+  propagation, which commits to the first non-falsified literal and
+  then requires every other literal to be falsified, so clauses are
+  sorted and de-duplicated on the way in.
+
+  Note a 0 literal is left in place: satisfies_ilit never satisfies it. *)
+Definition sorted_nub_aux_def:
+  (sorted_nub_aux h [] acc = (h::acc)) ∧
+  (sorted_nub_aux (h:ilit) (i::is) acc =
+    if i = h then sorted_nub_aux h is acc
+    else sorted_nub_aux i is (h::acc))
+End
+
+Definition sorted_nub_def:
+  (sorted_nub [] = []) ∧
+  (sorted_nub (x::xs) =
+    sorted_nub_aux x xs [])
+End
+
+Definition canon_clause_def:
+  canon_clause (ls:cclause) =
+    let ils = sort ($<=) ls in
+    sorted_nub ils
+End
+
+Theorem sorted_nub_aux_SORTED_strict:
+  ∀ls h acc.
+  SORTED ($>) (h::acc) ∧
+  SORTED ($<=) (h::ls) ⇒
+  SORTED ($>) (sorted_nub_aux h ls acc)
+Proof
+  Induct>>rw[sorted_nub_aux_def]>>
+  first_x_assum irule>>
+  simp[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem sorted_nub_SORTED_strict:
+  SORTED ($<=) ls ⇒
+  SORTED ($>) (sorted_nub ls)
+Proof
+  rw[oneline sorted_nub_def]>>
+  TOP_CASE_TAC>>gvs[]>>
+  irule sorted_nub_aux_SORTED_strict>>
+  simp[]
+QED
+
+Theorem MEM_sorted_nub_aux:
+  ∀ls x h acc.
+  MEM x ls ∨ x = h ∨ MEM x acc ⇔
+  MEM x (sorted_nub_aux h ls acc)
+Proof
+  Induct>>rw[sorted_nub_aux_def]>>
+  metis_tac[MEM]
+QED
+
+Theorem MEM_sorted_nub:
+  MEM x (sorted_nub ls) ⇔
+  MEM x ls
+Proof
+  rw[oneline sorted_nub_def]>>
+  Cases_on`ls`>>gvs[]>>
+  metis_tac[MEM_sorted_nub_aux,MEM]
+QED
+
+Theorem canon_clause_ALL_DISTINCT:
+  ALL_DISTINCT (canon_clause ls)
+Proof
+  rw[canon_clause_def]>>
+  irule SORTED_ALL_DISTINCT>>
+  irule_at Any sorted_nub_SORTED_strict>>
+  irule_at Any sort_SORTED>>
+  simp[transitive_def,total_def,irreflexive_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem MEM_canon_clause[simp]:
+  MEM x (canon_clause ls) ⇔ MEM x ls
+Proof
+  rw[canon_clause_def,MEM_sorted_nub]
+QED
+
+Theorem canon_clause_eq_nil[simp]:
+  canon_clause ls = [] ⇔ ls = []
+Proof
+  `∀l:cclause. l = [] ⇔ ∀x. ¬MEM x l` by
+    (Cases>>simp[]>>metis_tac[])>>
+  metis_tac[MEM_canon_clause]
+QED
+
+(* A clause enters a formula through the constructors below, which are
+  the only place it is put in canonical form. *)
+Definition canon_vcc_def:
+  canon_vcc v = Vector (canon_clause (toList v))
+End
+
+Theorem toList_canon_vcc[simp]:
+  toList (canon_vcc v) = canon_clause (toList v)
+Proof
+  rw[canon_vcc_def,toList_thm]
+QED
+
+Theorem ALL_DISTINCT_canon_vcc:
+  ALL_DISTINCT (toList (canon_vcc v))
+Proof
+  simp[canon_clause_ALL_DISTINCT]
+QED
+
+Theorem canon_vcc_eq_emp[simp]:
+  canon_vcc v = Vector [] ⇔ v = Vector []
+Proof
+  Cases_on`v`>>rw[canon_vcc_def,toList_thm]
+QED
+
+Theorem satisfies_vcclause_canon_vcc[simp]:
+  satisfies_vcclause w (canon_vcc v) ⇔
+  satisfies_vcclause w v
+Proof
+  rw[satisfies_vcclause_def,satisfies_cclause_def]
+QED
+
+Theorem satisfies_vcfml_IMAGE_canon_vcc[simp]:
+  satisfies_vcfml w (IMAGE canon_vcc cs) ⇔
+  satisfies_vcfml w cs
+Proof
+  rw[satisfies_vcfml_def,satisfies_fml_gen_def,PULL_EXISTS]
+QED
+
+Definition insert_vcc_def:
+  insert_vcc fml n v = fml |+ (n, canon_vcc v)
+End
+
+Definition build_cfml_def:
+  build_cfml k ls = build_fml k (MAP canon_vcc ls)
+End
+
+Theorem range_build_cfml:
+  FRANGE (build_cfml k ls) = IMAGE canon_vcc (set ls)
+Proof
+  rw[build_cfml_def,range_build_fml,LIST_TO_SET_MAP]
 QED
 
 (* Conversions *)
@@ -718,6 +863,7 @@ Proof
   metis_tac[satisfies_fml_gen_delete]
 QED
 
+(* Empty clause representation *)
 Definition contains_emp_def:
   contains_emp fml =
   let ls = MAP SND (fmap_to_alist fml) in
@@ -736,6 +882,42 @@ Proof
   first_x_assum (irule_at Any)>>
   EVAL_TAC>>
   simp[]
+QED
+
+Theorem contains_emp_FRANGE:
+  contains_emp fml ⇔ Vector [] ∈ FRANGE fml
+Proof
+  rw[contains_emp_def,MEM_MAP,MEM_fmap_to_alist_FLOOKUP,FRANGE_FLOOKUP]>>
+  metis_tac[FST,SND,PAIR]
+QED
+
+(* Canonicalising every clause of a formula, which is how the refinement
+  to the checker's arrays absorbs the canonicalisation *)
+Theorem FRANGE_canon_vcc_o_f:
+  FRANGE (canon_vcc o_f fml) = IMAGE canon_vcc (FRANGE fml)
+Proof
+  simp[IMAGE_FRANGE]
+QED
+
+Theorem emp_IN_FRANGE_canon_vcc_o_f[simp]:
+  Vector [] ∈ FRANGE (canon_vcc o_f fml) ⇔
+  Vector [] ∈ FRANGE fml
+Proof
+  rw[FRANGE_canon_vcc_o_f]>>
+  metis_tac[canon_vcc_eq_emp]
+QED
+
+Theorem contains_emp_canon_vcc_o_f[simp]:
+  contains_emp (canon_vcc o_f fml) ⇔ contains_emp fml
+Proof
+  rw[contains_emp_FRANGE]
+QED
+
+Theorem satisfies_vcfml_FRANGE_canon_vcc_o_f[simp]:
+  satisfies_vcfml w (FRANGE (canon_vcc o_f fml)) ⇔
+  satisfies_vcfml w (FRANGE fml)
+Proof
+  rw[FRANGE_canon_vcc_o_f]
 QED
 
 (*** Converting a parsed formula into the checker's representation ***)

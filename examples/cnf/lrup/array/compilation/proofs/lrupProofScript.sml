@@ -77,7 +77,7 @@ Theorem machine_code_sound:
   else if LENGTH cl = 3 then
     (out ≠ «» ⇒
       out = «s VERIFIED UNSAT\n» ∧
-      ∃fml. get_cnf fs (EL 1 cl) = SOME fml ∧ sols fml = {})
+      ∃fml. get_cnf fs (EL 1 cl) = SOME fml ∧ unsatisfiable_cnf (set fml))
   else out = «»
 Proof
   strip_tac>>
