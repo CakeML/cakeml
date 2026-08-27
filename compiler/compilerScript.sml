@@ -82,13 +82,11 @@ OPTIONS:
 
   --pancake     takes a pancake program as input
 
-  --pancake_news   prints a list of recent user-facing Pancake changes
-
   --pancake_feature=T  here S can be any string denoting a Pancake feature tag.
                 Prints true or false depending on whether this
                 compiler binary supports feature T.
-                Tags are documented in the Pancake news entry,
-                which can be printed with --pancake_news
+                Tags are documented in the NEWS.md in the pancake/
+                subdirectory at code.cakeml.org
 
   --no_warn     silences pancake warning output
 
@@ -684,10 +682,6 @@ Definition has_pancake_flag_def:
   has_pancake_flag ls = MEM «--pancake» ls
 End
 
-Definition has_pancake_news_flag_def:
-  has_pancake_news_flag ls = MEM «--pancake_news» ls
-End
-
 Definition format_compiler_result_def:
   format_compiler_result bytes_export (M_failure err) =
     (List[]:mlstring app_list, error_to_str err) ∧
@@ -777,8 +771,6 @@ Definition full_compile_64_def:
     add_stdout fs help_string
   else if has_version_flag cl then
     add_stdout fs current_build_info_str
-  else if has_pancake_news_flag cl then
-    add_stdout fs news
   else
     case parse_pancake_feature cl of
       SOME rest => add_stdout fs $ print_bool $ query_news rest
@@ -858,8 +850,6 @@ Definition full_compile_32_def:
     add_stdout fs help_string
   else if has_version_flag cl then
     add_stdout fs current_build_info_str
-  else if has_pancake_news_flag cl then
-    add_stdout fs news
   else
     case parse_pancake_feature cl of
       SOME rest => add_stdout fs $ print_bool $ query_news rest

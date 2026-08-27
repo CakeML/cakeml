@@ -13,10 +13,6 @@ val news_in = openIn "NEWS.md";
 val news = inputAll news_in;
 val _ = closeIn news_in;
 
-Definition news_def:
-  news = ^(toMLstring news)
-End
-
 val aprefix = "<sub>"
 val eprefix = "<sub>Feature enabled: `"
 val dprefix = "<sub>Feature disabled: `"
