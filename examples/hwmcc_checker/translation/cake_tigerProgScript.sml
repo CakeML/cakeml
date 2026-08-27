@@ -177,8 +177,13 @@ Quote add_cakeml:
   fun main () =
   case CommandLine.arguments () of
     [fmodel, fwitness] => make_cert fmodel fwitness ""
-  | [fmodel, fwitness, prefix] => make_cert fmodel fwitness prefix
-  | _ => TextIO.output TextIO.stdErr usage_string
+  | [fmodel, fwitness, prefix] =>
+      (* length of prefix + condition name + file extension must be less than
+         65536 *)
+      if 65522 <= String.size prefix
+      then TextIO.print_err "prefix too long"
+      else make_cert fmodel fwitness prefix
+  | _ => TextIO.print_err usage_string
 End
 
 (* TODO Remove once we have a proper CF spec *)

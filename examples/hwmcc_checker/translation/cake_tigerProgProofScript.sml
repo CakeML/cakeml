@@ -118,7 +118,7 @@ End
    pointing to the same inode. In that case, all files will have the same
    content, namely the content of the last write. *)
 (* TODO Enable unlinking (requires additions to fsFFI + basis_ffi.c) to
-   remove the precondition of the files to be written not yet existing*)
+   remove the precondition of the files to be written not yet existing *)
 Definition make_cert_sem_def:
   make_cert_sem fs fs' fmodel out prefix ⇔
   let
@@ -155,9 +155,9 @@ QED
 Definition main_sem_def:
   main_sem cl fs fs' out =
   if LENGTH cl = 3 then
-    make_cert_sem fs fs' cl❲1❳ «» out
+    make_cert_sem fs fs' cl❲1❳ out «»
   else if LENGTH cl = 4 then
-    make_cert_sem fs fs' cl❲1❳ cl❲3❳ out
+    make_cert_sem fs fs' cl❲1❳ out cl❲3❳
   else out = «»
 End
 
@@ -169,22 +169,22 @@ val prog = get_ml_prog_state ()
 
 (*** write_{reset,transition,...} *********************************************)
 
-Overload "CIRCUIT_TYPE" =
+Overload "CIRCUIT_TYPE"[local] =
   “LIST_TYPE
      (PAIR_TYPE NUM (LIST_TYPE (PAIR_TYPE (AIG_VAR_TYPE NUM NUM NUM) BOOL)))”
 
-Overload "LIT_TYPE" = “PAIR_TYPE (AIG_VAR_TYPE NUM NUM NUM) BOOL”
+Overload "LIT_TYPE"[local] = “PAIR_TYPE (AIG_VAR_TYPE NUM NUM NUM) BOOL”
 
-Overload "LIT_LIST" = “LIST_TYPE LIT_TYPE”
+Overload "LIT_LIST"[local] = “LIST_TYPE LIT_TYPE”
 
-Overload "LATCH_LIT_TYPE" = “NUM --> LIT_TYPE”
+Overload "LATCH_LIT_TYPE"[local] = “NUM --> LIT_TYPE”
 
-Overload "LATCH_OPTION_LIT_TYPE" = “NUM --> OPTION_TYPE LIT_TYPE”
+Overload "LATCH_OPTION_LIT_TYPE"[local] = “NUM --> OPTION_TYPE LIT_TYPE”
 
-Overload "INTERV_TYPE" =
+Overload "INTERV_TYPE"[local] =
   “AIG_VAR_TYPE NUM NUM NUM --> OPTION_TYPE (PAIR_TYPE NUM BOOL)”
 
-Theorem write_reset_spec:
+Theorem write_reset_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 9 < 65536 ∧
   CIRCUIT_TYPE mcirc mcircv ∧
@@ -243,7 +243,7 @@ Proof
   >> metis_tac [PAIR]
 QED
 
-Theorem write_transition_spec:
+Theorem write_transition_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 14 < 65536 ∧
   CIRCUIT_TYPE mcirc mcircv ∧
@@ -302,7 +302,7 @@ Proof
   >> metis_tac [PAIR]
 QED
 
-Theorem write_property_spec:
+Theorem write_property_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 12 < 65536 ∧
   CIRCUIT_TYPE mcirc mcircv ∧
@@ -357,7 +357,7 @@ Proof
   >> metis_tac [PAIR]
 QED
 
-Theorem write_base_spec:
+Theorem write_base_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 8 < 65536 ∧
   CIRCUIT_TYPE wcirc wcircv ∧
@@ -410,7 +410,7 @@ Proof
   >> metis_tac [PAIR]
 QED
 
-Theorem write_step_spec:
+Theorem write_step_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 8 < 65536 ∧
   CIRCUIT_TYPE wcirc wcircv ∧
@@ -463,7 +463,7 @@ Proof
   >> metis_tac [PAIR]
 QED
 
-Theorem write_liveness_spec:
+Theorem write_liveness_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 12 < 65536 ∧
   CIRCUIT_TYPE mcirc mcircv ∧
@@ -523,7 +523,7 @@ Proof
   >> metis_tac [PAIR]
 QED
 
-Theorem write_decrease_spec:
+Theorem write_decrease_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 12 < 65536 ∧
   CIRCUIT_TYPE wcirc wcircv ∧
@@ -578,7 +578,7 @@ Proof
   >> metis_tac [PAIR]
 QED
 
-Theorem write_closure_spec:
+Theorem write_closure_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 11 < 65536 ∧
   CIRCUIT_TYPE wcirc wcircv ∧
@@ -633,7 +633,7 @@ Proof
   >> metis_tac [PAIR]
 QED
 
-Theorem write_consistent_spec:
+Theorem write_consistent_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 14 < 65536 ∧
   CIRCUIT_TYPE wcirc wcircv ∧
@@ -836,4 +836,84 @@ QED
 
 (*** main *********************************************************************)
 
-(* TODO *)
+val wrong_arg_count_tac =
+  xmatch >> xapp
+  >> qmatch_goalsub_abbrev_tac ‘COMMANDLINE cl’
+  >> qexistsl [‘COMMANDLINE cl’, ‘usage_string’, ‘fs’]
+  >> simp [usage_string_v_thm] >> xsimpl
+  >> rw []
+  >> simp [Abbr ‘cl’, main_sem_def]
+  >> qexists ‘add_stderr fs usage_string’
+  >> simp [Req0 add_stdout_nil, STD_streams_add_stderr]
+  >> xsimpl
+
+Theorem main_spec:
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) main_v
+    [Conv NONE []]
+    (COMMANDLINE cl * STDIO fs)
+    (POSTv uv.
+       &UNIT_TYPE () uv * COMMANDLINE cl *
+       SEP_EXISTS fs' out.
+         STDIO (add_stdout fs' out) * &(main_sem cl fs fs' out))
+Proof
+  simp [Once STDIO_STD_streams, Once COMMANDLINE_wfcl] >> xpull
+  >> xcf "main" prog
+  >> xmatch
+  >> xlet_autop
+  >> xlet_auto >- (qexistsl [‘STDIO fs’] >> xsimpl)
+  >> namedCases_on ‘cl’ ["", "arg₀ rest"] >> gvs [LIST_TYPE_def]
+  >- wrong_arg_count_tac
+  >> namedCases_on ‘rest’ ["", "arg₁ rest₁"] >> gvs [LIST_TYPE_def]
+  >- wrong_arg_count_tac
+  >> namedCases_on ‘rest₁’ ["", "arg₂ rest₂"] >> gvs [LIST_TYPE_def]
+  >- wrong_arg_count_tac
+  >> namedCases_on ‘rest₂’ ["", "arg₂ rest₃"] >> gvs [LIST_TYPE_def]
+  (* no prefix passed in *)
+  >- (
+    xmatch >> xapp
+    >> simp []
+    >> qpat_assum ‘CARD _ < _’ $ irule_at Any
+    >> qexists ‘«»’  (* instantiate prefix *)
+    >> fs [FILENAME_def, wfcl_def, validArg_def]
+    >> ntac 2 $ qpat_assum ‘STRING_TYPE _ _’ $ irule_at Any
+    >> simp []
+    >> xsimpl
+    >> rw []
+    >> simp [main_sem_def]
+    >> qpat_assum ‘make_cert_sem _ _ _ _ _’ $ irule_at Any
+    >> xsimpl
+  )
+  >> namedCases_on ‘rest₃’ ["", "arg₃ rest₄"] >> gvs [LIST_TYPE_def]
+  (* prefix passed in *)
+  >- (
+    xmatch
+    >> xlet_autop
+    >> xlet_autop
+    >> xif
+    >- (
+      (* prefix too long *)
+      xapp
+      >> qmatch_goalsub_abbrev_tac ‘COMMANDLINE cl’
+      >> xsimpl
+      >> qexistsl [‘COMMANDLINE cl’, ‘fs’]
+      >> xsimpl
+      >> rw [Abbr ‘cl’, main_sem_def]
+      >> qexistsl [‘add_stderr fs «prefix too long»’, ‘«»’]
+      >> simp [make_cert_sem_out_nil, add_stdout_nil, STD_streams_add_stderr]
+      >> xsimpl
+    )
+    >> xapp
+    >> simp []
+    >> qpat_assum ‘CARD _ < _’ $ irule_at Any
+    >> fs [FILENAME_def, wfcl_def, validArg_def]
+    >> ntac 3 $ qpat_assum ‘STRING_TYPE _ _’ $ irule_at Any
+    >> simp []
+    >> xsimpl
+    >> rw [main_sem_def]
+    >> qpat_assum ‘make_cert_sem _ _ _ _ _’ $ irule_at Any
+    >> xsimpl
+  )
+  >> wrong_arg_count_tac
+QED
