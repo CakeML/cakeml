@@ -315,6 +315,57 @@ QED
 
 val _ = reg_enc_dec bvl_exp_enc'_thm;
 
+(* BVI's exp *)
+
+Theorem bvi_MEM_exp_size[local]:
+  (∀xs x. MEM x xs ⇒ bvi$exp_size x ≤ bvi$exp2_size xs)
+Proof
+  Induct \\ fs [] \\ rw [] \\ fs [bviTheory.exp_size_def]
+  \\ res_tac \\ fs []
+QED
+
+val (e,d) = enc_dec_for “:bvi$exp”
+
+Definition bvi_exp_enc'_def:
+  ^e
+Termination
+  WF_REL_TAC ‘measure bvi$exp_size’ \\ rw []
+  \\ imp_res_tac bvi_MEM_exp_size \\ gvs [bviTheory.exp_size_def]
+End
+
+Definition bvi_exp_dec'_def:
+  ^d
+Termination
+  WF_REL_TAC `measure num_tree_size`
+  \\ reverse (rw [])
+  (* the handler recurses under an option, so its call sits one [nth]
+     deeper than the list cases below *)
+  >~ [‘list_dec' I (nth 3 ys)’] >-
+   (qspecl_then [‘ys’,‘0’,‘3’] mp_tac num_tree_size_nth_nth \\ fs [])
+  \\ imp_res_tac MEM_list_size
+  \\ rpt (pop_assum $ qspec_then ‘num_tree_size’ mp_tac)
+  \\ rpt (goal_term (fn tm =>
+            tmCases_on (rand (find_term (can (match_term “nth _ _”)) tm)) []
+            \\ fs [num_tree_size_def,list_dec'_def]))
+  \\ rename [‘list_dec' I xs’] \\ Cases_on ‘xs’
+  \\ fs [list_dec'_def] \\ rw []
+End
+
+Theorem bvi_exp_enc'_thm[simp]:
+  ∀x. bvi_exp_dec' (bvi_exp_enc' x) = x
+Proof
+  ho_match_mp_tac bvi_exp_enc'_ind \\ rw []
+  \\ fs [bvi_exp_enc'_def]
+  \\ once_rewrite_tac [bvi_exp_dec'_def] \\ gvs []
+  \\ fs [SF ETA_ss]
+  \\ rpt conj_tac
+  >~ [‘option_enc' bvi_exp_enc' h’] >-
+   (irule option_enc'_some \\ fs [])
+  \\ irule list_enc'_mem \\ fs []
+QED
+
+val _ = reg_enc_dec bvi_exp_enc'_thm;
+
 (* val_approx *)
 
 val (e,d) = enc_dec_for “:val_approx”

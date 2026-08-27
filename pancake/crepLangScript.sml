@@ -34,7 +34,7 @@ Datatype:
       | Op binop (exp list)
       | Crepop crepop (exp list)
       | Cmp cmp exp exp
-      | Shift shift exp num
+      | Shift shift exp exp
       | BaseAddr
       | TopAddr
 End
@@ -53,13 +53,13 @@ Datatype:
        | Seq prog prog
        | If    ('a exp) prog prog
        | While ('a exp) prog
-       | Break
-       | Continue
-       | Call (((varname option) # prog # ((('a word) # prog) option)) option)
+       | Break num
+       | Continue num
+       | Call (((varname list) # ((('a word) # prog) option)) option)
               funname (('a exp) list)
        | ExtCall funname varname varname varname varname
        | Raise ('a word)
-       | Return ('a exp)
+       | Return (('a exp) list)
        | ShMem memop varname ('a exp)
        | Tick;
 End
@@ -135,7 +135,7 @@ Definition var_cexp_def:
   (var_cexp (Op bop es) = FLAT (MAP var_cexp es)) ∧
   (var_cexp (Crepop cop es) = FLAT (MAP var_cexp es)) ∧
   (var_cexp (Cmp c e1 e2) = var_cexp e1 ++ var_cexp e2) ∧
-  (var_cexp (Shift sh e num) = var_cexp e) ∧
+  (var_cexp (Shift sh e1 e2) = var_cexp e1 ++ var_cexp e2) ∧
   (var_cexp BaseAddr = []) ∧
   (var_cexp TopAddrl = [])
 Termination
@@ -154,12 +154,9 @@ Definition assigned_free_vars_def:
   (assigned_free_vars (Seq p p') = assigned_free_vars p ++ assigned_free_vars p') ∧
   (assigned_free_vars (If e p p') = assigned_free_vars p ++ assigned_free_vars p') ∧
   (assigned_free_vars (While e p) = assigned_free_vars p) ∧
-  (assigned_free_vars (Call (SOME (NONE, rp, (SOME (_, p)))) e es) =
-     assigned_free_vars rp ++ assigned_free_vars p) ∧
-  (assigned_free_vars (Call (SOME (NONE, rp, NONE)) e es) = assigned_free_vars rp) ∧
-  (assigned_free_vars (Call (SOME ((SOME rt), rp, (SOME (_, p)))) e es) =
-     rt :: assigned_free_vars rp ++ assigned_free_vars p) ∧
-  (assigned_free_vars (Call (SOME ((SOME rt), rp, NONE)) e es) = rt :: assigned_free_vars rp) ∧
+  (assigned_free_vars (Call (SOME (rts, (SOME (_, p)))) e es) =
+     rts ++ assigned_free_vars p) ∧
+  (assigned_free_vars (Call (SOME (rts, NONE)) e es) = rts) ∧
   (assigned_free_vars (ShMem op r ad) = [r]) ∧
   (assigned_free_vars _ = [])
 End
@@ -172,12 +169,9 @@ Definition assigned_vars_def:
   (assigned_vars (Seq p p') = assigned_vars p ++ assigned_vars p') ∧
   (assigned_vars (If e p p') = assigned_vars p ++ assigned_vars p') ∧
   (assigned_vars (While e p) = assigned_vars p) ∧
-  (assigned_vars (Call (SOME (NONE, rp, (SOME (_, p)))) e es) =
-     assigned_vars rp ++ assigned_vars p) ∧
-  (assigned_vars (Call (SOME (NONE, rp, NONE)) e es) = assigned_vars rp) ∧
-  (assigned_vars (Call (SOME ((SOME rt), rp, (SOME (_, p)))) e es) =
-     rt :: assigned_vars rp ++ assigned_vars p) ∧
-  (assigned_vars (Call (SOME ((SOME rt), rp, NONE)) e es) = rt :: assigned_vars rp) ∧
+  (assigned_vars (Call (SOME (rts, (SOME (_, p)))) e es) =
+     rts ++  assigned_vars p) ∧
+  (assigned_vars (Call (SOME (rts, NONE)) e es) = rts) ∧
   (assigned_vars (ShMem op r ad) = [r]) ∧
   (assigned_vars _ = [])
 End
@@ -206,7 +200,7 @@ Definition exps_def:
   (exps (Op bop es) = FLAT (MAP exps es)) ∧
   (exps (Crepop pop es) = FLAT (MAP exps es)) ∧
   (exps (Cmp c e1 e2) = exps e1 ++ exps e2) ∧
-  (exps (Shift sh e num) = exps e) ∧
+  (exps (Shift sh e1 e2) = exps e1 ++ exps e2) ∧
   (exps BaseAddr = [BaseAddr]) ∧
   (exps TopAddr = [TopAddr])
 Termination

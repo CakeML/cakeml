@@ -101,12 +101,12 @@ Definition wclause_to_pbc_def:
   wclause_to_pbc (i,n,C) =
   let C = nub (FILTER (λl. l ≠ 0) C) in
   if n = 0 then (* hard clauses *)
-    ([(GreaterEqual,enc_clause C,1:int)],[])
+    ([(PGe,enc_clause C,1:int)],[])
   else (* soft clauses *)
   if LENGTH C = 1 then
     ([],[((&n:int), negate (enc_lit (HD C)))])
   else
-    ([(GreaterEqual,(1,Neg (INR i)) :: enc_clause C,1)],
+    ([(PGe,(1,Neg (INR i)) :: enc_clause C,1)],
      [((&n:int),Neg (INR i))])
 End
 
@@ -171,7 +171,7 @@ End
 
 Theorem satisfies_pbc_satisfies_clause:
   wf_clause C ∧
-  satisfies_pbc w (GreaterEqual,enc_clause C,1) ⇒
+  eval_lin_term w (enc_clause C) ≥ 1 ⇒
   satisfies_clause (w o INL) (interp_cclause C)
 Proof
   Induct_on`C`>>rw[satisfies_clause_def,satisfies_pbc_def]
@@ -200,25 +200,24 @@ Theorem satisfies_clause_satisfies_pbc:
   wf_clause C ∧
   (∀v. w' (INL v) = w v) ∧
   satisfies_clause w (interp_cclause C) ⇒
-  satisfies_pbc w' (GreaterEqual,enc_clause C,1)
+  eval_lin_term w' (enc_clause C) ≥ 1
 Proof
   Induct_on`C`
-  >-
-    fs[satisfies_clause_def]>>
+  >- fs[satisfies_clause_def]>>
   rw[]>>
   gvs[interp_cclause_def,wf_clause_def]>>
   Cases_on`satisfies_literal w (interp_lit h)`>>
   fs[satisfies_clause_INSERT]
   >- (
     simp[satisfies_pbc_def,enc_clause_def,eval_lin_term_def,iSUM_def]>>
-    `eval_lit w' (enc_lit h) = 1` by
+    `b2i (lit w' (enc_lit h)) = 1` by
       (rw[enc_lit_def]>>gvs[interp_lit_def,satisfies_literal_def])>>
     simp[GSYM eval_lin_term_def,GSYM enc_clause_def]>>
     qsuff_tac`eval_lin_term w' (enc_clause C') ≥ 0`
     >- intLib.ARITH_TAC>>
     metis_tac[eval_lin_term_enc_clause_ge0])>>
   fs[satisfies_pbc_def,enc_clause_def,eval_lin_term_def,iSUM_def]>>
-  `eval_lit w' (enc_lit h) = 0` by
+  `b2i (lit w' (enc_lit h)) = 0` by
     (rw[enc_lit_def]>>gvs[interp_lit_def,satisfies_literal_def])>>
   fs[]
 QED
@@ -236,15 +235,6 @@ Theorem EVERY_FILTER:
   EVERY P (FILTER P ls)
 Proof
   Induct_on`ls`>>rw[]
-QED
-
-Theorem satisfies_pbc_cons:
-  satisfies_pbc w (op,cl::xs,n) =
-  satisfies_pbc w (op,xs,n - eval_term w cl)
-Proof
-  rw[satisfies_pbc_def,eval_lin_term_def,iSUM_def]>>
-  Cases_on`op`>>simp[]>>
-  intLib.ARITH_TAC
 QED
 
 Theorem weight_clause_FILTER:
@@ -301,12 +291,11 @@ Proof
     gvs[interp_cclause_def,satisfies_clause_def,wf_clause_def]>>
     rw[enc_lit_def]>>fs[interp_lit_def,satisfies_literal_def]>>
     intLib.ARITH_TAC)>>
-  fs[wclause_to_pbc_def,satisfies_pbc_cons]>>
+  fs[wclause_to_pbc_def]>>
   Cases_on`w (INR k)`>>fs[]
   >- (
-    rw[]>>
-    metis_tac[satisfies_pbc_satisfies_clause]
-    )>>
+    drule_all satisfies_pbc_satisfies_clause>>
+    simp[o_DEF])>>
   rw[]>>
   intLib.ARITH_TAC
 QED
@@ -341,13 +330,6 @@ Proof
     simp[wf_clause_def,MEM_FILTER])>>
   drule_all weight_clause_obj_upper>>
   simp[]
-QED
-
-Theorem iSUM_APPEND:
-  iSUM(x++y) = iSUM x + iSUM y
-Proof
-  Induct_on`x`>>rw[iSUM_def]>>
-  intLib.ARITH_TAC
 QED
 
 Theorem MEM_enumerate_index:
@@ -413,7 +395,7 @@ Proof
   >-
     simp[miscTheory.enumerate_def,iSUM_def]>>
   rw[]>>
-  simp[miscTheory.enumerate_def,iSUM_APPEND]>>
+  simp[miscTheory.enumerate_def]>>
   qmatch_goalsub_abbrev_tac`A + B = &(C + D)`>>
   qsuff_tac`A = &D ∧ B = &C`
   >- (

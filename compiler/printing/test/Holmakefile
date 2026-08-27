@@ -1,6 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis .. $(CAKEMLDIR)/compiler/inference/tests \
-    $(CAKEMLDIR)/compiler/parsing $(CAKEMLDIR)/unverified/sexpr-bootstrap
-
 all: $(DEFAULT_TARGETS) README.md
 
 sinclude $(CAKEMLDIR)/developers/readme.mk

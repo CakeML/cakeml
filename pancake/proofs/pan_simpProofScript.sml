@@ -54,15 +54,12 @@ Theorem size_of_eids_compile_eq:
    size_of_eids (compile_prog pan_code) =
    size_of_eids pan_code
 Proof
-  rw [] >>
-  fs [panLangTheory.size_of_eids_def] >>
-  fs [pan_simpTheory.compile_prog_def,MAP_MAP_o] >>
-  ntac 3 AP_TERM_TAC >>
-  rw[MAP_EQ_f] >>
-  Cases_on ‘p’ >> gvs[] >>
-  fs [exp_ids_compile_eq]
+  Induct
+  >- rw[compile_prog_def,panLangTheory.size_of_eids_def] >>
+  Cases >>
+  gvs[compile_prog_def,panLangTheory.size_of_eids_def,
+      panLangTheory.is_exn_decl_def]
 QED
-
 
 Theorem evaluate_SmartSeq:
   evaluate (SmartSeq p q,s) = evaluate (Seq p q,^s)
@@ -371,18 +368,18 @@ Definition state_rel_def:
      (∀f.
         FLOOKUP s.code f = NONE ==>
          FLOOKUP c f = NONE) /\
-     (∀f vshs prog.
-        FLOOKUP s.code f = SOME (vshs, prog) ==>
-         FLOOKUP c f = SOME (vshs, pan_simp$compile prog))
+     (∀f vshs prog rshape.
+        FLOOKUP s.code f = SOME (vshs, prog, rshape) ==>
+         FLOOKUP c f = SOME (vshs, pan_simp$compile prog, rshape))
 End
 
 
 Theorem state_rel_intro:
   !s t c. state_rel s t c ==>
      (t = s with code := c) /\
-     (∀f vshs prog.
-        FLOOKUP s.code f = SOME (vshs, prog) ==>
-         FLOOKUP c f = SOME (vshs, pan_simp$compile prog))
+     (∀f vshs prog rshape.
+        FLOOKUP s.code f = SOME (vshs, prog, rshape) ==>
+         FLOOKUP c f = SOME (vshs, pan_simp$compile prog, rshape))
 Proof
   rw [state_rel_def]
 QED
@@ -1019,7 +1016,7 @@ Finalise compile_correct;
 
 Theorem functions_compile_prog:
   functions(pan_simp$compile_prog prog) =
-  MAP (λ(x,y,z). (x,y,compile z)) (functions prog)
+  MAP (λ(x,y,z,t). (x,y,compile z,t)) (functions prog)
 Proof
   Induct_on ‘prog’ using panLangTheory.functions_ind >> rw[] >>
   gvs[compile_prog_def,panLangTheory.functions_def]
@@ -1043,15 +1040,16 @@ Proof
   cases_on ‘EL n prog’ >>
   fs [] >>
   cases_on ‘r’ >>
-  fs []
+  fs [] >>
+  Cases_on `r'` >> fs[]
 QED
 
 Theorem el_compile_prog_el_prog_eq:
-  !prog n start pprog p.
-   EL n (functions(compile_prog prog)) = (start,[],pprog) /\
+  !prog n start pprog p rshape.
+   EL n (functions(compile_prog prog)) = (start,[],pprog,rshape) /\
    ALL_DISTINCT (MAP FST(functions prog)) /\ n < LENGTH(functions prog) /\
-   ALOOKUP (functions prog) start = SOME ([],p) ==>
-     EL n (functions prog) = (start,[],p)
+   ALOOKUP (functions prog) start = SOME ([],p,rshape) ==>
+     EL n (functions prog) = (start,[],p,rshape)
 Proof
   rw[functions_compile_prog] >>
   gvs[EL_MAP,UNCURRY_eq_pair] >>
@@ -1326,6 +1324,11 @@ Proof
       gvs[state_rel_def,state_component_equality,FLOOKUP_UPDATE] >>
       rw[]
   )
+  >- (first_x_assum $ qspec_then ‘t with eshapes := t.eshapes⟨eid ↦ sh⟩’ mp_tac >>
+      impl_keep_tac
+      >- gvs[state_rel_def,state_component_equality] >>
+      strip_tac >>
+      gvs[] >> gvs[state_rel_def,state_component_equality])
 QED
 
 Theorem decs_stcnames_compile_prog:

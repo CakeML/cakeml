@@ -21,26 +21,26 @@ Type map_var = ``:num # num``
 Definition has_mapping_al1_def:
   has_mapping_al1 (a:num) vt =
   ((«al1» ^ toString a)
-  ,(GreaterEqual, (GENLIST (λv. (1, Pos (a,v))) vt), 1):map_var pbc)
+  ,(PGe, (GENLIST (λv. (1, Pos (a,v))) vt), 1):map_var pbc)
 End
 
 Definition has_mapping_am1_def:
   has_mapping_am1 (a:num) vt =
   ((«am1» ^ toString a)
-  ,(LessEqual, (GENLIST (λv. (1, Pos (a,v))) vt), 1):map_var pbc)
+  ,(PLe, (GENLIST (λv. (1, Pos (a,v))) vt), 1):map_var pbc)
 End
 
 Definition one_one_def:
   one_one u vp =
   ((«inj» ^ toString u)
-  ,(GreaterEqual, GENLIST (λb. (1, Neg (b,u))) vp, &vp-1): map_var pbc)
+  ,(PGe, GENLIST (λb. (1, Neg (b,u))) vp, &vp-1): map_var pbc)
 End
 
 Definition edge_map_def:
   edge_map (a:num,b:num) (u:num) et =
   (
   concat [«adj»; toString a; «_»; toString u; «_»; toString b]
-  ,(GreaterEqual,
+  ,(PGe,
     (1,Neg (a,u)) ::
       MAP (λv. (1,Pos (b,v))) (neighbours et u),
     1): map_var pbc)
@@ -256,6 +256,13 @@ Proof
   qexists_tac`SUC i`>>rw[]
 QED
 
+Theorem b2i_1_minus:
+  b2i (¬b) = 1 − b2i b
+Proof
+  Cases_on ‘b’>>
+  simp[]
+QED
+
 Theorem encode_correct:
   good_graph (vp,ep) ∧
   good_graph (vt,et) ∧
@@ -267,7 +274,7 @@ Proof
   >- (
     fs[has_subgraph_iso_def]>>
     simp[satisfiable_def]>>
-    qexists_tac` λ(a,u). f a = u` >>
+    qexists_tac `λ(a,u). f a = u` >>
     rw[encode_def]
     >- (
       rename1`all_has_mapping`>>
@@ -281,7 +288,7 @@ Proof
         qexists_tac`f a`>>
         CONJ_ASM1_TAC>>fs[EL_GENLIST,INJ_DEF])>>
       rw[]>>first_x_assum drule>>
-      simp[satisfies_pbc_def,has_mapping_al1_def,eval_lin_term_def,MAP_GENLIST,o_DEF,has_mapping_am1_def])
+        simp[satisfies_pbc_def,has_mapping_al1_def,eval_lin_term_def,MAP_GENLIST,o_DEF,has_mapping_am1_def])
     >- (
       rename1`all_one_one`>>
       simp[all_one_one_def,satisfies_def,MEM_GENLIST,one_one_def,MEM_MAP,PULL_EXISTS]>>
@@ -294,8 +301,10 @@ Proof
       simp[]>>
       DEP_REWRITE_TAC[iSUM_sub_b2i_geq]>>
       simp[Abbr`ls`]>>
-      CONJ_TAC>- (
+      CONJ_TAC
+      >- (
         simp[MEM_GENLIST]>>
+        simp[b2i_1_minus]>>
         metis_tac[])>>
       rw[]>>
       gs[EL_GENLIST]>>
@@ -303,8 +312,9 @@ Proof
         metis_tac[]>>
       simp[])
     >- (
-      rename1`all_edge_map`>>
-      simp[all_edge_map_def,satisfies_def,MEM_GENLIST,MEM_FLAT,edge_map_def,MEM_MAP,PULL_EXISTS]>>
+      rename1 `all_edge_map` >>
+      simp[all_edge_map_def,satisfies_def,MEM_GENLIST,MEM_FLAT,
+        edge_map_def,MEM_MAP,PULL_EXISTS]>>
       rw[]>>
       gvs[MEM_FLAT,MEM_GENLIST,MEM_MAP]>>
       fs[MEM_neighbours]>>
@@ -370,6 +380,7 @@ Proof
     simp[Abbr`ls`]>>
     CONJ_TAC>- (
       simp[MEM_GENLIST]>>
+      simp[b2i_1_minus]>>
       metis_tac[])>>
     rw[]>>
     first_x_assum drule>>
@@ -444,7 +455,7 @@ QED
 
 Definition full_encode_def:
   full_encode gp gt =
-  MAP (SOME ## map_pbc enc_string) (encode gp gt)
+  MAP ((λa. [a]) ## map_pbc enc_string) (encode gp gt)
 End
 
 Theorem full_encode_correct:
@@ -487,7 +498,7 @@ Theorem full_encode_eq =
   full_encode_def
   |> SIMP_RULE (srw_ss()) [FORALL_PROD,encode_def]
   |> SIMP_RULE (srw_ss()) [all_has_mapping_def,all_one_one_def,all_edge_map_def,has_mapping_al1_def,has_mapping_am1_def,one_one_def,edge_map_def]
-  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def]
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def]
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN,FOLDN_APPEND,FOLDN_APPEND_op]
   |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
   |> SIMP_RULE (srw_ss()) [];

@@ -359,21 +359,7 @@ Proof
   \\ simp[GSYM add_stdo_with_numchars,with_same_numchars]
 QED
 
-local
-
-val name = "check_unsat"
-val (sem_thm,prog_tm) =
-  whole_prog_thm (get_ml_prog_state()) name (UNDISCH check_unsat_whole_prog_spec2)
-Definition check_unsat_prog_def:
-  check_unsat_prog = ^prog_tm
-End
-
-in
-
 Theorem check_unsat_semantics =
-  sem_thm
-  |> REWRITE_RULE[GSYM check_unsat_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
-
-end
+  prove_sem_thm "check_unsat"
+                "check_unsat_prog"
+                check_unsat_whole_prog_spec2;

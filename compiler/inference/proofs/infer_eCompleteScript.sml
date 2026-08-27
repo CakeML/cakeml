@@ -396,7 +396,7 @@ QED
 
 Theorem add_constraint_success2[local]:
   !l t1 t2 st st' x.
-  add_constraint l t1 t2 st = (Success x, st') ⇔
+  add_constraint l t1 t2 st = (M_success x, st') ⇔
   x = () ∧
   pure_add_constraints st.subst [t1,t2] st'.subst ∧
   st'.next_uvar = st.next_uvar ∧
@@ -862,7 +862,7 @@ Theorem constrain_op_complete_simple_helper[local]:
       st'.next_uvar = st.next_uvar ∧
       st'.next_id = st.next_id ∧
       pure_add_constraints st.subst xs st'.subst ==>
-      constrain_op l op ts' st = (Success t',st'))
+      constrain_op l op ts' st = (M_success t',st'))
 Proof
   rw []
   \\ imp_res_tac sub_completion_wfs
@@ -899,7 +899,7 @@ EVERY (check_t n {}) (MAP (t_walkstar s) ts') ∧
 check_freevars n [] t
 ⇒
 ?t' st' s' constraints'.
-constrain_op l op ts' st = (Success t',st') ∧
+constrain_op l op ts' st = (M_success t',st') ∧
 sub_completion n st'.next_uvar st'.subst constraints' s' ∧
 t_compat s s' ∧
 FDOM st'.subst ⊆ count st'.next_uvar ∧
@@ -1189,7 +1189,7 @@ Theorem infer_p_complete:
   FDOM s = count st.next_uvar
   ⇒
   ?t' new_bindings st' s' constraints'.
-    infer_p l ienv p st  = (Success (t',new_bindings),st') ∧
+    infer_p l ienv p st  = (M_success (t',new_bindings),st') ∧
     sub_completion tvs st'.next_uvar st'.subst constraints' s' ∧
     FDOM st'.subst ⊆ count st'.next_uvar ∧
     FDOM s' = count st'.next_uvar ∧
@@ -1210,7 +1210,7 @@ Theorem infer_p_complete:
   FDOM s = count st.next_uvar
   ⇒
   ?ts' new_bindings st' s' constraints'.
-    infer_ps l ienv ps st = (Success (ts',new_bindings),st') ∧
+    infer_ps l ienv ps st = (M_success (ts',new_bindings),st') ∧
     sub_completion tvs st'.next_uvar st'.subst constraints' s' ∧
     FDOM st'.subst ⊆ count st'.next_uvar ∧
     FDOM s' = count st'.next_uvar ∧
@@ -1516,7 +1516,7 @@ Theorem infer_pes_complete[local]:
         FDOM s'' = count st''.next_uvar ∧
         env_rel_complete s'' ienv' tenv (bind_var_list 0 bindings tenvE) ⇒
         ∃t'' st''' s''' constraints'''.
-          infer_e l ienv' (SND x) st'' = (Success t'',st''') ∧
+          infer_e l ienv' (SND x) st'' = (M_success t'',st''') ∧
           sub_completion (num_tvs tenvE) st'''.next_uvar st'''.subst constraints''' s''' ∧
           FDOM st'''.subst ⊆ count st'''.next_uvar ∧
           FDOM s''' = count st'''.next_uvar ∧ t_compat s'' s''' ∧
@@ -1528,7 +1528,7 @@ Theorem infer_pes_complete[local]:
   unconvert_t t2 = t_walkstar s' t2'
   ⇒
   ?st'' s'' constraints''.
-  infer_pes l ienv pes t1' t2' st' = (Success (), st'') ∧
+  infer_pes l ienv pes t1' t2' st' = (M_success (), st'') ∧
   sub_completion (num_tvs tenvE) st''.next_uvar st''.subst constraints'' s'' ∧
   FDOM st''.subst ⊆ count st''.next_uvar ∧
   FDOM s'' = count st''.next_uvar ∧
@@ -1782,7 +1782,7 @@ Theorem infer_e_complete:
      env_rel_complete s ienv tenv tenvE
      ⇒
      ?t' st' s' constraints'.
-       infer_e loc ienv e st = (Success t', st') ∧
+       infer_e loc ienv e st = (M_success t', st') ∧
        sub_completion (num_tvs tenvE) st'.next_uvar st'.subst constraints' s' ∧
        FDOM st'.subst ⊆  count st'.next_uvar ∧
        FDOM s' = count st'.next_uvar ∧
@@ -1802,7 +1802,7 @@ Theorem infer_e_complete:
      env_rel_complete s ienv tenv tenvE
      ⇒
      ?ts' st' s' constraints'.
-       infer_es loc ienv es st = (Success ts', st') ∧
+       infer_es loc ienv es st = (M_success ts', st') ∧
        sub_completion (num_tvs tenvE) st'.next_uvar st'.subst constraints' s' ∧
        FDOM st'.subst ⊆ count st'.next_uvar ∧
        FDOM s' = count st'.next_uvar ∧
@@ -1822,7 +1822,7 @@ Theorem infer_e_complete:
      env_rel_complete s ienv tenv tenvE
      ⇒
      ?env' st' s' constraints'.
-       infer_funs loc ienv funs st = (Success env', st') ∧
+       infer_funs loc ienv funs st = (M_success env', st') ∧
        sub_completion (num_tvs tenvE) st'.next_uvar st'.subst constraints' s' ∧
        FDOM st'.subst ⊆ count st'.next_uvar ∧
        FDOM s' = count st'.next_uvar ∧

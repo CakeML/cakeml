@@ -567,7 +567,7 @@ Theorem main_whole_prog_spec:
     ((=) (full_compile_32 (TL cl) (get_stdin fs) fs))
 Proof
   strip_tac
-  \\ simp[whole_prog_spec_def,UNCURRY]
+  \\ simp[basis_ffiTheory.whole_prog_spec_def,UNCURRY]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`
   \\ reverse conj_tac >-
@@ -578,13 +578,6 @@ Proof
   \\ match_mp_tac (MP_CANON(MATCH_MP app_wgframe (UNDISCH main_spec)))
   \\ xsimpl
 QED
-
-val (semantics_thm,prog_tm) =
-  whole_prog_thm (get_ml_prog_state()) "main" (main_whole_prog_spec |> UNDISCH);
-
-Definition compiler32_prog_def:
-  compiler32_prog = ^prog_tm
-End
 
 Theorem dec_sides[local]:
   (peg_v_side ⇔ T) ∧
@@ -599,10 +592,23 @@ Proof
     parserProgTheory.peg_uqconstructorname_side_def]
 QED
 
-Theorem semantics_compiler32_prog =
-  semantics_thm
-  |> PURE_ONCE_REWRITE_RULE[GSYM compiler32_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC, dec_sides]
+val sem_thm = prove_sem_thm "main" "compiler32_prog" main_whole_prog_spec;
+val compiler32_prog_def = fetch "-" "compiler32_prog_def";
+
+Theorem semantics_compiler32_prog:
+  IS_SOME (stdin_content fs) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ⇒
+  ∃io_events.
+    semantics_dec_list
+      (init_state (basis_ffi ext cl fs) with
+       eval_state :=
+         SOME (EvalDecs (eval_state_var with env_id_counter := (0,0,1))))
+      init_env compiler32_prog (Terminate Success io_events) ∧
+    extract_fs ext (cl,fs) io_events =
+      SOME (full_compile_32 (TL cl) (get_stdin fs) fs)
+Proof
+  strip_tac
+  \\ irule sem_thm
+  \\ fs [dec_sides]
+QED
 
 val _ = ml_translatorLib.reset_translation(); (* because this translation won't be continued *)

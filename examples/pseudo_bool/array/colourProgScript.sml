@@ -35,7 +35,7 @@ Definition parse_annots_def:
   (parse_annots [] acc = SOME acc) ∧
   (parse_annots (s::ss) acc =
   case parse_annot s of
-   (SOME annot,line) =>
+   ([annot],line) =>
      parse_annots ss (annot::acc)
   | _ => NONE)
 End
@@ -175,8 +175,8 @@ Theorem parse_and_enc_spec:
             INT))
             (LIST_TYPE
               (PAIR_TYPE
-              (OPTION_TYPE STRING_TYPE)
-              (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT))))
+              (LIST_TYPE STRING_TYPE)
+              (PAIR_TYPE (PBC_PBHD_TYPE STRING_TYPE) (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT))))
             ) res v ∧
        case res of
         INL err =>
@@ -203,7 +203,7 @@ QED
 Definition mk_prob_def:
   mk_prob objf = (NONE,objf):mlstring list option #
     ((int # mlstring pbc$lit) list # int) option #
-    (mlstring option # (pbop # (int # mlstring pbc$lit) list # int)) list
+    (mlstring list # (mlstring pbhd # (int # mlstring pbc$lit) list # int)) list
 End
 
 val res = translate mk_prob_def;
@@ -479,7 +479,7 @@ Theorem parse_and_check_spec:
               (PAIR_TYPE
                 (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)
               (LIST_TYPE
-                (PAIR_TYPE PBC_PBOP_TYPE
+                (PAIR_TYPE (PBC_PBHD_TYPE STRING_TYPE)
                   (PAIR_TYPE
                     (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
                     INT)))
@@ -566,7 +566,7 @@ val res = translate map_concl_to_string_def;
 Definition mk_prob2_def:
   mk_prob2 (obj,f) = (NONE,SOME obj,f):mlstring list option #
     ((int # mlstring pbc$lit) list # int) option #
-    (pbop # (int # mlstring pbc$lit) list # int) list
+    (mlstring pbhd # (int # mlstring pbc$lit) list # int) list
 End
 
 val res = translate mk_prob2_def;
@@ -811,21 +811,7 @@ Proof
   \\ simp[GSYM add_stdo_with_numchars,with_same_numchars]
 QED
 
-local
-
-val name = "main"
-val (sem_thm,prog_tm) =
-  whole_prog_thm (get_ml_prog_state()) name (UNDISCH main_whole_prog_spec2)
-Definition main_prog_def:
-  main_prog = ^prog_tm
-End
-
-in
-
 Theorem main_semantics =
-  sem_thm
-  |> REWRITE_RULE[GSYM main_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
-
-end
+  prove_sem_thm "main"
+                "main_prog"
+                main_whole_prog_spec2;

@@ -268,33 +268,9 @@ Proof
   rw[strcat_thm]
 QED
 
-Definition concatWith_aux_def:
-  (concatWith_aux s [] bool = implode []) /\
-  (concatWith_aux s (h::t) T = strcat h (concatWith_aux s t F)) /\
-  (concatWith_aux s (h::t) F = strcat s (concatWith_aux s (h::t) T))
-Termination
-  wf_rel_tac `inv_image ($< LEX $<) (\(s,l,b). (LENGTH l, if b then 0n else 1))` \\
-  rw[]
-End
-
 Definition concatWith_def:
-  concatWith s l = concatWith_aux s l T
+  concatWith s l = concat (intersperse s l)
 End
-
-Theorem concatWith_CONCAT_WITH_aux[local]:
-  !s l fl. (CONCAT_WITH_aux s l fl = REVERSE fl ++ explode (concatWith (implode s) (MAP implode l)))
-Proof
-  ho_match_mp_tac CONCAT_WITH_aux_ind
-  \\ rw[CONCAT_WITH_aux_def, concatWith_def, concatWith_aux_def, strcat_thm]
-  >-(Induct_on `l` \\ rw[MAP, concatWith_aux_def, strcat_thm]
-  \\ Cases_on `l` \\ rw[concatWith_aux_def, explode_implode, strcat_thm])
-QED
-
-Theorem concatWith_CONCAT_WITH:
-   !s l. CONCAT_WITH s l = explode (concatWith (implode s) (MAP implode l))
-Proof
-    rw[concatWith_def, CONCAT_WITH_def, concatWith_CONCAT_WITH_aux]
-QED
 
 Definition chr_to_str_def:
   chr_to_str (c: char) = implode [c]
@@ -1329,6 +1305,93 @@ Theorem StrongLinearOrder_mlstring_lt:
 Proof
   rw[StrongLinearOrder,trichotomous_mlstring_lt,
      StrongOrder,irreflexive_mlstring_lt,transitive_mlstring_lt]
+QED
+
+Theorem fast_lt_nonrefl:
+   ∀s. ¬fast_lt s s
+Proof
+  rw[fast_lt_def, mlstring_lt_nonrefl]
+QED
+
+Theorem fast_lt_trans:
+   ∀s1 s2 s3. fast_lt s1 s2 ∧ fast_lt s2 s3 ⇒ fast_lt s1 s3
+Proof
+  rw[fast_lt_def]
+  >> Cases_on ‘strlen s1 = strlen s2’ >> Cases_on ‘strlen s2 = strlen s3’ >> gvs[]
+  >> metis_tac[mlstring_lt_trans]
+QED
+
+Theorem fast_le_thm:
+   ∀s1 s2. fast_le s1 s2 ⇔ s1 = s2 ∨ fast_lt s1 s2
+Proof
+  rw[fast_le_def, fast_lt_def]
+  >> Cases_on ‘strlen s1 = strlen s2’ >> gvs[mlstring_le_thm]
+  >> Cases_on ‘s1 = s2’ >> gvs[LESS_OR_EQ]
+QED
+
+Theorem fast_gt_thm:
+   ∀s1 s2. fast_gt s1 s2 ⇔ fast_lt s2 s1
+Proof
+  rw[fast_gt_def, fast_lt_def, mlstring_gt_thm]
+  >> gvs[]
+QED
+
+Theorem fast_ge_thm:
+   ∀s1 s2. fast_ge s1 s2 ⇔ fast_le s2 s1
+Proof
+  rw[fast_ge_def, fast_le_def, mlstring_ge_thm]
+  >> gvs[]
+QED
+
+Theorem transitive_fast_le:
+   transitive fast_le
+Proof
+  rw[transitive_def, fast_le_def]
+  >> Cases_on ‘strlen x = strlen y’ >> Cases_on ‘strlen y = strlen z’ >> gvs[]
+  >> metis_tac[transitive_mlstring_le, transitive_def]
+QED
+
+Theorem antisymmetric_fast_le:
+   antisymmetric fast_le
+Proof
+  rw[antisymmetric_def, fast_le_def]
+  >> Cases_on ‘strlen x = strlen y’ >> gvs[]
+  >> metis_tac[antisymmetric_mlstring_le, antisymmetric_def, LESS_EQUAL_ANTISYM]
+QED
+
+Theorem total_fast_le:
+   total fast_le
+Proof
+  rw[total_def, fast_le_def]
+  >> Cases_on ‘strlen x = strlen y’ >> gvs[]
+  >> metis_tac[total_mlstring_le, total_def]
+QED
+
+Theorem transitive_fast_lt:
+   transitive fast_lt
+Proof
+  metis_tac[transitive_def, fast_lt_trans]
+QED
+
+Theorem irreflexive_fast_lt:
+   irreflexive fast_lt
+Proof
+  rw[irreflexive_def, fast_lt_nonrefl]
+QED
+
+Theorem trichotomous_fast_lt:
+   trichotomous fast_lt
+Proof
+  rw[trichotomous, fast_lt_def]
+  >> Cases_on ‘strlen a = strlen b’ >> gvs[]
+  >> metis_tac[trichotomous_mlstring_lt, trichotomous, LESS_LESS_CASES]
+QED
+
+Theorem StrongLinearOrder_fast_lt:
+   StrongLinearOrder fast_lt
+Proof
+  rw[StrongLinearOrder, StrongOrder, trichotomous_fast_lt, irreflexive_fast_lt,
+     transitive_fast_lt]
 QED
 
 Definition collate_aux_def:

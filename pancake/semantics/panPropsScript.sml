@@ -7,11 +7,6 @@ Ancestors
 Libs
   preamble
 
-Definition is_decl_def:
-  is_decl (Decl sh v e) = T /\
-  is_decl _ = F
-End
-
 Definition v2word_def:
   v2word (ValWord v) = Word v
 End
@@ -623,6 +618,29 @@ Theorem opt_mmap_helper_thm[local] =
     |> REWRITE_RULE []
     |> Q.GENL [`f`, `st`, `es`]
 
+Theorem eval_some_var_exp_local_lookup:
+  ∀s e v n. eval s e = SOME v ∧ MEM n (var_exp e) ⇒
+    ∃w. FLOOKUP s.locals n = SOME w
+Proof
+  recInduct eval_ind >> rw[] >> gvs[var_exp_def, MEM_FLAT, MEM_MAP, eval_def, AllCaseEqs()]
+  >- (
+    first_x_assum irule
+    >> imp_res_tac opt_mmap_mem_func >> fs[]
+    >> metis_tac[]
+  )
+  >- (
+    first_x_assum irule
+    >> rpt (pairarg_tac >> gvs[AllCaseEqs()])
+    >> fs[UNZIP_MAP]
+    >> qrefine `SND y` >> fs[LEFT_EXISTS_AND_THM]
+    >> conj_asm2_tac
+    >- (imp_res_tac opt_mmap_mem_func >> fs[])
+    >> metis_tac[MEM_MAP]
+  )
+  >> first_x_assum irule
+  >> imp_res_tac opt_mmap_mem_func >> fs[] >> metis_tac[]
+QED
+
 Theorem eval_upd_clock_eq:
   !t e ck. eval (t with clock := ck) e =  eval t e
 Proof
@@ -641,6 +659,16 @@ Proof
   gs [Q.SPEC `code_fupd g` opt_mmap_helper_thm] >>
   rpt ((pairarg_tac ORELSE TOP_CASE_TAC) >> fs []) >>
   gs [Q.SPEC `code_fupd g` opt_mmap_helper_thm]
+QED
+
+Theorem eval_upd_eshapes_eq:
+  !t e esh. eval (t with eshapes := esh) e =  eval t e
+Proof
+  ho_match_mp_tac eval_ind >> rw [] >>
+  fs [eval_def] >>
+  gs [Q.SPEC `eshapes_fupd g` opt_mmap_helper_thm] >>
+  rpt ((pairarg_tac ORELSE TOP_CASE_TAC) >> fs []) >>
+  gs [Q.SPEC `eshapes_fupd g` opt_mmap_helper_thm]
 QED
 
 Theorem opt_mmap_eval_upd_clock_eq:
@@ -1129,22 +1157,24 @@ Theorem evaluate_invariants:
 Proof
   Ho_Rewrite.PURE_REWRITE_TAC[FORALL_AND_THM,IMP_CONJ_THM] >> rpt conj_tac >>
   recInduct evaluate_ind >>
-    (rw[Once evaluate_def]
+     (rw[Once evaluate_def]
      >~ [‘While’]
      >- (qpat_x_assum ‘evaluate _ = _’ (strip_assume_tac o ONCE_REWRITE_RULE[evaluate_def]) >>
          gvs[AllCaseEqs(),empty_locals_def,ELIM_UNCURRY,dec_clock_def] >>
          metis_tac[PAIR,FST,SND])
      >~[‘ShMemLoad’]
-     >- (Cases_on ‘op’>>
-         gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,ffiTheory.call_FFI_def,
-             dec_clock_def,kvar_defs,nb_op_def,sh_mem_store_def,sh_mem_load_def] >>
-         metis_tac[PAIR,FST,SND])
+     >- (
+      Cases_on ‘op’>>
+      gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,ffiTheory.call_FFI_def,
+             dec_clock_def,kvar_defs,nb_op_def,sh_mem_store_def,sh_mem_load_def]
+     )
      >~[‘ShMemStore’]
-     >- (Cases_on ‘op’>>
-         gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,
+     >- (
+      Cases_on ‘op’>>
+      gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,
              dec_clock_def,set_var_def,nb_op_def,sh_mem_store_def,ffiTheory.call_FFI_def,
-             sh_mem_load_def] >>
-         metis_tac[PAIR,FST,SND])>>
+             sh_mem_load_def]
+     )>>
      gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,
          ffiTheory.call_FFI_def,dec_clock_def,kvar_defs] >>
      metis_tac[PAIR,FST,SND])
@@ -1173,7 +1203,7 @@ Proof
       PURE_TOP_CASE_TAC >> simp[]) >>
   rw[Once evaluate_def,AllCaseEqs(),UNCURRY_EQ,empty_locals_def,
      sh_mem_store_def,dec_clock_def,kvar_defs] >>
-  rw[FLOOKUP_UPDATE] >> gvs[] >> res_tac >>
+  rw[FLOOKUP_UPDATE] >> fs[] >> gvs[] >> res_tac >>
   metis_tac[]
 QED
 
@@ -1202,7 +1232,7 @@ QED
 
 Theorem lookup_code_wf_shape_invariant_step:
   OPT_MMAP (eval s) argexps = SOME args ∧
-  lookup_code s.code fname args = SOME (prog,newlocals) ∧
+  lookup_code s.code fname args = SOME (prog,newlocals,return_sh) ∧
   FEVERY (λ(nm,v). is_wf_shape_v s.structs v) s.locals ∧
   FEVERY (λ(nm,v). is_wf_shape_v s.structs v) s.globals ⇒
   FEVERY (λ(nm,v). is_wf_shape_v s.structs v) newlocals
@@ -1292,7 +1322,7 @@ Definition every_exp_def:
   (every_exp P (Op bop es) = (P(Op bop es) ∧ EVERY (every_exp P) es)) ∧
   (every_exp P (Panop op es) = (P(Panop op es) ∧ EVERY (every_exp P) es)) ∧
   (every_exp P (Cmp c e1 e2) = (P(Cmp c e1 e2) ∧ every_exp P e1 ∧ every_exp P e2)) ∧
-  (every_exp P (Shift sh e num) = (P(Shift sh e num) ∧ every_exp P e)) ∧
+  (every_exp P (Shift sh e1 e2) = (P(Shift sh e1 e2) ∧ every_exp P e1 ∧ every_exp P e2)) ∧
   (every_exp P BaseAddr = P BaseAddr) ∧
   (every_exp P TopAddr = P TopAddr) ∧
   (every_exp P BytesInWord = P BytesInWord)
@@ -1376,6 +1406,69 @@ Definition localised_prog_def:
   (localised_prog _ ⇔ T)
 End
 
+Theorem evaluate_decls_eshapes:
+  ∀s ds s'.
+    evaluate_decls s ds = SOME s' ⇒
+    s'.eshapes = s.eshapes |++ exceptions ds
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def, exceptions_def, FUPDATE_LIST_THM] >>
+  gvs[AllCaseEqs()]
+QED
+
+Theorem evaluate_decls_exns_wf:
+  ∀s ds s'.
+    evaluate_decls s ds = SOME s' ⇒
+    ALL_DISTINCT (MAP FST (exceptions ds)) ∧
+    EVERY (λ(eid,sh). FLOOKUP s.eshapes eid = NONE) (exceptions ds) ∧
+    EVERY (is_wf_shape s.structs o SND) (exceptions ds)
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[exceptions_def,evaluate_decls_def] >>
+  gvs[AllCaseEqs()]
+  >- (CCONTR_TAC >>
+      gvs[EVERY_MEM,MEM_MAP,FLOOKUP_UPDATE,ELIM_UNCURRY] >>
+      metis_tac[]) >>
+  rev_dxrule_at_then (Pos last) irule EVERY_MONOTONIC >>
+  rw[FLOOKUP_UPDATE,ELIM_UNCURRY]
+QED
+
+Theorem evaluate_decls_only_exn_decls:
+  ∀s ds s'.
+    EVERY is_exn_decl ds ∧
+    evaluate_decls s ds = SOME s' ⇒
+    s' = s with eshapes := s.eshapes |++ exceptions ds
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def, exceptions_def, FUPDATE_LIST_THM] >>
+  gvs[AllCaseEqs(), is_exn_decl_def] >>
+  simp[state_component_equality]
+QED
+
+Theorem exns_wf_evaluate_decls:
+  ∀s ds s'.
+    EVERY is_exn_decl ds ∧
+    ALL_DISTINCT (MAP FST (exceptions ds)) ∧
+    EVERY (λ(eid,sh). FLOOKUP s.eshapes eid = NONE) (exceptions ds) ∧
+    EVERY (is_wf_shape s.structs o SND) (exceptions ds) ⇒
+    evaluate_decls s ds = SOME(s with eshapes := s.eshapes |++ exceptions ds)
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[exceptions_def,evaluate_decls_def,FUPDATE_LIST_THM,is_exn_decl_def] >>
+  gvs[AllCaseEqs()]
+  >- simp[state_component_equality] >>
+  first_x_assum match_mp_tac >>
+  qpat_x_assum ‘EVERY (λ(eid,sh). _) _’ mp_tac >>
+  qmatch_goalsub_abbrev_tac ‘a1 ⇒ a2’ >>
+  ‘a1 = a2’ suffices_by simp[] >>
+  unabbrev_all_tac >>
+  irule EVERY_CONG >>
+  rw[FLOOKUP_UPDATE,EQ_IMP_THM] >>
+  pairarg_tac >>
+  gvs[MEM_MAP,FORALL_PROD] >>
+  metis_tac[]
+QED
+
 Theorem evaluate_decl_commute:
   evaluate_decls s (Function fi::Decl sh v' e::ds) =
   evaluate_decls s (Decl sh v' e::Function fi::ds)
@@ -1393,7 +1486,7 @@ QED
 
 Theorem functions_eq_FILTER:
   functions prog =
-  MAP (λx. case x of Function fi => (fi.name,fi.params,fi.body) | _ => ARB)
+  MAP (λx. case x of Function fi => (fi.name,fi.params,fi.body,fi.return) | _ => ARB)
   $ FILTER is_function prog
 Proof
   Induct_on ‘prog’ using functions_ind >>
@@ -1412,6 +1505,14 @@ Theorem functions_FILTER:
 Proof
   Induct_on ‘prog’ using functions_ind >>
   rw[functions_def,is_function_def]
+QED
+
+Theorem functions_FILTER':
+  ∀prog.
+    functions(FILTER is_decl prog) = []
+Proof
+  Induct_on ‘prog’ using functions_ind >>
+  rw[functions_def,is_decl_def]
 QED
 
 Theorem evaluate_decls_functions:
@@ -1448,6 +1549,29 @@ Proof
   ntac 2 (TOP_CASE_TAC >> gvs[])
 QED
 
+Theorem evaluate_decls_names:
+  ∀s decs.
+    EVERY is_name decs ⇒
+    evaluate_decls s decs = SOME s
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def,is_name_def]
+QED
+
+Theorem evaluate_decls_only_funs_and_exn_decls:
+  ∀s ds s'.
+    EVERY (λd. is_function d ∨ is_exn_decl d) ds ∧
+    evaluate_decls s ds = SOME s' ⇒
+    s' = s with <| code    := s.code |++ functions ds;
+                   eshapes := s.eshapes |++ exceptions ds
+                 |>
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def, exceptions_def, functions_def, FUPDATE_LIST_THM] >>
+  gvs[AllCaseEqs(), is_exn_decl_def, is_function_def] >>
+  simp[state_component_equality]
+QED
+
 Theorem opt_mmap_eq_some_helper[local]:
   !xs zs. OPT_MMAP f xs = SOME zs /\
   (!x. MEM x xs ==> !y. f x = SOME y ==> g x = SOME y) ==>
@@ -1470,11 +1594,11 @@ Proof
 QED
 
 Theorem decs_stcnames_only_functions:
-  !ctxt code. EVERY (\d. is_function d \/ is_decl d) code ==>
+  !ctxt code. EVERY (λd. is_function d ∨ is_decl d ∨ is_exn_decl d) code ==>
   decs_stcnames ctxt code = SOME ctxt
 Proof
   recInduct decs_stcnames_ind
-  >> simp [decs_stcnames_def, is_function_def, is_decl_def]
+  >> simp [decs_stcnames_def, is_function_def, is_decl_def, is_exn_decl_def]
 QED
 
 Theorem decs_stcnames_only_functions2:
@@ -1486,8 +1610,8 @@ QED
 
 Theorem semantics_decls_has_main:
   semantics_decls s start code <> Fail ⇒
-  ∃body.
-    FLOOKUP (s.code |++ functions code) start = SOME ([],body)
+  ∃body rshape.
+    FLOOKUP (s.code |++ functions code) start = SOME ([],body,rshape)
 Proof
   rw[semantics_decls_def] >>
   rpt (PURE_FULL_CASE_TAC >> gvs[]) >>
@@ -1503,8 +1627,8 @@ QED
 
 Theorem semantics_decls_has_main':
   semantics_decls s start code <> Fail ⇒
-  ∃body.
-    FLOOKUP (s.code |++ functions code) start = SOME ([],body)
+  ∃body rshape.
+    FLOOKUP (s.code |++ functions code) start = SOME ([],body,rshape)
 Proof
   rw[semantics_decls_def] >>
   rpt (PURE_FULL_CASE_TAC >> gvs[]) >>
@@ -1833,4 +1957,3 @@ Proof
     \\ every_case_tac \\ fs []
   )
 QED
-

@@ -1,20 +1,10 @@
-Changes since release v3400:
+Changes since release v3479:
 
 ## Source language and front‑end
 
 ## Basis library
 
-### TextIO
-
-`TextIO.output`'s behavior is now linear in the size of the string
-(previously quadratic -- oops!). This should allow users to output large strings
-(as in: much larger than 2kB) without the program hanging (#1425).
-
 ## Compiler backend and runtime
-
-### BVI
-
-BVI now supports multi-arg calls/returns (with a separate constructor).
 
 ## Pancake
 
@@ -49,4 +39,4 @@ Theorem get_mode_fsupdate[simp]:
 
 `raw_closeIn_STDIO_spec` and `closeOut_STDIO_spec` assumptions have been weakened.
 
-## Miscellaneous 
+## Miscellaneous

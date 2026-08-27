@@ -12,7 +12,6 @@ val _ = translation_extends"npbc_parseProg";
 (* Translation for parsing an OPB file *)
 val r = translate nocomment_line_def;
 
-val r = translate parse_op_def;
 val r = translate parse_constraint_def;
 val r = translate parse_annot_def;
 val r = translate parse_annot_constraint_def;
@@ -619,21 +618,7 @@ Proof
   \\ simp[GSYM add_stdo_with_numchars,with_same_numchars]
 QED
 
-local
-
-val name = "main"
-val (sem_thm,prog_tm) =
-  whole_prog_thm (get_ml_prog_state()) name (UNDISCH main_whole_prog_spec2)
-Definition main_prog_def:
-  main_prog = ^prog_tm
-End
-
-in
-
 Theorem main_semantics =
-  sem_thm
-  |> REWRITE_RULE[GSYM main_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
-
-end
+  prove_sem_thm "main"
+                "main_prog"
+                main_whole_prog_spec2;

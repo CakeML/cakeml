@@ -14,10 +14,7 @@ val _ = monadsyntax.temp_add_monadsyntax()
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
-Overload monad_bind[local] = ``st_ex_bind``
-Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload return[local] = ``st_ex_return``
+val _ = monadsyntax.temp_enable_monad "st_ex";
 
 (* Edge from node x to node y, in terms of an adjacency list *)
 Definition has_edge_def:
@@ -84,7 +81,7 @@ Definition good_pref_def:
     | SOME k => MEM k ks
 End
 
-val msimps = [st_ex_bind_def,st_ex_return_def];
+val msimps = [st_ex_bind_def,st_ex_ignore_bind_def,st_ex_return_def];
 
 val get_eqns = [get_dim_def, get_unavail_moves_wl_def,get_avail_moves_wl_def,get_simp_wl_def,get_spill_wl_def,set_spill_wl_def,get_freeze_wl_def,get_stack_def];
 

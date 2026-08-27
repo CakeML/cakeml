@@ -88,6 +88,696 @@ Definition ffi_entry_pcs_disjoint_def:
     DISJOINT (set mc.ffi_entry_pcs) {s1.pc + n2w a | a < len}
 End
 
+(* -- the interference-application trace of a machine run -- *)
+
+Datatype:
+  interference_app =
+      FfiApp num (word8 list) 'state 'state
+    | CcApp ('a word) ('a word) 'state 'state
+End
+
+Definition is_ffi_app_def[simp]:
+  (is_ffi_app (FfiApp index new_bytes ms_pre ms_post) = T) ∧
+  (is_ffi_app (CcApp a1 a2 ms_pre ms_post) = F)
+End
+
+Definition app_post_def[simp]:
+  (app_post (FfiApp index new_bytes ms_pre ms_post) = ms_post) ∧
+  (app_post (CcApp a1 a2 ms_pre ms_post) = ms_post)
+End
+
+(* clocked clone of evaluate that stops at the first interference
+   application (FFI, shared-memory or cache-clear) and returns its data
+   together with the continuation configuration and ffi state *)
+Definition find_next_interference_def:
+  find_next_interference (mc:('b,'a,'c) machine_config) (ffi:'ffi ffi_state) k (ms:'a) =
+    if k = 0n then NONE
+    else
+      if (mc.target.get_pc ms) IN (mc.prog_addresses DIFF (set mc.ffi_entry_pcs)) then
+        if encoded_bytes_in_mem
+            mc.target.config (mc.target.get_pc ms)
+            (mc.target.get_byte ms) mc.prog_addresses then
+          let ms1 = mc.target.next ms in
+          let (ms2,new_oracle) = apply_oracle mc.next_interfer ms1 in
+          let mc = mc with next_interfer := new_oracle in
+            if EVERY mc.target.state_ok [ms;ms1;ms2] ∧
+               (∀x. x ∉ mc.prog_addresses ⇒
+                   mc.target.get_byte ms1 x =
+                   mc.target.get_byte ms x)
+            then
+              find_next_interference mc ffi (k - 1) ms2
+            else NONE
+        else NONE
+      else if mc.target.get_pc ms = mc.halt_pc then NONE
+      else if mc.target.get_pc ms = mc.ccache_pc then
+        let (ms1,new_oracle) =
+          apply_oracle mc.ccache_interfer
+            (mc.target.get_reg ms mc.ptr_reg,
+             mc.target.get_reg ms mc.len_reg,
+             ms) in
+          SOME (CcApp (mc.target.get_reg ms mc.ptr_reg)
+                      (mc.target.get_reg ms mc.len_reg) ms ms1,
+                mc with ccache_interfer := new_oracle, ffi)
+      else
+        case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
+        | NONE => NONE
+        | SOME ffi_index =>
+            (case EL ffi_index mc.ffi_names of
+             | SharedMem op =>
+                 (case ALOOKUP mc.mmio_info ffi_index of
+                  | NONE => NONE
+                  | SOME (nb,a,reg,pc') =>
+                      (case op of
+                         | MappedRead =>
+                             (case a of
+                              | Addr r off =>
+                                  let ad = mc.target.get_reg ms r + off in
+                                    (if (if nb = 0w
+                                         then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
+                                        (ad IN mc.shared_addresses) ∧
+                                        is_valid_mapped_read (mc.target.get_pc ms) nb a reg pc'
+                                                             mc.target ms mc.prog_addresses
+                                     then
+                                       (case call_FFI ffi (EL ffi_index mc.ffi_names) [nb]
+                                                      (word_to_bytes ad F) of
+                                        | FFI_final outcome => NONE
+                                        | FFI_return new_ffi new_bytes =>
+                                            let (ms1,new_oracle)
+                                                = apply_oracle mc.ffi_interfer
+                                                               (ffi_index,new_bytes,ms) in
+                                              SOME (FfiApp ffi_index new_bytes ms ms1,
+                                                    mc with ffi_interfer := new_oracle,
+                                                    new_ffi))
+                                     else NONE))
+                         | MappedWrite =>
+                             (case a of
+                              | Addr r off =>
+                                  let ad = (mc.target.get_reg ms r) + off in
+                                    (if (if nb = 0w
+                                         then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
+                                        (ad IN mc.shared_addresses) ∧
+                                        is_valid_mapped_write (mc.target.get_pc ms) nb a reg pc'
+                                                              mc.target ms mc.prog_addresses
+                                     then
+                                       (case call_FFI ffi (EL ffi_index mc.ffi_names) [nb]
+                                                      ((let w = mc.target.get_reg ms reg in
+                                                          if nb = 0w then word_to_bytes w F
+                                                          else word_to_bytes_aux (w2n nb) w F)
+                                                       ++ (word_to_bytes ad F)) of
+                                        | FFI_final outcome => NONE
+                                        | FFI_return new_ffi new_bytes =>
+                                            let (ms1,new_oracle)
+                                                = apply_oracle mc.ffi_interfer
+                                                               (ffi_index,new_bytes,ms) in
+                                              SOME (FfiApp ffi_index new_bytes ms ms1,
+                                                    mc with ffi_interfer := new_oracle,
+                                                    new_ffi))
+                                     else NONE))))
+             | ExtCall _ =>
+                 (case ALOOKUP mc.mmio_info ffi_index of
+                  | SOME _ => NONE
+                  | NONE =>
+                      (case read_ffi_bytearrays mc ms of
+                       | (SOME bytes, SOME bytes2) =>
+                           (case call_FFI ffi (EL ffi_index mc.ffi_names) bytes bytes2 of
+                            | FFI_final outcome => NONE
+                            | FFI_return new_ffi new_bytes =>
+                                let (ms1,new_oracle)
+                                    = apply_oracle mc.ffi_interfer
+                                                   (ffi_index,new_bytes,ms) in
+                                  SOME (FfiApp ffi_index new_bytes ms ms1,
+                                        mc with ffi_interfer := new_oracle,
+                                        new_ffi))
+                       | _ => NONE)))
+End
+
+(* the limit of find_next_interference over all clocks *)
+Definition next_interference_def:
+  next_interference mc ffi ms =
+    some res. ∃k. find_next_interference mc ffi k ms = SOME res
+End
+
+(* the sequence of interference applications of a run *)
+Definition interference_app_seq_def:
+  (interference_app_seq mc ffi ms 0 = next_interference mc ffi ms) ∧
+  (interference_app_seq mc ffi ms (SUC n) =
+     case next_interference mc ffi ms of
+     | NONE => NONE
+     | SOME (app,mc',ffi') => interference_app_seq mc' ffi' (app_post app) n)
+End
+
+(* number of applications satisfying P among the first n applications *)
+Definition interference_count_def:
+  (interference_count P mc ffi ms 0 = 0n) ∧
+  (interference_count P mc ffi ms (SUC n) =
+     interference_count P mc ffi ms n +
+     case interference_app_seq mc ffi ms n of
+     | SOME (app,mc',ffi') => if P app then 1 else 0
+     | NONE => 0)
+End
+
+(* position in the application sequence of the k-th application
+   satisfying P *)
+Definition interference_pos_def:
+  interference_pos P mc ffi ms k =
+    some n. interference_count P mc ffi ms n = k ∧
+            ∃app mc' ffi'.
+              interference_app_seq mc ffi ms n = SOME (app,mc',ffi') ∧
+              P app
+End
+
+(* the lab-level oracle sequences, constructed from the machine run:
+   caller-saved register and FP-register residues are read off each
+   application's post state; callee-saved (and avoid / out-of-range)
+   registers are marked NONE, i.e. preserved *)
+Definition target_io_regs_def:
+  target_io_regs mc ffi ms k (name:ffiname) r =
+    case interference_pos is_ffi_app mc ffi ms k of
+    | NONE => NONE
+    | SOME n =>
+      (case interference_app_seq mc ffi ms n of
+       | SOME (FfiApp index new_bytes ms_pre ms_post, mc', ffi') =>
+           (if MEM r mc.callee_saved_regs ∨
+               ¬(r < mc.target.config.reg_count) ∨
+               MEM r mc.target.config.avoid_regs
+            then NONE
+            else SOME (mc.target.get_reg ms_post r))
+       | _ => NONE)
+End
+
+Definition target_io_fp_regs_def:
+  target_io_fp_regs mc ffi ms k (i:num) =
+    case interference_pos is_ffi_app mc ffi ms k of
+    | NONE => (0w:word64)
+    | SOME n =>
+      (case interference_app_seq mc ffi ms n of
+       | SOME (FfiApp index new_bytes ms_pre ms_post, mc', ffi') =>
+           mc.target.get_fp_reg ms_post i
+       | _ => 0w)
+End
+
+Definition target_cc_regs_def:
+  target_cc_regs mc ffi ms k r =
+    case interference_pos (λapp. ¬is_ffi_app app) mc ffi ms k of
+    | NONE => NONE
+    | SOME n =>
+      (case interference_app_seq mc ffi ms n of
+       | SOME (CcApp a1 a2 ms_pre ms_post, mc', ffi') =>
+           (if MEM r mc.callee_saved_regs ∨ r = mc.ptr_reg ∨
+               ¬(r < mc.target.config.reg_count) ∨
+               MEM r mc.target.config.avoid_regs
+            then NONE
+            else SOME (mc.target.get_reg ms_post r))
+       | _ => NONE)
+End
+
+Definition target_cc_fp_regs_def:
+  target_cc_fp_regs mc ffi ms k (i:num) =
+    case interference_pos (λapp. ¬is_ffi_app app) mc ffi ms k of
+    | NONE => (0w:word64)
+    | SOME n =>
+      (case interference_app_seq mc ffi ms n of
+       | SOME (CcApp a1 a2 ms_pre ms_post, mc', ffi') =>
+           mc.target.get_fp_reg ms_post i
+       | _ => 0w)
+End
+
+Theorem find_next_interference_mono:
+  ∀k mc ffi ms res i.
+    find_next_interference mc ffi k ms = SOME res ⇒
+    find_next_interference mc ffi (k + i) ms = SOME res
+Proof
+  Induct
+  >- simp[Once find_next_interference_def]
+  \\ rpt gen_tac
+  \\ once_rewrite_tac [find_next_interference_def]
+  \\ simp[apply_oracle_def]
+  \\ rpt (TOP_CASE_TAC \\ simp[])
+  \\ rw[] \\ fs[ADD_CLAUSES]
+QED
+
+Theorem find_next_interference_unique:
+  find_next_interference mc ffi k1 ms = SOME res1 ∧
+  find_next_interference mc ffi k2 ms = SOME res2 ⇒
+  res1 = res2
+Proof
+  rw[]
+  \\ ‘find_next_interference mc ffi (k1 + k2) ms = SOME res1’
+       by simp[find_next_interference_mono]
+  \\ ‘find_next_interference mc ffi (k2 + k1) ms = SOME res2’
+       by simp[find_next_interference_mono]
+  \\ ‘k2 + k1 = k1 + k2’ by decide_tac
+  \\ gvs[]
+QED
+
+Theorem next_interference_intro:
+  find_next_interference mc ffi k ms = SOME res ⇒
+  next_interference mc ffi ms = SOME res
+Proof
+  rw[next_interference_def]
+  \\ DEEP_INTRO_TAC some_intro
+  \\ rw[]
+  \\ metis_tac[find_next_interference_unique]
+QED
+
+Theorem next_interference_shift:
+  (∀k. find_next_interference mc1 ffi1 (k + l) ms1 =
+       find_next_interference mc2 ffi2 k ms2) ⇒
+  next_interference mc1 ffi1 ms1 = next_interference mc2 ffi2 ms2
+Proof
+  rw[next_interference_def]
+  \\ AP_TERM_TAC
+  \\ simp[FUN_EQ_THM]
+  \\ metis_tac[find_next_interference_mono]
+QED
+
+Theorem find_next_interference_const:
+  ∀k mc ffi ms app mc' ffi'.
+    find_next_interference mc ffi k ms = SOME (app,mc',ffi') ⇒
+    mc'.target = mc.target ∧
+    mc'.callee_saved_regs = mc.callee_saved_regs ∧
+    mc'.ptr_reg = mc.ptr_reg
+Proof
+  Induct
+  >- simp[Once find_next_interference_def]
+  \\ rpt gen_tac
+  \\ once_rewrite_tac [find_next_interference_def]
+  \\ simp[apply_oracle_def]
+  \\ rpt (TOP_CASE_TAC \\ simp[])
+  \\ rw[] \\ res_tac \\ simp[]
+QED
+
+Theorem next_interference_const:
+  next_interference mc ffi ms = SOME (app,mc',ffi') ⇒
+  mc'.target = mc.target ∧
+  mc'.callee_saved_regs = mc.callee_saved_regs ∧
+  mc'.ptr_reg = mc.ptr_reg
+Proof
+  rw[next_interference_def]
+  \\ qpat_x_assum ‘_ = SOME _’ mp_tac
+  \\ DEEP_INTRO_TAC some_intro
+  \\ rw[]
+  \\ metis_tac[find_next_interference_const]
+QED
+
+Theorem interference_app_seq_EQ:
+  next_interference mc1 ffi1 ms1 = next_interference mc2 ffi2 ms2 ⇒
+  ∀n. interference_app_seq mc1 ffi1 ms1 n =
+      interference_app_seq mc2 ffi2 ms2 n
+Proof
+  strip_tac \\ Cases \\ simp[interference_app_seq_def]
+QED
+
+Theorem interference_app_seq_tail:
+  next_interference mc ffi ms = SOME (app,mc',ffi') ⇒
+  ∀n. interference_app_seq mc ffi ms (SUC n) =
+      interference_app_seq mc' ffi' (app_post app) n
+Proof
+  simp[interference_app_seq_def]
+QED
+
+Theorem interference_count_mono:
+  ∀i m. interference_count P mc ffi ms m ≤
+        interference_count P mc ffi ms (m + i)
+Proof
+  Induct >- simp[]
+  \\ gen_tac
+  \\ first_x_assum (qspec_then ‘m’ assume_tac)
+  \\ fs[ADD_CLAUSES, interference_count_def]
+  \\ every_case_tac \\ fs[]
+  \\ qpat_x_assum ‘_ ≤ _’ mp_tac \\ decide_tac
+QED
+
+Theorem interference_count_lt:
+  interference_app_seq mc ffi ms n = SOME (app,mc',ffi') ∧ P app ∧ n < n2 ⇒
+  interference_count P mc ffi ms n < interference_count P mc ffi ms n2
+Proof
+  rw[]
+  \\ ‘interference_count P mc ffi ms (SUC n) =
+      interference_count P mc ffi ms n + 1’ by simp[interference_count_def]
+  \\ ‘∃i. n2 = SUC n + i’ by (qexists_tac ‘n2 - SUC n’ \\ decide_tac)
+  \\ ‘interference_count P mc ffi ms (SUC n) ≤
+      interference_count P mc ffi ms (SUC n + i)’
+        by simp[interference_count_mono]
+  \\ gvs[]
+QED
+
+Theorem interference_pos_unique:
+  interference_app_seq mc ffi ms n1 = SOME (app1,mc1',ffi1') ∧ P app1 ∧
+  interference_app_seq mc ffi ms n2 = SOME (app2,mc2',ffi2') ∧ P app2 ∧
+  interference_count P mc ffi ms n1 = interference_count P mc ffi ms n2 ⇒
+  n1 = n2
+Proof
+  rpt strip_tac
+  \\ CCONTR_TAC
+  \\ ‘n1 < n2 ∨ n2 < n1’ by decide_tac
+  \\ metis_tac[interference_count_lt, prim_recTheory.LESS_REFL]
+QED
+
+Theorem interference_count_tail:
+  next_interference mc ffi ms = SOME (app0,mcc,ffic) ⇒
+  ∀n. interference_count P mc ffi ms (SUC n) =
+      (if P app0 then 1 else 0) +
+      interference_count P mcc ffic (app_post app0) n
+Proof
+  strip_tac \\ Induct
+  >- simp[interference_count_def, interference_app_seq_def]
+  \\ simp[interference_count_def]
+  \\ drule interference_app_seq_tail \\ simp[]
+QED
+
+Theorem interference_pos_head:
+  next_interference mc ffi ms = SOME (app0,mcc,ffic) ∧ P app0 ⇒
+  interference_pos P mc ffi ms 0 = SOME 0
+Proof
+  rw[interference_pos_def]
+  \\ DEEP_INTRO_TAC some_intro
+  \\ rw[]
+  >- (rename1 ‘interference_count P mc ffi ms n = 0’
+      \\ CCONTR_TAC
+      \\ ‘interference_app_seq mc ffi ms 0 = SOME (app0,mcc,ffic)’
+           by simp[interference_app_seq_def]
+      \\ ‘0 < n’ by fs[]
+      \\ drule_all interference_count_lt
+      \\ simp[interference_count_def])
+  \\ qexists_tac ‘0’
+  \\ simp[interference_count_def, interference_app_seq_def]
+  \\ metis_tac[]
+QED
+
+Theorem interference_pos_tail_hit:
+  next_interference mc ffi ms = SOME (app0,mcc,ffic) ∧ P app0 ⇒
+  interference_pos P mc ffi ms (SUC k) =
+  OPTION_MAP SUC (interference_pos P mcc ffic (app_post app0) k)
+Proof
+  strip_tac
+  \\ ‘∀n. interference_app_seq mc ffi ms (SUC n) =
+          interference_app_seq mcc ffic (app_post app0) n’
+       by simp[interference_app_seq_tail]
+  \\ ‘∀n. interference_count P mc ffi ms (SUC n) =
+          1 + interference_count P mcc ffic (app_post app0) n’
+       by (drule interference_count_tail \\ simp[])
+  \\ simp[interference_pos_def]
+  \\ DEEP_INTRO_TAC some_intro \\ rw[]
+  >- (rename1 ‘interference_app_seq mc ffi ms n = SOME _’
+      \\ Cases_on ‘n’
+      >- fs[interference_count_def]
+      \\ rename1 ‘interference_app_seq mc ffi ms (SUC m) = SOME _’
+      \\ gvs[]
+      \\ ‘interference_count P mcc ffic (app_post app0) m = k’ by fs[]
+      \\ DEEP_INTRO_TAC some_intro \\ rw[]
+      >- metis_tac[interference_pos_unique]
+      \\ metis_tac[])
+  \\ DEEP_INTRO_TAC some_intro \\ rw[]
+  \\ rename1 ‘interference_app_seq mcc ffic (app_post app0) m = SOME _’
+  \\ first_x_assum (qspec_then ‘SUC m’ mp_tac)
+  \\ simp[]
+  \\ metis_tac[]
+QED
+
+Theorem interference_pos_tail_miss:
+  next_interference mc ffi ms = SOME (app0,mcc,ffic) ∧ ¬P app0 ⇒
+  interference_pos P mc ffi ms k =
+  OPTION_MAP SUC (interference_pos P mcc ffic (app_post app0) k)
+Proof
+  strip_tac
+  \\ ‘∀n. interference_app_seq mc ffi ms (SUC n) =
+          interference_app_seq mcc ffic (app_post app0) n’
+       by simp[interference_app_seq_tail]
+  \\ ‘∀n. interference_count P mc ffi ms (SUC n) =
+          interference_count P mcc ffic (app_post app0) n’
+       by (drule interference_count_tail \\ simp[])
+  \\ simp[interference_pos_def]
+  \\ DEEP_INTRO_TAC some_intro \\ rw[]
+  >- (rename1 ‘interference_app_seq mc ffi ms n = SOME _’
+      \\ Cases_on ‘n’
+      >- gvs[interference_app_seq_def]
+      \\ rename1 ‘interference_app_seq mc ffi ms (SUC m) = SOME _’
+      \\ gvs[]
+      \\ DEEP_INTRO_TAC some_intro \\ rw[]
+      >- metis_tac[interference_pos_unique]
+      \\ metis_tac[])
+  \\ DEEP_INTRO_TAC some_intro \\ rw[]
+  \\ rename1 ‘interference_app_seq mcc ffic (app_post app0) m = SOME _’
+  \\ first_x_assum (qspec_then ‘SUC m’ mp_tac)
+  \\ simp[]
+  \\ metis_tac[]
+QED
+
+Theorem constructed_oracles_ffi_step:
+  next_interference mc ffi ms =
+    SOME (FfiApp index new_bytes ms_pre ms_post, mc', ffi') ⇒
+  target_io_regs mc ffi ms 0 name r =
+    (if MEM r mc.callee_saved_regs ∨
+        ¬(r < mc.target.config.reg_count) ∨
+        MEM r mc.target.config.avoid_regs
+     then NONE else SOME (mc.target.get_reg ms_post r)) ∧
+  target_io_fp_regs mc ffi ms 0 i = mc.target.get_fp_reg ms_post i ∧
+  target_io_regs mc ffi ms (SUC k) name r =
+    target_io_regs mc' ffi' ms_post k name r ∧
+  target_io_fp_regs mc ffi ms (SUC k) i =
+    target_io_fp_regs mc' ffi' ms_post k i ∧
+  target_cc_regs mc ffi ms k r = target_cc_regs mc' ffi' ms_post k r ∧
+  target_cc_fp_regs mc ffi ms k i = target_cc_fp_regs mc' ffi' ms_post k i
+Proof
+  strip_tac
+  \\ imp_res_tac next_interference_const
+  \\ ‘interference_pos is_ffi_app mc ffi ms 0 = SOME 0’
+       by (drule interference_pos_head \\ simp[])
+  \\ ‘∀k. interference_pos is_ffi_app mc ffi ms (SUC k) =
+          OPTION_MAP SUC (interference_pos is_ffi_app mc' ffi' ms_post k)’
+       by (drule interference_pos_tail_hit \\ simp[])
+  \\ ‘∀k. interference_pos (λapp. ¬is_ffi_app app) mc ffi ms k =
+          OPTION_MAP SUC
+            (interference_pos (λapp. ¬is_ffi_app app) mc' ffi' ms_post k)’
+       by (drule interference_pos_tail_miss \\ simp[])
+  \\ ‘∀n. interference_app_seq mc ffi ms (SUC n) =
+          interference_app_seq mc' ffi' ms_post n’
+       by (drule interference_app_seq_tail \\ simp[])
+  \\ rw[target_io_regs_def, target_io_fp_regs_def, target_cc_regs_def,
+        target_cc_fp_regs_def]
+  \\ simp[Once interference_app_seq_def]
+  \\ rpt (CASE_TAC \\ gvs[])
+QED
+
+Theorem constructed_oracles_cc_step:
+  next_interference mc ffi ms =
+    SOME (CcApp a1 a2 ms_pre ms_post, mc', ffi') ⇒
+  target_cc_regs mc ffi ms 0 r =
+    (if MEM r mc.callee_saved_regs ∨ r = mc.ptr_reg ∨
+        ¬(r < mc.target.config.reg_count) ∨
+        MEM r mc.target.config.avoid_regs
+     then NONE else SOME (mc.target.get_reg ms_post r)) ∧
+  target_cc_fp_regs mc ffi ms 0 i = mc.target.get_fp_reg ms_post i ∧
+  target_cc_regs mc ffi ms (SUC k) r = target_cc_regs mc' ffi' ms_post k r ∧
+  target_cc_fp_regs mc ffi ms (SUC k) i =
+    target_cc_fp_regs mc' ffi' ms_post k i ∧
+  target_io_regs mc ffi ms k name r =
+    target_io_regs mc' ffi' ms_post k name r ∧
+  target_io_fp_regs mc ffi ms k i = target_io_fp_regs mc' ffi' ms_post k i
+Proof
+  strip_tac
+  \\ imp_res_tac next_interference_const
+  \\ ‘interference_pos (λapp. ¬is_ffi_app app) mc ffi ms 0 = SOME 0’
+       by (drule interference_pos_head \\ simp[])
+  \\ ‘∀k. interference_pos (λapp. ¬is_ffi_app app) mc ffi ms (SUC k) =
+          OPTION_MAP SUC
+            (interference_pos (λapp. ¬is_ffi_app app) mc' ffi' ms_post k)’
+       by (drule interference_pos_tail_hit \\ simp[])
+  \\ ‘∀k. interference_pos is_ffi_app mc ffi ms k =
+          OPTION_MAP SUC (interference_pos is_ffi_app mc' ffi' ms_post k)’
+       by (drule interference_pos_tail_miss \\ simp[])
+  \\ ‘∀n. interference_app_seq mc ffi ms (SUC n) =
+          interference_app_seq mc' ffi' ms_post n’
+       by (drule interference_app_seq_tail \\ simp[])
+  \\ rw[target_io_regs_def, target_io_fp_regs_def, target_cc_regs_def,
+        target_cc_fp_regs_def]
+  \\ simp[Once interference_app_seq_def]
+  \\ rpt (CASE_TAC \\ gvs[])
+QED
+
+Theorem interference_count_EQ:
+  next_interference mc1 ffi1 ms1 = next_interference mc2 ffi2 ms2 ⇒
+  ∀n. interference_count P mc1 ffi1 ms1 n =
+      interference_count P mc2 ffi2 ms2 n
+Proof
+  strip_tac \\ Induct
+  \\ simp[interference_count_def]
+  \\ drule interference_app_seq_EQ \\ simp[]
+QED
+
+Theorem constructed_oracles_EQ:
+  next_interference mc1 ffi1 ms1 = next_interference mc2 ffi2 ms2 ∧
+  mc1.target = mc2.target ∧
+  mc1.callee_saved_regs = mc2.callee_saved_regs ∧
+  mc1.ptr_reg = mc2.ptr_reg ⇒
+  target_io_regs mc1 ffi1 ms1 = target_io_regs mc2 ffi2 ms2 ∧
+  target_io_fp_regs mc1 ffi1 ms1 = target_io_fp_regs mc2 ffi2 ms2 ∧
+  target_cc_regs mc1 ffi1 ms1 = target_cc_regs mc2 ffi2 ms2 ∧
+  target_cc_fp_regs mc1 ffi1 ms1 = target_cc_fp_regs mc2 ffi2 ms2
+Proof
+  strip_tac
+  \\ ‘∀n. interference_app_seq mc1 ffi1 ms1 n =
+          interference_app_seq mc2 ffi2 ms2 n’
+       by simp[interference_app_seq_EQ]
+  \\ ‘∀P n. interference_count P mc1 ffi1 ms1 n =
+            interference_count P mc2 ffi2 ms2 n’
+       by simp[interference_count_EQ]
+  \\ ‘∀P k. interference_pos P mc1 ffi1 ms1 k =
+            interference_pos P mc2 ffi2 ms2 k’
+       by (rw[interference_pos_def] \\ AP_TERM_TAC \\ simp[FUN_EQ_THM])
+  \\ rw[FUN_EQ_THM, target_io_regs_def, target_io_fp_regs_def,
+        target_cc_regs_def, target_cc_fp_regs_def]
+  \\ rpt (CASE_TAC \\ gvs[])
+QED
+
+Theorem target_io_regs_callee_saved:
+  MEM r mc.callee_saved_regs ⇒ target_io_regs mc ffi ms k name r = NONE
+Proof
+  rw[target_io_regs_def] \\ rpt (CASE_TAC \\ gvs[])
+QED
+
+Theorem target_cc_regs_callee_saved:
+  MEM r mc.callee_saved_regs ⇒ target_cc_regs mc ffi ms k r = NONE
+Proof
+  rw[target_cc_regs_def] \\ rpt (CASE_TAC \\ gvs[])
+QED
+
+Theorem next_interference_ExtCall:
+  mc.target.get_pc ms ∉ mc.prog_addresses DIFF set mc.ffi_entry_pcs ∧
+  mc.target.get_pc ms ≠ mc.halt_pc ∧
+  mc.target.get_pc ms ≠ mc.ccache_pc ∧
+  find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME index ∧
+  EL index mc.ffi_names = ExtCall name ∧
+  ALOOKUP mc.mmio_info index = NONE ∧
+  read_ffi_bytearrays mc ms = (SOME bytes, SOME bytes2) ∧
+  call_FFI ffi (ExtCall name) bytes bytes2 = FFI_return new_ffi new_bytes ⇒
+  next_interference mc ffi ms =
+    SOME (FfiApp index new_bytes ms (mc.ffi_interfer 0 (index,new_bytes,ms)),
+          mc with ffi_interfer := shift_seq 1 mc.ffi_interfer,
+          new_ffi)
+Proof
+  rw[]
+  \\ irule next_interference_intro
+  \\ qexists_tac ‘1’
+  \\ simp[Once find_next_interference_def, apply_oracle_def]
+QED
+
+Theorem next_interference_ccache:
+  mc.target.get_pc ms ∉ mc.prog_addresses DIFF set mc.ffi_entry_pcs ∧
+  mc.target.get_pc ms ≠ mc.halt_pc ∧
+  mc.target.get_pc ms = mc.ccache_pc ⇒
+  next_interference mc ffi ms =
+    SOME (CcApp (mc.target.get_reg ms mc.ptr_reg)
+                (mc.target.get_reg ms mc.len_reg) ms
+                (mc.ccache_interfer 0
+                   (mc.target.get_reg ms mc.ptr_reg,
+                    mc.target.get_reg ms mc.len_reg, ms)),
+          mc with ccache_interfer := shift_seq 1 mc.ccache_interfer,
+          ffi)
+Proof
+  rw[]
+  \\ irule next_interference_intro
+  \\ qexists_tac ‘1’
+  \\ simp[Once find_next_interference_def, apply_oracle_def]
+QED
+
+Theorem next_interference_MappedRead:
+  mc.target.get_pc ms ∉ mc.prog_addresses DIFF set mc.ffi_entry_pcs ∧
+  mc.target.get_pc ms ≠ mc.halt_pc ∧
+  mc.target.get_pc ms ≠ mc.ccache_pc ∧
+  find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME index ∧
+  EL index mc.ffi_names = SharedMem MappedRead ∧
+  ALOOKUP mc.mmio_info index = SOME (nb,Addr r off,reg,pc') ∧
+  (nb = 0w ⇒
+   w2n (mc.target.get_reg ms r + off) MOD (dimindex (:'b) DIV 8) = 0) ∧
+  mc.target.get_reg ms r + off ∈ mc.shared_addresses ∧
+  is_valid_mapped_read (mc.target.get_pc ms) nb (Addr r off) reg pc'
+    mc.target ms mc.prog_addresses ∧
+  call_FFI ffi (EL index mc.ffi_names) [nb]
+    (word_to_bytes (mc.target.get_reg ms r + off) F) =
+    FFI_return new_ffi new_bytes ⇒
+  next_interference (mc:('b,'a,'c) machine_config) ffi ms =
+    SOME (FfiApp index new_bytes ms (mc.ffi_interfer 0 (index,new_bytes,ms)),
+          mc with ffi_interfer := shift_seq 1 mc.ffi_interfer,
+          new_ffi)
+Proof
+  rpt strip_tac
+  \\ irule next_interference_intro
+  \\ qexists_tac ‘1’
+  \\ simp[Once find_next_interference_def, apply_oracle_def]
+  \\ gvs[AC WORD_ADD_COMM WORD_ADD_ASSOC]
+QED
+
+Theorem next_interference_MappedWrite:
+  mc.target.get_pc ms ∉ mc.prog_addresses DIFF set mc.ffi_entry_pcs ∧
+  mc.target.get_pc ms ≠ mc.halt_pc ∧
+  mc.target.get_pc ms ≠ mc.ccache_pc ∧
+  find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME index ∧
+  EL index mc.ffi_names = SharedMem MappedWrite ∧
+  ALOOKUP mc.mmio_info index = SOME (nb,Addr r off,reg,pc') ∧
+  (nb = 0w ⇒
+   w2n (mc.target.get_reg ms r + off) MOD (dimindex (:'b) DIV 8) = 0) ∧
+  mc.target.get_reg ms r + off ∈ mc.shared_addresses ∧
+  is_valid_mapped_write (mc.target.get_pc ms) nb (Addr r off) reg pc'
+    mc.target ms mc.prog_addresses ∧
+  call_FFI ffi (EL index mc.ffi_names) [nb]
+    ((let w = mc.target.get_reg ms reg in
+        if nb = 0w then word_to_bytes w F
+        else word_to_bytes_aux (w2n nb) w F) ++
+     word_to_bytes (mc.target.get_reg ms r + off) F) =
+    FFI_return new_ffi new_bytes ⇒
+  next_interference (mc:('b,'a,'c) machine_config) ffi ms =
+    SOME (FfiApp index new_bytes ms (mc.ffi_interfer 0 (index,new_bytes,ms)),
+          mc with ffi_interfer := shift_seq 1 mc.ffi_interfer,
+          new_ffi)
+Proof
+  rpt strip_tac
+  \\ irule next_interference_intro
+  \\ qexists_tac ‘1’
+  \\ simp[Once find_next_interference_def, apply_oracle_def]
+  \\ gvs[AC WORD_ADD_COMM WORD_ADD_ASSOC]
+QED
+
+Theorem next_interference_SharedMem:
+  mc.target.get_pc ms ∉ mc.prog_addresses DIFF set mc.ffi_entry_pcs ∧
+  mc.target.get_pc ms ≠ mc.halt_pc ∧
+  mc.target.get_pc ms ≠ mc.ccache_pc ∧
+  find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME index ∧
+  EL index mc.ffi_names = SharedMem op ∧
+  ALOOKUP mc.mmio_info index = SOME (nb,Addr r off,reg,pc') ∧
+  (nb = 0w ⇒
+   w2n (mc.target.get_reg ms r + off) MOD (dimindex (:'b) DIV 8) = 0) ∧
+  mc.target.get_reg ms r + off ∈ mc.shared_addresses ∧
+  (op = MappedRead ⇒
+     is_valid_mapped_read (mc.target.get_pc ms) nb (Addr r off) reg pc'
+       mc.target ms mc.prog_addresses ∧
+     call_FFI ffi (EL index mc.ffi_names) [nb]
+       (word_to_bytes (mc.target.get_reg ms r + off) F) =
+       FFI_return new_ffi new_bytes) ∧
+  (op = MappedWrite ⇒
+     is_valid_mapped_write (mc.target.get_pc ms) nb (Addr r off) reg pc'
+       mc.target ms mc.prog_addresses ∧
+     call_FFI ffi (EL index mc.ffi_names) [nb]
+       ((let w = mc.target.get_reg ms reg in
+           if nb = 0w then word_to_bytes w F
+           else word_to_bytes_aux (w2n nb) w F) ++
+        word_to_bytes (mc.target.get_reg ms r + off) F) =
+       FFI_return new_ffi new_bytes) ⇒
+  next_interference (mc:('b,'a,'c) machine_config) ffi ms =
+    SOME (FfiApp index new_bytes ms (mc.ffi_interfer 0 (index,new_bytes,ms)),
+          mc with ffi_interfer := shift_seq 1 mc.ffi_interfer,
+          new_ffi)
+Proof
+  Cases_on ‘op’ \\ strip_tac
+  >- (gvs[] \\ irule next_interference_MappedRead
+      \\ gvs[AC WORD_ADD_COMM WORD_ADD_ASSOC]
+      \\ metis_tac[])
+  \\ gvs[] \\ irule next_interference_MappedWrite
+  \\ gvs[AC WORD_ADD_COMM WORD_ADD_ASSOC]
+  \\ metis_tac[]
+QED
+
 Theorem evaluate_EQ_evaluate_lemma:
   !n ms1 c.
       c.target.get_pc ms1 IN (c.prog_addresses DIFF (set c.ffi_entry_pcs)) /\
@@ -118,12 +808,15 @@ Theorem evaluate_EQ_evaluate_lemma:
       ?ms2.
         !k. (evaluate c io (k + (n + 1)) ms1 =
              evaluate (shift_interfer (n+1) c) io k ms2) /\
+            (find_next_interference c io (k + (n + 1)) ms1 =
+             find_next_interference (shift_interfer (n+1) c) io k ms2) /\
             target_state_rel c.target s2 ms2
 Proof
   Induct THEN1
    (full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
     \\ full_simp_tac(srw_ss())[asserts_def,LET_DEF]
-    \\ SIMP_TAC std_ss [Once evaluate_def] \\ full_simp_tac(srw_ss())[LET_DEF]
+    \\ SIMP_TAC std_ss [Once evaluate_def, Once find_next_interference_def]
+    \\ full_simp_tac(srw_ss())[LET_DEF]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `K (c.next_interfer 0)`)
     \\ full_simp_tac(srw_ss())[interference_ok_def] \\ RES_TAC \\ full_simp_tac(srw_ss())[]
     \\ REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[shift_interfer_def,apply_oracle_def]
@@ -147,7 +840,8 @@ Proof
     \\ METIS_TAC [])
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[arithmeticTheory.ADD_CLAUSES]
-  \\ SIMP_TAC std_ss [Once evaluate_def] \\ full_simp_tac(srw_ss())[ADD1] \\ full_simp_tac(srw_ss())[LET_DEF]
+  \\ SIMP_TAC std_ss [Once evaluate_def, Once find_next_interference_def]
+  \\ full_simp_tac(srw_ss())[ADD1] \\ full_simp_tac(srw_ss())[LET_DEF]
   \\ Q.PAT_ASSUM `!i. bbb`(qspec_then`λi. c.next_interfer 0`mp_tac)
   \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1 (full_simp_tac(srw_ss())[interference_ok_def])
   \\ full_simp_tac(srw_ss())[]
@@ -243,20 +937,23 @@ Proof
   METIS_TAC [listTheory.LENGTH_NIL,enc_ok_def]
 QED
 
-Theorem asm_step_IMP_evaluate_step = Q.prove(`
-  !c s1 ms1 io i s2.
+Theorem asm_step_IMP_evaluate_step_find_next:
+  !c s1 ms1 io i.
       encoder_correct c.target /\
       (c.prog_addresses = s1.mem_domain) /\
       ffi_entry_pcs_disjoint c s1 (LENGTH $ c.target.config.encode i) /\
       interference_ok c.next_interfer (c.target.proj s1.mem_domain) /\
-      asm_step c.target.config s1 i s2 /\
-      (* NOTE: Don't delete the following line although it is redundant,
-      * it is useful to simplify the lemma after SIMP_RULE *)
-      (s2 = asm i (s1.pc + n2w (LENGTH (c.target.config.encode i))) s1) /\
+      asm_step c.target.config s1 i
+        (asm i (s1.pc + n2w (LENGTH (c.target.config.encode i))) s1) /\
       target_state_rel c.target (s1:'a asm_state) (ms1:'state) ==>
       ?l ms2. !k. (evaluate c io (k + l) ms1 =
                    evaluate (shift_interfer l c) io k ms2) /\
-                  target_state_rel c.target s2 ms2 /\ l <> 0`,
+                  (find_next_interference c io (k + l) ms1 =
+                   find_next_interference (shift_interfer l c) io k ms2) /\
+                  target_state_rel c.target
+                    (asm i (s1.pc + n2w (LENGTH (c.target.config.encode i))) s1)
+                    ms2 /\ l <> 0
+Proof
   fs[encoder_correct_def,target_ok_def,LET_DEF,ffi_entry_pcs_disjoint_def]
   \\ rw[]
   \\ first_x_assum drule
@@ -335,8 +1032,31 @@ Theorem asm_step_IMP_evaluate_step = Q.prove(`
     irule bytes_in_memory_DIFF
     \\ qexistsl [`s1.mem_domain`, `set c.ffi_entry_pcs`]
     \\ gvs[]
-  ))
-  |> SIMP_RULE std_ss [GSYM PULL_FORALL];
+  )
+QED
+
+Theorem asm_step_IMP_evaluate_step:
+  !c s1 ms1 io i.
+      encoder_correct c.target /\
+      (c.prog_addresses = s1.mem_domain) /\
+      ffi_entry_pcs_disjoint c s1 (LENGTH $ c.target.config.encode i) /\
+      interference_ok c.next_interfer (c.target.proj s1.mem_domain) /\
+      asm_step c.target.config s1 i
+        (asm i (s1.pc + n2w (LENGTH (c.target.config.encode i))) s1) /\
+      target_state_rel c.target (s1:'a asm_state) (ms1:'state) ==>
+      ?l ms2.
+        (!k. evaluate c io (k + l) ms1 =
+             evaluate (shift_interfer l c) io k ms2) /\
+        target_state_rel c.target
+          (asm i (s1.pc + n2w (LENGTH (c.target.config.encode i))) s1) ms2 /\
+        l <> 0
+Proof
+  rpt strip_tac
+  \\ drule_all asm_step_IMP_evaluate_step_find_next
+  \\ disch_then (qspec_then ‘io’ strip_assume_tac)
+  \\ qexistsl_tac [‘l’,‘ms2’]
+  \\ metis_tac[]
+QED
 
 (* basic properties *)
 
@@ -554,5 +1274,54 @@ Proof
   \\ disch_then drule
   \\ rw[GSYM FUNPOW_ADD]
   \\ asm_exists_tac \\ rw[]
+QED
+
+(* -- interface lemmas for the interference contracts -- *)
+
+Theorem ffi_interfer_ok_post_ffi_asm:
+  ffi_interfer_ok pc mc_conf ∧
+  index < LENGTH mc_conf.ffi_names ∧
+  mmio_pcs_min_index mc_conf.ffi_names = SOME i ∧
+  index < i ∧
+  mc_conf.prog_addresses = t1.mem_domain ∧
+  read_ffi_bytearrays mc_conf ms2 = (SOME bytes, SOME bytes2) ∧
+  LENGTH new_bytes = LENGTH bytes2 ∧
+  (EL index mc_conf.ffi_names = ExtCall «» ⇒ new_bytes = bytes2) ∧
+  target_state_rel mc_conf.target
+    (t1 with pc := -n2w ((3 + index) * ffi_offset) + pc) ms2 ∧
+  aligned mc_conf.target.config.code_alignment
+    (t1.regs (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n))
+  ⇒
+  target_state_rel mc_conf.target
+    (post_ffi_asm mc_conf t1 new_bytes
+       (mc_conf.ffi_interfer k (index,new_bytes,ms2)))
+    (mc_conf.ffi_interfer k (index,new_bytes,ms2))
+Proof
+  rw[ffi_interfer_ok_def]
+  \\ first_x_assum (qspecl_then
+       [‘ms2’,‘k’,‘index’,‘new_bytes’,‘t1’,‘bytes’,‘bytes2’,‘i’] mp_tac)
+  \\ simp[]
+  \\ strip_tac
+  \\ gvs[target_state_rel_def, post_ffi_asm_def]
+  \\ rw[] \\ gvs[]
+QED
+
+Theorem ccache_interfer_ok_post_ccache_asm:
+  ccache_interfer_ok pc mc_conf ∧
+  target_state_rel mc_conf.target
+    (t1 with pc := -n2w (2 * ffi_offset) + pc) ms2 ∧
+  aligned mc_conf.target.config.code_alignment
+    (t1.regs (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n))
+  ⇒
+  target_state_rel mc_conf.target
+    (post_ccache_asm mc_conf t1 (mc_conf.ccache_interfer k (a1,a2,ms2)))
+    (mc_conf.ccache_interfer k (a1,a2,ms2))
+Proof
+  rw[ccache_interfer_ok_def]
+  \\ first_x_assum (qspecl_then [‘ms2’,‘t1’,‘k’,‘a1’,‘a2’] mp_tac)
+  \\ simp[]
+  \\ strip_tac
+  \\ gvs[target_state_rel_def, post_ccache_asm_def]
+  \\ rw[] \\ gvs[]
 QED
 

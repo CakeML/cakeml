@@ -128,6 +128,7 @@ compiler/scheme/proofs
 
 # examples and tests
 characteristic/examples
+tutorial
 tutorial/solutions
 translator/monadic/examples
 
@@ -168,6 +169,10 @@ examples/pseudo_bool/array
 examples/pseudo_bool/array/compilation
 examples/pseudo_bool/array/compilation/proofs
 examples/pseudo_bool/array/compilation/proofsARM8
+examples/pseudo_bool/cp_encoding
+examples/pseudo_bool/cp_encoding/array
+examples/pseudo_bool/cp_encoding/array/compilation
+examples/pseudo_bool/cp_encoding/array/compilation/proofs
 
 examples/opentheory
 examples/opentheory/compilation
@@ -223,3 +228,4 @@ compiler/bootstrap/compilation/ag32/32
 compiler/bootstrap/compilation/ag32/32/proofs
 unverified/sexpr-bootstrap/x64/64
 unverified/sexpr-bootstrap/x64/32
+unverified
