@@ -4,6 +4,7 @@
 Theory cake_tigerProgProof
 Ancestors
   errorMonad (* for bind_def *)
+  basis_ffi  (* for whole_prog_spec2 *)
   aig_to_cnf  (* for aig_to_cnf_def_correct *)
   aig_parseProg  (* for ERRORMONAD_ERROR_TYPE_def *)
   aig_cert_encode  (* for reset_encoding_is_unsat *)
@@ -917,3 +918,79 @@ Proof
   )
   >> wrong_arg_count_tac
 QED
+
+Theorem add_stdo_files[local]:
+  (add_stdo fd nm fs out).files = fs.files
+Proof
+  simp [add_stdo_def]
+QED
+
+Theorem ALOOKUP_add_stdout_inode_tbl_file[local]:
+  STD_streams (add_stdout fs out) ⇒
+  ALOOKUP (add_stdout fs out).inode_tbl (File inam) =
+  ALOOKUP fs.inode_tbl (File inam)
+Proof
+  simp [STD_streams_def, add_stdo_def, up_stdo_def, fsupdate_def]
+  >> rpt (CASE_TAC >> gvs [])
+  >> gvs [AFUPDKEY_ALOOKUP]
+  >> rpt (CASE_TAC >> gvs [])
+  >> rw []
+  >> CCONTR_TAC
+  >> rename1 ‘ALOOKUP fs.infds 1 = SOME (File inam,r)’
+  >> PairCases_on ‘r’
+  >> qpat_x_assum ‘∀fd md off. _ ⇔ fd = 1 ∧ md = WriteMode ∧ off = STRLEN x’ $
+       qspecl_then [‘1’,‘WriteMode’,‘STRLEN x’] mp_tac
+  >> simp[]
+QED
+
+Theorem make_cert_sem_add_stdout[local]:
+  STD_streams (add_stdout fs' out) ⇒
+  (make_cert_sem fs (add_stdout fs' out) fmodel out' prefix ⇔
+     make_cert_sem fs fs' fmodel out' prefix)
+Proof
+  rw [make_cert_sem_def, cnf_saved_def, get_file_content_def, add_stdo_files,
+      Req0 ALOOKUP_add_stdout_inode_tbl_file, PULL_EXISTS]
+QED
+
+Theorem make_cert_sem_with_numchars[local]:
+  make_cert_sem fs (fs' with numchars := xs) fmodel out prefix ⇔
+    make_cert_sem fs fs' fmodel out prefix
+Proof
+  simp [make_cert_sem_def, cnf_saved_def, get_file_content_def]
+QED
+
+Theorem main_whole_prog_spec2:
+   hasFreeFD fs ⇒
+   whole_prog_spec2 main_v cl fs NONE (λfs'. ∃out. main_sem cl fs fs' out)
+Proof
+  rw [whole_prog_spec2_def]
+  >> match_mp_tac $ MP_CANON $ DISCH_ALL $ MATCH_MP app_wgframe $ UNDISCH main_spec
+  >> once_rewrite_tac [STDIO_STD_streams]
+  >> xsimpl
+  >> rw [PULL_EXISTS]
+  >> rename1 ‘main_sem _ _ fs' out’
+  >> qexistsl [‘add_stdout fs' out’, ‘out’]
+  >> fs [main_sem_def, make_cert_sem_with_numchars,
+         Req0 make_cert_sem_add_stdout]
+  >> xsimpl
+QED
+
+(* Copied from scpog_arrayFullProg *)
+local
+
+val name = "main"
+val (sem_thm,prog_tm) =
+  whole_prog_thm prog name (UNDISCH main_whole_prog_spec2)
+Definition main_prog_def:
+  main_prog = ^prog_tm
+End
+
+in
+
+Theorem main_semantics =
+  sem_thm
+  |> REWRITE_RULE[GSYM main_prog_def]
+  |> DISCH_ALL
+  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
+
+end
