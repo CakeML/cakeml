@@ -44,7 +44,7 @@ Definition num_sum_num_cmp_def:
 End
 
 Theorem num_sum_num_cmp_eq[local] =
-  num_sum_num_cmp_def |> SRULE [sum_cmp_def, num_cmp_def, FUN_EQ_THM];
+  num_sum_num_cmp_def |> SRULE [sum_cmp_def, num_cmp_thm, FUN_EQ_THM];
 
 val r = translate num_sum_num_cmp_eq;
 
@@ -119,7 +119,7 @@ Definition num_iext_cmp_def:
 End
 
 Theorem num_iext_cmp_eq[local] =
-  num_iext_cmp_def |> SRULE [iext_cmp_def, num_cmp_def, FUN_EQ_THM, ext_cmp_def];
+  num_iext_cmp_def |> SRULE [iext_cmp_def, num_cmp_thm, FUN_EQ_THM, ext_cmp_def];
 
 val r = translate num_iext_cmp_eq;
 
@@ -140,7 +140,7 @@ End
 
 Theorem ty4_cmp_eq[local] =
   ty4_cmp_def
-  |> SRULE [iext_cmp_def, num_sum_num_cmp_eq, FUN_EQ_THM, ext_cmp_def, num_cmp_def];
+  |> SRULE [iext_cmp_def, num_sum_num_cmp_eq, FUN_EQ_THM, ext_cmp_def, num_cmp_thm];
 
 val r = translate ty4_cmp_eq;
 
@@ -161,7 +161,7 @@ End
 
 Theorem ty5_cmp_eq[local] =
   ty5_cmp_def
-  |> SRULE [iext_cmp_def, FUN_EQ_THM, ext_cmp_def, num_cmp_def, sum_cmp_def];
+  |> SRULE [iext_cmp_def, FUN_EQ_THM, ext_cmp_def, num_cmp_thm, sum_cmp_def];
 
 val r = translate ty5_cmp_eq;
 
@@ -184,7 +184,7 @@ End
 
 Theorem ty6_cmp_eq[local] =
   ty6_cmp_def
-  |> SRULE [iext_cmp_def, FUN_EQ_THM, ext_cmp_def, num_cmp_def, sum_cmp_def];
+  |> SRULE [iext_cmp_def, FUN_EQ_THM, ext_cmp_def, num_cmp_thm, sum_cmp_def];
 
 val r = translate ty6_cmp_eq;
 
@@ -207,7 +207,7 @@ End
 
 Theorem ty7_cmp_eq[local] =
   ty7_cmp_def
-  |> SRULE [iext_cmp_def, FUN_EQ_THM, ext_cmp_def, num_cmp_def, sum_cmp_def];
+  |> SRULE [iext_cmp_def, FUN_EQ_THM, ext_cmp_def, num_cmp_thm, sum_cmp_def];
 
 val r = translate ty7_cmp_eq;
 
@@ -230,7 +230,7 @@ End
 
 Theorem ty8_cmp_eq[local] =
   ty8_cmp_def
-  |> SRULE [iext_cmp_def, FUN_EQ_THM, ext_cmp_def, num_cmp_def, sum_cmp_def];
+  |> SRULE [iext_cmp_def, FUN_EQ_THM, ext_cmp_def, num_cmp_thm, sum_cmp_def];
 
 val r = translate ty8_cmp_eq;
 
@@ -253,7 +253,7 @@ End
 
 Theorem ty9_cmp_eq[local] =
   ty9_cmp_def
-  |> SRULE [iext_cmp_def, FUN_EQ_THM, ext_cmp_def, num_cmp_def, sum_cmp_def];
+  |> SRULE [iext_cmp_def, FUN_EQ_THM, ext_cmp_def, num_cmp_thm, sum_cmp_def];
 
 val r = translate ty9_cmp_eq;
 
@@ -278,7 +278,7 @@ End
 
 Theorem ty10_cmp_eq[local] =
   ty10_cmp_def
-  |> SRULE [iext_cmp_def, FUN_EQ_THM, ext_cmp_def, num_cmp_def, sum_cmp_def];
+  |> SRULE [iext_cmp_def, FUN_EQ_THM, ext_cmp_def, num_cmp_thm, sum_cmp_def];
 
 val r = translate ty10_cmp_eq;
 
@@ -301,7 +301,7 @@ End
 
 Theorem ty11_cmp_eq[local] =
   ty11_cmp_def
-  |> SRULE [sum_cmp_def, num_sum_num_cmp_eq, num_cmp_def, FUN_EQ_THM];
+  |> SRULE [sum_cmp_def, num_sum_num_cmp_eq, num_cmp_thm, FUN_EQ_THM];
 
 val r = translate ty11_cmp_eq;
 

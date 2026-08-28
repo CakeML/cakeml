@@ -3,9 +3,9 @@
 *)
 Theory cake_tigerARM8Compile
 Ancestors
-  cake_tigerProg
+  cake_tigerProgProof
 Libs
   preamble eval_cake_compile_arm8Lib
 
 Theorem cake_tiger_compiled =
-  eval_cake_compile_arm8 "" cake_tiger_prog_def "cake_tiger_arm8.S";
+  eval_cake_compile_arm8 "" main_prog_def "cake_tiger_arm8.S";

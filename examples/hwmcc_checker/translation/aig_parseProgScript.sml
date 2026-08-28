@@ -136,19 +136,19 @@ Definition num_var_cmp_def:
 End
 
 Theorem num_bvar_cmp_eq[local] =
-  num_bvar_cmp_def |> SRULE [num_cmp_def]
+  num_bvar_cmp_def |> SRULE [num_cmp_thm]
 
 Theorem num_var_cmp_eq[local] =
-  num_var_cmp_def |> SRULE [num_cmp_def, num_bvar_cmp_def]
+  num_var_cmp_def |> SRULE [num_cmp_thm, num_bvar_cmp_def]
 
 Theorem TotOrd_num_var:
   TotOrd (num_var_cmp : num_var -> num_var -> ordering)
 Proof
-  rw [totoTheory.TotOrd, num_var_cmp_def, num_bvar_cmp_def, num_cmp_def]
+  rw [totoTheory.TotOrd, num_var_cmp_def, num_bvar_cmp_def, num_cmp_thm]
   >> every_case_tac >> fs []
 QED
 
-val r = translate num_cmp_def;
+val r = translate num_cmp_thm;
 val r = translate num_bvar_cmp_eq;
 val r = translate num_var_cmp_eq;
 
