@@ -424,6 +424,45 @@ End
 
 val r = translate usage_string_def;
 
+(* == Build info =========================================================== *)
+
+val current_version_tm = mlstring_from_proc "git" ["rev-parse", "HEAD"]
+val poly_version_tm = mlstring_from_proc "poly" ["-v"]
+val hol_version_tm = mlstring_from_proc "git" ["-C", Globals.HOLDIR, "rev-parse", "HEAD"]
+
+val date_str = Date.toString (Date.fromTimeUniv (Time.now ())) ^ " UTC\n"
+val date_tm = Term `strlit^(stringSyntax.fromMLstring date_str)`
+
+Definition print_option_def:
+  print_option h x =
+    case x of
+      NONE => «»
+    | SOME y => h ^ « » ^ y ^ «\n»
+End
+
+val current_build_info_str_tm = EVAL ``
+    let commit = print_option «CakeML:» ^current_version_tm in
+    let hol    = print_option «HOL4:  » ^hol_version_tm in
+    let poly   = print_option «PolyML:» ^poly_version_tm in
+      concat
+        [ «cake_lrup\n\n»
+        ; «Version details:\n»
+        ; ^date_tm; «\n»
+        ; commit; hol; poly ]``
+  |> concl |> rhs
+
+Definition current_build_info_str_def:
+  current_build_info_str = ^current_build_info_str_tm
+End
+
+val res = translate current_build_info_str_def;
+
+Definition mk_usage_string_def:
+  mk_usage_string s = current_build_info_str ^ «\n\n» ^ s
+End
+
+val res = translate mk_usage_string_def;
+
 (*
   Checker takes up to 2 arguments:
   2 args (CNF file, proof file):
@@ -539,7 +578,7 @@ Quote add_cakeml:
   case CommandLine.arguments () of
     [f1] => check_unsat_1 f1
   | [f1,f2] => check_unsat_2 f1 f2
-  | _ => TextIO.output TextIO.stdErr usage_string
+  | _ => TextIO.output TextIO.stdErr (mk_usage_string usage_string)
 End
 
 Definition check_unsat_2_sem_def:
@@ -652,11 +691,13 @@ Proof
   Cases_on`t`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
+    assume_tac (theorem "usage_string_v_thm")>>
+    xlet_autop>>
     xapp_spec output_stderr_spec>>xsimpl>>
     rename1`COMMANDLINE cl`>>
     qexists_tac`COMMANDLINE cl`>>xsimpl>>
-    qexists_tac`usage_string`>>
-    simp[theorem "usage_string_v_thm"]>>
+    qexists_tac`mk_usage_string usage_string`>>
+    simp[]>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
     fs[STD_streams_add_stderr,STD_streams_stdout,add_stdo_nil]>>
@@ -676,11 +717,13 @@ Proof
     fs[wfcl_def]>>
     rw[]>>metis_tac[STDIO_refl])>>
   xmatch>>
+  assume_tac (theorem "usage_string_v_thm")>>
+  xlet_autop>>
   xapp_spec output_stderr_spec>>xsimpl>>
   rename1`COMMANDLINE cl`>>
   qexists_tac`COMMANDLINE cl`>>xsimpl>>
-  qexists_tac`usage_string`>>
-  simp[theorem "usage_string_v_thm"]>>
+  qexists_tac`mk_usage_string usage_string`>>
+  simp[]>>
   qexists_tac`fs`>>xsimpl>>
   rw[]>>
   fs[STD_streams_add_stderr,STD_streams_stdout,add_stdo_nil]>>
