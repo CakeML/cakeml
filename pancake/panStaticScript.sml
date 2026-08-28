@@ -25,10 +25,12 @@
     - Undefined/out-of-scope functions
     - Undefined/out-of-scope variables
     - Undefined/out-of-scope struct names
+    - Undefined/out-of-scope exceptions
     - Redefined functions
     - Redefined function parameter names
     - Redefined struct names
     - Redefined struct field names
+    - Redefined exceptions
   - Warnings:
     - Redefined variables
 
@@ -38,6 +40,7 @@
     - Mismatched variable assignments
     - Mismatched function arguments
     - Mismatched function returns
+    - Mismatched exception handler variables
     - Mismatched struct fields
     - Incorrect number of struct field values
     - Mismatched source/destination for memory operations
@@ -50,7 +53,7 @@
     - Non-word condition expressions
     - Invalid field index
     - Invalid field name
-    - Returned shape size >32 words (TODO: raised shape size)
+    - Returned shape size >32 words (TODO: raised shape size) (* !TODO: update*)
 
   Primitive checks:
   - Errors:
@@ -129,8 +132,9 @@ End
 (* Type for function state *)
 Datatype:
   func_info = <|
-    ret_shape : shape                  (* shape of return value *)
-  ; params    : (varname # shape) list (* parameter info *)
+    ret_shape : shape                   (* shape of return value *)
+  ; params    : (varname # shape) list  (* parameter info *)
+  (*; inline    : bool                    (* inline status *)*)
   |>
 End
 
@@ -195,6 +199,7 @@ Datatype:
   ; last       : last_stmt                  (* new exit-ness of last statement *)
   ; var_delta  : (varname, local_info) map  (* change in var state *)
   ; curr_loc   : mlstring                   (* latest location string *)
+  (*; recurse    : bool                       (* func recursiveness status *)*)
   |>
 End
 
@@ -438,6 +443,7 @@ End
 (*
   Get message for out of scope identifiers
   id_type :scoped id
+  (* !TODO: add exceptions to this *)
 *)
 Definition get_scope_msg_def:
   get_scope_msg id_type loc id scope =
@@ -617,7 +623,7 @@ Definition check_fun_name_def:
   check_fun_name ctxt fname =
     case lookup ctxt.funcs fname of
     | NONE => error (ScopeErr $
-        add_primitive_hint fname (get_scope_msg Fun ctxt.loc fname ctxt.scope))
+      add_primitive_hint fname (get_scope_msg Fun ctxt.loc fname ctxt.scope))
     | SOME f => return f
 End
 
@@ -787,8 +793,8 @@ Definition check_id_shapes_def:
           return $ StcScope sname id
         (* should never occur if static checker implemented correctly *)
         | s => error (GenErr $ get_implementation_err_msg
-            (strlit "parameter or field found in unexpected scope")
-            loc scope);
+          (strlit "parameter or field found in unexpected scope")
+          loc scope);
       check_shape sctxt loc scope' shape;
       check_id_shapes sctxt loc scope ids
     od
@@ -847,6 +853,7 @@ Definition static_check_exp_def:
     od ∧
   static_check_exp ctxt (NStruct name eflds) =
     do
+      (* check struct name declared *)
       sinfo <-
         case ALOOKUP ctxt.structs name of
         | SOME info => return info
@@ -1088,8 +1095,9 @@ Definition static_check_prog_def:
       check_redec_var ctxt vname;
       (* check shape *)
       check_shape ctxt.structs ctxt.loc ctxt.scope shape;
-      (* check func and arg exps *)
+      (* check func declared *)
       finf <- check_fun_name ctxt fname;
+      (* check arg exps *)
       esret <- static_check_exps ctxt args;
       (* check arg num and shapes *)
       check_func_args ctxt fname finf.params esret.sh_bds;
@@ -1166,12 +1174,13 @@ Definition static_check_prog_def:
         ; var_delta  := empty mlstring$compare
         ; curr_loc   := ctxt.loc |>
     od ∧
-      static_check_prog ctxt (AssignCall (Local, vname) hdl fname args) =
+  static_check_prog ctxt (AssignCall (Local, vname) hdl fname args) =
     do
       (* check for out of scope assignment *)
       vinf <- check_local_var ctxt vname;
-      (* check func ptr exp and arg exps *)
+      (* check func declared *)
       finf <- check_fun_name ctxt fname;
+      (* check arg exps *)
       esret <- static_check_exps ctxt args;
       (* check arg num and shapes *)
       check_func_args ctxt fname finf.params esret.sh_bds;
@@ -1186,42 +1195,37 @@ Definition static_check_prog_def:
       (* check exception handling info *)
       case hdl of
       | NONE => return ()
-        (* check for out of scope exception variable *)
       | SOME (eid, evar, prog) =>
-          do
-            (* check exception declared *)
-            sh <- case lookup ctxt.exns eid of
-                    NONE => error (ScopeErr $ concat [
-                              strlit "exception "; eid; strlit " is not declared\n"])
-                  | SOME sh => return sh;
-
-            (* check handler variable exists *)
-            evinf <- check_local_var ctxt evar;
-
-            (* check handler variable shape matches exception shape *)
-            if ~(sh_bd_has_shape sh evinf.vsh_bd) then
-              error (ShapeErr $ concat [
+        do
+          (* !TODO: check for inline function *)
+          (* if finf.inline then
+            error (WarningErr $ concat [
+              strlit "function call "; fname;
+              strlit " has handler and cannot be inlined\n"])
+          else return (); *)
+          (* check exception declared *)
+          sh <-
+            case lookup ctxt.exns eid of
+            | NONE => error (ScopeErr $ concat [
+                strlit "exception "; eid; strlit " is not declared\n"])
+            | SOME sh => return sh;
+          (* check for out of scope handler variable *)
+          evinf <- check_local_var ctxt evar;
+          (* check handler variable shape matches exception shape *)
+          if ~(sh_bd_has_shape sh evinf.vsh_bd) then
+            error (ShapeErr $ get_shape_mismatch_msg (concat [
                 strlit "handler variable "; evar;
-                strlit " does not match shape of exception "; eid; strlit "\n"])
-            else return ();
-
-            sb <-
-              case sh_bd_from_sh ctxt.structs Trusted sh of
-              (* return exp info with stored shape *)
-              | SOME sb => return sb
-              (* should never occur if static checker implemented correctly *)
-              | NONE => error (ScopeErr $ get_implementation_err_msg
-                (strlit "static analysis failed to convert in-scope shape")
-                ctxt.loc ctxt.scope);
-
-            (* type-check handler body *)
-            static_check_prog
-              (ctxt with locals :=
-                insert ctxt.locals evar
-                  (evinf with <| vsh_bd := sb |>))
-              prog;
-            return ()
-          od;
+                strlit " for exception "; eid
+              ]) (sh_bd_to_str evinf.vsh_bd) (shape_to_str sh)
+              ctxt.loc ctxt.scope)
+          else return ();
+          (* check handler prog with evar *)
+          static_check_prog (ctxt with locals :=
+              insert ctxt.locals evar (evinf with
+                <| vsh_bd := sh_bd_from_bd Trusted evinf.vsh_bd |>
+            )) prog;
+          return ()
+        od;
       (* return prog info with updated var *)
       return <|
           exits_fun  := F
@@ -1236,8 +1240,9 @@ Definition static_check_prog_def:
     do
       (* check for out of scope assignment *)
       vinf <- check_global_var ctxt vname;
-      (* check func ptr exp and arg exps *)
+      (* check func declared *)
       finf <- check_fun_name ctxt fname;
+      (* check arg exps *)
       esret <- static_check_exps ctxt args;
       (* check arg num and shapes *)
       check_func_args ctxt fname finf.params esret.sh_bds;
@@ -1252,16 +1257,32 @@ Definition static_check_prog_def:
       (* check exception handling info *)
       case hdl of
       | NONE => return ()
-        (* check for out of scope exception variable *)
       | SOME (eid, evar, prog) =>
-          do
-            evinf <- check_local_var ctxt evar;
-            static_check_prog (ctxt with locals :=
-                insert ctxt.locals evar (evinf with
-                  <| vsh_bd := sh_bd_from_bd Trusted evinf.vsh_bd |>
-              )) prog;
-            return ()
-          od;
+        do
+          (* !TODO: check for hdl && fname.inline *)
+          (* check exception declared *)
+          sh <-
+            case lookup ctxt.exns eid of
+            | NONE => error (ScopeErr $ concat [
+                strlit "exception "; eid; strlit " is not declared\n"])
+            | SOME sh => return sh;
+          (* check for out of scope handler variable *)
+          evinf <- check_local_var ctxt evar;
+          (* check handler variable shape matches exception shape *)
+          if ~(sh_bd_has_shape sh evinf.vsh_bd) then
+            error (ShapeErr $ get_shape_mismatch_msg (concat [
+                strlit "handler variable "; evar;
+                strlit " for exception "; eid
+              ]) (sh_bd_to_str evinf.vsh_bd) (shape_to_str sh)
+              ctxt.loc ctxt.scope)
+          else return ();
+          (* check handler prog with evar *)
+          static_check_prog (ctxt with locals :=
+              insert ctxt.locals evar (evinf with
+                <| vsh_bd := sh_bd_from_bd Trusted evinf.vsh_bd |>
+            )) prog;
+          return ()
+        od;
       (* return prog info with updated var *)
       return <|
           exits_fun  := F
@@ -1324,12 +1345,16 @@ Definition static_check_prog_def:
   static_check_prog ctxt (TailCall fname args) =
     do
       (* lookup current function info *)
-      caller_inf <- case ctxt.scope of
+      caller_inf <-
+        case ctxt.scope of
         | FunScope caller _ => check_fun_name ctxt caller
         (* should never occur if static checker implemented correctly *)
-        | _ => error (GenErr $ strlit "tail call found outside function scope");
-      (* check func ptr exp and arg exps *)
+        | _ => error (GenErr $ get_implementation_err_msg
+          (strlit "tail call found outside function scope")
+          ctxt.loc ctxt.scope);
+      (* check func declared *)
       callee_inf <- check_fun_name ctxt fname;
+      (* check arg exps *)
       esret <- static_check_exps ctxt args;
       (* check for shape match *)
       if ~(caller_inf.ret_shape = callee_inf.ret_shape) then
@@ -1352,50 +1377,41 @@ Definition static_check_prog_def:
     od ∧
   static_check_prog ctxt (StandAloneCall hdl fname args) =
     do
-      (* check func ptr exp and arg exps *)
+      (* check func declared *)
       finf <- check_fun_name ctxt fname;
+      (* check arg exps *)
       esret <- static_check_exps ctxt args;
       (* check arg num and shapes *)
       check_func_args ctxt fname finf.params esret.sh_bds;
       (* check exception handling info *)
       case hdl of
       | NONE => return ()
-        (* check for out of scope exception variable *)
       | SOME (eid, evar, prog) =>
-          do
-            (* check exception declared *)
-            sh <- case lookup ctxt.exns eid of
-                    NONE => error (ScopeErr $ concat [
-                              strlit "exception "; eid; strlit " is not declared\n"])
-                  | SOME sh => return sh;
-
-            (* check handler variable exists *)
-            evinf <- check_local_var ctxt evar;
-
-            (* check handler variable shape matches exception shape *)
-            if ~(sh_bd_has_shape sh evinf.vsh_bd) then
-              error (ShapeErr $ concat [
+        do
+          (* !TODO: check for hdl && fname.inline *)
+          (* check exception declared *)
+          sh <-
+            case lookup ctxt.exns eid of
+            | NONE => error (ScopeErr $ concat [
+                strlit "exception "; eid; strlit " is not declared\n"])
+            | SOME sh => return sh;
+          (* check for out of scope handler variable *)
+          evinf <- check_local_var ctxt evar;
+          (* check handler variable shape matches exception shape *)
+          if ~(sh_bd_has_shape sh evinf.vsh_bd) then
+            error (ShapeErr $ get_shape_mismatch_msg (concat [
                 strlit "handler variable "; evar;
-                strlit " does not match shape of exception "; eid; strlit "\n"])
-            else return ();
-
-            sb <-
-              case sh_bd_from_sh ctxt.structs Trusted sh of
-              (* return exp info with stored shape *)
-              | SOME sb => return sb
-              (* should never occur if static checker implemented correctly *)
-              | NONE => error (ScopeErr $ get_implementation_err_msg
-                (strlit "static analysis failed to convert in-scope shape")
-                ctxt.loc ctxt.scope);
-
-            (* type-check handler body *)
-            static_check_prog
-              (ctxt with locals :=
-                insert ctxt.locals evar
-                  (evinf with <| vsh_bd := sb |>))
-              prog;
-            return ()
-          od;
+                strlit " for exception "; eid
+              ]) (sh_bd_to_str evinf.vsh_bd) (shape_to_str sh)
+              ctxt.loc ctxt.scope)
+          else return ();
+          (* check handler prog with evar *)
+          static_check_prog (ctxt with locals :=
+              insert ctxt.locals evar (evinf with
+                <| vsh_bd := sh_bd_from_bd Trusted evinf.vsh_bd |>
+            )) prog;
+          return ()
+        od;
       (* return prog info *)
       return <|
           exits_fun  := F
@@ -1530,26 +1546,27 @@ Definition static_check_prog_def:
   static_check_prog ctxt (Raise eid exp) =
     do
       (* check exception declared *)
-      sh <- case lookup ctxt.exns eid of
-              NONE => error (ScopeErr $ concat [
-                        strlit "exception "; eid; strlit " is not declared\n"])
-            | SOME sh => return sh;
-
+      sh <-
+        case lookup ctxt.exns eid of
+        | NONE => error (ScopeErr $ concat [
+            strlit "exception "; eid; strlit " is not declared\n"])
+        | SOME sh => return sh;
       (* check exception value expression *)
       eret <- static_check_exp ctxt exp;
-
-      (* check shape match *)
+      (* check exception value shape *)
       if ~(sh_bd_has_shape sh eret.sh_bd) then
-        error (ShapeErr $ concat [
-          strlit "raised exception "; eid;
-          strlit " has wrong value shape\n"])
+        error (ShapeErr $ get_shape_mismatch_msg
+          (strlit "exception value")
+          (sh_bd_to_str eret.sh_bd) (shape_to_str sh)
+          ctxt.loc ctxt.scope)
       else return ();
-
-      return <| exits_fun := T
-              ; exits_loop := F
-              ; last := RaiseLast
-              ; var_delta := empty mlstring$compare
-              ; curr_loc := ctxt.loc |>
+      (* return prog info *)
+      return <|
+          exits_fun  := T
+        ; exits_loop := F
+        ; last       := RaiseLast
+        ; var_delta  := empty mlstring$compare
+        ; curr_loc   := ctxt.loc |>
     od ∧
   static_check_prog ctxt (Store addr exp) =
     do
@@ -1808,6 +1825,7 @@ Definition static_check_progs_def:
             strlit "branches missing return statement in ";
             get_scope_desc (FunScope fi.name (strlit "")); strlit "\n"])
       else return ();
+      (* !TODO: check prog_ret. recursive function && fi. inline *)
       (* check remaining functions *)
       static_check_progs fctxt gctxt sctxt ectxt decls
     od
@@ -1862,7 +1880,7 @@ Definition static_check_decls_def:
         error (ScopeErr $ concat [
           strlit "exception "; eid; strlit " is redeclared\n"])
       else return ();
-
+      (* !TODO: check sh size > 32 *)
       (* continue with updated exception environment *)
       static_check_decls fctxt gctxt sctxt (insert ectxt eid sh) decls
     od ∧
@@ -1925,14 +1943,14 @@ Definition static_check_decls_def:
             check_shape sctxt (strlit "")
               (FunScope fi.name (strlit " return")) fi.return;
             (* check func return shape size *)
-            if size_of_sh_with_ctxt sctxt fi.return > 32 then
+            if size_of_sh_with_ctxt sctxt fi.return > 32 then (* !TODO: remove *)
               error (ShapeErr $ concat [
                   strlit "function "; fi.name;
                   strlit " returns a shape bigger than 32 words\n"])
             else return () ;
         od ;
       (* check remaining decls *)
-      static_check_decls (insert fctxt fi.name
+      static_check_decls (insert fctxt fi.name (* !TODO: inline := fi.inline *)
           <| ret_shape := fi.return ; params := fi.params |>
         ) gctxt sctxt ectxt decls
     od
