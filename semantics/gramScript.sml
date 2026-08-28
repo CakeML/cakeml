@@ -182,7 +182,7 @@ val cmlG_def = mk_grammar_def ginfo
     | "raise" E |  Ehandle;
 
  (* function and value declarations *)
- FDecl ::= V PbaseList1 "=" E ;
+ FDecl ::= V PbaseList1 "=" E | V PbaseList1 ":" Type "=" E;
  AndFDecls ::= FDecl | AndFDecls "and" FDecl;
  LetDec ::= "val" Pattern "=" E | "fun" AndFDecls ;
  LetDecs ::= LetDec LetDecs | ";" LetDecs | ;

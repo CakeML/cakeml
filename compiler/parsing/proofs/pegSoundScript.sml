@@ -1072,11 +1072,26 @@ Proof
         (MATCH_MP not_peg0_LENGTH_decreases peg0_nV |> GEN_ALL) >>
       first_assum (erule strip_assume_tac) >> rveq >> dsimp[] >>
       first_assum (assume_tac o MATCH_MP length_no_greater o
-                   assert (free_in ``nPbaseList1`` o concl)) >> fs[] >>
+                              assert (free_in ``nPbaseList1`` o concl)) >> fs[] >>
+      simp[cmlG_FDOM, cmlG_applied] >~
+      [‘(TK ColonT, _)’]
+      >- (
+       first_assum (qpat_assum ‘peg_eval cmlPEG (_, nt (mkNT nType) _) _’ o
+                               mp_then Any mp_tac) >> simp[] >> strip_tac >> gvs[] >>
+       first_assum (qpat_assum ‘peg_eval cmlPEG (_, nt (mkNT nE) _) _’ o
+                               mp_then Any mp_tac) >> impl_tac
+       >- (
+         first_x_assum (mp_tac o Q.AP_TERM ‘LENGTH’) >> simp[]
+         )
+       >> strip_tac >> gvs[]
+       )
+                >>
+
+
       first_x_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
                          assert (free_in ``nE``) o concl)) >>
-      simp[] >> strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied])
+      simp[] >> strip_tac >> gvs[])
   >- (print_tac "nAndFDecls" >>
       disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
       dsimp[SUBSET_DEF, pegsym_to_sym_def, DISJ_IMP_THM, FORALL_AND_THM,

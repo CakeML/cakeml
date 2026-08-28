@@ -143,6 +143,9 @@ val tytest = parsetest ``nType`` ``ptree_Type nType``
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
  *)
 
+val _ = parsetest0 ``nDecl`` ``ARB``
+  "fun f x : int = x + 1" NONE
+
 val _ = parsetest0 ``nE`` ``ptree_Expr nE``
          "let val _ = print \"foo\"\
             \ val z = 10\
