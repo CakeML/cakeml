@@ -674,8 +674,7 @@ Definition starts_with_def:
   (starts_with s [] = INL [])
 End
 
-(* The RUP hint format, shared by the LRUP and XLRUP proof formats:
-   (int list) 0 (num list) 0 *)
+(* The RUP hint format in ASCII: (int list) 0 (num list) 0 *)
 Definition parse_rup_def:
   parse_rup rest =
   case parse_until_zero rest of

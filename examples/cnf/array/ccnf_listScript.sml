@@ -454,11 +454,8 @@ Definition fml_rel_def:
       NONE => any_el n fmlls vcc_none = vcc_none
     | SOME v =>
       any_el n fmlls vcc_none = v) ∧
-  (* No stored clause repeats a literal. Unit propagation commits to the
-    first non-falsified literal and then requires every other literal to
-    be falsified, so a clause with a repeat could never serve as a hint.
-    Only the constructors below put a clause into a formula, and they
-    canonicalise it. *)
+  (* No stored clause repeats a literal. Not needed for soundness (a repeat
+    costs completeness only) -- a tripwire for non-canonicalising inserts. *)
   (∀v. v ∈ FRANGE fml ⇒ ALL_DISTINCT (toList v))
 End
 

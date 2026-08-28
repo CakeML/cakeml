@@ -15,10 +15,6 @@ Libs
   syntax_helper. *)
 
 (***
-  Semantics of a formula
- ***)
-
-(***
   A parser and printer for CNF in CakeML
  ***)
 
