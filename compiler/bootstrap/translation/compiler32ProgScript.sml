@@ -485,14 +485,16 @@ Proof
    (simp[full_compile_32_def]
     \\ xapp
     \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac `help_string`
-    \\ fs [compilerTheory.help_string_def,
-           compiler_current_build_info_str_v_thm]
-    \\ xsimpl
-    \\ rename1 `add_stdout _ (strlit string)`
-    \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac`fs`
+    \\ irule_at (Pos hd) compiler_help_string_v_thm
+    \\ qexists ‘fs’
     \\ xsimpl)
+  \\ xlet_auto>-xsimpl
+  \\ xif
+  >- (xapp
+      \\ irule_at (Pos hd) compiler_current_build_info_str_v_thm
+      \\ qexists ‘fs’
+      \\ simp[full_compile_32_def]
+      \\ xsimpl)
   \\ xlet_auto>-xsimpl
   \\ gvs[oneline std_preludeTheory.OPTION_TYPE_def]
   \\ reverse PURE_FULL_CASE_TAC
@@ -507,20 +509,6 @@ Proof
       \\ xsimpl)
   \\ xmatch
   \\ xlet_auto >- xsimpl
-  \\ xif
-  >- (
-    simp[full_compile_32_def]
-    \\ xapp
-    \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac `current_build_info_str`
-    \\ fs [compilerTheory.current_build_info_str_def,
-           fetch "-" "compiler_current_build_info_str_v_thm"]
-    \\ xsimpl
-    \\ rename1 `add_stdout _ (strlit string)`
-    \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac`fs`
-    \\ xsimpl)
-  >> xlet_auto >- xsimpl
   \\ rename [‘stdin fs inp pos’]
   \\ ‘stdin_content fs = SOME inp ∧ pos = 0’ by
     (gvs [stdin_def,get_file_content_def]
