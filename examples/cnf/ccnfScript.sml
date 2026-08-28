@@ -85,13 +85,9 @@ Proof
   `F` by intLib.ARITH_TAC
 QED
 
-(* Canonical form for a clause.
-
-  Syntactically, nothing stops a clause from repeating a literal
-  ("1 1") or carrying an opposite pair ("-1 1"). Repeats break unit
-  propagation, which commits to the first non-falsified literal and
-  then requires every other literal to be falsified, so clauses are
-  sorted and de-duplicated on the way in.
+(* Canonical form for a clause: sorted, with repeated literals removed.
+  Nothing in this development canonicalises; the contract exported here is
+  MEM_canon_clause and canon_clause_ALL_DISTINCT.
 
   Note a 0 literal is left in place: satisfies_ilit never satisfies it. *)
 Definition sorted_nub_aux_def:
@@ -178,8 +174,6 @@ Proof
   metis_tac[MEM_canon_clause]
 QED
 
-(* A clause enters a formula through the constructors below, which are
-  the only place it is put in canonical form. *)
 Definition canon_vcc_def:
   canon_vcc v = Vector (canon_clause (toList v))
 End
@@ -217,17 +211,17 @@ Proof
 QED
 
 Definition insert_vcc_def:
-  insert_vcc fml n v = fml |+ (n, canon_vcc v)
+  insert_vcc fml n v = fml |+ (n, v)
 End
 
 Definition build_cfml_def:
-  build_cfml k ls = build_fml k (MAP canon_vcc ls)
+  build_cfml k ls = build_fml k ls
 End
 
 Theorem range_build_cfml:
-  FRANGE (build_cfml k ls) = IMAGE canon_vcc (set ls)
+  FRANGE (build_cfml k ls) = set ls
 Proof
-  rw[build_cfml_def,range_build_fml,LIST_TO_SET_MAP]
+  rw[build_cfml_def,range_build_fml]
 QED
 
 (* Conversions *)
@@ -270,21 +264,21 @@ QED
   clauses from back-to-front to ease the related
   vector index computations*)
 Definition all_assigned_def:
-  (all_assigned dm [] = T) ∧
-  (all_assigned dm (c::cs) =
+  (all_assigned dm k [] = T) ∧
+  (all_assigned dm k (c::cs) =
     if c < 0
     then
       case FLOOKUP dm (Num (-c)) of
-        SOME F => all_assigned dm cs
-      | _ => F
+        SOME F => all_assigned dm k cs
+      | _ => if c = k then all_assigned dm k cs else F
     else
       case FLOOKUP dm (Num c) of
-        SOME T => all_assigned dm cs
-      | _ => F)
+        SOME T => all_assigned dm k cs
+      | _ => if c = k then all_assigned dm k cs else F)
 End
 
 Definition all_assigned_vec_def:
-  (all_assigned_vec dm v (i:num) =
+  (all_assigned_vec dm k v (i:num) =
   if i = 0 then T
   else
     let i1 = i - 1 in
@@ -292,20 +286,20 @@ Definition all_assigned_vec_def:
     if c < 0
     then
       case FLOOKUP dm (Num (-c)) of
-        SOME F => all_assigned_vec dm v i1
-      | _ => F
+        SOME F => all_assigned_vec dm k v i1
+      | _ => if c = k then all_assigned_vec dm k v i1 else F
     else
       case FLOOKUP dm (Num c) of
-        SOME T => all_assigned_vec dm v i1
-      | _ => F
+        SOME T => all_assigned_vec dm k v i1
+      | _ => if c = k then all_assigned_vec dm k v i1 else F
   )
 End
 
 Theorem all_assigned_vec:
-  ∀dm v i ds.
+  ∀dm k v i ds.
   v = Vector ds ∧ i ≤ LENGTH ds ⇒
-  all_assigned_vec dm v i =
-  all_assigned dm (REVERSE (TAKE i ds))
+  all_assigned_vec dm k v i =
+  all_assigned dm k (REVERSE (TAKE i ds))
 Proof
   ho_match_mp_tac all_assigned_vec_ind>>rw[]>>
   simp[Once all_assigned_vec_def]>>
@@ -332,7 +326,7 @@ Definition delete_literals_sing_def:
     case FLOOKUP dm nc of
       SOME F => delete_literals_sing dm cs
     | _ =>
-        if all_assigned dm cs
+        if all_assigned dm c cs
         then SOME (F, dm |+ (nc,T))
         else NONE)
   else
@@ -340,7 +334,7 @@ Definition delete_literals_sing_def:
     case FLOOKUP dm nc of
       SOME T => delete_literals_sing dm cs
     | _ =>
-        if all_assigned dm cs
+        if all_assigned dm c cs
         then SOME (F, dm |+ (nc,F))
         else NONE)
 End
@@ -357,7 +351,7 @@ Definition delete_literals_sing_vec_def:
       case FLOOKUP dm nc of
         SOME F => delete_literals_sing_vec dm v i1
       | _  =>
-          if all_assigned_vec dm v i1
+          if all_assigned_vec dm c v i1
           then SOME (F, dm |+ (nc,T))
           else NONE)
     else
@@ -365,7 +359,7 @@ Definition delete_literals_sing_vec_def:
       case FLOOKUP dm nc of
         SOME T => delete_literals_sing_vec dm v i1
       | _ =>
-          if all_assigned_vec dm v i1
+          if all_assigned_vec dm c v i1
           then SOME (F, dm |+ (nc,F))
           else NONE)
 End
@@ -573,8 +567,8 @@ QED
 Theorem lit_map_all_assigned:
   ∀cs.
   lit_map d dm ∧
-  all_assigned dm cs ⇒
-  set cs ⊆ set d
+  all_assigned dm k cs ⇒
+  set cs ⊆ set (k::d)
 Proof
   Induct>>rw[all_assigned_def]>>
   gvs[AllCasePreds(),lit_map_def]>>
@@ -889,35 +883,6 @@ Theorem contains_emp_FRANGE:
 Proof
   rw[contains_emp_def,MEM_MAP,MEM_fmap_to_alist_FLOOKUP,FRANGE_FLOOKUP]>>
   metis_tac[FST,SND,PAIR]
-QED
-
-(* Canonicalising every clause of a formula, which is how the refinement
-  to the checker's arrays absorbs the canonicalisation *)
-Theorem FRANGE_canon_vcc_o_f:
-  FRANGE (canon_vcc o_f fml) = IMAGE canon_vcc (FRANGE fml)
-Proof
-  simp[IMAGE_FRANGE]
-QED
-
-Theorem emp_IN_FRANGE_canon_vcc_o_f[simp]:
-  Vector [] ∈ FRANGE (canon_vcc o_f fml) ⇔
-  Vector [] ∈ FRANGE fml
-Proof
-  rw[FRANGE_canon_vcc_o_f]>>
-  metis_tac[canon_vcc_eq_emp]
-QED
-
-Theorem contains_emp_canon_vcc_o_f[simp]:
-  contains_emp (canon_vcc o_f fml) ⇔ contains_emp fml
-Proof
-  rw[contains_emp_FRANGE]
-QED
-
-Theorem satisfies_vcfml_FRANGE_canon_vcc_o_f[simp]:
-  satisfies_vcfml w (FRANGE (canon_vcc o_f fml)) ⇔
-  satisfies_vcfml w (FRANGE fml)
-Proof
-  rw[FRANGE_canon_vcc_o_f]
 QED
 
 (*** Converting a parsed formula into the checker's representation ***)

@@ -63,7 +63,7 @@ Definition state_rel_def:
     ast.validated = (if cst.validated then {Vector []} else {}) ∧
     ast.facts = cst.facts ∧
     fmap_rel (OPTREL (λfml (fmls,dml,b).
-      fml_rel (canon_vcc o_f fml) fmls ∧ (∃dm. dm_rel dm dml b)))
+      fml_rel fml fmls ∧ (∃dm. dm_rel dm dml b)))
       ast.procs cst.procs
 End
 
@@ -126,13 +126,6 @@ Proof
   gvs[]
 QED
 
-Theorem o_f_DRESTRICT:
-  f o_f DRESTRICT fm s = DRESTRICT (f o_f fm) s
-Proof
-  rw[fmap_eq_flookup,FLOOKUP_DRESTRICT,FLOOKUP_o_f]>>
-  rw[]
-QED
-
 Theorem state_rel_step:
   ∀cst clb cst' ast.
     state_rel ast cst ∧ distrup_global$step cst clb cst' ⇒
@@ -153,8 +146,7 @@ Proof
           irule fmap_rel_FUPDATE_I >>
           simp[] >>
           drule_all_then strip_assume_tac check_distrup_list >>
-          gvs[distrupTheory.check_distrup_def,ccnfTheory.insert_vcc_def,
-              o_f_FUPDATE] >>
+          gvs[distrupTheory.check_distrup_def,ccnfTheory.insert_vcc_def] >>
           conj_tac >- metis_tac[] >>
           irule fmap_rel_fdomsub >>
           simp[])
@@ -175,8 +167,7 @@ Proof
           rw[OPTREL_SOME] >>
           simp[] >>
           drule_all_then strip_assume_tac check_distrup_list >>
-          gvs[distrupTheory.check_distrup_def,ccnfTheory.insert_vcc_def,
-              o_f_FUPDATE] >>
+          gvs[distrupTheory.check_distrup_def,ccnfTheory.insert_vcc_def] >>
           conj_tac
           >- (drule ccnfTheory.is_rup_sound >>
               rw[sat_infer_def]) >>
@@ -263,7 +254,7 @@ Proof
       gvs[distrupTheory.check_distrup_def] >>
       irule fmap_rel_FUPDATE_I >>
       simp[] >>
-      gvs[delete_ids_eq_DRESTRICT,o_f_DRESTRICT] >>
+      gvs[delete_ids_eq_DRESTRICT] >>
       conj_tac >- metis_tac[] >>
       irule fmap_rel_fdomsub >>
       simp[])

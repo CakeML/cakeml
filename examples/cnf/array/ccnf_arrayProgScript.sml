@@ -101,14 +101,8 @@ End
 
 val res = translate int_eq_0_def;
 
-(* Clause canonicalisation *)
-val res = translate sorted_nub_aux_def;
-val res = translate sorted_nub_def;
-val res = translate canon_clause_def;
-val res = translate canon_vcc_def;
-
 Quote add_cakeml:
-  fun all_assigned_arr carr b v i =
+  fun all_assigned_arr carr b k v i =
   if i = 0 then True
   else
     let
@@ -119,14 +113,17 @@ Quote add_cakeml:
       then
         (if Unsafe.w8sub carr (~c) = b
         then
-          all_assigned_arr carr b v i1
+          all_assigned_arr carr b k v i1
         else
-          False)
+          if c = k then all_assigned_arr carr b k v i1
+          else False)
       else
         (if w8ult b (Unsafe.w8sub carr c)
         then
-          all_assigned_arr carr b v i1
-        else False)
+          all_assigned_arr carr b k v i1
+        else
+          if c = k then all_assigned_arr carr b k v i1
+          else False)
     end
 End
 
@@ -138,15 +135,16 @@ QED
 
 
 Theorem all_assigned_arr_spec:
-  ∀Clist b vec i bv vecv iv Carrv.
+  ∀Clist b k vec i bv kv vecv iv Carrv.
   WORD8 b bv ∧
+  INT k kv ∧
   vcclause_TYPE vec vecv ∧
   NUM i iv ∧
-  all_assigned_list' Clist b vec i = SOME res
+  all_assigned_list' Clist b k vec i = SOME res
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "all_assigned_arr" (get_ml_prog_state()))
-    [Carrv; bv; vecv; iv]
+    [Carrv; bv; kv; vecv; iv]
     (W8ARRAY Carrv Clist)
     (POSTv v.
       W8ARRAY Carrv Clist *
@@ -171,11 +169,17 @@ Proof
     rpt xlet_autop>>
     xif>>fs[]
     >- (xapp>>xsimpl)>>
+    xlet_autop>>
+    xif>>fs[]
+    >- (xapp>>xsimpl)>>
     xcon>>
     xsimpl)
   >- (
     xlet_auto
     >- (xsimpl>>intLib.ARITH_TAC)>>
+    xlet_autop>>
+    xif>>fs[]
+    >- (xapp>>xsimpl)>>
     xlet_autop>>
     xif>>fs[]
     >- (xapp>>xsimpl)>>
@@ -206,7 +210,7 @@ Quote add_cakeml:
           then
             delete_literals_sing_arr lno carr b v i1
           else
-            if all_assigned_arr carr b v i1
+            if all_assigned_arr carr b c v i1
             then
               (Unsafe.w8update carr nc (badd1 b); False)
             else
@@ -217,7 +221,7 @@ Quote add_cakeml:
         then
           delete_literals_sing_arr lno carr b v i1
         else
-          if all_assigned_arr carr b v i1
+          if all_assigned_arr carr b c v i1
           then
             (Unsafe.w8update carr c b; False)
           else
@@ -1077,10 +1081,11 @@ Proof
   fs[EL_REPLICATE]
 QED
 
-(* A clause enters the formula array here, and only here *)
+(* Where a clause imported or derived by the proof enters the formula array;
+  the initial formula is laid out by build_cfml_arr *)
 Quote add_cakeml:
   fun insert_clause_arr fml n v =
-    Array.updateResize fml vcc_none n (canon_vcc v)
+    Array.updateResize fml vcc_none n v
 End
 
 Theorem insert_clause_arr_spec:

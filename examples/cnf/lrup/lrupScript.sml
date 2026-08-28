@@ -55,7 +55,7 @@ Proof
   drule is_rup_vb_sound>>
   disch_then $ drule_at Any>>
   fs[satisfies_vcfml_def,insert_vcc_def]>>
-  metis_tac[SRULE [] satisfies_fml_gen_insert,satisfies_vcclause_canon_vcc]
+  metis_tac[SRULE [] satisfies_fml_gen_insert]
 QED
 
 (* The main operational theorem about check_lrups *)

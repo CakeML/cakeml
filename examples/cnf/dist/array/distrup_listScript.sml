@@ -72,9 +72,9 @@ QED
 
 
 (* Unit propagation commits to the first non-falsified literal and then
-  requires every other literal to be falsified, so a clause carrying a
-  repeated literal would be rejected whenever it is cited as a hint.
-  Clauses are canonicalised on entry to the formula array to prevent that.
+  requires every other literal to be falsified, except that a repeat of the
+  committed literal is allowed, so a clause carrying a repeated literal is
+  still accepted when it is cited as a hint.
 
   Here "1 1" is imported as clause 1 and "-1" as clause 2, and the empty
   clause is derived by RUP from both. *)

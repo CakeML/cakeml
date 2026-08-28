@@ -31,7 +31,7 @@ QED
   b is SOME F,
   b+1 is SOME T *)
 Definition all_assigned_list_def:
-  all_assigned_list dml (b:word8) v (i:num) =
+  all_assigned_list dml (b:word8) k v (i:num) =
   if i = 0 then T
   else
     let i1 = i - 1 in
@@ -40,14 +40,17 @@ Definition all_assigned_list_def:
     then
       if any_el (Num (-c)) dml (b-1w) = b
       then
-        all_assigned_list dml b v i1
+        all_assigned_list dml b k v i1
       else
-        F
+        if c = k then all_assigned_list dml b k v i1
+        else F
     else
       if b <+ any_el (Num c) dml (b-1w)
       then
-        all_assigned_list dml b v i1
-      else F
+        all_assigned_list dml b k v i1
+      else
+        if c = k then all_assigned_list dml b k v i1
+        else F
 End
 
 Definition dm_rel_def:
@@ -60,10 +63,10 @@ Definition dm_rel_def:
 End
 
 Theorem all_assigned_list:
-  ∀dml b v i dm.
+  ∀dml b k v i dm.
   dm_rel dm dml b ⇒
-  (all_assigned_list dml b v i =
-  all_assigned_vec dm v i)
+  (all_assigned_list dml b k v i =
+  all_assigned_vec dm k v i)
 Proof
   ho_match_mp_tac all_assigned_list_ind>>
   rw[]>>
@@ -71,14 +74,17 @@ Proof
   Cases_on`i = 0`>>fs[]>>
   IF_CASES_TAC>>fs[dm_rel_def]
   >- (
-    TOP_CASE_TAC>>gvs[]
-    >- (rw[]>>gvs[])>>
-    Cases_on`x`>>gvs[])>>
-  TOP_CASE_TAC>>gvs[]
-  >- FULL_BBLAST_TAC>>
-  Cases_on`x`>>gvs[]>>
+    first_assum(qspec_then`Num (-sub v (i-1))` assume_tac)>>
+    TOP_CASE_TAC>>gvs[]>>
+    every_case_tac>>gvs[]
+    >- FULL_BBLAST_TAC>>
+    Cases_on`sub v (i-1) = k`>>gvs[])>>
+  first_assum(qspec_then`Num (sub v (i-1))` assume_tac)>>
   `b <+ b+1w` by FULL_BBLAST_TAC>>
-  simp[]
+  TOP_CASE_TAC>>gvs[]>>
+  every_case_tac>>gvs[]>>
+  Cases_on`sub v (i-1) = k`>>gvs[]>>
+  FULL_BBLAST_TAC
 QED
 
 Definition assert_def:
@@ -87,7 +93,7 @@ Definition assert_def:
 End
 
 Definition all_assigned_list'_def:
-  all_assigned_list' dml (b:word8) v (i:num) =
+  all_assigned_list' dml (b:word8) k v (i:num) =
   if i = 0 then SOME T
   else
     let i1 = i - 1 in
@@ -98,15 +104,18 @@ Definition all_assigned_list'_def:
       assert (Num (-c) < LENGTH dml)
       if EL (Num (-c)) dml = b
       then
-        all_assigned_list' dml b v i1
+        all_assigned_list' dml b k v i1
       else
-        SOME F
+        if c = k then all_assigned_list' dml b k v i1
+        else SOME F
     else
       assert (Num c < LENGTH dml)
       if b <+ EL (Num c) dml
       then
-        all_assigned_list' dml b v i1
-      else SOME F
+        all_assigned_list' dml b k v i1
+      else
+        if c = k then all_assigned_list' dml b k v i1
+        else SOME F
 End
 
 Theorem assert_cond[simp]:
@@ -125,16 +134,17 @@ Proof
 QED
 
 Theorem all_assigned_list':
-  ∀dml b v i res.
-  all_assigned_list' dml b v i = SOME res ⇒
-  all_assigned_list dml b v i = res
+  ∀dml b k v i res.
+  all_assigned_list' dml b k v i = SOME res ⇒
+  all_assigned_list dml b k v i = res
 Proof
   ho_match_mp_tac all_assigned_list_ind>>
   rw[]>>
   pop_assum mp_tac>>
   simp[Once all_assigned_list_def,
        Once all_assigned_list'_def]>>
-  every_case_tac>>gvs[any_el_ALT,AllCaseEqs()]
+  every_case_tac>>gvs[any_el_ALT,AllCaseEqs()]>>
+  metis_tac[]
 QED
 
 Definition delete_literals_sing_list_def:
@@ -150,7 +160,7 @@ Definition delete_literals_sing_list_def:
       then
         delete_literals_sing_list dml b v i1
       else
-        (if all_assigned_list dml b v i1
+        (if all_assigned_list dml b c v i1
           then SOME (F,
             update_resize dml (b-1w) (b+1w) nc)
           else NONE)
@@ -160,7 +170,7 @@ Definition delete_literals_sing_list_def:
       then
         delete_literals_sing_list dml b v i1
       else
-        (if all_assigned_list dml b v i1
+        (if all_assigned_list dml b c v i1
           then SOME (F,
             update_resize dml (b-1w) b nc)
           else NONE)
@@ -242,7 +252,7 @@ Definition delete_literals_sing_list'_def:
           if res
           then SOME (F, LUPDATE (b+1w) nc dml)
           else NONE)
-        (all_assigned_list' dml b v i1)
+        (all_assigned_list' dml b c v i1)
       )
     else
       let nc = Num c in
@@ -256,7 +266,7 @@ Definition delete_literals_sing_list'_def:
           if res
           then SOME (F, LUPDATE b nc dml)
           else NONE)
-        (all_assigned_list' dml b v i1))
+        (all_assigned_list' dml b c v i1))
 End
 
 Theorem delete_literals_sing_list':
@@ -290,12 +300,6 @@ Proof
   rw[bnd_clause_def,length_def,sub_def,toList_thm,EVERY_EL]
 QED
 
-Theorem bnd_clause_canon_vcc[simp]:
-  bnd_clause (canon_vcc v) sz ⇔ bnd_clause v sz
-Proof
-  rw[bnd_clause_EVERY,EVERY_MEM]
-QED
-
 Theorem bnd_clause_imp:
   bnd_clause v sz ∧
   n ≠ 0 ∧ n ≤ length v ∧
@@ -325,10 +329,10 @@ Proof
 QED
 
 Theorem all_assigned_list'_SOME:
-  ∀dml b v i res.
+  ∀dml b k v i res.
   bnd_clause v (LENGTH dml) ∧
   i ≤ length v ⇒
-  IS_SOME (all_assigned_list' dml b v i)
+  IS_SOME (all_assigned_list' dml b k v i)
 Proof
   ho_match_mp_tac all_assigned_list'_ind>>
   rw[]>>
@@ -370,6 +374,52 @@ Proof
   pop_assum mp_tac>>
   simp[Once delete_literals_sing_list'_def]>>
   rw[]>>gvs[]
+QED
+
+(* The scan runs back to front, commits to the first literal that is not
+  falsified, and then requires every remaining literal to be falsified or
+  equal to the one it committed to.
+
+  In these tests b = 1w, so index v of the map holds 1w when -v is falsified,
+  2w when v is falsified and 0w when v is unassigned; literal 9 is falsified
+  throughout and variable 1 plays the role of x. *)
+
+(* A repeat of the committed literal is accepted and propagates it, in
+  either literal order *)
+Theorem delete_literals_sing_list_repeat_propagates[local]:
+  delete_literals_sing_list [0w;0w;0w;0w;0w;0w;0w;0w;0w;2w] 1w
+    (Vector [1;1;9]) 3 =
+    SOME (F,[0w;1w;0w;0w;0w;0w;0w;0w;0w;2w]) ∧
+  delete_literals_sing_list [0w;0w;0w;0w;0w;0w;0w;0w;0w;2w] 1w
+    (Vector [9;1;1]) 3 =
+    SOME (F,[0w;1w;0w;0w;0w;0w;0w;0w;0w;2w])
+Proof
+  EVAL_TAC
+QED
+
+(* A clause that is already true is accepted and leaves the map unchanged.
+  The first pins a repeat of a true literal; the second an opposite pair,
+  which reduces by ordinary propagation and so does not reach the c = k test *)
+Theorem delete_literals_sing_list_satisfied_noop[local]:
+  delete_literals_sing_list [0w;2w;0w;0w;0w;0w;0w;0w;0w;2w] 1w
+    (Vector [-1;-1;9]) 3 =
+    SOME (F,[0w;2w;0w;0w;0w;0w;0w;0w;0w;2w]) ∧
+  delete_literals_sing_list [0w;1w;0w;0w;0w;0w;0w;0w;0w;2w] 1w
+    (Vector [-1;1;9]) 3 =
+    SOME (F,[0w;1w;0w;0w;0w;0w;0w;0w;0w;2w])
+Proof
+  EVAL_TAC
+QED
+
+(* Two distinct literals that are not falsified are rejected, in either
+  literal order *)
+Theorem delete_literals_sing_list_two_survivors_reject[local]:
+  delete_literals_sing_list [0w;0w;0w;0w;0w;0w;0w;0w;0w;2w] 1w
+    (Vector [1;-1;9]) 3 = NONE ∧
+  delete_literals_sing_list [0w;0w;0w;0w;0w;0w;0w;0w;0w;2w] 1w
+    (Vector [-1;1;9]) 3 = NONE
+Proof
+  EVAL_TAC
 QED
 
 (* Ensures that the dml is of sufficient size
@@ -449,14 +499,11 @@ QED
 
 Definition fml_rel_def:
   fml_rel fml fmlls ⇔
-  (∀n.
+  ∀n.
     case FLOOKUP fml n of
       NONE => any_el n fmlls vcc_none = vcc_none
     | SOME v =>
-      any_el n fmlls vcc_none = v) ∧
-  (* No stored clause repeats a literal. Not needed for soundness (a repeat
-    costs completeness only) -- a tripwire for non-canonicalising inserts. *)
-  (∀v. v ∈ FRANGE fml ⇒ ALL_DISTINCT (toList v))
+      any_el n fmlls vcc_none = v
 End
 
 Definition bnd_fml_def:
@@ -485,16 +532,6 @@ Definition unit_prop_list_def:
   | SOME (T,dml') => SOME (T,dml')
   | SOME (F,dml') => unit_prop_list fmlls dml' b is)
 End
-
-Theorem fml_rel_ALL_DISTINCT:
-  fml_rel fml fmlls ∧
-  FLOOKUP fml n = SOME v ⇒
-  ALL_DISTINCT (toList v)
-Proof
-  rw[fml_rel_def]>>
-  first_x_assum irule>>
-  metis_tac[FRANGE_FLOOKUP]
-QED
 
 Theorem fml_rel_any_el_NEQ_vcc_none_FLOOKUP:
   fml_rel fml fmlls ∧
@@ -1045,16 +1082,11 @@ Theorem fml_rel_delete_list:
 Proof
   simp[fml_rel_def,DOMSUB_FLOOKUP_THM]>>
   strip_tac>>
-  conj_tac
-  >- (
-    rw[]
-    >-
-      rw[any_el_ALT,delete_list_def,EL_LUPDATE]>>
-    first_x_assum(qspec_then`n` mp_tac)>>
-    TOP_CASE_TAC>>rw[any_el_ALT,delete_list_def,EL_LUPDATE])>>
-  rw[]>>
-  gvs[IN_FRANGE_FLOOKUP,DOMSUB_FLOOKUP_THM,AllCaseEqs()]>>
-  metis_tac[]
+  rw[]
+  >-
+    rw[any_el_ALT,delete_list_def,EL_LUPDATE]>>
+  first_x_assum(qspec_then`n` mp_tac)>>
+  TOP_CASE_TAC>>rw[any_el_ALT,delete_list_def,EL_LUPDATE]
 QED
 
 Theorem fml_rel_delete_ids_list:
@@ -1077,10 +1109,11 @@ Proof
   metis_tac[]
 QED
 
-(* A clause enters the array here, and only here *)
+(* Where a clause imported or derived by the proof enters the array; the
+  initial formula is laid out by build_cfml_list below *)
 Definition insert_vcc_list_def:
   insert_vcc_list fmlls n v =
-  update_resize fmlls vcc_none (canon_vcc v) n
+  update_resize fmlls vcc_none v n
 End
 
 Theorem fml_rel_insert_vcc_list:
@@ -1089,17 +1122,11 @@ Theorem fml_rel_insert_vcc_list:
 Proof
   simp[fml_rel_def,insert_vcc_def,insert_vcc_list_def]>>
   strip_tac>>
-  conj_tac
-  >- (
-    rw[any_el_update_resize,FLOOKUP_UPDATE]>>
-    rw[]>>
-    qmatch_goalsub_abbrev_tac`FLOOKUP fml nn`>>
-    first_x_assum(qspec_then`nn` mp_tac)>>
-    TOP_CASE_TAC>>gvs[])>>
-  rw[FRANGE_FUPDATE_DOMSUB]>>
-  gvs[ALL_DISTINCT_canon_vcc]>>
-  first_x_assum irule>>
-  metis_tac[SRULE [SUBSET_DEF] FRANGE_DOMSUB_SUBSET]
+  rw[any_el_update_resize,FLOOKUP_UPDATE]>>
+  rw[]>>
+  qmatch_goalsub_abbrev_tac`FLOOKUP fml nn`>>
+  first_x_assum(qspec_then`nn` mp_tac)>>
+  TOP_CASE_TAC>>gvs[]
 QED
 
 Theorem bnd_fml_insert_vcc_list:
@@ -1459,28 +1486,15 @@ Proof
   rw[]
 QED
 
-(* The initial formula is built through the same canonicalising entry *)
 Definition build_cfml_list_def:
-  build_cfml_list k ls n = build_fml_list k (MAP canon_vcc ls) n
+  build_cfml_list k ls n = build_fml_list k ls n
 End
-
-(* The canonicalising fill loop, as the array implementation runs it *)
-Theorem FOLDL_update_resize_canon_vcc:
-  ∀ls i acc.
-  FOLDL (λacc (j,v). update_resize acc vcc_none v j) acc
-    (enumerate i (MAP canon_vcc ls)) =
-  FOLDL (λacc (j,v). update_resize acc vcc_none (canon_vcc v) j) acc
-    (enumerate i ls)
-Proof
-  Induct>>rw[miscTheory.enumerate_def]
-QED
 
 Theorem fml_rel_build_cfml_list:
   fml_rel (build_cfml k ls) (build_cfml_list k ls n)
 Proof
-  rw[fml_rel_def,build_cfml_def,build_cfml_list_def,any_el_build_fml_list]
-  >- (TOP_CASE_TAC>>simp[])>>
-  gvs[range_build_fml,MEM_MAP,ALL_DISTINCT_canon_vcc]
+  rw[fml_rel_def,build_cfml_def,build_cfml_list_def,any_el_build_fml_list]>>
+  TOP_CASE_TAC>>simp[]
 QED
 
 Theorem fml_rel_REPLICATE_vcc_none:

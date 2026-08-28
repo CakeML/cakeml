@@ -171,7 +171,7 @@ Theorem fill_cfml_arr_spec:
   (POSTv resv.
     SEP_EXISTS arrlsv'. ARRAY resv arrlsv' *
     &LIST_REL vcclause_TYPE
-      (FOLDL (λacc (i,v). update_resize acc vcc_none (canon_vcc v) i)
+      (FOLDL (λacc (i,v). update_resize acc vcc_none v i)
         arrls (enumerate i ls)) arrlsv')
 Proof
   Induct>>rw[]>>
@@ -213,5 +213,5 @@ Proof
   first_x_assum (irule_at Any)>>
   qexistsl_tac [`k`,`REPLICATE n vcc_none`]>>
   simp[build_cfml_list_def,build_fml_list_def,LIST_REL_REPLICATE_same,
-    vcc_none_v_thm,FOLDL_update_resize_canon_vcc]
+    vcc_none_v_thm]
 QED
