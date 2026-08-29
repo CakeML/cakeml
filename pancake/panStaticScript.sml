@@ -19,6 +19,7 @@
         line, the line is recognised as the first for the inner block as well
     - Base-calculated address in shared memory operation
     - Non-base -calculated address in local memory operation
+    - Un-inline-able functions (exception handler, recursive)
 
   Scope checks:
   - Errors:
@@ -134,7 +135,7 @@ Datatype:
   func_info = <|
     ret_shape : shape                   (* shape of return value *)
   ; params    : (varname # shape) list  (* parameter info *)
-  (*; inline    : bool                    (* inline status *)*)
+  ; inline    : bool                    (* inline status *)
   |>
 End
 
@@ -1222,10 +1223,11 @@ Definition static_check_prog_def:
       | NONE => return ()
       | SOME (eid, evar, prog) =>
         do
-          (* !TODO: check for inline function *)
-          (* if finf.inline then
-            error (WarningErr $ get_inline_ignore_msg fname (strlit " has handler ") ctxt.loc ctxt.scope)
-          else return (); *)
+          (* check for inline function *)
+          if finf.inline then
+            error (WarningErr $ get_inline_ignore_msg
+              fname (strlit " has handler ") ctxt.loc ctxt.scope)
+          else return ();
           (* check exception declared *)
           einf <- check_exn_name ctxt eid;
           (* check for out of scope handler variable *)
@@ -1278,7 +1280,11 @@ Definition static_check_prog_def:
       | NONE => return ()
       | SOME (eid, evar, prog) =>
         do
-          (* !TODO: check for hdl && fname.inline *)
+          (* check for inline function *)
+          if finf.inline then
+            error (WarningErr $ get_inline_ignore_msg
+              fname (strlit " has handler ") ctxt.loc ctxt.scope)
+          else return ();
           (* check exception declared *)
           einf <- check_exn_name ctxt eid;
           (* check for out of scope handler variable *)
@@ -1403,7 +1409,11 @@ Definition static_check_prog_def:
       | NONE => return ()
       | SOME (eid, evar, prog) =>
         do
-          (* !TODO: check for hdl && fname.inline *)
+          (* check for inline function *)
+          if finf.inline then
+            error (WarningErr $ get_inline_ignore_msg
+              fname (strlit " has handler ") ctxt.loc ctxt.scope)
+          else return ();
           (* check exception declared *)
           einf <- check_exn_name ctxt eid;
           (* check for out of scope handler variable *)
@@ -1826,13 +1836,13 @@ Definition static_check_progs_def:
                 ; loc := «» |>;
       (* check function body *)
       prog_ret <- static_check_prog ctxt fi.body;
+      (* !TODO: check prog_ret. recursive function && fi. inline *)
       (* check missing function exit *)
       if ~(prog_ret.exits_fun) then
         error (GenErr $ concat [
             strlit "branches missing return statement in ";
             get_scope_desc (FunScope fi.name (strlit "")); strlit "\n"])
       else return ();
-      (* !TODO: check prog_ret. recursive function && fi. inline *)
       (* check remaining functions *)
       static_check_progs fctxt gctxt sctxt ectxt decls
     od
@@ -1958,8 +1968,10 @@ Definition static_check_decls_def:
             else return () ;
         od ;
       (* check remaining decls *)
-      static_check_decls (insert fctxt fi.name (* !TODO: inline := fi.inline *)
-          <| ret_shape := fi.return ; params := fi.params |>
+      static_check_decls (insert fctxt fi.name
+          <| ret_shape := fi.return
+           ; params := fi.params
+           ; inline := fi.inline |>
         ) gctxt sctxt ectxt decls
     od
 End
