@@ -207,7 +207,7 @@ Datatype:
   ; last       : last_stmt                  (* new exit-ness of last statement *)
   ; var_delta  : (varname, local_info) map  (* change in var state *)
   ; curr_loc   : mlstring                   (* latest location string *)
-  (*; recurse    : bool                       (* func recursiveness status *)*)
+  ; recurse    : bool                       (* func recursiveness status *)
   |>
 End
 
@@ -582,9 +582,8 @@ End
 
 (* Get message for ignoring  *)
 Definition get_inline_ignore_msg_def:
-  get_inline_ignore_msg fname desc loc scope = concat [
-    loc; strlit "function call "; fname; desc;
-    strlit "and will not be inlined in ";
+  get_inline_ignore_msg desc loc scope = concat [
+    loc; desc; strlit " and will not be inlined in ";
     get_scope_desc scope; strlit "\n"]
 End
 
@@ -854,7 +853,7 @@ Definition static_check_exp_def:
       (* return exp info with stored shape *)
       | SOME sb => return <| sh_bd := sb |>
       (* should never occur if static checker implemented correctly *)
-      | NONE => error (ScopeErr $ get_implementation_err_msg
+      | NONE => error (GenErr $ get_implementation_err_msg
         (strlit "static analysis failed to convert in-scope shape")
         ctxt.loc ctxt.scope)
     od ∧
@@ -927,7 +926,7 @@ Definition static_check_exp_def:
       (* return exp info *)
       | SOME sb => return <| sh_bd := sb |>
       (* should never occur if static checker implemented correctly *)
-      | NONE => error (ScopeErr $ get_implementation_err_msg
+      | NONE => error (GenErr $ get_implementation_err_msg
         (strlit "static analysis failed to convert in-scope shape")
         ctxt.loc ctxt.scope)
     od ∧
@@ -1086,7 +1085,8 @@ Definition static_check_prog_def:
       ; exits_loop := F
       ; last       := OtherLast
       ; var_delta  := empty mlstring$compare
-      ; curr_loc   := ctxt.loc |> ∧
+      ; curr_loc   := ctxt.loc
+      ; recurse    := F |> ∧
   static_check_prog ctxt (Dec vname shape exp prog) =
     do
       (* check for redeclaration *)
@@ -1113,7 +1113,8 @@ Definition static_check_prog_def:
         ; exits_loop := pret.exits_loop
         ; last       := pret.last
         ; var_delta  := delete pret.var_delta vname
-        ; curr_loc   := pret.curr_loc |>
+        ; curr_loc   := pret.curr_loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (DecCall vname shape fname args prog) =
     do
@@ -1141,20 +1142,29 @@ Definition static_check_prog_def:
         (* return exp info with stored shape *)
         | SOME sb => return sb
         (* should never occur if static checker implemented correctly *)
-        | NONE => error (ScopeErr $ get_implementation_err_msg
+        | NONE => error (GenErr $ get_implementation_err_msg
           (strlit "static analysis failed to convert in-scope shape")
           ctxt.loc ctxt.scope);
       ctxt' <<- ctxt with <|
           locals := insert ctxt.locals vname <| vsh_bd := sb |>
         ; last := OtherLast |>;
       pret <- static_check_prog ctxt' prog;
+      (* lookup current function name *)
+      caller_name <-
+        case ctxt.scope of
+        | FunScope caller _ => return caller
+        (* should never occur if static checker implemented correctly *)
+        | _ => error (GenErr $ get_implementation_err_msg
+          (strlit "declaration call found outside function scope")
+          ctxt.loc ctxt.scope);
       (* return prog info without declared var *)
       return <|
           exits_fun  := pret.exits_fun
         ; exits_loop := pret.exits_loop
         ; last       := pret.last
         ; var_delta  := delete pret.var_delta vname
-        ; curr_loc   := pret.curr_loc |>
+        ; curr_loc   := pret.curr_loc
+        ; recurse    := (fname = caller_name) |>
     od ∧
   static_check_prog ctxt (Assign Local vname exp) =
     do
@@ -1177,7 +1187,8 @@ Definition static_check_prog_def:
         ; var_delta  :=
           singleton mlstring$compare vname (vinf with
             <| vsh_bd := eret.sh_bd |>)
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (Assign Global vname exp) =
     do
@@ -1198,7 +1209,8 @@ Definition static_check_prog_def:
         ; exits_loop := F
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (AssignCall (Local, vname) hdl fname args) =
     do
@@ -1225,8 +1237,9 @@ Definition static_check_prog_def:
         do
           (* check for inline function *)
           if finf.inline then
-            error (WarningErr $ get_inline_ignore_msg
-              fname (strlit " has handler ") ctxt.loc ctxt.scope)
+            error (WarningErr $ get_inline_ignore_msg (concat [
+                strlit "function call "; fname; strlit " has handler"
+              ]) ctxt.loc ctxt.scope)
           else return ();
           (* check exception declared *)
           einf <- check_exn_name ctxt eid;
@@ -1247,6 +1260,14 @@ Definition static_check_prog_def:
             )) prog;
           return ()
         od;
+      (* lookup current function name *)
+      caller_name <-
+        case ctxt.scope of
+        | FunScope caller _ => return caller
+        (* should never occur if static checker implemented correctly *)
+        | _ => error (GenErr $ get_implementation_err_msg
+          (strlit "assignment call found outside function scope")
+          ctxt.loc ctxt.scope);
       (* return prog info with updated var *)
       return <|
           exits_fun  := F
@@ -1255,7 +1276,8 @@ Definition static_check_prog_def:
         ; var_delta  :=
           singleton mlstring$compare vname (vinf with
             <| vsh_bd := sh_bd_from_bd Trusted vinf.vsh_bd |>)
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := (fname = caller_name) |>
     od ∧
   static_check_prog ctxt (AssignCall (Global, vname) hdl fname args) =
     do
@@ -1282,8 +1304,9 @@ Definition static_check_prog_def:
         do
           (* check for inline function *)
           if finf.inline then
-            error (WarningErr $ get_inline_ignore_msg
-              fname (strlit " has handler ") ctxt.loc ctxt.scope)
+            error (WarningErr $ get_inline_ignore_msg (concat [
+                strlit "function call "; fname; strlit " has handler"
+              ]) ctxt.loc ctxt.scope)
           else return ();
           (* check exception declared *)
           einf <- check_exn_name ctxt eid;
@@ -1304,13 +1327,22 @@ Definition static_check_prog_def:
             )) prog;
           return ()
         od;
+      (* lookup current function name *)
+      caller_name <-
+        case ctxt.scope of
+        | FunScope caller _ => return caller
+        (* should never occur if static checker implemented correctly *)
+        | _ => error (GenErr $ get_implementation_err_msg
+          (strlit "assignment call found outside function scope")
+          ctxt.loc ctxt.scope);
       (* return prog info with updated var *)
       return <|
           exits_fun  := F
         ; exits_loop := F
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := (fname = caller_name) |>
     od ∧
   static_check_prog ctxt (Primitive vname pop es) =
     do
@@ -1329,12 +1361,14 @@ Definition static_check_prog_def:
           ctxt.loc ctxt.scope)
       else return ();
       (* return prog info with updated var *)
-      return <| exits_fun  := F
-              ; exits_loop := F
-              ; last       := OtherLast
-              ; var_delta  := singleton mlstring$compare vname
-                                (vinf with <| vsh_bd := res_sb |>)
-              ; curr_loc   := ctxt.loc |>
+      return <|
+          exits_fun  := F
+        ; exits_loop := F
+        ; last       := OtherLast
+        ; var_delta  := singleton mlstring$compare vname
+                          (vinf with <| vsh_bd := res_sb |>)
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (Return exp) =
     do
@@ -1361,14 +1395,19 @@ Definition static_check_prog_def:
         ; exits_loop := F
         ; last       := RetLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (TailCall fname args) =
     do
       (* lookup current function info *)
-      caller_inf <-
+      (caller_inf, caller_name) <-
         case ctxt.scope of
-        | FunScope caller _ => check_fun_name ctxt caller
+        | FunScope caller _ =>
+          do
+            inf <- check_fun_name ctxt caller;
+            return (inf, caller)
+          od
         (* should never occur if static checker implemented correctly *)
         | _ => error (GenErr $ get_implementation_err_msg
           (strlit "tail call found outside function scope")
@@ -1394,7 +1433,8 @@ Definition static_check_prog_def:
         ; exits_loop := F
         ; last       := TailLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := (fname = caller_name) |>
     od ∧
   static_check_prog ctxt (StandAloneCall hdl fname args) =
     do
@@ -1411,8 +1451,9 @@ Definition static_check_prog_def:
         do
           (* check for inline function *)
           if finf.inline then
-            error (WarningErr $ get_inline_ignore_msg
-              fname (strlit " has handler ") ctxt.loc ctxt.scope)
+            error (WarningErr $ get_inline_ignore_msg (concat [
+                strlit "function call "; fname; strlit " has handler"
+              ]) ctxt.loc ctxt.scope)
           else return ();
           (* check exception declared *)
           einf <- check_exn_name ctxt eid;
@@ -1433,13 +1474,22 @@ Definition static_check_prog_def:
             )) prog;
           return ()
         od;
+      (* lookup current function name *)
+      caller_name <-
+        case ctxt.scope of
+        | FunScope caller _ => return caller
+        (* should never occur if static checker implemented correctly *)
+        | _ => error (GenErr $ get_implementation_err_msg
+          (strlit "standalone call found outside function scope")
+          ctxt.loc ctxt.scope);
       (* return prog info *)
       return <|
           exits_fun  := F
         ; exits_loop := F
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := (fname = caller_name) |>
     od ∧
   static_check_prog ctxt (ExtCall fname ptr1 len1 ptr2 len2) =
     do
@@ -1457,7 +1507,8 @@ Definition static_check_prog_def:
         ; exits_loop := F
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (Seq prog1 prog2) =
     do
@@ -1492,7 +1543,8 @@ Definition static_check_prog_def:
         ; exits_loop := (pret1.exits_loop \/ pret2.exits_loop)
         ; last       := seq_last_stmt pret1.last pret2.last
         ; var_delta  := seq_loc_inf pret1.var_delta pret2.var_delta
-        ; curr_loc   := pret2.curr_loc |>
+        ; curr_loc   := pret2.curr_loc
+        ; recurse    := (pret1.recurse \/ pret2.recurse) |>
     od ∧
   static_check_prog ctxt (If exp prog1 prog2) =
     do
@@ -1514,7 +1566,8 @@ Definition static_check_prog_def:
         ; exits_loop := double_loop_exit
         ; last       := branch_last_stmt double_ret double_loop_exit
         ; var_delta  := branch_loc_inf ctxt.locals pret1.var_delta pret2.var_delta
-        ; curr_loc   := pret2.curr_loc |>
+        ; curr_loc   := pret2.curr_loc
+        ; recurse    := (pret1.recurse \/ pret2.recurse) |>
     od ∧
   static_check_prog ctxt (While exp prog) =
     do
@@ -1534,7 +1587,8 @@ Definition static_check_prog_def:
         ; last       := OtherLast
         ; var_delta  :=
             branch_loc_inf ctxt.locals pret.var_delta $ mlmap$empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := pret.recurse |>
     od ∧
   static_check_prog ctxt Break =
     do
@@ -1548,7 +1602,8 @@ Definition static_check_prog_def:
         ; exits_loop := T
         ; last       := BreakLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt Continue =
     do
@@ -1562,7 +1617,8 @@ Definition static_check_prog_def:
         ; exits_loop := T
         ; last       := ContLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (Raise eid exp) =
     do
@@ -1583,7 +1639,8 @@ Definition static_check_prog_def:
         ; exits_loop := F
         ; last       := RaiseLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (Store addr exp) =
     do
@@ -1609,7 +1666,8 @@ Definition static_check_prog_def:
         ; exits_loop := F
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (Store32 addr exp) =
     do
@@ -1640,7 +1698,8 @@ Definition static_check_prog_def:
         ; exits_loop := F
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (StoreByte addr exp) =
     do
@@ -1671,7 +1730,8 @@ Definition static_check_prog_def:
         ; exits_loop := F
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (ShMemLoad mop Local vname addr) =
     do
@@ -1705,7 +1765,8 @@ Definition static_check_prog_def:
         ; var_delta  :=
           singleton mlstring$compare vname (vinf with
             <| vsh_bd := sh_bd_from_bd Trusted vinf.vsh_bd |>)
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (ShMemLoad mop Global vname addr) =
     do
@@ -1737,7 +1798,8 @@ Definition static_check_prog_def:
         ; exits_loop := F
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (ShMemStore mop addr exp) =
     do
@@ -1768,7 +1830,8 @@ Definition static_check_prog_def:
         ; exits_loop := F
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt Tick =
     (* return prog info with no checks *)
@@ -1777,7 +1840,8 @@ Definition static_check_prog_def:
       ; exits_loop := F
       ; last       := InvisLast
       ; var_delta  := empty mlstring$compare
-      ; curr_loc   := ctxt.loc |> ∧
+      ; curr_loc   := ctxt.loc
+      ; recurse    := F |> ∧
   static_check_prog ctxt (Annot tag str) =
     (* update current location *)
     let loc =
@@ -1790,7 +1854,8 @@ Definition static_check_prog_def:
       ; exits_loop := F
       ; last       := InvisLast
       ; var_delta  := empty mlstring$compare
-      ; curr_loc   := loc |>
+      ; curr_loc   := loc
+      ; recurse    := F |>
 End
 
 (*
@@ -1818,7 +1883,7 @@ Definition static_check_progs_def:
         (* return exp info with stored shape *)
         | SOME sbs => return $ ZIP (param_names, sbs)
         (* should never occur if static checker implemented correctly *)
-        | NONE => error (ScopeErr $ get_implementation_err_msg
+        | NONE => error (GenErr $ get_implementation_err_msg
           (strlit "static analysis failed to convert in-scope shape")
           (strlit "") (FunScope fi.name (strlit "")));
       (* setup initial checking context *)
@@ -1836,7 +1901,12 @@ Definition static_check_progs_def:
                 ; loc := «» |>;
       (* check function body *)
       prog_ret <- static_check_prog ctxt fi.body;
-      (* !TODO: check prog_ret. recursive function && fi. inline *)
+      (* check inlining with recursion *)
+      if (prog_ret.recurse /\ fi.inline) then
+        error (WarningErr $ get_inline_ignore_msg (concat [
+            strlit "function definition "; fi.name; strlit " is recursive "
+          ]) (strlit "") (FunScope fi.name (strlit "")))
+      else return ();
       (* check missing function exit *)
       if ~(prog_ret.exits_fun) then
         error (GenErr $ concat [
