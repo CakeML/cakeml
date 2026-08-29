@@ -579,6 +579,15 @@ Definition get_shape_mismatch_msg_def:
     get_scope_desc scope; strlit "\n"]
 End
 
+(* Get message for ignoring  *)
+Definition get_inline_ignore_msg_def:
+  get_inline_ignore_msg fname desc loc scope = concat [
+    loc; strlit "function call "; fname; desc;
+    strlit "and will not be inlined in ";
+    get_scope_desc scope; strlit "\n"]
+End
+
+(* Get message for reaching impossible cases *)
 Definition get_implementation_err_msg_def:
   get_implementation_err_msg desc loc scope = concat [
     loc; desc; strlit " in "; get_scope_desc scope; strlit "\n";
@@ -1215,20 +1224,18 @@ Definition static_check_prog_def:
         do
           (* !TODO: check for inline function *)
           (* if finf.inline then
-            error (WarningErr $ concat [
-              strlit "function call "; fname;
-              strlit " has handler and cannot be inlined\n"])
+            error (WarningErr $ get_inline_ignore_msg fname (strlit " has handler ") ctxt.loc ctxt.scope)
           else return (); *)
           (* check exception declared *)
-          sh <- check_exn_name ctxt eid;
+          einf <- check_exn_name ctxt eid;
           (* check for out of scope handler variable *)
           evinf <- check_local_var ctxt evar;
           (* check handler variable shape matches exception shape *)
-          if ~(sh_bd_has_shape sh evinf.vsh_bd) then
+          if ~(sh_bd_has_shape einf.eshape evinf.vsh_bd) then
             error (ShapeErr $ get_shape_mismatch_msg (concat [
                 strlit "handler variable "; evar;
                 strlit " for exception "; eid
-              ]) (sh_bd_to_str evinf.vsh_bd) (shape_to_str sh)
+              ]) (sh_bd_to_str evinf.vsh_bd) (shape_to_str einf.eshape)
               ctxt.loc ctxt.scope)
           else return ();
           (* check handler prog with evar *)
@@ -1273,15 +1280,15 @@ Definition static_check_prog_def:
         do
           (* !TODO: check for hdl && fname.inline *)
           (* check exception declared *)
-          sh <- check_exn_name ctxt eid;
+          einf <- check_exn_name ctxt eid;
           (* check for out of scope handler variable *)
           evinf <- check_local_var ctxt evar;
           (* check handler variable shape matches exception shape *)
-          if ~(sh_bd_has_shape sh evinf.vsh_bd) then
+          if ~(sh_bd_has_shape einf.eshape evinf.vsh_bd) then
             error (ShapeErr $ get_shape_mismatch_msg (concat [
                 strlit "handler variable "; evar;
                 strlit " for exception "; eid
-              ]) (sh_bd_to_str evinf.vsh_bd) (shape_to_str sh)
+              ]) (sh_bd_to_str evinf.vsh_bd) (shape_to_str einf.eshape)
               ctxt.loc ctxt.scope)
           else return ();
           (* check handler prog with evar *)
@@ -1398,15 +1405,15 @@ Definition static_check_prog_def:
         do
           (* !TODO: check for hdl && fname.inline *)
           (* check exception declared *)
-          sh <- check_exn_name ctxt eid;
+          einf <- check_exn_name ctxt eid;
           (* check for out of scope handler variable *)
           evinf <- check_local_var ctxt evar;
           (* check handler variable shape matches exception shape *)
-          if ~(sh_bd_has_shape sh evinf.vsh_bd) then
+          if ~(sh_bd_has_shape einf.eshape evinf.vsh_bd) then
             error (ShapeErr $ get_shape_mismatch_msg (concat [
                 strlit "handler variable "; evar;
                 strlit " for exception "; eid
-              ]) (sh_bd_to_str evinf.vsh_bd) (shape_to_str sh)
+              ]) (sh_bd_to_str evinf.vsh_bd) (shape_to_str einf.eshape)
               ctxt.loc ctxt.scope)
           else return ();
           (* check handler prog with evar *)
@@ -1550,14 +1557,14 @@ Definition static_check_prog_def:
   static_check_prog ctxt (Raise eid exp) =
     do
       (* check exception declared *)
-      sh <- check_exn_name ctxt eid;
+      einf <- check_exn_name ctxt eid;
       (* check exception value expression *)
       eret <- static_check_exp ctxt exp;
       (* check exception value shape *)
-      if ~(sh_bd_has_shape sh eret.sh_bd) then
+      if ~(sh_bd_has_shape einf.eshape eret.sh_bd) then
         error (ShapeErr $ get_shape_mismatch_msg
           (strlit "exception value")
-          (sh_bd_to_str eret.sh_bd) (shape_to_str sh)
+          (sh_bd_to_str eret.sh_bd) (shape_to_str einf.eshape)
           ctxt.loc ctxt.scope)
       else return ();
       (* return prog info *)
@@ -1881,7 +1888,9 @@ Definition static_check_decls_def:
       else return ();
       (* !TODO: check sh size > 32 *)
       (* continue with updated exception environment *)
-      static_check_decls fctxt gctxt sctxt (insert ectxt eid sh) decls
+      static_check_decls fctxt gctxt sctxt (insert ectxt eid
+          <| eshape := sh |>
+        ) decls
     od ∧
   static_check_decls fctxt gctxt sctxt ectxt (Function fi::decls) =
     do
