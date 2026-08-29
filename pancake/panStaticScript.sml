@@ -152,6 +152,13 @@ Datatype:
   |>
 End
 
+(* Type for exception state *)
+Datatype:
+  except_info = <|
+    eshape : shape (* shape of exception data *)
+  |>
+End
+
 (* Type for error scope *)
 Datatype:
   scope =
@@ -167,7 +174,7 @@ Datatype:
     locals       : (varname , local_info ) map  (* tracked var state *)
   ; globals      : (varname , global_info) map  (* declared globals *)
   ; funcs        : (funname , func_info  ) map  (* all function info *)
-  ; exns         : (eid, shape) map             (* all exception decl info*)
+  ; exns         : (eid     , except_info) map  (* all exception decl info *)
   ; structs      : (stcname # struct_info) list (* struct name context *)
   ; scope        : scope                        (* current scope info *)
   ; in_loop      : bool                         (* loop status *)
@@ -205,7 +212,7 @@ End
 
 (* Varieties of identifiers that can be out of scope *)
 Datatype:
-  scoped_id = Var | Fun | Stc
+  scoped_id = Var | Fun | Stc | Exn
 End
 
 
@@ -443,7 +450,6 @@ End
 (*
   Get message for out of scope identifiers
   id_type :scoped id
-  (* !TODO: add exceptions to this *)
 *)
 Definition get_scope_msg_def:
   get_scope_msg id_type loc id scope =
@@ -451,7 +457,8 @@ Definition get_scope_msg_def:
       case id_type of
       | Var => strlit "variable "
       | Fun => strlit "function "
-      | Stc => strlit "struct name " in
+      | Stc => strlit "struct name "
+      | Exn => strlit "exception " in
     concat [loc; id_desc; id;
       « is not in scope in »;
       get_scope_desc scope; «\n»]
@@ -487,7 +494,8 @@ Definition get_redec_msg_def:
       case id_type of
       | Var => strlit "variable "
       | Fun => strlit "function "
-      | Stc => strlit "struct name " in
+      | Stc => strlit "struct name "
+      | Exn => strlit "exception " in
     concat [
       loc; id_desc; id;
       strlit " is redeclared in ";
@@ -649,6 +657,14 @@ Definition check_redec_var_def:
     case (lookup ctxt.locals vname, lookup ctxt.globals vname) of
     | (NONE, NONE) => return ()
     | _ => log (WarningErr $ get_redec_msg Var ctxt.loc vname ctxt.scope)
+End
+
+(* Check for out of scope exception *)
+Definition check_exn_name_def:
+  check_exn_name ctxt eid =
+    case lookup ctxt.exns eid of
+    | NONE => error (ScopeErr $ get_scope_msg Exn ctxt.loc eid ctxt.scope)
+    | SOME e => return e
 End
 
 (* Check shapes of exported arguments *)
@@ -1204,11 +1220,7 @@ Definition static_check_prog_def:
               strlit " has handler and cannot be inlined\n"])
           else return (); *)
           (* check exception declared *)
-          sh <-
-            case lookup ctxt.exns eid of
-            | NONE => error (ScopeErr $ concat [
-                strlit "exception "; eid; strlit " is not declared\n"])
-            | SOME sh => return sh;
+          sh <- check_exn_name ctxt eid;
           (* check for out of scope handler variable *)
           evinf <- check_local_var ctxt evar;
           (* check handler variable shape matches exception shape *)
@@ -1261,11 +1273,7 @@ Definition static_check_prog_def:
         do
           (* !TODO: check for hdl && fname.inline *)
           (* check exception declared *)
-          sh <-
-            case lookup ctxt.exns eid of
-            | NONE => error (ScopeErr $ concat [
-                strlit "exception "; eid; strlit " is not declared\n"])
-            | SOME sh => return sh;
+          sh <- check_exn_name ctxt eid;
           (* check for out of scope handler variable *)
           evinf <- check_local_var ctxt evar;
           (* check handler variable shape matches exception shape *)
@@ -1390,11 +1398,7 @@ Definition static_check_prog_def:
         do
           (* !TODO: check for hdl && fname.inline *)
           (* check exception declared *)
-          sh <-
-            case lookup ctxt.exns eid of
-            | NONE => error (ScopeErr $ concat [
-                strlit "exception "; eid; strlit " is not declared\n"])
-            | SOME sh => return sh;
+          sh <- check_exn_name ctxt eid;
           (* check for out of scope handler variable *)
           evinf <- check_local_var ctxt evar;
           (* check handler variable shape matches exception shape *)
@@ -1546,11 +1550,7 @@ Definition static_check_prog_def:
   static_check_prog ctxt (Raise eid exp) =
     do
       (* check exception declared *)
-      sh <-
-        case lookup ctxt.exns eid of
-        | NONE => error (ScopeErr $ concat [
-            strlit "exception "; eid; strlit " is not declared\n"])
-        | SOME sh => return sh;
+      sh <- check_exn_name ctxt eid;
       (* check exception value expression *)
       eret <- static_check_exp ctxt exp;
       (* check exception value shape *)
@@ -1877,8 +1877,7 @@ Definition static_check_decls_def:
     do
       (* check redeclaration *)
       if member eid ectxt then
-        error (ScopeErr $ concat [
-          strlit "exception "; eid; strlit " is redeclared\n"])
+        error (ScopeErr $ get_redec_msg Exn (strlit "") eid TopLevel)
       else return ();
       (* !TODO: check sh size > 32 *)
       (* continue with updated exception environment *)
