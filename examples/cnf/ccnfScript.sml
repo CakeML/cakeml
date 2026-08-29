@@ -3,7 +3,7 @@
 *)
 Theory ccnf
 Ancestors
-  cnf syntax_helper mlvector
+  cnf syntax_helper mlvector mllist
 Libs
   preamble
 
@@ -85,28 +85,169 @@ Proof
   `F` by intLib.ARITH_TAC
 QED
 
-(* Conversions *)
-Definition to_ilit_def:
-  to_ilit (l : num lit) =
-  case l of
-    Pos n => (&n):int
-  | Neg n => -&n
+(* Canonical form for a clause: sorted, with repeated literals removed.
+  Nothing in this development canonicalises; the contract exported here is
+  MEM_canon_clause and canon_clause_ALL_DISTINCT.
+
+  Note a 0 literal is left in place: satisfies_ilit never satisfies it. *)
+Definition sorted_nub_aux_def:
+  (sorted_nub_aux h [] acc = (h::acc)) ∧
+  (sorted_nub_aux (h:ilit) (i::is) acc =
+    if i = h then sorted_nub_aux h is acc
+    else sorted_nub_aux i is (h::acc))
 End
 
+Definition sorted_nub_def:
+  (sorted_nub [] = []) ∧
+  (sorted_nub (x::xs) =
+    sorted_nub_aux x xs [])
+End
+
+Definition canon_clause_def:
+  canon_clause (ls:cclause) =
+    let ils = sort ($<=) ls in
+    sorted_nub ils
+End
+
+Theorem sorted_nub_aux_SORTED_strict:
+  ∀ls h acc.
+  SORTED ($>) (h::acc) ∧
+  SORTED ($<=) (h::ls) ⇒
+  SORTED ($>) (sorted_nub_aux h ls acc)
+Proof
+  Induct>>rw[sorted_nub_aux_def]>>
+  first_x_assum irule>>
+  simp[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem sorted_nub_SORTED_strict:
+  SORTED ($<=) ls ⇒
+  SORTED ($>) (sorted_nub ls)
+Proof
+  rw[oneline sorted_nub_def]>>
+  TOP_CASE_TAC>>gvs[]>>
+  irule sorted_nub_aux_SORTED_strict>>
+  simp[]
+QED
+
+Theorem MEM_sorted_nub_aux:
+  ∀ls x h acc.
+  MEM x ls ∨ x = h ∨ MEM x acc ⇔
+  MEM x (sorted_nub_aux h ls acc)
+Proof
+  Induct>>rw[sorted_nub_aux_def]>>
+  metis_tac[MEM]
+QED
+
+Theorem MEM_sorted_nub:
+  MEM x (sorted_nub ls) ⇔
+  MEM x ls
+Proof
+  rw[oneline sorted_nub_def]>>
+  Cases_on`ls`>>gvs[]>>
+  metis_tac[MEM_sorted_nub_aux,MEM]
+QED
+
+Theorem canon_clause_ALL_DISTINCT:
+  ALL_DISTINCT (canon_clause ls)
+Proof
+  rw[canon_clause_def]>>
+  irule SORTED_ALL_DISTINCT>>
+  irule_at Any sorted_nub_SORTED_strict>>
+  irule_at Any sort_SORTED>>
+  simp[transitive_def,total_def,irreflexive_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem MEM_canon_clause[simp]:
+  MEM x (canon_clause ls) ⇔ MEM x ls
+Proof
+  rw[canon_clause_def,MEM_sorted_nub]
+QED
+
+Theorem canon_clause_eq_nil[simp]:
+  canon_clause ls = [] ⇔ ls = []
+Proof
+  `∀l:cclause. l = [] ⇔ ∀x. ¬MEM x l` by
+    (Cases>>simp[]>>metis_tac[])>>
+  metis_tac[MEM_canon_clause]
+QED
+
+Definition canon_vcc_def:
+  canon_vcc v = Vector (canon_clause (toList v))
+End
+
+Theorem toList_canon_vcc[simp]:
+  toList (canon_vcc v) = canon_clause (toList v)
+Proof
+  rw[canon_vcc_def,toList_thm]
+QED
+
+Theorem ALL_DISTINCT_canon_vcc:
+  ALL_DISTINCT (toList (canon_vcc v))
+Proof
+  simp[canon_clause_ALL_DISTINCT]
+QED
+
+Theorem canon_vcc_eq_emp[simp]:
+  canon_vcc v = Vector [] ⇔ v = Vector []
+Proof
+  Cases_on`v`>>rw[canon_vcc_def,toList_thm]
+QED
+
+Theorem satisfies_vcclause_canon_vcc[simp]:
+  satisfies_vcclause w (canon_vcc v) ⇔
+  satisfies_vcclause w v
+Proof
+  rw[satisfies_vcclause_def,satisfies_cclause_def]
+QED
+
+Theorem satisfies_vcfml_IMAGE_canon_vcc[simp]:
+  satisfies_vcfml w (IMAGE canon_vcc cs) ⇔
+  satisfies_vcfml w cs
+Proof
+  rw[satisfies_vcfml_def,satisfies_fml_gen_def,PULL_EXISTS]
+QED
+
+Definition insert_vcc_def:
+  insert_vcc fml n v = fml |+ (n, v)
+End
+
+Definition build_cfml_def:
+  build_cfml k ls = build_fml k ls
+End
+
+Theorem range_build_cfml:
+  FRANGE (build_cfml k ls) = set ls
+Proof
+  rw[build_cfml_def,range_build_fml]
+QED
+
+(* Conversions *)
 Definition to_cclause_def:
   to_cclause (c:num clause) =
   (MAP to_ilit c):cclause
 End
 
 Theorem satisfies_ilit_to_ilit:
-  lit_var l ≠ 0 ⇒
+  var_lit l ≠ 0 ⇒
   (satisfies_ilit w (to_ilit l) ⇔
   satisfies_lit w l)
 Proof
   rw[satisfies_ilit_def,satisfies_lit_def,to_ilit_def]>>
   TOP_CASE_TAC>>
-  gvs[lit_var_def]>>
+  gvs[var_lit_def]>>
   `F` by intLib.ARITH_TAC
+QED
+
+Theorem satisfies_lit_mk_lit:
+  l ≠ 0 ⇒
+  (satisfies_lit w (mk_lit l) ⇔ satisfies_ilit w l)
+Proof
+  rw[mk_lit_def,satisfies_lit_def,satisfies_ilit_def]>>
+  AP_TERM_TAC>>
+  intLib.ARITH_TAC
 QED
 
 Theorem satisfies_cclause_to_cclause:
@@ -123,21 +264,21 @@ QED
   clauses from back-to-front to ease the related
   vector index computations*)
 Definition all_assigned_def:
-  (all_assigned dm [] = T) ∧
-  (all_assigned dm (c::cs) =
+  (all_assigned dm k [] = T) ∧
+  (all_assigned dm k (c::cs) =
     if c < 0
     then
       case FLOOKUP dm (Num (-c)) of
-        SOME F => all_assigned dm cs
-      | _ => F
+        SOME F => all_assigned dm k cs
+      | _ => if c = k then all_assigned dm k cs else F
     else
       case FLOOKUP dm (Num c) of
-        SOME T => all_assigned dm cs
-      | _ => F)
+        SOME T => all_assigned dm k cs
+      | _ => if c = k then all_assigned dm k cs else F)
 End
 
 Definition all_assigned_vec_def:
-  (all_assigned_vec dm v (i:num) =
+  (all_assigned_vec dm k v (i:num) =
   if i = 0 then T
   else
     let i1 = i - 1 in
@@ -145,20 +286,20 @@ Definition all_assigned_vec_def:
     if c < 0
     then
       case FLOOKUP dm (Num (-c)) of
-        SOME F => all_assigned_vec dm v i1
-      | _ => F
+        SOME F => all_assigned_vec dm k v i1
+      | _ => if c = k then all_assigned_vec dm k v i1 else F
     else
       case FLOOKUP dm (Num c) of
-        SOME T => all_assigned_vec dm v i1
-      | _ => F
+        SOME T => all_assigned_vec dm k v i1
+      | _ => if c = k then all_assigned_vec dm k v i1 else F
   )
 End
 
 Theorem all_assigned_vec:
-  ∀dm v i ds.
+  ∀dm k v i ds.
   v = Vector ds ∧ i ≤ LENGTH ds ⇒
-  all_assigned_vec dm v i =
-  all_assigned dm (REVERSE (TAKE i ds))
+  all_assigned_vec dm k v i =
+  all_assigned dm k (REVERSE (TAKE i ds))
 Proof
   ho_match_mp_tac all_assigned_vec_ind>>rw[]>>
   simp[Once all_assigned_vec_def]>>
@@ -185,7 +326,7 @@ Definition delete_literals_sing_def:
     case FLOOKUP dm nc of
       SOME F => delete_literals_sing dm cs
     | _ =>
-        if all_assigned dm cs
+        if all_assigned dm c cs
         then SOME (F, dm |+ (nc,T))
         else NONE)
   else
@@ -193,7 +334,7 @@ Definition delete_literals_sing_def:
     case FLOOKUP dm nc of
       SOME T => delete_literals_sing dm cs
     | _ =>
-        if all_assigned dm cs
+        if all_assigned dm c cs
         then SOME (F, dm |+ (nc,F))
         else NONE)
 End
@@ -210,7 +351,7 @@ Definition delete_literals_sing_vec_def:
       case FLOOKUP dm nc of
         SOME F => delete_literals_sing_vec dm v i1
       | _  =>
-          if all_assigned_vec dm v i1
+          if all_assigned_vec dm c v i1
           then SOME (F, dm |+ (nc,T))
           else NONE)
     else
@@ -218,7 +359,7 @@ Definition delete_literals_sing_vec_def:
       case FLOOKUP dm nc of
         SOME T => delete_literals_sing_vec dm v i1
       | _ =>
-          if all_assigned_vec dm v i1
+          if all_assigned_vec dm c v i1
           then SOME (F, dm |+ (nc,F))
           else NONE)
 End
@@ -426,8 +567,8 @@ QED
 Theorem lit_map_all_assigned:
   ∀cs.
   lit_map d dm ∧
-  all_assigned dm cs ⇒
-  set cs ⊆ set d
+  all_assigned dm k cs ⇒
+  set cs ⊆ set (k::d)
 Proof
   Induct>>rw[all_assigned_def]>>
   gvs[AllCasePreds(),lit_map_def]>>
@@ -683,6 +824,40 @@ Proof
   fs[]
 QED
 
+(* Delete the clauses whose ids are encoded in s between i and len.
+  Ids are doubled, so parse_vb_int reads one back directly and a
+  non-positive value ends the record, as in unit_prop_vb_vec. *)
+Definition delete_ids_vb_def:
+  delete_ids_vb fml s i len =
+  let (m,i) = parse_vb_int s i len in
+  if m <= 0
+  then fml
+  else delete_ids_vb (fml \\ (Num m)) s i len
+Termination
+  WF_REL_TAC` measure (λ(f,x,i,r). r-i)`>>
+  rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
+  UNCURRY_EQ,AllCaseEqs()] >> rveq >>
+  fs[] >>
+  last_x_assum (assume_tac o GSYM) >>
+  drule_all parse_vb_num_aux_i >>
+  fs[]
+End
+
+Theorem satisfies_fml_gen_delete_ids_vb:
+  ∀fml s i len.
+  satisfies_fml_gen f w (FRANGE fml) ⇒
+  satisfies_fml_gen f w (FRANGE (delete_ids_vb fml s i len))
+Proof
+  ho_match_mp_tac delete_ids_vb_ind>>
+  rw[]>>
+  simp[Once delete_ids_vb_def]>>
+  pairarg_tac>>
+  rw[]>>
+  first_x_assum irule>>
+  metis_tac[satisfies_fml_gen_delete]
+QED
+
+(* Empty clause representation *)
 Definition contains_emp_def:
   contains_emp fml =
   let ls = MAP SND (fmap_to_alist fml) in
@@ -701,4 +876,104 @@ Proof
   first_x_assum (irule_at Any)>>
   EVAL_TAC>>
   simp[]
+QED
+
+Theorem contains_emp_FRANGE:
+  contains_emp fml ⇔ Vector [] ∈ FRANGE fml
+Proof
+  rw[contains_emp_def,MEM_MAP,MEM_fmap_to_alist_FLOOKUP,FRANGE_FLOOKUP]>>
+  metis_tac[FST,SND,PAIR]
+QED
+
+(*** Converting a parsed formula into the checker's representation ***)
+
+Definition conv_cfml_def:
+  conv_cfml cfml = MAP (Vector o to_cclause) cfml
+End
+
+Theorem conv_cfml_sound:
+  EVERY (EVERY nz_lit) cfml ⇒
+  (satisfies_vcfml w (set (conv_cfml cfml)) ⇔
+   satisfies_cnf w (set cfml))
+Proof
+  rw[satisfies_vcfml_def,satisfies_cnf_def,satisfies_fml_gen_def,conv_cfml_def,
+    MEM_MAP,PULL_EXISTS,EVERY_MEM]>>
+  simp[GSYM EVERY_MEM]>>
+  match_mp_tac EVERY_CONG>>rw[]>>
+  simp[satisfies_vcclause_def,toList_thm]>>
+  match_mp_tac satisfies_cclause_to_cclause>>
+  gvs[EVERY_MEM,clause_vars_def,MEM_MAP]>>
+  metis_tac[]
+QED
+
+(* A DIMACS body line read directly into the checker's representation,
+  without the intermediate num lit list *)
+Definition parse_vclause_def:
+  parse_vclause maxvar ls =
+  case parse_until_zero ls of
+    SOME (ls,[]) =>
+    if EVERY (λl. Num (ABS l) ≤ maxvar) ls
+    then SOME ((Vector ls):vcclause)
+    else NONE
+  | _ => NONE
+End
+
+Theorem var_lit_mk_lit[local]:
+  var_lit (mk_lit l) = Num (ABS l)
+Proof
+  rw[mk_lit_def]
+QED
+
+Theorem parse_vclause:
+  parse_vclause maxvar ls =
+  OPTION_MAP (Vector o to_cclause) (parse_lits maxvar ls)
+Proof
+  rw[parse_vclause_def,parse_lits_def]>>
+  every_case_tac>>
+  gvs[check_maxvar_def,EVERY_MAP,var_lit_mk_lit,to_cclause_def,
+    MAP_MAP_o,o_DEF,to_ilit_mk_lit]>>
+  fs[EVERY_MEM,EXISTS_MEM]>>
+  metis_tac[]
+QED
+
+(* The whole body lifts through the conversion *)
+Theorem parse_body_gen_parse_vclause:
+  ∀ss mv acc.
+  parse_body_gen parse_vclause mv ss (conv_cfml acc) =
+  OPTION_MAP conv_cfml (parse_body_gen parse_lits mv ss acc)
+Proof
+  Induct>>rw[parse_body_gen_def]
+  >- simp[conv_cfml_def,MAP_REVERSE]>>
+  simp[parse_vclause]>>
+  Cases_on`parse_lits mv h`>>simp[]>>
+  first_x_assum (qspecl_then [`mv`,`x::acc`] mp_tac)>>
+  simp[conv_cfml_def]
+QED
+
+Theorem parse_dimacs_toks_gen_parse_vclause:
+  parse_dimacs_toks_gen parse_vclause tokss =
+  OPTION_MAP (λ(v,n,cs). (v,n,conv_cfml cs))
+    (parse_dimacs_toks_gen parse_lits tokss)
+Proof
+  simp[parse_dimacs_toks_gen_def]>>
+  every_case_tac>>
+  gvs[]>>
+  qspecl_then [`t`,`q`,`[]`] mp_tac parse_body_gen_parse_vclause>>
+  simp[conv_cfml_def]
+QED
+
+(*** Recovering the parsed formula from the checker's representation ***)
+
+Definition unconv_cfml_def:
+  unconv_cfml vcfml = MAP (MAP mk_lit o toList) vcfml
+End
+
+Theorem unconv_cfml_conv_cfml:
+  EVERY (EVERY nz_lit) cfml ⇒
+  unconv_cfml (conv_cfml cfml) = cfml
+Proof
+  rw[unconv_cfml_def,conv_cfml_def,MAP_MAP_o,o_DEF,toList_thm,
+    to_cclause_def]>>
+  gvs[MAP_EQ_ID,EVERY_MEM]>>
+  metis_tac[mk_lit_to_ilit]
 QED
