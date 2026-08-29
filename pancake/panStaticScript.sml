@@ -54,7 +54,7 @@
     - Non-word condition expressions
     - Invalid field index
     - Invalid field name
-    - Returned shape size >32 words (TODO: raised shape size) (* !TODO: update*)
+    - Exception value shape size >32 words
 
   Primitive checks:
   - Errors:
@@ -1966,7 +1966,12 @@ Definition static_check_decls_def:
       if member eid ectxt then
         error (ScopeErr $ get_redec_msg Exn (strlit "") eid TopLevel)
       else return ();
-      (* !TODO: check sh size > 32 *)
+      (* check exception value shape size *)
+      if size_of_sh_with_ctxt sctxt sh > 32 then
+        error (ShapeErr $ concat [
+            strlit "exception "; eid;
+            strlit " value has a shape bigger than 32 words\n"])
+      else return () ;
       (* continue with updated exception environment *)
       static_check_decls fctxt gctxt sctxt (insert ectxt eid
           <| eshape := sh |>
@@ -2029,13 +2034,7 @@ Definition static_check_decls_def:
               (FunScope fi.name (strlit "")) fi.params;
             (* check return shape *)
             check_shape sctxt (strlit "")
-              (FunScope fi.name (strlit " return")) fi.return;
-            (* check func return shape size *)
-            if size_of_sh_with_ctxt sctxt fi.return > 32 then (* !TODO: remove *)
-              error (ShapeErr $ concat [
-                  strlit "function "; fi.name;
-                  strlit " returns a shape bigger than 32 words\n"])
-            else return () ;
+              (FunScope fi.name (strlit " return")) fi.return
         od ;
       (* check remaining decls *)
       static_check_decls (insert fctxt fi.name
