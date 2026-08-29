@@ -156,6 +156,10 @@ examples/cnf/dist
 examples/cnf/dist/array
 examples/cnf/dist/array/compilation
 examples/cnf/dist/array/compilation/proofs
+examples/cnf/lrup
+examples/cnf/lrup/array
+examples/cnf/lrup/array/compilation
+examples/cnf/lrup/array/compilation/proofs
 
 examples/scpog_checker
 examples/scpog_checker/array
