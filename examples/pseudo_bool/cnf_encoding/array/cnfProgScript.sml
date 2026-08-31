@@ -699,34 +699,10 @@ Proof
   metis_tac[fml_to_pbf_sound]
 QED
 
-(* TODO: Move to parse *)
-Definition num_lit_string_def:
-  (num_lit_string (i,n:num) =
-  if i ≥ 0 then
-   toString (Num (ABS i)) ^ « x» ^ toString n
-  else
-   toString (Num (ABS i)) ^ « ~x» ^ toString n)
-End
-
-Definition num_lhs_string_def:
-  num_lhs_string xs =
-  concatWith « » (MAP num_lit_string xs)
-End
-
-Definition npbc_string_def:
-  (npbc_string (xs,n:int) =
-    concat [
-      num_lhs_string xs;
-      « >= »;toString n; «;\n»])
-End
-
 Definition print_npbf_def:
   print_npbf fml = MAP npbc_string fml
 End
 
-val res = translate num_lit_string_def;
-val res = translate num_lhs_string_def;
-val res = translate npbc_string_def;
 val res = translate print_npbf_def;
 
 Quote add_cakeml:
