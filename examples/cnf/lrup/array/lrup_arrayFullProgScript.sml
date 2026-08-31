@@ -4,7 +4,7 @@
 Theory lrup_arrayFullProg
 Ancestors
   misc UnsafeProof cnf ccnf ccnf_list ccnf_arrayProg ccnf_parseProg
-  syntax_helper lrup lrup_cnf lrup_list lrup_arrayProg
+  syntax_helper dimacs lrup lrup_list lrup_arrayProg
   basis_ffi
 Libs
   preamble basis

@@ -5,11 +5,6 @@ Compose the semantics theorem and the compiler correctness
 theorem with the compiler evaluation theorem to produce end-to-end
 correctness theorem that reaches final machine code.
 
-[cnfProofScript.sml](cnfProofScript.sml):
-Compose the semantics theorem and the compiler correctness
-theorem with the compiler evaluation theorem to produce end-to-end
-correctness theorem that reaches final machine code.
-
 [colourProofScript.sml](colourProofScript.sml):
 Compose the semantics theorem and the compiler correctness
 theorem with the compiler evaluation theorem to produce end-to-end
@@ -40,7 +35,3 @@ Compose the semantics theorem and the compiler correctness
 theorem with the compiler evaluation theorem to produce end-to-end
 correctness theorem that reaches final machine code.
 
-[wcnfProofScript.sml](wcnfProofScript.sml):
-Compose the semantics theorem and the compiler correctness
-theorem with the compiler evaluation theorem to produce end-to-end
-correctness theorem that reaches final machine code.

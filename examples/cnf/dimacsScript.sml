@@ -1,9 +1,9 @@
 (*
   Syntax and semantics of CNF in the DIMACS format
 *)
-Theory lrup_cnf
+Theory dimacs
 Ancestors
-  misc cnf ccnf syntax_helper mlstring mlint
+  misc cnf syntax_helper mlstring mlint
 Libs
   preamble
 
@@ -30,53 +30,6 @@ Definition parse_cnf_def:
   | SOME (nvars, nclauses, ls) => SOME ls
 End
 
-(* The same parse, delivered in the checker's clause representation *)
-Definition parse_vcnf_toks_def:
-  parse_vcnf_toks tokss = parse_dimacs_toks_gen parse_vclause tokss
-End
-
-Theorem parse_vcnf_toks:
-  parse_vcnf_toks tokss =
-  OPTION_MAP (λ(v,n,cs). (v,n,conv_cfml cs)) (parse_cnf_toks tokss)
-Proof
-  rw[parse_vcnf_toks_def,parse_cnf_toks_def,
-    parse_dimacs_toks_gen_parse_vclause]
-QED
-
-val cnf_raw = ``[
-  «c this is a comment»;
-  «p cnf 5 4 »;
-  «    1  4 0»;
-  «c this is a comment»;
-  «»;
-  «    2  2  4 0»;
-  «-1 -2 -3 0»;
-  «   -4 -5 0»;
-  ]``;
-
-val test = rconc (EVAL ``THE (parse_cnf ^(cnf_raw))``);
-
-(* Blank lines are skipped, and a clause is stored as it was written,
-  repeated literal and all *)
-Theorem parse_vcnf_toks_test[local]:
-  parse_vcnf_toks (MAP toks ^(cnf_raw)) =
-  SOME (5,4,
-    [Vector [1; 4]; Vector [2; 2; 4]; Vector [-1; -2; -3]; Vector [-4; -5]])
-Proof
-  EVAL_TAC
-QED
-
-(* A run that echoes its input prints unconv_cfml of what it stored, so
-  the echoed formula is the one that was written, repeated literal and all *)
-Theorem unconv_cfml_test[local]:
-  OPTION_MAP (λ(mv,ncl,vcfml). unconv_cfml vcfml)
-    (parse_vcnf_toks (MAP toks ^(cnf_raw))) =
-  SOME [[Pos 1; Pos 4]; [Pos 2; Pos 2; Pos 4];
-        [Neg 1; Neg 2; Neg 3]; [Neg 4; Neg 5]]
-Proof
-  EVAL_TAC
-QED
-
 (* CNF printer *)
 
 (* The variable count declared in the printed header *)
@@ -89,8 +42,6 @@ Definition print_cnf_def:
   print_header_line (max_cnf cs) (LENGTH cs) ::
   MAP (print_lits #"\n") cs
 End
-
-val test2 = rconc (EVAL ``(print_cnf ^(test))``);
 
 (***
   Round trip: parsing the printed formula returns it unchanged

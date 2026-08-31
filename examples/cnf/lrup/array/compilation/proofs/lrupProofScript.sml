@@ -6,7 +6,7 @@
 Theory lrupProof
 Ancestors
   semanticsProps backendProof x64_configProof TextIOProof
-  lrup_cnf lrup lrup_arrayFullProg lrupCompile
+  dimacs lrup lrup_arrayFullProg lrupCompile
 Libs
   preamble
 

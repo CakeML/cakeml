@@ -3,9 +3,6 @@ Compiling the pseudo-boolean constraints checker.
 [cliqueCompileScript.sml](cliqueCompileScript.sml):
 Compiles the max clique + PB checker
 
-[cnfCompileScript.sml](cnfCompileScript.sml):
-Compiles the CNF + PB checker
-
 [colourCompileScript.sml](colourCompileScript.sml):
 Compiles the min colour + PB checker
 
@@ -31,5 +28,3 @@ against the ARMv8 model.
 [subgraph_isoCompileScript.sml](subgraph_isoCompileScript.sml):
 Compiles the encoder
 
-[wcnfCompileScript.sml](wcnfCompileScript.sml):
-Compiles the WCNF + PB checker

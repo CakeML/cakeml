@@ -3,9 +3,6 @@ Improving the pseudo-boolean proof checker with arrays (manually).
 [cliqueProgScript.sml](cliqueProgScript.sml):
 Clique encode and checker
 
-[cnfProgScript.sml](cnfProgScript.sml):
-CNF encoder and checker
-
 [colourProgScript.sml](colourProgScript.sml):
 Colour encode and checker
 
@@ -39,5 +36,3 @@ Add shared pbp parsing, normalization and other common stuff to npbc_arrayProg
 [subgraph_isoProgScript.sml](subgraph_isoProgScript.sml):
 Subgraph isomorphism encoder and checker
 
-[wcnfProgScript.sml](wcnfProgScript.sml):
-WCNF encoder and checker
