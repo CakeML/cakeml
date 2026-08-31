@@ -52,6 +52,8 @@ QED
 
 (** AIG ***********************************************************************)
 
+(* TODO Rename is ls to iv lv? *)
+
 (* Things that appear in base positions.
    Ff corresponds to the constant false. *)
 Datatype:
