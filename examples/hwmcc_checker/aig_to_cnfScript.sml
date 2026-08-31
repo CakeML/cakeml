@@ -15,7 +15,7 @@ Definition new_live_def:
   new_live ([] : (('a,'i,'l) var # bool) list) l = (l:'a |-> unit) ∧
   new_live ((x,b) :: xs) l =
     case x of
-    | Name n => fmap_update (new_live xs l) n ()
+    | Gate n => fmap_update (new_live xs l) n ()
     | Base _ => new_live xs l
 End
 
@@ -69,7 +69,7 @@ QED
 
 Theorem new_live_thm:
   ∀h1 live aa.
-    MEM (Name aa,r) h1 ⇒
+    MEM (Gate aa,r) h1 ⇒
     FLOOKUP (new_live h1 live) aa = SOME ()
 Proof
   Induct
@@ -104,7 +104,7 @@ Proof
     \\ simp [EVERY_MEM]
     \\ Cases \\ Cases_on ‘q’
     \\ simp [eval_circuit_def]
-    \\ rename [‘Name aa’]
+    \\ rename [‘Gate aa’]
     \\ strip_tac
     \\ first_x_assum $ qspecl_then [‘aa’,‘new_live h1 (live \\ h0)’] mp_tac
     \\ reverse impl_tac >- simp []
@@ -155,10 +155,10 @@ Definition aig_rename_aux_def:
     ((acc:((num, num, num) var # bool) list, next:num, im, lm)) ∧
   aig_rename_aux ((x,b)::rest) next im lm nm acc =
     case (x : ('a, 'b, 'c) var) of
-    | Name n =>
+    | Gate n =>
         (case FLOOKUP nm n of
          | NONE   => aig_rename_aux rest next im lm nm ((Base Ff,b)::acc)
-         | SOME t => aig_rename_aux rest next im lm nm ((Name t,b)::acc))
+         | SOME t => aig_rename_aux rest next im lm nm ((Gate t,b)::acc))
     | Base (Input i) =>
         (case FLOOKUP im i of
          | NONE   => aig_rename_aux rest (next+1)
@@ -331,7 +331,7 @@ Theorem aig_rename_aux_thm:
     (∀i b. MEM (Base (Input i),b) ts ⇒ i ∈ FDOM im_2) ∧
     (∀l b. MEM (Base (Latch l),b) ts_1 ⇒ l ∈ FRANGE lm_2) ∧
     (∀i b. MEM (Base (Input i),b) ts_1 ⇒ i ∈ FRANGE im_2) ∧
-    (∀m b. MEM (Name m,b) ts_1 ⇒ m ∈ FRANGE nm_1) ∧
+    (∀m b. MEM (Gate m,b) ts_1 ⇒ m ∈ FRANGE nm_1) ∧
     next_1 ≤ next_2 ∧
     DISJOINT3 (FRANGE im_2) (FRANGE lm_2) (set (MAP FST res_1)) ∧
     (∀n. next_2 ≤ n ⇒ n ∉ FRANGE im_2 ∧ n ∉ FRANGE lm_2 ∧ ~MEM n (MAP FST res_1)) ∧
@@ -345,7 +345,7 @@ Proof
   Induct >- fs [aig_rename_aux_def]
   \\ pop_assum $ mk_asm "hyp"
   \\ PairCases \\ fs [aig_rename_aux_def]
-  \\ Cases_on ‘∃a. h0 = Name a’ \\ gvs []
+  \\ Cases_on ‘∃a. h0 = Gate a’ \\ gvs []
   >-
    (rpt gen_tac
     \\ Cases_on ‘FLOOKUP nm_1 a’ \\ fs []
@@ -531,7 +531,7 @@ Definition closed_def:
   closed ([] :('a,'i,'l) and list) = T ∧
   closed ((n,ts)::rest) =
     (closed rest ∧
-     ∀m b. MEM (Name m, b) ts ⇒ ALOOKUP rest m ≠ NONE)
+     ∀m b. MEM (Gate m, b) ts ⇒ ALOOKUP rest m ≠ NONE)
 End
 
 Theorem aig_rename_thm:
@@ -747,16 +747,16 @@ Definition not_TT_def:
   not_TT _ = T
 End
 
-Definition var_to_name_def:
-  var_to_name (Name n) = n:num ∧
-  var_to_name (Base (Input i)) = i ∧
-  var_to_name (Base (Latch l)) = l ∧
-  var_to_name _ = 0
+Definition var_to_num_def:
+  var_to_num (Gate n) = n:num ∧
+  var_to_num (Base (Input i)) = i ∧
+  var_to_num (Base (Latch l)) = l ∧
+  var_to_num _ = 0
 End
 
 Definition var_to_lit_def:
-  var_to_lit (v,F) = Pos (var_to_name v) ∧
-  var_to_lit (v,T) = Neg (var_to_name v)
+  var_to_lit (v,F) = Pos (var_to_num v) ∧
+  var_to_lit (v,T) = Neg (var_to_num v)
 End
 
 Definition and_to_cnf_def:
@@ -870,7 +870,7 @@ Proof
   \\ Cases_on ‘z1’ \\ fs []
   \\ Cases_on ‘z0’ \\ fs []
   \\ TRY (rename [‘Base b’] \\ Cases_on ‘b’ \\ fs [])
-  \\ gvs [var_to_lit_def, satisfies_lit_def, var_to_name_def, not_TT_def]
+  \\ gvs [var_to_lit_def, satisfies_lit_def, var_to_num_def, not_TT_def]
   \\ gvs [eval_circuit_def, eval_bvar_def]
   \\ last_x_assum drule
   \\ strip_tac
@@ -961,12 +961,12 @@ Proof
   >-
    (rename [‘Base b’] \\ Cases_on ‘b’ \\ fs []
     \\ Cases_on ‘z1’ \\ fs [not_TT_def]
-    \\ simp [var_to_lit_def, var_to_name_def, eval_circuit_def,
+    \\ simp [var_to_lit_def, var_to_num_def, eval_circuit_def,
              satisfies_lit_def, cnf_witness_def]
     \\ res_tac \\ fs [] \\ rw []
     \\ fs [DISJOINT3_def,IN_DISJOINT] \\ metis_tac [])
   \\ Cases_on ‘z1’
-  \\ gvs [var_to_lit_def, satisfies_lit_def, var_to_name_def]
+  \\ gvs [var_to_lit_def, satisfies_lit_def, var_to_num_def]
   \\ gvs [eval_circuit_def, eval_bvar_def, cnf_witness_def]
   \\ res_tac
   \\ Cases_on ‘ALOOKUP ands a’ \\ fs []
@@ -1081,9 +1081,9 @@ Proof
   \\ fs [FORALL_PROD,ALOOKUP_NONE,MEM_MAP, PULL_EXISTS, EXISTS_PROD]
   \\ res_tac
   \\ Cases_on ‘y1’
-  \\ fs [var_to_lit_def, lit_var_def, var_to_name_def]
+  \\ fs [var_to_lit_def, lit_var_def, var_to_num_def]
   \\ Cases_on ‘b’ \\ gvs []
-  \\ fs [var_to_lit_def, lit_var_def, var_to_name_def]
+  \\ fs [var_to_lit_def, lit_var_def, var_to_num_def]
   \\ res_tac
 QED
 

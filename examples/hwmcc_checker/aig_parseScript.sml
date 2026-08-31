@@ -231,7 +231,7 @@ Definition convert_lit_def:
       if v = 0 then Base Ff
       else if v ≤ max_input then Base (Input v)
       else if v ≤ max_latch then Base (Latch v)
-      else Name v;
+      else Gate v;
     b = (lit MOD 2 = 1)
   in
     (v,b)

@@ -125,13 +125,13 @@ End
 Definition num_var_cmp_def:
   num_var_cmp (x1: num_var) (x2: num_var) =
     case x1 of
-    | Name n1 =>
+    | Gate n1 =>
       (case x2 of
-       | Name n2 => num_cmp n1 n2
+       | Gate n2 => num_cmp n1 n2
        | _ => LESS)
     | Base b1 =>
       (case x2 of
-       | Name _ => GREATER
+       | Gate _ => GREATER
        | Base b2 => num_bvar_cmp b1 b2)
 End
 

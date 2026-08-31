@@ -24,7 +24,7 @@ QED
    are shared. *)
 
 Definition left_name_var_def:
-  (left_name_var (Name a)  = Name (INL a)) ∧
+  (left_name_var (Gate a)  = Gate (INL a)) ∧
   (left_name_var (Base bv) = Base bv)
 End
 
@@ -37,7 +37,7 @@ Definition left_name_and_def:
 End
 
 Definition right_name_var_def:
-  (right_name_var (Name a)  = Name (INR a)) ∧
+  (right_name_var (Gate a)  = Gate (INR a)) ∧
   (right_name_var (Base bv) = Base bv)
 End
 
@@ -171,7 +171,7 @@ Definition left_bvar_def:
 End
 
 Definition left_var_def:
-  (left_var (Name a)  = Name (INL a)) ∧
+  (left_var (Gate a)  = Gate (INL a)) ∧
   (left_var (Base bv) = Base (left_bvar bv))
 End
 
@@ -190,7 +190,7 @@ Definition right_bvar_def:
 End
 
 Definition right_var_def:
-  (right_var (Name a)  = Name (INR a)) ∧
+  (right_var (Gate a)  = Gate (INR a)) ∧
   (right_var (Base bv) = Base (right_bvar bv))
 End
 
@@ -372,7 +372,7 @@ Definition bvar_map_def:
 End
 
 Definition var_map_base_def:
-  (var_map_base _ _ (Name a)  = Name a) ∧
+  (var_map_base _ _ (Gate a)  = Gate a) ∧
   (var_map_base f g (Base bv) = Base (bvar_map f g bv))
 End
 
@@ -559,7 +559,7 @@ End
 (* Lifting to iext *)
 
 Definition iext_var_def:
-  (iext_var (Name a) = Name (Named (Orig a))) ∧
+  (iext_var (Gate a) = Gate (Named (Orig a))) ∧
   (iext_var (Base bv) = Base bv)
 End
 
@@ -618,7 +618,7 @@ QED
 
 Definition iname_def:
   iname (v,b) =
-    case v of Name (Anon n) => n
+    case v of Gate (Anon n) => n
     | _ => 0
 End
 
@@ -666,8 +666,8 @@ Definition encode_imply_def:
   encode_imply (circ: ('a iext, 'i, 'l) circuit) name b lhss rhss =
   let n = MAX (maxn lhss) (maxn rhss) in
     (* b = F: (lhss ⇒ rhss) ⇔ (¬lhss ∨ rhss) ⇔ ¬(lhss ∧ ¬rhss) *)
-    (Named (Ext name), [(Name (Anon (n+2)), ¬b)])
-    ::(Anon (n+2), [(Name (Anon n), F); (Name (Anon (n+1)), T)]) (* lhss ∧ ¬rhss *)
+    (Named (Ext name), [(Gate (Anon (n+2)), ¬b)])
+    ::(Anon (n+2), [(Gate (Anon n), F); (Gate (Anon (n+1)), T)]) (* lhss ∧ ¬rhss *)
     ::(Anon (n+1), rhss)::(Anon n, lhss)::circ
 End
 
@@ -695,9 +695,9 @@ Definition encode_equiv_aux_def:
   (encode_equiv_aux n (xy::xys) =
    let (x, y) = xy in [
     (Anon n, [
-        (Name (Anon (n + 1)), T);
-        (Name (Anon (n + 2)), T);
-        (Name (Anon (n + 3)), F)
+        (Gate (Anon (n + 1)), T);
+        (Gate (Anon (n + 2)), T);
+        (Gate (Anon (n + 3)), F)
       ]);
     (Anon (n + 1), [x; not y]);
     (Anon (n + 2), [not x; y]);
@@ -707,7 +707,7 @@ End
 Definition encode_equiv_def:
   encode_equiv (circ: ('a iext, 'i, 'l) circuit) name xys =
     let n = MAX (maxn (MAP FST xys)) (maxn (MAP SND xys)) in
-      ((Named (Ext name), [(Name (Anon n), F)])::encode_equiv_aux n xys) ++ circ
+      ((Named (Ext name), [(Gate (Anon n), F)])::encode_equiv_aux n xys) ++ circ
 End
 
 Theorem eval_circuit_encode_equiv_aux_Named[local,simp]:
@@ -775,10 +775,10 @@ Proof
 QED
 
 Theorem eval_lit_encode_equiv_Named:
-  eval_lit ss (encode_equiv circ name xys) (Name (Named n), b) =
+  eval_lit ss (encode_equiv circ name xys) (Gate (Named n), b) =
   if n = Ext name then
     b ⇎ EVERY (λ(x,y). eval_lit ss circ x ⇔ eval_lit ss circ y) xys
-  else eval_lit ss circ (Name (Named n), b)
+  else eval_lit ss circ (Gate (Named n), b)
 Proof
   simp [eval_circuit_def, eval_circuit_encode_equiv_Named]
   >> IF_CASES_TAC >> gvs []
@@ -851,10 +851,10 @@ Proof
 QED
 
 Theorem eval_lit_encode_is_reset_Named:
-  eval_lit ss (encode_is_reset circ name reset ls) (Name (Named n),F) =
+  eval_lit ss (encode_is_reset circ name reset ls) (Gate (Named n),F) =
   if n = Ext name then
     is_reset ss circ reset (set ls)
-  else eval_lit ss circ (Name (Named n),F)
+  else eval_lit ss circ (Gate (Named n),F)
 Proof
   simp [eval_circuit_def, eval_circuit_encode_is_reset_Named]
 QED
@@ -869,7 +869,7 @@ End
 
 Theorem eval_lit_encode_preds_hold_Named:
   eval_lit ss (encode_preds_hold circ name lits) (n,F) =
-  if n = Name (Named (Ext name)) then
+  if n = Gate (Named (Ext name)) then
     preds_hold ss circ (set lits)
   else eval_lit ss circ (n,F)
 Proof
@@ -1011,7 +1011,7 @@ Definition encode_signal_imply_aux_def:
    let
      (circ, outs) = encode_signal_imply_aux circ rest rest' (next + 2);
      circ =
-       (Anon (next + 1), [(Name (Anon next), T)])
+       (Anon (next + 1), [(Gate (Anon next), T)])
        ::(Anon next, [signal; not signal'])
        ::circ;
      outs = (next + 1)::outs;
@@ -1034,7 +1034,7 @@ Definition encode_signal_imply_def:
        literals*)
     (circ, outs) = encode_signal_imply_aux circ signals signals' 1n;
   in
-    ((Named (Ext name), MAP (λn. Name (Anon n), F) outs)::circ)
+    ((Named (Ext name), MAP (λn. Gate (Anon n), F) outs)::circ)
 End
 
 Theorem encode_signal_imply_eval_circuit_Named[local]:
@@ -1092,7 +1092,7 @@ Theorem encode_signal_imply_aux_eval_lit[local]:
     EVERY (λx. iname x < next) signals' ∧
     LENGTH signals' = LENGTH signals ⇒
     ∀n. n < LENGTH signals ⇒
-        (eval_lit ss circ' (Name (Anon outs'❲n❳),F) ⇔
+        (eval_lit ss circ' (Gate (Anon outs'❲n❳),F) ⇔
            preds_hold ss circ {signals❲n❳} ⇒
            preds_hold ss circ {signals'❲n❳})
 Proof
@@ -1148,17 +1148,17 @@ Proof
   >> simp []
 QED
 
-Theorem eval_lit_encode_signal_imply_Name:
+Theorem eval_lit_encode_signal_imply_Gate:
   ∀signals' signals ss circ name n b.
     LENGTH signals' = LENGTH signals ∧
     EVERY (λx. iname x = 0) signals  ∧
     EVERY (λx. iname x = 0) signals'
     ⇒
     (eval_lit ss (encode_signal_imply circ name signals signals')
-       (Name (Named n), b) ⇔
+       (Gate (Named n), b) ⇔
      if n = Ext name then
        (b ⇎ signal_imply ss circ ss circ signals signals')
-     else eval_lit ss circ (Name (Named n), b))
+     else eval_lit ss circ (Gate (Named n), b))
 Proof
   rpt strip_tac >> simp [eval_circuit_def]
   >> drule_all eval_circuit_encode_signal_imply
@@ -1196,10 +1196,10 @@ Definition encode_lives_hold_def:
   let
     (circ, outs) = encode_lives_hold_aux circ live 1;
   in
-    (Named (Ext name),MAP (λn. (Name (Anon n),T)) outs)::circ
+    (Named (Ext name),MAP (λn. (Gate (Anon n),T)) outs)::circ
 End
 
-Theorem eval_circuit_encode_lives_hold_aux_Name[local]:
+Theorem eval_circuit_encode_lives_hold_aux_Named[local]:
   ∀live circ next circ' outs.
     (encode_lives_hold_aux circ live next = (circ', outs)
     ⇒
@@ -1258,7 +1258,7 @@ Theorem encode_lives_hold_aux_eval_lit[local]:
     EVERY (EVERY (λx. iname x < next)) live
     ⇒
     ∀n. n < LENGTH live ⇒
-       ((eval_lit ss circ' (MAP (λn. (Name (Anon n),T)) outs)❲n❳) ⇔
+       ((eval_lit ss circ' (MAP (λn. (Gate (Anon n),T)) outs)❲n❳) ⇔
         EXISTS (λp. preds_hold ss circ {p}) live❲n❳)
 Proof
   Induct >> rw [encode_lives_hold_aux_def]
@@ -1305,17 +1305,17 @@ Proof
     >> rewrite_tac [EXISTS_NOT_EVERY]
     >> drule_then assume_tac encode_lives_hold_aux_eval_lit
     >> simp [o_DEF])
-  >> drule eval_circuit_encode_lives_hold_aux_Name
+  >> drule eval_circuit_encode_lives_hold_aux_Named
   >> simp []
 QED
 
 Theorem eval_lit_encode_lives_hold_Named:
   EVERY (EVERY (λx. iname x = 0)) live
   ⇒
-  eval_lit ss (encode_lives_hold circ name live) (Name (Named n), b) =
+  eval_lit ss (encode_lives_hold circ name live) (Gate (Named n), b) =
   if n = Ext name then
     (b ⇎ lives_hold ss circ live)
-  else eval_lit ss circ (Name (Named n), b)
+  else eval_lit ss circ (Gate (Named n), b)
 Proof
   strip_tac >> simp [eval_circuit_def]
   >> drule_all eval_circuit_encode_lives_hold
@@ -1343,11 +1343,11 @@ Definition encode_is_witness_reset_def:
     circ = encode_is_reset circ «wreset» (iright_reset wreset) klatches;
     circ = encode_preds_hold circ «wcnstrs» (iright_name_lits wcnstrs);
     lhss =
-      [(Name (Named (Ext «mreset»)), F);
-       (Name (Named (Ext «mcnstrs»)), F)];
+      [(Gate (Named (Ext «mreset»)), F);
+       (Gate (Named (Ext «mcnstrs»)), F)];
     rhss =
-      [(Name (Named (Ext «wreset»)), F);
-       (Name (Named (Ext «wcnstrs»)), F)];
+      [(Gate (Named (Ext «wreset»)), F);
+       (Gate (Named (Ext «wcnstrs»)), F)];
   in
     encode_imply circ «reset» T lhss rhss
 End
@@ -1372,14 +1372,14 @@ Definition encode_is_witness_transition_def:
     circ  = encode_is_next circ «mnext» (iext_lit ∘ left_name_lit ∘ mnext) mlatches;
     circ  = encode_is_next circ «wnext» (iext_lit ∘ right_name_lit ∘ wnext) klatches;
     lhss  =
-      [(Name (Named (Ext «mnext»)), F);
-       iext_lit (left_lit (Name (Named (Ext «mcnstrs»)), F));
-       iext_lit (right_lit (Name (Named (Ext «mcnstrs»)), F));
-       iext_lit (left_lit (Name (Named (Ext «wcnstrs»)), F));
+      [(Gate (Named (Ext «mnext»)), F);
+       iext_lit (left_lit (Gate (Named (Ext «mcnstrs»)), F));
+       iext_lit (right_lit (Gate (Named (Ext «mcnstrs»)), F));
+       iext_lit (left_lit (Gate (Named (Ext «wcnstrs»)), F));
       ];
     rhss  =
-      [(Name (Named (Ext «wnext»)), F);
-       iext_lit (right_lit (Name (Named (Ext «wcnstrs»)), F))];
+      [(Gate (Named (Ext «wnext»)), F);
+       iext_lit (right_lit (Gate (Named (Ext «wcnstrs»)), F))];
   in
     encode_imply circ «transition» T lhss rhss
 End
@@ -1400,10 +1400,10 @@ Definition encode_is_witness_property_def:
     circ = encode_preds_hold circ «wcnstrs» (iright_name_lits wcnstrs);
     circ = encode_preds_hold circ «wpreds» (iright_name_lits wpreds);
     lhss =
-      [(Name (Named (Ext «mcnstrs»)),F);
-       (Name (Named (Ext «wcnstrs»)),F);
-       (Name (Named (Ext «wpreds»)),F)];
-    rhss = [(Name (Named (Ext «mpreds»)), F);]
+      [(Gate (Named (Ext «mcnstrs»)),F);
+       (Gate (Named (Ext «wcnstrs»)),F);
+       (Gate (Named (Ext «wpreds»)),F)];
+    rhss = [(Gate (Named (Ext «mpreds»)), F);]
   in
     encode_imply circ «property» T lhss rhss
 End
@@ -1422,9 +1422,9 @@ Definition encode_is_witness_base_def:
       circ = encode_preds_hold circ «wcnstrs» (MAP iext_lit wcnstrs);
       circ = encode_preds_hold circ «wpreds» (MAP iext_lit wpreds);
       lhss =
-        [(Name (Named (Ext «wreset»)),F);
-         (Name (Named (Ext «wcnstrs»)),F)];
-      rhss = [(Name (Named (Ext «wpreds»)), F)]
+        [(Gate (Named (Ext «wreset»)),F);
+         (Gate (Named (Ext «wcnstrs»)),F)];
+      rhss = [(Gate (Named (Ext «wpreds»)), F)]
   in
     encode_imply circ «base» T lhss rhss
 End
@@ -1444,11 +1444,11 @@ Definition encode_is_witness_step_def:
       circ = iext_circuit (pair_circuits circ circ);
       circ = encode_is_next circ «wnext» (iext_lit ∘ wnext) wlatches;
       lhss =
-        [iext_lit (left_lit (Name (Named (Ext «wpreds»)), F));
-         (Name (Named (Ext «wnext»)), F);
-         iext_lit (right_lit (Name (Named (Ext «wcnstrs»)), F));
-         iext_lit (left_lit (Name (Named (Ext «wcnstrs»)), F))];
-      rhss = [iext_lit (right_lit (Name (Named (Ext «wpreds»)), F))]
+        [iext_lit (left_lit (Gate (Named (Ext «wpreds»)), F));
+         (Gate (Named (Ext «wnext»)), F);
+         iext_lit (right_lit (Gate (Named (Ext «wcnstrs»)), F));
+         iext_lit (left_lit (Gate (Named (Ext «wcnstrs»)), F))];
+      rhss = [iext_lit (right_lit (Gate (Named (Ext «wpreds»)), F))]
     in
       encode_imply circ «step» T lhss rhss
 End
@@ -1483,21 +1483,21 @@ Definition encode_is_witness_liveness_def:
     circ = imerge_circuits circ qcirc;
     lhss = [
       iext_lit
-        (left_name_lit (iext_lit (left_lit (Name (Named (Ext «mcnstrs»)), F))));
+        (left_name_lit (iext_lit (left_lit (Gate (Named (Ext «mcnstrs»)), F))));
       iext_lit
-        (left_name_lit (iext_lit (left_lit (Name (Named (Ext «wcnstrs»)), F))));
+        (left_name_lit (iext_lit (left_lit (Gate (Named (Ext «wcnstrs»)), F))));
       iext_lit
-        (left_name_lit (iext_lit (left_lit (Name (Named (Ext «wpreds»)), F))));
+        (left_name_lit (iext_lit (left_lit (Gate (Named (Ext «wpreds»)), F))));
       iext_lit
-        (left_name_lit (iext_lit (right_lit (Name (Named (Ext «mcnstrs»)), F))));
+        (left_name_lit (iext_lit (right_lit (Gate (Named (Ext «mcnstrs»)), F))));
       iext_lit
-        (left_name_lit (iext_lit (right_lit (Name (Named (Ext «wcnstrs»)), F))));
+        (left_name_lit (iext_lit (right_lit (Gate (Named (Ext «wcnstrs»)), F))));
       iext_lit
-        (left_name_lit (iext_lit (right_lit (Name (Named (Ext «wpreds»)), F))));
+        (left_name_lit (iext_lit (right_lit (Gate (Named (Ext «wpreds»)), F))));
       iext_lit
-        (left_name_lit ((Name (Named (Ext «wnext»)), F)));
+        (left_name_lit ((Gate (Named (Ext «wnext»)), F)));
     ];
-    rhss = [iext_lit (right_name_lit (Name (Named (Ext «lives_imply»)), F))]
+    rhss = [iext_lit (right_name_lit (Gate (Named (Ext «lives_imply»)), F))]
   in
     encode_imply circ «liveness» T lhss rhss
 End
@@ -1525,17 +1525,17 @@ Definition encode_is_witness_decrease_def:
     circ = imerge_circuits circ qcirc;
     lhss = [
       iext_lit
-        (left_name_lit (iext_lit (left_lit (Name (Named (Ext «wcnstrs»)), F))));
+        (left_name_lit (iext_lit (left_lit (Gate (Named (Ext «wcnstrs»)), F))));
       iext_lit
-        (left_name_lit (iext_lit (left_lit (Name (Named (Ext «wpreds»)), F))));
+        (left_name_lit (iext_lit (left_lit (Gate (Named (Ext «wpreds»)), F))));
       iext_lit
-        (left_name_lit (iext_lit (right_lit (Name (Named (Ext «wcnstrs»)), F))));
+        (left_name_lit (iext_lit (right_lit (Gate (Named (Ext «wcnstrs»)), F))));
       iext_lit
-        (left_name_lit (iext_lit (right_lit (Name (Named (Ext «wpreds»)), F))));
+        (left_name_lit (iext_lit (right_lit (Gate (Named (Ext «wpreds»)), F))));
       iext_lit
-        (left_name_lit ((Name (Named (Ext «wnext»)), F)));
+        (left_name_lit ((Gate (Named (Ext «wnext»)), F)));
     ];
-    rhss = [iext_lit (right_name_lit (Name (Named (Ext «lives_hold»)), F))]
+    rhss = [iext_lit (right_name_lit (Gate (Named (Ext «lives_hold»)), F))]
   in
     encode_imply circ «decrease» T lhss rhss
 End
@@ -1570,26 +1570,26 @@ Definition encode_is_witness_closure_def:
     lhss = [
       iext_lit (left_name_lit (iext_lit (left_name_lit
         (iext_lit (left_lit (iext_lit (left_lit
-          (Name (Named (Ext «wcnstrs»)), F))))))));
+          (Gate (Named (Ext «wcnstrs»)), F))))))));
       iext_lit (left_name_lit (iext_lit (left_name_lit
         (iext_lit (left_lit (iext_lit (left_lit
-          (Name (Named (Ext «wpreds»)), F))))))));
+          (Gate (Named (Ext «wpreds»)), F))))))));
       iext_lit (left_name_lit (iext_lit (left_name_lit
         (iext_lit (left_lit (iext_lit (right_lit
-          (Name (Named (Ext «wcnstrs»)), F))))))));
+          (Gate (Named (Ext «wcnstrs»)), F))))))));
       iext_lit (left_name_lit (iext_lit (left_name_lit
         (iext_lit (left_lit (iext_lit (right_lit
-          (Name (Named (Ext «wpreds»)), F))))))));
+          (Gate (Named (Ext «wpreds»)), F))))))));
       iext_lit (left_name_lit (iext_lit (left_name_lit
-        (iext_lit (right_lit (Name (Named (Ext «wcnstrs»)), F))))));
+        (iext_lit (right_lit (Gate (Named (Ext «wcnstrs»)), F))))));
       iext_lit (left_name_lit (iext_lit (left_name_lit
-        (iext_lit (right_lit (Name (Named (Ext «wpreds»)), F))))));
+        (iext_lit (right_lit (Gate (Named (Ext «wpreds»)), F))))));
       iext_lit (left_name_lit (iext_lit (left_name_lit
-        (iext_lit (left_lit (Name (Named (Ext «wnext»)), F))))));
+        (iext_lit (left_lit (Gate (Named (Ext «wnext»)), F))))));
       iext_lit (left_name_lit (iext_lit (right_name_lit
-        (Name (Named (Ext «lives_hold02»)), F))))
+        (Gate (Named (Ext «lives_hold02»)), F))))
     ];
-    rhss = [iext_lit (right_name_lit (Name (Named (Ext «lives_hold12»)), F))]
+    rhss = [iext_lit (right_name_lit (Gate (Named (Ext «lives_hold12»)), F))]
   in
     encode_imply circ «closure» T lhss rhss
 End
@@ -1625,24 +1625,24 @@ Definition encode_is_witness_consistent_def:
     circ = imerge_circuits circ qcirc;
     lhss = [
       iext_lit (left_name_lit (iext_lit (left_lit
-        (iext_lit (left_lit (Name (Named (Ext «wcnstrs»)), F))))));
+        (iext_lit (left_lit (Gate (Named (Ext «wcnstrs»)), F))))));
       iext_lit (left_name_lit (iext_lit (left_lit
-        (iext_lit (left_lit (Name (Named (Ext «wpreds»)), F))))));
+        (iext_lit (left_lit (Gate (Named (Ext «wpreds»)), F))))));
       iext_lit (left_name_lit (iext_lit (left_lit
-        (iext_lit (right_lit (Name (Named (Ext «wcnstrs»)), F))))));
+        (iext_lit (right_lit (Gate (Named (Ext «wcnstrs»)), F))))));
       iext_lit (left_name_lit (iext_lit (left_lit
-        (iext_lit (right_lit (Name (Named (Ext «wpreds»)), F))))));
+        (iext_lit (right_lit (Gate (Named (Ext «wpreds»)), F))))));
       iext_lit (left_name_lit (iext_lit (right_lit
-        (Name (Named (Ext «wcnstrs»)), F))));
+        (Gate (Named (Ext «wcnstrs»)), F))));
       iext_lit (left_name_lit (iext_lit (right_lit
-        (Name (Named (Ext «wpreds»)), F))));
+        (Gate (Named (Ext «wpreds»)), F))));
       iext_lit (left_name_lit (iext_lit (left_lit
-        (Name (Named (Ext «wnext»)), F))));
-      iext_lit (left_name_lit (Name (Named (Ext «wnext»)), F));
-      iext_lit (right_name_lit (Name (Named (Ext «lives_hold01»)), F));
-      iext_lit (right_name_lit (Name (Named (Ext «lives_hold12»)), F))
+        (Gate (Named (Ext «wnext»)), F))));
+      iext_lit (left_name_lit (Gate (Named (Ext «wnext»)), F));
+      iext_lit (right_name_lit (Gate (Named (Ext «lives_hold01»)), F));
+      iext_lit (right_name_lit (Gate (Named (Ext «lives_hold12»)), F))
       ];
-    rhss = [iext_lit (right_name_lit (Name (Named (Ext «lives_imply»)), F))];
+    rhss = [iext_lit (right_name_lit (Gate (Named (Ext «lives_imply»)), F))];
   in
     encode_imply circ «consistent» T lhss rhss
 End
@@ -2490,7 +2490,7 @@ Proof
    (unabbrev_all_tac
     >> simp [EVERY_MEM, ileft_name_lits_def, iright_name_lits_def,
              GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS])
-  >> drule_all_then assume_tac eval_lit_encode_signal_imply_Name
+  >> drule_all_then assume_tac eval_lit_encode_signal_imply_Gate
   >> simp [is_witness_liveness_def, lives_imply_signal_imply_FLAT]
   >> sg ‘LIST_REL (λws ms. LENGTH ws = LENGTH ms) wlive' mlive'’
   >-
@@ -2644,7 +2644,7 @@ Proof
     >> simp [EVERY_MEM, MEM_FLAT, MEM_MAP, ileft_name_lits_def,
              iright_name_lits_def, PULL_EXISTS])
   >> simp [Req0 eval_lit_encode_lives_hold_Named]
-  >> simp [Req0 eval_lit_encode_signal_imply_Name]
+  >> simp [Req0 eval_lit_encode_signal_imply_Gate]
   >> unabbrev_all_tac
   >> simp [lives_hold_lr_r_eq, lives_imply_signal_imply_FLAT]
   >> qmatch_goalsub_abbrev_tac ‘LIST_REL _ xs _’
@@ -2660,8 +2660,8 @@ QED
 (* Given a circuit and a name, finds the first match, returning its
    input literals and the rest of the circuit. *)
 (* To motivate this function, consider the simple circuit
-   [(Name 0, [(Name 0, F)])]
-   Repeatedly applying ALOOKUP to find the dependencies of Name 0 would lead to
+   [(Gate 0, [(Gate 0, F)])]
+   Repeatedly applying ALOOKUP to find the dependencies of Gate 0 would lead to
    a loop. In contrast, by using the rest returned by circ_lookup, the second
    invocation of circ_lookup would return NONE, breaking the loop. *)
 Definition circ_lookup_def:
@@ -2687,7 +2687,7 @@ Definition latch_deps_def:
    let (v, _) = lit in
      case v of
      | Base (Latch l) => [l]
-     | Name a =>
+     | Gate a =>
          (case circ_lookup circ a of
           | NONE => []
           | SOME (lits, rest) =>
@@ -2700,7 +2700,7 @@ End
 
 Theorem latch_deps_cons_name_neq[local]:
   n' ≠ n ⇒
-  latch_deps ((n',ins)::circ) (Name n,b) = latch_deps circ (Name n,b)
+  latch_deps ((n',ins)::circ) (Gate n,b) = latch_deps circ (Gate n,b)
 Proof
   simp [Once latch_deps_def, SimpLHS]
   >> simp [Once latch_deps_def, SimpRHS]
@@ -2709,7 +2709,7 @@ QED
 
 Theorem MEM_latch_deps_name_eq:
   MEM x ins ∧ MEM l (latch_deps circ x) ⇒
-  MEM l (latch_deps ((n,ins)::circ) (Name n,b))
+  MEM l (latch_deps ((n,ins)::circ) (Gate n,b))
 Proof
   strip_tac
   >> simp [Once latch_deps_def, circ_lookup_def]
@@ -2724,7 +2724,7 @@ Theorem latch_deps_eval_eq:
      (eval_lit (is,ls') circ lit ⇔ eval_lit (is,ls) circ lit)) ∧
   (∀lit n b.
     (∀l. MEM l (latch_deps circ lit) ⇒ (ls' l ⇔ ls l)) ∧
-    lit = (Name n, b) ⇒
+    lit = (Gate n, b) ⇒
     (eval_circuit (is,ls') circ n ⇔ eval_circuit (is,ls) circ n))
 Proof
   Induct_on ‘circ’ >> rw []

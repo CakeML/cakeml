@@ -61,7 +61,7 @@ Datatype:
 End
 
 Datatype:
-  var = Name 'a | Base (('i,'l) bvar)
+  var = Gate 'a | Base (('i,'l) bvar)
 End
 
 Type inputs = “:'i -> bool”
@@ -94,7 +94,7 @@ Definition eval_circuit_def:
   (eval_lit (ss : 'i inputs # 'l state) circ ((v,b):('a,'i,'l) lit) =
     case v of
     | Base bv => b ⇎ eval_bvar ss bv
-    | Name n => b ⇎ eval_circuit ss circ n) ∧
+    | Gate n => b ⇎ eval_circuit ss circ n) ∧
   (eval_circuit ss ([]:('a,'i,'l) circuit) n = F) ∧
   (eval_circuit ss (h::tl) n =
    let (n', ins) = h in
@@ -270,7 +270,7 @@ End
 
 Definition var_inputs_def:
   (var_inputs (Base bv) = bvar_inputs bv) ∧
-  (var_inputs (Name _)  = [])
+  (var_inputs (Gate _)  = [])
 End
 
 Definition lit_inputs_def:
@@ -294,7 +294,7 @@ End
 
 Definition var_latches_def:
   (var_latches (Base bv) = bvar_latches bv) ∧
-  (var_latches (Name _)  = [])
+  (var_latches (Gate _)  = [])
 End
 
 Definition lit_latches_def:
@@ -326,7 +326,7 @@ Definition dep_bvar_def[simp]:
 End
 
 Definition dep_var_def[simp]:
-  (dep_var inputs latches (Name _)  = T) ∧
+  (dep_var inputs latches (Gate _)  = T) ∧
   (dep_var inputs latches (Base bv) = dep_bvar inputs latches bv)
 End
 
