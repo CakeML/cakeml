@@ -91,40 +91,40 @@ End
 Definition parse_def:
   parse mstr wstr =
   do
-    (maig, rest) <- parse_aiger mstr 0;
-    (waig, maps, rest) <- parse_aiger_and_symbols wstr 0;
-    return (maig, waig, maps)
+    (maiger, rest) <- parse_aiger mstr 0;
+    (waiger, maps, rest) <- parse_aiger_and_symbols wstr 0;
+    return (maiger, waiger, maps)
   od
 End
 
 (* TODO Pad to short witness signals/justices; did this in the past *)
 
 Definition preprocess_def:
-  preprocess maig waig ms =
+  preprocess maiger waiger ms =
   let
     (* -- model -- *)
-    mcounts = maig.counts;
+    mcounts = maiger.counts;
     micnt = mcounts.inputs;
     mlcnt = mcounts.latches;
     mlatch_start = micnt + 1;
     mmax_latch = micnt + mlcnt;
-    mcirc = maig.circuit;
-    mreset = fromAList maig.reset;
+    maig = maiger.aig;
+    mreset = fromAList maiger.reset;
     mreset = (λl. lookup l mreset);
-    mnext = fromAList maig.next;
+    mnext = fromAList maiger.next;
     mnext  = (λl. case lookup l mnext of
                     | SOME lit => lit
                     | NONE => (Base Ff, F) (* should not happen *));
     mpreds =
       MAP not
-        (if mcounts.bad = 0 ∧ mcounts.justice = 0 then maig.outputs
-         else maig.bad);
-    mcnstrs = maig.constraints;
-    mfair = MAP not maig.fairness;
-    mjust = maig.justice;
+        (if mcounts.bad = 0 ∧ mcounts.justice = 0 then maiger.outputs
+         else maiger.bad);
+    mcnstrs = maiger.constraints;
+    mfair = MAP not maiger.fairness;
+    mjust = maiger.justice;
     mlive = MAP (λsignals. mfair ++ (MAP not signals)) mjust;
     (* -- witness -- *)
-    wcounts = waig.counts;
+    wcounts = waiger.counts;
     wicnt = wcounts.inputs;
     wlcnt = wcounts.latches;
     wlatch_start = wicnt + 1;
@@ -135,24 +135,24 @@ Definition preprocess_def:
       if isEmpty iren ∧ isEmpty lren then
         default_shared micnt mlcnt wicnt wlcnt
       else (iren, lren);
-    wcirc = shared_circuit micnt mlcnt iren lren waig.circuit;
-    wreset = fromAList (shared_latches micnt mlcnt iren lren waig.reset);
+    waig = shared_aig micnt mlcnt iren lren waiger.aig;
+    wreset = fromAList (shared_latches micnt mlcnt iren lren waiger.reset);
     wreset = (λl. lookup l wreset);
-    wnext_alist = shared_latches micnt mlcnt iren lren waig.next;
+    wnext_alist = shared_latches micnt mlcnt iren lren waiger.next;
     wnext = fromAList wnext_alist;
     wnext  = (λl. case lookup l wnext of
                     | SOME lit => lit
                     | NONE => (Base Ff, F));
     wpreds =
       MAP (not ∘ shared_lit micnt mlcnt iren lren)
-        (if wcounts.bad = 0 ∧ wcounts.justice = 0 then waig.outputs
-         else waig.bad);
-    wcnstrs = MAP (shared_lit micnt mlcnt iren lren) waig.constraints;
+        (if wcounts.bad = 0 ∧ wcounts.justice = 0 then waiger.outputs
+         else waiger.bad);
+    wcnstrs = MAP (shared_lit micnt mlcnt iren lren) waiger.constraints;
     wlatches =
       GENLIST (λk. shared_latch_key micnt mlcnt iren lren (wlatch_start + k))
         wlcnt;
-    wfair = MAP (not ∘ shared_lit micnt mlcnt iren lren) waig.fairness;
-    wjust = waig.justice;
+    wfair = MAP (not ∘ shared_lit micnt mlcnt iren lren) waiger.fairness;
+    wjust = waiger.justice;
     wlive =
       MAP
         (λsignals.
@@ -166,23 +166,23 @@ Definition preprocess_def:
     (* By returning the model latches as a range, we can implement some
        set operations such as intersection more efficiently; see
        process_mlatches_range. *)
-    (mcirc, mreset, mnext, mpreds, mcnstrs, mlive, mlatch_start, mmax_latch,
-     wcirc, wreset, wnext, wpreds, wcnstrs, wlive, wlatches, interv)
+    (maig, mreset, mnext, mpreds, mcnstrs, mlive, mlatch_start, mmax_latch,
+     waig, wreset, wnext, wpreds, wcnstrs, wlive, wlatches, interv)
 End
 
 (* Processes the model latch range.
-   - Checks that dependencies of the model circuit, model properties, etc., are
+   - Checks that dependencies of the model AIG, model properties, etc., are
      contained in the range.
    - If the check succeeds, it returns the list of model latches and its
      intersection with the witness latches. *)
 Definition process_mlatches_range_def:
   process_mlatches_range
-    mcirc mreset mnext mpreds mcnstrs mlatch_start mmax_latch mlive wlatches
+    maig mreset mnext mpreds mcnstrs mlatch_start mmax_latch mlive wlatches
   =
   let
     mlatches = [mlatch_start .. mmax_latch];
     klatches = range_inter mlatch_start mmax_latch wlatches;
-    circ_latches = circuit_latches mcirc;
+    maig_latches = aig_latches maig;
     pred_latches = FLAT (MAP lit_latches mpreds);
     cnstrs_latches = FLAT (MAP lit_latches mcnstrs);
     next_latches = FLAT (MAP (lit_latches ∘ mnext) mlatches);
@@ -192,7 +192,7 @@ Definition process_mlatches_range_def:
   in
     do
       assert «circuit mentions latches outside of mlatches»
-        (range_is_subset circ_latches mlatch_start mmax_latch);
+        (range_is_subset maig_latches mlatch_start mmax_latch);
       assert «predicates mention latches outside of mlatches»
         (range_is_subset pred_latches mlatch_start mmax_latch);
       assert «constraints mention latches outside of mlatches»
@@ -211,10 +211,10 @@ val monad_thms = [oneline bind_def, guard_def]
 
 Theorem process_mlatches_range_return:
   process_mlatches_range
-    mcirc mreset mnext mpreds mcnstrs mlatch_start mmax_latch mlive wlatches =
+    maig mreset mnext mpreds mcnstrs mlatch_start mmax_latch mlive wlatches =
   return (mlatches, klatches) ⇒
   set klatches = set mlatches ∩ set wlatches ∧
-  dep_cond mcirc mreset mnext mpreds mcnstrs mlive mlatches
+  dep_cond maig mreset mnext mpreds mcnstrs mlive mlatches
 Proof
   simp [process_mlatches_range_def, dep_cond_def]
   >> rw monad_thms
@@ -223,40 +223,40 @@ Proof
 QED
 
 Definition process_and_check_def:
-  process_and_check maig waig ms =
+  process_and_check maiger waiger ms =
   do
-    (mcirc, mreset, mnext, mpreds, mcnstrs, mlive, mlatch_start, mmax_latch,
-     wcirc, wreset, wnext, wpreds, wcnstrs, wlive, wlatches, interv) <<-
-      preprocess maig waig ms;
+    (maig, mreset, mnext, mpreds, mcnstrs, mlive, mlatch_start, mmax_latch,
+     waig, wreset, wnext, wpreds, wcnstrs, wlive, wlatches, interv) <<-
+      preprocess maiger waiger ms;
     (mlatches, klatches) <-
-      process_mlatches_range mcirc mreset mnext mpreds mcnstrs
+      process_mlatches_range maig mreset mnext mpreds mcnstrs
         mlatch_start mmax_latch mlive wlatches;
     assert «length mismatch in number of liveness properties/signals»
       (LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive wlive);
-   assert «witness not stratified» (stratified_cond wcirc wreset wlatches);
+   assert «witness not stratified» (stratified_cond waig wreset wlatches);
     return
-      (mcirc, mreset, mnext, mpreds, mcnstrs, mlive, mlatches,
-       wcirc, wreset, wnext, wpreds, wcnstrs, wlive, wlatches,
+      (maig, mreset, mnext, mpreds, mcnstrs, mlive, mlatches,
+       waig, wreset, wnext, wpreds, wcnstrs, wlive, wlatches,
        interv, klatches)
   od
 End
 
 Theorem process_and_check_return:
-  process_and_check maig waig ms =
+  process_and_check maiger waiger ms =
     return
-      (mcirc, mreset, mnext, mpreds, mcnstrs, mlive, mlatches,
-       wcirc, wreset, wnext, wpreds, wcnstrs, wlive, wlatches,
+      (maig, mreset, mnext, mpreds, mcnstrs, mlive, mlatches,
+       waig, wreset, wnext, wpreds, wcnstrs, wlive, wlatches,
        interv, klatches)
   ∧
   encodings_unsat
-    mcirc mreset mnext mpreds mcnstrs mlive mlatches
-    wcirc wreset wnext wpreds wcnstrs wlive wlatches
+    maig mreset mnext mpreds mcnstrs mlive mlatches
+    waig wreset wnext wpreds wcnstrs wlive wlatches
     interv klatches
   ⇒
   is_safe
-    mcirc mreset mnext (set mcnstrs) (set mlatches) (set mpreds) ∧
+    maig mreset mnext (set mcnstrs) (set mlatches) (set mpreds) ∧
   is_live
-    mcirc mreset mnext (set mcnstrs) (qleft mcirc) (qleft_live mlive)
+    maig mreset mnext (set mcnstrs) (qleft maig) (qleft_live mlive)
     (set mlatches)
 Proof
   simp [process_and_check_def]
@@ -277,130 +277,130 @@ QED
 
 Definition make_reset_string_def:
   make_reset_string
-    (mcirc: (num, num, num) circuit) mreset mcnstrs mlatches
-    (wcirc: (num, num, num) circuit) wreset wcnstrs wlatches klatches
+    (maig: (num, num, num) aig) mreset mcnstrs mlatches
+    (waig: (num, num, num) aig) wreset wcnstrs wlatches klatches
   =
   let
     name = «reset»;
-    circ =
+    aig  =
       encode_is_witness_reset
-        mcirc mreset mcnstrs mlatches
-        wcirc wreset wcnstrs wlatches klatches;
-    cnf = aig_to_cnf circ (Named (Ext name))
+        maig mreset mcnstrs mlatches
+        waig wreset wcnstrs wlatches klatches;
+    cnf = aig_to_cnf aig (Named (Ext name))
   in
     (name, cnf_to_string cnf)
 End
 
 Definition make_transition_string_def:
   make_transition_string
-    (mcirc: (num, num, num) circuit) mnext mcnstrs mlatches
-    (wcirc: (num, num, num) circuit) wnext wcnstrs wlatches klatches
+    (maig: (num, num, num) aig) mnext mcnstrs mlatches
+    (waig: (num, num, num) aig) wnext wcnstrs wlatches klatches
   =
   let
     name = «transition»;
-    circ =
+    aig  =
       encode_is_witness_transition
-        mcirc mnext mcnstrs mlatches
-        wcirc wnext wcnstrs wlatches klatches;
-    cnf = aig_to_cnf circ (Named (Ext name))
+        maig mnext mcnstrs mlatches
+        waig wnext wcnstrs wlatches klatches;
+    cnf = aig_to_cnf aig (Named (Ext name))
   in
     (name, cnf_to_string cnf)
 End
 
 Definition make_property_string_def:
   make_property_string
-    (mcirc: (num, num, num) circuit) mcnstrs mpreds
-    (wcirc: (num, num, num) circuit) wcnstrs wpreds
+    (maig: (num, num, num) aig) mcnstrs mpreds
+    (waig: (num, num, num) aig) wcnstrs wpreds
   =
   let
     name = «property»;
-    circ =
-      encode_is_witness_property mcirc mcnstrs mpreds wcirc wcnstrs wpreds;
-    cnf = aig_to_cnf circ (Named (Ext name))
+    aig  =
+      encode_is_witness_property maig mcnstrs mpreds waig wcnstrs wpreds;
+    cnf = aig_to_cnf aig (Named (Ext name))
   in
     (name, cnf_to_string cnf)
 End
 
 Definition make_base_string_def:
   make_base_string
-    (wcirc: (num, num, num) circuit) wreset wcnstrs wpreds wlatches
+    (waig: (num, num, num) aig) wreset wcnstrs wpreds wlatches
   =
   let
     name = «base»;
-    circ =
-      encode_is_witness_base wcirc wreset wcnstrs wpreds wlatches;
-    cnf = aig_to_cnf circ (Named (Ext name))
+    aig  =
+      encode_is_witness_base waig wreset wcnstrs wpreds wlatches;
+    cnf = aig_to_cnf aig (Named (Ext name))
   in
     (name, cnf_to_string cnf)
 End
 
 Definition make_step_string_def:
   make_step_string
-    (wcirc: (num, num, num) circuit) wnext wcnstrs wpreds wlatches
+    (waig: (num, num, num) aig) wnext wcnstrs wpreds wlatches
   =
   let
     name = «step»;
-    circ =
-      encode_is_witness_step wcirc wnext wcnstrs wpreds wlatches;
-    cnf = aig_to_cnf circ (Named (Ext name))
+    aig  =
+      encode_is_witness_step waig wnext wcnstrs wpreds wlatches;
+    cnf = aig_to_cnf aig (Named (Ext name))
   in
     (name, cnf_to_string cnf)
 End
 
 Definition make_liveness_string_def:
   make_liveness_string
-    (mcirc: (num, num, num) circuit) mcnstrs mlive
-    (wcirc: (num, num, num) circuit) wnext wcnstrs wpreds wlive wlatches interv
+    (maig: (num, num, num) aig) mcnstrs mlive
+    (waig: (num, num, num) aig) wnext wcnstrs wpreds wlive wlatches interv
   =
   let
     name = «liveness»;
-    circ =
+    aig  =
       encode_is_witness_liveness
-        mcirc mcnstrs mlive
-        wcirc wnext wcnstrs wpreds wlive wlatches interv;
-    cnf = aig_to_cnf circ (Named (Ext name))
+        maig mcnstrs mlive
+        waig wnext wcnstrs wpreds wlive wlatches interv;
+    cnf = aig_to_cnf aig (Named (Ext name))
   in
     (name, cnf_to_string cnf)
 End
 
 Definition make_decrease_string_def:
   make_decrease_string
-    (wcirc: (num, num, num) circuit) wnext wcnstrs wpreds wlive wlatches interv
+    (waig: (num, num, num) aig) wnext wcnstrs wpreds wlive wlatches interv
   =
   let
     name = «decrease»;
-    circ =
+    aig  =
       encode_is_witness_decrease
-        wcirc wnext wcnstrs wpreds wlive wlatches interv;
-    cnf = aig_to_cnf circ (Named (Ext name))
+        waig wnext wcnstrs wpreds wlive wlatches interv;
+    cnf = aig_to_cnf aig (Named (Ext name))
   in
     (name, cnf_to_string cnf)
 End
 
 Definition make_closure_string_def:
   make_closure_string
-    (wcirc: (num, num, num) circuit) wnext wcnstrs wpreds wlive wlatches interv
+    (waig: (num, num, num) aig) wnext wcnstrs wpreds wlive wlatches interv
   =
   let
     name = «closure»;
-    circ =
+    aig  =
       encode_is_witness_closure
-        wcirc wnext wcnstrs wpreds wlive wlatches interv;
-    cnf = aig_to_cnf circ (Named (Ext name))
+        waig wnext wcnstrs wpreds wlive wlatches interv;
+    cnf = aig_to_cnf aig (Named (Ext name))
   in
     (name, cnf_to_string cnf)
 End
 
 Definition make_consistent_string_def:
   make_consistent_string
-    (wcirc: (num, num, num) circuit) wnext wcnstrs wpreds wlive wlatches interv
+    (waig: (num, num, num) aig) wnext wcnstrs wpreds wlive wlatches interv
   =
   let
     name = «consistent»;
-    circ =
+    aig  =
       encode_is_witness_consistent
-        wcirc wnext wcnstrs wpreds wlive wlatches interv;
-    cnf = aig_to_cnf circ (Named (Ext name))
+        waig wnext wcnstrs wpreds wlive wlatches interv;
+    cnf = aig_to_cnf aig (Named (Ext name))
   in
     (name, cnf_to_string cnf)
 End

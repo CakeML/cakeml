@@ -18,4 +18,4 @@ val r = translate aigTheory.bvar_latches_def;
 val r = translate aigTheory.var_latches_def;
 val r = translate aigTheory.lit_latches_def;
 val r = translate aigTheory.and_latches_def;
-val r = translate aigTheory.circuit_latches_def;
+val r = translate aigTheory.aig_latches_def;

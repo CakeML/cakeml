@@ -82,7 +82,7 @@ QED
 
 Type lit[pp] = “:('a,'i,'l) var # bool”
 Type and[pp] = “:'a # (('a,'i,'l) lit list)”
-Type circuit[pp] = “:('a,'i,'l) and list”
+Type aig[pp] = “:('a,'i,'l) and list”
 
 Overload TT = “(Base Ff, T)”
 Overload FF = “(Base Ff, F)”
@@ -90,28 +90,28 @@ Overload FF = “(Base Ff, F)”
 (* Note that we can conjunction over a list of literals as opposed to a pair.
    If needed, we can apply a reduction at the end, allowing for simpler
    definitions for operations such as equivalence.  *)
-Definition eval_circuit_def:
-  (eval_lit (ss : 'i inputs # 'l state) circ ((v,b):('a,'i,'l) lit) =
+Definition eval_lit_def:
+  (eval_lit (ss : 'i inputs # 'l state) aig ((v,b):('a,'i,'l) lit) =
     case v of
     | Base bv => b ⇎ eval_bvar ss bv
-    | Gate n => b ⇎ eval_circuit ss circ n) ∧
-  (eval_circuit ss ([]:('a,'i,'l) circuit) n = F) ∧
-  (eval_circuit ss (h::tl) n =
+    | Gate n => b ⇎ eval_gate ss aig n) ∧
+  (eval_gate ss ([]:('a,'i,'l) aig) n = F) ∧
+  (eval_gate ss (h::tl) n =
    let (n', ins) = h in
      if n' = n then EVERY (eval_lit ss tl) ins
-     else eval_circuit ss tl n)
+     else eval_gate ss tl n)
 End
 
-Theorem eval_circuit_nil[simp]:
-  ¬eval_circuit ss [] n
+Theorem eval_gate_nil[simp]:
+  ¬eval_gate ss [] n
 Proof
-  simp [eval_circuit_def]
+  simp [eval_lit_def]
 QED
 
 Theorem eval_lit_flip:
-  eval_lit ss circ (v,¬b) ⇔ ¬eval_lit ss circ (v,b)
+  eval_lit ss aig (v,¬b) ⇔ ¬eval_lit ss aig (v,b)
 Proof
-  once_rewrite_tac [eval_circuit_def] >> CASE_TAC >> metis_tac []
+  once_rewrite_tac [eval_lit_def] >> CASE_TAC >> metis_tac []
 QED
 
 Definition not_def:
@@ -119,14 +119,14 @@ Definition not_def:
 End
 
 Theorem eval_lit_not:
-  eval_lit ss circ (not x) ⇔ ¬eval_lit ss circ x
+  eval_lit ss aig (not x) ⇔ ¬eval_lit ss aig x
 Proof
   Cases_on ‘x’ >> simp [not_def, eval_lit_flip]
 QED
 
 (*
-EVAL``eval_lit (is,ls) circ TT``
-EVAL``eval_lit (is,ls) circ FF``
+EVAL``eval_lit (is,ls) aig TT``
+EVAL``eval_lit (is,ls) aig FF``
 *)
 
 Definition pair_state_def:
@@ -150,76 +150,76 @@ Proof
 QED
 
 Definition preds_hold_def:
-  preds_hold ss (circ: ('a, 'i, 'l) circuit)
+  preds_hold ss (aig: ('a, 'i, 'l) aig)
     (ns: ('a,'i,'l) lit set) =
-  (∀n. n ∈ ns ⇒ eval_lit ss circ n)
+  (∀n. n ∈ ns ⇒ eval_lit ss aig n)
 End
 
 Definition is_reset_def:
-  is_reset ss (circ: ('a, 'i, 'l) circuit)
+  is_reset ss (aig: ('a, 'i, 'l) aig)
     (reset: 'l -> ('a,'i,'l) lit option) (ls: 'l set) =
   ∀lat lit.
     lat ∈ ls ∧ reset lat = SOME lit ⇒
-    eval_lit ss circ (Base (Latch lat), F) =
-    eval_lit ss circ lit
+    eval_lit ss aig (Base (Latch lat), F) =
+    eval_lit ss aig lit
 End
 
 Definition is_next_def:
-  is_next ss₀ (circ: ('a, 'i, 'l) circuit)
+  is_next ss₀ (aig: ('a, 'i, 'l) aig)
     (next: 'l -> ('a,'i,'l) lit) (latches: 'l set) ls₁ =
   ∀l. l ∈ latches ⇒
-      eval_lit ss₀ circ (next l) = ls₁ l
+      eval_lit ss₀ aig (next l) = ls₁ l
 End
 
 Definition is_trace_def:
-  is_trace (circ: ('a, 'i, 'l) circuit)
+  is_trace (aig: ('a, 'i, 'l) aig)
     (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
     (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
     (tr: ('i, 'l) trace) (n: num)
   ⇔
-    (is_reset (tr 0) circ reset latches ∧
-     preds_hold (tr 0) circ cnstrs) ∧
+    (is_reset (tr 0) aig reset latches ∧
+     preds_hold (tr 0) aig cnstrs) ∧
     ∀i. i < n ⇒
-      is_next (tr i) circ next latches (SND (tr (i + 1))) ∧
-      preds_hold (tr (i + 1)) circ cnstrs
+      is_next (tr i) aig next latches (SND (tr (i + 1))) ∧
+      preds_hold (tr (i + 1)) aig cnstrs
 End
 
 Definition is_unsafe_def:
-  is_unsafe (circ: ('a, 'i, 'l) circuit)
+  is_unsafe (aig: ('a, 'i, 'l) aig)
     (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
     (cnstrs: ('a,'i,'l) lit set) (latches: 'l set) (safe: ('a,'i,'l) lit set)
   =
   ∃(tr: ('i, 'l) trace) (n: num).
-    is_trace circ reset next cnstrs latches tr n ∧
-    ¬preds_hold (tr n) circ safe
+    is_trace aig reset next cnstrs latches tr n ∧
+    ¬preds_hold (tr n) aig safe
 End
 
 Definition is_safe_def:
-  is_safe (circ: ('a, 'i, 'l) circuit)
+  is_safe (aig: ('a, 'i, 'l) aig)
     (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
     (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
     (safe: ('a,'i,'l) lit set) ⇔
-  ¬is_unsafe circ reset next cnstrs latches safe
+  ¬is_unsafe aig reset next cnstrs latches safe
 End
 
 (* Liveness *******************************************************************)
 
 Definition is_inf_trace_def:
-  is_inf_trace (circ: ('a, 'i, 'l) circuit)
+  is_inf_trace (aig: ('a, 'i, 'l) aig)
     (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
     (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
     (tr: ('i, 'l) trace)
   ⇔
-    (is_reset (tr 0) circ reset latches ∧
-     preds_hold (tr 0) circ cnstrs) ∧
+    (is_reset (tr 0) aig reset latches ∧
+     preds_hold (tr 0) aig cnstrs) ∧
     ∀i.
-      is_next (tr i) circ next latches (SND (tr (i + 1))) ∧
-      preds_hold (tr (i + 1)) circ cnstrs
+      is_next (tr i) aig next latches (SND (tr (i + 1))) ∧
+      preds_hold (tr (i + 1)) aig cnstrs
 End
 
 Theorem is_inf_trace_eq:
-  is_inf_trace circ reset next cnstrs latches tr ⇔
-  ∀n. is_trace circ reset next cnstrs latches tr n
+  is_inf_trace aig reset next cnstrs latches tr ⇔
+  ∀n. is_trace aig reset next cnstrs latches tr n
 Proof
   eq_tac>>
   rw[is_inf_trace_def,is_trace_def]>>
@@ -228,25 +228,25 @@ Proof
 QED
 
 Definition is_live_def:
-  is_live (circ: ('a, 'i, 'l) circuit) (reset: 'l -> ('a,'i,'l) lit option)
+  is_live (aig: ('a, 'i, 'l) aig) (reset: 'l -> ('a,'i,'l) lit option)
     (next: 'l -> ('a,'i,'l) lit) (cnstrs: ('a,'i,'l) lit set)
-    (qcirc: ('b, 'i + 'i, 'l + 'l) circuit)
+    (qaig: ('b, 'i + 'i, 'l + 'l) aig)
     (live: ('b, 'i + 'i, 'l + 'l) lit list list) (latches: 'l set) =
   ∀tr.
-    is_inf_trace circ reset next cnstrs latches tr ⇒
+    is_inf_trace aig reset next cnstrs latches tr ⇒
     ∀prop. MEM prop live ⇒
       ∃k signal.
         MEM signal prop ∧
         (∀i. k ≤ i ⇒
-             preds_hold (pair_state (tr i) (tr (i + 1))) qcirc {signal})
+             preds_hold (pair_state (tr i) (tr (i + 1))) qaig {signal})
 End
 
-(* Circuit Dependencies *******************************************************)
+(* AIG Dependencies ***********************************************************)
 
 (* While state and input are defined over the entirety of (potentially infinite)
-   domains, a circuit can only depend on a finite subset of these domains, as
+   domains, an AIG can only depend on a finite subset of these domains, as
    we have a finite amount of gates.
-   We formalize this notion in dep_circuit. *)
+   We formalize this notion in dep_aig. *)
 
 Definition agree_on_def:
   agree_on (inputs: 'i set) (latches: 'l set) (is', ls') (is, ls) ⇔
@@ -281,8 +281,8 @@ Definition and_inputs_def:
   and_inputs ((_, lits): ('a,'i,'l) and) = FLAT (MAP lit_inputs lits)
 End
 
-Definition circuit_inputs_def:
-  circuit_inputs (circ: ('a,'i,'l) circuit) = FLAT (MAP and_inputs circ)
+Definition aig_inputs_def:
+  aig_inputs (aig: ('a,'i,'l) aig) = FLAT (MAP and_inputs aig)
 End
 
 (* Used Latches ****************************************************************)
@@ -305,18 +305,18 @@ Definition and_latches_def:
   and_latches ((_, lits): ('a,'i,'l) and) = FLAT (MAP lit_latches lits)
 End
 
-Definition circuit_latches_def:
-  circuit_latches (circ: ('a,'i,'l) circuit) = FLAT (MAP and_latches circ)
+Definition aig_latches_def:
+  aig_latches (aig: ('a,'i,'l) aig) = FLAT (MAP and_latches aig)
 End
 
 (* Syntactic Dependencies *****************************************************)
 
-Definition dep_circuit_def:
-  dep_circuit inputs latches circ =
+Definition dep_aig_def:
+  dep_aig inputs latches aig =
   ∀n ss' ss.
     agree_on inputs latches ss' ss
     ⇒
-    eval_circuit ss' circ n = eval_circuit ss circ n
+    eval_gate ss' aig n = eval_gate ss aig n
 End
 
 Definition dep_bvar_def[simp]:
@@ -361,51 +361,51 @@ End
 (* TODO Is there a better name for this? It feels like this is a component of
    stratification, but not the entirety (since stratified_full exists) *)
 Definition is_stratified_def:
-  is_stratified lt circ reset latches ⇔
+  is_stratified lt aig reset latches ⇔
     ∀lat lit is ls' ls.
       lat ∈ latches ∧ reset lat = SOME lit ∧
       (∀l. l ∈ { l' | lt l' lat } ⇒ (ls' l ⇔ ls l)) ⇒
-      (eval_lit (is,ls') circ lit ⇔ eval_lit (is,ls) circ lit)
+      (eval_lit (is,ls') aig lit ⇔ eval_lit (is,ls) aig lit)
 End
 
 Definition patch_def:
-  (patch circ reset is (ls: 'l state) ([]: 'l list) = ls) ∧
-  (patch circ reset is ls (latch::rest) =
-   patch circ reset is
+  (patch aig reset is (ls: 'l state) ([]: 'l list) = ls) ∧
+  (patch aig reset is ls (latch::rest) =
+   patch aig reset is
      (λl.
         if l = latch then
           (case reset l of
            | NONE => ls l
-           | SOME lit => eval_lit (is, ls) circ lit)
+           | SOME lit => eval_lit (is, ls) aig lit)
         else ls l) rest)
 End
 
 Theorem not_mem_patch_eq:
-  ∀xs ls. ¬MEM l xs ⇒ (patch circ reset is ls xs) l = ls l
+  ∀xs ls. ¬MEM l xs ⇒ (patch aig reset is ls xs) l = ls l
 Proof
   Induct >> rw [patch_def]
 QED
 
 Theorem is_reset_insert_NONE:
   reset l = NONE ⇒
-  (is_reset ss circ reset (l INSERT ls) ⇔
-     is_reset ss circ reset ls)
+  (is_reset ss aig reset (l INSERT ls) ⇔
+     is_reset ss aig reset ls)
 Proof
   rw [is_reset_def] >> eq_tac >> rw [] >> gvs []
 QED
 
 Theorem is_reset_insert_SOME:
   reset l = SOME lit ⇒
-  (is_reset ss circ reset (l INSERT ls) ⇔
-     is_reset ss circ reset ls ∧
-     (eval_lit ss circ (Base (Latch l),F) ⇔ eval_lit ss circ lit))
+  (is_reset ss aig reset (l INSERT ls) ⇔
+     is_reset ss aig reset ls ∧
+     (eval_lit ss aig (Base (Latch l),F) ⇔ eval_lit ss aig lit))
 Proof
   rw [is_reset_def] >> eq_tac >> rw [] >> gvs []
 QED
 
 Theorem is_reset_union:
-  is_reset ss circ reset (xs ∪ ys) ⇔
-    is_reset ss circ reset xs ∧ is_reset ss circ reset ys
+  is_reset ss aig reset (xs ∪ ys) ⇔
+    is_reset ss aig reset xs ∧ is_reset ss aig reset ys
 Proof
   rw [is_reset_def] >> metis_tac []
 QED
@@ -418,10 +418,10 @@ End
 
 Theorem subset_is_reset_patch:
   ∀xs ls.
-    is_stratified lt circ reset latches ∧ set xs ⊆ latches ∧
+    is_stratified lt aig reset latches ∧ set xs ⊆ latches ∧
     no_inversions lt xs ∧ ALL_DISTINCT xs ∧ irreflexive lt
     ⇒
-    is_reset (is, patch circ reset is ls xs) circ reset (set xs)
+    is_reset (is, patch aig reset is ls xs) aig reset (set xs)
 Proof
   Induct >> rw [patch_def]
   >- simp [is_reset_def]
@@ -435,7 +435,7 @@ Proof
   >> simp []
   >> conj_tac
   >- (last_x_assum irule >> fs [no_inversions_def])
-  >> simp [eval_circuit_def]
+  >> simp [eval_lit_def]
   >> rename1 ‘l::xs’
   >> drule_then assume_tac not_mem_patch_eq >> simp []
   >> fs [is_stratified_def]
@@ -455,18 +455,18 @@ QED
 
 Theorem dep_eval_lit_eq:
   ∀n ss' ss.
-    dep_circuit inputs latches circ ∧
+    dep_aig inputs latches aig ∧
     dep_lit inputs latches n ∧
     agree_on inputs latches ss' ss ⇒
-    (eval_lit ss' circ n ⇔ eval_lit ss circ n)
+    (eval_lit ss' aig n ⇔ eval_lit ss aig n)
 Proof
   namedCases ["v b"]
   >> namedCases ["is' ls'"]
   >> namedCases ["is ls"]
-  >> Cases_on ‘v’ >> rw [eval_circuit_def]
+  >> Cases_on ‘v’ >> rw [eval_lit_def]
   >-
-   (fs [dep_circuit_def]
-    >> rename1 ‘eval_circuit _ _ a’
+   (fs [dep_aig_def]
+    >> rename1 ‘eval_gate _ _ a’
     >> last_x_assum drule >> simp [])
   >> rename1 ‘eval_bvar _ b₁’
   >> Cases_on ‘b₁’
@@ -481,16 +481,16 @@ Proof
   >> metis_tac []
 QED
 
-Theorem circuit_inputs_cons:
-  circuit_inputs (h::circ) = and_inputs h ++ circuit_inputs circ
+Theorem aig_inputs_cons:
+  aig_inputs (h::aig) = and_inputs h ++ aig_inputs aig
 Proof
-  simp [circuit_inputs_def]
+  simp [aig_inputs_def]
 QED
 
-Theorem circuit_latches_cons:
-  circuit_latches (h::circ) = and_latches h ++ circuit_latches circ
+Theorem aig_latches_cons:
+  aig_latches (h::aig) = and_latches h ++ aig_latches aig
 Proof
-  simp [circuit_latches_def]
+  simp [aig_latches_def]
 QED
 
 Theorem agree_on_weaken:
@@ -503,12 +503,12 @@ Proof
   Cases_on ‘ss'’ >> Cases_on ‘ss’ >> rw [agree_on_def, SUBSET_DEF]
 QED
 
-Theorem dep_circuit_subset:
-  dep_circuit xs ys circ ∧ xs ⊆ xs' ∧ ys ⊆ ys'
+Theorem dep_aig_subset:
+  dep_aig xs ys aig ∧ xs ⊆ xs' ∧ ys ⊆ ys'
   ⇒
-  dep_circuit xs' ys' circ
+  dep_aig xs' ys' aig
 Proof
-  rw [dep_circuit_def] >> metis_tac [agree_on_weaken]
+  rw [dep_aig_def] >> metis_tac [agree_on_weaken]
 QED
 
 Theorem dep_lit_subset:
@@ -535,27 +535,27 @@ Proof
            var_latches_def, bvar_latches_def]
 QED
 
-Theorem dep_circuit_inputs_latches:
-  dep_circuit (set (circuit_inputs circ)) (set (circuit_latches circ)) circ
+Theorem dep_aig_inputs_latches:
+  dep_aig (set (aig_inputs aig)) (set (aig_latches aig)) aig
 Proof
-  Induct_on ‘circ’ >- simp [dep_circuit_def]
-  >> rw [dep_circuit_def]
-  >> fs [circuit_inputs_cons, circuit_latches_cons]
+  Induct_on ‘aig’ >- simp [dep_aig_def]
+  >> rw [dep_aig_def]
+  >> fs [aig_inputs_cons, aig_latches_cons]
   >> rename1 ‘h::_’ >> namedCases_on ‘h’ ["n ls"]
-  >> gvs [eval_circuit_def]
+  >> gvs [eval_lit_def]
   >> IF_CASES_TAC >> gvs []
   >-
    (irule EVERY_CONG >> rw []
     >> irule dep_eval_lit_eq
     >> qpat_assum ‘agree_on _ _ _ _’ $ irule_at Any
-    >> irule_at (Pos hd) dep_circuit_subset
+    >> irule_at (Pos hd) dep_aig_subset
     >> first_assum $ irule_at (Pos hd)
     >> simp []
     >> irule_at (Pos hd) dep_lit_subset
     >> irule_at (Pos hd) dep_lit_and
     >> first_assum $ irule_at (Pos hd)
     >> qexists ‘n’ >> simp [])
-  >> fs [dep_circuit_def]
+  >> fs [dep_aig_def]
   >> first_assum irule
   >> fs [agree_on_union]
 QED
@@ -574,78 +574,78 @@ Definition traces_agree_def:
 End
 
 Theorem is_next_subset:
-  is_next ss circ next latches  ls ∧ latches' ⊆ latches ⇒
-  is_next ss circ next latches' ls
+  is_next ss aig next latches  ls ∧ latches' ⊆ latches ⇒
+  is_next ss aig next latches' ls
 Proof
   rw [is_next_def] >> metis_tac [SUBSET_DEF]
 QED
 
-Theorem is_next_dep_circuit:
-  is_next ss₀ circ next latches ls₁ ∧
+Theorem is_next_dep_aig:
+  is_next ss₀ aig next latches ls₁ ∧
   (∀l. l ∈ latches' ⇒ ls₁ l = ls₁' l) ∧
   agree_on inputs latches' ss₀ ss₀' ∧
-  dep_circuit inputs latches' circ ∧
+  dep_aig inputs latches' aig ∧
   dep_latch_lit inputs latches' next latches ∧
   latches ⊆ latches'
   ⇒
-  is_next ss₀' circ next latches ls₁'
+  is_next ss₀' aig next latches ls₁'
 Proof
   rw [is_next_def, dep_latch_lit_def]
   >> fs[SUBSET_DEF]
   >> metis_tac [dep_eval_lit_eq]
 QED
 
-Theorem preds_hold_dep_circuit:
-  preds_hold ss circ ns ∧
-  dep_circuit inputs latches circ ∧
+Theorem preds_hold_dep_aig:
+  preds_hold ss aig ns ∧
+  dep_aig inputs latches aig ∧
   dep_lits inputs latches ns ∧
   agree_on inputs latches ss ss'
   ⇒
-  preds_hold ss' circ ns
+  preds_hold ss' aig ns
 Proof
   rw [preds_hold_def, dep_lits_def]
   >> metis_tac [dep_eval_lit_eq]
 QED
 
-Theorem is_reset_dep_circuit:
-  is_reset ss circ reset latches ∧
-  dep_circuit inputs latches circ ∧
+Theorem is_reset_dep_aig:
+  is_reset ss aig reset latches ∧
+  dep_aig inputs latches aig ∧
   dep_reset inputs latches reset latches ∧
   agree_on inputs latches ss ss'
   ⇒
-  is_reset ss' circ reset latches
+  is_reset ss' aig reset latches
 Proof
   rw [is_reset_def, dep_reset_def]
   >> namedCases_on ‘ss’ ["is ls"]
   >> namedCases_on ‘ss'’ ["is' ls'"]
   >> last_x_assum $ drule_then assume_tac
-  >> gvs [eval_circuit_def]
+  >> gvs [eval_lit_def]
   >> metis_tac [dep_eval_lit_eq, agree_on_def]
 QED
 
-Theorem is_trace_dep_circuit:
-  is_trace circ reset next cnstrs latches tr n ∧
-  dep_circuit inputs latches circ ∧
+Theorem is_trace_dep_aig:
+  is_trace aig reset next cnstrs latches tr n ∧
+  dep_aig inputs latches aig ∧
   dep_lits inputs latches cnstrs ∧
   dep_reset inputs latches reset latches ∧
   dep_latch_lit inputs latches next latches ∧
   traces_agree n inputs latches tr' tr
   ⇒
-  is_trace circ reset next cnstrs latches tr' n
+  is_trace aig reset next cnstrs latches tr' n
 Proof
   rw [traces_agree_def, is_trace_def, agree_on_sym]
   >-
-   (irule is_reset_dep_circuit >> simp []
+   (irule is_reset_dep_aig >> simp []
     >> last_assum $ irule_at (Pos last)
     >> last_assum $ irule_at (Pos last)
     >> gvs [])
   >-
-   (irule preds_hold_dep_circuit >> simp []
+   (irule preds_hold_dep_aig >> simp []
     >> first_assum $ irule_at (Pos hd) >> simp []
     >> first_assum $ irule_at (Pos hd) >> simp [])
   >-
    (last_x_assum $ drule_then assume_tac
-    >> irule is_next_dep_circuit >> fs []
+    >> irule is_next_dep_aig >> fs []
     >> first_assum $ irule_at (Pos last) >> simp []
     >> first_assum $ irule_at (Pos last) >> simp []
     >> rename1 ‘SND (tr (i + 1))’
@@ -653,38 +653,38 @@ Proof
     >> first_x_assum $ qspec_then ‘i + 1’ mp_tac
     >> simp [agree_on_def])
   >> last_x_assum $ drule_then assume_tac
-  >> irule preds_hold_dep_circuit >> fs []
+  >> irule preds_hold_dep_aig >> fs []
   >> first_assum $ irule_at (Pos last) >> simp []
 QED
 
-Theorem is_inf_trace_dep_circuit:
-  is_inf_trace circ reset next cnstrs latches tr ∧
-  dep_circuit inputs latches circ ∧
+Theorem is_inf_trace_dep_aig:
+  is_inf_trace aig reset next cnstrs latches tr ∧
+  dep_aig inputs latches aig ∧
   dep_lits inputs latches cnstrs ∧
   dep_reset inputs latches reset latches ∧
   dep_latch_lit inputs latches next latches ∧
   (∀n. traces_agree n inputs latches tr' tr)
   ⇒
-  is_inf_trace circ reset next cnstrs latches tr'
+  is_inf_trace aig reset next cnstrs latches tr'
 Proof
-  rw [is_inf_trace_eq] >> metis_tac[is_trace_dep_circuit]
+  rw [is_inf_trace_eq] >> metis_tac[is_trace_dep_aig]
 QED
 
 
 Theorem is_trace_preds_hold_n:
-  is_trace circ reset next cnstrs latches tr n
+  is_trace aig reset next cnstrs latches tr n
   ⇒
-  preds_hold (tr n) circ cnstrs
+  preds_hold (tr n) aig cnstrs
 Proof
   rw [is_trace_def] >> Cases_on ‘n’ >> fs [ADD1]
 QED
 
 Theorem is_trace_SUC:
-  is_trace mcirc mreset mnext mcnstrs mlatches tr (SUC n)
+  is_trace maig mreset mnext mcnstrs mlatches tr (SUC n)
   ⇔
-  is_trace mcirc mreset mnext mcnstrs mlatches tr n ∧
-  is_next (tr n) mcirc mnext mlatches (SND (tr (n + 1))) ∧
-  preds_hold (tr (n + 1)) mcirc mcnstrs
+  is_trace maig mreset mnext mcnstrs mlatches tr n ∧
+  is_next (tr n) maig mnext mlatches (SND (tr (n + 1))) ∧
+  preds_hold (tr (n + 1)) maig mcnstrs
 Proof
   eq_tac >> rw [is_trace_def]
   >> rename1 ‘i < SUC n’ >> Cases_on ‘i < n’ >> gvs []
@@ -708,48 +708,48 @@ Proof
 QED
 
 Theorem is_reset_dep_latch_lit:
-  is_reset ss circ reset latches ∧
-  dep_circuit inputs latches circ ∧
+  is_reset ss aig reset latches ∧
+  dep_aig inputs latches aig ∧
   dep_reset inputs latches reset latches ∧
   agree_on inputs latches ss ss'
   ⇒
-  is_reset ss' circ reset latches
+  is_reset ss' aig reset latches
 Proof
   rw [is_reset_def, dep_reset_def]
   >> namedCases_on ‘ss’ ["is ls"]
   >> namedCases_on ‘ss'’ ["is' ls'"]
-  >> gvs[eval_circuit_def]
+  >> gvs[eval_lit_def]
   >> metis_tac [dep_eval_lit_eq, agree_on_def]
 QED
 
-Definition dep_qcirc_def:
-  dep_qcirc inputs qcirc live latches ⇔
-    dep_circuit (pair_set inputs) (pair_set latches) qcirc ∧
+Definition dep_qaig_def:
+  dep_qaig inputs qaig live latches ⇔
+    dep_aig (pair_set inputs) (pair_set latches) qaig ∧
     dep_lits (pair_set inputs) (pair_set latches) (set (FLAT live))
 End
 
 Theorem is_safe_is_inf_trace_preds_hold:
-  is_safe circ reset next cnstrs latches preds ∧
-  is_inf_trace circ reset next cnstrs latches tr
+  is_safe aig reset next cnstrs latches preds ∧
+  is_inf_trace aig reset next cnstrs latches tr
   ⇒
-  ∀n. preds_hold (tr n) circ preds
+  ∀n. preds_hold (tr n) aig preds
 Proof
   rw [is_safe_def, is_unsafe_def, is_inf_trace_eq]
   >> metis_tac []
 QED
 
 Theorem is_inf_trace_cnstrs_hold:
-  is_inf_trace circ reset next cnstrs latches tr
+  is_inf_trace aig reset next cnstrs latches tr
   ⇒
-  ∀n. preds_hold (tr n) circ cnstrs
+  ∀n. preds_hold (tr n) aig cnstrs
 Proof
   rw [is_inf_trace_def] >> Cases_on ‘n’ >> gvs [ADD1]
 QED
 
 Theorem is_inf_trace_is_next:
-  is_inf_trace circ reset next cnstrs latches tr
+  is_inf_trace aig reset next cnstrs latches tr
   ⇒
-  ∀n. is_next (tr n) circ next latches (SND (tr (n + 1)))
+  ∀n. is_next (tr n) aig next latches (SND (tr (n + 1)))
 Proof
   rw [is_inf_trace_def]
 QED
@@ -817,12 +817,12 @@ QED
 
 Theorem is_inf_trace_traces_agree:
   (∀n.
-     is_trace mcirc mreset mnext mcnstrs mlatches tr n ⇒
-     is_trace wcirc wreset wnext wcnstrs wlatches tr' n ∧
+     is_trace maig mreset mnext mcnstrs mlatches tr n ⇒
+     is_trace waig wreset wnext wcnstrs wlatches tr' n ∧
      traces_agree n UNIV mlatches tr' tr)
   ⇒
-    (is_inf_trace mcirc mreset mnext mcnstrs mlatches tr ⇒
-     is_inf_trace wcirc wreset wnext wcnstrs wlatches tr' ∧
+    (is_inf_trace maig mreset mnext mcnstrs mlatches tr ⇒
+     is_inf_trace waig wreset wnext wcnstrs wlatches tr' ∧
      (∀n. traces_agree n UNIV mlatches tr' tr))
 Proof
   rw [is_inf_trace_eq]

@@ -93,7 +93,7 @@ val r = translate aig_parseTheory.shared_lit_def;
 val r = translate aig_parseTheory.shared_latch_key_def;
 val r = translate aig_parseTheory.shared_latch_map_def;
 val r = translate aig_parseTheory.shared_latches_def;
-val r = translate aig_parseTheory.shared_circuit_def;
+val r = translate aig_parseTheory.shared_aig_def;
 
 val r = translate sptreeTheory.lrnext_def;
 val r = translate sptreeTheory.foldi_def;

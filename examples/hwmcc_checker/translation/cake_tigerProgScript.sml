@@ -45,95 +45,95 @@ val r = translate make_fname_def;
 
 Quote add_cakeml:
   fun write_reset
-    prefix mcirc mreset mcnstrs mlatches wcirc wreset wcnstrs wlatches klatches
+    prefix maig mreset mcnstrs mlatches waig wreset wcnstrs wlatches klatches
   =
   let
     (* val _ = print "making reset...\n" *)
     val (name, str) =
-      make_reset_string mcirc mreset mcnstrs mlatches wcirc wreset wcnstrs
+      make_reset_string maig mreset mcnstrs mlatches waig wreset wcnstrs
         wlatches klatches
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
 Quote add_cakeml:
   fun write_transition
-    prefix mcirc mnext mcnstrs mlatches wcirc wnext wcnstrs wlatches klatches
+    prefix maig mnext mcnstrs mlatches waig wnext wcnstrs wlatches klatches
   =
   let
     (* val _ = print "making transition...\n" *)
     val (name, str) =
-      make_transition_string mcirc mnext mcnstrs mlatches wcirc wnext wcnstrs
+      make_transition_string maig mnext mcnstrs mlatches waig wnext wcnstrs
         wlatches klatches
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
 Quote add_cakeml:
-  fun write_property prefix mcirc mcnstrs mpreds wcirc wcnstrs wpreds
+  fun write_property prefix maig mcnstrs mpreds waig wcnstrs wpreds
   =
   let
     (* val _ = print "making property...\n" *)
     val (name, str) =
-      make_property_string mcirc mcnstrs mpreds wcirc wcnstrs wpreds
+      make_property_string maig mcnstrs mpreds waig wcnstrs wpreds
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
 Quote add_cakeml:
-  fun write_base prefix wcirc wreset wcnstrs wpreds wlatches
+  fun write_base prefix waig wreset wcnstrs wpreds wlatches
   =
   let
     (* val _ = print "making base...\n" *)
-    val (name, str) = make_base_string wcirc wreset wcnstrs wpreds wlatches
+    val (name, str) = make_base_string waig wreset wcnstrs wpreds wlatches
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
 Quote add_cakeml:
-  fun write_step prefix wcirc wnext wcnstrs wpreds wlatches
+  fun write_step prefix waig wnext wcnstrs wpreds wlatches
   =
   let
     (* val _ = print "making step...\n" *)
-    val (name, str) = make_step_string wcirc wnext wcnstrs wpreds wlatches
+    val (name, str) = make_step_string waig wnext wcnstrs wpreds wlatches
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
 Quote add_cakeml:
   fun write_liveness
-    prefix mcirc mcnstrs mlive wcirc wnext wcnstrs wpreds wlive wlatches interv
+    prefix maig mcnstrs mlive waig wnext wcnstrs wpreds wlive wlatches interv
   =
   let
     (* val _ = print "making liveness...\n" *)
     val (name, str) =
       make_liveness_string
-       mcirc mcnstrs mlive wcirc wnext wcnstrs wpreds wlive wlatches interv
+       maig mcnstrs mlive waig wnext wcnstrs wpreds wlive wlatches interv
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
 Quote add_cakeml:
-  fun write_decrease prefix wcirc wnext wcnstrs wpreds wlive wlatches interv
+  fun write_decrease prefix waig wnext wcnstrs wpreds wlive wlatches interv
   =
   let
     (* val _ = print "making decrease...\n" *)
     val (name, str) =
-      make_decrease_string wcirc wnext wcnstrs wpreds wlive wlatches interv
+      make_decrease_string waig wnext wcnstrs wpreds wlive wlatches interv
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
 Quote add_cakeml:
-  fun write_closure prefix wcirc wnext wcnstrs wpreds wlive wlatches interv
+  fun write_closure prefix waig wnext wcnstrs wpreds wlive wlatches interv
   =
   let
     (* val _ = print "making closure...\n" *)
     val (name, str) =
-      make_closure_string wcirc wnext wcnstrs wpreds wlive wlatches interv
+      make_closure_string waig wnext wcnstrs wpreds wlive wlatches interv
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
 Quote add_cakeml:
-  fun write_consistent prefix wcirc wnext wcnstrs wpreds wlive wlatches interv
+  fun write_consistent prefix waig wnext wcnstrs wpreds wlive wlatches interv
   =
   let
     (* val _ = print "making consistent...\n" *)
     val (name, str) =
-      make_consistent_string wcirc wnext wcnstrs wpreds wlive wlatches interv
+      make_consistent_string waig wnext wcnstrs wpreds wlive wlatches interv
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
@@ -147,28 +147,28 @@ Quote add_cakeml:
   | Some witness =>
   case ((* print "parsing...\n";  *)parse model witness) of
     Error (msg, _) => TextIO.print_err msg
-  | Return (maig, (waig, ms)) =>
-  case ((* print "processing and checking...\n"; *) process_and_check maig waig ms) of
+  | Return (maiger, (waiger, ms)) =>
+  case ((* print "processing and checking...\n"; *) process_and_check maiger waiger ms) of
     Error msg => TextIO.print_err msg
   | Return
-      (mcirc, (mreset, (mnext, (mpreds, (mcnstrs, (mlive, (mlatches,
-        (wcirc, (wreset, (wnext, (wpreds, (wcnstrs, (wlive, (wlatches,
+      (maig, (mreset, (mnext, (mpreds, (mcnstrs, (mlive, (mlatches,
+        (waig, (wreset, (wnext, (wpreds, (wcnstrs, (wlive, (wlatches,
           (interv, klatches))))))))))))))) => (
       write_reset
-        prefix mcirc mreset mcnstrs mlatches wcirc wreset wcnstrs
+        prefix maig mreset mcnstrs mlatches waig wreset wcnstrs
         wlatches klatches;
       write_transition
-        prefix mcirc mnext mcnstrs mlatches wcirc wnext wcnstrs
+        prefix maig mnext mcnstrs mlatches waig wnext wcnstrs
         wlatches klatches;
-      write_property prefix mcirc mcnstrs mpreds wcirc wcnstrs wpreds;
-      write_base prefix wcirc wreset wcnstrs wpreds wlatches;
-      write_step prefix wcirc wnext wcnstrs wpreds wlatches;
+      write_property prefix maig mcnstrs mpreds waig wcnstrs wpreds;
+      write_base prefix waig wreset wcnstrs wpreds wlatches;
+      write_step prefix waig wnext wcnstrs wpreds wlatches;
       write_liveness
-        prefix mcirc mcnstrs mlive wcirc wnext wcnstrs wpreds wlive wlatches
+        prefix maig mcnstrs mlive waig wnext wcnstrs wpreds wlive wlatches
         interv;
-      write_decrease prefix wcirc wnext wcnstrs wpreds wlive wlatches interv;
-      write_closure prefix wcirc wnext wcnstrs wpreds wlive wlatches interv;
-      write_consistent prefix wcirc wnext wcnstrs wpreds wlive wlatches interv;
+      write_decrease prefix waig wnext wcnstrs wpreds wlive wlatches interv;
+      write_closure prefix waig wnext wcnstrs wpreds wlive wlatches interv;
+      write_consistent prefix waig wnext wcnstrs wpreds wlive wlatches interv;
       print "SUCCESS"
     )
 End

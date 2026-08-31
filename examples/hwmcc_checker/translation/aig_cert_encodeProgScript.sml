@@ -19,7 +19,7 @@ val r = translate aig_cert_encodeTheory.left_name_and_def;
 val r = translate aig_cert_encodeTheory.right_name_var_def;
 val r = translate aig_cert_encodeTheory.right_name_lit_def;
 val r = translate aig_cert_encodeTheory.right_name_and_def;
-val r = translate aig_cert_encodeTheory.merge_circuits_def;
+val r = translate aig_cert_encodeTheory.merge_aigs_def;
 
 val r = translate aig_cert_encodeTheory.left_bvar_def;
 val r = translate aig_cert_encodeTheory.left_var_def;
@@ -29,12 +29,12 @@ val r = translate aig_cert_encodeTheory.right_bvar_def;
 val r = translate aig_cert_encodeTheory.right_var_def;
 val r = translate aig_cert_encodeTheory.right_lit_def;
 val r = translate aig_cert_encodeTheory.right_and_def;
-val r = translate aig_cert_encodeTheory.pair_circuits_def;
+val r = translate aig_cert_encodeTheory.pair_aigs_def;
 
 val r = translate aig_cert_encodeTheory.iext_var_def;
 val r = translate aig_cert_encodeTheory.iext_lit_def;
 val r = translate aig_cert_encodeTheory.iext_and_def;
-val r = translate aig_cert_encodeTheory.iext_circuit_def;
+val r = translate aig_cert_encodeTheory.iext_aig_def;
 
 val r = translate aig_cert_encodeTheory.iname_def;
 
@@ -55,7 +55,7 @@ val r = translate aig_cert_encodeTheory.ileft_reset_def;
 val r = translate aig_cert_encodeTheory.iright_reset_def;
 val r = translate aig_cert_encodeTheory.ileft_name_lits_def;
 val r = translate aig_cert_encodeTheory.iright_name_lits_def;
-val r = translate aig_cert_encodeTheory.imerge_circuits_def;
+val r = translate aig_cert_encodeTheory.imerge_aigs_def;
 
 val r = translate aig_cert_encodeTheory.encode_is_next_with_def;
 val r = translate aig_cert_encodeTheory.encode_is_next_def;
@@ -67,7 +67,7 @@ val r = translate aig_cert_encodeTheory.var_map_base_def;
 val r = translate aig_cert_encodeTheory.lit_map_base_def;
 val r = translate aig_cert_encodeTheory.live_map_base_def;
 val r = translate aig_cert_encodeTheory.and_map_base_def;
-val r = translate aig_cert_encodeTheory.circuit_map_base_def;
+val r = translate aig_cert_encodeTheory.aig_map_base_def;
 
 val r = translate aig_cert_encodeTheory.qleft_def;
 val r = translate aig_cert_encodeTheory.qleft_live_def;
@@ -105,7 +105,7 @@ val r = translate aig_cert_encodeTheory.encode_is_witness_decrease_def;
 val r = translate aig_cert_encodeTheory.encode_is_witness_closure_def;
 val r = translate aig_cert_encodeTheory.encode_is_witness_consistent_def;
 
-val r = translate aig_cert_encodeTheory.circ_lookup_def;
+val r = translate aig_cert_encodeTheory.aig_lookup_def;
 val r = translate aig_cert_encodeTheory.latch_deps_def;
 val r = translate aig_cert_encodeTheory.reset_edges_def;
 val r = translate aig_cert_encodeTheory.reset_graph_def;

@@ -24,12 +24,12 @@ Definition parse_model_def:
   parse_model str =
     case parse_aiger str 0 of
     | error _ => NONE
-    | return (maig, _) => SOME maig
+    | return (maiger, _) => SOME maiger
 End
 
 Theorem parse_imp_parse_model[local]:
-  parse model witness = return (maig, waig, ms) ⇒
-  parse_model model = SOME maig
+  parse model witness = return (maiger, waiger, ms) ⇒
+  parse_model model = SOME maiger
 Proof
   rw []
   >> gvs [parse_def, parse_model_def, oneline bind_def, AllCaseEqs()]
@@ -40,7 +40,7 @@ QED
 Definition process_model_def:
   process_model m =
   let
-    mcirc  = m.circuit;
+    maig   = m.aig;
     mreset = ALOOKUP m.reset;
     mnext  =
       (λl.
@@ -57,16 +57,16 @@ Definition process_model_def:
     mlatches =
       [m.counts.inputs + 1 .. m.counts.inputs + m.counts.latches];
   in
-    (mcirc, mreset, mnext, mpreds, mcnstrs, mlive, mlatches)
+    (maig, mreset, mnext, mpreds, mcnstrs, mlive, mlatches)
 End
 
 Theorem process_and_check_imp_process_model[local]:
-  process_and_check maig waig ms =
+  process_and_check maiger waiger ms =
     return
-      (mcirc, mreset, mnext, mpreds, mcnstrs, mlive, mlatches, rest)
+      (maig, mreset, mnext, mpreds, mcnstrs, mlive, mlatches, rest)
   ⇒
-  process_model maig =
-    (mcirc, mreset, mnext, mpreds, mcnstrs, mlive, mlatches)
+  process_model maiger =
+    (maig, mreset, mnext, mpreds, mcnstrs, mlive, mlatches)
 Proof
   simp [process_and_check_def, process_model_def, process_mlatches_range_def,
         aig_cert_fullTheory.preprocess_def, guard_def, oneline bind_def,
@@ -85,7 +85,7 @@ Definition get_model_def:
   | SOME str =>
     case parse_model (implode str) of
     | NONE => NONE
-    | SOME maig => SOME (process_model maig)
+    | SOME maiger => SOME (process_model maiger)
 End
 
 (* True if and only if the cnf-formula is unsatisfiable. *)
@@ -129,10 +129,10 @@ Definition make_cert_sem_def:
          «decrease»; «closure»; «consistent»]
   in
     (out = «SUCCESS» ∧ EVERY (λf. ALOOKUP fs.files f = NONE) fnames ⇒
-     ∃mcirc mreset mnext mpreds mcnstrs mlive mlatches
+     ∃maig mreset mnext mpreds mcnstrs mlive mlatches
       reset transition property base step liveness decrease closure consistent.
         get_model fs fmodel =
-          SOME (mcirc, mreset, mnext, mpreds, mcnstrs, mlive, mlatches) ∧
+          SOME (maig, mreset, mnext, mpreds, mcnstrs, mlive, mlatches) ∧
         LIST_REL (cnf_saved fs') fnames
           [reset; transition; property; base; step; liveness; decrease;
            closure; consistent] ∧
@@ -141,9 +141,9 @@ Definition make_cert_sem_def:
             closure; consistent]
          ⇒
           is_safe
-            mcirc mreset mnext (set mcnstrs) (set mlatches) (set mpreds) ∧
+            maig mreset mnext (set mcnstrs) (set mlatches) (set mpreds) ∧
           is_live
-            mcirc mreset mnext (set mcnstrs) (qleft mcirc) (qleft_live mlive)
+            maig mreset mnext (set mcnstrs) (qleft maig) (qleft_live mlive)
             (set mlatches)))
 End
 
@@ -170,7 +170,7 @@ val prog = get_ml_prog_state ()
 
 (*** write_{reset,transition,...} *********************************************)
 
-Overload "CIRCUIT_TYPE"[local] =
+Overload "AIG_TYPE"[local] =
   “LIST_TYPE
      (PAIR_TYPE NUM (LIST_TYPE (PAIR_TYPE (AIG_VAR_TYPE NUM NUM NUM) BOOL)))”
 
@@ -188,11 +188,11 @@ Overload "INTERV_TYPE"[local] =
 Theorem write_reset_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 9 < 65536 ∧
-  CIRCUIT_TYPE mcirc mcircv ∧
+  AIG_TYPE maig maigv ∧
   LATCH_OPTION_LIT_TYPE mreset mresetv ∧
   LIT_LIST mcnstrs mcnstrsv ∧
   LIST_TYPE NUM mlatches mlatchesv ∧
-  CIRCUIT_TYPE wcirc wcircv ∧
+  AIG_TYPE waig waigv ∧
   LATCH_OPTION_LIT_TYPE wreset wresetv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
   LIST_TYPE NUM wlatches wlatchesv ∧
@@ -200,8 +200,8 @@ Theorem write_reset_spec[local]:
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) write_reset_v
-    [prefixv; mcircv; mresetv; mcnstrsv; mlatchesv;
-     wcircv; wresetv; wcnstrsv; wlatchesv; klatchesv]
+    [prefixv; maigv; mresetv; mcnstrsv; mlatchesv;
+     waigv; wresetv; wcnstrsv; wlatchesv; klatchesv]
     (STDIO fs)
     (POSTv uv.
        &UNIT_TYPE () uv *
@@ -209,8 +209,8 @@ Theorem write_reset_spec[local]:
          &(is_cnf_str cnf content ∧
            (is_unsat cnf ⇔
             reset_encoding_is_unsat
-              mcirc mreset mcnstrs mlatches
-              wcirc wreset wcnstrs wlatches klatches)) *
+              maig mreset mcnstrs mlatches
+              waig wreset wcnstrs wlatches klatches)) *
          STDIO (write_file fs (make_fname prefix «reset») content))
 Proof
   rw []
@@ -247,11 +247,11 @@ QED
 Theorem write_transition_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 14 < 65536 ∧
-  CIRCUIT_TYPE mcirc mcircv ∧
+  AIG_TYPE maig maigv ∧
   LATCH_LIT_TYPE mnext mnextv ∧
   LIT_LIST mcnstrs mcnstrsv ∧
   LIST_TYPE NUM mlatches mlatchesv ∧
-  CIRCUIT_TYPE wcirc wcircv ∧
+  AIG_TYPE waig waigv ∧
   LATCH_LIT_TYPE wnext wnextv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
   LIST_TYPE NUM wlatches wlatchesv ∧
@@ -259,8 +259,8 @@ Theorem write_transition_spec[local]:
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) write_transition_v
-    [prefixv; mcircv; mnextv; mcnstrsv; mlatchesv;
-     wcircv; wnextv; wcnstrsv; wlatchesv; klatchesv]
+    [prefixv; maigv; mnextv; mcnstrsv; mlatchesv;
+     waigv; wnextv; wcnstrsv; wlatchesv; klatchesv]
     (STDIO fs)
     (POSTv uv.
        &UNIT_TYPE () uv *
@@ -268,8 +268,8 @@ Theorem write_transition_spec[local]:
          &(is_cnf_str cnf content ∧
            (is_unsat cnf ⇔
             transition_encoding_is_unsat
-              mcirc mnext mcnstrs mlatches
-              wcirc wnext wcnstrs wlatches klatches)) *
+              maig mnext mcnstrs mlatches
+              waig wnext wcnstrs wlatches klatches)) *
          STDIO (write_file fs (make_fname prefix «transition») content))
 Proof
   rw []
@@ -306,16 +306,16 @@ QED
 Theorem write_property_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 12 < 65536 ∧
-  CIRCUIT_TYPE mcirc mcircv ∧
+  AIG_TYPE maig maigv ∧
   LIT_LIST mcnstrs mcnstrsv ∧
   LIT_LIST mpreds mpredsv ∧
-  CIRCUIT_TYPE wcirc wcircv ∧
+  AIG_TYPE waig waigv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
   LIT_LIST wpreds wpredsv ∧
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) write_property_v
-    [prefixv; mcircv; mcnstrsv; mpredsv; wcircv; wcnstrsv; wpredsv]
+    [prefixv; maigv; mcnstrsv; mpredsv; waigv; wcnstrsv; wpredsv]
     (STDIO fs)
     (POSTv uv.
        &UNIT_TYPE () uv *
@@ -323,8 +323,8 @@ Theorem write_property_spec[local]:
          &(is_cnf_str cnf content ∧
            (is_unsat cnf ⇔
             (property_encoding_is_unsat
-               mcirc mcnstrs mpreds
-               wcirc wcnstrs wpreds))) *
+               maig mcnstrs mpreds
+               waig wcnstrs wpreds))) *
          STDIO (write_file fs (make_fname prefix «property») content))
 Proof
   rw []
@@ -361,7 +361,7 @@ QED
 Theorem write_base_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 8 < 65536 ∧
-  CIRCUIT_TYPE wcirc wcircv ∧
+  AIG_TYPE waig waigv ∧
   LATCH_OPTION_LIT_TYPE wreset wresetv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
   LIT_LIST wpreds wpredsv ∧
@@ -369,7 +369,7 @@ Theorem write_base_spec[local]:
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) write_base_v
-    [prefixv; wcircv; wresetv; wcnstrsv; wpredsv; wlatchesv]
+    [prefixv; waigv; wresetv; wcnstrsv; wpredsv; wlatchesv]
     (STDIO fs)
     (POSTv uv.
        &UNIT_TYPE () uv *
@@ -377,7 +377,7 @@ Theorem write_base_spec[local]:
          &(is_cnf_str cnf content ∧
            (is_unsat cnf ⇔
             (base_encoding_is_unsat
-               wcirc wreset wcnstrs wpreds wlatches))) *
+               waig wreset wcnstrs wpreds wlatches))) *
          STDIO (write_file fs (make_fname prefix «base») content))
 Proof
   rw []
@@ -414,7 +414,7 @@ QED
 Theorem write_step_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 8 < 65536 ∧
-  CIRCUIT_TYPE wcirc wcircv ∧
+  AIG_TYPE waig waigv ∧
   LATCH_LIT_TYPE wnext wnextv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
   LIT_LIST wpreds wpredsv ∧
@@ -422,7 +422,7 @@ Theorem write_step_spec[local]:
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) write_step_v
-    [prefixv; wcircv; wnextv; wcnstrsv; wpredsv; wlatchesv]
+    [prefixv; waigv; wnextv; wcnstrsv; wpredsv; wlatchesv]
     (STDIO fs)
     (POSTv uv.
        &UNIT_TYPE () uv *
@@ -430,7 +430,7 @@ Theorem write_step_spec[local]:
          &(is_cnf_str cnf content ∧
            (is_unsat cnf ⇔
             (step_encoding_is_unsat
-               wcirc wnext wcnstrs wpreds wlatches))) *
+               waig wnext wcnstrs wpreds wlatches))) *
          STDIO (write_file fs (make_fname prefix «step») content))
 Proof
   rw []
@@ -467,10 +467,10 @@ QED
 Theorem write_liveness_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 12 < 65536 ∧
-  CIRCUIT_TYPE mcirc mcircv ∧
+  AIG_TYPE maig maigv ∧
   LIT_LIST mcnstrs mcnstrsv ∧
   LIST_TYPE LIT_LIST mlive mlivev ∧
-  CIRCUIT_TYPE wcirc wcircv ∧
+  AIG_TYPE waig waigv ∧
   LATCH_LIT_TYPE wnext wnextv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
   LIT_LIST wpreds wpredsv ∧
@@ -480,8 +480,8 @@ Theorem write_liveness_spec[local]:
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) write_liveness_v
-    [prefixv; mcircv; mcnstrsv; mlivev;
-     wcircv; wnextv; wcnstrsv; wpredsv; wlivev; wlatchesv; intervv]
+    [prefixv; maigv; mcnstrsv; mlivev;
+     waigv; wnextv; wcnstrsv; wpredsv; wlivev; wlatchesv; intervv]
     (STDIO fs)
     (POSTv uv.
        &UNIT_TYPE () uv *
@@ -489,8 +489,8 @@ Theorem write_liveness_spec[local]:
          &(is_cnf_str cnf content ∧
            (is_unsat cnf ⇔
             (liveness_encoding_is_unsat
-               mcirc mcnstrs mlive
-               wcirc wnext wcnstrs wpreds wlive wlatches interv))) *
+               maig mcnstrs mlive
+               waig wnext wcnstrs wpreds wlive wlatches interv))) *
          STDIO (write_file fs (make_fname prefix «liveness») content))
 Proof
   rw []
@@ -527,7 +527,7 @@ QED
 Theorem write_decrease_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 12 < 65536 ∧
-  CIRCUIT_TYPE wcirc wcircv ∧
+  AIG_TYPE waig waigv ∧
   LATCH_LIT_TYPE wnext wnextv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
   LIT_LIST wpreds wpredsv ∧
@@ -537,7 +537,7 @@ Theorem write_decrease_spec[local]:
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) write_decrease_v
-    [prefixv; wcircv; wnextv; wcnstrsv; wpredsv; wlivev; wlatchesv; intervv]
+    [prefixv; waigv; wnextv; wcnstrsv; wpredsv; wlivev; wlatchesv; intervv]
     (STDIO fs)
     (POSTv uv.
        &UNIT_TYPE () uv *
@@ -545,7 +545,7 @@ Theorem write_decrease_spec[local]:
          &(is_cnf_str cnf content ∧
            (is_unsat cnf ⇔
             (decrease_encoding_is_unsat
-               wcirc wnext wcnstrs wpreds wlive wlatches interv))) *
+               waig wnext wcnstrs wpreds wlive wlatches interv))) *
          STDIO (write_file fs (make_fname prefix «decrease») content))
 Proof
   rw []
@@ -582,7 +582,7 @@ QED
 Theorem write_closure_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 11 < 65536 ∧
-  CIRCUIT_TYPE wcirc wcircv ∧
+  AIG_TYPE waig waigv ∧
   LATCH_LIT_TYPE wnext wnextv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
   LIT_LIST wpreds wpredsv ∧
@@ -592,7 +592,7 @@ Theorem write_closure_spec[local]:
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) write_closure_v
-    [prefixv; wcircv; wnextv; wcnstrsv; wpredsv; wlivev; wlatchesv; intervv]
+    [prefixv; waigv; wnextv; wcnstrsv; wpredsv; wlivev; wlatchesv; intervv]
     (STDIO fs)
     (POSTv uv.
        &UNIT_TYPE () uv *
@@ -600,7 +600,7 @@ Theorem write_closure_spec[local]:
          &(is_cnf_str cnf content ∧
            (is_unsat cnf ⇔
             (closure_encoding_is_unsat
-               wcirc wnext wcnstrs wpreds wlive wlatches interv))) *
+               waig wnext wcnstrs wpreds wlive wlatches interv))) *
          STDIO (write_file fs (make_fname prefix «closure») content))
 Proof
   rw []
@@ -637,7 +637,7 @@ QED
 Theorem write_consistent_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 14 < 65536 ∧
-  CIRCUIT_TYPE wcirc wcircv ∧
+  AIG_TYPE waig waigv ∧
   LATCH_LIT_TYPE wnext wnextv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
   LIT_LIST wpreds wpredsv ∧
@@ -647,7 +647,7 @@ Theorem write_consistent_spec[local]:
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) write_consistent_v
-    [prefixv; wcircv; wnextv; wcnstrsv; wpredsv; wlivev; wlatchesv; intervv]
+    [prefixv; waigv; wnextv; wcnstrsv; wpredsv; wlivev; wlatchesv; intervv]
     (STDIO fs)
     (POSTv uv.
        &UNIT_TYPE () uv *
@@ -655,7 +655,7 @@ Theorem write_consistent_spec[local]:
          &(is_cnf_str cnf content ∧
            (is_unsat cnf ⇔
             (consistent_encoding_is_unsat
-               wcirc wnext wcnstrs wpreds wlive wlatches interv))) *
+               waig wnext wcnstrs wpreds wlive wlatches interv))) *
          STDIO (write_file fs (make_fname prefix «consistent») content))
 Proof
   rw []

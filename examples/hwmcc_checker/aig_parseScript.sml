@@ -36,7 +36,7 @@ Datatype:
     constraints : (num, num, num) lit list;
     justice     : (num, num, num) lit list list;
     fairness    : (num, num, num) lit list;
-    circuit     : (num, num, num) circuit;
+    aig         : (num, num, num) aig;
   |>
 End
 
@@ -337,18 +337,18 @@ Definition parse_aiger_def:
       parse_literals s i max_input max_latch counts.constraints;
     (justice, i) <- parse_justices s i max_input max_latch counts.justice;
     (fairness, i) <- parse_literals s i max_input max_latch counts.fairness;
-    (circuit, i) <- parse_ands s i max_input max_latch counts.ands;
+    (aig, i) <- parse_ands s i max_input max_latch counts.ands;
     return
       (<| counts := counts; next := next; reset := reset; outputs := outputs;
           bad := bad; constraints := constraints; justice := justice;
-          fairness := fairness; circuit := circuit |>, i)
+          fairness := fairness; aig := aig |>, i)
   od
 End
 
 (* Parsing the maps ***********************************************************)
 
 (*
-  The witness circuit can contain maps that determine the inputs and
+  The witness AIG can contain maps that determine the inputs and
   latches shared with the model, and the interventions required for checking
   liveness.
   These are stored either as comments or as part of the symbol table.
@@ -562,9 +562,9 @@ Definition shared_latches_def:
   MAP (shared_latch_map micnt mlcnt iren lren) lm
 End
 
-Definition shared_circuit_def:
-  shared_circuit micnt mlcnt iren lren (circuit: (num, num, num) circuit) =
-    MAP (I ## MAP (shared_lit micnt mlcnt iren lren)) circuit
+Definition shared_aig_def:
+  shared_aig micnt mlcnt iren lren (aig: (num, num, num) aig) =
+    MAP (I ## MAP (shared_lit micnt mlcnt iren lren)) aig
 End
 
 (* Making the intervention map ************************************************)
@@ -600,11 +600,11 @@ End
 (* Testing ********************************************************************)
 (*
 val model = mlstringSyntax.mlstring_from_file "./examples/intervention_model.aig";
-val [maig, midx] =
+val [maiger, midx] =
   EVAL “parse_aiger ^model 0” |> concl |> rhs |> rand |> strip_pair;
 
 val witness = mlstringSyntax.mlstring_from_file "./examples/intervention_witness.aig";
-val [waig, wmaps, midx] =
+val [waiger, wmaps, midx] =
   EVAL “parse_aiger_and_symbols ^witness 0”
     |> concl |> rhs |> rand |> strip_pair;
 
@@ -616,23 +616,23 @@ val [iren, lren] =
   EVAL
     “if isEmpty ^parsed_iren ∧ isEmpty ^parsed_lren then
        default_shared
-          ^(maig).counts.inputs ^(maig).counts.latches
-          ^(waig).counts.inputs ^(waig).counts.latches
+          ^(maiger).counts.inputs ^(maiger).counts.latches
+          ^(waiger).counts.inputs ^(waiger).counts.latches
      else (^parsed_iren, ^parsed_lren)”
     |> concl |> rhs |> strip_pair;
 
 val witness' =
-  EVAL “shared_circuit
-        ^(maig).counts.inputs ^(maig).counts.latches
+  EVAL “shared_aig
+        ^(maiger).counts.inputs ^(maiger).counts.latches
         ^iren ^lren
-        ^waig.circuit”
+        ^waiger.aig”
     |> concl |> rhs
 
 val interv =
   EVAL “make_interv
-        ^(maig).counts.inputs ^(maig).counts.latches
-        ^(waig).counts.inputs (^(waig).counts.inputs + ^(waig).counts.latches)
+        ^(maiger).counts.inputs ^(maiger).counts.latches
+        ^(waiger).counts.inputs (^(waiger).counts.inputs + ^(waiger).counts.latches)
         ^iren ^lren
-        ^(waig).next ^(wmaps).intervened_latches”
+        ^(waiger).next ^(wmaps).intervened_latches”
     |> concl |> rhs
 *)

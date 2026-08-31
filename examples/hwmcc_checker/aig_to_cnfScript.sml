@@ -88,22 +88,22 @@ Proof
   \\ rw [] \\ rw [FLOOKUP_SIMP]
 QED
 
-Theorem eval_circuit_prune:
+Theorem eval_gate_prune:
   ∀ands name live x.
     FLOOKUP live name = SOME x ⇒
-    eval_circuit (is,ls) ands name =
-    eval_circuit (is,ls) (prune ands live) name
+    eval_gate (is,ls) ands name =
+    eval_gate (is,ls) (prune ands live) name
 Proof
   Induct
-  \\ fs [eval_circuit_def,prune_def]
+  \\ fs [eval_lit_def,prune_def]
   \\ PairCases \\ simp []
   \\ rw [prune_def]
   >-
-   (simp [eval_circuit_def]
+   (simp [eval_lit_def]
     \\ irule EVERY_EQ_EVERY
     \\ simp [EVERY_MEM]
     \\ Cases \\ Cases_on ‘q’
-    \\ simp [eval_circuit_def]
+    \\ simp [eval_lit_def]
     \\ rename [‘Gate aa’]
     \\ strip_tac
     \\ first_x_assum $ qspecl_then [‘aa’,‘new_live h1 (live \\ h0)’] mp_tac
@@ -112,35 +112,35 @@ Proof
     \\ simp [new_live_thm]
     \\ pop_assum $ irule_at Any)
   \\ CASE_TAC
-  \\ simp [eval_circuit_def]
+  \\ simp [eval_lit_def]
   \\ last_x_assum irule
   \\ irule new_live_pres
   \\ rw [] \\ fs [FLOOKUP_DEF]
 QED
 
-Definition eval_circuit'_def:
-  eval_circuit' is_ls [] = F ∧
-  eval_circuit' is_ls ((x,ts)::rest) = eval_circuit is_ls ((x,ts)::rest) x
+Definition eval_gate'_def:
+  eval_gate' is_ls [] = F ∧
+  eval_gate' is_ls ((x,ts)::rest) = eval_gate is_ls ((x,ts)::rest) x
 End
 
-Theorem eval_circuit'_same:
+Theorem eval_gate'_same:
   (~NULL ands ⇒ FST (HD ands) = name) ⇒
-  (eval_circuit (is,ls) ands name ⇔ eval_circuit' (is,ls) ands)
+  (eval_gate (is,ls) ands name ⇔ eval_gate' (is,ls) ands)
 Proof
-  Cases_on ‘ands’ \\ fs [eval_circuit'_def, eval_circuit_def]
-  \\ PairCases_on ‘h’ \\ fs [eval_circuit'_def, eval_circuit_def]
+  Cases_on ‘ands’ \\ fs [eval_gate'_def, eval_lit_def]
+  \\ PairCases_on ‘h’ \\ fs [eval_gate'_def, eval_lit_def]
 QED
 
-Theorem eval_circuit'_prune:
-  eval_circuit' (is,ls) (prune ands (FEMPTY |+ (name,()))) =
-  eval_circuit (is,ls) ands name
+Theorem eval_gate'_prune:
+  eval_gate' (is,ls) (prune ands (FEMPTY |+ (name,()))) =
+  eval_gate (is,ls) ands name
 Proof
   simp [Once EQ_SYM_EQ, prune_for_def]
   \\ irule EQ_TRANS
-  \\ irule_at Any eval_circuit_prune
+  \\ irule_at Any eval_gate_prune
   \\ qrefinel [‘_’,‘FEMPTY⟨name ↦ ()⟩’]
   \\ simp [FLOOKUP_SIMP]
-  \\ irule eval_circuit'_same
+  \\ irule eval_gate'_same
   \\ Induct_on ‘ands’ \\ fs [prune_def]
   \\ Cases \\ fs [prune_def, FLOOKUP_SIMP]
   \\ IF_CASES_TAC \\ fs []
@@ -248,10 +248,10 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
 QED
 
-Theorem not_eval_circuit:
-  ∀ands a. ~MEM a (MAP FST ands) ⇒ ¬eval_circuit (is,ls) ands a
+Theorem not_eval_gate:
+  ∀ands a. ~MEM a (MAP FST ands) ⇒ ¬eval_gate (is,ls) ands a
 Proof
-  Induct \\ fs [eval_circuit_def, FORALL_PROD]
+  Induct \\ fs [eval_lit_def, FORALL_PROD]
 QED
 
 Theorem aig_read_thm:
@@ -314,8 +314,8 @@ Theorem aig_rename_aux_thm:
                INJ (FAPPLY (im_1 ⊌ ix)) (FDOM (im_1 ⊌ ix)) UNIV ∧
                INJ (FAPPLY (lm_1 ⊌ lx)) (FDOM (lm_1 ⊌ lx)) UNIV
                ⇒
-               eval_circuit (is,ls) ands n =
-               eval_circuit (aig_read is (im_1 ⊌ ix),aig_read ls (lm_1 ⊌ lx)) res_1 t) ∧
+               eval_gate (is,ls) ands n =
+               eval_gate (aig_read is (im_1 ⊌ ix),aig_read ls (lm_1 ⊌ lx)) res_1 t) ∧
     FDOM nm_1 = set (MAP FST ands) ∧
     INJ (FAPPLY lm_1) (FDOM lm_1) UNIV ∧
     INJ (FAPPLY im_1) (FDOM im_1) UNIV ∧
@@ -356,11 +356,11 @@ Proof
      (asm_x "hyp" drule
       \\ impl_tac >- fs []
       \\ strip_tac \\ fs [SF SFY_ss]
-      \\ fs [eval_circuit_def]
+      \\ fs [eval_lit_def]
       \\ pop_assum $ assume_tac o GSYM \\ fs []
-      \\ qsuff_tac ‘eval_circuit (is,ls) ands a = F’
+      \\ qsuff_tac ‘eval_gate (is,ls) ands a = F’
       >- simp [AC CONJ_ASSOC CONJ_COMM]
-      \\ fs [] \\ irule not_eval_circuit
+      \\ fs [] \\ irule not_eval_gate
       \\ gvs [FLOOKUP_DEF,EXTENSION])
     \\ asm_x "hyp" drule
     \\ impl_tac >- fs []
@@ -370,7 +370,7 @@ Proof
     >-
      (gvs [FLOOKUP_DEF,FRANGE_DEF]
       \\ last_x_assum $ irule_at Any \\ fs [])
-    \\ simp [eval_circuit_def]
+    \\ simp [eval_lit_def]
     \\ pop_assum $ assume_tac o GSYM \\ fs []
     \\ rpt gen_tac
     \\ last_x_assum $ qspec_then ‘a’ mp_tac
@@ -391,7 +391,7 @@ Proof
      (asm_x "hyp" drule
       \\ impl_tac >- fs []
       \\ strip_tac \\ fs [SF SFY_ss]
-      \\ fs [eval_circuit_def]
+      \\ fs [eval_lit_def]
       \\ simp [SF DNF_ss, SF SFY_ss]
       \\ rewrite_tac [CONJ_ASSOC]
       \\ conj_tac
@@ -443,7 +443,7 @@ Proof
     \\ rpt strip_tac
     \\ first_x_assum drule_all
     \\ disch_then $ assume_tac o GSYM
-    \\ simp [eval_circuit_def]
+    \\ simp [eval_lit_def]
     \\ ‘FLOOKUP im_2 i = SOME next_1’ by fs [TO_FLOOKUP, FLOOKUP_SIMP]
     \\ drule_all aig_read_thm
     \\ simp [AC CONJ_COMM CONJ_ASSOC])
@@ -458,7 +458,7 @@ Proof
      (asm_x "hyp" drule
       \\ impl_tac >- fs []
       \\ strip_tac \\ fs [SF SFY_ss]
-      \\ fs [eval_circuit_def]
+      \\ fs [eval_lit_def]
       \\ simp [SF DNF_ss, SF SFY_ss]
       \\ rewrite_tac [CONJ_ASSOC]
       \\ conj_tac
@@ -509,7 +509,7 @@ Proof
     \\ rpt strip_tac
     \\ first_x_assum drule_all
     \\ disch_then $ assume_tac o GSYM
-    \\ simp [eval_circuit_def]
+    \\ simp [eval_lit_def]
     \\ ‘FLOOKUP lm_2 l = SOME next_1’ by fs [TO_FLOOKUP, FLOOKUP_SIMP]
     \\ drule_all aig_read_thm
     \\ simp [AC CONJ_COMM CONJ_ASSOC])
@@ -522,7 +522,7 @@ Proof
   \\ asm_x "hyp" drule
   \\ impl_tac >- fs []
   \\ strip_tac \\ fs [SF SFY_ss]
-  \\ fs [eval_circuit_def]
+  \\ fs [eval_lit_def]
   \\ pop_assum $ assume_tac o GSYM
   \\ simp [AC CONJ_COMM CONJ_ASSOC]
 QED
@@ -554,8 +554,8 @@ Theorem aig_rename_thm:
               INJ (FAPPLY (im ⊌ ix)) (FDOM (im ⊌ ix)) UNIV ∧
               INJ (FAPPLY (lm ⊌ lx)) (FDOM (lm ⊌ lx)) UNIV
               ⇒
-              eval_circuit (is,ls) ands n =
-              eval_circuit (aig_read is (FUNION im ix),
+              eval_gate (is,ls) ands n =
+              eval_gate (aig_read is (FUNION im ix),
                             aig_read ls (FUNION lm lx)) res (t:num)
 Proof
   Induct
@@ -595,10 +595,10 @@ Proof
   \\ conj_tac >- rw []
   \\ gen_tac
   \\ Cases_on ‘n = h0’ \\ gvs [FLOOKUP_SIMP]
-  >- (gvs [eval_circuit_def] \\ fs [SF ETA_ss])
+  >- (gvs [eval_lit_def] \\ fs [SF ETA_ss])
   \\ strip_tac
   \\ first_x_assum drule
-  \\ strip_tac \\ fs [eval_circuit_def]
+  \\ strip_tac \\ fs [eval_lit_def]
   \\ rpt gen_tac
   \\ IF_CASES_TAC
   >- (rw [] \\ res_tac \\ fs [FRANGE_DEF,FLOOKUP_DEF,SUBSET_DEF] \\ metis_tac [])
@@ -608,39 +608,39 @@ Proof
   \\ asm_rewrite_tac [FUNION_ASSOC]
 QED
 
-Theorem eval_circuit'_swap:
+Theorem eval_gate'_swap:
   (∀i. has_var (Input i) res ⇒ is i = is1 i) ⇒
   (∀l. has_var (Latch l) res ⇒ ls l = ls1 l) ⇒
-  (eval_circuit' (is,ls) res ⇔ eval_circuit' (is1,ls1) res)
+  (eval_gate' (is,ls) res ⇔ eval_gate' (is1,ls1) res)
 Proof
-  Cases_on ‘res’ \\ fs [eval_circuit'_def]
-  \\ PairCases_on ‘h’ \\ fs [eval_circuit'_def]
+  Cases_on ‘res’ \\ fs [eval_gate'_def]
+  \\ PairCases_on ‘h’ \\ fs [eval_gate'_def]
   \\ qspec_tac (‘(h0,h1)::t’,‘xs’)
   \\ qspec_tac (‘h0’,‘h’)
   \\ Induct_on ‘xs’
-  \\ fs [eval_circuit_def, FORALL_PROD]
+  \\ fs [eval_lit_def, FORALL_PROD]
   \\ reverse $ rw []
   >- (last_x_assum irule \\ gvs [has_var_def])
   \\ simp [SF ETA_ss]
   \\ irule EVERY_EQ_EVERY
   \\ rw [EVERY_MEM]
   \\ gvs [has_var_def, SF DNF_ss]
-  \\ Cases_on ‘x’ \\ gvs [eval_circuit_def]
-  \\ Cases_on ‘q’ \\ gvs [eval_circuit_def]
+  \\ Cases_on ‘x’ \\ gvs [eval_lit_def]
+  \\ Cases_on ‘q’ \\ gvs [eval_lit_def]
   \\ Cases_on ‘b’ \\ gvs [eval_bvar_def]
   \\ res_tac \\ gvs []
 QED
 
-Theorem eval_circuit'_aig_rename:
-  (∃is ls. eval_circuit' (is,ls) (FST (aig_rename ands))) ⇔
-  (∃is ls. eval_circuit' (is,ls) ands)
+Theorem eval_gate'_aig_rename:
+  (∃is ls. eval_gate' (is,ls) (FST (aig_rename ands))) ⇔
+  (∃is ls. eval_gate' (is,ls) ands)
 Proof
   ‘∃r. aig_rename ands = r’ by simp []
   \\ PairCases_on ‘r’ \\ gvs []
   \\ rename [‘_ = (res,next,im,lm,nm)’]
   \\ drule aig_rename_thm \\ strip_tac
   \\ Cases_on ‘ands’ \\ fs []
-  >- gvs [aig_rename_def, eval_circuit'_def]
+  >- gvs [aig_rename_def, eval_gate'_def]
   \\ PairCases_on ‘h’ \\ fs []
   \\ reverse eq_tac \\ rw []
   >-
@@ -648,27 +648,27 @@ Proof
     \\ first_x_assum $ qspec_then ‘h0’ mp_tac
     \\ strip_tac \\ fs []
     \\ first_x_assum $ qspecl_then [‘FEMPTY’,‘FEMPTY’] assume_tac
-    \\ gvs [eval_circuit'_def]
+    \\ gvs [eval_gate'_def]
     \\ fs [aig_rename_def]
     \\ rpt (pairarg_tac \\ gvs [])
-    \\ fs [eval_circuit'_def, FLOOKUP_SIMP]
+    \\ fs [eval_gate'_def, FLOOKUP_SIMP]
     \\ last_x_assum $ irule_at Any)
   \\ first_x_assum $ qspecl_then [‘λt. ls (lm ' t)’, ‘λt. is (im ' t)’] strip_assume_tac
   \\ first_x_assum $ qspec_then ‘h0’ $ mp_tac o GSYM
   \\ strip_tac \\ fs []
   \\ first_x_assum $ qspecl_then [‘FEMPTY’,‘FEMPTY’] assume_tac
   \\ gvs []
-  \\ simp [eval_circuit'_def]
+  \\ simp [eval_gate'_def]
   \\ drule EQ_IMPLIES
   \\ disch_then $ irule_at Any
   \\ qabbrev_tac ‘is1 = aig_read (λt. is im⟨t⟩) im’
   \\ qabbrev_tac ‘ls1 = aig_read (λt. ls lm⟨t⟩) lm’
-  \\ qsuff_tac ‘eval_circuit' (is,ls) res = eval_circuit' (is1,ls1) res’
+  \\ qsuff_tac ‘eval_gate' (is,ls) res = eval_gate' (is1,ls1) res’
   >-
    (fs [aig_rename_def]
     \\ rpt (pairarg_tac \\ gvs [])
-    \\ gvs [eval_circuit'_def, FLOOKUP_SIMP])
-  \\ irule eval_circuit'_swap
+    \\ gvs [eval_gate'_def, FLOOKUP_SIMP])
+  \\ irule eval_gate'_swap
   \\ rw [] \\ first_x_assum drule
   \\ unabbrev_all_tac
   \\ fs [aig_read_def]
@@ -773,18 +773,18 @@ Definition to_cnf_def:
   to_cnf ((n,ys)::xs) acc = to_cnf xs (and_to_cnf n ys ++ acc)
 End
 
-Definition direct_circuit_to_cnf_def:
-  direct_circuit_to_cnf (ands : (num,num,num) and list) =
+Definition direct_aig_to_cnf_def:
+  direct_aig_to_cnf (ands : (num,num,num) and list) =
     case ands of
     | [] => [[]]
     | ((name,_)::_) => ([Pos name] :: to_cnf ands []) : num lit list list
 End
 
-Definition eval_circuits_def:
-  (eval_circuits (is,ls) [] w ⇔ T) ∧
-  (eval_circuits (is,ls) ((k,ts)::rest) w ⇔
-     (w k = eval_circuit (is,ls) ((k,ts)::rest) k) ∧
-     eval_circuits (is,ls) rest w)
+Definition eval_gates_def:
+  (eval_gates (is,ls) [] w ⇔ T) ∧
+  (eval_gates (is,ls) ((k,ts)::rest) w ⇔
+     (w k = eval_gate (is,ls) ((k,ts)::rest) k) ∧
+     eval_gates (is,ls) rest w)
 End
 
 Theorem to_cnf_acc:
@@ -822,34 +822,34 @@ Proof
   \\ Cases_on ‘q’ \\ fs [not_TT_def]
   \\ Cases_on ‘b’ \\ fs [not_TT_def]
   \\ Cases_on ‘r’ \\ fs [not_TT_def]
-  \\ simp [eval_circuit_def]
+  \\ simp [eval_lit_def]
 QED
 
-Theorem eval_circuits_ALOOKUP:
+Theorem eval_gates_ALOOKUP:
   ∀ands a.
-    eval_circuits (w,w) ands w ∧
+    eval_gates (w,w) ands w ∧
     ALOOKUP ands a ≠ NONE ⇒
-    (w a ⇔ eval_circuit (w,w) ands a)
+    (w a ⇔ eval_gate (w,w) ands a)
 Proof
   Induct \\ simp [ALOOKUP_def]
   \\ PairCases \\ simp [ALOOKUP_def] \\ rw []
-  \\ Cases_on ‘h0 = a’ \\ gvs [eval_circuits_def]
-  \\ gvs [eval_circuit_def]
+  \\ Cases_on ‘h0 = a’ \\ gvs [eval_gates_def]
+  \\ gvs [eval_lit_def]
 QED
 
 Theorem satisfies_cnf_IMP:
   ∀ands w.
     satisfies_cnf w (set (to_cnf ands [])) ∧ closed ands ⇒
-    eval_circuits (w, w) ands w
+    eval_gates (w, w) ands w
 Proof
   Induct
-  \\ simp [eval_circuits_def]
+  \\ simp [eval_gates_def]
   \\ PairCases \\ fs [closed_def]
-  \\ simp [eval_circuits_def, to_cnf_def]
+  \\ simp [eval_gates_def, to_cnf_def]
   \\ simp [Once to_cnf_acc]
   \\ rpt gen_tac
   \\ strip_tac
-  \\ simp [eval_circuit_def]
+  \\ simp [eval_lit_def]
   \\ dxrule satisfies_cnf_UNION_IMP \\ strip_tac
   \\ last_x_assum drule_all \\ strip_tac
   \\ simp []
@@ -859,7 +859,7 @@ Proof
    (gvs [satisfies_cnf_def, satisfies_fml_gen_def,
          satisfies_clause_def, satisfies_lit_def, EXISTS_MEM]
     \\ first_x_assum $ irule_at Any
-    \\ gvs [eval_circuit_def])
+    \\ gvs [eval_lit_def])
   \\ fs [eq_every_to_cnf_thm, satisfies_lit_def, SF ETA_ss]
   \\ simp [Once to_filter]
   \\ simp [EVERY_MAP]
@@ -871,10 +871,10 @@ Proof
   \\ Cases_on ‘z0’ \\ fs []
   \\ TRY (rename [‘Base b’] \\ Cases_on ‘b’ \\ fs [])
   \\ gvs [var_to_lit_def, satisfies_lit_def, var_to_num_def, not_TT_def]
-  \\ gvs [eval_circuit_def, eval_bvar_def]
+  \\ gvs [eval_lit_def, eval_bvar_def]
   \\ last_x_assum drule
   \\ strip_tac
-  \\ drule_all eval_circuits_ALOOKUP
+  \\ drule_all eval_gates_ALOOKUP
   \\ rewrite_tac []
 QED
 
@@ -890,7 +890,7 @@ Definition cnf_witness_def:
     if n ∈ l_dom then ls n else
       case find_suffix n ands of
       | NONE => F
-      | SOME rest => eval_circuit (is,ls) rest n
+      | SOME rest => eval_gate (is,ls) rest n
 End
 
 Theorem find_suffix_fast_forward:
@@ -901,16 +901,16 @@ Proof
   Induct \\ fs [find_suffix_def, FORALL_PROD]
 QED
 
-Theorem eval_circuit_drop:
+Theorem eval_gate_drop:
   ∀l1 a.
     ~ MEM a (MAP FST l1) ⇒
-    eval_circuit (is,ls) (l1 ++ l2) a =
-    eval_circuit (is,ls) l2 a
+    eval_gate (is,ls) (l1 ++ l2) a =
+    eval_gate (is,ls) l2 a
 Proof
-  Induct \\ fs [eval_circuit_def, FORALL_PROD]
+  Induct \\ fs [eval_lit_def, FORALL_PROD]
 QED
 
-Theorem eval_circuit_IMP_cnf_lemma:
+Theorem eval_gate_IMP_cnf_lemma:
   ∀ands past.
     closed ands ∧ DISJOINT3 i_dom l_dom (set (MAP FST ands)) ∧
     (∀l. has_var (Latch l) ands ⇒ l ∈ l_dom) ∧
@@ -940,14 +940,14 @@ Proof
     \\ drule find_suffix_fast_forward \\ fs [] \\ rw []
     >- fs [DISJOINT3_def,IN_DISJOINT]
     >- fs [DISJOINT3_def,IN_DISJOINT]
-    \\ fs [eval_circuit_def]
+    \\ fs [eval_lit_def]
     \\ simp [EXISTS_MEM]
     \\ first_x_assum $ irule_at Any
-    \\ fs [eval_circuit_def])
+    \\ fs [eval_lit_def])
   \\ fs [eq_every_to_cnf_thm, satisfies_lit_def, SF ETA_ss]
   \\ fs [cnf_witness_def]
   \\ drule find_suffix_fast_forward \\ fs [] \\ strip_tac
-  \\ simp [eval_circuit_def, SF ETA_ss]
+  \\ simp [eval_lit_def, SF ETA_ss]
   \\ simp [Once to_filter]
   \\ simp [EVERY_MAP]
   \\ fs [has_var_def, SF DNF_ss] \\ rw []
@@ -961,13 +961,13 @@ Proof
   >-
    (rename [‘Base b’] \\ Cases_on ‘b’ \\ fs []
     \\ Cases_on ‘z1’ \\ fs [not_TT_def]
-    \\ simp [var_to_lit_def, var_to_num_def, eval_circuit_def,
+    \\ simp [var_to_lit_def, var_to_num_def, eval_lit_def,
              satisfies_lit_def, cnf_witness_def]
     \\ res_tac \\ fs [] \\ rw []
     \\ fs [DISJOINT3_def,IN_DISJOINT] \\ metis_tac [])
   \\ Cases_on ‘z1’
   \\ gvs [var_to_lit_def, satisfies_lit_def, var_to_num_def]
-  \\ gvs [eval_circuit_def, eval_bvar_def, cnf_witness_def]
+  \\ gvs [eval_lit_def, eval_bvar_def, cnf_witness_def]
   \\ res_tac
   \\ Cases_on ‘ALOOKUP ands a’ \\ fs []
   \\ dxrule ALOOKUP_MEM
@@ -984,56 +984,56 @@ Proof
   \\ drule find_suffix_fast_forward
   \\ simp_tac std_ss [GSYM APPEND_ASSOC, APPEND]
   \\ rw []
-  \\ irule eval_circuit_drop
+  \\ irule eval_gate_drop
   \\ fs [ALL_DISTINCT_APPEND]
   \\ metis_tac []
 QED
 
-Theorem eval_circuit_IMP_cnf:
+Theorem eval_gate_IMP_cnf:
   closed ands ∧ ALL_DISTINCT (MAP FST ands) ∧
   (∀l. has_var (Latch l) ands ⇒ l ∈ l_dom) ∧
   (∀i. has_var (Input i) ands ⇒ i ∈ i_dom) ∧
   DISJOINT3 i_dom l_dom (set (MAP FST ands)) ⇒
   satisfies_cnf (cnf_witness i_dom l_dom is ls ands) (set (to_cnf ands []))
 Proof
-  qspecl_then [‘ands’,‘[]’] mp_tac eval_circuit_IMP_cnf_lemma \\ fs []
+  qspecl_then [‘ands’,‘[]’] mp_tac eval_gate_IMP_cnf_lemma \\ fs []
 QED
 
-Theorem direct_circuit_to_cnf_correct:
+Theorem direct_aig_to_cnf_correct:
   ALL_DISTINCT (MAP FST ands) ∧ closed ands ∧
   (∀l. has_var (Latch l) ands ⇒ l ∈ l_dom) ∧
   (∀i. has_var (Input i) ands ⇒ i ∈ i_dom) ∧
   DISJOINT3 i_dom l_dom (set (MAP FST ands)) ⇒
-  (satisfiable_cnf (set (direct_circuit_to_cnf ands)) =
-   ∃is ls. eval_circuit' (is,ls) ands)
+  (satisfiable_cnf (set (direct_aig_to_cnf ands)) =
+   ∃is ls. eval_gate' (is,ls) ands)
 Proof
   rw [satisfiable_cnf_def] \\ eq_tac \\ strip_tac
   >-
    (qexists ‘w’ \\ qexists ‘w’
-    \\ fs [direct_circuit_to_cnf_def]
+    \\ fs [direct_aig_to_cnf_def]
     \\ pop_assum mp_tac
     \\ Cases_on ‘ands’
-    >- (rw [] \\ gvs [eval_circuit'_def]
+    >- (rw [] \\ gvs [eval_gate'_def]
         \\ fs [satisfies_cnf_def, satisfies_fml_gen_def, satisfies_clause_def])
     \\ PairCases_on ‘h’
     \\ simp []
     \\ once_rewrite_tac [satisfies_cnf_INSERT]
     \\ rw [satisfies_clause_def, satisfies_lit_def]
     \\ drule_all satisfies_cnf_IMP
-    \\ gvs [eval_circuits_def,eval_circuit'_def]
-    \\ gvs [eval_circuit_def])
+    \\ gvs [eval_gates_def,eval_gate'_def]
+    \\ gvs [eval_lit_def])
   \\ qexists ‘cnf_witness i_dom l_dom is ls ands’
-  \\ simp [direct_circuit_to_cnf_def]
-  \\ Cases_on ‘ands’ >- gvs [eval_circuit'_def]
+  \\ simp [direct_aig_to_cnf_def]
+  \\ Cases_on ‘ands’ >- gvs [eval_gate'_def]
   \\ PairCases_on ‘h’ \\ fs []
   \\ once_rewrite_tac [satisfies_cnf_INSERT]
   \\ conj_tac
   >-
    (simp [satisfies_clause_def, satisfies_lit_def]
     \\ simp [cnf_witness_def]
-    \\ fs [find_suffix_def, eval_circuit'_def]
+    \\ fs [find_suffix_def, eval_gate'_def]
     \\ rw [] \\ fs [DISJOINT3_def,IN_DISJOINT])
-  \\ drule eval_circuit_IMP_cnf \\ fs []
+  \\ drule eval_gate_IMP_cnf \\ fs []
 QED
 
 Definition lits_within_def:
@@ -1087,15 +1087,15 @@ Proof
   \\ res_tac
 QED
 
-Theorem direct_circuit_to_cnf_lits_within:
+Theorem direct_aig_to_cnf_lits_within:
   (∀l. has_var (Latch l) ands ⇒ l < limit) ∧
   (∀i. has_var (Input i) ands ⇒ i < limit) ∧
   closed ands ∧
   EVERY (λ(n,_). n < limit) ands ⇒
-  lits_within limit (direct_circuit_to_cnf ands)
+  lits_within limit (direct_aig_to_cnf ands)
 Proof
   strip_tac
-  \\ fs [direct_circuit_to_cnf_def]
+  \\ fs [direct_aig_to_cnf_def]
   \\ Cases_on ‘ands’ >- fs [lits_within_def]
   \\ PairCases_on ‘h’ \\ fs []
   \\ fs [lits_within_def, lit_var_def]
@@ -1112,19 +1112,19 @@ Definition aig_to_cnf_def:
   aig_to_cnf ands name =
     let ands_1 = prune_for name ands in
     let (ands_2, limit, x) = aig_rename_rev ands_1 [] 1n FEMPTY FEMPTY FEMPTY in
-      (direct_circuit_to_cnf ands_2, limit)
+      (direct_aig_to_cnf ands_2, limit)
 End
 
 Theorem aig_to_cnf_def_correct:
   aig_to_cnf aig name = (cnf, limit) ⇒
-  (satisfiable_cnf (set cnf) ⇔ ∃is ls. eval_circuit (is,ls) aig name) ∧
+  (satisfiable_cnf (set cnf) ⇔ ∃is ls. eval_gate (is,ls) aig name) ∧
   lits_within limit cnf
 Proof
   simp [aig_to_cnf_def]
   \\ pairarg_tac \\ fs []
   \\ strip_tac \\ gvs [prune_for_def, prune_rev_thm, aig_rename_rev_thm]
   \\ irule_at Any EQ_TRANS
-  \\ irule_at Any direct_circuit_to_cnf_correct
+  \\ irule_at Any direct_aig_to_cnf_correct
   \\ PairCases_on ‘x’
   \\ drule aig_rename_thm
   \\ simp [GSYM PULL_FORALL]
@@ -1136,8 +1136,8 @@ Proof
   >-
    (‘ands_2 = FST (aig_rename (prune aig FEMPTY⟨name ↦ ()⟩))’ by asm_rewrite_tac []
     \\ pop_assum $ rewrite_tac o single
-    \\ rewrite_tac [eval_circuit'_aig_rename, eval_circuit'_prune])
-  \\ irule direct_circuit_to_cnf_lits_within
+    \\ rewrite_tac [eval_gate'_aig_rename, eval_gate'_prune])
+  \\ irule direct_aig_to_cnf_lits_within
   \\ fs [EVERY_MEM,FORALL_PROD]
   \\ rpt strip_tac
   \\ res_tac

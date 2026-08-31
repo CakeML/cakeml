@@ -17,7 +17,7 @@ val r = translate aig_to_cnfTheory.var_to_num_def;
 val r = translate aig_to_cnfTheory.var_to_lit_def;
 val r = translate (aig_to_cnfTheory.and_to_cnf_def |> REWRITE_RULE [MEMBER_INTRO]);
 val r = translate aig_to_cnfTheory.to_cnf_def;
-val r = translate aig_to_cnfTheory.direct_circuit_to_cnf_def;
+val r = translate aig_to_cnfTheory.direct_aig_to_cnf_def;
 
 fun translate_rest i = let
   val r = translate (aig_to_cnfTheory.new_live_def |> i)
@@ -32,7 +32,7 @@ fun translate_rest i = let
    with something more efficient than alists, assuming aig_fmapsProgScript.sml
    contains the appropriate comparison functions.
 
-   The general type for circuits is ('α, 'β, 'γ) circuit.
+   The general type for AIGs is ('α, 'β, 'γ) aig.
  *)
 
 (* TODO Instead of big types, add type abbreviations and use them everywhere
