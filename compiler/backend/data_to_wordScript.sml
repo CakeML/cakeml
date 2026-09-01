@@ -1692,6 +1692,12 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_PtrEq (l:num) (dest:num) v1 v2 =
+                 (PtrEq (adjust_var dest) (adjust_var v1) (adjust_var v2)
+                    18w 2w,l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
   assign_BoolNot (l:num) (dest:num) v1 =
                  (Assign (adjust_var dest)
                     (Op Xor [Var (adjust_var v1); Const 16w]),l)
@@ -2492,7 +2498,7 @@ Definition assign_def:
     | MemOp (CopyByte alloc_new) => assign_CopyByte c secn l dest names args
     | MemOp RefArray => arg2 args (assign_RefArray c secn l dest names) (Skip,l)
     | BlockOp (BoolTest test) => arg2 args (assign_BoolTest l dest test) (Skip,l)
-    | BlockOp PtrEqual => arg2 args (assign_BoolTest l dest Equal) (Skip,l)
+    | BlockOp PtrEqual => arg2 args (assign_PtrEq l dest) (Skip,l)
     | BlockOp BoolNot => arg1 args (assign_BoolNot l dest) (Skip,l)
     | WordOp (WordTest ws test) => arg2 args (assign_WordTest l dest test) (Skip,l)
     | BlockOp (FromList tag) => arg2 args (assign_FromList c secn l dest names tag) (Skip,l)

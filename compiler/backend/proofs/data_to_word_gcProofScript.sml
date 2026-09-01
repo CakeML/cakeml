@@ -4556,6 +4556,14 @@ Proof
   srw_tac[][state_rel_def] \\ fs []
 QED
 
+(* the relation places no constraint on the pointer-equality oracle *)
+Theorem state_rel_with_ptr_eq_oracle:
+   state_rel a b c (s1:('c,'ffi) dataSem$state) s2 d e ⇒
+   state_rel a b c (s1 with ptr_eq_oracle := f) s2 d e
+Proof
+  srw_tac[][state_rel_def] \\ fs []
+QED
+
 (* -------------------------------------------------------
     init
    ------------------------------------------------------- *)

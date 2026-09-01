@@ -628,7 +628,12 @@ Definition word_cse_def:
      let (_, c') = word_cse empty_data c in
        (empty_data, Loop names c' exit_names)) ∧
   (word_cse data (Break k) = (data, Break k)) ∧
-  (word_cse data (Continue k) = (data, Continue k))
+  (word_cse data (Continue k) = (data, Continue k)) ∧
+  (* Each PtrEq consumes one answer from the pointer-equality oracle, so two
+     syntactically identical PtrEqs need not agree: never record one as a
+     known expression. It writes only its destination register. *)
+  (word_cse data (PtrEq dst v1 v2 tw fw) =
+     (invalidate_data data dst, PtrEq dst v1 v2 tw fw))
 End
 
 Definition word_common_subexp_elim_def:

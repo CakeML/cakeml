@@ -572,7 +572,12 @@ Definition ssa_cc_trans_def:
       NONE => (Continue n, ssa, na)
     | SOME (tgt_ssa, names, exit_names) =>
         let moves = ssa_reconcile ssa tgt_ssa names in
-        (if moves = Skip then Continue n else Seq moves (Continue n), ssa, na))
+        (if moves = Skip then Continue n else Seq moves (Continue n), ssa, na)) /\
+  (ssa_cc_trans (PtrEq dst v1 v2 tw fw) ssa na lt =
+    let v1' = option_lookup ssa v1 in
+    let v2' = option_lookup ssa v2 in
+    let (dst',ssa',na') = next_var_rename dst ssa na in
+      (PtrEq dst' v1' v2' tw fw,ssa',na'))
 End
 
 (*Recursively applying colours to a program*)
@@ -671,6 +676,8 @@ Definition apply_colour_def[simp]:
   (apply_colour f (ShareInst op v exp) = ShareInst op (f v) (apply_colour_exp f exp)) ∧
   (apply_colour f (Loop names body exit_names) =
     Loop (apply_nummap_key f names) (apply_colour f body) (apply_nummap_key f exit_names)) ∧
+  (apply_colour f (PtrEq dst v1 v2 tw fw) =
+    PtrEq (f dst) (f v1) (f v2) tw fw) ∧
   (apply_colour f p = p )
 End
 
@@ -847,7 +854,9 @@ Definition get_live_def:
   *)
   (get_live (Call NONE dest args h) live lt = numset_list_insert args LN) ∧
   (get_live (Call (SOME(_,cutset,_)) dest args h) live lt =
-    union (union (FST cutset) (SND cutset)) (numset_list_insert args LN))
+    union (union (FST cutset) (SND cutset)) (numset_list_insert args LN)) ∧
+  (get_live (PtrEq dst v1 v2 tw fw) live lt =
+    insert v1 () (insert v2 () (delete dst live)))
 End
 
 (* Dead instruction removal *)
@@ -998,6 +1007,11 @@ Definition remove_dead_def:
   (remove_dead (Continue n) live nlive lt =
     let prog = Continue n in
       (prog, get_live prog live lt, [])) ∧
+  (* PtrEq's result depends on the whole store: wordSem$evaluate applies
+     ptr_eq_rel to s.store, so no store may be dead across a PtrEq. *)
+  (remove_dead (PtrEq dst v1 v2 t f) live nlive lt =
+    let prog = PtrEq dst v1 v2 t f in
+      (prog, get_live prog live lt, [])) ∧
   (remove_dead prog live nlive lt = (prog,get_live prog live lt,nlive))
 End
 
@@ -1019,6 +1033,7 @@ Definition get_writes_def:
   (get_writes (ShareInst Load8 v _) = insert v () LN) ∧
   (get_writes (ShareInst Load16 v _) = insert v () LN) ∧
   (get_writes (ShareInst Load32 v _) = insert v () LN) ∧
+  (get_writes (PtrEq dst _ _ _ _) = insert dst () LN) ∧
   (get_writes prog = LN)
 End
 
@@ -1038,6 +1053,7 @@ Theorem get_writes_pmatch:
     | ShareInst Load8 v _ => insert v () LN
     | ShareInst Load16 v _ => insert v () LN
     | ShareInst Load32 v _ => insert v () LN
+    | PtrEq dst _ _ _ _ => insert dst () LN
     | prog => LN
 Proof
   rpt strip_tac
@@ -1194,7 +1210,8 @@ Definition get_clash_tree_def:
       | SOME (v',prog,_,_) =>
         let handler_tree =
           Seq (Set (insert v' () cutset)) (get_clash_tree prog lt) in
-        Branch (SOME live_set) ret_tree handler_tree)
+        Branch (SOME live_set) ret_tree handler_tree) ∧
+  (get_clash_tree (PtrEq dst v1 v2 tw fw) lt = Delta [dst] [v1;v2])
 End
 
 (* Preference edges

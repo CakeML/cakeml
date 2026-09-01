@@ -569,6 +569,15 @@ Proof
   \\ drule_all evaluate_load_agree \\ gvs []
 QED
 
+Theorem data_inv_with_ptr_eq_const[simp]:
+  (data_inv data (s with ptr_eq_oracle := po) ⇔ data_inv data s) ∧
+  (data_inv data (s with ptr_eq_rel := prel) ⇔ data_inv data s)
+Proof
+  rw [] \\ eq_tac \\ rw []
+  \\ irule data_inv_state_agree
+  \\ first_x_assum (irule_at Any) \\ simp []
+QED
+
 (* IF-JOIN MERGE SUPPORT
 
    bm_inter_eq_acc m2 m1 acc inserts into acc exactly the entries of m1 that
@@ -2928,6 +2937,7 @@ Proof
   >~ [`wordLang$LocValue`] >- suspend "LocValue"
   >~ [`wordLang$StoreConsts`] >- suspend "StoreConsts"
   >~ [`wordLang$ShareInst`] >- suspend "ShareInst"
+  >~ [`wordLang$PtrEq`] >- suspend "PtrEq"
   >~ [`Loop`] >- suspend "Loop"
   >> gvs [word_cse_def]
 QED
@@ -3300,6 +3310,10 @@ Resume word_cse_wf_data[Loop]:
   simp [Once word_cse_def] \\ pairarg_tac \\ gvs []
 QED
 
+Resume word_cse_wf_data[PtrEq]:
+  gvs [word_cse_def] \\ rw [wf_data_invalidate]
+QED
+
 Finalise word_cse_wf_data;
 
 Theorem comp_correct:
@@ -3335,6 +3349,7 @@ Proof
   >~ [`wordLang$ShareInst`] >- suspend "ShareInst"
   >~ [`Break`] >- (gvs[word_cse_def, evaluate_def])
   >~ [`Continue`] >- (gvs[word_cse_def, evaluate_def])
+  >~ [`wordLang$PtrEq`] >- suspend "PtrEq"
   >~ [`Loop`] >- suspend "Loop"
 QED
 
@@ -3788,6 +3803,16 @@ Resume comp_correct[Loop]:
         ‘Loop names c' exit_names’,‘empty_data’] mp_tac) >>
       simp [STOP_def, flat_exp_conventions_def, data_inv_empty, word_cse_def] >>
       rpt (pairarg_tac >> gvs []))
+QED
+
+Resume comp_correct[PtrEq]:
+  rpt gen_tac \\ strip_tac
+  \\ gvs [word_cse_def, evaluate_def, AllCaseEqs()]
+  \\ ‘data_inv (invalidate_data data dst) s ∧
+      lookup dst (invalidate_data data dst).to_canonical = NONE’ by
+       (rw [invalidate_data_def, keep_data_def] \\ gvs [empty_data_def])
+  \\ gvs [data_inv_set_var]
+  \\ irule data_inv_state_agree \\ qexists_tac ‘s’ \\ gvs []
 QED
 
 Finalise comp_correct;

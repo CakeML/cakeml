@@ -552,6 +552,7 @@ Definition not_created_subprogs_def:
   not_created_subprogs P (LocValue _ l) = P (LocValue 0 l) /\
   not_created_subprogs P (ShareInst _ _ _) = P (ShareInst ARB 0 (Var 0)) /\
   not_created_subprogs P (Install _ _ _ _ _) = P (Install 0 0 0 0 (LN,LN)) /\
+  not_created_subprogs P (PtrEq _ _ _ _ _) = P (PtrEq 0 0 0 0w 0w) /\
   not_created_subprogs _ _ = T
 End
 
@@ -606,6 +607,18 @@ End
 Theorem no_share_inst_def = not_created_subprogs_P_def
   |> ISPEC no_share_inst_P
   |> REWRITE_RULE [GSYM no_share_inst_subprogs_def]
+
+(* no_ptr_eq: no PtrEq *)
+
+val no_ptr_eq_P = ``((<>) (PtrEq 0 0 0 0w 0w))``
+
+Definition no_ptr_eq_subprogs_def:
+  no_ptr_eq p = not_created_subprogs ^no_ptr_eq_P p
+End
+
+Theorem no_ptr_eq_def = not_created_subprogs_P_def
+  |> ISPEC no_ptr_eq_P
+  |> REWRITE_RULE [GSYM no_ptr_eq_subprogs_def]
 
 Overload word_get_code_labels = ``wordConvs$get_code_labels``
 Overload word_good_handlers = ``wordConvs$good_handlers``

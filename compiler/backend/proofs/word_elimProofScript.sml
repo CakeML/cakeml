@@ -397,7 +397,9 @@ Definition word_state_rel_def:
         s.stack_limit    = t.stack_limit /\
         s.stack_size     = t.stack_size  /\
         code_rel reachable (s.code) (t.code) ∧
-        domain (find_loc_state t) ⊆ domain (reachable)
+        domain (find_loc_state t) ⊆ domain (reachable) ∧
+        s.ptr_eq_oracle  = t.ptr_eq_oracle ∧
+        s.ptr_eq_rel     = t.ptr_eq_rel
 End
 
 
@@ -607,7 +609,7 @@ Theorem word_state_rel_set_fp_var:
 Proof
   rw[] >> fs[word_state_rel_def] >>
   CONJ_TAC >- (fs[set_fp_var_def]) >>
-  fs[domain_find_loc_state]
+  fs[domain_find_loc_state,set_fp_var_def]
 QED
 
 Theorem word_state_rel_word_exp:
@@ -984,6 +986,7 @@ Proof
   >~ [`StoreConsts`] >- suspend "StoreConsts"
   >~ [`Alloc`] >- suspend "Alloc"
   >~ [`Skip`] >- suspend "Skip"
+  >~ [`PtrEq`] >- suspend "PtrEq"
 QED
 
 Resume word_removal_lemma[Skip]:
@@ -1596,6 +1599,18 @@ Resume word_removal_lemma[Loop]:
       gvs[wordSemTheory.exit_loop_def, dest_result_loc_def] >>
       Cases_on `x` >>
       gvs[wordSemTheory.exit_loop_def, dest_result_loc_def])
+QED
+
+Resume word_removal_lemma[PtrEq]:
+  simp[wordSemTheory.evaluate_def] >>
+  rpt (TOP_CASE_TAC >> fs[]) >> fs[AllCaseEqs()] >>
+  strip_tac >> rveq >>
+  gvs [dest_result_loc_def,set_var_def] >>
+  fs[word_state_rel_def, domain_find_loc_state, dest_result_loc_def] >>
+  qmatch_goalsub_abbrev_tac `insert dst wv s.locals` >>
+  qspecl_then [`dst`,`wv`,`s.locals`] mp_tac get_locals_insert >>
+  `dest_word_loc wv = NONE` by simp[Abbr`wv`,dest_word_loc_def] >>
+  fs[] >> metis_tac[SUBSET_TRANS]
 QED
 
 Finalise word_removal_lemma;

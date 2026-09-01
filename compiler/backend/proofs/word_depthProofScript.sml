@@ -283,6 +283,8 @@ Proof
       sh_mem_load16_def,sh_mem_store16_def,
       oneline sh_mem_set_var_def,
       flush_state_def]) (*FIXME should be using share_inst_const*)
+  >~ [`PtrEq`]
+  >- (gvs [wordSemTheory.evaluate_def,AllCaseEqs()])
   (* Call *)
   >~ [`Call`] >- suspend "Call"
 QED

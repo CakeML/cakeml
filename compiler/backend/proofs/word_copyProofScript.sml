@@ -1380,6 +1380,10 @@ Proof
     >> simp[remove_eq_model_set_var,remove_eq_model])
   >~ [`Break`] >- (gvs[copy_prop_prog_def, evaluate_def])
   >~ [`Continue`] >- (gvs[copy_prop_prog_def, evaluate_def])
+  >~ [`PtrEq`] >- (
+    rw[copy_prop_prog_def]>>
+    fs[evaluate_def]>>
+    metis_tac[empty_eq_model])
   >~ [`Loop`] >- suspend "Loop"
 QED
 

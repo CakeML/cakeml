@@ -1426,6 +1426,9 @@ Definition word_prog_to_display_def:
   (word_prog_to_display (SUC k) ns (FFI nm n1 n2 n3 n4 ms) =
     Item NONE «ffi» (string_imp nm :: MAP num_to_display [n1; n2; n3; n4]
         ++ [num_sets_to_display ms]))  ∧
+  (word_prog_to_display (SUC k) ns (PtrEq dst v1 v2 tw fw) = Item NONE «ptr_eq»
+    [num_to_display dst; num_to_display v1; num_to_display v2;
+     word_to_display tw; word_to_display fw]) ∧
   (word_prog_to_display_list k ns [] = []) ∧
   (word_prog_to_display_list k ns (x::xs) =
     case k of 0 => []

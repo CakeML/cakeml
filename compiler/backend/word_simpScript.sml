@@ -336,6 +336,8 @@ Definition const_fp_loop_def:
     (ShareInst Store32 v (const_fp_exp e cs), cs)) /\
   (const_fp_loop (Loop names body exit_names) cs =
     (Loop names (FST (const_fp_loop body LN)) exit_names, LN)) /\
+  (const_fp_loop (PtrEq dst v1 v2 tw fw) cs =
+    (PtrEq dst v1 v2 tw fw, delete dst cs)) /\
   (const_fp_loop p cs = (p, cs))
 End
 

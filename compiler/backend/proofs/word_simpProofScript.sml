@@ -1134,6 +1134,8 @@ Proof
       get_var_def,lookup_insert,lookup_delete] \\
     metis_tac[SIMP_RULE(srw_ss())[get_var_def]const_fp_exp_word_exp] )
 
+  >~ [`PtrEq`] >- suspend "PtrEq"
+
   >- (** Skip **)
   (fs [const_fp_loop_def] \\ rw [evaluate_def] \\ fs [])
 
@@ -1153,6 +1155,14 @@ Resume evaluate_const_fp_loop[Loop]:
   \\ irule evaluate_Loop_body_cong_gc
   \\ qexists_tac `gc_fun_const_ok` \\ rw []
   \\ Cases_on `evaluate (p, v)` \\ res_tac
+QED
+
+Resume evaluate_const_fp_loop[PtrEq]:
+  rpt gen_tac \\ strip_tac \\
+  gvs[const_fp_loop_def] \\
+  gvs[evaluate_def,AllCaseEqs()] \\
+  rw[] \\
+  gvs[get_var_def,set_var_def,lookup_insert,lookup_delete]
 QED
 
 Finalise evaluate_const_fp_loop;

@@ -551,6 +551,13 @@ Definition comp_def:
    (case exp_to_addr exp of
       NONE => (Skip, bs)
     | SOME addr => wShareInst op v addr kf,bs)) /\
+  (comp conf perf (PtrEq dst v1 v2 tw fw) bs kf =
+    let (l1,r1) = wReg1 v1 kf in
+    let (l2,r2) = wReg2 v2 kf in
+      (wStackLoad (l1++l2)
+        (wRegWrite1 (\dst_r. If Equal r1 (Reg r2)
+                               (const_inst dst_r tw)
+                               (const_inst dst_r fw)) dst kf),bs)) /\
   (comp conf perf _ bs kf = (Skip,bs) (* impossible *))
 End
 

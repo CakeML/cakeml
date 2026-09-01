@@ -146,6 +146,8 @@ Theorem get_var_with_const[simp]:
    get_var x (y with mdomain := md) = get_var x y /\
    get_var x (y with sh_mdomain := smd) = get_var x y /\
    get_var x (y with permute := p) = get_var x y /\
+   get_var x (y with ptr_eq_oracle := po) = get_var x y /\
+   get_var x (y with ptr_eq_rel := prel) = get_var x y /\
    get_var x (y with compile := c) = get_var x y /\
    get_var x (y with compile_oracle := co) = get_var x y /\
    get_var x (y with code_buffer := cb) = get_var x y /\
@@ -173,6 +175,8 @@ Theorem get_vars_with_const[simp]:
    get_vars x (y with mdomain := md) = get_vars x y /\
    get_vars x (y with sh_mdomain := smd) = get_vars x y /\
    get_vars x (y with permute := p) = get_vars x y /\
+   get_vars x (y with ptr_eq_oracle := po) = get_vars x y /\
+   get_vars x (y with ptr_eq_rel := prel) = get_vars x y /\
    get_vars x (y with compile := c) = get_vars x y /\
    get_vars x (y with compile_oracle := co) = get_vars x y /\
    get_vars x (y with code_buffer := cb) = get_vars x y /\
@@ -190,6 +194,8 @@ QED
 
 Theorem set_var_const[simp]:
    (set_var x y z).locals_size = z.locals_size ∧
+   (set_var x y z).ptr_eq_oracle = z.ptr_eq_oracle ∧
+   (set_var x y z).ptr_eq_rel = z.ptr_eq_rel ∧
    (set_var x y z).fp_regs = z.fp_regs ∧
    (set_var x y z).store = z.store ∧
    (set_var x y z).stack = z.stack ∧
@@ -227,6 +233,8 @@ Theorem set_var_with_const[simp]:
   set_var x y (z with mdomain := md) = set_var x y z with mdomain := md /\
   set_var x y (z with sh_mdomain := smd) = set_var x y z with sh_mdomain := smd /\
   set_var x y (z with permute := p) = set_var x y z with permute := p /\
+  set_var x y (z with ptr_eq_oracle := po) = set_var x y z with ptr_eq_oracle := po /\
+  set_var x y (z with ptr_eq_rel := prel) = set_var x y z with ptr_eq_rel := prel /\
   set_var x y (z with compile := c) = set_var x y z with compile := c /\
   set_var x y (z with compile_oracle := co) = set_var x y z with compile_oracle := co /\
   set_var x y (z with code_buffer := cb) = set_var x y z with code_buffer := cb /\
@@ -244,6 +252,8 @@ QED
 
 Theorem unset_var_const[simp]:
    (unset_var x z).locals_size = z.locals_size ∧
+   (unset_var x z).ptr_eq_oracle = z.ptr_eq_oracle ∧
+   (unset_var x z).ptr_eq_rel = z.ptr_eq_rel ∧
    (unset_var x z).fp_regs = z.fp_regs ∧
    (unset_var x z).store = z.store ∧
    (unset_var x z).stack = z.stack ∧
@@ -281,6 +291,8 @@ Theorem unset_var_with_const[simp]:
   unset_var x (z with mdomain := md) = unset_var x z with mdomain := md /\
   unset_var x (z with sh_mdomain := smd) = unset_var x z with sh_mdomain := smd /\
   unset_var x (z with permute := p) = unset_var x z with permute := p /\
+  unset_var x (z with ptr_eq_oracle := po) = unset_var x z with ptr_eq_oracle := po /\
+  unset_var x (z with ptr_eq_rel := prel) = unset_var x z with ptr_eq_rel := prel /\
   unset_var x (z with compile := c) = unset_var x z with compile := c /\
   unset_var x (z with compile_oracle := co) = unset_var x z with compile_oracle := co /\
   unset_var x (z with code_buffer := cb) = unset_var x z with code_buffer := cb /\
@@ -298,6 +310,8 @@ QED
 
 Theorem set_vars_const[simp]:
    (set_vars x y z).locals_size = z.locals_size ∧
+   (set_vars x y z).ptr_eq_oracle = z.ptr_eq_oracle ∧
+   (set_vars x y z).ptr_eq_rel = z.ptr_eq_rel ∧
    (set_vars x y z).fp_regs = z.fp_regs ∧
    (set_vars x y z).store = z.store ∧
    (set_vars x y z).stack = z.stack ∧
@@ -335,6 +349,8 @@ Theorem set_vars_with_const[simp]:
   set_vars x y (z with mdomain := md) = set_vars x y z with mdomain := md /\
   set_vars x y (z with sh_mdomain := smd) = set_vars x y z with sh_mdomain := smd /\
   set_vars x y (z with permute := p) = set_vars x y z with permute := p /\
+  set_vars x y (z with ptr_eq_oracle := po) = set_vars x y z with ptr_eq_oracle := po /\
+  set_vars x y (z with ptr_eq_rel := prel) = set_vars x y z with ptr_eq_rel := prel /\
   set_vars x y (z with compile := c) = set_vars x y z with compile := c /\
   set_vars x y (z with compile_oracle := co) = set_vars x y z with compile_oracle := co /\
   set_vars x y (z with code_buffer := cb) = set_vars x y z with code_buffer := cb /\
@@ -362,6 +378,8 @@ Theorem get_store_with_const[simp]:
    get_store x (y with mdomain := md) = get_store x y /\
    get_store x (y with sh_mdomain := smd) = get_store x y /\
    get_store x (y with permute := p) = get_store x y /\
+   get_store x (y with ptr_eq_oracle := po) = get_store x y /\
+   get_store x (y with ptr_eq_rel := prel) = get_store x y /\
    get_store x (y with compile := c) = get_store x y /\
    get_store x (y with compile_oracle := co) = get_store x y /\
    get_store x (y with code_buffer := cb) = get_store x y /\
@@ -379,6 +397,8 @@ QED
 
 Theorem set_store_const[simp]:
    (set_store x y z).locals = z.locals ∧
+   (set_store x y z).ptr_eq_oracle = z.ptr_eq_oracle ∧
+   (set_store x y z).ptr_eq_rel = z.ptr_eq_rel ∧
    (set_store x y z).locals_size = z.locals_size ∧
    (set_store x y z).fp_regs = z.fp_regs ∧
    (set_store x y z).stack = z.stack ∧
@@ -416,6 +436,8 @@ Theorem set_store_with_const[simp]:
   set_store x y (z with mdomain := md) = set_store x y z with mdomain := md /\
   set_store x y (z with sh_mdomain := smd) = set_store x y z with sh_mdomain := smd /\
   set_store x y (z with permute := p) = set_store x y z with permute := p /\
+  set_store x y (z with ptr_eq_oracle := po) = set_store x y z with ptr_eq_oracle := po /\
+  set_store x y (z with ptr_eq_rel := prel) = set_store x y z with ptr_eq_rel := prel /\
   set_store x y (z with compile := c) = set_store x y z with compile := c /\
   set_store x y (z with compile_oracle := co) = set_store x y z with compile_oracle := co /\
   set_store x y (z with code_buffer := cb) = set_store x y z with code_buffer := cb /\
@@ -434,6 +456,8 @@ QED
 
 Theorem push_env_const[simp]:
    (push_env x y z).clock = z.clock ∧
+   (push_env x y z).ptr_eq_oracle = z.ptr_eq_oracle ∧
+   (push_env x y z).ptr_eq_rel = z.ptr_eq_rel ∧
    (push_env x y z).memory = z.memory ∧
    (push_env x y z).store = z.store ∧
    (push_env x NONE z).handler = z.handler ∧
@@ -464,7 +488,9 @@ Theorem push_env_with_const[simp]:
    (push_env x y (z with compile_oracle := co) = push_env x y z with compile_oracle := co) ∧
    (push_env x y (z with code := code) = push_env x y z with code := code) ∧
    (push_env x y (z with termdep := termdep) = push_env x y z with termdep := termdep) ∧
-   (push_env x y (z with locals := l) = push_env x y z with locals := l)
+   (push_env x y (z with locals := l) = push_env x y z with locals := l) ∧
+   (push_env x y (z with ptr_eq_oracle := po) = push_env x y z with ptr_eq_oracle := po) ∧
+   (push_env x y (z with ptr_eq_rel := prel) = push_env x y z with ptr_eq_rel := prel)
 Proof
   Cases_on`y`>>srw_tac[][push_env_def] >> unabbrev_all_tac >> simp[state_component_equality] >>
   rename1`SOME p` >>
@@ -474,7 +500,10 @@ QED
 
 Theorem pop_env_const:
    pop_env x = SOME y ⇒
+   pop_env x = SOME y ⇒
    y.clock = x.clock /\
+   y.ptr_eq_oracle = x.ptr_eq_oracle /\
+   y.ptr_eq_rel = x.ptr_eq_rel /\
    y.ffi = x.ffi ∧
    y.be = x.be ∧
    y.compile = x.compile ∧
@@ -505,6 +534,8 @@ Theorem pop_env_with_const[simp]:
    pop_env (z with code := code) = OPTION_MAP (λs. s with code := code) (pop_env z) ∧
    pop_env (z with termdep := termdep) = OPTION_MAP (λs. s with termdep := termdep) (pop_env z) ∧
    pop_env (z with permute:= perm) = OPTION_MAP (λs. s with permute := perm) (pop_env z) ∧
+   pop_env (z with ptr_eq_oracle := po) = OPTION_MAP (λs. s with ptr_eq_oracle := po) (pop_env z) ∧
+   pop_env (z with ptr_eq_rel := prel) = OPTION_MAP (λs. s with ptr_eq_rel := prel) (pop_env z) ∧
    pop_env (z with locals := l) = pop_env z /\
    pop_env (z with locals_size := ls) = pop_env z
 Proof
@@ -515,6 +546,8 @@ QED
 (*code and gc_fun are unchanged across eval*)
 Theorem pop_env_code_gc_fun_clock:
     pop_env r = SOME x ⇒
+  r.ptr_eq_oracle = x.ptr_eq_oracle ∧
+  r.ptr_eq_rel = x.ptr_eq_rel ∧
   r.code = x.code ∧
   r.code_buffer = x.code_buffer ∧
   r.data_buffer = x.data_buffer ∧
@@ -534,6 +567,8 @@ QED
 
 Theorem call_env_const[simp]:
    (call_env x ss y).store = y.store ∧
+   (call_env x ss y).ptr_eq_oracle = y.ptr_eq_oracle ∧
+   (call_env x ss y).ptr_eq_rel = y.ptr_eq_rel ∧
    (call_env x ss y).termdep = y.termdep ∧
    (call_env x ss y).clock = y.clock ∧
    (call_env x ss y).handler = y.handler ∧
@@ -563,7 +598,9 @@ Theorem call_env_with_const[simp]:
    call_env x ss (y with compile_oracle := co) = call_env x ss y with compile_oracle := co /\
    call_env x ss (y with code := code) = call_env x ss y with code := code /\
    call_env x ss (y with handler := k) = call_env x ss y with handler := k /\
-   call_env x ss (y with permute := perm) = call_env x ss y with permute := perm
+   call_env x ss (y with permute := perm) = call_env x ss y with permute := perm /\
+   call_env x ss (y with ptr_eq_oracle := po) = call_env x ss y with ptr_eq_oracle := po /\
+   call_env x ss (y with ptr_eq_rel := prel) = call_env x ss y with ptr_eq_rel := prel
 Proof
   EVAL_TAC
 QED
@@ -580,6 +617,8 @@ Theorem flush_state_const[simp]:
    (flush_state b y).data_buffer = y.data_buffer ∧
    (flush_state b y).stack_limit = y.stack_limit ∧
    (flush_state b y).stack_size = y.stack_size ∧
+   (flush_state b y).ptr_eq_oracle = y.ptr_eq_oracle ∧
+   (flush_state b y).ptr_eq_rel = y.ptr_eq_rel ∧
    (flush_state F y).stack      = y.stack
 Proof
   Cases_on `b` \\ EVAL_TAC
@@ -590,6 +629,8 @@ Theorem flush_state_with_const[simp]:
    flush_state b (y with locals_size := ls) = flush_state b y /\
    flush_state T (y with stack := xs) = flush_state T y /\
    flush_state b (y with permute := p) = flush_state b y with permute := p /\
+   flush_state b (y with ptr_eq_oracle := po) = flush_state b y with ptr_eq_oracle := po /\
+   flush_state b (y with ptr_eq_rel := prel) = flush_state b y with ptr_eq_rel := prel /\
    flush_state b (y with stack_max := sm) = flush_state b y with stack_max := sm /\
    flush_state b (y with clock := k) = flush_state b y with clock := k
 Proof
@@ -604,7 +645,9 @@ Theorem has_space_with_const[simp]:
    has_space x (y with termdep := termdep) = has_space x y /\
    has_space x (y with locals := l) = has_space x y /\
    has_space x (y with locals_size := ls) = has_space x y /\
-   has_space x (y with stack := xs) = has_space x y
+   has_space x (y with stack := xs) = has_space x y /\
+   has_space x (y with ptr_eq_oracle := po) = has_space x y /\
+   has_space x (y with ptr_eq_rel := prel) = has_space x y
 Proof
   EVAL_TAC
 QED
@@ -623,7 +666,9 @@ Theorem gc_const:
    y.locals_size = x.locals_size ∧
    y.stack_limit = x.stack_limit ∧
    y.stack_max = x.stack_max ∧
-   y.stack_size = x.stack_size
+   y.stack_size = x.stack_size ∧
+   y.ptr_eq_oracle = x.ptr_eq_oracle ∧
+   y.ptr_eq_rel = x.ptr_eq_rel
 Proof
   simp[gc_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> srw_tac[][]
@@ -635,6 +680,8 @@ Theorem gc_with_const[simp]:
    gc (x with compile_oracle := co) = OPTION_MAP (λs. s with compile_oracle := co) (gc x) ∧
    gc (x with code := code) = OPTION_MAP (λs. s with code := code) (gc x) ∧
    gc (x with permute := perm) = OPTION_MAP (λs. s with permute := perm) (gc x) ∧
+   gc (x with ptr_eq_oracle := po) = OPTION_MAP (λs. s with ptr_eq_oracle := po) (gc x) ∧
+   gc (x with ptr_eq_rel := prel) = OPTION_MAP (λs. s with ptr_eq_rel := prel) (gc x) ∧
    gc (x with termdep := t) = OPTION_MAP (λs. s with termdep := t) (gc x) /\
    gc (x with locals := l) = OPTION_MAP (λs. s with locals := l) (gc x) /\
    gc (x with locals_size := ls) = OPTION_MAP (λs. s with locals_size := ls) (gc x)
@@ -657,7 +704,9 @@ Theorem alloc_const:
    s'.compile = s.compile ∧
    s'.compile_oracle = s.compile_oracle ∧
    s'.stack_limit = s.stack_limit ∧
-   s'.stack_size = s.stack_size
+   s'.stack_size = s.stack_size ∧
+   s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
+   s'.ptr_eq_rel = s.ptr_eq_rel
 Proof
   rpt strip_tac >>
   gvs[AllCaseEqs(),alloc_def] >>
@@ -669,6 +718,8 @@ QED
 
 Theorem alloc_code_gc_fun_const:
   alloc x names s = (res,t) ⇒
+  t.ptr_eq_oracle = s.ptr_eq_oracle /\
+  t.ptr_eq_rel = s.ptr_eq_rel /\
   t.code = s.code /\
   t.code_buffer = s.code_buffer /\
   t.data_buffer = s.data_buffer /\
@@ -692,7 +743,9 @@ Theorem alloc_with_const[simp]:
    alloc c names (s with termdep := t) = (I ## (λs. s with termdep := t)) (alloc c names s) /\
    alloc c names (s with code := code) = (I ## (λs. s with code := code)) (alloc c names s) /\
    alloc c names (s with compile_oracle := compile_oracle) = (I ## (λs. s with compile_oracle := compile_oracle)) (alloc c names s) /\
-   alloc c names (s with compile := comp) = (I ## (λs. s with compile := comp)) (alloc c names s)
+   alloc c names (s with compile := comp) = (I ## (λs. s with compile := comp)) (alloc c names s) /\
+   alloc c names (s with ptr_eq_oracle := po) = (I ## (λs. s with ptr_eq_oracle := po)) (alloc c names s) /\
+   alloc c names (s with ptr_eq_rel := prel) = (I ## (λs. s with ptr_eq_rel := prel)) (alloc c names s)
 Proof
   fs[alloc_def] >> EVERY_CASE_TAC >> fs[flush_state_def]
 QED
@@ -709,6 +762,8 @@ Theorem get_fp_var_with_const[simp]:
    get_fp_var x (y with mdomain := md) = get_fp_var x y /\
    get_fp_var x (y with sh_mdomain := smd) = get_fp_var x y /\
    get_fp_var x (y with permute := p) = get_fp_var x y /\
+   get_fp_var x (y with ptr_eq_oracle := po) = get_fp_var x y /\
+   get_fp_var x (y with ptr_eq_rel := prel) = get_fp_var x y /\
    get_fp_var x (y with compile := c) = get_fp_var x y /\
    get_fp_var x (y with compile_oracle := co) = get_fp_var x y /\
    get_fp_var x (y with code_buffer := cb) = get_fp_var x y /\
@@ -727,6 +782,8 @@ QED
 Theorem set_fp_var_const[simp]:
    (set_fp_var x y z).locals = z.locals ∧
    (set_fp_var x y z).locals_size = z.locals_size ∧
+   (set_fp_var x y z).ptr_eq_oracle = z.ptr_eq_oracle ∧
+   (set_fp_var x y z).ptr_eq_rel = z.ptr_eq_rel ∧
    (set_fp_var x y z).store = z.store ∧
    (set_fp_var x y z).stack = z.stack ∧
    (set_fp_var x y z).stack_limit = z.stack_limit ∧
@@ -763,6 +820,8 @@ Theorem set_fp_var_with_const[simp]:
   set_fp_var x y (z with mdomain := md) = set_fp_var x y z with mdomain := md /\
   set_fp_var x y (z with sh_mdomain := smd) = set_fp_var x y z with sh_mdomain := smd /\
   set_fp_var x y (z with permute := p) = set_fp_var x y z with permute := p /\
+  set_fp_var x y (z with ptr_eq_oracle := po) = set_fp_var x y z with ptr_eq_oracle := po /\
+  set_fp_var x y (z with ptr_eq_rel := prel) = set_fp_var x y z with ptr_eq_rel := prel /\
   set_fp_var x y (z with compile := c) = set_fp_var x y z with compile := c /\
   set_fp_var x y (z with compile_oracle := co) = set_fp_var x y z with compile_oracle := co /\
   set_fp_var x y (z with code_buffer := cb) = set_fp_var x y z with code_buffer := cb /\
@@ -784,6 +843,8 @@ Theorem mem_load_with_const[simp]:
    mem_load x (y with clock := k) = mem_load x y ∧
    mem_load x (y with stack := xs) = mem_load x y ∧
    mem_load x (y with permute := perm) = mem_load x y ∧
+   mem_load x (y with ptr_eq_oracle := po) = mem_load x y ∧
+   mem_load x (y with ptr_eq_rel := prel) = mem_load x y ∧
    mem_load x (y with code := c) = mem_load x y ∧
    mem_load x (y with compile_oracle := co) = mem_load x y ∧
    mem_load x (y with compile := cc) = mem_load x y
@@ -810,7 +871,9 @@ Theorem mem_store_const:
    a.locals_size = z.locals_size ∧
    a.stack_limit = z.stack_limit ∧
    a.stack_max = z.stack_max ∧
-   a.stack_size = z.stack_size
+   a.stack_size = z.stack_size ∧
+   a.ptr_eq_oracle = z.ptr_eq_oracle ∧
+   a.ptr_eq_rel = z.ptr_eq_rel
 Proof
   EVAL_TAC >> srw_tac[][] >> srw_tac[][]
 QED
@@ -823,6 +886,8 @@ Theorem mem_store_with_const[simp]:
    mem_store x z (y with compile := c) = OPTION_MAP (λs. s with compile := c) (mem_store x z y) /\
    mem_store x z (y with compile_oracle := co) = OPTION_MAP (λs. s with compile_oracle := co) (mem_store x z y) /\
    mem_store x z (y with permute := perm) = OPTION_MAP (λs. s with permute := perm) (mem_store x z y) /\
+   mem_store x z (y with ptr_eq_oracle := po) = OPTION_MAP (λs. s with ptr_eq_oracle := po) (mem_store x z y) /\
+   mem_store x z (y with ptr_eq_rel := prel) = OPTION_MAP (λs. s with ptr_eq_rel := prel) (mem_store x z y) /\
    mem_store x z (y with stack := xs) = OPTION_MAP (λs. s with stack := xs) (mem_store x z y)
 Proof
   EVAL_TAC >> every_case_tac >> simp[]
@@ -833,6 +898,8 @@ Theorem word_exp_with_const[simp]:
   word_exp (x with clock := k) y = word_exp x y ∧
   word_exp (x with stack := xs) y = word_exp x y ∧
   word_exp (x with permute := perm) y = word_exp x y ∧
+  word_exp (x with ptr_eq_oracle := po) y = word_exp x y ∧
+  word_exp (x with ptr_eq_rel := prel) y = word_exp x y ∧
   word_exp (x with termdep := termdep) y = word_exp x y ∧
   word_exp (x with code := c) y = word_exp x y ∧
   word_exp (x with compile_oracle := co) y = word_exp x y ∧
@@ -861,7 +928,9 @@ Theorem assign_const_full:
    a.locals_size = z.locals_size ∧
    a.stack_limit = z.stack_limit ∧
    a.stack_max = z.stack_max ∧
-   a.stack_size = z.stack_size
+   a.stack_size = z.stack_size ∧
+   a.ptr_eq_oracle = z.ptr_eq_oracle ∧
+   a.ptr_eq_rel = z.ptr_eq_rel
 Proof
   EVAL_TAC >> every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> srw_tac[][]
 QED
@@ -880,6 +949,8 @@ Theorem assign_with_const[simp]:
    assign x y (z with compile := c) = OPTION_MAP (λs. s with compile := c) (assign x y z) /\
    assign x y (z with compile_oracle := co) = OPTION_MAP (λs. s with compile_oracle := co) (assign x y z) /\
    assign x y (z with permute := perm) = OPTION_MAP (λs. s with permute := perm) (assign x y z) /\
+   assign x y (z with ptr_eq_oracle := po) = OPTION_MAP (λs. s with ptr_eq_oracle := po) (assign x y z) /\
+   assign x y (z with ptr_eq_rel := prel) = OPTION_MAP (λs. s with ptr_eq_rel := prel) (assign x y z) /\
    assign x y (z with stack := xs) = OPTION_MAP (λs. s with stack := xs) (assign x y z)
 Proof
   EVAL_TAC >> every_case_tac >>  EVAL_TAC >> full_simp_tac(srw_ss())[]
@@ -891,6 +962,8 @@ Theorem inst_with_const[simp]:
    inst i (s with compile := c) = OPTION_MAP (λs. s with compile := c) (inst i s) /\
    inst i (s with compile_oracle := co) = OPTION_MAP (λs. s with compile_oracle := co) (inst i s) /\
    inst i (s with permute := perm) = OPTION_MAP (λs. s with permute := perm) (inst i s) /\
+   inst i (s with ptr_eq_oracle := po) = OPTION_MAP (λs. s with ptr_eq_oracle := po) (inst i s) /\
+   inst i (s with ptr_eq_rel := prel) = OPTION_MAP (λs. s with ptr_eq_rel := prel) (inst i s) /\
    inst i (s with stack := xs) = OPTION_MAP (λs. s with stack := xs) (inst i s)
 Proof
   rw[inst_def] >> every_case_tac >> fs[]
@@ -923,6 +996,7 @@ QED
 (*FIXME dupe*)
 Theorem inst_code_gc_fun_const[local]:
   inst i s = SOME t ⇒
+     s.ptr_eq_oracle = t.ptr_eq_oracle /\ s.ptr_eq_rel = t.ptr_eq_rel /\
      s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.sh_mdomain = t.sh_mdomain /\ s.mdomain = t.mdomain /\ s.be = t.be
      ∧ s.compile = t.compile ∧ s.stack_size = t.stack_size ∧ s.stack_limit = t.stack_limit
 Proof
@@ -942,6 +1016,8 @@ QED
 
 Theorem jump_exc_const:
    jump_exc s = SOME (s',y) ⇒
+   s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
+   s'.ptr_eq_rel = s.ptr_eq_rel ∧
    s'.be = s.be ∧
    s'.gc_fun = s.gc_fun ∧
    s'.mdomain = s.mdomain ∧
@@ -962,7 +1038,9 @@ QED
 
 Theorem jump_exc_with_const[simp]:
    jump_exc (s with clock := k) = OPTION_MAP (λ(s,t). (s with clock := k, t)) (jump_exc s) /\
-   jump_exc (s with permute := perm) = OPTION_MAP (λ(s,t). (s with permute := perm, t)) (jump_exc s)
+   jump_exc (s with permute := perm) = OPTION_MAP (λ(s,t). (s with permute := perm, t)) (jump_exc s) /\
+   jump_exc (s with ptr_eq_oracle := po) = OPTION_MAP (λ(s,t). (s with ptr_eq_oracle := po, t)) (jump_exc s) /\
+   jump_exc (s with ptr_eq_rel := prel) = OPTION_MAP (λ(s,t). (s with ptr_eq_rel := prel, t)) (jump_exc s)
 Proof
   EVAL_TAC >> every_case_tac >> EVAL_TAC
 QED
@@ -974,7 +1052,9 @@ Theorem get_var_imm_with_const[simp]:
    get_var_imm x (y with compile_oracle := compile_oracle) = get_var_imm x y /\
    get_var_imm x (y with termdep := td) = get_var_imm x y /\
    get_var_imm x (y with stack := xs) = get_var_imm x y /\
-   get_var_imm x (y with permute := perm) = get_var_imm x y
+   get_var_imm x (y with permute := perm) = get_var_imm x y /\
+   get_var_imm x (y with ptr_eq_oracle := po) = get_var_imm x y /\
+   get_var_imm x (y with ptr_eq_rel := prel) = get_var_imm x y
 Proof
   Cases_on`x`>>EVAL_TAC
 QED
@@ -982,6 +1062,8 @@ QED
 Theorem dec_clock_const[simp]:
    (dec_clock s).locals = s.locals /\
    (dec_clock s).locals_size = s.locals_size ∧
+   (dec_clock s).ptr_eq_oracle = s.ptr_eq_oracle ∧
+   (dec_clock s).ptr_eq_rel = s.ptr_eq_rel ∧
    (dec_clock s).fp_regs = s.fp_regs ∧
    (dec_clock s).store = s.store /\
    (dec_clock s).stack = s.stack ∧
@@ -1003,13 +1085,17 @@ Theorem dec_clock_const[simp]:
    ((dec_clock s).be <=> s.be) /\
    (dec_clock s).ffi = s.ffi /\
    (dec_clock (s with locals := locs)).clock = (dec_clock s).clock /\
-   (dec_clock (s with permute := p)).clock = (dec_clock s).clock
+   (dec_clock (s with permute := p)).clock = (dec_clock s).clock /\
+   dec_clock (s with ptr_eq_oracle := po) = dec_clock s with ptr_eq_oracle := po /\
+   dec_clock (s with ptr_eq_rel := prel) = dec_clock s with ptr_eq_rel := prel
 Proof
   EVAL_TAC
 QED
 
 Theorem sh_mem_set_var_const:
    sh_mem_set_var r v s = (x,s') ==>
+   s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
+   s'.ptr_eq_rel = s.ptr_eq_rel ∧
    s'.clock = s.clock ∧
    s'.compile_oracle = s.compile_oracle ∧
    s'.compile = s.compile ∧
@@ -1044,6 +1130,8 @@ QED
 
 Theorem sh_mem_store_const:
   sh_mem_store ad v s = (res, s') ==>
+  s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
+  s'.ptr_eq_rel = s.ptr_eq_rel ∧
   s'.clock = s.clock ∧
   s'.compile_oracle = s.compile_oracle ∧
   s'.compile = s.compile ∧
@@ -1073,6 +1161,8 @@ QED
 
 Theorem sh_mem_store_byte_const:
   sh_mem_store_byte ad v s = (res, s') ==>
+  s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
+  s'.ptr_eq_rel = s.ptr_eq_rel ∧
   s'.clock = s.clock ∧
   s'.compile_oracle = s.compile_oracle ∧
   s'.compile = s.compile ∧
@@ -1102,6 +1192,8 @@ QED
 
 Theorem sh_mem_store16_const:
   sh_mem_store16 ad v s = (res, s') ==>
+  s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
+  s'.ptr_eq_rel = s.ptr_eq_rel ∧
   s'.clock = s.clock ∧
   s'.compile_oracle = s.compile_oracle ∧
   s'.compile = s.compile ∧
@@ -1131,6 +1223,8 @@ QED
 
 Theorem sh_mem_store32_const:
   sh_mem_store32 ad v s = (res, s') ==>
+  s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
+  s'.ptr_eq_rel = s.ptr_eq_rel ∧
   s'.clock = s.clock ∧
   s'.compile_oracle = s.compile_oracle ∧
   s'.compile = s.compile ∧
@@ -1160,6 +1254,8 @@ QED
 
 Theorem share_inst_const:
   share_inst op v c s = (res, s') ==>
+  s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
+  s'.ptr_eq_rel = s.ptr_eq_rel ∧
   s'.be = s.be ∧
   s'.gc_fun = s.gc_fun ∧
   s'.mdomain = s.mdomain ∧
@@ -1187,6 +1283,10 @@ QED
 Theorem sh_mem_set_var_with_const[simp]:
   sh_mem_set_var res v (s with permute := p) =
   (I ## (λs. s with permute := p)) (sh_mem_set_var res v s) /\
+  sh_mem_set_var res v (s with ptr_eq_oracle := po) =
+  (I ## (λs. s with ptr_eq_oracle := po)) (sh_mem_set_var res v s) /\
+  sh_mem_set_var res v (s with ptr_eq_rel := prel) =
+  (I ## (λs. s with ptr_eq_rel := prel)) (sh_mem_set_var res v s) /\
   sh_mem_set_var res v (s with clock := k) =
   (I ## (λs. s with clock := k)) (sh_mem_set_var res v s)
 Proof
@@ -1200,6 +1300,8 @@ QED
 Theorem sh_mem_load_with_const[simp]:
   sh_mem_load a (s with locals := l) = sh_mem_load a s /\
   sh_mem_load a (s with permute := p) = sh_mem_load a s /\
+  sh_mem_load a (s with ptr_eq_oracle := po) = sh_mem_load a s /\
+  sh_mem_load a (s with ptr_eq_rel := prel) = sh_mem_load a s /\
   sh_mem_load a (s with clock := k) = sh_mem_load a s /\
   sh_mem_load a (s with stack := xs) = sh_mem_load a s
 Proof
@@ -1209,6 +1311,8 @@ QED
 Theorem sh_mem_load_byte_with_const[simp]:
   sh_mem_load_byte a (s with locals := l) = sh_mem_load_byte a s /\
   sh_mem_load_byte a (s with permute := p) = sh_mem_load_byte a s /\
+  sh_mem_load_byte a (s with ptr_eq_oracle := po) = sh_mem_load_byte a s /\
+  sh_mem_load_byte a (s with ptr_eq_rel := prel) = sh_mem_load_byte a s /\
   sh_mem_load_byte a (s with clock := k) = sh_mem_load_byte a s /\
   sh_mem_load_byte a (s with stack := xs) = sh_mem_load_byte a s
 Proof
@@ -1218,6 +1322,8 @@ QED
 Theorem sh_mem_load16_with_const[simp]:
   sh_mem_load16 a (s with locals := l) = sh_mem_load16 a s /\
   sh_mem_load16 a (s with permute := p) = sh_mem_load16 a s /\
+  sh_mem_load16 a (s with ptr_eq_oracle := po) = sh_mem_load16 a s /\
+  sh_mem_load16 a (s with ptr_eq_rel := prel) = sh_mem_load16 a s /\
   sh_mem_load16 a (s with clock := k) = sh_mem_load16 a s /\
   sh_mem_load16 a (s with stack := xs) = sh_mem_load16 a s
 Proof
@@ -1227,6 +1333,8 @@ QED
 Theorem sh_mem_load32_with_const[simp]:
   sh_mem_load32 a (s with locals := l) = sh_mem_load32 a s /\
   sh_mem_load32 a (s with permute := p) = sh_mem_load32 a s /\
+  sh_mem_load32 a (s with ptr_eq_oracle := po) = sh_mem_load32 a s /\
+  sh_mem_load32 a (s with ptr_eq_rel := prel) = sh_mem_load32 a s /\
   sh_mem_load32 a (s with clock := k) = sh_mem_load32 a s /\
   sh_mem_load32 a (s with stack := xs) = sh_mem_load32 a s
 Proof
@@ -1236,6 +1344,10 @@ QED
 Theorem sh_mem_store_with_const[simp]:
   sh_mem_store a w (s with permute := p) =
   (I ## (λs. s with permute := p)) (sh_mem_store a w s) /\
+  sh_mem_store a w (s with ptr_eq_oracle := po) =
+  (I ## (λs. s with ptr_eq_oracle := po)) (sh_mem_store a w s) /\
+  sh_mem_store a w (s with ptr_eq_rel := prel) =
+  (I ## (λs. s with ptr_eq_rel := prel)) (sh_mem_store a w s) /\
   sh_mem_store a w (s with clock := k) =
   (I ## (λs. s with clock := k)) (sh_mem_store a w s)
 Proof
@@ -1245,6 +1357,10 @@ QED
 Theorem sh_mem_store_byte_with_const[simp]:
   sh_mem_store_byte a w (s with permute := p) =
   (I ## (λs. s with permute := p)) (sh_mem_store_byte a w s) /\
+  sh_mem_store_byte a w (s with ptr_eq_oracle := po) =
+  (I ## (λs. s with ptr_eq_oracle := po)) (sh_mem_store_byte a w s) /\
+  sh_mem_store_byte a w (s with ptr_eq_rel := prel) =
+  (I ## (λs. s with ptr_eq_rel := prel)) (sh_mem_store_byte a w s) /\
   sh_mem_store_byte a w (s with clock := k) =
   (I ## (λs. s with clock := k)) (sh_mem_store_byte a w s)
 Proof
@@ -1254,6 +1370,10 @@ QED
 Theorem sh_mem_store16_with_const[simp]:
   sh_mem_store16 a w (s with permute := p) =
   (I ## (λs. s with permute := p)) (sh_mem_store16 a w s) /\
+  sh_mem_store16 a w (s with ptr_eq_oracle := po) =
+  (I ## (λs. s with ptr_eq_oracle := po)) (sh_mem_store16 a w s) /\
+  sh_mem_store16 a w (s with ptr_eq_rel := prel) =
+  (I ## (λs. s with ptr_eq_rel := prel)) (sh_mem_store16 a w s) /\
   sh_mem_store16 a w (s with clock := k) =
   (I ## (λs. s with clock := k)) (sh_mem_store16 a w s)
 Proof
@@ -1263,6 +1383,10 @@ QED
 Theorem sh_mem_store32_with_const[simp]:
   sh_mem_store32 a w (s with permute := p) =
   (I ## (λs. s with permute := p)) (sh_mem_store32 a w s) /\
+  sh_mem_store32 a w (s with ptr_eq_oracle := po) =
+  (I ## (λs. s with ptr_eq_oracle := po)) (sh_mem_store32 a w s) /\
+  sh_mem_store32 a w (s with ptr_eq_rel := prel) =
+  (I ## (λs. s with ptr_eq_rel := prel)) (sh_mem_store32 a w s) /\
   sh_mem_store32 a w (s with clock := k) =
   (I ## (λs. s with clock := k)) (sh_mem_store32 a w s)
 Proof
@@ -1272,6 +1396,10 @@ QED
 Theorem share_inst_with_const[simp]:
    share_inst op v c (s with permute := p) =
    (I ## (λs. s with permute := p)) (share_inst op v c s) /\
+   share_inst op v c (s with ptr_eq_oracle := po) =
+   (I ## (λs. s with ptr_eq_oracle := po)) (share_inst op v c s) /\
+   share_inst op v c (s with ptr_eq_rel := prel) =
+   (I ## (λs. s with ptr_eq_rel := prel)) (share_inst op v c s) /\
    share_inst op v c (s with clock := k) =
    (I ## (λs. s with clock := k)) (share_inst op v c s)
 Proof
@@ -1284,6 +1412,8 @@ Theorem cut_state_with_const[simp]:
    cut_state x (z with compile := c) = OPTION_MAP (λs. s with compile := c) (cut_state x z) /\
    cut_state x (z with compile_oracle := co) = OPTION_MAP (λs. s with compile_oracle := co) (cut_state x z) /\
    cut_state x (z with permute := perm) = OPTION_MAP (λs. s with permute := perm) (cut_state x z) /\
+   cut_state x (z with ptr_eq_oracle := po) = OPTION_MAP (λs. s with ptr_eq_oracle := po) (cut_state x z) /\
+   cut_state x (z with ptr_eq_rel := prel) = OPTION_MAP (λs. s with ptr_eq_rel := prel) (cut_state x z) /\
    cut_state x (z with stack := xs) = OPTION_MAP (λs. s with stack := xs) (cut_state x z)
 Proof
   simp[cut_state_def]>>
@@ -1315,7 +1445,7 @@ Theorem evaluate_clock_const[local]:
       "Get", "Set", "OpCurrHeap", "Store", "Return", "Raise",
       "wordLang$Break", "wordLang$Continue",
       "LocValue", "Install", "CodeBufferWrite", "DataBufferWrite",
-      "FFI", "ShareInst"]) end)
+      "FFI", "ShareInst", "PtrEq"]) end)
 Proof
   gvs[evaluate_def] >> rpt gen_tac >>
   rpt (CASE_ONE >> gvs[]) >>
@@ -1337,6 +1467,29 @@ Theorem evaluate_clock_with_const[local]:
      ["Skip", "Alloc", "StoreConsts", "Move", "Inst", "Assign",
       "Get", "Set", "OpCurrHeap", "Store", "Return", "Raise",
       "wordLang$Break", "wordLang$Continue",
+      "LocValue", "Install", "CodeBufferWrite", "DataBufferWrite",
+      "FFI", "ShareInst", "PtrEq"]) end)
+Proof
+  gvs[evaluate_def] >> rpt strip_tac >>
+  rpt (CASE_ONE >> gvs[])
+QED
+
+val ptr_eq_oracle_goal = “
+  λ(p:'a wordLang$prog,s:('a,'c,'ffi) wordSem$state).
+    ∀po.
+      evaluate (p, s with ptr_eq_oracle := po) =
+        (λ(r,s). (r,s with ptr_eq_oracle := po)) (evaluate (p,s))”
+val ind_thm3 = evaluate_ind |> ISPEC ptr_eq_oracle_goal |> CONV_RULE (DEPTH_CONV PAIRED_BETA_CONV);
+val ind_goals3 = ind_thm3 |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj;
+
+(* PtrEq is deliberately absent: it is the one clause that reads and advances
+   ptr_eq_oracle. *)
+Theorem evaluate_ptr_eq_oracle_with_const[local]:
+  ^(let fun sel s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals3
+    in list_mk_conj (map sel
+     ["Skip", "Alloc", "StoreConsts", "Move", "Inst", "Assign",
+      "Get", "Set", "OpCurrHeap", "Store", "Return", "Raise",
+      "wordLang$Break", "wordLang$Continue", "Tick",
       "LocValue", "Install", "CodeBufferWrite", "DataBufferWrite",
       "FFI", "ShareInst"]) end)
 Proof
@@ -1741,6 +1894,8 @@ Theorem evaluate_consts:
    !xs s1 vs s2.
      evaluate (xs,s1) = (vs,s2) ==>
      s1.gc_fun = s2.gc_fun /\
+     s1.ptr_eq_rel = s2.ptr_eq_rel /\
+     (s1.ptr_eq_oracle = NONE ⇒ s2.ptr_eq_oracle = NONE) /\
      s1.mdomain = s2.mdomain /\
      s1.sh_mdomain = s2.sh_mdomain /\
      s1.be = s2.be ∧
@@ -1758,7 +1913,481 @@ Proof
   >> strip_tac >> gvs[]
 QED
 
-(* TODO: monotonicity *)
+(* ---- the pointer-equality oracle ---- *)
+
+Definition oracle_of_def:
+  oracle_of bs rest n = if n < LENGTH bs then EL n bs else rest (n - LENGTH bs)
+End
+
+Theorem oracle_of_NIL[simp]:
+  oracle_of [] rest = rest
+Proof
+  rw[FUN_EQ_THM,oracle_of_def]
+QED
+
+Theorem oracle_of_APPEND:
+  oracle_of (bs ++ cs) rest = oracle_of bs (oracle_of cs rest)
+Proof
+  rw[FUN_EQ_THM,oracle_of_def,EL_APPEND_EQN]>>
+  gvs[NOT_LESS]>>
+  rw[]>>gvs[]
+QED
+
+Theorem oracle_of_CONS[simp]:
+  (λn. oracle_of (b::bs) rest (n + 1)) = oracle_of bs rest
+Proof
+  rw[FUN_EQ_THM,oracle_of_def,ADD1]>>
+  simp[GSYM ADD1]
+QED
+
+(* The answers the concrete run produces, as a function of the program and the
+   state: the switch's existential witness, made canonical so that it can be
+   compared across clocks. *)
+Definition ptr_eq_bits_def:
+  (ptr_eq_bits (PtrEq dst v1 v2 t f) (s:('a,'c,'ffi) wordSem$state) =
+     case (get_var v1 s, get_var v2 s) of
+     | (SOME (Word w1), SOME (Word w2)) => [w1 = w2]
+     | _ => []) ∧
+  (ptr_eq_bits (MustTerminate p) s =
+     if s.termdep = 0 then []
+     else
+       ptr_eq_bits p (s with <| clock := MustTerminate_limit (:'a);
+                                termdep := s.termdep - 1 |>)) ∧
+  (ptr_eq_bits (Seq c1 c2) s =
+     let (res,s1) = evaluate (c1,s) in
+       if res = NONE then ptr_eq_bits c1 s ++ ptr_eq_bits c2 s1
+       else ptr_eq_bits c1 s) ∧
+  (ptr_eq_bits (If cmp r1 ri c1 c2) s =
+     case (get_var r1 s, get_var_imm ri s) of
+     | (SOME x, SOME y) =>
+         (case word_cmp cmp x y of
+          | SOME T => ptr_eq_bits c1 s
+          | SOME F => ptr_eq_bits c2 s
+          | NONE => [])
+     | _ => []) ∧
+  (ptr_eq_bits (Loop names c exit_names) s =
+     case cut_state (names,LN) s of
+     | NONE => []
+     | SOME s0 =>
+         (let (res,s1) = evaluate (c,s0) in
+            if cont_loop res ∧ s1.clock ≠ 0 then
+              ptr_eq_bits c s0 ++
+              ptr_eq_bits (STOP (Loop names c exit_names)) (dec_clock s1)
+            else ptr_eq_bits c s0)) ∧
+  (ptr_eq_bits (Call ret dest args handler) s =
+     case get_vars args s of
+     | NONE => []
+     | SOME xs =>
+       if bad_dest_args dest args then []
+       else
+         (case find_code dest (add_ret_loc ret xs) s.code s.stack_size of
+          | NONE => []
+          | SOME (args1,prog1,ss) =>
+            (case ret of
+             | NONE =>
+                 (if handler = NONE ∧ s.clock ≠ 0 then
+                    ptr_eq_bits prog1 (call_env args1 ss (dec_clock s))
+                  else [])
+             | SOME (n,names,ret_handler,l1,l2) =>
+                 if domain (FST names) = {} ∨ ¬ALL_DISTINCT n then []
+                 else
+                   (case cut_envs names s.locals of
+                    | NONE => []
+                    | SOME envs =>
+                      if s.clock = 0 then []
+                      else
+                        (let s0 = call_env args1 ss
+                                    (push_env envs handler (dec_clock s)) in
+                         let b1 = ptr_eq_bits prog1 s0 in
+                           case evaluate (prog1,s0) of
+                           | (SOME (Result x ys),s2) =>
+                               (if x ≠ Loc l1 l2 ∨ LENGTH ys ≠ LENGTH n then b1
+                                else
+                                  case pop_env s2 of
+                                  | NONE => b1
+                                  | SOME s1 =>
+                                    if domain s1.locals =
+                                       domain (FST envs) ∪ domain (SND envs)
+                                    then
+                                      b1 ++
+                                      ptr_eq_bits ret_handler (set_vars n ys s1)
+                                    else b1)
+                           | (SOME (Exception x y),s2) =>
+                               (case handler of
+                                | NONE => b1
+                                | SOME (n',h,l1',l2') =>
+                                  if x ≠ Loc l1' l2' ∨
+                                     domain s2.locals ≠
+                                     domain (FST envs) ∪ domain (SND envs)
+                                  then b1
+                                  else b1 ++ ptr_eq_bits h (set_var n' y s2))
+                           | _ => b1))))) ∧
+  (ptr_eq_bits prog s = [])
+Termination
+  WF_REL_TAC `inv_image (measure I LEX measure I LEX measure (prog_size (K 0)))
+               (λ(xs,s). (s.termdep,s.clock,xs))`
+  \\ rpt strip_tac
+  \\ gvs [STOP_def,dec_clock_def]
+  \\ rpt (qpat_x_assum `_ = evaluate _` (assume_tac o SYM))
+  \\ imp_res_tac evaluate_clock \\ gvs []
+  \\ imp_res_tac cut_state_const \\ gvs []
+  \\ imp_res_tac pop_env_const \\ gvs [pop_env_def,AllCaseEqs()]
+End
+
+(* Running under the answers the concrete run produces reproduces the concrete
+   run exactly.  Reflexivity of ptr_eq_rel is the only property of the
+   attenuator this needs.  The SOME Error escape is forced by MustTerminate:
+   when its body times out it returns the state from BEFORE the body, so the
+   answers the body consumed are still pending in that state's oracle. *)
+Theorem ptr_eq_bits_correct:
+  ∀p s r s'.
+    evaluate (p,s) = (r,s') ∧ s.ptr_eq_oracle = NONE ∧
+    (∀m dm st w. s.ptr_eq_rel m dm st w w) ⇒
+    ∀rest. ∃rest'.
+      evaluate (p,s with ptr_eq_oracle := SOME (oracle_of (ptr_eq_bits p s) rest)) =
+        (r,s' with ptr_eq_oracle := SOME rest') ∧
+      (r ≠ SOME Error ⇒ rest' = rest)
+Proof
+  recInduct evaluate_ind >> rpt strip_tac
+  >~[`MustTerminate`] >- suspend "MustTerminate"
+  >~[`Seq`] >- suspend "Seq"
+  >~[`If`] >- suspend "If"
+  >~[`Loop`] >- suspend "Loop"
+  >~[`Call`] >- suspend "Call"
+  >~[`PtrEq`] >- suspend "PtrEq"
+  >> simp[ptr_eq_bits_def] >> rw[] >>
+  qexists_tac`rest` >>
+  gvs[evaluate_ptr_eq_oracle_with_const]
+QED
+
+Resume ptr_eq_bits_correct[MustTerminate]:
+  qpat_x_assum`evaluate _ = _` mp_tac>>
+  simp[evaluate_def]>>
+  IF_CASES_TAC>>simp[ptr_eq_bits_def]
+  >- (rw[]>>metis_tac[])>>
+  rpt(pairarg_tac>>simp[])>>
+  strip_tac>>gvs[]>>
+  first_x_assum(qspec_then`rest`strip_assume_tac)>>
+  simp[]>>
+  Cases_on`res = SOME TimeOut`>>gvs[]>>
+  simp[state_component_equality]>>metis_tac[]
+QED
+
+Resume ptr_eq_bits_correct[Seq]:
+  qpat_x_assum`evaluate _ = _` mp_tac>>
+  simp[evaluate_def]>>
+  rpt(pairarg_tac>>simp[])>>
+  strip_tac>>gvs[]>>
+  reverse (Cases_on`res = NONE`)>>gvs[]
+  >- (
+    gvs[ptr_eq_bits_def]>>
+    first_x_assum(qspec_then`rest`strip_assume_tac)>>
+    gvs[]>>metis_tac[])>>
+  imp_res_tac evaluate_consts>>gvs[]>>
+  gvs[ptr_eq_bits_def,oracle_of_APPEND]>>
+  metis_tac[]
+QED
+
+Resume ptr_eq_bits_correct[If]:
+  qpat_x_assum`evaluate _ = _` mp_tac>>
+  simp[evaluate_def]>>
+  rpt (CASE_ONE >> simp[])>>
+  strip_tac>>gvs[]>>
+  simp[ptr_eq_bits_def]>>metis_tac[]
+QED
+
+Resume ptr_eq_bits_correct[Loop]:
+  qid_spec_tac`rest`>>
+  qpat_x_assum`evaluate _ = _` mp_tac>>
+  simp[evaluate_def]>>
+  rpt(CASE_ONE>>simp[])>>
+  rpt(pairarg_tac>>simp[])>>
+  strip_tac>>gvs[]>>
+  imp_res_tac cut_state_const>>gvs[]
+  >- (simp[ptr_eq_bits_def]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>
+      first_x_assum(qspec_then`rest`strip_assume_tac)>>
+      gvs[oneline cont_loop_def,AllCasePreds()])
+  >- (imp_res_tac evaluate_consts>>gvs[]>>
+      gvs[oneline cont_loop_def,AllCasePreds()]>>
+      simp[ptr_eq_bits_def]>>strip_tac>>
+      gvs[oracle_of_APPEND]>>
+      metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>
+      first_x_assum(qspec_then`rest`strip_assume_tac)>>
+      gvs[]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>
+      first_x_assum(qspec_then`rest`strip_assume_tac)>>
+      gvs[]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>
+      first_x_assum(qspec_then`rest`strip_assume_tac)>>
+      gvs[]>>
+      qexists_tac`rest'`>>
+      Cases_on`res = SOME Error`>>gvs[oneline exit_loop_def])
+QED
+
+Resume ptr_eq_bits_correct[Call]:
+  qid_spec_tac`rest`>>
+  qpat_x_assum`evaluate _ = _` mp_tac>>
+  simp[evaluate_def]>>
+  rpt(CASE_ONE>>gvs[])>>
+  strip_tac>>gvs[]>>
+  imp_res_tac evaluate_consts>>
+  imp_res_tac pop_env_const>>gvs[]
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- simp[ptr_eq_bits_def]
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>
+      first_x_assum(qspec_then`rest`strip_assume_tac)>>
+      gvs[]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>
+      first_x_assum(qspec_then`rest`strip_assume_tac)>>
+      gvs[]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- simp[ptr_eq_bits_def]
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>
+      first_x_assum(qspec_then`rest`strip_assume_tac)>>
+      gvs[]>>metis_tac[])
+  >- (simp[ptr_eq_bits_def]>>strip_tac>>
+      first_x_assum(qspec_then`rest`strip_assume_tac)>>
+      gvs[]>>metis_tac[])
+QED
+
+Resume ptr_eq_bits_correct[PtrEq]:
+  gvs[evaluate_def,AllCaseEqs()]
+  >~[`set_var _ _ _`]
+  >- (simp[ptr_eq_bits_def]>>rw[oracle_of_def]>>gvs[])
+  >> simp[ptr_eq_bits_def]>>metis_tac[]
+QED
+
+Finalise ptr_eq_bits_correct;
+
+Theorem evaluate_ptr_eq_switch:
+  ∀p s r s'.
+    evaluate (p,s) = (r,s') ∧ s.ptr_eq_oracle = NONE ∧
+    (∀m dm st w. s.ptr_eq_rel m dm st w w) ⇒
+    ∃bs. ∀rest. ∃rest'.
+      evaluate (p,s with ptr_eq_oracle := SOME (oracle_of bs rest)) =
+        (r,s' with ptr_eq_oracle := SOME rest') ∧
+      (r ≠ SOME Error ⇒ rest' = rest)
+Proof
+  metis_tac[ptr_eq_bits_correct]
+QED
+
+Theorem dec_clock_add_clock[local]:
+  s.clock ≠ 0 ⇒
+  dec_clock (s with clock := extra + s.clock) =
+  dec_clock s with clock := extra + (dec_clock s).clock
+Proof
+  rw[dec_clock_def,state_component_equality]
+QED
+
+(* The answers a run produces only grow with the clock, and a run that does
+   not time out produces the same answers at every larger clock. *)
+Theorem ptr_eq_bits_mono:
+  ∀p s r s' extra.
+    evaluate (p,s) = (r,s') ⇒
+    ptr_eq_bits p s ≼ ptr_eq_bits p (s with clock := s.clock + extra) ∧
+    (r ≠ SOME TimeOut ⇒
+     ptr_eq_bits p (s with clock := s.clock + extra) = ptr_eq_bits p s)
+Proof
+  recInduct evaluate_ind >> rpt conj_tac >> rpt gen_tac >>
+  rpt (disch_then strip_assume_tac) >> rpt gen_tac >>
+  rpt (disch_then strip_assume_tac)
+  >~[`MustTerminate`] >- suspend "MustTerminate"
+  >~[`Seq`] >- suspend "Seq"
+  >~[`If`] >- suspend "If"
+  >~[`Loop`] >- suspend "Loop"
+  >~[`Call`] >- suspend "Call"
+  >> simp[ptr_eq_bits_def]
+QED
+
+Resume ptr_eq_bits_mono[MustTerminate]:
+  simp[ptr_eq_bits_def,rich_listTheory.IS_PREFIX_REFL]
+QED
+
+Resume ptr_eq_bits_mono[Seq]:
+  qpat_x_assum`evaluate _ = _` mp_tac>>
+  simp[evaluate_def,ptr_eq_bits_def]>>
+  rpt(pairarg_tac>>simp[])>>
+  strip_tac>>
+  first_x_assum(qspecl_then[`res`,`s1`,`extra`]mp_tac)>>
+  simp[]>>strip_tac>>
+  Cases_on`res = SOME TimeOut`>>gvs[]
+  >- (rw[]>>
+      metis_tac[rich_listTheory.IS_PREFIX_TRANS,
+                rich_listTheory.IS_PREFIX_APPEND3])>>
+  qpat_assum`evaluate (c1,s) = _`(mp_then Any mp_tac evaluate_add_clock)>>
+  simp[]>>strip_tac>>gvs[]>>
+  Cases_on`res = NONE`>>gvs[rich_listTheory.IS_PREFIX_REFL]
+QED
+
+Resume ptr_eq_bits_mono[If]:
+  qpat_x_assum`evaluate _ = _` mp_tac>>
+  simp[evaluate_def,ptr_eq_bits_def]>>
+  rpt(CASE_ONE>>simp[])>>
+  strip_tac>>gvs[]>>metis_tac[]
+QED
+
+Resume ptr_eq_bits_mono[Loop]:
+  qid_spec_tac`extra`>>
+  qpat_x_assum`evaluate _ = _` mp_tac>>
+  simp[evaluate_def,ptr_eq_bits_def]>>
+  rpt(CASE_ONE>>simp[])>>
+  rpt(pairarg_tac>>simp[])>>
+  strip_tac>>gvs[]>>
+  imp_res_tac cut_state_const>>gvs[]>>
+  gen_tac>>
+  rpt(first_x_assum(qspec_then`extra`strip_assume_tac))
+  >- (Cases_on`evaluate (c,s with <|locals:=l;clock:=extra+s.clock|>)`>>rw[]>>
+      metis_tac[rich_listTheory.IS_PREFIX_TRANS,rich_listTheory.IS_PREFIX_APPEND3])
+  >- (`res ≠ SOME TimeOut` by metis_tac[cont_loop_not_timeout]>>
+      imp_res_tac evaluate_add_clock>>
+      first_x_assum(qspec_then`extra`assume_tac)>>
+      gvs[dec_clock_add_clock,rich_listTheory.IS_PREFIX_APPENDS])
+  >- (drule evaluate_add_clock>>disch_then(qspec_then`extra`assume_tac)>>gvs[])
+  >- (drule evaluate_add_clock>>disch_then(qspec_then`extra`assume_tac)>>gvs[])
+  >- (reverse(Cases_on`res = SOME TimeOut`)>>gvs[]
+      >- (drule evaluate_add_clock>>disch_then(qspec_then`extra`assume_tac)>>gvs[])>>
+      Cases_on`evaluate (c,s with <|locals:=l;clock:=extra+s.clock|>)`>>rw[]>>
+      metis_tac[rich_listTheory.IS_PREFIX_TRANS,rich_listTheory.IS_PREFIX_APPEND3])
+QED
+
+Resume ptr_eq_bits_mono[Call]:
+  qid_spec_tac`extra`>>
+  qpat_x_assum`evaluate _ = _` mp_tac>>
+  simp[evaluate_def,ptr_eq_bits_def]>>
+  rpt(CASE_ONE>>gvs[])>>
+  strip_tac>>gvs[]>>
+  gen_tac>>
+  rpt(first_x_assum(qspec_then`extra`strip_assume_tac))>>
+  imp_res_tac pop_env_const>>
+  qpat_assum`evaluate (_,call_env _ _ _) = _`
+    (mp_then Any mp_tac evaluate_add_clock)>>
+  simp[dec_clock_add_clock,rich_listTheory.IS_PREFIX_APPENDS,
+       rich_listTheory.IS_PREFIX_APPEND3,rich_listTheory.IS_PREFIX_REFL]>>
+  rpt(CASE_ONE>>gvs[])
+  >- (`q'' ≠ SOME TimeOut` by (strip_tac>>gvs[bad_fun_return_def])>>gvs[])
+  >- (strip_tac>>gvs[])
+  >- (strip_tac>>gvs[])
+  >- metis_tac[rich_listTheory.IS_PREFIX_TRANS,rich_listTheory.IS_PREFIX_APPEND3]
+  >- metis_tac[rich_listTheory.IS_PREFIX_TRANS,rich_listTheory.IS_PREFIX_APPEND3]
+  >- metis_tac[rich_listTheory.IS_PREFIX_TRANS,rich_listTheory.IS_PREFIX_APPEND3]
+QED
+
+Finalise ptr_eq_bits_mono;
+
+(* An oracle that already agrees with bs on bs's own indices IS oracle_of bs
+   applied to its own tail, so the switch applies to it verbatim. *)
+Theorem oracle_of_prefix:
+  (∀i. i < LENGTH bs ⇒ EL i bs = po i) ⇒
+  oracle_of bs (λn. po (n + LENGTH bs)) = po
+Proof
+  rw[oracle_of_def,FUN_EQ_THM]>>rw[]
+QED
+
+(* A family of answer lists that nest as the clock grows has one oracle above
+   all of them. *)
+Theorem oracle_of_limit_exists:
+  ∀bs:num -> bool list.
+    (∀k k'. k ≤ k' ⇒ bs k ≼ bs k') ⇒
+    ∃po. ∀k i. i < LENGTH (bs k) ⇒ EL i (bs k) = po i
+Proof
+  rpt strip_tac>>
+  qexists_tac`λi. if ∃k. i < LENGTH (bs k)
+                  then EL i (bs (@k. i < LENGTH (bs k))) else F`>>
+  rw[]
+  >- (
+    qabbrev_tac`k0 = @k. i < LENGTH (bs k)`>>
+    `i < LENGTH (bs k0)` by
+      (qunabbrev_tac`k0`>>SELECT_ELIM_TAC>>metis_tac[])>>
+    `k ≤ k0 ∨ k0 ≤ k` by decide_tac>>
+    metis_tac[rich_listTheory.is_prefix_el])>>
+  metis_tac[]
+QED
+
+(* semantics reads only the result and the ffi state, so an oracle that
+   reproduces the concrete run at every clock leaves semantics alone. *)
+Theorem semantics_ptr_eq_oracle:
+  ∀s start po.
+    (∀k. ∃rest.
+       evaluate (Call NONE (SOME start) [0] NONE,
+                 s with <|clock := k; ptr_eq_oracle := SOME po|>) =
+       (I ## (λt. t with ptr_eq_oracle := SOME rest))
+         (evaluate (Call NONE (SOME start) [0] NONE, s with clock := k))) ⇒
+    semantics (s with ptr_eq_oracle := SOME po) start = semantics s start
+Proof
+  rw[]>>
+  fs[SKOLEM_THM]>>
+  simp[semantics_def,pairTheory.PAIR_MAP,
+       quantHeuristicsTheory.PAIR_EQ_EXPAND]
+QED
+
+(* Discharging the oracle at the level of whole-program semantics: for a state
+   with no oracle and a reflexive attenuator, some oracle reproduces the
+   concrete semantics.  The witness is the limit of the per-clock answer
+   lists, which nest by monotonicity. *)
+Theorem ptr_eq_semantics:
+  ∀s start.
+    s.ptr_eq_oracle = NONE ∧ (∀m dm st w. s.ptr_eq_rel m dm st w w) ⇒
+    ∃po. semantics (s with ptr_eq_oracle := SOME po) start = semantics s start
+Proof
+  rpt strip_tac>>
+  qspec_then`λk. ptr_eq_bits (Call NONE (SOME start) [0] NONE) (s with clock:=k)`
+    mp_tac oracle_of_limit_exists>>
+  impl_tac>-(
+    rw[]>>
+    Cases_on`evaluate (Call NONE (SOME start) [0] NONE, s with clock:=k)`>>
+    drule ptr_eq_bits_mono>>
+    disch_then(qspec_then`k'-k`mp_tac)>>
+    strip_tac>>
+    `k + (k'-k) = k'` by simp[]>>
+    gvs[])>>
+  strip_tac>>
+  qexists_tac`po`>>
+  irule semantics_ptr_eq_oracle>>
+  rw[]>>
+  Cases_on`evaluate (Call NONE (SOME start) [0] NONE, s with clock:=k)`>>
+  drule ptr_eq_bits_correct>>
+  impl_tac >- simp[]>>
+  disch_then(qspec_then
+    `λn. po (n + LENGTH (ptr_eq_bits (Call NONE (SOME start) [0] NONE) (s with clock:=k)))` mp_tac)>>
+  `oracle_of (ptr_eq_bits (Call NONE (SOME start) [0] NONE) (s with clock:=k))
+     (λn. po (n + LENGTH (ptr_eq_bits (Call NONE (SOME start) [0] NONE) (s with clock:=k)))) = po` by
+    (irule oracle_of_prefix>>rw[]>>metis_tac[])>>
+  gvs[]>>
+  strip_tac>>
+  qexists_tac`rest'`>>
+  simp[]
+QED
 
 (* -- *)
 
@@ -2410,6 +3039,10 @@ Proof
     >> fs[pop_env_def] >> gvs[AllCaseEqs()]
     >> simp[state_component_equality]
     >> metis_tac[s_key_eq_trans,s_key_eq_sym])
+  >~[`PtrEq`] >- (
+    fs[evaluate_def]>>every_case_tac>>
+    simp[]>>
+    fs[s_key_eq_refl])
   >~[`StoreConsts`] >- (
     fs[evaluate_def]>>every_case_tac>>
     simp[]>>
@@ -3379,6 +4012,7 @@ Proof
         full_simp_tac bool_ss [GSYM state_fupdcanon] >> fs[]
     )
   >> gvs[evaluate_def,AllCaseEqs()] >> simp[state_component_equality]
+  >> simp[dec_clock_def]
 QED
 
 (* Locals extend lemma *)
@@ -3617,6 +4251,7 @@ Proof
   >~[`Skip`] >- suspend "Skip"
   >~[`CodeBufferWrite`] >- suspend "CodeBufferWrite"
   >~[`DataBufferWrite`] >- suspend "DataBufferWrite"
+  >~[`PtrEq`] >- suspend "PtrEq"
 QED
 
 Resume locals_rel_evaluate_thm[Move]:
@@ -3862,6 +4497,13 @@ Resume locals_rel_evaluate_thm[DataBufferWrite]:
   gvs[evaluate_def] >>
   DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
   gvs[AllCaseEqs(),state_component_equality]
+QED
+
+Resume locals_rel_evaluate_thm[PtrEq]:
+  gvs[evaluate_def] >>
+  DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
+  gvs[AllCaseEqs()] >> fs[set_var_def] >>
+  irule locals_rel_set_var >> fs[]
 QED
 
 Finalise locals_rel_evaluate_thm;
