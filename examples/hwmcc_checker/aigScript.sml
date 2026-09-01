@@ -149,10 +149,9 @@ Proof
   metis_tac [pair_state_surj]
 QED
 
-Definition preds_hold_def:
-  preds_hold ss (aig: ('a, 'i, 'l) aig)
-    (ns: ('a,'i,'l) lit set) =
-  (∀n. n ∈ ns ⇒ eval_lit ss aig n)
+Definition lits_hold_def:
+  lits_hold ss (aig: ('a, 'i, 'l) aig) (lits: ('a,'i,'l) lit set) ⇔
+    ∀lit. lit ∈ lits ⇒ eval_lit ss aig lit
 End
 
 Definition is_reset_def:
@@ -178,10 +177,10 @@ Definition is_trace_def:
     (tr: ('i, 'l) trace) (n: num)
   ⇔
     (is_reset (tr 0) aig reset latches ∧
-     preds_hold (tr 0) aig cnstrs) ∧
+     lits_hold (tr 0) aig cnstrs) ∧
     ∀i. i < n ⇒
       is_next (tr i) aig next latches (SND (tr (i + 1))) ∧
-      preds_hold (tr (i + 1)) aig cnstrs
+      lits_hold (tr (i + 1)) aig cnstrs
 End
 
 Definition is_unsafe_def:
@@ -191,7 +190,7 @@ Definition is_unsafe_def:
   =
   ∃(tr: ('i, 'l) trace) (n: num).
     is_trace aig reset next cnstrs latches tr n ∧
-    ¬preds_hold (tr n) aig safe
+    ¬lits_hold (tr n) aig safe
 End
 
 Definition is_safe_def:
@@ -211,10 +210,10 @@ Definition is_inf_trace_def:
     (tr: ('i, 'l) trace)
   ⇔
     (is_reset (tr 0) aig reset latches ∧
-     preds_hold (tr 0) aig cnstrs) ∧
+     lits_hold (tr 0) aig cnstrs) ∧
     ∀i.
       is_next (tr i) aig next latches (SND (tr (i + 1))) ∧
-      preds_hold (tr (i + 1)) aig cnstrs
+      lits_hold (tr (i + 1)) aig cnstrs
 End
 
 Theorem is_inf_trace_eq:
@@ -238,7 +237,7 @@ Definition is_live_def:
       ∃k signal.
         MEM signal prop ∧
         (∀i. k ≤ i ⇒
-             preds_hold (pair_state (tr i) (tr (i + 1))) qaig {signal})
+             lits_hold (pair_state (tr i) (tr (i + 1))) qaig {signal})
 End
 
 (* AIG Dependencies ***********************************************************)
@@ -595,15 +594,15 @@ Proof
   >> metis_tac [dep_eval_lit_eq]
 QED
 
-Theorem preds_hold_dep_aig:
-  preds_hold ss aig ns ∧
+Theorem lits_hold_dep_aig:
+  lits_hold ss aig lits ∧
   dep_aig inputs latches aig ∧
-  dep_lits inputs latches ns ∧
+  dep_lits inputs latches lits ∧
   agree_on inputs latches ss ss'
   ⇒
-  preds_hold ss' aig ns
+  lits_hold ss' aig lits
 Proof
-  rw [preds_hold_def, dep_lits_def]
+  rw [lits_hold_def, dep_lits_def]
   >> metis_tac [dep_eval_lit_eq]
 QED
 
@@ -640,7 +639,7 @@ Proof
     >> last_assum $ irule_at (Pos last)
     >> gvs [])
   >-
-   (irule preds_hold_dep_aig >> simp []
+   (irule lits_hold_dep_aig >> simp []
     >> first_assum $ irule_at (Pos hd) >> simp []
     >> first_assum $ irule_at (Pos hd) >> simp [])
   >-
@@ -653,7 +652,7 @@ Proof
     >> first_x_assum $ qspec_then ‘i + 1’ mp_tac
     >> simp [agree_on_def])
   >> last_x_assum $ drule_then assume_tac
-  >> irule preds_hold_dep_aig >> fs []
+  >> irule lits_hold_dep_aig >> fs []
   >> first_assum $ irule_at (Pos last) >> simp []
 QED
 
@@ -671,10 +670,10 @@ Proof
 QED
 
 
-Theorem is_trace_preds_hold_n:
+Theorem is_trace_lits_hold_n:
   is_trace aig reset next cnstrs latches tr n
   ⇒
-  preds_hold (tr n) aig cnstrs
+  lits_hold (tr n) aig cnstrs
 Proof
   rw [is_trace_def] >> Cases_on ‘n’ >> fs [ADD1]
 QED
@@ -684,7 +683,7 @@ Theorem is_trace_SUC:
   ⇔
   is_trace maig mreset mnext mcnstrs mlatches tr n ∧
   is_next (tr n) maig mnext mlatches (SND (tr (n + 1))) ∧
-  preds_hold (tr (n + 1)) maig mcnstrs
+  lits_hold (tr (n + 1)) maig mcnstrs
 Proof
   eq_tac >> rw [is_trace_def]
   >> rename1 ‘i < SUC n’ >> Cases_on ‘i < n’ >> gvs []
@@ -728,11 +727,11 @@ Definition dep_qaig_def:
     dep_lits (pair_set inputs) (pair_set latches) (set (FLAT live))
 End
 
-Theorem is_safe_is_inf_trace_preds_hold:
+Theorem is_safe_is_inf_trace_lits_hold:
   is_safe aig reset next cnstrs latches preds ∧
   is_inf_trace aig reset next cnstrs latches tr
   ⇒
-  ∀n. preds_hold (tr n) aig preds
+  ∀n. lits_hold (tr n) aig preds
 Proof
   rw [is_safe_def, is_unsafe_def, is_inf_trace_eq]
   >> metis_tac []
@@ -741,7 +740,7 @@ QED
 Theorem is_inf_trace_cnstrs_hold:
   is_inf_trace aig reset next cnstrs latches tr
   ⇒
-  ∀n. preds_hold (tr n) aig cnstrs
+  ∀n. lits_hold (tr n) aig cnstrs
 Proof
   rw [is_inf_trace_def] >> Cases_on ‘n’ >> gvs [ADD1]
 QED

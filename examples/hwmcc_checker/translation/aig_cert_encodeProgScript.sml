@@ -46,7 +46,7 @@ val r = translate aig_cert_encodeTheory.encode_equiv_aux_def;
 val r = translate aig_cert_encodeTheory.encode_equiv_def;
 val r = translate aig_cert_encodeTheory.latch_reset_pairs_def;
 val r = translate aig_cert_encodeTheory.encode_is_reset_def;
-val r = translate aig_cert_encodeTheory.encode_preds_hold_def;
+val r = translate aig_cert_encodeTheory.encode_lits_hold_def;
 
 val r = translate aig_cert_encodeTheory.left_reset_def;
 val r = translate aig_cert_encodeTheory.right_reset_def;

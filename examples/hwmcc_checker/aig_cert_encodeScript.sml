@@ -859,39 +859,39 @@ Proof
   simp [eval_lit_def, eval_gate_encode_is_reset_Named]
 QED
 
-(* Encoding preds_hold ********************************************************)
+(* Encoding lits_hold *********************************************************)
 
-Definition encode_preds_hold_def:
-  encode_preds_hold
+Definition encode_lits_hold_def:
+  encode_lits_hold
     (aig: ('a iext, 'i, 'l) aig) name (lits: ('a iext,'i,'l) lit list) =
   (Named (Ext name), lits)::aig
 End
 
-Theorem eval_lit_encode_preds_hold_Named:
-  eval_lit ss (encode_preds_hold aig name lits) (n,F) =
+Theorem eval_lit_encode_lits_hold_Named:
+  eval_lit ss (encode_lits_hold aig name lits) (n,F) =
   if n = Gate (Named (Ext name)) then
-    preds_hold ss aig (set lits)
+    lits_hold ss aig (set lits)
   else eval_lit ss aig (n,F)
 Proof
-  simp [encode_preds_hold_def, eval_lit_def, preds_hold_def, EVERY_MEM]
+  simp [encode_lits_hold_def, eval_lit_def, lits_hold_def, EVERY_MEM]
   >> IF_CASES_TAC >> gvs []
   >> TOP_CASE_TAC >> gvs []
 QED
 
-Theorem eval_lit_encode_preds_hold_iext_lit[simp]:
-  eval_lit ss (encode_preds_hold aig name lits) (iext_lit lit) =
+Theorem eval_lit_encode_lits_hold_iext_lit[simp]:
+  eval_lit ss (encode_lits_hold aig name lits) (iext_lit lit) =
   eval_lit ss aig (iext_lit lit)
 Proof
-  simp [encode_preds_hold_def]
+  simp [encode_lits_hold_def]
 QED
 
-Theorem eval_gate_encode_preds_hold_Named:
-  eval_gate ss (encode_preds_hold aig name lits) (Named n) =
+Theorem eval_gate_encode_lits_hold_Named:
+  eval_gate ss (encode_lits_hold aig name lits) (Named n) =
   if n = Ext name then
-    preds_hold ss aig (set lits)
+    lits_hold ss aig (set lits)
   else eval_gate ss aig (Named n)
 Proof
-  simp [encode_preds_hold_def, eval_lit_def, preds_hold_def, EVERY_MEM]
+  simp [encode_lits_hold_def, eval_lit_def, lits_hold_def, EVERY_MEM]
   >> IF_CASES_TAC >> simp []
 QED
 
@@ -1093,13 +1093,13 @@ Theorem encode_signal_imply_aux_eval_lit[local]:
     LENGTH signals' = LENGTH signals ⇒
     ∀n. n < LENGTH signals ⇒
         (eval_lit ss aig' (Gate (Anon outs'❲n❳),F) ⇔
-           preds_hold ss aig {signals❲n❳} ⇒
-           preds_hold ss aig {signals'❲n❳})
+           lits_hold ss aig {signals❲n❳} ⇒
+           lits_hold ss aig {signals'❲n❳})
 Proof
   recInduct encode_signal_imply_aux_ind >> rw []
   >> Cases_on ‘n’ >> gvs [encode_signal_imply_aux_def]
   >> rpt (pairarg_tac >> gvs [])
-  >> fs [preds_hold_def]
+  >> fs [lits_hold_def]
   >-
    (simp [eval_lit_def, eval_lit_not]
     >> rename1 ‘eval_lit _ _ signal ⇒ eval_lit _ _ signal'’
@@ -1259,13 +1259,13 @@ Theorem encode_lives_hold_aux_eval_lit[local]:
     ⇒
     ∀n. n < LENGTH live ⇒
        ((eval_lit ss aig' (MAP (λn. (Gate (Anon n),T)) outs)❲n❳) ⇔
-        EXISTS (λp. preds_hold ss aig {p}) live❲n❳)
+        EXISTS (λp. lits_hold ss aig {p}) live❲n❳)
 Proof
   Induct >> rw [encode_lives_hold_aux_def]
   >> rpt (pairarg_tac >> gvs [])
   >> Cases_on ‘n’ >> gvs []
   >-
-   (simp [eval_lit_def, preds_hold_def]
+   (simp [eval_lit_def, lits_hold_def]
     >> simp [EXISTS_MAP, eval_lit_not]
     >> drule encode_lives_hold_aux_EXISTS_eq
     >> rename1 ‘EXISTS _ xs’
@@ -1339,9 +1339,9 @@ Definition encode_is_witness_reset_def:
   let
     aig  = imerge_aigs maig waig;
     aig  = encode_is_reset aig «mreset» (ileft_reset mreset) mlatches;
-    aig  = encode_preds_hold aig «mcnstrs» (ileft_name_lits mcnstrs);
+    aig  = encode_lits_hold aig «mcnstrs» (ileft_name_lits mcnstrs);
     aig  = encode_is_reset aig «wreset» (iright_reset wreset) klatches;
-    aig  = encode_preds_hold aig «wcnstrs» (iright_name_lits wcnstrs);
+    aig  = encode_lits_hold aig «wcnstrs» (iright_name_lits wcnstrs);
     lhss =
       [(Gate (Named (Ext «mreset»)), F);
        (Gate (Named (Ext «mcnstrs»)), F)];
@@ -1366,8 +1366,8 @@ Definition encode_is_witness_transition_def:
   =
   let
     aig  = imerge_aigs maig waig;
-    aig  = encode_preds_hold aig «mcnstrs» (ileft_name_lits mcnstrs);
-    aig  = encode_preds_hold aig «wcnstrs» (iright_name_lits wcnstrs);
+    aig  = encode_lits_hold aig «mcnstrs» (ileft_name_lits mcnstrs);
+    aig  = encode_lits_hold aig «wcnstrs» (iright_name_lits wcnstrs);
     aig  = iext_aig (pair_aigs aig aig);
     aig  = encode_is_next aig «mnext» (iext_lit ∘ left_name_lit ∘ mnext) mlatches;
     aig  = encode_is_next aig «wnext» (iext_lit ∘ right_name_lit ∘ wnext) klatches;
@@ -1395,10 +1395,10 @@ Definition encode_is_witness_property_def:
   =
   let
     aig  = imerge_aigs maig waig;
-    aig  = encode_preds_hold aig «mcnstrs» (ileft_name_lits mcnstrs);
-    aig  = encode_preds_hold aig «mpreds» (ileft_name_lits mpreds);
-    aig  = encode_preds_hold aig «wcnstrs» (iright_name_lits wcnstrs);
-    aig  = encode_preds_hold aig «wpreds» (iright_name_lits wpreds);
+    aig  = encode_lits_hold aig «mcnstrs» (ileft_name_lits mcnstrs);
+    aig  = encode_lits_hold aig «mpreds» (ileft_name_lits mpreds);
+    aig  = encode_lits_hold aig «wcnstrs» (iright_name_lits wcnstrs);
+    aig  = encode_lits_hold aig «wpreds» (iright_name_lits wpreds);
     lhss =
       [(Gate (Named (Ext «mcnstrs»)),F);
        (Gate (Named (Ext «wcnstrs»)),F);
@@ -1419,8 +1419,8 @@ Definition encode_is_witness_base_def:
     let
       aig  = iext_aig waig;
       aig  = encode_is_reset aig «wreset» (iext_reset wreset) wlatches;
-      aig  = encode_preds_hold aig «wcnstrs» (MAP iext_lit wcnstrs);
-      aig  = encode_preds_hold aig «wpreds» (MAP iext_lit wpreds);
+      aig  = encode_lits_hold aig «wcnstrs» (MAP iext_lit wcnstrs);
+      aig  = encode_lits_hold aig «wpreds» (MAP iext_lit wpreds);
       lhss =
         [(Gate (Named (Ext «wreset»)),F);
          (Gate (Named (Ext «wcnstrs»)),F)];
@@ -1439,8 +1439,8 @@ Definition encode_is_witness_step_def:
   ⇔
     let
       aig  = iext_aig waig;
-      aig  = encode_preds_hold aig «wcnstrs» (MAP iext_lit wcnstrs);
-      aig  = encode_preds_hold aig «wpreds» (MAP iext_lit wpreds);
+      aig  = encode_lits_hold aig «wcnstrs» (MAP iext_lit wcnstrs);
+      aig  = encode_lits_hold aig «wpreds» (MAP iext_lit wpreds);
       aig  = iext_aig (pair_aigs aig aig);
       aig  = encode_is_next aig «wnext» (iext_lit ∘ wnext) wlatches;
       lhss =
@@ -1474,9 +1474,9 @@ Definition encode_is_witness_liveness_def:
     qaig = imerge_aigs mqaig wqaig;
     qaig = encode_signal_imply qaig «lives_imply» wsignals msignals;
     aig = imerge_aigs maig waig;
-    aig = encode_preds_hold aig «mcnstrs» (ileft_name_lits mcnstrs);
-    aig = encode_preds_hold aig «wcnstrs» (iright_name_lits wcnstrs);
-    aig = encode_preds_hold aig «wpreds» (iright_name_lits wpreds);
+    aig = encode_lits_hold aig «mcnstrs» (ileft_name_lits mcnstrs);
+    aig = encode_lits_hold aig «wcnstrs» (iright_name_lits wcnstrs);
+    aig = encode_lits_hold aig «wpreds» (iright_name_lits wpreds);
     aig = iext_aig (pair_aigs aig aig);
     aig =
       encode_is_next aig «wnext» (iext_lit ∘ right_name_lit ∘ wnext) wlatches;
@@ -1518,8 +1518,8 @@ Definition encode_is_witness_decrease_def:
     wlive = MAP (MAP iext_lit) (qinterv_live_r_l interv wlive);
     qaig = encode_lives_hold qaig «lives_hold» wlive;
     aig = iext_aig waig;
-    aig = encode_preds_hold aig «wcnstrs» (MAP iext_lit wcnstrs);
-    aig = encode_preds_hold aig «wpreds» (MAP iext_lit wpreds);
+    aig = encode_lits_hold aig «wcnstrs» (MAP iext_lit wcnstrs);
+    aig = encode_lits_hold aig «wpreds» (MAP iext_lit wpreds);
     aig = iext_aig (pair_aigs aig aig);
     aig = encode_is_next aig «wnext» (iext_lit ∘ wnext) wlatches;
     aig = imerge_aigs aig qaig;
@@ -1560,8 +1560,8 @@ Definition encode_is_witness_closure_def:
     wlive₁ = MAP (MAP iext_lit) (qinterv_live_lr_r interv wlive);
     qaig₁ = encode_lives_hold qaig₁ «lives_hold12» wlive₁;
     aig₀ = iext_aig waig;
-    aig₀ = encode_preds_hold aig₀ «wcnstrs» (MAP iext_lit wcnstrs);
-    aig₀ = encode_preds_hold aig₀ «wpreds» (MAP iext_lit wpreds);
+    aig₀ = encode_lits_hold aig₀ «wcnstrs» (MAP iext_lit wcnstrs);
+    aig₀ = encode_lits_hold aig₀ «wpreds» (MAP iext_lit wpreds);
     aig = iext_aig (pair_aigs aig₀ aig₀);
     aig = encode_is_next aig «wnext» (iext_lit ∘ wnext) wlatches;
     aig = iext_aig (pair_aigs aig aig₀);
@@ -1614,8 +1614,8 @@ Definition encode_is_witness_consistent_def:
     qaig = encode_lives_hold qaig «lives_hold01» wlive₀;
     qaig = encode_lives_hold qaig «lives_hold12» wlive₁;
     aig₀ = iext_aig waig;
-    aig₀ = encode_preds_hold aig₀ «wcnstrs» (MAP iext_lit wcnstrs);
-    aig₀ = encode_preds_hold aig₀ «wpreds» (MAP iext_lit wpreds);
+    aig₀ = encode_lits_hold aig₀ «wcnstrs» (MAP iext_lit wcnstrs);
+    aig₀ = encode_lits_hold aig₀ «wpreds» (MAP iext_lit wpreds);
     aig = iext_aig (pair_aigs aig₀ aig₀);
     aig = encode_is_next aig «wnext» (iext_lit ∘ wnext) wlatches;
     aig = iext_aig (pair_aigs aig aig₀);
@@ -1675,12 +1675,12 @@ Proof
         eval_lit_def, iext_reset_def, PULL_EXISTS]
 QED
 
-Theorem is_reset_encode_preds_hold_iright[local,simp]:
+Theorem is_reset_encode_lits_hold_iright[local,simp]:
   is_reset ss
-    (encode_preds_hold aig name lits) (iright_reset reset) latches ⇔
+    (encode_lits_hold aig name lits) (iright_reset reset) latches ⇔
   is_reset ss aig (iright_reset reset) latches
 Proof
-  simp [is_reset_def, encode_preds_hold_def, iright_reset_def, right_reset_def,
+  simp [is_reset_def, encode_lits_hold_def, iright_reset_def, right_reset_def,
         eval_lit_def, iext_reset_def, PULL_EXISTS]
 QED
 
@@ -1693,83 +1693,83 @@ Proof
         iext_reset_def, PULL_EXISTS]
 QED
 
-Theorem preds_hold_iext[local,simp]:
-  preds_hold ss (iext_aig aig) (set (MAP iext_lit preds)) ⇔
-    preds_hold ss aig (set preds)
+Theorem lits_hold_iext[local,simp]:
+  lits_hold ss (iext_aig aig) (set (MAP iext_lit preds)) ⇔
+    lits_hold ss aig (set preds)
 Proof
-  simp [preds_hold_def, MEM_MAP, PULL_EXISTS]
+  simp [lits_hold_def, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem preds_hold_ileft[local,simp]:
-  preds_hold ss (imerge_aigs laig raig) (set (ileft_name_lits preds)) ⇔
-    preds_hold ss laig (set preds)
+Theorem lits_hold_ileft[local,simp]:
+  lits_hold ss (imerge_aigs laig raig) (set (ileft_name_lits preds)) ⇔
+    lits_hold ss laig (set preds)
 Proof
-  simp [preds_hold_def, ileft_name_lits_def, imerge_aigs_def,
+  simp [lits_hold_def, ileft_name_lits_def, imerge_aigs_def,
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem preds_hold_iright[local,simp]:
-  preds_hold ss (imerge_aigs laig raig) (set (iright_name_lits preds)) ⇔
-    preds_hold ss raig (set preds)
+Theorem lits_hold_iright[local,simp]:
+  lits_hold ss (imerge_aigs laig raig) (set (iright_name_lits preds)) ⇔
+    lits_hold ss raig (set preds)
 Proof
-  simp [preds_hold_def, iright_name_lits_def, imerge_aigs_def,
+  simp [lits_hold_def, iright_name_lits_def, imerge_aigs_def,
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem preds_hold_encode_is_reset_ileft[local,simp]:
-  preds_hold ss
+Theorem lits_hold_encode_is_reset_ileft[local,simp]:
+  lits_hold ss
     (encode_is_reset aig name reset latches) (set (ileft_name_lits preds)) ⇔
-  preds_hold ss aig (set (ileft_name_lits preds))
+  lits_hold ss aig (set (ileft_name_lits preds))
 Proof
-  simp [preds_hold_def, encode_is_reset_def, ileft_name_lits_def,
+  simp [lits_hold_def, encode_is_reset_def, ileft_name_lits_def,
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem preds_hold_encode_is_reset_iright[local,simp]:
-  preds_hold ss
+Theorem lits_hold_encode_is_reset_iright[local,simp]:
+  lits_hold ss
     (encode_is_reset aig name reset latches) (set (iright_name_lits preds)) ⇔
-  preds_hold ss aig (set (iright_name_lits preds))
+  lits_hold ss aig (set (iright_name_lits preds))
 Proof
-  simp [preds_hold_def, encode_is_reset_def, iright_name_lits_def,
+  simp [lits_hold_def, encode_is_reset_def, iright_name_lits_def,
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem preds_hold_encode_is_reset_iext[local,simp]:
-  preds_hold ss
+Theorem lits_hold_encode_is_reset_iext[local,simp]:
+  lits_hold ss
     (encode_is_reset aig name reset latches) (set (MAP iext_lit preds)) ⇔
-  preds_hold ss aig (set (MAP iext_lit preds))
+  lits_hold ss aig (set (MAP iext_lit preds))
 Proof
-  simp [preds_hold_def, encode_is_reset_def, MEM_MAP, PULL_EXISTS]
+  simp [lits_hold_def, encode_is_reset_def, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem preds_hold_encode_preds_hold_iright[local,simp]:
-  preds_hold ss (encode_preds_hold aig name preds') (set (iright_name_lits preds)) ⇔
-    preds_hold ss aig (set (iright_name_lits preds))
+Theorem lits_hold_encode_lits_hold_iright[local,simp]:
+  lits_hold ss (encode_lits_hold aig name preds') (set (iright_name_lits preds)) ⇔
+    lits_hold ss aig (set (iright_name_lits preds))
 Proof
-  simp [preds_hold_def, encode_preds_hold_def, iright_name_lits_def,
+  simp [lits_hold_def, encode_lits_hold_def, iright_name_lits_def,
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem preds_hold_encode_preds_hold_iext_lit[local,simp]:
-  preds_hold ss (encode_preds_hold aig name preds') (set (MAP iext_lit preds)) ⇔
-    preds_hold ss aig (set (MAP iext_lit preds))
+Theorem lits_hold_encode_lits_hold_iext_lit[local,simp]:
+  lits_hold ss (encode_lits_hold aig name preds') (set (MAP iext_lit preds)) ⇔
+    lits_hold ss aig (set (MAP iext_lit preds))
 Proof
-  simp [preds_hold_def, encode_preds_hold_def, MEM_MAP, PULL_EXISTS]
+  simp [lits_hold_def, encode_lits_hold_def, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem preds_hold_encode_preds_hold_iright[local,simp]:
-  preds_hold ss (encode_preds_hold aig name preds') (set (iright_name_lits preds)) ⇔
-    preds_hold ss aig (set (iright_name_lits preds))
+Theorem lits_hold_encode_lits_hold_iright[local,simp]:
+  lits_hold ss (encode_lits_hold aig name preds') (set (iright_name_lits preds)) ⇔
+    lits_hold ss aig (set (iright_name_lits preds))
 Proof
-  simp [preds_hold_def, encode_preds_hold_def, iright_name_lits_def,
+  simp [lits_hold_def, encode_lits_hold_def, iright_name_lits_def,
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem preds_hold_encode_preds_hold_ileft[local,simp]:
-  preds_hold ss (encode_preds_hold aig name preds') (set (ileft_name_lits preds)) ⇔
-    preds_hold ss aig (set (ileft_name_lits preds))
+Theorem lits_hold_encode_lits_hold_ileft[local,simp]:
+  lits_hold ss (encode_lits_hold aig name preds') (set (ileft_name_lits preds)) ⇔
+    lits_hold ss aig (set (ileft_name_lits preds))
 Proof
-  simp [preds_hold_def, encode_preds_hold_def, ileft_name_lits_def,
+  simp [lits_hold_def, encode_lits_hold_def, ileft_name_lits_def,
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
@@ -1781,7 +1781,7 @@ Theorem signal_imply_iright_ileft[local,simp]:
   signal_imply ss₀ aig₂ ss₁ aig₃ signals' signals
 Proof
   simp [signal_imply_def, ileft_name_lits_def, iright_name_lits_def,
-        preds_hold_def, LIST_REL_MAP]
+        lits_hold_def, LIST_REL_MAP]
 QED
 
 Theorem signal_imply_ileft_iright[local,simp]:
@@ -1792,7 +1792,7 @@ Theorem signal_imply_ileft_iright[local,simp]:
   signal_imply ss₀ aig₁ ss₁ aig₄ signals' signals
 Proof
   simp [signal_imply_def, ileft_name_lits_def, iright_name_lits_def,
-        preds_hold_def, LIST_REL_MAP]
+        lits_hold_def, LIST_REL_MAP]
 QED
 
 Theorem lives_hold_iext_aig[local,simp]:
@@ -1800,7 +1800,7 @@ Theorem lives_hold_iext_aig[local,simp]:
   ⇔
   lives_hold ss aig lives
 Proof
-  simp [lives_hold_def, some_signal_holds_def, preds_hold_def,
+  simp [lives_hold_def, some_signal_holds_def, lits_hold_def,
         EXISTS_MEM, EVERY_MEM, MEM_MAP, PULL_EXISTS]
 QED
 
@@ -1834,7 +1834,7 @@ Proof
   simp [encode_lives_hold_def]
   >> rpt (pairarg_tac >> gvs [])
   >> simp [lives_hold_def, some_signal_holds_def,
-           preds_hold_def, iright_name_lits_def,
+           lits_hold_def, iright_name_lits_def,
            EVERY_MEM, EXISTS_MEM, MEM_MAP, PULL_EXISTS]
   >> drule encode_lives_hold_aux_eval_lit_iext >> simp []
 QED
@@ -1848,7 +1848,7 @@ Proof
   simp [encode_signal_imply_def]
   >> rpt (pairarg_tac >> gvs [])
   >> simp [lives_hold_def, some_signal_holds_def,
-           preds_hold_def, ileft_name_lits_def,
+           lits_hold_def, ileft_name_lits_def,
            EVERY_MEM, MEM_MAP, EXISTS_MEM, PULL_EXISTS]
   >> drule encode_signal_imply_aux_eval_lit_iext
   >> simp []
@@ -1863,7 +1863,7 @@ Proof
   simp [encode_signal_imply_def]
   >> rpt (pairarg_tac >> gvs [])
   >> simp [lives_hold_def, some_signal_holds_def,
-           preds_hold_def, iright_name_lits_def,
+           lits_hold_def, iright_name_lits_def,
            EVERY_MEM, MEM_MAP, EXISTS_MEM, PULL_EXISTS]
   >> drule encode_signal_imply_aux_eval_lit_iext
   >> simp []
@@ -1875,7 +1875,7 @@ Theorem lives_hold_imerge_aigs_ileft[local,simp]:
   lives_hold ss aig₀ live
 Proof
   simp [lives_hold_def, some_signal_holds_def,
-        ileft_name_lits_def, preds_hold_def,
+        ileft_name_lits_def, lits_hold_def,
         EXISTS_MEM, EVERY_MEM, MEM_MAP, PULL_EXISTS]
 QED
 
@@ -1885,7 +1885,7 @@ Theorem lives_hold_imerge_aigs_iright[local,simp]:
   lives_hold ss aig₁ live
 Proof
   simp [lives_hold_def, some_signal_holds_def,
-        iright_name_lits_def, preds_hold_def,
+        iright_name_lits_def, lits_hold_def,
         EXISTS_MEM, EVERY_MEM, MEM_MAP, PULL_EXISTS]
 QED
 
@@ -2149,7 +2149,7 @@ Proof
         qinterv_live_r_l_def,
         qinterv_live_l_r_def,
         qinterv_live_def,
-        preds_hold_def,
+        lits_hold_def,
         eval_lit_qinterv_r_l_eq,
         EXISTS_MEM, EVERY_MEM, MEM_MAP, PULL_EXISTS]
 QED
@@ -2165,7 +2165,7 @@ Proof
         qinterv_live_ll_r_def,
         qinterv_live_l_r_def,
         qinterv_live_def,
-        preds_hold_def,
+        lits_hold_def,
         eval_lit_qinterv_ll_r_eq,
         EXISTS_MEM, EVERY_MEM, MEM_MAP, PULL_EXISTS]
 QED
@@ -2179,7 +2179,7 @@ Theorem lives_hold_ll_lr_eq[local]:
 Proof
   simp [lives_hold_def, some_signal_holds_def,
         qinterv_live_ll_lr_def, qinterv_live_l_r_def, qinterv_live_def,
-        preds_hold_def, eval_lit_qinterv_ll_lr_eq,
+        lits_hold_def, eval_lit_qinterv_ll_lr_eq,
         EVERY_MEM, EXISTS_MEM, MEM_MAP, PULL_EXISTS]
 QED
 
@@ -2194,7 +2194,7 @@ Proof
         qinterv_live_lr_r_def,
         qinterv_live_l_r_def,
         qinterv_live_def,
-        preds_hold_def,
+        lits_hold_def,
         eval_lit_qinterv_lr_r_eq,
         EXISTS_MEM, EVERY_MEM, MEM_MAP, PULL_EXISTS]
 QED
@@ -2226,7 +2226,7 @@ Theorem signal_imply_right_lr_r_eq[local]:
 Proof
   simp [signal_imply_def, FLAT_qinterv_live_flip, LIST_REL_EL_EQN]
   >> eq_tac >> rw []
-  >> gvs [Req0 EL_MAP, preds_hold_def, eval_lit_qinterv_lr_r_eq]
+  >> gvs [Req0 EL_MAP, lits_hold_def, eval_lit_qinterv_lr_r_eq]
 QED
 
 Theorem signal_imply_left_ll_lr_eq[local]:
@@ -2242,7 +2242,7 @@ Theorem signal_imply_left_ll_lr_eq[local]:
 Proof
   simp [signal_imply_def, FLAT_qinterv_live_flip, LIST_REL_EL_EQN]
   >> eq_tac >> rw []
-  >> gvs [Req0 EL_MAP, preds_hold_def, eval_lit_qinterv_ll_lr_eq]
+  >> gvs [Req0 EL_MAP, lits_hold_def, eval_lit_qinterv_ll_lr_eq]
 QED
 
 Theorem FLAT_MAP_name_lits_flip[local]:
@@ -2282,7 +2282,7 @@ Proof
       reset_encoding_is_unsat_def,
       is_witness_reset_def, encode_is_witness_reset_def,
       eval_gate_encode_imply,
-      eval_lit_encode_preds_hold_Named,
+      eval_lit_encode_lits_hold_Named,
       eval_lit_encode_is_reset_Named
     ]
   >> metis_tac []
@@ -2318,7 +2318,7 @@ Proof
       eval_gate_encode_imply,
       encode_is_next_def, encode_is_next_with_def,
       eval_lit_encode_equiv_Named,
-      eval_lit_encode_preds_hold_Named,
+      eval_lit_encode_lits_hold_Named,
       FORALL_PAIR_STATE,
       is_witness_transition_def, is_next_def, eval_lit_base,
       EVERY_MEM, MEM_MAP, PULL_EXISTS, PULL_FORALL
@@ -2367,7 +2367,7 @@ Proof
       property_encoding_is_unsat_def,
       encode_is_witness_property_def,
       eval_gate_encode_imply,
-      eval_lit_encode_preds_hold_Named,
+      eval_lit_encode_lits_hold_Named,
       is_witness_property_def
     ]
   >> metis_tac []
@@ -2395,7 +2395,7 @@ Proof
       base_encoding_is_unsat_def,
       encode_is_witness_base_def,
       eval_gate_encode_imply,
-      eval_lit_encode_preds_hold_Named,
+      eval_lit_encode_lits_hold_Named,
       eval_lit_encode_is_reset_Named,
       is_witness_base_def
     ]
@@ -2423,7 +2423,7 @@ Proof
       step_encoding_is_unsat_def,
       encode_is_witness_step_def,
       eval_gate_encode_imply,
-      eval_lit_encode_preds_hold_Named,
+      eval_lit_encode_lits_hold_Named,
       eval_lit_encode_equiv_Named,
       encode_is_next_def, encode_is_next_with_def,
       eval_lit_base,
@@ -2468,7 +2468,7 @@ Proof
       eval_gate_encode_imply,
       encode_is_next_def, encode_is_next_with_def, is_next_def,
       is_witness_liveness_def, lives_imply_signal_imply_FLAT,
-      eval_lit_encode_preds_hold_Named,
+      eval_lit_encode_lits_hold_Named,
       eval_lit_encode_equiv_Named,
       eval_lit_base,
       FORALL_PAIR_STATE,
@@ -2524,7 +2524,7 @@ Proof
       decrease_encoding_is_unsat_def,
       encode_is_witness_decrease_def,
       eval_gate_encode_imply,
-      eval_lit_encode_preds_hold_Named,
+      eval_lit_encode_lits_hold_Named,
       eval_lit_encode_equiv_Named,
       encode_is_next_def, encode_is_next_with_def,
       eval_lit_base,
@@ -2566,7 +2566,7 @@ Proof
       closure_encoding_is_unsat_def,
       encode_is_witness_closure_def,
       eval_gate_encode_imply,
-      eval_lit_encode_preds_hold_Named,
+      eval_lit_encode_lits_hold_Named,
       eval_lit_encode_equiv_Named,
       encode_is_next_def, encode_is_next_with_def,
       eval_lit_base,
@@ -2613,7 +2613,7 @@ Proof
       encode_is_next_with_def,
       encode_is_next_def,
       eval_lit_encode_equiv_Named,
-      eval_lit_encode_preds_hold_Named,
+      eval_lit_encode_lits_hold_Named,
       eval_lit_base, is_next_def,
       is_witness_consistent_def,
       FORALL_PAIR_STATE,

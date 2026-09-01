@@ -11,7 +11,7 @@ Libs
 
 Definition signal_imply_def:
   signal_imply ss aig ss' aig' signals signals' =
-  LIST_REL (λq q'. preds_hold ss aig {q} ⇒ preds_hold ss' aig' {q'})
+  LIST_REL (λq q'. lits_hold ss aig {q} ⇒ lits_hold ss' aig' {q'})
     signals signals'
 End
 
@@ -22,7 +22,7 @@ End
 
 Definition some_signal_holds_def:
   some_signal_holds ss aig signals =
-  EXISTS (λp. preds_hold ss aig {p}) signals
+  EXISTS (λp. lits_hold ss aig {p}) signals
 End
 
 Definition lives_hold_def:
@@ -39,10 +39,10 @@ Definition is_witness_reset_def:
   ⇔
   ∀ss.
     (is_reset ss maig mreset mlatches ∧
-     preds_hold ss maig mcnstrs
+     lits_hold ss maig mcnstrs
      ⇒
      is_reset ss waig wreset (mlatches ∩ wlatches) ∧
-     preds_hold ss waig wcnstrs)
+     lits_hold ss waig wcnstrs)
 End
 
 Definition is_witness_transition_def:
@@ -52,12 +52,12 @@ Definition is_witness_transition_def:
   ⇔
   ∀ss₀ ss₁.
     (is_next ss₀ maig mnext mlatches (SND ss₁) ∧
-     preds_hold ss₀ maig mcnstrs ∧
-     preds_hold ss₁ maig mcnstrs ∧
-     preds_hold ss₀ waig wcnstrs)
+     lits_hold ss₀ maig mcnstrs ∧
+     lits_hold ss₁ maig mcnstrs ∧
+     lits_hold ss₀ waig wcnstrs)
     ⇒
     (is_next ss₀ waig wnext (mlatches ∩ wlatches) (SND ss₁) ∧
-     preds_hold ss₁ waig wcnstrs)
+     lits_hold ss₁ waig wcnstrs)
 End
 
 Definition is_witness_property_def:
@@ -66,10 +66,10 @@ Definition is_witness_property_def:
     waig wpreds wcnstrs
   ⇔
   ∀ss.
-    (preds_hold ss maig mcnstrs ∧
-     preds_hold ss waig wcnstrs) ⇒
-    preds_hold ss waig wpreds ⇒
-    preds_hold ss maig mpreds
+    (lits_hold ss maig mcnstrs ∧
+     lits_hold ss waig wcnstrs) ⇒
+    lits_hold ss waig wpreds ⇒
+    lits_hold ss maig mpreds
 End
 
 Definition is_witness_base_def:
@@ -78,9 +78,9 @@ Definition is_witness_base_def:
   ⇔
     ∀ss.
       (is_reset ss waig wreset wlatches ∧
-       preds_hold ss waig wcnstrs)
+       lits_hold ss waig wcnstrs)
       ⇒
-      preds_hold ss waig wpreds
+      lits_hold ss waig wpreds
 End
 
 Definition is_witness_step_def:
@@ -88,12 +88,12 @@ Definition is_witness_step_def:
     waig wnext wpreds wcnstrs wlatches
   ⇔
     ∀ss₀ ss₁.
-      (preds_hold ss₀ waig wpreds ∧
+      (lits_hold ss₀ waig wpreds ∧
        is_next ss₀ waig wnext wlatches (SND ss₁) ∧
-       preds_hold ss₀ waig wcnstrs ∧
-       preds_hold ss₁ waig wcnstrs)
+       lits_hold ss₀ waig wcnstrs ∧
+       lits_hold ss₁ waig wcnstrs)
       ⇒
-      preds_hold ss₁ waig wpreds
+      lits_hold ss₁ waig wpreds
 End
 
 
@@ -106,12 +106,12 @@ Definition is_witness_liveness_def:
        neater *)
     LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive wlive ∧
     ∀ss₀ ss₁.
-      (preds_hold ss₀ maig mcnstrs ∧
-       preds_hold ss₀ waig wcnstrs ∧
-       preds_hold ss₀ waig wpreds ∧
-       preds_hold ss₁ maig mcnstrs ∧
-       preds_hold ss₁ waig wcnstrs ∧
-       preds_hold ss₁ waig wpreds ∧
+      (lits_hold ss₀ maig mcnstrs ∧
+       lits_hold ss₀ waig wcnstrs ∧
+       lits_hold ss₀ waig wpreds ∧
+       lits_hold ss₁ maig mcnstrs ∧
+       lits_hold ss₁ waig wcnstrs ∧
+       lits_hold ss₁ waig wpreds ∧
        is_next ss₀ waig wnext wlatches (SND ss₁))
       ⇒
       lives_imply (pair_state ss₀ ss₁) (pair_state ss₀ ss₁) wqaig mqaig
@@ -124,10 +124,10 @@ Definition is_witness_decrease_def:
     waig wnext wpreds wcnstrs wqaig wlive wlatches
   ⇔
     ∀ss₀ ss₁.
-      (preds_hold ss₀ waig wcnstrs ∧
-       preds_hold ss₀ waig wpreds ∧
-       preds_hold ss₁ waig wcnstrs ∧
-       preds_hold ss₁ waig wpreds ∧
+      (lits_hold ss₀ waig wcnstrs ∧
+       lits_hold ss₀ waig wpreds ∧
+       lits_hold ss₁ waig wcnstrs ∧
+       lits_hold ss₁ waig wpreds ∧
        is_next ss₀ waig wnext wlatches (SND ss₁))
        ⇒
        lives_hold (pair_state ss₁ ss₀) wqaig wlive
@@ -138,12 +138,12 @@ Definition is_witness_closure_def:
     waig wnext wpreds wcnstrs wqaig wlive wlatches
   ⇔
     ∀ss₀ ss₁ ss₂.
-      (preds_hold ss₀ waig wcnstrs ∧
-       preds_hold ss₀ waig wpreds ∧
-       preds_hold ss₁ waig wcnstrs ∧
-       preds_hold ss₁ waig wpreds ∧
-       preds_hold ss₂ waig wcnstrs ∧
-       preds_hold ss₂ waig wpreds ∧
+      (lits_hold ss₀ waig wcnstrs ∧
+       lits_hold ss₀ waig wpreds ∧
+       lits_hold ss₁ waig wcnstrs ∧
+       lits_hold ss₁ waig wpreds ∧
+       lits_hold ss₂ waig wcnstrs ∧
+       lits_hold ss₂ waig wpreds ∧
        is_next ss₀ waig wnext wlatches (SND ss₁) ∧
        lives_hold (pair_state ss₀ ss₂) wqaig wlive)
       ⇒
@@ -155,12 +155,12 @@ Definition is_witness_consistent_def:
     waig wnext wpreds wcnstrs wqaig wlive wlatches
   ⇔
     ∀ss₀ ss₁ ss₂.
-      (preds_hold ss₀ waig wcnstrs ∧
-       preds_hold ss₀ waig wpreds ∧
-       preds_hold ss₁ waig wcnstrs ∧
-       preds_hold ss₁ waig wpreds ∧
-       preds_hold ss₂ waig wcnstrs ∧
-       preds_hold ss₂ waig wpreds ∧
+      (lits_hold ss₀ waig wcnstrs ∧
+       lits_hold ss₀ waig wpreds ∧
+       lits_hold ss₁ waig wcnstrs ∧
+       lits_hold ss₁ waig wpreds ∧
+       lits_hold ss₂ waig wcnstrs ∧
+       lits_hold ss₂ waig wpreds ∧
        is_next ss₀ waig wnext wlatches (SND ss₁) ∧
        is_next ss₁ waig wnext wlatches (SND ss₂) ∧
        lives_hold (pair_state ss₀ ss₁) wqaig wlive ∧
@@ -315,7 +315,7 @@ Definition mk_trace_def:
    in
      @succ.
        is_next prev waig wnext wlatches (SND succ) ∧
-       preds_hold succ waig wcnstrs ∧
+       lits_hold succ waig wcnstrs ∧
        agree_on UNIV mlatches succ (tr (SUC n)))
 End
 
@@ -398,7 +398,7 @@ Proof
           irule (GSYM not_mem_patch_eq)>>
           simp[Abbr`xs`])
         >>
-          drule_then irule preds_hold_dep_aig>>
+          drule_then irule lits_hold_dep_aig>>
           last_assum $ irule_at (Pos hd)>>
           simp[Abbr`ss0`, agree_on_def]>>
           rw[]>>
@@ -436,19 +436,19 @@ Proof
        >> gvs [traces_agree_def, agree_on_sym, Abbr ‘step’, Abbr‘tr'n’]
        >> irule agree_on_weaken_inputs
        >> first_assum $ irule_at (Pos last) >> simp [])
-    >> ‘preds_hold (tr'n) maig mcnstrs’ by
-      (‘preds_hold (tr n) maig mcnstrs’ by metis_tac [is_trace_preds_hold_n]
-       >> drule preds_hold_dep_aig
+    >> ‘lits_hold (tr'n) maig mcnstrs’ by
+      (‘lits_hold (tr n) maig mcnstrs’ by metis_tac [is_trace_lits_hold_n]
+       >> drule lits_hold_dep_aig
        >> disch_then drule >> disch_then irule
        >> gvs [traces_agree_def, agree_on_sym, Abbr‘tr'n’]
        >> irule agree_on_weaken_inputs
        >> first_assum $ irule_at (Pos last) >> simp [])
-    >> ‘preds_hold step maig mcnstrs’ by
-      (rev_drule preds_hold_dep_aig
+    >> ‘lits_hold step maig mcnstrs’ by
+      (rev_drule lits_hold_dep_aig
        >> disch_then drule >> disch_then irule
        >> Cases_on ‘tr (n + 1)’
        >> gvs [agree_on_def, Abbr ‘step’])
-    >> ‘preds_hold (tr'n) waig wcnstrs’ by metis_tac [is_trace_preds_hold_n]
+    >> ‘lits_hold (tr'n) waig wcnstrs’ by metis_tac [is_trace_lits_hold_n]
     (* Following the paper proof, we can now invoke the transition check
        and extend these two facts to the witness. *)
     >> fs [is_witness_transition_def]
@@ -468,7 +468,7 @@ Theorem is_witness_base_step_safe:
   is_witness_step
     aig next preds cnstrs latches
   ⇒
-  preds_hold (tr n) aig preds
+  lits_hold (tr n) aig preds
 Proof
   Induct_on`n`>>rw[]
   >-
@@ -479,7 +479,7 @@ Proof
   rw[]>>
   first_x_assum (irule_at (Pos last))>>
   simp[]>>
-  metis_tac[is_trace_preds_hold_n]
+  metis_tac[is_trace_lits_hold_n]
 QED
 
 Theorem is_inf_trace_is_witness_base_step_safe:
@@ -489,7 +489,7 @@ Theorem is_inf_trace_is_witness_base_step_safe:
   is_witness_step
     aig next preds cnstrs latches
   ⇒
-  (∀n. preds_hold (tr n) aig preds)
+  (∀n. lits_hold (tr n) aig preds)
 Proof
   rw [is_inf_trace_eq] >> metis_tac [is_witness_base_step_safe]
 QED
@@ -510,7 +510,7 @@ Proof
   >> CCONTR_TAC
   >> fs [is_unsafe_def]
   >> pop_assum mp_tac >> simp[]
-  >> rename1 ‘preds_hold (tr _)’
+  >> rename1 ‘lits_hold (tr _)’
   >> drule_all extend_model_trace_to_witness
   >> disch_then $ qspec_then ‘tr’ mp_tac >> rw []
   >> first_assum drule >> strip_tac
@@ -523,7 +523,7 @@ Proof
      >> irule_at (Pos hd) traces_agree_weaken_inputs
      >> first_assum $ irule_at (Pos hd)
      >> simp [])
-  >> drule_at_then Any irule preds_hold_dep_aig
+  >> drule_at_then Any irule lits_hold_dep_aig
   >> rename1`traces_agree n _ mlatches tr' tr`
   >> fs[traces_agree_def]
   >> qexists_tac`tr' n`
@@ -532,7 +532,7 @@ Proof
    (gvs[is_witness_property_def]
     >> first_x_assum irule
     >> gvs[]
-    >> metis_tac[is_trace_preds_hold_n])
+    >> metis_tac[is_trace_lits_hold_n])
   >> irule agree_on_weaken_inputs
   >> first_assum $ irule_at (Pos last)
   >> simp []
@@ -543,8 +543,8 @@ Theorem is_witness_closure_lives_hold[local]:
     is_witness_closure
       aig next preds cnstrs qaig live latches ∧
     lives_hold (pair_state (tr i) (tr j)) qaig live ∧
-    (∀n. preds_hold (tr n) aig preds) ∧
-    (∀n. preds_hold (tr n) aig cnstrs) ∧
+    (∀n. lits_hold (tr n) aig preds) ∧
+    (∀n. lits_hold (tr n) aig cnstrs) ∧
     (∀n. is_next (tr n) aig next latches (SND (tr (n + 1))))
     ⇒
     lives_hold (pair_state (tr (i + k)) (tr j)) qaig live
@@ -566,7 +566,7 @@ Theorem lives_hold_dep_aig:
   lives_hold ss' aig ns
 Proof
   rw [lives_hold_def, EVERY_MEM, dep_lits_def, some_signal_holds_def,
-          EXISTS_MEM, MEM_FLAT, preds_hold_def]
+          EXISTS_MEM, MEM_FLAT, lits_hold_def]
   >> metis_tac [dep_eval_lit_eq]
 QED
 
@@ -601,7 +601,7 @@ Theorem matching_transition_live:
   BIGUNION (IMAGE (set o lit_latches o next) latches) ⊆ latches' ∧
   set (aig_latches qaig) ⊆ pair_set latches' ∧
   BIGUNION (IMAGE (set o lit_latches) (set (FLAT live))) ⊆ pair_set latches' ∧
-  (∀n. preds_hold (tr n) aig preds)
+  (∀n. lits_hold (tr n) aig preds)
   ⇒
   lives_hold (pair_state (tr i) (tr (i + 1))) qaig live
 Proof
@@ -656,19 +656,19 @@ Proof
     metis_tac[dep_lits_lits]
 QED
 
-Theorem is_witness_consistent_preds_holds:
+Theorem is_witness_consistent_lits_hold:
   is_witness_consistent waig wnext wpreds wcnstrs wqaig wlive
     wlatches ∧
   MEM q Q ∧ MEM Q wlive ∧
-  preds_hold (pair_state (tr j) (tr (j + 1))) wqaig {q} ∧
-  (∀n. preds_hold (tr n) waig wcnstrs) ∧
-  (∀n. preds_hold (tr n) waig wpreds) ∧
+  lits_hold (pair_state (tr j) (tr (j + 1))) wqaig {q} ∧
+  (∀n. lits_hold (tr n) waig wcnstrs) ∧
+  (∀n. lits_hold (tr n) waig wpreds) ∧
   (∀n. is_next (tr n) waig wnext wlatches (SND (tr (n + 1)))) ∧
   (∀i. j ≤ i ⇒
        lives_hold (pair_state (tr i) (tr (i + 1))) wqaig wlive) ∧
   j ≤ i
   ⇒
-  preds_hold (pair_state (tr i) (tr (i + 1))) wqaig {q}
+  lits_hold (pair_state (tr i) (tr (i + 1))) wqaig {q}
 Proof
   Induct_on ‘i - j’ >> rw [] >> fs []
   >- (‘i = j’ by simp [] >> simp [])
@@ -710,9 +710,9 @@ Proof
   >> dxrule is_inf_trace_traces_agree
   >> simp [] >> strip_tac
   (* Witness constraints and predicates hold on extended trace *)
-  >> ‘∀n. preds_hold (tr' n) waig wpreds’ by
+  >> ‘∀n. lits_hold (tr' n) waig wpreds’ by
     metis_tac [is_inf_trace_is_witness_base_step_safe]
-  >> ‘∀n. preds_hold (tr' n) waig wcnstrs’ by
+  >> ‘∀n. lits_hold (tr' n) waig wcnstrs’ by
     metis_tac [is_inf_trace_cnstrs_hold]
   (* Extended trace has valid steps for the witness *)
   >> ‘∀n. is_next (tr' n) waig wnext wlatches (SND (tr' (n + 1)))’ by
@@ -727,7 +727,7 @@ Proof
      >> irule traces_agree_weaken_inputs
      >> qexists ‘UNIV’ >> simp [])
   (* Model constraints holds on the witness *)
-  >> ‘∀n. preds_hold (tr' n) maig mcnstrs’ by
+  >> ‘∀n. lits_hold (tr' n) maig mcnstrs’ by
     metis_tac [is_inf_trace_cnstrs_hold]
   >> qabbrev_tac`inputs' =
     set (aig_inputs waig) ∪
@@ -754,10 +754,10 @@ Proof
   >> ‘∃signal.
         MEM signal prop ∧
         ∀i. k + 1 ≤ i ⇒
-            preds_hold (pair_state (tr' i) (tr' (i + 1))) mqaig {signal}’ suffices_by
+            lits_hold (pair_state (tr' i) (tr' (i + 1))) mqaig {signal}’ suffices_by
     (rw []
      >> qexists ‘signal’ >> rw []
-     >> irule preds_hold_dep_aig
+     >> irule lits_hold_dep_aig
      >> fs [dep_qaig_def]
      >> first_assum $ irule_at (Pos hd)
      >> simp []
@@ -782,7 +782,7 @@ Proof
   >> ‘∃n'.
         n' < LENGTH wlive❲n❳ ∧
         ∀i. k + 1 ≤ i ⇒
-              preds_hold (pair_state (tr' i) (tr' (i + 1))) wqaig {wlive❲n❳❲n'❳}’
+              lits_hold (pair_state (tr' i) (tr' (i + 1))) wqaig {wlive❲n❳❲n'❳}’
     suffices_by
     (rw []
      >> qexists ‘n'’
@@ -807,7 +807,7 @@ Proof
      >> irule_at Any SUBSET_pair_set
      >> irule_at Any SUBSET_pair_set
      >> metis_tac[SUBSET_UNION,UNION_ASSOC,UNION_COMM])
-  >> drule is_witness_consistent_preds_holds
+  >> drule is_witness_consistent_lits_hold
   >> disch_then $ drule_at Any >> simp []
   >> gvs [lives_hold_def, EVERY_EL, PULL_FORALL]
   >> first_x_assum $ qspecl_then [‘k + 1’, ‘n’] mp_tac
