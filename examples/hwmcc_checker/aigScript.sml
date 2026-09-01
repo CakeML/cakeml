@@ -52,8 +52,6 @@ QED
 
 (** AIG ***********************************************************************)
 
-(* TODO Rename is ls to iv lv? *)
-
 (* Things that appear in base positions.
    Ff corresponds to the constant false. *)
 Datatype:
@@ -156,10 +154,10 @@ End
 
 Definition is_reset_def:
   is_reset ss (aig: ('a, 'i, 'l) aig)
-    (reset: 'l -> ('a,'i,'l) lit option) (ls: 'l set) =
-  ∀lat lit.
-    lat ∈ ls ∧ reset lat = SOME lit ⇒
-    eval_lit ss aig (Base (Latch lat), F) =
+    (reset: 'l -> ('a,'i,'l) lit option) (latches: 'l set) =
+  ∀l lit.
+    l ∈ latches ∧ reset l = SOME lit ⇒
+    eval_lit ss aig (Base (Latch l), F) =
     eval_lit ss aig lit
 End
 
@@ -395,8 +393,8 @@ QED
 
 Theorem is_reset_insert_SOME:
   reset l = SOME lit ⇒
-  (is_reset ss aig reset (l INSERT ls) ⇔
-     is_reset ss aig reset ls ∧
+  (is_reset ss aig reset (l INSERT latches) ⇔
+     is_reset ss aig reset latches ∧
      (eval_lit ss aig (Base (Latch l),F) ⇔ eval_lit ss aig lit))
 Proof
   rw [is_reset_def] >> eq_tac >> rw [] >> gvs []
@@ -522,10 +520,10 @@ Proof
 QED
 
 Theorem dep_lit_and:
-  MEM l ls ⇒
-  dep_lit (set (and_inputs (n,ls))) (set (and_latches (n,ls))) l
+  MEM lit lits ⇒
+  dep_lit (set (and_inputs (n,lits))) (set (and_latches (n,lits))) lit
 Proof
-  namedCases_on ‘l’ ["b v"] >> simp [dep_lit_def]
+  namedCases_on ‘lit’ ["b v"] >> simp [dep_lit_def]
   >> namedCases_on ‘b’ ["n", "bv"] >> simp [dep_var_def]
   >> Cases_on ‘bv’ >> simp [dep_bvar_def]
   >> rw [and_latches_def, and_inputs_def, MEM_FLAT, MEM_MAP, PULL_EXISTS]
