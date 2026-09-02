@@ -14804,6 +14804,79 @@ Proof
   \\ strip_tac \\ rw []
 QED
 
+Theorem vs_depth_le_v_depth[local]:
+  (∀v. vs_depth v ≤ v_depth v) ∧
+  (∀vs. vs_depth_list vs ≤ (if NULL vs then 0 else 1) + MAX_LIST (MAP v_depth vs))
+Proof
+  ho_match_mp_tac vs_depth_ind
+  \\ simp [vs_depth_def, MAX_LIST_def, SF ETA_ss]
+  \\ rw []
+  \\ `vs_depth_list vs ≤ MAX_LIST (MAP v_depth vs) + 1` by (Cases_on `NULL vs` \\ gvs [])
+  \\ `MAX_LIST (MAP v_depth vs) ≤ MAX (v_depth v) (MAX_LIST (MAP v_depth vs))`
+       by simp [MAX_DEF]
+  \\ intLib.ARITH_TAC
+QED
+
+Theorem memory_rel_v_depth_limit[local]:
+  memory_rel c be ts refs sp st m dm ((v1,w1:'a word_loc)::vars) ∧
+  good_dimindex (:'a) ⇒
+  v_depth v1 ≤ dimword (:'a)
+Proof
+  rw []
+  \\ `memory_rel c be ts refs sp st m dm [(v1,w1)]`
+       by (qhdtm_x_assum `memory_rel` mp_tac
+           \\ match_mp_tac memory_rel_rearrange \\ rw [])
+  \\ `elements_list [v1]` by simp []
+  \\ qpat_x_assum `memory_rel c be ts refs sp st m dm ((v1,w1)::vars)` kall_tac
+  \\ rpt_drule memory_rel_depth_limit
+  \\ simp []
+  \\ disch_then (qx_choose_then `ls` strip_assume_tac)
+  \\ rpt_drule memory_rel_elements_list_distinct \\ strip_tac
+  \\ rpt_drule memory_rel_elements_list_words \\ strip_tac
+  \\ gvs [MAP_TL]
+  \\ rpt_drule word_list_limit \\ strip_tac
+QED
+
+Definition word_ptr_eq_def:
+  word_ptr_eq c m dm st (w1:'a word) w2 ⇔
+    w1 = w2 ∨
+    ∃l1 ck1.
+      word_eq c st dm m (MustTerminate_limit (:'a) - 1)
+        (MustTerminate_limit (:'a)) w1 w2 = SOME (1w, l1, ck1)
+End
+
+Theorem word_ptr_eq_thm:
+  memory_rel c be ts refs sp st m dm
+    ((v1,Word w1)::(v2,Word w2:'a word_loc)::vars) ∧
+  do_eq refs v1 v2 = Eq_val b ∧ good_dimindex (:'a) ⇒
+  (word_ptr_eq c m dm st w1 w2 ⇔ b)
+Proof
+  rw []
+  \\ drule_all word_eq_thm
+  \\ disch_then (qx_choosel_then [`res`,`l1`,`ck1`] strip_assume_tac)
+  \\ `v_depth v1 ≤ dimword (:'a)` by (drule_all memory_rel_v_depth_limit \\ simp [])
+  \\ `vs_depth v1 ≤ dimword (:'a)` by
+       (irule LESS_EQ_TRANS \\ qexists_tac `v_depth v1`
+        \\ simp [cj 1 vs_depth_le_v_depth])
+  \\ `MIN (vs_depth v1) (vs_depth v2) ≤ MustTerminate_limit (:'a)` by
+       (rw [MIN_DEF, MustTerminate_limit_def] \\ intLib.ARITH_TAC)
+  \\ drule (cj 1 word_eq_add_clock)
+  \\ disch_then (qspec_then
+        `MustTerminate_limit (:'a) - MIN (vs_depth v1) (vs_depth v2)` assume_tac)
+  \\ `word_eq c st dm m (MustTerminate_limit (:'a) - 1)
+        (MustTerminate_limit (:'a)) w1 w2 =
+      SOME (res,l1,ck1 + (MustTerminate_limit (:'a) -
+                         MIN (vs_depth v1) (vs_depth v2)))` by
+       (`MIN (vs_depth v1) (vs_depth v2) +
+         (MustTerminate_limit (:'a) - MIN (vs_depth v1) (vs_depth v2)) =
+         MustTerminate_limit (:'a)` by simp []
+        \\ fs [])
+  \\ `w1 = w2 ⇒ b` by
+       (strip_tac \\ gvs [] \\ drule_all memory_rel_ptr_eq \\ simp [])
+  \\ simp [word_ptr_eq_def]
+  \\ metis_tac []
+QED
+
 Definition word_mem_eq_def:
   (word_mem_eq a [] dm m <=> SOME T) /\
   (word_mem_eq a (x::xs) dm m <=>
