@@ -150,6 +150,7 @@ Definition is_witness_closure_def:
       lives_hold (state_pair ss₁ ss₂) wqaig wlive
 End
 
+(* TODO rename to stable or something *)
 Definition is_witness_consistent_def:
   is_witness_consistent
     waig wnext wpreds wcnstrs wqaig wlive wlatches
@@ -329,12 +330,12 @@ Definition dep_model_def:
   dep_lits inputs latches cnstrs
 End
 
-Definition is_stratified_full_def:
-  is_stratified_full lt aig reset latches ⇔
+Definition is_stratified_def:
+  is_stratified lt aig reset latches ⇔
   FINITE latches ∧
   irreflexive lt ∧
   transitive lt ∧
-  is_stratified lt aig reset latches
+  dep_reset_lt lt aig reset latches
 End
 
 Theorem agree_on_weaken_inputs[local]:
@@ -363,14 +364,14 @@ Theorem extend_model_trace_to_witness:
   is_witness_transition
     maig mnext mcnstrs mlatches
     waig wnext wcnstrs wlatches ∧
-  is_stratified_full lt waig wreset wlatches
+  is_stratified lt waig wreset wlatches
   ⇒
   ∃steps'. ∀n.
     is_trace maig mreset mnext mcnstrs mlatches steps n ⇒
     is_trace waig wreset wnext wcnstrs wlatches steps' n ∧
     steps_agree n UNIV mlatches steps' steps
 Proof
-  rw [dep_model_def, is_stratified_full_def]
+  rw [dep_model_def, is_stratified_def]
   >> qexists ‘mk_trace lt mlatches waig wreset wnext wpreds wcnstrs wlatches steps’
   >> Induct_on ‘n’ >> strip_tac
   >-
@@ -410,7 +411,7 @@ Proof
       >> pop_assum SUBST1_TAC
       >> simp [is_reset_union,Abbr`ss0`]
       >> irule subset_is_reset_patch
-      >> first_assum $ irule_at (Pos last)  (* is_stratified *)
+      >> first_assum $ irule_at (Pos last)
       >> simp [Abbr ‘xs’, Req0 set_topo_sort_eq, ALL_DISTINCT_topo_sort,
                no_inversions_topo_sort])
     >> simp [steps_agree_def, agree_on_def, Abbr`ss0`]
@@ -501,7 +502,7 @@ Theorem is_witness_is_safe:
     waig wreset wnext wpreds wcnstrs wqaig wlive wlatches ∧
   dep_model
     maig mreset mnext mpreds mcnstrs minputs mlatches ∧
-  is_stratified_full lt waig wreset wlatches
+  is_stratified lt waig wreset wlatches
   ⇒
   is_safe
     maig mreset mnext mcnstrs mlatches mpreds
@@ -693,7 +694,7 @@ Theorem is_witness_is_live:
   (* TODO Does dep_qaig really need the same minput?
      If not, the proof of encoding_is_safe_and_live may become tidier *)
   dep_qaig minput mqaig mlive mlatches ∧
-  is_stratified_full lt waig wreset wlatches
+  is_stratified lt waig wreset wlatches
   ⇒
   is_live
     maig mreset mnext mcnstrs mqaig mlive mlatches
@@ -747,7 +748,7 @@ Proof
   (* Infinite trace on witness repeats from k onwards *)
   >> qspecl_then [‘inputs'’, ‘latches'’, ‘steps'’] mp_tac matching_transition_exists
   >> impl_tac >-
-    (unabbrev_all_tac>>fs[is_stratified_full_def,PULL_EXISTS])
+    (unabbrev_all_tac>>fs[is_stratified_def,PULL_EXISTS])
   >> strip_tac
   >> rename1 ‘k < _ ⇒ _’ >> qexists ‘k+1’ >> rw []
   (* Model is live if model is live on extended trace *)

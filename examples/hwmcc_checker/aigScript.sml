@@ -358,10 +358,8 @@ Definition dep_reset_def:
       dep_lit inputs latches lit
 End
 
-(* TODO Is there a better name for this? It feels like this is a component of
-   stratification, but not the entirety (since stratified_full exists) *)
-Definition is_stratified_def:
-  is_stratified lt aig reset latches ⇔
+Definition dep_reset_lt_def:
+  dep_reset_lt lt aig reset latches ⇔
     ∀lat lit is ls' ls.
       lat ∈ latches ∧ reset lat = SOME lit ∧
       (∀l. l ∈ { l' | lt l' lat } ⇒ (ls' l ⇔ ls l)) ⇒
@@ -418,7 +416,7 @@ End
 
 Theorem subset_is_reset_patch:
   ∀xs ls.
-    is_stratified lt aig reset latches ∧ set xs ⊆ latches ∧
+    dep_reset_lt lt aig reset latches ∧ set xs ⊆ latches ∧
     no_inversions lt xs ∧ ALL_DISTINCT xs ∧ irreflexive lt
     ⇒
     is_reset (is, patch aig reset is ls xs) aig reset (set xs)
@@ -438,7 +436,7 @@ Proof
   >> simp [eval_lit_def]
   >> rename1 ‘l::xs’
   >> drule_then assume_tac not_mem_patch_eq >> simp []
-  >> fs [is_stratified_def]
+  >> fs [dep_reset_lt_def]
   >> qmatch_goalsub_abbrev_tac ‘_ ⇔ eval_lit (is, ls') _ _’
   >> last_x_assum $ qspecl_then [‘l’, ‘lit’, ‘is’, ‘ls'’, ‘ls’] mp_tac
   >> sg ‘∀l'. lt l' l ⇒ (ls' l' ⇔ ls l')’

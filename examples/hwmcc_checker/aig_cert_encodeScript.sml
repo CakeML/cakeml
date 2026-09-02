@@ -2812,7 +2812,7 @@ End
 (* Generates the dependency graph for the dependency graph of latches' reset
    functions.
    If this graph is acyclic, we know there exists an order that satisfies
-   is_stratified_full. *)
+   is_stratified. *)
 Definition reset_graph_def:
   reset_graph
     (aig: ('a, 'i, 'l) aig) (reset: 'l -> ('a, 'i, 'l) lit option) latches
@@ -2821,7 +2821,7 @@ Definition reset_graph_def:
   list$mapPartial (reset_edges aig reset) latches
 End
 
-(* Constructs the witness for is_stratified_full from the dependency graph of
+(* Constructs the witness for is_stratified from the dependency graph of
    latches' reset functions.
    If the graph is acyclic, the order is irreflexive and thus the reset
    functions are stratified. *)
@@ -2879,10 +2879,10 @@ Proof
   >> qexists ‘lit’ >> simp []
 QED
 
-Theorem is_stratified_reset_order[local]:
-  is_stratified (reset_order aig reset latches) aig reset (set latches)
+Theorem dep_reset_lt_reset_order[local]:
+  dep_reset_lt (reset_order aig reset latches) aig reset (set latches)
 Proof
-  rw [is_stratified_def]
+  rw [dep_reset_lt_def]
   >> irule latch_deps_eval_lit_eq
   >> rpt strip_tac
   >> first_x_assum irule
@@ -2896,15 +2896,15 @@ Definition stratified_cond_def:
     ALL_DISTINCT (MAP FST g) ∧ ¬has_cycle g
 End
 
-Theorem stratified_cond_is_stratified_full:
+Theorem stratified_cond_is_stratified:
   stratified_cond aig reset latches
   ⇒
-  ∃lt. is_stratified_full lt aig reset (set latches)
+  ∃lt. is_stratified lt aig reset (set latches)
 Proof
   rw [stratified_cond_def]
   >> qexists ‘reset_order aig reset latches’
-  >> simp [is_stratified_full_def, transitive_reset_order,
-           irreflexive_reset_order, is_stratified_reset_order]
+  >> simp [is_stratified_def, transitive_reset_order,
+           irreflexive_reset_order, dep_reset_lt_reset_order]
 QED
 
 (** Top-level theorems ********************************************************)
@@ -3065,7 +3065,7 @@ Proof
     >> irule dep_lits_lits
     >> simp [SUBSET_DEF, Abbr ‘minput’]
   )
-  >> drule_all stratified_cond_is_stratified_full >> strip_tac
+  >> drule_all stratified_cond_is_stratified >> strip_tac
   >> drule_all_then assume_tac is_witness_is_safe
   >> drule_all_then assume_tac is_witness_is_live
   >> simp []
