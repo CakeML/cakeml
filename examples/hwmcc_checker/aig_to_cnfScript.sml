@@ -682,11 +682,6 @@ QED
    lowering to CNF
  *----------------------------------------------------------------------*)
 
-Definition negate_def:
-  negate (Pos n) = Neg n ∧
-  negate (Neg n) = Pos n
-End
-
 Definition imp_to_cnf_def:
   imp_to_cnf xs y = y :: MAP negate xs
 End
@@ -1038,21 +1033,15 @@ QED
 
 Definition lits_within_def:
   lits_within limit cnf =
-    EVERY (EVERY (λl. lit_var l < limit)) cnf
+    EVERY (EVERY (λl. var_lit l < limit)) cnf
 End
 
-Theorem lit_var_negate:
-  lit_var (negate x) = lit_var x
-Proof
-  Cases_on ‘x’ \\ gvs [negate_def, lit_var_def]
-QED
-
 Theorem lits_within_eq_every_to_cnf:
-  lit_var x < limit ∧
-  EVERY (λx. lit_var x < limit) xs ⇒
+  var_lit x < limit ∧
+  EVERY (λx. var_lit x < limit) xs ⇒
   lits_within limit (eq_every_to_cnf x xs)
 Proof
-  fs [eq_every_to_cnf_def, lits_within_def, EVERY_MAP, lit_var_negate]
+  fs [eq_every_to_cnf_def, lits_within_def, EVERY_MAP, var_lit_negate]
 QED
 
 Theorem to_cnf_lits_within:
@@ -1070,10 +1059,10 @@ Proof
   \\ last_x_assum irule
   \\ fs [closed_def,has_var_def, SF DNF_ss]
   \\ fs [lits_within_def]
-  \\ rw [and_to_cnf_def, lit_var_def]
+  \\ rw [and_to_cnf_def]
   \\ fs [GSYM lits_within_def]
   \\ irule lits_within_eq_every_to_cnf
-  \\ fs [lit_var_def]
+  \\ fs []
   \\ gvs [EVERY_MEM,MEM_MAP,MEM_FILTER] \\ rw []
   \\ PairCases_on ‘y’ \\ gvs []
   \\ Cases_on ‘y0’ \\ gvs []
@@ -1081,9 +1070,9 @@ Proof
   \\ fs [FORALL_PROD,ALOOKUP_NONE,MEM_MAP, PULL_EXISTS, EXISTS_PROD]
   \\ res_tac
   \\ Cases_on ‘y1’
-  \\ fs [var_to_lit_def, lit_var_def, var_to_num_def]
+  \\ fs [var_to_lit_def, var_to_num_def]
   \\ Cases_on ‘b’ \\ gvs []
-  \\ fs [var_to_lit_def, lit_var_def, var_to_num_def]
+  \\ fs [var_to_lit_def, var_to_num_def]
   \\ res_tac
 QED
 
@@ -1098,7 +1087,7 @@ Proof
   \\ fs [direct_aig_to_cnf_def]
   \\ Cases_on ‘ands’ >- fs [lits_within_def]
   \\ PairCases_on ‘h’ \\ fs []
-  \\ fs [lits_within_def, lit_var_def]
+  \\ fs [lits_within_def]
   \\ fs [GSYM lits_within_def]
   \\ irule to_cnf_lits_within \\ fs []
   \\ fs [lits_within_def]

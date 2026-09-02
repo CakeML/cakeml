@@ -10,7 +10,7 @@ Libs
 
 val _ = translation_extends "aig_fmapsProg";
 
-val r = translate aig_to_cnfTheory.negate_def;
+val r = translate cnfTheory.negate_def;
 val r = translate aig_to_cnfTheory.eq_every_to_cnf_def;
 val r = translate aig_to_cnfTheory.not_TT_def;
 val r = translate aig_to_cnfTheory.var_to_num_def;

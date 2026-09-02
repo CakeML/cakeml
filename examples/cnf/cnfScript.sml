@@ -168,3 +168,14 @@ Proof
   fs[lookup_build_fml]
 QED
 
+Definition negate_def:
+  negate (Pos n) = Neg n ∧
+  negate (Neg n) = Pos n
+End
+
+Theorem var_lit_negate[simp]:
+  var_lit (negate x) = var_lit x
+Proof
+  Cases_on ‘x’ \\ gvs [negate_def, var_lit_def]
+QED
+
