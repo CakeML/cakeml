@@ -5,6 +5,21 @@ User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
 
+Sep 2nd 2026
+-------------------
+
+### Feature tags
+
+It is now possible to query whether a compiler binary supports a given
+Pancake feature, using the following command-line option:
+
+    ./cake --pancake_feature=[tag]
+
+This will print `true` or `false` depending on whether `[tag]` is the
+tag of an enabled feature. Feature tags, and when they become enabled
+or disabled, is documented in this NEWS file. For example, and
+`varshifts` and `exndecls` are feature tags.
+
 Aug 20th 2026
 -------------------
 
