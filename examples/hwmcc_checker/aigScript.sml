@@ -7,7 +7,10 @@ Ancestors
 Libs
   preamble
 
-val _ = numLib.prefer_num();
+val _ = numLib.prefer_num()
+
+(* TODO Remove this once misc theory stops defining steps *)
+val _ = Parse.remove_ovl_mapping "steps" {Name = "steps", Thy = "misc"}
 
 (** Various set definitions/theorems ******************************************)
 
@@ -172,13 +175,13 @@ Definition is_trace_def:
   is_trace (aig: ('a, 'i, 'l) aig)
     (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
     (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
-    (tr: ('i, 'l) steps) (n: num)
+    (steps: ('i, 'l) steps) (n: num)
   ⇔
-    (is_reset (tr 0) aig reset latches ∧
-     lits_hold (tr 0) aig cnstrs) ∧
-    ∀i. i < n ⇒
-      is_next (tr i) aig next latches (SND (tr (i + 1))) ∧
-      lits_hold (tr (i + 1)) aig cnstrs
+    is_reset (steps 0) aig reset latches ∧
+    lits_hold (steps 0) aig cnstrs ∧
+    (∀i. i < n ⇒
+       is_next (steps i) aig next latches (SND (steps (i + 1))) ∧
+       lits_hold (steps (i + 1)) aig cnstrs)
 End
 
 Definition is_unsafe_def:
@@ -186,9 +189,9 @@ Definition is_unsafe_def:
     (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
     (cnstrs: ('a,'i,'l) lit set) (latches: 'l set) (safe: ('a,'i,'l) lit set)
   =
-  ∃(tr: ('i, 'l) steps) (n: num).
-    is_trace aig reset next cnstrs latches tr n ∧
-    ¬lits_hold (tr n) aig safe
+  ∃(steps: ('i, 'l) steps) (n: num).
+    is_trace aig reset next cnstrs latches steps n ∧
+    ¬lits_hold (steps n) aig safe
 End
 
 Definition is_safe_def:
@@ -205,18 +208,18 @@ Definition is_inf_trace_def:
   is_inf_trace (aig: ('a, 'i, 'l) aig)
     (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
     (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
-    (tr: ('i, 'l) steps)
+    (steps: ('i, 'l) steps)
   ⇔
-    (is_reset (tr 0) aig reset latches ∧
-     lits_hold (tr 0) aig cnstrs) ∧
-    ∀i.
-      is_next (tr i) aig next latches (SND (tr (i + 1))) ∧
-      lits_hold (tr (i + 1)) aig cnstrs
+    is_reset (steps 0) aig reset latches ∧
+    lits_hold (steps 0) aig cnstrs ∧
+    (∀i.
+       is_next (steps i) aig next latches (SND (steps (i + 1))) ∧
+       lits_hold (steps (i + 1)) aig cnstrs)
 End
 
 Theorem is_inf_trace_eq:
-  is_inf_trace aig reset next cnstrs latches tr ⇔
-  ∀n. is_trace aig reset next cnstrs latches tr n
+  is_inf_trace aig reset next cnstrs latches steps ⇔
+  ∀n. is_trace aig reset next cnstrs latches steps n
 Proof
   eq_tac>>
   rw[is_inf_trace_def,is_trace_def]>>
@@ -229,13 +232,13 @@ Definition is_live_def:
     (next: 'l -> ('a,'i,'l) lit) (cnstrs: ('a,'i,'l) lit set)
     (qaig: ('b, 'i + 'i, 'l + 'l) aig)
     (live: ('b, 'i + 'i, 'l + 'l) lit list list) (latches: 'l set) =
-  ∀tr.
-    is_inf_trace aig reset next cnstrs latches tr ⇒
+  ∀steps.
+    is_inf_trace aig reset next cnstrs latches steps ⇒
     ∀prop. MEM prop live ⇒
       ∃k signal.
         MEM signal prop ∧
         (∀i. k ≤ i ⇒
-             lits_hold (pair_state (tr i) (tr (i + 1))) qaig {signal})
+             lits_hold (pair_state (steps i) (steps (i + 1))) qaig {signal})
 End
 
 (* AIG Dependencies ***********************************************************)
@@ -252,10 +255,10 @@ Definition agree_on_def:
 End
 
 Definition matching_transition_def:
-  matching_transition inputs latches tr i j ⇔
+  matching_transition inputs latches steps i j ⇔
     i < j ∧
-    agree_on inputs latches (tr j) (tr i) ∧
-    agree_on inputs latches (tr (j + 1)) (tr (i + 1))
+    agree_on inputs latches (steps j) (steps i) ∧
+    agree_on inputs latches (steps (j + 1)) (steps (i + 1))
 End
 
 (* Used Inputs ****************************************************************)
@@ -565,9 +568,9 @@ Proof
   Cases_on ‘ss’ >> Cases_on ‘ss'’ >> eq_tac >> rw [agree_on_def]
 QED
 
-Definition traces_agree_def:
-  traces_agree n inputs latches (tr': ('i, 'l) steps) tr ⇔
-    ∀i. i ≤ n ⇒ agree_on inputs latches (tr' i) (tr i)
+Definition steps_agree_def:
+  steps_agree n inputs latches (steps': ('i, 'l) steps) steps ⇔
+    ∀i. i ≤ n ⇒ agree_on inputs latches (steps' i) (steps i)
 End
 
 Theorem is_next_subset:
@@ -621,16 +624,16 @@ Proof
 QED
 
 Theorem is_trace_dep_aig:
-  is_trace aig reset next cnstrs latches tr n ∧
+  is_trace aig reset next cnstrs latches steps n ∧
   dep_aig inputs latches aig ∧
   dep_lits inputs latches cnstrs ∧
   dep_reset inputs latches reset latches ∧
   dep_latch_lit inputs latches next latches ∧
-  traces_agree n inputs latches tr' tr
+  steps_agree n inputs latches steps' steps
   ⇒
-  is_trace aig reset next cnstrs latches tr' n
+  is_trace aig reset next cnstrs latches steps' n
 Proof
-  rw [traces_agree_def, is_trace_def, agree_on_sym]
+  rw [steps_agree_def, is_trace_def, agree_on_sym]
   >-
    (irule is_reset_dep_aig >> simp []
     >> last_assum $ irule_at (Pos last)
@@ -645,8 +648,8 @@ Proof
     >> irule is_next_dep_aig >> fs []
     >> first_assum $ irule_at (Pos last) >> simp []
     >> first_assum $ irule_at (Pos last) >> simp []
-    >> rename1 ‘SND (tr (i + 1))’
-    >> Cases_on ‘tr (i + 1)’ >> Cases_on ‘tr' (i + 1)’ >> fs []
+    >> rename1 ‘SND (steps (i + 1))’
+    >> Cases_on ‘steps (i + 1)’ >> Cases_on ‘steps' (i + 1)’ >> fs []
     >> first_x_assum $ qspec_then ‘i + 1’ mp_tac
     >> simp [agree_on_def])
   >> last_x_assum $ drule_then assume_tac
@@ -655,33 +658,33 @@ Proof
 QED
 
 Theorem is_inf_trace_dep_aig:
-  is_inf_trace aig reset next cnstrs latches tr ∧
+  is_inf_trace aig reset next cnstrs latches steps ∧
   dep_aig inputs latches aig ∧
   dep_lits inputs latches cnstrs ∧
   dep_reset inputs latches reset latches ∧
   dep_latch_lit inputs latches next latches ∧
-  (∀n. traces_agree n inputs latches tr' tr)
+  (∀n. steps_agree n inputs latches steps' steps)
   ⇒
-  is_inf_trace aig reset next cnstrs latches tr'
+  is_inf_trace aig reset next cnstrs latches steps'
 Proof
   rw [is_inf_trace_eq] >> metis_tac[is_trace_dep_aig]
 QED
 
 
 Theorem is_trace_lits_hold_n:
-  is_trace aig reset next cnstrs latches tr n
+  is_trace aig reset next cnstrs latches steps n
   ⇒
-  lits_hold (tr n) aig cnstrs
+  lits_hold (steps n) aig cnstrs
 Proof
   rw [is_trace_def] >> Cases_on ‘n’ >> fs [ADD1]
 QED
 
 Theorem is_trace_SUC:
-  is_trace maig mreset mnext mcnstrs mlatches tr (SUC n)
+  is_trace maig mreset mnext mcnstrs mlatches steps (SUC n)
   ⇔
-  is_trace maig mreset mnext mcnstrs mlatches tr n ∧
-  is_next (tr n) maig mnext mlatches (SND (tr (n + 1))) ∧
-  lits_hold (tr (n + 1)) maig mcnstrs
+  is_trace maig mreset mnext mcnstrs mlatches steps n ∧
+  is_next (steps n) maig mnext mlatches (SND (steps (n + 1))) ∧
+  lits_hold (steps (n + 1)) maig mcnstrs
 Proof
   eq_tac >> rw [is_trace_def]
   >> rename1 ‘i < SUC n’ >> Cases_on ‘i < n’ >> gvs []
@@ -689,16 +692,16 @@ Proof
   >> simp []
 QED
 
-Theorem traces_agree_SUC:
-  traces_agree (SUC n) inputs latches tr' tr ⇔
-    traces_agree n inputs latches tr' tr ∧
-    agree_on inputs latches (tr' (n + 1)) (tr (n + 1))
+Theorem steps_agree_SUC:
+  steps_agree (SUC n) inputs latches steps' steps ⇔
+    steps_agree n inputs latches steps' steps ∧
+    agree_on inputs latches (steps' (n + 1)) (steps (n + 1))
 Proof
-  eq_tac >> rw [traces_agree_def]
+  eq_tac >> rw [steps_agree_def]
   >> rename1 ‘i ≤ SUC n’
   >> Cases_on ‘i ≤ n’
-  >> Cases_on ‘tr' i’ >> Cases_on ‘tr i’
-  >> Cases_on ‘tr' (n + 1)’ >> Cases_on ‘tr (n + 1)’
+  >> Cases_on ‘steps' i’ >> Cases_on ‘steps i’
+  >> Cases_on ‘steps' (n + 1)’ >> Cases_on ‘steps (n + 1)’
   >- (last_x_assum drule >> gvs [])
   >> ‘i = n + 1’ by simp []
   >> gvs []
@@ -727,26 +730,26 @@ End
 
 Theorem is_safe_is_inf_trace_lits_hold:
   is_safe aig reset next cnstrs latches preds ∧
-  is_inf_trace aig reset next cnstrs latches tr
+  is_inf_trace aig reset next cnstrs latches steps
   ⇒
-  ∀n. lits_hold (tr n) aig preds
+  ∀n. lits_hold (steps n) aig preds
 Proof
   rw [is_safe_def, is_unsafe_def, is_inf_trace_eq]
   >> metis_tac []
 QED
 
 Theorem is_inf_trace_cnstrs_hold:
-  is_inf_trace aig reset next cnstrs latches tr
+  is_inf_trace aig reset next cnstrs latches steps
   ⇒
-  ∀n. lits_hold (tr n) aig cnstrs
+  ∀n. lits_hold (steps n) aig cnstrs
 Proof
   rw [is_inf_trace_def] >> Cases_on ‘n’ >> gvs [ADD1]
 QED
 
 Theorem is_inf_trace_is_next:
-  is_inf_trace aig reset next cnstrs latches tr
+  is_inf_trace aig reset next cnstrs latches steps
   ⇒
-  ∀n. is_next (tr n) aig next latches (SND (tr (n + 1)))
+  ∀n. is_next (steps n) aig next latches (SND (steps (n + 1)))
 Proof
   rw [is_inf_trace_def]
 QED
@@ -812,15 +815,15 @@ Proof
   Cases_on`b`>>gvs[bvar_latches_def,bvar_inputs_def]
 QED
 
-Theorem is_inf_trace_traces_agree:
+Theorem is_inf_trace_steps_agree:
   (∀n.
-     is_trace maig mreset mnext mcnstrs mlatches tr n ⇒
-     is_trace waig wreset wnext wcnstrs wlatches tr' n ∧
-     traces_agree n UNIV mlatches tr' tr)
+     is_trace maig mreset mnext mcnstrs mlatches steps n ⇒
+     is_trace waig wreset wnext wcnstrs wlatches steps' n ∧
+     steps_agree n UNIV mlatches steps' steps)
   ⇒
-    (is_inf_trace maig mreset mnext mcnstrs mlatches tr ⇒
-     is_inf_trace waig wreset wnext wcnstrs wlatches tr' ∧
-     (∀n. traces_agree n UNIV mlatches tr' tr))
+    (is_inf_trace maig mreset mnext mcnstrs mlatches steps ⇒
+     is_inf_trace waig wreset wnext wcnstrs wlatches steps' ∧
+     (∀n. steps_agree n UNIV mlatches steps' steps))
 Proof
   rw [is_inf_trace_eq]
 QED
@@ -873,15 +876,15 @@ Proof
 QED
 
 Theorem matching_transition_exists:
-  ∀inputs latches tr.
+  ∀inputs latches steps.
     FINITE inputs ∧ FINITE latches ⇒
     ∃k. ∀i. k < i ⇒
-      ∃j. matching_transition inputs latches (tr: ('i, 'l) steps) i j
+      ∃j. matching_transition inputs latches (steps: ('i, 'l) steps) i j
 Proof
   rw []
   >> qabbrev_tac ‘g = λi.
-       (restrict_ss inputs latches (tr i),
-        restrict_ss inputs latches (tr (i + 1)))’
+       (restrict_ss inputs latches (steps i),
+        restrict_ss inputs latches (steps (i + 1)))’
   >> ‘∀n. g n ∈ (POW inputs × POW latches) × (POW inputs × POW latches)’
     by simp [Abbr ‘g’]
   >> ‘FINITE ((POW inputs × POW latches) × (POW inputs × POW latches))’
