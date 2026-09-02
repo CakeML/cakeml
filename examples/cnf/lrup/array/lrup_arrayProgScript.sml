@@ -4,7 +4,7 @@
 Theory lrup_arrayProg
 Ancestors
   misc mllist UnsafeProof ccnf_arrayProg ccnf_parseProg cnf ccnf ccnf_list
-  syntax_helper lrup_cnf lrup lrup_list
+  syntax_helper lrup lrup_list
   mlint mlvector
 Libs
   preamble basis

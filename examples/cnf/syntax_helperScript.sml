@@ -3,7 +3,7 @@
 *)
 Theory syntax_helper
 Ancestors
-  misc cnf mlint mlstring
+  misc cnf mlint mlstring mllist
 Libs
   preamble
 
@@ -82,6 +82,127 @@ Theorem to_ilit_mk_lit:
 Proof
   rw[mk_lit_def,to_ilit_def]>>
   intLib.ARITH_TAC
+QED
+
+(* Canonical form for a clause: repeated literals removed, and sorted
+  in decreasing lit_le order. The contract exported here is
+  MEM_canon_clause and canon_clause_ALL_DISTINCT.
+
+  lit_le orders literals by variable, with Pos before Neg. to_ilit is not
+  usable as the sort key: it maps Pos 0 and Neg 0 to the same integer. *)
+Definition lit_le_def[simp]:
+  (lit_le (Pos m) (Pos n) ⇔ m ≤ (n:num)) ∧
+  (lit_le (Pos m) (Neg n) ⇔ m ≤ n) ∧
+  (lit_le (Neg m) (Pos n) ⇔ m < n) ∧
+  (lit_le (Neg m) (Neg n) ⇔ m ≤ n)
+End
+
+Definition sorted_nub_aux_def:
+  (sorted_nub_aux h [] acc = (h::acc)) ∧
+  (sorted_nub_aux h (i::is) acc =
+    if i = h then sorted_nub_aux h is acc
+    else sorted_nub_aux i is (h::acc))
+End
+
+Definition sorted_nub_def:
+  (sorted_nub [] = []) ∧
+  (sorted_nub (x::xs) =
+    sorted_nub_aux x xs [])
+End
+
+Definition canon_clause_def:
+  canon_clause (ls:num lit list) =
+    sorted_nub (sort lit_le ls)
+End
+
+Overload lit_gt = ``λx y. lit_le y x ∧ x ≠ y``
+
+Theorem lit_le_total:
+  total lit_le
+Proof
+  rw[total_def]>>
+  Cases_on`x`>>Cases_on`y`>>gvs[]>>
+  decide_tac
+QED
+
+Theorem lit_le_transitive:
+  transitive lit_le
+Proof
+  rw[transitive_def]>>
+  Cases_on`x`>>Cases_on`y`>>Cases_on`z`>>gvs[]>>
+  decide_tac
+QED
+
+Theorem lit_le_antisym:
+  lit_le x y ∧ lit_le y x ⇒ x = y
+Proof
+  Cases_on`x`>>Cases_on`y`>>gvs[]>>
+  decide_tac
+QED
+
+Theorem sorted_nub_aux_SORTED_strict:
+  ∀ls h acc.
+  SORTED lit_gt (h::acc) ∧
+  SORTED lit_le (h::ls) ⇒
+  SORTED lit_gt (sorted_nub_aux h ls acc)
+Proof
+  Induct>>rw[sorted_nub_aux_def]>>
+  first_x_assum irule>>
+  gvs[]>>
+  metis_tac[lit_le_transitive,transitive_def]
+QED
+
+Theorem sorted_nub_SORTED_strict:
+  SORTED lit_le ls ⇒
+  SORTED lit_gt (sorted_nub ls)
+Proof
+  rw[oneline sorted_nub_def]>>
+  TOP_CASE_TAC>>gvs[]>>
+  irule sorted_nub_aux_SORTED_strict>>
+  simp[]
+QED
+
+Theorem MEM_sorted_nub_aux:
+  ∀ls x h acc.
+  MEM x ls ∨ x = h ∨ MEM x acc ⇔
+  MEM x (sorted_nub_aux h ls acc)
+Proof
+  Induct>>rw[sorted_nub_aux_def]>>
+  metis_tac[MEM]
+QED
+
+Theorem MEM_sorted_nub:
+  MEM x (sorted_nub ls) ⇔
+  MEM x ls
+Proof
+  rw[oneline sorted_nub_def]>>
+  Cases_on`ls`>>gvs[]>>
+  metis_tac[MEM_sorted_nub_aux,MEM]
+QED
+
+Theorem canon_clause_ALL_DISTINCT:
+  ALL_DISTINCT (canon_clause ls)
+Proof
+  rw[canon_clause_def]>>
+  irule SORTED_ALL_DISTINCT>>
+  irule_at Any sorted_nub_SORTED_strict>>
+  irule_at Any sort_SORTED>>
+  simp[lit_le_total,lit_le_transitive,irreflexive_def,transitive_def]>>
+  metis_tac[lit_le_transitive,transitive_def,lit_le_antisym]
+QED
+
+Theorem MEM_canon_clause[simp]:
+  MEM x (canon_clause ls) ⇔ MEM x ls
+Proof
+  rw[canon_clause_def,MEM_sorted_nub]
+QED
+
+Theorem canon_clause_eq_nil[simp]:
+  canon_clause ls = [] ⇔ ls = []
+Proof
+  `∀l:num lit list. l = [] ⇔ ∀x. ¬MEM x l` by
+    (Cases>>simp[]>>metis_tac[])>>
+  metis_tac[MEM_canon_clause]
 QED
 
 (* Parse ints until the next zero and returns. *)
