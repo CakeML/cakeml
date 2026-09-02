@@ -1,11 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/misc\
-                 $(CAKEMLDIR)/pancake\
-				 $(CAKEMLDIR)/misc/\
-                                 $(CAKEMLDIR)/compiler/backend\
-                                 $(CAKEMLDIR)/compiler/backend/semantics\
-				 $(CAKEMLDIR)/compiler/encoders/asm\
-                                 $(CAKEMLDIR)/semantics/ffi
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

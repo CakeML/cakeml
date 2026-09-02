@@ -127,25 +127,27 @@ Definition to_bvi_all_def:
                        bvl_handle$compile_any split_seq cut_size arity exp)) prog in
     let ps = ps ++ [(«after bvl_handle»,Bvl prog names)] in
     let (loc,code,n1) = bvl_to_bvi$compile_prog start 0 prog in
-    let (n2,code2) = bvi_tailrec$compile_prog (bvl_num_stubs + 2) code in
-    let (bvi_inlines,code') = bvi_inline$compile_prog code2 in
-    let (s,p,l,bl,n1,n2,names) =
-      (loc,code',inlines,bvi_inlines,n1,n2,get_names (MAP FST code') names) in
+    let (n2,code2) = bvi_tailrec$compile_prog c0.do_tailrec (bvl_num_stubs + 2) code in
+    let (n3,code3) = bvi_tmc$compile_prog c0.do_tmc (bvl_num_stubs + 3) code2 in
+    let (bvi_inlines,code') = bvi_inline$compile_prog code3 in
+    let (s,p,l,bl,n1,n2,n3,names) =
+      (loc,code',inlines,bvi_inlines,n1,n2,n3,get_names (MAP FST code') names) in
     let names = sptree$union (sptree$fromAList $ (data_to_word$stub_names () ++
       word_to_stack$stub_names () ++ stack_alloc$stub_names () ++
       stack_remove$stub_names ())) names in
     let ps = ps ++ [(«after bvl_to_bvi»,Bvi code names)] in
     let ps = ps ++ [(«after bvi_tailrec»,Bvi code2 names)] in
+    let ps = ps ++ [(«after bvi_tmc»,Bvi code3 names)] in
     let ps = ps ++ [(«after bvi_inline»,Bvi code' names)] in
     let c = c with clos_conf updated_by (λc. c with start := s) in
     let c = c with bvl_conf updated_by
       (λc. c with <| inlines := l; bvi_inlines := bl;
-                    next_name1 := n1; next_name2 := n2 |>) in
+                    next_name1 := n1; next_name2 := n2; next_name3 := n3 |>) in
      ((ps: (mlstring # 'a any_prog) list),c,p,names)
 End
 
 Theorem to_bvi_thm:
-  SND (to_bvi_all c p ) = to_bvi c p
+  SND (to_bvi_all c p) = to_bvi c p
 Proof
   assume_tac to_bvl_thm
   \\ fs [to_bvi_all_def,to_bvi_def,bvl_to_bviTheory.compile_def,
@@ -475,7 +477,7 @@ Proof
 QED
 
 Theorem number_of_passes:
-  LENGTH (FST (to_target_all asm_conf c p)) = 40
+  LENGTH (FST (to_target_all asm_conf c p)) = 41
 Proof
   fs [to_target_all_def] \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [to_lab_all_def] \\ rpt (pairarg_tac \\ gvs [])

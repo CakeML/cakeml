@@ -99,10 +99,12 @@ ADDITIONAL OPTIONS:
 
 Optimisations can be configured using the following advanced options.
 
-  --jump=B   true means conditional jumps to be used for out-of-stack checks
-  --multi=B  true means clos_to_bvl phase is to use multi optimisation
-  --known=B  true means clos_to_bvl phase is to use known optimisation
-  --call=B   true means clos_to_bvl phase is to use call optimisation
+  --jump=B    true means conditional jumps to be used for out-of-stack checks
+  --multi=B   true means clos_to_bvl phase is to use multi optimisation
+  --known=B   true means clos_to_bvl phase is to use known optimisation
+  --call=B    true means clos_to_bvl phase is to use call optimisation
+  --tmc=B     true means tail-call modulo cons optimisations is used
+  --tailrec=B true means attempts to turn functions into tail-rec form
   --inline_factor=N  threshold used by for ClosLang inliner in known pass
   --max_body_size=N  threshold used by for ClosLang inliner in known pass
   --max_app=N   max number of optimised curried applications in multi pass
@@ -483,19 +485,25 @@ Definition parse_bvl_conf_def:
   parse_bvl_conf ls bvl =
   let inlinesz = find_num «--inline_size=» ls bvl.inline_size_limit in
   let expcut = find_num «--exp_cut=» ls bvl.exp_cut in
+  let tmc = find_bool «--tmc=» ls bvl.do_tmc in
+  let tailrec = find_bool «--tailrec=» ls bvl.do_tailrec in
   let splitmain = find_bool «--split=» ls bvl.split_main_at_seq in
-  case (inlinesz,expcut,splitmain) of
-    (INL i,INL e,INL m) =>
+  case (inlinesz,expcut,splitmain,tmc,tailrec) of
+    (INL i,INL e,INL m,INL do_tmc,INL do_tailrec) =>
     INL
       (bvl with <|
         inline_size_limit := i;
         exp_cut           := e;
-        split_main_at_seq := m
+        split_main_at_seq := m;
+        do_tmc            := do_tmc;
+        do_tailrec        := do_tailrec;
       |>)
   | _ =>
     INR (concat [get_err_str inlinesz;
                  get_err_str expcut;
-                 get_err_str splitmain])
+                 get_err_str splitmain;
+                 get_err_str tmc;
+                 get_err_str tailrec])
 End
 
 (* wtw *)

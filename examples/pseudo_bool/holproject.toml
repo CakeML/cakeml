@@ -1,1 +1,7 @@
 name = "pseudo_bool"
+
+[projects.cakeml]
+path = "../.."
+
+[projects.cnf]
+path = "../cnf"

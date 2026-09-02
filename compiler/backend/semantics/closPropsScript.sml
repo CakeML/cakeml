@@ -1752,7 +1752,6 @@ Proof
   simp[]
 QED
 
-
 (* finding the SetGlobal operations *)
 Definition op_gbag_def:
   op_gbag (GlobOp (SetGlobal n)) = BAG_INSERT n {||} ∧
@@ -2137,7 +2136,6 @@ Theorem v_rel_to_list_byte2[local]:
 Proof
   metis_tac [v_rel_to_list_byte1]
 QED
-
 
 Theorem v_to_list_SOME[local]:
     simple_val_rel vr ==>
@@ -2643,6 +2641,10 @@ Proof
     \\ disch_then imp_res_tac \\ fs []
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_bytes))
     \\ asm_exists_tac \\ fs [LIST_REL_REPLICATE_same])
+  (* MutCons/UpdateCons/FinaliseCons: vacuous, closSem$do_app is Error *)
+  \\ Cases_on `?tg i. opp = MemOp (MutCons tg i)` THEN1 (gvs [do_app_def])
+  \\ Cases_on `opp = MemOp UpdateCons` THEN1 (gvs [do_app_def])
+  \\ Cases_on `opp = MemOp FinaliseCons` THEN1 (gvs [do_app_def])
   \\ Cases_on `opp` \\ fs []
   >- (Cases_on `b` \\ fs [])
   >- (Cases_on `g` \\ fs [])
@@ -2768,8 +2770,6 @@ Proof
   \\ Q.ISPEC_THEN `ys` ASSUME_TAC SNOC_CASES
   \\ fs [LIST_REL_SNOC]
 QED
-
-
 
 (* a generic semantics preservation lemma *)
 
@@ -3377,7 +3377,6 @@ Proof
   \\ fs [SUBMAP_FLOOKUP_EQN, FLOOKUP_DRESTRICT, FDOM_FUPDATE_LIST]
   \\ fs [Once CONJ_COMM] \\ asm_exists_tac \\ fs []
 QED
-
 
 Theorem do_app_lemma_simp[local]:
     (exc_rel $= err1 err2 <=> err1 = err2) /\
