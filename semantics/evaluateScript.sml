@@ -146,10 +146,9 @@ Definition evaluate_def[nocompute]:
           [v1; v2] =>
             (case do_eq v1 v2 of
                Eq_type_error => (st', Rerr (Rabort Rtype_error))
-             | Eq_val T =>
+             | Eq_val b =>
                  (st' with ptr_eq_oracle := (λn. st'.ptr_eq_oracle (n + 1)),
-                  Rval [Boolv (st'.ptr_eq_oracle 0)])
-             | Eq_val F => (st', Rval [Boolv F]))
+                  Rval [Boolv (b ∧ st'.ptr_eq_oracle 0)]))
         | _ => (st', Rerr (Rabort Rtype_error)))
     | Simple =>
         (case do_app (st'.refs,st'.ffi) op (REVERSE vs) of

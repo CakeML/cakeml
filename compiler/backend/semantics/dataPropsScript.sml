@@ -1966,6 +1966,19 @@ Proof
   \\ gvs []
 QED
 
+Theorem do_app_ptr_eq_oracle:
+  op ≠ BlockOp PtrEqual ∧ do_app op vs s = Rval (v,s1) ⇒
+  s1.ptr_eq_oracle = s.ptr_eq_oracle
+Proof
+  strip_tac
+  \\ drule do_app_with_ptr_eq_oracle
+  \\ disch_then (qspecl_then [`vs`,`s`,`s.ptr_eq_oracle`] mp_tac)
+  \\ `s with ptr_eq_oracle := s.ptr_eq_oracle = s`
+       by simp [state_component_equality]
+  \\ asm_rewrite_tac []
+  \\ simp [state_component_equality]
+QED
+
 Theorem do_app_change_clock:
   (do_app op args s1 = Rval (res,s2)) ==>
    (do_app op args (s1 with clock := ck) = Rval (res,s2 with clock := ck))

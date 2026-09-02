@@ -458,10 +458,9 @@ Definition do_app_def:
          | _ => Error)
     | (BlockOp PtrEqual,[x1;x2]) =>
         (case do_eq x1 x2 of
-         | Eq_val T =>
-             Rval (Boolv (s.ptr_eq_oracle 0),
+         | Eq_val b =>
+             Rval (Boolv (b ∧ s.ptr_eq_oracle 0),
                    s with ptr_eq_oracle := (λn. s.ptr_eq_oracle (n + 1)))
-         | Eq_val F => Rval (Boolv F, s)
          | _ => Error)
     | (MemOp Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in

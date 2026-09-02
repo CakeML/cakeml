@@ -984,7 +984,9 @@ Theorem inst_const_full:
    s'.locals_size = s.locals_size ∧
    s'.stack_limit = s.stack_limit ∧
    s'.stack_max = s.stack_max ∧
-   s'.stack_size = s.stack_size
+   s'.stack_size = s.stack_size ∧
+   s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
+   s'.ptr_eq_rel = s.ptr_eq_rel
 Proof
   rw[inst_def]>>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
@@ -5265,6 +5267,73 @@ Proof
   >> gvs [evaluate_def,AllCaseEqs()] >>
    rpt (pairarg_tac >> gvs[])
    >> gvs[AllCaseEqs()]
+QED
+
+(* ---- code that leaves the pointer-equality oracle alone ---- *)
+
+Definition code_ptr_eq_free_def:
+  code_ptr_eq_free ns (code : (num # 'a wordLang$prog) num_map) ⇔
+    ∀n. n ∈ ns ⇒ ∃a p. lookup n code = SOME (a,p) ∧ ptr_eq_free ns p
+End
+
+Theorem code_ptr_eq_free_subspt:
+  code_ptr_eq_free ns code ∧ subspt code code' ⇒ code_ptr_eq_free ns code'
+Proof
+  rw [code_ptr_eq_free_def, subspt_lookup] \\ metis_tac []
+QED
+
+Theorem ptr_eq_free_find_code:
+  code_ptr_eq_free ns code ∧ n ∈ ns ∧
+  find_code (SOME n) args code lsize = SOME (args1,expr,ps) ⇒
+  ptr_eq_free ns expr
+Proof
+  rw [code_ptr_eq_free_def] \\ res_tac \\ gvs [find_code_def, AllCaseEqs()]
+QED
+
+Theorem evaluate_ptr_eq_free:
+  ∀p s r s'.
+    evaluate (p,s) = (r,s') ∧ ptr_eq_free ns p ∧ code_ptr_eq_free ns s.code ⇒
+    s'.ptr_eq_oracle = s.ptr_eq_oracle
+Proof
+  recInduct evaluate_ind \\ rpt conj_tac \\ rpt gen_tac \\ rpt strip_tac
+  >~ [`Alloc`]
+  >- (gvs [evaluate_def, AllCaseEqs()] \\ imp_res_tac alloc_const \\ fs [])
+  >~ [`Inst`]
+  >- (gvs [evaluate_def, AllCaseEqs()] \\ imp_res_tac inst_const_full \\ fs [])
+  >~ [`Store`]
+  >- (gvs [evaluate_def, AllCaseEqs()] \\ imp_res_tac mem_store_const \\ fs [])
+  >~ [`Raise`]
+  >- (gvs [evaluate_def, AllCaseEqs()] \\ imp_res_tac jump_exc_const \\ fs [])
+  >~ [`ShareInst`]
+  >- (gvs [evaluate_def, AllCaseEqs()] \\ imp_res_tac share_inst_const \\ fs [])
+  >~ [`PtrEq`]
+  >- gvs [ptr_eq_free_def]
+  >~ [`Seq`]
+  >- (
+    gvs [evaluate_def, AllCaseEqs(), ptr_eq_free_def]
+    \\ pairarg_tac \\ gvs [AllCaseEqs()]
+    \\ imp_res_tac evaluate_code_only_grows
+    \\ imp_res_tac code_ptr_eq_free_subspt
+    \\ gvs [])
+  >~ [`Loop`]
+  >- (
+    gvs [evaluate_def, AllCaseEqs(), UNCURRY_EQ, ptr_eq_free_def]
+    \\ imp_res_tac cut_state_const
+    \\ imp_res_tac evaluate_code_only_grows
+    \\ imp_res_tac code_ptr_eq_free_subspt
+    \\ gvs [STOP_def, ptr_eq_free_def])
+  >~ [`Call`]
+  >- (
+    Cases_on `dest` >- gvs [ptr_eq_free_def]
+    \\ gvs [evaluate_def, AllCaseEqs(), ptr_eq_free_def]
+    \\ imp_res_tac ptr_eq_free_find_code
+    \\ imp_res_tac evaluate_code_only_grows
+    \\ imp_res_tac code_ptr_eq_free_subspt
+    \\ imp_res_tac pop_env_const
+    \\ gvs [])
+  \\ gvs [evaluate_def, AllCaseEqs(), ptr_eq_free_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [AllCaseEqs()]
 QED
 
 Theorem evaluate_NONE_stack_size_const:

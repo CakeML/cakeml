@@ -608,17 +608,21 @@ Theorem no_share_inst_def = not_created_subprogs_P_def
   |> ISPEC no_share_inst_P
   |> REWRITE_RULE [GSYM no_share_inst_subprogs_def]
 
-(* no_ptr_eq: no PtrEq *)
+(* ptr_eq_free ns p: p contains no PtrEq, and every call in p is a direct call
+   into the code names ns *)
 
-val no_ptr_eq_P = ``((<>) (PtrEq 0 0 0 0w 0w))``
-
-Definition no_ptr_eq_subprogs_def:
-  no_ptr_eq p = not_created_subprogs ^no_ptr_eq_P p
+Definition ptr_eq_free_def:
+  (ptr_eq_free ns (PtrEq _ _ _ _ _ : 'a prog) ⇔ F) ∧
+  (ptr_eq_free ns (Call r d a h) ⇔
+     (case d of SOME n => n ∈ ns | NONE => F) ∧
+     (case r of SOME (_,_,p,_,_) => ptr_eq_free ns p | NONE => T) ∧
+     (case h of SOME (_,p,_,_) => ptr_eq_free ns p | NONE => T)) ∧
+  (ptr_eq_free ns (Seq p1 p2) ⇔ ptr_eq_free ns p1 ∧ ptr_eq_free ns p2) ∧
+  (ptr_eq_free ns (If _ _ _ p1 p2) ⇔ ptr_eq_free ns p1 ∧ ptr_eq_free ns p2) ∧
+  (ptr_eq_free ns (MustTerminate p) ⇔ ptr_eq_free ns p) ∧
+  (ptr_eq_free ns (Loop _ p _) ⇔ ptr_eq_free ns p) ∧
+  (ptr_eq_free ns _ ⇔ T)
 End
-
-Theorem no_ptr_eq_def = not_created_subprogs_P_def
-  |> ISPEC no_ptr_eq_P
-  |> REWRITE_RULE [GSYM no_ptr_eq_subprogs_def]
 
 Overload word_get_code_labels = ``wordConvs$get_code_labels``
 Overload word_good_handlers = ``wordConvs$good_handlers``

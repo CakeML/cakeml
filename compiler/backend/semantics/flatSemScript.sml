@@ -326,10 +326,9 @@ Definition do_app_def:
   | (Src PtrEq, [v1; v2]) =>
     (case do_eq v1 v2 of
      | Eq_type_error => NONE
-     | Eq_val T =>
+     | Eq_val b =>
          SOME (s with ptr_eq_oracle := (λn. s.ptr_eq_oracle (n + 1)),
-               Rval (Boolv (s.ptr_eq_oracle 0)))
-     | Eq_val F => SOME (s, Rval (Boolv F)))
+               Rval (Boolv (b ∧ s.ptr_eq_oracle 0))))
   | (Src (Test test test_ty), [v1; v2]) =>
     (case do_test test test_ty v1 v2 of
      | Eq_type_error => NONE

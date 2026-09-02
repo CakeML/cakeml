@@ -11,7 +11,7 @@ Ancestors
   copying_gc data_to_word_bignumProof wordProps While set_sep
   semanticsProps alignment backendProps word_bignum wordLang
   word_bignumProof gen_gc_partial gc_shared word_gcFunctions
-  gen_gc[qualified] bvi_to_data[qualified]
+  gen_gc[qualified] bvi_to_data[qualified] wordConvs
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
@@ -1762,19 +1762,11 @@ Proof
   \\ rw[] \\ metis_tac[]
 QED
 
-(* the oracle bit a PtrEqual consumes is the machine-level word equality of its
-   two argument registers; vacuous for other ops and for values that are not
-   structurally equal, since no bit is consumed in those cases *)
-Definition ptr_eq_hyp_def:
-  ptr_eq_hyp op args (s:('c,'ffi) dataSem$state)
-                     (t:('a,'c,'ffi) wordSem$state) ⇔
-    ∀a1 a2 v1 v2.
-      op = BlockOp PtrEqual ∧ args = [a1;a2] ∧
-      get_var a1 s.locals = SOME v1 ∧ get_var a2 s.locals = SOME v2 ∧
-      do_eq s.refs v1 v2 = Eq_val T ⇒
-      (s.ptr_eq_oracle 0 ⇔
-         ∃w:'a word. get_var (adjust_var a1) t = SOME (Word w) ∧
-                     get_var (adjust_var a2) t = SOME (Word w))
+(* the word state runs the data state's pointer-equality oracle, attenuated by
+   the do_eq-equivalent heap relation *)
+Definition ptr_eq_link_def:
+  ptr_eq_link c (s:('c,'ffi) dataSem$state) (t:('a,'c,'ffi) wordSem$state) ⇔
+    t.ptr_eq_rel = word_ptr_eq c ∧ t.ptr_eq_oracle = SOME s.ptr_eq_oracle
 End
 
 val assign_thm_goal =
@@ -1782,7 +1774,6 @@ val assign_thm_goal =
    (op_requires_names op ≠ (names_opt = NONE)) ∧
    cut_state_opt names_opt s = SOME x ∧
    get_vars args s.locals = SOME vals ∧
-   ptr_eq_hyp op args x t ∧
    t.termdep > 1 ∧
    do_app op vals x = Rval (v,s2) ==>
    ?q r.
@@ -1792,6 +1783,115 @@ val assign_thm_goal =
       (c.gc_kind <> None ==> ~s2.safe_for_space)) ∧
      (q <> SOME NotEnoughSpace ==>
       state_rel c l1 l2 (set_var dest v s2) r NONE locs ∧ q = NONE)``;
+
+val assign_thm_link_goal =
+  ``state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) NONE locs ∧
+   ptr_eq_link c s t ∧
+   (op_requires_names op ≠ (names_opt = NONE)) ∧
+   cut_state_opt names_opt s = SOME x ∧
+   get_vars args s.locals = SOME vals ∧
+   t.termdep > 1 ∧
+   do_app op vals x = Rval (v,s2) ==>
+   ?q r.
+     evaluate (FST (assign c n l dest op args names_opt),t) = (q,r) ∧
+     (q = SOME NotEnoughSpace ==>
+      r.ffi = t.ffi ∧ option_le r.stack_max s2.stack_max ∧
+      (c.gc_kind <> None ==> ~s2.safe_for_space)) ∧
+     (q <> SOME NotEnoughSpace ==>
+      state_rel c l1 l2 (set_var dest v s2) r NONE locs ∧ q = NONE ∧
+      ptr_eq_link c s2 r)``;
+
+(* PtrEqual is the only operation whose compiled code touches the oracle *)
+
+Theorem list_Seq_ptr_eq_free:
+  !xs. ptr_eq_free ns (list_Seq xs) = EVERY (ptr_eq_free ns) xs
+Proof
+  ho_match_mp_tac list_Seq_ind \\ rw [list_Seq_def, ptr_eq_free_def]
+QED
+
+Theorem StoreEach_ptr_eq_free:
+  !v xs offset. ptr_eq_free ns (StoreEach v xs offset)
+Proof
+  Induct_on `xs` \\ gvs [StoreEach_def, ptr_eq_free_def]
+QED
+
+Theorem MemEqList_ptr_eq_free:
+  !a xs. ptr_eq_free ns (MemEqList a xs)
+Proof
+  Induct_on `xs` \\ gvs [MemEqList_def, ptr_eq_free_def]
+QED
+
+Theorem StoreAnyConsts_ptr_eq_free:
+  !r1 r2 r3 vs v. ptr_eq_free ns (StoreAnyConsts r1 r2 r3 vs v)
+Proof
+  ho_match_mp_tac StoreAnyConsts_ind
+  \\ rw [ptr_eq_free_def, StoreAnyConsts_def]
+  \\ TOP_CASE_TAC
+  \\ simp [ptr_eq_free_def, list_Seq_ptr_eq_free]
+  \\ pairarg_tac
+  \\ gvs [ptr_eq_free_def]
+QED
+
+Theorem stubs_ptr_eq_free:
+  EVERY (λ(n,a,p). ptr_eq_free (set (MAP FST (stubs (:'a) c))) p)
+        (stubs (:'a) c)
+Proof
+  EVAL_TAC \\ rw [] \\ EVAL_TAC
+QED
+
+Theorem code_rel_ptr_eq_free:
+  code_rel c s_code (t_code : (num # 'a wordLang$prog) num_map) ⇒
+  code_ptr_eq_free (set (MAP FST (stubs (:'a) c))) t_code
+Proof
+  rw [code_rel_def, code_ptr_eq_free_def, MEM_MAP, EXISTS_PROD]
+  \\ assume_tac stubs_ptr_eq_free
+  \\ gvs [EVERY_MEM, FORALL_PROD]
+  \\ res_tac \\ simp []
+QED
+
+Theorem assign_ptr_eq_free:
+  op ≠ BlockOp PtrEqual ⇒
+  ptr_eq_free (set (MAP FST (stubs (:'a) c)))
+    (FST (assign c n l dest op args names_opt : 'a wordLang$prog # num))
+Proof
+  strip_tac
+  \\ simp [assign_def, all_assign_defs, arg1_def, arg2_def, arg3_def, arg4_def]
+  \\ simp [ptr_eq_free_def, oneline AssignCmp_def, SetBool_def, GiveUp_def,
+           BignumHalt_def, AllocVar_def, SilentFFI_def, list_Seq_ptr_eq_free,
+           StoreEach_ptr_eq_free, Make_ptr_bits_code_def,
+           StoreAnyConsts_ptr_eq_free, Maxout_bits_code_def,
+           MemEqList_ptr_eq_free, WriteWord64_def, WordOp64_on_32_def,
+           WriteWord64_on_32_def, LoadWord64_def, WordShift64_on_32_def,
+           LoadBignum_def, WriteWord32_on_32_def]
+  \\ rpt (TOP_CASE_TAC
+          \\ simp [ptr_eq_free_def, list_Seq_ptr_eq_free, StoreEach_ptr_eq_free,
+                   MemEqList_ptr_eq_free, StoreAnyConsts_ptr_eq_free])
+  \\ gvs []
+  \\ EVAL_TAC
+QED
+
+Theorem assign_ptr_eq_link:
+  op ≠ BlockOp PtrEqual ∧
+  state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) NONE locs ∧
+  ptr_eq_link c s t ∧
+  cut_state_opt names_opt s = SOME x ∧
+  do_app op vals x = Rval (v,s2) ∧
+  evaluate (FST (assign c n l dest op args names_opt),t) = (q,r) ⇒
+  ptr_eq_link c s2 r
+Proof
+  rw [ptr_eq_link_def]
+  >- (imp_res_tac wordPropsTheory.evaluate_consts \\ fs [])
+  \\ imp_res_tac cut_state_opt_const
+  \\ imp_res_tac do_app_ptr_eq_oracle
+  \\ drule evaluate_ptr_eq_free
+  \\ disch_then (qspec_then `set (MAP FST (stubs (:'a) c))` mp_tac)
+  \\ impl_tac
+  >- (
+    simp [assign_ptr_eq_free]
+    \\ fs [state_rel_thm]
+    \\ imp_res_tac code_rel_ptr_eq_free \\ simp [])
+  \\ simp []
+QED
 
 val evaluate_Assign =
   SIMP_CONV(srw_ss())[wordSemTheory.evaluate_def]``evaluate (Assign _ _, _)``
@@ -11606,67 +11706,37 @@ Proof
 QED
 
 Theorem assign_PtrEqual:
-  op = BlockOp PtrEqual ==> ^assign_thm_goal
+  op = BlockOp PtrEqual ==> ^assign_thm_link_goal
 Proof
   rpt strip_tac
   \\ gvs [dataLangTheory.op_requires_names_def,
           dataLangTheory.op_space_reset_def,
           dataSemTheory.cut_state_opt_def]
-  \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
-  \\ `t.termdep <> 0` by fs[]
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ fs [do_app]
   \\ gvs [AllCaseEqs()]
-  >- (* do_eq = Eq_val T: the consumed oracle bit equals the machine word
-        equality, by ptr_eq_hyp *)
-   (imp_res_tac state_rel_get_vars_IMP
-    \\ fs [LENGTH_EQ_2] \\ clean_tac
-    \\ fs [get_var_def]
-    \\ fs [state_rel_thm] \\ eval_tac
-    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-    \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL) \\ strip_tac
-    \\ rpt_drule0 memory_rel_simple_eq \\ strip_tac \\ rveq
-    \\ fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF]
-    \\ simp [assign_def, arg2_def, assign_BoolTest_def]
-    \\ simp [wordSemTheory.evaluate_def, wordSemTheory.get_var_imm_def,
-             asmTheory.word_cmp_def]
-    \\ `s.ptr_eq_oracle 0 ⇔ (w1 = w2)` by
-         (fs [ptr_eq_hyp_def, wordSemTheory.get_var_def] \\ metis_tac [])
-    \\ IF_CASES_TAC
-    \\ gvs [wordSemTheory.word_exp_def, wordSemTheory.set_var_def,
-            allowed_op_def]
-    >- (fs [lookup_insert, adjust_var_11] \\ rw [] \\ fs []
-        \\ simp [inter_insert_ODD_adjust_set, GSYM Boolv_def,
-                 option_le_max_right]
-        \\ simp [inter_insert_ODD_adjust_set]
-        \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-        \\ match_mp_tac memory_rel_insert \\ fs []
-        \\ match_mp_tac memory_rel_Boolv_T \\ fs [])
-    \\ fs [lookup_insert, adjust_var_11] \\ rw [] \\ fs []
-    \\ simp [inter_insert_ODD_adjust_set, GSYM Boolv_def,
-             option_le_max_right]
-    \\ simp [inter_insert_ODD_adjust_set]
-    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-    \\ match_mp_tac memory_rel_insert \\ fs []
-    \\ match_mp_tac memory_rel_Boolv_F \\ fs [])
-  (* do_eq = Eq_val F: the two words must differ (memory_rel_ptr_eq),
-     so the machine also answers F and no oracle bit is consumed *)
-  \\ imp_res_tac state_rel_get_vars_IMP \\ fs [LENGTH_EQ_2] \\ clean_tac
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs [LENGTH_EQ_2] \\ clean_tac
   \\ fs [get_var_def]
   \\ fs [state_rel_thm] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL) \\ strip_tac
   \\ rpt_drule0 memory_rel_simple_eq \\ strip_tac \\ rveq
   \\ fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF]
-  \\ `w1 ≠ w2` by (strip_tac \\ rveq \\ rpt_drule0 memory_rel_ptr_eq \\ fs [])
-  \\ simp [assign_def, arg2_def, assign_BoolTest_def]
-  \\ simp [wordSemTheory.evaluate_def, wordSemTheory.get_var_imm_def,
-           asmTheory.word_cmp_def]
-  \\ gvs [wordSemTheory.word_exp_def, wordSemTheory.set_var_def,
-          allowed_op_def]
+  \\ simp [assign_def, arg2_def, assign_PtrEq_def]
+  \\ fs [ptr_eq_link_def]
+  \\ simp [wordSemTheory.evaluate_def]
+  \\ drule_all word_ptr_eq_thm \\ strip_tac \\ simp []
+  \\ IF_CASES_TAC
+  \\ gvs [wordSemTheory.set_var_def, allowed_op_def]
+  >- (
+    fs [lookup_insert, adjust_var_11] \\ rw [] \\ fs []
+    \\ simp [inter_insert_ODD_adjust_set, GSYM Boolv_def, option_le_max_right]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ match_mp_tac memory_rel_Boolv_T \\ fs [])
   \\ fs [lookup_insert, adjust_var_11] \\ rw [] \\ fs []
   \\ simp [inter_insert_ODD_adjust_set, GSYM Boolv_def, option_le_max_right]
-  \\ simp [inter_insert_ODD_adjust_set]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs []
   \\ match_mp_tac memory_rel_Boolv_F \\ fs []
@@ -17016,9 +17086,10 @@ Theorem imp_assign[local] =
   |> foldr1 (fn (x,y) => MATCH_MP join_lemma (CONJ x y));
 
 Theorem assign_thm:
-  ^assign_thm_goal
+  op ≠ BlockOp PtrEqual ⇒ ^assign_thm_goal
 Proof
   strip_tac
+  \\ strip_tac
   \\ Cases_on `op = GlobOp AllocGlobal`
   >- (fs [do_app] \\ every_case_tac \\ fs [])
   \\ Cases_on `op = IntOp Greater`
@@ -17046,4 +17117,20 @@ Proof
   >- (fs [] \\ fs [] \\ gvs [] \\ Cases_on ‘i’ \\ gvs []
       \\ qhdtm_x_assum`do_app`mp_tac \\ EVAL_TAC)
   \\ Cases_on ‘op’ \\ gvs []
+QED
+
+Theorem assign_thm_ptr_eq_link:
+  ^assign_thm_link_goal
+Proof
+  strip_tac
+  \\ Cases_on `op = BlockOp PtrEqual`
+  >- (
+    drule_all assign_PtrEqual
+    \\ disch_then (qspecl_then [`n`,`l`,`dest`] ACCEPT_TAC))
+  \\ drule_all assign_thm
+  \\ disch_then (qspecl_then [`n`,`l`,`dest`] strip_assume_tac)
+  \\ goal_assum $ drule_at Any
+  \\ simp []
+  \\ strip_tac
+  \\ drule_all assign_ptr_eq_link \\ simp []
 QED
