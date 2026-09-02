@@ -8,6 +8,8 @@ Changes since release v3479:
 
 ## Pancake
 
+Queryable feature tags (#1470).
+
 ## Candle
 
 ## Examples

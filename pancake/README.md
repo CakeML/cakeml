@@ -32,6 +32,9 @@ Liveness analysis for loopLang.
 [loop_to_wordScript.sml](loop_to_wordScript.sml):
 Compilation from loopLang to wordLang.
 
+[newsScript.sml](newsScript.sml):
+Pancake news presentation and validation
+
 [panLangScript.sml](panLangScript.sml):
 Abstract syntax for Pancake language.
 Pancake is an imperative language with

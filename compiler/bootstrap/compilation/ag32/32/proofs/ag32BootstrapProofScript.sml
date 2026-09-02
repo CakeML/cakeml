@@ -348,14 +348,18 @@ Theorem cake_extract_writes:
      (out = explode help_string) ∧ (err = "")
    else if has_version_flag (TL cl) then
      (out = explode current_build_info_str) ∧ (err = "")
-   else if has_pancake_flag (TL cl) then
-     let (cout, cerr) = compile_pancake_32 (TL cl) inp in
-     (out = explode (concat (append cout))) ∧
-     (err = explode cerr)
    else
-     let (cout, cerr) = compile_32 (TL cl) inp in
-     (out = explode (concat (append cout))) ∧
-     (err = explode cerr)
+     case parse_pancake_feature (TL cl) of
+       SOME rest => out = explode(print_bool(query_news rest)) ∧ err = ""
+     | NONE =>
+        if has_pancake_flag (TL cl) then
+          let (cout, cerr) = compile_pancake_32 (TL cl) inp in
+            (out = explode (concat (append cout))) ∧
+            (err = explode cerr)
+        else
+          let (cout, cerr) = compile_32 (TL cl) inp in
+            (out = explode (concat (append cout))) ∧
+            (err = explode cerr)
 Proof
   strip_tac
   \\ qabbrev_tac ‘fs = stdin_fs inp’
@@ -399,6 +403,39 @@ Proof
         \\ pop_assum mp_tac \\ rw[]
         \\ fs[])
       >- ( rw[] \\ rw[OPTREL_def]))))>>
+  reverse PURE_TOP_CASE_TAC
+  >- (simp[TextIOProofTheory.add_stdo_def]
+      \\ SELECT_ELIM_TAC
+      \\ simp[TextIOProofTheory.stdo_def]
+      \\ conj_tac
+      >- (
+       simp[stdin_fs_def]
+       \\ qexists_tac`implode""`
+       \\ simp[] )
+      \\ simp[Once stdin_fs_def, AFUPDKEY_def]
+      \\ Cases \\ simp[] \\ strip_tac \\ rveq
+      \\ pop_assum mp_tac
+      \\ simp[TextIOProofTheory.up_stdo_def]
+      \\ simp[fsFFITheory.fsupdate_def]
+      \\ simp[stdin_fs_def]
+      \\ rw[]
+      \\ (
+       drule (GEN_ALL extract_fs_extract_writes)
+       \\ simp[AFUPDKEY_ALOOKUP]
+       \\ disch_then match_mp_tac
+       \\ rw[fsFFIPropsTheory.inFS_fname_def]
+       \\ fs[]
+       >- (
+         fs[CaseEq"option",CaseEq"bool",FORALL_PROD]
+         \\ rw[] \\ CCONTR_TAC \\ fs[]
+         \\ rveq \\ fs[] )
+       >- (
+         pop_assum mp_tac
+         \\ rw[] \\ fs[] \\ rw[]
+         \\ pop_assum mp_tac \\ rw[]
+         \\ fs[])
+       >- ( rw[] \\ rw[OPTREL_def])))>>
+  simp[]>>
   IF_CASES_TAC>>fs[]
   \\ (simp[TextIOProofTheory.add_stdout_fastForwardFD, STD_streams_stdin_fs]
   \\ DEP_REWRITE_TAC[TextIOProofTheory.add_stderr_fastForwardFD]
