@@ -58,6 +58,8 @@ Exeception syntax has been improved (#1450)
 
 Variable length shifts are now supported (#1460).
 
+Queryable feature tags (#1470).
+
 ## Candle
 
 ### Parser
