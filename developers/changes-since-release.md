@@ -12,6 +12,10 @@ Changes since release v3479:
 
 ## Examples
 
+The PB checker has been reorganized with minor fixes.
+
+The RUP algorithm has been updated. 
+
 ## Build infrastructure
 
 ## Proof engineering and tooling
