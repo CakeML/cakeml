@@ -485,20 +485,20 @@ End
 val _ = register_type “:('a,'b,'c,'d,'e) eval_res”;
 
 Quote add_cakeml:
-fun eval ((s1,next_gen), (env,id), decs) =
-case compiler_for_eval ((id,0),(s1,decs)) of
-  None => Compile_error "ERROR: failed to compile input\n"
-| Some (s2,(bs,ws)) =>
-    let
-val new_env = eval_prim (env,s1,decs,s2,bs,ws)
-    in Eval_result (new_env,next_gen) (s2,next_gen+1) end
-                   handle e => Eval_exn e (s2,next_gen+1)
+  fun eval ((s1,next_gen), (env,id), decs) =
+    case compiler_for_eval ((id,0),(s1,decs)) of
+      None => Compile_error "ERROR: failed to compile input\n"
+    | Some (s2,(bs,ws)) =>
+        let
+          val new_env = eval_prim (env,s1,decs,s2,bs,ws)
+        in Eval_result (new_env,next_gen) (s2,next_gen+1) end
+        handle e => Eval_exn e (s2,next_gen+1)
 End
 
 Quote exn_msg_dec = cakeml:
-val _ = (TextIO.print (!Repl.errorMessage);
-         print_pp (pp_exn (!Repl.exn));
-         print "\n")
+  val _ = (TextIO.print (!Repl.errorMessage);
+           print_pp (pp_exn (!Repl.exn));
+           print "\n")
 End
 
 Definition report_exn_dec_def:
@@ -509,14 +509,14 @@ val _ = (next_ml_names := ["report_exn_dec"]);
 val r = translate report_exn_dec_def;
 
 Quote add_cakeml:
-fun report_exn e =
-(Repl.exn := e;
- Repl.errorMessage := "EXCEPTION: ";
- report_exn_dec)
+  fun report_exn e =
+  (Repl.exn := e;
+   Repl.errorMessage := "EXCEPTION: ";
+   report_exn_dec)
 End
 
 Quote error_msg_dec = cakeml:
-val _ = (TextIO.print (!Repl.errorMessage))
+  val _ = (TextIO.print (!Repl.errorMessage))
 End
 
 Definition report_error_dec_def:
@@ -527,9 +527,9 @@ val _ = (next_ml_names := ["report_error_dec"]);
 val r = translate report_error_dec_def;
 
 Quote add_cakeml:
-fun report_error msg =
-(Repl.errorMessage := msg;
- report_error_dec)
+  fun report_error msg =
+  (Repl.errorMessage := msg;
+   report_error_dec)
 End
 
 val _ = (next_ml_names := ["roll_back"]);
@@ -539,26 +539,26 @@ val _ = (next_ml_names := ["check_and_tweak"]);
 val r = translate repl_check_and_tweakTheory.check_and_tweak_def;
 
 Quote add_cakeml:
-fun repl (parse, types, conf, env, decs, input_str) =
-(* input_str is passed in here only for error reporting purposes *)
-case check_and_tweak (decs, (types, input_str)) of
-  Inl msg => repl (parse, types, conf, env, report_error msg, "")
-| Inr (safe_decs, new_types) =>
-    (* here safe_decs are guaranteed to not crash;
-         the last declaration of safe_decs calls !Repl.readNextString *)
-    case eval (conf, env, safe_decs) of
-      Compile_error msg => repl (parse, types, conf, env, report_error msg, "")
-    | Eval_exn e new_conf =>
-        repl (parse, roll_back (types, new_types), new_conf, env, report_exn e, "")
-    | Eval_result new_env new_conf =>
-        (* check whether the program that ran has loaded in new input *)
-        if !Repl.isEOF then () (* exit if there is no new input *) else
-          let val new_input = !Repl.nextString in
-            (* if there is new input: parse the input and recurse *)
-            case parse new_input of
-              Inl msg      => repl (parse, new_types, new_conf, new_env, report_error msg, "")
-            | Inr new_decs => repl (parse, new_types, new_conf, new_env, new_decs, new_input)
-                                   end
+  fun repl (parse, types, conf, env, decs, input_str) =
+  (* input_str is passed in here only for error reporting purposes *)
+  case check_and_tweak (decs, (types, input_str)) of
+    Inl msg => repl (parse, types, conf, env, report_error msg, "")
+  | Inr (safe_decs, new_types) =>
+      (* here safe_decs are guaranteed to not crash;
+           the last declaration of safe_decs calls !Repl.readNextString *)
+      case eval (conf, env, safe_decs) of
+        Compile_error msg => repl (parse, types, conf, env, report_error msg, "")
+      | Eval_exn e new_conf =>
+          repl (parse, roll_back (types, new_types), new_conf, env, report_exn e, "")
+      | Eval_result new_env new_conf =>
+          (* check whether the program that ran has loaded in new input *)
+          if !Repl.isEOF then () (* exit if there is no new input *) else
+            let val new_input = !Repl.nextString in
+              (* if there is new input: parse the input and recurse *)
+              case parse new_input of
+                Inl msg      => repl (parse, new_types, new_conf, new_env, report_error msg, "")
+              | Inr new_decs => repl (parse, new_types, new_conf, new_env, new_decs, new_input)
+            end
 End
 
 val _ = (next_ml_names := ["init_types"]);
@@ -599,28 +599,28 @@ val _ = (next_ml_names := ["init_next_string"]);
 val res = translate (init_next_string_def |> REWRITE_RULE [MEMBER_INTRO]);
 
 Quote add_cakeml:
-fun start_repl (cl,s1) =
-  let
-    val parse = select_parse cl
-    val types = init_types
-    val conf = (s1,1)
-    val env = (repl_init_env, 0)
-    val decs = []
-    val input_str = ""
-    val _ = (Repl.nextString := init_next_string cl)
-  in
-    repl (parse, types, conf, env, decs, input_str)
-  end
+  fun start_repl (cl,s1) =
+    let
+      val parse = select_parse cl
+      val types = init_types
+      val conf = (s1,1)
+      val env = (repl_init_env, 0)
+      val decs = []
+      val input_str = ""
+      val _ = (Repl.nextString := init_next_string cl)
+    in
+      repl (parse, types, conf, env, decs, input_str)
+    end
 End
 
 Quote add_cakeml:
-fun run_interactive_repl cl =
-  let
-    val cs = Repl.charsFrom "config_enc_str.txt"
-    val s1 = decodeProg.decode_backend_config cs
-  in
-    start_repl (cl,s1)
-  end
+  fun run_interactive_repl cl =
+    let
+      val cs = Repl.charsFrom "config_enc_str.txt"
+      val s1 = decodeProg.decode_backend_config cs
+    in
+      start_repl (cl,s1)
+    end
 End
 
 Definition has_repl_flag_def:
