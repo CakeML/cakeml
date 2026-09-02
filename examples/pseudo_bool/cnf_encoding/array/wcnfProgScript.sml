@@ -3,7 +3,7 @@
 *)
 Theory wcnfProg
 Ancestors
-  basis_ffi lpr_parsing wcnf_to_pb npbc_parseProg
+  basis_ffi cnf syntax_helper wcnf_to_pb npbc_parseProg
 Libs
   preamble basis cfLib basisFunctionsLib
 
@@ -17,13 +17,17 @@ Proof
   fs [forwardFD_def, IO_fs_component_equality]
 QED
 
-val _ = translate lpr_parsingTheory.blanks_def;
-val _ = translate lpr_parsingTheory.tokenize_def;
+(* npbc_parseProg already translated pb_parse's own blanks/tokenize, so
+  syntax_helper's get the _1 suffix here *)
+val _ = translate syntax_helperTheory.blanks_def;
+val _ = translate syntax_helperTheory.tokenize_def;
 
 val blanks_1_v_thm = theorem "blanks_1_v_thm";
 val tokenize_1_v_thm = theorem "tokenize_1_v_thm";
 
-val _ = translate parse_wclause_aux_def;
+val _ = translate mk_lit_def;
+val _ = translate parse_until_zero_aux_def;
+val _ = translate parse_until_zero_def;
 val _ = translate parse_wclause_def;
 
 val parse_wclause_side = Q.prove(`
@@ -42,9 +46,9 @@ val _ = translate format_wcnf_failure_def;
 
 val inputLineTokens_specialize =
   inputLineTokens_spec_lines
-  |> Q.GEN `f` |> Q.SPEC`lpr_parsing$blanks`
+  |> Q.GEN `f` |> Q.SPEC`syntax_helper$blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_1_v`
-  |> Q.GEN `g` |> Q.ISPEC`lpr_parsing$tokenize`
+  |> Q.GEN `g` |> Q.ISPEC`syntax_helper$tokenize`
   |> Q.GEN `gv` |> Q.ISPEC`tokenize_1_v`
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
   |> SIMP_RULE std_ss [blanks_1_v_thm,tokenize_1_v_thm,blanks_def] ;
@@ -64,15 +68,15 @@ End
 Theorem parse_wcnf_toks_arr_spec:
   !lines fd fdv fs acc accv lno lnov.
   NUM lno lnov ∧
-  LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE INT)) acc accv
+  LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE (CNF_LIT_TYPE NUM))) acc accv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_wcnf_toks_arr" (get_ml_prog_state()))
     [lnov; fdv; accv]
     (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTv v.
-      & (∃err. SUM_TYPE STRING_TYPE (LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE INT)))
-      (case parse_wcnf_toks (MAP lpr_parsing$toks lines) acc of
+      & (∃err. SUM_TYPE STRING_TYPE (LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE (CNF_LIT_TYPE NUM))))
+      (case parse_wcnf_toks (MAP syntax_helper$toks lines) acc of
         NONE => INL err
       | SOME x => INR x) v) *
       SEP_EXISTS k lines'.
@@ -106,7 +110,7 @@ Proof
             SEP_EXISTS k.
                 STDIO (forwardFD fs fd k) *
                 INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
-                & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (lpr_parsing$toks h)) v)’
+                & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (syntax_helper$toks h)) v)’
     THEN1 (
       xapp_spec inputLineTokens_specialize
       \\ qexists_tac `emp`
@@ -114,7 +118,7 @@ Proof
       \\ qexists_tac ‘fs’
       \\ qexists_tac ‘fd’ \\ xsimpl \\ fs []
       \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl
-      \\ simp[lpr_parsingTheory.toks_def])
+      \\ simp[syntax_helperTheory.toks_def])
   \\ fs [std_preludeTheory.OPTION_TYPE_def] \\ rveq \\ fs []
   \\ xmatch \\ fs []
   \\ xlet_auto
@@ -137,7 +141,7 @@ Proof
     metis_tac[])>>
   simp[]>>
   xlet_autop>>
-  Cases_on`parse_wclause (lpr_parsing$toks h)`>>fs[OPTION_TYPE_def]
+  Cases_on`parse_wclause (syntax_helper$toks h)`>>fs[OPTION_TYPE_def]
   >- (
     xmatch>>
     xlet_autop>>
@@ -188,7 +192,7 @@ Theorem parse_wcnf_full_spec:
     (STDIO fs)
     (POSTv v.
     & (∃err. (SUM_TYPE STRING_TYPE
-      (LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE INT)))
+      (LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE (CNF_LIT_TYPE NUM))))
     (if inFS_fname fs f then
     (case parse_wcnf (all_lines_file fs f) of
       NONE => INL err
@@ -224,8 +228,8 @@ Proof
   qmatch_goalsub_abbrev_tac`INSTREAM_LINES #"\n" fdd fddv lines fss`>>
   xlet_autop>>
   xlet`(POSTv v.
-      & (∃err. SUM_TYPE STRING_TYPE (LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE INT)))
-      (case parse_wcnf_toks (MAP lpr_parsing$toks lines) [] of
+      & (∃err. SUM_TYPE STRING_TYPE (LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE (CNF_LIT_TYPE NUM))))
+      (case parse_wcnf_toks (MAP syntax_helper$toks lines) [] of
         NONE => INL err
       | SOME x => INR x) v) *
       SEP_EXISTS k lines'.
@@ -270,7 +274,10 @@ QED
 val res = translate enc_lit_def;
 val res = translate enc_clause_def;
 val res = translate pbcTheory.negate_def;
-val res = translate (nub_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
+val res = translate lit_le_def;
+val res = translate sorted_nub_aux_def;
+val res = translate sorted_nub_def;
+val res = translate canon_clause_def;
 val res = translate wclause_to_pbc_def;
 
 val wclause_to_pbc_side = Q.prove(`

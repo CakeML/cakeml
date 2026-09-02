@@ -428,13 +428,16 @@ val res = translate (has_help_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 val res = translate print_option_def
 val res = translate current_build_info_str_def
 val res = translate compilerTheory.help_string_def;
+val res = translate (newsTheory.query_news_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
+val res = translate parse_pancake_feature_def
+val res = translate print_bool_def
 
 Definition nonzero_exit_code_for_error_msg_def:
-                                                 nonzero_exit_code_for_error_msg e =
-if compiler$is_error_msg e then
-  (let a = empty_ffi «nonzero_exit» in
-     ml_translator$force_out_of_memory_error ())
-else ()
+  nonzero_exit_code_for_error_msg e =
+  if compiler$is_error_msg e then
+    (let a = empty_ffi «nonzero_exit» in
+       ml_translator$force_out_of_memory_error ())
+  else ()
 End
 
 val res = translate compilerTheory.is_error_msg_def;
@@ -643,18 +646,24 @@ Quote add_cakeml:
       print compiler_help_string
     else if compiler_has_version_flag cl then
       print compiler_current_build_info_str
-    else if compiler_has_pancake_flag cl then
-      case compiler_compile_pancake_64 cl (String.explode (TextIO.inputAll (TextIO.openStdIn ())))  of
-        (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
-                   compiler64prog_nonzero_exit_code_for_error_msg e)
     else
-      case compiler_compile_64 cl (String.explode (TextIO.inputAll (TextIO.openStdIn ())))  of
-        (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
-                   compiler64prog_nonzero_exit_code_for_error_msg e)
+      case compiler_parse_pancake_feature cl of
+        Some rest => print (compiler_print_bool(news_query_news rest))
+      | None =>
+          if compiler_has_pancake_flag cl then
+            case compiler_compile_pancake_64 cl (String.explode (TextIO.inputAll (TextIO.openStdIn ())))  of
+              (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
+                         compiler64prog_nonzero_exit_code_for_error_msg e)
+          else
+            case compiler_compile_64 cl (String.explode (TextIO.inputAll (TextIO.openStdIn ())))  of
+              (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
+                         compiler64prog_nonzero_exit_code_for_error_msg e)
   end
 End
 
 val main_v_def = fetch "-" "main_v_def";
+val compiler_help_string_v_thm = fetch "-" "compiler_help_string_v_thm";
+val compiler_current_build_info_str_v_thm = fetch "-" "compiler_current_build_info_str_v_thm";
 
 Theorem main_spec:
   ¬has_repl_flag (TL cl) ∧ IS_SOME (stdin_content fs) ⇒
@@ -698,7 +707,7 @@ Proof
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac `help_string`
     \\ fs [compilerTheory.help_string_def,
-           fetch "-" "compiler_help_string_v_thm"]
+           compiler_help_string_v_thm]
     \\ xsimpl
     \\ rename1 `add_stdout _ (strlit string)`
     \\ CONV_TAC SWAP_EXISTS_CONV
@@ -712,12 +721,25 @@ Proof
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac `current_build_info_str`
     \\ fs [compilerTheory.current_build_info_str_def,
-           fetch "-" "compiler_current_build_info_str_v_thm"]
+           compiler_current_build_info_str_v_thm]
     \\ xsimpl
     \\ rename1 `add_stdout _ (strlit string)`
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac`fs`
     \\ xsimpl)
+  \\ xlet_auto >- xsimpl
+  \\ gvs[oneline std_preludeTheory.OPTION_TYPE_def]
+  \\ reverse PURE_FULL_CASE_TAC
+  \\ gvs[]
+  >- (xmatch
+      \\ xlet_auto >- xsimpl
+      \\ xlet_auto >- xsimpl
+      \\ simp[full_compile_64_def]
+      \\ xapp
+      \\ first_assum $ irule_at $ Pos hd
+      \\ qexists ‘fs’
+      \\ xsimpl)
+  \\ xmatch
   >> xlet_auto>-xsimpl
   >> xif
   >-
@@ -797,9 +819,12 @@ Proof
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`
   \\ reverse conj_tac >-
-   rw[Abbr`fs1`,full_compile_64_def,UNCURRY,
-      GSYM fastForwardFD_with_numchars,
-      GSYM add_stdo_with_numchars, with_same_numchars]
+   (rw[Abbr`fs1`,full_compile_64_def,UNCURRY,
+       GSYM fastForwardFD_with_numchars,
+       GSYM add_stdo_with_numchars, with_same_numchars]
+    \\ PURE_FULL_CASE_TAC
+    \\ rw[GSYM fastForwardFD_with_numchars,
+          GSYM add_stdo_with_numchars, with_same_numchars, UNCURRY])
   \\ simp [SEP_CLAUSES]
   \\ match_mp_tac (MP_CANON(MATCH_MP app_wgframe (UNDISCH main_spec)))
   \\ xsimpl
