@@ -233,11 +233,11 @@ QED
 
 Theorem eval_gate_pair_left_nil_INR[local]:
   (∀n.
-     eval_gate (pair_state ss₁ ss₂)
+     eval_gate (state_pair ss₁ ss₂)
        (pair_aigs ([]: ('a, 'i, 'l) aig) aig) (INR n) =
      eval_gate ss₂ aig n) ∧
   (∀m.
-     eval_lit (pair_state ss₁ ss₂)
+     eval_lit (state_pair ss₁ ss₂)
        (pair_aigs ([]: ('a, 'i, 'l) aig) aig) (right_lit m) =
      eval_lit ss₂ aig m)
 Proof
@@ -247,7 +247,7 @@ Proof
    (Cases_on ‘m’ >> simp [pair_aigs_def, right_lit_def]
     >> rename1 ‘right_var x’ >> Cases_on ‘x’
     >> simp [right_var_def, eval_lit_def]
-    >> Cases_on ‘ss₁’ >> Cases_on ‘ss₂’ >> simp [pair_state_def]
+    >> Cases_on ‘ss₁’ >> Cases_on ‘ss₂’ >> simp [state_pair_def]
     >> rename1 ‘right_bvar b’ >> Cases_on ‘b’
     >> simp [right_bvar_def, eval_bvar_def])
   >> simp [pair_aigs_left_nil_right_cons]
@@ -265,16 +265,16 @@ Proof
     >> simp [right_and_def]
     >> IF_CASES_TAC >> gvs []
     >> simp [EVERY_MEM, MEM_MAP, PULL_EXISTS])
-  >> Cases_on ‘ss₁’ >> Cases_on ‘ss₂’ >> simp [pair_state_def]
+  >> Cases_on ‘ss₁’ >> Cases_on ‘ss₂’ >> simp [state_pair_def]
   >> rename1 ‘right_bvar b’ >> Cases_on ‘b’
   >> simp [right_bvar_def, eval_bvar_def]
 QED
 
 Theorem eval_lit_pair_left_nil_left[local]:
-  eval_lit (pair_state ss₁ ss₂) (pair_aigs [] aig₂) (left_lit n) =
+  eval_lit (state_pair ss₁ ss₂) (pair_aigs [] aig₂) (left_lit n) =
   eval_lit ss₁ [] n
 Proof
-  Cases_on ‘ss₁’ >> Cases_on ‘ss₂’ >> simp [pair_state_def]
+  Cases_on ‘ss₁’ >> Cases_on ‘ss₂’ >> simp [state_pair_def]
   >> Induct_on ‘aig₂’ >> gvs [pair_aigs_def]
   >> Cases_on ‘n’ >> gvs [left_lit_def]
   >-
@@ -291,10 +291,10 @@ QED
 
 Theorem eval_pair_left[simp]:
   (∀n.
-     eval_gate (pair_state ss₁ ss₂) (pair_aigs aig₁ aig₂) (INL n) =
+     eval_gate (state_pair ss₁ ss₂) (pair_aigs aig₁ aig₂) (INL n) =
      eval_gate ss₁ aig₁ n) ∧
   (∀m.
-     eval_lit (pair_state ss₁ ss₂) (pair_aigs aig₁ aig₂) (left_lit m) =
+     eval_lit (state_pair ss₁ ss₂) (pair_aigs aig₁ aig₂) (left_lit m) =
      eval_lit ss₁ aig₁ m)
 Proof
   Induct_on ‘aig₁’ >> rw [eval_lit_def]
@@ -316,17 +316,17 @@ Proof
     >> simp [eval_lit_def, left_and_def]
     >> IF_CASES_TAC >> gvs []
     >> simp [EVERY_MEM, MEM_MAP, PULL_EXISTS])
-  >> Cases_on ‘ss₁’ >> Cases_on ‘ss₂’ >> gvs [pair_state_def]
+  >> Cases_on ‘ss₁’ >> Cases_on ‘ss₂’ >> gvs [state_pair_def]
   >> rename1 ‘left_bvar b’ >> Cases_on ‘b’
   >> simp [left_bvar_def, eval_bvar_def]
 QED
 
 Theorem eval_pair_right[simp]:
   (∀n.
-    eval_gate (pair_state ss₁ ss₂) (pair_aigs aig₁ aig₂) (INR n) =
+    eval_gate (state_pair ss₁ ss₂) (pair_aigs aig₁ aig₂) (INR n) =
     eval_gate ss₂ aig₂ n) ∧
   (∀m.
-    eval_lit (pair_state ss₁ ss₂) (pair_aigs aig₁ aig₂) (right_lit m) =
+    eval_lit (state_pair ss₁ ss₂) (pair_aigs aig₁ aig₂) (right_lit m) =
     eval_lit ss₂ aig₂ m)
 Proof
   Induct_on ‘aig₁’ >> rw [eval_lit_def]
@@ -343,7 +343,7 @@ Proof
   >-
    (rename1 ‘left_and g’ >> Cases_on ‘g’
     >> simp [left_and_def, eval_lit_def])
-  >> Cases_on ‘ss₁’ >> Cases_on ‘ss₂’ >> gvs [pair_state_def]
+  >> Cases_on ‘ss₁’ >> Cases_on ‘ss₂’ >> gvs [state_pair_def]
   >> rename1 ‘right_bvar b’ >> Cases_on ‘b’
   >> simp [right_bvar_def, eval_bvar_def]
 QED
@@ -440,10 +440,10 @@ QED
 Theorem eval_gate_pair_qleft:
   ∀aig.
     (∀n.
-       eval_gate (pair_state s₁ s₂) (qleft aig) n ⇔
+       eval_gate (state_pair s₁ s₂) (qleft aig) n ⇔
        eval_gate s₁ aig n) ∧
     (∀lit.
-       eval_lit (pair_state s₁ s₂) (qleft aig) (lit_map_base INL INL lit) ⇔
+       eval_lit (state_pair s₁ s₂) (qleft aig) (lit_map_base INL INL lit) ⇔
        eval_lit s₁ aig lit)
 Proof
   Induct >> rw []
@@ -455,7 +455,7 @@ Proof
     >> simp [lit_map_base_def, var_map_base_def, eval_lit_def]
     >> rename1 ‘bvar_map _ _ b’ >> Cases_on ‘b’
     >> simp [bvar_map_def, eval_lit_def]
-    >> Cases_on ‘s₁’ >> Cases_on ‘s₂’ >> simp [pair_state_def, eval_bvar_def]
+    >> Cases_on ‘s₁’ >> Cases_on ‘s₂’ >> simp [state_pair_def, eval_bvar_def]
   )
   >- (
     simp [eval_lit_def, qleft_cons]
@@ -478,14 +478,14 @@ Proof
     >> simp [EVERY_MAP])
   >> rename1 ‘bvar_map _ _ b’ >> Cases_on ‘b’
   >> simp [bvar_map_def, eval_lit_def]
-  >> Cases_on ‘s₁’ >> Cases_on ‘s₂’ >> simp [pair_state_def, eval_bvar_def]
+  >> Cases_on ‘s₁’ >> Cases_on ‘s₂’ >> simp [state_pair_def, eval_bvar_def]
 QED
 
 Theorem dep_aig_pair_qleft:
   dep_aig (pair_set minput) (pair_set (set mlatches)) (qleft maig) =
   dep_aig minput (set mlatches) maig
 Proof
-  simp [dep_aig_def, FORALL_PAIR_STATE, agree_on_pair,
+  simp [dep_aig_def, FORALL_STATE_PAIR, agree_on_pair,
         eval_gate_pair_qleft]
   >> metis_tac []
 QED
@@ -1929,14 +1929,14 @@ QED
 
 Theorem eval_lit_qinterv_r_l_eq[local]:
   (∀lit.
-     eval_lit (pair_state s₀ s₁) (qinterv_r_l interv aig)
+     eval_lit (state_pair s₀ s₁) (qinterv_r_l interv aig)
        (qinterv_lit INR INR INL interv lit)
      ⇔
-     eval_lit (pair_state s₁ s₀) (qinterv_l_r interv aig)
+     eval_lit (state_pair s₁ s₀) (qinterv_l_r interv aig)
        (qinterv_lit INL INL INR interv lit)) ∧
   (∀a.
-     eval_gate (pair_state s₀ s₁) (qinterv_r_l interv aig) a ⇔
-     eval_gate (pair_state s₁ s₀) (qinterv_l_r interv aig) a)
+     eval_gate (state_pair s₀ s₁) (qinterv_r_l interv aig) a ⇔
+     eval_gate (state_pair s₁ s₀) (qinterv_l_r interv aig) a)
 Proof
   Induct_on ‘aig’ >> rw []
   >> PairCases_on ‘s₀’ >> PairCases_on ‘s₁’
@@ -1944,7 +1944,7 @@ Proof
    (simp [qinterv_r_l_def, qinterv_l_r_def, qinterv_def]
     >> namedCases_on ‘lit’ ["v b"]
     >> Cases_on ‘v’
-    >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def, pair_state_def]
+    >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def, state_pair_def]
     >> rpt CASE_TAC
     >> simp [eval_lit_def]
     >> rename1 ‘bvar_map _ _ base’
@@ -1958,7 +1958,7 @@ Proof
     >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def]
     >-
      (reverse CASE_TAC
-      >- (CASE_TAC >> simp [eval_lit_def, pair_state_def])
+      >- (CASE_TAC >> simp [eval_lit_def, state_pair_def])
       >> simp [eval_lit_def]
       >> rpt (pairarg_tac >> gvs [])
       >> IF_CASES_TAC >> gvs []
@@ -1969,7 +1969,7 @@ Proof
     >> Cases_on ‘base’
     >> simp [bvar_map_def]
     >> CASE_TAC >> gvs [eval_lit_def]
-    >> gvs [pair_state_def]
+    >> gvs [state_pair_def]
     >> CASE_TAC >> gvs [eval_lit_def])
   >> rename1 ‘qinterv_r_l _ (h::_)’
   >> Cases_on ‘h’
@@ -1981,15 +1981,15 @@ QED
 
 Theorem eval_lit_qinterv_ll_r_eq[local]:
   (∀lit.
-     eval_lit (pair_state (pair_state s₀ s₁) s₂) (qinterv_ll_r interv aig)
+     eval_lit (state_pair (state_pair s₀ s₁) s₂) (qinterv_ll_r interv aig)
        (qinterv_lit (INL ∘ INL) (INL ∘ INL) INR interv lit)
      ⇔
-     eval_lit (pair_state s₀ s₂) (qinterv_l_r interv aig)
+     eval_lit (state_pair s₀ s₂) (qinterv_l_r interv aig)
        (qinterv_lit INL INL INR interv lit)) ∧
   (∀a.
-     eval_gate (pair_state (pair_state s₀ s₁) s₂)
+     eval_gate (state_pair (state_pair s₀ s₁) s₂)
        (qinterv_ll_r interv aig) a ⇔
-     eval_gate (pair_state s₀ s₂) (qinterv_l_r interv aig) a)
+     eval_gate (state_pair s₀ s₂) (qinterv_l_r interv aig) a)
 Proof
   Induct_on ‘aig’ >> rw []
   >> PairCases_on ‘s₀’ >> PairCases_on ‘s₁’ >> PairCases_on ‘s₂’
@@ -1997,7 +1997,7 @@ Proof
    (simp [qinterv_ll_r_def, qinterv_l_r_def, qinterv_def]
     >> namedCases_on ‘lit’ ["v b"]
     >> Cases_on ‘v’
-    >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def, pair_state_def]
+    >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def, state_pair_def]
     >> rpt CASE_TAC
     >> simp [eval_lit_def]
     >> rename1 ‘bvar_map _ _ base’
@@ -2011,7 +2011,7 @@ Proof
     >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def]
     >-
      (reverse CASE_TAC
-      >- (CASE_TAC >> simp [eval_lit_def, pair_state_def])
+      >- (CASE_TAC >> simp [eval_lit_def, state_pair_def])
       >> simp [eval_lit_def]
       >> rpt (pairarg_tac >> gvs [])
       >> IF_CASES_TAC >> gvs []
@@ -2022,7 +2022,7 @@ Proof
     >> Cases_on ‘base’
     >> simp [bvar_map_def]
     >> CASE_TAC >> gvs [eval_lit_def]
-    >> gvs [pair_state_def]
+    >> gvs [state_pair_def]
     >> CASE_TAC >> gvs [eval_lit_def])
   >> rename1 ‘qinterv_ll_r _ (h::_)’
   >> Cases_on ‘h’
@@ -2034,15 +2034,15 @@ QED
 
 Theorem eval_lit_qinterv_lr_r_eq[local]:
   (∀lit.
-     eval_lit (pair_state (pair_state s₀ s₁) s₂) (qinterv_lr_r interv aig)
+     eval_lit (state_pair (state_pair s₀ s₁) s₂) (qinterv_lr_r interv aig)
        (qinterv_lit (INL ∘ INR) (INL ∘ INR) INR interv lit)
      ⇔
-     eval_lit (pair_state s₁ s₂) (qinterv_l_r interv aig)
+     eval_lit (state_pair s₁ s₂) (qinterv_l_r interv aig)
        (qinterv_lit INL INL INR interv lit)) ∧
   (∀a.
-     eval_gate (pair_state (pair_state s₀ s₁) s₂)
+     eval_gate (state_pair (state_pair s₀ s₁) s₂)
        (qinterv_lr_r interv aig) a ⇔
-     eval_gate (pair_state s₁ s₂) (qinterv_l_r interv aig) a)
+     eval_gate (state_pair s₁ s₂) (qinterv_l_r interv aig) a)
 Proof
   Induct_on ‘aig’ >> rw []
   >> PairCases_on ‘s₀’ >> PairCases_on ‘s₁’ >> PairCases_on ‘s₂’
@@ -2050,7 +2050,7 @@ Proof
    (simp [qinterv_lr_r_def, qinterv_l_r_def, qinterv_def]
     >> namedCases_on ‘lit’ ["v b"]
     >> Cases_on ‘v’
-    >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def, pair_state_def]
+    >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def, state_pair_def]
     >> rpt CASE_TAC
     >> simp [eval_lit_def]
     >> rename1 ‘bvar_map _ _ base’
@@ -2064,7 +2064,7 @@ Proof
     >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def]
     >-
      (reverse CASE_TAC
-      >- (CASE_TAC >> simp [eval_lit_def, pair_state_def])
+      >- (CASE_TAC >> simp [eval_lit_def, state_pair_def])
       >> simp [eval_lit_def]
       >> rpt (pairarg_tac >> gvs [])
       >> IF_CASES_TAC >> gvs []
@@ -2075,7 +2075,7 @@ Proof
     >> Cases_on ‘base’
     >> simp [bvar_map_def]
     >> CASE_TAC >> gvs [eval_lit_def]
-    >> gvs [pair_state_def]
+    >> gvs [state_pair_def]
     >> CASE_TAC >> gvs [eval_lit_def])
   >> rename1 ‘qinterv_lr_r _ (h::_)’
   >> Cases_on ‘h’
@@ -2087,15 +2087,15 @@ QED
 
 Theorem eval_lit_qinterv_ll_lr_eq[local]:
   (∀lit.
-     eval_lit (pair_state (pair_state s₀ s₁) s₂) (qinterv_ll_lr interv aig)
+     eval_lit (state_pair (state_pair s₀ s₁) s₂) (qinterv_ll_lr interv aig)
        (qinterv_lit (INL ∘ INL) (INL ∘ INL) (INL ∘ INR) interv lit)
      ⇔
-     eval_lit (pair_state s₀ s₁) (qinterv_l_r interv aig)
+     eval_lit (state_pair s₀ s₁) (qinterv_l_r interv aig)
        (qinterv_lit INL INL INR interv lit)) ∧
   (∀a.
-     eval_gate (pair_state (pair_state s₀ s₁) s₂)
+     eval_gate (state_pair (state_pair s₀ s₁) s₂)
        (qinterv_ll_lr interv aig) a ⇔
-     eval_gate (pair_state s₀ s₁) (qinterv_l_r interv aig) a)
+     eval_gate (state_pair s₀ s₁) (qinterv_l_r interv aig) a)
 Proof
   Induct_on ‘aig’ >> rw []
   >> PairCases_on ‘s₀’ >> PairCases_on ‘s₁’ >> PairCases_on ‘s₂’
@@ -2103,7 +2103,7 @@ Proof
    (simp [qinterv_ll_lr_def, qinterv_l_r_def, qinterv_def]
     >> namedCases_on ‘lit’ ["v b"]
     >> Cases_on ‘v’
-    >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def, pair_state_def]
+    >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def, state_pair_def]
     >> rpt CASE_TAC
     >> simp [eval_lit_def]
     >> rename1 ‘bvar_map _ _ base’
@@ -2117,7 +2117,7 @@ Proof
     >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def]
     >-
      (reverse CASE_TAC
-      >- (CASE_TAC >> simp [eval_lit_def, pair_state_def])
+      >- (CASE_TAC >> simp [eval_lit_def, state_pair_def])
       >> simp [eval_lit_def]
       >> rpt (pairarg_tac >> gvs [])
       >> IF_CASES_TAC >> gvs []
@@ -2128,7 +2128,7 @@ Proof
     >> Cases_on ‘base’
     >> simp [bvar_map_def]
     >> CASE_TAC >> gvs [eval_lit_def]
-    >> gvs [pair_state_def]
+    >> gvs [state_pair_def]
     >> CASE_TAC >> gvs [eval_lit_def])
   >> rename1 ‘qinterv_ll_lr _ (h::_)’
   >> Cases_on ‘h’
@@ -2139,10 +2139,10 @@ Proof
 QED
 
 Theorem lives_hold_r_l_eq[local]:
-  lives_hold (pair_state s₀ s₁)
+  lives_hold (state_pair s₀ s₁)
     (qinterv_r_l interv waig) (qinterv_live_r_l interv wlive)
   ⇔
-  lives_hold (pair_state s₁ s₀)
+  lives_hold (state_pair s₁ s₀)
     (qinterv_l_r interv waig) (qinterv_live_l_r interv wlive)
 Proof
   simp [lives_hold_def, some_signal_holds_def,
@@ -2155,10 +2155,10 @@ Proof
 QED
 
 Theorem lives_hold_ll_r_eq[local]:
-  lives_hold (pair_state (pair_state s₀ s₁) s₂)
+  lives_hold (state_pair (state_pair s₀ s₁) s₂)
     (qinterv_ll_r interv waig) (qinterv_live_ll_r interv wlive)
   ⇔
-  lives_hold (pair_state s₀ s₂)
+  lives_hold (state_pair s₀ s₂)
     (qinterv_l_r interv waig) (qinterv_live_l_r interv wlive)
 Proof
   simp [lives_hold_def, some_signal_holds_def,
@@ -2171,10 +2171,10 @@ Proof
 QED
 
 Theorem lives_hold_ll_lr_eq[local]:
-  lives_hold (pair_state (pair_state s₀ s₁) s₂)
+  lives_hold (state_pair (state_pair s₀ s₁) s₂)
     (qinterv_ll_lr interv waig) (qinterv_live_ll_lr interv wlive)
   ⇔
-  lives_hold (pair_state s₀ s₁)
+  lives_hold (state_pair s₀ s₁)
     (qinterv_l_r interv waig) (qinterv_live_l_r interv wlive)
 Proof
   simp [lives_hold_def, some_signal_holds_def,
@@ -2184,10 +2184,10 @@ Proof
 QED
 
 Theorem lives_hold_lr_r_eq[local]:
-  lives_hold (pair_state (pair_state s₀ s₁) s₂)
+  lives_hold (state_pair (state_pair s₀ s₁) s₂)
     (qinterv_lr_r interv waig) (qinterv_live_lr_r interv wlive)
   ⇔
-  lives_hold (pair_state s₁ s₂)
+  lives_hold (state_pair s₁ s₂)
     (qinterv_l_r interv waig) (qinterv_live_l_r interv wlive)
 Proof
   simp [lives_hold_def, some_signal_holds_def,
@@ -2216,12 +2216,12 @@ QED
 
 Theorem signal_imply_right_lr_r_eq[local]:
   signal_imply ss aig
-    (pair_state (pair_state s₀ s₁) s₂)
+    (state_pair (state_pair s₀ s₁) s₂)
     (qinterv_lr_r interv waig)
     signals
     (FLAT (qinterv_live_lr_r interv wlive))
   ⇔
-  signal_imply ss aig (pair_state s₁ s₂) (qinterv_l_r interv waig)
+  signal_imply ss aig (state_pair s₁ s₂) (qinterv_l_r interv waig)
     signals (FLAT (qinterv_live_l_r interv wlive))
 Proof
   simp [signal_imply_def, FLAT_qinterv_live_flip, LIST_REL_EL_EQN]
@@ -2231,13 +2231,13 @@ QED
 
 Theorem signal_imply_left_ll_lr_eq[local]:
   signal_imply
-    (pair_state (pair_state s₀ s₁) s₂)
+    (state_pair (state_pair s₀ s₁) s₂)
     (qinterv_ll_lr interv waig)
     ss aig
     (FLAT (qinterv_live_ll_lr interv wlive))
     signals
   ⇔
-  signal_imply (pair_state s₀ s₁) (qinterv_l_r interv waig) ss aig
+  signal_imply (state_pair s₀ s₁) (qinterv_l_r interv waig) ss aig
     (FLAT (qinterv_live_l_r interv wlive)) signals
 Proof
   simp [signal_imply_def, FLAT_qinterv_live_flip, LIST_REL_EL_EQN]
@@ -2319,7 +2319,7 @@ Proof
       encode_is_next_def, encode_is_next_with_def,
       eval_lit_encode_equiv_Named,
       eval_lit_encode_lits_hold_Named,
-      FORALL_PAIR_STATE,
+      FORALL_STATE_PAIR,
       is_witness_transition_def, is_next_def, eval_lit_base,
       EVERY_MEM, MEM_MAP, PULL_EXISTS, PULL_FORALL
     ]
@@ -2428,7 +2428,7 @@ Proof
       encode_is_next_def, encode_is_next_with_def,
       eval_lit_base,
       is_witness_step_def, is_next_def,
-      FORALL_PAIR_STATE,
+      FORALL_STATE_PAIR,
       EVERY_MEM, MEM_MAP, PULL_EXISTS
     ]
   >> metis_tac []
@@ -2471,7 +2471,7 @@ Proof
       eval_lit_encode_lits_hold_Named,
       eval_lit_encode_equiv_Named,
       eval_lit_base,
-      FORALL_PAIR_STATE,
+      FORALL_STATE_PAIR,
       EXISTS_MEM, MEM_MAP, PULL_EXISTS
     ]
   >> sg ‘LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive' wlive'’
@@ -2530,7 +2530,7 @@ Proof
       eval_lit_base,
       is_witness_decrease_def,
       is_next_def,
-      FORALL_PAIR_STATE,
+      FORALL_STATE_PAIR,
       EXISTS_MEM, MEM_MAP, PULL_EXISTS
     ]
   >> qmatch_goalsub_abbrev_tac ‘encode_lives_hold _ _ wlive'’
@@ -2571,7 +2571,7 @@ Proof
       encode_is_next_def, encode_is_next_with_def,
       eval_lit_base,
       is_witness_closure_def, is_next_def,
-      FORALL_PAIR_STATE,
+      FORALL_STATE_PAIR,
       EXISTS_MEM, MEM_MAP, PULL_EXISTS
     ]
   >> qmatch_goalsub_abbrev_tac ‘encode_lives_hold _ «lives_hold02» wlive₀’
@@ -2616,7 +2616,7 @@ Proof
       eval_lit_encode_lits_hold_Named,
       eval_lit_base, is_next_def,
       is_witness_consistent_def,
-      FORALL_PAIR_STATE,
+      FORALL_STATE_PAIR,
       EXISTS_MEM, MEM_MAP, PULL_EXISTS
     ]
   >> qmatch_goalsub_abbrev_tac

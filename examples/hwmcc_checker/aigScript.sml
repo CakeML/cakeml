@@ -130,24 +130,24 @@ EVAL``eval_lit (is,ls) aig TT``
 EVAL``eval_lit (is,ls) aig FF``
 *)
 
-Definition pair_state_def:
-  pair_state (is₁,ls₁) (is₂,ls₂) =
+Definition state_pair_def:
+  state_pair (is₁,ls₁) (is₂,ls₂) =
     ((λi. sum_CASE i is₁ is₂), (λl. sum_CASE l ls₁ ls₂))
 End
 
-Theorem pair_state_surj:
-  ∀s. ∃s₁ s₂. s = pair_state s₁ s₂
+Theorem state_pair_surj:
+  ∀s. ∃s₁ s₂. s = state_pair s₁ s₂
 Proof
   namedCases ["is ls"]
   >> qexistsl_tac [‘(is ∘ INL, ls ∘ INL)’, ‘(is ∘ INR, ls ∘ INR)’]
-  >> simp [pair_state_def, FUN_EQ_THM]
+  >> simp [state_pair_def, FUN_EQ_THM]
   >> conj_tac >> Cases >> simp []
 QED
 
-Theorem FORALL_PAIR_STATE:
-  (∀s. P s) ⇔ (∀s₁ s₂. P (pair_state s₁ s₂))
+Theorem FORALL_STATE_PAIR:
+  (∀s. P s) ⇔ (∀s₁ s₂. P (state_pair s₁ s₂))
 Proof
-  metis_tac [pair_state_surj]
+  metis_tac [state_pair_surj]
 QED
 
 Definition lits_hold_def:
@@ -238,7 +238,7 @@ Definition is_live_def:
       ∃k signal.
         MEM signal prop ∧
         (∀i. k ≤ i ⇒
-             lits_hold (pair_state (steps i) (steps (i + 1))) qaig {signal})
+             lits_hold (state_pair (steps i) (steps (i + 1))) qaig {signal})
 End
 
 (* AIG Dependencies ***********************************************************)
@@ -756,12 +756,12 @@ QED
 
 Theorem agree_on_pair:
   agree_on (pair_set inputs) (pair_set latches)
-    (pair_state ss₀ ss₁) (pair_state ss₂ ss₃)
+    (state_pair ss₀ ss₁) (state_pair ss₂ ss₃)
   ⇔
   (agree_on inputs latches ss₀ ss₂ ∧ agree_on inputs latches ss₁ ss₃)
 Proof
   map_every PairCases_on [‘ss₀’, ‘ss₁’, ‘ss₂’, ‘ss₃’]
-  >> rw [pair_state_def, agree_on_def, pair_set_def]
+  >> rw [state_pair_def, agree_on_def, pair_set_def]
   >> metis_tac [sum_case_def]
 QED
 

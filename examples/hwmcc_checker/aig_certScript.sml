@@ -114,7 +114,7 @@ Definition is_witness_liveness_def:
        lits_hold ss₁ waig wpreds ∧
        is_next ss₀ waig wnext wlatches (SND ss₁))
       ⇒
-      lives_imply (pair_state ss₀ ss₁) (pair_state ss₀ ss₁) wqaig mqaig
+      lives_imply (state_pair ss₀ ss₁) (state_pair ss₀ ss₁) wqaig mqaig
         wlive mlive
 End
 
@@ -130,7 +130,7 @@ Definition is_witness_decrease_def:
        lits_hold ss₁ waig wpreds ∧
        is_next ss₀ waig wnext wlatches (SND ss₁))
        ⇒
-       lives_hold (pair_state ss₁ ss₀) wqaig wlive
+       lives_hold (state_pair ss₁ ss₀) wqaig wlive
 End
 
 Definition is_witness_closure_def:
@@ -145,9 +145,9 @@ Definition is_witness_closure_def:
        lits_hold ss₂ waig wcnstrs ∧
        lits_hold ss₂ waig wpreds ∧
        is_next ss₀ waig wnext wlatches (SND ss₁) ∧
-       lives_hold (pair_state ss₀ ss₂) wqaig wlive)
+       lives_hold (state_pair ss₀ ss₂) wqaig wlive)
       ⇒
-      lives_hold (pair_state ss₁ ss₂) wqaig wlive
+      lives_hold (state_pair ss₁ ss₂) wqaig wlive
 End
 
 Definition is_witness_consistent_def:
@@ -163,10 +163,10 @@ Definition is_witness_consistent_def:
        lits_hold ss₂ waig wpreds ∧
        is_next ss₀ waig wnext wlatches (SND ss₁) ∧
        is_next ss₁ waig wnext wlatches (SND ss₂) ∧
-       lives_hold (pair_state ss₀ ss₁) wqaig wlive ∧
-       lives_hold (pair_state ss₁ ss₂) wqaig wlive)
+       lives_hold (state_pair ss₀ ss₁) wqaig wlive ∧
+       lives_hold (state_pair ss₁ ss₂) wqaig wlive)
        ⇒
-       lives_imply (pair_state ss₀ ss₁) (pair_state ss₁ ss₂) wqaig wqaig
+       lives_imply (state_pair ss₀ ss₁) (state_pair ss₁ ss₂) wqaig wqaig
          wlive wlive
 End
 
@@ -542,12 +542,12 @@ Theorem is_witness_closure_lives_hold[local]:
   ∀k.
     is_witness_closure
       aig next preds cnstrs qaig live latches ∧
-    lives_hold (pair_state (steps i) (steps j)) qaig live ∧
+    lives_hold (state_pair (steps i) (steps j)) qaig live ∧
     (∀n. lits_hold (steps n) aig preds) ∧
     (∀n. lits_hold (steps n) aig cnstrs) ∧
     (∀n. is_next (steps n) aig next latches (SND (steps (n + 1))))
     ⇒
-    lives_hold (pair_state (steps (i + k)) (steps j)) qaig live
+    lives_hold (state_pair (steps (i + k)) (steps j)) qaig live
 Proof
   Induct >> rw [] >> fs []
   >> fs [is_witness_closure_def]
@@ -571,12 +571,12 @@ Proof
 QED
 
 Theorem lives_hold_matching_transition:
-  lives_hold (pair_state (steps (i + 2)) (steps (i + 1))) qaig live ∧
+  lives_hold (state_pair (steps (i + 2)) (steps (i + 1))) qaig live ∧
   matching_transition inputs latches steps i (i + 2) ∧
   dep_aig (pair_set inputs) (pair_set latches) qaig ∧
   dep_lits (pair_set inputs) (pair_set latches) (set (FLAT live))
   ⇒
-  lives_hold (pair_state (steps i) (steps (i + 1))) qaig live
+  lives_hold (state_pair (steps i) (steps (i + 1))) qaig live
 Proof
   rw []
   >> irule lives_hold_dep_aig
@@ -603,7 +603,7 @@ Theorem matching_transition_live:
   BIGUNION (IMAGE (set o lit_latches) (set (FLAT live))) ⊆ pair_set latches' ∧
   (∀n. lits_hold (steps n) aig preds)
   ⇒
-  lives_hold (pair_state (steps i) (steps (i + 1))) qaig live
+  lives_hold (state_pair (steps i) (steps (i + 1))) qaig live
 Proof
   rw []
   >> drule_then assume_tac is_inf_trace_cnstrs_hold
@@ -627,7 +627,7 @@ Proof
       irule dep_latch_lit_next>>
       fs[])
   >> drule_then assume_tac is_inf_trace_is_next
-  >> ‘lives_hold (pair_state (steps (i + 2)) (steps (i + 1))) qaig live’ by
+  >> ‘lives_hold (state_pair (steps (i + 2)) (steps (i + 1))) qaig live’ by
     (fs [is_witness_decrease_def]
      >> last_assum irule >> simp []
      >> first_x_assum $ qspec_then ‘i + 1’ mp_tac >> simp [])
@@ -660,15 +660,15 @@ Theorem is_witness_consistent_lits_hold:
   is_witness_consistent waig wnext wpreds wcnstrs wqaig wlive
     wlatches ∧
   MEM q Q ∧ MEM Q wlive ∧
-  lits_hold (pair_state (steps j) (steps (j + 1))) wqaig {q} ∧
+  lits_hold (state_pair (steps j) (steps (j + 1))) wqaig {q} ∧
   (∀n. lits_hold (steps n) waig wcnstrs) ∧
   (∀n. lits_hold (steps n) waig wpreds) ∧
   (∀n. is_next (steps n) waig wnext wlatches (SND (steps (n + 1)))) ∧
   (∀i. j ≤ i ⇒
-       lives_hold (pair_state (steps i) (steps (i + 1))) wqaig wlive) ∧
+       lives_hold (state_pair (steps i) (steps (i + 1))) wqaig wlive) ∧
   j ≤ i
   ⇒
-  lits_hold (pair_state (steps i) (steps (i + 1))) wqaig {q}
+  lits_hold (state_pair (steps i) (steps (i + 1))) wqaig {q}
 Proof
   Induct_on ‘i - j’ >> rw [] >> fs []
   >- (‘i = j’ by simp [] >> simp [])
@@ -754,14 +754,14 @@ Proof
   >> ‘∃signal.
         MEM signal prop ∧
         ∀i. k + 1 ≤ i ⇒
-            lits_hold (pair_state (steps' i) (steps' (i + 1))) mqaig {signal}’ suffices_by
+            lits_hold (state_pair (steps' i) (steps' (i + 1))) mqaig {signal}’ suffices_by
     (rw []
      >> qexists ‘signal’ >> rw []
      >> irule lits_hold_dep_aig
      >> fs [dep_qaig_def]
      >> first_assum $ irule_at (Pos hd)
      >> simp []
-     >> qexists ‘pair_state (steps' i) (steps' (i + 1))’
+     >> qexists ‘state_pair (steps' i) (steps' (i + 1))’
      >> reverse conj_tac
      >-
       (fs [steps_agree_def, agree_on_pair]
@@ -782,7 +782,7 @@ Proof
   >> ‘∃n'.
         n' < LENGTH wlive❲n❳ ∧
         ∀i. k + 1 ≤ i ⇒
-              lits_hold (pair_state (steps' i) (steps' (i + 1))) wqaig {wlive❲n❳❲n'❳}’
+              lits_hold (state_pair (steps' i) (steps' (i + 1))) wqaig {wlive❲n❳❲n'❳}’
     suffices_by
     (rw []
      >> qexists ‘n'’
@@ -791,7 +791,7 @@ Proof
      >> gvs [is_witness_liveness_def, lives_imply_def, signal_imply_def,
              LIST_REL_EL_EQN, PULL_FORALL])
   (* Witness is live *)
-  >> ‘∀i. k + 1 ≤ i ⇒ lives_hold (pair_state (steps' i) (steps' (i + 1))) wqaig wlive’
+  >> ‘∀i. k + 1 ≤ i ⇒ lives_hold (state_pair (steps' i) (steps' (i + 1))) wqaig wlive’
     by
     (rw []
      >> drule matching_transition_live >> simp []
