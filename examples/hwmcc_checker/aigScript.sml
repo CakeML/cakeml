@@ -62,12 +62,12 @@ Datatype:
   var = Gate 'a | Base (('i,'l) bvar)
 End
 
-Type inputs = “:'i -> bool”
-Type state = “:'l -> bool”
-Type trace[pp] = “:num -> 'i inputs # 'l state”
+Type istate = “:'i -> bool”
+Type lstate = “:'l -> bool”
+Type steps[pp] = “:num -> 'i istate # 'l lstate”
 
 Definition eval_bvar_def[simp]:
-  (eval_bvar (is: 'i inputs, ls: 'l state) Ff = F) ∧
+  (eval_bvar (is: 'i istate, ls: 'l lstate) Ff = F) ∧
   (eval_bvar (is,ls) (Input i) = is i) ∧
   (eval_bvar (is,ls) (Latch l) = ls l)
 End
@@ -89,7 +89,7 @@ Overload FF = “(Base Ff, F)”
    If needed, we can apply a reduction at the end, allowing for simpler
    definitions for operations such as equivalence.  *)
 Definition eval_lit_def:
-  (eval_lit (ss : 'i inputs # 'l state) aig ((v,b):('a,'i,'l) lit) =
+  (eval_lit (ss : 'i istate # 'l lstate) aig ((v,b):('a,'i,'l) lit) =
     case v of
     | Base bv => b ⇎ eval_bvar ss bv
     | Gate n => b ⇎ eval_gate ss aig n) ∧
@@ -172,7 +172,7 @@ Definition is_trace_def:
   is_trace (aig: ('a, 'i, 'l) aig)
     (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
     (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
-    (tr: ('i, 'l) trace) (n: num)
+    (tr: ('i, 'l) steps) (n: num)
   ⇔
     (is_reset (tr 0) aig reset latches ∧
      lits_hold (tr 0) aig cnstrs) ∧
@@ -186,7 +186,7 @@ Definition is_unsafe_def:
     (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
     (cnstrs: ('a,'i,'l) lit set) (latches: 'l set) (safe: ('a,'i,'l) lit set)
   =
-  ∃(tr: ('i, 'l) trace) (n: num).
+  ∃(tr: ('i, 'l) steps) (n: num).
     is_trace aig reset next cnstrs latches tr n ∧
     ¬lits_hold (tr n) aig safe
 End
@@ -205,7 +205,7 @@ Definition is_inf_trace_def:
   is_inf_trace (aig: ('a, 'i, 'l) aig)
     (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
     (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
-    (tr: ('i, 'l) trace)
+    (tr: ('i, 'l) steps)
   ⇔
     (is_reset (tr 0) aig reset latches ∧
      lits_hold (tr 0) aig cnstrs) ∧
@@ -366,7 +366,7 @@ Definition is_stratified_def:
 End
 
 Definition patch_def:
-  (patch aig reset is (ls: 'l state) ([]: 'l list) = ls) ∧
+  (patch aig reset is (ls: 'l lstate) ([]: 'l list) = ls) ∧
   (patch aig reset is ls (latch::rest) =
    patch aig reset is
      (λl.
@@ -566,7 +566,7 @@ Proof
 QED
 
 Definition traces_agree_def:
-  traces_agree n inputs latches (tr': ('i, 'l) trace) tr ⇔
+  traces_agree n inputs latches (tr': ('i, 'l) steps) tr ⇔
     ∀i. i ≤ n ⇒ agree_on inputs latches (tr' i) (tr i)
 End
 
@@ -827,7 +827,7 @@ QED
 
 Definition restrict_ss_def:
   restrict_ss (inputs : 'i set) (latches : 'l set)
-              ((is, ls) : 'i inputs # 'l state) =
+              ((is, ls) : 'i istate # 'l lstate) =
     ({i | i ∈ inputs ∧ is i}, {l | l ∈ latches ∧ ls l})
 End
 
@@ -876,7 +876,7 @@ Theorem matching_transition_exists:
   ∀inputs latches tr.
     FINITE inputs ∧ FINITE latches ⇒
     ∃k. ∀i. k < i ⇒
-      ∃j. matching_transition inputs latches (tr: ('i, 'l) trace) i j
+      ∃j. matching_transition inputs latches (tr: ('i, 'l) steps) i j
 Proof
   rw []
   >> qabbrev_tac ‘g = λi.
