@@ -14,10 +14,11 @@ val cake_tiger_io_events_def = new_specification("cake_tiger_io_events_def",["ca
   main_semantics |> Q.GENL[`ext`,`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
-val (cake_tiger_sem,cake_tiger_output) = cake_tiger_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
+val (cake_tiger_sem,cake_tiger_output) = cake_tiger_io_events_def |> SPEC_ALL
+  |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR;
 val (cake_tiger_not_fail,cake_tiger_sem_sing) = cake_tiger_sem
   |> SRULE [cake_tiger_compiled,ml_progTheory.prog_syntax_ok_semantics]
-  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR;
 
 Theorem x64_config'_eq[local]:
   x64_config' = x64_backend_config
@@ -74,7 +75,9 @@ Theorem machine_code_sound:
     extend_with_resource_limit
       {Terminate Success (cake_tiger_io_events ext cl fs)} ∧
   ∃fs' out.
-    extract_fs ext (cl,fs) (cake_tiger_io_events ext cl fs) = SOME fs' ∧
+    extract_fs ext (cl,fs) (cake_tiger_io_events ext cl fs) =
+      SOME (add_stdout fs' out) ∧
+    stdout fs = stdout fs' ∧
     main_sem cl fs fs' out
 Proof
   strip_tac>>
@@ -84,5 +87,6 @@ Proof
   disch_then drule>>
   disch_then (qspecl_then [`ms`,`mc`,`ext`,`data_sp`,`cbspace`] mp_tac)>>
   simp[]>>
-  cheat
+  rw[]>>simp[]>>
+  metis_tac[]
 QED

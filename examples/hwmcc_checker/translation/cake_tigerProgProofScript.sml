@@ -3,6 +3,7 @@
 *)
 Theory cake_tigerProgProof
 Ancestors
+  cnf
   errorMonad (* for bind_def *)
   basis_ffi  (* for whole_prog_spec2 *)
   aig_to_cnf  (* for aig_to_cnf_def_correct *)
@@ -686,15 +687,36 @@ QED
 
 (*** make_cert ****************************************************************)
 
+(* TODO: move *)
+Theorem stdout_add_stderr':
+  STD_streams fs ⇒
+  (stdout (add_stderr fs err) = stdout fs)
+Proof
+  rw[stdo_def,FUN_EQ_THM]>>
+  simp[add_stdo_def,up_stdo_def,fsupdate_def]>>
+  every_case_tac>>simp[AFUPDKEY_ALOOKUP]>>
+  fs[STD_streams_def]>>
+  rw[]>>simp[]>>
+  first_x_assum(qspec_then`2` mp_tac)>>
+  simp[AllCaseEqs()]
+QED
+
+Theorem stdout_write_file[simp]:
+  stdout (write_file fs fnm content) = stdout fs
+Proof
+  rw[stdo_def,FUN_EQ_THM]
+QED
+
 (* Tactic to close goals after printing an error. *)
 val print_err_tac =
   xsimpl >> rw []
   >> qmatch_goalsub_abbrev_tac ‘add_stderr _ msg’
   >> qexistsl [‘add_stderr fs msg’, ‘«»’]
-  >> conj_tac >- simp [make_cert_sem_out_nil]
+  >> conj_tac >-
+    simp [make_cert_sem_out_nil,stdout_add_stderr']
   >> DEP_REWRITE_TAC [add_stdout_nil]
   >> conj_tac >- (irule STD_streams_add_stderr >> simp [])
-  >> xsimpl
+  >> xsimpl;
 
 (* Tactic to dispatch the sideconditions of the write_{reset,transition,...}
    functions. *)
@@ -702,7 +724,7 @@ val write_side_tac : tactic =
   xsimpl
   >> rw []
   >> qpat_assum ‘is_cnf_str _ _’ $ irule_at Any
-  >> simp [] >> xsimpl
+  >> simp [] >> xsimpl;
 
 Theorem make_fname_name_neq[local,simp]:
   make_fname pfx s' ≠ make_fname pfx s ⇔ s' ≠ s
@@ -752,7 +774,8 @@ Theorem make_cert_spec:
        &UNIT_TYPE () uv *
        SEP_EXISTS fs' out.
          STDIO (add_stdout fs' out) *
-         &(make_cert_sem fs fs' fmodel out prefix))
+         &(stdout fs = stdout fs' ∧
+           make_cert_sem fs fs' fmodel out prefix))
 Proof
   rw []
   >> xcf "make_cert" prog
@@ -765,7 +788,8 @@ Proof
   >- (xapp_spec inputAllFrom_SOME_spec >> simp [OPTION_TYPE_def])
   >> Cases_on ‘file_content fs fmodel’ >> gvs [OPTION_TYPE_def]
   >> xmatch
-  >- (xapp >> xsimpl >> qexistsl [‘emp’, ‘fs’] >> print_err_tac)
+  >- (xapp >> xsimpl >>
+    qexistsl [‘emp’, ‘fs’] >> print_err_tac)
   >> xlet_autop
   >> xlet ‘POSTv sv.
        &OPTION_TYPE STRING_TYPE
@@ -813,6 +837,7 @@ Proof
   >> qexistsl [‘fs'’, ‘«SUCCESS»’]
   >> conj_tac
   >- (
+    conj_tac >- simp[Abbr`fs'`]>>
     rw [make_cert_sem_def]
     (* Showing get_model is successful *)
     >> simp [get_model_def]
@@ -833,15 +858,18 @@ QED
 (*** main *********************************************************************)
 
 val wrong_arg_count_tac =
-  xmatch >> xapp
+  xmatch >>
+  assume_tac usage_string_v_thm>>
+  xlet_autop >> xapp
+  >> first_x_assum $ irule_at Any
   >> qmatch_goalsub_abbrev_tac ‘COMMANDLINE cl’
-  >> qexistsl [‘COMMANDLINE cl’, ‘usage_string’, ‘fs’]
-  >> simp [usage_string_v_thm] >> xsimpl
+  >> qexistsl [‘fs’,‘COMMANDLINE cl’]
+  >> simp [] >> xsimpl
   >> rw []
   >> simp [Abbr ‘cl’, main_sem_def]
-  >> qexists ‘add_stderr fs usage_string’
-  >> simp [Req0 add_stdout_nil, STD_streams_add_stderr]
-  >> xsimpl
+  >> qexists ‘add_stderr fs (mk_usage_string usage_string)’
+  >> simp [Req0 add_stdout_nil, STD_streams_add_stderr, stdout_add_stderr']
+  >> xsimpl;
 
 Theorem main_spec:
   hasFreeFD fs
@@ -852,7 +880,9 @@ Theorem main_spec:
     (POSTv uv.
        &UNIT_TYPE () uv * COMMANDLINE cl *
        SEP_EXISTS fs' out.
-         STDIO (add_stdout fs' out) * &(main_sem cl fs fs' out))
+         STDIO (add_stdout fs' out) *
+         &(stdout fs = stdout fs' ∧
+          main_sem cl fs fs' out))
 Proof
   simp [Once STDIO_STD_streams, Once COMMANDLINE_wfcl] >> xpull
   >> xcf "main" prog
@@ -897,7 +927,7 @@ Proof
       >> xsimpl
       >> rw [Abbr ‘cl’, main_sem_def]
       >> qexistsl [‘add_stderr fs «prefix too long»’, ‘«»’]
-      >> simp [make_cert_sem_out_nil, add_stdout_nil, STD_streams_add_stderr]
+      >> simp [make_cert_sem_out_nil, add_stdout_nil, STD_streams_add_stderr, stdout_add_stderr']
       >> xsimpl
     )
     >> xapp
@@ -955,8 +985,13 @@ Proof
 QED
 
 Theorem main_whole_prog_spec2:
-   hasFreeFD fs ⇒
-   whole_prog_spec2 main_v cl fs NONE (λfs'. ∃out. main_sem cl fs fs' out)
+  hasFreeFD fs ⇒
+  whole_prog_spec2 main_v cl fs NONE
+   (λfs''.
+     ∃fs' out.
+       fs'' = add_stdout fs' out ∧
+       stdout fs = stdout fs' ∧
+       main_sem cl fs fs' out)
 Proof
   rw [whole_prog_spec2_def]
   >> match_mp_tac $ MP_CANON $ DISCH_ALL $ MATCH_MP app_wgframe $ UNDISCH main_spec
@@ -964,13 +999,14 @@ Proof
   >> xsimpl
   >> rw [PULL_EXISTS]
   >> rename1 ‘main_sem _ _ fs' out’
-  >> qexistsl [‘add_stdout fs' out’, ‘out’]
+  >> qexistsl [‘add_stdout fs' out’,‘fs' with numchars := fs.numchars’,  ‘out’]
   >> fs [main_sem_def, make_cert_sem_with_numchars,
          Req0 make_cert_sem_add_stdout]
   >> xsimpl
+  >> simp[GSYM add_stdo_with_numchars, stdo_numchars, FUN_EQ_THM]
 QED
 
 Theorem main_semantics =
   prove_sem_thm "main"
                 "main_prog"
-                main_whole_prog_spec2
+                main_whole_prog_spec2;
