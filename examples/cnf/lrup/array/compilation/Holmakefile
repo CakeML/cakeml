@@ -10,3 +10,4 @@ HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
 endif
 
 cake_lrup.S: *lrupCompileScript.sml
+cake_lrup_arm8.S: *lrupCompileARM8Script.sml
