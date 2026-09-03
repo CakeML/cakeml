@@ -19,10 +19,9 @@ val _ = use_sub_check false;
 val r = translate aig_cert_fullTheory.range_inter_def;
 val r = translate aig_cert_fullTheory.range_is_subset_def;
 
-val r = translate aig_cert_fullTheory.space_def;
-val r = translate aig_cert_fullTheory.clause_end_def;
-val r = translate aig_cert_fullTheory.lit_to_string_def;
-val r = translate aig_cert_fullTheory.clause_to_string_def;
+val r = translate syntax_helperTheory.print_lit_def;
+val r = translate syntax_helperTheory.print_lits_def;
+val r = translate syntax_helperTheory.print_header_line_def;
 val r = translate aig_cert_fullTheory.cnf_to_string_def;
 
 val r = translate (aig_cert_fullTheory.parse_def |> demonadify);

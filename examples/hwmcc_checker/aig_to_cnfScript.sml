@@ -697,25 +697,6 @@ Proof
   simp [imp_to_cnf_def, eq_every_to_cnf_def]
 QED
 
-Theorem satisfies_cnf_INSERT:
-  satisfies_cnf w (x INSERT s) ⇔
-  satisfies_clause w x ∧ satisfies_cnf w s
-Proof
-  fs [satisfies_cnf_def, satisfies_fml_gen_def, SF DNF_ss]
-QED
-
-Theorem satisfies_cnf_set:
-  satisfies_cnf w (set xs) = EVERY (satisfies_clause w) xs
-Proof
-  fs [satisfies_cnf_def, satisfies_fml_gen_def, EVERY_MEM]
-QED
-
-Theorem satisfies_lit_negate:
-  satisfies_lit w (negate y) = ~ satisfies_lit w y
-Proof
-  Cases_on ‘y’ \\ gvs [negate_def, satisfies_lit_def]
-QED
-
 Theorem satisfies_clause_imp_to_cnf:
   satisfies_clause w (imp_to_cnf xs y) ⇔
   (EVERY (satisfies_lit w) xs ⇒ satisfies_lit w y)
@@ -791,20 +772,6 @@ Proof
   \\ once_rewrite_tac [to_cnf_def]
   \\ pop_assum $ once_rewrite_tac o single
   \\ fs [AC UNION_ASSOC UNION_COMM]
-QED
-
-Theorem satisfies_cnf_UNION_IMP:
-  satisfies_cnf w (x ∪ y) ⇒
-  satisfies_cnf w x ∧ satisfies_cnf w y
-Proof
-  fs [satisfies_cnf_def, satisfies_fml_gen_def]
-QED
-
-Theorem IMP_satisfies_cnf_UNION:
-  satisfies_cnf w x ∧ satisfies_cnf w y ⇒
-  satisfies_cnf w (x ∪ y)
-Proof
-  fs [satisfies_cnf_def, satisfies_fml_gen_def, SF DNF_ss]
 QED
 
 Theorem to_filter:

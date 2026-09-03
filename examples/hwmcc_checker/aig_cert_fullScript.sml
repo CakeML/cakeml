@@ -6,6 +6,7 @@ Ancestors
   errorMonad (* for monad_thms *)
   listRange
   mlint (* for num_to_str *)
+  syntax_helper (* for the DIMACS printer *)
   aig aig_parse aig_cert_encode aig_to_cnf
 Libs
   preamble
@@ -45,40 +46,13 @@ Proof
 QED
 
 
-(* TODO Move? *)
 (* Convert cnf to string  *****************************************************)
 
-(* lifting some constants to avoid unnecessary reallocation *******************)
-
-(* TODO This can be removed once the compiler automatically lifts constants. *)
-
-Definition space_def:
-  space = « »
-End
-
-Definition clause_end_def:
-  clause_end = [«0\n»]
-End
-
-(* to_string functions  *******************************************************)
-
-Definition lit_to_string_def:
-  (lit_to_string (Pos (i: num)) = toString i) ∧
-  (lit_to_string (Neg (i: num)) = «-» ^ toString i)
-End
-
-Definition clause_to_string_def:
-  clause_to_string (clause: num clause) =
-  concat (MAP (λn. (lit_to_string n) ^ space) clause ++ clause_end)
-End
-
+(* DIMACS output; the header declares limit as the variable count, which
+   is an upper bound on the variables actually occurring (see lits_within) *)
 Definition cnf_to_string_def:
   cnf_to_string (cnf: num clause list, limit: num) =
-  let
-    header    = [«p cnf »; toString limit; space; toString (LENGTH cnf); «\n»];
-    clauses   = MAP clause_to_string cnf
-  in
-    concat (header ++ clauses)
+  concat (print_header_line limit (LENGTH cnf) :: MAP (print_lits #"\n") cnf)
 End
 
 (* end-to-end processing of model and witness *********************************)

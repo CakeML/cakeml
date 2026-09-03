@@ -179,3 +179,37 @@ Proof
   Cases_on ‘x’ \\ gvs [negate_def, var_lit_def]
 QED
 
+Theorem satisfies_lit_negate:
+  satisfies_lit w (negate y) = ~ satisfies_lit w y
+Proof
+  Cases_on ‘y’ \\ gvs [negate_def, satisfies_lit_def]
+QED
+
+(* Satisfaction of finite formulas *)
+Theorem satisfies_cnf_INSERT:
+  satisfies_cnf w (x INSERT s) ⇔
+  satisfies_clause w x ∧ satisfies_cnf w s
+Proof
+  fs [satisfies_cnf_def, satisfies_fml_gen_def, SF DNF_ss]
+QED
+
+Theorem satisfies_cnf_set:
+  satisfies_cnf w (set xs) = EVERY (satisfies_clause w) xs
+Proof
+  fs [satisfies_cnf_def, satisfies_fml_gen_def, EVERY_MEM]
+QED
+
+Theorem satisfies_cnf_UNION_IMP:
+  satisfies_cnf w (x ∪ y) ⇒
+  satisfies_cnf w x ∧ satisfies_cnf w y
+Proof
+  fs [satisfies_cnf_def, satisfies_fml_gen_def]
+QED
+
+Theorem IMP_satisfies_cnf_UNION:
+  satisfies_cnf w x ∧ satisfies_cnf w y ⇒
+  satisfies_cnf w (x ∪ y)
+Proof
+  fs [satisfies_cnf_def, satisfies_fml_gen_def, SF DNF_ss]
+QED
+

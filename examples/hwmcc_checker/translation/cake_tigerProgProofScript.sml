@@ -88,11 +88,6 @@ Definition get_model_def:
     | SOME maiger => SOME (process_model maiger)
 End
 
-(* True if and only if the cnf-formula is unsatisfiable. *)
-Definition is_unsat_def:
-  is_unsat cnf = ¬satisfiable_cnf (set cnf)
-End
-
 (* Asserts that str is a string represnetation of cnf. *)
 Definition is_cnf_str_def:
   is_cnf_str cnf str ⇔ ∃limit. str = explode (cnf_to_string (cnf, limit))
@@ -136,7 +131,7 @@ Definition make_cert_sem_def:
         LIST_REL (cnf_saved fs') fnames
           [reset; transition; property; base; step; liveness; decrease;
            closure; consistent] ∧
-        (EVERY is_unsat
+        (EVERY (λcnf. unsatisfiable_cnf (set cnf))
            [reset; transition; property; base; step; liveness; decrease;
             closure; consistent]
          ⇒
@@ -207,7 +202,7 @@ Theorem write_reset_spec[local]:
        &UNIT_TYPE () uv *
        SEP_EXISTS cnf content.
          &(is_cnf_str cnf content ∧
-           (is_unsat cnf ⇔
+           (unsatisfiable_cnf (set cnf) ⇔
             reset_encoding_is_unsat
               maig mreset mcnstrs mlatches
               waig wreset wcnstrs wlatches klatches)) *
@@ -240,7 +235,7 @@ Proof
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
   >> drule_then assume_tac aig_to_cnf_def_correct
-  >> simp [is_unsat_def, reset_encoding_is_unsat_def]
+  >> simp [unsatisfiable_cnf_def,reset_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
 
@@ -266,7 +261,7 @@ Theorem write_transition_spec[local]:
        &UNIT_TYPE () uv *
        SEP_EXISTS cnf content.
          &(is_cnf_str cnf content ∧
-           (is_unsat cnf ⇔
+           (unsatisfiable_cnf (set cnf) ⇔
             transition_encoding_is_unsat
               maig mnext mcnstrs mlatches
               waig wnext wcnstrs wlatches klatches)) *
@@ -299,7 +294,7 @@ Proof
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
   >> drule_then assume_tac aig_to_cnf_def_correct
-  >> simp [is_unsat_def, transition_encoding_is_unsat_def]
+  >> simp [unsatisfiable_cnf_def,transition_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
 
@@ -321,7 +316,7 @@ Theorem write_property_spec[local]:
        &UNIT_TYPE () uv *
        SEP_EXISTS cnf content.
          &(is_cnf_str cnf content ∧
-           (is_unsat cnf ⇔
+           (unsatisfiable_cnf (set cnf) ⇔
             (property_encoding_is_unsat
                maig mcnstrs mpreds
                waig wcnstrs wpreds))) *
@@ -354,7 +349,7 @@ Proof
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
   >> drule_then assume_tac aig_to_cnf_def_correct
-  >> simp [is_unsat_def, property_encoding_is_unsat_def]
+  >> simp [unsatisfiable_cnf_def,property_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
 
@@ -375,7 +370,7 @@ Theorem write_base_spec[local]:
        &UNIT_TYPE () uv *
        SEP_EXISTS cnf content.
          &(is_cnf_str cnf content ∧
-           (is_unsat cnf ⇔
+           (unsatisfiable_cnf (set cnf) ⇔
             (base_encoding_is_unsat
                waig wreset wcnstrs wpreds wlatches))) *
          STDIO (write_file fs (make_fname prefix «base») content))
@@ -407,7 +402,7 @@ Proof
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
   >> drule_then assume_tac aig_to_cnf_def_correct
-  >> simp [is_unsat_def, base_encoding_is_unsat_def]
+  >> simp [unsatisfiable_cnf_def,base_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
 
@@ -428,7 +423,7 @@ Theorem write_step_spec[local]:
        &UNIT_TYPE () uv *
        SEP_EXISTS cnf content.
          &(is_cnf_str cnf content ∧
-           (is_unsat cnf ⇔
+           (unsatisfiable_cnf (set cnf) ⇔
             (step_encoding_is_unsat
                waig wnext wcnstrs wpreds wlatches))) *
          STDIO (write_file fs (make_fname prefix «step») content))
@@ -460,7 +455,7 @@ Proof
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
   >> drule_then assume_tac aig_to_cnf_def_correct
-  >> simp [is_unsat_def, step_encoding_is_unsat_def]
+  >> simp [unsatisfiable_cnf_def,step_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
 
@@ -487,7 +482,7 @@ Theorem write_liveness_spec[local]:
        &UNIT_TYPE () uv *
        SEP_EXISTS cnf content.
          &(is_cnf_str cnf content ∧
-           (is_unsat cnf ⇔
+           (unsatisfiable_cnf (set cnf) ⇔
             (liveness_encoding_is_unsat
                maig mcnstrs mlive
                waig wnext wcnstrs wpreds wlive wlatches interv))) *
@@ -520,7 +515,7 @@ Proof
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
   >> drule_then assume_tac aig_to_cnf_def_correct
-  >> simp [is_unsat_def, liveness_encoding_is_unsat_def]
+  >> simp [unsatisfiable_cnf_def,liveness_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
 
@@ -543,7 +538,7 @@ Theorem write_decrease_spec[local]:
        &UNIT_TYPE () uv *
        SEP_EXISTS cnf content.
          &(is_cnf_str cnf content ∧
-           (is_unsat cnf ⇔
+           (unsatisfiable_cnf (set cnf) ⇔
             (decrease_encoding_is_unsat
                waig wnext wcnstrs wpreds wlive wlatches interv))) *
          STDIO (write_file fs (make_fname prefix «decrease») content))
@@ -575,7 +570,7 @@ Proof
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
   >> drule_then assume_tac aig_to_cnf_def_correct
-  >> simp [is_unsat_def, decrease_encoding_is_unsat_def]
+  >> simp [unsatisfiable_cnf_def,decrease_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
 
@@ -598,7 +593,7 @@ Theorem write_closure_spec[local]:
        &UNIT_TYPE () uv *
        SEP_EXISTS cnf content.
          &(is_cnf_str cnf content ∧
-           (is_unsat cnf ⇔
+           (unsatisfiable_cnf (set cnf) ⇔
             (closure_encoding_is_unsat
                waig wnext wcnstrs wpreds wlive wlatches interv))) *
          STDIO (write_file fs (make_fname prefix «closure») content))
@@ -630,7 +625,7 @@ Proof
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
   >> drule_then assume_tac aig_to_cnf_def_correct
-  >> simp [is_unsat_def, closure_encoding_is_unsat_def]
+  >> simp [unsatisfiable_cnf_def,closure_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
 
@@ -653,7 +648,7 @@ Theorem write_consistent_spec[local]:
        &UNIT_TYPE () uv *
        SEP_EXISTS cnf content.
          &(is_cnf_str cnf content ∧
-           (is_unsat cnf ⇔
+           (unsatisfiable_cnf (set cnf) ⇔
             (consistent_encoding_is_unsat
                waig wnext wcnstrs wpreds wlive wlatches interv))) *
          STDIO (write_file fs (make_fname prefix «consistent») content))
@@ -685,7 +680,7 @@ Proof
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
   >> drule_then assume_tac aig_to_cnf_def_correct
-  >> simp [is_unsat_def, consistent_encoding_is_unsat_def]
+  >> simp [unsatisfiable_cnf_def,consistent_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
 
