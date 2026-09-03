@@ -669,11 +669,6 @@ Proof
                  (data_to_bvi_do_eq |> SIMP_RULE std_ss [lookup_map]
                                       |> CONJUNCTS |> hd) >>
      fs[])
-  >-(rename1 `BlockOp (PtrEqual)` >> fsrw_tac[DNF_ss][] >>
-     drule_then (assume_tac)
-                 (data_to_bvi_do_eq |> SIMP_RULE std_ss [lookup_map]
-                                      |> CONJUNCTS |> hd) >>
-     fs[])
   >- (rename1 ‘Build parts’
      \\ ‘domain t.code = domain r.code’ by fs [code_rel_def]
      \\ pairarg_tac \\ gvs [PULL_EXISTS]

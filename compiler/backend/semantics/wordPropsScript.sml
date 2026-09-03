@@ -2353,14 +2353,18 @@ Proof
        quantHeuristicsTheory.PAIR_EQ_EXPAND]
 QED
 
-(* Discharging the oracle at the level of whole-program semantics: for a state
-   with no oracle and a reflexive attenuator, some oracle reproduces the
-   concrete semantics.  The witness is the limit of the per-clock answer
-   lists, which nest by monotonicity. *)
-Theorem ptr_eq_semantics:
+(* Discharging the oracle for the top-level call at every clock at once: for a
+   state with no oracle and a reflexive attenuator, one oracle reproduces the
+   concrete run at every clock.  The witness is the limit of the per-clock
+   answer lists, which nest by monotonicity. *)
+Theorem evaluate_ptr_eq_oracle_exists:
   ∀s start.
     s.ptr_eq_oracle = NONE ∧ (∀m dm st w. s.ptr_eq_rel m dm st w w) ⇒
-    ∃po. semantics (s with ptr_eq_oracle := SOME po) start = semantics s start
+    ∃po. ∀k. ∃rest.
+      evaluate (Call NONE (SOME start) [0] NONE,
+                s with <|clock := k; ptr_eq_oracle := SOME po|>) =
+      (I ## (λt. t with ptr_eq_oracle := SOME rest))
+        (evaluate (Call NONE (SOME start) [0] NONE, s with clock := k))
 Proof
   rpt strip_tac>>
   qspec_then`λk. ptr_eq_bits (Call NONE (SOME start) [0] NONE) (s with clock:=k)`
@@ -2375,7 +2379,6 @@ Proof
     gvs[])>>
   strip_tac>>
   qexists_tac`po`>>
-  irule semantics_ptr_eq_oracle>>
   rw[]>>
   Cases_on`evaluate (Call NONE (SOME start) [0] NONE, s with clock:=k)`>>
   drule ptr_eq_bits_correct>>
@@ -2388,6 +2391,20 @@ Proof
   gvs[]>>
   strip_tac>>
   qexists_tac`rest'`>>
+  simp[]
+QED
+
+(* Discharging the oracle at the level of whole-program semantics. *)
+Theorem ptr_eq_semantics:
+  ∀s start.
+    s.ptr_eq_oracle = NONE ∧ (∀m dm st w. s.ptr_eq_rel m dm st w w) ⇒
+    ∃po. semantics (s with ptr_eq_oracle := SOME po) start = semantics s start
+Proof
+  rpt strip_tac>>
+  drule_all evaluate_ptr_eq_oracle_exists>>
+  disch_then(qspec_then`start`strip_assume_tac)>>
+  qexists_tac`po`>>
+  irule semantics_ptr_eq_oracle>>
   simp[]
 QED
 

@@ -952,7 +952,8 @@ Definition state_rel_def:
         EVEN n /\
         if n DIV 2 < k then (FLOOKUP t.regs (n DIV 2) = SOME v)
         else (LLOOKUP current_frame (f-1 -(n DIV 2 - k)) = SOME v) /\
-             n DIV 2 < k + f')
+             n DIV 2 < k + f') /\
+      s.ptr_eq_oracle = NONE
 End
 
 (* correctness proof *)
@@ -5716,6 +5717,90 @@ Proof
   \\ rw[] \\ fs[]
 QED
 
+(* syntactic facts about the PtrEq lowering *)
+
+Theorem comp_PtrEq_stack_asm_name[local]:
+  FST kf + 1 < c.reg_count - LENGTH c.avoid_regs ⇒
+  stack_asm_name c (FST (comp c perf (PtrEq dst v1 v2 tw fw) bs kf))
+Proof
+  PairCases_on `kf`
+  \\ simp [comp_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [wReg1_def, wReg2_def, wRegWrite1_def, AllCaseEqs()]
+  \\ rw [wStackLoad_def, stack_asm_name_def, inst_name_def, reg_name_def]
+QED
+
+Theorem comp_PtrEq_stack_asm_remove[local]:
+  FST kf + 1 < c.reg_count - LENGTH c.avoid_regs ⇒
+  stack_asm_remove c (FST (comp c perf (PtrEq dst v1 v2 tw fw) bs kf))
+Proof
+  PairCases_on `kf`
+  \\ simp [comp_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [wReg1_def, wReg2_def, wRegWrite1_def, AllCaseEqs()]
+  \\ rw [wStackLoad_def, stack_asm_remove_def, reg_name_def]
+QED
+
+Theorem comp_PtrEq_alloc_arg[local]:
+  alloc_arg (FST (comp c perf (PtrEq dst v1 v2 tw fw) bs kf))
+Proof
+  PairCases_on `kf`
+  \\ simp [comp_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [wReg1_def, wReg2_def, wRegWrite1_def, AllCaseEqs()]
+  \\ rw [wStackLoad_def, alloc_arg_def]
+QED
+
+Theorem comp_PtrEq_reg_bound[local]:
+  reg_bound (FST (comp c perf (PtrEq dst v1 v2 tw fw) bs kf)) (FST kf + 2)
+Proof
+  PairCases_on `kf`
+  \\ simp [comp_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [wReg1_def, wReg2_def, wRegWrite1_def, AllCaseEqs()]
+  \\ rw [wStackLoad_def, reg_bound_def]
+QED
+
+Theorem comp_PtrEq_call_args[local]:
+  call_args (FST (comp c perf (PtrEq dst v1 v2 tw fw) bs kf)) a b d e g
+Proof
+  PairCases_on `kf`
+  \\ simp [comp_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [wReg1_def, wReg2_def, wRegWrite1_def, AllCaseEqs()]
+  \\ rw [wStackLoad_def, call_args_def]
+QED
+
+Theorem comp_PtrEq_get_code_labels[local]:
+  get_code_labels (FST (comp c perf (PtrEq dst v1 v2 tw fw) bs kf)) = {}
+Proof
+  PairCases_on `kf`
+  \\ simp [comp_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [wReg1_def, wReg2_def, wRegWrite1_def, AllCaseEqs()]
+  \\ rw [wStackLoad_def]
+QED
+
+Theorem comp_PtrEq_no_install[local]:
+  stackProps$no_install (FST (comp c perf (PtrEq dst v1 v2 tw fw) bs kf))
+Proof
+  PairCases_on `kf`
+  \\ simp [comp_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [wReg1_def, wReg2_def, wRegWrite1_def, AllCaseEqs()]
+  \\ rw [wStackLoad_def, stackPropsTheory.no_install_def]
+QED
+
+Theorem comp_PtrEq_no_shmemop[local]:
+  no_shmemop (FST (comp c perf (PtrEq dst v1 v2 tw fw) bs kf))
+Proof
+  PairCases_on `kf`
+  \\ simp [comp_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [wReg1_def, wReg2_def, wRegWrite1_def, AllCaseEqs()]
+  \\ rw [wStackLoad_def, no_shmemop_def]
+QED
+
 val goal = ``
    λ(prog:'a wordLang$prog,s:('a,num # 'c,'ffi) wordSem$state).
      ∀k f f' res s1 t bs n bs' n' sprog lens.
@@ -5784,6 +5869,7 @@ Proof
   >~ [`Break`] >- suspend "Break"
   >~ [`Continue`] >- suspend "Continue"
   >~ [`Loop`] >- suspend "Loop"
+  >~ [`PtrEq`] >- suspend "PtrEq"
 QED
 
 
@@ -10060,6 +10146,39 @@ Resume comp_correct[Continue]:
   simp [stackSemTheory.evaluate_def]
 QED
 
+Resume comp_correct[PtrEq]:
+  qx_genl_tac [`dst`,`v1`,`v2`,`tw`,`fw`,`s`,`k`,`f`,`f'`,`res`,`s1`,`t`,
+               `bs`,`n`,`bs'`,`n'`,`sprog`,`lens`]
+  \\ strip_tac
+  \\ `s.ptr_eq_oracle = NONE` by fs [state_rel_def]
+  \\ fs [comp_def] \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [wordSemTheory.evaluate_def, AllCaseEqs()]
+  \\ fs [convs_def, reg_allocTheory.is_phy_var_def, GSYM EVEN_MOD2]
+  \\ qexists_tac `0` \\ simp []
+  \\ fs [get_labels_wStackLoad, wStackLoad_append]
+  \\ simp [evaluate_wStackLoad_seq]
+  \\ dxrule_all evaluate_wStackLoad_wReg1 \\ strip_tac
+  \\ simp [Once stackSemTheory.evaluate_def]
+  \\ simp [evaluate_wStackLoad_seq]
+  \\ dxrule_all evaluate_wStackLoad_wReg2 \\ strip_tac
+  \\ simp [Once stackSemTheory.evaluate_def]
+  \\ `get_var r1 t'' = SOME (Word w1)` by simp []
+  \\ fs [EVEN_EXISTS]
+  \\ qmatch_goalsub_abbrev_tac `wRegWrite1 kont (2 * m)`
+  \\ qmatch_goalsub_abbrev_tac `state_rel _ _ _ _ (set_var _ v _)`
+  \\ drule_then (qspecl_then [`v`,`m`,`kont`] mp_tac) (GEN_ALL wRegWrite1_thm1)
+  \\ impl_tac
+  >- (
+    fs [wordLangTheory.max_var_def, MAX_LIST_def, MAX_LT]
+    \\ unabbrev_all_tac
+    \\ simp [stackSemTheory.evaluate_def, stackSemTheory.get_var_imm_def,
+             wordSemTheory.word_cmp_def, asmTheory.word_cmp_def,
+             stackSemTheory.inst_def, stackSemTheory.assign_def,
+             stackSemTheory.word_exp_def]
+    \\ rw [])
+  \\ strip_tac \\ simp []
+QED
+
 Finalise comp_correct;
 
 (* match original comp_correct shape: n, sprog, bs', n' are free *)
@@ -10396,7 +10515,7 @@ Definition init_state_ok_def:
 End
 
 Definition make_init_def:
-  make_init ac k ^t code coracle =
+  make_init ac k ^t code coracle pe_rel =
     <| locals  := insert 0 (Loc 1 0) LN
      ; fp_regs := t.fp_regs
      ; store   := t.store \\ Handler
@@ -10423,7 +10542,9 @@ Definition make_init_def:
      ; stack_max   := stack_size([]:'a stack_frame list)
       (* Not sure about Nil,0 *)
      ; stack_size  := mapi (λn (arg_count,prog). FST (SND (compile_prog ac F prog arg_count k (Nil,0)))) code
-     ; locals_size := SOME 0|>
+     ; locals_size := SOME 0
+     ; ptr_eq_oracle := NONE
+     ; ptr_eq_rel := pe_rel|>
 End
 
 Theorem init_state_ok_IMP_state_rel[local]:
@@ -10441,7 +10562,7 @@ Theorem init_state_ok_IMP_state_rel[local]:
     domain t.code =
       raise_stub_location INSERT store_consts_stub_location INSERT domain code ∧
     init_state_ok ac k t coracle ==>
-    state_rel ac k 0 0 (make_init ac k t code coracle) (t:('a,'c,'ffi)stackSem$state) [] 0
+    state_rel ac k 0 0 (make_init ac k t code coracle pe_rel) (t:('a,'c,'ffi)stackSem$state) [] 0
 Proof
   fs [state_rel_def,make_init_def,LET_DEF,lookup_def,init_state_ok_def,stack_size_rel_iff]
    \\ strip_tac
@@ -10465,7 +10586,7 @@ Proof
 QED
 
 val init_state_ok_semantics =
-  state_rel_IMP_semantics |> Q.INST [`s`|->`make_init ac k t code coracle`]
+  state_rel_IMP_semantics |> Q.INST [`s`|->`make_init ac k t code coracle pe_rel`]
   |> SIMP_RULE std_ss [LET_DEF,GSYM AND_IMP_INTRO]
   |> (fn th => (MATCH_MP th (UNDISCH init_state_ok_IMP_state_rel)))
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
@@ -10701,7 +10822,7 @@ Proof
 QED
 
 val init_state_ok_semantics' =
-  state_rel_IMP_semantics' |> Q.INST [`s`|->`make_init ac k t code coracle`]
+  state_rel_IMP_semantics' |> Q.INST [`s`|->`make_init ac k t code coracle pe_rel`]
   |> SIMP_RULE std_ss [LET_DEF,GSYM AND_IMP_INTRO]
   |> (fn th => (MATCH_MP th (UNDISCH init_state_ok_IMP_state_rel)))
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
@@ -10715,14 +10836,14 @@ Theorem compile_semantics:
     FST (compile asm_conf F code) ≼ t.bitmaps /\
     EVERY (λn,m,prog. flat_exp_conventions prog /\
     post_alloc_conventions (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) prog) code /\
-    semantics (make_init asm_conf k t (fromAList code) coracle) start <> Fail ==>
+    semantics (make_init asm_conf k t (fromAList code) coracle pe_rel) start <> Fail ==>
     semantics start t IN
     extend_with_resource_limit' (word_lang_safe_for_space
-                   (make_init asm_conf k t (fromAList code) coracle) start)
-        {semantics (make_init asm_conf k t (fromAList code) coracle) start}
+                   (make_init asm_conf k t (fromAList code) coracle pe_rel) start)
+        {semantics (make_init asm_conf k t (fromAList code) coracle pe_rel) start}
 Proof
   Cases_on `(word_lang_safe_for_space
-    (make_init asm_conf k t (fromAList code) coracle) start)`
+    (make_init asm_conf k t (fromAList code) coracle pe_rel) start)`
   >- (
    rw [compile_def, extend_with_resource_limit'_def] >>
    match_mp_tac (GEN_ALL init_state_ok_semantics') >>
@@ -11015,8 +11136,9 @@ Theorem word_to_stack_stack_asm_name_lem:
   4 < (FST kf) ⇒
   stack_asm_name c (FST (comp c perf p bs kf))
 Proof
-  ho_match_mp_tac comp_ind>>rw[]>>
-  TRY(PairCases_on`kf`)>>TRY(PairCases_on`kf'`)>>
+  ho_match_mp_tac comp_ind>>rw[]
+  >~ [`PtrEq`] >- simp [comp_PtrEq_stack_asm_name]
+  >> TRY(PairCases_on`kf`)>>TRY(PairCases_on`kf'`)>>
   fs[comp_def,stack_asm_name_def]
   >~ [`Loop`]
   >- (
@@ -11186,8 +11308,9 @@ Theorem word_to_stack_stack_asm_remove_lem:
   (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ∧ perf = F ⇒
   stack_asm_remove c (FST (comp c perf p bs kf))
 Proof
-  ho_match_mp_tac comp_ind>>rw[]>>
-  TRY(PairCases_on`kf`)>>TRY(PairCases_on`kf'`)>>
+  ho_match_mp_tac comp_ind>>rw[]
+  >~ [`PtrEq`] >- simp [comp_PtrEq_stack_asm_remove]
+  >> TRY(PairCases_on`kf`)>>TRY(PairCases_on`kf'`)>>
   fs[comp_def,stack_asm_remove_def]
   >~ [`Loop`]
   >- (
@@ -11318,8 +11441,10 @@ Theorem word_to_stack_alloc_arg:
     perf = F ⇒
     alloc_arg (FST(word_to_stack$comp c perf p n args))
 Proof
-  recInduct comp_ind >>
-  fs[comp_def,alloc_arg_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>
+  recInduct comp_ind
+  \\ rpt conj_tac
+  >~ [`PtrEq`] >- simp [comp_PtrEq_alloc_arg]
+  >> fs[comp_def,alloc_arg_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>
   rw[]>>
   fs[alloc_arg_def]
   >~ [`Loop`]
@@ -11413,7 +11538,10 @@ Theorem word_to_stack_reg_bound:
     4 ≤ FST args ∧ perf = F ⇒
     reg_bound (FST(word_to_stack$comp c perf p n args)) (FST args+2)
 Proof
-  recInduct comp_ind >>fs[comp_def,reg_bound_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>rw[]>>
+  recInduct comp_ind
+  \\ rpt conj_tac
+  >~ [`PtrEq`] >- simp [comp_PtrEq_reg_bound]
+  >> fs[comp_def,reg_bound_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>rw[]>>
   fs[reg_bound_def,convs_def]
   >~ [`Loop`]
   >- (
@@ -11517,8 +11645,10 @@ Theorem word_to_stack_call_args:
     post_alloc_conventions (FST args) p ∧ perf = F ⇒
     call_args (FST(word_to_stack$comp c perf p n args)) 1 2 3 4 0
 Proof
-  ho_match_mp_tac comp_ind >>
-  fs[comp_def,call_args_def,FORALL_PROD,wRegWrite1_def,wLive_def,convs_def]>>rw[]>>
+  ho_match_mp_tac comp_ind
+  \\ rpt conj_tac
+  >~ [`PtrEq`] >- simp [comp_PtrEq_call_args]
+  >> fs[comp_def,call_args_def,FORALL_PROD,wRegWrite1_def,wLive_def,convs_def]>>rw[]>>
   fs[call_args_def]
   >~ [`Loop`]
   >- (
@@ -11754,8 +11884,10 @@ Theorem word_to_stack_comp_code_labels:
         ((IMAGE (λn.(n,0)) (get_code_labels prog)) ∪
          stack_get_handler_labels n (FST (comp c perf prog bs kf)))
 Proof
-  ho_match_mp_tac word_to_stackTheory.comp_ind>>
-  rw[word_to_stackTheory.comp_def]>>
+  ho_match_mp_tac word_to_stackTheory.comp_ind
+  \\ rpt conj_tac
+  >~ [`PtrEq`] >- simp [comp_PtrEq_get_code_labels]
+  >> rw[word_to_stackTheory.comp_def]>>
   TRY(PairCases_on`kf`)>>
   fs[get_code_labels_def]>>
   rpt (fs[]>>pairarg_tac>>fs[])>>
@@ -12032,8 +12164,10 @@ Theorem comp_no_install:
     comp ac perf prog bs kf = (prog',bs') ∧ perf = F ==>
     stackProps$no_install prog'
 Proof
-  ho_match_mp_tac comp_ind >>
-  simp[no_install_def,comp_def] >>
+  ho_match_mp_tac comp_ind
+  \\ rpt conj_tac
+  >~ [`PtrEq`] >- (rw [] >> metis_tac [comp_PtrEq_no_install, FST])
+  >> simp[no_install_def,comp_def] >>
   rw[]
   >~ [`Loop`]
   >- (
@@ -12262,8 +12396,10 @@ Theorem comp_no_shmemop:
     comp ac perf prog bs kf = (prog',bs') ==>
     no_shmemop prog'
 Proof
-  ho_match_mp_tac comp_ind >>
-  simp[no_shmemop_def,comp_def] >>
+  ho_match_mp_tac comp_ind
+  \\ rpt conj_tac
+  >~ [`PtrEq`] >- (rw [] >> metis_tac [comp_PtrEq_no_shmemop, FST])
+  >> simp[no_shmemop_def,comp_def] >>
   rpt strip_tac
   >~ [`Loop`]
   >- (
