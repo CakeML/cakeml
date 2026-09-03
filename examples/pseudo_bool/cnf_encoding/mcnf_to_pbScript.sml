@@ -43,10 +43,10 @@ Definition cost_vec_def:
   MAP (λk. &(cost_obj k w mfml):int) (GENLIST SUC (num_objs mfml))
 End
 
-(* The non-dominated set of cost vectors *)
+(* The non-dominated set of cost vectors under an objective ordering *)
 Definition nondom_costs_def:
-  nondom_costs (mfml:mccnf) =
-  pareto_min_set {cost_vec w mfml | w | msat_hard w mfml}
+  nondom_costs ord (mfml:mccnf) =
+  min_set (ord_le ord) {cost_vec w mfml | w | msat_hard w mfml}
 End
 
 (*** STEP 2: Formalise an encoding into PB ***)
@@ -250,12 +250,12 @@ QED
 
 Theorem mfml_to_pbf_nondom:
   mfml_to_pbf mfml = (objs,pbf) ⇒
-  nondom_set (set pbf) objs = nondom_costs mfml
+  nondom_set ord (set pbf) objs = nondom_costs ord mfml
 Proof
   rw[nondom_set_def,nondom_costs_def]>>
-  irule pareto_min_set_dom>>
+  irule min_set_dom_ord>>
   rw[in_obj_img]
-  >~ [‘vec_le _ (cost_vec _ _)’] >- (
+  >~ [‘ord_le _ _ (cost_vec _ _)’] >- (
     drule_all mencode_correct_cnf_pbf>>
     rw[]>>
     qexists_tac`cost_vec w mfml`>>
@@ -265,12 +265,12 @@ Proof
   rw[]>>
   qexists_tac`cost_vec (w o INL) mfml`>>
   simp[]>>
-  metis_tac[]
+  metis_tac[vec_le_ord_le]
 QED
 
 Theorem full_encode_mcnf_nondom:
   full_encode_mcnf mfml = (objs,pbf) ⇒
-  nondom_set (set pbf) objs = nondom_costs mfml
+  nondom_set ord (set pbf) objs = nondom_costs ord mfml
 Proof
   rw[full_encode_mcnf_def]>>pairarg_tac>>gvs[LIST_TO_SET_MAP]>>
   DEP_REWRITE_TAC[GSYM nondom_set_INJ]>>simp[]>>

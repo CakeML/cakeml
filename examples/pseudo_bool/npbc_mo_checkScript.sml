@@ -312,6 +312,55 @@ Proof
   metis_tac[]
 QED
 
+(*** The selected objective ordering ***)
+
+(* The order check for each ordering *)
+Definition ord_ok_def:
+  ord_ok Pareto objs aord xs = pareto_ord_ok objs aord xs
+End
+
+(* The semantic content of an accepted order: it refines the ordering *)
+Definition ord_sound_def:
+  ord_sound mord objs aspo ⇔
+  ∀w1 w2. po_of_aspo aspo w1 w2 ⇒
+    ord_le mord (obj_vecs objs w1) (obj_vecs objs w2)
+End
+
+(* Everything the checker needs from an ordering *)
+Definition mo_ord_ok_def:
+  mo_ord_ok mord ⇔
+    good_mo_ord mord ∧
+    ∀objs aord xs.
+      ord_ok mord objs aord xs ∧ good_aspo (FST aord,xs) ⇒
+      ord_sound mord objs (FST aord,xs)
+End
+
+Theorem mo_ord_ok_refl:
+  mo_ord_ok mord ⇒ ord_le mord x x
+Proof
+  rw[mo_ord_ok_def,good_mo_ord_def]
+QED
+
+Theorem mo_ord_ok_trans:
+  mo_ord_ok mord ∧ ord_le mord x y ∧ ord_le mord y z ⇒ ord_le mord x z
+Proof
+  rw[mo_ord_ok_def,good_mo_ord_def]>>
+  metis_tac[]
+QED
+
+Theorem mo_ord_ok_antisym:
+  mo_ord_ok mord ∧ ord_le mord x y ∧ ord_le mord y x ⇒ x = y
+Proof
+  rw[mo_ord_ok_def,good_mo_ord_def]
+QED
+
+Theorem mo_ord_ok_sound:
+  ord_ok mord objs aord xs ∧ good_aspo (FST aord,xs) ∧ mo_ord_ok mord ⇒
+  ord_sound mord objs (FST aord,xs)
+Proof
+  rw[mo_ord_ok_def]
+QED
+
 (* The multi-objective checker: every step is the single-objective
    check_cstep, except that
 
@@ -320,9 +369,9 @@ QED
    - Sstep and CheckedDelete need a loaded order, because without one their
      witness carries no order relation and hence no bound on the objective
      vector;
-   - a loaded order must refine Pareto dominance. *)
+   - a loaded order must refine the selected objective ordering. *)
 Definition check_mo_cstep_def:
-  check_mo_cstep (objs:((int # num) list # int) list) cstep
+  check_mo_cstep mord (objs:((int # num) list # int) list) cstep
     (fml:pbf) (pc:proof_conf) (sols:int list list) =
   case cstep of
     Sol w =>
@@ -354,7 +403,7 @@ Definition check_mo_cstep_def:
     (case ALOOKUP pc.orders name of
       NONE => NONE
     | SOME aord =>
-      if pareto_ord_ok objs aord xs then
+      if ord_ok mord objs aord xs then
         (case check_cstep cstep fml pc of
           NONE => NONE
         | SOME (fml',pc') => SOME (fml',pc',sols))
@@ -367,59 +416,59 @@ End
 
 (* A logged vector already covers this assignment *)
 Definition mo_esc_def:
-  mo_esc objs sols w ⇔
-    ∃v. MEM v sols ∧ vec_le v (obj_vecs objs w)
+  mo_esc mord objs sols w ⇔
+    ∃v. MEM v sols ∧ ord_le mord v (obj_vecs objs w)
 End
 
 (* The checker invariant. The last conjunct is npbc's conf_valid', weakened
    so that an assignment may instead be covered by a logged vector. *)
 Definition mo_conf_ok_def:
-  mo_conf_ok objs fml pc sols ⇔
+  mo_conf_ok mord objs fml pc sols ⇔
     id_ok fml pc.id ∧
     OPTION_ALL good_aspo_subst pc.ord ∧
     EVERY (good_aord_t o SND) pc.orders ∧
     pc.obj = NONE ∧ pc.pres = NONE ∧
     (pc.tcb ⇒ core_only_fml T fml ⊨ core_only_fml F fml) ∧
     ∀ord. pc.ord = SOME ord ⇒
-      pareto_sound objs (FST ord) ∧
+      ord_sound mord objs (FST ord) ∧
       sat_obj_po_esc (pres_set_spt pc.pres) (SOME (FST ord)) pc.obj
-        (mo_esc objs sols)
+        (mo_esc mord objs sols)
         (core_only_fml T fml) (core_only_fml F fml)
 End
 
 Definition check_mo_csteps_def:
-  (check_mo_csteps (objs:((int # num) list # int) list) []
+  (check_mo_csteps mord (objs:((int # num) list # int) list) []
      fml pc (sols:int list list) = SOME (fml,pc,sols)) ∧
-  (check_mo_csteps objs (s::ss) fml pc sols =
-    case check_mo_cstep objs s fml pc sols of
+  (check_mo_csteps mord objs (s::ss) fml pc sols =
+    case check_mo_cstep mord objs s fml pc sols of
       NONE => NONE
-    | SOME (fml',pc',sols') => check_mo_csteps objs ss fml' pc' sols')
+    | SOME (fml',pc',sols') => check_mo_csteps mord objs ss fml' pc' sols')
 End
 
 Definition check_mo_top_def:
-  check_mo_top objs csteps fml id n =
-  case check_mo_csteps objs csteps fml (init_conf id T NONE NONE) [] of
+  check_mo_top mord objs csteps fml id n =
+  case check_mo_csteps mord objs csteps fml (init_conf id T NONE NONE) [] of
     NONE => NONE
   | SOME (fml',pc',sols) =>
     if pc'.chk ∧ check_contradiction_fml F fml' n
-    then SOME (pareto_min sols)
+    then SOME (ord_min mord sols)
     else NONE
 End
 
-(* pareto_sound turns the order conjunct of sat_obj_po into vec_le *)
-Theorem sat_obj_po_vec_le[local]:
+(* ord_sound turns the order conjunct of sat_obj_po into ord_le *)
+Theorem sat_obj_po_ord_le[local]:
   ∀objs aspo pres obj s t w.
-  pareto_sound objs aspo ∧
+  ord_sound mord objs aspo ∧
   sat_obj_po pres (SOME aspo) obj s t ∧
   satisfies w s ⇒
-  ∃w'. satisfies w' t ∧ vec_le (obj_vecs objs w') (obj_vecs objs w)
+  ∃w'. satisfies w' t ∧ ord_le mord (obj_vecs objs w') (obj_vecs objs w)
 Proof
   rw[sat_obj_po_def]>>
   first_x_assum drule>>
   strip_tac>>
   qexists_tac`w'`>>
   simp[]>>
-  gvs[pareto_sound_def]
+  gvs[ord_sound_def]
 QED
 
 (* Failing to satisfy the ban means agreeing with the logged assignment
@@ -453,14 +502,15 @@ QED
 
 
 
-(* pareto_sound makes mo_esc upward closed along the order *)
+(* ord_sound makes mo_esc upward closed along the order *)
 Theorem mo_esc_upward[local]:
-  pareto_sound objs aspo ⇒
-  ∀x y. mo_esc objs sols x ∧ po_of_aspo aspo x y ⇒ mo_esc objs sols y
+  mo_ord_ok mord ∧
+  ord_sound mord objs aspo ⇒
+  ∀x y. mo_esc mord objs sols x ∧ po_of_aspo aspo x y ⇒ mo_esc mord objs sols y
 Proof
-  rw[mo_esc_def,pareto_sound_def]>>
+  rw[mo_esc_def,ord_sound_def]>>
   first_x_assum drule>>
-  metis_tac[vec_le_trans]
+  metis_tac[mo_ord_ok_trans]
 QED
 
 Theorem sat_obj_po_esc_refl[local]:
@@ -474,12 +524,12 @@ Proof
 QED
 
 (* Reading the invariant's last conjunct as (a) below *)
-Theorem sat_obj_po_esc_vec_le[local]:
-  pareto_sound objs aspo ∧
-  sat_obj_po_esc pres (SOME aspo) obj (mo_esc objs sols) s t ∧
+Theorem sat_obj_po_esc_ord_le[local]:
+  ord_sound mord objs aspo ∧
+  sat_obj_po_esc pres (SOME aspo) obj (mo_esc mord objs sols) s t ∧
   satisfies w s ⇒
-  (∃w'. satisfies w' t ∧ vec_le (obj_vecs objs w') (obj_vecs objs w)) ∨
-  (∃v. MEM v sols ∧ vec_le v (obj_vecs objs w))
+  (∃w'. satisfies w' t ∧ ord_le mord (obj_vecs objs w') (obj_vecs objs w)) ∨
+  (∃v. MEM v sols ∧ ord_le mord v (obj_vecs objs w))
 Proof
   rw[sat_obj_po_esc_def]>>
   first_x_assum drule>>
@@ -487,7 +537,7 @@ Proof
   >- (
     disj1_tac>>
     qexists_tac`w'`>>
-    gvs[pareto_sound_def])>>
+    gvs[ord_sound_def])>>
   disj2_tac>>
   gvs[mo_esc_def]>>
   metis_tac[]
@@ -495,12 +545,13 @@ QED
 
 (* Composing an order-only step, the invariant, and another order-only step *)
 Theorem sat_obj_po_esc_compose[local]:
+  mo_ord_ok mord ∧
   good_aspo (FST ord) ∧
-  pareto_sound objs (FST ord) ∧
+  ord_sound mord objs (FST ord) ∧
   sat_obj_po pres (SOME (FST ord)) obj a b ∧
-  sat_obj_po_esc pres (SOME (FST ord)) obj (mo_esc objs sols) b c ∧
+  sat_obj_po_esc pres (SOME (FST ord)) obj (mo_esc mord objs sols) b c ∧
   sat_obj_po pres (SOME (FST ord)) obj c d ⇒
-  sat_obj_po_esc pres (SOME (FST ord)) obj (mo_esc objs sols) a d
+  sat_obj_po_esc pres (SOME (FST ord)) obj (mo_esc mord objs sols) a d
 Proof
   strip_tac>>
   irule sat_obj_po_esc_trans>>
@@ -517,29 +568,30 @@ QED
 (* A step that moves the two core views under the loaded order preserves the
    invariant's last conjunct and gives (a) and (b) *)
 Theorem mo_step_ok[local]:
-  pareto_sound objs (FST ord) ∧
+  mo_ord_ok mord ∧
+  ord_sound mord objs (FST ord) ∧
   good_aspo (FST ord) ∧
-  sat_obj_po_esc pres (SOME (FST ord)) obj (mo_esc objs sols)
+  sat_obj_po_esc pres (SOME (FST ord)) obj (mo_esc mord objs sols)
     (core_only_fml T fml) (core_only_fml F fml) ∧
   sat_obj_po pres (SOME (FST ord)) obj
     (core_only_fml F fml) (core_only_fml F fml') ∧
   sat_obj_po pres (SOME (FST ord)) obj
     (core_only_fml T fml') (core_only_fml T fml) ⇒
-  sat_obj_po_esc pres (SOME (FST ord)) obj (mo_esc objs sols)
+  sat_obj_po_esc pres (SOME (FST ord)) obj (mo_esc mord objs sols)
     (core_only_fml T fml') (core_only_fml F fml') ∧
   (∀w. satisfies w (core_only_fml F fml) ⇒
      (∃w'. satisfies w' (core_only_fml F fml') ∧
-           vec_le (obj_vecs objs w') (obj_vecs objs w)) ∨
-     (∃v. MEM v sols ∧ vec_le v (obj_vecs objs w))) ∧
+           ord_le mord (obj_vecs objs w') (obj_vecs objs w)) ∨
+     (∃v. MEM v sols ∧ ord_le mord v (obj_vecs objs w))) ∧
   (∀w. satisfies w (core_only_fml T fml') ⇒
      ∃w'. satisfies w' (core_only_fml T fml) ∧
-          vec_le (obj_vecs objs w') (obj_vecs objs w))
+          ord_le mord (obj_vecs objs w') (obj_vecs objs w))
 Proof
   strip_tac>>
   drule_all sat_obj_po_esc_compose>>
   strip_tac>>
   rw[]>>
-  metis_tac[sat_obj_po_vec_le]
+  metis_tac[sat_obj_po_ord_le]
 QED
 
 (* Soundness of one step.
@@ -553,24 +605,25 @@ QED
    (b) and (c) are conditioned on chk, which unchecked deletion clears; no
    solution can be logged once it is. *)
 Theorem check_mo_cstep_sound:
-  mo_conf_ok objs fml pc sols ∧
-  check_mo_cstep objs cstep fml pc sols = SOME (fml',pc',sols') ⇒
-  mo_conf_ok objs fml' pc' sols' ∧
+  mo_ord_ok mord ∧
+  mo_conf_ok mord objs fml pc sols ∧
+  check_mo_cstep mord objs cstep fml pc sols = SOME (fml',pc',sols') ⇒
+  mo_conf_ok mord objs fml' pc' sols' ∧
   pc.id ≤ pc'.id ∧
   (pc'.chk ⇒ pc.chk) ∧
   (∀v. MEM v sols ⇒ MEM v sols') ∧
   (∀w. satisfies w (core_only_fml F fml) ⇒
      (∃w'. satisfies w' (core_only_fml F fml') ∧
-           vec_le (obj_vecs objs w') (obj_vecs objs w)) ∨
-     (∃v. MEM v sols' ∧ vec_le v (obj_vecs objs w))) ∧
+           ord_le mord (obj_vecs objs w') (obj_vecs objs w)) ∨
+     (∃v. MEM v sols' ∧ ord_le mord v (obj_vecs objs w))) ∧
   (pc'.chk ⇒
     ∀w. satisfies w (core_only_fml T fml') ⇒
       ∃w'. satisfies w' (core_only_fml T fml) ∧
-           vec_le (obj_vecs objs w') (obj_vecs objs w)) ∧
+           ord_le mord (obj_vecs objs w') (obj_vecs objs w)) ∧
   (pc'.chk ⇒
     ∀v. MEM v sols' ⇒ MEM v sols ∨
       ∃w. satisfies w (core_only_fml T fml) ∧
-          vec_le (obj_vecs objs w) v)
+          ord_le mord (obj_vecs objs w) v)
 Proof
   strip_tac>>
   gvs[mo_conf_ok_def]>>
@@ -586,7 +639,7 @@ Proof
     (Cases_on`pc.ord`
     >- gvs[check_cstep_dom_def])>>
     gvs[]>>
-    qspecl_then [`p`,`l`,`l0`,`o'`,`fml`,`pc`,`mo_esc objs sols`] mp_tac
+    qspecl_then [`p`,`l`,`l0`,`o'`,`fml`,`pc`,`mo_esc mord objs sols`] mp_tac
       check_cstep_dom_str>>
     (impl_tac
     >- (
@@ -611,9 +664,9 @@ Proof
         irule satisfies_SUBSET>>
         irule_at Any core_only_fml_T_SUBSET_F>>
         simp[])>>
-      drule_all sat_obj_po_esc_vec_le>>
+      drule_all sat_obj_po_esc_ord_le>>
       simp[])>>
-    drule_all sat_obj_po_vec_le>>
+    drule_all sat_obj_po_ord_le>>
     simp[])
   >~ [`check_cstep_sstep`] >- (
     gvs[AllCaseEqs()]>>
@@ -656,7 +709,7 @@ Proof
     rw[sat_obj_po_esc_refl,sat_implies_def]>>
     disj1_tac>>
     qexists_tac`w`>>
-    simp[vec_le_refl]>>
+    simp[mo_ord_ok_refl]>>
     drule_all satisfies_SUBSET>>
     simp[])
   >~ [`check_cstep_transfer`] >- (
@@ -667,14 +720,14 @@ Proof
     rw[]
     >- (gvs[sat_implies_def]>>metis_tac[satisfies_SUBSET])
     >- metis_tac[sat_obj_po_esc_more]
-    >- metis_tac[vec_le_refl]>>
-    metis_tac[satisfies_SUBSET,vec_le_refl])
+    >- metis_tac[mo_ord_ok_refl]>>
+    metis_tac[satisfies_SUBSET,mo_ord_ok_refl])
   >~ [`check_cstep_strengthentocore`] >- (
     gvs[AllCaseEqs(),check_cstep_strengthentocore_def]>>
     Cases_on`pc.ord`>>
     gvs[OPTION_ALL_def]>>
     rw[core_only_fml_map_core,id_ok_map,sat_obj_po_esc_refl]>>
-    metis_tac[vec_le_refl,satisfies_SUBSET,core_only_fml_T_SUBSET_F])
+    metis_tac[mo_ord_ok_refl,satisfies_SUBSET,core_only_fml_T_SUBSET_F])
   >~ [`check_cstep_loadorder`] >- (
     gvs[AllCaseEqs(),check_cstep_loadorder_def]>>
     drule ALOOKUP_MEM>>
@@ -686,7 +739,7 @@ Proof
     strip_tac>>
     first_x_assum drule>>
     strip_tac>>
-    drule pareto_ord_ok_pareto_sound>>
+    drule mo_ord_ok_sound>>
     (impl_tac >- simp[])>>
     strip_tac>>
     `∀b. core_only_fml b (map (λ(c,b). (c,T)) fml) = core_only_fml F fml` by
@@ -701,27 +754,27 @@ Proof
     >- (
       disj1_tac>>
       qexists_tac`w`>>
-      simp[vec_le_refl])>>
+      simp[mo_ord_ok_refl])>>
     qexists_tac`w`>>
-    simp[vec_le_refl]>>
+    simp[mo_ord_ok_refl]>>
     irule satisfies_SUBSET>>
     irule_at Any core_only_fml_T_SUBSET_F>>
     simp[])
   >~ [`check_cstep_unloadorder`] >- (
     gvs[AllCaseEqs(),check_cstep_unloadorder_def]>>
     rw[]>>
-    metis_tac[vec_le_refl])
+    metis_tac[mo_ord_ok_refl])
   >~ [`check_cstep_storeorder`] >- (
     gvs[AllCaseEqs()]>>
     drule_all check_cstep_storeorder_str>>
     strip_tac>>
     gvs[]>>
     rw[]>>
-    metis_tac[vec_le_refl])
+    metis_tac[mo_ord_ok_refl])
   >~ [`check_cstep_obj`] >- (
     gvs[AllCaseEqs(),check_cstep_obj_def]>>
     rw[]>>
-    metis_tac[vec_le_refl])
+    metis_tac[mo_ord_ok_refl])
   >- (
     gvs[AllCaseEqs(),lookup_list_to_num_set]>>
     `pc.id ∉ domain fml` by gvs[id_ok_def]>>
@@ -764,7 +817,7 @@ Proof
         `obj_vecs objs w' = obj_vecs objs wsol` by (
           first_x_assum irule>>
           simp[])>>
-        gvs[pareto_sound_def]>>
+        gvs[ord_sound_def]>>
         metis_tac[])>>
       disj2_tac>>
       gvs[mo_esc_def]>>
@@ -775,49 +828,50 @@ Proof
       >- (
         disj1_tac>>
         qexists_tac`w`>>
-        simp[vec_le_refl])>>
+        simp[mo_ord_ok_refl])>>
       disj2_tac>>
       qexists_tac`obj_vecs objs wsol`>>
       `obj_vecs objs w = obj_vecs objs wsol` by (
         first_x_assum irule>>
         simp[])>>
-      simp[vec_le_refl])
+      simp[mo_ord_ok_refl])
     >- (
       qexists_tac`w`>>
-      simp[vec_le_refl])
+      simp[mo_ord_ok_refl])
     >- (
       disj2_tac>>
       qexists_tac`wsol`>>
-      simp[vec_le_refl])>>
+      simp[mo_ord_ok_refl])>>
     simp[])
 QED
 
 (* Soundness of a whole run: the paper's Lemmas 2 and 3 *)
 Theorem check_mo_csteps_sound:
-  ∀csteps objs fml pc sols fml' pc' sols'.
-  mo_conf_ok objs fml pc sols ∧
-  check_mo_csteps objs csteps fml pc sols = SOME (fml',pc',sols') ⇒
-  mo_conf_ok objs fml' pc' sols' ∧
+  ∀csteps mord objs fml pc sols fml' pc' sols'.
+  mo_ord_ok mord ∧
+  mo_conf_ok mord objs fml pc sols ∧
+  check_mo_csteps mord objs csteps fml pc sols = SOME (fml',pc',sols') ⇒
+  mo_conf_ok mord objs fml' pc' sols' ∧
   pc.id ≤ pc'.id ∧
   (pc'.chk ⇒ pc.chk) ∧
   (∀v. MEM v sols ⇒ MEM v sols') ∧
   (∀w. satisfies w (core_only_fml F fml) ⇒
      (∃w'. satisfies w' (core_only_fml F fml') ∧
-           vec_le (obj_vecs objs w') (obj_vecs objs w)) ∨
-     (∃v. MEM v sols' ∧ vec_le v (obj_vecs objs w))) ∧
+           ord_le mord (obj_vecs objs w') (obj_vecs objs w)) ∨
+     (∃v. MEM v sols' ∧ ord_le mord v (obj_vecs objs w))) ∧
   (pc'.chk ⇒
     ∀w. satisfies w (core_only_fml T fml') ⇒
       ∃w'. satisfies w' (core_only_fml T fml) ∧
-           vec_le (obj_vecs objs w') (obj_vecs objs w)) ∧
+           ord_le mord (obj_vecs objs w') (obj_vecs objs w)) ∧
   (pc'.chk ⇒
     ∀v. MEM v sols' ⇒ MEM v sols ∨
       ∃w. satisfies w (core_only_fml T fml) ∧
-          vec_le (obj_vecs objs w) v)
+          ord_le mord (obj_vecs objs w) v)
 Proof
   Induct
   >- (
     rw[check_mo_csteps_def]>>
-    metis_tac[vec_le_refl])>>
+    metis_tac[mo_ord_ok_refl])>>
   rpt gen_tac>>
   strip_tac>>
   gvs[check_mo_csteps_def,AllCaseEqs()]>>
@@ -826,18 +880,19 @@ Proof
   first_x_assum drule_all>>
   strip_tac>>
   rw[]>>
-  metis_tac[vec_le_trans]
+  metis_tac[mo_ord_ok_trans]
 QED
 
 (* The printed front is exactly the non-dominated set of the input *)
 Theorem check_mo_top_sound:
+  mo_ord_ok mord ∧
   all_core fml ∧
   id_ok fml id ∧
-  check_mo_top objs csteps fml id n = SOME vs ⇒
-  set vs = nondom_set (core_only_fml T fml) objs
+  check_mo_top mord objs csteps fml id n = SOME vs ⇒
+  set vs = nondom_set mord (core_only_fml T fml) objs
 Proof
   rw[check_mo_top_def,AllCaseEqs()]>>
-  `mo_conf_ok objs fml (init_conf id T NONE NONE) []` by
+  `mo_conf_ok mord objs fml (init_conf id T NONE NONE) []` by
     simp[mo_conf_ok_def,init_conf_def]>>
   drule_all check_mo_csteps_sound>>
   strip_tac>>
@@ -846,8 +901,18 @@ Proof
   `core_only_fml T fml = core_only_fml F fml` by
     metis_tac[all_core_core_only_fml_eq]>>
   gvs[unsatisfiable_def,satisfiable_def]>>
-  simp[set_pareto_min,nondom_set_def]>>
-  irule pareto_min_set_dom>>
+  simp[set_ord_min,nondom_set_def]>>
+  irule min_set_dom>>
   rw[in_obj_img]>>
-  metis_tac[]
+  metis_tac[mo_ord_ok_trans,mo_ord_ok_antisym]
+QED
+
+(* Every ordering the checker accepts satisfies its requirements *)
+Theorem mo_ord_ok_thm:
+  mo_ord_ok mord
+Proof
+  Cases_on`mord`>>
+  rw[mo_ord_ok_def,ord_ok_def,ord_sound_def,ord_le_def]>>
+  drule_all pareto_ord_ok_pareto_sound>>
+  simp[pareto_sound_def]
 QED

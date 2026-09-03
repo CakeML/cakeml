@@ -3,6 +3,9 @@ Compiling the pseudo-boolean constraints checker.
 [npbc_fullCompileScript.sml](npbc_fullCompileScript.sml):
 Compiles the PB checker example by evaluation inside the logic of HOL
 
+[npbc_mo_fullCompileScript.sml](npbc_mo_fullCompileScript.sml):
+Compiles the multi-objective PB checker by evaluation inside the logic of HOL
+
 [proofs](proofs):
 Prove end-to-end correctness theorem for PB checker with arrays.
 

@@ -15,3 +15,6 @@ endif
 
 cake_pb.S : *npbc_fullCompileScript.sml
 cake_pb_arm8.S : *npbc_fullCompileScript.sml
+
+cake_pb_mo.S : *npbc_mo_fullCompileScript.sml
+cake_pb_mo_arm8.S : *npbc_mo_fullCompileScript.sml

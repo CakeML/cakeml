@@ -46,24 +46,24 @@ End
 
 (* The multi-objective side conditions on the delegated steps *)
 Definition mo_cstep_ok_def:
-  mo_cstep_ok objs cstep (pc:proof_conf) ⇔
+  mo_cstep_ok mord objs cstep (pc:proof_conf) ⇔
   case cstep of
     Sstep _ => pc.ord ≠ NONE
   | CheckedDelete _ _ _ _ => pc.ord ≠ NONE
   | LoadOrder name xs =>
     (case ALOOKUP pc.orders name of
       NONE => F
-    | SOME aord => pareto_ord_ok objs aord xs)
+    | SOME aord => ord_ok mord objs aord xs)
   | _ => T
 End
 
 Definition check_mo_cstep_list_def:
-  check_mo_cstep_list objs cstep fml zeros inds vimap vomap pc sols =
+  check_mo_cstep_list mord objs cstep fml zeros inds vimap vomap pc sols =
   case get_sol cstep of
     SOME w =>
       check_mo_cstep_sol_list objs w fml zeros inds vimap vomap pc sols
   | NONE =>
-    if mo_cstep_ok objs cstep pc then
+    if mo_cstep_ok mord objs cstep pc then
       (case check_cstep_list cstep fml zeros inds vimap vomap pc of
         NONE => NONE
       | SOME (fml',zeros',inds',vimap',vomap',pc') =>
@@ -72,23 +72,23 @@ Definition check_mo_cstep_list_def:
 End
 
 Definition check_mo_csteps_list_def:
-  (check_mo_csteps_list objs [] fml zeros inds vimap vomap pc sols =
+  (check_mo_csteps_list mord objs [] fml zeros inds vimap vomap pc sols =
     SOME (fml, zeros, inds, vimap, vomap, pc, sols)) ∧
-  (check_mo_csteps_list objs (c::cs) fml zeros inds vimap vomap pc sols =
-    case check_mo_cstep_list objs c fml zeros inds vimap vomap pc sols of
+  (check_mo_csteps_list mord objs (c::cs) fml zeros inds vimap vomap pc sols =
+    case check_mo_cstep_list mord objs c fml zeros inds vimap vomap pc sols of
       NONE => NONE
     | SOME(fml', zeros', inds', vimap', vomap', pc', sols') =>
-      check_mo_csteps_list objs cs fml' zeros' inds' vimap' vomap' pc' sols')
+      check_mo_csteps_list mord objs cs fml' zeros' inds' vimap' vomap' pc' sols')
 End
 
 Definition check_mo_top_list_def:
-  check_mo_top_list objs csteps fml zeros inds vimap vomap id n =
-  case check_mo_csteps_list objs csteps fml zeros inds vimap vomap
+  check_mo_top_list mord objs csteps fml zeros inds vimap vomap id n =
+  case check_mo_csteps_list mord objs csteps fml zeros inds vimap vomap
     (init_conf id T NONE NONE) [] of
     NONE => NONE
   | SOME (fml',zeros',inds',vimap',vomap',pc',sols) =>
     if pc'.chk ∧ check_contradiction_fml_list F fml' n
-    then SOME (pareto_min sols)
+    then SOME (ord_min mord sols)
     else NONE
 End
 
@@ -97,7 +97,7 @@ Theorem fml_rel_check_mo_cstep_sol_list:
   check_mo_cstep_sol_list objs w fmlls zeros inds vimap vomap pc sols =
     SOME (fmlls',zeros',inds',vimap',vomap',pc',sols') ⇒
   ∃fml'.
-    check_mo_cstep objs (Sol w) fml pc sols = SOME (fml', pc', sols') ∧
+    check_mo_cstep mord objs (Sol w) fml pc sols = SOME (fml', pc', sols') ∧
     list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
     pc.id ≤ pc'.id
 Proof
@@ -119,10 +119,10 @@ QED
 
 Theorem fml_rel_check_mo_cstep_list:
   list_conf_rel fml fmlls zeros inds vimap vomap pc ∧
-  check_mo_cstep_list objs cstep fmlls zeros inds vimap vomap pc sols =
+  check_mo_cstep_list mord objs cstep fmlls zeros inds vimap vomap pc sols =
     SOME (fmlls',zeros',inds',vimap',vomap',pc',sols') ⇒
   ∃fml'.
-    check_mo_cstep objs cstep fml pc sols = SOME (fml', pc', sols') ∧
+    check_mo_cstep mord objs cstep fml pc sols = SOME (fml', pc', sols') ∧
     list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
     pc.id ≤ pc'.id
 Proof
@@ -152,10 +152,10 @@ Theorem fml_rel_check_mo_csteps_list:
   ∀csteps fml fmlls zeros inds vimap vomap pc sols
     fmlls' zeros' inds' vimap' vomap' pc' sols'.
   list_conf_rel fml fmlls zeros inds vimap vomap pc ∧
-  check_mo_csteps_list objs csteps fmlls zeros inds vimap vomap pc sols =
+  check_mo_csteps_list mord objs csteps fmlls zeros inds vimap vomap pc sols =
     SOME (fmlls',zeros',inds',vimap',vomap',pc',sols') ⇒
   ∃fml'.
-    check_mo_csteps objs csteps fml pc sols = SOME (fml', pc', sols') ∧
+    check_mo_csteps mord objs csteps fml pc sols = SOME (fml', pc', sols') ∧
     list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
     pc.id ≤ pc'.id
 Proof
@@ -170,7 +170,7 @@ Proof
 QED
 
 Theorem check_mo_csteps_list_concl:
-  check_mo_csteps_list objs csteps
+  check_mo_csteps_list mord objs csteps
     (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,T)) i)
       (REPLICATE m NONE) (enumerate 1 fml))
     (REPLICATE z 0w)
@@ -180,10 +180,10 @@ Theorem check_mo_csteps_list_concl:
     (init_conf (LENGTH fml + 1) T NONE NONE) [] =
     SOME (fmlls',zeros',inds',vimap',vomap',pc',sols) ∧
   pc'.chk ∧ check_contradiction_fml_list F fmlls' n ⇒
-  set (pareto_min sols) = nondom_set (set fml) objs
+  set (ord_min mord sols) = nondom_set mord (set fml) objs
 Proof
   strip_tac>>
-  qmatch_asmsub_abbrev_tac`check_mo_csteps_list objs csteps fmlls zeros
+  qmatch_asmsub_abbrev_tac`check_mo_csteps_list mord objs csteps fmlls zeros
     inds vimap vomap pc [] = _`>>
   `list_conf_rel (build_fml T 1 fml) fmlls zeros inds vimap vomap pc` by (
     simp[list_conf_rel_def]>>
@@ -210,10 +210,10 @@ Proof
     irule fml_rel_check_contradiction_fml>>
     fs[list_conf_rel_def]>>
     metis_tac[])>>
-  `check_mo_top objs csteps (build_fml T 1 fml) (LENGTH fml + 1) n =
-    SOME (pareto_min sols)` by (
+  `check_mo_top mord objs csteps (build_fml T 1 fml) (LENGTH fml + 1) n =
+    SOME (ord_min mord sols)` by (
     simp[check_mo_top_def]>>
-    qpat_x_assum`check_mo_csteps _ _ _ _ _ = _` mp_tac>>
+    qpat_x_assum`check_mo_csteps _ _ _ _ _ _ = _` mp_tac>>
     simp[Abbr`pc`]>>
     strip_tac>>
     simp[])>>
@@ -221,13 +221,13 @@ Proof
     simp[core_only_fml_build_fml]>>
   pop_assum (fn th => rewrite_tac[GSYM th])>>
   irule check_mo_top_sound>>
-  qpat_x_assum`check_mo_top _ _ _ _ _ = _` (irule_at Any)>>
-  simp[all_core_def,EVERY_MEM,MEM_toAList,FORALL_PROD,lookup_build_fml,
+  qpat_x_assum`check_mo_top _ _ _ _ _ _ = _` (irule_at Any)>>
+  simp[mo_ord_ok_thm,all_core_def,EVERY_MEM,MEM_toAList,FORALL_PROD,lookup_build_fml,
     id_ok_def,domain_build_fml]
 QED
 
 Theorem check_mo_top_list_concl:
-  check_mo_top_list objs csteps
+  check_mo_top_list mord objs csteps
     (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,T)) i)
       (REPLICATE m NONE) (enumerate 1 fml))
     (REPLICATE z 0w)
@@ -235,7 +235,7 @@ Theorem check_mo_top_list_concl:
     (mk_vimap (REPLICATE k NONE) (enumerate 1 fml))
     «»
     (LENGTH fml + 1) n = SOME vs ⇒
-  set vs = nondom_set (set fml) objs
+  set vs = nondom_set mord (set fml) objs
 Proof
   rw[check_mo_top_list_def,AllCaseEqs()]>>
   drule_all check_mo_csteps_list_concl>>

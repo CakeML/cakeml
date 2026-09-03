@@ -1,5 +1,5 @@
 (*
-  Multi-objective (Pareto) semantics for npbc and the pbc to npbc bridge
+  Multi-objective semantics for npbc and the pbc to npbc bridge
 *)
 Theory npbc_mo
 Ancestors
@@ -22,7 +22,8 @@ Definition obj_img_def:
 End
 
 Definition nondom_set_def:
-  nondom_set (npbf:npbc set) objs = pareto_min_set (obj_img npbf objs)
+  nondom_set ord (npbf:npbc set) objs =
+    min_set (ord_le ord) (obj_img npbf objs)
 End
 
 Theorem in_obj_img:
@@ -34,11 +35,12 @@ Proof
 QED
 
 Theorem in_nondom_set:
-  v ∈ nondom_set npbf objs ⇔
+  v ∈ nondom_set ord npbf objs ⇔
   (∃w. satisfies w npbf ∧ obj_vecs objs w = v) ∧
-  (∀w. satisfies w npbf ⇒ ¬vec_lt (obj_vecs objs w) v)
+  (∀w. satisfies w npbf ∧ ord_le ord (obj_vecs objs w) v ⇒
+    obj_vecs objs w = v)
 Proof
-  rw[nondom_set_def,pareto_min_set_def,in_obj_img]>>
+  rw[nondom_set_def,min_set_def,in_obj_img]>>
   metis_tac[]
 QED
 
@@ -83,8 +85,8 @@ Proof
 QED
 
 Theorem nondom_set_normalise:
-  pbc_mo$nondom_set (set pbf) objs =
-  npbc_mo$nondom_set (set (normalise pbf)) (normalise_objs objs)
+  pbc_mo$nondom_set ord (set pbf) objs =
+  npbc_mo$nondom_set ord (set (normalise pbf)) (normalise_objs objs)
 Proof
   rw[nondom_set_def,pbc_moTheory.nondom_set_def]>>
   AP_TERM_TAC>>
@@ -184,8 +186,8 @@ End
 Theorem name_to_num_mo_prob_nondom_set:
   name_to_num_mo_prob (objs,fml) s = ((objs',fml'),t) ∧
   name_to_num_state_ok s ⇒
-  pbc_mo$nondom_set (set fml) objs =
-  pbc_mo$nondom_set (set fml') objs'
+  pbc_mo$nondom_set ord (set fml) objs =
+  pbc_mo$nondom_set ord (set fml') objs'
 Proof
   rw[name_to_num_mo_prob_def]>>
   rpt (pairarg_tac>>gvs[])>>
@@ -241,8 +243,8 @@ Theorem full_normalise_mo_nondom:
   name_to_num_mo_prob (objs,fml) s = ((objs1,fml1),t) ∧
   name_to_num_state_ok s ∧
   normalise_mo_prob (objs1,fml1) = (objs2,fml2) ⇒
-  pbc_mo$nondom_set (set fml) objs =
-  npbc_mo$nondom_set (set fml2) objs2
+  pbc_mo$nondom_set ord (set fml) objs =
+  npbc_mo$nondom_set ord (set fml2) objs2
 Proof
   rw[normalise_mo_prob_def]>>
   drule_all name_to_num_mo_prob_nondom_set>>

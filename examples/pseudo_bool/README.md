@@ -19,7 +19,7 @@ Formalisation of normalised pseudo-boolean constraints
 Pseudo-boolean constraints proof format and checker
 
 [npbc_moScript.sml](npbc_moScript.sml):
-Multi-objective (Pareto) semantics for npbc and the pbc to npbc bridge
+Multi-objective semantics for npbc and the pbc to npbc bridge
 
 [npbc_mo_checkScript.sml](npbc_mo_checkScript.sml):
 Checker for the restricted (multi-objective) proof format
@@ -35,7 +35,7 @@ pseudo-boolean problems with 'a var type
 Helper lemmas for developing PB encodings
 
 [pbc_moScript.sml](pbc_moScript.sml):
-Multi-objective (Pareto) semantics for pbc
+Multi-objective semantics for pbc, under a selectable objective ordering
 
 [pbc_normaliseScript.sml](pbc_normaliseScript.sml):
 Normalizes pbc into npbc

@@ -364,67 +364,45 @@ Proof
   simp[SUM_TYPE_def,PAIR_TYPE_def,get_mfml_def]
 QED
 
-(* The verified front is printed one vector per semicolon-separated group *)
-Definition print_vec_def:
-  print_vec (v:int list) =
-  concatWith « » (MAP (int_to_string #"-") v)
-End
-
-Definition print_front_str_def:
-  print_front_str vs =
-  concat [
-    «s VERIFIED PARETO FRONTIER: »;
-    concatWith «; » (MAP print_vec vs);
-    «\n»]
-End
-
 Definition mcnf_sem_def:
-  mcnf_sem mfml vs ⇔ set vs = nondom_costs mfml
+  mcnf_sem ord mfml vs ⇔ set vs = nondom_costs ord mfml
 End
 
-Definition check_unsat_2_sem_def:
-  check_unsat_2_sem fs f1 out ⇔
+Definition check_unsat_3_sem_def:
+  check_unsat_3_sem fs ord f1 out ⇔
   (out ≠ «» ⇒
   ∃mfml vs.
     get_mfml fs f1 = SOME mfml ∧
-    out = print_front_str vs ∧
-    mcnf_sem mfml vs)
+    out = print_front_str ord vs ∧
+    mcnf_sem ord mfml vs)
 End
-
-Definition map_front_to_string_def:
-  (map_front_to_string (INL s) = (INL s)) ∧
-  (map_front_to_string (INR vs) = INR (print_front_str vs))
-End
-
-val res = translate print_vec_def;
-val res = translate print_front_str_def;
-val res = translate map_front_to_string_def;
 
 Quote add_cakeml:
-  fun check_unsat_2 f1 f2 =
+  fun check_unsat_3 ord f1 f2 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr mprob =>
-    (case map_front_to_string (check_unsat_mo_top_norm mprob f2) of
+    (case map_front_to_string ord (check_unsat_mo_top_norm ord mprob f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s)
 End
 
-Theorem check_unsat_2_spec:
+Theorem check_unsat_3_spec:
+  PBC_MO_MO_ORD_TYPE ord ordv ∧
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
   STRING_TYPE f2 f2v ∧ validArg f2 ∧
   hasFreeFD fs
   ⇒
-  app (p:'ffi ffi_proj) ^(fetch_v"check_unsat_2"(get_ml_prog_state()))
-    [f1v; f2v]
+  app (p:'ffi ffi_proj) ^(fetch_v"check_unsat_3"(get_ml_prog_state()))
+    [ordv; f1v; f2v]
     (STDIO fs)
     (POSTv uv. &UNIT_TYPE () uv *
     SEP_EXISTS out err.
       STDIO (add_stdout (add_stderr fs err) out) *
-      &(check_unsat_2_sem fs f1 out))
+      &(check_unsat_3_sem fs ord f1 out))
 Proof
-  rw[check_unsat_2_sem_def]>>
-  xcf "check_unsat_2" (get_ml_prog_state ())>>
+  rw[check_unsat_3_sem_def]>>
+  xcf "check_unsat_3" (get_ml_prog_state ())>>
   reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
   xlet_autop>>
   Cases_on`res`>>fs[SUM_TYPE_def]
@@ -467,8 +445,8 @@ Proof
   asm_exists_tac>>simp[]>>
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  rename1`vomap_TYPE (print_front_str vs) _`>>
-  qexists_tac`print_front_str vs`>>simp[]>>
+  rename1`vomap_TYPE (print_front_str ord vs) _`>>
+  qexists_tac`print_front_str ord vs`>>simp[]>>
   qexists_tac`«»`>>
   simp[STD_streams_stderr,add_stdo_nil]>>
   xsimpl>>
@@ -478,16 +456,8 @@ Proof
   metis_tac[full_encode_mcnf_nondom,PAIR]
 QED
 
-(* Print the encoding: one min: line per objective, then the constraints *)
-Definition print_mo_prob_def:
-  print_mo_prob (objs,fml) =
-  MAP obj_string objs ++ MAP pbc_string fml
-End
-
-val res = translate print_mo_prob_def;
-
-Definition check_unsat_1_sem_def:
-  check_unsat_1_sem fs f1 out ⇔
+Definition check_unsat_2_sem_def:
+  check_unsat_2_sem fs f1 out ⇔
   case get_mfml fs f1 of
     NONE => out = «»
   | SOME mfml =>
@@ -495,27 +465,27 @@ Definition check_unsat_1_sem_def:
 End
 
 Quote add_cakeml:
-  fun check_unsat_1 f1 =
+  fun check_unsat_2 f1 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr mprob =>
     TextIO.print_list (print_mo_prob mprob)
 End
 
-Theorem check_unsat_1_spec:
+Theorem check_unsat_2_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
   hasFreeFD fs
   ⇒
-  app (p:'ffi ffi_proj) ^(fetch_v"check_unsat_1"(get_ml_prog_state()))
+  app (p:'ffi ffi_proj) ^(fetch_v"check_unsat_2"(get_ml_prog_state()))
     [f1v]
     (STDIO fs)
     (POSTv uv. &UNIT_TYPE () uv *
     SEP_EXISTS out err.
       STDIO (add_stdout (add_stderr fs err) out) *
-      &(check_unsat_1_sem fs f1 out))
+      &(check_unsat_2_sem fs f1 out))
 Proof
-  rw[check_unsat_1_sem_def]>>
-  xcf "check_unsat_1" (get_ml_prog_state ())>>
+  rw[check_unsat_2_sem_def]>>
+  xcf "check_unsat_2" (get_ml_prog_state ())>>
   reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
   xlet_autop>>
   Cases_on`res`>>fs[SUM_TYPE_def]
@@ -539,7 +509,7 @@ Proof
 QED
 
 Definition usage_string_def:
-  usage_string = «Usage: cake_pb_mcnf <mcnf file> <optional: PB proof file>\n»
+  usage_string = «Usage: cake_pb_mcnf <ordering: pareto> <mcnf file> <optional: PB proof file>\n»
 End
 
 val r = translate usage_string_def;
@@ -547,17 +517,27 @@ val r = translate usage_string_def;
 Quote add_cakeml:
   fun main u =
   case CommandLine.arguments () of
-    [f1] => check_unsat_1 f1
-  | [f1,f2] => check_unsat_2 f1 f2
+    [ords,f1] =>
+      (case parse_mo_ord ords of
+        None => TextIO.output TextIO.stdErr (mk_usage_string usage_string)
+      | Some ord => check_unsat_2 f1)
+  | [ords,f1,f2] =>
+      (case parse_mo_ord ords of
+        None => TextIO.output TextIO.stdErr (mk_usage_string usage_string)
+      | Some ord => check_unsat_3 ord f1 f2)
   | _ => TextIO.output TextIO.stdErr (mk_usage_string usage_string)
 End
 
 Definition main_sem_def:
   main_sem fs cl out =
-  if LENGTH cl = 2 then
-    check_unsat_1_sem fs (EL 1 cl) out
-  else if LENGTH cl = 3 then
-    check_unsat_2_sem fs (EL 1 cl) out
+  if LENGTH cl = 3 then
+    (case parse_mo_ord (EL 1 cl) of
+      NONE => out = «»
+    | SOME ord => check_unsat_2_sem fs (EL 2 cl) out)
+  else if LENGTH cl = 4 then
+    (case parse_mo_ord (EL 1 cl) of
+      NONE => out = «»
+    | SOME ord => check_unsat_3_sem fs ord (EL 2 cl) out)
   else out = «»
 End
 
@@ -586,7 +566,8 @@ Proof
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)>>
   rpt xlet_autop >>
   Cases_on `cl` >- fs[wfcl_def] >>
-  Cases_on`t`>>fs[LIST_TYPE_def]
+  rename1`wfcl (prog::args)`>>
+  Cases_on`args`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
     assume_tac (theorem "usage_string_v_thm")>>
@@ -600,27 +581,66 @@ Proof
     rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     metis_tac[STDIO_refl])>>
-  Cases_on`t'`>>fs[LIST_TYPE_def]
+  rename1`wfcl (prog::ords::args)`>>
+  Cases_on`args`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
+    assume_tac (theorem "usage_string_v_thm")>>
+    xlet_autop>>
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    rename1`COMMANDLINE cl`>>
+    qexists_tac`COMMANDLINE cl`>>xsimpl>>
+    qexists_tac `mk_usage_string usage_string` >>
+    simp [] >>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    metis_tac[STDIO_refl])>>
+  rename1`wfcl (prog::ords::f1::args)`>>
+  Cases_on`args`>>fs[LIST_TYPE_def]
+  >- (
+    xmatch>>
+    xlet_autop>>
+    Cases_on`parse_mo_ord ords`>>fs[OPTION_TYPE_def]>>
+    xmatch
+    >- (
+      assume_tac (theorem "usage_string_v_thm")>>
+      xlet_autop>>
+      xapp_spec output_stderr_spec \\ xsimpl>>
+      rename1`COMMANDLINE cl`>>
+      qexists_tac`COMMANDLINE cl`>>xsimpl>>
+      qexists_tac `mk_usage_string usage_string` >>
+      simp [] >>
+      qexists_tac`fs`>>xsimpl>>
+      rw[]>>
+      fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+      metis_tac[STDIO_refl])>>
     xapp>>rw[]>>
-    rename1`wfcl [a1;a2]`>>
-    qexists_tac`COMMANDLINE [a1; a2]`>>
-    qexists_tac`fs`>>
-    simp[PULL_EXISTS]>>
-    qexists_tac`a2`>>
-    fs[wfcl_def]>>xsimpl>>
+    rpt(first_x_assum (irule_at Any)>>xsimpl)>>
+    fs[wfcl_def]>>
     rw[]>>metis_tac[STDIO_refl])>>
-  Cases_on`t`>>fs[LIST_TYPE_def]
+  rename1`wfcl (prog::ords::f1::f2::args)`>>
+  Cases_on`args`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
+    xlet_autop>>
+    Cases_on`parse_mo_ord ords`>>fs[OPTION_TYPE_def]>>
+    xmatch
+    >- (
+      assume_tac (theorem "usage_string_v_thm")>>
+      xlet_autop>>
+      xapp_spec output_stderr_spec \\ xsimpl>>
+      rename1`COMMANDLINE cl`>>
+      qexists_tac`COMMANDLINE cl`>>xsimpl>>
+      qexists_tac `mk_usage_string usage_string` >>
+      simp [] >>
+      qexists_tac`fs`>>xsimpl>>
+      rw[]>>
+      fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+      metis_tac[STDIO_refl])>>
     xapp>>rw[]>>
-    rename1`wfcl [a1;a2;a3]`>>
-    qexists_tac`COMMANDLINE [a1; a2; a3]`>>
-    qexists_tac`fs`>>
-    simp[PULL_EXISTS]>>
-    qexists_tac`a2`>>qexists_tac`a3`>>
-    fs[wfcl_def]>>xsimpl>>
+    rpt(first_x_assum (irule_at Any)>>xsimpl)>>
+    fs[wfcl_def]>>
     rw[]>>metis_tac[STDIO_refl])>>
   xmatch>>
   assume_tac (theorem "usage_string_v_thm")>>
