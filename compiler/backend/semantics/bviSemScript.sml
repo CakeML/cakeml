@@ -27,7 +27,7 @@ Datatype:
      ; compile_oracle : num -> 'c # (num # num # bvi$exp) list
      ; code    : (num # bvi$exp) num_map
      ; ffi     : 'ffi ffi_state
-     ; ptr_eq_oracle : num -> bool |>
+     ; ptr_eq_oracle : num -> num -> bool |>
 End
 
 Definition dec_clock_def:
@@ -190,7 +190,8 @@ Definition do_install_def:
                         let s' =
                           s with <|
                              code := union s.code (fromAList progs)
-                           ; compile_oracle := new_oracle |>
+                           ; compile_oracle := new_oracle
+                           ; ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle |>
                         in
                           Rval (CodePtr k, s')
                       else Rerr(Rabort Rtype_error)

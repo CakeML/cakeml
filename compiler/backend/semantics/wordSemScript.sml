@@ -224,7 +224,7 @@ Datatype:
      ; termdep : num (* count of how many MustTerminates we can still enter *)
      ; code    : (num # ('a wordLang$prog)) num_map
      ; be      : bool (*is big-endian*)
-     ; ptr_eq_oracle : (num -> bool) option
+     ; ptr_eq_oracle : (num -> num -> bool) option
          (* SOME: PtrEq answers come from the oracle; NONE: PtrEq compares words *)
      ; ptr_eq_rel : ('a word -> 'a word_loc) -> ('a word) set ->
                     (store_name |-> 'a word_loc) -> 'a word -> 'a word -> bool
@@ -1145,6 +1145,7 @@ Definition evaluate_def:
                 ; locals := insert ptr (Loc k 0) env
                 ; fp_regs := FEMPTY
                 ; compile_oracle := new_oracle
+                ; ptr_eq_oracle := OPTION_MAP (shift_seq 1) s.ptr_eq_oracle
                 ; stack_max := NONE (* Install is not safe for space *)
                 ; stack_size := LN
                 (* For convenience --- stack size of installed code,
@@ -1257,8 +1258,9 @@ Definition evaluate_def:
          (case s.ptr_eq_oracle of
           | NONE => (NONE, set_var dst (Word (if w1 = w2 then t else f)) s)
           | SOME po =>
-              let r = (s.ptr_eq_rel s.memory s.mdomain s.store w1 w2 /\ po 0) in
-              let s1 = s with ptr_eq_oracle := SOME (\n. po (n+1)) in
+              let r = (s.ptr_eq_rel s.memory s.mdomain s.store w1 w2 /\ po 0 0) in
+              let s1 = s with ptr_eq_oracle :=
+                         SOME ((0 =+ shift_seq 1 (po 0)) po) in
                 (NONE, set_var dst (Word (if r then t else f)) s1))
      | _ => (SOME Error, s))
 Termination

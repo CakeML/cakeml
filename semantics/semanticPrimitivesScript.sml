@@ -262,8 +262,10 @@ Datatype:
    ; next_exn_stamp : num
    ; eval_state :  eval_state option
    (* oracle deciding whether each successive PtrEq returns the result of
-      structural equality (T) or is attenuated to false (F) *)
-   ; ptr_eq_oracle : num -> bool
+      structural equality (T) or is attenuated to false (F); indexed first by
+      install epoch, which advances at every Eval, and then by position
+      within that epoch *)
+   ; ptr_eq_oracle : num -> num -> bool
    |>
 End
 

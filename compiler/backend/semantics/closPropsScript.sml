@@ -2771,6 +2771,29 @@ Proof
   \\ Cases_on `SND (s.compile_oracle 0)`
   \\ FIRST_X_ASSUM drule \\ rfs [] \\ rveq
   \\ rfs [pure_co_def, EVAL ``shift_seq k s 0``, pure_cc_def]
+  \\ `s.ptr_eq_oracle = t.ptr_eq_oracle` by fs [simple_state_rel_def]
+  \\ `!n. sr (s with <| ptr_eq_oracle := shift_seq 1 t.ptr_eq_oracle;
+                        code := s.code;
+                        compile_oracle := shift_seq 1 s.compile_oracle;
+                        clock := n |>)
+             (t with <| ptr_eq_oracle := shift_seq 1 t.ptr_eq_oracle;
+                        code := t.code;
+                        compile_oracle := shift_seq 1 ((I ## comp) o s.compile_oracle);
+                        clock := n |>)`
+       by (`!s1 t1 pe. sr s1 t1 ==>
+              sr (s1 with ptr_eq_oracle := pe) (t1 with ptr_eq_oracle := pe)`
+             by fs [simple_state_rel_def]
+           \\ gen_tac
+           \\ first_x_assum (qspecl_then
+                [`s with <| clock := n;
+                            compile_oracle := shift_seq 1 s.compile_oracle;
+                            code := s.code |>`,
+                 `t with <| clock := n;
+                            compile_oracle := shift_seq 1 ((I ## comp) o s.compile_oracle);
+                            code := t.code |>`,
+                 `shift_seq 1 t.ptr_eq_oracle`] mp_tac)
+           \\ impl_tac >- fs []
+           \\ strip_tac \\ fs [])
   \\ EVERY_CASE_TAC \\ rfs [] \\ fs [finite_mapTheory.FUPDATE_LIST_THM]
 QED
 

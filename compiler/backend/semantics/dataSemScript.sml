@@ -71,7 +71,7 @@ Datatype:
      ; safe_for_space   : bool
      ; peak_heap_length : num
      ; compile_oracle   : num -> 'c # (num # num # dataLang$prog) list
-     ; ptr_eq_oracle    : num -> bool |>
+     ; ptr_eq_oracle    : num -> num -> bool |>
 End
 
 val s = ``(s:('c,'ffi) dataSem$state)``
@@ -518,7 +518,8 @@ Definition do_install_def:
                           s with <|
                              safe_for_space := F ;
                              code := union s.code (fromAList progs) ;
-                             compile_oracle := new_oracle |>
+                             compile_oracle := new_oracle ;
+                             ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle |>
                         in
                           Rval (CodePtr k, s')
                       else Rerr(Rabort Rtype_error)
@@ -1062,8 +1063,9 @@ Definition do_app_aux_def:
     | (BlockOp PtrEqual,[x1;x2]) =>
         (case do_eq s.refs x1 x2 of
          | Eq_val b =>
-             Rval (Boolv (b ∧ s.ptr_eq_oracle 0),
-                   s with ptr_eq_oracle := (λn. s.ptr_eq_oracle (n + 1)))
+             Rval (Boolv (b ∧ s.ptr_eq_oracle 0 0),
+                   s with ptr_eq_oracle :=
+                     (0 =+ shift_seq 1 (s.ptr_eq_oracle 0)) s.ptr_eq_oracle)
          | _ => Error)
     | (MemOp Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in

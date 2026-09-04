@@ -24,7 +24,10 @@ Definition do_eval_res_def:
   do_eval_res vs s =
     case do_eval vs s.eval_state of
     | NONE => (s,Rerr (Rabort Rtype_error))
-    | SOME (env1,decs,es1) => (s with eval_state := es1,Rval (env1,decs))
+    | SOME (env1,decs,es1) =>
+        (s with <| eval_state := es1
+                 ; ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle |>,
+         Rval (env1,decs))
 End
 
 (* list_result is equivalent to map_result (\v. [v]) I, where map_result is
@@ -147,8 +150,9 @@ Definition evaluate_def[nocompute]:
             (case do_eq v1 v2 of
                Eq_type_error => (st', Rerr (Rabort Rtype_error))
              | Eq_val b =>
-                 (st' with ptr_eq_oracle := (λn. st'.ptr_eq_oracle (n + 1)),
-                  Rval [Boolv (b ∧ st'.ptr_eq_oracle 0)]))
+                 (st' with ptr_eq_oracle :=
+                    (0 =+ shift_seq 1 (st'.ptr_eq_oracle 0)) st'.ptr_eq_oracle,
+                  Rval [Boolv (b ∧ st'.ptr_eq_oracle 0 0)]))
         | _ => (st', Rerr (Rabort Rtype_error)))
     | Simple =>
         (case do_app (st'.refs,st'.ffi) op (REVERSE vs) of

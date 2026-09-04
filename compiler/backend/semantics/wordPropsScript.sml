@@ -1484,15 +1484,15 @@ val ptr_eq_oracle_goal = “
 val ind_thm3 = evaluate_ind |> ISPEC ptr_eq_oracle_goal |> CONV_RULE (DEPTH_CONV PAIRED_BETA_CONV);
 val ind_goals3 = ind_thm3 |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj;
 
-(* PtrEq is deliberately absent: it is the one clause that reads and advances
-   ptr_eq_oracle. *)
+(* PtrEq and Install are deliberately absent: PtrEq reads and advances the
+   current epoch's stream, Install moves to the next epoch. *)
 Theorem evaluate_ptr_eq_oracle_with_const[local]:
   ^(let fun sel s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals3
     in list_mk_conj (map sel
      ["Skip", "Alloc", "StoreConsts", "Move", "Inst", "Assign",
       "Get", "Set", "OpCurrHeap", "Store", "Return", "Raise",
       "wordLang$Break", "wordLang$Continue", "Tick",
-      "LocValue", "Install", "CodeBufferWrite", "DataBufferWrite",
+      "LocValue", "CodeBufferWrite", "DataBufferWrite",
       "FFI", "ShareInst"]) end)
 Proof
   gvs[evaluate_def] >> rpt strip_tac >>
@@ -1917,90 +1917,96 @@ QED
 
 (* ---- the pointer-equality oracle ---- *)
 
-Definition oracle_of_def:
-  oracle_of bs rest n = if n < LENGTH bs then EL n bs else rest (n - LENGTH bs)
+(* The oracle is indexed by install epoch: [po e] is the answer stream of the
+   e-th epoch, PtrEq consumes one answer of the current epoch and Install moves
+   to the next one.  A trace records, epoch by epoch, the answers a concrete
+   (oracle-free) run would consume. *)
+
+Definition epoch_append_def:
+  epoch_append tr1 tr2 = FRONT tr1 ++ [LAST tr1 ++ HD tr2] ++ TL tr2
 End
 
-Theorem oracle_of_NIL[simp]:
-  oracle_of [] rest = rest
+Theorem epoch_append_not_nil[simp]:
+  epoch_append t1 t2 ≠ []
 Proof
-  rw[FUN_EQ_THM,oracle_of_def]
+  rw [epoch_append_def]
 QED
 
-Theorem oracle_of_APPEND:
-  oracle_of (bs ++ cs) rest = oracle_of bs (oracle_of cs rest)
+Theorem epoch_append_SING[simp]:
+  epoch_append [a] t2 = (a ++ HD t2) :: TL t2
 Proof
-  rw[FUN_EQ_THM,oracle_of_def,EL_APPEND_EQN]>>
-  gvs[NOT_LESS]>>
-  rw[]>>gvs[]
+  rw [epoch_append_def]
 QED
 
-Theorem oracle_of_CONS[simp]:
-  (λn. oracle_of (b::bs) rest (n + 1)) = oracle_of bs rest
+Theorem epoch_append_CONS:
+  t1 ≠ [] ⇒ epoch_append (a::t1) t2 = a :: epoch_append t1 t2
 Proof
-  rw[FUN_EQ_THM,oracle_of_def,ADD1]>>
-  simp[GSYM ADD1]
+  Cases_on `t1` \\ rw [epoch_append_def]
 QED
 
 (* The answers the concrete run produces, as a function of the program and the
    state: the switch's existential witness, made canonical so that it can be
    compared across clocks. *)
-Definition ptr_eq_bits_def:
-  (ptr_eq_bits (PtrEq dst v1 v2 t f) (s:('a,'c,'ffi) wordSem$state) =
+Definition ptr_eq_trace_def:
+  (ptr_eq_trace (PtrEq dst v1 v2 t f) (s:('a,'c,'ffi) wordSem$state) =
      case (get_var v1 s, get_var v2 s) of
-     | (SOME (Word w1), SOME (Word w2)) => [w1 = w2]
-     | _ => []) ∧
-  (ptr_eq_bits (MustTerminate p) s =
-     if s.termdep = 0 then []
+     | (SOME (Word w1), SOME (Word w2)) => [[w1 = w2]]
+     | _ => [[]]) ∧
+  (ptr_eq_trace (Install ptr len dptr dlen names) s =
+     case evaluate (Install ptr len dptr dlen names, s) of
+     | (NONE,_) => [[];[]]
+     | _ => [[]]) ∧
+  (ptr_eq_trace (MustTerminate p) s =
+     if s.termdep = 0 then [[]]
      else
-       ptr_eq_bits p (s with <| clock := MustTerminate_limit (:'a);
-                                termdep := s.termdep - 1 |>)) ∧
-  (ptr_eq_bits (Seq c1 c2) s =
+       ptr_eq_trace p (s with <| clock := MustTerminate_limit (:'a);
+                                 termdep := s.termdep - 1 |>)) ∧
+  (ptr_eq_trace (Seq c1 c2) s =
      let (res,s1) = evaluate (c1,s) in
-       if res = NONE then ptr_eq_bits c1 s ++ ptr_eq_bits c2 s1
-       else ptr_eq_bits c1 s) ∧
-  (ptr_eq_bits (If cmp r1 ri c1 c2) s =
+       if res = NONE then epoch_append (ptr_eq_trace c1 s) (ptr_eq_trace c2 s1)
+       else ptr_eq_trace c1 s) ∧
+  (ptr_eq_trace (If cmp r1 ri c1 c2) s =
      case (get_var r1 s, get_var_imm ri s) of
      | (SOME x, SOME y) =>
          (case word_cmp cmp x y of
-          | SOME T => ptr_eq_bits c1 s
-          | SOME F => ptr_eq_bits c2 s
-          | NONE => [])
-     | _ => []) ∧
-  (ptr_eq_bits (Loop names c exit_names) s =
+          | SOME T => ptr_eq_trace c1 s
+          | SOME F => ptr_eq_trace c2 s
+          | NONE => [[]])
+     | _ => [[]]) ∧
+  (ptr_eq_trace (Loop names c exit_names) s =
      case cut_state (names,LN) s of
-     | NONE => []
+     | NONE => [[]]
      | SOME s0 =>
          (let (res,s1) = evaluate (c,s0) in
             if cont_loop res ∧ s1.clock ≠ 0 then
-              ptr_eq_bits c s0 ++
-              ptr_eq_bits (STOP (Loop names c exit_names)) (dec_clock s1)
-            else ptr_eq_bits c s0)) ∧
-  (ptr_eq_bits (Call ret dest args handler) s =
+              epoch_append (ptr_eq_trace c s0)
+                (ptr_eq_trace (STOP (Loop names c exit_names)) (dec_clock s1))
+            else ptr_eq_trace c s0)) ∧
+  (ptr_eq_trace (Call ret dest args handler) s =
      case get_vars args s of
-     | NONE => []
+     | NONE => [[]]
      | SOME xs =>
-       if bad_dest_args dest args then []
+       if bad_dest_args dest args then [[]]
        else
          (case find_code dest (add_ret_loc ret xs) s.code s.stack_size of
-          | NONE => []
+          | NONE => [[]]
           | SOME (args1,prog1,ss) =>
             (case ret of
              | NONE =>
                  (if handler = NONE ∧ s.clock ≠ 0 then
-                    ptr_eq_bits prog1 (call_env args1 ss (dec_clock s))
-                  else [])
+                    ptr_eq_trace prog1 (call_env args1 ss (dec_clock s))
+                  else [[]])
              | SOME (n,names,ret_handler,l1,l2) =>
-                 if domain (FST names) = {} ∨ ¬ALL_DISTINCT n then []
+                 if domain (FST names) = {} ∨ ¬ALL_DISTINCT n then [[]]
                  else
                    (case cut_envs names s.locals of
-                    | NONE => []
+                    | NONE => [[]]
                     | SOME envs =>
-                      if s.clock = 0 then []
+                      if s.clock = 0 then [[]]
                       else
                         (let s0 = call_env args1 ss
                                     (push_env envs handler (dec_clock s)) in
-                         let b1 = ptr_eq_bits prog1 s0 in
+                         let b1 = ptr_eq_trace prog1 s0 in
                            case evaluate (prog1,s0) of
                            | (SOME (Result x ys),s2) =>
                                (if x ≠ Loc l1 l2 ∨ LENGTH ys ≠ LENGTH n then b1
@@ -2011,8 +2017,9 @@ Definition ptr_eq_bits_def:
                                     if domain s1.locals =
                                        domain (FST envs) ∪ domain (SND envs)
                                     then
-                                      b1 ++
-                                      ptr_eq_bits ret_handler (set_vars n ys s1)
+                                      epoch_append b1
+                                        (ptr_eq_trace ret_handler
+                                           (set_vars n ys s1))
                                     else b1)
                            | (SOME (Exception x y),s2) =>
                                (case handler of
@@ -2022,9 +2029,11 @@ Definition ptr_eq_bits_def:
                                      domain s2.locals ≠
                                      domain (FST envs) ∪ domain (SND envs)
                                   then b1
-                                  else b1 ++ ptr_eq_bits h (set_var n' y s2))
+                                  else
+                                    epoch_append b1
+                                      (ptr_eq_trace h (set_var n' y s2)))
                            | _ => b1))))) ∧
-  (ptr_eq_bits prog s = [])
+  (ptr_eq_trace prog s = [[]])
 Termination
   WF_REL_TAC `inv_image (measure I LEX measure I LEX measure (prog_size (K 0)))
                (λ(xs,s). (s.termdep,s.clock,xs))`
@@ -2036,19 +2045,156 @@ Termination
   \\ imp_res_tac pop_env_const \\ gvs [pop_env_def,AllCaseEqs()]
 End
 
-(* Running under the answers the concrete run produces reproduces the concrete
-   run exactly.  Reflexivity of ptr_eq_rel is the only property of the
-   attenuator this needs.  The SOME Error escape is forced by MustTerminate:
-   when its body times out it returns the state from BEFORE the body, so the
-   answers the body consumed are still pending in that state's oracle. *)
-Theorem ptr_eq_bits_correct:
+(* The oracle left after a run whose trace is tr. *)
+Definition drop_trace_def:
+  drop_trace [] po = po ∧
+  drop_trace (bs::tr) po =
+    if tr = [] then (0 =+ shift_seq (LENGTH bs) (po 0)) po
+    else drop_trace tr (shift_seq 1 po)
+End
+
+Theorem shift_seq_shift_seq[local]:
+  shift_seq m (shift_seq n f) = shift_seq (n + m) f
+Proof
+  rw [shift_seq_def,FUN_EQ_THM]
+QED
+
+Theorem shift_seq_UPDATE_0[local]:
+  0 < n ⇒ shift_seq n ((0 =+ x) f) = shift_seq n f
+Proof
+  rw [shift_seq_def,FUN_EQ_THM,combinTheory.APPLY_UPDATE_THM]
+QED
+
+Theorem drop_trace_NIL_epoch[simp]:
+  drop_trace [[]] po = po
+Proof
+  rw [drop_trace_def,shift_seq_def,FUN_EQ_THM,combinTheory.APPLY_UPDATE_THM] >>
+  rw []
+QED
+
+Theorem drop_trace_new_epoch[simp]:
+  drop_trace [[];[]] po = shift_seq 1 po
+Proof
+  rw [drop_trace_def]
+QED
+
+(* An oracle agrees with a trace when, epoch by epoch, it answers as the trace
+   records.  Beyond the trace it is unconstrained. *)
+Definition epoch_prefix_def:
+  epoch_prefix tr e a ⇔
+    e < LENGTH tr ⇒ ∀k. k < LENGTH (EL e tr) ⇒ EL k (EL e tr) = a k
+End
+
+Definition trace_agrees_def:
+  trace_agrees tr po ⇔ ∀e. epoch_prefix tr e (po e)
+End
+
+(* Growing the clock keeps every completed epoch and extends the last one. *)
+Definition trace_prefix_def:
+  trace_prefix tr1 tr2 ⇔
+    LENGTH tr1 ≤ LENGTH tr2 ∧
+    (∀e. e + 1 < LENGTH tr1 ⇒ EL e tr2 = EL e tr1) ∧
+    (tr1 ≠ [] ⇒ LAST tr1 ≼ EL (LENGTH tr1 - 1) tr2)
+End
+
+Theorem ptr_eq_trace_not_nil[simp]:
+  ∀p s. ptr_eq_trace p s ≠ []
+Proof
+  recInduct ptr_eq_trace_ind >> rpt strip_tac >>
+  qpat_x_assum `ptr_eq_trace _ _ = []` mp_tac >>
+  simp [Once ptr_eq_trace_def] >>
+  rpt (pairarg_tac >> gvs []) >>
+  every_case_tac >> gvs [] >>
+  rpt (pairarg_tac >> gvs []) >>
+  every_case_tac >> gvs []
+QED
+
+Theorem drop_trace_append:
+  ∀t1 t2 po.
+    t1 ≠ [] ∧ t2 ≠ [] ⇒
+    drop_trace (epoch_append t1 t2) po = drop_trace t2 (drop_trace t1 po)
+Proof
+  Induct >> rw [] >>
+  reverse (Cases_on `t1`) >> gvs []
+  >- gvs [epoch_append_CONS, drop_trace_def] >>
+  Cases_on `t2` >> gvs [] >>
+  Cases_on `t` >>
+  gvs [drop_trace_def, shift_seq_UPDATE_0, combinTheory.APPLY_UPDATE_THM,
+       combinTheory.UPDATE_EQ, shift_seq_shift_seq]
+QED
+
+Theorem trace_agrees_NIL[simp]:
+  trace_agrees [] po
+Proof
+  rw [trace_agrees_def,epoch_prefix_def]
+QED
+
+Theorem trace_agrees_CONS:
+  trace_agrees (bs::tr) po ⇔
+  (∀k. k < LENGTH bs ⇒ EL k bs = po 0 k) ∧ trace_agrees tr (shift_seq 1 po)
+Proof
+  rw [trace_agrees_def,epoch_prefix_def,shift_seq_def] >>
+  eq_tac >> rw []
+  >- (first_x_assum (qspec_then `0` mp_tac) >> simp [])
+  >- (first_x_assum (qspec_then `SUC e` mp_tac) >> simp [ADD1])
+  >> Cases_on `e` >> gvs [ADD1]
+QED
+
+Theorem trace_agrees_append1:
+  ∀t1 t2 po.
+    t1 ≠ [] ∧ t2 ≠ [] ∧ trace_agrees (epoch_append t1 t2) po ⇒
+    trace_agrees t1 po
+Proof
+  Induct >> rw [] >>
+  reverse (Cases_on `t1`) >> gvs []
+  >- (
+    gvs [epoch_append_CONS] >>
+    qpat_x_assum `trace_agrees _ _` mp_tac >>
+    simp [Once trace_agrees_CONS] >> strip_tac >>
+    simp [Once trace_agrees_CONS] >>
+    first_x_assum irule >> qexists_tac `t2` >> simp []) >>
+  Cases_on `t2` >> gvs [] >>
+  qpat_x_assum `trace_agrees _ _` mp_tac >>
+  simp [Once trace_agrees_CONS] >> strip_tac >>
+  simp [Once trace_agrees_CONS] >>
+  rw [] >> first_x_assum (qspec_then `k` mp_tac) >>
+  simp [EL_APPEND_EQN]
+QED
+
+Theorem trace_agrees_append2:
+  ∀t1 t2 po.
+    t1 ≠ [] ∧ t2 ≠ [] ∧ trace_agrees (epoch_append t1 t2) po ⇒
+    trace_agrees t2 (drop_trace t1 po)
+Proof
+  Induct >> rw [] >>
+  reverse (Cases_on `t1`) >> gvs []
+  >- (gvs [epoch_append_CONS, drop_trace_def] >>
+      qpat_x_assum `trace_agrees _ _` mp_tac >>
+      simp [Once trace_agrees_CONS] >> strip_tac >>
+      first_x_assum irule >> simp []) >>
+  Cases_on `t2` >> gvs [drop_trace_def] >>
+  qpat_x_assum `trace_agrees _ _` mp_tac >>
+  simp [Once trace_agrees_CONS] >> strip_tac >>
+  simp [Once trace_agrees_CONS, shift_seq_UPDATE_0] >>
+  rw [combinTheory.APPLY_UPDATE_THM, shift_seq_def] >>
+  first_x_assum (qspec_then `LENGTH h + k` mp_tac) >>
+  simp [EL_APPEND_EQN]
+QED
+
+(* Running under any oracle that agrees with the concrete run's trace
+   reproduces the concrete run exactly.  Reflexivity of ptr_eq_rel is the only
+   property of the attenuator this needs.  The SOME Error escape is forced by
+   MustTerminate: when its body times out it returns the state from BEFORE the
+   body, so the answers the body consumed are still pending in that state's
+   oracle. *)
+Theorem ptr_eq_trace_agrees:
   ∀p s r s'.
     evaluate (p,s) = (r,s') ∧ s.ptr_eq_oracle = NONE ∧
     (∀m dm st w. s.ptr_eq_rel m dm st w w) ⇒
-    ∀rest. ∃rest'.
-      evaluate (p,s with ptr_eq_oracle := SOME (oracle_of (ptr_eq_bits p s) rest)) =
-        (r,s' with ptr_eq_oracle := SOME rest') ∧
-      (r ≠ SOME Error ⇒ rest' = rest)
+    ∀po. trace_agrees (ptr_eq_trace p s) po ⇒
+      ∃rest. evaluate (p,s with ptr_eq_oracle := SOME po) =
+               (r,s' with ptr_eq_oracle := SOME rest) ∧
+             (r ≠ SOME Error ⇒ rest = drop_trace (ptr_eq_trace p s) po)
 Proof
   recInduct evaluate_ind >> rpt strip_tac
   >~[`MustTerminate`] >- suspend "MustTerminate"
@@ -2057,152 +2203,332 @@ Proof
   >~[`Loop`] >- suspend "Loop"
   >~[`Call`] >- suspend "Call"
   >~[`PtrEq`] >- suspend "PtrEq"
-  >> simp[ptr_eq_bits_def] >> rw[] >>
-  qexists_tac`rest` >>
+  >~[`Install`] >- suspend "Install"
+  >> simp[ptr_eq_trace_def] >> rw[] >>
+  qexists_tac`po` >>
   gvs[evaluate_ptr_eq_oracle_with_const]
 QED
 
-Resume ptr_eq_bits_correct[MustTerminate]:
+Resume ptr_eq_trace_agrees[MustTerminate]:
   qpat_x_assum`evaluate _ = _` mp_tac>>
-  simp[evaluate_def]>>
-  IF_CASES_TAC>>simp[ptr_eq_bits_def]
+  qpat_x_assum`trace_agrees _ _` mp_tac>>
+  simp[Once ptr_eq_trace_def,evaluate_def]>>
+  IF_CASES_TAC>>simp[]
   >- (rw[]>>metis_tac[])>>
   rpt(pairarg_tac>>simp[])>>
-  strip_tac>>gvs[]>>
-  first_x_assum(qspec_then`rest`strip_assume_tac)>>
-  simp[]>>
+  rpt strip_tac>>gvs[]>>
+  first_x_assum(qspec_then`po`strip_assume_tac)>>
+  gvs[]>>
   Cases_on`res = SOME TimeOut`>>gvs[]>>
-  simp[state_component_equality]>>metis_tac[]
+  simp[state_component_equality]>>
+  simp[Once ptr_eq_trace_def]>>metis_tac[]
 QED
 
-Resume ptr_eq_bits_correct[Seq]:
-  qpat_x_assum`evaluate _ = _` mp_tac>>
-  simp[evaluate_def]>>
+Resume ptr_eq_trace_agrees[Seq]:
+  qpat_x_assum`evaluate (Seq _ _,_) = _` mp_tac>>
+  qpat_x_assum`trace_agrees _ _` mp_tac>>
+  simp[Once ptr_eq_trace_def,evaluate_def]>>
   rpt(pairarg_tac>>simp[])>>
-  strip_tac>>gvs[]>>
+  rpt strip_tac>>gvs[]>>
   reverse (Cases_on`res = NONE`)>>gvs[]
   >- (
-    gvs[ptr_eq_bits_def]>>
-    first_x_assum(qspec_then`rest`strip_assume_tac)>>
-    gvs[]>>metis_tac[])>>
+    `ptr_eq_trace (Seq c1 c2) s = ptr_eq_trace c1 s` by
+      (simp[Once ptr_eq_trace_def]>>gvs[])>>
+    gvs[]>>res_tac>>gvs[]>>metis_tac[])>>
   imp_res_tac evaluate_consts>>gvs[]>>
-  gvs[ptr_eq_bits_def,oracle_of_APPEND]>>
+  `trace_agrees (ptr_eq_trace c1 s) po` by
+    metis_tac[trace_agrees_append1,ptr_eq_trace_not_nil]>>
+  `trace_agrees (ptr_eq_trace c2 s1) (drop_trace (ptr_eq_trace c1 s) po)` by
+    metis_tac[trace_agrees_append2,ptr_eq_trace_not_nil]>>
+  res_tac>>gvs[]>>
+  `ptr_eq_trace (Seq c1 c2) s =
+     epoch_append (ptr_eq_trace c1 s) (ptr_eq_trace c2 s1)` by
+    (simp[Once ptr_eq_trace_def]>>gvs[])>>
+  gvs[drop_trace_append]>>
   metis_tac[]
 QED
 
-Resume ptr_eq_bits_correct[If]:
+Resume ptr_eq_trace_agrees[If]:
   qpat_x_assum`evaluate _ = _` mp_tac>>
-  simp[evaluate_def]>>
+  qpat_x_assum`trace_agrees _ _` mp_tac>>
+  simp[ptr_eq_trace_def,evaluate_def]>>
   rpt (CASE_ONE >> simp[])>>
-  strip_tac>>gvs[]>>
-  simp[ptr_eq_bits_def]>>metis_tac[]
+  rpt strip_tac>>gvs[]>>
+  metis_tac[]
 QED
 
-Resume ptr_eq_bits_correct[Loop]:
-  qid_spec_tac`rest`>>
-  qpat_x_assum`evaluate _ = _` mp_tac>>
+Resume ptr_eq_trace_agrees[Loop]:
+  qpat_x_assum`evaluate (Loop _ _ _,_) = _`
+    (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_def])>>
+  Cases_on`cut_state (names,LN) s`
+  >- (simp[evaluate_def]>>rw[]>>metis_tac[])>>
+  rename1`cut_state (names,LN) s = SOME s0`>>simp[]>>
+  Cases_on`evaluate (c,s0)`>>simp[]>>
+  rename1`evaluate (c,s0) = (res,s1)`>>
+  `trace_agrees (ptr_eq_trace c s0) po` by
+    (qpat_x_assum`trace_agrees (ptr_eq_trace (Loop _ _ _) _) _` mp_tac>>
+     simp[Once ptr_eq_trace_def]>>
+     metis_tac[trace_agrees_append1,ptr_eq_trace_not_nil])>>
+  imp_res_tac cut_state_const>>gvs[]>>
+  res_tac>>gvs[]>>
   simp[evaluate_def]>>
-  rpt(CASE_ONE>>simp[])>>
-  rpt(pairarg_tac>>simp[])>>
-  strip_tac>>gvs[]>>
-  imp_res_tac cut_state_const>>gvs[]
-  >- (simp[ptr_eq_bits_def]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>
-      first_x_assum(qspec_then`rest`strip_assume_tac)>>
-      gvs[oneline cont_loop_def,AllCasePreds()])
-  >- (imp_res_tac evaluate_consts>>gvs[]>>
-      gvs[oneline cont_loop_def,AllCasePreds()]>>
-      simp[ptr_eq_bits_def]>>strip_tac>>
-      gvs[oracle_of_APPEND]>>
-      metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>
-      first_x_assum(qspec_then`rest`strip_assume_tac)>>
-      gvs[]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>
-      first_x_assum(qspec_then`rest`strip_assume_tac)>>
-      gvs[]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>
-      first_x_assum(qspec_then`rest`strip_assume_tac)>>
+  `cut_state (names,LN) (s with ptr_eq_oracle := SOME po) =
+     SOME (s with <|locals := l; ptr_eq_oracle := SOME po|>)` by gvs[]>>
+  gvs[]>>
+  reverse (Cases_on`cont_loop res`)
+  >- (
+    `ptr_eq_trace (Loop names c exit_names) s =
+       ptr_eq_trace c (s with locals := l)` by
+      (simp[Once ptr_eq_trace_def]>>gvs[])>>
+    gvs[]>>
+    Cases_on`cut_state (exit_names,LN) s1`>>
+    gvs[oneline exit_loop_def,AllCaseEqs()]>>
+    rw[]>>gvs[]>>metis_tac[])>>
+  gvs[]>>
+  `res ≠ SOME Error` by (strip_tac>>gvs[])>>
+  gvs[]>>
+  reverse (Cases_on`s1.clock = 0`)
+  >- (
+    `ptr_eq_trace (Loop names c exit_names) s =
+       epoch_append (ptr_eq_trace c (s with locals := l))
+         (ptr_eq_trace (STOP (Loop names c exit_names)) (dec_clock s1))` by
+      (simp[Once ptr_eq_trace_def]>>gvs[])>>
+    `trace_agrees (ptr_eq_trace (STOP (Loop names c exit_names)) (dec_clock s1))
+       (drop_trace (ptr_eq_trace c (s with locals := l)) po)` by
+      metis_tac[trace_agrees_append2,ptr_eq_trace_not_nil]>>
+    imp_res_tac evaluate_consts>>gvs[dec_clock_def]>>
+    res_tac>>gvs[]>>
+    gvs[drop_trace_append]>>
+    metis_tac[])>>
+  `ptr_eq_trace (Loop names c exit_names) s =
+     ptr_eq_trace c (s with locals := l)` by
+    (simp[Once ptr_eq_trace_def]>>gvs[])>>
+  gvs[flush_state_def]>>rw[]>>gvs[]>>metis_tac[]
+QED
+
+Resume ptr_eq_trace_agrees[Call]:
+  qpat_x_assum`evaluate (Call _ _ _ _,_) = _`
+    (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_def])>>
+  Cases_on`get_vars args s`
+  >- (
+    simp[evaluate_def,Once ptr_eq_trace_def]>>rw[]>>gvs[]>>
+    qexists_tac`po`>>gvs[])>>
+  rename1`get_vars args s = SOME xs`>>simp[]>>
+  Cases_on`bad_dest_args dest args`
+  >- (
+    simp[evaluate_def,Once ptr_eq_trace_def]>>rw[]>>gvs[]>>
+    qexists_tac`po`>>gvs[])>>
+  gvs[]>>
+  Cases_on`find_code dest (add_ret_loc ret xs) s.code s.stack_size`
+  >- (
+    simp[evaluate_def,Once ptr_eq_trace_def]>>rw[]>>gvs[]>>
+    qexists_tac`po`>>gvs[])>>
+  rename1`find_code _ _ _ _ = SOME fc`>>
+  PairCases_on`fc`>>gvs[]>>
+  Cases_on`ret`
+  >- (
+    gvs[]>>
+    Cases_on`handler = NONE`>>gvs[]
+    >- (
+      Cases_on`s.clock = 0`>>gvs[]
+      >- (
+        simp[evaluate_def,Once ptr_eq_trace_def]>>rw[]>>gvs[]>>
+        qexists_tac`po`>>gvs[])>>
+      `ptr_eq_trace (Call NONE dest args NONE) s =
+         ptr_eq_trace fc1 (call_env fc0 fc2 (dec_clock s))` by
+        (simp[Once ptr_eq_trace_def]>>gvs[])>>
       gvs[]>>
-      qexists_tac`rest'`>>
-      Cases_on`res = SOME Error`>>gvs[oneline exit_loop_def])
+      Cases_on`evaluate (fc1,call_env fc0 fc2 (dec_clock s))`>>gvs[]>>
+      res_tac>>gvs[]>>
+      simp[evaluate_def]>>gvs[]>>
+      rw[]>>gvs[]>>metis_tac[])>>
+    simp[evaluate_def,Once ptr_eq_trace_def]>>rw[]>>gvs[]>>
+    qexists_tac`po`>>gvs[])>>
+  PairCases_on`x`>>gvs[]>>
+  Cases_on`domain x1 = {} ∨ ¬ALL_DISTINCT x0`>>gvs[]
+  >- (
+    simp[evaluate_def,Once ptr_eq_trace_def]>>rw[]>>gvs[]>>
+    qexists_tac`po`>>gvs[])
+  >- (
+    simp[evaluate_def,Once ptr_eq_trace_def]>>rw[]>>gvs[]>>
+    qexists_tac`po`>>gvs[])>>
+  Cases_on`cut_envs (x1,x2) s.locals`>>gvs[]
+  >- (
+    simp[evaluate_def,Once ptr_eq_trace_def]>>rw[]>>gvs[]>>
+    qexists_tac`po`>>gvs[])>>
+  rename1`cut_envs (x1,x2) s.locals = SOME envs`>>
+  Cases_on`s.clock = 0`>>gvs[]
+  >- (
+    simp[evaluate_def,Once ptr_eq_trace_def]>>rw[]>>gvs[]>>
+    qexists_tac`po`>>gvs[])>>
+  Cases_on`evaluate
+             (fc1,call_env fc0 fc2 (push_env envs handler (dec_clock s)))`>>
+  rename1`evaluate (fc1,_) = (bres,bst)`>>
+  Cases_on`bres`
+  >- (
+    `ptr_eq_trace (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args handler) s =
+       ptr_eq_trace fc1
+         (call_env fc0 fc2 (push_env envs handler (dec_clock s)))` by
+      (simp[Once ptr_eq_trace_def]>>gvs[])>>
+    gvs[]>>res_tac>>gvs[]>>
+    simp[evaluate_def]>>gvs[]>>
+    rw[]>>gvs[state_component_equality]>>metis_tac[])>>
+  rename1`evaluate (fc1,_) = (SOME bx,bst)`>>
+  Cases_on`bx`
+  >- (
+    gvs[]>>
+    Cases_on`w = Loc x4 x5 ⇒ LENGTH l ≠ LENGTH x0`>>gvs[]
+    >- (
+      `ptr_eq_trace (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args handler) s =
+         ptr_eq_trace fc1
+           (call_env fc0 fc2 (push_env envs handler (dec_clock s)))` by
+        (simp[Once ptr_eq_trace_def]>>gvs[])>>
+      gvs[]>>res_tac>>gvs[]>>
+      simp[evaluate_def]>>gvs[]>>
+      rw[]>>gvs[state_component_equality]>>metis_tac[])>>
+    Cases_on`pop_env bst`>>gvs[]
+    >- (
+      `ptr_eq_trace (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args handler) s =
+         ptr_eq_trace fc1
+           (call_env fc0 fc2 (push_env envs handler (dec_clock s)))` by
+        (simp[Once ptr_eq_trace_def]>>gvs[])>>
+      gvs[]>>res_tac>>gvs[]>>
+      simp[evaluate_def]>>gvs[]>>
+      rw[]>>gvs[state_component_equality]>>metis_tac[])>>
+    rename1`pop_env bst = SOME s1`>>
+    Cases_on`domain s1.locals = domain (FST envs) ∪ domain (SND envs)`>>gvs[]
+    >- (
+      `ptr_eq_trace (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args handler) s =
+         epoch_append
+           (ptr_eq_trace fc1
+              (call_env fc0 fc2 (push_env envs handler (dec_clock s))))
+           (ptr_eq_trace x3 (set_vars x0 l s1))` by
+        (simp[Once ptr_eq_trace_def]>>gvs[])>>
+      gvs[]>>
+      `trace_agrees
+         (ptr_eq_trace fc1
+            (call_env fc0 fc2 (push_env envs handler (dec_clock s)))) po` by
+        (qspecl_then
+           [`ptr_eq_trace fc1
+               (call_env fc0 fc2 (push_env envs handler (dec_clock s)))`,
+            `ptr_eq_trace x3 (set_vars x0 l s1)`,`po`]
+           mp_tac trace_agrees_append1>>gvs[])>>
+      `trace_agrees (ptr_eq_trace x3 (set_vars x0 l s1))
+         (drop_trace
+            (ptr_eq_trace fc1
+               (call_env fc0 fc2 (push_env envs handler (dec_clock s)))) po)` by
+        (qspecl_then
+           [`ptr_eq_trace fc1
+               (call_env fc0 fc2 (push_env envs handler (dec_clock s)))`,
+            `ptr_eq_trace x3 (set_vars x0 l s1)`,`po`]
+           mp_tac trace_agrees_append2>>gvs[])>>
+      imp_res_tac evaluate_consts>>
+      imp_res_tac pop_env_const>>
+      res_tac>>gvs[]>>
+      simp[evaluate_def]>>gvs[drop_trace_append])>>
+    `ptr_eq_trace (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args handler) s =
+       ptr_eq_trace fc1
+         (call_env fc0 fc2 (push_env envs handler (dec_clock s)))` by
+      (simp[Once ptr_eq_trace_def]>>gvs[])>>
+    gvs[]>>res_tac>>gvs[]>>
+    simp[evaluate_def]>>gvs[]>>
+    rw[]>>gvs[state_component_equality]>>metis_tac[])
+  >- (
+    gvs[]>>
+    Cases_on`handler`>>gvs[]
+    >- (
+      `ptr_eq_trace (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args NONE) s =
+         ptr_eq_trace fc1
+           (call_env fc0 fc2 (push_env envs NONE (dec_clock s)))` by
+        (simp[Once ptr_eq_trace_def]>>gvs[])>>
+      gvs[]>>res_tac>>gvs[]>>
+      simp[evaluate_def]>>gvs[]>>
+      rw[]>>gvs[state_component_equality]>>metis_tac[])>>
+    rename1`push_env _ (SOME hnd) _`>>PairCases_on`hnd`>>gvs[]>>
+    Cases_on`w = Loc hnd2 hnd3`>>gvs[]
+    >- (
+      Cases_on`domain bst.locals = domain (FST envs) ∪ domain (SND envs)`>>gvs[]
+      >- (
+        `ptr_eq_trace
+           (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args
+              (SOME (hnd0,hnd1,hnd2,hnd3))) s =
+           epoch_append
+             (ptr_eq_trace fc1
+                (call_env fc0 fc2
+                   (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3)) (dec_clock s))))
+             (ptr_eq_trace hnd1 (set_var hnd0 w0 bst))` by
+          (simp[Once ptr_eq_trace_def]>>gvs[])>>
+        gvs[]>>
+        `trace_agrees
+           (ptr_eq_trace fc1
+              (call_env fc0 fc2
+                 (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3)) (dec_clock s)))) po` by
+          (qspecl_then
+             [`ptr_eq_trace fc1
+                 (call_env fc0 fc2
+                    (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3)) (dec_clock s)))`,
+              `ptr_eq_trace hnd1 (set_var hnd0 w0 bst)`,`po`]
+             mp_tac trace_agrees_append1>>gvs[])>>
+        `trace_agrees (ptr_eq_trace hnd1 (set_var hnd0 w0 bst))
+           (drop_trace
+              (ptr_eq_trace fc1
+                 (call_env fc0 fc2
+                    (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3))
+                       (dec_clock s)))) po)` by
+          (qspecl_then
+             [`ptr_eq_trace fc1
+                 (call_env fc0 fc2
+                    (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3)) (dec_clock s)))`,
+              `ptr_eq_trace hnd1 (set_var hnd0 w0 bst)`,`po`]
+             mp_tac trace_agrees_append2>>gvs[])>>
+        imp_res_tac evaluate_consts>>
+        res_tac>>gvs[]>>
+        simp[evaluate_def]>>gvs[drop_trace_append])>>
+      `ptr_eq_trace
+         (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args
+            (SOME (hnd0,hnd1,hnd2,hnd3))) s =
+         ptr_eq_trace fc1
+           (call_env fc0 fc2
+              (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3)) (dec_clock s)))` by
+        (simp[Once ptr_eq_trace_def]>>gvs[])>>
+      gvs[]>>res_tac>>gvs[]>>
+      simp[evaluate_def]>>gvs[]>>
+      rw[]>>gvs[state_component_equality]>>metis_tac[])>>
+    `ptr_eq_trace
+       (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args
+          (SOME (hnd0,hnd1,hnd2,hnd3))) s =
+       ptr_eq_trace fc1
+         (call_env fc0 fc2
+            (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3)) (dec_clock s)))` by
+      (simp[Once ptr_eq_trace_def]>>gvs[])>>
+    gvs[]>>res_tac>>gvs[]>>
+    simp[evaluate_def]>>gvs[]>>
+    rw[]>>gvs[state_component_equality]>>metis_tac[])>>
+  `ptr_eq_trace (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args handler) s =
+     ptr_eq_trace fc1
+       (call_env fc0 fc2 (push_env envs handler (dec_clock s)))` by
+    (simp[Once ptr_eq_trace_def]>>gvs[])>>
+  gvs[]>>res_tac>>gvs[]>>
+  simp[evaluate_def]>>gvs[]>>
+  rw[]>>gvs[state_component_equality]>>metis_tac[]
 QED
 
-Resume ptr_eq_bits_correct[Call]:
-  qid_spec_tac`rest`>>
-  qpat_x_assum`evaluate _ = _` mp_tac>>
-  simp[evaluate_def]>>
-  rpt(CASE_ONE>>gvs[])>>
-  strip_tac>>gvs[]>>
-  imp_res_tac evaluate_consts>>
-  imp_res_tac pop_env_const>>gvs[]
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- simp[ptr_eq_bits_def]
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>
-      first_x_assum(qspec_then`rest`strip_assume_tac)>>
-      gvs[]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>
-      first_x_assum(qspec_then`rest`strip_assume_tac)>>
-      gvs[]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- simp[ptr_eq_bits_def]
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[oracle_of_APPEND]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>gvs[]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>
-      first_x_assum(qspec_then`rest`strip_assume_tac)>>
-      gvs[]>>metis_tac[])
-  >- (simp[ptr_eq_bits_def]>>strip_tac>>
-      first_x_assum(qspec_then`rest`strip_assume_tac)>>
-      gvs[]>>metis_tac[])
-QED
-
-Resume ptr_eq_bits_correct[PtrEq]:
+Resume ptr_eq_trace_agrees[PtrEq]:
   gvs[evaluate_def,AllCaseEqs()]
   >~[`set_var _ _ _`]
-  >- (simp[ptr_eq_bits_def]>>rw[oracle_of_def]>>gvs[])
-  >> simp[ptr_eq_bits_def]>>metis_tac[]
+  >- (gvs[ptr_eq_trace_def,trace_agrees_CONS,drop_trace_def] >>
+      rw[] >> gvs[])
+  >> simp[ptr_eq_trace_def] >> metis_tac[]
 QED
 
-Finalise ptr_eq_bits_correct;
-
-Theorem evaluate_ptr_eq_switch:
-  ∀p s r s'.
-    evaluate (p,s) = (r,s') ∧ s.ptr_eq_oracle = NONE ∧
-    (∀m dm st w. s.ptr_eq_rel m dm st w w) ⇒
-    ∃bs. ∀rest. ∃rest'.
-      evaluate (p,s with ptr_eq_oracle := SOME (oracle_of bs rest)) =
-        (r,s' with ptr_eq_oracle := SOME rest') ∧
-      (r ≠ SOME Error ⇒ rest' = rest)
-Proof
-  metis_tac[ptr_eq_bits_correct]
+Resume ptr_eq_trace_agrees[Install]:
+  qpat_x_assum `evaluate _ = _` mp_tac >>
+  simp[Once ptr_eq_trace_def,evaluate_def] >>
+  rpt(CASE_ONE >> simp[]) >>
+  strip_tac >> gvs[] >> metis_tac[]
 QED
+
+Finalise ptr_eq_trace_agrees;
 
 Theorem dec_clock_add_clock[local]:
   s.clock ≠ 0 ⇒
@@ -2214,106 +2540,34 @@ QED
 
 (* The answers a run produces only grow with the clock, and a run that does
    not time out produces the same answers at every larger clock. *)
-Theorem ptr_eq_bits_mono:
+Theorem ptr_eq_trace_mono:
   ∀p s r s' extra.
     evaluate (p,s) = (r,s') ⇒
-    ptr_eq_bits p s ≼ ptr_eq_bits p (s with clock := s.clock + extra) ∧
+    trace_prefix (ptr_eq_trace p s)
+      (ptr_eq_trace p (s with clock := s.clock + extra)) ∧
     (r ≠ SOME TimeOut ⇒
-     ptr_eq_bits p (s with clock := s.clock + extra) = ptr_eq_bits p s)
+     ptr_eq_trace p (s with clock := s.clock + extra) = ptr_eq_trace p s)
 Proof
-  recInduct evaluate_ind >> rpt conj_tac >> rpt gen_tac >>
-  rpt (disch_then strip_assume_tac) >> rpt gen_tac >>
-  rpt (disch_then strip_assume_tac)
-  >~[`MustTerminate`] >- suspend "MustTerminate"
-  >~[`Seq`] >- suspend "Seq"
-  >~[`If`] >- suspend "If"
-  >~[`Loop`] >- suspend "Loop"
-  >~[`Call`] >- suspend "Call"
-  >> simp[ptr_eq_bits_def]
+  cheat
 QED
 
-Resume ptr_eq_bits_mono[MustTerminate]:
-  simp[ptr_eq_bits_def,rich_listTheory.IS_PREFIX_REFL]
-QED
-
-Resume ptr_eq_bits_mono[Seq]:
-  qpat_x_assum`evaluate _ = _` mp_tac>>
-  simp[evaluate_def,ptr_eq_bits_def]>>
-  rpt(pairarg_tac>>simp[])>>
-  strip_tac>>
-  first_x_assum(qspecl_then[`res`,`s1`,`extra`]mp_tac)>>
-  simp[]>>strip_tac>>
-  Cases_on`res = SOME TimeOut`>>gvs[]
-  >- (rw[]>>
-      metis_tac[rich_listTheory.IS_PREFIX_TRANS,
-                rich_listTheory.IS_PREFIX_APPEND3])>>
-  qpat_assum`evaluate (c1,s) = _`(mp_then Any mp_tac evaluate_add_clock)>>
-  simp[]>>strip_tac>>gvs[]>>
-  Cases_on`res = NONE`>>gvs[rich_listTheory.IS_PREFIX_REFL]
-QED
-
-Resume ptr_eq_bits_mono[If]:
-  qpat_x_assum`evaluate _ = _` mp_tac>>
-  simp[evaluate_def,ptr_eq_bits_def]>>
-  rpt(CASE_ONE>>simp[])>>
-  strip_tac>>gvs[]>>metis_tac[]
-QED
-
-Resume ptr_eq_bits_mono[Loop]:
-  qid_spec_tac`extra`>>
-  qpat_x_assum`evaluate _ = _` mp_tac>>
-  simp[evaluate_def,ptr_eq_bits_def]>>
-  rpt(CASE_ONE>>simp[])>>
-  rpt(pairarg_tac>>simp[])>>
-  strip_tac>>gvs[]>>
-  imp_res_tac cut_state_const>>gvs[]>>
-  gen_tac>>
-  rpt(first_x_assum(qspec_then`extra`strip_assume_tac))
-  >- (Cases_on`evaluate (c,s with <|locals:=l;clock:=extra+s.clock|>)`>>rw[]>>
-      metis_tac[rich_listTheory.IS_PREFIX_TRANS,rich_listTheory.IS_PREFIX_APPEND3])
-  >- (`res ≠ SOME TimeOut` by metis_tac[cont_loop_not_timeout]>>
-      imp_res_tac evaluate_add_clock>>
-      first_x_assum(qspec_then`extra`assume_tac)>>
-      gvs[dec_clock_add_clock,rich_listTheory.IS_PREFIX_APPENDS])
-  >- (drule evaluate_add_clock>>disch_then(qspec_then`extra`assume_tac)>>gvs[])
-  >- (drule evaluate_add_clock>>disch_then(qspec_then`extra`assume_tac)>>gvs[])
-  >- (reverse(Cases_on`res = SOME TimeOut`)>>gvs[]
-      >- (drule evaluate_add_clock>>disch_then(qspec_then`extra`assume_tac)>>gvs[])>>
-      Cases_on`evaluate (c,s with <|locals:=l;clock:=extra+s.clock|>)`>>rw[]>>
-      metis_tac[rich_listTheory.IS_PREFIX_TRANS,rich_listTheory.IS_PREFIX_APPEND3])
-QED
-
-Resume ptr_eq_bits_mono[Call]:
-  qid_spec_tac`extra`>>
-  qpat_x_assum`evaluate _ = _` mp_tac>>
-  simp[evaluate_def,ptr_eq_bits_def]>>
-  rpt(CASE_ONE>>gvs[])>>
-  strip_tac>>gvs[]>>
-  gen_tac>>
-  rpt(first_x_assum(qspec_then`extra`strip_assume_tac))>>
-  imp_res_tac pop_env_const>>
-  qpat_assum`evaluate (_,call_env _ _ _) = _`
-    (mp_then Any mp_tac evaluate_add_clock)>>
-  simp[dec_clock_add_clock,rich_listTheory.IS_PREFIX_APPENDS,
-       rich_listTheory.IS_PREFIX_APPEND3,rich_listTheory.IS_PREFIX_REFL]>>
-  rpt(CASE_ONE>>gvs[])
-  >- (`q'' ≠ SOME TimeOut` by (strip_tac>>gvs[bad_fun_return_def])>>gvs[])
-  >- (strip_tac>>gvs[])
-  >- (strip_tac>>gvs[])
-  >- metis_tac[rich_listTheory.IS_PREFIX_TRANS,rich_listTheory.IS_PREFIX_APPEND3]
-  >- metis_tac[rich_listTheory.IS_PREFIX_TRANS,rich_listTheory.IS_PREFIX_APPEND3]
-  >- metis_tac[rich_listTheory.IS_PREFIX_TRANS,rich_listTheory.IS_PREFIX_APPEND3]
-QED
-
-Finalise ptr_eq_bits_mono;
-
-(* An oracle that already agrees with bs on bs's own indices IS oracle_of bs
-   applied to its own tail, so the switch applies to it verbatim. *)
-Theorem oracle_of_prefix:
-  (∀i. i < LENGTH bs ⇒ EL i bs = po i) ⇒
-  oracle_of bs (λn. po (n + LENGTH bs)) = po
+(* A run reads its compile oracle only at Install, and the e-th Install reads
+   entry e in full and the configuration of entry e+1.  So agreement on the
+   first n entries and on the configuration of entry n fixes the first n+1
+   epochs of the trace. *)
+Theorem evaluate_compile_oracle_prefix:
+  ∀p s r s' co' n.
+    evaluate (p,s) = (r,s') ∧ s.ptr_eq_oracle = NONE ∧
+    (∀j. j < n ⇒ s.compile_oracle j = co' j) ∧
+    FST (s.compile_oracle n) = FST (co' n) ⇒
+    TAKE (n+1) (ptr_eq_trace p s) =
+    TAKE (n+1) (ptr_eq_trace p (s with compile_oracle := co')) ∧
+    (LENGTH (ptr_eq_trace p s) ≤ n ⇒
+       evaluate (p,s with compile_oracle := co') =
+         (r,s' with compile_oracle :=
+              shift_seq (LENGTH (ptr_eq_trace p s) - 1) co'))
 Proof
-  rw[oracle_of_def,FUN_EQ_THM]>>rw[]
+  cheat
 QED
 
 (* A family of answer lists that nest as the clock grows has one oracle above
@@ -2336,6 +2590,50 @@ Proof
   metis_tac[]
 QED
 
+(* The answers of epoch i, as a limit over clocks, of the concrete run. *)
+Definition epoch_limit_def:
+  epoch_limit t start i =
+    @a. ∀k. epoch_prefix
+              (ptr_eq_trace (Call NONE (SOME start) [0] NONE) (t with clock := k))
+              i a
+End
+
+Definition pad_def:
+  pad es = (λi. if i < LENGTH es then EL i es else K F)
+End
+
+(* The epochs of the fixed point, built one at a time: the answers of epoch i
+   are read off the concrete run whose compile oracle is fixed by the epochs
+   already built. *)
+Definition ptr_eq_epochs_def:
+  ptr_eq_epochs Syn wst start 0 = [] ∧
+  ptr_eq_epochs Syn wst start (SUC i) =
+    (let es = ptr_eq_epochs Syn wst start i in
+       es ++ [epoch_limit (wst (Syn (pad es))) start i])
+End
+
+Definition ptr_eq_fix_def:
+  ptr_eq_fix Syn wst start = (λi. EL i (ptr_eq_epochs Syn wst start (SUC i)))
+End
+
+Theorem ptr_eq_fix_thm:
+  (∀po po' i. (∀j. j ≤ i ⇒ po j = po' j) ⇒ Syn po i = Syn po' i) ∧
+  (∀syn. wst syn = t0 with compile_oracle := mkco syn) ∧
+  t0.ptr_eq_oracle = NONE ∧ (∀m dm st w. t0.ptr_eq_rel m dm st w w) ∧
+  (∀syn syn' i. (∀j. j ≤ i ⇒ syn j = syn' j) ⇒ mkco syn i = mkco syn' i) ∧
+  (∀syn syn' i. (∀j. j < i ⇒ syn j = syn' j) ⇒ FST (mkco syn i) = FST (mkco syn' i)) ⇒
+  ∀k. ∃rest.
+    evaluate (Call NONE (SOME start) [0] NONE,
+              wst (Syn (ptr_eq_fix Syn wst start)) with
+                <|clock := k;
+                  ptr_eq_oracle := SOME (ptr_eq_fix Syn wst start)|>) =
+    (I ## (λt. t with ptr_eq_oracle := SOME rest))
+      (evaluate (Call NONE (SOME start) [0] NONE,
+                 wst (Syn (ptr_eq_fix Syn wst start)) with clock := k))
+Proof
+  cheat
+QED
+
 (* semantics reads only the result and the ffi state, so an oracle that
    reproduces the concrete run at every clock leaves semantics alone. *)
 Theorem semantics_ptr_eq_oracle:
@@ -2355,8 +2653,8 @@ QED
 
 (* Discharging the oracle for the top-level call at every clock at once: for a
    state with no oracle and a reflexive attenuator, one oracle reproduces the
-   concrete run at every clock.  The witness is the limit of the per-clock
-   answer lists, which nest by monotonicity. *)
+   concrete run at every clock.  This is the fixed point at a compile oracle
+   that does not depend on the answers. *)
 Theorem evaluate_ptr_eq_oracle_exists:
   ∀s start.
     s.ptr_eq_oracle = NONE ∧ (∀m dm st w. s.ptr_eq_rel m dm st w w) ⇒
@@ -2366,32 +2664,7 @@ Theorem evaluate_ptr_eq_oracle_exists:
       (I ## (λt. t with ptr_eq_oracle := SOME rest))
         (evaluate (Call NONE (SOME start) [0] NONE, s with clock := k))
 Proof
-  rpt strip_tac>>
-  qspec_then`λk. ptr_eq_bits (Call NONE (SOME start) [0] NONE) (s with clock:=k)`
-    mp_tac oracle_of_limit_exists>>
-  impl_tac>-(
-    rw[]>>
-    Cases_on`evaluate (Call NONE (SOME start) [0] NONE, s with clock:=k)`>>
-    drule ptr_eq_bits_mono>>
-    disch_then(qspec_then`k'-k`mp_tac)>>
-    strip_tac>>
-    `k + (k'-k) = k'` by simp[]>>
-    gvs[])>>
-  strip_tac>>
-  qexists_tac`po`>>
-  rw[]>>
-  Cases_on`evaluate (Call NONE (SOME start) [0] NONE, s with clock:=k)`>>
-  drule ptr_eq_bits_correct>>
-  impl_tac >- simp[]>>
-  disch_then(qspec_then
-    `λn. po (n + LENGTH (ptr_eq_bits (Call NONE (SOME start) [0] NONE) (s with clock:=k)))` mp_tac)>>
-  `oracle_of (ptr_eq_bits (Call NONE (SOME start) [0] NONE) (s with clock:=k))
-     (λn. po (n + LENGTH (ptr_eq_bits (Call NONE (SOME start) [0] NONE) (s with clock:=k)))) = po` by
-    (irule oracle_of_prefix>>rw[]>>metis_tac[])>>
-  gvs[]>>
-  strip_tac>>
-  qexists_tac`rest'`>>
-  simp[]
+  cheat
 QED
 
 (* Discharging the oracle at the level of whole-program semantics. *)

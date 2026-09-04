@@ -55,7 +55,7 @@ Datatype:
      ; compile_oracle : num -> 'c # (num # num # bvl$exp) list
      ; code    : (num # bvl$exp) num_map
      ; ffi     : 'ffi ffi_state
-     ; ptr_eq_oracle : num -> bool |>
+     ; ptr_eq_oracle : num -> num -> bool |>
 End
 
 Definition v_to_list_def:
@@ -143,7 +143,8 @@ Definition do_install_def:
                         let s' =
                           s with <|
                              code := union s.code (fromAList progs)
-                           ; compile_oracle := new_oracle |>
+                           ; compile_oracle := new_oracle
+                           ; ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle |>
                         in
                           Rval (CodePtr k, s')
                       else Rerr(Rabort Rtype_error)
@@ -481,8 +482,9 @@ Definition do_app_def:
     | (BlockOp PtrEqual,[x1;x2]) =>
         (case do_eq s.refs x1 x2 of
          | Eq_val b =>
-             Rval (Boolv (b ∧ s.ptr_eq_oracle 0),
-                   s with ptr_eq_oracle := (λn. s.ptr_eq_oracle (n + 1)))
+             Rval (Boolv (b ∧ s.ptr_eq_oracle 0 0),
+                   s with ptr_eq_oracle :=
+                     (0 =+ shift_seq 1 (s.ptr_eq_oracle 0)) s.ptr_eq_oracle)
          | _ => Error)
     | (MemOp Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in

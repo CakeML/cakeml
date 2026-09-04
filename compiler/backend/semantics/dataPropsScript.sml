@@ -1938,18 +1938,14 @@ Proof
   \\ simp [space_consumed_def]
 QED
 
-(* PtrEqual is the only operation that reads or advances the oracle *)
+(* PtrEqual reads and advances the current epoch's stream and Install moves to
+   the next epoch; no other operation touches the oracle *)
 Theorem do_app_with_ptr_eq_oracle:
-  op ≠ BlockOp PtrEqual ⇒
+  op ≠ BlockOp PtrEqual ∧ op ≠ Install ⇒
   do_app op vs (s with ptr_eq_oracle := f) =
    map_result (λ(x,y). (x,y with ptr_eq_oracle := f)) I (do_app op vs s)
 Proof
   strip_tac
-  \\ Cases_on `op = Install` THEN1
-   (fs [do_app_def,do_stack_def,do_install_def]
-    \\ every_case_tac \\ fs []
-    \\ pairarg_tac \\ fs []
-    \\ every_case_tac \\ fs [] \\ rw [] \\ fs [])
   \\ Cases_on `do_app op vs s`
   \\ fs[do_app_def,do_stack_def,do_space_def]
   \\ cases_on_op_fs `op`
@@ -1967,16 +1963,16 @@ Proof
 QED
 
 Theorem do_app_ptr_eq_oracle:
-  op ≠ BlockOp PtrEqual ∧ do_app op vs s = Rval (v,s1) ⇒
+  op ≠ BlockOp PtrEqual ∧ op ≠ Install ∧ do_app op vs s = Rval (v,s1) ⇒
   s1.ptr_eq_oracle = s.ptr_eq_oracle
 Proof
   strip_tac
-  \\ drule do_app_with_ptr_eq_oracle
-  \\ disch_then (qspecl_then [`vs`,`s`,`s.ptr_eq_oracle`] mp_tac)
+  \\ `do_app op vs (s with ptr_eq_oracle := s.ptr_eq_oracle) =
+      map_result (λ(x,y). (x,y with ptr_eq_oracle := s.ptr_eq_oracle)) I
+        (do_app op vs s)` by (irule do_app_with_ptr_eq_oracle \\ fs [])
   \\ `s with ptr_eq_oracle := s.ptr_eq_oracle = s`
        by simp [state_component_equality]
-  \\ asm_rewrite_tac []
-  \\ simp [state_component_equality]
+  \\ gvs [state_component_equality]
 QED
 
 Theorem do_app_change_clock:

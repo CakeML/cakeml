@@ -41,7 +41,7 @@ Datatype:
      ; compile_oracle : 'c clos_co
      ; code    : num |-> (num # closLang$exp)
      ; max_app : num
-     ; ptr_eq_oracle : num -> bool
+     ; ptr_eq_oracle : num -> num -> bool
     |>
 End
 
@@ -150,6 +150,7 @@ Definition do_install_def:
                           s with <|
                              code := s.code |++ aux
                            ; compile_oracle := new_oracle
+                           ; ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle
                            ; clock := s.clock - 1
                            |>
                         in
@@ -459,8 +460,9 @@ Definition do_app_def:
     | (BlockOp PtrEqual,[x1;x2]) =>
         (case do_eq x1 x2 of
          | Eq_val b =>
-             Rval (Boolv (b ∧ s.ptr_eq_oracle 0),
-                   s with ptr_eq_oracle := (λn. s.ptr_eq_oracle (n + 1)))
+             Rval (Boolv (b ∧ s.ptr_eq_oracle 0 0),
+                   s with ptr_eq_oracle :=
+                     (0 =+ shift_seq 1 (s.ptr_eq_oracle 0)) s.ptr_eq_oracle)
          | _ => Error)
     | (MemOp Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in

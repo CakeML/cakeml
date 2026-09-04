@@ -60,8 +60,9 @@ Datatype:
     globals : (v option) list;
     (* eval or install mode *)
     eval_config : 'c install_config;
-    (* oracle deciding whether a structurally-equal PtrEq answers T *)
-    ptr_eq_oracle : num -> bool
+    (* oracle deciding whether a structurally-equal PtrEq answers T, indexed
+       first by install epoch and then by position within that epoch *)
+    ptr_eq_oracle : num -> num -> bool
   |>
 End
 
@@ -327,8 +328,9 @@ Definition do_app_def:
     (case do_eq v1 v2 of
      | Eq_type_error => NONE
      | Eq_val b =>
-         SOME (s with ptr_eq_oracle := (λn. s.ptr_eq_oracle (n + 1)),
-               Rval (Boolv (b ∧ s.ptr_eq_oracle 0))))
+         SOME (s with ptr_eq_oracle :=
+                 (0 =+ shift_seq 1 (s.ptr_eq_oracle 0)) s.ptr_eq_oracle,
+               Rval (Boolv (b ∧ s.ptr_eq_oracle 0 0))))
   | (Src (Test test test_ty), [v1; v2]) =>
     (case do_test test test_ty v1 v2 of
      | Eq_type_error => NONE
@@ -873,7 +875,8 @@ Definition evaluate_def:
        else if op = Src Eval then
          (case do_eval (REVERSE vs) s.eval_config of
             | SOME (decs, eval_config, retv) =>
-              let s = s with <| eval_config := eval_config |> in
+              let s = s with <| eval_config := eval_config
+                              ; ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle |> in
               if s.clock = 0 then
                 (s, Rerr (Rabort Rtimeout_error))
               else (case evaluate_decs (dec_clock s) decs of
