@@ -3,46 +3,33 @@
 *)
 Theory wcnf_to_pb
 Ancestors
-  pbc pbc_normalise satSem lpr cnf_to_pb
+  pbc pbc_normalise cnf syntax_helper cnf_to_pb
 Libs
   preamble
 
 (*** STEP 1: Formalise the semantics of MAX-SAT ***)
 
-(* lprTheory already provides a concrete syntax for clauses
-  based on the DIMACS integer representation, which we will reuse *)
+(* cnfTheory already provides the syntax and semantics of clauses,
+  which we will reuse *)
 
 (* Weighted (soft) clauses are clauses paired with a weight n
   In this representation, the clause is hard
   if n = 0 and soft (with weight n) otherwise. *)
-Type wcclause = ``:num # cclause``;
+Type wcclause = ``:num # num clause``;
 
 (* Weighted CNFs are a list of weighted soft clauses *)
 Type wccnf = ``:wcclause list``;
 
-(* A cleaner definition of satisfaction *)
-Definition sat_lit_def:
-  sat_lit w l ⇔
-  l ≠ 0 ∧
-  let v = Num (ABS l) in
-  if l > 0 then w v else ¬ w v
-End
-
-Definition sat_clause_def:
-  sat_clause w C ⇔
-  ∃l. l ∈ set C ∧ sat_lit w l
-End
-
 Definition sat_hard_def:
   sat_hard w wfml ⇔
-  ∀C. (0:num,C) ∈ set wfml ⇒ sat_clause w C
+  ∀C. (0:num,C) ∈ set wfml ⇒ satisfies_clause w C
 End
 
 (* The weight of a clause with respect to an assignment
   (0 if satisfied, w otherwise) *)
 Definition weight_clause_def:
   weight_clause w ((n,C):wcclause) =
-  if sat_clause w C then 0 else n
+  if satisfies_clause w C then 0 else n
 End
 
 Definition cost_def:
@@ -55,20 +42,17 @@ Definition opt_cost_def:
   else SOME (MIN_SET {cost w wfml | w | sat_hard w wfml})
 End
 
-(* Some alternative definitions *)
-Theorem sat_lit_alt:
-  sat_lit w l ⇔
-  l ≠ 0 ∧ satisfies_literal w (interp_lit l)
+(* Canonicalising a clause changes neither its models nor its weight *)
+Theorem satisfies_clause_canon_clause[simp]:
+  satisfies_clause w (canon_clause C) ⇔ satisfies_clause w C
 Proof
-  EVAL_TAC>>rw[]
+  rw[satisfies_clause_def]
 QED
 
-Theorem sat_clause_alt:
-  sat_clause w C ⇔
-  satisfies_clause w (interp_cclause C)
+Theorem weight_clause_canon_clause[simp]:
+  weight_clause w (n,canon_clause C) = weight_clause w (n,C)
 Proof
-  rw[sat_clause_def,lprTheory.interp_cclause_def,satSemTheory.satisfies_clause_def,PULL_EXISTS]>>
-  metis_tac[sat_lit_alt]
+  rw[weight_clause_def]
 QED
 
 (*** STEP 2: Formalise an encoding into PB ***)
@@ -81,14 +65,26 @@ QED
   INR m --> an auxiliary (blocking) variable *)
 Type enc_var = ``:num + num``
 
-(* Turns a literal into its PB representation *)
+(* Turns a literal into its PB representation.
+  cnf and pbc both name their literal constructors Pos/Neg, so every
+  literal below is written with its theory qualifier. *)
 Definition enc_lit_def:
-  enc_lit l =
-  if l > 0 then
-    Pos (INL (Num (ABS l)) : enc_var)
-  else
-    Neg (INL (Num (ABS l)) : enc_var)
+  (enc_lit (cnf$Pos v) = pbc$Pos (INL v : enc_var)) ∧
+  (enc_lit (cnf$Neg v) = pbc$Neg (INL v : enc_var))
 End
+
+Theorem lit_enc_lit[simp]:
+  lit w (enc_lit l) ⇔ satisfies_lit (w o INL) l
+Proof
+  Cases_on`l`>>rw[enc_lit_def,satisfies_lit_def]
+QED
+
+Theorem eval_term_enc_lit[simp]:
+  eval_term w (1:int,enc_lit l) = 1 ⇔ satisfies_lit (w o INL) l
+Proof
+  `∀b:bool. b2i b = 1 ⇔ b` by (Cases>>simp[])>>
+  simp[]
+QED
 
 Definition enc_clause_def:
   enc_clause C =
@@ -99,15 +95,15 @@ End
   ≤ 1 PB constraints and ≤ 1 terms in the objective *)
 Definition wclause_to_pbc_def:
   wclause_to_pbc (i,n,C) =
-  let C = nub (FILTER (λl. l ≠ 0) C) in
+  let C = canon_clause C in
   if n = 0 then (* hard clauses *)
     ([(PGe,enc_clause C,1:int)],[])
   else (* soft clauses *)
   if LENGTH C = 1 then
     ([],[((&n:int), negate (enc_lit (HD C)))])
   else
-    ([(PGe,(1,Neg (INR i)) :: enc_clause C,1)],
-     [((&n:int),Neg (INR i))])
+    ([(PGe,(1,pbc$Neg (INR i)) :: enc_clause C,1)],
+     [((&n:int),pbc$Neg (INR i))])
 End
 
 (* Encoding a weighted formula *)
@@ -169,23 +165,21 @@ End
 
 (*** STEP 3: Prove correctness of the encoding ***)
 
-Theorem satisfies_pbc_satisfies_clause:
-  wf_clause C ∧
-  eval_lin_term w (enc_clause C) ≥ 1 ⇒
-  satisfies_clause (w o INL) (interp_cclause C)
+(* A clause's encoding is satisfied exactly when the clause is *)
+Theorem eval_lin_term_enc_clause:
+  eval_lin_term w (enc_clause C) ≥ 1 ⇔
+  satisfies_clause (w o INL) C
 Proof
-  Induct_on`C`>>rw[satisfies_clause_def,satisfies_pbc_def]
-  >-
-    EVAL_TAC>>
-  fs[satisfies_pbc_def,Once interp_cclause_cons,enc_clause_def]>>
-  fs[eval_lin_term_def,iSUM_def,wf_clause_def]>>
-  Cases_on`satisfies_literal (w o INL) (interp_lit h)`
-  >-
-    (qexists_tac`interp_lit h`>>simp[interp_cclause_def])>>
-  `eval_lit w (enc_lit h) = 0` by
-    (rw[enc_lit_def]>>fs[interp_lit_def,satisfies_literal_def])>>
-  fs[]>>
-  metis_tac[satisfies_clause_def]
+  simp[enc_clause_def]>>
+  DEP_REWRITE_TAC[eval_lin_term_coeff_1]>>
+  rw[MEM_MAP,satisfies_clause_def,PULL_EXISTS]
+QED
+
+Theorem satisfies_pbc_satisfies_clause:
+  eval_lin_term w (enc_clause C) ≥ 1 ⇒
+  satisfies_clause (w o INL) C
+Proof
+  metis_tac[eval_lin_term_enc_clause]
 QED
 
 Theorem eval_lin_term_enc_clause_ge0:
@@ -197,65 +191,13 @@ Proof
 QED
 
 Theorem satisfies_clause_satisfies_pbc:
-  wf_clause C ∧
   (∀v. w' (INL v) = w v) ∧
-  satisfies_clause w (interp_cclause C) ⇒
+  satisfies_clause w C ⇒
   eval_lin_term w' (enc_clause C) ≥ 1
 Proof
-  Induct_on`C`
-  >- fs[satisfies_clause_def]>>
-  rw[]>>
-  gvs[interp_cclause_def,wf_clause_def]>>
-  Cases_on`satisfies_literal w (interp_lit h)`>>
-  fs[satisfies_clause_INSERT]
-  >- (
-    simp[satisfies_pbc_def,enc_clause_def,eval_lin_term_def,iSUM_def]>>
-    `b2i (lit w' (enc_lit h)) = 1` by
-      (rw[enc_lit_def]>>gvs[interp_lit_def,satisfies_literal_def])>>
-    simp[GSYM eval_lin_term_def,GSYM enc_clause_def]>>
-    qsuff_tac`eval_lin_term w' (enc_clause C') ≥ 0`
-    >- intLib.ARITH_TAC>>
-    metis_tac[eval_lin_term_enc_clause_ge0])>>
-  fs[satisfies_pbc_def,enc_clause_def,eval_lin_term_def,iSUM_def]>>
-  `b2i (lit w' (enc_lit h)) = 0` by
-    (rw[enc_lit_def]>>gvs[interp_lit_def,satisfies_literal_def])>>
-  fs[]
-QED
-
-Theorem interp_cclause_FILTER:
-  interp_cclause C =
-  interp_cclause (FILTER (λl. l ≠ 0) C)
-Proof
-  rw[interp_cclause_def]>>
-  simp[EXTENSION,MEM_FILTER]>>
-  metis_tac[]
-QED
-
-Theorem EVERY_FILTER:
-  EVERY P (FILTER P ls)
-Proof
-  Induct_on`ls`>>rw[]
-QED
-
-Theorem weight_clause_FILTER:
-  weight_clause w (n,C) =
-  weight_clause w (n, FILTER (λl. l ≠ 0) C)
-Proof
-  rw[weight_clause_def,sat_clause_alt]>>
-  metis_tac[interp_cclause_FILTER]
-QED
-
-Theorem weight_clause_nub:
-  weight_clause f (q,nub C) =
-  weight_clause f (q,C)
-Proof
-  rw[weight_clause_def,interp_cclause_def,sat_clause_alt]
-QED
-
-Theorem interp_cclause_nub:
-  interp_cclause (nub C) = interp_cclause C
-Proof
-  rw[interp_cclause_def]
+  rw[eval_lin_term_enc_clause]>>
+  `w' o INL = w` by simp[FUN_EQ_THM]>>
+  gvs[]
 QED
 
 (* The sum of weights for unsatisfied clauses is
@@ -279,22 +221,19 @@ Proof
   Cases_on`h`>>
   simp[miscTheory.enumerate_def,wclause_to_pbc_def]>>
   qmatch_goalsub_abbrev_tac`LENGTH C = 1`>>
-  `wf_clause C` by
-    fs[Abbr`C`,wf_clause_def,MEM_FILTER]>>
   `weight_clause (λx. w (INL x)) (q,r) =
    weight_clause (λx. w (INL x)) (q,C)` by
-    metis_tac[Abbr`C`,weight_clause_FILTER,weight_clause_nub]>>
-  rw[]>>simp[weight_clause_def,iSUM_def,sat_clause_alt]
+    simp[Abbr`C`]>>
+  rw[]>>simp[weight_clause_def,iSUM_def]
   >- (
-    Cases_on`C`>>fs[]>>
-    IF_CASES_TAC>>
-    gvs[interp_cclause_def,satisfies_clause_def,wf_clause_def]>>
-    rw[enc_lit_def]>>fs[interp_lit_def,satisfies_literal_def]>>
+    `∃l. C = [l]` by (Cases_on`C`>>gvs[LENGTH_EQ_NUM_compute])>>
+    gvs[satisfies_clause_def,o_DEF]>>
+    Cases_on`satisfies_lit (λx. w (INL x)) l`>>gvs[]>>
     intLib.ARITH_TAC)>>
   fs[wclause_to_pbc_def]>>
   Cases_on`w (INR k)`>>fs[]
   >- (
-    drule_all satisfies_pbc_satisfies_clause>>
+    drule satisfies_pbc_satisfies_clause>>
     simp[o_DEF])>>
   rw[]>>
   intLib.ARITH_TAC
@@ -318,16 +257,15 @@ Proof
     (* All hard constraints are satisfied *)
     gvs[wfml_to_pbf_def]>>
     fs[pbcTheory.satisfies_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]>>
-    rw[sat_hard_def,sat_clause_alt]>>
+    rw[sat_hard_def]>>
     fs[MEM_EL]>>rw[]>>fs[LENGTH_enumerate,PULL_EXISTS]>>
     first_x_assum drule>>
     DEP_REWRITE_TAC[EL_enumerate]>>
     Cases_on`EL n wfml`>>
     fs[wclause_to_pbc_def]>>
-    strip_tac>>simp[Once interp_cclause_FILTER]>>
-    PURE_ONCE_REWRITE_TAC[GSYM interp_cclause_nub]>>
-    match_mp_tac satisfies_pbc_satisfies_clause>>
-    simp[wf_clause_def,MEM_FILTER])>>
+    strip_tac>>
+    drule satisfies_pbc_satisfies_clause>>
+    simp[])>>
   drule_all weight_clause_obj_upper>>
   simp[]
 QED
@@ -359,35 +297,28 @@ Proof
     case v of
       INL x => w x
     | INR y =>
-      satisfies_clause w (interp_cclause (SND (EL (y - k) wfml)))`>>
+      satisfies_clause w (SND (EL (y - k) wfml))`>>
   CONJ_TAC >- (
-    fs[sat_hard_def,sat_clause_alt,pbcTheory.satisfies_def]>>
+    fs[sat_hard_def,pbcTheory.satisfies_def]>>
     rw[MEM_FLAT,MEM_MAP]>>
     fs[MEM_EL]>>rw[]>>fs[LENGTH_enumerate,PULL_EXISTS]>>
     pop_assum mp_tac>>
     DEP_REWRITE_TAC[EL_enumerate]>>simp[]>>
     Cases_on`EL n wfml`>>
+    rename1`EL n wfml = (wt,cl)`>>
     fs[wclause_to_pbc_def]>>
     rw[]
     >- (
-      match_mp_tac satisfies_clause_satisfies_pbc>>
-      simp[interp_cclause_nub,GSYM interp_cclause_FILTER]>>
-      first_x_assum drule>>
-      simp[wf_clause_def,MEM_FILTER])>>
-    (* For the non-hard clauses *)
-    Cases_on`satisfies_clause w (interp_cclause r)`>>
-    simp[satisfies_pbc_def,eval_lin_term_def,iSUM_def]>>
-    simp[GSYM eval_lin_term_def]
-    >- (
-      fs[Once interp_cclause_FILTER,Once (GSYM interp_cclause_nub)]>>
-      drule_at Any satisfies_clause_satisfies_pbc>>
-      simp[satisfies_pbc_def]>>
-      disch_then match_mp_tac>>
-      simp[wf_clause_def,MEM_FILTER])>>
-    rename1`eval_lin_term w' (enc_clause C')`>>
-    qsuff_tac`eval_lin_term w' (enc_clause C') ≥ 0`
-    >- intLib.ARITH_TAC>>
-    metis_tac[eval_lin_term_enc_clause_ge0])>>
+      (* hard clauses *)
+      simp[eval_lin_term_enc_clause,o_DEF]>>
+      metis_tac[])>>
+    (* soft clauses: the blocking variable absorbs an unsatisfied clause *)
+    Cases_on`satisfies_clause w cl`>>
+    simp[eval_lin_term_enc_clause,o_DEF,ETA_AX]>>
+    qmatch_goalsub_abbrev_tac`eval_lin_term ww (enc_clause cc)`>>
+    `eval_lin_term ww (enc_clause cc) ≥ 0` by
+      metis_tac[eval_lin_term_enc_clause_ge0]>>
+    intLib.ARITH_TAC)>>
   simp[eval_obj_def,eval_lin_term_def]>>
   pop_assum kall_tac>>
   qid_spec_tac`k`>>
@@ -404,26 +335,22 @@ Proof
   unabbrev_all_tac>>CONJ_TAC
   >- (
     Cases_on`h`>>
-    simp[wclause_to_pbc_def,weight_clause_def,iSUM_def,sat_clause_alt]>>
+    rename1`wclause_to_pbc (k,wt,cl)`>>
+    simp[wclause_to_pbc_def,weight_clause_def,iSUM_def]>>
     qmatch_goalsub_abbrev_tac`LENGTH C = 1`>>
-    `wf_clause C` by
-      fs[Abbr`C`,wf_clause_def,MEM_FILTER]>>
     rw[]>>fs[iSUM_def]>>
-    `satisfies_clause w (interp_cclause r) =
-    satisfies_clause w (interp_cclause C)` by
-      metis_tac[Abbr`C`,interp_cclause_nub,interp_cclause_FILTER]>>
-    gvs[]>>
-    (
-    Cases_on`C`>>fs[]>>
-    gvs[interp_cclause_def,wf_clause_def,interp_lit_def,enc_lit_def]>>
-    rw[]>>fs[satisfies_clause_def,satisfies_literal_def]))>>
+    `∃l. C = [l]` by (Cases_on`C`>>gvs[LENGTH_EQ_NUM_compute])>>
+    `satisfies_clause w cl ⇔ satisfies_lit w l` by
+      (unabbrev_all_tac>>gvs[satisfies_clause_def]>>
+      metis_tac[MEM_canon_clause,MEM])>>
+    gvs[o_DEF,ETA_AX])>>
   pop_assum (qspec_then`k+1` sym_sub_tac)>>
   AP_TERM_TAC>>
   rw[MAP_EQ_f,MEM_FLAT,MEM_MAP,PULL_EXISTS]>>
   rename1`MEM rr (enumerate _ _)`>>
   PairCases_on`rr`>>fs[wclause_to_pbc_def]>>
   every_case_tac>>gvs[]
-  >- rw[enc_lit_def]>>
+  >- simp[o_DEF]>>
   `rr0 - k > 0` by
     (drule MEM_enumerate_index>>simp[])>>
   simp[EL_CONS,PRE_SUB1]
@@ -646,29 +573,20 @@ QED
 
 (*** STEP 4: Build a parser for the command line interface ***)
 
-(* Parse a list of integers terminated by 0 *)
-Definition parse_wclause_aux_def:
-  (parse_wclause_aux [] (acc:cclause) = NONE) ∧
-  (parse_wclause_aux [c] acc =
-    if c = INR 0i then SOME acc else NONE) ∧
-  (parse_wclause_aux (x::xs) acc =
-    case x of
-      INR l =>
-      if l = 0 then NONE
-      else parse_wclause_aux xs (l::acc)
-    | INL (_:mlstring) => NONE)
-End
-
+(* A weight, then a list of literals terminated by 0.
+  The comment convention differs from DIMACS CNF: any token starting with
+  "c" opens a comment, so syntax_helper's keep_line does not apply here. *)
 Definition parse_wclause_def:
   parse_wclause ls =
   case ls of [] => NONE
   | c::rs =>
-    (case parse_wclause_aux rs [] of NONE => NONE
-    | SOME cl =>
-      let cl = REVERSE cl in
-      (case c of
+    (case parse_until_zero rs of
+      SOME (cl,[]) =>
+      (let cl = MAP mk_lit cl in
+      case c of
         INL s => if s = «h» then SOME (0,cl) else NONE
-      | INR n => if n > 0 then SOME (Num n,cl) else NONE))
+      | INR n => if n > 0 then SOME (Num n,cl) else NONE)
+    | _ => NONE)
 End
 
 Definition wnocomment_line_def:
@@ -688,7 +606,7 @@ End
 
 Definition parse_wcnf_def:
   parse_wcnf strs =
-  let tokss = MAP toks strs in
+  let tokss = MAP syntax_helper$toks strs in
   parse_wcnf_toks tokss []
 End
 

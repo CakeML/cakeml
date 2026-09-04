@@ -319,7 +319,7 @@ End
 Definition functions_def:
   functions [] = [] ∧
   functions(Function fi::fs) =
-  (fi.name,fi.params,fi.body)::functions fs ∧
+  (fi.name,fi.params,fi.body,fi.return)::functions fs ∧
   functions(Decl _ _ _::fs) = functions fs ∧
   functions (ExnDecl _ _ :: fs) = functions fs ∧
   functions(Name _ _::fs) = functions fs

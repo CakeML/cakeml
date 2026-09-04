@@ -764,14 +764,19 @@ Definition compile_exp_def:
       SOME (exp_wrapper, exp_worker)
 End
 
-Definition compile_prog_def:
-  (compile_prog next [] = (next, [])) ∧
-  (compile_prog next ((loc, arity, exp)::xs) =
+Definition compile_each_def:
+  (compile_each next [] = (next, [])) ∧
+  (compile_each next ((loc, arity, exp)::xs) =
     case compile_exp loc next arity exp of
     | NONE =>
-        let (n, ys) = compile_prog next xs in
+        let (n, ys) = compile_each next xs in
           (n, (loc, arity, exp)::ys)
     | SOME (exp_wrapper, exp_worker) =>
-        let (n, ys) = compile_prog (next + bvl_to_bvi_namespaces) xs in
+        let (n, ys) = compile_each (next + bvl_to_bvi_namespaces) xs in
         (n, (loc, arity, exp_wrapper)::(next, arity + 2, exp_worker)::ys))
+End
+
+Definition compile_prog_def:
+  compile_prog do_it next xs =
+    if do_it then compile_each next xs else (next, xs)
 End

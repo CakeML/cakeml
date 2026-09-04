@@ -15,8 +15,8 @@ Datatype:
     <| locals      : varname |-> 'a v
      ; globals     : varname |-> 'a v
      ; structs     : (stcname # struct_info) list
-     ; code        : funname |-> ((varname # shape) list # ('a panLang$prog))
-                     (* arguments (with shape), body *)
+     ; code        : funname |-> ((varname # shape) list # ('a panLang$prog) # shape)
+                     (* arguments (with shape), body, return shape *)
      ; eshapes     : eid |-> shape
      ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
@@ -338,22 +338,23 @@ End
 val s' = ``(s':'a bstate)``
 
 Definition h_handle_call_ret_def:
-  (h_handle_call_ret calltyp ^s (INL _) = Ret (INR (SOME Error,s))) ∧
-  (h_handle_call_ret calltyp ^s (INR (NONE,s':'a bstate)) =
+  (h_handle_call_ret calltyp rsh ^s (INL _) = Ret (INR (SOME Error,s))) ∧
+  (h_handle_call_ret calltyp rsh ^s (INR (NONE,s':'a bstate)) =
    Ret (INR (SOME Error,s'))) ∧
-  (h_handle_call_ret calltyp s (INR (SOME Break,s')) =
+  (h_handle_call_ret calltyp rsh s (INR (SOME Break,s')) =
    Ret (INR (SOME Error,s'))) ∧
-  (h_handle_call_ret calltyp s (INR (SOME Continue,s')) =
+  (h_handle_call_ret calltyp rsh s (INR (SOME Continue,s')) =
    Ret (INR (SOME Error,s'))) ∧
-  (h_handle_call_ret calltyp s (INR (SOME (Return retv),s')) =
-   case calltyp of
+  (h_handle_call_ret calltyp rsh s (INR (SOME (Return retv),s')) =
+   if shape_of retv ≠ rsh then Ret (INR (SOME Error, s')) else
+   (case calltyp of
      NONE => Ret (INR (SOME (Return retv),empty_locals s'))
    | SOME (NONE, _) => Ret (INR (NONE, s' with locals := s.locals))
    | SOME (SOME (rk, rt),_) =>
        if is_valid_value s rk rt retv
        then Ret (INR (NONE,set_kvar rk rt retv (s' with locals := s.locals)))
-       else Ret (INR (SOME Error,s'))) ∧
-  (h_handle_call_ret calltyp s (INR (SOME (Exception eid exn),s')) =
+       else Ret (INR (SOME Error,s')))) ∧
+  (h_handle_call_ret calltyp rsh s (INR (SOME (Exception eid exn),s')) =
    case calltyp of
      NONE => Ret (INR (SOME (Exception eid exn),empty_locals s'))
    | SOME (_,NONE) => Ret (INR (SOME (Exception eid exn),empty_locals s'))
@@ -370,7 +371,7 @@ Definition h_handle_call_ret_def:
               else Ret (INR (SOME Error,s'))
           | NONE => Ret (INR (SOME Error,s')))
        else Ret (INR (SOME (Exception eid exn),empty_locals s'))) ∧
-  (h_handle_call_ret calltyp s (INR (res,s')) = Ret (INR (res,empty_locals s')))
+  (h_handle_call_ret calltyp rsh s (INR (res,s')) = Ret (INR (res,empty_locals s')))
 End
 
 Definition h_prog_call_def:
@@ -378,26 +379,26 @@ Definition h_prog_call_def:
   case OPT_MMAP (eval s) argexps of
    | SOME args =>
       (case lookup_code s.code fname args of
-        | SOME (callee_prog,newlocals) =>
-           Vis (INL (callee_prog,s with locals := newlocals)) (h_handle_call_ret calltyp s)
+        | SOME (callee_prog,newlocals,rshape) =>
+           Vis (INL (callee_prog,s with locals := newlocals)) (h_handle_call_ret calltyp rshape s)
         | _ => Ret (INR (SOME Error,s)))
    | _ => Ret (INR (SOME Error,s))
 End
 
 Definition h_handle_deccall_ret_def:
-  (h_handle_deccall_ret rt shape prog1 ^s (INL _) = Ret (INR (SOME Error,s))) ∧
-  (h_handle_deccall_ret rt shape prog1 ^s (INR (NONE,s':'a bstate)) = Ret (INR (SOME Error,s'))) ∧
-  (h_handle_deccall_ret rt shape prog1 s (INR (SOME Break,s')) = Ret (INR (SOME Error,s'))) ∧
-  (h_handle_deccall_ret rt shape prog1 s (INR (SOME Continue,s')) = Ret (INR (SOME Error,s'))) ∧
-  (h_handle_deccall_ret rt shape prog1 s (INR (SOME (Return retv),s')) =
-   if shape_of retv = shape then
+  (h_handle_deccall_ret rt shape prog1 rsh ^s (INL _) = Ret (INR (SOME Error,s))) ∧
+  (h_handle_deccall_ret rt shape prog1 rsh ^s (INR (NONE,s':'a bstate)) = Ret (INR (SOME Error,s'))) ∧
+  (h_handle_deccall_ret rt shape prog1 rsh s (INR (SOME Break,s')) = Ret (INR (SOME Error,s'))) ∧
+  (h_handle_deccall_ret rt shape prog1 rsh s (INR (SOME Continue,s')) = Ret (INR (SOME Error,s'))) ∧
+  (h_handle_deccall_ret rt shape prog1 rsh s (INR (SOME (Return retv),s')) =
+   if shape_of retv = shape ∧ shape_of retv = rsh then
      Vis (INL (prog1, set_var rt retv (s' with locals := s.locals)))
          (λa. Ret (INR (case a of
                         | INL _ => (SOME Error, s')
                         | INR (res', s') =>
                             (res',s' with locals := res_var s'.locals (rt, FLOOKUP s.locals rt)))))
    else Ret (INR (SOME Error, s'))) ∧
-  (h_handle_deccall_ret rt shape prog1 s (INR (res,s')) = Ret (INR (res,empty_locals s')))
+  (h_handle_deccall_ret rt shape prog1 rsh s (INR (res,s')) = Ret (INR (res,empty_locals s')))
 End
 
 Definition h_prog_deccall_def:
@@ -405,8 +406,8 @@ Definition h_prog_deccall_def:
   case OPT_MMAP (eval s) argexps of
    | SOME args =>
       (case lookup_code s.code fname args of
-        | SOME (callee_prog,newlocals) =>
-           Vis (INL (callee_prog,s with locals := newlocals)) (h_handle_deccall_ret rt shape prog1 s)
+        | SOME (callee_prog,newlocals,rshape) =>
+           Vis (INL (callee_prog,s with locals := newlocals)) (h_handle_deccall_ret rt shape prog1 rshape s)
         | _ => Ret (INR (SOME Error,s)))
    | _ => Ret (INR (SOME Error,s))
 End
@@ -1003,10 +1004,10 @@ Proof
    (fs[h_prog_def,h_prog_call_def,FUNPOW_SUC]>>
     rpt (FULL_CASE_TAC>>fs[])>>
     imp_res_tac bind_FUNPOW_Ret>>fs[FUNPOW_Tau_bind]>>
-    rename [‘h_handle_call_ret _ _ r'’]>>
+    rename [‘h_handle_call_ret _ _ _ r'’]>>
     Cases_on ‘r'’>>fs[h_handle_call_ret_def]>>
     rename1 ‘INR y’>>Cases_on ‘y’>>
-    rename1 ‘INR (q',r')’>>Cases_on ‘q'’>>fs[h_handle_call_ret_def]>>
+    rename1 ‘INR (q'',r')’>>Cases_on ‘q''’>>fs[h_handle_call_ret_def]>>
     rename1 ‘INR (SOME x'',_)’>>Cases_on ‘x''’>>
     Cases_on ‘o'’>>fs[h_handle_call_ret_def]>>
     rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
@@ -1016,10 +1017,10 @@ Proof
    (fs[h_prog_def,h_prog_deccall_def,FUNPOW_SUC]>>
     rpt (FULL_CASE_TAC>>fs[])>>
     imp_res_tac bind_FUNPOW_Ret>>fs[FUNPOW_Tau_bind]>>
-    rename [‘h_handle_deccall_ret _ _ _ _ r'’]>>
+    rename [‘h_handle_deccall_ret _ _ _ _ _ r'’]>>
     Cases_on ‘r'’>>fs[h_handle_deccall_ret_def]>>
     rename1 ‘INR y’>>Cases_on ‘y’>>
-    rename1 ‘INR (q',r')’>>Cases_on ‘q'’>>fs[h_handle_deccall_ret_def]>>
+    rename1 ‘INR (q'',r')’>>Cases_on ‘q''’>>fs[h_handle_deccall_ret_def]>>
     rename1 ‘INR (SOME x'',_)’>>Cases_on ‘x''’>>fs[h_handle_deccall_ret_def]>>
     rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
     Cases_on ‘m'’>>fs[FUNPOW_SUC]>>
@@ -1393,10 +1394,10 @@ Theorem mrec_Call:
     | SOME args =>
         case lookup_code s.code fname args of
           NONE => Ret (INR (SOME Error,s))
-        | SOME (q,r) =>
+        | SOME (q,r,rsh) =>
             Tau
             (itree_bind (mrec h_prog (h_prog (q,s with locals := r)):'a ptree)
-                        (mrec h_prog o (h_handle_call_ret typ s)))
+                        (mrec h_prog o (h_handle_call_ret typ rsh s)))
         | _ => Ret (INR (SOME Error,s)))
 Proof
   simp[h_prog_def,h_prog_call_def]>>
@@ -1410,17 +1411,17 @@ Theorem mrec_DecCall:
    | SOME args =>
        case lookup_code s.code fname args of
          NONE => Ret (INR (SOME Error,s))
-       | SOME (q,r) =>
+       | SOME (q,r,rsh) =>
            Tau
            (itree_bind (mrec h_prog (h_prog (q,s with locals := r)):'a ptree)
-                       (mrec h_prog o (h_handle_deccall_ret rt sh prog s))))
+                       (mrec h_prog o (h_handle_deccall_ret rt sh prog rsh s))))
 Proof
   simp[h_prog_def,h_prog_deccall_def]>>
   rpt (CASE_TAC>>fs[])
 QED
 
 Theorem mrec_h_handle_call_ret_lemma:
-  mrec h_prog (h_handle_call_ret ct s res) :'a ptree =
+  mrec h_prog (h_handle_call_ret ct rsh s res) :'a ptree =
   case res of
   | INR (NONE,s') => Ret (INR (SOME Error,s'))
   | INR (SOME Break,s') => Ret (INR (SOME Error,s'))
@@ -1444,13 +1445,14 @@ Theorem mrec_h_handle_call_ret_lemma:
             else Ret (INR (SOME (Exception eid exn),empty_locals s')))
        | _ => Ret (INR (SOME (Exception eid exn),empty_locals s')))
   | INR (SOME (Return retv), s') =>
+      (if shape_of retv ≠ rsh then Ret (INR (SOME Error, s')) else
       (case ct of
          NONE => Ret (INR (SOME (Return retv),empty_locals s'))
        | SOME (NONE, _) => Ret (INR (NONE, s' with locals := s.locals))
        | SOME (SOME (rk,rt), _) =>
               if is_valid_value s rk rt retv
               then Ret (INR (NONE,set_kvar rk rt retv (s' with locals := s.locals)))
-              else Ret (INR (SOME Error,s')))
+              else Ret (INR (SOME Error,s'))))
   | INR (res,s') => Ret (INR (res,empty_locals s'))
   | INL _ => Ret (INR (SOME Error,s)):'a ptree
 Proof
@@ -1459,13 +1461,13 @@ Proof
 QED
 
 Theorem mrec_h_handle_deccall_ret_lemma:
-  mrec h_prog (h_handle_deccall_ret rt sh p s res) :'a ptree =
+  mrec h_prog (h_handle_deccall_ret rt sh p rsh s res) :'a ptree =
   case res of
   | INR (NONE,s') => Ret (INR (SOME Error,s'))
   | INR (SOME Break,s') => Ret (INR (SOME Error,s'))
   | INR (SOME Continue,s') => Ret (INR (SOME Error,s'))
   | INR (SOME (Return retv), s') =>
-      (if shape_of retv = sh then
+      (if shape_of retv = sh ∧ shape_of retv = rsh then
          Tau
          (itree_bind
           (mrec h_prog (h_prog (p,set_var rt retv (s' with locals := s.locals))):'a ptree)

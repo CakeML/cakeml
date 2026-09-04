@@ -110,14 +110,22 @@ Definition rt_var_def:
      | SOME m => m
 End
 
+Definition rt_vars_def:
+  rt_vars fm vs (mx:num) =
+    case OPT_MMAP (FLOOKUP fm) vs of
+     | NONE => [mx+1] (* impossible, greater than max to prove a prop later *)
+     | SOME m => m
+End
+
 Definition compile_def:
   (compile _ _ (Skip:'a crepLang$prog) = (Skip:'a loopLang$prog)) /\
-  (compile _ _ Break = Break 0) /\
-  (compile _ _ Continue = Continue 0) /\
+  (compile _ _ (Break n) = (Break n)) /\
+  (compile _ _ (Continue n) = (Continue n)) /\
   (compile _ _ Tick = Tick) /\
-  (compile ctxt l (Return e) =
-    let (p, le, ntmp, nl) = compile_exp ctxt (ctxt.vmax + 1) l e in
-      nested_seq (p ++ [Assign ntmp le; Return [ntmp]])) /\
+  (compile ctxt l (Return es) =
+    let (p, les, ntmp, nl) = compile_exps ctxt (ctxt.vmax + 1) l es;
+            ntmps = gen_temps ntmp (LENGTH les) in
+      nested_seq (p ++ MAP2 Assign ntmps les ++ [Return ntmps])) /\
   (compile ctxt l (Raise eid) =
     Seq (Assign (ctxt.vmax + 1) (Const eid)) (Raise (ctxt.vmax + 1))) /\
   (compile ctxt l (ShMem op r ad) =
@@ -185,16 +193,15 @@ Definition compile_def:
        nargs = gen_temps tmp (LENGTH les);
        (rt1, rt2) = case call_type of
          | NONE => (NONE, NONE)
-         | SOME (rt, rp, hdl) =>
-           let rn = rt_var ctxt.vars rt (ctxt.vmax + 1) (ctxt.vmax + 1);
+         | SOME (rts, hdl) =>
+           let rns = rt_vars ctxt.vars rts (ctxt.vmax + 1);
                en  = ctxt.vmax + 1;
-               pr  = compile ctxt l rp;
                pe  = case hdl of
                   | NONE => Raise en
                   | SOME (eid, ep) =>
                     let cpe = compile ctxt l ep in
                       (If NotEqual en (Imm eid) (Raise en) (Seq Tick cpe) l)
-           in (SOME ([rn], l), SOME (en, pe, pr, l))
+           in (SOME (rns, l), SOME (en, pe, Skip, l))
    in
       nested_seq (p ++ MAP2 Assign nargs les ++ [Call rt1 (SOME dest) nargs rt2])) /\
   (compile ctxt l (ExtCall f ptr1 len1 ptr2 len2) =

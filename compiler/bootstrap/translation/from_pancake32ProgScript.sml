@@ -257,33 +257,19 @@ val _ = translate $ spec32 vmax_prog_def;
 
 val _ = translate $ spec32 has_return_def;
 
-val _ = translate $ spec32 return_in_loop_def;
-
-val _ = translate $ spec32 transform_rec_def;
-
 val _ = translate $ spec32 arg_load_def;
 
 val _ = translate $ spec32 not_branch_ret_def;
 
 val _ = translate $ spec32 unreach_elim_def;
 
-val _ = translate $ spec32 standalone_eoc_def;
+val _ = translate $ spec32 transform_eoc_def;
 
-val _ = translate $ spec32 assign_eoc_def;
-
-val _ = translate $ spec32 standalone_branch_def;
-
-val _ = translate $ spec32 assign_branch_def;
+val _ = translate $ spec32 transform_branch_def;
 
 val _ = translate $ spec32 inline_tail_def;
 
-val _ = translate $ spec32 inline_standalone_eoc_def;
-
-val _ = translate $ spec32 inline_assign_eoc_def;
-
-val _ = translate $ spec32 inline_standalone_branch_def;
-
-val _ = translate $ spec32 inline_assign_branch_def;
+val _ = translate $ spec32 inline_nontail_def;
 
 val _ = translate $ spec32 inline_prog_def;
 

@@ -4739,8 +4739,8 @@ Definition full_cc_def:
     let split = c.split_main_at_seq in
     let cut = c.exp_cut in
       state_cc (compile_inc limit split cut) (state_cc compile_inc
-        (state_cc bvi_tailrec$compile_prog
-          (state_cc bvi_tmc$compile_prog
+        (state_cc (bvi_tailrec$compile_prog c.do_tailrec)
+          (state_cc (bvi_tmc$compile_prog c.do_tmc)
             (state_cc bvi_inline$compile_inc cc))))
 End
 
@@ -4750,9 +4750,10 @@ Definition full_co_def:
     let split = c.split_main_at_seq in
     let cut = c.exp_cut in
       state_co bvi_inline$compile_inc
-        (state_co bvi_tmc$compile_prog (state_co bvi_tailrec$compile_prog
-          (state_co compile_inc
-            (state_co (compile_inc limit split cut) co))))
+        (state_co (bvi_tmc$compile_prog c.do_tmc)
+          (state_co (bvi_tailrec$compile_prog c.do_tailrec)
+            (state_co compile_inc
+              (state_co (compile_inc limit split cut) co))))
 End
 
 Theorem compile_prog_avoids_nss_2:
@@ -5060,17 +5061,27 @@ Proof
   \\ imp_res_tac rewrite_no_mutcons \\ gvs []
 QED
 
-Theorem bvi_tailrec_compile_prog_no_mutcons:
+Theorem bvi_tailrec_compile_each_no_mutcons[local]:
   ∀next prog next1 prog1.
-    bvi_tailrec$compile_prog next prog = (next1,prog1) ∧
+    bvi_tailrec$compile_each next prog = (next1,prog1) ∧
     EVERY (no_mutcons o SND o SND) prog ⇒
     EVERY (no_mutcons o SND o SND) prog1
 Proof
-  ho_match_mp_tac bvi_tailrecTheory.compile_prog_ind
-  \\ rw [bvi_tailrecTheory.compile_prog_def]
+  ho_match_mp_tac bvi_tailrecTheory.compile_each_ind
+  \\ rw [bvi_tailrecTheory.compile_each_def]
   \\ gvs [AllCaseEqs()]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ imp_res_tac tailrec_compile_exp_no_mutcons \\ gvs []
+QED
+
+Theorem bvi_tailrec_compile_prog_no_mutcons:
+  ∀b next prog next1 prog1.
+    bvi_tailrec$compile_prog b next prog = (next1,prog1) ∧
+    EVERY (no_mutcons o SND o SND) prog ⇒
+    EVERY (no_mutcons o SND o SND) prog1
+Proof
+  rw [bvi_tailrecTheory.compile_prog_def] \\ gvs []
+  \\ metis_tac [bvi_tailrec_compile_each_no_mutcons]
 QED
 
 (* A name outside namespace 2 cannot be one of bvi_tailrec's fresh names,
@@ -5243,8 +5254,8 @@ Proof
     (* oracle condition for bvi_tmc: each oracle element's bvi_tailrec output
        satisfies the bvi_tmc input_condition *)
     \\ rpt gen_tac \\ strip_tac
-    \\ qmatch_goalsub_abbrev_tac `bvi_tailrec$compile_prog m2 xs`
-    \\ Cases_on `bvi_tailrec$compile_prog m2 xs`
+    \\ qmatch_goalsub_abbrev_tac `bvi_tailrec$compile_prog c.do_tailrec m2 xs`
+    \\ Cases_on `bvi_tailrec$compile_prog c.do_tailrec m2 xs`
     \\ last_x_assum (qspec_then `k` strip_assume_tac)
     \\ `m2 MOD nss = 2` by
          (qpat_x_assum `Abbrev (m2 = _)` (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
@@ -5472,18 +5483,18 @@ Proof
   \\ old_drule bvi_inlineProofTheory.compile_inc_ALL_DISTINCT
   \\ impl_tac
   >- (simp[Abbr`ys`]
-  \\ qmatch_goalsub_abbrev_tac`bvi_tmc$compile_prog M YS`
-      \\ Cases_on`bvi_tmc$compile_prog M YS`
+  \\ qmatch_goalsub_abbrev_tac`bvi_tmc$compile_prog c.do_tmc M YS`
+      \\ Cases_on`bvi_tmc$compile_prog c.do_tmc M YS`
       \\ qsuff_tac `ALL_DISTINCT (MAP FST r') ∧
                   EVERY (bvi_tmcProof$free_names q' ∘ FST) r'` >- simp[]
       \\ irule bvi_tmcProofTheory.compile_prog_ALL_DISTINCT
-      \\ qexists_tac `M` \\ qexists_tac `YS` \\ simp[]
+      \\ qexists_tac `c.do_tmc` \\ qexists_tac `M` \\ qexists_tac `YS` \\ simp[]
       \\ conj_asm1_tac
   >- (
     (* ALL_DISTINCT (MAP FST YS) *)
     simp[Abbr`YS`, backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
-    \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog m2 xs`
-    \\ Cases_on`bvi_tailrec$compile_prog m2 xs`
+    \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog c.do_tailrec m2 xs`
+    \\ Cases_on`bvi_tailrec$compile_prog c.do_tailrec m2 xs`
     \\ match_mp_tac (bvi_tailrecProofTheory.compile_prog_ALL_DISTINCT
                      |> UNDISCH_ALL |> CONJUNCT1 |> DISCH_ALL |> GEN_ALL)
     \\ full_simp_tac std_ss [SND] \\ asm_exists_tac \\ simp[]
@@ -5511,8 +5522,8 @@ Proof
     \\ rpt strip_tac \\ fs[EVAL ``nss``])
       (* EVERY (free_names M ∘ FST) YS : every YS name avoids ns 3, while M ≡ 3 *)
       \\ simp[Abbr`YS`, backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
-      \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog m2 xs`
-      \\ Cases_on`bvi_tailrec$compile_prog m2 xs`
+      \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog c.do_tailrec m2 xs`
+      \\ Cases_on`bvi_tailrec$compile_prog c.do_tailrec m2 xs`
       \\ simp[EVERY_MEM, bvi_tmcProofTheory.free_names_def, bvi_tailrecProofTheory.free_names_def]
       \\ rpt strip_tac
       \\ `MEM (FST e) (MAP FST r'')` by (simp[MEM_MAP] \\ qexists_tac `e` \\ simp[])
