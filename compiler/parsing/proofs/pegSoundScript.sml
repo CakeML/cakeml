@@ -1080,17 +1080,11 @@ Proof
                                mp_then Any mp_tac) >> simp[] >> strip_tac >> gvs[] >>
        first_assum (qpat_assum ‘peg_eval cmlPEG (_, nt (mkNT nE) _) _’ o
                                mp_then Any mp_tac) >> impl_tac
-       >- (
-         first_x_assum (mp_tac o Q.AP_TERM ‘LENGTH’) >> simp[]
-         )
-       >> strip_tac >> gvs[]
-       )
-                >>
-
-
+       >- (first_x_assum (mp_tac o Q.AP_TERM ‘LENGTH’) >> simp[])
+       >> strip_tac >> gvs[]) >>
       first_x_assum (fn patth =>
-            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
-                         assert (free_in ``nE``) o concl)) >>
+                       first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
+                                    assert (free_in ``nE``) o concl)) >>
       simp[] >> strip_tac >> gvs[])
   >- (print_tac "nAndFDecls" >>
       disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>

@@ -1116,7 +1116,17 @@ Definition ptree_Expr_def[nocompute]:
                 body0 <- ptree_Expr nE body_pt;
                 SOME(fname,dePat p1 (FOLDR mkFun body0 (TL ps)))
               od
-            | _ => NONE
+          | [fname_pt; pats_pt; colont; typept; eqt; body_pt] =>
+              do
+                assert(tokcheckl [colont; eqt] [ColonT; EqualsT]);
+                fname <- ptree_V fname_pt;
+                ps <- ptree_PbaseList1 pats_pt;
+                p1 <- oHD ps;
+                body0 <- ptree_Expr nE body_pt;
+                ty <- ptree_Type nType typept;
+                SOME(fname,dePat p1 (FOLDR mkFun (Tannot body0 ty) (TL ps)))
+              od
+          | _ => NONE
         else NONE) ∧
   (ptree_LetDecs ptree =
     case ptree of
