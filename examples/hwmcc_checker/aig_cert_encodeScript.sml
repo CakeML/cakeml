@@ -3065,6 +3065,7 @@ Proof
     >> irule dep_lits_lits
     >> simp [SUBSET_DEF, Abbr ‘minput’]
   )
+  >> sg ‘FINITE (set wlatches)’ >- simp []
   >> drule_all stratified_cond_is_stratified >> strip_tac
   >> drule_all_then assume_tac is_witness_is_safe
   >> drule_all_then assume_tac is_witness_is_live

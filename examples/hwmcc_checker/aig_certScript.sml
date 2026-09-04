@@ -332,7 +332,6 @@ End
 
 Definition is_stratified_def:
   is_stratified lt aig reset latches ⇔
-  FINITE latches ∧
   irreflexive lt ∧
   transitive lt ∧
   dep_reset_lt lt aig reset latches
@@ -364,7 +363,8 @@ Theorem extend_model_trace_to_witness:
   is_witness_transition
     maig mnext mcnstrs mlatches
     waig wnext wcnstrs wlatches ∧
-  is_stratified lt waig wreset wlatches
+  is_stratified lt waig wreset wlatches ∧
+  FINITE wlatches
   ⇒
   ∃steps'. ∀n.
     is_trace maig mreset mnext mcnstrs mlatches steps n ⇒
@@ -502,7 +502,8 @@ Theorem is_witness_is_safe:
     waig wreset wnext wpreds wcnstrs wqaig wlive wlatches ∧
   dep_model
     maig mreset mnext mpreds mcnstrs minputs mlatches ∧
-  is_stratified lt waig wreset wlatches
+  is_stratified lt waig wreset wlatches ∧
+  FINITE wlatches
   ⇒
   is_safe
     maig mreset mnext mcnstrs mlatches mpreds
@@ -694,7 +695,8 @@ Theorem is_witness_is_live:
   (* TODO Does dep_qaig really need the same minput?
      If not, the proof of encoding_is_safe_and_live may become tidier *)
   dep_qaig minput mqaig mlive mlatches ∧
-  is_stratified lt waig wreset wlatches
+  is_stratified lt waig wreset wlatches ∧
+  FINITE wlatches
   ⇒
   is_live
     maig mreset mnext mcnstrs mqaig mlive mlatches

@@ -9,6 +9,10 @@ Libs
 
 val _ = numLib.prefer_num()
 
+(* TODO Replace sg and derivatives by have *)
+(* TODO Replace qsuff_tac with suff *)
+(* TODO Replay by with have ‘...’ >- ...*)
+
 (* TODO Remove this once misc theory stops defining steps *)
 val _ = Parse.remove_ovl_mapping "steps" {Name = "steps", Thy = "misc"}
 
