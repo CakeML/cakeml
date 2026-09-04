@@ -335,7 +335,8 @@ Definition cmlPEG_def[nocompute]:
               (mkNT nAndFDecls,
                peg_linfix (mkNT nAndFDecls) (pnt nFDecl) (tokeq AndT));
               (mkNT nFDecl,
-               seql [pnt nV; pnt nPbaseList1; tokeq EqualsT; pnt nE]
+               seql [pnt nV; pnt nPbaseList1;
+                     try (seql [tokeq ColonT; pnt nType] I); tokeq EqualsT; pnt nE]
                     (bindNT nFDecl));
               (mkNT nPbaseList1,
                seql [pnt nPbase; try (pnt nPbaseList1)]

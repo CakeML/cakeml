@@ -3043,9 +3043,13 @@ Proof
            PULL_EXISTS] >>
       gvs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >>
       loseRK >> gs[SKOLEM_THM, GSYM RIGHT_EXISTS_IMP_THM] >>
+
       normlist >> first_assum $ irule_at Any >> simp[stoppers_def] >>
       normlist >> first_assum $ irule_at Any >> simp[stoppers_def] >>
-      first_x_assum $ irule_at Any >> gs[stoppers_def])
+
+      first_assum $ irule_at Any >> gs[stoppers_def] >>
+      simp[choicel_cons, seql_cons, peg_eval_tok] >> dsimp[] >>
+      normlist >> first_x_assum $ irule_at Any >> gs[stoppers_def])
   >- (print_tac "nEtyped" >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       rw[seql_cons_SOME, PULL_EXISTS] >>
