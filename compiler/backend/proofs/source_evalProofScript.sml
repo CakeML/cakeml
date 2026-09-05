@@ -731,6 +731,17 @@ Proof
   \\ fs []
 QED
 
+Theorem s_rel_ptr_eq_oracle:
+  s_rel ^ci s t ==> t.ptr_eq_oracle = s.ptr_eq_oracle /\
+    s_rel ci (s with ptr_eq_oracle := misc$shift_seq 1 s.ptr_eq_oracle)
+      (t with ptr_eq_oracle := misc$shift_seq 1 t.ptr_eq_oracle)
+Proof
+  rw [s_rel_def]
+  \\ simp [semanticPrimitivesTheory.state_component_equality]
+  \\ rw []
+  \\ fs []
+QED
+
 Theorem concrete_v_rel:
   !x y. v_rel es x y ==> concrete_v x ==> y = x
 Proof
@@ -1057,16 +1068,24 @@ Resume eval_simulation[App]:
     \\ drule_then (drule_then drule) do_eval_sim
     \\ rw []
     \\ fs []
-    \\ drule_then assume_tac s_rel_clock
+    \\ imp_res_tac s_rel_ptr_eq_oracle
+    \\ fs []
+    \\ imp_res_tac s_rel_clock
     \\ fs [bool_case_eq] \\ rveq \\ fs []
     \\ insts_tac
     \\ fs [EVAL ``(dec_clock x).eval_state``]
     \\ eval_cases_tac
     \\ insts_tac
-    \\ TRY (drule_then (drule_then (qsubterm_then `declare_env _ _` mp_tac))
-        declare_env_sim
+    >- (
+      drule_then (drule_then (qsubterm_then `declare_env _ _` mp_tac))
+          declare_env_sim
       \\ impl_tac
-      \\ (irule env_rel_extend_dec_env ORELSE disch_tac))
+      >- (irule env_rel_extend_dec_env \\ insts_tac)
+      \\ disch_tac
+      \\ insts_tac
+      \\ first_x_assum drule \\ impl_tac
+      \\ rw [] \\ insts_tac
+    )
     \\ insts_tac
     \\ first_x_assum drule \\ impl_tac
     \\ rw [] \\ insts_tac
@@ -1224,7 +1243,8 @@ Resume eval_simulation[App]:
         `evaluate t env' (REVERSE es) = (t2,Rval [w; _])`
       \\ qmatch_asmsub_rename_tac `evaluate s env (REVERSE es) = (s2,Rval _)`
       \\ `t2.ptr_eq_oracle = s2.ptr_eq_oracle` by fs [s_rel_def]
-      \\ qexists_tac `t2 with ptr_eq_oracle := (λn. t2.ptr_eq_oracle (n + 1))`
+      \\ qexists_tac `t2 with ptr_eq_oracle :=
+           (0 =+ misc$shift_seq 1 (t2.ptr_eq_oracle 0)) t2.ptr_eq_oracle`
       \\ gvs []
       \\ gvs [s_rel_def, semanticPrimitivesTheory.state_component_equality]
       \\ qexists_tac `[w]` \\ simp []
@@ -1891,6 +1911,554 @@ Proof
   \\ imp_res_simp_tac evaluate_is_record_forward \\ gvs []
 QED
 
+Definition ptr_eq_lockstep_def:
+  ptr_eq_lockstep i s t <=>
+  (?po. t = s with ptr_eq_oracle := po) /\
+  (!j. j + FST (FST ((orac_s s.eval_state).oracle 0)) <= i ==>
+    s.ptr_eq_oracle j = t.ptr_eq_oracle j)
+End
+
+Definition ptr_eq_settled_def:
+  ptr_eq_settled i es es' <=>
+  i < FST (FST ((orac_s es).oracle 0)) /\
+  i < FST (FST ((orac_s es').oracle 0)) /\
+  (!j. 0 < j /\ j <= i + 1 ==> (orac_s es).oracle j = (orac_s es').oracle j)
+End
+
+Theorem ptr_eq_lockstep_simps:
+  ptr_eq_lockstep i s t ==>
+  t.eval_state = s.eval_state /\ t.refs = s.refs /\ t.clock = s.clock /\
+  t.ffi = s.ffi /\ t.next_type_stamp = s.next_type_stamp /\
+  t.next_exn_stamp = s.next_exn_stamp
+Proof
+  rw [ptr_eq_lockstep_def] \\ simp []
+QED
+
+Theorem ptr_eq_lockstep_0:
+  ptr_eq_lockstep i s t /\ FST (FST ((orac_s s.eval_state).oracle 0)) <= i ==>
+  s.ptr_eq_oracle 0 = t.ptr_eq_oracle 0
+Proof
+  rw [ptr_eq_lockstep_def]
+  \\ first_x_assum (qspec_then `0` mp_tac)
+  \\ simp []
+QED
+
+Theorem ptr_eq_lockstep_step:
+  ptr_eq_lockstep i s t /\ FST (FST ((orac_s s.eval_state).oracle 0)) <= i ==>
+  ptr_eq_lockstep i
+    (s with ptr_eq_oracle :=
+      (0 =+ misc$shift_seq 1 (s.ptr_eq_oracle 0)) s.ptr_eq_oracle)
+    (t with ptr_eq_oracle :=
+      (0 =+ misc$shift_seq 1 (t.ptr_eq_oracle 0)) t.ptr_eq_oracle)
+Proof
+  rpt strip_tac
+  \\ drule_all ptr_eq_lockstep_0
+  \\ gvs [ptr_eq_lockstep_def]
+  \\ rw [combinTheory.APPLY_UPDATE_THM]
+  \\ irule_at Any EQ_REFL
+QED
+
+Theorem do_eval_record_count:
+  do_eval vs es = SOME (env1, decs, es1) /\ is_record ^ci es ==>
+  FST (FST ((orac_s es1).oracle 0)) = FST (FST ((orac_s es).oracle 0)) + 1
+Proof
+  simp [is_record_def, Once do_eval_def]
+  \\ disch_tac
+  \\ fs [option_case_eq, eval_state_case_eq, pair_case_eq] \\ rveq \\ fs []
+  \\ fs [do_eval_def, add_env_generation_def]
+  \\ fs [do_eval_record_def, list_case_eq, option_case_eq] \\ rveq \\ fs []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ every_case_tac \\ fs []
+  \\ rveq \\ fs []
+QED
+
+Theorem ptr_eq_lockstep_alt:
+  ptr_eq_lockstep i s t <=>
+  (!j. j + FST (FST ((orac_s s.eval_state).oracle 0)) <= i ==>
+    s.ptr_eq_oracle j = t.ptr_eq_oracle j) /\
+  t.clock = s.clock /\ t.refs = s.refs /\ t.ffi = s.ffi /\
+  t.next_type_stamp = s.next_type_stamp /\
+  t.next_exn_stamp = s.next_exn_stamp /\ t.eval_state = s.eval_state
+Proof
+  eq_tac \\ rw [ptr_eq_lockstep_def]
+  \\ gvs []
+  \\ qexists_tac `t.ptr_eq_oracle`
+  \\ simp [semanticPrimitivesTheory.state_component_equality]
+QED
+
+Theorem ptr_eq_lockstep_dec_clock:
+  ptr_eq_lockstep i s t ==>
+  ptr_eq_lockstep i (dec_clock s) (dec_clock t)
+Proof
+  simp [ptr_eq_lockstep_alt, evaluateTheory.dec_clock_def]
+QED
+
+Theorem ptr_eq_lockstep_settled:
+  ptr_eq_lockstep i s t /\ i < FST (FST ((orac_s s.eval_state).oracle 0)) ==>
+  ptr_eq_settled i s.eval_state t.eval_state
+Proof
+  rw [ptr_eq_lockstep_def, ptr_eq_settled_def] \\ simp []
+QED
+
+Theorem ptr_eq_lockstep_eval:
+  ptr_eq_lockstep i s t /\
+  FST (FST ((orac_s es1).oracle 0)) =
+    FST (FST ((orac_s s.eval_state).oracle 0)) + 1 ==>
+  ptr_eq_lockstep i
+    (s with <| eval_state := es1;
+               ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle |>)
+    (t with <| eval_state := es1;
+               ptr_eq_oracle := shift_seq 1 t.ptr_eq_oracle |>)
+Proof
+  rpt strip_tac
+  \\ imp_res_tac ptr_eq_lockstep_simps
+  \\ `!j. j + FST (FST ((orac_s s.eval_state).oracle 0)) <= i ==>
+        s.ptr_eq_oracle j = t.ptr_eq_oracle j` by fs [ptr_eq_lockstep_def]
+  \\ simp [ptr_eq_lockstep_def]
+  \\ conj_tac
+  >- (
+    qexists_tac `shift_seq 1 t.ptr_eq_oracle`
+    \\ simp [semanticPrimitivesTheory.state_component_equality]
+  )
+  \\ rw [shift_seq_def]
+  \\ first_x_assum irule
+  \\ simp []
+QED
+
+Theorem ptr_eq_lockstep_ptr_eq:
+  ptr_eq_lockstep i s t ==>
+  (s.ptr_eq_oracle 0 0 = t.ptr_eq_oracle 0 0 /\
+   ptr_eq_lockstep i
+     (s with ptr_eq_oracle :=
+       (0 =+ shift_seq 1 (s.ptr_eq_oracle 0)) s.ptr_eq_oracle)
+     (t with ptr_eq_oracle :=
+       (0 =+ shift_seq 1 (t.ptr_eq_oracle 0)) t.ptr_eq_oracle)) \/
+  ptr_eq_settled i s.eval_state t.eval_state
+Proof
+  strip_tac
+  \\ Cases_on `FST (FST ((orac_s s.eval_state).oracle 0)) <= i`
+  >- (
+    disj1_tac
+    \\ drule_all ptr_eq_lockstep_0 \\ strip_tac
+    \\ drule_all ptr_eq_lockstep_step \\ strip_tac
+    \\ simp []
+  )
+  \\ disj2_tac
+  \\ irule ptr_eq_lockstep_settled
+  \\ simp []
+QED
+
+Theorem dec_clock_eval_state[local]:
+  (dec_clock s).eval_state = s.eval_state
+Proof
+  simp [evaluateTheory.dec_clock_def]
+QED
+
+Theorem ptr_eq_settled_reset:
+  (ptr_eq_settled i (reset_env_generation es1 es2) es3 <=>
+    ptr_eq_settled i es2 es3) /\
+  (ptr_eq_settled i es3 (reset_env_generation es1 es2) <=>
+    ptr_eq_settled i es3 es2)
+Proof
+  simp [ptr_eq_settled_def, reset_env_generation_orac_eqs]
+QED
+
+Theorem ptr_eq_lockstep_eval_state:
+  ptr_eq_lockstep i s t /\
+  FST (FST ((orac_s es2).oracle 0)) =
+    FST (FST ((orac_s s.eval_state).oracle 0)) ==>
+  ptr_eq_lockstep i (s with eval_state := es2) (t with eval_state := es2)
+Proof
+  fs [ptr_eq_lockstep_alt]
+QED
+
+Theorem ptr_eq_settled_forward:
+  ptr_eq_settled i es es' /\ record_forward es es2 /\ record_forward es' es2' ==>
+  ptr_eq_settled i es2 es2'
+Proof
+  rw [ptr_eq_settled_def, record_forward_def]
+  \\ every_case_tac \\ fs []
+  \\ rveq \\ fs []
+  \\ res_tac \\ fs []
+QED
+
+Theorem declare_env_orac:
+  declare_env es env = SOME (x, es2) ==>
+  (orac_s es2).oracle = (orac_s es).oracle
+Proof
+  rw [declare_env_def] \\ every_case_tac \\ gvs []
+QED
+
+Theorem evaluate_App_record_forward:
+  evaluate ^s env (REVERSE es) = (q, r) /\ is_record ^ci s.eval_state /\
+  evaluate s env [App op es] = (s', res) ==>
+  record_forward q.eval_state s'.eval_state
+Proof
+  simp [evaluate_def]
+  \\ strip_tac
+  \\ imp_res_tac evaluate_is_record_forward
+  \\ gvs [AllCaseEqs(), do_eval_res_def, evaluateTheory.dec_clock_def]
+  \\ imp_res_tac insert_do_eval
+  \\ imp_res_simp_tac evaluate_is_record_forward
+  \\ gvs [reset_env_generation_orac_eqs, record_forward_refl]
+  \\ imp_res_tac insert_declare_env
+  \\ imp_res_tac record_forward_trans
+  \\ gvs [record_forward_refl]
+QED
+
+Theorem evaluate_ptr_eq_prefix:
+  (! ^s env exps s' res t t' res'.
+  ptr_eq_lockstep i s t /\
+  evaluate s env exps = (s', res) /\
+  evaluate t env exps = (t', res') /\
+  is_record ci s.eval_state
+  ==>
+  (ptr_eq_lockstep i s' t' /\ res' = res) \/
+  ptr_eq_settled i s'.eval_state t'.eval_state)
+  /\
+  (! ^s env x pes err_x s' res t t' res'.
+  ptr_eq_lockstep i s t /\
+  evaluate_match s env x pes err_x = (s', res) /\
+  evaluate_match t env x pes err_x = (t', res') /\
+  is_record ci s.eval_state
+  ==>
+  (ptr_eq_lockstep i s' t' /\ res' = res) \/
+  ptr_eq_settled i s'.eval_state t'.eval_state)
+  /\
+  (! ^s env decs s' res t t' res'.
+  ptr_eq_lockstep i s t /\
+  evaluate_decs s env decs = (s', res) /\
+  evaluate_decs t env decs = (t', res') /\
+  is_record ci s.eval_state
+  ==>
+  (ptr_eq_lockstep i s' t' /\ res' = res) \/
+  ptr_eq_settled i s'.eval_state t'.eval_state)
+Proof
+  ho_match_mp_tac full_evaluate_ind
+  \\ rpt conj_tac
+  \\ rpt strip_tac
+  \\ gvs [full_evaluate_def]
+  >- suspend "Cons"
+  >- suspend "Raise"
+  >- suspend "Handle"
+  >- suspend "Con"
+  >- suspend "Var"
+  >- suspend "App"
+  >- suspend "Log"
+  >- suspend "If"
+  >- suspend "Mat"
+  >- suspend "Let"
+  >- suspend "Letrec"
+  >- suspend "Tannot"
+  >- suspend "Lannot"
+  >- suspend "match_cons"
+  >- suspend "dec_cons"
+  >- suspend "Dlet"
+  >- suspend "Dtype"
+  >- suspend "Denv"
+  >- suspend "Dexn"
+  >- suspend "Dmod"
+  >- suspend "Dlocal"
+QED
+
+Resume evaluate_ptr_eq_prefix[Cons]:
+  `is_record ci t.eval_state` by (drule ptr_eq_lockstep_simps \\ simp [])
+  \\ Cases_on `evaluate s env [e1]` \\ Cases_on `evaluate t env [e1]`
+  \\ gvs []
+  \\ first_x_assum drule \\ strip_tac
+  \\ gvs []
+  \\ imp_res_tac evaluate_is_record_forward
+  >- (
+    every_case_tac \\ gvs []
+    \\ first_x_assum drule \\ strip_tac \\ gvs []
+  )
+  \\ every_case_tac \\ gvs []
+  \\ rpt disj2_tac
+  \\ drule_then irule ptr_eq_settled_forward
+  \\ imp_res_tac evaluate_is_record_forward
+  \\ simp [record_forward_refl]
+QED
+
+Resume evaluate_ptr_eq_prefix[Raise]:
+  Cases_on `evaluate s env [e]` \\ Cases_on `evaluate t env [e]`
+  \\ gvs []
+  \\ first_x_assum drule \\ strip_tac
+  \\ gvs []
+  \\ every_case_tac \\ gvs []
+QED
+
+Resume evaluate_ptr_eq_prefix[Handle]:
+  `is_record ci t.eval_state` by (drule ptr_eq_lockstep_simps \\ simp [])
+  \\ Cases_on `evaluate s env [e]` \\ Cases_on `evaluate t env [e]`
+  \\ gvs []
+  \\ first_x_assum drule \\ strip_tac
+  \\ gvs []
+  \\ imp_res_tac evaluate_is_record_forward
+  >- (
+    imp_res_tac ptr_eq_lockstep_simps
+    \\ every_case_tac \\ gvs []
+    \\ first_x_assum drule \\ strip_tac \\ gvs []
+  )
+  \\ every_case_tac \\ gvs []
+  \\ rpt disj2_tac
+  \\ drule_then irule ptr_eq_settled_forward
+  \\ imp_res_tac evaluate_is_record_forward
+  \\ simp [record_forward_refl]
+QED
+
+Resume evaluate_ptr_eq_prefix[Con]:
+  Cases_on `do_con_check env.c cn (LENGTH es)` \\ gvs []
+  \\ Cases_on `evaluate s env (REVERSE es)`
+  \\ Cases_on `evaluate t env (REVERSE es)`
+  \\ gvs []
+  \\ first_x_assum drule \\ strip_tac
+  \\ gvs []
+  \\ every_case_tac \\ gvs []
+QED
+
+Resume evaluate_ptr_eq_prefix[Var]:
+  every_case_tac \\ gvs []
+QED
+
+Resume evaluate_ptr_eq_prefix[App]:
+  `is_record ci t.eval_state` by (drule ptr_eq_lockstep_simps \\ simp [])
+  \\ Cases_on `evaluate s env (REVERSE es)`
+  \\ Cases_on `evaluate t env (REVERSE es)`
+  \\ gvs []
+  \\ first_x_assum drule \\ strip_tac
+  \\ gvs []
+  >- (
+    Cases_on `getOpClass op` \\ gvs []
+    >- (
+      imp_res_tac ptr_eq_lockstep_simps
+      \\ imp_res_tac evaluate_is_record_forward
+      \\ gvs [AllCaseEqs(), do_eval_res_def, dec_clock_eval_state]
+      \\ imp_res_tac do_eval_record_count
+      \\ imp_res_tac insert_do_eval
+      \\ imp_res_tac ptr_eq_lockstep_eval
+      \\ imp_res_tac ptr_eq_lockstep_dec_clock
+      \\ gvs [reset_env_generation_orac_eqs, dec_clock_eval_state]
+      \\ last_x_assum drule \\ strip_tac
+      \\ imp_res_tac declare_env_orac
+      \\ gvs [ptr_eq_settled_reset, ptr_eq_settled_def]
+      \\ imp_res_tac ptr_eq_lockstep_simps
+      \\ gvs [reset_env_generation_orac_eqs]
+      \\ disj1_tac
+      \\ irule ptr_eq_lockstep_eval_state
+      \\ simp [reset_env_generation_orac_eqs]
+    )
+    >- (
+      imp_res_tac ptr_eq_lockstep_simps
+      \\ imp_res_tac ptr_eq_lockstep_dec_clock
+      \\ imp_res_tac evaluate_is_record_forward
+      \\ every_case_tac
+      \\ gvs [EVAL ``(dec_clock x).eval_state``]
+      \\ first_x_assum drule \\ strip_tac \\ gvs []
+    )
+    >- (
+      imp_res_tac ptr_eq_lockstep_simps
+      \\ imp_res_tac ptr_eq_lockstep_dec_clock
+      \\ imp_res_tac evaluate_is_record_forward
+      \\ gvs [AllCaseEqs(), EVAL ``(dec_clock x).eval_state``]
+      \\ first_x_assum drule \\ strip_tac \\ gvs [ptr_eq_lockstep_alt]
+    )
+    >- (
+      imp_res_tac ptr_eq_lockstep_simps
+      \\ imp_res_tac ptr_eq_lockstep_ptr_eq
+      \\ every_case_tac \\ gvs []
+    )
+    \\ imp_res_tac ptr_eq_lockstep_simps
+    \\ every_case_tac \\ gvs [ptr_eq_lockstep_alt]
+  )
+  \\ `evaluate s env [App op es] = (s',res)` by simp [evaluate_def]
+  \\ `evaluate t env [App op es] = (t',res')` by simp [evaluate_def]
+  \\ disj2_tac
+  \\ drule_then irule ptr_eq_settled_forward
+  \\ imp_res_tac evaluate_App_record_forward
+  \\ simp []
+QED
+
+Resume evaluate_ptr_eq_prefix[Log]:
+  `is_record ci t.eval_state` by (drule ptr_eq_lockstep_simps \\ simp [])
+  \\ Cases_on `evaluate s env [e1]` \\ Cases_on `evaluate t env [e1]`
+  \\ gvs []
+  \\ first_x_assum drule \\ strip_tac
+  \\ gvs []
+  \\ imp_res_tac evaluate_is_record_forward
+  >- (
+    every_case_tac \\ gvs []
+    \\ first_x_assum drule \\ strip_tac \\ gvs []
+  )
+  \\ every_case_tac \\ gvs []
+  \\ rpt disj2_tac
+  \\ drule_then irule ptr_eq_settled_forward
+  \\ imp_res_tac evaluate_is_record_forward
+  \\ simp [record_forward_refl]
+QED
+
+Resume evaluate_ptr_eq_prefix[If]:
+  `is_record ci t.eval_state` by (drule ptr_eq_lockstep_simps \\ simp [])
+  \\ Cases_on `evaluate s env [e1]` \\ Cases_on `evaluate t env [e1]`
+  \\ gvs []
+  \\ first_x_assum drule \\ strip_tac
+  \\ gvs []
+  \\ imp_res_tac evaluate_is_record_forward
+  >- (
+    every_case_tac \\ gvs []
+    \\ first_x_assum drule \\ strip_tac \\ gvs []
+  )
+  \\ every_case_tac \\ gvs []
+  \\ rpt disj2_tac
+  \\ drule_then irule ptr_eq_settled_forward
+  \\ imp_res_tac evaluate_is_record_forward
+  \\ simp [record_forward_refl]
+QED
+
+Resume evaluate_ptr_eq_prefix[Mat]:
+  `is_record ci t.eval_state` by (drule ptr_eq_lockstep_simps \\ simp [])
+  \\ Cases_on `evaluate s env [e]` \\ Cases_on `evaluate t env [e]`
+  \\ gvs []
+  \\ first_x_assum drule \\ strip_tac
+  \\ gvs []
+  \\ imp_res_tac evaluate_is_record_forward
+  >- (
+    imp_res_tac ptr_eq_lockstep_simps
+    \\ every_case_tac \\ gvs []
+    \\ first_x_assum drule \\ strip_tac \\ gvs []
+  )
+  \\ every_case_tac \\ gvs []
+  \\ rpt disj2_tac
+  \\ drule_then irule ptr_eq_settled_forward
+  \\ imp_res_tac evaluate_is_record_forward
+  \\ simp [record_forward_refl]
+QED
+
+Resume evaluate_ptr_eq_prefix[Let]:
+  `is_record ci t.eval_state` by (drule ptr_eq_lockstep_simps \\ simp [])
+  \\ Cases_on `evaluate s env [e1]` \\ Cases_on `evaluate t env [e1]`
+  \\ gvs []
+  \\ first_x_assum drule \\ strip_tac
+  \\ gvs []
+  \\ imp_res_tac evaluate_is_record_forward
+  >- (
+    every_case_tac \\ gvs []
+    \\ first_x_assum drule \\ strip_tac \\ gvs []
+  )
+  \\ every_case_tac \\ gvs []
+  \\ rpt disj2_tac
+  \\ drule_then irule ptr_eq_settled_forward
+  \\ imp_res_tac evaluate_is_record_forward
+  \\ simp [record_forward_refl]
+QED
+
+Resume evaluate_ptr_eq_prefix[Letrec]:
+  Cases_on `ALL_DISTINCT (MAP (\(x,y,z). x) funs)` \\ gvs []
+  \\ Cases_on `evaluate s (env with v := build_rec_env funs env env.v) [e]`
+  \\ Cases_on `evaluate t (env with v := build_rec_env funs env env.v) [e]`
+  \\ gvs []
+  \\ first_x_assum drule \\ strip_tac
+  \\ gvs []
+  \\ every_case_tac \\ gvs []
+QED
+
+Resume evaluate_ptr_eq_prefix[Tannot]:
+  last_x_assum drule \\ simp []
+QED
+
+Resume evaluate_ptr_eq_prefix[Lannot]:
+  last_x_assum drule \\ simp []
+QED
+
+Resume evaluate_ptr_eq_prefix[match_cons]:
+  `is_record ci t.eval_state` by (drule ptr_eq_lockstep_simps \\ simp [])
+  \\ imp_res_tac ptr_eq_lockstep_simps
+  \\ every_case_tac \\ gvs []
+  \\ first_x_assum drule \\ strip_tac \\ gvs []
+QED
+
+Resume evaluate_ptr_eq_prefix[dec_cons]:
+  `is_record ci t.eval_state` by (drule ptr_eq_lockstep_simps \\ simp [])
+  \\ Cases_on `evaluate_decs s env [d1]` \\ Cases_on `evaluate_decs t env [d1]`
+  \\ gvs []
+  \\ first_x_assum drule \\ strip_tac
+  \\ gvs []
+  \\ imp_res_tac evaluate_is_record_forward
+  >- (
+    every_case_tac \\ gvs []
+    \\ first_x_assum drule \\ strip_tac \\ gvs []
+  )
+  \\ every_case_tac \\ gvs []
+  \\ rpt disj2_tac
+  \\ drule_then irule ptr_eq_settled_forward
+  \\ imp_res_tac evaluate_is_record_forward
+  \\ simp [record_forward_refl]
+QED
+
+Resume evaluate_ptr_eq_prefix[Dlet]:
+  `is_record ci t.eval_state` by (drule ptr_eq_lockstep_simps \\ simp [])
+  \\ Cases_on `ALL_DISTINCT (pat_bindings p) /\ every_exp (one_con_check env.c) e`
+  \\ gvs []
+  \\ Cases_on `evaluate s env [e]` \\ Cases_on `evaluate t env [e]`
+  \\ gvs []
+  \\ first_x_assum drule \\ strip_tac
+  \\ gvs []
+  >- (
+    imp_res_tac ptr_eq_lockstep_simps
+    \\ every_case_tac \\ gvs []
+  )
+  \\ every_case_tac \\ gvs []
+  \\ rpt disj2_tac
+  \\ drule_then irule ptr_eq_settled_forward
+  \\ imp_res_tac evaluate_is_record_forward
+  \\ simp [record_forward_refl]
+QED
+
+Resume evaluate_ptr_eq_prefix[Dtype]:
+  every_case_tac \\ gvs [ptr_eq_lockstep_def]
+  \\ disj1_tac \\ irule_at Any EQ_REFL
+QED
+
+Resume evaluate_ptr_eq_prefix[Denv]:
+  gvs [ptr_eq_lockstep_def, is_record_def]
+  \\ every_case_tac \\ gvs [declare_env_def]
+  \\ disj1_tac \\ irule_at Any EQ_REFL
+  \\ every_case_tac \\ gvs []
+QED
+
+Resume evaluate_ptr_eq_prefix[Dexn]:
+  gvs [ptr_eq_lockstep_def]
+  \\ disj1_tac \\ irule_at Any EQ_REFL
+QED
+
+Resume evaluate_ptr_eq_prefix[Dmod]:
+  Cases_on `evaluate_decs s env decs`
+  \\ Cases_on `evaluate_decs t env decs`
+  \\ gvs []
+  \\ first_x_assum drule \\ strip_tac
+  \\ gvs []
+  \\ every_case_tac \\ gvs []
+QED
+
+Resume evaluate_ptr_eq_prefix[Dlocal]:
+  `is_record ci t.eval_state` by (drule ptr_eq_lockstep_simps \\ simp [])
+  \\ Cases_on `evaluate_decs s env decs` \\ Cases_on `evaluate_decs t env decs`
+  \\ gvs []
+  \\ first_x_assum drule \\ strip_tac
+  \\ gvs []
+  \\ imp_res_tac evaluate_is_record_forward
+  >- (
+    every_case_tac \\ gvs []
+    \\ first_x_assum drule \\ strip_tac \\ gvs []
+  )
+  \\ every_case_tac \\ gvs []
+  \\ rpt disj2_tac
+  \\ drule_then irule ptr_eq_settled_forward
+  \\ imp_res_tac evaluate_is_record_forward
+  \\ simp [record_forward_refl]
+QED
+
+Finalise evaluate_ptr_eq_prefix;
+
 (* Constructs the oracle from an evaluation by using the recorded
    events, padding with null events if necessary. *)
 Definition extract_oracle_def:
@@ -2006,6 +2574,98 @@ Definition get_oracle_def:
       envs := [[]]; generation := 0|> in
     extract_oracle (s with eval_state := SOME es_record) env decs
 End
+
+Definition syn_of_def:
+  syn_of ci s env prog i =
+    case get_oracle ci s env prog i of
+      SOME (id, v, ds) => (id, ds)
+    | NONE => ((0, 0), [])
+End
+
+Theorem evaluate_decs_ptr_eq_count:
+  ptr_eq_lockstep i s t /\ is_record ^ci s.eval_state /\
+  evaluate_decs s env decs = (s', res) /\
+  evaluate_decs t env decs = (t', res') ==>
+  (i < FST (FST ((orac_s s'.eval_state).oracle 0)) <=>
+   i < FST (FST ((orac_s t'.eval_state).oracle 0))) /\
+  (i < FST (FST ((orac_s s'.eval_state).oracle 0)) ==>
+   (orac_s s'.eval_state).oracle (i + 1) =
+   (orac_s t'.eval_state).oracle (i + 1))
+Proof
+  strip_tac
+  \\ imp_res_tac (cj 3 evaluate_ptr_eq_prefix)
+  \\ imp_res_tac ptr_eq_lockstep_simps
+  \\ gvs [ptr_eq_settled_def]
+QED
+
+Theorem get_oracle_ptr_eq_prefix:
+  (!j. j <= i ==> po j = po' j) ==>
+  get_oracle ^ci (s with ptr_eq_oracle := po) env prog i =
+  get_oracle ci (s with ptr_eq_oracle := po') env prog i
+Proof
+  strip_tac
+  \\ simp [get_oracle_def, extract_oracle_def]
+  \\ qmatch_goalsub_abbrev_tac `EvalOracle er`
+  \\ `is_record ci (SOME (EvalOracle er))` by simp [is_record_def, Abbr `er`]
+  \\ `!k. ptr_eq_lockstep i
+       (s with <|clock := k; eval_state := SOME (EvalOracle er);
+                 ptr_eq_oracle := po|>)
+       (s with <|clock := k; eval_state := SOME (EvalOracle er);
+                 ptr_eq_oracle := po'|>)`
+    by (rw [ptr_eq_lockstep_alt] \\ gvs [Abbr `er`])
+  \\ `!k s1 r1 s2 r2.
+        evaluate_decs (s with <|clock := k;
+          eval_state := SOME (EvalOracle er); ptr_eq_oracle := po|>)
+          env prog = (s1,r1) /\
+        evaluate_decs (s with <|clock := k;
+          eval_state := SOME (EvalOracle er); ptr_eq_oracle := po'|>)
+          env prog = (s2,r2) ==>
+        (i < FST (FST ((orac_s s1.eval_state).oracle 0)) <=>
+         i < FST (FST ((orac_s s2.eval_state).oracle 0))) /\
+        (i < FST (FST ((orac_s s1.eval_state).oracle 0)) ==>
+         (orac_s s1.eval_state).oracle (i + 1) =
+         (orac_s s2.eval_state).oracle (i + 1))`
+    by (
+      rpt gen_tac \\ strip_tac
+      \\ qpat_assum `!k. ptr_eq_lockstep _ _ _` (qspec_then `k` assume_tac)
+      \\ `is_record ci (s with <|clock := k;
+            eval_state := SOME (EvalOracle er);
+            ptr_eq_oracle := po|>).eval_state` by simp []
+      \\ imp_res_tac evaluate_decs_ptr_eq_count
+      \\ simp []
+    )
+  \\ `!k. (?s' res. evaluate_decs (s with <|clock := k;
+             eval_state := SOME (EvalOracle er); ptr_eq_oracle := po|>)
+             env prog = (s',res) /\
+           i < FST (FST ((orac_s s'.eval_state).oracle 0))) <=>
+          (?s' res. evaluate_decs (s with <|clock := k;
+             eval_state := SOME (EvalOracle er); ptr_eq_oracle := po'|>)
+             env prog = (s',res) /\
+           i < FST (FST ((orac_s s'.eval_state).oracle 0)))`
+    by (
+      gen_tac
+      \\ Cases_on `evaluate_decs (s with <|clock := k;
+           eval_state := SOME (EvalOracle er); ptr_eq_oracle := po|>) env prog`
+      \\ Cases_on `evaluate_decs (s with <|clock := k;
+           eval_state := SOME (EvalOracle er); ptr_eq_oracle := po'|>) env prog`
+      \\ first_x_assum drule
+      \\ disch_then drule
+      \\ strip_tac
+      \\ simp []
+    )
+  \\ simp []
+  \\ Cases_on `OLEAST k. ?s' res. evaluate_decs (s with <|clock := k;
+       eval_state := SOME (EvalOracle er); ptr_eq_oracle := po'|>)
+       env prog = (s',res) /\
+       i < FST (FST ((orac_s s'.eval_state).oracle 0))`
+  \\ simp []
+  \\ imp_res_tac miscTheory.OLEAST_SOME_IMP
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ strip_tac
+  \\ gvs []
+QED
 
 Definition put_oracle_def:
   put_oracle ci orac = (insert_oracle ci orac
