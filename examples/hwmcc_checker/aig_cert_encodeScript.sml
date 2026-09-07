@@ -3003,8 +3003,8 @@ Theorem encoding_is_safe_and_live:
   is_safe
     maig mreset mnext (set mcnstrs) (set mlatches) (set mpreds) ∧
   is_live
-    maig mreset mnext (set mcnstrs) (qleft maig) (qleft_live mlive)
-    (set mlatches)
+    maig mreset mnext (set mcnstrs) (qleft maig)
+    (IMAGE set (set (qleft_live mlive))) (set mlatches)
 Proof
   strip_tac
   >> sg

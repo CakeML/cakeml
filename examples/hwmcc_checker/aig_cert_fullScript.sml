@@ -230,8 +230,8 @@ Theorem process_and_check_return:
   is_safe
     maig mreset mnext (set mcnstrs) (set mlatches) (set mpreds) ∧
   is_live
-    maig mreset mnext (set mcnstrs) (qleft maig) (qleft_live mlive)
-    (set mlatches)
+    maig mreset mnext (set mcnstrs) (qleft maig)
+    (IMAGE set (set (qleft_live mlive))) (set mlatches)
 Proof
   simp [process_and_check_def]
   >> rpt (pairarg_tac >> gvs [])

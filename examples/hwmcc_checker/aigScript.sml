@@ -235,12 +235,12 @@ Definition is_live_def:
   is_live (aig: ('a, 'i, 'l) aig) (reset: 'l -> ('a,'i,'l) lit option)
     (next: 'l -> ('a,'i,'l) lit) (cnstrs: ('a,'i,'l) lit set)
     (qaig: ('b, 'i + 'i, 'l + 'l) aig)
-    (live: ('b, 'i + 'i, 'l + 'l) lit list list) (latches: 'l set) =
+    (live: ('b, 'i + 'i, 'l + 'l) lit set set) (latches: 'l set) =
   ∀steps.
     is_inf_trace aig reset next cnstrs latches steps ⇒
-    ∀prop. MEM prop live ⇒
+    ∀prop. prop ∈ live ⇒
       ∃k signal.
-        MEM signal prop ∧
+        signal ∈ prop ∧
         (∀i. k ≤ i ⇒
              lits_hold (state_pair (steps i) (steps (i + 1))) qaig {signal})
 End
@@ -368,6 +368,13 @@ Definition dep_reset_lt_def:
       lat ∈ latches ∧ reset lat = SOME lit ∧
       (∀l. l ∈ { l' | lt l' lat } ⇒ (ls' l ⇔ ls l)) ⇒
       (eval_lit (is,ls') aig lit ⇔ eval_lit (is,ls) aig lit)
+End
+
+Definition is_stratified_def:
+  is_stratified lt aig reset latches ⇔
+  irreflexive lt ∧
+  transitive lt ∧
+  dep_reset_lt lt aig reset latches
 End
 
 Definition patch_def:

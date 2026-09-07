@@ -330,13 +330,6 @@ Definition dep_model_def:
   dep_lits inputs latches cnstrs
 End
 
-Definition is_stratified_def:
-  is_stratified lt aig reset latches ⇔
-  irreflexive lt ∧
-  transitive lt ∧
-  dep_reset_lt lt aig reset latches
-End
-
 Theorem agree_on_weaken_inputs[local]:
   agree_on inputs latches ss' ss ∧
   inputs' ⊆ inputs
@@ -699,7 +692,7 @@ Theorem is_witness_is_live:
   FINITE wlatches
   ⇒
   is_live
-    maig mreset mnext mcnstrs mqaig mlive mlatches
+    maig mreset mnext mcnstrs mqaig (IMAGE set (set mlive)) mlatches
 Proof
   rw []
   (* Get safety of model *)
@@ -753,11 +746,14 @@ Proof
     (unabbrev_all_tac>>fs[is_stratified_def,PULL_EXISTS])
   >> strip_tac
   >> rename1 ‘k < _ ⇒ _’ >> qexists ‘k+1’ >> rw []
+  >> rename1 ‘MEM prop mlive’
   (* Model is live if model is live on extended trace *)
-  >> ‘∃signal.
-        MEM signal prop ∧
-        ∀i. k + 1 ≤ i ⇒
-            lits_hold (state_pair (steps' i) (steps' (i + 1))) mqaig {signal}’ suffices_by
+  >> suff
+       ‘∃signal.
+          MEM signal prop ∧
+            ∀i. k + 1 ≤ i ⇒
+              lits_hold (state_pair (steps' i) (steps' (i + 1))) mqaig {signal}’
+  >-
     (rw []
      >> qexists ‘signal’ >> rw []
      >> irule lits_hold_dep_aig
