@@ -229,8 +229,8 @@ Datatype:
      ; ptr_eq_rel : ('a word -> 'a word_loc) -> ('a word) set ->
                     (store_name |-> 'a word_loc) -> 'a word -> 'a word -> bool
          (* attenuates the oracle: it may answer T only where this holds of the
-            two words. Supplied by the producer of the oracle semantics, which
-            is the only thing that reads it; no operation writes it. *)
+            two words. The PtrEq clause of evaluate is its only reader, and no
+            clause writes it, so it is fixed by whoever builds the state. *)
      ; ffi     : 'ffi ffi_state |>
 End
 

@@ -52,6 +52,7 @@ timing.log
 
 # Vim swap files
 *.swp
+*.swo
 
 # Reference manual
 documentation/*.pdf

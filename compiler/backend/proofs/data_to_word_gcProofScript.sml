@@ -4535,6 +4535,13 @@ Definition state_rel_thm:
        flat s.stack t.stack)
 End
 
+(* the word state runs the data state's pointer-equality oracle, attenuated by
+   the do_eq-equivalent heap relation *)
+Definition ptr_eq_link_def:
+  ptr_eq_link c (s:('c,'ffi) dataSem$state) (t:('a,'c,'ffi) wordSem$state) ⇔
+    t.ptr_eq_rel = word_ptr_eq c ∧ t.ptr_eq_oracle = SOME s.ptr_eq_oracle
+End
+
 Theorem state_rel_thm[allow_rebind] =
   state_rel_thm
 

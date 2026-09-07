@@ -1762,13 +1762,6 @@ Proof
   \\ rw[] \\ metis_tac[]
 QED
 
-(* the word state runs the data state's pointer-equality oracle, attenuated by
-   the do_eq-equivalent heap relation *)
-Definition ptr_eq_link_def:
-  ptr_eq_link c (s:('c,'ffi) dataSem$state) (t:('a,'c,'ffi) wordSem$state) ⇔
-    t.ptr_eq_rel = word_ptr_eq c ∧ t.ptr_eq_oracle = SOME s.ptr_eq_oracle
-End
-
 val assign_thm_goal =
   ``state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) NONE locs ∧
    (op_requires_names op ≠ (names_opt = NONE)) ∧
@@ -1887,7 +1880,7 @@ Proof
   rw [ptr_eq_link_def]
   >- (imp_res_tac wordPropsTheory.evaluate_consts \\ fs [])
   \\ imp_res_tac cut_state_opt_const
-  \\ imp_res_tac do_app_ptr_eq_oracle
+  \\ imp_res_tac dataPropsTheory.do_app_ptr_eq_oracle
   \\ drule evaluate_ptr_eq_free
   \\ disch_then (qspec_then `set (MAP FST (stubs (:'a) c)) DIFF
        {Install_location; InstallCode_location; InstallData_location}` mp_tac)

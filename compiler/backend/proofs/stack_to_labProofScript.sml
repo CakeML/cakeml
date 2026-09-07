@@ -3070,17 +3070,6 @@ Definition full_make_init_def:
      make_init_opt ggc max_heap bitmaps data_sp coracle1 jump offset sp (fromAList code1) s2)
 End
 
-Theorem make_init_any_oracle_cong[local]:
-   s1 = s2 with compile_oracle := co ==>
-   make_init_any ggc max_heap bitmaps data_sp coracle jump off k code s1 =
-   make_init_any ggc max_heap bitmaps data_sp coracle' jump off k code s2 with
-     compile_oracle := coracle
-Proof
-  strip_tac
-  \\ pop_assum (fn th => rewrite_tac [th])
-  \\ MATCH_ACCEPT_TAC stack_removeProofTheory.make_init_any_oracle_swap
-QED
-
 Theorem full_make_init_compile_oracle:
    FST (full_make_init stack_conf data_conf max_heap sp offset bitmaps code s4
           save_regs data_sp coracle) =

@@ -2964,7 +2964,6 @@ Proof
   Cases_on `opt_ev` \\ simp [add_eval_state_def]
 QED
 
-
 Definition opt_eval_config_wf_def:
   opt_eval_config_wf asm_conf c' (SOME ci) = (
     ci.compiler_fun = compile_inc_progs_for_eval asm_conf /\

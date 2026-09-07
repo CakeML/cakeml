@@ -3489,8 +3489,7 @@ Proof
   fs[option_le_max]
 QED
 
-(* PtrEqual allocates nothing and calls no stubs; these facts are relied on
-   by the data_to_word correctness proof for its assign clause *)
+(* PtrEqual allocates nothing and calls no stubs *)
 Theorem PtrEqual_cost_facts:
   op_space_reset (BlockOp PtrEqual) = F ∧
   op_requires_names (BlockOp PtrEqual) = F ∧
