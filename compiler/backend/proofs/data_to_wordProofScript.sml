@@ -1964,10 +1964,17 @@ Proof
   \\ ntac 5 (rfs [option_le_SOME])
 QED
 
-(* the pointer-equality oracle is computed from the concrete word run *)
+(* the word-level result at a pointer-equality oracle that reproduces the
+   concrete run of the top-level call *)
 
 Theorem compile_semantics:
-  (t :(α, γ, 'ffi) wordSem$state).handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
+  (∀k. ∃rest.
+     evaluate (Call NONE (SOME start) [0] NONE,
+               (t :(α, γ, 'ffi) wordSem$state) with
+                 <|clock := k; ptr_eq_oracle := SOME po|>) =
+     (I ## (λs. s with ptr_eq_oracle := SOME rest))
+       (evaluate (Call NONE (SOME start) [0] NONE, t with clock := k))) ∧
+  t.handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
   init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ∧
   good_dimindex (:α) ∧ lookup 0 t.locals = SOME (Loc 1 0) ∧ t.stack = [] ∧
   conf_ok (:α) c ∧ t.termdep = 0 ∧ code_rel c (fromAList prog) x1 ∧
@@ -1988,21 +1995,16 @@ Theorem compile_semantics:
             (MAP (λp. full_compile_single tt kk aa coo (p,NONE)) progs))) ∧
   fs = t.stack_size ∧
   t.ptr_eq_rel = word_ptr_eq c ∧ t.ptr_eq_oracle = NONE ∧
-  (∀po. Fail ≠ semantics t.ffi (fromAList prog) co cc po zero_limits fs start) ⇒
-  ∃po.
-    (data_lang_safe_for_space t.ffi po (fromAList prog) (get_limits c t) fs start /\
-     c.gc_kind <> None ⇒ word_lang_safe_for_space t start) ∧
-    semantics t start ∈
-    extend_with_resource_limit'
-      (data_lang_safe_for_space t.ffi po (fromAList prog) (get_limits c t) fs
-         start /\ c.gc_kind <> None)
-      {semantics t.ffi (fromAList prog) co cc po zero_limits fs start}
+  Fail ≠ semantics t.ffi (fromAList prog) co cc po zero_limits fs start ⇒
+  (data_lang_safe_for_space t.ffi po (fromAList prog) (get_limits c t) fs start /\
+   c.gc_kind <> None ⇒ word_lang_safe_for_space t start) ∧
+  semantics t start ∈
+  extend_with_resource_limit'
+    (data_lang_safe_for_space t.ffi po (fromAList prog) (get_limits c t) fs
+       start /\ c.gc_kind <> None)
+    {semantics t.ffi (fromAList prog) co cc po zero_limits fs start}
 Proof
   strip_tac
-  \\ `∀m dm st w. t.ptr_eq_rel m dm st w w` by simp [word_ptr_eq_def]
-  \\ drule_all wordPropsTheory.evaluate_ptr_eq_oracle_exists
-  \\ disch_then (qspec_then `start` strip_assume_tac)
-  \\ qexists_tac `po`
   \\ `semantics (t with ptr_eq_oracle := SOME po) start = semantics t start` by
     (irule wordPropsTheory.semantics_ptr_eq_oracle \\ simp [])
   \\ `get_limits c (t with ptr_eq_oracle := SOME po) = get_limits c t` by
@@ -2020,9 +2022,7 @@ Proof
   \\ mp_tac (Q.INST [`t` |-> `t with ptr_eq_oracle := SOME po`]
                compile_semantics_oracle)
   \\ impl_tac
-  >- (
-    qpat_x_assum `∀po. Fail ≠ _` (qspec_then `po` assume_tac)
-    \\ gvs [markerTheory.Abbrev_def])
+  >- gvs [markerTheory.Abbrev_def]
   \\ strip_tac
   \\ gvs []
 QED

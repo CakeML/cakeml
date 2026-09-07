@@ -9576,6 +9576,14 @@ Definition make_init_def:
      |>
 End
 
+Theorem make_init_compile_oracle:
+  make_init mc_conf ffi t m dm sdm ms code cmp cbpos cbspace coracle =
+  make_init mc_conf ffi t m dm sdm ms code cmp cbpos cbspace coracle' with
+    compile_oracle := coracle
+Proof
+  simp [make_init_def]
+QED
+
 Theorem oracle_tie_make_init:
   oracle_tie mc_conf ms
     (make_init mc_conf ffi t m dm sdm ms code cmp cbpos cbspace coracle)

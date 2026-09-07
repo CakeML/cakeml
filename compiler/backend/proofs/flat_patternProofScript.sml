@@ -1507,8 +1507,11 @@ Theorem do_eval_thm:
   LIST_REL v_rel xs ys ==>
   ?rv' decs' eval_config'.
   do_eval ys t.eval_config = SOME (decs', eval_config', rv') /\
-  state_rel cfg (s with eval_config := eval_config)
-    (t with eval_config := eval_config') /\
+  state_rel cfg
+    (s with <| eval_config := eval_config
+             ; ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle |>)
+    (t with <| eval_config := eval_config'
+             ; ptr_eq_oracle := shift_seq 1 t.ptr_eq_oracle |>) /\
   v_rel rv rv' /\
   decs' = MAP (compile_dec cfg) decs
 Proof

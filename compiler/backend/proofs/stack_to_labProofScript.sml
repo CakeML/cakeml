@@ -3070,6 +3070,46 @@ Definition full_make_init_def:
      make_init_opt ggc max_heap bitmaps data_sp coracle1 jump offset sp (fromAList code1) s2)
 End
 
+Theorem make_init_any_oracle_cong[local]:
+   s1 = s2 with compile_oracle := co ==>
+   make_init_any ggc max_heap bitmaps data_sp coracle jump off k code s1 =
+   make_init_any ggc max_heap bitmaps data_sp coracle' jump off k code s2 with
+     compile_oracle := coracle
+Proof
+  strip_tac
+  \\ pop_assum (fn th => rewrite_tac [th])
+  \\ MATCH_ACCEPT_TAC stack_removeProofTheory.make_init_any_oracle_swap
+QED
+
+Theorem full_make_init_compile_oracle:
+   FST (full_make_init stack_conf data_conf max_heap sp offset bitmaps code s4
+          save_regs data_sp coracle) =
+   FST (full_make_init stack_conf data_conf max_heap sp offset bitmaps code s4
+          save_regs data_sp coracle') with compile_oracle := coracle
+Proof
+  simp [full_make_init_def,stack_allocProofTheory.make_init_def]
+  \\ qmatch_goalsub_abbrev_tac `make_init_any GGC MH BM DSP CO1 JP OFF SP CD S2`
+  \\ qabbrev_tac `CO1' = (I ## MAP prog_comp ## I) o coracle'`
+  \\ qmatch_goalsub_abbrev_tac `make_init_any GGC MH BM DSP CO1' JP OFF SP CD S2'`
+  \\ `make_init_any GGC MH BM DSP CO1 JP OFF SP CD S2 =
+      make_init_any GGC MH BM DSP CO1' JP OFF SP CD S2' with
+        compile_oracle := CO1`
+       by (irule make_init_any_oracle_cong
+           \\ qexists_tac `(I ## MAP (prog_comp JP OFF SP) ## I) o CO1`
+           \\ simp [Abbr `S2`,Abbr `S2'`,stack_namesProofTheory.make_init_def,
+                    make_init_def])
+  \\ simp []
+QED
+
+Theorem full_make_init_lab_oracle:
+   full_make_init stack_conf data_conf max_heap sp offset bitmaps code
+     (s4 with compile_oracle := co) save_regs data_sp coracle =
+   full_make_init stack_conf data_conf max_heap sp offset bitmaps code s4
+     save_regs data_sp coracle
+Proof
+  simp [full_make_init_def, make_init_def]
+QED
+
 Theorem full_make_init_buffer:
     (FST(full_make_init a b c d e f g h i j k)).code_buffer.buffer = [] ∧
   (FST(full_make_init a b c d e f g h i j k)).data_buffer.buffer = []

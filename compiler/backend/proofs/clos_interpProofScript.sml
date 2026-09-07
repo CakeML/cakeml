@@ -1027,6 +1027,7 @@ Proof
     \\ disch_then $ qspec_then ‘t3 with
                 <|clock := t3.clock − 1;
                   compile_oracle := shift_seq 1 t3.compile_oracle;
+                  ptr_eq_oracle := shift_seq 1 t3.ptr_eq_oracle;
                   code := t3.code |>’ mp_tac
     \\ impl_tac
     >-

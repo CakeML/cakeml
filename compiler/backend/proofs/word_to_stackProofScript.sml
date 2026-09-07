@@ -10547,6 +10547,14 @@ Definition make_init_def:
      ; ptr_eq_rel := pe_rel|>
 End
 
+Theorem make_init_oracle_cong:
+  t1 = t2 with compile_oracle := co ⇒
+  make_init ac k t1 code coracle pe_rel =
+  make_init ac k t2 code coracle' pe_rel with compile_oracle := coracle
+Proof
+  rw [] \\ simp [make_init_def]
+QED
+
 Theorem init_state_ok_IMP_state_rel[local]:
    lookup raise_stub_location t.code = SOME (raise_stub F k) /\
    lookup store_consts_stub_location t.code = SOME (store_consts_stub k) /\

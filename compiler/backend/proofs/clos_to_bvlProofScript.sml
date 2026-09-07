@@ -3758,7 +3758,8 @@ Proof
           xx1 = p1 with
           <|clock := t2.clock − 1;
             compile_oracle := shift_seq 1 p1.compile_oracle;
-            code := p1.code |++ progs1|>`
+            code := p1.code |++ progs1;
+            ptr_eq_oracle := shift_seq 1 p1.ptr_eq_oracle|>`
            by (IF_CASES_TAC \\ fs [])
       \\ rveq \\ fs []
       \\ pop_assum kall_tac \\ fs [EVAL ``shift_seq 1 f 0``]
@@ -3788,10 +3789,12 @@ Proof
       \\ `state_rel f2 (p1 with
               <|clock := p1.clock − 1;
                 compile_oracle := shift_seq 1 p1.compile_oracle;
-                code := p1.code |++ progs1|>) (t2 with
+                code := p1.code |++ progs1;
+                ptr_eq_oracle := shift_seq 1 p1.ptr_eq_oracle|>) (t2 with
            <|clock := t2.clock − 1;
              compile_oracle := shift_seq 1 t2.compile_oracle;
-             code := union t2.code (fromAList (progs))|>)` by
+             code := union t2.code (fromAList (progs));
+             ptr_eq_oracle := shift_seq 1 t2.ptr_eq_oracle|>)` by
        (qpat_x_assum `state_rel f2 p1 t2` mp_tac \\ simp [state_rel_def]
         \\ strip_tac \\ fs [lookup_union]
         \\ rpt strip_tac
@@ -3925,14 +3928,17 @@ Proof
                p1 with
                <|clock := t2.clock − 1;
                  compile_oracle := shift_seq 1 p1.compile_oracle;
-                 code := p1.code |++ progs1|>) = (res1,s1)` by metis_tac [PAIR]
+                 code := p1.code |++ progs1;
+                 ptr_eq_oracle := shift_seq 1 p1.ptr_eq_oracle|>) = (res1,s1)`
+           by metis_tac [PAIR]
       \\ last_x_assum old_drule
       \\ `res1 ≠ Rerr (Rabort Rtype_error)` by fs [case_eq_thms] \\ simp []
       \\ `?x6 x7. compile_exps s.max_app progs0 [] = (x6,x7)` by metis_tac [PAIR]
       \\ disch_then old_drule
       \\ disch_then (qspecl_then [`t2 with
           <|compile_oracle := shift_seq 1 t2.compile_oracle;
-            code := union t2.code (fromAList progs)|>`,
+            code := union t2.code (fromAList progs);
+            ptr_eq_oracle := shift_seq 1 t2.ptr_eq_oracle|>`,
          `[]`,`f2`] mp_tac)
       \\ fs [] \\ impl_keep_tac
       THEN1 (fs [env_rel_def]

@@ -1706,7 +1706,9 @@ Theorem do_eval_install:
   do_eval xs s.eval_config = SOME res /\
   state_rel s t /\
   LIST_REL v_rel xs ys ==>
-  ?decs exps eval_config t'. state_rel (s with eval_config := eval_config) t' /\
+  ?decs exps eval_config t'.
+  state_rel (s with <|eval_config := eval_config;
+                      ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle|>) t' /\
   res = (decs, eval_config, Unitv) /\
   do_install ys t = (if t'.clock = 0
     then (Rerr (Rabort Rtimeout_error), t')
@@ -1732,6 +1734,7 @@ Proof
   \\ fs [pure_cc_def, inc_compile_decs'_def, compile_decs_def]
   \\ qexists_tac `compile_decs decs`
   \\ qexists_tac `t with <| compile_oracle := shift_seq 1 t.compile_oracle;
+        ptr_eq_oracle := shift_seq 1 t.ptr_eq_oracle;
         code := t.code |++ [] |>`
   \\ conj_tac
   >- (

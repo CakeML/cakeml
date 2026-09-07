@@ -706,6 +706,36 @@ Proof
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[set_var_def]
 QED
 
+Theorem inst_clock_neutral_compile_oracle[local]:
+  (inst i s = SOME t ==>
+     inst i (s with compile_oracle := k) = SOME (t with compile_oracle := k)) /\
+    (inst i s = NONE ==> inst i (s with compile_oracle := k) = NONE)
+Proof
+  Cases_on `i`
+  \\ full_simp_tac(srw_ss())[inst_def,assign_def,word_exp_def,set_var_def,
+       LET_DEF,state_component_equality,set_fp_var_def]
+  \\ rpt (srw_tac[][state_component_equality]
+          \\ every_case_tac
+          \\ full_simp_tac(srw_ss())[word_exp_def,mem_load_def,get_var_def,
+               get_vars_def,mem_store_def,get_fp_var_def]
+          \\ srw_tac[][state_component_equality])
+QED
+
+Theorem evaluate_compile_oracle_neutral:
+   !prog s res t.
+      evaluate (prog,s) = (res,t) /\ clock_neutral prog ==>
+      evaluate (prog,s with compile_oracle := c) = (res,t with compile_oracle := c)
+Proof
+  recInduct evaluate_ind \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,clock_neutral_def]
+  THEN1 (every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[empty_env_def])
+  THEN1 (every_case_tac \\ imp_res_tac inst_clock_neutral_compile_oracle \\ full_simp_tac(srw_ss())[])
+  THEN1 (Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[LET_THM] \\ every_case_tac \\ full_simp_tac(srw_ss())[])
+  \\ `get_var_imm ri (s with compile_oracle := c) = get_var_imm ri s` by
+         (Cases_on `ri` \\ full_simp_tac(srw_ss())[get_var_imm_def,get_var_def])
+  \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[set_var_def]
+QED
+
 Theorem semantics_Terminate_IMP_PREFIX:
    semantics start s1 = Terminate x l ==> isPREFIX s1.ffi.io_events l
 Proof

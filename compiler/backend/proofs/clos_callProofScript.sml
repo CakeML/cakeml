@@ -3068,6 +3068,7 @@ Proof
           (CCONTR_TAC \\ imp_res_tac calls_length \\ fs [] \\ rveq \\ fs [])
         \\ qabbrev_tac `t1 = t with
             <|clock := 0; compile_oracle := shift_seq 1 t.compile_oracle;
+              ptr_eq_oracle := shift_seq 1 t.ptr_eq_oracle;
               code := t.code |++ SND progs|>`
         \\ qexists_tac `ck`
         \\ qexists_tac `t1`
@@ -3078,6 +3079,7 @@ Proof
          (`wfv_state g2 l2 t.code
              (r with
               <| clock := 0; compile_oracle := shift_seq 1 r.compile_oracle;
+                 ptr_eq_oracle := shift_seq 1 r.ptr_eq_oracle;
                  code := r.code |>)` by fs [wfv_state_def,shift_seq_def]
           \\ fs [shift_seq_def,FUPDATE_LIST]
           \\ match_mp_tac (GEN_ALL wfv_state_subg)
@@ -3107,6 +3109,7 @@ Proof
                  r with
                  <|clock := t.clock − 1;
                    compile_oracle := (λi. r.compile_oracle (i + 1));
+                   ptr_eq_oracle := (λi. r.ptr_eq_oracle (i + 1));
                    code := FEMPTY|>)` \\ fs [] \\ rveq \\ fs []
       \\ `q ≠ Rerr (Rabort Rtype_error)` by (every_case_tac \\ fs [] \\ rveq \\ fs [])
       \\ fs []
@@ -3114,6 +3117,7 @@ Proof
       \\ disch_then (qspecl_then [`[]`,`t with
             <|clock := t.clock − 1;
               compile_oracle := (λi. t.compile_oracle (i + 1));
+              ptr_eq_oracle := (λi. t.ptr_eq_oracle (i + 1));
               code := FOLDL $|+ t.code aux1|>`, `l2'`, `g2'`] mp_tac)
       \\ simp [] \\ rfs []
       \\ `exp1 <> []` by
@@ -3146,7 +3150,8 @@ Proof
       \\ conj_tac THEN1
        (`wfv_state g2 l2 t.code (r with
           <|clock := t.clock − 1;
-            compile_oracle := (λi. r.compile_oracle (i + 1)); code := FEMPTY|>)`
+            compile_oracle := (λi. r.compile_oracle (i + 1)); code := FEMPTY;
+            ptr_eq_oracle := (λi. r.ptr_eq_oracle (i + 1))|>)`
               by (fs [code_inv_def,wfv_state_def] \\ fs [] \\ rfs [])
         \\ match_mp_tac (GEN_ALL wfv_state_subg)
         \\ asm_exists_tac \\ fs [GSYM FUPDATE_LIST])

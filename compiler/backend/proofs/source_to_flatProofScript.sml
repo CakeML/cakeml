@@ -3222,8 +3222,11 @@ Theorem do_eval:
   decs' <> [] /\
   invariant interp g <|next := 0; generation := c.envs.next; envs := LN|> genv'
     (c.next, c'.next, idx_block idx end_idx ∪ other)
-    (s with eval_state := eval_state) (t with <| eval_config := eval_config';
-        globals := t.globals ++ REPLICATE (c'.next.vidx - c.next.vidx) NONE |>)
+    (s with <| eval_state := eval_state;
+        ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle |>)
+    (t with <| eval_config := eval_config';
+        globals := t.globals ++ REPLICATE (c'.next.vidx - c.next.vidx) NONE;
+        ptr_eq_oracle := shift_seq 1 t.ptr_eq_oracle |>)
   /\
   env_gen_rel <|next := 0; generation := c.envs.next; envs := LN|> eval_state /\
   (let (_, _, _, gen, _) = compile_decs [] 1 c.next

@@ -405,6 +405,13 @@ Proof
   simp[state_globals_approx_def]
 QED
 
+Theorem state_globals_approx_ptr_eq_oracleupd[simp]:
+   state_globals_approx (s with ptr_eq_oracle updated_by f) g ⇔
+   state_globals_approx s g
+Proof
+  simp[state_globals_approx_def]
+QED
+
 (* Mapped globals *)
 
 Definition mapped_globals_def:
@@ -642,7 +649,6 @@ Proof
         EL_APPEND_EQN, bool_case_eq]
     \\ rw [] >- (metis_tac [])
     \\ gvs [EL_REPLICATE])
-  >~ [‘BlockOp PtrEqual’] >- (fs [state_globals_approx_def] \\ metis_tac [])
   >- (fs [CaseEq"ffi_result"] \\ rveq
     \\ fs [state_globals_approx_def] \\ metis_tac [])
   >-(Cases_on `i` >> gvs[known_op_def])
@@ -664,7 +670,8 @@ QED
 Theorem ssgc_free_do_install:
    !s. ssgc_free s ==>
    ssgc_free (s with <|compile_oracle := shift_seq 1 (s.compile_oracle);
-                       code := s.code |++ SND (SND (s.compile_oracle 0))|>)
+                       code := s.code |++ SND (SND (s.compile_oracle 0));
+                       ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle|>)
 Proof
   gen_tac \\ simp [ssgc_free_def] \\ strip_tac \\ rpt conj_tac
   THEN1 (`?exp aux. SND (s.compile_oracle 0) = (exp, aux)`

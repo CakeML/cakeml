@@ -730,6 +730,7 @@ Proof
   >> gvs [do_install_def, AllCaseEqs(), UNCURRY]
   >> qexists_tac
        `t1 with <| compile_oracle := shift_seq 1 t1.compile_oracle;
+                   ptr_eq_oracle := shift_seq 1 t1.ptr_eq_oracle;
                    code := union t1.code
                              (fromAList (SND (t1.compile_oracle 0))) |>`
   >> gvs [in_state_rel_def, in_co_def, in_cc_def, shift_seq_def, o_DEF]

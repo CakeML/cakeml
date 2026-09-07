@@ -1833,15 +1833,19 @@ Proof
 QED
 
 Theorem stubs_ptr_eq_free:
-  EVERY (λ(n,a,p). ptr_eq_free (set (MAP FST (stubs (:'a) c))) p)
-        (stubs (:'a) c)
+  EVERY (λ(n,a,p).
+      n ∉ {Install_location; InstallCode_location; InstallData_location} ⇒
+      ptr_eq_free (set (MAP FST (stubs (:'a) c)) DIFF
+        {Install_location; InstallCode_location; InstallData_location}) p)
+    (stubs (:'a) c)
 Proof
   EVAL_TAC \\ rw [] \\ EVAL_TAC
 QED
 
 Theorem code_rel_ptr_eq_free:
   code_rel c s_code (t_code : (num # 'a wordLang$prog) num_map) ⇒
-  code_ptr_eq_free (set (MAP FST (stubs (:'a) c))) t_code
+  code_ptr_eq_free (set (MAP FST (stubs (:'a) c)) DIFF
+    {Install_location; InstallCode_location; InstallData_location}) t_code
 Proof
   rw [code_rel_def, code_ptr_eq_free_def, MEM_MAP, EXISTS_PROD]
   \\ assume_tac stubs_ptr_eq_free
@@ -1850,8 +1854,9 @@ Proof
 QED
 
 Theorem assign_ptr_eq_free:
-  op ≠ BlockOp PtrEqual ⇒
-  ptr_eq_free (set (MAP FST (stubs (:'a) c)))
+  op ≠ BlockOp PtrEqual ∧ op ≠ Install ⇒
+  ptr_eq_free (set (MAP FST (stubs (:'a) c)) DIFF
+      {Install_location; InstallCode_location; InstallData_location})
     (FST (assign c n l dest op args names_opt : 'a wordLang$prog # num))
 Proof
   strip_tac
@@ -1871,7 +1876,7 @@ Proof
 QED
 
 Theorem assign_ptr_eq_link:
-  op ≠ BlockOp PtrEqual ∧
+  op ≠ BlockOp PtrEqual ∧ op ≠ Install ∧
   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) NONE locs ∧
   ptr_eq_link c s t ∧
   cut_state_opt names_opt s = SOME x ∧
@@ -1884,7 +1889,8 @@ Proof
   \\ imp_res_tac cut_state_opt_const
   \\ imp_res_tac do_app_ptr_eq_oracle
   \\ drule evaluate_ptr_eq_free
-  \\ disch_then (qspec_then `set (MAP FST (stubs (:'a) c))` mp_tac)
+  \\ disch_then (qspec_then `set (MAP FST (stubs (:'a) c)) DIFF
+       {Install_location; InstallCode_location; InstallData_location}` mp_tac)
   \\ impl_tac
   >- (
     simp [assign_ptr_eq_free]
@@ -2565,7 +2571,7 @@ QED
 
 
 Theorem assign_Install:
-  (op = Install) ==> ^assign_thm_goal
+  (op = Install) ==> ^assign_thm_link_goal
 Proof
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
@@ -2806,6 +2812,12 @@ Proof
       (x.tstamps = s.tstamps) /\ (x.global = s.global) /\ (x.stack = s.stack)` by
        (qpat_x_assum `x = s with locals := x.locals` (fn th => once_rewrite_tac [th]) \\ simp [])
   \\ pop_assum (fn th => full_simp_tac std_ss (CONJUNCTS th))
+  \\ reverse conj_tac
+  THEN1 (* ptr_eq_link *)
+   (`x.ptr_eq_oracle = s.ptr_eq_oracle` by
+      (qpat_x_assum `x = s with locals := x.locals` (fn th => once_rewrite_tac [th])
+       \\ simp [])
+    \\ fs [ptr_eq_link_def])
   \\ conj_tac
   THEN1 (* code_rel *)
    (qpat_x_assum `_ = (_,_)` (fn th => fs [GSYM th])
@@ -17086,7 +17098,7 @@ Theorem imp_assign[local] =
   |> foldr1 (fn (x,y) => MATCH_MP join_lemma (CONJ x y));
 
 Theorem assign_thm:
-  op ≠ BlockOp PtrEqual ⇒ ^assign_thm_goal
+  op ≠ BlockOp PtrEqual ∧ op ≠ Install ⇒ ^assign_thm_goal
 Proof
   strip_tac
   \\ strip_tac
@@ -17126,6 +17138,10 @@ Proof
   \\ Cases_on `op = BlockOp PtrEqual`
   >- (
     drule_all assign_PtrEqual
+    \\ disch_then (qspecl_then [`n`,`l`,`dest`] ACCEPT_TAC))
+  \\ Cases_on `op = Install`
+  >- (
+    drule_all assign_Install
     \\ disch_then (qspecl_then [`n`,`l`,`dest`] ACCEPT_TAC))
   \\ drule_all assign_thm
   \\ disch_then (qspecl_then [`n`,`l`,`dest`] strip_assume_tac)
