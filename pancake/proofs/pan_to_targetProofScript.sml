@@ -609,7 +609,7 @@ Theorem memory_swap_lemma1[local]:
   wordSem$evaluate (prog, (st:(α,β,γ) wordSem$state)) = (res, rst) ∧
   fun2set (st.memory, st.mdomain) = fun2set (m, st.mdomain) ∧
   no_alloc_code st.code ∧ no_install_code st.code ∧
-  no_alloc prog ∧ no_install prog ⇒
+  no_alloc prog ∧ no_install prog ∧ st.ptr_eq_oracle = NONE ⇒
   (∃st'. evaluate (prog, st with memory := m) = (res, st') /\
         (st' with memory := ARB) = (rst with memory := ARB) /\
         fun2set (rst.memory, rst.mdomain) = fun2set (st'.memory, rst.mdomain))
@@ -636,6 +636,7 @@ Proof
   >~ [`Case (Seq _ _, _)`]
   >- (
     gs [UNCURRY_eq_pair]
+    \\ imp_res_tac wordPropsTheory.evaluate_consts
     \\ first_x_assum (qspec_then `m` assume_tac)
     \\ gs [CaseEq "bool"]
     \\ imp_res_tac mem_upd_lemma
@@ -676,6 +677,7 @@ Proof
     \\ fs [CaseEq "option", CaseEq "bool", CaseEq "prod"] \\ gvs []
     \\ fs [CaseEq "wordSem$result"] \\ gvs []
     \\ fs [push_env_mem_upd, push_env_mem_const]
+    \\ imp_res_tac wordPropsTheory.evaluate_consts
     \\ last_x_assum (qspec_then `m` assume_tac)
     \\ gs[wordSemTheory.pop_env_def, wordSemTheory.set_var_def,
           wordSemTheory.set_vars_def, alist_insert_def]
@@ -706,7 +708,8 @@ Resume memory_swap_lemma1[Loop]:
                wordSemTheory.state_component_equality])
   \\ Cases_on ‘wordSem$evaluate (c,x)’ \\ gvs []
   \\ subgoal ‘fun2set (x.memory,x.mdomain) = fun2set (m,x.mdomain) ∧
-              no_alloc_code x.code ∧ no_install_code x.code’
+              no_alloc_code x.code ∧ no_install_code x.code ∧
+              x.ptr_eq_oracle = NONE’
   >- (imp_res_tac wordPropsTheory.cut_state_const \\ gvs [])
   \\ first_x_assum (qspec_then ‘m’ mp_tac) \\ fs []
   \\ disch_then (qx_choose_then ‘st_v’ strip_assume_tac)
@@ -726,6 +729,7 @@ Resume memory_swap_lemma1[Loop]:
           >- (qspecl_then [‘c’,‘x’,‘q’,‘r’]
                 mp_tac wordPropsTheory.no_install_evaluate_const_code
               \\ simp [])
+          \\ imp_res_tac wordPropsTheory.evaluate_consts
           \\ simp [wordSemTheory.STOP_def, stackSemTheory.STOP_def,
                    Once wordConvsTheory.no_alloc_def,
                    Once wordConvsTheory.no_install_def]
@@ -757,7 +761,7 @@ Theorem memory_swap_lemma[local]:
   wordSem$evaluate (prog, (st:(α,β,γ) wordSem$state)) = (res, rst) ∧
   fun2set (st.memory, st.mdomain) = fun2set (m, st.mdomain) ∧
   no_alloc_code st.code ∧ no_install_code st.code ∧
-  no_alloc prog ∧ no_install prog ⇒
+  no_alloc prog ∧ no_install prog ∧ st.ptr_eq_oracle = NONE ⇒
   (∃m'. evaluate (prog, st with memory := m) = (res, rst with memory := m') ∧
         fun2set (rst.memory, rst.mdomain) = fun2set (m', rst.mdomain))
 Proof
@@ -771,7 +775,7 @@ QED
 
 Theorem word_semantics_memory_update:
   fun2set (s.memory,s.mdomain) = fun2set (m,s.mdomain) ∧
-  no_alloc_code s.code ∧ no_install_code s.code ⇒
+  no_alloc_code s.code ∧ no_install_code s.code ∧ s.ptr_eq_oracle = NONE ⇒
   wordSem$semantics ((s with memory := m):(α,β,'ffi) wordSem$state) start ≠ Fail ⇒
   wordSem$semantics s start =
   wordSem$semantics ((s with memory := m):(α,β,'ffi) wordSem$state) start
@@ -1597,6 +1601,7 @@ Proof
         first_x_assum $ qspec_then ‘n’ assume_tac>>
         pairarg_tac>>gs[])>>gs[]>>
   disch_then (qspec_then ‘InitGlobals_location’ mp_tac)>>
+  disch_then (qspec_then ‘ARB’ mp_tac)>>
   disch_then (qspec_then ‘λn. ((LENGTH bitmaps, c'.lab_conf), [])’ mp_tac)>>
 
   qmatch_goalsub_abbrev_tac ‘init_state_ok _ _ _ worac’>>

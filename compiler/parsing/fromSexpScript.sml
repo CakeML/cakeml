@@ -723,6 +723,7 @@ End
 Definition sexpop_def:
   (sexpop (SX_SYM s) =
   if s = "Equality" then SOME Equality else
+  if s = "PtrEq" then SOME PtrEq else
   if s = "Opapp" then SOME Opapp else
   if s = "Opassign" then SOME Opassign else
   if s = "Opref" then SOME Opref else
@@ -1548,6 +1549,7 @@ Definition opsexp_def:
   (opsexp (Shift W64 Asr n) = SX_CONS (SX_SYM "Shift64Asr") (SX_NUM n)) ∧
   (opsexp (Shift W64 Ror n) = SX_CONS (SX_SYM "Shift64Ror") (SX_NUM n)) ∧
   (opsexp Equality = SX_SYM "Equality") ∧
+  (opsexp PtrEq = SX_SYM "PtrEq") ∧
   (opsexp Opapp = SX_SYM "Opapp") ∧
   (opsexp Opassign = SX_SYM "Opassign") ∧
   (opsexp Opref = SX_SYM "Opref") ∧
