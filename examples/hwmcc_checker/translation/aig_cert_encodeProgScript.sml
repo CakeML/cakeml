@@ -94,16 +94,16 @@ val r = translate aig_cert_encodeTheory.encode_signal_imply_def;
 val r = translate aig_cert_encodeTheory.encode_lives_hold_aux_def;
 val r = translate aig_cert_encodeTheory.encode_lives_hold_def;
 
-val r = translate aig_cert_encodeTheory.encode_is_witness_reset_def;
-val r = translate aig_cert_encodeTheory.encode_is_witness_transition_def;
-val r = translate aig_cert_encodeTheory.encode_is_witness_property_def;
-val r = translate aig_cert_encodeTheory.encode_is_witness_base_def;
-val r = translate aig_cert_encodeTheory.encode_is_witness_step_def;
+val r = translate aig_cert_encodeTheory.encode_reset_cond_def;
+val r = translate aig_cert_encodeTheory.encode_transition_cond_def;
+val r = translate aig_cert_encodeTheory.encode_safety_cond_def;
+val r = translate aig_cert_encodeTheory.encode_base_cond_def;
+val r = translate aig_cert_encodeTheory.encode_induction_cond_def;
 
-val r = translate aig_cert_encodeTheory.encode_is_witness_liveness_def;
-val r = translate aig_cert_encodeTheory.encode_is_witness_decrease_def;
-val r = translate aig_cert_encodeTheory.encode_is_witness_closure_def;
-val r = translate aig_cert_encodeTheory.encode_is_witness_consistent_def;
+val r = translate aig_cert_encodeTheory.encode_liveness_cond_def;
+val r = translate aig_cert_encodeTheory.encode_decrease_cond_def;
+val r = translate aig_cert_encodeTheory.encode_closure_cond_def;
+val r = translate aig_cert_encodeTheory.encode_stable_cond_def;
 
 val r = translate aig_cert_encodeTheory.aig_lookup_def;
 val r = translate aig_cert_encodeTheory.latch_deps_def;

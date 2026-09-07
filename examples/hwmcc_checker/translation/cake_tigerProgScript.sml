@@ -107,12 +107,12 @@ Quote add_cakeml:
 End
 
 Quote add_cakeml:
-  fun write_property prefix maig mcnstrs mpreds waig wcnstrs wpreds
+  fun write_safety prefix maig mcnstrs mpreds waig wcnstrs wpreds
   =
   let
-    (* val _ = print "making property...\n" *)
+    (* val _ = print "making safety...\n" *)
     val (name, str) =
-      make_property_string maig mcnstrs mpreds waig wcnstrs wpreds
+      make_safety_string maig mcnstrs mpreds waig wcnstrs wpreds
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
@@ -126,11 +126,11 @@ Quote add_cakeml:
 End
 
 Quote add_cakeml:
-  fun write_step prefix waig wnext wcnstrs wpreds wlatches
+  fun write_induction prefix waig wnext wcnstrs wpreds wlatches
   =
   let
-    (* val _ = print "making step...\n" *)
-    val (name, str) = make_step_string waig wnext wcnstrs wpreds wlatches
+    (* val _ = print "making induction...\n" *)
+    val (name, str) = make_induction_string waig wnext wcnstrs wpreds wlatches
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
@@ -167,12 +167,12 @@ Quote add_cakeml:
 End
 
 Quote add_cakeml:
-  fun write_consistent prefix waig wnext wcnstrs wpreds wlive wlatches interv
+  fun write_stable prefix waig wnext wcnstrs wpreds wlive wlatches interv
   =
   let
-    (* val _ = print "making consistent...\n" *)
+    (* val _ = print "making stable...\n" *)
     val (name, str) =
-      make_consistent_string waig wnext wcnstrs wpreds wlive wlatches interv
+      make_stable_string waig wnext wcnstrs wpreds wlive wlatches interv
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
@@ -199,15 +199,15 @@ Quote add_cakeml:
       write_transition
         prefix maig mnext mcnstrs mlatches waig wnext wcnstrs
         wlatches klatches;
-      write_property prefix maig mcnstrs mpreds waig wcnstrs wpreds;
+      write_safety prefix maig mcnstrs mpreds waig wcnstrs wpreds;
       write_base prefix waig wreset wcnstrs wpreds wlatches;
-      write_step prefix waig wnext wcnstrs wpreds wlatches;
+      write_induction prefix waig wnext wcnstrs wpreds wlatches;
       write_liveness
         prefix maig mcnstrs mlive waig wnext wcnstrs wpreds wlive wlatches
         interv;
       write_decrease prefix waig wnext wcnstrs wpreds wlive wlatches interv;
       write_closure prefix waig wnext wcnstrs wpreds wlive wlatches interv;
-      write_consistent prefix waig wnext wcnstrs wpreds wlive wlatches interv;
+      write_stable prefix waig wnext wcnstrs wpreds wlive wlatches interv;
       print "SUCCESS"
     )
 End

@@ -360,7 +360,7 @@ QED
    intervention map.
    If the literal is not present, we lift inputs/outputs to f.
    In the simplest case, f = INL and g = INR. To encode the decreases property,
-   these are flipped, and in the presence of three states (as in consistent),
+   these are flipped, and in the presence of three states (as in stable),
    we need to nest the constructors. *)
 
 (* f/g indicate the namespace inputs/latches should be mapped to.
@@ -938,7 +938,7 @@ QED
 
 (* Encoding is_next ***********************************************************)
 
-(* cur/next are usually INL/INR, but for consistent we need more flexibility. *)
+(* cur/next are usually INL/INR, but for stable we need more flexibility. *)
 Definition encode_is_next_with_def:
   encode_is_next_with aig name cur nxt next latches =
     encode_equiv aig name
@@ -1324,8 +1324,8 @@ QED
 
 (* Encoding certificate conditions ********************************************)
 
-Definition encode_is_witness_reset_def:
-  encode_is_witness_reset
+Definition encode_reset_cond_def:
+  encode_reset_cond
     (maig: ('a, 'i, 'l) aig)
     (mreset: 'l -> ('a, 'i, 'l) lit option)
     (mcnstrs: ('a, 'i, 'l) lit list)
@@ -1352,8 +1352,8 @@ Definition encode_is_witness_reset_def:
     encode_imply aig «reset» T lhss rhss
 End
 
-Definition encode_is_witness_transition_def:
-  encode_is_witness_transition
+Definition encode_transition_cond_def:
+  encode_transition_cond
     (maig: ('a, 'i, 'l) aig)
     (mnext: 'l -> ('a, 'i, 'l) lit)
     (mcnstrs: ('a, 'i, 'l) lit list)
@@ -1384,8 +1384,8 @@ Definition encode_is_witness_transition_def:
     encode_imply aig «transition» T lhss rhss
 End
 
-Definition encode_is_witness_property_def:
-  encode_is_witness_property
+Definition encode_safety_cond_def:
+  encode_safety_cond
     (maig: ('a, 'i, 'l) aig)
     (mcnstrs: ('a, 'i, 'l) lit list)
     (mpreds: ('a, 'i, 'l) lit list)
@@ -1405,11 +1405,11 @@ Definition encode_is_witness_property_def:
        (Gate (Named (Ext «wpreds»)),F)];
     rhss = [(Gate (Named (Ext «mpreds»)), F);]
   in
-    encode_imply aig «property» T lhss rhss
+    encode_imply aig «safety» T lhss rhss
 End
 
-Definition encode_is_witness_base_def:
-  encode_is_witness_base
+Definition encode_base_cond_def:
+  encode_base_cond
     (waig: ('a, 'i, 'l) aig)
     (wreset: 'l -> ('a, 'i, 'l) lit option)
     (wcnstrs: ('a, 'i, 'l) lit list)
@@ -1429,8 +1429,8 @@ Definition encode_is_witness_base_def:
     encode_imply aig «base» T lhss rhss
 End
 
-Definition encode_is_witness_step_def:
-  encode_is_witness_step
+Definition encode_induction_cond_def:
+  encode_induction_cond
     (waig: ('a, 'i, 'l) aig)
     (wnext: 'l -> ('a, 'i, 'l) lit)
     (wcnstrs: ('a, 'i, 'l) lit list)
@@ -1450,11 +1450,11 @@ Definition encode_is_witness_step_def:
          iext_lit (left_lit (Gate (Named (Ext «wcnstrs»)), F))];
       rhss = [iext_lit (right_lit (Gate (Named (Ext «wpreds»)), F))]
     in
-      encode_imply aig «step» T lhss rhss
+      encode_imply aig «induction» T lhss rhss
 End
 
-Definition encode_is_witness_liveness_def:
-  encode_is_witness_liveness
+Definition encode_liveness_cond_def:
+  encode_liveness_cond
     (maig: ('a, 'i, 'l) aig)
     (mcnstrs: ('a, 'i, 'l) lit list)
     (mlive: ('a, 'i, 'l) lit list list)
@@ -1502,8 +1502,8 @@ Definition encode_is_witness_liveness_def:
     encode_imply aig «liveness» T lhss rhss
 End
 
-Definition encode_is_witness_decrease_def:
-  encode_is_witness_decrease
+Definition encode_decrease_cond_def:
+  encode_decrease_cond
     (waig: ('b, 'i, 'l) aig)
     (wnext: 'l -> ('b, 'i, 'l) lit)
     (wcnstrs: ('b, 'i, 'l) lit list)
@@ -1540,8 +1540,8 @@ Definition encode_is_witness_decrease_def:
     encode_imply aig «decrease» T lhss rhss
 End
 
-Definition encode_is_witness_closure_def:
-  encode_is_witness_closure
+Definition encode_closure_cond_def:
+  encode_closure_cond
     (waig: ('b, 'i, 'l) aig)
     (wnext: 'l -> ('b, 'i, 'l) lit)
     (wcnstrs: ('b, 'i, 'l) lit list)
@@ -1594,8 +1594,8 @@ Definition encode_is_witness_closure_def:
     encode_imply aig «closure» T lhss rhss
 End
 
-Definition encode_is_witness_consistent_def:
-  encode_is_witness_consistent
+Definition encode_stable_cond_def:
+  encode_stable_cond
     (waig: ('b, 'i, 'l) aig)
     (wnext: 'l -> ('b, 'i, 'l) lit)
     (wcnstrs: ('b, 'i, 'l) lit list)
@@ -1644,7 +1644,7 @@ Definition encode_is_witness_consistent_def:
       ];
     rhss = [iext_lit (right_name_lit (Gate (Named (Ext «lives_imply»)), F))];
   in
-    encode_imply aig «consistent» T lhss rhss
+    encode_imply aig «stable» T lhss rhss
 End
 
 (* Proving correctness of the encodings ***************************************)
@@ -2261,26 +2261,26 @@ Definition reset_encoding_is_unsat_def:
   ⇔
   (¬∃ss.
     (eval_gate ss
-       (encode_is_witness_reset
+       (encode_reset_cond
           maig mreset mcnstrs mlatches
           waig wreset wcnstrs wlatches klatches)
        (Named (Ext «reset»))))
 End
 
-Theorem eval_gate_encode_is_witness_reset:
+Theorem eval_gate_encode_reset_cond:
   (set klatches) = (set mlatches) ∩ (set wlatches)
   ⇒
   (reset_encoding_is_unsat
     maig mreset mcnstrs mlatches
     waig wreset wcnstrs wlatches klatches
    =
-   is_witness_reset
+   reset_cond
      maig mreset (set mcnstrs) (set mlatches)
      waig wreset (set wcnstrs) (set wlatches))
 Proof
   simp [
       reset_encoding_is_unsat_def,
-      is_witness_reset_def, encode_is_witness_reset_def,
+      reset_cond_def, encode_reset_cond_def,
       eval_gate_encode_imply,
       eval_lit_encode_lits_hold_Named,
       eval_lit_encode_is_reset_Named
@@ -2295,32 +2295,32 @@ Definition transition_encoding_is_unsat_def:
   ⇔
   (¬∃ss.
      (eval_gate ss
-       (encode_is_witness_transition
+       (encode_transition_cond
           maig mnext mcnstrs mlatches
           waig wnext wcnstrs wlatches klatches)
        (Named (Ext «transition»))))
 End
 
-Theorem eval_gate_encode_is_witness_transition:
+Theorem eval_gate_encode_transition_cond:
   (set klatches) = (set mlatches) ∩ (set wlatches)
   ⇒
   (transition_encoding_is_unsat
     maig mnext mcnstrs mlatches
     waig wnext wcnstrs wlatches klatches ⇔
-  is_witness_transition
+  transition_cond
     maig mnext (set mcnstrs) (set mlatches)
     waig wnext (set wcnstrs) (set wlatches))
 Proof
   strip_tac
   >> simp [
       transition_encoding_is_unsat_def,
-      encode_is_witness_transition_def,
+      encode_transition_cond_def,
       eval_gate_encode_imply,
       encode_is_next_def, encode_is_next_with_def,
       eval_lit_encode_equiv_Named,
       eval_lit_encode_lits_hold_Named,
       FORALL_STATE_PAIR,
-      is_witness_transition_def, is_next_def, eval_lit_base,
+      transition_cond_def, is_next_def, eval_lit_base,
       EVERY_MEM, MEM_MAP, PULL_EXISTS, PULL_FORALL
     ]
   (* metis_tac is quite finicky here... *)
@@ -2341,34 +2341,34 @@ Proof
   >> metis_tac []
 QED
 
-Definition property_encoding_is_unsat_def:
-  property_encoding_is_unsat
+Definition safety_encoding_is_unsat_def:
+  safety_encoding_is_unsat
     maig mcnstrs mpreds
     waig wcnstrs wpreds
   ⇔
   (¬∃ss.
      (eval_gate ss
-       (encode_is_witness_property
+       (encode_safety_cond
           maig mcnstrs mpreds
           waig wcnstrs wpreds)
-       (Named (Ext «property»))))
+       (Named (Ext «safety»))))
 End
 
-Theorem eval_gate_encode_is_witness_property:
-  property_encoding_is_unsat
+Theorem eval_gate_encode_safety_cond:
+  safety_encoding_is_unsat
     maig mcnstrs mpreds
     waig wcnstrs wpreds
   =
-  is_witness_property
+  safety_cond
     maig (set mpreds) (set mcnstrs)
     waig (set wpreds) (set wcnstrs)
 Proof
   simp [
-      property_encoding_is_unsat_def,
-      encode_is_witness_property_def,
+      safety_encoding_is_unsat_def,
+      encode_safety_cond_def,
       eval_gate_encode_imply,
       eval_lit_encode_lits_hold_Named,
-      is_witness_property_def
+      safety_cond_def
     ]
   >> metis_tac []
 QED
@@ -2379,55 +2379,55 @@ Definition base_encoding_is_unsat_def:
   ⇔
   (¬∃ss.
      (eval_gate ss
-       (encode_is_witness_base
+       (encode_base_cond
           waig wreset wcnstrs wpreds wlatches)
        (Named (Ext «base»))))
 End
 
-Theorem eval_gate_encode_is_witness_base:
+Theorem eval_gate_encode_base_cond:
   base_encoding_is_unsat
     waig wreset wcnstrs wpreds wlatches
   =
-  is_witness_base
+  base_cond
     waig wreset (set wpreds) (set wcnstrs) (set wlatches)
 Proof
   simp [
       base_encoding_is_unsat_def,
-      encode_is_witness_base_def,
+      encode_base_cond_def,
       eval_gate_encode_imply,
       eval_lit_encode_lits_hold_Named,
       eval_lit_encode_is_reset_Named,
-      is_witness_base_def
+      base_cond_def
     ]
   >> metis_tac []
 QED
 
-Definition step_encoding_is_unsat_def:
-  step_encoding_is_unsat
+Definition induction_encoding_is_unsat_def:
+  induction_encoding_is_unsat
     waig wnext wcnstrs wpreds wlatches
   ⇔
   (¬∃ss.
      (eval_gate ss
-       (encode_is_witness_step
+       (encode_induction_cond
           waig wnext wcnstrs wpreds wlatches)
-       (Named (Ext «step»))))
+       (Named (Ext «induction»))))
 End
 
-Theorem eval_gate_encode_is_witness_step:
-  step_encoding_is_unsat
+Theorem eval_gate_encode_induction_cond:
+  induction_encoding_is_unsat
     waig wnext wcnstrs wpreds wlatches
    =
-  is_witness_step waig wnext (set wpreds) (set wcnstrs) (set wlatches)
+  induction_cond waig wnext (set wpreds) (set wcnstrs) (set wlatches)
 Proof
   simp [
-      step_encoding_is_unsat_def,
-      encode_is_witness_step_def,
+      induction_encoding_is_unsat_def,
+      encode_induction_cond_def,
       eval_gate_encode_imply,
       eval_lit_encode_lits_hold_Named,
       eval_lit_encode_equiv_Named,
       encode_is_next_def, encode_is_next_with_def,
       eval_lit_base,
-      is_witness_step_def, is_next_def,
+      induction_cond_def, is_next_def,
       FORALL_STATE_PAIR,
       EVERY_MEM, MEM_MAP, PULL_EXISTS
     ]
@@ -2441,33 +2441,33 @@ Definition liveness_encoding_is_unsat_def:
   ⇔
   (¬∃ss.
      (eval_gate ss
-       (encode_is_witness_liveness
+       (encode_liveness_cond
           maig mcnstrs mlive
           waig wnext wcnstrs wpreds wlive wlatches interv)
        (Named (Ext «liveness»))))
 End
 
-Theorem eval_gate_encode_is_witness_liveness:
+Theorem eval_gate_encode_liveness_cond:
   LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive wlive
   ⇒
   liveness_encoding_is_unsat
     maig mcnstrs mlive
     waig wnext wcnstrs wpreds wlive wlatches interv
   =
-  is_witness_liveness
+  liveness_cond
     maig (set mcnstrs) (qleft maig) (qleft_live mlive)
     waig wreset wnext (set wpreds) (set wcnstrs)
     (qinterv_l_r interv waig) (qinterv_live_l_r interv wlive) (set wlatches)
 Proof
   strip_tac
   >> qmatch_goalsub_abbrev_tac
-       ‘is_witness_liveness _ _ _ mlive' _ _ _ _ _ _ wlive' _’
+       ‘liveness_cond _ _ _ mlive' _ _ _ _ _ _ wlive' _’
   >> simp [
       liveness_encoding_is_unsat_def,
-      encode_is_witness_liveness_def,
+      encode_liveness_cond_def,
       eval_gate_encode_imply,
       encode_is_next_def, encode_is_next_with_def, is_next_def,
-      is_witness_liveness_def, lives_imply_signal_imply_FLAT,
+      liveness_cond_def, lives_imply_signal_imply_FLAT,
       eval_lit_encode_lits_hold_Named,
       eval_lit_encode_equiv_Named,
       eval_lit_base,
@@ -2491,7 +2491,7 @@ Proof
     >> simp [EVERY_MEM, ileft_name_lits_def, iright_name_lits_def,
              GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS])
   >> drule_all_then assume_tac eval_lit_encode_signal_imply_Gate
-  >> simp [is_witness_liveness_def, lives_imply_signal_imply_FLAT]
+  >> simp [liveness_cond_def, lives_imply_signal_imply_FLAT]
   >> sg ‘LIST_REL (λws ms. LENGTH ws = LENGTH ms) wlive' mlive'’
   >-
    (irule LIST_REL_sym
@@ -2507,28 +2507,28 @@ Definition decrease_encoding_is_unsat_def:
   ⇔
   (¬∃ss.
      (eval_gate ss
-       (encode_is_witness_decrease
+       (encode_decrease_cond
           waig wnext wcnstrs wpreds wlive wlatches interv)
        (Named (Ext «decrease»))))
 End
 
-Theorem eval_gate_encode_is_witness_decrease:
+Theorem eval_gate_encode_decrease_cond:
   decrease_encoding_is_unsat
     waig wnext wcnstrs wpreds wlive wlatches interv
   =
-  is_witness_decrease
+  decrease_cond
     waig wnext (set wpreds) (set wcnstrs)
     (qinterv_l_r interv waig) (qinterv_live_l_r interv wlive) (set wlatches)
 Proof
   simp [
       decrease_encoding_is_unsat_def,
-      encode_is_witness_decrease_def,
+      encode_decrease_cond_def,
       eval_gate_encode_imply,
       eval_lit_encode_lits_hold_Named,
       eval_lit_encode_equiv_Named,
       encode_is_next_def, encode_is_next_with_def,
       eval_lit_base,
-      is_witness_decrease_def,
+      decrease_cond_def,
       is_next_def,
       FORALL_STATE_PAIR,
       EXISTS_MEM, MEM_MAP, PULL_EXISTS
@@ -2549,28 +2549,28 @@ Definition closure_encoding_is_unsat_def:
   ⇔
   (¬∃ss.
      (eval_gate ss
-       (encode_is_witness_closure
+       (encode_closure_cond
           waig wnext wcnstrs wpreds wlive wlatches interv)
        (Named (Ext «closure»))))
 End
 
-Theorem eval_gate_encode_is_witness_closure:
+Theorem eval_gate_encode_closure_cond:
   closure_encoding_is_unsat
     waig wnext wcnstrs wpreds wlive wlatches interv
    =
-  is_witness_closure
+  closure_cond
     waig wnext (set wpreds) (set wcnstrs)
     (qinterv_l_r interv waig) (qinterv_live_l_r interv wlive) (set wlatches)
 Proof
   simp [
       closure_encoding_is_unsat_def,
-      encode_is_witness_closure_def,
+      encode_closure_cond_def,
       eval_gate_encode_imply,
       eval_lit_encode_lits_hold_Named,
       eval_lit_encode_equiv_Named,
       encode_is_next_def, encode_is_next_with_def,
       eval_lit_base,
-      is_witness_closure_def, is_next_def,
+      closure_cond_def, is_next_def,
       FORALL_STATE_PAIR,
       EXISTS_MEM, MEM_MAP, PULL_EXISTS
     ]
@@ -2587,35 +2587,35 @@ Proof
   >> metis_tac []
 QED
 
-Definition consistent_encoding_is_unsat_def:
-  consistent_encoding_is_unsat
+Definition stable_encoding_is_unsat_def:
+  stable_encoding_is_unsat
     waig wnext wcnstrs wpreds wlive wlatches interv
   ⇔
   (¬∃ss.
      (eval_gate ss
-       (encode_is_witness_consistent
+       (encode_stable_cond
           waig wnext wcnstrs wpreds wlive wlatches interv)
-       (Named (Ext «consistent»))))
+       (Named (Ext «stable»))))
 End
 
-Theorem eval_gate_encode_is_witness_consistent:
-  consistent_encoding_is_unsat
+Theorem eval_gate_encode_stable_cond:
+  stable_encoding_is_unsat
     waig wnext wcnstrs wpreds wlive wlatches interv
    =
-  is_witness_consistent
+  stable_cond
     waig wnext (set wpreds) (set wcnstrs)
     (qinterv_l_r interv waig) (qinterv_live_l_r interv wlive) (set wlatches)
 Proof
   simp [
-      consistent_encoding_is_unsat_def,
-      encode_is_witness_consistent_def,
+      stable_encoding_is_unsat_def,
+      encode_stable_cond_def,
       eval_gate_encode_imply,
       encode_is_next_with_def,
       encode_is_next_def,
       eval_lit_encode_equiv_Named,
       eval_lit_encode_lits_hold_Named,
       eval_lit_base, is_next_def,
-      is_witness_consistent_def,
+      stable_cond_def,
       FORALL_STATE_PAIR,
       EXISTS_MEM, MEM_MAP, PULL_EXISTS
     ]
@@ -2921,12 +2921,12 @@ Definition encodings_unsat_def:
     (transition_encoding_is_unsat
        maig mnext mcnstrs mlatches
        waig wnext wcnstrs wlatches klatches) ∧
-    (property_encoding_is_unsat
+    (safety_encoding_is_unsat
        maig mcnstrs mpreds
        waig wcnstrs wpreds) ∧
     (base_encoding_is_unsat
        waig wreset wcnstrs wpreds wlatches) ∧
-    (step_encoding_is_unsat
+    (induction_encoding_is_unsat
        waig wnext wcnstrs wpreds wlatches) ∧
     (liveness_encoding_is_unsat
        maig mcnstrs mlive
@@ -2935,7 +2935,7 @@ Definition encodings_unsat_def:
        waig wnext wcnstrs wpreds wlive wlatches interv) ∧
     (closure_encoding_is_unsat
        waig wnext wcnstrs wpreds wlive wlatches interv) ∧
-    (consistent_encoding_is_unsat
+    (stable_encoding_is_unsat
        waig wnext wcnstrs wpreds wlive wlatches interv)
 End
 
@@ -3015,17 +3015,17 @@ Proof
           (qinterv_l_r interv waig) (qinterv_live_l_r interv wlive)
           (set wlatches)’
   >- (
-    rewrite_tac [is_witness_def]
+    rewrite_tac [is_witness_def, simulates_def, is_inductive_def, is_ranked_def]
     >> MAP_EVERY (irule_at Any o iffLR) [
-         eval_gate_encode_is_witness_reset,
-         eval_gate_encode_is_witness_transition,
-         eval_gate_encode_is_witness_property,
-         eval_gate_encode_is_witness_base,
-         eval_gate_encode_is_witness_step,
-         eval_gate_encode_is_witness_liveness,
-         eval_gate_encode_is_witness_decrease,
-         eval_gate_encode_is_witness_closure,
-         eval_gate_encode_is_witness_consistent,
+         eval_gate_encode_reset_cond,
+         eval_gate_encode_transition_cond,
+         eval_gate_encode_safety_cond,
+         eval_gate_encode_base_cond,
+         eval_gate_encode_induction_cond,
+         eval_gate_encode_liveness_cond,
+         eval_gate_encode_decrease_cond,
+         eval_gate_encode_closure_cond,
+         eval_gate_encode_stable_cond,
        ]
     >> qexistsl [‘klatches’, ‘klatches’]
     >> fs [encodings_unsat_def]

@@ -34,10 +34,10 @@ val r = translate (aig_cert_fullTheory.process_and_check_def |> demonadify);
 
 val r = translate aig_cert_fullTheory.make_reset_string_def;
 val r = translate aig_cert_fullTheory.make_transition_string_def;
-val r = translate aig_cert_fullTheory.make_property_string_def;
+val r = translate aig_cert_fullTheory.make_safety_string_def;
 val r = translate aig_cert_fullTheory.make_base_string_def;
-val r = translate aig_cert_fullTheory.make_step_string_def;
+val r = translate aig_cert_fullTheory.make_induction_string_def;
 val r = translate aig_cert_fullTheory.make_liveness_string_def;
 val r = translate aig_cert_fullTheory.make_decrease_string_def;
 val r = translate aig_cert_fullTheory.make_closure_string_def;
-val r = translate aig_cert_fullTheory.make_consistent_string_def;
+val r = translate aig_cert_fullTheory.make_stable_string_def;

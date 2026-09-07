@@ -39,7 +39,7 @@ fun translate_rest i = let
    (aig_cert_encode, aig_fmapsProg, here) *)
 
 (*
-  For encode_is_witness_reset
+  For encode_reset_cond
 *)
 val i = INST_TYPE
           [alpha |-> “:(num + num) iext”,
@@ -48,7 +48,7 @@ val i = INST_TYPE
 val r = translate_rest i;
 
 (*
-  For encode_is_witness_transition
+  For encode_transition_cond
 *)
 val i = INST_TYPE
           [alpha |-> “:((num + num) iext + (num + num) iext) iext”,
@@ -57,7 +57,7 @@ val i = INST_TYPE
 val r = translate_rest i;
 
 (*
-  For encode_is_witness_property
+  For encode_safety_cond
 *)
 val i = INST_TYPE
           [alpha |-> “:(num + num) iext”,
@@ -66,7 +66,7 @@ val i = INST_TYPE
 val r = translate_rest i;
 
 (*
-  For encode_is_witness_base
+  For encode_base_cond
 *)
 val i = INST_TYPE
           [alpha |-> “:num iext”,
@@ -75,7 +75,7 @@ val i = INST_TYPE
 val r = translate_rest i;
 
 (*
-  For encode_is_witness_step
+  For encode_induction_cond
 *)
 val i = INST_TYPE
           [alpha |-> “:(num iext + num iext) iext”,
@@ -84,7 +84,7 @@ val i = INST_TYPE
 val r = translate_rest i;
 
 (*
-  For encode_is_witness_liveness
+  For encode_liveness_cond
 *)
 val i = INST_TYPE
           [alpha |-> “:(((num + num) iext + (num + num) iext) iext + (num + num) iext) iext”,
@@ -93,7 +93,7 @@ val i = INST_TYPE
 val r = translate_rest i;
 
 (*
-  For encode_is_witness_decrease
+  For encode_decrease_cond
 *)
 val i = INST_TYPE
           [alpha |-> “:((num iext + num iext) iext + num iext) iext”,
@@ -102,7 +102,7 @@ val i = INST_TYPE
 val r = translate_rest i;
 
 (*
-  For encode_is_witness_closure
+  For encode_closure_cond
 *)
 val i = INST_TYPE
           [alpha |-> “:((((num iext + num iext) iext + num iext) iext + num iext) iext + num iext) iext”,
@@ -112,7 +112,7 @@ val r = translate_rest i;
 
 
 (*
-  For encode_is_witness_consistent
+  For encode_stable_cond
 *)
 val i = INST_TYPE
           [alpha |-> “:(((num iext + num iext) iext + num iext) iext + (num + num) iext) iext”,

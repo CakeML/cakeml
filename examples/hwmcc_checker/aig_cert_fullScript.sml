@@ -257,7 +257,7 @@ Definition make_reset_string_def:
   let
     name = «reset»;
     aig  =
-      encode_is_witness_reset
+      encode_reset_cond
         maig mreset mcnstrs mlatches
         waig wreset wcnstrs wlatches klatches;
     cnf = aig_to_cnf aig (Named (Ext name))
@@ -273,7 +273,7 @@ Definition make_transition_string_def:
   let
     name = «transition»;
     aig  =
-      encode_is_witness_transition
+      encode_transition_cond
         maig mnext mcnstrs mlatches
         waig wnext wcnstrs wlatches klatches;
     cnf = aig_to_cnf aig (Named (Ext name))
@@ -281,15 +281,15 @@ Definition make_transition_string_def:
     (name, cnf_to_string cnf)
 End
 
-Definition make_property_string_def:
-  make_property_string
+Definition make_safety_string_def:
+  make_safety_string
     (maig: (num, num, num) aig) mcnstrs mpreds
     (waig: (num, num, num) aig) wcnstrs wpreds
   =
   let
-    name = «property»;
+    name = «safety»;
     aig  =
-      encode_is_witness_property maig mcnstrs mpreds waig wcnstrs wpreds;
+      encode_safety_cond maig mcnstrs mpreds waig wcnstrs wpreds;
     cnf = aig_to_cnf aig (Named (Ext name))
   in
     (name, cnf_to_string cnf)
@@ -302,20 +302,20 @@ Definition make_base_string_def:
   let
     name = «base»;
     aig  =
-      encode_is_witness_base waig wreset wcnstrs wpreds wlatches;
+      encode_base_cond waig wreset wcnstrs wpreds wlatches;
     cnf = aig_to_cnf aig (Named (Ext name))
   in
     (name, cnf_to_string cnf)
 End
 
-Definition make_step_string_def:
-  make_step_string
+Definition make_induction_string_def:
+  make_induction_string
     (waig: (num, num, num) aig) wnext wcnstrs wpreds wlatches
   =
   let
-    name = «step»;
+    name = «induction»;
     aig  =
-      encode_is_witness_step waig wnext wcnstrs wpreds wlatches;
+      encode_induction_cond waig wnext wcnstrs wpreds wlatches;
     cnf = aig_to_cnf aig (Named (Ext name))
   in
     (name, cnf_to_string cnf)
@@ -329,7 +329,7 @@ Definition make_liveness_string_def:
   let
     name = «liveness»;
     aig  =
-      encode_is_witness_liveness
+      encode_liveness_cond
         maig mcnstrs mlive
         waig wnext wcnstrs wpreds wlive wlatches interv;
     cnf = aig_to_cnf aig (Named (Ext name))
@@ -344,7 +344,7 @@ Definition make_decrease_string_def:
   let
     name = «decrease»;
     aig  =
-      encode_is_witness_decrease
+      encode_decrease_cond
         waig wnext wcnstrs wpreds wlive wlatches interv;
     cnf = aig_to_cnf aig (Named (Ext name))
   in
@@ -358,21 +358,21 @@ Definition make_closure_string_def:
   let
     name = «closure»;
     aig  =
-      encode_is_witness_closure
+      encode_closure_cond
         waig wnext wcnstrs wpreds wlive wlatches interv;
     cnf = aig_to_cnf aig (Named (Ext name))
   in
     (name, cnf_to_string cnf)
 End
 
-Definition make_consistent_string_def:
-  make_consistent_string
+Definition make_stable_string_def:
+  make_stable_string
     (waig: (num, num, num) aig) wnext wcnstrs wpreds wlive wlatches interv
   =
   let
-    name = «consistent»;
+    name = «stable»;
     aig  =
-      encode_is_witness_consistent
+      encode_stable_cond
         waig wnext wcnstrs wpreds wlive wlatches interv;
     cnf = aig_to_cnf aig (Named (Ext name))
   in

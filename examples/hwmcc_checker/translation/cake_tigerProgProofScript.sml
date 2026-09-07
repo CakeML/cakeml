@@ -121,20 +121,20 @@ Definition make_cert_sem_def:
   let
     fnames =
       MAP (make_fname prefix)
-        [«reset»; «transition»; «property»; «base»; «step»; «liveness»;
-         «decrease»; «closure»; «consistent»]
+        [«reset»; «transition»; «safety»; «base»; «induction»; «liveness»;
+         «decrease»; «closure»; «stable»]
   in
     (out = «SUCCESS» ∧ EVERY (λf. ALOOKUP fs.files f = NONE) fnames ⇒
      ∃maig mreset mnext mpreds mcnstrs mlive mlatches
-      reset transition property base step liveness decrease closure consistent.
+      reset transition safety base induction liveness decrease closure stable.
         get_model fs fmodel =
           SOME (maig, mreset, mnext, mpreds, mcnstrs, mlive, mlatches) ∧
         LIST_REL (cnf_saved fs') fnames
-          [reset; transition; property; base; step; liveness; decrease;
-           closure; consistent] ∧
+          [reset; transition; safety; base; induction; liveness; decrease;
+           closure; stable] ∧
         (EVERY (λcnf. unsatisfiable_cnf (set cnf))
-           [reset; transition; property; base; step; liveness; decrease;
-            closure; consistent]
+           [reset; transition; safety; base; induction; liveness; decrease;
+            closure; stable]
          ⇒
           is_safe
             maig mreset mnext (set mcnstrs) (set mlatches) (set mpreds) ∧
@@ -299,9 +299,9 @@ Proof
   >> metis_tac [PAIR]
 QED
 
-Theorem write_property_spec[local]:
+Theorem write_safety_spec[local]:
   FILENAME prefix prefixv ∧
-  strlen prefix + 12 < 65536 ∧
+  strlen prefix + 10 < 65536 ∧
   AIG_TYPE maig maigv ∧
   LIT_LIST mcnstrs mcnstrsv ∧
   LIT_LIST mpreds mpredsv ∧
@@ -310,7 +310,7 @@ Theorem write_property_spec[local]:
   LIT_LIST wpreds wpredsv ∧
   hasFreeFD fs
   ⇒
-  app (p:'ffi ffi_proj) write_property_v
+  app (p:'ffi ffi_proj) write_safety_v
     [prefixv; maigv; mcnstrsv; mpredsv; waigv; wcnstrsv; wpredsv]
     (STDIO fs)
     (POSTv uv.
@@ -318,13 +318,13 @@ Theorem write_property_spec[local]:
        SEP_EXISTS cnf content.
          &(is_cnf_str cnf content ∧
            (unsatisfiable_cnf (set cnf) ⇔
-            (property_encoding_is_unsat
+            (safety_encoding_is_unsat
                maig mcnstrs mpreds
                waig wcnstrs wpreds))) *
-         STDIO (write_file fs (make_fname prefix «property») content))
+         STDIO (write_file fs (make_fname prefix «safety») content))
 Proof
   rw []
-  >> xcf "write_property" prog
+  >> xcf "write_safety" prog
   >> simp [Once STDIO_STD_streams] >> xpull
   >> xlet_autop
   >> qmatch_asmsub_abbrev_tac ‘PAIR_TYPE STRING_TYPE STRING_TYPE out_string’
@@ -338,11 +338,11 @@ Proof
   >- (
     gvs [make_fname_def, concat_def]
     >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
-    >> gvs [FILENAME_def, make_property_string_def]
+    >> gvs [FILENAME_def, make_safety_string_def]
   )
   >> xsimpl
   >> rw []
-  >> gvs [make_property_string_def]
+  >> gvs [make_safety_string_def]
   >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
   >> namedCases_on ‘cnf_limit’ ["cnf limit"]
   >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
@@ -350,7 +350,7 @@ Proof
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
   >> drule_then assume_tac aig_to_cnf_def_correct
-  >> simp [unsatisfiable_cnf_def,property_encoding_is_unsat_def]
+  >> simp [unsatisfiable_cnf_def,safety_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
 
@@ -407,9 +407,9 @@ Proof
   >> metis_tac [PAIR]
 QED
 
-Theorem write_step_spec[local]:
+Theorem write_induction_spec[local]:
   FILENAME prefix prefixv ∧
-  strlen prefix + 8 < 65536 ∧
+  strlen prefix + 13 < 65536 ∧
   AIG_TYPE waig waigv ∧
   LATCH_LIT_TYPE wnext wnextv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
@@ -417,7 +417,7 @@ Theorem write_step_spec[local]:
   LIST_TYPE NUM wlatches wlatchesv ∧
   hasFreeFD fs
   ⇒
-  app (p:'ffi ffi_proj) write_step_v
+  app (p:'ffi ffi_proj) write_induction_v
     [prefixv; waigv; wnextv; wcnstrsv; wpredsv; wlatchesv]
     (STDIO fs)
     (POSTv uv.
@@ -425,12 +425,12 @@ Theorem write_step_spec[local]:
        SEP_EXISTS cnf content.
          &(is_cnf_str cnf content ∧
            (unsatisfiable_cnf (set cnf) ⇔
-            (step_encoding_is_unsat
+            (induction_encoding_is_unsat
                waig wnext wcnstrs wpreds wlatches))) *
-         STDIO (write_file fs (make_fname prefix «step») content))
+         STDIO (write_file fs (make_fname prefix «induction») content))
 Proof
   rw []
-  >> xcf "write_step" prog
+  >> xcf "write_induction" prog
   >> simp [Once STDIO_STD_streams] >> xpull
   >> xlet_autop
   >> qmatch_asmsub_abbrev_tac ‘PAIR_TYPE STRING_TYPE STRING_TYPE out_string’
@@ -444,11 +444,11 @@ Proof
   >- (
     gvs [make_fname_def, concat_def]
     >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
-    >> gvs [FILENAME_def, make_step_string_def]
+    >> gvs [FILENAME_def, make_induction_string_def]
   )
   >> xsimpl
   >> rw []
-  >> gvs [make_step_string_def]
+  >> gvs [make_induction_string_def]
   >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
   >> namedCases_on ‘cnf_limit’ ["cnf limit"]
   >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
@@ -456,7 +456,7 @@ Proof
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
   >> drule_then assume_tac aig_to_cnf_def_correct
-  >> simp [unsatisfiable_cnf_def,step_encoding_is_unsat_def]
+  >> simp [unsatisfiable_cnf_def,induction_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
 
@@ -630,9 +630,9 @@ Proof
   >> metis_tac [PAIR]
 QED
 
-Theorem write_consistent_spec[local]:
+Theorem write_stable_spec[local]:
   FILENAME prefix prefixv ∧
-  strlen prefix + 14 < 65536 ∧
+  strlen prefix + 10 < 65536 ∧
   AIG_TYPE waig waigv ∧
   LATCH_LIT_TYPE wnext wnextv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
@@ -642,7 +642,7 @@ Theorem write_consistent_spec[local]:
   INTERV_TYPE interv intervv ∧
   hasFreeFD fs
   ⇒
-  app (p:'ffi ffi_proj) write_consistent_v
+  app (p:'ffi ffi_proj) write_stable_v
     [prefixv; waigv; wnextv; wcnstrsv; wpredsv; wlivev; wlatchesv; intervv]
     (STDIO fs)
     (POSTv uv.
@@ -650,12 +650,12 @@ Theorem write_consistent_spec[local]:
        SEP_EXISTS cnf content.
          &(is_cnf_str cnf content ∧
            (unsatisfiable_cnf (set cnf) ⇔
-            (consistent_encoding_is_unsat
+            (stable_encoding_is_unsat
                waig wnext wcnstrs wpreds wlive wlatches interv))) *
-         STDIO (write_file fs (make_fname prefix «consistent») content))
+         STDIO (write_file fs (make_fname prefix «stable») content))
 Proof
   rw []
-  >> xcf "write_consistent" prog
+  >> xcf "write_stable" prog
   >> simp [Once STDIO_STD_streams] >> xpull
   >> xlet_autop
   >> qmatch_asmsub_abbrev_tac ‘PAIR_TYPE STRING_TYPE STRING_TYPE out_string’
@@ -669,11 +669,11 @@ Proof
   >- (
     gvs [make_fname_def, concat_def]
     >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
-    >> gvs [FILENAME_def, make_consistent_string_def]
+    >> gvs [FILENAME_def, make_stable_string_def]
   )
   >> xsimpl
   >> rw []
-  >> gvs [make_consistent_string_def]
+  >> gvs [make_stable_string_def]
   >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
   >> namedCases_on ‘cnf_limit’ ["cnf limit"]
   >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
@@ -681,7 +681,7 @@ Proof
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
   >> drule_then assume_tac aig_to_cnf_def_correct
-  >> simp [unsatisfiable_cnf_def,consistent_encoding_is_unsat_def]
+  >> simp [unsatisfiable_cnf_def,stable_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
 
