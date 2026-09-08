@@ -1,0 +1,4 @@
+name = "xlrup_checker"
+
+[projects.cakeml]
+path = "../.."
