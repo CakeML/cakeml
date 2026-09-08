@@ -330,6 +330,17 @@ evaluate ck env s (Tannot e t) bv)
 ==>
 evaluate ck env s (Lannot e l) bv)
 
+/\ (! ck env path e opened s bv.
+(open_dec_env path env = SOME opened /\
+ evaluate ck (extend_dec_env opened env) s e bv)
+==>
+evaluate ck env s (Open path e) bv)
+
+/\ (! ck env path e s.
+open_dec_env path env = NONE
+==>
+evaluate ck env s (Open path e) (s, Rerr (Rabort Rtype_error)))
+
 /\ (! ck env s.
 T
 ==>
@@ -388,7 +399,7 @@ Inductive evaluate_dec:
 (! ck env p e v env' s1 s2 locs.
 (evaluate ck env s1 e (s2, Rval v) /\
 ALL_DISTINCT (pat_bindings p) /\
-every_exp (one_con_check env.c) e /\
+check_exp_constructors env.c e /\
 (pmatch env.c s2.refs p v [] = Match env'))
 ==>
 evaluate_dec ck env s1 (Dlet locs p e) (s2, Rval <| v := (alist_to_ns env'); c := nsEmpty |>))
@@ -396,7 +407,7 @@ evaluate_dec ck env s1 (Dlet locs p e) (s2, Rval <| v := (alist_to_ns env'); c :
 /\ (! ck env p e v s1 s2 locs.
 (evaluate ck env s1 e (s2, Rval v) /\
 ALL_DISTINCT (pat_bindings p) /\
-every_exp (one_con_check env.c) e /\
+check_exp_constructors env.c e /\
 (pmatch env.c s2.refs p v [] = No_match))
 ==>
 evaluate_dec ck env s1 (Dlet locs p e) (s2, Rerr (Rraise bind_exn_v)))
@@ -404,33 +415,33 @@ evaluate_dec ck env s1 (Dlet locs p e) (s2, Rerr (Rraise bind_exn_v)))
 /\ (! ck env p e v s1 s2 locs.
 (evaluate ck env s1 e (s2, Rval v) /\
 ALL_DISTINCT (pat_bindings p) /\
-every_exp (one_con_check env.c) e /\
+check_exp_constructors env.c e /\
 (pmatch env.c s2.refs p v [] = Match_type_error))
 ==>
 evaluate_dec ck env s1 (Dlet locs p e) (s2, Rerr (Rabort Rtype_error)))
 
 /\ (! ck env p e s locs.
 (~ (ALL_DISTINCT (pat_bindings p) /\
-    every_exp (one_con_check env.c) e))
+    check_exp_constructors env.c e))
 ==>
 evaluate_dec ck env s (Dlet locs p e) (s, Rerr (Rabort Rtype_error)))
 
 /\ (! ck env p e err s s' locs.
 (evaluate ck env s e (s', Rerr err) /\
 ALL_DISTINCT (pat_bindings p) /\
-every_exp (one_con_check env.c) e)
+check_exp_constructors env.c e)
 ==>
 evaluate_dec ck env s (Dlet locs p e) (s', Rerr err))
 
 /\ (! ck env funs s locs.
 (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) /\
- EVERY (λ(f,n,e). every_exp (one_con_check env.c) e) funs)
+ EVERY (λ(f,n,e). check_exp_constructors env.c e) funs)
 ==>
 evaluate_dec ck env s (Dletrec locs funs) (s, Rval <| v := (build_rec_env funs env nsEmpty); c := nsEmpty |>))
 
 /\ (! ck env funs s locs.
 (~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) /\
-    EVERY (λ(f,n,e). every_exp (one_con_check env.c) e) funs))
+    EVERY (λ(f,n,e). check_exp_constructors env.c e) funs))
 ==>
 evaluate_dec ck env s (Dletrec locs funs) (s, Rerr (Rabort Rtype_error)))
 
@@ -468,6 +479,16 @@ T
 evaluate_dec ck env s (Dexn locs cn ts)
     (( s with<| next_exn_stamp := (s.next_exn_stamp +( 1 : num)) |>),
      Rval  <| v := nsEmpty; c := (nsSing cn (LENGTH ts, ExnStamp s.next_exn_stamp)) |>))
+
+/\ (! ck env locs path opened s.
+(open_dec_env path env = SOME opened)
+==>
+evaluate_dec ck env s (Dopen locs path) (s,Rval opened))
+
+/\ (! ck env locs path s.
+(open_dec_env path env = NONE)
+==>
+evaluate_dec ck env s (Dopen locs path) (s,Rerr (Rabort Rtype_error)))
 
 /\ (! ck s1 s2 env ds mn new_env.
 (evaluate_decs ck env s1 ds (s2, Rval new_env))
@@ -510,7 +531,7 @@ End
 Inductive dec_diverges:
 (! env st locs p e.
 (ALL_DISTINCT (pat_bindings p) /\
- every_exp (one_con_check env.c) e /\
+ check_exp_constructors env.c e /\
  e_diverges env (st.refs, st.ffi) e)
 ==>
 dec_diverges env st (Dlet locs p e))
