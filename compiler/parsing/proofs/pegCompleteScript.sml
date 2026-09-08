@@ -2978,6 +2978,13 @@ Proof
   >- (print_tac "nMultOps" >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> strip_tac >>
       gvs[MAP_EQ_CONS] >> simp[choicel_cons, peg_eval_tok, tokSymP_def])
+  >- (
+    print_tac "nModPath" >>
+    simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, MAP_EQ_CONS] >>
+    rw[] >> gvs[MAP_EQ_CONS]
+    >- dsimp[NT_rank_def, EXISTS_PROD, choicel_cons, stoppers_def] >>
+    simp[peg_respects_firstSets_rwt, mkNd_def, choicel_cons, peg_eval_tok] >>
+    simp[Once peg_eval_NT, cmlpeg_rules_applied, peg_StructName_def, peg_eval_tok])
   >- (print_tac "nListOps" >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> strip_tac >>
       gvs[MAP_EQ_CONS] >> simp[choicel_cons, peg_eval_tok])
@@ -3022,22 +3029,18 @@ Proof
     simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
     strip_tac >> loseRK >>
     gvs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM]
-    >~ [`ptree_head _ = NN nStructName`] >- (
-      rename1 `ptree_head module_tree = NN nStructName` >>
+    >~ [`ptree_head _ = NN nModPath`] >- (
+      rename1 `ptree_head module_tree = NN nModPath` >>
       rename1 `MAP (TK ## I) module_tokens = real_fringe module_tree` >>
       ntac 2
         (dsimp[Once choicel_cons] >>
          simp[seql_cons, peg_eval_tok, peg_respects_firstSets_rwt]) >>
       simp[choicel_cons, seql_cons_SOME, PULL_EXISTS] >>
       first_x_assum
-        (qspecl_then [`module_tree`, `nStructName`, `module_tokens`, `sfx`] mp_tac) >>
+        (qspecl_then [`module_tree`, `nModPath`, `module_tokens`, `sfx`] mp_tac) >>
       impl_tac >- simp[stoppers_def] >>
       disch_then (qx_choose_then `open_error` assume_tac) >>
-      qexistsl_tac [`open_error`, `Success sfx [module_tree] open_error`] >> simp[]
-    )
-    >~ [`(LongidT _ _, _) :: _`] >- (
-      simp[choicel_cons, seql_cons, peg_eval_tok] >>
-      simp[Once peg_eval_NT, cmlpeg_rules_applied, peg_StructName_def, peg_eval_tok]
+      qexists_tac `open_error` >> simp[]
     ) >>
     dsimp[Once choicel_cons, seql_cons_SOME]
     >- (disj1_tac >> gs[SKOLEM_THM, GSYM RIGHT_EXISTS_IMP_THM] >>
@@ -3532,24 +3535,13 @@ Proof
           simp[choicel_cons, seql_cons, peg_eval_tok,
                peg_respects_firstSets_rwt] >>
           dsimp[] >> first_x_assum irule >>
-          simp[NT_rank_def, stoppers_def]) >~
-      [‘ptree_head opt = NN nStructName’]
-      >- (ntac 6
-            (dsimp[Once choicel_cons] >>
-             simp[seql_cons, peg_eval_tok, peg_respects_firstSets_rwt]) >>
-          dsimp[Once choicel_cons] >> disj1_tac >>
-          simp[seql_cons_SOME, PULL_EXISTS] >>
-          dsimp[Once choicel_cons] >> disj1_tac >>
-          first_x_assum irule >> simp[NT_rank_def, stoppers_def]) >>
+          simp[NT_rank_def, stoppers_def]) >>
       ntac 6
         (dsimp[Once choicel_cons] >>
          simp[seql_cons, peg_eval_tok, peg_respects_firstSets_rwt]) >>
       dsimp[Once choicel_cons] >> disj1_tac >>
       simp[seql_cons_SOME, PULL_EXISTS] >>
-      dsimp[Once choicel_cons] >> disj2_tac >>
-      simp[peg_eval_tok, peg_respects_firstSets_rwt, peg_eval_NT_NONE,
-           cmlpeg_rules_applied, FDOM_cmlPEG, peg_StructName_def,
-           peg_eval_tok_NONE, choicel_cons])
+      first_x_assum irule >> simp[NT_rank_def, stoppers_def])
   >- (print_tac "nDconstructor" >> stdstart >>
       rename [‘ptree_head upt = NN nUQConstructorName’,
               ‘real_fringe upt = MAP _ upf’,

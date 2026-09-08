@@ -597,6 +597,13 @@ Proof
       `LENGTH di < SUC (LENGTH vi)` by decide_tac >>
       first_x_assum (drule_all_then strip_assume_tac) >> rveq >> simp[] >>
       gs[])
+  >- (
+    print_tac "nModPath" >> strip_tac >> rveq >>
+    dsimp[cmlG_applied, cmlG_FDOM, MAP_EQ_SING]
+    >- (
+      first_x_assum $ drule_at (Pos last) >>
+      simp[NT_rank_def] >> strip_tac >> rveq >> simp[]) >>
+    rename [`isLongModidT module_token`] >> Cases_on `module_token` >> fs[])
   >- (print_tac "nStructName" >> simp[peg_StructName_def] >>
       dsimp[cmlG_applied, cmlG_FDOM, PAIR_MAP])
   >- (print_tac "nOptionalSignatureAscription" >> rpt strip_tac >> rveq >>
@@ -701,7 +708,6 @@ Proof
       >- (`LENGTH i1 < SUC (LENGTH i1)` by decide_tac >>
           first_assum (drule_all_then strip_assume_tac) >>
           simp[])
-      >- (rename [`isLongidT h`] >> Cases_on `h` >> fs[])
       >- (‘NT_rank (mkNT nStructure) < NT_rank (mkNT nDecl)’
             by simp[NT_rank_def] >>
           first_x_assum $ drule_all_then strip_assume_tac >>
@@ -718,9 +724,6 @@ Proof
   >- (print_tac "nLetDec" >>
       rpt strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >>
       fs[]
-      >~ [`∃m p. _ = LongidT p m`] >- (
-        qmatch_asmsub_rename_tac `isLongidT module_token` >>
-        Cases_on `module_token` >> fs[DISJ_IMP_THM, FORALL_AND_THM])
       >- (dsimp[listTheory.APPEND_EQ_CONS, MAP_EQ_SING] >> csimp[] >>
           rename[‘peg_eval _ (i1,nt (mkNT nPattern) I)
                     (Success((EqualsT,ll)::i2) r _)’] >>
