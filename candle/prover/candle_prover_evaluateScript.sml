@@ -58,6 +58,28 @@ Proof
     gvs [CaseEq "match_result", v_ok_def, SF SFY_ss])
 QED
 
+Theorem env_ok_open_dec_env:
+  env_ok ctxt env ∧
+  open_dec_env path env = SOME opened ⇒
+  env_ok ctxt opened
+Proof
+  rw [env_ok_def, open_dec_env_def]
+  \\ gvs [AllCaseEqs()]
+  \\ imp_res_tac nsLookup_after_nsOpen
+  \\ gs []
+  >- (
+    last_x_assum
+      (qspecl_then
+        [`mk_id (path ++ id_to_mods id) (id_to_n id)`, `len`, `tag`, `tn`]
+        mp_tac)
+    \\ simp [])
+  \\ first_x_assum
+    (qspecl_then
+      [`mk_id (path ++ id_to_mods n) (id_to_n n)`, `v`]
+      mp_tac)
+  \\ gs []
+QED
+
 local
   val ind_thm =
     full_evaluate_ind
@@ -145,6 +167,7 @@ Proof
   >~ [`Dtype`] >- suspend "decs_Dtype"
   >~ [`Dtabbrev`] >- suspend "decs_Dtabbrev"
   >~ [`Denv`] >- suspend "decs_Denv"
+  >~ [`Dopen`] >- suspend "decs_Dopen"
   >~ [`Dexn`] >- suspend "decs_Dexn"
   >~ [`Dmod`] >- suspend "decs_Dmod"
   >~ [`Dlocal`] >- suspend "decs_Dlocal"
@@ -1085,6 +1108,18 @@ Resume evaluate_v_ok[decs_Denv]:
   \\ fs [eval_state_ok_def,SF SFY_ss]
   \\ Cases \\ simp [ml_progTheory.nsLookup_nsBind_compute]
   \\ rw [] \\ gs [v_ok_def, env_ok_def, nat_to_v_def, SF SFY_ss]
+QED
+
+Resume evaluate_v_ok[decs_Dopen]:
+  rw [evaluate_decs_def]
+  \\ Cases_on `open_dec_env path env`
+  \\ gvs []
+  >- (
+    qexists_tac `ctxt`
+    \\ gs [state_ok_def])
+  \\ imp_res_tac env_ok_open_dec_env
+  \\ qexists_tac `ctxt`
+  \\ gs [env_ok_extend_dec_env]
 QED
 
 Resume evaluate_v_ok[decs_Dexn]:

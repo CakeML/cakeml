@@ -79,6 +79,7 @@ Theorem perms_ok_dec_thm[simp] =
    “perms_ok_dec ps (Dexn l n ts)”,
    “perms_ok_dec ps (Dmod n ds)”,
    “perms_ok_dec ps (Dlocal ds1 ds2)”,
+   “perms_ok_dec ps (Dopen l path)”,
    “perms_ok_dec ps (Denv n)”]
   |> map (SIMP_CONV (srw_ss()) [perms_ok_dec_def])
   |> map (SIMP_RULE (srw_ss()) [GSYM perms_ok_dec_def, SF ETA_ss])
@@ -255,6 +256,19 @@ Theorem perms_ok_env_EMPTY:
   perms_ok_env ps EMPTY env
 Proof
   rw [perms_ok_env_def]
+QED
+
+Theorem perms_ok_env_open_dec_env[local]:
+  ∀ps env path opened.
+    perms_ok_env ps UNIV env ∧
+    open_dec_env path env = SOME opened ⇒
+    perms_ok_env ps UNIV opened
+Proof
+  rw [perms_ok_env_def,open_dec_env_def]
+  \\ gvs [AllCaseEqs()]
+  \\ first_x_assum irule
+  \\ gs []
+  \\ metis_tac [nsLookup_after_nsOpen]
 QED
 
 Definition dfreevars_def:
@@ -945,6 +959,10 @@ Proof
          perms_ok_state_def, SF SFY_ss])
   >~ [‘Dexn locs cn ts’] >- (
     gvs [evaluate_decs_def, perms_ok_env_def, perms_ok_state_def])
+  >~ [‘Dopen locs path’] >- (
+    gvs [evaluate_decs_def, AllCaseEqs()]
+    \\ imp_res_tac perms_ok_env_open_dec_env
+    \\ gvs [])
   >~ [‘Dmod mn ds’] >- (
     gvs [evaluate_decs_def, CaseEqs ["prod", "result"], perms_ok_env_def,
          nsLookup_nsLift]

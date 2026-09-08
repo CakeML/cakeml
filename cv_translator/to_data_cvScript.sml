@@ -170,6 +170,10 @@ Definition compile_decs_alt_def:
      (n, (next with eidx := next.eidx + 1),
       <| v := nsEmpty; c := nsSing cn (next.eidx, NONE) |>,
       envs,[])) ∧
+  (compile_dec_alt t n next env envs (Dopen locs path) =
+     case open_compile_env path env of
+     | NONE => (n, next, empty_env, envs, [])
+     | SOME opened => (n, next, opened, envs, [])) ∧
   (compile_dec_alt t n next env envs (Dmod mn ds) =
      let (n', next', new_env, envs', ds') = compile_decs_alt (mn::t) n next env envs ds in
        (n', next', (lift_env mn new_env), envs', ds')) ∧
@@ -228,6 +232,7 @@ Proof
      source_to_flatTheory.empty_env_def, UNCURRY_eq_pair, PULL_EXISTS,
      source_to_flatTheory.lift_env_def]
   >- (rpt (TOP_CASE_TAC \\ gvs []))
+  >- metis_tac[FST,SND,PAIR]
   >- metis_tac[FST,SND,PAIR]
   >- metis_tac[FST,SND,PAIR] >>
   res_tac >>
