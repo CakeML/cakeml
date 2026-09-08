@@ -870,7 +870,11 @@ Definition sexpexp_def:
       guard (nm = "Lannot" ∧ LENGTH args = 2)
             (lift2 Lannot
               (sexpexp (EL 0 args))
-              (sexplocn (EL 1 args)))
+              (sexplocn (EL 1 args))) ++
+      guard (nm = "Open" ∧ LENGTH args = 2)
+            (lift2 Open
+              (sexplist odestSEXSTR (EL 0 args))
+              (sexpexp (EL 1 args)))
     od
 Termination
   WF_REL_TAC `measure sexp_size` >>
@@ -937,6 +941,11 @@ Definition sexpexp_alt_def:
           if nm = "Lannot" ∧ LENGTH args = 2 then
             OPTION_MAP2 Lannot (sexpexp_alt (EL 0 args))
               (sexplocn (EL 1 args))
+          else
+          if nm = "Open" ∧ LENGTH args = 2 then
+            OPTION_MAP2 Open
+              (sexplist odestSEXSTR (EL 0 args))
+              (sexpexp_alt (EL 1 args))
           else NONE) ∧
    (sexpexp_list s =
       case s of
@@ -1690,7 +1699,9 @@ Definition expsexp_def:
                                      (SX_CONS (SEXSTR (explode y)) (expsexp z))) funs);
    expsexp e⟫ ∧
   expsexp (Tannot e t) = ⟪SX_SYM "Tannot"; expsexp e; typesexp t⟫ ∧
-  expsexp (Lannot e loc) = ⟪SX_SYM "Lannot"; expsexp e; locssexp loc⟫
+  expsexp (Lannot e loc) = ⟪SX_SYM "Lannot"; expsexp e; locssexp loc⟫ ∧
+  expsexp (Open path e) =
+    ⟪SX_SYM "Open"; listsexp (MAP (SEXSTR ∘ explode) path); expsexp e⟫
 End
 
 Theorem SEXSTR_explode_11[local]:
@@ -2092,9 +2103,8 @@ Proof
   \\ rename1 `guard (nm = "Raise" ∧ _) _`
   \\ reverse (Cases_on `nm ∈ {"Raise"; "Handle"; "Lit"; "Con"; "Var"; "Fun";
                               "App"; "Log"; "If"; "Mat"; "Let"; "Letrec";
-                              "Lannot"; "Tannot"}`)
+                              "Lannot"; "Tannot"; "Open"}`)
   \\ pop_assum mp_tac
-  \\ simp[]
   \\ rw[]
   \\ simp[expsexp_def]
   \\ gvs[LENGTH_EQ_NUM_compute, listsexp_thm, litsexp_sexplit, opsexp_sexpop,
