@@ -97,6 +97,23 @@ fun openPrint sys d t pg str brk blk =
 
 val _ = add_astPP ("openprint", ``Open path body``,genPrint openPrint);
 
+(* Locations are metadata; type annotations remain visible in source output. *)
+fun lannotPrint sys d t pg str brk blk =
+  let val (_,[body,_]) = strip_comb t
+  in sys (pg,pg,pg) (d-1) body end;
+
+val _ = add_astPP ("lannotprint", ``Lannot body locs``,genPrint lannotPrint);
+
+fun tannotPrint sys d t pg str brk blk =
+  let val (_,[body,ty]) = strip_comb t
+  in
+    bracketize str
+      (sys (Top,Top,Top) (d-1) body >> str " : " >>
+       sys (Top,Top,Top) (d-1) ty)
+  end;
+
+val _ = add_astPP ("tannotprint", ``Tannot body ty``,genPrint tannotPrint);
+
 (*Dmod some
 fun dmodsomePrint sys d t pg str brk blk =
   let val (_,[name,opt,decs]) = strip_comb t
