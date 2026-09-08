@@ -200,10 +200,133 @@ QED
 
  *)
 
+(* An open can expose any qualified binding and can hide an outer module
+   with an empty inner module.  Preserve both observations, while still
+   allowing additional unqualified bindings and more general value schemes. *)
+Definition weak_ns_mods_def:
+  weak_ns_mods impl spec ⇔
+    (∀path. nsLookupMod impl path = NONE ⇔ nsLookupMod spec path = NONE) ∧
+    (∀mn id. nsLookup impl (Long mn id) = NONE ⇔
+             nsLookup spec (Long mn id) = NONE)
+End
+
+Theorem weak_ns_mods_refl[local,simp]:
+  weak_ns_mods env env
+Proof
+  simp [weak_ns_mods_def]
+QED
+
+Theorem weak_ns_mods_nsAppend[local]:
+  weak_ns_mods impl1 spec1 ∧ weak_ns_mods impl2 spec2 ⇒
+  weak_ns_mods (nsAppend impl1 impl2) (nsAppend spec1 spec2)
+Proof
+  rw [weak_ns_mods_def, nsLookupMod_nsAppend_none,
+      nsLookup_nsAppend_none] >>
+  metis_tac [option_nchotomy, NOT_SOME_NONE]
+QED
+
+Theorem weak_ns_mods_open[local]:
+  weak_ns_mods impl spec ∧
+  nsOpen path impl = SOME opened_impl ∧
+  nsOpen path spec = SOME opened_spec ⇒
+  weak_ns_mods opened_impl opened_spec ∧
+  (∀id. nsLookup opened_impl id = NONE ⇔ nsLookup opened_spec id = NONE)
+Proof
+  strip_tac >>
+  qpat_assum `nsOpen _ impl = SOME _`
+    (mp_then Any assume_tac nsLookup_after_nsOpen) >>
+  qpat_assum `nsOpen _ impl = SOME _`
+    (mp_then Any assume_tac nsLookupMod_after_nsOpen) >>
+  qpat_assum `nsOpen _ spec = SOME _`
+    (mp_then Any assume_tac nsLookup_after_nsOpen) >>
+  qpat_assum `nsOpen _ spec = SOME _`
+    (mp_then Any assume_tac nsLookupMod_after_nsOpen) >>
+  Cases_on `path` >>
+  fs [weak_ns_mods_def, namespaceTheory.mk_id_def]
+QED
+
+Theorem nsSub_nsAppend_same_domain[local]:
+  nsSub R spec1 impl1 ∧ nsSub R spec2 impl2 ∧
+  weak_ns_mods impl1 spec1 ∧
+  (∀id. nsLookup impl1 id = NONE ⇔ nsLookup spec1 id = NONE) ⇒
+  nsSub R (nsAppend spec1 spec2) (nsAppend impl1 impl2)
+Proof
+  rw [namespaceTheory.nsSub_def, weak_ns_mods_def,
+      nsLookup_nsAppend_some, nsLookupMod_nsAppend_none] >>
+  metis_tac [option_nchotomy, NOT_SOME_NONE]
+QED
+
 Definition weak_def:
 weak tenv' tenv ⇔
-  tenv'.t = tenv.t ∧ weak_tenv tenv' tenv
+  tenv'.t = tenv.t ∧ weak_tenv tenv' tenv ∧
+  weak_ns_mods tenv'.v tenv.v ∧ weak_ns_mods tenv'.c tenv.c
 End
+
+Theorem weak_extend_same_domain[local]:
+  weak impl1 spec1 ∧ weak impl2 spec2 ∧
+  (∀id. nsLookup impl1.v id = NONE ⇔ nsLookup spec1.v id = NONE) ∧
+  (∀id. nsLookup impl1.c id = NONE ⇔ nsLookup spec1.c id = NONE) ⇒
+  weak (extend_dec_tenv impl1 impl2) (extend_dec_tenv spec1 spec2)
+Proof
+  rw [weak_def, weak_tenv_def, extend_dec_tenv_def] >>
+  metis_tac [nsSub_nsAppend_same_domain, weak_ns_mods_nsAppend]
+QED
+
+Theorem weak_open_tenv[local]:
+  weak impl spec ∧
+  open_tenv path impl = SOME opened_impl ∧
+  open_tenv path spec = SOME opened_spec ⇒
+  weak opened_impl opened_spec ∧
+  (∀id. nsLookup opened_impl.v id = NONE ⇔
+        nsLookup opened_spec.v id = NONE) ∧
+  (∀id. nsLookup opened_impl.c id = NONE ⇔
+        nsLookup opened_spec.c id = NONE)
+Proof
+  strip_tac >>
+  imp_res_tac open_tenv_success_components >>
+  fs [weak_def] >>
+  qpat_assum `weak_ns_mods impl.v spec.v`
+    (mp_then Any
+      (qspecl_then [`path`, `opened_spec.v`, `opened_impl.v`] assume_tac)
+      weak_ns_mods_open) >>
+  qpat_assum `weak_ns_mods impl.c spec.c`
+    (mp_then Any
+      (qspecl_then [`path`, `opened_spec.c`, `opened_impl.c`] assume_tac)
+      weak_ns_mods_open) >>
+  gvs [weak_tenv_def] >>
+  imp_res_tac nsLookup_after_nsOpen >>
+  imp_res_tac nsLookupMod_after_nsOpen >>
+  fs [namespaceTheory.nsSub_def, tscheme_inst2_def]
+QED
+
+Theorem weak_open_tenv_exists[local]:
+  weak impl spec ∧ open_tenv path spec = SOME opened_spec ⇒
+  ∃opened_impl. open_tenv path impl = SOME opened_impl
+Proof
+  strip_tac >>
+  imp_res_tac open_tenv_success_components >>
+  qpat_assum `nsOpen path spec.v = SOME _`
+    (mp_then Any (qspec_then `impl.v` mp_tac)
+      nsOpen_some_from_same_mod_domain) >>
+  impl_tac >- fs [weak_def, weak_ns_mods_def] >>
+  strip_tac >>
+  rename1 `nsOpen path impl.v = SOME opened_v` >>
+  qpat_assum `nsOpen path spec.c = SOME _`
+    (mp_then Any (qspec_then `impl.c` mp_tac)
+      nsOpen_some_from_same_mod_domain) >>
+  impl_tac >- fs [weak_def, weak_ns_mods_def] >>
+  strip_tac >>
+  rename1 `nsOpen path impl.c = SOME opened_c` >>
+  qexists_tac `<|v := opened_v; c := opened_c; t := opened_spec.t|>` >>
+  fs [weak_def, open_tenv_def]
+QED
+
+Theorem weak_tenvE_mask[local]:
+  weak_tenvE impl spec ∧ (∀n. hidden_impl n ⇔ hidden_spec n) ⇒
+  weak_tenvE (tveMask hidden_impl impl) (tveMask hidden_spec spec)
+Proof
+  rw [weak_tenvE_def, tveLookup_tveMask, num_tvs_tveMask]
+QED
 
 Theorem type_p_weakening:
  (!tvs tenv p t bindings. type_p tvs tenv p t bindings ⇒
@@ -228,7 +351,24 @@ Theorem type_e_weakening_lem[local]:
     ∀tenv' tenvE'. weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_funs tenv' tenvE' funs bindings)
 Proof
   ho_match_mp_tac type_e_ind >>
- rw [weak_def] >>
+  rw [weak_def]
+  >~ [`type_e _ _ (Open _ _) _`] >- (
+    rename1 `type_e target_env target_locals (Open module_path body) result_ty` >>
+    rename1 `open_tenv module_path source_env = SOME source_open` >>
+    `weak target_env source_env` by fs [weak_def] >>
+    drule_all weak_open_tenv_exists >>
+    strip_tac >>
+    rename1 `open_tenv module_path target_env = SOME target_open` >>
+    drule_all weak_open_tenv >>
+    strip_tac >>
+    simp [Once type_e_cases] >>
+    qpat_x_assum `∀env locals. _ ⇒ type_e env locals body result_ty` irule >>
+    `weak (extend_dec_tenv target_open target_env)
+          (extend_dec_tenv source_open source_env)` by (
+      irule weak_extend_same_domain >> simp []) >>
+    fs [weak_def] >>
+    irule weak_tenvE_mask >>
+    simp [IS_SOME_EQ_NOT_NONE]) >>
  rw [Once type_e_cases]
  >- metis_tac [weak_tenvE_freevars]
  >- (fs [RES_FORALL] >>
@@ -667,11 +807,19 @@ Theorem weak_extend_dec_tenv:
 Proof
   fs [weak_def, tenv_ok_def, weak_tenv_extend_dec_tenv]
   \\ fs [extend_dec_tenv_def]
+  \\ metis_tac [weak_ns_mods_nsAppend, weak_ns_mods_refl]
 QED
 
+(* Exact-output declaration weakening predates Dopen.  It is not true for an
+   open declaration: its output is a selected slice of the input environment,
+   so weakening that input can legitimately change the selected value
+   schemes.  Keep the exact-output theorem for the declaration fragment where
+   its statement is valid.  Dopen itself is covered by the inference
+   soundness/completeness and environment-relation theorems. *)
 Theorem type_d_weakening:
  (!check tenv d decls tenv'.
   type_d check tenv d decls tenv' ⇒
+  dopen_free_dec d ⇒
   !tenv''.
   check = F ∧
   tenv_ok tenv'' ∧
@@ -680,6 +828,7 @@ Theorem type_d_weakening:
   type_d check tenv'' d decls tenv') ∧
  (!check tenv d decls tenv'.
   type_ds check tenv d decls tenv' ⇒
+  EVERY dopen_free_dec d ⇒
   !tenv''.
   check = F ∧
   tenv_ok tenv'' ∧
@@ -688,7 +837,7 @@ Theorem type_d_weakening:
   type_ds check tenv'' d decls tenv')
 Proof
  ho_match_mp_tac type_d_ind >>
- rw [] >>
+ rw [dopen_free_dec_def] >>
  simp [Once type_d_cases] >>
  rw []
  >- metis_tac[type_p_weakening,LESS_EQ_REFL,GREATER_EQ,type_e_weakening,weak_def,weak_tenvE_refl]

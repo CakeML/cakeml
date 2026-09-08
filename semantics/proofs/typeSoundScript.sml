@@ -1320,6 +1320,161 @@ Proof
   EQ_TAC \\ Induct_on `vs` \\ fs[] \\ rpt strip_tac \\ res_tac
 QED
 
+Theorem type_all_env_extend:
+   type_all_env ctMap tenvS env1 tenv1
+    /\ type_all_env ctMap tenvS env2 tenv2
+    ==> type_all_env ctMap tenvS (extend_dec_env env1 env2)
+        (extend_dec_tenv tenv1 tenv2)
+Proof
+  fs [type_all_env_def, extend_dec_env_def, extend_dec_tenv_def]
+  \\ metis_tac [nsAll2_nsAppend]
+QED
+
+Theorem type_ctor_nsAll2_before_open[local]:
+   nsAll2 (type_ctor ctMap) envC tenvC ∧
+   nsOpen path tenvC = SOME openedT ⇒
+   ∃openedE.
+     nsOpen path envC = SOME openedE ∧
+     nsAll2 (type_ctor ctMap) openedE openedT
+Proof
+  strip_tac >>
+  drule nsAll2_before_nsOpen >>
+  disch_then drule >>
+  rw [] >>
+  qexists_tac `opened1` >>
+  rw [] >>
+  irule nsAll2_mono >>
+  qexists_tac
+    `(λid. type_ctor ctMap
+       (mk_id (path ++ id_to_mods id) (id_to_n id)))` >>
+  conj_tac
+  >- (rw [] >>
+      PairCases_on `y` >>
+      PairCases_on `z` >>
+      fs [type_ctor_def])
+  >- rw []
+QED
+
+Theorem type_v_nsAll2_before_open[local]:
+   nsAll2 (λi v (tvs,t). type_v tvs ctMap tenvS v t) envV tenvV ∧
+   nsOpen path tenvV = SOME openedT ⇒
+   ∃openedE.
+     nsOpen path envV = SOME openedE ∧
+     nsAll2 (λi v (tvs,t). type_v tvs ctMap tenvS v t) openedE openedT
+Proof
+  strip_tac >>
+  drule nsAll2_before_nsOpen >>
+  disch_then drule >>
+  rw [] >>
+  qexists_tac `opened1` >>
+  rw [] >>
+  irule nsAll2_mono >>
+  qexists_tac
+    `(λid. (λi v (tvs,t). type_v tvs ctMap tenvS v t)
+       (mk_id (path ++ id_to_mods id) (id_to_n id)))` >>
+  rw []
+QED
+
+Theorem type_all_env_before_open[local]:
+   type_all_env ctMap tenvS env tenv ∧
+   open_tenv path tenv = SOME openedT ⇒
+   ∃openedE.
+     open_dec_env path env = SOME openedE ∧
+     type_all_env ctMap tenvS openedE openedT
+Proof
+  strip_tac >>
+  drule open_tenv_success_components >>
+  strip_tac >>
+  fs [type_all_env_def] >>
+  drule type_ctor_nsAll2_before_open >>
+  disch_then drule >>
+  strip_tac >>
+  drule type_v_nsAll2_before_open >>
+  disch_then drule >>
+  strip_tac >>
+  qexists_tac `<|v := openedE'; c := openedE|>` >>
+  simp [open_dec_env_def, type_all_env_def]
+QED
+
+Theorem nsOpen_add_tenvE[local]:
+  ∀tenvE tenvV. nsOpen path (add_tenvE tenvE tenvV) = nsOpen path tenvV
+Proof
+  Induct >> simp [add_tenvE_def] >>
+  rpt gen_tac >>
+  first_x_assum (qspec_then `tenvV` mp_tac) >>
+  Cases_on `path` >> Cases_on `add_tenvE tenvE tenvV` >>
+  simp [namespaceTheory.nsOpen_def, namespaceTheory.nsBind_def,
+        namespaceTheory.nsLookupMod_def]
+QED
+
+Theorem nsLookup_nsAppend_bind_mask[local]:
+  nsLookup (nsAppend opened (nsBind name value base)) id =
+  if IS_SOME (nsLookup opened (Short name)) then
+    nsLookup (nsAppend opened base) id
+  else nsLookup (nsBind name value (nsAppend opened base)) id
+Proof
+  Cases_on `id` >> Cases_on `opened` >> Cases_on `base` >>
+  rw [namespaceTheory.nsLookup_def, namespaceTheory.nsAppend_def,
+      namespaceTheory.nsBind_def, ALOOKUP_APPEND] >>
+  rename1 `ALOOKUP entries key` >>
+  Cases_on `ALOOKUP entries key` >> fs []
+QED
+
+Theorem nsLookup_add_tenvE_mask_append[local]:
+  ∀tenvE base opened id.
+    nsLookup
+      (add_tenvE (tveMask (λn. IS_SOME (nsLookup opened (Short n))) tenvE)
+        (nsAppend opened base)) id =
+    nsLookup (nsAppend opened (add_tenvE tenvE base)) id
+Proof
+  Induct >> rw [tveMask_def, add_tenvE_def, nsLookup_nsAppend_bind_mask] >>
+  Cases_on `id` >> simp [] >>
+  rename1 `nsLookup (nsBind name value _) (Short key)` >>
+  Cases_on `key = name` >> simp []
+QED
+
+Theorem nsLookupMod_add_tenvE_none[local]:
+  nsLookupMod (add_tenvE tenvE base) path = NONE ⇔
+  nsLookupMod base path = NONE
+Proof
+  mp_tac (Q.SPECL [`tenvE`, `base`] nsOpen_add_tenvE) >>
+  Cases_on `path` >>
+  simp [namespaceTheory.nsOpen_def, namespaceTheory.nsLookupMod_def]
+QED
+
+Theorem nsAll2_add_tenvE_mask_append[local]:
+  nsAll2 R env
+    (add_tenvE (tveMask (λn. IS_SOME (nsLookup opened (Short n))) tenvE)
+      (nsAppend opened base)) ⇔
+  nsAll2 R env (nsAppend opened (add_tenvE tenvE base))
+Proof
+  simp [namespaceTheory.nsAll2_def, namespaceTheory.nsSub_def,
+        nsLookup_add_tenvE_mask_append, nsLookupMod_add_tenvE_none,
+        nsLookupMod_nsAppend_none]
+QED
+
+Theorem type_all_env_open_mask[local]:
+  type_all_env ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v) ∧
+  open_tenv path tenv = SOME openedT ⇒
+  ∃openedE.
+    open_dec_env path env = SOME openedE ∧
+    type_all_env ctMap tenvS (extend_dec_env openedE env)
+      ((extend_dec_tenv openedT tenv) with v :=
+        add_tenvE (tveMask (λn. IS_SOME (nsLookup openedT.v (Short n))) tenvE)
+          (extend_dec_tenv openedT tenv).v)
+Proof
+  strip_tac >>
+  `open_tenv path (tenv with v := add_tenvE tenvE tenv.v) = SOME openedT`
+    by fs [open_tenv_def, nsOpen_add_tenvE] >>
+  drule_all type_all_env_before_open >> strip_tac >>
+  rename1 `open_dec_env path env = SOME runtime_open` >>
+  qexists_tac `runtime_open` >> simp [] >>
+  simp [type_all_env_def, extend_dec_env_def, extend_dec_tenv_def,
+        nsAll2_add_tenvE_mask_append] >>
+  fs [type_all_env_def] >>
+  conj_tac >> irule nsAll2_nsAppend >> simp []
+QED
+
 Theorem exp_type_sound:
   (!(s:'ffi semanticPrimitives$state) env es r s' tenv tenvE ts tvs tenvS.
     evaluate s env es = (s', r) ∧
@@ -1370,6 +1525,21 @@ Proof
  ho_match_mp_tac evaluate_ind
  >> simp [evaluate_def, type_es_list_rel, GSYM CONJ_ASSOC, good_ctMap_def]
  >> rw []
+ >~ [`type_e _ _ (Open _ _) _`] >- (
+   rename1 `type_e tenv (bind_tvar tvs tenvE) (Open path e) result_ty` >>
+   qpat_x_assum `type_e _ _ (Open _ _) _` mp_tac >>
+   simp [Once type_e_cases] >> strip_tac >>
+   rename1 `open_tenv path tenv = SOME typed_open` >>
+   drule_all type_all_env_open_mask >> strip_tac >>
+   fs [is_value_def, tveMask_bind_tvar] >>
+   `tenv_ok (extend_dec_tenv typed_open tenv)`
+     by metis_tac [extend_dec_tenv_ok, tenv_ok_open_tenv] >>
+   qpat_x_assum `∀env locals ts tvs store. _`
+     (qspecl_then
+       [`extend_dec_tenv typed_open tenv`,
+        `tveMask (λn. IS_SOME (nsLookup typed_open.v (Short n))) tenvE`,
+        `[result_ty]`, `tvs`, `tenvS`] mp_tac) >>
+   simp [num_tvs_tveMask, tenv_val_exp_ok_tveMask])
  >- metis_tac [store_type_extension_refl]
  >- (
    split_pair_case_tac
@@ -2056,32 +2226,47 @@ Proof
   rw [check_ctor_tenv_def]
 QED
 
-Theorem type_all_env_extend:
-   type_all_env ctMap tenvS env1 tenv1
-    /\ type_all_env ctMap tenvS env2 tenv2
-    ==> type_all_env ctMap tenvS (extend_dec_env env1 env2)
-        (extend_dec_tenv tenv1 tenv2)
+Theorem dopen_type_sound_invariant[local]:
+   type_sound_invariant st env ctMap tenvS {} tenv ∧
+   open_tenv path tenv = SOME openedT ⇒
+   ∃openedE.
+     open_dec_env path env = SOME openedE ∧
+     type_all_env ctMap tenvS openedE openedT ∧
+     type_sound_invariant st (extend_dec_env openedE env)
+       ctMap tenvS {} (extend_dec_tenv openedT tenv)
 Proof
-  fs [type_all_env_def, extend_dec_env_def, extend_dec_tenv_def]
-  \\ metis_tac [nsAll2_nsAppend]
+  strip_tac >>
+  `type_all_env ctMap tenvS env tenv`
+    by fs [type_sound_invariant_def] >>
+  drule type_all_env_before_open >>
+  disch_then drule >>
+  rw [] >>
+  qexists_tac `openedE` >>
+  rw [] >>
+  fs [type_sound_invariant_def] >>
+  metis_tac [extend_dec_tenv_ok, type_all_env_extend,
+             tenv_ok_open_tenv]
 QED
 
 Theorem type_e_con_check:
  (!tenv tenvE e t.
    type_e tenv tenvE e t ⇒
+   ∀envc.
    nsAll2 (type_ctor ctMap) envc tenv.c ⇒
-   every_exp (one_con_check envc) e) ∧
+   check_exp_constructors envc e) ∧
  (!tenv tenvE es ts.
    type_es tenv tenvE es ts ⇒
+   ∀envc.
    nsAll2 (type_ctor ctMap) envc tenv.c ⇒
-   EVERY (every_exp (one_con_check envc)) es) ∧
+   EVERY (check_exp_constructors envc) es) ∧
  (!tenv tenvE funs env.
    type_funs tenv tenvE funs env ⇒
+   ∀envc.
    nsAll2 (type_ctor ctMap) envc tenv.c ⇒
-   EVERY (λ(f,n,e). every_exp (one_con_check envc) e) funs)
+   EVERY (λ(f,n,e). check_exp_constructors envc e) funs)
 Proof
   ho_match_mp_tac type_e_strongind >>
-  rw[]>>fs[]
+  rw [check_exp_constructors_def] >> fs []
   >- (
     fs [FORALL_PROD, RES_FORALL,EVERY_MEM]>>
     metis_tac[])
@@ -2098,6 +2283,12 @@ Proof
   >- (
     fs [FORALL_PROD, RES_FORALL,EVERY_MEM]>>
     metis_tac[])
+  >> drule open_tenv_success_components >> strip_tac
+  >> drule_all type_ctor_nsAll2_before_open >> strip_tac
+  >> simp []
+  >> qpat_x_assum `∀envc. _` irule
+  >> simp [extend_dec_tenv_def]
+  >> irule nsAll2_nsAppend >> simp []
 QED
 
 Theorem decs_type_sound_no_check:
@@ -2517,6 +2708,15 @@ Proof
      >> irule nsAll2_nsBind
      >> simp [])
    >- metis_tac [type_s_weakening, good_ctMap_def])
+ >- ( (* case open *)
+   fs [Once type_d_cases] >>
+   rveq >>
+   imp_res_tac dopen_type_sound_invariant >>
+   fs [] >>
+   rveq >>
+   qexists_tac `ctMap` >>
+   qexists_tac `tenvS` >>
+   simp [weakCT_refl, store_type_extension_refl])
  >- ( (* Case module *)
    qpat_x_assum `type_d _ _ (Dmod _ _) _ _` mp_tac >>
    rw [Once type_d_cases] >>
