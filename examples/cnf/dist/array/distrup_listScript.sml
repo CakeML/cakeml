@@ -62,12 +62,7 @@ Proof
   >- (
     drule_all bnd_fml_is_rup_list>>
     metis_tac[bnd_fml_insert_vcc_list])
-  >- (
-    irule bnd_fml_insert_vcc_list>>
-    drule bnd_clause_resize_dm>>
-    simp[]>>
-    rw[]>>irule bnd_fml_le>>
-    metis_tac[resize_dm_LENGTH])
+  >> metis_tac[bnd_fml_insert_vcc_list_resize_dm]
 QED
 
 

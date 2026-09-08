@@ -77,12 +77,45 @@ Proof
   rw[satisfies_cclause_def]
 QED
 
+Theorem satisfies_ilit_neg:
+  l ≠ 0 ⇒
+  (satisfies_ilit w (-l) ⇔ ¬ satisfies_ilit w l)
+Proof
+  rw[satisfies_ilit_def]>>
+  `F` by intLib.ARITH_TAC
+QED
+
 Theorem satisfies_ilit_negate:
   satisfies_ilit w l ⇒
   ¬satisfies_ilit w (-l)
 Proof
-  rw[satisfies_ilit_def]>>
-  `F` by intLib.ARITH_TAC
+  strip_tac>>
+  `l ≠ 0` by (strip_tac>>gvs[satisfies_ilit_def])>>
+  metis_tac[satisfies_ilit_neg]
+QED
+
+(* The variable of a literal, phrased with ABS so that it matches the
+  bitstring index computed by xor$conv_xor_aux *)
+Theorem satisfies_ilit_ABS:
+  satisfies_ilit w l ⇔
+  l ≠ 0 ∧ (if l > 0 then w (Num (ABS l)) else ¬ w (Num (ABS l)))
+Proof
+  Cases_on`l = 0`>>simp[satisfies_ilit_def]>>
+  Cases_on`l > 0`>>simp[]
+  >- (`Num (ABS l) = Num l` by intLib.ARITH_TAC>>simp[])>>
+  `Num (ABS l) = Num (-l)` by intLib.ARITH_TAC>>
+  simp[]
+QED
+
+Theorem satisfies_vcclause_length_1:
+  length v = 1 ⇒
+  (satisfies_vcclause w v ⇔ satisfies_ilit w (sub v 0))
+Proof
+  Cases_on`v`>>
+  rename1`Vector ls`>>
+  rw[satisfies_vcclause_def,satisfies_cclause_def,
+    length_def,sub_def,toList_thm]>>
+  Cases_on`ls`>>gvs[]
 QED
 
 Definition insert_vcc_def:

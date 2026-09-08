@@ -422,13 +422,6 @@ Quote add_cakeml:
   handle TextIO.BadFileName => Inl (notfound_string fname)
 End
 
-Theorem fastForwardFD_ADELKEY_same[simp]:
-  forwardFD fs fd n with infds updated_by ADELKEY fd =
-  fs with infds updated_by ADELKEY fd
-Proof
-  fs [forwardFD_def, IO_fs_component_equality]
-QED
-
 val bw0_v_thm = fetch "ccnf_arrayProg" "bw0_v_thm";
 val bw1_v_thm = fetch "ccnf_arrayProg" "bw1_v_thm";
 

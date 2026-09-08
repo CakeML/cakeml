@@ -1268,6 +1268,21 @@ Proof
   metis_tac[bnd_clause_le]
 QED
 
+(* A clause inserted after the assignment array was resized for it stays
+  within the resized bound *)
+Theorem bnd_fml_insert_vcc_list_resize_dm:
+  bnd_fml fmlls (LENGTH dml) ∧
+  resize_dm dml b v = (dml',b') ⇒
+  bnd_fml (insert_vcc_list fmlls n v) (LENGTH dml')
+Proof
+  strip_tac>>
+  irule bnd_fml_insert_vcc_list>>
+  drule bnd_clause_resize_dm>>
+  simp[]>>
+  rw[]>>irule bnd_fml_le>>
+  metis_tac[resize_dm_LENGTH]
+QED
+
 Theorem bnd_fml_is_rup_list:
   bnd_fml fmlls (LENGTH dml) ∧
   is_rup_list fmlls dml b vc hints = (res,dml',b') ⇒
