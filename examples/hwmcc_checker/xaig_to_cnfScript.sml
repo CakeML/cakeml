@@ -181,18 +181,33 @@ Definition xrename_lit_def:
     | Base Ff => ((Base Ff,b), next, im, lm)
 End
 
+(* Note that this accumulates the renamed literals in reverse order. That
+   is harmless: the only gates built from a list of literals are And gates,
+   i.e. conjunctions.  Accumulating makes this function tail recursive. *)
+
 Definition xrename_lits_def:
-  xrename_lits ([]:('a,'i,'l) aig$lit list) next im lm nm =
-    ([]:(num,num,num) aig$lit list,next,im,lm) ∧
-  xrename_lits (t::ts) next im lm nm =
+  xrename_lits ([]:('a,'i,'l) aig$lit list) next im lm nm acc =
+    (acc:(num,num,num) aig$lit list,next,im,lm) ∧
+  xrename_lits (t::ts) next im lm nm acc =
     let (t1,next,im,lm) = xrename_lit t next im lm nm in
-    let (ts1,next,im,lm) = xrename_lits ts next im lm nm in
-      (t1::ts1,next,im,lm)
+      xrename_lits ts next im lm nm (t1::acc)
 End
+
+Theorem xrename_lits_acc:
+  ∀ts next im lm nm acc.
+    xrename_lits ts next im lm nm acc =
+      let (ts1,next,im,lm) = xrename_lits ts next im lm nm [] in
+        (ts1 ++ acc,next,im,lm)
+Proof
+  Induct >- fs [xrename_lits_def]
+  \\ once_rewrite_tac [xrename_lits_def]
+  \\ pop_assum $ once_rewrite_tac o single
+  \\ rw [] \\ rpt (pairarg_tac \\ fs [])
+QED
 
 Definition xrename_gty_def:
   xrename_gty (And ts) next im lm nm =
-    (let (ts1,next,im,lm) = xrename_lits ts next im lm nm in
+    (let (ts1,next,im,lm) = xrename_lits ts next im lm nm [] in
        (And ts1,next,im,lm)) ∧
   xrename_gty (Xor t1 t2) next im lm nm =
     (let (u1,next,im,lm) = xrename_lit t1 next im lm nm in
@@ -434,7 +449,7 @@ QED
 
 Theorem xrename_lits_thm:
   ∀ts next_1 im_1 lm_1 ts_1 next_2 im_2 lm_2.
-    xrename_lits ts next_1 im_1 lm_1 nm = (ts_1,next_2,im_2,lm_2) ∧
+    xrename_lits ts next_1 im_1 lm_1 nm [] = (ts_1,next_2,im_2,lm_2) ∧
     rename_inv is ls xaig res nm next_1 im_1 lm_1
     ⇒
     rename_inv is ls xaig res nm next_2 im_2 lm_2 ∧
@@ -450,6 +465,7 @@ Theorem xrename_lits_thm:
 Proof
   Induct >- (fs [xrename_lits_def] \\ rw [] \\ simp [wrt_ext_def])
   \\ rpt gen_tac \\ simp [xrename_lits_def]
+  \\ simp [Once xrename_lits_acc]
   \\ rpt (pairarg_tac \\ fs []) \\ strip_tac \\ gvs []
   \\ drule_all xrename_lit_thm \\ strip_tac
   \\ last_x_assum drule_all \\ strip_tac
@@ -466,7 +482,8 @@ Proof
   >- (rw [] \\ imp_res_tac SUBMAP_FRANGE \\ res_tac \\ fs [SUBSET_DEF])
   >- (rw [] \\ imp_res_tac SUBMAP_FRANGE \\ res_tac \\ fs [SUBSET_DEF])
   >- (rw [] \\ res_tac)
-  \\ fs [wrt_ext_def] \\ rw [] \\ res_tac \\ simp []
+  \\ fs [wrt_ext_def] \\ rw [] \\ res_tac
+  \\ simp [AC CONJ_COMM CONJ_ASSOC]
 QED
 
 Theorem xrename_gty_thm:
