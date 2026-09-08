@@ -591,6 +591,10 @@ Proof
       asm_match `0 < LENGTH pl` >> Cases_on `pl` >> fs[oHD_def] >> std) >~
   [‘(λ(e,pes). SOME (Raise e, pes)) pe (* sg *)’]
   >- (Cases_on ‘pe’ >> simp[]) >~
+  [‘ptree_Type’]
+  >- (dsimp[] >> map_every (erule strip_assume_tac o n) [V_OK, PbaseList1_OK, Type_OK] >>
+      qexistsl [‘i’, ‘pl’, ‘HD pl’, ‘t'’] >> fs[oHD_def] >> simp[]
+      >> Cases_on ‘pl’ >> fs[] >> simp[]) >~
   [‘_ ++ _ = SOME _’]
   >- (dsimp[OPTION_CHOICE_EQUALS_OPTION, UNCURRY_EQ, PULL_EXISTS,
             AllCaseEqs()] >>
