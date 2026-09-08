@@ -3123,7 +3123,7 @@ Proof
 QED
 
 Theorem cake_orac_eq_get_oracle[local]:
-  ¬ semantics_prog s env prog Fail /\
+  ¬ semantics_determ s env prog Fail /\
   opt_eval_config_wf (asm_conf:'a asm_config) (c':config) (SOME ci) /\
   nsAll (K concrete_v) env.v /\ s.refs = [] /\
   s.eval_state = SOME (mk_init_eval_state ci) /\
@@ -3197,42 +3197,42 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
 QED
 
-Theorem source_to_source_semantics_prog_equiv[local]:
-  ~ semantics_prog s0 env prog Fail ==>
-  semantics_prog s0 env (source_to_source$compile prog) res =
-  semantics_prog s0 env prog res
+Theorem source_to_source_semantics_determ_equiv[local]:
+  ~ semantics_determ s0 env prog Fail ==>
+  semantics_determ s0 env (source_to_source$compile prog) res =
+  semantics_determ s0 env prog res
 Proof
-  metis_tac [semantics_prog_deterministic, semantics_prog_total,
+  metis_tac [semantics_determ_deterministic, semantics_determ_total,
                   source_to_sourceProofTheory.compile_semantics]
 QED
 
-Theorem source_to_source_semantics_prog_intro[local]:
-  ~ semantics_prog s0 env prog Fail ==>
-  (~ semantics_prog s0 env (source_to_source$compile prog) Fail ==>
-    semantics_prog s0 env (source_to_source$compile prog) res) ==>
-  semantics_prog s0 env prog res
+Theorem source_to_source_semantics_determ_intro[local]:
+  ~ semantics_determ s0 env prog Fail ==>
+  (~ semantics_determ s0 env (source_to_source$compile prog) Fail ==>
+    semantics_determ s0 env (source_to_source$compile prog) res) ==>
+  semantics_determ s0 env prog res
 Proof
-  metis_tac [semantics_prog_deterministic, semantics_prog_total,
+  metis_tac [semantics_determ_deterministic, semantics_determ_total,
                   source_to_sourceProofTheory.compile_semantics]
 QED
 
-Theorem eval_oracle_semantics_prog_intro[local]:
-  !ci. ~ semantics_prog s1 env decs Fail /\
+Theorem eval_oracle_semantics_determ_intro[local]:
+  !ci. ~ semantics_determ s1 env decs Fail /\
   precond_eval_state orac ci s1 env decs /\ s1.refs = [] /\
   nsAll (K concrete_v) env.v /\
-  (~ semantics_prog (s1 with eval_state := put_oracle ci orac) env decs Fail ==>
-    semantics_prog (s1 with eval_state := put_oracle ci orac) env decs res) ==>
-  semantics_prog s1 env decs res
+  (~ semantics_determ (s1 with eval_state := put_oracle ci orac) env decs Fail ==>
+    semantics_determ (s1 with eval_state := put_oracle ci orac) env decs res) ==>
+  semantics_determ s1 env decs res
 Proof
-  metis_tac [semantics_prog_deterministic, semantics_prog_total,
+  metis_tac [semantics_determ_deterministic, semantics_determ_total,
             source_evalProofTheory.oracle_semantics_prog]
 QED
 
-Theorem source_to_source_semantics_prog_oracle_intro[local]:
-  ~ semantics_prog (s0 with eval_state := insert_gen_oracle ev I sf orac es) env prog Fail ==>
-  (~ semantics_prog (s0 with eval_state := insert_gen_oracle ev source_to_source$compile sf orac es) env prog Fail ==>
-      semantics_prog (s0 with eval_state := insert_gen_oracle ev source_to_source$compile sf orac es) env prog res) ==>
-  semantics_prog (s0 with eval_state := insert_gen_oracle ev I sf orac es) env prog res
+Theorem source_to_source_semantics_determ_oracle_intro[local]:
+  ~ semantics_determ (s0 with eval_state := insert_gen_oracle ev I sf orac es) env prog Fail ==>
+  (~ semantics_determ (s0 with eval_state := insert_gen_oracle ev source_to_source$compile sf orac es) env prog Fail ==>
+      semantics_determ (s0 with eval_state := insert_gen_oracle ev source_to_source$compile sf orac es) env prog res) ==>
+  semantics_determ (s0 with eval_state := insert_gen_oracle ev I sf orac es) env prog res
 Proof
   rw []
   \\ `is_insert_oracle ev I (s0 with eval_state := insert_gen_oracle ev I sf orac es).eval_state`
@@ -3241,7 +3241,7 @@ Proof
   )
   \\ drule_then drule source_to_sourceProofTheory.compile_semantics_oracle
   \\ simp [source_evalProofTheory.adjust_oracle_insert_gen_oracle]
-  \\ metis_tac [semantics_prog_deterministic, semantics_prog_total]
+  \\ metis_tac [semantics_determ_deterministic, semantics_determ_total]
 QED
 
 (* the oracle inserted by put_oracle carries the syntax it was built from:
@@ -3264,14 +3264,14 @@ Proof
 QED
 
 Theorem source_eval_to_flat_semantics:
-  ~ semantics_prog (add_eval_state ev s0 with ptr_eq_oracle := po) env prog Fail /\
+  ~ semantics_determ (add_eval_state ev s0 with ptr_eq_oracle := po) env prog Fail /\
   compile asm_conf (c : config) prog = SOME (b,bm,c') /\
   source_to_flat$compile prim_src_config (source_to_source$compile prog) = (src_c', p') /\
   THE (prim_sem_env (ffi:'ffi ffi_state)) = (s0, env) /\
   opt_eval_config_wf asm_conf c' ev /\
   c.stack_conf.perf_calls = F ∧
   c.source_conf = prim_src_config ==>
-  semantics_prog (add_eval_state ev s0 with ptr_eq_oracle := po) env prog (flatSem$semantics
+  semantics_determ (add_eval_state ev s0 with ptr_eq_oracle := po) env prog (flatSem$semantics
     (mk_flat_install_conf
         (backend_from_flat_tuple_cc asm_conf c)
         (cake_orac asm_conf c'
@@ -3324,11 +3324,11 @@ Proof
   \\ Cases_on `ev` \\ fs []
   >- (
     fs [add_eval_state_def]
-    \\ simp [Once (GSYM source_to_source_semantics_prog_equiv)]
+    \\ simp [Once (GSYM source_to_source_semantics_determ_equiv)]
     \\ irule (source_to_flatProofTheory.compile_semantics
           |> Q.INST [`s` |-> `_ with ptr_eq_oracle := _`]
           |> SIMP_RULE (srw_ss ()) [])
-    \\ simp [source_to_source_semantics_prog_equiv]
+    \\ simp [source_to_source_semantics_determ_equiv]
     \\ qexists_tac `NONE`
     \\ simp [source_to_flatProofTheory.precondition_def]
     \\ goal_assum (first_assum o mp_then Any mp_tac)
@@ -3339,7 +3339,7 @@ Proof
     \\ EVAL_TAC
   )
   \\ gs [add_eval_state_def]
-  \\ qspec_then `the_ev` irule eval_oracle_semantics_prog_intro
+  \\ qspec_then `the_ev` irule eval_oracle_semantics_determ_intro
   \\ simp [CONJ_ASSOC]
   \\ conj_asm1_tac
   >- (
@@ -3364,10 +3364,10 @@ Proof
     \\ simp [FORALL_PROD]
   )
   \\ rw []
-  \\ irule source_to_source_semantics_prog_intro
+  \\ irule source_to_source_semantics_determ_intro
   \\ rw []
   \\ fs [markerTheory.Abbrev_def, source_evalProofTheory.put_oracle_def]
-  \\ irule source_to_source_semantics_prog_oracle_intro
+  \\ irule source_to_source_semantics_determ_oracle_intro
   \\ rfs []
   \\ rw []
   \\ irule (source_to_flatProofTheory.compile_semantics
@@ -3473,13 +3473,13 @@ Proof
 QED
 
 Theorem source_to_flat_semantics_no_eval:
-  ~ semantics_prog (s0 with ptr_eq_oracle := po) env prog Fail /\
+  ~ semantics_determ (s0 with ptr_eq_oracle := po) env prog Fail /\
   compile asm_conf (c : config) prog = SOME (b,bm,c') /\
   source_to_flat$compile prim_src_config (source_to_source$compile prog) = (src_c', p') /\
   THE (prim_sem_env (ffi:'ffi ffi_state)) = (s0, env) /\
   c.stack_conf.perf_calls = F ∧
   c.source_conf = prim_src_config ==>
-  semantics_prog (s0 with ptr_eq_oracle := po) env prog (flatSem$semantics
+  semantics_determ (s0 with ptr_eq_oracle := po) env prog (flatSem$semantics
     (mk_flat_install_conf
         (backend_from_flat_tuple_cc asm_conf c)
         (cake_orac asm_conf c' syn (SND o config_tuple1) (\ps. ps.flat_prog)))
@@ -3501,11 +3501,11 @@ Proof
     (simp [flat_patternProofTheory.install_conf_rel_def, mk_flat_install_conf_def]
      \\ drule state_co_inc_compile_has_flat_comp
      \\ simp [GSYM source_to_flat_orac_eq])
-  \\ simp [Once (GSYM source_to_source_semantics_prog_equiv)]
+  \\ simp [Once (GSYM source_to_source_semantics_determ_equiv)]
   \\ irule (source_to_flatProofTheory.compile_semantics
         |> Q.INST [`s` |-> `_ with ptr_eq_oracle := _`]
         |> SIMP_RULE (srw_ss ()) [])
-  \\ simp [source_to_source_semantics_prog_equiv]
+  \\ simp [source_to_source_semantics_determ_equiv]
   \\ qexists_tac `NONE`
   \\ simp [source_to_flatProofTheory.precondition_def]
   \\ goal_assum (first_assum o mp_then Any mp_tac)
@@ -3666,14 +3666,14 @@ Theorem flat_to_data_semantics:
   compile (asm_conf:'a asm_config) (c:config) prog = SOME (bytes,bitmaps,c') ∧
   THE (prim_sem_env (ffi:'ffi ffi_state)) = (s0,env) ∧
   source_to_flat$compile prim_src_config (source_to_source$compile prog) = (src_c',p') ∧
-  ¬semantics_prog s env prog Fail ∧
-  semantics_prog s env prog
+  ¬semantics_determ s env prog Fail ∧
+  semantics_determ s env prog
     (flatSem$semantics
        (mk_flat_install_conf (backend_from_flat_tuple_cc asm_conf c)
           (cake_orac asm_conf c' syn (SND ∘ config_tuple1) (λps. ps.flat_prog)))
        s0.ffi po p') ∧
   backend_config_ok asm_conf c ⇒
-  semantics_prog s env prog =
+  semantics_determ s env prog =
   {dataSem$semantics ffi (fromAList (FST (SND (to_data c prog))))
      (cake_orac asm_conf c' syn (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
         (λps. ps.data_prog))
@@ -3693,10 +3693,10 @@ Proof
   \\ qhdtm_x_assum `from_flat` mp_tac
   \\ srw_tac[][from_flat_def]
   \\ pop_assum mp_tac \\ BasicProvers.LET_ELIM_TAC
-  \\ qmatch_assum_abbrev_tac `semantics_prog s env prog sem2`
+  \\ qmatch_assum_abbrev_tac `semantics_determ s env prog sem2`
   \\ `sem2 ≠ Fail` by metis_tac []
-  \\ `semantics_prog s env prog = {sem2}` by
-    (simp [EXTENSION,IN_DEF] \\ metis_tac [semantics_prog_deterministic])
+  \\ `semantics_determ s env prog = {sem2}` by
+    (simp [EXTENSION,IN_DEF] \\ metis_tac [semantics_determ_deterministic])
   \\ qunabbrev_tac `sem2`
   \\ fs [backend_from_flat_tuple_cc_def]
   \\ drule_then drule (SIMP_RULE bool_ss [LET_DEF] flat_semantics)
@@ -3814,7 +3814,7 @@ Theorem compile_correct':
   compile (asm_conf:'a asm_config) (c:config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s0,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
    let s = add_eval_state ev s0 in
-   (∀po. ¬semantics_prog (s with ptr_eq_oracle := po) env prog Fail) ∧
+   ¬semantics_prog s env prog Fail ∧
    backend_config_ok asm_conf c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok asm_conf c mc ∧
    opt_eval_config_wf asm_conf c' ev ∧
    installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names (heap_regs c.stack_conf.reg_names) mc
@@ -3823,11 +3823,12 @@ Theorem compile_correct':
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit'
          (is_safe_for_space ffi po asm_conf c prog (read_limits asm_conf c mc ms))
-         (semantics_prog (s with ptr_eq_oracle := po) env prog)
+         (semantics_determ (s with ptr_eq_oracle := po) env prog)
 Proof
   disch_then (fn t => mp_tac t >>
     srw_tac[][compile_eq_from_source,from_source_def,
-        backend_config_ok_def,heap_regs_def] >>
+        backend_config_ok_def,heap_regs_def,
+        semanticsTheory.semantics_prog_def] >>
     assume_tac t) >>
   `asm_conf = mc.target.config` by fs[mc_init_ok_def] >>
   `c'.lab_conf.ffi_names = SOME mc.ffi_names` by fs[targetSemTheory.installed_def] >>
@@ -3847,7 +3848,7 @@ Proof
           (irule source_evalProofTheory.get_oracle_ptr_eq_prefix \\ simp [])
      \\ simp [source_evalProofTheory.syn_of_def]) >>
   `∀po.
-     semantics_prog (add_eval_state ev s0 with ptr_eq_oracle := po) env prog
+     semantics_determ (add_eval_state ev s0 with ptr_eq_oracle := po) env prog
        (flatSem$semantics
           (mk_flat_install_conf (backend_from_flat_tuple_cc mc.target.config c)
              (cake_orac mc.target.config c' (Syn po) (SND ∘ config_tuple1)
@@ -3857,7 +3858,7 @@ Proof
      \\ irule source_eval_to_flat_semantics
      \\ simp []
      \\ asm_exists_tac \\ simp [])
-  \\ `∀po. semantics_prog (add_eval_state ev s0 with ptr_eq_oracle := po) env prog =
+  \\ `∀po. semantics_determ (add_eval_state ev s0 with ptr_eq_oracle := po) env prog =
         {dataSem$semantics ffi (fromAList (FST (SND (to_data c prog))))
            (cake_orac mc.target.config c' (Syn po)
               (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.data_prog))
@@ -3870,8 +3871,8 @@ Proof
            (backend_from_data_tuple_cc mc.target.config c) po dataProps$zero_limits LN
            InitGlobals_location ≠ Fail` by
     (gen_tac
-     \\ qpat_x_assum `∀po. ¬semantics_prog _ _ _ Fail` (qspec_then `po` mp_tac)
-     \\ qpat_x_assum `∀po. semantics_prog _ _ _ = _` (qspec_then `po` (fn th => rewrite_tac [th]))
+     \\ qpat_x_assum `∀po. ¬semantics_determ _ _ _ Fail` (qspec_then `po` mp_tac)
+     \\ qpat_x_assum `∀po. semantics_determ _ _ _ = _` (qspec_then `po` (fn th => rewrite_tac [th]))
      \\ metis_tac [IN_DEF, IN_SING])
   \\ fs [primSemEnvTheory.prim_sem_env_eq]
   \\ qpat_x_assum `_ = s0` (assume_tac o Abbrev_intro o SYM)
@@ -4213,7 +4214,7 @@ Proof
         stack_removeProofTheory.make_init_any_ffi] \\ EVAL_TAC) \\
   strip_tac \\
   qexists_tac `po` \\
-  qpat_x_assum `∀po. semantics_prog _ _ _ = _` (qspec_then `po` (fn th => rewrite_tac [th])) \\
+  qpat_x_assum `∀po. semantics_determ _ _ _ = _` (qspec_then `po` (fn th => rewrite_tac [th])) \\
 
   qmatch_abbrev_tac`x ⊆ extend_with_resource_limit' _ y` \\
   `Fail ∉ y` by
@@ -4697,14 +4698,14 @@ Theorem compile_correct_no_eval[local] =
 Theorem compile_correct:
   compile (asm_conf:'a asm_config) (c:config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
-   (∀po. ¬semantics_prog (s with ptr_eq_oracle := po) env prog Fail) ∧
+   ¬semantics_prog s env prog Fail ∧
    backend_config_ok asm_conf c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok asm_conf c mc ∧
    installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
         (heap_regs c.stack_conf.reg_names) mc
         c'.lab_conf.shmem_extra ms ⇒
    ∃po.
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
-       extend_with_resource_limit (semantics_prog (s with ptr_eq_oracle := po) env prog)
+       extend_with_resource_limit (semantics_determ (s with ptr_eq_oracle := po) env prog)
 Proof
   rw [] \\ pairarg_tac \\ fs [] \\ rw []
   \\ mp_tac compile_correct_no_eval \\ fs []
@@ -4714,12 +4715,12 @@ Proof
   \\ fs [extend_with_resource_limit'_SUBSET]
 QED
 
-Theorem semantics_prog_sing:
-  ?x. semantics_prog s env prog = { x }
+Theorem semantics_determ_sing:
+  ?x. semantics_determ s env prog = { x }
 Proof
   fs [EXTENSION,IN_DEF]
-  \\ metis_tac [semanticsPropsTheory.semantics_prog_total,
-             semanticsPropsTheory.semantics_prog_deterministic]
+  \\ metis_tac [semanticsPropsTheory.semantics_determ_total,
+             semanticsPropsTheory.semantics_determ_deterministic]
 QED
 
 Theorem compile_correct_is_safe_for_space:
@@ -4727,22 +4728,22 @@ Theorem compile_correct_is_safe_for_space:
   (∀po. is_safe_for_space ffi po asm_conf c prog (stack_limit,heap_limit)) ⇒
   (read_limits asm_conf c mc ms) = (stack_limit,heap_limit) ⇒
   let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
-  (∀po. ¬semantics_prog (s with ptr_eq_oracle := po) env prog Fail) ∧
+  ¬semantics_prog s env prog Fail ∧
   backend_config_ok asm_conf c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok asm_conf c mc ∧
   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
        (heap_regs c.stack_conf.reg_names) mc
        c'.lab_conf.shmem_extra ms ⇒
   ∃po.
     machine_sem (mc:(α,β,γ) machine_config) ffi ms =
-    semantics_prog (s with ptr_eq_oracle := po) env prog
+    semantics_determ (s with ptr_eq_oracle := po) env prog
 Proof
   rw [] \\ pairarg_tac \\ fs [] \\ rw []
   \\ mp_tac compile_correct_no_eval \\ fs []
   \\ strip_tac \\ qexists_tac `po`
   \\ qpat_x_assum `∀po. is_safe_for_space _ _ _ _ _ _` (qspec_then `po` assume_tac)
   \\ fs [extend_with_resource_limit'_def]
-  \\ `?x. semantics_prog (s with ptr_eq_oracle := po) env prog = { x }` by
-    metis_tac [semantics_prog_sing]
+  \\ `?x. semantics_determ (s with ptr_eq_oracle := po) env prog = { x }` by
+    metis_tac [semantics_determ_sing]
   \\ fs [SUBSET_DEF,EXTENSION]
   \\ rw [] \\ eq_tac \\ rw []
   \\ `?x. machine_sem mc ffi ms x` by metis_tac [targetPropsTheory.machine_sem_total]
@@ -4756,7 +4757,7 @@ End
 Theorem compile_correct_eval:
   compile asm_conf c prog = SOME (bytes,bitmaps,c') ⇒
    let (s0,env) = THE (prim_sem_env (ffi: 'ffi ffi_state)) in
-   (∀po. ¬semantics_prog (add_eval_state ev s0 with ptr_eq_oracle := po) env prog Fail) ∧
+   ¬semantics_prog (add_eval_state ev s0) env prog Fail ∧
    backend_config_ok asm_conf c ∧
    lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok asm_conf c mc ∧ opt_eval_config_wf asm_conf c' ev ∧
    installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
@@ -4765,7 +4766,7 @@ Theorem compile_correct_eval:
    ∃po.
      machine_sem mc ffi ms ⊆
        extend_with_resource_limit
-         (semantics_prog (add_eval_state ev s0 with ptr_eq_oracle := po) env prog)
+         (semantics_determ (add_eval_state ev s0 with ptr_eq_oracle := po) env prog)
 Proof
   fs [LET_THM] \\ pairarg_tac \\ rw []
   \\ mp_tac compile_correct' \\ fs []

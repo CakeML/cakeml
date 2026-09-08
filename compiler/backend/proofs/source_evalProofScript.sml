@@ -2717,7 +2717,7 @@ QED
 
 Theorem extract_oracle_0_st[local]:
   extract_oracle t env decs 0 = SOME r /\
-  ~ semantics_prog s env decs Fail /\
+  ~ semantics_determ s env decs Fail /\
   s_rel ci s t /\
   nsAll (K concrete_v) env.v ==>
   FST (SND r) = ci.config_v ci.init_state
@@ -2732,7 +2732,7 @@ Proof
     (List.last (CONJUNCTS eval_simulation) |> Q.GEN `ci`)
   \\ disch_then drule
   \\ disch_then (qspec_then `env` mp_tac)
-  \\ fs [semantics_prog_def, evaluate_prog_with_clock_def]
+  \\ fs [semantics_determ_def, evaluate_prog_with_clock_def]
   \\ first_x_assum (qspec_then `n` mp_tac)
   \\ rw [env_rel_concrete_v]
   \\ rfs [s_rel_def]
@@ -2753,7 +2753,7 @@ Theorem extract_oracle_SUC_st[local]:
   IS_SOME (extract_oracle t env decs (SUC i)) /\
   s_rel ci s t /\
   nsAll (K concrete_v) env.v /\
-  ~ semantics_prog s env decs Fail ==>
+  ~ semantics_determ s env decs Fail ==>
   ?r r' x. extract_oracle t env decs (SUC i) = SOME r' /\
   extract_oracle t env decs i = SOME r /\
   ci_comp ci r = SOME x /\
@@ -2778,7 +2778,7 @@ Proof
   \\ qspec_then `ci` (drule_then drule)
     (List.last (CONJUNCTS eval_simulation) |> INST_TYPE [``:'a`` |-> ``:'nota``] |> Q.GEN `ci`)
   \\ disch_then (qspec_then `env` mp_tac)
-  \\ fs [semantics_prog_def, evaluate_prog_with_clock_def]
+  \\ fs [semantics_determ_def, evaluate_prog_with_clock_def]
   \\ first_x_assum (qspec_then `n` mp_tac)
   \\ rw [env_rel_concrete_v]
   \\ drule_then drule orac_agrees_s_rel_IMP
@@ -2794,7 +2794,7 @@ Theorem get_oracle_props:
   nsAll (K concrete_v) env.v /\
   s.refs = [] /\
   s.eval_state = SOME (mk_init_eval_state ci) /\
-  ~ semantics_prog s env decs Fail ==>
+  ~ semantics_determ s env decs Fail ==>
   (!r. get_oracle ci s env decs 0 = SOME r ==>
     FST (SND r) = ci.config_v ci.init_state) /\
   (!i r'. get_oracle ci s env decs (SUC i) = SOME r' ==>
@@ -2825,7 +2825,7 @@ Theorem evaluate_prog_with_clock_put_oracle:
   res <> Rerr (Rabort Rtype_error) /\
   s1.refs = [] /\
   nsAll (K concrete_v) env.v /\
-  ~ semantics_prog s1 env decs Fail
+  ~ semantics_determ s1 env decs Fail
   ==>
   ?res'.
   evaluate_prog_with_clock
@@ -2880,19 +2880,19 @@ Proof
 QED
 
 Theorem oracle_semantics_prog:
-  ~ semantics_prog s1 env decs Fail /\
-  semantics_prog (s1 with eval_state := put_oracle ci orac)
+  ~ semantics_determ s1 env decs Fail /\
+  semantics_determ (s1 with eval_state := put_oracle ci orac)
     env decs outcome /\
   precond_eval_state orac ^ci s1 env decs /\
   s1.refs = [] /\
   nsAll (K concrete_v) env.v
   ==>
-  semantics_prog s1 env decs outcome
+  semantics_determ s1 env decs outcome
 Proof
   rw []
   \\ drule evaluate_prog_with_clock_put_oracle
   \\ simp [PAIR_FST_SND_EQ]
-  \\ Cases_on `outcome` \\ fs [semantics_prog_def]
+  \\ Cases_on `outcome` \\ fs [semantics_determ_def]
   >- (
     fs [PAIR_FST_SND_EQ]
     \\ rw [] \\ fs []
@@ -3125,20 +3125,20 @@ Theorem adjust_oracle_semantics_prog:
     res ≠ Rerr (Rabort Rtype_error) ⇒
       evaluate_decs s env (compile ds) = (s', res)) ⇒
   is_insert_oracle ci f ^s.eval_state ∧
-  ¬ semantics_prog ^s env prog Fail ∧
-  semantics_prog ^s env prog outcome ⇒
-  semantics_prog (s_adjust_oracle ci (compile o f) ^s) env prog outcome
+  ¬ semantics_determ ^s env prog Fail ∧
+  semantics_determ ^s env prog outcome ⇒
+  semantics_determ (s_adjust_oracle ci (compile o f) ^s) env prog outcome
 Proof
   Cases_on ‘outcome’ \\ gs [SF CONJ_ss]
   >~ [‘Terminate outcome tr’] >- (
-    rw [semantics_prog_def]
+    rw [semantics_determ_def]
     \\ gs [evaluate_prog_with_clock_def]
     \\ pairarg_tac \\ gvs []
     \\ drule_then (drule_then drule) adjust_oracle_ev_decs
     \\ rw []
     \\ qexists_tac ‘k’ \\ simp [])
   >~ [‘Diverge tr’] >- (
-    rw [semantics_prog_def]
+    rw [semantics_determ_def]
     >- (
       first_x_assum (qspec_then ‘k’ strip_assume_tac)
       \\ gs [evaluate_prog_with_clock_def]

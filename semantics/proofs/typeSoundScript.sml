@@ -2674,8 +2674,8 @@ Theorem semantics_type_sound:
 Proof
  rw []
  >> CCONTR_TAC
- >> fs [semantics_prog_def]
- >> Cases_on `evaluate_prog_with_clock st env k tops`
+ >> fs [semantics_prog_def, semantics_determ_def]
+ >> Cases_on `evaluate_prog_with_clock (st with ptr_eq_oracle := po) env k tops`
  >> fs []
  >> rw []
  >> fs [evaluate_prog_with_clock_def]

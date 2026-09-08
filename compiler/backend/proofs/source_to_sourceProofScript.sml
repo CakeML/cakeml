@@ -11,9 +11,9 @@ Libs
 
 
 Theorem compile_semantics:
-  ¬semantics_prog s env prog Fail ∧
-  semantics_prog s env prog outcome ⇒
-    semantics_prog s env (compile prog) outcome
+  ¬semantics_determ s env prog Fail ∧
+  semantics_determ s env prog outcome ⇒
+    semantics_determ s env (compile prog) outcome
 Proof
   rw [compile_def]
   \\ irule source_letProofTheory.compile_semantics
@@ -23,9 +23,9 @@ QED
 Theorem compile_semantics_oracle:
   !f.
   source_evalProof$is_insert_oracle ci f s.eval_state ∧
-  ¬ semantics_prog s env prog Fail ∧
-  semantics_prog s env prog outcome ⇒
-  semantics_prog (s with eval_state updated_by
+  ¬ semantics_determ s env prog Fail ∧
+  semantics_determ s env prog outcome ⇒
+  semantics_determ (s with eval_state updated_by
             source_evalProof$adjust_oracle ci (compile ∘ f))
         env prog outcome
 Proof

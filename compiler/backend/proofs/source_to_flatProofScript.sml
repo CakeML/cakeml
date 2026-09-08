@@ -5521,17 +5521,17 @@ QED
 
 Theorem compile_prog_semantics:
   precondition1 interp g s1 env1 conf eval_conf prog ⇒
-   ¬semantics_prog s1 env1 prog Fail ⇒
-   semantics_prog s1 env1 prog
+   ¬semantics_determ s1 env1 prog Fail ⇒
+   semantics_determ s1 env1 prog
       (semantics eval_conf s1.ffi s1.ptr_eq_oracle
           (SND (compile_prog conf prog)))
 Proof
-  rw[semantics_prog_def,SND_eq]
+  rw[semantics_determ_def,SND_eq]
   \\ fs []
   \\ simp[flatSemTheory.semantics_def]
   \\ IF_CASES_TAC \\ fs[SND_eq]
   >- (
-    fs[semantics_prog_def,SND_eq]
+    fs[semantics_determ_def,SND_eq]
     \\ first_x_assum(qspec_then`k`mp_tac)
     \\ fs [PAIR_FST_SND_EQ, FST_SND_EQ_CASE]
     \\ fs[evaluate_prog_with_clock_def]
@@ -5547,7 +5547,7 @@ Proof
   \\ DEEP_INTRO_TAC some_intro \\ fs[]
   \\ conj_tac
   >- (
-    rw[] \\ rw[semantics_prog_def]
+    rw[] \\ rw[semantics_determ_def]
     \\ fs[evaluate_prog_with_clock_def]
     \\ qexists_tac`k`
     \\ pairarg_tac \\ fs[]
@@ -5562,7 +5562,7 @@ Proof
     \\ every_case_tac \\ fs [result_rel_cases]
   )
   \\ rw[]
-  \\ simp[semantics_prog_def]
+  \\ simp[semantics_determ_def]
   \\ conj_tac
   >- (
     rw[]
@@ -5649,8 +5649,8 @@ End
 Theorem compile_semantics:
    precondition interp s env cfg ec prog
  ⇒
-   ¬semantics_prog s env prog Fail ⇒
-   semantics_prog s env prog
+   ¬semantics_determ s env prog Fail ⇒
+   semantics_determ s env prog
       (semantics ec s.ffi s.ptr_eq_oracle (SND (compile cfg prog)))
 Proof
   rw [compile_def]

@@ -35,27 +35,27 @@ Proof
   metis_tac[LESS_EQ_CASES,evaluate_decs_ffi_mono_clock,io_events_mono_def,FST]
 QED
 
-Theorem semantics_prog_total:
-   ∀s e p. ∃b. semantics_prog s e p b
+Theorem semantics_determ_total:
+   ∀s e p. ∃b. semantics_determ s e p b
 Proof
   srw_tac[][] >>
   Cases_on`∃k. SND(evaluate_prog_with_clock s e k p) = Rerr (Rabort Rtype_error)`
-  >- metis_tac[semantics_prog_def] >> full_simp_tac(srw_ss())[] >>
+  >- metis_tac[semantics_determ_def] >> full_simp_tac(srw_ss())[] >>
   Cases_on`∃k ffi r.
     evaluate_prog_with_clock s e k p = (ffi,r) ∧
     (r ≠ Rerr (Rabort Rtype_error)) ∧
     (r ≠ Rerr (Rabort Rtimeout_error))`
-  >- (fs[semantics_prog_def]
+  >- (fs[semantics_determ_def]
       >> qexists_tac `Terminate
                       (case r of
                       | Rerr(Rabort(Rffi_error outcome)) => FFI_outcome outcome
                       | _ => Success) ffi.io_events`
-      >> simp[semantics_prog_def] >> asm_exists_tac
+      >> simp[semantics_determ_def] >> asm_exists_tac
       >> Cases_on `r` >> simp[]
       >> TOP_CASE_TAC >> simp[]
       >> TOP_CASE_TAC >> fs[]) >>
   qexists_tac`Diverge (build_lprefix_lub (IMAGE (λk. fromList (FST (evaluate_prog_with_clock s e k p)).io_events) UNIV))` >>
-  simp[semantics_prog_def] >>
+  simp[semantics_determ_def] >>
   conj_tac >- (
     strip_tac >> fs[] >>
     rpt(first_x_assum(qspec_then`k`mp_tac)) >>
@@ -65,6 +65,20 @@ Proof
     Cases_on`a`>>simp[]) >>
   match_mp_tac build_lprefix_lub_thm >>
   MATCH_ACCEPT_TAC evaluate_prog_io_events_chain
+QED
+
+Theorem semantics_prog_total:
+   ∀s e p. ∃b. semantics_prog s e p b
+Proof
+  rw [semantics_prog_def]
+  >> metis_tac [semantics_determ_total]
+QED
+
+Theorem semantics_determ_SUBSET_semantics_prog:
+   semantics_determ (s with ptr_eq_oracle := po) e p ⊆ semantics_prog s e p
+Proof
+  rw [SUBSET_DEF, IN_DEF, semantics_prog_def]
+  >> metis_tac []
 QED
 
 Theorem with_clock_ffi[local]:
@@ -81,16 +95,16 @@ val tac1 =
 
 val tac2 = every_case_tac >> rfs[] >> first_x_assum (qspec_then `k` assume_tac) >> rfs[]
 
-Theorem semantics_prog_deterministic:
+Theorem semantics_determ_deterministic:
    ∀s e p b b'.
-    semantics_prog s e p b ∧
-    semantics_prog s e p b' ⇒
+    semantics_determ s e p b ∧
+    semantics_determ s e p b' ⇒
     b = b'
 Proof
   rw []
   >> Cases_on `b`
   >> Cases_on `b'`
-  >> fs [semantics_prog_def]
+  >> fs [semantics_determ_def]
   >- metis_tac[unique_lprefix_lub]
   >- tac2
   >- (tac2 >> tac1)
@@ -140,26 +154,26 @@ Proof
     >> fs [semanticPrimitivesTheory.state_component_equality])
 QED
 
-Theorem semantics_prog_Terminate_not_Fail:
-   semantics_prog s e p (Terminate x y) ⇒
-    ¬semantics_prog s e p Fail ∧
-    semantics_prog s e p = {Terminate x y}
+Theorem semantics_determ_Terminate_not_Fail:
+   semantics_determ s e p (Terminate x y) ⇒
+    ¬semantics_determ s e p Fail ∧
+    semantics_determ s e p = {Terminate x y}
 Proof
   rpt strip_tac
   \\ simp[FUN_EQ_THM]
-  \\ imp_res_tac semantics_prog_deterministic \\ fs[]
-  \\ metis_tac[semantics_prog_deterministic]
+  \\ imp_res_tac semantics_determ_deterministic \\ fs[]
+  \\ metis_tac[semantics_determ_deterministic]
 QED
 
-Theorem semantics_prog_Diverge_not_Fail:
-   semantics_prog s e p (Diverge y) ⇒
-    ¬semantics_prog s e p Fail ∧
-    semantics_prog s e p = {Diverge y}
+Theorem semantics_determ_Diverge_not_Fail:
+   semantics_determ s e p (Diverge y) ⇒
+    ¬semantics_determ s e p Fail ∧
+    semantics_determ s e p = {Diverge y}
 Proof
   rpt strip_tac
   \\ simp[FUN_EQ_THM]
-  \\ imp_res_tac semantics_prog_deterministic \\ fs[]
-  \\ metis_tac[semantics_prog_deterministic]
+  \\ imp_res_tac semantics_determ_deterministic \\ fs[]
+  \\ metis_tac[semantics_determ_deterministic]
 QED
 
 Definition state_invariant_def:
@@ -180,18 +194,19 @@ QED
 Theorem semantics_deterministic:
    state_invariant st ⇒
    semantics st prelude inp = Execute bs
-   ⇒ ∃b. bs = {b} ∧ b ≠ Fail
+   ⇒ bs ≠ ∅ ∧ Fail ∉ bs
 Proof
  rw [state_invariant_def, semantics_def]
  >> every_case_tac
  >> fs [can_type_prog_def]
  >> rw []
- >> qspecl_then [`st.sem_st`, `st.sem_env`, `prelude ++ x`] strip_assume_tac semantics_prog_total
+ >- (
+   simp [GSYM MEMBER_NOT_EMPTY, IN_DEF]
+   >> metis_tac [semantics_prog_total])
+ >> fs [IN_DEF]
+ >> strip_tac
  >> imp_res_tac semantics_type_sound
- >> qexists_tac `b`
- >> rw [EXTENSION, IN_DEF]
- >- metis_tac [semantics_prog_deterministic] >>
- `DISJOINT new_tids (FRANGE ((SND ∘ SND) o_f ctMap))`
+ >> `DISJOINT new_tids (FRANGE ((SND ∘ SND) o_f ctMap))`
  by (
    fs [DISJOINT_DEF, EXTENSION, SUBSET_DEF] >>
    rw [] >>
@@ -315,4 +330,13 @@ Theorem extend_with_resource_limit'_SUBSET:
 Proof
   Cases_on `b`
   \\ fs [extend_with_resource_limit'_def,extend_with_resource_limit_def,SUBSET_DEF]
+QED
+
+Theorem extend_with_resource_limit'_MONO:
+  s SUBSET t ==>
+  extend_with_resource_limit' b s SUBSET extend_with_resource_limit' b t
+Proof
+  Cases_on `b`
+  \\ fs [extend_with_resource_limit'_def,extend_with_resource_limit_def,SUBSET_DEF]
+  \\ metis_tac []
 QED
