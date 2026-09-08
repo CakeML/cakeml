@@ -278,6 +278,50 @@ Definition one_con_check_def[simp]:
   one_con_check envc _ = T
 End
 
+(* Constructor prechecks also inspect unevaluated function bodies, but must
+   follow the lexical constructor environment through each local open. *)
+Definition check_exp_constructors_def:
+  check_exp_constructors envc (Raise e) = check_exp_constructors envc e ∧
+  check_exp_constructors envc (Handle e pes) =
+    (check_exp_constructors envc e ∧
+     EVERY (λ(p,e). check_exp_constructors envc e) pes) ∧
+  check_exp_constructors envc (Lit l) = T ∧
+  check_exp_constructors envc (Con cn es) =
+    (do_con_check envc cn (LENGTH es) ∧
+     EVERY (check_exp_constructors envc) es) ∧
+  check_exp_constructors envc (Var n) = T ∧
+  check_exp_constructors envc (Fun n e) = check_exp_constructors envc e ∧
+  check_exp_constructors envc (App op es) =
+    EVERY (check_exp_constructors envc) es ∧
+  check_exp_constructors envc (Log op e1 e2) =
+    (check_exp_constructors envc e1 ∧ check_exp_constructors envc e2) ∧
+  check_exp_constructors envc (If e1 e2 e3) =
+    (check_exp_constructors envc e1 ∧ check_exp_constructors envc e2 ∧
+     check_exp_constructors envc e3) ∧
+  check_exp_constructors envc (Mat e pes) =
+    (check_exp_constructors envc e ∧
+     EVERY (λ(p,e). check_exp_constructors envc e) pes) ∧
+  check_exp_constructors envc (Let n e1 e2) =
+    (check_exp_constructors envc e1 ∧ check_exp_constructors envc e2) ∧
+  check_exp_constructors envc (Letrec funs e) =
+    (EVERY (λ(f,n,e). check_exp_constructors envc e) funs ∧
+     check_exp_constructors envc e) ∧
+  check_exp_constructors envc (Tannot e t) = check_exp_constructors envc e ∧
+  check_exp_constructors envc (Lannot e l) = check_exp_constructors envc e ∧
+  check_exp_constructors envc (Open path e) =
+    (case nsOpen path envc of
+       NONE => F
+     | SOME opened => check_exp_constructors (nsAppend opened envc) e)
+End
+
+Theorem check_exp_constructors_open:
+  check_exp_constructors envc (Open path e) ⇔
+  ∃opened. nsOpen path envc = SOME opened ∧
+    check_exp_constructors (nsAppend opened envc) e
+Proof
+  Cases_on `nsOpen path envc` >> simp [check_exp_constructors_def]
+QED
+
 Definition build_conv_def:
   build_conv (envC:((mlstring),(mlstring),(num#stamp))namespace) cn vs =
   case cn of
@@ -1371,6 +1415,18 @@ End
 Definition extend_dec_env_def:
   extend_dec_env new_env (env: v sem_env) =
     <|c := nsAppend new_env.c env.c; v := nsAppend new_env.v env.v|>
+End
+
+(* Select a module's contents as a declaration delta.  In particular, this
+   does not append env: evaluate_decs performs that extension exactly once. *)
+Definition open_dec_env_def:
+  open_dec_env path (env:v sem_env) =
+    case nsOpen path env.v of
+    | NONE => NONE
+    | SOME env_v =>
+      case nsOpen path env.c of
+      | NONE => NONE
+      | SOME env_c => SOME <|v := env_v; c := env_c|>
 End
 
 val _ = set_fixity "+++" (Infixl 480);

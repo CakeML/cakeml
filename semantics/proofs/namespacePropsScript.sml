@@ -99,6 +99,180 @@ Proof
  rw [nsLookupMod_def, nsEmpty_def]
 QED
 
+Theorem nsOpen_nil[simp]:
+   nsOpen [] env = NONE
+Proof
+  simp [nsOpen_def]
+QED
+
+Theorem nsOpen_cons[simp]:
+   nsOpen (mn::path) env = nsLookupMod env (mn::path)
+Proof
+  simp [nsOpen_def]
+QED
+
+Theorem nsOpen_eq_some:
+   nsOpen path env = SOME opened ⇔
+   path ≠ [] ∧ nsLookupMod env path = SOME opened
+Proof
+  Cases_on `path` >> simp []
+QED
+
+Theorem nsLookupMod_append:
+   nsLookupMod env (path ++ suffix) =
+   case nsLookupMod env path of
+   | NONE => NONE
+   | SOME opened => nsLookupMod opened suffix
+Proof
+  qid_spec_tac `env` >> Induct_on `path` >>
+  rpt gen_tac >> Cases_on `env` >>
+  simp [nsLookupMod_def] >> every_case_tac >> simp []
+QED
+
+Theorem nsLookup_after_nsLookupMod:
+   ∀env path opened id.
+   nsLookupMod env path = SOME opened ⇒
+   nsLookup env (mk_id (path ++ id_to_mods id) (id_to_n id)) =
+     nsLookup opened id
+Proof
+  qid_spec_tac `env` >> Induct_on `path` >> rpt gen_tac >>
+  simp [nsLookupMod_def, mk_id_thm] >>
+  Cases_on `env` >> simp [nsLookupMod_def, mk_id_def, nsLookup_def] >>
+  every_case_tac >> simp []
+QED
+
+Theorem nsLookupMod_after_nsLookupMod:
+   nsLookupMod env path = SOME opened ⇒
+   nsLookupMod opened suffix = nsLookupMod env (path ++ suffix)
+Proof
+  simp [nsLookupMod_append]
+QED
+
+Theorem nsAll_after_nsLookupMod:
+   nsLookupMod env path = SOME opened ∧ nsAll P env ⇒
+   nsAll
+     (λid v. P (mk_id (path ++ id_to_mods id) (id_to_n id)) v)
+     opened
+Proof
+  rw [nsAll_def] >> first_x_assum irule >>
+  metis_tac [nsLookup_after_nsLookupMod]
+QED
+
+Theorem nsLookup_after_nsOpen:
+   nsOpen path env = SOME opened ⇒
+   nsLookup opened id =
+     nsLookup env (mk_id (path ++ id_to_mods id) (id_to_n id))
+Proof
+  rw [nsOpen_eq_some] >>
+  metis_tac [nsLookup_after_nsLookupMod]
+QED
+
+Theorem nsLookupMod_after_nsOpen:
+   nsOpen path env = SOME opened ⇒
+   nsLookupMod opened suffix = nsLookupMod env (path ++ suffix)
+Proof
+  rw [nsOpen_eq_some] >>
+  metis_tac [nsLookupMod_after_nsLookupMod]
+QED
+
+Theorem nsAll_after_nsOpen:
+   nsOpen path env = SOME opened ∧ nsAll P env ⇒
+   nsAll
+     (λid v. P (mk_id (path ++ id_to_mods id) (id_to_n id)) v)
+     opened
+Proof
+  rw [nsOpen_eq_some] >>
+  metis_tac [nsAll_after_nsLookupMod]
+QED
+
+Theorem nsOpen_some_from_same_mod_domain:
+   nsOpen path env1 = SOME opened1 ∧
+   (∀p. nsLookupMod env1 p = NONE ⇔ nsLookupMod env2 p = NONE) ⇒
+   ∃opened2. nsOpen path env2 = SOME opened2
+Proof
+  rw [nsOpen_eq_some] >>
+  Cases_on `nsLookupMod env2 path`
+  >- (first_x_assum (qspec_then `path` assume_tac) >> gvs [])
+  >- (qexists_tac `x` >> simp [])
+QED
+
+Theorem nsAll2_after_nsOpen:
+   nsAll2 R env1 env2 ∧ nsOpen path env1 = SOME opened1 ⇒
+   ∃opened2.
+     nsOpen path env2 = SOME opened2 ∧
+     nsAll2
+       (λid. R (mk_id (path ++ id_to_mods id) (id_to_n id)))
+       opened1 opened2
+Proof
+  strip_tac >>
+  `∀p. nsLookupMod env1 p = NONE ⇔ nsLookupMod env2 p = NONE`
+    by (fs [nsAll2_def, nsSub_def] >> metis_tac []) >>
+  `∃opened2. nsOpen path env2 = SOME opened2`
+    by metis_tac [nsOpen_some_from_same_mod_domain] >>
+  pop_assum strip_assume_tac >>
+  qexists_tac `opened2` >>
+  rw [nsAll2_def, nsSub_def]
+  >- (`nsLookup env1 (mk_id (path ++ id_to_mods id) (id_to_n id)) =
+         SOME v1`
+        by metis_tac [nsLookup_after_nsOpen] >>
+      `nsLookup opened2 id =
+         nsLookup env2 (mk_id (path ++ id_to_mods id) (id_to_n id))`
+        by metis_tac [nsLookup_after_nsOpen] >>
+      fs [nsAll2_def, nsSub_def])
+  >- (`nsLookupMod opened2 path' = nsLookupMod env2 (path ++ path')`
+        by metis_tac [nsLookupMod_after_nsOpen] >>
+      `nsLookupMod opened1 path' = nsLookupMod env1 (path ++ path')`
+        by metis_tac [nsLookupMod_after_nsOpen] >>
+      first_x_assum (qspec_then `path ++ path'` assume_tac) >> gvs [])
+  >- (`nsLookup env2 (mk_id (path ++ id_to_mods id) (id_to_n id)) =
+         SOME y`
+        by metis_tac [nsLookup_after_nsOpen] >>
+      `nsLookup opened1 id =
+         nsLookup env1 (mk_id (path ++ id_to_mods id) (id_to_n id))`
+        by metis_tac [nsLookup_after_nsOpen] >>
+      fs [nsAll2_def, nsSub_def])
+  >- (`nsLookupMod opened2 path' = nsLookupMod env2 (path ++ path')`
+        by metis_tac [nsLookupMod_after_nsOpen] >>
+      `nsLookupMod opened1 path' = nsLookupMod env1 (path ++ path')`
+        by metis_tac [nsLookupMod_after_nsOpen] >>
+      first_x_assum (qspec_then `path ++ path'` assume_tac) >> gvs [])
+QED
+
+Theorem nsAll2_flip:
+   nsAll2 R env1 env2 ⇒ nsAll2 (λid y x. R id x y) env2 env1
+Proof
+  rw [nsAll2_def] >>
+  irule nsSub_mono >>
+  qexists_tac `R` >>
+  simp []
+QED
+
+(* The symmetric lookup direction is useful when the namespace selected by
+   [nsOpen] is known on the right-hand side of an [nsAll2] relation. *)
+Theorem nsAll2_before_nsOpen:
+   nsAll2 R env1 env2 ∧ nsOpen path env2 = SOME opened2 ⇒
+   ∃opened1.
+     nsOpen path env1 = SOME opened1 ∧
+     nsAll2
+       (λid. R (mk_id (path ++ id_to_mods id) (id_to_n id)))
+       opened1 opened2
+Proof
+  strip_tac >>
+  drule nsAll2_flip >>
+  strip_tac >>
+  drule nsAll2_after_nsOpen >>
+  disch_then drule >>
+  rw [] >>
+  qexists_tac `opened2'` >>
+  rw [] >>
+  drule nsAll2_flip >>
+  rw [nsAll2_def] >>
+  irule nsSub_mono >>
+  qexists_tac
+    `(λid y x. R (mk_id (path ++ id_to_mods id) (id_to_n id)) y x)` >>
+  simp []
+QED
+
 Theorem nsAppend_nsEmpty[simp]:
    !env. nsAppend env nsEmpty = env ∧ nsAppend nsEmpty env = env
 Proof
@@ -1146,6 +1320,12 @@ Proof
   fs []
 QED
 
+Theorem nsOpen_nsMap:
+   nsOpen path (nsMap f env) = OPTION_MAP (nsMap f) (nsOpen path env)
+Proof
+  Cases_on `path` >> simp [nsLookupMod_nsMap]
+QED
+
 Theorem nsLookup_nsMap:
    !n x f. nsLookup (nsMap f n) x = OPTION_MAP f (nsLookup n x)
 Proof
@@ -1275,4 +1455,3 @@ Proof
     fs [] >>
     metis_tac [option_nchotomy])
 QED
-
