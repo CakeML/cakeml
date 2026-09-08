@@ -162,10 +162,12 @@ Theorem peg_eval_LetDec_wrongtok:
    FST tk = SemicolonT ⇒
    ¬peg_eval cmlPEG (tk::i, nt (mkNT nLetDec) f) (Success i' r eo)
 Proof
+  Cases_on `tk` >>
   simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG,
        peg_TypeDec_def, peg_eval_seq_SOME, tokeq_def, peg_eval_tok_SOME,
        peg_eval_choicel_CONS, peg_eval_seql_CONS,
-       AllCaseEqs()] >> rw[] >> gs[]
+       AllCaseEqs()]
+  >> dsimp[pairTheory.UNCURRY]
 QED
 
 Theorem peg_eval_nUQConstructor_wrongtok:
@@ -716,6 +718,9 @@ Proof
   >- (print_tac "nLetDec" >>
       rpt strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >>
       fs[]
+      >~ [`∃m p. _ = LongidT p m`] >- (
+        qmatch_asmsub_rename_tac `isLongidT module_token` >>
+        Cases_on `module_token` >> fs[DISJ_IMP_THM, FORALL_AND_THM])
       >- (dsimp[listTheory.APPEND_EQ_CONS, MAP_EQ_SING] >> csimp[] >>
           rename[‘peg_eval _ (i1,nt (mkNT nPattern) I)
                     (Success((EqualsT,ll)::i2) r _)’] >>
