@@ -1388,22 +1388,22 @@ Definition encode_safety_cond_def:
   encode_safety_cond
     (maig: ('a, 'i, 'l) aig)
     (mcnstrs: ('a, 'i, 'l) lit list)
-    (mpreds: ('a, 'i, 'l) lit list)
+    (msafes: ('a, 'i, 'l) lit list)
     (waig: ('b, 'i, 'l) aig)
     (wcnstrs: ('b, 'i, 'l) lit list)
-    (wpreds: ('b, 'i, 'l) lit list)
+    (wsafes: ('b, 'i, 'l) lit list)
   =
   let
     aig  = imerge_aigs maig waig;
     aig  = encode_lits_hold aig «mcnstrs» (ileft_name_lits mcnstrs);
-    aig  = encode_lits_hold aig «mpreds» (ileft_name_lits mpreds);
+    aig  = encode_lits_hold aig «msafes» (ileft_name_lits msafes);
     aig  = encode_lits_hold aig «wcnstrs» (iright_name_lits wcnstrs);
-    aig  = encode_lits_hold aig «wpreds» (iright_name_lits wpreds);
+    aig  = encode_lits_hold aig «wsafes» (iright_name_lits wsafes);
     lhss =
       [(Gate (Named (Ext «mcnstrs»)),F);
        (Gate (Named (Ext «wcnstrs»)),F);
-       (Gate (Named (Ext «wpreds»)),F)];
-    rhss = [(Gate (Named (Ext «mpreds»)), F);]
+       (Gate (Named (Ext «wsafes»)),F)];
+    rhss = [(Gate (Named (Ext «msafes»)), F);]
   in
     encode_imply aig «safety» T lhss rhss
 End
@@ -1413,18 +1413,18 @@ Definition encode_base_cond_def:
     (waig: ('a, 'i, 'l) aig)
     (wreset: 'l -> ('a, 'i, 'l) lit option)
     (wcnstrs: ('a, 'i, 'l) lit list)
-    (wpreds: ('a, 'i, 'l) lit list)
+    (wsafes: ('a, 'i, 'l) lit list)
     (wlatches: 'l list)
   ⇔
     let
       aig  = iext_aig waig;
       aig  = encode_is_reset aig «wreset» (iext_reset wreset) wlatches;
       aig  = encode_lits_hold aig «wcnstrs» (MAP iext_lit wcnstrs);
-      aig  = encode_lits_hold aig «wpreds» (MAP iext_lit wpreds);
+      aig  = encode_lits_hold aig «wsafes» (MAP iext_lit wsafes);
       lhss =
         [(Gate (Named (Ext «wreset»)),F);
          (Gate (Named (Ext «wcnstrs»)),F)];
-      rhss = [(Gate (Named (Ext «wpreds»)), F)]
+      rhss = [(Gate (Named (Ext «wsafes»)), F)]
   in
     encode_imply aig «base» T lhss rhss
 End
@@ -1434,21 +1434,21 @@ Definition encode_induction_cond_def:
     (waig: ('a, 'i, 'l) aig)
     (wnext: 'l -> ('a, 'i, 'l) lit)
     (wcnstrs: ('a, 'i, 'l) lit list)
-    (wpreds: ('a, 'i, 'l) lit list)
+    (wsafes: ('a, 'i, 'l) lit list)
     (wlatches: 'l list)
   ⇔
     let
       aig  = iext_aig waig;
       aig  = encode_lits_hold aig «wcnstrs» (MAP iext_lit wcnstrs);
-      aig  = encode_lits_hold aig «wpreds» (MAP iext_lit wpreds);
+      aig  = encode_lits_hold aig «wsafes» (MAP iext_lit wsafes);
       aig  = iext_aig (pair_aigs aig aig);
       aig  = encode_is_next aig «wnext» (iext_lit ∘ wnext) wlatches;
       lhss =
-        [iext_lit (left_lit (Gate (Named (Ext «wpreds»)), F));
+        [iext_lit (left_lit (Gate (Named (Ext «wsafes»)), F));
          (Gate (Named (Ext «wnext»)), F);
          iext_lit (right_lit (Gate (Named (Ext «wcnstrs»)), F));
          iext_lit (left_lit (Gate (Named (Ext «wcnstrs»)), F))];
-      rhss = [iext_lit (right_lit (Gate (Named (Ext «wpreds»)), F))]
+      rhss = [iext_lit (right_lit (Gate (Named (Ext «wsafes»)), F))]
     in
       encode_imply aig «induction» T lhss rhss
 End
@@ -1461,7 +1461,7 @@ Definition encode_liveness_cond_def:
     (waig: ('b, 'i, 'l) aig)
     (wnext: 'l -> ('b, 'i, 'l) lit)
     (wcnstrs: ('b, 'i, 'l) lit list)
-    (wpreds: ('b, 'i, 'l) lit list)
+    (wsafes: ('b, 'i, 'l) lit list)
     (wlive: ('b, 'i, 'l) lit list list)
     (wlatches: 'l list)
     (interv: ('b, 'i, 'l) var -> ('l # bool) option)
@@ -1476,7 +1476,7 @@ Definition encode_liveness_cond_def:
     aig = imerge_aigs maig waig;
     aig = encode_lits_hold aig «mcnstrs» (ileft_name_lits mcnstrs);
     aig = encode_lits_hold aig «wcnstrs» (iright_name_lits wcnstrs);
-    aig = encode_lits_hold aig «wpreds» (iright_name_lits wpreds);
+    aig = encode_lits_hold aig «wsafes» (iright_name_lits wsafes);
     aig = iext_aig (pair_aigs aig aig);
     aig =
       encode_is_next aig «wnext» (iext_lit ∘ right_name_lit ∘ wnext) wlatches;
@@ -1487,13 +1487,13 @@ Definition encode_liveness_cond_def:
       iext_lit
         (left_name_lit (iext_lit (left_lit (Gate (Named (Ext «wcnstrs»)), F))));
       iext_lit
-        (left_name_lit (iext_lit (left_lit (Gate (Named (Ext «wpreds»)), F))));
+        (left_name_lit (iext_lit (left_lit (Gate (Named (Ext «wsafes»)), F))));
       iext_lit
         (left_name_lit (iext_lit (right_lit (Gate (Named (Ext «mcnstrs»)), F))));
       iext_lit
         (left_name_lit (iext_lit (right_lit (Gate (Named (Ext «wcnstrs»)), F))));
       iext_lit
-        (left_name_lit (iext_lit (right_lit (Gate (Named (Ext «wpreds»)), F))));
+        (left_name_lit (iext_lit (right_lit (Gate (Named (Ext «wsafes»)), F))));
       iext_lit
         (left_name_lit ((Gate (Named (Ext «wnext»)), F)));
     ];
@@ -1507,7 +1507,7 @@ Definition encode_decrease_cond_def:
     (waig: ('b, 'i, 'l) aig)
     (wnext: 'l -> ('b, 'i, 'l) lit)
     (wcnstrs: ('b, 'i, 'l) lit list)
-    (wpreds: ('b, 'i, 'l) lit list)
+    (wsafes: ('b, 'i, 'l) lit list)
     (wlive: ('b, 'i, 'l) lit list list)
     (wlatches: 'l list)
     (interv: ('b, 'i, 'l) var -> ('l # bool) option)
@@ -1519,7 +1519,7 @@ Definition encode_decrease_cond_def:
     qaig = encode_lives_hold qaig «lives_hold» wlive;
     aig = iext_aig waig;
     aig = encode_lits_hold aig «wcnstrs» (MAP iext_lit wcnstrs);
-    aig = encode_lits_hold aig «wpreds» (MAP iext_lit wpreds);
+    aig = encode_lits_hold aig «wsafes» (MAP iext_lit wsafes);
     aig = iext_aig (pair_aigs aig aig);
     aig = encode_is_next aig «wnext» (iext_lit ∘ wnext) wlatches;
     aig = imerge_aigs aig qaig;
@@ -1527,11 +1527,11 @@ Definition encode_decrease_cond_def:
       iext_lit
         (left_name_lit (iext_lit (left_lit (Gate (Named (Ext «wcnstrs»)), F))));
       iext_lit
-        (left_name_lit (iext_lit (left_lit (Gate (Named (Ext «wpreds»)), F))));
+        (left_name_lit (iext_lit (left_lit (Gate (Named (Ext «wsafes»)), F))));
       iext_lit
         (left_name_lit (iext_lit (right_lit (Gate (Named (Ext «wcnstrs»)), F))));
       iext_lit
-        (left_name_lit (iext_lit (right_lit (Gate (Named (Ext «wpreds»)), F))));
+        (left_name_lit (iext_lit (right_lit (Gate (Named (Ext «wsafes»)), F))));
       iext_lit
         (left_name_lit ((Gate (Named (Ext «wnext»)), F)));
     ];
@@ -1545,7 +1545,7 @@ Definition encode_closure_cond_def:
     (waig: ('b, 'i, 'l) aig)
     (wnext: 'l -> ('b, 'i, 'l) lit)
     (wcnstrs: ('b, 'i, 'l) lit list)
-    (wpreds: ('b, 'i, 'l) lit list)
+    (wsafes: ('b, 'i, 'l) lit list)
     (wlive: ('b, 'i, 'l) lit list list)
     (wlatches: 'l list)
     (interv: ('b, 'i, 'l) var -> ('l # bool) option)
@@ -1561,7 +1561,7 @@ Definition encode_closure_cond_def:
     qaig₁ = encode_lives_hold qaig₁ «lives_hold12» wlive₁;
     aig₀ = iext_aig waig;
     aig₀ = encode_lits_hold aig₀ «wcnstrs» (MAP iext_lit wcnstrs);
-    aig₀ = encode_lits_hold aig₀ «wpreds» (MAP iext_lit wpreds);
+    aig₀ = encode_lits_hold aig₀ «wsafes» (MAP iext_lit wsafes);
     aig = iext_aig (pair_aigs aig₀ aig₀);
     aig = encode_is_next aig «wnext» (iext_lit ∘ wnext) wlatches;
     aig = iext_aig (pair_aigs aig aig₀);
@@ -1573,17 +1573,17 @@ Definition encode_closure_cond_def:
           (Gate (Named (Ext «wcnstrs»)), F))))))));
       iext_lit (left_name_lit (iext_lit (left_name_lit
         (iext_lit (left_lit (iext_lit (left_lit
-          (Gate (Named (Ext «wpreds»)), F))))))));
+          (Gate (Named (Ext «wsafes»)), F))))))));
       iext_lit (left_name_lit (iext_lit (left_name_lit
         (iext_lit (left_lit (iext_lit (right_lit
           (Gate (Named (Ext «wcnstrs»)), F))))))));
       iext_lit (left_name_lit (iext_lit (left_name_lit
         (iext_lit (left_lit (iext_lit (right_lit
-          (Gate (Named (Ext «wpreds»)), F))))))));
+          (Gate (Named (Ext «wsafes»)), F))))))));
       iext_lit (left_name_lit (iext_lit (left_name_lit
         (iext_lit (right_lit (Gate (Named (Ext «wcnstrs»)), F))))));
       iext_lit (left_name_lit (iext_lit (left_name_lit
-        (iext_lit (right_lit (Gate (Named (Ext «wpreds»)), F))))));
+        (iext_lit (right_lit (Gate (Named (Ext «wsafes»)), F))))));
       iext_lit (left_name_lit (iext_lit (left_name_lit
         (iext_lit (left_lit (Gate (Named (Ext «wnext»)), F))))));
       iext_lit (left_name_lit (iext_lit (right_name_lit
@@ -1599,7 +1599,7 @@ Definition encode_stable_cond_def:
     (waig: ('b, 'i, 'l) aig)
     (wnext: 'l -> ('b, 'i, 'l) lit)
     (wcnstrs: ('b, 'i, 'l) lit list)
-    (wpreds: ('b, 'i, 'l) lit list)
+    (wsafes: ('b, 'i, 'l) lit list)
     (wlive: ('b, 'i, 'l) lit list list)
     (wlatches: 'l list)
     (interv: ('b, 'i, 'l) var -> ('l # bool) option)
@@ -1615,7 +1615,7 @@ Definition encode_stable_cond_def:
     qaig = encode_lives_hold qaig «lives_hold12» wlive₁;
     aig₀ = iext_aig waig;
     aig₀ = encode_lits_hold aig₀ «wcnstrs» (MAP iext_lit wcnstrs);
-    aig₀ = encode_lits_hold aig₀ «wpreds» (MAP iext_lit wpreds);
+    aig₀ = encode_lits_hold aig₀ «wsafes» (MAP iext_lit wsafes);
     aig = iext_aig (pair_aigs aig₀ aig₀);
     aig = encode_is_next aig «wnext» (iext_lit ∘ wnext) wlatches;
     aig = iext_aig (pair_aigs aig aig₀);
@@ -1627,15 +1627,15 @@ Definition encode_stable_cond_def:
       iext_lit (left_name_lit (iext_lit (left_lit
         (iext_lit (left_lit (Gate (Named (Ext «wcnstrs»)), F))))));
       iext_lit (left_name_lit (iext_lit (left_lit
-        (iext_lit (left_lit (Gate (Named (Ext «wpreds»)), F))))));
+        (iext_lit (left_lit (Gate (Named (Ext «wsafes»)), F))))));
       iext_lit (left_name_lit (iext_lit (left_lit
         (iext_lit (right_lit (Gate (Named (Ext «wcnstrs»)), F))))));
       iext_lit (left_name_lit (iext_lit (left_lit
-        (iext_lit (right_lit (Gate (Named (Ext «wpreds»)), F))))));
+        (iext_lit (right_lit (Gate (Named (Ext «wsafes»)), F))))));
       iext_lit (left_name_lit (iext_lit (right_lit
         (Gate (Named (Ext «wcnstrs»)), F))));
       iext_lit (left_name_lit (iext_lit (right_lit
-        (Gate (Named (Ext «wpreds»)), F))));
+        (Gate (Named (Ext «wsafes»)), F))));
       iext_lit (left_name_lit (iext_lit (left_lit
         (Gate (Named (Ext «wnext»)), F))));
       iext_lit (left_name_lit (Gate (Named (Ext «wnext»)), F));
@@ -2343,25 +2343,25 @@ QED
 
 Definition safety_encoding_is_unsat_def:
   safety_encoding_is_unsat
-    maig mcnstrs mpreds
-    waig wcnstrs wpreds
+    maig mcnstrs msafes
+    waig wcnstrs wsafes
   ⇔
   (¬∃ss.
      (eval_gate ss
        (encode_safety_cond
-          maig mcnstrs mpreds
-          waig wcnstrs wpreds)
+          maig mcnstrs msafes
+          waig wcnstrs wsafes)
        (Named (Ext «safety»))))
 End
 
 Theorem eval_gate_encode_safety_cond:
   safety_encoding_is_unsat
-    maig mcnstrs mpreds
-    waig wcnstrs wpreds
+    maig mcnstrs msafes
+    waig wcnstrs wsafes
   =
   safety_cond
-    maig (set mpreds) (set mcnstrs)
-    waig (set wpreds) (set wcnstrs)
+    maig (set msafes) (set mcnstrs)
+    waig (set wsafes) (set wcnstrs)
 Proof
   simp [
       safety_encoding_is_unsat_def,
@@ -2375,21 +2375,21 @@ QED
 
 Definition base_encoding_is_unsat_def:
   base_encoding_is_unsat
-    waig wreset wcnstrs wpreds wlatches
+    waig wreset wcnstrs wsafes wlatches
   ⇔
   (¬∃ss.
      (eval_gate ss
        (encode_base_cond
-          waig wreset wcnstrs wpreds wlatches)
+          waig wreset wcnstrs wsafes wlatches)
        (Named (Ext «base»))))
 End
 
 Theorem eval_gate_encode_base_cond:
   base_encoding_is_unsat
-    waig wreset wcnstrs wpreds wlatches
+    waig wreset wcnstrs wsafes wlatches
   =
   base_cond
-    waig wreset (set wpreds) (set wcnstrs) (set wlatches)
+    waig wreset (set wsafes) (set wcnstrs) (set wlatches)
 Proof
   simp [
       base_encoding_is_unsat_def,
@@ -2404,20 +2404,20 @@ QED
 
 Definition induction_encoding_is_unsat_def:
   induction_encoding_is_unsat
-    waig wnext wcnstrs wpreds wlatches
+    waig wnext wcnstrs wsafes wlatches
   ⇔
   (¬∃ss.
      (eval_gate ss
        (encode_induction_cond
-          waig wnext wcnstrs wpreds wlatches)
+          waig wnext wcnstrs wsafes wlatches)
        (Named (Ext «induction»))))
 End
 
 Theorem eval_gate_encode_induction_cond:
   induction_encoding_is_unsat
-    waig wnext wcnstrs wpreds wlatches
+    waig wnext wcnstrs wsafes wlatches
    =
-  induction_cond waig wnext (set wpreds) (set wcnstrs) (set wlatches)
+  induction_cond waig wnext (set wsafes) (set wcnstrs) (set wlatches)
 Proof
   simp [
       induction_encoding_is_unsat_def,
@@ -2437,13 +2437,13 @@ QED
 Definition liveness_encoding_is_unsat_def:
   liveness_encoding_is_unsat
     maig mcnstrs mlive
-    waig wnext wcnstrs wpreds wlive wlatches interv
+    waig wnext wcnstrs wsafes wlive wlatches interv
   ⇔
   (¬∃ss.
      (eval_gate ss
        (encode_liveness_cond
           maig mcnstrs mlive
-          waig wnext wcnstrs wpreds wlive wlatches interv)
+          waig wnext wcnstrs wsafes wlive wlatches interv)
        (Named (Ext «liveness»))))
 End
 
@@ -2452,16 +2452,16 @@ Theorem eval_gate_encode_liveness_cond:
   ⇒
   liveness_encoding_is_unsat
     maig mcnstrs mlive
-    waig wnext wcnstrs wpreds wlive wlatches interv
+    waig wnext wcnstrs wsafes wlive wlatches interv
   =
   liveness_cond
     maig (set mcnstrs) (qleft maig) (qleft_live mlive)
-    waig wreset wnext (set wpreds) (set wcnstrs)
+    waig wnext (set wsafes) (set wcnstrs)
     (qinterv_l_r interv waig) (qinterv_live_l_r interv wlive) (set wlatches)
 Proof
   strip_tac
   >> qmatch_goalsub_abbrev_tac
-       ‘liveness_cond _ _ _ mlive' _ _ _ _ _ _ wlive' _’
+       ‘liveness_cond _ _ _ mlive' _ _ _ _ _ wlive' _’
   >> simp [
       liveness_encoding_is_unsat_def,
       encode_liveness_cond_def,
@@ -2503,21 +2503,21 @@ QED
 
 Definition decrease_encoding_is_unsat_def:
   decrease_encoding_is_unsat
-    waig wnext wcnstrs wpreds wlive wlatches interv
+    waig wnext wcnstrs wsafes wlive wlatches interv
   ⇔
   (¬∃ss.
      (eval_gate ss
        (encode_decrease_cond
-          waig wnext wcnstrs wpreds wlive wlatches interv)
+          waig wnext wcnstrs wsafes wlive wlatches interv)
        (Named (Ext «decrease»))))
 End
 
 Theorem eval_gate_encode_decrease_cond:
   decrease_encoding_is_unsat
-    waig wnext wcnstrs wpreds wlive wlatches interv
+    waig wnext wcnstrs wsafes wlive wlatches interv
   =
   decrease_cond
-    waig wnext (set wpreds) (set wcnstrs)
+    waig wnext (set wsafes) (set wcnstrs)
     (qinterv_l_r interv waig) (qinterv_live_l_r interv wlive) (set wlatches)
 Proof
   simp [
@@ -2545,21 +2545,21 @@ QED
 
 Definition closure_encoding_is_unsat_def:
   closure_encoding_is_unsat
-    waig wnext wcnstrs wpreds wlive wlatches interv
+    waig wnext wcnstrs wsafes wlive wlatches interv
   ⇔
   (¬∃ss.
      (eval_gate ss
        (encode_closure_cond
-          waig wnext wcnstrs wpreds wlive wlatches interv)
+          waig wnext wcnstrs wsafes wlive wlatches interv)
        (Named (Ext «closure»))))
 End
 
 Theorem eval_gate_encode_closure_cond:
   closure_encoding_is_unsat
-    waig wnext wcnstrs wpreds wlive wlatches interv
+    waig wnext wcnstrs wsafes wlive wlatches interv
    =
   closure_cond
-    waig wnext (set wpreds) (set wcnstrs)
+    waig wnext (set wsafes) (set wcnstrs)
     (qinterv_l_r interv waig) (qinterv_live_l_r interv wlive) (set wlatches)
 Proof
   simp [
@@ -2589,21 +2589,21 @@ QED
 
 Definition stable_encoding_is_unsat_def:
   stable_encoding_is_unsat
-    waig wnext wcnstrs wpreds wlive wlatches interv
+    waig wnext wcnstrs wsafes wlive wlatches interv
   ⇔
   (¬∃ss.
      (eval_gate ss
        (encode_stable_cond
-          waig wnext wcnstrs wpreds wlive wlatches interv)
+          waig wnext wcnstrs wsafes wlive wlatches interv)
        (Named (Ext «stable»))))
 End
 
 Theorem eval_gate_encode_stable_cond:
   stable_encoding_is_unsat
-    waig wnext wcnstrs wpreds wlive wlatches interv
+    waig wnext wcnstrs wsafes wlive wlatches interv
    =
   stable_cond
-    waig wnext (set wpreds) (set wcnstrs)
+    waig wnext (set wsafes) (set wcnstrs)
     (qinterv_l_r interv waig) (qinterv_live_l_r interv wlive) (set wlatches)
 Proof
   simp [
@@ -2911,8 +2911,8 @@ QED
 
 Definition encodings_unsat_def:
   encodings_unsat
-    maig mreset mnext mpreds mcnstrs mlive mlatches
-    waig wreset wnext wpreds wcnstrs wlive wlatches
+    maig mreset mnext msafes mcnstrs mlive mlatches
+    waig wreset wnext wsafes wcnstrs wlive wlatches
     interv klatches
   ⇔
     (reset_encoding_is_unsat
@@ -2922,21 +2922,21 @@ Definition encodings_unsat_def:
        maig mnext mcnstrs mlatches
        waig wnext wcnstrs wlatches klatches) ∧
     (safety_encoding_is_unsat
-       maig mcnstrs mpreds
-       waig wcnstrs wpreds) ∧
+       maig mcnstrs msafes
+       waig wcnstrs wsafes) ∧
     (base_encoding_is_unsat
-       waig wreset wcnstrs wpreds wlatches) ∧
+       waig wreset wcnstrs wsafes wlatches) ∧
     (induction_encoding_is_unsat
-       waig wnext wcnstrs wpreds wlatches) ∧
+       waig wnext wcnstrs wsafes wlatches) ∧
     (liveness_encoding_is_unsat
        maig mcnstrs mlive
-       waig wnext wcnstrs wpreds wlive wlatches interv) ∧
+       waig wnext wcnstrs wsafes wlive wlatches interv) ∧
     (decrease_encoding_is_unsat
-       waig wnext wcnstrs wpreds wlive wlatches interv) ∧
+       waig wnext wcnstrs wsafes wlive wlatches interv) ∧
     (closure_encoding_is_unsat
-       waig wnext wcnstrs wpreds wlive wlatches interv) ∧
+       waig wnext wcnstrs wsafes wlive wlatches interv) ∧
     (stable_encoding_is_unsat
-       waig wnext wcnstrs wpreds wlive wlatches interv)
+       waig wnext wcnstrs wsafes wlive wlatches interv)
 End
 
 (** dep_model *****************************************************************)
@@ -2944,10 +2944,10 @@ End
 (* dep_aig *)
 
 Definition dep_cond_def:
-  dep_cond aig reset next preds cnstrs live latches ⇔
+  dep_cond aig reset next safes cnstrs live latches ⇔
     set (aig_latches aig) ⊆ set latches ∧
     BIGUNION (IMAGE (set ∘ lit_latches ∘ next) (set latches)) ⊆ set latches ∧
-    BIGUNION (IMAGE (set ∘ lit_latches) (set preds)) ⊆ set latches ∧
+    BIGUNION (IMAGE (set ∘ lit_latches) (set safes)) ⊆ set latches ∧
     BIGUNION (IMAGE (set ∘ lit_latches) (set cnstrs)) ⊆ set latches ∧
     BIGUNION
       (IMAGE (set ∘ lit_latches) (IMAGE_PARTIAL reset (set latches))) ⊆
@@ -2994,14 +2994,14 @@ Theorem encoding_is_safe_and_live:
   LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive wlive ∧
   set klatches = set mlatches ∩ set wlatches ∧
   stratified_cond waig wreset wlatches ∧
-  dep_cond maig mreset mnext mpreds mcnstrs mlive mlatches ∧
+  dep_cond maig mreset mnext msafes mcnstrs mlive mlatches ∧
   encodings_unsat
-    maig mreset mnext mpreds mcnstrs mlive mlatches
-    waig wreset wnext wpreds wcnstrs wlive wlatches
+    maig mreset mnext msafes mcnstrs mlive mlatches
+    waig wreset wnext wsafes wcnstrs wlive wlatches
     interv klatches
   ⇒
   is_safe
-    maig mreset mnext (set mcnstrs) (set mlatches) (set mpreds) ∧
+    maig mreset mnext (set mcnstrs) (set mlatches) (set msafes) ∧
   is_live
     maig mreset mnext (set mcnstrs) (qleft maig)
     (IMAGE set (set (qleft_live mlive))) (set mlatches)
@@ -3009,9 +3009,9 @@ Proof
   strip_tac
   >> sg
        ‘is_witness
-          maig mreset mnext (set mpreds) (set mcnstrs)
+          maig mreset mnext (set msafes) (set mcnstrs)
           (qleft maig) (qleft_live mlive) (set mlatches)
-          waig wreset wnext (set wpreds) (set wcnstrs)
+          waig wreset wnext (set wsafes) (set wcnstrs)
           (qinterv_l_r interv waig) (qinterv_live_l_r interv wlive)
           (set wlatches)’
   >- (
@@ -3032,7 +3032,7 @@ Proof
   )
   >> sg
      ‘∃minput.
-        dep_model maig mreset mnext (set mpreds) (set mcnstrs) minput
+        dep_model maig mreset mnext (set msafes) (set mcnstrs) minput
           (set mlatches) ∧
         dep_qaig minput (qleft maig) (qleft_live mlive) (set mlatches)’
   >- (
@@ -3042,7 +3042,7 @@ Proof
          BIGUNION (IMAGE (set ∘ lit_inputs ∘ mnext) (set mlatches)) ∪
          BIGUNION
            (IMAGE (set ∘ lit_inputs) (IMAGE_PARTIAL mreset (set mlatches))) ∪
-         BIGUNION (IMAGE (set ∘ lit_inputs) (set mpreds)) ∪
+         BIGUNION (IMAGE (set ∘ lit_inputs) (set msafes)) ∪
          BIGUNION (IMAGE (set ∘ lit_inputs) (set mcnstrs)) ∪
          BIGUNION (IMAGE (set ∘ lit_inputs) (set (FLAT mlive)))’
     >> qexists ‘minput’

@@ -48,7 +48,7 @@ Definition process_model_def:
          case ALOOKUP m.next l of
          | SOME lit => lit
          | NONE => (Base Ff, F)  (* should not happen *));
-    mpreds =
+    msafes =
       MAP not
         (if m.counts.bad = 0 ∧ m.counts.justice = 0 then m.outputs
          else m.bad);
@@ -58,16 +58,16 @@ Definition process_model_def:
     mlatches =
       [m.counts.inputs + 1 .. m.counts.inputs + m.counts.latches];
   in
-    (maig, mreset, mnext, mpreds, mcnstrs, mlive, mlatches)
+    (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatches)
 End
 
 Theorem process_and_check_imp_process_model[local]:
   process_and_check maiger waiger ms =
     return
-      (maig, mreset, mnext, mpreds, mcnstrs, mlive, mlatches, rest)
+      (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatches, rest)
   ⇒
   process_model maiger =
-    (maig, mreset, mnext, mpreds, mcnstrs, mlive, mlatches)
+    (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatches)
 Proof
   simp [process_and_check_def, process_model_def, process_mlatches_range_def,
         aig_cert_fullTheory.preprocess_def, guard_def, oneline bind_def,
@@ -125,10 +125,10 @@ Definition make_cert_sem_def:
          «decrease»; «closure»; «stable»]
   in
     (out = «SUCCESS» ∧ EVERY (λf. ALOOKUP fs.files f = NONE) fnames ⇒
-     ∃maig mreset mnext mpreds mcnstrs mlive mlatches
+     ∃maig mreset mnext msafes mcnstrs mlive mlatches
       reset transition safety base induction liveness decrease closure stable.
         get_model fs fmodel =
-          SOME (maig, mreset, mnext, mpreds, mcnstrs, mlive, mlatches) ∧
+          SOME (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatches) ∧
         LIST_REL (cnf_saved fs') fnames
           [reset; transition; safety; base; induction; liveness; decrease;
            closure; stable] ∧
@@ -137,7 +137,7 @@ Definition make_cert_sem_def:
             closure; stable]
          ⇒
           is_safe
-            maig mreset mnext (set mcnstrs) (set mlatches) (set mpreds) ∧
+            maig mreset mnext (set mcnstrs) (set mlatches) (set msafes) ∧
           is_live
             maig mreset mnext (set mcnstrs) (qleft maig)
             (IMAGE set (set (qleft_live mlive))) (set mlatches)))
@@ -304,14 +304,14 @@ Theorem write_safety_spec[local]:
   strlen prefix + 10 < 65536 ∧
   AIG_TYPE maig maigv ∧
   LIT_LIST mcnstrs mcnstrsv ∧
-  LIT_LIST mpreds mpredsv ∧
+  LIT_LIST msafes msafesv ∧
   AIG_TYPE waig waigv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
-  LIT_LIST wpreds wpredsv ∧
+  LIT_LIST wsafes wsafesv ∧
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) write_safety_v
-    [prefixv; maigv; mcnstrsv; mpredsv; waigv; wcnstrsv; wpredsv]
+    [prefixv; maigv; mcnstrsv; msafesv; waigv; wcnstrsv; wsafesv]
     (STDIO fs)
     (POSTv uv.
        &UNIT_TYPE () uv *
@@ -319,8 +319,8 @@ Theorem write_safety_spec[local]:
          &(is_cnf_str cnf content ∧
            (unsatisfiable_cnf (set cnf) ⇔
             (safety_encoding_is_unsat
-               maig mcnstrs mpreds
-               waig wcnstrs wpreds))) *
+               maig mcnstrs msafes
+               waig wcnstrs wsafes))) *
          STDIO (write_file fs (make_fname prefix «safety») content))
 Proof
   rw []
@@ -360,12 +360,12 @@ Theorem write_base_spec[local]:
   AIG_TYPE waig waigv ∧
   LATCH_OPTION_LIT_TYPE wreset wresetv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
-  LIT_LIST wpreds wpredsv ∧
+  LIT_LIST wsafes wsafesv ∧
   LIST_TYPE NUM wlatches wlatchesv ∧
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) write_base_v
-    [prefixv; waigv; wresetv; wcnstrsv; wpredsv; wlatchesv]
+    [prefixv; waigv; wresetv; wcnstrsv; wsafesv; wlatchesv]
     (STDIO fs)
     (POSTv uv.
        &UNIT_TYPE () uv *
@@ -373,7 +373,7 @@ Theorem write_base_spec[local]:
          &(is_cnf_str cnf content ∧
            (unsatisfiable_cnf (set cnf) ⇔
             (base_encoding_is_unsat
-               waig wreset wcnstrs wpreds wlatches))) *
+               waig wreset wcnstrs wsafes wlatches))) *
          STDIO (write_file fs (make_fname prefix «base») content))
 Proof
   rw []
@@ -413,12 +413,12 @@ Theorem write_induction_spec[local]:
   AIG_TYPE waig waigv ∧
   LATCH_LIT_TYPE wnext wnextv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
-  LIT_LIST wpreds wpredsv ∧
+  LIT_LIST wsafes wsafesv ∧
   LIST_TYPE NUM wlatches wlatchesv ∧
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) write_induction_v
-    [prefixv; waigv; wnextv; wcnstrsv; wpredsv; wlatchesv]
+    [prefixv; waigv; wnextv; wcnstrsv; wsafesv; wlatchesv]
     (STDIO fs)
     (POSTv uv.
        &UNIT_TYPE () uv *
@@ -426,7 +426,7 @@ Theorem write_induction_spec[local]:
          &(is_cnf_str cnf content ∧
            (unsatisfiable_cnf (set cnf) ⇔
             (induction_encoding_is_unsat
-               waig wnext wcnstrs wpreds wlatches))) *
+               waig wnext wcnstrs wsafes wlatches))) *
          STDIO (write_file fs (make_fname prefix «induction») content))
 Proof
   rw []
@@ -469,7 +469,7 @@ Theorem write_liveness_spec[local]:
   AIG_TYPE waig waigv ∧
   LATCH_LIT_TYPE wnext wnextv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
-  LIT_LIST wpreds wpredsv ∧
+  LIT_LIST wsafes wsafesv ∧
   LIST_TYPE LIT_LIST wlive wlivev ∧
   LIST_TYPE NUM wlatches wlatchesv ∧
   INTERV_TYPE interv intervv ∧
@@ -477,7 +477,7 @@ Theorem write_liveness_spec[local]:
   ⇒
   app (p:'ffi ffi_proj) write_liveness_v
     [prefixv; maigv; mcnstrsv; mlivev;
-     waigv; wnextv; wcnstrsv; wpredsv; wlivev; wlatchesv; intervv]
+     waigv; wnextv; wcnstrsv; wsafesv; wlivev; wlatchesv; intervv]
     (STDIO fs)
     (POSTv uv.
        &UNIT_TYPE () uv *
@@ -486,7 +486,7 @@ Theorem write_liveness_spec[local]:
            (unsatisfiable_cnf (set cnf) ⇔
             (liveness_encoding_is_unsat
                maig mcnstrs mlive
-               waig wnext wcnstrs wpreds wlive wlatches interv))) *
+               waig wnext wcnstrs wsafes wlive wlatches interv))) *
          STDIO (write_file fs (make_fname prefix «liveness») content))
 Proof
   rw []
@@ -526,14 +526,14 @@ Theorem write_decrease_spec[local]:
   AIG_TYPE waig waigv ∧
   LATCH_LIT_TYPE wnext wnextv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
-  LIT_LIST wpreds wpredsv ∧
+  LIT_LIST wsafes wsafesv ∧
   LIST_TYPE LIT_LIST wlive wlivev ∧
   LIST_TYPE NUM wlatches wlatchesv ∧
   INTERV_TYPE interv intervv ∧
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) write_decrease_v
-    [prefixv; waigv; wnextv; wcnstrsv; wpredsv; wlivev; wlatchesv; intervv]
+    [prefixv; waigv; wnextv; wcnstrsv; wsafesv; wlivev; wlatchesv; intervv]
     (STDIO fs)
     (POSTv uv.
        &UNIT_TYPE () uv *
@@ -541,7 +541,7 @@ Theorem write_decrease_spec[local]:
          &(is_cnf_str cnf content ∧
            (unsatisfiable_cnf (set cnf) ⇔
             (decrease_encoding_is_unsat
-               waig wnext wcnstrs wpreds wlive wlatches interv))) *
+               waig wnext wcnstrs wsafes wlive wlatches interv))) *
          STDIO (write_file fs (make_fname prefix «decrease») content))
 Proof
   rw []
@@ -581,14 +581,14 @@ Theorem write_closure_spec[local]:
   AIG_TYPE waig waigv ∧
   LATCH_LIT_TYPE wnext wnextv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
-  LIT_LIST wpreds wpredsv ∧
+  LIT_LIST wsafes wsafesv ∧
   LIST_TYPE LIT_LIST wlive wlivev ∧
   LIST_TYPE NUM wlatches wlatchesv ∧
   INTERV_TYPE interv intervv ∧
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) write_closure_v
-    [prefixv; waigv; wnextv; wcnstrsv; wpredsv; wlivev; wlatchesv; intervv]
+    [prefixv; waigv; wnextv; wcnstrsv; wsafesv; wlivev; wlatchesv; intervv]
     (STDIO fs)
     (POSTv uv.
        &UNIT_TYPE () uv *
@@ -596,7 +596,7 @@ Theorem write_closure_spec[local]:
          &(is_cnf_str cnf content ∧
            (unsatisfiable_cnf (set cnf) ⇔
             (closure_encoding_is_unsat
-               waig wnext wcnstrs wpreds wlive wlatches interv))) *
+               waig wnext wcnstrs wsafes wlive wlatches interv))) *
          STDIO (write_file fs (make_fname prefix «closure») content))
 Proof
   rw []
@@ -636,14 +636,14 @@ Theorem write_stable_spec[local]:
   AIG_TYPE waig waigv ∧
   LATCH_LIT_TYPE wnext wnextv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
-  LIT_LIST wpreds wpredsv ∧
+  LIT_LIST wsafes wsafesv ∧
   LIST_TYPE LIT_LIST wlive wlivev ∧
   LIST_TYPE NUM wlatches wlatchesv ∧
   INTERV_TYPE interv intervv ∧
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) write_stable_v
-    [prefixv; waigv; wnextv; wcnstrsv; wpredsv; wlivev; wlatchesv; intervv]
+    [prefixv; waigv; wnextv; wcnstrsv; wsafesv; wlivev; wlatchesv; intervv]
     (STDIO fs)
     (POSTv uv.
        &UNIT_TYPE () uv *
@@ -651,7 +651,7 @@ Theorem write_stable_spec[local]:
          &(is_cnf_str cnf content ∧
            (unsatisfiable_cnf (set cnf) ⇔
             (stable_encoding_is_unsat
-               waig wnext wcnstrs wpreds wlive wlatches interv))) *
+               waig wnext wcnstrs wsafes wlive wlatches interv))) *
          STDIO (write_file fs (make_fname prefix «stable») content))
 Proof
   rw []

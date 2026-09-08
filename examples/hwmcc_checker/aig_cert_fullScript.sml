@@ -89,7 +89,7 @@ Definition preprocess_def:
     mnext  = (λl. case lookup l mnext of
                     | SOME lit => lit
                     | NONE => (Base Ff, F) (* should not happen *));
-    mpreds =
+    msafes =
       MAP not
         (if mcounts.bad = 0 ∧ mcounts.justice = 0 then maiger.outputs
          else maiger.bad);
@@ -117,7 +117,7 @@ Definition preprocess_def:
     wnext  = (λl. case lookup l wnext of
                     | SOME lit => lit
                     | NONE => (Base Ff, F));
-    wpreds =
+    wsafes =
       MAP (not ∘ shared_lit micnt mlcnt iren lren)
         (if wcounts.bad = 0 ∧ wcounts.justice = 0 then waiger.outputs
          else waiger.bad);
@@ -140,8 +140,8 @@ Definition preprocess_def:
     (* By returning the model latches as a range, we can implement some
        set operations such as intersection more efficiently; see
        process_mlatches_range. *)
-    (maig, mreset, mnext, mpreds, mcnstrs, mlive, mlatch_start, mmax_latch,
-     waig, wreset, wnext, wpreds, wcnstrs, wlive, wlatches, interv)
+    (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatch_start, mmax_latch,
+     waig, wreset, wnext, wsafes, wcnstrs, wlive, wlatches, interv)
 End
 
 (* Processes the model latch range.
@@ -151,13 +151,13 @@ End
      intersection with the witness latches. *)
 Definition process_mlatches_range_def:
   process_mlatches_range
-    maig mreset mnext mpreds mcnstrs mlatch_start mmax_latch mlive wlatches
+    maig mreset mnext msafes mcnstrs mlatch_start mmax_latch mlive wlatches
   =
   let
     mlatches = [mlatch_start .. mmax_latch];
     klatches = range_inter mlatch_start mmax_latch wlatches;
     maig_latches = aig_latches maig;
-    pred_latches = FLAT (MAP lit_latches mpreds);
+    safe_latches = FLAT (MAP lit_latches msafes);
     cnstrs_latches = FLAT (MAP lit_latches mcnstrs);
     next_latches = FLAT (MAP (lit_latches ∘ mnext) mlatches);
     reset_lits = list$mapPartial mreset mlatches;
@@ -167,8 +167,8 @@ Definition process_mlatches_range_def:
     do
       assert «circuit mentions latches outside of mlatches»
         (range_is_subset maig_latches mlatch_start mmax_latch);
-      assert «predicates mention latches outside of mlatches»
-        (range_is_subset pred_latches mlatch_start mmax_latch);
+      assert «safety signals mention latches outside of mlatches»
+        (range_is_subset safe_latches mlatch_start mmax_latch);
       assert «constraints mention latches outside of mlatches»
         (range_is_subset cnstrs_latches mlatch_start mmax_latch);
       assert «next literals mention latches outside of mlatches»
@@ -185,10 +185,10 @@ val monad_thms = [oneline bind_def, guard_def]
 
 Theorem process_mlatches_range_return:
   process_mlatches_range
-    maig mreset mnext mpreds mcnstrs mlatch_start mmax_latch mlive wlatches =
+    maig mreset mnext msafes mcnstrs mlatch_start mmax_latch mlive wlatches =
   return (mlatches, klatches) ⇒
   set klatches = set mlatches ∩ set wlatches ∧
-  dep_cond maig mreset mnext mpreds mcnstrs mlive mlatches
+  dep_cond maig mreset mnext msafes mcnstrs mlive mlatches
 Proof
   simp [process_mlatches_range_def, dep_cond_def]
   >> rw monad_thms
@@ -199,18 +199,18 @@ QED
 Definition process_and_check_def:
   process_and_check maiger waiger ms =
   do
-    (maig, mreset, mnext, mpreds, mcnstrs, mlive, mlatch_start, mmax_latch,
-     waig, wreset, wnext, wpreds, wcnstrs, wlive, wlatches, interv) <<-
+    (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatch_start, mmax_latch,
+     waig, wreset, wnext, wsafes, wcnstrs, wlive, wlatches, interv) <<-
       preprocess maiger waiger ms;
     (mlatches, klatches) <-
-      process_mlatches_range maig mreset mnext mpreds mcnstrs
+      process_mlatches_range maig mreset mnext msafes mcnstrs
         mlatch_start mmax_latch mlive wlatches;
     assert «length mismatch in number of liveness properties/signals»
       (LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive wlive);
    assert «witness not stratified» (stratified_cond waig wreset wlatches);
     return
-      (maig, mreset, mnext, mpreds, mcnstrs, mlive, mlatches,
-       waig, wreset, wnext, wpreds, wcnstrs, wlive, wlatches,
+      (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatches,
+       waig, wreset, wnext, wsafes, wcnstrs, wlive, wlatches,
        interv, klatches)
   od
 End
@@ -218,17 +218,17 @@ End
 Theorem process_and_check_return:
   process_and_check maiger waiger ms =
     return
-      (maig, mreset, mnext, mpreds, mcnstrs, mlive, mlatches,
-       waig, wreset, wnext, wpreds, wcnstrs, wlive, wlatches,
+      (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatches,
+       waig, wreset, wnext, wsafes, wcnstrs, wlive, wlatches,
        interv, klatches)
   ∧
   encodings_unsat
-    maig mreset mnext mpreds mcnstrs mlive mlatches
-    waig wreset wnext wpreds wcnstrs wlive wlatches
+    maig mreset mnext msafes mcnstrs mlive mlatches
+    waig wreset wnext wsafes wcnstrs wlive wlatches
     interv klatches
   ⇒
   is_safe
-    maig mreset mnext (set mcnstrs) (set mlatches) (set mpreds) ∧
+    maig mreset mnext (set mcnstrs) (set mlatches) (set msafes) ∧
   is_live
     maig mreset mnext (set mcnstrs) (qleft maig)
     (IMAGE set (set (qleft_live mlive))) (set mlatches)
@@ -283,13 +283,13 @@ End
 
 Definition make_safety_string_def:
   make_safety_string
-    (maig: (num, num, num) aig) mcnstrs mpreds
-    (waig: (num, num, num) aig) wcnstrs wpreds
+    (maig: (num, num, num) aig) mcnstrs msafes
+    (waig: (num, num, num) aig) wcnstrs wsafes
   =
   let
     name = «safety»;
     aig  =
-      encode_safety_cond maig mcnstrs mpreds waig wcnstrs wpreds;
+      encode_safety_cond maig mcnstrs msafes waig wcnstrs wsafes;
     cnf = aig_to_cnf aig (Named (Ext name))
   in
     (name, cnf_to_string cnf)
@@ -297,12 +297,12 @@ End
 
 Definition make_base_string_def:
   make_base_string
-    (waig: (num, num, num) aig) wreset wcnstrs wpreds wlatches
+    (waig: (num, num, num) aig) wreset wcnstrs wsafes wlatches
   =
   let
     name = «base»;
     aig  =
-      encode_base_cond waig wreset wcnstrs wpreds wlatches;
+      encode_base_cond waig wreset wcnstrs wsafes wlatches;
     cnf = aig_to_cnf aig (Named (Ext name))
   in
     (name, cnf_to_string cnf)
@@ -310,12 +310,12 @@ End
 
 Definition make_induction_string_def:
   make_induction_string
-    (waig: (num, num, num) aig) wnext wcnstrs wpreds wlatches
+    (waig: (num, num, num) aig) wnext wcnstrs wsafes wlatches
   =
   let
     name = «induction»;
     aig  =
-      encode_induction_cond waig wnext wcnstrs wpreds wlatches;
+      encode_induction_cond waig wnext wcnstrs wsafes wlatches;
     cnf = aig_to_cnf aig (Named (Ext name))
   in
     (name, cnf_to_string cnf)
@@ -324,14 +324,14 @@ End
 Definition make_liveness_string_def:
   make_liveness_string
     (maig: (num, num, num) aig) mcnstrs mlive
-    (waig: (num, num, num) aig) wnext wcnstrs wpreds wlive wlatches interv
+    (waig: (num, num, num) aig) wnext wcnstrs wsafes wlive wlatches interv
   =
   let
     name = «liveness»;
     aig  =
       encode_liveness_cond
         maig mcnstrs mlive
-        waig wnext wcnstrs wpreds wlive wlatches interv;
+        waig wnext wcnstrs wsafes wlive wlatches interv;
     cnf = aig_to_cnf aig (Named (Ext name))
   in
     (name, cnf_to_string cnf)
@@ -339,13 +339,13 @@ End
 
 Definition make_decrease_string_def:
   make_decrease_string
-    (waig: (num, num, num) aig) wnext wcnstrs wpreds wlive wlatches interv
+    (waig: (num, num, num) aig) wnext wcnstrs wsafes wlive wlatches interv
   =
   let
     name = «decrease»;
     aig  =
       encode_decrease_cond
-        waig wnext wcnstrs wpreds wlive wlatches interv;
+        waig wnext wcnstrs wsafes wlive wlatches interv;
     cnf = aig_to_cnf aig (Named (Ext name))
   in
     (name, cnf_to_string cnf)
@@ -353,13 +353,13 @@ End
 
 Definition make_closure_string_def:
   make_closure_string
-    (waig: (num, num, num) aig) wnext wcnstrs wpreds wlive wlatches interv
+    (waig: (num, num, num) aig) wnext wcnstrs wsafes wlive wlatches interv
   =
   let
     name = «closure»;
     aig  =
       encode_closure_cond
-        waig wnext wcnstrs wpreds wlive wlatches interv;
+        waig wnext wcnstrs wsafes wlive wlatches interv;
     cnf = aig_to_cnf aig (Named (Ext name))
   in
     (name, cnf_to_string cnf)
@@ -367,13 +367,13 @@ End
 
 Definition make_stable_string_def:
   make_stable_string
-    (waig: (num, num, num) aig) wnext wcnstrs wpreds wlive wlatches interv
+    (waig: (num, num, num) aig) wnext wcnstrs wsafes wlive wlatches interv
   =
   let
     name = «stable»;
     aig  =
       encode_stable_cond
-        waig wnext wcnstrs wpreds wlive wlatches interv;
+        waig wnext wcnstrs wsafes wlive wlatches interv;
     cnf = aig_to_cnf aig (Named (Ext name))
   in
     (name, cnf_to_string cnf)

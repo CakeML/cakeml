@@ -191,19 +191,19 @@ End
 Definition is_unsafe_def:
   is_unsafe (aig: ('a, 'i, 'l) aig)
     (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
-    (cnstrs: ('a,'i,'l) lit set) (latches: 'l set) (safe: ('a,'i,'l) lit set)
+    (cnstrs: ('a,'i,'l) lit set) (latches: 'l set) (safes: ('a,'i,'l) lit set)
   =
   ∃(steps: ('i, 'l) steps) (n: num).
     is_trace aig reset next cnstrs latches steps n ∧
-    ¬lits_hold (steps n) aig safe
+    ¬lits_hold (steps n) aig safes
 End
 
 Definition is_safe_def:
   is_safe (aig: ('a, 'i, 'l) aig)
     (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
     (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
-    (safe: ('a,'i,'l) lit set) ⇔
-  ¬is_unsafe aig reset next cnstrs latches safe
+    (safes: ('a,'i,'l) lit set) ⇔
+  ¬is_unsafe aig reset next cnstrs latches safes
 End
 
 (* Liveness *******************************************************************)
@@ -738,10 +738,10 @@ Definition dep_qaig_def:
 End
 
 Theorem is_safe_is_inf_trace_lits_hold:
-  is_safe aig reset next cnstrs latches preds ∧
+  is_safe aig reset next cnstrs latches safes ∧
   is_inf_trace aig reset next cnstrs latches steps
   ⇒
-  ∀n. lits_hold (steps n) aig preds
+  ∀n. lits_hold (steps n) aig safes
 Proof
   rw [is_safe_def, is_unsafe_def, is_inf_trace_eq]
   >> metis_tac []
