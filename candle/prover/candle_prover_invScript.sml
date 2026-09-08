@@ -44,7 +44,8 @@ Theorem safe_exp_simps[simp] =
     “safe_exp (Let opt x y)”,
     “safe_exp (Letrec f x)”,
     “safe_exp (Tannot e t)”,
-    “safe_exp (Lannot e l)”]
+    “safe_exp (Lannot e l)”,
+    “safe_exp (Open path e)”]
   |> map (SIMP_CONV (srw_ss()) [safe_exp_def])
   |> map (SIMP_RULE (srw_ss()) [GSYM safe_exp_def, SF ETA_ss])
   |> LIST_CONJ;
