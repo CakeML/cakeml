@@ -29,3 +29,6 @@ Translation scripts.
 
 [xaigScript.sml](xaigScript.sml):
 An eXtended AIG format for internal use
+
+[xaig_to_cnfScript.sml](xaig_to_cnfScript.sml):
+Mapping eXtended And-Inverter Graphs into CNF
