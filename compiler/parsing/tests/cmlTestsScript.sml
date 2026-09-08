@@ -3,7 +3,7 @@
 *)
 Theory cmlTests
 Ancestors
-  cmlPEG gram cmlPtreeConversion grammar lexer_fun lexer_impl
+  cmlPEG gram cmlPtreeConversion grammar lexer_fun lexer_impl cmlParse
 Libs
   ASCIInumbersLib[qualified] stringSyntax[qualified]
 
@@ -500,6 +500,44 @@ val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "open A"
                   (SOME ``Dopen loc [«A»]``)
 val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "open A.B.C"
                   (SOME ``Dopen loc [«A»; «B»; «C»]``)
+
+(* Compare exact scopes after removing only source-location annotations. *)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE``
+                  "let val x = y open M in x end"
+                  (SOME ``Let (SOME «x») (V «y») (Open [«M»] (V «x»))``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE``
+                  "let open M val x = y in x end"
+                  (SOME ``Open [«M»] (Let (SOME «x») (V «y») (V «x»))``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE``
+                  "let val x = y open M val z = x in z end"
+                  (SOME ``Let (SOME «x») (V «y»)
+                    (Open [«M»] (Let (SOME «z») (V «x») (V «z»)))``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE``
+                  "let open M fun f x = y in f end"
+                  (SOME ``Open [«M»] (Letrec [(«f»,«x»,V «y»)] (V «f»))``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE``
+                  "let open A; open B in x end"
+                  (SOME ``Open [«A»] (Open [«B»] (V «x»))``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE``
+                  "let open A.B in let open C in x end end"
+                  (SOME ``Open [«A»;«B»] (Open [«C»] (V «x»))``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE``
+                  "(let open M in x end, x)"
+                  (SOME ``Con NONE [Open [«M»] (V «x»); V «x»]``)
+
+(* Use the whole-program entry point: successful prefix parsing is not rejection. *)
+fun reject_open_program source = let
+  val source_tm = stringSyntax.lift_string bool source
+  val result = rhs (concl (EVAL ``parse_prog (lexer_fun ^source_tm)``))
+in
+  if same_const (#1 (strip_comb result)) ``Failure`` then ()
+  else raise Fail ("Expected complete-input rejection: " ^ source)
+end
+
+val _ = reject_open_program "open A B"
+val _ = reject_open_program "val x = let open A B in y end"
+val _ = reject_open_program "val x = let open in y end"
+
 val _ = parsetest0 ``nDecl`` ``ptree_Decl``
                   "local structure s = struct val x = 10 end in\n\
                   \structure t = struct val y = s.x + 1 end end"
