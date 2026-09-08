@@ -58,6 +58,15 @@ val _ =
 firstSetML_def |> CONJUNCTS |> (fn l => List.take(l,2)) |> rewrites
                                                         |> (fn ss => augment_srw_ss [ss])
 
+Theorem firstSet_nModPath[simp]:
+  firstSet cmlG (NN nModPath::rest) =
+    {AlphaT s | s ≠ «»} ∪
+    {LongidT path s | path,s | validModPath path ∧ validModName s}
+Proof
+  ntac 2 (simp [Once firstSet_NT, cmlG_applied, cmlG_FDOM]) >>
+  dsimp [Once EXTENSION, EQ_IMP_THM]
+QED
+
 Theorem firstSet_nLetDec[simp]:
   firstSet cmlG [NT (mkNT nLetDec)] = {ValT; FunT; OpenT}
 Proof

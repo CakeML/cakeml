@@ -870,13 +870,19 @@ Definition path_to_mods_def:
 End
 
 Definition ptree_ModPath_def:
-  ptree_ModPath pt =
-    OPTION_MAP (λmn. [mn]) (ptree_StructName pt) ++
-    do
-      tk <- destTOK ' (destLf pt);
-      (path,mn) <- destLongidT tk;
-      return (path_to_mods path ++ [mn])
-    od
+  ptree_ModPath (Lf _) = NONE ∧
+  ptree_ModPath (Nd nm args) =
+    if FST nm ≠ mkNT nModPath then NONE
+    else
+      case args of
+        [pt] =>
+          OPTION_MAP (λmn. [mn]) (ptree_StructName pt) ++
+          do
+            tk <- destTOK ' (destLf pt);
+            (path,mn) <- destLongidT tk;
+            return (path_to_mods path ++ [mn])
+          od
+      | _ => NONE
 End
 
 (* Local declarations scope over the declarations and body to their right. *)
@@ -1314,13 +1320,13 @@ Theorem ptree_Expr_others[compute] =
 
 Theorem ptree_ModPath_StructName:
   ptree_StructName pt = SOME mn ⇒
-  ptree_ModPath pt = SOME [mn]
+  ptree_ModPath (Nd (mkNT nModPath,loc) [pt]) = SOME [mn]
 Proof
   simp [ptree_ModPath_def]
 QED
 
 Theorem ptree_ModPath_LongidT[simp]:
-  ptree_ModPath (Lf (TOK (LongidT p n),locs)) =
+  ptree_ModPath (Nd (mkNT nModPath,loc) [Lf (TOK (LongidT p n),locs)]) =
     SOME (path_to_mods p ++ [n])
 Proof
   simp [ptree_ModPath_def, ptree_StructName_def]
@@ -1329,7 +1335,8 @@ QED
 Theorem ptree_ModPath_nonempty:
   ptree_ModPath pt = SOME path ⇒ path ≠ []
 Proof
-  rw [ptree_ModPath_def] >>
+  Cases_on `pt` >> simp [ptree_ModPath_def] >>
+  rw [AllCaseEqs()] >>
   fs [OPTION_CHOICE_EQUALS_OPTION, optionTheory.OPTION_BIND_def] >>
   gvs [APPEND_eq_NIL]
 QED

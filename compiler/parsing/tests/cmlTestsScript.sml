@@ -500,6 +500,10 @@ val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "open A"
                   (SOME ``Dopen loc [«A»]``)
 val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "open A.B.C"
                   (SOME ``Dopen loc [«A»; «B»; «C»]``)
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "open a.b_2.c'"
+                  (SOME ``Dopen loc [«a»; «b_2»; «c'»]``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "A.+"
+                  (SOME ``Var (Long «A» (Short «+»))``)
 
 (* Compare exact scopes after removing only source-location annotations. *)
 val _ = parsetest0 ``nE`` ``ptree_Expr nE``
@@ -537,6 +541,11 @@ end
 val _ = reject_open_program "open A B"
 val _ = reject_open_program "val x = let open A B in y end"
 val _ = reject_open_program "val x = let open in y end"
+val _ = List.app
+  (fn path => (
+    reject_open_program ("open " ^ path);
+    reject_open_program ("val x = let open " ^ path ^ " in y end")))
+  ["A.+", "A.*", "A.=", "A.end", "end.A", "A.open.B"]
 
 val _ = parsetest0 ``nDecl`` ``ptree_Decl``
                   "local structure s = struct val x = 10 end in\n\

@@ -4,7 +4,7 @@
 *)
 Theory gram
 Ancestors
-  tokens grammar location
+  tokens grammar location lexer_fun[qualified]
 Libs
   grammarLib
 
@@ -82,6 +82,22 @@ End
 
 Definition validPrefixSym_def:
   validPrefixSym s ⇔ s = "~" ∨ "!" ≼ s ∨ "?" ≼ s
+End
+
+(* Qualified identifiers bypass keyword classification in the lexer. Each
+   component of an opened module path must classify as a structure name. *)
+Definition validModName_def:
+  validModName s ⇔ lexer_fun$get_token (explode s) = AlphaT s
+End
+
+Definition validModPath_def:
+  validModPath End = T ∧
+  validModPath (Mod s path) = (validModName s ∧ validModPath path)
+End
+
+Definition isLongModidT_def[simp]:
+  isLongModidT (LongidT path s) = (validModPath path ∧ validModName s) ∧
+  isLongModidT _ = F
 End
 
 Theorem disjneq:
@@ -186,7 +202,7 @@ val cmlG_def = mk_grammar_def ginfo
  FDecl ::= V PbaseList1 "=" E ;
  AndFDecls ::= FDecl | AndFDecls "and" FDecl;
  LetDec ::= "val" Pattern "=" E | "fun" AndFDecls
-          | "open" StructName | "open" <LongidT>;
+          | "open" ModPath;
  LetDecs ::= LetDec LetDecs | ";" LetDecs | ;
 
  (* patterns *)
@@ -210,6 +226,8 @@ val cmlG_def = mk_grammar_def ginfo
 
  (* modules *)
  StructName ::= ^(``{AlphaT s | s ≠ «»}``) ;
+ ModPath ::= StructName
+           | ^(``{LongidT path s | path,s | validModPath path ∧ validModName s}``);
  SpecLine ::= "val" V ":" Type
            |  "type" TypeName OptTypEqn
            |  "exception" Dconstructor
@@ -221,7 +239,7 @@ val cmlG_def = mk_grammar_def ginfo
  Decl ::= "val" Pattern "=" E  | "fun" AndFDecls |  TypeDec
        |  "exception" Dconstructor
        | TypeAbbrevDec | "local" Decls "in" Decls "end" | Structure
-       | "open" StructName | "open" <LongidT>;
+       | "open" ModPath;
  Decls ::= Decl Decls | ";" Decls | ;
  Structure ::= "structure" StructName OptionalSignatureAscription "=" "struct"
                Decls "end";
@@ -236,7 +254,7 @@ Type NT = ``:MMLnonT inf``
 
 Overload mkNT = ``INL : MMLnonT -> NT``
 Overload NN = ``\nt. NT (mkNT nt)``
-Overload TK = ``TOK : token -> (token,MMLnonT)symbol``
+Overload TK = ``TOK : token -> (token,MMLnonT)grammar$symbol``
 
 Type mlptree = ``:(token, MMLnonT, locs) parsetree``
 
