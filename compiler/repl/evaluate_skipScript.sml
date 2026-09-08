@@ -416,6 +416,19 @@ in
   fun the_ind_thm () = ind_thm
 end
 
+Theorem env_rel_one_con_check:
+  env_rel fr ft fe env env1 ⇒
+  one_con_check env1.c = one_con_check env.c
+Proof
+  strip_tac >> simp [FUN_EQ_THM] >>
+  qx_gen_tac `expression` >> Cases_on `expression` >>
+  simp [one_con_check_def] >> irule EQ_SYM >>
+  irule semanticPrimitivesPropsTheory.do_con_check_nsAll2 >>
+  fs [env_rel_def, ctor_rel_def] >>
+  irule nsAll2_mono >> first_assum (irule_at Any) >>
+  simp [FORALL_PROD]
+QED
+
 Theorem env_rel_check_exp_constructors:
   env_rel fr ft fe env env1 ⇒
   check_exp_constructors env1.c = check_exp_constructors env.c
