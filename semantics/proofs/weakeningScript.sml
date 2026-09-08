@@ -330,16 +330,20 @@ QED
 
 Theorem type_p_weakening:
  (!tvs tenv p t bindings. type_p tvs tenv p t bindings ⇒
-    !tenv' tvs'. tvs' ≥ tvs ∧ weak tenv' tenv ⇒ type_p tvs' tenv' p t bindings) ∧
+    !tenv' tvs'.
+      tvs' ≥ tvs ∧ tenv'.t = tenv.t ∧ weak_tenv tenv' tenv ⇒
+      type_p tvs' tenv' p t bindings) ∧
  (!tvs tenv ps ts bindings. type_ps tvs tenv ps ts bindings ⇒
-    !tenv' tvs'. tvs' ≥ tvs ∧ weak tenv' tenv ⇒ type_ps tvs' tenv' ps ts bindings)
+    !tenv' tvs'.
+      tvs' ≥ tvs ∧ tenv'.t = tenv.t ∧ weak_tenv tenv' tenv ⇒
+      type_ps tvs' tenv' ps ts bindings)
 Proof
  ho_match_mp_tac type_p_ind >>
  rw [] >>
  ONCE_REWRITE_TAC [type_p_cases] >>
  rw [] >>
  fs [EVERY_MEM] >>
- metis_tac [weak_def, check_freevars_add, EVERY_MEM, eLookupC_weak]
+ metis_tac [check_freevars_add, EVERY_MEM, eLookupC_weak]
 QED
 
 Theorem type_e_weakening_lem[local]:
