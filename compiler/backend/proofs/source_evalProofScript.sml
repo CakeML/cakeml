@@ -962,6 +962,39 @@ Proof
   fs [env_rel_def]
 QED
 
+Theorem env_rel_nsAll2[local]:
+  env_rel R env env' ⇔
+  env.c = env'.c ∧ nsAll2 (λid. R) env.v env'.v
+Proof
+  rw [env_rel_def, namespaceTheory.nsAll2_def, namespaceTheory.nsSub_def]
+  \\ fs [EXTENSION, namespaceTheory.nsDom_def,
+         namespaceTheory.nsDomMod_def, GSPECIFICATION, EXISTS_PROD]
+  \\ eq_tac
+  \\ rw []
+  >- (Cases_on `nsLookup env'.v id` \\ fs [] \\ res_tac \\ fs [])
+  >- (Cases_on `nsLookupMod env.v path` \\ fs [] \\ res_tac \\ fs [])
+  >- (Cases_on `nsLookup env.v id` \\ fs [] \\ res_tac \\ fs [])
+  >- (Cases_on `nsLookupMod env'.v path` \\ fs [] \\ res_tac \\ fs [])
+  >- (eq_tac \\ rw [] \\ res_tac \\ fs [])
+  >- (Cases_on `nsLookupMod env.v x`
+      \\ Cases_on `nsLookupMod env'.v x`
+      \\ fs [] \\ res_tac \\ fs [])
+  >- (res_tac \\ fs [] \\ rveq \\ fs [])
+QED
+
+Theorem env_rel_open_dec_env[local]:
+  env_rel R env env' ∧
+  open_dec_env path env = SOME opened ⇒
+  ∃opened'.
+    open_dec_env path env' = SOME opened' ∧
+    env_rel R opened opened'
+Proof
+  rw [env_rel_nsAll2, open_dec_env_def]
+  \\ gvs [AllCaseEqs()]
+  \\ drule_then (drule_then strip_assume_tac) nsAll2_after_nsOpen
+  \\ gvs [env_rel_nsAll2, PULL_EXISTS]
+QED
+
 Theorem eval_simulation:
   (! ^s env exps s' res es t env'.
   evaluate s env exps = (s', res) /\
@@ -1014,6 +1047,8 @@ Proof
   \\ rveq \\ fs []
   >~ [`Case ([App _ _])`] >- suspend "App"
   >~ [`Case (Dlet, [Denv _])`] >- suspend "Denv"
+  >~ [`Case ([Open _ _])`] >- suspend "Open"
+  >~ [`Case (_, [Dopen _ _])`] >- suspend "Dopen"
   >~ [`Case ([Con _ _])`] >- suspend "Con"
   >~ [`Case ([Letrec _ _])`] >- suspend "Letrec"
   >~ [`Case ((_, _) :: _)`] >- suspend "match"
@@ -1253,6 +1288,21 @@ Resume eval_simulation[Denv]:
     \\ simp [EL_LUPDATE]
     \\ rw [EL_APPEND_EQN]
   )
+QED
+
+Resume eval_simulation[Open]:
+  namedCases_on `open_dec_env path env` ["", "opened"] >> gvs [] >>
+  drule_all env_rel_open_dec_env >>
+  disch_then (qx_choose_then `opened_t` strip_assume_tac) >> simp [] >>
+  first_x_assum irule >> simp [] >>
+  irule env_rel_extend_dec_env >> simp []
+QED
+
+Resume eval_simulation[Dopen]:
+  rpt disch_tac
+  \\ eval_cases_tac
+  \\ imp_res_tac env_rel_open_dec_env
+  \\ insts_tac
 QED
 
 Resume eval_simulation[Con]:
