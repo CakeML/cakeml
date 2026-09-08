@@ -44,6 +44,7 @@ val tokmap0 =
                 ("o", ``AlphaT «o»``),
                 ("of", ``OfT``),
                 ("op", ``OpT``),
+                ("open", ``OpenT``),
                 ("orelse", ``OrelseT``),
                 ("raise", ``RaiseT``),
                 ("sig", ``SigT``),
@@ -184,7 +185,8 @@ val cmlG_def = mk_grammar_def ginfo
  (* function and value declarations *)
  FDecl ::= V PbaseList1 "=" E ;
  AndFDecls ::= FDecl | AndFDecls "and" FDecl;
- LetDec ::= "val" Pattern "=" E | "fun" AndFDecls ;
+ LetDec ::= "val" Pattern "=" E | "fun" AndFDecls
+          | "open" StructName | "open" <LongidT>;
  LetDecs ::= LetDec LetDecs | ";" LetDecs | ;
 
  (* patterns *)
@@ -218,7 +220,8 @@ val cmlG_def = mk_grammar_def ginfo
  OptionalSignatureAscription ::= ":>" SignatureValue | ;
  Decl ::= "val" Pattern "=" E  | "fun" AndFDecls |  TypeDec
        |  "exception" Dconstructor
-       | TypeAbbrevDec | "local" Decls "in" Decls "end" | Structure;
+       | TypeAbbrevDec | "local" Decls "in" Decls "end" | Structure
+       | "open" StructName | "open" <LongidT>;
  Decls ::= Decl Decls | ";" Decls | ;
  Structure ::= "structure" StructName OptionalSignatureAscription "=" "struct"
                Decls "end";

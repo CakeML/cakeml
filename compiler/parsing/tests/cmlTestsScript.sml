@@ -496,6 +496,10 @@ val _ = parsetest ``nDecl`` ``ptree_Decl``
 val _ = parsetest ``nDecl`` ``ptree_Decl``
                   "structure s :> sig val x : int; end = struct val x = 3 end"
 val _ = parsetest ``nDecl`` ``ptree_Decl`` "val x = 10"
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "open A"
+                  (SOME ``Dopen loc [«A»]``)
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "open A.B.C"
+                  (SOME ``Dopen loc [«A»; «B»; «C»]``)
 val _ = parsetest0 ``nDecl`` ``ptree_Decl``
                   "local structure s = struct val x = 10 end in\n\
                   \structure t = struct val y = s.x + 1 end end"

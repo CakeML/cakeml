@@ -218,6 +218,46 @@ val def =
 
 val res = translate_no_ind def;
 
+(* [Dopen] makes [ptree_ModPath] reachable from declaration conversion.  Its
+   generated translator precondition is only an artifact of the option/path
+   combinators: all source parse trees are in its domain.  Discharge it before
+   proving the mutually recursive declaration precondition below. *)
+Theorem path_to_mods_ind[local]:
+  path_to_mods_ind
+Proof
+  rewrite_tac [fetch "-" "path_to_mods_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac tokensTheory.path_induction
+  \\ rw []
+QED
+
+val _ = update_precondition path_to_mods_ind;
+
+Theorem ptree_modpath_side[local]:
+  ∀x. ptree_modpath_side x
+Proof
+  rw [fetch "-" "ptree_modpath_side_def", path_to_mods_ind]
+QED
+
+val _ = update_precondition ptree_modpath_side;
+
+Theorem ptree_decl_side_total[local]:
+  (∀x. ptree_decl_side x) ∧
+  (∀x. ptree_decls_side x) ∧
+  (∀x. ptree_structure_side x)
+Proof
+  match_mp_tac
+    (cmlPtreeConversionTheory.ptree_Decl_ind
+     |> SIMP_RULE (srw_ss()) [AllCaseEqs(),PULL_EXISTS])
+  \\ rpt conj_tac
+  \\ rpt strip_tac
+  \\ rw [Once (fetch "-" "ptree_decl_side_def"), ptree_modpath_side]
+  \\ gvs [AllCaseEqs()]
+QED
+
+val _ = map update_precondition (CONJUNCTS ptree_decl_side_total);
+
 Theorem ind_lemma[local]:
   ptree_decl_ind
 Proof

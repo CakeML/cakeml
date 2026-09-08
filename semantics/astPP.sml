@@ -70,6 +70,17 @@ fun dmodnonePrint sys d t pg str brk blk =
 
 val _ = add_astPP ("dmodnoneprint", ``Dmod x xs``,genPrint dmodnonePrint);
 
+fun dopenPrint sys d t pg str brk blk =
+  let
+    val (_,[locs,path]) = strip_comb t
+    val modules = #1 (listSyntax.dest_list path)
+    val printPath = printTuple "." (str o toString) str
+  in
+    add_newline >> str "open " >> printPath modules >> str ";"
+  end;
+
+val _ = add_astPP ("dopenprint", ``Dopen locs path``,genPrint dopenPrint);
+
 (*Dmod some
 fun dmodsomePrint sys d t pg str brk blk =
   let val (_,[name,opt,decs]) = strip_comb t

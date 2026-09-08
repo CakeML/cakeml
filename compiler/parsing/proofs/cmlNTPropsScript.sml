@@ -93,20 +93,22 @@ QED
 
 Theorem firstSet_nDecl[simp]:
   firstSet cmlG [NT (mkNT nDecl)] =
-  {ValT; FunT; DatatypeT;ExceptionT;TypeT;LocalT;StructureT}
+  {ValT; FunT; DatatypeT;ExceptionT;TypeT;LocalT;OpenT;StructureT}
 Proof
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied,
-       INSERT_UNION_EQ]
+       INSERT_UNION_EQ] >>
+  dsimp[Once EXTENSION] >> gen_tac >> eq_tac >> rw[] >> simp[]
 QED
 
 Theorem firstSet_nDecls[simp]:
   firstSet cmlG [NN nDecls] =
-  {ValT; DatatypeT; FunT; SemicolonT; ExceptionT; TypeT; LocalT;StructureT}
+  {ValT; DatatypeT; FunT; SemicolonT; ExceptionT; TypeT; LocalT;OpenT;StructureT}
 Proof
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   ONCE_REWRITE_TAC [firstSetML_def] >>
-  simp[cmlG_applied, cmlG_FDOM, INSERT_UNION_EQ, INSERT_COMM]
+  simp[cmlG_applied, cmlG_FDOM, INSERT_UNION_EQ, INSERT_COMM] >>
+  dsimp[Once EXTENSION] >> gen_tac >> eq_tac >> rw[] >> simp[]
 QED
 
 Theorem IMAGE_GSPEC1[local]:
@@ -505,23 +507,24 @@ QED
 Theorem firstSet_nTopLevelDecs[simp]:
   firstSet cmlG [NN nTopLevelDecs] =
   {ValT; FunT; SemicolonT; DatatypeT; StructureT; ExceptionT; TypeT;
-   LocalT} ∪
+   LocalT; OpenT} ∪
            firstSet cmlG [NT (mkNT nE)]
 Proof
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   ONCE_REWRITE_TAC [firstSet_NT] >> simp[cmlG_applied, cmlG_FDOM] >>
   simp[INSERT_UNION_EQ, INSERT_COMM] >>
-  simp[EXTENSION, EQ_IMP_THM] >> rpt strip_tac >> rveq >> simp[]
+  dsimp[Once EXTENSION] >> gen_tac >> eq_tac >> rw[] >> simp[]
 QED
 
 Theorem firstSet_nNonETopLevelDecs[simp]:
   firstSet cmlG [NN nNonETopLevelDecs] =
   {ValT; FunT; SemicolonT; DatatypeT; StructureT; ExceptionT; TypeT;
-   LocalT}
+   LocalT; OpenT}
 Proof
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
-  simp[INSERT_COMM, INSERT_UNION_EQ]
+  simp[INSERT_COMM, INSERT_UNION_EQ] >>
+  dsimp[Once EXTENSION] >> gen_tac >> eq_tac >> rw[] >> simp[]
 QED
 
 Theorem firstSet_nEseq[simp]:
@@ -540,6 +543,7 @@ Theorem NOTIN_firstSet_nE[simp]:
   SemicolonT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
   RparT ∉ firstSet cmlG (NN nE :: rest) ∧
   RbrackT ∉ firstSet cmlG (NN nE :: rest) ∧
+  OpenT ∉ firstSet cmlG (NN nE :: rest) ∧
   TypeT ∉ firstSet cmlG (NN nE :: rest)
 Proof
   simp[firstSet_nE, firstSet_nFQV] >>
@@ -732,6 +736,7 @@ Theorem NOTIN_firstSet_nV[simp]:
   DatatypeT ∉ firstSet cmlG [NN nV] ∧
   TypeT ∉ firstSet cmlG [NN nV] ∧
   SemicolonT ∉ firstSet cmlG [NN nV] ∧ ColonT ∉ firstSet cmlG [NN nV] ∧
+  OpenT ∉ firstSet cmlG [NN nV] ∧
   StructureT ∉ firstSet cmlG [NN nV] ∧ WordT w ∉ firstSet cmlG [NN nV] ∧
   SymbolT «::» ∉ firstSet cmlG [NN nV] ∧
   HandleT ∉ firstSet cmlG [NN nV]
@@ -763,6 +768,7 @@ Theorem NOTIN_firstSet_nFQV[simp]:
   LocalT ∉ firstSet cmlG [NN nFQV] ∧
   LparT ∉ firstSet cmlG [NN nFQV] ∧
   OfT ∉ firstSet cmlG [NN nFQV] ∧
+  OpenT ∉ firstSet cmlG [NN nFQV] ∧
   OpT ∉ firstSet cmlG [NN nFQV] ∧
   RaiseT ∉ firstSet cmlG [NN nFQV] ∧
   RbrackT ∉ firstSet cmlG [NN nFQV] ∧
@@ -804,6 +810,7 @@ Theorem NOTIN_firstSet_nConstructorName[simp]:
   LocalT ∉ firstSet cmlG [NN nConstructorName] ∧
   LparT ∉ firstSet cmlG [NN nConstructorName] ∧
   OfT ∉ firstSet cmlG [NN nConstructorName] ∧
+  OpenT ∉ firstSet cmlG [NN nConstructorName] ∧
   OpT ∉ firstSet cmlG [NN nConstructorName] ∧
   RaiseT ∉ firstSet cmlG [NN nConstructorName] ∧
   RbrackT ∉ firstSet cmlG [NN nConstructorName] ∧

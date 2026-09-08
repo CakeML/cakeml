@@ -453,7 +453,10 @@ Definition cmlPEG_def[nocompute]:
               (mkNT nLetDec,
                choicel [seql [tokeq ValT; pnt nPattern; tokeq EqualsT; pnt nE]
                              (bindNT nLetDec);
-                        seql [tokeq FunT; pnt nAndFDecls] (bindNT nLetDec)]);
+                        seql [tokeq FunT; pnt nAndFDecls] (bindNT nLetDec);
+                        seql [tokeq OpenT;
+                              choicel [pnt nStructName; tok isLongidT mktokLf]]
+                             (bindNT nLetDec)]);
               (mkNT nLetDecs,
                choicel [seql [pnt nLetDec; pnt nLetDecs] (bindNT nLetDecs);
                         seql [tokeq SemicolonT; pnt nLetDecs] (bindNT nLetDecs);
@@ -468,6 +471,9 @@ Definition cmlPEG_def[nocompute]:
                        tokeq EndT] (bindNT nDecl);
                  seql [pnt nTypeDec] (bindNT nDecl);
                  seql [pnt nTypeAbbrevDec] (bindNT nDecl);
+                 seql [tokeq OpenT;
+                       choicel [pnt nStructName; tok isLongidT mktokLf]]
+                      (bindNT nDecl);
                  seql [pnt nStructure] (bindNT nDecl);
                ]);
               (mkNT nTypeAbbrevDec,

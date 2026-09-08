@@ -790,7 +790,10 @@ Proof
       >- (rename [‘ptree_head pt = NN nStructure’] >>
           first_x_assum $ drule_then strip_assume_tac >> simp[] >>
           qmatch_abbrev_tac ‘∃d. foo ++ SOME x = SOME d’ >>
-          Cases_on ‘foo’ >> simp[]))
+          Cases_on ‘foo’ >> simp[])
+      >- (drule_then (first_assum o mp_then Any mp_tac) StructName_OK >>
+          dsimp[] >> rw[] >>
+          metis_tac[ptree_ModPath_StructName]))
   >- (rename [‘ptree_Decls (Nd pt loc) = SOME _’] >>
       Cases_on ‘pt’ >> fs[] >> rveq >>
       fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >>

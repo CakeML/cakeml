@@ -758,7 +758,7 @@ Definition stoppers_def:
   (stoppers nDecls =
      nestoppers DIFF
      ({BarT; StarT; AndT; SemicolonT; FunT; ValT; DatatypeT; OfT; ExceptionT;
-       TypeT; LocalT; StructureT} ∪ {TyvarT s | T})) ∧
+       TypeT; LocalT; OpenT; StructureT} ∪ {TyvarT s | T})) ∧
   (stoppers nDType = UNIV DIFF firstSet cmlG [NN nTyOp]) ∧
   (stoppers nDtypeCons =
      UNIV DIFF ({ArrowT; BarT; StarT; OfT; LparT} ∪ firstSet cmlG [NN nTyOp] ∪
@@ -3503,15 +3503,34 @@ Proof
           simp[seql_cons_SOME, PULL_EXISTS] >> loseRK >> SKTAC >>
           normlist >> first_assum $ irule_at Any >>
           simp[stoppers_def, nestoppers_def] >>
-          first_x_assum $ irule_at Any >> gvs[stoppers_def, nestoppers_def]) >>
-      rename [‘ptree_head spt = NN nStructure’] >>
-      drule_all
-        (MATCH_MP rfringe_length_not_nullable nullable_Structure) >>
-      simp[] >> Cases_on ‘pfx’ >> gvs[PAIR_MAP] >>
-      drule_all rfirstSet_nonempty_fringe >> simp[PULL_EXISTS] >> rw[] >>
-      gvs[] >>
-      simp[choicel_cons, seql_cons, peg_eval_tok, peg_respects_firstSets_rwt] >>
-      dsimp[] >> first_x_assum irule >> simp[NT_rank_def, stoppers_def])
+          first_x_assum $ irule_at Any >> gvs[stoppers_def, nestoppers_def]) >~
+      [‘ptree_head spt = NN nStructure’]
+      >- (drule_all
+            (MATCH_MP rfringe_length_not_nullable nullable_Structure) >>
+          simp[] >> Cases_on ‘pfx’ >> gvs[PAIR_MAP] >>
+          drule_all rfirstSet_nonempty_fringe >> simp[PULL_EXISTS] >> rw[] >>
+          gvs[] >>
+          simp[choicel_cons, seql_cons, peg_eval_tok,
+               peg_respects_firstSets_rwt] >>
+          dsimp[] >> first_x_assum irule >>
+          simp[NT_rank_def, stoppers_def]) >~
+      [‘ptree_head opt = NN nStructName’]
+      >- (ntac 6
+            (dsimp[Once choicel_cons] >>
+             simp[seql_cons, peg_eval_tok, peg_respects_firstSets_rwt]) >>
+          dsimp[Once choicel_cons] >> disj1_tac >>
+          simp[seql_cons_SOME, PULL_EXISTS] >>
+          dsimp[Once choicel_cons] >> disj1_tac >>
+          first_x_assum irule >> simp[NT_rank_def, stoppers_def]) >>
+      ntac 6
+        (dsimp[Once choicel_cons] >>
+         simp[seql_cons, peg_eval_tok, peg_respects_firstSets_rwt]) >>
+      dsimp[Once choicel_cons] >> disj1_tac >>
+      simp[seql_cons_SOME, PULL_EXISTS] >>
+      dsimp[Once choicel_cons] >> disj2_tac >>
+      simp[peg_eval_tok, peg_respects_firstSets_rwt, peg_eval_NT_NONE,
+           cmlpeg_rules_applied, FDOM_cmlPEG, peg_StructName_def,
+           peg_eval_tok_NONE, choicel_cons])
   >- (print_tac "nDconstructor" >> stdstart >>
       rename [‘ptree_head upt = NN nUQConstructorName’,
               ‘real_fringe upt = MAP _ upf’,

@@ -696,6 +696,10 @@ Proof
             by simp[NT_rank_def] >>
           first_x_assum (erule strip_assume_tac) >>
           dsimp[cmlG_FDOM, cmlG_applied])
+      >- (`LENGTH i1 < SUC (LENGTH i1)` by decide_tac >>
+          first_assum (drule_all_then strip_assume_tac) >>
+          simp[])
+      >- (rename [`isLongidT h`] >> Cases_on `h` >> fs[])
       >- (‘NT_rank (mkNT nStructure) < NT_rank (mkNT nDecl)’
             by simp[NT_rank_def] >>
           first_x_assum $ drule_all_then strip_assume_tac >>

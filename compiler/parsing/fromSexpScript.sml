@@ -1088,6 +1088,9 @@ Definition sexpdec_def:
                            (odestSEXSTR (EL 2 args)) <*>
                            (sexptype (EL 3 args)))
                             ++
+      guard (nm = "Dopen" ∧ LENGTH args = 2)
+            (lift2 Dopen (sexplocn (EL 0 args))
+                         (sexplist odestSEXSTR (EL 1 args))) ++
       guard (nm = "Denv" ∧ LENGTH args = 1)
             (lift Denv (odestSEXSTR (EL 0 args))) ++
       guard (nm = "Dexn" ∧ LENGTH args = 3)
@@ -1127,6 +1130,9 @@ Definition sexpdec_alt_def:
                            (sexplist odestSEXSTR (EL 1 args)) <*>
                            (odestSEXSTR (EL 2 args)) <*>
                            (sexptype_alt (EL 3 args))) else
+      if nm = "Dopen" ∧ LENGTH args = 2 then
+            (lift2 Dopen (sexplocn (EL 0 args))
+                         (sexplist odestSEXSTR (EL 1 args))) else
       if nm = "Denv" ∧ LENGTH args = 1 then
             (lift Denv (odestSEXSTR (EL 0 args))) else
       if nm = "Dexn" ∧ LENGTH args = 3 then
@@ -1758,6 +1764,9 @@ Definition decsexp_def:
             funs)] ∧
   decsexp (Dtype locs td) = ⟪SX_SYM "Dtype"; locssexp locs; type_defsexp td⟫ ∧
   decsexp (Dtabbrev locs ns x t) = ⟪SX_SYM "Dtabbrev"; locssexp locs; listsexp (MAP (SEXSTR ∘ explode) ns); SEXSTR (explode x); typesexp t⟫ ∧
+  decsexp (Dopen locs path) =
+    ⟪SX_SYM "Dopen"; locssexp locs;
+      listsexp (MAP (SEXSTR ∘ explode) path)⟫ ∧
   decsexp (Denv name) = ⟪SX_SYM "Denv"; SEXSTR (explode name)⟫ ∧
   decsexp (Dexn locs x ts) =
     ⟪SX_SYM "Dexn"; locssexp locs; SEXSTR (explode x); listsexp (MAP typesexp ts)⟫ ∧
@@ -2123,7 +2132,7 @@ Proof
   \\ rw[Once sexpdec_def]
   \\ pairarg_tac \\ gvs[dstrip_sexp_SOME]
   \\ rename1 `guard (nm = _ ∧ _) _`
-  \\ Cases_on `nm ∈ {"Dlet"; "Dletrec"; "Dtype"; "Dtabbrev"; "Denv"; "Dexn"; "Dmod"}`
+  \\ Cases_on `nm ∈ {"Dlet"; "Dletrec"; "Dtype"; "Dtabbrev"; "Dopen"; "Denv"; "Dexn"; "Dmod"}`
   \\ fs[]
   \\ fs[decsexp_def, LENGTH_EQ_NUM_compute]
   \\ gvs[OPTION_APPLY_MAP3,OPTION_APPLY_MAP4,decsexp_def,expsexp_sexpexp,
