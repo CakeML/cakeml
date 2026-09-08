@@ -401,6 +401,7 @@ Definition source_to_display_dec_def:
                                    Tuple (source_to_display_dec_list ds)]
   | Dlocal xs ys => Item NONE «Dlocal» [Tuple (source_to_display_dec_list xs);
                                         Tuple (source_to_display_dec_list ys)]
+  | Dopen _ path => Item NONE «Dopen» [Tuple (MAP String path)]
   | Denv n => Item NONE «Denv» [String n])  ∧
   (source_to_display_dec_list [] = []) ∧
   (source_to_display_dec_list (x::xs) =

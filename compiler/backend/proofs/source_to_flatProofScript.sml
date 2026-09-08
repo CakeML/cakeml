@@ -179,6 +179,118 @@ Definition genv_c_tys_ok_def:
       MEM (cn, arity) ctors
 End
 
+(* Visibility follows the compilation map, not every physical local binding.
+   Qualified names cannot refer to physical locals. *)
+Definition lookup_var_rel_def:
+  lookup_var_rel R globals locals id value name ⇔
+    case name of
+    | Glob t n =>
+        n < LENGTH globals ∧
+        ∃value'. EL n globals = SOME value' ∧ R value value'
+    | Local t n =>
+        id = Short n ∧
+        ∃value'. ALOOKUP locals n = SOME value' ∧ R value value'
+End
+
+Definition lookup_env_rel_def:
+  lookup_env_rel R (genv:global_env) (comp_map:source_to_flat$environment)
+      (env:semanticPrimitives$v sem_env) locals ⇔
+    nsAll2 (lookup_var_rel R genv.v locals) env.v comp_map.v ∧
+    nsAll2 (λid (arity,stamp) (cn,ty_gp).
+      FLOOKUP genv.c ((cn, OPTION_MAP FST ty_gp), arity) = SOME stamp ∧
+      ∀ty_id ctors. ty_gp = SOME (ty_id,ctors) ⇒
+        FLOOKUP genv.tys ty_id = SOME ctors) env.c comp_map.c
+End
+
+Theorem lookup_var_rel_mono[local]:
+  (∀value value'. R1 value value' ⇒ R2 value value') ⇒
+  lookup_var_rel R1 globals locals id value name ⇒
+  lookup_var_rel R2 globals locals id value name
+Proof
+  Cases_on `name` >> rw [lookup_var_rel_def] >> metis_tac []
+QED
+
+Theorem lookup_env_rel_mono[mono]:
+  (∀value value'. R1 value value' ⇒ R2 value value') ⇒
+  lookup_env_rel R1 genv comp_map env locals ⇒
+  lookup_env_rel R2 genv comp_map env locals
+Proof
+  rw [lookup_env_rel_def] >>
+  irule nsAll2_mono >> goal_assum (drule_at Any) >>
+  metis_tac [lookup_var_rel_mono]
+QED
+
+Theorem lookup_env_rel_open[local]:
+  lookup_env_rel R genv comp_map env locals ∧
+  open_dec_env path env = SOME opened ⇒
+  ∃opened_map.
+    open_compile_env path comp_map = SOME opened_map ∧
+    lookup_env_rel R genv opened_map opened locals
+Proof
+  rw [lookup_env_rel_def, open_dec_env_def] >>
+  gvs [AllCaseEqs()] >>
+  drule_all nsAll2_after_nsOpen >>
+  disch_then (qx_choose_then `opened_map_c` strip_assume_tac) >>
+  qpat_x_assum `nsAll2 _ env.c comp_map.c` kall_tac >>
+  drule_all nsAll2_after_nsOpen >>
+  disch_then (qx_choose_then `opened_map_v` strip_assume_tac) >>
+  qexists_tac `<|v := opened_map_v; c := opened_map_c|>` >>
+  simp [open_compile_env_def] >>
+  fs [] >> irule nsAll2_mono >> goal_assum (drule_at Any) >>
+  rpt strip_tac >>
+  rename1 `lookup_var_rel _ _ _ id value name` >>
+  Cases_on `path` >> gvs [namespaceTheory.nsOpen_def] >>
+  Cases_on `name` >>
+  gvs [lookup_var_rel_def, namespaceTheory.mk_id_def]
+QED
+
+Theorem lookup_env_rel_extend[local]:
+  lookup_env_rel R genv map1 env1 locals ∧
+  lookup_env_rel R genv map2 env2 locals ⇒
+  lookup_env_rel R genv (extend_env map1 map2)
+    (extend_dec_env env1 env2) locals
+Proof
+  rw [lookup_env_rel_def, extend_env_def, extend_dec_env_def] >>
+  irule nsAll2_nsAppend >> simp []
+QED
+
+Theorem lookup_env_rel_bind[local]:
+  lookup_env_rel R genv comp_map env locals ∧ R value value' ⇒
+  lookup_env_rel R genv
+    (comp_map with v := nsBind name (Local trace name) comp_map.v)
+    (env with v := nsBind name value env.v) ((name,value')::locals)
+Proof
+  rw [lookup_env_rel_def] >>
+  rw [namespaceTheory.nsAll2_def, namespaceTheory.nsSub_def]
+  >- (
+    Cases_on `id = Short name` >> gvs []
+    >- simp [lookup_var_rel_def] >>
+    drule_all nsAll2_nsLookup1 >>
+    disch_then (qx_choose_then `compiled_name` strip_assume_tac) >>
+    qexists_tac `compiled_name` >> simp [] >>
+    Cases_on `compiled_name` >> gvs [lookup_var_rel_def])
+  >- (
+    fs [namespaceTheory.nsAll2_def, namespaceTheory.nsSub_def] >>
+    qpat_x_assum `∀p. nsLookupMod comp_map.v p = NONE ⇒ _`
+      (qspec_then `path` mp_tac) >>
+    Cases_on `path` >> Cases_on `env.v` >> Cases_on `comp_map.v` >>
+    gvs [namespaceTheory.nsBind_def, namespaceTheory.nsLookupMod_def])
+  >- (
+    rename1 `nsLookup _ id = SOME compiled_name` >>
+    Cases_on `id = Short name` >> gvs []
+    >- simp [lookup_var_rel_def] >>
+    drule_all nsAll2_nsLookup2 >>
+    disch_then (qx_choose_then `source_value` strip_assume_tac) >>
+    qexists_tac `source_value` >> simp [] >>
+    Cases_on `compiled_name` >> gvs [lookup_var_rel_def])
+  >- (
+    fs [namespaceTheory.nsAll2_def, namespaceTheory.nsSub_def] >>
+    qpat_x_assum `∀p. nsLookupMod env.v p = NONE ⇒ _`
+      (qspec_then `path` mp_tac) >>
+    Cases_on `path` >> Cases_on `env.v` >> Cases_on `comp_map.v` >>
+    gvs [namespaceTheory.nsBind_def, namespaceTheory.nsLookupMod_def])
+QED
+
 Inductive v_rel:
   (!genv lit.
     v_rel genv ((Litv lit):semanticPrimitives$v) ((Litv lit):flatSem$v)) ∧
@@ -191,33 +303,30 @@ Inductive v_rel:
     LIST_REL (v_rel genv) vs vs'
     ⇒
     v_rel genv (Conv NONE vs) (Conv NONE vs')) ∧
-  (!genv comp_map env env_v_local x e env_v_local' t ts.
-    env_rel genv env_v_local env_v_local'.v ∧
-    global_env_inv genv comp_map (set (MAP FST env_v_local'.v)) env ∧
-    LENGTH ts = LENGTH env_v_local'.v + 1
+  (!genv comp_map env x e flat_env t arg_trace.
+    lookup_env_rel (v_rel genv) genv comp_map env flat_env.v
     ⇒
     v_rel genv
-      (Closure (env with v := nsAppend env_v_local env.v) x e)
-      (Closure env_v_local' x
+      (Closure env x e)
+      (Closure flat_env x
         (compile_exp t
-          (comp_map with v := bind_locals ts (x::MAP FST env_v_local'.v) comp_map.v)
+          (comp_map with v := nsBind x (Local arg_trace x) comp_map.v)
           e))) ∧
   (* For expression level let recs *)
-  (!genv comp_map env env_v_local funs x env_v_local' t ts.
-    env_rel genv env_v_local env_v_local'.v ∧
-    global_env_inv genv comp_map (set (MAP FST env_v_local'.v)) env ∧
-    LENGTH ts = LENGTH funs + LENGTH env_v_local'.v
+  (!genv comp_map env funs x flat_env t ts.
+    lookup_env_rel (v_rel genv) genv comp_map env flat_env.v ∧
+    LENGTH ts = LENGTH funs
     ⇒
     v_rel genv
-      (Recclosure (env with v := nsAppend env_v_local env.v) funs x)
-      (Recclosure env_v_local'
+      (Recclosure env funs x)
+      (Recclosure flat_env
         (compile_funs t
-          (comp_map with v := bind_locals ts (MAP FST funs++MAP FST env_v_local'.v) comp_map.v) funs)
+          (comp_map with v := bind_locals ts (MAP FST funs) comp_map.v) funs)
           x)) ∧
   (* For top-level let recs *)
   (!genv comp_map env funs flat_env x y e new_vars t1 t2.
     MAP FST new_vars = MAP FST (REVERSE funs) ∧
-    global_env_inv genv comp_map {} env ∧
+    lookup_env_rel (v_rel genv) genv comp_map env [] ∧
     flat_env.v = [] ∧
     find_recfun x funs = SOME (y, e) ∧
     (* A syntactic way of relating the recursive function environment, rather
@@ -1976,6 +2085,76 @@ Definition env_domain_eq_def:
     nsDomMod var_map.c = nsDomMod env.c
 End
 
+Theorem nsDomMod_eq_lookup_none[local]:
+  nsDomMod env1 = nsDomMod env2 ⇒
+  ∀path. nsLookupMod env1 path = NONE ⇔ nsLookupMod env2 path = NONE
+Proof
+  rw [namespaceTheory.nsDomMod_def, EXTENSION, GSPECIFICATION,
+      EXISTS_PROD] >>
+  metis_tac [option_nchotomy, NOT_SOME_NONE]
+QED
+
+Theorem nsOpen_domain_eq[local]:
+  nsDom env1 = nsDom env2 ∧
+  nsDomMod env1 = nsDomMod env2 ∧
+  nsOpen path env1 = SOME opened1 ∧
+  nsOpen path env2 = SOME opened2 ⇒
+  nsDom opened1 = nsDom opened2 ∧
+  nsDomMod opened1 = nsDomMod opened2
+Proof
+  rw [namespaceTheory.nsDom_def, namespaceTheory.nsDomMod_def,
+      EXTENSION, GSPECIFICATION, EXISTS_PROD] >>
+  metis_tac [nsLookup_after_nsOpen, nsLookupMod_after_nsOpen,
+             option_nchotomy, NOT_SOME_NONE]
+QED
+
+Theorem open_env_invs[local]:
+  env_domain_eq comp_map env ∧
+  global_env_inv genv comp_map {} env ∧
+  open_dec_env path env = SOME opened ⇒
+  ∃opened_map.
+    open_compile_env path comp_map = SOME opened_map ∧
+    env_domain_eq opened_map opened ∧
+    global_env_inv genv opened_map {} opened
+Proof
+  rw [env_domain_eq_def, open_dec_env_def, open_compile_env_def,
+      AllCaseEqs()] >>
+  `∃opened_v. nsOpen path comp_map.v = SOME opened_v` by
+    metis_tac [nsOpen_some_from_same_mod_domain,
+               nsDomMod_eq_lookup_none] >>
+  `∃opened_c. nsOpen path comp_map.c = SOME opened_c` by
+    metis_tac [nsOpen_some_from_same_mod_domain,
+               nsDomMod_eq_lookup_none] >>
+  qexists_tac `<|v := opened_v; c := opened_c|>` >>
+  simp [] >>
+  rpt conj_tac
+  >- metis_tac [nsOpen_domain_eq]
+  >- metis_tac [nsOpen_domain_eq]
+  >- metis_tac [nsOpen_domain_eq]
+  >- metis_tac [nsOpen_domain_eq]
+  >- (
+    fs [v_rel_global_eqn] >>
+    rw []
+    >- (
+      qpat_x_assum `∀x v. nsLookup env.v x = SOME v ⇒ _`
+        (qspecl_then
+          [`mk_id (path ++ id_to_mods x) (id_to_n x)`, `v`] mp_tac) >>
+      impl_tac >- metis_tac [nsLookup_after_nsOpen] >>
+      rw [] >>
+      qexistsl_tac [`n`, `v'`, `t`] >>
+      metis_tac [nsLookup_after_nsOpen])
+    >- (
+      qpat_x_assum
+        `∀x arity stamp. nsLookup env.c x = SOME (arity,stamp) ⇒ _`
+        (qspecl_then
+          [`mk_id (path ++ id_to_mods x) (id_to_n x)`, `arity`, `stamp`]
+          mp_tac) >>
+      impl_tac >- metis_tac [nsLookup_after_nsOpen] >>
+      rw [] >>
+      qexistsl_tac [`cn`, `ty_gp`] >>
+      metis_tac [nsLookup_after_nsOpen]))
+QED
+
 Theorem env_domain_eq_append[local]:
   env_domain_eq env1 env1' ∧
    env_domain_eq env2 env2'
@@ -2205,7 +2384,8 @@ Definition src_orac_env_invs_def:
         ?comp_map_gen comp_map.
         lookup g_id c.envs.env_gens = SOME comp_map_gen /\
         lookup id comp_map_gen = SOME comp_map /\
-        global_env_inv genv comp_map {} (EL id (EL g_id s.envs))
+        global_env_inv genv comp_map {} (EL id (EL g_id s.envs)) /\
+        env_domain_eq comp_map (EL id (EL g_id s.envs))
     ))
     | _ => F
   )
@@ -3154,7 +3334,8 @@ Theorem src_orac_env_invs_lookup_env:
   (THE interp) st_v = SOME (c, x) /\
   lookup (FST env_id) c.envs.env_gens = SOME gen /\
   lookup (SND env_id) gen = SOME comp_map /\
-  global_env_inv genv comp_map {} env
+  global_env_inv genv comp_map {} env /\
+  env_domain_eq comp_map env
 Proof
   PairCases_on `env_id`
   \\ rw [lookup_env_def, case_eq_thms]
@@ -3228,6 +3409,7 @@ Theorem do_eval:
     <|next := 0; generation := c.envs.next; envs := LN|> decs in
     env_gen_future_rel interp gen eval_state) /\
   global_env_inv genv' (lookup_env_id env_id c.envs) ∅ env /\
+  env_domain_eq (lookup_env_id env_id c.envs) env /\
   src_orac_next_cfg interp eval_state = SOME c' /\
   idx_prev end_idx c'.next /\
   genv.c ⊑ genv'.c /\
@@ -3390,6 +3572,11 @@ Proof
     \\ simp [lookup_env_id_def]
     \\ drule_then irule global_env_inv_weak
     \\ simp []
+  )
+  >- (
+    drule_then drule src_orac_env_invs_lookup_env
+    \\ rw []
+    \\ simp [lookup_env_id_def]
   )
   >- (
     fs [idx_range_rel_def]
@@ -3798,6 +3985,7 @@ Theorem compile_correct:
     source_to_flat$compile_decs path t idx comp_map gen ds =
         (t', idx', comp_map', gen', ds_i1) ∧
     global_env_inv genv comp_map {} env ∧
+    env_domain_eq comp_map env ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
     env_gen_rel gen s.eval_state ∧
     env_gen_future_rel interp gen' s.eval_state ∧
@@ -3854,6 +4042,7 @@ Proof
   >~ [‘Case [Dtabbrev _ _ _ _]’] >- suspend "Dtabbrev"
   >~ [‘Case [Denv _]’] >- suspend "Denv"
   >~ [‘Case [Dexn _ _ _]’] >- suspend "Dexn"
+  >~ [‘Case [Dopen _ _]’] >- suspend "Dopen"
   >~ [‘Case [Dmod _ _]’] >- suspend "Dmod"
   >~ [‘Case [Dlocal _ _]’] >- suspend "Dlocal"
   \\ TRY (
@@ -4059,7 +4248,7 @@ Theorem declare_env_store_env_id:
       | NONE => F
       | SOME gen' => (case lookup id gen' of
         | NONE => F
-        | SOME e => global_env_inv genv e {} env)))
+        | SOME e => global_env_inv genv e {} env /\ env_domain_eq e env)))
   ==>
   ?y.
   evaluate_decs s_i1 [store_env_id gen_id id] =
@@ -4254,10 +4443,16 @@ Resume compile_correct[App]:
       \\ fs []
       \\ first_x_assum (qsubterm_then `lookup _ _.envs.env_gens` mp_tac)
       \\ rw []
-      \\ irule global_env_inv_append
-      \\ simp []
-      \\ drule_then irule global_env_inv_weak
-      \\ fsrw_tac [SATISFY_ss] trans_thms
+      >- (
+        irule global_env_inv_append
+        \\ simp []
+        \\ drule_then irule global_env_inv_weak
+        \\ fsrw_tac [SATISFY_ss] trans_thms
+      )
+      >- (
+        irule env_domain_eq_append
+        \\ simp []
+      )
     )
     \\ rw []
     \\ simp [store_lookup_def]
@@ -4299,7 +4494,14 @@ Resume compile_correct[App]:
       simp []
     ) >>
     fs [Q.ISPEC `(a, b)` EQ_SYM_EQ] >>
-    first_x_assum (drule_then (drule_then drule)) >>
+    qpat_x_assum
+      `∀genv2 comp_map2 env_i12 s_i12 locals2 t2 ts2 gen2 idxs2.
+        invariant interp g gen2 genv2 idxs2 (dec_clock st') s_i12 ∧
+        env_all_rel genv2 comp_map2 env' env_i12 locals2 ∧
+        LENGTH ts2 = LENGTH locals2 ∧
+        env_gen_rel gen2 (dec_clock st').eval_state ⇒ _`
+      mp_tac >>
+    disch_then (drule_then (drule_then drule)) >>
     simp [dec_clock_def] >>
     disch_then (qsubterm_then `evaluate _ _ _` mp_tac) >>
     rw [] >>
@@ -4362,7 +4564,10 @@ Resume compile_correct[App]:
       gvs[store_lookup_def, s_rel_cases, LIST_REL_EL_EQN] >>
       `∃v'. EL n (TL s'_i1.refs) = Thunk NotEvaluated v' ∧
              v_rel genv' v v'` by (
-        first_x_assum (qspec_then`n` mp_tac) >>
+        qpat_x_assum
+          `∀n'. n' < LENGTH s'_i1.refs - 1 ⇒
+            sv_rel genv' (EL n' st'.refs) (EL n' (TL s'_i1.refs))`
+          (qspec_then `n` mp_tac) >>
         gvs[] >> rw[Once sv_rel_cases]) >>
       simp[REWRITE_RULE [ADD1] EL, Once result_rel_cases, PULL_EXISTS] >>
       simp[AppUnit_def, dec_clock_def] >>
@@ -4483,7 +4688,8 @@ Resume compile_correct[App]:
   qexists_tac `genv2` >>
   simp [] >>
   conj_tac >> TRY (fs [result_rel_cases] \\ NO_TAC) >>
-  fs [invariant_def, s_rel_cases] >>
+  qpat_x_assum `invariant interp g gen genv2 idxs st' s'_i1` mp_tac >>
+  simp [invariant_def, s_rel_cases] >>
   rpt (TOP_CASE_TAC >> gs[result_rel_cases, semanticPrimitivesTheory.Boolv_def, Boolv_def, v_rel_eqns]) >>
   TRY COND_CASES_TAC >> gs[] >>
   simp[ Once v_rel_rules]
@@ -4492,7 +4698,15 @@ QED
 Resume compile_correct[Log]:
   rw [] >>
   fs [pair_case_eq] >> fs [] >>
-  first_x_assum (drule_then (drule_then drule)) >>
+  qpat_x_assum
+    `∀genv2 comp_map2 env_i12 s_i12 locals2 t2 ts2 gen2 idxs2.
+      invariant interp g gen2 genv2 idxs2 s s_i12 ∧
+      env_all_rel genv2 comp_map2 env env_i12 locals2 ∧
+      LENGTH ts2 = LENGTH locals2 ∧
+      env_gen_rel gen2 s.eval_state ∧
+      v3 ≠ Rerr (Rabort Rtype_error) ⇒ _`
+    mp_tac >>
+  disch_then (drule_then (drule_then drule)) >>
   disch_then (qspec_then ‘t’ mp_tac) >>
   simp [] >>
   impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
@@ -4517,7 +4731,14 @@ Resume compile_correct[Log]:
   fs [] >> rveq >> fs [] >>
   drule_then drule env_all_rel_weak >>
   rw [] >>
-  first_x_assum (drule_then (drule_then drule)) >>
+  qpat_x_assum
+    `∀genv2 comp_map2 env_i12 s_i12 locals2 t2 ts2 gen2 idxs2.
+      invariant interp g gen2 genv2 idxs2 st' s_i12 ∧
+      env_all_rel genv2 comp_map2 env env_i12 locals2 ∧
+      LENGTH ts2 = LENGTH locals2 ∧
+      env_gen_rel gen2 st'.eval_state ⇒ _`
+    mp_tac >>
+  disch_then (drule_then (drule_then drule)) >>
   disch_then (qspec_then ‘t’ mp_tac) >>
   rw [] >>
   goal_assum (qsubterm_then `invariant _ _ _ _` mp_tac) >>
@@ -4528,7 +4749,15 @@ QED
 
 Resume compile_correct[If]:
   rw [] >> fs [pair_case_eq] >> fs [] >>
-  first_x_assum (drule_then (drule_then drule)) >>
+  qpat_x_assum
+    `∀genv2 comp_map2 env_i12 s_i12 locals2 t2 ts2 gen2 idxs2.
+      invariant interp g gen2 genv2 idxs2 s s_i12 ∧
+      env_all_rel genv2 comp_map2 env env_i12 locals2 ∧
+      LENGTH ts2 = LENGTH locals2 ∧
+      env_gen_rel gen2 s.eval_state ∧
+      _ ≠ Rerr (Rabort Rtype_error) ⇒ _`
+    mp_tac >>
+  disch_then (drule_then (drule_then drule)) >>
   disch_then (qspec_then ‘t’ mp_tac) >>
   simp [] >>
   (impl_tac >- (CCONTR_TAC >> fs [])) >>
@@ -4538,7 +4767,14 @@ Resume compile_correct[If]:
   fs [option_case_eq] >> fs [] >>
   drule_then drule env_all_rel_weak >>
   rw [] >>
-  first_x_assum (drule_then (drule_then drule)) >>
+  qpat_x_assum
+    `∀genv2 comp_map2 env_i12 s_i12 locals2 t2 ts2 gen2 idxs2.
+      invariant interp g gen2 genv2 idxs2 st' s_i12 ∧
+      env_all_rel genv2 comp_map2 env env_i12 locals2 ∧
+      LENGTH ts2 = LENGTH locals2 ∧
+      env_gen_rel gen2 st'.eval_state ⇒ _`
+    mp_tac >>
+  disch_then (drule_then (drule_then drule)) >>
   disch_then (qspec_then ‘t’ mp_tac) >>
   rw [] >>
   imp_res_tac evaluatePropsTheory.evaluate_sing >>
@@ -4551,7 +4787,15 @@ QED
 
 Resume compile_correct[Mat]:
   rw [] \\ fs [pair_case_eq] \\ fs []
-  \\ first_x_assum (drule_then (drule_then drule))
+  \\ qpat_x_assum
+    `∀genv2 comp_map2 env_i12 s_i12 locals2 t2 ts2 gen2 idxs2.
+      invariant interp g gen2 genv2 idxs2 s s_i12 ∧
+      env_all_rel genv2 comp_map2 env env_i12 locals2 ∧
+      LENGTH ts2 = LENGTH locals2 ∧
+      env_gen_rel gen2 s.eval_state ∧
+      _ ≠ Rerr (Rabort Rtype_error) ⇒ _`
+    mp_tac
+  \\ disch_then (drule_then (drule_then drule))
   \\ disch_then (qspec_then ‘t’ mp_tac)
   \\ simp []
   \\ (impl_tac >- (CCONTR_TAC >> fs []))
@@ -4576,7 +4820,15 @@ QED
 
 Resume compile_correct[Let]:
   rw [] \\ fs [pair_case_eq] \\ fs []
-  \\ first_x_assum (drule_then (drule_then drule))
+  \\ qpat_x_assum
+    `∀genv2 comp_map2 env_i12 s_i12 locals2 t2 ts2 gen2 idxs2.
+      invariant interp g gen2 genv2 idxs2 s s_i12 ∧
+      env_all_rel genv2 comp_map2 env env_i12 locals2 ∧
+      LENGTH ts2 = LENGTH locals2 ∧
+      env_gen_rel gen2 s.eval_state ∧
+      _ ≠ Rerr (Rabort Rtype_error) ⇒ _`
+    mp_tac
+  \\ disch_then (drule_then (drule_then drule))
   \\ simp [GSYM PULL_FORALL]
   \\ (impl_tac >- (CCONTR_TAC >> fs []))
   \\ rw []
@@ -4591,7 +4843,14 @@ Resume compile_correct[Let]:
     \\ fs [namespaceTheory.nsOptBind_def]
     \\ drule_then drule env_all_rel_weak
     \\ rw []
-    \\ first_x_assum (drule_then (drule_then drule))
+    \\ qpat_x_assum
+      `∀genv2 comp_map2 env_i12 s_i12 locals2 t2 ts2 gen2 idxs2.
+        invariant interp g gen2 genv2 idxs2 st' s_i12 ∧
+        env_all_rel genv2 comp_map2 _ env_i12 locals2 ∧
+        LENGTH ts2 = LENGTH locals2 ∧
+        env_gen_rel gen2 st'.eval_state ⇒ _`
+      mp_tac
+    \\ disch_then (drule_then (drule_then drule))
     \\ disch_then (qspec_then ‘t’ mp_tac)
     \\ rw []
     \\ simp [Q.prove (`env with v updated_by opt_bind NONE x = env`,
@@ -4705,6 +4964,17 @@ Resume compile_correct[empty_decs]:
       empty_env_def, env_domain_eq_def]
 QED
 
+Resume compile_correct[Dopen]:
+  rpt disch_tac >>
+  Cases_on `open_dec_env path env`
+  >- fs [] >>
+  drule_all open_env_invs >>
+  strip_tac >>
+  gvs [] >>
+  qexistsl_tac [`s_i1`, `genv`] >>
+  simp [flatSemTheory.evaluate_def, subglobals_refl]
+QED
+
 Theorem abort_compile_dec_result[local]:
   abort (combine_dec_result env r) = abort r
 Proof
@@ -4779,7 +5049,11 @@ Resume compile_correct[cons_decs]:
   \\ first_x_assum (drule_then drule)
   \\ simp [global_env_inv_append]
   \\ imp_res_tac env_gen_future_rel_forward
-  \\ (impl_tac >- (rpt strip_tac \\ fs [combine_dec_result_def]))
+  \\ (impl_tac >- (
+    conj_tac
+    >- (irule env_domain_eq_append \\ simp [])
+    \\ rpt strip_tac \\ fs [combine_dec_result_def]
+  ))
   \\ rw []
   \\ simp [abort_compile_dec_result]
   \\ simp [combine_dec_result_def, result_case_eq]
@@ -5220,7 +5494,13 @@ Resume compile_correct[Dlocal]:
   first_x_assum (drule_then drule) >>
   imp_res_tac env_gen_future_rel_forward >>
   impl_tac
-  >- metis_tac [global_env_inv_append, global_env_inv_weak] >>
+  >- (
+    conj_tac
+    >- metis_tac [global_env_inv_append, global_env_inv_weak]
+    \\ conj_tac
+    >- (irule env_domain_eq_append \\ simp [])
+    \\ metis_tac [global_env_inv_append, global_env_inv_weak]
+  ) >>
   rw [] >>
   imp_res_tac evaluate_decs_append >>
   fs [] >>
@@ -5295,7 +5575,8 @@ Definition init_global_env_inv_def:
         FLOOKUP genv.c ((cn, OPTION_MAP FST ty_gp), arity) = SOME stamp ∧
         (case ty_gp of NONE => T | SOME (ty_id, ctors) =>
             FLOOKUP genv.tys ty_id = SOME ctors)
-    ) ns)
+    ) ns) /\
+  env_domain_eq comp_map env
 End
 
 Theorem init_global_env_inv_imp:
@@ -5455,6 +5736,9 @@ Proof
     >- (
       drule_then irule global_env_inv_weak
       \\ simp [subglobals_def, init_genv_def]
+    )
+    >- (
+      fs [init_global_env_inv_def]
     )
     >- (
       simp [env_gen_rel_def]
