@@ -59,18 +59,20 @@ firstSetML_def |> CONJUNCTS |> (fn l => List.take(l,2)) |> rewrites
                                                         |> (fn ss => augment_srw_ss [ss])
 
 Theorem firstSet_nLetDec[simp]:
-  firstSet cmlG [NT (mkNT nLetDec)] = {ValT; FunT}
+  firstSet cmlG [NT (mkNT nLetDec)] = {ValT; FunT; OpenT}
 Proof
-  simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM,
+  simp[Once firstSet_NT, cmlG_FDOM,
        cmlG_applied, INSERT_UNION_EQ]
+  >> dsimp[Once EXTENSION]
 QED
 
 Theorem firstSet_nLetDecs[simp]:
-  firstSet cmlG [NT (mkNT nLetDecs)] = {ValT; FunT; SemicolonT}
+  firstSet cmlG [NT (mkNT nLetDecs)] = {ValT; FunT; OpenT; SemicolonT}
 Proof
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM,
        cmlG_applied] >>
   simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied, INSERT_UNION_EQ]
+  >> dsimp[Once EXTENSION, DISJ_ASSOC]
 QED
 
 Theorem firstSet_nTypeDec[simp]:
