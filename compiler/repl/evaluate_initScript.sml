@@ -192,6 +192,7 @@ Proof
   >~ [`Dtabbrev`] >- suspend "decs_Dtabbrev"
   >~ [`Denv`] >- suspend "decs_Denv"
   >~ [`Dexn`] >- suspend "decs_Dexn"
+  >~ [`Dopen`] >- suspend "decs_Dopen"
   >~ [`Dmod`] >- suspend "decs_Dmod"
   >~ [`Dlocal`] >- suspend "decs_Dlocal"
   \\ simp []
@@ -1145,6 +1146,15 @@ Resume evaluate_ok[decs_Dexn]:
                     state_ok_with_next_exn_stamp \\ gs []
   \\ gs [env_ok_def, env_rel_def, ctor_rel_def, stamp_rel_cases,
          FLOOKUP_FUN_FMAP]
+QED
+
+Resume evaluate_ok[decs_Dopen]:
+  rw [evaluate_decs_def]
+  \\ gvs [CaseEq "option"]
+  \\ gs [env_ok_def]
+  \\ drule env_rel_open_dec_env
+  \\ disch_then (qspec_then `path` assume_tac)
+  \\ gvs [optionTheory.OPTREL_def]
 QED
 
 Resume evaluate_ok[decs_Dmod]:

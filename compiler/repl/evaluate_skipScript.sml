@@ -416,6 +416,47 @@ in
   fun the_ind_thm () = ind_thm
 end
 
+Theorem env_rel_check_exp_constructors:
+  env_rel fr ft fe env env1 ⇒
+  check_exp_constructors env1.c = check_exp_constructors env.c
+Proof
+  rw [FUN_EQ_THM] >> irule EQ_SYM >>
+  irule semanticPrimitivesPropsTheory.check_exp_constructors_nsAll2 >>
+  fs [env_rel_def, ctor_rel_def] >>
+  irule nsAll2_mono >> first_assum (irule_at Any) >>
+  simp [FORALL_PROD]
+QED
+
+Theorem nsAll2_const_nsOpen[local]:
+  nsAll2 (λid. R) env env1 ⇒
+  OPTREL (nsAll2 (λid. R)) (nsOpen path env) (nsOpen path env1)
+Proof
+  strip_tac
+  \\ Cases_on `nsOpen path env`
+  \\ Cases_on `nsOpen path env1`
+  \\ gs []
+  \\ imp_res_tac nsAll2_after_nsOpen
+  \\ imp_res_tac nsAll2_before_nsOpen
+  \\ gs []
+QED
+
+Theorem env_rel_open_dec_env:
+  ∀path fr ft fe env env1.
+    env_rel fr ft fe env env1 ⇒
+    OPTREL (env_rel fr ft fe)
+      (open_dec_env path env) (open_dec_env path env1)
+Proof
+  rpt strip_tac
+  \\ `OPTREL (nsAll2 (λid. v_rel fr ft fe))
+        (nsOpen path env.v) (nsOpen path env1.v)` by (
+    irule nsAll2_const_nsOpen \\ gs [env_rel_def])
+  \\ `OPTREL (nsAll2 (λid. ($= ### stamp_rel ft fe)))
+        (nsOpen path env.c) (nsOpen path env1.c)` by (
+    irule nsAll2_const_nsOpen \\ gs [env_rel_def, ctor_rel_def])
+  \\ fs [open_dec_env_def]
+  \\ rpt (CASE_TAC \\ gvs [env_rel_def, ctor_rel_def])
+QED
+
 Theorem evaluate_update:
   ^(evaluate_update ())
 Proof
@@ -437,6 +478,7 @@ Proof
   >~ [`Letrec`] >- suspend "Letrec"
   >~ [`Tannot`] >- suspend "Tannot"
   >~ [`Lannot`] >- suspend "Lannot"
+  >~ [`ast$Open`] >- suspend "Open"
   >~ [`[] : (pat # exp) list`] >- suspend "pmatch_Nil"
   >~ [`_::_ : (pat # exp) list`] >- suspend "pmatch_Cons"
   >~ [`[]:dec list`] >- suspend "decs_Nil"
@@ -447,6 +489,7 @@ Proof
   >~ [`Dtabbrev`] >- suspend "decs_Dtabbrev"
   >~ [`Denv`] >- suspend "decs_Denv"
   >~ [`Dexn`] >- suspend "decs_Dexn"
+  >~ [`Dopen`] >- suspend "decs_Dopen"
   >~ [`Dmod`] >- suspend "decs_Dmod"
   >~ [`Dlocal`] >- suspend "decs_Dlocal"
   \\ simp []
@@ -2217,6 +2260,17 @@ Resume evaluate_update[Lannot]:
   rw [evaluate_def]
 QED
 
+Resume evaluate_update[Open]:
+  rpt strip_tac >> drule env_rel_open_dec_env >>
+  disch_then (qspec_then `path` assume_tac) >>
+  Cases_on `open_dec_env path env` >>
+  Cases_on `open_dec_env path env1` >>
+  gvs [optionTheory.OPTREL_def, evaluate_def]
+  >- (qexistsl_tac [`fr`, `ft`, `fe`] >> simp []) >>
+  first_x_assum irule >> simp [] >>
+  irule env_rel_extend_dec_env >> simp []
+QED
+
 Resume evaluate_update[pmatch_Nil]:
   rw [evaluate_def] \\ gs []
   \\ first_assum (irule_at Any) \\ gs []
@@ -2295,26 +2349,12 @@ Resume evaluate_update[decs_Cons]:
   \\ gs [SF SFY_ss]
 QED
 
-Theorem env_rel_one_con_check:
-  env_rel fr ft fe env env1 ⇒
-  one_con_check env1.c = one_con_check env.c
-Proof
-  fs [one_con_check_def,FUN_EQ_THM]
-  \\ strip_tac \\ Cases \\ fs [one_con_check_def]
-  \\ rename [‘do_con_check _ a’] \\ Cases_on ‘a’ \\ fs [do_con_check_def]
-  \\ fs [env_rel_def,ctor_rel_def]
-  \\ pop_assum kall_tac
-  \\ drule namespacePropsTheory.nsAll2_nsLookup_none
-  \\ disch_then $ qspec_then ‘x’ assume_tac
-  \\ rpt (CASE_TAC \\ fs [])
-  \\ drule_all namespacePropsTheory.nsAll2_nsLookup2 \\ fs []
-QED
-
 Resume evaluate_update[decs_Dlet]:
   reverse $ rw [evaluate_decs_def]
-  >- (first_assum (irule_at Any) \\ gs [SF SFY_ss]
-      \\ imp_res_tac env_rel_one_con_check \\ fs [])
-  \\ imp_res_tac env_rel_one_con_check
+  >- (
+    first_assum (irule_at Any) \\ gs [SF SFY_ss]
+    \\ imp_res_tac env_rel_check_exp_constructors \\ fs [])
+  \\ imp_res_tac env_rel_check_exp_constructors
   \\ gvs [CaseEqs ["prod", "result"], PULL_EXISTS]
   \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
   \\ Cases_on ‘res1’ \\ gs []
@@ -2340,11 +2380,13 @@ QED
 Resume evaluate_update[decs_Dletrec]:
   reverse $ rw [evaluate_decs_def]
   >- (first_assum (irule_at Any) \\ gs [SF SFY_ss])
-  >- (CCONTR_TAC \\ fs []
-      \\ imp_res_tac env_rel_one_con_check \\ fs []
-      \\ gvs [EVERY_MEM,EXISTS_MEM] \\ res_tac \\ fs [])
-  >- (imp_res_tac env_rel_one_con_check \\ fs []
-      \\ gvs [EVERY_MEM,EXISTS_MEM] \\ res_tac \\ fs [])
+  >- (
+    CCONTR_TAC \\ fs []
+    \\ imp_res_tac env_rel_check_exp_constructors \\ fs []
+    \\ gvs [EVERY_MEM,EXISTS_MEM] \\ res_tac \\ fs [])
+  >- (
+    imp_res_tac env_rel_check_exp_constructors \\ fs []
+    \\ gvs [EVERY_MEM,EXISTS_MEM] \\ res_tac \\ fs [])
   \\ gvs [CaseEqs ["prod", "result"], PULL_EXISTS]
   \\ first_assum (irule_at Any) \\ gs []
   \\ gs [env_rel_def, ctor_rel_def, PULL_EXISTS, SF SFY_ss,
@@ -2531,6 +2573,19 @@ Resume evaluate_update[decs_Dexn]:
   \\ simp [SUBMAP_FUNION_ID]
   \\ gs [env_rel_def, ctor_rel_def, stamp_rel_cases, flookup_thm,
          FUNION_DEF, state_rel_def, FUN_FMAP_DEF]
+QED
+
+Resume evaluate_update[decs_Dopen]:
+  rpt strip_tac
+  \\ drule env_rel_open_dec_env
+  \\ disch_then (qspec_then `path` assume_tac)
+  \\ Cases_on `open_dec_env path env`
+  \\ Cases_on `open_dec_env path env1`
+  \\ gvs [optionTheory.OPTREL_def, evaluate_decs_def]
+  \\ qexists_tac `fr`
+  \\ qexists_tac `ft`
+  \\ qexists_tac `fe`
+  \\ gs []
 QED
 
 Resume evaluate_update[decs_Dmod]:
