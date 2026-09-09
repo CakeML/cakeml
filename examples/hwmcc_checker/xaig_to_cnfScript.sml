@@ -684,53 +684,75 @@ QED
    see rename_inv_def, so var_to_lit can map each literal, including the
    constants FF and TT, to a CNF literal without any special casing. *)
 
-Definition xor_to_cnf_def:
-  xor_to_cnf y a b =
-    [[negate y; a; b];
-     [negate y; negate a; negate b];
-     [y; negate a; b];
-     [y; a; negate b]]
+(* The clauses defining a gate split into two halves.  gty_pos m gt says
+   w m ⇒ body, i.e. it constrains gate m from above, and gty_neg m gt says
+   body ⇒ w m.  If a gate name is only ever used positively in the CNF then
+   only its gty_pos clauses are needed, and dually; this is the
+   Plaisted-Greenbaum encoding. *)
+
+Definition eq_every_pos_def:
+  eq_every_pos x xs = MAP (λy. [y; negate x]) xs
 End
 
-Definition ite_to_cnf_def:
-  ite_to_cnf y c a b =
-    [[negate c; negate a; y];
-     [negate c; a; negate y];
-     [c; negate b; y];
-     [c; b; negate y]]
+Definition eq_every_neg_def:
+  eq_every_neg x xs = [x::MAP negate xs]
 End
+
+Definition xor_pos_def:
+  xor_pos y a b = [[negate y; a; b]; [negate y; negate a; negate b]]
+End
+
+Definition xor_neg_def:
+  xor_neg y a b = [[y; negate a; b]; [y; a; negate b]]
+End
+
+Definition ite_pos_def:
+  ite_pos y c a b = [[negate c; a; negate y]; [c; b; negate y]]
+End
+
+Definition ite_neg_def:
+  ite_neg y c a b = [[negate c; negate a; y]; [c; negate b; y]]
+End
+
+Definition gty_pos_def:
+  gty_pos m (And ts) = eq_every_pos (Pos m) (MAP var_to_lit ts) ∧
+  gty_pos m (Xor t1 t2) = xor_pos (Pos m) (var_to_lit t1) (var_to_lit t2) ∧
+  gty_pos m (Ite t1 t2 t3) =
+    ite_pos (Pos m) (var_to_lit t1) (var_to_lit t2) (var_to_lit t3)
+End
+
+Definition gty_neg_def:
+  gty_neg m (And ts) = eq_every_neg (Pos m) (MAP var_to_lit ts) ∧
+  gty_neg m (Xor t1 t2) = xor_neg (Pos m) (var_to_lit t1) (var_to_lit t2) ∧
+  gty_neg m (Ite t1 t2 t3) =
+    ite_neg (Pos m) (var_to_lit t1) (var_to_lit t2) (var_to_lit t3)
+End
+
+(* both halves together are the usual Tseitin clauses for the gate *)
+
+Definition gty_to_cnf_def:
+  gty_to_cnf m gt = gty_pos m gt ++ gty_neg m gt
+End
+
+(* A polarity is a pair of booleans: whether a gate name is used positively
+   and whether it is used negatively.  A gate with polarity (p,n) needs its
+   gty_pos clauses when p and its gty_neg clauses when n. *)
 
 Definition xgty_to_cnf_def:
-  xgty_to_cnf n (And ts) =
-    eq_every_to_cnf (Pos n) (MAP var_to_lit ts) ∧
-  xgty_to_cnf n (Xor t1 t2) =
-    xor_to_cnf (Pos n) (var_to_lit t1) (var_to_lit t2) ∧
-  xgty_to_cnf n (Ite t1 t2 t3) =
-    ite_to_cnf (Pos n) (var_to_lit t1) (var_to_lit t2) (var_to_lit t3)
+  xgty_to_cnf (p,n) m gt =
+    (if p then gty_pos m gt else []) ++ (if n then gty_neg m gt else [])
 End
 
-Theorem xor_to_cnf_thm:
-  satisfies_cnf w (set (xor_to_cnf y a b)) ⇔
-  (satisfies_lit w y ⇔ (satisfies_lit w a ⇎ satisfies_lit w b))
+Theorem xgty_to_cnf_SUBSET:
+  set (xgty_to_cnf pl m gt) ⊆ set (gty_to_cnf m gt)
 Proof
-  simp [satisfies_cnf_set, xor_to_cnf_def, satisfies_clause_def,
-        satisfies_lit_negate, SF DNF_ss]
-  \\ Cases_on ‘satisfies_lit w y’
-  \\ Cases_on ‘satisfies_lit w a’
-  \\ Cases_on ‘satisfies_lit w b’ \\ fs []
+  PairCases_on ‘pl’ \\ rw [xgty_to_cnf_def, gty_to_cnf_def]
 QED
 
-Theorem ite_to_cnf_thm:
-  satisfies_cnf w (set (ite_to_cnf y c a b)) ⇔
-  (satisfies_lit w y ⇔
-   if satisfies_lit w c then satisfies_lit w a else satisfies_lit w b)
+Theorem satisfies_cnf_SUBSET:
+  satisfies_cnf w s ∧ t ⊆ s ⇒ satisfies_cnf w t
 Proof
-  simp [satisfies_cnf_set, ite_to_cnf_def, satisfies_clause_def,
-        satisfies_lit_negate, SF DNF_ss]
-  \\ Cases_on ‘satisfies_lit w y’
-  \\ Cases_on ‘satisfies_lit w c’
-  \\ Cases_on ‘satisfies_lit w a’
-  \\ Cases_on ‘satisfies_lit w b’ \\ fs []
+  fs [satisfies_cnf_def, satisfies_fml_gen_def, SUBSET_DEF]
 QED
 
 Theorem satisfies_lit_var_to_lit:
@@ -739,23 +761,182 @@ Proof
   Cases \\ Cases_on ‘r’ \\ fs [var_to_lit_def, satisfies_lit_def]
 QED
 
-Theorem xgty_to_cnf_thm:
-  ∀gt n.
+Theorem xor_to_cnf_thm[local]:
+  satisfies_cnf w (set (xor_pos y a b) ∪ set (xor_neg y a b)) ⇔
+  (satisfies_lit w y ⇔ (satisfies_lit w a ⇎ satisfies_lit w b))
+Proof
+  simp [satisfies_cnf_def, satisfies_fml_gen_def, xor_pos_def, xor_neg_def,
+        satisfies_clause_def, satisfies_lit_negate, SF DNF_ss]
+  \\ Cases_on ‘satisfies_lit w y’
+  \\ Cases_on ‘satisfies_lit w a’
+  \\ Cases_on ‘satisfies_lit w b’ \\ fs []
+QED
+
+Theorem ite_to_cnf_thm[local]:
+  satisfies_cnf w (set (ite_pos y c a b) ∪ set (ite_neg y c a b)) ⇔
+  (satisfies_lit w y ⇔
+   if satisfies_lit w c then satisfies_lit w a else satisfies_lit w b)
+Proof
+  simp [satisfies_cnf_def, satisfies_fml_gen_def, ite_pos_def, ite_neg_def,
+        satisfies_clause_def, satisfies_lit_negate, SF DNF_ss]
+  \\ Cases_on ‘satisfies_lit w y’
+  \\ Cases_on ‘satisfies_lit w c’
+  \\ Cases_on ‘satisfies_lit w a’
+  \\ Cases_on ‘satisfies_lit w b’ \\ fs []
+QED
+
+Theorem set_eq_every[local]:
+  set (eq_every_pos x xs) ∪ set (eq_every_neg x xs) =
+  set (eq_every_to_cnf x xs)
+Proof
+  simp [eq_every_pos_def, eq_every_neg_def, eq_every_to_cnf_def]
+  \\ simp [EXTENSION] \\ metis_tac []
+QED
+
+Theorem gty_to_cnf_thm:
+  ∀gt m.
     EVERY (λt. satisfies_lit w (var_to_lit t) ⇔ xeval_lit ss rest t)
           (gty_lits gt) ⇒
-    (satisfies_cnf w (set (xgty_to_cnf n gt)) ⇔ (w n ⇔ xeval_gty ss rest gt))
+    (satisfies_cnf w (set (gty_to_cnf m gt)) ⇔ (w m ⇔ xeval_gty ss rest gt))
 Proof
-  Cases \\ rw [xgty_to_cnf_def]
+  Cases \\ rw [gty_to_cnf_def, gty_pos_def, gty_neg_def]
   >-
-   (fs [eq_every_to_cnf_thm, satisfies_lit_def, EVERY_MAP, xeval_lit_def]
+   (fs [set_eq_every, eq_every_to_cnf_thm, satisfies_lit_def, EVERY_MAP,
+        xeval_lit_def]
     \\ AP_TERM_TAC \\ irule EVERY_EQ_EVERY \\ fs [])
   >- fs [xor_to_cnf_thm, satisfies_lit_def, xeval_lit_def]
   \\ fs [ite_to_cnf_thm, satisfies_lit_def, xeval_lit_def]
 QED
 
+(* Polarities.  A polarity (p,n) records whether a gate name is used
+   positively and whether it is used negatively in the CNF built so far.
+   Since a gate only ever mentions gates that occur later in the list, one
+   forward pass suffices: when a gate is reached, every gate that could
+   refer to it has already contributed its polarity. *)
+
+Definition pol_of_def:
+  pol_of pm n = case FLOOKUP pm n of NONE => (F,F) | SOME pl => pl
+End
+
+Definition flip_pol_def:
+  flip_pol ((p,n):bool # bool) = (n,p)
+End
+
+Definition pol_le_def:
+  pol_le ((p1,n1):bool # bool) ((p2,n2):bool # bool) ⇔ (p1 ⇒ p2) ∧ (n1 ⇒ n2)
+End
+
+Definition add_pol_def:
+  add_pol (p,n) m pm =
+    case pol_of pm m of
+    | (p1,n1) => fmap_update pm m (p ∨ p1, n ∨ n1)
+End
+
+Definition add_lit_pol_def:
+  add_lit_pol pl ((v,b):(num,num,num) aig$lit) pm =
+    case v of
+    | Gate m => add_pol (if b then flip_pol pl else pl) m pm
+    | Base _ => pm
+End
+
+(* The polarity that each input literal of a gate inherits.  Both inputs of
+   an Xor gate, and the condition of an Ite gate, are used in both
+   polarities, whatever the polarity of the gate itself. *)
+
+Definition gty_pols_def:
+  gty_pols pl (And ts) = MAP (λt. (pl,t)) ts ∧
+  gty_pols pl (Xor t1 t2) = [((T,T),t1); ((T,T),t2)] ∧
+  gty_pols pl (Ite t1 t2 t3) = [((T,T),t1); (pl,t2); (pl,t3)]
+End
+
+Definition add_lits_pol_def:
+  add_lits_pol [] pm = pm ∧
+  add_lits_pol ((pl,t)::rest) pm = add_lits_pol rest (add_lit_pol pl t pm)
+End
+
+Definition add_gty_pol_def:
+  add_gty_pol pl gt pm = add_lits_pol (gty_pols pl gt) pm
+End
+
+Theorem pol_le_refl[simp]:
+  pol_le pl pl
+Proof
+  PairCases_on ‘pl’ \\ simp [pol_le_def]
+QED
+
+Theorem pol_le_trans:
+  pol_le p1 p2 ∧ pol_le p2 p3 ⇒ pol_le p1 p3
+Proof
+  map_every PairCases_on [‘p1’,‘p2’,‘p3’] \\ simp [pol_le_def] \\ metis_tac []
+QED
+
+Theorem add_pol_records[local]:
+  pol_le q (pol_of (add_pol q m pm) m)
+Proof
+  PairCases_on ‘q’ \\ simp [add_pol_def]
+  \\ Cases_on ‘pol_of pm m’ \\ simp [pol_of_def, FLOOKUP_SIMP, pol_le_def]
+QED
+
+Theorem add_pol_mono[local]:
+  pol_le (pol_of pm m) (pol_of (add_pol pl k pm) m)
+Proof
+  PairCases_on ‘pl’ \\ simp [add_pol_def]
+  \\ Cases_on ‘pol_of pm k’ \\ simp []
+  \\ rw [pol_of_def, FLOOKUP_SIMP]
+  \\ gvs [pol_of_def, AllCaseEqs()]
+  \\ every_case_tac \\ gvs [pol_le_def]
+QED
+
+Theorem add_lit_pol_mono[local]:
+  pol_le (pol_of pm m) (pol_of (add_lit_pol pl t pm) m)
+Proof
+  PairCases_on ‘t’ \\ rw [add_lit_pol_def]
+  \\ every_case_tac \\ simp [add_pol_mono]
+QED
+
+Theorem add_lits_pol_mono[local]:
+  ∀xs pm. pol_le (pol_of pm m) (pol_of (add_lits_pol xs pm) m)
+Proof
+  Induct \\ simp [add_lits_pol_def] \\ PairCases
+  \\ simp [add_lits_pol_def] \\ rpt gen_tac
+  \\ irule pol_le_trans
+  \\ first_assum $ irule_at (Pos last)
+  \\ simp [add_lit_pol_mono]
+QED
+
+Theorem add_gty_pol_mono:
+  pol_le (pol_of pm m) (pol_of (add_gty_pol pl gt pm) m)
+Proof
+  simp [add_gty_pol_def, add_lits_pol_mono]
+QED
+
+Theorem add_lits_pol_records[local]:
+  ∀xs pm.
+    MEM (pl,(Gate m,b)) xs ⇒
+    pol_le (if b then flip_pol pl else pl) (pol_of (add_lits_pol xs pm) m)
+Proof
+  Induct \\ simp [FORALL_PROD, add_lits_pol_def] \\ rw [] \\ gvs []
+  \\ irule pol_le_trans \\ irule_at (Pos last) add_lits_pol_mono
+  \\ simp [add_lit_pol_def, add_pol_records]
+QED
+
+Theorem add_gty_pol_records:
+  MEM (pl,(Gate m,b)) (gty_pols pl0 gt) ⇒
+  pol_le (if b then flip_pol pl else pl) (pol_of (add_gty_pol pl0 gt pm) m)
+Proof
+  simp [add_gty_pol_def] \\ strip_tac
+  \\ irule add_lits_pol_records \\ simp []
+QED
+
+(*----------------------------------------------------------------------*
+   the CNF, with only the clauses that the polarities require
+ *----------------------------------------------------------------------*)
+
 Definition xto_cnf_def:
-  xto_cnf ([] : (num,num,num) xaig) acc = (acc : num lit list list) ∧
-  xto_cnf ((n,gt)::xs) acc = xto_cnf xs (xgty_to_cnf n gt ++ acc)
+  xto_cnf ([]:(num,num,num) xaig) pm acc = (acc : num lit list list) ∧
+  xto_cnf ((n,gt)::xs) pm acc =
+    xto_cnf xs (add_gty_pol (pol_of pm n) gt pm)
+      (xgty_to_cnf (pol_of pm n) n gt ++ acc)
 End
 
 Definition direct_xaig_to_cnf_def:
@@ -763,18 +944,12 @@ Definition direct_xaig_to_cnf_def:
     case xaig of
     | [] => [[]]
     | ((name,_)::_) =>
-        ([Neg 0] :: [Pos name] :: xto_cnf xaig []) : num lit list list
-End
-
-Definition xeval_gates_def:
-  (xeval_gates ss [] w ⇔ T) ∧
-  (xeval_gates ss ((k,gt)::rest) w ⇔
-     (w k = xeval_gate ss ((k,gt)::rest) k) ∧
-     xeval_gates ss rest w)
+        ([Neg 0] :: [Pos name] ::
+         xto_cnf xaig (fmap_update FEMPTY name (T,F)) []) : num lit list list
 End
 
 Theorem xto_cnf_acc:
-  ∀xaig acc. set (xto_cnf xaig acc) = set (xto_cnf xaig []) ∪ set acc
+  ∀xaig pm acc. set (xto_cnf xaig pm acc) = set (xto_cnf xaig pm []) ∪ set acc
 Proof
   Induct
   >- (once_rewrite_tac [xto_cnf_def] \\ simp [])
@@ -784,48 +959,160 @@ Proof
   \\ fs [AC UNION_ASSOC UNION_COMM]
 QED
 
-Theorem xeval_gates_ALOOKUP:
-  ∀xaig a.
-    xeval_gates (w,w) xaig w ∧ ALOOKUP xaig a ≠ NONE ⇒
-    (w a ⇔ xeval_gate (w,w) xaig a)
+(*----------------------------------------------------------------------*
+   soundness of the polarity-restricted CNF
+ *----------------------------------------------------------------------*)
+
+Definition lit_pol_ok_def:
+  lit_pol_ok w ss rest ((p,n),t) ⇔
+    (p ⇒ (satisfies_lit w (var_to_lit t) ⇒ xeval_lit ss rest t)) ∧
+    (n ⇒ (xeval_lit ss rest t ⇒ satisfies_lit w (var_to_lit t)))
+End
+
+Definition xeval_gates_pol_def:
+  (xeval_gates_pol ss [] w pm ⇔ T) ∧
+  (xeval_gates_pol ss ((k,gt)::rest) w pm ⇔
+     (FST (pol_of pm k) ⇒ w k ⇒ xeval_gate ss ((k,gt)::rest) k) ∧
+     (SND (pol_of pm k) ⇒ xeval_gate ss ((k,gt)::rest) k ⇒ w k) ∧
+     xeval_gates_pol ss rest w (add_gty_pol (pol_of pm k) gt pm))
+End
+
+Theorem lit_pol_ok_mono[local]:
+  pol_le pl pl' ∧ lit_pol_ok w ss rest (pl',t) ⇒ lit_pol_ok w ss rest (pl,t)
 Proof
-  Induct \\ simp [ALOOKUP_def]
-  \\ PairCases \\ simp [ALOOKUP_def] \\ rw []
-  \\ Cases_on ‘h0 = a’ \\ gvs [xeval_gates_def]
-  \\ gvs [xeval_gate_cons]
+  PairCases_on ‘pl’ \\ PairCases_on ‘pl'’
+  \\ rw [pol_le_def, lit_pol_ok_def]
 QED
 
-Theorem satisfies_lit_var_to_lit_eq[local]:
-  ∀t.
-    ¬w 0 ∧ xeval_gates (w,w) rest w ∧
-    (∀m b. t = (Gate m,b) ⇒ ALOOKUP rest m ≠ NONE) ⇒
-    (satisfies_lit w (var_to_lit t) ⇔ xeval_lit (w,w) rest t)
+Theorem gty_pols_mono[local]:
+  ∀gt.
+    pol_le pl pl' ∧ EVERY (lit_pol_ok w ss rest) (gty_pols pl' gt) ⇒
+    EVERY (lit_pol_ok w ss rest) (gty_pols pl gt)
 Proof
-  Cases \\ Cases_on ‘q’
-  \\ simp [satisfies_lit_var_to_lit, var_to_num_def, xeval_lit_def]
-  >- (rw [] \\ drule_all xeval_gates_ALOOKUP \\ simp [])
+  Cases \\ simp [gty_pols_def, EVERY_MAP] \\ strip_tac
+  >-
+   (fs [EVERY_MEM] \\ rw [] \\ res_tac
+    \\ irule lit_pol_ok_mono \\ first_assum $ irule_at Any \\ simp [])
+  \\ conj_tac \\ irule lit_pol_ok_mono
+  \\ first_assum $ irule_at Any \\ simp []
+QED
+
+Theorem satisfies_lit_Pos[local,simp]:
+  satisfies_lit w (Pos m) = w m
+Proof
+  simp [satisfies_lit_def]
+QED
+
+Theorem gty_pos_thm[local]:
+  ∀gt m.
+    EVERY (lit_pol_ok w ss rest) (gty_pols (T,F) gt) ∧
+    satisfies_cnf w (set (gty_pos m gt)) ⇒
+    (w m ⇒ xeval_gty ss rest gt)
+Proof
+  Cases
+  \\ simp [gty_pos_def, gty_pols_def, satisfies_cnf_set, satisfies_clause_def,
+           satisfies_lit_negate, eq_every_pos_def, xor_pos_def, ite_pos_def,
+           EVERY_MAP, SF DNF_ss, xeval_lit_def, lit_pol_ok_def]
+  >- (rw [EVERY_MEM] \\ res_tac \\ gvs [])
+  \\ rw [] \\ metis_tac []
+QED
+
+Theorem gty_neg_thm[local]:
+  ∀gt m.
+    EVERY (lit_pol_ok w ss rest) (gty_pols (F,T) gt) ∧
+    satisfies_cnf w (set (gty_neg m gt)) ⇒
+    (xeval_gty ss rest gt ⇒ w m)
+Proof
+  Cases
+  \\ simp [gty_neg_def, gty_pols_def, satisfies_cnf_set, satisfies_clause_def,
+           satisfies_lit_negate, eq_every_neg_def, xor_neg_def, ite_neg_def,
+           EVERY_MAP, MEM_MAP, SF DNF_ss, xeval_lit_def, lit_pol_ok_def]
+  >- (rw [EVERY_MEM] \\ res_tac \\ gvs [])
+  \\ rw [] \\ metis_tac []
+QED
+
+Theorem pol_le_FST_SND[local]:
+  pol_le p q ⇒ (FST p ⇒ FST q) ∧ (SND p ⇒ SND q)
+Proof
+  PairCases_on ‘p’ \\ PairCases_on ‘q’ \\ simp [pol_le_def]
+QED
+
+Theorem MEM_gty_pols[local]:
+  ∀gt. MEM (pl,t) (gty_pols pl0 gt) ⇒ MEM t (gty_lits gt)
+Proof
+  Cases \\ rw [gty_pols_def, MEM_MAP] \\ gvs [] \\ metis_tac []
+QED
+
+Theorem xeval_gates_pol_ALOOKUP[local]:
+  ∀xaig pm a.
+    xeval_gates_pol (w,w) xaig w pm ∧ ALOOKUP xaig a ≠ NONE ⇒
+    (FST (pol_of pm a) ⇒ w a ⇒ xeval_gate (w,w) xaig a) ∧
+    (SND (pol_of pm a) ⇒ xeval_gate (w,w) xaig a ⇒ w a)
+Proof
+  Induct \\ simp [ALOOKUP_def] \\ PairCases
+  \\ simp [ALOOKUP_def, xeval_gates_pol_def]
+  \\ rw [] \\ Cases_on ‘h0 = a’ \\ gvs []
+  \\ ‘(FST (pol_of pm a) ⇒ FST (pol_of (add_gty_pol (pol_of pm h0) h1 pm) a)) ∧
+      (SND (pol_of pm a) ⇒ SND (pol_of (add_gty_pol (pol_of pm h0) h1 pm) a))’ by
+        (irule pol_le_FST_SND \\ simp [add_gty_pol_mono])
+  \\ first_x_assum $ qspecl_then [‘add_gty_pol (pol_of pm h0) h1 pm’,‘a’] mp_tac
+  \\ simp [] \\ strip_tac \\ gvs [xeval_gate_cons]
+QED
+
+Theorem lit_pol_ok_lemma[local]:
+  ¬w 0 ∧ xeval_gates_pol (w,w) rest w pm ∧
+  (∀m b. t = (Gate m,b) ⇒
+         ALOOKUP rest m ≠ NONE ∧
+         pol_le (if b then flip_pol pl else pl) (pol_of pm m)) ⇒
+  lit_pol_ok w (w,w) rest (pl,t)
+Proof
+  PairCases_on ‘t’ \\ PairCases_on ‘pl’ \\ Cases_on ‘t0’
+  \\ simp [lit_pol_ok_def, satisfies_lit_var_to_lit, var_to_num_def,
+           xeval_lit_def]
+  >-
+   (strip_tac \\ gvs []
+    \\ drule_all xeval_gates_pol_ALOOKUP \\ strip_tac
+    \\ Cases_on ‘t1’ \\ gvs [flip_pol_def, pol_le_def]
+    \\ Cases_on ‘pol_of pm a’ \\ gvs [pol_le_def] \\ rw [] \\ gvs [])
   \\ Cases_on ‘b’ \\ simp [var_to_num_def]
 QED
 
-Theorem satisfies_cnf_IMP_xeval_gates:
-  ∀xaig w.
-    satisfies_cnf w (set (xto_cnf xaig [])) ∧ xclosed xaig ∧ ¬w 0 ⇒
-    xeval_gates (w,w) xaig w
+Theorem satisfies_cnf_IMP_xeval_gates_pol:
+  ∀xaig pm w.
+    satisfies_cnf w (set (xto_cnf xaig pm [])) ∧ xclosed xaig ∧ ¬w 0 ⇒
+    xeval_gates_pol (w,w) xaig w pm
 Proof
-  Induct \\ simp [xeval_gates_def]
+  Induct \\ simp [xeval_gates_pol_def]
   \\ PairCases \\ fs [xclosed_def]
-  \\ simp [xeval_gates_def, xto_cnf_def]
+  \\ simp [xeval_gates_pol_def, xto_cnf_def]
   \\ simp [Once xto_cnf_acc]
   \\ rpt gen_tac \\ strip_tac
   \\ dxrule satisfies_cnf_UNION_IMP \\ strip_tac
   \\ last_x_assum drule_all \\ strip_tac
   \\ simp [xeval_gate_cons]
-  \\ ‘EVERY (λt. satisfies_lit w (var_to_lit t) ⇔ xeval_lit (w,w) xaig t)
-        (gty_lits h1)’ by
-       (simp [EVERY_MEM] \\ rw [] \\ irule satisfies_lit_var_to_lit_eq
-        \\ fs [] \\ rw [] \\ res_tac)
-  \\ drule xgty_to_cnf_thm
-  \\ disch_then $ qspec_then ‘h0’ mp_tac \\ fs []
+  \\ ‘EVERY (lit_pol_ok w (w,w) xaig) (gty_pols (pol_of pm h0) h1)’ by
+       (simp [EVERY_MEM] \\ PairCases \\ strip_tac
+        \\ irule lit_pol_ok_lemma
+        \\ simp [] \\ qexists ‘add_gty_pol (pol_of pm h0) h1 pm’ \\ simp []
+        \\ rw []
+        \\ TRY (drule MEM_gty_pols \\ strip_tac \\ res_tac \\ fs [] \\ NO_TAC)
+        \\ drule add_gty_pol_records \\ simp [])
+  \\ conj_tac \\ strip_tac
+  >-
+   (strip_tac \\ irule gty_pos_thm
+    \\ qexistsl [‘h0’,‘w’] \\ simp []
+    \\ conj_tac
+    >- (irule gty_pols_mono \\ first_assum $ irule_at Any
+        \\ Cases_on ‘pol_of pm h0’ \\ gvs [pol_le_def])
+    \\ irule satisfies_cnf_SUBSET \\ first_assum $ irule_at Any
+    \\ Cases_on ‘pol_of pm h0’ \\ gvs [xgty_to_cnf_def, SUBSET_DEF])
+  \\ strip_tac \\ irule gty_neg_thm
+  \\ qexistsl [‘h1’,‘xaig’,‘(w,w)’] \\ simp []
+  \\ conj_tac
+  >- (irule gty_pols_mono \\ first_assum $ irule_at Any
+      \\ Cases_on ‘pol_of pm h0’ \\ gvs [pol_le_def])
+  \\ irule satisfies_cnf_SUBSET \\ first_assum $ irule_at Any
+  \\ Cases_on ‘pol_of pm h0’ \\ gvs [xgty_to_cnf_def, SUBSET_DEF]
 QED
 
 Definition xcnf_witness_def:
@@ -875,7 +1162,7 @@ Proof
 QED
 
 Theorem xeval_gate_IMP_cnf_lemma[local]:
-  ∀xaig past.
+  ∀xaig past pm.
     xclosed xaig ∧
     DISJOINT3 i_dom l_dom (set (MAP FST xaig)) ∧
     0 ∉ i_dom ∧ 0 ∉ l_dom ∧ ~MEM 0 (MAP FST (past ++ xaig)) ∧
@@ -883,7 +1170,7 @@ Theorem xeval_gate_IMP_cnf_lemma[local]:
     (∀i. xhas_var (Input i) xaig ⇒ i ∈ i_dom) ∧
     ALL_DISTINCT (MAP FST (past ++ xaig)) ⇒
     satisfies_cnf (xcnf_witness i_dom l_dom is ls (past ++ xaig))
-      (set (xto_cnf xaig []))
+      (set (xto_cnf xaig pm []))
 Proof
   Induct \\ simp [Once xto_cnf_def]
   >- simp [satisfies_cnf_def, satisfies_fml_gen_def]
@@ -894,11 +1181,14 @@ Proof
   \\ irule IMP_satisfies_cnf_UNION
   \\ conj_tac
   >-
-   (last_x_assum $ qspec_then ‘past ++ [(h0,h1)]’ mp_tac
+   (last_x_assum $ qspecl_then [‘past ++ [(h0,h1)]’,
+        ‘add_gty_pol (pol_of pm h0) h1 pm’] mp_tac
     \\ asm_rewrite_tac [GSYM APPEND_ASSOC, APPEND, MAP_APPEND, MAP]
     \\ disch_then irule
     \\ fs [xhas_var_def, SF DNF_ss]
     \\ fs [DISJOINT3_def, IN_DISJOINT])
+  \\ irule satisfies_cnf_SUBSET
+  \\ irule_at Any xgty_to_cnf_SUBSET
   \\ ‘¬xcnf_witness i_dom l_dom is ls (past ++ (h0,h1)::xaig) 0’ by
        (irule xcnf_witness_0 \\ fs [])
   \\ ‘∀a. MEM a (MAP FST xaig) ⇒
@@ -925,7 +1215,7 @@ Proof
              (first_x_assum irule \\ simp [xhas_var_def] \\ metis_tac [])
         \\ ‘l ∉ i_dom’ by (fs [DISJOINT3_def, IN_DISJOINT] \\ metis_tac [])
         \\ simp [xcnf_witness_def])
-  \\ drule xgty_to_cnf_thm \\ disch_then $ qspec_then ‘h0’ mp_tac
+  \\ drule gty_to_cnf_thm \\ disch_then $ qspec_then ‘h0’ mp_tac
   \\ disch_then (fn th => rewrite_tac [th])
   \\ ‘xcnf_witness i_dom l_dom is ls (past ++ (h0,h1)::xaig) h0 ⇔
       xeval_gate (is,ls) ((h0,h1)::xaig) h0’ by
@@ -939,9 +1229,9 @@ Theorem xeval_gate_IMP_cnf:
   (∀l. xhas_var (Latch l) xaig ⇒ l ∈ l_dom) ∧
   (∀i. xhas_var (Input i) xaig ⇒ i ∈ i_dom) ∧
   DISJOINT3 i_dom l_dom (set (MAP FST xaig)) ⇒
-  satisfies_cnf (xcnf_witness i_dom l_dom is ls xaig) (set (xto_cnf xaig []))
+  satisfies_cnf (xcnf_witness i_dom l_dom is ls xaig) (set (xto_cnf xaig pm []))
 Proof
-  qspecl_then [‘xaig’,‘[]’] mp_tac xeval_gate_IMP_cnf_lemma \\ fs []
+  qspecl_then [‘xaig’,‘[]’,‘pm’] mp_tac xeval_gate_IMP_cnf_lemma \\ fs []
 QED
 
 Theorem direct_xaig_to_cnf_correct:
@@ -964,8 +1254,9 @@ Proof
     \\ PairCases_on ‘h’ \\ simp []
     \\ ntac 2 (once_rewrite_tac [satisfies_cnf_INSERT])
     \\ rw [satisfies_clause_def, satisfies_lit_def]
-    \\ drule_all satisfies_cnf_IMP_xeval_gates
-    \\ gvs [xeval_gates_def, xeval_gate'_def, xeval_gate_cons])
+    \\ drule_all satisfies_cnf_IMP_xeval_gates_pol
+    \\ simp [xeval_gates_pol_def, pol_of_def, FLOOKUP_SIMP]
+    \\ simp [xeval_gate'_def])
   \\ qexists ‘xcnf_witness i_dom l_dom is ls xaig’
   \\ simp [direct_xaig_to_cnf_def]
   \\ Cases_on ‘xaig’ >- gvs [xeval_gate'_def]
@@ -978,7 +1269,7 @@ Proof
       \\ simp [xcnf_witness_def]
       \\ fs [find_suffix_def, xeval_gate'_def]
       \\ rw [] \\ fs [DISJOINT3_def, IN_DISJOINT])
-  \\ drule xeval_gate_IMP_cnf \\ fs []
+  \\ irule xeval_gate_IMP_cnf \\ fs []
 QED
 
 Theorem var_lit_var_to_lit[local]:
@@ -987,26 +1278,33 @@ Proof
   Cases_on ‘t’ \\ Cases_on ‘r’ \\ fs [var_to_lit_def]
 QED
 
-Theorem lits_within_xgty_to_cnf[local]:
+Theorem lits_within_gty[local]:
   n < limit ∧ EVERY (λt. var_lit (var_to_lit t) < limit) (gty_lits gt) ⇒
-  lits_within limit (xgty_to_cnf n gt)
+  lits_within limit (gty_pos n gt) ∧ lits_within limit (gty_neg n gt)
 Proof
   Cases_on ‘gt’
-  \\ fs [xgty_to_cnf_def, lits_within_def, xor_to_cnf_def, ite_to_cnf_def]
-  \\ strip_tac
-  \\ fs [GSYM lits_within_def]
-  \\ irule lits_within_eq_every_to_cnf
-  \\ fs [EVERY_MAP]
+  \\ fs [gty_pos_def, gty_neg_def, lits_within_def, eq_every_pos_def,
+         eq_every_neg_def, xor_pos_def, xor_neg_def, ite_pos_def, ite_neg_def,
+         EVERY_MAP]
+QED
+
+Theorem lits_within_xgty_to_cnf[local]:
+  n < limit ∧ EVERY (λt. var_lit (var_to_lit t) < limit) (gty_lits gt) ⇒
+  lits_within limit (xgty_to_cnf pl n gt)
+Proof
+  PairCases_on ‘pl’ \\ strip_tac
+  \\ drule_all lits_within_gty \\ strip_tac
+  \\ rw [xgty_to_cnf_def] \\ fs [lits_within_def]
 QED
 
 Theorem xto_cnf_lits_within:
-  ∀xaig acc.
+  ∀xaig pm acc.
     (∀l. xhas_var (Latch l) xaig ⇒ l < limit) ∧
     (∀i. xhas_var (Input i) xaig ⇒ i < limit) ∧
     0 < limit ∧ xclosed xaig ∧
     EVERY (λ(n,_). n < limit) xaig ∧
     lits_within limit acc ⇒
-    lits_within limit (xto_cnf xaig acc)
+    lits_within limit (xto_cnf xaig pm acc)
 Proof
   Induct \\ simp [xto_cnf_def]
   \\ Cases \\ simp [xto_cnf_def]
