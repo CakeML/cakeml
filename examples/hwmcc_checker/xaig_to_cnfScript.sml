@@ -234,7 +234,7 @@ End
 
 Definition xaig_rename_def:
   xaig_rename ([]:('a,'i,'l) xaig) =
-    ([]:(num,num,num) xaig,1n,FEMPTY,FEMPTY,FEMPTY) ∧
+    ([]:(num,num,num) xaig,2n,FEMPTY,FEMPTY,FEMPTY) ∧
   xaig_rename ((m,gt)::xs) =
     let (res,next,im,lm,nm) = xaig_rename xs in
     let (gt1,next,im,lm) = xrename_gty gt next im lm nm in
@@ -261,7 +261,7 @@ Proof
 QED
 
 Theorem xaig_rename_rev_thm:
-  ∀xs. xaig_rename_rev (REVERSE xs) [] 1n FEMPTY FEMPTY FEMPTY = xaig_rename xs
+  ∀xs. xaig_rename_rev (REVERSE xs) [] 2n FEMPTY FEMPTY FEMPTY = xaig_rename xs
 Proof
   Induct \\ fs [xaig_rename_rev_def, xaig_rename_def]
   \\ Cases \\ fs [xaig_rename_rev_def, xaig_rename_def]
@@ -328,8 +328,8 @@ End
 
 Definition rename_inv_def:
   rename_inv is ls xaig res nm next im lm ⇔
-    0 < next ∧
-    (∀n. n ∈ FRANGE im ∪ FRANGE lm ∪ set (MAP FST res) ⇒ 0 < n ∧ n < next) ∧
+    1 < next ∧
+    (∀n. n ∈ FRANGE im ∪ FRANGE lm ∪ set (MAP FST res) ⇒ 1 < n ∧ n < next) ∧
     DISJOINT3 (FRANGE im) (FRANGE lm) (set (MAP FST res)) ∧
     INJ (FAPPLY im) (FDOM im) UNIV ∧
     INJ (FAPPLY lm) (FDOM lm) UNIV ∧
@@ -697,10 +697,25 @@ QED
    lowering to CNF
  *----------------------------------------------------------------------*)
 
-(* CNF variable 0 is reserved for the constant false: every generated CNF
-   contains the unit clause [Neg 0].  Renaming never produces the name 0,
-   see rename_inv_def, so var_to_lit can map each literal, including the
-   constants FF and TT, to a CNF literal without any special casing. *)
+(* CNF variable 1 is reserved for the constant false: every generated CNF
+   contains the unit clause [Neg 1].  Renaming hands out names from 2
+   upwards, see rename_inv_def, so xvar_to_lit can map every literal,
+   including the constants FF and TT, into a CNF literal without any
+   special casing.  Variable 0 is never used: it is not allowed to appear
+   in the output.  This is why xvar_to_num is not aig_to_cnf's var_to_num,
+   which sends the constant false to 0. *)
+
+Definition xvar_to_num_def:
+  xvar_to_num (Gate n) = n:num ∧
+  xvar_to_num (Base (Input i)) = i ∧
+  xvar_to_num (Base (Latch l)) = l ∧
+  xvar_to_num _ = 1
+End
+
+Definition xvar_to_lit_def:
+  xvar_to_lit (v,F) = Pos (xvar_to_num v) ∧
+  xvar_to_lit (v,T) = Neg (xvar_to_num v)
+End
 
 (* The clauses defining a gate split into two halves.  gty_pos m gt says
    w m ⇒ body, i.e. it constrains gate m from above, and gty_neg m gt says
@@ -741,19 +756,19 @@ Definition ite_neg_def:
 End
 
 Definition gty_pos_def:
-  gty_pos m (And ts) = eq_every_pos (Pos m) (MAP var_to_lit ts) ∧
-  gty_pos m (Xor t1 t2) = xor_pos (Pos m) (var_to_lit t1) (var_to_lit t2) ∧
+  gty_pos m (And ts) = eq_every_pos (Pos m) (MAP xvar_to_lit ts) ∧
+  gty_pos m (Xor t1 t2) = xor_pos (Pos m) (xvar_to_lit t1) (xvar_to_lit t2) ∧
   gty_pos m (Ite t1 t2 t3) =
-    ite_pos (Pos m) (var_to_lit t1) (var_to_lit t2) (var_to_lit t3) ∧
-  gty_pos m (Or ts) = or_every_pos (Pos m) (MAP var_to_lit ts)
+    ite_pos (Pos m) (xvar_to_lit t1) (xvar_to_lit t2) (xvar_to_lit t3) ∧
+  gty_pos m (Or ts) = or_every_pos (Pos m) (MAP xvar_to_lit ts)
 End
 
 Definition gty_neg_def:
-  gty_neg m (And ts) = eq_every_neg (Pos m) (MAP var_to_lit ts) ∧
-  gty_neg m (Xor t1 t2) = xor_neg (Pos m) (var_to_lit t1) (var_to_lit t2) ∧
+  gty_neg m (And ts) = eq_every_neg (Pos m) (MAP xvar_to_lit ts) ∧
+  gty_neg m (Xor t1 t2) = xor_neg (Pos m) (xvar_to_lit t1) (xvar_to_lit t2) ∧
   gty_neg m (Ite t1 t2 t3) =
-    ite_neg (Pos m) (var_to_lit t1) (var_to_lit t2) (var_to_lit t3) ∧
-  gty_neg m (Or ts) = or_every_neg (Pos m) (MAP var_to_lit ts)
+    ite_neg (Pos m) (xvar_to_lit t1) (xvar_to_lit t2) (xvar_to_lit t3) ∧
+  gty_neg m (Or ts) = or_every_neg (Pos m) (MAP xvar_to_lit ts)
 End
 
 (* both halves together are the usual Tseitin clauses for the gate *)
@@ -783,10 +798,10 @@ Proof
   fs [satisfies_cnf_def, satisfies_fml_gen_def, SUBSET_DEF]
 QED
 
-Theorem satisfies_lit_var_to_lit:
-  ∀t. satisfies_lit w (var_to_lit t) ⇔ (SND t ⇎ w (var_to_num (FST t)))
+Theorem satisfies_lit_xvar_to_lit:
+  ∀t. satisfies_lit w (xvar_to_lit t) ⇔ (SND t ⇎ w (xvar_to_num (FST t)))
 Proof
-  Cases \\ Cases_on ‘r’ \\ fs [var_to_lit_def, satisfies_lit_def]
+  Cases \\ Cases_on ‘r’ \\ fs [xvar_to_lit_def, satisfies_lit_def]
 QED
 
 Theorem xor_to_cnf_thm[local]:
@@ -834,7 +849,7 @@ QED
 
 Theorem gty_to_cnf_thm:
   ∀gt m.
-    EVERY (λt. satisfies_lit w (var_to_lit t) ⇔ xeval_lit ss rest t)
+    EVERY (λt. satisfies_lit w (xvar_to_lit t) ⇔ xeval_lit ss rest t)
           (gty_lits gt) ⇒
     (satisfies_cnf w (set (gty_to_cnf m gt)) ⇔ (w m ⇔ xeval_gty ss rest gt))
 Proof
@@ -986,7 +1001,7 @@ Definition direct_xaig_to_cnf_def:
     case xaig of
     | [] => [[]]
     | ((name,_)::_) =>
-        ([Neg 0] :: [Pos name] ::
+        ([Neg 1] :: [Pos name] ::
          xto_cnf xaig (fmap_update FEMPTY name (T,F)) []) : num lit list list
 End
 
@@ -1007,8 +1022,8 @@ QED
 
 Definition lit_pol_ok_def:
   lit_pol_ok w ss rest ((p,n),t) ⇔
-    (p ⇒ (satisfies_lit w (var_to_lit t) ⇒ xeval_lit ss rest t)) ∧
-    (n ⇒ (xeval_lit ss rest t ⇒ satisfies_lit w (var_to_lit t)))
+    (p ⇒ (satisfies_lit w (xvar_to_lit t) ⇒ xeval_lit ss rest t)) ∧
+    (n ⇒ (xeval_lit ss rest t ⇒ satisfies_lit w (xvar_to_lit t)))
 End
 
 Definition xeval_gates_pol_def:
@@ -1111,26 +1126,26 @@ Proof
 QED
 
 Theorem lit_pol_ok_lemma[local]:
-  ¬w 0 ∧ xeval_gates_pol (w,w) rest w pm ∧
+  ¬w 1 ∧ xeval_gates_pol (w,w) rest w pm ∧
   (∀m b. t = (Gate m,b) ⇒
          ALOOKUP rest m ≠ NONE ∧
          pol_le (if b then flip_pol pl else pl) (pol_of pm m)) ⇒
   lit_pol_ok w (w,w) rest (pl,t)
 Proof
   PairCases_on ‘t’ \\ PairCases_on ‘pl’ \\ Cases_on ‘t0’
-  \\ simp [lit_pol_ok_def, satisfies_lit_var_to_lit, var_to_num_def,
+  \\ simp [lit_pol_ok_def, satisfies_lit_xvar_to_lit, xvar_to_num_def,
            xeval_lit_def]
   >-
    (strip_tac \\ gvs []
     \\ drule_all xeval_gates_pol_ALOOKUP \\ strip_tac
     \\ Cases_on ‘t1’ \\ gvs [flip_pol_def, pol_le_def]
     \\ Cases_on ‘pol_of pm a’ \\ gvs [pol_le_def] \\ rw [] \\ gvs [])
-  \\ Cases_on ‘b’ \\ simp [var_to_num_def]
+  \\ Cases_on ‘b’ \\ simp [xvar_to_num_def]
 QED
 
 Theorem satisfies_cnf_IMP_xeval_gates_pol:
   ∀xaig pm w.
-    satisfies_cnf w (set (xto_cnf xaig pm [])) ∧ xclosed xaig ∧ ¬w 0 ⇒
+    satisfies_cnf w (set (xto_cnf xaig pm [])) ∧ xclosed xaig ∧ ¬w 1 ⇒
     xeval_gates_pol (w,w) xaig w pm
 Proof
   Induct \\ simp [xeval_gates_pol_def]
@@ -1190,8 +1205,8 @@ Proof
 QED
 
 Theorem xcnf_witness_0[local]:
-  0 ∉ i_dom ∧ 0 ∉ l_dom ∧ ¬MEM 0 (MAP FST xaig) ⇒
-  ¬xcnf_witness i_dom l_dom is ls xaig 0
+  1 ∉ i_dom ∧ 1 ∉ l_dom ∧ ¬MEM 1 (MAP FST xaig) ⇒
+  ¬xcnf_witness i_dom l_dom is ls xaig 1
 Proof
   rw [xcnf_witness_def] \\ CASE_TAC \\ imp_res_tac find_suffix_MEM \\ fs []
 QED
@@ -1216,7 +1231,7 @@ Theorem xeval_gate_IMP_cnf_lemma[local]:
   ∀xaig past pm.
     xclosed xaig ∧
     DISJOINT3 i_dom l_dom (set (MAP FST xaig)) ∧
-    0 ∉ i_dom ∧ 0 ∉ l_dom ∧ ~MEM 0 (MAP FST (past ++ xaig)) ∧
+    1 ∉ i_dom ∧ 1 ∉ l_dom ∧ ~MEM 1 (MAP FST (past ++ xaig)) ∧
     (∀l. xhas_var (Latch l) xaig ⇒ l ∈ l_dom) ∧
     (∀i. xhas_var (Input i) xaig ⇒ i ∈ i_dom) ∧
     ALL_DISTINCT (MAP FST (past ++ xaig)) ⇒
@@ -1240,7 +1255,7 @@ Proof
     \\ fs [DISJOINT3_def, IN_DISJOINT])
   \\ irule satisfies_cnf_SUBSET
   \\ irule_at Any xgty_to_cnf_SUBSET
-  \\ ‘¬xcnf_witness i_dom l_dom is ls (past ++ (h0,h1)::xaig) 0’ by
+  \\ ‘¬xcnf_witness i_dom l_dom is ls (past ++ (h0,h1)::xaig) 1’ by
        (irule xcnf_witness_0 \\ fs [])
   \\ ‘∀a. MEM a (MAP FST xaig) ⇒
           (xcnf_witness i_dom l_dom is ls (past ++ (h0,h1)::xaig) a ⇔
@@ -1254,11 +1269,11 @@ Proof
         \\ metis_tac [])
   \\ ‘EVERY (λt. satisfies_lit
                    (xcnf_witness i_dom l_dom is ls (past ++ (h0,h1)::xaig))
-                   (var_to_lit t) ⇔ xeval_lit (is,ls) xaig t) (gty_lits h1)’ by
+                   (xvar_to_lit t) ⇔ xeval_lit (is,ls) xaig t) (gty_lits h1)’ by
        (simp [EVERY_MEM] \\ Cases \\ Cases_on ‘q’
-        \\ simp [satisfies_lit_var_to_lit, var_to_num_def, xeval_lit_def]
+        \\ simp [satisfies_lit_xvar_to_lit, xvar_to_num_def, xeval_lit_def]
         >- (strip_tac \\ res_tac \\ fs [ALOOKUP_NONE] \\ res_tac \\ fs [])
-        \\ Cases_on ‘b’ \\ simp [var_to_num_def] \\ strip_tac
+        \\ Cases_on ‘b’ \\ simp [xvar_to_num_def] \\ strip_tac
         >- (‘i ∈ i_dom’ by
               (first_x_assum irule \\ simp [xhas_var_def] \\ metis_tac [])
             \\ simp [xcnf_witness_def])
@@ -1276,7 +1291,7 @@ QED
 
 Theorem xeval_gate_IMP_cnf:
   xclosed xaig ∧ ALL_DISTINCT (MAP FST xaig) ∧
-  0 ∉ i_dom ∧ 0 ∉ l_dom ∧ ~MEM 0 (MAP FST xaig) ∧
+  1 ∉ i_dom ∧ 1 ∉ l_dom ∧ ~MEM 1 (MAP FST xaig) ∧
   (∀l. xhas_var (Latch l) xaig ⇒ l ∈ l_dom) ∧
   (∀i. xhas_var (Input i) xaig ⇒ i ∈ i_dom) ∧
   DISJOINT3 i_dom l_dom (set (MAP FST xaig)) ⇒
@@ -1287,7 +1302,7 @@ QED
 
 Theorem direct_xaig_to_cnf_correct:
   ALL_DISTINCT (MAP FST xaig) ∧ xclosed xaig ∧
-  0 ∉ i_dom ∧ 0 ∉ l_dom ∧ ~MEM 0 (MAP FST xaig) ∧
+  1 ∉ i_dom ∧ 1 ∉ l_dom ∧ ~MEM 1 (MAP FST xaig) ∧
   (∀l. xhas_var (Latch l) xaig ⇒ l ∈ l_dom) ∧
   (∀i. xhas_var (Input i) xaig ⇒ i ∈ i_dom) ∧
   DISJOINT3 i_dom l_dom (set (MAP FST xaig)) ⇒
@@ -1323,14 +1338,14 @@ Proof
   \\ irule xeval_gate_IMP_cnf \\ fs []
 QED
 
-Theorem var_lit_var_to_lit[local]:
-  var_lit (var_to_lit t) = var_to_num (FST t)
+Theorem var_lit_xvar_to_lit[local]:
+  var_lit (xvar_to_lit t) = xvar_to_num (FST t)
 Proof
-  Cases_on ‘t’ \\ Cases_on ‘r’ \\ fs [var_to_lit_def]
+  Cases_on ‘t’ \\ Cases_on ‘r’ \\ fs [xvar_to_lit_def]
 QED
 
 Theorem lits_within_gty[local]:
-  n < limit ∧ EVERY (λt. var_lit (var_to_lit t) < limit) (gty_lits gt) ⇒
+  n < limit ∧ EVERY (λt. var_lit (xvar_to_lit t) < limit) (gty_lits gt) ⇒
   lits_within limit (gty_pos n gt) ∧ lits_within limit (gty_neg n gt)
 Proof
   Cases_on ‘gt’
@@ -1340,7 +1355,7 @@ Proof
 QED
 
 Theorem lits_within_xgty_to_cnf[local]:
-  n < limit ∧ EVERY (λt. var_lit (var_to_lit t) < limit) (gty_lits gt) ⇒
+  n < limit ∧ EVERY (λt. var_lit (xvar_to_lit t) < limit) (gty_lits gt) ⇒
   lits_within limit (xgty_to_cnf pl n gt)
 Proof
   PairCases_on ‘pl’ \\ strip_tac
@@ -1352,7 +1367,7 @@ Theorem xto_cnf_lits_within:
   ∀xaig pm acc.
     (∀l. xhas_var (Latch l) xaig ⇒ l < limit) ∧
     (∀i. xhas_var (Input i) xaig ⇒ i < limit) ∧
-    0 < limit ∧ xclosed xaig ∧
+    1 < limit ∧ xclosed xaig ∧
     EVERY (λ(n,_). n < limit) xaig ∧
     lits_within limit acc ⇒
     lits_within limit (xto_cnf xaig pm acc)
@@ -1366,17 +1381,17 @@ Proof
   \\ fs [GSYM lits_within_def]
   \\ irule lits_within_xgty_to_cnf
   \\ fs [EVERY_MEM] \\ rw []
-  \\ PairCases_on ‘t’ \\ fs [var_lit_var_to_lit]
-  \\ Cases_on ‘t0’ \\ fs [var_to_num_def]
+  \\ PairCases_on ‘t’ \\ fs [var_lit_xvar_to_lit]
+  \\ Cases_on ‘t0’ \\ fs [xvar_to_num_def]
   >- (res_tac \\ fs [ALOOKUP_NONE, MEM_MAP, FORALL_PROD, EXISTS_PROD]
       \\ res_tac \\ fs [])
-  \\ Cases_on ‘b’ \\ fs [var_to_num_def] \\ res_tac
+  \\ Cases_on ‘b’ \\ fs [xvar_to_num_def] \\ res_tac
 QED
 
 Theorem direct_xaig_to_cnf_lits_within:
   (∀l. xhas_var (Latch l) xaig ⇒ l < limit) ∧
   (∀i. xhas_var (Input i) xaig ⇒ i < limit) ∧
-  0 < limit ∧ xclosed xaig ∧
+  1 < limit ∧ xclosed xaig ∧
   EVERY (λ(n,_). n < limit) xaig ⇒
   lits_within limit (direct_xaig_to_cnf xaig)
 Proof
@@ -1395,7 +1410,7 @@ QED
 Definition xaig_to_cnf_def:
   xaig_to_cnf xaig name =
     let xaig_1 = xprune_for name xaig in
-    let (xaig_2, limit, x) = xaig_rename_rev xaig_1 [] 1n FEMPTY FEMPTY FEMPTY in
+    let (xaig_2, limit, x) = xaig_rename_rev xaig_1 [] 2n FEMPTY FEMPTY FEMPTY in
       (direct_xaig_to_cnf xaig_2, limit)
 End
 
@@ -1414,7 +1429,7 @@ Proof
   \\ qpat_x_assum ‘∀ls is. rename_inv _ _ _ _ _ _ _ _’
        (qspecl_then [‘ARB’,‘ARB’] assume_tac)
   \\ fs [rename_inv_def]
-  \\ ‘0 ∉ FRANGE x0 ∧ 0 ∉ FRANGE x1 ∧ ¬MEM 0 (MAP FST xaig_2)’ by
+  \\ ‘1 ∉ FRANGE x0 ∧ 1 ∉ FRANGE x1 ∧ ¬MEM 1 (MAP FST xaig_2)’ by
        (rpt strip_tac \\ res_tac \\ fs [])
   \\ conj_tac
   >-
