@@ -139,7 +139,8 @@ val _ = temp_delsimps["getOpClass_def"]
 Theorem getOpClass_opClass:
   (getOpClass op = FunApp ⇔ opClass op FunApp) ∧
   (getOpClass op = Simple ⇔ opClass op Simple) ∧
-  (getOpClass op = Force ⇔ opClass op Force)
+  (getOpClass op = Force ⇔ opClass op Force) ∧
+  (getOpClass op = PtrEqOp ⇔ opClass op PtrEqOp)
 Proof
   Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases, AllCaseEqs()]
 QED
@@ -233,6 +234,17 @@ Theorem run_eval_def:
               do () <- set_store (st with <| refs := refs'; ffi := ffi' |>);
                  combin$C return res
               od)
+        | PtrEqOp =>
+            (case REVERSE vs of
+               [v1; v2] =>
+                 (case do_eq v1 v2 of
+                    Eq_type_error => raise (Rabort Rtype_error)
+                  | Eq_val b =>
+                      do () <- set_store (st with ptr_eq_oracle :=
+                                 (0 =+ shift_seq 1 (st.ptr_eq_oracle 0)) st.ptr_eq_oracle);
+                         return (Boolv (b ∧ st.ptr_eq_oracle 0 0))
+                      od)
+             | _ => raise (Rabort Rtype_error))
         | _ => raise (Rabort Rtype_error))
      od) ∧
   (!env lop e1 e2.
@@ -347,7 +359,7 @@ Proof
         gvs[LESS_OR_EQ] >> metis_tac[]
         ) >>
       Cases_on ‘getOpClass op = Simple’ >> gs[]
-      >- (‘~ opClass op FunApp ∧ ¬opClass op Force’ by
+      >- (‘~ opClass op FunApp ∧ ¬opClass op Force ∧ ¬opClass op PtrEqOp’ by
             (Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases,AllCaseEqs()]) >>
           gs[getOpClass_opClass] >>
           every_case_tac >>
@@ -359,9 +371,28 @@ Proof
           rw [] >>
           rw [] >> fs[state_transformerTheory.UNIT_DEF] >>
           metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec]) >>
+      Cases_on ‘getOpClass op = PtrEqOp’ >> gs[]
+      >- (‘~ opClass op FunApp ∧ ¬opClass op Force ∧ ¬opClass op Simple’ by
+            (Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases,AllCaseEqs()]) >>
+          gs[getOpClass_opClass] >>
+          every_case_tac >>
+          rw [] >>
+          fs [remove_lambda_pair] >>
+          rw [] >>
+          every_case_tac >>
+          fs [GSYM evaluate_run_eval_list] >>
+          rw [] >>
+          rw [] >> fs[state_transformerTheory.UNIT_DEF]
+          >>~- ([‘REVERSE l = [x; y] (* a *)’],
+                metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec]) >>
+          disj2_tac >> disj1_tac >>
+          first_assum $ irule_at Any >>
+          rpt (qpat_x_assum ‘REVERSE _ = _’
+                 (mp_tac o AP_TERM “LENGTH : v list -> num”)) >>
+          simp[]) >>
       ‘getOpClass op = EvalOp’
         by (Cases_on ‘op’ >> gs[opClass_cases, getOpClass_def,AllCaseEqs()]) >> gs[] >>
-      ‘~ opClass op FunApp’ by
+      ‘~ opClass op FunApp ∧ ¬opClass op Force ∧ ¬opClass op PtrEqOp’ by
         (Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases,AllCaseEqs()]) >>
       gs[] >> every_case_tac >> gs[remove_lambda_pair] >>
       fs [GSYM evaluate_run_eval_list] >>

@@ -78,54 +78,34 @@ Theorem big_unclocked_ignore:
        evaluate_match F env (s with clock := count) v pes err_v (st' with clock := count, r))
 Proof
   ho_match_mp_tac evaluate_ind >>
-  rw [] >>
-  rw [Once evaluate_cases]>>
+  rw []
+  >~ [‘opClass op Simple’]
+  >- (
+    rw [Once evaluate_cases] >>
+    ntac 2 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp []
+    )
+  >~ [‘do_eq v1 v2 = Eq_val b’]
+  >- (
+    rw [Once evaluate_cases] >>
+    ntac 4 disj2_tac >>
+    last_x_assum $ irule_at Any >> simp []
+    )
+  >~ [‘do_eq v1 v2 = Eq_type_error’]
+  >- (
+    rw [Once evaluate_cases] >>
+    ntac 8 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp []
+    )
+  >~ [‘LENGTH vs ≠ 2’]
+  >- (
+    rw [Once evaluate_cases] >>
+    ntac 9 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp []
+    ) >>
+  rw [Once evaluate_cases] >>
   fs [opClass_cases] >>
-  rw [] >> fs[] >>
-  TRY (disj1_tac >>
-       qexists_tac `vs` >>
-       qexists_tac `s2 with clock := count'` >>
-       rw [] >>
-       NO_TAC) >>
-  TRY (disj1_tac >>
-       qexists_tac `ffi'` >>
-       qexists_tac ‘refs'’ >>
-       qexists_tac `vs` >>
-       TRY $ qexists_tac `vFp` >>
-       qexists_tac `s2 with clock := count'` >>
-       rw [] >>
-       NO_TAC) >>
-  TRY (disj2_tac >> disj1_tac >>
-       qexists_tac `ffi'` >>
-       qexists_tac ‘refs'’ >>
-       qexists_tac `vs` >>
-       TRY $ qexists_tac `vFp` >>
-       qexists_tac `s2 with clock := count'` >>
-       rw [] >>
-       NO_TAC) >>
-  TRY (ntac 2 disj2_tac >> disj1_tac >>
-       qexists_tac `ffi'` >>
-       qexists_tac ‘refs'’ >>
-       qexists_tac `vs` >> qexists_tac ‘res’ >>
-       TRY $ qexists_tac `rOpt` >>
-       qexists_tac `s2 with clock := count'` >>
-       rw [] >>
-       NO_TAC) >>
-  TRY (qexists_tac `s2 with clock := count'` >>
-       TRY $ qexists_tac ‘v’ >>
-       rw [] >>
-       NO_TAC) >>
-  TRY (disj1_tac >>
-       qexists_tac `ffi'` >> qexists_tac ‘refs'’ >>
-       qexists_tac ‘vs’ >>
-       qexists_tac `s2 with clock := count'` >>
-       rw[] >>
-       NO_TAC) >>
-  TRY (disj2_tac >> disj1_tac >>
-       qexists_tac ‘vs’ >>
-       qexists_tac `s2 with clock := count'` >>
-       rw[] >>
-       NO_TAC)
+  rw [] >> fs[]
   >>~ [‘dest_thunk’]
   >- metis_tac[]
   >- metis_tac[]
@@ -207,18 +187,46 @@ Theorem add_to_counter:
        evaluate_match T env (s with clock := s.clock+extra) v pes err_v ((s' with clock := s'.clock+extra),r'))
 Proof
   ho_match_mp_tac evaluate_ind >>
-  rw [] >> rw [Once evaluate_cases] >>
-  fs[opClass_cases] >> rfs[] >>
-  TRY (metis_tac[with_clock_refs]) >>
-  TRY (disj2_tac >> disj1_tac >>
-       first_x_assum $ qspec_then ‘extra’ $ irule_at Any >> gs[] >> NO_TAC) >>
-  TRY (ntac 2 disj2_tac >> disj1_tac >>
-       first_x_assum $ qspec_then ‘extra’ $ irule_at Any >> gs[] >> NO_TAC) >>
-  TRY (qexists_tac ‘s2 with clock := extra + s2.clock’ >> qexists_tac ‘v’ >>
-       gs[state_component_equality] >> NO_TAC) >>
-  TRY (qexists_tac ‘s2 with clock := extra + s2.clock’ >>
-       gs[state_component_equality] >> NO_TAC)
-  >>~ [‘ThunkOp ForceThunk’]
+  rw []
+  >~ [‘opClass op Simple’]
+  >- (
+    rw [Once evaluate_cases] >>
+    ntac 2 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp []
+    )
+  >~ [‘do_eq v1 v2 = Eq_val b’]
+  >- (
+    rw [Once evaluate_cases] >>
+    ntac 4 disj2_tac >>
+    last_x_assum $ irule_at Any >> simp []
+    )
+  >~ [‘do_eq v1 v2 = Eq_type_error’]
+  >- (
+    rw [Once evaluate_cases] >>
+    ntac 8 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp []
+    )
+  >~ [‘LENGTH vs ≠ 2’]
+  >- (
+    rw [Once evaluate_cases] >>
+    ntac 9 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp []
+    )
+  >~ [‘do_opapp (REVERSE vs) = SOME _’]
+  >- (
+    rw [Once evaluate_cases] >>
+    fs[opClass_cases] >> rfs[] >>
+    disj1_tac >>
+    CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``evaluate_list`` o fst o strip_comb))) >>
+    first_assum(match_exists_tac o (snd o strip_forall o concl)) >>
+    simp[] >>
+    fsrw_tac[ARITH_ss][] >>
+    `extra + s2.clock - 1 = s2.clock -1 + extra` by DECIDE_TAC >>
+    metis_tac []
+    ) >>
+  rw [Once evaluate_cases] >>
+  fs[opClass_cases] >> rfs[]
+  >>~ [‘do_opapp [f; Conv NONE []] = SOME _’]
   >- (
     ntac 3 disj2_tac >> disj1_tac >>
     first_assum(match_exists_tac o (snd o strip_forall o concl)) >>
@@ -236,13 +244,7 @@ Proof
     last_x_assum $ qspec_then ‘extra’ $ irule_at Any >> simp[] >>
     first_x_assum $ qspec_then ‘extra’ $ irule_at Any >> simp[]
     ) >>
-  disj1_tac >>
-  CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``evaluate_list`` o fst o strip_comb))) >>
-  first_assum(match_exists_tac o (snd o strip_forall o concl)) >>
-  simp[] >>
-  fsrw_tac[ARITH_ss][] >>
-  `extra + s2.clock - 1 = s2.clock -1 + extra` by DECIDE_TAC >>
-  metis_tac []
+  metis_tac [with_clock_refs]
 QED
 
 Theorem with_clock_clock[local]:
@@ -272,33 +274,33 @@ Theorem add_clock[local]:
        ∃c. evaluate_match T env (s with clock := c) v pes err_v (s' with clock := 0,r'))
 Proof
   ho_match_mp_tac evaluate_ind >>
-  rw [] >>
-  rw [Once evaluate_cases] >>
-  srw_tac[DNF_ss][] >> fs[opClass_cases] >>
-  TRY(fs[state_component_equality]>>NO_TAC) >>
-  TRY (
-    srw_tac[DNF_ss][] >> disj1_tac >>
+  rw []
+  >~ [‘opClass op Simple’]
+  >- (
+    rw [Once evaluate_cases] >>
+    srw_tac[DNF_ss][] >> fs [] >>
+    ntac 3 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp []
+    )
+  >~ [‘do_eq v1 v2 = Eq_val b’]
+  >- (
+    rw [Once evaluate_cases] >>
+    srw_tac[DNF_ss][] >> fs [] >>
+    ntac 4 disj2_tac >>
+    last_x_assum $ irule_at Any >> simp []
+    )
+  >~ [‘do_opapp (REVERSE vs) = SOME _’]
+  >- (
+    rw [Once evaluate_cases] >>
+    srw_tac[DNF_ss][] >> fs[opClass_cases] >>
+    disj1_tac >>
     imp_res_tac (CONJUNCT1 (CONJUNCT2 add_to_counter)) >> fs[] >>
     first_x_assum(qspec_then`c+1`strip_assume_tac)>>
-    first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC) >>
-  TRY (
-    srw_tac[DNF_ss][] >> disj1_tac >>
-    CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``evaluate_list`` o fst o strip_comb))) >>
-    first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC) >>
-  TRY (
-    disj2_tac >> disj1_tac >>
-    last_x_assum $ irule_at Any >> gs[] >> NO_TAC) >>
-  TRY (
-    ntac 2 disj2_tac >> disj1_tac >>
-    last_x_assum $ irule_at Any >> gs[] >> NO_TAC) >>
-  TRY (
-    ntac 4 disj2_tac >> disj1_tac >>
-    last_x_assum $ irule_at Any >> gs[] >> NO_TAC) >>
-  TRY (
-    srw_tac[DNF_ss][] >>
-    rewrite_tac[ CONJ_ASSOC] >> once_rewrite_tac [CONJ_COMM] >>
-    first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC)
-  >>~ [‘ThunkOp ForceThunk’]
+    first_assum(match_exists_tac o concl) >> simp[]
+    ) >>
+  rw [Once evaluate_cases] >>
+  srw_tac[DNF_ss][] >> fs[opClass_cases]
+  >>~ [‘do_opapp [f; Conv NONE []] = SOME _’]
   >- (
     gvs[] >> ntac 4 disj2_tac >> disj1_tac >>
     dxrule $ cj 2 add_to_counter >> simp[] >>
@@ -609,14 +611,25 @@ Proof
         reverse $ Cases_on ‘res’ >- metis_tac[] >>
         disj2_tac >> Cases_on ‘update_thunk (REVERSE v) s3.refs [a]’ >> metis_tac[]
         ) >>
+      Cases_on ‘opClass o' PtrEqOp’
+      >- (
+        reverse $ Cases_on ‘LENGTH v = 2’ >- metis_tac [] >>
+        ‘LENGTH (REVERSE v) = 2’ by simp [] >>
+        gvs [LENGTH_EQ_NUM_compute] >>
+        rename1 ‘Rval [w2; w1]’ >>
+        ‘REVERSE [w2; w1] = [w1; w2]’ by simp [] >>
+        Cases_on ‘do_eq w1 w2’ >> metis_tac []
+        ) >>
       `(do_app (s2.refs,s2.ffi) o' (REVERSE v) = NONE) ∨
        (?s3 e2. do_app (s2.refs,s2.ffi) o' (REVERSE v) = SOME (s3,e2))`
         by metis_tac [optionTheory.option_nchotomy, pair_CASES]
       >- (rename [‘op ≠ Opapp’] >>
-          ‘¬opClass op FunApp ∧ ¬opClass op Force’ by simp[opClass_cases] >> simp[] >>
+          ‘¬opClass op FunApp ∧ ¬opClass op Force ∧ ¬opClass op PtrEqOp’
+            by gs[opClass_cases] >>
+          simp[] >>
           metis_tac[]) >>
       cases_on ‘opClass o' Simple’ >> gs[] >- metis_tac [pair_CASES]  >>
-      ‘opClass o' EvalOp’ by (Cases_on ‘o'’ >> TRY (gs[opClass_cases] >> NO_TAC)) >>
+      ‘opClass o' EvalOp’ by (Cases_on ‘o'’ >> gs[opClass_cases]) >>
       cases_on ‘o'’ >> gs[opClass_cases, do_app_def] >> every_case_tac >> gs[])
   >- ((* Log *)
       rename [‘do_log l’]  >>
@@ -795,6 +808,21 @@ Proof
   [‘opClass op Simple (* a *)’]
   >- (‘¬opClass op FunApp’ by gs[opClass_cases] >> simp[] >> disj1_tac >>
       first_assum $ irule_at (Pat ‘evaluate_list _ _ _ _ _ ’) >> simp[])
+  >~ [‘do_eq v1 v2 = Eq_val b (* a *)’]
+  >- (
+    ntac 4 disj2_tac >>
+    first_assum $ irule_at (Pat ‘evaluate_list _ _ _ _ _’) >> simp []
+    )
+  >~ [‘do_eq v1 v2 = Eq_type_error (* a *)’]
+  >- (
+    ntac 8 disj2_tac >> disj1_tac >>
+    first_assum $ irule_at (Pat ‘evaluate_list _ _ _ _ _’) >> simp []
+    )
+  >~ [‘LENGTH vs ≠ 2 (* a *)’]
+  >- (
+    ntac 9 disj2_tac >> disj1_tac >>
+    first_assum $ irule_at (Pat ‘evaluate_list _ _ _ _ _’) >> simp []
+    )
   >>~ [‘ThunkOp ForceThunk’]
   >- simp[SF SFY_ss]
   >- simp[SF SFY_ss]
@@ -816,7 +844,7 @@ Proof
     imp_res_tac clock_monotone >> gvs[]
     )
   >- (
-    rpt disj2_tac >>
+    ntac 3 disj2_tac >> disj1_tac >>
     last_x_assum $ irule_at Any >> simp[] >>
     first_x_assum $ irule_at $ Pat ‘evaluate _ _ _ _ _’ >> simp[] >>
     qexists ‘s2.clock - extra’ >> simp[] >>

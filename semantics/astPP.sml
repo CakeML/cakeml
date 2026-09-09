@@ -645,6 +645,7 @@ val _=add_astPP ("eqrealprint", ``App Equality [x;y]``,genPrint (infixrealPrint 
 (*For example, these should take lists of 1 element*)
 val _=add_astPP ("refrealprint", ``App Opref x``,genPrint (prefixargsPrint "ref"))
 val _=add_astPP ("derefrealprint", ``App Opderef x``,genPrint (prefixargsPrint "!"))
+val _=add_astPP ("ptreqprint", ``App PtrEq x``,genPrint (prefixargsPrint "ptr_eq"))
 
 val _=add_astPP ("W64toIntprint", ``App (WordToInt W64) x``,genPrint (prefixargsPrint "W64toInt"))
 val _=add_astPP ("W8toIntprint", ``App (WordToInt W8) x``,genPrint (prefixargsPrint "W8toInt"))

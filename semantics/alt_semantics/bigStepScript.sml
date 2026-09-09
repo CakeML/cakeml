@@ -33,6 +33,8 @@ Inductive opClass:
 (opClass Opapp FunApp) ∧
 (* Eval *)
 (opClass Eval EvalOp) ∧
+(* PtrEq *)
+(opClass PtrEq PtrEqOp) ∧
 (* Thunks *)
 (opClass (ThunkOp ForceThunk) Force) ∧
 (∀op. op ≠ ForceThunk ⇒ opClass (ThunkOp op) Simple)
@@ -229,9 +231,40 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
 /\ (! ck env op es vs s1 s2.
       evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
       do_app (s2.refs,s2.ffi) op (REVERSE vs) = NONE /\
-      ¬opClass op FunApp ∧ ¬opClass op Force
+      ¬opClass op FunApp ∧ ¬opClass op Force ∧ ¬opClass op PtrEqOp
 ==>
       evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
+
+∧
+
+(* PtrEq: result *)
+(∀ck env op es vs v1 v2 b s1 s2.
+  evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
+  opClass op PtrEqOp ∧
+  REVERSE vs = [v1; v2] ∧
+  do_eq v1 v2 = Eq_val b
+ ⇒ evaluate ck env s1 (App op es)
+     (s2 with ptr_eq_oracle := (0 =+ shift_seq 1 (s2.ptr_eq_oracle 0)) s2.ptr_eq_oracle,
+      Rval (Boolv (b ∧ s2.ptr_eq_oracle 0 0))))
+
+∧
+
+(* PtrEq: do_eq type error *)
+(∀ck env op es vs v1 v2 s1 s2.
+  evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
+  opClass op PtrEqOp ∧
+  REVERSE vs = [v1; v2] ∧
+  do_eq v1 v2 = Eq_type_error
+ ⇒ evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
+
+∧
+
+(* PtrEq: arity error *)
+(∀ck env op es vs s1 s2.
+  evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
+  opClass op PtrEqOp ∧
+  LENGTH vs ≠ 2
+ ⇒ evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
 
 /\ (! ck env op es err s1 s2.
 (evaluate_list ck env s1 (REVERSE es) (s2, Rerr err))
