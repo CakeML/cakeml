@@ -3,7 +3,7 @@
 *)
 Theory mlint
 Ancestors
-  mlstring gcd
+  mlstring toto gcd
 Libs
   preamble
 
@@ -550,6 +550,14 @@ End
 Definition num_gcd_def:
   num_gcd a b = if a = 0n then b else num_gcd (b MOD a) a
 End
+
+Theorem TotOrd_int_cmp:
+  TotOrd int_cmp
+Proof
+  rw [TotOrd, int_cmp_def]
+  \\ every_case_tac \\ gvs []
+  \\ intLib.ARITH_TAC
+QED
 
 Theorem num_gcd_eq_gcd:
   num_gcd = gcd

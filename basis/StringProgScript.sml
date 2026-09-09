@@ -27,6 +27,8 @@ val _ = trans "<"  “fast_lt”;
 val _ = trans "<=" “fast_le”;
 val _ = trans ">"  “fast_gt”;
 val _ = trans ">=" “fast_ge”;
+val _ = next_ml_names := ["compare"];
+val _ = translate fast_compare_def;
 val _ = ml_prog_update (close_module NONE);
 
 val _ = trans "sub" mlstringSyntax.strsub_tm;

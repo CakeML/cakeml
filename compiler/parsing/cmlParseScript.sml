@@ -72,12 +72,16 @@ Definition cmlParseExpr_def:
   od
 End
 
+Definition cml_parse_nTopLevelDecs_def:
+  cml_parse_nTopLevelDecs toks =
+  destResult (cmlpegexec nTopLevelDecs toks)
+End
+
 Definition parse_prog_def:
   parse_prog =
     do
-      pts <- destResult o cmlpegexec nTopLevelDecs;
+      pts <- cml_parse_nTopLevelDecs;
       pt <- optlift $ oHD pts;
       optlift $ ptree_TopLevelDecs pt;
     od
 End
-

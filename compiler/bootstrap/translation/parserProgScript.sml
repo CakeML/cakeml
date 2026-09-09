@@ -94,8 +94,6 @@ Proof
 QED
 val _ = update_precondition validaddsym_side_lemma;
 
-val _ = translate (def_of_const ``cmlPEG``);
-
 Theorem not_mlstring_emp[simp]:
   x ≠  «» ⇒
   0 < strlen x
@@ -103,34 +101,6 @@ Proof
   Cases_on`x`>>rw[]>>
   Cases_on`s`>>gvs[]
 QED
-
-Theorem cmlpeg_side[local]:
-  cmlpeg_side ⇔ T
-Proof
-  fs[fetch "-" "cmlpeg_side_def",
-    fetch "-" "peg_v_side_def",
-    fetch "-" "peg_longv_side_def",
-    fetch "-" "peg_uqconstructorname_side_def"
-    ]
-QED
-
-val _ = update_precondition cmlpeg_side;
-
-Theorem INTRO_FLOOKUP:
-   (if n ∈ FDOM G.rules then
-      pegexec$EV (G.rules ' n) i r eo errs (appf1 tf3 k) fk
-    else Looped) =
-   (case FLOOKUP G.rules n of
-      NONE => Looped
-    | SOME x => pegexec$EV x i r eo errs (appf1 tf3 k) fk)
-Proof
-  SRW_TAC [] [finite_mapTheory.FLOOKUP_DEF]
-QED
-
-val _ = translate (def_of_const ``coreloop`` |> RW [INTRO_FLOOKUP]
-                   |> SPEC_ALL |> RW1 [FUN_EQ_THM]);
-
-val _ = translate (def_of_const ``peg_exec``);
 
 (* parsing: cmlvalid *)
 
@@ -241,17 +211,62 @@ val _ = translate (def_of_const ``ptree_TopLevelDecs``);
 
 (* parsing: top-level parser *)
 
-val _ = translate (RW [monad_unitbind_assert] parse_prog_def);
+Theorem INTRO_FLOOKUP:
+   (if n ∈ FDOM G.rules then
+      pegexec$EV (G.rules ' n) i r eo errs (appf1 tf3 k) fk
+    else Looped) =
+   (case FLOOKUP G.rules n of
+      NONE => Looped
+    | SOME x => pegexec$EV x i r eo errs (appf1 tf3 k) fk)
+Proof
+  SRW_TAC [] [finite_mapTheory.FLOOKUP_DEF]
+QED
 
-Theorem parse_prog_side_lemma = Q.prove(`
-  !x. parse_prog_side x = T`,
-  SIMP_TAC std_ss [fetch "-" "parse_prog_side_def",
-    fetch "-" "peg_exec_side_def", fetch "-" "coreloop_side_def"]
-  THEN REPEAT STRIP_TAC
-  THEN STRIP_ASSUME_TAC (Q.SPEC `v1` owhile_TopLevelDecs_total)
-  THEN FULL_SIMP_TAC std_ss [INTRO_FLOOKUP] THEN POP_ASSUM MP_TAC
-  THEN CONV_TAC (DEPTH_CONV ETA_CONV) THEN FULL_SIMP_TAC std_ss [])
-  |> update_precondition;
+Theorem option_CASE_FLOOKUP_SIMP:
+  option_CASE (FLOOKUP FEMPTY n) f h = f ∧
+  option_CASE (FLOOKUP (m |+ (a,b)) n) f h =
+  if n = a then h b else option_CASE (FLOOKUP m n) f h
+Proof
+  rw [] \\ gvs [FLOOKUP_SIMP]
+QED
+
+Definition peg_cml_rules_def:
+  peg_cml_rules n fk k tf3 errs eo r i =
+  case FLOOKUP cmlPEG.rules n of
+  | NONE => Looped
+  | SOME x => pegexec$EV x i r eo errs (appf1 tf3 k) fk
+End
+
+val def = peg_cml_rules_def
+  |> RW [cmlPEG_def, oneline OPTION_BIND_def]
+  |> SRULE [FUPDATE_LIST, option_CASE_FLOOKUP_SIMP, FOLDL];
+
+val _ = translate def;
+
+val def = cml_parse_nTopLevelDecs_def
+  |> SRULE [monad_unitbind_assert, pegresult_bind_def, FUN_EQ_THM,
+            pegexecTheory.peg_exec_def, pegexecTheory.coreloop_def, INTRO_FLOOKUP,
+            GSYM peg_cml_rules_def]
+  |> SRULE [cmlPEG_def];
+
+val _ = translate def;
+
+Theorem cml_parse_ntopleveldecs_side_lemma[local]:
+  !x. cml_parse_ntopleveldecs_side x = T
+Proof
+  rewrite_tac [fetch "-" "cml_parse_ntopleveldecs_side_def"]
+  \\ rpt strip_tac
+  \\ qspec_then ‘x’ strip_assume_tac owhile_TopLevelDecs_total
+  \\ fs [INTRO_FLOOKUP, GSYM peg_cml_rules_def]
+  \\ gvs [cmlPEG_def]
+  \\ pop_assum mp_tac
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
+QED
+
+val _ = update_precondition cml_parse_ntopleveldecs_side_lemma;
+
+val r = translate parse_prog_def;
+val _ = null (hyp r) orelse failwith "unproved side conditions";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

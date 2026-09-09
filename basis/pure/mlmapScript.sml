@@ -71,6 +71,14 @@ Definition filterWithKey_def:
   filterWithKey p (Map cmp t) = Map cmp (balanced_map$filterWithKey p t)
 End
 
+Definition diff_def:
+  diff (Map cmp t1 : ('a, 'b) map) (Map _ t2 : ('a, 'c) map) =
+    Map cmp (balanced_map$filterWithKey (λk v.
+      case balanced_map$lookup cmp k t2 of
+      | NONE => T
+      | _    => F) t1)
+End
+
 Definition map_def:
   map f (Map cmp t) = Map cmp (balanced_map$map f t)
 End
@@ -559,23 +567,6 @@ Proof
   \\ first_assum (irule_at Any) \\ rw []
 QED
 
-Theorem filter_lemma:
-  filter f t = filterWithKey (λk. f) t
-Proof
-  Cases_on ‘t’
-  \\ rw [filter_def, filterWithKey_def]
-  \\ rw [balanced_mapTheory.filter_def, SF ETA_ss]
-QED
-
-Theorem filter_thm:
-  map_ok t ⇒
-    map_ok (filter f t) ∧
-    to_fmap (filter f t) =
-    FDIFF (to_fmap t) {k | (k,v) | FLOOKUP (to_fmap t) k = SOME v ∧ ¬f v}
-Proof
-  simp [filter_lemma, filterWithKey_thm]
-QED
-
 Theorem lookup_thm:
    map_ok t ==> lookup t k = FLOOKUP (to_fmap t) k
 Proof
@@ -592,6 +583,53 @@ Proof
   \\ `!f1 v. k = v /\ f1 v <=> k = v /\ f1 k` by metis_tac [] \\ fs []
   \\ Cases_on `k ∈ FDOM (to_fmap (Map f b))` \\ fs []
   \\ fs [FLOOKUP_DEF]
+QED
+
+Definition fdiff_fdom_def:
+  fdiff_fdom f1 f2 = FDIFF f1 (FDOM f2)
+End
+
+Theorem diff_thm:
+  map_ok f1 ∧ map_ok f2 ∧ cmp_of f1 = cmp_of f2 ⇒
+    map_ok (diff f1 f2) ∧
+    to_fmap (diff f1 f2) =
+    fdiff_fdom (to_fmap f1) (to_fmap f2)
+Proof
+  Cases_on ‘f1’
+  \\ Cases_on ‘f2’
+  \\ fs [fdiff_fdom_def,diff_def]
+  \\ strip_tac
+  \\ last_x_assum assume_tac
+  \\ drule filterWithKey_thm
+  \\ simp [filterWithKey_def]
+  \\ rw []
+  \\ gvs [cmp_of_def]
+  \\ gvs [TO_FLOOKUP, FLOOKUP_SIMP, FUN_EQ_THM]
+  \\ gen_tac
+  \\ Cases_on ‘FLOOKUP (to_fmap (Map f b)) x’ \\ fs []
+  \\ rpt AP_THM_TAC
+  \\ AP_TERM_TAC
+  \\ imp_res_tac (lookup_thm |> INST_TYPE [beta |-> gamma])
+  \\ gvs [lookup_def]
+  \\ simp [EXTENSION, FORALL_PROD, GSPECIFICATION, EXISTS_PROD]
+  \\ CASE_TAC \\ gvs []
+QED
+
+Theorem filter_lemma:
+  filter f t = filterWithKey (λk. f) t
+Proof
+  Cases_on ‘t’
+  \\ rw [filter_def, filterWithKey_def]
+  \\ rw [balanced_mapTheory.filter_def, SF ETA_ss]
+QED
+
+Theorem filter_thm:
+  map_ok t ⇒
+    map_ok (filter f t) ∧
+    to_fmap (filter f t) =
+    FDIFF (to_fmap t) {k | (k,v) | FLOOKUP (to_fmap t) k = SOME v ∧ ¬f v}
+Proof
+  simp [filter_lemma, filterWithKey_thm]
 QED
 
 Theorem filterWithKey_all:
@@ -638,4 +676,3 @@ Proof
   \\ Cases_on `k ∈ FDOM (to_fmap (Map f b))` \\ fs []
   \\ fs [FLOOKUP_DEF]
 QED
-

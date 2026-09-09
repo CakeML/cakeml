@@ -94,6 +94,7 @@ String.Fast.<: string -> string -> bool
 String.Fast.<=: string -> string -> bool
 String.Fast.>: string -> string -> bool
 String.Fast.>=: string -> string -> bool
+String.Fast.compare: string -> string -> ordering
 String.<: string -> string -> bool
 String.<=: string -> string -> bool
 String.>: string -> string -> bool
@@ -270,6 +271,7 @@ Array.all: ('a -> bool) -> 'a Array.array -> bool
 Array.collate: ('a -> 'b -> ordering) -> 'a Array.array -> 'b Array.array -> ordering
 Array.lookup: 'a Array.array -> 'a -> int -> 'a
 Array.updateResize: 'a Array.array -> 'a -> int -> 'a -> 'a Array.array
+Map.diff: ('a, 'b) map -> ('a, 'c) map -> ('a, 'b) map
 Map.lookup: ('a, 'b) map -> 'a -> 'b option
 Map.member: 'a -> ('a, 'b) map -> bool
 Map.insert: ('a, 'b) map -> 'a -> 'b -> ('a, 'b) map
