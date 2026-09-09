@@ -3,7 +3,7 @@
 *)
 Theory aig_to_cnf
 Ancestors
-  misc mlstring aig cnf
+  misc mlstring aig cnf syntax_helper
 Libs
   preamble
 
@@ -608,6 +608,37 @@ Proof
   \\ asm_rewrite_tac [FUNION_ASSOC]
 QED
 
+(* Renaming starts at 1 and only ever hands out the current value of next,
+   so no name is 0.  This is what the nz_lit part of lits_within needs. *)
+
+Theorem aig_rename_aux_pos[local]:
+  ∀ts next_1 im_1 lm_1 nm_1 acc ts_1 next_2 im_2 lm_2.
+    aig_rename_aux ts next_1 im_1 lm_1 nm_1 acc = (ts_1,next_2,im_2,lm_2) ∧
+    0 < next_1 ∧ (∀n. n ∈ FRANGE im_1 ∪ FRANGE lm_1 ⇒ 0 < n) ⇒
+    0 < next_2 ∧ (∀n. n ∈ FRANGE im_2 ∪ FRANGE lm_2 ⇒ 0 < n)
+Proof
+  Induct >- (gvs [aig_rename_aux_def] \\ rw [])
+  \\ PairCases \\ simp [aig_rename_aux_def]
+  \\ rpt gen_tac \\ rpt (CASE_TAC \\ fs [])
+  \\ strip_tac \\ first_x_assum drule \\ disch_then irule \\ fs []
+  \\ rw [] \\ gvs []
+  \\ imp_res_tac (SIMP_RULE std_ss [SUBSET_DEF] FRANGE_DOMSUB_SUBSET)
+  \\ res_tac \\ fs []
+QED
+
+Theorem aig_rename_pos:
+  ∀ands res next im lm nm.
+    aig_rename ands = (res,next,im,lm,nm) ⇒
+    0 < next ∧ ∀n. n ∈ FRANGE im ∪ FRANGE lm ∪ set (MAP FST res) ⇒ 0 < n
+Proof
+  Induct >- gvs [aig_rename_def]
+  \\ PairCases \\ fs [aig_rename_def]
+  \\ rpt gen_tac \\ rpt (pairarg_tac \\ fs []) \\ strip_tac \\ gvs []
+  \\ drule aig_rename_aux_pos
+  \\ impl_tac >- (rw [] \\ res_tac \\ fs [])
+  \\ strip_tac \\ rw [] \\ gvs [] \\ res_tac \\ fs []
+QED
+
 Theorem eval_gate'_swap:
   (∀i. has_var (Input i) res ⇒ is i = is1 i) ⇒
   (∀l. has_var (Latch l) res ⇒ ls l = ls1 l) ⇒
@@ -999,24 +1030,40 @@ Proof
 QED
 
 Definition lits_within_def:
-  lits_within limit cnf =
+  lits_within limit cnf ⇔
+    EVERY (EVERY nz_lit) cnf ∧
     EVERY (EVERY (λl. var_lit l < limit)) cnf
 End
 
+Theorem lits_within_APPEND:
+  lits_within limit (xs ++ ys) ⇔
+  lits_within limit xs ∧ lits_within limit ys
+Proof
+  fs [lits_within_def] \\ metis_tac []
+QED
+
+Theorem lits_within_CONS:
+  lits_within limit (c::cs) ⇔
+  EVERY (λl. nz_lit l ∧ var_lit l < limit) c ∧ lits_within limit cs
+Proof
+  fs [lits_within_def, EVERY_CONJ] \\ metis_tac []
+QED
+
 Theorem lits_within_eq_every_to_cnf:
-  var_lit x < limit ∧
-  EVERY (λx. var_lit x < limit) xs ⇒
+  nz_lit x ∧ var_lit x < limit ∧
+  EVERY (λx. nz_lit x ∧ var_lit x < limit) xs ⇒
   lits_within limit (eq_every_to_cnf x xs)
 Proof
   fs [eq_every_to_cnf_def, lits_within_def, EVERY_MAP, var_lit_negate]
+  \\ fs [EVERY_MEM]
 QED
 
 Theorem to_cnf_lits_within:
   ∀ands acc.
-    (∀l. has_var (Latch l) ands ⇒ l < limit) ∧
-    (∀i. has_var (Input i) ands ⇒ i < limit) ∧
+    (∀l. has_var (Latch l) ands ⇒ 0 < l ∧ l < limit) ∧
+    (∀i. has_var (Input i) ands ⇒ 0 < i ∧ i < limit) ∧
     closed ands ∧
-    EVERY (λ(n,_). n < limit) ands ∧
+    EVERY (λ(n,_). 0 < n ∧ n < limit) ands ∧
     lits_within limit acc ⇒
     lits_within limit (to_cnf ands acc)
 Proof
@@ -1025,39 +1072,33 @@ Proof
   \\ rpt strip_tac
   \\ last_x_assum irule
   \\ fs [closed_def,has_var_def, SF DNF_ss]
-  \\ fs [lits_within_def]
+  \\ simp [lits_within_APPEND]
   \\ rw [and_to_cnf_def]
-  \\ fs [GSYM lits_within_def]
+  \\ TRY (fs [lits_within_def] \\ NO_TAC)
   \\ irule lits_within_eq_every_to_cnf
   \\ fs []
   \\ gvs [EVERY_MEM,MEM_MAP,MEM_FILTER] \\ rw []
-  \\ PairCases_on ‘y’ \\ gvs []
-  \\ Cases_on ‘y0’ \\ gvs []
+  \\ PairCases_on ‘y’ \\ Cases_on ‘y1’ \\ gvs [var_to_lit_def]
+  \\ Cases_on ‘y0’ \\ gvs [var_to_num_def, not_TT_def]
+  \\ TRY (Cases_on ‘b’ \\ gvs [var_to_num_def, not_TT_def])
   \\ res_tac
-  \\ fs [FORALL_PROD,ALOOKUP_NONE,MEM_MAP, PULL_EXISTS, EXISTS_PROD]
-  \\ res_tac
-  \\ Cases_on ‘y1’
-  \\ fs [var_to_lit_def, var_to_num_def]
-  \\ Cases_on ‘b’ \\ gvs []
-  \\ fs [var_to_lit_def, var_to_num_def]
-  \\ res_tac
+  \\ gvs [ALOOKUP_NONE, MEM_MAP, FORALL_PROD, EXISTS_PROD]
+  \\ res_tac \\ fs []
 QED
 
 Theorem direct_aig_to_cnf_lits_within:
-  (∀l. has_var (Latch l) ands ⇒ l < limit) ∧
-  (∀i. has_var (Input i) ands ⇒ i < limit) ∧
+  (∀l. has_var (Latch l) ands ⇒ 0 < l ∧ l < limit) ∧
+  (∀i. has_var (Input i) ands ⇒ 0 < i ∧ i < limit) ∧
   closed ands ∧
-  EVERY (λ(n,_). n < limit) ands ⇒
+  EVERY (λ(n,_). 0 < n ∧ n < limit) ands ⇒
   lits_within limit (direct_aig_to_cnf ands)
 Proof
   strip_tac
   \\ fs [direct_aig_to_cnf_def]
   \\ Cases_on ‘ands’ >- fs [lits_within_def]
   \\ PairCases_on ‘h’ \\ fs []
-  \\ fs [lits_within_def]
-  \\ fs [GSYM lits_within_def]
-  \\ irule to_cnf_lits_within \\ fs []
-  \\ fs [lits_within_def]
+  \\ simp [lits_within_CONS]
+  \\ irule to_cnf_lits_within \\ fs [lits_within_def]
 QED
 
 (*----------------------------------------------------------------------*
@@ -1082,6 +1123,7 @@ Proof
   \\ irule_at Any EQ_TRANS
   \\ irule_at Any direct_aig_to_cnf_correct
   \\ PairCases_on ‘x’
+  \\ drule aig_rename_pos \\ strip_tac \\ fs []
   \\ drule aig_rename_thm
   \\ simp [GSYM PULL_FORALL]
   \\ strip_tac
@@ -1095,10 +1137,9 @@ Proof
     \\ rewrite_tac [eval_gate'_aig_rename, eval_gate'_prune])
   \\ irule direct_aig_to_cnf_lits_within
   \\ fs [EVERY_MEM,FORALL_PROD]
-  \\ rpt strip_tac
-  \\ res_tac
-  >- (CCONTR_TAC \\ fs [NOT_LESS] \\ res_tac)
-  >- (CCONTR_TAC \\ fs [NOT_LESS] \\ res_tac)
-  \\ CCONTR_TAC \\ fs [NOT_LESS] \\ res_tac
+  \\ rpt strip_tac \\ res_tac
+  \\ TRY (fs [] \\ NO_TAC)
+  \\ CCONTR_TAC \\ fs [NOT_LESS]
   \\ gvs [MEM_MAP,EXISTS_PROD,PULL_EXISTS]
+  \\ res_tac \\ fs []
 QED

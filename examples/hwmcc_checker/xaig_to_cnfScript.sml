@@ -1345,30 +1345,34 @@ Proof
 QED
 
 Theorem lits_within_gty[local]:
-  n < limit ∧ EVERY (λt. var_lit (xvar_to_lit t) < limit) (gty_lits gt) ⇒
+  0 < n ∧ n < limit ∧
+  EVERY (λt. nz_lit (xvar_to_lit t) ∧ var_lit (xvar_to_lit t) < limit)
+        (gty_lits gt) ⇒
   lits_within limit (gty_pos n gt) ∧ lits_within limit (gty_neg n gt)
 Proof
   Cases_on ‘gt’
   \\ fs [gty_pos_def, gty_neg_def, lits_within_def, eq_every_pos_def,
          eq_every_neg_def, xor_pos_def, xor_neg_def, ite_pos_def, ite_neg_def,
-         or_every_pos_def, or_every_neg_def, EVERY_MAP]
+         or_every_pos_def, or_every_neg_def, EVERY_MAP, EVERY_CONJ]
 QED
 
 Theorem lits_within_xgty_to_cnf[local]:
-  n < limit ∧ EVERY (λt. var_lit (xvar_to_lit t) < limit) (gty_lits gt) ⇒
+  0 < n ∧ n < limit ∧
+  EVERY (λt. nz_lit (xvar_to_lit t) ∧ var_lit (xvar_to_lit t) < limit)
+        (gty_lits gt) ⇒
   lits_within limit (xgty_to_cnf pl n gt)
 Proof
   PairCases_on ‘pl’ \\ strip_tac
   \\ drule_all lits_within_gty \\ strip_tac
-  \\ rw [xgty_to_cnf_def] \\ fs [lits_within_def]
+  \\ rw [xgty_to_cnf_def, lits_within_APPEND] \\ fs [lits_within_def]
 QED
 
 Theorem xto_cnf_lits_within:
   ∀xaig pm acc.
-    (∀l. xhas_var (Latch l) xaig ⇒ l < limit) ∧
-    (∀i. xhas_var (Input i) xaig ⇒ i < limit) ∧
+    (∀l. xhas_var (Latch l) xaig ⇒ 0 < l ∧ l < limit) ∧
+    (∀i. xhas_var (Input i) xaig ⇒ 0 < i ∧ i < limit) ∧
     1 < limit ∧ xclosed xaig ∧
-    EVERY (λ(n,_). n < limit) xaig ∧
+    EVERY (λ(n,_). 0 < n ∧ n < limit) xaig ∧
     lits_within limit acc ⇒
     lits_within limit (xto_cnf xaig pm acc)
 Proof
@@ -1377,29 +1381,28 @@ Proof
   \\ rpt strip_tac
   \\ last_x_assum irule
   \\ fs [xclosed_def, xhas_var_def, SF DNF_ss]
-  \\ fs [lits_within_def]
-  \\ fs [GSYM lits_within_def]
+  \\ simp [lits_within_APPEND]
   \\ irule lits_within_xgty_to_cnf
   \\ fs [EVERY_MEM] \\ rw []
   \\ PairCases_on ‘t’ \\ fs [var_lit_xvar_to_lit]
   \\ Cases_on ‘t0’ \\ fs [xvar_to_num_def]
-  >- (res_tac \\ fs [ALOOKUP_NONE, MEM_MAP, FORALL_PROD, EXISTS_PROD]
-      \\ res_tac \\ fs [])
-  \\ Cases_on ‘b’ \\ fs [xvar_to_num_def] \\ res_tac
+  \\ TRY (Cases_on ‘b’ \\ fs [xvar_to_num_def])
+  \\ res_tac
+  \\ gvs [ALOOKUP_NONE, MEM_MAP, FORALL_PROD, EXISTS_PROD]
+  \\ res_tac \\ fs []
 QED
 
 Theorem direct_xaig_to_cnf_lits_within:
-  (∀l. xhas_var (Latch l) xaig ⇒ l < limit) ∧
-  (∀i. xhas_var (Input i) xaig ⇒ i < limit) ∧
+  (∀l. xhas_var (Latch l) xaig ⇒ 0 < l ∧ l < limit) ∧
+  (∀i. xhas_var (Input i) xaig ⇒ 0 < i ∧ i < limit) ∧
   1 < limit ∧ xclosed xaig ∧
-  EVERY (λ(n,_). n < limit) xaig ⇒
+  EVERY (λ(n,_). 0 < n ∧ n < limit) xaig ⇒
   lits_within limit (direct_xaig_to_cnf xaig)
 Proof
   strip_tac \\ fs [direct_xaig_to_cnf_def]
   \\ Cases_on ‘xaig’ >- fs [lits_within_def]
   \\ PairCases_on ‘h’ \\ fs []
-  \\ fs [lits_within_def]
-  \\ fs [GSYM lits_within_def]
+  \\ simp [lits_within_CONS]
   \\ irule xto_cnf_lits_within \\ fs [lits_within_def]
 QED
 
