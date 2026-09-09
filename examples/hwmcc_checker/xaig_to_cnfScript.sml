@@ -17,6 +17,12 @@ Proof
   Induct_on ‘xs’ \\ fs []
 QED
 
+Theorem EXISTS_EQ_EXISTS[local]:
+  EVERY (λx. P x = Q x) xs ⇒ (EXISTS P xs = EXISTS Q xs)
+Proof
+  Induct_on ‘xs’ \\ fs []
+QED
+
 Theorem FUNION_SUBMAP_lemma[local]:
   im_1 SUBMAP im_2 ⇒
   (im_1 ⊌ im_2 = im_2) ∧
@@ -43,7 +49,8 @@ QED
 Definition gty_lits_def[simp]:
   gty_lits (And ts) = ts ∧
   gty_lits (Xor t1 t2) = [t1; t2] ∧
-  gty_lits (Ite t1 t2 t3) = [t1; t2; t3]
+  gty_lits (Ite t1 t2 t3) = [t1; t2; t3] ∧
+  gty_lits (Or ts) = ts
 End
 
 Theorem xeval_gty_cong:
@@ -52,7 +59,8 @@ Theorem xeval_gty_cong:
     (xeval_gty ss xs gt ⇔ xeval_gty ss' ys gt)
 Proof
   Cases \\ simp [xeval_lit_def] \\ strip_tac \\ gvs []
-  \\ irule EVERY_EQ_EVERY \\ fs []
+  >- (irule EVERY_EQ_EVERY \\ fs [])
+  \\ irule EXISTS_EQ_EXISTS \\ fs []
 QED
 
 Theorem xeval_gate_nil[simp]:
@@ -182,8 +190,9 @@ Definition xrename_lit_def:
 End
 
 (* Note that this accumulates the renamed literals in reverse order. That
-   is harmless: the only gates built from a list of literals are And gates,
-   i.e. conjunctions.  Accumulating makes this function tail recursive. *)
+   is harmless: the only gates built from a list of literals are And and Or
+   gates, and neither cares about the order of its inputs.  Accumulating
+   makes this function tail recursive. *)
 
 Definition xrename_lits_def:
   xrename_lits ([]:('a,'i,'l) aig$lit list) next im lm nm acc =
@@ -217,7 +226,10 @@ Definition xrename_gty_def:
     (let (u1,next,im,lm) = xrename_lit t1 next im lm nm in
      let (u2,next,im,lm) = xrename_lit t2 next im lm nm in
      let (u3,next,im,lm) = xrename_lit t3 next im lm nm in
-       (Ite u1 u2 u3,next,im,lm))
+       (Ite u1 u2 u3,next,im,lm)) ∧
+  xrename_gty (Or ts) next im lm nm =
+    (let (ts1,next,im,lm) = xrename_lits ts next im lm nm [] in
+       (Or ts1,next,im,lm))
 End
 
 Definition xaig_rename_def:
@@ -461,7 +473,10 @@ Theorem xrename_lits_thm:
     (∀m b. MEM (Gate m,b) ts_1 ⇒ m ∈ FRANGE nm) ∧
     wrt_ext im_2 lm_2
       (λi l. EVERY (xeval_lit (is,ls) xaig) ts =
-             EVERY (xeval_lit (aig_read is i, aig_read ls l) res) ts_1)
+             EVERY (xeval_lit (aig_read is i, aig_read ls l) res) ts_1) ∧
+    wrt_ext im_2 lm_2
+      (λi l. EXISTS (xeval_lit (is,ls) xaig) ts =
+             EXISTS (xeval_lit (aig_read is i, aig_read ls l) res) ts_1)
 Proof
   Induct >- (fs [xrename_lits_def] \\ rw [] \\ simp [wrt_ext_def])
   \\ rpt gen_tac \\ simp [xrename_lits_def]
@@ -483,7 +498,7 @@ Proof
   >- (rw [] \\ imp_res_tac SUBMAP_FRANGE \\ res_tac \\ fs [SUBSET_DEF])
   >- (rw [] \\ res_tac)
   \\ fs [wrt_ext_def] \\ rw [] \\ res_tac
-  \\ simp [AC CONJ_COMM CONJ_ASSOC]
+  \\ simp [AC CONJ_COMM CONJ_ASSOC, AC DISJ_COMM DISJ_ASSOC]
 QED
 
 Theorem xrename_gty_thm:
@@ -528,34 +543,37 @@ Proof
     >- (rw [] \\ res_tac)
     \\ fs [wrt_ext_def] \\ rw [] \\ res_tac \\ simp [])
   (* if-then-else gates *)
-  \\ qpat_x_assum ‘xrename_lit p _ _ _ _ = _’ assume_tac
-  \\ drule_all xrename_lit_thm \\ strip_tac
-  \\ qpat_x_assum ‘xrename_lit p0 _ _ _ _ = _’ assume_tac
-  \\ drule_all xrename_lit_thm \\ strip_tac
-  \\ qpat_x_assum ‘xrename_lit p1 _ _ _ _ = _’ assume_tac
-  \\ drule_all xrename_lit_thm \\ strip_tac
-  \\ ‘im_1 SUBMAP im'' ∧ lm_1 SUBMAP lm'' ∧ im SUBMAP im'' ∧ lm SUBMAP lm''’ by
-       metis_tac [SUBMAP_TRANS]
-  \\ simp []
-  \\ ‘wrt_ext im'' lm''
-        (λi l. xeval_lit (is,ls) xaig p ⇔
-               xeval_lit (aig_read is i,aig_read ls l) res u1)’ by
-       (irule wrt_ext_mono
-        \\ qpat_x_assum ‘wrt_ext im lm _’ $ irule_at Any \\ simp [])
-  \\ ‘wrt_ext im'' lm''
-        (λi l. xeval_lit (is,ls) xaig p0 ⇔
-               xeval_lit (aig_read is i,aig_read ls l) res u2)’ by
-       (irule wrt_ext_mono
-        \\ qpat_x_assum ‘wrt_ext im' lm' _’ $ irule_at Any \\ simp [])
-  \\ rpt conj_tac
-  >- (rw [] \\ res_tac \\ fs [SUBMAP_DEF])
-  >- (rw [] \\ res_tac \\ fs [SUBMAP_DEF])
-  >- (rw [] \\ imp_res_tac SUBMAP_FRANGE \\ res_tac \\ fs [SUBSET_DEF])
-  >- (rw [] \\ imp_res_tac SUBMAP_FRANGE \\ res_tac \\ fs [SUBSET_DEF])
-  >- (rw [] \\ res_tac)
-  \\ fs [wrt_ext_def] \\ rw [] \\ res_tac \\ simp []
+  >-
+   (qpat_x_assum ‘xrename_lit p _ _ _ _ = _’ assume_tac
+    \\ drule_all xrename_lit_thm \\ strip_tac
+    \\ qpat_x_assum ‘xrename_lit p0 _ _ _ _ = _’ assume_tac
+    \\ drule_all xrename_lit_thm \\ strip_tac
+    \\ qpat_x_assum ‘xrename_lit p1 _ _ _ _ = _’ assume_tac
+    \\ drule_all xrename_lit_thm \\ strip_tac
+    \\ ‘im_1 SUBMAP im'' ∧ lm_1 SUBMAP lm'' ∧
+        im SUBMAP im'' ∧ lm SUBMAP lm''’ by metis_tac [SUBMAP_TRANS]
+    \\ simp []
+    \\ ‘wrt_ext im'' lm''
+          (λi l. xeval_lit (is,ls) xaig p ⇔
+                 xeval_lit (aig_read is i,aig_read ls l) res u1)’ by
+         (irule wrt_ext_mono
+          \\ qpat_x_assum ‘wrt_ext im lm _’ $ irule_at Any \\ simp [])
+    \\ ‘wrt_ext im'' lm''
+          (λi l. xeval_lit (is,ls) xaig p0 ⇔
+                 xeval_lit (aig_read is i,aig_read ls l) res u2)’ by
+         (irule wrt_ext_mono
+          \\ qpat_x_assum ‘wrt_ext im' lm' _’ $ irule_at Any \\ simp [])
+    \\ rpt conj_tac
+    >- (rw [] \\ res_tac \\ fs [SUBMAP_DEF])
+    >- (rw [] \\ res_tac \\ fs [SUBMAP_DEF])
+    >- (rw [] \\ imp_res_tac SUBMAP_FRANGE \\ res_tac \\ fs [SUBSET_DEF])
+    >- (rw [] \\ imp_res_tac SUBMAP_FRANGE \\ res_tac \\ fs [SUBSET_DEF])
+    >- (rw [] \\ res_tac)
+    \\ fs [wrt_ext_def] \\ rw [] \\ res_tac \\ simp [])
+  (* multi-input or gates *)
+  \\ drule_all xrename_lits_thm \\ strip_tac \\ fs [SF ETA_ss]
+  \\ rw [] \\ res_tac
 QED
-
 Theorem xaig_rename_thm:
   ∀(xaig:('a,'i,'l) xaig) res next im lm nm.
     xaig_rename xaig = (res,next,im,lm,nm) ⇒
@@ -698,6 +716,14 @@ Definition eq_every_neg_def:
   eq_every_neg x xs = [x::MAP negate xs]
 End
 
+Definition or_every_pos_def:
+  or_every_pos x xs = [negate x :: xs]
+End
+
+Definition or_every_neg_def:
+  or_every_neg x xs = MAP (λy. [negate y; x]) xs
+End
+
 Definition xor_pos_def:
   xor_pos y a b = [[negate y; a; b]; [negate y; negate a; negate b]]
 End
@@ -718,14 +744,16 @@ Definition gty_pos_def:
   gty_pos m (And ts) = eq_every_pos (Pos m) (MAP var_to_lit ts) ∧
   gty_pos m (Xor t1 t2) = xor_pos (Pos m) (var_to_lit t1) (var_to_lit t2) ∧
   gty_pos m (Ite t1 t2 t3) =
-    ite_pos (Pos m) (var_to_lit t1) (var_to_lit t2) (var_to_lit t3)
+    ite_pos (Pos m) (var_to_lit t1) (var_to_lit t2) (var_to_lit t3) ∧
+  gty_pos m (Or ts) = or_every_pos (Pos m) (MAP var_to_lit ts)
 End
 
 Definition gty_neg_def:
   gty_neg m (And ts) = eq_every_neg (Pos m) (MAP var_to_lit ts) ∧
   gty_neg m (Xor t1 t2) = xor_neg (Pos m) (var_to_lit t1) (var_to_lit t2) ∧
   gty_neg m (Ite t1 t2 t3) =
-    ite_neg (Pos m) (var_to_lit t1) (var_to_lit t2) (var_to_lit t3)
+    ite_neg (Pos m) (var_to_lit t1) (var_to_lit t2) (var_to_lit t3) ∧
+  gty_neg m (Or ts) = or_every_neg (Pos m) (MAP var_to_lit ts)
 End
 
 (* both halves together are the usual Tseitin clauses for the gate *)
@@ -785,6 +813,17 @@ Proof
   \\ Cases_on ‘satisfies_lit w b’ \\ fs []
 QED
 
+Theorem or_to_cnf_thm[local]:
+  satisfies_cnf w (set (or_every_pos y xs) ∪ set (or_every_neg y xs)) ⇔
+  (satisfies_lit w y ⇔ EXISTS (satisfies_lit w) xs)
+Proof
+  simp [satisfies_cnf_def, satisfies_fml_gen_def, or_every_pos_def,
+        or_every_neg_def, satisfies_clause_def, satisfies_lit_negate,
+        MEM_MAP, EXISTS_MEM, SF DNF_ss]
+  \\ Cases_on ‘satisfies_lit w y’ \\ simp []
+  \\ metis_tac []
+QED
+
 Theorem set_eq_every[local]:
   set (eq_every_pos x xs) ∪ set (eq_every_neg x xs) =
   set (eq_every_to_cnf x xs)
@@ -805,7 +844,9 @@ Proof
         xeval_lit_def]
     \\ AP_TERM_TAC \\ irule EVERY_EQ_EVERY \\ fs [])
   >- fs [xor_to_cnf_thm, satisfies_lit_def, xeval_lit_def]
-  \\ fs [ite_to_cnf_thm, satisfies_lit_def, xeval_lit_def]
+  >- fs [ite_to_cnf_thm, satisfies_lit_def, xeval_lit_def]
+  \\ fs [or_to_cnf_thm, satisfies_lit_def, EXISTS_MAP, xeval_lit_def]
+  \\ AP_TERM_TAC \\ irule EXISTS_EQ_EXISTS \\ fs []
 QED
 
 (* Polarities.  A polarity (p,n) records whether a gate name is used
@@ -846,7 +887,8 @@ End
 Definition gty_pols_def:
   gty_pols pl (And ts) = MAP (λt. (pl,t)) ts ∧
   gty_pols pl (Xor t1 t2) = [((T,T),t1); ((T,T),t2)] ∧
-  gty_pols pl (Ite t1 t2 t3) = [((T,T),t1); (pl,t2); (pl,t3)]
+  gty_pols pl (Ite t1 t2 t3) = [((T,T),t1); (pl,t2); (pl,t3)] ∧
+  gty_pols pl (Or ts) = MAP (λt. (pl,t)) ts
 End
 
 Definition add_lits_pol_def:
@@ -993,8 +1035,11 @@ Proof
   >-
    (fs [EVERY_MEM] \\ rw [] \\ res_tac
     \\ irule lit_pol_ok_mono \\ first_assum $ irule_at Any \\ simp [])
-  \\ conj_tac \\ irule lit_pol_ok_mono
-  \\ first_assum $ irule_at Any \\ simp []
+  >-
+   (conj_tac \\ irule lit_pol_ok_mono
+    \\ first_assum $ irule_at Any \\ simp [])
+  \\ fs [EVERY_MEM] \\ rw [] \\ res_tac
+  \\ irule lit_pol_ok_mono \\ first_assum $ irule_at Any \\ simp []
 QED
 
 Theorem satisfies_lit_Pos[local,simp]:
@@ -1012,9 +1057,12 @@ Proof
   Cases
   \\ simp [gty_pos_def, gty_pols_def, satisfies_cnf_set, satisfies_clause_def,
            satisfies_lit_negate, eq_every_pos_def, xor_pos_def, ite_pos_def,
-           EVERY_MAP, SF DNF_ss, xeval_lit_def, lit_pol_ok_def]
+           or_every_pos_def, EVERY_MAP, EXISTS_MAP, MEM_MAP, SF DNF_ss,
+           xeval_lit_def, lit_pol_ok_def]
   >- (rw [EVERY_MEM] \\ res_tac \\ gvs [])
-  \\ rw [] \\ metis_tac []
+  >- (rw [] \\ metis_tac [])
+  >- (rw [] \\ metis_tac [])
+  \\ rw [EXISTS_MEM, EVERY_MEM] \\ res_tac \\ metis_tac []
 QED
 
 Theorem gty_neg_thm[local]:
@@ -1026,9 +1074,12 @@ Proof
   Cases
   \\ simp [gty_neg_def, gty_pols_def, satisfies_cnf_set, satisfies_clause_def,
            satisfies_lit_negate, eq_every_neg_def, xor_neg_def, ite_neg_def,
-           EVERY_MAP, MEM_MAP, SF DNF_ss, xeval_lit_def, lit_pol_ok_def]
+           or_every_neg_def, EVERY_MAP, EXISTS_MAP, MEM_MAP, SF DNF_ss,
+           xeval_lit_def, lit_pol_ok_def]
   >- (rw [EVERY_MEM] \\ res_tac \\ gvs [])
-  \\ rw [] \\ metis_tac []
+  >- (rw [] \\ metis_tac [])
+  >- (rw [] \\ metis_tac [])
+  \\ rw [EXISTS_MEM, EVERY_MEM] \\ res_tac \\ metis_tac []
 QED
 
 Theorem pol_le_FST_SND[local]:
@@ -1285,7 +1336,7 @@ Proof
   Cases_on ‘gt’
   \\ fs [gty_pos_def, gty_neg_def, lits_within_def, eq_every_pos_def,
          eq_every_neg_def, xor_pos_def, xor_neg_def, ite_pos_def, ite_neg_def,
-         EVERY_MAP]
+         or_every_pos_def, or_every_neg_def, EVERY_MAP]
 QED
 
 Theorem lits_within_xgty_to_cnf[local]:
