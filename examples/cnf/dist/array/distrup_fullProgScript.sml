@@ -2425,6 +2425,7 @@ Proof
   rename [‘init_state (custom_ffi (State Step inputs tb)) with clock := ck4’] >>
   qrefinel [‘_’,‘ck4’] >> fs [] >>
   fs [evaluateTheory.evaluate_decs_def,astTheory.pat_bindings_def,
+      semanticPrimitivesTheory.check_exp_constructors_def,
       evaluateTheory.evaluate_def,semanticPrimitivesTheory.build_conv_def,
       semanticPrimitivesTheory.do_con_check_def] >>
   simp [semanticPrimitivesTheory.extend_dec_env_def] >>
