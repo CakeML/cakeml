@@ -1161,7 +1161,8 @@ Proof
   \\ strip_tac \\ fs [LAST_compiler64_prog]
   \\ qpat_x_assum ‘evaluate_decs _ _ _ = _’ mp_tac
   (* calling main *)
-  \\ fs [evaluate_decs_def,astTheory.pat_bindings_def]
+  \\ fs [evaluate_decs_def,astTheory.pat_bindings_def,
+         check_exp_constructors_def]
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def,evaluate_Lit]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [do_con_check_def]
