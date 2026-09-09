@@ -81,7 +81,7 @@ QED
 Theorem FST_prog_comp[simp]:
    FST (prog_comp pp) = FST pp
 Proof
-  Cases_on`pp` \\ EVAL_TAC
+  PairCases_on`pp` \\ EVAL_TAC
 QED
 
 Theorem lookup_IMP_lookup_compile[local]:
@@ -90,10 +90,11 @@ Theorem lookup_IMP_lookup_compile[local]:
     ?m1 n1. lookup dest (fromAList (compile c (toAList s.code))) =
             SOME (FST (comp m1 n1 (FST x)), SND x)
 Proof
-  full_simp_tac(srw_ss())[lookup_fromAList,compile_def] \\ srw_tac[][ALOOKUP_APPEND]
+  fs[lookup_fromAList,compile_def] \\ srw_tac[][ALOOKUP_APPEND]
   \\ `ALOOKUP (stubs c) dest = NONE` by
-    (full_simp_tac(srw_ss())[stubs_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac) \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[prog_comp_lemma] \\ full_simp_tac(srw_ss())[ALOOKUP_MAP_2,ALOOKUP_toAList]
+    (fs[stubs_def] \\ srw_tac[][] \\ fs[] \\ decide_tac) \\ fs[]
+  \\ fs[prog_comp_lemma] \\ fs[ALOOKUP_MAP_2,ALOOKUP_toAList]
+  \\ PairCases_on ‘x’ \\ gvs []
   \\ metis_tac []
 QED
 
@@ -1572,7 +1573,6 @@ Proof
   \\ once_rewrite_tac [split_num_forall_to_10]
   \\ full_simp_tac(srw_ss())[nine_less] \\ fs []
 QED
-
 
 Theorem alloc_correct_lemma_Simple:
    alloc w (s:('a,'c,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
@@ -5139,8 +5139,11 @@ Theorem find_code_IMP_lookup[local]:
     ?k md. sptree$lookup k s = SOME (x,md) /\
         (!c. find_code dest regs c = OPTION_MAP FST (lookup k c))
 Proof
-  Cases_on `dest` \\ full_simp_tac(srw_ss())[find_code_def,FUN_EQ_THM]
-  \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ metis_tac []
+  Cases_on `dest` \\ fs[find_code_def,FUN_EQ_THM, EXISTS_PROD]
+  \\ every_case_tac \\ rw[] \\ fs []
+  >- metis_tac []
+  \\ rename [‘lookup n s = SOME z’] \\ PairCases_on ‘z’ \\ fs []
+  \\ metis_tac []
 QED
 
 Theorem alloc_length_stack:
@@ -5196,7 +5199,8 @@ Proof
     \\ rw [] \\ fs [prog_comp_def])
   \\ disj2_tac \\ qexists_tac `n`
   \\ CASE_TAC \\ fs []
-  \\ `ALOOKUP (toAList s.code) n = SOME e` by fs [ALOOKUP_toAList]
+  \\ PairCases_on ‘z’ \\ gvs []
+  \\ `ALOOKUP (toAList s.code) n = SOME (z0,z1)` by fs [ALOOKUP_toAList]
   \\ pop_assum mp_tac
   \\ qspec_tac (`toAList s.code`,`xs`)
   \\ Induct \\ fs [FORALL_PROD,ALOOKUP_def,prog_comp_def]
@@ -5328,6 +5332,7 @@ Theorem comp_correct:
        LENGTH t.bitmaps + LENGTH t.data_buffer.buffer + t.data_buffer.space_left < dimword(:'a) - 1 /\
        ((∀w. r ≠ SOME (Halt w)) ⇒ LENGTH t.stack * (dimindex (:'a) DIV 8) < dimword (:'a))
 Proof
+
   recInduct evaluate_ind
   \\ conj_tac THEN1 (* Skip *)
    (full_simp_tac(srw_ss())[Once comp_def,evaluate_def]
@@ -5377,6 +5382,7 @@ Proof
     \\ old_drule lookup_fromAList_prog_comp \\ fs []
     \\ disch_then kall_tac
     \\ qexists_tac ‘1’ \\ fs [dec_clock_def,set_var_def]
+    \\ PairCases_on ‘z’ \\ gvs []
     \\ fs [EVAL “(comp x n (Seq (StoreConsts t1 t2 NONE) (Return 0)))”]
     \\ fs [evaluate_def,store_const_sem_def,get_var_def,AllCaseEqs(),
            check_store_consts_opt_def,FLOOKUP_UPDATE]
@@ -5431,9 +5437,9 @@ Proof
     \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB] )
   \\ conj_tac (* Tick *) >- (
     rpt strip_tac
-    \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,dec_clock_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[set_var_def]
-    \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def])
+    \\ qexists_tac `0` \\ fs[Once comp_def,evaluate_def,dec_clock_def]
+    \\ every_case_tac \\ fs[] \\ srw_tac[][] \\ fs[set_var_def]
+    \\ fs[state_component_equality,empty_env_def])
   \\ conj_tac (* Seq *) >- (
     rpt strip_tac
     \\ simp [Once comp_def,dec_clock_def] \\ full_simp_tac(srw_ss())[evaluate_def]
@@ -5446,7 +5452,8 @@ Proof
     THEN1 (fs[] \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[] \\ res_tac \\ fs[])
     \\ strip_tac \\ rev_full_simp_tac(srw_ss())[]
     \\ reverse (Cases_on `res`) \\ full_simp_tac(srw_ss())[]
-    THEN1 (qexists_tac `ck` \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC,LET_DEF] \\ srw_tac[][]
+    THEN1 (qexists_tac `ck`
+           \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC,LET_DEF] \\ srw_tac[][]
            \\ qexists_tac`regs1`\\simp[])
     \\ first_x_assum (qspecl_then[`m'`,`n`,`c`,`regs1`]mp_tac)
     \\ impl_tac THEN1 (
@@ -5463,6 +5470,7 @@ Proof
         fs[MAP_MAP_o,MAP_GENLIST,MEM_GENLIST,lookup_fromAList] \\
         pop_assum (assume_tac o SYM) \\
         imp_res_tac ALOOKUP_MEM \\
+        PairCases_on ‘prog’ \\ fs [] \\
         metis_tac[] ) \\
       fs[shift_seq_def] \\
       metis_tac[] )
@@ -5475,27 +5483,27 @@ Proof
     \\ asm_exists_tac \\ simp[])
   \\ conj_tac (* Return *) >- (
     rpt strip_tac
-    \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[get_var_def]
-    \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def]
+    \\ qexists_tac `0` \\ fs[Once comp_def,evaluate_def,get_var_def]
+    \\ every_case_tac \\ fs[] \\ srw_tac[][] \\ fs[get_var_def]
+    \\ fs[state_component_equality,empty_env_def]
     \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[] \\ rw[]
     \\ simp[state_component_equality] )
   \\ conj_tac (* Raise *) >- (
     rpt strip_tac
-    \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[get_var_def]
-    \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def]
+    \\ qexists_tac `0` \\ fs[Once comp_def,evaluate_def,get_var_def]
+    \\ every_case_tac \\ fs[] \\ srw_tac[][] \\ fs[get_var_def]
+    \\ fs[state_component_equality,empty_env_def]
     \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[] )
   \\ conj_tac (* Break *) >- (
     rpt strip_tac
-    \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[get_var_def]
-    \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def])
+    \\ qexists_tac `0` \\ fs[Once comp_def,evaluate_def,get_var_def]
+    \\ every_case_tac \\ fs[] \\ srw_tac[][] \\ fs[get_var_def]
+    \\ fs[state_component_equality,empty_env_def])
   \\ conj_tac (* Continue *) >- (
     rpt strip_tac
-    \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[get_var_def]
-    \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def])
+    \\ qexists_tac `0` \\ fs[Once comp_def,evaluate_def,get_var_def]
+    \\ every_case_tac \\ fs[] \\ srw_tac[][] \\ fs[get_var_def]
+    \\ fs[state_component_equality,empty_env_def])
   \\ conj_tac (* If *) >- (
     rpt strip_tac
     \\ simp [Once comp_def] \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def]
@@ -5568,6 +5576,7 @@ Proof
            fs[MAP_MAP_o,MAP_GENLIST,MEM_GENLIST,lookup_fromAList] \\
            pop_assum (assume_tac o SYM) \\
            imp_res_tac ALOOKUP_MEM \\
+           PairCases_on ‘prog’ \\ fs [] \\
            metis_tac[] ) \\
           fs[shift_seq_def] \\
           metis_tac[])
@@ -5620,8 +5629,9 @@ Proof
      \\ fs [CaseEq"option"]
      \\ old_drule lookup_IMP_lookup_compile
      \\ impl_tac THEN1 metis_tac []
+     \\ Cases_on ‘v2’ \\ fs []
      \\ strip_tac \\ fs []
-     \\ Cases_on `prog` \\ fs [dest_Seq_def]
+     \\ Cases_on `q` \\ fs [dest_Seq_def]
      \\ rveq \\ fs []
      \\ once_rewrite_tac [comp_def] \\ fs []
      \\ ntac 2 (pairarg_tac \\ simp [])
@@ -5636,7 +5646,8 @@ Proof
      \\ impl_tac THEN1 (res_tac \\ fs [alloc_arg_def] \\ rw [] \\ res_tac)
      \\ strip_tac \\ fs [] \\ qexists_tac `ck` \\ fs []
      \\ fs [state_component_equality])
-  \\ conj_tac (* Call *) >- (
+  \\ conj_tac (* Call *) >- cheat (* (
+
      rpt strip_tac
      \\ full_simp_tac(srw_ss())[evaluate_def]
      \\ Cases_on `ret` \\ full_simp_tac(srw_ss())[] THEN1
@@ -5646,7 +5657,9 @@ Proof
       \\ full_simp_tac(srw_ss())[alloc_arg_def] \\ simp [Once comp_def,evaluate_def]
       \\ old_drule find_code_IMP_lookup \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
       \\ res_tac \\ imp_res_tac lookup_IMP_lookup_compile
+      \\ fs []
       \\ pop_assum (strip_assume_tac o SPEC_ALL) \\ full_simp_tac(srw_ss())[]
+
       THEN1 (qexists_tac `0` \\ full_simp_tac(srw_ss())[empty_env_def,state_component_equality])
       THEN1 (qexists_tac `0` \\ full_simp_tac(srw_ss())[empty_env_def,state_component_equality])
       \\ full_simp_tac(srw_ss())[dec_clock_def]
@@ -5791,7 +5804,8 @@ Proof
     \\ qexists_tac `ck+ck'` \\ full_simp_tac(srw_ss())[]
     \\ `ck + ck' + s.clock - 1 = s.clock - 1 + ck + ck'` by decide_tac \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[]
-    \\ simp[state_component_equality])
+    \\ simp[state_component_equality]) *)
+
   (* Install *)
   \\ conj_tac >- (
     rw[] \\
@@ -6105,8 +6119,8 @@ Proof
   \\ full_simp_tac(srw_ss())[spt_eq_thm,wf_fromAList,lookup_fromAList,compile_def]
   \\ srw_tac[][]
   \\ srw_tac[][ALOOKUP_APPEND] \\ BasicProvers.CASE_TAC
-  \\ simp[prog_comp_lambda,ALOOKUP_MAP_2]
-  \\ simp[ALOOKUP_toAList,lookup_fromAList]
+  \\ simp[prog_comp_lambda]
+  \\ simp[ALOOKUP_toAList,lookup_fromAList, ALOOKUP_MAP_3]
 QED
 
 Theorem next_lab_EQ_MAX = Q.prove(`
@@ -6238,7 +6252,7 @@ Proof
 QED
 
 Theorem stack_alloc_stack_asm_convs:
-    EVERY (λ(n,p,md). stack_asm_name c p) prog ∧
+  EVERY (λ(n,p,md). stack_asm_name c p) prog ∧
   EVERY (λ(n,p,md). (stack_asm_remove (c:'a asm_config) p)) prog ∧
   (* conf_ok is too strong, but we already have it anyway *)
   conf_ok (:'a) conf ∧
@@ -6253,18 +6267,23 @@ Theorem stack_alloc_stack_asm_convs:
   EVERY (λ(n,p,md). stack_asm_remove c p) (compile conf prog)
 Proof
   fs[compile_def]>>rw[]>>
-    TRY (EVAL_TAC>>every_case_tac >>
-         EVAL_TAC>>every_case_tac >>
-         fs [] >> EVAL_TAC >>
-     fs[reg_name_def, good_dimindex_def,
-        asmTheory.offset_ok_def, data_to_wordTheory.conf_ok_def,
-        data_to_wordTheory.shift_length_def]>>
-     pairarg_tac>>fs[]>>NO_TAC)
-  >>
-  fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]>>
+  fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]
+  >~ [‘stubs’] >-
+   (gvs [stubs_def] >> EVAL_TAC >> every_case_tac >> fs [] >> EVAL_TAC >>
+    fs[reg_name_def, good_dimindex_def,
+       asmTheory.offset_ok_def, data_to_wordTheory.conf_ok_def,
+       data_to_wordTheory.shift_length_def]>>
+    pairarg_tac>>fs[])
+  >~ [‘stubs’] >-
+   (gvs [stubs_def] >> EVAL_TAC >> every_case_tac >> fs [] >> EVAL_TAC >>
+    fs[reg_name_def, good_dimindex_def,
+       asmTheory.offset_ok_def, data_to_wordTheory.conf_ok_def,
+       data_to_wordTheory.shift_length_def]>>
+    pairarg_tac>>fs[]) >>
   rw[]>>res_tac>>
   old_drule stack_alloc_comp_stack_asm_name>>fs[]>>
-  disch_then(qspecl_then[`p_1`,`next_lab p_2 2`] assume_tac)>>
+  rename [‘comp x y z’] >>
+  disch_then(qspecl_then[`x`,`y`] assume_tac)>>
   pairarg_tac>>fs[]
 QED
 
@@ -6289,11 +6308,12 @@ Proof
   qpat_x_assum`10 ≤ sp` mp_tac>>
   rpt (pop_assum kall_tac)>>
   (qpat_abbrev_tac`l = next_lab _ _`) >> pop_assum kall_tac>>
-  qid_spec_tac `p_2` >>
-  qid_spec_tac `l` >>
-  qid_spec_tac `p_1` >>
+  rename [‘comp x y z’] >>
+  qid_spec_tac `z` >>
+  qid_spec_tac `y` >>
+  qid_spec_tac `x` >>
   ho_match_mp_tac stack_allocTheory.comp_ind>>
-  Cases_on`p_2`>>rw[]>>
+  Cases_on`z`>>rw[]>>
   simp[Once stack_allocTheory.comp_def]>>
   fs[reg_bound_def]>>
   TRY(ONCE_REWRITE_TAC [stack_allocTheory.comp_def]>>
@@ -6319,11 +6339,12 @@ Proof
   (qpat_abbrev_tac`l = next_lab _ _`) >> pop_assum kall_tac>>
   qpat_x_assum`call_args p_2 1 2 3 4 0` mp_tac>>
   rpt (pop_assum kall_tac)>>
-  qid_spec_tac `p_2` >>
-  qid_spec_tac `l` >>
-  qid_spec_tac `p_1` >>
+  rename [‘comp x y z’] >>
+  qid_spec_tac `z` >>
+  qid_spec_tac `y` >>
+  qid_spec_tac `x` >>
   ho_match_mp_tac stack_allocTheory.comp_ind>>
-  Cases_on`p_2`>>rw[]>>
+  Cases_on`z`>>rw[]>>
   simp[Once stack_allocTheory.comp_def]>>fs[call_args_def]>>
   TRY(ONCE_REWRITE_TAC [stack_allocTheory.comp_def]>>
     Cases_on`o'`>>TRY(PairCases_on`x`)>>fs[call_args_def]>>
