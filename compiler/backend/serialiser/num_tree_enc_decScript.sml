@@ -311,6 +311,69 @@ Proof
   Cases_on ‘x’ \\ fs [option_enc'_def,option_dec'_def,MAP_MAP_o,o_DEF]
 QED
 
+(* The option counterpart of list_enc'_mem: usable when the round-trip
+   property is only known for the value actually inside the option. *)
+Theorem option_enc'_some:
+  (∀y. x = SOME y ⇒ g (f y) = y) ⇒
+  option_dec' g (option_enc' f x) = x
+Proof
+  Cases_on ‘x’ \\ fs [option_enc'_def,option_dec'_def]
+QED
+
+(* Needed so that a datatype with a recursive occurrence under an option
+   can be defined: without these the termination checker cannot see the
+   recursive call. *)
+
+Theorem option_enc'_cong:
+  ∀l1 l2 f f'.
+    (l1 = l2) ∧ (∀x. l2 = SOME x ⇒ (f x = f' x)) ⇒
+    (option_enc' f l1 = option_enc' f' l2)
+Proof
+  fs [] \\ Cases \\ fs [option_enc'_def]
+QED
+
+Theorem option_dec'_cong:
+  ∀l1 l2 f f'.
+    (l1 = l2) ∧ (∀x. x = nth 0 (list_dec' I l1) ⇒ (f x = f' x)) ⇒
+    (option_dec' f l1 = option_dec' f' l2)
+Proof
+  fs [] \\ Cases \\ fs [option_dec'_def,list_dec'_def]
+QED
+
+val _ = app DefnBase.export_cong ["option_enc'_cong", "option_dec'_cong"];
+
+(* Size bounds for the decoder side of the above: option_dec'_cong exposes the
+   recursive call at [nth 0 (list_dec' I t)], one level deeper than the plain
+   [nth] the list case produces. *)
+
+Theorem num_tree1_size_eq:
+  ∀l. num_tree1_size l = list_size num_tree_size l
+Proof
+  Induct \\ fs [fetch "-" "num_tree_size_def"]
+QED
+
+Theorem num_tree_size_nth:
+  ∀xs i. num_tree_size (nth i xs) ≤ list_size num_tree_size xs + 1
+Proof
+  Induct \\ fs [fetch "-" "num_tree_size_def"] \\ rw [] \\ fs []
+  \\ first_x_assum (qspec_then ‘i-1’ mp_tac) \\ fs []
+QED
+
+Theorem num_tree_size_nth_nth:
+  ∀xs i j.
+    num_tree_size (nth i (list_dec' I (nth j xs))) ≤
+    list_size num_tree_size xs + 1
+Proof
+  rw [] \\ irule LESS_EQ_TRANS
+  \\ qexists_tac ‘num_tree_size (nth j xs)’
+  \\ simp [num_tree_size_nth]
+  \\ qspecl_then [‘xs’,‘j’] mp_tac num_tree_size_nth
+  \\ Cases_on ‘nth j xs’
+  \\ fs [list_dec'_def, fetch "-" "num_tree_size_def", num_tree1_size_eq]
+  \\ qspecl_then [‘l’,‘i’] mp_tac num_tree_size_nth
+  \\ fs []
+QED
+
 (* word64 *)
 
 Definition word64_enc'_def:

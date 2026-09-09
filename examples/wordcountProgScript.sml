@@ -1,1 +1,1 @@
-../tutorial/wordcountProgScript.sml
+../tutorial/problems/wordcountProgScript.sml

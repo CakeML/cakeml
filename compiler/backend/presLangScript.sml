@@ -635,6 +635,9 @@ Definition clos_op_to_display_def:
     | MemOp (StringCmp b opb) => Item NONE «StringCmp» [bool_to_display b;
                                                                  opb_to_display opb]
     | MemOp XorByte => String «XorByte»
+    | MemOp (MutCons tag i) => item_with_nums «MutCons» [tag; i]
+    | MemOp UpdateCons => String «UpdateCons»
+    | MemOp FinaliseCons => String «FinaliseCons»
     | Label num => Item NONE «Label» [String (attach_name ns (SOME num))]
     | FFI s => Item NONE «FFI» [string_imp s]
     | IntOp (Const i) => Item NONE «Const» [int_to_display i]

@@ -232,7 +232,7 @@ Proof
   >- (
     match_mp_tac satisfies_INJ>>
     simp[])>>
-  drule satisfies_map_pbf>>
+  drule (iffLR satisfies_map_pbf)>>
   match_mp_tac satisfies_pbf_vars>>
   rw[]>>fs[]>>
   drule LINV_DEF>>
@@ -260,16 +260,6 @@ Definition flip_coeffs_def:
   flip_coeffs xs = MAP (λ(c,l). (-c:int,l)) xs
 End
 
-(* Convert a list of pbc to one with ≥ constraints only *)
-Definition pbc_ge_def:
-  (pbc_ge ((GreaterEqual,xs,n):'a pbc) = [(GreaterEqual,xs,n)]) ∧
-  (pbc_ge (Greater,xs,n) = [(GreaterEqual,xs,(n+1))]) ∧
-  (pbc_ge (LessEqual,xs,n) = [(GreaterEqual,flip_coeffs xs,-n)]) ∧
-  (pbc_ge (Less,xs,n) = [(GreaterEqual,flip_coeffs xs,-(n-1))]) ∧
-  (pbc_ge (Equal,xs,n) =
-      [(GreaterEqual,xs,n); (GreaterEqual,flip_coeffs xs,(-n))])
-End
-
 Theorem eq_disj:
   (∀x. x = a ∨ x = b ⇒ P x) ⇔ P a ∧ P b
 Proof
@@ -285,28 +275,6 @@ Proof
   Cases_on`h`>>rw[]>>
   Cases_on`r`>>rw[]>>Cases_on`w a`>>rw[]>>
   intLib.ARITH_TAC
-QED
-
-Theorem pbc_ge_thm:
-  satisfies w (set (pbc_ge c)) ⇔
-  satisfies_pbc w c
-Proof
-  PairCases_on`c`>>
-  rename1`(pbop,xs,n)`>>
-  Cases_on`pbop`>>
-  simp[pbc_ge_def,satisfies_def]
-  >- ( (* Equal *)
-    fs[satisfies_pbc_def,eq_disj,eval_lin_term_flip_coeffs]>>
-    intLib.ARITH_TAC)
-  >- ( (* Greater *)
-    simp[satisfies_pbc_def]>>
-    intLib.ARITH_TAC)
-  >- ( (* LessEqual *)
-    simp[satisfies_pbc_def,eval_lin_term_flip_coeffs]>>
-    intLib.ARITH_TAC)
-  >- ( (* Less*)
-    simp[satisfies_pbc_def,eval_lin_term_flip_coeffs]>>
-    intLib.ARITH_TAC)
 QED
 
 Definition term_lt_def[simp]:
@@ -408,21 +376,27 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem iSUM_sort_term_le[simp]:
-  iSUM (MAP (eval_term w) (sort $≤ l)) =
-  iSUM (MAP (eval_term w) l)
+Theorem iSUM_sort[simp]:
+  iSUM (MAP (eval_term w) (sort R xs)) =
+  iSUM (MAP (eval_term w) xs)
 Proof
   match_mp_tac iSUM_PERM>>
   match_mp_tac PERM_MAP>>
   metis_tac[sort_PERM,PERM_SYM]
 QED
 
-Theorem b2i_lit_eq_flip:
-  q * b2i (lit w r) = q + (-q * b2i (lit w (negate r)))
+Theorem eval_lin_term_sort[simp]:
+  eval_lin_term w (sort R xs) = eval_lin_term w xs
 Proof
-  Cases_on`r` \\ EVAL_TAC
-  \\ Cases_on`w a` \\ EVAL_TAC
-  \\ fs[]
+  simp[eval_lin_term_def]
+QED
+
+(* Two distinct literals on the same variable are each other's negation *)
+Theorem lit_neq_same_var:
+  lit_var l1 = lit_var l2 ∧ l1 ≠ l2 ⇒
+  (lit w l2 ⇔ ¬ lit w l1)
+Proof
+  Cases_on`l1`>>Cases_on`l2`>>gvs[]
 QED
 
 Theorem compact_lhs_sound:
@@ -437,16 +411,11 @@ Proof
     fs[iSUM_def]>>
     intLib.ARITH_TAC)
   >- (
-    (* l1 = negate l2 *)
+    (* l2 = negate l1 *)
     fs[iSUM_def]>>
-    qmatch_goalsub_abbrev_tac` A + _ + _`>>
-    REWRITE_TAC[Once b2i_lit_eq_flip]>>
-    `negate l2 = l1` by
-      (Cases_on`l1`>>Cases_on`l2`>>fs[])>>
-    fs[Abbr`A`]>>
-    qpat_x_assum`_ = _ + _` sym_sub_tac>>
-    simp[integerTheory.INT_SUB_RDISTRIB]>>
-    qmatch_goalsub_abbrev_tac`_ * wl2 + _ +_ = _ - _ + is + _`>>
+    `lit w l2 ⇔ ¬ lit w l1` by metis_tac[lit_neq_same_var]>>
+    Cases_on`lit w l1`>>gvs[]>>
+    qpat_x_assum`_ = iSUM _ + _` mp_tac>>
     rpt (pop_assum kall_tac)>>
     intLib.ARITH_TAC)>>
   pairarg_tac>>fs[]>>
@@ -509,58 +478,178 @@ Proof
     simp[])
 QED
 
-Definition pbc_to_npbc_def:
-  (pbc_to_npbc (GreaterEqual,lhs,n) =
-    let (lhs',m') = compact_lhs (sort term_le lhs) 0 in
-    let (lhs'',m'') = normalise_lhs lhs' [] 0 in
-    let rhs = n-(m'+m'') in
-    (lhs'',rhs):npbc) ∧
-  (pbc_to_npbc _ = ([],0))
+(* An intermediate constraint in ≥ form: a linear term and its degree *)
+Definition sat_ge_def:
+  sat_ge w (xs,n) ⇔ eval_lin_term w xs ≥ n
 End
 
-Definition normalise_def:
-  normalise pbf =
-  let pbf' = FLAT (MAP pbc_ge pbf) in
-  MAP pbc_to_npbc pbf'
+Definition ge_of_def:
+  (ge_of GreaterEqual xs n = (xs,n)) ∧
+  (ge_of Greater xs n = (xs,n+1)) ∧
+  (ge_of LessEqual xs n = (flip_coeffs xs,-n)) ∧
+  (ge_of Less xs n = (flip_coeffs xs,1-n))
 End
 
-Theorem pbc_to_npbc_thm:
-  FST pbc = GreaterEqual ⇒
-  (satisfies_pbc w pbc ⇔ satisfies_npbc w (pbc_to_npbc pbc))
+Theorem ge_of_thm[simp]:
+  sat_ge w (ge_of op xs n) ⇔ do_op op (eval_lin_term w xs) n
 Proof
-  PairCases_on`pbc`>>fs[]>>
-  rw[satisfies_pbc_def,satisfies_npbc_def,pbc_to_npbc_def]>>
-  pairarg_tac>>fs[]>>
-  pairarg_tac>>fs[]>>
-  drule compact_lhs_sound>>
-  disch_then(qspec_then`w` assume_tac)>>fs[eval_lin_term_def]>>
-  drule normalise_lhs_normalises>>
-  disch_then(qspec_then`w` assume_tac)>>fs[]>>
-  simp[satisfies_npbc_def]>>
+  Cases_on`op`>>
+  simp[ge_of_def,sat_ge_def,eval_lin_term_flip_coeffs]>>
   intLib.ARITH_TAC
 QED
+
+Theorem mul_b2i_neg:
+  n * b2i (¬p) = (if p then 0 else n)
+Proof
+  Cases_on`p`>>simp[]
+QED
+
+Theorem eval_lin_term_reify[local]:
+  ∀ls.
+  (EVERY (lit w) ls ⇒
+    eval_lin_term w (MAP (λl. (n,negate l)) ls) = 0) ∧
+  (0 ≤ n ⇒
+    0 ≤ eval_lin_term w (MAP (λl. (n,negate l)) ls)) ∧
+  (0 ≤ n ∧ ¬EVERY (lit w) ls ⇒
+    n ≤ eval_lin_term w (MAP (λl. (n,negate l)) ls))
+Proof
+  Induct>>
+  simp[mul_b2i_neg]>>
+  rw[]>>
+  intLib.ARITH_TAC
+QED
+
+Definition rel_ges_def:
+  (rel_ges (RIneq op) xs n = [ge_of op xs n]) ∧
+  (rel_ges REq xs n = [(xs,n); (flip_coeffs xs,-n)])
+End
+
+Theorem rel_ges_thm:
+  EVERY (sat_ge w) (rel_ges rel xs n) ⇔
+  do_rel rel (eval_lin_term w xs) n
+Proof
+  Cases_on`rel`>>
+  simp[rel_ges_def,sat_ge_def,eval_lin_term_flip_coeffs]>>
+  intLib.ARITH_TAC
+QED
+
+Definition to_npbc_def:
+  to_npbc (lhs,n) =
+    let (lhs',m') = compact_lhs (sort term_le lhs) 0 in
+    let (lhs'',m'') = normalise_lhs lhs' [] 0 in
+      (lhs'',n-(m'+m'')):npbc
+End
+
+Theorem to_npbc_value:
+  ∀xs n ys d.
+  to_npbc (xs,n) = (ys,d) ⇒
+  &SUM (MAP (eval_term w) ys) = eval_lin_term w xs - n + d
+Proof
+  rw[to_npbc_def]>>
+  rpt (pairarg_tac>>gvs[])>>
+  drule compact_lhs_sound>>
+  disch_then(qspec_then`w` assume_tac)>>
+  drule normalise_lhs_normalises>>
+  disch_then(qspec_then`w` assume_tac)>>
+  gvs[GSYM eval_lin_term_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem to_npbc_thm:
+  satisfies_npbc w (to_npbc c) ⇔ sat_ge w c
+Proof
+  Cases_on`c`>>
+  `∃ys d. to_npbc (q,r) = (ys,d)` by metis_tac[PAIR]>>
+  drule to_npbc_value>>
+  disch_then(qspec_then`w` assume_tac)>>
+  gvs[satisfies_npbc_def,sat_ge_def]>>
+  intLib.ARITH_TAC
+QED
+
+(* Every surface constraint expands to a list of normalised constraints,
+  each carrying the conjunction of literals guarding it.
+
+  NOTE: guard literals are not deduplicated. z1 z1 ==> C gives coefficient
+  2n on ~z1 rather than n, and z1 z1 <== C emits the same constraint twice,
+  shifting the IDs of every later constraint. *)
+Definition to_gnpbc_def:
+  (to_gnpbc (Fwd ls rel,xs,n) =
+    MAP (λc. (ls, to_npbc c)) (rel_ges rel xs n)) ∧
+  (to_gnpbc (Bwd l op,xs,n) =
+    [([negate l], to_npbc (ge_of (negate_op op) xs n))]) ∧
+  (to_gnpbc (Iff l op,xs,n) =
+    [([l], to_npbc (ge_of op xs n));
+     ([negate l], to_npbc (ge_of (negate_op op) xs n))])
+End
+
+Theorem to_gnpbc_thm:
+  EVERY (λ(gs,c). EVERY (lit w) gs ⇒ satisfies_npbc w c)
+    (to_gnpbc (p:num pbc)) ⇔
+  satisfies_pbc w p
+Proof
+  PairCases_on`p`>>
+  Cases_on`p0`>>
+  simp[to_gnpbc_def,satisfies_pbc_def,EVERY_MAP,to_npbc_thm,lit_negate,
+    negate_op_thm]>>
+  simp[GSYM rel_ges_thm,EVERY_MEM]>>
+  metis_tac[]
+QED
+
+(* Add the guard literals to a normalised constraint, negated and with the
+  degree as coefficient. A normalised LHS has minimum 0, so the degree is
+  exactly the shortfall; a non-positive degree is already satisfied. *)
+Definition inject_def:
+  inject (ls,(xs,n)) =
+    if n ≤ 0 then (xs,n)
+    else add (xs,n) (to_npbc (MAP (λl. (n,negate l)) ls,0))
+End
+
+Theorem inject_thm:
+  satisfies_npbc w (inject (ls,c)) ⇔
+  (EVERY (lit w) ls ⇒ satisfies_npbc w c)
+Proof
+  Cases_on`c`>>
+  rw[inject_def]
+  >- (
+    `r ≤ &SUM (MAP (eval_term w) q)` by (
+      `0 ≤ (&SUM (MAP (eval_term w) q)):int` by simp[]>>
+      intLib.ARITH_TAC)>>
+    simp[satisfies_npbc_def])>>
+  `∃gs g. to_npbc (MAP (λl. (r,negate l)) ls,0) = (gs,g)` by metis_tac[PAIR]>>
+  drule to_npbc_value>>
+  disch_then(qspec_then`w` assume_tac)>>
+  gvs[add_def]>>
+  pairarg_tac>>gvs[]>>
+  drule add_lists_thm>>
+  disch_then(qspec_then`w` assume_tac)>>
+  gvs[satisfies_npbc_def]>>
+  `0 ≤ r` by intLib.ARITH_TAC>>
+  `0 ≤ (&SUM (MAP (eval_term w) q)):int` by simp[]>>
+  Cases_on`EVERY (lit w) ls`>>simp[]
+  >- (
+    `eval_lin_term w (MAP (λl. (r,negate l)) ls) = 0` by
+      metis_tac[eval_lin_term_reify]>>
+    intLib.ARITH_TAC)>>
+  `r ≤ eval_lin_term w (MAP (λl. (r,negate l)) ls)` by
+    metis_tac[eval_lin_term_reify]>>
+  intLib.ARITH_TAC
+QED
+
+Definition normalise_def:
+  normalise pbf = MAP inject (FLAT (MAP to_gnpbc pbf))
+End
 
 Theorem normalise_thm:
   satisfies w (set (normalise pbf)) ⇔
   satisfies w (set pbf)
 Proof
   simp[normalise_def]>>
-  qmatch_goalsub_abbrev_tac`MAP _ pbf'`>>
-  `satisfies w (set pbf) ⇔ satisfies w (set pbf')` by
-    (simp[Abbr`pbf'`]>>
-    Induct_on`pbf`>>
-    simp[]>>
-    metis_tac[pbc_ge_thm])>>
-  simp[]>>
-  `!x. MEM x pbf' ⇒ FST x = GreaterEqual` by
-    (simp[Abbr`pbf'`,MEM_FLAT,MEM_MAP,PULL_EXISTS]>>
-    rw[]>>
-    PairCases_on`y`>>Cases_on`y0`>>fs[pbc_ge_def])>>
-  pop_assum mp_tac>>
-  rpt(pop_assum kall_tac)>>
-  Induct_on`pbf'`>>simp[]>>
-  rw[]>>
-  metis_tac[pbc_to_npbc_thm]
+  `∀ls. npbc$satisfies w (set (MAP inject ls)) ⇔
+    EVERY (λ(gs,c). EVERY (lit w) gs ⇒ satisfies_npbc w c) ls` by (
+    Induct>>simp[]>>
+    Cases>>simp[inject_thm])>>
+  simp[EVERY_FLAT,EVERY_MAP,to_gnpbc_thm]>>
+  simp[pbcTheory.satisfies_def,EVERY_MEM]
 QED
 
 Definition full_normalise_def:
@@ -639,11 +728,11 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem compact_pbc_to_npbc:
-  compact (pbc_to_npbc c)
+Theorem compact_to_npbc:
+  compact (to_npbc c)
 Proof
-  PairCases_on`c`>>Cases_on`c0`>>
-  rw[pbc_to_npbc_def]>>
+  Cases_on`c`>>
+  rw[to_npbc_def]>>
   pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
   imp_res_tac compact_lhs_no_dup>>
@@ -667,10 +756,30 @@ Proof
   simp[]
 QED
 
+Theorem compact_inject:
+  compact c ⇒ compact (inject (gs,c))
+Proof
+  Cases_on`c`>>
+  rw[inject_def]>>
+  irule compact_add>>
+  simp[compact_to_npbc]
+QED
+
+Theorem compact_to_gnpbc:
+  EVERY (λgc. compact (inject gc)) (to_gnpbc p)
+Proof
+  PairCases_on`p`>>
+  Cases_on`p0`>>
+  simp[to_gnpbc_def,EVERY_MEM,MEM_MAP]>>
+  rw[]>>
+  irule compact_inject>>
+  simp[compact_to_npbc]
+QED
+
 Theorem normalise_compact:
   EVERY compact (normalise pbf)
 Proof
-  simp[normalise_def,EVERY_MAP,compact_pbc_to_npbc]
+  simp[normalise_def,EVERY_MAP,EVERY_FLAT,compact_to_gnpbc]
 QED
 
 Theorem full_normalise_optimal_val:
@@ -787,11 +896,30 @@ Definition name_to_num_lin_term_def:
       name_to_num_lin_term xs s1 ((i,l1)::acc)
 End
 
+Definition name_to_num_lits_def:
+  name_to_num_lits [] s acc = (REVERSE acc,s) ∧
+  name_to_num_lits (l::ls) s acc =
+    let (l1,s1) = name_to_num_lit l s in
+      name_to_num_lits ls s1 (l1::acc)
+End
+
+(* The reification guard is registered before the linear term, matching
+  the order the two are written on a line *)
+Definition name_to_num_pbhd_def:
+  name_to_num_pbhd (Fwd ls rel) s =
+    (let (ls1,s1) = name_to_num_lits ls s [] in (Fwd ls1 rel,s1)) ∧
+  name_to_num_pbhd (Bwd l op) s =
+    (let (l1,s1) = name_to_num_lit l s in (Bwd l1 op,s1)) ∧
+  name_to_num_pbhd (Iff l op) s =
+    (let (l1,s1) = name_to_num_lit l s in (Iff l1 op,s1))
+End
+
 Definition name_to_num_pbf_def:
   name_to_num_pbf [] s acc = (REVERSE acc,s) ∧
   name_to_num_pbf ((p,l,i)::xs) s acc =
-    let (l1,s1) = name_to_num_lin_term l s [] in
-      name_to_num_pbf xs s1 ((p,l1,i)::acc)
+    let (p1,s1) = name_to_num_pbhd p s in
+    let (l1,s2) = name_to_num_lin_term l s1 [] in
+      name_to_num_pbf xs s2 ((p1,l1,i)::acc)
 End
 
 (* ---- verification ---- *)
@@ -967,6 +1095,141 @@ Proof
   \\ res_tac \\ fs []
 QED
 
+Theorem lookup_index_mono:
+  (∀i n. lookup_index s i = SOME n ⇒ lookup_index t i = SOME n) ⇒
+  {i | lookup_index s i ≠ NONE} ⊆ {i | lookup_index t i ≠ NONE}
+Proof
+  rw [SUBSET_DEF]
+  \\ Cases_on ‘lookup_index s x’ \\ gvs [] \\ res_tac \\ fs []
+QED
+
+(* Extending the state does not change how already-registered
+  variables are mapped *)
+Theorem map_lit_lookup_index_stable:
+  (∀i n. lookup_index s i = SOME n ⇒ lookup_index t i = SOME n) ∧
+  set (MAP lit_var zs) ⊆ {i | lookup_index s i ≠ NONE} ⇒
+  MAP (map_lit (THE o lookup_index s)) zs =
+  MAP (map_lit (THE o lookup_index t)) zs
+Proof
+  rw []
+  \\ match_mp_tac MAP_map_lit_cong
+  \\ rw []
+  \\ gvs [SUBSET_DEF]
+  \\ res_tac
+  \\ namedCases_on ‘lookup_index s x’ ["","v"] \\ gvs []
+  \\ qpat_x_assum ‘∀i n. lookup_index s i = SOME n ⇒ _’
+       $ qspecl_then [‘x’,‘v’] mp_tac
+  \\ fs []
+QED
+
+Theorem name_to_num_lits:
+  ∀ls (s:'a name_to_num_state) zs acc ys t.
+    name_to_num_lits ls s acc = (ys,t) ∧ name_to_num_state_ok s ∧
+    acc = MAP (map_lit (THE o lookup_index s)) zs ∧
+    set (MAP lit_var zs) ⊆ { i | lookup_index s i ≠ NONE }
+    ⇒
+    name_to_num_state_ok t ∧
+    ys = REVERSE acc ++ MAP (map_lit (THE o lookup_index t)) ls ∧
+    (∀i n. lookup_index s i = SOME n ⇒ lookup_index t i = SOME n) ∧
+    set (MAP lit_var ls) ⊆ { i | lookup_index t i ≠ NONE }
+Proof
+  Induct
+  \\ gvs [name_to_num_lits_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ drule_all name_to_num_lit
+  \\ strip_tac \\ gvs []
+  \\ ‘MAP (map_lit (THE ∘ lookup_index s)) zs =
+      MAP (map_lit (THE ∘ lookup_index s1)) zs’ by
+    (irule map_lit_lookup_index_stable \\ fs [])
+  \\ gvs []
+  \\ last_x_assum $ qspecl_then [‘s1’,‘h::zs’,‘ys’,‘t’] mp_tac
+  \\ impl_tac >-
+   (gvs [INSERT_SUBSET]
+    \\ irule SUBSET_TRANS
+    \\ first_x_assum $ irule_at Any
+    \\ irule lookup_index_mono \\ fs [])
+  \\ strip_tac
+  \\ ‘MAP (map_lit (THE ∘ lookup_index s1)) [h] =
+      MAP (map_lit (THE ∘ lookup_index t)) [h]’ by
+    (irule map_lit_lookup_index_stable \\ fs [])
+  \\ gvs [REVERSE_DEF]
+  \\ namedCases_on ‘lookup_index s1 (lit_var h)’ ["","v"] \\ gvs []
+  \\ qpat_x_assum ‘∀i n. lookup_index s1 i = SOME n ⇒ _’
+       $ qspecl_then [‘lit_var h’,‘v’] mp_tac
+  \\ fs []
+QED
+
+Theorem name_to_num_pbhd:
+  ∀hd (s:'a name_to_num_state) hd1 t.
+    name_to_num_pbhd hd s = (hd1,t) ∧ name_to_num_state_ok s
+    ⇒
+    name_to_num_state_ok t ∧
+    hd1 = map_pbhd (THE o lookup_index t) hd ∧
+    (∀i n. lookup_index s i = SOME n ⇒ lookup_index t i = SOME n) ∧
+    pbhd_vars hd ⊆ { i | lookup_index t i ≠ NONE }
+Proof
+  Cases
+  \\ gvs [name_to_num_pbhd_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ rpt (pairarg_tac \\ gvs [])
+  >- (
+    drule name_to_num_lits
+    \\ disch_then $ qspec_then ‘[]’ mp_tac
+    \\ gvs [LIST_TO_SET_MAP])
+  \\ drule_all name_to_num_lit
+  \\ gvs []
+QED
+
+Theorem map_pbhd_lookup_index_stable:
+  (∀i n. lookup_index s i = SOME n ⇒ lookup_index t i = SOME n) ∧
+  pbhd_vars hd ⊆ {i | lookup_index s i ≠ NONE} ⇒
+  map_pbhd (THE o lookup_index s) hd = map_pbhd (THE o lookup_index t) hd
+Proof
+  rw []
+  \\ irule map_pbhd_cong
+  \\ rw []
+  \\ gvs [SUBSET_DEF]
+  \\ res_tac
+  \\ namedCases_on ‘lookup_index s x’ ["","v"] \\ gvs []
+  \\ qpat_x_assum ‘∀i n. lookup_index s i = SOME n ⇒ _’
+       $ qspecl_then [‘x’,‘v’] mp_tac
+  \\ fs []
+QED
+
+Theorem map_pbc_lookup_index_stable:
+  (∀i n. lookup_index s i = SOME n ⇒ lookup_index t i = SOME n) ∧
+  pbc_vars c ⊆ {i | lookup_index s i ≠ NONE} ⇒
+  map_pbc (THE o lookup_index s) c = map_pbc (THE o lookup_index t) c
+Proof
+  rw []
+  \\ irule map_pbc_cong
+  \\ rw []
+  \\ gvs [SUBSET_DEF]
+  \\ res_tac
+  \\ namedCases_on ‘lookup_index s x’ ["","v"] \\ gvs []
+  \\ qpat_x_assum ‘∀i n. lookup_index s i = SOME n ⇒ _’
+       $ qspecl_then [‘x’,‘v’] mp_tac
+  \\ fs []
+QED
+
+Theorem MAP_map_pbc_lookup_index:
+  (∀i n. lookup_index s i = SOME n ⇒ lookup_index t i = SOME n) ∧
+  pbf_vars (set zs) ⊆ {i | lookup_index s i ≠ NONE} ⇒
+  MAP (map_pbc (THE o lookup_index s)) zs =
+  MAP (map_pbc (THE o lookup_index t)) zs
+Proof
+  rw [MAP_EQ_f]
+  \\ irule map_pbc_cong
+  \\ rw []
+  \\ gvs [pbf_vars_def,SUBSET_DEF,PULL_EXISTS]
+  \\ res_tac
+  \\ namedCases_on ‘lookup_index s x’ ["","v"] \\ gvs []
+  \\ qpat_x_assum ‘∀i n. lookup_index s i = SOME n ⇒ _’
+       $ qspecl_then [‘x’,‘v’] mp_tac
+  \\ fs []
+QED
+
 Theorem name_to_num_pbf_rec:
   ∀xs (s:'a name_to_num_state) zs acc ys t.
     name_to_num_pbf xs s acc = (ys,t) ∧ name_to_num_state_ok s ∧
@@ -981,51 +1244,56 @@ Proof
   Induct
   \\ fs [name_to_num_pbf_def,FORALL_PROD]
   >- fs [pbf_vars_def,GSYM MAP_REVERSE]
-  \\ fs [map_pbc_def]
   \\ rpt gen_tac
   \\ strip_tac
   \\ rpt (pairarg_tac \\ gvs [])
+  \\ drule_all name_to_num_pbhd
+  \\ strip_tac \\ gvs []
   \\ drule name_to_num_lin_term
+  \\ disch_then $ qspec_then ‘[]’ mp_tac
   \\ gvs [map_lin_term_def]
   \\ strip_tac \\ gvs []
   \\ rename [‘pbf_vars ((p1,p2,p3) INSERT set xs) ⊆ _’]
-  \\ last_x_assum $ qspecl_then [‘s1’,‘(p1,p2,p3)::zs’] mp_tac
-  \\ fs [map_pbc_def]
+  \\ ‘map_pbhd (THE ∘ lookup_index s1) p1 =
+      map_pbhd (THE ∘ lookup_index s2) p1’ by
+    (irule map_pbhd_lookup_index_stable \\ fs [])
+  \\ ‘∀i n. lookup_index s i = SOME n ⇒ lookup_index s2 i = SOME n’ by
+    (rpt strip_tac
+     \\ qpat_x_assum ‘∀i n. lookup_index s i = SOME n ⇒ _’
+          $ qspecl_then [‘i’,‘n’] mp_tac
+     \\ qpat_x_assum ‘∀i n. lookup_index s1 i = SOME n ⇒ _’
+          $ qspecl_then [‘i’,‘n’] mp_tac
+     \\ fs [])
+  \\ ‘{i | lookup_index s i ≠ NONE} ⊆ {i | lookup_index s2 i ≠ NONE}’ by
+    (irule lookup_index_mono \\ fs [])
+  \\ ‘pbf_vars (set zs) ⊆ {i | lookup_index s2 i ≠ NONE}’ by
+    (irule SUBSET_TRANS
+     \\ qexists_tac ‘{i | lookup_index s i ≠ NONE}’
+     \\ fs [])
   \\ ‘MAP (map_pbc (THE ∘ lookup_index s)) zs =
-      MAP (map_pbc (THE ∘ lookup_index s1)) zs’ by
-    (gvs [MAP_EQ_f,FORALL_PROD] \\ rw []
-     \\ fs [map_pbc_def,MAP_EQ_f,FORALL_PROD]
-     \\ gvs [pbf_vars_def,pbc_vars_def,SUBSET_DEF,PULL_EXISTS]
-     \\ gvs [pbc_vars_def,FORALL_PROD,MEM_MAP,PULL_EXISTS]
-     \\ rw [] \\ res_tac
-     \\ rename [‘lit_var v’]
-     \\ Cases_on ‘lookup_index s (lit_var v)’ \\ gvs []
-     \\ res_tac \\ gvs []
-     \\ Cases_on ‘v’ \\ gvs [map_lit_def]
-     \\ res_tac \\ fs [])
+      MAP (map_pbc (THE ∘ lookup_index s2)) zs’ by
+    (irule MAP_map_pbc_lookup_index \\ fs [])
+  \\ ‘pbhd_vars p1 ⊆ {i | lookup_index s2 i ≠ NONE}’ by
+    (irule SUBSET_TRANS
+     \\ qexists_tac ‘{i | lookup_index s1 i ≠ NONE}’
+     \\ conj_tac >- fs []
+     \\ irule lookup_index_mono \\ fs [])
+  \\ ‘pbf_vars (set ((p1,p2,p3)::zs)) ⊆ {i | lookup_index s2 i ≠ NONE}’ by
+       gvs [pbf_vars_def,pbc_vars_def]
   \\ gvs []
-  \\ ‘{i | lookup_index s i ≠ NONE} ⊆ {i | lookup_index s1 i ≠ NONE}’ by
-     (gvs [SUBSET_DEF] \\ strip_tac
-      \\ Cases_on ‘lookup_index s x’ \\ gvs [] \\ res_tac \\ fs [])
-  \\ impl_tac
-  >- (gvs [pbf_vars_def,pbc_vars_def] \\ imp_res_tac SUBSET_TRANS)
-  \\ strip_tac \\ gvs []
-  \\ ‘{i | lookup_index s1 i ≠ NONE} ⊆ {i | lookup_index t i ≠ NONE}’ by
-     (gvs [SUBSET_DEF] \\ strip_tac
-      \\ Cases_on ‘lookup_index s1 x’ \\ gvs [] \\ res_tac \\ fs [])
-  \\ reverse conj_tac
-  >- (gvs [pbf_vars_def,pbc_vars_def] \\ imp_res_tac SUBSET_TRANS \\ gvs [])
-  \\ gvs [MAP_EQ_f,FORALL_PROD] \\ rw []
-  \\ fs [map_pbc_def,MAP_EQ_f,FORALL_PROD]
-  \\ gvs [pbf_vars_def,pbc_vars_def,SUBSET_DEF,PULL_EXISTS]
-  \\ gvs [pbc_vars_def,FORALL_PROD,MEM_MAP,PULL_EXISTS]
-  \\ rw [] \\ res_tac
-  \\ rename [‘lit_var v’]
-  \\ Cases_on ‘lookup_index s1 (lit_var v)’ \\ gvs []
-  \\ res_tac \\ gvs []
-  \\ Cases_on ‘v’ \\ gvs [map_lit_def]
-  \\ res_tac \\ fs []
+  \\ last_x_assum $ qspecl_then [‘s2’,‘(p1,p2,p3)::zs’,‘ys’,‘t’] mp_tac
+  \\ impl_tac >- gvs [map_pbc_def]
+  \\ strip_tac
+  \\ ‘map_pbc (THE ∘ lookup_index s2) (p1,p2,p3) =
+      map_pbc (THE ∘ lookup_index t) (p1,p2,p3)’ by
+    (irule map_pbc_lookup_index_stable \\ fs [pbf_vars_def])
+  \\ gvs [map_pbc_def,pbf_vars_def]
+  \\ irule SUBSET_TRANS
+  \\ qexists_tac ‘{i | lookup_index s2 i ≠ NONE}’
+  \\ conj_tac >- gvs [pbc_vars_def]
+  \\ irule lookup_index_mono \\ fs []
 QED
+
 
 Theorem name_to_num_pbf_thm:
   ∀(xs: α pbc list) (ys: num pbc list) s t.
@@ -1349,12 +1617,13 @@ Proof
     res_tac>>
     simp[])>>
   `MAP (map_pbc (THE ∘ lookup_index s3)) fml = MAP (map_pbc f) fml` by (
-    fs[Abbr`f`,MAP_EQ_f,SUBSET_DEF,pbf_vars_def,PULL_EXISTS,FORALL_PROD,pbc_vars_def,map_pbc_def,MEM_MAP]>>
-    rw[]>>first_x_assum drule>>
+    rw[MAP_EQ_f]>>
+    irule map_pbc_cong>>
+    rw[]>>
+    gvs[Abbr`f`,SUBSET_DEF,pbf_vars_def,PULL_EXISTS]>>
+    first_x_assum drule>>
     disch_then drule>>
-    simp[GSYM IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]>>rw[]>>
-    rename1`lit_var vv`>>
-    Cases_on`vv`>>gvs[lit_var_def,map_lit_def])>>
+    TOP_CASE_TAC>>gvs[])>>
   simp[]>>
   PURE_ONCE_REWRITE_TAC[LIST_TO_SET_MAP,pres_set_list_OPTION_MAP]>>
   match_mp_tac concl_INJ_iff>>
@@ -1468,12 +1737,13 @@ Proof
     res_tac>>
     simp[])>>
   `MAP (map_pbc (THE ∘ lookup_index s3)) fml = MAP (map_pbc f) fml` by (
-    fs[Abbr`f`,MAP_EQ_f,SUBSET_DEF,pbf_vars_def,PULL_EXISTS,FORALL_PROD,pbc_vars_def,map_pbc_def,MEM_MAP]>>
-    rw[]>>first_x_assum drule>>
+    rw[MAP_EQ_f]>>
+    irule map_pbc_cong>>
+    rw[]>>
+    gvs[Abbr`f`,SUBSET_DEF,pbf_vars_def,PULL_EXISTS]>>
+    first_x_assum drule>>
     disch_then drule>>
-    simp[GSYM IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]>>rw[]>>
-    rename1`lit_var vv`>>
-    Cases_on`vv`>>gvs[lit_var_def,map_lit_def])>>
+    TOP_CASE_TAC>>gvs[])>>
   simp[]>>
   qpat_x_assum`_ fmlt _ _ = _` assume_tac>>
   qpat_x_assum`_ objt _ = _` assume_tac>>
@@ -1514,12 +1784,13 @@ Proof
     res_tac>>
     simp[])>>
   `MAP (map_pbc (THE ∘ lookup_index st3)) fmlt = MAP (map_pbc ft) fmlt` by (
-    fs[Abbr`ft`,MAP_EQ_f,SUBSET_DEF,pbf_vars_def,PULL_EXISTS,FORALL_PROD,pbc_vars_def,map_pbc_def,MEM_MAP]>>
-    rw[]>>first_x_assum drule>>
+    rw[MAP_EQ_f]>>
+    irule map_pbc_cong>>
+    rw[]>>
+    gvs[Abbr`ft`,SUBSET_DEF,pbf_vars_def,PULL_EXISTS]>>
+    first_x_assum drule>>
     disch_then drule>>
-    simp[GSYM IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]>>rw[]>>
-    rename1`lit_var vv`>>
-    Cases_on`vv`>>gvs[lit_var_def,map_lit_def])>>
+    TOP_CASE_TAC>>gvs[])>>
   simp[]>>
   gvs[LIST_TO_SET_MAP,pres_set_list_OPTION_MAP]>>
   match_mp_tac output_INJ_iff>>

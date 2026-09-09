@@ -16,10 +16,10 @@ Definition check_distrup_list_def:
   | Lrup n vc hints =>
     (case is_rup_list fml dml b vc hints of
       (T, dmlb) =>
-      SOME (update_resize fml NONE (SOME vc) n, dmlb)
+      SOME (insert_vcc_list fml n vc, dmlb)
     | _ => NONE)
   | Import n vc =>
-      SOME (update_resize fml NONE (SOME vc) n, resize_dm dml b vc)
+      SOME (insert_vcc_list fml n vc, resize_dm dml b vc)
   | ValidateUnsat =>
     if contains_emp_list fml then
       SOME (fml, (dml,b))
@@ -40,10 +40,10 @@ Proof
   >- (simp[fml_rel_delete_ids_list]>>metis_tac[])
   >- (
     drule_all is_rup_list>>rw[]>>
-    simp[fml_rel_update_resize]>>
+    simp[fml_rel_insert_vcc_list]>>
     metis_tac[])
   >- (
-    simp[fml_rel_update_resize]>>
+    simp[fml_rel_insert_vcc_list]>>
     gvs[resize_dm_def]>>
     drule_all dm_rel_reset_dm_list>>
     metis_tac[])
@@ -61,12 +61,34 @@ Proof
   >- metis_tac[bnd_fml_delete_ids_list]
   >- (
     drule_all bnd_fml_is_rup_list>>
-    metis_tac[bnd_fml_update_resize])
+    metis_tac[bnd_fml_insert_vcc_list])
   >- (
-    irule bnd_fml_update_resize>>
+    irule bnd_fml_insert_vcc_list>>
     drule bnd_clause_resize_dm>>
     simp[]>>
     rw[]>>irule bnd_fml_le>>
     metis_tac[resize_dm_LENGTH])
 QED
 
+
+(* Unit propagation commits to the first non-falsified literal and then
+  requires every other literal to be falsified, except that a repeat of the
+  committed literal is allowed, so a clause carrying a repeated literal is
+  still accepted when it is cited as a hint.
+
+  Here "1 1" is imported as clause 1 and "-1" as clause 2, and the empty
+  clause is derived by RUP from both. *)
+Theorem check_distrup_list_dup_import[local]:
+  (case check_distrup_list (Import 1 (Vector [1;1]))
+      (REPLICATE 10 vcc_none) (REPLICATE 4 0w) 1w of
+    NONE => F
+  | SOME (fml1,dml1,b1) =>
+  case check_distrup_list (Import 2 (Vector [-1])) fml1 dml1 b1 of
+    NONE => F
+  | SOME (fml2,dml2,b2) =>
+  case check_distrup_list (Lrup 3 (Vector []) [1;2]) fml2 dml2 b2 of
+    NONE => F
+  | SOME (fml3,dml3,b3) => contains_emp_list fml3)
+Proof
+  EVAL_TAC
+QED

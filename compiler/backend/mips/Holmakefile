@@ -1,5 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis/pure .. ../../encoders/mips
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

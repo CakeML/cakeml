@@ -1,5 +1,3 @@
-INCLUDES = developers examples/compilation/x64/proofs
-
 all: $(DEFAULT_TARGETS) README.md examples/compilation/x64/proofs/helloProofTheory.sig
 .PHONY: all
 

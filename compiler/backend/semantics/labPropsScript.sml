@@ -167,7 +167,9 @@ Theorem update_simps[simp]:
     ((labSem$inc_pc s).mem_domain = s.mem_domain) ∧
     ((labSem$inc_pc s).shared_mem_domain = s.shared_mem_domain) ∧
     ((labSem$inc_pc s).io_regs = s.io_regs) ∧
+    ((labSem$inc_pc s).io_fp_regs = s.io_fp_regs) ∧
     ((labSem$inc_pc s).cc_regs = s.cc_regs) ∧
+    ((labSem$inc_pc s).cc_fp_regs = s.cc_fp_regs) ∧
     ((labSem$inc_pc s).compile = s.compile) ∧
     ((labSem$inc_pc s).compile_oracle = s.compile_oracle) ∧
     ((labSem$inc_pc s).code_buffer = s.code_buffer) ∧
@@ -192,7 +194,9 @@ Theorem binop_upd_consts[simp]:
    (labSem$binop_upd a b c d x).be = x.be ∧
    (labSem$binop_upd a b c d x).mem = x.mem ∧
    (labSem$binop_upd a b c d x).io_regs = x.io_regs ∧
+   (labSem$binop_upd a b c d x).io_fp_regs = x.io_fp_regs ∧
    (labSem$binop_upd a b c d x).cc_regs = x.cc_regs ∧
+   (labSem$binop_upd a b c d x).cc_fp_regs = x.cc_fp_regs ∧
    (labSem$binop_upd a b c d x).compile = x.compile ∧
    (labSem$binop_upd a b c d x).compile_oracle = x.compile_oracle ∧
    (labSem$binop_upd a b c d x).code_buffer = x.code_buffer ∧
@@ -214,7 +218,9 @@ Theorem arith_upd_consts[simp]:
    (labSem$arith_upd a x).be = x.be ∧
    (labSem$arith_upd a x).mem = x.mem ∧
    (labSem$arith_upd a x).io_regs = x.io_regs ∧
+   (labSem$arith_upd a x).io_fp_regs = x.io_fp_regs ∧
    (labSem$arith_upd a x).cc_regs = x.cc_regs ∧
+   (labSem$arith_upd a x).cc_fp_regs = x.cc_fp_regs ∧
    (labSem$arith_upd a x).compile = x.compile ∧
    (labSem$arith_upd a x).compile_oracle = x.compile_oracle ∧
    (labSem$arith_upd a x).code_buffer = x.code_buffer ∧
@@ -235,12 +241,14 @@ Theorem fp_upd_consts[simp]:
    (labSem$fp_upd f x).link_reg = x.link_reg ∧
    (labSem$fp_upd f x).code = x.code ∧
    (labSem$fp_upd f x).cc_regs = x.cc_regs ∧
+   (labSem$fp_upd f x).cc_fp_regs = x.cc_fp_regs ∧
    (labSem$fp_upd f x).code_buffer = x.code_buffer ∧
    (labSem$fp_upd f x).compile = x.compile ∧
    (labSem$fp_upd f x).compile_oracle = x.compile_oracle ∧
    (labSem$fp_upd f x).be = x.be ∧
    (labSem$fp_upd f x).mem = x.mem ∧
    (labSem$fp_upd f x).io_regs = x.io_regs ∧
+   (labSem$fp_upd f x).io_fp_regs = x.io_fp_regs ∧
    (labSem$fp_upd f x).pc = x.pc ∧
    (labSem$fp_upd f x).ffi = x.ffi
 Proof
@@ -448,6 +456,7 @@ Theorem align_dm_const[simp]:
    (align_dm s).ptr2_reg = s.ptr2_reg ∧
    (align_dm s).len2_reg = s.len2_reg ∧
    (align_dm s).io_regs = s.io_regs ∧
+   (align_dm s).io_fp_regs = s.io_fp_regs ∧
    (align_dm s).code_buffer = s.code_buffer ∧
    (align_dm s).compile = s.compile ∧
    (align_dm s).compile_oracle = s.compile_oracle ∧
@@ -876,6 +885,7 @@ Theorem align_sdm_const[simp]:
    (align_sdm s).ptr2_reg = s.ptr2_reg ∧
    (align_sdm s).len2_reg = s.len2_reg ∧
    (align_sdm s).io_regs = s.io_regs ∧
+   (align_sdm s).io_fp_regs = s.io_fp_regs ∧
    (align_sdm s).code_buffer = s.code_buffer ∧
    (align_sdm s).compile = s.compile ∧
    (align_sdm s).compile_oracle = s.compile_oracle ∧

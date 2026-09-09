@@ -84,6 +84,7 @@ Proof
   \\ rpt $ irule_at Any (fetch_v_fun “:clos_known$config” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:'a list” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:closLang$exp” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:bvi$exp” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:bvl$exp” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:closLang$op” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:'a list” |> snd |> hd) \\ fs []
@@ -126,6 +127,16 @@ Theorem list_dec'_eq_MAP:
   ∀f t. list_dec' f t = MAP f (list_dec' I t)
 Proof
   Cases_on ‘t’ \\ fs [list_dec'_def]
+QED
+
+Theorem option_dec'_eq_OPTION_MAP:
+  ∀f t. option_dec' f t =
+  case option_dec' I t of
+    NONE => NONE
+  | SOME res => SOME (f res)
+Proof
+  Cases_on ‘t’ \\ fs [option_dec'_def]
+  \\ rw[]
 QED
 
 val res = translate num_list_enc_decTheory.list_dec'_def;
@@ -193,6 +204,27 @@ val res = translate (closLang_op_dec'_def |> DefnBase.one_line_ify NONE);
 val def = bvl_exp_dec'_def |> DefnBase.one_line_ify NONE
           |> ONCE_REWRITE_RULE [list_dec'_eq_MAP]
 val res = translate def;
+
+val def = bvi_exp_dec'_def |> DefnBase.one_line_ify NONE
+          |> ONCE_REWRITE_RULE [list_dec'_eq_MAP,option_dec'_eq_OPTION_MAP];
+val res = translate_no_ind def;
+
+Theorem bvi_exp_dec'_ind[local]:
+  bvi_exp_dec'_ind
+Proof
+  once_rewrite_tac [fetch "-" "bvi_exp_dec'_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD]
+  \\ gvs[oneline option_dec'_def,oneline list_dec'_def]
+  \\ every_case_tac \\ gvs[]
+QED
+
+val _ = bvi_exp_dec'_ind |> update_precondition;
 
 val res = translate bvl_to_bvi_config_dec_def;
 

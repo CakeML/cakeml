@@ -24,10 +24,10 @@ Definition check_distrup_def:
   | Lrup n vc hints =>
     if is_rup fml vc hints
     then
-      SOME (fml |+ (n,vc))
+      SOME (insert_vcc fml n vc)
     else NONE
   | Import n vc =>
-      SOME (fml |+ (n,vc))
+      SOME (insert_vcc fml n vc)
   | ValidateUnsat =>
       if contains_emp fml
       then

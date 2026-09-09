@@ -428,13 +428,16 @@ val res = translate (has_help_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 val res = translate print_option_def
 val res = translate current_build_info_str_def
 val res = translate compilerTheory.help_string_def;
+val res = translate (newsTheory.query_news_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
+val res = translate parse_pancake_feature_def
+val res = translate print_bool_def
 
 Definition nonzero_exit_code_for_error_msg_def:
-                                                 nonzero_exit_code_for_error_msg e =
-if compiler$is_error_msg e then
-  (let a = empty_ffi «nonzero_exit» in
-     ml_translator$force_out_of_memory_error ())
-else ()
+  nonzero_exit_code_for_error_msg e =
+  if compiler$is_error_msg e then
+    (let a = empty_ffi «nonzero_exit» in
+       ml_translator$force_out_of_memory_error ())
+  else ()
 End
 
 val res = translate compilerTheory.is_error_msg_def;
@@ -485,20 +488,20 @@ End
 val _ = register_type “:('a,'b,'c,'d,'e) eval_res”;
 
 Quote add_cakeml:
-fun eval ((s1,next_gen), (env,id), decs) =
-case compiler_for_eval ((id,0),(s1,decs)) of
-  None => Compile_error "ERROR: failed to compile input\n"
-| Some (s2,(bs,ws)) =>
-    let
-val new_env = eval_prim (env,s1,decs,s2,bs,ws)
-    in Eval_result (new_env,next_gen) (s2,next_gen+1) end
-                   handle e => Eval_exn e (s2,next_gen+1)
+  fun eval ((s1,next_gen), (env,id), decs) =
+    case compiler_for_eval ((id,0),(s1,decs)) of
+      None => Compile_error "ERROR: failed to compile input\n"
+    | Some (s2,(bs,ws)) =>
+        let
+          val new_env = eval_prim (env,s1,decs,s2,bs,ws)
+        in Eval_result (new_env,next_gen) (s2,next_gen+1) end
+        handle e => Eval_exn e (s2,next_gen+1)
 End
 
 Quote exn_msg_dec = cakeml:
-val _ = (TextIO.print (!Repl.errorMessage);
-         print_pp (pp_exn (!Repl.exn));
-         print "\n")
+  val _ = (TextIO.print (!Repl.errorMessage);
+           print_pp (pp_exn (!Repl.exn));
+           print "\n")
 End
 
 Definition report_exn_dec_def:
@@ -509,14 +512,14 @@ val _ = (next_ml_names := ["report_exn_dec"]);
 val r = translate report_exn_dec_def;
 
 Quote add_cakeml:
-fun report_exn e =
-(Repl.exn := e;
- Repl.errorMessage := "EXCEPTION: ";
- report_exn_dec)
+  fun report_exn e =
+  (Repl.exn := e;
+   Repl.errorMessage := "EXCEPTION: ";
+   report_exn_dec)
 End
 
 Quote error_msg_dec = cakeml:
-val _ = (TextIO.print (!Repl.errorMessage))
+  val _ = (TextIO.print (!Repl.errorMessage))
 End
 
 Definition report_error_dec_def:
@@ -527,9 +530,9 @@ val _ = (next_ml_names := ["report_error_dec"]);
 val r = translate report_error_dec_def;
 
 Quote add_cakeml:
-fun report_error msg =
-(Repl.errorMessage := msg;
- report_error_dec)
+  fun report_error msg =
+  (Repl.errorMessage := msg;
+   report_error_dec)
 End
 
 val _ = (next_ml_names := ["roll_back"]);
@@ -539,26 +542,26 @@ val _ = (next_ml_names := ["check_and_tweak"]);
 val r = translate repl_check_and_tweakTheory.check_and_tweak_def;
 
 Quote add_cakeml:
-fun repl (parse, types, conf, env, decs, input_str) =
-(* input_str is passed in here only for error reporting purposes *)
-case check_and_tweak (decs, (types, input_str)) of
-  Inl msg => repl (parse, types, conf, env, report_error msg, "")
-| Inr (safe_decs, new_types) =>
-    (* here safe_decs are guaranteed to not crash;
-         the last declaration of safe_decs calls !Repl.readNextString *)
-    case eval (conf, env, safe_decs) of
-      Compile_error msg => repl (parse, types, conf, env, report_error msg, "")
-    | Eval_exn e new_conf =>
-        repl (parse, roll_back (types, new_types), new_conf, env, report_exn e, "")
-    | Eval_result new_env new_conf =>
-        (* check whether the program that ran has loaded in new input *)
-        if !Repl.isEOF then () (* exit if there is no new input *) else
-          let val new_input = !Repl.nextString in
-            (* if there is new input: parse the input and recurse *)
-            case parse new_input of
-              Inl msg      => repl (parse, new_types, new_conf, new_env, report_error msg, "")
-            | Inr new_decs => repl (parse, new_types, new_conf, new_env, new_decs, new_input)
-                                   end
+  fun repl (parse, types, conf, env, decs, input_str) =
+  (* input_str is passed in here only for error reporting purposes *)
+  case check_and_tweak (decs, (types, input_str)) of
+    Inl msg => repl (parse, types, conf, env, report_error msg, "")
+  | Inr (safe_decs, new_types) =>
+      (* here safe_decs are guaranteed to not crash;
+           the last declaration of safe_decs calls !Repl.readNextString *)
+      case eval (conf, env, safe_decs) of
+        Compile_error msg => repl (parse, types, conf, env, report_error msg, "")
+      | Eval_exn e new_conf =>
+          repl (parse, roll_back (types, new_types), new_conf, env, report_exn e, "")
+      | Eval_result new_env new_conf =>
+          (* check whether the program that ran has loaded in new input *)
+          if !Repl.isEOF then () (* exit if there is no new input *) else
+            let val new_input = !Repl.nextString in
+              (* if there is new input: parse the input and recurse *)
+              case parse new_input of
+                Inl msg      => repl (parse, new_types, new_conf, new_env, report_error msg, "")
+              | Inr new_decs => repl (parse, new_types, new_conf, new_env, new_decs, new_input)
+            end
 End
 
 val _ = (next_ml_names := ["init_types"]);
@@ -599,28 +602,28 @@ val _ = (next_ml_names := ["init_next_string"]);
 val res = translate (init_next_string_def |> REWRITE_RULE [MEMBER_INTRO]);
 
 Quote add_cakeml:
-fun start_repl (cl,s1) =
-  let
-    val parse = select_parse cl
-    val types = init_types
-    val conf = (s1,1)
-    val env = (repl_init_env, 0)
-    val decs = []
-    val input_str = ""
-    val _ = (Repl.nextString := init_next_string cl)
-  in
-    repl (parse, types, conf, env, decs, input_str)
-  end
+  fun start_repl (cl,s1) =
+    let
+      val parse = select_parse cl
+      val types = init_types
+      val conf = (s1,1)
+      val env = (repl_init_env, 0)
+      val decs = []
+      val input_str = ""
+      val _ = (Repl.nextString := init_next_string cl)
+    in
+      repl (parse, types, conf, env, decs, input_str)
+    end
 End
 
 Quote add_cakeml:
-fun run_interactive_repl cl =
-  let
-    val cs = Repl.charsFrom "config_enc_str.txt"
-    val s1 = decodeProg.decode_backend_config cs
-  in
-    start_repl (cl,s1)
-  end
+  fun run_interactive_repl cl =
+    let
+      val cs = Repl.charsFrom "config_enc_str.txt"
+      val s1 = decodeProg.decode_backend_config cs
+    in
+      start_repl (cl,s1)
+    end
 End
 
 Definition has_repl_flag_def:
@@ -643,18 +646,24 @@ Quote add_cakeml:
       print compiler_help_string
     else if compiler_has_version_flag cl then
       print compiler_current_build_info_str
-    else if compiler_has_pancake_flag cl then
-      case compiler_compile_pancake_64 cl (String.explode (TextIO.inputAll (TextIO.openStdIn ())))  of
-        (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
-                   compiler64prog_nonzero_exit_code_for_error_msg e)
     else
-      case compiler_compile_64 cl (String.explode (TextIO.inputAll (TextIO.openStdIn ())))  of
-        (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
-                   compiler64prog_nonzero_exit_code_for_error_msg e)
+      case compiler_parse_pancake_feature cl of
+        Some rest => print (compiler_print_bool(news_query_news rest))
+      | None =>
+          if compiler_has_pancake_flag cl then
+            case compiler_compile_pancake_64 cl (String.explode (TextIO.inputAll (TextIO.openStdIn ())))  of
+              (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
+                         compiler64prog_nonzero_exit_code_for_error_msg e)
+          else
+            case compiler_compile_64 cl (String.explode (TextIO.inputAll (TextIO.openStdIn ())))  of
+              (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
+                         compiler64prog_nonzero_exit_code_for_error_msg e)
   end
 End
 
 val main_v_def = fetch "-" "main_v_def";
+val compiler_help_string_v_thm = fetch "-" "compiler_help_string_v_thm";
+val compiler_current_build_info_str_v_thm = fetch "-" "compiler_current_build_info_str_v_thm";
 
 Theorem main_spec:
   ¬has_repl_flag (TL cl) ∧ IS_SOME (stdin_content fs) ⇒
@@ -698,7 +707,7 @@ Proof
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac `help_string`
     \\ fs [compilerTheory.help_string_def,
-           fetch "-" "compiler_help_string_v_thm"]
+           compiler_help_string_v_thm]
     \\ xsimpl
     \\ rename1 `add_stdout _ (strlit string)`
     \\ CONV_TAC SWAP_EXISTS_CONV
@@ -712,12 +721,25 @@ Proof
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac `current_build_info_str`
     \\ fs [compilerTheory.current_build_info_str_def,
-           fetch "-" "compiler_current_build_info_str_v_thm"]
+           compiler_current_build_info_str_v_thm]
     \\ xsimpl
     \\ rename1 `add_stdout _ (strlit string)`
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac`fs`
     \\ xsimpl)
+  \\ xlet_auto >- xsimpl
+  \\ gvs[oneline std_preludeTheory.OPTION_TYPE_def]
+  \\ reverse PURE_FULL_CASE_TAC
+  \\ gvs[]
+  >- (xmatch
+      \\ xlet_auto >- xsimpl
+      \\ xlet_auto >- xsimpl
+      \\ simp[full_compile_64_def]
+      \\ xapp
+      \\ first_assum $ irule_at $ Pos hd
+      \\ qexists ‘fs’
+      \\ xsimpl)
+  \\ xmatch
   >> xlet_auto>-xsimpl
   >> xif
   >-
@@ -797,9 +819,12 @@ Proof
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`
   \\ reverse conj_tac >-
-   rw[Abbr`fs1`,full_compile_64_def,UNCURRY,
-      GSYM fastForwardFD_with_numchars,
-      GSYM add_stdo_with_numchars, with_same_numchars]
+   (rw[Abbr`fs1`,full_compile_64_def,UNCURRY,
+       GSYM fastForwardFD_with_numchars,
+       GSYM add_stdo_with_numchars, with_same_numchars]
+    \\ PURE_FULL_CASE_TAC
+    \\ rw[GSYM fastForwardFD_with_numchars,
+          GSYM add_stdo_with_numchars, with_same_numchars, UNCURRY])
   \\ simp [SEP_CLAUSES]
   \\ match_mp_tac (MP_CANON(MATCH_MP app_wgframe (UNDISCH main_spec)))
   \\ xsimpl
@@ -827,10 +852,10 @@ Theorem semantics_compiler64_prog:
   ∃io_events.
     semantics_dec_list
       (init_state
-        (basis_ffi cl fs) with
+        (basis_ffi ext cl fs) with
          eval_state := SOME (EvalDecs (eval_state_var with env_id_counter := (0,0,1))))
       init_env compiler64_prog (Terminate Success io_events) ∧
-    extract_fs fs io_events =
+    extract_fs ext (cl,fs) io_events =
       SOME (full_compile_64 (TL cl) (get_stdin fs) fs)
 Proof
   strip_tac

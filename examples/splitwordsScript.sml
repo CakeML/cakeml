@@ -1,1 +1,1 @@
-../tutorial/splitwordsScript.sml
+../tutorial/problems/splitwordsScript.sml

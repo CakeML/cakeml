@@ -1,5 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/misc .. ../../../encoders/riscv/proofs ../../semantics ../../proofs
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

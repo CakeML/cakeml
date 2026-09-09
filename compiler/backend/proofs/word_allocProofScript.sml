@@ -4358,6 +4358,7 @@ Resume evaluate_remove_dead[Install]:
   first_x_assum $ irule_at Any>> simp[]>>
   drule_at Any strong_locals_rel_I_cut_env>>
   disch_then $ irule_at Any>>
+  simp[state_component_equality]>>
   CONJ_TAC >- (
     irule_at Any strong_locals_rel_subset>>
     first_x_assum (irule_at Any)>>
@@ -4429,7 +4430,7 @@ Resume evaluate_remove_dead[FFI]:
     simp[SUBSET_DEF,domain_union])>>
   TOP_CASE_TAC>>gvs[]
   >-
-    fs[strong_locals_rel_def]
+    fs[state_component_equality,strong_locals_rel_def]
   >-
     fs[flush_state_def]
 QED
@@ -9948,8 +9949,8 @@ Resume ssa_cc_trans_correct[FFI]:
     reverse(Cases_on`call_FFI st.ffi (ExtCall s) x'' x'`)>>full_simp_tac(srw_ss())[]
     >- fs[call_env_def,flush_state_def] >>
     qpat_abbrev_tac`mem = write_bytearray A B C D E`>>
-    qabbrev_tac`rst = st with <|locals := x;memory:=mem;ffi:=f'|>`>>
-    qpat_abbrev_tac`rcstt = rcst with <|locals := A;memory:=B;ffi:=D|>`>>
+    qabbrev_tac`rst = st with <|locals := x;fp_regs:=FEMPTY;memory:=mem;ffi:=f'|>`>>
+    qpat_abbrev_tac`rcstt = rcst with <|locals := A;fp_regs:=FEMPTY;memory:=B;ffi:=D|>`>>
     `domain ssa_cut = domain x` by (
       fs[Abbr`ssa_cut`,domain_union,cut_env_def,AllCaseEqs()]>>
       drule cut_envs_domain_SUBSET>>

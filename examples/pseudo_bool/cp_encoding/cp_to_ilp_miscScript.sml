@@ -752,7 +752,7 @@ Proof
       strip_tac>>Cases_on`v`>>
       qpat_x_assum`∀x. MEM x _ ⇒ _`mp_tac>>
       simp[DISJ_IMP_THM,FORALL_AND_THM,bits_imply_sem,iconstraint_sem_def,
-        pbc_encodeTheory.eval_lin_term_append,pair_idfun,ub_num_neg]>>
+        pbcTheory.eval_lin_term_append,pair_idfun,ub_num_neg]>>
       strip_tac
       >~ [`pos (SUC _) = _`]
       >- ((* Xs[i] = v+1: pos (v+1) = pos i + 1, in range *)

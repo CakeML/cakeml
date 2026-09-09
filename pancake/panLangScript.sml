@@ -59,7 +59,7 @@ Datatype:
       | Op binop (exp list)
       | Panop panop (exp list)
       | Cmp cmp exp exp
-      | Shift shift exp num
+      | Shift shift exp exp
       | BaseAddr
       | TopAddr
       | BytesInWord
@@ -113,6 +113,7 @@ End
 Datatype:
   decl = Function ('a fun_decl)
        | Decl shape mlstring ('a exp)
+       | ExnDecl eid shape
        | Name stcname ((fldname # shape) list)
 End
 
@@ -230,28 +231,24 @@ Definition exp_ids_def:
   (exp_ids _ = [])
 End
 
+Definition is_decl_def:
+  is_decl (Decl sh v e) = T /\
+  is_decl _ = F
+End
+
+Definition is_exn_decl_def:
+  is_exn_decl (ExnDecl eid sh) = T /\
+  is_exn_decl _ = F
+End
+
+Definition is_name_def:
+  is_name (Name _ _) = T ∧
+  is_name _ = F
+End
+
 Definition size_of_eids_def:
-  size_of_eids prog =
-  let eids = FLAT (MAP (λp. case p of Function fi => exp_ids fi.body | _ => []) prog) in
-   LENGTH (nub eids)
+  size_of_eids prog = LENGTH(FILTER is_exn_decl prog)
 End
-
-(*
-  for time_to_pancake compiler:
-
-Definition Assigns_def:
-  (Assigns [] n = Skip) ∧
-  (Assigns (v::vs) n =
-    Seq (Assign v n) (Assigns vs n))
-End
-
-Definition Decs_def:
-  (Decs [] p = p) /\
-  (Decs ((v,e)::es) p =
-    Dec v e (Decs es p))
-End
-
-*)
 
 Definition var_exp_def:
   (var_exp (Const w) = ([]:mlstring list)) ∧
@@ -267,7 +264,7 @@ Definition var_exp_def:
   (var_exp (Op bop es) = FLAT (MAP var_exp es)) ∧
   (var_exp (Panop op es) = FLAT (MAP var_exp es)) ∧
   (var_exp (Cmp c e1 e2) = var_exp e1 ++ var_exp e2) ∧
-  (var_exp (Shift sh e num) = var_exp e) ∧
+  (var_exp (Shift sh e1 e2) = var_exp e1 ++ var_exp e2) ∧
   (var_exp BaseAddr = []) ∧
   (var_exp TopAddr = []) ∧
   (var_exp BytesInWord = [])
@@ -291,7 +288,7 @@ Definition global_var_exp_def:
   (global_var_exp (Op bop es) = FLAT (MAP global_var_exp es)) ∧
   (global_var_exp (Panop op es) = FLAT (MAP global_var_exp es)) ∧
   (global_var_exp (Cmp c e1 e2) = global_var_exp e1 ++ global_var_exp e2) ∧
-  (global_var_exp (Shift sh e num) = global_var_exp e)
+  (global_var_exp (Shift sh e1 e2) = global_var_exp e1 ++ global_var_exp e2)
 Termination
   wf_rel_tac `measure (\e. exp_size ARB e)` >>
   rpt strip_tac >>
@@ -322,9 +319,18 @@ End
 Definition functions_def:
   functions [] = [] ∧
   functions(Function fi::fs) =
-  (fi.name,fi.params,fi.body)::functions fs ∧
+  (fi.name,fi.params,fi.body,fi.return)::functions fs ∧
   functions(Decl _ _ _::fs) = functions fs ∧
+  functions (ExnDecl _ _ :: fs) = functions fs ∧
   functions(Name _ _::fs) = functions fs
+End
+
+Definition exceptions_def:
+  exceptions [] = [] ∧
+  exceptions(Function fi::fs) = exceptions fs ∧
+  exceptions(Decl _ _ _::fs) = exceptions fs ∧
+  exceptions (ExnDecl eid sh :: fs) = (eid,sh)::exceptions fs ∧
+  exceptions(Name _ _::fs) = exceptions fs
 End
 
 Definition fun_ids_def:

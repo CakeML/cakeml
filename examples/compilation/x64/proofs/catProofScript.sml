@@ -10,7 +10,7 @@ Libs
   preamble
 
 val cat_io_events_def = new_specification("cat_io_events_def",["cat_io_events"],
-  cat_semantics_thm |> Q.GENL[`cl`,`fs`]
+  cat_semantics_thm |> Q.GENL[`ext`,`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (cat_sem,cat_output) = cat_io_events_def |> SPEC_ALL |> UNDISCH_ALL |> CONJ_PAIR

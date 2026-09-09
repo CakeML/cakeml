@@ -11,7 +11,7 @@ Libs
   preamble
 
 val grep_io_events_def = new_specification("grep_io_events_def",["grep_io_events"],
-  grep_semantics |> Q.GENL[`cl`,`fs`]
+  grep_semantics |> Q.GENL[`ext`,`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (grep_sem,grep_output) = grep_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR

@@ -1,5 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/examples/sat_encodings $(CAKEMLDIR)/examples/sat_encodings/translation $(CAKEMLDIR)/compiler $(CAKEMLDIR)/cv_translator
-
 all: $(DEFAULT_TARGETS) README.md graphColoring_encoder killerSudoku_encoder nQueens_encoder numBoolRange_encoder sudoku_encoder
 .PHONY: all
 sinclude $(CAKEMLDIR)/developers/readme.mk

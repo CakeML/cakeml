@@ -3,7 +3,7 @@
 *)
 Theory bviProps
 Ancestors
-  bviSem bvlProps[qualified]
+  bviSem bvlProps[qualified] backendProps
 Libs
   preamble
 
@@ -724,3 +724,354 @@ Definition good_code_labels_def:
   good_code_labels p elabs ⇔
     BIGUNION (set (MAP (get_code_labels o SND o SND) p)) ⊆ set (MAP FST p) ∪ elabs
 End
+
+(* --- switching a compiler pass off --------------------------------------
+
+   A pass that is configured off compiles with CURRY I, i.e. the identity.
+   It still wraps the incremental compiler with state_cc/state_co, which
+   moves one configuration component between the oracle's state and its
+   config.  adj_orac below performs that move on a state; it is the BVI
+   analogue of closProps' adj_orac_rel.                                    *)
+
+Definition adj_orac_def:
+  adj_orac cc f (s:('a,'ffi) bviSem$state) : ('b,'ffi) bviSem$state =
+    <| refs := s.refs; clock := s.clock; global := s.global;
+       code := s.code; ffi := s.ffi; compile := cc;
+       compile_oracle := (f ## I) o s.compile_oracle |>
+End
+
+Definition adj_orac_ok_def:
+  adj_orac_ok cc f (s:('a,'ffi) bviSem$state) ⇔
+    ∀n x y. s.compile_oracle n = (x,y) ⇒
+      OPTION_MAP (I ## (I ## f)) (s.compile x y) = cc (f x) y
+End
+
+Theorem adj_orac_simps[local]:
+  (adj_orac cc f s).clock = s.clock ∧
+  (adj_orac cc f s).code = s.code ∧
+  (adj_orac cc f s).refs = s.refs ∧
+  (adj_orac cc f s).global = s.global ∧
+  (adj_orac cc f s).ffi = s.ffi ∧
+  dec_clock n (adj_orac cc f s) = adj_orac cc f (dec_clock n s) ∧
+  ((adj_orac cc f s) with clock := k) = adj_orac cc f (s with clock := k) ∧
+  (adj_orac_ok cc f (dec_clock n s) ⇔ adj_orac_ok cc f s) ∧
+  (adj_orac_ok cc f (s with clock := k) ⇔ adj_orac_ok cc f s)
+Proof
+  rw [adj_orac_def, adj_orac_ok_def, dec_clock_def, state_component_equality]
+QED
+
+Definition adj_orac_rel_def:
+  adj_orac_rel cc f (s1:('a,'ffi) bviSem$state) (s2:('b,'ffi) bviSem$state) ⇔
+    adj_orac_ok cc f s1 ∧ s2 = adj_orac cc f s1
+End
+
+Theorem do_app_cfg_swap[local]:
+  op ≠ Install ⇒
+    ((do_app op args s = Rval (value,s1) ∧
+      domain s.code ⊆ domain t.code ⇒
+      do_app op args
+        (t with <| refs := s.refs; clock := s.clock;
+                   global := s.global; ffi := s.ffi |>) =
+      Rval
+        (value,
+         t with <| refs := s1.refs; clock := s1.clock;
+                   global := s1.global; ffi := s1.ffi |>)) ∧
+     (do_app op args s = Rerr error ∧
+      (domain t.code ⊆ domain s.code ∨
+       error ≠ Rabort Rtype_error) ⇒
+      do_app op args
+        (t with <| refs := s.refs; clock := s.clock;
+                   global := s.global; ffi := s.ffi |>) =
+      Rerr error))
+Proof
+  strip_tac
+  \\ Cases_on `op`
+  \\ gvs [do_app_def, bviSemTheory.do_app_aux_def, bvi_to_bvl_def,
+          bvl_to_bvi_def, bvlSemTheory.do_app_def, AllCaseEqs(),
+          state_component_equality, SUBSET_DEF, pairTheory.ELIM_UNCURRY]
+  \\ rpt strip_tac
+  \\ gvs []
+  >- metis_tac []
+  \\ qmatch_asmsub_rename_tac
+       `s.refs |+ (global_ptr,
+                   ValueArray (LUPDATE new_value set_index global_values)) =
+        s1.refs`
+  \\ qexists_tac
+       `SOME (Unit,
+              t with
+                <| refs := s.refs |+ (global_ptr,
+                     ValueArray (LUPDATE new_value set_index global_values));
+                   clock := s1.clock; global := s1.global; ffi := s1.ffi |>)`
+  \\ conj_tac
+  >- (qexists_tac `global_ptr` \\ gvs [])
+  \\ disj2_tac
+  \\ gvs []
+QED
+
+Theorem do_app_cfg_swap_Rval[local]:
+  ∀op args (s:('a,'ffi) bviSem$state) (s1:('a,'ffi) bviSem$state)
+      (t:('b,'ffi) bviSem$state) value.
+    op ≠ Install ∧ domain s.code = domain t.code ∧
+    do_app op args s = Rval (value,s1) ⇒
+    do_app op args
+      (t with <| refs := s.refs; clock := s.clock;
+                 global := s.global; ffi := s.ffi |>) =
+    Rval (value, t with <| refs := s1.refs; clock := s1.clock;
+                           global := s1.global; ffi := s1.ffi |>)
+Proof
+  metis_tac [do_app_cfg_swap, SUBSET_REFL]
+QED
+
+Theorem do_app_cfg_swap_Rerr[local]:
+  ∀op args (s:('a,'ffi) bviSem$state) (t:('b,'ffi) bviSem$state) error.
+    op ≠ Install ∧ domain s.code = domain t.code ∧
+    do_app op args s = Rerr error ⇒
+    do_app op args
+      (t with <| refs := s.refs; clock := s.clock;
+                 global := s.global; ffi := s.ffi |>) = Rerr error
+Proof
+  metis_tac [do_app_cfg_swap, SUBSET_REFL]
+QED
+
+Theorem do_install_Rerr_type[local]:
+  do_install args s = Rerr e ⇒ e = Rabort Rtype_error
+Proof
+  rw [do_install_def] \\ gvs [AllCaseEqs(), UNCURRY]
+QED
+
+Theorem do_install_adj_orac[local]:
+  ∀args (s:('a,'ffi) bviSem$state) v t cc (f:'a -> 'b).
+    adj_orac_ok cc f s ∧
+    (do_install args s :
+       (bvlSem$v # ('a,'ffi) bviSem$state, bviSem$exn_or_ret) result) =
+      Rval (v,t) ⇒
+    (do_install args (adj_orac cc f s) :
+       (bvlSem$v # ('b,'ffi) bviSem$state, bviSem$exn_or_ret) result) =
+      Rval (v, adj_orac cc f t) ∧
+    adj_orac_ok cc f t
+Proof
+  rpt gen_tac
+  \\ rw [do_install_def]
+  \\ gvs [AllCaseEqs(), UNCURRY]
+  \\ `∃cfg progs. s.compile_oracle 0 = (cfg,progs)` by metis_tac [PAIR]
+  \\ gvs [adj_orac_def, adj_orac_ok_def, shift_seq_def, o_DEF]
+  \\ first_assum drule
+  \\ gvs []
+  \\ strip_tac
+  \\ gvs [AllCaseEqs(), FUN_EQ_THM, state_component_equality]
+  \\ metis_tac []
+QED
+
+Theorem do_app_adj_orac[local]:
+  adj_orac_ok cc f s ⇒
+    (∀v t. do_app op args s = Rval (v,t) ⇒
+       do_app op args (adj_orac cc f s) = Rval (v, adj_orac cc f t) ∧
+       adj_orac_ok cc f t) ∧
+    (∀e. do_app op args s = Rerr e ∧ e ≠ Rabort Rtype_error ⇒
+       do_app op args (adj_orac cc f s) = Rerr e)
+Proof
+  strip_tac
+  \\ reverse (Cases_on `op = Install`)
+  >-
+   (`(adj_orac cc f s) with <| refs := s.refs; clock := s.clock;
+        global := s.global; ffi := s.ffi |> = adj_orac cc f s`
+       by gvs [adj_orac_def, state_component_equality]
+    \\ `domain s.code = domain (adj_orac cc f s).code` by gvs [adj_orac_def]
+    \\ conj_tac \\ rpt gen_tac \\ strip_tac
+    >-
+     (drule_all do_app_cfg_swap_Rval
+      \\ gvs []
+      \\ strip_tac
+      \\ imp_res_tac do_app_code
+      \\ imp_res_tac do_app_oracle
+      \\ gvs [adj_orac_def, adj_orac_ok_def, state_component_equality]
+      \\ metis_tac [])
+    \\ drule_all do_app_cfg_swap_Rerr
+    \\ gvs [])
+  \\ gvs [do_app_def]
+  \\ conj_tac \\ rpt gen_tac \\ strip_tac
+  >- (drule_all do_install_adj_orac \\ simp [])
+  \\ imp_res_tac do_install_Rerr_type \\ gvs []
+QED
+
+Theorem evaluate_adj_orac_rel[local]:
+  ∀xs env (s:('a,'ffi) bviSem$state).
+    ∀res t1 cc f (s2:('b,'ffi) bviSem$state).
+      evaluate (xs,env,s) = (res,t1) ∧
+      res ≠ Rerr (Rabort Rtype_error) ∧
+      adj_orac_rel cc f s s2 ⇒
+      ∃t2. evaluate (xs,env,s2) = (res,t2) ∧ adj_orac_rel cc f t1 t2
+Proof
+  recInduct evaluate_ind
+  \\ rw [evaluate_def]
+  \\ gvs [AllCaseEqs()]
+  \\ gvs [adj_orac_rel_def, adj_orac_simps]
+  \\ res_tac \\ gvs [adj_orac_simps]
+  (* only the Op case is left; there the compiler oracle can be touched *)
+  \\ first_x_assum (qspecl_then [`cc`,`f`] strip_assume_tac) \\ gvs []
+  \\ drule_all do_app_adj_orac \\ strip_tac \\ res_tac \\ gvs []
+QED
+
+Theorem evaluate_adj_orac:
+  evaluate (xs,env,(s:('a,'ffi) bviSem$state)) = (res,t1) ∧
+  res ≠ Rerr (Rabort Rtype_error) ∧
+  adj_orac_ok cc (f:'a -> 'b) s ⇒
+  evaluate (xs,env,adj_orac cc f s) = (res, adj_orac cc f t1) ∧
+  adj_orac_ok cc f t1
+Proof
+  strip_tac
+  \\ `∃t2. evaluate (xs,env,adj_orac cc f s) = (res,t2) ∧
+            adj_orac_rel cc f t1 t2` by
+       (irule evaluate_adj_orac_rel \\ gvs [adj_orac_rel_def] \\ metis_tac [])
+  \\ gvs [adj_orac_rel_def]
+QED
+
+Theorem adj_orac_initial_state[local]:
+  adj_orac cc SND (initial_state ffi code co (state_cc (CURRY I) cc) k) =
+  initial_state ffi code (state_co (CURRY I) co) cc k
+Proof
+  rw [adj_orac_def, initial_state_def, state_component_equality,
+      state_co_def, FUN_EQ_THM]
+  \\ Cases_on `co x` \\ Cases_on `q` \\ gvs []
+QED
+
+Theorem adj_orac_ok_initial_state[local]:
+  adj_orac_ok cc SND (initial_state ffi code co (state_cc (CURRY I) cc) k)
+Proof
+  rw [adj_orac_ok_def, initial_state_def, state_cc_def]
+  \\ PairCases_on `x` \\ gvs []
+  \\ CASE_TAC \\ gvs []
+  \\ PairCases_on `x` \\ gvs []
+QED
+
+Theorem evaluate_CURRY_I[local]:
+  evaluate (es,env,initial_state ffi code co (state_cc (CURRY I) cc) k) = (r,s) ∧
+  r ≠ Rerr (Rabort Rtype_error) ⇒
+  ∃s2.
+    evaluate (es,env,initial_state ffi code (state_co (CURRY I) co) cc k) =
+      (r,s2) ∧ s2.ffi = s.ffi
+Proof
+  strip_tac
+  \\ `adj_orac_ok cc SND (initial_state ffi code co (state_cc (CURRY I) cc) k)`
+        by simp [adj_orac_ok_initial_state]
+  \\ drule_all evaluate_adj_orac
+  \\ strip_tac
+  \\ gvs [adj_orac_initial_state, adj_orac_simps]
+QED
+
+Theorem semantics_CURRY_I:
+  semantics ffi code co (state_cc (CURRY I) cc) start ≠ ffi$Fail ⇒
+  semantics ffi code co (state_cc (CURRY I) cc) start =
+  semantics ffi code (state_co (CURRY I) co) cc start
+Proof
+  strip_tac
+  \\ simp [Ntimes semantics_def 2]
+  \\ IF_CASES_TAC \\ fs []
+  >- (qpat_x_assum `_ ≠ Fail` mp_tac \\ simp [semantics_def] \\ metis_tac [])
+  \\ DEEP_INTRO_TAC some_intro \\ simp []
+  \\ conj_tac
+  >-
+   (gen_tac \\ strip_tac \\ rveq \\ simp []
+    \\ IF_CASES_TAC \\ fs []
+    >-
+     (qpat_x_assum `_ = (r,s)` kall_tac
+      \\ first_assum (qspec_then `k'` mp_tac)
+      \\ disch_then (subterm (fn tm => Cases_on `^(assert(has_pair_type)tm)`) o concl)
+      \\ drule (GEN_ALL evaluate_CURRY_I)
+      \\ first_x_assum (qspec_then `k'` strip_assume_tac)
+      \\ rfs [] \\ CCONTR_TAC \\ fs [] \\ rfs [] \\ fs [] \\ rfs [])
+    \\ DEEP_INTRO_TAC some_intro \\ simp []
+    \\ conj_tac
+    >-
+     (gen_tac \\ strip_tac \\ rveq \\ fs []
+      \\ qmatch_assum_abbrev_tac `evaluate (opts,[],sopt) = _`
+      \\ qmatch_assum_abbrev_tac `evaluate (exps,[],st) = (r,s)`
+      \\ qspecl_then [`opts`,`[]`,`sopt`] mp_tac
+           evaluate_add_to_clock_io_events_mono
+      \\ qspecl_then [`exps`,`[]`,`st`] mp_tac
+           evaluate_add_to_clock_io_events_mono
+      \\ simp [inc_clock_def, Abbr`sopt`, Abbr`st`]
+      \\ ntac 2 strip_tac
+      \\ qpat_x_assum `evaluate _ = (r',s')` assume_tac
+      \\ drule evaluate_add_clock
+      \\ disch_then (qspec_then `k` mp_tac)
+      \\ impl_tac >- (rpt (PURE_FULL_CASE_TAC \\ fs []))
+      \\ qpat_x_assum `evaluate _ = (r,s)` assume_tac
+      \\ drule evaluate_add_clock
+      \\ disch_then (qspec_then `k'` mp_tac)
+      \\ impl_tac >- (rpt (PURE_FULL_CASE_TAC \\ fs []))
+      \\ simp [inc_clock_def] \\ ntac 2 strip_tac
+      \\ drule (GEN_ALL evaluate_CURRY_I)
+      \\ impl_tac >- (rpt (PURE_FULL_CASE_TAC \\ fs []))
+      \\ strip_tac
+      \\ rpt (PURE_FULL_CASE_TAC \\ fs [])
+      \\ gvs [])
+    \\ drule (GEN_ALL evaluate_CURRY_I)
+    \\ impl_tac
+    >-
+     (spose_not_then assume_tac
+      \\ rpt (last_x_assum (qspec_then `k` mp_tac)) \\ fs [])
+    \\ strip_tac
+    \\ asm_exists_tac \\ fs []
+    \\ TOP_CASE_TAC \\ fs []
+    \\ TOP_CASE_TAC \\ fs []
+    \\ TOP_CASE_TAC \\ fs [])
+  \\ strip_tac \\ IF_CASES_TAC \\ fs []
+  >-
+   (Cases_on `evaluate ([Call 0 (SOME start) [] NONE],[],
+                        initial_state ffi code co (state_cc (CURRY I) cc) k)`
+    \\ drule (GEN_ALL evaluate_CURRY_I)
+    \\ impl_tac
+    >- (qpat_x_assum `∀k e. FST (evaluate (_,_,initial_state _ _ co _ _)) ≠ _ ∨ _`
+          (qspecl_then [`k`,`Rabort Rtype_error`] mp_tac) \\ fs [])
+    \\ strip_tac \\ gvs []
+    \\ qpat_x_assum `∀k e. FST _ ≠ _ ∨ _` (qspecl_then [`k`,`e`] mp_tac) \\ fs [])
+  \\ DEEP_INTRO_TAC some_intro \\ simp []
+  \\ conj_tac
+  >-
+   (spose_not_then assume_tac \\ rw []
+    \\ Cases_on `evaluate ([Call 0 (SOME start) [] NONE],[],
+                           initial_state ffi code co (state_cc (CURRY I) cc) k)`
+    \\ drule (GEN_ALL evaluate_CURRY_I)
+    \\ impl_tac
+    >- (qpat_x_assum `∀k e. FST (evaluate (_,_,initial_state _ _ co _ _)) ≠ _ ∨ _`
+          (qspecl_then [`k`,`Rabort Rtype_error`] mp_tac) \\ fs [])
+    \\ strip_tac \\ gvs []
+    \\ metis_tac [])
+  \\ strip_tac
+  \\ qmatch_abbrev_tac `lprefix_lub$build_lprefix_lub l1 =
+                        lprefix_lub$build_lprefix_lub l2`
+  \\ `(lprefix_lub$lprefix_chain l1 ∧ lprefix_lub$lprefix_chain l2) ∧
+      lprefix_lub$equiv_lprefix_chain l1 l2`
+     suffices_by metis_tac [build_lprefix_lub_thm, lprefix_lub_new_chain,
+                            unique_lprefix_lub]
+  \\ conj_asm1_tac
+  >-
+   (unabbrev_all_tac
+    \\ conj_tac
+    \\ Ho_Rewrite.ONCE_REWRITE_TAC [GSYM o_DEF]
+    \\ REWRITE_TAC [IMAGE_COMPOSE]
+    \\ match_mp_tac prefix_chain_lprefix_chain
+    \\ simp [prefix_chain_def, PULL_EXISTS]
+    \\ qx_genl_tac [`k1`,`k2`]
+    \\ qspecl_then [`k1`,`k2`] mp_tac LESS_EQ_CASES
+    \\ metis_tac [LESS_EQ_EXISTS, initial_state_with_simp,
+                  evaluate_add_to_clock_io_events_mono
+                    |> CONV_RULE (RESORT_FORALL_CONV (sort_vars ["s"]))
+                    |> Q.SPEC `s with clock := k`
+                    |> SIMP_RULE (srw_ss()) [inc_clock_def]])
+  \\ simp [equiv_lprefix_chain_thm]
+  \\ unabbrev_all_tac \\ simp [PULL_EXISTS]
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ simp [LNTH_fromList, PULL_EXISTS, GSYM FORALL_AND_THM]
+  \\ rpt gen_tac \\ rveq
+  \\ Cases_on `evaluate ([Call 0 (SOME start) [] NONE],[],
+                         initial_state ffi code co (state_cc (CURRY I) cc) k)`
+  \\ drule (GEN_ALL evaluate_CURRY_I)
+  \\ impl_tac
+  >- (qpat_x_assum `∀k e. FST (evaluate (_,_,initial_state _ _ co _ _)) ≠ _ ∨ _`
+        (qspecl_then [`k`,`Rabort Rtype_error`] mp_tac) \\ fs [])
+  \\ strip_tac
+  \\ conj_tac \\ rw []
+  \\ qexists_tac `k` \\ fs []
+QED

@@ -1,16 +1,3 @@
-INCLUDES = ../../../developers \
-	   ../../../misc \
-	   ../../../semantics \
-	   ../../../semantics/proofs \
-	   ../../../translator \
-	   ../../../translator/monadic \
-	   ../../../characteristic \
-	   ../../../basis \
-	   ../../standard/ml_kernel \
-	   ../../standard/monadic \
-	   ../../standard/semantics \
-	   ../../standard/syntax
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

@@ -52,7 +52,7 @@ Definition mul_const_def:
     else if c = 1w then exp
     else (case dest_2exp 0n c of
       | NONE => Crepop Mul [exp; Const c]
-      | SOME i => Shift Lsl exp i
+      | SOME i => Shift Lsl exp (Const (n2w i))
     )
 End
 
@@ -74,7 +74,7 @@ Definition simp_exp_def:
   simp_exp (Load exp) = Load (simp_exp exp) /\
   simp_exp (Op bop exps) = Op bop (MAP simp_exp exps) /\
   simp_exp (Cmp cmp exp1 exp2) = Cmp cmp (simp_exp exp1) (simp_exp exp2) /\
-  simp_exp (Shift s exp n) = Shift s (simp_exp exp) n /\
+  simp_exp (Shift s exp1 exp2) = Shift s (simp_exp exp1) (simp_exp exp2) /\
   simp_exp exp = exp
 Termination
   WF_REL_TAC `measure (exp_size (K 0))`
@@ -93,13 +93,13 @@ Definition simp_prog_def:
   simp_prog (Call call_type e exps) = (
     let call_type2 = case call_type of
       | NONE => NONE
-      | SOME (rv, rp, opt_handler) => SOME (rv, simp_prog rp, case opt_handler of
+      | SOME (rv, opt_handler) => SOME (rv, case opt_handler of
           | NONE => NONE
           | SOME (ix, ep) => SOME (ix, simp_prog ep)
       ) in
     Call call_type2 e (MAP simp_exp exps)
   ) /\
-  simp_prog (Return exp) = Return (simp_exp exp) /\
+  simp_prog (Return exp) = Return (MAP simp_exp exp) /\
   simp_prog (ShMem op vn exp) = ShMem op vn (simp_exp exp) /\
   simp_prog p = p
 End

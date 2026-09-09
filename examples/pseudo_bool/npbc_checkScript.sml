@@ -1207,10 +1207,12 @@ Definition mk_subst_def:
   (mk_subst xs = INR (spt_to_vec (fromAList xs)))
 End
 
-(* contrapositive check *)
+(* ncs is a list of negated goals;
+  check if one of the goals is implied by ¬ extra *)
 Definition check_hash_imp_def:
   check_hash_imp extra ncs =
-    EXISTS (λnc. imp nc extra) ncs
+  let nex = not extra in
+    EXISTS (λnc. imp nex (not nc)) ncs
 End
 
 (* pres : num_set -- forces all LHS of the
@@ -4196,9 +4198,9 @@ Theorem check_hash_imp_triv:
   ¬satisfies_npbc w c
 Proof
   rw[check_hash_imp_def]>>
-  CCONTR_TAC>>fs[]>>
+  `satisfies_npbc w (not ([],1))` by EVAL_TAC>>
   drule_all imp_thm>>
-  simp[satisfies_npbc_def]
+  metis_tac[not_thm]
 QED
 
 Theorem check_cstep_correct:

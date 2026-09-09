@@ -14,13 +14,13 @@ val _ = (max_print_depth := 12);
 
 val th2 = Decls_repl_prog |> REWRITE_RULE [GSYM repl_prog_def,SNOC]
           |> CONV_RULE (RAND_CONV EVAL)
-          |> Q.GEN ‘ffi’ |> Q.ISPEC ‘basis_ffi cl fs’
+          |> Q.GEN ‘ffi’ |> Q.ISPEC ‘basis_ffi ext cl fs’
           |> REWRITE_RULE (APPEND::(DB.find "refs_def" |> map (#1 o #2)))
 
 Overload repl_prog_env = (th2 |> concl |> rator |> rand);
 
 Definition repl_prog_st_def:
-  repl_prog_st cl fs = ^(th2 |> concl |> rand)
+  repl_prog_st ext cl fs = ^(th2 |> concl |> rand)
 End
 
 val th2 = REWRITE_RULE [GSYM repl_prog_st_def] th2;
@@ -163,7 +163,7 @@ Proof
 QED
 
 Theorem parts_ok_basis_ffi:
-  parts_ok (basis_ffi cls fs) (basis_proj1,basis_proj2)
+  parts_ok (basis_ffi ext cls fs) (basis_proj1,basis_proj2)
 Proof
   mp_tac basis_ffiTheory.parts_ok_basis_st
   \\ fs (DB.find "TextIOProg_st" |> map (#1 o #2))
@@ -171,8 +171,8 @@ QED
 
 Theorem st2heap_basis:
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
-  (repl_prog_st cl fs).refs ≼ st.refs ∧
-  (repl_prog_st cl fs).ffi = st.ffi ⇒
+  (repl_prog_st ext cl fs).refs ≼ st.refs ∧
+  (repl_prog_st ext cl fs).ffi = st.ffi ⇒
   ∃h_i h_k.
     SPLIT (st2heap (basis_proj1,basis_proj2) st) (h_i,h_k) ∧
     (COMMANDLINE cl * STDIO fs) h_i
@@ -217,32 +217,32 @@ Proof
   \\ disch_then (assume_tac o GSYM) \\ fs [parts_ok_basis_ffi]
   \\ fs [basis_proj2_def,SF DNF_ss]
   \\ fs [basis_proj1_def,SF DNF_ss]
-  \\ Cases_on ‘(basis_ffi cl fs).ffi_state’ \\ fs []
+  \\ Cases_on ‘(basis_ffi ext cl fs).ffi_state’ \\ fs []
   \\ fs [basis_ffi_def]
   \\ EVAL_TAC
 QED
 
 Theorem repl_types_repl_prog:
   Prog init_env
-    (init_state (basis_ffi cl fs) with
+    (init_state (basis_ffi ext cl fs) with
      eval_state := SOME (EvalDecs (s with env_id_counter := ns))) xs env
     st ∧
   evaluate_decs
-    (init_state (basis_ffi cl fs) with
+    (init_state (basis_ffi ext cl fs) with
      <|clock := ck; eval_state := SOME (EvalDecs s)|>) init_env (xs ++ ys) =
   (s1,res) ∧ s.env_id_counter = ns ∧ repl_prog ≼ xs ∧
   prog_syntax_ok repl_prog ∧
-  (repl_prog_st cl fs).refs ≼ st.refs ∧
-  (repl_prog_st cl fs).next_type_stamp ≤ st.next_type_stamp ∧
-  (repl_prog_st cl fs).next_exn_stamp ≤ st.next_exn_stamp ∧
-  st.ffi = (repl_prog_st cl fs).ffi ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
+  (repl_prog_st ext cl fs).refs ≼ st.refs ∧
+  (repl_prog_st ext cl fs).next_type_stamp ≤ st.next_type_stamp ∧
+  (repl_prog_st ext cl fs).next_exn_stamp ≤ st.next_exn_stamp ∧
+  st.ffi = (repl_prog_st ext cl fs).ffi ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
   hasFreeFD fs ∧ file_content fs «config_enc_str.txt» = SOME content
   ⇒
   res = Rerr (Rabort Rtimeout_error) ∨
   ∃ck1 r1 env_cl e_cl s_cl res_cl.
     evaluate_decs (st with clock := ck1) (merge_env env init_env) ys =
     (s1,r1) ∧ combine_dec_result env r1 = res ∧
-    repl_types T (basis_ffi cl fs,repl_rs)
+    repl_types T (basis_ffi ext cl fs,repl_rs)
       (repl_prog_types,st with <|eval_state := NONE; clock := ck1|>,
        repl_init_env) ∧
     do_opapp [CommandLine_arguments_v; Conv NONE []] = SOME (env_cl,e_cl) ∧
@@ -261,7 +261,7 @@ Theorem repl_types_repl_prog:
          (res_pr ≠ Rerr (Rabort Rtimeout_error) ⇒
           ∃pr_v.
             res_pr = Rval [pr_v] ∧ LIST_TYPE CHAR content pr_v ∧
-            repl_types T (basis_ffi cl fs,repl_rs)
+            repl_types T (basis_ffi ext cl fs,repl_rs)
               (repl_prog_types,s_pr,repl_init_env)))
 Proof
   assume_tac repl_prog_types_thm
@@ -274,7 +274,7 @@ Proof
   \\ ‘(s with env_id_counter := s.env_id_counter) = s’ by
       fs [semanticPrimitivesTheory.eval_decs_state_component_equality]
   \\ fs [] \\ pop_assum kall_tac
-  \\ qabbrev_tac ‘st4 = init_state (basis_ffi cl fs) with eval_state := SOME (EvalDecs s)’
+  \\ qabbrev_tac ‘st4 = init_state (basis_ffi ext cl fs) with eval_state := SOME (EvalDecs s)’
   \\ qpat_x_assum ‘Prog init_env st4 _ _ _’ mp_tac
   \\ simp [Once Prog_def] \\ strip_tac
   \\ Cases_on ‘res = Rerr (Rabort Rtimeout_error)’ \\ fs []

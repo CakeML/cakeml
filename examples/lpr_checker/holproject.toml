@@ -1,0 +1,4 @@
+name = "lpr_checker"
+
+[projects.cakeml]
+path = "../../"

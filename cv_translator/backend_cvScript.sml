@@ -333,6 +333,39 @@ Proof
           num_tree_enc_decTheory.list_enc'_def,SF ETA_ss]
 QED
 
+(* bvi_exp encoding *)
+
+(* the handler recurses under an option, so [option_enc'] is unfolded
+   here too, unlike the blocks above. *)
+val bvi_exp = backend_enc_decTheory.bvi_exp_enc'_def
+                |> SRULE [SF ETA_ss, num_tree_enc_decTheory.list_enc'_def,
+                          oneline num_tree_enc_decTheory.option_enc'_def];
+val bvi_exps = MAP |> CONJUNCTS |> map (Q.ISPEC ‘bvi_exp_enc'’);
+
+val name = "bvi_exp_enc_aux"
+val c = “bvi_exp_enc'”
+val r = mk_var(name,type_of c)
+val c_list = “MAP bvi_exp_enc'”
+val r_list = mk_var(name ^ "_list",type_of c_list)
+
+Definition bvi_exp_enc_aux_def:
+  ^(LIST_CONJ (CONJUNCTS bvi_exp @ bvi_exps |> map SPEC_ALL)
+           |> concl |> subst [c|->r,c_list|->r_list])
+End
+
+val _ = cv_auto_trans bvi_exp_enc_aux_def;
+
+Theorem bvi_exp_enc_aux_thm[cv_inline,local]:
+  bvi_exp_enc' = bvi_exp_enc_aux ∧
+  MAP bvi_exp_enc' = bvi_exp_enc_aux_list
+Proof
+  gvs [FUN_EQ_THM] \\ ho_match_mp_tac bvi_exp_enc_aux_ind
+  \\ gvs [bvi_exp_enc_aux_def,backend_enc_decTheory.bvi_exp_enc'_def,
+          num_tree_enc_decTheory.list_enc'_def,SF ETA_ss,
+          oneline num_tree_enc_decTheory.option_enc'_def]
+  \\ rw [] \\ every_case_tac \\ gvs []
+QED
+
 val _ = cv_auto_trans backend_enc_decTheory.bvl_to_bvi_config_enc_def;
 
 (* closLang_exp encoding *)

@@ -11,7 +11,7 @@ Libs
   preamble
 
 val diff_io_events_def = new_specification("diff_io_events_def",["diff_io_events"],
-  diff_semantics |> Q.GENL[`cl`,`fs`]
+  diff_semantics |> Q.GENL[`ext`,`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (diff_sem,diff_output) = diff_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR

@@ -1,5 +1,4 @@
-INCLUDES = ../asm ../arm8\
-           $(HOLDIR)/examples/l3-machine-code/arm8/asl-equiv/armv8.6-asl-snapshot/A64_ISA_v86A
+INCLUDES = $(HOLDIR)/examples/l3-machine-code/arm8/asl-equiv/armv8.6-asl-snapshot/A64_ISA_v86A
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

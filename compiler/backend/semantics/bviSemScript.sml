@@ -54,7 +54,29 @@ Definition bvl_to_bvi_def:
             ; ffi := s.ffi |>
 End
 
-val s = ``(s:('c,'ffi) bviSem$state)``
+Definition finalise_cons_def:
+  (finalise_cons (RefPtr b ptr) refs =
+    case FLOOKUP refs ptr of
+    | SOME (MutBlock tag finalised l c r) =>
+        if ~finalised then
+          (case finalise_cons c (refs \\ ptr) of
+           | SOME (c',refs') => SOME (Block tag (l ++ [c'] ++ r),refs'⟨ptr ↦ MutBlock tag T l c r⟩)
+           | NONE => NONE)
+        else NONE
+    | SOME res => SOME (RefPtr b ptr,refs)
+    | NONE => NONE) ∧
+  (finalise_cons v refs = SOME (v,refs))
+Termination
+  wf_rel_tac ‘measure $ CARD o FDOM o SND’
+  >> simp [finite_mapTheory.FDOM_DOMSUB, FLOOKUP_DEF]
+  >> rw []
+  >> Cases_on ‘CARD (FDOM refs)’
+  >> rw []
+  >- fs[finite_setTheory.fCARD_EQ0]
+  >> simp []
+End
+
+val s = ``(s:('c,'ffi) bviSem$state)``;
 
 Definition do_app_aux_def:
   do_app_aux op (vs:bvlSem$v list) ^s =
@@ -121,6 +143,24 @@ Definition do_app_aux_def:
                   (ptr, ByteArray f (REPLICATE (Num i) (i2w b)))))
             else NONE
           | _ => NONE)
+    | (MemOp (MutCons tag i),xs) =>
+        (let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
+           if i >= LENGTH xs then NONE else
+             let l = TAKE i xs in
+             let c = EL i xs in
+             let r = DROP (i+1) xs in
+             let b = MutBlock tag F l c r in
+               SOME (SOME (RefPtr F ptr, (s with refs := s.refs |+ (ptr,b)))))
+    | (MemOp UpdateCons,[RefPtr _ ptr; Number i; x]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (MutBlock tag finalised l c r) =>
+             if i ≠ & LENGTH l ∨ finalised then NONE else
+               SOME (SOME (Unit, s with refs := s.refs |+ (ptr,MutBlock tag F l x r)))
+         | _ => NONE)
+    | (MemOp FinaliseCons,[x]) =>
+        (case finalise_cons x s.refs of
+         | SOME (v,refs') => SOME (SOME (v,s with refs := refs'))
+         | NONE => NONE)
     | (GlobOp AllocGlobal, _) => NONE
     | (MemOp FromListByte, _) => NONE
     | (MemOp ToListByte, _) => NONE

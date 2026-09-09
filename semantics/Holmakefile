@@ -1,9 +1,3 @@
-INCLUDES = $(HOLDIR)/examples/formal-languages/context-free\
-					 $(HOLDIR)/examples/pl-semantics/lprefix_lub\
-					 $(CAKEMLDIR)/developers $(CAKEMLDIR)/misc\
-                     $(CAKEMLDIR)/basis/pure \
-					 ffi
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

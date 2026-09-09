@@ -268,28 +268,6 @@ Proof
   Induct \\ rw[] \\ rw[GENLIST_CONS,o_DEF]
 QED
 
-(* MAP3 never used *)
-Definition MAP3_def[simp]:
-  (MAP3 f [] [] [] = []) /\
-  (MAP3 f (h1::t1) (h2::t2) (h3::t3) = f h1 h2 h3::MAP3 f t1 t2 t3)
-End
-
-val MAP3_ind = theorem"MAP3_ind";
-
-Theorem LENGTH_MAP3[simp]:
-   ∀f l1 l2 l3. LENGTH l1 = LENGTH l3 /\ LENGTH l2 = LENGTH l3 ⇒ LENGTH (MAP3 f l1 l2 l3) = LENGTH l3
-Proof
-  ho_match_mp_tac MAP3_ind \\ rw[]
-QED
-
-Theorem EL_MAP3:
-   ∀f l1 l2 l3 n. n < LENGTH l1 ∧ n < LENGTH l2 ∧ n < LENGTH l3 ⇒
-    EL n (MAP3 f l1 l2 l3) = f (EL n l1) (EL n l2) (EL n l3)
-Proof
-  ho_match_mp_tac MAP3_ind \\ rw[]
-  \\ Cases_on`n` \\ fs[]
-QED
-
 (* used once *)
 Theorem MAP_REVERSE_STEP:
    ∀x f. x ≠ [] ⇒ MAP f (REVERSE x) = f (LAST x) :: MAP f (REVERSE (FRONT x))

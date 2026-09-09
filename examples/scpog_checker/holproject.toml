@@ -1,0 +1,7 @@
+name = "scpog_checker"
+
+[projects.cakeml]
+path = "../.."
+
+[projects.lpr_checker]
+path = "../lpr_checker"

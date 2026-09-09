@@ -1,9 +1,7 @@
 INCLUDES= $(HOLDIR)/examples/Crypto/AES\
 					$(HOLDIR)/examples/Crypto/RC6\
 					$(HOLDIR)/examples/Crypto/TEA\
-					$(HOLDIR)/examples/miller/miller\
-					$(CAKEMLDIR)/basis\
-					..  auxiliary
+					$(HOLDIR)/examples/miller/miller
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

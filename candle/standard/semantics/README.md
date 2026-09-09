@@ -20,6 +20,9 @@ Proves soundness of the context extension rules: any model of a context can
 be extended to a model of the context obtained by applying one of the
 non-axiomatic context updates.
 
+[holLightConsistencyScript.sml](holLightConsistencyScript.sml):
+Consistency of the contexts that HOL Light actually builds.
+
 [holSemanticsExtraScript.sml](holSemanticsExtraScript.sml):
 Some lemmas about the semantics.
 

@@ -1,0 +1,5 @@
+name = "tutorial_solutions"
+
+[projects.cakeml]
+path = "../.."
+exclude = ["examples"]

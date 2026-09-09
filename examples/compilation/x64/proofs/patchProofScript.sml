@@ -11,7 +11,7 @@ Libs
   preamble
 
 val patch_io_events_def = new_specification("patch_io_events_def",["patch_io_events"],
-  patch_semantics |> Q.GENL[`cl`,`fs`]
+  patch_semantics |> Q.GENL[`ext`,`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (patch_sem,patch_output) = patch_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR

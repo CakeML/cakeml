@@ -1,6 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/examples/sat_encodings $(CAKEMLDIR)/examples/sat_encodings/case_studies $(CAKEMLDIR)/misc $(CAKEMLDIR)/translator \
-            $(CAKEMLDIR)/examples $(HOLDIR)/examples/bootstrap
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 sinclude $(CAKEMLDIR)/developers/readme.mk

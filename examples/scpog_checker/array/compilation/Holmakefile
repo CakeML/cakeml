@@ -1,4 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis $(CAKEMLDIR)/compiler $(CAKEMLDIR)/cv_translator $(CAKEMLDIR)/unverified/sexpr-bootstrap $(CAKEMLDIR)/compiler/parsing ..
 CLINE_OPTIONS =
 
 all: $(DEFAULT_TARGETS) README.md

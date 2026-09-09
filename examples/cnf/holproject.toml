@@ -1,0 +1,6 @@
+name = "cnf"
+
+[projects.cakeml]
+path = "../.."
+exclude = [
+]
