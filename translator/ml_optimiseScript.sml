@@ -198,6 +198,15 @@ Proof
     \\ qpat_x_assum `evaluate _ env' _ = _` assume_tac
     \\ drule evaluate_add_to_clock \\ rw []
     \\ metis_tac [])
+  THEN1 (* App PtrEq *)
+   (rename1 `_ = (st1,Rval vs)`
+    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
+          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
+             by fs [state_component_equality]
+    \\ first_x_assum drule \\ simp [] \\ strip_tac
+    \\ asm_exists_tac \\ fs []
+    \\ gvs [AllCaseEqs()]
+    \\ gvs [state_component_equality])
   THEN1 (* App Simple *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
@@ -421,9 +430,10 @@ Theorem Eval_OPTIMISE:
    Eval env exp P ==> Eval env (OPTIMISE exp) P
 Proof
   simp [Eval_def] \\ rpt strip_tac
-  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
+  \\ first_x_assum(qspecl_then[`refs`,`po`]strip_assume_tac)
   \\ qexists_tac `res` \\ fs [OPTIMISE_def]
   \\ qexists_tac`refs'`
+  \\ qexists_tac`po'`
   \\ match_mp_tac (MP_CANON BOTTOM_UP_OPT_THM) \\ fs []
   \\ metis_tac [BOTTOM_UP_OPT_THM,opt_sub_add_thm,let_id_thm,abs2let_thm]
 QED

@@ -44,22 +44,24 @@ Proof
 QED
 
 Theorem ML_QSORT_CORRECT:
-   !env tys a ord R l xs refs.
+   !env tys a ord R l xs refs po.
       nsLookup env.v (Short «qsort») = SOME qsort_v /\
       LIST_TYPE a l xs /\ (lookup_var «xs» env = SOME xs) /\
       (a --> a --> BOOL) ord R /\ (lookup_var «R» env = SOME R) /\
       transitive ord /\ total ord
       ==>
-      ?l' xs' refs' ck1 ck2.
-        evaluate (empty_state with <| clock := ck1; refs := refs |>) env
+      ?l' xs' refs' ck1 ck2 po'.
+        evaluate (empty_state with <| clock := ck1; refs := refs;
+                                      ptr_eq_oracle := po |>) env
           [App Opapp [App Opapp [Var (Short «qsort»);
              Var (Short «R»)]; Var (Short «xs»)]] =
-          (empty_state with <| clock := ck2; refs := refs ++ refs' |>,Rval [xs']) /\
+          (empty_state with <| clock := ck2; refs := refs ++ refs';
+                               ptr_eq_oracle := po' |>,Rval [xs']) /\
         (LIST_TYPE a l' xs') /\ PERM l l' /\ SORTED ord l'
 Proof
   rw [] \\ imp_res_tac Eval_Var_lemma
   \\ imp_res_tac (DISCH_ALL (hol2deep ``QSORT R xs``))
-  \\ fs [Eval_def,ml_progTheory.eval_rel_def]
+  \\ fs [Eval_def,build_state_def,ml_progTheory.eval_rel_def]
   \\ metis_tac [sortingTheory.QSORT_PERM,sortingTheory.QSORT_SORTED]
 QED
 

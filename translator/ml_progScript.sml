@@ -659,8 +659,9 @@ Theorem nsLookup_init_env_pfun_eqs =
 end
 
 Theorem ML_code_NIL:
-   ML_code init_env [((«Toplevel», «»), init_state ffi, [], empty_env)]
-    (init_state ffi)
+   ML_code init_env
+    [((«Toplevel», «»), init_state ffi with ptr_eq_oracle := po, [], empty_env)]
+    (init_state ffi with ptr_eq_oracle := po)
 Proof
   fs [ML_code_def,Decls_NIL]
 QED
@@ -1222,11 +1223,31 @@ QED
 
 Theorem prog_syntax_ok_semantics:
   prog_syntax_ok prog ⇒
-  semantics_dec_list st init_env prog = semantics_prog st init_env prog
+  semantics_dec_list st init_env prog = semantics_determ st init_env prog
 Proof
   simp [FUN_EQ_THM] \\ strip_tac \\ Cases
-  \\ gvs [semanticsTheory.semantics_prog_def, semantics_dec_list_def]
+  \\ gvs [semanticsTheory.semantics_determ_def, semantics_dec_list_def]
   \\ gvs [prog_syntax_ok_def, evaluate_dec_list_eq_evaluate_decs,
           semanticsTheory.evaluate_prog_with_clock_def,
           evaluate_decTheory.evaluate_dec_list_with_clock_def]
+QED
+
+Theorem Decls_IMP_not_Fail:
+  Decls init_env s1 prog env2 s2 ∧ prog_syntax_ok prog ⇒
+  ¬semantics_determ s1 init_env prog Fail
+Proof
+  strip_tac
+  \\ drule_all Decls_IMP_Prog
+  \\ rewrite_tac [Prog_def] \\ strip_tac
+  \\ gvs [semanticsTheory.semantics_determ_def,
+          semanticsTheory.evaluate_prog_with_clock_def]
+  \\ rw [] \\ pairarg_tac \\ gvs []
+  \\ strip_tac \\ gvs []
+  \\ qspecl_then [‘s1 with clock := k’,‘init_env’,‘prog’,‘st'’,
+                  ‘Rerr (Rabort Rtype_error)’,‘ck1’]
+       mp_tac evaluate_decs_add_to_clock
+  \\ qspecl_then [‘s1 with clock := ck1’,‘init_env’,‘prog’,‘s2 with clock := ck2’,
+                  ‘Rval env2’,‘k’]
+       mp_tac evaluate_decs_add_to_clock
+  \\ gvs [AC arithmeticTheory.ADD_COMM arithmeticTheory.ADD_ASSOC]
 QED
