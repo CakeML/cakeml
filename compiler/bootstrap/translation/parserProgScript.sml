@@ -166,6 +166,10 @@ QED
 
 val _ = translate maybe_handleRef_eq
 
+(* Both lexical and declaration opens reach module-path conversion. Translate
+   it with its unconditional certificate before either recursive consumer. *)
+val _ = translate (def_of_const ``ptree_ModPath``);
+
 val _ = translate (def_of_const ``ptree_Expr``);
 
 val _ = translate (def_of_const ``ptree_linfix``);
@@ -218,46 +222,6 @@ val def =
 
 val res = translate_no_ind def;
 
-(* [Dopen] makes [ptree_ModPath] reachable from declaration conversion.  Its
-   generated translator precondition is only an artifact of the option/path
-   combinators: all source parse trees are in its domain.  Discharge it before
-   proving the mutually recursive declaration precondition below. *)
-Theorem path_to_mods_ind[local]:
-  path_to_mods_ind
-Proof
-  rewrite_tac [fetch "-" "path_to_mods_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac tokensTheory.path_induction
-  \\ rw []
-QED
-
-val _ = update_precondition path_to_mods_ind;
-
-Theorem ptree_modpath_side[local]:
-  ∀x. ptree_modpath_side x
-Proof
-  rw [fetch "-" "ptree_modpath_side_def", path_to_mods_ind]
-QED
-
-val _ = update_precondition ptree_modpath_side;
-
-Theorem ptree_decl_side_total[local]:
-  (∀x. ptree_decl_side x) ∧
-  (∀x. ptree_decls_side x) ∧
-  (∀x. ptree_structure_side x)
-Proof
-  match_mp_tac
-    (cmlPtreeConversionTheory.ptree_Decl_ind
-     |> SIMP_RULE (srw_ss()) [AllCaseEqs(),PULL_EXISTS])
-  \\ rpt conj_tac
-  \\ rpt strip_tac
-  \\ rw [Once (fetch "-" "ptree_decl_side_def"), ptree_modpath_side]
-  \\ gvs [AllCaseEqs()]
-QED
-
-val _ = map update_precondition (CONJUNCTS ptree_decl_side_total);
-
 Theorem ind_lemma[local]:
   ptree_decl_ind
 Proof
@@ -283,15 +247,20 @@ val _ = translate (def_of_const ``ptree_TopLevelDecs``);
 
 val _ = translate (RW [monad_unitbind_assert] parse_prog_def);
 
-Theorem parse_prog_side_lemma = Q.prove(`
-  !x. parse_prog_side x = T`,
+Theorem parse_prog_side_lemma:
+  !x. parse_prog_side x = T
+Proof
   SIMP_TAC std_ss [fetch "-" "parse_prog_side_def",
     fetch "-" "peg_exec_side_def", fetch "-" "coreloop_side_def"]
   THEN REPEAT STRIP_TAC
-  THEN STRIP_ASSUME_TAC (Q.SPEC `v1` owhile_TopLevelDecs_total)
+  THEN qmatch_goalsub_rename_tac
+    `pegexec$EV (pnt nTopLevelDecs) input_tokens [] NONE [] done failed`
+  THEN STRIP_ASSUME_TAC (Q.SPEC `input_tokens` owhile_TopLevelDecs_total)
   THEN FULL_SIMP_TAC std_ss [INTRO_FLOOKUP] THEN POP_ASSUM MP_TAC
-  THEN CONV_TAC (DEPTH_CONV ETA_CONV) THEN FULL_SIMP_TAC std_ss [])
-  |> update_precondition;
+  THEN CONV_TAC (DEPTH_CONV ETA_CONV) THEN FULL_SIMP_TAC std_ss []
+QED
+
+val _ = update_precondition parse_prog_side_lemma;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

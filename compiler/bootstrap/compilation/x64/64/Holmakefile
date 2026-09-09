@@ -1,7 +1,7 @@
 ARCH = x64
 WORD_SIZE = 64
 all: $(DEFAULT_TARGETS) README.md cake-$(ARCH)-$(WORD_SIZE).tar.gz test-hello-cake test-candle-records
-.PHONY: all test-hello-cake test-candle-records
+.PHONY: all test-hello-cake test-candle-records test-opens test-repl-opens
 
 sinclude $(CAKEMLDIR)/developers/readme.mk
 
@@ -25,10 +25,18 @@ test-candle-records: cake-$(ARCH)-$(WORD_SIZE).tar.gz cake
 	./cake --candle < candle_records.ml | tail -n29 > candle.out
 	diff candle.out candle.expected
 
+test-opens: cake
+	make CAKEFLAGS= test-opens.cake
+	./test-opens.cake > test-opens.out
+	diff test-opens.out test-opens.expected
+
+test-repl-opens: cake config_enc_str.txt repl_boot.cml
+	sh test-repl-opens.sh
+
 cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile hello.cml how-to.md cake-sexpr-32 cake-sexpr-64 config_enc_str.txt candle_boot.ml repl_boot.cml
 	tar -chzf $@ --transform='s|^|cake-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile hello.cml how-to.md cake-sexpr-32 cake-sexpr-64 config_enc_str.txt candle_boot.ml repl_boot.cml
 
-EXTRA_CLEANS = cake.S cake-$(ARCH)-$(WORD_SIZE).tar.gz cake test-hello.cake output expected_output
+EXTRA_CLEANS = cake.S cake-$(ARCH)-$(WORD_SIZE).tar.gz cake test-hello.cake output expected_output test-opens.cake test-opens.out test-repl-opens.out test-repl-opens.err test-repl-opens.events
 
 ifdef POLY
 HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap

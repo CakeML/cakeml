@@ -66,6 +66,24 @@ end
 
 val module_and_outer = "structure M = struct val x = 7 end; val x = 1; ";
 
+(* Issue #880: open imports constructor identities, not merely values. *)
+val _ = source_value
+  "structure S = struct datatype foo = Foo end; \
+  \fun foo S.Foo = (); open S; fun foo Foo = (); val result = foo Foo"
+  ``Conv NONE []``;
+val _ = source_value
+  "structure S = struct datatype foo = Foo end; \
+  \val result = let open S fun foo Foo = () in foo Foo end"
+  ``Conv NONE []``;
+val _ = source_value
+  "structure Outer = struct structure S = struct datatype foo = Foo end end; \
+  \open Outer.S; fun foo Foo = (); val result = foo Outer.S.Foo"
+  ``Conv NONE []``;
+val _ = source_value
+  "structure Outer = struct structure S = struct datatype foo = Foo end end; \
+  \open Outer; open S; fun foo Foo = (); val result = foo Outer.S.Foo"
+  ``Conv NONE []``;
+
 val _ = source_value (module_and_outer ^
   "val result = let val x = 2 open M in x end") ``Litv (IntLit 7)``;
 val _ = source_value (module_and_outer ^
@@ -126,6 +144,23 @@ val _ = source_rejected
   "structure M = struct datatype t = C end; \
   \val result = let open M in C 1 end";
 val _ = source_rejected "val result = let open Missing in 1 end";
+(* The missing-module error must point to the open declaration, not the
+   surrounding val or the remaining body. These are lexer-reported positions
+   spanning OpenT through the end of the Missing token. *)
+val _ = let
+  val program = parse_source "val result = let open Missing in 1 end"
+  val actual = infer_source program
+  val expected = rhs
+    ``^actual = M_failure (SOME (Locs (POSN 0 21) (POSN 0 34)),
+                          «Undefined module: Missing»)``
+in
+  if aconv actual expected then ()
+  else raise Fail ("Wrong local-open diagnostic: " ^ term_to_string actual)
+end;
+val _ = source_rejected "open Missing; val result = 1";
+val _ = source_rejected
+  "structure S = struct datatype foo = Foo end; \
+  \val local_value = let open S in Foo end; val result = Foo";
 val _ = source_rejected
   "structure M = struct end; \
   \val r = let open M in Ref (fn z => z) end; \

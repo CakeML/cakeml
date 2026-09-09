@@ -122,6 +122,16 @@ Proof
   \\ Cases_on ‘opt’ \\ gs []
 QED
 
+Theorem env_ok_extend_dec_env:
+  env_ok s env ∧
+  state_ok s ∧
+  env_ok s env1 ⇒
+    env_ok s (extend_dec_env env1 env)
+Proof
+  rw [env_ok_def]
+  \\ irule env_rel_extend_dec_env \\ gs []
+QED
+
 local
   val ind_thm =
     full_evaluate_ind
@@ -182,6 +192,7 @@ Proof
   >~ [`Letrec`] >- suspend "Letrec"
   >~ [`Tannot`] >- suspend "Tannot"
   >~ [`Lannot`] >- suspend "Lannot"
+  >~ [`Open`] >- suspend "Open"
   >~ [`[] : (pat # exp) list`] >- suspend "pmatch_Nil"
   >~ [`_::_ : (pat # exp) list`] >- suspend "pmatch_Cons"
   >~ [`[]:dec list`] >- suspend "decs_Nil"
@@ -248,6 +259,23 @@ QED
 Resume evaluate_ok[Fun]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"], v_ok_thm]
+QED
+
+Resume evaluate_ok[Open]:
+  rw [evaluate_def]
+  \\ Cases_on `open_dec_env path env` \\ gvs []
+  \\ rename1 `open_dec_env path env = SOME opened`
+  \\ `env_ok st opened` by (
+    fs [env_ok_def]
+    \\ drule env_rel_open_dec_env
+    \\ disch_then (qspec_then `path` assume_tac)
+    \\ gvs [optionTheory.OPTREL_def])
+  \\ `env_ok st (extend_dec_env opened env)` by (
+    irule env_ok_extend_dec_env \\ gs [])
+  \\ gvs []
+  \\ irule evaluate_env_ok_mono
+  \\ first_assum (irule_at Any) \\ gs []
+  \\ qexists_tac `[Open path e]` \\ simp [evaluate_def]
 QED
 
 Theorem state_ok_eval_state:
@@ -962,16 +990,6 @@ QED
 Resume evaluate_ok[decs_Nil]:
   rw [evaluate_decs_def, extend_dec_env_def]
   \\ gs [env_ok_def, env_rel_def, ctor_rel_def]
-QED
-
-Theorem env_ok_extend_dec_env:
-  env_ok s env ∧
-  state_ok s ∧
-  env_ok s env1 ⇒
-    env_ok s (extend_dec_env env1 env)
-Proof
-  rw [env_ok_def]
-  \\ irule env_rel_extend_dec_env \\ gs []
 QED
 
 Theorem env_ok_nsAppend:

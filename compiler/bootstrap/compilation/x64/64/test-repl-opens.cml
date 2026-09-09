@@ -1,0 +1,34 @@
+(* Feed directly to --repl: errors in #use files discard buffered commands.
+   Each check emits its own marker because the REPL continues after exceptions. *)
+val x = 1;
+structure M = struct val x = 7; datatype t = C end;
+fun qualified M.C = 10;
+open M;
+fun unqualified C = 20;
+val _ = if x = 7 andalso qualified C = 10 andalso unqualified M.C = 20 then print "\nDOPEN-REPL:declaration\n" else print "\nDOPEN-REPL:FAIL-declaration\n";
+val captured = let open M in fn (unused : int) => x end;
+val captured_rec = let open M fun f (unused : int) = x in f end;
+structure M = struct val x = 42 end;
+val _ = if captured 0 = 7 andalso captured_rec 0 = 7 then print "\nDOPEN-REPL:closures\n" else print "\nDOPEN-REPL:FAIL-closures\n";
+val _ = if (let open M in x end) = 42 andalso x = 7 then print "\nDOPEN-REPL:local-scope\n" else print "\nDOPEN-REPL:FAIL-local-scope\n";
+structure Outer = struct structure N = struct val x = 11 end end;
+val _ = if (let open Outer.N in x end) = 11 andalso (let open Outer open N in x end) = 11 then print "\nDOPEN-REPL:nested\n" else print "\nDOPEN-REPL:FAIL-nested\n";
+open Missing;
+val _ = if x = 7 then print "\nDOPEN-REPL:after-missing-declaration\n" else print "\nDOPEN-REPL:FAIL-after-missing-declaration\n";
+val x = let open Missing in 0 end;
+val _ = if x = 7 then print "\nDOPEN-REPL:after-missing-local\n" else print "\nDOPEN-REPL:FAIL-after-missing-local\n";
+val x : string = 0;
+val _ = if x = 7 then print "\nDOPEN-REPL:after-type-error\n" else print "\nDOPEN-REPL:FAIL-after-type-error\n";
+structure Rollback = struct val x = "temporary" end;
+local val ignored = 0 in open Rollback; val _ = raise Div end;
+val _ = if x = 7 andalso M.x = 42 andalso captured 0 = 7 then print "\nDOPEN-REPL:after-exception\n" else print "\nDOPEN-REPL:FAIL-after-exception\n";
+structure Poly = struct val id = fn z => z end;
+val polymorphic = let open Poly in id end;
+val _ = if polymorphic 12 = 12 andalso polymorphic #"a" = #"a" then print "\nDOPEN-REPL:polymorphism\n" else print "\nDOPEN-REPL:FAIL-polymorphism\n";
+val r = let open Poly in Ref (fn z => z) end;
+val _ = if polymorphic 13 = 13 andalso x = 7 then print "\nDOPEN-REPL:after-value-restriction\n" else print "\nDOPEN-REPL:FAIL-after-value-restriction\n";
+structure N = struct val y = 99 end;
+structure EmptyOuter = struct structure N = struct end end;
+val _ = if (let open EmptyOuter open N in x end) = 7 then print "\nDOPEN-REPL:empty-module\n" else print "\nDOPEN-REPL:FAIL-empty-module\n";
+val x = let open EmptyOuter in N.y end;
+val _ = if x = 7 andalso N.y = 99 then print "\nDOPEN-REPL:after-empty-shadow\n" else print "\nDOPEN-REPL:FAIL-after-empty-shadow\n";
