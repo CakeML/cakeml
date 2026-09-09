@@ -26,3 +26,6 @@ Examples to test the AIGER infrastructure.
 
 [translation](translation):
 Translation scripts.
+
+[xaigScript.sml](xaigScript.sml):
+An eXtended AIG format for internal use

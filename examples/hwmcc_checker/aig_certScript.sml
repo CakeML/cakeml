@@ -840,3 +840,26 @@ Proof
   >> simp [PULL_EXISTS]
   >> metis_tac []
 QED
+
+Theorem is_witness_is_safe_and_live:
+  is_witness
+    maig mreset mnext msafes mcnstrs mqaig mlive mlatches
+    waig wreset wnext wsafes wcnstrs wqaig wlive wlatches ∧
+  dep_model
+    maig mreset mnext msafes mcnstrs minput mlatches ∧
+  (* TODO See is_witness_is_live comment *)
+  dep_qaig minput mqaig mlive mlatches ∧
+  is_stratified lt waig wreset wlatches ∧
+  FINITE wlatches
+  ⇒
+  is_safe
+    maig mreset mnext mcnstrs mlatches msafes
+  ∧
+  is_live
+    maig mreset mnext mcnstrs mqaig (IMAGE set (set mlive)) mlatches
+Proof
+  strip_tac
+  >> drule_all_then assume_tac is_witness_is_safe
+  >> drule_all_then assume_tac is_witness_is_live
+  >> simp []
+QED
