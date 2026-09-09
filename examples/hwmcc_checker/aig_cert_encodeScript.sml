@@ -3067,6 +3067,6 @@ Proof
   )
   >> sg ‘FINITE (set wlatches)’ >- simp []
   >> drule_all stratified_cond_is_stratified >> strip_tac
-  >> drule_all_then assume_tac is_witness_is_safe_and_livee
+  >> drule_all_then assume_tac is_witness_is_safe_and_live
   >> simp []
 QED
