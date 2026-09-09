@@ -104,6 +104,69 @@ Proof
   >> simp[letinit_ml_def, do_con_check_def, nsLookup_def]
 QED
 
+Theorem cps_transform_con_check[local]:
+  (!prog k. check_exp_constructors scheme_cons_env (cps_transform prog k)) /\
+  (!tfn ts es k.
+    check_exp_constructors scheme_cons_env tfn /\
+    EVERY (check_exp_constructors scheme_cons_env) ts ==>
+    check_exp_constructors scheme_cons_env (cps_transform_app tfn ts es k)) /\
+  (!xts bs e k.
+    EVERY (check_exp_constructors scheme_cons_env) (MAP SND xts) ==>
+    check_exp_constructors scheme_cons_env (cps_transform_letinit xts bs e k)) /\
+  (!k es e. check_exp_constructors scheme_cons_env (cps_transform_seq k es e))
+Proof
+  simp [scheme_cons_env_simp]
+  >> ho_match_mp_tac cps_transform_ind
+  >> rpt strip_tac
+  >> simp[cps_transform_def, check_exp_constructors_def]
+  >> simp[refunc_set_def, check_exp_constructors_def,
+          do_con_check_def, nsLookup_def]
+  >~ [`lit_to_ml_val lit`] >- (
+    namedCases_on `lit` ["prim", "num", "flag", ""]
+    >> simp[lit_to_ml_val_def, check_exp_constructors_def,
+            do_con_check_def, nsLookup_def]
+    >- (
+      Cases_on `prim`
+      >> simp[check_exp_constructors_def, do_con_check_def, nsLookup_def]
+    )
+    >> Cases_on `flag`
+    >> simp[check_exp_constructors_def, do_con_check_def, nsLookup_def]
+  )
+  >~ [`proc_ml params rest body`] >- (
+    Induct_on `params` >- (
+      Cases_on `rest`
+      >> simp[proc_ml_def, check_exp_constructors_def,
+              do_con_check_def, nsLookup_def]
+    )
+    >> simp[proc_ml_def, check_exp_constructors_def,
+            do_con_check_def, nsLookup_def]
+  )
+  >~ [`letpreinit_ml (MAP FST bindings) body`] >- (
+    gvs[cps_transform_def]
+    >> Induct_on `bindings`
+    >> simp[letpreinit_ml_def, check_exp_constructors_def,
+            do_con_check_def, nsLookup_def]
+  )
+  >~ [`letpreinit_ml (MAP FST bindings) _`] >- (
+    gvs[cps_transform_def]
+    >> rename1 `letpreinit_ml _ body`
+    >> Induct_on `bindings`
+    >> simp[letpreinit_ml_def, check_exp_constructors_def,
+            do_con_check_def, nsLookup_def]
+  )
+  >~ [`cons_list (REVERSE args)`] >- (
+    Induct_on `args` using SNOC_INDUCT
+    >> simp[cons_list_def, check_exp_constructors_def,
+            do_con_check_def, nsLookup_def, REVERSE_SNOC]
+  )
+  >> rename1 `letinit_ml bindings body`
+  >> Induct_on `bindings`
+  >> simp[letinit_ml_def, check_exp_constructors_def]
+  >> PairCases
+  >> simp[letinit_ml_def, check_exp_constructors_def,
+          do_con_check_def, nsLookup_def]
+QED
+
 Definition scheme_out_oracle_def:
   scheme_out_oracle =
     <| oracle      := (λffi_name _ _ _.
@@ -154,7 +217,7 @@ Proof
   >> simp[Once scheme_init_env_defs]
   >> simp[Once scheme_init_env_defs]
   >> simp[GSYM scheme_cons_env_def]
-  >> simp[every_one_con_check]
+  >> simp[check_exp_constructors_def, cps_transform_con_check]
 
   >> simp[GSYM merge_env_def]
   >> simp[GSYM scheme_to_cake_env_def]
@@ -203,7 +266,8 @@ Proof
     >> simp[Once scheme_init_env_defs]
     >> simp[GSYM scheme_cons_env_def]
   )
-  >> simp[scheme_cons_env_simp]
+  >> simp[scheme_cons_env_simp, check_exp_constructors_def,
+          do_con_check_def, nsLookup_def]
   >> gvs[Once ml_v_vals_cases]
   >~ [`bool_val_rel b mlb`] >>> HEADGOAL $ gvs[Once bool_val_rel_cases]
   >> simp[Ntimes evaluate_def 2]
@@ -258,7 +322,7 @@ Proof
   >> simp[Once scheme_init_env_defs]
   >> simp[Once scheme_init_env_defs]
   >> simp[GSYM scheme_cons_env_def]
-  >> simp[every_one_con_check]
+  >> simp[check_exp_constructors_def, cps_transform_con_check]
 
   >> simp[GSYM merge_env_def]
   >> simp[GSYM scheme_to_cake_env_def]
@@ -307,7 +371,8 @@ Proof
     >> simp[Once scheme_init_env_defs]
     >> simp[GSYM scheme_cons_env_def]
   )
-  >> simp[scheme_cons_env_simp]
+  >> simp[scheme_cons_env_simp, check_exp_constructors_def,
+          do_con_check_def, nsLookup_def]
   >> simp[Ntimes evaluate_def 2]
   >> simp[evaluate_match_def, can_pmatch_all_def, pmatch_def,
     nsLookup_def, same_type_def, same_ctor_def, pat_bindings_def]
@@ -421,7 +486,7 @@ Proof
   >> simp[Once scheme_init_env_defs]
   >> simp[Once scheme_init_env_defs]
   >> simp[GSYM scheme_cons_env_def]
-  >> simp[every_one_con_check]
+  >> simp[check_exp_constructors_def, cps_transform_con_check]
 
   >> simp[GSYM merge_env_def]
   >> simp[GSYM scheme_to_cake_env_def]
