@@ -16,6 +16,8 @@ Datatype:
     (* Three-input if-then-else gates
       out = if in_1 then in_2 else in_3 *)
   | Ite (('a,'i,'l) lit) (('a,'i,'l) lit) (('a,'i,'l) lit)
+    (* Multi-input Or gates out = ⋁ᵢ inᵢ *)
+  | Or (('a,'i,'l) lit list)
 End
 
 Type xaig[pp] = “:('a # ('a,'i,'l) gty) list”
@@ -42,7 +44,8 @@ Definition xeval_lit_def:
       | Ite in1 inT inF =>
         if xeval_lit ss tl in1
         then xeval_lit ss tl inT
-        else xeval_lit ss tl inF))
+        else xeval_lit ss tl inF
+      | Or ins => EXISTS (xeval_lit ss tl) ins))
 End
 
 (* Naive *)
@@ -185,4 +188,3 @@ Proof
   gvs[AllCaseEqs(),GSYM PULL_FORALL]>>
   cheat
 QED
-
