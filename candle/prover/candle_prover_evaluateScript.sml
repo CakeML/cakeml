@@ -158,6 +158,7 @@ Proof
   >~ [`Letrec`] >- suspend "Letrec"
   >~ [`Tannot`] >- suspend "Tannot"
   >~ [`Lannot`] >- suspend "Lannot"
+  >~ [`Open`] >- suspend "Open"
   >~ [`[] : (pat # exp) list`] >- suspend "pmatch_Nil"
   >~ [`_::_ : (pat # exp) list`] >- suspend "pmatch_Cons"
   >~ [`[]:dec list`] >- suspend "decs_Nil"
@@ -978,6 +979,16 @@ QED
 
 Resume evaluate_v_ok[Lannot]:
   rw [evaluate_def]
+QED
+
+Resume evaluate_v_ok[Open]:
+  rw [evaluate_def]
+  \\ Cases_on ‘open_dec_env path env’ \\ gvs []
+  >- (
+    qexists_tac ‘ctxt’ \\ gs [state_ok_def])
+  \\ imp_res_tac env_ok_open_dec_env
+  \\ first_x_assum irule
+  \\ gs [env_ok_extend_dec_env]
 QED
 
 Resume evaluate_v_ok[pmatch_Nil]:
