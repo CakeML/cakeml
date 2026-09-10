@@ -57,7 +57,7 @@ End
 (* Carried by the Fail exception a checker step raises *)
 Definition format_failure_def:
   format_failure (lno:num) s =
-  «c Checking failed at line: » ^ toString lno ^ «. Reason: » ^ s
+  «c Checking failed at line: » ^ toString lno ^ «. Reason: » ^ s ^ «\n»
 End
 
 val res = translate format_failure_def;
