@@ -477,6 +477,44 @@ QED
 
 val _ = translate float_is_zero_characterisation
 
+Theorem float_is_nan_characterisation:
+  float_is_nan f ⇔ exponent f = 0x7FFw ∧ significand f ≠ 0w
+Proof
+  simp[binary_ieeeTheory.float_is_nan_def, binary_ieeeTheory.float_value_def,
+       exponent_correct, significand_correct, w2w_eq_n2w] >>
+  ‘(-1w : word11) = 2047w’ by EVAL_TAC >>
+  pop_assum SUBST1_TAC >>
+  Cases_on ‘f.Exponent = 2047w’ >> Cases_on ‘f.Significand = 0w’ >> simp[]
+QED
+
+val _ = next_ml_names := ["isNan"];
+val _ = translate float_is_nan_characterisation
+
+Theorem float_is_subnormal_characterisation:
+  float_is_subnormal f ⇔ exponent f = 0w ∧ significand f ≠ 0w
+Proof
+  simp[binary_ieeeTheory.float_is_subnormal_def, exponent_correct,
+       significand_correct, w2w_eq_n2w]
+QED
+
+val _ = next_ml_names := ["isSubnormal"];
+val _ = translate float_is_subnormal_characterisation
+
+Definition copysign_def:
+  copysign x y = construct (sign y) (exponent x) (significand x)
+End
+
+Theorem copysign_correct:
+  copysign x y =
+  <| Sign := y.Sign; Exponent := x.Exponent; Significand := x.Significand |>
+Proof
+  simp[copysign_def, construct_correct, GSYM sign_correct',
+       GSYM exponent_correct', GSYM significand_correct']
+QED
+
+val _ = next_ml_names := ["copySign"];
+val _ = translate copysign_def
+
 Definition flt_max_def:
   flt_max : (52,11) float =
   <| Sign := 0w; Exponent := 0x7FEw; Significand := 0xFFFFFFFFFFFFFw |>

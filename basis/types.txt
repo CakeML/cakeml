@@ -355,6 +355,9 @@ Double.fnext_hi: Double.double -> Double.double
 Double.fnext_lo: Double.double -> Double.double
 Double.float_is_finite: Double.double -> bool
 Double.float_is_zero: Double.double -> bool
+Double.isNan: Double.double -> bool
+Double.isSubnormal: Double.double -> bool
+Double.copySign: Double.double -> Double.double -> Double.double
 Double.flt_max: Double.double
 Double.maxulp: Double.double
 Double.twicemaxulp: Double.double
