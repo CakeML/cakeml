@@ -17,6 +17,7 @@ Option.composePartial: ('a -> 'b option) -> ('c -> 'a option) -> 'c -> 'b option
 Option.isNone: 'a option -> bool
 Option.map2: ('a -> 'b -> 'c) -> 'a option -> 'b option -> 'c option
 Option.compare: ('a -> 'b -> ordering) -> 'a option -> 'b option -> ordering
+Option.filter: ('a -> bool) -> 'a -> 'a option
 List.null: 'a list -> bool
 List.length: 'a list -> int
 List.rev: 'a list -> 'a list
