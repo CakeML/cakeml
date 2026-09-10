@@ -202,6 +202,7 @@ Char.isAlpha: char -> bool
 Char.isAlphaNum: char -> bool
 Char.fromByte: Word8.word -> char
 Char.some: char -> char option
+Char.contains: string -> char -> bool
 Word64.fromInt: int -> Word64.word
 Word64.toInt: Word64.word -> int
 Word64.toIntSigned: Word64.word -> int

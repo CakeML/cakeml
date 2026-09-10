@@ -759,6 +759,19 @@ Proof
   \\ fs []
 QED
 
+Definition contains_def:
+  contains s c = IS_SOME (str_findi (λx. x = c) 0 s)
+End
+
+Theorem contains_thm:
+  contains s c ⇔ MEM c (explode s)
+Proof
+  Cases_on ‘s’
+  \\ simp [contains_def, str_findi_OLEAST, MEM_EL,
+           optionTheory.IS_SOME_EQ_NOT_NONE, WhileTheory.OLEAST_EQ_NONE]
+  \\ metis_tac []
+QED
+
 Definition isStringThere_aux_def:
   (isStringThere_aux s1 s2 s1i s2i 0 = T) /\
   (isStringThere_aux s1 s2 s1i s2i (SUC len) =
