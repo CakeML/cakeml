@@ -1198,13 +1198,11 @@ Definition stack_prog_to_display_def:
      Item NONE «loc_value» [num_to_display n1;
                             String (attach_name ns (SOME n2));
                             num_to_display n3] ∧
-   stack_prog_to_display (SUC k) ns (Install n1 n2 n3 n4 n5) =
-     item_with_nums «install» [n1; n2; n3; n4; n5] ∧
+   stack_prog_to_display (SUC k) ns (Install n1 n2 n3 n4 n5 n6) =
+     item_with_nums «install» [n1; n2; n3; n4; n5; n6] ∧
    stack_prog_to_display (SUC k) ns (ShMemOp mop r a) =
      Item NONE «sh_mem» [asm_memop_to_display mop;
                                   num_to_display r; asm_addr_to_display a] ∧
-   stack_prog_to_display (SUC k) ns (CodeBufferWrite n1 n2) =
-     item_with_nums «code_buffer_write» [n1; n2] ∧
    stack_prog_to_display (SUC k) ns (DataBufferWrite n1 n2) =
      item_with_nums «data_buffer_write» [n1; n2] ∧
    stack_prog_to_display (SUC k) ns (RawCall n) =
@@ -1279,7 +1277,6 @@ Definition lab_line_to_display_def:
         Item NONE «label» [String (attach_name ns (SOME s)); num_to_display n]
     | Asm aoc enc len => (case aoc of
       | Asmi i => Item NONE «asm» [asm_asm_to_display i]
-      | Cbw r1 r2 => item_with_nums «cbw» [r1; r2]
       | ShareMem mop r a => Item NONE «share_mem» [asm_memop_to_display mop;
                                                    num_to_display r;
                                                    asm_addr_to_display a])
@@ -1414,11 +1411,9 @@ Definition word_prog_to_display_def:
   (word_prog_to_display (SUC k) ns Tick = empty_item «tick») /\
   (word_prog_to_display (SUC k) ns (LocValue n1 n2) =
     Item NONE «loc_value» [String (attach_name ns (SOME n1)); num_to_display n2]) /\
-  (word_prog_to_display (SUC k) ns (Install n1 n2 n3 n4 ms) =
-    Item NONE «install» (MAP num_to_display [n1; n2; n3; n4]
+  (word_prog_to_display (SUC k) ns (Install n1 n2 n3 n4 n5 ms) =
+    Item NONE «install» (MAP num_to_display [n1; n2; n3; n4; n5]
         ++ [num_sets_to_display ms])) /\
-  (word_prog_to_display (SUC k) ns (CodeBufferWrite n1 n2) =
-    item_with_nums «code_buffer_write» [n1; n2]) /\
   (word_prog_to_display (SUC k) ns (DataBufferWrite n1 n2) =
     item_with_nums «data_buffer_write» [n1; n2]) /\
   (word_prog_to_display (SUC k) ns (FFI nm n1 n2 n3 n4 ms) =

@@ -1031,6 +1031,27 @@ Definition code_buffer_install_def:
      | _ => NONE
 End
 
+Theorem code_buffer_install_SOME:
+  code_buffer_install ptr len cptr mr cb = SOME (bytes,cb') ⇔
+  ∃ptrw lenw cptrw.
+    ptr = SOME (Word ptrw) ∧ len = SOME (Word lenw) ∧ cptr = SOME (Word cptrw) ∧
+    read_bytearray ptrw (w2n lenw) mr = SOME bytes ∧
+    cb.buffer = [] ∧ cb.position = cptrw ∧ LENGTH bytes ≤ cb.space_left ∧
+    cb' = <| position := cptrw + lenw; buffer := [];
+             space_left := cb.space_left - w2n lenw |>
+Proof
+  simp[code_buffer_install_def, AllCaseEqs()] >> metis_tac[]
+QED
+
+Theorem code_buffer_install_result:
+  code_buffer_install ptr len cptr mr cb = SOME (bytes,cb') ⇒
+  cb'.buffer = [] ∧ cb'.position = cb.position + n2w (LENGTH bytes) ∧
+  cb'.space_left = cb.space_left - LENGTH bytes ∧ LENGTH bytes ≤ cb.space_left
+Proof
+  rw[code_buffer_install_SOME] >>
+  imp_res_tac read_bytearray_LENGTH >> gvs[]
+QED
+
 Definition evaluate_def:
   (evaluate (Skip:'a wordLang$prog,^s) = (NONE,s)) /\
   (evaluate (Alloc n names,s) =

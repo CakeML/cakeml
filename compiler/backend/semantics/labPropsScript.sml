@@ -272,7 +272,7 @@ Theorem case_eq_thms =
   (pair_case_eq::
    bool_case_eq::
    map TypeBase.case_eq_of
-       [``:'a line``,``:'a option``,``:'a asm_with_lab``,``:'a asm_or_cbw``,
+       [``:'a line``,``:'a option``,``:'a asm_with_lab``,``:'a asm_or_shmem``,
         ``:'a asm``, ``:'a word_loc``,``:'a list``,``:'a sec``,``:'a ffi_result``])
   |> LIST_CONJ
 
@@ -771,6 +771,15 @@ Proof
   \\ simp[]
 QED
 
+Theorem code_buffer_install_align_dm[simp]:
+   code_buffer_install ptr len cptr
+     (mem_load_byte_aux s.mem (align_dm s).mem_domain s.be) cb =
+   code_buffer_install ptr len cptr
+     (mem_load_byte_aux s.mem s.mem_domain s.be) cb
+Proof
+  simp[code_buffer_install_def]
+QED
+
 Theorem write_bytearray_align_dm[simp]:
    ∀y x. write_bytearray x y s.mem (align_dm s).mem_domain s.be =
    write_bytearray x y s.mem s.mem_domain s.be
@@ -1245,7 +1254,7 @@ QED
 
 (* asm_ok checks coming into lab_to_target *)
 Definition line_ok_pre_def:
-  (line_ok_pre (c:'a asm_config) (Asm b bytes l) ⇔ asm_ok (cbw_to_asm b) c) ∧
+  (line_ok_pre (c:'a asm_config) (Asm b bytes l) ⇔ asm_ok (compile_shmem b) c) ∧
   (line_ok_pre c _ ⇔ T)
 End
 

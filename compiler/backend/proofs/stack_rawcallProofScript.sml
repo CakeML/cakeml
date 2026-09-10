@@ -553,8 +553,6 @@ Proof
     \\ fs [state_rel_thm,state_component_equality,empty_env_def]
     \\ fs [state_rel_thm,state_component_equality,empty_env_def,dec_clock_def])
   THEN1
-   (rename [`CodeBufferWrite`] \\ simple_case)
-  THEN1
    (rename [`DataBufferWrite`] \\ simple_case)
   THEN1
    (rename [`FFI`] \\ simple_case)

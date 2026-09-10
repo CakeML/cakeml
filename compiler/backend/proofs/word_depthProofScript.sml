@@ -269,8 +269,6 @@ Proof
    (gvs [wordSemTheory.evaluate_def,AllCaseEqs()])
   THEN1 (* Install *)
    (fs [call_graph_def,max_depth_def,OPTION_MAP2_DEF])
-  THEN1 (* CodeBufferWrite *)
-   (gvs [wordSemTheory.evaluate_def,AllCaseEqs()])
   THEN1 (* DataBufferWrite *)
    (gvs [wordSemTheory.evaluate_def,AllCaseEqs()])
   THEN1 (* FFI *)

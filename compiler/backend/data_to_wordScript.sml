@@ -677,7 +677,9 @@ Definition Install_code_def:
                 Assign 3 (Lookup CodeBuffer);
                 Set BitmapBuffer (Var 2);
                 Set CodeBuffer (Var 4);
-                Install 3 4 1 2 (LS (),LN);
+                (* the third argument is a placeholder until this stub is
+                   redesigned for the memory-block Install *)
+                Install 3 4 5 1 2 (LS (),LN);
                 Return 0 [3]]
    :'a wordLang$prog
 End
@@ -690,7 +692,6 @@ Definition InstallCode_code_def:
         (list_Seq [Assign 3 (real_addr c 2);
                    Assign 2 (Load (Op Add [Var 3; Const bytes_in_word]));
                    Assign 2 (ShiftVar Lsr 2 2);
-                   CodeBufferWrite 6 2;
                    Assign 6 (Op Add [Var 6; Const 1w]);
                    Assign 2 (Load (Op Add [Var 3; Const (2w * bytes_in_word)]));
                    Call NONE (SOME InstallCode_location) [0;2;4;6] NONE])

@@ -965,7 +965,6 @@ Proof
   >~ [`ShareInst`] >- suspend "ShareInst"
   >~ [`FFI`] >- suspend "FFI"
   >~ [`DataBufferWrite`] >- suspend "DataBufferWrite"
-  >~ [`CodeBufferWrite`] >- suspend "CodeBufferWrite"
   >~ [`Install`] >- suspend "Install"
   >~ [`LocValue`] >- suspend "LocValue"
   >~ [`If`] >- suspend "If"
@@ -1008,15 +1007,6 @@ QED
 Resume word_removal_lemma[DataBufferWrite]:
   simp[wordSemTheory.evaluate_def] >>
   rpt (TOP_CASE_TAC >> fs[]) >>
-  strip_tac >> rveq >>
-  fs[word_state_rel_def] >>
-  fs[domain_find_loc_state, dest_result_loc_def]
-QED
-
-Resume word_removal_lemma[CodeBufferWrite]:
-  simp[wordSemTheory.evaluate_def] >>
-  rpt (TOP_CASE_TAC >> fs[]) >>
-  fs[get_var_def, buffer_write_def] >>
   strip_tac >> rveq >>
   fs[word_state_rel_def] >>
   fs[domain_find_loc_state, dest_result_loc_def]

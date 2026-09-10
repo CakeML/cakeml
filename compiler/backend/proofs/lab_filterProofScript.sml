@@ -793,26 +793,6 @@ Proof
         imp_res_tac loc_to_pc_eq_SOME>>
         full_simp_tac(srw_ss())[get_pc_value_def,upd_pc_def,dec_clock_def]>>srw_tac[][]>>
         upd_pc_tac)
-    >- (*CBW*)
-      (reverse(simp[case_eq_thms]>>rw[]>>fs[inc_pc_def,dec_clock_def])
-      >> TRY (
-        rename1`code_buffer_write _ _ _ = SOME _`>>
-        qmatch_asmsub_abbrev_tac`evaluate tt = (res,s2)`>>
-        first_x_assum(qspec_then `tt with <|pc:= t1.pc+k+1; code:=t1.code; compile:= t1.compile; compile_oracle := t1.compile_oracle|>` mp_tac)>>
-        simp[Abbr`tt`,state_component_equality]>>
-        impl_tac>-
-          metis_tac[adjust_pc_all_skips,ADD_COMM,ADD_ASSOC]>>
-        strip_tac>>
-        first_x_assum(qspec_then`k'` assume_tac)>>
-        qmatch_asmsub_abbrev_tac`evaluate tt = (res,t2)`>>
-        qmatch_asmsub_abbrev_tac`evaluate ss = evaluate _`>>
-        `ss = tt` by (
-          unabbrev_all_tac>>fs[state_component_equality])>>
-        unabbrev_all_tac>>fs[]>>
-        metis_tac[ADD_ASSOC])
-      >>
-        (first_x_assum(qspec_then`0` (assume_tac o SYM))>>
-        fs[]>>qexists_tac`k`>>fs[]))
       >- (* share_mem_op *)
         (TOP_CASE_TAC >> fs[]
         >- (* share_mem_op returns NONE *)
@@ -978,16 +958,14 @@ Proof
         srw_tac[][]>>Cases_on`call_FFI t1.ffi (ExtCall s) x x'`>>fs[]>-upd_pc_tac>>
         same_inst_tac)
     >- (*oracle case *)
-      (reverse(Cases_on`t1.regs t1.ptr_reg`) \\ fs[] >- same_inst_tac \\
-      (Cases_on`t1.regs t1.link_reg`) \\ fs[] >- same_inst_tac \\
-      reverse(Cases_on`t1.regs t1.len_reg`) \\ fs[] >- same_inst_tac \\
+      (Cases_on`read_reg t1.link_reg t1` \\ fs[] >- same_inst_tac \\
       TOP_CASE_TAC >- same_inst_tac \\
+      split_pair_case_tac \\ fs[] \\
       strip_tac \\
       TOP_CASE_TAC >- (
         fs[loc_to_pc_eq_NONE] \\ rw[]
         \\ first_x_assum(qspec_then`0`mp_tac) \\ rw[]
         \\ qexists_tac`k` \\ simp[] ) \\
-      split_pair_case_tac \\ fs[] \\
       pairarg_tac>>fs[] \\
       imp_res_tac loc_to_pc_eq_SOME \\ fs[] \\
       TOP_CASE_TAC >- (
