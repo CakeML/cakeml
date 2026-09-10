@@ -46,10 +46,10 @@ Datatype:
                                              array_ptr, array_len, ret_addr *)
        | Tick
        | LocValue num num num   (* assign v1 := Loc v2 v3 *)
-       | Install num num num num num (* code buffer start, length of new code,
-                                      data buffer start, length of new data, ret_addr *)
+       | Install num num num num num num
+           (* copy code from ptr, length of new code, code buffer start,
+              data buffer start, length of new data, ret_addr *)
        | ShMemOp memop num ('a addr) (* share memory operation, register, addr to load/store *)
-       | CodeBufferWrite num num (* code buffer address, byte to write *)
        | DataBufferWrite num num (* data buffer address, word to write *)
        (* new in stackLang, compared to wordLang, below *)
        | RawCall num            (* tail-call into body of function (past stack alloc) *)
