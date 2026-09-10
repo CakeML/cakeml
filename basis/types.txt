@@ -142,6 +142,7 @@ Int.>: int -> int -> bool
 Int.<=: int -> int -> bool
 Int.>=: int -> int -> bool
 Int.~: int -> int
+Int.abs: int -> int
 Int.int_to_string: char -> int -> string
 Int.toString: int -> string
 Int.fromString: string -> int option
