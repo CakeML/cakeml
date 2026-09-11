@@ -32,3 +32,6 @@ An eXtended AIG format for internal use
 
 [xaig_to_cnfScript.sml](xaig_to_cnfScript.sml):
 Mapping eXtended And-Inverter Graphs into CNF
+
+[xaig_cert_encodeScript.sml](xaig_cert_encodeScript.sml):
+Encodes the certificate conditions as an AIG.

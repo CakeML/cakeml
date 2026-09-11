@@ -20,7 +20,8 @@ Datatype:
   | Or (('a,'i,'l) lit list)
 End
 
-Type xaig[pp] = “:('a # ('a,'i,'l) gty) list”
+Type gate[pp] = “:('a # ('a,'i,'l) gty)”
+Type xaig[pp] = “:('a,'i,'l) gate list”
 
 (* Analogous to eval_lit for aig *)
 
