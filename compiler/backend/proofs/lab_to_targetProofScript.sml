@@ -542,8 +542,8 @@ Definition line_ok_def:
   (line_ok (c:'a asm_config) labs ffis pos (Label _ _ l) <=>
      EVEN pos /\ (l = 0)) /\
   (line_ok c labs ffis pos (Asm b bytes l) <=>
-     enc_with_nop c.encode (cbw_to_asm b) bytes /\
-     (LENGTH bytes = l) /\ asm_ok (cbw_to_asm b) c) /\
+     enc_with_nop c.encode (compile_shmem b) bytes /\
+     (LENGTH bytes = l) /\ asm_ok (compile_shmem b) c) /\
   (line_ok c labs ffis pos (LabAsm Halt w bytes l) <=>
      let w1 = (0w:'a word) - n2w (pos + ffi_offset) in
        enc_with_nop c.encode (Jump w1) bytes /\
@@ -770,7 +770,7 @@ Definition share_mem_state_rel_def:
    (!index i. mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
       index < LENGTH mc_conf.ffi_names /\ i <= index ==>
       mc_conf.halt_pc <> (EL index mc_conf.ffi_entry_pcs) /\
-      mc_conf.ccache_pc <> (EL index mc_conf.ffi_entry_pcs))
+      mc_conf.install_pc <> (EL index mc_conf.ffi_entry_pcs))
 End
 
 Definition no_install_or_no_share_mem_def:
@@ -847,10 +847,10 @@ Proof
   \\ metis_tac[]
 QED
 
-Theorem oracle_tie_ccache_step:
+Theorem oracle_tie_install_step:
   oracle_tie mc_conf ms1 s1 ∧
   next_interference mc_conf s1.ffi ms1 =
-    SOME (CcApp a1 a2 ms_pre ms_post, mc', ffi') ⇒
+    SOME (InstallApp bytes ms_pre ms_post, mc', ffi') ⇒
   (∀r.
      s1.cc_regs 0 r =
        if MEM r mc_conf.callee_saved_regs ∨ r = mc_conf.ptr_reg ∨
@@ -884,10 +884,10 @@ Proof
   \\ simp[oracle_tie_def]
 QED
 
-Theorem oracle_tie_ccache_next:
+Theorem oracle_tie_install_next:
   oracle_tie mc_conf ms1 (s1:('a,'c,'ffi) labSem$state) ∧
   next_interference mc_conf s1.ffi ms1 =
-    SOME (CcApp a1 a2 ms_pre ms_post, mc', ffi') ∧
+    SOME (InstallApp bytes ms_pre ms_post, mc', ffi') ∧
   (s2:('a,'c,'ffi) labSem$state).cc_regs = shift_seq 1 s1.cc_regs ∧
   s2.cc_fp_regs = shift_seq 1 s1.cc_fp_regs ∧
   s2.io_regs = s1.io_regs ∧ s2.io_fp_regs = s1.io_fp_regs ∧
@@ -895,7 +895,7 @@ Theorem oracle_tie_ccache_next:
   oracle_tie mc' ms_post s2
 Proof
   strip_tac
-  \\ drule_all oracle_tie_ccache_step
+  \\ drule_all oracle_tie_install_step
   \\ simp[oracle_tie_def]
 QED
 
@@ -908,7 +908,7 @@ Theorem oracle_tie_ExtCall_residues:
          s1.ffi k ms2) ∧
   mc_conf.target.get_pc ms2 ∉ mc_conf.prog_addresses DIFF set mc_conf.ffi_entry_pcs ∧
   mc_conf.target.get_pc ms2 ≠ mc_conf.halt_pc ∧
-  mc_conf.target.get_pc ms2 ≠ mc_conf.ccache_pc ∧
+  mc_conf.target.get_pc ms2 ≠ mc_conf.install_pc ∧
   find_index (mc_conf.target.get_pc ms2) mc_conf.ffi_entry_pcs 0 = SOME index ∧
   EL index mc_conf.ffi_names = ExtCall name ∧
   ALOOKUP mc_conf.mmio_info index = NONE ∧
@@ -961,7 +961,7 @@ Definition state_rel_def:
     target_state_rel mc_conf.target t1 ms1 /\ good_dimindex (:'a) /\
     (mc_conf.prog_addresses = t1.mem_domain) /\
     ~(mc_conf.halt_pc IN mc_conf.prog_addresses) /\
-    ~(mc_conf.ccache_pc IN mc_conf.prog_addresses) /\
+    ~(mc_conf.install_pc IN mc_conf.prog_addresses) /\
     reg_ok s1.ptr_reg mc_conf.target.config /\ (mc_conf.ptr_reg = s1.ptr_reg) /\
     reg_ok s1.len_reg mc_conf.target.config /\ (mc_conf.len_reg = s1.len_reg) /\
     reg_ok s1.ptr2_reg mc_conf.target.config /\ (mc_conf.ptr2_reg = s1.ptr2_reg) /\
@@ -994,21 +994,25 @@ Definition state_rel_def:
               mem := asm_write_bytearray (t1.regs s1.ptr2_reg) new_bytes t1.mem;
               pc := t1.regs s1.link_reg|>)
             ms')) /\
-    (* clear cache behaves correctly *)
-    (∀ms2 t1 k a1 a2.
+    (* install behaves correctly *)
+    (∀ms2 t1 k bytes.
+      (mc_conf.prog_addresses = t1.mem_domain) ∧
+      read_ffi_bytearray mc_conf mc_conf.ptr_reg mc_conf.len_reg ms2 = SOME bytes ∧
       target_state_rel mc_conf.target
         (t1 with pc := p - n2w ((2 * ffi_offset))) ms2 /\
       aligned mc_conf.target.config.code_alignment (t1.regs s1.link_reg) ⇒
-      (let ms' = mc_conf.ccache_interfer k (a1,a2,ms2) in
+      (let ms' = mc_conf.install_interfer k (bytes,ms2) in
          target_state_rel mc_conf.target
            (t1 with
              <|regs := (\a. if MEM a mc_conf.callee_saved_regs ∨
                                a = s1.ptr_reg ∨
                                ¬(a < mc_conf.target.config.reg_count) ∨
                                MEM a mc_conf.target.config.avoid_regs
-                            then t1.regs a
+                            then (if a = s1.ptr_reg then t1.regs s1.ptr2_reg
+                                  else t1.regs a)
                             else mc_conf.target.get_reg ms' a);
                fp_regs := (\n. mc_conf.target.get_fp_reg ms' n);
+               mem := asm_write_bytearray (t1.regs s1.ptr2_reg) bytes t1.mem;
                pc := t1.regs s1.link_reg|>)
            ms')) /\
     s1.compile = compile_lab mc_conf.target.config ∧
@@ -1040,12 +1044,12 @@ Definition state_rel_def:
         (∃s. name = ExtCall s) ∧
        ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset) IN mc_conf.prog_addresses) /\
        ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset) = mc_conf.halt_pc) /\
-       ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset) = mc_conf.ccache_pc) /\
+       ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset) = mc_conf.install_pc) /\
        (find_index (p - n2w ((3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset))
                    mc_conf.ffi_entry_pcs 0 = SOME (get_ffi_index mc_conf.ffi_names name))) /\
     (* Halt/ClearCache are at the right positions *)
     (p - n2w ffi_offset = mc_conf.halt_pc) /\
-    (p - n2w (2*ffi_offset) = mc_conf.ccache_pc) /\
+    (p - n2w (2*ffi_offset) = mc_conf.install_pc) /\
     (* Small interference oracle is okay *)
     interference_ok mc_conf.next_interfer (mc_conf.target.proj t1.mem_domain) /\
     (!l1 l2 x2.
@@ -1148,6 +1152,8 @@ Proof
   >- (first_x_assum irule
     \\ fs[read_ffi_bytearrays_def, read_ffi_bytearray_def]
     \\ metis_tac[])
+  >- (first_x_assum irule
+    \\ fs[read_ffi_bytearray_def])
   >- metis_tac[]
 QED
 
@@ -1235,6 +1241,121 @@ Proof
   first_x_assum match_mp_tac>>rw[]>>
   first_x_assum (qspec_then `n+1` assume_tac)>>
   rfs[GSYM word_add_n2w]
+QED
+
+Theorem word_add_1w_n2w[local]:
+  ∀(a:'a word) n. a + 1w + n2w n = a + n2w (n + 1)
+Proof
+  ONCE_REWRITE_TAC[GSYM WORD_ADD_ASSOC] \\ simp[word_add_n2w]
+QED
+
+Theorem word_add_n2w_n2w[local]:
+  ∀(a:'a word) i j. a + n2w i + n2w j = a + n2w (i + j)
+Proof
+  ONCE_REWRITE_TAC[GSYM WORD_ADD_ASSOC] \\ simp[word_add_n2w]
+QED
+
+Theorem word_add_1_n2w_NEQ[local]:
+  ∀(a:'a word) n. n + 1 < dimword (:'a) ⇒ a + 1w + n2w n ≠ a
+Proof
+  rw[word_add_1w_n2w,WORD_ADD_RID_UNIQ] \\ fs[n2w_11]
+QED
+
+Theorem word_add_n2w_NEQ[local]:
+  ∀(a:'a word) i j.
+    i < dimword (:'a) ∧ j < dimword (:'a) ∧ i ≠ j ⇒ a + n2w i ≠ a + n2w j
+Proof
+  rw[WORD_EQ_ADD_LCANCEL] \\ fs[n2w_11]
+QED
+
+(* Reading back a block just written at the same address. Unlike
+   bytes_in_mem_asm_write_bytearray below, this covers writes that land
+   OUTSIDE the excluded set, which is where the code buffer lives. *)
+Theorem bytes_in_mem_asm_write_bytearray_self:
+  ∀bs a m md k.
+    LENGTH bs < dimword (:'a) ∧
+    (∀j. j < LENGTH bs ⇒ (a:'a word) + n2w j ∈ md ∧ a + n2w j ∉ k) ⇒
+    bytes_in_mem a bs (asm_write_bytearray a bs m) md k
+Proof
+  Induct \\ rw[bytes_in_mem_def,asm_write_bytearray_def]
+  >- (qpat_x_assum ‘∀j. j < SUC _ ⇒ _’ (qspec_then ‘0’ mp_tac) \\ simp[])
+  >- (qpat_x_assum ‘∀j. j < SUC _ ⇒ _’ (qspec_then ‘0’ mp_tac) \\ simp[])
+  \\ irule bytes_in_mem_UPDATE
+  \\ conj_tac
+  >- (gen_tac \\ strip_tac \\ irule word_add_1_n2w_NEQ \\ fs[])
+  \\ first_x_assum irule
+  \\ conj_tac
+  >- (gen_tac \\ strip_tac
+      \\ qpat_x_assum ‘∀j. j < SUC _ ⇒ _’ (qspec_then ‘j + 1’ mp_tac)
+      \\ simp[word_add_1w_n2w])
+  \\ fs[]
+QED
+
+(* The prefix is untouched when the written range is disjoint from it. *)
+Theorem bytes_in_mem_asm_write_bytearray_disjoint:
+  ∀xs a w bs m md k.
+    bytes_in_mem (a:'a word) xs m md k ∧
+    (∀i j. i < LENGTH xs ∧ j < LENGTH bs ⇒ a + n2w i ≠ w + n2w j) ⇒
+    bytes_in_mem a xs (asm_write_bytearray w bs m) md k
+Proof
+  Induct \\ rw[bytes_in_mem_def]
+  >- (irule asm_write_bytearray_unchanged_alt \\ simp[]
+      \\ rw[] \\ first_x_assum (qspecl_then [‘0’,‘k'’] mp_tac) \\ simp[])
+  \\ first_x_assum irule \\ fs[]
+  \\ rw[] \\ first_x_assum (qspecl_then [‘i + 1’,‘j’] mp_tac)
+  \\ fs[GSYM word_add_n2w]
+QED
+
+(* Installing a block immediately after the existing code extends it. *)
+Theorem bytes_in_mem_APPEND_asm_write_bytearray:
+  ∀xs bs a m md k.
+    LENGTH xs + LENGTH bs < dimword (:'a) ∧
+    bytes_in_mem (a:'a word) xs m md k ∧
+    (∀j. j < LENGTH bs ⇒ a + n2w (LENGTH xs + j) ∈ md ∧
+                         a + n2w (LENGTH xs + j) ∉ k) ⇒
+    bytes_in_mem a (xs ++ bs)
+      (asm_write_bytearray (a + n2w (LENGTH xs)) bs m) md k
+Proof
+  rw[bytes_in_mem_APPEND]
+  >- (irule bytes_in_mem_asm_write_bytearray_disjoint \\ fs[]
+      \\ rw[] \\ simp[word_add_n2w_n2w]
+      \\ irule word_add_n2w_NEQ \\ fs[])
+  \\ irule bytes_in_mem_asm_write_bytearray_self \\ fs[]
+  \\ rw[] \\ first_x_assum (qspec_then ‘j’ mp_tac)
+  \\ simp[word_add_n2w_n2w]
+QED
+
+Theorem UPDATE_COND_SELF[local]:
+  ∀cs rc ar (regs:num -> 'a word) g k v.
+    (λa. if MEM a cs ∨ a = k ∨ ¬(a < rc) ∨ MEM a ar then regs a else g a)⦇ k ↦ v ⦈ =
+    (λa. if MEM a cs ∨ a = k ∨ ¬(a < rc) ∨ MEM a ar
+         then (if a = k then v else regs a) else g a)
+Proof
+  rpt gen_tac \\ once_rewrite_tac[FUN_EQ_THM]
+  \\ qx_gen_tac `aa` \\ rewrite_tac[APPLY_UPDATE_THM] \\ BETA_TAC
+  \\ Cases_on `aa = k` \\ simp[]
+QED
+
+Theorem UPDATE_COND_PUSH[local]:
+  ∀cs rc ar (regs:num -> 'a word) g k v.
+    (λa. if MEM a cs ∨ ¬(a < rc) ∨ MEM a ar then regs a else g a)⦇ k ↦ v ⦈ =
+    (λa. if MEM a cs ∨ a = k ∨ ¬(a < rc) ∨ MEM a ar
+         then (if a = k then v else regs a) else g a)
+Proof
+  rpt gen_tac \\ once_rewrite_tac[FUN_EQ_THM]
+  \\ qx_gen_tac `aa` \\ rewrite_tac[APPLY_UPDATE_THM] \\ BETA_TAC
+  \\ Cases_on `aa = k` \\ simp[]
+QED
+
+Theorem word_loc_val_byte_labs_mono[local]:
+  (∀l1 l2 x. lab_lookup l1 l2 labs = SOME x ⇒ lab_lookup l1 l2 labs' = SOME x) ∧
+  word_loc_val_byte p labs m a be = SOME v ⇒
+  word_loc_val_byte p labs' m a be = SOME v
+Proof
+  rw[word_loc_val_byte_def]
+  \\ Cases_on `m (byte_align a)` \\ gvs[word_loc_val_def]
+  \\ Cases_on `lab_lookup n n0 labs` \\ gvs[]
+  \\ first_x_assum drule \\ simp[]
 QED
 
 val s1 = ``s1:('a,lab_to_target$config,'ffi) labSem$state``;
@@ -1442,35 +1563,6 @@ Proof
          bytes_in_memory_APPEND] \\ srw_tac[][]
 QED
 
-Theorem IMP_bytes_in_memory_Cbw[local]:
-  code_similar ^s1.code code2 /\
-    all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
-    bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
-    (asm_fetch s1 = SOME (Asm (Cbw r1 r2) bytes len)) ==>
-    ?bytes.
-      enc_with_nop mc_conf.target.config.encode (Inst (Mem Store8 r2 (Addr r1 0w))) bytes /\
-      bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
-        bytes t1.mem t1.mem_domain /\
-      bytes_in_mem ((p:'a word) + n2w (pos_val s1.pc 0 code2))
-        bytes t1.mem t1.mem_domain s1.mem_domain /\
-      (pos_val (s1.pc+1) 0 code2 = pos_val s1.pc 0 code2 + LENGTH bytes) /\
-      asm_ok (Inst (Mem Store8 r2 (Addr r1 0w))) (mc_conf: ('a,'state,'b) machine_config).target.config
-Proof
-  fs[asm_fetch_def,LET_DEF]
-  \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
-  \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
-  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`m`,`dm`,`i`,`dm1`]) \\ fs[]
-  \\ strip_tac \\ res_tac
-  \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
-  \\ fs[line_ok_def,LET_DEF] \\ srw_tac[][]
-  \\ Q.EXISTS_TAC `l` \\ fs[enc_with_nop_thm,PULL_EXISTS,line_length_def]
-  \\ qexists_tac `n` \\ fs[]
-  \\ fs[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
-  \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
-  \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
-         bytes_in_memory_APPEND] \\ srw_tac[][]
-QED
-
 Theorem IMP_bytes_in_memory_CallFFI[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
@@ -1634,7 +1726,7 @@ Proof
   \\ gvs[AllCaseEqs()]
   \\ drule_all $ GEN_ALL all_enc_ok_asm_fetch_aux_IMP_line_ok
   \\ Cases_on `y0`
-  \\ gvs[line_similar_def,line_ok_def, cbw_to_asm_def]
+  \\ gvs[line_similar_def,line_ok_def, compile_shmem_def]
   \\ strip_tac
   \\ `l' = mc_conf.target.config.encode (Inst (Mem mop r ad)) ++
         FLAT (REPLICATE n'' (mc_conf.target.config.encode (Inst Skip)))`
@@ -3614,7 +3706,7 @@ QED
 
 Definition line_encd0_def:
   (line_encd0 enc (Asm b bytes len) ⇔
-    enc (cbw_to_asm b) = bytes ∧ len = LENGTH bytes) ∧
+    enc (compile_shmem b) = bytes ∧ len = LENGTH bytes) ∧
   (line_encd0 enc (LabAsm l w bytes len) ⇔
      enc (lab_inst w l) = bytes ∧ LENGTH bytes ≤ len ∧
      (∃w'. len = LENGTH (enc (lab_inst w' l)))) ∧
@@ -3808,7 +3900,7 @@ QED
 
 Definition line_encd_def:
   (line_encd enc labs ffis pos (Asm b bytes len) ⇔
-    enc (cbw_to_asm b) = bytes ∧ len = LENGTH bytes) ∧
+    enc (compile_shmem b) = bytes ∧ len = LENGTH bytes) ∧
   (line_encd enc labs ffis pos (LabAsm Halt _ bytes len) ⇔
     enc (Jump (-n2w (pos + ffi_offset))) = bytes ∧
     LENGTH bytes ≤ len) ∧
@@ -4331,7 +4423,7 @@ QED
 
 Definition line_enc_with_nop_def:
   (line_enc_with_nop enc labs ffis pos (Asm b bytes len) ⇔
-    enc_with_nop enc (cbw_to_asm b) bytes ∧ LENGTH bytes = len) ∧
+    enc_with_nop enc (compile_shmem b) bytes ∧ LENGTH bytes = len) ∧
   (line_enc_with_nop enc labs ffis pos (LabAsm Halt _ bytes len) ⇔
     enc_with_nop enc (Jump (-n2w (pos + ffi_offset))) bytes ∧
     LENGTH bytes = len) ∧
@@ -6567,6 +6659,36 @@ Proof
   rw[FUN_EQ_THM, read_ffi_bytearrays_def, read_ffi_bytearray_def]
 QED
 
+Theorem read_ffi_bytearray_with_next_interfer[simp]:
+   read_ffi_bytearray (mc with next_interfer := foo) = read_ffi_bytearray mc
+Proof
+  rw[FUN_EQ_THM, read_ffi_bytearray_def]
+QED
+
+Theorem read_ffi_bytearray_shift_interfer[simp]:
+   read_ffi_bytearray (shift_interfer x y) = read_ffi_bytearray y
+Proof
+  rw[shift_interfer_def]
+QED
+
+Theorem read_ffi_bytearray_ffi_interfer[simp]:
+  read_ffi_bytearray (mc with ffi_interfer := ffi) = read_ffi_bytearray mc
+Proof
+  rw[FUN_EQ_THM, read_ffi_bytearray_def]
+QED
+
+Theorem read_ffi_bytearray_install_interfer[simp]:
+  read_ffi_bytearray (mc with install_interfer := i) = read_ffi_bytearray mc
+Proof
+  rw[FUN_EQ_THM, read_ffi_bytearray_def]
+QED
+
+Theorem read_ffi_bytearrays_install_interfer[simp]:
+  read_ffi_bytearrays (mc with install_interfer := i) = read_ffi_bytearrays mc
+Proof
+  rw[FUN_EQ_THM, read_ffi_bytearrays_def, read_ffi_bytearray_def]
+QED
+
 Theorem IMP_ffi_entry_pcs_disjoint_Asm:
 !^s1 (mc_conf: ('a,'state,'b) machine_config).
   code_similar s1.code code2 /\
@@ -7156,12 +7278,12 @@ fun share_mem_store_compile_correct_tac ffi_name new_t1 (nb: term frag list) new
   )
 end
 
-Theorem ffi_entry_pcs_NOT_ccache_OR_halt_pc:
+Theorem ffi_entry_pcs_NOT_install_OR_halt_pc:
    find_index pc mc_conf.ffi_entry_pcs 0 =
       SOME index /\
    mc_conf.halt_pc <> EL index mc_conf.ffi_entry_pcs /\
-   mc_conf.ccache_pc <> EL index mc_conf.ffi_entry_pcs ==>
-   pc <> mc_conf.ccache_pc /\
+   mc_conf.install_pc <> EL index mc_conf.ffi_entry_pcs ==>
+   pc <> mc_conf.install_pc /\
    pc <> mc_conf.halt_pc
 Proof
   rpt strip_tac >>
@@ -7187,9 +7309,9 @@ val share_mem_eval_expand_tac =
   \\ (
     impl_tac >- (old_drule find_index_LESS_LENGTH >> fs[])
     \\ disch_then assume_tac
-    \\ `mc_conf.target.get_pc ms1 <> mc_conf.ccache_pc /\
+    \\ `mc_conf.target.get_pc ms1 <> mc_conf.install_pc /\
         mc_conf.target.get_pc ms1 <> mc_conf.halt_pc` by (
-          irule ffi_entry_pcs_NOT_ccache_OR_halt_pc >> gvs[])
+          irule ffi_entry_pcs_NOT_install_OR_halt_pc >> gvs[])
     \\ rfs[get_memop_info_def]
     \\ TOP_CASE_TAC
     \\ fs[labSemTheory.addr_def,AllCaseEqs()]
@@ -7469,54 +7591,43 @@ Proof
   \\ gvs[oracle_tie_def]
 QED
 
-Theorem oracle_tie_ccache_residues:
-  ∀mc_conf mc2 ms1 s1 ms2 l t1.
+Theorem oracle_tie_install_residues:
+  ∀mc_conf mc2 ms1 s1 ms2 l t1 bytes.
   oracle_tie mc_conf ms1 (s1:('a,'c,'ffi) labSem$state) ∧
   (∀k. find_next_interference mc_conf s1.ffi (k + l) ms1 =
        find_next_interference mc2 s1.ffi k ms2) ∧
   mc2.target = mc_conf.target ∧
   mc2.ptr_reg = mc_conf.ptr_reg ∧
   mc2.len_reg = mc_conf.len_reg ∧
-  mc2.ccache_interfer = mc_conf.ccache_interfer ∧
+  mc2.install_interfer = mc_conf.install_interfer ∧
+  read_ffi_bytearray mc2 mc2.ptr_reg mc2.len_reg ms2 = SOME bytes ∧
   mc2.target.get_pc ms2 ∉ mc2.prog_addresses DIFF set mc2.ffi_entry_pcs ∧
   mc2.target.get_pc ms2 ≠ mc2.halt_pc ∧
-  mc2.target.get_pc ms2 = mc2.ccache_pc ⇒
+  mc2.target.get_pc ms2 = mc2.install_pc ⇒
   (λa. get_reg_value (s1.cc_regs 0 a) (t1.regs a) I) =
     (λa. if MEM a mc_conf.callee_saved_regs ∨ a = mc_conf.ptr_reg ∨
             ¬(a < mc_conf.target.config.reg_count) ∨
             MEM a mc_conf.target.config.avoid_regs
          then t1.regs a
          else mc_conf.target.get_reg
-                (mc_conf.ccache_interfer 0
-                   (mc_conf.target.get_reg ms2 mc_conf.ptr_reg,
-                    mc_conf.target.get_reg ms2 mc_conf.len_reg, ms2)) a) ∧
+                (mc_conf.install_interfer 0 (bytes,ms2)) a) ∧
   (λn. s1.cc_fp_regs 0 n) =
     (λn. mc_conf.target.get_fp_reg
-           (mc_conf.ccache_interfer 0
-              (mc_conf.target.get_reg ms2 mc_conf.ptr_reg,
-               mc_conf.target.get_reg ms2 mc_conf.len_reg, ms2)) n)
+           (mc_conf.install_interfer 0 (bytes,ms2)) n)
 Proof
   rpt gen_tac \\ strip_tac
   \\ `next_interference mc_conf s1.ffi ms1 = next_interference mc2 s1.ffi ms2`
        by (irule next_interference_shift \\ metis_tac[])
   \\ sg `next_interference mc2 s1.ffi ms2 =
-         SOME (CcApp (mc2.target.get_reg ms2 mc2.ptr_reg)
-                     (mc2.target.get_reg ms2 mc2.len_reg) ms2
-                 (mc2.ccache_interfer 0
-                    (mc2.target.get_reg ms2 mc2.ptr_reg,
-                     mc2.target.get_reg ms2 mc2.len_reg, ms2)),
-               mc2 with ccache_interfer := shift_seq 1 mc2.ccache_interfer,
+         SOME (InstallApp bytes ms2 (mc2.install_interfer 0 (bytes,ms2)),
+               mc2 with install_interfer := shift_seq 1 mc2.install_interfer,
                s1.ffi)`
-  >- (irule next_interference_ccache \\ simp[])
+  >- (irule next_interference_install \\ simp[])
   \\ `next_interference mc_conf s1.ffi ms1 =
-      SOME (CcApp (mc_conf.target.get_reg ms2 mc_conf.ptr_reg)
-                  (mc_conf.target.get_reg ms2 mc_conf.len_reg) ms2
-              (mc_conf.ccache_interfer 0
-                 (mc_conf.target.get_reg ms2 mc_conf.ptr_reg,
-                  mc_conf.target.get_reg ms2 mc_conf.len_reg, ms2)),
-            mc2 with ccache_interfer := shift_seq 1 mc_conf.ccache_interfer,
+      SOME (InstallApp bytes ms2 (mc_conf.install_interfer 0 (bytes,ms2)),
+            mc2 with install_interfer := shift_seq 1 mc_conf.install_interfer,
             s1.ffi)` by gvs[]
-  \\ drule_all oracle_tie_ccache_step
+  \\ drule_all oracle_tie_install_step
   \\ strip_tac
   \\ conj_tac
   >- (simp[FUN_EQ_THM] \\ rw[] \\ gvs[get_reg_value_def])
@@ -7546,7 +7657,6 @@ Proof
   \\ Cases_on `x` \\ full_simp_tac(srw_ss())[] \\ Cases_on `a` \\ full_simp_tac(srw_ss())[]
   \\ REPEAT (Q.PAT_X_ASSUM `T` (K ALL_TAC)) \\ full_simp_tac(srw_ss())[LET_DEF]
   THEN1 suspend "Asm"
-  THEN1 suspend "CBW"
   THEN1 suspend "ShareMemOp"
   THEN1 suspend "Jump"
   THEN1 suspend "JumpCmp"
@@ -7716,116 +7826,6 @@ Resume compile_correct[Asm]:
     \\ Q.EXISTS_TAC `ms2'` \\ fs[state_rel_def,shift_interfer_def] )
 QED
 
-Resume compile_correct[CBW]:
-(* CBW *)
-  say "CBW" >>
-  fs[case_eq_thms]>>
-  fs[dec_clock_def]>>
-  qmatch_asmsub_rename_tac `Asm (Cbw r1 r2) bytes len`>>
-  qabbrev_tac `ffi_names = TAKE (THE (mmio_pcs_min_index mc_conf.ffi_names)) mc_conf.ffi_names` >>
-  mp_tac IMP_bytes_in_memory_Cbw>> impl_tac>-
-    fs[state_rel_def]>>
-  strip_tac>>
-  `t1.regs r1 = w1 ∧ t1.regs r2 = w2` by
-    (fs[state_rel_def]>>
-    qpat_assum`!r. word_loc_val _ _ _ = SOME _` (qspec_then`r1` mp_tac)>>
-    qpat_x_assum`!r. word_loc_val _ _ _ = SOME _` (qspec_then`r2` mp_tac)>>
-    simp[word_loc_val_def])>>
-  qpat_x_assum`buffer_write _ _ _ = _ `mp_tac>>
-  simp[buffer_write_def]>>
-  strip_tac>>
-  qmatch_asmsub_abbrev_tac`Inst jj`>>
-  (Q.ISPECL_THEN [`mc_conf`,`t1`,`ms1`,`s1.ffi`,`Inst jj`]MP_TAC
-          asm_step_IMP_evaluate_step_nop) \\ full_simp_tac(srw_ss())[]
-  \\ disch_then (mp_tac o Q.SPEC `bytes'`)
-  \\ fs[asm_def] >>
-  `inst jj t1 = t1 with mem := ((w1 =+ w2w w2) t1.mem)` by
-    (unabbrev_all_tac >>
-    simp[inst_def,mem_op_def,mem_store_def,alignmentTheory.aligned_0]>>
-    EVAL_TAC>> simp[asm_state_component_equality]>>
-    fs[state_rel_def]>>rw[]>>
-    first_x_assum old_drule>>simp[])
-  \\ impl_tac>-
-    (fs[state_rel_def]>>
-    conj_tac >- (
-      fs[asm_fetch_def]
-      \\ drule_all $ GEN_ALL IMP_bytes_in_memory
-      \\ strip_tac
-      \\ fs[]
-      \\ `!op re a. Cbw r1 r2 <> ShareMem op re a` by simp[]
-      \\ drule_all $ GEN_ALL IMP_ffi_entry_pcs_disjoint_Asm
-      \\ `LENGTH bytes' <= LENGTH (line_bytes j)` suffices_by
-        metis_tac[ffi_entry_pcs_disjoint_LENGTH_shorter]
-      \\ Cases_on `j`
-      \\ fs[line_similar_def,line_ok_def]) >>
-    conj_tac>-
-      (match_mp_tac (GEN_ALL bytes_in_mem_IMP)>>
-      qexists_tac`s1.mem_domain`>>
-      match_mp_tac bytes_in_mem_UPDATE>>
-      rw[]>>
-      PURE_REWRITE_TAC [GSYM WORD_ADD_ASSOC]>>
-      `LENGTH bytes' + pos_val s1.pc 0 code2 <= LENGTH (prog_to_bytes code2)` by
-        (qpat_x_assum`pos_val _ _ _ = _` sym_sub_tac>>
-        old_drule pos_val_bound>>
-        disch_then(qspecl_then [`s1.pc+1`,`0`] assume_tac)>>
-        fs[])>>
-      rw[]>>
-      simp[word_add_n2w])>>
-    simp[asm_step_nop_def,asm_def]) >>
-  strip_tac>>
-  first_x_assum (qspecl_then [`shift_interfer l mc_conf`,
-        `code2`,`labs`,
-        `(asm (Inst jj) (t1.pc + n2w (LENGTH (bytes':word8 list))) t1)`,`ms2`] mp_tac)>>
-  impl_tac>-
-    (conj_tac
-      >- (irule oracle_tie_step
-          \\ qpat_assum `oracle_tie _ _ _` (irule_at Any)
-          \\ simp[labSemTheory.inc_pc_def,labSemTheory.dec_clock_def,
-                  labSemTheory.upd_pc_def,labSemTheory.upd_reg_def,asm_inst_consts]
-          \\ metis_tac[])
-     \\ unabbrev_all_tac \\ rpt strip_tac \\ full_simp_tac(srw_ss())[asm_def]
-    >-
-      (full_simp_tac(srw_ss())[shift_interfer_def])
-    >>
-    qpat_x_assum`_ = new_cb` sym_sub_tac >> fs[]>>
-    match_mp_tac state_rel_shift_interfer>>
-    fs[state_rel_def]>>
-    rfs[]>>fs[]>>
-    conj_tac>- metis_tac[]>>
-    conj_tac>- metis_tac[]>>
-    conj_tac>-
-      (rw[APPLY_UPDATE_THM]>>
-      first_x_assum old_drule>>
-      fs[])
-    \\ conj_tac>-
-      (strip_tac>>
-      qpat_x_assum`!n. n <s1.code_buffer.space_left ⇒ _`
-        (qspec_then`n+1` assume_tac)>>
-      fs[])
-    \\ conj_tac >-
-      (* non-overlap of cb with code *)
-      (match_mp_tac bytes_in_mem_UPDATE>>rw[]>>
-      PURE_REWRITE_TAC [GSYM WORD_ADD_ASSOC]>>
-      simp[word_add_n2w])
-    \\ conj_tac >-
-      (simp[bytes_in_mem_APPEND]
-    \\ conj_tac >-
-      (* non-overlap of cb with itself *)
-      (match_mp_tac bytes_in_mem_UPDATE>>
-        rw[])
-    \\ simp[bytes_in_mem_def,APPLY_UPDATE_THM]>>
-       first_x_assum old_drule>>fs[])
-    \\ simp[GSYM word_add_n2w]
-     >> fs[upd_pc_def, inc_pc_def, share_mem_state_rel_def] >>
-      share_mem_state_rel_tac)
-  \\ rpt strip_tac \\ full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,labSemTheory.upd_reg_def]
-  \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock - 1 + k` mp_tac)
-  \\ rpt strip_tac
-  \\ Q.EXISTS_TAC `k + l - 1` \\ full_simp_tac(srw_ss())[]
-  \\ `^s1.clock - 1 + k + l = ^s1.clock + (k + l - 1)` by decide_tac
-  \\ fs[]
-QED
-
 Resume compile_correct[ShareMemOp]:
 (* share_mem_op *)
   say "share_mem_op"
@@ -7850,9 +7850,9 @@ Resume compile_correct[ShareMemOp]:
 
   (impl_tac>-(old_drule find_index_LESS_LENGTH >> fs[]))>>
   strip_tac>>
-  `mc_conf.target.get_pc ms1 <> mc_conf.ccache_pc /\
+  `mc_conf.target.get_pc ms1 <> mc_conf.install_pc /\
   mc_conf.target.get_pc ms1 <> mc_conf.halt_pc` by (
-    irule ffi_entry_pcs_NOT_ccache_OR_halt_pc >> gvs[])>>
+    irule ffi_entry_pcs_NOT_install_OR_halt_pc >> gvs[])>>
   fs[]>>
 
   Cases_on ‘a'’>>
@@ -8382,7 +8382,7 @@ Resume compile_correct[CallFFI]:
   )
   \\ `~(mc_conf.target.get_pc ms2 IN mc_conf.prog_addresses) /\
       ~(mc_conf.target.get_pc ms2 = mc_conf.halt_pc) /\
-      ~(mc_conf.target.get_pc ms2 = mc_conf.ccache_pc) /\
+      ~(mc_conf.target.get_pc ms2 = mc_conf.install_pc) /\
       (find_index (mc_conf.target.get_pc ms2) mc_conf.ffi_entry_pcs 0 =
          SOME (get_ffi_index mc_conf.ffi_names (ExtCall s))) /\
       get_ffi_index mc_conf.ffi_names (ExtCall s) = get_ffi_index ffi_names (ExtCall s)` by (
@@ -8755,7 +8755,7 @@ Resume compile_correct[Install]:
 (* Install *)
   say "Install" >>
   qpat_x_assum`_ =(res,s2)` mp_tac >>
-  ntac 6 (TOP_CASE_TAC >> fs[])>>
+  ntac 4 (TOP_CASE_TAC >> fs[])>>
   pairarg_tac \\ fs[] \\
   ntac 5 (TOP_CASE_TAC \\ fs[]) >>
   strip_tac >> rfs[]>>
@@ -8790,7 +8790,7 @@ Resume compile_correct[Install]:
     \\ gvs[line_similar_def,line_ok_def,line_length_def,line_bytes_def]
     \\ gvs[enc_with_nop_thm,LENGTH_APPEND] )>>
   strip_tac
-  \\ `mc_conf.target.get_pc ms2 = mc_conf.ccache_pc` by
+  \\ `mc_conf.target.get_pc ms2 = mc_conf.install_pc` by
    (
     fs[Abbr`jj`,asm_def]>>
     fs[encoder_correct_def,target_ok_def,target_state_rel_def]>>
@@ -8799,29 +8799,54 @@ Resume compile_correct[Install]:
          WORD_ADD_SUB])
   \\ `~(mc_conf.target.get_pc ms2 IN t1.mem_domain)` by
     (fs[state_rel_def]>>rfs[])
-  \\ `(t1.regs mc_conf.ptr_reg = c') /\
-      (t1.regs mc_conf.len_reg = c'')` by
+  \\ qmatch_assum_rename_tac`s1.compile cfg _ = SOME (bytes,new_cfg)`
+  \\ qpat_x_assum `code_buffer_install _ _ _ _ _ = SOME _` mp_tac
+  \\ simp[wordSemTheory.code_buffer_install_SOME]
+  \\ strip_tac
+  \\ `(t1.regs mc_conf.ptr_reg = ptrw) /\
+      (t1.regs mc_conf.len_reg = lenw) /\
+      (t1.regs mc_conf.ptr2_reg = s1.code_buffer.position)` by
     (fs[state_rel_def]>>
     Q.PAT_X_ASSUM `!r. word_loc_val p labs (s1.regs r) = SOME (t1.regs r)`
          (fn th =>
         MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).ptr_reg` th)
-        \\ MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).len_reg` th))
+        \\ MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).len_reg` th)
+        \\ MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).ptr2_reg` th))
     \\ Q.PAT_X_ASSUM `xx = s1.ptr_reg` (ASSUME_TAC o GSYM)
     \\ Q.PAT_X_ASSUM `xx = s1.len_reg` (ASSUME_TAC o GSYM)
+    \\ Q.PAT_X_ASSUM `xx = s1.ptr2_reg` (ASSUME_TAC o GSYM)
     \\ full_simp_tac(srw_ss())[word_loc_val_def])
   \\ rfs[]
   \\ qmatch_asmsub_abbrev_tac`evaluate mc_conf2 s1.ffi _ ms2`
-  \\ qmatch_assum_rename_tac`s1.compile cfg _ = SOME (bytes,new_cfg)`
   \\ fs[asm_def,Abbr`jj`,jump_to_offset_def,upd_pc_def,FORALL_AND_THM]
+  \\ sg `(mc_conf.target.get_reg ms2 mc_conf.ptr_reg = t1.regs mc_conf.ptr_reg) /\
+      (mc_conf.target.get_reg ms2 mc_conf.len_reg = t1.regs mc_conf.len_reg) /\
+      !a. a IN mc_conf.prog_addresses ==>
+          (mc_conf.target.get_byte ms2 a = t1.mem a)`
+  >- (
+    qpat_x_assum `!k. _` (strip_assume_tac o SPEC_ALL)
+    \\ gvs[asmPropsTheory.target_state_rel_def,asm_def,jump_to_offset_def,
+           asmSemTheory.upd_pc_def]
+    \\ unabbrev_all_tac \\ full_simp_tac(srw_ss())[state_rel_def,asm_def,
+         jump_to_offset_def,asmSemTheory.upd_pc_def,AND_IMP_INTRO]
+    \\ rpt strip_tac
+    \\ qpat_x_assum
+         `!i. i < mc_conf.target.config.reg_count /\ _ ==> _ = t1.regs i`
+         match_mp_tac
+    \\ full_simp_tac(srw_ss())[reg_ok_def])
+  \\ `read_ffi_bytearray mc_conf mc_conf.ptr_reg mc_conf.len_reg ms2 = SOME bytes` by
+    (fs[read_ffi_bytearray_def]
+     \\ imp_res_tac read_bytearray_state_rel \\ fs[])
   \\ sg `target_state_rel mc_conf.target
-      (t1 with  <| regs := (s1.ptr_reg =+ t1.regs s1.ptr_reg)
+      (t1 with  <| regs := (s1.ptr_reg =+ t1.regs s1.ptr2_reg)
                             (λa. get_reg_value (s1.cc_regs 0 a) (t1.regs a) I);
                     fp_regs := (λn. s1.cc_fp_regs 0 n);
+                    mem := asm_write_bytearray (t1.regs s1.ptr2_reg) bytes t1.mem;
                     pc := t1.regs s1.link_reg |>)
-      (mc_conf.ccache_interfer 0 (t1.regs s1.ptr_reg, t1.regs s1.len_reg, ms2))`
+      (mc_conf.install_interfer 0 (bytes,ms2))`
   >- (
-    qspecl_then [`mc_conf`,`mc_conf2`,`ms1`,`s1`,`ms2`,`l''`,`t1`] mp_tac
-       oracle_tie_ccache_residues
+    qspecl_then [`mc_conf`,`mc_conf2`,`ms1`,`s1`,`ms2`,`l''`,`t1`,`bytes`] mp_tac
+       oracle_tie_install_residues
     \\ impl_tac
     >- (
       fs[Abbr`mc_conf2`,shift_interfer_def]
@@ -8834,70 +8859,45 @@ Resume compile_correct[Install]:
       \\ EVAL_TAC
       \\ simp[dimword_def]
     )
+    \\ `mc_conf.ptr_reg = s1.ptr_reg` by fs[state_rel_def]
+    \\ qpat_x_assum `mc_conf.ptr_reg = s1.ptr_reg` $ rewrite_tac o single
+    \\ strip_tac
+    \\ pop_assum $ rewrite_tac o single
+    \\ pop_assum $ rewrite_tac o single
+    \\ once_rewrite_tac[UPDATE_COND_SELF]
+    \\ fs[state_rel_def]
+    \\ first_x_assum irule
+    \\ conj_tac >- first_assum ACCEPT_TAC
+    \\ conj_tac >- first_assum ACCEPT_TAC
+    \\ conj_tac
     >- (
-      sg `mc_conf.target.get_reg ms2 mc_conf.ptr_reg = t1.regs s1.ptr_reg ∧
-          mc_conf.target.get_reg ms2 mc_conf.len_reg = t1.regs s1.len_reg ∧
-          mc_conf.ptr_reg = s1.ptr_reg`
-      >- (
-        fs[state_rel_def,asmPropsTheory.target_state_rel_def,reg_ok_def]
-        \\ rfs[]
-      )
-      >- (
-        qpat_x_assum `mc_conf.target.get_reg ms2 mc_conf.ptr_reg = _`
-          $ rewrite_tac o single
-        \\ qpat_x_assum `mc_conf.target.get_reg ms2 mc_conf.len_reg = _`
-          $ rewrite_tac o single
-        \\ qpat_x_assum `mc_conf.ptr_reg = s1.ptr_reg` $ rewrite_tac o single
-        \\ strip_tac
-        \\ pop_assum $ rewrite_tac o single
-        \\ pop_assum $ rewrite_tac o single
-        \\ `!(f:num -> 'a word).
-              (λa. if MEM a mc_conf.callee_saved_regs ∨ a = s1.ptr_reg ∨
-                      ¬(a < mc_conf.target.config.reg_count) ∨
-                      MEM a mc_conf.target.config.avoid_regs
-                   then t1.regs a else f a)⦇ s1.ptr_reg ↦ t1.regs s1.ptr_reg ⦈ =
-              (λa. if MEM a mc_conf.callee_saved_regs ∨ a = s1.ptr_reg ∨
-                      ¬(a < mc_conf.target.config.reg_count) ∨
-                      MEM a mc_conf.target.config.avoid_regs
-                   then t1.regs a else f a)` by
-             (gen_tac \\ simp[FUN_EQ_THM,APPLY_UPDATE_THM] \\ rw[])
-        \\ pop_assum $ rewrite_tac o single
-        \\ fs[state_rel_def]
-        \\ first_x_assum irule
-        \\ conj_tac
-        >- (
-          qpat_x_assum `∀r. word_loc_val p labs (read_reg r s1) = SOME (t1.regs r)`
-                (qspec_then `s1.link_reg` mp_tac) \\ simp [] \\ strip_tac
-          \\ rename [`word_loc_val p labs (Loc l1 l2) = SOME (t1.regs r1)`]
-          \\ full_simp_tac(srw_ss())[word_loc_val_def]
-          \\ Cases_on `lab_lookup l1 l2 labs` \\ full_simp_tac(srw_ss())[]
-          \\ first_x_assum (qspecl_then [`l1`,`l2`] mp_tac) \\ fs [] \\ rw []
-          \\ `aligned mc_conf.target.config.code_alignment p` by
-                 fs [alignmentTheory.aligned_bitwise_and]
-          \\ qpat_x_assum `_ = t1.regs r1` (fn th => rewrite_tac [GSYM th])
-          \\ simp [ONCE_REWRITE_RULE [WORD_ADD_COMM] alignmentTheory.aligned_add_sub]
-          \\ old_drule all_enc_ok_aligned_pos_val \\ simp []
-          \\ disch_then match_mp_tac \\ fs []
-          \\ metis_tac[has_odd_inst_alignment]
-        )
-        >- (
-          sg `t1.pc + -n2w (2 * ffi_offset + pos_val s1.pc 0 code2) =
-              p + -n2w (2 * ffi_offset)`
-          >- (
-            `t1.pc = p + n2w (pos_val s1.pc 0 code2)` by fs[state_rel_def]
-            \\ pop_assum $ rewrite_tac o single
-            \\ simp[GSYM word_add_n2w, WORD_NEG_ADD]
-            \\ qpat_x_assum `p + -n2w (2 * ffi_offset) = mc_conf.ccache_pc`
-                 (fn th => rewrite_tac[GSYM th])
-            \\ CONV_TAC wordsLib.WORD_ARITH_CONV
-            \\ rewrite_tac[WORD_ADD_RINV]
-          )
-          \\ pop_assum (fn th => rewrite_tac[GSYM th])
-          \\ first_assum ACCEPT_TAC
-        )
-      )
+      qpat_x_assum `∀r. word_loc_val p labs (read_reg r s1) = SOME (t1.regs r)`
+            (qspec_then `s1.link_reg` mp_tac) \\ simp [] \\ strip_tac
+      \\ rename [`word_loc_val p labs (Loc l1 l2) = SOME (t1.regs r1)`]
+      \\ full_simp_tac(srw_ss())[word_loc_val_def]
+      \\ Cases_on `lab_lookup l1 l2 labs` \\ full_simp_tac(srw_ss())[]
+      \\ first_x_assum (qspecl_then [`l1`,`l2`] mp_tac) \\ fs [] \\ rw []
+      \\ `aligned mc_conf.target.config.code_alignment p` by
+             fs [alignmentTheory.aligned_bitwise_and]
+      \\ qpat_x_assum `_ = t1.regs r1` (fn th => rewrite_tac [GSYM th])
+      \\ simp [ONCE_REWRITE_RULE [WORD_ADD_COMM] alignmentTheory.aligned_add_sub]
+      \\ old_drule all_enc_ok_aligned_pos_val \\ simp []
+      \\ disch_then match_mp_tac \\ fs []
+      \\ metis_tac[has_odd_inst_alignment]
     )
-  )
+    \\ sg `t1.pc + -n2w (2 * ffi_offset + pos_val s1.pc 0 code2) =
+           p + -n2w (2 * ffi_offset)`
+    >- (
+      `t1.pc = p + n2w (pos_val s1.pc 0 code2)` by fs[state_rel_def]
+      \\ pop_assum $ rewrite_tac o single
+      \\ simp[GSYM word_add_n2w, WORD_NEG_ADD]
+      \\ qpat_x_assum `p + -n2w (2 * ffi_offset) = mc_conf.install_pc`
+           (fn th => rewrite_tac[GSYM th])
+      \\ CONV_TAC wordsLib.WORD_ARITH_CONV
+      \\ rewrite_tac[WORD_ADD_RINV]
+    )
+    \\ pop_assum (fn th => rewrite_tac[GSYM th])
+    \\ first_assum ACCEPT_TAC)
   \\ qmatch_assum_abbrev_tac`target_state_rel _ t2 ms12`
   \\ qpat_assum`s1.compile _ _ = _`mp_tac
   \\ `s1.compile = compile_lab mc_conf.target.config` by fs[state_rel_def]
@@ -8909,11 +8909,14 @@ Resume compile_correct[Install]:
   \\ split_pair_case_tac \\ fs[]
   \\ strip_tac
   \\ first_x_assum(qspecl_then
-      [`mc_conf2 with ccache_interfer := shift_seq 1 mc_conf.ccache_interfer`,
+      [`mc_conf2 with install_interfer := shift_seq 1 mc_conf.install_interfer`,
        `code2 ++ sec_list`,
        `new_cfg.labels`,`t2`,`ms12`]mp_tac)
   \\ impl_tac
   >- (
+     `w2n lenw = LENGTH bytes` by (imp_res_tac read_bytearray_LENGTH \\ simp[]) \\
+     `n2w (LENGTH bytes) = lenw` by
+       (qpat_x_assum `w2n lenw = _` (fn th => rewrite_tac[GSYM th]) \\ simp[]) \\
      conj_tac >- (
        sg `oracle_tie mc_conf2 ms2 s1`
        >- (
@@ -8927,15 +8930,11 @@ Resume compile_correct[Install]:
          \\ disch_then ACCEPT_TAC
        )
        \\ sg `next_interference mc_conf2 s1.ffi ms2 =
-              SOME (CcApp (mc_conf2.target.get_reg ms2 mc_conf2.ptr_reg)
-                          (mc_conf2.target.get_reg ms2 mc_conf2.len_reg) ms2
-                      (mc_conf2.ccache_interfer 0
-                         (mc_conf2.target.get_reg ms2 mc_conf2.ptr_reg,
-                          mc_conf2.target.get_reg ms2 mc_conf2.len_reg, ms2)),
-                    mc_conf2 with ccache_interfer := shift_seq 1 mc_conf2.ccache_interfer,
+              SOME (InstallApp bytes ms2 (mc_conf2.install_interfer 0 (bytes,ms2)),
+                    mc_conf2 with install_interfer := shift_seq 1 mc_conf2.install_interfer,
                     s1.ffi)`
        >- (
-         irule next_interference_ccache
+         irule next_interference_install
          \\ simp[Abbr`mc_conf2`,shift_interfer_def]
          \\ conj_tac
          >- (fs[state_rel_def]
@@ -8948,29 +8947,16 @@ Resume compile_correct[Install]:
          \\ disj1_tac \\ fs[state_rel_def]
        )
        >- (
-         `mc_conf2.ccache_interfer = mc_conf.ccache_interfer` by
+         `mc_conf2.install_interfer = mc_conf.install_interfer` by
             simp[Abbr`mc_conf2`,shift_interfer_def]
-         \\ sg `mc_conf2.target.get_reg ms2 mc_conf2.ptr_reg = t1.regs s1.ptr_reg ∧
-                mc_conf2.target.get_reg ms2 mc_conf2.len_reg = t1.regs s1.len_reg`
-         >- (
-           simp[Abbr`mc_conf2`,shift_interfer_def]
-           \\ fs[state_rel_def,asmPropsTheory.target_state_rel_def,reg_ok_def]
-           \\ rfs[]
-         )
-         >- (
-           qpat_x_assum `next_interference mc_conf2 _ _ = _` mp_tac
-           \\ qpat_x_assum `mc_conf2.target.get_reg ms2 mc_conf2.ptr_reg = _`
-                $ rewrite_tac o single
-           \\ qpat_x_assum `mc_conf2.target.get_reg ms2 mc_conf2.len_reg = _`
-                $ rewrite_tac o single
-           \\ qpat_x_assum `mc_conf2.ccache_interfer = _` $ rewrite_tac o single
-           \\ strip_tac
-           \\ simp[Abbr`ms12`]
-           \\ irule oracle_tie_ccache_next
-           \\ qpat_assum `next_interference mc_conf2 _ _ = _` (irule_at Any)
-           \\ simp[]
-           \\ first_assum ACCEPT_TAC
-         )
+         \\ qpat_x_assum `next_interference mc_conf2 _ _ = _` mp_tac
+         \\ qpat_x_assum `mc_conf2.install_interfer = _` $ rewrite_tac o single
+         \\ strip_tac
+         \\ simp[Abbr`ms12`]
+         \\ irule oracle_tie_install_next
+         \\ qpat_assum `next_interference mc_conf2 _ _ = _` (irule_at Any)
+         \\ simp[]
+         \\ first_assum ACCEPT_TAC
        )
      )
      \\ fs[Abbr`mc_conf2`,shift_interfer_def,ELIM_UNCURRY]
@@ -9117,54 +9103,51 @@ Resume compile_correct[Install]:
       \\ simp[Once loc_to_pc_def]
       \\ imp_res_tac pos_val_0
       \\ rw[]
-      \\ qhdtm_x_assum`buffer_flush`mp_tac
-      \\ simp[buffer_flush_def]
-      \\ strip_tac
       \\ rfs[])
     \\ conj_tac >- (
       rw[]
-      \\ res_tac
-      \\ fs[word_loc_val_byte_def]
-      \\ ntac 2 (pop_assum mp_tac)
-      \\ TOP_CASE_TAC \\ simp[]
-      \\ strip_tac
-      \\ qmatch_asmsub_abbrev_tac`word_loc_val p labs w = _`
-      \\ Cases_on`w` \\ fs[word_loc_val_def]
-      \\ ntac 4 (pop_assum mp_tac)
-      \\ TOP_CASE_TAC \\ simp[]
-      \\ ntac 4 strip_tac
-      \\ first_x_assum old_drule \\ simp[])
+      \\ `asm_write_bytearray (p + n2w (LENGTH (prog_to_bytes code2)))
+            (prog_to_bytes sec_list) t1.mem a = t1.mem a` by
+       (irule asm_write_bytearray_unchanged_alt
+        \\ simp[] \\ rw[] \\ strip_tac
+        \\ qpat_x_assum `!n. n < s1.code_buffer.space_left ==> _ IN t1.mem_domain /\ _`
+             $ qspec_then `k` mp_tac
+        \\ impl_tac >- fs[]
+        \\ simp[GSYM word_add_n2w])
+      \\ pop_assum $ rewrite_tac o single
+      \\ irule word_loc_val_byte_labs_mono
+      \\ qexists_tac `cfg.labels`
+      \\ conj_tac >- first_assum ACCEPT_TAC
+      \\ res_tac \\ fs[word_loc_val_byte_def])
     \\ conj_tac >- (
-      strip_tac \\
-      qhdtm_x_assum`buffer_flush`mp_tac \\
-      simp[buffer_flush_def] \\ ntac 2 strip_tac \\
-      qpat_x_assum `∀n. n < _ ⇒ _`(qspec_then`n'''` mp_tac)>>
-      rw[]>>rfs[] >> fs[GSYM word_add_n2w])
+      rw[]
+      \\ rename1 `nn < s1.code_buffer.space_left - _`
+      \\ qpat_x_assum `!n. n < s1.code_buffer.space_left ==> _ IN t1.mem_domain /\ _`
+           $ qspec_then `LENGTH (prog_to_bytes sec_list) + nn` mp_tac
+      \\ impl_tac >- fs[]
+      \\ simp[GSYM word_add_n2w])
     \\ conj_tac >- (
       simp[prog_to_bytes_APPEND]
-      \\ fs[bytes_in_mem_APPEND]
-      \\ qhdtm_x_assum`buffer_flush`mp_tac
-      \\ simp[buffer_flush_def]
-      \\ rw[]
+      \\ irule bytes_in_mem_APPEND_asm_write_bytearray
+      \\ rpt conj_tac
+      >- (rw[]
+          \\ qpat_x_assum `!n. n < s1.code_buffer.space_left ==> _ IN t1.mem_domain /\ _`
+               $ qspec_then `j` mp_tac
+          \\ impl_tac >- fs[]
+          \\ simp[GSYM word_add_n2w])
+      >- fs[]
       \\ fs[])
     \\ conj_tac >- (
       simp[prog_to_bytes_APPEND]
-      \\ fs[buffer_flush_def] \\ rw[]
-      \\ qpat_x_assum`_ = t1.regs s1.len_reg` sym_sub_tac
       \\ simp[GSYM word_add_n2w])
+    \\ conj_tac >- simp[bytes_in_mem_def]
+    \\ conj_tac >- gvs[prog_to_bytes_APPEND]
     \\ conj_tac >- (
-      fs[buffer_flush_def]>>rw[]>>
-      simp[bytes_in_mem_def])
-    \\ conj_tac >-
-      (fs[buffer_flush_def] \\ rw[] >>
-      fs[LENGTH_prog_to_bytes2,prog_to_bytes_APPEND])
-    \\ conj_tac >- (
-       gvs[buffer_flush_def] >>
        rw[] >>
-       qpat_x_assum `!bn. bn < _ + _ ==> ~(MEM _ _)` $
+       qpat_x_assum `!bn. bn < s1.code_buffer.space_left ==> ~(MEM _ _)` $
          qspec_then `bn + LENGTH (prog_to_bytes sec_list)` mp_tac >>
-       gvs[GSYM word_add_n2w] >>
-       metis_tac[WORD_ADD_ASSOC]
+       impl_tac >- fs[] >>
+       simp[GSYM word_add_n2w]
     )
     \\ conj_tac>- (
       `EVERY sec_label_zero sec_list` by
@@ -9238,12 +9221,11 @@ Resume compile_correct[Install]:
          first_x_assum $ irule_at (Pos hd) >>
          simp[no_install_or_no_share_mem_def]) >>
        strip_tac >>
-       gvs[buffer_flush_def] >>
        drule_all $ GEN_ALL asm_fetch_aux_pos_val_SUC >>
        disch_then $ qspec_then `0` assume_tac >>
        drule_then (qspecl_then [`pc'+1`,`0`] (assume_tac o SIMP_RULE(srw_ss())[]))
          pos_val_bound >>
-       qpat_x_assum `!bn. bn < _ + _ ==> ~(MEM _ _)` mp_tac >>
+       qpat_x_assum `!bn. bn < s1.code_buffer.space_left ==> ~(MEM _ _)` mp_tac >>
        simp[] >>
        qexists `a + pos_val pc' 0 sec_list` >>
        simp[GSYM word_add_n2w] >>
@@ -10023,7 +10005,7 @@ Theorem asm_fetch_NOT_ffi_entry_pcs:
     -n2w (ffi_offset * (index + 3)) + mc_conf.target.get_pc ms ≠
     mc_conf.halt_pc ∧
     -n2w (ffi_offset * (index + 3)) + mc_conf.target.get_pc ms ≠
-    mc_conf.ccache_pc ∧
+    mc_conf.install_pc ∧
     find_index
       (-n2w (ffi_offset * (index + 3)) + mc_conf.target.get_pc ms)
       mc_conf.ffi_entry_pcs 0 = SOME index) /\
@@ -10235,7 +10217,9 @@ QED
 
 Resume IMP_state_rel_make_init[ISR3]:
   rpt strip_tac
-  \\ irule (REWRITE_RULE [post_ccache_asm_def] ccache_interfer_ok_post_ccache_asm)
+  \\ irule (SIMP_RULE (srw_ss()) [post_install_asm_def,post_ffi_asm_def,
+                                  LET_THM,UPDATE_COND_PUSH]
+              install_interfer_ok_post_install_asm)
   \\ simp[]
   \\ qexists_tac `mc_conf.target.get_pc ms`
   \\ simp[]

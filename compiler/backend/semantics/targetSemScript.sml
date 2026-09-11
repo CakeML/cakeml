@@ -396,8 +396,10 @@ Definition install_interfer_ok_def:
 End
 
 (* post_ffi_asm / post_install_asm: the canonical asm-level successor
-   state after an FFI / cache-clear transition -- caller-saved
-   registers and all FP registers are taken from the machine state *)
+   state after an FFI / install transition -- caller-saved registers and
+   all FP registers are taken from the machine state, and new_bytes is
+   written at ptr2_reg. An install additionally returns the destination
+   address in ptr_reg. *)
 Definition post_ffi_asm_def:
   post_ffi_asm (mc_conf:('a,'state,'b) machine_config) (t1:'a asm_state)
                new_bytes (ms':'state) =
@@ -416,20 +418,8 @@ End
 Definition post_install_asm_def:
   post_install_asm (mc_conf:('a,'state,'b) machine_config) (t1:'a asm_state)
                   new_bytes (ms':'state) =
-    t1 with
-      <|regs := (λa. if MEM a mc_conf.callee_saved_regs ∨
-                        a = mc_conf.ptr_reg ∨
-                        ¬(a < mc_conf.target.config.reg_count) ∨
-                        MEM a mc_conf.target.config.avoid_regs
-                     then
-                        if a = mc_conf.ptr_reg
-                        then t1.regs mc_conf.ptr2_reg
-                        else t1.regs a
-                     else mc_conf.target.get_reg ms' a);
-        fp_regs := (λi. mc_conf.target.get_fp_reg ms' i);
-        mem := asm_write_bytearray (t1.regs mc_conf.ptr2_reg) new_bytes t1.mem;
-        pc := t1.regs (case mc_conf.target.config.link_reg of NONE => 0
-                       | SOME n => n)|>
+    (let t = post_ffi_asm mc_conf t1 new_bytes ms' in
+       t with regs := (mc_conf.ptr_reg =+ t1.regs mc_conf.ptr2_reg) t.regs)
 End
 
 (*

@@ -1789,7 +1789,7 @@ Theorem compile_semantics:
   conf_ok (:α) c ∧ t.termdep = 0 ∧ code_rel c (fromAList prog) x1 ∧
   cc =
   (λcfg.
-       OPTION_MAP (I ## MAP upper_w2w ## I) ∘ tcc cfg ∘
+       OPTION_MAP (bytes_to_mlstring ## MAP upper_w2w ## I) ∘ tcc cfg ∘
        MAP (compile_part c)) ∧
   Abbrev (tco = (I ## MAP (compile_part c)) ∘ co) ∧
   (∀n. EVERY (λ(n,_). data_num_stubs <= n) (SND (co n))) ∧
@@ -1815,7 +1815,7 @@ Proof
   strip_tac
   \\ `state_rel_ext c 1 0
         (initial_state t.ffi (fromAList prog) co
-        (λcfg. OPTION_MAP (I ## MAP upper_w2w ## I) ∘ tcc cfg ∘
+        (λcfg. OPTION_MAP (bytes_to_mlstring ## MAP upper_w2w ## I) ∘ tcc cfg ∘
                  MAP (compile_part c)) T (get_limits c t) t.stack_size t.clock) t` by
    (fs[state_rel_ext_def]>>rw[]>>
     fs[code_rel_ext_def]>>

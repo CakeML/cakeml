@@ -3572,8 +3572,8 @@ Proof
   \\ simp[LEFT_ADD_DISTRIB]
 QED
 
-Definition ccache_jump_ag32_code_def:
-  ccache_jump_ag32_code = [Encode (Jump (fSnd, 0w, Reg 0w)); 0w; 0w; 0w]
+Definition install_jump_ag32_code_def:
+  install_jump_ag32_code = [Encode (Jump (fSnd, 0w, Reg 0w)); 0w; 0w; 0w]
 End
 
 Definition halt_jump_ag32_code_def:
@@ -3582,7 +3582,7 @@ End
 
 Definition ag32_ffi_jumps_def:
   ag32_ffi_jumps ffi_names =
-    FLAT (MAP (mk_jump_ag32_code ffi_names) (REVERSE ffi_names)) ++ ccache_jump_ag32_code ++ halt_jump_ag32_code
+    FLAT (MAP (mk_jump_ag32_code ffi_names) (REVERSE ffi_names)) ++ install_jump_ag32_code ++ halt_jump_ag32_code
 End
 
 Theorem LENGTH_ag32_ffi_jumps =
@@ -3623,7 +3623,7 @@ Definition code_start_offset_def:
   code_start_offset num_ffis =
     ffi_jumps_offset +
     ffi_offset *
-    (2 (* halt and ccache *) + num_ffis)
+    (2 (* halt and install *) + num_ffis)
 End
 
 Definition startup_asm_code_def:

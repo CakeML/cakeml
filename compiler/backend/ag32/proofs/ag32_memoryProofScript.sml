@@ -680,7 +680,7 @@ Proof
   \\ simp[]
   \\ `4 * LENGTH ll = w2n pc`
   by (
-    simp[Abbr`ll`,LENGTH_ag32_ffi_code,ccache_jump_ag32_code_def]>>
+    simp[Abbr`ll`,LENGTH_ag32_ffi_code,install_jump_ag32_code_def]>>
     qmatch_goalsub_abbrev_tac`_ + (cll + (stl + (scl+ (_ + (_ + (scpad + _)) ))))`>>
     fs[LENGTH_words_of_bytes, bitstringTheory.length_pad_right,
             bytes_in_word_def, LENGTH_FLAT, MAP_MAP_o, o_DEF, ADD1, SUM_MAP_PLUS,
@@ -721,7 +721,7 @@ Proof
   \\ simp[Abbr`ls`, halt_jump_ag32_code_def]
 QED
 
-Theorem init_memory_ccache:
+Theorem init_memory_install:
    (pc = n2w (ffi_jumps_offset + (LENGTH f + 0) * ffi_offset)) ∧
    LENGTH f ≤ LENGTH FFI_codes ∧
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size
@@ -744,7 +744,7 @@ Proof
   \\ simp[]
   \\ `4 * LENGTH ll = w2n pc`
   by (
-    simp[Abbr`ll`,LENGTH_ag32_ffi_code,ccache_jump_ag32_code_def]>>
+    simp[Abbr`ll`,LENGTH_ag32_ffi_code,install_jump_ag32_code_def]>>
     qmatch_goalsub_abbrev_tac`_ + (cll + (stl + (scl+ (_ + (_ + (scpad + _)) ))))`>>
     fs[LENGTH_words_of_bytes, bitstringTheory.length_pad_right,
             bytes_in_word_def, LENGTH_FLAT, MAP_MAP_o, o_DEF, ADD1, SUM_MAP_PLUS,
@@ -782,7 +782,7 @@ Proof
     \\ simp[Abbr`pc`]
     \\ EVAL_TAC
     \\ simp[] )
-  \\ simp[Abbr`ls`, ccache_jump_ag32_code_def]
+  \\ simp[Abbr`ls`, install_jump_ag32_code_def]
 QED
 
 Theorem init_memory_startup_bytes_in_memory:

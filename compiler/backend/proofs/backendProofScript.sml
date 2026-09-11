@@ -2929,7 +2929,7 @@ End
 
 Definition backend_from_data_tuple_cc_def:
   backend_from_data_tuple_cc asm_conf (c : config) cfg =
-    OPTION_MAP (I ## MAP upper_w2w ## I) o
+    OPTION_MAP (bytes_to_mlstring ## MAP upper_w2w ## I) o
       (λprogs.
         (λ(bm0,cfg) progs.
           (λ(progs,fs,bm).
@@ -2989,6 +2989,13 @@ Proof
   \\ rw [clos_knownTheory.option_upd_val_spt_def]
 QED
 
+Theorem bytes_to_mlstring_ws_to_chars:
+  bytes_to_mlstring ws = implode (ws_to_chars ws)
+Proof
+  rw [backend_commonTheory.bytes_to_mlstring_def,
+      semanticPrimitivesTheory.ws_to_chars_def]
+QED
+
 Theorem backend_from_flat_tuple_cc_eq_compile_inc_progs:
   ((^cake_orac_config_inv_f) c') = ((^cake_orac_config_inv_f) c) /\
   src_cfg = c'.source_conf /\
@@ -3027,7 +3034,7 @@ Proof
   \\ imp_res_tac known_compile_inc_retreive_spt
   \\ simp []
   \\ every_case_tac
-  \\ simp [DROP_APPEND]
+  \\ simp [DROP_APPEND, bytes_to_mlstring_ws_to_chars]
 QED
 
 Theorem compile_inc_progs_src_env[local]:

@@ -25,8 +25,8 @@ Definition asts_encode_def:
   asts_encode = MAP (\(b,ast). (b,FLAT $ MAP riscv_encode ast))
 End
 
-Definition add_halt_and_ccache_def:
-  add_halt_and_ccache = (++) (GENLIST (K (F,GENLIST (K 0w) ffi_offset)) 2)
+Definition add_halt_and_install_def:
+  add_halt_and_install = (++) (GENLIST (K (F,GENLIST (K 0w) ffi_offset)) 2)
 End
 
 Definition san_flat_def:
@@ -41,7 +41,7 @@ End
 
 Definition san_enc_result_def:
     san_enc_result =
-      flip san_flat 0 o add_halt_and_ccache o asts_encode $
+      flip san_flat 0 o add_halt_and_install o asts_encode $
       asm2ast san_prog_asm
 End
 
@@ -100,8 +100,8 @@ Definition san_config_def:
       (san_mmio_info: num -> word8 # 64 addr # num # word64)
    ; next_interfer := K I
    ; halt_pc := n2w ffi_offset
-   ; ccache_pc := 0w
-   ; ccache_interfer :=ARB
+   ; install_pc := 0w
+   ; install_interfer :=ARB
    ; target := riscv_target
    ; mmio_info := san_mmio_info|>
 End

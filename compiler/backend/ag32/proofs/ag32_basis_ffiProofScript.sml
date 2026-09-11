@@ -7147,7 +7147,7 @@ Proof
       \\ ntac 4 (disch_then kall_tac)
       \\ fs[is_ag32_init_state_def]
       \\ simp[GSYM get_mem_word_def]
-      \\ DEP_REWRITE_TAC[init_memory_ccache]
+      \\ DEP_REWRITE_TAC[init_memory_install]
       \\ conj_tac
       >- ( simp[Abbr`pc`] \\ EVAL_TAC \\ simp[])
       \\ simp[ag32_targetProofTheory.Decode_Encode]

@@ -93,17 +93,17 @@ End
 Datatype:
   interference_app =
       FfiApp num (word8 list) 'state 'state
-    | CcApp ('a word) ('a word) 'state 'state
+    | InstallApp (word8 list) 'state 'state
 End
 
 Definition is_ffi_app_def[simp]:
   (is_ffi_app (FfiApp index new_bytes ms_pre ms_post) = T) ∧
-  (is_ffi_app (CcApp a1 a2 ms_pre ms_post) = F)
+  (is_ffi_app (InstallApp new_bytes ms_pre ms_post) = F)
 End
 
 Definition app_post_def[simp]:
   (app_post (FfiApp index new_bytes ms_pre ms_post) = ms_post) ∧
-  (app_post (CcApp a1 a2 ms_pre ms_post) = ms_post)
+  (app_post (InstallApp new_bytes ms_pre ms_post) = ms_post)
 End
 
 (* clocked clone of evaluate that stops at the first interference
@@ -129,15 +129,14 @@ Definition find_next_interference_def:
             else NONE
         else NONE
       else if mc.target.get_pc ms = mc.halt_pc then NONE
-      else if mc.target.get_pc ms = mc.ccache_pc then
-        let (ms1,new_oracle) =
-          apply_oracle mc.ccache_interfer
-            (mc.target.get_reg ms mc.ptr_reg,
-             mc.target.get_reg ms mc.len_reg,
-             ms) in
-          SOME (CcApp (mc.target.get_reg ms mc.ptr_reg)
-                      (mc.target.get_reg ms mc.len_reg) ms ms1,
-                mc with ccache_interfer := new_oracle, ffi)
+      else if mc.target.get_pc ms = mc.install_pc then
+         (case read_ffi_bytearray mc mc.ptr_reg mc.len_reg ms of
+          | SOME bytes =>
+            let (ms1,new_oracle) =
+              apply_oracle mc.install_interfer (bytes,ms) in
+              SOME (InstallApp bytes ms ms1,
+                    mc with install_interfer := new_oracle, ffi)
+          | _ => NONE)
       else
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => NONE
@@ -282,7 +281,7 @@ Definition target_cc_regs_def:
     | NONE => NONE
     | SOME n =>
       (case interference_app_seq mc ffi ms n of
-       | SOME (CcApp a1 a2 ms_pre ms_post, mc', ffi') =>
+       | SOME (InstallApp bytes ms_pre ms_post, mc', ffi') =>
            (if MEM r mc.callee_saved_regs ∨ r = mc.ptr_reg ∨
                ¬(r < mc.target.config.reg_count) ∨
                MEM r mc.target.config.avoid_regs
@@ -297,7 +296,7 @@ Definition target_cc_fp_regs_def:
     | NONE => (0w:word64)
     | SOME n =>
       (case interference_app_seq mc ffi ms n of
-       | SOME (CcApp a1 a2 ms_pre ms_post, mc', ffi') =>
+       | SOME (InstallApp bytes ms_pre ms_post, mc', ffi') =>
            mc.target.get_fp_reg ms_post i
        | _ => 0w)
 End
@@ -562,7 +561,7 @@ QED
 
 Theorem constructed_oracles_cc_step:
   next_interference mc ffi ms =
-    SOME (CcApp a1 a2 ms_pre ms_post, mc', ffi') ⇒
+    SOME (InstallApp bytes ms_pre ms_post, mc', ffi') ⇒
   target_cc_regs mc ffi ms 0 r =
     (if MEM r mc.callee_saved_regs ∨ r = mc.ptr_reg ∨
         ¬(r < mc.target.config.reg_count) ∨
@@ -646,7 +645,7 @@ QED
 Theorem next_interference_ExtCall:
   mc.target.get_pc ms ∉ mc.prog_addresses DIFF set mc.ffi_entry_pcs ∧
   mc.target.get_pc ms ≠ mc.halt_pc ∧
-  mc.target.get_pc ms ≠ mc.ccache_pc ∧
+  mc.target.get_pc ms ≠ mc.install_pc ∧
   find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME index ∧
   EL index mc.ffi_names = ExtCall name ∧
   ALOOKUP mc.mmio_info index = NONE ∧
@@ -663,17 +662,14 @@ Proof
   \\ simp[Once find_next_interference_def, apply_oracle_def]
 QED
 
-Theorem next_interference_ccache:
+Theorem next_interference_install:
   mc.target.get_pc ms ∉ mc.prog_addresses DIFF set mc.ffi_entry_pcs ∧
   mc.target.get_pc ms ≠ mc.halt_pc ∧
-  mc.target.get_pc ms = mc.ccache_pc ⇒
+  mc.target.get_pc ms = mc.install_pc ∧
+  read_ffi_bytearray mc mc.ptr_reg mc.len_reg ms = SOME bytes ⇒
   next_interference mc ffi ms =
-    SOME (CcApp (mc.target.get_reg ms mc.ptr_reg)
-                (mc.target.get_reg ms mc.len_reg) ms
-                (mc.ccache_interfer 0
-                   (mc.target.get_reg ms mc.ptr_reg,
-                    mc.target.get_reg ms mc.len_reg, ms)),
-          mc with ccache_interfer := shift_seq 1 mc.ccache_interfer,
+    SOME (InstallApp bytes ms (mc.install_interfer 0 (bytes,ms)),
+          mc with install_interfer := shift_seq 1 mc.install_interfer,
           ffi)
 Proof
   rw[]
@@ -685,7 +681,7 @@ QED
 Theorem next_interference_MappedRead:
   mc.target.get_pc ms ∉ mc.prog_addresses DIFF set mc.ffi_entry_pcs ∧
   mc.target.get_pc ms ≠ mc.halt_pc ∧
-  mc.target.get_pc ms ≠ mc.ccache_pc ∧
+  mc.target.get_pc ms ≠ mc.install_pc ∧
   find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME index ∧
   EL index mc.ffi_names = SharedMem MappedRead ∧
   ALOOKUP mc.mmio_info index = SOME (nb,Addr r off,reg,pc') ∧
@@ -712,7 +708,7 @@ QED
 Theorem next_interference_MappedWrite:
   mc.target.get_pc ms ∉ mc.prog_addresses DIFF set mc.ffi_entry_pcs ∧
   mc.target.get_pc ms ≠ mc.halt_pc ∧
-  mc.target.get_pc ms ≠ mc.ccache_pc ∧
+  mc.target.get_pc ms ≠ mc.install_pc ∧
   find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME index ∧
   EL index mc.ffi_names = SharedMem MappedWrite ∧
   ALOOKUP mc.mmio_info index = SOME (nb,Addr r off,reg,pc') ∧
@@ -742,7 +738,7 @@ QED
 Theorem next_interference_SharedMem:
   mc.target.get_pc ms ∉ mc.prog_addresses DIFF set mc.ffi_entry_pcs ∧
   mc.target.get_pc ms ≠ mc.halt_pc ∧
-  mc.target.get_pc ms ≠ mc.ccache_pc ∧
+  mc.target.get_pc ms ≠ mc.install_pc ∧
   find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME index ∧
   EL index mc.ffi_names = SharedMem op ∧
   ALOOKUP mc.mmio_info index = SOME (nb,Addr r off,reg,pc') ∧
@@ -1101,7 +1097,7 @@ Proof
   rpt (TOP_CASE_TAC >> fs[])) \\
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[ELIM_UNCURRY]
-  >- (unabbrev_all_tac >> fs[]) >>
+  >- (unabbrev_all_tac >> rpt (TOP_CASE_TAC >> fs[])) >>
   rpt (TOP_CASE_TAC >> fs[]) >>
   gvs[call_FFI_def,bool_case_eq] \\
   rpt (FULL_CASE_TAC >> gvs[]) >>
@@ -1306,22 +1302,27 @@ Proof
   \\ rw[] \\ gvs[]
 QED
 
-Theorem ccache_interfer_ok_post_ccache_asm:
-  ccache_interfer_ok pc mc_conf ∧
+Theorem install_interfer_ok_post_install_asm:
+  install_interfer_ok pc mc_conf ∧
+  mc_conf.prog_addresses = t1.mem_domain ∧
+  read_ffi_bytearray mc_conf mc_conf.ptr_reg mc_conf.len_reg ms2 = SOME bytes ∧
   target_state_rel mc_conf.target
     (t1 with pc := -n2w (2 * ffi_offset) + pc) ms2 ∧
   aligned mc_conf.target.config.code_alignment
     (t1.regs (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n))
   ⇒
   target_state_rel mc_conf.target
-    (post_ccache_asm mc_conf t1 (mc_conf.ccache_interfer k (a1,a2,ms2)))
-    (mc_conf.ccache_interfer k (a1,a2,ms2))
+    (post_install_asm mc_conf t1 bytes (mc_conf.install_interfer k (bytes,ms2)))
+    (mc_conf.install_interfer k (bytes,ms2))
 Proof
-  rw[ccache_interfer_ok_def]
-  \\ first_x_assum (qspecl_then [‘ms2’,‘t1’,‘k’,‘a1’,‘a2’] mp_tac)
+  rw[install_interfer_ok_def]
+  \\ first_x_assum (qspecl_then [‘ms2’,‘t1’,‘k’,‘bytes’] mp_tac)
   \\ simp[]
   \\ strip_tac
-  \\ gvs[target_state_rel_def, post_ccache_asm_def]
-  \\ rw[] \\ gvs[]
+  \\ gvs[target_state_rel_def, post_install_asm_def, post_ffi_asm_def]
+  \\ rw[] \\ gvs[APPLY_UPDATE_THM]
+  \\ first_x_assum (qspec_then ‘i’ mp_tac)
+  \\ Cases_on ‘i = mc_conf.ptr_reg’ \\ gvs[]
+  \\ Cases_on ‘MEM i mc_conf.callee_saved_regs’ \\ gvs[]
 QED
 

@@ -35,8 +35,8 @@ Definition ag32_startup_addresses_def:
       { w | n2w heap_start_offset <=+ w ∧ w <+ n2w (heap_start_offset + 4 * 5) }
 End
 
-Definition ag32_ccache_interfer_def:
-  ag32_ccache_interfer num_ffis (_,_,ms) =
+Definition ag32_install_interfer_def:
+  ag32_install_interfer num_ffis (_,ms) =
     ms with <| PC := (ms.R 0w) ;
                R := (0w =+ n2w (ffi_jumps_offset + num_ffis * ffi_offset + 4)) ms.R |>
 End
@@ -112,13 +112,13 @@ Definition ag32_machine_config_def:
     callee_saved_regs := [60; 61; 62];
     ffi_names := MAP ExtCall ffi_names ;
     ffi_entry_pcs := REVERSE (GENLIST (λi. n2w (ffi_jumps_offset + i * ffi_offset)) num_ffis);
-    ccache_pc     := n2w (ffi_jumps_offset + (num_ffis + 0) * ffi_offset);
+    install_pc    := n2w (ffi_jumps_offset + (num_ffis + 0) * ffi_offset);
     halt_pc       := n2w (ffi_jumps_offset + (num_ffis + 1) * ffi_offset);
     prog_addresses := md ;
     shared_addresses := {} ;
     mmio_info := [];
     next_interfer := K I ;
-    ccache_interfer := K (ag32_ccache_interfer num_ffis) ;
+    install_interfer := K (ag32_install_interfer num_ffis) ;
     ffi_interfer := K (ag32_ffi_interfer ffi_names md)
   |>
 End
