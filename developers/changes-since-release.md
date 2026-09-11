@@ -2,7 +2,7 @@ Changes since release v3479:
 
 ## Source language and front‑end
 
-The CakeML source language now supports open and let open.
+The CakeML source language now supports open and let open (#1482).
 
 ## Basis library
 
