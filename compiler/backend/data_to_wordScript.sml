@@ -239,11 +239,11 @@ End
 Definition Install_location_def:
   Install_location = ByteCopyNew_location+1
 End
-Definition InstallCode_location_def:
-  InstallCode_location = Install_location+1
+Definition Unused2_location_def:
+  Unused2_location = Install_location+1
 End
 Definition InstallData_location_def:
-  InstallData_location = InstallCode_location+1
+  InstallData_location = Unused2_location+1
 End
 Definition Dummy_location_def:
   Dummy_location = InstallData_location+1
@@ -318,8 +318,8 @@ Theorem ByteCopyNew_location_eq =
   ``ByteCopyNew_location`` |> EVAL
 Theorem Install_location_eq =
   ``Install_location`` |> EVAL
-Theorem InstallCode_location_eq =
-  ``InstallCode_location`` |> EVAL
+Theorem Unused2_location_eq =
+  ``Unused2_location`` |> EVAL
 Theorem InstallData_location_eq =
   ``InstallData_location`` |> EVAL
 Theorem Dummy_location_eq =
@@ -673,28 +673,18 @@ End
 
 Definition Install_code_def:
   Install_code c =
+      (* 2 is the end of the installed data, 4 the code string *)
       list_Seq [Assign 1 (Lookup BitmapBuffer);
-                Assign 3 (Lookup CodeBuffer);
+                Assign 5 (Lookup CodeBuffer);
+                Assign 3 (real_addr c 4);
+                Assign 7 (ShiftN Lsr (Load (Var 3))
+                            (dimindex (:'a) - shift (:'a) - c.len_size));
+                Assign 7 (Op Sub [Var 7; Const bytes_in_word]);
+                Assign 3 (Op Add [Var 3; Const bytes_in_word]);
                 Set BitmapBuffer (Var 2);
-                Set CodeBuffer (Var 4);
-                (* the third argument is a placeholder until this stub is
-                   redesigned for the memory-block Install *)
-                Install 3 4 5 1 2 (LS (),LN);
+                Set CodeBuffer (Op Add [Var 5; Var 7]);
+                Install 3 7 5 1 2 (LS (),LN);
                 Return 0 [3]]
-   :'a wordLang$prog
-End
-
-Definition InstallCode_code_def:
-  InstallCode_code c =
-       If Test 2 (Imm 1w)
-        (Seq (Assign 2 (Lookup BitmapBuffer))
-             (Call NONE (SOME InstallData_location) [0;2;4;6] NONE))
-        (list_Seq [Assign 3 (real_addr c 2);
-                   Assign 2 (Load (Op Add [Var 3; Const bytes_in_word]));
-                   Assign 2 (ShiftVar Lsr 2 2);
-                   Assign 6 (Op Add [Var 6; Const 1w]);
-                   Assign 2 (Load (Op Add [Var 3; Const (2w * bytes_in_word)]));
-                   Call NONE (SOME InstallCode_location) [0;2;4;6] NONE])
    :'a wordLang$prog
 End
 
@@ -2298,23 +2288,26 @@ val def = assign_Define `
 
 val def = assign_Define `
   assign_Install (c:data_to_word$config) (secn:num)
-             (l:num) (dest:num) (names:num_set option) v1 v2 v3 v4 =
+             (l:num) (dest:num) (names:num_set option) v1 v2 v3 =
         (list_Seq [BignumHalt (adjust_var v3); (* length must be smallint *)
-                   BignumHalt (adjust_var v4); (* length must be smallint *)
                    Assign 1 (Lookup BitmapBuffer);
                    Assign 3 (Op Sub [Lookup BitmapBufferEnd; Var 1]);
-                   Assign 5 (ShiftVar Lsr (adjust_var v4) 2);
+                   Assign 5 (ShiftVar Lsr (adjust_var v3) 2);
                    Assign 3 (ShiftVar Lsr 3 (shift (:'a)));
                    If Lower 3 (Reg 5) (* too little data space *) GiveUp Skip;
                    Assign 1 (Lookup CodeBuffer);
                    Assign 3 (Op Sub [Lookup CodeBufferEnd; Var 1]);
-                   Assign 5 (ShiftVar Lsr (adjust_var v3) 2);
+                   Assign 5 (real_addr c (adjust_var v1));
+                   Assign 5 (ShiftN Lsr (Load (Var 5))
+                               (dimindex (:'a) - shift (:'a) - c.len_size));
+                   Assign 5 (Op Sub [Var 5; Const bytes_in_word]);
                    If Lower 3 (Reg 5) (* too little code space *) GiveUp Skip;
+                   Assign 1 (Lookup BitmapBuffer);
                    MustTerminate
                     (Call (SOME ([adjust_var dest],
                        adjust_sets (get_names names),Skip,secn,l))
-                    (SOME InstallCode_location)
-                      [adjust_var v1; adjust_var v2; 1] NONE)],l+1)
+                    (SOME InstallData_location)
+                      [1; adjust_var v2; adjust_var v1] NONE)],l+1)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
@@ -2527,7 +2520,7 @@ Definition assign_def:
     | WordOp (WordToInt) => arg1 args (assign_WordToInt c secn l dest names) (Skip,l)
     | FFI ffi_index => arg2 args (assign_FFI ffi_index c secn l dest names) (Skip,l)
     | BlockOp (EqualConst p) => arg1 args (assign_EqualConst p c secn l dest names) (Skip,l)
-    | Install => arg4 args (assign_Install c secn l dest names) (Skip,l)
+    | Install => arg3 args (assign_Install c secn l dest names) (Skip,l)
     | WordOp (FP_cmp fpc) => arg2 args (assign_FP_cmp fpc c secn l dest names) (Skip,l)
     | WordOp (FP_top fpt) => arg3 args (assign_FP_top fpt c secn l dest names) (Skip,l)
     | WordOp (FP_bop fpb) => arg2 args (assign_FP_bop fpb c secn l dest names) (Skip,l)
@@ -2766,7 +2759,7 @@ Definition stubs_def:
     (LongDiv1_location,7n,LongDiv1_code data_conf);
     (LongDiv_location,4n,LongDiv_code data_conf);
     (Install_location,3n,Install_code data_conf);
-    (InstallCode_location,4n,InstallCode_code data_conf);
+    (Unused2_location,0,Skip);
     (InstallData_location,4n,InstallData_code data_conf);
     (Append_location,3n,Append_code data_conf);
     (AppendMainLoop_location,6n,AppendMainLoop_code data_conf);
@@ -2803,7 +2796,7 @@ Definition stub_names_def:
     (LongDiv1_location,«_LongDiv1»);
     (LongDiv_location,«_LongDiv»);
     (Install_location,«_Install»);
-    (InstallCode_location,«_InstallCode»);
+    (Unused2_location,«_Unused2»);
     (InstallData_location,«_InstallData»);
     (Append_location,«_Append»);
     (AppendMainLoop_location,«_AppendMainLoop»);

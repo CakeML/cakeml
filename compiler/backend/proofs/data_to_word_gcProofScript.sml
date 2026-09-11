@@ -4460,7 +4460,7 @@ End
 Definition code_oracle_rel_def:
   code_oracle_rel c
       (s_compile:'c -> (num # num # dataLang$prog) list ->
-                       (word8 list # word64 list # 'c) option)
+                       (mlstring # word64 list # 'c) option)
       s_compile_oracle t_store
       (t_compile:'c -> (num # num # 'a wordLang$prog) list ->
                        (word8 list # 'a word list # 'c) option)
@@ -4474,8 +4474,8 @@ Definition code_oracle_rel_def:
     FLOOKUP t_store BitmapBufferEnd =
       SOME (Word (t_data_buffer.position +
                   bytes_in_word * n2w t_data_buffer.space_left)) /\
-    s_compile = (\cfg. OPTION_MAP (I ## MAP upper_w2w ## I) o t_compile cfg o
-                       MAP (compile_part c)) /\
+    s_compile = (\cfg. OPTION_MAP (bytes_to_mlstring ## MAP upper_w2w ## I) o
+                       t_compile cfg o MAP (compile_part c)) /\
     t_compile_oracle = (I ## MAP (compile_part c)) o s_compile_oracle /\
     (!n. EVERY (\(n,_). data_num_stubs <= n) (SND (s_compile_oracle n)))
 End

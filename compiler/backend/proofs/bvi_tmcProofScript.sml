@@ -1364,13 +1364,6 @@ Proof
   >> simp [Once v_rel_cases] >> rw [] >> res_tac >> gvs []
 QED
 
-Theorem v_to_bytes_eq[local]:
-  (v_to_bytes lv = SOME bytes) ⇔ (v_to_list lv = SOME (MAP (Number o $& o w2n) bytes))
-Proof
-  simp [bvlSemTheory.v_to_bytes_def] >> DEEP_INTRO_TAC some_intro >> rw []
-  >> eq_tac >> rw [] >> gvs [LIST_EQ_REWRITE, EL_MAP]
-QED
-
 Theorem v_to_words_eq[local]:
   (v_to_words lv = SOME ws) ⇔ (v_to_list lv = SOME (MAP Word64 ws))
 Proof
@@ -1378,11 +1371,15 @@ Proof
   >> eq_tac >> rw [] >> gvs [LIST_EQ_REWRITE, EL_MAP]
 QED
 
-Theorem v_to_bytes_v_rel:
-  v_to_bytes lv = SOME bytes ∧ v_rel f lv lw ⇒ v_to_bytes lw = SOME bytes
+Theorem v_to_mlstring_v_rel:
+  v_to_mlstring refs lv = SOME str ∧ v_rel f lv lw ∧
+  state_ref_rel f refs refs' ⇒
+  v_to_mlstring refs' lw = SOME str
 Proof
-  rw [v_to_bytes_eq] >> drule_all v_to_list_v_rel >> strip_tac
-  >> imp_res_tac list_rel_v_rel_number >> gvs []
+  simp [bvlSemTheory.v_to_mlstring_def, AllCaseEqs ()] >> rw []
+  >> gvs [Once v_rel_cases, state_ref_rel_def]
+  >> res_tac
+  >> gvs [ref_rel_cases]
 QED
 
 Theorem v_to_words_v_rel:
@@ -1999,17 +1996,16 @@ QED
 
 Resume do_app_op_rel[Install]:
   gvs [do_app_def, do_install_def, AllCaseEqs (), PULL_EXISTS]
-  >> qpat_x_assum `v_rel f (Number (&LENGTH bytes)) _`
-       (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
   >> qpat_x_assum `v_rel f (Number (&LENGTH data)) _`
        (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
   >> gvs []
-  >> drule_all v_to_bytes_v_rel >> strip_tac
+  >> `state_ref_rel f s.refs s'.refs` by fs [state_rel_def]
+  >> drule_all v_to_mlstring_v_rel >> strip_tac
   >> drule_all v_to_words_v_rel >> strip_tac
   >> gvs []
   >> `s'.compile_oracle = state_co compile_each s.compile_oracle ∧
       s.compile = state_cc compile_each s'.compile ∧
-      state_ref_rel f s.refs s'.refs ∧ s'.clock = s.clock ∧
+      s'.clock = s.clock ∧
       OPTREL (λp p'. FLOOKUP f p = SOME p') s.global s'.global ∧
       s'.ffi = s.ffi ∧ code_rel s.code s'.code ∧
       namespace_rel s.code s'.code ∧ fmap_inj f ∧

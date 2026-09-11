@@ -51,7 +51,7 @@ Datatype:
     <| globals : (bvlSem$v option) list
      ; refs    : num |-> bvlSem$v ref
      ; clock   : num
-     ; compile : 'c -> (num # num # bvl$exp) list -> (word8 list # word64 list # 'c) option
+     ; compile : 'c -> (num # num # bvl$exp) list -> (mlstring # word64 list # 'c) option
      ; compile_oracle : num -> 'c # (num # num # bvl$exp) list
      ; code    : (num # bvl$exp) num_map
      ; ffi     : 'ffi ffi_state |>
@@ -115,9 +115,14 @@ End
 
 Overload Error[local] = ``(Rerr(Rabort Rtype_error)):(bvlSem$v#('c,'ffi) bvlSem$state, bvlSem$v)result``
 
-Definition v_to_bytes_def:
-  v_to_bytes lv = some ns:word8 list.
-                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)
+Definition v_to_mlstring_def:
+  v_to_mlstring refs lv =
+    case lv of
+    | RefPtr _ p =>
+        (case FLOOKUP refs p of
+         | SOME (ByteArray T bs) => SOME (bytes_to_mlstring bs)
+         | _ => NONE)
+    | _ => NONE
 End
 
 Definition v_to_words_def:
@@ -130,7 +135,7 @@ Definition do_install_def:
   do_install vs ^s =
       (case vs of
        | [v1;v2] =>
-           (case (v_to_bytes v1, v_to_words v2) of
+           (case (v_to_mlstring s.refs v1, v_to_words v2) of
             | (SOME bytes, SOME data) =>
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in

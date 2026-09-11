@@ -546,7 +546,7 @@ Datatype:
    ; stack_prog : (num # 'a stackLang$prog) list
    ; cur_bm : 'a word list
    ; lab_prog : 'a sec list
-   ; target_prog : (word8 list # 'a word list) option
+   ; target_prog : (mlstring # 'a word list) option
    |>
 End
 
@@ -554,7 +554,7 @@ Definition empty_progs_def:
   empty_progs = <| env_id := (0, 0); source_prog := []; flat_prog := [];
     clos_prog := ([], []); bvl_prog := []; bvi_prog := [];
     data_prog := []; word_prog := []; stack_prog := []; cur_bm := [];
-    lab_prog := []; target_prog := SOME ([], []) |>
+    lab_prog := []; target_prog := SOME («», []) |>
 End
 
 Definition keep_progs_def:
@@ -597,11 +597,12 @@ Definition compile_inc_progs_def:
     let ps = ps with <| lab_prog := keep_progs k p |> in
     let target = lab_to_target$compile asm_conf c.lab_conf (p:'a labLang$prog) in
     let ps = ps with <| target_prog := OPTION_MAP
-        (\(bytes, _). (bytes, cur_bm)) target |> in
+        (\(bytes, _). (implode (ws_to_chars bytes), cur_bm)) target |> in
     let c = c with lab_conf updated_by (case target of NONE => I
         | SOME (_, c') => K c') in
     (c, ps)
 End
+
 Definition compile_inc_progs_for_eval_def:
   compile_inc_progs_for_eval asm_conf x =
   let (env_id, c', decs) = x in
@@ -662,7 +663,7 @@ Theorem compile_inc_progs_for_eval_eq:
     let _ = empty_ffi «finished: lab_to_target» in
     let c = c with lab_conf updated_by (case target of NONE => I
                                         | SOME (_, c') => K c') in
-      OPTION_MAP (λx. (c,FST x,MAP upper_w2w cur_bm)) target
+      OPTION_MAP (λx. (c,implode (ws_to_chars (FST x)),MAP upper_w2w cur_bm)) target
 Proof
   fs [compile_inc_progs_for_eval_def,compile_inc_progs_def, full_compile_single_for_eval_eq]
   \\ rpt (pairarg_tac \\ gvs [])

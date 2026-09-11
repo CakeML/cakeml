@@ -3087,26 +3087,16 @@ Proof
   \\ rfs [INJ_DEF]
 QED
 
-Theorem v_to_word8_list_rel:
-  v_to_word8_list bytes_v = SOME bytes /\
+Theorem v_to_mlstring_rel:
+  semanticPrimitives$v_to_mlstring bytes_v = SOME bytes /\
   v_rel genv bytes_v v' /\
   genv_c_ok genv.c ==>
-  v_to_bytes v' = SOME bytes
+  flatSem$v_to_mlstring v' = SOME bytes
 Proof
-  rw [v_to_word8_list_def]
-  \\ fs [case_eq_thms]
-  \\ drule_then drule v_to_list
-  \\ drule maybe_all_list_SOME
-  \\ rw [v_to_bytes_def]
-  \\ simp []
-  \\ irule some_f_inj_eq
-  \\ simp [INJ_DEF, INJ_MAP_EQ_IFF]
-  \\ fs [LIST_REL_EL_EQN, LIST_EQ_REWRITE]
-  \\ rfs []
-  \\ rw []
-  \\ rpt (first_x_assum drule)
-  \\ simp [v_to_word8_def, EL_MAP]
-  \\ every_case_tac \\ simp [v_rel_eqns]
+  rw [semanticPrimitivesTheory.v_to_mlstring_def]
+  \\ fs [AllCaseEqs()] \\ rveq
+  \\ fs [v_rel_eqns]
+  \\ rw [flatSemTheory.v_to_mlstring_def]
 QED
 
 Theorem v_to_word64_list_rel:
@@ -3253,7 +3243,7 @@ Proof
   \\ fs [case_eq_thms, pair_case_eq]
   \\ rveq \\ fs []
   \\ drule_then drule v_to_word64_list_rel
-  \\ drule_then drule v_to_word8_list_rel
+  \\ drule_then drule v_to_mlstring_rel
   \\ rw []
   \\ fs []
   \\ every_case_tac \\ fs []

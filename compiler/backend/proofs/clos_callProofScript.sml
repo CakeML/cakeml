@@ -1756,22 +1756,6 @@ Proof
   \\ res_tac \\ fs [] \\ rw []
 QED
 
-Theorem v_rel_IMP_v_to_bytes_lemma[local]:
-    !x y c g code.
-      v_rel c g code x y ==>
-      !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
-           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))
-Proof
-  ho_match_mp_tac v_to_list_ind \\ rw []
-  \\ fs [v_to_list_def,v_rel_def]
-  \\ Cases_on `tag = cons_tag` \\ fs []
-  \\ res_tac \\ fs [case_eq_thms]
-  \\ Cases_on `ns` \\ fs []
-  \\ eq_tac \\ rw [] \\ fs []
-  \\ Cases_on `h'` \\ fs [v_rel_def]
-  \\ Cases_on `h` \\ fs [v_rel_def]
-QED
-
 Theorem v_rel_IMP_v_to_words_lemma[local]:
     !x y c g.
       v_rel c g code x y ==>
@@ -1788,13 +1772,13 @@ Proof
   \\ Cases_on `h` \\ fs [v_rel_def]
 QED
 
-Theorem v_to_bytes_thm:
+Theorem v_to_mlstring_thm:
    !h h' x.
-      v_to_bytes h = SOME x /\ v_rel g1 l1 code h h' ==>
-      v_to_bytes h' = SOME x
+      v_to_mlstring h = SOME x /\ v_rel g1 l1 code h h' ==>
+      v_to_mlstring h' = SOME x
 Proof
-  rw [v_to_bytes_def] \\ old_drule v_rel_IMP_v_to_bytes_lemma \\ fs []
-  \\ rw [] \\ fs []
+  rw [v_to_mlstring_def]
+  \\ Cases_on `h` \\ gvs [v_rel_def]
 QED
 
 Theorem v_to_words_thm:
@@ -3053,7 +3037,7 @@ Proof
       \\ Cases_on `r.clock = 0`
       THEN1
        (rpt strip_tac \\ fs [] \\ rveq \\ fs []
-        \\ imp_res_tac v_to_bytes_thm
+        \\ imp_res_tac v_to_mlstring_thm
         \\ imp_res_tac v_to_words_thm
         \\ fs [bool_case_eq] \\ fs []
         \\ fs [] \\ rveq \\ fs []
@@ -3091,7 +3075,7 @@ Proof
         \\ metis_tac [subg_trans, SUBSET_TRANS])
       \\ fs [bool_case_eq] \\ fs []
       \\ rveq \\ fs [FUPDATE_LIST,shift_seq_def]
-      \\ imp_res_tac v_to_bytes_thm
+      \\ imp_res_tac v_to_mlstring_thm
       \\ imp_res_tac v_to_words_thm
       \\ fs [] \\ rveq \\ fs []
       \\ ntac 2 (qpat_x_assum `!x._` kall_tac)

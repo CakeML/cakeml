@@ -1120,21 +1120,15 @@ Proof
   \\ rfs [EL_MAP]
 QED
 
-Theorem simple_val_rel_v_to_bytes:
+Theorem simple_val_rel_v_to_mlstring:
    simple_val_rel vr ==>
-   ∀x y ws. vr x y ∧ v_to_bytes x = SOME ws ⇒
-   v_to_bytes y = SOME ws
+   ∀x y s. vr x y ∧ v_to_mlstring x = SOME s ⇒
+   v_to_mlstring y = SOME s
 Proof
-  rw [v_to_bytes_def]
-  \\ Cases_on `v_to_list x` \\ fs []
-  \\ qpat_x_assum `$some _ = _` (mp_tac o REWRITE_RULE [some_def])
-  \\ rw []
-  \\ qsuff_tac `v_to_list y = v_to_list x`
-  \\ simp [INJ_MAP_EQ_IFF, INJ_DEF]
-  \\ drule_then drule simple_v_to_list_v_rel
-  \\ rw []
-  \\ fs [LIST_REL_EL_EQN, LIST_EQ_REWRITE]
-  \\ rfs [EL_MAP]
+  disch_tac
+  \\ rpt gen_tac
+  \\ simp [v_to_mlstring_def, AllCaseEqs()]
+  \\ strip_tac \\ gvs []
 QED
 
 Theorem check_type_LIST_REL_same[local]:

@@ -47,7 +47,7 @@ End
 
 Datatype:
   install_config =
-   <| compile : 'c -> flatLang$exp list -> (word8 list # word64 list # 'c) option
+   <| compile : 'c -> flatLang$exp list -> (mlstring # word64 list # 'c) option
     ; compile_oracle : num -> 'c # flatLang$exp list
     |>
 End
@@ -214,8 +214,11 @@ Definition vs_to_string_def:
   (vs_to_string _ = NONE)
 End
 
-Definition v_to_bytes_def:
-  v_to_bytes lv = some ns. v_to_list lv = SOME (MAP (Litv o Word8) ns)
+Definition v_to_mlstring_def:
+  v_to_mlstring lv =
+    case lv of
+    | Litv (StrLit s) => SOME s
+    | _ => NONE
 End
 
 Definition v_to_words_def:
@@ -738,7 +741,7 @@ Definition do_eval_def:
   do_eval (vs :v list) eval_config =
   (case vs of
     | [v1; v2] =>
-      (case (v_to_bytes v1, v_to_words v2) of
+      (case (v_to_mlstring v1, v_to_words v2) of
        | (SOME bytes, SOME data) =>
          let (st,decs) = eval_config.compile_oracle 0 in
          let new_oracle = shift_seq 1 eval_config.compile_oracle in
