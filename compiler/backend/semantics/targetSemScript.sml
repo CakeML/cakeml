@@ -33,10 +33,10 @@ Datatype:
     ; next_interfer : num -> 'b -> 'b
     (* program exits successfully at halt_pc *)
     ; halt_pc : 'a word
-    (* entry point for calling clear_cache *)
-    ; ccache_pc : 'a word
-    (* major interference by calling clear_cache *)
-    ; ccache_interfer : num -> 'a word # 'a word # 'b -> 'b
+    (* entry point for calling install (code memcpy) *)
+    ; install_pc : 'a word
+    (* major interference by calling install *)
+    ; install_interfer : num -> word8 list # 'b -> 'b
     (* target next-state function etc. *)
     ; target : ('a,'b,'c) target
     (* ffi_index -> byte_size, address, register to be updated/ stored, new pc value *)
@@ -138,14 +138,14 @@ Definition evaluate_def:
       else if mc.target.get_pc ms = mc.halt_pc then
         (if mc.target.get_reg ms mc.ptr_reg = 0w
          then Halt Success else Halt Resource_limit_hit,ms,ffi)
-      else if mc.target.get_pc ms = mc.ccache_pc then
-        let (ms1,new_oracle) =
-          apply_oracle mc.ccache_interfer
-            (mc.target.get_reg ms mc.ptr_reg,
-             mc.target.get_reg ms mc.len_reg,
-             ms) in
-        let mc = mc with ccache_interfer := new_oracle in
-          evaluate mc ffi (k-1) ms1
+      else if mc.target.get_pc ms = mc.install_pc then
+         (case read_ffi_bytearray mc mc.ptr_reg mc.len_reg ms of
+          | SOME bytes =>
+            let (ms1,new_oracle) =
+              apply_oracle mc.install_interfer (bytes,ms) in
+            let mc = mc with install_interfer := new_oracle in
+              evaluate mc ffi (k - 1:num) ms1
+          | _ => (Error,ms,ffi))
       else
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => (Error,ms,ffi)
@@ -279,11 +279,11 @@ End
 Definition start_pc_ok_def:
   start_pc_ok mc_conf pc ⇔
     mc_conf.halt_pc NOTIN mc_conf.prog_addresses /\
-    mc_conf.ccache_pc NOTIN mc_conf.prog_addresses /\
+    mc_conf.install_pc NOTIN mc_conf.prog_addresses /\
     mc_conf.halt_pc NOTIN mc_conf.shared_addresses /\
-    mc_conf.ccache_pc NOTIN mc_conf.shared_addresses /\
+    mc_conf.install_pc NOTIN mc_conf.shared_addresses /\
     pc - n2w ffi_offset = mc_conf.halt_pc /\
-    pc - n2w (2*ffi_offset) = mc_conf.ccache_pc /\
+    pc - n2w (2*ffi_offset) = mc_conf.install_pc /\
     (1w && pc) = 0w /\
     ?i. mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
     (!index.
@@ -295,14 +295,14 @@ Definition start_pc_ok_def:
        pc - n2w ((3 + index) * ffi_offset) <>
        mc_conf.halt_pc /\
        pc - n2w ((3 + index) * ffi_offset) <>
-       mc_conf.ccache_pc /\
+       mc_conf.install_pc /\
        find_index
          (pc - n2w ((3 + index) * ffi_offset))
          mc_conf.ffi_entry_pcs 0 = SOME index) /\
     (!index.
       index < LENGTH mc_conf.ffi_names /\ i <= index ==>
       mc_conf.halt_pc <> (EL index mc_conf.ffi_entry_pcs) /\
-      mc_conf.ccache_pc <> (EL index mc_conf.ffi_entry_pcs)) /\
+      mc_conf.install_pc <> (EL index mc_conf.ffi_entry_pcs)) /\
     LENGTH mc_conf.ffi_names = LENGTH mc_conf.ffi_entry_pcs
 End
 
@@ -365,31 +365,37 @@ Definition ffi_interfer_ok_def:
                  (mc_conf.ffi_interfer k (index,new_bytes,ms2))))))
 End
 
-(* ccache_interfer_ok: a cache-clear transition must satisfy the same
-   per-call promises, additionally preserving ptr_reg and leaving all
-   program memory unchanged *)
-Definition ccache_interfer_ok_def:
-  ccache_interfer_ok pc mc_conf ⇔
-    (!ms2 t1 k a1 a2.
+(* install_interfer_ok: an install transition must satisfy the same
+   per-call promises as FFIs, except it additionally sets the return
+   value in ptr_reg to ptr2_reg (the destination register) *)
+Definition install_interfer_ok_def:
+  install_interfer_ok pc mc_conf ⇔
+    (!ms2 t1 k bytes.
+       mc_conf.prog_addresses = t1.mem_domain /\
+       read_ffi_bytearray mc_conf mc_conf.ptr_reg mc_conf.len_reg ms2 = SOME bytes /\
        target_state_rel mc_conf.target
          (t1 with
           pc := -n2w (2 * ffi_offset) + pc)
        ms2 /\
-       aligned mc_conf.target.config.code_alignment (t1.regs (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n)) ==>
-       (let ms' = mc_conf.ccache_interfer k (a1,a2,ms2) in
+       aligned mc_conf.target.config.code_alignment
+         (t1.regs (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n)) ==>
+       (let ms' = mc_conf.install_interfer k (bytes,ms2) in
           mc_conf.target.state_ok ms' ∧
           mc_conf.target.get_pc ms' =
             t1.regs (case mc_conf.target.config.link_reg of NONE => 0
                      | SOME n => n) ∧
           (∀a. a ∈ t1.mem_domain ⇒
-               mc_conf.target.get_byte ms' a = t1.mem a) ∧
+                mc_conf.target.get_byte ms' a =
+                asm_write_bytearray (t1.regs mc_conf.ptr2_reg) bytes t1.mem a) ∧
           (∀r. (MEM r mc_conf.callee_saved_regs ∨ r = mc_conf.ptr_reg) ∧
                r < mc_conf.target.config.reg_count ∧
                ¬MEM r mc_conf.target.config.avoid_regs ⇒
-               mc_conf.target.get_reg ms' r = t1.regs r)))
+               mc_conf.target.get_reg ms' r =
+                if r = mc_conf.ptr_reg then t1.regs mc_conf.ptr2_reg
+                else t1.regs r)))
 End
 
-(* post_ffi_asm / post_ccache_asm: the canonical asm-level successor
+(* post_ffi_asm / post_install_asm: the canonical asm-level successor
    state after an FFI / cache-clear transition -- caller-saved
    registers and all FP registers are taken from the machine state *)
 Definition post_ffi_asm_def:
@@ -407,17 +413,21 @@ Definition post_ffi_asm_def:
                        | SOME n => n)|>
 End
 
-Definition post_ccache_asm_def:
-  post_ccache_asm (mc_conf:('a,'state,'b) machine_config) (t1:'a asm_state)
-                  (ms':'state) =
+Definition post_install_asm_def:
+  post_install_asm (mc_conf:('a,'state,'b) machine_config) (t1:'a asm_state)
+                  new_bytes (ms':'state) =
     t1 with
       <|regs := (λa. if MEM a mc_conf.callee_saved_regs ∨
                         a = mc_conf.ptr_reg ∨
                         ¬(a < mc_conf.target.config.reg_count) ∨
                         MEM a mc_conf.target.config.avoid_regs
-                     then t1.regs a
+                     then
+                        if a = mc_conf.ptr_reg
+                        then t1.regs mc_conf.ptr2_reg
+                        else t1.regs a
                      else mc_conf.target.get_reg ms' a);
         fp_regs := (λi. mc_conf.target.get_fp_reg ms' i);
+        mem := asm_write_bytearray (t1.regs mc_conf.ptr2_reg) new_bytes t1.mem;
         pc := t1.regs (case mc_conf.target.config.link_reg of NONE => 0
                        | SOME n => n)|>
 End
@@ -447,7 +457,7 @@ Definition good_init_state_def:
 
     interference_ok mc_conf.next_interfer (mc_conf.target.proj mc_conf.prog_addresses) /\
     ffi_interfer_ok t.pc mc_conf ∧
-    ccache_interfer_ok t.pc mc_conf ∧
+    install_interfer_ok t.pc mc_conf ∧
 
     (* code memory relation *)
     code_loaded bytes mc_conf ms /\
