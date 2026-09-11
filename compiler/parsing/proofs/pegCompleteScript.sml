@@ -758,7 +758,7 @@ Definition stoppers_def:
   (stoppers nDecls =
      nestoppers DIFF
      ({BarT; StarT; AndT; SemicolonT; FunT; ValT; DatatypeT; OfT; ExceptionT;
-       TypeT; LocalT; StructureT} ∪ {TyvarT s | T})) ∧
+       TypeT; LocalT; OpenT; StructureT} ∪ {TyvarT s | T})) ∧
   (stoppers nDType = UNIV DIFF firstSet cmlG [NN nTyOp]) ∧
   (stoppers nDtypeCons =
      UNIV DIFF ({ArrowT; BarT; StarT; OfT; LparT} ∪ firstSet cmlG [NN nTyOp] ∪
@@ -833,7 +833,7 @@ Definition stoppers_def:
                 firstSet cmlG [NN nEbase] ∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nFDecl = nestoppers) ∧
   (stoppers nLetDec = nestoppers DELETE AndT) ∧
-  (stoppers nLetDecs = nestoppers DIFF {AndT; FunT; ValT; SemicolonT}) ∧
+  (stoppers nLetDecs = nestoppers DIFF {AndT; FunT; ValT; OpenT; SemicolonT}) ∧
   (stoppers nNonETopLevelDecs = ∅) ∧
   (stoppers nOptTypEqn =
      UNIV DIFF ({ArrowT; StarT; EqualsT} ∪ firstSet cmlG [NN nTyOp])) ∧
@@ -2978,6 +2978,13 @@ Proof
   >- (print_tac "nMultOps" >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> strip_tac >>
       gvs[MAP_EQ_CONS] >> simp[choicel_cons, peg_eval_tok, tokSymP_def])
+  >- (
+    print_tac "nModPath" >>
+    simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, MAP_EQ_CONS] >>
+    rw[] >> gvs[MAP_EQ_CONS]
+    >- dsimp[NT_rank_def, EXISTS_PROD, choicel_cons, stoppers_def] >>
+    simp[peg_respects_firstSets_rwt, mkNd_def, choicel_cons, peg_eval_tok] >>
+    simp[Once peg_eval_NT, cmlpeg_rules_applied, peg_StructName_def, peg_eval_tok])
   >- (print_tac "nListOps" >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> strip_tac >>
       gvs[MAP_EQ_CONS] >> simp[choicel_cons, peg_eval_tok])
@@ -3017,17 +3024,32 @@ Proof
       dsimp[choicel_cons, seql_cons] >>
       Cases_on ‘sfx’ >> simp[not_peg0_peg_eval_NIL_NONE] >>
       gs[stoppers_def, peg_respects_firstSets_rwt])
-  >- (print_tac "nLetDec" >>
-      simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
-      strip_tac >> loseRK >>
-      gvs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >>
-      dsimp[Once choicel_cons, seql_cons_SOME]
-      >- (disj1_tac >> gs[SKOLEM_THM, GSYM RIGHT_EXISTS_IMP_THM] >>
-          normlist >> first_assum $ irule_at Any >> simp[stoppers_def] >>
-          first_x_assum $ irule_at Any >> gs[stoppers_def]) >>
-      simp[seql_cons, peg_eval_tok] >>
+  >- (
+    print_tac "nLetDec" >>
+    simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
+    strip_tac >> loseRK >>
+    gvs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM]
+    >~ [`ptree_head _ = NN nModPath`] >- (
+      rename1 `ptree_head module_tree = NN nModPath` >>
+      rename1 `MAP (TK ## I) module_tokens = real_fringe module_tree` >>
+      ntac 2
+        (dsimp[Once choicel_cons] >>
+         simp[seql_cons, peg_eval_tok, peg_respects_firstSets_rwt]) >>
       simp[choicel_cons, seql_cons_SOME, PULL_EXISTS] >>
-      first_x_assum irule >> gs[stoppers_def])
+      first_x_assum
+        (qspecl_then [`module_tree`, `nModPath`, `module_tokens`, `sfx`] mp_tac) >>
+      impl_tac >- simp[stoppers_def] >>
+      disch_then (qx_choose_then `open_error` assume_tac) >>
+      qexists_tac `open_error` >> simp[]
+    ) >>
+    dsimp[Once choicel_cons, seql_cons_SOME]
+    >- (disj1_tac >> gs[SKOLEM_THM, GSYM RIGHT_EXISTS_IMP_THM] >>
+        normlist >> first_assum $ irule_at Any >> simp[stoppers_def] >>
+        first_x_assum $ irule_at Any >> gs[stoppers_def]) >>
+    simp[seql_cons, peg_eval_tok] >>
+    simp[choicel_cons, seql_cons_SOME, PULL_EXISTS] >>
+    first_x_assum irule >> gs[stoppers_def]
+  )
   >- (print_tac "nFQV" >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, peg_longV_def] >>
       strip_tac >> gvs[MAP_EQ_SING] >> dsimp[Once choicel_cons]
@@ -3503,15 +3525,23 @@ Proof
           simp[seql_cons_SOME, PULL_EXISTS] >> loseRK >> SKTAC >>
           normlist >> first_assum $ irule_at Any >>
           simp[stoppers_def, nestoppers_def] >>
-          first_x_assum $ irule_at Any >> gvs[stoppers_def, nestoppers_def]) >>
-      rename [‘ptree_head spt = NN nStructure’] >>
-      drule_all
-        (MATCH_MP rfringe_length_not_nullable nullable_Structure) >>
-      simp[] >> Cases_on ‘pfx’ >> gvs[PAIR_MAP] >>
-      drule_all rfirstSet_nonempty_fringe >> simp[PULL_EXISTS] >> rw[] >>
-      gvs[] >>
-      simp[choicel_cons, seql_cons, peg_eval_tok, peg_respects_firstSets_rwt] >>
-      dsimp[] >> first_x_assum irule >> simp[NT_rank_def, stoppers_def])
+          first_x_assum $ irule_at Any >> gvs[stoppers_def, nestoppers_def]) >~
+      [‘ptree_head spt = NN nStructure’]
+      >- (drule_all
+            (MATCH_MP rfringe_length_not_nullable nullable_Structure) >>
+          simp[] >> Cases_on ‘pfx’ >> gvs[PAIR_MAP] >>
+          drule_all rfirstSet_nonempty_fringe >> simp[PULL_EXISTS] >> rw[] >>
+          gvs[] >>
+          simp[choicel_cons, seql_cons, peg_eval_tok,
+               peg_respects_firstSets_rwt] >>
+          dsimp[] >> first_x_assum irule >>
+          simp[NT_rank_def, stoppers_def]) >>
+      ntac 6
+        (dsimp[Once choicel_cons] >>
+         simp[seql_cons, peg_eval_tok, peg_respects_firstSets_rwt]) >>
+      dsimp[Once choicel_cons] >> disj1_tac >>
+      simp[seql_cons_SOME, PULL_EXISTS] >>
+      first_x_assum irule >> simp[NT_rank_def, stoppers_def])
   >- (print_tac "nDconstructor" >> stdstart >>
       rename [‘ptree_head upt = NN nUQConstructorName’,
               ‘real_fringe upt = MAP _ upf’,

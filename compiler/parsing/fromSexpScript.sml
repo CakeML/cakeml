@@ -870,7 +870,11 @@ Definition sexpexp_def:
       guard (nm = "Lannot" ∧ LENGTH args = 2)
             (lift2 Lannot
               (sexpexp (EL 0 args))
-              (sexplocn (EL 1 args)))
+              (sexplocn (EL 1 args))) ++
+      guard (nm = "Open" ∧ LENGTH args = 2)
+            (lift2 Open
+              (sexplist odestSEXSTR (EL 0 args))
+              (sexpexp (EL 1 args)))
     od
 Termination
   WF_REL_TAC `measure sexp_size` >>
@@ -937,6 +941,11 @@ Definition sexpexp_alt_def:
           if nm = "Lannot" ∧ LENGTH args = 2 then
             OPTION_MAP2 Lannot (sexpexp_alt (EL 0 args))
               (sexplocn (EL 1 args))
+          else
+          if nm = "Open" ∧ LENGTH args = 2 then
+            OPTION_MAP2 Open
+              (sexplist odestSEXSTR (EL 0 args))
+              (sexpexp_alt (EL 1 args))
           else NONE) ∧
    (sexpexp_list s =
       case s of
@@ -1088,6 +1097,9 @@ Definition sexpdec_def:
                            (odestSEXSTR (EL 2 args)) <*>
                            (sexptype (EL 3 args)))
                             ++
+      guard (nm = "Dopen" ∧ LENGTH args = 2)
+            (lift2 Dopen (sexplocn (EL 0 args))
+                         (sexplist odestSEXSTR (EL 1 args))) ++
       guard (nm = "Denv" ∧ LENGTH args = 1)
             (lift Denv (odestSEXSTR (EL 0 args))) ++
       guard (nm = "Dexn" ∧ LENGTH args = 3)
@@ -1127,6 +1139,9 @@ Definition sexpdec_alt_def:
                            (sexplist odestSEXSTR (EL 1 args)) <*>
                            (odestSEXSTR (EL 2 args)) <*>
                            (sexptype_alt (EL 3 args))) else
+      if nm = "Dopen" ∧ LENGTH args = 2 then
+            (lift2 Dopen (sexplocn (EL 0 args))
+                         (sexplist odestSEXSTR (EL 1 args))) else
       if nm = "Denv" ∧ LENGTH args = 1 then
             (lift Denv (odestSEXSTR (EL 0 args))) else
       if nm = "Dexn" ∧ LENGTH args = 3 then
@@ -1684,7 +1699,9 @@ Definition expsexp_def:
                                      (SX_CONS (SEXSTR (explode y)) (expsexp z))) funs);
    expsexp e⟫ ∧
   expsexp (Tannot e t) = ⟪SX_SYM "Tannot"; expsexp e; typesexp t⟫ ∧
-  expsexp (Lannot e loc) = ⟪SX_SYM "Lannot"; expsexp e; locssexp loc⟫
+  expsexp (Lannot e loc) = ⟪SX_SYM "Lannot"; expsexp e; locssexp loc⟫ ∧
+  expsexp (Open path e) =
+    ⟪SX_SYM "Open"; listsexp (MAP (SEXSTR ∘ explode) path); expsexp e⟫
 End
 
 Theorem SEXSTR_explode_11[local]:
@@ -1758,6 +1775,9 @@ Definition decsexp_def:
             funs)] ∧
   decsexp (Dtype locs td) = ⟪SX_SYM "Dtype"; locssexp locs; type_defsexp td⟫ ∧
   decsexp (Dtabbrev locs ns x t) = ⟪SX_SYM "Dtabbrev"; locssexp locs; listsexp (MAP (SEXSTR ∘ explode) ns); SEXSTR (explode x); typesexp t⟫ ∧
+  decsexp (Dopen locs path) =
+    ⟪SX_SYM "Dopen"; locssexp locs;
+      listsexp (MAP (SEXSTR ∘ explode) path)⟫ ∧
   decsexp (Denv name) = ⟪SX_SYM "Denv"; SEXSTR (explode name)⟫ ∧
   decsexp (Dexn locs x ts) =
     ⟪SX_SYM "Dexn"; locssexp locs; SEXSTR (explode x); listsexp (MAP typesexp ts)⟫ ∧
@@ -2083,9 +2103,8 @@ Proof
   \\ rename1 `guard (nm = "Raise" ∧ _) _`
   \\ reverse (Cases_on `nm ∈ {"Raise"; "Handle"; "Lit"; "Con"; "Var"; "Fun";
                               "App"; "Log"; "If"; "Mat"; "Let"; "Letrec";
-                              "Lannot"; "Tannot"}`)
+                              "Lannot"; "Tannot"; "Open"}`)
   \\ pop_assum mp_tac
-  \\ simp[]
   \\ rw[]
   \\ simp[expsexp_def]
   \\ gvs[LENGTH_EQ_NUM_compute, listsexp_thm, litsexp_sexplit, opsexp_sexpop,
@@ -2123,7 +2142,7 @@ Proof
   \\ rw[Once sexpdec_def]
   \\ pairarg_tac \\ gvs[dstrip_sexp_SOME]
   \\ rename1 `guard (nm = _ ∧ _) _`
-  \\ Cases_on `nm ∈ {"Dlet"; "Dletrec"; "Dtype"; "Dtabbrev"; "Denv"; "Dexn"; "Dmod"}`
+  \\ Cases_on `nm ∈ {"Dlet"; "Dletrec"; "Dtype"; "Dtabbrev"; "Dopen"; "Denv"; "Dexn"; "Dmod"}`
   \\ fs[]
   \\ fs[decsexp_def, LENGTH_EQ_NUM_compute]
   \\ gvs[OPTION_APPLY_MAP3,OPTION_APPLY_MAP4,decsexp_def,expsexp_sexpexp,

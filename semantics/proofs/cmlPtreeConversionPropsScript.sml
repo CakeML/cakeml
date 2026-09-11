@@ -509,6 +509,23 @@ Proof
   start >> simp[ptree_Eliteral_def]
 QED
 
+Theorem StructName_OK:
+   valid_ptree cmlG pt ∧ ptree_head pt = NN nStructName ∧
+    MAP TK toks = ptree_fringe pt ⇒
+    ∃sl. ptree_StructName pt = SOME sl
+Proof
+  start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
+  rveq >> simp[ptree_StructName_def]
+QED
+
+Theorem ModPath_OK:
+   valid_ptree cmlG pt ∧ ptree_head pt = NN nModPath ∧
+    MAP TK toks = ptree_fringe pt ⇒
+    ∃path. ptree_ModPath pt = SOME path
+Proof
+  start >> metis_tac[StructName_OK, ptree_ModPath_StructName]
+QED
+
 val _ = print "The E_OK proof takes a while\n"
 Theorem E_OK0:
    valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
@@ -596,7 +613,8 @@ Proof
             AllCaseEqs()] >>
       rename [‘ptree_PE pt = _’] >> Cases_on ‘ptree_PE pt’ >>
       simp[] >> rename [‘destLf pt2 = SOME _’] >> Cases_on ‘destLf pt2’ >>
-      simp[] >> metis_tac[pair_CASES])
+      simp[] >> metis_tac[pair_CASES]) >>
+  metis_tac[ModPath_OK]
 QED
 
 Theorem E_OK = okify CONJUNCT1 `nE` E_OK0
@@ -746,15 +764,6 @@ Proof
   >- (rename[`Lf p`] >> Cases_on `p` >> fs[]) >> simp[] *)
 QED
 
-Theorem StructName_OK:
-   valid_ptree cmlG pt ∧ ptree_head pt = NN nStructName ∧
-    MAP TK toks = ptree_fringe pt ⇒
-    ∃sl. ptree_StructName pt = SOME sl
-Proof
-  start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
-  rveq >> simp[ptree_StructName_def]
-QED
-
 Theorem SignatureValue_OK:
    valid_ptree cmlG pt ∧ ptree_head pt = NN nSignatureValue ∧
     MAP TK toks = ptree_fringe pt ⇒
@@ -790,7 +799,8 @@ Proof
       >- (rename [‘ptree_head pt = NN nStructure’] >>
           first_x_assum $ drule_then strip_assume_tac >> simp[] >>
           qmatch_abbrev_tac ‘∃d. foo ++ SOME x = SOME d’ >>
-          Cases_on ‘foo’ >> simp[]))
+          Cases_on ‘foo’ >> simp[])
+      >- metis_tac[ModPath_OK])
   >- (rename [‘ptree_Decls (Nd pt loc) = SOME _’] >>
       Cases_on ‘pt’ >> fs[] >> rveq >>
       fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >>

@@ -27,10 +27,10 @@ Proof
   >- (
     TOP_CASE_TAC \\ gs []
     \\ TOP_CASE_TAC \\ gvs [dest_Letrec_SOME]
-    \\ rw [] \\ gs [evaluate_decs_def, evaluate_def]
+    \\ rw [] \\ gs [evaluate_decs_def, evaluate_def, check_exp_constructors_def]
     \\ reverse IF_CASES_TAC \\ gs [env_c_lemma]
     >-
-     (qsuff_tac ‘~EVERY (λ(n,v,e'). every_exp (one_con_check env.c) e') q’
+     (qsuff_tac ‘~EVERY (λ(n,v,e'). check_exp_constructors env.c e') q’
       \\ rpt strip_tac \\ full_simp_tac bool_ss [] \\ fs []
       \\ fs [EVERY_MEM,EXISTS_MEM,EXISTS_PROD,FORALL_PROD,SF SFY_ss]
       \\ res_tac \\ fs [])
@@ -42,7 +42,7 @@ Proof
       by rw [sem_env_component_equality, build_rec_env_merge]
     \\ gs [])
   \\ TOP_CASE_TAC \\ TOP_CASE_TAC \\ gvs [dest_Let_SOME]
-  \\ rw [] \\ gs [evaluate_decs_def, evaluate_def]
+  \\ rw [] \\ gs [evaluate_decs_def, evaluate_def, check_exp_constructors_def]
   \\ pop_assum mp_tac
   \\ CASE_TAC \\ rw [] \\ gs [evaluate_decs_def]
   \\ gs [pat_bindings_def, namespaceTheory.nsOptBind_def, pmatch_def]
@@ -200,4 +200,3 @@ Proof
   \\ irule compile_decs_correct
   \\ simp []
 QED
-

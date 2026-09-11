@@ -162,10 +162,12 @@ Theorem peg_eval_LetDec_wrongtok:
    FST tk = SemicolonT ⇒
    ¬peg_eval cmlPEG (tk::i, nt (mkNT nLetDec) f) (Success i' r eo)
 Proof
+  Cases_on `tk` >>
   simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG,
        peg_TypeDec_def, peg_eval_seq_SOME, tokeq_def, peg_eval_tok_SOME,
        peg_eval_choicel_CONS, peg_eval_seql_CONS,
-       AllCaseEqs()] >> rw[] >> gs[]
+       AllCaseEqs()]
+  >> dsimp[pairTheory.UNCURRY]
 QED
 
 Theorem peg_eval_nUQConstructor_wrongtok:
@@ -595,6 +597,13 @@ Proof
       `LENGTH di < SUC (LENGTH vi)` by decide_tac >>
       first_x_assum (drule_all_then strip_assume_tac) >> rveq >> simp[] >>
       gs[])
+  >- (
+    print_tac "nModPath" >> strip_tac >> rveq >>
+    dsimp[cmlG_applied, cmlG_FDOM, MAP_EQ_SING]
+    >- (
+      first_x_assum $ drule_at (Pos last) >>
+      simp[NT_rank_def] >> strip_tac >> rveq >> simp[]) >>
+    rename [`isLongModidT module_token`] >> Cases_on `module_token` >> fs[])
   >- (print_tac "nStructName" >> simp[peg_StructName_def] >>
       dsimp[cmlG_applied, cmlG_FDOM, PAIR_MAP])
   >- (print_tac "nOptionalSignatureAscription" >> rpt strip_tac >> rveq >>
@@ -696,6 +705,9 @@ Proof
             by simp[NT_rank_def] >>
           first_x_assum (erule strip_assume_tac) >>
           dsimp[cmlG_FDOM, cmlG_applied])
+      >- (`LENGTH i1 < SUC (LENGTH i1)` by decide_tac >>
+          first_assum (drule_all_then strip_assume_tac) >>
+          simp[])
       >- (‘NT_rank (mkNT nStructure) < NT_rank (mkNT nDecl)’
             by simp[NT_rank_def] >>
           first_x_assum $ drule_all_then strip_assume_tac >>

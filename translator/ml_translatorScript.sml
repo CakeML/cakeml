@@ -3073,6 +3073,7 @@ Theorem type_names_eq[local]:
                 | Dtype _ tds => MAP (\ (tvs,tn,ctors). tn) tds
                 | Dtabbrev _ tvs tn t => []
                 | Dlocal _ _ => []
+                | Dopen _ _ => []
                 | Denv _ => []
                 | Dexn _ v10 v11 => []) ds))) ++ names
 Proof

@@ -453,7 +453,9 @@ Definition cmlPEG_def[nocompute]:
               (mkNT nLetDec,
                choicel [seql [tokeq ValT; pnt nPattern; tokeq EqualsT; pnt nE]
                              (bindNT nLetDec);
-                        seql [tokeq FunT; pnt nAndFDecls] (bindNT nLetDec)]);
+                        seql [tokeq FunT; pnt nAndFDecls] (bindNT nLetDec);
+                        seql [tokeq OpenT; pnt nModPath]
+                             (bindNT nLetDec)]);
               (mkNT nLetDecs,
                choicel [seql [pnt nLetDec; pnt nLetDecs] (bindNT nLetDecs);
                         seql [tokeq SemicolonT; pnt nLetDecs] (bindNT nLetDecs);
@@ -468,6 +470,8 @@ Definition cmlPEG_def[nocompute]:
                        tokeq EndT] (bindNT nDecl);
                  seql [pnt nTypeDec] (bindNT nDecl);
                  seql [pnt nTypeAbbrevDec] (bindNT nDecl);
+                 seql [tokeq OpenT; pnt nModPath]
+                      (bindNT nDecl);
                  seql [pnt nStructure] (bindNT nDecl);
                ]);
               (mkNT nTypeAbbrevDec,
@@ -500,6 +504,9 @@ Definition cmlPEG_def[nocompute]:
                pegf (try (seql [tokeq SealT; pnt nSignatureValue] I))
                     (bindNT nOptionalSignatureAscription));
               (mkNT nStructName, peg_StructName);
+              (mkNT nModPath,
+               pegf (choicel [pnt nStructName; tok isLongModidT mktokLf])
+                    (bindNT nModPath));
               (mkNT nStructure,
                seql [tokeq StructureT; pnt nStructName; pnt nOptionalSignatureAscription;
                      tokeq EqualsT; tokeq StructT; pnt nDecls; tokeq EndT]
@@ -698,7 +705,7 @@ val npeg0_rwts =
     List.foldl pegnt []
                [“nTypeDec”, “nTypeAbbrevDec”, “nOpID”, “nStructure”,
                 “nDecl”, “nV”, “nUQTyOp”,
-                “nUQConstructorName”, “nStructName”, “nConstructorName”,
+                “nUQConstructorName”, “nStructName”, ``nModPath``, “nConstructorName”,
                 “nTypeName”,
                 “nDtypeDecl”, “nDconstructor”, “nFDecl”, “nTyvarN”,
                 “nTyOp”, “nTbase”, “nPTbase”, “nDType”, “nPType”, “nType”,
@@ -735,7 +742,7 @@ val topo_nts = [“nV”, “nTyvarN”, “nTypeDec”, “nTypeAbbrevDec”,
                 “nSpecLine”, “nSpecLineList”, “nSignatureValue”,
                 “nStructure”,
                 “nDecl”,
-                “nUQTyOp”, “nUQConstructorName”, “nStructName”,
+                “nUQTyOp”, “nUQConstructorName”, “nStructName”, ``nModPath``,
                 “nConstructorName”, “nTyVarList”, “nTypeName”, “nTyOp”,
                 “nTbase”, “nPTbase”, “nTbaseList”, “nDType”, “nPType”,
                 “nListOps”, “nRelOps”, “nPtuple”, “nPbase”, “nPapp”,

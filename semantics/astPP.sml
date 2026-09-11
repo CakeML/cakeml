@@ -36,7 +36,9 @@ val astPrettyPrinters = ref []: (string * term * term_grammar.userprinter) list 
 fun add_astPP hd = astPrettyPrinters:= (hd:: !astPrettyPrinters)
 
 fun strip t = #2 (dest_comb t);
-fun toString s = stringSyntax.fromHOLstring s;
+fun toString s =
+  if type_of s = mlstringSyntax.mlstring_ty then mlstringSyntax.dest_mlstring s
+  else stringSyntax.fromHOLstring s;
 
 fun wrap_sys sys = fn gravs => fn d => sys {gravs = gravs,depth = d, binderp=false}
 
@@ -69,6 +71,48 @@ fun dmodnonePrint sys d t pg str brk blk =
   end;
 
 val _ = add_astPP ("dmodnoneprint", ``Dmod x xs``,genPrint dmodnonePrint);
+
+fun printModPath str path =
+  case #1 (listSyntax.dest_list path) of
+      [] => raise term_pp_types.UserPP_Failed
+    | modules => printTuple "." (str o mlstringSyntax.dest_mlstring) str modules;
+
+fun dopenPrint sys d t pg str brk blk =
+  let
+    val (_,[_,path]) = strip_comb t
+  in
+    add_newline >> str "open " >> printModPath str path >> str ";"
+  end;
+
+val _ = add_astPP ("dopenprint", ``Dopen locs path``,genPrint dopenPrint);
+
+fun openPrint sys d t pg str brk blk =
+  let
+    val (_,[path,body]) = strip_comb t
+  in
+    m_brack str pg (blk CONSISTENT 0
+      (str "let open " >> printModPath str path >> str " in" >> brk (1,2) >>
+       sys (Top,Top,Top) (d-1) body >> brk (1,0) >> str "end"))
+  end;
+
+val _ = add_astPP ("openprint", ``Open path body``,genPrint openPrint);
+
+(* Locations are metadata; type annotations remain visible in source output. *)
+fun lannotPrint sys d t pg str brk blk =
+  let val (_,[body,_]) = strip_comb t
+  in sys (pg,pg,pg) (d-1) body end;
+
+val _ = add_astPP ("lannotprint", ``Lannot body locs``,genPrint lannotPrint);
+
+fun tannotPrint sys d t pg str brk blk =
+  let val (_,[body,ty]) = strip_comb t
+  in
+    bracketize str
+      (sys (Top,Top,Top) (d-1) body >> str " : " >>
+       sys (Top,Top,Top) (d-1) ty)
+  end;
+
+val _ = add_astPP ("tannotprint", ``Tannot body ty``,genPrint tannotPrint);
 
 (*Dmod some
 fun dmodsomePrint sys d t pg str brk blk =
@@ -414,15 +458,10 @@ fun pconsomePrint sys d t pg str brk blk=
     fun printTerms [] = str ""
     |   printTerms [x] = sys (Top,pg,pg) (d-1) x
     |   printTerms (x::xs) = sys (Top,pg,pg) (d-1) x >> str ",">> (printTerms xs);
-    val (ty,ls) = strip_comb (rand l);
-    val ctor =
-      if (term_to_string ty = "Short") then
-        toString(hd ls)
-      else (case ls of [l,r] => (toString l)^"."^(toString(rand r)))
-    (*Properly handle LONG names*)
+    val printCtor = sys (Top,Top,Top) d (rand l)
   in
-    case args of [] => str ctor
-    | _ => m_brack str pg (str ctor >> str "(">>
+    case args of [] => printCtor
+    | _ => m_brack str pg (printCtor >> str "(">>
            (blk INCONSISTENT 0 (printTerms args)) >>str ")")
   end;
 
@@ -509,10 +548,9 @@ val _=add_astPP ("varshortprint", ``(Short x)``,genPrint varShortPrint);
 
 (*Long Var name*)
 fun varLongPrint sys d t pg str brk blk =
-  let val (_,[l,sr]) = strip_comb t
-      val r = rand sr;
+  let val (_,[module_name,rest]) = strip_comb t
   in
-    str (toString l)>> str".">>str(toString r)
+    str (toString module_name) >> str "." >> sys (Top,Top,Top) d rest
   end;
 
 val _=add_astPP ("varlongprint", ``(Long x y)``,genPrint varLongPrint);
@@ -521,18 +559,6 @@ fun varPrint sys d t pg str brk blk =
   sys (pg,pg,pg) d (strip t)
 
 val _=add_astPP ("varprint", ``Var x``,genPrint varPrint);
-
-(*Long Var name*)
-fun varLongPrint sys d t pg str brk blk =
-  let val t = rand t
-      val (_,[l,sr]) = strip_comb t
-      val r = rand sr;
-  in
-    str (toString l)>> str".">>str(toString r)
-  end;
-
-val _=add_astPP ("varlongprint", ``(Long x y)``,genPrint varLongPrint);
-
 
 (*Matching*)
 fun matPrint sys d t pg str brk blk=

@@ -842,12 +842,11 @@ Proof
   \\ fs[PULL_EXISTS]
   >- (
     every_case_tac \\ fs[]
-    \\ drule (CONJUNCT2 infer_d_sound)
-    \\ disch_then (resolve_then Any mp_tac env_rel_init_config)
-    \\ impl_tac>- simp[]
+    \\ drule (CONJUNCT2 infer_d_sound_canonical)
+    \\ impl_tac >- simp [ienv_ok_init_config]
     \\ strip_tac
     \\ rveq
-    \\ simp[ienv_to_tenv_extend,ienv_to_tenv_init_config]
+    \\ fs[ienv_to_tenv_extend,ienv_to_tenv_init_config]
     \\ irule_at Any repl_types_TS_init
     \\ simp[]
     \\ rpt (CONJ_TAC >- EVAL_TAC)
@@ -864,12 +863,11 @@ Proof
     \\ `∃tys id. A = (tys,id)` by metis_tac[PAIR]
     \\ rw[] \\ fs[infertype_prog_inc_def]
     \\ every_case_tac \\ fs[]
-    \\ drule (CONJUNCT2 infer_d_sound)
-    \\ disch_then(qspec_then `ienv_to_tenv tys` mp_tac)
+    \\ drule (CONJUNCT2 infer_d_sound_canonical)
     \\ impl_tac >- (
       drule repl_types_next_id
       \\ simp[init_infer_state_def]
-      \\ metis_tac[repl_types_ienv_ok, env_rel_ienv_to_tenv,FST])
+      \\ metis_tac[repl_types_ienv_ok,FST])
     \\ strip_tac
     \\ imp_res_tac (CONJUNCT2 infer_d_next_id_mono)
     \\ drule repl_types_next_id
@@ -887,12 +885,11 @@ Proof
     \\ `∃tys id. A = (tys,id)` by metis_tac[PAIR]
     \\ rw[] \\ fs[infertype_prog_inc_def]
     \\ fs[CaseEqs["exc","prod"]] \\ rveq
-    \\ drule (CONJUNCT2 infer_d_sound)
-    \\ disch_then(qspec_then `ienv_to_tenv tys` mp_tac)
+    \\ drule (CONJUNCT2 infer_d_sound_canonical)
     \\ impl_tac >- (
       drule repl_types_next_id
       \\ simp[init_infer_state_def]
-      \\ metis_tac[repl_types_ienv_ok, env_rel_ienv_to_tenv,FST])
+      \\ metis_tac[repl_types_ienv_ok,FST])
     \\ strip_tac
     \\ imp_res_tac (CONJUNCT2 infer_d_next_id_mono)
     \\ drule repl_types_next_id
@@ -911,12 +908,11 @@ Proof
     \\ `∃tys id. A = (tys,id)` by metis_tac[PAIR]
     \\ rw[] \\ fs[infertype_prog_inc_def]
     \\ fs[CaseEqs["exc","prod"]] \\ rveq
-    \\ drule (CONJUNCT2 infer_d_sound)
-    \\ disch_then(qspec_then `ienv_to_tenv tys` mp_tac)
+    \\ drule (CONJUNCT2 infer_d_sound_canonical)
     \\ impl_tac >- (
       drule repl_types_next_id
       \\ simp[init_infer_state_def]
-      \\ metis_tac[repl_types_ienv_ok, env_rel_ienv_to_tenv,FST])
+      \\ metis_tac[repl_types_ienv_ok,FST])
     \\ strip_tac
     \\ simp[ienv_to_tenv_extend]
     \\ drule_then drule repl_types_TS_exn_assign
@@ -954,12 +950,11 @@ Proof
   \\ qpat_x_assum`_ = M_success _` mp_tac
   \\ simp[infertype_prog_inc_def]
   \\ every_case_tac \\ simp[]
-  \\ drule (CONJUNCT2 infer_d_sound)
-  \\ disch_then(qspec_then `ienv_to_tenv tys` mp_tac)
+  \\ drule (CONJUNCT2 infer_d_sound_canonical)
   \\ impl_tac >- (
     drule repl_types_next_id
     \\ simp[init_infer_state_def]
-    \\ metis_tac[repl_types_ienv_ok, env_rel_ienv_to_tenv,FST])
+    \\ metis_tac[repl_types_ienv_ok,FST])
   \\ strip_tac
   \\ strip_tac
   \\ `FST A = tys` by fs[]
