@@ -3573,7 +3573,9 @@ Proof
 QED
 
 Definition install_jump_ag32_code_def:
-  install_jump_ag32_code = [Encode (Jump (fSnd, 0w, Reg 0w)); 0w; 0w; 0w]
+  install_jump_ag32_code =
+    [Encode (Normal (fSnd, 1w, Imm 0w, Reg 3w));
+     Encode (Jump (fSnd, 0w, Reg 0w)); 0w; 0w]
 End
 
 Definition halt_jump_ag32_code_def:

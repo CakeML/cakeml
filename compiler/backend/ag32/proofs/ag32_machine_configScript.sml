@@ -38,7 +38,8 @@ End
 Definition ag32_install_interfer_def:
   ag32_install_interfer num_ffis (_,ms) =
     ms with <| PC := (ms.R 0w) ;
-               R := (0w =+ n2w (ffi_jumps_offset + num_ffis * ffi_offset + 4)) ms.R |>
+               R := (0w =+ n2w (ffi_jumps_offset + num_ffis * ffi_offset + 8))
+                      ((1w =+ ms.R 3w) ms.R) |>
 End
 
 Definition ag32_ffi_mem_update_def:

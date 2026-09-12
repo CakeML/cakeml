@@ -143,9 +143,9 @@ Overload nxt = ``λmc n ms. FUNPOW mc.target.next n ms``
 
 Definition interference_implemented_def:
   interference_implemented mc ffi_rel md ms0 ⇔
-    ∃next_interfer ccache_interfer ffi_interfer.
+    ∃next_interfer install_interfer ffi_interfer.
     (∀n. mc.next_interfer n = next_interfer) ∧
-    (∀n. mc.ccache_interfer n = ccache_interfer) ∧
+    (∀n. mc.install_interfer n = install_interfer) ∧
     (∀n. mc.ffi_interfer n = ffi_interfer) ∧
     ∀ms k0.
       (ms = FUNPOW mc.target.next k0 ms0) ∧
@@ -165,20 +165,19 @@ Definition interference_implemented_def:
             (∀x. x ∉ md ∨ x ∈ mc.prog_addresses DIFF set mc.ffi_entry_pcs ⇒
                   (mc.target.get_byte (FUNPOW mc.target.next k (mc.target.next ms)) x =
                    mc.target.get_byte (mc.target.next ms) x))) ∧
-      ((mc.target.get_pc ms = mc.ccache_pc) ⇒
-        ∃k. (ccache_interfer
-             (mc.target.get_reg ms mc.ptr_reg,
-              mc.target.get_reg ms mc.len_reg,ms)
-             = FUNPOW mc.target.next k ms) ∧
-            (ffi_rel ms =
-             ffi_rel (FUNPOW mc.target.next k ms)) ∧
-            (∀x. x ∉ md ∨ x ∈ mc.prog_addresses ⇒
-              (mc.target.get_byte (FUNPOW mc.target.next k ms) x =
-               mc.target.get_byte ms x))) ∧
+      ((mc.target.get_pc ms = mc.install_pc) ⇒
+        ∀bytes.
+          read_ffi_bytearray mc mc.ptr_reg mc.len_reg ms = SOME bytes ⇒
+          ∃k. (install_interfer (bytes,ms) = FUNPOW mc.target.next k ms) ∧
+              (ffi_rel ms =
+               ffi_rel (FUNPOW mc.target.next k ms)) ∧
+              (∀x. x ∉ md ∨ x ∈ mc.prog_addresses ⇒
+                (mc.target.get_byte (FUNPOW mc.target.next k ms) x =
+                 mc.target.get_byte ms x))) ∧
       ∀ffi ffi_index bytes bytes2 new_ffi new_bytes.
   (mc.target.get_pc ms ∉ mc.prog_addresses DIFF set mc.ffi_entry_pcs) ∧
           (find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME ffi_index) ∧
-          (mc.target.get_pc ms ≠ mc.ccache_pc) ∧
+          (mc.target.get_pc ms ≠ mc.install_pc) ∧
           (read_ffi_bytearrays mc ms = (SOME bytes, SOME bytes2)) ∧
           (call_FFI ffi (EL ffi_index mc.ffi_names) bytes bytes2 =
             FFI_return new_ffi new_bytes) ∧
@@ -197,7 +196,7 @@ End
 Theorem evaluate_Halt_FUNPOW_next:
    ∀mc (ffi:'ffi ffi_state) k ms t ms' ffi'.
   interference_implemented mc ffi_rel md ms ∧ ffi_rel ms ffi ∧
-  ¬ MEM mc.ccache_pc mc.ffi_entry_pcs ∧
+  ¬ MEM mc.install_pc mc.ffi_entry_pcs ∧
   EVERY (λx. ∃s. x = ExtCall s) mc.ffi_names ∧
   LENGTH mc.ffi_entry_pcs ≤ LENGTH mc.ffi_names ∧
    (evaluate mc ffi k ms = (Halt t, ms', ffi')) ⇒
@@ -215,7 +214,7 @@ Proof
   \\ strip_tac
   \\ pop_assum mp_tac
   \\ simp[Once targetSemTheory.evaluate_def]
-  \\ fs[CaseEq"bool",targetSemTheory.apply_oracle_def,shift_seq_def]
+  \\ fs[CaseEq"bool",CaseEq"option",targetSemTheory.apply_oracle_def,shift_seq_def]
   \\ strip_tac \\ fs[GSYM lab_to_targetProofTheory.not_Sh_Ext] \\ rw[]
   \\ TRY (qexists_tac`0` \\ simp[] \\ NO_TAC)
    >- (
@@ -257,6 +256,8 @@ Proof
         \\ first_assum(qspec_then`0`mp_tac)
         \\ impl_tac >- fs[]
         \\ disch_then(mp_tac o CONJUNCT1 o CONJUNCT2)
+        \\ impl_tac >- fs[]
+        \\ disch_then(qspec_then`bytes`mp_tac)
         \\ impl_tac >- fs[]
         \\ disch_then(qx_choose_then`k1`strip_assume_tac)
         \\ fs[GSYM FUNPOW_ADD] \\ rw[]
@@ -348,7 +349,7 @@ QED
 Theorem machine_sem_Terminate_FUNPOW_next:
    interference_implemented mc ffi_rel md ms ∧
    (ffi_rel ms st) ∧
-   ¬ MEM mc.ccache_pc mc.ffi_entry_pcs ∧
+   ¬ MEM mc.install_pc mc.ffi_entry_pcs ∧
    EVERY (λx. ∃s. x = ExtCall s) mc.ffi_names ∧
    LENGTH mc.ffi_entry_pcs ≤ LENGTH mc.ffi_names ∧
    machine_sem mc (st:'ffi ffi_state) ms (Terminate t io_events) ⇒
@@ -6420,14 +6421,14 @@ Proof
     )
 
   \\ conj_tac >- (
-    rw[targetSemTheory.ccache_interfer_ok_def, ag32_machine_config_def,
-       lab_to_targetTheory.ffi_offset_def, ag32_ccache_interfer_def,
+    rw[targetSemTheory.install_interfer_ok_def, ag32_machine_config_def,
+       lab_to_targetTheory.ffi_offset_def, ag32_install_interfer_def,
        heap_size_def, EVAL``ag32_target.config``]
     \\ fs[asmPropsTheory.target_state_rel_def]
     \\ fs[ag32_targetTheory.ag32_target_def]
     \\ fs[ag32_targetTheory.ag32_ok_def]
     \\ fs[ag32_targetTheory.ag32_config_def]
-    \\ simp[APPLY_UPDATE_THM] )
+    \\ simp[APPLY_UPDATE_THM, asm_write_bytearray_def] )
   \\ conj_asm1_tac >- (
     simp[targetSemTheory.code_loaded_def]
     \\ fs[asmPropsTheory.target_state_rel_def]
@@ -6908,6 +6909,149 @@ fun ffi_tac
   \\ Cases_on`x` \\ fs[word_add_n2w]
   \\ fs[word_ls_n2w, word_lo_n2w] \\ rfs[];
 
+Theorem init_memory_install_0[local]:
+   (pc = n2w (ffi_jumps_offset + (LENGTH f + 0) * ffi_offset)) ∧
+   LENGTH f ≤ LENGTH FFI_codes ∧
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size
+   ⇒
+   get_mem_word (init_memory c d f (cl,inp)) pc =
+   Encode (Normal (fSnd,1w,Imm 0w,Reg 3w))
+Proof
+  strip_tac
+  \\ mp_tac (Q.INST [`k` |-> `0`] (SPEC_ALL init_memory_install))
+  \\ simp[install_jump_ag32_code_def]
+QED
+
+Theorem init_memory_install_1[local]:
+   (pc = n2w (ffi_jumps_offset + (LENGTH f + 0) * ffi_offset)) ∧
+   LENGTH f ≤ LENGTH FFI_codes ∧
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size
+   ⇒
+   get_mem_word (init_memory c d f (cl,inp)) (pc + 4w) =
+   Encode (Jump (fSnd,0w,Reg 0w))
+Proof
+  strip_tac
+  \\ mp_tac (Q.INST [`k` |-> `1`] (SPEC_ALL init_memory_install))
+  \\ simp[install_jump_ag32_code_def]
+QED
+
+Theorem get_mem_word_change_mem_4[local]:
+   (∀j. j < 8 ⇒ m1 (pc + n2w j) = m2 (pc + n2w j)) ⇒
+   get_mem_word m1 (pc + 4w) = get_mem_word m2 (pc + 4w)
+Proof
+  strip_tac
+  \\ irule get_mem_word_change_mem
+  \\ rw[]
+  \\ `pc + n2w k + 4w = pc + n2w (k + 4)`
+  by (rewrite_tac[GSYM word_add_n2w] \\ CONV_TAC wordsLib.WORD_ARITH_CONV)
+  \\ pop_assum (rewrite_tac o single)
+  \\ first_x_assum irule
+  \\ simp[]
+QED
+
+Theorem get_mem_word_install_stub[local]:
+   (∀x. x ∉ ag32_ffi_mem_domain ∧
+        x ∉ (ag32_machine_config ffi_names (LENGTH code)
+               (LENGTH data)).prog_addresses ⇒
+        s.MEM x = ms.MEM x) ∧
+   (∀x. x ∉ ag32_startup_addresses ⇒ ms.MEM x = ms0.MEM x) ∧
+   is_ag32_init_state (init_memory code data ffi_names (cl,inp)) ms0 ∧
+   4 * LENGTH data + (LENGTH code + code_start_offset (LENGTH ffi_names)) <
+     memory_size ∧
+   LENGTH ffi_names ≤ LENGTH FFI_codes ∧
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size
+   ⇒
+   get_mem_word s.MEM
+     (ag32_machine_config ffi_names (LENGTH code) (LENGTH data)).install_pc =
+     Encode (Normal (fSnd,1w,Imm 0w,Reg 3w)) ∧
+   get_mem_word s.MEM
+     ((ag32_machine_config ffi_names (LENGTH code)
+         (LENGTH data)).install_pc + 4w) =
+     Encode (Jump (fSnd,0w,Reg 0w))
+Proof
+  strip_tac
+  \\ qmatch_goalsub_abbrev_tac`get_mem_word _ pc`
+  \\ `∀j. j < 8 ⇒
+        s.MEM (pc + n2w j) =
+        init_memory code data ffi_names (cl,inp) (pc + n2w j)`
+  by (
+    rpt strip_tac
+    \\ qpat_assum`∀x. _ ∉ ag32_ffi_mem_domain ∧ _ ⇒ _`
+         (qspec_then`pc + n2w j`mp_tac)
+    \\ impl_tac >- (
+      simp[Abbr`pc`]
+      \\ qpat_x_assum`_ < memory_size`mp_tac \\ EVAL_TAC
+      \\ fs[FFI_codes_def, word_ls_n2w, word_lo_n2w, word_add_n2w])
+    \\ qpat_assum`∀x. _ ∉ ag32_startup_addresses ⇒ _`
+         (qspec_then`pc + n2w j`mp_tac)
+    \\ impl_tac >- (
+      simp[Abbr`pc`]
+      \\ qpat_x_assum`_ < memory_size`mp_tac \\ EVAL_TAC
+      \\ fs[FFI_codes_def, word_ls_n2w, word_lo_n2w, word_add_n2w])
+    \\ fs[is_ag32_init_state_def])
+  \\ `get_mem_word s.MEM pc =
+      get_mem_word (init_memory code data ffi_names (cl,inp)) pc`
+  by (
+    irule get_mem_word_change_mem
+    \\ rw[] \\ first_x_assum irule \\ simp[])
+  \\ `get_mem_word s.MEM (pc + 4w) =
+      get_mem_word (init_memory code data ffi_names (cl,inp)) (pc + 4w)`
+  by (irule get_mem_word_change_mem_4 \\ first_assum ACCEPT_TAC)
+  \\ ntac 2 (pop_assum (rewrite_tac o single))
+  \\ DEP_REWRITE_TAC[init_memory_install_0, init_memory_install_1]
+  \\ simp[Abbr`pc`] \\ EVAL_TAC \\ simp[]
+QED
+
+(* the install stub moves ptr2_reg into ptr_reg and then returns through the
+   link register, so it takes two steps rather than one *)
+Theorem install_jump_ag32_code_thm:
+   aligned 2 s.PC ∧
+   get_mem_word s.MEM s.PC = Encode (Normal (fSnd,1w,Imm 0w,Reg 3w)) ∧
+   get_mem_word s.MEM (s.PC + 4w) = Encode (Jump (fSnd,0w,Reg 0w))
+   ⇒
+   FUNPOW Next 2 s =
+     s with <| PC := s.R 0w ; R := s.R⦇ 0w ↦ s.PC + 8w ; 1w ↦ s.R 3w ⦈ |>
+Proof
+  strip_tac
+  \\ rewrite_tac[DECIDE``2n = SUC 1``, FUNPOW_SUC, FUNPOW_1]
+  \\ `Next s = s with <| PC := s.PC + 4w ; R := s.R⦇ 1w ↦ s.R 3w ⦈ |>`
+  by (
+    simp[ag32Theory.Next_def]
+    \\ qmatch_goalsub_abbrev_tac`v + 2w`
+    \\ `v = s.PC` by (
+      simp[Abbr`v`]
+      \\ qpat_x_assum`aligned 2 s.PC`mp_tac
+      \\ simp[alignmentTheory.aligned_extract]
+      \\ blastLib.BBLAST_TAC )
+    \\ qpat_x_assum`Abbrev(v = _)`kall_tac
+    \\ pop_assum SUBST_ALL_TAC
+    \\ qpat_x_assum`get_mem_word s.MEM s.PC = _`mp_tac
+    \\ simp[get_mem_word_def]
+    \\ disch_then (rewrite_tac o single)
+    \\ simp[ag32_targetProofTheory.Decode_Encode]
+    \\ simp[ag32Theory.Run_def, ag32Theory.dfn'Normal_def, ag32Theory.norm_def,
+            ag32Theory.ALU_def, ag32Theory.ri2word_def, ag32Theory.incPC_def] )
+  \\ pop_assum (rewrite_tac o single)
+  \\ simp[ag32Theory.Next_def]
+  \\ qmatch_goalsub_abbrev_tac`v + 2w`
+  \\ `v = s.PC + 4w` by (
+    simp[Abbr`v`]
+    \\ qpat_x_assum`aligned 2 s.PC`mp_tac
+    \\ simp[alignmentTheory.aligned_extract]
+    \\ blastLib.BBLAST_TAC )
+  \\ qpat_x_assum`Abbrev(v = _)`kall_tac
+  \\ pop_assum SUBST_ALL_TAC
+  \\ qpat_x_assum`get_mem_word s.MEM (s.PC + 4w) = _`mp_tac
+  \\ simp[get_mem_word_def]
+  \\ disch_then (rewrite_tac o single)
+  \\ simp[ag32_targetProofTheory.Decode_Encode]
+  \\ simp[ag32Theory.Run_def, ag32Theory.dfn'Jump_def, ag32Theory.ALU_def,
+          ag32Theory.ri2word_def, APPLY_UPDATE_THM]
+  \\ simp[ag32Theory.ag32_state_component_equality, FUN_EQ_THM,
+          APPLY_UPDATE_THM]
+  \\ rw[] \\ rw[]
+QED
+
 Theorem ag32_interference_implemented:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
@@ -7076,14 +7220,12 @@ Proof
     \\ rw[Abbr`a`,word_add_n2w])
   \\ conj_tac
   >- (
-    strip_tac
-    \\ qexists_tac`1`
-    \\ simp[ag32_ccache_interfer_def]
+    rpt strip_tac
+    \\ qexists_tac`2`
+    \\ simp[ag32_install_interfer_def]
     \\ conj_asm1_tac
     >- (
-      simp[ag32Theory.Next_def]
-      \\ qmatch_goalsub_abbrev_tac`pc' + 2w`
-      \\ qmatch_asmsub_abbrev_tac`_.PC = pc`
+      qmatch_asmsub_abbrev_tac`_.PC = pc`
       \\ `aligned 2 pc`
       by (
         simp[Abbr`pc`, ag32_machine_config_def, GSYM word_add_n2w]
@@ -7093,71 +7235,20 @@ Proof
         \\ conj_tac >- EVAL_TAC
         \\ simp[GSYM addressTheory.ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w]
         \\ EVAL_TAC \\ simp[] )
-      \\ `pc = pc'`
+      \\ `get_mem_word (FUNPOW Next k0 ms).MEM pc =
+            Encode (Normal (fSnd,1w,Imm 0w,Reg 3w)) ∧
+          get_mem_word (FUNPOW Next k0 ms).MEM (pc + 4w) =
+            Encode (Jump (fSnd,0w,Reg 0w))`
       by (
-        pop_assum mp_tac
-        \\ unabbrev_all_tac
-        \\ simp[alignmentTheory.aligned_extract]
-        \\ blastLib.BBLAST_TAC )
-      \\ qpat_x_assum`Abbrev(pc' = _)` kall_tac
-      \\ pop_assum (SUBST_ALL_TAC o SYM)
-      \\ first_assum(qspec_then`pc`mp_tac)
-      \\ impl_tac >- (
         simp[Abbr`pc`]
-        \\ qpat_x_assum`_ < memory_size`mp_tac \\ EVAL_TAC
-        \\ fs[FFI_codes_def, word_ls_n2w, word_lo_n2w])
-      \\ first_assum(qspec_then`pc + 1w`mp_tac)
-      \\ impl_tac >- (
-        simp[Abbr`pc`]
-        \\ qpat_x_assum`_ < memory_size`mp_tac \\ EVAL_TAC
-        \\ fs[FFI_codes_def, word_ls_n2w, word_lo_n2w])
-      \\ first_assum(qspec_then`pc + 2w`mp_tac)
-      \\ impl_tac >- (
-        simp[Abbr`pc`]
-        \\ qpat_x_assum`_ < memory_size`mp_tac \\ EVAL_TAC
-        \\ fs[FFI_codes_def, word_ls_n2w, word_lo_n2w])
-      \\ first_assum(qspec_then`pc + 3w`mp_tac)
-      \\ impl_tac >- (
-        simp[Abbr`pc`]
-        \\ qpat_x_assum`_ < memory_size`mp_tac \\ EVAL_TAC
-        \\ fs[FFI_codes_def, word_ls_n2w, word_lo_n2w])
+        \\ irule get_mem_word_install_stub
+        \\ simp[]
+        \\ metis_tac[] )
+      \\ mp_tac (Q.INST [`s` |-> `FUNPOW Next k0 ms`] install_jump_ag32_code_thm)
+      \\ qpat_assum`_.PC = pc`(rewrite_tac o single)
       \\ simp[]
-      \\ ntac 4 (disch_then kall_tac)
-      \\ last_assum(qspec_then`pc`mp_tac)
-      \\ impl_tac >- (
-        simp[Abbr`pc`]
-        \\ qpat_x_assum`_ < memory_size`mp_tac \\ EVAL_TAC
-        \\ fs[FFI_codes_def, word_ls_n2w, word_lo_n2w])
-      \\ last_assum(qspec_then`pc + 1w`mp_tac)
-      \\ impl_tac >- (
-        simp[Abbr`pc`]
-        \\ qpat_x_assum`_ < memory_size`mp_tac \\ EVAL_TAC
-        \\ fs[FFI_codes_def, word_ls_n2w, word_lo_n2w])
-      \\ last_assum(qspec_then`pc + 2w`mp_tac)
-      \\ impl_tac >- (
-        simp[Abbr`pc`]
-        \\ qpat_x_assum`_ < memory_size`mp_tac \\ EVAL_TAC
-        \\ fs[FFI_codes_def, word_ls_n2w, word_lo_n2w])
-      \\ last_assum(qspec_then`pc + 3w`mp_tac)
-      \\ impl_tac >- (
-        simp[Abbr`pc`]
-        \\ qpat_x_assum`_ < memory_size`mp_tac \\ EVAL_TAC
-        \\ fs[FFI_codes_def, word_ls_n2w, word_lo_n2w])
-      \\ simp[]
-      \\ ntac 4 (disch_then kall_tac)
-      \\ fs[is_ag32_init_state_def]
-      \\ simp[GSYM get_mem_word_def]
-      \\ DEP_REWRITE_TAC[init_memory_install]
-      \\ conj_tac
-      >- ( simp[Abbr`pc`] \\ EVAL_TAC \\ simp[])
-      \\ simp[ag32_targetProofTheory.Decode_Encode]
-      \\ simp[ag32Theory.Run_def]
-      \\ simp[ag32Theory.dfn'Jump_def]
-      \\ simp[ag32Theory.ALU_def]
-      \\ simp[ag32Theory.ri2word_def]
-      \\ rpt(AP_TERM_TAC ORELSE AP_THM_TAC)
-      \\ simp[Abbr`pc`]
-      \\ EVAL_TAC \\ fs[FFI_codes_def])
+      \\ disch_then (rewrite_tac o single)
+      \\ simp[Abbr`pc`, ag32_machine_config_def, word_add_n2w])
     \\ pop_assum(SUBST_ALL_TAC o SYM)
     \\ conj_tac >- simp[ag32_ffi_rel_def,FUN_EQ_THM]
     \\ simp[] )

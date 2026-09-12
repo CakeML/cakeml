@@ -998,6 +998,7 @@ Definition state_rel_def:
     (∀ms2 t1 k bytes.
       (mc_conf.prog_addresses = t1.mem_domain) ∧
       read_ffi_bytearray mc_conf mc_conf.ptr_reg mc_conf.len_reg ms2 = SOME bytes ∧
+      LENGTH bytes ≤ s1.code_buffer.space_left ∧
       target_state_rel mc_conf.target
         (t1 with pc := p - n2w ((2 * ffi_offset))) ms2 /\
       aligned mc_conf.target.config.code_alignment (t1.regs s1.link_reg) ⇒
@@ -8869,6 +8870,7 @@ Resume compile_correct[Install]:
     \\ first_x_assum irule
     \\ conj_tac >- first_assum ACCEPT_TAC
     \\ conj_tac >- first_assum ACCEPT_TAC
+    \\ conj_tac >- first_assum ACCEPT_TAC
     \\ conj_tac
     >- (
       qpat_x_assum `∀r. word_loc_val p labs (read_reg r s1) = SOME (t1.regs r)`
@@ -10221,7 +10223,7 @@ Resume IMP_state_rel_make_init[ISR3]:
                                   LET_THM,UPDATE_COND_PUSH]
               install_interfer_ok_post_install_asm)
   \\ simp[]
-  \\ qexists_tac `mc_conf.target.get_pc ms`
+  \\ qexistsl_tac [`cbspace`,`mc_conf.target.get_pc ms`]
   \\ simp[]
 QED
 

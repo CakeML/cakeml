@@ -724,10 +724,11 @@ QED
 Theorem init_memory_install:
    (pc = n2w (ffi_jumps_offset + (LENGTH f + 0) * ffi_offset)) ∧
    LENGTH f ≤ LENGTH FFI_codes ∧
-   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size ∧
+   k < LENGTH install_jump_ag32_code
   ⇒
-   (get_mem_word (init_memory c d f (cl,inp)) pc =
-    Encode (Jump (fSnd, 0w, Reg 0w)))
+   (get_mem_word (init_memory c d f (cl,inp)) (pc + n2w (4 * k)) =
+    EL k install_jump_ag32_code)
 Proof
   simp[FFI_codes_def]
   \\ strip_tac
@@ -740,7 +741,7 @@ Proof
   \\ rewrite_tac[APPEND_ASSOC]
   \\ qmatch_goalsub_abbrev_tac`ll ++ ls ++ lr`
   \\ strip_tac
-  \\ qspecl_then[`init_memory c d f (cl,inp)`,`0`]mp_tac(Q.GENL[`m`,`k`,`off`]get_mem_word_get_byte)
+  \\ qspecl_then[`init_memory c d f (cl,inp)`,`k`]mp_tac(Q.GENL[`m`,`k`,`off`]get_mem_word_get_byte)
   \\ simp[]
   \\ `4 * LENGTH ll = w2n pc`
   by (
@@ -773,16 +774,24 @@ Proof
     simp[MAP_REVERSE,SUM_REVERSE,Abbr`pc`]>>
     simp[mk_jump_ag32_code_def,Q.ISPEC`λx. 4n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]>>
     EVAL_TAC>>rfs[])
+  \\ `pc + n2w (4 * k) = n2w (4 * (k + LENGTH ll))`
+  by (
+    rewrite_tac[LEFT_ADD_DISTRIB, GSYM word_add_n2w]
+    \\ qpat_x_assum`4 * LENGTH ll = w2n pc` (rewrite_tac o single)
+    \\ rewrite_tac[n2w_w2n]
+    \\ CONV_TAC wordsLib.WORD_ARITH_CONV )
+  \\ pop_assum (rewrite_tac o single)
   \\ impl_tac
   >- (
     simp[init_memory_def, Abbr`ls`]
     \\ EVAL_TAC
     \\ reverse conj_asm1_tac
     >- decide_tac
-    \\ simp[Abbr`pc`]
+    \\ `k < 4` by fs[install_jump_ag32_code_def]
+    \\ simp[LEFT_ADD_DISTRIB, Abbr`pc`]
     \\ EVAL_TAC
     \\ simp[] )
-  \\ simp[Abbr`ls`, install_jump_ag32_code_def]
+  \\ simp[Abbr`ls`]
 QED
 
 Theorem init_memory_startup_bytes_in_memory:

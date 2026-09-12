@@ -1303,9 +1303,10 @@ Proof
 QED
 
 Theorem install_interfer_ok_post_install_asm:
-  install_interfer_ok pc mc_conf ∧
+  install_interfer_ok pc cbspace mc_conf ∧
   mc_conf.prog_addresses = t1.mem_domain ∧
   read_ffi_bytearray mc_conf mc_conf.ptr_reg mc_conf.len_reg ms2 = SOME bytes ∧
+  LENGTH bytes ≤ cbspace ∧
   target_state_rel mc_conf.target
     (t1 with pc := -n2w (2 * ffi_offset) + pc) ms2 ∧
   aligned mc_conf.target.config.code_alignment

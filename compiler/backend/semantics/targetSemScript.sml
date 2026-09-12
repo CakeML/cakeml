@@ -367,12 +367,22 @@ End
 
 (* install_interfer_ok: an install transition must satisfy the same
    per-call promises as FFIs, except it additionally sets the return
-   value in ptr_reg to ptr2_reg (the destination register) *)
+   value in ptr_reg to ptr2_reg (the destination register).
+   The array is no longer than cbspace, the code buffer space the machine
+   was initialised with: code_buffer_install refuses a longer one, and the
+   remaining space only ever shrinks.
+   Two obligations on an implementation of this transition. The copy has
+   memmove semantics rather than memcpy: the destination must end up holding
+   the bytes as they read before the transition, whether or not the two
+   regions overlap. And any scratch memory it uses must lie outside
+   mc_conf.prog_addresses, since the memory clause pins every address of the
+   domain. *)
 Definition install_interfer_ok_def:
-  install_interfer_ok pc mc_conf ⇔
+  install_interfer_ok pc cbspace mc_conf ⇔
     (!ms2 t1 k bytes.
        mc_conf.prog_addresses = t1.mem_domain /\
        read_ffi_bytearray mc_conf mc_conf.ptr_reg mc_conf.len_reg ms2 = SOME bytes /\
+       LENGTH bytes ≤ cbspace /\
        target_state_rel mc_conf.target
          (t1 with
           pc := -n2w (2 * ffi_offset) + pc)
@@ -447,7 +457,7 @@ Definition good_init_state_def:
 
     interference_ok mc_conf.next_interfer (mc_conf.target.proj mc_conf.prog_addresses) /\
     ffi_interfer_ok t.pc mc_conf ∧
-    install_interfer_ok t.pc mc_conf ∧
+    install_interfer_ok t.pc cbspace mc_conf ∧
 
     (* code memory relation *)
     code_loaded bytes mc_conf ms /\
