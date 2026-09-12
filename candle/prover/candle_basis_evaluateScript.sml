@@ -50,7 +50,8 @@ Theorem simple_exp_simps[simp] =
     “simple_exp (Let opt x y)”,
     “simple_exp (Letrec f x)”,
     “simple_exp (Tannot e t)”,
-    “simple_exp (Lannot e l)”]
+    “simple_exp (Lannot e l)”,
+    ``simple_exp (Open path e)``]
   |> map (SIMP_CONV (srw_ss()) [simple_exp_def])
   |> map (SIMP_RULE (srw_ss()) [GSYM simple_exp_def, SF ETA_ss])
   |> LIST_CONJ;
@@ -85,6 +86,7 @@ Theorem simple_dec_simps[simp] =
    “simple_dec (Dexn l n ts)”,
    “simple_dec (Dmod mn ds)”,
    “simple_dec (Dlocal ds1 ds2)”,
+   “simple_dec (Dopen l path)”,
    “simple_dec (Denv n)”]
   |> map (ONCE_REWRITE_CONV [simple_dec_def])
   |> map (SIMP_RULE (srw_ss()) [GSYM simple_dec_def, SF ETA_ss])
@@ -123,6 +125,25 @@ Proof
     drule_all_then assume_tac evaluate_post_state_mono \\ gs [])
   \\ gs [post_state_ok_def] \\ rw []
   \\ first_x_assum (drule_all_then assume_tac) \\ gs []
+QED
+
+Theorem no_kernel_types_open_dec_env[local]:
+  (∀id len tag tn.
+    nsLookup env.c id = SOME (len, TypeStamp tag tn) ⇒
+    tn ∉ kernel_types) ∧
+  open_dec_env path env = SOME opened ⇒
+  ∀id len tag tn.
+    nsLookup opened.c id = SOME (len, TypeStamp tag tn) ⇒
+    tn ∉ kernel_types
+Proof
+  rw [open_dec_env_def]
+  \\ gvs [AllCaseEqs()]
+  \\ imp_res_tac nsLookup_after_nsOpen
+  \\ first_x_assum
+    (qspecl_then
+      [`mk_id (path ++ id_to_mods id) (id_to_n id)`, `len`, `tag`, `tn`]
+      mp_tac)
+  \\ gs []
 QED
 
 local
@@ -184,6 +205,7 @@ Proof
   >~ [`Dtype`] >- suspend "decs_Dtype"
   >~ [`Dtabbrev`] >- suspend "decs_Dtabbrev"
   >~ [`Denv`] >- suspend "decs_Denv"
+  >~ [`Dopen`] >- suspend "decs_Dopen"
   >~ [`Dexn`] >- suspend "decs_Dexn"
   >~ [`Dmod`] >- suspend "decs_Dmod"
   >~ [`Dlocal`] >- suspend "decs_Dlocal"
@@ -339,6 +361,19 @@ Resume evaluate_basis_v_ok[decs_Denv]:
   \\ fs [eval_state_ok_def,SF SFY_ss]
   \\ Cases \\ simp [ml_progTheory.nsLookup_nsBind_compute]
   \\ rw [] \\ gs [v_ok_def, env_ok_def, nat_to_v_def, SF SFY_ss]
+QED
+
+Resume evaluate_basis_v_ok[decs_Dopen]:
+  rw [evaluate_decs_def]
+  \\ Cases_on `open_dec_env path env`
+  \\ gvs []
+  \\ imp_res_tac env_ok_open_dec_env
+  \\ imp_res_tac no_kernel_types_open_dec_env
+  \\ gs [env_ok_extend_dec_env, extend_dec_env_def,
+         nsLookup_nsAppend_some, SF SFY_ss]
+  \\ rw []
+  \\ gs []
+  \\ metis_tac []
 QED
 
 Resume evaluate_basis_v_ok[decs_Dexn]:

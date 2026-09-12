@@ -117,6 +117,21 @@ Definition join_all_names_def:
     | _ => concat (join_all_names_aux xs [])
 End
 
+Definition extend_env_def:
+  extend_env e1 e2 =
+    <| v := nsAppend e1.v e2.v; c := nsAppend e1.c e2.c |>
+End
+
+Definition open_compile_env_def:
+  open_compile_env path (env:environment) =
+    case nsOpen path env.v of
+    | NONE => NONE
+    | SOME env_v =>
+      case nsOpen path env.c of
+      | NONE => NONE
+      | SOME env_c => SOME <|v := env_v; c := env_c|>
+End
+
 Definition compile_exp_def:
   (compile_exp (t:mlstring list) (env:environment) (Raise e) =
     Raise None (compile_exp t env e)) ∧
@@ -188,6 +203,10 @@ Definition compile_exp_def:
   (compile_exp t env (Tannot e _) = compile_exp t env e) ∧
   (* When encountering a Lannot, we update the trace we are passing *)
   (compile_exp t env (Lannot e (Locs st en)) = compile_exp t env e) ∧
+  (compile_exp t env (Open path e) =
+    case open_compile_env path env of
+    | NONE => Var_local None «» (* Unreachable for a well-typed open. *)
+    | SOME opened => compile_exp t (extend_env opened env) e) ∧
   (compile_exps t env [] = []) ∧
   (compile_exps t env (e::es) =
      compile_exp t env e :: compile_exps t env es) ∧
@@ -291,14 +310,11 @@ Definition empty_env_def:
   empty_env = <| v := nsEmpty; c := nsEmpty |>
 End
 
-Definition extend_env_def:
-  extend_env e1 e2 =
-    <| v := nsAppend e1.v e2.v; c := nsAppend e1.c e2.c |>
-End
 
 Definition lift_env_def:
   lift_env mn e = <| v := nsLift mn e.v; c := nsLift mn e.c |>
 End
+
 
 Datatype:
   next_indices = <| vidx : num; tidx : num; eidx : num |>
@@ -383,6 +399,10 @@ Definition compile_decs_def:
       <| v := nsEmpty; c := nsSing cn (next.eidx, NONE) |>,
       envs,
       [])) ∧
+  (compile_decs t n next env envs [Dopen locs path] =
+     case open_compile_env path env of
+     | NONE => (n, next, empty_env, envs, [])
+     | SOME opened => (n, next, opened, envs, [])) ∧
   (compile_decs t n next env envs [Dmod mn ds] =
      let (n', next', new_env, envs', ds') = compile_decs (mn::t) n next env envs ds in
        (n', next', (lift_env mn new_env), envs', ds')) ∧

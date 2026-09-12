@@ -362,6 +362,8 @@ Definition exp_to_display_def:
       [Tuple (fun_to_display_list fns);
        exp_to_display e]
   | Tannot e _ => Item NONE «Tannot» [exp_to_display e]
+  | Open path e =>
+      Item NONE «Open» [Tuple (MAP String path); exp_to_display e]
   | Lannot e _ => Item NONE «Lannot» [exp_to_display e]) ∧
   (exp_to_display_list [] = []) ∧
   (exp_to_display_list (x::xs) =
@@ -401,6 +403,7 @@ Definition source_to_display_dec_def:
                                    Tuple (source_to_display_dec_list ds)]
   | Dlocal xs ys => Item NONE «Dlocal» [Tuple (source_to_display_dec_list xs);
                                         Tuple (source_to_display_dec_list ys)]
+  | Dopen _ path => Item NONE «Dopen» [Tuple (MAP String path)]
   | Denv n => Item NONE «Denv» [String n])  ∧
   (source_to_display_dec_list [] = []) ∧
   (source_to_display_dec_list (x::xs) =

@@ -66,6 +66,15 @@ Proof
    ho_match_mp_tac evaluate_ind >>
    srw_tac[][small_eval_log, small_eval_if, small_eval_match, small_eval_lannot,
              small_eval_handle, small_eval_let, small_eval_letrec, small_eval_tannot, to_small_res_def, small_eval_raise]
+   >~ [`open_dec_env _ _ = SOME _`] >- (
+     fs [] >> irule small_eval_prefix >>
+     qexistsl_tac [`[]`, `e`, `extend_dec_env opened env`, `to_small_st s`] >>
+     simp [] >>
+     irule RTC_SINGLE >> simp [e_step_reln_def, e_step_def])
+   >~ [`open_dec_env _ _ = NONE`] >- (
+     rw [small_eval_def] >>
+     qexistsl_tac [`env`, `Exp (Open path e)`, `[]`] >>
+     simp [e_step_def])
    >- (srw_tac[][return_def, small_eval_def, Once RTC_CASES1, e_step_reln_def, e_step_def] >>
        metis_tac [RTC_REFL])
    >- (full_simp_tac(srw_ss())[small_eval_def] >>
@@ -1263,9 +1272,12 @@ Proof
   ho_match_mp_tac astTheory.dec_induction >> rw[] >>
   rw[Once evaluate_dec_cases, Once dec_diverges_cases, GSYM untyped_safety_exp] >>
   gvs[]
+  >~ [`open_dec_env _ _`] >- (
+    rename1 `open_dec_env path env` >>
+    Cases_on `open_dec_env path env` >> simp [])
   >- (
     Cases_on ‘ALL_DISTINCT (pat_bindings p) ∧
-              every_exp (one_con_check env.c) e’ >>
+              check_exp_constructors env.c e’ >>
     gvs[GSYM small_big_exp_equiv, to_small_st_def] >>
     eq_tac >- metis_tac[] >> rw[] >>
     PairCases_on ‘r’ >>
@@ -1392,7 +1404,12 @@ Theorem big_dec_to_small_dec:
     evaluate_decs ck env st ds r ⇒ ¬ck
   ⇒ small_eval_decs env st ds r)
 Proof
-  ho_match_mp_tac evaluate_dec_ind >> rw[small_eval_dec_def] >> gvs[]
+  ho_match_mp_tac evaluate_dec_ind >> rw[small_eval_dec_def] >>
+  gvs[]
+  >~ [`open_dec_env _ _ = SOME _`] >- (
+    irule RTC_SINGLE >> simp [SF decl_step_ss, collapse_env_def])
+  >~ [`open_dec_env _ _ = NONE`] >- (
+    irule_at Any RTC_REFL >> simp [SF decl_step_ss, collapse_env_def])
   >- (
     simp[Once RTC_CASES1, SF decl_step_ss] >>
     drule_all $ iffRL small_big_exp_equiv >> strip_tac >>
@@ -1722,6 +1739,9 @@ Theorem big_exp_to_small_exp_timeout_lemma:
           e_step_to_match env (to_small_st s) v pes (to_small_st s'))
 Proof
   ho_match_mp_tac evaluate_strongind >> rw[]
+  >~ [`open_dec_env _ _ = SOME _`] >- (
+    irule_at Any $ cj 2 RTC_rules >>
+    simp [e_step_reln_def, e_step_def, SF SFY_ss])
   >- ( (* Raise *)
     irule_at Any $ cj 2 RTC_rules >>
     simp[e_step_reln_def, e_step_def, push_def] >>
