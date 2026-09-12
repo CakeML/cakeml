@@ -143,6 +143,9 @@ val tytest = parsetest ``nType`` ``ptree_Type nType``
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
  *)
 
+val _ = parsetest0 ``nDecl`` ``ptree_Decl``
+  "fun f x : int = x + 1" (SOME “Dletrec locs [(«f», «x», Tannot (vbinop (Short «+») (V «x») (Lit (IntLit 1))) (Atapp [] (Short «int»)))]”)
+
 val _ = parsetest0 ``nE`` ``ptree_Expr nE``
          "let val _ = print \"foo\"\
             \ val z = 10\
