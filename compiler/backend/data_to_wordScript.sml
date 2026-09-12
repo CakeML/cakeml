@@ -1084,7 +1084,7 @@ End
 
 Definition Smallnum_def:
   Smallnum i =
-    if i < 0 then 0w - n2w (Num (4 * (0 - i))) else n2w (Num (4 * i))
+    if i < 0 then 0w - n2w (Num (2 * (0 - i))) else n2w (Num (2 * i))
 End
 
 Overload FALSE_CONST = ``Const (n2w 2:'a word)``
@@ -1175,8 +1175,8 @@ val def = assign_Define `
         (* bvl_to_bvi compilation ensures that all literal
            constants fit into a machine word *)
         if i < 0
-        then (Assign (adjust_var dest) (Const (0w - n2w (Num (4 * (0 - i))))),l)
-        else (Assign (adjust_var dest) (Const (n2w (Num (4 * i)))),l)
+        then (Assign (adjust_var dest) (Const (0w - n2w (Num (2 * (0 - i))))),l)
+        else (Assign (adjust_var dest) (Const (n2w (Num (2 * i)))),l)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
