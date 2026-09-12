@@ -193,7 +193,7 @@ Definition loc_row_def:
 End
 
 Definition skip_comment_def:
-  skip_comment "" _ _ = NONE ∧
+  skip_comment "" loc i = SOME (loc, i) ∧
   skip_comment (x::xs) loc i =
   (case x of
    | #"\n" => SOME (next_line loc, i + 1n)
