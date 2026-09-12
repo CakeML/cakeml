@@ -149,13 +149,14 @@ End
 Definition real_offset_def:
   (real_offset (conf:data_to_word$config) r): 'a wordLang$exp =
      Op Add [Const bytes_in_word;
-             if dimindex (:'a) = 32 then Var r else ShiftN Lsl (Var r) 1]
+             if dimindex (:'a) = 32 then ShiftN Lsl (Var r) 1
+                                    else ShiftN Lsl (Var r) 2]
 End
 
 Definition real_byte_offset_def:
   real_byte_offset r : 'a wordLang$exp =
     Op Add [Const bytes_in_word;
-            ShiftN Lsr (Var r) 2]
+            ShiftN Lsr (Var r) 1]
 End
 
 Datatype:
@@ -349,7 +350,7 @@ End
 
 Definition AllocVar_def:
   AllocVar c (limit:num) (names:num_set) =
-    list_Seq [Assign 1 (ShiftN Lsr (Var 1) 2);
+    list_Seq [Assign 1 (ShiftN Lsr (Var 1) 1);
               If Lower 1 (Imm (n2w limit))
                 (Assign 1 (ShiftN Lsl (Op Add [Var 1; Const 1w]) (shift (:'a))))
                 (Assign 1 (Const (-1w:'a word)));
@@ -363,7 +364,7 @@ End
 
 Definition MakeBytes_def:
   MakeBytes n =
-    list_Seq [Assign n (ShiftN Lsr (Var n) 2);
+    list_Seq [Assign n (ShiftN Lsr (Var n) 1);
               Assign n (Op Or [Var n; ShiftN Lsl (Var n) 8]);
               Assign n (Op Or [Var n; ShiftN Lsl (Var n) 16]);
               if dimindex (:'a) = 32 then Skip else
@@ -397,8 +398,8 @@ End
 Definition RefByte_code_def:
   RefByte_code c =
       let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
-      let h = Op Add [ShiftN Lsr (Var 2) 2; Const bytes_in_word] in
-      let x = SmallLsr h (dimindex (:'a) - 63) in
+      let h = Op Add [ShiftN Lsr (Var 2) 1; Const bytes_in_word] in
+      let x = SmallLsr h (shift (:'a) - 1) in
       let y = ShiftN Lsl h (dimindex (:'a) - shift (:'a) - c.len_size) in
         list_Seq
           [BignumHalt 2;
@@ -406,7 +407,7 @@ Definition RefByte_code_def:
            AllocVar c limit (fromList [();();()]);
            (* compute length *)
            Assign 5 (ShiftN Lsr h (shift (:'a)));
-           Assign 7 (ShiftN Lsl (Var 5) 2);
+           Assign 7 (ShiftN Lsl (Var 5) 1);
            Assign 9 (Lookup NextFree);
            (* adjust end of heap *)
            Assign 1 (Op Add [Var 9;
@@ -422,12 +423,12 @@ Definition RefByte_code_def:
            (* store header *)
            Store (Var 9) 5;
            (* write last word of byte array *)
-           Assign 11 (Op And [ShiftN Lsr (Var 2) 2;
+           Assign 11 (Op And [ShiftN Lsr (Var 2) 1;
                               Const (bytes_in_word - 1w)]);
            Assign 13 (Const 0w);
            Store (Var 1) 13;
            WriteLastBytes 1 4 11;
-           Assign 7 (Op Sub [Var 7; Const 4w]);
+           Assign 7 (Op Sub [Var 7; Const 2w]);
            (* write rest of byte array *)
            Call NONE (SOME Replicate_location)
              (* ret_loc, addr, v, n, ret_val *)
@@ -454,7 +455,7 @@ End
 Definition FromList_code_def:
   FromList_code c =
     let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
-    let h = ShiftN Lsl (Var 2) (dimindex (:'a) - c.len_size - 2) in
+    let h = ShiftN Lsl (Var 2) (dimindex (:'a) - c.len_size - 1) in
       If Equal 2 (Imm 0w)
         (list_Seq [Assign 6 (Op Add [Var 6; Const (2w:'a word)]);
                    Return 0 [6]])
@@ -463,7 +464,7 @@ Definition FromList_code_def:
            Assign 1 (Var 2); AllocVar c limit (fromList [();();()]);
            Assign 1 (Lookup NextFree);
            Assign 5 (Op Or [h; Const 3w; Var 6]);
-           Assign 7 (ShiftN Lsr (Var 2) 2);
+           Assign 7 (ShiftN Lsr (Var 2) 1);
            Assign 9 (ShiftN Lsr (Var 6) 4);
            Make_ptr_bits_code c 9 7 3;
            Call NONE (SOME FromList1_location) [0;1;4;2;3;5] NONE]):'a wordLang$prog
@@ -488,7 +489,7 @@ Definition FromList1_code_def:
             [Assign 4 (real_addr c 4);
              Assign 10 (Load (Op Add [Var 4; Const bytes_in_word]));
              Assign 4 (Load (Op Add [Var 4; Const (2w * bytes_in_word)]));
-             Assign 6 (Op Sub [Var 6; Const 4w]);
+             Assign 6 (Op Sub [Var 6; Const 2w]);
              Call NONE (SOME FromList1_location) [0;2;4;6;8;10] NONE])]
       :'a wordLang$prog
 End
@@ -496,7 +497,7 @@ End
 Definition RefArray_code_def:
   RefArray_code c =
         list_Seq
-          [Assign 1 (ShiftN Lsl (Op Add [(ShiftN Lsr (Var 2) 2); Const 1w])
+          [Assign 1 (ShiftN Lsl (Op Add [(ShiftN Lsr (Var 2) 1); Const 1w])
                       (shift (:'a)));
            Set TriggerGC (Op Sub [Lookup TriggerGC; Var 1]);
            Assign 1 (Op Sub [Lookup EndOfHeap; Var 1]);
@@ -506,7 +507,7 @@ Definition RefArray_code_def:
                (shift_length c − shift (:'a)); Const (1w:'a word)]);
            (* compute header *)
            Assign 5 (Op Or [ShiftN Lsl (Var 2)
-                              (dimindex (:'a) − c.len_size - 2);
+                              (dimindex (:'a) − c.len_size - 1);
                             Const (make_header c 2w 0)]);
            (* store header *)
            Store (Var 1) 5;
@@ -526,7 +527,7 @@ Definition Replicate_code_def:
     If Equal 6 (Imm 0w) (Return 0 [8])
       (list_Seq [Assign 2 (Op Add [Var 2; Const (bytes_in_word)]);
                  Store (Var 2) 4;
-                 Assign 6 (Op Sub [Var 6; Const 4w]);
+                 Assign 6 (Op Sub [Var 6; Const 2w]);
                  Call NONE (SOME Replicate_location) [0;2;4;6;8] NONE])
       :'a wordLang$prog
 End
@@ -535,11 +536,11 @@ Definition AddNumSize_def:
   AddNumSize c src =
     If Equal (adjust_var src) (Imm 0w) Skip
       (If Test (adjust_var src) (Imm 1w)
-         (Assign 1 (Op Add [Var 1; Const 4w]))
+         (Assign 1 (Op Add [Var 1; Const 2w]))
        (Assign 1 (Op Add [Var 1;
          (ShiftN Lsl (ShiftN Lsr
             (Load (real_addr c (adjust_var src)))
-               (dimindex (:'a) - c.len_size))) 2]))):'a wordLang$prog
+               (dimindex (:'a) - c.len_size))) 1]))):'a wordLang$prog
 End
 
 Definition AnyHeader_def:
@@ -561,12 +562,12 @@ Definition AnyHeader_def:
       (list_Seq
         [Set (Temp t1) (Const 2w);
          Set (Temp t2) (Lookup (if a then OtherHeap else NextFree));
-         Set (Temp t3) (ShiftN Lsr (Var r) 2);
+         Set (Temp t3) (ShiftN Lsr (Var r) 1);
          Assign 7 (Const 0w)])
       (list_Seq
         [Set (Temp t1) (Const 3w);
          Set (Temp t2) (Lookup (if a then OtherHeap else NextFree));
-         Set (Temp t3) (Op Sub [Const 0w; ShiftN Asr (Var r) 2]);
+         Set (Temp t3) (Op Sub [Const 0w; ShiftN Asr (Var r) 1]);
          Assign 7 (Const 0w)])))
 End
 
@@ -584,7 +585,7 @@ End
 Definition AnyArith_code_def:
   AnyArith_code c = list_Seq [
       (* perform allocation *)
-      Assign 1 (Const 4w);
+      Assign 1 (Const 2w);
       AddNumSize c 0;
       AddNumSize c 1;
       Set (Temp 29w) (Var 1);
@@ -599,7 +600,7 @@ Definition AnyArith_code_def:
       Get 1 (Temp 29w);
       Assign 2 (Lookup NextFree);
       Set (Temp 29w) (Var 2);
-      Set (Temp 3w) (ShiftN Lsr (Var 6) 2);
+      Set (Temp 3w) (ShiftN Lsr (Var 6) 1);
       Assign 3 (Const 0w);
       (* zero out result array *)
       Call (SOME ([0],(fromList [()],LN),Skip,AnyArith_location,2))
@@ -613,16 +614,16 @@ Definition AnyArith_code_def:
       If Test 1 (Reg 1) (Return 0 [1]) Skip;
       Assign 3 (Load (Op Add [Lookup NextFree; Const bytes_in_word]));
       If Equal 1 (Imm 2w)
-        (Seq (Assign 5 (ShiftN Lsr (Var 3) (dimindex (:'a) - 3)))
+        (Seq (Assign 5 (ShiftN Lsr (Var 3) (dimindex (:'a) - 2)))
              (If Test 5 (Reg 5)
-                (Seq (Assign 1 (ShiftN Lsl (Var 3) 2))
+                (Seq (Assign 1 (ShiftN Lsl (Var 3) 1))
                      (Return 0 [1]))
                 Skip))
         (If Equal 1 (Imm 3w)
           (Seq (Assign 5 (ShiftN Lsr (Op Sub [Var 3; Const 1w])
-                            (dimindex (:'a) - 3)))
+                            (dimindex (:'a) - 2)))
                (If Test 5 (Reg 5)
-                  (Seq (Assign 1 (Op Sub [Const 0w; ShiftN Lsl (Var 3) 2]))
+                  (Seq (Assign 1 (Op Sub [Const 0w; ShiftN Lsl (Var 3) 1]))
                        (Return 0 [1]))
                   Skip))
           (Assign 5 (Const 0w)));
@@ -642,31 +643,31 @@ Definition AnyArith_code_def:
 End
 
 Definition Add_code_def:
-  Add_code = Seq (Assign 6 (Const (n2w (4 * 0))))
+  Add_code = Seq (Assign 6 (Const (n2w (2 * 0))))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
              :'a wordLang$prog
 End
 
 Definition Sub_code_def:
-  Sub_code = Seq (Assign 6 (Const (n2w (4 * 1))))
+  Sub_code = Seq (Assign 6 (Const (n2w (2 * 1))))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
              :'a wordLang$prog
 End
 
 Definition Mul_code_def:
-  Mul_code = Seq (Assign 6 (Const (n2w (4 * 4))))
+  Mul_code = Seq (Assign 6 (Const (n2w (2 * 4))))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
              :'a wordLang$prog
 End
 
 Definition Div_code_def:
-  Div_code = Seq (Assign 6 (Const (n2w (4 * 5))))
+  Div_code = Seq (Assign 6 (Const (n2w (2 * 5))))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
              :'a wordLang$prog
 End
 
 Definition Mod_code_def:
-  Mod_code = Seq (Assign 6 (Const (n2w (4 * 6))))
+  Mod_code = Seq (Assign 6 (Const (n2w (2 * 6))))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
              :'a wordLang$prog
 End
@@ -909,14 +910,14 @@ Definition AppendLenLoop_code_def:
     If Test 2 (Imm 1w)
       (list_Seq
         [Assign 1 (Op Sub [Lookup TriggerGC; Lookup NextFree]);
-         Assign 1 (Op Add [Var 4; ShiftVar Lsr 1 (shift (:'a) - 2)]);
+         Assign 1 (Op Add [Var 4; ShiftVar Lsr 1 (shift (:'a) - 1)]);
          Assign 4 (Lookup (Temp 0w));
          Assign 2 (Lookup (Temp 1w));
          AllocVar c (dimword (:α) DIV 8 - 1) (fromList [();()]);
          Call NONE (SOME Append_location) [0; 4; 2] NONE])
       (list_Seq
         [Assign 2 (Load (Op Add [real_addr c 2; Const (2w * bytes_in_word)]));
-         Assign 4 (Op Add [Var 4; Const (12w:'a word)]);
+         Assign 4 (Op Add [Var 4; Const (6w:'a word)]);
          Call NONE (SOME AppendLenLoop_location) [0; 2; 4] NONE])
 End
 
@@ -1220,7 +1221,7 @@ val def = assign_Define `
             Assign 1 (Op Add [real_addr c (adjust_var v1);
                               real_byte_offset (adjust_var v2)]);
             Inst (Mem Load8 3 (Addr 1 0w));
-            Assign (adjust_var dest) (ShiftN Lsl (Var 3) 2)
+            Assign (adjust_var dest) (ShiftN Lsl (Var 3) 1)
           ], l)
       : 'a wordLang$prog # num`;
 
@@ -1256,7 +1257,7 @@ val def = assign_Define `
       (list_Seq [
           Assign 1 (Op Add [real_addr c (adjust_var v1);
                             real_byte_offset (adjust_var v2)]);
-          Assign 3 (ShiftN Lsr (Var (adjust_var v3)) 2);
+          Assign 3 (ShiftN Lsr (Var (adjust_var v3)) 1);
           Inst (Mem Store8 3 (Addr 1 0w));
           Assign (adjust_var dest) Unit], l)
       : 'a wordLang$prog # num`;
@@ -1396,7 +1397,7 @@ End
 
 Definition small_int_def:
   small_int (:'a) i <=>
-    -&(dimword (:'a) DIV 8) <= i /\ i < &(dimword (:'a) DIV 8):int
+    -&(dimword (:'a) DIV 4) <= i /\ i < &(dimword (:'a) DIV 4):int
 End
 
 Definition part_to_words_def:
@@ -1483,14 +1484,14 @@ val def = assign_Define `
            | SOME header =>
               let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
               let h = ShiftN Lsl (Var (adjust_var tot))
-                        (dimindex (:'a) - c.len_size - 2) in
+                        (dimindex (:'a) - c.len_size - 1) in
                 (list_Seq
                   [BignumHalt (adjust_var tot);
                    Assign 1 (Var (adjust_var tot));
                    AllocVar c limit (list_insert args (get_names names));
                    Assign 1 (Lookup NextFree);
                    Assign 5 (Op Or [h; Const header]);
-                   Assign 7 (ShiftN Lsr (Var (adjust_var tot)) 2);
+                   Assign 7 (ShiftN Lsr (Var (adjust_var tot)) 1);
                    Assign 9 (Const (n2w tag));
                    StoreEach 1 (5::MAP adjust_var rest) 0w;
                    Make_ptr_bits_code c 9 7 3;
@@ -1501,7 +1502,7 @@ val def = assign_Define `
                      Const (bytes_in_word * n2w (LENGTH rest + 1))]);
                    Assign 11 (Op Add [real_addr c (adjust_var old);
                      Const bytes_in_word;
-                     ShiftVar Lsl (adjust_var start) (shift (:'a) - 2)]);
+                     ShiftVar Lsl (adjust_var start) (shift (:'a) - 1)]);
                    If Test 15 (Reg 15) (Assign (adjust_var dest) (Var 3)) (list_Seq [
                      MustTerminate
                        (Call (SOME ([adjust_var dest],adjust_sets (get_names names),
@@ -1670,7 +1671,7 @@ val def = assign_Define `
 
 val def = assign_Define `
   assign_LessConstSmall (l:num) (dest:num) i v1 =
-                 (If Less (adjust_var v1) (Imm (n2w (4 * i)))
+                 (If Less (adjust_var v1) (Imm (n2w (2 * i)))
                     (Assign (adjust_var dest) TRUE_CONST)
                     (Assign (adjust_var dest) FALSE_CONST),l)
       : 'a wordLang$prog # num`;
@@ -1712,7 +1713,7 @@ val def = assign_Define `
                                 let extra = (if dimindex (:'a) = 32 then 2 else 3) in
                                 let k = dimindex (:'a) - c.len_size - extra in
                                   Op Sub [ShiftN Lsr header k; Const bytes_in_word]);
-                              Assign 3 (ShiftVar Ror (adjust_var v2) 2);
+                              Assign 3 (ShiftVar Ror (adjust_var v2) 1);
                               (if leq then If NotLower 1 (Reg 3) else
                                            If Lower 3 (Reg 1))
                                  (Assign (adjust_var dest) TRUE_CONST)
@@ -1727,7 +1728,7 @@ val def = assign_Define `
                                 let header = Load addr in
                                 let k = dimindex (:'a) - c.len_size in
                                   ShiftN Lsr header k);
-                              Assign 3 (ShiftVar Ror (adjust_var v2) 2);
+                              Assign 3 (ShiftVar Ror (adjust_var v2) 1);
                               If Lower 3 (Reg 1)
                                (Assign (adjust_var dest) TRUE_CONST)
                                (Assign (adjust_var dest) FALSE_CONST)],l)
@@ -1743,7 +1744,7 @@ val def = assign_Define `
                                   let header = Load addr in
                                   let k = dimindex (:'a) - c.len_size in
                                     ShiftN Lsr header k));
-                              Assign 3 (ShiftVar Ror (adjust_var v2) 2);
+                              Assign 3 (ShiftVar Ror (adjust_var v2) 1);
                               If Lower 3 (Reg 1)
                                (Assign (adjust_var dest) TRUE_CONST)
                                (Assign (adjust_var dest) FALSE_CONST)],l)
@@ -1808,7 +1809,7 @@ val def = assign_Define `
                                let header = Load addr in
                                let k = dimindex (:'a) - c.len_size in
                                let len = ShiftN Lsr header k in
-                                 (ShiftN Lsl len 2))),l)
+                                 (ShiftN Lsl len 1))),l)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
@@ -1819,7 +1820,7 @@ val def = assign_Define `
                                let header = Load addr in
                                let k = dimindex (:'a) - c.len_size in
                                let len = ShiftN Lsr header k in
-                                 (ShiftN Lsl len 2)),l)
+                                 (ShiftN Lsl len 1)),l)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
@@ -1831,7 +1832,7 @@ val def = assign_Define `
                 let k = dimindex(:'a) - shift(:'a) - c.len_size in
                 let fakelen = ShiftN Lsr header k in
                 let len = Op Sub [fakelen; Const bytes_in_word] in
-                  (ShiftN Lsl len 2)),l)
+                  (ShiftN Lsl len 1)),l)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
@@ -1948,7 +1949,7 @@ val def = assign_Define `
 val def = assign_Define `
   assign_Mult (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
-        (list_Seq [Assign 1 (ShiftVar Lsr (adjust_var v1) 1);
+        (list_Seq [Assign 1 (Var (adjust_var v1));
                    Inst (Arith (LongMul 3 1 1 (adjust_var v2)));
                    Assign 3 (Op Or [Var 3;
                                Op And [Const 1w;
@@ -1970,11 +1971,11 @@ val def = assign_Define `
            If Test 1 (Imm (1w:'a word))
              (if c.has_div then
                 list_Seq [Inst (Arith (Div 1 (adjust_var v1) (adjust_var v2)));
-                          Assign (adjust_var dest) (ShiftVar Lsl 1 2)]
+                          Assign (adjust_var dest) (ShiftVar Lsl 1 1)]
               else if c.has_longdiv then
                 list_Seq [Assign 1 (Const 0w);
                           Inst (Arith (LongDiv 1 3 1 (adjust_var v1)(adjust_var v2)));
-                          Assign (adjust_var dest) (ShiftVar Lsl 1 2)]
+                          Assign (adjust_var dest) (ShiftVar Lsl 1 1)]
               else
                 list_Seq
                   [Assign 1 (Const 0w);
@@ -1982,7 +1983,7 @@ val def = assign_Define `
                     (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l+1))
                       (SOME LongDiv_location)
                         [1; adjust_var v1; adjust_var v2] NONE);
-                   Assign (adjust_var dest) (ShiftVar Lsl 1 2)])
+                   Assign (adjust_var dest) (ShiftVar Lsl 1 1)])
              (list_Seq
                 [MustTerminate
                    (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
@@ -2027,7 +2028,7 @@ val def = assign_Define `
            (Assign (adjust_var dest)
             (case lookup_word_op opw of
              | Bitwise op => Op op [Var (adjust_var v1); Var (adjust_var v2)]
-             | Carried op => let k = dimindex(:'a)-10 in
+             | Carried op => let k = dimindex(:'a)-9 in
                ShiftN Lsr (ShiftN Lsl
                  (Op op [Var (adjust_var v1); Var (adjust_var v2)]) k) k), l)
       : 'a wordLang$prog # num`;
@@ -2077,24 +2078,24 @@ val def = assign_Define `
            (case sh of
             | Lsl =>
               ShiftN Lsr
-                (ShiftN Lsl (Var (adjust_var v1)) (dimindex(:'a)-10+(MIN n 8)))
-                (dimindex(:'a) - 10)
+                (ShiftN Lsl (Var (adjust_var v1)) (dimindex(:'a)-9+(MIN n 8)))
+                (dimindex(:'a) - 9)
             | Lsr =>
               ShiftN Lsl
-                (ShiftN Lsr (Var (adjust_var v1)) ((MIN n 8)+2)) 2
+                (ShiftN Lsr (Var (adjust_var v1)) ((MIN n 8)+1)) 1
             | Asr =>
               ShiftN Lsl
                 (ShiftN Lsr
                    (ShiftN Asr
-                      (ShiftN Lsl (Var (adjust_var v1)) (dimindex(:'a) - 10))
+                      (ShiftN Lsl (Var (adjust_var v1)) (dimindex(:'a) - 9))
                       (MIN n 8))
-                   (dimindex(:'a) - 8)) 2
+                   (dimindex(:'a) - 8)) 1
             | Ror =>
               (let n = n MOD 8 in
                  Op Or
-                  [ShiftN Lsl (ShiftVar Lsr (adjust_var v1) (n + 2)) 2;
+                  [ShiftN Lsl (ShiftVar Lsr (adjust_var v1) (n + 1)) 1;
                    ShiftN Lsr (ShiftVar Lsl (adjust_var v1)
-                     ((dimindex (:'a) - 2) - n)) (dimindex (:'a) - 10)])),l)
+                     ((dimindex (:'a) - 1) - n)) (dimindex (:'a) - 9)])),l)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
@@ -2127,7 +2128,7 @@ val def = assign_Define `
                          Const (if dimindex (:'a) = 32
                                 then 2w * bytes_in_word else bytes_in_word)]));
                        Assign 1 (Op And [Var 1; Const 255w]);
-                       Assign (adjust_var dest) (ShiftVar Lsl 1 2)],l)
+                       Assign (adjust_var dest) (ShiftVar Lsl 1 1)],l)
           else
           (let
              len = if dimindex (:α) < 64 then 2 else 1
@@ -2136,10 +2137,10 @@ val def = assign_Define `
                NONE => (GiveUp,l)
              | SOME header =>
                 (if len = 1 then
-                   (list_Seq [Assign 3 (ShiftN Lsr (Var (adjust_var v1)) 2);
+                   (list_Seq [Assign 3 (ShiftN Lsr (Var (adjust_var v1)) 1);
                               WriteWord64 c header dest 3],l)
                  else
-                   (list_Seq [Assign 5 (ShiftN Lsr (Var (adjust_var v1)) 2);
+                   (list_Seq [Assign 5 (ShiftN Lsr (Var (adjust_var v1)) 1);
                               Assign 3 (Const 0w);
                               WriteWord64_on_32 c header dest 5 3],l)))
       : 'a wordLang$prog # num`;
@@ -2156,7 +2157,7 @@ val def = assign_Define `
                (* put the word value into 3 *)
                (If Test (adjust_var v1) (Imm 1w)
                    (* smallnum case *)
-                    (Assign 3 (ShiftN Asr (Var (adjust_var v1)) 2))
+                    (Assign 3 (ShiftN Asr (Var (adjust_var v1)) 1))
                    (* bignum case *)
                    (Seq
                      (LoadBignum c 1 3 (adjust_var v1))
@@ -2165,7 +2166,7 @@ val def = assign_Define `
                (WriteWord64 c header dest 3)
             else If Test (adjust_var v1) (Imm 1w)
               (list_Seq [
-                Assign 3 (ShiftN Asr (Var (adjust_var v1)) 2);
+                Assign 3 (ShiftN Asr (Var (adjust_var v1)) 1);
                 Assign 5 (ShiftN Asr (Var (adjust_var v1)) 31);
                 WriteWord64_on_32 c header dest 3 5
               ])
@@ -2212,9 +2213,9 @@ val def = assign_Define `
            | SOME header =>
              if len = 1 then
                (list_Seq [LoadWord64 c 3 (adjust_var v);
-                          Assign 1 (ShiftN Lsr (Var 3) 61);
+                          Assign 1 (ShiftN Lsr (Var 3) 62);
                           If Equal 1 (Imm 0w)
-                            (Assign (adjust_var dest) (ShiftN Lsl (Var 3) 2))
+                            (Assign (adjust_var dest) (ShiftN Lsl (Var 3) 1))
                             (WriteWord64 c header dest 3)], l)
              else
               (case encode_header c 3 1 of
@@ -2227,9 +2228,9 @@ val def = assign_Define `
                   If NotEqual 13 (Imm 0w)
                     (WriteWord64_on_32 c header dest 13 11)
                     (list_Seq [
-                      Assign 1 (ShiftN Lsr (Var 11) 29);
+                      Assign 1 (ShiftN Lsr (Var 11) 30);
                       If Equal 1 (Imm 0w)
-                        (Assign (adjust_var dest) (ShiftN Lsl (Var 11) 2))
+                        (Assign (adjust_var dest) (ShiftN Lsl (Var 11) 1))
                         (WriteWord32_on_32 c header1 dest 11)])],l)))
       : 'a wordLang$prog # num`;
 
@@ -2292,7 +2293,7 @@ val def = assign_Define `
         (list_Seq [BignumHalt (adjust_var v3); (* length must be smallint *)
                    Assign 1 (Lookup BitmapBuffer);
                    Assign 3 (Op Sub [Lookup BitmapBufferEnd; Var 1]);
-                   Assign 5 (ShiftVar Lsr (adjust_var v3) 2);
+                   Assign 5 (ShiftVar Lsr (adjust_var v3) 1);
                    Assign 3 (ShiftVar Lsr 3 (shift (:'a)));
                    If Lower 3 (Reg 5) (* too little data space *) GiveUp Skip;
                    Assign 1 (Lookup CodeBuffer);
@@ -2612,7 +2613,7 @@ Definition MemCopy_code_def:
   MemCopy_code =
     If Test 2 (Reg 2) (Return 0 [8])
         (list_Seq [Assign 1 (Load (Var 4));
-                   Assign 2 (Op Sub [Var 2; Const 4w]);
+                   Assign 2 (Op Sub [Var 2; Const 2w]);
                    Assign 4 (Op Add [Var 4; Const bytes_in_word]);
                    Store (Var 6) 1;
                    Assign 6 (Op Add [Var 6; Const bytes_in_word]);
@@ -2622,9 +2623,9 @@ End
 
 Definition ByteCopy_code_def:
   ByteCopy_code c = list_Seq
-     [Assign 4 (ShiftVar Lsr 4 2);
-      Assign 6 (ShiftVar Lsr 6 2);
-      Assign 10 (ShiftVar Lsr 10 2);
+     [Assign 4 (ShiftVar Lsr 4 1);
+      Assign 6 (ShiftVar Lsr 6 1);
+      Assign 10 (ShiftVar Lsr 10 1);
       Assign 1 Unit;
       Assign 2 (Op Add [real_addr c 2; Const bytes_in_word; Var 4]);
       Assign 8 (Op Add [real_addr c 8; Const bytes_in_word; Var 10]);

@@ -155,8 +155,8 @@ val _ = translate (LoadBignum_def |> inline_simp |> conv32)
 
 Theorem Smallnum_alt[local]:
     Smallnum i =
-    if i < 0 then 0w − n2w (Num (ABS (4 * (0 − i))))
-             else n2w (Num (ABS (4 * i)))
+    if i < 0 then 0w − n2w (Num (ABS (2 * (0 − i))))
+             else n2w (Num (ABS (2 * i)))
 Proof
   fs [Smallnum_def] \\ Cases_on `i` \\ fs [integerTheory.INT_ABS_NUM]
 QED
