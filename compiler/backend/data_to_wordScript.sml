@@ -51,7 +51,7 @@ Definition adjust_sets_def:
 End
 
 Definition Unit_def:
-  Unit = Const 2w
+  Unit = Const 0w
 End
 
 Definition GiveUp_def:
@@ -1088,8 +1088,8 @@ Definition Smallnum_def:
     if i < 0 then 0w - n2w (Num (2 * (0 - i))) else n2w (Num (2 * i))
 End
 
-Overload FALSE_CONST = ``Const (n2w 2:'a word)``
-Overload TRUE_CONST = ``Const (n2w 18:'a word)``
+Overload FALSE_CONST = “Const (n2w 0:'a word)”
+Overload TRUE_CONST  = “Const (n2w 2:'a word)”
 
 Definition MemEqList_def:
   (MemEqList a [] = Assign 1 TRUE_CONST :'a wordLang$prog) /\
@@ -1277,8 +1277,9 @@ val def = assign_Define `
 val def = assign_Define `
   assign_Cons (c:data_to_word$config) (l:num) (dest:num) tag args =
                   if LENGTH args = 0 then
-                    if tag < dimword (:'a) DIV 16 then
-                      (Assign (adjust_var dest) (Const (n2w (16 * tag + 2))),l)
+                    if tag < dimword (:'a) DIV 4 then (* intentionally 4 rather than 2 to avoid
+                                                         bignums when converting tag to int *)
+                      (Assign (adjust_var dest) (Const (n2w (2 * tag))),l)
                     else (GiveUp,l) (* tag is too big to be represented *)
                   else
                     (case encode_header c (4 * tag) (LENGTH args) of
