@@ -807,7 +807,6 @@ Definition addr_ok_def:
    then hw_offset_ok c w ∧ c.ISA ≠ Ag32 else byte_offset_ok c w)
 End
 
-(* TODO: This is not updated for Install, CBW and DBW *)
 (* asm_ok out of stack_names *)
 Definition stack_asm_ok_def:
   (stack_asm_ok c ((Inst i):'a stackLang$prog) ⇔ asm$inst_ok i c) ∧

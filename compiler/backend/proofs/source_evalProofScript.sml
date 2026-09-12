@@ -764,19 +764,6 @@ Proof
   \\ simp [EVERY_MAP]
 QED
 
-Theorem v_to_word8_list_concrete:
-  v_to_word8_list x = SOME xs ==>
-  concrete_v x
-Proof
-  rw [v_to_word8_list_def, option_case_eq]
-  \\ imp_res_tac maybe_all_list_EVERY
-  \\ drule v_to_list_concrete
-  \\ rw []
-  \\ fs [EVERY_MAP]
-  \\ first_x_assum (fn t => mp_tac t \\ match_mp_tac MONO_EVERY)
-  \\ Cases \\ simp [v_to_word8_def]
-QED
-
 Theorem v_to_word64_list_concrete:
   v_to_word64_list x = SOME xs ==>
   concrete_v x

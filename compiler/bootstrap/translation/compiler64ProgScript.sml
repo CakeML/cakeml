@@ -482,9 +482,9 @@ val r = translate ws_to_chars_eq;
 Theorem semanticprimitives_ws_to_chars_side[local]:
   ∀ws. semanticprimitives_ws_to_chars_side ws
 Proof
-  ‘∀w:word8. w2n w < 256’ by
-    (strip_tac \\ assume_tac (w2n_lt |> INST_TYPE [alpha |-> “:8”])
-     \\ ‘dimword (:8) = 256’ by EVAL_TAC \\ fs [])
+  ‘∀w:word8. w2n w < 256’ by (
+    strip_tac \\ assume_tac (w2n_lt |> INST_TYPE [alpha |-> “:8”])
+    \\ ‘dimword (:8) = 256’ by EVAL_TAC \\ fs [])
   \\ Induct
   \\ simp [Once (fetch "-" "semanticprimitives_ws_to_chars_side_def")]
   \\ fs []

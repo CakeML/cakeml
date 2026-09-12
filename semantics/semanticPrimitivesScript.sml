@@ -566,20 +566,6 @@ Definition maybe_all_list_def:
         case maybe_all_list vs of NONE => NONE | SOME xs => SOME (x::xs)
 End
 
-Definition v_to_word8_def:
-  v_to_word8 v =
-    case v of
-    | Litv (Word8 w) => SOME w
-    | _ => NONE
-End
-
-Definition v_to_word8_list_def:
-  v_to_word8_list v =
-    case v_to_list v of
-    | NONE => NONE
-    | SOME xs => maybe_all_list (MAP v_to_word8 xs)
-End
-
 Definition v_to_word64_def:
   v_to_word64 v =
     case v of
