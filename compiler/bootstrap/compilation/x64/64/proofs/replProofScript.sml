@@ -103,20 +103,10 @@ Proof
   \\ EVAL_TAC
 QED
 
-Theorem v_to_word8_list_thm:
-  ∀bs bs_v. LIST_TYPE WORD bs bs_v ⇒ v_to_word8_list bs_v = SOME bs
+Theorem v_to_mlstring_thm:
+  ∀bs bs_v. STRING_TYPE bs bs_v ⇒ v_to_mlstring bs_v = SOME bs
 Proof
-  Induct \\ fs [ml_translatorTheory.LIST_TYPE_def,v_to_word8_list_def,
-                v_to_list_def,list_type_num_def]
-  THEN1 EVAL_TAC \\ rw []
-  \\ fs [ml_translatorTheory.LIST_TYPE_def,v_to_word8_list_def,
-         v_to_list_def,list_type_num_def]
-  \\ res_tac \\ fs []
-  \\ gvs [AllCaseEqs(),PULL_EXISTS]
-  \\ res_tac \\ fs []
-  \\ simp [Once maybe_all_list_def,AllCaseEqs()]
-  \\ gvs [ml_translatorTheory.WORD_def]
-  \\ EVAL_TAC
+  fs [ml_translatorTheory.STRING_TYPE_def,v_to_mlstring_def]
 QED
 
 Theorem evaluate_Eval:
@@ -129,7 +119,7 @@ Theorem evaluate_Eval:
   BACKEND_CONFIG_TYPE s1 s1_v ∧
   BACKEND_CONFIG_TYPE s2 s2_v ∧
   LIST_TYPE WORD ws ws_v ∧
-  LIST_TYPE WORD bs bs_v ∧
+  STRING_TYPE bs bs_v ∧
   nsLookup env.v (Short «env») = SOME (Env env1 id1) ⇒
   nsLookup env.v (Short «decs») = SOME decs_v ⇒
   nsLookup env.v (Short «s1») = SOME s1_v ⇒
@@ -169,7 +159,7 @@ Proof
    (fs [compiler_agrees_def,compiler_inst_def]
     \\ imp_res_tac v_fun_abs_BACKEND_CONFIG_v \\ fs []
     \\ imp_res_tac v_to_word64_list_thm
-    \\ imp_res_tac v_to_word8_list_thm
+    \\ imp_res_tac v_to_mlstring_thm
     \\ imp_res_tac BACKEND_CONFIG_IMP
     \\ imp_res_tac concrete_v_config \\ fs [])
   \\ fs [concrete_v_decs,SF SFY_ss]
