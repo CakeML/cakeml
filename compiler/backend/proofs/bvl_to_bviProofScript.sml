@@ -1902,12 +1902,15 @@ Proof
   Induct \\ Cases_on `ns'` \\ fs [] \\ rw [] \\ eq_tac \\ rw []
 QED
 
-Theorem IMP_v_to_bytes:
-   !v1 ns.
-      v_to_list v1 = SOME (MAP (Number ∘ $& ∘ w2n) ns) ==>
-      v_to_bytes (adjust_bv b2 v1) = SOME ns
+Theorem IMP_v_to_mlstring:
+   !v1 str.
+      state_rel b2 s t /\ v_to_mlstring s.refs v1 = SOME str ==>
+      v_to_mlstring t.refs (adjust_bv b2 v1) = SOME str
 Proof
-  fs [v_to_bytes_def,v_to_list_adjust,MAP_MAP_o,o_DEF,adjust_bv_def,MAP_Num_11]
+  rw [bvlSemTheory.v_to_mlstring_def, AllCaseEqs ()]
+  \\ gvs [adjust_bv_def]
+  \\ drule_all state_rel_FLOOKUP_byteArray
+  \\ rw []
 QED
 
 Theorem IMP_v_to_words:
@@ -2306,29 +2309,21 @@ Resume compile_exps_correct[Op]:
               (fs [state_rel_def] \\ NO_TAC) \\ fs []
       \\ fs [EVAL ``ListLength_code``] \\ fs [GSYM (EVAL ``SND ListLength_code``)]
       \\ old_drule (GEN_ALL evaluate_ListLength_code)
-      \\ fs [v_to_bytes_def,some_def]
-      \\ rfs [MAP_Num_11,o_DEF] \\ rveq
-      \\ disch_then (qspec_then `adjust_bv b2 v1` mp_tac) \\ fs []
-      \\ simp [v_to_list_adjust]
-      \\ disch_then (qspec_then `0` strip_assume_tac)
-      \\ old_drule (GEN_ALL evaluate_ListLength_code)
       \\ fs [v_to_words_def,some_def]
       \\ rfs [MAP_Word_11,o_DEF] \\ rveq
       \\ disch_then (qspec_then `adjust_bv b2 v2` mp_tac) \\ fs []
       \\ simp [v_to_list_adjust]
       \\ disch_then (qspec_then `0` strip_assume_tac) \\ fs []
-      \\ qexists_tac `c + c' + c'' + 2`
-      \\ ntac 2 (pop_assum mp_tac)
-      \\ old_drule bviPropsTheory.evaluate_add_clock
-      \\ disch_then (qspec_then `c'+c''+2` assume_tac)
-      \\ rpt strip_tac
+      \\ qexists_tac `c + c' + 1`
+      \\ pop_assum mp_tac
       \\ old_drule bviPropsTheory.evaluate_add_clock
       \\ disch_then (qspec_then `c'+1` assume_tac)
+      \\ rpt strip_tac
       \\ fs [inc_clock_ADD]
       \\ fs [evaluate_def,EVAL ``bviSem$do_app (IntOp (Const 0)) [] t2``,
              bvlSemTheory.find_code_def,dec_clock_inc_clock]
       \\ fs [do_install_def,do_app_def]
-      \\ imp_res_tac IMP_v_to_bytes \\ fs []
+      \\ imp_res_tac IMP_v_to_mlstring \\ fs []
       \\ imp_res_tac IMP_v_to_words \\ fs []
       \\ `t2.compile_oracle = state_co compile_inc s5.compile_oracle ∧
           s5.compile = state_cc compile_inc t2.compile`
@@ -2347,9 +2342,6 @@ Resume compile_exps_correct[Op]:
       \\ fs [state_rel_def,lookup_union] \\ strip_tac
       \\ simp [GSYM PULL_EXISTS,state_co_def,UNCURRY,case_eq_thms]
       \\ qpat_x_assum `names_ok _ _ _` assume_tac
-      \\ conj_tac THEN1
-       (fs [v_to_bytes_def,v_to_list_adjust,o_DEF,adjust_bv_def,MAP_MAP_o,
-            MAP_Num_11])
       \\ conj_asm1_tac THEN1
        (simp [IN_DISJOINT] \\ CCONTR_TAC \\ fs [] \\ fs [names_ok_def]
         \\ rfs [] \\ first_x_assum old_drule

@@ -61,7 +61,7 @@ Datatype:
      ; global      : num option
      ; handler     : num
      ; refs        : v ref num_map
-     ; compile     : 'c -> (num # num # dataLang$prog) list -> (word8 list # word64 list # 'c) option
+     ; compile     : 'c -> (num # num # dataLang$prog) list -> (mlstring # word64 list # 'c) option
      ; clock       : num
      ; code        : (num # dataLang$prog) num_map
      ; ffi         : 'ffi ffi_state
@@ -446,9 +446,14 @@ Definition do_stack_def:
               ; stack_max := OPTION_MAP2 MAX s.stack_max new_stack |>
 End
 
-Definition v_to_bytes_def:
-  v_to_bytes lv = some ns:word8 list.
-                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)
+Definition v_to_mlstring_def:
+  v_to_mlstring refs lv =
+    case lv of
+    | RefPtr _ p =>
+        (case lookup p refs of
+         | SOME (ByteArray T bs) => SOME (bytes_to_mlstring bs)
+         | _ => NONE)
+    | _ => NONE
 End
 
 Definition v_to_words_def:
@@ -502,11 +507,10 @@ Overload Error[local] =
 Definition do_install_def:
   do_install vs ^s =
       (case vs of
-       | [v1;v2;vl1;vl2] =>
-           (case (v_to_bytes v1, v_to_words v2) of
+       | [v1;v2;vl2] =>
+           (case (v_to_mlstring s.refs v1, v_to_words v2) of
             | (SOME bytes, SOME data) =>
-               if vl1 <> Number (& LENGTH bytes) \/
-                  vl2 <> Number (& LENGTH data)
+               if vl2 <> Number (& LENGTH data)
                then Rerr(Rabort Rtype_error) else
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in

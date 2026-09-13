@@ -321,6 +321,17 @@ Proof
   \\ imp_res_tac mem_load_byte_aux_IMP \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
 QED
 
+Theorem code_buffer_install_IMP_code_buffer_install[local]:
+  state_rel jump off k s t /\
+  code_buffer_install ptr len cptr
+    (mem_load_byte_aux s.memory s.mdomain s.be) cb = SOME (bytes,cb') ==>
+  code_buffer_install ptr len cptr
+    (mem_load_byte_aux t.memory t.mdomain t.be) cb = SOME (bytes,cb')
+Proof
+  rw[wordSemTheory.code_buffer_install_SOME]
+  \\ metis_tac[read_bytearray_IMP_read_bytearray]
+QED
+
 Theorem write_bytearray_IGNORE_non_aligned[local]:
   !new_bytes a.
       (!x. b <> byte_align x) ==>
@@ -1936,26 +1947,19 @@ Proof
     \\ imp_res_tac state_rel_get_var
     \\ imp_res_tac state_rel_const
     \\ fs[get_var_def]
-    \\ ntac 8 (TOP_CASE_TAC \\ fs[])
-    \\ pairarg_tac \\ fs[]
-    \\ pairarg_tac \\ fs[]
-    \\ TOP_CASE_TAC \\ fs[]
-    \\ TOP_CASE_TAC \\ fs[]
     \\ qpat_x_assum`_ = (r,_)`mp_tac
     \\ TOP_CASE_TAC \\ fs[]
-    \\ TOP_CASE_TAC \\ fs[]
-    \\ rveq
-    \\ TOP_CASE_TAC \\ fs[]
-    \\ TOP_CASE_TAC \\ fs[]
-    \\ TOP_CASE_TAC \\ fs[]
-    \\ rewrite_tac[GSYM MAP]
-    \\ qmatch_goalsub_abbrev_tac`fromAList code`
-    \\ simp[prog_comp_eta]
-    \\ TOP_CASE_TAC \\ fs[]
-    \\ simp[shift_seq_def]
-    \\ TOP_CASE_TAC \\ fs[]
-    \\ strip_tac \\ rveq \\ fs[]
+    \\ rename1`code_buffer_install _ _ _ _ _ = SOME cbr`
+    \\ PairCases_on`cbr` \\ fs[]
+    \\ drule_all code_buffer_install_IMP_code_buffer_install
+    \\ strip_tac \\ fs[]
+    \\ strip_tac
+    \\ ntac 4 (TOP_CASE_TAC \\ fs[])
+    \\ pairarg_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ TOP_CASE_TAC \\ gvs[AllCaseEqs()]
     \\ qexists_tac`0`
+    \\ simp[prog_comp_eta,shift_seq_def]
     \\ fs[state_rel_def]
     \\ conj_tac >- (
       simp[FUN_EQ_THM,prog_comp_eta] )
@@ -1963,23 +1967,30 @@ Proof
     \\ conj_tac >- (
       simp[FLOOKUP_UPDATE,FLOOKUP_DRESTRICT] )
     \\ conj_tac >- (
-      qhdtm_x_assum`code_rel`mp_tac \\
-      simp[code_rel_def,lookup_union,lookup_fromAList] \\
-      strip_tac >>
-      conj_tac>-(
-        ntac 2 strip_tac \\
-        reverse TOP_CASE_TAC >- (
-          strip_tac  \\ rveq \\
-          res_tac \\ simp[] ) \\
-        strip_tac \\ imp_res_tac ALOOKUP_MEM \\
-        simp[ALOOKUP_MAP_2] \\
-        last_x_assum(qspec_then`0` mp_tac)>>simp[]>>
-        disch_then old_drule>>strip_tac>>simp[]>>
-        CASE_TAC>>fs[EXTENSION,domain_lookup,PULL_EXISTS]>>
-        first_x_assum(qspec_then`n` assume_tac)>>rfs[]>>
-        fs[backend_commonTheory.stack_num_stubs_def])>>
-     simp[domain_union,domain_fromAList,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]>>
-     metis_tac[UNION_COMM,UNION_ASSOC])
+      qhdtm_x_assum`code_rel`mp_tac
+      \\ simp[code_rel_def,lookup_union,lookup_insert,lookup_fromAList]
+      \\ strip_tac
+      \\ last_x_assum(qspec_then`0`mp_tac)
+      \\ simp[]
+      \\ strip_tac
+      \\ conj_tac >- (
+        qx_genl_tac[`nn`,`pp`]
+        \\ reverse TOP_CASE_TAC
+        >- ( strip_tac \\ rveq \\ res_tac \\ simp[] )
+        \\ strip_tac
+        \\ `reg_bound pp k /\ num_stubs <= nn + 1` by (
+          qpat_assum`_ = SOME pp`mp_tac
+          \\ IF_CASES_TAC \\ simp[]
+          \\ strip_tac \\ rveq
+          \\ metis_tac[ALOOKUP_MEM] )
+        \\ `lookup nn t1.code = NONE` by
+          fs[lookup_NONE_domain,backend_commonTheory.stack_num_stubs_def]
+        \\ simp[]
+        \\ qpat_x_assum`_ = SOME pp`mp_tac
+        \\ IF_CASES_TAC \\ simp[ALOOKUP_MAP_2]
+        \\ strip_tac \\ rveq \\ simp[] )
+      \\ simp[domain_fromAList,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]
+      \\ metis_tac[UNION_COMM,UNION_ASSOC] )
     \\ conj_tac >- simp[lookup_union]
     \\ conj_tac >- (
       simp[FLOOKUP_DRESTRICT,FLOOKUP_UPDATE] \\
@@ -2020,18 +2031,6 @@ Proof
     rveq>>simp[]>>
     fs[state_rel_def,state_component_equality,FLOOKUP_UPDATE,dec_clock_def]>>rfs[]>>
     metis_tac[])
-  THEN1 ( (* CodeBufferWrite *)
-    rw[comp_def]
-    \\ fs[evaluate_def]
-    \\ fs[reg_bound_def]
-    \\ imp_res_tac state_rel_get_var
-    \\ imp_res_tac state_rel_const
-    \\ fs[get_var_def]
-    \\ ntac 5 (TOP_CASE_TAC \\ fs[])
-    \\ rveq \\ fs[]
-    \\ qexists_tac`0`
-    \\ fs[state_rel_def]
-    \\ metis_tac[])
   THEN1 ( (* DataBufferWrite *)
     rw[comp_def]
     \\ fs[reg_bound_def]

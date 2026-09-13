@@ -890,14 +890,19 @@ Definition evaluate_def:
               | (SOME (Break _),s) => (SOME Error,s)
               | (SOME (Continue _),s) => (SOME Error,s)
               | (res,s) => (res,s)))) /\
-  (evaluate (Install ptr len dptr dlen ret,s) =
-    case (get_var ptr s, get_var len s, get_var dptr s, get_var dlen s) of
-    | SOME (Word w1), SOME (Word w2), SOME (Word w3), SOME (Word w4) =>
-        let (cfg,progs,bm) = s.compile_oracle 0 in
-       (case (buffer_flush s.code_buffer w1 w2,
-              if s.use_stack then buffer_flush s.data_buffer w3 w4
+  (evaluate (Install ptr len cptr dptr dptr_end ret,s) =
+   (case code_buffer_install (get_var ptr s)
+                             (get_var len s)
+                             (get_var cptr s)
+                             (mem_load_byte_aux s.memory s.mdomain s.be)
+                             s.code_buffer of
+    | SOME (bytes,cb) =>
+   (case (get_var dptr s, get_var dptr_end s) of
+    | SOME (Word dptrw), SOME (Word dptr_endw) =>
+       let (cfg,progs,bm) = s.compile_oracle 0 in
+       (case (if s.use_stack then buffer_flush s.data_buffer dptrw dptr_endw
               else SOME (bm, s.data_buffer)) of
-         SOME (bytes, cb), SOME (data, db) =>
+         SOME (data, db) =>
         let new_oracle = shift_seq 1 s.compile_oracle in
         (case s.compile cfg progs, progs of
           | SOME (bytes',cfg'), (k,prog)::_ =>
@@ -918,21 +923,14 @@ Definition evaluate_def:
             else (SOME Error,s)
           | _ => (SOME Error,s))
         | _ => (SOME Error,s))
-      | _ => (SOME Error,s)) /\
+      | _ => (SOME Error,s))
+      | _ => (SOME Error,s))) /\
   (evaluate (ShMemOp op r (Addr a w),s) =
     (case word_exp s (Op Add [Var a; Const w]) of
      | SOME a =>
          if s.clock = 0 then (SOME TimeOut,empty_env s) else
            sh_mem_op op r a (dec_clock s)
      | _ => (SOME Error,s))) /\
-  (evaluate (CodeBufferWrite r1 r2,s) =
-    (case (get_var r1 s,get_var r2 s) of
-        | (SOME (Word w1), SOME (Word w2)) =>
-          (case buffer_write s.code_buffer w1 (w2w w2) of
-          | SOME new_cb =>
-            (NONE,s with code_buffer:=new_cb)
-          | _ => (SOME Error,s))
-        | _ => (SOME Error,s))) /\
   (evaluate (DataBufferWrite r1 r2,s) =
     if ~s.use_stack then (SOME Error,s) else
     (case (get_var r1 s,get_var r2 s) of
@@ -1148,7 +1146,3 @@ End
 Definition read_stack_space_def:
   read_stack_space s = (s:('a,'b,'c) stackSem$state).stack_space
 End
-
-(* clean up *)
-
-val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];

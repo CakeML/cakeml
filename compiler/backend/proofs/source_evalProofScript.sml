@@ -18,7 +18,7 @@ val _ = temp_delsimps ["getOpClass_def"]
 Datatype:
   compiler_instance = <|
     compiler_fun : ((num # num) # 'config # dec list) ->
-        ('config # word8 list # word64 list) option ;
+        ('config # mlstring # word64 list) option ;
     config_v : 'config -> v ;
     config_dom : 'config set ;
     decs_v : dec list -> v ;
@@ -764,19 +764,6 @@ Proof
   \\ simp [EVERY_MAP]
 QED
 
-Theorem v_to_word8_list_concrete:
-  v_to_word8_list x = SOME xs ==>
-  concrete_v x
-Proof
-  rw [v_to_word8_list_def, option_case_eq]
-  \\ imp_res_tac maybe_all_list_EVERY
-  \\ drule v_to_list_concrete
-  \\ rw []
-  \\ fs [EVERY_MAP]
-  \\ first_x_assum (fn t => mp_tac t \\ match_mp_tac MONO_EVERY)
-  \\ Cases \\ simp [v_to_word8_def]
-QED
-
 Theorem v_to_word64_list_concrete:
   v_to_word64_list x = SOME xs ==>
   concrete_v x
@@ -790,6 +777,13 @@ Proof
   \\ Cases \\ simp [v_to_word64_def]
 QED
 
+Theorem v_to_mlstring_concrete:
+  v_to_mlstring x = SOME xs ==>
+  concrete_v x
+Proof
+  gvs[v_to_mlstring_def, AllCaseEqs()]
+QED
+
 Theorem compiler_agrees:
   compiler_agrees f (id, st_v, decs) (st_v2, bs_v, ws_v) ==>
   concrete_v st_v /\ concrete_v st_v2 /\ concrete_v bs_v /\ concrete_v ws_v
@@ -797,7 +791,7 @@ Proof
   simp [compiler_agrees_def]
   \\ every_case_tac
   \\ rw []
-  \\ imp_res_tac v_to_word8_list_concrete
+  \\ imp_res_tac v_to_mlstring_concrete
   \\ imp_res_tac v_to_word64_list_concrete
 QED
 
@@ -1442,7 +1436,7 @@ Definition do_eval_oracle_def:
   case vs of
     | [env_id_v; st_v; decs_v; st_v2; bs_v; ws_v] =>
       let (env_id, st, decs) = orac 0 in
-      (case f (env_id, st, decs), v_to_word8_list bs_v,
+      (case f (env_id, st, decs), v_to_mlstring bs_v,
             v_to_word64_list ws_v of
         | (SOME (st_v2, c_bs, c_ws), SOME bs, SOME ws) =>
             if bs = c_bs /\ ws = c_ws /\ st_v2 = (FST (SND (orac 1)))
