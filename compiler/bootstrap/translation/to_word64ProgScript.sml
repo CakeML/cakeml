@@ -286,6 +286,15 @@ fun tweak_assign_def th =
      |> SIMP_RULE std_ss [word_mul_def,LET_THM] |> gconv;
 
 val res = all_assign_defs |> CONJUNCTS |> rev |> map tweak_assign_def |> map translate;
+
+Theorem data_to_word_assign_const_side[local]:
+  !i l dest. data_to_word_assign_const_side i l dest <=> T
+Proof
+  rw [fetch "-" "data_to_word_assign_const_side_def"] \\ intLib.COOPER_TAC
+QED
+
+val _ = update_precondition data_to_word_assign_const_side;
+
 val res = translate (assign_def |> tweak_assign_def);
 
 Theorem lemma[local]:
