@@ -4731,9 +4731,9 @@ Theorem get_var_T_OR_F:
    state_rel c l1 l2 ^s (t:('a,'c,'ffi) state) NONE locs /\
     get_var n s.locals = SOME x /\
     get_var (adjust_var n) t = SOME w ==>
-    18 MOD dimword (:'a) <> 2 MOD dimword (:'a) /\
-    ((x = Boolv T) ==> (w = Word 18w)) /\
-    ((x = Boolv F) ==> (w = Word 2w))
+    2 MOD dimword (:'a) <> 0 MOD dimword (:'a) /\
+    ((x = Boolv T) ==> (w = Word 2w)) /\
+    ((x = Boolv F) ==> (w = Word 0w))
 Proof
   full_simp_tac(srw_ss())[state_rel_def,get_var_def,wordSemTheory.get_var_def]
   \\ strip_tac \\ strip_tac THEN1 (full_simp_tac(srw_ss())[good_dimindex_def] \\ full_simp_tac(srw_ss())[dimword_def])
@@ -4754,9 +4754,9 @@ Theorem get_var_isT_OR_isF:
   state_rel c l1 l2 ^s (t:('a,'c,'ffi) state) NONE locs /\
     get_var n s.locals = SOME x /\
     get_var (adjust_var n) t = SOME w ==>
-    18 MOD dimword (:'a) <> 2 MOD dimword (:'a) /\
-    ((isBool T x) ==> (w = Word 18w)) /\
-    ((isBool F x) ==> (w = Word 2w))
+    2 MOD dimword (:'a) <> 0 MOD dimword (:'a) /\
+    ((isBool T x) ==> (w = Word 2w)) /\
+    ((isBool F x) ==> (w = Word 0w))
 Proof
   full_simp_tac(srw_ss())[state_rel_def,get_var_def,wordSemTheory.get_var_def]
   \\ strip_tac \\ strip_tac

@@ -326,8 +326,8 @@ Proof
   fs [wordSemTheory.get_vars_def] \\ every_case_tac \\ fs []
 QED
 
-Theorem LESS_DIV_16_IMP:
-   n < k DIV 16 ==> 16 * n + 2 < k:num
+Theorem LESS_DIV_4_IMP:
+   n < k DIV 4 ==> 2 * n < k:num
 Proof
   fs [X_LT_DIV]
 QED
@@ -4087,7 +4087,7 @@ Theorem evaluate_AssignCmp:
   evaluate (AssignCmp dest cmp v1 v2,s) =
     case (get_var v1 s, get_var v2 s) of
     | (SOME (Word x1), SOME (Word x2)) =>
-        (NONE, set_var dest (if num_cmp cmp (w2n x1) (w2n x2) then Word 18w else Word 2w) s)
+        (NONE, set_var dest (if num_cmp cmp (w2n x1) (w2n x2) then Word 2w else Word 0w) s)
     | _ => evaluate (AssignCmp dest cmp v1 v2,s)
 Proof
   Cases_on ‘get_var v1 s’ \\ gvs [] \\ Cases_on ‘x’ \\ gvs []
@@ -4506,7 +4506,7 @@ Theorem evaluate_XorLoop:
     get_var 6 t1 = SOME (Word l) ⇒
     ∃ck max_stack.
       evaluate (XorLoop_code,t1) =
-      (SOME (Result (Loc l1 l2) [Word 2w]),
+      (SOME (Result (Loc l1 l2) [Word 0w]),
        t1 with <| memory := m1; clock := ck; stack_max := max_stack;
                   locals := LN; locals_size := SOME 0 |>) ∧
       (max_stack ≠ t1.stack_max ⇒
@@ -5235,7 +5235,7 @@ Theorem evaluate_AppendLenLoop_code[local]:
                       |>) of
         (res,s) => if bad_fun_return res then (SOME Error,s) else (res,s)) /\
       lookup 0 locals = SOME (Loc l1 l2) /\
-      lookup 2 locals = SOME (Word 2w) /\
+      lookup 2 locals = SOME (Word 0w) /\
       lookup 4 locals = SOME (Word (n2w (6 * (k + LENGTH xs)))) /\
       option_le t.stack_max smx /\
       option_le smx (OPTION_MAP2 MAX t.stack_max
@@ -5405,10 +5405,8 @@ Proof
     \\ fs [wordSemTheory.get_vars_def]
     \\ fs [SIMP_RULE (srw_ss()) [] word_and_one_eq_0_iff] \\ strip_tac
     \\ drule memory_rel_Block_IMP \\ fs [] \\ strip_tac \\ rveq \\ fs []
-    \\ `(1w && (16w * n2w nil_tag + 2w):'a word) = 0w` by
-         (simp [EVAL ``nil_tag``] \\ once_rewrite_tac [WORD_AND_COMM]
-          \\ simp [word_and_one_eq_0_iff, word_index, word_add_n2w, word_mul_n2w,
-                   bitTheory.BIT0_ODD]) \\ fs []
+    \\ `(1w && (n2w (2 * nil_tag)):'a word) = 0w` by
+         (simp [EVAL ``nil_tag``]) \\ fs []
     \\ simp [asmTheory.word_cmp_def]
     \\ simp [wordSemTheory.dec_clock_def, wordSemTheory.push_env_def]
     \\ Cases_on `env_to_list y2 t.permute` \\ fs []
@@ -6516,7 +6514,7 @@ Proof
   \\ strip_tac
   \\ qexistsl_tac [`if x1 = NONE then NONE else x1`,
        `if x1 = NONE then
-          x2 with locals := insert (adjust_var dest) (Word 2w) x2.locals
+          x2 with locals := insert (adjust_var dest) (Word 0w) x2.locals
         else x2`]
   \\ Cases_on `x1 = SOME NotEnoughSpace` \\ fs []
   >- (* NES arm: alloc fails; show ¬safe_for_space via args-aware heap bound. *)
@@ -7029,6 +7027,9 @@ Proof
      (qpat_assum ‘get_var 2 s.locals = SOME (Number (&(8 * tag)))’ assume_tac
   \\ rpt_drule0 state_rel_get_var_Number_IMP \\ fs []
   \\ fs [LENGTH_NIL] \\ rveq \\ rw []
+  \\ ‘good_dimindex (:'a)’ by fs [data_to_word_gcProofTheory.state_rel_def]
+  \\ ‘3 MOD dimword (:'a) = 3’ by fs [good_dimindex_def,dimword_def]
+  \\ ‘~(3 >= dimindex (:'a))’ by fs [good_dimindex_def]
   \\ fs [data_to_wordTheory.list_Seq_def, wordSemTheory.evaluate_def,
          data_to_word_gcProofTheory.word_exp_rw,
          wordSemTheory.get_var_def, data_to_wordTheory.adjust_var_def,
@@ -7054,12 +7055,15 @@ Proof
   \\ conj_tac >- metis_tac [backendPropsTheory.option_le_trans]
   \\ fs [data_to_word_memoryProofTheory.BlockNil_def,
          data_to_wordTheory.Smallnum_def, WORD_MUL_LSL, word_mul_n2w]
-  \\ ‘n2w (16 * tag) + 2w = BlockNil tag : 'a word’ by
-       fs [data_to_word_memoryProofTheory.BlockNil_def, WORD_MUL_LSL,
-           word_mul_n2w]
+  \\ ‘16 * tag < dimword (:'a)’ by
+       (fs [data_to_wordTheory.encode_header_def] \\ fs [X_LT_DIV])
+  \\ ‘(n2w (16 * tag) >>> 3) = BlockNil tag : 'a word’ by
+       (fs [data_to_word_memoryProofTheory.BlockNil_def, WORD_MUL_LSL,
+            word_mul_n2w]
+        \\ rewrite_tac [GSYM w2n_11,w2n_lsr] \\ fs [] \\ fs [DIV_EQ_X])
   \\ fs []
   \\ match_mp_tac data_to_word_memoryProofTheory.memory_rel_Cons_empty
-  \\ fs [data_to_wordTheory.encode_header_def]
+  \\ fs [data_to_wordTheory.encode_header_def] \\ fs [X_LT_DIV]
   \\ drule0 data_to_word_memoryProofTheory.memory_rel_zero_space
   \\ match_mp_tac data_to_word_memoryProofTheory.memory_rel_rearrange
   \\ fs [] \\ rw [] \\ fs [data_to_word_gcProofTheory.join_env_def])
@@ -9206,9 +9210,7 @@ Proof
     \\ rename1 `get_vars [a1] s.locals = SOME [Block t5 n5 l5]`
     \\ `n5 <> tag` by
      (strip_tac \\ clean_tac
-      \\ rpt_drule0 memory_rel_Block_IMP \\ strip_tac \\ fs []
-      \\ CCONTR_TAC \\ fs []
-      \\ imp_res_tac encode_header_tag_mask \\ NO_TAC)
+      \\ imp_res_tac memory_rel_tag_limit \\ fs [] \\ NO_TAC)
     \\ fs [option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ simp []
@@ -9223,7 +9225,7 @@ Proof
   \\ pop_assum mp_tac \\ IF_CASES_TAC \\ fs [state_rel_thm] THEN1
    (fs [word_mul_n2w,word_add_n2w] \\ strip_tac
     \\ simp [asmTheory.word_cmp_def]
-    \\ fs [LESS_DIV_16_IMP,DECIDE ``16 * n = 16 * m <=> n = m:num``]
+    \\ fs [LESS_DIV_4_IMP,DECIDE ``2 * n = 2 * m <=> n = m:num``]
     \\ IF_CASES_TAC \\ fs [lookup_insert]
     \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs [option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -9237,9 +9239,14 @@ Proof
     (strip_tac \\ match_mp_tac (GEN_ALL get_real_addr_lemma)
      \\ fs [wordSemTheory.get_var_def,lookup_insert] \\ NO_TAC) \\ fs []
   \\ simp [asmTheory.word_cmp_def]
-  \\ rpt_drule0 encode_header_tag_mask \\ fs []
-  \\ fs [LESS_DIV_16_IMP,DECIDE ``16 * n = 16 * m <=> n = m:num``]
+  \\ `3 MOD dimword (:'a) = 3` by fs [good_dimindex_def,dimword_def]
+  \\ `~(3 >= dimindex (:'a))` by fs [good_dimindex_def]
+  \\ imp_res_tac memory_rel_tag_limit
+  \\ rpt_drule0 encode_header_tag_mask_lsr \\ fs []
+  \\ fs [LESS_DIV_4_IMP,DECIDE ``2 * n = 2 * m <=> n = m:num``]
   \\ strip_tac \\ fs []
+  \\ simp [asmTheory.word_cmp_def]
+  \\ fs [LESS_DIV_4_IMP,DECIDE ``2 * n = 2 * m <=> n = m:num``]
   \\ IF_CASES_TAC \\ fs []
   \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs [option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -11519,7 +11526,7 @@ Proof
   \\ simp [assign_def,wordSemTheory.evaluate_def,
            wordSemTheory.get_var_imm_def,
            asmTheory.word_cmp_def]
-  \\ ‘(16w * n2w tag = 16w * n2w tag' :α word) ⇔  (tag = 1 ⇔ tag' = 1)’ by
+  \\ ‘(n2w (2 * tag) = n2w (2 * tag') :α word) ⇔  (tag = 1 ⇔ tag' = 1)’ by
     (‘tag = 0 ∨ tag = 1’ by decide_tac
      \\ ‘tag' = 0 ∨ tag' = 1’ by decide_tac
      \\ gvs [dimword_def,good_dimindex_def])
@@ -12125,7 +12132,7 @@ Theorem MemEqList_thm[local]:
       word_mem_eq (a + offset) xs dm m = SOME b /\
       get_var 3 t = SOME (Word a) /\ dm = t.mdomain /\ m = t.memory ==>
       ?x. evaluate (MemEqList offset xs,t) =
-            (NONE,t with locals := ((if b then insert 1 (Word 18w) else I) o
+            (NONE,t with locals := ((if b then insert 1 (Word 2w) else I) o
                                     (if xs <> [] then insert 5 x else I)) t.locals)
 Proof
   Induct_on `xs`
@@ -16124,12 +16131,12 @@ Proof
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac word_ml_inv_insert \\ fs []
     \\ fs [word_ml_inv_def,PULL_EXISTS] \\ rw []
-    \\ qexists_tac `Data (Word (n2w (16 * tag + 2)))`
+    \\ qexists_tac `Data (Word (n2w (2 * tag)))`
     \\ qexists_tac `hs` \\ fs [word_addr_def]
     \\ reverse conj_tac
-    THEN1 (fs [GSYM word_mul_n2w,GSYM word_add_n2w,BlockNil_and_lemma])
-    \\ `n2w (16 * tag + 2) = BlockNil tag : 'a word` by
-         fs [BlockNil_def,WORD_MUL_LSL,word_mul_n2w,word_add_n2w]
+    THEN1 (fs [GSYM word_mul_n2w,BlockNil_and_lemma])
+    \\ `n2w (2 * tag) = BlockNil tag : 'a word` by
+         fs [BlockNil_def,WORD_MUL_LSL,word_mul_n2w]
     \\ fs [cons_thm_EMPTY])
   \\ fs [assign_def] \\ CASE_TAC \\ fs []
   >-

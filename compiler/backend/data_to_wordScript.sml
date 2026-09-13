@@ -457,7 +457,7 @@ Definition FromList_code_def:
     let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
     let h = ShiftN Lsl (Var 2) (dimindex (:'a) - c.len_size - 1) in
       If Equal 2 (Imm 0w)
-        (list_Seq [Assign 6 (Op Add [Var 6; Const (2w:'a word)]);
+        (list_Seq [Assign 6 (ShiftN Lsr (Var 6) 3);
                    Return 0 [6]])
         (list_Seq
           [BignumHalt 2;
@@ -925,13 +925,13 @@ Definition XorLoop_code_def:
   XorLoop_code =
     If Lower 6 (Imm 2w)
       (If Equal 6 (Imm 0w)
-         (list_Seq [Assign 1 (Const 2w);
+         (list_Seq [Assign 1 (Const 0w);
                     Return 0 [1]])
          (list_Seq [Assign 5 (Load (Var 4));
                     Assign 3 (Load (Var 2));
                     Assign 7 (Op Xor [Var 5; Var 3]);
                     Store (Var 2) 7;
-                    Assign 1 (Const 2w);
+                    Assign 1 (Const 0w);
                     Return 0 [1]]))
       (list_Seq [Assign 5 (Load (Var 4));
                  Assign 3 (Load (Var 2));
@@ -1312,7 +1312,7 @@ val def = assign_Define `
                         Assign 1 (Const 0w);
                         Alloc 1 (adjust_sets (get_names names)); (* runs GC *)
                         SilentFFI c 3 (adjust_sets (get_names names));
-                        Assign (adjust_var dest) (Const 2w)],l)
+                        Assign (adjust_var dest) (Const 0w)],l)
       : 'a wordLang$prog # num`;
 
 Definition getWords_def:
@@ -1411,8 +1411,8 @@ Definition part_to_words_def:
                                MAP (λw. (F,Word w)) (hd::ws))) ∧
   part_to_words c m (closLang$Con t ns) (offset:'a word) =
     (if NULL ns then
-       if t < dimword (:'a) DIV 16
-       then SOME ((F,Word (n2w (16 * t + 2))),[]) else NONE
+       if t < dimword (:'a) DIV 4
+       then SOME ((F,Word (n2w (2 * t))),[]) else NONE
      else
        case encode_header c (4 * t) (LENGTH ns) of
        | NONE => NONE
@@ -1687,7 +1687,7 @@ val def = assign_Define `
 val def = assign_Define `
   assign_BoolNot (l:num) (dest:num) v1 =
                  (Assign (adjust_var dest)
-                    (Op Xor [Var (adjust_var v1); Const 16w]),l)
+                    (Op Xor [Var (adjust_var v1); Const 2w]),l)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
@@ -1840,8 +1840,8 @@ val def = assign_Define `
   assign_TagLenEq (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) tag len v1 =
                         (if len = 0 then
-                           if tag < dimword (:'a) DIV 16 then
-                             (If Equal (adjust_var v1) (Imm (n2w (16 * tag + 2)))
+                           if tag < dimword (:'a) DIV 4 then
+                             (If Equal (adjust_var v1) (Imm (n2w (2 * tag)))
                                 (Assign (adjust_var dest) TRUE_CONST)
                                 (Assign (adjust_var dest) FALSE_CONST),l)
                            else (Assign (adjust_var dest) FALSE_CONST,l)
@@ -1902,14 +1902,14 @@ val def = assign_Define `
 val def = assign_Define `
   assign_TagEq (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) tag v1 =
-               (if tag < dimword (:'a) DIV 16 then
+               (if tag < dimword (:'a) DIV 4 then
                  (list_Seq
                    [Assign 1 (Var (adjust_var v1));
                     If Test (adjust_var v1) (Imm 1w) Skip
                       (Assign 1 (let v = adjust_var v1 in
                                  let h = Load (real_addr c v) in
-                                   Op And [h; Const (tag_mask c || 2w)]));
-                    If Equal 1 (Imm (n2w (16 * tag + 2)))
+                                   ShiftN Lsr (Op And [h; Const (tag_mask c)]) 3));
+                    If Equal 1 (Imm (n2w (2 * tag)))
                       (Assign (adjust_var dest) TRUE_CONST)
                       (Assign (adjust_var dest) FALSE_CONST)],l)
                 else (Assign (adjust_var dest) FALSE_CONST,l))
@@ -2325,7 +2325,7 @@ val def = assign_Define `
                Inst (FP (FPMovFromReg 0 3 3));
                Inst (FP (FPMovFromReg 1 5 5));
                Inst (FP (fp_cmp_inst fpc));
-               Assign (adjust_var dest) (Op Add [ShiftVar Lsl 3 4; Const 2w])],l))
+               Assign (adjust_var dest) (ShiftVar Lsl 3 1)],l))
         else
            ((list_Seq [
                Assign 15 (real_addr c (adjust_var v1));
@@ -2337,7 +2337,7 @@ val def = assign_Define `
                Inst (FP (FPMovFromReg 0 13 11));
                Inst (FP (FPMovFromReg 1 23 21));
                Inst (FP (fp_cmp_inst fpc));
-               Assign (adjust_var dest) (Op Add [ShiftVar Lsl 3 4; Const 2w])],l)))
+               Assign (adjust_var dest) (ShiftVar Lsl 3 1)],l)))
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
@@ -2579,7 +2579,7 @@ Definition comp_def:
     | If n p1 p2 =>
         let (q1,l1) = comp c secn l p1 in
         let (q2,l2) = comp c secn l1 p2 in
-          (If Equal (adjust_var n) (Imm 18w) q1 q2,l2)
+          (If Equal (adjust_var n) (Imm 2w) q1 q2,l2)
     | MakeSpace n names =>
         let k = dimindex (:'a) DIV 8 in
         let w = n2w (n * k) in

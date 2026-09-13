@@ -152,7 +152,7 @@ Definition Bignum_def:
 End
 
 Definition BlockNil_def:
-  BlockNil n = n2w n << 4 + 2w
+  BlockNil n = n2w n << 1
 End
 
 Definition Word64Rep_def:
@@ -233,7 +233,7 @@ Inductive v_inv_ck:
     v_inv_ck ck conf (RefPtr F n) refs (x,f,tf,heap:'a ml_heap)
 [~BlockNil:]
   vs = [] ∧
-  n < dimword(:'a) DIV 16 ∧
+  n < dimword(:'a) DIV 4 ∧
   ts = 0 ⇒
     v_inv_ck ck conf (Block ts n vs) refs
                (Data (Word (BlockNil n)),f,tf,heap:'a ml_heap)
@@ -303,7 +303,7 @@ Theorem v_inv_def:
   (v_inv conf (Block ts n vs) refs (x,f,tf,heap) <=>
      if vs = []
      then (x = Data (Word (BlockNil n))) /\
-          n < dimword(:'a) DIV 16 /\
+          n < dimword(:'a) DIV 4 /\
           ts = 0
      else
        ?ptr xs.
@@ -3384,7 +3384,7 @@ QED
 
 Theorem cons_thm_EMPTY:
    abs_ml_inv conf stack refs (roots,heap:'a ml_heap,be,a,sp,sp1,gens) limit ts /\
-    tag < dimword (:'a) DIV 16 ==>
+    tag < dimword (:'a) DIV 4 ==>
     abs_ml_inv conf ((Block 0 tag [])::stack) refs
       (Data (Word (BlockNil tag))::roots,heap,be,a,sp,sp1,gens) limit ts
 Proof
@@ -7829,10 +7829,10 @@ Theorem word_ml_inv_Unit:
    word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs ws /\
     good_dimindex (:'a) ==>
     word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs
-      ((Unit,Word (2w:'a word))::ws)
+      ((Unit,Word (0w:'a word))::ws)
 Proof
   fs [word_ml_inv_def,PULL_EXISTS] \\ rw []
-  \\ qexists_tac `Data (Word 2w)`
+  \\ qexists_tac `Data (Word 0w)`
   \\ qexists_tac `hs` \\ fs [word_addr_def]
   \\ fs [dataSemTheory.Unit_def,EVAL ``tuple_tag``]
   \\ old_drule (GEN_ALL cons_thm_EMPTY)
@@ -7843,7 +7843,7 @@ QED
 
 Theorem memory_rel_Unit:
    memory_rel c be ts refs sp st m dm xs /\ good_dimindex (:'a) ==>
-   memory_rel c be ts refs sp st m dm ((Unit,Word (2w:'a word))::xs)
+   memory_rel c be ts refs sp st m dm ((Unit,Word (0w:'a word))::xs)
 Proof
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
   \\ match_mp_tac word_ml_inv_Unit \\ fs []
@@ -7988,11 +7988,11 @@ QED
 
 Theorem BlockNil_and_lemma:
    good_dimindex (:'a) ==>
-    (-2w && 16w * tag + 2w) = 16w * tag + 2w:'a word
+    (-2w && 2w * tag) = 2w * tag:'a word
 Proof
-  `!w:word64. (-2w && 16w * w + 2w) = 16w * w + 2w` by blastLib.BBLAST_TAC
-  \\ `!w:word32. (-2w && 16w * w + 2w) = 16w * w + 2w` by blastLib.BBLAST_TAC
-  \\ fs [GSYM word_mul_n2w,GSYM word_add_n2w]
+  `!w:word64. (-2w && 2w * w) = 2w * w` by blastLib.BBLAST_TAC
+  \\ `!w:word32. (-2w && 2w * w) = 2w * w` by blastLib.BBLAST_TAC
+  \\ fs [GSYM word_mul_n2w]
   \\ rfs [dimword_def,FORALL_WORD]
   \\ Cases_on `tag` \\ fs [good_dimindex_def] \\ rw []
   \\ fs [word_mul_n2w,word_add_n2w,word_2comp_n2w,word_and_n2w]
@@ -9758,7 +9758,7 @@ QED
 
 Theorem memory_rel_Cons_empty:
    memory_rel c be ts refs sp st m (dm:'a word set) vars /\
-    tag < dimword (:α) DIV 16 /\ good_dimindex (:'a) ==>
+    tag < dimword (:α) DIV 4 /\ good_dimindex (:'a) ==>
     memory_rel c be ts refs sp st m dm
       ((Block 0 tag [],Word (BlockNil tag))::vars)
 Proof
@@ -10779,8 +10779,8 @@ Theorem memory_rel_Block_IMP:
     ?w. v = Word w /\
         (* ASK: If the Block has no vals then it's timestamp is 0 *)
         if vals = [] then
-          w = n2w tag * 16w + 2w /\ ~(w ' 0) /\
-          tag < dimword (:'a) DIV 16 /\ ts' = 0
+          w = n2w (2 * tag) /\ ~(w ' 0) /\
+          tag < dimword (:'a) DIV 4 /\ ts' = 0
         else
           ?a x.
             w ' 0 /\ ~(word_bit 3 x) /\ ~(word_bit 2 x) /\
@@ -11036,18 +11036,38 @@ Proof
         MATCH_MP MULT_DIV (DECIDE ``0<2n``),ODD_MULT] \\ fs []
 QED
 
+Theorem encode_header_tag_mask_lsr:
+   encode_header c (4 * tag) n = SOME (w:'a word) /\ good_dimindex (:'a) ==>
+    tag < dimword (:α) DIV 16 /\
+    (w && tag_mask c) >>> 3 = n2w (2 * tag)
+Proof
+  strip_tac \\ conj_asm1_tac
+  THEN1 fs [encode_header_def,X_LT_DIV]
+  \\ `(w && tag_mask c) = n2w (16 * tag)` by
+   (fs [encode_header_def]
+    \\ old_drule (GEN_ALL make_header_tag_mask)
+    \\ strip_tac
+    \\ qpat_x_assum `make_header _ _ _ = _` (fn th => once_rewrite_tac [GSYM th])
+    \\ once_rewrite_tac [WORD_AND_COMM]
+    \\ asm_rewrite_tac [] \\ fs [])
+  \\ `16 * tag < dimword (:'a)` by fs [X_LT_DIV]
+  \\ asm_rewrite_tac []
+  \\ rewrite_tac [GSYM w2n_11,w2n_lsr]
+  \\ fs [] \\ fs [DIV_EQ_X]
+QED
+
 Theorem memory_rel_tag_limit:
    memory_rel c be ts refs sp st m dm ((Block ts' tag l,(w:'a word_loc))::rest) /\
     good_dimindex (:'a) ==>
-    tag < dimword (:'a) DIV 16
+    tag < dimword (:'a) DIV 4
 Proof
   strip_tac \\ old_drule memory_rel_Block_IMP \\ fs [] \\ rw []
   \\ every_case_tac \\ fs []
-  \\ imp_res_tac encode_header_tag_mask \\ fs []
+  \\ imp_res_tac encode_header_tag_mask \\ fs [X_LT_DIV]
 QED
 
-Theorem LESS_DIV_16_IMP[local]:
-  n < k DIV 16 ==> 16 * n + 2 < k:num
+Theorem LESS_DIV_4_IMP[local]:
+  n < k DIV 4 ==> 2 * n < k:num
 Proof
   fs [X_LT_DIV]
 QED
@@ -11060,14 +11080,14 @@ QED
 
 Theorem memory_rel_test_nil_eq:
    memory_rel c be ts refs sp st m dm ((Block ts' tag l,w:'a word_loc)::rest) /\
-    n < dimword (:'a) DIV 16 /\ good_dimindex (:'a) ==>
-    ?v. w = Word v /\ (v = n2w (16 * n + 2) <=> tag = n /\ l = [])
+    n < dimword (:'a) DIV 4 /\ good_dimindex (:'a) ==>
+    ?v. w = Word v /\ (v = n2w (2 * n) <=> tag = n /\ l = [])
 Proof
   strip_tac \\ old_drule memory_rel_Block_IMP \\ fs [] \\ rw []
   \\ reverse every_case_tac \\ fs []
   THEN1 (CCONTR_TAC \\ rw [] \\ fs [word_index,bitTheory.ADD_BIT0,MULT_BIT0])
   \\ fs [word_mul_n2w,word_add_n2w]
-  \\ imp_res_tac LESS_DIV_16_IMP \\ fs []
+  \\ imp_res_tac LESS_DIV_4_IMP \\ fs []
 QED
 
 Theorem memory_rel_test_none_eq:
@@ -12719,7 +12739,7 @@ QED
 
 Theorem memory_rel_Boolv_T:
    memory_rel c be ts refs sp st m dm vars ∧ good_dimindex (:'a)
-   ⇒ memory_rel c be ts refs sp st m dm ((Boolv T,Word (18w:'a word))::vars)
+   ⇒ memory_rel c be ts refs sp st m dm ((Boolv T,Word (2w:'a word))::vars)
 Proof
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [word_ml_inv_def,PULL_EXISTS,EVAL ``Boolv F``,EVAL ``Boolv T``]
@@ -12732,7 +12752,7 @@ QED
 
 Theorem memory_rel_Boolv_F:
    memory_rel c be ts refs sp st m dm vars ∧ good_dimindex (:'a)
-   ⇒ memory_rel c be ts refs sp st m dm ((Boolv F,Word (2w:'a word))::vars)
+   ⇒ memory_rel c be ts refs sp st m dm ((Boolv F,Word (0w:'a word))::vars)
 Proof
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [word_ml_inv_def,PULL_EXISTS,EVAL ``Boolv F``,EVAL ``Boolv T``]
@@ -12745,7 +12765,7 @@ QED
 
 Theorem memory_rel_Boolv:
   memory_rel c be ts refs sp st m dm vars ∧ good_dimindex (:α) ∧
-  (b ⇒ v = Word 18w) ∧ (~b ⇒ v = Word (2w:'a word)) ⇒
+  (b ⇒ v = Word 2w) ∧ (~b ⇒ v = Word (0w:'a word)) ⇒
   memory_rel c be ts refs sp st m dm ((Boolv b,v)::vars)
 Proof
   rw [] \\ Cases_on ‘b’ \\ gvs []
@@ -13343,7 +13363,7 @@ val v_depth_ind = theorem"v_depth_ind";
 Theorem v_inv_Block_tag_limit:
    v_inv c (Block ts n l) refs (v,f,tf,(heap:'a ml_heap)) ∧
    heap_in_memory_store heap a sp sp1 gens c s m (dm:'a word set) limit
-  ⇒ n < dimword(:'a) DIV 16
+  ⇒ n < dimword(:'a) DIV 4
 Proof
   rw[v_inv_def] \\ fs[BlockRep_def]
   \\ fs[heap_in_memory_store_def]
@@ -13637,8 +13657,8 @@ Proof
     by metis_tac[MAX_LIST_sum_bound,LENGTH_MAP]
   \\ `n < dimword(:'a) DIV 16`
   by (
-    fs[memory_rel_def,word_ml_inv_def,bc_stack_ref_inv_def,abs_ml_inv_def]
-    \\ imp_res_tac v_inv_Block_tag_limit \\ fs[X_LT_DIV] )
+    qpat_x_assum `encode_header _ _ _ = SOME _` mp_tac
+    \\ fs[encode_header_def,X_LT_DIV] )
   \\ `n + LENGTH l + 1 < dimword(:'a) DIV 8` by ( fs[X_LT_DIV] )
   \\ match_mp_tac LESS_EQ_TRANS
   \\ qexists_tac`SUM (MAP vb_size l) + dimword(:'a) DIV 8`
@@ -17650,7 +17670,7 @@ Definition build_part_words_def:
                                MAP Word (hd::ws))) ∧
   build_part_words c m (Con t ns) (offset:'a word) =
     (if NULL ns then
-       if t < dimword (:'a) DIV 16 then SOME (Word (n2w (16 * t + 2)),[]) else NONE
+       if t < dimword (:'a) DIV 4 then SOME (Word (n2w (2 * t)),[]) else NONE
      else
        case encode_header c (4 * t) (LENGTH ns) of
        | NONE => NONE
