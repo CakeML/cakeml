@@ -3050,7 +3050,6 @@ Proof
          option_case_eq,pair_case_eq,PULL_EXISTS]
       \\ rpt gen_tac \\ strip_tac \\ rveq \\ fs []
       \\ `aux = []` by (old_drule (Q.SPEC `0` code_inv_k) \\ fs [syntax_ok_def])
-      \\ Cases_on `r.clock = 0`
       THEN1
        (rpt strip_tac \\ fs [] \\ rveq \\ fs []
         \\ imp_res_tac v_to_bytes_thm
@@ -3105,8 +3104,7 @@ Proof
                 (exps,[],
                  r with
                  <|clock := t.clock − 1;
-                   compile_oracle := (λi. r.compile_oracle (i + 1));
-                   code := FEMPTY|>)` \\ fs [] \\ rveq \\ fs []
+                   compile_oracle := (λi. r.compile_oracle (i + 1))|>)` \\ fs [] \\ rveq \\ fs []
       \\ `q ≠ Rerr (Rabort Rtype_error)` by (every_case_tac \\ fs [] \\ rveq \\ fs [])
       \\ fs []
       \\ first_x_assum old_drule
@@ -3145,7 +3143,7 @@ Proof
       \\ conj_tac THEN1
        (`wfv_state g2 l2 t.code (r with
           <|clock := t.clock − 1;
-            compile_oracle := (λi. r.compile_oracle (i + 1)); code := FEMPTY|>)`
+            compile_oracle := (λi. r.compile_oracle (i + 1))|>)`
               by (fs [code_inv_def,wfv_state_def] \\ fs [] \\ rfs [])
         \\ match_mp_tac (GEN_ALL wfv_state_subg)
         \\ asm_exists_tac \\ fs [GSYM FUPDATE_LIST])

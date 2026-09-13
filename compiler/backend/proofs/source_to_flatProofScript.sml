@@ -589,8 +589,7 @@ Proof
   Cases_on `flat_bindings` >> Cases_on `traces` >>
   simp [env_rel_LIST_REL, FORALL_PROD, bind_locals_def,
         namespaceTheory.nsBindList_def, alist_to_ns_cons] >>
-  rpt strip_tac
-  >- fs [lookup_env_rel_def] >>
+  rpt strip_tac >>
   rename1 `v_rel genv source_value (SND flat_binding)` >>
   namedCases_on `flat_binding` ["name flat_value"] >>
   rename1 `LENGTH tail_traces = LENGTH tail_bindings` >>

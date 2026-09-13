@@ -591,8 +591,6 @@ Theorem word_state_rel_set_vars:
 Proof
   map_every qid_spec_tac [`l`,`l0`] >>
   Induct_on `l0` >> fs[set_vars_def,alist_insert_def]
-  >-(
-  `!x. x with locals := x.locals = x` by simp[state_component_equality] >> fs[])
   >> rpt strip_tac >>
   fs[word_state_rel_def,domain_find_loc_state,LENGTH_EQ_NUM,alist_insert_def] >>
   irule SUBSET_TRANS >>
