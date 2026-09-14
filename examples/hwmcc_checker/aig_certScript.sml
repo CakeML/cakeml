@@ -11,6 +11,7 @@ Libs
 
 (* Soundness ******************************************************************)
 
+(* TODO instead of lits_hold, just use eval_lit *)
 Definition signal_imply_def:
   signal_imply ss aig ss' aig' signals signals' =
   LIST_REL (λq q'. lits_hold ss aig {q} ⇒ lits_hold ss' aig' {q'})
