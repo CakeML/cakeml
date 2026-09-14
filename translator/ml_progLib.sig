@@ -19,6 +19,10 @@ sig
   (* names of (nested) opened modules, outermost first *)
   val get_open_modules : ml_prog_state -> string list
 
+  (* env of the declarations made inside the innermost open module,
+     NONE when no module is open *)
+  val get_env_within_module : ml_prog_state -> term option
+
   (* use of local/in/end blocks, by calling these three functions in order *)
   val open_local_block    : ml_prog_state -> ml_prog_state
   val open_local_in_block : ml_prog_state -> ml_prog_state
@@ -80,6 +84,7 @@ sig
 
   val get_Decls_thm : ml_prog_state -> thm (* Decls thm at top level *)
   val get_prog      : ml_prog_state -> term (* program at top level *)
+  val get_open_block_prog : ml_prog_state -> term (* declarations of the innermost open block *)
 
   val get_next_exn_stamp  : ml_prog_state -> int
   val get_next_type_stamp : ml_prog_state -> int

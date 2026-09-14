@@ -656,3 +656,92 @@ val _ = let
                                   (Feedback.exn_to_string e)
   in if ok then () else
        failwith "register_type accepted clashing constructor names" end;
+
+(* with use_module_local_cons_names set, a constructor name registered inside
+   a module only has to be unique within that module, so it can shadow a
+   constructor of the enclosing environment *)
+
+Datatype:
+  outer = Shadow num
+End
+
+val _ = register_type “:outer”;
+
+Datatype:
+  inner = shadow bool
+End
+
+val _ = ml_prog_update (open_module "ShadowMod");
+val _ = (use_module_local_cons_names := true);
+val _ = register_type “:inner”;
+val _ = (use_module_local_cons_names := false);
+
+fun mentions s tm = can (find_term (aconv (mlstringSyntax.mk_mlstring s))) tm;
+
+val _ = let
+  val decs = get_ml_prog_state () |> remove_snocs |> get_open_block_prog
+  in if mentions "Shadow" decs andalso not (mentions "Shadow_1" decs) then ()
+     else failwith "constructor name was not kept local to the module" end;
+
+(* inside the module the short name refers to the inner constructor *)
+
+Definition inner_dest_def:
+  inner_dest (shadow b) = b
+End
+
+Definition inner_mk_def:
+  inner_mk b = shadow (~b)
+End
+
+val r = translate inner_dest_def;
+val r = translate inner_mk_def;
+
+(* so the shadowed outer constructor cannot be used by its short name *)
+
+Definition outer_mk_def:
+  outer_mk n = Shadow (n + 1n)
+End
+
+val _ = let
+  val ok = (translate outer_mk_def; false) handle HOL_ERR _ => true
+  in if ok then () else
+       failwith "translate accepted a shadowed constructor inside its module" end;
+
+val _ = ml_prog_update (close_module NONE);
+
+(* after the module is closed, both constructors are usable at top level, the
+   inner one through its module *)
+
+Definition outer_dest_def:
+  outer_dest (Shadow n) = n
+End
+
+Definition inner_top_def:
+  inner_top b = shadow b
+End
+
+val r = translate outer_dest_def;
+val r = translate inner_top_def;
+
+val _ = let
+  fun code_of tm = hol2deep tm |> instantiate_cons_name |> concl |> rator |> rand
+  val inner_exp = code_of “shadow T”
+  val outer_exp = code_of “Shadow 1n”
+  in if mentions "ShadowMod" inner_exp andalso not (mentions "ShadowMod" outer_exp)
+     then ()
+     else failwith "constructor of a closed module is not named through it" end;
+
+val _ = EqualityType_rule [] “:inner”;
+
+(* with the flag unset, a clashing name at top level is still renamed *)
+
+Datatype:
+  third = SHADOW num
+End
+
+val _ = register_type “:third”;
+
+val _ = let
+  val decs = get_ml_prog_state () |> remove_snocs |> get_prog
+  in if mentions "Shadow_1" decs then ()
+     else failwith "clashing top-level constructor name was not renamed" end;

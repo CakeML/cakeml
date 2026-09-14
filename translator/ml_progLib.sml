@@ -585,6 +585,10 @@ fun get_v_defs (ML_code (ss,envs,vs,th)) = vs
 fun get_prog (ML_code (ss,envs,vs,th)) = case ML_code_blocks (concl th) of
       [comm :: st :: prog :: _] => prog
     | _ => failwith ("get_prog: couldn't get toplevel declarations")
+fun get_open_block_prog (ML_code (ss,envs,vs,th)) =
+  case ML_code_blocks (concl th) of
+      (comm :: st :: prog :: _) :: _ => prog
+    | _ => failwith ("get_open_block_prog: couldn't get declarations of the open block")
 fun get_Decls_thm code = let
     val _ = get_prog code
   in MATCH_MP ML_code_Decls (get_thm code) end
@@ -598,6 +602,15 @@ fun get_env s = let
     fun mk [] = hd (snd (strip_comb (concl th)))
       | mk (bl :: bls) = list_mk_icomb (merge_env_tm, [List.last bl, mk bls])
   in mk bls end
+
+fun get_env_within_module s = let
+    fun mk [] = NONE
+      | mk (bl :: bls) =
+          if fst (dest_comment (hd bl)) = "Module" then SOME (List.last bl)
+          else Option.map
+                 (fn env => list_mk_icomb (merge_env_tm, [List.last bl, env]))
+                 (mk bls)
+  in mk (ML_code_blocks (concl (get_thm s))) end
 
 fun get_state s = get_thm s |> concl |> rand
 
