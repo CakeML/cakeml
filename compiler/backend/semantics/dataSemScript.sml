@@ -93,8 +93,8 @@ QED
 
 Definition small_num_def:
   small_num arch64 (i:int) =
-    if arch64 then -(2 ** 61) <= i /\ i < (2 ** 61)
-              else -(2 ** 29) <= i /\ i < (2 ** 29)
+    if arch64 then -(2 ** 62) <= i /\ i < (2 ** 62)
+              else -(2 ** 30) <= i /\ i < (2 ** 30)
 End
 
 Definition bignum_digits_def:
