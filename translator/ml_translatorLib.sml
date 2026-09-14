@@ -1454,6 +1454,27 @@ fun define_ref_inv is_exn_type tys = let
   val cases_thms = map (SPEC_ALL o get_nchotomy_of) tys |> LIST_CONJ
                    |> rename_bound_vars_rule "x_" |> CONJUNCTS
   val all = zip names (zip tys cases_thms) |> map (fn (x,(y,z)) => (x,y,z))
+  val cons_tags = let
+    fun entries (_,ty,case_th) =
+      map (fn x => let
+             val c = repeat rator x |> dest_const |> fst
+             val tag = if is_exn_type andalso is_primitive_exception c
+                       then c else tag_name name c
+             in (c,tag,smart_full_name_of_type ty) end)
+          (map rand (find_terms is_eq (concl case_th)))
+    val tags = List.concat (map entries all)
+    fun check [] = ()
+      | check ((c,tag,ty_name)::rest) =
+          (case List.find (fn (_,t,_) => t = tag) rest of
+             NONE => ()
+           | SOME (c2,_,ty_name2) =>
+               failwith ("name mangling maps the constructors " ^ c ^
+                         " (of type " ^ ty_name ^ ") and " ^ c2 ^
+                         " (of type " ^ ty_name2 ^
+                         ") to the same ML constructor name " ^ tag ^
+                         "; rename one of them");
+           check rest)
+    in check tags; map (fn (c,tag,_) => (c,tag)) tags end
   val tmp_v_var = genvar v_ty
   val real_v_var = mk_var("v",v_ty)
   fun mk_lhs (name,ty,case_th) = let
@@ -1484,9 +1505,7 @@ fun define_ref_inv is_exn_type tys = let
       | mk_lines ml_ty_name lhs ty (x::xs) input stamp = let
       val k = length xs + 1
       val cons_name = (repeat rator x |> dest_const |> fst)
-      val tag = if is_exn_type andalso is_primitive_exception cons_name
-                then cons_name
-                else tag_name name cons_name
+      val tag = Lib.assoc cons_name cons_tags
       fun rename [] = []
         | rename (x::xs) = let val n = int_to_string k ^ "_" ^
                                        int_to_string (length xs + 1)

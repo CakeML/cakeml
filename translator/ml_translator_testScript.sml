@@ -641,3 +641,18 @@ val _ = use_sub_check true;
 
 (* no precondition *)
 val res = translate foo_sub_def;
+
+(* constructor names that collide once mangled into ML constructor names must
+   be rejected when the type is registered *)
+
+Datatype:
+  clash_ty = Clash | clash
+End
+
+val _ = let
+  val ok = (register_type “:clash_ty”; false)
+             handle e as HOL_ERR _ =>
+               String.isSubstring "to the same ML constructor name"
+                                  (Feedback.exn_to_string e)
+  in if ok then () else
+       failwith "register_type accepted clashing constructor names" end;
