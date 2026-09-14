@@ -50,7 +50,7 @@ End
 
 Definition reg_imm_def:
   (reg_imm (Reg r) s = read_reg r s) /\
-  (reg_imm (Imm w) s = w)
+  (reg_imm (Imm i) s = i2w i)
 End
 
 Definition binop_upd_def:
@@ -73,7 +73,7 @@ Definition word_shift_def:
 End
 
 Definition arith_upd_def:
-  (arith_upd (Binop b r1 r2 (ri:'a reg_imm)) s =
+  (arith_upd (Binop b r1 r2 (ri:reg_imm)) s =
      binop_upd r1 b (read_reg r2 s) (reg_imm ri s) s) /\
   (arith_upd (Shift l r1 r2 ri) s =
      assert (case ri of Reg r => w2n (read_reg r s) < dimindex (:'a) | _ => T) $

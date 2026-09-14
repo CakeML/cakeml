@@ -72,7 +72,7 @@ Type fp_reg = ``:num``
 Type imm = ``:'a word``
 
 Datatype:
-  reg_imm = Reg reg | Imm ('a imm)
+  reg_imm = Reg reg | Imm int
 End
 
 Datatype:
@@ -84,8 +84,8 @@ Datatype:
 End
 
 Datatype:
-  arith = Binop binop reg reg ('a reg_imm)
-        | Shift shift reg reg ('a reg_imm)
+  arith = Binop binop reg reg reg_imm
+        | Shift shift reg reg reg_imm
         | Div reg reg reg
         | LongMul reg reg reg reg
         | LongDiv reg reg reg reg reg
@@ -130,7 +130,7 @@ End
 Datatype:
   inst = Skip
        | Const reg ('a word)
-       | Arith ('a arith)
+       | Arith arith
        | Mem memop reg ('a addr)
        | FP fp
 End
@@ -138,7 +138,7 @@ End
 Datatype:
   asm = Inst ('a inst)
       | Jump ('a word)
-      | JumpCmp cmp reg ('a reg_imm) ('a word)
+      | JumpCmp cmp reg reg_imm ('a word)
       | Call ('a word)
       | JumpReg reg
       | Loc reg ('a word)
@@ -161,7 +161,7 @@ Datatype:
      ; reg_count      : num
      ; fp_reg_count   : num  (* set to 0 if float not available *)
      ; two_reg_arith  : bool
-     ; valid_imm      : (binop + cmp) -> 'a word -> bool
+     ; valid_imm      : (binop + cmp) -> int -> bool
      ; addr_offset    : 'a word # 'a word
      ; hw_offset      : 'a word # 'a word
      ; byte_offset    : 'a word # 'a word
@@ -183,7 +183,7 @@ Definition reg_imm_ok_def:
   (reg_imm_ok b (Reg r) c = reg_ok r c) /\
   (reg_imm_ok b (Imm w) c =
      (* Always permit Xor by -1 in order to provide 1's complement *)
-     ((b = INL Xor) /\ (w = -1w) \/ c.valid_imm b w))
+     ((b = INL Xor) /\ (w = -1) \/ c.valid_imm b w))
 End
 
 
@@ -198,7 +198,7 @@ Definition arith_ok_def:
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\
      (case ri of
-      | Imm i => (((i = 0w) ==> (l = Lsl)) /\ w2n i < dimindex(:'a))
+      | Imm i => (((i = 0) ==> (l = Lsl)) /\ 0 ≤ i /\ i < & dimindex(:'a))
       | Reg r =>
         reg_ok r c ∧
         (c.ISA = x86_64 ⇒ r = 1)
