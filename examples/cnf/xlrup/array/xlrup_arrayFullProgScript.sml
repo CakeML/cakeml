@@ -491,7 +491,7 @@ Quote add_cakeml:
   let val cfml = conv_cfml cfml
       val carr = build_cfml_arr (2*ncx) 1 cfml
       val xarr = Array.array ncx None
-      val tn = (Ln, 1)
+      val tn = (Array.array 0 0, 1)
       val bnd = mv + 1
   in
     case check_unsat' xfml carr xarr tn 0 f2 bnd of
@@ -639,15 +639,12 @@ Proof
   >- (
     xapp>>
     xsimpl>>
-    asm_exists_tac>>simp[]>>
-    fs[FILENAME_def,validArg_def]>>
-    asm_exists_tac>>simp[]>>
-    asm_exists_tac>>simp[]>>
-    first_x_assum (irule_at Any)>>
-    first_x_assum (irule_at Any)>>
-    qexists_tac`REPLICATE ncl NONE`>>
-    qexists_tac`(LN,1)`>>
+    qmatch_asmsub_rename_tac`_ = Conv NONE [tna; _]`>>
+    qexistsl_tac
+      [`emp`,`xfml`,`REPLICATE ncl NONE`,`1`,`[]`,`[]`,`tna`,`mv+1`,`fs`,`f2`,
+       `build_cfml_list 1 (conv_cfml cfml) (2*ncl)`]>>
     xsimpl>>
+    fs[FILENAME_def,validArg_def]>>
     rpt CONJ_TAC
     >- (
       irule bnd_fml_build_cfml_list>>

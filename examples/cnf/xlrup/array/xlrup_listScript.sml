@@ -135,10 +135,65 @@ Proof
   gvs[]
 QED
 
+(*** The dense renaming.
+
+  The spec's sptree is refined to a list indexed by the original variable.
+  A zero entry marks an unnamed variable: dense names start at 1, so a zero
+  and an index past the end both mean absent. ***)
+
+Type tname_list = ``:num list # num``;
+
+Definition nm_rel_def:
+  nm_rel t (tl:num list) ⇔
+  ∀v. lookup v t =
+    (let m = any_el v tl 0 in
+      if m = 0 then NONE else SOME m)
+End
+
+Definition tn_rel_def:
+  tn_rel ((t,n):tname) ((tl,n'):tname_list) ⇔
+  n = n' ∧ 0 < n ∧ nm_rel t tl
+End
+
+Theorem tn_rel_nm_rel:
+  tn_rel tn tnl ⇒ nm_rel (FST tn) (FST tnl)
+Proof
+  PairCases_on`tn`>>PairCases_on`tnl`>>
+  rw[tn_rel_def]
+QED
+
+Definition get_name_list_def:
+  get_name_list ((tl,n):tname_list) (v:num) =
+  let m = any_el v tl 0 in
+  if m = 0
+  then (n, (update_resize tl 0 n v, n+(1:num)))
+  else (m, (tl,n))
+End
+
+Theorem tn_rel_get_name_list:
+  tn_rel tn tnl ∧
+  get_name_list tnl v = (m,tnl') ⇒
+  ∃tn'.
+    get_name tn v = (m,tn') ∧
+    tn_rel tn' tnl'
+Proof
+  PairCases_on`tn`>>PairCases_on`tnl`>>
+  simp[tn_rel_def,get_name_list_def,get_name_def]>>
+  strip_tac>>
+  `lookup v tn0 =
+    if any_el v tnl0 0 = 0 then NONE
+    else SOME (any_el v tnl0 0)` by gvs[nm_rel_def]>>
+  Cases_on`any_el v tnl0 0 = 0`>>
+  gvs[]>>
+  gvs[tn_rel_def,nm_rel_def,lookup_insert,any_el_update_resize]>>
+  rw[]>>gvs[]
+QED
+
 Definition unit_prop_xor_list_def:
-  unit_prop_xor_list t s l =
-  case lookup (Num (ABS l)) t of NONE => s
-  | SOME n =>
+  unit_prop_xor_list tl s l =
+  let n = any_el (Num (ABS l)) tl 0 in
+  if n = 0 then s
+  else
   if n < 8 * LENGTH s then
     if l > 0 then
       (if get_bit_list s n then
@@ -149,16 +204,18 @@ Definition unit_prop_xor_list_def:
 End
 
 Theorem unit_prop_xor_list:
-  implode (MAP fromByte (unit_prop_xor_list t x l)) =
+  nm_rel t tl ⇒
+  implode (MAP fromByte (unit_prop_xor_list tl x l)) =
   unit_prop_xor t (implode (MAP fromByte x)) l
 Proof
+  strip_tac>>
+  `lookup (Num (ABS l)) t =
+    if any_el (Num (ABS l)) tl 0 = 0 then NONE
+    else SOME (any_el (Num (ABS l)) tl 0)` by gvs[nm_rel_def]>>
   rw[unit_prop_xor_def,unit_prop_xor_list_def]>>
-  TOP_CASE_TAC>>simp[]>>
-  qmatch_goalsub_rename_tac`v < 8 * LENGTH x`>>
-  IF_CASES_TAC>>fs[]>>
+  qabbrev_tac`v = any_el (Num (ABS l)) tl 0`>>
   `v DIV 8 < LENGTH x` by
     (DEP_REWRITE_TAC[DIV_LT_X]>>simp[])>>
-  rw[]>>
   gvs[get_bit_list]>>
   simp[set_bit_list]>>
   DEP_REWRITE_TAC[flip_bit_list]>>simp[]>>
@@ -192,16 +249,17 @@ Proof
 QED
 
 Definition unit_props_xor_list_def:
-  unit_props_xor_list fml t ls s =
+  unit_props_xor_list fml tl ls s =
   case get_units_list fml ls [] of NONE => NONE
   | SOME cs =>
-    SOME (FOLDL (unit_prop_xor_list t) s cs)
+    SOME (FOLDL (unit_prop_xor_list tl) s cs)
 End
 
 Theorem unit_props_xor_list:
   ∀is x y.
   fml_rel fml fmlls ∧
-  unit_props_xor_list fmlls t is x = SOME y ⇒
+  nm_rel t tl ∧
+  unit_props_xor_list fmlls tl is x = SOME y ⇒
   unit_props_xor fml t is (implode (MAP fromByte x)) =
     SOME (implode (MAP fromByte y))
 Proof
@@ -209,20 +267,24 @@ Proof
   gvs[AllCaseEqs()]>>
   drule_all get_units_list>>
   rw[]>>
+  qpat_x_assum`nm_rel _ _` mp_tac>>
   rpt (pop_assum kall_tac)>>
+  strip_tac>>
   qid_spec_tac`x`>>
   qid_spec_tac`cs`>>
   ho_match_mp_tac SNOC_INDUCT>>rw[]>>
-  simp[FOLDL_SNOC,GSYM unit_prop_xor_list]
+  simp[FOLDL_SNOC]>>
+  drule unit_prop_xor_list>>
+  simp[]
 QED
 
 Definition is_xor_list_def:
-  is_xor_list def fml is cfml cis t s =
+  is_xor_list def fml is cfml cis tl s =
   let r = REPLICATE def (0w:word8) in
   let r = strxor_c r s in
   case add_xors_aux_c_list fml is r of NONE => F
   | SOME x =>
-    case unit_props_xor_list cfml t cis x of
+    case unit_props_xor_list cfml tl cis x of
       NONE => F
     | SOME y => is_emp_xor_list y
 End
@@ -230,7 +292,8 @@ End
 Theorem is_xor_list:
   xfml_rel fml fmlls ∧
   fml_rel cfml cfmlls ∧
-  is_xor_list def fmlls is cfmlls cis t x ⇒
+  nm_rel t tl ∧
+  is_xor_list def fmlls is cfmlls cis tl x ⇒
   is_xor def fml is cfml cis t x
 Proof
   rw[is_xor_list_def]>>
@@ -351,46 +414,106 @@ Proof
   metis_tac[fml_rel_get_constrs_list,option_CLAUSES]
 QED
 
+Definition ren_int_ls_list_def:
+  (ren_int_ls_list tnl [] (acc:int list) = (REVERSE acc, tnl)) ∧
+  (ren_int_ls_list tnl (i::is) acc =
+    let v = Num (ABS i) in
+    let (m,tnl) = get_name_list tnl v in
+    let vv = if i < (0:int) then -&m else &m in
+    ren_int_ls_list tnl is (vv::acc))
+End
+
+Theorem tn_rel_ren_int_ls_list:
+  ∀is tn tnl acc ms tnl'.
+  tn_rel tn tnl ∧
+  ren_int_ls_list tnl is acc = (ms,tnl') ⇒
+  ∃tn'.
+    ren_int_ls tn is acc = (ms,tn') ∧
+    tn_rel tn' tnl'
+Proof
+  Induct>>
+  simp[ren_int_ls_def,ren_int_ls_list_def]>>
+  rw[]>>
+  rpt (pairarg_tac>>gvs[])>>
+  drule_all tn_rel_get_name_list>>
+  strip_tac>>
+  gvs[]>>
+  first_x_assum drule_all>>
+  rw[]
+QED
+
+Definition ren_lit_ls_list_def:
+  (ren_lit_ls_list tnl [] (acc:cmsxor) = (REVERSE acc, tnl)) ∧
+  (ren_lit_ls_list tnl (i::is) acc =
+    case i of
+      Pos v =>
+      let (m,tnl) = get_name_list tnl v in
+        ren_lit_ls_list tnl is (Pos m::acc)
+    | Neg v =>
+      let (m,tnl) = get_name_list tnl v in
+        ren_lit_ls_list tnl is (Neg m::acc))
+End
+
+Theorem tn_rel_ren_lit_ls_list:
+  ∀is tn tnl acc ms tnl'.
+  tn_rel tn tnl ∧
+  ren_lit_ls_list tnl is acc = (ms,tnl') ⇒
+  ∃tn'.
+    ren_lit_ls tn is acc = (ms,tn') ∧
+    tn_rel tn' tnl'
+Proof
+  Induct>>
+  simp[ren_lit_ls_def,ren_lit_ls_list_def]>>
+  rw[]>>
+  TOP_CASE_TAC>>
+  rpt (pairarg_tac>>gvs[])>>
+  drule_all tn_rel_get_name_list>>
+  strip_tac>>
+  gvs[]>>
+  first_x_assum drule_all>>
+  rw[]
+QED
+
 (*** The checker ***)
 
 Definition check_xlrup_list_def:
-  check_xlrup_list xorig xlrup cfml xfml tn def dml b =
+  check_xlrup_list xorig xlrup cfml xfml tnl def dml b =
   case xlrup of
     Del cl =>
-    SOME (delete_ids_list cfml cl, xfml, tn, def, dml, b)
+    SOME (delete_ids_list cfml cl, xfml, tnl, def, dml, b)
   | RUP n C i0 =>
     (case is_rup_list cfml dml b C i0 of
       (T, dml', b') =>
-      SOME (insert_vcc_list cfml n C, xfml, tn, def, dml', b')
+      SOME (insert_vcc_list cfml n C, xfml, tnl, def, dml', b')
     | _ => NONE)
   | XOrig n rX =>
     if MEM rX xorig
     then
-      let (mX,tn) = ren_lit_ls tn rX [] in
+      let (mX,tnl) = ren_lit_ls_list tnl rX [] in
       let X = conv_xor_mv_list def mX in
-      SOME (cfml, update_resize xfml NONE (SOME X) n, tn,
+      SOME (cfml, update_resize xfml NONE (SOME X) n, tnl,
         MAX def (strlen X), dml, b)
     else NONE
   | XAdd n rX i0 i1 =>
-    let (mX,tn) = ren_int_ls tn rX [] in
+    let (mX,tnl) = ren_int_ls_list tnl rX [] in
     let X = conv_rawxor_list def mX in
-    if is_xor_list def xfml i0 cfml i1 (FST tn) X then
-      SOME (cfml, update_resize xfml NONE (SOME X) n, tn,
+    if is_xor_list def xfml i0 cfml i1 (FST tnl) X then
+      SOME (cfml, update_resize xfml NONE (SOME X) n, tnl,
         MAX def (strlen X), dml, b)
     else NONE
   | XDel xl =>
-    SOME (cfml, xdelete_ids_list xfml xl, tn, def, dml, b)
+    SOME (cfml, xdelete_ids_list xfml xl, tnl, def, dml, b)
   | CFromX n C i0 =>
-    let (mC,tn) = ren_int_ls tn C [] in
+    let (mC,tnl) = ren_int_ls_list tnl C [] in
     if is_cfromx_list def xfml i0 mC then
-      SOME (insert_vcc_list cfml n (Vector C), xfml, tn,
+      SOME (insert_vcc_list cfml n (Vector C), xfml, tnl,
         def, resize_dm dml b (Vector C))
     else NONE
   | XFromC n rX i0 =>
     if is_xfromc_list cfml i0 rX then
-      let (mX,tn) = ren_int_ls tn rX [] in
+      let (mX,tnl) = ren_int_ls_list tnl rX [] in
       let X = conv_rawxor_list def mX in
-      SOME (cfml, update_resize xfml NONE (SOME X) n, tn,
+      SOME (cfml, update_resize xfml NONE (SOME X) n, tnl,
         MAX def (strlen X), dml, b)
     else NONE
 End
@@ -399,13 +522,15 @@ Theorem check_xlrup_list:
   fml_rel cfml cfmlls ∧
   xfml_rel xfml xfmlls ∧
   dm_rel dm dml b ∧
-  check_xlrup_list xorig xlrup cfmlls xfmlls tn def dml b =
-    SOME (cfmlls', xfmlls', tn', def', dml', b') ⇒
-  ∃cfml' xfml' dm'.
+  tn_rel tn tnl ∧
+  check_xlrup_list xorig xlrup cfmlls xfmlls tnl def dml b =
+    SOME (cfmlls', xfmlls', tnl', def', dml', b') ⇒
+  ∃cfml' xfml' tn' dm'.
     check_xlrup xorig xlrup cfml xfml tn def =
       SOME (cfml',xfml',tn',def') ∧
     fml_rel cfml' cfmlls' ∧
     xfml_rel xfml' xfmlls' ∧
+    tn_rel tn' tnl' ∧
     dm_rel dm' dml' b'
 Proof
   simp[check_xlrup_def,check_xlrup_list_def]>>
@@ -418,16 +543,24 @@ Proof
     drule fml_rel_insert_vcc_list>>
     metis_tac[])
   >- ( (* XOrig *)
-    pairarg_tac>>gvs[conv_xor_mv_list]>>
+    rpt (pairarg_tac>>gvs[conv_xor_mv_list])>>
+    drule_all tn_rel_ren_lit_ls_list>>
+    strip_tac>>gvs[]>>
     metis_tac[xfml_rel_update_resize])
   >- ( (* XAdd *)
-    pairarg_tac>>gvs[conv_rawxor_list]>>
+    rpt (pairarg_tac>>gvs[conv_rawxor_list])>>
+    drule_all tn_rel_ren_int_ls_list>>
+    strip_tac>>gvs[]>>
+    imp_res_tac tn_rel_nm_rel>>
     drule_all is_xor_list>>
+    strip_tac>>
     metis_tac[xfml_rel_update_resize])
   >- (* XDel *)
     (simp[xfml_rel_xdelete_ids_list]>>metis_tac[])
   >- ( (* CFromX *)
-    pairarg_tac>>gvs[]>>
+    rpt (pairarg_tac>>gvs[])>>
+    drule_all tn_rel_ren_int_ls_list>>
+    strip_tac>>gvs[]>>
     drule_all is_cfromx_list>>
     rw[]>>
     drule fml_rel_insert_vcc_list>>
@@ -435,16 +568,17 @@ Proof
     drule_all dm_rel_reset_dm_list>>
     metis_tac[])
   >- ( (* XFromC *)
-    pairarg_tac>>gvs[conv_rawxor_list]>>
+    rpt (pairarg_tac>>gvs[conv_rawxor_list])>>
+    drule_all tn_rel_ren_int_ls_list>>
+    strip_tac>>gvs[]>>
     drule_all is_xfromc_list>>
     metis_tac[xfml_rel_update_resize])
 QED
 
-
 Theorem check_xlrup_list_bnd_fml:
   bnd_fml cfmlls (LENGTH dml) ∧
-  check_xlrup_list xorig xlrup cfmlls xfmlls tn def dml b =
-    SOME (cfmlls', xfmlls', tn', def', dml', b') ⇒
+  check_xlrup_list xorig xlrup cfmlls xfmlls tnl def dml b =
+    SOME (cfmlls', xfmlls', tnl', def', dml', b') ⇒
   bnd_fml cfmlls' (LENGTH dml')
 Proof
   simp[check_xlrup_list_def]>>
@@ -463,28 +597,30 @@ Proof
 QED
 
 Definition check_xlrups_list_def:
-  (check_xlrups_list xorig [] cfml xfml tn def dml b =
-    SOME (cfml, xfml, tn, def)) ∧
-  (check_xlrups_list xorig (x::xs) cfml xfml tn def dml b =
-    case check_xlrup_list xorig x cfml xfml tn def dml b of
+  (check_xlrups_list xorig [] cfml xfml tnl def dml b =
+    SOME (cfml, xfml, tnl, def)) ∧
+  (check_xlrups_list xorig (x::xs) cfml xfml tnl def dml b =
+    case check_xlrup_list xorig x cfml xfml tnl def dml b of
       NONE => NONE
-    | SOME (cfml', xfml', tn', def', dml', b') =>
-      check_xlrups_list xorig xs cfml' xfml' tn' def' dml' b')
+    | SOME (cfml', xfml', tnl', def', dml', b') =>
+      check_xlrups_list xorig xs cfml' xfml' tnl' def' dml' b')
 End
 
 Theorem check_xlrups_list:
   ∀xlrups cfml cfmlls xfml xfmlls cfmlls' xfmlls'
-    tn tn' def def' dml b dm.
+    tn tnl tnl' def def' dml b dm.
   fml_rel cfml cfmlls ∧
   xfml_rel xfml xfmlls ∧
   dm_rel dm dml b ∧
-  check_xlrups_list xorig xlrups cfmlls xfmlls tn def dml b =
-    SOME (cfmlls', xfmlls', tn', def') ⇒
-  ∃cfml' xfml'.
+  tn_rel tn tnl ∧
+  check_xlrups_list xorig xlrups cfmlls xfmlls tnl def dml b =
+    SOME (cfmlls', xfmlls', tnl', def') ⇒
+  ∃cfml' xfml' tn'.
     check_xlrups xorig xlrups cfml xfml tn def =
       SOME (cfml',xfml',tn',def') ∧
     fml_rel cfml' cfmlls' ∧
-    xfml_rel xfml' xfmlls'
+    xfml_rel xfml' xfmlls' ∧
+    tn_rel tn' tnl'
 Proof
   Induct>>fs[check_xlrups_list_def,check_xlrups_def]>>
   rw[]>>gvs[AllCaseEqs()]>>
@@ -497,10 +633,10 @@ Proof
 QED
 
 Definition check_xlrups_unsat_list_def:
-  check_xlrups_unsat_list xorig xlrups cfml xfml tn def dml b =
-  case check_xlrups_list xorig xlrups cfml xfml tn def dml b of
+  check_xlrups_unsat_list xorig xlrups cfml xfml tnl def dml b =
+  case check_xlrups_list xorig xlrups cfml xfml tnl def dml b of
     NONE => F
-  | SOME (cfml', xfml', tn', def') =>
+  | SOME (cfml', xfml', tnl', def') =>
     contains_emp_list cfml'
 End
 
@@ -508,12 +644,13 @@ Theorem check_xlrups_unsat_list:
   fml_rel cfml cfmlls ∧
   xfml_rel xfml xfmlls ∧
   dm_rel dm dml b ∧
-  check_xlrups_unsat_list xorig xlrups cfmlls xfmlls tn def dml b ⇒
+  tn_rel tn tnl ∧
+  check_xlrups_unsat_list xorig xlrups cfmlls xfmlls tnl def dml b ⇒
   check_xlrups_unsat xorig xlrups cfml xfml tn def
 Proof
   simp[check_xlrups_unsat_list_def,check_xlrups_unsat_def]>>
   strip_tac>>
-  Cases_on`check_xlrups_list xorig xlrups cfmlls xfmlls tn def dml b`>>
+  Cases_on`check_xlrups_list xorig xlrups cfmlls xfmlls tnl def dml b`>>
   gvs[]>>
   rename1`SOME res`>>
   PairCases_on`res`>>gvs[]>>
@@ -527,7 +664,7 @@ Theorem check_xlrups_unsat_list_sound:
   check_xlrups_unsat_list xfml xlrups
     (build_cfml_list kc (conv_cfml cfml) nc)
     (REPLICATE nx NONE)
-    (LN,1) def
+    ([],1) def
     (REPLICATE n 0w) 1w ∧
   EVERY (EVERY nz_lit) cfml ∧
   EVERY wf_xlrup xlrups ⇒
@@ -545,5 +682,5 @@ Proof
   irule_at Any fml_rel_build_cfml_list>>
   irule_at Any xfml_rel_REPLICATE_NONE>>
   irule_at Any dm_rel_FEMPTY_REPLICATE>>
-  metis_tac[]
+  simp[tn_rel_def,nm_rel_def,any_el_def,lookup_def]
 QED
