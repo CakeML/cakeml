@@ -20,6 +20,13 @@ Datatype:
   | Or (('a,'i,'l) lit list)
 End
 
+Definition get_lits_def[simp]:
+  get_lits (And xs) = xs ∧
+  get_lits (Xor x₀ x₁) = [x₀; x₁] ∧
+  get_lits (Ite cnd thn els) = [cnd; thn; els] ∧
+  get_lits (Or xs) = xs
+End
+
 Type gate[pp] = “:('a # ('a,'i,'l) gty)”
 Type xaig[pp] = “:('a,'i,'l) gate list”
 
@@ -49,6 +56,12 @@ Definition xeval_lit_def:
       | Or ins => EXISTS (xeval_lit ss tl) ins))
 End
 
+Theorem xeval_gate_nil[simp]:
+  ¬xeval_gate ss [] n
+Proof
+  simp [xeval_lit_def]
+QED
+
 (* Naive *)
 Definition aig_to_xaig_def:
   (aig_to_xaig [] = []) ∧
@@ -68,8 +81,6 @@ Proof
   Induct>>rw[aig_to_xaig_def]
   >-
     (Cases_on`lit`>>simp[eval_lit_def,xeval_lit_def])
-  >-
-    simp[xeval_lit_def]
   >- (
     Cases_on`h`>>
     Cases_on`lit`>>

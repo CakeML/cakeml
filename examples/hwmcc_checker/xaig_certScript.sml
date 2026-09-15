@@ -1,9 +1,9 @@
 (*
   Formalization of HWMCC certificates
 *)
-Theory aig_cert
+Theory xaig_cert
 Ancestors
-  aig
+  xaig xaig_circ
 Libs
   preamble
 
@@ -11,25 +11,24 @@ Libs
 
 (* Soundness ******************************************************************)
 
-(* TODO instead of lits_hold, just use eval_lit *)
 Definition signal_imply_def:
-  signal_imply ss aig ss' aig' signals signals' =
-  LIST_REL (λq q'. lits_hold ss aig {q} ⇒ lits_hold ss' aig' {q'})
+  signal_imply ss xaig ss' xaig' signals signals' =
+  LIST_REL (λq q'. xeval_lit ss xaig q ⇒  xeval_lit ss' xaig' q')
     signals signals'
 End
 
 Definition lives_imply_def:
-  lives_imply ss₀ ss₁ wqaig mqaig wlive mlive =
-  LIST_REL (λQ Q'. signal_imply ss₀ wqaig ss₁ mqaig Q Q') wlive mlive
+  lives_imply ss₀ ss₁ wqxaig mqxaig wlive mlive =
+  LIST_REL (λQ Q'. signal_imply ss₀ wqxaig ss₁ mqxaig Q Q') wlive mlive
 End
 
 Definition some_signal_holds_def:
-  some_signal_holds ss aig signals =
-  EXISTS (λp. lits_hold ss aig {p}) signals
+  some_signal_holds ss xaig signals =
+  EXISTS (λp.  xeval_lit ss xaig p) signals
 End
 
 Definition lives_hold_def:
-  lives_hold ss aig live = EVERY (some_signal_holds ss aig) live
+  lives_hold ss xaig live = EVERY (some_signal_holds ss xaig) live
 End
 
 (* TODO Use records for circuit *)
@@ -39,198 +38,198 @@ End
 
 Definition reset_cond_def:
   reset_cond
-    maig mreset mcnstrs mlatches
-    waig wreset wcnstrs wlatches
+    mxaig mreset mcnstrs mlatches
+    wxaig wreset wcnstrs wlatches
   ⇔
   ∀ss.
-    (is_reset ss maig mreset mlatches ∧
-     lits_hold ss maig mcnstrs
+    (is_reset ss mxaig mreset mlatches ∧
+     lits_hold ss mxaig mcnstrs
      ⇒
-     is_reset ss waig wreset (mlatches ∩ wlatches) ∧
-     lits_hold ss waig wcnstrs)
+     is_reset ss wxaig wreset (mlatches ∩ wlatches) ∧
+     lits_hold ss wxaig wcnstrs)
 End
 
 Definition transition_cond_def:
   transition_cond
-    maig mnext mcnstrs mlatches
-    waig wnext wcnstrs wlatches
+    mxaig mnext mcnstrs mlatches
+    wxaig wnext wcnstrs wlatches
   ⇔
   ∀ss₀ ss₁.
-    (is_next ss₀ maig mnext mlatches (SND ss₁) ∧
-     lits_hold ss₀ maig mcnstrs ∧
-     lits_hold ss₁ maig mcnstrs ∧
-     lits_hold ss₀ waig wcnstrs)
+    (is_next ss₀ mxaig mnext mlatches (SND ss₁) ∧
+     lits_hold ss₀ mxaig mcnstrs ∧
+     lits_hold ss₁ mxaig mcnstrs ∧
+     lits_hold ss₀ wxaig wcnstrs)
     ⇒
-    (is_next ss₀ waig wnext (mlatches ∩ wlatches) (SND ss₁) ∧
-     lits_hold ss₁ waig wcnstrs)
+    (is_next ss₀ wxaig wnext (mlatches ∩ wlatches) (SND ss₁) ∧
+     lits_hold ss₁ wxaig wcnstrs)
 End
 
 Definition safety_cond_def:
   safety_cond
-    maig msafes mcnstrs
-    waig wsafes wcnstrs
+    mxaig msafes mcnstrs
+    wxaig wsafes wcnstrs
   ⇔
   ∀ss.
-    (lits_hold ss maig mcnstrs ∧
-     lits_hold ss waig wcnstrs) ⇒
-    lits_hold ss waig wsafes ⇒
-    lits_hold ss maig msafes
+    (lits_hold ss mxaig mcnstrs ∧
+     lits_hold ss wxaig wcnstrs) ⇒
+    lits_hold ss wxaig wsafes ⇒
+    lits_hold ss mxaig msafes
 End
 
 Definition liveness_cond_def:
   liveness_cond
-    maig mcnstrs mqaig mlive
-    waig wnext wsafes wcnstrs wqaig wlive wlatches
+    mxaig mcnstrs mqxaig mlive
+    wxaig wnext wsafes wcnstrs wqxaig wlive wlatches
   ⇔
     (* This LENGTH property is not strictly necessary but makes the proof a bit
        neater *)
     LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive wlive ∧
     ∀ss₀ ss₁.
-      (lits_hold ss₀ maig mcnstrs ∧
-       lits_hold ss₀ waig wcnstrs ∧
-       lits_hold ss₀ waig wsafes ∧
-       lits_hold ss₁ maig mcnstrs ∧
-       lits_hold ss₁ waig wcnstrs ∧
-       lits_hold ss₁ waig wsafes ∧
-       is_next ss₀ waig wnext wlatches (SND ss₁))
+      (lits_hold ss₀ mxaig mcnstrs ∧
+       lits_hold ss₀ wxaig wcnstrs ∧
+       lits_hold ss₀ wxaig wsafes ∧
+       lits_hold ss₁ mxaig mcnstrs ∧
+       lits_hold ss₁ wxaig wcnstrs ∧
+       lits_hold ss₁ wxaig wsafes ∧
+       is_next ss₀ wxaig wnext wlatches (SND ss₁))
       ⇒
-      lives_imply (state_pair ss₀ ss₁) (state_pair ss₀ ss₁) wqaig mqaig
+      lives_imply (state_pair ss₀ ss₁) (state_pair ss₀ ss₁) wqxaig mqxaig
         wlive mlive
 End
 
 Definition simulates_def:
   simulates
-    maig mreset mnext msafes mcnstrs mqaig mlive mlatches
-    waig wreset wnext wsafes wcnstrs wqaig wlive wlatches
+    mxaig mreset mnext msafes mcnstrs mqxaig mlive mlatches
+    wxaig wreset wnext wsafes wcnstrs wqxaig wlive wlatches
   ⇔
   reset_cond
-    maig mreset mcnstrs mlatches
-    waig wreset wcnstrs wlatches
+    mxaig mreset mcnstrs mlatches
+    wxaig wreset wcnstrs wlatches
   ∧
   transition_cond
-    maig mnext mcnstrs mlatches
-    waig wnext wcnstrs wlatches
+    mxaig mnext mcnstrs mlatches
+    wxaig wnext wcnstrs wlatches
   ∧
   safety_cond
-    maig msafes mcnstrs
-    waig wsafes wcnstrs
+    mxaig msafes mcnstrs
+    wxaig wsafes wcnstrs
   ∧
   liveness_cond
-    maig mcnstrs mqaig mlive
-    waig wnext wsafes wcnstrs wqaig wlive wlatches
+    mxaig mcnstrs mqxaig mlive
+    wxaig wnext wsafes wcnstrs wqxaig wlive wlatches
 End
 
 Definition base_cond_def:
   base_cond
-    aig reset safes cnstrs latches
+    xaig reset safes cnstrs latches
   ⇔
     ∀ss.
-      (is_reset ss aig reset latches ∧
-       lits_hold ss aig cnstrs)
+      (is_reset ss xaig reset latches ∧
+       lits_hold ss xaig cnstrs)
       ⇒
-      lits_hold ss aig safes
+      lits_hold ss xaig safes
 End
 
 Definition induction_cond_def:
   induction_cond
-    aig next safes cnstrs latches
+    xaig next safes cnstrs latches
   ⇔
     ∀ss₀ ss₁.
-      (lits_hold ss₀ aig safes ∧
-       is_next ss₀ aig next latches (SND ss₁) ∧
-       lits_hold ss₀ aig cnstrs ∧
-       lits_hold ss₁ aig cnstrs)
+      (lits_hold ss₀ xaig safes ∧
+       is_next ss₀ xaig next latches (SND ss₁) ∧
+       lits_hold ss₀ xaig cnstrs ∧
+       lits_hold ss₁ xaig cnstrs)
       ⇒
-      lits_hold ss₁ aig safes
+      lits_hold ss₁ xaig safes
 End
 
 Definition is_inductive_def:
   is_inductive
-    aig reset next safes cnstrs latches
+    xaig reset next safes cnstrs latches
   ⇔
-    base_cond aig reset safes cnstrs latches ∧
-    induction_cond aig next safes cnstrs latches
+    base_cond xaig reset safes cnstrs latches ∧
+    induction_cond xaig next safes cnstrs latches
 End
 
 Definition decrease_cond_def:
   decrease_cond
-    aig next safes cnstrs qaig live latches
+    xaig next safes cnstrs qxaig live latches
   ⇔
     ∀ss₀ ss₁.
-      (lits_hold ss₀ aig cnstrs ∧
-       lits_hold ss₀ aig safes ∧
-       lits_hold ss₁ aig cnstrs ∧
-       lits_hold ss₁ aig safes ∧
-       is_next ss₀ aig next latches (SND ss₁))
+      (lits_hold ss₀ xaig cnstrs ∧
+       lits_hold ss₀ xaig safes ∧
+       lits_hold ss₁ xaig cnstrs ∧
+       lits_hold ss₁ xaig safes ∧
+       is_next ss₀ xaig next latches (SND ss₁))
        ⇒
-       lives_hold (state_pair ss₁ ss₀) qaig live
+       lives_hold (state_pair ss₁ ss₀) qxaig live
 End
 
 Definition closure_cond_def:
   closure_cond
-    aig next safes cnstrs qaig live latches
+    xaig next safes cnstrs qxaig live latches
   ⇔
     ∀ss₀ ss₁ ss₂.
-      (lits_hold ss₀ aig cnstrs ∧
-       lits_hold ss₀ aig safes ∧
-       lits_hold ss₁ aig cnstrs ∧
-       lits_hold ss₁ aig safes ∧
-       lits_hold ss₂ aig cnstrs ∧
-       lits_hold ss₂ aig safes ∧
-       is_next ss₀ aig next latches (SND ss₁) ∧
-       lives_hold (state_pair ss₀ ss₂) qaig live)
+      (lits_hold ss₀ xaig cnstrs ∧
+       lits_hold ss₀ xaig safes ∧
+       lits_hold ss₁ xaig cnstrs ∧
+       lits_hold ss₁ xaig safes ∧
+       lits_hold ss₂ xaig cnstrs ∧
+       lits_hold ss₂ xaig safes ∧
+       is_next ss₀ xaig next latches (SND ss₁) ∧
+       lives_hold (state_pair ss₀ ss₂) qxaig live)
       ⇒
-      lives_hold (state_pair ss₁ ss₂) qaig live
+      lives_hold (state_pair ss₁ ss₂) qxaig live
 End
 
 Definition stable_cond_def:
   stable_cond
-    aig next safes cnstrs qaig live latches
+    xaig next safes cnstrs qxaig live latches
   ⇔
     ∀ss₀ ss₁ ss₂.
-      (lits_hold ss₀ aig cnstrs ∧
-       lits_hold ss₀ aig safes ∧
-       lits_hold ss₁ aig cnstrs ∧
-       lits_hold ss₁ aig safes ∧
-       lits_hold ss₂ aig cnstrs ∧
-       lits_hold ss₂ aig safes ∧
-       is_next ss₀ aig next latches (SND ss₁) ∧
-       is_next ss₁ aig next latches (SND ss₂) ∧
-       lives_hold (state_pair ss₀ ss₁) qaig live ∧
-       lives_hold (state_pair ss₁ ss₂) qaig live)
+      (lits_hold ss₀ xaig cnstrs ∧
+       lits_hold ss₀ xaig safes ∧
+       lits_hold ss₁ xaig cnstrs ∧
+       lits_hold ss₁ xaig safes ∧
+       lits_hold ss₂ xaig cnstrs ∧
+       lits_hold ss₂ xaig safes ∧
+       is_next ss₀ xaig next latches (SND ss₁) ∧
+       is_next ss₁ xaig next latches (SND ss₂) ∧
+       lives_hold (state_pair ss₀ ss₁) qxaig live ∧
+       lives_hold (state_pair ss₁ ss₂) qxaig live)
        ⇒
-       lives_imply (state_pair ss₀ ss₁) (state_pair ss₁ ss₂) qaig qaig
+       lives_imply (state_pair ss₀ ss₁) (state_pair ss₁ ss₂) qxaig qxaig
          live live
 End
 
 Definition is_ranked_def:
   is_ranked
-    waig wnext wsafes wcnstrs wqaig wlive wlatches
+    wxaig wnext wsafes wcnstrs wqxaig wlive wlatches
   ⇔
   decrease_cond
-    waig wnext wsafes wcnstrs wqaig wlive wlatches
+    wxaig wnext wsafes wcnstrs wqxaig wlive wlatches
   ∧
   closure_cond
-    waig wnext wsafes wcnstrs wqaig wlive wlatches
+    wxaig wnext wsafes wcnstrs wqxaig wlive wlatches
   ∧
   stable_cond
-    waig wnext wsafes wcnstrs wqaig wlive wlatches
+    wxaig wnext wsafes wcnstrs wqxaig wlive wlatches
 End
 
 Definition is_witness_def:
   is_witness
-    maig mreset mnext msafes mcnstrs mqaig mlive mlatches
-    waig wreset wnext wsafes wcnstrs wqaig wlive wlatches
+    mxaig mreset mnext msafes mcnstrs mqxaig mlive mlatches
+    wxaig wreset wnext wsafes wcnstrs wqxaig wlive wlatches
   ⇔
   simulates
-    maig mreset mnext msafes mcnstrs mqaig mlive mlatches
-    waig wreset wnext wsafes wcnstrs wqaig wlive wlatches
+    mxaig mreset mnext msafes mcnstrs mqxaig mlive mlatches
+    wxaig wreset wnext wsafes wcnstrs wqxaig wlive wlatches
   ∧
   is_inductive
-    waig wreset wnext wsafes wcnstrs wlatches
+    wxaig wreset wnext wsafes wcnstrs wlatches
   ∧
   is_ranked
-    waig wnext wsafes wcnstrs wqaig wlive wlatches
+    wxaig wnext wsafes wcnstrs wqxaig wlive wlatches
 End
 
 (* To show that we can find a state where the reset functions are all satisfied,
@@ -329,26 +328,26 @@ QED
    extend_model_trace_to_witness as ∃steps'. ∀n. ... allowing us to use the lemma
    for both finite and infinite traces. *)
 Definition mk_trace_def:
-  (mk_trace lt mlatches waig wreset wnext wsafes wcnstrs wlatches steps 0 =
+  (mk_trace lt mlatches wxaig wreset wnext wsafes wcnstrs wlatches steps 0 =
    let
      xs = topo_sort lt (wlatches DIFF (mlatches ∩ wlatches));
      (is, ls) = steps 0
    in
-     (is, patch waig wreset is ls xs)) ∧
-  (mk_trace lt mlatches waig wreset wnext wsafes wcnstrs wlatches steps (SUC n) =
+     (is, patch wxaig wreset is ls xs)) ∧
+  (mk_trace lt mlatches wxaig wreset wnext wsafes wcnstrs wlatches steps (SUC n) =
    let
-     prev = mk_trace lt mlatches waig wreset wnext wsafes wcnstrs wlatches steps n
+     prev = mk_trace lt mlatches wxaig wreset wnext wsafes wcnstrs wlatches steps n
    in
      @succ.
-       is_next prev waig wnext wlatches (SND succ) ∧
-       lits_hold succ waig wcnstrs ∧
+       is_next prev wxaig wnext wlatches (SND succ) ∧
+       lits_hold succ wxaig wcnstrs ∧
        agree_on UNIV mlatches succ (steps (SUC n)))
 End
 
 Definition dep_model_def:
   dep_model
-    aig reset next safes cnstrs inputs latches ⇔
-  dep_aig inputs latches aig ∧
+    xaig reset next safes cnstrs inputs latches ⇔
+  dep_xaig inputs latches xaig ∧
   dep_reset inputs latches reset latches ∧
   dep_latch_lit inputs latches next latches ∧
   dep_lits inputs latches safes ∧
@@ -374,23 +373,23 @@ Proof
 QED
 
 Theorem extend_model_trace_to_witness:
-  dep_model maig mreset mnext msafes mcnstrs minputs mlatches ∧
+  dep_model mxaig mreset mnext msafes mcnstrs minputs mlatches ∧
   reset_cond
-    maig mreset mcnstrs mlatches
-    waig wreset wcnstrs wlatches ∧
+    mxaig mreset mcnstrs mlatches
+    wxaig wreset wcnstrs wlatches ∧
   transition_cond
-    maig mnext mcnstrs mlatches
-    waig wnext wcnstrs wlatches ∧
-  is_stratified lt waig wreset wlatches ∧
+    mxaig mnext mcnstrs mlatches
+    wxaig wnext wcnstrs wlatches ∧
+  is_stratified lt wxaig wreset wlatches ∧
   FINITE wlatches
   ⇒
   ∃steps'. ∀n.
-    is_trace maig mreset mnext mcnstrs mlatches steps n ⇒
-    is_trace waig wreset wnext wcnstrs wlatches steps' n ∧
+    is_trace mxaig mreset mnext mcnstrs mlatches steps n ⇒
+    is_trace wxaig wreset wnext wcnstrs wlatches steps' n ∧
     steps_agree n UNIV mlatches steps' steps
 Proof
   rw [dep_model_def, is_stratified_def]
-  >> qexists ‘mk_trace lt mlatches waig wreset wnext wsafes wcnstrs wlatches steps’
+  >> qexists ‘mk_trace lt mlatches wxaig wreset wnext wsafes wcnstrs wlatches steps’
   >> Induct_on ‘n’ >> strip_tac
   >-
    (fs [is_trace_def, reset_cond_def, steps_agree_def]
@@ -417,7 +416,7 @@ Proof
           irule (GSYM not_mem_patch_eq)>>
           simp[Abbr`xs`])
         >>
-          drule_then irule lits_hold_dep_aig>>
+          drule_then irule lits_hold_dep_xaig>>
           last_assum $ irule_at (Pos hd)>>
           simp[Abbr`ss0`, agree_on_def]>>
           rw[]>>
@@ -446,28 +445,28 @@ Proof
    (qabbrev_tac ‘step =
                  (FST (steps (n + 1)),
                   λl. if l ∈ mlatches then (SND (steps (n + 1))) l
-                      else eval_lit (steps'n) waig (wnext l))’
+                      else xeval_lit (steps'n) wxaig (wnext l))’
     >> qexists ‘step’
-    >> ‘is_next (steps'n) maig mnext mlatches (SND step)’ by
-      (drule is_next_dep_aig
+    >> ‘is_next (steps'n) mxaig mnext mlatches (SND step)’ by
+      (drule is_next_dep_xaig
        >> disch_then irule
-       >> qpat_x_assum ‘dep_aig _ _ _’ $ irule_at Any
+       >> qpat_x_assum ‘dep_xaig _ _ _’ $ irule_at Any
        >> gvs [steps_agree_def, agree_on_sym, Abbr ‘step’, Abbr‘steps'n’]
        >> irule agree_on_weaken_inputs
        >> first_assum $ irule_at (Pos last) >> simp [])
-    >> ‘lits_hold (steps'n) maig mcnstrs’ by
-      (‘lits_hold (steps n) maig mcnstrs’ by metis_tac [is_trace_lits_hold_n]
-       >> drule lits_hold_dep_aig
+    >> ‘lits_hold (steps'n) mxaig mcnstrs’ by
+      (‘lits_hold (steps n) mxaig mcnstrs’ by metis_tac [is_trace_lits_hold_n]
+       >> drule lits_hold_dep_xaig
        >> disch_then drule >> disch_then irule
        >> gvs [steps_agree_def, agree_on_sym, Abbr‘steps'n’]
        >> irule agree_on_weaken_inputs
        >> first_assum $ irule_at (Pos last) >> simp [])
-    >> ‘lits_hold step maig mcnstrs’ by
-      (rev_drule lits_hold_dep_aig
+    >> ‘lits_hold step mxaig mcnstrs’ by
+      (rev_drule lits_hold_dep_xaig
        >> disch_then drule >> disch_then irule
        >> Cases_on ‘steps (n + 1)’
        >> gvs [agree_on_def, Abbr ‘step’])
-    >> ‘lits_hold (steps'n) waig wcnstrs’ by metis_tac [is_trace_lits_hold_n]
+    >> ‘lits_hold (steps'n) wxaig wcnstrs’ by metis_tac [is_trace_lits_hold_n]
     (* Following the paper proof, we can now invoke the transition check
        and extend these two facts to the witness. *)
     >> fs [transition_cond_def]
@@ -481,11 +480,11 @@ Proof
 QED
 
 Theorem is_inductive_lits_hold[local]:
-  is_trace aig reset next cnstrs latches steps n ∧
+  is_trace xaig reset next cnstrs latches steps n ∧
   is_inductive
-    aig reset next safes cnstrs latches
+    xaig reset next safes cnstrs latches
   ⇒
-  lits_hold (steps n) aig safes
+  lits_hold (steps n) xaig safes
 Proof
   simp[is_inductive_def]>>
   Induct_on`n`>>rw[]
@@ -501,26 +500,26 @@ Proof
 QED
 
 Theorem inf_is_inductive_lits_hold[local]:
-  is_inf_trace aig reset next cnstrs latches steps ∧
+  is_inf_trace xaig reset next cnstrs latches steps ∧
   is_inductive
-    aig reset next safes cnstrs latches
+    xaig reset next safes cnstrs latches
   ⇒
-  (∀n. lits_hold (steps n) aig safes)
+  (∀n. lits_hold (steps n) xaig safes)
 Proof
   rw [is_inf_trace_eq] >> metis_tac [is_inductive_lits_hold]
 QED
 
 Theorem is_witness_is_safe:
   is_witness
-    maig mreset mnext msafes mcnstrs mqaig mlive mlatches
-    waig wreset wnext wsafes wcnstrs wqaig wlive wlatches ∧
+    mxaig mreset mnext msafes mcnstrs mqxaig mlive mlatches
+    wxaig wreset wnext wsafes wcnstrs wqxaig wlive wlatches ∧
   dep_model
-    maig mreset mnext msafes mcnstrs minputs mlatches ∧
-  is_stratified lt waig wreset wlatches ∧
+    mxaig mreset mnext msafes mcnstrs minputs mlatches ∧
+  is_stratified lt wxaig wreset wlatches ∧
   FINITE wlatches
   ⇒
   is_safe
-    maig mreset mnext mcnstrs mlatches msafes
+    mxaig mreset mnext mcnstrs mlatches msafes
 Proof
   rw [is_witness_def, is_safe_def, simulates_def]
   >> CCONTR_TAC
@@ -533,13 +532,13 @@ Proof
   >> drule_all is_inductive_lits_hold
   >> strip_tac
   >> fs [dep_model_def]
-  >> `is_trace maig mreset mnext mcnstrs mlatches steps' n` by
-    (irule is_trace_dep_aig >> fs []
+  >> `is_trace mxaig mreset mnext mcnstrs mlatches steps' n` by
+    (irule is_trace_dep_xaig >> fs []
      >> first_assum $ irule_at (Pos hd) >> simp []
      >> irule_at (Pos hd) steps_agree_weaken_inputs
      >> first_assum $ irule_at (Pos hd)
      >> simp [])
-  >> drule_at_then Any irule lits_hold_dep_aig
+  >> drule_at_then Any irule lits_hold_dep_xaig
   >> rename1`steps_agree n _ mlatches steps' steps`
   >> fs[steps_agree_def]
   >> qexists_tac`steps' n`
@@ -557,13 +556,13 @@ QED
 Theorem closure_cond_lives_hold[local]:
   ∀k.
     closure_cond
-      aig next safes cnstrs qaig live latches ∧
-    lives_hold (state_pair (steps i) (steps j)) qaig live ∧
-    (∀n. lits_hold (steps n) aig safes) ∧
-    (∀n. lits_hold (steps n) aig cnstrs) ∧
-    (∀n. is_next (steps n) aig next latches (SND (steps (n + 1))))
+      xaig next safes cnstrs qxaig live latches ∧
+    lives_hold (state_pair (steps i) (steps j)) qxaig live ∧
+    (∀n. lits_hold (steps n) xaig safes) ∧
+    (∀n. lits_hold (steps n) xaig cnstrs) ∧
+    (∀n. is_next (steps n) xaig next latches (SND (steps (n + 1))))
     ⇒
-    lives_hold (state_pair (steps (i + k)) (steps j)) qaig live
+    lives_hold (state_pair (steps (i + k)) (steps j)) qxaig live
 Proof
   Induct >> rw [] >> fs []
   >> fs [closure_cond_def]
@@ -573,29 +572,29 @@ Proof
   >> first_x_assum $ qspec_then ‘i + k’ mp_tac >> simp []
 QED
 
-Theorem lives_hold_dep_aig[local]:
-  lives_hold ss aig ns ∧
-  dep_aig inputs latches aig ∧
+Theorem lives_hold_dep_xaig[local]:
+  lives_hold ss xaig ns ∧
+  dep_xaig inputs latches xaig ∧
   dep_lits inputs latches (set (FLAT ns)) ∧
   agree_on inputs latches ss ss'
   ⇒
-  lives_hold ss' aig ns
+  lives_hold ss' xaig ns
 Proof
   rw [lives_hold_def, EVERY_MEM, dep_lits_def, some_signal_holds_def,
           EXISTS_MEM, MEM_FLAT, lits_hold_def]
-  >> metis_tac [dep_eval_lit_eq]
+  >> metis_tac [dep_xeval_lit_eq]
 QED
 
 Theorem lives_hold_matching_transition[local]:
-  lives_hold (state_pair (steps (i + 2)) (steps (i + 1))) qaig live ∧
+  lives_hold (state_pair (steps (i + 2)) (steps (i + 1))) qxaig live ∧
   matching_transition inputs latches steps i (i + 2) ∧
-  dep_aig (pair_set inputs) (pair_set latches) qaig ∧
+  dep_xaig (pair_set inputs) (pair_set latches) qxaig ∧
   dep_lits (pair_set inputs) (pair_set latches) (set (FLAT live))
   ⇒
-  lives_hold (state_pair (steps i) (steps (i + 1))) qaig live
+  lives_hold (state_pair (steps i) (steps (i + 1))) qxaig live
 Proof
   rw []
-  >> irule lives_hold_dep_aig
+  >> irule lives_hold_dep_xaig
   >> qpat_x_assum ‘lives_hold _ _ _’ $ irule_at Any
   >> first_assum $ irule_at (Pos hd) >> simp []
   >> fs [agree_on_pair, matching_transition_def]
@@ -603,23 +602,23 @@ QED
 
 Theorem matching_transition_live[local]:
   decrease_cond
-    aig next safes cnstrs qaig live latches  ∧
-  is_inf_trace aig reset next cnstrs latches steps ∧
+    xaig next safes cnstrs qxaig live latches  ∧
+  is_inf_trace xaig reset next cnstrs latches steps ∧
   closure_cond
-    aig next safes cnstrs qaig live latches ∧
+    xaig next safes cnstrs qxaig live latches ∧
   matching_transition inputs' latches' steps i j ∧
-  set (aig_inputs aig) ⊆ inputs' ∧
+  set (xaig_inputs xaig) ⊆ inputs' ∧
   BIGUNION (IMAGE (set o lit_inputs o next) latches) ⊆ inputs' ∧
-  set (aig_inputs qaig) ⊆ pair_set inputs' ∧
+  set (xaig_inputs qxaig) ⊆ pair_set inputs' ∧
   BIGUNION (IMAGE (set o lit_inputs) (set (FLAT live))) ⊆ pair_set inputs' ∧
   latches ⊆ latches' ∧
-  set (aig_latches aig) ⊆ latches' ∧
+  set (xaig_latches xaig) ⊆ latches' ∧
   BIGUNION (IMAGE (set o lit_latches o next) latches) ⊆ latches' ∧
-  set (aig_latches qaig) ⊆ pair_set latches' ∧
+  set (xaig_latches qxaig) ⊆ pair_set latches' ∧
   BIGUNION (IMAGE (set o lit_latches) (set (FLAT live))) ⊆ pair_set latches' ∧
-  (∀n. lits_hold (steps n) aig safes)
+  (∀n. lits_hold (steps n) xaig safes)
   ⇒
-  lives_hold (state_pair (steps i) (steps (i + 1))) qaig live
+  lives_hold (state_pair (steps i) (steps (i + 1))) qxaig live
 Proof
   rw []
   >> drule_then assume_tac is_inf_trace_cnstrs_hold
@@ -628,7 +627,7 @@ Proof
     fs [matching_transition_def, decrease_cond_def]
     >> last_assum irule >> gvs [is_inf_trace_def]
     >> last_x_assum $ qspec_then ‘i’ assume_tac
-    >> irule is_next_dep_aig
+    >> irule is_next_dep_xaig
     >> first_assum $ irule_at (Pos last)
     >> fs [agree_on_sym]
     >> first_assum $ irule_at (Pos (el 4)) >> simp []
@@ -637,53 +636,50 @@ Proof
       >> fs [agree_on_def]
       >> metis_tac[])
     >> CONJ_TAC >- (
-      irule dep_aig_subset>>
-      metis_tac[dep_aig_inputs_latches])
+      irule dep_xaig_subset>>
+      metis_tac[dep_xaig_inputs_latches])
     >>
       irule dep_latch_lit_next>>
       fs[])
   >> drule_then assume_tac is_inf_trace_is_next
-  >> ‘lives_hold (state_pair (steps (i + 2)) (steps (i + 1))) qaig live’ by
+  >> ‘lives_hold (state_pair (steps (i + 2)) (steps (i + 1))) qxaig live’ by
     (fs [decrease_cond_def]
      >> last_assum irule >> simp []
      >> first_x_assum $ qspec_then ‘i + 1’ mp_tac >> simp [])
   >> Cases_on ‘j = i + 2’ >> gvs []
-  >-
-   (irule lives_hold_matching_transition >> simp []
+  >- (
+    irule lives_hold_matching_transition >> simp []
     >> qpat_x_assum ‘matching_transition _ _ _ _ _’ $ irule_at Any
     >> simp []
-    >> CONJ_TAC >- (
-      irule dep_aig_subset>>
-      metis_tac[dep_aig_inputs_latches])
-    >>
-      metis_tac[dep_lits_lits])
+    >> conj_tac >- metis_tac [dep_lits_lits]
+    >> irule dep_xaig_subset
+    >> metis_tac [dep_xaig_inputs_latches]
+  )
   >> drule_all closure_cond_lives_hold
   >> disch_then $ qspec_then ‘j - i - 2’ assume_tac
   >> gvs [matching_transition_def]
-  >> irule lives_hold_dep_aig
+  >> irule lives_hold_dep_xaig
   >> pop_assum (irule_at Any)
   >> qexists_tac`pair_set latches'`
   >> qexists_tac`pair_set inputs'`
   >> simp [agree_on_pair]
-  >> CONJ_TAC >- (
-    irule dep_aig_subset>>
-    metis_tac[dep_aig_inputs_latches])
-  >>
-    metis_tac[dep_lits_lits]
+  >> conj_tac >- metis_tac [dep_lits_lits]
+  >> irule dep_xaig_subset
+  >> metis_tac [dep_xaig_inputs_latches]
 QED
 
 Theorem stable_cond_lits_hold[local]:
-  stable_cond waig wnext wsafes wcnstrs wqaig wlive wlatches ∧
+  stable_cond wxaig wnext wsafes wcnstrs wqxaig wlive wlatches ∧
   MEM q Q ∧ MEM Q wlive ∧
-  lits_hold (state_pair (steps j) (steps (j + 1))) wqaig {q} ∧
-  (∀n. lits_hold (steps n) waig wcnstrs) ∧
-  (∀n. lits_hold (steps n) waig wsafes) ∧
-  (∀n. is_next (steps n) waig wnext wlatches (SND (steps (n + 1)))) ∧
+  xeval_lit (state_pair (steps j) (steps (j + 1))) wqxaig q ∧
+  (∀n. lits_hold (steps n) wxaig wcnstrs) ∧
+  (∀n. lits_hold (steps n) wxaig wsafes) ∧
+  (∀n. is_next (steps n) wxaig wnext wlatches (SND (steps (n + 1)))) ∧
   (∀i. j ≤ i ⇒
-       lives_hold (state_pair (steps i) (steps (i + 1))) wqaig wlive) ∧
+       lives_hold (state_pair (steps i) (steps (i + 1))) wqxaig wlive) ∧
   j ≤ i
   ⇒
-  lits_hold (state_pair (steps i) (steps (i + 1))) wqaig {q}
+  xeval_lit (state_pair (steps i) (steps (i + 1))) wqxaig q
 Proof
   Induct_on ‘i - j’ >> rw [] >> fs []
   >- (‘i = j’ by simp [] >> simp [])
@@ -701,18 +697,18 @@ QED
 
 Theorem is_witness_is_live:
   is_witness
-    maig mreset mnext msafes mcnstrs mqaig mlive mlatches
-    waig wreset wnext wsafes wcnstrs wqaig wlive wlatches ∧
+    mxaig mreset mnext msafes mcnstrs mqxaig mlive mlatches
+    wxaig wreset wnext wsafes wcnstrs wqxaig wlive wlatches ∧
   dep_model
-    maig mreset mnext msafes mcnstrs minput mlatches ∧
-  (* TODO Does dep_qaig really need the same minput?
+    mxaig mreset mnext msafes mcnstrs minput mlatches ∧
+  (* TODO Does dep_qxaig really need the same minput?
      If not, the proof of encoding_is_safe_and_live may become tidier *)
-  dep_qaig minput mqaig mlive mlatches ∧
-  is_stratified lt waig wreset wlatches ∧
+  dep_qxaig minput mqxaig mlive mlatches ∧
+  is_stratified lt wxaig wreset wlatches ∧
   FINITE wlatches
   ⇒
   is_live
-    maig mreset mnext mcnstrs mqaig (IMAGE set (set mlive)) mlatches
+    mxaig mreset mnext mcnstrs mqxaig (IMAGE set (set mlive)) mlatches
 Proof
   rw []
   (* Get safety of model *)
@@ -726,16 +722,16 @@ Proof
   >> dxrule is_inf_trace_steps_agree
   >> simp [] >> strip_tac
   (* Witness constraints and safety signals hold on extended trace *)
-  >> ‘∀n. lits_hold (steps' n) waig wsafes’ by
+  >> ‘∀n. lits_hold (steps' n) wxaig wsafes’ by
     metis_tac [inf_is_inductive_lits_hold]
-  >> ‘∀n. lits_hold (steps' n) waig wcnstrs’ by
+  >> ‘∀n. lits_hold (steps' n) wxaig wcnstrs’ by
     metis_tac [is_inf_trace_cnstrs_hold]
   (* Extended trace has valid steps for the witness *)
-  >> ‘∀n. is_next (steps' n) waig wnext wlatches (SND (steps' (n + 1)))’ by
+  >> ‘∀n. is_next (steps' n) wxaig wnext wlatches (SND (steps' (n + 1)))’ by
      metis_tac [is_inf_trace_is_next]
   (* Extended trace is also a trace for the model *)
-  >> ‘is_inf_trace maig mreset mnext mcnstrs mlatches steps'’ by
-    (irule is_inf_trace_dep_aig
+  >> ‘is_inf_trace mxaig mreset mnext mcnstrs mlatches steps'’ by
+    (irule is_inf_trace_dep_xaig
      >> first_assum $ irule_at (Pos last)
      >> fs [dep_model_def]
      >> first_assum $ irule_at (Pos last)
@@ -743,21 +739,21 @@ Proof
      >> irule steps_agree_weaken_inputs
      >> qexists ‘UNIV’ >> simp [])
   (* Model constraints holds on the witness *)
-  >> ‘∀n. lits_hold (steps' n) maig mcnstrs’ by
+  >> ‘∀n. lits_hold (steps' n) mxaig mcnstrs’ by
     metis_tac [is_inf_trace_cnstrs_hold]
   >> qabbrev_tac`inputs' =
-    set (aig_inputs waig) ∪
+    set (xaig_inputs wxaig) ∪
     BIGUNION (IMAGE (set o lit_inputs o wnext) wlatches) ∪
-    (IMAGE OUTL (set (aig_inputs wqaig)) ∪
-    IMAGE OUTR (set (aig_inputs wqaig))) ∪
+    (IMAGE OUTL (set (xaig_inputs wqxaig)) ∪
+    IMAGE OUTR (set (xaig_inputs wqxaig))) ∪
     (IMAGE OUTL (BIGUNION (IMAGE (set o lit_inputs) (set (FLAT wlive)))) ∪
     IMAGE OUTR (BIGUNION (IMAGE (set o lit_inputs) (set (FLAT wlive)))))`
   >> qabbrev_tac`latches' =
     wlatches ∪
-    set (aig_latches waig) ∪
+    set (xaig_latches wxaig) ∪
     BIGUNION (IMAGE (set o lit_latches o wnext) wlatches) ∪
-    (IMAGE OUTL (set (aig_latches wqaig)) ∪
-    IMAGE OUTR (set (aig_latches wqaig))) ∪
+    (IMAGE OUTL (set (xaig_latches wqxaig)) ∪
+    IMAGE OUTR (set (xaig_latches wqxaig))) ∪
     (IMAGE OUTL (BIGUNION (IMAGE (set o lit_latches) (set (FLAT wlive)))) ∪
     IMAGE OUTR (BIGUNION (IMAGE (set o lit_latches) (set (FLAT wlive)))))`
   (* Infinite trace on witness repeats from k onwards *)
@@ -772,48 +768,48 @@ Proof
        ‘∃signal.
           MEM signal prop ∧
             ∀i. k + 1 ≤ i ⇒
-              lits_hold (state_pair (steps' i) (steps' (i + 1))) mqaig {signal}’
+              xeval_lit (state_pair (steps' i) (steps' (i + 1))) mqxaig signal’
   >-
     (rw []
      >> qexists ‘signal’ >> rw []
-     >> irule lits_hold_dep_aig
-     >> fs [dep_qaig_def]
-     >> first_assum $ irule_at (Pos hd)
-     >> simp []
+     >> irule lits_hold_dep_xaig
+     >> fs [dep_qxaig_def]
+     >> qpat_assum ‘dep_xaig _ _ _’ $ irule_at Any
      >> qexists ‘state_pair (steps' i) (steps' (i + 1))’
-     >> reverse conj_tac
-     >-
-      (fs [steps_agree_def, agree_on_pair]
-       >> irule_at (Pos hd) agree_on_weaken_inputs
-       >> qexists ‘UNIV’ >> simp []
-       >> first_assum $ irule_at (Pos hd)
-       >> qexists ‘i’ >> simp []
-       >> irule agree_on_weaken_inputs
-       >> qexists ‘UNIV’ >> simp []
-       >> first_assum $ irule_at (Pos hd)
-       >> qexists ‘i+1’ >> simp [])
-     >> fs [dep_lits_def, MEM_FLAT]
-     >> metis_tac [])
+     >> simp []
+     >> conj_tac
+     >- (fs [dep_lits_def, MEM_FLAT] >> metis_tac [])
+     >> conj_tac
+     >- simp [lits_hold_def]
+     >> fs [steps_agree_def, agree_on_pair]
+     >> irule_at (Pos hd) agree_on_weaken_inputs
+     >> qexists ‘UNIV’ >> simp []
+     >> first_assum $ irule_at (Pos hd)
+     >> qexists ‘i’ >> simp []
+     >> irule agree_on_weaken_inputs
+     >> qexists ‘UNIV’ >> simp []
+     >> first_assum $ irule_at (Pos hd)
+     >> qexists ‘i+1’ >> simp [])
   >> gvs [MEM_EL, PULL_EXISTS]
   >> ‘LENGTH wlive = LENGTH mlive ∧
       ∀n. n < LENGTH wlive ⇒ LENGTH wlive❲n❳ = LENGTH mlive❲n❳’ by
     (fs [liveness_cond_def, LIST_REL_EL_EQN])
-  >> ‘∃n'.
-        n' < LENGTH wlive❲n❳ ∧
+  >> suff
+     ‘∃n'. n' < LENGTH wlive❲n❳ ∧
         ∀i. k + 1 ≤ i ⇒
-              lits_hold (state_pair (steps' i) (steps' (i + 1))) wqaig {wlive❲n❳❲n'❳}’
-    suffices_by
-    (rw []
-     >> qexists ‘n'’
-     >> gvs []
-     >> rw []
-     >> gvs [liveness_cond_def, lives_imply_def, signal_imply_def,
-             LIST_REL_EL_EQN, PULL_FORALL])
+          xeval_lit (state_pair (steps' i) (steps' (i + 1))) wqxaig wlive❲n❳❲n'❳’
+  >- (
+    rw []
+    >> qexists ‘n'’
+    >> gvs []
+    >> rw []
+    >> gvs [liveness_cond_def, lives_imply_def, signal_imply_def,
+            LIST_REL_EL_EQN, PULL_FORALL])
   (* Witness is live *)
   >> fs [is_ranked_def]
   >> have
        ‘∀i. k + 1 ≤ i ⇒
-            lives_hold (state_pair (steps' i) (steps' (i + 1))) wqaig wlive’
+            lives_hold (state_pair (steps' i) (steps' (i + 1))) wqxaig wlive’
   >-
     (rw []
      >> drule matching_transition_live >> simp []
@@ -844,20 +840,20 @@ QED
 
 Theorem is_witness_is_safe_and_live:
   is_witness
-    maig mreset mnext msafes mcnstrs mqaig mlive mlatches
-    waig wreset wnext wsafes wcnstrs wqaig wlive wlatches ∧
+    mxaig mreset mnext msafes mcnstrs mqxaig mlive mlatches
+    wxaig wreset wnext wsafes wcnstrs wqxaig wlive wlatches ∧
   dep_model
-    maig mreset mnext msafes mcnstrs minput mlatches ∧
+    mxaig mreset mnext msafes mcnstrs minput mlatches ∧
   (* TODO See is_witness_is_live comment *)
-  dep_qaig minput mqaig mlive mlatches ∧
-  is_stratified lt waig wreset wlatches ∧
+  dep_qxaig minput mqxaig mlive mlatches ∧
+  is_stratified lt wxaig wreset wlatches ∧
   FINITE wlatches
   ⇒
   is_safe
-    maig mreset mnext mcnstrs mlatches msafes
+    mxaig mreset mnext mcnstrs mlatches msafes
   ∧
   is_live
-    maig mreset mnext mcnstrs mqaig (IMAGE set (set mlive)) mlatches
+    mxaig mreset mnext mcnstrs mqxaig (IMAGE set (set mlive)) mlatches
 Proof
   strip_tac
   >> drule_all_then assume_tac is_witness_is_safe

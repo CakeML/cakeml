@@ -3,9 +3,6 @@ Formalization of a certificate and proof checker for hardware model checking.
 [aigScript.sml](aigScript.sml):
 Formalization of And-Inverter Graphs
 
-[aig_certScript.sml](aig_certScript.sml):
-Formalization of HWMCC certificates
-
 [aig_cert_encodeScript.sml](aig_cert_encodeScript.sml):
 Encodes the certificate conditions as an AIG.
 
@@ -30,8 +27,14 @@ Translation scripts.
 [xaigScript.sml](xaigScript.sml):
 An eXtended AIG format for internal use
 
+[xaig_certScript.sml](xaig_certScript.sml):
+Formalization of HWMCC certificates
+
 [xaig_cert_encodeScript.sml](xaig_cert_encodeScript.sml):
-Encodes the certificate conditions as an AIG.
+Encodes the certificate conditions as an extended AIG.
+
+[xaig_circScript.sml](xaig_circScript.sml):
+Formalization of circuits over eXtended And-Inverter Graphs.
 
 [xaig_to_cnfScript.sml](xaig_to_cnfScript.sml):
 Mapping eXtended And-Inverter Graphs into CNF
