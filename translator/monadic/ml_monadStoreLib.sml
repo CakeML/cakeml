@@ -85,7 +85,7 @@ val get_refs_const = let
   in mk_abs(state_var, body) end
 val opref_expr = let
     val name_var = mk_var("name", mlstringSyntax.mlstring_ty)
-    val var_exp = astSyntax.mk_Var(astSyntax.mk_Short name_var)
+    val var_exp = astSyntax.mk_Ident(astSyntax.mk_Short name_var)
     val body = astSyntax.mk_App(astSyntax.Opref,
                  listSyntax.mk_list([var_exp], astSyntax.exp_ty))
   in mk_abs(name_var, body) end
