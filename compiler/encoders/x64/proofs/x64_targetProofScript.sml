@@ -580,6 +580,24 @@ Proof
   \\ rfs []
 QED
 
+Theorem imm_lem[local]:
+  !i. -2147483648 <= i /\ i <= 2147483647 ==>
+      0xFFFFFFFF80000000w <= (i2w i : word64) /\
+      (i2w i : word64) <= 0x7FFFFFFFw
+Proof
+  rpt strip_tac
+  \\ `w2i (i2w i : word64) = i`
+       by (irule integer_wordTheory.w2i_i2w
+           \\ simp [integer_wordTheory.INT_MIN_def, integer_wordTheory.INT_MAX_def,
+                    wordsTheory.INT_MIN_def, wordsTheory.INT_MAX_def,
+                    wordsTheory.dimword_def, wordsTheory.dimindex_64]
+           \\ intLib.ARITH_TAC)
+  \\ `w2i (0xFFFFFFFF80000000w : word64) = -2147483648 /\
+      w2i (0x7FFFFFFFw : word64) = 2147483647` by EVAL_TAC
+  \\ asm_simp_tac bool_ss [integer_wordTheory.WORD_LEi]
+  \\ intLib.ARITH_TAC
+QED
+
 (* some rewrites ---------------------------------------------------------- *)
 
 val encode_rwts =
@@ -605,6 +623,7 @@ val enc_rwts =
   [x64_config, Zreg2num_num2Zreg_imp, binop_lem1, loc_lem1, loc_lem2,
    const_lem1, const_lem2, binop_lem9b, jump_lem1, jump_lem3, jump_lem4,
    jump_lem5, jump_lem6, cmp_lem7, is_rax, x64_asm_ok, xmm_reg, xmm_reg3,
+   integer_wordTheory.i2w_pos, integer_wordTheory.i2w_minus_1,
    utilsLib.mk_cond_rand_thms [asm_state_failed]] @
   encode_rwts @ asmLib.asm_rwts;
 
@@ -931,7 +950,8 @@ Proof
        all_tac,
        Cases_on `ri`
        >| [all_tac,
-           Cases_on `~is_test cmp /\ 0xFFFFFFFFFFFFFF80w <= c /\ c <= 0x7fw`
+           Cases_on `~is_test cmp /\ 0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\
+                     (i2w i : word64) <= 0x7fw`
            >| [all_tac, Cases_on `r = 0`]
        ],
        all_tac,
@@ -1012,12 +1032,16 @@ Proof
                \\ next_tac []
                )
                (* Imm *)
-            \\ Cases_on `(b = Xor) /\ (c = -1w)`
+            \\ Cases_on `(b = Xor) /\ (i = -1)`
             >- next_tac []
+            \\ `0xFFFFFFFF80000000w <= (i2w i : word64) /\
+                (i2w i : word64) <= 0x7FFFFFFFw`
+                 by (irule imm_lem \\ fs enc_rwts)
             \\ Cases_on `b`
             \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()) []
             \\ (
-                Cases_on `0xFFFFFFFFFFFFFF80w <= c /\ c <= 0x7fw`
+                Cases_on `0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\
+                          (i2w i : word64) <= 0x7fw`
                 >- next_tac []
                 \\ Cases_on `n0 = 0`
                 \\ next_tac []
@@ -1030,9 +1054,9 @@ Proof
             print_tac "Shift"
             \\ reverse (Cases_on`r`)
             >- (
-              rename1`Imm c`
-              \\ Cases_on `c` \\ gvs[]
-              \\ rename1`Imm (n2w nn)`
+              `?nn. i = &nn` by (fs enc_rwts \\ qexists_tac `Num i` \\ intLib.ARITH_TAC)
+              \\ gvs []
+              \\ rename1 `Imm (&nn)`
               \\ Cases_on `nn = 1`
               >- (
                 Cases_on `s`
@@ -1308,21 +1332,24 @@ Proof
          Cases_on `c`
          \\ next_tac [3]
          )
+      \\ `0xFFFFFFFF80000000w <= (i2w i : word64) /\
+          (i2w i : word64) <= 0x7FFFFFFFw`
+           by (irule imm_lem \\ fs enc_rwts)
       \\ Cases_on `c`
       >| [
-        Cases_on `0xFFFFFFFFFFFFFF80w <= c' /\ c' <= 0x7fw`
+        Cases_on `0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\ (i2w i : word64) <= 0x7fw`
         >- next_tac [4]
         \\ Cases_on `n = 0`
         >- next_tac [6]
         \\ next_tac [7]
         ,
-        Cases_on `0xFFFFFFFFFFFFFF80w <= c' /\ c' <= 0x7fw`
+        Cases_on `0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\ (i2w i : word64) <= 0x7fw`
         >- next_tac [4]
         \\ Cases_on `n = 0`
         >- next_tac [6]
         \\ next_tac [7]
         ,
-        Cases_on `0xFFFFFFFFFFFFFF80w <= c' /\ c' <= 0x7fw`
+        Cases_on `0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\ (i2w i : word64) <= 0x7fw`
         >- next_tac [4]
         \\ Cases_on `n = 0`
         >- next_tac [6]
@@ -1332,19 +1359,19 @@ Proof
         >- next_tac [6]
         \\ next_tac [7]
         ,
-        Cases_on `0xFFFFFFFFFFFFFF80w <= c' /\ c' <= 0x7fw`
+        Cases_on `0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\ (i2w i : word64) <= 0x7fw`
         >- next_tac [4]
         \\ Cases_on `n = 0`
         >- next_tac [6]
         \\ next_tac [7]
         ,
-        Cases_on `0xFFFFFFFFFFFFFF80w <= c' /\ c' <= 0x7fw`
+        Cases_on `0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\ (i2w i : word64) <= 0x7fw`
         >- next_tac [4]
         \\ Cases_on `n = 0`
         >- next_tac [6]
         \\ next_tac [7]
         ,
-        Cases_on `0xFFFFFFFFFFFFFF80w <= c' /\ c' <= 0x7fw`
+        Cases_on `0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\ (i2w i : word64) <= 0x7fw`
         >- next_tac [4]
         \\ Cases_on `n = 0`
         >- next_tac [6]

@@ -131,6 +131,39 @@ val mem_lem =
   blastLib.BBLAST_PROVE
    ``!(c:word32). bit_field_insert 31 23 ((31 >< 23) c) (w2w ((22 >< 0) c)) = c``;
 
+Theorem imm6_lem[local]:
+  !i. -32 <= i /\ i < 32 ==>
+      -32w <= (i2w i : word32) /\ (i2w i : word32) < 32w
+Proof
+  rpt strip_tac
+  \\ `w2i (i2w i : word32) = i`
+       by (irule integer_wordTheory.w2i_i2w
+           \\ simp [integer_wordTheory.INT_MIN_def, integer_wordTheory.INT_MAX_def,
+                    wordsTheory.INT_MIN_def, wordsTheory.INT_MAX_def,
+                    wordsTheory.dimword_def, wordsTheory.dimindex_32]
+           \\ intLib.ARITH_TAC)
+  \\ `w2i (-32w : word32) = -32 /\ w2i (32w : word32) = 32` by EVAL_TAC
+  \\ asm_simp_tac bool_ss [integer_wordTheory.WORD_LEi, integer_wordTheory.WORD_LTi]
+  \\ intLib.ARITH_TAC
+QED
+
+Theorem imm23_lem[local]:
+  !i. -8388607 <= i /\ i < 8388607 ==>
+      -0x7FFFFFw <= (i2w i : word32) /\ (i2w i : word32) < 0x7FFFFFw
+Proof
+  rpt strip_tac
+  \\ `w2i (i2w i : word32) = i`
+       by (irule integer_wordTheory.w2i_i2w
+           \\ simp [integer_wordTheory.INT_MIN_def, integer_wordTheory.INT_MAX_def,
+                    wordsTheory.INT_MIN_def, wordsTheory.INT_MAX_def,
+                    wordsTheory.dimword_def, wordsTheory.dimindex_32]
+           \\ intLib.ARITH_TAC)
+  \\ `w2i (-0x7FFFFFw : word32) = -8388607 /\
+      w2i (0x7FFFFFw : word32) = 8388607` by EVAL_TAC
+  \\ asm_simp_tac bool_ss [integer_wordTheory.WORD_LEi, integer_wordTheory.WORD_LTi]
+  \\ intLib.ARITH_TAC
+QED
+
 (* some rewrites ---------------------------------------------------------- *)
 
 local
@@ -143,7 +176,8 @@ in
 end
 
 val enc_rwts =
-  [asmPropsTheory.offset_monotonic_def, ag32_config, ag32_asm_ok] @
+  [asmPropsTheory.offset_monotonic_def, ag32_config, ag32_asm_ok,
+   integer_wordTheory.i2w_pos, integer_wordTheory.i2w_minus_1] @
   encode_rwts @ asmLib.asm_rwts
 
 val enc_ok_rwts =
@@ -417,11 +451,14 @@ Proof
             print_tac "Binop"
             \\ Cases_on `r`
             >- (Cases_on `b` \\ next_tac)
-            \\ Cases_on `(b = Xor) /\ (c = -1w)`
+            \\ Cases_on `(b = Xor) /\ (i = -1)`
             >- next_tac
+            \\ mp_tac (Q.SPEC `i` imm23_lem)
+            \\ impl_tac >- (fs enc_rwts \\ intLib.ARITH_TAC)
+            \\ strip_tac
             \\ Cases_on `b`
-            \\ (Cases_on `-32w <= c /\ c < 32w`
-                >| [all_tac, Cases_on `0w <= c` \\ fs []]
+            \\ (Cases_on `-32w <= (i2w i : word32) /\ (i2w i : word32) < 32w`
+                >| [all_tac, Cases_on `0w <= (i2w i : word32)` \\ fs []]
                 \\ next_tac)
             )
          >- (
@@ -431,8 +468,9 @@ Proof
             print_tac "Shift"
             \\ Cases_on `r`
             THENL [ALL_TAC,
-                   Cases_on `c`
-                   \\ rename [‘shift_len < dimword (:32)’]
+                   `?shift_len. i = &shift_len`
+                     by (fs enc_rwts \\ qexists_tac `Num i` \\ intLib.ARITH_TAC)
+                   \\ gvs []
                    \\ ‘w2w ((n2w shift_len):word32) = n2w shift_len : 6 word’ by
                          gvs [asmTheory.asm_ok_def,asmTheory.inst_ok_def,
                               asmTheory.arith_ok_def,wordsTheory.w2w_def]]
@@ -514,6 +552,10 @@ Proof
         --------------*)
       print_tac "JumpCmp"
       \\ Cases_on `r`
+      >- (Cases_on `c` \\ next_tac)
+      \\ mp_tac (Q.SPEC `i` imm6_lem)
+      \\ impl_tac >- (fs enc_rwts \\ intLib.ARITH_TAC)
+      \\ strip_tac
       \\ Cases_on `c`
       \\ next_tac
       )

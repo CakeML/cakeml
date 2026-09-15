@@ -118,16 +118,16 @@ Definition arm7_enc_def:
       enc (Data (Register (arm7_bop bop, F, n2w r1, n2w r2, n2w r3,
                            SRType_LSL, 0)))) /\
    (arm7_enc (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
-      if (bop = Xor) /\ (i = -1w) then
+      if (bop = Xor) /\ (i = -1) then
         enc (Data (ShiftImmediate (T, F, n2w r1, n2w r2, SRType_LSL, 0)))
       else
-        case EncodeARMImmediate i of
+        case EncodeARMImmediate (i2w i) of
            SOME imm12 =>
              enc (Data (ArithLogicImmediate
                            (arm7_bop bop, F, n2w r1, n2w r2, imm12)))
          | NONE => arm7_encode_fail) /\
    (arm7_enc (Inst (Arith (Shift sh r1 r2 (Imm i)))) =
-      enc (Data (ShiftImmediate (F, F, n2w r1, n2w r2, arm7_sh sh, w2n i)))) /\
+      enc (Data (ShiftImmediate (F, F, n2w r1, n2w r2, arm7_sh sh, Num i)))) /\
    (arm7_enc (Inst (Arith (Shift sh r1 r2 (Reg r3)))) =
       enc (Data (ShiftRegister (F, F, n2w r1, n2w r2, arm7_sh sh, n2w r3)))) /\
    (arm7_enc (Inst (Arith (Div _ _ _))) = arm7_encode_fail) /\
@@ -223,7 +223,7 @@ Definition arm7_enc_def:
    (arm7_enc (JumpCmp cmp r (Imm i) a) =
       let (opc, c) = arm7_cmp cmp
       in
-        case EncodeARMImmediate i of
+        case EncodeARMImmediate (i2w i) of
            SOME imm12 =>
               arm7_encode
                 [(AL, Data (TestCompareImmediate (opc, n2w r, imm12)));
@@ -271,6 +271,10 @@ Definition valid_immediate_def:
    valid_immediate = IS_SOME o EncodeARMImmediate
 End
 
+Definition arm7_valid_imm_def:
+   arm7_valid_imm (c:binop+cmp) (i: int) = valid_immediate (i2w i : word32)
+End
+
 Definition arm7_config_def:
    arm7_config =
    <| ISA := ARMv7
@@ -282,7 +286,7 @@ Definition arm7_config_def:
     ; link_reg := SOME 14
     ; two_reg_arith := F
     ; big_endian := F
-    ; valid_imm := \c i. valid_immediate i
+    ; valid_imm := arm7_valid_imm
     ; addr_offset := (^min12, ^max12)
     ; hw_offset := (^min8, ^max8)
     ; byte_offset := (^min12, ^max12)

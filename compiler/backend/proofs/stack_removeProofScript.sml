@@ -12,6 +12,7 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
+val _ = augment_srw_ss [rewrites [integer_wordTheory.i2w_pos, integer_wordTheory.i2w_w2i]]
 
 val word_shift_def = backend_commonTheory.word_shift_def
 Overload num_stubs[local] = ``stack_num_stubs``
@@ -1281,7 +1282,7 @@ Proof
   \\ Cases_on ‘pattern = 1w’ \\ fs []
   THEN1
    (fs [copy_each_def,evaluate_def]
-    \\ fs [get_var_def,get_var_imm_def,wordSemTheory.word_cmp_def]
+    \\ fs [get_var_def,get_var_imm_def,integer_wordTheory.i2w_pos,integer_wordTheory.i2w_w2i,wordSemTheory.word_cmp_def]
     \\ fs [state_component_equality]
     \\ rw [] \\ gvs []
     \\ fs [fmap_EXT,FLOOKUP_DEF,FAPPLY_FUPDATE_THM,EXTENSION]
@@ -1289,9 +1290,9 @@ Proof
   \\ rpt strip_tac \\ gvs []
   \\ simp [copy_each_def]
   \\ once_rewrite_tac [evaluate_def]
-  \\ fs [get_var_def,get_var_imm_def,asmTheory.word_cmp_def]
+  \\ fs [get_var_def,get_var_imm_def,integer_wordTheory.i2w_pos,integer_wordTheory.i2w_w2i,asmTheory.word_cmp_def]
   \\ once_rewrite_tac [list_Seq_def]
-  \\ fs [evaluate_def,get_var_def,get_var_imm_def,asmTheory.word_cmp_def,inst_def,
+  \\ fs [evaluate_def,get_var_def,get_var_imm_def,integer_wordTheory.i2w_pos,integer_wordTheory.i2w_w2i,asmTheory.word_cmp_def,inst_def,
          word_exp_def,get_var_def,wordLangTheory.word_op_def,mem_load_def]
   \\ old_drule miscTheory.LESS_LENGTH
   \\ strip_tac \\ gvs []
@@ -1299,11 +1300,11 @@ Proof
   \\ fs [word_list_def,word_list_APPEND]
   \\ SEP_R_TAC \\ gvs []
   \\ once_rewrite_tac [list_Seq_def]
-  \\ fs [evaluate_def,get_var_def,get_var_imm_def,asmTheory.word_cmp_def,inst_def,
+  \\ fs [evaluate_def,get_var_def,get_var_imm_def,integer_wordTheory.i2w_pos,integer_wordTheory.i2w_w2i,asmTheory.word_cmp_def,inst_def,
          word_exp_def,get_var_def,wordLangTheory.word_op_def,mem_load_def,assign_def,
          set_var_def,FLOOKUP_UPDATE]
   \\ once_rewrite_tac [list_Seq_def]
-  \\ fs [evaluate_def,get_var_def,get_var_imm_def,asmTheory.word_cmp_def,inst_def,
+  \\ fs [evaluate_def,get_var_def,get_var_imm_def,integer_wordTheory.i2w_pos,integer_wordTheory.i2w_w2i,asmTheory.word_cmp_def,inst_def,
          word_exp_def,get_var_def,wordLangTheory.word_op_def,mem_load_def,assign_def,
          set_var_def,FLOOKUP_UPDATE,wordSemTheory.word_cmp_def]
   \\ qspec_then ‘pattern’ assume_tac (word_bit_test |> Q.INST [‘n’|->‘0’] |> GEN_ALL)
@@ -1311,7 +1312,7 @@ Proof
   \\ Cases_on ‘1w && pattern = 0w’ \\ fs []
   \\ ‘32 ≤ dimindex (:'a)’ by fs [good_dimindex_def]
   \\ fs [SUBSET_DEF] \\ res_tac \\ fs []
-  \\ fs [evaluate_def,get_var_def,get_var_imm_def,asmTheory.word_cmp_def,inst_def,
+  \\ fs [evaluate_def,get_var_def,get_var_imm_def,integer_wordTheory.i2w_pos,integer_wordTheory.i2w_w2i,asmTheory.word_cmp_def,inst_def,
          word_exp_def,get_var_def,wordLangTheory.word_op_def,mem_load_def,assign_def,
          set_var_def,FLOOKUP_UPDATE,wordSemTheory.word_cmp_def,list_Seq_def,
          wordLangTheory.word_sh_def,mem_store_def,dec_clock_def]
@@ -4211,8 +4212,8 @@ Theorem stack_remove_comp_stack_asm_name:
     addr_offset_ok c 0w ∧
     good_dimindex (:'a) ∧
     (∀n. n ≤ max_stack_alloc ⇒
-    c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8))) ∧
-    c.valid_imm (INL Add) (n2w (n * (dimindex (:'a) DIV 8)))) ∧
+    c.valid_imm (INL Sub) (w2i (n2w (n * (dimindex (:'a) DIV 8)) : 'a word)) ∧
+    c.valid_imm (INL Add) (w2i (n2w (n * (dimindex (:'a) DIV 8)) : 'a word))) ∧
     (* Needed to implement the global store *)
     (∀s. addr_offset_ok c (store_offset s)) ∧
     reg_name (k+2) c ∧
@@ -4241,11 +4242,15 @@ Proof
     >-
       EVAL_TAC
     >-
-      (EVAL_TAC>>rw[]>>EVAL_TAC>>fs[reg_name_def])
+      (simp[single_stack_alloc_def, word_offset_def] >>
+       rw[stack_asm_name_def, inst_name_def, arith_name_def, reg_imm_name_def, reg_name_def] >>
+       fs[reg_name_def] >> EVAL_TAC >> rw[] >> fs[])
     >>
       rw[stack_asm_name_def]
       >-
-        (EVAL_TAC>>rw[]>>EVAL_TAC>>fs[reg_name_def,max_stack_alloc_def])
+        (simp[single_stack_alloc_def, word_offset_def] >>
+         rw[stack_asm_name_def, inst_name_def, arith_name_def, reg_imm_name_def, reg_name_def] >>
+         fs[reg_name_def] >> EVAL_TAC >> rw[] >> fs[])
       >>
         first_x_assum(qspec_then `n-max_stack_alloc` assume_tac)>>fs[]>>
         rfs[max_stack_alloc_def])
@@ -4255,11 +4260,15 @@ Proof
     >-
       EVAL_TAC
     >-
-      (EVAL_TAC>>fs[reg_name_def])
+      (simp[single_stack_free_def, word_offset_def] >>
+       rw[stack_asm_name_def, inst_name_def, arith_name_def, reg_imm_name_def, reg_name_def] >>
+       fs[reg_name_def])
     >>
       rw[stack_asm_name_def]
       >-
-        (EVAL_TAC>>fs[reg_name_def,max_stack_alloc_def])
+        (simp[single_stack_free_def, word_offset_def] >>
+         rw[stack_asm_name_def, inst_name_def, arith_name_def, reg_imm_name_def, reg_name_def] >>
+         fs[reg_name_def])
       >>
         first_x_assum(qspec_then `n-max_stack_alloc` assume_tac)>>fs[]>>
         rfs[max_stack_alloc_def])
@@ -4282,10 +4291,10 @@ Theorem stack_remove_stack_asm_name:
   addr_offset_ok c 0w ∧
   good_dimindex (:'a) ∧
   (∀n. n ≤ max_stack_alloc ⇒
-  c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8))) ∧
-  c.valid_imm (INL Add) (n2w (n * (dimindex (:'a) DIV 8)))) ∧
-  c.valid_imm (INL Add) 4w ∧
-  c.valid_imm (INL Add) 8w ∧
+  c.valid_imm (INL Sub) (w2i (n2w (n * (dimindex (:'a) DIV 8)) : 'a word)) ∧
+  c.valid_imm (INL Add) (w2i (n2w (n * (dimindex (:'a) DIV 8)) : 'a word))) ∧
+  c.valid_imm (INL Add) 4 ∧
+  c.valid_imm (INL Add) 8 ∧
   (* Needed to implement the global store *)
   (∀s. addr_offset_ok c (store_offset s)) ∧
   reg_name 7 c ∧
@@ -4297,8 +4306,8 @@ Theorem stack_remove_stack_asm_name:
 Proof
   rw[compile_def]
   >- (
-    EVAL_TAC>>rw[]>>fs[reg_name_def]>>
-    fs[good_dimindex_def,dimword_def]>>
+    computeLib.RESTR_EVAL_TAC [``integer_word$w2i``]>>rw[]>>fs[reg_name_def]>>
+    fs[good_dimindex_def,dimword_def,integer_wordTheory.w2i_n2w_pos,wordsTheory.INT_MIN_def]>>
     pairarg_tac>>fs[asmTheory.offset_ok_def])>>
   fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]>>
   metis_tac[stack_remove_comp_stack_asm_name]

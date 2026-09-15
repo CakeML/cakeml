@@ -12,7 +12,7 @@ Ancestors
    to_canonical (registered at fact creation), so that a later write to any
    of them resets the data. *)
 Definition in_names_set_def:
-  in_names_set (a:'a arith) tc ⇔
+  in_names_set (a:arith) tc ⇔
     EVERY (λr. sptree$lookup r tc = SOME r) (arithReads a)
 End
 
@@ -34,8 +34,8 @@ Definition wf_data_def:
     (∀k v.
        balanced_map$lookup listCmp k data.instrs_mem = SOME v ⇒
        lookup v data.to_canonical = SOME v) ∧
-    (∀(a:'a arith) v.
-       balanced_map$lookup listCmp (instToNumList (Arith a)) data.instrs_mem = SOME v ⇒
+    (∀(a:arith) v.
+       balanced_map$lookup listCmp (instToNumList (Arith a : 'a inst)) data.instrs_mem = SOME v ⇒
        in_names_set a data.to_canonical ∧ can_mem_arith a) ∧
     (∀op src v.
        balanced_map$lookup listCmp (OpCurrHeapToNumList op src) data.instrs_mem = SOME v ⇒
@@ -65,8 +65,8 @@ Definition sem_inv_def:
     (∀n c v.
        balanced_map$lookup listCmp (instToNumList (Const n c)) data.instrs_mem = SOME v ⇒
        lookup v s.locals = SOME (Word c)) ∧
-    (∀(a:'a arith) v.
-       balanced_map$lookup listCmp (instToNumList (Arith a)) data.instrs_mem = SOME v ⇒
+    (∀(a:arith) v.
+       balanced_map$lookup listCmp (instToNumList (Arith a : 'a inst)) data.instrs_mem = SOME v ⇒
        ∃w. get_var v s = SOME w ∧
            evaluate (Inst (Arith a), s) = (NONE, set_var (firstRegOfArith a) w s)) ∧
     (∀op src v.
@@ -135,6 +135,12 @@ Proof
   gvs [wordToNum_def]
 QED
 
+Theorem intToNum_unique[simp]:
+  ∀i1 i2. intToNum i1 = intToNum i2 ⇔ i1 = i2
+Proof
+  rw [intToNum_def] \\ intLib.ARITH_TAC
+QED
+
 Theorem arithOpToNum_eq[simp]:
   ∀op1 op2. arithOpToNum op1 = arithOpToNum op2 ⇔ op1 = op2
 Proof
@@ -198,13 +204,13 @@ Proof
               get_var_def, set_var_def, lookup_insert]
       \\ Cases_on ‘lookup n0 s.locals’ \\ gvs []
       \\ Cases_on ‘x’ \\ gvs []
-      \\ Cases_on ‘word_op b [c'; c]’ \\ gvs [state_component_equality, insert_eq])
+      \\ Cases_on ‘word_op b [c; i2w i]’ \\ gvs [state_component_equality, insert_eq])
   >- (Cases_on ‘r'’ \\ gvs [can_mem_arith_def, arithReads_def]
       \\ gvs [evaluate_def, inst_def, assign_def, word_exp_def, the_words_def,
               get_var_def, set_var_def, lookup_insert]
       \\ Cases_on ‘lookup n0 s.locals’ \\ gvs []
       \\ Cases_on ‘x’ \\ gvs []
-      \\ Cases_on ‘word_sh s' c' (w2n c)’ \\ gvs [state_component_equality, insert_eq])
+      \\ Cases_on ‘word_sh s' c (w2n (i2w i : 'a word))’ \\ gvs [state_component_equality, insert_eq])
   >- (gvs [evaluate_def, inst_def, assign_def, get_vars_def, get_var_def,
            set_var_def, lookup_insert]
       \\ Cases_on ‘lookup n1 s.locals’ \\ gvs []
@@ -292,8 +298,8 @@ Theorem wf_data_untracked:
     (∀r v. lookup r data.to_canonical = SOME v ⇒ r ≠ n ∧ v ≠ n) ∧
     (∀r v. lookup r data.to_latest = SOME v ⇒ r ≠ n ∧ v ≠ n) ∧
     (∀k v. balanced_map$lookup listCmp k data.instrs_mem = SOME v ⇒ v ≠ n) ∧
-    (∀(a:'a arith) v.
-       balanced_map$lookup listCmp (instToNumList (Arith a)) data.instrs_mem = SOME v ⇒
+    (∀(a:arith) v.
+       balanced_map$lookup listCmp (instToNumList (Arith a : 'a inst)) data.instrs_mem = SOME v ⇒
        ¬MEM n (arithReads a) ∧ can_mem_arith a) ∧
     (∀op src v.
        balanced_map$lookup listCmp (OpCurrHeapToNumList op src) data.instrs_mem = SOME v ⇒
@@ -361,14 +367,14 @@ Proof
               get_var_def, set_var_def, unset_var_def, lookup_delete]
       \\ Cases_on ‘lookup n0 s.locals’ \\ gvs []
       \\ Cases_on ‘x’ \\ gvs []
-      \\ Cases_on ‘word_op b [c'; c]’
+      \\ Cases_on ‘word_op b [c; i2w i]’
       \\ gvs [state_component_equality, insert_eq])
   >- (Cases_on ‘r'’ \\ gvs [can_mem_arith_def, arithReads_def]
       \\ gvs [evaluate_def, inst_def, assign_def, word_exp_def, the_words_def,
               get_var_def, set_var_def, unset_var_def, lookup_delete]
       \\ Cases_on ‘lookup n0 s.locals’ \\ gvs []
       \\ Cases_on ‘x’ \\ gvs []
-      \\ Cases_on ‘word_sh s' c' (w2n c)’
+      \\ Cases_on ‘word_sh s' c (w2n (i2w i : 'a word))’
       \\ gvs [state_component_equality, insert_eq])
   >- (gvs [evaluate_def, inst_def, assign_def, get_vars_def, get_var_def,
            set_var_def, unset_var_def, lookup_delete]
@@ -662,8 +668,8 @@ Proof
       \\ gvs [lookup_bm_inter_eq, sptreeTheory.lookup_inter_eq, AllCaseEqs()]
       \\ res_tac \\ simp [])
   >- (rpt gen_tac \\ strip_tac \\ gvs [lookup_bm_inter_eq]
-      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:'a arith) d1.to_canonical ∧ _’ drule
-      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:'a arith) d2.to_canonical ∧ _’ drule
+      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:arith) d1.to_canonical ∧ _’ drule
+      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:arith) d2.to_canonical ∧ _’ drule
       \\ rpt strip_tac
       \\ gvs [in_names_set_def, EVERY_MEM]
       \\ rpt strip_tac
@@ -721,8 +727,8 @@ Proof
       \\ gvs [lookup_bm_inter_eq, sptreeTheory.lookup_inter_eq, AllCaseEqs()]
       \\ res_tac \\ simp [])
   >- (rpt gen_tac \\ strip_tac \\ gvs [lookup_bm_inter_eq]
-      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:'a arith) d1.to_canonical ∧ _’ drule
-      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:'a arith) d2.to_canonical ∧ _’ drule
+      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:arith) d1.to_canonical ∧ _’ drule
+      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:arith) d2.to_canonical ∧ _’ drule
       \\ rpt strip_tac
       \\ gvs [in_names_set_def, EVERY_MEM]
       \\ rpt strip_tac
@@ -851,7 +857,7 @@ Proof
       \\ qpat_x_assum ‘∀k v. lookup listCmp k data.instrs_mem = SOME v ⇒ _’ drule
       \\ strip_tac \\ gvs [lookup_insert] \\ rw [] \\ gvs [])
   >- (rpt gen_tac \\ strip_tac
-      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:'a arith) data.to_canonical ∧ _’ drule
+      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:arith) data.to_canonical ∧ _’ drule
       \\ strip_tac
       \\ gvs [in_names_set_def, EVERY_MEM]
       \\ rpt strip_tac
@@ -948,7 +954,7 @@ Proof
       \\ qpat_x_assum ‘∀k v. lookup listCmp k data.instrs_mem = SOME v ⇒ _’ drule
       \\ strip_tac \\ gvs [lookup_insert] \\ rw [] \\ gvs [])
   >- (rpt gen_tac \\ strip_tac
-      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:'a arith) data.to_canonical ∧ _’ drule
+      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:arith) data.to_canonical ∧ _’ drule
       \\ strip_tac
       \\ gvs [in_names_set_def, EVERY_MEM]
       \\ rpt strip_tac
@@ -1223,7 +1229,7 @@ Proof
       \\ strip_tac \\ gvs [])
   >- (rpt gen_tac \\ strip_tac \\ gvs [AllCaseEqs()] \\ res_tac \\ gvs [])
   >- (rpt gen_tac \\ strip_tac \\ gvs [instToNumList_def, AllCaseEqs()]
-      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:'a arith) data.to_canonical ∧ _’ drule
+      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:arith) data.to_canonical ∧ _’ drule
       \\ strip_tac \\ gvs [])
   >- (rpt gen_tac \\ strip_tac
       \\ gvs [instToNumList_def, OpCurrHeapToNumList_def, AllCaseEqs()]
@@ -1250,14 +1256,14 @@ Proof
 QED
 
 Theorem data_inv_insert_instrs_Arith[local]:
-  ∀data (s:('a,'c,'ffi) wordSem$state) r (a:'a arith) w.
+  ∀data (s:('a,'c,'ffi) wordSem$state) r (a:arith) w.
     data_inv data s ∧
     sptree$lookup r data.to_canonical = SOME r ∧
     can_mem_arith a ∧ in_names_set a data.to_canonical ∧
     get_var r s = SOME w ∧
     evaluate (Inst (Arith a), s) = (NONE, set_var (firstRegOfArith a) w s) ⇒
     data_inv (data with instrs_mem :=
-                insert listCmp (instToNumList (Arith a)) r data.instrs_mem) s
+                insert listCmp (instToNumList (Arith a : 'a inst)) r data.instrs_mem) s
 Proof
   rpt strip_tac
   \\ gvs [data_inv_def]
@@ -1280,7 +1286,7 @@ Proof
           \\ strip_tac \\ gvs [in_names_set_def])
       \\ qpat_x_assum ‘lookup listCmp (3::arithToNumList a') _ = SOME _’
            (assume_tac o REWRITE_RULE [GSYM instToNumList_def])
-      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:'a arith) data.to_canonical ∧ _’ drule
+      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:arith) data.to_canonical ∧ _’ drule
       \\ strip_tac \\ gvs [])
   >- (rpt gen_tac \\ strip_tac
       \\ gvs [instToNumList_def, OpCurrHeapToNumList_def, AllCaseEqs()]
@@ -1338,7 +1344,7 @@ Proof
   >- (rpt gen_tac \\ strip_tac \\ gvs [AllCaseEqs()] \\ res_tac \\ gvs [])
   >- (rpt gen_tac \\ strip_tac
       \\ gvs [instToNumList_def, OpCurrHeapToNumList_def, AllCaseEqs()]
-      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:'a arith) data.to_canonical ∧ _’ drule
+      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:arith) data.to_canonical ∧ _’ drule
       \\ strip_tac \\ gvs [])
   >- (rpt gen_tac \\ strip_tac
       \\ gvs [instToNumList_def, OpCurrHeapToNumList_def, AllCaseEqs()]
@@ -1383,7 +1389,7 @@ Proof
       \\ strip_tac \\ gvs [])
   >- (rpt gen_tac \\ strip_tac \\ gvs [AllCaseEqs()] \\ res_tac \\ gvs [])
   >- (rpt gen_tac \\ strip_tac \\ gvs [instToNumList_def, AllCaseEqs()]
-      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:'a arith) data.to_canonical ∧ _’ drule
+      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:arith) data.to_canonical ∧ _’ drule
       \\ strip_tac \\ gvs [])
   >- (rpt gen_tac \\ strip_tac
       \\ gvs [instToNumList_def, OpCurrHeapToNumList_def, AllCaseEqs()]
@@ -1696,7 +1702,7 @@ Theorem add_to_data_Arith_correct:
     can_mem_arith a' ∧ ¬MEM r (arithReads a') ∧
     r = firstRegOfArith a ∧
     evaluate (Inst (Arith a), s) = (NONE, set_var r w s) ∧
-    add_to_data (register_reads data (arithReads a')) r (Arith a') (Arith a)
+    add_to_data (register_reads data (arithReads a')) r (Arith a' : 'a inst) (Arith a)
       = (data', p') ⇒
     evaluate (p', s) = (NONE, set_var r w s) ∧
     data_inv data' (set_var r w s)
@@ -1730,7 +1736,7 @@ Proof
      (rw [lookup_register_reads] \\ gvs [])
   \\ qspecl_then [‘register_reads data (arithReads (canonicalArith data a))’,
                   ‘s’, ‘firstRegOfArith a’,
-                  ‘instToNumList (Arith (canonicalArith data a))’,
+                  ‘instToNumList (Arith (canonicalArith data a) : 'a inst)’,
                   ‘Inst (Arith a)’, ‘w’, ‘data'’, ‘p'’]
        mp_tac add_to_data_aux_correct
   \\ impl_tac
@@ -2341,7 +2347,7 @@ Proof
       \\ qpat_x_assum ‘∀k v. lookup listCmp k data.instrs_mem = SOME v ⇒ _’ drule
       \\ strip_tac \\ gvs [lookup_insert] \\ rw [] \\ gvs [])
   >- (rpt gen_tac \\ strip_tac
-      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:'a arith) data.to_canonical ∧ _’ drule
+      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:arith) data.to_canonical ∧ _’ drule
       \\ strip_tac
       \\ gvs [in_names_set_def, EVERY_MEM]
       \\ rpt strip_tac
@@ -2410,17 +2416,17 @@ Proof
 QED
 
 Theorem wf_data_insert_instrs_Arith[local]:
-  ∀data r (a:'a arith).
+  ∀data r (a:arith).
     wf_data (:'a) data ∧
     sptree$lookup r data.to_canonical = SOME r ∧
     can_mem_arith a ∧ in_names_set a data.to_canonical ⇒
     wf_data (:'a) (data with instrs_mem :=
-                     insert listCmp (instToNumList (Arith a)) r
+                     insert listCmp (instToNumList (Arith a : 'a inst)) r
                        data.instrs_mem)
 Proof
   rpt strip_tac
   \\ qpat_x_assum ‘wf_data _ _’ (strip_assume_tac o REWRITE_RULE [wf_data_def])
-  \\ ‘∀a2:'a arith. arithToNumList a2 = arithToNumList a ⇒
+  \\ ‘∀a2:arith. arithToNumList a2 = arithToNumList a ⇒
         in_names_set a2 data.to_canonical ∧ can_mem_arith a2’ by
        (rpt gen_tac \\ strip_tac
         \\ qspecl_then [‘a’, ‘a2’] mp_tac arith_keys_eq
@@ -2725,8 +2731,8 @@ Proof
       \\ gvs [lookup_bm_inter_eq, sptreeTheory.lookup_inter_eq, AllCaseEqs()]
       \\ res_tac \\ simp [])
   >- (rpt gen_tac \\ strip_tac \\ gvs [lookup_bm_inter_eq]
-      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:'a arith) d1.to_canonical ∧ _’ drule
-      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:'a arith) d2.to_canonical ∧ _’ drule
+      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:arith) d1.to_canonical ∧ _’ drule
+      \\ qpat_x_assum ‘∀a2 v2. _ ⇒ in_names_set (a2:arith) d2.to_canonical ∧ _’ drule
       \\ rpt strip_tac
       \\ gvs [in_names_set_def, EVERY_MEM]
       \\ rpt strip_tac
@@ -2879,7 +2885,7 @@ QED
 (* The reads of a canonicalized storable arith are canonical registers:
    tracked-and-self-mapped, or untracked (registered as self-maps next). *)
 Theorem canonicalArith_reads_self_or_fresh[local]:
-  ∀data (a:'a arith).
+  ∀data (a:arith).
     wf_data (:'a) data ∧
     can_mem_arith (canonicalArith data a) ∧
     sptree$lookup (firstRegOfArith a) data.to_canonical = NONE ⇒

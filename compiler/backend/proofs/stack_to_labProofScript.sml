@@ -3747,10 +3747,10 @@ Theorem stack_to_lab_compile_all_enc_ok:
   addr_offset_ok c 0w ∧ good_dimindex (:α) ∧
   byte_offset_ok c 0w ∧
   (∀n. n ≤ max_stack_alloc ⇒
-  c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8))) ∧
-  c.valid_imm (INL Add) (n2w (n * (dimindex (:'a) DIV 8)))) ∧
-  c.valid_imm (INL Add) 1w ∧ c.valid_imm (INL Sub) 1w ∧
-  c.valid_imm (INL Add) 4w ∧ c.valid_imm (INL Add) 8w ∧
+  c.valid_imm (INL Sub) (w2i (n2w (n * (dimindex (:'a) DIV 8)) : 'a word)) ∧
+  c.valid_imm (INL Add) (w2i (n2w (n * (dimindex (:'a) DIV 8)) : 'a word))) ∧
+  c.valid_imm (INL Add) 1 ∧ c.valid_imm (INL Sub) 1 ∧
+  c.valid_imm (INL Add) 4 ∧ c.valid_imm (INL Add) 8 ∧
   (∀s. addr_offset_ok c (store_offset s)) ∧ reg_name 10 c ∧
   reg_name (sp + 2) c ∧ reg_name (sp + 1) c ∧ reg_name sp c  ∧
   conf_ok (:'a) c2 ∧ sp ≠ 0 ⇒

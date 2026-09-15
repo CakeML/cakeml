@@ -1013,7 +1013,7 @@ Proof
         print_tac "Inst - Arith - Binop" >>
         Cases_on `r` >| [
           Cases_on `b`,
-          Cases_on `b = Xor ∧ c = -1w` >| [all_tac, Cases_on `b` >> gvs[]]
+          Cases_on `b = Xor ∧ i = -1` >| [all_tac, Cases_on `b` >> gvs[]]
           ] >>
         encode >> asserts >>
         next_l3_tac `l3` >> strip_tac >>
@@ -1038,8 +1038,9 @@ Proof
           imp_res_tac l3_asl_target >> simp[] >> l3_state_tac[lsr, asr, ror] >>
           simp_tac (srw_ss()) [ShiftValue_def, DecodeShift_def] >>
           rw [asr]) >>
-        rename [‘Shift s n1 n2 (Imm c)’] >> Cases_on ‘c’ >>
-        rename [‘Shift s n n' (Imm (n2w n1))’] >>
+        rename [‘Shift s n n' (Imm i)’] >>
+        ‘∃n1. i = &n1’ by (fs enc_rwts >> qexists_tac ‘Num i’ >> intLib.ARITH_TAC) >>
+        gvs [] >>
         shift_cases_tac >> encode >> asserts >>
         qspec_then `r` assume_tac w2n_lt >> qspec_then `q` assume_tac w2n_lt >> gvs[] >>
         unabbrev_all_tac >> gvs[]
@@ -2696,13 +2697,13 @@ Proof
           simp[alignmentTheory.aligned_numeric]
           ) >>
         drule l3_asl_next >>
-        disch_then $ qspecl_then [`JumpCmp Equal n (Imm c') c0`,`1`] mp_tac >>
+        disch_then $ qspecl_then [`JumpCmp Equal n (Imm i) c0`,`1`] mp_tac >>
         encode >>
         interference `l3_env` >> imp_res_tac $ Q.SPEC `4w` bytes_in_memory_thm2 >>
         `∀a. a ∈ s1.mem_domain ⇒
           (l3_env 0 (THE $ NextStateARM8 l3)).MEM a = (THE $ NextStateARM8 l3).MEM a` by
           gvs[interference_ok_def, arm8_proj_def, set_sepTheory.fun2set_eq] >>
-        Cases_on `l3.REG (n2w n) = c'` >> gvs[]
+        Cases_on `l3.REG (n2w n) = (i2w i : word64)` >> gvs[]
         >- (
           next_state_tac0 false (fn l => List.nth (l,0)) List.tl
             `l3_env 0n (THE $ NextStateARM8 l3)` >>
@@ -2759,13 +2760,13 @@ Proof
           simp[alignmentTheory.aligned_numeric]
           ) >>
         drule l3_asl_next >>
-        disch_then $ qspecl_then [`JumpCmp Equal n (Imm c') c0`,`1`] mp_tac >>
+        disch_then $ qspecl_then [`JumpCmp Equal n (Imm i) c0`,`1`] mp_tac >>
         encode >>
         interference `l3_env` >> imp_res_tac $ Q.SPEC `4w` bytes_in_memory_thm2 >>
         `∀a. a ∈ s1.mem_domain ⇒
           (l3_env 0 (THE $ NextStateARM8 l3)).MEM a = (THE $ NextStateARM8 l3).MEM a` by
           gvs[interference_ok_def, arm8_proj_def, set_sepTheory.fun2set_eq] >>
-        Cases_on `l3.REG (n2w n) = c'` >> gvs[]
+        Cases_on `l3.REG (n2w n) = (i2w i : word64)` >> gvs[]
         >- (
           next_state_tac0 false (fn l => List.nth (l,0)) List.tl
             `l3_env 0n (THE $ NextStateARM8 l3)` >>
@@ -2824,13 +2825,13 @@ Proof
           simp[alignmentTheory.aligned_numeric]
           ) >>
         drule l3_asl_next >>
-        disch_then $ qspecl_then [`JumpCmp Lower n (Imm c') c0`,`1`] mp_tac >>
+        disch_then $ qspecl_then [`JumpCmp Lower n (Imm i) c0`,`1`] mp_tac >>
         encode >>
         interference `l3_env` >> imp_res_tac $ Q.SPEC `4w` bytes_in_memory_thm2 >>
         `∀a. a ∈ s1.mem_domain ⇒
           (l3_env 0 (THE $ NextStateARM8 l3)).MEM a = (THE $ NextStateARM8 l3).MEM a` by
           gvs[interference_ok_def, arm8_proj_def, set_sepTheory.fun2set_eq] >>
-        Cases_on `l3.REG (n2w n) <+ c'` >> gvs[]
+        Cases_on `l3.REG (n2w n) <+ (i2w i : word64)` >> gvs[]
         >- (
           next_state_tac0 false (fn l => List.nth (l,0)) List.tl
             `l3_env 0n (THE $ NextStateARM8 l3)` >>
@@ -2879,13 +2880,13 @@ Proof
           simp[alignmentTheory.aligned_numeric]
           ) >>
         drule l3_asl_next >>
-        disch_then $ qspecl_then [`JumpCmp Lower n (Imm c') c0`,`1`] mp_tac >>
+        disch_then $ qspecl_then [`JumpCmp Lower n (Imm i) c0`,`1`] mp_tac >>
         encode >>
         interference `l3_env` >> imp_res_tac $ Q.SPEC `4w` bytes_in_memory_thm2 >>
         `∀a. a ∈ s1.mem_domain ⇒
           (l3_env 0 (THE $ NextStateARM8 l3)).MEM a = (THE $ NextStateARM8 l3).MEM a` by
           gvs[interference_ok_def, arm8_proj_def, set_sepTheory.fun2set_eq] >>
-        Cases_on `l3.REG (n2w n) <+ c'` >> gvs[]
+        Cases_on `l3.REG (n2w n) <+ (i2w i : word64)` >> gvs[]
         >- (
           next_state_tac0 false (fn l => List.nth (l,0)) List.tl
             `l3_env 0n (THE $ NextStateARM8 l3)` >>
@@ -2934,13 +2935,13 @@ Proof
           simp[alignmentTheory.aligned_numeric]
           ) >>
         drule l3_asl_next >>
-        disch_then $ qspecl_then [`JumpCmp Less n (Imm c') c0`,`1`] mp_tac >>
+        disch_then $ qspecl_then [`JumpCmp Less n (Imm i) c0`,`1`] mp_tac >>
         encode >>
         interference `l3_env` >> imp_res_tac $ Q.SPEC `4w` bytes_in_memory_thm2 >>
         `∀a. a ∈ s1.mem_domain ⇒
           (l3_env 0 (THE $ NextStateARM8 l3)).MEM a = (THE $ NextStateARM8 l3).MEM a` by
           gvs[interference_ok_def, arm8_proj_def, set_sepTheory.fun2set_eq] >>
-        Cases_on `l3.REG (n2w n) < c'` >> gvs[]
+        Cases_on `l3.REG (n2w n) < (i2w i : word64)` >> gvs[]
         >- (
           next_state_tac0 false (fn l => List.nth (l,0)) List.tl
             `l3_env 0n (THE $ NextStateARM8 l3)` >>
@@ -3003,13 +3004,13 @@ Proof
           simp[alignmentTheory.aligned_numeric]
           ) >>
         drule l3_asl_next >>
-        disch_then $ qspecl_then [`JumpCmp Less n (Imm c') c0`,`1`] mp_tac >>
+        disch_then $ qspecl_then [`JumpCmp Less n (Imm i) c0`,`1`] mp_tac >>
         encode >>
         interference `l3_env` >> imp_res_tac $ Q.SPEC `4w` bytes_in_memory_thm2 >>
         `∀a. a ∈ s1.mem_domain ⇒
           (l3_env 0 (THE $ NextStateARM8 l3)).MEM a = (THE $ NextStateARM8 l3).MEM a` by
           gvs[interference_ok_def, arm8_proj_def, set_sepTheory.fun2set_eq] >>
-        Cases_on `l3.REG (n2w n) < c'` >> gvs[]
+        Cases_on `l3.REG (n2w n) < (i2w i : word64)` >> gvs[]
         >- (
           next_state_tac0 false (fn l => List.nth (l,0)) List.tl
             `l3_env 0n (THE $ NextStateARM8 l3)` >>
@@ -3075,13 +3076,13 @@ Proof
           simp[alignmentTheory.aligned_numeric]
           ) >>
         drule l3_asl_next >>
-        disch_then $ qspecl_then [`JumpCmp Test n (Imm c') c0`,`1`] mp_tac >>
+        disch_then $ qspecl_then [`JumpCmp Test n (Imm i) c0`,`1`] mp_tac >>
         encode >>
         interference `l3_env` >> imp_res_tac $ Q.SPEC `4w` bytes_in_memory_thm2 >>
         `∀a. a ∈ s1.mem_domain ⇒
           (l3_env 0 (THE $ NextStateARM8 l3)).MEM a = (THE $ NextStateARM8 l3).MEM a` by
           gvs[interference_ok_def, arm8_proj_def, set_sepTheory.fun2set_eq] >>
-        Cases_on `l3.REG (n2w n) && c' = 0w` >> gvs[]
+        Cases_on `l3.REG (n2w n) && (i2w i : word64) = 0w` >> gvs[]
         >- (
           next_state_tac0 false (fn l => List.nth (l,0)) List.tl
             `l3_env 0n (THE $ NextStateARM8 l3)` >>
@@ -3130,13 +3131,13 @@ Proof
           simp[alignmentTheory.aligned_numeric]
           ) >>
         drule l3_asl_next >>
-        disch_then $ qspecl_then [`JumpCmp NotEqual n (Imm c') c0`,`1`] mp_tac >>
+        disch_then $ qspecl_then [`JumpCmp NotEqual n (Imm i) c0`,`1`] mp_tac >>
         encode >>
         interference `l3_env` >> imp_res_tac $ Q.SPEC `4w` bytes_in_memory_thm2 >>
         `∀a. a ∈ s1.mem_domain ⇒
           (l3_env 0 (THE $ NextStateARM8 l3)).MEM a = (THE $ NextStateARM8 l3).MEM a` by
           gvs[interference_ok_def, arm8_proj_def, set_sepTheory.fun2set_eq] >>
-        Cases_on `l3.REG (n2w n) <> c'` >> gvs[]
+        Cases_on `l3.REG (n2w n) <> (i2w i : word64)` >> gvs[]
         >- (
           next_state_tac0 false (fn l => List.nth (l,0)) List.tl
             `l3_env 0n (THE $ NextStateARM8 l3)` >>
@@ -3192,13 +3193,13 @@ Proof
           simp[alignmentTheory.aligned_numeric]
           ) >>
         drule l3_asl_next >>
-        disch_then $ qspecl_then [`JumpCmp NotEqual n (Imm c') c0`,`1`] mp_tac >>
+        disch_then $ qspecl_then [`JumpCmp NotEqual n (Imm i) c0`,`1`] mp_tac >>
         encode >>
         interference `l3_env` >> imp_res_tac $ Q.SPEC `4w` bytes_in_memory_thm2 >>
         `∀a. a ∈ s1.mem_domain ⇒
           (l3_env 0 (THE $ NextStateARM8 l3)).MEM a = (THE $ NextStateARM8 l3).MEM a` by
           gvs[interference_ok_def, arm8_proj_def, set_sepTheory.fun2set_eq] >>
-        Cases_on `l3.REG (n2w n) <> c'` >> gvs[]
+        Cases_on `l3.REG (n2w n) <> (i2w i : word64)` >> gvs[]
         >- (
           next_state_tac0 false (fn l => List.nth (l,0)) List.tl
             `l3_env 0n (THE $ NextStateARM8 l3)` >>
@@ -3256,13 +3257,13 @@ Proof
           simp[alignmentTheory.aligned_numeric]
           ) >>
         drule l3_asl_next >>
-        disch_then $ qspecl_then [`JumpCmp NotLower n (Imm c') c0`,`1`] mp_tac >>
+        disch_then $ qspecl_then [`JumpCmp NotLower n (Imm i) c0`,`1`] mp_tac >>
         encode >>
         interference `l3_env` >> imp_res_tac $ Q.SPEC `4w` bytes_in_memory_thm2 >>
         `∀a. a ∈ s1.mem_domain ⇒
           (l3_env 0 (THE $ NextStateARM8 l3)).MEM a = (THE $ NextStateARM8 l3).MEM a` by
           gvs[interference_ok_def, arm8_proj_def, set_sepTheory.fun2set_eq] >>
-        Cases_on `¬(l3.REG (n2w n) <+ c')` >> gvs[]
+        Cases_on `¬(l3.REG (n2w n) <+ (i2w i : word64))` >> gvs[]
         >- (
           next_state_tac0 false (fn l => List.nth (l,0)) List.tl
             `l3_env 0n (THE $ NextStateARM8 l3)` >>
@@ -3311,13 +3312,13 @@ Proof
           simp[alignmentTheory.aligned_numeric]
           ) >>
         drule l3_asl_next >>
-        disch_then $ qspecl_then [`JumpCmp NotLower n (Imm c') c0`,`1`] mp_tac >>
+        disch_then $ qspecl_then [`JumpCmp NotLower n (Imm i) c0`,`1`] mp_tac >>
         encode >>
         interference `l3_env` >> imp_res_tac $ Q.SPEC `4w` bytes_in_memory_thm2 >>
         `∀a. a ∈ s1.mem_domain ⇒
           (l3_env 0 (THE $ NextStateARM8 l3)).MEM a = (THE $ NextStateARM8 l3).MEM a` by
           gvs[interference_ok_def, arm8_proj_def, set_sepTheory.fun2set_eq] >>
-        Cases_on `¬(l3.REG (n2w n) <+ c')` >> gvs[]
+        Cases_on `¬(l3.REG (n2w n) <+ (i2w i : word64))` >> gvs[]
         >- (
           next_state_tac0 false (fn l => List.nth (l,0)) List.tl
             `l3_env 0n (THE $ NextStateARM8 l3)` >>
@@ -3366,13 +3367,13 @@ Proof
           simp[alignmentTheory.aligned_numeric]
           ) >>
         drule l3_asl_next >>
-        disch_then $ qspecl_then [`JumpCmp NotLess n (Imm c') c0`,`1`] mp_tac >>
+        disch_then $ qspecl_then [`JumpCmp NotLess n (Imm i) c0`,`1`] mp_tac >>
         encode >>
         interference `l3_env` >> imp_res_tac $ Q.SPEC `4w` bytes_in_memory_thm2 >>
         `∀a. a ∈ s1.mem_domain ⇒
           (l3_env 0 (THE $ NextStateARM8 l3)).MEM a = (THE $ NextStateARM8 l3).MEM a` by
           gvs[interference_ok_def, arm8_proj_def, set_sepTheory.fun2set_eq] >>
-        Cases_on `¬(l3.REG (n2w n) < c')` >> gvs[]
+        Cases_on `¬(l3.REG (n2w n) < (i2w i : word64))` >> gvs[]
         >- (
           next_state_tac0 false (fn l => List.nth (l,0)) List.tl
             `l3_env 0n (THE $ NextStateARM8 l3)` >>
@@ -3435,13 +3436,13 @@ Proof
           simp[alignmentTheory.aligned_numeric]
           ) >>
         drule l3_asl_next >>
-        disch_then $ qspecl_then [`JumpCmp NotLess n (Imm c') c0`,`1`] mp_tac >>
+        disch_then $ qspecl_then [`JumpCmp NotLess n (Imm i) c0`,`1`] mp_tac >>
         encode >>
         interference `l3_env` >> imp_res_tac $ Q.SPEC `4w` bytes_in_memory_thm2 >>
         `∀a. a ∈ s1.mem_domain ⇒
           (l3_env 0 (THE $ NextStateARM8 l3)).MEM a = (THE $ NextStateARM8 l3).MEM a` by
           gvs[interference_ok_def, arm8_proj_def, set_sepTheory.fun2set_eq] >>
-        Cases_on `¬(l3.REG (n2w n) < c')` >> gvs[]
+        Cases_on `¬(l3.REG (n2w n) < (i2w i : word64))` >> gvs[]
         >- (
           next_state_tac0 false (fn l => List.nth (l,0)) List.tl
             `l3_env 0n (THE $ NextStateARM8 l3)` >>
@@ -3507,13 +3508,13 @@ Proof
           simp[alignmentTheory.aligned_numeric]
           ) >>
         drule l3_asl_next >>
-        disch_then $ qspecl_then [`JumpCmp NotTest n (Imm c') c0`,`1`] mp_tac >>
+        disch_then $ qspecl_then [`JumpCmp NotTest n (Imm i) c0`,`1`] mp_tac >>
         encode >>
         interference `l3_env` >> imp_res_tac $ Q.SPEC `4w` bytes_in_memory_thm2 >>
         `∀a. a ∈ s1.mem_domain ⇒
           (l3_env 0 (THE $ NextStateARM8 l3)).MEM a = (THE $ NextStateARM8 l3).MEM a` by
           gvs[interference_ok_def, arm8_proj_def, set_sepTheory.fun2set_eq] >>
-        Cases_on `l3.REG (n2w n) && c' ≠ 0w` >> gvs[]
+        Cases_on `l3.REG (n2w n) && (i2w i : word64) ≠ 0w` >> gvs[]
         >- (
           next_state_tac0 false (fn l => List.nth (l,0)) List.tl
             `l3_env 0n (THE $ NextStateARM8 l3)` >>

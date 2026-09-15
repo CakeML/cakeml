@@ -115,11 +115,11 @@ Definition riscv_ast_def:
    (riscv_ast (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
      [ArithR (riscv_bop_r bop (n2w r1, n2w r2, n2w r3))]) /\
    (riscv_ast (Inst (Arith (Binop Sub r1 r2 (Imm i)))) =
-     [ArithI (ADDI (n2w r1, n2w r2, -(w2w i)))]) /\
+     [ArithI (ADDI (n2w r1, n2w r2, -(w2w (i2w i : word64))))]) /\
    (riscv_ast (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
-     [ArithI (riscv_bop_i bop (n2w r1, n2w r2, w2w i))]) /\
+     [ArithI (riscv_bop_i bop (n2w r1, n2w r2, w2w (i2w i : word64)))]) /\
    (riscv_ast (Inst (Arith (Shift sh r1 r2 (Imm i)))) =
-     let n = w2n i in
+     let n = Num i in
      if sh = Ror then
        [Shift (SRLI (temp_reg, n2w r2, n2w n));
         Shift (SLLI (n2w r1, n2w r2, n2w (64 - n)));
@@ -212,47 +212,47 @@ Definition riscv_ast_def:
       if -0xFFCw <= a /\ a <= 0xFFFw then
         let off12 = w2w (a >>> 1) - 2w in
         case c of
-           Equal => [ArithI (ORI (temp_reg, 0w, w2w i));
+           Equal => [ArithI (ORI (temp_reg, 0w, w2w (i2w i : word64)));
                      Branch (BEQ (n2w r, temp_reg, off12))]
-         | Less  => [ArithI (ORI (temp_reg, 0w, w2w i));
+         | Less  => [ArithI (ORI (temp_reg, 0w, w2w (i2w i : word64)));
                      Branch (BLT (n2w r, temp_reg, off12))]
-         | Lower => [ArithI (ORI (temp_reg, 0w, w2w i));
+         | Lower => [ArithI (ORI (temp_reg, 0w, w2w (i2w i : word64)));
                      Branch (BLTU (n2w r, temp_reg, off12))]
-         | Test  => [ArithI (ANDI (temp_reg, n2w r, w2w i));
+         | Test  => [ArithI (ANDI (temp_reg, n2w r, w2w (i2w i : word64)));
                      Branch (BEQ (temp_reg, 0w, off12))]
-         | NotEqual => [ArithI (ORI (temp_reg, 0w, w2w i));
+         | NotEqual => [ArithI (ORI (temp_reg, 0w, w2w (i2w i : word64)));
                         Branch (BNE (n2w r, temp_reg, off12))]
-         | NotLess  => [ArithI (ORI (temp_reg, 0w, w2w i));
+         | NotLess  => [ArithI (ORI (temp_reg, 0w, w2w (i2w i : word64)));
                         Branch (BGE (n2w r, temp_reg, off12))]
-         | NotLower => [ArithI (ORI (temp_reg, 0w, w2w i));
+         | NotLower => [ArithI (ORI (temp_reg, 0w, w2w (i2w i : word64)));
                         Branch (BGEU (n2w r, temp_reg, off12))]
-         | NotTest  => [ArithI (ANDI (temp_reg, n2w r, w2w i));
+         | NotTest  => [ArithI (ANDI (temp_reg, n2w r, w2w (i2w i : word64)));
                         Branch (BNE (temp_reg, 0w, off12))]
       else
         let off20 = w2w (a >>> 1) - 4w in
         case c of
-           Equal => [ArithI (ORI (temp_reg, 0w, w2w i));
+           Equal => [ArithI (ORI (temp_reg, 0w, w2w (i2w i : word64)));
                      Branch (BNE (n2w r, temp_reg, 4w));
                      Branch (JAL (0w, off20))]
-         | Less  => [ArithI (ORI (temp_reg, 0w, w2w i));
+         | Less  => [ArithI (ORI (temp_reg, 0w, w2w (i2w i : word64)));
                      Branch (BGE (n2w r, temp_reg, 4w));
                      Branch (JAL (0w, off20))]
-         | Lower => [ArithI (ORI (temp_reg, 0w, w2w i));
+         | Lower => [ArithI (ORI (temp_reg, 0w, w2w (i2w i : word64)));
                      Branch (BGEU (n2w r, temp_reg, 4w));
                      Branch (JAL (0w, off20))]
-         | Test  => [ArithI (ANDI (temp_reg, n2w r, w2w i));
+         | Test  => [ArithI (ANDI (temp_reg, n2w r, w2w (i2w i : word64)));
                      Branch (BNE (temp_reg, 0w, 4w));
                      Branch (JAL (0w, off20))]
-         | NotEqual => [ArithI (ORI (temp_reg, 0w, w2w i));
+         | NotEqual => [ArithI (ORI (temp_reg, 0w, w2w (i2w i : word64)));
                         Branch (BEQ (n2w r, temp_reg, 4w));
                         Branch (JAL (0w, off20))]
-         | NotLess  => [ArithI (ORI (temp_reg, 0w, w2w i));
+         | NotLess  => [ArithI (ORI (temp_reg, 0w, w2w (i2w i : word64)));
                         Branch (BLT (n2w r, temp_reg, 4w));
                         Branch (JAL (0w, off20))]
-         | NotLower => [ArithI (ORI (temp_reg, 0w, w2w i));
+         | NotLower => [ArithI (ORI (temp_reg, 0w, w2w (i2w i : word64)));
                         Branch (BLTU (n2w r, temp_reg, 4w));
                         Branch (JAL (0w, off20))]
-         | NotTest  => [ArithI (ANDI (temp_reg, n2w r, w2w i));
+         | NotTest  => [ArithI (ANDI (temp_reg, n2w r, w2w (i2w i : word64)));
                         Branch (BEQ (temp_reg, 0w, 4w));
                         Branch (JAL (0w, off20))]) /\
    (riscv_ast (Call a) =
@@ -291,8 +291,8 @@ Definition riscv_config_def:
     ; link_reg := SOME 1
     ; two_reg_arith := F
     ; big_endian := F
-    ; valid_imm := (\b i. (if b = INL Sub then ^min12 < i else ^min12 <= i) /\
-                          i <= ^max12)
+    ; valid_imm := (\b i. (if b = INL Sub then -2048 < i else -2048 <= i) /\
+                          i <= 2047)
     ; addr_offset := (^min12, ^max12)
     ; hw_offset := (^min12, ^max12)
     ; byte_offset := (^min12, ^max12)

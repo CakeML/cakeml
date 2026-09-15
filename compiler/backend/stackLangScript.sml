@@ -33,7 +33,7 @@ Datatype:
               ((stackLang$prog # num # num) option)
               (* handler: exception-handler code, labels l1,l2*)
        | Seq stackLang$prog stackLang$prog
-       | If cmp num ('a reg_imm) stackLang$prog stackLang$prog
+       | If cmp num reg_imm stackLang$prog stackLang$prog
        | Loop stackLang$prog
        | JumpLower num num num (* reg, reg, target name *)
        | Alloc num
@@ -68,17 +68,17 @@ End
 Overload While = “λcmp r ri c. Loop (If cmp r ri c (Break 0))”
 
 Overload move = “λdest src. Inst (Arith (Binop Or dest src (Reg src)))”
-Overload sub_1_inst = “λr1. Inst (Arith (Binop Sub r1 r1 (Imm 1w)))”
+Overload sub_1_inst = “λr1. Inst (Arith (Binop Sub r1 r1 (Imm 1)))”
 Overload sub_inst = “λr1 r2. Inst (Arith (Binop Sub r1 r1 (Reg r2)))”
 Overload add_inst = “λr1 r2. Inst (Arith (Binop Add r1 r1 (Reg r2)))”
 Overload and_inst = “λr1 r2. Inst (Arith (Binop And r1 r1 (Reg r2)))”
 Overload xor_inst = “λr1 r2. Inst (Arith (Binop Xor r1 r1 (Reg r2)))”
-Overload add_1_inst = “λr1. Inst (Arith (Binop Add r1 r1 (Imm 1w)))”
+Overload add_1_inst = “λr1. Inst (Arith (Binop Add r1 r1 (Imm 1)))”
 Overload or_inst = “λr1 r2. Inst (Arith (Binop Or r1 r1 (Reg r2)))”
-Overload add_bytes_in_word_inst = “λr1. Inst (Arith (Binop Add r1 r1 (Imm (bytes_in_word))))”
-Overload div2_inst = “λr. Inst (Arith (Shift Lsr r r (Imm 1w)))”
-Overload left_shift_inst = “λr v. Inst (Arith (Shift Lsl r r (Imm (n2w v))))”
-Overload right_shift_inst = “λr v. Inst (Arith (Shift Lsr r r (Imm (n2w v))))”
+Overload add_bytes_in_word_inst = “λr1. (Inst (Arith (Binop Add r1 r1 (Imm (w2i (bytes_in_word:'a word))))) : 'a stackLang$prog)”
+Overload div2_inst = “λr. Inst (Arith (Shift Lsr r r (Imm 1)))”
+Overload left_shift_inst = “λr v. Inst (Arith (Shift Lsl r r (Imm (&v))))”
+Overload right_shift_inst = “λr v. Inst (Arith (Shift Lsr r r (Imm (&v))))”
 Overload const_inst = “λr w. Inst (Const r w)”
 Overload load_inst = “λr a. Inst (Mem Load r (Addr a 0w))”
 Overload store_inst = “λr a. Inst (Mem Store r (Addr a 0w))”

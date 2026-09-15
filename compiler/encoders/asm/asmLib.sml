@@ -151,8 +151,8 @@ val add_asm_compset = computeLib.extend_compset
      [(asm_ok_tm, 2, asm_ok_conv)],
    computeLib.Tys
      (List.map ast_type0 ["shift"] @
-      List.map asm_type0 ["cmp", "memop", "binop", "fp"] @
-      List.map asm_type  ["asm_config", "asm", "inst", "arith"])]
+      List.map asm_type0 ["cmp", "memop", "binop", "fp", "arith"] @
+      List.map asm_type  ["asm_config", "asm", "inst"])]
 
 (* some custom tools/tactics ---------------------------------------------- *)
 

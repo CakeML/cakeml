@@ -157,6 +157,24 @@ Proof
   \\ simp []
 QED
 
+Theorem imm12_lem[local]:
+  !i. -2048 <= i /\ i <= 2047 ==>
+      0xFFFFFFFFFFFFF800w <= (i2w i : word64) /\ (i2w i : word64) <= 0x7FFw /\
+      (-2048 < i ==> 0xFFFFFFFFFFFFF800w < (i2w i : word64))
+Proof
+  rpt strip_tac
+  \\ `w2i (i2w i : word64) = i`
+       by (irule integer_wordTheory.w2i_i2w
+           \\ simp [integer_wordTheory.INT_MIN_def, integer_wordTheory.INT_MAX_def,
+                    wordsTheory.INT_MIN_def, wordsTheory.INT_MAX_def,
+                    wordsTheory.dimword_def, wordsTheory.dimindex_64]
+           \\ intLib.ARITH_TAC)
+  \\ `w2i (0xFFFFFFFFFFFFF800w : word64) = -2048 /\
+      w2i (0x7FFw : word64) = 2047` by EVAL_TAC
+  \\ asm_simp_tac bool_ss [integer_wordTheory.WORD_LEi, integer_wordTheory.WORD_LTi]
+  \\ intLib.ARITH_TAC
+QED
+
 (* appears to not be relevant
 
 Theorem DecodeAny_encode[simp]:
@@ -193,7 +211,8 @@ Proof
 QED
 
 val enc_rwts =
-  [riscv_config, riscv_asm_ok, lem6, word_bit_0_add4] @ encode_rwts @ asmLib.asm_rwts
+  [riscv_config, riscv_asm_ok, lem6, word_bit_0_add4, integer_wordTheory.i2w_pos] @
+  encode_rwts @ asmLib.asm_rwts
 
 val enc_ok_rwts =
   [asmPropsTheory.enc_ok_def, riscv_config, riscv_asm_ok] @ encode_rwts
@@ -555,6 +574,10 @@ Proof
               --------------*)
             print_tac "Binop"
             \\ Cases_on `r`
+            >- (Cases_on `b` \\ next_tac)
+            \\ mp_tac (Q.SPEC `i` imm12_lem)
+            \\ impl_tac >- (Cases_on `b` \\ fs enc_rwts \\ intLib.ARITH_TAC)
+            \\ strip_tac
             \\ Cases_on `b`
             \\ next_tac
             )
@@ -565,7 +588,9 @@ Proof
             print_tac "Shift"
             \\ reverse(Cases_on`r`)
             >- (
-              Cases_on `s`
+              `?nn. i = &nn` by (fs enc_rwts \\ qexists_tac `Num i` \\ intLib.ARITH_TAC)
+              \\ gvs []
+              \\ Cases_on `s`
               \\ next_tac)
             >- (
               Cases_on`s = Ror`
@@ -692,10 +717,15 @@ Proof
       print_tac "JumpCmp"
       \\ Cases_on `-0xFFCw <= c0 /\ c0 <= 0xFFFw`
       >- (Cases_on `r`
+          >- (Cases_on `c` \\ next_tac)
+          \\ mp_tac (Q.SPEC `i` imm12_lem)
+          \\ impl_tac >- (fs enc_rwts \\ intLib.ARITH_TAC)
+          \\ strip_tac
           \\ Cases_on `c`
           \\ next_tac)
       \\ Cases_on `r`
-      \\ Cases_on `c`
+      >| [
+      Cases_on `c`
       >| [
         jc_next_tac `ms.c_gpr ms.procID (n2w n) = ms.c_gpr ms.procID (n2w n')`,
         jc_next_tac `ms.c_gpr ms.procID (n2w n) <+ ms.c_gpr ms.procID (n2w n')`,
@@ -708,15 +738,22 @@ Proof
         jc_next_tac `~(ms.c_gpr ms.procID (n2w n) <
                        ms.c_gpr ms.procID (n2w n'))`,
         jc_next_tac `(ms.c_gpr ms.procID (n2w n) &&
-                      ms.c_gpr ms.procID (n2w n')) <> 0w`,
-        jc_next_tac `ms.c_gpr ms.procID (n2w n) = c'`,
-        jc_next_tac `ms.c_gpr ms.procID (n2w n) <+ c'`,
-        jc_next_tac `ms.c_gpr ms.procID (n2w n) < c'`,
-        jc_next_tac `(ms.c_gpr ms.procID (n2w n) && c') = 0w`,
-        jc_next_tac `ms.c_gpr ms.procID (n2w n) <> c'`,
-        jc_next_tac `~(ms.c_gpr ms.procID (n2w n) <+ c')`,
-        jc_next_tac `~(ms.c_gpr ms.procID (n2w n) < c')`,
-        jc_next_tac `(ms.c_gpr ms.procID (n2w n) && c') <> 0w`
+                      ms.c_gpr ms.procID (n2w n')) <> 0w`
+      ],
+      mp_tac (Q.SPEC `i` imm12_lem)
+      \\ impl_tac >- (fs enc_rwts \\ intLib.ARITH_TAC)
+      \\ strip_tac
+      \\ Cases_on `c`
+      >| [
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) = (i2w i : word64)`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) <+ (i2w i : word64)`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) < (i2w i : word64)`,
+        jc_next_tac `(ms.c_gpr ms.procID (n2w n) && (i2w i : word64)) = 0w`,
+        jc_next_tac `ms.c_gpr ms.procID (n2w n) <> (i2w i : word64)`,
+        jc_next_tac `~(ms.c_gpr ms.procID (n2w n) <+ (i2w i : word64))`,
+        jc_next_tac `~(ms.c_gpr ms.procID (n2w n) < (i2w i : word64))`,
+        jc_next_tac `(ms.c_gpr ms.procID (n2w n) && (i2w i : word64)) <> 0w`
+      ]
       ]
       )
       (*--------------

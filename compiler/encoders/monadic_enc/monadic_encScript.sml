@@ -13,7 +13,7 @@ Libs
 *)
 Definition hash_reg_imm_def:
   (hash_reg_imm m (Reg reg) = reg) ∧
-  (hash_reg_imm m (Imm imm) = 67n + (w2n imm MOD m))
+  (hash_reg_imm m (Imm imm) = 67n + (Num (ABS imm) MOD m))
 End
 
 Definition hash_binop_def:

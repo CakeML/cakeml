@@ -91,7 +91,7 @@ Theorem case_eq_thms =
   (pair_case_eq::
    bool_case_eq::
    map TypeBase.case_eq_of
-       [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``,``:'a arith``,
+       [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``,``:arith``,
         ``:'a addr``,``:memop``,``:'a wordSem$result``,``:'a ffi_result``])
     |> LIST_CONJ
 

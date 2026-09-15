@@ -1006,7 +1006,7 @@ End
 Definition asm_reg_imm_to_display_def:
   asm_reg_imm_to_display reg_imm = case reg_imm of
     | asm$Reg reg => item_with_num «Reg» reg
-    | Imm imm => item_with_word «Imm» imm
+    | Imm imm => Item NONE «Imm» [int_to_display imm]
 End
 
 Definition asm_arith_to_display_def:

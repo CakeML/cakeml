@@ -50,12 +50,12 @@ End
 
 Definition eval_ri_pre_def:
 (eval_ri_pre s (Reg r) <=> eval_exp_pre (s:'a state) ((Var r):'a wordLang$exp)) /\
-  (eval_ri_pre s (Imm (w:'a word)) <=> T)
+  (eval_ri_pre s (Imm (w:int)) <=> T)
 End
 
 Definition eval_ri_def:
   eval_ri s (Reg r) = eval_exp s (Var r) /\
-  eval_ri s (Imm w) = w
+  eval_ri s (Imm w) = i2w w
 End
 
 Definition dec_clock_def:
@@ -463,7 +463,7 @@ QED
 Theorem evaluate_SeqTempImm[local]:
     evaluate (SeqTempImm i ri p,t) =
     if !r. ri = Reg r ==> Temp (n2w r) IN FDOM t.store then
-       evaluate (p,set_var i (case ri of Imm w => Word w
+       evaluate (p,set_var i (case ri of Imm w => Word (i2w w)
                               | Reg r => t.store ' (Temp (n2w r))) t)
     else evaluate (SeqTempImm i ri p,t)
 Proof
@@ -477,7 +477,7 @@ Theorem evaluate_SeqTempImmNot[local]:
     evaluate (SeqTempImmNot i ri p,t) =
     if !r. ri = Reg r ==> Temp (n2w r) IN FDOM t.store /\
                           ?w. t.store ' (Temp (n2w r)) = Word w then
-       evaluate (p,set_var i (case ri of Imm w => Word (~w)
+       evaluate (p,set_var i (case ri of Imm w => Word (~(i2w w))
                               | Reg r => case t.store ' (Temp (n2w r)) of
                                          | Word w => Word (~w)) t)
     else evaluate (SeqTempImmNot i ri p,t)
@@ -1940,7 +1940,7 @@ val Skip_tm = ``Skip:'a word_bignum$mini``
 val Swap_tm = ``Swap:'a word_bignum$mini``
 val Continue_tm = ``Continue:'a word_bignum$mini``
 
-val If_pat = ``word_bignum$If c r (ri:'a reg_imm) p1 p2``
+val If_pat = ``word_bignum$If c r (ri:reg_imm) p1 p2``
 fun dest_If tm = let
   val i = fst (match_term If_pat tm)
   fun list_dest f tm = let
@@ -2015,7 +2015,7 @@ fun derive_corr_thm const_def = let
       val p1 = get_corr (tm |> rator |> rand)
       val p2 = get_corr (tm |> rand)
       val th = REWRITE_RULE [eval_exp_def,eval_exp_pre_def,asmTheory.word_cmp_def,
-                 eval_ri_pre_def,eval_ri_def] (INST i Corr_If)
+                 eval_ri_pre_def,eval_ri_def,integer_wordTheory.i2w_pos] (INST i Corr_If)
                |> CONV_RULE (DEPTH_CONV read_conv) |> REWRITE_RULE []
       in MATCH_MP th (CONJ p1 p2) end
     else if is_Seq tm then let
@@ -2028,7 +2028,7 @@ fun derive_corr_thm const_def = let
       val lemma = first (fn th => can (match_term (get_pat th)) p1) lemmas
       val i = fst (match_term (get_pat lemma) p1)
       val th1 = REWRITE_RULE [eval_exp_def,eval_exp_pre_def,
-                  eval_ri_pre_def,eval_ri_def] (INST i lemma)
+                  eval_ri_pre_def,eval_ri_def,integer_wordTheory.i2w_pos] (INST i lemma)
       val th1 = CONV_RULE (DEPTH_CONV read_conv) th1
       val th1 = make_new_vars th1
       val th = MATCH_MP (MATCH_MP Corr_Seq_alt th2) th1 |> REWRITE_RULE []

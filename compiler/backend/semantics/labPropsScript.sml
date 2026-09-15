@@ -272,7 +272,7 @@ Theorem case_eq_thms =
   (pair_case_eq::
    bool_case_eq::
    map TypeBase.case_eq_of
-       [``:'a line``,``:'a option``,``:'a asm_with_lab``,``:'a asm_or_shmem``,
+       [``:'a line``,``:'a option``,``:asm_with_lab``,``:'a asm_or_shmem``,
         ``:'a asm``, ``:'a word_loc``,``:'a list``,``:'a sec``,``:'a ffi_result``])
   |> LIST_CONJ
 

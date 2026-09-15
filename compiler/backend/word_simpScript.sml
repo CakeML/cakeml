@@ -247,7 +247,7 @@ End
 
 Definition get_var_imm_cs_def:
   (get_var_imm_cs (Reg r) cs = lookup r cs) /\
-  (get_var_imm_cs (Imm i) _ = SOME i)
+  (get_var_imm_cs (Imm i) _ = SOME (i2w i))
 End
 
 Definition is_gc_const_def:

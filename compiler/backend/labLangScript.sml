@@ -22,7 +22,7 @@ End
 
 Datatype:
   asm_with_lab = Jump lab
-               | JumpCmp cmp reg ('a reg_imm) lab
+               | JumpCmp cmp reg reg_imm lab
                | Call lab
                | LocValue reg lab
                (* following have no label, but have similar semantics *)
@@ -39,7 +39,7 @@ End
 Datatype:
   line = Label num num num (* section number, label number, length *)
        | Asm ('a asm_or_shmem) (word8 list) num (* instruction, encoded instruction, length *)
-       | LabAsm ('a asm_with_lab) ('a word) (word8 list) num
+       | LabAsm asm_with_lab ('a word) (word8 list) num
 End
                                   (* position, encoded instruction, length *)
 

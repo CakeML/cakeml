@@ -71,10 +71,10 @@ Definition backend_config_ok_def:
     addr_offset_ok asm_conf 0w ∧
     hw_offset_ok asm_conf 0w ∧
     (∀w. -8w ≤ w ∧ w ≤ 8w ⇒ byte_offset_ok asm_conf w) ∧
-    asm_conf.valid_imm (INL Add) 8w ∧
-    asm_conf.valid_imm (INL Add) 4w ∧
-    asm_conf.valid_imm (INL Add) 1w ∧
-    asm_conf.valid_imm (INL Sub) 1w ∧
+    asm_conf.valid_imm (INL Add) 8 ∧
+    asm_conf.valid_imm (INL Add) 4 ∧
+    asm_conf.valid_imm (INL Add) 1 ∧
+    asm_conf.valid_imm (INL Sub) 1 ∧
     OPTION_ALL (EVERY (λx. ∃s. x = ExtCall s)) c.lab_conf.ffi_names ∧
     find_name c.stack_conf.reg_names PERMUTES UNIV ∧
     names_ok c.stack_conf.reg_names asm_conf.reg_count asm_conf.avoid_regs ∧
@@ -83,8 +83,8 @@ Definition backend_config_ok_def:
     (∀s. hw_offset_ok asm_conf (store_offset s)) ∧
     (∀n.
          n ≤ max_stack_alloc ⇒
-         asm_conf.valid_imm (INL Sub) (n2w (n * (dimindex (:α) DIV 8))) ∧
-         asm_conf.valid_imm (INL Add) (n2w (n * (dimindex (:α) DIV 8))))
+         asm_conf.valid_imm (INL Sub) (w2i (n2w (n * (dimindex (:α) DIV 8)) : α word)) ∧
+         asm_conf.valid_imm (INL Add) (w2i (n2w (n * (dimindex (:α) DIV 8)) : α word)))
 End
 
 Theorem backend_config_ok_with_bvl_conf_updated[simp]:
@@ -2625,7 +2625,7 @@ QED
 
 Theorem to_lab_good_code_lemma:
   compile c.stack_conf c.data_conf lim1 lim2 offs stack_prog = code /\
-  compile asm_conf3 F word_prog = (bm, wc, fs, stack_prog) /\
+  compile (asm_conf3:'a asm_config) F (word_prog:(num # num # 'a wordLang$prog) list) = (bm, wc, fs, stack_prog) /\
   compile data_conf word_conf asm_conf2 data_prog = (col, word_prog) /\
   stack_to_labProof$labels_ok code /\
   all_enc_ok_pre conf code

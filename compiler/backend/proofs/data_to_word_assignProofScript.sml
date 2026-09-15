@@ -22,6 +22,7 @@ val _ = temp_delsimps ["fromAList_def", "domain_union",
                        "sptree.insert_notEmpty", "sptree.isEmpty_union"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
+val _ = augment_srw_ss [rewrites [integer_wordTheory.i2w_pos, integer_wordTheory.i2w_w2i]]
 
 val _ = numLib.prefer_num ();
 
@@ -11126,7 +11127,7 @@ QED
 Theorem assign_BoundsCheckBlock:
    assign c secn l dest (BlockOp BoundsCheckBlock) args names =
       case args of
-      | [v1;v2] => (list_Seq [If Test (adjust_var v1) (Imm 1w)
+      | [v1;v2] => (list_Seq [If Test (adjust_var v1) (Imm 1)
                                (Assign 1 (Const 0w))
                                (Assign 1
                                  (let addr = real_addr c (adjust_var v1) in
@@ -11384,7 +11385,7 @@ QED
 Theorem assign_LessConstSmall:
    assign c secn l dest (IntOp (LessConstSmall i)) args names =
       case args of
-      | [v1] => (If Less (adjust_var v1) (Imm (n2w (4 * i)))
+      | [v1] => (If Less (adjust_var v1) (Imm (&(4 * i)))
                   (Assign (adjust_var dest) TRUE_CONST)
                   (Assign (adjust_var dest) FALSE_CONST),l)
       | _ => (Skip:'a wordLang$prog,l)

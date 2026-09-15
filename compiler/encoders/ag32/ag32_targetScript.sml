@@ -91,14 +91,14 @@ Definition ag32_enc_def:
    (ag32_enc (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
       enc (Normal (ag32_bop bop, n2w r1, Reg (n2w r2), Reg (n2w r3)))) /\
    (ag32_enc (Inst (Arith (Binop bop r1 r2 (asm$Imm i)))) =
-    if -32w <= i /\ i < 32w then
-      enc (Normal (ag32_bop bop, n2w r1, Reg (n2w r2), Imm (w2w i)))
+    if -32w <= (i2w i : word32) /\ (i2w i : word32) < 32w then
+      enc (Normal (ag32_bop bop, n2w r1, Reg (n2w r2), Imm (w2w (i2w i : word32))))
     else
       ag32_encode
-        (ag32_constant (temp_reg, i) ++
+        (ag32_constant (temp_reg, i2w i) ++
         [Normal (ag32_bop bop, n2w r1, Reg (n2w r2), Reg temp_reg)])) /\
    (ag32_enc (Inst (Arith (asm$Shift sh r1 r2 (Imm i)))) =
-      enc (Shift (ag32_sh sh, n2w r1, Reg (n2w r2), Imm (w2w i)))) /\
+      enc (Shift (ag32_sh sh, n2w r1, Reg (n2w r2), Imm (w2w (i2w i : word32))))) /\
    (ag32_enc (Inst (Arith (asm$Shift sh r1 r2 (Reg r3)))) =
       enc (Shift (ag32_sh sh, n2w r1, Reg (n2w r2), Reg (n2w r3)))) /\
    (ag32_enc (Inst (Arith (Div _ _ _))) = enc ReservedInstr) /\
@@ -228,7 +228,7 @@ Definition ag32_enc_def:
          else
            JumpIfNotZero arg])) /\
    (ag32_enc (JumpCmp cmp r (asm$Imm i) a) =
-      let arg = (ag32_cmp cmp, Reg temp_reg, Reg (n2w r), Imm (w2w i)) in
+      let arg = (ag32_cmp cmp, Reg temp_reg, Reg (n2w r), Imm (w2w (i2w i : word32))) in
       ag32_encode
         (ag32_jump_constant (temp_reg, a, T) ++
          [if cmp IN {Test; NotEqual; NotLess; NotLower} then
@@ -252,9 +252,9 @@ Definition ag32_config_def:
     ; two_reg_arith := F
     ; big_endian := F
     ; valid_imm := \i n. if ISL i then
-                           -0x7FFFFFw <= n /\ n < 0x7FFFFFw
+                           -8388607 <= n /\ n < 8388607
                          else
-                           -32w <= n /\ n < 32w
+                           -32 <= n /\ n < 32
     ; addr_offset := (-0x7FFFFFw, 0x7FFFFFw)
     ; hw_offset := (-0x7FFFFFw, 0x7FFFFFw)
     ; byte_offset := (-32w, 31w)

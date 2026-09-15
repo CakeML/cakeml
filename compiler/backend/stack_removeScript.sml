@@ -69,10 +69,10 @@ Definition single_stack_alloc_def:
   single_stack_alloc jump k n =
     if jump
     then
-      Seq (Inst (Arith (Binop Sub k k (Imm (word_offset n)))))
+      Seq (Inst (Arith (Binop Sub k k (Imm (w2i (word_offset n : 'a word))))) : 'a stackLang$prog)
           (JumpLower k (k+1) stack_err_lab)
     else
-       Seq (Inst (Arith (Binop Sub k k (Imm (word_offset n)))))
+       Seq (Inst (Arith (Binop Sub k k (Imm (w2i (word_offset n : 'a word))))) : 'a stackLang$prog)
           (If Lower k (Reg (k+1)) (halt_inst 2w) Skip)
 End
 
@@ -88,7 +88,7 @@ End
 
 Definition single_stack_free_def:
   single_stack_free k n =
-    Inst (Arith (Binop Add k k (Imm (word_offset n))))
+    (Inst (Arith (Binop Add k k (Imm (w2i (word_offset n : 'a word))))) : 'a stackLang$prog)
 End
 
 Definition stack_free_def:
@@ -105,9 +105,9 @@ End
 Definition upshift_def:
   upshift r n =
     if n ≤ max_stack_alloc then
-      (Inst (Arith (Binop Add r r (Imm (word_offset n))))):'a stackLang$prog
+      (Inst (Arith (Binop Add r r (Imm (w2i (word_offset n : 'a word)))))):'a stackLang$prog
     else
-      Seq (Inst (Arith (Binop Add r r (Imm (word_offset max_stack_alloc)))))
+      Seq (Inst (Arith (Binop Add r r (Imm (w2i (word_offset max_stack_alloc : 'a word))))))
       (upshift r (n-max_stack_alloc))
 Termination
   WF_REL_TAC `measure SND` \\ fs [max_stack_alloc_def] \\ decide_tac
@@ -116,9 +116,9 @@ End
 Definition downshift_def:
   downshift r n =
     if n ≤ max_stack_alloc then
-      (Inst (Arith (Binop Sub r r (Imm (word_offset n))))) :'a stackLang$prog
+      (Inst (Arith (Binop Sub r r (Imm (w2i (word_offset n : 'a word)))))) :'a stackLang$prog
     else
-      Seq (Inst (Arith (Binop Sub r r (Imm (word_offset max_stack_alloc)))))
+      Seq (Inst (Arith (Binop Sub r r (Imm (w2i (word_offset max_stack_alloc : 'a word))))))
       (downshift r (n-max_stack_alloc))
 Termination
   WF_REL_TAC `measure SND` \\ fs [max_stack_alloc_def] \\ decide_tac
@@ -138,10 +138,10 @@ End
 
 Definition copy_each_def:
   copy_each t1 t2 =
-    While NotEqual 1 (Imm 1w)
+    While NotEqual 1 (Imm 1)
       (list_Seq [load_inst t1 t2;
                  add_bytes_in_word_inst t2;
-                 If Test 1 (Imm 1w) Skip (add_inst t1 3);
+                 If Test 1 (Imm 1) Skip (add_inst t1 3);
                  right_shift_inst 1 1;
                  store_inst t1 2;
                  add_bytes_in_word_inst 2])
@@ -151,7 +151,7 @@ Definition copy_loop_def:
   copy_loop t1 t2 =
     list_Seq [load_inst 1 t2;
               add_bytes_in_word_inst t2;
-              While Less 1 (Imm 0w)
+              While Less 1 (Imm 0)
                 (list_Seq [copy_each t1 t2;
                            load_inst 1 t2;
                            add_bytes_in_word_inst t2]);

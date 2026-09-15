@@ -30,7 +30,8 @@ val arm7_config =
   REWRITE_RULE [valid_immediate] arm7_targetTheory.arm7_config
 
 val arm7_asm_ok =
-  REWRITE_RULE [valid_immediate] arm7_targetTheory.arm7_asm_ok
+  REWRITE_RULE [valid_immediate, arm7_valid_imm_def]
+    arm7_targetTheory.arm7_asm_ok
 
 Theorem lem1[local]:
   !n m. n < 16 /\ n <> 13 /\ n <> 15 ==>
@@ -542,7 +543,8 @@ val encode_rwts =
 val enc_rwts =
    [asmPropsTheory.offset_monotonic_def, lem4, lem5, lem8, lem4b, lem5b,
     arm_stepTheory.Aligned, alignmentTheory.aligned_0,
-    alignmentTheory.aligned_numeric, arm7_asm_ok, Once valid_immediate2] @
+    alignmentTheory.aligned_numeric, arm7_asm_ok, Once valid_immediate2,
+    integer_wordTheory.i2w_pos, integer_wordTheory.i2w_minus_1] @
    encode_rwts @ asmLib.asm_rwts
 
 val enc_ok_rwts =
@@ -615,7 +617,7 @@ local
    val is_arm7_next = #4 (HolKernel.syntax_fns1 "arm7_target" "arm7_next")
    val arm7_next =
      Drule.GEN_ALL (Thm.AP_THM arm7_targetTheory.arm7_next_def ``s:arm_state``)
-   val i_tm = ``R_mode ms.CPSR.M (n2w i)``
+   val i_tm = ``R_mode ms.CPSR.M (n2w ii)``
    fun fail_if_vacuous_tac gs =
      (if List.hd (fst gs) ~~ boolSyntax.T then NO_TAC else all_tac) gs
    fun next_state_tac0 step_list (asl, g) =
@@ -636,7 +638,7 @@ local
                     val r = utilsLib.rhsc (SIMP_CONV (srw_ss()) [] ``^tm.REG``)
                  in
                     (`(!a. a IN s1.mem_domain ==> ((^etm).MEM a = ms.MEM a)) /\
-                      !i. (^etm).REG ^i_tm = ^r ^i_tm`
+                      !ii. (^etm).REG ^i_tm = ^r ^i_tm`
                      by (qpat_x_assum `!i:num s:arm_state. P`
                            (fn th =>
                               strip_assume_tac
@@ -707,14 +709,14 @@ Proof
 QED
 
 local
-   val i_tm = ``R_mode ms.CPSR.M (n2w i)``
+   val i_tm = ``R_mode ms.CPSR.M (n2w ii)``
    val reg_tac =
       asmLib.env_tac
         (fn (t, s) =>
            let
               val r = utilsLib.rhsc (SIMP_CONV (srw_ss()) [] ``^s.REG``)
            in
-              (``!i. (env ^t ^s).REG ^i_tm = ^r ^i_tm``,
+              (``!ii. (env ^t ^s).REG ^i_tm = ^r ^i_tm``,
                qpat_x_assum `!i:num s:arm_state. P`
                   (fn th =>
                      strip_assume_tac
@@ -828,7 +830,7 @@ local
          Cases_on `word_bit 31 q = SND (SND p)`,
          (* Test *)
          (if imm
-            then Cases_on `(^n && c') = 0w`
+            then Cases_on `(^n && (i2w i : word32)) = 0w`
           else Cases_on `(^n && ^n') = 0w`)
         ]
     in
@@ -843,8 +845,8 @@ in
   fun cmp_tac imm =
     Cases_on `c`
     \\ (if imm then
-          qabbrev_tac `p = add_with_carry (^n, ~c',T)`
-          \\ qabbrev_tac `q = (-1w * c' + ^n)`
+          qabbrev_tac `p = add_with_carry (^n, ~(i2w i : word32),T)`
+          \\ qabbrev_tac `q = (-1w * (i2w i : word32) + ^n)`
         else
           qabbrev_tac `p = add_with_carry (^n, ~^n',T)`
           \\ qabbrev_tac `q = (^n + -1w * ^n')`)
@@ -995,7 +997,7 @@ Proof
             print_tac "Binop"
             \\ Cases_on `r`
             >- (Cases_on `b` \\ next_tac)
-            \\ Cases_on `(b = Xor) /\ (c = -1w)`
+            \\ Cases_on `(b = Xor) /\ (i = -1)`
             >- next_tac
             \\ Cases_on `b`
             \\ next_tac
@@ -1007,7 +1009,9 @@ Proof
             print_tac "Shift"
             \\ reverse (Cases_on`r`)
             >- (
-              Cases_on `s`
+              `?nn. i = &nn` by (fs enc_rwts \\ qexists_tac `Num i` \\ intLib.ARITH_TAC)
+              \\ gvs []
+              \\ Cases_on `s`
               \\ next_tac)
             >- (
               rename1`Reg r`

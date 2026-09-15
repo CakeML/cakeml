@@ -150,14 +150,14 @@ Definition mips_ast_def:
    (mips_ast (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
        [ArithR (mips_bop_r bop (n2w r2, n2w r3, n2w r1))]) /\
    (mips_ast (Inst (Arith (Binop Sub r1 r2 (Imm i)))) =
-       [ArithI (DADDIU (n2w r2, n2w r1, -(w2w i)))]) /\
+       [ArithI (DADDIU (n2w r2, n2w r1, -(w2w (i2w i : word64))))]) /\
    (mips_ast (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
-       if (bop = Xor) /\ (i = -1w) then
+       if (bop = Xor) /\ (i = -1) then
          [ArithR (NOR (n2w r2, 0w, n2w r1))]
        else
-         [ArithI (mips_bop_i bop (n2w r2, n2w r1, w2w i))]) /\
+         [ArithI (mips_bop_i bop (n2w r2, n2w r1, w2w (i2w i : word64)))]) /\
    (mips_ast (Inst (Arith (Shift sh r1 r2 (Imm i)))) =
-       let n = w2n i in
+       let n = Num i in
        if sh = Ror then
          if n < 32 then
            [Shift (DSRL (n2w r2, temp_reg, n2w n));
@@ -263,11 +263,11 @@ Definition mips_ast_def:
        let b = w2w (a >>> 2) - 2w in
          case mips_cmp c of
             (SOME (_, f1), f2) =>
-               [ArithI (f1 (n2w r, temp_reg, w2w i));
+               [ArithI (f1 (n2w r, temp_reg, w2w (i2w i : word64)));
                 Branch (f2 (temp_reg, 0w, b));
                 ^nop]
           | (NONE, f) =>
-               [ArithI (DADDIU (0w, temp_reg, w2w i));
+               [ArithI (DADDIU (0w, temp_reg, w2w (i2w i : word64)));
                 Branch (f (n2w r, temp_reg, b));
                 ^nop]) /\
    (mips_ast (Call a) =
@@ -323,9 +323,9 @@ Definition mips_config_def:
     ; big_endian := T
     ; valid_imm :=
        (\b i. if b IN {INL And; INL Or; INL Xor; INR Test; INR NotTest} then
-                0w <= i /\ i <= ^umax16
-              else (if b = INL Sub then ^min16 < i else ^min16 <= i) /\
-                   i <= ^max16)
+                0 <= i /\ i <= 65535
+              else (if b = INL Sub then -32768 < i else -32768 <= i) /\
+                   i <= 32767)
     ; addr_offset := (^min16, ^max16)
     ; hw_offset := (^min16, ^max16)
     ; byte_offset := (^min16, ^max16)

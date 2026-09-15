@@ -893,7 +893,7 @@ Proof
 QED
 
 Definition state_rel_def:
-  state_rel ac k f f' (s:('a,num # 'c,'ffi) wordSem$state)
+  state_rel (ac:'a asm_config) k f f' (s:('a,num # 'c,'ffi) wordSem$state)
     (t:('a,'c,'ffi) stackSem$state) lens extra ⇔
     (s.clock = t.clock) /\ (s.gc_fun = t.gc_fun) /\ (s.permute = K I) /\
     (t.ffi = s.ffi) /\ t.use_stack /\ t.use_store /\ t.use_alloc /\
@@ -6858,7 +6858,7 @@ Resume comp_correct[If]:
   >- (
     fs[get_labels_wStackLoad,get_labels_def]>>
     dxrule_all evaluate_const_inst>>
-    disch_then (qspec_then `i` mp_tac) >>
+    disch_then (qspec_then `i2w i` mp_tac) >>
     rw[] >>
     simp[Once stackSemTheory.evaluate_def,evaluate_const_inst_clock]>>
     simp[evaluate_wStackLoad_seq]>>
@@ -10347,7 +10347,7 @@ Proof
 QED
 
 Definition init_state_ok_def:
-  init_state_ok ac k ^t coracle <=>
+  init_state_ok (ac:'a asm_config) k ^t coracle <=>
     4n < k /\ good_dimindex (:'a) /\ 8 <= dimindex (:'a) /\
     t.use_stack /\ t.use_store /\ t.use_alloc /\ gc_fun_ok t.gc_fun /\
     t.stack_space <= LENGTH t.stack /\
@@ -10372,7 +10372,7 @@ Definition init_state_ok_def:
 End
 
 Definition make_init_def:
-  make_init ac k ^t code coracle =
+  make_init (ac:'a asm_config) k ^t code coracle =
     <| locals  := insert 0 (Loc 1 0) LN
      ; fp_regs := t.fp_regs
      ; store   := t.store \\ Handler
@@ -11580,7 +11580,7 @@ QED
 
 (* Gluing all the conventions together *)
 Theorem word_to_stack_stack_convs:
-  word_to_stack$compile ac F p = (bytes,c',f', p') ∧
+  word_to_stack$compile (ac:'a asm_config) F (p:(num # num # 'a wordLang$prog) list) = (bytes,c',f', p') ∧
   EVERY (post_alloc_conventions k) (MAP (SND o SND) p) ∧
   k = (ac.reg_count- (5 +LENGTH ac.avoid_regs)) ∧
   4 ≤ k
@@ -11820,7 +11820,7 @@ Proof
 QED
 
 Theorem word_to_stack_good_code_labels:
-  compile asm_conf F progs = (bytes,bs,fs,prog') ∧
+  compile (asm_conf:'a asm_config) F (progs:(num # num # 'a wordLang$prog) list) = (bytes,bs,fs,prog') ∧
   good_code_labels progs elabs ⇒
   stack_good_code_labels prog' elabs
 Proof
@@ -11849,7 +11849,7 @@ QED
 Theorem word_to_stack_good_code_labels_incr:
   raise_stub_location ∈ elabs ∧
   store_consts_stub_location ∈ elabs ∧
-  compile_word_to_stack ac F k prog bs = (prog',fs', bs') ⇒
+  compile_word_to_stack (ac:'a asm_config) F k (prog:(num # num # 'a wordLang$prog) list) bs = (prog',fs', bs') ⇒
   good_code_labels prog elabs ⇒
   stack_good_code_labels prog' elabs
 Proof
@@ -11877,8 +11877,8 @@ Proof
 QED
 
 Theorem word_to_stack_good_handler_labels:
-  EVERY (λ(n,m,pp). good_handlers n pp) prog ⇒
-  compile asm_conf F prog = (bytes,bs,fs,prog') ⇒
+  EVERY (λ(n,m,pp). good_handlers n pp) (prog:(num # num # 'a wordLang$prog) list) ⇒
+  compile (asm_conf:'a asm_config) F prog = (bytes,bs,fs,prog') ⇒
   stack_good_handler_labels prog'
 Proof
   fs[word_to_stackTheory.compile_def]>>
@@ -11905,8 +11905,8 @@ Proof
 QED
 
 Theorem word_to_stack_good_handler_labels_incr:
-  EVERY (λ(n,m,pp). good_handlers n pp) prog ⇒
-  compile_word_to_stack ac F k prog bs = (prog',fs', bs') ⇒
+  EVERY (λ(n,m,pp). good_handlers n pp) (prog:(num # num # 'a wordLang$prog) list) ⇒
+  compile_word_to_stack (ac:'a asm_config) F k prog bs = (prog',fs', bs') ⇒
   stack_good_handler_labels prog'
 Proof
   fs[stack_good_handler_labels_def]>>
@@ -12350,7 +12350,7 @@ Proof
 QED
 
 Theorem compile_no_shmemop:
-  compile cf F prog = (bs,fs,ns,prog') /\
+  compile (cf:'a asm_config) F (prog:(num # num # 'a wordLang$prog) list) = (bs,fs,ns,prog') /\
   EVERY (\(n,m,pp). no_share_inst pp) prog ==>
   EVERY (\(a,p). no_shmemop p) prog'
 Proof
@@ -12366,7 +12366,7 @@ QED
 Theorem word_to_stack_compile_no_install:
   ALL_DISTINCT (MAP FST prog) ∧
   no_install_code (fromAList prog) ∧
-  word_to_stack$compile ac F prog = (bm, c, fs, p) ⇒
+  word_to_stack$compile (ac:'a asm_config) F (prog:(num # num # 'a wordLang$prog) list) = (bm, c, fs, p) ⇒
   EVERY (λ(n,x). no_install x) p
 Proof
   strip_tac>>

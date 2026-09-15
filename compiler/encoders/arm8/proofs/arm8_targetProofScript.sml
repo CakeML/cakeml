@@ -411,7 +411,7 @@ Proof
             \\ next_tac `0`
             \\ Cases_on `r`
             >| [Cases_on `b`,
-                Cases_on `(b = Xor) /\ (c = -1w)`
+                Cases_on `(b = Xor) /\ (i = -1)`
                 >| [all_tac,
                     Cases_on `b` \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()) []
                    ]
@@ -431,7 +431,9 @@ Proof
             \\ next_tac `0`
             \\ reverse (Cases_on`r`)
             >- (
-              `∃n1. n1 = w2n c` by fs[]
+              `?nn. i = &nn` by (fs enc_rwts \\ qexists_tac `Num i` \\ intLib.ARITH_TAC)
+              \\ gvs []
+              \\ `∃n1. n1 = nn` by fs[]
               \\ shift_cases_tac
               \\ enc_rwts_tac
               \\ fs []
@@ -691,20 +693,20 @@ Proof
          \\ imp_res_tac Decode_EncodeBitMask
          \\ next_state_tac0 true List.last List.tl `ms`
          >| [
-            cmp_case_tac `ms.REG (n2w n) = c'`,
-            cmp_case_tac `ms.REG (n2w n) = c'`,
-            cmp_case_tac `ms.REG (n2w n) <+ c'`,
-            cmp_case_tac `ms.REG (n2w n) <+ c'`,
-            cmp_case_tac `ms.REG (n2w n) < c'`,
-            cmp_case_tac `ms.REG (n2w n) < c'`,
-            cmp_case_tac `(ms.REG (n2w n) && c') = 0w`,
-            cmp_case_tac `ms.REG (n2w n) <> c'`,
-            cmp_case_tac `ms.REG (n2w n) <> c'`,
-            cmp_case_tac `~(ms.REG (n2w n) <+ c')`,
-            cmp_case_tac `~(ms.REG (n2w n) <+ c')`,
-            cmp_case_tac `~(ms.REG (n2w n) < c')`,
-            cmp_case_tac `~(ms.REG (n2w n) < c')`,
-            cmp_case_tac `(ms.REG (n2w n) && c') <> 0w`
+            cmp_case_tac `ms.REG (n2w n) = (i2w i : word64)`,
+            cmp_case_tac `ms.REG (n2w n) = (i2w i : word64)`,
+            cmp_case_tac `ms.REG (n2w n) <+ (i2w i : word64)`,
+            cmp_case_tac `ms.REG (n2w n) <+ (i2w i : word64)`,
+            cmp_case_tac `ms.REG (n2w n) < (i2w i : word64)`,
+            cmp_case_tac `ms.REG (n2w n) < (i2w i : word64)`,
+            cmp_case_tac `(ms.REG (n2w n) && (i2w i : word64)) = 0w`,
+            cmp_case_tac `ms.REG (n2w n) <> (i2w i : word64)`,
+            cmp_case_tac `ms.REG (n2w n) <> (i2w i : word64)`,
+            cmp_case_tac `~(ms.REG (n2w n) <+ (i2w i : word64))`,
+            cmp_case_tac `~(ms.REG (n2w n) <+ (i2w i : word64))`,
+            cmp_case_tac `~(ms.REG (n2w n) < (i2w i : word64))`,
+            cmp_case_tac `~(ms.REG (n2w n) < (i2w i : word64))`,
+            cmp_case_tac `(ms.REG (n2w n) && (i2w i : word64)) <> 0w`
          ]
       ]
       )

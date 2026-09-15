@@ -12,6 +12,8 @@ Ancestors
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "fromAList_def"]
+val _ = augment_srw_ss [rewrites [integer_wordTheory.i2w_pos, integer_wordTheory.i2w_w2i,
+                                  COND_RAND |> ISPEC ``integer_word$i2w``]]
 
 val _ = (max_print_depth := 18);
 
@@ -67,7 +69,7 @@ Theorem get_var_imm_case[local]:
   get_var_imm ri s =
     case ri of
     | Reg n => get_var n s
-    | Imm w => SOME (Word w)
+    | Imm w => SOME (Word (i2w w))
 Proof
   Cases_on `ri` \\ full_simp_tac(srw_ss())[get_var_imm_def]
 QED
@@ -6237,21 +6239,22 @@ Theorem stack_alloc_stack_asm_convs:
   conf_ok (:'a) conf ∧
   addr_offset_ok c 0w ∧
   reg_name 10 c ∧ good_dimindex(:'a) ∧
-  c.valid_imm (INL Add) 8w ∧
-  c.valid_imm (INL Add) 4w ∧
-  c.valid_imm (INL Add) 1w ∧
-  c.valid_imm (INL Sub) 1w
+  c.valid_imm (INL Add) 8 ∧
+  c.valid_imm (INL Add) 4 ∧
+  c.valid_imm (INL Add) 1 ∧
+  c.valid_imm (INL Sub) 1
   ⇒
   EVERY (λ(n,p). stack_asm_name c p) (compile conf prog) ∧
   EVERY (λ(n,p). stack_asm_remove c p) (compile conf prog)
 Proof
   fs[compile_def]>>rw[]>>
-    TRY (EVAL_TAC>>every_case_tac >>
-         EVAL_TAC>>every_case_tac >>
-         fs [] >> EVAL_TAC >>
+    TRY (computeLib.RESTR_EVAL_TAC [``integer_word$w2i``]>>every_case_tac >>
+         computeLib.RESTR_EVAL_TAC [``integer_word$w2i``]>>every_case_tac >>
+         fs [] >> computeLib.RESTR_EVAL_TAC [``integer_word$w2i``] >>
      fs[reg_name_def, good_dimindex_def,
         asmTheory.offset_ok_def, data_to_wordTheory.conf_ok_def,
-        data_to_wordTheory.shift_length_def]>>
+        data_to_wordTheory.shift_length_def,
+        integer_wordTheory.w2i_n2w_pos, wordsTheory.INT_MIN_def, dimword_def]>>
      pairarg_tac>>fs[]>>NO_TAC)
   >>
   fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]>>

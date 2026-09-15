@@ -132,6 +132,40 @@ val lem10 =
 
 val lem12 = utilsLib.mk_cond_rand_thms [optionSyntax.is_some_tm]
 
+Theorem imm16s_lem[local]:
+  !i. -32768 <= i /\ i <= 32767 ==>
+      0xFFFFFFFFFFFF8000w <= (i2w i : word64) /\ (i2w i : word64) <= 32767w /\
+      (-32768 < i ==> 0xFFFFFFFFFFFF8000w < (i2w i : word64))
+Proof
+  rpt strip_tac
+  \\ `w2i (i2w i : word64) = i`
+       by (irule integer_wordTheory.w2i_i2w
+           \\ simp [integer_wordTheory.INT_MIN_def, integer_wordTheory.INT_MAX_def,
+                    wordsTheory.INT_MIN_def, wordsTheory.INT_MAX_def,
+                    wordsTheory.dimword_def, wordsTheory.dimindex_64]
+           \\ intLib.ARITH_TAC)
+  \\ `w2i (0xFFFFFFFFFFFF8000w : word64) = -32768 /\
+      w2i (32767w : word64) = 32767` by EVAL_TAC
+  \\ asm_simp_tac bool_ss [integer_wordTheory.WORD_LEi, integer_wordTheory.WORD_LTi]
+  \\ intLib.ARITH_TAC
+QED
+
+Theorem imm16u_lem[local]:
+  !i. 0 <= i /\ i <= 65535 ==>
+      0w <= (i2w i : word64) /\ (i2w i : word64) <= 65535w
+Proof
+  rpt strip_tac
+  \\ `w2i (i2w i : word64) = i`
+       by (irule integer_wordTheory.w2i_i2w
+           \\ simp [integer_wordTheory.INT_MIN_def, integer_wordTheory.INT_MAX_def,
+                    wordsTheory.INT_MIN_def, wordsTheory.INT_MAX_def,
+                    wordsTheory.dimword_def, wordsTheory.dimindex_64]
+           \\ intLib.ARITH_TAC)
+  \\ `w2i (0w : word64) = 0 /\ w2i (65535w : word64) = 65535` by EVAL_TAC
+  \\ asm_simp_tac bool_ss [integer_wordTheory.WORD_LEi]
+  \\ intLib.ARITH_TAC
+QED
+
 Theorem adc_lem1[local]:
   ((if b then 1w else 0w) = (v2w [x] || v2w [y] : word64)) <=> (b = (x \/ y))
 Proof
@@ -266,7 +300,8 @@ val encode_rwts =
    end
 
 val enc_rwts =
-  [mips_config, mips_asm_ok] @ encode_rwts @ asmLib.asm_rwts
+  [mips_config, mips_asm_ok, integer_wordTheory.i2w_pos,
+   integer_wordTheory.i2w_minus_1] @ encode_rwts @ asmLib.asm_rwts
 
 val enc_ok_rwts =
   [asmPropsTheory.enc_ok_def, mips_config, mips_asm_ok] @ encode_rwts
@@ -505,6 +540,14 @@ QED
 
 val print_tac = asmLib.print_tac "correct"
 
+val imm16_tac =
+  TRY (mp_tac (Q.SPEC `i` imm16s_lem)
+       \\ impl_tac >- (fs enc_rwts \\ intLib.ARITH_TAC)
+       \\ strip_tac)
+  \\ TRY (mp_tac (Q.SPEC `i` imm16u_lem)
+       \\ impl_tac >- (fs enc_rwts \\ intLib.ARITH_TAC)
+       \\ strip_tac)
+
 Theorem word_extract_6:
   w <+ 64w ⇒
   ((5 >< 0) (w:word64)):word6 = (w2w w)
@@ -562,9 +605,10 @@ Proof
             print_tac "Binop"
             \\ Cases_on `r`
             >| [Cases_on `b`,
-                Cases_on `(b = Xor) /\ (c = -1w)`
+                Cases_on `(b = Xor) /\ (i = -1)`
                 >| [all_tac,
-                    Cases_on `b` \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()) []]]
+                    Cases_on `b` \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()) []
+                    \\ imm16_tac]]
             \\ next_tac
             )
          >- (
@@ -574,8 +618,8 @@ Proof
             print_tac "Shift"
             \\ reverse(Cases_on`r`)
             >- (
-              Cases_on`c`
-              \\ rename1`Imm (n2w c)`
+              `?c. i = &c` by (fs enc_rwts \\ qexists_tac `Num i` \\ intLib.ARITH_TAC)
+              \\ gvs []
               \\ Cases_on `s = Ror`
               >- (
                 Cases_on `c < 32`
@@ -744,6 +788,7 @@ Proof
       print_tac "JumpCmp"
       \\ Cases_on `r`
       \\ Cases_on `c`
+      \\ imm16_tac
       >| [
          Cases_on `ms.gpr (n2w n) = ms.gpr (n2w n')`,
          Cases_on `ms.gpr (n2w n) <+ ms.gpr (n2w n')`,
@@ -753,14 +798,14 @@ Proof
          Cases_on `~(ms.gpr (n2w n) <+ ms.gpr (n2w n'))`,
          Cases_on `~(ms.gpr (n2w n) < ms.gpr (n2w n'))`,
          Cases_on `(ms.gpr (n2w n) && ms.gpr (n2w n')) <> 0w`,
-         Cases_on `ms.gpr (n2w n) = c'`,
-         Cases_on `ms.gpr (n2w n) <+ c'`,
-         Cases_on `ms.gpr (n2w n) < c'`,
-         Cases_on `(ms.gpr (n2w n) && c') = 0w`,
-         Cases_on `ms.gpr (n2w n) <> c'`,
-         Cases_on `~(ms.gpr (n2w n) <+ c')`,
-         Cases_on `~(ms.gpr (n2w n) < c')`,
-         Cases_on `(ms.gpr (n2w n) && c') <> 0w`
+         Cases_on `ms.gpr (n2w n) = (i2w i : word64)`,
+         Cases_on `ms.gpr (n2w n) <+ (i2w i : word64)`,
+         Cases_on `ms.gpr (n2w n) < (i2w i : word64)`,
+         Cases_on `(ms.gpr (n2w n) && (i2w i : word64)) = 0w`,
+         Cases_on `ms.gpr (n2w n) <> (i2w i : word64)`,
+         Cases_on `~(ms.gpr (n2w n) <+ (i2w i : word64))`,
+         Cases_on `~(ms.gpr (n2w n) < (i2w i : word64))`,
+         Cases_on `(ms.gpr (n2w n) && (i2w i : word64)) <> 0w`
       ]
       \\ next_tac
       )

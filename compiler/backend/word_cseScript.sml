@@ -229,6 +229,10 @@ Definition wordToNum_def:
   wordToNum w = w2n w
 End
 
+Definition intToNum_def:
+  intToNum (i:int) = if i < 0 then 2 * Num (-i) - 1 else 2 * Num i
+End
+
 Definition shiftToNum_def:
   shiftToNum Lsl = (40:num) ∧
   shiftToNum Lsr = 41 ∧
@@ -246,7 +250,7 @@ End
 
 Definition regImmToNumList_def:
   regImmToNumList (Reg r) = [33; r+100] ∧
-  regImmToNumList (Imm w) = [34; wordToNum w]
+  regImmToNumList (Imm i) = [34; intToNum i]
 End
 
 Definition arithToNumList_def:
@@ -457,7 +461,7 @@ Definition word_cseInst_def:
        (* A fact whose reads include the written register would not describe
           the post-state, so it is not stored. *)
        if can_mem_arith a' ∧ ¬MEM r rds then
-         add_to_data (register_reads data rds) r (Arith a') (Arith a)
+         add_to_data (register_reads data rds) r (Arith a' : 'a inst) (Arith a)
        else
          (data, Inst (Arith a))) ∧
   (word_cseInst data (Mem op r (Addr a ofs)) =
@@ -688,15 +692,15 @@ QED
    only decidable at a fixed word width. *)
 Theorem test_pattern_match_and_cons[local]:
   word_common_subexp_elim $
-    Seqs [Inst (Arith (Shift Lsr 301 297 (Imm (9w:word64))));
+    Seqs [Inst (Arith (Shift Lsr 301 297 (Imm 9)) : 64 inst);
           OpCurrHeap Add 305 301;
           Inst (Mem Load 309 (Addr 305 8w));
           Move 0 [(313,297)];
-          Inst (Arith (Shift Lsr 317 313 (Imm 9w)));
+          Inst (Arith (Shift Lsr 317 313 (Imm 9)));
           OpCurrHeap Add 321 317;
           Inst (Mem Load 325 (Addr 321 16w));
           Move 0 [(329,313)];
-          Inst (Arith (Shift Lsr 333 329 (Imm 9w)));
+          Inst (Arith (Shift Lsr 333 329 (Imm 9)));
           OpCurrHeap Add 337 333;
           Inst (Mem Load 341 (Addr 337 24w));
           Get 345 NextFree;
@@ -709,10 +713,10 @@ Theorem test_pattern_match_and_cons[local]:
           Inst (Mem Store 341 (Addr 361 16w));
           Move 0 [(365,361)];
           OpCurrHeap Sub 369 365;
-          Inst (Arith (Shift Lsl 373 369 (Imm 9w)));
-          Inst (Arith (Binop Or 377 373 (Imm 5w)));
+          Inst (Arith (Shift Lsl 373 369 (Imm 9)));
+          Inst (Arith (Binop Or 377 373 (Imm 5)));
           Move 0 [(381,365)];
-          Inst (Arith (Binop Add 385 381 (Imm 24w)));
+          Inst (Arith (Binop Add 385 381 (Imm 24)));
           Set NextFree (Var 385);
           Get 389 NextFree;
           Inst (Const 393 0x200000003w);
@@ -724,14 +728,14 @@ Theorem test_pattern_match_and_cons[local]:
           Inst (Mem Store 377 (Addr 405 16w));
           Move 0 [(409,405)];
           OpCurrHeap Sub 413 409;
-          Inst (Arith (Shift Lsl 417 413 (Imm 9w)));
-          Inst (Arith (Binop Or 421 417 (Imm 5w)));
+          Inst (Arith (Shift Lsl 417 413 (Imm 9)));
+          Inst (Arith (Binop Or 421 417 (Imm 5)));
           Move 0 [(425,409)];
-          Inst (Arith (Binop Add 429 425 (Imm 24w)));
+          Inst (Arith (Binop Add 429 425 (Imm 24)));
           Set NextFree (Var 429);
           Move 0 [(2,421)]; Return 273 [2]]
   =
-    Seqs [Inst (Arith (Shift Lsr 301 297 (Imm 9w)));
+    Seqs [Inst (Arith (Shift Lsr 301 297 (Imm 9)));
           OpCurrHeap Add 305 301;
           Inst (Mem Load 309 (Addr 305 8w));
           Move 0 [(313,297)];
@@ -752,10 +756,10 @@ Theorem test_pattern_match_and_cons[local]:
           Inst (Mem Store 341 (Addr 361 16w));
           Move 0 [(365,361)];
           OpCurrHeap Sub 369 365;
-          Inst (Arith (Shift Lsl 373 369 (Imm 9w)));
-          Inst (Arith (Binop Or 377 373 (Imm 5w)));
+          Inst (Arith (Shift Lsl 373 369 (Imm 9)));
+          Inst (Arith (Binop Or 377 373 (Imm 5)));
           Move 0 [(381,365)];
-          Inst (Arith (Binop Add 385 381 (Imm 24w)));
+          Inst (Arith (Binop Add 385 381 (Imm 24)));
           Set NextFree (Var 385);
           Move 1 [(389,385)];
           Inst (Const 393 0x200000003w);
@@ -767,10 +771,10 @@ Theorem test_pattern_match_and_cons[local]:
           Inst (Mem Store 377 (Addr 405 16w));
           Move 0 [(409,405)];
           OpCurrHeap Sub 413 409;
-          Inst (Arith (Shift Lsl 417 413 (Imm 9w)));
-          Inst (Arith (Binop Or 421 417 (Imm 5w)));
+          Inst (Arith (Shift Lsl 417 413 (Imm 9)));
+          Inst (Arith (Binop Or 421 417 (Imm 5)));
           Move 0 [(425,409)];
-          Inst (Arith (Binop Add 429 425 (Imm 24w)));
+          Inst (Arith (Binop Add 429 425 (Imm 24)));
           Set NextFree (Var 429);
           Move 0 [(2,421)];
           Return 273 [2]]
@@ -785,15 +789,15 @@ QED
 Theorem test_load_cse[local]:
   word_common_subexp_elim $
     Seqs [Inst (Mem Load 9 (Addr 7 (0w:word64)));
-          Inst (Arith (Shift Lsr 11 9 (Imm 29w)));
+          Inst (Arith (Shift Lsr 11 9 (Imm 29)));
           Inst (Mem Load 13 (Addr 7 0w));
-          Inst (Arith (Shift Lsr 15 13 (Imm 29w)));
+          Inst (Arith (Shift Lsr 15 13 (Imm 29)));
           Inst (Mem Load8 17 (Addr 7 0w));
           Inst (Mem Store 15 (Addr 7 0w));
           Inst (Mem Load 19 (Addr 7 0w))]
   =
     Seqs [Inst (Mem Load 9 (Addr 7 0w));
-          Inst (Arith (Shift Lsr 11 9 (Imm 29w)));
+          Inst (Arith (Shift Lsr 11 9 (Imm 29)));
           Move 0 [(13,9)];
           Move 0 [(15,11)];
           Inst (Mem Load8 17 (Addr 7 0w));
@@ -854,11 +858,11 @@ QED
    so the second Add (reading the NEW 7) is not replaced by a Move. *)
 Theorem test_self_read_not_cse[local]:
   word_common_subexp_elim $
-    Seqs [Inst (Arith (Binop Add 7 7 (Imm 1w)));
-          Inst (Arith (Binop Add 9 7 (Imm 1w)))]
+    Seqs [Inst (Arith (Binop Add 7 7 (Imm 1)));
+          Inst (Arith (Binop Add 9 7 (Imm 1)))]
   =
-    Seqs [Inst (Arith (Binop Add 7 7 (Imm 1w)));
-          Inst (Arith (Binop Add 9 7 (Imm 1w)))]
+    Seqs [Inst (Arith (Binop Add 7 7 (Imm 1)));
+          Inst (Arith (Binop Add 9 7 (Imm 1)))]
 Proof
   EVAL_TAC
 QED
@@ -869,14 +873,14 @@ Theorem test_if_merge[local]:
   word_common_subexp_elim $
     Seqs [Inst (Const 1 0w);
           Inst (Arith (Binop Add 7 1 (Reg 1)));
-          If Equal 1 (Imm 0w)
+          If Equal 1 (Imm 0)
              (Inst (Arith (Binop Add 9 1 (Reg 1))))
              (Move 0 [(11,7)]);
           Inst (Arith (Binop Add 13 1 (Reg 1)))]
   =
     Seqs [Inst (Const 1 0w);
           Inst (Arith (Binop Add 7 1 (Reg 1)));
-          If Equal 1 (Imm 0w) (Move 0 [(9,7)]) (Move 0 [(11,7)]);
+          If Equal 1 (Imm 0) (Move 0 [(9,7)]) (Move 0 [(11,7)]);
           Move 0 [(13,7)]]
 Proof
   EVAL_TAC
@@ -888,14 +892,14 @@ Theorem test_if_merge_clobber[local]:
   word_common_subexp_elim $
     Seqs [Inst (Const 1 0w);
           Inst (Arith (Binop Add 7 1 (Reg 1)));
-          If Equal 1 (Imm 0w)
+          If Equal 1 (Imm 0)
              (Move 0 [(7,3)])
              Skip;
           Inst (Arith (Binop Add 9 1 (Reg 1)))]
   =
     Seqs [Inst (Const 1 0w);
           Inst (Arith (Binop Add 7 1 (Reg 1)));
-          If Equal 1 (Imm 0w) (Move 0 [(7,3)]) Skip;
+          If Equal 1 (Imm 0) (Move 0 [(7,3)]) Skip;
           Inst (Arith (Binop Add 9 1 (Reg 1)))]
 Proof
   EVAL_TAC

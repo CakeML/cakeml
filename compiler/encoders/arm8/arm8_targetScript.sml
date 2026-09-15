@@ -171,18 +171,18 @@ Definition arm8_ast_def:
    (arm8_ast (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
       [Data
         (case bop of
-            Add => AddSubImmediate@64 (1w, F, F, i, n2w r2, n2w r1)
-          | Sub => AddSubImmediate@64 (1w, T, F, i, n2w r2, n2w r1)
-          | Xor => if i = -1w then
+            Add => AddSubImmediate@64 (1w, F, F, i2w i, n2w r2, n2w r1)
+          | Sub => AddSubImmediate@64 (1w, T, F, i2w i, n2w r2, n2w r1)
+          | Xor => if i = -1 then
                      LogicalShiftedRegister@64
                        (1w, LogicalOp_ORR, T, F, ShiftType_LSL, 0, n2w r2, 31w,
                         n2w r1)
                    else
                      LogicalImmediate@64
-                       (1w, LogicalOp_EOR, F, i, n2w r2, n2w r1)
-          | x => LogicalImmediate@64 (1w, bop_enc x, F, i, n2w r2, n2w r1))]) /\
+                       (1w, LogicalOp_EOR, F, i2w i, n2w r2, n2w r1)
+          | x => LogicalImmediate@64 (1w, bop_enc x, F, i2w i, n2w r2, n2w r1))]) /\
    (arm8_ast (Inst (Arith (Shift sh r1 r2 (Imm i)))) =
-      let n = w2n i in
+      let n = Num i in
       case sh of
          Lsl => (let i = n2w n : word6 in
                  let r = -i and s = 63w - i in
@@ -260,9 +260,9 @@ Definition arm8_ast_def:
    (arm8_ast (JumpCmp cmp r (Imm i) a) =
       [Data (if is_test cmp then
                 LogicalImmediate@64
-                   (1w, LogicalOp_AND, T, i, n2w r, 0x1Fw)
+                   (1w, LogicalOp_AND, T, i2w i, n2w r, 0x1Fw)
              else
-                AddSubImmediate@64 (1w, T, T, i, n2w r, 0x1Fw));
+                AddSubImmediate@64 (1w, T, T, i2w i, n2w r, 0x1Fw));
        Branch (BranchConditional (a - 4w, cmp_cond cmp))]) /\
    (arm8_ast (Call a) =
       [Branch (BranchImmediate (a, BranchType_CALL))]) /\
@@ -318,6 +318,10 @@ Definition valid_immediate_def:
       IS_SOME (EncodeBitMask i)
 End
 
+Definition arm8_valid_imm_def:
+   arm8_valid_imm (c:binop+cmp) (i: int) = valid_immediate c (i2w i : word64)
+End
+
 Definition arm8_config_def:
    arm8_config =
    <| ISA := ARMv8
@@ -330,7 +334,7 @@ Definition arm8_config_def:
     ; two_reg_arith := F
     ; big_endian := F
     ; code_alignment := 2
-    ; valid_imm := valid_immediate
+    ; valid_imm := arm8_valid_imm
     ; addr_offset := (^off_min, ^off_max)
     ; hw_offset := (^off_min, ^off_max)
     ; byte_offset := (^off_min9, ^off_max12)

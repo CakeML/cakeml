@@ -394,7 +394,8 @@ val encode_rwts =
 val enc_rwts =
    [arm8_config, asmPropsTheory.offset_monotonic_def, cmp_cond_def,
     valid_immediate_thm, lem3, lem7, lem7b, lem8, lem9, lem10, lem11,
-    arm8_asm_ok] @
+    arm8_asm_ok, arm8_valid_imm_def, integer_wordTheory.i2w_pos,
+    integer_wordTheory.i2w_minus_1] @
    encode_rwts @ asmLib.asm_rwts
 
 val enc_ok_rwts =

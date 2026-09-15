@@ -721,11 +721,11 @@ Definition inst_def:
     | Arith (Binop bop r1 r2 ri) =>
         assign r1
           (Op bop [Var r2; case ri of Reg r3 => Var r3
-                                    | Imm w => Const w]) s
+                                    | Imm w => Const (i2w w)]) s
     | Arith (Shift sh r1 r2 ri) =>
         assign r1
           (Shift sh (Var r2) (case ri of Reg r3 => Var r3
-                                       | Imm w => Const w)) s
+                                       | Imm w => Const (i2w w))) s
     | Arith (Div r1 r2 r3) =>
        (let vs = get_vars[r3;r2] s in
        case vs of
@@ -939,8 +939,8 @@ Definition inst_def:
 End
 
 Definition get_var_imm_def:
-  (get_var_imm ((Reg n):'a reg_imm) ^s = get_var n s) ∧
-  (get_var_imm (Imm w) s = SOME(Word w))
+  (get_var_imm ((Reg n):reg_imm) ^s = get_var n s) ∧
+  (get_var_imm (Imm w) s = SOME(Word (i2w w)))
 End
 
 Definition add_ret_loc_def:

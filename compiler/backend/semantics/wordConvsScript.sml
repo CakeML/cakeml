@@ -209,7 +209,7 @@ Definition inst_ok_less_def:
   (inst_ok_less (c:'a asm_config) (Arith (Binop b r1 r2 (Imm w))) ⇔
     c.valid_imm (INL b) w) ∧
   (inst_ok_less c (Arith (Shift l r1 r2 (Imm i))) ⇔
-    (((i = 0w) ==> (l = Lsl)) ∧ w2n i < dimindex(:'a))) ∧
+    (((i = 0) ==> (l = Lsl)) ∧ 0 ≤ i ∧ i < &dimindex(:'a))) ∧
   (inst_ok_less c (Arith (Div r1 r2 r3)) ⇔
     (c.ISA ∈ {ARMv8; MIPS; RISC_V})) ∧
   (inst_ok_less c (Arith (LongMul r1 r2 r3 r4)) ⇔

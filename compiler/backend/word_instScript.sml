@@ -261,11 +261,11 @@ Definition inst_select_exp_def:
     case e2 of
     | Const w =>
       (*t = r op const*)
-      if c.valid_imm (INL op) w then
-        Seq p1 (Inst (Arith (Binop op tar temp (Imm w))))
+      if c.valid_imm (INL op) (w2i w) then
+        Seq p1 (Inst (Arith (Binop op tar temp (Imm (w2i w)))))
       (*t = r + const --> t = r - const*)
-      else if op = Add ∧ c.valid_imm (INL Sub) (-w) then
-        Seq p1 (Inst (Arith (Binop Sub tar temp (Imm (-w)))))
+      else if op = Add ∧ c.valid_imm (INL Sub) (w2i (-w)) then
+        Seq p1 (Inst (Arith (Binop Sub tar temp (Imm (w2i (-w))))))
       else
       (*no immediates*)
         let p2 = Inst (Const (temp+1) w) in
@@ -282,7 +282,7 @@ Definition inst_select_exp_def:
               if n = 0 then
                 Seq prog (Move 0 [tar,temp])
               else
-                 Seq prog (Inst (Arith (Shift sh tar temp (Imm (n2w n))))))
+                 Seq prog (Inst (Arith (Shift sh tar temp (Imm (&n))))))
           else
             Inst (Const tar 0w)
     | _ =>
@@ -330,11 +330,11 @@ Theorem inst_select_exp_pmatch:
      pmatch e2 of
       Const w =>
       (*t = r op const*)
-      if c.valid_imm (INL op) w then
-        Seq (inst_select_exp c temp temp e1) (Inst (Arith (Binop op tar temp (Imm w))))
+      if c.valid_imm (INL op) (w2i w) then
+        Seq (inst_select_exp c temp temp e1) (Inst (Arith (Binop op tar temp (Imm (w2i w)))))
       (*t = r + const --> t = r - const*)
-      else if op = Add ∧ c.valid_imm (INL Sub) (-w) then
-        Seq (inst_select_exp c temp temp e1) (Inst (Arith (Binop Sub tar temp (Imm (-w)))))
+      else if op = Add ∧ c.valid_imm (INL Sub) (w2i (-w)) then
+        Seq (inst_select_exp c temp temp e1) (Inst (Arith (Binop Sub tar temp (Imm (w2i (-w))))))
       else
       (*no immediates*)
         let p2 = Inst (Const (temp+1) w) in
@@ -351,7 +351,7 @@ Theorem inst_select_exp_pmatch:
               if n = 0 then
                 Seq prog (Move 0 [tar,temp])
               else
-                 Seq prog (Inst (Arith (Shift sh tar temp (Imm (n2w n))))))
+                 Seq prog (Inst (Arith (Shift sh tar temp (Imm (&n))))))
           else
             Inst (Const tar 0w)
     | _ =>

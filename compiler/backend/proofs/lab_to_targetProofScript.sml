@@ -2120,20 +2120,20 @@ Proof
     first_x_assum(qspec_then`r2`mp_tac) >>
     simp[] >> EVAL_TAC >> srw_tac[][])
   >- (
-    EVAL_TAC >>
+    computeLib.RESTR_EVAL_TAC [``integer_word$i2w``] >>
     every_case_tac >> full_simp_tac(srw_ss())[APPLY_UPDATE_THM] >> srw_tac[][] >>
     gvs [] >>
     rpt $ pop_assum mp_tac >>
-    EVAL_TAC >>
+    computeLib.RESTR_EVAL_TAC [``integer_word$i2w``] >>
     rw [] >>
-    Cases_on`r` >> EVAL_TAC >> srw_tac[][] >> gvs [reg_imm_def]
+    Cases_on`r` >> computeLib.RESTR_EVAL_TAC [``integer_word$i2w``] >> srw_tac[][] >> gvs [reg_imm_def]
     >- (* TODO Don't rely on auto-generated names... *)
      (first_assum(qspec_then`n`mp_tac) >>
       first_x_assum(qspec_then‘n0’mp_tac) >>
-      simp[] >> EVAL_TAC >> srw_tac[][]) >>
+      simp[] >> computeLib.RESTR_EVAL_TAC [``integer_word$i2w``] >> srw_tac[][]) >>
     qmatch_assum_rename_tac`read_reg r2 _ = _` >>
     first_x_assum(qspec_then`r2`mp_tac) >>
-    simp[] >> EVAL_TAC >> srw_tac[][])
+    simp[] >> computeLib.RESTR_EVAL_TAC [``integer_word$i2w``] >> srw_tac[][])
   >> (
     unabbrev_all_tac
     \\ first_assum(qspec_then`n0`mp_tac)

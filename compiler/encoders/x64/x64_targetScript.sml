@@ -87,12 +87,12 @@ Definition x64_ast_def:
          else
            Zbinop (x64_bop bop, a)]) /\
    (x64_ast (Inst (Arith (Binop bop r _ (Imm i)))) =
-      [if (bop = Xor) /\ (i = -1w) then
+      [if (bop = Xor) /\ (i = -1) then
          Zmonop (Znot, Z64, reg r)
        else
-         Zbinop (x64_bop bop, Z64, Zrm_i (reg r, i))]) /\
+         Zbinop (x64_bop bop, Z64, Zrm_i (reg r, i2w i))]) /\
    (x64_ast (Inst (Arith (Shift sh r _ (Imm i)))) =
-      [Zbinop (x64_sh sh, Z64, Zrm_i (reg r, i))]) /\
+      [Zbinop (x64_sh sh, Z64, Zrm_i (reg r, i2w i))]) /\
    (x64_ast (Inst (Arith (Shift sh r1 _ (Reg r2)))) =
       [Zbinop (x64_sh sh, Z64, Zrm_r (reg r1, total_num2Zreg r2))]) /\
    (x64_ast (Inst (Arith (Div _ _ _))) = []) /\
@@ -182,14 +182,15 @@ Definition x64_ast_def:
        Zjcc (x64_cmp cmp, a - 9w)]) /\
    (x64_ast (JumpCmp cmp r (Imm i) a) =
       let width =
-        if ~is_test cmp /\ 0xFFFFFFFFFFFFFF80w <= i /\ i <= 0x7Fw then
+        if ~is_test cmp /\ 0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\
+           (i2w i : word64) <= 0x7Fw then
            10w
         else if r = 0 then
            12w
         else
            13w
       in
-        [Zbinop (if is_test cmp then Ztest else Zcmp, Z64, Zrm_i (reg r, i));
+        [Zbinop (if is_test cmp then Ztest else Zcmp, Z64, Zrm_i (reg r, i2w i));
          Zjcc (x64_cmp cmp, a - width)]) /\
    (x64_ast (Call _) = []) /\
    (x64_ast (JumpReg r) = [Zjmp (reg r)]) /\
@@ -236,7 +237,7 @@ Definition x64_config_def:
     ; link_reg := NONE
     ; two_reg_arith := T
     ; big_endian := F
-    ; valid_imm := \b i. ^min32 <= i /\ i <= ^max32
+    ; valid_imm := \b i. -2147483648 <= i /\ i <= 2147483647
     ; addr_offset := (^min32, ^max32)
     ; hw_offset := (^min32, ^max32)
     ; byte_offset := (^min32, ^max32)

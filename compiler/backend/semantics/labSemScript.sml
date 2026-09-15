@@ -82,7 +82,7 @@ End
 
 Definition reg_imm_def[simp]:
   (reg_imm (Reg r) s = read_reg r s) /\
-  (reg_imm (Imm w) s = Word w)
+  (reg_imm (Imm w) s = Word (i2w w))
 End
 
 Definition binop_upd_def:
@@ -94,7 +94,7 @@ Definition binop_upd_def:
 End
 
 Definition arith_upd_def[simp]:
-  (arith_upd (Binop b r1 r2 (ri:'a reg_imm)) s =
+  (arith_upd (Binop b r1 r2 (ri:reg_imm)) (s:('a,'c,'ffi) labSem$state) =
      case (read_reg r2 s, reg_imm ri s) of
      | (Word w1, Word w2) => binop_upd r1 b w1 w2 s
      | (x,_) => if b = Or /\ ri = Reg r2 then upd_reg r1 x s else assert F s) /\

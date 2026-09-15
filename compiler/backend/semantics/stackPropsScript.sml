@@ -13,7 +13,7 @@ Theorem case_eq_thms =
    bool_case_eq::
    map (TypeBase.case_eq_of)
         [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``, ``:binop``,
-         ``:'a reg_imm`` ,``:'a arith``,``:'a addr``,``:memop``,``:'a result``,
+         ``:reg_imm`` ,``:arith``,``:'a addr``,``:memop``,``:'a result``,
          ``:'a ffi_result``])
     |> LIST_CONJ
 
@@ -845,7 +845,7 @@ Definition arith_name_def:
     reg_name r2 c ∧ reg_imm_name (INL b) ri c) ∧
   (arith_name (Shift l r1 r2 (Imm i)) c ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
-    (i = 0w ⇒ l = Lsl) ∧ w2n i < dimindex (:α)) ∧
+    (i = 0 ⇒ l = Lsl) ∧ 0 ≤ i ∧ i < &dimindex (:α)) ∧
   (arith_name (Shift l r1 r2 (Reg r3)) c ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧
      reg_name r2 c ∧ reg_name r3 c ∧ (c.ISA = x86_64 ⇒ r3 = 4)) ∧

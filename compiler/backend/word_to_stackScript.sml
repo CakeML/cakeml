@@ -328,7 +328,7 @@ Definition perf_call_prefix_def:
       Inst (Mem Store k       (Addr perf_rsp (-8w))) ;
       Inst (Mem Store perf_rbp (Addr perf_rsp (-16w))) ;
       (* Atomically commit the new frame, then sync perf_rbp := perf_rsp. *)
-      Inst (Arith (Binop Sub perf_rsp perf_rsp (Imm 16w))) ;
+      Inst (Arith (Binop Sub perf_rsp perf_rsp (Imm 16))) ;
       Inst (Arith (Binop Or perf_rbp perf_rsp (Reg perf_rsp)))
     ]
 End
@@ -339,7 +339,7 @@ Definition perf_call_suffix_def:
       (* pop saved %rbp *)
       Inst (Mem Load perf_rbp (Addr perf_rsp 0w)) ;
       (* discard both slots (saved-rbp + ret_addr) in one atomic step *)
-      Inst (Arith (Binop Add perf_rsp perf_rsp (Imm 16w)))
+      Inst (Arith (Binop Add perf_rsp perf_rsp (Imm 16)))
     ]
 End
 
@@ -483,7 +483,7 @@ Definition comp_def:
         else
           let r = FST kf + 1 in
           (Seq
-            (const_inst r i)
+            (const_inst r (i2w i))
             (wStackLoad x1 (If cmp r' (Reg r) q1 q2)),bs)) /\
   (comp conf perf (Loop _ p1 _) bs kf =
      let (q1,bs) = comp conf perf p1 bs kf in
