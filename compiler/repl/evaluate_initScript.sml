@@ -182,7 +182,7 @@ Proof
   >~ [`Raise`] >- suspend "Raise"
   >~ [`Handle`] >- suspend "Handle"
   >~ [`Con`] >- suspend "Con"
-  >~ [`ast$Var`] >- suspend "Var"
+  >~ [`ast$Ident`] >- suspend "Ident"
   >~ [`ast$Fun`] >- suspend "Fun"
   >~ [`ast$App`] >- suspend "App"
   >~ [`Log`] >- suspend "Log"
@@ -249,7 +249,7 @@ Resume evaluate_ok[Con]:
   \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO]
 QED
 
-Resume evaluate_ok[Var]:
+Resume evaluate_ok[Ident]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"]]
   \\ gs [env_ok_def, env_rel_def, v_ok_def]
