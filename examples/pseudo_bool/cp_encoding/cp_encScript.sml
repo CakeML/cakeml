@@ -65,12 +65,56 @@ Proof
   rw[FUN_EQ_THM,map_bnd_lookup_def,bnd_lookup_def,lookup_mk_bnd_map]
 QED
 
+(* An ILP Boolean variable becomes a PB variable; the Bit/Sign literals of an
+   integer variable X are the PB bits of X itself *)
+Definition avar_epb_def:
+  avar_epb (v:'a avar) =
+  case v of
+    INL (cp_to_ilp$Bit X k) => ilp_to_pb$Bit X k
+  | INL (cp_to_ilp$Sign X) => ilp_to_pb$Sign X
+  | _ => (Var v):('a,'a avar) epb
+End
+
+Theorem reify_epb_avar_epb[simp]:
+  reify_epb (wi,reify_avar cs wi) (avar_epb v) ⇔ reify_avar cs wi v
+Proof
+  Cases_on`v`>>simp[avar_epb_def,reify_epb_def]>>
+  rename1`INL r`>>Cases_on`r`>>
+  simp[reify_epb_def,reify_avar_def,reify_reif_def]
+QED
+
+Theorem int_bit_unreify_epb[local]:
+  bit_width bnd X = (comp,h) ⇒
+  int_bit n (unreify_epb bnd w X) =
+    if n < h then w (Bit X n) else (comp ∧ w (Sign X))
+Proof
+  rw [unreify_epb_def] >> simp [int_bitwiseTheory.int_bit_int_of_bits, EL_GENLIST]
+QED
+
+Theorem sign_unreify_epb[local]:
+  bit_width bnd X = (T,h) ⇒
+  (unreify_epb bnd w X < 0 ⇔ w (Sign X))
+Proof
+  rw [unreify_epb_def] >> simp [int_bitwiseTheory.int_of_bits_def] >>
+  IF_CASES_TAC >> simp [int_bitwiseTheory.int_not_def] >>
+  intLib.ARITH_TAC
+QED
+
+Theorem bit_faithful_unreify_epb:
+  bit_faithful bnd (unreify_epb bnd w) (λx. w (avar_epb x))
+Proof
+  rw [bit_faithful_def] >> pairarg_tac >> simp [avar_epb_def] >>
+  rw []
+  >- (drule_then (qspecl_then [`w`,`k`] mp_tac) int_bit_unreify_epb >> simp []) >>
+  drule_then (qspec_then `w` mp_tac) sign_unreify_epb >> simp []
+QED
+
 Definition encode_def:
   encode bnd cs =
   let m = mk_bnd_map bnd in
   let bndm = map_bnd_lookup m in
   let cs = append (FST (cencode_constraints bndm cs init_ec)) in
-  let cs' = MAP (I ## encode_iconstraint_one bndm) cs in
+  let cs' = MAP (I ## encode_iconstraint_one bndm avar_epb) cs in
   let bndcs = cencode_bound_all bndm (MAP FST bnd) in
   append (Append bndcs (List cs'))
 End
@@ -130,6 +174,7 @@ Theorem encode_sem_1:
 Proof
   `∃es ec'. cencode_constraints (bnd_lookup bnd) cs init_ec = (es,ec')` by metis_tac[PAIR]>>
   rw[encode_def,map_bnd_lookup_mk_bnd_map,cp_sat_def,MAP_SND_MAP_I_FST]>>
+  qexists_tac`reify_avar cs wi`>>
   simp[GSYM encode_iconstraint_all_def,GSYM encode_iconstraint_all_sem_1]>>
   fs[GSYM EVERY_MEM,EVERY_MAP]>>
   drule_all cencode_constraints_thm_1>>
@@ -158,8 +203,8 @@ Proof
   irule cencode_constraints_thm_2>>
   first_assum (irule_at Any)>>
   first_assum (irule_at Any)>>
-  qexists_tac`λx. w (Var x)`>>
-  simp[GSYM encode_iconstraint_all_sem_2]>>
+  qexists_tac`λx. w (avar_epb x)`>>
+  simp[bit_faithful_unreify_epb,GSYM encode_iconstraint_all_sem_2]>>
   gvs[encode_iconstraint_all_def,MAP_MAP_o,o_DEF]
 QED
 
@@ -397,6 +442,8 @@ Theorem avar_cases[local]:
     (∃s i. x = INL (Ge (INL s) i)) ∨
     (∃s i. x = INL (Eq (INR s) i)) ∨
     (∃s i. x = INL (Ge (INR s) i)) ∨
+    (∃s k. x = INL (Bit s k)) ∨
+    (∃s. x = INL (Sign s)) ∨
     (∃q y. x = INR (q,Flag y)) ∨
     (∃q l. x = INR (q,Values l NONE)) ∨
     (∃q l y. x = INR (q,Values l (SOME y))) ∨
@@ -441,6 +488,30 @@ Theorem split_var_Ge_INL[local]:
   split_brackets (explode (format_var (INL (Ge (INL s) i)))) =
   ["i[" ++ explode (escape_bad_brackets s) ++ "]";
    "[ge" ++ explode (int_to_string #"-" i) ++ "]"; ""]
+Proof
+  simp [format_var_def, format_reif_def, format_varc_def, mlstringTheory.concat_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
+  \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
+  \\ EVAL_TAC
+QED
+
+Theorem split_var_Bit[local]:
+  split_brackets (explode (format_var (INL (Bit s k)))) =
+  ["i[" ++ explode (escape_bad_brackets s) ++ "]";
+   "[vb" ++ explode (toString k) ++ "]"; ""]
+Proof
+  simp [format_var_def, format_reif_def, format_varc_def, mlstringTheory.concat_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
+  \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
+  \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
+QED
+
+Theorem split_var_Sign[local]:
+  split_brackets (explode (format_var (INL (Sign s)))) =
+  ["i[" ++ explode (escape_bad_brackets s) ++ "]"; "[vsign]"; ""]
 Proof
   simp [format_var_def, format_reif_def, format_varc_def, mlstringTheory.concat_def]
   \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
@@ -705,23 +776,17 @@ Proof
   \\ rename [‘Var aa’] \\ Cases_on ‘aa’ using avar_cases
   \\ simp [format_string_def]
   \\ gvs [split_var_Eq_INL, split_var_Eq_INR, split_var_Ge_INL,
-          split_var_Ge_INR, split_var_Flag, split_var_Values,
+          split_var_Ge_INR, split_var_Bit, split_var_Sign,
+          split_var_Flag, split_var_Values,
           split_var_Values_SOME, split_var_Indices,
           split_var_Indices_SOME]
   \\ rename [‘format_var bb’] \\ Cases_on ‘bb’ using avar_cases
   \\ gvs [split_var_Eq_INL, split_var_Eq_INR, split_var_Ge_INL,
-          split_var_Ge_INR, split_var_Flag, split_var_Values,
+          split_var_Ge_INR, split_var_Bit, split_var_Sign,
+          split_var_Flag, split_var_Values,
           split_var_Values_SOME, split_var_Indices, int_to_string_11,
           split_var_Indices_SOME, escape_bad_brackets_11,
-          format_num_list_11, format_int_list_11]
-QED
-
-Theorem int_bit_unreify_epb[local]:
-  bit_width bnd X = (comp,h) ⇒
-  int_bit n (unreify_epb bnd w X) =
-    if n < h then w (Bit X n) else (comp ∧ w (Sign X))
-Proof
-  rw [unreify_epb_def] >> simp [int_bitwiseTheory.int_bit_int_of_bits, EL_GENLIST]
+          format_num_list_11, format_int_list_11, mlintTheory.num_to_str_11]
 QED
 
 Theorem unreify_reify[local]:
