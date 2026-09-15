@@ -223,7 +223,7 @@ Datatype:
   | Open (modN list) exp
 End
 
-Overload Var[inferior] = “Ident”
+Overload Var = “Ident”
 
 Type type_def = ``: ( tvarN list # typeN # (conN # ast_t list) list) list``
 
