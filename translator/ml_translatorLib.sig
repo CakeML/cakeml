@@ -73,7 +73,6 @@ sig
     val next_ml_names        : (string list) ref
     val print_asts           : bool ref
     val use_full_type_names  : bool ref
-    val use_module_local_cons_names : bool ref
     val add_preferred_thy    : string -> unit
     val find_def_for_const   : (term -> thm) ref
     val clean_on_exit        : bool ref

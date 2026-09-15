@@ -532,11 +532,6 @@ val basic_theories =
 
 val use_full_type_names = ref true;
 
-(* when set, a new constructor name only has to be unique within the
-   innermost open module, so it may shadow a constructor of the enclosing
-   environment *)
-val use_module_local_cons_names = ref false;
-
 fun full_name_of_type ty =
   if !use_full_type_names then let
     val case_const = get_ty_case_const ty
@@ -1052,17 +1047,12 @@ fun tag_name type_name const_name =
     val name = if y = "" then upper_case_hd x else upper_case_hd y
     val write_cons_pat =
       write_cons_def |> SPEC_ALL |> concl |> dest_eq |> fst |> rator
-    val env =
-      case (if !use_module_local_cons_names
-            then get_env_within_module (get_ml_prog_state ()) else NONE) of
-        SOME env => env
-      | NONE => get_curr_env ()
     fun is_taken_name name =
       let
         val x =
           lookup_cons_def
           |> SPEC (mk_Short (mlstringSyntax.mk_mlstring name))
-          |> SPEC env |> concl |> dest_eq |> fst
+          |> SPEC (get_curr_env ()) |> concl |> dest_eq |> fst
         val n = optionSyntax.mk_none(type_of x |> dest_type |> snd |> hd)
         val tm = mk_eq(x,n)
         val lemma = prove_lookup_cons_eq tm
