@@ -3,14 +3,13 @@
 *)
 Theory xaig_cert_encode
 Ancestors
-  aig xaig xaig_circ xaig_cert
+  aig xaig xaig_cert
   (* TODO maybe should move; is for stratification *)
   topological_sort
 Libs
   preamble
 
 (* todo clean out commented out parts *)
-(* todo is this file better called reify or encode *)
 
 (* todo check which theorems/simps are actually used *)
 (* todo check whether it is possible to reduce the amount of
@@ -31,7 +30,7 @@ Libs
 
 (* todo the names are inconsistent;
    - xaig/xaig
-   - x-prefix (e.g. we have encode_is_reset instead of encode_xis_reset)
+   - x-prefix (e.g. we have encode_xis_reset instead of encode_xxis_reset)
    - xeval_gate_encode_base_cond <- those theorems dont mention eval_gate directly anymore
  *)
 
@@ -1013,7 +1012,7 @@ Proof
            xeval_gate_impi_orig]
 QED
 
-(* Encoding is_reset **********************************************************)
+(* Encoding xis_reset **********************************************************)
 
 Definition latch_reset_pairs_def:
   (latch_reset_pairs (reset: 'l -> ('a ext,'i,'l) lit option) ([]: 'l list) = []) ∧
@@ -1023,8 +1022,8 @@ Definition latch_reset_pairs_def:
      | SOME r => ((Base (Latch l), F), r) :: latch_reset_pairs reset ls)
 End
 
-Definition encode_is_reset_def:
-  encode_is_reset (xaig: ('a ext, 'i, 'l) xaig) name reset ls =
+Definition encode_xis_reset_def:
+  encode_xis_reset (xaig: ('a ext, 'i, 'l) xaig) name reset ls =
   encode_pointwise_equal xaig name (latch_reset_pairs reset ls)
 End
 
@@ -1050,15 +1049,15 @@ Proof
   >> rw [] >> gvs []
 QED
 
-Theorem xeval_gate_encode_is_reset_ext:
-  xeval_gate ss (encode_is_reset xaig name reset ls) (Ext n) =
+Theorem xeval_gate_encode_xis_reset_ext:
+  xeval_gate ss (encode_xis_reset xaig name reset ls) (Ext n) =
   if n = name then
-    is_reset ss xaig reset (set ls)
+    xis_reset ss xaig reset (set ls)
   else xeval_gate ss xaig (Ext n)
 Proof
   Cases_on ‘ss’
-  >> rw [xeval_lit_def, encode_is_reset_def, xeval_gate_encode_pointwise_equal_ext]
-  >> simp [is_reset_def]
+  >> rw [xeval_lit_def, encode_xis_reset_def, xeval_gate_encode_pointwise_equal_ext]
+  >> simp [xis_reset_def]
   >> eq_tac >> rw []
   >-
    (gvs [EVERY_MEM]
@@ -1071,48 +1070,48 @@ Proof
   >> gvs [MEM_latch_reset_pairs_eq]
 QED
 
-Theorem xeval_lit_encode_is_reset_ext:
-  xeval_lit ss (encode_is_reset xaig name reset ls) (Gate (Ext n),F) =
+Theorem xeval_lit_encode_xis_reset_ext:
+  xeval_lit ss (encode_xis_reset xaig name reset ls) (Gate (Ext n),F) =
   if n = name then
-    is_reset ss xaig reset (set ls)
+    xis_reset ss xaig reset (set ls)
   else xeval_lit ss xaig (Gate (Ext n),F)
 Proof
-  simp [xeval_lit_def, xeval_gate_encode_is_reset_ext]
+  simp [xeval_lit_def, xeval_gate_encode_xis_reset_ext]
 QED
 
-(* Encoding lits_hold *********************************************************)
+(* Encoding xlits_hold *********************************************************)
 
-Definition encode_lits_hold_def:
-  encode_lits_hold
+Definition encode_xlits_hold_def:
+  encode_xlits_hold
     (xaig: ('a ext, 'i, 'l) xaig) name (lits: ('a ext,'i,'l) lit list) =
   (Ext name, And lits)::xaig
 End
 
-Theorem xeval_lit_encode_lits_hold_ext:
-  xeval_lit ss (encode_lits_hold xaig name lits) (n,F) =
+Theorem xeval_lit_encode_xlits_hold_ext:
+  xeval_lit ss (encode_xlits_hold xaig name lits) (n,F) =
   if n = Gate (Ext name) then
-    lits_hold ss xaig (set lits)
+    xlits_hold ss xaig (set lits)
   else xeval_lit ss xaig (n,F)
 Proof
-  simp [encode_lits_hold_def, xeval_lit_def, lits_hold_def, EVERY_MEM]
+  simp [encode_xlits_hold_def, xeval_lit_def, xlits_hold_def, EVERY_MEM]
   >> IF_CASES_TAC >> gvs []
   >> TOP_CASE_TAC >> gvs []
 QED
 
-Theorem xeval_lit_encode_lits_hold_ext_lit:
-  xeval_lit ss (encode_lits_hold xaig name lits) (ext_lit lit) =
+Theorem xeval_lit_encode_xlits_hold_ext_lit:
+  xeval_lit ss (encode_xlits_hold xaig name lits) (ext_lit lit) =
   xeval_lit ss xaig (ext_lit lit)
 Proof
-  simp [encode_lits_hold_def]
+  simp [encode_xlits_hold_def]
 QED
 
-Theorem xeval_gate_encode_lits_hold_ext:
-  xeval_gate ss (encode_lits_hold xaig name lits) (Ext n) =
+Theorem xeval_gate_encode_xlits_hold_ext:
+  xeval_gate ss (encode_xlits_hold xaig name lits) (Ext n) =
   if n = name then
-    lits_hold ss xaig (set lits)
+    xlits_hold ss xaig (set lits)
   else xeval_gate ss xaig (Ext n)
 Proof
-  simp [encode_lits_hold_def, xeval_lit_def, lits_hold_def, EVERY_MEM]
+  simp [encode_xlits_hold_def, xeval_lit_def, xlits_hold_def, EVERY_MEM]
   >> IF_CASES_TAC >> simp []
 QED
 
@@ -1130,11 +1129,11 @@ Definition right_reset_def:
   λl. OPTION_MAP right_name_lit (mreset l)
 End
 
-(* Encoding is_next ***********************************************************)
+(* Encoding xis_next ***********************************************************)
 
 (* cur = "path" to literals in the current state; nxt = "path" to next state *)
-Definition encode_is_next_def:
-  encode_is_next xaig name cur nxt next latches =
+Definition encode_xis_next_def:
+  encode_xis_next xaig name cur nxt next latches =
     encode_pointwise_equal xaig name
       (MAP (λl. (cur (next l), nxt (Base (Latch l), F))) latches)
 End
@@ -1199,7 +1198,7 @@ Theorem xeval_lit_encode_signal_imply_ext:
 Proof
   strip_tac
   >> simp [encode_signal_imply_def, xeval_lit_encode_pointwise_imply_ext,
-           signal_imply_def, lits_hold_def, LIST_REL_EVERY]
+           signal_imply_def, xlits_hold_def, LIST_REL_EVERY]
 QED
 
 Theorem xeval_lit_encode_signal_imply_ext_lit:
@@ -1295,7 +1294,7 @@ Proof
     eq_tac
     >> simp [lives_hold_def]
     >> rw [EVERY_EL]
-    >> fs [some_signal_holds_def, lits_hold_def]
+    >> fs [some_signal_holds_def, xlits_hold_def]
     >> first_x_assum $ drule_then assume_tac
     >> gvs [xeval_lit_def, Req0 xeval_gate_ori_anon]
     >> gvs [EXISTS_MEM] >> metis_tac []
@@ -1338,10 +1337,10 @@ Definition encode_reset_cond_def:
   =
   let
     xaig  = ext_xaig (merge_xaigs mxaig wxaig);
-    xaig  = encode_is_reset xaig «mreset» (ext_reset (left_reset mreset)) mlatches;
-    xaig  = encode_lits_hold xaig «mcnstrs» (MAP (ext_lit ∘ left_name_lit) mcnstrs);
-    xaig  = encode_is_reset xaig «wreset» (ext_reset (right_reset wreset)) klatches;
-    xaig  = encode_lits_hold xaig «wcnstrs» (MAP (ext_lit ∘ right_name_lit) wcnstrs);
+    xaig  = encode_xis_reset xaig «mreset» (ext_reset (left_reset mreset)) mlatches;
+    xaig  = encode_xlits_hold xaig «mcnstrs» (MAP (ext_lit ∘ left_name_lit) mcnstrs);
+    xaig  = encode_xis_reset xaig «wreset» (ext_reset (right_reset wreset)) klatches;
+    xaig  = encode_xlits_hold xaig «wcnstrs» (MAP (ext_lit ∘ right_name_lit) wcnstrs);
     lhss =
       [(Gate (Ext «mreset»), F);
        (Gate (Ext «mcnstrs»), F)];
@@ -1367,19 +1366,19 @@ Definition encode_transition_cond_def:
   let
     xaig  = merge_xaigs mxaig wxaig;
     xaig  = ext_xaig (pair_xaigs xaig xaig);
-    xaig  = encode_lits_hold xaig «mcnstrs0»
+    xaig  = encode_xlits_hold xaig «mcnstrs0»
              (MAP (ext_lit ∘ left_lit ∘ left_name_lit) mcnstrs);
-    xaig  = encode_lits_hold xaig «wcnstrs0»
+    xaig  = encode_xlits_hold xaig «wcnstrs0»
              (MAP (ext_lit ∘ left_lit ∘ right_name_lit) wcnstrs);
-    xaig  = encode_lits_hold xaig «mcnstrs1»
+    xaig  = encode_xlits_hold xaig «mcnstrs1»
              (MAP (ext_lit ∘ right_lit ∘ left_name_lit) mcnstrs);
-    xaig  = encode_lits_hold xaig «wcnstrs1»
+    xaig  = encode_xlits_hold xaig «wcnstrs1»
              (MAP (ext_lit ∘ right_lit ∘ right_name_lit) wcnstrs);
-    xaig  = encode_is_next xaig «mnext»
+    xaig  = encode_xis_next xaig «mnext»
             (ext_lit ∘ left_lit ∘ left_name_lit)
             (ext_lit ∘ right_lit)
             mnext mlatches;
-    xaig  = encode_is_next xaig «wnext»
+    xaig  = encode_xis_next xaig «wnext»
             (ext_lit ∘ left_lit ∘ right_name_lit)
             (ext_lit ∘ right_lit)
             wnext klatches;
@@ -1406,10 +1405,10 @@ Definition encode_safety_cond_def:
   =
   let
     xaig  = ext_xaig (merge_xaigs mxaig wxaig);
-    xaig  = encode_lits_hold xaig «mcnstrs» (MAP (ext_lit ∘ left_name_lit) mcnstrs);
-    xaig  = encode_lits_hold xaig «msafes» (MAP (ext_lit ∘ left_name_lit) msafes);
-    xaig  = encode_lits_hold xaig «wcnstrs» (MAP (ext_lit ∘ right_name_lit) wcnstrs);
-    xaig  = encode_lits_hold xaig «wsafes» (MAP (ext_lit ∘ right_name_lit) wsafes);
+    xaig  = encode_xlits_hold xaig «mcnstrs» (MAP (ext_lit ∘ left_name_lit) mcnstrs);
+    xaig  = encode_xlits_hold xaig «msafes» (MAP (ext_lit ∘ left_name_lit) msafes);
+    xaig  = encode_xlits_hold xaig «wcnstrs» (MAP (ext_lit ∘ right_name_lit) wcnstrs);
+    xaig  = encode_xlits_hold xaig «wsafes» (MAP (ext_lit ∘ right_name_lit) wsafes);
     lhss =
       [(Gate (Ext «mcnstrs»),F);
        (Gate (Ext «wcnstrs»),F);
@@ -1430,9 +1429,9 @@ Definition encode_base_cond_def:
   ⇔
     let
       xaig  = ext_xaig wxaig;
-      xaig  = encode_is_reset xaig «wreset» (ext_reset wreset) wlatches;
-      xaig  = encode_lits_hold xaig «wcnstrs» (MAP ext_lit wcnstrs);
-      xaig  = encode_lits_hold xaig «wsafes» (MAP ext_lit wsafes);
+      xaig  = encode_xis_reset xaig «wreset» (ext_reset wreset) wlatches;
+      xaig  = encode_xlits_hold xaig «wcnstrs» (MAP ext_lit wcnstrs);
+      xaig  = encode_xlits_hold xaig «wsafes» (MAP ext_lit wsafes);
       lhss =
         [(Gate (Ext «wreset»),F);
          (Gate (Ext «wcnstrs»),F)];
@@ -1451,15 +1450,15 @@ Definition encode_induction_cond_def:
   =
     let
       xaig  = ext_xaig (pair_xaigs wxaig wxaig);
-      xaig  = encode_lits_hold xaig «wcnstrs0»
+      xaig  = encode_xlits_hold xaig «wcnstrs0»
                (MAP (ext_lit ∘ left_lit) wcnstrs);
-      xaig  = encode_lits_hold xaig «wsafes0»
+      xaig  = encode_xlits_hold xaig «wsafes0»
                (MAP (ext_lit ∘ left_lit) wsafes);
-      xaig  = encode_lits_hold xaig «wcnstrs1»
+      xaig  = encode_xlits_hold xaig «wcnstrs1»
                (MAP (ext_lit ∘ right_lit) wcnstrs);
-      xaig  = encode_lits_hold xaig «wsafes1»
+      xaig  = encode_xlits_hold xaig «wsafes1»
                (MAP (ext_lit ∘ right_lit) wsafes);
-      xaig  = encode_is_next xaig «wnext»
+      xaig  = encode_xis_next xaig «wnext»
                (ext_lit ∘ left_lit) (ext_lit ∘ right_lit)
                wnext wlatches;
       lhss =
@@ -1497,20 +1496,20 @@ Definition encode_liveness_cond_def:
     msignals = MAP (ext_lit ∘ right_name_lit ∘ left_name_lit)
                      (FLAT (qleft_live mlive));
     xaig   = encode_signal_imply xaig «lives_imply» wsignals msignals;
-    xaig   = encode_lits_hold xaig «mcnstrs0»
+    xaig   = encode_xlits_hold xaig «mcnstrs0»
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ left_name_lit) mcnstrs);
-    xaig   = encode_lits_hold xaig «wcnstrs0»
+    xaig   = encode_xlits_hold xaig «wcnstrs0»
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_name_lit) wcnstrs);
-    xaig   = encode_lits_hold xaig «wsafes0»
+    xaig   = encode_xlits_hold xaig «wsafes0»
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_name_lit) wsafes);
-    xaig   = encode_lits_hold xaig «mcnstrs1»
+    xaig   = encode_xlits_hold xaig «mcnstrs1»
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit ∘ left_name_lit) mcnstrs);
-    xaig   = encode_lits_hold xaig «wcnstrs1»
+    xaig   = encode_xlits_hold xaig «wcnstrs1»
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit ∘ right_name_lit) wcnstrs);
-    xaig   = encode_lits_hold xaig «wsafes1»
+    xaig   = encode_xlits_hold xaig «wsafes1»
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit ∘ right_name_lit) wsafes);
     xaig =
-      encode_is_next xaig «wnext»
+      encode_xis_next xaig «wnext»
         (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_name_lit)
         (ext_lit ∘ left_name_lit ∘ right_lit)
         wnext wlatches;
@@ -1542,15 +1541,15 @@ Definition encode_decrease_cond_def:
     qxaig  = qinterv_r_l interv wxaig;
     xaig   = pair_xaigs wxaig wxaig;
     xaig   = ext_xaig (merge_xaigs xaig qxaig);
-    xaig   = encode_lits_hold xaig «wcnstrs0»
+    xaig   = encode_xlits_hold xaig «wcnstrs0»
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit) wcnstrs);
-    xaig   = encode_lits_hold xaig «wsafes0»
+    xaig   = encode_xlits_hold xaig «wsafes0»
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit) wsafes);
-    xaig   = encode_lits_hold xaig «wcnstrs1»
+    xaig   = encode_xlits_hold xaig «wcnstrs1»
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit) wcnstrs);
-    xaig   = encode_lits_hold xaig «wsafes1»
+    xaig   = encode_xlits_hold xaig «wsafes1»
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit) wsafes);
-    xaig   = encode_is_next xaig «wnext»
+    xaig   = encode_xis_next xaig «wnext»
               (ext_lit ∘ left_name_lit ∘ left_lit)
               (ext_lit ∘ left_name_lit ∘ right_lit)
               wnext wlatches;
@@ -1586,19 +1585,19 @@ Definition encode_closure_cond_def:
     qxaig  = merge_xaigs qxaig₀ qxaig₁;
     xaig   = pair_xaigs (pair_xaigs wxaig wxaig) wxaig;
     xaig   = ext_xaig (merge_xaigs xaig qxaig);
-    xaig   = encode_lits_hold xaig «wcnstrs0»
+    xaig   = encode_xlits_hold xaig «wcnstrs0»
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ left_lit) wcnstrs);
-    xaig   = encode_lits_hold xaig «wsafes0»
+    xaig   = encode_xlits_hold xaig «wsafes0»
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ left_lit) wsafes);
-    xaig   = encode_lits_hold xaig «wcnstrs1»
+    xaig   = encode_xlits_hold xaig «wcnstrs1»
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_lit) wcnstrs);
-    xaig   = encode_lits_hold xaig «wsafes1»
+    xaig   = encode_xlits_hold xaig «wsafes1»
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_lit) wsafes);
-    xaig   = encode_lits_hold xaig «wcnstrs2»
+    xaig   = encode_xlits_hold xaig «wcnstrs2»
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit) wcnstrs);
-    xaig   = encode_lits_hold xaig «wsafes2»
+    xaig   = encode_xlits_hold xaig «wsafes2»
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit) wsafes);
-    xaig   = encode_is_next xaig «wnext»
+    xaig   = encode_xis_next xaig «wnext»
               (ext_lit ∘ left_name_lit ∘ left_lit ∘ left_lit)
               (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_lit)
               wnext wlatches;
@@ -1640,23 +1639,23 @@ Definition encode_stable_cond_def:
     qxaig  = merge_xaigs qxaig₀ qxaig₁;
     xaig   = pair_xaigs (pair_xaigs wxaig wxaig) wxaig;
     xaig   = ext_xaig (merge_xaigs xaig qxaig);
-    xaig   = encode_lits_hold xaig «wcnstrs0»
+    xaig   = encode_xlits_hold xaig «wcnstrs0»
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ left_lit) wcnstrs);
-    xaig   = encode_lits_hold xaig «wsafes0»
+    xaig   = encode_xlits_hold xaig «wsafes0»
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ left_lit) wsafes);
-    xaig   = encode_lits_hold xaig «wcnstrs1»
+    xaig   = encode_xlits_hold xaig «wcnstrs1»
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_lit) wcnstrs);
-    xaig   = encode_lits_hold xaig «wsafes1»
+    xaig   = encode_xlits_hold xaig «wsafes1»
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_lit) wsafes);
-    xaig   = encode_lits_hold xaig «wcnstrs2»
+    xaig   = encode_xlits_hold xaig «wcnstrs2»
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit) wcnstrs);
-    xaig   = encode_lits_hold xaig «wsafes2»
+    xaig   = encode_xlits_hold xaig «wsafes2»
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit) wsafes);
-    xaig   = encode_is_next xaig «wnext0»
+    xaig   = encode_xis_next xaig «wnext0»
               (ext_lit ∘ left_name_lit ∘ left_lit ∘ left_lit)
               (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_lit)
               wnext wlatches;
-    xaig   = encode_is_next xaig «wnext1»
+    xaig   = encode_xis_next xaig «wnext1»
               (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_lit)
               (ext_lit ∘ left_name_lit ∘ right_lit)
               wnext wlatches;
@@ -1689,135 +1688,135 @@ End
 (* A bunch of trivial helper lemmas, which keep the proof state readable
    when an encoding function uses many other encoding functions. *)
 (*
-Theorem is_reset_encode_lits_hold_iright[local,simp]:
-  is_reset ss
-    (encode_lits_hold xaig name lits) (iright_reset reset) latches ⇔
-  is_reset ss xaig (iright_reset reset) latches
+Theorem xis_reset_encode_xlits_hold_iright[local,simp]:
+  xis_reset ss
+    (encode_xlits_hold xaig name lits) (iright_reset reset) latches ⇔
+  xis_reset ss xaig (iright_reset reset) latches
 Proof
-  simp [is_reset_def, encode_lits_hold_def, iright_reset_def, right_reset_def,
+  simp [xis_reset_def, encode_xlits_hold_def, iright_reset_def, right_reset_def,
         xeval_lit_def, ext_reset_def, PULL_EXISTS]
 QED
 
-Theorem is_reset_encode_is_reset_iright[local,simp]:
-  is_reset ss (encode_is_reset xaig name reset' latches')
+Theorem xis_reset_encode_xis_reset_iright[local,simp]:
+  xis_reset ss (encode_xis_reset xaig name reset' latches')
     (iright_reset reset) latches ⇔
-  is_reset ss xaig (iright_reset reset) latches
+  xis_reset ss xaig (iright_reset reset) latches
 Proof
-  simp [is_reset_def, encode_is_reset_def, iright_reset_def, xeval_lit_def,
+  simp [xis_reset_def, encode_xis_reset_def, iright_reset_def, xeval_lit_def,
         ext_reset_def, PULL_EXISTS]
 QED
 
-Theorem lits_hold_ext[local,simp]:
-  lits_hold ss (ext_xaig xaig) (set (MAP ext_lit preds)) ⇔
-    lits_hold ss xaig (set preds)
+Theorem xlits_hold_ext[local,simp]:
+  xlits_hold ss (ext_xaig xaig) (set (MAP ext_lit preds)) ⇔
+    xlits_hold ss xaig (set preds)
 Proof
-  simp [lits_hold_def, MEM_MAP, PULL_EXISTS]
+  simp [xlits_hold_def, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem lits_hold_ileft[local,simp]:
-  lits_hold ss (imerge_xaigs lxaig rxaig) (set (ileft_name_lits preds)) ⇔
-    lits_hold ss lxaig (set preds)
+Theorem xlits_hold_ileft[local,simp]:
+  xlits_hold ss (imerge_xaigs lxaig rxaig) (set (ileft_name_lits preds)) ⇔
+    xlits_hold ss lxaig (set preds)
 Proof
-  simp [lits_hold_def, ileft_name_lits_def, imerge_xaigs_def,
+  simp [xlits_hold_def, ileft_name_lits_def, imerge_xaigs_def,
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem lits_hold_iright[local,simp]:
-  lits_hold ss (imerge_xaigs lxaig rxaig) (set (iright_name_lits preds)) ⇔
-    lits_hold ss rxaig (set preds)
+Theorem xlits_hold_iright[local,simp]:
+  xlits_hold ss (imerge_xaigs lxaig rxaig) (set (iright_name_lits preds)) ⇔
+    xlits_hold ss rxaig (set preds)
 Proof
-  simp [lits_hold_def, iright_name_lits_def, imerge_xaigs_def,
+  simp [xlits_hold_def, iright_name_lits_def, imerge_xaigs_def,
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem lits_hold_encode_is_reset_ileft[local,simp]:
-  lits_hold ss
-    (encode_is_reset xaig name reset latches) (set (ileft_name_lits preds)) ⇔
-  lits_hold ss xaig (set (ileft_name_lits preds))
+Theorem xlits_hold_encode_xis_reset_ileft[local,simp]:
+  xlits_hold ss
+    (encode_xis_reset xaig name reset latches) (set (ileft_name_lits preds)) ⇔
+  xlits_hold ss xaig (set (ileft_name_lits preds))
 Proof
-  simp [lits_hold_def, encode_is_reset_def, ileft_name_lits_def,
+  simp [xlits_hold_def, encode_xis_reset_def, ileft_name_lits_def,
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem lits_hold_encode_is_reset_iright[local,simp]:
-  lits_hold ss
-    (encode_is_reset xaig name reset latches) (set (iright_name_lits preds)) ⇔
-  lits_hold ss xaig (set (iright_name_lits preds))
+Theorem xlits_hold_encode_xis_reset_iright[local,simp]:
+  xlits_hold ss
+    (encode_xis_reset xaig name reset latches) (set (iright_name_lits preds)) ⇔
+  xlits_hold ss xaig (set (iright_name_lits preds))
 Proof
-  simp [lits_hold_def, encode_is_reset_def, iright_name_lits_def,
+  simp [xlits_hold_def, encode_xis_reset_def, iright_name_lits_def,
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem lits_hold_encode_is_reset_ext[local,simp]:
-  lits_hold ss
-    (encode_is_reset xaig name reset latches) (set (MAP ext_lit preds)) ⇔
-  lits_hold ss xaig (set (MAP ext_lit preds))
+Theorem xlits_hold_encode_xis_reset_ext[local,simp]:
+  xlits_hold ss
+    (encode_xis_reset xaig name reset latches) (set (MAP ext_lit preds)) ⇔
+  xlits_hold ss xaig (set (MAP ext_lit preds))
 Proof
-  simp [lits_hold_def, encode_is_reset_def, MEM_MAP, PULL_EXISTS]
+  simp [xlits_hold_def, encode_xis_reset_def, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem lits_hold_encode_lits_hold_iright[local,simp]:
-  lits_hold ss (encode_lits_hold xaig name preds') (set (iright_name_lits preds)) ⇔
-    lits_hold ss xaig (set (iright_name_lits preds))
+Theorem xlits_hold_encode_xlits_hold_iright[local,simp]:
+  xlits_hold ss (encode_xlits_hold xaig name preds') (set (iright_name_lits preds)) ⇔
+    xlits_hold ss xaig (set (iright_name_lits preds))
 Proof
-  simp [lits_hold_def, encode_lits_hold_def, iright_name_lits_def,
+  simp [xlits_hold_def, encode_xlits_hold_def, iright_name_lits_def,
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 *)
 
-(*** lits_hold ***************************************************************)
+(*** xlits_hold ***************************************************************)
 
-Theorem lits_hold_ext_xaig_ext_lit[local,simp]:
-  lits_hold ss (ext_xaig xaig) (set (MAP ext_lit preds)) ⇔
-    lits_hold ss xaig (set preds)
+Theorem xlits_hold_ext_xaig_ext_lit[local,simp]:
+  xlits_hold ss (ext_xaig xaig) (set (MAP ext_lit preds)) ⇔
+    xlits_hold ss xaig (set preds)
 Proof
-  simp [lits_hold_def, MEM_MAP, PULL_EXISTS]
+  simp [xlits_hold_def, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem lits_hold_merge_left[local,simp]:
-  lits_hold ss (merge_xaigs lxaig rxaig) (set (MAP left_name_lit preds)) ⇔
-    lits_hold ss lxaig (set preds)
+Theorem xlits_hold_merge_left[local,simp]:
+  xlits_hold ss (merge_xaigs lxaig rxaig) (set (MAP left_name_lit preds)) ⇔
+    xlits_hold ss lxaig (set preds)
 Proof
-  simp [lits_hold_def, left_name_lit_def, MEM_MAP, PULL_EXISTS]
+  simp [xlits_hold_def, left_name_lit_def, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem lits_hold_merge_right[local,simp]:
-  lits_hold ss (merge_xaigs lxaig rxaig) (set (MAP right_name_lit preds)) ⇔
-    lits_hold ss rxaig (set preds)
+Theorem xlits_hold_merge_right[local,simp]:
+  xlits_hold ss (merge_xaigs lxaig rxaig) (set (MAP right_name_lit preds)) ⇔
+    xlits_hold ss rxaig (set preds)
 Proof
-  simp [lits_hold_def, right_name_lit_def, MEM_MAP, PULL_EXISTS]
+  simp [xlits_hold_def, right_name_lit_def, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem lits_hold_pair_left[local,simp]:
-  lits_hold (state_pair s₁ s₂) (pair_xaigs lxaig rxaig)
+Theorem xlits_hold_pair_left[local,simp]:
+  xlits_hold (state_pair s₁ s₂) (pair_xaigs lxaig rxaig)
     (set (MAP left_lit preds)) ⇔
-  lits_hold s₁ lxaig (set preds)
+  xlits_hold s₁ lxaig (set preds)
 Proof
-  simp [lits_hold_def, left_lit_def, MEM_MAP, PULL_EXISTS]
+  simp [xlits_hold_def, left_lit_def, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem lits_hold_pair_right[local,simp]:
-  lits_hold (state_pair s₁ s₂) (pair_xaigs lxaig rxaig)
+Theorem xlits_hold_pair_right[local,simp]:
+  xlits_hold (state_pair s₁ s₂) (pair_xaigs lxaig rxaig)
     (set (MAP right_lit preds)) ⇔
-  lits_hold s₂ rxaig (set preds)
+  xlits_hold s₂ rxaig (set preds)
 Proof
-  simp [lits_hold_def, right_lit_def, MEM_MAP, PULL_EXISTS]
+  simp [xlits_hold_def, right_lit_def, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem lits_hold_encode_lits_hold_ext_lit[local,simp]:
-  lits_hold ss (encode_lits_hold xaig name preds')
+Theorem xlits_hold_encode_xlits_hold_ext_lit[local,simp]:
+  xlits_hold ss (encode_xlits_hold xaig name preds')
     (set (MAP ext_lit preds)) ⇔
-  lits_hold ss xaig (set (MAP ext_lit preds))
+  xlits_hold ss xaig (set (MAP ext_lit preds))
 Proof
-  simp [lits_hold_def, encode_lits_hold_def, MEM_MAP, PULL_EXISTS]
+  simp [xlits_hold_def, encode_xlits_hold_def, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem lits_hold_encode_is_reset_ext_lit[local,simp]:
-  lits_hold ss (encode_is_reset xaig name reset ls)
+Theorem xlits_hold_encode_xis_reset_ext_lit[local,simp]:
+  xlits_hold ss (encode_xis_reset xaig name reset ls)
     (set (MAP ext_lit preds)) ⇔
-  lits_hold ss xaig (set (MAP ext_lit preds))
+  xlits_hold ss xaig (set (MAP ext_lit preds))
 Proof
-  simp [lits_hold_def, encode_is_reset_def, encode_pointwise_equal_def,
+  simp [xlits_hold_def, encode_xis_reset_def, encode_pointwise_equal_def,
         MEM_MAP, PULL_EXISTS]
   >> qmatch_goalsub_abbrev_tac ‘xori n’
   >> have ‘∀y. iname (ext_lit y) < n’
@@ -1826,12 +1825,12 @@ Proof
   >> gvs [iname_xeval_lit_xori]
 QED
 
-Theorem lits_hold_encode_pointwise_imply_ext_lit[local,simp]:
-  lits_hold ss (encode_pointwise_imply xaig name xys)
+Theorem xlits_hold_encode_pointwise_imply_ext_lit[local,simp]:
+  xlits_hold ss (encode_pointwise_imply xaig name xys)
     (set (MAP ext_lit preds)) ⇔
-  lits_hold ss xaig (set (MAP ext_lit preds))
+  xlits_hold ss xaig (set (MAP ext_lit preds))
 Proof
-  simp [lits_hold_def, encode_pointwise_imply_def,
+  simp [xlits_hold_def, encode_pointwise_imply_def,
         MEM_MAP, PULL_EXISTS]
   >> qmatch_goalsub_abbrev_tac ‘impi n’
   >> have ‘∀y. iname (ext_lit y) < n’
@@ -1840,50 +1839,50 @@ Proof
   >> gvs [iname_xeval_lit_impi]
 QED
 
-Theorem lits_hold_encode_signal_imply_ext_lit[local,simp]:
-  lits_hold ss (encode_signal_imply xaig name xs ys)
+Theorem xlits_hold_encode_signal_imply_ext_lit[local,simp]:
+  xlits_hold ss (encode_signal_imply xaig name xs ys)
     (set (MAP ext_lit preds)) ⇔
-  lits_hold ss xaig (set (MAP ext_lit preds))
+  xlits_hold ss xaig (set (MAP ext_lit preds))
 Proof
   simp [encode_signal_imply_def]
 QED
 
-(*** is_reset ****************************************************************)
+(*** xis_reset ****************************************************************)
 
-Theorem is_reset_ext[local,simp]:
-  is_reset ss (ext_xaig xaig) (ext_reset reset) latches ⇔
-    is_reset ss xaig reset latches
+Theorem xis_reset_ext[local,simp]:
+  xis_reset ss (ext_xaig xaig) (ext_reset reset) latches ⇔
+    xis_reset ss xaig reset latches
 Proof
-  simp [is_reset_def, ext_reset_def, PULL_EXISTS]
+  simp [xis_reset_def, ext_reset_def, PULL_EXISTS]
 QED
 
-Theorem is_reset_left[local,simp]:
-  is_reset ss (merge_xaigs lxaig rxaig) (left_reset lreset) latches ⇔
-    is_reset ss lxaig lreset latches
+Theorem xis_reset_left[local,simp]:
+  xis_reset ss (merge_xaigs lxaig rxaig) (left_reset lreset) latches ⇔
+    xis_reset ss lxaig lreset latches
 Proof
-  simp [is_reset_def, left_reset_def, xeval_lit_def, PULL_EXISTS]
+  simp [xis_reset_def, left_reset_def, xeval_lit_def, PULL_EXISTS]
 QED
 
-Theorem is_reset_right[local,simp]:
-  is_reset ss (merge_xaigs lxaig rxaig) (right_reset rreset) latches ⇔
-    is_reset ss rxaig rreset latches
+Theorem xis_reset_right[local,simp]:
+  xis_reset ss (merge_xaigs lxaig rxaig) (right_reset rreset) latches ⇔
+    xis_reset ss rxaig rreset latches
 Proof
-  simp [is_reset_def, right_reset_def, xeval_lit_def, PULL_EXISTS]
+  simp [xis_reset_def, right_reset_def, xeval_lit_def, PULL_EXISTS]
 QED
 
-Theorem is_reset_encode_lits_hold[local,simp]:
-  is_reset ss (encode_lits_hold xaig name lits) (ext_reset reset) ls ⇔
-    is_reset ss xaig (ext_reset reset) ls
+Theorem xis_reset_encode_xlits_hold[local,simp]:
+  xis_reset ss (encode_xlits_hold xaig name lits) (ext_reset reset) ls ⇔
+    xis_reset ss xaig (ext_reset reset) ls
 Proof
-  simp [is_reset_def, encode_lits_hold_def, xeval_lit_def, ext_reset_def,
+  simp [xis_reset_def, encode_xlits_hold_def, xeval_lit_def, ext_reset_def,
         PULL_EXISTS]
 QED
 
-Theorem is_reset_encode_is_reset_ext[local,simp]:
-  is_reset ss (encode_is_reset xaig name reset' ls') (ext_reset reset) ls ⇔
-    is_reset ss xaig (ext_reset reset) ls
+Theorem xis_reset_encode_xis_reset_ext[local,simp]:
+  xis_reset ss (encode_xis_reset xaig name reset' ls') (ext_reset reset) ls ⇔
+    xis_reset ss xaig (ext_reset reset) ls
 Proof
-  simp [is_reset_def, encode_is_reset_def, encode_pointwise_equal_def, xeval_lit_def,
+  simp [xis_reset_def, encode_xis_reset_def, encode_pointwise_equal_def, xeval_lit_def,
         ext_reset_def, PULL_EXISTS]
   >> qmatch_goalsub_abbrev_tac ‘xori n’
   >> have ‘∀y. iname (ext_lit y) < n’
@@ -1900,7 +1899,7 @@ Theorem signal_imply_ext_lit[local,simp]:
   (signal_imply ss xaig ss' (ext_xaig xaig') signals (MAP ext_lit signals') ⇔
     signal_imply ss xaig ss' xaig' signals signals')
 Proof
-  simp [signal_imply_def, LIST_REL_MAP, lits_hold_def]
+  simp [signal_imply_def, LIST_REL_MAP, xlits_hold_def]
 QED
 
 Theorem signal_imply_merge_right[local,simp]:
@@ -1911,7 +1910,7 @@ Theorem signal_imply_merge_right[local,simp]:
      signals (MAP right_name_lit signals') ⇔
    signal_imply ss xaig ss' rxaig' signals signals')
 Proof
-  simp [signal_imply_def, LIST_REL_MAP, lits_hold_def]
+  simp [signal_imply_def, LIST_REL_MAP, xlits_hold_def]
 QED
 
 Theorem signal_imply_merge_left[local,simp]:
@@ -1922,10 +1921,10 @@ Theorem signal_imply_merge_left[local,simp]:
      signals (MAP left_name_lit signals') ⇔
    signal_imply ss xaig ss' lxaig' signals signals')
 Proof
-  simp [signal_imply_def, LIST_REL_MAP, lits_hold_def]
+  simp [signal_imply_def, LIST_REL_MAP, xlits_hold_def]
 QED
 
-(* todo pointwise_equal, lits_hold, ext_xaig? *)
+(* todo pointwise_equal, xlits_hold, ext_xaig? *)
 
 Theorem signal_imply_encode_lives_hold_l[local,simp]:
   (signal_imply ss (encode_lives_hold xaig name xss) ss' xaig'
@@ -1991,20 +1990,20 @@ Proof
   >> metis_tac []
 QED
 
-Theorem signal_imply_encode_lits_hold_l[local,simp]:
-  (signal_imply ss (encode_lits_hold xaig name xys) ss' xaig'
+Theorem signal_imply_encode_xlits_hold_l[local,simp]:
+  (signal_imply ss (encode_xlits_hold xaig name xys) ss' xaig'
      (MAP ext_lit signals) signals'
   ⇔ signal_imply ss xaig ss' xaig' (MAP ext_lit signals) signals')
 Proof
-  simp [signal_imply_def, encode_lits_hold_def, LIST_REL_MAP]
+  simp [signal_imply_def, encode_xlits_hold_def, LIST_REL_MAP]
 QED
 
-Theorem signal_imply_encode_lits_hold_r[local,simp]:
-  (signal_imply ss xaig ss' (encode_lits_hold xaig' name xss)
+Theorem signal_imply_encode_xlits_hold_r[local,simp]:
+  (signal_imply ss xaig ss' (encode_xlits_hold xaig' name xss)
      signals (MAP ext_lit signals')
    ⇔ signal_imply ss xaig ss' xaig' signals (MAP ext_lit signals'))
 Proof
-  simp [signal_imply_def, encode_lits_hold_def, LIST_REL_MAP]
+  simp [signal_imply_def, encode_xlits_hold_def, LIST_REL_MAP]
 QED
 
 (*** some_signal_holds ********************************************************)
@@ -2039,16 +2038,16 @@ Proof
   >> metis_tac []
 QED
 
-Theorem some_signal_holds_encode_lits_hold_ext_lit[local,simp]:
-  some_signal_holds ss (encode_lits_hold xaig name live) (MAP (ext_lit ∘ f) lit)
+Theorem some_signal_holds_encode_xlits_hold_ext_lit[local,simp]:
+  some_signal_holds ss (encode_xlits_hold xaig name live) (MAP (ext_lit ∘ f) lit)
   ⇔
   some_signal_holds ss xaig (MAP (ext_lit ∘ f) lit)
 Proof
   simp [some_signal_holds_def, EXISTS_MEM, MEM_MAP, PULL_EXISTS,
-        encode_lits_hold_def]
+        encode_xlits_hold_def]
 QED
 
-Theorem some_signal_holds_encode_lits_hold_ext_lit[local,simp]:
+Theorem some_signal_holds_encode_xlits_hold_ext_lit[local,simp]:
   some_signal_holds ss (ext_xaig xaig) (MAP (ext_lit ∘ f) lit)
   ⇔
   some_signal_holds ss xaig (MAP f lit)
@@ -2110,8 +2109,8 @@ Proof
   fs [EVERY_MEM, MEM_MAP, PULL_EXISTS, lives_hold_def]
 QED
 
-Theorem lives_hold_encode_lits_hold_ext_lit[local,simp]:
-  lives_hold ss (encode_lits_hold xaig name live) (MAP (MAP (ext_lit ∘ f)) live')
+Theorem lives_hold_encode_xlits_hold_ext_lit[local,simp]:
+  lives_hold ss (encode_xlits_hold xaig name live) (MAP (MAP (ext_lit ∘ f)) live')
   ⇔
   lives_hold ss xaig (MAP (MAP (ext_lit ∘ f)) live')
 Proof
@@ -2428,7 +2427,7 @@ Proof
         qinterv_live_r_l_def,
         qinterv_live_l_r_def,
         qinterv_live_def,
-        lits_hold_def,
+        xlits_hold_def,
         xeval_lit_qinterv_r_l_eq,
         EXISTS_MEM, EVERY_MEM, MEM_MAP, PULL_EXISTS]
 QED
@@ -2444,7 +2443,7 @@ Proof
         qinterv_live_ll_r_def,
         qinterv_live_l_r_def,
         qinterv_live_def,
-        lits_hold_def,
+        xlits_hold_def,
         xeval_lit_qinterv_ll_r_eq,
         EXISTS_MEM, EVERY_MEM, MEM_MAP, PULL_EXISTS]
 QED
@@ -2458,7 +2457,7 @@ Theorem lives_hold_ll_lr_eq[local]:
 Proof
   simp [lives_hold_def, some_signal_holds_def,
         qinterv_live_ll_lr_def, qinterv_live_l_r_def, qinterv_live_def,
-        lits_hold_def, xeval_lit_qinterv_ll_lr_eq,
+        xlits_hold_def, xeval_lit_qinterv_ll_lr_eq,
         EVERY_MEM, EXISTS_MEM, MEM_MAP, PULL_EXISTS]
 QED
 
@@ -2473,7 +2472,7 @@ Proof
         qinterv_live_lr_r_def,
         qinterv_live_l_r_def,
         qinterv_live_def,
-        lits_hold_def,
+        xlits_hold_def,
         xeval_lit_qinterv_lr_r_eq,
         EXISTS_MEM, EVERY_MEM, MEM_MAP, PULL_EXISTS]
 QED
@@ -2505,7 +2504,7 @@ Theorem signal_imply_right_lr_r_eq[local]:
 Proof
   simp [signal_imply_def, FLAT_qinterv_live_flip, LIST_REL_EL_EQN]
   >> eq_tac >> rw []
-  >> gvs [Req0 EL_MAP, lits_hold_def, xeval_lit_qinterv_lr_r_eq]
+  >> gvs [Req0 EL_MAP, xlits_hold_def, xeval_lit_qinterv_lr_r_eq]
 QED
 
 Theorem signal_imply_left_ll_lr_eq[local]:
@@ -2521,23 +2520,23 @@ Theorem signal_imply_left_ll_lr_eq[local]:
 Proof
   simp [signal_imply_def, FLAT_qinterv_live_flip, LIST_REL_EL_EQN]
   >> eq_tac >> rw []
-  >> gvs [Req0 EL_MAP, lits_hold_def, xeval_lit_qinterv_ll_lr_eq]
+  >> gvs [Req0 EL_MAP, xlits_hold_def, xeval_lit_qinterv_ll_lr_eq]
 QED
 
 (*
-Theorem lits_hold_encode_lits_hold_iright[local,simp]:
-  lits_hold ss (encode_lits_hold xaig name preds') (set (iright_name_lits preds)) ⇔
-    lits_hold ss xaig (set (iright_name_lits preds))
+Theorem xlits_hold_encode_xlits_hold_iright[local,simp]:
+  xlits_hold ss (encode_xlits_hold xaig name preds') (set (iright_name_lits preds)) ⇔
+    xlits_hold ss xaig (set (iright_name_lits preds))
 Proof
-  simp [lits_hold_def, encode_lits_hold_def, iright_name_lits_def,
+  simp [xlits_hold_def, encode_xlits_hold_def, iright_name_lits_def,
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem lits_hold_encode_lits_hold_ileft[local,simp]:
-  lits_hold ss (encode_lits_hold xaig name preds') (set (ileft_name_lits preds)) ⇔
-    lits_hold ss xaig (set (ileft_name_lits preds))
+Theorem xlits_hold_encode_xlits_hold_ileft[local,simp]:
+  xlits_hold ss (encode_xlits_hold xaig name preds') (set (ileft_name_lits preds)) ⇔
+    xlits_hold ss xaig (set (ileft_name_lits preds))
 Proof
-  simp [lits_hold_def, encode_lits_hold_def, ileft_name_lits_def,
+  simp [xlits_hold_def, encode_xlits_hold_def, ileft_name_lits_def,
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
@@ -2549,7 +2548,7 @@ Theorem signal_imply_iright_ileft[local,simp]:
   signal_imply ss₀ xaig₂ ss₁ xaig₃ signals' signals
 Proof
   simp [signal_imply_def, ileft_name_lits_def, iright_name_lits_def,
-        lits_hold_def, LIST_REL_MAP]
+        xlits_hold_def, LIST_REL_MAP]
 QED
 
 Theorem signal_imply_ileft_iright[local,simp]:
@@ -2560,7 +2559,7 @@ Theorem signal_imply_ileft_iright[local,simp]:
   signal_imply ss₀ xaig₁ ss₁ xaig₄ signals' signals
 Proof
   simp [signal_imply_def, ileft_name_lits_def, iright_name_lits_def,
-        lits_hold_def, LIST_REL_MAP]
+        xlits_hold_def, LIST_REL_MAP]
 QED
 
 Theorem lives_hold_ext_xaig[local,simp]:
@@ -2568,7 +2567,7 @@ Theorem lives_hold_ext_xaig[local,simp]:
   ⇔
   lives_hold ss xaig lives
 Proof
-  simp [lives_hold_def, some_signal_holds_def, lits_hold_def,
+  simp [lives_hold_def, some_signal_holds_def, xlits_hold_def,
         EXISTS_MEM, EVERY_MEM, MEM_MAP, PULL_EXISTS]
 QED
 
@@ -2602,7 +2601,7 @@ Proof
   simp [encode_lives_hold_def]
   >> rpt (pairarg_tac >> gvs [])
   >> simp [lives_hold_def, some_signal_holds_def,
-           lits_hold_def, iright_name_lits_def,
+           xlits_hold_def, iright_name_lits_def,
            EVERY_MEM, EXISTS_MEM, MEM_MAP, PULL_EXISTS]
   >> drule encode_lives_hold_aux_xeval_lit_ext >> simp []
 QED
@@ -2616,7 +2615,7 @@ Proof
   simp [encode_signal_imply_def]
   >> rpt (pairarg_tac >> gvs [])
   >> simp [lives_hold_def, some_signal_holds_def,
-           lits_hold_def, ileft_name_lits_def,
+           xlits_hold_def, ileft_name_lits_def,
            EVERY_MEM, MEM_MAP, EXISTS_MEM, PULL_EXISTS]
   >> drule encode_signal_imply_aux_xeval_lit_ext
   >> simp []
@@ -2631,7 +2630,7 @@ Proof
   simp [encode_signal_imply_def]
   >> rpt (pairarg_tac >> gvs [])
   >> simp [lives_hold_def, some_signal_holds_def,
-           lits_hold_def, iright_name_lits_def,
+           xlits_hold_def, iright_name_lits_def,
            EVERY_MEM, MEM_MAP, EXISTS_MEM, PULL_EXISTS]
   >> drule encode_signal_imply_aux_xeval_lit_ext
   >> simp []
@@ -2643,7 +2642,7 @@ Theorem lives_hold_imerge_xaigs_ileft[local,simp]:
   lives_hold ss xaig₀ live
 Proof
   simp [lives_hold_def, some_signal_holds_def,
-        ileft_name_lits_def, lits_hold_def,
+        ileft_name_lits_def, xlits_hold_def,
         EXISTS_MEM, EVERY_MEM, MEM_MAP, PULL_EXISTS]
 QED
 
@@ -2653,7 +2652,7 @@ Theorem lives_hold_imerge_xaigs_iright[local,simp]:
   lives_hold ss xaig₁ live
 Proof
   simp [lives_hold_def, some_signal_holds_def,
-        iright_name_lits_def, lits_hold_def,
+        iright_name_lits_def, xlits_hold_def,
         EXISTS_MEM, EVERY_MEM, MEM_MAP, PULL_EXISTS]
 QED
 
@@ -2688,8 +2687,8 @@ Proof
       reset_encoding_is_unsat_def,
       encode_reset_cond_def,
       xeval_gate_encode_imply,
-      xeval_lit_encode_lits_hold_ext,
-      xeval_lit_encode_is_reset_ext,
+      xeval_lit_encode_xlits_hold_ext,
+      xeval_lit_encode_xis_reset_ext,
       reset_cond_def,
       GSYM MAP_MAP_o
     ]
@@ -2723,15 +2722,15 @@ Proof
   >> simp [
       transition_encoding_is_unsat_def,
       encode_transition_cond_def,
-      encode_is_next_def,
+      encode_xis_next_def,
       xeval_gate_encode_imply,
       xeval_lit_encode_pointwise_equal_ext,
       xeval_lit_encode_pointwise_equal_ext_lit,
-      xeval_lit_encode_lits_hold_ext,
-      xeval_lit_encode_lits_hold_ext_lit,
+      xeval_lit_encode_xlits_hold_ext,
+      xeval_lit_encode_xlits_hold_ext_lit,
       FORALL_STATE_PAIR,
       xeval_lit_latch,
-      transition_cond_def, is_next_def,
+      transition_cond_def, xis_next_def,
       GSYM MAP_MAP_o,
       EXISTS_MEM, EVERY_MEM, MEM_MAP, PULL_EXISTS, PULL_FORALL
     ]
@@ -2779,8 +2778,8 @@ Proof
       safety_encoding_is_unsat_def,
       encode_safety_cond_def,
       xeval_gate_encode_imply,
-      xeval_lit_encode_lits_hold_ext,
-      xeval_lit_encode_lits_hold_ext_lit,
+      xeval_lit_encode_xlits_hold_ext,
+      xeval_lit_encode_xlits_hold_ext_lit,
       safety_cond_def,
       GSYM MAP_MAP_o
     ]
@@ -2809,8 +2808,8 @@ Proof
       base_encoding_is_unsat_def,
       encode_base_cond_def,
       xeval_gate_encode_imply,
-      xeval_lit_encode_lits_hold_ext,
-      xeval_lit_encode_is_reset_ext,
+      xeval_lit_encode_xlits_hold_ext,
+      xeval_lit_encode_xis_reset_ext,
       base_cond_def
     ]
   >> metis_tac []
@@ -2836,16 +2835,16 @@ Proof
   simp [
       induction_encoding_is_unsat_def,
       encode_induction_cond_def,
-      encode_is_next_def,
+      encode_xis_next_def,
       xeval_gate_encode_imply,
       xeval_lit_encode_pointwise_equal_ext,
-      xeval_lit_encode_lits_hold_ext,
-      xeval_lit_encode_lits_hold_ext_lit,
+      xeval_lit_encode_xlits_hold_ext,
+      xeval_lit_encode_xlits_hold_ext_lit,
       xeval_lit_latch,
       GSYM MAP_MAP_o,
       FORALL_STATE_PAIR,
       EXISTS_MEM, MEM_MAP, PULL_EXISTS,
-      induction_cond_def, is_next_def
+      induction_cond_def, xis_next_def
     ]
   >> metis_tac []
 QED
@@ -2882,9 +2881,9 @@ Proof
       liveness_encoding_is_unsat_def,
       encode_liveness_cond_def,
       xeval_gate_encode_imply,
-      encode_is_next_def, is_next_def,
-      xeval_lit_encode_lits_hold_ext,
-      xeval_lit_encode_lits_hold_ext_lit,
+      encode_xis_next_def, xis_next_def,
+      xeval_lit_encode_xlits_hold_ext,
+      xeval_lit_encode_xlits_hold_ext_lit,
       xeval_lit_encode_pointwise_equal_ext,
       xeval_lit_encode_signal_imply_ext_lit,
       FORALL_STATE_PAIR, xeval_lit_latch,
@@ -2901,7 +2900,7 @@ Proof
   >> have ‘LENGTH (FLAT mlive') = LENGTH (FLAT wlive')’
   >- (drule LIST_REL_LENGTH_FLAT >> simp [])
   >> simp [Req0 xeval_lit_encode_signal_imply_ext]
-  >> simp [Abbr ‘mlive'’, Abbr ‘wlive'’, liveness_cond_def, is_next_def,
+  >> simp [Abbr ‘mlive'’, Abbr ‘wlive'’, liveness_cond_def, xis_next_def,
            lives_imply_signal_imply_FLAT]
   >> metis_tac []
 QED
@@ -2928,18 +2927,18 @@ Proof
   simp [
       decrease_encoding_is_unsat_def,
       encode_decrease_cond_def,
-      encode_is_next_def,
+      encode_xis_next_def,
       xeval_lit_encode_pointwise_equal_ext,
       xeval_gate_encode_imply,
       xeval_lit_encode_lives_hold_ext,
       xeval_lit_encode_lives_hold_ext_lit,
-      xeval_lit_encode_lits_hold_ext,
-      xeval_lit_encode_lits_hold_ext_lit,
+      xeval_lit_encode_xlits_hold_ext,
+      xeval_lit_encode_xlits_hold_ext_lit,
       xeval_lit_latch,
       FORALL_STATE_PAIR,
       GSYM MAP_MAP_o,
       EXISTS_MEM, MEM_MAP, PULL_EXISTS,
-      is_next_def, decrease_cond_def, lives_hold_r_l_eq
+      xis_next_def, decrease_cond_def, lives_hold_r_l_eq
     ]
   >> metis_tac []
 QED
@@ -2966,17 +2965,17 @@ Proof
   simp [
       closure_encoding_is_unsat_def,
       encode_closure_cond_def,
-      encode_is_next_def,
+      encode_xis_next_def,
       xeval_gate_encode_imply,
       xeval_lit_encode_lives_hold_ext,
       xeval_lit_encode_pointwise_equal_ext,
-      xeval_lit_encode_lits_hold_ext,
-      xeval_lit_encode_lits_hold_ext_lit,
+      xeval_lit_encode_xlits_hold_ext,
+      xeval_lit_encode_xlits_hold_ext_lit,
       xeval_lit_latch,
       FORALL_STATE_PAIR,
       EXISTS_MEM, MEM_MAP, PULL_EXISTS,
       GSYM MAP_MAP_o,
-      closure_cond_def, is_next_def,
+      closure_cond_def, xis_next_def,
       lives_hold_ll_r_eq, lives_hold_lr_r_eq
     ]
   >> metis_tac []
@@ -3013,7 +3012,7 @@ Proof
   >> simp [
       stable_encoding_is_unsat_def,
       encode_stable_cond_def,
-      encode_is_next_def,
+      encode_xis_next_def,
       xeval_gate_encode_imply,
       xeval_lit_encode_pointwise_equal_ext,
       xeval_lit_encode_pointwise_equal_ext_lit,
@@ -3021,8 +3020,8 @@ Proof
       xeval_lit_encode_signal_imply_ext_lit,
       xeval_lit_encode_lives_hold_ext,
       xeval_lit_encode_lives_hold_ext_lit,
-      xeval_lit_encode_lits_hold_ext,
-      xeval_lit_encode_lits_hold_ext_lit,
+      xeval_lit_encode_xlits_hold_ext,
+      xeval_lit_encode_xlits_hold_ext_lit,
       FORALL_STATE_PAIR,
       GSYM MAP_MAP_o,
       EXISTS_MEM, MEM_MAP, PULL_EXISTS
@@ -3030,7 +3029,7 @@ Proof
   >> simp [Abbr ‘signals’, Abbr ‘signals'’, GSYM MAP_FLAT, GSYM MAP_MAP_o]
   >> simp [lives_hold_lr_r_eq, lives_hold_ll_lr_eq]
   >> simp [signal_imply_right_lr_r_eq, signal_imply_left_ll_lr_eq]
-  >> simp [stable_cond_def, lives_imply_signal_imply_FLAT, is_next_def,
+  >> simp [stable_cond_def, lives_imply_signal_imply_FLAT, xis_next_def,
            xeval_lit_latch]
   >> qmatch_goalsub_abbrev_tac ‘LIST_REL _ xs _’
   >> have ‘LIST_REL (λQ Q'. LENGTH Q = LENGTH Q') xs xs’
@@ -3038,7 +3037,6 @@ Proof
   >> simp [IMP_DISJ_THM]
 QED
 
-(*
 (** Stratification ************************************************************)
 
 (* Given an xAIG and a name, finds the first match, returning its
@@ -3050,8 +3048,8 @@ QED
    invocation of xaig_lookup would return NONE, breaking the loop. *)
 Definition xaig_lookup_def:
   (xaig_lookup (h::tl) n =
-   let (n', ins) = h in
-     if n' = n then SOME (ins,  tl) else xaig_lookup tl n) ∧
+   let (n', gty) = h in
+     if n' = n then SOME (get_lits gty,  tl) else xaig_lookup tl n) ∧
   xaig_lookup [] n = NONE
 End
 
@@ -3072,9 +3070,9 @@ Definition latch_deps_def:
      case v of
      | Base (Latch l) => [l]
      | Gate a =>
-         (case xaig_lookup xaig a of
-          | NONE => []
-          | SOME (lits, rest) =>
+       (case xaig_lookup xaig a of
+        | NONE => []
+        | SOME (lits, rest) =>
             FLAT (MAP (latch_deps rest) lits))
      | _ => [])
 Termination
@@ -3092,8 +3090,8 @@ Proof
 QED
 
 Theorem MEM_latch_deps_name_eq:
-  MEM x ins ∧ MEM l (latch_deps xaig x) ⇒
-  MEM l (latch_deps ((n,ins)::xaig) (Gate n,b))
+  MEM a (get_lits gt) ∧ MEM l (latch_deps xaig a) ⇒
+  MEM l (latch_deps ((n,gt)::xaig) (Gate n,b))
 Proof
   strip_tac
   >> simp [Once latch_deps_def, xaig_lookup_def]
@@ -3137,13 +3135,13 @@ Resume latch_deps_xeval_eq[xeval_lit_cons]:
   >> rpt (pairarg_tac >> gvs [])
   >> IF_CASES_TAC >> gvs []
   >- (
-    qsuff_tac
-      ‘EVERY (λa. xeval_lit (is,ls') xaig a) ins ⇔
-         EVERY (λa. xeval_lit (is,ls) xaig a) ins’
-    >- simp []
-    >> irule EVERY_CONG >> rw []
+    rename1 ‘latch_deps ((_,gt)::_)’
+    >> suff
+         ‘EVERY (λa. xeval_lit (is,ls') xaig a ⇔ xeval_lit (is,ls) xaig a)
+            (get_lits gt)’
+    >- (TOP_CASE_TAC >> gvs [EVERY_MEM, EXISTS_MEM] >> metis_tac [])
+    >> rw [EVERY_MEM]
     >> first_x_assum irule >> rw []
-    >> first_x_assum irule
     >> drule_all MEM_latch_deps_name_eq >> simp []
   )
   >> qsuff_tac ‘xeval_gate (is,ls') xaig n ⇔ xeval_gate (is,ls) xaig n’
@@ -3160,9 +3158,13 @@ Resume latch_deps_xeval_eq[xeval_gate_cons]:
   >> rpt (pairarg_tac >> gvs [])
   >> IF_CASES_TAC >> gvs []
   >- (
-    irule EVERY_CONG >> rw []
+    rename1 ‘latch_deps ((_,gt)::_)’
+    >> suff
+         ‘EVERY (λa. xeval_lit (is,ls') xaig a ⇔ xeval_lit (is,ls) xaig a)
+            (get_lits gt)’
+    >- (TOP_CASE_TAC >> gvs [EVERY_MEM, EXISTS_MEM] >> metis_tac [])
+    >> rw [EVERY_MEM]
     >> first_x_assum irule >> rw []
-    >> first_x_assum irule
     >> drule_all MEM_latch_deps_name_eq >> simp []
   )
   >> first_x_assum irule
@@ -3374,7 +3376,7 @@ Proof
   >> simp [dep_lits_pair_map_lit_map_base_inl]
 QED
 
-Theorem encoding_is_safe_and_live:
+Theorem encoding_xis_safe_and_live:
   LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive wlive ∧
   set klatches = set mlatches ∩ set wlatches ∧
   stratified_cond wxaig wreset wlatches ∧
@@ -3384,9 +3386,9 @@ Theorem encoding_is_safe_and_live:
     wxaig wreset wnext wsafes wcnstrs wlive wlatches
     interv klatches
   ⇒
-  is_safe
+  xis_safe
     mxaig mreset mnext (set mcnstrs) (set mlatches) (set msafes) ∧
-  is_live
+  xis_live
     mxaig mreset mnext (set mcnstrs) (qleft mxaig)
     (IMAGE set (set (qleft_live mlive))) (set mlatches)
 Proof
@@ -3451,7 +3453,6 @@ Proof
   )
   >> sg ‘FINITE (set wlatches)’ >- simp []
   >> drule_all stratified_cond_is_stratified >> strip_tac
-  >> drule_all_then assume_tac is_witness_is_safe_and_livee
+  >> drule_all_then assume_tac is_witness_xis_safe_and_live
   >> simp []
 QED
-*)

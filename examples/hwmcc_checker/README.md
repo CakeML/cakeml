@@ -33,8 +33,5 @@ Formalization of HWMCC certificates
 [xaig_cert_encodeScript.sml](xaig_cert_encodeScript.sml):
 Encodes the certificate conditions as an extended AIG.
 
-[xaig_circScript.sml](xaig_circScript.sml):
-Formalization of circuits over eXtended And-Inverter Graphs.
-
 [xaig_to_cnfScript.sml](xaig_to_cnfScript.sml):
 Mapping eXtended And-Inverter Graphs into CNF

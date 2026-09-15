@@ -7,6 +7,10 @@ Ancestors
 Libs
   preamble
 
+(* eXtended And-Inverter Graphs ***********************************************)
+(* The only part of AIGs we extend are the types of gates; the notion of state,
+   variables and literals stays the same. *)
+
 Datatype:
   gty =
     (* Multi-input And gates out = \And_i in_i *)
@@ -61,6 +65,102 @@ Theorem xeval_gate_nil[simp]:
 Proof
   simp [xeval_lit_def]
 QED
+
+(* Circuits *******************************************************************)
+
+Definition xlits_hold_def:
+  xlits_hold ss (xaig: ('a, 'i, 'l) xaig) (lits: ('a,'i,'l) lit set) ⇔
+    ∀lit. lit ∈ lits ⇒ xeval_lit ss xaig lit
+End
+
+Definition xis_reset_def:
+  xis_reset ss (xaig: ('a, 'i, 'l) xaig)
+    (reset: 'l -> ('a,'i,'l) lit option) (latches: 'l set) =
+  ∀l lit.
+    l ∈ latches ∧ reset l = SOME lit ⇒
+    xeval_lit ss xaig (Base (Latch l), F) =
+    xeval_lit ss xaig lit
+End
+
+Definition xis_next_def:
+  xis_next ss₀ (xaig: ('a, 'i, 'l) xaig)
+    (next: 'l -> ('a,'i,'l) lit) (latches: 'l set) ls₁ =
+  ∀l. l ∈ latches ⇒ xeval_lit ss₀ xaig (next l) = ls₁ l
+End
+
+Definition xis_trace_def:
+  xis_trace (xaig: ('a, 'i, 'l) xaig)
+    (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
+    (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
+    (steps: ('i, 'l) steps) (n: num)
+  ⇔
+    xis_reset (steps 0) xaig reset latches ∧
+    xlits_hold (steps 0) xaig cnstrs ∧
+    (∀i. i < n ⇒
+       xis_next (steps i) xaig next latches (SND (steps (i + 1))) ∧
+       xlits_hold (steps (i + 1)) xaig cnstrs)
+End
+
+(** Safety ********************************************************************)
+
+Definition xis_unsafe_def:
+  xis_unsafe (xaig: ('a, 'i, 'l) xaig)
+    (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
+    (cnstrs: ('a,'i,'l) lit set) (latches: 'l set) (safes: ('a,'i,'l) lit set)
+  =
+  ∃(steps: ('i, 'l) steps) (n: num).
+    xis_trace xaig reset next cnstrs latches steps n ∧
+    ¬xlits_hold (steps n) xaig safes
+End
+
+Definition xis_safe_def:
+  xis_safe (xaig: ('a, 'i, 'l) xaig)
+    (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
+    (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
+    (safes: ('a,'i,'l) lit set) ⇔
+  ¬xis_unsafe xaig reset next cnstrs latches safes
+End
+
+(** Liveness ******************************************************************)
+
+Definition xis_inf_trace_def:
+  xis_inf_trace (xaig: ('a, 'i, 'l) xaig)
+    (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
+    (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
+    (steps: ('i, 'l) steps)
+  ⇔
+    xis_reset (steps 0) xaig reset latches ∧
+    xlits_hold (steps 0) xaig cnstrs ∧
+    (∀i.
+       xis_next (steps i) xaig next latches (SND (steps (i + 1))) ∧
+       xlits_hold (steps (i + 1)) xaig cnstrs)
+End
+
+Theorem xis_inf_trace_eq:
+  xis_inf_trace xaig reset next cnstrs latches steps ⇔
+  ∀n. xis_trace xaig reset next cnstrs latches steps n
+Proof
+  eq_tac>>
+  rw[xis_inf_trace_def,xis_trace_def]>>
+  first_x_assum(qspec_then`i+1` mp_tac)>>
+  rw[]
+QED
+
+Definition xis_live_def:
+  xis_live (xaig: ('a, 'i, 'l) xaig) (reset: 'l -> ('a,'i,'l) lit option)
+    (next: 'l -> ('a,'i,'l) lit) (cnstrs: ('a,'i,'l) lit set)
+    (qxaig: ('b, 'i + 'i, 'l + 'l) xaig)
+    (live: ('b, 'i + 'i, 'l + 'l) lit set set) (latches: 'l set) =
+  ∀steps.
+    xis_inf_trace xaig reset next cnstrs latches steps ⇒
+    ∀prop. prop ∈ live ⇒
+      ∃k signal.
+        signal ∈ prop ∧
+        (∀i. k ≤ i ⇒
+             xeval_lit (state_pair (steps i) (steps (i + 1))) qxaig signal)
+End
+
+(* Converting from AIG to xAIG ************************************************)
 
 (* Naive *)
 Definition aig_to_xaig_def:
