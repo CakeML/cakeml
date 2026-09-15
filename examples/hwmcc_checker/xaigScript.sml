@@ -164,7 +164,7 @@ End
 
 (* Naive *)
 Definition aig_to_xaig_def:
-  (aig_to_xaig [] = []) ∧
+  (aig_to_xaig ([]:('a,'i,'l) aig) = []) ∧
   (aig_to_xaig ((n,ins)::tl) =
     (n,And ins)::aig_to_xaig tl)
 End
@@ -194,109 +194,4 @@ Proof
   rw[eval_lit_def,aig_to_xaig_def,xeval_lit_def]>>
   cong_tac NONE>>
   simp[FUN_EQ_THM]
-QED
-
-(* Literals matching an XOR
-
-  out = ¬(a ∧ b) ∧ ¬(~a ∧ ¬ b)
-      = a XOR b
-
-  Note: a,b an be literals
-*)
-Definition match_xor_def:
-  match_xor (x0,bx0) (x1,bx1) (y0,by0) (y1,by1) ⇔
-    x0 = y0 ∧ bx0 = ¬by0 ∧
-    x1 = y1 ∧ bx1 = ¬by1 ∨
-    x0 = y1 ∧ bx0 = ¬by1 ∧
-    x1 = y0 ∧ bx1 = ¬by0
-End
-
-(* slow version, for proof.
-  The finite map being returned
-    is a mapping
-      gate_name |-> lits
-    which tracks gates which are Ands
-    Note: this should be (lit # lit) instead of a
-      lit list once aig changes type.
-*)
-Definition optimize_gate_def:
-  optimize_gate ins gm =
-  case ins of
-    [(Gate l,bl);(Gate r,br)] =>
-      (case FLOOKUP gm l of
-        SOME [l0;l1] =>
-        (case FLOOKUP gm r of
-          SOME [r0;r1] =>
-            (* The XOR pattern *)
-            if bl ∧ br ∧ match_xor l0 l1 r0 r1
-            then
-              SOME (Xor l0 l1)
-            else NONE
-          | _ => NONE)
-      | _ => NONE)
-  | _ => NONE
-End
-
-(* TODO: the mapping isn't quite right because of shadowing *)
-Definition aig_to_xaig_opt_def:
-  (aig_to_xaig_opt [] = ([],FEMPTY)) ∧
-  (aig_to_xaig_opt ((n,ins)::tl) =
-    case aig_to_xaig_opt tl of
-      (xtl,gm) =>
-    case optimize_gate ins gm of
-      NONE =>
-        ((n,And ins) :: xtl, gm⟨n ↦ ins⟩)
-    | SOME g =>
-        ((n,g) :: xtl, gm))
-End
-
-Theorem optimize_gate_sound:
-  optimize_gate ins gm = SOME x ∧
-  (∀g ins.
-    FLOOKUP gm g = SOME ins ⇒
-    (xeval_gate ss rest g =
-      EVERY (λa. xeval_lit ss rest a) ins))
-  ⇒
-  (EVERY (λa. xeval_lit ss rest a) ins =
-  xeval_gty ss rest x)
-Proof
-  rw[optimize_gate_def]>>
-  gvs[AllCaseEqs()]
-  >- (
-    first_assum drule>>
-    qpat_x_assum`FLOOKUP _ l = _` assume_tac>>
-    first_x_assum drule>>
-    rw[]>>
-    gvs[oneline match_xor_def,AllCasePreds()]>>
-    simp[xeval_lit_def]>>
-    every_case_tac>>fs[]>>
-    metis_tac[])
-QED
-
-(* Not quite right because of forward/backward refs *)
-Theorem aig_to_xaig_opt_sound:
-  ∀aig xaig gm lit gs.
-  aig_to_xaig_opt aig = (xaig,gm) ∧
-  ALL_DISTINCT (MAP FST aig) ⇒
-  FDOM gm ⊆ set (MAP FST aig) ∧
-  (∀g ins.
-    FLOOKUP gm g = SOME ins ⇒
-    (xeval_gate ss xaig g =
-      EVERY (λa. xeval_lit ss xaig a) ins)) ∧
-  (eval_lit ss aig lit =
-  xeval_lit ss xaig lit) ∧
-  (eval_gate ss aig gs =
-  xeval_gate ss xaig gs)
-Proof
-  Induct
-  >- (
-    simp[aig_to_xaig_opt_def]>>
-    Cases>>
-    simp[eval_lit_def,xeval_lit_def])>>
-  Cases>>
-  fs[eval_lit_def,xeval_lit_def,aig_to_xaig_opt_def]>>
-  rpt gen_tac>>
-  strip_tac>>
-  gvs[AllCaseEqs(),GSYM PULL_FORALL]>>
-  cheat
 QED

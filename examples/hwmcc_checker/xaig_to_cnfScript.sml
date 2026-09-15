@@ -47,7 +47,7 @@ QED
 (* the literals that a gate depends on *)
 
 Definition gty_lits_def[simp]:
-  gty_lits (And ts) = ts ∧
+  gty_lits (And ts : ('a,'i,'l) gty) = ts ∧
   gty_lits (Xor t1 t2) = [t1; t2] ∧
   gty_lits (Ite t1 t2 t3) = [t1; t2; t3] ∧
   gty_lits (Or ts) = ts
@@ -76,6 +76,38 @@ Proof
   simp [xeval_lit_def]
 QED
 
+Theorem xeval_lit_not:
+  xeval_lit ss xs (not t) ⇔ ¬xeval_lit ss xs t
+Proof
+  Cases_on ‘t’ \\ simp [not_def, xeval_lit_def] \\ CASE_TAC \\ metis_tac []
+QED
+
+(* moving a literal between lists that agree on every gate *)
+Theorem xeval_lit_cong_gate:
+  (∀m. xeval_gate ss ys m ⇔ xeval_gate ss xs m) ⇒
+  (xeval_lit ss ys t ⇔ xeval_lit ss xs t)
+Proof
+  Cases_on ‘t’ \\ simp [xeval_lit_def] \\ CASE_TAC \\ simp []
+QED
+
+Theorem xeval_gty_cong_gate:
+  (∀m. xeval_gate ss ys m ⇔ xeval_gate ss xs m) ⇒
+  (xeval_gty ss ys gt ⇔ xeval_gty ss xs gt)
+Proof
+  strip_tac \\ irule xeval_gty_cong \\ simp [EVERY_MEM]
+  \\ metis_tac [xeval_lit_cong_gate]
+QED
+
+Theorem xeval_gty_cons:
+  (∀m b. MEM (Gate m,b) (gty_lits gt) ⇒ m ≠ n) ⇒
+  (xeval_gty ss ((n,gt0)::rest) gt ⇔ xeval_gty ss rest gt)
+Proof
+  strip_tac \\ irule xeval_gty_cong \\ simp [EVERY_MEM, FORALL_PROD] \\ rw []
+  \\ rename [‘MEM (v,b) _’] \\ Cases_on ‘v’
+  \\ simp [xeval_lit_def, xeval_gate_cons]
+  \\ first_x_assum drule \\ rw []
+QED
+
 (*----------------------------------------------------------------------*
    pruning
  *----------------------------------------------------------------------*)
@@ -101,7 +133,8 @@ Definition xprune_rev_def:
 End
 
 Definition xprune_for_def:
-  xprune_for name xaig = xprune_rev xaig (fmap_update FEMPTY name ()) []
+  xprune_for (name:'a) (xaig:('a,'i,'l) xaig) =
+    xprune_rev xaig (fmap_update FEMPTY name ()) []
 End
 
 Theorem xprune_rev_thm:
@@ -215,7 +248,7 @@ Proof
 QED
 
 Definition xrename_gty_def:
-  xrename_gty (And ts) next im lm nm =
+  xrename_gty (And ts : ('a,'i,'l) gty) next im lm nm =
     (let (ts1,next,im,lm) = xrename_lits ts next im lm nm [] in
        (And ts1,next,im,lm)) ∧
   xrename_gty (Xor t1 t2) next im lm nm =
@@ -282,6 +315,27 @@ Definition xclosed_def:
     (xclosed rest ∧
      ∀m b. MEM (Gate m,b) (gty_lits gt) ⇒ ALOOKUP rest m ≠ NONE)
 End
+
+Theorem xclosed_ALOOKUP_MEM:
+  ∀xs.
+    xclosed xs ∧ ALOOKUP xs g = SOME gt ∧ MEM (Gate m,b) (gty_lits gt) ⇒
+    MEM m (MAP FST xs)
+Proof
+  Induct \\ fs [xclosed_def, FORALL_PROD] \\ rw [] \\ gvs [ALOOKUP_NONE]
+  \\ first_x_assum drule \\ simp []
+QED
+
+(* reading a gate by name is evaluating its body in the whole list *)
+Theorem xeval_gate_ALOOKUP:
+  ALL_DISTINCT (MAP FST xs) ∧ xclosed xs ∧
+  ALOOKUP xs g = SOME gt ⇒
+  (xeval_gate ss xs g ⇔ xeval_gty ss xs gt)
+Proof
+  Induct_on ‘xs’ \\ fs [FORALL_PROD, xclosed_def, xeval_gate_cons] \\ rw []
+  \\ irule (GSYM xeval_gty_cons) \\ rw [] \\ strip_tac \\ gvs []
+  >- (first_x_assum drule \\ gvs [ALOOKUP_NONE])
+  \\ drule_all xclosed_ALOOKUP_MEM \\ simp []
+QED
 
 Theorem xnot_eval_gate:
   ∀xaig a. ~MEM a (MAP FST xaig) ⇒ ¬xeval_gate (is,ls) xaig a
@@ -691,6 +745,142 @@ Proof
   \\ irule xeval_gate'_swap \\ rw [] \\ first_x_assum drule
   \\ unabbrev_all_tac \\ fs [aig_read_def] \\ simp [FLOOKUP_DEF]
   \\ rw [IN_FRANGE] \\ fs [INJ_DEF] \\ metis_tac []
+QED
+
+(*----------------------------------------------------------------------*
+   xor/ite detection
+ *----------------------------------------------------------------------*)
+
+(* A gate x = ¬L ∧ ¬R whose inputs L = l0 ∧ l1 and R = r0 ∧ r1 are both
+   binary And gates is
+     an XOR, x = l0 ⊕ l1, when {r0;r1} = {¬l0;¬l1}, and
+     an ITE, x = if c then t else e, when some pair li = ¬rj is
+     complementary, with c = li, t = ¬l(1-i) and e = ¬r(1-j).
+   Both identities hold for arbitrary literals.  The map gm records the
+   inputs of every binary And gate seen so far, whether or not the gate was
+   rewritten, so the pass is only sound on lists with distinct names whose
+   gates refer to later gates (see xaig_opt_sound). *)
+
+Definition match_xor_def:
+  match_xor (l0:('a,'i,'l) aig$lit) l1 r0 r1 ⇔
+    (l0 = not r0 ∧ l1 = not r1) ∨ (l0 = not r1 ∧ l1 = not r0)
+End
+
+Definition match_ite_def:
+  match_ite (l0:('a,'i,'l) aig$lit) l1 r0 r1 =
+    if l0 = not r0 then SOME (l0, not l1, not r1)
+    else if l0 = not r1 then SOME (l0, not l1, not r0)
+    else if l1 = not r0 then SOME (l1, not l0, not r1)
+    else if l1 = not r1 then SOME (l1, not l0, not r0)
+    else NONE
+End
+
+Definition optimize_gate_def:
+  optimize_gate (gt:('a,'i,'l) gty) (gm:'a |-> ('a,'i,'l) aig$lit list) =
+    case gt of
+      And [(Gate l,T);(Gate r,T)] =>
+        (case (FLOOKUP gm l, FLOOKUP gm r) of
+           (SOME [l0;l1], SOME [r0;r1]) =>
+             if match_xor l0 l1 r0 r1 then SOME (Xor l0 l1)
+             else (case match_ite l0 l1 r0 r1 of
+                     SOME (c,t,e) => SOME (Ite c t e)
+                   | NONE => NONE)
+         | _ => NONE)
+    | _ => NONE
+End
+
+Definition add_and_def:
+  add_and (gm:'a |-> ('a,'i,'l) aig$lit list) (n:'a) (gt:('a,'i,'l) gty) =
+    case gt of And [a;b] => fmap_update gm n [a;b] | _ => gm
+End
+
+Definition xaig_opt_def:
+  xaig_opt ([]:('a,'i,'l) xaig) gm = ([]:('a,'i,'l) xaig, gm) ∧
+  xaig_opt ((n,gt)::xs) gm =
+    let (ys, gm) = xaig_opt xs gm in
+    let gt' = (case optimize_gate gt gm of SOME gt' => gt' | NONE => gt) in
+      ((n,gt')::ys, add_and gm n gt)
+End
+
+Definition xaig_opt_rev_def:
+  xaig_opt_rev ([]:('a,'i,'l) xaig) gm acc = (acc, gm) ∧
+  xaig_opt_rev ((n,gt)::xs) gm acc =
+    let gt' = (case optimize_gate gt gm of SOME gt' => gt' | NONE => gt) in
+      xaig_opt_rev xs (add_and gm n gt) ((n,gt')::acc)
+End
+
+Theorem FLOOKUP_add_and:
+  FLOOKUP (add_and gm n gt) g = SOME ins ⇒
+  g = n ∧ gt = And ins ∨ FLOOKUP gm g = SOME ins
+Proof
+  simp [add_and_def] \\ strip_tac
+  \\ qpat_x_assum ‘FLOOKUP _ _ = _’ mp_tac
+  \\ rpt (CASE_TAC \\ gvs [FLOOKUP_UPDATE])
+QED
+
+Theorem optimize_gate_sound:
+  optimize_gate gt gm = SOME gt' ∧
+  (∀g ins. FLOOKUP gm g = SOME ins ⇒
+           (xeval_gate ss xs g ⇔ xeval_gty ss xs (And ins))) ⇒
+  (xeval_gty ss xs gt' ⇔ xeval_gty ss xs gt)
+Proof
+  strip_tac \\ gvs [optimize_gate_def, AllCaseEqs()]
+  \\ res_tac \\ simp [xeval_lit_def]
+  >- (gvs [match_xor_def, xeval_lit_not] \\ metis_tac [])
+  \\ gvs [match_ite_def, AllCaseEqs(), xeval_lit_not] \\ metis_tac []
+QED
+
+Theorem xaig_opt_map_inv:
+  ∀xs ys gm.
+    ALL_DISTINCT (MAP FST xs) ∧
+    xaig_opt xs FEMPTY = (ys,gm) ⇒
+    ∀g ins. FLOOKUP gm g = SOME ins ⇒ ALOOKUP xs g = SOME (And ins)
+Proof
+  Induct \\ simp [xaig_opt_def] \\ PairCases \\ simp [xaig_opt_def]
+  \\ rpt gen_tac \\ strip_tac \\ pairarg_tac \\ gvs []
+  \\ rpt gen_tac \\ strip_tac \\ drule FLOOKUP_add_and \\ strip_tac
+  >- gvs []
+  \\ first_x_assum drule \\ strip_tac \\ rw [] \\ gvs [GSYM ALOOKUP_NONE]
+QED
+
+Theorem xaig_opt_sound:
+  ∀xs ys gm.
+    ALL_DISTINCT (MAP FST xs) ∧ xclosed xs ∧
+    xaig_opt xs FEMPTY = (ys,gm) ⇒
+    ∀n. xeval_gate ss ys n ⇔ xeval_gate ss xs n
+Proof
+  Induct \\ simp [xaig_opt_def] \\ PairCases \\ simp [xaig_opt_def, xclosed_def]
+  \\ rename [‘(hn,gt)::xs’] \\ rpt gen_tac \\ strip_tac \\ pairarg_tac
+  \\ rename [‘xaig_opt xs FEMPTY = (ys1,gm1)’]
+  \\ Cases_on ‘optimize_gate gt gm1’ \\ gvs [] \\ rw [xeval_gate_cons]
+  >- (irule xeval_gty_cong_gate \\ simp [])
+  \\ rename [‘optimize_gate gt gm1 = SOME gt2’]
+  \\ ‘∀g ins. FLOOKUP gm1 g = SOME ins ⇒
+      (xeval_gate ss xs g ⇔ xeval_gty ss xs (And ins))’ by (
+    rw [] \\ drule_all xaig_opt_map_inv \\ strip_tac
+    \\ irule xeval_gate_ALOOKUP \\ simp [])
+  \\ ‘xeval_gty ss ys1 gt2 ⇔ xeval_gty ss xs gt2’ by
+    (irule xeval_gty_cong_gate \\ simp [])
+  \\ drule_all optimize_gate_sound \\ simp []
+QED
+
+Theorem xaig_opt_rev_append:
+  ∀xs ys gm acc.
+    xaig_opt_rev (xs ++ ys) gm acc =
+      let (acc,gm) = xaig_opt_rev xs gm acc in
+        xaig_opt_rev ys gm acc
+Proof
+  Induct \\ fs [xaig_opt_rev_def] \\ PairCases \\ rw [xaig_opt_rev_def]
+QED
+
+Theorem xaig_opt_rev_thm:
+  ∀xs gm acc.
+    xaig_opt_rev (REVERSE xs) gm acc =
+      let (ys,gm) = xaig_opt xs gm in (ys ++ acc, gm)
+Proof
+  Induct \\ fs [xaig_opt_rev_def, xaig_opt_def]
+  \\ PairCases \\ rw [xaig_opt_rev_append, xaig_opt_def]
+  \\ rpt (pairarg_tac \\ gvs [xaig_opt_rev_def])
 QED
 
 (*----------------------------------------------------------------------*
@@ -1411,7 +1601,7 @@ QED
  *----------------------------------------------------------------------*)
 
 Definition xaig_to_cnf_def:
-  xaig_to_cnf xaig name =
+  xaig_to_cnf (xaig:('a,'i,'l) xaig) (name:'a) =
     let xaig_1 = xprune_for name xaig in
     let (xaig_2, limit, x) = xaig_rename_rev xaig_1 [] 2n FEMPTY FEMPTY FEMPTY in
       (direct_xaig_to_cnf xaig_2, limit)
