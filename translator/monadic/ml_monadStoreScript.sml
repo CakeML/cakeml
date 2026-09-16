@@ -214,5 +214,41 @@ Proof
 fs[SEP_CLAUSES]
 QED
 
+(* Lemmas used by ml_monad_translator_interfaceLib *)
+
+Theorem IMP_STAR_GC:
+  (STAR a x) s ∧ (y = GC) ⇒ (STAR a y) s
+Proof
+  fs [set_sepTheory.STAR_def] >>
+  rw [] >> asm_exists_tac >> fs [] >>
+  EVAL_TAC >>
+  fs [set_sepTheory.SEP_EXISTS_THM] >>
+  qexists_tac `K T` >>
+  fs []
+QED
+
+Theorem st_ex_eta_intro:
+  ∀  f : 'b -> 'a -> ('d, 'c) exc # 'a .
+    f = ( λ x s . f x s)
+Proof
+  metis_tac[ETA_THM]
+QED
+
+Theorem ignore_st_ex_eta_intro:
+  ∀  f : 'a -> ('d, 'c) exc # 'a .
+    f = ( λ s . f s)
+Proof
+  fs[ETA_THM]
+QED
+
+Theorem remove_state_arg:
+  ∀ f:'a -> ('b, 'c) exc # 'a  g . (∀ s . (f s = g s)) ⇔ (f = λ a . g a)
+Proof
+  rw[] >>
+  EQ_TAC >>
+  rw[] >>
+  fs[ETA_THM, EQ_EXT]
+QED
+
 
 
