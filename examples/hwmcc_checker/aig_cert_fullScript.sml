@@ -7,7 +7,7 @@ Ancestors
   listRange
   mlint (* for num_to_str *)
   syntax_helper (* for the DIMACS printer *)
-  aig aig_parse aig_cert_encode aig_to_cnf
+  aig_parse xaig_cert xaig_cert_encode xaig_to_cnf
 Libs
   preamble
 
@@ -71,6 +71,7 @@ Definition parse_def:
   od
 End
 
+(* TODO Split processing of model and witness? *)
 (* TODO Pad to short witness signals/justices; did this in the past *)
 
 Definition preprocess_def:
@@ -151,12 +152,12 @@ End
      intersection with the witness latches. *)
 Definition process_mlatches_range_def:
   process_mlatches_range
-    maig mreset mnext msafes mcnstrs mlatch_start mmax_latch mlive wlatches
+    mxaig mreset mnext msafes mcnstrs mlatch_start mmax_latch mlive wlatches
   =
   let
     mlatches = [mlatch_start .. mmax_latch];
     klatches = range_inter mlatch_start mmax_latch wlatches;
-    maig_latches = aig_latches maig;
+    mxaig_latches = xaig_latches mxaig;
     safe_latches = FLAT (MAP lit_latches msafes);
     cnstrs_latches = FLAT (MAP lit_latches mcnstrs);
     next_latches = FLAT (MAP (lit_latches ∘ mnext) mlatches);
@@ -166,7 +167,7 @@ Definition process_mlatches_range_def:
   in
     do
       assert «circuit mentions latches outside of mlatches»
-        (range_is_subset maig_latches mlatch_start mmax_latch);
+        (range_is_subset mxaig_latches mlatch_start mmax_latch);
       assert «safety signals mention latches outside of mlatches»
         (range_is_subset safe_latches mlatch_start mmax_latch);
       assert «constraints mention latches outside of mlatches»
@@ -185,10 +186,10 @@ val monad_thms = [oneline bind_def, guard_def]
 
 Theorem process_mlatches_range_return:
   process_mlatches_range
-    maig mreset mnext msafes mcnstrs mlatch_start mmax_latch mlive wlatches =
+    mxaig mreset mnext msafes mcnstrs mlatch_start mmax_latch mlive wlatches =
   return (mlatches, klatches) ⇒
   set klatches = set mlatches ∩ set wlatches ∧
-  dep_cond maig mreset mnext msafes mcnstrs mlive mlatches
+  dep_cond mxaig mreset mnext msafes mcnstrs mlive mlatches
 Proof
   simp [process_mlatches_range_def, dep_cond_def]
   >> rw monad_thms
