@@ -69,7 +69,6 @@ Ancestors
 
 Type reg = ``:num``
 Type fp_reg = ``:num``
-Type imm = ``:'a word``
 
 Datatype:
   reg_imm = Reg reg | Imm int
@@ -119,7 +118,7 @@ Datatype:
 End
 
 Datatype:
-  addr = Addr reg ('a word)
+  addr = Addr reg int
 End
 
 Datatype:
@@ -131,7 +130,7 @@ Datatype:
   inst = Skip
        | Const reg ('a word)
        | Arith arith
-       | Mem memop reg ('a addr)
+       | Mem memop reg addr
        | FP fp
 End
 
@@ -162,9 +161,9 @@ Datatype:
      ; fp_reg_count   : num  (* set to 0 if float not available *)
      ; two_reg_arith  : bool
      ; valid_imm      : (binop + cmp) -> int -> bool
-     ; addr_offset    : 'a word # 'a word
-     ; hw_offset      : 'a word # 'a word
-     ; byte_offset    : 'a word # 'a word
+     ; addr_offset    : int # int
+     ; hw_offset      : int # int
+     ; byte_offset    : int # int
      ; jump_offset    : 'a word # 'a word
      ; cjump_offset   : 'a word # 'a word
      ; loc_offset     : 'a word # 'a word
@@ -271,17 +270,22 @@ Definition cmp_ok_def:
   cmp_ok (cmp: cmp) r ri c <=> reg_ok r c /\ reg_imm_ok (INR cmp) ri c
 End
 
+Definition int_offset_ok_def:
+  int_offset_ok offset w =
+  let (min, max) = offset in min:int <= w /\ w <= max:int
+End
+
 Definition offset_ok_def:
   offset_ok a offset w =
   let (min, max) = offset in min <= w /\ w <= max /\ aligned a w
 End
 
-Overload addr_offset_ok = “λc. offset_ok 0 c.addr_offset”
-Overload hw_offset_ok = “λc. offset_ok 0 c.hw_offset”
-Overload byte_offset_ok = “λc. offset_ok 0 c.byte_offset”
-Overload jump_offset_ok = “λc. offset_ok c.code_alignment c.jump_offset”
+Overload addr_offset_ok  = “λc. int_offset_ok c.addr_offset”
+Overload hw_offset_ok    = “λc. int_offset_ok c.hw_offset”
+Overload byte_offset_ok  = “λc. int_offset_ok c.byte_offset”
+Overload jump_offset_ok  = “λc. offset_ok c.code_alignment c.jump_offset”
 Overload cjump_offset_ok = “λc. offset_ok c.code_alignment c.cjump_offset”
-Overload loc_offset_ok = “λc. offset_ok c.code_alignment c.loc_offset”
+Overload loc_offset_ok   = “λc. offset_ok c.code_alignment c.loc_offset”
 
 Definition inst_ok_def:
   (inst_ok Skip c = T) /\

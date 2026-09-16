@@ -177,7 +177,7 @@ Definition fp_upd_def:
 End
 
 Definition addr_def:
-  addr (Addr r offset) s = read_reg r s + offset
+  addr (Addr r offset) s = read_reg r s + i2w offset
 End
 
 Definition read_mem_word_def:
@@ -218,8 +218,8 @@ Definition mem_op_def:
   (mem_op Store8 r a = mem_store 1 r a) /\
   (mem_op Load16 r a = mem_load 2 r a) /\
   (mem_op Store16 r a = mem_store 2 r a) /\
-  (mem_op Load32 r (a:'a addr) = mem_load 4 r a) /\
-  (mem_op Store32 r (a:'a addr) = mem_store 4 r a)
+  (mem_op Load32 r a = (mem_load 4 r a) :'a asm_state -> 'a asm_state) /\
+  (mem_op Store32 r a = mem_store 4 r a)
 End
 
 Definition inst_def:
