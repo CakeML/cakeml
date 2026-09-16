@@ -268,21 +268,22 @@ Definition reify_flag_def:
     | SOME (Counting (NValue Xs Y)) =>
       MEM (HD vs) $ MAP (varc wi) Xs
     | SOME (Scheduling (Cumulative xs ws hs cap)) =>
-      (* cumulative flags carry the (int) time t in the Values list:
-         «cb»: task i has started by t;  «ca»: task i not finished by t;
-         «cact»: active (started ∧ not finished);
-         «cc»: bit b of task i's contribution at t (an upper-bounded natural
-               equal to its height when active and 0 otherwise). Every bit is
-               defined via BIT, so no bit-width bound is threaded. *)
-      let i = Num (EL 0 vs); t = EL 1 vs in
-      let bef = (varc wi (EL i xs) ≤ t) in
-      let aft = (varc wi (EL i xs) + varc wi (EL i ws) ≥ t + 1) in
-      if ann = SOME («cb») then bef
-      else if ann = SOME («ca») then aft
-      else if ann = SOME («cact») then bef ∧ aft
-      else (* ann = SOME («cc») *)
-        let b = Num (EL 2 vs) in
-        BIT b (if bef ∧ aft then Num (varc wi (EL i hs)) else 0)
+      (* cumulative flags are indexed by a task pair (i,j), j the checkpoint:
+         «sb»: task i starts no later than task j;
+         «sa»: task i has not finished when task j starts;
+         «sact»: task i is running when task j starts;
+         «scc»: running ∧ bit (EL 2 vs) of task i's height;
+         «sccs»: running ∧ task i's height is negative *)
+      let i = Num (EL 0 vs); j = Num (EL 1 vs) in
+      let bef = (varc wi (EL i xs) ≤ varc wi (EL j xs)) in
+      let aft = (varc wi (EL i xs) + varc wi (EL i ws) ≥ varc wi (EL j xs) + 1) in
+      if ann = SOME («sb») then bef
+      else if ann = SOME («sa») then aft
+      else if ann = SOME («sact») then bef ∧ aft
+      else if ann = SOME («scc») then
+        bef ∧ aft ∧ int_bit (Num (EL 2 vs)) (varc wi (EL i hs))
+      else (* ann = SOME («sccs») *)
+        bef ∧ aft ∧ varc wi (EL i hs) < 0
     | SOME (Sorting (Sort Xs Ys)) =>
       (* «pos»: bit (EL 1 vs) of the proof-only stable rank of element (EL 0 vs) *)
       let i = Num (EL 0 vs); b = Num (EL 1 vs) in

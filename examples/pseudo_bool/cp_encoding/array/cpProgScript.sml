@@ -802,39 +802,17 @@ val res = translate cp_to_ilp_schedulingTheory.cencode_disjunctive_def;
 val res = translate cp_to_ilp_schedulingTheory.cencode_disjunctive2d_def;
 
 (* cumulative *)
-val res = translate cp_to_ilp_schedulingTheory.cumul_before_def;
-val res = translate cp_to_ilp_schedulingTheory.cumul_after_def;
-val res = translate cp_to_ilp_schedulingTheory.cumul_active_def;
-val res = translate cp_to_ilp_schedulingTheory.cumul_cbit_def;
-val res = translate cp_to_ilp_schedulingTheory.cumul_ub_num_def;
-
-Theorem cumul_ub_num_side[local]:
-  cumul_ub_num_side a b c d ⇔ T
-Proof
-  rw[fetch "-" "cumul_ub_num_side_def"]>>rw[]>>intLib.ARITH_TAC
-QED
-val _ = update_precondition cumul_ub_num_side;
-
-val res = translate cp_to_ilp_schedulingTheory.cumul_contrib_ge_def;
-val res = translate cp_to_ilp_schedulingTheory.cumul_contrib_le_def;
-val res = translate cp_to_ilp_schedulingTheory.cumul_contrib_le0_def;
-val res = translate cp_to_ilp_schedulingTheory.mk_cumul_active_def;
-val res = translate cp_to_ilp_schedulingTheory.task_lo_def;
-val res = translate cp_to_ilp_schedulingTheory.task_hi_def;
-val res = translate cp_to_ilp_schedulingTheory.cumul_covers_def;
-val res = translate cp_to_ilp_schedulingTheory.cumul_ts_task_def;
-
-Theorem cumul_ts_task_side[local]:
-  cumul_ts_task_side a b c ⇔ T
-Proof
-  rw[fetch "-" "cumul_ts_task_side_def"]>>intLib.ARITH_TAC
-QED
-val _ = update_precondition cumul_ts_task_side;
-
-val res = translate cp_to_ilp_schedulingTheory.cumul_times_def;
-val res = translate cp_to_ilp_schedulingTheory.mk_cumul_contrib_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_sb_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_sa_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_sact_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_scc_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_sccs_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_task_active_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_pair_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_contrib_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_gate_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_scap_row_def;
 val res = translate cp_to_ilp_schedulingTheory.cumul_nonneg_def;
-val res = translate cp_to_ilp_schedulingTheory.cumul_cap_line_def;
 val res = translate cp_to_ilp_schedulingTheory.cencode_cumulative_def;
 
 val res = translate cp_to_ilp_schedulingTheory.cencode_scheduling_constr_def;
