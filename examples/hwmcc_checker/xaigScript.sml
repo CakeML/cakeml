@@ -66,6 +66,14 @@ Proof
   simp [xeval_lit_def]
 QED
 
+Theorem xeval_lit_not:
+   xeval_lit ss xaig (not x) ⇔ ¬xeval_lit ss xaig x
+Proof
+  Cases_on ‘x’
+  >> simp [not_def, xeval_lit_def]
+  >> TOP_CASE_TAC >> metis_tac []
+QED
+
 (* Equivalence to AIG *********************************************************)
 
 Definition aig_xaig_rel_def:

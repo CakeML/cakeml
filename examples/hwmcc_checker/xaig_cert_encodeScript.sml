@@ -618,13 +618,11 @@ Definition iname_def:
     | _ => 0
 End
 
-(*
 Theorem iname_not[simp]:
   iname (not x) = iname x
 Proof
   Cases_on ‘x’ >> simp [not_def, iname_def]
 QED
-*)
 
 Theorem iname_ext_lit[simp]:
   iname (ext_lit x) = 0
@@ -683,7 +681,9 @@ Definition encode_imply_def:
   encode_imply (xaig: ('a ext, 'i, 'l) xaig) name b lhss rhss =
   let n = MAX (maxn lhss) (maxn rhss) in
     (Ext name, And [(Gate (Anon (n+2)), b)])
-    ::(Anon (n + 2), Ite (Gate (Anon (n+1)), F) (Gate (Anon n), F) TT)
+    (* We use Or over ITE; otherwise, ITE forces the condition into both
+       polarities and we lose PG's savings. *)
+    ::(Anon (n + 2), Or [(Gate (Anon (n+1)), T); (Gate (Anon n), F)])
     ::(Anon (n + 1), And lhss)::(Anon n, And rhss)::xaig
 End
 
@@ -808,7 +808,7 @@ QED
 (* Encoding point-wise implication ********************************************)
 
 Definition impi_def:
-  impi n i (x, y) : ('a ext, 'i, 'l) gate = (Anon (i + n), Ite x y TT)
+  impi n i (x, y) : ('a ext, 'i, 'l) gate = (Anon (i + n), Or [not x; y])
 End
 
 Theorem impi_suc:
@@ -839,7 +839,7 @@ Proof
   >> rename1 ‘impi _ _ g’ >> Cases_on ‘g’ >> simp [impi_def]
   >> Cases_on ‘i’
   >> gvs [xeval_lit_def, impi_suc, maxn_cons_leq]
-  >- gvs [Req0 iname_xeval_lit_impi]
+  >- gvs [Req0 iname_xeval_lit_impi, IMP_DISJ_THM, xeval_lit_not]
   >> rename1 ‘Anon (n + SUC i)’
   >> first_x_assum $ qspecl_then [‘n + 1’, ‘i’] mp_tac
   >> simp [ADD1]
