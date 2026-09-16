@@ -1807,12 +1807,25 @@ EVAL ``parse_sol (plainVar_nf,()) (INL «sol») (toks_fast «x1 ~x2 ~x3 : -2»)`
 EVAL ``parse_sol (plainVar_nf,()) (INL «soli») (toks_fast «x1 ~x2 ~x3»)``
 *)
 
+Definition parse_solx_aux_def:
+  (parse_solx_aux f_ns [] assg free = SOME ((assg,free),f_ns)) ∧
+  (parse_solx_aux f_ns (INL s::ss) assg free =
+    if strlen s > 0 ∧ strsub s 0 = #"*" then
+      case parse_var f_ns (substring s 1 (strlen s - 1)) of
+        NONE => NONE
+      | SOME (v,f_ns') => parse_solx_aux f_ns' ss assg (insert v () free)
+    else
+      case parse_lit_num f_ns s of
+        NONE => NONE
+      | SOME (l,f_ns') => parse_solx_aux f_ns' ss (split_lit l::assg) free) ∧
+  (parse_solx_aux f_ns _ assg free = NONE)
+End
+
 Definition parse_solx_def:
-  (parse_solx f_ns rs =
-  case parse_assg f_ns rs [] of
-  | SOME (assg,NONE,f_ns') =>
-      SOME (Done (Sol assg),f_ns')
-  | _ => NONE)
+  parse_solx f_ns rs =
+  case parse_solx_aux f_ns rs [] LN of
+    SOME ((assg,free),f_ns') => SOME (Done (Sol assg free),f_ns')
+  | NONE => NONE
 End
 
 (*

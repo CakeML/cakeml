@@ -1735,6 +1735,7 @@ val res = translate parse_sol_def;
 val res = translate parse_eobj_def;
 val res = translate parse_obji_def;
 
+val res = translate parse_solx_aux_def;
 val res = translate parse_solx_def;
 val res = translate list_to_num_set_def;
 val res = translate parse_epres_def;
