@@ -51,6 +51,10 @@ Type lit[pp] = “:('a,'i,'l) var # bool”
 Overload TT = “(Base Ff, T)”
 Overload FF = “(Base Ff, F)”
 
+Definition not_def:
+  not ((v, b): ('a,'i,'l) lit) = (v, ¬b)
+End
+
 Type and[pp] = “:'a # (('a,'i,'l) lit list)”
 Type aig[pp] = “:('a,'i,'l) and list”
 
@@ -195,3 +199,93 @@ Definition is_live_def:
         (∀i. k ≤ i ⇒
              eval_lit (state_pair (steps i) (steps (i + 1))) qaig signal)
 End
+
+(* Lifting to two states ******************************************************)
+(* The liveness circuit is defined over two states, whereas the model circuit
+   is defined over one. What follows is the machinery necessary to lift
+   circuits to be over two states. The generality is necessary for encoding
+   properties such as "decreases" and "stable". *)
+
+(* f/g indicate the namespace inputs/latches should be mapped to.
+   Usually f = g, e.g., f = g = INL. *)
+Definition bvar_map_def:
+  (bvar_map (f: 'i0 -> 'i1) _               (Input i) = Input (f i)) ∧
+  (bvar_map  _              (g: 'l0 -> 'l1) (Latch l) = Latch (g l)) ∧
+  (bvar_map  _              _               Ff        = Ff)
+End
+
+Definition var_map_base_def:
+  (var_map_base _ _ (Gate a)  = Gate a) ∧
+  (var_map_base f g (Base bv) = Base (bvar_map f g bv))
+End
+
+Definition lit_map_base_def:
+  lit_map_base f g (v, b) = (var_map_base f g v, b)
+End
+
+Definition live_map_base_def:
+  live_map_base f g (live: ('a, 'i, 'l) lit list list) =
+    MAP (MAP (lit_map_base f g)) live
+End
+
+Definition qleft_live_def:
+  qleft_live (live: ('a, 'i, 'l) lit list list) = live_map_base INL INL live
+End
+
+Definition and_map_base_def:
+  and_map_base f g (n, ins) = (n, MAP (lit_map_base f g) ins)
+End
+
+Definition qleft_def:
+  qleft (aig: ('a, 'i, 'l) aig) = MAP (and_map_base INL INL) aig
+End
+
+Theorem qleft_cons[local]:
+  qleft (g::aig) = and_map_base INL INL g::qleft aig
+Proof
+  simp [qleft_def]
+QED
+
+Theorem eval_gate_pair_qleft:
+  ∀aig.
+    (∀n.
+       eval_gate (state_pair s₁ s₂) (qleft aig) n ⇔
+       eval_gate s₁ aig n) ∧
+    (∀lit.
+       eval_lit (state_pair s₁ s₂) (qleft aig) (lit_map_base INL INL lit) ⇔
+       eval_lit s₁ aig lit)
+Proof
+  Induct >> rw []
+  >- simp [qleft_def]
+  >- (
+    simp [qleft_def]
+    >> Cases_on ‘lit’
+    >> rename1 ‘lit_map_base _ _ (v, _)’ >> Cases_on ‘v’
+    >> simp [lit_map_base_def, var_map_base_def, eval_lit_def]
+    >> rename1 ‘bvar_map _ _ b’ >> Cases_on ‘b’
+    >> simp [bvar_map_def, eval_lit_def]
+    >> Cases_on ‘s₁’ >> Cases_on ‘s₂’ >> simp [state_pair_def, eval_bvar_def]
+  )
+  >- (
+    simp [eval_lit_def, qleft_cons]
+    >> rw [] >> rpt (pairarg_tac >> gvs [])
+    >> gvs [and_map_base_def]
+    >> IF_CASES_TAC >> gvs []
+    >> simp [EVERY_MAP]
+  )
+  >> Cases_on ‘lit’
+  >> rename1 ‘lit_map_base _ _ (v, _)’ >> Cases_on ‘v’
+  >> simp [lit_map_base_def, var_map_base_def, eval_lit_def]
+  >> qmatch_goalsub_abbrev_tac ‘(r ⇔ X) ⇔ (r ⇔ Y)’
+  >> qsuff_tac ‘X ⇔ Y’ >- simp []
+  >> simp [Abbr ‘X’, Abbr ‘Y’]
+  >- (
+    simp [qleft_cons, eval_lit_def]
+    >> rpt (pairarg_tac >> gvs [])
+    >> gvs [and_map_base_def]
+    >> IF_CASES_TAC >> gvs []
+    >> simp [EVERY_MAP])
+  >> rename1 ‘bvar_map _ _ b’ >> Cases_on ‘b’
+  >> simp [bvar_map_def, eval_lit_def]
+  >> Cases_on ‘s₁’ >> Cases_on ‘s₂’ >> simp [state_pair_def, eval_bvar_def]
+QED

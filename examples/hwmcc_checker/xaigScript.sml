@@ -66,6 +66,107 @@ Proof
   simp [xeval_lit_def]
 QED
 
+(* Equivalence to AIG *********************************************************)
+
+Definition aig_xaig_rel_def:
+  aig_xaig_rel aig xaig ⇔
+  (∀ss n. eval_gate ss aig n ⇔ xeval_gate ss xaig n) ∧
+  (∀ss lit. eval_lit ss aig lit ⇔ xeval_lit ss xaig lit)
+End
+
+(* Lifting to two states ******************************************************)
+
+Definition gty_map_base_def:
+  gty_map_base f g (And xs) =
+    And (MAP (lit_map_base f g) xs) ∧
+  gty_map_base f g (Xor x₀ x₁) =
+    Xor (lit_map_base f g x₀) (lit_map_base f g x₁) ∧
+  gty_map_base f g (Ite cnd thn els) =
+    Ite (lit_map_base f g cnd) (lit_map_base f g thn) (lit_map_base f g els) ∧
+  gty_map_base f g (Or xs) =
+    Or (MAP (lit_map_base f g) xs)
+End
+
+Definition gate_map_base_def:
+  gate_map_base f g (n, gty) = (n, gty_map_base f g gty)
+End
+
+Definition xaig_map_base_def:
+  xaig_map_base f g (xaig: ('a, 'i, 'l) xaig) =
+    MAP (gate_map_base f g) xaig
+End
+
+Definition qxleft_def:
+  qxleft (xaig: ('a, 'i, 'l) xaig) = xaig_map_base INL INL xaig
+End
+
+Theorem qxleft_cons[local]:
+  qxleft (g::xaig) = gate_map_base INL INL g::qxleft xaig
+Proof
+  simp [qxleft_def, xaig_map_base_def]
+QED
+
+Theorem xeval_gate_pair_qxleft:
+  ∀xaig.
+    (∀n.
+       xeval_gate (state_pair s₁ s₂) (qxleft xaig) n ⇔
+       xeval_gate s₁ xaig n) ∧
+    (∀lit.
+       xeval_lit (state_pair s₁ s₂) (qxleft xaig) (lit_map_base INL INL lit) ⇔
+       xeval_lit s₁ xaig lit)
+Proof
+  Induct >> rw []
+  >- simp [qxleft_def, xaig_map_base_def]
+  >- (
+    simp [qxleft_def, xaig_map_base_def]
+    >> Cases_on ‘lit’
+    >> rename1 ‘lit_map_base _ _ (v, _)’ >> Cases_on ‘v’
+    >> simp [lit_map_base_def, var_map_base_def, xeval_lit_def]
+    >> rename1 ‘bvar_map _ _ b’ >> Cases_on ‘b’
+    >> simp [bvar_map_def, xeval_lit_def]
+    >> Cases_on ‘s₁’ >> Cases_on ‘s₂’ >> simp [state_pair_def, eval_bvar_def]
+  )
+  >- (
+    simp [xeval_lit_def, qxleft_cons]
+    >> rw [] >> rpt (pairarg_tac >> gvs [])
+    >> gvs [gate_map_base_def]
+    >> IF_CASES_TAC >> gvs []
+    >> rename1 ‘gty_map_base _ _ gt'’ >> Cases_on ‘gt'’
+    >> simp [gty_map_base_def, EVERY_MAP, EXISTS_MAP]
+  )
+  >> Cases_on ‘lit’
+  >> rename1 ‘lit_map_base _ _ (v, _)’ >> Cases_on ‘v’
+  >> simp [lit_map_base_def, var_map_base_def, xeval_lit_def]
+  >> qmatch_goalsub_abbrev_tac ‘(r ⇔ X) ⇔ (r ⇔ Y)’
+  >> qsuff_tac ‘X ⇔ Y’ >- simp []
+  >> simp [Abbr ‘X’, Abbr ‘Y’]
+  >- (
+    simp [qxleft_cons, xeval_lit_def]
+    >> rpt (pairarg_tac >> gvs [])
+    >> IF_CASES_TAC >> gvs []
+    >> gvs [gate_map_base_def]
+    >> rename1 ‘gty_map_base _ _ gt'’ >> Cases_on ‘gt'’
+    >> simp [gty_map_base_def, EVERY_MAP, EXISTS_MAP])
+  >> rename1 ‘bvar_map _ _ b’ >> Cases_on ‘b’
+  >> simp [bvar_map_def, xeval_lit_def]
+  >> Cases_on ‘s₁’ >> Cases_on ‘s₂’ >> simp [state_pair_def, eval_bvar_def]
+QED
+
+Theorem aig_xaig_rel_qleft:
+  ∀maig mxaig.
+    aig_xaig_rel (qleft maig) (qxleft mxaig) ⇔ aig_xaig_rel maig mxaig
+Proof
+  simp [aig_xaig_rel_def, FORALL_STATE_PAIR]
+  >> rw [] >> eq_tac >> rw []
+  >- metis_tac [eval_gate_pair_qleft, xeval_gate_pair_qxleft]
+  >- metis_tac [eval_gate_pair_qleft, xeval_gate_pair_qxleft]
+  >- metis_tac [eval_gate_pair_qleft, xeval_gate_pair_qxleft]
+  >> Cases_on ‘lit’
+  >> simp [eval_lit_def, xeval_lit_def]
+  >> TOP_CASE_TAC >> simp []
+  >> metis_tac [eval_gate_pair_qleft, xeval_gate_pair_qxleft]
+QED
+
 (* Circuits *******************************************************************)
 
 Definition xlits_hold_def:
@@ -121,6 +222,19 @@ Definition xis_safe_def:
   ¬xis_unsafe xaig reset next cnstrs latches safes
 End
 
+Theorem xis_safe_is_safe:
+  aig_xaig_rel maig mxaig ⇒
+  (xis_safe mxaig mreset mnext mcnstrs mlatches msafes ⇔
+   is_safe maig mreset mnext mcnstrs mlatches msafes)
+Proof
+  rw [aig_xaig_rel_def]
+  >> simp [xis_safe_def, is_safe_def,
+           xis_unsafe_def, is_unsafe_def, xis_trace_def,
+           is_trace_def, xlits_hold_def, lits_hold_def,
+           xis_reset_def, is_reset_def,
+           xis_next_def, is_next_def]
+QED
+
 (** Liveness ******************************************************************)
 
 Definition xis_inf_trace_def:
@@ -159,6 +273,25 @@ Definition xis_live_def:
         (∀i. k ≤ i ⇒
              xeval_lit (state_pair (steps i) (steps (i + 1))) qxaig signal)
 End
+
+Theorem xis_live_is_live:
+  aig_xaig_rel maig mxaig ⇒
+  (xis_live
+     mxaig mreset mnext (set mcnstrs) (qxleft mxaig)
+     (IMAGE set (set (qleft_live mlive))) (set mlatches)
+   ⇔
+   is_live
+     maig mreset mnext (set mcnstrs) (qleft maig)
+     (IMAGE set (set (qleft_live mlive))) (set mlatches))
+Proof
+  strip_tac
+  >> drule_then assume_tac $
+       INST_TYPE [“:δ” |-> “:β”, “:ε” |-> “:γ”] $ iffRL aig_xaig_rel_qleft
+  >> gvs [aig_xaig_rel_def]
+  >> simp [xis_live_def, is_live_def, xis_inf_trace_def, is_inf_trace_def,
+           xis_reset_def, is_reset_def, xlits_hold_def, lits_hold_def,
+           xis_next_def, is_next_def]
+QED
 
 (* Converting from AIG to xAIG ************************************************)
 

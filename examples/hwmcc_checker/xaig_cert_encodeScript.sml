@@ -415,11 +415,11 @@ Proof
   >> simp [right_bvar_def, eval_bvar_def]
 QED
 
-(* Liveness xAIGs (qxaig) *******************************************************)
+(** Intervention **************************************************************)
 
 (* Liveness xAIGs (qxaig) have access to two different states.
-   For model xAIGs this is not needed; inputs and outputs (not gates) are
-   lifted to INL.
+   Model xAIGs do not need this, thus inputs and outputs (not gates) can be
+   simply lifted to INL.
    In contrast, witness xAIGs need to make use of this. For this, the
    intervention function maps literals to latches in the other state.
    Thus, we go through the xAIG and for each literal present as a key in the
@@ -429,50 +429,6 @@ QED
    In the simplest case, f = INL and g = INR. To encode the decreases property,
    these are flipped, and in the presence of three states (as in stable),
    we need to nest the constructors. *)
-
-(* f/g indicate the namespace inputs/latches should be mapped to.
-   Usually f = g, e.g., f = g = INL. *)
-Definition bvar_map_def:
-  (bvar_map (f: 'i0 -> 'i1) _               (Input i) = Input (f i)) ∧
-  (bvar_map  _              (g: 'l0 -> 'l1) (Latch l) = Latch (g l)) ∧
-  (bvar_map  _              _               Ff        = Ff)
-End
-
-Definition var_map_base_def:
-  (var_map_base _ _ (Gate a)  = Gate a) ∧
-  (var_map_base f g (Base bv) = Base (bvar_map f g bv))
-End
-
-Definition lit_map_base_def:
-  lit_map_base f g (v, b) = (var_map_base f g v, b)
-End
-
-Definition gty_map_base_def:
-  gty_map_base f g (And xs) =
-    And (MAP (lit_map_base f g) xs) ∧
-  gty_map_base f g (Xor x₀ x₁) =
-    Xor (lit_map_base f g x₀) (lit_map_base f g x₁) ∧
-  gty_map_base f g (Ite cnd thn els) =
-    Ite (lit_map_base f g cnd) (lit_map_base f g thn) (lit_map_base f g els) ∧
-  gty_map_base f g (Or xs) =
-    Or (MAP (lit_map_base f g) xs)
-End
-
-Definition gate_map_base_def:
-  gate_map_base f g (n, gty) = (n, gty_map_base f g gty)
-End
-
-Definition xaig_map_base_def:
-  xaig_map_base f g (xaig: ('a, 'i, 'l) xaig) =
-    MAP (gate_map_base f g) xaig
-End
-
-Definition live_map_base_def:
-  live_map_base f g (live: ('a, 'i, 'l) lit list list) =
-    MAP (MAP (lit_map_base f g)) live
-End
-
-(** Intervention **************************************************************)
 
 (* f/g indicate the namespace the first copy of input/latches should be mapped
    to. h indicates the second copy of latches intervened literals should be
@@ -519,73 +475,17 @@ End
 
 (** Specialized versions of the functions above. ******************************)
 
-Definition qleft_def:
-  qleft (xaig: ('a, 'i, 'l) xaig) = xaig_map_base INL INL xaig
-End
-
-Theorem qleft_cons:
-  qleft (g::xaig) = gate_map_base INL INL g::qleft xaig
-Proof
-  simp [qleft_def, xaig_map_base_def]
-QED
-
-Theorem xeval_gate_pair_qleft:
-  ∀xaig.
-    (∀n.
-       xeval_gate (state_pair s₁ s₂) (qleft xaig) n ⇔
-       xeval_gate s₁ xaig n) ∧
-    (∀lit.
-       xeval_lit (state_pair s₁ s₂) (qleft xaig) (lit_map_base INL INL lit) ⇔
-       xeval_lit s₁ xaig lit)
-Proof
-  Induct >> rw []
-  >- simp [qleft_def, xaig_map_base_def]
-  >- (
-    simp [qleft_def, xaig_map_base_def]
-    >> Cases_on ‘lit’
-    >> rename1 ‘lit_map_base _ _ (v, _)’ >> Cases_on ‘v’
-    >> simp [lit_map_base_def, var_map_base_def, xeval_lit_def]
-    >> rename1 ‘bvar_map _ _ b’ >> Cases_on ‘b’
-    >> simp [bvar_map_def, xeval_lit_def]
-    >> Cases_on ‘s₁’ >> Cases_on ‘s₂’ >> simp [state_pair_def, eval_bvar_def]
-  )
-  >- (
-    simp [xeval_lit_def, qleft_cons]
-    >> rw [] >> rpt (pairarg_tac >> gvs [])
-    >> gvs [gate_map_base_def]
-    >> IF_CASES_TAC >> gvs []
-    >> rename1 ‘gty_map_base _ _ gt'’ >> Cases_on ‘gt'’
-    >> simp [gty_map_base_def, EVERY_MAP, EXISTS_MAP]
-  )
-  >> Cases_on ‘lit’
-  >> rename1 ‘lit_map_base _ _ (v, _)’ >> Cases_on ‘v’
-  >> simp [lit_map_base_def, var_map_base_def, xeval_lit_def]
-  >> qmatch_goalsub_abbrev_tac ‘(r ⇔ X) ⇔ (r ⇔ Y)’
-  >> qsuff_tac ‘X ⇔ Y’ >- simp []
-  >> simp [Abbr ‘X’, Abbr ‘Y’]
-  >- (
-    simp [qleft_cons, xeval_lit_def]
-    >> rpt (pairarg_tac >> gvs [])
-    >> IF_CASES_TAC >> gvs []
-    >> gvs [gate_map_base_def]
-    >> rename1 ‘gty_map_base _ _ gt'’ >> Cases_on ‘gt'’
-    >> simp [gty_map_base_def, EVERY_MAP, EXISTS_MAP])
-  >> rename1 ‘bvar_map _ _ b’ >> Cases_on ‘b’
-  >> simp [bvar_map_def, xeval_lit_def]
-  >> Cases_on ‘s₁’ >> Cases_on ‘s₂’ >> simp [state_pair_def, eval_bvar_def]
-QED
-
-Theorem dep_xaig_pair_qleft:
-  dep_xaig (pair_set minput) (pair_set (set mlatches)) (qleft mxaig) =
+Theorem dep_xaig_pair_qxleft:
+  dep_xaig (pair_set minput) (pair_set (set mlatches)) (qxleft mxaig) =
   dep_xaig minput (set mlatches) mxaig
 Proof
   simp [dep_xaig_def, FORALL_STATE_PAIR, agree_on_pair,
-        xeval_gate_pair_qleft]
+        xeval_gate_pair_qxleft]
   >> metis_tac []
 QED
 
-Definition qleft_live_def:
-  qleft_live (live: ('a, 'i, 'l) lit list list) = live_map_base INL INL live
+Definition qxleft_live_def:
+  qxleft_live (live: ('a, 'i, 'l) lit list list) = live_map_base INL INL live
 End
 
 Definition qinterv_l_r_def:
@@ -1485,7 +1385,7 @@ Definition encode_liveness_cond_def:
     (interv: ('b, 'i, 'l) var -> ('l # bool) option)
   =
   let
-    mqxaig = qleft mxaig;
+    mqxaig = qxleft mxaig;
     wqxaig = qinterv_l_r interv wxaig;
     qxaig  = merge_xaigs mqxaig wqxaig;
     xaig   = merge_xaigs mxaig wxaig;
@@ -1494,7 +1394,7 @@ Definition encode_liveness_cond_def:
     wsignals = MAP (ext_lit ∘ right_name_lit ∘ right_name_lit)
                      (FLAT (qinterv_live_l_r interv wlive));
     msignals = MAP (ext_lit ∘ right_name_lit ∘ left_name_lit)
-                     (FLAT (qleft_live mlive));
+                     (FLAT (qxleft_live mlive));
     xaig   = encode_signal_imply xaig «lives_imply» wsignals msignals;
     xaig   = encode_xlits_hold xaig «mcnstrs0»
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ left_name_lit) mcnstrs);
@@ -1923,8 +1823,6 @@ Theorem signal_imply_merge_left[local,simp]:
 Proof
   simp [signal_imply_def, LIST_REL_MAP, xlits_hold_def]
 QED
-
-(* todo pointwise_equal, xlits_hold, ext_xaig? *)
 
 Theorem signal_imply_encode_lives_hold_l[local,simp]:
   (signal_imply ss (encode_lives_hold xaig name xss) ss' xaig'
@@ -2870,7 +2768,7 @@ Theorem xeval_gate_encode_liveness_cond:
     wxaig wnext wcnstrs wsafes wlive wlatches interv
   =
   liveness_cond
-    mxaig (set mcnstrs) (qleft mxaig) (qleft_live mlive)
+    mxaig (set mcnstrs) (qxleft mxaig) (qxleft_live mlive)
     wxaig wnext (set wsafes) (set wcnstrs)
     (qinterv_l_r interv wxaig) (qinterv_live_l_r interv wlive) (set wlatches)
 Proof
@@ -2894,7 +2792,7 @@ Proof
   >> have ‘LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive' wlive'’
   >- (
     fs [Abbr ‘mlive'’, Abbr ‘wlive'’, LIST_REL_EL_EQN,
-        qinterv_live_l_r_def, qinterv_live_def, qleft_live_def,
+        qinterv_live_l_r_def, qinterv_live_def, qxleft_live_def,
         live_map_base_def, EL_MAP]
   )
   >> have ‘LENGTH (FLAT mlive') = LENGTH (FLAT wlive')’
@@ -3367,12 +3265,12 @@ Proof
            pair_set_def]
 QED
 
-Theorem dep_lits_pair_qleft_live:
-  dep_lits (pair_set inputs) (pair_set latches) (set (FLAT (qleft_live mlive)))
+Theorem dep_lits_pair_qxleft_live:
+  dep_lits (pair_set inputs) (pair_set latches) (set (FLAT (qxleft_live mlive)))
   ⇔
   dep_lits inputs latches (set (FLAT mlive))
 Proof
-  simp [qleft_live_def, live_map_base_def, GSYM MAP_FLAT]
+  simp [qxleft_live_def, live_map_base_def, GSYM MAP_FLAT]
   >> simp [dep_lits_pair_map_lit_map_base_inl]
 QED
 
@@ -3389,14 +3287,14 @@ Theorem encoding_xis_safe_and_live:
   xis_safe
     mxaig mreset mnext (set mcnstrs) (set mlatches) (set msafes) ∧
   xis_live
-    mxaig mreset mnext (set mcnstrs) (qleft mxaig)
-    (IMAGE set (set (qleft_live mlive))) (set mlatches)
+    mxaig mreset mnext (set mcnstrs) (qxleft mxaig)
+    (IMAGE set (set (qxleft_live mlive))) (set mlatches)
 Proof
   strip_tac
   >> sg
        ‘is_witness
           mxaig mreset mnext (set msafes) (set mcnstrs)
-          (qleft mxaig) (qleft_live mlive) (set mlatches)
+          (qxleft mxaig) (qxleft_live mlive) (set mlatches)
           wxaig wreset wnext (set wsafes) (set wcnstrs)
           (qinterv_l_r interv wxaig) (qinterv_live_l_r interv wlive)
           (set wlatches)’
@@ -3420,7 +3318,7 @@ Proof
      ‘∃minput.
         dep_model mxaig mreset mnext (set msafes) (set mcnstrs) minput
           (set mlatches) ∧
-        dep_qxaig minput (qleft mxaig) (qleft_live mlive) (set mlatches)’
+        dep_qxaig minput (qxleft mxaig) (qxleft_live mlive) (set mlatches)’
   >- (
     qabbrev_tac
       ‘minput =
@@ -3433,7 +3331,7 @@ Proof
          BIGUNION (IMAGE (set ∘ lit_inputs) (set (FLAT mlive)))’
     >> qexists ‘minput’
     >> rewrite_tac [dep_model_def, dep_qxaig_def, GSYM CONJ_ASSOC]
-    >> simp [dep_xaig_pair_qleft, dep_lits_pair_qleft_live]
+    >> simp [dep_xaig_pair_qxleft, dep_lits_pair_qxleft_live]
     >> fs [dep_cond_def]
     >> sg ‘dep_xaig minput (set mlatches) mxaig’
     >- (
