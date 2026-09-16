@@ -830,6 +830,22 @@ Proof
   \\ gvs [match_ite_def, AllCaseEqs(), xeval_lit_not] \\ metis_tac []
 QED
 
+Theorem not_FST[local,simp]:
+  FST (not t) = FST t
+Proof
+  PairCases_on ‘t’ \\ simp [not_def]
+QED
+
+(* Every literal of a rewritten gate is, up to negation, a literal of one of
+   the And gates recorded in gm. *)
+Theorem optimize_gate_lits:
+  optimize_gate gt gm = SOME gt' ∧ MEM t (gty_lits gt') ⇒
+  ∃g ins t'. FLOOKUP gm g = SOME ins ∧ MEM t' ins ∧ FST t' = FST t
+Proof
+  strip_tac \\ gvs [optimize_gate_def, AllCaseEqs(), match_ite_def]
+  \\ metis_tac [MEM]
+QED
+
 Theorem xaig_opt_map_inv:
   ∀xs ys gm.
     ALL_DISTINCT (MAP FST xs) ∧
@@ -862,6 +878,80 @@ Proof
   \\ ‘xeval_gty ss ys1 gt2 ⇔ xeval_gty ss xs gt2’ by
     (irule xeval_gty_cong_gate \\ simp [])
   \\ drule_all optimize_gate_sound \\ simp []
+QED
+
+Theorem xaig_opt_MAP_FST:
+  ∀xs gm ys gm'. xaig_opt xs gm = (ys,gm') ⇒ MAP FST ys = MAP FST xs
+Proof
+  Induct \\ simp [xaig_opt_def] \\ PairCases \\ simp [xaig_opt_def]
+  \\ rpt gen_tac \\ strip_tac \\ pairarg_tac \\ gvs []
+  \\ res_tac \\ simp []
+QED
+
+Theorem xhas_var_MEM[local]:
+  ∀xs. MEM (n,gt) xs ∧ MEM (Base v,b) (gty_lits gt) ⇒ xhas_var v xs
+Proof
+  Induct \\ simp [FORALL_PROD, xhas_var_def] \\ rw [] \\ gvs []
+  \\ metis_tac []
+QED
+
+Theorem xaig_opt_xclosed:
+  ∀xs ys gm.
+    ALL_DISTINCT (MAP FST xs) ∧ xclosed xs ∧
+    xaig_opt xs FEMPTY = (ys,gm) ⇒
+    xclosed ys
+Proof
+  Induct \\ simp [xaig_opt_def] \\ PairCases
+  \\ simp [xaig_opt_def, xclosed_def]
+  \\ rpt gen_tac \\ strip_tac \\ pairarg_tac \\ gvs [xclosed_def]
+  \\ rename [‘xaig_opt xs FEMPTY = (ys1,gm1)’]
+  \\ rpt gen_tac \\ strip_tac
+  \\ ‘MEM m (MAP FST xs)’ suffices_by
+       (strip_tac \\ drule xaig_opt_MAP_FST \\ simp [ALOOKUP_NONE])
+  \\ qpat_x_assum ‘MEM _ (gty_lits _)’ mp_tac
+  \\ CASE_TAC \\ simp []
+  >- (strip_tac \\ res_tac \\ gvs [ALOOKUP_NONE])
+  \\ strip_tac
+  \\ drule_all optimize_gate_lits \\ strip_tac
+  \\ drule_all xaig_opt_map_inv \\ strip_tac
+  \\ irule xclosed_ALOOKUP_MEM
+  \\ first_assum $ irule_at Any \\ simp []
+  \\ Cases_on ‘t'’ \\ gvs [] \\ metis_tac []
+QED
+
+Theorem xaig_opt_xhas_var:
+  ∀xs ys gm.
+    ALL_DISTINCT (MAP FST xs) ∧ xaig_opt xs FEMPTY = (ys,gm) ∧
+    xhas_var v ys ⇒
+    xhas_var v xs
+Proof
+  Induct \\ simp [xaig_opt_def, xhas_var_def] \\ PairCases
+  \\ simp [xaig_opt_def, xhas_var_def]
+  \\ rpt gen_tac \\ strip_tac \\ pairarg_tac \\ gvs [xhas_var_def]
+  \\ rename [‘xaig_opt xs FEMPTY = (ys1,gm1)’]
+  \\ qpat_x_assum ‘MEM _ (gty_lits _)’ mp_tac
+  \\ CASE_TAC \\ simp []
+  >- (strip_tac \\ disj2_tac \\ metis_tac [])
+  \\ strip_tac \\ disj1_tac
+  \\ drule_all optimize_gate_lits \\ strip_tac
+  \\ drule_all xaig_opt_map_inv \\ strip_tac
+  \\ irule xhas_var_MEM
+  \\ drule ALOOKUP_MEM \\ strip_tac
+  \\ first_assum $ irule_at Any
+  \\ Cases_on ‘t'’ \\ gvs [] \\ metis_tac []
+QED
+
+Theorem xaig_opt_xeval_gate':
+  ∀xs ys gm.
+    ALL_DISTINCT (MAP FST xs) ∧ xclosed xs ∧
+    xaig_opt xs FEMPTY = (ys,gm) ⇒
+    (xeval_gate' ss ys ⇔ xeval_gate' ss xs)
+Proof
+  Cases \\ simp [xaig_opt_def, xeval_gate'_def]
+  \\ PairCases_on ‘h’ \\ simp [xaig_opt_def]
+  \\ rpt gen_tac \\ strip_tac \\ pairarg_tac \\ gvs [xeval_gate'_def]
+  \\ irule xaig_opt_sound
+  \\ simp [xaig_opt_def]
 QED
 
 Theorem xaig_opt_rev_append:
@@ -1085,15 +1175,20 @@ Definition add_lit_pol_def:
     | Base _ => pm
 End
 
-(* The polarity that each input literal of a gate inherits.  Both inputs of
-   an Xor gate, and the condition of an Ite gate, are used in both
-   polarities, whatever the polarity of the gate itself. *)
+(* The polarity that each input literal of a gate inherits.  A gate that is
+   used in neither polarity contributes no clauses, so its inputs inherit
+   nothing from it.  Otherwise both inputs of an Xor gate, and the condition
+   of an Ite gate, are used in both polarities, whatever the polarity of the
+   gate itself. *)
 
 Definition gty_pols_def:
-  gty_pols pl (And ts) = MAP (λt. (pl,t)) ts ∧
-  gty_pols pl (Xor t1 t2) = [((T,T),t1); ((T,T),t2)] ∧
-  gty_pols pl (Ite t1 t2 t3) = [((T,T),t1); (pl,t2); (pl,t3)] ∧
-  gty_pols pl (Or ts) = MAP (λt. (pl,t)) ts
+  gty_pols pl gt =
+    if pl = (F,F) then [] else
+      case gt of
+      | And ts => MAP (λt. (pl,t)) ts
+      | Xor t1 t2 => [((T,T),t1); ((T,T),t2)]
+      | Ite t1 t2 t3 => [((T,T),t1); (pl,t2); (pl,t3)]
+      | Or ts => MAP (λt. (pl,t)) ts
 End
 
 Definition add_lits_pol_def:
@@ -1236,7 +1331,11 @@ Theorem gty_pols_mono[local]:
     pol_le pl pl' ∧ EVERY (lit_pol_ok w ss rest) (gty_pols pl' gt) ⇒
     EVERY (lit_pol_ok w ss rest) (gty_pols pl gt)
 Proof
-  Cases \\ simp [gty_pols_def, EVERY_MAP] \\ strip_tac
+  Cases_on ‘pl = (F,F)’ >- simp [gty_pols_def]
+  \\ Cases \\ strip_tac
+  \\ ‘pl' ≠ (F,F)’ by
+       (PairCases_on ‘pl’ \\ PairCases_on ‘pl'’ \\ gvs [pol_le_def])
+  \\ gvs [gty_pols_def, EVERY_MAP]
   >-
    (fs [EVERY_MEM] \\ rw [] \\ res_tac
     \\ irule lit_pol_ok_mono \\ first_assum $ irule_at Any \\ simp [])
@@ -1347,7 +1446,8 @@ Proof
   \\ last_x_assum drule_all \\ strip_tac
   \\ simp [xeval_gate_cons]
   \\ ‘EVERY (lit_pol_ok w (w,w) xaig) (gty_pols (pol_of pm h0) h1)’ by
-       (simp [EVERY_MEM] \\ PairCases \\ strip_tac
+       (Cases_on ‘pol_of pm h0 = (F,F)’ >- simp [gty_pols_def]
+        \\ simp [EVERY_MEM] \\ PairCases \\ strip_tac
         \\ irule lit_pol_ok_lemma
         \\ simp [] \\ qexists ‘add_gty_pol (pol_of pm h0) h1 pm’ \\ simp []
         \\ rw []
@@ -1604,7 +1704,8 @@ Definition xaig_to_cnf_def:
   xaig_to_cnf (xaig:('a,'i,'l) xaig) (name:'a) =
     let xaig_1 = xprune_for name xaig in
     let (xaig_2, limit, x) = xaig_rename_rev xaig_1 [] 2n FEMPTY FEMPTY FEMPTY in
-      (direct_xaig_to_cnf xaig_2, limit)
+    let (xaig_3, gm) = xaig_opt_rev (REVERSE xaig_2) FEMPTY [] in
+      (direct_xaig_to_cnf xaig_3, limit)
 End
 
 Theorem xaig_to_cnf_correct:
@@ -1613,8 +1714,12 @@ Theorem xaig_to_cnf_correct:
   lits_within limit cnf
 Proof
   simp [xaig_to_cnf_def]
-  \\ pairarg_tac \\ fs []
-  \\ strip_tac \\ gvs [xprune_for_def, xprune_rev_thm, xaig_rename_rev_thm]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ strip_tac
+  \\ gvs [xprune_for_def, xprune_rev_thm, xaig_rename_rev_thm,
+          xaig_opt_rev_thm]
+  \\ Cases_on ‘xaig_opt xaig_2 FEMPTY’ \\ gvs []
+  \\ rename [‘xaig_opt xaig_2 FEMPTY = (xaig_3,gm1)’]
   \\ PairCases_on ‘x’
   \\ drule xaig_rename_thm
   \\ simp [GSYM PULL_FORALL]
@@ -1624,6 +1729,12 @@ Proof
   \\ fs [rename_inv_def]
   \\ ‘1 ∉ FRANGE x0 ∧ 1 ∉ FRANGE x1 ∧ ¬MEM 1 (MAP FST xaig_2)’ by
        (rpt strip_tac \\ res_tac \\ fs [])
+  \\ ‘MAP FST xaig_3 = MAP FST xaig_2’ by (drule xaig_opt_MAP_FST \\ simp [])
+  \\ ‘xclosed xaig_3’ by (irule xaig_opt_xclosed \\ metis_tac [])
+  \\ ‘∀v. xhas_var v xaig_3 ⇒ xhas_var v xaig_2’ by
+       (rpt strip_tac \\ irule xaig_opt_xhas_var \\ metis_tac [])
+  \\ ‘∀ss. xeval_gate' ss xaig_3 ⇔ xeval_gate' ss xaig_2’ by
+       (strip_tac \\ irule xaig_opt_xeval_gate' \\ metis_tac [])
   \\ conj_tac
   >-
    (irule EQ_TRANS
@@ -1633,6 +1744,10 @@ Proof
          asm_rewrite_tac []
     \\ pop_assum $ rewrite_tac o single
     \\ rewrite_tac [xeval_gate'_xaig_rename, xeval_gate'_xprune])
+  \\ ‘∀l. xhas_var (Latch l) xaig_3 ⇒ l ∈ FRANGE x1’ by metis_tac []
+  \\ ‘∀i. xhas_var (Input i) xaig_3 ⇒ i ∈ FRANGE x0’ by metis_tac []
+  \\ ‘∀n. (n ∈ FRANGE x0 ∨ n ∈ FRANGE x1) ∨ MEM n (MAP FST xaig_3) ⇒
+          1 < n ∧ n < limit’ by metis_tac []
   \\ irule direct_xaig_to_cnf_lits_within \\ fs [EVERY_MEM, FORALL_PROD]
   \\ rw [] \\ res_tac \\ fs [MEM_MAP, EXISTS_PROD]
   \\ res_tac \\ fs []
