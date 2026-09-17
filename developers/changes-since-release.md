@@ -8,6 +8,12 @@ The CakeML source language now supports open and let open (#1482).
 
 ## Compiler backend and runtime
 
+The compiler handles dynamic installation of new code in new way (#1487). This
+paves the way for supporting Eval on Arm.
+
+Smallnums and nullary constructors have improved runtime representation (#1487).
+This means, e.g., that smallnums can use 63 bits on 64-bit architectures.
+
 ## Pancake
 
 Queryable feature tags (#1470).
@@ -18,7 +24,7 @@ Queryable feature tags (#1470).
 
 The PB checker has been reorganized with minor fixes.
 
-The RUP algorithm has been updated. 
+The RUP algorithm has been updated.
 
 ## Build infrastructure
 

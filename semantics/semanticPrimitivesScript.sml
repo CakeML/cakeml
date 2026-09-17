@@ -218,7 +218,7 @@ End
 *)
 Type compiler_args = ``: ((num # num) # v # dec list)``
 Type compiler_fun = ``: compiler_args ->
-     (v # word8 list # word64 list)option``
+     (v # mlstring # word64 list)option``
 
 Datatype:
  eval_decs_state =
@@ -566,20 +566,6 @@ Definition maybe_all_list_def:
         case maybe_all_list vs of NONE => NONE | SOME xs => SOME (x::xs)
 End
 
-Definition v_to_word8_def:
-  v_to_word8 v =
-    case v of
-    | Litv (Word8 w) => SOME w
-    | _ => NONE
-End
-
-Definition v_to_word8_list_def:
-  v_to_word8_list v =
-    case v_to_list v of
-    | NONE => NONE
-    | SOME xs => maybe_all_list (MAP v_to_word8 xs)
-End
-
 Definition v_to_word64_def:
   v_to_word64 v =
     case v of
@@ -592,6 +578,13 @@ Definition v_to_word64_list_def:
     case v_to_list v of
     | NONE => NONE
     | SOME xs => maybe_all_list (MAP v_to_word64 xs)
+End
+
+Definition v_to_mlstring_def:
+  v_to_mlstring v =
+    case v of
+    | Litv (StrLit s) => SOME s
+    | _ => NONE
 End
 
 Definition lookup_env_def:
@@ -654,9 +647,9 @@ Termination
 End
 
 Definition compiler_agrees_def:
-  compiler_agrees (f:((num#num)#v#(dec)list ->(v#(word8)list#(word64)list)option))
+  compiler_agrees (f:((num#num)#v#(dec)list ->(v#mlstring#(word64)list)option))
       args (st_v,bs_v,ws_v) ⇔
-    case (f args,args,v_to_word8_list bs_v,v_to_word64_list ws_v) of
+    case (f args,args,v_to_mlstring bs_v,v_to_word64_list ws_v) of
     | (SOME (st,c_bs,c_ws),(v16,prev_st_v,_),SOME bs,SOME ws) =>
         st = st_v ∧ c_bs = bs ∧ c_ws = ws ∧ concrete_v st_v ∧
         concrete_v prev_st_v

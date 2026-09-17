@@ -51,4 +51,7 @@ val res = translate OPTION_MAP2_DEF;
 val () = next_ml_names := ["compare"];
 val res = translate mloptionTheory.compare_def;
 
+val () = next_ml_names := ["filter"];
+val res = translate mloptionTheory.filter_def;
+
 val _ = ml_prog_update (close_module NONE);

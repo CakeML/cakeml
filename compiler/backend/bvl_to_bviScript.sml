@@ -265,8 +265,6 @@ local val compile_op_quotation = `
       (Op Install
        [Call 0 (SOME ListLength_location)
           [Var 0; Op (IntOp (Const 0)) []] NONE;
-        Call 0 (SOME ListLength_location)
-          [Var 1; Op (IntOp (Const 0)) []] NONE;
         Var 0; Var 1])
     | MemOp FromListByte =>
         Let (if NULL c1 then [Op (IntOp (Const 0)) []] else c1)

@@ -2686,12 +2686,13 @@ Definition simple_compile_state_rel_def:
                         shift_seq 1 t.compile_oracle; code := t.code |>)))
 End
 
-Theorem simple_val_rel_v_to_bytes:
-  simple_val_rel vr /\ vr x y ==> v_to_bytes x = v_to_bytes y
+Theorem simple_val_rel_v_to_mlstring:
+  simple_val_rel vr /\ vr x y ==> v_to_mlstring x = v_to_mlstring y
 Proof
-  rw [v_to_bytes_def]
-  \\ imp_res_tac v_rel_to_list_byte1
-  \\ rfs [listTheory.MAP_o]
+  strip_tac
+  \\ Cases_on `y` \\ gvs [simple_val_rel_alt, v_to_mlstring_def]
+  \\ res_tac
+  \\ Cases_on `x` \\ gvs []
 QED
 
 Theorem simple_val_rel_Word64_left:
@@ -2753,7 +2754,7 @@ Proof
   \\ simp [do_install_def]
   \\ fs [pure_co_def]
   \\ rpt (TYPE_CASE_TAC "list" \\ fs [])
-  \\ imp_res_tac simple_val_rel_v_to_bytes
+  \\ imp_res_tac simple_val_rel_v_to_mlstring
   \\ imp_res_tac simple_val_rel_v_to_words
   \\ Cases_on `SND (s.compile_oracle 0)`
   \\ FIRST_X_ASSUM drule \\ rfs [] \\ rveq

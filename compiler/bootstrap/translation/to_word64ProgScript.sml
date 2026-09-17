@@ -152,8 +152,8 @@ val _ = translate (LoadBignum_def |> inline_simp |> conv64)
 
 Theorem Smallnum_alt[local]:
     Smallnum i =
-    if i < 0 then 0w − n2w (Num (ABS (4 * (0 − i))))
-             else n2w (Num (ABS (4 * i)))
+    if i < 0 then 0w − n2w (Num (ABS (2 * (0 − i))))
+             else n2w (Num (ABS (2 * i)))
 Proof
   fs [Smallnum_def] \\ Cases_on `i` \\ fs [integerTheory.INT_ABS_NUM]
 QED
@@ -286,6 +286,15 @@ fun tweak_assign_def th =
      |> SIMP_RULE std_ss [word_mul_def,LET_THM] |> gconv;
 
 val res = all_assign_defs |> CONJUNCTS |> rev |> map tweak_assign_def |> map translate;
+
+Theorem data_to_word_assign_const_side[local]:
+  !i l dest. data_to_word_assign_const_side i l dest <=> T
+Proof
+  rw [fetch "-" "data_to_word_assign_const_side_def"] \\ intLib.COOPER_TAC
+QED
+
+val _ = update_precondition data_to_word_assign_const_side;
+
 val res = translate (assign_def |> tweak_assign_def);
 
 Theorem lemma[local]:
@@ -670,8 +679,7 @@ val r = translate(ByteCopyAdd_code_def |> conv64)
 val r = translate(ByteCopySub_code_def |> conv64 |> econv)
 val r = translate(ByteCopyNew_code_def |> conv64)
 
-val r = translate(Install_code_def |> conv64)
-val r = translate(InstallCode_code_def |> inline_simp |> conv64)
+val r = translate(Install_code_def |> inline_simp |> conv64)
 val r = translate(InstallData_code_def |> inline_simp |> conv64)
 
 val _ = translate(Append_code_def|> inline_simp |> conv64 |> we_simp |> econv |> SIMP_RULE std_ss [shift_left_rwt])

@@ -344,7 +344,7 @@ fun extract_farrays_manip_funs (name, init, get, set, len, sub, upd) =
 
 local
 
-  val IMP_STAR_GC = ml_monadStoreTheory.IMP_STAR_GC
+  val IMP_STAR_GC = ml_monad_translatorTheory.IMP_STAR_GC
 
 in
 
@@ -525,11 +525,11 @@ val m_translation_extends = ml_monad_translatorLib.m_translation_extends;
 
 local
 
-  val st_ex_eta_intro = ml_monadStoreTheory.st_ex_eta_intro
+  val st_ex_eta_intro = ml_monad_translatorTheory.st_ex_eta_intro;
 
-  val ignore_st_ex_eta_intro = ml_monadStoreTheory.ignore_st_ex_eta_intro
+  val ignore_st_ex_eta_intro = ml_monad_translatorTheory.ignore_st_ex_eta_intro;
 
-  val remove_state_arg = ml_monadStoreTheory.remove_state_arg
+  val remove_state_arg = ml_monad_translatorTheory.remove_state_arg;
 
   (* Theorems to push/pull state term into compound terms *)
   (* TODO - add more theorems, these will not be enough *)
