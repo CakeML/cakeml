@@ -32,9 +32,9 @@ End
 (* For a line starting with c, checks for p show ... *)
 Definition parse_show_def:
   (parse_show vs (c::p::show::rest) =
-  if p = INL (strlit "p")
+  if p = INL «p»
   then
-    if show = INL (strlit "show")
+    if show = INL «show»
     then
       (case parse_nat_until_zero rest of
         NONE => NONE
@@ -186,19 +186,19 @@ Definition parse_scpstep_def:
   parse_scpstep ls =
   case ls of
   | INL s::ls =>
-    if s = strlit"c" then SOME Skip
-    (* else if s = strlit "d" then parse_rup_del ls *)
-    else if s = strlit "D" then parse_arb_del ls
-    else if s = strlit"r" then parse_root ls
+    if s = «c» then SOME Skip
+    (* else if s = «d» then parse_rup_del ls *)
+    else if s = «D» then parse_arb_del ls
+    else if s = «r» then parse_root ls
     else NONE
   | INR i::INL s::ls =>
     if i > 0 then
       let C = Num (ABS i) in
-      if s = strlit"a" then parse_rup_add F C ls
-      else if s = strlit "as" then parse_rup_add T C ls
-      else if s = strlit "p" then parse_pro C ls
-      else if s = strlit "s" then parse_sum C ls
-      else if s = strlit "t" then parse_sko C ls
+      if s = «a» then parse_rup_add F C ls
+      else if s = «as» then parse_rup_add T C ls
+      else if s = «p» then parse_pro C ls
+      else if s = «s» then parse_sum C ls
+      else if s = «t» then parse_sko C ls
       else NONE
     else NONE
   | _ => NONE
@@ -218,19 +218,19 @@ Definition parse_scpsteps_def:
 End
 
 val scpstepsraw = ``[
-  strlit"29 a 18 0 1 27 0 ";
-  strlit"30 a 14 0 29 19 0";
-  strlit"31 a 10 0 30 11 0";
-  strlit"r 100";
-  strlit"83 s 40 32 39 61 80 0";
-  strlit"86 p 41 30 40 0 ";
-  strlit"89 t 42 -15 -19 0 ";
-  strlit"92 p 43 4 41 42 0 ";
-  strlit"c Operation T23";
-  strlit"124 as -47 -45 -52 0 101 108 0";
-  strlit"125 as -49 -45 -52 0 100 113 0";
-  strlit"c Operation T23";
-  strlit"D 6 406 35 40 49 53 54 87 94 135 148 159 185 238 243 249 256 300 308 317 324 348 357 0 ";]``
+  «29 a 18 0 1 27 0 »;
+  «30 a 14 0 29 19 0»;
+  «31 a 10 0 30 11 0»;
+  «r 100»;
+  «83 s 40 32 39 61 80 0»;
+  «86 p 41 30 40 0 »;
+  «89 t 42 -15 -19 0 »;
+  «92 p 43 4 41 42 0 »;
+  «c Operation T23»;
+  «124 as -47 -45 -52 0 101 108 0»;
+  «125 as -49 -45 -52 0 100 113 0»;
+  «c Operation T23»;
+  «D 6 406 35 40 49 53 54 87 94 135 148 159 185 238 243 249 256 300 308 317 324 348 357 0 »;]``
 
 val scpsteps = rconc (EVAL ``THE (parse_scpsteps ^(scpstepsraw))``);
 

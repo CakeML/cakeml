@@ -6,7 +6,7 @@ Libs
   preamble helperLib
 Ancestors
   mllist ast wordLang wordSem wordProps tailrec mc_multiword
-  set_sep word_bignum
+  backend_common set_sep word_bignum
 
 val good_dimindex_def = miscTheory.good_dimindex_def;
 val env_to_list_lookup_equiv = wordPropsTheory.env_to_list_lookup_equiv;
@@ -714,9 +714,11 @@ Proof
     (fs [compile_def] \\ rveq \\ fs [evaluate_def]
      \\ (irule_at (Pos hd) EQ_REFL) \\ fs[])
   THEN1 (* Continue *)
-    (fs [compile_def] \\ rveq \\ fs [evaluate_def]
+    (fs [compile_def] \\ rveq \\ fs [evaluate_def, bad_fun_return_def]
      \\ fs $ map uncurry_case_rand [``:'a option``,``:bool``,``:'a # 'b``]
-     \\ (irule_at (Pos hd) EQ_REFL) \\ fs[])
+     \\ qexists_tac `t1` \\ fs []
+     \\ rpt (TOP_CASE_TAC \\ fs [])
+     \\ Cases_on `q` \\ fs [] \\ Cases_on `x` \\ fs [bad_fun_return_def])
   THEN1 (* Delete *)
     (fs [compile_def] \\ rveq \\ fs [evaluate_def]
      \\ (irule_at (Pos hd) EQ_REFL) \\ fs [state_rel_delete_vars])
@@ -872,7 +874,7 @@ Proof
     \\ Cases_on `n5` \\ fs []
     \\ fs [eval_ri_pre_def,eval_exp_pre_def]
     \\ imp_res_tac state_rel_IN_FDOM
-    \\ fs [lookup_insert]
+    \\ fs [lookup_insert, word_add_carry_def]
     \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t5)`
     \\ qexists_tac `t5` \\ unabbrev_all_tac \\ fs []
     \\ fs [lookup_insert]
@@ -911,7 +913,7 @@ Proof
     \\ Cases_on `n5` \\ fs []
     \\ fs [eval_ri_pre_def,eval_exp_pre_def]
     \\ imp_res_tac state_rel_IN_FDOM
-    \\ fs [lookup_insert]
+    \\ fs [lookup_insert, word_add_carry_def]
     \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t5)`
     \\ qexists_tac `t5` \\ unabbrev_all_tac \\ fs []
     \\ fs [lookup_insert]
@@ -1244,7 +1246,7 @@ Proof
     \\ fs [] \\ qexists_tac `t2'` \\ fs []
     \\ fs [call_env_def, flush_state_def,wordSemTheory.dec_clock_def]
     \\ fs [evaluate_def]
-    \\ every_case_tac \\ fs [])
+    \\ every_case_tac \\ fs [bad_fun_return_def])
 QED
 
 Definition good_code_def:

@@ -15,8 +15,8 @@ Datatype:
   | Tyapp mlstring (type list)
 End
 
-Overload Fun = ``λs t. Tyapp (strlit "fun") [s;t]``
-Overload Bool = ``Tyapp (strlit "bool") []``
+Overload Fun = ``λs t. Tyapp «fun» [s;t]``
+Overload Bool = ``Tyapp «bool» []``
 
 Definition domain_raw:
   domain ty = case ty of Tyapp n (x::xs) => x | _ => ty
@@ -52,7 +52,7 @@ Datatype:
        | Abs term term
 End
 
-Overload Equal = ``λty. Const (strlit "=") (Fun ty (Fun ty Bool))``
+Overload Equal = ``λty. Const «=» (Fun ty (Fun ty Bool))``
 
 Definition dest_var_def[simp]:
   dest_var (Var x ty) = (x,ty)
@@ -145,12 +145,10 @@ End
 Definition ordav_def:
   (ordav [] x1 x2 ⇔ term_cmp x1 x2) ∧
   (ordav ((t1,t2)::env) x1 x2 ⇔
-    if term_cmp x1 t1 = EQUAL then
-      if term_cmp x2 t2 = EQUAL then
-        EQUAL
+    if x1 = t1 then
+      if x2 = t2 then EQUAL
       else LESS
-    else if term_cmp x2 t2 = EQUAL then
-      GREATER
+    else if x2 = t2 then GREATER
     else ordav env x1 x2)
 End
 
@@ -174,9 +172,18 @@ Definition orda_def:
       | (_, Comb _ _) => GREATER
 End
 
+(*
+  let rec term_union l1 l2 =
+    match (l1,l2) with
+      ([],l2) -> l2
+    | (l1,[]) -> l1
+    | (h1::t1,h2::t2) -> let c = alphaorder h1 h2 in
+                         if c = 0 then h1::(term_union t1 t2)
+                         else if c < 0 then h1::(term_union t1 l2)
+                         else h2::(term_union l1 t2)
+*)
 Definition term_union_def:
   term_union l1 l2 =
-    if l1 = l2 then l1 else
     case (l1,l2) of
     | ([],l2) => l2
     | (l1,[]) => l1
@@ -475,9 +482,9 @@ Overload tmsof = ``tmsof o sigof``
 
 Definition is_std_sig_def:
   is_std_sig (sig:sig) ⇔
-    FLOOKUP (tysof sig) (strlit "fun") = SOME 2 ∧
-    FLOOKUP (tysof sig) (strlit "bool") = SOME 0 ∧
-    FLOOKUP (tmsof sig) (strlit "=") = SOME (Fun (Tyvar(strlit "A")) (Fun (Tyvar(strlit "A")) Bool))
+    FLOOKUP (tysof sig) «fun» = SOME 2 ∧
+    FLOOKUP (tysof sig) «bool» = SOME 0 ∧
+    FLOOKUP (tmsof sig) «=» = SOME (Fun (Tyvar «A») (Fun (Tyvar «A») Bool))
 End
 
 Definition theory_ok_def:
@@ -608,8 +615,8 @@ Definition conexts_of_upd_def:
     let rep_type = domain (typeof pred) in
     let abs = Const abs_name (Fun rep_type abs_type) in
     let rep = Const rep_name (Fun abs_type rep_type) in
-    let a = Var (strlit "a") abs_type in
-    let r = Var (strlit "r") rep_type in
+    let a = Var «a» abs_type in
+    let r = Var «r» rep_type in
       [Comb abs (Comb rep a) === a;
        Comb pred r === (Comb rep (Comb abs r) === r)]) ∧
   (conexts_of_upd _ = [])
@@ -676,7 +683,7 @@ val _ = Parse.add_infix("extends",450,Parse.NONASSOC)
 (* Initial theory context *)
 
 Definition init_ctxt_def:
-  init_ctxt = [NewConst (strlit "=") (Fun (Tyvar(strlit "A")) (Fun (Tyvar(strlit "A")) Bool))
-              ;NewType (strlit "bool") 0
-              ;NewType (strlit "fun") 2]
+  init_ctxt = [NewConst «=» (Fun (Tyvar «A») (Fun (Tyvar «A») Bool))
+              ;NewType «bool» 0
+              ;NewType «fun» 2]
 End

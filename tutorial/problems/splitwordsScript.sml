@@ -1,0 +1,104 @@
+(*
+  A high-level specification of words and frequencies
+*)
+Theory splitwords
+Ancestors
+  mlstring fsFFIProps
+Libs
+  preamble
+
+
+Definition splitwords_def:
+  splitwords s = tokens isSpace s
+End
+(*
+EVAL ``splitwords «hello there hello how are you one two one two three»``
+*)
+
+Theorem splitwords_nil[simp]:
+   splitwords (implode "") = []
+Proof
+EVAL_TAC
+QED
+Theorem splitwords_nil_lit[simp]:
+   splitwords «» = []
+Proof
+EVAL_TAC
+QED
+
+Theorem splitwords_concat:
+   isSpace sp ⇒
+   splitwords (s1 ^ toString sp ^ s2) = splitwords s1 ++ splitwords s2
+Proof
+  rewrite_tac [GSYM strcat_assoc]
+  \\ rw[splitwords_def,mlstringTheory.tokens_append,mlstringTheory.strcat_assoc]
+QED
+
+Theorem splitwords_concat_space:
+   isSpace sp ⇒ splitwords (s1 ^ toString sp) = splitwords s1
+Proof
+  rw[] \\ qspec_then`implode ""`mp_tac(Q.GEN`s2`splitwords_concat) \\
+  fs[mlstringTheory.strcat_thm]
+QED
+
+Theorem splitwords_lines_of:
+   FLAT (MAP splitwords (lines_of content)) =
+   splitwords content
+Proof
+  `isSpace #"\n"` by EVAL_TAC \\
+  rw[all_lines_file_def,lines_of_def,MAP_MAP_o,o_DEF,
+     GSYM mlstringTheory.chr_to_str_def,splitwords_concat_space] \\
+  rw[splitwords_def,mlstringTheory.TOKENS_eq_tokens_sym] \\
+  srw_tac[ETA_ss][GSYM o_DEF,GSYM MAP_MAP_o] \\
+  simp[GSYM MAP_FLAT] \\ AP_TERM_TAC \\
+  qmatch_goalsub_rename_tac `splitlines ls` \\
+  rw[splitlines_def]
+  >- (
+    qmatch_asmsub_abbrev_tac`NULL (LAST l)` \\
+    Q.ISPEC_THEN`l`mp_tac APPEND_FRONT_LAST \\
+    impl_tac >- rw[Abbr`l`] \\
+    fs[NULL_EQ] \\ strip_tac \\
+    `FLAT (MAP (TOKENS isSpace) (FRONT l)) = FLAT (MAP (TOKENS isSpace) l)` by (
+      pop_assum(fn th => CONV_TAC(RAND_CONV(DEPTH_CONV(REWR_CONV(SYM th))))) \\
+      simp[] \\ EVAL_TAC ) \\
+    simp[Abbr`l`] \\
+    match_mp_tac FLAT_MAP_TOKENS_FIELDS \\
+    rw[] \\ EVAL_TAC ) \\
+  match_mp_tac FLAT_MAP_TOKENS_FIELDS \\
+  rw[] \\ EVAL_TAC
+QED
+
+Definition frequency_def:
+  frequency s w = LENGTH (FILTER ($= w) (splitwords s))
+End
+(*
+EVAL``frequency «hello there hello how are you one two one two three» «hello»``
+EVAL``frequency «hello there hello how are you one two one two three» «one»``
+EVAL``frequency «hello there hello how are you one two one two three» «three»``
+EVAL``frequency «hello there hello how are you one two one two three» «four»``
+*)
+
+Theorem frequency_nil[simp]:
+   frequency (implode "") w = 0
+Proof
+EVAL_TAC
+QED
+Theorem frequency_nil_lit[simp]:
+   frequency «» w = 0
+Proof
+EVAL_TAC
+QED
+
+Theorem frequency_concat:
+   isSpace sp ⇒
+   frequency (s1 ^ toString sp ^ s2) w = frequency s1 w + frequency s2 w
+Proof
+  rw[frequency_def,splitwords_concat,FILTER_APPEND]
+QED
+
+Theorem frequency_concat_space:
+   isSpace sp ⇒ frequency (s1 ^ toString sp) = frequency s1
+Proof
+  rw[FUN_EQ_THM,frequency_def,splitwords_concat_space]
+QED
+

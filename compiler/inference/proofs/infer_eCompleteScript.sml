@@ -396,7 +396,7 @@ QED
 
 Theorem add_constraint_success2[local]:
   !l t1 t2 st st' x.
-  add_constraint l t1 t2 st = (Success x, st') ⇔
+  add_constraint l t1 t2 st = (M_success x, st') ⇔
   x = () ∧
   pure_add_constraints st.subst [t1,t2] st'.subst ∧
   st'.next_uvar = st.next_uvar ∧
@@ -862,7 +862,7 @@ Theorem constrain_op_complete_simple_helper[local]:
       st'.next_uvar = st.next_uvar ∧
       st'.next_id = st.next_id ∧
       pure_add_constraints st.subst xs st'.subst ==>
-      constrain_op l op ts' st = (Success t',st'))
+      constrain_op l op ts' st = (M_success t',st'))
 Proof
   rw []
   \\ imp_res_tac sub_completion_wfs
@@ -899,7 +899,7 @@ EVERY (check_t n {}) (MAP (t_walkstar s) ts') ∧
 check_freevars n [] t
 ⇒
 ?t' st' s' constraints'.
-constrain_op l op ts' st = (Success t',st') ∧
+constrain_op l op ts' st = (M_success t',st') ∧
 sub_completion n st'.next_uvar st'.subst constraints' s' ∧
 t_compat s s' ∧
 FDOM st'.subst ⊆ count st'.next_uvar ∧
@@ -1189,7 +1189,7 @@ Theorem infer_p_complete:
   FDOM s = count st.next_uvar
   ⇒
   ?t' new_bindings st' s' constraints'.
-    infer_p l ienv p st  = (Success (t',new_bindings),st') ∧
+    infer_p l ienv p st  = (M_success (t',new_bindings),st') ∧
     sub_completion tvs st'.next_uvar st'.subst constraints' s' ∧
     FDOM st'.subst ⊆ count st'.next_uvar ∧
     FDOM s' = count st'.next_uvar ∧
@@ -1210,7 +1210,7 @@ Theorem infer_p_complete:
   FDOM s = count st.next_uvar
   ⇒
   ?ts' new_bindings st' s' constraints'.
-    infer_ps l ienv ps st = (Success (ts',new_bindings),st') ∧
+    infer_ps l ienv ps st = (M_success (ts',new_bindings),st') ∧
     sub_completion tvs st'.next_uvar st'.subst constraints' s' ∧
     FDOM st'.subst ⊆ count st'.next_uvar ∧
     FDOM s' = count st'.next_uvar ∧
@@ -1506,7 +1506,7 @@ Theorem infer_pes_complete[local]:
   env_rel_complete s' ienv tenv tenvE ∧
   (∀x::set pes.
     ∃bindings.
-      ALL_DISTINCT (pat_bindings (FST x) []) ∧
+      ALL_DISTINCT (pat_bindings (FST x)) ∧
       type_p (num_tvs tenvE) tenv (FST x) t1 bindings ∧
       type_e tenv (bind_var_list 0 bindings tenvE) (SND x) t2 ∧
       ∀l s'' ienv' st'' constraints''.
@@ -1516,7 +1516,7 @@ Theorem infer_pes_complete[local]:
         FDOM s'' = count st''.next_uvar ∧
         env_rel_complete s'' ienv' tenv (bind_var_list 0 bindings tenvE) ⇒
         ∃t'' st''' s''' constraints'''.
-          infer_e l ienv' (SND x) st'' = (Success t'',st''') ∧
+          infer_e l ienv' (SND x) st'' = (M_success t'',st''') ∧
           sub_completion (num_tvs tenvE) st'''.next_uvar st'''.subst constraints''' s''' ∧
           FDOM st'''.subst ⊆ count st'''.next_uvar ∧
           FDOM s''' = count st'''.next_uvar ∧ t_compat s'' s''' ∧
@@ -1528,7 +1528,7 @@ Theorem infer_pes_complete[local]:
   unconvert_t t2 = t_walkstar s' t2'
   ⇒
   ?st'' s'' constraints''.
-  infer_pes l ienv pes t1' t2' st' = (Success (), st'') ∧
+  infer_pes l ienv pes t1' t2' st' = (M_success (), st'') ∧
   sub_completion (num_tvs tenvE) st''.next_uvar st''.subst constraints'' s'' ∧
   FDOM st''.subst ⊆ count st''.next_uvar ∧
   FDOM s'' = count st''.next_uvar ∧
@@ -1545,8 +1545,7 @@ Proof
     (fst (CONJ_PAIR infer_p_complete))>>rfs[]>>
   fs[ienv_ok_def,env_rel_complete_def]>>
   pop_assum(qspecl_then [`l`, `s'`,`ienv`,`st'`,`constraints'`] assume_tac)>>rfs[]>>
-  imp_res_tac infer_p_bindings>>
-  pop_assum(qspec_then `[]` assume_tac)>>fs[]>>
+  imp_res_tac infer_p_bindings>>fs[]>>
   qpat_abbrev_tac`ls = [(t1',t')]`>>
   `check_t (num_tvs tenvE) {} (t_walkstar s'' t')` by
     (`t_wfs s''` by metis_tac[sub_completion_wfs,infer_p_wfs]>>
@@ -1590,6 +1589,7 @@ Proof
         metis_tac[check_t_more4])
      >- metis_tac[pure_add_constraints_wfs]
      >- metis_tac[pure_add_constraints_success]
+     >- simp[Abbr`ntenv`]
      >-
        (fs[Abbr`ntenv`,simp_tenv_invC_def,lookup_var_bind_var_list,alist_to_ns_def,nsLookup_nsAppend_some]>>
        Cases_on`x`>>fs[nsLookup_def]
@@ -1783,7 +1783,7 @@ Theorem infer_e_complete:
      env_rel_complete s ienv tenv tenvE
      ⇒
      ?t' st' s' constraints'.
-       infer_e loc ienv e st = (Success t', st') ∧
+       infer_e loc ienv e st = (M_success t', st') ∧
        sub_completion (num_tvs tenvE) st'.next_uvar st'.subst constraints' s' ∧
        FDOM st'.subst ⊆  count st'.next_uvar ∧
        FDOM s' = count st'.next_uvar ∧
@@ -1803,7 +1803,7 @@ Theorem infer_e_complete:
      env_rel_complete s ienv tenv tenvE
      ⇒
      ?ts' st' s' constraints'.
-       infer_es loc ienv es st = (Success ts', st') ∧
+       infer_es loc ienv es st = (M_success ts', st') ∧
        sub_completion (num_tvs tenvE) st'.next_uvar st'.subst constraints' s' ∧
        FDOM st'.subst ⊆ count st'.next_uvar ∧
        FDOM s' = count st'.next_uvar ∧
@@ -1823,7 +1823,7 @@ Theorem infer_e_complete:
      env_rel_complete s ienv tenv tenvE
      ⇒
      ?env' st' s' constraints'.
-       infer_funs loc ienv funs st = (Success env', st') ∧
+       infer_funs loc ienv funs st = (M_success env', st') ∧
        sub_completion (num_tvs tenvE) st'.next_uvar st'.subst constraints' s' ∧
        FDOM st'.subst ⊆ count st'.next_uvar ∧
        FDOM s' = count st'.next_uvar ∧
@@ -1832,6 +1832,34 @@ Theorem infer_e_complete:
 Proof
   ho_match_mp_tac type_e_strongind >>
   rw [add_constraint_success2,success_eqns,infer_e_def]
+  >~ [`open_ienv _ _ = SOME _`]
+  >- (
+    rename1 `open_tenv path tenv = SOME opened`
+    >> `?inferred_open. open_ienv path ienv = SOME inferred_open`
+      by (
+        fs [env_rel_complete_def]
+        >> imp_res_tac open_envs_none
+        >> Cases_on `open_ienv path ienv`
+        >> fs []
+        >> qpat_x_assum `!path. open_ienv path ienv = NONE <=> _`
+             (qspec_then `path` mp_tac)
+        >> fs [])
+    >> rename1 `open_ienv path ienv = SOME inferred_open`
+    >> `ienv_ok (count st.next_uvar) (extend_dec_ienv inferred_open ienv)`
+      by metis_tac [ienv_ok_open_ienv, ienv_ok_extend_dec_ienv]
+    >> `env_rel_complete s (extend_dec_ienv inferred_open ienv)
+          (extend_dec_tenv opened tenv)
+          (tveMask (\n. IS_SOME (nsLookup opened.v (Short n))) tenvE)`
+      by metis_tac [env_rel_complete_open]
+    >> first_x_assum (qspecl_then
+         [`loc`, `s`, `extend_dec_ienv inferred_open ienv`, `st`, `constraints`]
+         mp_tac)
+    >> simp [num_tvs_tveMask]
+    >> disch_then (qx_choosel_then
+         [`inferred_ty`, `final_st`, `final_subst`, `final_constraints`]
+         strip_assume_tac)
+    >> qexistsl_tac [`inferred_ty`, `final_st`, `final_subst`, `final_constraints`]
+    >> simp [])
   (*Easy cases*) >~
   [‘Tapp [] Tint_num = _’]
   >- (qexists_tac `s` >>
@@ -2507,6 +2535,9 @@ Proof
       fs[MAP_EQ_f,FORALL_PROD]>>
     fs[bind_var_list_def]>>
     qpat_abbrev_tac `new_tenv = nsAppend A ienv.inf_v`>>
+    `env_rel_mods (ienv with inf_v := new_tenv) tenv` by (
+      simp [Abbr`new_tenv`]
+      >> fs [env_rel_complete_def]) >>
     fs[sub_completion_def] >>
     qabbrev_tac `fun_tys = MAP SND env` >>
     Q.SPECL_THEN [`st`,`constraints`,`s`,`fun_tys`,`num_tvs tenvE`]

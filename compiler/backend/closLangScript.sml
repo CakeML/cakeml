@@ -108,6 +108,9 @@ Datatype:
      | XorByte       (* xor a btye vector into a byte array *)
      | BoundsCheckArray
      | BoundsCheckByte bool (* T = loose (<=) bound *)
+     | MutCons num num (* allocate a cons with a mutable hole, tag, index of hole *)
+     | UpdateCons    (* mutate the hole in a MutCons *)
+     | FinaliseCons  (* turns a stack of MutCons into Cons *)
      | ConfigGC
 End
 
@@ -222,4 +225,4 @@ End
 
 Type clos_prog = ``: closLang$exp list # (num # num # closLang$exp) list``
 
-Type clos_cc = ``:'c -> clos_prog -> (word8 list # word64 list # 'c) option``
+Type clos_cc = ``:'c -> clos_prog -> (mlstring # word64 list # 'c) option``

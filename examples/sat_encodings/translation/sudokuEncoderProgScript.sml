@@ -58,12 +58,12 @@ Definition encode_to_output_def:
   encode_to_output v_exp =
   let sudoku = from_v_to_numberSudoku v_exp in
     case sudoku_ok sudoku of
-    | F => (List [strlit "Invalid rangeList input"])
+    | F => (List [«Invalid rangeList input»])
     | T =>
         let cnf_exp = numberSudoku_to_cnf sudoku in
           let (max_var, clauses) = get_max_var_and_clauses cnf_exp in
             Append
-            (List [strlit "p cnf "; num_to_str max_var; strlit " "; num_to_str clauses; strlit "\n"])
+            (List [«p cnf »; num_to_str max_var; « »; num_to_str clauses; «\n»])
             (cnf_to_output cnf_exp)
 End
 
@@ -83,19 +83,19 @@ Definition row_to_output_def:
   row_to_output [] = List [] ∧
   row_to_output [c] = List [num_to_str c] ∧
   row_to_output (c::cells) =
-  Append (List [num_to_str c; (strlit " ")]) (row_to_output cells)
+  Append (List [num_to_str c; « »]) (row_to_output cells)
 End
 
 Definition sudoku_to_output_inner_def:
   sudoku_to_output_inner [] = List [] ∧
   sudoku_to_output_inner [row] = row_to_output row ∧
   sudoku_to_output_inner (row::rows) =
-  Append (row_to_output row) (Append (List [strlit "\n"]) (sudoku_to_output_inner rows))
+  Append (row_to_output row) (Append (List [«\n»]) (sudoku_to_output_inner rows))
 End
 
 Definition sudoku_to_output_def:
   sudoku_to_output sudoku =
-  Append (List [strlit "("]) (Append (sudoku_to_output_inner sudoku) (List [strlit ")"]))
+  Append (List [«(»]) (Append (sudoku_to_output_inner sudoku) (List [«)»]))
 End
 
 Definition solve_to_output_def:

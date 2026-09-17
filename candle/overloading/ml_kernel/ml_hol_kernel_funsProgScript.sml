@@ -49,16 +49,16 @@ val _ = ml_prog_update open_local_block;
 (* Initialize the translation *)
 
 Definition init_type_constants_def:
-  init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]
+  init_type_constants = [(«bool»,0); («fun»,2:num)]
 End
 
 Definition init_term_constants_def:
-  init_term_constants = [(strlit"=",
-    Tyapp (strlit"fun")
-      [Tyvar (strlit"A");
-       Tyapp (strlit"fun")
-         [Tyvar (strlit"A");
-          Tyapp (strlit"bool") []]])]
+  init_term_constants = [(«=»,
+    Tyapp «fun»
+      [Tyvar «A»;
+       Tyapp «fun»
+         [Tyvar «A»;
+          Tyapp «bool» []]])]
 End
 
 Definition init_axioms_def:
@@ -468,7 +468,7 @@ val def = add_type_def |> m_translate
 Definition call_new_type_def[simp]:
   call_new_type (n:mlstring, arity:int) =
     if 0 ≤ arity then new_type (n, Num (ABS arity))
-    else raise_Fail (strlit "negative arity")
+    else raise_Fail «negative arity»
 End
 
 val _ = next_ml_names := ["new_type_num"];
@@ -539,10 +539,8 @@ val _ = instance_subst_ind |> update_precondition;
 val def = holSyntaxTheory.is_reserved_name_def |> translate
 val def = check_overloads_def |> m_translate
 
-Overload monad_bind[local] = ``st_ex_bind``
-Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload return[local] = ``st_ex_return``
+val _ = monadsyntax.temp_enable_monad "st_ex";
+
 Overload failwith[local] = ``raise_Fail``
 
 val def = holSyntaxTheory.wellformed_compute_def |> translate
@@ -631,7 +629,7 @@ Theorem normalise_tyvars_subst_alt_eqn:
 Proof
   ho_match_mp_tac holSyntaxExtraTheory.normalise_tyvars_subst_ind >>
   rw[normalise_tyvars_subst_alt_def,holSyntaxExtraTheory.normalise_tyvars_subst_def] >>
-  gvs[mlstringTheory.implode_def] >>
+  gvs[] >>
   gvs[EVERY_MEM,EXISTS_MEM] >>
   MAP_EVERY qid_spec_tac [‘n’,‘subst’] >>
   Induct_on ‘tys’ >>

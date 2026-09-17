@@ -338,7 +338,7 @@ Definition copy_prop_prog_def:
   (copy_prop_prog (Get n name) cs =
     case lookup_store_eq cs name of
       NONE =>
-        (Get n name, remove_eq cs n)
+        (Get n name, set_store_eq (remove_eq cs n) name n)
     | SOME v =>
       if v ≠ n then
       let (xs',cs') = copy_prop_move [(n,v)] cs in
@@ -356,12 +356,8 @@ Definition copy_prop_prog_def:
         remove_eqs cs [a;b;c;d])) ∧
   (copy_prop_prog (LocValue r l1) cs =
       (LocValue r l1, remove_eq cs r)) ∧
-  (copy_prop_prog (Install r1 r2 r3 r4 live) cs =
-     (Install r1 r2 r3 r4 live, empty_eq)) ∧
-  (copy_prop_prog (CodeBufferWrite r1 r2) cs =
-     let r1' = lookup_eq cs r1 in
-     let r2' = lookup_eq cs r2 in
-     (CodeBufferWrite r1' r2', cs)) ∧
+  (copy_prop_prog (Install r1 r2 r3 r4 r5 live) cs =
+     (Install r1 r2 r3 r4 r5 live, empty_eq)) ∧
   (copy_prop_prog (DataBufferWrite r1 r2) cs =
      let r1' = lookup_eq cs r1 in
      let r2' = lookup_eq cs r2 in
@@ -372,6 +368,13 @@ Definition copy_prop_prog_def:
     let exp' = copy_prop_share exp cs in
     (ShareInst op v exp',
       remove_eq cs v)) ∧
+  (* Conservative: optimizes body from empty state. Could be smarter by
+     tracking copy facts across iterations via Break/Continue flow. *)
+  (copy_prop_prog (Loop names c exit_names) cs =
+     let (c', _) = copy_prop_prog c empty_eq in
+       (Loop names c' exit_names, empty_eq)) ∧
+  (copy_prop_prog (Break k) cs = (Break k, cs)) ∧
+  (copy_prop_prog (Continue k) cs = (Continue k, cs)) ∧
   (copy_prop_prog prog cs = (prog, empty_eq))
   (* impossible? *)
 End

@@ -80,10 +80,29 @@ val r = translate COUNT_LIST_compute;
  *)
 val r = translate list_to_num_set_def;
 
-val r = translate bvi_to_dataTheory.compile_def;
+val res = translate bvi_to_dataTheory.compile_def;
 
-val bvi_to_data_compile_side = Q.prove(`
-  ∀a b c d e. bvi_to_data_compile_side a b c d e ⇔ T`,
+Theorem bvi_to_data_compile_ind[local]:
+  bvi_to_data_compile_ind
+Proof
+  once_rewrite_tac [fetch "-" "bvi_to_data_compile_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD, FALSE_def]
+  \\ rename1`_ ($+ xx) _`
+  \\ qsuff_tac`$+ xx = (\i. i + xx)` >> rw[]
+  \\ simp[FUN_EQ_THM]
+QED
+
+val _ = bvi_to_data_compile_ind |> update_precondition;
+
+Theorem bvi_to_data_compile_side[local]:
+  ∀a b c d e. bvi_to_data_compile_side a b c d e ⇔ T
+Proof
   ho_match_mp_tac bvi_to_dataTheory.compile_ind>>
   `∀a b c d e f g. bvi_to_data$compile a b c d [e] ≠ (f,[],g)` by
     (CCONTR_TAC>>fs[]>>
@@ -91,13 +110,26 @@ val bvi_to_data_compile_side = Q.prove(`
     fs[])>>
   rw[]>>
   simp[Once (fetch "-" "bvi_to_data_compile_side_def")]>>
-  fs[FALSE_def]>>
-  metis_tac[]) |> update_precondition;
+  fs[FALSE_def]
+  >~[`Return _`]
+  >- (
+    rw[]>>first_x_assum (fn th => drule (GSYM th))>>
+    rw[]>>
+    rename1`_ ($+ xx) _`>>
+    qsuff_tac`$+ xx = (\i. i + xx)` >> rw[]>>
+    simp[FUN_EQ_THM]) >>
+  metis_tac[]
+QED
+
+val _ = bvi_to_data_compile_side |> update_precondition;
 
 (* TODO:
  *   - pmatch for bvl_space is broken
  *)
 val r = translate data_spaceTheory.space_def;
+
+val r = translate bvi_to_dataTheory.compile_exp_def;
+print_find"bvi_to_data_compile_exp_side"
 
 val r = translate bvi_to_dataTheory.compile_prog_def;
 

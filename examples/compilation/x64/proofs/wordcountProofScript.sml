@@ -1,1 +1,1 @@
-../../../../tutorial/wordcountProofScript.sml
+../../../../tutorial/problems/wordcountProofScript.sml

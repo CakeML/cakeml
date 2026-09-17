@@ -36,9 +36,9 @@ val state_component_equality = theorem"state_component_equality";
 Datatype:
   result = Error
          | TimeOut
-         | Break
-         | Continue
-         | Return    ('a word_lab)
+         | Break num
+         | Continue num
+         | Return    (('a word_lab) list)
          | Exception ('a word)
          | FinalFFI final_event
 End
@@ -127,9 +127,9 @@ Definition eval_def:
     case (eval s e1, eval s e2) of
      | (SOME (Word w1), SOME (Word w2)) => SOME (Word (bitstring$v2w [word_cmp cmp w1 w2]))
      | _ => NONE) /\
-  (eval s (Shift sh e n) =
-    case eval s e of
-     | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
+  (eval s (Shift sh e1 e2) =
+    case (eval s e1, eval s e2) of
+     | (SOME (Word w1), SOME (Word w2)) => OPTION_MAP Word (word_sh sh w1 (w2n w2))
      | _ => NONE) /\
   (eval s BaseAddr =
         SOME (Word s.base_addr)) /\
@@ -218,6 +218,25 @@ Definition sh_mem_op_def:
   (sh_mem_op Store32 r ad s = sh_mem_store r ad 4 s)
 End
 
+Definition crep_primop_def:
+  crep_primop AddCarry args =
+  if LENGTH args = 3 ∧ EVERY isWord args then
+    let
+      l  = theWord (EL 0 args);
+      r  = theWord (EL 1 args);
+      ci = theWord (EL 2 args);
+      (res, co) = word_add_carry l r ci
+    in
+      SOME [Word res; Word co]
+  else NONE
+End
+
+Definition exit_loop_def[simp]:
+  exit_loop (SOME (Break n)) = SOME (Break (n - 1)) ∧
+  exit_loop (SOME (Continue n)) = SOME (Continue (n - 1)) ∧
+  exit_loop res = res
+End
+
 Definition evaluate_def:
   (evaluate (Skip:'a crepLang$prog,^s) = (NONE,s)) /\
   (evaluate (Dec v e prog, s) =
@@ -226,6 +245,18 @@ Definition evaluate_def:
         let (res,st) = evaluate (prog,s with locals := s.locals |+ (v,value)) in
         (res, st with locals := res_var st.locals (v, FLOOKUP s.locals v))
         | NONE => (SOME Error, s)) ∧
+  (evaluate (Primitive lhss pop rhss, s) =
+   case (OPT_MMAP (FLOOKUP s.locals) rhss) of
+   | SOME ws =>
+     (case (crep_primop pop ws) of
+      | SOME res_ws =>
+          if LENGTH lhss = LENGTH res_ws ∧
+             EVERY (λv. IS_SOME (FLOOKUP s.locals v)) lhss ∧
+             ALL_DISTINCT lhss
+          then (NONE, s with locals := s.locals |++ ZIP (lhss, res_ws))
+          else (SOME Error, s)
+      | NONE => (SOME Error, s))
+   | NONE => (SOME Error, s)) ∧
   (evaluate (Assign v src,s) =
     case (eval s src) of
     | NONE => (SOME Error, s)
@@ -278,8 +309,8 @@ Definition evaluate_def:
      | SOME (Word w) =>
         evaluate (if w <> 0w then c1 else c2, s)  (* False is 0, True is everything else *)
      | _ => (SOME Error,s)) /\
-  (evaluate (Break,s) = (SOME Break,s)) /\
-  (evaluate (Continue,s) = (SOME Continue,s)) /\
+  (evaluate (Break n,s) = (SOME (Break n),s)) /\
+  (evaluate (Continue n,s) = (SOME (Continue n),s)) /\
   (evaluate (While e c,s) =
     case (eval s e) of
      | SOME (Word w) =>
@@ -287,15 +318,15 @@ Definition evaluate_def:
         (if s.clock = 0 then (SOME TimeOut,empty_locals s) else
          let (res,s1) = fix_clock (dec_clock s) (evaluate (c,dec_clock s)) in
          case res of
-          | SOME Continue => evaluate (While e c,s1)
+          | SOME (Continue 0) => evaluate (While e c,s1)
           | NONE => evaluate (While e c,s1)
-          | SOME Break => (NONE,s1)
-          | _ => (res,s1))
+          | SOME (Break 0) => (NONE,s1)
+          | res => (exit_loop res,s1))
        else (NONE,s)
     | _ => (SOME Error,s)) /\
-  (evaluate (Return e,s) =
-    case (eval s e) of
-     | SOME w => (SOME (Return w),empty_locals s)
+  (evaluate (Return es,s) =
+    case OPT_MMAP (eval s) es of
+     | SOME ws => (SOME (Return ws),empty_locals s)
      | _ => (SOME Error,s)) /\
  (evaluate (Raise eid,s) = (SOME (Exception eid), empty_locals s)) /\
  (evaluate (Tick,s) =
@@ -305,30 +336,32 @@ Definition evaluate_def:
    case OPT_MMAP (eval s) argexps of
     | SOME args =>
        (case lookup_code s.code fname args (LENGTH args) of
-         | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s) else
+         | SOME (prog, newlocals) =>
+           if (case caltyp of NONE => F | SOME (rts, _) => ¬ALL_DISTINCT rts) then (SOME Error, s) else
+           (if s.clock = 0 then (SOME TimeOut,empty_locals s) else
            let eval_prog = fix_clock ((dec_clock s) with locals:= newlocals)
                                      (evaluate (prog, (dec_clock s) with locals:= newlocals)) in
            (case eval_prog of
               | (NONE,st) => (SOME Error,st)
-              | (SOME Break,st) => (SOME Error,st)
-              | (SOME Continue,st) => (SOME Error,st)
-              | (SOME (Return retv),st) =>
+              | (SOME (Break n),st) => (SOME Error,st)
+              | (SOME (Continue n),st) => (SOME Error,st)
+              | (SOME (Return retvs),st) =>
                    (case caltyp of
-                    | NONE    => (SOME (Return retv),empty_locals st)
-                    | SOME (NONE, p, _) => evaluate (p, st with locals := s.locals)
-                    | SOME (SOME rt, p, _) =>
-                     (case FLOOKUP s.locals rt of
-                       | SOME _ => evaluate (p, st with locals := s.locals |+ (rt,retv))
-                       | _ => (SOME Error, st)))
+                    | NONE    => (SOME (Return retvs),empty_locals st)
+                    | SOME (rts, _) =>
+                      if LENGTH retvs ≠ LENGTH rts then (SOME Error, st) else
+                       (case OPT_MMAP (FLOOKUP s.locals) rts of
+                         | SOME _ =>  (NONE, st with locals := s.locals |++ ZIP(rts,retvs))
+                         | _ => (SOME Error, st)))
               | (SOME (Exception eid),st) =>
                    (case caltyp of
                     | NONE    => (SOME (Exception eid),empty_locals st)
-                    | SOME (_, _, NONE) => (SOME (Exception eid),empty_locals st)
-                    | SOME (_, _, SOME (eid', p)) =>
+                    | SOME (_, NONE) => (SOME (Exception eid),empty_locals st)
+                    | SOME (_, SOME (eid', p)) =>
                       if eid = eid' then
                         evaluate (p, st with locals := s.locals)
                       else (SOME (Exception eid), empty_locals st))
-              | (res,st) => (res,empty_locals st))
+              | (res,st) => (res,empty_locals st)))
          | _ => (SOME Error,s))
     | _ => (SOME Error,s)) /\
   (evaluate (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =
@@ -356,23 +389,45 @@ Termination
   decide_tac
 End
 
+Theorem clock_eq_simp[local,simp]:
+  (set_var v w s).clock = s.clock ∧
+  (empty_locals s).clock = s.clock ∧
+  (set_globals gv w s).clock = s.clock
+Proof
+  simp [set_var_def, empty_locals_def, set_globals_def]
+QED
+
+Theorem sh_mem_load_clock[local]:
+  sh_mem_load v addr nb s = (r, s') ⇒ s'.clock = s.clock
+Proof
+  rw [oneline sh_mem_load_def, AllCaseEqs()] >> simp []
+QED
+
+Theorem sh_mem_store_clock[local]:
+  sh_mem_store v addr nb s = (r, s') ⇒ s'.clock = s.clock
+Proof
+  rw [oneline sh_mem_store_def, AllCaseEqs()] >> simp []
+QED
+
+Theorem sh_mem_op_clock[local]:
+  sh_mem_op op v addr s = (r,s') ⇒ s'.clock = s.clock
+Proof
+  rw [oneline sh_mem_op_def, AllCaseEqs()]
+  >> imp_res_tac sh_mem_load_clock
+  >> imp_res_tac sh_mem_store_clock
+  >> simp []
+QED
 
 Theorem evaluate_clock:
-   !prog s r s'. (evaluate (prog,s) = (r,s')) ==>
-                 s'.clock <= s.clock
+  ∀prog s r s'. evaluate (prog, s) = (r, s') ⇒ s'.clock ≤ s.clock
 Proof
-  recInduct evaluate_ind >> REPEAT STRIP_TAC >>
-  POP_ASSUM MP_TAC >> ONCE_REWRITE_TAC [evaluate_def] >>
-  rw [] >> every_case_tac >>
-  fs [set_var_def, dec_clock_def, set_globals_def, empty_locals_def, LET_THM] >>
-  rveq >> fs [] >>
-  rpt (pairarg_tac >> fs []) >>
-  every_case_tac >> fs [] >> rveq >>
-  imp_res_tac fix_clock_IMP_LESS_EQ >>
-  imp_res_tac LESS_EQ_TRANS >> fs [] >>
-  TRY (Cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def]>>
-       every_case_tac>>fs[set_var_def,empty_locals_def]>>rveq>>fs[])>>
-  rpt (res_tac >> fs [])
+  recInduct evaluate_ind >> rpt strip_tac
+  >> qpat_x_assum ‘evaluate _ = _’ mp_tac
+  >> once_rewrite_tac [evaluate_def] >> rw []
+  (* Next two tactics take a few seconds *)
+  >> gvs [dec_clock_def, AllCaseEqs()] >> rpt (pairarg_tac >> gvs [])
+  >> imp_res_tac sh_mem_op_clock >> simp []
+  >> imp_res_tac fix_clock_IMP_LESS_EQ >> gvs [AllCaseEqs()]
 QED
 
 Theorem fix_clock_evaluate[local]:

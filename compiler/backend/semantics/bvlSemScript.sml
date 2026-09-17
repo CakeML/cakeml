@@ -21,6 +21,7 @@ Datatype:
                (* in closLang all are ByteArray F,
                   ByteArray T introduced in BVL to implement ByteVector *)
       | Thunk thunk_mode 'a
+      | MutBlock num bool ('a list) 'a ('a list)
 End
 
 (* these parts are shared by bytecode and, if bytecode is to be supported, need
@@ -50,7 +51,7 @@ Datatype:
     <| globals : (bvlSem$v option) list
      ; refs    : num |-> bvlSem$v ref
      ; clock   : num
-     ; compile : 'c -> (num # num # bvl$exp) list -> (word8 list # word64 list # 'c) option
+     ; compile : 'c -> (num # num # bvl$exp) list -> (mlstring # word64 list # 'c) option
      ; compile_oracle : num -> 'c # (num # num # bvl$exp) list
      ; code    : (num # bvl$exp) num_map
      ; ffi     : 'ffi ffi_state |>
@@ -114,9 +115,14 @@ End
 
 Overload Error[local] = ``(Rerr(Rabort Rtype_error)):(bvlSem$v#('c,'ffi) bvlSem$state, bvlSem$v)result``
 
-Definition v_to_bytes_def:
-  v_to_bytes lv = some ns:word8 list.
-                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)
+Definition v_to_mlstring_def:
+  v_to_mlstring refs lv =
+    case lv of
+    | RefPtr _ p =>
+        (case FLOOKUP refs p of
+         | SOME (ByteArray T bs) => SOME (bytes_to_mlstring bs)
+         | _ => NONE)
+    | _ => NONE
 End
 
 Definition v_to_words_def:
@@ -129,7 +135,7 @@ Definition do_install_def:
   do_install vs ^s =
       (case vs of
        | [v1;v2] =>
-           (case (v_to_bytes v1, v_to_words v2) of
+           (case (v_to_mlstring s.refs v1, v_to_words v2) of
             | (SOME bytes, SOME data) =>
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in
@@ -267,6 +273,30 @@ Definition do_word_app_def:
          | [Word64 w1; Word64 w2] => (SOME (Boolv (fp_cmp_comp cmp w1 w2)))
          | _ => NONE) /\
   do_word_app (op:closLang$word_op) (vs:bvlSem$v list) = NONE
+End
+
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk (RefPtr b ptr) refs =
+    (case FLOOKUP refs ptr of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) =>
+         if b then BadRef else IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) =>
+         if b then BadRef else IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk _ refs = NotThunk
+End
+
+Definition bad_thunk_update_def:
+  bad_thunk_update m v refs ⇔
+    m = Evaluated ∧ dest_thunk v refs ≠ NotThunk
 End
 
 (* same as closSem$do_app, except:
@@ -509,10 +539,12 @@ Definition do_app_def:
     | (ThunkOp th_op, vs) =>
         (case (th_op,vs) of
          | (AllocThunk m, [v]) =>
-             (let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
+             (if bad_thunk_update m v s.refs then Error else
+              let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
                 Rval (RefPtr F ptr, s with refs := s.refs |+ (ptr,Thunk m v)))
-         | (UpdateThunk m, [RefPtr _ ptr; v]) =>
-             (case FLOOKUP s.refs ptr of
+         | (UpdateThunk m, [RefPtr F ptr; v]) =>
+             (if bad_thunk_update m v s.refs then Error else
+              case FLOOKUP s.refs ptr of
               | SOME (Thunk NotEvaluated _) =>
                  Rval (Unit, s with refs := s.refs |+ (ptr,Thunk m v))
               | _ => Error)
@@ -542,25 +574,6 @@ Definition find_code_def:
                                   then SOME (FRONT args,exp)
                                   else NONE)
        | other => NONE)
-End
-
-(* Functions for working with thunks *)
-
-Datatype:
-  dest_thunk_ret
-    = BadRef
-    | NotThunk
-    | IsThunk thunk_mode v
-End
-
-Definition dest_thunk_def:
-  dest_thunk (RefPtr _ ptr) refs =
-    (case FLOOKUP refs ptr of
-     | NONE => BadRef
-     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
-     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
-     | SOME _ => NotThunk) ∧
-  dest_thunk _ refs = NotThunk
 End
 
 (* The evaluation is defined as a clocked functional version of

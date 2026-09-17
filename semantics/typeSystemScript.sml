@@ -305,6 +305,33 @@ Definition lookup_var_def:
   )))
 End
 
+(* Select a module's type components as a declaration delta. *)
+Definition open_tenv_def:
+  open_tenv path (tenv:type_env) =
+    case nsOpen path tenv.v of
+    | NONE => NONE
+    | SOME env_v =>
+      case nsOpen path tenv.c of
+      | NONE => NONE
+      | SOME env_c =>
+        case nsOpen path tenv.t of
+        | NONE => NONE
+        | SOME env_t => SOME <|v := env_v; c := env_c; t := env_t|>
+End
+
+Theorem open_tenv_success_components:
+  open_tenv path tenv = SOME opened ⇒
+  nsOpen path tenv.v = SOME opened.v ∧
+  nsOpen path tenv.c = SOME opened.c ∧
+  nsOpen path tenv.t = SOME opened.t
+Proof
+  Cases_on `opened` >>
+  Cases_on `nsOpen path tenv.v` >> gvs [open_tenv_def] >>
+  Cases_on `nsOpen path tenv.c` >> gvs [open_tenv_def] >>
+  Cases_on `nsOpen path tenv.t` >>
+  gvs [open_tenv_def, DB.fetch "-" "type_env_component_equality"]
+QED
+
 
 (*val num_tvs : tenv_val_exp -> nat*)
 Definition num_tvs_def:
@@ -315,6 +342,39 @@ Definition num_tvs_def:
 ((num_tvs:tenv_val_exp -> num) (Bind_name n tvs t tenvE)=  (num_tvs tenvE))
 End
 
+
+(* Hide local names shadowed by an open, but retain every type-variable
+   binder: opening a module does not change de Bruijn levels. *)
+Definition tveMask_def:
+  tveMask hidden Empty = Empty ∧
+  tveMask hidden (Bind_tvar tvs tenvE) =
+    Bind_tvar tvs (tveMask hidden tenvE) ∧
+  tveMask hidden (Bind_name n tvs t tenvE) =
+    if hidden n then tveMask hidden tenvE
+    else Bind_name n tvs t (tveMask hidden tenvE)
+End
+
+Theorem tveLookup_tveMask:
+  ∀tenvE n inc.
+    tveLookup n inc (tveMask hidden tenvE) =
+      if hidden n then NONE else tveLookup n inc tenvE
+Proof
+  Induct >> rw [tveMask_def, tveLookup_def]
+  >> metis_tac []
+QED
+
+Theorem num_tvs_tveMask:
+  ∀tenvE. num_tvs (tveMask hidden tenvE) = num_tvs tenvE
+Proof
+  Induct >> rw [tveMask_def, num_tvs_def]
+QED
+
+Theorem tveMask_bind_tvar:
+  tveMask hidden (bind_tvar tvs tenvE) =
+    bind_tvar tvs (tveMask hidden tenvE)
+Proof
+  rw [bind_tvar_def, tveMask_def]
+QED
 
 (*val bind_var_list : nat -> list (varN * t) -> tenv_val_exp -> tenv_val_exp*)
 Definition bind_var_list_def:
@@ -529,6 +589,8 @@ Definition is_value_def:
 /\
 ((is_value:exp -> bool) (Lannot e _)=  (is_value e))
 /\
+((is_value:exp -> bool) (Open _ e)=  (is_value e))
+/\
 ((is_value:exp -> bool) _=  F)
 End
 
@@ -651,7 +713,7 @@ type_e tenv tenvE (Raise e) t)
 /\ (! tenv tenvE e pes t.
 (type_e tenv tenvE e t /\ ~ (pes = []) /\
 (! ((p,e) :: LIST_TO_SET pes). ? bindings.
-   ALL_DISTINCT (pat_bindings p []) /\
+   ALL_DISTINCT (pat_bindings p) /\
    type_p (num_tvs tenvE) tenv p Texn bindings /\
    type_e tenv (bind_var_list(( 0 : num)) bindings tenvE) e t))
 ==>
@@ -706,7 +768,7 @@ type_e tenv tenvE (If e1 e2 e3) t)
 /\ (! tenv tenvE e pes t1 t2.
 (type_e tenv tenvE e t1 /\ ~ (pes = []) /\
 (! ((p,e) :: LIST_TO_SET pes) . ? bindings.
-   ALL_DISTINCT (pat_bindings p []) /\
+   ALL_DISTINCT (pat_bindings p) /\
    type_p (num_tvs tenvE) tenv p t1 bindings /\
    type_e tenv (bind_var_list(( 0 : num)) bindings tenvE) e t2))
 ==>
@@ -745,6 +807,13 @@ type_e tenv tenvE (Tannot e t) (type_name_subst tenv.t t))
 (type_e tenv tenvE e t)
 ==>
 type_e tenv tenvE (Lannot e l) t)
+
+/\ (! tenv tenvE path opened e t.
+(open_tenv path tenv = SOME opened /\
+type_e (extend_dec_tenv opened tenv)
+  (tveMask (\n. IS_SOME (nsLookup opened.v (Short n))) tenvE) e t)
+==>
+type_e tenv tenvE (Open path e) t)
 
 /\ (! tenv tenvE.
 T
@@ -809,7 +878,7 @@ End
 Inductive type_d:
 (! extra_checks tvs tenv p e t bindings locs.
 (is_value e /\
-ALL_DISTINCT (pat_bindings p []) /\
+ALL_DISTINCT (pat_bindings p) /\
 type_p tvs tenv p t bindings /\
 type_e tenv (bind_tvar tvs Empty) e t /\
 (extra_checks ==>
@@ -828,7 +897,7 @@ type_d extra_checks tenv (Dlet locs p e)
    generalisation, a type error is given rather than picking an arbitrary
    instantiation. However, we should only do the check when the extra_checks
    argument tells us to. *)(extra_checks ==> (~ (is_value e) /\ type_pe_determ tenv Empty p e)) /\
-ALL_DISTINCT (pat_bindings p []) /\
+ALL_DISTINCT (pat_bindings p) /\
 type_p(( 0 : num)) tenv p t bindings /\
 type_e tenv Empty e t)
 ==>
@@ -878,6 +947,11 @@ type_d extra_checks tenv (Dexn locs cn ts)
   <| v := nsEmpty;
      c := (nsSing cn ([], MAP (type_name_subst tenv.t) ts, Texn_num));
      t := nsEmpty |>)
+
+/\ (! extra_checks tenv locs path opened.
+(open_tenv path tenv = SOME opened)
+==>
+type_d extra_checks tenv (Dopen locs path) {} opened)
 
 /\ (! extra_checks tenv mn ds decls tenv'.
 (type_ds extra_checks tenv ds decls tenv')

@@ -63,7 +63,7 @@ End
 
 Definition format_failure_def:
   format_failure (lno:num) s =
-  strlit "c Checking failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"
+  «c Checking failed at line: » ^ toString lno ^ «. Reason: » ^ s ^ «\n»
 End
 
 val _ = translate format_failure_def;
@@ -1365,7 +1365,7 @@ Proof
 QED
 
 Definition noparse_string_def:
-  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]
+  noparse_string f s = concat[«c Input file: »;f;« unable to parse in format: »; s;«\n»]
 End
 
 val r = translate noparse_string_def;
@@ -1580,7 +1580,7 @@ Proof
 QED
 
 Definition notfound_string_def:
-  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]
+  notfound_string f = concat[«c Input file: »;f;« no such file or directory\n»]
 End
 
 val r = translate notfound_string_def;
@@ -1684,7 +1684,7 @@ QED
 
 val _ = to_flat_chr_ind |> update_precondition;
 
-val res = translate (to_lit_string_def |> SIMP_RULE std_ss [GSYM implode_def]);
+val res = translate to_lit_string_def;
 
 val to_lit_string_side_def = fetch "-" "to_lit_string_side_def";
 
@@ -1793,8 +1793,8 @@ val res = translate check_dec_def;
 
 Definition dec_fail_str_def:
   dec_fail_str (v:num) =
-  strlit "final condition check failed: input is not decomposable at " ^
-  toString v ^ strlit"\n"
+  «final condition check failed: input is not decomposable at » ^
+  toString v ^ «\n»
 End
 val res = translate dec_fail_str_def;
 

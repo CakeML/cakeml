@@ -148,9 +148,9 @@ QED
 Definition thm_to_string_def:
   thm_to_string (ctxt:update list) (th:thm) =
     concat
-      ([strlit "# The following is a theorem of higher-order logic\n\n"] ++
+      ([«# The following is a theorem of higher-order logic\n\n»] ++
        [sexp_to_pretty_string (thm_to_v th)] ++
-       [strlit "\n# which is proved in the following context\n"] ++
+       [«\n# which is proved in the following context\n»] ++
        FLAT (MAP (λdef. [«\n»; sexp_to_pretty_string (update_to_v def)]) ctxt))
 End
 
@@ -207,24 +207,24 @@ QED
 
 local
 
-val bool_ty = “Tyapp (strlit "bool") []”
-val fun_ty = “Tyapp (strlit "fun") [^bool_ty; ^bool_ty]”
-val p = “Var (strlit "p") ^bool_ty”
+val bool_ty = “Tyapp «bool» []”
+val fun_ty = “Tyapp «fun» [^bool_ty; ^bool_ty]”
+val p = “Var «p» ^bool_ty”
 val id = “Abs ^p ^p”
-val eq = “Const (strlit "=") ^fun_ty”
-val t = “Var (strlit "T") ^bool_ty”
+val eq = “Const «=» ^fun_ty”
+val t = “Var «T» ^bool_ty”
 
 Overload Eq = “λl r. Comb (Comb ^eq l) r”
 
 val up =
-  “ConstSpec [(strlit "T", Eq ^id ^id)]
+  “ConstSpec [(«T», Eq ^id ^id)]
      (Eq ^t (Eq ^id ^id))”
 
 in
 
 val _ =
   EVAL “thm_to_string [^up]
-     (Sequent [] (Const (strlit "T") ^bool_ty))”
+     (Sequent [] (Const «T» ^bool_ty))”
   |> concl |> rand |> rand |> stringSyntax.fromHOLstring |> print;
 
 end

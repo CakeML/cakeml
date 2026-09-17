@@ -21,23 +21,11 @@ Proof
   \\ EVAL_TAC
 QED
 
-Theorem pat_bindings_accum:
-   (∀p acc. flatLang$pat_bindings p acc = pat_bindings p [] ⧺ acc) ∧
-    ∀ps acc. pats_bindings ps acc = pats_bindings ps [] ⧺ acc
-Proof
-  ho_match_mp_tac flatLangTheory.pat_induction >>
-  rw [] >>
-  REWRITE_TAC [flatLangTheory.pat_bindings_def] >>
-  metis_tac [APPEND, APPEND_ASSOC]
-QED
-
 Theorem pats_bindings_FLAT_MAP:
-  ∀ps acc. pats_bindings ps acc = FLAT (REVERSE (MAP (λp. pat_bindings p []) ps)) ++ acc
+  ∀ps. pats_bindings ps = FLAT (REVERSE (MAP (λp. pat_bindings p) ps))
 Proof
   Induct
-  \\ simp[flatLangTheory.pat_bindings_def]
-  \\ Cases \\ rw[flatLangTheory.pat_bindings_def]
-  \\ metis_tac [pat_bindings_accum, APPEND_ASSOC, CONS_APPEND]
+  \\ rw[flatLangTheory.pat_bindings_def, FLAT_APPEND]
 QED
 
 val s =  ``s:('c,'ffi) state``
@@ -63,11 +51,11 @@ Theorem pmatch_extend:
    (! ^s p v env env' env''.
     pmatch s p v env = Match env'
     ⇒
-    ?env''. env' = env'' ++ env ∧ MAP FST env'' = pat_bindings p []) ∧
+    ?env''. env' = env'' ++ env ∧ MAP FST env'' = pat_bindings p) ∧
    (! ^s ps vs env env' env''.
     pmatch_list s ps vs env = Match env'
     ⇒
-    ?env''. env' = env'' ++ env ∧ MAP FST env'' = pats_bindings ps [])
+    ?env''. env' = env'' ++ env ∧ MAP FST env'' = pats_bindings ps)
 Proof
   ho_match_mp_tac pmatch_ind >>
   srw_tac[][flatLangTheory.pat_bindings_def, pmatch_def] >>
@@ -76,32 +64,32 @@ Proof
   srw_tac[][] >>
   res_tac >>
   rfs [] >>
-  fs [GSYM pat_bindings_accum]
+  fs []
 QED
 
 Theorem pmatch_bindings:
    (∀ ^s p v env r.
       flatSem$pmatch s p v env = Match r
       ⇒
-      MAP FST r = pat_bindings p [] ++ MAP FST env) ∧
+      MAP FST r = pat_bindings p ++ MAP FST env) ∧
    ∀ ^s ps vs env r.
      flatSem$pmatch_list s ps vs env = Match r
      ⇒
-     MAP FST r = pats_bindings ps [] ++ MAP FST env
+     MAP FST r = pats_bindings ps ++ MAP FST env
 Proof
   ho_match_mp_tac flatSemTheory.pmatch_ind >>
   rw [pmatch_def, flatLangTheory.pat_bindings_def] >>
   rw [] >>
   every_case_tac >>
   fs [] >>
-  prove_tac [pat_bindings_accum]
+  metis_tac [APPEND, APPEND_ASSOC, CONS_APPEND]
 QED
 
 Theorem pmatch_length:
    ∀ ^s p v env r.
       flatSem$pmatch s p v env = Match r
       ⇒
-      LENGTH r = LENGTH (pat_bindings p []) + LENGTH env
+      LENGTH r = LENGTH (pat_bindings p) + LENGTH env
 Proof
   rw [] >>
   imp_res_tac pmatch_bindings >>
@@ -487,7 +475,7 @@ Theorem evaluate_dec_io_events_mono:
   ∀z y.
      y.ffi.io_events ≼ (FST (evaluate_dec y z)).ffi.io_events
 Proof
-  Cases \\ rw [evaluate_def] \\ every_case_tac \\ fs [] \\ rw []
+  rw [evaluate_def] \\ every_case_tac \\ fs [] \\ rw []
   \\ metis_tac [evaluate_io_events_mono, FST]
 QED
 
@@ -894,15 +882,6 @@ Proof
   Induct_on `es` \\ simp [elist_globals_append, COMM_BAG_UNION]
 QED
 
-Definition is_Dlet_def[simp]:
-  is_Dlet (d : flatLang$dec) <=> T
-End
-
-Definition dest_Dlet_def[simp]:
-  dest_Dlet (d : flatLang$dec) = case d of flatLang$Dlet e => e
-End
-
-
 Theorem initial_state_clock:
   (initial_state ffi k ec).clock = k /\
   ((initial_state ffi k ec with clock := k1) = initial_state ffi k1 ec)
@@ -1141,21 +1120,15 @@ Proof
   \\ rfs [EL_MAP]
 QED
 
-Theorem simple_val_rel_v_to_bytes:
+Theorem simple_val_rel_v_to_mlstring:
    simple_val_rel vr ==>
-   ∀x y ws. vr x y ∧ v_to_bytes x = SOME ws ⇒
-   v_to_bytes y = SOME ws
+   ∀x y s. vr x y ∧ v_to_mlstring x = SOME s ⇒
+   v_to_mlstring y = SOME s
 Proof
-  rw [v_to_bytes_def]
-  \\ Cases_on `v_to_list x` \\ fs []
-  \\ qpat_x_assum `$some _ = _` (mp_tac o REWRITE_RULE [some_def])
-  \\ rw []
-  \\ qsuff_tac `v_to_list y = v_to_list x`
-  \\ simp [INJ_MAP_EQ_IFF, INJ_DEF]
-  \\ drule_then drule simple_v_to_list_v_rel
-  \\ rw []
-  \\ fs [LIST_REL_EL_EQN, LIST_EQ_REWRITE]
-  \\ rfs [EL_MAP]
+  disch_tac
+  \\ rpt gen_tac
+  \\ simp [v_to_mlstring_def, AllCaseEqs()]
+  \\ strip_tac \\ gvs []
 QED
 
 Theorem check_type_LIST_REL_same[local]:
@@ -1226,11 +1199,25 @@ Proof
     >-
      (drule_then (drule_then drule) simple_state_rel_store_alloc
       \\ simp [Once sv_rel_cases,PULL_EXISTS]
-      \\ disch_then drule \\ strip_tac \\ gvs [])
+      \\ disch_then drule \\ strip_tac \\ gvs []
+      \\ gvs [bad_thunk_update_def, oneline dest_thunk_def, AllCaseEqs()]
+      >>~- ([`simple_val_rel vr`, `vr _ y`],
+        Cases_on `y` \\ gvs [simple_val_rel_def]
+        \\ res_tac \\ gvs [])
+      \\ (
+        drule_all simple_state_rel_store_lookup \\ rw [] \\ gvs []
+        \\ Cases_on `y` \\ gvs []))
     >-
      (drule_then (drule_then drule) simple_state_rel_store_assign
       \\ simp [Once sv_rel_cases,PULL_EXISTS]
-      \\ disch_then drule \\ strip_tac \\ gvs []))
+      \\ disch_then drule \\ strip_tac \\ gvs []
+      \\ gvs [bad_thunk_update_def, oneline dest_thunk_def, AllCaseEqs()]
+      >>~- ([`simple_val_rel vr`, `vr _ y`],
+        Cases_on `y` \\ gvs [simple_val_rel_def]
+        \\ res_tac \\ gvs [])
+      \\ (
+        drule_all simple_state_rel_store_lookup \\ rw [] \\ gvs []
+        \\ Cases_on `y` \\ gvs [])))
   >~ [`Src (FFI _)`] >- (
     rpt strip_tac
     \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
@@ -1380,7 +1367,7 @@ Definition evaluate_match_def:
     | Match_type_error => (s, Rerr (Rabort Rtype_error))
     | No_match => (s, Rerr (Rraise err_v))
     | Match (env', p', e') =>
-        if ALL_DISTINCT (pat_bindings p' [])
+        if ALL_DISTINCT (pat_bindings p')
         then evaluate (env with v := env' ++ env.v) s [e']
         else (s, Rerr (Rabort Rtype_error))
 End
@@ -1424,7 +1411,7 @@ Theorem evaluate_match_CONS:
     | No_match => evaluate_match env s v pes err_v
     | Match_type_error => (s, Rerr(Rabort Rtype_error))
     | Match env_v' =>
-        if ALL_DISTINCT (pat_bindings p []) /\
+        if ALL_DISTINCT (pat_bindings p) /\
            pmatch_rows pes s v <> Match_type_error
         then evaluate (env with v := env_v' ++ env.v) s [e]
         else (s, Rerr(Rabort Rtype_error))
@@ -1497,7 +1484,7 @@ End
 
 Definition no_Mat_decs_def[simp]:
   no_Mat_decs [] = T /\
-  no_Mat_decs ((Dlet e)::xs) = (no_Mat e /\ no_Mat_decs xs)
+  no_Mat_decs (e::xs) = (no_Mat e /\ no_Mat_decs xs)
 End
 
 Definition mk_flat_install_conf_def:

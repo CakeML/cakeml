@@ -11,11 +11,6 @@ Libs
   ml_translatorLib ml_progLib Satisfy AC_Sort cfTacticsLib
   packLib preamble
 
-Overload monad_bind[local] = ``st_ex_bind``;
-Overload monad_unitbind[local] = ``st_ex_ignore_bind``;
-Overload monad_ignore_bind[local] = ``st_ex_ignore_bind``;
-Overload ex_bind[local] = ``st_ex_bind``;
-Overload ex_return[local] = ``st_ex_return``;
 Overload CONTAINER[local] = ``ml_translator$CONTAINER``;
 
 val _ = hide "state";
@@ -177,7 +172,7 @@ val H = mk_var("H",``:('a -> hprop) # 'ffi ffi_proj``);
 (* return *)
 Theorem EvalM_return:
    !H b. Eval env exp (a x) ==>
-         EvalM ro env st exp (MONAD a b (ex_return x)) ^H
+         EvalM ro env st exp (MONAD a b (st_ex_return x)) ^H
 Proof
   rw[Eval_def,EvalM_def,st_ex_return_def,MONAD_def]
   \\ first_x_assum(qspec_then`s.refs`strip_assume_tac)
@@ -200,7 +195,7 @@ Theorem EvalM_bind:
       EvalM ro (write name v env) (SND (x st)) e2
         (MONAD a c ((f z):('refs, 'a, 'c) M)) H) ==>
    (a1 /\ !z. (CONTAINER(FST(x st) = M_success z) ==> a2 z)) ==>
-   EvalM ro env st (Let (SOME name) e1 e2) (MONAD a c (ex_bind x f)) H
+   EvalM ro env st (Let (SOME name) e1 e2) (MONAD a c (st_ex_bind x f)) H
 Proof
   rw[EvalM_def,MONAD_def,st_ex_return_def,PULL_EXISTS, CONTAINER_def] \\ fs[]
   \\ last_x_assum drule \\ rw[]
@@ -278,7 +273,7 @@ Theorem EvalM_pure_seq:
   EvalM ro env st (Let NONE e1 e2) (MONAD a b (pure_seq y x)) ^H
 Proof
   rw []
-  \\ ‘pure_seq y x = monad_ignore_bind (ex_return y) x’ by
+  \\ ‘pure_seq y x = st_ex_ignore_bind (st_ex_return y) x’ by
     fs [pure_seq_def,st_ex_ignore_bind_def,st_ex_return_def, FUN_EQ_THM]
   \\ fs [] \\ irule EvalM_bind_ignore \\ fs []
   \\ conj_tac
@@ -813,7 +808,7 @@ Proof
   \\ Cases_on `e` \\ fs [] \\ rveq \\ fs []
   \\ imp_res_tac REFS_PRED_FRAME_imp
   \\ disch_then drule
-  \\ fs [EVAL ``ALL_DISTINCT (pat_bindings (Pvar n) [])``]
+  \\ fs [EVAL ``ALL_DISTINCT (pat_bindings (Pvar n))``]
   \\ rename1 `b b1 b_v`
   \\ disch_then (qspec_then `b_v` strip_assume_tac)
   \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
@@ -903,7 +898,7 @@ QED
 
 Theorem EvalM_PMATCH:
    !H b a x xv.
-      ALL_DISTINCT (pat_bindings pt []) ⇒
+      ALL_DISTINCT (pat_bindings pt) ⇒
       (∀v1 v2. pat v1 = pat v2 ⇒ v1 = v2) ⇒
       Eval env x (a xv) ⇒
       (pt1 xv ⇒ EvalM ro env st (Mat x ys) (b (PMATCH xv yrs)) H) ⇒
@@ -1010,22 +1005,18 @@ Definition write_list_def:
 End
 
 Theorem pats_bindings_MAP_Pvar[local]:
-  !bind_names already_bound.
-  pats_bindings (MAP (\x. Pvar x) bind_names) already_bound =
-  (REVERSE bind_names) ++ already_bound
+  !bind_names.
+  pats_bindings (MAP (\x. Pvar x) bind_names) =
+  (REVERSE bind_names)
 Proof
   Induct_on `bind_names` >> rw[pat_bindings_def]
 QED
 
 Theorem ALL_DISTINCT_pats_bindings[local]:
   !bind_names. ALL_DISTINCT bind_names ==>
-  ALL_DISTINCT (pats_bindings (MAP (λx. Pvar x) bind_names) [])
+  ALL_DISTINCT (pats_bindings (MAP (λx. Pvar x) bind_names))
 Proof
-  Induct_on `bind_names` >> rw[pat_bindings_def]
-  \\ rw[pats_bindings_MAP_Pvar]
-  \\ PURE_ONCE_REWRITE_TAC[GSYM ALL_DISTINCT_REVERSE]
-  \\ PURE_REWRITE_TAC[REVERSE_APPEND]
-  \\ rw[]
+  rw[pats_bindings_MAP_Pvar, ALL_DISTINCT_REVERSE]
 QED
 
 Theorem pmatch_list_MAP_Pvar[local]:
@@ -2795,7 +2786,7 @@ Theorem IMP_EvalM_Mat_cases:
       Eval env exp (a r1) /\
       (case y of
        | INL (vars,exp) =>
-                   (ALL_DISTINCT (pats_bindings (MAP Pvar vars) []) /\
+                   (ALL_DISTINCT (pats_bindings (MAP Pvar vars)) /\
                     (!v. a r1 v ==>
                          ?name vals t.
                            v = Conv NONE vals /\

@@ -13,18 +13,6 @@ open ASCIInumbersTheory BasicProvers Defn HolKernel Parse SatisfySimps Tactic
      pairTheory pred_setTheory quantHeuristicsLib relationTheory res_quanTheory
      rich_listTheory sortingTheory sptreeTheory stringTheory sumTheory
      wordsTheory;
-(*Temporary workaround for cache being slow on long files*)
-fun clear_cache_prover gtac  =
- let
-   val _ = List.app Cache.clear_cache [numSimps.arith_cache, intSimps.omega_cache,
-                                       intSimps.cooper_cache]
-   val res = TAC_PROOF gtac
-   val _ = List.app Cache.clear_cache [numSimps.arith_cache, intSimps.omega_cache,
-                                       intSimps.cooper_cache]
- in
-   res
- end
-val _ = Tactical.set_prover clear_cache_prover;
 
 (* TOOD: move? *)
 val wf_rel_tac = WF_REL_TAC
@@ -112,7 +100,7 @@ fun println s = print (strcat s "\n");
 (* -- *)
 
 (* TODO: move to listLib (and move MAP3 to listTheory) *)
-val (map3_tm,mk_map3,dest_map3,is_map3) = syntax_fns4 "misc" "MAP3"
+(* val (map3_tm,mk_map3,dest_map3,is_map3) = syntax_fns4 "misc" "MAP3"
 
 local
   val (m3n,m3c) = CONJ_PAIR MAP3_def
@@ -140,6 +128,7 @@ in
       itlist3 itfn els1 els2 els3 nth
     end
 end
+*)
 (* -- *)
 
 (* parlist num_threads chunk_size eval_fn ls :
@@ -595,5 +584,7 @@ val old_dxrule = old_dxrule_then mp_tac
 
 end
 
+val () = Cache.set_capacity numSimps.arith_cache 200000;
+val () = Cache.set_per_key_cap numSimps.arith_cache 5000;
 
 end

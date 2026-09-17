@@ -731,12 +731,25 @@ Theorem inst_select_thm:
   evaluate (inst_select c temp prog,st with locals:=loc) = (res,rst with locals:=loc') ∧
   case res of
     NONE => locals_rel temp rst.locals loc'
+  | SOME (Break _) => locals_rel temp rst.locals loc'
+  | SOME (Continue _) => locals_rel temp rst.locals loc'
   | SOME _ => rst.locals = loc'
 Proof
   ho_match_mp_tac inst_select_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[inst_select_def,locals_rel_evaluate_thm]
-  >- (* Assign *)
-    (full_simp_tac(srw_ss())[evaluate_def]>>last_x_assum mp_tac>>FULL_CASE_TAC>>srw_tac[][]>>
+  >~ [`Assign`] >- suspend "Assign"
+  >~ [`wordLang$Set`] >- suspend "Set"
+  >~ [`wordLang$Store`] >- suspend "Store"
+  >~ [`wordLang$Seq`] >- suspend "Seq"
+  >~ [`MustTerminate`] >- suspend "MustTerminate"
+  >~ [`ShareInst`] >- suspend "ShareInst"
+  >~ [`If`] >- suspend "If"
+  >~ [`Call`] >- suspend "Call"
+  >~ [`Loop`] >- suspend "Loop"
+QED
+
+Resume inst_select_thm[Assign]:
+    full_simp_tac(srw_ss())[evaluate_def]>>last_x_assum mp_tac>>FULL_CASE_TAC>>srw_tac[][]>>
     full_simp_tac(srw_ss())[every_var_def]>>
     imp_res_tac pull_exp_every_var_exp>>
     imp_res_tac flatten_exp_every_var_exp>>
@@ -750,9 +763,11 @@ Proof
     simp[state_component_equality,set_var_def,locals_rel_def]>>
     srw_tac[][]>>full_simp_tac(srw_ss())[lookup_insert]>>
     IF_CASES_TAC>>fs[]>>
-    metis_tac[])
-  >- (* Set *)
-    (full_simp_tac(srw_ss())[evaluate_def]>>last_x_assum mp_tac>>
+    metis_tac[]
+QED
+
+Resume inst_select_thm[Set]:
+    full_simp_tac(srw_ss())[evaluate_def]>>last_x_assum mp_tac>>
     ntac 2 FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>strip_tac>>
     full_simp_tac(srw_ss())[every_var_def]>>
     imp_res_tac pull_exp_every_var_exp>>
@@ -767,9 +782,11 @@ Proof
     full_simp_tac(srw_ss())[LET_THM,evaluate_def,word_exp_def]>>
     first_assum(qspec_then`temp` assume_tac)>>full_simp_tac(srw_ss())[set_store_def]>>
     full_simp_tac(srw_ss())[get_var_def,state_component_equality,locals_rel_def]>>
-    srw_tac[][]>>`x' ≠ temp` by DECIDE_TAC>>metis_tac[])
-  >-(*Store has optimizations*)
-    (full_simp_tac(srw_ss())[evaluate_def]>>last_x_assum mp_tac>>
+    srw_tac[][]>>`x' ≠ temp` by DECIDE_TAC>>metis_tac[]
+QED
+
+Resume inst_select_thm[Store]:
+    full_simp_tac(srw_ss())[evaluate_def]>>last_x_assum mp_tac>>
     ntac 3 FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>strip_tac>>
     qpat_abbrev_tac`expr = flatten_exp (pull_exp exp)`>>
     Cases_on`∃w exp'. expr = Op Add [exp';Const w]`>>
@@ -857,17 +874,20 @@ Proof
       simp[get_var_def] >>
       IF_CASES_TAC>>fs[state_component_equality]>>
       FULL_CASE_TAC>>fs[locals_rel_def]>>rw[]>>
-      `x' ≠ temp` by DECIDE_TAC>>metis_tac[])
-  >-
-    (*Seq*)
-    (full_simp_tac(srw_ss())[evaluate_def,LET_THM]>>Cases_on`evaluate(prog,st)`>>
+      `x' ≠ temp` by DECIDE_TAC>>metis_tac[]
+QED
+
+Resume inst_select_thm[Seq]:
+    full_simp_tac(srw_ss())[evaluate_def,LET_THM]>>Cases_on`evaluate(prog,st)`>>
     full_simp_tac(srw_ss())[every_var_def,GSYM AND_IMP_INTRO]>>
-    `q ≠ SOME Error` by (EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])>>
+    `q ≠ SOME Error` by (strip_tac>>gvs[])>>
     first_assum(fn th => first_x_assum(mp_tac o C MATCH_MP th)) >>
     full_simp_tac(srw_ss())[]>> disch_then (qspec_then`loc` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-    metis_tac[])
-  >- ( (* MustTerminate *)
+    metis_tac[]
+QED
+
+Resume inst_select_thm[MustTerminate]:
     full_simp_tac(srw_ss())[evaluate_def,LET_THM,every_var_def]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     ntac 2 (pairarg_tac>>full_simp_tac(srw_ss())[])>>
@@ -876,10 +896,10 @@ Proof
     res_tac>>
     last_x_assum kall_tac>>
     ntac 2 (pop_assum kall_tac)>>
-    pop_assum(qspec_then`loc` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-    simp[state_component_equality])
-  >-
-    ( (* ShareInst *)
+    pop_assum(qspec_then`loc` assume_tac)>>rev_full_simp_tac(srw_ss())[]
+QED
+
+Resume inst_select_thm[ShareInst]:
     gvs[evaluate_def,LET_THM,every_var_def,AllCaseEqs()] >>
     qpat_abbrev_tac`expr = flatten_exp (pull_exp exp)`>>
     Cases_on`∃w exp'. expr = Op Add [exp';Const w]` >>
@@ -934,7 +954,8 @@ Proof
     qmatch_goalsub_abbrev_tac `evaluate prog` >>
     `prog = (Seq (inst_select_exp c temp temp expr) (ShareInst op c' (Var temp)),
        st with locals := loc)`
-      by (every_case_tac >> gvs[]) >>
+      by (unabbrev_all_tac >> PURE_REWRITE_TAC[inst_select_def, LET_THM] >> BETA_TAC >>
+          every_case_tac >> simp[] >> metis_tac[]) >>
     qpat_x_assum `Abbrev (prog = _)` kall_tac >>
     first_x_assum $ qspec_then `pull_exp exp` assume_tac >>
     drule inst_select_exp_thm >>
@@ -949,72 +970,203 @@ Proof
       sh_mem_load16_def,sh_mem_store16_def,
       set_var_def,locals_rel_def,word_exp_def,the_words_def,word_op_def,
       get_var_def,state_component_equality,lookup_insert,flush_state_def] >>
-    metis_tac[lookup_insert])
-  >- ( (* If *)
+    metis_tac[lookup_insert]
+QED
+
+Resume inst_select_thm[If]:
     gvs[AllCaseEqs(),evaluate_def]>>
     Cases_on`ri`>>
     fs[get_var_imm_def]>>
     imp_res_tac locals_rel_get_var>>
-    fs[every_var_def,every_var_imm_def])
-  >>
-    imp_res_tac locals_rel_evaluate_thm>>
-    ntac 14 (pop_assum kall_tac)>>
-    full_simp_tac(srw_ss())[LET_THM,evaluate_def,every_var_def]>>
-    qpat_abbrev_tac `stt = st with locals := A`>>
-    Cases_on`get_vars args stt`>>full_simp_tac(srw_ss())[]>>
-    IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-    Cases_on`ret`>>full_simp_tac(srw_ss())[add_ret_loc_def]
-    >-(*Tail Call*)
-      (Cases_on`find_code dest x st.code st.stack_size`>>Cases_on`handler`>>
-      TRY(PairCases_on`x'`)>>full_simp_tac(srw_ss())[]>>
-      full_simp_tac(srw_ss())[call_env_def, flush_state_def,dec_clock_def,
-       state_component_equality,locals_rel_def])
-    >>
-      PairCases_on`x'`>>full_simp_tac(srw_ss())[add_ret_loc_def]>>
-      ntac 6 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[]) >-
-        (Cases_on `handler` >>
-        fs [call_env_def, flush_state_def,state_component_equality,locals_rel_def] >>
-        Cases_on `x''` >> fs [] >> Cases_on `r` >> fs [] >> Cases_on `r''` >>
-          fs [push_env_def, state_component_equality] >>  metis_tac [])
-      >>
-      full_simp_tac(srw_ss())[]>>
-      qpat_x_assum`A=(res,rst with locals:=loc')` mp_tac>>
-      qpat_abbrev_tac`st = call_env B lsz C`>>
-      qpat_abbrev_tac`st' = call_env B lsz C`>>
-      `st' = st''` by
-        (unabbrev_all_tac>>
-        Cases_on`handler`>>TRY(PairCases_on`x''`)>>
-        full_simp_tac(srw_ss())[call_env_def, flush_state_def,push_env_def,dec_clock_def,push_env_def,LET_THM,
-         env_to_list_def,state_component_equality])>>
-      Cases_on`evaluate(q',st'')`>>
-      Cases_on`q''`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`x''`>>full_simp_tac(srw_ss())[]
-      >-
-        (IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-        FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>
-        IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-        ntac 2 (FULL_CASE_TAC>>full_simp_tac(srw_ss())[])>>srw_tac[][]>>
-        res_tac>>full_simp_tac(srw_ss())[]>>
-        qpat_abbrev_tac`D = set_vars A B C`>>
-        first_x_assum(qspec_then`D.locals` assume_tac)>>full_simp_tac(srw_ss())[locals_rel_def]>>
-        full_simp_tac(srw_ss())[locals_rm,state_component_equality])
-      >-
-        (Cases_on`handler`>>full_simp_tac(srw_ss())[state_component_equality]>>
-        PairCases_on`x''`>>full_simp_tac(srw_ss())[]>>
-        IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-        IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-        srw_tac[][]>>
-        res_tac>>
-        qpat_abbrev_tac`D = set_var A B C`>>
-        first_x_assum(qspec_then`D.locals` assume_tac)>>full_simp_tac(srw_ss())[locals_rel_def]>>
-        full_simp_tac(srw_ss())[locals_rm,state_component_equality]>>
-        Cases_on`res`>>full_simp_tac(srw_ss())[]>>
-        qexists_tac`loc''`>>metis_tac[])
-      >>
-        full_simp_tac(srw_ss())[state_component_equality]
+    fs[every_var_def,every_var_imm_def]
 QED
 
+
+Theorem locals_rel_cut_envs_local[local]:
+  locals_rel temp loc loc' ∧
+  every_name (λx. x < temp) names ∧
+  cut_envs names loc = SOME x ⇒
+  cut_envs names loc' = SOME x
+Proof
+  rw[locals_rel_def,every_name_def,cut_envs_def,cut_names_def]>>
+  full_simp_tac(srw_ss())[SUBSET_DEF,EVERY_MEM,toAList_domain] >>
+  fs[cut_envs_def,cut_names_def]
+  >- (
+    simp[lookup_inter]>>
+    rw[]>>every_case_tac>>fs[]>>
+    fs[domain_lookup]>>
+    res_tac >> fs[] >>
+    res_tac >> fs[])
+  >>
+  res_tac >> fs[] >>
+  PURE_REWRITE_TAC[GSYM NOT_EVERY,EVERY_MEM,toAList_domain] >>
+  metis_tac[domain_lookup]
+QED
+
+Resume inst_select_thm[Call]:
+  gvs [inst_select_def, every_var_def] >>
+  Cases_on `ret` >> gvs [add_ret_loc_def]
+  >- ( (* ret=NONE: tail call — handler not used *)
+    fs [evaluate_def] >>
+    DEP_REWRITE_TAC [locals_rel_get_vars_simp] >> fs [] >>
+    TOP_CASE_TAC >> gvs [] >>
+    TOP_CASE_TAC >> gvs [] >>
+    TOP_CASE_TAC >> gvs [] >>
+    PairCases_on `x'` >> gvs [] >>
+    Cases_on `handler` >>
+    gvs [AllCaseEqs(), call_env_def, flush_state_def, dec_clock_def,
+         oneline bad_fun_return_def, AllCasePreds()] >>
+    simp [state_component_equality] >>
+    Cases_on `res` >> gvs [locals_rel_def] >>
+    rename1 `SOME xx` >> Cases_on `xx` >> gvs []) >>
+  (* ret=SOME: full call *)
+  PairCases_on`x` >> fs[add_ret_loc_def] >>
+  drule locals_rel_evaluate_thm >>
+  simp[every_var_def] >>
+  disch_then drule >> simp[] >>
+  disch_then drule >> strip_tac >>
+  qhdtm_x_assum`evaluate`mp_tac >>
+  simp[evaluate_def] >>
+  simp[CaseEq"prod",CaseEq"option",CaseEq"bool",PULL_EXISTS] >>
+  rpt gen_tac >> strip_tac >> gvs[]
+  >- (
+    gvs[add_ret_loc_def] >>
+    gvs[flush_state_def, call_env_def, state_component_equality] >>
+    Cases_on`handler` >> gvs[] >>
+    PairCases_on`x` >> gvs[push_env_def] ) >>
+  gvs[add_ret_loc_def, PULL_EXISTS] >>
+  qmatch_goalsub_abbrev_tac`call_env args1 ss hhh` >>
+  qmatch_asmsub_abbrev_tac`call_env args1 ss hhh1` >>
+  `hhh = hhh1` by (
+    Cases_on`handler` \\ gvs[Abbr`hhh`,Abbr`hhh1`, push_env_def] >>
+    PairCases_on`x` \\ gvs[push_env_def] ) >>
+  gvs[Abbr`hhh`] >>
+  TOP_CASE_TAC >> gvs[]
+  >- (
+    gvs[CaseEq"bool",CaseEq"option"] >>
+    first_x_assum drule >> gvs[] >>
+    gvs[set_vars_def] >>
+    qmatch_goalsub_abbrev_tac`s1 with locals := lll` >>
+    disch_then(qspec_then`lll`mp_tac) >>
+    impl_tac >- rw[locals_rel_def] >>
+    strip_tac >> simp[] >>
+    CASE_TAC >> gvs[locals_rel_def] >>
+    CASE_TAC >> gvs[locals_rel_def] ) >>
+  gvs[CaseEq"option",CaseEq"prod",CaseEq"bool"] >>
+  first_x_assum drule >> gvs[] >>
+  qmatch_goalsub_abbrev_tac`locals_rel _ ll1.locals` >>
+  disch_then(qspec_then`ll1.locals`mp_tac) >>
+  `ll1 with locals := ll1.locals = ll1` by simp[state_component_equality] >>
+  impl_tac >- gvs[locals_rel_def] >>
+  strip_tac >> gvs[] >>
+  CASE_TAC >> gvs[locals_rel_def] >>
+  CASE_TAC >> gvs[locals_rel_def]
+QED
+
+Theorem inst_select_Loop_helper:
+  !(s:('a,'c,'ffi) wordSem$state) names prog exit_names res rst c temp loc.
+    (!(st:('a,'c,'ffi) wordSem$state) res rst loc.
+       evaluate (prog, st) = (res, rst) /\ res <> SOME Error /\
+       locals_rel temp st.locals loc ==>
+       ?loc'.
+         evaluate (inst_select c temp prog, st with locals := loc) =
+           (res, rst with locals := loc') /\
+         case res of
+           NONE => locals_rel temp rst.locals loc'
+         | SOME (Break _) => locals_rel temp rst.locals loc'
+         | SOME (Continue _) => locals_rel temp rst.locals loc'
+         | SOME _ => rst.locals = loc') /\
+    evaluate (Loop names prog exit_names, s) = (res, rst) /\
+    res <> SOME Error /\
+    every_var (\x. x < temp) prog /\
+    every_name (\x. x < temp) (names, LN) /\
+    every_name (\x. x < temp) (exit_names, LN) /\
+    locals_rel temp s.locals loc ==>
+    ?loc'.
+      evaluate (Loop names (inst_select c temp prog) exit_names,
+                s with locals := loc) = (res, rst with locals := loc') /\
+      case res of
+        NONE => locals_rel temp rst.locals loc'
+      | SOME (Break _) => locals_rel temp rst.locals loc'
+      | SOME (Continue _) => locals_rel temp rst.locals loc'
+      | SOME _ => rst.locals = loc'
+Proof
+  gen_tac \\ completeInduct_on `s.clock` \\ rw []
+  \\ qpat_x_assum `evaluate (Loop _ _ _, _) = _` mp_tac
+  \\ once_rewrite_tac [evaluate_def]
+  \\ simp [cut_state_def, UNCURRY, STOP_def]
+  \\ Cases_on `cut_env (names,LN) s.locals` \\ gvs[]
+  \\ `cut_env (names,LN) loc = SOME x` by (
+    irule locals_rel_cut_env \\ metis_tac[])
+  \\ Cases_on `evaluate (prog,s with locals := x)` \\ simp []
+  \\ strip_tac
+  \\ `q <> SOME Error` by (
+    CCONTR_TAC \\ gvs [cont_loop_def, exit_loop_def, AllCaseEqs()])
+  \\ qpat_assum `!st. _`
+    (qspecl_then [`s with locals := x`,`q`,`r`,`x`] mp_tac)
+  \\ impl_tac >- gvs[locals_rel_def]
+  \\ strip_tac
+  \\ gvs[state_component_equality]
+  \\ qpat_x_assum `(if _ then _ else _) = _` mp_tac
+  \\ fs [] \\ strip_tac \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+  >- (
+    IF_CASES_TAC \\ gvs []
+    >- simp[state_component_equality]
+    \\ imp_res_tac evaluate_clock
+    \\ gvs [dec_clock_def]
+    \\ first_x_assum irule
+    \\ gvs [AllCaseEqs()]
+    \\ Cases_on `q` \\ gvs[cont_loop_def]
+    \\ Cases_on `x'` \\ gvs[cont_loop_def])
+  \\ IF_CASES_TAC \\ gvs []
+  >- (
+    Cases_on `cut_env (exit_names,LN) r.locals` \\ gvs[]
+    \\ `cut_env (exit_names,LN) loc' = SOME x'` by (
+      irule locals_rel_cut_env \\ metis_tac[])
+    \\ gvs[]
+    \\ simp[state_component_equality, locals_rel_def])
+  \\ Cases_on `q` \\ gvs[exit_loop_def, cont_loop_def]
+  \\ Cases_on `x'` \\ gvs[exit_loop_def, cont_loop_def]
+QED
+
+Resume inst_select_thm[Loop]:
+  gvs [every_var_def, inst_select_def] >>
+  irule inst_select_Loop_helper >>
+  gvs [every_name_def] >>
+  simp[sptreeTheory.toAList_def, sptreeTheory.foldi_def]
+QED
+
+Finalise inst_select_thm;
+
 (* three_to_two_reg semantics *)
+
+Theorem three_to_two_reg_Loop:
+  ∀(s:('a,'c,'ffi) wordSem$state) names prog exit_names res s'.
+    (∀(v:('a,'c,'ffi) wordSem$state) res s'.
+       evaluate (prog, v) = (res, s') ∧ res ≠ SOME Error ⇒
+       evaluate (three_to_two_reg prog, v) = (res, s')) ∧
+    evaluate (Loop names prog exit_names, s) = (res, s') ∧ res ≠ SOME Error ⇒
+    evaluate (Loop names (three_to_two_reg prog) exit_names, s) = (res, s')
+Proof
+  gen_tac \\ completeInduct_on `s.clock` \\ rw []
+  \\ qpat_x_assum `evaluate (Loop _ _ _, _) = _` mp_tac
+  \\ once_rewrite_tac [evaluate_def]
+  \\ simp [cut_state_def, UNCURRY, STOP_def]
+  \\ TOP_CASE_TAC \\ simp []
+  \\ Cases_on `evaluate (prog, x)` \\ simp []
+  \\ strip_tac
+  \\ `q <> SOME Error` by
+    (CCONTR_TAC \\ gvs [cont_loop_def, exit_loop_def, AllCaseEqs()])
+  \\ `evaluate (three_to_two_reg prog, x) = (q, r)` by res_tac
+  \\ qpat_x_assum `(if _ then _ else _) = _` mp_tac
+  \\ fs [] \\ strip_tac \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+  \\ first_x_assum irule
+  \\ imp_res_tac evaluate_clock
+  \\ gvs [dec_clock_def, AllCaseEqs()]
+QED
 
 (*Semantics preservation*)
 Theorem three_to_two_reg_correct:
@@ -1070,6 +1222,24 @@ Proof
     fs[add_ret_loc_def]>>
     every_case_tac>>
     gvs[call_env_def,push_env_def])
+  >~ [`Loop`]
+  >- (
+    gvs [every_inst_def]
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ pairarg_tac \\ gvs []
+    \\ Cases_on `evaluate (prog, x)` \\ gvs []
+    \\ `q <> SOME Error` by
+      (CCONTR_TAC \\ gvs [cont_loop_def, exit_loop_def, AllCaseEqs()])
+    \\ `evaluate (three_to_two_reg prog, x) = (q, r)` by
+      (first_assum (qspecl_then [`x`,`q`,`r`] mp_tac) \\ simp [])
+    \\ gvs []
+    \\ qpat_x_assum `(if _ then _ else _) = _` mp_tac
+    \\ simp [STOP_def] \\ strip_tac \\ gvs []
+    \\ IF_CASES_TAC \\ gvs []
+    \\ IF_CASES_TAC \\ gvs []
+    \\ irule three_to_two_reg_Loop
+    \\ gvs [] \\ imp_res_tac evaluate_clock
+    \\ gvs [dec_clock_def])
 QED
 
 Theorem evaluate_three_to_two_reg_prog:

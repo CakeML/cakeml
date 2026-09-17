@@ -360,7 +360,7 @@ Proof
   \\ Cases \\ fs [] \\ strip_tac
   \\ Cases_on ‘list_dec char_dec (append (mlstring_enc (strlit s)) ++ xs)’ \\ fs []
   \\ assume_tac (MATCH_MP list_enc_dec_ok char_enc_dec_ok)
-  \\ fs [enc_dec_ok_def,mlstring_enc_def,mlstringTheory.implode_def]
+  \\ fs [enc_dec_ok_def,mlstring_enc_def]
 QED
 
 Theorem mlstring_dec_ok:

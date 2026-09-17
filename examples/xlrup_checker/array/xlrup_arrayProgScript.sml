@@ -69,7 +69,7 @@ End
 
 Definition format_failure_def:
   format_failure (lno:num) s =
-  strlit "c Checking failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"
+  «c Checking failed at line: » ^ toString lno ^ «. Reason: » ^ s ^ «\n»
 End
 
 val _ = translate format_failure_def;
@@ -1142,7 +1142,7 @@ Definition print_bits_aux_def:
   (print_bits_aux (b::bs) n acc =
   if b then
     print_bits_aux bs (n+1)
-      ((strlit"x" ^ toString n) :: acc)
+      ((«x» ^ toString n) :: acc)
   else
     print_bits_aux bs (n+1) acc)
 End
@@ -1150,12 +1150,12 @@ End
 Definition print_xor_string_def:
   print_xor_string s =
   let cs = FLAT (MAP char_to_bits (explode s)) in
-  if LENGTH cs = 0 then strlit""
+  if LENGTH cs = 0 then «»
   else
     let h = HD cs in
-    let bb = if h then strlit" = 1" else strlit " = 0" in
+    let bb = if h then « = 1» else « = 0» in
     let t = TL cs in
-    (concatWith (strlit" + ") (print_bits_aux t 1 []) ^ bb)
+    (concatWith « + » (print_bits_aux t 1 []) ^ bb)
 End
 
 val res = translate print_bits_aux_def;
@@ -1185,8 +1185,8 @@ QED
 Definition tn_to_string_def:
   tn_to_string tn =
   let ls = toSortedAList (FST tn) in
-  let ss = MAP (λ(k,v:num). toString k ^ strlit" -> " ^ toString v) ls in
-  concatWith (strlit " ; ") ss
+  let ss = MAP (λ(k,v:num). toString k ^ « -> » ^ toString v) ls in
+  concatWith « ; » ss
 End
 
 val res = translate spt_center_def;
@@ -1564,7 +1564,7 @@ Proof
   xapp>>
   xsimpl>>
   first_x_assum (irule_at Any)>>
-  simp[conv_rawxor_list_def,implode_def]>>
+  simp[conv_rawxor_list_def]>>
   rw[]>>
   `fromByte = (CHR o w2n)` by
     rw[FUN_EQ_THM,fromByte_def]>>
@@ -2740,14 +2740,14 @@ Proof
 QED
 
 Definition noparse_string_def:
-  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]
+  noparse_string f s = concat[«c Input file: »;f;« unable to parse in format: »; s;«\n»]
 End
 
 val r = translate noparse_string_def;
 
 (*
 Definition nocheck_string_def:
-  nocheck_string = strlit "cake_xlrup: XLRUP checking failed.\n"
+  nocheck_string = «cake_xlrup: XLRUP checking failed.\n»
 End
 
 val r = translate nocheck_string_def;
@@ -2997,7 +2997,7 @@ QED
   Otherwise: Inr (true/false result of checking clause inclusion)
 *)
 Definition notfound_string_def:
-  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]
+  notfound_string f = concat[«c Input file: »;f;« no such file or directory\n»]
 End
 
 val r = translate notfound_string_def;

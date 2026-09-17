@@ -49,7 +49,7 @@ in
 end
 
 val add_arm7_encode_compset = computeLib.extend_compset
-  [computeLib.Convs [(``arm7_target$arm7_enc``, 1, arm7_encode_conv)],
+  [computeLib.Convs [(prim_mk_const{Thy="arm7_target",Name="arm7_enc"}, 1, arm7_encode_conv)],
    computeLib.Defs [arm7_targetTheory.arm7_config,
                     EncodeARMImmediate_def, EncodeARMImmediate_aux_def,
                     valid_immediate_def]]

@@ -255,7 +255,7 @@ Theorem map_inv_lookup_neq[local]:
     map_inv m tnum ⇒ lookup m var ≠ «v» ^ toString tnum
 Proof
   Induct_on ‘m’ \\ rpt strip_tac
-  >- (gvs [lookup_def, strcat_thm, implode_def]
+  >- (gvs [lookup_def, strcat_thm]
       \\ Cases_on ‘toString tnum’
       \\ drule num_to_str_not_nil \\ gvs [])
   \\ drule map_inv_cons \\ rpt strip_tac \\ gvs []

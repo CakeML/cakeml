@@ -60,37 +60,40 @@ local
   open Parse
 
   val type_alist =
-    [("exp",``:ast$exp``),
-     ("string_ty",``:tvarN``),
-     ("unit",``:unit``),
-     ("pair", ``:'a # 'b``),
-     ("num", ``:num``),
-     ("poly_M_type",``:'a -> ('b, 'c) exc # 'a``),
-     ("v_bool_ty",``:v -> bool``),
-     ("hprop_ty",``:hprop``),
-     ("recclosure_exp_ty",``:(tvarN, tvarN # ast$exp) alist``),
-     ("register_pure_type_pat",``:('a, 'b) ml_monadBase$exc``),
-     ("exc_ty",``:('a, 'b) exc``),
-     ("ffi",``:'ffi``),
-     ("v_list", ``:v list``)
+    [("exp", astSyntax.exp_ty),
+     ("string_ty", mlstringSyntax.mlstring_ty),
+     ("unit", oneSyntax.one_ty),
+     ("pair", pairSyntax.mk_prod(alpha,beta)),
+     ("num", numSyntax.num),
+     ("poly_M_type", ml_monadBaseSyntax.M_ty),
+     ("v_bool_ty", semanticPrimitivesSyntax.v_ty --> bool),
+     ("hprop_ty", cfHeapsBaseSyntax.hprop_ty),
+     ("recclosure_exp_ty",
+       listSyntax.mk_list_type
+         (pairSyntax.mk_prod(mlstringSyntax.mlstring_ty,
+            pairSyntax.mk_prod(mlstringSyntax.mlstring_ty, astSyntax.exp_ty)))),
+     ("register_pure_type_pat", ml_monadBaseSyntax.exc_ty),
+     ("exc_ty", ml_monadBaseSyntax.exc_ty),
+     ("ffi", mk_vartype "'ffi"),
+     ("v_list", listSyntax.mk_list_type semanticPrimitivesSyntax.v_ty)
     ]
 
   val term_alist =[("EqSt remove",``!a st. EqSt a st = (a : ('a, 'b) H)``),
      ("PURE ArrowP ro eq", ``PURE(ArrowP ro H (PURE (Eq a x)) b)``),
      ("ArrowP ro PURE", ``ArrowP ro H a (PURE b)``),
      ("ArrowP ro EqSt", ``ArrowP ro H (EqSt a st) b``),
-     ("ArrowM_const",``ArrowM``),
-     ("Eval_const",``Eval``),
-     ("EvalM_const",``EvalM``),
+     ("ArrowM_const",prim_mk_const{Thy="ml_monad_translator",Name="ArrowM"}),
+     ("Eval_const",ml_translatorSyntax.Eval),
+     ("EvalM_const",prim_mk_const{Thy="ml_monad_translator",Name="EvalM"}),
      ("MONAD_const",``MONAD : (α->v->bool) -> (β->v->bool) -> ((γ,α,β)M,γ) H``),
      ("PURE_const",``PURE : (α -> v -> bool) -> (α, β) H``),
-     ("FST_const",``FST : 'a # 'b -> 'a``),
-     ("SND_const",``SND : 'a # 'b -> 'b``),
-     ("LENGTH_const", ``LENGTH : 'a list -> num``),
-     ("EL_const", ``EL : num -> 'a list -> 'a``),
-     ("Fun_const",``ast$Fun``),
-     ("Var_const",``ast$Var``),
-     ("Closure_const",``semanticPrimitives$Closure``),
+     ("FST_const",pairSyntax.fst_tm),
+     ("SND_const",pairSyntax.snd_tm),
+     ("LENGTH_const", listSyntax.length_tm),
+     ("EL_const", listSyntax.el_tm),
+     ("Fun_const",astSyntax.Fun_tm),
+     ("Var_const",astSyntax.Var_tm),
+     ("Closure_const",semanticPrimitivesSyntax.Closure_tm),
      ("failure_pat",``\v. (M_failure(C v), state_var)``),
      ("Eval_pat",``Eval env exp (P (res:'a))``),
      ("Eval_pat2",``Eval env exp P``),
@@ -98,11 +101,11 @@ local
       ``\EXN_TYPE res (H:('a -> hprop) # 'ffi ffi_proj).
           EvalM ro env st exp (MONAD P EXN_TYPE res) H``),
      ("Eval_name_RI_abs",``\name RI. Eval env (Var (Short name)) RI``),
-     ("write_const",``write``),
-     ("RARRAY_REL_const",``RARRAY_REL``),
-     ("ARRAY_REL_const",``ARRAY_REL``),
-     ("run_const",``ml_monadBase$run``),
-     ("EXC_TYPE_aux_const",``EXC_TYPE_aux``),
+     ("write_const",ml_translatorSyntax.write),
+     ("RARRAY_REL_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="RARRAY_REL"}),
+     ("ARRAY_REL_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="ARRAY_REL"}),
+     ("run_const",ml_monadBaseSyntax.run_tm),
+     ("EXC_TYPE_aux_const",prim_mk_const{Thy="ml_monad_translator",Name="EXC_TYPE_aux"}),
      ("return_pat",``st_ex_return x``),
      ("bind_pat",``st_ex_bind x y``),
      ("pure_seq_pat",``pure_seq x y``),
@@ -112,7 +115,7 @@ local
       ``\a name RI f (H: ('a -> hprop) # 'ffi ffi_proj).
           PreImp a (!st. EvalM ro env st (Var (Short name)) (RI f) H)``),
      ("refs_emp",``\refs. emp``),
-     ("UNIT_TYPE",``UNIT_TYPE``),
+     ("UNIT_TYPE",ml_translatorSyntax.UNIT_TYPE),
      ("nsLookup_val_pat",
         ``nsLookup (env : env_val) (Short (vname : tvarN)) = SOME (loc : v)``),
      ("CONTAINER",``ml_translator$CONTAINER (b:bool)``),
@@ -131,7 +134,7 @@ local
      ("PRECONDITION_pat",``ml_translator$PRECONDITION x``),
      ("LOOKUP_VAR_pat",``LOOKUP_VAR name env exp``),
      ("nsLookup_pat",``nsLookup (env : v sem_env).v (Short name) = SOME exp``),
-     ("emp_tm",``set_sep$emp``),
+     ("emp_tm",cfHeapsBaseSyntax.emp_tm),
      ("ffi_ffi_proj", ``p:'ffi ffi_proj``)
     ]
 
@@ -273,7 +276,9 @@ val translator_state = {
   EXN_TYPE = ref (get_term "UNIT_TYPE"),
   exn_type = ref unit_ty, (* WHAT IS THE DIFFERENCE BETWEEN THESE LAST TWO? *)
   VALID_STORE_THM = ref (NONE : thm option),
-  type_theories = ref ([current_theory(), "ml_translator"] : string list),
+  (* theories other than the one being built that supply type invariants;
+     see all_type_theories *)
+  type_theories = ref (["ml_translator"] : string list),
   exn_handles = ref ([] : (term * thm) list),
   exn_raises = ref ([] : (term * thm) list),
   exn_functions_defs = ref ([] : (thm * thm) list),
@@ -313,6 +318,12 @@ val translator_state = {
   Helper functions.
 
 ******************************************************************************)
+
+(* The theory being built also supplies type invariants, for types translated
+   after it was entered.  Its name is only available once a segment is open, so
+   it is read here rather than stored in translator_state. *)
+fun all_type_theories () =
+  current_theory() :: (!(#type_theories translator_state));
 
 (* This is not used in this file, but is in the signature *)
 fun add_access_pattern th =
@@ -1006,7 +1017,7 @@ fun compute_dynamic_refs_bindings all_access_specs = let
     val store_varsl =
       strip_comb ((!(#H translator_state)) |> dest_pair |> fst) |> snd
     val store_varsl = store_varsl |>
-      filter (fn t => not (can (match_type ``:'a -> v -> bool``) (type_of t)))
+      filter (fn t => not (can (match_type (alpha --> semanticPrimitivesSyntax.v_ty --> bool)) (type_of t)))
     val final_bindings =
       List.map (fn x => (Redblackmap.find (bindings_map, x), x)) store_varsl
 in final_bindings end
@@ -1062,8 +1073,10 @@ fun init_translation (monad_translation_params : monadic_translation_parameters)
       #exn_type st :=
         (type_of (!(#EXN_TYPE st)) |> dest_type |> snd |> List.hd);
       #VALID_STORE_THM st := store_pred_exists_thm;
-      #type_theories st :=
-        (current_theory() :: (add_type_theories @ ["ml_translator"]));
+      (* NB: this overwrites, so any theories inherited from an earlier
+         m_translation_extends are dropped.  No script currently both extends
+         and initialises, so this is not reachable in practice. *)
+      #type_theories st := (add_type_theories @ ["ml_translator"]);
       #store_pinv_def st := store_pinv_def_opt;
 
       (* Exceptions *)
@@ -1303,10 +1316,10 @@ local
       val (name, name_thy) =
         if ty <> unit_ty then get_name ty else ("UNIT_TYPE", "UNIT_TYPE")
       val inv_def = tryfind (fn thy_name => fetch thy_name (name ^ "_def"))
-                            (!(#type_theories translator_state))
+                            (all_type_theories ())
           handle HOL_ERR _ =>
                  tryfind (fn thy_name => fetch thy_name (name_thy ^ "_def"))
-                         (!(#type_theories translator_state))
+                         (all_type_theories ())
           handle  HOL_ERR _ =>
             let
               val thms = DB.find (name ^ "_def") |> List.map (#1 o snd)
@@ -1331,7 +1344,7 @@ local
       val state_ty = !(#refs_type translator_state)
       val state_ty' =
         type_subst
-        (List.map (fn ty => (ty |-> gen_tyvar ())) (type_vars state_ty))
+        (List.map (fn ty => (ty |-> gen_tyvar ())) (List.rev (type_vars state_ty)))
         state_ty
       val H_var =
         mk_var("H",
@@ -3984,7 +3997,7 @@ local
      (pack_option pack_thm)                     (!(#VALID_STORE_THM st)),
       pack_thm                                  (!(#EXN_TYPE_def st)),
       pack_term                                 (!(#EXN_TYPE st)),
-     (pack_list pack_string)                    (!(#type_theories st)),
+     (pack_list pack_string)                    (all_type_theories ()),
      (pack_list (pack_pair pack_term pack_thm)) (!(#exn_handles st)),
      (pack_list (pack_pair pack_term pack_thm)) (!(#exn_raises st)),
      (pack_list (pack_pair pack_thm pack_thm))  (!(#exn_functions_defs st)),
@@ -4024,25 +4037,17 @@ local
         farrays_functions_defs, local_state_init_H, store_pinv_def,
         dynamic_refs_bindings, local_code_abbrevs, mem_derive_case_ref
       ] => let
-
-        (* Need to add the current theory to type_theories or we cannot
-           access definitions generated after extending! *)
+        (* The theory this state was saved from is recorded in the packed list,
+           so its definitions remain reachable after extending. *)
         val type_theories_unpacked = type_theories |>
                                      (unpack_list unpack_string)
-
-        val curr_thy =
-          case List.find (fn thy => thy = current_theory())
-                  type_theories_unpacked
-          of
-              NONE => [current_theory ()]
-            | _ => []
       in
         #refs_type st := (refs_type |> unpack_type);
         #exn_type st := (exn_type |> unpack_type);
         #VALID_STORE_THM st := (VALID_STORE_THM |> (unpack_option unpack_thm));
         #EXN_TYPE_def st := (EXN_TYPE_def |> unpack_thm);
         #EXN_TYPE st := (EXN_TYPE |> unpack_term);
-        #type_theories st := (type_theories_unpacked @ curr_thy);
+        #type_theories st := type_theories_unpacked;
         #exn_handles st := (exn_handles |>
                             (unpack_list (unpack_pair unpack_term unpack_thm)));
         #exn_raises st := (exn_raises |>

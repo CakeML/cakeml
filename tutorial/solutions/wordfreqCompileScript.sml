@@ -1,1 +1,1 @@
-../wordfreqCompileScript.sml
+../problems/wordfreqCompileScript.sml

@@ -63,12 +63,12 @@ Definition encode_to_output_def:
   encode_to_output v_exp =
   let cages = v2cageList v_exp in
     case killerSudoku_ok cages of
-    | F => (List [strlit "Invalid input"])
+    | F => (List [«Invalid input»])
     | T =>
         let cnf_exp = killerSudoku_to_cnf cages in
           let (max_var, clauses) = get_max_var_and_clauses cnf_exp in
             Append
-            (List [strlit "p cnf "; num_to_str max_var; strlit " "; num_to_str clauses; strlit "\n"])
+            (List [«p cnf »; num_to_str max_var; « »; num_to_str clauses; «\n»])
             (cnf_to_output cnf_exp)
 End
 
@@ -88,13 +88,13 @@ End
 Definition row_to_output_def:
   row_to_output [] = List [] ∧
   row_to_output (c::cells) =
-  Append (List [num_to_str c; (strlit " ")]) (row_to_output cells)
+  Append (List [num_to_str c; « »]) (row_to_output cells)
 End
 
 Definition sudoku_to_output_def:
   sudoku_to_output [] = List [] ∧
   sudoku_to_output (row::rows) =
-  Append (row_to_output row) (Append (List [strlit "\n"]) (sudoku_to_output rows))
+  Append (row_to_output row) (Append (List [«\n»]) (sudoku_to_output rows))
 End
 
 Definition solve_to_output_def:

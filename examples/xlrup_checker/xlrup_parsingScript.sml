@@ -94,7 +94,7 @@ Definition parse_u_rest_def:
   case parse_until_zero rest [] of
     NONE => NONE
   | SOME (c ,rest) =>
-    (case parse_until_c_zero_nn (strlit"u") rest [] of
+    (case parse_until_c_zero_nn «u» rest [] of
       SOME (INR (hints, [])) => SOME (c,hints,[])
     | SOME (INL (hints,rest)) =>
       (case parse_until_zero_nn rest [] of
@@ -145,7 +145,7 @@ End
 Definition parse_rup_del_def:
   parse_rup_del n rest =
   if n ≥ 0 then
-    case starts_with (INL (strlit "d")) rest of
+    case starts_with (INL «d») rest of
       INL rest =>
       (case parse_rest rest of NONE => NONE
       | SOME (c,hints) => SOME (RUP (Num (ABS n)) c hints))
@@ -160,7 +160,7 @@ End
 (* XAdd or Xdel (line prefix is "x") *)
 Definition parse_xadd_xdel_def:
   parse_xadd_xdel rest =
-  case starts_with (INL (strlit "d")) rest of
+  case starts_with (INL «d») rest of
     INL rest =>
     (* XAdd *)
     (case parse_id_u_rest rest of NONE => NONE
@@ -205,7 +205,7 @@ End
 (* BAdd or BDel (line prefix is "b") *)
 Definition parse_badd_bdel_def:
   parse_badd_bdel rest =
-  case starts_with (INL (strlit "d")) rest of
+  case starts_with (INL «d») rest of
     INL rest =>
     (* BAdd *)
     (case parse_badd rest of
@@ -224,15 +224,15 @@ Definition parse_imply_def:
   parse_imply rest =
   case rest of
   | INL s::rest =>
-    if s = strlit "x" then
+    if s = «x» then
       (* XFromC *)
       (case parse_id_rest rest of NONE => NONE
         | SOME (n,c,hints) => SOME (XFromC n c hints))
-    else if s = strlit"cx" then
+    else if s = «cx» then
       (* CFromX *)
       (case parse_id_rest rest of NONE => NONE
       | SOME (n,c,hints) => SOME (CFromX n c hints))
-    else if s = strlit "cb" then
+    else if s = «cb» then
       (case parse_id_u_rest rest of
       | SOME (n,c,[b],hints) => SOME (CFromB n c b hints)
       | _ => NONE)
@@ -264,12 +264,12 @@ Definition parse_orig_def:
   if n ≥ 0
   then
     let n = Num (ABS n) in
-    if c = INL (strlit "x")
+    if c = INL «x»
     then
       (* x [... 0] *)
       (case parse_xor_nomv rest of NONE => NONE
       | SOME c => SOME (XOrig n c))
-    else if c = INL (strlit "b")
+    else if c = INL «b»
     then
       (* b [... 0] *)
       (case parse_bnn_nomv rest of NONE => NONE
@@ -285,16 +285,16 @@ Definition parse_xlrup_def:
   case f of
   | INR n => parse_rup_del n rest
   | INL c =>
-    if c = strlit"x"
+    if c = «x»
     then
       parse_xadd_xdel rest
-    else if c = strlit"i"
+    else if c = «i»
     then
       parse_imply rest
-    else if c = strlit"o"
+    else if c = «o»
     then
       parse_orig rest
-    else if c = strlit"b"
+    else if c = «b»
     then
       parse_badd_bdel rest
     else
@@ -441,28 +441,28 @@ Proof
 QED
 
 val xlrupsraw = ``[
-  strlit"8 d 0";
-  strlit"x d 1 2 0";
-  strlit"9 6 1 0 1 2 8 0";
-  strlit"10 6 2 0 3 4 8 0";
-  strlit"11 6 3 0 5 6 8 0";
-  strlit"12 -6 4 0 1 5 7 3 0";
-  strlit"x 1234 -6 4 0 1 5 7 3 0";
-  strlit"o x 5 -1 1 2 3 0";
-  strlit"12 d 1 5 3 0";
-  strlit"13 -6 5 0 2 6 7 4 0";
-  strlit"13 d 2 6 4 0";
-  strlit"14 6 0 9 10 11 7 0";
-  strlit"14 d 9 10 11 7 0";
-  strlit"16 0 14 12 13 8 0";
-  strlit"i cx 17 1 2 3 4 0 14 12 13 8 0";
-  strlit"i x 17 0 14 12 13 8 0";
-  strlit"o b 18 1 2 3 4 0 14 15 0 ";
-  strlit"o b 18 1 2 3 4 0 14 0 ";
-  strlit"i cb 17 1 2 3 4 0 14 u 12 13 8 0";
-  strlit"b 18 1 2 3 4 0 14 15 0 12 13 8 0";
-  strlit"b 18 1 2 3 4 0 14 0 12 13 8 0";
-  strlit"b d 1 2 3 4 0";
+  «8 d 0»;
+  «x d 1 2 0»;
+  «9 6 1 0 1 2 8 0»;
+  «10 6 2 0 3 4 8 0»;
+  «11 6 3 0 5 6 8 0»;
+  «12 -6 4 0 1 5 7 3 0»;
+  «x 1234 -6 4 0 1 5 7 3 0»;
+  «o x 5 -1 1 2 3 0»;
+  «12 d 1 5 3 0»;
+  «13 -6 5 0 2 6 7 4 0»;
+  «13 d 2 6 4 0»;
+  «14 6 0 9 10 11 7 0»;
+  «14 d 9 10 11 7 0»;
+  «16 0 14 12 13 8 0»;
+  «i cx 17 1 2 3 4 0 14 12 13 8 0»;
+  «i x 17 0 14 12 13 8 0»;
+  «o b 18 1 2 3 4 0 14 15 0 »;
+  «o b 18 1 2 3 4 0 14 0 »;
+  «i cb 17 1 2 3 4 0 14 u 12 13 8 0»;
+  «b 18 1 2 3 4 0 14 15 0 12 13 8 0»;
+  «b 18 1 2 3 4 0 14 0 12 13 8 0»;
+  «b d 1 2 3 4 0»;
   ]``;
 
 val xlrups = rconc (EVAL ``THE (parse_xlrups ^(xlrupsraw))``);

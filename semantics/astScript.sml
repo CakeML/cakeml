@@ -219,6 +219,8 @@ Datatype:
   | Tannot exp ast_t
   (* Location annotated expressions, not expected in source programs *)
   | Lannot exp locs
+  (* Open one non-empty module path for the lexical scope of the body. *)
+  | Open (modN list) exp
 End
 
 Type type_def = ``: ( tvarN list # typeN # (conN # ast_t list) list) list``
@@ -246,20 +248,36 @@ Datatype:
   | Dlocal (dec list) (dec list)
   (* Store current lexical env in an env value *)
   | Denv tvarN
+  (* Expose the contents of a non-empty module path as a declaration delta *)
+  | Dopen locs (modN list)
 End
 
-(* Accumulates the bindings of a pattern *)
+(* No declaration opens, including inside structures and local declarations.
+   Expression-local Open is deliberately allowed. *)
+Definition dopen_free_dec_def:
+  (dopen_free_dec (Dlet locs p e) = T) /\
+  (dopen_free_dec (Dletrec locs funs) = T) /\
+  (dopen_free_dec (Dtype locs tdefs) = T) /\
+  (dopen_free_dec (Dtabbrev locs tvs tn t) = T) /\
+  (dopen_free_dec (Dexn locs cn ts) = T) /\
+  (dopen_free_dec (Denv n) = T) /\
+  (dopen_free_dec (Dopen locs path) = F) /\
+  (dopen_free_dec (Dmod mn ds) = EVERY dopen_free_dec ds) /\
+  (dopen_free_dec (Dlocal lds ds) =
+     (EVERY dopen_free_dec lds /\ EVERY dopen_free_dec ds))
+End
+
+(* Computes the bindings of a pattern *)
 Definition pat_bindings_def:
-  pat_bindings Pany already_bound = already_bound ∧
-  pat_bindings (Pvar n) already_bound = n::already_bound ∧
-  pat_bindings (Plit l) already_bound = already_bound ∧
-  pat_bindings (Pcon v0 ps) already_bound = pats_bindings ps already_bound ∧
-  pat_bindings (Pref p) already_bound = pat_bindings p already_bound ∧
-  pat_bindings (Pas p i) already_bound = pat_bindings p (i::already_bound) ∧
-  pat_bindings (Ptannot p v1) already_bound = pat_bindings p already_bound ∧
-  pats_bindings [] already_bound = already_bound ∧
-  pats_bindings (p::ps) already_bound =
-  pats_bindings ps (pat_bindings p already_bound)
+  pat_bindings Pany = [] ∧
+  pat_bindings (Pvar n) = [n] ∧
+  pat_bindings (Plit l) = [] ∧
+  pat_bindings (Pcon v0 ps) = pats_bindings ps ∧
+  pat_bindings (Pref p) = pat_bindings p ∧
+  pat_bindings (Pas p i) = pat_bindings p ++ [i] ∧
+  pat_bindings (Ptannot p v1) = pat_bindings p ∧
+  pats_bindings [] = [] ∧
+  pats_bindings (p::ps) = pats_bindings ps ++ pat_bindings p
 End
 
 Definition every_exp_def[simp]:
@@ -290,7 +308,9 @@ Definition every_exp_def[simp]:
   (every_exp p (Lannot e a) ⇔
              p (Lannot e a) ∧ every_exp p e) ∧
   (every_exp p (Letrec funs e) ⇔
-             p (Letrec funs e) ∧ every_exp p e ∧ EVERY (λ(n,v,e). every_exp p e) funs)
+             p (Letrec funs e) ∧ every_exp p e ∧ EVERY (λ(n,v,e). every_exp p e) funs) ∧
+  (every_exp p (Open path e) ⇔
+             p (Open path e) ∧ every_exp p e)
 End
 
 Definition Seqs_def:

@@ -147,7 +147,7 @@ Definition continue_def:
     | (Cmat ()  [] err_v, env) :: c =>
         Estep (env, s, Exn err_v, c)
     | (Cmat ()  ((p,e)::pes) err_v, env) :: c =>
-        if ALL_DISTINCT (pat_bindings p []) then
+        if ALL_DISTINCT (pat_bindings p) then
           (case pmatch env.c (FST s) p v [] of
               Match_type_error => Eabort Rtype_error
             | No_match => Estep (env, s, Val v, ((Cmat ()  pes err_v,env)::c))
@@ -234,6 +234,10 @@ Definition e_step_def:
                        s, Exp e, c)
           | Tannot e t => push env s e (Ctannot ()  t) c
           | Lannot e l => push env s e (Clannot ()  l) c
+          | Open path e =>
+              (case open_dec_env path env of
+                 NONE => Eabort Rtype_error
+               | SOME opened => Estep (extend_dec_env opened env, s, Exp e, c))
         )
     | Exn v =>
        case c of
@@ -370,15 +374,15 @@ Definition decl_step_def:
     Decl d =>
       (case d of
         Dlet locs p e =>
-          if ALL_DISTINCT (pat_bindings p []) ∧
-             every_exp (one_con_check (collapse_env benv c).c) e
+          if ALL_DISTINCT (pat_bindings p) ∧
+             check_exp_constructors (collapse_env benv c).c e
           then
             Dstep (st, ExpVal (collapse_env benv c) (Exp e) [] locs p, c)
           else Dabort Rtype_error
       | Dletrec locs funs =>
           if ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) ∧
              EVERY (\ (x,y,z) .
-               every_exp (one_con_check (collapse_env benv c).c) z) funs
+               check_exp_constructors (collapse_env benv c).c z) funs
           then
             Dstep (st,
               Env <| v := (build_rec_env funs (collapse_env benv c) nsEmpty); c := nsEmpty |>,
@@ -397,6 +401,10 @@ Definition decl_step_def:
             ( st with<| next_exn_stamp := (st.next_exn_stamp +( 1 : num)) |>),
             Env <| v := nsEmpty; c := (nsSing cn (LENGTH ts, ExnStamp st.next_exn_stamp)) |>,
             c)
+      | Dopen locs path =>
+          (case open_dec_env path (collapse_env benv c) of
+             NONE => Dabort Rtype_error
+           | SOME opened => Dstep (st,Env opened,c))
       | Dmod mn ds =>
           Dstep (st, Env empty_dec_env, (Cdmod mn empty_dec_env ds :: c))
       | Dlocal lds gds =>
@@ -415,7 +423,7 @@ Definition decl_step_def:
   | ExpVal env ev ec locs p =>
       (case (ev, ec) of
         (Val v, []) =>
-          if ALL_DISTINCT (pat_bindings p []) then
+          if ALL_DISTINCT (pat_bindings p) then
             (case pmatch (collapse_env benv c).c st.refs p v [] of
               Match new_vals =>
                 Dstep (st, Env <| v := (alist_to_ns new_vals); c := nsEmpty |>, c)

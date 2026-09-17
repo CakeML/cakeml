@@ -68,7 +68,7 @@ Proof
       \\ qexistsl [‘emp’, ‘""’, ‘fs’, ‘fd’] \\ xsimpl)
     \\ gvs [OPTION_TYPE_def]
     \\ xmatch \\ xcon \\ xsimpl
-    \\ simp [implode_def]
+    \\ simp []
     \\ DEP_REWRITE_TAC [add_stdout_nil, STD_streams_fastForwardFD] \\ xsimpl
     \\ simp [INSTREAM_STR_fastForwardFD])
   \\ once_rewrite_tac [STDIO_STD_streams] \\ xpull
@@ -87,7 +87,7 @@ Proof
   \\ xmatch
   \\ xlet ‘POSTv uv.
              &UNIT_TYPE () uv *
-             STDIO (add_stdout (forwardFD fs fd k) (str c)) *
+             STDIO (add_stdout (forwardFD fs fd k) (toString c)) *
              INSTREAM_STR fd is rest (forwardFD fs fd k)’
   >-
    (xapp_spec output1_stdOut_spec
@@ -97,7 +97,7 @@ Proof
     \\ simp [] \\ xsimpl)
   \\ once_rewrite_tac [INSTREAM_STR_get_file_content] \\ xpull
   \\ xapp
-  \\ qexistsl [‘emp’, ‘add_stdout (forwardFD fs fd k) (str c)’, ‘fd’]
+  \\ qexistsl [‘emp’, ‘add_stdout (forwardFD fs fd k) (toString c)’, ‘fd’]
   \\ xsimpl
   \\ ‘STD_streams (forwardFD fs fd k)’ by
     (DEP_REWRITE_TAC [STD_streams_forwardFD] \\ simp [])
@@ -236,7 +236,7 @@ Theorem cat_spec =
 Definition catfile_string_def:
   catfile_string fs fnm =
     if inFS_fname fs fnm then file_contents fnm fs
-    else (strlit"")
+    else «»
 End
 
 Theorem cat1_spec:
@@ -313,12 +313,5 @@ Proof
   \\ xsimpl
 QED
 
-val name = "cat_main"
-val (semantics_thm,prog_tm) = whole_prog_thm st name (UNDISCH cat_whole_prog_spec)
-Definition cat_prog_def:
-  cat_prog = ^prog_tm
-End
-
 Theorem cat_semantics_thm =
-  semantics_thm |> ONCE_REWRITE_RULE[GSYM cat_prog_def]
-  |> DISCH_ALL |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  prove_sem_thm "cat_main" "cat_prog" cat_whole_prog_spec;

@@ -19,10 +19,12 @@ Definition thunk_op_def:
   thunk_op (s: v store_v list) th_op vs =
     case (th_op,vs) of
     | (AllocThunk m, [v]) =>
-        (let (s',n) = store_alloc (Thunk m v) s in
+        (if bad_thunk_update m v s then NONE else
+         let (s',n) = store_alloc (Thunk m v) s in
            SOME (s', Rval (Loc F n)))
-    | (UpdateThunk m, [Loc _ lnum; v]) =>
-        (case store_assign lnum (Thunk m v) s of
+    | (UpdateThunk m, [Loc F lnum; v]) =>
+        (if bad_thunk_update m v s then NONE else
+         case store_assign lnum (Thunk m v) s of
          | SOME s' => SOME (s', Rval (Conv NONE []))
          | NONE => NONE)
     | _ => NONE
@@ -148,17 +150,17 @@ Definition do_app_def:
                   )
         | _ => NONE
       )
-    | (CopyStrStr, [Litv(StrLit strng);Litv(IntLit off);Litv(IntLit len)]) =>
+    | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
         SOME (s,
-        (case copy_array (explode strng,off) len NONE of
+        (case copy_array (explode str,off) len NONE of
           NONE => Rraise sub_exn_v
         | SOME cs => Rval (Litv(StrLit(implode (cs))))
         ))
-    | (CopyStrAw8, [Litv(StrLit strng);Litv(IntLit off);Litv(IntLit len);
+    | (CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
                     Loc _ dst;Litv(IntLit dstoff)]) =>
         (case store_lookup dst s of
           SOME (W8array ws) =>
-            (case copy_array (explode strng,off) len (SOME(ws_to_chars ws,dstoff)) of
+            (case copy_array (explode str,off) len (SOME(ws_to_chars ws,dstoff)) of
               NONE => SOME (s, Rraise sub_exn_v)
             | SOME cs =>
               (case store_assign dst (W8array (chars_to_ws cs)) s of
@@ -211,27 +213,27 @@ Definition do_app_def:
           )
     | (Explode, [v]) =>
           (case v of
-            Litv (StrLit strng) =>
-              SOME (s, Rval (list_to_v (MAP (\ c .  Litv (Char c)) (explode strng))))
+            Litv (StrLit str) =>
+              SOME (s, Rval (list_to_v (MAP (\ c .  Litv (Char c)) (explode str))))
           | _ => NONE
           )
-    | (Strsub, [Litv (StrLit strng); Litv (IntLit i)]) =>
+    | (Strsub, [Litv (StrLit str); Litv (IntLit i)]) =>
         if i <( 0 : int) then
           SOME (s, Rraise sub_exn_v)
         else
           let n = (Num (ABS (I i))) in
-            if n >= strlen strng then
+            if n >= strlen str then
               SOME (s, Rraise sub_exn_v)
             else
-              SOME (s, Rval (Litv (Char (EL n (explode strng)))))
-    | (Strlen, [Litv (StrLit strng)]) =>
-        SOME (s, Rval (Litv(IntLit(int_of_num(strlen strng)))))
+              SOME (s, Rval (Litv (Char (EL n (explode str)))))
+    | (Strlen, [Litv (StrLit str)]) =>
+        SOME (s, Rval (Litv(IntLit(int_of_num(strlen str)))))
     | (Strcat, [v]) =>
         (case v_to_list v of
           SOME vs =>
             (case vs_to_string vs of
-              SOME strng =>
-                SOME (s, Rval (Litv(StrLit strng)))
+              SOME str =>
+                SOME (s, Rval (Litv(StrLit str)))
             | _ => NONE
             )
         | _ => NONE
@@ -454,7 +456,7 @@ Definition continue_def:
   continue s v ((Cmat [] err_v, env) :: c) =
     Estep (env, s, Exn err_v, c) ∧
   continue s v ((Cmat ((p,e)::pes) err_v, env) :: c) = (
-    if ALL_DISTINCT (pat_bindings p []) then (
+    if ALL_DISTINCT (pat_bindings p) then (
       case pmatch env.c s p v [] of
         Match_type_error => Etype_error
       | No_match => Estep (env, s, Val v, (Cmat pes err_v, env)::c)
@@ -517,6 +519,10 @@ Definition estep_def:
     else Estep (env with <| v := build_rec_env funs env env.v |>, s, Exp e, c)) ∧
   estep (env, s, Exp $ Tannot e t, c) = push env s e (Ctannot t) c ∧
   estep (env, s, Exp $ Lannot e l, c) = push env s e (Clannot l) c ∧
+  estep (env, s, Exp $ Open path e, c) = (
+    case open_dec_env path env of
+      NONE => Etype_error
+    | SOME opened => Estep (extend_dec_env opened env, s, Exp e, c)) ∧
   estep (env, s, Exn v, c) = exn_continue env s v c
 End
 
@@ -578,14 +584,14 @@ End
 
 Definition dstep_def:
   dstep benv st (Decl $ Dlet locs p e) c = (
-    if ALL_DISTINCT (pat_bindings p []) ∧
-       every_exp (one_con_check (collapse_env benv c).c) e then
+    if ALL_DISTINCT (pat_bindings p) ∧
+       check_exp_constructors (collapse_env benv c).c e then
       dreturn st c (ExpVal (collapse_env benv c) (Exp e) [] locs p)
     else Dtype_error ) ∧
   dstep benv st (Decl $ Dletrec locs funs) c = (
     if ALL_DISTINCT (MAP FST funs) ∧
        EVERY (\ (x,y,z) .
-         every_exp (one_con_check (collapse_env benv c).c) z) funs then
+         check_exp_constructors (collapse_env benv c).c z) funs then
       dreturn st c (Env $
         <| v := build_rec_env funs (collapse_env benv c) nsEmpty; c := nsEmpty |>)
     else Dtype_error) ∧
@@ -598,6 +604,10 @@ Definition dstep_def:
   dstep benv st (Decl $ Dexn locs cn ts) c =
     dreturn (st with next_exn_stamp := st.next_exn_stamp + 1) c
       (Env <| v := nsEmpty; c := nsSing cn (LENGTH ts, ExnStamp st.next_exn_stamp) |>) ∧
+  dstep benv st (Decl $ Dopen locs path) c = (
+    case open_dec_env path (collapse_env benv c) of
+    | NONE => Dtype_error
+    | SOME opened => dreturn st c (Env opened)) ∧
   dstep benv st (Decl $ Dmod mn ds) c =
     dpush st c (Env empty_dec_env) (Cdmod mn empty_dec_env ds) ∧
   dstep benv st (Decl $ Dlocal lds gds) c =
@@ -611,7 +621,7 @@ Definition dstep_def:
   dstep benv st (Env env) c = dcontinue env st c ∧
 
   dstep benv st (ExpVal env (Val v) [] locs p) c = (
-    if ALL_DISTINCT (pat_bindings p []) then
+    if ALL_DISTINCT (pat_bindings p) then
       case pmatch (collapse_env benv c).c st.refs p v [] of
       | Match new_vals =>
           dreturn st c (Env <| v := alist_to_ns new_vals; c := nsEmpty |>)

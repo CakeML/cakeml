@@ -86,22 +86,6 @@ Proof
   Cases >> Cases >> simp[semanticPrimitivesTheory.lit_same_type_def]
 QED
 
-Theorem pat_bindings_accum:
- (!p acc. pat_bindings p acc = pat_bindings p [] ++ acc) ∧
- (!ps acc. pats_bindings ps acc = pats_bindings ps [] ++ acc)
-Proof
-  Induct
-  >- srw_tac[][pat_bindings_def]
-  >- srw_tac[][pat_bindings_def]
-  >- srw_tac[][pat_bindings_def]
-  >- metis_tac [APPEND_ASSOC, pat_bindings_def]
-  >- metis_tac [APPEND_ASSOC, pat_bindings_def]
-  >- metis_tac [APPEND_ASSOC, CONS_APPEND, pat_bindings_def]
-  >- metis_tac [APPEND_ASSOC, CONS_APPEND, pat_bindings_def]
-  >- srw_tac[][pat_bindings_def]
-  >- metis_tac [APPEND_ASSOC, pat_bindings_def]
-QED
-
 Theorem pmatch_append:
  (!(cenv : env_ctor) (st : v store) p v env env' env''.
     (pmatch cenv st p v env = Match env') ⇒
@@ -121,11 +105,11 @@ Theorem pmatch_extend:
  (!cenv s p v env env' env''.
   pmatch cenv s p v env = Match env'
   ⇒
-  ?env''. env' = env'' ++ env ∧ MAP FST env'' = pat_bindings p []) ∧
+  ?env''. env' = env'' ++ env ∧ MAP FST env'' = pat_bindings p) ∧
  (!cenv s ps vs env env' env''.
   pmatch_list cenv s ps vs env = Match env'
   ⇒
-  ?env''. env' = env'' ++ env ∧ MAP FST env'' = pats_bindings ps [])
+  ?env''. env' = env'' ++ env ∧ MAP FST env'' = pats_bindings ps)
 Proof
  ho_match_mp_tac pmatch_ind >>
  srw_tac[][pat_bindings_def, pmatch_def] >>
@@ -133,8 +117,7 @@ Proof
  full_simp_tac(srw_ss())[] >>
  srw_tac[][] >>
  res_tac >> rveq >>
- srw_tac[][] >>
- metis_tac [pat_bindings_accum]
+ srw_tac[][]
 QED
 
 Theorem pmatch_nsAppend:
@@ -355,6 +338,38 @@ Theorem build_rec_env_merge:
   nsAppend (alist_to_ns (MAP (λ(f,n,e). (f, Recclosure env funs f)) funs)) env'
 Proof
 srw_tac[][build_rec_env_def, build_rec_env_help_lem]
+QED
+
+Theorem do_con_check_nsAll2:
+  nsAll2 (λid x y. FST x = FST y) env1 env2 ⇒
+  do_con_check env1 cn arity = do_con_check env2 cn arity
+Proof
+  strip_tac >> Cases_on `cn` >> simp [do_con_check_def] >>
+  rename1 `nsLookup env1 name` >>
+  drule nsAll2_nsLookup_none >> disch_then (qspec_then `name` assume_tac) >>
+  Cases_on `nsLookup env1 name` >> fs [] >>
+  drule_all nsAll2_nsLookup1 >> strip_tac >>
+  rename1 `nsLookup env1 name = SOME ctor1` >>
+  rename1 `nsLookup env2 name = SOME ctor2` >>
+  Cases_on `ctor1` >> Cases_on `ctor2` >> fs []
+QED
+
+Theorem check_exp_constructors_nsAll2:
+  ∀env1 e env2.
+    nsAll2 (λid x y. FST x = FST y) env1 env2 ⇒
+    check_exp_constructors env1 e = check_exp_constructors env2 e
+Proof
+  ho_match_mp_tac check_exp_constructors_ind >>
+  rw [check_exp_constructors_def] >>
+  fs [EVERY_MEM, FORALL_PROD]
+  >~ [`nsOpen _ _`] >- (
+    Cases_on `nsOpen path env1`
+    >- (
+      Cases_on `nsOpen path env2` >> simp [] >>
+      drule_all nsAll2_before_nsOpen >> simp []) >>
+    drule_all nsAll2_after_nsOpen >> simp [] >> strip_tac >>
+    fs [] >> metis_tac [nsAll2_nsAppend]) >>
+  metis_tac [do_con_check_nsAll2]
 QED
 
 Theorem do_con_check_build_conv:
@@ -671,7 +686,7 @@ Definition FV_def[simp]:
   (FV_list (e::es) = FV e ∪ FV_list es) ∧
   (FV_pes [] = {}) ∧
   (FV_pes ((p,e)::pes) =
-     (FV e DIFF (IMAGE Short (set (pat_bindings p [])))) ∪ FV_pes pes) ∧
+     (FV e DIFF (IMAGE Short (set (pat_bindings p)))) ∪ FV_pes pes) ∧
   (FV_defs [] = {}) ∧
   (FV_defs ((_,x,e)::defs) =
      (FV e DIFF {Short x}) ∪ FV_defs defs)
@@ -680,7 +695,7 @@ End
 Overload SFV = ``λe. {x | Short x ∈ FV e}``
 
 Theorem FV_pes_MAP:
-   FV_pes pes = BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p [])))) (set pes))
+   FV_pes pes = BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p)))) (set pes))
 Proof
   Induct_on`pes`>>simp[]>>
   qx_gen_tac`p`>>PairCases_on`p`>>srw_tac[][]

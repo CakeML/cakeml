@@ -268,28 +268,6 @@ Proof
   Induct \\ rw[] \\ rw[GENLIST_CONS,o_DEF]
 QED
 
-(* MAP3 never used *)
-Definition MAP3_def[simp]:
-  (MAP3 f [] [] [] = []) /\
-  (MAP3 f (h1::t1) (h2::t2) (h3::t3) = f h1 h2 h3::MAP3 f t1 t2 t3)
-End
-
-val MAP3_ind = theorem"MAP3_ind";
-
-Theorem LENGTH_MAP3[simp]:
-   ∀f l1 l2 l3. LENGTH l1 = LENGTH l3 /\ LENGTH l2 = LENGTH l3 ⇒ LENGTH (MAP3 f l1 l2 l3) = LENGTH l3
-Proof
-  ho_match_mp_tac MAP3_ind \\ rw[]
-QED
-
-Theorem EL_MAP3:
-   ∀f l1 l2 l3 n. n < LENGTH l1 ∧ n < LENGTH l2 ∧ n < LENGTH l3 ⇒
-    EL n (MAP3 f l1 l2 l3) = f (EL n l1) (EL n l2) (EL n l3)
-Proof
-  ho_match_mp_tac MAP3_ind \\ rw[]
-  \\ Cases_on`n` \\ fs[]
-QED
-
 (* used once *)
 Theorem MAP_REVERSE_STEP:
    ∀x f. x ≠ [] ⇒ MAP f (REVERSE x) = f (LAST x) :: MAP f (REVERSE (FRONT x))
@@ -1739,6 +1717,14 @@ QED
 
 (* FUPDATE_LIST stuff *)
 
+Theorem NOT_MEM_FLOOKUP_ZIP:
+  ∀ys xs zs. ¬MEM n ys ⇒ FLOOKUP (xs |++ ZIP (ys, zs)) n = FLOOKUP xs n
+Proof
+  Induct >- simp [ZIP_def, FUPDATE_LIST_THM]
+  >> Cases_on ‘zs’
+  >> simp [ZIP_def, FUPDATE_LIST_THM, FLOOKUP_SIMP]
+QED
+
 (* Misc. *)
 
 Theorem LESS_1[simp]:
@@ -2479,20 +2465,6 @@ Proof
     \\ Cases_on `LENGTH (FILTER (\x. x = a) l1)`
     \\ first_x_assum (qspecl_then [`a`] mp_tac) \\ rw[] \\ rfs[]
 QED
-
-Definition CONCAT_WITH_aux_def:
-    (CONCAT_WITH_aux [] l fl = REVERSE fl ++ FLAT l) /\
-    (CONCAT_WITH_aux (h::t) [] fl = REVERSE fl) /\
-    (CONCAT_WITH_aux (h::t) ((h1::t1)::ls) fl = CONCAT_WITH_aux (h::t) (t1::ls) (h1::fl)) /\
-    (CONCAT_WITH_aux (h::t) ([]::[]) fl = REVERSE fl) /\
-    (CONCAT_WITH_aux (h::t) ([]::(h'::t')) fl = CONCAT_WITH_aux (h::t) (h'::t') (REVERSE(h::t) ++ fl))
-End
-
-val CONCAT_WITH_AUX_ind = theorem"CONCAT_WITH_aux_ind";
-
-Definition CONCAT_WITH_def:
-    CONCAT_WITH s l = CONCAT_WITH_aux s l []
-End
 
 Theorem OPT_MMAP_MAP_o:
    !ls. OPT_MMAP f (MAP g ls) = OPT_MMAP (f o g) ls
@@ -4454,4 +4426,53 @@ Theorem MEM_list_size:
 Proof
   Induct_on`ls`>>simp[]>>
   rw[]>>gvs[]
+QED
+
+(* must be used instead of FUPDATE in defitions that go through translation *)
+Definition fmap_update_def[simp]:
+  fmap_update f k v = f |+ (k,v)
+End
+
+(* TODO: move to HOL? *)
+Definition sum_cmp_def:
+  sum_cmp c1 c2 x1 x2 =
+    case x1 of
+    | INL n1 =>
+        (case x2 of
+         | INL n2 => c1 n1 n2
+         | INR _ => LESS)
+    | INR n1 =>
+        (case x2 of
+         | INL _ => GREATER
+         | INR n2 => c2 n1 n2)
+End
+
+Theorem TotOrd_sum:
+  TotOrd c1 ∧ TotOrd c2 ⇒
+  TotOrd (sum_cmp c1 c2)
+Proof
+  fs [totoTheory.TotOrd, sum_cmp_def, AllCaseEqs(), sumTheory.FORALL_SUM]
+  \\ simp [SF DNF_ss, PULL_EXISTS] \\ rw [] \\ res_tac
+QED
+
+Theorem TotOrd_num_cmp:
+  TotOrd num_cmp
+Proof
+  simp [comparisonTheory.num_cmp_numOrd, totoTheory.TO_numOrd]
+QED
+
+(* the shape num_cmp shares with mlint$int_cmp *)
+Theorem num_cmp_thm:
+  num_cmp n1 n2 =
+    if n1 < n2 then LESS else
+    if n2 < n1 then GREATER else EQUAL
+Proof
+  rw [comparisonTheory.num_cmp_def]
+QED
+
+Theorem TotOrd_pair_cmp:
+  TotOrd c1 ∧ TotOrd c2 ⇒
+  TotOrd (pair_cmp c1 c2)
+Proof
+  rw [comparisonTheory.pair_cmp_lexTO, totoTheory.TO_lexTO]
 QED

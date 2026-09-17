@@ -1677,9 +1677,11 @@ Proof
     \\ conj_tac
     >- (
       first_assum $ irule_at Any
+      \\ reverse conj_tac
+      >- fs[STATE_def, CONTEXT_def]
       \\ simp[thm2bytes_def, MAP_MAP_o, o_DEF]
       \\ AP_TERM_TAC
-      \\ fs[GSYM mlstringTheory.implode_def]
+      \\ fs[]
       \\ fs[STATE_def]
       \\ EVAL_TAC)
     \\ first_assum $ irule_at Any

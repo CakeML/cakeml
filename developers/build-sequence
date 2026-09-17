@@ -91,6 +91,7 @@ candle/set-theory
 candle/syntax-lib
 candle/standard
 candle/standard/syntax
+candle/standard/syntax/little_theories
 candle/standard/semantics
 candle/standard/monadic
 candle/standard/ml_kernel
@@ -127,6 +128,7 @@ compiler/scheme/proofs
 
 # examples and tests
 characteristic/examples
+tutorial
 tutorial/solutions
 translator/monadic/examples
 
@@ -148,6 +150,17 @@ examples/xlrup_checker/array
 examples/xlrup_checker/array/compilation
 examples/xlrup_checker/array/compilation/proofs
 
+examples/cnf
+examples/cnf/array
+examples/cnf/dist
+examples/cnf/dist/array
+examples/cnf/dist/array/compilation
+examples/cnf/dist/array/compilation/proofs
+examples/cnf/lrup
+examples/cnf/lrup/array
+examples/cnf/lrup/array/compilation
+examples/cnf/lrup/array/compilation/proofs
+
 examples/scpog_checker
 examples/scpog_checker/array
 examples/scpog_checker/array/compilation
@@ -160,6 +173,16 @@ examples/pseudo_bool/array
 examples/pseudo_bool/array/compilation
 examples/pseudo_bool/array/compilation/proofs
 examples/pseudo_bool/array/compilation/proofsARM8
+examples/pseudo_bool/cnf_encoding/array
+examples/pseudo_bool/cnf_encoding/array/compilation
+examples/pseudo_bool/cnf_encoding/array/compilation/proofs
+examples/pseudo_bool/graph_encoding/array
+examples/pseudo_bool/graph_encoding/array/compilation
+examples/pseudo_bool/graph_encoding/array/compilation/proofs
+examples/pseudo_bool/cp_encoding
+examples/pseudo_bool/cp_encoding/array
+examples/pseudo_bool/cp_encoding/array/compilation
+examples/pseudo_bool/cp_encoding/array/compilation/proofs
 
 examples/opentheory
 examples/opentheory/compilation
@@ -176,6 +199,10 @@ examples/deflate/translation
 examples/deflate/translation/compilation
 examples/vipr
 examples/vipr/compilation
+
+examples/flover/Infra
+examples/flover/semantics
+examples/flover
 
 examples/template
 examples/template/translation
@@ -211,3 +238,4 @@ compiler/bootstrap/compilation/ag32/32
 compiler/bootstrap/compilation/ag32/32/proofs
 unverified/sexpr-bootstrap/x64/64
 unverified/sexpr-bootstrap/x64/32
+unverified

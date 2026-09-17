@@ -6,9 +6,12 @@ Theory x64Sexpr
 Ancestors
   compiler64Prog
 Libs
-  preamble mlstringSyntax astToSexprLib
+  preamble mlstringSyntax astSyntax astToSexprLib
 
 val filename = "cake-sexpr-x64-64"
 
-val _ = ((write_ast_to_file filename) o rhs o concl) compiler64_prog_def;
-
+val _ = compiler64_prog_def
+          |> CONV_RULE (RAND_CONV EVAL)
+          |> concl
+          |> rhs
+          |> write_ast_to_file filename;

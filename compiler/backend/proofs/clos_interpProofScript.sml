@@ -127,7 +127,7 @@ Theorem clos_interp_el_thm:
           ([clos_interp_el],
            list_to_v env :: Number (&n) ::
            Recclosure NONE [] cl_env
-             [(1,Fn (mlstring$strlit "") NONE NONE 1 clos_interp_el)] 0 :: rest,
+             [(1,Fn (implode "") NONE NONE 1 clos_interp_el)] 0 :: rest,
            t4 with clock := c + t4.clock) = (Rval [EL n env],t4)
 Proof
   Induct
@@ -153,7 +153,7 @@ Theorem clos_interp_rev_thm:
       ([clos_interp_rev],
         list_to_v env :: list_to_v a ::
            Recclosure NONE [] cl_env
-             [(1,Fn (mlstring$strlit "") NONE NONE 1 clos_interp_rev)] 0 :: rest,
+             [(1,Fn (implode "") NONE NONE 1 clos_interp_rev)] 0 :: rest,
            t4 with clock := 2 * LENGTH a + t4.clock) =
      (Rval [list_to_v (REVERSE a ++ env)],t4)
 Proof
@@ -1051,7 +1051,7 @@ Proof
     \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
     \\ qrefine `ck + ck'` \\ gvs []
     \\ `∀ck'. evaluate (xs,env,t1 with clock := ck + (ck' + t1.clock)) =
-          (Rval [RefPtr v0 ptr],t2 with clock := ck' + t2.clock)` by (
+          (Rval [RefPtr F ptr],t2 with clock := ck' + t2.clock)` by (
       rw [] \\ drule evaluate_add_clock \\ gvs []) \\ gvs []
     \\ imp_res_tac state_rel_refs_clocks_eqs \\ gvs [PULL_EXISTS]
     >- (qexists `0` \\ gvs [state_rel_def])

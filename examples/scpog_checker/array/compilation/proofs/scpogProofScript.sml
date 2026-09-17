@@ -12,7 +12,7 @@ Libs
   preamble blastLib
 
 val cake_scpog_io_events_def = new_specification("cake_scpog_io_events_def",["cake_scpog_io_events"],
-  main_semantics |> Q.GENL[`cl`,`fs`]
+  main_semantics |> Q.GENL[`ext`,`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (cake_scpog_sem,cake_scpog_output) = cake_scpog_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
@@ -114,39 +114,39 @@ End
 
 Theorem machine_code_sound:
   cake_scpog_run cl fs mc ms ⇒
-  machine_sem mc (basis_ffi cl fs) ms ⊆
+  machine_sem mc (basis_ffi ext cl fs) ms ⊆
     extend_with_resource_limit
-      {Terminate Success (cake_scpog_io_events cl fs)} ∧
+      {Terminate Success (cake_scpog_io_events ext cl fs)} ∧
   ∃out err.
-    extract_fs fs (cake_scpog_io_events cl fs) =
+    extract_fs ext (cl,fs) (cake_scpog_io_events ext cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
   if LENGTH cl = 3 then
-    out ≠ strlit "" ⇒
+    out ≠ «» ⇒
     ∃mv ncl vs fml scpsteps
       res arr1 arr2.
       let pc = mk_pc mv ncl vs in
         get_prob fs (EL 1 cl) = SOME (mv,ncl,vs,fml) ∧
         get_scpog fs (EL 2 cl) = SOME scpsteps ∧
         check_scp_final_list scpsteps pc arr1 init_sc arr2 = SOME res ∧
-        if out = strlit "s VERIFIED UNSAT\n" then
+        if out = «s VERIFIED UNSAT\n» then
           res = INL () ∧
           {w | sat_fml w (set fml)} = ∅
         else
           ∃r scp.
           res = INR (r,scp) ∧
-          out = strlit "s VERIFIED CPOG REPRESENTATION\n" ∧
+          out = «s VERIFIED CPOG REPRESENTATION\n» ∧
           models (get_data_vars pc) (sat_scp F r scp) =
           models (get_data_vars pc) {w | sat_fml w (set fml)} ∧
           decomposable_scp F r scp ∧ deterministic_scp F r scp
   else
-    out = strlit ""
+    out = «»
 Proof
   strip_tac>>
   fs[installed_x64_def,cake_scpog_code_def,cake_scpog_run_def]>>
-  drule cake_scpog_compiled_thm>>
+  drule_at (Pos last) cake_scpog_compiled_thm>>
   simp[AND_IMP_INTRO]>>
   disch_then drule>>
-  disch_then (qspecl_then [`ms`,`mc`,`data_sp`,`cbspace`] mp_tac)>>
+  disch_then (qspecl_then [`ms`,`mc`,`ext`,`data_sp`,`cbspace`] mp_tac)>>
   simp[]>> strip_tac>>
   fs[main_sem_def]>>
   Cases_on`cl`>>fs[]
@@ -160,7 +160,7 @@ Proof
     metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
   TOP_CASE_TAC
   >- (
-    qexists_tac`strlit ""` >>
+    qexists_tac`«»` >>
     qexists_tac`err`>>rw[]>>
     metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
   TOP_CASE_TAC>>fs[]
@@ -169,7 +169,7 @@ Proof
     fs[check_unsat_2_sem_def]>>
     reverse IF_CASES_TAC>>fs[]
     >- (
-      qexists_tac`strlit ""`>>
+      qexists_tac`«»`>>
       qexists_tac`err`>>rw[]>>
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     TOP_CASE_TAC>>fs[]
@@ -183,12 +183,12 @@ Proof
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     TOP_CASE_TAC>>gvs[]
     >- (
-      qexists_tac`strlit ""`>>
+      qexists_tac`«»`>>
       qexists_tac`err`>>rw[]>>
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     rename1` add_stdout _ (print_result res)`>>
     qexists_tac`print_result res`>>
-    qexists_tac`strlit ""`>> simp[]>>
+    qexists_tac`«»`>> simp[]>>
     CONJ_TAC >-
       metis_tac[STD_streams_stderr,add_stdo_nil]>>
     gvs[get_prob_def,get_scpog_def]>>

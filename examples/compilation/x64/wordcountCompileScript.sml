@@ -1,1 +1,1 @@
-../../../tutorial/wordcountCompileScript.sml
+../../../tutorial/problems/wordcountCompileScript.sml

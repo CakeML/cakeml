@@ -157,7 +157,7 @@ val ex5 = ‘
     var b = 5;
     b = b + 1;
     if b >= 5 {
-      raise Err 5;
+      throw Err 5;
     }
   }’;
 
@@ -170,7 +170,7 @@ val ex6 = ‘
     {var b = 5;
      b = b + 1;};
      if b >= 5 {
-       raise Err 5;
+       throw Err 5;
      }
   }’;
 
@@ -249,7 +249,18 @@ val ex9 = ‘
    return @top;
  }’;
 
-val treeEx10 = check_success $ parse_pancake ex9;
+val treeEx9 = check_success $ parse_pancake ex9;
+
+(** Shifts *)
+val ex10 = ‘
+ fun testfun() {
+   var a = 1 << 2;
+   a = a >>> 1 + 1;
+   a = a << a #>> 2 >> 3;
+   return 1;
+ }’;
+
+val treeEx10 = check_success $ parse_pancake ex10;
 
 (** Function call syntax. *)
 
@@ -570,3 +581,65 @@ val opt_shape_dec =
   ’
 
 val opt_shape_dec_parse = check_success $ parse_pancake opt_shape_dec;
+
+(** __add_with_carry__ becomes AddCarry at the wordLang level.
+    It takes three word operands (left, right, carry-in) and produces a struct
+    of two words: (sum, carry-out). Non-zero values for carry-in are interpreted
+    as 1. Permitted positions are declaration RHS and assignment RHS;
+    standalone, handler-attached, and tail-return calls are not supported. *)
+val add_with_carry_ex = ‘
+  fun {1,1} f() {
+    var a = 1;
+    var b = 2;
+    var c = 0;
+    var {1,1} r = __add_with_carry__(a, b, c);
+    r = __add_with_carry__(a, b, c);
+    return r;
+  }’;
+
+val add_with_carry_parse = check_success $ parse_pancake add_with_carry_ex;
+
+(* Named struct *)
+val named_structs =
+ ‘
+  struct my_struct {
+    2 tuple,
+    1 value
+  }
+
+  struct my_other_struct {
+    my_struct s
+  }
+
+  fun my_struct f(my_struct a) {
+    return my_struct <tuple = a.tuple, value = a.value>;
+  }
+
+  fun my_struct g() {
+    var my_struct x = my_struct <tuple = <0,1>, value = 2>;
+    return f(x);
+  }
+  ’
+
+val named_structs_parse = check_success $ parse_pancake named_structs;
+
+(* Exception declarations and syntax *)
+val exception_declaration =
+ ‘
+  exception ExampleException : 1;
+
+  fun f() { throw ExampleException 1; }
+
+  fun g() {
+    var 1 x = 0;
+    var 1 y = 0;
+    try
+      y = f()
+    catch ExampleException => x {
+      y = x + 1;
+    }
+    return y;
+  }
+  ’
+
+val exception_declaration_parse = check_success $ parse_pancake exception_declaration;

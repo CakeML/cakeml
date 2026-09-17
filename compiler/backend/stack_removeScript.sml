@@ -334,9 +334,9 @@ End
 
 Definition stub_names_def:
   stub_names () = [
-    (0n,mlstring$strlit "_Init");
-    (1n,mlstring$strlit "_Halt0");
-    (2n,mlstring$strlit "_Halt2")]
+    (0n,implode "_Init");
+    (1n,implode "_Halt0");
+    (2n,implode "_Halt2")]
 End
 
 Theorem check_init_stubs_length:

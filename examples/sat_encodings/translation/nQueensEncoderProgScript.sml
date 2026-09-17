@@ -39,7 +39,7 @@ Definition encode_to_output_def:
     let cnf_exp = nqueens_to_cnf n in
       let (max_var, clauses) = get_max_var_and_clauses cnf_exp in
         Append
-        (List [strlit "p cnf "; num_to_str max_var; strlit " "; num_to_str clauses; strlit "\n"])
+        (List [«p cnf »; num_to_str max_var; « »; num_to_str clauses; «\n»])
         (cnf_to_output cnf_exp)
 End
 
@@ -56,20 +56,20 @@ Definition sat_to_assignment_def:
 End
 
 Definition bool_to_output_def:
-  bool_to_output T = strlit "X" ∧
-  bool_to_output F = strlit "O"
+  bool_to_output T = «X» ∧
+  bool_to_output F = «O»
 End
 
 Definition row_to_output_def:
   row_to_output [] = List [] ∧
   row_to_output (c::cells) =
-  Append (List [bool_to_output c; (strlit " ")]) (row_to_output cells)
+  Append (List [bool_to_output c; « »]) (row_to_output cells)
 End
 
 Definition problem_to_output_def:
   problem_to_output [] = List [] ∧
   problem_to_output (row::rows) =
-  Append (row_to_output row) (Append (List [strlit "\n"]) (problem_to_output rows))
+  Append (row_to_output row) (Append (List [«\n»]) (problem_to_output rows))
 End
 
 Definition get_solved_rows_def:

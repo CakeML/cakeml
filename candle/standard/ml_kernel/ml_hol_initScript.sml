@@ -30,6 +30,5 @@ Proof
       ((SIMP_CONV bool_ss [REFS_PRED_def]) THENC EVAL_STATE_CONV) INIT_HOL_STORE)
   \\ pop_assum drule \\ fs []
   \\ disch_then (qspec_then `p` assume_tac)
-  \\ fs [st2heap_def]
+  \\ fs [st2heap_def, bool_ty_refs_def, aty_refs_def, bty_refs_def]
 QED
-

@@ -68,10 +68,10 @@ Definition fibm_def:
       (a:mlstring) <- hd args ;
       n <- str_to_num a ;
       stdio (print (num_to_str (fiba 0 1 n))) ;
-      stdio (print (strlit "\n"))
+      stdio (print «\n»)
     od otherwise do
             name <- commandline (name ()) ;
-            stdio (print_err (strlit"usage: " ^ name ^ strlit" <n>\n"))
+            stdio (print_err («usage: » ^ name ^ « <n>\n»))
           od
 End
 

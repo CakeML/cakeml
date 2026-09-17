@@ -3,13 +3,13 @@
 *)
 Theory inferProg[no_sig_docs]
 Ancestors
-  parserProg reg_allocProg infer ml_translator semanticPrimitives
+  ml_monadBase parserProg reg_allocProg infer ml_translator semanticPrimitives
   inferProps
 Libs
   preamble ml_translatorLib
 
 open preamble parserProgTheory
-     reg_allocProgTheory inferTheory
+     reg_allocProgTheory
      ml_translatorLib ml_translatorTheory
      semanticPrimitivesTheory inferPropsTheory;
 
@@ -259,8 +259,8 @@ Theorem anub_ind =
 val _ = translate (REWRITE_RULE[MEMBER_INTRO] miscTheory.anub_def)
 
 val _ = (extra_preprocessing :=
-  [MEMBER_INTRO, MAP, OPTION_BIND_THM, inferTheory.st_ex_bind_def,
-   inferTheory.st_ex_return_def, failwith_def, guard_def, read_def, write_def]);
+  [MEMBER_INTRO, MAP, OPTION_BIND_THM, st_ex_bind_def, st_ex_ignore_bind_def,
+   st_ex_return_def, failwith_def, guard_def, read_def, write_def]);
 
 val _ = translate (def_of_const ``id_to_string``)
 val _ = translate (def_of_const ``lookup_st_ex``)
@@ -402,10 +402,10 @@ val _ = translate infer_tTheory.get_tyname_def;
 Theorem ty_var_name_eq:
   ty_var_name n =
     concat [«'»;
-            if n < 28 then str (CHR (n + ORD #"a")) else mlint$toString (&n)]
+            if n < 28 then toString (CHR (n + ORD #"a")) else mlint$toString (&n)]
 Proof
-  rw [infer_tTheory.ty_var_name_def,mlstringTheory.implode_def]
-  \\ fs [mlstringTheory.concat_def,mlstringTheory.str_def,mlstringTheory.implode_def]
+  rw [infer_tTheory.ty_var_name_def]
+  \\ fs [mlstringTheory.concat_def,mlstringTheory.chr_to_str_def]
 QED
 
 val _ = translate ty_var_name_eq;

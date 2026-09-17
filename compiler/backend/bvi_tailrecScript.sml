@@ -511,6 +511,11 @@ Definition scan_expr_def:
     let ty = if n < LENGTH ts then EL n ts else Any in
       [(ts, ty, F, NONE)]) ∧
   (scan_expr ts loc [Call t d xs h] = [(ts, Any, F, NONE)]) ∧
+  (* multi-value calls/returns decline the tail-rec optimisation. TODO(multiret):
+     to optimise them, is_rec/has_rec/scan_expr/rewrite must recognise LetCall
+     self-calls and Return-based accumulation. *)
+  (scan_expr ts loc [Return xs] = [(ts, Any, F, NONE)]) ∧
+  (scan_expr ts loc [LetCall rets t d xs y] = [(ts, Any, F, NONE)]) ∧
   (scan_expr ts loc [Op op xs] =
     let opr = from_op op in
     let opt = op_type opr in
@@ -569,6 +574,8 @@ Definition scan_expr_sing_def:
     let ty = if n < LENGTH ts then EL n ts else Any in
       (ts, ty, F, NONE)) ∧
   (scan_expr_sing ts loc (Call t d xs h) = (ts, Any, F, NONE)) ∧
+  (scan_expr_sing ts loc (Return xs) = (ts, Any, F, NONE)) ∧
+  (scan_expr_sing ts loc (LetCall rets t d xs y) = (ts, Any, F, NONE)) ∧
   (scan_expr_sing ts loc (Op op xs) =
     let opr = from_op op in
     let opt = op_type opr in
@@ -785,16 +792,21 @@ Definition compile_exp_def:
         SOME (aux, opt)
 End
 
-Definition compile_prog_def:
-  (compile_prog next [] = (next, [])) ∧
-  (compile_prog next ((loc, arity, exp)::xs) =
+Definition compile_each_def:
+  (compile_each next [] = (next, [])) ∧
+  (compile_each next ((loc, arity, exp)::xs) =
     case compile_exp loc next arity exp of
     | NONE =>
-        let (n, ys) = compile_prog next xs in
+        let (n, ys) = compile_each next xs in
           (n, (loc, arity, exp)::ys)
     | SOME (exp_aux, exp_opt) =>
-        let (n, ys) = compile_prog (next + bvl_to_bvi_namespaces) xs in
+        let (n, ys) = compile_each (next + bvl_to_bvi_namespaces) xs in
         (n, (loc, arity, exp_aux)::(next, arity + 1, exp_opt)::ys))
+End
+
+Definition compile_prog_def:
+  compile_prog do_it next xs =
+    if do_it then compile_each next xs else (next, xs)
 End
 
 Theorem scan_expr_not_nil[simp]:

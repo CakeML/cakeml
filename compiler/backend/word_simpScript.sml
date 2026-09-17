@@ -33,6 +33,8 @@ Definition Seq_assoc_def:
           (case handler of
            | NONE => NONE
            | SOME (y1,q2,y2,y3) => SOME (y1,Seq_assoc Skip q2,y2,y3)))) /\
+  (Seq_assoc p1 (Loop names body exit_names) =
+     SmartSeq p1 (Loop names (Seq_assoc Skip body) exit_names)) /\
   (Seq_assoc p1 other = SmartSeq p1 other)
 End
 
@@ -54,6 +56,8 @@ Theorem Seq_assoc_pmatch:
           (case handler of
            | NONE => NONE
            | SOME (y1,q2,y2,y3) => SOME (y1,Seq_assoc Skip q2,y2,y3)))
+  | (Loop names body exit_names) =>
+     SmartSeq p1 (Loop names (Seq_assoc Skip body) exit_names)
   | other => SmartSeq p1 other
 Proof
   rpt strip_tac
@@ -286,7 +290,7 @@ Definition const_fp_loop_def:
   (const_fp_loop (wordLang$If cmp lhs rhs p1 p2) cs =
     case (lookup lhs cs, get_var_imm_cs rhs cs) of
       | (SOME clhs, SOME crhs) =>
-        (if word_cmp cmp clhs crhs then const_fp_loop p1 cs else const_fp_loop p2 cs)
+        (if asm$word_cmp cmp clhs crhs then const_fp_loop p1 cs else const_fp_loop p2 cs)
       | _ => (let (p1', p1cs) = const_fp_loop p1 cs in
               let (p2', p2cs) = const_fp_loop p2 cs in
                (wordLang$If cmp lhs rhs p1' p2', inter_eq p1cs p2cs))) /\
@@ -309,9 +313,9 @@ Definition const_fp_loop_def:
   (const_fp_loop (Alloc n names) cs =
     (SmartSeq (drop_consts cs [n]) (Alloc n names), filter_v is_gc_const (inter cs (all_names names)))) /\
   (const_fp_loop (StoreConsts a b c d ws) cs = (StoreConsts a b c d ws, delete a (delete b (delete c (delete d cs))))) /\
-  (const_fp_loop (Install r1 r2 r3 r4 names) cs =
-    (SmartSeq (drop_consts cs [r1;r2;r3;r4])
-      (Install r1 r2 r3 r4 names), delete r1 (filter_v is_gc_const (inter cs (all_names names))))) /\
+  (const_fp_loop (Install r1 r2 r3 r4 r5 names) cs =
+    (SmartSeq (drop_consts cs [r1;r2;r3;r4;r5])
+      (Install r1 r2 r3 r4 r5 names), delete r1 (filter_v is_gc_const (inter cs (all_names names))))) /\
   (const_fp_loop (Store e v) cs =
     (Store (const_fp_exp e cs) v, cs)) /\
   (const_fp_loop (ShareInst Load v e) cs =
@@ -330,6 +334,8 @@ Definition const_fp_loop_def:
     (ShareInst Store16 v (const_fp_exp e cs), cs)) /\
   (const_fp_loop (ShareInst Store32 v e) cs =
     (ShareInst Store32 v (const_fp_exp e cs), cs)) /\
+  (const_fp_loop (Loop names body exit_names) cs =
+    (Loop names (FST (const_fp_loop body LN)) exit_names, LN)) /\
   (const_fp_loop p cs = (p, cs))
 End
 
@@ -443,6 +449,8 @@ Definition simp_duplicate_if_def:
     | NONE => Seq p1x p2x
     | SOME p3 => Seq_assoc Skip p3
   )
+  | Loop names body exit_names =>
+    Loop names (simp_duplicate_if body) exit_names
   | _ => p
 End
 
@@ -469,6 +477,8 @@ Definition push_out_if_aux_def:
                    | (c1', F) =>
                       (case (push_out_if_aux c2) of
                       |  (c2',b) => (Seq c1' c2', b)))
+  | Loop names body exit_names =>
+    (Loop names (FST (push_out_if_aux body)) exit_names, F)
   | _ => (p,F)
 End
 

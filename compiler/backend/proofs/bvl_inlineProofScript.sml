@@ -229,7 +229,7 @@ Proof
    (gvs [remove_ticks_def, evaluate_def, oneline dest_thunk_def,
          AllCaseEqs(), PULL_EXISTS, state_rel_def, find_code_def,
          lookup_map, dec_clock_def]
-    >- (qexistsl [‘0’, ‘t with clock := 0`] \\ gvs [])
+    >- (qexistsl [‘0’, ‘t with clock := 0’] \\ gvs [])
     \\ last_x_assum $ drule_at (Pat ‘evaluate _ = _’)
     \\ disch_then $ qspec_then ‘t with clock := t.clock - 1’ assume_tac
     \\ gvs [] \\ metis_tac [])
@@ -1606,7 +1606,7 @@ Proof
     \\ gvs []
     \\ ‘t.clock ≠ 0’ by gvs [let_state_rel_def] \\ gvs [PULL_EXISTS]
     \\ goal_assum $ drule_at Any \\ gvs []
-    \\ ‘find_code (SOME force_loc) [RefPtr v0 ptr; v] t.code = SOME (args,
+    \\ ‘find_code (SOME force_loc) [RefPtr F ptr; v] t.code = SOME (args,
            compile_any q l (LENGTH args) (let_op_sing exp))’
       by gvs [find_code_def, AllCaseEqs(), let_state_rel_def, lookup_map,
               let_opt_def]

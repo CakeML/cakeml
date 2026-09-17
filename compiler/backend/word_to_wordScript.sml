@@ -60,28 +60,28 @@ Definition full_compile_single_for_eval_def:
   full_compile_single_for_eval two_reg_arith reg_count alg c p =
     let ((name_num,arg_count,prog),col_opt) = p in
     let prog = word_simp$compile_exp prog in
-    let _ = empty_ffi (strlit "finished: word_simp") in
+    let _ = empty_ffi «finished: word_simp» in
     let maxv = max_var prog + 1 in
     let inst_prog = inst_select c maxv prog in
-    let _ = empty_ffi (strlit "finished: word_inst") in
+    let _ = empty_ffi «finished: word_inst» in
     let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
-    let _ = empty_ffi (strlit "finished: word_ssa") in
+    let _ = empty_ffi «finished: word_ssa» in
     let rm_ssa_prog = remove_dead_prog ssa_prog in
-    let _ = empty_ffi (strlit "finished: word_remove_dead after word_ssa") in
+    let _ = empty_ffi «finished: word_remove_dead after word_ssa» in
     let cse_prog = word_common_subexp_elim rm_ssa_prog in
-    let _ = empty_ffi (strlit "finished: word_cse") in
+    let _ = empty_ffi «finished: word_cse» in
     let cp_prog = copy_prop cse_prog in
-    let _ = empty_ffi (strlit "finished: word_copy") in
+    let _ = empty_ffi «finished: word_copy» in
     let two_prog = three_to_two_reg_prog two_reg_arith cp_prog in
-    let _ = empty_ffi (strlit "finished: word_two_reg") in
+    let _ = empty_ffi «finished: word_two_reg» in
     let unreach_prog = remove_unreach two_prog in
-    let _ = empty_ffi (strlit "finished: word_unreach") in
+    let _ = empty_ffi «finished: word_unreach» in
     let rm_prog = remove_dead_prog unreach_prog in
-    let _ = empty_ffi (strlit "finished: word_remove_dead") in
+    let _ = empty_ffi «finished: word_remove_dead» in
     let reg_prog = word_alloc name_num c alg reg_count rm_prog col_opt in
-    let _ = empty_ffi (strlit "finished: word_alloc") in
+    let _ = empty_ffi «finished: word_alloc» in
     let rmt_prog = remove_must_terminate reg_prog in
-    let _ = empty_ffi (strlit "finished: word_remove") in
+    let _ = empty_ffi «finished: word_remove» in
       (name_num,arg_count,rmt_prog)
 End
 
@@ -103,27 +103,27 @@ Theorem compile_alt:
     let args = MAP (λ(x,y,z). y) progs in
     let ps = MAP (\(x,y,z). z) progs in
     let simp_ps = MAP word_simp$compile_exp ps in
-    let _ = empty_ffi (strlit "finished: word_simp") in
+    let _ = empty_ffi «finished: word_simp» in
     let inst_ps = MAP (λp. inst_select asm_conf (max_var p +1) p) simp_ps in
-    let _ = empty_ffi (strlit "finished: word_inst") in
+    let _ = empty_ffi «finished: word_inst» in
     let ssa_ps = MAP2 (λa p. full_ssa_cc_trans a p) args inst_ps in
-    let _ = empty_ffi (strlit "finished: word_ssa") in
+    let _ = empty_ffi «finished: word_ssa» in
     let rm_ssa_ps = MAP remove_dead_prog ssa_ps in
-    let _ = empty_ffi (strlit "finished: word_remove_dead after word_ssa") in
+    let _ = empty_ffi «finished: word_remove_dead after word_ssa» in
     let cse_ps = MAP word_common_subexp_elim rm_ssa_ps in
-    let _ = empty_ffi (strlit "finished: word_cse") in
+    let _ = empty_ffi «finished: word_cse» in
     let cp_ps = MAP copy_prop cse_ps in
-    let _ = empty_ffi (strlit "finished: word_copy") in
+    let _ = empty_ffi «finished: word_copy» in
     let two_ps = MAP (three_to_two_reg_prog two_reg_arith) cp_ps in
-    let _ = empty_ffi (strlit "finished: word_two_reg") in
+    let _ = empty_ffi «finished: word_two_reg» in
     let unreach_ps = MAP remove_unreach two_ps in
-    let _ = empty_ffi (strlit "finished: word_unreach") in
+    let _ = empty_ffi «finished: word_unreach» in
     let dead_ps = MAP remove_dead_prog unreach_ps in
-    let _ = empty_ffi (strlit "finished: word_remove_dead") in
+    let _ = empty_ffi «finished: word_remove_dead» in
     let reg_ps = MAP2 (λc (n,p). word_alloc n asm_conf alg reg_count p c) n_oracles (ZIP(names,dead_ps)) in
-    let _ = empty_ffi (strlit "finished: word_alloc") in
+    let _ = empty_ffi «finished: word_alloc» in
     let rmt_ps = MAP remove_must_terminate reg_ps in
-    let _ = empty_ffi (strlit "finished: word_remove") in
+    let _ = empty_ffi «finished: word_remove» in
     (col,ZIP(names,ZIP(args,rmt_ps)))
 Proof
   fs[compile_def,next_n_oracle_def]>>

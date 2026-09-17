@@ -10,6 +10,13 @@ Ancestors
 
 val _ = cv_memLib.use_long_names := true;
 
+(* Deduplicate constructor uses within a scope, retaining local-open boundaries.
+   An open is checked even when its body contains no constructor uses. *)
+Datatype:
+  con_check = ConCheck ((mlstring, mlstring) id) num
+            | OpenCheck (mlstring list) (con_check list)
+End
+
 Definition collect_conses_def:
   (collect_conses p (Raise e) = collect_conses p e) ∧
   (collect_conses p (Handle e pes) =
@@ -21,7 +28,7 @@ Definition collect_conses_def:
      case cn of
      | NONE => collect_conses_list p es
      | SOME c =>
-         let x = (c,LENGTH es) in
+         let x = ConCheck c (LENGTH es) in
            collect_conses_list (if MEM x p then p else x::p) es) ∧
   (collect_conses p (Var v) = p) ∧
   (collect_conses p (Fun x e) = collect_conses p e) ∧
@@ -34,6 +41,7 @@ Definition collect_conses_def:
      collect_conses (collect_conses p e2) e1) ∧
   (collect_conses p (Tannot e a) = collect_conses p e) ∧
   (collect_conses p (Lannot e a) = collect_conses p e) ∧
+  (collect_conses p (Open path e) = OpenCheck path (collect_conses [] e)::p) ∧
   (collect_conses p (Letrec funs e) =
      collect_conses_list3 (collect_conses p e) funs) ∧
   (collect_conses_list p [] = p) ∧
@@ -69,30 +77,42 @@ QED
 
 Definition do_con_checks_def:
   do_con_checks cenv [] = T ∧
-  do_con_checks cenv ((c,n)::rest) =
-    case nsLookup cenv c of
-    | NONE => F
-    | SOME (l,_) => l = n ∧ do_con_checks cenv rest
+  do_con_checks cenv (ConCheck c n::rest) =
+    (do_con_check cenv (SOME c) n ∧ do_con_checks cenv rest) ∧
+  do_con_checks cenv (OpenCheck path checks::rest) =
+    ((case nsOpen path cenv of
+      | NONE => F
+      | SOME opened => do_con_checks (nsAppend opened cenv) checks) ∧
+     do_con_checks cenv rest)
 End
 
+val _ = cv_auto_trans semanticPrimitivesTheory.do_con_check_def;
 val pre = cv_trans_pre "" do_con_checks_def;
 Theorem do_con_checks_pre[cv_pre]:
   ∀cenv v. do_con_checks_pre cenv v
 Proof
-  Induct_on ‘v’ \\ simp [Once pre]
+  ho_match_mp_tac do_con_checks_ind
+  \\ rw [] \\ simp [Once pre]
+QED
+
+Theorem do_con_checks_cons:
+  do_con_checks cenv (check::checks) =
+  (do_con_checks cenv [check] ∧ do_con_checks cenv checks)
+Proof
+  Cases_on ‘check’ \\ simp [do_con_checks_def]
 QED
 
 Theorem collect_conses_acc_lemma[local]:
-  (∀(p:((mlstring, mlstring) id # num) list) v q p.
+  (∀(p:con_check list) v q p.
      collect_conses p v = q ⇒
      set p ∪ set (collect_conses [] v) = set q) ∧
-  (∀(p:((mlstring, mlstring) id # num) list) v q p.
+  (∀(p:con_check list) v q p.
      collect_conses_list p v = q ⇒
      set p ∪ set (collect_conses_list [] v) = set q) ∧
-  (∀(p:((mlstring, mlstring) id # num) list) v q p.
+  (∀(p:con_check list) v q p.
      collect_conses_list2 p v = q ⇒
      set p ∪ set (collect_conses_list2 [] v) = set q) ∧
-  (∀(p:((mlstring, mlstring) id # num) list) v q p.
+  (∀(p:con_check list) v q p.
      collect_conses_list3 p v = q ⇒
      set p ∪ set (collect_conses_list3 [] v) = set q)
 Proof
@@ -112,6 +132,7 @@ Proof
   \\ once_asm_rewrite_tac []
   \\ once_asm_rewrite_tac []
   \\ simp_tac (srw_ss()) [AC UNION_ASSOC UNION_COMM]
+  \\ simp [EXTENSION, DISJ_COMM]
 QED
 
 Theorem collect_conses_acc[local] =
@@ -119,59 +140,54 @@ Theorem collect_conses_acc[local] =
 
 Theorem do_con_checks_set:
   ∀xs. do_con_checks cenv xs =
-       ∀c n. MEM (c,n) xs ⇒ ∃y. nsLookup cenv c = SOME (n,y)
+       ∀check. MEM check xs ⇒ do_con_checks cenv [check]
 Proof
-  Induct \\ gvs [FORALL_PROD,do_con_checks_def,SF DNF_ss]
-  \\ rw [] \\ Cases_on ‘nsLookup cenv p_1’ \\ gvs []
-  \\ PairCases_on ‘x’ \\ gvs []
+  Induct \\ simp [Once do_con_checks_cons, do_con_checks_def,
+                  DISJ_IMP_THM, FORALL_AND_THM]
 QED
 
 Theorem do_con_checks_collect_conses_thm:
-  (∀(p:((mlstring, mlstring) id # num) list) v.
-     do_con_checks env_c (collect_conses [] v) =
-     every_exp (one_con_check env_c) v) ∧
-  (∀(p:((mlstring, mlstring) id # num) list) v.
-     do_con_checks env_c (collect_conses_list [] v) =
-     EVERY (every_exp (one_con_check env_c)) v) ∧
-  (∀(p:((mlstring, mlstring) id # num) list) v.
-     do_con_checks env_c (collect_conses_list2 [] v) =
-     EVERY (λ(x,e). every_exp (one_con_check env_c) e) v) ∧
-  (∀(p:((mlstring, mlstring) id # num) list) v.
-     do_con_checks env_c (collect_conses_list3 [] v) =
-     EVERY (λ(x,y,e). every_exp (one_con_check env_c) e) v)
+  (∀p v env_c.
+     do_con_checks env_c (collect_conses p v) =
+     (do_con_checks env_c p ∧ check_exp_constructors env_c v)) ∧
+  (∀p v env_c.
+     do_con_checks env_c (collect_conses_list p v) =
+     (do_con_checks env_c p ∧ EVERY (check_exp_constructors env_c) v)) ∧
+  (∀p v env_c.
+     do_con_checks env_c (collect_conses_list2 p v) =
+     (do_con_checks env_c p ∧ EVERY (λ(x,e). check_exp_constructors env_c e) v)) ∧
+  (∀p v env_c.
+     do_con_checks env_c (collect_conses_list3 p v) =
+     (do_con_checks env_c p ∧ EVERY (λ(x,y,e). check_exp_constructors env_c e) v))
 Proof
-  ho_match_mp_tac collect_conses_ind \\ rpt strip_tac
-  >~ [‘Con’] >-
-   (Cases_on ‘cn’ \\ gvs []
-    \\ simp [collect_conses_def,do_con_checks_def,SF ETA_ss,
-             semanticPrimitivesTheory.do_con_check_def]
-    \\ rpt $ pop_assum mp_tac
-    \\ once_rewrite_tac [do_con_checks_set]
-    \\ once_rewrite_tac [collect_conses_acc]
-    \\ gvs [SF DNF_ss]
-    \\ Cases_on ‘nsLookup env_c x’ \\ gvs []
-    \\ Cases_on ‘x'’ \\ gvs [] \\ rw [] \\ eq_tac \\ rw [])
-  \\ simp [collect_conses_def]
-  \\ rpt $ pop_assum mp_tac
-  \\ once_rewrite_tac [do_con_checks_set]
-  \\ once_rewrite_tac [collect_conses_acc]
-  \\ once_rewrite_tac [collect_conses_acc]
-  \\ gvs [SF DNF_ss] \\ gvs [SF ETA_ss]
-  \\ rw [] \\ eq_tac \\ rw []
+  ho_match_mp_tac collect_conses_ind
+  \\ rw []
+  \\ simp [collect_conses_def, semanticPrimitivesTheory.check_exp_constructors_def,
+           do_con_checks_def, SF ETA_ss, AC CONJ_ASSOC CONJ_COMM]
+  \\ Cases_on ‘cn’ \\ gvs [semanticPrimitivesTheory.do_con_check_def]
+  \\ rename1 ‘MEM (ConCheck constructor_id (LENGTH arguments)) checks’
+  \\ Cases_on ‘MEM (ConCheck constructor_id (LENGTH arguments)) checks’
+  \\ gvs [do_con_checks_def, semanticPrimitivesTheory.do_con_check_def,
+          AC CONJ_ASSOC CONJ_COMM]
+  \\ ‘do_con_checks env_c checks ⇒
+      do_con_checks env_c [ConCheck constructor_id (LENGTH arguments)]’ by
+    metis_tac [do_con_checks_set]
+  \\ fs [do_con_checks_def, semanticPrimitivesTheory.do_con_check_def]
+  \\ metis_tac []
 QED
 
 Theorem to_do_con_checks_list3:
-  EVERY (λ(f,n,e). every_exp (one_con_check env_c) e) funs =
+  EVERY (λ(f,n,e). check_exp_constructors env_c e) funs =
   do_con_checks env_c (collect_conses_list3 [] funs)
 Proof
-  gvs [do_con_checks_collect_conses_thm]
+  simp [do_con_checks_collect_conses_thm, do_con_checks_def]
 QED
 
 Theorem to_do_con_checks:
-  every_exp (one_con_check env_c) e =
+  check_exp_constructors env_c e =
   do_con_checks env_c (collect_conses [] e)
 Proof
-  gvs [do_con_checks_collect_conses_thm]
+  simp [do_con_checks_collect_conses_thm, do_con_checks_def]
 QED
 
 val _ = cv_auto_trans semanticPrimitivesTheory.build_tdefs_def;
@@ -331,6 +347,39 @@ Proof
   gvs [FUN_EQ_THM] \\ Induct
   \\ gvs [bvl_exp_enc_aux_def,backend_enc_decTheory.bvl_exp_enc'_def,
           num_tree_enc_decTheory.list_enc'_def,SF ETA_ss]
+QED
+
+(* bvi_exp encoding *)
+
+(* the handler recurses under an option, so [option_enc'] is unfolded
+   here too, unlike the blocks above. *)
+val bvi_exp = backend_enc_decTheory.bvi_exp_enc'_def
+                |> SRULE [SF ETA_ss, num_tree_enc_decTheory.list_enc'_def,
+                          oneline num_tree_enc_decTheory.option_enc'_def];
+val bvi_exps = MAP |> CONJUNCTS |> map (Q.ISPEC ‘bvi_exp_enc'’);
+
+val name = "bvi_exp_enc_aux"
+val c = “bvi_exp_enc'”
+val r = mk_var(name,type_of c)
+val c_list = “MAP bvi_exp_enc'”
+val r_list = mk_var(name ^ "_list",type_of c_list)
+
+Definition bvi_exp_enc_aux_def:
+  ^(LIST_CONJ (CONJUNCTS bvi_exp @ bvi_exps |> map SPEC_ALL)
+           |> concl |> subst [c|->r,c_list|->r_list])
+End
+
+val _ = cv_auto_trans bvi_exp_enc_aux_def;
+
+Theorem bvi_exp_enc_aux_thm[cv_inline,local]:
+  bvi_exp_enc' = bvi_exp_enc_aux ∧
+  MAP bvi_exp_enc' = bvi_exp_enc_aux_list
+Proof
+  gvs [FUN_EQ_THM] \\ ho_match_mp_tac bvi_exp_enc_aux_ind
+  \\ gvs [bvi_exp_enc_aux_def,backend_enc_decTheory.bvi_exp_enc'_def,
+          num_tree_enc_decTheory.list_enc'_def,SF ETA_ss,
+          oneline num_tree_enc_decTheory.option_enc'_def]
+  \\ rw [] \\ every_case_tac \\ gvs []
 QED
 
 val _ = cv_auto_trans backend_enc_decTheory.bvl_to_bvi_config_enc_def;
@@ -499,6 +548,10 @@ Definition apply_nummap_key'_def:
   apply_nummap_key' f = apply_nummap_key (total_colour f)
 End
 
+Definition apply_nummaps_key'_def:
+  apply_nummaps_key' f = apply_nummaps_key (total_colour f)
+End
+
 Definition apply_colour_imm'_def:
   apply_colour_imm' f = apply_colour_imm (total_colour f)
 End
@@ -523,6 +576,7 @@ val defs = [GSYM check_partial_col'_def,
             GSYM check_col'_def,
             GSYM check_clash_tree'_def,
             GSYM apply_nummap_key'_def,
+            GSYM apply_nummaps_key'_def,
             GSYM apply_colour_imm'_def,
             GSYM apply_colour_exp'_def,
             GSYM apply_colour_exp'_list_def,
@@ -543,6 +597,7 @@ Theorem apply_colour'_eq = word_allocTheory.apply_colour_def |> set_f
 Theorem apply_colour_inst'_eq = word_allocTheory.apply_colour_inst_def |> set_f
 Theorem apply_colour_imm'_eq = word_allocTheory.apply_colour_imm_def |> set_f
 Theorem apply_colour_nummap_key'_eq = word_allocTheory.apply_nummap_key_def |> set_f
+Theorem apply_colour_nummaps_key'_eq = word_allocTheory.apply_nummaps_key_def |> set_f
 Theorem apply_colour_exp'_eq =
   (CONJUNCTS word_allocTheory.apply_colour_exp_def @
    map (Q.ISPEC ‘apply_colour_exp' f’) (CONJUNCTS MAP))
@@ -591,6 +646,7 @@ Proof
 QED
 
 val _ = cv_auto_trans apply_colour_nummap_key'_eq;
+val _ = cv_auto_trans apply_colour_nummaps_key'_eq;
 
 Definition get_reads_exp_list_def:
   get_reads_exp_list xs = FLAT (MAP (λa. get_reads_exp a) xs)
@@ -670,11 +726,9 @@ Theorem flatten_exp_eq =
   |> REWRITE_RULE [GSYM flatten_exp_list_def]
 
 val _ = word_cseTheory.empty_data_def |> CONV_RULE (RAND_CONV EVAL) |> cv_trans;
-val _ = cv_auto_trans word_cseTheory.is_seen_def;
-val _ = cv_auto_trans word_cseTheory.canonicalMoveRegs3_def;
 
 Definition lookup_listCmp_def:
-  lookup_listCmp = lookup listCmp
+  lookup_listCmp = balanced_map$lookup listCmp
 End
 
 val _ = cv_trans (word_cseTheory.listCmp_def |> SRULE [GREATER_DEF]);
@@ -713,19 +767,57 @@ Proof
   Induct_on ‘t’ \\ simp [Once pre]
 QED
 
-val _ = word_cseTheory.arithOpToNum_def |> cv_trans;
-val _ = word_cseTheory.shiftToNum_def |> cv_trans;
-val _ = word_cseTheory.fpToNumList_def |> cv_trans;
-val _ = cv_trans word_cseTheory.firstRegOfArith_def;
+val _ = cv_trans word_cseTheory.keep_data_def;
+val _ = cv_auto_trans word_cseTheory.invalidate_data_def;
+val _ = cv_trans word_cseTheory.invalidate_regs_def;
+val _ = cv_trans word_cseTheory.register_read_def;
+val _ = cv_trans word_cseTheory.register_reads_def;
+val _ = cv_auto_trans word_cseTheory.canonicalRegs_def;
 val _ = cv_trans word_cseTheory.canonicalRegs'_def;
-val _ = cv_trans word_cseTheory.canonicalImmReg'_def;
 val _ = cv_trans word_cseTheory.canonicalImmReg_def;
+val _ = cv_trans word_cseTheory.canonicalImmReg'_def;
+val _ = cv_auto_trans word_cseTheory.canonicalMultRegs_def;
+val _ = cv_trans word_cseTheory.map_insert_def;
+val _ = cv_auto_trans word_cseTheory.canonicalMoveRegs_def;
 val _ = cv_trans word_cseTheory.canonicalArith_def;
-val _ = cv_trans word_cseTheory.are_reads_seen_def;
-val _ = cv_trans word_cseTheory.is_complex_def;
+val _ = cv_trans word_cseTheory.canonicalFp_def;
+val _ = cv_trans word_cseTheory.wordToNum_def;
+val _ = cv_trans word_cseTheory.shiftToNum_def;
+val _ = cv_trans word_cseTheory.arithOpToNum_def;
+val _ = cv_trans word_cseTheory.regImmToNumList_def;
+val _ = cv_trans word_cseTheory.arithToNumList_def;
+val _ = cv_auto_trans word_cseTheory.instToNumList_def;
+val _ = cv_trans word_cseTheory.firstRegOfArith_def;
+val _ = cv_trans word_cseTheory.arithWrites_def;
+val _ = cv_trans word_cseTheory.arithReads_def;
+val _ = cv_trans word_cseTheory.fpWrites_def;
+val _ = cv_auto_trans (word_cseTheory.add_to_data_aux_def
+                         |> SRULE [GSYM insert_listCmp_def,GSYM lookup_listCmp_def]);
+val _ = cv_trans word_cseTheory.add_to_data_def;
+val _ = cv_auto_trans (word_cseTheory.add_to_data_const_def
+                         |> SRULE [GSYM insert_listCmp_def,GSYM lookup_listCmp_def]);
+val _ = cv_trans word_cseTheory.memOpToNum_def;
+val _ = cv_trans word_cseTheory.loadToNumList_def;
+val _ = cv_auto_trans (word_cseTheory.add_to_load_aux_def
+                         |> SRULE [GSYM insert_listCmp_def,GSYM lookup_listCmp_def]);
+val _ = cv_trans word_cseTheory.can_mem_arith_def;
 val _ = cv_trans word_cseTheory.is_store_def;
-val _ = cv_trans word_cseTheory.canonicalExp_def;
-val _ = cv_trans word_cseTheory.OpCurrHeapToNumList_def;
+val _ = cv_auto_trans word_cseTheory.word_cseInst_def;
+val _ = cv_trans word_cseTheory.dest_Var_def;
+val _ = cv_auto_trans (word_cseTheory.bm_inter_eq_acc_def
+                         |> SRULE [GSYM insert_listCmp_def,GSYM lookup_listCmp_def]);
+val _ = cv_auto_trans word_cseTheory.bm_inter_eq_def;
+val _ = cv_auto_trans word_cseTheory.merge_data_def;
+
+val pre = cv_auto_trans_pre "" word_cseTheory.word_cse_def;
+Theorem word_cse_word_cse_pre[cv_pre,local]:
+  ∀data v. word_cse_word_cse_pre data v
+Proof
+  qsuff_tac ‘∀v data. word_cse_word_cse_pre data v’ >- gvs []
+  \\ Induct \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val _ = cv_trans word_cseTheory.word_common_subexp_elim_def;
 
 val _ = word_allocTheory.next_var_rename_def |> cv_trans;
 val _ = word_allocTheory.list_next_var_rename_def |> cv_trans;
@@ -914,7 +1006,7 @@ val _ = cv_trans backendTheory.set_oracle_def;
 val _ = cv_trans (exportTheory.escape_sym_char_def |> SRULE [GREATER_EQ]);
 val _ = cv_auto_trans exportTheory.emit_symbol_def;
 val _ = cv_auto_trans exportTheory.emit_symbols_def;
-val _ = cv_auto_trans (exportTheory.data_section_def |> SRULE [GSYM mlstringTheory.implode_def]);
+val _ = cv_auto_trans exportTheory.data_section_def;
 val _ = cv_trans (exportTheory.data_buffer_def |> SRULE []);
 val _ = cv_trans (exportTheory.code_buffer_def |> SRULE []);
 

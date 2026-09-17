@@ -178,8 +178,8 @@ Definition stmt_vcg_def:
          od
      | SOME (arr_v, len_e, el_e, el_ty) =>
          do
-           e <<- strlit " e";
-           j <<- strlit " j";
+           e <<- « e»;
+           j <<- « j»;
            assert (~MEM arr_v mods)
              «stmt_vcg:ArrayAllocThen: name occurs in mods»;
            assert (e ≠ arr_v ∧ j ≠ arr_v)
@@ -233,8 +233,8 @@ Definition stmt_vcg_def:
       assert (index_ty = IntT) «stmt_vcg:Assign:Array: Index not an int»;
       el_ty <- get_type ls rhs_e;
       arr_ty <- get_type ls (Var arr_v);
-      j <<- strlit " j";
-      j' <<- strlit " j'";
+      j <<- « j»;
+      j' <<- « j'»;
       assert (j' ≠ arr_v ∧ j ≠ arr_v) «stmt_vcg:Assign:Array: Bad array var name»;
       assert (arr_ty = ArrT el_ty) «stmt_vcg:Assign:Array: Mismatch between lhs and rhs»;
       assert (no_Prev T index_e) «stmt_vcg_Assign:Array: no_Prev T violated in index»;

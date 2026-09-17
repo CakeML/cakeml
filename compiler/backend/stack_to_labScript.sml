@@ -102,13 +102,11 @@ local val flatten_quotation = `
                                          LabAsm (CallFFI ffi_index) 0w [] 0;
                                          Label n m 0],F,m+1)
     | LocValue i l1 l2 => (List [LabAsm (LocValue i (Lab l1 l2)) 0w [] 0],F,m)
-    | Install _ _ _ _ ret =>
+    | Install _ _ _ _ _ ret =>
       (List [LabAsm (LocValue ret (Lab n m)) 0w [] 0;
       LabAsm Install 0w [] 0;
       Label n m 0],F,m+1)
     | ShMemOp op r ad => (List [Asm (ShareMem op r ad) [] 0],F,m)
-    | CodeBufferWrite r1 r2 =>
-      (List [Asm (Cbw r1 r2) [] 0],F,m)
     | _  => (List [],F,m)`
 in
 val flatten_def = Define flatten_quotation;
@@ -144,6 +142,7 @@ Datatype:
   config =
   <| reg_names : num num_map
    ; jump : bool (* whether to compile to JumpLower or If Lower ... in stack_remove*)
+   ; perf_calls : bool (* unverified: emit C-stack shadowing for perf call graphs (x64 only) *)
    |>
 End
 

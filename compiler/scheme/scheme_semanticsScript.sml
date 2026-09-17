@@ -26,23 +26,23 @@ End
 Definition sadd_def:
   sadd [] n = Val $ SNum n ∧
   sadd (SNum m :: xs) n = sadd xs (m + n) ∧
-  sadd (_ :: xs) _ = Exception $ strlit "Arith-op applied to non-number"
+  sadd (_ :: xs) _ = Exception $ «Arith-op applied to non-number»
 End
 
 Definition smul_def:
   smul [] n = Val $ SNum n ∧
   smul (SNum m :: xs) n = smul xs (m * n) ∧
-  smul (_ :: xs) _ = Exception $ strlit "Arith-op applied to non-number"
+  smul (_ :: xs) _ = Exception $ «Arith-op applied to non-number»
 End
 
 Definition sminus_def:
-  sminus [] = Exception $ strlit "Arity mismatch" ∧
+  sminus [] = Exception $ «Arity mismatch» ∧
   sminus (SNum n :: xs) = (case xs of
   | [] => Val (SNum (-n))
   | _::_ => (case sadd xs 0 of
     | Val (SNum m) => Val (SNum (n - m))
     | e => e)) ∧
-  sminus _ = Exception $ strlit "Arith-op applied to non-number"
+  sminus _ = Exception $ «Arith-op applied to non-number»
 End
 
 Definition seqv_def:
@@ -54,7 +54,7 @@ Definition seqv_def:
     | SBool b' => b = b'
     | _ => F)
   | _ => F) ∧
-  seqv _ = Exception $ strlit "Arity mismatch"
+  seqv _ = Exception $ «Arity mismatch»
 End
 
 (*
@@ -92,7 +92,7 @@ Definition parameterize_def:
   parameterize store env (p::ps) lp e (x::xs) = (let
       (n, store') = fresh_loc store (Mut $ SOME x)
     in parameterize store' (env |+ (p, n)) ps lp e xs) ∧
-  parameterize store _ _ _ _ _ = (store, Exception $ strlit "Wrong number of arguments")
+  parameterize store _ _ _ _ _ = (store, Exception $ «Wrong number of arguments»)
 End
 
 Definition application_def:
@@ -103,37 +103,37 @@ Definition application_def:
   | SEqv => (store, ks, seqv xs)
   | CallCC => (case xs of
     | [v] => (store, (FEMPTY, ApplyK (SOME (v, [])) []) :: ks, Val $ Throw ks)
-    | _ => (store, ks, Exception $ strlit "Arity mismatch"))
+    | _ => (store, ks, Exception $ «Arity mismatch»))
   | Cons => (case xs of
     | [v1; v2] => (let (l, store') = fresh_loc store (Pair (v1, v2))
       in (store', ks, Val $ PairP l))
-    | _ => (store, ks, Exception $ strlit "Arity mismatch"))
+    | _ => (store, ks, Exception $ «Arity mismatch»))
   | Car => (case xs of
     | [v] => (case v of
       | PairP l => (store, ks, Val $ FST $ pair_entry $ EL l store)
-      | _ => (store, ks, Exception $ strlit "Can't take car of non-pair"))
-    | _ => (store, ks, Exception $ strlit "Arity mismatch"))
+      | _ => (store, ks, Exception $ «Can't take car of non-pair»))
+    | _ => (store, ks, Exception $ «Arity mismatch»))
   | Cdr => (case xs of
     | [v] => (case v of
       | PairP l => (store, ks, Val $ SND $ pair_entry $ EL l store)
-      | _ => (store, ks, Exception $ strlit "Can't take cdr of non-pair"))
-    | _ => (store, ks, Exception $ strlit "Arity mismatch"))
+      | _ => (store, ks, Exception $ «Can't take cdr of non-pair»))
+    | _ => (store, ks, Exception $ «Arity mismatch»))
   | IsNull => (case xs of
     | [v] => (case v of
       | Null => (store, ks, Val $ SBool T)
       | _ => (store, ks, Val $ SBool F))
-    | _ => (store, ks, Exception $ strlit "Arity mismatch"))
+    | _ => (store, ks, Exception $ «Arity mismatch»))
   | IsPair => case xs of
     | [v] => (case v of
       | PairP _ => (store, ks, Val $ SBool T)
       | _ => (store, ks, Val $ SBool F))
-    | _ => (store, ks, Exception $ strlit "Arity mismatch")) ∧
+    | _ => (store, ks, Exception $ «Arity mismatch»)) ∧
   application store ks (Proc env ps lp e) xs = (let (store', e') =
     parameterize store env ps lp e xs in (store', ks, e')) ∧
   application store ks (Throw ks') xs = (case xs of
     | [v] => (store, ks', Val v)
-    | _ => (store, ks, Exception $ strlit "Arity mismatch")) ∧
-  application store ks _ _ = (store, ks, Exception $ strlit "Not a procedure")
+    | _ => (store, ks, Exception $ «Arity mismatch»)) ∧
+  application store ks _ _ = (store, ks, Exception $ «Not a procedure»)
 End
 
 Definition letinit_def:
@@ -178,7 +178,7 @@ Definition step_def:
   step (store, ks, Exp env $ Cond c t f) = (store, (env, CondK t f) :: ks, Exp env c) ∧
   (*This is undefined if the program doesn't typecheck*)
   step (store, ks, Exp env $ Ident s) = (let ev = case mut_entry $ EL (env ' s) store of
-    | NONE => Exception $ strlit "Letrec variable touched"
+    | NONE => Exception $ «Letrec variable touched»
     | SOME v => Val v
     in (store, ks, ev)) ∧
   step (store, ks, Exp env $ Lambda ps lp e) = (store, ks, Val $ Proc env ps lp e) ∧
@@ -227,26 +227,26 @@ Definition empty_store_def:
  empty_store = <| muts := []; pairs := [] |>
 End
 
-  EVAL “steps 100 ([], [], FEMPTY, Exp $ Letrec [(strlit "x",Lit $ LitNum 2);(strlit "y",Ident $ strlit "x")] (Ident $ strlit "y"))”
+  EVAL “steps 100 ([], [], FEMPTY, Exp $ Letrec [(«x»,Lit $ LitNum 2);(«y»,Ident $ «x»)] (Ident $ «y»))”
   EVAL “steps 100 ([], [], Exp FEMPTY $ Apply (Lit $ LitPrim Cdr) [Apply (Lit $ LitPrim Cons) [Lit $ LitNum 1; Lit $ LitNull]])”
   EVAL “steps 10 ([], [], FEMPTY, Exp $ Apply (Lit (LitPrim SMinus)) [Lit (LitNum 4); Lit (LitNum 2)])”
   EVAL “steps 4 ([], [], Apply (Val (SNum 7)) [Val (SNum 2); Val (SNum 4)])”
   EVAL “steps 6 ([], [InLetK []], Apply (Val (Prim SMul)) [Val (SNum 2); Val (Prim SAdd)])”
   EVAL “steps 2 ([], [], Cond (Val (SBool F)) (Val (SNum 2)) (Val (SNum 4)))”
-  EVAL “steps 4 ([], [], SLet [(strlit "x", Val $ SNum 42)] (Ident $ strlit "x"))”
-  EVAL “steps 6 ([], [], Apply (Lambda [] (SOME $ strlit "x") (Ident $ strlit "y")) [Val $ SNum 4])”
+  EVAL “steps 4 ([], [], SLet [(«x», Val $ SNum 42)] (Ident $ «x»))”
+  EVAL “steps 6 ([], [], Apply (Lambda [] (SOME $ «x») (Ident $ «y»)) [Val $ SNum 4])”
   EVAL “steps 3 ([], [], Begin (Val $ SNum 1) [Val $ SNum 2])”
 
   EVAL “steps 16 ([], [], FEMPTY,
     Apply (
-      Lambda [strlit "f"; strlit "x"] NONE (
-        Apply (Ident $ strlit "f") [Val $ SNum 1]
+      Lambda [«f»; «x»] NONE (
+        Apply (Ident $ «f») [Val $ SNum 1]
       )
     ) [
-      Lambda [strlit "y"] NONE (
+      Lambda [«y»] NONE (
         Apply (Val $ Prim SAdd) [
-          Ident $ strlit "y";
-          Ident $ strlit "x"
+          Ident $ «y»;
+          Ident $ «x»
         ]
       );
       Val $ SNum 4
@@ -255,12 +255,12 @@ End
 
   EVAL “steps 99 ([], [], FEMPTY,Exp $
     Apply (
-      Lambda [strlit "x"] NONE (
+      Lambda [«x»] NONE (
         Apply (
-          Lambda [strlit "y"] NONE (
+          Lambda [«y»] NONE (
             Apply (Lit $ LitPrim SAdd) [
-              Ident $ strlit "y";
-              Ident $ strlit "x"
+              Ident $ «y»;
+              Ident $ «x»
             ]
           )
         ) [Lit $ LitNum 1]
@@ -270,11 +270,11 @@ End
 
   EVAL “steps 16 ([], [], FEMPTY,
     Apply (
-      Lambda [strlit "x"] NONE (
+      Lambda [«x»] NONE (
         Apply (
-          Lambda [strlit "x"] NONE (
+          Lambda [«x»] NONE (
             Apply (Val $ Prim SAdd) [
-              Ident $ strlit "x"
+              Ident $ «x»
             ]
           )
         ) [Val $ SNum 1]
@@ -284,52 +284,52 @@ End
 
   EVAL “steps 22 ([], [], FEMPTY,
     Apply (
-      Lambda [strlit "x"] NONE (Begin (
+      Lambda [«x»] NONE (Begin (
         Apply (
-          Lambda [strlit "y"] NONE (Begin (
-            Set (strlit "x") (Val $ SNum 5)
+          Lambda [«y»] NONE (Begin (
+            Set «x» (Val $ SNum 5)
           ) [
             Apply (Val $ Prim SAdd) [
-              Ident $ strlit "y";
-              Ident $ strlit "x"
+              Ident $ «y»;
+              Ident $ «x»
             ]
           ])
         ) [Val $ SNum 1]
       ) [
-        Ident $ strlit "x"
+        Ident $ «x»
       ])
     ) [Val $ SNum 4]
   )”
 
   EVAL “steps 100 ([], [], FEMPTY,
     Letrecstar [
-      (strlit $ "to", Lambda [strlit "x"] NONE (
-        Apply (Ident $ strlit "fro") [
-          Apply (Val $ Prim SAdd) [Val $ SNum 1; Ident $ strlit "x"]
+      (strlit $ "to", Lambda [«x»] NONE (
+        Apply (Ident $ «fro») [
+          Apply (Val $ Prim SAdd) [Val $ SNum 1; Ident $ «x»]
         ]
       ));
-      (strlit $ "fro", Lambda [strlit "x"] NONE (
-        Apply (Ident $ strlit "to") [
-          Apply (Val $ Prim SMul) [Val $ SNum 2; Ident $ strlit "x"]
+      (strlit $ "fro", Lambda [«x»] NONE (
+        Apply (Ident $ «to») [
+          Apply (Val $ Prim SMul) [Val $ SNum 2; Ident $ «x»]
         ]
       ))
-    ] (Apply (Ident $ strlit "to") [Val $ SNum 0])
+    ] (Apply (Ident $ «to») [Val $ SNum 0])
   )”
 
   EVAL “steps 3 ([], [], FEMPTY,
-    Letrecstar [(strlit $ "fail", Ident $ strlit "fail")] (Val $ SBool F)
+    Letrecstar [(strlit $ "fail", Ident $ «fail»)] (Val $ SBool F)
   )”
 
   EVAL “steps 20 ([], [], FEMPTY,
     Apply (Val $ Prim SMul) [
       Val $ SNum 2;
-      Apply (Val $ Prim CallCC) [ Lambda [strlit "x"] NONE (
+      Apply (Val $ Prim CallCC) [ Lambda [«x»] NONE (
         Apply (Val $ Prim SAdd) [
           Val $ SNum 4;
           Cond (Val $ SBool F) (
             Val $ SNum 3
           ) (
-            Apply (Ident $ strlit "x") [Val $ SNum 5]
+            Apply (Ident $ «x») [Val $ SNum 5]
           )
         ]
       )]
@@ -341,50 +341,50 @@ End
       (strlit $ "double", Val $ SNum 0);
       (strlit $ "x", Val $ SNum 1)
     ] (Begin (
-      Apply (Val $ Prim CallCC) [ Lambda [strlit "x"] NONE (
-        Set (strlit "double") (Ident $ strlit "x")
+      Apply (Val $ Prim CallCC) [ Lambda [«x»] NONE (
+        Set «double» (Ident $ «x»)
       )]
     ) [
-      Set (strlit "x") (Apply (Val $ Prim SMul) [
+      Set «x» (Apply (Val $ Prim SMul) [
         Val $ SNum 2;
-        Ident $ strlit "x"
+        Ident $ «x»
       ]);
-      Apply (Ident $ strlit "double") [Val $ SNum 0]
+      Apply (Ident $ «double») [Val $ SNum 0]
     ])
   )”
 
   EVAL “steps 10 ([], [], FEMPTY, Apply (Val $ Prim SMinus) [Val $ SNum 3; Val $ SNum 2])”
 
-  EVAL “steps 1000 ([], [], FEMPTY, Letrecstar [(strlit "fac", Lambda [strlit "x"] NONE (
-    Cond (Apply (Val $ Prim SEqv) [Ident $ strlit "x"; Val $ SNum 0]) (
+  EVAL “steps 1000 ([], [], FEMPTY, Letrecstar [(«fac», Lambda [«x»] NONE (
+    Cond (Apply (Val $ Prim SEqv) [Ident $ «x»; Val $ SNum 0]) (
       Val $ SNum 1
     ) (
-      Apply (Val $ Prim SMul) [Ident $ strlit "x"; Apply (Ident $ strlit "fac") [
-        Apply (Val $ Prim SMinus) [Ident $ strlit "x"; Val $ SNum 1]
+      Apply (Val $ Prim SMul) [Ident $ «x»; Apply (Ident $ «fac») [
+        Apply (Val $ Prim SMinus) [Ident $ «x»; Val $ SNum 1]
       ]]
     )
-  ))] (Apply (Ident $ strlit "fac") [Val $ SNum 6]))”
+  ))] (Apply (Ident $ «fac») [Val $ SNum 6]))”
 
-  EVAL “steps 500 ([], [], FEMPTY, Exp $ Letrecstar [(strlit "fac", Lambda [strlit "x"] NONE (
-    Letrecstar [(strlit "st", Lit $ LitNum 0); (strlit "acc", Lit $ LitNum 1)] (
-      Begin [ Apply (Lit $ LitPrim CallCC) [ Lambda [strlit "k"] NONE (
-        Set (strlit "st") (Ident $ strlit "k")
+  EVAL “steps 500 ([], [], FEMPTY, Exp $ Letrecstar [(«fac», Lambda [«x»] NONE (
+    Letrecstar [(«st», Lit $ LitNum 0); («acc», Lit $ LitNum 1)] (
+      Begin [ Apply (Lit $ LitPrim CallCC) [ Lambda [«k»] NONE (
+        Set «st» (Ident $ «k»)
       )]] (
-        Cond (Apply (Lit $ LitPrim SEqv) [Ident $ strlit "x"; Lit $ LitNum 0])
-          (Ident $ strlit "acc")
-          (Apply (Ident $ strlit "st") [ Begin [
-            Set (strlit "acc") (Apply (Lit $ LitPrim SMul) [
-              Ident $ strlit "acc";
-              Ident $ strlit "x"
+        Cond (Apply (Lit $ LitPrim SEqv) [Ident $ «x»; Lit $ LitNum 0])
+          (Ident $ «acc»)
+          (Apply (Ident $ «st») [ Begin [
+            Set «acc» (Apply (Lit $ LitPrim SMul) [
+              Ident $ «acc»;
+              Ident $ «x»
             ])
           ] (
-            Set (strlit "x") (Apply (Lit $ LitPrim SMinus) [
-              Ident $ strlit "x";
+            Set «x» (Apply (Lit $ LitPrim SMinus) [
+              Ident $ «x»;
               Lit $ LitNum 1
             ])
           )])
       )
     )
-  ))] (Apply (Ident $ strlit "fac") [Lit $ LitNum 6]))”
+  ))] (Apply (Ident $ «fac») [Lit $ LitNum 6]))”
 *)
 

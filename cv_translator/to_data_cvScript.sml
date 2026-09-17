@@ -130,16 +130,23 @@ val _ = cv_auto_trans (source_to_flatTheory.alloc_tags_def
 
 Definition compile_decs_alt_def:
   (compile_dec_alt (t:mlstring list) n next env envs (ast$Dlet locs p e) =
-     let n' = n + 4 in
-     let xs = REVERSE (pat_bindings p []) in
-     let e' = compile_exp (xs++t) env e in
-     let l = LENGTH xs in
-     let n'' = n' + l in
-       (n'', (next with vidx := next.vidx + l),
-        <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
-        envs,
-        [flatLang$Dlet (Mat None e'
-          [(compile_pat env p, make_varls 0 None next.vidx xs)])])) ∧
+     case simple_dlet p e of
+     | SOME (pv,v) =>
+         (case nsLookup env.v v of
+          | SOME (Glob t i) =>
+                 (n, next, <| v := alist_to_ns [(pv, Glob t i)]; c := nsEmpty |>, envs, [])
+          | _ => (n, next, <| v := nsEmpty; c := nsEmpty |>, envs, []))
+     | NONE =>
+         let n' = n + 4 in
+         let xs = REVERSE (pat_bindings p) in
+         let e' = compile_exp (xs++t) env e in
+         let l = LENGTH xs in
+         let n'' = n' + l in
+           (n'', (next with vidx := next.vidx + l),
+            <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
+            envs,
+            [(Mat None e'
+              [(compile_pat env p, make_varls 0 None next.vidx xs)])])) ∧
   (compile_dec_alt t n next env envs (ast$Dletrec locs funs) =
      let fun_names = MAP FST funs in
      let new_env = nsBindList (MAP (\x. (x, Local None x)) fun_names) env.v in
@@ -149,7 +156,7 @@ Definition compile_decs_alt_def:
                    c := nsEmpty |> in
        (n' + LENGTH funs, (next with vidx := next.vidx + LENGTH funs),
         env', envs,
-        [flatLang$Dlet (flatLang$Letrec (join_all_names t) flat_funs
+        [ (flatLang$Letrec (join_all_names t) flat_funs
            (make_varls 0 None next.vidx (REVERSE fun_names)))])) /\
   (compile_dec_alt t n next env envs (Dtype locs type_def) =
     let new_env = MAPi (\tid (_,_,constrs). alloc_tags (next.tidx + tid) constrs) type_def in
@@ -163,6 +170,10 @@ Definition compile_decs_alt_def:
      (n, (next with eidx := next.eidx + 1),
       <| v := nsEmpty; c := nsSing cn (next.eidx, NONE) |>,
       envs,[])) ∧
+  (compile_dec_alt t n next env envs (Dopen locs path) =
+     case open_compile_env path env of
+     | NONE => (n, next, empty_env, envs, [])
+     | SOME opened => (n, next, opened, envs, [])) ∧
   (compile_dec_alt t n next env envs (Dmod mn ds) =
      let (n', next', new_env, envs', ds') = compile_decs_alt (mn::t) n next env envs ds in
        (n', next', (lift_env mn new_env), envs', ds')) ∧
@@ -176,7 +187,7 @@ Definition compile_decs_alt_def:
         <| v := nsBind nenv (Glob None next.vidx) nsEmpty; c := nsEmpty |>,
         envs with <| next := envs.next + 1;
             envs := insert envs.next env envs.envs |>,
-        [flatLang$Dlet (App None (GlobalVarInit next.vidx)
+        [(App None (GlobalVarInit next.vidx)
             [env_id_tuple envs.generation envs.next])])) ∧
   (compile_decs_alt t n next env envs [] =
     (n, next, empty_env, envs, [])) ∧
@@ -199,7 +210,10 @@ Proof
   rw[Once $ oneline source_to_flatTheory.compile_decs_def] >>
   rpt(PURE_TOP_CASE_TAC >> gvs[source_to_flatTheory.compile_decs_def]) >>
   gvs[source_to_flatTheory.extend_env_def,source_to_flatTheory.empty_env_def,
-      UNCURRY_eq_pair,PULL_EXISTS] >>
+      UNCURRY_eq_pair,PULL_EXISTS]
+  >~ [‘(opened:environment) = <|c := opened.c; v := opened.v|>’]
+  >- rw[source_to_flatTheory.environment_component_equality]
+  >>
   qmatch_goalsub_abbrev_tac ‘$= a1’ >> PairCases_on ‘a1’ >>
   pop_assum $ assume_tac o GSYM >>
   gvs[markerTheory.Abbrev_def] >>
@@ -216,7 +230,12 @@ Theorem compile_decs_thm:
 Proof
   ho_match_mp_tac source_to_flatTheory.compile_decs_ind >>
   PURE_ONCE_REWRITE_TAC[compile_decs_cons] >>
-  rw[source_to_flatTheory.compile_decs_def,compile_decs_alt_def,source_to_flatTheory.extend_env_def,source_to_flatTheory.empty_env_def,UNCURRY_eq_pair,PULL_EXISTS,source_to_flatTheory.lift_env_def]
+  rw[source_to_flatTheory.compile_decs_def, compile_decs_alt_def,
+     source_to_flatTheory.extend_env_def,
+     source_to_flatTheory.empty_env_def, UNCURRY_eq_pair, PULL_EXISTS,
+     source_to_flatTheory.lift_env_def]
+  >- (rpt (TOP_CASE_TAC \\ gvs []))
+  >- metis_tac[FST,SND,PAIR]
   >- metis_tac[FST,SND,PAIR]
   >- metis_tac[FST,SND,PAIR] >>
   res_tac >>
@@ -404,51 +423,13 @@ val _ = cv_auto_trans encode_pat_alt_def
 
 val _ = cv_trans $ GSYM $ cj 1 encode_pat_alt_thm
 
-Definition exh_pat_alt_def:
-  exh_pat_alt Any = T /\
-  exh_pat_alt (Or p1 p2) = (exh_pat_alt p1 \/ exh_pat_alt p2) /\
-  exh_pat_alt (Cons NONE ps) = exh_pats_alt ps /\
-  exh_pat_alt _ = F ∧
-  exh_pats_alt [] = T ∧
-  exh_pats_alt (x::xs) = (exh_pat_alt x ∧ exh_pats_alt xs)
-End
+val _ = cv_trans pattern_exhTheory.mk_refs_def;
+val _ = cv_trans pattern_exhTheory.mk_conses_def;
+val _ = cv_trans pattern_exhTheory.add_head_def;
+val _ = cv_trans pattern_exhTheory.mk_prods_def;
+val _ = cv_trans pattern_exhTheory.expand_def;
 
-val _ = cv_trans exh_pat_alt_def
-
-Theorem exh_pat_alt_thm:
-  (∀p. exh_pat_alt p = exh_pat p) ∧
-  (∀ps. exh_pats_alt ps = EVERY exh_pat ps)
-Proof
-  Induct >>
-  rw[exh_pat_alt_def,pattern_compTheory.exh_pat_def] >>
-  rename1 ‘Cons cc’ >> Cases_on ‘cc’ >>
-  rw[exh_pat_alt_def,pattern_compTheory.exh_pat_def] >>
-  metis_tac[]
-QED
-
-val _ = cv_trans $ GSYM $ cj 1 exh_pat_alt_thm
-
-Definition sib_exists_alt_def:
-  sib_exists_alt [] t l = F ∧
-  sib_exists_alt ((Cons (SOME (t1,_)) ps) :: xs) t l =
-    (if (t = t1 ∧ l = LENGTH ps) then T else sib_exists_alt xs t l) ∧
-  sib_exists_alt _ _ _ = F
-End
-
-val _ = cv_trans sib_exists_alt_def
-
-Theorem sib_exists_alt_thm:
-  ∀xs tl. sib_exists xs tl = sib_exists_alt xs (FST tl) (SND tl)
-Proof
-  simp[FORALL_PROD] >>
-  recInduct sib_exists_alt_ind >>
-  rw[sib_exists_alt_def,pattern_compTheory.sib_exists_def] >>
-  metis_tac[]
-QED
-
-val _ = cv_trans sib_exists_alt_thm
-
-val _ = cv_auto_trans pattern_compTheory.exh_rows_def
+val _ = cv_auto_trans pattern_exhTheory.exh_rows_eq;
 
 val _ = cv_auto_trans pattern_compTheory.pat_to_guard_def
 
@@ -531,7 +512,7 @@ Definition compile_exp_alt_def:
   (compile_match_alt cfg [] = (0, F, [])) /\
   (compile_match_alt cfg ((p, x)::ps) =
     let (i, sgx, y) = compile_exp_alt cfg x in
-    let j = max_dec_name (pat_bindings p []) in
+    let j = max_dec_name (pat_bindings p) in
     let (k, sgp, ps2) = compile_match_alt cfg ps in
     (MAX i (MAX j k), sgx \/ sgp, ((p, y) :: ps2)))
 End
@@ -1487,7 +1468,7 @@ Definition decide_inline_alt_def:
           if app_lopt = NONE /\ app_arity = arity then
             (if body_size < c * (1 + app_arity) /\
                 ~contains_closures [body] /\
-                closed (Fn (strlit "") NONE NONE app_arity body)
+                closed (Fn «» NONE NONE app_arity body)
                 (* Consider moving these checks to the point where Clos approximations
                    are created, and bake them into the val_approx_val relation. *)
                then inlD_LetInline body
@@ -1644,7 +1625,7 @@ Definition eq_pure_list_alt:
    (case eq_direct x y of
     | SOME z => List [z]
     | NONE =>
-      case dest_Op dest_Cons x, dest_Op dest_Cons y of
+      case dest_Op clos_op$dest_Cons x, dest_Op clos_op$dest_Cons y of
       | (NONE, NONE) => List [Op None (BlockOp Equal) [x;y]]
       | (SOME (t1,xs), SOME (t2,ys)) =>
            if t1 ≠ t2 ∨ LENGTH xs ≠ LENGTH ys then List [MakeBool F]
@@ -1738,7 +1719,7 @@ QED
 
 Definition cons_measure_alt_def:
   cons_measure_alt x =
-  (case dest_Op dest_Cons x of
+  (case dest_Op clos_op$dest_Cons x of
    | NONE => 0
    | SOME (_,xs) => cons_measures_alt xs + LENGTH xs + 1) ∧
   cons_measures_alt [] = 0 ∧
@@ -2555,13 +2536,15 @@ QED
 val _ = cv_auto_trans bvi_tailrecTheory.check_exp_eq;
 val _ = cv_auto_trans bvi_tailrecTheory.compile_exp_def;
 
-val pre = cv_auto_trans_pre "" bvi_tailrecTheory.compile_prog_def;
-Theorem bvi_tailrec_compile_prog_pre[cv_pre]:
-  ∀next v. bvi_tailrec_compile_prog_pre next v
+val pre = cv_auto_trans_pre "" bvi_tailrecTheory.compile_each_def;
+Theorem bvi_tailrec_compile_each_pre[cv_pre]:
+  ∀next v. bvi_tailrec_compile_each_pre next v
 Proof
-  ho_match_mp_tac bvi_tailrecTheory.compile_prog_ind
+  ho_match_mp_tac bvi_tailrecTheory.compile_each_ind
   \\ rpt strip_tac \\ simp [Once pre]
 QED
+
+val pre = cv_trans bvi_tailrecTheory.compile_prog_def;
 
 (* bvi_let *)
 
@@ -2598,6 +2581,69 @@ Proof
 QED
 
 val _ = cv_trans bvi_letTheory.compile_exp_eq;
+
+(* bvi_inline *)
+
+val pre = cv_trans_pre "" bvi_inlineTheory.bvi_mk_tick_eq;
+Theorem bvi_inline_bvi_mk_tick_pre[cv_pre,local]:
+  ∀n e. bvi_inline_bvi_mk_tick_pre n e
+Proof
+  Induct \\ simp [Once pre]
+QED
+
+val _ = cv_auto_trans bvi_inlineTheory.canonical_wrapper_def;
+val _ = cv_auto_trans bvi_inlineTheory.wrapper_ok_def;
+
+val pre = cv_auto_trans_pre "" (bvi_inlineTheory.inline_exp_def |> measure_args [1,1]);
+Theorem bvi_inline_inline_exp_pre[cv_pre,local]:
+  (∀cs v. bvi_inline_inline_exp_pre cs v) ∧
+  (∀cs v. bvi_inline_inline_exps_pre cs v)
+Proof
+  ho_match_mp_tac bvi_inlineTheory.inline_exp_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val pre = cv_auto_trans_pre ""
+             (bvi_inlineTheory.remove_ticks_exp_def
+                |> PURE_REWRITE_RULE [oneline OPTION_MAP_DEF, o_THM]);
+Theorem bvi_inline_remove_ticks_exp_pre[cv_pre,local]:
+  (∀v. bvi_inline_remove_ticks_exp_pre v) ∧
+  (∀v. bvi_inline_remove_ticks_exps_pre v)
+Proof
+  ho_match_mp_tac bvi_inlineTheory.remove_ticks_exp_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val _ = cv_auto_trans bvi_inlineTheory.inline_all_def;
+val _ = cv_auto_trans bvi_inlineTheory.compile_inc_def;
+val _ = cv_auto_trans bvi_inlineTheory.compile_prog_def;
+
+(* bvi_tmc *)
+
+val _ = cv_auto_trans bvi_tmcTheory.pure_exp_def;
+
+val pre = cv_auto_trans_pre "" bvi_tmcTheory.bvi_to_cb_aux_def;
+
+Theorem bvi_tmc_bvi_to_cb_aux_pre[cv_pre]:
+  (∀n loc tag v. bvi_tmc_bvi_to_cb_aux_sing_pre n loc tag v) ∧
+  (∀n loc tag v. bvi_tmc_bvi_to_cb_aux_pre n loc tag v)
+Proof
+  ho_match_mp_tac bvi_tmcTheory.bvi_to_cb_aux_ind
+  \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = cv_auto_trans bvi_tmcTheory.cb_to_bvi_worker_aux_alt_def;
+val _ = cv_trans bvi_tmcTheory.cb_to_bvi_worker_aux_eq;
+
+val pre = cv_auto_trans_pre "" bvi_tmcTheory.compile_each_def;
+Theorem bvi_tmc_compile_each_pre[cv_pre]:
+  ∀next v. bvi_tmc_compile_each_pre next v
+Proof
+  ho_match_mp_tac bvi_tmcTheory.compile_each_ind
+  \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = cv_trans bvi_tmcTheory.compile_prog_def;
 
 (* bvl_to_bvi *)
 
@@ -2695,12 +2741,22 @@ val _ = cv_auto_trans bvi_to_dataTheory.optimise_def;
 val _ = cv_auto_trans bvi_to_dataTheory.op_requires_names_eqn;
 
 val pre = cv_auto_trans_pre "" (bvi_to_dataTheory.compile_sing_def |> measure_args [4,3]);
+
 Theorem bvi_to_data_compile_sing_pre[cv_pre,local]:
   (∀n env tail live v. bvi_to_data_compile_sing_pre n env tail live v) ∧
   (∀n env live v. bvi_to_data_compile_list_pre n env live v)
 Proof
   ho_match_mp_tac bvi_to_dataTheory.compile_sing_ind
   \\ rpt strip_tac \\ simp [Once pre]
+  \\ rw[]
+  \\ first_x_assum (fn th => drule (GSYM th))
+  \\ gvs[GSYM cv_stdTheory.genlist_eq_GENLIST]
+  \\ qmatch_goalsub_abbrev_tac `GENLIST xx _`
+  \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac `GENLIST yy _`
+  \\ qsuff_tac `xx = yy`
+  >- metis_tac[]
+  \\ unabbrev_all_tac \\ simp[FUN_EQ_THM]
 QED
 
 val _ = cv_auto_trans rich_listTheory.COUNT_LIST_GENLIST;

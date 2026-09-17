@@ -66,6 +66,15 @@ Proof
    ho_match_mp_tac evaluate_ind >>
    srw_tac[][small_eval_log, small_eval_if, small_eval_match, small_eval_lannot,
              small_eval_handle, small_eval_let, small_eval_letrec, small_eval_tannot, to_small_res_def, small_eval_raise]
+   >~ [`open_dec_env _ _ = SOME _`] >- (
+     fs [] >> irule small_eval_prefix >>
+     qexistsl_tac [`[]`, `e`, `extend_dec_env opened env`, `to_small_st s`] >>
+     simp [] >>
+     irule RTC_SINGLE >> simp [e_step_reln_def, e_step_def])
+   >~ [`open_dec_env _ _ = NONE`] >- (
+     rw [small_eval_def] >>
+     qexistsl_tac [`env`, `Exp (Open path e)`, `[]`] >>
+     simp [e_step_def])
    >- (srw_tac[][return_def, small_eval_def, Once RTC_CASES1, e_step_reln_def, e_step_def] >>
        metis_tac [RTC_REFL])
    >- (full_simp_tac(srw_ss())[small_eval_def] >>
@@ -971,9 +980,12 @@ Proof
           ) >>
         once_rewrite_tac[cj 2 evaluate_cases] >> simp[] >>
         gvs[evaluate_ctxts_cons] >>
-        gvs[evaluate_ctxt_cases, update_thunk_def, AllCaseEqs(), SF SFY_ss] >>
+        gvs[evaluate_ctxt_cases, oneline update_thunk_def, AllCaseEqs(),
+            SF SFY_ss] >>
         gvs[Once $ cj 2 evaluate_cases] >>
-        gvs[opClass_cases] >> metis_tac[]
+        gvs[opClass_cases] >>
+        Cases_on `b` >> gvs[oneline dest_thunk_def, AllCaseEqs()] >>
+        metis_tac[]
         ) >>
       once_rewrite_tac[cj 2 evaluate_cases] >> simp[] >>
       every_case_tac >> gvs[SF DNF_ss, SF SFY_ss] >>
@@ -1260,9 +1272,12 @@ Proof
   ho_match_mp_tac astTheory.dec_induction >> rw[] >>
   rw[Once evaluate_dec_cases, Once dec_diverges_cases, GSYM untyped_safety_exp] >>
   gvs[]
+  >~ [`open_dec_env _ _`] >- (
+    rename1 `open_dec_env path env` >>
+    Cases_on `open_dec_env path env` >> simp [])
   >- (
-    Cases_on ‘ALL_DISTINCT (pat_bindings p []) ∧
-              every_exp (one_con_check env.c) e’ >>
+    Cases_on ‘ALL_DISTINCT (pat_bindings p) ∧
+              check_exp_constructors env.c e’ >>
     gvs[GSYM small_big_exp_equiv, to_small_st_def] >>
     eq_tac >- metis_tac[] >> rw[] >>
     PairCases_on ‘r’ >>
@@ -1389,7 +1404,12 @@ Theorem big_dec_to_small_dec:
     evaluate_decs ck env st ds r ⇒ ¬ck
   ⇒ small_eval_decs env st ds r)
 Proof
-  ho_match_mp_tac evaluate_dec_ind >> rw[small_eval_dec_def] >> gvs[]
+  ho_match_mp_tac evaluate_dec_ind >> rw[small_eval_dec_def] >>
+  gvs[]
+  >~ [`open_dec_env _ _ = SOME _`] >- (
+    irule RTC_SINGLE >> simp [SF decl_step_ss, collapse_env_def])
+  >~ [`open_dec_env _ _ = NONE`] >- (
+    irule_at Any RTC_REFL >> simp [SF decl_step_ss, collapse_env_def])
   >- (
     simp[Once RTC_CASES1, SF decl_step_ss] >>
     drule_all $ iffRL small_big_exp_equiv >> strip_tac >>
@@ -1719,6 +1739,9 @@ Theorem big_exp_to_small_exp_timeout_lemma:
           e_step_to_match env (to_small_st s) v pes (to_small_st s'))
 Proof
   ho_match_mp_tac evaluate_strongind >> rw[]
+  >~ [`open_dec_env _ _ = SOME _`] >- (
+    irule_at Any $ cj 2 RTC_rules >>
+    simp [e_step_reln_def, e_step_def, SF SFY_ss])
   >- ( (* Raise *)
     irule_at Any $ cj 2 RTC_rules >>
     simp[e_step_reln_def, e_step_def, push_def] >>
@@ -2224,7 +2247,7 @@ Theorem evaluate_match_T_total:
   ∀pes env s v err. ∃r. evaluate_match T env s v pes err r
 Proof
   Induct >> rw[Once evaluate_cases, SF DNF_ss] >> PairCases_on `h` >> gvs[] >>
-  Cases_on `ALL_DISTINCT (pat_bindings h0 [])` >> gvs[] >>
+  Cases_on `ALL_DISTINCT (pat_bindings h0)` >> gvs[] >>
   Cases_on `pmatch env.c s.refs h0 v []` >> gvs[] >>
   metis_tac[big_clocked_total]
 QED
@@ -2340,7 +2363,7 @@ Proof
     qspecl_then [‘s’,‘s0’,‘e’,‘l’] assume_tac evaluate_state_T_total >>
     gvs[] >> PairCases_on ‘r’ >>
     Cases_on ‘r1’ >> gvs[SF SFY_ss] >> disj2_tac >>
-    Cases_on ‘ALL_DISTINCT (pat_bindings p [])’ >> gvs[SF SFY_ss] >>
+    Cases_on ‘ALL_DISTINCT (pat_bindings p)’ >> gvs[SF SFY_ss] >>
     Cases_on ‘pmatch (collapse_env env s2).c r0.refs p a []’ >> gvs[SF SFY_ss] >>
     metis_tac[evaluate_dec_ctxts_T_total]
     )

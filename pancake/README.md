@@ -29,11 +29,11 @@ Call optimisation for loopLang
 [loop_liveScript.sml](loop_liveScript.sml):
 Liveness analysis for loopLang.
 
-[loop_removeScript.sml](loop_removeScript.sml):
-Loop removal pass for loopLang.
-
 [loop_to_wordScript.sml](loop_to_wordScript.sml):
 Compilation from loopLang to wordLang.
+
+[newsScript.sml](newsScript.sml):
+Pancake news presentation and validation
 
 [panLangScript.sml](panLangScript.sml):
 Abstract syntax for Pancake language.
@@ -57,6 +57,9 @@ compiler pass
 
 [pan_simpScript.sml](pan_simpScript.sml):
 Simplification of panLang.
+
+[pan_structsScript.sml](pan_structsScript.sml):
+Convert named structs to raw structs
 
 [pan_to_crepScript.sml](pan_to_crepScript.sml):
 Compilation from panLang to crepLang.

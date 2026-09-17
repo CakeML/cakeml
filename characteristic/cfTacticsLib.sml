@@ -34,7 +34,7 @@ end
 
 (*------------------------------------------------------------------*)
 
-val cs = !(computeLib.the_compset)
+val cs = (computeLib.the_compset ())
   |> listLib.list_rws
   |> basicComputeLib.add_basic_compset
   |> semanticsComputeLib.add_semantics_compset

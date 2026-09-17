@@ -10,7 +10,8 @@ Theory bvl_to_bvi
 Ancestors
   bvl bvi backend_common bvl_inline[qualified]
   bvl_const[qualified] bvl_handle[qualified] bvi_let[qualified]
-  bvi_tailrec[qualified] dataLang[qualified]
+  bvi_tailrec[qualified] bvi_inline[qualified] bvi_tmc[qualified]
+  dataLang[qualified]
 Libs
   preamble
 
@@ -264,8 +265,6 @@ local val compile_op_quotation = `
       (Op Install
        [Call 0 (SOME ListLength_location)
           [Var 0; Op (IntOp (Const 0)) []] NONE;
-        Call 0 (SOME ListLength_location)
-          [Var 1; Op (IntOp (Const 0)) []] NONE;
         Var 0; Var 1])
     | MemOp FromListByte =>
         Let (if NULL c1 then [Op (IntOp (Const 0)) []] else c1)
@@ -301,6 +300,10 @@ local val compile_op_quotation = `
     | Label l => Op (Label (bvl_num_stubs + bvl_to_bvi_namespaces * l)) c1
     | BlockOp (Build ps) => Op (BlockOp (Build ps)) c1
     | BlockOp (EqualConst p) => Op (BlockOp (EqualConst p)) c1
+    (* reserved for bvi_tmc; bvlSem$do_app is Error on these, so compile them out *)
+    | MemOp (MutCons tag i) => Let c1 (Op (IntOp (Const 0)) [])
+    | MemOp UpdateCons => Let c1 (Op (IntOp (Const 0)) [])
+    | MemOp FinaliseCons => Let c1 (Op (IntOp (Const 0)) [])
     | _ => Op op c1`
 in
 val compile_op_def = Define compile_op_quotation;
@@ -521,7 +524,11 @@ Datatype:
             ; split_main_at_seq : bool (* split main expression at Seqs *)
             ; next_name1 : num (* there should be as many of       *)
             ; next_name2 : num (* these as bvl_to_bvi_namespaces-1 *)
+            ; next_name3 : num
+            ; do_tailrec : bool
+            ; do_tmc : bool
             ; inlines : (num # bvl$exp) spt
+            ; bvi_inlines : (num # bvi$exp) spt
             |>
 End
 
@@ -532,29 +539,33 @@ Definition default_config_def:
      ; split_main_at_seq := T
      ; next_name1 := num_stubs + 1
      ; next_name2 := num_stubs + 2
+     ; next_name3 := num_stubs + 3
+     ; do_tailrec := T
+     ; do_tmc := T
      ; inlines := LN
+     ; bvi_inlines := LN
      |>
 End
 
 Definition get_names_def:
   get_names final_nums old_names =
     fromAList (MAP (λn. (n,
-      if n = InitGlobals_location then mlstring$strlit "start" else
-      if n = AllocGlobal_location then mlstring$strlit "AllocGlobal" else
-      if n = CopyGlobals_location then mlstring$strlit "CopyGlobals" else
-      if n = ListLength_location then mlstring$strlit "ListLength" else
-      if n = FromListByte_location then mlstring$strlit "FromListByte" else
-      if n = ToListByte_location then mlstring$strlit "ToListByte" else
-      if n = SumListLength_location then mlstring$strlit "SumListLength" else
-      if n = ConcatByte_location then mlstring$strlit "ConcatByte" else
-      if n < num_stubs then mlstring$strlit "bvi_unknown" else
+      if n = InitGlobals_location then implode "start" else
+      if n = AllocGlobal_location then implode "AllocGlobal" else
+      if n = CopyGlobals_location then implode "CopyGlobals" else
+      if n = ListLength_location then implode "ListLength" else
+      if n = FromListByte_location then implode "FromListByte" else
+      if n = ToListByte_location then implode "ToListByte" else
+      if n = SumListLength_location then implode "SumListLength" else
+      if n = ConcatByte_location then implode "ConcatByte" else
+      if n < num_stubs then implode "bvi_unknown" else
         let k = n - num_stubs in
         let kd = k DIV nss in
         let km = k MOD nss in
         let n = (case lookup kd old_names of
-          | NONE => mlstring$strlit "bvi_unmapped"
+          | NONE => implode "bvi_unmapped"
           | SOME name => name) in
-        let aux = (if km = 0 then mlstring$strlit "" else mlstring$strlit "_bvi_aux") in
+        let aux = (if km = 0 then implode "" else implode "_bvi_aux") in
           n ^ aux)) final_nums)
 End
 
@@ -563,8 +574,11 @@ Definition compile_def:
     let (inlines, prog) = bvl_inline$compile_prog c.inline_size_limit
            c.split_main_at_seq c.exp_cut prog in
     let (loc, code, n1) = compile_prog start 0 prog in
-    let (n2, code') = bvi_tailrec$compile_prog (num_stubs + 2) code in
-      (loc, code', inlines, n1, n2, get_names (MAP FST code') names)
+    let (n2, code') = bvi_tailrec$compile_prog c.do_tailrec (num_stubs + 2) code in
+    let (n3, code') = bvi_tmc$compile_prog c.do_tmc (num_stubs + 3) code' in
+    let (bvi_inlines, code') = bvi_inline$compile_prog code' in
+      (loc, code', inlines, bvi_inlines, n1, n2, n3,
+       get_names (MAP FST code') names)
 End
 
 Definition bvl_to_bvi_compile_inc_all_def:
@@ -574,8 +588,11 @@ Definition bvl_to_bvi_compile_inc_all_def:
     let c = c with <| inlines := inl |> in
     let (nn1, p) = bvl_to_bvi$compile_inc c.next_name1 p in
     let c = c with <| next_name1 := nn1 |> in
-    let (nn2, p) = bvi_tailrec$compile_prog c.next_name2 p in
+    let (nn2, p) = bvi_tailrec$compile_prog c.do_tailrec c.next_name2 p in
     let c = c with <| next_name2 := nn2 |> in
+    let (nn3, p) = bvi_tmc$compile_prog c.do_tmc c.next_name3 p in
+    let c = c with <| next_name3 := nn3 |> in
+    let (bvi_inlines, p) = bvi_inline$compile_inc c.bvi_inlines p in
+    let c = c with <| bvi_inlines := bvi_inlines |> in
       (c, p)
 End
-

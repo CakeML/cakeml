@@ -13,14 +13,6 @@ Ancestors[ignore_grammar]
   clos_knownProof[qualified] clos_annotateProof[qualified]
   clos_callProof[qualified] clos_fvsProof[qualified]
 
-(* Make sure we get the correct ML bindings (somehow) *)
-open closLangTheory closSemTheory closPropsTheory
-     bvlSemTheory bvlPropsTheory
-     bvl_jumpProofTheory
-     clos_to_bvlTheory clos_constantProofTheory
-     backend_commonTheory;
-
-
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "fromAList_def",
@@ -1469,21 +1461,21 @@ Theorem do_eq[local]:
            do_eq_list x y = do_eq_list r x1 y1)
 Proof
   strip_tac >>
-   HO_MATCH_MP_TAC closSemTheory.do_eq_ind >>
-   srw_tac[][]
-   >- (srw_tac[][closSemTheory.do_eq_def] >>
-       Cases_on `x` >>
-       full_simp_tac(srw_ss())[v_rel_SIMP] >> full_simp_tac(srw_ss())[add_args_def] >> srw_tac[][] >>
-       Cases_on `y` >>
-       full_simp_tac(srw_ss())[v_rel_SIMP] >> full_simp_tac(srw_ss())[add_args_def] >> srw_tac[][] >>
-       rev_full_simp_tac(srw_ss())[] >>
-       imp_res_tac LIST_REL_LENGTH >>
-       full_simp_tac(srw_ss())[closure_tag_def,partial_app_tag_def,clos_tag_shift_def] >>
-       BasicProvers.EVERY_CASE_TAC >>
-       rev_full_simp_tac (srw_ss()++ARITH_ss) [] >>
-       full_simp_tac(srw_ss())[INJ_DEF, FLOOKUP_DEF] >>
-       fs [isClos_def,closure_tag_def,partial_app_tag_def] >>
-       metis_tac [])
+  HO_MATCH_MP_TAC closSemTheory.do_eq_ind >>
+  srw_tac[][]
+  >- (srw_tac[][closSemTheory.do_eq_def] >>
+      Cases_on `x` >>
+      fs[v_rel_SIMP] >> fs[add_args_def] >> srw_tac[][] >>
+      Cases_on `y` >>
+      fs[v_rel_SIMP] >> fs[add_args_def] >> srw_tac[][] >>
+      rev_full_simp_tac(srw_ss())[] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      full_simp_tac(srw_ss())[closure_tag_def,partial_app_tag_def,clos_tag_shift_def] >>
+      BasicProvers.EVERY_CASE_TAC >>
+      rev_full_simp_tac (srw_ss()++ARITH_ss) [] >>
+      full_simp_tac(srw_ss())[INJ_DEF, FLOOKUP_DEF] >>
+      fs [bvlSemTheory.isClos_def,closure_tag_def,partial_app_tag_def] >>
+      metis_tac [])
   >- full_simp_tac(srw_ss())[closSemTheory.do_eq_def]
   >- (res_tac >>
       srw_tac[][closSemTheory.do_eq_def] >>
@@ -1838,6 +1830,8 @@ Proof
   \\ srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def]
   \\ TRY (fs[case_eq_thms,bool_case_eq,v_case_eq_thms] \\ NO_TAC)
   \\ gvs[AllCaseEqs()]
+  (* MutCons/UpdateCons/FinaliseCons: vacuous, closSem$do_app is Error *)
+  \\ metis_tac []
 QED
 
 (* correctness of implemented primitives *)
@@ -2926,27 +2920,12 @@ Proof
   \\ old_drule v_rel_IMP_v_to_words_lemma \\ fs []
 QED
 
-Theorem v_rel_IMP_v_to_bytes_lemma[local]:
-    !x y.
-      v_rel max_app f refs code x y ==>
-      !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
-           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))
+Theorem v_rel_IMP_v_to_mlstring[local]:
+    v_rel max_app f refs code x y /\ closSem$v_to_mlstring x = SOME ss ==>
+    bvlSem$v_to_mlstring refs y = SOME ss
 Proof
-  ho_match_mp_tac closSemTheory.v_to_list_ind \\ rw []
-  \\ fs [bvlSemTheory.v_to_list_def,closSemTheory.v_to_list_def,v_rel_SIMP]
-  \\ Cases_on `tag = cons_tag` \\ fs [] \\ rveq \\ fs []
-  \\ res_tac \\ fs [case_eq_thms,v_rel_SIMP]
-  THEN1
-   (Cases_on `ns` \\ fs [] \\ rveq \\ fs [v_rel_SIMP] \\ rveq \\ fs []
-    \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs [v_rel_SIMP])
-  \\ Cases_on `ys` \\ fs [bvlSemTheory.v_to_list_def]
-QED
-
-Theorem v_rel_IMP_v_to_bytes[local]:
-    v_rel max_app f refs code x y ==> v_to_bytes y = v_to_bytes x
-Proof
-  rw [v_to_bytes_def,closSemTheory.v_to_bytes_def]
-  \\ old_drule v_rel_IMP_v_to_bytes_lemma \\ fs []
+  rw [closSemTheory.v_to_mlstring_def, AllCaseEqs ()]
+  \\ gvs [v_rel_SIMP, bvlSemTheory.v_to_mlstring_def]
 QED
 
 Theorem not_domain_lookup:
@@ -3422,6 +3401,20 @@ Proof
       \\ drule_all state_rel_refs_lookup \\ rw [] \\ gvs [])
 QED
 
+Theorem rel_dest_thunk_NotThunk:
+  state_rel f s t ∧
+  v_rel s.max_app f t.refs t.code h y ∧
+  dest_thunk [h] s.refs = NotThunk ⇒
+    dest_thunk y t.refs = NotThunk
+Proof
+  rw []
+  \\ gvs [oneline closSemTheory.dest_thunk_def, oneline dest_thunk_def,
+          AllCaseEqs(), PULL_EXISTS]
+  \\ (qpat_x_assum `v_rel _ _ _ _ _ y` mp_tac
+      \\ rw [Once v_rel_cases]
+      \\ drule_all state_rel_refs_lookup \\ rw [] \\ gvs [])
+QED
+
 Theorem compile_exps_correct:
   (!tmp xs env ^s1 aux1 (t1:('c,'ffi) bvlSem$state) env' f1 res s2 ys aux2.
     (tmp = (xs,env,s1)) ∧
@@ -3715,7 +3708,7 @@ Proof
       \\ qunabbrev_tac `a1`
       \\ fs[SWAP_REVERSE_SYM]
       \\ pop_assum (fn th => fs [th])
-      \\ Cases_on `v_to_bytes a2` \\ fs [] THEN1 (rveq \\ fs[])
+      \\ Cases_on `v_to_mlstring a2` \\ fs [] THEN1 (rveq \\ fs[])
       \\ Cases_on `v_to_words a3` \\ fs [] THEN1 (rveq \\ fs[])
       \\ pairarg_tac \\ reverse (fs [bool_case_eq])
       THEN1 (rveq \\ fs[])
@@ -3743,7 +3736,7 @@ Proof
       \\ fs [bEval_def]
       \\ fs [bvlSemTheory.do_install_def,do_app_def]
       \\ fs [EVAL ``shift_seq 1 f 0``]
-      \\ old_drule (GEN_ALL v_rel_IMP_v_to_bytes) \\ strip_tac
+      \\ drule_all (GEN_ALL v_rel_IMP_v_to_mlstring) \\ strip_tac
       \\ `v_to_words y = v_to_words a3` by
         (imp_res_tac v_rel_IMP_v_to_words \\ fs [])
       \\ `p1.compile = pure_cc (compile_inc p1.max_app) t2.compile ∧
@@ -4086,6 +4079,10 @@ Proof
         \\ (
           simp [force_thunk_code_def, evaluate_def, do_app_def, EL_APPEND,
                 find_code_def, AllCaseEqs(), PULL_EXISTS, dec_clock_def]
+          \\ simp [GSYM PULL_EXISTS]
+          \\ conj_tac >- (
+            gvs [bad_thunk_update_def]
+            \\ metis_tac [rel_dest_thunk_NotThunk])
           \\ rw [] \\ gvs []
           \\ drule_then old_drule (GEN_ALL state_rel_refs_lookup) \\ rw []
           \\ metis_tac []))
@@ -4743,6 +4740,11 @@ Proof
       Cases_on `t` \\ gvs []
       >- (
         gvs [closSemTheory.do_app_def, do_app_def, AllCaseEqs(), PULL_EXISTS]
+        \\ simp [GSYM PULL_EXISTS]
+        \\ conj_tac >- (
+          gvs [closSemTheory.bad_thunk_update_def, bad_thunk_update_def]
+          \\ `s.max_app = p1.max_app` by metis_tac [evaluate_const] \\ gvs []
+          \\ drule_all rel_dest_thunk_NotThunk \\ gvs [])
         \\ qabbrev_tac `pp = LEAST ptr. ptr NOTIN FDOM p1.refs`
         \\ qabbrev_tac `qq = LEAST ptr. ptr NOTIN FDOM t2.refs`
         \\ qexists `f2 |+ (pp,qq)` \\ gvs []
@@ -4806,6 +4808,10 @@ Proof
         >- rgs [Once cl_rel_cases]
         \\ drule_all (GEN_ALL state_rel_refs_lookup) \\ rw [] \\ gvs []
         \\ goal_assum $ drule_at Any \\ gvs [] \\ rw []
+        >- (
+          gvs [closSemTheory.bad_thunk_update_def, bad_thunk_update_def]
+          \\ `s.max_app = p1.max_app` by metis_tac [evaluate_const] \\ gvs []
+          \\ drule_all rel_dest_thunk_NotThunk \\ gvs [])
         >- (
           old_drule (GEN_ALL state_rel_UPDATE_REF)
           \\ rpt (disch_then old_drule)

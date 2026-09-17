@@ -9,7 +9,7 @@ Libs
 
 val _ = translation_extends"npbc_arrayProg";
 
-val _ = (computeLib.the_compset := computeLib.set_skip (!computeLib.the_compset) “COND” (SOME 1));
+val _ = computeLib.upd_compset (fn c => computeLib.set_skip c “COND” (SOME 1));
 
 val r = translate strip_numbers_aux_def;
 val strip_numbers_aux_side_def = theorem "strip_numbers_aux_side_def";
@@ -74,14 +74,29 @@ val r = translate term_le_def;
 val r = translate mk_coeff_def;
 val r = translate normalise_lhs_def;
 
-val r = translate pbc_to_npbc_def;
+val r = translate flip_coeffs_def;
+val r = translate pbcTheory.negate_op_def;
+val r = translate ge_of_def;
+val r = translate pbcTheory.negate_def;
+val r = translate rel_ges_def;
+val r = translate to_npbc_def;
+val r = translate to_gnpbc_def;
+val r = translate inject_def;
 
 val r = translate parse_constraint_LHS_aux_def;
 val r = translate parse_constraint_LHS_def;
 
+val r = translate is_arrow_def;
+val r = translate parse_reif_aux_def;
+val r = translate parse_op_def;
+val r = translate mk_hd_def;
+
+val r = translate pbcTheory.map_pbhd_def;
 val r = translate pbcTheory.map_pbc_def;
 val r = translate pbcTheory.map_obj_def;
 val r = translate map_f_ns_def;
+val r = translate map_f_ns_lits_def;
+val r = translate mk_npbc_def;
 val r = translate parse_constraint_npbc_def;
 
 val r = translate strip_rup_hint_aux_def;
@@ -224,7 +239,7 @@ val r = translate check_mark_qed_id_opt_def;
 val r = translate check_mark_qed_id_def;
 
 Definition check_mark_qed_id_pbc_def:
-  check_mark_qed_id_pbc s = check_mark_qed_id (INL (strlit "pbc")) s
+  check_mark_qed_id_pbc s = check_mark_qed_id (INL «pbc») s
 End
 
 val r = translate check_mark_qed_id_pbc_def;
@@ -980,7 +995,7 @@ QED
 val r = translate parse_red_header_red_def;
 
 Definition check_mark_qed_id_opt_red_def:
-  check_mark_qed_id_opt_red s = check_mark_qed_id_opt (INL (strlit "red")) s
+  check_mark_qed_id_opt_red s = check_mark_qed_id_opt (INL «red») s
 End
 
 val r = translate check_mark_qed_id_opt_red_def;
@@ -1729,19 +1744,19 @@ val res = translate parse_cstep_head_def;
 val PB_PARSE_PAR_TYPE_def = theorem"PB_PARSE_PAR_TYPE_def";
 
 Definition check_mark_qed_id_opt_dom_def:
-  check_mark_qed_id_opt_dom s = check_mark_qed_id_opt (INL (strlit "dom")) s
+  check_mark_qed_id_opt_dom s = check_mark_qed_id_opt (INL «dom») s
 End
 
 val r = translate check_mark_qed_id_opt_dom_def;
 
 Definition check_mark_qed_id_opt_delc_def:
-  check_mark_qed_id_opt_delc s = check_mark_qed_id_opt (INL (strlit "delc")) s
+  check_mark_qed_id_opt_delc s = check_mark_qed_id_opt (INL «delc») s
 End
 
 val r = translate check_mark_qed_id_opt_delc_def;
 
 Definition check_mark_qed_id_opt_obju_def:
-  check_mark_qed_id_opt_obju s = check_mark_qed_id_opt (INL (strlit "obju")) s
+  check_mark_qed_id_opt_obju s = check_mark_qed_id_opt (INL «obju») s
 End
 
 val r = translate check_mark_qed_id_opt_obju_def;
@@ -1749,7 +1764,7 @@ val r = translate check_mark_qed_id_opt_obju_def;
 Definition check_mark_qed_id_opt_preserve_def:
   check_mark_qed_id_opt_preserve b s =
     check_mark_qed_id_opt
-      (if b then INL (strlit"preserved_add") else INL (strlit"preserved_rm")) s
+      (if b then INL «preserved_add» else INL «preserved_rm») s
 End
 
 val r = translate check_mark_qed_id_opt_preserve_def;
@@ -2539,7 +2554,7 @@ val res = translate parse_concl_def;
 
 val res = translate parse_output_def;
 
-val endtrm = rconc (EVAL``toks (strlit"end pseudo-Boolean proof")``);
+val endtrm = rconc (EVAL``toks «end pseudo-Boolean proof»``);
 
 Definition last_two_ls_def:
   (last_two_ls [x;y] =
@@ -2570,7 +2585,7 @@ val res = translate parse_output_concl_def;
 
 Definition cons_line_def:
   cons_line ls =
-  concatWith (strlit" ")
+  concatWith « »
   (MAP
     (λn. case n of INL s => s | INR i => int_to_string #"-" i) ls)
 End
@@ -2579,7 +2594,7 @@ val res = translate cons_line_def;
 
 Definition mk_parse_err_def:
   mk_parse_err s =
-    strlit "unable to parse line at (parse error may be later for output/conclusion section): " ^
+    «unable to parse line at (parse error may be later for output/conclusion section): » ^
     cons_line s
 End
 
@@ -2589,7 +2604,7 @@ Definition format_err_def:
   (format_err NONE NONE = NONE) ∧
   (format_err (SOME s1) NONE = SOME s1) ∧
   (format_err NONE (SOME s2) = SOME s2) ∧
-  (format_err (SOME s1) (SOME s2) = SOME (s1 ^ strlit" ; "^ s2))
+  (format_err (SOME s1) (SOME s2) = SOME (s1 ^ « ; »^ s2))
 End
 
 val res = translate format_err_def;
@@ -3179,12 +3194,12 @@ Definition check_f_line_def:
   case strip_term_line s of NONE => F
   | SOME s =>
   case s of [] => F
-  | x::xs => x = INL(strlit "f")
+  | x::xs => x = INL «f»
 End
 
 val r = translate check_f_line_def;
 
-val headertrm = rconc (EVAL``toks_fast (strlit"pseudo-Boolean proof version 3.0")``);
+val headertrm = rconc (EVAL``toks_fast «pseudo-Boolean proof version 3.0»``);
 
 Definition parse_header_line_fast_def:
   parse_header_line_fast s ⇔
@@ -3268,7 +3283,7 @@ Proof
 QED
 
 Definition notfound_string_def:
-  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]
+  notfound_string f = concat[«c Input file: »;f;« no such file or directory\n»]
 End
 
 val r = translate notfound_string_def;
@@ -3454,8 +3469,6 @@ QED
 *)
 
 (* normalise *)
-val res = translate flip_coeffs_def;
-val res = translate pbc_ge_def;
 val res = translate normalise_def;
 val res = translate normalise_obj_pbf_def;
 val res = translate normalise_prob_def;
@@ -3465,6 +3478,8 @@ val res = translate name_to_num_var_def;
 val res = translate name_to_num_lit_def;
 val res = translate name_to_num_lin_term_def;
 val res = translate name_to_num_obj_def;
+val res = translate name_to_num_lits_def;
+val res = translate name_to_num_pbhd_def;
 val res = translate name_to_num_pbf_def;
 val res = translate name_to_num_list_def;
 val res = translate name_to_num_pres_def;
@@ -3523,7 +3538,7 @@ Overload "prob_TYPE" = ``
     (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
     INT))
   (LIST_TYPE
-    (PAIR_TYPE PBC_PBOP_TYPE
+    (PAIR_TYPE (PBC_PBHD_TYPE STRING_TYPE)
       (PAIR_TYPE
         (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
         INT))))``
@@ -3614,8 +3629,8 @@ Overload "annot_prob_TYPE" = ``
     (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
     INT))
   (LIST_TYPE
-    (PAIR_TYPE (OPTION_TYPE STRING_TYPE)
-    ((PAIR_TYPE PBC_PBOP_TYPE
+    (PAIR_TYPE (LIST_TYPE STRING_TYPE)
+    ((PAIR_TYPE (PBC_PBHD_TYPE STRING_TYPE)
       (PAIR_TYPE
         (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
         INT))))))``
@@ -3623,6 +3638,8 @@ Overload "annot_prob_TYPE" = ``
 val res = translate lit_string_def;
 val res = translate lhs_string_def;
 val res = translate op_string_def;
+val res = translate rel_string_def;
+val res = translate lits_string_def;
 val res = translate pbc_string_def;
 val res = translate annot_pbc_string_def;
 val res = translate obj_string_def;
@@ -3636,7 +3653,7 @@ Definition default_prob_def:
   default_prob = (NONE,NONE,[]):
     mlstring list option #
     ((int # mlstring pbc$lit) list # int) option #
-    (pbop # (int # mlstring pbc$lit) list # int) list
+    (mlstring pbhd # (int # mlstring pbc$lit) list # int) list
 End
 
 val res = translate default_prob_def;
@@ -3654,18 +3671,18 @@ val date_tm = Term `strlit^(stringSyntax.fromMLstring date_str)`
 Definition print_option_def:
   print_option h x =
     case x of
-      NONE => strlit""
-    | SOME y => h ^ strlit" " ^ y ^ strlit"\n"
+      NONE => «»
+    | SOME y => h ^ « » ^ y ^ «\n»
 End
 
 val current_build_info_str_tm = EVAL ``
-    let commit = print_option (strlit"CakeML:") ^current_version_tm in
-    let hol    = print_option (strlit"HOL4:  ") ^hol_version_tm in
-    let poly   = print_option (strlit"PolyML:") ^poly_version_tm in
+    let commit = print_option «CakeML:» ^current_version_tm in
+    let hol    = print_option «HOL4:  » ^hol_version_tm in
+    let poly   = print_option «PolyML:» ^poly_version_tm in
       concat
-        [ strlit"CakePB\n\n"
-        ; strlit"Version details:\n"
-        ; ^date_tm; strlit"\n"
+        [ «CakePB\n\n»
+        ; «Version details:\n»
+        ; ^date_tm; «\n»
         ; commit; hol; poly ]``
   |> concl |> rhs
 
@@ -3676,8 +3693,7 @@ End
 val res = translate current_build_info_str_def;
 
 Definition mk_usage_string_def:
-  mk_usage_string s = current_build_info_str ^ strlit "\n\n" ^ s
+  mk_usage_string s = current_build_info_str ^ «\n\n» ^ s
 End
 
 val res = translate mk_usage_string_def;
-

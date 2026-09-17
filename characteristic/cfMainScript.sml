@@ -33,7 +33,7 @@ Proof
   rw[SNOC_APPEND,Decls_APPEND,PULL_EXISTS]
   \\ simp[Decls_def]
   \\ fs [evaluate_dec_list_def,PULL_EXISTS,
-         EVAL ``(pat_bindings (Pcon NONE []) [])``,pair_case_eq,result_case_eq]
+         EVAL ``(pat_bindings (Pcon NONE []))``,pair_case_eq,result_case_eq]
   \\ fs [evaluate_def,PULL_EXISTS,pair_case_eq,
          result_case_eq,do_con_check_def,build_conv_def,bool_case_eq,
          lookup_var_def,option_case_eq,match_result_case_eq,

@@ -10,6 +10,7 @@ Ancestors
   ffi[qualified] (* for call_FFI *)
   lprefix_lub[qualified] (* for build_lprefix_lub *)
   machine_ieee[qualified] (* for FP *)
+  backend_common (* for word_add_carry *)
 
 Datatype:
   buffer =
@@ -240,6 +241,8 @@ val state_component_equality = theorem"state_component_equality";
 Datatype:
   result = Result ('w word_loc) (('w word_loc) list)
          | Exception ('w word_loc) ('w word_loc)
+         | Break num
+         | Continue num
          | TimeOut
          | NotEnoughSpace
          | FinalFFI final_event
@@ -735,9 +738,8 @@ Definition inst_def:
         (let vs = get_vars [r2;r3;r4] s in
         case vs of
         SOME [Word l;Word r;Word c] =>
-          let res = w2n l + w2n r + if c = (0w:'a word) then 0 else 1 in
-            SOME (set_var r4 (Word (if dimword(:'a) ≤ res then (1w:'a word) else 0w))
-                 (set_var r1 (Word (n2w res)) s))
+          let (res, co) = word_add_carry l r c in
+            SOME (set_var r4 (Word co) (set_var r1 (Word res) s))
         | _ => NONE)
     | Arith (AddOverflow r1 r2 r3 r4) =>
         (let vs = get_vars [r2;r3] s in
@@ -988,6 +990,68 @@ Definition const_writes_def:
       ((a =+ Word (if b then x + off else x)) m)
 End
 
+Definition STOP_def:
+  STOP x = x
+End
+
+Definition bad_fun_return_def[simp]:
+  bad_fun_return NONE = T ∧
+  bad_fun_return (SOME (Break _)) = T ∧
+  bad_fun_return (SOME (Continue _)) = T ∧
+  bad_fun_return _ = F
+End
+
+Definition cont_loop_def[simp]:
+  cont_loop NONE = T ∧
+  cont_loop (SOME (Continue n)) = (n = 0) ∧
+  cont_loop _ = F
+End
+
+Definition exit_loop_def[simp]:
+  exit_loop (SOME (Break n)) = SOME (Break (n - 1)) ∧
+  exit_loop (SOME (Continue n)) = SOME (Continue (n - 1)) ∧
+  exit_loop res = res
+End
+
+Definition code_buffer_install_def:
+  code_buffer_install ptr len cptr mem_read cb =
+    case (ptr, len, cptr) of
+    | SOME (Word ptrw), SOME (Word lenw), SOME (Word cptrw) =>
+       (case read_bytearray ptrw (w2n lenw) mem_read of
+        | NONE => NONE
+        | SOME bytes =>
+           if cb.buffer = [] ∧
+              cb.position = cptrw ∧
+              LENGTH bytes ≤ cb.space_left
+           then
+             SOME (bytes, <| position   := cptrw + lenw
+                           ; buffer     := []
+                           ; space_left := cb.space_left - w2n lenw |>)
+          else NONE)
+     | _ => NONE
+End
+
+Theorem code_buffer_install_SOME:
+  code_buffer_install ptr len cptr mr cb = SOME (bytes,cb') ⇔
+  ∃ptrw lenw cptrw.
+    ptr = SOME (Word ptrw) ∧ len = SOME (Word lenw) ∧ cptr = SOME (Word cptrw) ∧
+    read_bytearray ptrw (w2n lenw) mr = SOME bytes ∧
+    cb.buffer = [] ∧ cb.position = cptrw ∧ LENGTH bytes ≤ cb.space_left ∧
+    cb' = <| position := cptrw + lenw; buffer := [];
+             space_left := cb.space_left - w2n lenw |>
+Proof
+  simp[code_buffer_install_def, AllCaseEqs()] >> metis_tac[]
+QED
+
+Theorem code_buffer_install_result:
+  code_buffer_install ptr len cptr mr cb = SOME (bytes,cb') ⇒
+  cb'.buffer = [] ∧ cb'.position = cb.position + n2w (LENGTH bytes) ∧
+  cb'.space_left = cb.space_left - LENGTH bytes ∧ LENGTH bytes ≤ cb.space_left
+Proof
+  rw[code_buffer_install_SOME] >>
+  imp_res_tac read_bytearray_LENGTH >> gvs[]
+QED
+
 Definition evaluate_def:
   (evaluate (Skip:'a wordLang$prog,^s) = (NONE,s)) /\
   (evaluate (Alloc n names,s) =
@@ -1063,6 +1127,8 @@ Definition evaluate_def:
        (case jump_exc s of
         | NONE => (SOME Error,s)
         | SOME (s,l1,l2) => (SOME (Exception (Loc l1 l2) w)),s)) /\
+  (evaluate (Break k,s) = (SOME (Break k),s)) /\
+  (evaluate (Continue k,s) = (SOME (Continue k),s)) /\
   (evaluate (If cmp r1 ri c1 c2,s) =
     (case (get_var r1 s,get_var_imm ri s) of
     | SOME x,SOME y =>
@@ -1071,20 +1137,38 @@ Definition evaluate_def:
       | SOME F => evaluate (c2,s)
       | NONE => (SOME Error,s))
     | _ => (SOME Error,s))) /\
+  (evaluate (Loop names c exit_names,s) =
+     case cut_state (names,LN) s of
+     | NONE => (SOME Error,s)
+     | SOME s =>
+         let (res,s1) = fix_clock s (evaluate (c,s)) in
+           if cont_loop res then
+             (if s1.clock = 0 then (SOME TimeOut, flush_state T s1) else
+                evaluate (STOP (Loop names c exit_names), dec_clock s1))
+           else if res = SOME (Break 0) then
+             case cut_state (exit_names,LN) s1 of
+             | NONE => (SOME Error,s1)
+             | SOME s2 => (NONE,s2)
+           else (exit_loop res,s1)) /\
   (evaluate (LocValue r l1,s) =
      if l1 ∈ domain s.code then
        (NONE,set_var r (Loc l1 0) s)
      else (SOME Error,s)) /\
-  (evaluate (Install ptr len dptr dlen names,s) =
+  (evaluate (Install ptr len cptr dptr dptr_end names,s) =
     case cut_env names s.locals of
     | NONE => (SOME Error,s)
     | SOME env =>
-    case (get_var ptr s, get_var len s, get_var dptr s, get_var dlen s) of
-    | SOME (Word w1), SOME (Word w2), SOME (Word w3), SOME (Word w4) =>
+   (case code_buffer_install (get_var ptr s)
+                             (get_var len s)
+                             (get_var cptr s)
+                             (mem_load_byte_aux s.memory s.mdomain s.be)
+                             s.code_buffer of
+    | SOME (bytes,cb) =>
+   (case (get_var dptr s, get_var dptr_end s) of
+    | SOME (Word dptrw), SOME (Word dptr_endw) =>
        let (cfg,progs) = s.compile_oracle 0 in
-       (case (buffer_flush s.code_buffer w1 w2
-             ,buffer_flush s.data_buffer w3 w4) of
-         SOME (bytes, cb), SOME (data, db) =>
+       (case buffer_flush s.data_buffer dptrw dptr_endw of
+         SOME (data, db) =>
         let new_oracle = shift_seq 1 s.compile_oracle in
         (case s.compile cfg progs, progs of
           | SOME (bytes',data',cfg'), (k,prog)::_ =>
@@ -1096,6 +1180,7 @@ Definition evaluate_def:
                 ; code := union s.code (fromAList progs)
                 (* This order is convenient because it means all of s.code's entries are preserved *)
                 ; locals := insert ptr (Loc k 0) env
+                ; fp_regs := FEMPTY
                 ; compile_oracle := new_oracle
                 ; stack_max := NONE (* Install is not safe for space *)
                 ; stack_size := LN
@@ -1107,15 +1192,8 @@ Definition evaluate_def:
             else (SOME Error,s)
           | _ => (SOME Error,s))
         | _ => (SOME Error,s))
-      | _ => (SOME Error,s)) /\
-  (evaluate (CodeBufferWrite r1 r2,s) =
-    (case (get_var r1 s,get_var r2 s) of
-        | (SOME (Word w1), SOME (Word w2)) =>
-          (case buffer_write s.code_buffer w1 (w2w w2) of
-          | SOME new_cb =>
-            (NONE,s with code_buffer:=new_cb)
-          | _ => (SOME Error,s))
-        | _ => (SOME Error,s))) /\
+        | _ => (SOME Error,s))
+      | _ => (SOME Error,s))) /\
   (evaluate (DataBufferWrite r1 r2,s) =
     (case (get_var r1 s,get_var r2 s) of
         | (SOME (Word w1), SOME (Word w2)) =>
@@ -1140,6 +1218,7 @@ Definition evaluate_def:
                 let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
                   (NONE, s with <| memory := new_m ;
                                    locals := env ;
+                                   fp_regs := FEMPTY;
                                    ffi := new_ffi |>))
           | _ => (SOME Error,s)))
     | res => (SOME Error,s)) /\
@@ -1161,8 +1240,7 @@ Definition evaluate_def:
                  if handler = NONE then
                    if s.clock = 0 then (SOME TimeOut,flush_state T s)
                    else (case evaluate (prog, call_env args1 ss (dec_clock s)) of
-                         | (NONE,s) => (SOME Error,s)
-                         | (SOME res,s) => (SOME res,s))
+                         | (res,s) => if bad_fun_return res then (SOME Error,s) else (res,s))
                  else (SOME Error,s)
              | SOME (n,names,ret_handler,l1,l2) (* returning call, returns into var n *) =>
                  if domain (FST names) = {} ∨ ¬ALL_DISTINCT n then (SOME Error,s)
@@ -1200,17 +1278,21 @@ Definition evaluate_def:
                                        then evaluate (h, set_var n y s2)
                                        else (SOME Error,s2)))
                            | (NONE,s) => (SOME Error,s)
+                           | (SOME (Break _),s) => (SOME Error,s)
+                           | (SOME (Continue _),s) => (SOME Error,s)
                            | res => res)))
 Termination
   WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure (prog_size (K 0)))
                (\(xs,^s). (s.termdep,s.clock,xs)))`
   \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
-  \\ full_simp_tac(srw_ss())[termdep_rw] \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[termdep_rw,STOP_def]
+  \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac (GSYM fix_clock_IMP_LESS_EQ)
   \\ TRY (Cases_on `handler`) \\ TRY (PairCases_on `x`)
   \\ full_simp_tac(srw_ss())[set_var_def,set_vars_def,push_env_def,call_env_def,dec_clock_def,LET_THM]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ full_simp_tac(srw_ss())[pop_env_def] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+  \\ gvs [cut_state_def,CaseEq"option"]
   \\ decide_tac
 End
 
@@ -1269,7 +1351,7 @@ QED
 Theorem inst_clock[local]:
   inst i s = SOME s2 ==> s2.clock <= s.clock /\ s2.termdep = s.termdep
 Proof
-  Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,get_vars_def,LET_THM]
+  Cases_on `i` \\ fs[inst_def,assign_def,get_vars_def,word_add_carry_def]
   \\ every_case_tac
   \\ SRW_TAC [] [set_var_def] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[mem_store_def] \\ SRW_TAC [] []
@@ -1305,6 +1387,7 @@ Proof
   \\ TRY (PairCases_on `x''`)
   \\ full_simp_tac(srw_ss())[push_env_def,LET_THM]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
+  \\ gvs [cut_state_def,CaseEq"option"]
   \\ decide_tac
 QED
 
@@ -1360,7 +1443,3 @@ Definition word_lang_safe_for_space_def:
       (∀k res t. wordSem$evaluate (prog, s with clock := k) = (res,t) ==>
         ∃max. t.stack_max = SOME max /\ max <= t.stack_limit)
 End
-
-(* clean up *)
-
-val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];

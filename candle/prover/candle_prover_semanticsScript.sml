@@ -183,7 +183,8 @@ Proof
   \\ irule_at Any STATE_init_refs
   \\ simp [candle_init_state_refs,kernel_locs]
   \\ rw [LLOOKUP_EQ_EL, EL_APPEND_EQN, candle_init_state_def, refs_defs,
-         compute_thms_refs_def, compute_default_clock_refs_def]
+         compute_thms_refs_def, compute_default_clock_refs_def,
+         bool_ty_refs_def, aty_refs_def, bty_refs_def]
   \\ ‘loc ∈ {0;1}’ by fs []
   \\ fs [ref_ok_def]
 QED

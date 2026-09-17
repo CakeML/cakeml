@@ -82,7 +82,7 @@ End
 
 Definition inc_compile_decs'_def:
   inc_compile_decs' decs = (compile_decs decs ++
-    compile_decs [Dlet (Con None NONE [])], [])
+    compile_decs [Con None NONE []], [])
 End
 
 Definition install_config_rel'_def:
@@ -292,7 +292,7 @@ Proof
   >~ [`flatLang$Mat`] >- suspend "Mat"
   >~ [`flatLang$Let`] >- suspend "Let"
   >~ [`flatLang$Letrec`] >- suspend "Letrec"
-  >~ [`evaluate_dec _ (Dlet _)`] >- suspend "Dlet"
+  >~ [`evaluate_dec _ _`] >- suspend "dec"
   >~ [`evaluate_decs _ []`] >- suspend "decs_nil"
   >~ [`evaluate_decs _ (_ :: _)`] >- suspend "decs_cons"
 QED
@@ -352,7 +352,7 @@ Resume compile_correct[Handle]:
   \\ fs []
   \\ fs [dest_pat_thm] \\ rveq \\ fs []
   \\ fs [flatSemTheory.evaluate_def,evaluate_def,
-         EVAL ``ALL_DISTINCT (pat_bindings (Pvar x) [])``,
+         EVAL ``ALL_DISTINCT (pat_bindings (Pvar x))``,
          EVAL ``pmatch e s' (Pvar x) v []``,pmatch_rows_def]
   \\ fs [pmatch_def, pat_bindings_def]
   \\ first_x_assum drule
@@ -974,8 +974,8 @@ Proof
         v_to_list x = SOME vs /\ vs_to_string vs = SOME s₁ /\ v_rel x y ==>
         ?wss. v_to_list y = SOME (MAP ByteVector wss) /\
               MAP (CHR o w2n) (FLAT wss) = explode s₁`
-  \\ rename1 ‘vs_to_string _ = SOME strng’
-  \\ Cases_on ‘strng’
+  \\ rename1 ‘vs_to_string _ = SOME str’
+  \\ Cases_on ‘str’
   THEN1
    (rpt (disch_then drule \\ fs []) \\ strip_tac \\ fs []
     \\ `!xs ys. MAP ByteVector xs = MAP ByteVector ys <=> xs = ys` by
@@ -1585,6 +1585,13 @@ Proof
     \\ pairarg_tac \\ gvs []
     \\ rw []
     >- (
+      gvs [flatSemTheory.bad_thunk_update_def, bad_thunk_update_def]
+      \\ gvs [oneline flatSemTheory.dest_thunk_def, oneline dest_thunk_def,
+              AllCaseEqs()]
+      \\ Cases_on `y` \\ gvs [Once v_rel_cases]
+      \\ gvs [state_rel_def, store_rel_def, store_lookup_def]
+      \\ last_x_assum $ qspec_then `n'` assume_tac \\ gvs [])
+    >- (
       gvs [store_alloc_def]
       \\ drule state_rel_LEAST \\ rw []
       \\ gvs [state_rel_def, store_rel_def] \\ rw []
@@ -1600,6 +1607,13 @@ Proof
   \\ qpat_x_assum `store_assign _ _ _ = _` mp_tac
   \\ simp [store_assign_def, store_v_same_type_def]
   \\ ntac 2 CASE_TAC \\ rw [GSYM PULL_EXISTS]
+  >- (
+    gvs [flatSemTheory.bad_thunk_update_def, bad_thunk_update_def] \\ rw []
+    \\ gvs [oneline flatSemTheory.dest_thunk_def, oneline dest_thunk_def,
+            AllCaseEqs()]
+    \\ Cases_on `y'` \\ gvs [Once v_rel_cases]
+    \\ gvs [state_rel_def, store_rel_def, store_lookup_def]
+    \\ last_x_assum $ qspec_then `n` assume_tac \\ gvs [])
   >- (
     gvs [state_rel_def, store_rel_def]
     \\ first_x_assum (qspec_then `lnum` mp_tac) \\ gvs [] \\ rw []
@@ -1653,31 +1667,15 @@ Proof
   \\ simp [Once v_rel_cases]
 QED
 
-Theorem v_rel_to_bytes:
-  !x y xs. v_rel x y /\ flatSem$v_to_bytes x = SOME xs ==>
-           ?ys. closSem$v_to_bytes y = SOME xs
+Theorem v_rel_to_mlstring:
+  !x y s. v_rel x y /\ flatSem$v_to_mlstring x = SOME s ==>
+          closSem$v_to_mlstring y = SOME s
 Proof
-  simp [flatSemTheory.v_to_bytes_def, closSemTheory.v_to_bytes_def]
-  \\ rpt gen_tac
-  \\ DEEP_INTRO_TAC some_intro
-  \\ DEEP_INTRO_TAC some_intro
-  \\ rpt strip_tac
-  \\ fs []
-  \\ drule_then drule v_rel_to_list
-  >- (
-    simp [LIST_REL_MAP1, CONV_RULE (DEPTH_CONV ETA_CONV) LIST_REL_MAP2]
-    \\ simp [v_rel_def, EQ_SYM_EQ, ETA_THM]
-    \\ CONV_TAC (DEPTH_CONV ETA_CONV)
-    \\ simp []
-  )
-  \\ strip_tac
-  \\ last_x_assum (qspec_then `xs` mp_tac)
-  \\ rveq \\ fs []
-  \\ simp [Once EQ_SYM_EQ]
-  \\ full_simp_tac bool_ss [LIST_REL_MAP1, GSYM LIST_REL_eq]
-  \\ first_x_assum mp_tac
-  \\ match_mp_tac LIST_REL_mono
-  \\ simp [Once v_rel_cases]
+  rpt gen_tac
+  \\ simp [flatSemTheory.v_to_mlstring_def, AllCaseEqs()]
+  \\ strip_tac \\ gvs []
+  \\ gvs [Once v_rel_cases, closSemTheory.v_to_mlstring_def,
+          backend_commonTheory.bytes_to_mlstring_explode]
 QED
 
 Theorem do_eval_install:
@@ -1702,7 +1700,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs [case_eq_thms, pair_case_eq]
   \\ rveq \\ fs []
-  \\ drule_then drule v_rel_to_bytes
+  \\ drule_then drule v_rel_to_mlstring
   \\ drule_then drule v_rel_to_words
   \\ rw []
   \\ fs [do_install_def, pure_co_def |> REWRITE_RULE [FUN_EQ_THM],
@@ -1934,7 +1932,7 @@ Resume compile_correct[App]:
   \\ rw [] \\ fs [] \\ gvs []
 QED
 
-Resume compile_correct[Dlet]:
+Resume compile_correct[dec]:
   rw []
   \\ fs [flatSemTheory.evaluate_def, pair_case_eq]
   \\ fs [compile_decs_def]
@@ -2338,7 +2336,7 @@ QED
 Theorem compile_decs_set_globals:
   ∀decs. no_Mat_decs decs ==>
   closProps$elist_globals (compile_decs decs) =
-  BAG_IMAGE SUC (flatProps$elist_globals (MAP dest_Dlet (FILTER is_Dlet decs)))
+  BAG_IMAGE SUC (flatProps$elist_globals decs)
 Proof
   Induct
   \\ simp [compile_decs_def]
@@ -2350,7 +2348,7 @@ QED
 Theorem compile_prog_set_globals:
   ∀decs. no_Mat_decs decs ==>
   closProps$elist_globals (compile_prog decs) =
-  {|0|} ⊎ BAG_IMAGE SUC (flatProps$elist_globals (MAP dest_Dlet (FILTER is_Dlet decs)))
+  {|0|} ⊎ BAG_IMAGE SUC (flatProps$elist_globals decs)
 Proof
   fs [compile_prog_def,clos_interpTheory.attach_interpreter_def,
       op_gbag_def,compile_decs_set_globals,clos_interpTheory.compile_init_def]
@@ -2406,7 +2404,7 @@ Proof
 QED
 
 Theorem compile_decs_esgc_free:
-  !decs. EVERY (flatProps$esgc_free o dest_Dlet) (FILTER is_Dlet decs) /\
+  !decs. EVERY (flatProps$esgc_free) decs /\
   no_Mat_decs decs ==>
   EVERY closProps$esgc_free (compile_decs decs)
 Proof
@@ -2418,7 +2416,7 @@ Proof
 QED
 
 Theorem compile_prog_esgc_free:
-  !decs. EVERY (flatProps$esgc_free o dest_Dlet) (FILTER is_Dlet decs) /\
+  !decs. EVERY (flatProps$esgc_free) decs /\
   no_Mat_decs decs ==>
   EVERY closProps$esgc_free (compile_prog decs)
 Proof
@@ -2570,15 +2568,15 @@ QED
 Theorem FST_inc_compile_set_globals:
   ∀decs. no_Mat_decs decs ==>
   closProps$elist_globals (FST (inc_compile_decs decs)) =
-  BAG_IMAGE SUC
-    (flatProps$elist_globals (MAP flatProps$dest_Dlet (FILTER flatProps$is_Dlet decs)))
+  BAG_IMAGE SUC (flatProps$elist_globals decs)
 Proof
-  simp [inc_compile_decs_def, closPropsTheory.elist_globals_append,elist_globals_insert_interp]
+  simp [inc_compile_decs_def, closPropsTheory.elist_globals_append,
+        elist_globals_insert_interp]
   \\ simp [compile_decs_set_globals]
 QED
 
 Theorem FST_inc_compile_esgc_free:
-  EVERY (flatProps$esgc_free o flatProps$dest_Dlet) (FILTER flatProps$is_Dlet decs) /\
+  EVERY (flatProps$esgc_free) decs /\
   no_Mat_decs decs ==>
   EVERY closProps$esgc_free (FST (inc_compile_decs decs))
 Proof

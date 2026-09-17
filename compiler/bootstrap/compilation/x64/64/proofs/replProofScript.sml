@@ -103,20 +103,10 @@ Proof
   \\ EVAL_TAC
 QED
 
-Theorem v_to_word8_list_thm:
-  ∀bs bs_v. LIST_TYPE WORD bs bs_v ⇒ v_to_word8_list bs_v = SOME bs
+Theorem v_to_mlstring_thm:
+  ∀bs bs_v. STRING_TYPE bs bs_v ⇒ v_to_mlstring bs_v = SOME bs
 Proof
-  Induct \\ fs [ml_translatorTheory.LIST_TYPE_def,v_to_word8_list_def,
-                v_to_list_def,list_type_num_def]
-  THEN1 EVAL_TAC \\ rw []
-  \\ fs [ml_translatorTheory.LIST_TYPE_def,v_to_word8_list_def,
-         v_to_list_def,list_type_num_def]
-  \\ res_tac \\ fs []
-  \\ gvs [AllCaseEqs(),PULL_EXISTS]
-  \\ res_tac \\ fs []
-  \\ simp [Once maybe_all_list_def,AllCaseEqs()]
-  \\ gvs [ml_translatorTheory.WORD_def]
-  \\ EVAL_TAC
+  fs [ml_translatorTheory.STRING_TYPE_def,v_to_mlstring_def]
 QED
 
 Theorem evaluate_Eval:
@@ -129,7 +119,7 @@ Theorem evaluate_Eval:
   BACKEND_CONFIG_TYPE s1 s1_v ∧
   BACKEND_CONFIG_TYPE s2 s2_v ∧
   LIST_TYPE WORD ws ws_v ∧
-  LIST_TYPE WORD bs bs_v ∧
+  STRING_TYPE bs bs_v ∧
   nsLookup env.v (Short «env») = SOME (Env env1 id1) ⇒
   nsLookup env.v (Short «decs») = SOME decs_v ⇒
   nsLookup env.v (Short «s1») = SOME s1_v ⇒
@@ -169,7 +159,7 @@ Proof
    (fs [compiler_agrees_def,compiler_inst_def]
     \\ imp_res_tac v_fun_abs_BACKEND_CONFIG_v \\ fs []
     \\ imp_res_tac v_to_word64_list_thm
-    \\ imp_res_tac v_to_word8_list_thm
+    \\ imp_res_tac v_to_mlstring_thm
     \\ imp_res_tac BACKEND_CONFIG_IMP
     \\ imp_res_tac concrete_v_config \\ fs [])
   \\ fs [concrete_v_decs,SF SFY_ss]
@@ -434,7 +424,7 @@ val _ = map Parse.hide ["types","types_v","parse","parse_v"];
 
 Theorem repl_types_alt:
   repl_types T (ffi,rs) (types,s,env) ∧
-  infertype_prog_inc types decs = Success new_t ⇒
+  infertype_prog_inc types decs = M_success new_t ⇒
   evaluate_decs s env decs ≠ (new_s,Rerr (Rabort Rtype_error))
 Proof
   rw [] \\ imp_res_tac repl_types_thm \\ fs []
@@ -552,7 +542,7 @@ Proof
   (* case split on result of check_and_tweak *)
   \\ rename [‘evaluate _ _ [Mat _ _]’]
   \\ Cases_on ‘check_and_tweak (decs,types,input_str)’
-  \\ gvs [inferProgTheory.INFER_EXC_TYPE_def]
+  \\ gvs []
   THEN1
    (rename [‘_ = INL msg’]
     \\ simp [Once evaluate_def]
@@ -1079,7 +1069,7 @@ Proof
         fs [repl_rs_def]
   \\ drule_then drule repl_types_str_assign
   \\ fs [the_Loc_def,store_assign_def,store_v_same_type_def]
-  \\ fs [HOL_STRING_TYPE_def,STRING_TYPE_def,mlstringTheory.implode_def]
+  \\ fs [HOL_STRING_TYPE_def,STRING_TYPE_def]
   \\ disch_then (qspec_then ‘init_next_string cl’ mp_tac)
   \\ match_mp_tac (DECIDE “x = y ⇒ (x ⇒ y)”)
   \\ rpt AP_TERM_TAC
@@ -1109,7 +1099,7 @@ Proof
   \\ EVAL_TAC
 QED
 
-val ffi_inst = type_of “basis_ffi _ _” |> dest_type |> snd |> hd
+val ffi_inst = type_of “basis_ffi _ _ _” |> dest_type |> snd |> hd
 
 (*
   max_print_depth := 15
@@ -1122,7 +1112,7 @@ Theorem evaluate_decs_compiler64_prog:
   has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
   s.compiler_state = BACKEND_CONFIG_v conf ∧
   file_content fs «config_enc_str.txt» = SOME (encode_backend_config conf) ∧
-  evaluate_decs (init_state (basis_ffi cl fs) with
+  evaluate_decs (init_state (basis_ffi ext cl fs) with
                             <| clock := ck; eval_state := (SOME (EvalDecs s)) |>)
       init_env compiler64_prog = (s1,res) ⇒
   res ≠ Rerr (Rabort Rtype_error)
@@ -1135,7 +1125,7 @@ Proof
   \\ strip_tac
   \\ assume_tac (Decls_FRONT_compiler64_prog
        |> REWRITE_RULE [ml_progTheory.ML_code_env_def]
-       |> Q.GEN ‘ffi’ |> Q.ISPEC ‘basis_ffi cl fs’
+       |> Q.GEN ‘ffi’ |> Q.ISPEC ‘basis_ffi ext cl fs’
        |> Q.INST [‘eval_state_var’|->‘s’])
   \\ dxrule ml_progTheory.Decls_IMP_Prog
   \\ ‘prog_syntax_ok (FRONT compiler64_prog)’ by
@@ -1161,7 +1151,8 @@ Proof
   \\ strip_tac \\ fs [LAST_compiler64_prog]
   \\ qpat_x_assum ‘evaluate_decs _ _ _ = _’ mp_tac
   (* calling main *)
-  \\ fs [evaluate_decs_def,astTheory.pat_bindings_def]
+  \\ fs [evaluate_decs_def,astTheory.pat_bindings_def,
+         check_exp_constructors_def]
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def,evaluate_Lit]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [do_con_check_def]
@@ -1255,7 +1246,7 @@ Proof
            namespaceTheory.nsOptBind_def,evaluate_Lit]
   \\ qmatch_goalsub_abbrev_tac ‘evaluate st8 env8’
   \\ qspecl_then
-       [‘st8’,‘env8’,‘Short «start_repl»’,‘Short « v0»’,‘basis_ffi cl fs’,‘TL cl’] mp_tac
+       [‘st8’,‘env8’,‘Short «start_repl»’,‘Short « v0»’,‘basis_ffi ext cl fs’,‘TL cl’] mp_tac
     (Q.GENL [‘st’,‘env’,‘start_repl_str’,‘arg_str’,‘ffi’,‘cl’,‘s1’,‘s’] evaluate_start_repl)
   \\ simp [Abbr‘st8’,Abbr‘env8’,Abbr‘ev’]
   \\ fs [backend_enc_decTheory.encode_backend_config_thm]
@@ -1285,7 +1276,7 @@ Theorem semantics_prog_compiler64_prog:
   s.compiler_state = BACKEND_CONFIG_v conf ∧
   file_content fs «config_enc_str.txt» = SOME (encode_backend_config conf) ⇒
   Fail ∉ semantics_prog
-           (init_state (basis_ffi cl fs) with eval_state := SOME (EvalDecs s))
+           (init_state (basis_ffi ext cl fs) with eval_state := SOME (EvalDecs s))
            init_env compiler64_prog
 Proof
   fs [IN_DEF,semanticsTheory.semantics_prog_def] \\ rpt strip_tac

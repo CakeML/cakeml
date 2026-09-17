@@ -5,7 +5,7 @@ Theory npbc_arrayProg
 Libs
   preamble basis
 Ancestors
-  UnsafeProg UnsafeProof npbc npbc_list
+  UnsafeProg UnsafeProof npbc npbc_list pb_parse
 
 val _ = hide_environments true;
 val _ = translation_extends"UnsafeProg";
@@ -30,7 +30,7 @@ val _ = register_type ``:sstep ``
 
 Definition format_failure_def:
   format_failure (lno:num) s =
-  strlit "c Checking failed for top-level proof step starting at line: " ^ toString lno ^ strlit " (error may be in subproofs). Reason: " ^ s ^ strlit"\n"
+  «c Checking failed for top-level proof step starting at line: » ^ toString lno ^ « (error may be in subproofs). Reason: » ^ s ^ «\n»
 End
 
 val r = translate format_failure_def;
@@ -229,8 +229,8 @@ val r = translate npbc_checkTheory.clean_triv_def;
 Definition lookup_err_string_def:
   lookup_err_string b =
     if b then
-      strlit"invalid core constraint id: "
-    else strlit"invalid constraint id: "
+      «invalid core constraint id: »
+    else «invalid constraint id: »
 End
 
 val r = translate lookup_err_string_def;
@@ -734,43 +734,22 @@ Proof
   fs[EL_REPLICATE]
 QED
 
-Definition coeff_lit_string_def:
-  coeff_lit_string (c,v:var) =
-    if c < 0
-    then toString (Num ~c) ^ strlit" ~x"^ toString v
-    else toString (Num c) ^ strlit" x"^ toString v
-End
-
-Definition npbc_lhs_string_def:
-  npbc_lhs_string (xs: ((int # var) list)) =
-  concatWith (strlit" ")
-    (MAP coeff_lit_string xs)
-End
-
-Definition npbc_string_def:
-  (npbc_string (xs,i:int) =
-    concat [
-      npbc_lhs_string xs;
-      strlit" >= ";
-      toString  i; strlit ";"])
-End
-
 Definition err_check_string_def:
   err_check_string c c' =
   concat[
-    strlit"constraint id check failed. expect: ";
-    npbc_string c;
-    strlit" got (in checker): ";
-    npbc_string c']
+    «constraint id check failed. expect: »;
+    npbc_constr_string c;
+    « got (in checker): »;
+    npbc_constr_string c']
 End
 
 Definition err_imp_string_def:
   err_imp_string c c' =
   concat[
-    strlit"imply-add for constraint id. expect: ";
-    npbc_string c;
-    strlit" from: ";
-    npbc_string c']
+    «imply-add for constraint id. expect: »;
+    npbc_constr_string c;
+    « from: »;
+    npbc_constr_string c']
 End
 
 val res = translate coeff_lit_string_def;
@@ -782,6 +761,7 @@ val coeff_lit_string_side = Q.prove(
 ) |> update_precondition;
 
 val res = translate npbc_lhs_string_def;
+val res = translate npbc_constr_string_def;
 val res = translate npbc_string_def;
 val res = translate err_check_string_def;
 val res = translate err_imp_string_def;
@@ -888,7 +868,9 @@ Theorem ARRAY_W8ARRAY_refl:
   (ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv ==>>
     ARRAY vimapv vimaplsv * W8ARRAY zerosv zeros * ARRAY fml fmllsv * GC) ∧
   (ARRAY fml fmllsv * ARRAY vimapv vimaplsv * W8ARRAY zerosv zeros ==>>
-    ARRAY vimapv vimaplsv * W8ARRAY zerosv zeros * ARRAY fml fmllsv)
+    ARRAY vimapv vimaplsv * W8ARRAY zerosv zeros * ARRAY fml fmllsv) ∧
+  (ARRAY fml fmllsv * ARRAY vimapv vimaplsv * W8ARRAY zerosv zeros ==>>
+    ARRAY vimapv vimaplsv * W8ARRAY zerosv zeros * ARRAY fml fmllsv * GC)
 Proof
   rw[]>>
   xsimpl
@@ -2756,7 +2738,7 @@ Quote add_cakeml:
   | l::ls =>
     if in_hashset_arr l hs then
       every_hs hs ls
-    else Some (npbc_string l)
+    else Some (npbc_constr_string l)
 End
 
 Theorem every_hs_spec:
@@ -2853,10 +2835,10 @@ Proof
 QED
 
 Definition red_cond_check_def:
-  red_cond_check bortcb fml inds c extra
+  red_cond_check b fml inds c extra
     pfs (rsubs:((int # num) list # int) list list) goals skipped =
   let (l,r) = extract_scoped_pids pfs LN LN in
-  let fmlls = revalue bortcb fml inds in
+  let fmlls = revalue b fml inds in
   split_goals_hash fmlls extra l goals ∧
   check_hash_goals c skipped r rsubs
 End
@@ -2904,11 +2886,11 @@ Definition red_cond_check_pure_def:
 End
 
 Theorem red_cond_check_eq:
-  red_cond_check bortcb fml inds c extra pfs rsubs goals skipped =
+  red_cond_check b fml inds c extra pfs rsubs goals skipped =
   case red_cond_check_pure c extra pfs rsubs goals skipped of
     NONE => F
   | SOME (x,ls) =>
-    let fmlls = revalue bortcb fml inds in
+    let fmlls = revalue b fml inds in
     let hs = mk_hashset fmlls (mk_hashset x (REPLICATE splim [])) in
     EVERY (λc. in_hashset c hs) ls
 Proof
@@ -2925,13 +2907,13 @@ val res = translate npbc_checkTheory.extract_scoped_pids_def;
 val res = translate red_cond_check_pure_def;
 
 Quote add_cakeml:
-  fun red_cond_check bortcb fml inds c extra pfs rsubs goals skipped =
+  fun red_cond_check b fml inds c extra pfs rsubs goals skipped =
   case red_cond_check_pure c extra pfs rsubs goals skipped of
     None => Some "not all # subgoals present"
   | Some (x,ls) =>
     case ls of [] => None
     | _ =>
-    let val fmlls = revalue_arr bortcb fml inds in
+    let val fmlls = revalue_arr b fml inds in
       hash_check fmlls x ls
     end
 End
@@ -2989,27 +2971,27 @@ QED
 
 (* Definition print_subgoal_def:
   (print_subgoal (INL n) = (toString (n:num))) ∧
-  (print_subgoal (INR n) = (strlit"#" ^ toString (n:num)))
+  (print_subgoal (INR n) = («#» ^ toString (n:num)))
 End
 
 Definition print_subproofs_def:
   (print_subproofs ls =
-    concatWith (strlit " ") (MAP print_subgoal ls))
+    concatWith « » (MAP print_subgoal ls))
 End *)
 
 Definition print_expected_subproofs_def:
   (print_expected_subproofs rsubs (si: (num # 'a) list) =
-    strlit ("#[1-") ^
-    toString (LENGTH rsubs) ^ strlit "] and " ^
-    concatWith (strlit" ") (MAP (toString o FST) si))
+    «#[1-» ^
+    toString (LENGTH rsubs) ^ «] and » ^
+    concatWith « » (MAP (toString o FST) si))
 End
 
 Definition print_subproofs_err_def:
   print_subproofs_err rsubs si =
-  strlit"Expected (including autoproved): " ^
+  «Expected (including autoproved): » ^
   print_expected_subproofs rsubs si
   (* ^
-  strlit " Got: " ^
+  « Got: » ^
   print_subproofs pfs *)
 End
 
@@ -3020,8 +3002,8 @@ val res = translate print_subproofs_err_def;
 
 Definition format_failure_2_def:
   format_failure_2 (lno:num) s s2 =
-  strlit "c Checking failed for top-level proof step starting at line: " ^ toString lno ^ strlit " Reason: " ^ s
-  ^ strlit " Info: " ^ s2 ^ strlit"\n"
+  «c Checking failed for top-level proof step starting at line: » ^ toString lno ^ « Reason: » ^ s
+  ^ « Info: » ^ s2 ^ «\n»
 End
 
 val r = translate format_failure_2_def;
@@ -3234,7 +3216,7 @@ Proof
   metis_tac[LIST_TYPE_def]
 QED
 
-val res = translate sorted_merge_def;
+val res = translate list_insert_def;
 val res = translate get_inds_rhs_def;
 
 Quote add_cakeml:
@@ -3337,46 +3319,45 @@ Proof
 QED
 
 Quote add_cakeml:
-  fun fold_get_inds_rhs_arr fml ls acc vimap =
+  fun fold_get_inds_rhs_arr fml ls t vimap =
   case ls of
-    [] => (acc, vimap)
+    [] => (t, vimap)
   | ((n,rhs)::xs) =>
     case Array.lookup vimap None n of
-      None => fold_get_inds_rhs_arr fml xs acc vimap
+      None => fold_get_inds_rhs_arr fml xs t vimap
     | Some (Inl (_,(pinds,ninds))) =>
       (case do_reindex_rhs_arr fml rhs pinds ninds of
         (pinds',ninds') =>
       let
-        val rinds = get_inds_rhs rhs pinds' ninds' in
-      fold_get_inds_rhs_arr fml xs
-        (sorted_merge rinds acc)
+        val t' = get_inds_rhs rhs pinds' ninds' t in
+      fold_get_inds_rhs_arr fml xs t'
         (Array.updateResize vimap None n (Some (Inl (None,(pinds',ninds')))))
       end)
-    | Some (Inr earliest) => (acc, vimap)
+    | Some (Inr earliest) => (t, vimap)
 End
 
 Theorem fold_get_inds_rhs_arr_spec:
-  ∀fmlls ls acc vimap fmllsv accv lsv vimaplsv
+  ∀fmlls ls t vimap fmllsv tv lsv vimaplsv
     fmlv vimapv.
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   subst_raw_TYPE ls lsv ∧
-  (LIST_TYPE NUM) acc accv ∧
+  SPTREE_SPT_TYPE UNIT_TYPE t tv ∧
   LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "fold_get_inds_rhs_arr" (get_ml_prog_state()))
-    [fmlv; lsv; accv; vimapv]
+    [fmlv; lsv; tv; vimapv]
     (ARRAY fmlv fmllsv * ARRAY vimapv vimaplsv)
     (POSTv v.
         SEP_EXISTS vimapv' vimaplsv'.
         ARRAY fmlv fmllsv * ARRAY vimapv' vimaplsv' *
         &(
           (PAIR_TYPE
-            (LIST_TYPE NUM)
+            (SPTREE_SPT_TYPE UNIT_TYPE)
             (λl v.
               LIST_REL (OPTION_TYPE vimapn_TYPE) l vimaplsv' ∧
               v = vimapv'))
-            (fold_get_inds_rhs fmlls ls acc vimap) v))
+            (fold_get_inds_rhs fmlls ls t vimap) v))
 Proof
   ho_match_mp_tac fold_get_inds_rhs_ind>>
   rw[]>>
@@ -3407,6 +3388,12 @@ Proof
     (xcon>>xsimpl)
 QED
 
+Definition map_fst_def:
+  map_fst ls = MAP FST ls
+End
+
+val res = translate map_fst_def;
+
 Quote add_cakeml:
   fun get_set_indices_arr fml inds s vimap =
   case s of
@@ -3417,24 +3404,34 @@ Quote add_cakeml:
     | Some (Inl (nn,(pinds,ninds))) =>
       (case do_reindex_rhs_arr fml rhs pinds ninds of (pinds,ninds) =>
       let
-        val rinds = get_inds_rhs rhs pinds ninds in
+        val t = get_inds_rhs rhs pinds ninds Ln
+        val rinds = map_fst (toalist t) in
       (rinds, (inds, Array.updateResize vimap None n (Some (Inl (None,(pinds,ninds))))))
       end)
     | Some (Inr (earliest)) =>
       (case restore_arr n fml inds of (pinds,ninds) =>
       let
-        val rinds = get_inds_rhs rhs pinds ninds in
+        val t = get_inds_rhs rhs pinds ninds Ln
+        val rinds = map_fst (toalist t) in
         (rinds, (inds, Array.updateResize vimap None n (Some (Inl (None,(pinds,ninds))))))
       end))
   | _ =>
     if check_get_inds_rhs_arr vimap s then
-      case fold_get_inds_rhs_arr fml s [] vimap of (rinds, vimap') =>
-        (rinds, (inds, vimap'))
+      case fold_get_inds_rhs_arr fml s Ln vimap of
+        (t, vimap') =>
+        (map_fst (toalist t), (inds, vimap'))
     else
       let val rinds = reindex_arr fml inds in
         (rinds, (rinds, vimap))
       end
 End
+
+Theorem spt_Ln[local,simp]:
+  v = Conv (SOME (TypeStamp «Ln» 26)) [] ⇔
+  SPTREE_SPT_TYPE UNIT_TYPE LN v
+Proof
+  EVAL_TAC
+QED
 
 Theorem get_set_indices_arr_spec:
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
@@ -3491,7 +3488,11 @@ Proof
       fs[PAIR_TYPE_def]>>
       xmatch>>
       rpt xlet_autop>>
-      xcon>>xsimpl>>
+      xlet_auto >-
+        (xcon>>xsimpl>>EVAL_TAC)>>
+      gvs[]>>
+      rpt xlet_autop>>
+      xcon>>xsimpl>>fs[map_fst_def]>>
       irule LIST_REL_update_resize>>
       fs[OPTION_TYPE_def,PAIR_TYPE_def,SUM_TYPE_def]))>>
   xmatch>>
@@ -3506,25 +3507,27 @@ Proof
     simp[Abbr`ls`,LIST_TYPE_def,PAIR_TYPE_def])>>
   xif
   >- (
-    xlet_autop>>
+    xlet_auto >-
+      (xcon>>xsimpl>>EVAL_TAC)>>
     pairarg_tac>>gvs[]>>
     xlet `POSTv v.
         SEP_EXISTS vimapv' vimaplsv'.
         ARRAY fmlv fmllsv * ARRAY vimapv' vimaplsv' *
         &(
           (PAIR_TYPE
-            (LIST_TYPE NUM)
+            (SPTREE_SPT_TYPE UNIT_TYPE)
             (λl v.
               LIST_REL (OPTION_TYPE vimapn_TYPE) l vimaplsv' ∧
               v = vimapv'))
-            (fold_get_inds_rhs fmlls ls [] vimap) v)`
+            (fold_get_inds_rhs fmlls ls LN vimap) v)`
     >- (
       xapp>>xsimpl>>
-      simp[LIST_TYPE_def,Abbr`ls`,PAIR_TYPE_def])>>
+      gvs[LIST_TYPE_def,Abbr`ls`,PAIR_TYPE_def])>>
     gvs[PAIR_TYPE_def]>>
     xmatch>>
-    xlet_autop>>
-    xcon>>xsimpl)>>
+    rpt xlet_autop>>
+    xcon>>xsimpl>>
+    fs[map_fst_def])>>
   rpt xlet_autop>>
   xcon>>xsimpl>>
   simp[PAIR_TYPE_def]>>
@@ -3558,8 +3561,8 @@ val res = translate npbc_checkTheory.mk_subst_def;
 (*
 Definition print_lno_mini_def:
   print_lno_mini (lno:num) mini =
-  case mini of NONE => toString lno ^ strlit " INF\n"
-  | SOME (i:num) => toString lno ^ strlit"  " ^ toString i ^ strlit "\n"
+  case mini of NONE => toString lno ^ « INF\n»
+  | SOME (i:num) => toString lno ^ «  » ^ toString i ^ «\n»
 End
 
 val res = translate print_lno_mini_def; *)
@@ -3774,7 +3777,7 @@ Quote add_cakeml:
            case skip_ord_subgoal s ord of (untouched,skipped) =>
            if cond_check_fresh_aspo_arr hs untouched c s ord vimap' vomap
            then
-             case red_cond_check bortcb fml' inds' c nc pfs rsubs goals skipped
+             case red_cond_check b fml' inds' c nc pfs rsubs goals skipped
                of None =>
                (fml', (inds', (vimap', (id', zeros'))))
              | Some err =>
@@ -4335,7 +4338,7 @@ Proof
         ARRAY vimapv' vimaplsv' *
         &(
           case check_red_list A B C F F fmlls inds id
-              c s pfs idopt vimap (strlit "") zeros of
+              c s pfs idopt vimap «» zeros of
             NONE => F
           | SOME res =>
             PAIR_TYPE (λl v.
@@ -4355,7 +4358,7 @@ Proof
         ARRAY vimapv' vimaplsv' *
         & (Fail_exn e ∧
           check_red_list A B C F F fmlls inds id
-              c s pfs idopt vimap (strlit "") zeros = NONE)))`
+              c s pfs idopt vimap «» zeros = NONE)))`
   >- (
     xapp>>xsimpl>>
     first_x_assum (irule_at Any)>>
@@ -4670,23 +4673,24 @@ Proof
 QED
 
 Definition check_dom_list_def:
-  check_dom_list spo obj fml inds id c s pfs idopt zeros =
-  let rinds = reindex fml inds in
+  check_dom_list spo obj fml inds id c s pfs idopt vimap zeros =
+  let (rinds,inds',vimap') = get_set_indices fml inds s vimap in
   let corels = core_fmlls fml rinds in
   let nc = not c in
   let fml_not_c = update_resize fml NONE (SOME (nc,F)) id in
-  let w = subst_fun s in
+  let ss = mk_subst s in
+  let w = subst_fun ss in
   let (dsubs,dscopes,dindex) = dom_subgoals spo w c obj in
-  case extract_scopes_list dscopes s F fml dsubs pfs of
+  case extract_scopes_list dscopes ss F fml dsubs pfs of
     NONE => NONE
   | SOME cpfs =>
     (case check_scopes_list cpfs F fml_not_c id (id+1) zeros of
       NONE => NONE
     | SOME (fml',(id',zeros')) =>
       let rfml = rollback fml' id id' in
-      if do_dom_check idopt fml' rfml w
-        corels rinds c nc pfs dsubs dindex then
-        SOME (rfml,rinds,id',zeros')
+      if do_dom_check idopt fml' rfml inds' w
+        corels c nc pfs dsubs dindex then
+        SOME (rfml,inds',vimap',id',zeros')
       else NONE)
 End
 
@@ -4709,12 +4713,13 @@ val res = translate npbc_checkTheory.find_scope_1_def;
 (* TODO: we can defer corels until the split *)
 Quote add_cakeml:
   fun check_dom_arr lno spo obj fml inds
-    id c s pfs idopt zeros =
-    case do_dso spo s c obj of (dsubs,(dscopes,dindex)) =>
+    id c s pfs idopt vimap zeros =
+    let val ss = mk_subst s in
+    case do_dso spo ss c obj of (dsubs,(dscopes,dindex)) =>
+    case get_set_indices_arr fml inds s vimap of (rinds, (inds',vimap')) =>
     let
-    val rinds = reindex_arr fml inds
     val corels = core_fmlls_arr fml rinds
-    val cpfs = extract_scopes_arr lno dscopes s False fml dsubs pfs
+    val cpfs = extract_scopes_arr lno dscopes ss False fml dsubs pfs
     val nc = not_1 c
     val fml_not_c = Array.updateResize fml None id (Some (nc,False)) in
      case check_scopes_arr lno cpfs False
@@ -4723,10 +4728,10 @@ Quote add_cakeml:
        (case idopt of
          None =>
          let val u = rollback_arr fml' id id'
-             val goals = core_subgoals s corels in
+             val goals = core_subgoals ss corels in
              if find_scope_1 dindex pfs then
-               case red_cond_check False fml' rinds c nc pfs dsubs goals [dindex] of
-                 None => (fml',(rinds,(id',zeros')))
+               case red_cond_check False fml' inds' c nc pfs dsubs goals [dindex] of
+                 None => (fml',(inds',(vimap',(id',zeros'))))
                | Some err =>
                 raise Fail (format_failure_2 lno ("dominance subproofs did not cover all subgoals. Info: " ^ err ^ ".") (print_subproofs_err dsubs goals))
             else
@@ -4735,9 +4740,10 @@ Quote add_cakeml:
        | Some cid =>
          if check_contradiction_fml_arr False fml' cid then
            let val u = rollback_arr fml' id id' in
-             (fml', (rinds, (id', zeros')))
+             (fml', (inds', (vimap', (id', zeros'))))
            end
          else raise Fail (format_failure lno ("did not derive contradiction from index: " ^ Int.toString cid)))
+    end
     end
 End
 
@@ -4749,55 +4755,77 @@ Theorem check_dom_arr_spec:
   (LIST_TYPE NUM) inds indsv ∧
   NUM id idv ∧
   constraint_TYPE c cv ∧
-  subst_TYPE s sv ∧
+  subst_raw_TYPE s sv ∧
   scpfs_TYPE pfs pfsv ∧
   OPTION_TYPE NUM idopt idoptv ∧
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv ∧
   EVERY (λw. w = 0w) zeros
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_dom_arr" (get_ml_prog_state()))
     [lnov; spov; objv; fmlv; indsv; idv;
-      cv; sv; pfsv; idoptv;zerosv]
-    (ARRAY fmlv fmllsv * W8ARRAY zerosv zeros)
+      cv; sv; pfsv; idoptv; vimapv; zerosv]
+    (ARRAY fmlv fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv)
     (POSTve
       (λv.
-        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
+        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'
+          vimapv' vimaplsv'.
         ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY vimapv' vimaplsv' *
         &(
           case check_dom_list spo obj fmlls inds id
-              c s pfs idopt zeros of NONE => F
+              c s pfs idopt vimap zeros of NONE => F
           | SOME res =>
             PAIR_TYPE (λl v.
               LIST_REL (OPTION_TYPE bconstraint_TYPE) l fmllsv' ∧
               v = fmlv') (PAIR_TYPE (LIST_TYPE NUM)
-              (PAIR_TYPE NUM (λl v. l = zeros' ∧ v = zerosv'  ∧ EVERY (λw. w = 0w) zeros') )) res v
+                (PAIR_TYPE
+                  (λl v.
+                    LIST_REL (OPTION_TYPE vimapn_TYPE) l vimaplsv' ∧
+                    v = vimapv')
+              (PAIR_TYPE NUM (λl v. l = zeros' ∧ v = zerosv'  ∧ EVERY (λw. w = 0w) zeros') ))) res v
           ))
       (λe.
-        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
+        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'
+          vimapv' vimaplsv'.
         ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY vimapv' vimaplsv' *
         & (Fail_exn e ∧
           check_dom_list spo obj fmlls inds id
-              c s pfs idopt zeros = NONE)))
+              c s pfs idopt vimap zeros = NONE)))
 Proof
   rw[]>>
   xcf "check_dom_arr" (get_ml_prog_state ())>>
   rw[]>>
+  xlet_auto >- (
+    xsimpl>>
+    simp (eq_lemmas()))>>
   xlet_autop>>
-  `∃dsubs dscopes dindex. do_dso spo s c obj = (dsubs,dscopes,dindex)` by
+  `∃dsubs dscopes dindex. do_dso spo (mk_subst s) c obj = (dsubs,dscopes,dindex)` by
     metis_tac[PAIR]>>
   rw[]>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
+  xlet_auto
+  >- (
+    xsimpl>>rw[]>>
+    first_x_assum (irule_at Any)>>
+    xsimpl)>>
+  `?rinds inds' vimap'.
+    get_set_indices fmlls inds s vimap = (rinds,inds',vimap')` by
+      metis_tac[PAIR]>>
+  fs[PAIR_TYPE_def]>>
+  xmatch>>
   rpt xlet_autop>>
   xlet`(POSTve
     (λv.
-      ARRAY fmlv fmllsv * W8ARRAY zerosv zeros *
-      &(case extract_scopes_list dscopes s F fmlls dsubs pfs of
+      ARRAY fmlv fmllsv * ARRAY vimapv' vimaplsv' * W8ARRAY zerosv zeros *
+      &(case extract_scopes_list dscopes (mk_subst s) F fmlls dsubs pfs of
           NONE => F
         | SOME res => check_scope_TYPE res v))
     (λe.
-      ARRAY fmlv fmllsv * W8ARRAY zerosv zeros *
-      & (Fail_exn e ∧ extract_scopes_list dscopes s F fmlls dsubs pfs = NONE)))`
+      ARRAY fmlv fmllsv * ARRAY vimapv' vimaplsv' * W8ARRAY zerosv zeros *
+      & (Fail_exn e ∧ extract_scopes_list dscopes (mk_subst s) F fmlls dsubs pfs = NONE)))`
   >- (
     xapp>>xsimpl>>
     simp[LIST_TYPE_def]>>
@@ -4825,7 +4853,7 @@ Proof
   xlet`(POSTve
       (λv.
         SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
-        ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY fmlv' fmllsv' * ARRAY vimapv' vimaplsv' * W8ARRAY zerosv' zeros' *
         &(
           case check_scopes_list res F
             (update_resize fmlls NONE (SOME (not n,F)) id)
@@ -4838,16 +4866,18 @@ Proof
             (PAIR_TYPE NUM (λl v. l = zeros' ∧ v = zerosv'  ∧ EVERY (λw. w = 0w) zeros') ) res' v))
       (λe.
         SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
-        ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY fmlv' fmllsv' * ARRAY vimapv' vimaplsv' * W8ARRAY zerosv' zeros' *
         & (Fail_exn e ∧
           check_scopes_list res F
             (update_resize fmlls NONE (SOME (not n,F)) id)
             id (id+1) zeros = NONE)))`
   >- (
     xapp>>
-    xsimpl>>
-    CONJ_TAC >- EVAL_TAC>>
-    metis_tac[])
+    xsimpl>>gvs[]>>
+    rpt (first_x_assum (irule_at Any))>>
+    qexists_tac`F`>>xsimpl>>rw[]
+    >- EVAL_TAC>>
+    metis_tac[ARRAY_W8ARRAY_refl])
   >- (
     xsimpl>>
     simp[check_dom_list_def]>>
@@ -4872,13 +4902,13 @@ Proof
     rpt xlet_autop>>
     qmatch_asmsub_abbrev_tac`LIST_REL _ fmlls'' fmllsv''`>>
     xlet`POSTv resv.
-         ARRAY fmlv' fmllsv'' * W8ARRAY zerosv' zeros' *
+         ARRAY fmlv' fmllsv'' * ARRAY vimapv' vimaplsv' * W8ARRAY zerosv' zeros' *
          & ∃err.
            OPTION_TYPE STRING_TYPE
            (if
-                red_cond_check F fmlls'' (reindex fmlls inds) n (not n) pfs
+                red_cond_check F fmlls'' inds' n (not n) pfs
                   dsubs
-                  (core_subgoals s (core_fmlls fmlls (reindex fmlls inds)))
+                  (core_subgoals (mk_subst s) (core_fmlls fmlls rinds))
                   [dindex]
               then
                 NONE
@@ -4890,7 +4920,7 @@ Proof
       qexists_tac`F`>>
       xsimpl>>
       CONJ_TAC >- EVAL_TAC>>
-      simp[LIST_TYPE_def])>>
+      gvs[LIST_TYPE_def])>>
     pop_assum mp_tac>>IF_CASES_TAC>>
     strip_tac>>fs[OPTION_TYPE_def]>>xmatch
     >- (
@@ -4909,7 +4939,7 @@ Proof
   rename1`check_contradiction_fml_list F A B`>>
   xlet_autop>>
   xlet`POSTv v.
-    ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+    ARRAY fmlv' fmllsv' * ARRAY vimapv' vimaplsv' * W8ARRAY zerosv' zeros' *
     &BOOL (check_contradiction_fml_list F A B) v`
   >- (
     xapp>>xsimpl>>
@@ -5504,18 +5534,18 @@ Definition npbc_obj_string_def:
   (npbc_obj_string (xs,i:int) =
     concat [
       npbc_lhs_string xs;
-      strlit" ";
+      « »;
       toString  i])
 End
 
 Definition err_obj_check_string_def:
   err_obj_check_string fc fc' =
-  case fc of NONE => strlit"objective check failed, no objective available"
+  case fc of NONE => «objective check failed, no objective available»
   | SOME fc =>
     concat[
-    strlit"objective check failed, expect: ";
+    «objective check failed, expect: »;
     npbc_obj_string fc';
-    strlit" got (in checker): ";
+    « got (in checker): »;
     npbc_obj_string fc]
 End
 
@@ -5616,7 +5646,7 @@ Proof
   rpt xlet_autop>>
   xapp>>xsimpl>>
   first_x_assum (irule_at Any)>> rw[]>>
-  Cases_on`fc`>>fs[mk_vomap_def, implode_def]>>
+  Cases_on`fc`>>fs[mk_vomap_def]>>
   qmatch_asmsub_abbrev_tac`strlit A`>>
   qmatch_goalsub_abbrev_tac`strlit B`>>
   qsuff_tac`A = B`>- metis_tac[]>>
@@ -5633,13 +5663,13 @@ val res = translate (npbc_checkTheory.mk_ordsub_def);
 
 Definition err_pres_check_string_def:
   err_pres_check_string (fc:num_set option) (fc':num_set) =
-  case fc of NONE => strlit"preserved set check failed, no preserved set available"
+  case fc of NONE => «preserved set check failed, no preserved set available»
   | SOME fc =>
     concat[
-    strlit"preserved set check failed, expect: ";
-    concatWith (strlit" ") (MAP (toString o FST) (toSortedAList fc'));
-    strlit" got (in checker): ";
-    concatWith (strlit" ") (MAP (toString o FST) (toSortedAList fc))]
+    «preserved set check failed, expect: »;
+    concatWith « » (MAP (toString o FST) (toSortedAList fc'));
+    « got (in checker): »;
+    concatWith « » (MAP (toString o FST) (toSortedAList fc))]
 End
 
 val res = translate err_pres_check_string_def;
@@ -5660,6 +5690,57 @@ val res = translate obj_chk_check_def;
 val res = translate npbc_checkTheory.model_banning_def;
 
 Quote add_cakeml:
+  fun mk_perm_arr vimap ls =
+  case ls of
+    [] => vimap
+  | (n::ns) =>
+    (case Array.lookup vimap None n of
+      Some (Inl (nn,(pinds,ninds))) =>
+        mk_perm_arr (Array.updateResize vimap None n (Some (Inl (None,(pinds,ninds))))) ns
+    | _ => mk_perm_arr vimap ns)
+End
+
+Theorem mk_perm_arr_spec:
+  ∀ls lsv vimap vimaplsv vimapv .
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv ∧
+  (LIST_TYPE NUM) ls lsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "mk_perm_arr" (get_ml_prog_state()))
+    [vimapv ; lsv]
+    (ARRAY vimapv vimaplsv)
+    (POSTv v.
+        SEP_EXISTS vimapv' vimaplsv'.
+        ARRAY v vimaplsv' *
+        &(
+          LIST_REL (OPTION_TYPE vimapn_TYPE)
+            (mk_perm vimap ls) vimaplsv'))
+Proof
+  Induct>>rw[]>>
+  xcf "mk_perm_arr" (get_ml_prog_state ())>>
+  fs[mk_perm_def,LIST_TYPE_def]>>
+  xmatch
+  >- (xvar>>xsimpl)>>
+  rpt xlet_autop>>
+  xlet_auto>>
+  `OPTION_TYPE vimapn_TYPE (any_el h vimap NONE) v'` by (
+    rw[any_el_ALT]>>
+    fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
+  every_case_tac>>
+  gvs[OPTION_TYPE_def,SUM_TYPE_def,PAIR_TYPE_def]>>
+  xmatch
+  >- (xapp>>xsimpl)
+  >- (
+    rpt xlet_autop>>
+    xlet_auto>>
+    xapp>>
+    xsimpl>>
+    irule LIST_REL_update_resize>>
+    fs[OPTION_TYPE_def,PAIR_TYPE_def,SUM_TYPE_def] )
+  >- (xapp>>xsimpl)
+QED
+
+Quote add_cakeml:
   fun check_cstep_arr lno cstep fml zeros inds vimap vomap pc =
   case cstep of
     Dom c s pfs idopt => (
@@ -5669,12 +5750,12 @@ Quote add_cakeml:
       if check_pres (get_pres pc) s then
       if check_fresh_aspo_arr c s (get_ord pc) vimap vomap then
         case check_dom_arr lno spo (get_obj pc)
-          fml inds (get_id pc) c (mk_subst s) pfs idopt zeros of
-          (fml',(rinds,(id',zeros'))) =>
+          fml inds (get_id pc) c s pfs idopt vimap zeros of
+          (fml',(inds',(vimap',(id',zeros')))) =>
         (Array.updateResize fml' None id' (Some (c,get_tcb pc)),
          (zeros',
-         (sorted_insert id' rinds,
-         (update_vimap_arr True vimap id' (fst c),
+         (sorted_insert id' inds',
+         (update_vimap_arr True vimap' id' (fst c),
           (vomap, set_id pc (id'+1))))))
       else raise Fail (format_failure lno ("freshness check failed on auxiliary variables"))
       else raise Fail (format_failure lno ("domain of substitution must not mention projection set"))
@@ -5732,7 +5813,7 @@ Quote add_cakeml:
     | Some ord' =>
       if guard_ord_t ord' xs then
         let val fml' = core_from_inds_arr lno fml inds' in
-        (fml', (zeros, (inds', (vimap, (vomap, set_ord pc (mk_ordsub ord' xs))))))
+        (fml', (zeros, (inds', (mk_perm_arr vimap (map_fst xs), (vomap, set_ord pc (mk_ordsub ord' xs))))))
         end
       else
         raise Fail
@@ -5963,6 +6044,7 @@ Proof
       simp[check_dom_list_def]>>
       rw[]>>
       pairarg_tac>>gvs[AllCaseEqs()]>>
+      pairarg_tac>>gvs[AllCaseEqs()]>>
       metis_tac[ARRAY_W8ARRAY_refl])>>
     gvs[AllCasePreds()]>>
     qmatch_asmsub_rename_tac`PAIR_TYPE _ _ xxx _`>>
@@ -5976,9 +6058,14 @@ Proof
     pairarg_tac>>gvs[check_dom_list_def,AllCaseEqs()]>>
     xcon>>xsimpl>>
     simp[PAIR_TYPE_def,OPTION_TYPE_def]>>
-    qmatch_goalsub_abbrev_tac`ARRAY _ A`>>
-    qexists_tac`A`>>xsimpl>>
-    fs[set_id_def,get_tcb_def]>>
+    pairarg_tac>>gvs[AllCaseEqs()]>>
+    qmatch_goalsub_abbrev_tac`ARRAY Av A`>>
+    qexists_tac`Av`>>xsimpl>>
+    qmatch_goalsub_abbrev_tac`W8ARRAY Bv B`>>
+    qexists_tac`Bv`>>xsimpl>>
+    qmatch_goalsub_abbrev_tac`ARRAY Cv C`>>
+    qexists_tac`Cv`>>xsimpl>>
+    fs[PAIR_TYPE_def,set_id_def,get_tcb_def]>>
     unabbrev_all_tac>>
     match_mp_tac LIST_REL_update_resize>>
     fs[OPTION_TYPE_def,PAIR_TYPE_def]>>
@@ -6192,7 +6279,7 @@ Proof
     rpt xlet_autop>>
     xcon>>xsimpl>>
     every_case_tac>>
-    gvs[AllCaseEqs(),PAIR_TYPE_def,OPTION_TYPE_def,set_ord_def]>>
+    gvs[AllCaseEqs(),PAIR_TYPE_def,OPTION_TYPE_def,set_ord_def,map_fst_def]>>
     metis_tac[ARRAY_W8ARRAY_refl])
   >- ( (* UnloadOrder *)
     xmatch>>
@@ -6492,23 +6579,23 @@ val res = translate npbc_checkTheory.lower_bound_def;
 Definition hdsat_res_def:
   hdsat_res b =
   if b then NONE
-  else SOME (strlit "conclusion SATISFIABLE check failed: [assignment check] T")
+  else SOME «conclusion SATISFIABLE check failed: [assignment check] T»
 End
 
 val res = translate hdsat_res_def;
 
 Definition bool_to_string_def:
   bool_to_string b =
-  if b then strlit"T" else strlit"F"
+  if b then «T» else «F»
 End
 
 Definition hdunsat_res_def:
   hdunsat_res b1 b2 =
   if b1 ∧ b2 then NONE
   else SOME (
-      strlit "conclusion UNSATISFIABLE check failed:" ^
-      strlit " [dbound check] " ^ bool_to_string b1 ^
-      strlit " [contradiction check] " ^ bool_to_string b2
+      «conclusion UNSATISFIABLE check failed:» ^
+      « [dbound check] » ^ bool_to_string b1 ^
+      « [contradiction check] » ^ bool_to_string b2
   )
 End
 
@@ -6519,10 +6606,10 @@ Definition hobounds_res_def:
   hobounds_res b1 b2 b3 =
   if b1 ∧ b2 ∧ b3 then NONE
   else SOME (
-      strlit "conclusion BOUNDS check failed:" ^
-      strlit " [lb <= dbound] " ^ bool_to_string b1 ^
-      strlit " [upper bound check] " ^ bool_to_string b2 ^
-      strlit " [lower bound check] " ^ bool_to_string b3
+      «conclusion BOUNDS check failed:» ^
+      « [lb <= dbound] » ^ bool_to_string b1 ^
+      « [upper bound check] » ^ bool_to_string b2 ^
+      « [lower bound check] » ^ bool_to_string b3
   )
 End
 
@@ -6536,11 +6623,11 @@ Definition heenum_res_def:
   in
   if b1 ∧ b2 ∧ b3 ∧ b4 then NONE
   else SOME (
-      strlit "conclusion ENUMERATION check failed:" ^
-      strlit " [no objective] " ^ bool_to_string b1 ^
-      strlit " [enumeration claim] " ^ bool_to_string b2 ^
-      strlit " [complete hint present] " ^ bool_to_string b3 ^
-      strlit " [complete hint correct] " ^ bool_to_string b4
+      «conclusion ENUMERATION check failed:» ^
+      « [no objective] » ^ bool_to_string b1 ^
+      « [enumeration claim] » ^ bool_to_string b2 ^
+      « [complete hint present] » ^ bool_to_string b3 ^
+      « [complete hint correct] » ^ bool_to_string b4
   )
 End
 
@@ -6757,7 +6844,7 @@ QED
 val _ = register_type ``:output``
 
 Definition print_opt_string_def:
-  (print_opt_string NONE = strlit"T") ∧
+  (print_opt_string NONE = «T») ∧
   (print_opt_string (SOME s) = s)
 End
 
@@ -6769,9 +6856,9 @@ Definition derivable_res_def:
   let b2 = (b2opt = NONE) in
   if b1 ∧ b2 then NONE
   else SOME (
-      strlit "output DERIVABLE check failed:" ^
-      strlit " [dbound = NONE] " ^ bool_to_string b1 ^
-      strlit " [core in output] " ^ print_opt_string b2opt)
+      «output DERIVABLE check failed:» ^
+      « [dbound = NONE] » ^ bool_to_string b1 ^
+      « [core in output] » ^ print_opt_string b2opt)
 End
 
 val res = translate derivable_res_def;
@@ -6786,12 +6873,12 @@ Definition equisatisfiable_res_def:
   if b11 ∧ b12 ∧ chk ∧ b2 ∧ b3
   then NONE
     else SOME (
-      strlit "output EQUISATISFIABLE check failed:" ^
-      strlit " [bound = NONE] " ^ bool_to_string b11 ^
-      strlit " [dbound = NONE] " ^ bool_to_string b12 ^
-      strlit " [checked deletion] " ^ bool_to_string chk ^
-      strlit " [core in output] " ^ print_opt_string b2opt ^
-      strlit " [output in core] " ^ print_opt_string b3opt
+      «output EQUISATISFIABLE check failed:» ^
+      « [bound = NONE] » ^ bool_to_string b11 ^
+      « [dbound = NONE] » ^ bool_to_string b12 ^
+      « [checked deletion] » ^ bool_to_string chk ^
+      « [core in output] » ^ print_opt_string b2opt ^
+      « [output in core] » ^ print_opt_string b3opt
   )
 End
 
@@ -6802,7 +6889,7 @@ val res = translate npbc_checkTheory.opt_eq_obj_def;
 Definition opt_err_obj_check_string_def:
   (opt_err_obj_check_string (SOME fc) (SOME fc') =
     err_obj_check_string (SOME fc) fc') ∧
-  (opt_err_obj_check_string _ _ = strlit "missing objective")
+  (opt_err_obj_check_string _ _ = «missing objective»)
 End
 
 val res = translate opt_err_obj_check_string_def;
@@ -6814,18 +6901,18 @@ Definition equioptimal_res_def:
   let b11 = opt_le bound dbound in
   let b12 = opt_eq_obj obj obj' in
   let b12s =
-    if b12 then strlit"T" else opt_err_obj_check_string obj obj' in
+    if b12 then «T» else opt_err_obj_check_string obj obj' in
   let b2 = (b2opt = NONE) in
   let b3 = (b3opt = NONE) in
   if b11 ∧ b12 ∧ chk ∧ b2 ∧ b3
   then NONE
     else SOME (
-      strlit "output EQUIOPTIMAL check failed:" ^
-      strlit " [bound <= dbound]: " ^ bool_to_string b11 ^
-      strlit " [obj = output obj]: " ^ b12s ^
-      strlit " [checked deletion]: " ^ bool_to_string chk ^
-      strlit " [core in output] " ^ print_opt_string b2opt ^
-      strlit " [output in core] " ^ print_opt_string b3opt
+      «output EQUIOPTIMAL check failed:» ^
+      « [bound <= dbound]: » ^ bool_to_string b11 ^
+      « [obj = output obj]: » ^ b12s ^
+      « [checked deletion]: » ^ bool_to_string chk ^
+      « [core in output] » ^ print_opt_string b2opt ^
+      « [output in core] » ^ print_opt_string b3opt
   )
 End
 
@@ -6833,25 +6920,25 @@ val res = translate equioptimal_res_def;
 
 Definition pres_string_def:
   (pres_string (xs:num_set) =
-    concatWith (strlit" ") (MAP (toString o FST) (toAList xs)))
+    concatWith « » (MAP (toString o FST) (toAList xs)))
 End
 
 (* Add a checking command? *)
 Definition err_pres_string_def:
   err_pres_string pres pres' =
-  case pres of NONE => strlit"projection set check failed, no projection set available"
+  case pres of NONE => «projection set check failed, no projection set available»
   | SOME pres =>
     concat[
-    strlit"projection set check failed, expect: ";
+    «projection set check failed, expect: »;
     pres_string pres';
-    strlit" got: ";
+    « got: »;
     pres_string pres]
 End
 
 Definition opt_err_pres_string_def:
   (opt_err_pres_string (SOME pres) (SOME pres') =
     err_pres_string (SOME pres) pres') ∧
-  (opt_err_pres_string _ _ = strlit "missing projection set")
+  (opt_err_pres_string _ _ = «missing projection set»)
 End
 
 val res = translate pres_string_def;
@@ -6868,22 +6955,22 @@ Definition equisolvable_res_def:
   let b11 = opt_le bound dbound in
   let b12 = opt_eq_obj_opt obj obj' in
   let b12s =
-    if b12 then strlit"T" else opt_err_obj_check_string obj obj' in
+    if b12 then «T» else opt_err_obj_check_string obj obj' in
   let b2 = (b2opt = NONE) in
   let b3 = (b3opt = NONE) in
   let b4 = opt_eq_pres pres pres' in
   let b4s =
-    if b4 then strlit"T" else opt_err_pres_string pres pres' in
+    if b4 then «T» else opt_err_pres_string pres pres' in
   if b11 ∧ b12 ∧ chk ∧ b2 ∧ b3 ∧ b4
   then NONE
     else SOME (
-      strlit "output EQUISOLVABLE check failed:" ^
-      strlit " [bound <= dbound]: " ^ bool_to_string b11 ^
-      strlit " [obj = output obj (if present)]: " ^ b12s ^
-      strlit " [pres = output pres]: " ^ b4s ^
-      strlit " [checked deletion]: " ^ bool_to_string chk ^
-      strlit " [core in output] " ^ print_opt_string b2opt ^
-      strlit " [output in core] " ^ print_opt_string b3opt
+      «output EQUISOLVABLE check failed:» ^
+      « [bound <= dbound]: » ^ bool_to_string b11 ^
+      « [obj = output obj (if present)]: » ^ b12s ^
+      « [pres = output pres]: » ^ b4s ^
+      « [checked deletion]: » ^ bool_to_string chk ^
+      « [core in output] » ^ print_opt_string b2opt ^
+      « [output in core] » ^ print_opt_string b3opt
   )
 End
 

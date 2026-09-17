@@ -36,7 +36,7 @@ val _ = translate nocomment_line_def;
 
 Definition format_dimacs_failure_def:
   format_dimacs_failure (lno:num) s =
-  strlit "c DIMACS parse failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"
+  «c DIMACS parse failed at line: » ^ toString lno ^ «. Reason: » ^ s ^ «\n»
 End
 
 val _ = translate format_dimacs_failure_def;
@@ -694,7 +694,7 @@ Definition check_unsat_2_sem_def:
           if check_xlrups_unsat_list xfml bfml xlrups cupd basex baseb tn
             0 (REPLICATE bnd w8z)
           then
-            add_stdout fs (strlit "s VERIFIED UNSAT\n")
+            add_stdout fs «s VERIFIED UNSAT\n»
           else
             add_stderr fs err
       | NONE => add_stderr fs err
@@ -1008,21 +1008,7 @@ Proof
   \\ simp[GSYM add_stdo_with_numchars,with_same_numchars]
 QED
 
-local
-
-val name = "check_unsat"
-val (sem_thm,prog_tm) =
-  whole_prog_thm (get_ml_prog_state()) name (UNDISCH check_unsat_whole_prog_spec2)
-Definition check_unsat_prog_def:
-  check_unsat_prog = ^prog_tm
-End
-
-in
-
 Theorem check_unsat_semantics =
-  sem_thm
-  |> REWRITE_RULE[GSYM check_unsat_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
-
-end
+  prove_sem_thm "check_unsat"
+                "check_unsat_prog"
+                check_unsat_whole_prog_spec2;

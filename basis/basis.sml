@@ -18,6 +18,6 @@ ArrayProofTheory
 CommandLineProofTheory
 TextIOProgTheory TextIOProofTheory
 
-basisProgTheory basisFunctionsLib basis_ffiLib
+basisProgTheory basisFunctionsLib basis_ffiLib MapProgLib
 
 end

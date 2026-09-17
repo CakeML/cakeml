@@ -216,6 +216,10 @@ Definition mk_single_app_def:
       SOME(Lannot e l)
     od
    ) /\
+   (* Keep generated constructors and recursive-call extraction outside the
+      opened scope, which may shadow both constructors and fname. *)
+   (mk_single_app fname allow_fname (Open path e) =
+    SOME (if allow_fname then mk_inr (Open path e) else Open path e)) /\
    (mk_single_app fname allow_fname (Let NONE e1 e2) =
     do
       e1 <- mk_single_app fname F e1;
@@ -279,7 +283,7 @@ Definition mk_single_app_def:
    (mk_single_apps fname allow_fname [] =
     SOME []) /\
    (mk_single_appps fname allow_fname ((p,e)::pes) =
-    let fname' = if EXISTS ($= fname o SOME) (pat_bindings p [])
+    let fname' = if EXISTS ($= fname o SOME) (pat_bindings p)
                  then NONE
                  else fname
     in
@@ -506,7 +510,13 @@ Theorem mk_single_app_NONE_evaluate[local]:
            (st',res) => (st', mk_inr_res res)
    )
 Proof
-  ho_match_mp_tac evaluate_ind >> rpt strip_tac >> PURE_TOP_CASE_TAC
+  ho_match_mp_tac evaluate_ind >> rpt strip_tac
+  >~ [`evaluate _ _ [Open _ _]`] >- (
+    gvs [mk_single_app_def]
+    >> simp [evaluate_inr]
+    >> every_case_tac
+    >> simp [mk_inr_res_def])
+  >> PURE_TOP_CASE_TAC
   (* Nil *)
   >- (fs[mk_single_app_def] >> rveq >> fs[evaluate_def,mk_inr_res_def])
   (* Sequence *)
@@ -710,6 +720,18 @@ Theorem mk_single_app_evaluate[local]:
    )
 Proof
   ho_match_mp_tac evaluate_ind >> rpt strip_tac
+  >~ [`mk_single_apps _ _ [Open _ _]`] >- (
+    gvs [mk_single_app_def, partially_evaluates_to_def]
+    >> qmatch_goalsub_rename_tac
+      `evaluate start_state base_env [mk_inr (Open open_path body)]`
+    >> simp [evaluate_inr]
+    >> Cases_on `evaluate start_state base_env [Open open_path body]`
+    >> simp []
+    >> CASE_TAC
+    >> gvs [mk_inr_res_def]
+    >> drule evaluatePropsTheory.evaluate_sing
+    >> strip_tac
+    >> gvs [dest_inr_v_def])
   (* Nil *)
   >- (fs[mk_single_app_def] >> rveq >> fs[partially_evaluates_to_def])
   (* Sequence *)
@@ -930,7 +952,7 @@ Proof
       fs[ml_progTheory.nsLookup_nsAppend_Short] >>
       imp_res_tac semanticPrimitivesPropsTheory.pmatch_extend >> rveq >>
       rfs[] >>
-      qpat_x_assum `MAP _ _ = pat_bindings _ _` (assume_tac o GSYM) >>
+      qpat_x_assum `MAP _ _ = pat_bindings _` (assume_tac o GSYM) >>
       fs[] >> rfs[nsLookup_alist_to_ns_fresh] >>
       TRY(qmatch_asmsub_abbrev_tac `mk_single_app (SOME _) T e = SOME ea`
           >> every_case_tac >> fs[] >> every_case_tac >> fs[]) >>
@@ -2366,6 +2388,9 @@ Definition make_single_app_def:
       SOME(Lannot e l)
     od
    ) /\
+   (* Leave calls inside Open and their lexical lookup scope unchanged. *)
+   (make_single_app fname allow_fname (Open path e) =
+    SOME (if allow_fname then then_tyerr (Open path e) else Open path e)) /\
    (make_single_app fname allow_fname (Let NONE e1 e2) =
     do
       e1 <- make_single_app fname F e1;
@@ -2428,7 +2453,7 @@ Definition make_single_app_def:
     od) /\
    (make_single_apps fname [] = SOME []) /\
    (make_single_appps fname allow_fname ((p,e)::pes) =
-    let fname' = if EXISTS ($= fname o SOME) (pat_bindings p [])
+    let fname' = if EXISTS ($= fname o SOME) (pat_bindings p)
                  then NONE
                  else fname
     in
@@ -2716,6 +2741,16 @@ Theorem make_single_app_SOME_evaluate:
 Proof
   ho_match_mp_tac make_single_app_ind
   \\ rpt conj_tac \\ simp []
+  >~ [`make_single_app _ _ (Open _ _)`] >- (
+    rw [make_single_app_def, part_evaluates_to_def]
+    >> qmatch_goalsub_rename_tac
+      `evaluate start_state base_env [Open open_path body]`
+    >> namedCases_on `evaluate start_state base_env [Open open_path body]`
+      ["final_state result"]
+    >> namedCases_on `result` ["values", "error"]
+    >> simp [mk_tyerr_res_def]
+    >> every_case_tac
+    >> simp [])
   THEN1
    (rw[make_single_app_def] \\ fs [] \\ rename [`Raise e2`]
     \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq \\ fs []
@@ -2954,7 +2989,7 @@ Proof
     \\ imp_res_tac semanticPrimitivesPropsTheory.pmatch_extend
     \\ rveq \\ fs []
     \\ last_x_assum mp_tac
-    \\ qspec_tac (`pat_bindings p []`,`xs`)
+    \\ qspec_tac (`pat_bindings p`,`xs`)
     \\ Induct \\ fs [])
   \\ fs [make_single_app_def,part_evaluates_to_match_def]
   \\ fs[evaluate_def,mk_tyerr_res_def]

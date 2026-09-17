@@ -1299,6 +1299,20 @@ Proof
          ml_translatorTheory.INT_def, perms_ok_def]
 QED
 
+Theorem perms_ok_bool_ty_v[simp]:
+  perms_ok kernel_perms bool_ty_v
+Proof
+  assume_tac $ (bool_ty_v_thm |> CONV_RULE EVAL) >> fs []
+  >> rw [perms_ok_def]
+QED
+
+Theorem perms_ok_aty_v[simp]:
+  perms_ok kernel_perms aty_v
+Proof
+  assume_tac $ (aty_v_thm |> CONV_RULE EVAL) >> fs []
+  >> rw [perms_ok_def]
+QED
+
 (* Functions translated with 'm_translate' should be proved for kernel_perms *)
 
 Theorem perms_ok_the_type_constants[simp]:
@@ -1418,6 +1432,14 @@ Theorem perms_ok_mk_eq_v[simp]:
   perms_ok kernel_perms mk_eq_v
 Proof
   rw[perms_ok_def, mk_eq_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
+Theorem perms_ok_safe_mk_eq_v[simp]:
+  perms_ok kernel_perms safe_mk_eq_v
+Proof
+  rw [perms_ok_def, safe_mk_eq_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
   \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED

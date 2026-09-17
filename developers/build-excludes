@@ -1,13 +1,5 @@
-# tutorial is not supposed to build until one solves the exercises
-tutorial
+# the exercises are not supposed to build until one solves them
+tutorial/problems
 
 # Broken, see #1104
 compiler/backend/San
-
-unverified
-
-# Unmaintained + exampleLib does unholy things like calling set_grammar_ancestry
-
-examples/flover
-examples/flover/Infra
-examples/flover/semantics

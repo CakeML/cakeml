@@ -14,8 +14,9 @@ Datatype:
   bstate =
     <| locals      : varname |-> 'a v
      ; globals     : varname |-> 'a v
-     ; code        : funname |-> ((varname # shape) list # ('a panLang$prog))
-                     (* arguments (with shape), body *)
+     ; structs     : (stcname # struct_info) list
+     ; code        : funname |-> ((varname # shape) list # ('a panLang$prog) # shape)
+                     (* arguments (with shape), body, return shape *)
      ; eshapes     : eid |-> shape
      ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
@@ -79,20 +80,43 @@ Definition eval_def:
   (eval ^s (Const w) = SOME (ValWord w)) /\
   (eval s  (Var Local v) = FLOOKUP s.locals v) /\
   (eval s  (Var Global v) = FLOOKUP s.globals v) /\
-  (eval s (Struct es) =
+  (eval s (RStruct es) =
     case (OPT_MMAP (eval s) es) of
-     | SOME vs => SOME (Struct vs)
+     | SOME vs => SOME (RStruct vs)
      | NONE => NONE) /\
-  (eval s (Field index e) =
+  (eval s (RField index e) =
     case eval s e of
-     | SOME (Struct vs) =>
+     | SOME (RStruct vs) =>
        if index < LENGTH vs then SOME (EL index vs)
        else NONE
      | _ => NONE) /\
+  (eval s (NStruct nm eflds) =
+    let (field_names, field_exps) = UNZIP eflds in
+    (case ALOOKUP s.structs nm of
+      | SOME info =>
+        let (field_names', field_shapes) = UNZIP info.fields in
+        if field_names' = field_names then (* assumed sorted *)
+          case (OPT_MMAP (eval s) field_exps) of
+          | SOME field_vals =>
+            if EVERY (\(s,v). s = shape_of v) (ZIP (field_shapes, field_vals)) then
+              SOME (NStruct nm (ZIP (field_names, field_vals)))
+            else NONE
+          | NONE => NONE
+        else NONE
+      | NONE => NONE)
+  ) /\
+  (eval s (NField fld e) =
+    (case eval s e of
+     | SOME (NStruct nm vflds) =>
+       if ALOOKUP s.structs nm <> NONE
+       then ALOOKUP vflds fld else NONE
+     | _ => NONE)) /\
   (eval s (Load shape addr) =
-    case eval s addr of
-     | SOME (ValWord w) => mem_load shape w s.memaddrs s.memory
-     | _ => NONE) /\
+    if is_wf_shape s.structs shape
+    then (case eval s addr of
+     | SOME (ValWord w) => mem_load shape w s.memaddrs s.memory s.structs
+     | _ => NONE)
+    else NONE) /\
   (eval s (Load32 addr) =
     case eval s addr of
      | SOME (ValWord w) =>
@@ -126,9 +150,9 @@ Definition eval_def:
      | (SOME (ValWord w1), SOME (ValWord w2)) =>
           SOME (ValWord (if word_cmp cmp w1 w2 then 1w else 0w))
      | _ => NONE) /\
-  (eval s (Shift sh e n) =
-    case eval s e of
-     | SOME (ValWord w) => OPTION_MAP ValWord (word_sh sh w n)
+  (eval s (Shift sh e1 e2) =
+    case (eval s e1, eval s e2) of
+     | (SOME (ValWord w1), SOME (ValWord w2)) => OPTION_MAP ValWord (word_sh sh w1 (w2n w2))
      | _ => NONE) /\
   (eval s BaseAddr =
         SOME (ValWord s.base_addr)) /\
@@ -138,9 +162,8 @@ Definition eval_def:
         SOME (ValWord bytes_in_word))
 Termination
   wf_rel_tac `measure (exp_size ARB o SND)`
-  \\ rpt strip_tac \\ imp_res_tac MEM_IMP_exp_size
-  \\ TRY (first_x_assum (assume_tac o Q.SPEC `ARB`))
-  \\ decide_tac
+  \\ rpt strip_tac \\ gs [UNZIP_MAP]
+  \\ fs [MEM_SPLIT, MAP_EQ_APPEND, list_size_append, EXISTS_PROD, MAP_EQ_CONS]
 End
 
 (***************)
@@ -204,11 +227,13 @@ Definition h_prog_dec_def:
   h_prog_dec vname sh e p ^s =
   case (eval s e) of
   | SOME value =>
-      Vis (INL (p,s with locals := s.locals |+ (vname,value)))
+      if sh = shape_of value
+      then Vis (INL (p,s with locals := s.locals |+ (vname,value)))
           (λa. Ret (INR (case a of
                | INL _ => (SOME Error, s)
                | INR (res,s') =>
                    (res,s' with locals := res_var s'.locals (vname, FLOOKUP s.locals vname)))))
+      else Ret (INR (SOME Error,s))
   | NONE => Ret (INR (SOME Error,s))
 End
 
@@ -234,6 +259,19 @@ Definition h_prog_assign_def:
                  then (NONE,set_kvar vk vname value s)
                  else (SOME Error,s)
              | NONE => (SOME Error,s)))
+End
+
+Definition h_prog_primitive_def:
+  h_prog_primitive vname pop es ^s =
+   Ret (INR (case OPT_MMAP (eval s) es of
+             | SOME vs =>
+                 (case pan_primop pop vs of
+                  | SOME value =>
+                      if is_valid_value s Local vname value
+                      then (NONE, set_var vname value s)
+                      else (SOME Error, s)
+                  | NONE => (SOME Error, s))
+             | _ => (SOME Error, s)))
 End
 
 Definition h_prog_store_def:
@@ -300,22 +338,23 @@ End
 val s' = ``(s':'a bstate)``
 
 Definition h_handle_call_ret_def:
-  (h_handle_call_ret calltyp ^s (INL _) = Ret (INR (SOME Error,s))) ∧
-  (h_handle_call_ret calltyp ^s (INR (NONE,s':'a bstate)) =
+  (h_handle_call_ret calltyp rsh ^s (INL _) = Ret (INR (SOME Error,s))) ∧
+  (h_handle_call_ret calltyp rsh ^s (INR (NONE,s':'a bstate)) =
    Ret (INR (SOME Error,s'))) ∧
-  (h_handle_call_ret calltyp s (INR (SOME Break,s')) =
+  (h_handle_call_ret calltyp rsh s (INR (SOME Break,s')) =
    Ret (INR (SOME Error,s'))) ∧
-  (h_handle_call_ret calltyp s (INR (SOME Continue,s')) =
+  (h_handle_call_ret calltyp rsh s (INR (SOME Continue,s')) =
    Ret (INR (SOME Error,s'))) ∧
-  (h_handle_call_ret calltyp s (INR (SOME (Return retv),s')) =
-   case calltyp of
+  (h_handle_call_ret calltyp rsh s (INR (SOME (Return retv),s')) =
+   if shape_of retv ≠ rsh then Ret (INR (SOME Error, s')) else
+   (case calltyp of
      NONE => Ret (INR (SOME (Return retv),empty_locals s'))
    | SOME (NONE, _) => Ret (INR (NONE, s' with locals := s.locals))
    | SOME (SOME (rk, rt),_) =>
        if is_valid_value s rk rt retv
        then Ret (INR (NONE,set_kvar rk rt retv (s' with locals := s.locals)))
-       else Ret (INR (SOME Error,s'))) ∧
-  (h_handle_call_ret calltyp s (INR (SOME (Exception eid exn),s')) =
+       else Ret (INR (SOME Error,s')))) ∧
+  (h_handle_call_ret calltyp rsh s (INR (SOME (Exception eid exn),s')) =
    case calltyp of
      NONE => Ret (INR (SOME (Exception eid exn),empty_locals s'))
    | SOME (_,NONE) => Ret (INR (SOME (Exception eid exn),empty_locals s'))
@@ -332,7 +371,7 @@ Definition h_handle_call_ret_def:
               else Ret (INR (SOME Error,s'))
           | NONE => Ret (INR (SOME Error,s')))
        else Ret (INR (SOME (Exception eid exn),empty_locals s'))) ∧
-  (h_handle_call_ret calltyp s (INR (res,s')) = Ret (INR (res,empty_locals s')))
+  (h_handle_call_ret calltyp rsh s (INR (res,s')) = Ret (INR (res,empty_locals s')))
 End
 
 Definition h_prog_call_def:
@@ -340,26 +379,26 @@ Definition h_prog_call_def:
   case OPT_MMAP (eval s) argexps of
    | SOME args =>
       (case lookup_code s.code fname args of
-        | SOME (callee_prog,newlocals) =>
-           Vis (INL (callee_prog,s with locals := newlocals)) (h_handle_call_ret calltyp s)
+        | SOME (callee_prog,newlocals,rshape) =>
+           Vis (INL (callee_prog,s with locals := newlocals)) (h_handle_call_ret calltyp rshape s)
         | _ => Ret (INR (SOME Error,s)))
    | _ => Ret (INR (SOME Error,s))
 End
 
 Definition h_handle_deccall_ret_def:
-  (h_handle_deccall_ret rt shape prog1 ^s (INL _) = Ret (INR (SOME Error,s))) ∧
-  (h_handle_deccall_ret rt shape prog1 ^s (INR (NONE,s':'a bstate)) = Ret (INR (SOME Error,s'))) ∧
-  (h_handle_deccall_ret rt shape prog1 s (INR (SOME Break,s')) = Ret (INR (SOME Error,s'))) ∧
-  (h_handle_deccall_ret rt shape prog1 s (INR (SOME Continue,s')) = Ret (INR (SOME Error,s'))) ∧
-  (h_handle_deccall_ret rt shape prog1 s (INR (SOME (Return retv),s')) =
-   if shape_of retv = shape then
+  (h_handle_deccall_ret rt shape prog1 rsh ^s (INL _) = Ret (INR (SOME Error,s))) ∧
+  (h_handle_deccall_ret rt shape prog1 rsh ^s (INR (NONE,s':'a bstate)) = Ret (INR (SOME Error,s'))) ∧
+  (h_handle_deccall_ret rt shape prog1 rsh s (INR (SOME Break,s')) = Ret (INR (SOME Error,s'))) ∧
+  (h_handle_deccall_ret rt shape prog1 rsh s (INR (SOME Continue,s')) = Ret (INR (SOME Error,s'))) ∧
+  (h_handle_deccall_ret rt shape prog1 rsh s (INR (SOME (Return retv),s')) =
+   if shape_of retv = shape ∧ shape_of retv = rsh then
      Vis (INL (prog1, set_var rt retv (s' with locals := s.locals)))
          (λa. Ret (INR (case a of
                         | INL _ => (SOME Error, s')
                         | INR (res', s') =>
                             (res',s' with locals := res_var s'.locals (rt, FLOOKUP s.locals rt)))))
    else Ret (INR (SOME Error, s'))) ∧
-  (h_handle_deccall_ret rt shape prog1 s (INR (res,s')) = Ret (INR (res,empty_locals s')))
+  (h_handle_deccall_ret rt shape prog1 rsh s (INR (res,s')) = Ret (INR (res,empty_locals s')))
 End
 
 Definition h_prog_deccall_def:
@@ -367,8 +406,8 @@ Definition h_prog_deccall_def:
   case OPT_MMAP (eval s) argexps of
    | SOME args =>
       (case lookup_code s.code fname args of
-        | SOME (callee_prog,newlocals) =>
-           Vis (INL (callee_prog,s with locals := newlocals)) (h_handle_deccall_ret rt shape prog1 s)
+        | SOME (callee_prog,newlocals,rshape) =>
+           Vis (INL (callee_prog,s with locals := newlocals)) (h_handle_deccall_ret rt shape prog1 rshape s)
         | _ => Ret (INR (SOME Error,s)))
    | _ => Ret (INR (SOME Error,s))
 End
@@ -408,7 +447,7 @@ Definition h_prog_raise_def:
   Ret (INR (case (FLOOKUP s.eshapes eid, eval s e) of
             | (SOME sh, SOME value) =>
                 if shape_of value = sh ∧
-                   size_of_shape (shape_of value) <= 32
+                   size_of_sh_with_ctxt s.structs (shape_of value) <= 32
                 then (SOME (Exception eid value),empty_locals s)
                 else (SOME Error,s)
             | _ => (SOME Error,s)))
@@ -418,7 +457,7 @@ Definition h_prog_return_def:
   h_prog_return e ^s =
   Ret (INR (case (eval s e) of
             | SOME value =>
-                if size_of_shape (shape_of value) <= 32
+                if size_of_sh_with_ctxt s.structs (shape_of value) <= 32
                 then (SOME (Return value),empty_locals s)
                 else (SOME Error,s)
             | _ => (SOME Error,s)))
@@ -518,6 +557,7 @@ Definition h_prog_def:
   (h_prog (Annot _ _,s) = Ret (INR (NONE,s))) ∧
   (h_prog (Dec vname sh e p,s) = h_prog_dec vname sh e p s) ∧
   (h_prog (Assign vk vname e,s) = h_prog_assign vk vname e s) ∧
+  (h_prog (Primitive vname pop es,s) = h_prog_primitive vname pop es s) ∧
   (h_prog (Store dst src,s) = h_prog_store dst src s) ∧
   (h_prog (Store32 dst src,s) = h_prog_store_32 dst src s) ∧
   (h_prog (StoreByte dst src,s) = h_prog_store_byte dst src s) ∧
@@ -555,6 +595,7 @@ End
 Theorem h_prog_simple_defs = LIST_CONJ [
     h_prog_def,
     h_prog_assign_def,
+    h_prog_primitive_def,
     h_prog_store_def,
     h_prog_store_32_def,
     h_prog_store_byte_def,
@@ -584,7 +625,8 @@ QED
 Definition ext_def:
   ext ^s k ffi =
     <| locals      := s.locals
-     ; globals      := s.globals
+     ; globals     := s.globals
+     ; structs     := s.structs
      ; code        := s.code
      ; eshapes     := s.eshapes
      ; memory      := s.memory
@@ -601,6 +643,7 @@ End
 Theorem ext_access[simp]:
   (ext t k ffi).locals = t.locals ∧
   (ext t k ffi).globals = t.globals ∧
+  (ext t k ffi).structs = t.structs ∧
   (ext t k ffi).code = t.code ∧
   (ext t k ffi).eshapes = t.eshapes ∧
   (ext t k ffi).memory = t.memory ∧
@@ -619,13 +662,11 @@ Theorem eval_ext[simp]:
   eval (ext s t ffi) e = eval s e
 Proof
   map_every qid_spec_tac [‘t’,‘ffi’,‘e’,‘s’]>>
-  recInduct eval_ind>>rw[]>>
+  recInduct (name_ind_cases [] eval_ind)>>rw[]>>
+  rpt(pairarg_tac >> fs[])>>
   simp[eval_def,panSemTheory.eval_def]>>
-  TRY (simp[ext_def]>>NO_TAC)>>
-  ‘OPT_MMAP (λe. eval (ext s t ffi) e) es = OPT_MMAP (λe. eval s e) es’ by
-    (pop_assum mp_tac>>
-     qid_spec_tac ‘es’>>Induct>>rw[])>>
-  fs[]
+  rpt((MAP_FIRST irule [option_case_cong, UNCURRY_CONG, COND_CONG, OPT_MMAP_CONG]) >> rw[])>>
+  simp []
 QED
 
 Theorem opt_mmap_eval_ext[simp]:
@@ -652,6 +693,7 @@ Definition bst_def:
   bst (s:('a,'b) panSem$state) =
     <| locals      := s.locals
      ; globals     := s.globals
+     ; structs     := s.structs
      ; code        := s.code
      ; eshapes     := s.eshapes
      ; memory      := s.memory
@@ -666,6 +708,7 @@ End
 Theorem bst_access[simp]:
   (bst t).locals = t.locals ∧
   (bst t).globals = t.globals ∧
+  (bst t).structs = t.structs ∧
   (bst t).code = t.code ∧
   (bst t).eshapes = t.eshapes ∧
   (bst t).memory = t.memory ∧
@@ -695,12 +738,10 @@ Theorem eval_bst[simp]:
 Proof
   map_every qid_spec_tac [‘e’,‘s’]>>
   recInduct panSemTheory.eval_ind>>rw[]>>
+  rpt(pairarg_tac >> fs[])>>
   simp[eval_def,panSemTheory.eval_def]>>
-  TRY (simp[bst_def]>>NO_TAC)>>
-  ‘OPT_MMAP (λe. eval (bst s) e) es = OPT_MMAP (λe. eval s e) es’ by
-    (pop_assum mp_tac>>
-     qid_spec_tac ‘es’>>Induct>>rw[])>>
-  fs[]
+  rpt((MAP_FIRST irule [option_case_cong, UNCURRY_CONG, COND_CONG, OPT_MMAP_CONG]) >> rw[])>>
+  simp []
 QED
 
 Theorem opt_mmap_eval_bst[simp]:
@@ -963,10 +1004,10 @@ Proof
    (fs[h_prog_def,h_prog_call_def,FUNPOW_SUC]>>
     rpt (FULL_CASE_TAC>>fs[])>>
     imp_res_tac bind_FUNPOW_Ret>>fs[FUNPOW_Tau_bind]>>
-    rename [‘h_handle_call_ret _ _ r'’]>>
+    rename [‘h_handle_call_ret _ _ _ r'’]>>
     Cases_on ‘r'’>>fs[h_handle_call_ret_def]>>
     rename1 ‘INR y’>>Cases_on ‘y’>>
-    rename1 ‘INR (q',r')’>>Cases_on ‘q'’>>fs[h_handle_call_ret_def]>>
+    rename1 ‘INR (q'',r')’>>Cases_on ‘q''’>>fs[h_handle_call_ret_def]>>
     rename1 ‘INR (SOME x'',_)’>>Cases_on ‘x''’>>
     Cases_on ‘o'’>>fs[h_handle_call_ret_def]>>
     rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
@@ -976,10 +1017,10 @@ Proof
    (fs[h_prog_def,h_prog_deccall_def,FUNPOW_SUC]>>
     rpt (FULL_CASE_TAC>>fs[])>>
     imp_res_tac bind_FUNPOW_Ret>>fs[FUNPOW_Tau_bind]>>
-    rename [‘h_handle_deccall_ret _ _ _ _ r'’]>>
+    rename [‘h_handle_deccall_ret _ _ _ _ _ r'’]>>
     Cases_on ‘r'’>>fs[h_handle_deccall_ret_def]>>
     rename1 ‘INR y’>>Cases_on ‘y’>>
-    rename1 ‘INR (q',r')’>>Cases_on ‘q'’>>fs[h_handle_deccall_ret_def]>>
+    rename1 ‘INR (q'',r')’>>Cases_on ‘q''’>>fs[h_handle_deccall_ret_def]>>
     rename1 ‘INR (SOME x'',_)’>>Cases_on ‘x''’>>fs[h_handle_deccall_ret_def]>>
     rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
     Cases_on ‘m'’>>fs[FUNPOW_SUC]>>
@@ -1070,13 +1111,15 @@ Theorem mrec_Dec:
   (mrec h_prog (h_prog (Dec x sh e p, s)):'a ptree) =
   case eval s e of
     SOME v =>
-      Tau (itree_bind
+      if shape_of v = sh
+      then Tau (itree_bind
            (mrec h_prog (h_prog (p,s with locals := s.locals |+ (x,v))):'a ptree)
            (λa. Ret (INR (case a of
                             INL l => (SOME Error, s)
                           | INR (res,s') =>
                               (res, s' with
                      locals := res_var s'.locals (x,FLOOKUP s.locals x))))))
+      else Ret (INR (SOME Error, s))
   | _ => Ret (INR (SOME Error, s))
 Proof
   simp[h_prog_dec_def,h_prog_def]>>
@@ -1097,6 +1140,21 @@ Theorem mrec_Assign:
 Proof
   simp[h_prog_assign_def,h_prog_def]>>
   rpt (CASE_TAC>>fs[])
+QED
+
+Theorem mrec_Primitive:
+  (mrec h_prog (h_prog (Primitive vname pop es, s)):'a ptree) =
+  Ret (INR (case OPT_MMAP (eval s) es of
+              SOME vs =>
+                (case pan_primop pop vs of
+                   SOME value =>
+                     if is_valid_value s Local vname value
+                     then (NONE, set_var vname value s)
+                     else (SOME Error, s)
+                 | NONE => (SOME Error, s))
+            | _ => (SOME Error, s)))
+Proof
+  simp[h_prog_primitive_def,h_prog_def]
 QED
 
 Theorem mrec_If:
@@ -1306,7 +1364,7 @@ Theorem mrec_Return:
   Ret (INR (case eval s e of
               NONE => (SOME Error,s)
             | SOME v =>
-                if size_of_shape (shape_of v) ≤ 32 then
+                if size_of_sh_with_ctxt s.structs (shape_of v) ≤ 32 then
                   (SOME (Return v), empty_locals s)
                 else (SOME Error,s)))
 Proof
@@ -1317,7 +1375,7 @@ Theorem mrec_Raise:
   mrec h_prog (h_prog (Raise eid e,s)) =
   Ret (INR (case (FLOOKUP s.eshapes eid, eval s e) of
             | (SOME sh, SOME v) =>
-                if shape_of v = sh ∧ size_of_shape (shape_of v) ≤ 32 then
+                if shape_of v = sh ∧ size_of_sh_with_ctxt s.structs (shape_of v) ≤ 32 then
                   (SOME (Exception eid v), empty_locals s)
                 else (SOME Error,s)
             | _ => (SOME Error,s)))
@@ -1327,7 +1385,7 @@ QED
 
 Theorem mrec_prog_simps =
   LIST_CONJ [mrec_prog_triv,mrec_Return,mrec_Raise,mrec_Dec,mrec_Assign,
-             mrec_Store,mrec_Store32,mrec_StoreByte];
+             mrec_Primitive,mrec_Store,mrec_Store32,mrec_StoreByte];
 
 Theorem mrec_Call:
  (mrec h_prog (h_prog (Call typ fname aexps,s)):'a ptree) =
@@ -1336,10 +1394,10 @@ Theorem mrec_Call:
     | SOME args =>
         case lookup_code s.code fname args of
           NONE => Ret (INR (SOME Error,s))
-        | SOME (q,r) =>
+        | SOME (q,r,rsh) =>
             Tau
             (itree_bind (mrec h_prog (h_prog (q,s with locals := r)):'a ptree)
-                        (mrec h_prog o (h_handle_call_ret typ s)))
+                        (mrec h_prog o (h_handle_call_ret typ rsh s)))
         | _ => Ret (INR (SOME Error,s)))
 Proof
   simp[h_prog_def,h_prog_call_def]>>
@@ -1353,17 +1411,17 @@ Theorem mrec_DecCall:
    | SOME args =>
        case lookup_code s.code fname args of
          NONE => Ret (INR (SOME Error,s))
-       | SOME (q,r) =>
+       | SOME (q,r,rsh) =>
            Tau
            (itree_bind (mrec h_prog (h_prog (q,s with locals := r)):'a ptree)
-                       (mrec h_prog o (h_handle_deccall_ret rt sh prog s))))
+                       (mrec h_prog o (h_handle_deccall_ret rt sh prog rsh s))))
 Proof
   simp[h_prog_def,h_prog_deccall_def]>>
   rpt (CASE_TAC>>fs[])
 QED
 
 Theorem mrec_h_handle_call_ret_lemma:
-  mrec h_prog (h_handle_call_ret ct s res) :'a ptree =
+  mrec h_prog (h_handle_call_ret ct rsh s res) :'a ptree =
   case res of
   | INR (NONE,s') => Ret (INR (SOME Error,s'))
   | INR (SOME Break,s') => Ret (INR (SOME Error,s'))
@@ -1387,13 +1445,14 @@ Theorem mrec_h_handle_call_ret_lemma:
             else Ret (INR (SOME (Exception eid exn),empty_locals s')))
        | _ => Ret (INR (SOME (Exception eid exn),empty_locals s')))
   | INR (SOME (Return retv), s') =>
+      (if shape_of retv ≠ rsh then Ret (INR (SOME Error, s')) else
       (case ct of
          NONE => Ret (INR (SOME (Return retv),empty_locals s'))
        | SOME (NONE, _) => Ret (INR (NONE, s' with locals := s.locals))
        | SOME (SOME (rk,rt), _) =>
               if is_valid_value s rk rt retv
               then Ret (INR (NONE,set_kvar rk rt retv (s' with locals := s.locals)))
-              else Ret (INR (SOME Error,s')))
+              else Ret (INR (SOME Error,s'))))
   | INR (res,s') => Ret (INR (res,empty_locals s'))
   | INL _ => Ret (INR (SOME Error,s)):'a ptree
 Proof
@@ -1402,13 +1461,13 @@ Proof
 QED
 
 Theorem mrec_h_handle_deccall_ret_lemma:
-  mrec h_prog (h_handle_deccall_ret rt sh p s res) :'a ptree =
+  mrec h_prog (h_handle_deccall_ret rt sh p rsh s res) :'a ptree =
   case res of
   | INR (NONE,s') => Ret (INR (SOME Error,s'))
   | INR (SOME Break,s') => Ret (INR (SOME Error,s'))
   | INR (SOME Continue,s') => Ret (INR (SOME Error,s'))
   | INR (SOME (Return retv), s') =>
-      (if shape_of retv = sh then
+      (if shape_of retv = sh ∧ shape_of retv = rsh then
          Tau
          (itree_bind
           (mrec h_prog (h_prog (p,set_var rt retv (s' with locals := s.locals))):'a ptree)

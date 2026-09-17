@@ -61,7 +61,7 @@ Datatype:
      ; global      : num option
      ; handler     : num
      ; refs        : v ref num_map
-     ; compile     : 'c -> (num # num # dataLang$prog) list -> (word8 list # word64 list # 'c) option
+     ; compile     : 'c -> (num # num # dataLang$prog) list -> (mlstring # word64 list # 'c) option
      ; clock       : num
      ; code        : (num # dataLang$prog) num_map
      ; ffi         : 'ffi ffi_state
@@ -93,8 +93,8 @@ QED
 
 Definition small_num_def:
   small_num arch64 (i:int) =
-    if arch64 then -(2 ** 61) <= i /\ i < (2 ** 61)
-              else -(2 ** 29) <= i /\ i < (2 ** 29)
+    if arch64 then -(2 ** 62) <= i /\ i < (2 ** 62)
+              else -(2 ** 30) <= i /\ i < (2 ** 30)
 End
 
 Definition bignum_digits_def:
@@ -126,7 +126,10 @@ Definition size_of_def:
      | SOME (ValueArray vs) => let (n,refs,seen) = size_of lims vs (delete r refs) seen in
                                  (n + LENGTH vs + 1, refs, seen)
      | SOME (Thunk _ v) => let (n,refs,seen) = size_of lims [v] (delete r refs) seen in
-                             (n + 2, refs, seen)) /\
+                             (n + 2, refs, seen)
+     | SOME (MutBlock tg fin ls c rs) =>
+         let (n,refs,seen) = size_of lims (ls ++ [c] ++ rs) (delete r refs) seen in
+           (n + LENGTH ls + LENGTH rs + 2, refs, seen)) /\
   (size_of lims [Block ts tag []]) refs seen = (0, refs, seen) /\
   (size_of lims [Block ts tag vs] refs seen =
      if IS_SOME (sptree$lookup ts seen) then (0, refs, seen) else
@@ -179,8 +182,13 @@ Definition size_of_heap_def:
       n
 End
 
+Definition no_thunks_in_refs_def:
+  no_thunks_in_refs refs ⇔ ∀k e v. lookup k refs ≠ SOME (Thunk e v)
+End
+
 Overload add_space_safe =
   ``λk ^s. s.safe_for_space
+           ∧ no_thunks_in_refs s.refs
            ∧ size_of_heap s + k <= s.limits.heap_limit``
 
 Overload heap_peak =
@@ -193,6 +201,23 @@ Definition add_space_def:
             ; peak_heap_length := heap_peak k s |>
 End
 
+(* Args-aware variant: cost reflects op_args + non-arg locals as the
+   GC-root set, matching wordSem's view at the op's inner Alloc.
+   stack_to_vs already covers s.locals (which, when the dataLang
+   evaluator hands the state to do_app, is the NARROW cut without args). *)
+Definition size_of_heap_args_def:
+  size_of_heap_args op_args ^s =
+    let (n,_,_) = size_of s.limits (op_args ++ stack_to_vs ^s) ^s.refs LN in
+      n
+End
+
+Overload add_space_safe_args =
+  ``λk op_args ^s. s.safe_for_space
+                  ∧ size_of_heap_args op_args s + k <= s.limits.heap_limit``
+
+Overload heap_peak_args =
+  ``λk op_args ^s. MAX (s.peak_heap_length) (size_of_heap_args op_args s + k)``
+
 Definition consume_space_def:
   consume_space k ^s =
     if s.space < k then NONE else SOME (s with space := s.space - k)
@@ -200,7 +225,7 @@ End
 
 (* Determines which operations are safe for space *)
 Definition allowed_op_def:
-  allowed_op op _ = (op <> closLang$Install)
+  allowed_op op _ = (op <> closLang$Install /\ !t i. op <> MemOp (MutCons t i))
 End
 
 Definition v_to_list_def:
@@ -380,12 +405,15 @@ End
 Overload do_space_safe =
   ``λop vs ^s. if op_space_reset op
               then s.safe_for_space
-                   ∧ size_of_heap s + space_consumed s op vs <= s.limits.heap_limit
+                   ∧ no_thunks_in_refs s.refs
+                   ∧ size_of_heap_args vs s
+                       + space_consumed s op vs
+                     <= s.limits.heap_limit
               else s.safe_for_space``;
 
 Overload do_space_peak =
   ``λop vs ^s. if op_space_reset op
-              then heap_peak (space_consumed s op vs) s
+              then heap_peak_args (space_consumed s op vs) vs s
               else s.peak_heap_length``;
 
 Definition do_space_def:
@@ -418,9 +446,14 @@ Definition do_stack_def:
               ; stack_max := OPTION_MAP2 MAX s.stack_max new_stack |>
 End
 
-Definition v_to_bytes_def:
-  v_to_bytes lv = some ns:word8 list.
-                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)
+Definition v_to_mlstring_def:
+  v_to_mlstring refs lv =
+    case lv of
+    | RefPtr _ p =>
+        (case lookup p refs of
+         | SOME (ByteArray T bs) => SOME (bytes_to_mlstring bs)
+         | _ => NONE)
+    | _ => NONE
 End
 
 Definition v_to_words_def:
@@ -474,11 +507,10 @@ Overload Error[local] =
 Definition do_install_def:
   do_install vs ^s =
       (case vs of
-       | [v1;v2;vl1;vl2] =>
-           (case (v_to_bytes v1, v_to_words v2) of
+       | [v1;v2;vl2] =>
+           (case (v_to_mlstring s.refs v1, v_to_words v2) of
             | (SOME bytes, SOME data) =>
-               if vl1 <> Number (& LENGTH bytes) \/
-                  vl2 <> Number (& LENGTH data)
+               if vl2 <> Number (& LENGTH data)
                then Rerr(Rabort Rtype_error) else
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in
@@ -542,6 +574,11 @@ Definition lim_safe_def[simp]:
       4 * tag < 2 ** (arch_size lims) DIV 16 /\
       4 * tag < 2 ** (arch_size lims - lims.length_limit - 2)
       )
+∧ (lim_safe lims (MemOp (MutCons tag i)) xs =
+      (LENGTH xs < 2 ** lims.length_limit /\
+       LENGTH xs < 2 ** (arch_size lims - 4) /\
+       4 * tag < 2 ** (arch_size lims) DIV 16 /\
+       4 * tag < 2 ** (arch_size lims - lims.length_limit - 2)))
 ∧ (lim_safe lims (BlockOp (FromList tag)) xs =
    (case xs of
     | [len;lv] =>
@@ -777,6 +814,53 @@ Definition dest_Boolv_def:
   dest_Boolv _ = NONE
 End
 
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk (RefPtr b ptr) refs =
+    (case lookup ptr refs of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) =>
+         if b then BadRef else IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) =>
+         if b then BadRef else IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk v refs = NotThunk
+End
+
+Definition bad_thunk_update_def:
+  bad_thunk_update m v refs ⇔
+    m = Evaluated ∧ dest_thunk v refs ≠ NotThunk
+End
+
+(* mirrors bviSem$finalise_cons, but threads the timestamp counter so that
+   each block produced by the finalisation gets a fresh time stamp *)
+Definition finalise_cons_def:
+  (finalise_cons (RefPtr b ptr) refs ts =
+    case lookup ptr refs of
+    | SOME (MutBlock tag finalised l c r) =>
+        if ~finalised then
+          (case finalise_cons c (delete ptr refs) ts of
+           | SOME (c',refs',ts') =>
+               SOME (Block (case ts' of NONE => 0 | SOME n => n) tag (l ++ [c'] ++ r),
+                     insert ptr (MutBlock tag T l c r) refs',
+                     OPTION_MAP SUC ts')
+           | NONE => NONE)
+        else NONE
+    | SOME res => SOME (RefPtr b ptr,refs,ts)
+    | NONE => NONE) ∧
+  (finalise_cons v refs ts = SOME (v,refs,ts))
+Termination
+  WF_REL_TAC ‘measure (sptree$size o FST o SND)’
+  \\ rw [] \\ imp_res_tac miscTheory.lookup_zero
+  \\ fs [sptreeTheory.size_delete]
+End
+
 Definition do_app_aux_def:
   do_app_aux op ^vs ^s =
     case (op,vs) of
@@ -989,6 +1073,25 @@ Definition do_app_aux_def:
                               (ValueArray (LUPDATE x (Num i) xs)) s.refs)
              else Error)
          | _ => Error)
+    | (MemOp (MutCons tag i),xs) =>
+        (let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
+           if i >= LENGTH xs then Error else
+             let l = TAKE i xs in
+             let c = EL i xs in
+             let r = DROP (i+1) xs in
+               Rval (RefPtr F ptr,
+                     s with refs := insert ptr (MutBlock tag F l c r) s.refs))
+    | (MemOp UpdateCons,[RefPtr _ ptr; Number i; x]) =>
+        (case lookup ptr s.refs of
+         | SOME (MutBlock tag finalised l c r) =>
+             if i <> & LENGTH l \/ finalised then Error else
+               Rval (Unit, s with refs := insert ptr (MutBlock tag F l x r) s.refs)
+         | _ => Error)
+    | (MemOp FinaliseCons,[x]) =>
+        (case finalise_cons x s.refs s.tstamps of
+         | SOME (v,refs',ts') =>
+             Rval (v, s with <| refs := refs' ; tstamps := ts' |>)
+         | NONE => Error)
     | (IntOp intop, vs) =>
         (case do_int_app intop vs of
         | SOME res => Rval (res ,s)
@@ -1033,11 +1136,13 @@ Definition do_app_aux_def:
     | (ThunkOp th_op,vs) =>
         (case (th_op,vs) of
          | (AllocThunk m, [v]) =>
-             (let ptr = (LEAST ptr. ptr ∉ domain s.refs) in
+             (if bad_thunk_update m v s.refs then Error else
+              let ptr = (LEAST ptr. ptr ∉ domain s.refs) in
                 Rval (RefPtr F ptr,
                       s with refs := insert ptr (Thunk m v) s.refs))
-         | (UpdateThunk m, [RefPtr _ ptr; v]) =>
-             (case lookup ptr s.refs of
+         | (UpdateThunk m, [RefPtr F ptr; v]) =>
+             (if bad_thunk_update m v s.refs then Error else
+              case lookup ptr s.refs of
               | SOME (Thunk NotEvaluated _) =>
                  Rval (Unit,s with refs := insert ptr (Thunk m v) s.refs)
               | _ => Error)
@@ -1241,21 +1346,8 @@ Definition install_sfs_def[simp]:
   install_sfs op ^s = s with safe_for_space := (op ≠ closLang$Install ∧ s.safe_for_space)
 End
 
-Datatype:
-  dest_thunk_ret
-    = BadRef
-    | NotThunk
-    | IsThunk thunk_mode v
-End
-
-Definition dest_thunk_def:
-  dest_thunk (RefPtr _ ptr) refs =
-    (case lookup ptr refs of
-     | NONE => BadRef
-     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
-     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
-     | SOME _ => NotThunk) ∧
-  dest_thunk v refs = NotThunk
+Definition set_vars_def:
+  set_vars ns vs s = (s with locals := union (fromAList (ZIP (ns,vs))) s.locals)
 End
 
 Definition evaluate_def:
@@ -1265,16 +1357,19 @@ Definition evaluate_def:
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
      | SOME v => (NONE, set_var dest v s)) /\
   (evaluate (Assign dest op args names_opt,s) =
-     if op_requires_names op /\ IS_NONE names_opt then (SOME (Rerr(Rabort Rtype_error)),s) else
-     case cut_state_opt names_opt s of
-     | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-     | SOME s =>
-       (case get_vars args s.locals of
-        | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-        | SOME xs => (case do_app op xs s of
-                      | Rerr e => (SOME (Rerr e),flush_state T (install_sfs op s))
-                      | Rval (v,s) =>
-                        (NONE, set_var dest v (install_sfs op s))))) /\
+     if op_requires_names op = IS_NONE names_opt then
+       (SOME (Rerr(Rabort Rtype_error)),s)
+     else
+       case get_vars args s.locals of
+       | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
+       | SOME xs =>
+           case cut_state_opt names_opt s of
+           | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
+           | SOME s =>
+               case do_app op xs s of
+               | Rerr e => (SOME (Rerr e),flush_state T (install_sfs op s))
+               | Rval (v,s) =>
+                   (NONE, set_var dest v (install_sfs op s))) /\
   (evaluate (Tick,s) =
      if s.clock = 0 then (SOME (Rerr(Rabort Rtimeout_error)),flush_state T s)
                     else (NONE,dec_clock s)) /\
@@ -1289,10 +1384,10 @@ Definition evaluate_def:
        (case jump_exc s of
         | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
         | SOME s => (SOME (Rerr(Rraise x)),s))) /\
-  (evaluate (Return n,s) =
-     case get_var n s.locals of
+  (evaluate (Return ns,s) =
+     case get_vars ns s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-     | SOME x => (SOME (Rval x),flush_state F s)) /\
+     | SOME xs => (SOME (Rval xs),flush_state F s)) /\
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
        if res = NONE then evaluate (c2,s1) else (res,s1)) /\
@@ -1312,7 +1407,7 @@ Definition evaluate_def:
         | NotThunk => (SOME (Rerr (Rabort Rtype_error)),s)
         | IsThunk Evaluated v =>
           (case ret of
-           | NONE => (SOME (Rval v),flush_state F s)
+           | NONE => (SOME (Rval [v]),flush_state F s)
            | SOME (dest,names) =>
              (case cut_env names s.locals of
               | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
@@ -1340,10 +1435,13 @@ Definition evaluate_def:
                            s1 with <| stack := [] ; locals := LN |>)
                         else
                           (case fix_clock s1 (evaluate (prog, s1)) of
-                           | (SOME (Rval x),s2) =>
-                             (case pop_env s2 of
-                              | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
-                              | SOME s1 => (NONE, set_var dest x s1))
+                           | (SOME (Rval xs),s2) =>
+                             (if LENGTH xs = 1 then
+                                case pop_env s2 of
+                                | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
+                                | SOME s1 => (NONE, set_var dest (HD xs) s1)
+                              else
+                                (SOME (Rerr(Rabort Rtype_error)),s2))
                            | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
                            | res => res)))))) /\
   (evaluate (Call ret dest args handler,s) =
@@ -1364,7 +1462,8 @@ Definition evaluate_def:
                   | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
                   | (SOME res,s) => (SOME res,s))
                else (SOME (Rerr(Rabort Rtype_error)),s)
-           | SOME (n,names) (* returning call, returns into var n *) =>
+           | SOME (ns,names) (* returning call, returns into var n *) =>
+             if ¬ALL_DISTINCT ns then (SOME (Rerr(Rabort Rtype_error)),s) else
              (case cut_env names s.locals of
               | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
               | SOME env =>
@@ -1374,10 +1473,13 @@ Definition evaluate_def:
                    then (SOME (Rerr(Rabort Rtimeout_error)),
                         s1 with <| stack := [] ; locals := LN |>)
                    else (case fix_clock s1 (evaluate (prog, s1)) of
-                         | (SOME (Rval x),s2) =>
-                           (case pop_env s2 of
-                            | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
-                            | SOME s1 => (NONE, set_var n x s1))
+                         | (SOME (Rval xs),s2) =>
+                           (if LENGTH xs = LENGTH ns then
+                              (case pop_env s2 of
+                               | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
+                               | SOME s1 => (NONE, set_vars ns xs s1))
+                            else
+                              (SOME (Rerr(Rabort Rtype_error)),s2))
                          | (SOME (Rerr(Rraise x)),s2) =>
                            (* if handler is present, then handle exc *)
                            (case handler of
@@ -1443,8 +1545,14 @@ Proof
   \\ rw[do_stack_clock]
 QED
 
+Theorem set_vars_clock[local,simp]:
+  (set_vars ns vs s).clock = s.clock
+Proof
+  simp [set_vars_def]
+QED
+
 Theorem evaluate_clock:
- !xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock
+  !xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock
 Proof
   recInduct evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >>

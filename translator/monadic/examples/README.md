@@ -9,14 +9,6 @@ references, arrays and exceptions.
 An example showing how to use the monadic translator with
 references, arrays and exceptions.
 
-[array_searchProgScript.sml](array_searchProgScript.sml):
-An example showing how to use the monadic translator to translate monadic
-array search functions, including exceptions.
-
-[doubleArgProgScript.sml](doubleArgProgScript.sml):
-An example showing how to use the monadic translator to translate monadic
-doubling functions, including using references (no arrays, no exceptions).
-
 [exceptionProgScript.sml](exceptionProgScript.sml):
 An example showing how to use the monadic translator to translate
 monadic functions using exceptions (no references, no arrays).
@@ -32,7 +24,15 @@ monadic functions using references, stdio, and commandline
 [floyd_warshallProgScript.sml](floyd_warshallProgScript.sml):
 The Floyd-Warshall algorithm - testing the monadic translator
 
-[helloProgScript.sml](helloProgScript.sml):
+[monadic_array_searchProgScript.sml](monadic_array_searchProgScript.sml):
+An example showing how to use the monadic translator to translate monadic
+array search functions, including exceptions.
+
+[monadic_doubleArgProgScript.sml](monadic_doubleArgProgScript.sml):
+An example showing how to use the monadic translator to translate monadic
+doubling functions, including using references (no arrays, no exceptions).
+
+[monadic_helloProgScript.sml](monadic_helloProgScript.sml):
 An example showing how to use the monadic translator to translate
 monadic functions using IO primitives from the basis library.
 

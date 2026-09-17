@@ -152,8 +152,8 @@ val _ = translate (LoadBignum_def |> inline_simp |> conv64)
 
 Theorem Smallnum_alt[local]:
     Smallnum i =
-    if i < 0 then 0w − n2w (Num (ABS (4 * (0 − i))))
-             else n2w (Num (ABS (4 * i)))
+    if i < 0 then 0w − n2w (Num (ABS (2 * (0 − i))))
+             else n2w (Num (ABS (2 * i)))
 Proof
   fs [Smallnum_def] \\ Cases_on `i` \\ fs [integerTheory.INT_ABS_NUM]
 QED
@@ -274,13 +274,27 @@ val _ = translate arg2_pmatch;
 val _ = translate arg3_pmatch;
 val _ = translate arg4_pmatch;
 
+val loc_values = find "location_def"
+  |> filter (fn ((m,_),_) => m = "data_to_word")
+  |> map (fn (_,(d,_,_)) => d |> concl |> dest_eq |> fst |> EVAL)
+  |> LIST_CONJ;
+
 fun tweak_assign_def th =
-  th |> SIMP_RULE std_ss [assign_rw]
+  th |> SIMP_RULE std_ss [assign_rw, loc_values]
      |> inline_simp |> conv64 |> we_simp
      |> SIMP_RULE std_ss [SHIFT_ZERO,shift_left_rwt]
      |> SIMP_RULE std_ss [word_mul_def,LET_THM] |> gconv;
 
-val res = all_assign_defs |> CONJUNCTS |> map tweak_assign_def |> map translate;
+val res = all_assign_defs |> CONJUNCTS |> rev |> map tweak_assign_def |> map translate;
+
+Theorem data_to_word_assign_const_side[local]:
+  !i l dest. data_to_word_assign_const_side i l dest <=> T
+Proof
+  rw [fetch "-" "data_to_word_assign_const_side_def"] \\ intLib.COOPER_TAC
+QED
+
+val _ = update_precondition data_to_word_assign_const_side;
+
 val res = translate (assign_def |> tweak_assign_def);
 
 Theorem lemma[local]:
@@ -318,6 +332,11 @@ val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a wor
                    ``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``]
 
 val res = word_cseTheory.map_insert_def |> DefnBase.one_line_ify NONE |> translate;
+
+val res = translate word_cseTheory.bm_inter_eq_def;
+val res = translate sptreeTheory.inter_eq_def;
+val res = translate word_cseTheory.merge_data_def;
+
 val res = translate (word_cseTheory.word_cseInst_def |> spec64);
 val res = translate_no_ind (word_cseTheory.word_cse_def |> spec64);
 
@@ -467,6 +486,9 @@ val _ = translate (spec64 inst_select_def(*pmatch*))
 
 val _ = translate (spec64 list_next_var_rename_move_def)
 val _ = translate force_rename_def
+
+val _ = translate (spec64 ssa_reconcile_def);
+val _ = translate (spec64 loop_setup_def);
 
 val _ = translate (conv64 ssa_cc_trans_inst_def)
 val _ = translate (spec64 full_ssa_cc_trans_def)
@@ -657,8 +679,7 @@ val r = translate(ByteCopyAdd_code_def |> conv64)
 val r = translate(ByteCopySub_code_def |> conv64 |> econv)
 val r = translate(ByteCopyNew_code_def |> conv64)
 
-val r = translate(Install_code_def |> conv64)
-val r = translate(InstallCode_code_def |> inline_simp |> conv64)
+val r = translate(Install_code_def |> inline_simp |> conv64)
 val r = translate(InstallData_code_def |> inline_simp |> conv64)
 
 val _ = translate(Append_code_def|> inline_simp |> conv64 |> we_simp |> econv |> SIMP_RULE std_ss [shift_left_rwt])
@@ -684,7 +705,8 @@ val _ = translate word_to_stackTheory.stub_names_def
 val _ = translate stack_allocTheory.stub_names_def
 val _ = translate stack_removeTheory.stub_names_def
 val res = translate (data_to_wordTheory.compile_def
-                     |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv64_RHS);
+                     |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def, loc_values]
+                     |> conv64_RHS);
 
 
 (* explorer specific functions *)

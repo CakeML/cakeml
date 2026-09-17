@@ -223,20 +223,20 @@ Proof
       match_mp_tac TC_SUBSET >>
       fs[LIST_LENGTH_2] >>
       rveq >> fs[subst_clos_def] >-
-        (qexists_tac `Fun (Tyvar(strlit "a")) (Tyvar(strlit "aa"))` >>
-         qexists_tac `Tyvar(strlit "a")` >>
-         qexists_tac `[(e1,Tyvar(strlit "a"));(e2,Tyvar(strlit "aa"))]` >>
+        (qexists_tac `Fun (Tyvar «a») (Tyvar «aa»)` >>
+         qexists_tac `Tyvar «a»` >>
+         qexists_tac `[(e1,Tyvar «a»);(e2,Tyvar «aa»)]` >>
          simp[REV_ASSOCD_def] >>
-         `MEM (NewType (strlit"fun") 2) ctxt`
+         `MEM (NewType «fun» 2) ctxt`
            by(imp_res_tac extends_appends >> simp[init_ctxt_def]) >>
          drule (List.nth(dependency_rules |> CONJUNCTS,5)) >>
          simp[DISJ_IMP_THM,FORALL_AND_THM] >>
          EVAL_TAC >> simp[]) >-
-        (qexists_tac `Fun (Tyvar(strlit "a")) (Tyvar(strlit "aa"))` >>
-         qexists_tac `Tyvar(strlit "aa")` >>
-         qexists_tac `[(e1,Tyvar(strlit "a"));(e2,Tyvar(strlit "aa"))]` >>
+        (qexists_tac `Fun (Tyvar «a») (Tyvar «aa»)` >>
+         qexists_tac `Tyvar «aa»` >>
+         qexists_tac `[(e1,Tyvar «a»);(e2,Tyvar «aa»)]` >>
          simp[REV_ASSOCD_def] >>
-         `MEM (NewType (strlit"fun") 2) ctxt`
+         `MEM (NewType «fun» 2) ctxt`
            by(imp_res_tac extends_appends >> simp[init_ctxt_def]) >>
          drule (List.nth(dependency_rules |> CONJUNCTS,5)) >>
          simp[DISJ_IMP_THM,FORALL_AND_THM] >>
@@ -248,20 +248,20 @@ Proof
       match_mp_tac TC_SUBSET >>
       fs[LIST_LENGTH_2] >>
       rveq >> fs[subst_clos_def] >-
-        (qexists_tac `Fun (Tyvar(strlit "a")) (Tyvar(strlit "aa"))` >>
-         qexists_tac `Tyvar(strlit "a")` >>
-         qexists_tac `[(e1,Tyvar(strlit "a"));(e2,Tyvar(strlit "aa"))]` >>
+        (qexists_tac `Fun (Tyvar «a») (Tyvar «aa»)` >>
+         qexists_tac `Tyvar «a»` >>
+         qexists_tac `[(e1,Tyvar «a»);(e2,Tyvar «aa»)]` >>
          simp[REV_ASSOCD_def] >>
-         `MEM (NewType (strlit"fun") 2) ctxt`
+         `MEM (NewType «fun» 2) ctxt`
            by(imp_res_tac extends_appends >> simp[init_ctxt_def]) >>
          drule (List.nth(dependency_rules |> CONJUNCTS,5)) >>
          simp[DISJ_IMP_THM,FORALL_AND_THM] >>
          EVAL_TAC >> simp[]) >-
-        (qexists_tac `Fun (Tyvar(strlit "a")) (Tyvar(strlit "aa"))` >>
-         qexists_tac `Tyvar(strlit "aa")` >>
-         qexists_tac `[(e1,Tyvar(strlit "a"));(e2,Tyvar(strlit "aa"))]` >>
+        (qexists_tac `Fun (Tyvar «a») (Tyvar «aa»)` >>
+         qexists_tac `Tyvar «aa»` >>
+         qexists_tac `[(e1,Tyvar «a»);(e2,Tyvar «aa»)]` >>
          simp[REV_ASSOCD_def] >>
-         `MEM (NewType (strlit"fun") 2) ctxt`
+         `MEM (NewType «fun» 2) ctxt`
            by(imp_res_tac extends_appends >> simp[init_ctxt_def]) >>
          drule (List.nth(dependency_rules |> CONJUNCTS,5)) >>
          simp[DISJ_IMP_THM,FORALL_AND_THM] >>

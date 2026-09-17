@@ -15,7 +15,7 @@ val _ = m_translation_extends "ml_hol_kernel_funsProg"
 val def = m_translate mk_eq_def;
 val res = translate aconv_def;
 val res = translate holKernelPmatchTheory.is_eq_def;
-val def = m_translate mk_fun_ty_def;
+val def = translate mk_fun_ty_def;
 
 val _ = next_ml_names := ["SYM"];
 val def = m_translate holKernelPmatchTheory.SYM_def;
@@ -59,4 +59,3 @@ Theorem EqualityType_THM_TYPE = EqualityType_rule [] “:thm”;
 Theorem EqualityType_UPDATE_TYPE = EqualityType_rule [] “:update”;
 
 val _ = (print_asts := true);
-

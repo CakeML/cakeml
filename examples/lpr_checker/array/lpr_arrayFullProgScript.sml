@@ -29,7 +29,7 @@ val _ = translate nocomment_line_def;
 
 Definition format_dimacs_failure_def:
   format_dimacs_failure (lno:num) s =
-  strlit "c DIMACS parse failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"
+  «c DIMACS parse failed at line: » ^ toString lno ^ «. Reason: » ^ s ^ «\n»
 End
 
 val _ = translate format_dimacs_failure_def;
@@ -823,7 +823,7 @@ val _ = translate parse_proof_toks_aux_def;
 val _ = translate parse_proof_toks_def;
 
 Definition noparse_string_def:
-  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]
+  noparse_string f s = concat[«c Input file: »;f;« unable to parse in format: »; s;«\n»]
 End
 
 val r = translate noparse_string_def;
@@ -868,7 +868,7 @@ End
 
 Definition transformation_err_def:
   transformation_err cl =
-  concat[strlit"c transformation clause: ";print_clause cl;strlit"c not derived at end of proof\n"]
+  concat[«c transformation clause: »;print_clause cl;«c not derived at end of proof\n»]
 End
 
 val _ = translate transformation_err_def;
@@ -903,14 +903,14 @@ End
 val _ = translate check_cond_def;
 
 Definition success_str_def:
-  success_str cnf_md5 proof_md5 rng = expected_prefix cnf_md5 proof_md5 ^ rng ^ strlit "\n"
+  success_str cnf_md5 proof_md5 rng = expected_prefix cnf_md5 proof_md5 ^ rng ^ «\n»
 End
 
 val _ = translate success_str_def;
 
 Definition parse_rng_or_check_def:
   parse_rng_or_check rngc =
-  if rngc = strlit "-check" then SOME (INL ())
+  if rngc = «-check» then SOME (INL ())
   else OPTION_MAP INR (parse_rng rngc)
 End
 
@@ -978,7 +978,7 @@ val inputAllTokensFile_spec_specialize =
 Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs f1 out ⇔
   case get_fml fs f1 of
-    NONE => out = strlit ""
+    NONE => out = «»
   | SOME (mv,ncl,fml) => out = concat (print_dimacs fml)
 End
 
@@ -1022,7 +1022,7 @@ Proof
   asm_exists_tac>>xsimpl>>
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`strlit""`>>xsimpl>>
+  qexists_tac`«»`>>xsimpl>>
   simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil,STD_streams_stderr]>>
   xsimpl
 QED
@@ -1030,12 +1030,12 @@ QED
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 out =
   case get_fml fs f1 of
-    NONE => out = strlit""
+    NONE => out = «»
   | SOME (mv,ncl,fml) =>
-    (out ≠ strlit"" ⇒
+    (out ≠ «» ⇒
     ∃lpr.
       EVERY wf_lpr lpr ∧
-      out = strlit "s VERIFIED UNSAT\n" ∧
+      out = «s VERIFIED UNSAT\n» ∧
       let fmlls = enumerate 1 fml in
       let base = REPLICATE (2*ncl) NONE in
       let bnd = 2*mv+3 in
@@ -1137,7 +1137,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit""`>>xsimpl>>
+    qexists_tac`«»`>>xsimpl>>
     qexists_tac`x`>>xsimpl>>
     simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
@@ -1150,7 +1150,7 @@ Proof
     \\ qexists_tac`emp`
     \\ qexists_tac`fs`>>xsimpl \\ rw[]>>
     qexists_tac`«s VERIFIED UNSAT\n»`>>
-    qexists_tac`strlit""`>>rw[]
+    qexists_tac`«»`>>rw[]
     >-
       (qexists_tac`lpr`>>simp[])
     >>
@@ -1161,7 +1161,7 @@ Proof
   qexists_tac`emp`>>xsimpl>>
   qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`strlit""`>>xsimpl>>
+  qexists_tac`«»`>>xsimpl>>
   rename1`add_stderr fs err`>>
   qexists_tac`err`>>xsimpl>>
   simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -1171,15 +1171,15 @@ QED
 Definition check_unsat_3_sem_def:
   check_unsat_3_sem fs f1 f3 out =
   case get_fml fs f1 of
-    NONE => out = strlit ""
+    NONE => out = «»
   | SOME (mv,ncl,fml) =>
   (case get_fml fs f3 of
-    NONE => out = strlit ""
+    NONE => out = «»
   | SOME (mv2,ncl2,fml2) =>
-    (out ≠ strlit"" ⇒
+    (out ≠ «» ⇒
     ∃lpr.
       EVERY wf_lpr lpr ∧
-      out = strlit "s VERIFIED TRANSFORMATION\n" ∧
+      out = «s VERIFIED TRANSFORMATION\n» ∧
       let fmlls = enumerate 1 fml in
       let base = REPLICATE (2*ncl) NONE in
       let bnd = 2*mv+3 in
@@ -1291,7 +1291,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit""`>>xsimpl>>
+    qexists_tac`«»`>>xsimpl>>
     qexists_tac`x`>>xsimpl>>
     simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
@@ -1304,7 +1304,7 @@ Proof
     \\ qexists_tac`emp`
     \\ qexists_tac`fs`>>xsimpl \\ rw[]>>
     qexists_tac`«s VERIFIED TRANSFORMATION\n»`>>
-    qexists_tac`strlit""`>>rw[]
+    qexists_tac`«»`>>rw[]
     >-
       (qexists_tac`lpr`>>simp[])
     >>
@@ -1317,7 +1317,7 @@ Proof
   asm_exists_tac>>
   qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`strlit""`>>xsimpl>>
+  qexists_tac`«»`>>xsimpl>>
   rename1`add_stderr fs err`>>
   qexists_tac`err`>>xsimpl>>
   simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -1334,24 +1334,24 @@ End
 Definition check_unsat_4_sem_def:
   check_unsat_4_sem fs f1 f2 rng f3 out =
   case get_fml fs f1 of
-    NONE => out = strlit ""
+    NONE => out = «»
   | SOME (mv,ncl,fml) =>
   (case get_proof fs f2 of
-    NONE => out = strlit ""
+    NONE => out = «»
   | SOME pf =>
   (case parse_rng_or_check rng of
-    NONE => out = strlit ""
+    NONE => out = «»
   | SOME (INL ()) =>
      if inFS_fname fs f3 then
       case check_lines (implode (md5 (THE (file_content fs f1)))) (implode (md5 (THE (file_content fs f2))))
         (all_lines_file fs f3) (LENGTH pf) of
-        INL _ => out = strlit ""
+        INL _ => out = «»
       | INR s => out = s
     else
-      out = strlit ""
+      out = «»
   | SOME (INR (i,j)) =>
     if i ≤ j ∧ j ≤ LENGTH pf then
-      (out ≠ strlit"" ⇒
+      (out ≠ «» ⇒
         ∃lpr.
           EVERY wf_lpr lpr ∧
           let fmlls = enumerate 1 fml in
@@ -1361,7 +1361,7 @@ Definition check_unsat_4_sem_def:
           let earliest = FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) fmlls in
           check_lpr_range_list lpr upd (REVERSE (MAP FST fmlls)) earliest bnd (ncl+1) pf i j ∧
           out = success_str (implode (md5 (THE (file_content fs f1)))) (implode (md5 (THE (file_content fs f2)))) (print_rng i j))
-    else out = strlit ""))
+    else out = «»))
 End
 
 Theorem parse_proof_full_spec:
@@ -1496,7 +1496,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit"c Unable to parse range specification a-b\n"`>>xsimpl>>
+    qexists_tac`«c Unable to parse range specification a-b\n»`>>xsimpl>>
     simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   TOP_CASE_TAC >>fs[SUM_TYPE_def]
@@ -1550,7 +1550,7 @@ Proof
       qexists_tac`err`>>
       simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
       xsimpl)>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,STD_streams_stderr,add_stdo_nil]>>
     xsimpl)>>
   PairCases_on`y`>>fs[PAIR_TYPE_def]>>
@@ -1616,7 +1616,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr fs err`>>
     qexists_tac`err`>>xsimpl>>
     simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -1633,7 +1633,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr fs err`>>
     qexists_tac`err`>>xsimpl>>
     simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -1663,7 +1663,7 @@ Proof
   qexists_tac`fs`>>xsimpl>>
   rw[]>>
   rename1`add_stdout fs out`>>
-  qexists_tac`out`>>qexists_tac`strlit""`>>
+  qexists_tac`out`>>qexists_tac`«»`>>
   simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stderr, STD_streams_stdout,add_stdo_nil]>>
   xsimpl>>rw[]>>
   qexists_tac`lpr`>>
@@ -1679,7 +1679,7 @@ Definition check_unsat_sem_def:
   | [f1;f2] => check_unsat_2_sem fs f1 out
   | [f1;f2;f3] => check_unsat_3_sem fs f1 f3 out
   | [f1;f2;rng;f3] => check_unsat_4_sem fs f1 f2 rng f3 out
-  | _ => out = strlit""
+  | _ => out = «»
 End
 
 Theorem check_unsat_spec:
@@ -1787,21 +1787,7 @@ Proof
   \\ simp[GSYM add_stdo_with_numchars,with_same_numchars]
 QED
 
-local
-
-val name = "check_unsat"
-val (sem_thm,prog_tm) =
-  whole_prog_thm (get_ml_prog_state()) name (UNDISCH check_unsat_whole_prog_spec2)
-Definition check_unsat_prog_def:
-  check_unsat_prog = ^prog_tm
-End
-
-in
-
 Theorem check_unsat_semantics =
-  sem_thm
-  |> REWRITE_RULE[GSYM check_unsat_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
-
-end
+  prove_sem_thm "check_unsat"
+                "check_unsat_prog"
+                check_unsat_whole_prog_spec2;
