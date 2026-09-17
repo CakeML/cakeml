@@ -484,10 +484,6 @@ Proof
   >> metis_tac []
 QED
 
-Definition qxleft_live_def:
-  qxleft_live (live: ('a, 'i, 'l) lit list list) = live_map_base INL INL live
-End
-
 Definition qinterv_l_r_def:
   qinterv_l_r interv (xaig: ('a, 'i, 'l) xaig) =
     qinterv INL INL INR interv xaig
@@ -1394,7 +1390,7 @@ Definition encode_liveness_cond_def:
     wsignals = MAP (ext_lit ∘ right_name_lit ∘ right_name_lit)
                      (FLAT (qinterv_live_l_r interv wlive));
     msignals = MAP (ext_lit ∘ right_name_lit ∘ left_name_lit)
-                     (FLAT (qxleft_live mlive));
+                     (FLAT (qleft_live mlive));
     xaig   = encode_signal_imply xaig «lives_imply» wsignals msignals;
     xaig   = encode_xlits_hold xaig «mcnstrs0»
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ left_name_lit) mcnstrs);
@@ -2768,7 +2764,7 @@ Theorem xeval_gate_encode_liveness_cond:
     wxaig wnext wcnstrs wsafes wlive wlatches interv
   =
   liveness_cond
-    mxaig (set mcnstrs) (qxleft mxaig) (qxleft_live mlive)
+    mxaig (set mcnstrs) (qxleft mxaig) (qleft_live mlive)
     wxaig wnext (set wsafes) (set wcnstrs)
     (qinterv_l_r interv wxaig) (qinterv_live_l_r interv wlive) (set wlatches)
 Proof
@@ -2792,7 +2788,7 @@ Proof
   >> have ‘LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive' wlive'’
   >- (
     fs [Abbr ‘mlive'’, Abbr ‘wlive'’, LIST_REL_EL_EQN,
-        qinterv_live_l_r_def, qinterv_live_def, qxleft_live_def,
+        qinterv_live_l_r_def, qinterv_live_def, qleft_live_def,
         live_map_base_def, EL_MAP]
   )
   >> have ‘LENGTH (FLAT mlive') = LENGTH (FLAT wlive')’
@@ -3265,12 +3261,12 @@ Proof
            pair_set_def]
 QED
 
-Theorem dep_lits_pair_qxleft_live:
-  dep_lits (pair_set inputs) (pair_set latches) (set (FLAT (qxleft_live mlive)))
+Theorem dep_lits_pair_qleft_live:
+  dep_lits (pair_set inputs) (pair_set latches) (set (FLAT (qleft_live mlive)))
   ⇔
   dep_lits inputs latches (set (FLAT mlive))
 Proof
-  simp [qxleft_live_def, live_map_base_def, GSYM MAP_FLAT]
+  simp [qleft_live_def, live_map_base_def, GSYM MAP_FLAT]
   >> simp [dep_lits_pair_map_lit_map_base_inl]
 QED
 
@@ -3288,13 +3284,13 @@ Theorem encoding_xis_safe_and_live:
     mxaig mreset mnext (set mcnstrs) (set mlatches) (set msafes) ∧
   xis_live
     mxaig mreset mnext (set mcnstrs) (qxleft mxaig)
-    (IMAGE set (set (qxleft_live mlive))) (set mlatches)
+    (IMAGE set (set (qleft_live mlive))) (set mlatches)
 Proof
   strip_tac
   >> sg
        ‘is_witness
           mxaig mreset mnext (set msafes) (set mcnstrs)
-          (qxleft mxaig) (qxleft_live mlive) (set mlatches)
+          (qxleft mxaig) (qleft_live mlive) (set mlatches)
           wxaig wreset wnext (set wsafes) (set wcnstrs)
           (qinterv_l_r interv wxaig) (qinterv_live_l_r interv wlive)
           (set wlatches)’
@@ -3318,7 +3314,7 @@ Proof
      ‘∃minput.
         dep_model mxaig mreset mnext (set msafes) (set mcnstrs) minput
           (set mlatches) ∧
-        dep_qxaig minput (qxleft mxaig) (qxleft_live mlive) (set mlatches)’
+        dep_qxaig minput (qxleft mxaig) (qleft_live mlive) (set mlatches)’
   >- (
     qabbrev_tac
       ‘minput =
@@ -3331,7 +3327,7 @@ Proof
          BIGUNION (IMAGE (set ∘ lit_inputs) (set (FLAT mlive)))’
     >> qexists ‘minput’
     >> rewrite_tac [dep_model_def, dep_qxaig_def, GSYM CONJ_ASSOC]
-    >> simp [dep_xaig_pair_qxleft, dep_lits_pair_qxleft_live]
+    >> simp [dep_xaig_pair_qxleft, dep_lits_pair_qleft_live]
     >> fs [dep_cond_def]
     >> sg ‘dep_xaig minput (set mlatches) mxaig’
     >- (

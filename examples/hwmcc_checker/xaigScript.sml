@@ -336,3 +336,9 @@ Proof
   cong_tac NONE>>
   simp[FUN_EQ_THM]
 QED
+
+Theorem aig_xaig_rel_aig_to_xaig:
+  ∀aig. aig_xaig_rel aig (aig_to_xaig aig)
+Proof
+  simp [aig_xaig_rel_def, aig_to_xaig_sound]
+QED
