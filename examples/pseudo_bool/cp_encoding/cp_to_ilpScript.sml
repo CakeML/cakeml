@@ -1974,3 +1974,111 @@ Theorem abstr_cencode_bitsum[simp]:
 Proof
   rw[cencode_bitsum_def]
 QED
+
+(* encodes (weighted sum of the (coeff,atom) list CBs) = Y;
+   generalizes encode_bitsum to arbitrary per-atom integer coefficients
+   (encode_bitsum is the special case where every coeff is 1). *)
+Definition encode_wbitsum_def:
+  encode_wbitsum CBs Y =
+  case Y of
+    INL vY => [
+      ([(-1i, vY)], MAP (λ(c,b). (c:int, Pos b)) CBs, 0i);
+      ([(1i, vY)], MAP (λ(c,b). (-c, Pos b)) CBs, 0i)]
+  | INR cY => [
+      ([], MAP (λ(c,b). (c:int, Pos b)) CBs, cY);
+      ([], MAP (λ(c,b). (-c, Pos b)) CBs, -cY)]
+End
+
+(* the double-MAP shape is deliberate: it matches what iconstraint_sem
+   leaves behind (via eval_ilin_term_def/eval_lin_term_def) without any
+   MAP_MAP_o fusion, so these fire directly as simp lemmas below. *)
+Theorem iSUM_MAP_eval_term_wbitsum_pos[local]:
+  ∀CBs wb. iSUM (MAP (eval_term wb) (MAP (λ(c,b). (c:int, Pos b)) CBs)) =
+          iSUM (MAP (λ(c,b). c * b2i (wb b)) CBs)
+Proof
+  Induct_on ‘CBs’>>rw[iSUM_def]>>
+  rpt strip_tac>>
+  Cases_on ‘h’>>rw[iSUM_def]
+QED
+
+Theorem iSUM_MAP_eval_term_wbitsum_neg[local]:
+  ∀CBs wb. iSUM (MAP (eval_term wb) (MAP (λ(c,b). (-c:int, Pos b)) CBs)) =
+          - iSUM (MAP (λ(c,b). c * b2i (wb b)) CBs)
+Proof
+  Induct_on ‘CBs’>>rw[iSUM_def]>>
+  rpt strip_tac>>
+  Cases_on ‘h’>>rw[iSUM_def]>>
+  pop_assum kall_tac>>
+  intLib.ARITH_TAC
+QED
+
+Theorem encode_wbitsum_sem:
+  valid_assignment bnd wi ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb)) (encode_wbitsum CBs Y) ⇔
+  iSUM (MAP (λ(c,b). c * b2i (wb b)) CBs) = varc wi Y)
+Proof
+  rw[encode_wbitsum_def]>>
+  CASE_TAC>>
+  simp[varc_def,iconstraint_sem_def,eval_ilin_term_def,eval_lin_term_def,
+    eval_iterm_def,iSUM_def,iSUM_MAP_eval_term_wbitsum_pos,
+    iSUM_MAP_eval_term_wbitsum_neg]>>
+  intLib.ARITH_TAC
+QED
+
+Definition cencode_wbitsum_def:
+  cencode_wbitsum CBs Y name pref =
+  List
+    (mk_annotate
+      [mk_name name (pref ^ «ge»); mk_name name (pref ^ «le»)]
+      (encode_wbitsum CBs Y)
+    )
+End
+
+Theorem enc_rel_cencode_wbitsum[simp]:
+  enc_rel wi (cencode_wbitsum CBs Y name pref) (encode_wbitsum CBs Y) ec ec
+Proof
+  rw[cencode_wbitsum_def,encode_wbitsum_def]>>
+  Cases_on ‘Y’>>
+  simp[enc_rel_List_mk_annotate]
+QED
+
+Theorem abstr_cencode_wbitsum[simp]:
+  abstr (cencode_wbitsum CBs Y name pref) = encode_wbitsum CBs Y
+Proof
+  rw[cencode_wbitsum_def]
+QED
+
+(* one-sided form: (weighted sum of CBs) ≤ cbnd, against a raw constant.
+   Used where only an upper bound is wanted, not a full equality
+   (e.g. BinPacking's constant-capacity form). *)
+Definition encode_wbitsum_le_def:
+  encode_wbitsum_le CBs (cbnd:int) =
+  [([], MAP (λ(c,b). (-c:int, Pos b)) CBs, -cbnd)]
+End
+
+Theorem encode_wbitsum_le_sem:
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_wbitsum_le CBs cbnd) ⇔
+  iSUM (MAP (λ(c,b). c * b2i (wb b)) CBs) ≤ cbnd
+Proof
+  simp[encode_wbitsum_le_def,iconstraint_sem_def,eval_ilin_term_def,
+    eval_lin_term_def,eval_iterm_def,iSUM_def,iSUM_MAP_eval_term_wbitsum_neg]>>
+  intLib.ARITH_TAC
+QED
+
+Definition cencode_wbitsum_le_def:
+  cencode_wbitsum_le CBs cbnd name pref =
+  List (mk_annotate [mk_name name (pref ^ «le»)] (encode_wbitsum_le CBs cbnd))
+End
+
+Theorem enc_rel_cencode_wbitsum_le[simp]:
+  enc_rel wi (cencode_wbitsum_le CBs cbnd name pref)
+    (encode_wbitsum_le CBs cbnd) ec ec
+Proof
+  rw[cencode_wbitsum_le_def,enc_rel_List_mk_annotate]
+QED
+
+Theorem abstr_cencode_wbitsum_le[simp]:
+  abstr (cencode_wbitsum_le CBs cbnd name pref) = encode_wbitsum_le CBs cbnd
+Proof
+  rw[cencode_wbitsum_le_def]
+QED

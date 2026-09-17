@@ -742,9 +742,34 @@ Definition sexp_global_cardinality_body_def:
     | _ => fail («global_cardinality expects 3 args: (X1 ... Xn) (v1 ... vm) (C1 ... Cm)\n»)
 End
 
+(* binpacking: (I1 ... In) (s1 ... sn) loads|capacities (B1 ... Bm).
+   The tag picks the form and disambiguates the trailing list, which is
+   per-bin either way: loads are variables (one equality per bin),
+   capacities are constants (one upper bound per bin). *)
+Definition sexp_binpacking_body_def:
+  sexp_binpacking_body rest =
+    case rest of
+      [Xs_e; sizes_e; Atom tag; bins_e] =>
+      (do
+         Xs <- sexp_varc_list Xs_e;
+         sizes <- sexp_int_list sizes_e;
+         bins <-
+           (if tag = «loads» then
+              (do Ls <- sexp_varc_list bins_e; return (INL Ls) od)
+            else if tag = «capacities» then
+              (do Cs <- sexp_int_list bins_e; return (INR Cs) od)
+            else
+              fail («binpacking tag must be loads or capacities, got: » ^ tag ^ «\n»));
+         return (Counting (BinPacking Xs sizes bins))
+       od)
+    | _ =>
+      fail («binpacking expects 4 args: (I1 ... In) (s1 ... sn) loads|capacities (B1 ... Bm)\n»)
+End
+
 Definition sexp_counting_dispatch_def:
   sexp_counting_dispatch ctype rest =
-         if ctype = «all_different» then SOME (sexp_all_different_body rest)
+         if ctype = «binpacking»    then SOME (sexp_binpacking_body rest)
+    else if ctype = «all_different» then SOME (sexp_all_different_body rest)
     else if ctype = «all_equal»     then SOME (sexp_all_equal_body rest)
     else if ctype = «all_different_except» then SOME (sexp_all_different_except_body rest)
     else if ctype = «symmetric_all_different» then SOME (sexp_symmetric_all_different_body rest)
@@ -1470,7 +1495,25 @@ Theorem test_counting:
   (* among with a non-integer in the value set *)
   sexp_constraint_dispatch («among»)
     (fromStringL («((A B) (1 foo 3) Y)»)) =
-    INL («expected integer, got: foo\n»)
+    INL («expected integer, got: foo\n») ∧
+  (* binpacking, variable-loads form *)
+  sexp_constraint_dispatch («binpacking»)
+    (fromStringL («((I0 I1 I2) (1 2 3) loads (L0 L1 L2))»)) =
+    INR (Counting (BinPacking [INL «I0»; INL «I1»; INL «I2»] [1; 2; 3]
+           (INL [INL «L0»; INL «L1»; INL «L2»]))) ∧
+  (* binpacking, constant-capacities form *)
+  sexp_constraint_dispatch («binpacking»)
+    (fromStringL («((I0 I1 I2) (1 2 3) capacities (3 3 3))»)) =
+    INR (Counting (BinPacking [INL «I0»; INL «I1»; INL «I2»] [1; 2; 3]
+           (INR [3; 3; 3]))) ∧
+  (* binpacking, unrecognised tag *)
+  sexp_constraint_dispatch («binpacking»)
+    (fromStringL («((I0) (1) bogus (B0))»)) =
+    INL («binpacking tag must be loads or capacities, got: bogus\n») ∧
+  (* binpacking wrong arity *)
+  sexp_constraint_dispatch («binpacking»)
+    (fromStringL («((I0) (1) loads)»)) =
+    INL («binpacking expects 4 args: (I1 ... In) (s1 ... sn) loads|capacities (B1 ... Bm)\n»)
 Proof
   EVAL_TAC
 QED
