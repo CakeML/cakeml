@@ -3669,8 +3669,7 @@ Resume locals_rel_evaluate_thm[Call]:
   PairCases_on `x'` >> fs[] >>
   TOP_CASE_TAC
   >-(
-    gvs[AllCaseEqs()]
-    >- fs[flush_state_def] >>
+    gvs[AllCaseEqs()] >>
     gvs[call_env_def,flush_state_def,dec_clock_def,
       oneline bad_fun_return_def, AllCasePreds()]>>
     simp[state_component_equality]>>

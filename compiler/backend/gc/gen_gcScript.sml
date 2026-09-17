@@ -779,7 +779,6 @@ Theorem gc_move_ALT:
        (y', state' with <| h2 := state.h2 ++ state'.h2; r4 := state'.r4 ++ state.r4 |>)
 Proof
   reverse (Cases_on `y`) \\ fs [gc_move_def]
-  THEN1 fs [LET_THM,gc_state_component_equality]
   \\ fs []
   \\ TRY (BasicProvers.TOP_CASE_TAC)
     THEN1 fs [LET_THM,gc_state_component_equality]

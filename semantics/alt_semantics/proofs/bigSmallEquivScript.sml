@@ -1419,7 +1419,9 @@ Proof
     simp[to_small_st_def] >>
     qmatch_goalsub_abbrev_tac `RTC _ (sta,_) (stb,_)` >> strip_tac >>
     `sta = st ∧ stb = s2` by (
-      unabbrev_all_tac >> gvs[state_component_equality]) >> gvs[] >>
+      unabbrev_all_tac >> gvs[state_component_equality]) >>
+    qpat_x_assum `Abbrev (sta = _)` kall_tac >>
+    qpat_x_assum `Abbrev (stb = _)` kall_tac >> gvs[] >>
     qmatch_goalsub_abbrev_tac `Env new_env` >>
     drule small_eval_dec_prefix >>
     disch_then $ qspec_then `(s2, Rval new_env)` mp_tac >>
@@ -1436,7 +1438,9 @@ Proof
     simp[to_small_st_def] >>
     qmatch_goalsub_abbrev_tac `RTC _ (sta,_) (stb,_)` >> strip_tac >>
     `sta = st ∧ stb = s2` by (
-      unabbrev_all_tac >> gvs[state_component_equality]) >> gvs[] >>
+      unabbrev_all_tac >> gvs[state_component_equality]) >>
+    qpat_x_assum `Abbrev (sta = _)` kall_tac >>
+    qpat_x_assum `Abbrev (stb = _)` kall_tac >> gvs[] >>
     simp[collapse_env_def] >> goal_assum drule >>
     simp[decl_step_def, collapse_env_def]
     )
@@ -1450,7 +1454,9 @@ Proof
     simp[to_small_st_def] >>
     qmatch_goalsub_abbrev_tac `RTC _ (sta,_) (stb,_)` >> strip_tac >>
     `sta = st ∧ stb = s2` by (
-      unabbrev_all_tac >> gvs[state_component_equality]) >> gvs[] >>
+      unabbrev_all_tac >> gvs[state_component_equality]) >>
+    qpat_x_assum `Abbrev (sta = _)` kall_tac >>
+    qpat_x_assum `Abbrev (stb = _)` kall_tac >> gvs[] >>
     simp[collapse_env_def] >> goal_assum drule >>
     simp[decl_step_def, collapse_env_def]
     )
@@ -1468,7 +1474,9 @@ Proof
       simp[to_small_st_def] >>
       qmatch_goalsub_abbrev_tac `RTC _ (sta,_) (stb,_)` >> strip_tac >>
       `sta = st ∧ stb = s'` by (
-        unabbrev_all_tac >> gvs[state_component_equality]) >> gvs[] >>
+        unabbrev_all_tac >> gvs[state_component_equality]) >>
+      qpat_x_assum `Abbrev (sta = _)` kall_tac >>
+      qpat_x_assum `Abbrev (stb = _)` kall_tac >> gvs[] >>
       simp[collapse_env_def] >> goal_assum drule >>
       simp[decl_step_def] >> gvs[to_small_st_def] >>
       rpt (TOP_CASE_TAC >> gvs[]) >> gvs[e_step_def, continue_def]

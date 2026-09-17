@@ -58,6 +58,8 @@ def str_fill(s,c,t,n):
 for idx, line in enumerate(all_dirs):
     status = str(idx+1) + ' of ' + str(len(all_dirs))
     print_header(str_fill('== ' + line + ' ','=', ' ' + status + ' ==',80))
+    if failed_directories:
+        print(bcolors.FAIL + 'Failed so far: ' + ', '.join(failed_directories) + bcolors.ENDC)
     full_path = os.path.join(base_dir, line)  # Construct full path
 
     # Check if the path is a directory
