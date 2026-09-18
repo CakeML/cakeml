@@ -84,34 +84,87 @@ End
 
 (* Lifting to two states ******************************************************)
 
-Definition gty_map_base_def:
-  gty_map_base f g (And xs) =
-    And (MAP (lit_map_base f g) xs) ∧
-  gty_map_base f g (Xor x₀ x₁) =
-    Xor (lit_map_base f g x₀) (lit_map_base f g x₁) ∧
-  gty_map_base f g (Ite cnd thn els) =
-    Ite (lit_map_base f g cnd) (lit_map_base f g thn) (lit_map_base f g els) ∧
-  gty_map_base f g (Or xs) =
-    Or (MAP (lit_map_base f g) xs)
+Definition gty_map_def:
+  gty_map f g h (And xs) =
+    And (MAP (lit_map f g h) xs) ∧
+  gty_map f g h (Xor x₀ x₁) =
+    Xor (lit_map f g h x₀) (lit_map f g h x₁) ∧
+  gty_map f g h (Ite cnd thn els) =
+    Ite (lit_map f g h cnd) (lit_map f g h thn) (lit_map f g h els) ∧
+  gty_map f g h (Or xs) =
+    Or (MAP (lit_map f g h) xs)
 End
 
-Definition gate_map_base_def:
-  gate_map_base f g (n, gty) = (n, gty_map_base f g gty)
+Definition gate_map_def:
+  gate_map f g h (n, gty) = (h n, gty_map f g h gty)
 End
 
-Definition xaig_map_base_def:
-  xaig_map_base f g (xaig: ('a, 'i, 'l) xaig) =
-    MAP (gate_map_base f g) xaig
+Definition xaig_map_def:
+  xaig_map f g h (xaig: ('a, 'i, 'l) xaig) =
+    MAP (gate_map f g h) xaig
 End
 
 Definition qxleft_def:
-  qxleft (xaig: ('a, 'i, 'l) xaig) = xaig_map_base INL INL xaig
+  qxleft (xaig: ('a, 'i, 'l) xaig) = xaig_map INL INL I xaig
 End
 
-Theorem qxleft_cons[local]:
-  qxleft (g::xaig) = gate_map_base INL INL g::qxleft xaig
+Theorem xaig_map_cons[local]:
+  xaig_map f g h (x::xaig) = gate_map f g h x::xaig_map f g h xaig
 Proof
-  simp [qxleft_def, xaig_map_base_def]
+  simp [xaig_map_def]
+QED
+
+Theorem xaig_map_eq:
+  ∀xaig f g h is' is ls' ls.
+    INJ f 𝕌(:α) 𝕌(:β) ∧ INJ g 𝕌(:γ) 𝕌(:δ) ∧ INJ h 𝕌(:ε) 𝕌(:ζ) ∧
+    (∀i. is' (f i) = is i) ∧ (∀l. ls' (g l) = ls l)
+    ⇒
+    (∀lit.
+       (xeval_lit (is', ls') (xaig_map f g h xaig) (lit_map f g h lit)) ⇔
+       (xeval_lit (is, ls) xaig lit)) ∧
+   (∀n.
+       (xeval_gate (is', ls') (xaig_map f g h xaig) (h n)) ⇔
+       (xeval_gate (is, ls) xaig n))
+Proof
+  rpt gen_tac >> strip_tac
+  >> Induct_on ‘xaig’
+  >> rpt strip_tac
+  >- (
+    simp [xaig_map_def]
+    >> simp [oneline lit_map_def] >> CASE_TAC
+    >> simp [oneline var_map_def] >> CASE_TAC
+    >> simp [xeval_lit_def]
+    >> simp [oneline bvar_map_def] >> CASE_TAC
+    >> simp [eval_bvar_def]
+  )
+  >- simp [xaig_map_def]
+  >- (
+    simp [xaig_map_cons]
+    >> simp [oneline gate_map_def] >> CASE_TAC
+    >> simp [oneline lit_map_def] >> CASE_TAC
+    >> simp [oneline var_map_def]
+    >> reverse CASE_TAC >> simp [xeval_lit_def]
+    >- (simp [oneline bvar_map_def] >> CASE_TAC >> simp [eval_bvar_def])
+    >> rename1 ‘h n' = h n’
+    >> Cases_on ‘n' = n’ >> gvs []
+    >- (
+      simp [oneline gty_map_def] >> CASE_TAC
+      >> simp [EVERY_MAP, EXISTS_MAP]
+    )
+    >> have ‘h n' ≠ h n’ >- (gvs [INJ_DEF] >> metis_tac [])
+    >> simp []
+  )
+  >> simp [xaig_map_cons]
+  >> simp [oneline gate_map_def] >> CASE_TAC
+  >> simp [xeval_lit_def]
+  >> rename1 ‘h n' = h n’
+  >> Cases_on ‘n' = n’ >> gvs []
+  >- (
+    simp [oneline gty_map_def] >> CASE_TAC
+    >> simp [EVERY_MAP, EXISTS_MAP]
+  )
+  >> have ‘h n' ≠ h n’ >- (gvs [INJ_DEF] >> metis_tac [])
+  >> simp []
 QED
 
 Theorem xeval_gate_pair_qxleft:
@@ -123,41 +176,23 @@ Theorem xeval_gate_pair_qxleft:
        xeval_lit (state_pair s₁ s₂) (qxleft xaig) (lit_map_base INL INL lit) ⇔
        xeval_lit s₁ xaig lit)
 Proof
-  Induct >> rw []
-  >- simp [qxleft_def, xaig_map_base_def]
-  >- (
-    simp [qxleft_def, xaig_map_base_def]
-    >> Cases_on ‘lit’
-    >> rename1 ‘lit_map_base _ _ (v, _)’ >> Cases_on ‘v’
-    >> simp [lit_map_base_def, var_map_base_def, xeval_lit_def]
-    >> rename1 ‘bvar_map _ _ b’ >> Cases_on ‘b’
-    >> simp [bvar_map_def, xeval_lit_def]
-    >> Cases_on ‘s₁’ >> Cases_on ‘s₂’ >> simp [state_pair_def, eval_bvar_def]
-  )
-  >- (
-    simp [xeval_lit_def, qxleft_cons]
-    >> rw [] >> rpt (pairarg_tac >> gvs [])
-    >> gvs [gate_map_base_def]
-    >> IF_CASES_TAC >> gvs []
-    >> rename1 ‘gty_map_base _ _ gt'’ >> Cases_on ‘gt'’
-    >> simp [gty_map_base_def, EVERY_MAP, EXISTS_MAP]
-  )
-  >> Cases_on ‘lit’
-  >> rename1 ‘lit_map_base _ _ (v, _)’ >> Cases_on ‘v’
-  >> simp [lit_map_base_def, var_map_base_def, xeval_lit_def]
-  >> qmatch_goalsub_abbrev_tac ‘(r ⇔ X) ⇔ (r ⇔ Y)’
-  >> qsuff_tac ‘X ⇔ Y’ >- simp []
-  >> simp [Abbr ‘X’, Abbr ‘Y’]
-  >- (
-    simp [qxleft_cons, xeval_lit_def]
-    >> rpt (pairarg_tac >> gvs [])
-    >> IF_CASES_TAC >> gvs []
-    >> gvs [gate_map_base_def]
-    >> rename1 ‘gty_map_base _ _ gt'’ >> Cases_on ‘gt'’
-    >> simp [gty_map_base_def, EVERY_MAP, EXISTS_MAP])
-  >> rename1 ‘bvar_map _ _ b’ >> Cases_on ‘b’
-  >> simp [bvar_map_def, xeval_lit_def]
-  >> Cases_on ‘s₁’ >> Cases_on ‘s₂’ >> simp [state_pair_def, eval_bvar_def]
+  gen_tac
+  >> namedCases_on ‘s₁’ ["is₁ ls₁"]
+  >> namedCases_on ‘s₂’ ["is₂ ls₂"]
+  >> simp [qxleft_def, lit_map_base_def, state_pair_def]
+  >> qmatch_goalsub_abbrev_tac ‘xeval_gate (is', ls')’
+  >> have
+       ‘INJ INL 𝕌(:β) 𝕌(:β + δ) ∧ INJ INL 𝕌(:γ) 𝕌(:γ + ε) ∧ INJ I 𝕌(:α) 𝕌(:α)’
+  >- simp [INJ_INL, INJ_I]
+  >> mp_tac $
+       INST_TYPE [“:α” |-> “:β”, “:β” |-> “:β + δ”, “:γ” |-> “:γ”,
+                  “:δ” |-> “:γ + ε”, “:ε” |-> “:α”, “:ζ” |-> “:α”] xaig_map_eq
+  >> disch_then $
+       qspecl_then [‘xaig’, ‘INL’, ‘INL’, ‘I’, ‘is'’, ‘is₁’, ‘ls'’, ‘ls₁’] mp_tac
+  >> simp []
+  >> impl_tac
+  >- simp [Abbr ‘is'’, Abbr ‘ls'’]
+  >> simp []
 QED
 
 Theorem aig_xaig_rel_qleft:

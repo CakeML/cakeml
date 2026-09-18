@@ -214,13 +214,17 @@ Definition bvar_map_def:
   (bvar_map  _              _               Ff        = Ff)
 End
 
-Definition var_map_base_def:
-  (var_map_base _ _ (Gate a)  = Gate a) ∧
-  (var_map_base f g (Base bv) = Base (bvar_map f g bv))
+Definition var_map_def:
+  (var_map _ _ h (Gate a)  = Gate (h a)) ∧
+  (var_map f g _ (Base bv) = Base (bvar_map f g bv))
+End
+
+Definition lit_map_def:
+  lit_map f g h (v, b) = (var_map f g h v, b)
 End
 
 Definition lit_map_base_def:
-  lit_map_base f g (v, b) = (var_map_base f g v, b)
+  lit_map_base f g = lit_map f g I
 End
 
 Definition live_map_base_def:
@@ -261,7 +265,7 @@ Proof
     simp [qleft_def]
     >> Cases_on ‘lit’
     >> rename1 ‘lit_map_base _ _ (v, _)’ >> Cases_on ‘v’
-    >> simp [lit_map_base_def, var_map_base_def, eval_lit_def]
+    >> simp [lit_map_base_def, lit_map_def, var_map_def, eval_lit_def]
     >> rename1 ‘bvar_map _ _ b’ >> Cases_on ‘b’
     >> simp [bvar_map_def, eval_lit_def]
     >> Cases_on ‘s₁’ >> Cases_on ‘s₂’ >> simp [state_pair_def, eval_bvar_def]
@@ -275,7 +279,7 @@ Proof
   )
   >> Cases_on ‘lit’
   >> rename1 ‘lit_map_base _ _ (v, _)’ >> Cases_on ‘v’
-  >> simp [lit_map_base_def, var_map_base_def, eval_lit_def]
+  >> simp [lit_map_base_def, lit_map_def, var_map_def, eval_lit_def]
   >> qmatch_goalsub_abbrev_tac ‘(r ⇔ X) ⇔ (r ⇔ Y)’
   >> qsuff_tac ‘X ⇔ Y’ >- simp []
   >> simp [Abbr ‘X’, Abbr ‘Y’]

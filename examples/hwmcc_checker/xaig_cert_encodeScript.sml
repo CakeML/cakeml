@@ -2108,7 +2108,8 @@ Proof
    (simp [qinterv_r_l_def, qinterv_l_r_def, qinterv_def]
     >> namedCases_on ‘lit’ ["v b"]
     >> Cases_on ‘v’
-    >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def, state_pair_def]
+    >> simp [qinterv_lit_def, lit_map_base_def, lit_map_def, var_map_def,
+             state_pair_def]
     >> rpt CASE_TAC
     >> simp [xeval_lit_def]
     >> rename1 ‘bvar_map _ _ base’
@@ -2119,7 +2120,7 @@ Proof
    (simp [qinterv_r_l_cons, qinterv_l_r_cons]
     >> namedCases_on ‘lit’ ["v b"]
     >> Cases_on ‘v’
-    >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def]
+    >> simp [qinterv_lit_def, lit_map_base_def, lit_map_def, var_map_def]
     >-
      (reverse CASE_TAC
       >- (CASE_TAC >> simp [xeval_lit_def, state_pair_def])
@@ -2163,7 +2164,8 @@ Proof
    (simp [qinterv_ll_r_def, qinterv_l_r_def, qinterv_def]
     >> namedCases_on ‘lit’ ["v b"]
     >> Cases_on ‘v’
-    >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def, state_pair_def]
+    >> simp [qinterv_lit_def, lit_map_base_def, lit_map_def, var_map_def,
+             state_pair_def]
     >> rpt CASE_TAC
     >> simp [xeval_lit_def]
     >> rename1 ‘bvar_map _ _ base’
@@ -2174,7 +2176,7 @@ Proof
    (simp [qinterv_ll_r_cons, qinterv_l_r_cons]
     >> namedCases_on ‘lit’ ["v b"]
     >> Cases_on ‘v’
-    >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def]
+    >> simp [qinterv_lit_def, lit_map_base_def, lit_map_def, var_map_def]
     >-
      (reverse CASE_TAC
       >- (CASE_TAC >> simp [xeval_lit_def, state_pair_def])
@@ -2218,7 +2220,8 @@ Proof
    (simp [qinterv_lr_r_def, qinterv_l_r_def, qinterv_def]
     >> namedCases_on ‘lit’ ["v b"]
     >> Cases_on ‘v’
-    >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def, state_pair_def]
+    >> simp [qinterv_lit_def, lit_map_base_def, lit_map_def, var_map_def,
+             state_pair_def]
     >> rpt CASE_TAC
     >> simp [xeval_lit_def]
     >> rename1 ‘bvar_map _ _ base’
@@ -2229,7 +2232,7 @@ Proof
    (simp [qinterv_lr_r_cons, qinterv_l_r_cons]
     >> namedCases_on ‘lit’ ["v b"]
     >> Cases_on ‘v’
-    >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def]
+    >> simp [qinterv_lit_def, lit_map_base_def, lit_map_def, var_map_def]
     >-
      (reverse CASE_TAC
       >- (CASE_TAC >> simp [xeval_lit_def, state_pair_def])
@@ -2273,7 +2276,7 @@ Proof
    (simp [qinterv_ll_lr_def, qinterv_l_r_def, qinterv_def]
     >> namedCases_on ‘lit’ ["v b"]
     >> Cases_on ‘v’
-    >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def, state_pair_def]
+    >> simp [qinterv_lit_def, lit_map_base_def, lit_map_def, var_map_def, state_pair_def]
     >> rpt CASE_TAC
     >> simp [xeval_lit_def]
     >> rename1 ‘bvar_map _ _ base’
@@ -2284,7 +2287,7 @@ Proof
    (simp [qinterv_ll_lr_cons, qinterv_l_r_cons]
     >> namedCases_on ‘lit’ ["v b"]
     >> Cases_on ‘v’
-    >> simp [qinterv_lit_def, lit_map_base_def, var_map_base_def]
+    >> simp [qinterv_lit_def, lit_map_base_def, lit_map_def, var_map_def]
     >-
      (reverse CASE_TAC
       >- (CASE_TAC >> simp [xeval_lit_def, state_pair_def])
@@ -3254,11 +3257,11 @@ Proof
   >- simp []
   >> namedCases_on ‘h’ ["v b"]
   >> Cases_on ‘v’
-  >- simp [lit_map_base_def, var_map_base_def, dep_lits_def]
+  >- simp [lit_map_base_def, lit_map_def, var_map_def, dep_lits_def]
   >> rename1 ‘Base b'’
   >> Cases_on ‘b'’
-  >> simp [lit_map_base_def, var_map_base_def, dep_lits_def, bvar_map_def,
-           pair_set_def]
+  >> simp [lit_map_base_def, lit_map_def, var_map_def, dep_lits_def,
+           bvar_map_def, pair_set_def]
 QED
 
 Theorem dep_lits_pair_qleft_live:
@@ -3355,102 +3358,10 @@ QED
 
 (* We use nested datatypes as names, which make proofs easier (since they encode
    namespaces neatly), but seems to incur some cost in the form of comparisons
-   when renaming to packed nums (packed = every number between 1 and some n
+   when renaming to packed nums (packed = every number between up to some n
    is used).
    Thus, we apply an injective function that maps to (unpacked) nums once,
    in the hopes of comparisons becoming cheaper. *)
-
-(* TODO replace _base variant with these (h = I) *)
-(* TODO is it possible to replace interv with this? *)
-
-Definition var_map_def:
-  (var_map _ _ h (Gate a)  = Gate (h a)) ∧
-  (var_map f g _ (Base bv) = Base (bvar_map f g bv))
-End
-
-Definition lit_map_def:
-  lit_map f g h (v, b) = (var_map f g h v, b)
-End
-
-Definition gty_map_def:
-  gty_map f g h (And xs) =
-    And (MAP (lit_map f g h) xs) ∧
-  gty_map f g h (Xor x₀ x₁) =
-    Xor (lit_map f g h x₀) (lit_map f g h x₁) ∧
-  gty_map f g h (Ite cnd thn els) =
-    Ite (lit_map f g h cnd) (lit_map f g h thn) (lit_map f g h els) ∧
-  gty_map f g h (Or xs) =
-    Or (MAP (lit_map f g h) xs)
-End
-
-Definition gate_map_def:
-  gate_map f g h (n, gty) = (h n, gty_map f g h gty)
-End
-
-Definition xaig_map_def:
-  xaig_map f g h (xaig: ('a, 'i, 'l) xaig) =
-    MAP (gate_map f g h) xaig
-End
-
-(* todo: reminds me of xeval_gate_pair_qxleft *)
-
-Theorem xaig_map_cons:
-  xaig_map f g h (x::xaig) = gate_map f g h x::xaig_map f g h xaig
-Proof
-  simp [xaig_map_def]
-QED
-
-Theorem xaig_map_eq:
-  INJ f 𝕌(:α) 𝕌(:β) ∧ INJ g 𝕌(:γ) 𝕌(:δ) ∧ INJ h 𝕌(:ε) 𝕌(:ζ) ∧
-  (∀i. is' (f i) = is i) ∧ (∀l. ls' (g l) = ls l)
-  ⇒
-  (∀lit.
-     (xeval_lit (is', ls') (xaig_map f g h xaig) (lit_map f g h lit)) ⇔
-     (xeval_lit (is, ls) xaig lit)) ∧
-  (∀n.
-     (xeval_gate (is', ls') (xaig_map f g h xaig) (h n)) ⇔
-     (xeval_gate (is, ls) xaig n))
-Proof
-  strip_tac
-  >> Induct_on ‘xaig’
-  >> rpt strip_tac
-  >- (
-    simp [xaig_map_def]
-    >> simp [oneline lit_map_def] >> CASE_TAC
-    >> simp [oneline var_map_def] >> CASE_TAC
-    >> simp [xeval_lit_def]
-    >> simp [oneline bvar_map_def] >> CASE_TAC
-    >> simp [eval_bvar_def]
-  )
-  >- simp [xaig_map_def]
-  >- (
-    simp [xaig_map_cons]
-    >> simp [oneline gate_map_def] >> CASE_TAC
-    >> simp [oneline lit_map_def] >> CASE_TAC
-    >> simp [oneline var_map_def]
-    >> reverse CASE_TAC >> simp [xeval_lit_def]
-    >- (simp [oneline bvar_map_def] >> CASE_TAC >> simp [eval_bvar_def])
-    >> rename1 ‘h n' = h n’
-    >> Cases_on ‘n' = n’ >> gvs []
-    >- (
-      simp [oneline gty_map_def] >> CASE_TAC
-      >> simp [EVERY_MAP, EXISTS_MAP]
-    )
-    >> have ‘h n' ≠ h n’ >- (gvs [INJ_DEF] >> metis_tac [])
-    >> simp []
-  )
-  >> simp [xaig_map_cons]
-  >> simp [oneline gate_map_def] >> CASE_TAC
-  >> simp [xeval_lit_def]
-  >> rename1 ‘h n' = h n’
-  >> Cases_on ‘n' = n’ >> gvs []
-  >- (
-    simp [oneline gty_map_def] >> CASE_TAC
-    >> simp [EVERY_MAP, EXISTS_MAP]
-  )
-  >> have ‘h n' ≠ h n’ >- (gvs [INJ_DEF] >> metis_tac [])
-  >> simp []
-QED
 
 Theorem exists_xeval_gate_xaig_map:
   INJ f 𝕌(:α) 𝕌(:β) ∧ INJ g 𝕌(:γ) 𝕌(:δ) ∧ INJ h 𝕌(:ε) 𝕌(:ζ)
