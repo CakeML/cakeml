@@ -270,8 +270,28 @@ Proof
   >> simp [range_inter_thm]
 QED
 
-(* TODO Maybe the constant strings «» should be translated once and
-   then reused everywhere (including during encoding)? *)
+(* TODO Maybe the constant strings «» should be translated once? *)
+
+Definition xaig_map_then_cnf_def:
+  xaig_map_then_cnf f g h xaig name =
+    xaig_to_cnf (xaig_map f g h xaig) (h name)
+End
+
+Theorem xaig_map_then_cnf_correct:
+  xaig_map_then_cnf f g h xaig name = (cnf, limit) ∧
+  INJ f 𝕌(:α) 𝕌(:β) ∧ INJ g 𝕌(:γ) 𝕌(:δ) ∧ INJ h 𝕌(:ε) 𝕌(:ζ)
+  ⇒
+  (satisfiable_cnf (set cnf) ⇔ ∃is ls. xeval_gate (is,ls) xaig name) ∧
+  lits_within limit cnf
+Proof
+  simp [xaig_map_then_cnf_def]
+  >> strip_tac
+  >> dxrule_all $ GSYM exists_xeval_gate_xaig_map
+  >> disch_then $ qspecl_then [‘xaig’, ‘name’] mp_tac
+  >> simp [EXISTS_PROD] >> strip_tac
+  >> irule xaig_to_cnf_correct
+  >> simp []
+QED
 
 Definition make_reset_string_def:
   make_reset_string
@@ -284,7 +304,7 @@ Definition make_reset_string_def:
       encode_reset_cond
         mxaig mreset mcnstrs mlatches
         wxaig wreset wcnstrs wlatches klatches;
-    cnf = xaig_to_cnf xaig (Ext Reset)
+    cnf = xaig_map_then_cnf I I nsn_e2num xaig (Ext Reset)
   in
     (name, cnf_to_string cnf)
 End
