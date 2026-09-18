@@ -6,7 +6,6 @@ Ancestors
   cnf
   errorMonad (* for bind_def *)
   basis_ffi  (* for whole_prog_spec2 *)
-  xaig_to_cnf  (* for xaig_to_cnf_correct *)
   aig_parseProg  (* for ERRORMONAD_ERROR_TYPE_def *)
   xaig_cert_encode  (* for reset_encoding_is_unsat *)
   aig_cert_full  (* for make_reset_string_def *)
@@ -178,7 +177,8 @@ Proof
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
-  >> drule_then assume_tac xaig_to_cnf_correct
+  >> drule_then (assume_tac o SRULE [INJ_I, INJ_nsn_e2num])
+       xaig_map_then_cnf_correct
   >> simp [unsatisfiable_cnf_def,reset_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
@@ -237,7 +237,8 @@ Proof
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
-  >> drule_then assume_tac xaig_to_cnf_correct
+  >> drule_then (assume_tac o SRULE [INJ_nsn2num, INJ_nsn_s_nsn_e2num])
+       xaig_map_then_cnf_correct
   >> simp [unsatisfiable_cnf_def,transition_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
@@ -292,7 +293,8 @@ Proof
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
-  >> drule_then assume_tac xaig_to_cnf_correct
+  >> drule_then (assume_tac o SRULE [INJ_I, INJ_nsn_e2num])
+       xaig_map_then_cnf_correct
   >> simp [unsatisfiable_cnf_def,safety_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
@@ -345,7 +347,8 @@ Proof
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
-  >> drule_then assume_tac xaig_to_cnf_correct
+  >> drule_then (assume_tac o SRULE [INJ_I, INJ_n_e2num])
+       xaig_map_then_cnf_correct
   >> simp [unsatisfiable_cnf_def,base_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
@@ -398,7 +401,8 @@ Proof
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
-  >> drule_then assume_tac xaig_to_cnf_correct
+  >> drule_then (assume_tac o SRULE [INJ_nsn2num, INJ_nsn_e2num])
+       xaig_map_then_cnf_correct
   >> simp [unsatisfiable_cnf_def,induction_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
@@ -458,7 +462,8 @@ Proof
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
-  >> drule_then assume_tac xaig_to_cnf_correct
+  >> drule_then (assume_tac o SRULE [INJ_nsn2num, INJ_nsn_s_nsn_s_nsn_e2num])
+       xaig_map_then_cnf_correct
   >> simp [unsatisfiable_cnf_def,liveness_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
@@ -513,7 +518,8 @@ Proof
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
-  >> drule_then assume_tac xaig_to_cnf_correct
+  >> drule_then (assume_tac o SRULE [INJ_nsn2num, INJ_nsn_s_n_e2num])
+       xaig_map_then_cnf_correct
   >> simp [unsatisfiable_cnf_def,decrease_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
@@ -568,7 +574,8 @@ Proof
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
-  >> drule_then assume_tac xaig_to_cnf_correct
+  >> drule_then (assume_tac o SRULE [INJ_nsn_s_n2num, INJ_nsn_s_n_s_nsn_e2num])
+       xaig_map_then_cnf_correct
   >> simp [unsatisfiable_cnf_def,closure_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
@@ -623,7 +630,8 @@ Proof
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
-  >> drule_then assume_tac xaig_to_cnf_correct
+  >> drule_then (assume_tac o SRULE [INJ_nsn_s_n2num, INJ_nsn_s_n_s_nsn_e2num])
+       xaig_map_then_cnf_correct
   >> simp [unsatisfiable_cnf_def,stable_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED

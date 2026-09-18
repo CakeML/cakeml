@@ -138,3 +138,69 @@ val r = translate
           (topological_sortTheory.has_cycle_def |> REWRITE_RULE [MEMBER_INTRO]);
 
 val r = translate xaig_cert_encodeTheory.stratified_cond_def;
+
+(*----------------------------------------------------------------------*
+   injecting names into num
+
+   The encoded conditions are named over sums and ext; make_<cond>_string
+   maps one of these over a condition before lowering it to CNF.
+ *----------------------------------------------------------------------*)
+
+Theorem nsn2num_eq[local] =
+  xaig_cert_encodeTheory.nsn2num_def
+  |> SRULE [oneline xaig_cert_encodeTheory.sum2num_def, FUN_EQ_THM];
+val r = translate nsn2num_eq;
+
+Theorem nsn_s_nsn2num_eq[local] =
+  xaig_cert_encodeTheory.nsn_s_nsn2num_def
+  |> SRULE [oneline xaig_cert_encodeTheory.sum2num_def, FUN_EQ_THM];
+val r = translate nsn_s_nsn2num_eq;
+
+Theorem nsn_s_n2num_eq[local] =
+  xaig_cert_encodeTheory.nsn_s_n2num_def
+  |> SRULE [oneline xaig_cert_encodeTheory.sum2num_def, combinTheory.I_THM,
+            FUN_EQ_THM];
+val r = translate nsn_s_n2num_eq;
+
+Theorem nsn_s_nsn_s_nsn2num_eq[local] =
+  xaig_cert_encodeTheory.nsn_s_nsn_s_nsn2num_def
+  |> SRULE [oneline xaig_cert_encodeTheory.sum2num_def, FUN_EQ_THM];
+val r = translate nsn_s_nsn_s_nsn2num_eq;
+
+Theorem nsn_s_n_s_nsn2num_eq[local] =
+  xaig_cert_encodeTheory.nsn_s_n_s_nsn2num_def
+  |> SRULE [oneline xaig_cert_encodeTheory.sum2num_def, FUN_EQ_THM];
+val r = translate nsn_s_n_s_nsn2num_eq;
+
+val r = translate xaig_cert_encodeTheory.ext_name2num_thm;
+
+Theorem nsn_e2num_eq[local] =
+  xaig_cert_encodeTheory.nsn_e2num_def
+  |> SRULE [oneline xaig_cert_encodeTheory.ext2num_def, FUN_EQ_THM];
+val r = translate nsn_e2num_eq;
+
+Theorem nsn_s_nsn_e2num_eq[local] =
+  xaig_cert_encodeTheory.nsn_s_nsn_e2num_def
+  |> SRULE [oneline xaig_cert_encodeTheory.ext2num_def, FUN_EQ_THM];
+val r = translate nsn_s_nsn_e2num_eq;
+
+Theorem n_e2num_eq[local] =
+  xaig_cert_encodeTheory.n_e2num_def
+  |> SRULE [oneline xaig_cert_encodeTheory.ext2num_def, combinTheory.I_THM,
+            FUN_EQ_THM];
+val r = translate n_e2num_eq;
+
+Theorem nsn_s_nsn_s_nsn_e2num_eq[local] =
+  xaig_cert_encodeTheory.nsn_s_nsn_s_nsn_e2num_def
+  |> SRULE [oneline xaig_cert_encodeTheory.ext2num_def, FUN_EQ_THM];
+val r = translate nsn_s_nsn_s_nsn_e2num_eq;
+
+Theorem nsn_s_n_e2num_eq[local] =
+  xaig_cert_encodeTheory.nsn_s_n_e2num_def
+  |> SRULE [oneline xaig_cert_encodeTheory.ext2num_def, FUN_EQ_THM];
+val r = translate nsn_s_n_e2num_eq;
+
+Theorem nsn_s_n_s_nsn_e2num_eq[local] =
+  xaig_cert_encodeTheory.nsn_s_n_s_nsn_e2num_def
+  |> SRULE [oneline xaig_cert_encodeTheory.ext2num_def, FUN_EQ_THM];
+val r = translate nsn_s_n_s_nsn_e2num_eq;
