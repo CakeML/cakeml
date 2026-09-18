@@ -3350,3 +3350,124 @@ Proof
   >> drule_all_then assume_tac is_witness_xis_safe_and_live
   >> simp []
 QED
+
+(** Mapping names to nums *****************************************************)
+
+(* We use nested datatypes as names, which make proofs easier (since they encode
+   namespaces neatly), but seems to incur some cost in the form of comparisons
+   when renaming to packed nums (packed = every number between 1 and some n
+   is used).
+   Thus, we apply an injective function that maps to (unpacked) nums once,
+   in the hopes of comparisons becoming cheaper. *)
+
+(* TODO replace _base variant with these (h = I) *)
+(* TODO is it possible to replace interv with this? *)
+
+Definition var_map_def:
+  (var_map _ _ h (Gate a)  = Gate (h a)) ∧
+  (var_map f g _ (Base bv) = Base (bvar_map f g bv))
+End
+
+Definition lit_map_def:
+  lit_map f g h (v, b) = (var_map f g h v, b)
+End
+
+Definition gty_map_def:
+  gty_map f g h (And xs) =
+    And (MAP (lit_map f g h) xs) ∧
+  gty_map f g h (Xor x₀ x₁) =
+    Xor (lit_map f g h x₀) (lit_map f g h x₁) ∧
+  gty_map f g h (Ite cnd thn els) =
+    Ite (lit_map f g h cnd) (lit_map f g h thn) (lit_map f g h els) ∧
+  gty_map f g h (Or xs) =
+    Or (MAP (lit_map f g h) xs)
+End
+
+Definition gate_map_def:
+  gate_map f g h (n, gty) = (h n, gty_map f g h gty)
+End
+
+Definition xaig_map_def:
+  xaig_map f g h (xaig: ('a, 'i, 'l) xaig) =
+    MAP (gate_map f g h) xaig
+End
+
+(* todo: reminds me of xeval_gate_pair_qxleft *)
+
+Theorem xaig_map_cons:
+  xaig_map f g h (x::xaig) = gate_map f g h x::xaig_map f g h xaig
+Proof
+  simp [xaig_map_def]
+QED
+
+Theorem xaig_map_eq:
+  INJ f 𝕌(:α) 𝕌(:β) ∧ INJ g 𝕌(:γ) 𝕌(:δ) ∧ INJ h 𝕌(:ε) 𝕌(:ζ) ∧
+  (∀i. is' (f i) = is i) ∧ (∀l. ls' (g l) = ls l)
+  ⇒
+  (∀lit.
+     (xeval_lit (is', ls') (xaig_map f g h xaig) (lit_map f g h lit)) ⇔
+     (xeval_lit (is, ls) xaig lit)) ∧
+  (∀n.
+     (xeval_gate (is', ls') (xaig_map f g h xaig) (h n)) ⇔
+     (xeval_gate (is, ls) xaig n))
+Proof
+  strip_tac
+  >> Induct_on ‘xaig’
+  >> rpt strip_tac
+  >- (
+    simp [xaig_map_def]
+    >> simp [oneline lit_map_def] >> CASE_TAC
+    >> simp [oneline var_map_def] >> CASE_TAC
+    >> simp [xeval_lit_def]
+    >> simp [oneline bvar_map_def] >> CASE_TAC
+    >> simp [eval_bvar_def]
+  )
+  >- simp [xaig_map_def]
+  >- (
+    simp [xaig_map_cons]
+    >> simp [oneline gate_map_def] >> CASE_TAC
+    >> simp [oneline lit_map_def] >> CASE_TAC
+    >> simp [oneline var_map_def]
+    >> reverse CASE_TAC >> simp [xeval_lit_def]
+    >- (simp [oneline bvar_map_def] >> CASE_TAC >> simp [eval_bvar_def])
+    >> rename1 ‘h n' = h n’
+    >> Cases_on ‘n' = n’ >> gvs []
+    >- (
+      simp [oneline gty_map_def] >> CASE_TAC
+      >> simp [EVERY_MAP, EXISTS_MAP]
+    )
+    >> have ‘h n' ≠ h n’ >- (gvs [INJ_DEF] >> metis_tac [])
+    >> simp []
+  )
+  >> simp [xaig_map_cons]
+  >> simp [oneline gate_map_def] >> CASE_TAC
+  >> simp [xeval_lit_def]
+  >> rename1 ‘h n' = h n’
+  >> Cases_on ‘n' = n’ >> gvs []
+  >- (
+    simp [oneline gty_map_def] >> CASE_TAC
+    >> simp [EVERY_MAP, EXISTS_MAP]
+  )
+  >> have ‘h n' ≠ h n’ >- (gvs [INJ_DEF] >> metis_tac [])
+  >> simp []
+QED
+
+Theorem exists_xeval_gate_xaig_map:
+  INJ f 𝕌(:α) 𝕌(:β) ∧ INJ g 𝕌(:γ) 𝕌(:δ) ∧ INJ h 𝕌(:ε) 𝕌(:ζ)
+  ⇒
+  ((∃ss. xeval_gate ss (xaig_map f g h xaig) (h n)) ⇔
+   (∃ss. xeval_gate ss xaig n))
+Proof
+  strip_tac >> eq_tac >> rw []
+  >> namedCases_on ‘ss’ ["is ls"]
+  >- (
+    qexists ‘(is ∘ f, ls ∘ g)’
+    >> irule $ iffLR $ cj 2 xaig_map_eq
+    >> simp [o_DEF]
+    >> metis_tac []
+  )
+  >> qexists ‘(is ∘ LINV f 𝕌(:α), ls ∘ LINV g 𝕌(:γ))’
+  >> irule $ iffRL $ cj 2 xaig_map_eq
+  >> imp_res_tac LINV_DEF >> simp []
+  >> metis_tac []
+QED
