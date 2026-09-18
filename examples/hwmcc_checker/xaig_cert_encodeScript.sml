@@ -547,6 +547,12 @@ Datatype:
   | Closure | Stable
 End
 
+val ext_name_count =
+  TypeBase.constructors_of “:ext_name” |> length |> numSyntax.term_of_int
+
+val ext_name2num_11 = theorem "ext_name2num_11"
+val ext_name2num_thm = theorem "ext_name2num_thm"
+
 Datatype:
   ext = Orig 'a | Ext ext_name | Anon num
 End
@@ -3393,3 +3399,82 @@ Proof
   >> imp_res_tac LINV_DEF >> simp []
   >> metis_tac []
 QED
+
+Definition sum2num_def:
+  sum2num f _ (INL x) = 2 * (f x) ∧
+  sum2num _ g (INR x) = 2 * (g x) + 1
+End
+
+Theorem sum2num_11:
+  (∀x' x. f x' = f x ⇔ x' = x) ∧
+  (∀x' x. g x' = g x ⇔ x' = x)
+  ⇒
+  (sum2num f g x' = sum2num f g x ⇔ x' = x)
+Proof
+  strip_tac
+  >> simp [oneline sum2num_def]
+  >> every_case_tac >> simp []
+  >> ntac 2 $ pop_assum kall_tac
+  >> intLib.COOPER_TAC
+QED
+
+(* (num + num) -> num *)
+Definition nsn2num_def:
+  nsn2num = sum2num I I
+End
+
+Theorem nsn2num_11:
+  (nsn2num n' = nsn2num n ⇔ n' = n)
+Proof
+  simp [nsn2num_def, sum2num_11]
+QED
+
+(* (num + num) + (num + num) -> num *)
+Definition nsn_s_nsn_def:
+  nsn_s_nsn = sum2num nsn2num nsn2num
+End
+
+Theorem nsn_s_nsn_11:
+  (nsn_s_nsn n' = nsn_s_nsn n ⇔ n' = n)
+Proof
+  simp [nsn_s_nsn_def, sum2num_11, nsn2num_11]
+QED
+
+Definition ext2num_def:
+  ext2num f (Orig orig) =
+    ^ext_name_count + 2 * (f orig) ∧
+  ext2num _ (Ext  e) =
+    ext_name2num e ∧
+  ext2num _ (Anon a) =
+    ^ext_name_count + 2 * a + 1
+End
+
+Theorem ext2num_11:
+  (∀x' x. f x' = f x ⇔ x' = x)
+  ⇒
+  (ext2num f n' = ext2num f n ⇔ n' = n)
+Proof
+  strip_tac
+  >> simp [oneline ext2num_def]
+  >> every_case_tac
+  >> simp [ext_name2num_11]
+  >> simp [oneline ext_name2num_thm]
+  >> every_case_tac >> simp []
+  >> pop_assum kall_tac
+  >> intLib.COOPER_TAC
+QED
+
+(* (num + num) ext -> num
+   Used by: reset gates *)
+Definition nsn_e2num_def:
+  nsn_e2num = ext2num nsn2num
+End
+
+Theorem nsn_e2num_11:
+  (nsn_e2num n' = nsn_e2num n) ⇔ n' = n
+Proof
+  simp [nsn_e2num_def, ext2num_11, nsn2num_11]
+QED
+
+(* (num + num) + (num + num) ext -> num
+   Used by: transition gates *)
