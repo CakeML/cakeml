@@ -571,6 +571,12 @@ Proof
   \\ gvs[]
   \\ reverse $ conj_asm2_tac
   >- (conj_tac
+      >- (Cases_on ‘s.memory (base_addr + 8w * xt)’ >> gvs[shape_of_def]
+         )
+      \\ conj_tac
+      >- (Cases_on ‘s.memory (base_addr + 8w * yt)’ >> gvs[shape_of_def]
+         )
+      \\ conj_tac
       >- (irule WORD_LOWER_EQ_TRANS
           \\ last_assum $ irule_at (Pos last)
           \\ irule WORD_LOWER_IMP_LOWER_OR_EQ
@@ -974,9 +980,9 @@ Proof
       \\ gvs[ret_satisfy_Ret]
       \\ irule_at (Pos last) EQ_REFL
       \\ rw[itree_call_handler_def]
-      >- (FULL_CASE_TAC \\ gvs[ret_satisfy_Ret, FLOOKUP_SIMP]
+      >- (FULL_CASE_TAC \\ gvs[ret_satisfy_Ret, FLOOKUP_SIMP, shape_of_def]
          )
-      \\ FULL_CASE_TAC \\ gvs[ret_satisfy_Ret, FLOOKUP_SIMP]
+      \\ FULL_CASE_TAC \\ gvs[ret_satisfy_Ret, FLOOKUP_SIMP, shape_of_def]
      )
   \\ irule itree_wbisim_trans
   \\ rw[itree_bind_assoc]
