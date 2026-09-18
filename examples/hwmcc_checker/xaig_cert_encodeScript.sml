@@ -3429,15 +3429,60 @@ Proof
   simp [nsn2num_def, sum2num_11]
 QED
 
+Theorem INJ_nsn2num:
+  INJ nsn2num 𝕌(:num + num) 𝕌(:num)
+Proof
+  simp [INJ_IFF, nsn2num_11]
+QED
+
 (* (num + num) + (num + num) -> num *)
-Definition nsn_s_nsn_def:
-  nsn_s_nsn = sum2num nsn2num nsn2num
+Definition nsn_s_nsn2num_def:
+  nsn_s_nsn2num = sum2num nsn2num nsn2num
 End
 
-Theorem nsn_s_nsn_11:
-  (nsn_s_nsn n' = nsn_s_nsn n ⇔ n' = n)
+Theorem nsn_s_nsn2num_11:
+  (nsn_s_nsn2num n' = nsn_s_nsn2num n ⇔ n' = n)
 Proof
-  simp [nsn_s_nsn_def, sum2num_11, nsn2num_11]
+  simp [nsn_s_nsn2num_def, sum2num_11, nsn2num_11]
+QED
+
+(* (num + num) + num -> num *)
+Definition nsn_s_n2num_def:
+  nsn_s_n2num = sum2num nsn2num I
+End
+
+Theorem nsn_s_n2num_11:
+  (nsn_s_n2num n' = nsn_s_n2num n ⇔ n' = n)
+Proof
+  simp [nsn_s_n2num_def, sum2num_11, nsn2num_11]
+QED
+
+Theorem INJ_nsn_s_n2num:
+  INJ nsn_s_n2num 𝕌(:(num + num) + num) 𝕌(:num)
+Proof
+  simp [INJ_IFF, nsn_s_n2num_11]
+QED
+
+(* ((num + num) + (num + num)) + (num + num) -> num *)
+Definition nsn_s_nsn_s_nsn2num_def:
+  nsn_s_nsn_s_nsn2num = sum2num nsn_s_nsn2num nsn2num
+End
+
+Theorem nsn_s_nsn_s_nsn2num_11:
+  (nsn_s_nsn_s_nsn2num n' = nsn_s_nsn_s_nsn2num n ⇔ n' = n)
+Proof
+  simp [nsn_s_nsn_s_nsn2num_def, sum2num_11, nsn_s_nsn2num_11, nsn2num_11]
+QED
+
+(* ((num + num) + num) + (num + num) -> num *)
+Definition nsn_s_n_s_nsn2num_def:
+  nsn_s_n_s_nsn2num = sum2num nsn_s_n2num nsn2num
+End
+
+Theorem nsn_s_n_s_nsn2num_11:
+  (nsn_s_n_s_nsn2num n' = nsn_s_n_s_nsn2num n ⇔ n' = n)
+Proof
+  simp [nsn_s_n_s_nsn2num_def, sum2num_11, nsn_s_n2num_11, nsn2num_11]
 QED
 
 Definition ext2num_def:
@@ -3464,8 +3509,7 @@ Proof
   >> intLib.COOPER_TAC
 QED
 
-(* (num + num) ext -> num
-   Used by: reset gates *)
+(* (num + num) ext -> num *)
 Definition nsn_e2num_def:
   nsn_e2num = ext2num nsn2num
 End
@@ -3476,5 +3520,95 @@ Proof
   simp [nsn_e2num_def, ext2num_11, nsn2num_11]
 QED
 
-(* (num + num) + (num + num) ext -> num
-   Used by: transition gates *)
+Theorem INJ_nsn_e2num:
+  INJ nsn_e2num 𝕌(:(num + num) ext) 𝕌(:num)
+Proof
+  simp [INJ_IFF, nsn_e2num_11]
+QED
+
+(* ((num + num) + (num + num)) ext -> num *)
+Definition nsn_s_nsn_e2num_def:
+  nsn_s_nsn_e2num = ext2num nsn_s_nsn2num
+End
+
+Theorem nsn_s_nsn_e2num_11:
+  (nsn_s_nsn_e2num n' = nsn_s_nsn_e2num n) ⇔ n' = n
+Proof
+  simp [nsn_s_nsn_e2num_def, ext2num_11, nsn_s_nsn2num_11]
+QED
+
+Theorem INJ_nsn_s_nsn_e2num:
+  INJ nsn_s_nsn_e2num 𝕌(:((num + num) + num + num) ext) 𝕌(:num)
+Proof
+  simp [INJ_IFF, nsn_s_nsn_e2num_11]
+QED
+
+(* num ext -> num *)
+Definition n_e2num_def:
+  n_e2num = ext2num I
+End
+
+Theorem n_e2num_11:
+  (n_e2num n' = n_e2num n) ⇔ n' = n
+Proof
+  simp [n_e2num_def, ext2num_11]
+QED
+
+Theorem INJ_n_e2num:
+  INJ n_e2num 𝕌(:num ext) 𝕌(:num)
+Proof
+  simp [INJ_IFF, n_e2num_11]
+QED
+
+(* (((num + num) + (num + num)) + (num + num)) ext -> num *)
+Definition nsn_s_nsn_s_nsn_e2num_def:
+  nsn_s_nsn_s_nsn_e2num = ext2num nsn_s_nsn_s_nsn2num
+End
+
+Theorem nsn_s_nsn_s_nsn_e2num_11:
+  (nsn_s_nsn_s_nsn_e2num n' = nsn_s_nsn_s_nsn_e2num n) ⇔ n' = n
+Proof
+  simp [nsn_s_nsn_s_nsn_e2num_def, ext2num_11, nsn_s_nsn_s_nsn2num_11]
+QED
+
+Theorem INJ_nsn_s_nsn_s_nsn_e2num:
+  INJ nsn_s_nsn_s_nsn_e2num
+    𝕌(:(((num + num) + num + num) + num + num) ext) 𝕌(:num)
+Proof
+  simp [INJ_IFF, nsn_s_nsn_s_nsn_e2num_11]
+QED
+
+(* ((num + num) + num) ext -> num *)
+Definition nsn_s_n_e2num_def:
+  nsn_s_n_e2num = ext2num nsn_s_n2num
+End
+
+Theorem nsn_s_n_e2num_11:
+  (nsn_s_n_e2num n' = nsn_s_n_e2num n) ⇔ n' = n
+Proof
+  simp [nsn_s_n_e2num_def, ext2num_11, nsn_s_n2num_11]
+QED
+
+Theorem INJ_nsn_s_n_e2num:
+  INJ nsn_s_n_e2num 𝕌(:((num + num) + num) ext) 𝕌(:num)
+Proof
+  simp [INJ_IFF, nsn_s_n_e2num_11]
+QED
+
+(* (((num + num) + num) + (num + num)) ext -> num *)
+Definition nsn_s_n_s_nsn_e2num_def:
+  nsn_s_n_s_nsn_e2num = ext2num nsn_s_n_s_nsn2num
+End
+
+Theorem nsn_s_n_s_nsn_e2num_11:
+  (nsn_s_n_s_nsn_e2num n' = nsn_s_n_s_nsn_e2num n) ⇔ n' = n
+Proof
+  simp [nsn_s_n_s_nsn_e2num_def, ext2num_11, nsn_s_n_s_nsn2num_11]
+QED
+
+Theorem INJ_nsn_s_n_s_nsn_e2num:
+  INJ nsn_s_n_s_nsn_e2num
+    𝕌(:(((num + num) + num) + num + num) ext) 𝕌(:num)
+Proof
+  simp [INJ_IFF, nsn_s_n_s_nsn_e2num_11]
+QED
