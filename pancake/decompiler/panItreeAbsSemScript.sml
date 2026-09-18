@@ -34,13 +34,13 @@ Definition itree_semantics_def:
 End
 
 Definition itree_deccall_handler_def:
-  itree_deccall_handler rt shape s ^res tree1 =
+  itree_deccall_handler rt shape s rsh ^res tree1 =
   case res of
   | INR (NONE,s') => Ret (INR (SOME Error,s'))
   | INR (SOME Break,s') => Ret (INR (SOME Error,s'))
   | INR (SOME Continue,s') => Ret (INR (SOME Error,s'))
   | INR (SOME (Return retv), s') =>
-      (if shape_of retv = shape then
+      (if shape_of retv = shape ∧ shape_of retv = rsh then
          Tau
          (tree1
           (set_var rt retv (s' with locals := s.locals)) >>=
@@ -56,7 +56,7 @@ Definition itree_deccall_handler_def:
 End
 
 Definition itree_call_handler_def:
-  itree_call_handler calltyp s ^res =
+  itree_call_handler calltyp rsh s ^res =
   case res of
   | INR (NONE,s') => Ret (INR (SOME Error,s'))
   | INR (SOME Break,s') => Ret (INR (SOME Error,s'))
@@ -80,13 +80,15 @@ Definition itree_call_handler_def:
             else Ret (INR (SOME (Exception eid exn),empty_locals s')))
        | _ => Ret (INR (SOME (Exception eid exn),empty_locals s')))
   | INR (SOME (Return retv), s') =>
-      (case calltyp of
-         NONE => Ret (INR (SOME (Return retv),empty_locals s'))
-       | SOME (NONE, _) => Ret (INR (NONE, s' with locals := s.locals))
-       | SOME (SOME (rk,rt), _) =>
-           if is_valid_value s rk rt retv
-           then Ret (INR (NONE,set_kvar rk rt retv (s' with locals := s.locals)))
-           else Ret (INR (SOME Error,s')))
+      if shape_of retv ≠ rsh then Ret (INR (SOME Error,s'))
+      else
+        (case calltyp of
+           NONE => Ret (INR (SOME (Return retv),empty_locals s'))
+         | SOME (NONE, _) => Ret (INR (NONE, s' with locals := s.locals))
+         | SOME (SOME (rk,rt), _) =>
+             if is_valid_value s rk rt retv
+             then Ret (INR (NONE,set_kvar rk rt retv (s' with locals := s.locals)))
+             else Ret (INR (SOME Error,s')))
   | INR (res,s') => Ret (INR (res,empty_locals s'))
   | INL _ => Ret (INR (SOME Error,s))
 End
@@ -184,12 +186,14 @@ Theorem itree_semantics_Dec:
   ((itree_semantics (Dec x sh e p, s)):'a ptree) =
   case eval s e of
     SOME v =>
-      Tau (((itree_semantics (p,s with locals := s.locals |+ (x,v))):'a ptree) >>=
-           (λa. Ret (INR (case a of
-                            INL l => (SOME Error, s)
-                          | INR (res,s') =>
-                              (res, s' with
-                     locals := res_var s'.locals (x,FLOOKUP s.locals x))))))
+      if sh = shape_of v then
+        Tau (((itree_semantics (p,s with locals := s.locals |+ (x,v))):'a ptree) >>=
+             (λa. Ret (INR (case a of
+                              INL l => (SOME Error, s)
+                            | INR (res,s') =>
+                                (res, s' with
+                       locals := res_var s'.locals (x,FLOOKUP s.locals x))))))
+      else Ret (INR (SOME Error, s))
   | _ => Ret (INR (SOME Error, s))
 Proof
   PURE_REWRITE_TAC[itree_semantics_def, o_DEF] \\ BETA_TAC
@@ -201,6 +205,7 @@ QED
 
 Theorem itree_semantics_Dec_with_pre:
   (∃v. eval s e = SOME v) ⇒
+  (let v = THE (eval s e) in sh = shape_of v) ⇒
   ((itree_semantics (Dec x sh e p, s)):'a ptree) =
   let v = THE (eval s e) in
       Tau (((itree_semantics (p,s with locals := s.locals |+ (x,v))):'a ptree) >>=
@@ -213,6 +218,7 @@ Proof
   PURE_REWRITE_TAC[itree_semantics_def, o_DEF] \\ BETA_TAC
   \\ fs[SimpLHS, h_prog_def, h_prog_dec_def, Once itree_iter_thm]
   \\ rpt (CASE_TAC \\ fs[])
+  \\ rpt strip_tac
   \\ irule itree_bind_bisim_intro
   \\ rw[FUN_EQ_THM]
 QED
@@ -343,13 +349,15 @@ Theorem itree_semantics_StoreByte:
     (INR
        (case (eval s dst,eval s src) of
           (NONE,v3) => (SOME Error,s)
-        | (SOME (Val v10),NONE) => (SOME Error,s)
+        | (SOME (Val v12),NONE) => (SOME Error,s)
         | (SOME (ValWord ad),SOME (ValWord v)) =>
           (case mem_store_byte s.memory s.memaddrs s.be ad (w2w v) of
              NONE => (SOME Error,s)
            | SOME m => (NONE,s with memory := m))
-        | (SOME (Val v10),SOME (Struct v19)) => (SOME Error,s)
-        | (SOME (Struct v11),v3) => (SOME Error,s)))
+        | (SOME (Val v12),SOME (RStruct v25)) => (SOME Error,s)
+        | (SOME (Val v12),SOME (NStruct v26 v27)) => (SOME Error,s)
+        | (SOME (RStruct v13),v3) => (SOME Error,s)
+        | (SOME (NStruct v14 v15),v3) => (SOME Error,s)))
 Proof
   PURE_REWRITE_TAC[itree_semantics_def, o_DEF] \\ BETA_TAC
   \\ fs[SimpLHS, h_prog_def, h_prog_store_byte_def, Once itree_iter_thm]
@@ -690,7 +698,7 @@ Theorem itree_semantics_Return:
     Ret (INR (case eval s e of
                 NONE => (SOME Error,s)
               | SOME v =>
-                  if size_of_shape (shape_of v) ≤ 32 then
+                  if size_of_sh_with_ctxt s.structs (shape_of v) ≤ 32 then
                     (SOME (Return v), empty_locals s)
                   else (SOME Error,s)))
 Proof
@@ -703,7 +711,7 @@ Theorem itree_semantics_Return_with_pre:
   (let
      v = THE (eval s e)
    in
-     size_of_shape (shape_of v) ≤ 32) ⇒
+     size_of_sh_with_ctxt s.structs (shape_of v) ≤ 32) ⇒
   itree_semantics (Return e,s) =
   let v = THE (eval s e) in
     Ret (INR ((SOME (Return v), empty_locals s)))
@@ -713,12 +721,11 @@ Proof
   \\ gvs[h_prog_def, h_prog_return_def]
 QED
 
-
 Theorem itree_semantics_Raise:
   itree_semantics (Raise eid e,s) =
   Ret (INR (case (FLOOKUP s.eshapes eid, eval s e) of
             | (SOME sh, SOME v) =>
-                if shape_of v = sh ∧ size_of_shape (shape_of v) ≤ 32 then
+                if shape_of v = sh ∧ size_of_sh_with_ctxt s.structs (shape_of v) ≤ 32 then
                   (SOME (Exception eid v), empty_locals s)
                 else (SOME Error,s)
             | _ => (SOME Error,s)))
@@ -734,7 +741,7 @@ Theorem itree_semantics_Raise_with_pre:
      sh = THE (FLOOKUP s.eshapes eid);
      v = THE (eval s e)
    in
-     shape_of v = sh ∧ size_of_shape (shape_of v) ≤ 32) ⇒
+     shape_of v = sh ∧ size_of_sh_with_ctxt s.structs (shape_of v) ≤ 32) ⇒
   itree_semantics (Raise eid e,s) =
   let sh = THE (FLOOKUP s.eshapes eid) in
     let v = THE (eval s e) in
@@ -745,7 +752,7 @@ Proof
   \\ gvs[h_prog_def, h_prog_raise_def]
 QED
 
-
+        
 Theorem itree_semantics_Call:
  ((itree_semantics (Call calltyp fname aexps,s)):'a ptree) =
    (case OPT_MMAP (eval s) aexps of
@@ -753,10 +760,10 @@ Theorem itree_semantics_Call:
     | SOME args =>
         case lookup_code s.code fname args of
           NONE => Ret (INR (SOME Error,s))
-        | SOME (q,r) =>
+        | SOME (q,r,rsh) =>
             Tau
             (((itree_semantics (q,s with locals := r)):'a ptree) >>=
-                        (λres. itree_call_handler calltyp s res))
+                        (λres. itree_call_handler calltyp rsh s res))
         | _ => Ret (INR (SOME Error,s)))
 Proof
   PURE_REWRITE_TAC[itree_semantics_def, o_DEF, itree_call_handler_def] \\ BETA_TAC
@@ -770,12 +777,12 @@ QED
 
 
 Theorem itree_semantics_Call_with_pre:
-  (∃args q r. OPT_MMAP (eval s) aexps = SOME args ∧ lookup_code s.code fname args = SOME (q,r)) ⇒
+  (∃args q r rsh. OPT_MMAP (eval s) aexps = SOME args ∧ lookup_code s.code fname args = SOME (q,r,rsh)) ⇒
   ((itree_semantics (Call calltyp fname aexps,s)):'a ptree) =
   let args = THE (OPT_MMAP (eval s) aexps) in
-    let (q, r) = THE (lookup_code s.code fname args) in
+    let (q, r, rsh) = THE (lookup_code s.code fname args) in
       Tau (((itree_semantics (q,s with locals := r)):'a ptree)
-           >>= (λres. itree_call_handler calltyp s res))
+           >>= (λres. itree_call_handler calltyp rsh s res))
 Proof
   PURE_REWRITE_TAC[itree_semantics_def, o_DEF, itree_call_handler_def] \\ BETA_TAC
   \\ fs[h_prog_def, h_prog_call_def]
@@ -794,10 +801,10 @@ Theorem itree_semantics_DecCall:
    | SOME args =>
        case lookup_code s.code fname args of
          NONE => Ret (INR (SOME Error,s))
-       | SOME (q,r) =>
+       | SOME (q,r,rsh) =>
            Tau
            (((itree_semantics (q,s with locals := r)):'a ptree) >>=
-                       (λres. itree_deccall_handler rt sh s res (λs1. itree_semantics (prog, s1)))))
+                       (λres. itree_deccall_handler rt sh s rsh res (λs1. itree_semantics (prog, s1)))))
 Proof
   PURE_REWRITE_TAC[itree_semantics_def, o_DEF, itree_deccall_handler_def] \\ BETA_TAC
   \\ fs[h_prog_def, h_prog_deccall_def]
@@ -809,12 +816,12 @@ Proof
 QED
 
 Theorem itree_semantics_DecCall_with_pre:
-  (∃args q r. OPT_MMAP (eval s) aexps = SOME args ∧ lookup_code s.code fname args = SOME (q,r)) ⇒
+  (∃args q r rsh. OPT_MMAP (eval s) aexps = SOME args ∧ lookup_code s.code fname args = SOME (q,r,rsh)) ⇒
   (itree_semantics (DecCall rt sh fname aexps prog,s)):'a ptree =
   let args = THE (OPT_MMAP (eval s) aexps) in
-    let (q, r) = THE (lookup_code s.code fname args) in
+    let (q, r, rsh) = THE (lookup_code s.code fname args) in
       Tau (((itree_semantics (q,s with locals := r)):'a ptree)
-           >>= (λres. itree_deccall_handler rt sh s res (λs1. itree_semantics (prog, s1))))
+           >>= (λres. itree_deccall_handler rt sh s rsh res (λs1. itree_semantics (prog, s1))))
 Proof
   PURE_REWRITE_TAC[itree_semantics_def, o_DEF, itree_deccall_handler_def] \\ BETA_TAC
   \\ fs[h_prog_def, h_prog_deccall_def]
@@ -926,6 +933,24 @@ Proof
   \\ rw[FUN_EQ_THM]
 QED
 
+Theorem itree_semantics_Primitive:
+  (itree_semantics (Primitive vname pop es, s)) =
+  Ret
+    (INR
+       (case OPT_MMAP (eval s) es of
+          NONE => (SOME Error,s)
+        | SOME vs =>
+          case pan_primop pop vs of
+            NONE => (SOME Error,s)
+          | SOME value =>
+            if is_valid_value s Local vname value then
+              (NONE,set_var vname value s)
+            else (SOME Error,s)))
+Proof
+   PURE_REWRITE_TAC[itree_semantics_def, o_DEF] \\ BETA_TAC
+  \\ fs[h_prog_def, h_prog_primitive_def]
+QED
+        
 CoInductive ret_satisfy:
   (P v ⇒ ret_satisfy P (Ret v)) ∧
   (ret_satisfy P t ⇒ ret_satisfy P (Tau t)) ∧
@@ -1145,8 +1170,9 @@ Proof
   \\ fs[]
 QED
 
-Definition struct_of_val_def:
-  struct_of_val (ValWord w) = ARB ∧ struct_of_val (Struct v1) = v1
+Definition rstruct_of_val_def:
+  rstruct_of_val (RStruct v1) = v1 ∧
+  rstruct_of_val _ = ARB
 End
 
 CoInductive ret_vis_satisfy:
@@ -1244,6 +1270,7 @@ Proof
   >- metis_tac[weak_bisim_upfrom_abs_rules, strip_tau_simps2]
   \\ reverse $ Cases_on ‘x’ \\ gvs[]
   >- metis_tac[weak_bisim_upfrom_abs_rules, strip_tau_simps2]
+  >- metis_tac[weak_bisim_upfrom_abs_rules, strip_tau_simps2]
   \\ reverse $ Cases_on ‘w’ \\ gvs[]
   \\ FULL_CASE_TAC \\ gvs[]
   >- metis_tac[weak_bisim_upfrom_abs_rules, strip_tau_simps2]
@@ -1273,8 +1300,8 @@ QED
 Theorem panprog_induct:
   ∀P.
     P Skip ∧ (∀p. P p ⇒ ∀s e m. P (Dec m s e p)) ∧
-    (∀v m e. P (Assign v m e)) ∧ (∀e e0. P (Store e e0)) ∧
-    (∀e e0. P (Store32 e e0)) ∧
+    (∀v m e. P (Assign v m e)) ∧ (∀m p l. P (Primitive m p l)) ∧
+    (∀e e0. P (Store e e0)) ∧ (∀e e0. P (Store32 e e0)) ∧
     (∀e e0. P (StoreByte e e0)) ∧ (∀p p0. P p ∧ P p0 ⇒ P (Seq p p0)) ∧
     (∀p p0. P p ∧ P p0 ⇒ ∀e. P (If e p p0)) ∧
     (∀p. P p ⇒ ∀e. P (While e p)) ∧ P Break ∧ P Continue ∧
@@ -1411,16 +1438,23 @@ Theorem ret_satisfy_INR_itree_semantics:
   ∀prog s. ret_satisfy (λx. ∃rv. x = INR rv) (itree_semantics (prog,s))
 Proof
   ho_match_mp_tac panprog_induct
-  \\ rw[ret_satisfy_rules, itree_semantics_Annot, itree_semantics_Tick, itree_semantics_Raise, itree_semantics_Return, itree_semantics_Skip,
-        itree_semantics_StoreByte, itree_semantics_Store32, itree_semantics_Store, itree_semantics_Continue, itree_semantics_Break]
+  \\ rw[ret_satisfy_rules, itree_semantics_Annot, itree_semantics_Tick, itree_semantics_Raise,
+        itree_semantics_Return, itree_semantics_Skip, itree_semantics_StoreByte, itree_semantics_Store32,
+        itree_semantics_Store, itree_semantics_Continue, itree_semantics_Break]
   >- (rw[itree_semantics_Dec]
       \\ FULL_CASE_TAC \\ fs[ret_satisfy_rules]
-      \\ irule $ cj 2 ret_satisfy_rules
-      \\ irule ret_satisfy_bind_k_wrap
-      \\ rpt strip_tac
-      \\ Cases_on ‘r’ \\ fs[ret_satisfy_rules]
+      \\ FULL_CASE_TAC >> gvs[]
+      >- (irule $ cj 2 ret_satisfy_rules
+          \\ irule ret_satisfy_bind_k_wrap
+          \\ rpt strip_tac
+          \\ Cases_on ‘r’ \\ fs[ret_satisfy_rules]
+         )
+      >> fs[ret_satisfy_rules]
      )
   >- (fs[itree_semantics_Assign]
+      \\ FULL_CASE_TAC \\ fs[ret_satisfy_rules]
+     )
+  >- (fs[itree_semantics_Primitive]
       \\ FULL_CASE_TAC \\ fs[ret_satisfy_rules]
      )
   >- (fs[itree_semantics_Seq]
@@ -1452,7 +1486,7 @@ Proof
       \\ irule $ cj 2 ret_satisfy_rules
       \\ irule ret_satisfy_bind_k_wrap
       \\ rpt strip_tac
-      \\ Cases_on ‘r''’ \\ fs[ret_satisfy_rules]
+      \\ Cases_on ‘r'’ \\ fs[ret_satisfy_rules]
      )
   >- (rw[itree_semantics_DecCall]
       \\ EVERY_CASE_TAC \\ fs[ret_satisfy_rules, itree_deccall_handler_def]
@@ -1464,7 +1498,7 @@ Proof
       \\ irule $ cj 2 ret_satisfy_rules
       \\ irule ret_satisfy_bind_k_wrap
       \\ rpt strip_tac
-      \\ Cases_on ‘r''’ \\ fs[ret_satisfy_rules]
+      \\ Cases_on ‘r'’ \\ fs[ret_satisfy_rules]
      )
   \\ rw[itree_semantics_ExtCall, itree_semantics_ShMemStore, itree_semantics_ShMemLoad, itree_semantics_Return]
   \\ EVERY_CASE_TAC \\ fs[ret_satisfy_rules, itree_semantics_Return]
@@ -1506,8 +1540,11 @@ Proof
   >- (fs[itree_semantics_Dec]
       \\ FULL_CASE_TAC
       \\ fs[itree_wbisim_refl]
-      \\ irule itree_bind_resp_t_wbisim
-      \\ rw[]
+      \\ FULL_CASE_TAC \\ gvs[]
+      >- (irule itree_bind_resp_t_wbisim
+          \\ rw[]
+         )
+      \\ irule itree_wbisim_refl
      )
   >- (Cases_on ‘e’ \\ fs[itree_semantics_If]
       \\ EVERY_CASE_TAC \\ gvs[eval_def, itree_wbisim_refl]
@@ -1577,7 +1614,7 @@ Proof
 QED
 
 Theorem itree_bind_v_case_assoc:
-  v_CASE a b c >>= d = v_CASE a (λx. b x >>= d) (λx. c x >>= d)
+  v_CASE a b c d >>= e = v_CASE a (λx. b x >>= e) (λx. c x >>= e) (λn x. d n x >>= e)
 Proof
   FULL_CASE_TAC
 QED
@@ -1843,7 +1880,12 @@ QED
 
 Theorem itree_semantics_Dec_with_pre_let:
   ((∀s. itree_semantics (p,s) = t s) ⇒
-  (∃v. eval s e = SOME v) ⇒
+   (∃v. eval s e = SOME v) ⇒
+   (let
+      v = THE (eval s e)
+    in
+      sh = shape_of v
+   ) ⇒
   itree_semantics (Dec x sh e p,s) =
   (let
      v = THE (eval s e)
@@ -1861,11 +1903,11 @@ Theorem itree_semantics_Dec_with_pre_let:
                       locals := res_var s'.locals (x,FLOOKUP s.locals x))))))))
   ∧
   ((∀s. Pre s ⇒ itree_semantics (p,s) = t s) ⇒
-  (∃v. eval s e = SOME v) ⇒
-  (let
-     v = THE (eval s e)
-   in
-     Pre (s with locals := s.locals |+ (x,v))
+   (∃v. eval s e = SOME v) ⇒
+   (let
+      v = THE (eval s e)
+    in
+      Pre (s with locals := s.locals |+ (x,v)) ∧ sh = shape_of v
    ) ⇒
   itree_semantics (Dec x sh e p,s) =
   (let
@@ -2013,7 +2055,6 @@ Proof
   rw[]
 QED
 
-
 Theorem itree_semantics_DecCall_with_pre_ret_satisfy:
   ((∀s. itree_semantics (prog1,s) = t s) ∧
   (∃args q r.
@@ -2022,15 +2063,15 @@ Theorem itree_semantics_DecCall_with_pre_ret_satisfy:
   itree_semantics (DecCall rt sh fname aexps prog1,s) =
   (let
      args = THE (OPT_MMAP (eval s) aexps);
-     (q,r) = THE (lookup_code s.code fname args)
+     (q,r,rsh) = THE (lookup_code s.code fname args)
    in
      Tau
      (itree_semantics (q,s with locals := r) >>=
-                      (λres. itree_deccall_handler rt sh s res t)))) ∧
+                      (λres. itree_deccall_handler rt sh s rsh res t)))) ∧
   ((∀s. Pre_next s ⇒ itree_semantics (prog1,s) = t s) ∧
   (∃args q r.
         OPT_MMAP (eval s) aexps = SOME args ∧
-        lookup_code s.code fname args = SOME (q,r) ∧
+        lookup_code s.code fname args = SOME (q,r,rsh) ∧
         ret_satisfy
         (λx.
            ∃r s'.
@@ -2042,15 +2083,16 @@ Theorem itree_semantics_DecCall_with_pre_ret_satisfy:
   itree_semantics (DecCall rt sh fname aexps prog1,s) =
   (let
      args = THE (OPT_MMAP (eval s) aexps);
-     (q,r) = THE (lookup_code s.code fname args)
+     (q,r,rsh) = THE (lookup_code s.code fname args)
    in
      Tau
      (itree_semantics (q,s with locals := r) >>=
-                      (λres. itree_deccall_handler rt sh s res t))))
+                      (λres. itree_deccall_handler rt sh s rsh res t))))
 Proof
   conj_tac
   >- (rpt strip_tac
       \\ rw[itree_semantics_DecCall]
+      \\ FULL_CASE_TAC \\ gvs[]
       \\ irule itree_bind_bisim_intro
       \\ rw[FUN_EQ_THM, itree_deccall_handler_def]
      )
@@ -2096,8 +2138,13 @@ Theorem eval_eq_SOME_strip_eval:
     ((∃v1. eval s exp1 = SOME (ValWord v1)) ∧ (∃v2. eval s exp2 = SOME (ValWord v2)))) ∧
   ((∃w. eval s (Cmp cmp exp1 exp2) = SOME (ValWord w)) ⇔
      ((∃v1. eval s exp1 = SOME (ValWord v1)) ∧ (∃v2. eval s exp2 = SOME (ValWord v2)))) ∧
-  ((∃w. eval (s:'a bstate) (Shift sh exp n) = SOME (ValWord w)) ⇔
-     ((∃v. eval s exp = SOME (ValWord v)) ∧ (let v = word_of_val (THE (eval s exp)) in(n = 0 ∨ n < dimindex (:'a)))))
+  ((∃w. eval (s:'a bstate) (Shift sh e1 e2) = SOME (ValWord w)) ⇔
+     ((∃v. eval s e1 = SOME (ValWord v)) ∧ (∃v. eval s e2 = SOME (ValWord v)) ∧
+      (let w1 = word_of_val (THE (eval s e1));
+           w2 = word_of_val (THE (eval s e2));
+           n = w2n w2;
+       in
+         n = 0 ∨ n < dimindex (:'a))))
 Proof
   rpt conj_tac
   >- (iff_tac
@@ -2108,7 +2155,7 @@ Proof
       \\ rpt strip_tac
       \\ gvs[word_of_val_def, eval_def, mem_load_def]
       \\ Cases_on ‘s.memory wa’
-      \\ rw[]
+      \\ rw[is_wf_shape_def]
      )
   >- (iff_tac
       >- (rpt strip_tac
@@ -2212,10 +2259,12 @@ Theorem eval_eq_SOME_eval_to_let:
         v1 = word_of_val (THE (eval s exp1));
         v2 = word_of_val (THE (eval s exp2))
      in SOME (ValWord (if word_cmp cmp v1 v2 then 1w else 0w)))) ∧
-   ((∃w. eval (s:'a bstate) (Shift sh exp n) = SOME (ValWord w)) ⇒
-    eval s (Shift sh exp n) =
+   ((∃w. eval (s:'a bstate) (Shift sh e1 e2) = SOME (ValWord w)) ⇒
+    eval s (Shift sh e1 e2) =
     (let
-       w = word_of_val (THE (eval s exp));
+       w = word_of_val (THE (eval s e1));
+       w' = word_of_val (THE (eval s e2));
+       n = w2n w';
        v = case sh of
              Lsl => (w ≪ n)
            | Lsr => (w ⋙ n)
@@ -2319,7 +2368,8 @@ QED
 
 Theorem eval_exists_strengthen:
   ((∃v. eval s (Const w) = SOME v) ⇔ (eval s (Const w) = SOME (ValWord w))) ∧
-  ((∃v. eval s (Struct es) = SOME v) ⇔ (∃es'. eval s (Struct es) = SOME (Struct es'))) ∧
+  ((∃v. eval s (RStruct es) = SOME v) ⇔ (∃es'. eval s (RStruct es) = SOME (RStruct es'))) ∧
+  ((∃v. eval s (NStruct nm ls) = SOME v) ⇔ (∃ls'. eval s (NStruct nm ls) = SOME (NStruct nm ls'))) ∧
   ((∃v. eval s (Load One addr) = SOME v) ⇔ (∃w. eval s (Load One addr) = SOME (ValWord w))) ∧
   ((∃v. eval s (Load32 addr) = SOME v) ⇔ (∃w. eval s (Load32 addr) = SOME (ValWord w))) ∧
   ((∃v. eval s (LoadByte addr) = SOME v) ⇔ (∃w. eval s (LoadByte addr) = SOME (ValWord w))) ∧
@@ -2333,13 +2383,18 @@ Proof
   \\ rw[eval_def]
   \\ EVERY_CASE_TAC \\ gvs[mem_load_32_def, mem_load_byte_def, wordLangTheory.word_op_def, pan_op_def,
                            asmTheory.word_cmp_def, wordLangTheory.word_sh_def, mem_load_def]
+  >- (Cases_on ‘UNZIP ls’ \\ gvs[]
+      \\ Cases_on ‘UNZIP x.fields’ \\ gvs[]
+      \\ FULL_CASE_TAC \\ gvs[]
+     )
   \\ Cases_on ‘s.memory c’ \\ gvs[]
 QED
 
 Theorem exists_val_struct_weakening:
   ((∃w. P = SOME (ValWord w)) ⇒ (∃v. P = SOME v)) ∧
   ((∃w. P = SOME (ValWord w)) ⇒ (∃v. P = SOME v ∧ shape_of v = One)) ∧
-  ((∃w. P = SOME (Struct w)) ⇒ (∃v. P = SOME v))
+  ((∃w. P = SOME (RStruct w)) ⇒ (∃v. P = SOME v)) ∧
+  ((∃w. P = SOME (NStruct nm w)) ⇒ (∃v. P = SOME v))
 Proof
   rpt strip_tac
   \\ gvs[shape_of_def]
@@ -2411,7 +2466,7 @@ Theorem eval_op_impl_let:
   (∃wv. eval s (Op op es) = SOME (ValWord wv)) ⇒
   eval s (Op op es) =
   let ws = THE (OPT_MMAP (λa. eval s a) es) in
-    (OPTION_MAP (λw. ValWord w) (word_op op (MAP (λw. case w of ValWord n => n | Struct v1 => ARB) ws)))
+    (OPTION_MAP (λw. ValWord w) (word_op op (MAP (λw. case w of ValWord n => n | _ => ARB) ws)))
 Proof
   rw[eval_def]
   \\ EVERY_CASE_TAC \\ gvs[word_of_val_def]
@@ -2670,7 +2725,8 @@ QED
 
 
 Theorem v_CASE_wbisim_cong:
-  (∀x. (f1 x) ≈ (f3 x)) ∧ (∀x. (f2 x) ≈ (f4 x)) ⇒ ∀x. (v_CASE x f1 f2) ≈ (v_CASE x f3 f4)
+  (∀x. (f1 x) ≈ (f4 x)) ∧ (∀x. (f2 x) ≈ (f5 x)) ∧ (∀n x. (f3 n x) ≈ (f6 n x)) ⇒
+  ∀x. (v_CASE x f1 f2 f3) ≈ (v_CASE x f4 f5 f6)
 Proof
   rpt strip_tac
   \\ Cases_on ‘x’ \\ rw[]
