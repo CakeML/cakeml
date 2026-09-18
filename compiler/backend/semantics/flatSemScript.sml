@@ -316,10 +316,6 @@ End
 Definition do_app_def:
   do_app s op (vs:flatSem$v list) =
   case (op, vs) of
-  | (Src (Shift wz sh n), [Litv w]) =>
-      (case do_shift sh n wz w of
-         | NONE => NONE
-         | SOME w => SOME (s, Rval (Litv w)))
   | (Src Equality, [v1; v2]) =>
     (case do_eq v1 v2 of
      | Eq_type_error => NONE
