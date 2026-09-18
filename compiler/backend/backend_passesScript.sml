@@ -17,8 +17,8 @@ Datatype:
            | Bvi ((num # num # bvi$exp) list) (mlstring sptree$num_map)
            | Data ((num # num # dataLang$prog) list) (mlstring sptree$num_map)
            | Word ((num # num # α wordLang$prog) list) (mlstring sptree$num_map)
-           | Stack ((num # α stackLang$prog) list) (mlstring sptree$num_map)
-           | Lab (α sec list) (mlstring sptree$num_map)
+           | Stack ((num # stackLang$prog) list) (mlstring sptree$num_map)
+           | Lab (sec list) (mlstring sptree$num_map)
 End
 
 Definition to_flat_all_def:
@@ -309,16 +309,17 @@ Definition to_lab_all_def:
     let offset = asm_conf.addr_offset in
     let prog = stack_rawcall$compile p in
     let ps = ps ++ [(«after stack_rawcall»,Stack prog names)] in
-    let prog = stack_alloc$compile data_conf prog in
+    let prog = stack_alloc$compile (arch_wordsize asm_conf.ISA) data_conf prog in
     let ps = ps ++ [(«after stack_alloc»,Stack prog names)] in
-    let prog = stack_remove$compile stack_conf.jump offset (is_gen_gc data_conf.gc_kind)
+    let prog = stack_remove$compile (arch_wordsize asm_conf.ISA) stack_conf.jump offset
+                 (is_gen_gc data_conf.gc_kind)
                  max_heap sp InitGlobals_location prog in
     let ps = ps ++ [(«after stack_remove»,Stack prog names)] in
     let prog = stack_names$compile stack_conf.reg_names prog in
     let ps = ps ++ [(«after stack_names»,Stack prog names)] in
     let p = MAP prog_to_section prog in
     let ps = ps ++ [(«after stack_to_lab»,Lab p names)] in
-      ((ps: (mlstring # 'a any_prog) list),bm:'a word list,c,p:'a labLang$prog,names)
+      ((ps: (mlstring # 'a any_prog) list),bm:'a word list,c,p:labLang$prog,names)
 End
 
 Theorem to_lab_thm:
@@ -361,7 +362,7 @@ Proof
 QED
 
 Definition from_stack_all_def:
-  from_stack_all ps (asm_conf:'a asm_config) (c:config) names p bm =
+  from_stack_all ps (asm_conf:asm_config) (c:config) names p bm =
     let stack_conf = c.stack_conf in
     let data_conf = c.data_conf in
     let max_heap = 2 * max_heap_limit (:'a) c.data_conf - 1 in
@@ -369,9 +370,10 @@ Definition from_stack_all_def:
     let offset = asm_conf.addr_offset in
     let prog = stack_rawcall$compile p in
     let ps = ps ++ [(«after stack_rawcall»,Stack prog names)] in
-    let prog = stack_alloc$compile data_conf prog in
+    let prog = stack_alloc$compile (arch_wordsize asm_conf.ISA) data_conf prog in
     let ps = ps ++ [(«after stack_alloc»,Stack prog names)] in
-    let prog = stack_remove$compile stack_conf.jump offset (is_gen_gc data_conf.gc_kind)
+    let prog = stack_remove$compile (arch_wordsize asm_conf.ISA) stack_conf.jump offset
+                 (is_gen_gc data_conf.gc_kind)
                  max_heap sp InitGlobals_location prog in
     let ps = ps ++ [(«after stack_remove»,Stack prog names)] in
     let prog = stack_names$compile stack_conf.reg_names prog in

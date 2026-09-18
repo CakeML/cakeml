@@ -1221,6 +1221,31 @@ Resume evaluate_apply_colour[Move]:
   full_simp_tac(srw_ss())[]
 QED
 
+(* the six Arith cases other than Binop and Shift *)
+val inst_arith_tac =
+  fs[]>>
+  qmatch_goalsub_abbrev_tac `get_vars ls st`>>
+  Cases_on`get_vars ls st`>>fs[Abbr`ls`]>>
+  imp_res_tac strong_locals_rel_get_vars>>fs[]>>
+  pop_assum kall_tac>> pop_assum mp_tac>>
+  impl_tac>-
+    metis_tac[]>>
+  fs[]>>
+  qmatch_asmsub_abbrev_tac `INJ f (domain A)`>>
+  `!n n'. n ∈ domain A ∧
+          n' ∈ domain A ∧ n ≠ n' ⇒ f n ≠ f n'` by
+    (fs[get_writes_def,get_writes_inst_def,Abbr`A`]>>
+    qpat_x_assum`INJ f A B` mp_tac>>
+    rpt (pop_assum kall_tac)>>rw[]>>
+    FULL_SIMP_TAC bool_ss [INJ_DEF,domain_union,get_writes_def,get_writes_inst_def,domain_insert,IN_UNION]>>
+    metis_tac[IN_INSERT])>>
+  fs[get_writes_def,get_writes_inst_def,Abbr`A`,domain_union]>>
+  every_case_tac>>fs[set_var_def,strong_locals_rel_def,lookup_insert]>>
+  rw[]>>
+  pop_assum mp_tac>>
+  rpt IF_CASES_TAC>>fs[]>>
+  metis_tac[];
+
 Resume evaluate_apply_colour[Inst]:
   exists_tac>>
   Cases_on`i`>> (TRY (Cases_on`a`))>> (TRY(Cases_on`m`))>>
@@ -1261,30 +1286,12 @@ Resume evaluate_apply_colour[Inst]:
   match_mp_tac strong_locals_rel_insert>>
   fs[domain_union,get_writes_def,get_writes_inst_def]>>
   metis_tac[INSERT_SING_UNION,strong_locals_rel_subset,SUBSET_OF_INSERT])
-  >>
-  TRY (
-  fs[]>>
-  qmatch_goalsub_abbrev_tac `get_vars ls st`>>
-  Cases_on`get_vars ls st`>>fs[Abbr`ls`]>>
-  imp_res_tac strong_locals_rel_get_vars>>fs[]>>
-  pop_assum kall_tac>> pop_assum mp_tac>>
-  impl_tac>-
-    metis_tac[]>>
-  fs[]>>
-  qmatch_asmsub_abbrev_tac `INJ f (domain A)`>>
-  `!n n'. n ∈ domain A ∧
-          n' ∈ domain A ∧ n ≠ n' ⇒ f n ≠ f n'` by
-    (fs[get_writes_def,get_writes_inst_def,Abbr`A`]>>
-    qpat_x_assum`INJ f A B` mp_tac>>
-    rpt (pop_assum kall_tac)>>rw[]>>
-    FULL_SIMP_TAC bool_ss [INJ_DEF,domain_union,get_writes_def,get_writes_inst_def,domain_insert,IN_UNION]>>
-    metis_tac[IN_INSERT])>>
-  fs[get_writes_def,get_writes_inst_def,Abbr`A`,domain_union]>>
-  every_case_tac>>fs[set_var_def,strong_locals_rel_def,lookup_insert]>>
-  rw[]>>
-  pop_assum mp_tac>>
-  rpt IF_CASES_TAC>>fs[]>>
-  metis_tac[])
+  >- inst_arith_tac
+  >- inst_arith_tac
+  >- inst_arith_tac
+  >- inst_arith_tac
+  >- inst_arith_tac
+  >- inst_arith_tac
   >-
   (qpat_abbrev_tac`expr=((Op Add [Var n';A]))`>>
   setup_tac>>
@@ -1308,7 +1315,7 @@ Resume evaluate_apply_colour[Inst]:
   full_simp_tac(srw_ss())[word_state_eq_rel_def,LET_THM,set_var_def]>>
   Cases_on`x`>>simp[]>>
   fs[mem_load_byte_aux_def]>>
-  Cases_on`st.memory (byte_align c')`>>fs[]>>
+  Cases_on`st.memory (byte_align c)`>>fs[]>>
   IF_CASES_TAC>>
   fs[domain_union,get_writes_def,get_writes_inst_def]>>
   metis_tac[INSERT_SING_UNION,strong_locals_rel_subset,SUBSET_OF_INSERT,strong_locals_rel_insert])
@@ -1322,7 +1329,7 @@ Resume evaluate_apply_colour[Inst]:
   full_simp_tac(srw_ss())[word_state_eq_rel_def,LET_THM,set_var_def]>>
   Cases_on`x`>>simp[]>>
   fs[mem_load_32_alt]>>
-  Cases_on`st.memory (byte_align c')`>>fs[]>>
+  Cases_on`st.memory (byte_align c)`>>fs[]>>
   ntac 2 (IF_CASES_TAC>>fs[]) >> gvs[] >>
   fs[domain_union,get_writes_def,get_writes_inst_def]>>
   metis_tac[INSERT_SING_UNION,strong_locals_rel_subset,SUBSET_OF_INSERT,strong_locals_rel_insert])
@@ -1338,7 +1345,7 @@ Resume evaluate_apply_colour[Inst]:
   srw_tac[][]>>
   Cases_on`get_var n st`>>full_simp_tac(srw_ss())[]>>
   imp_res_tac strong_locals_rel_get_var>>
-  Cases_on`mem_store c x' st`>>fs[mem_store_def]>>IF_CASES_TAC>>fs[]>>
+  Cases_on`mem_store c x' st`>>fs[mem_store_def]>>
   metis_tac[strong_locals_rel_subset,SUBSET_OF_INSERT])
   >-
   (qpat_abbrev_tac`expr=Op Add [Var n';A]`>>
@@ -8102,7 +8109,7 @@ Resume ssa_cc_trans_correct[Inst]:
       setup_tac>>
       Cases_on`x`>>
       full_simp_tac(srw_ss())[mem_load_byte_aux_def]>>
-      Cases_on`st.memory (byte_align c')`>>fs[]>>
+      Cases_on`st.memory (byte_align c)`>>fs[]>>
       IF_CASES_TAC>>fs[]>>
       match_mp_tac ssa_locals_rel_set_var>>
       fs[every_var_inst_def,every_var_def])
@@ -8112,7 +8119,7 @@ Resume ssa_cc_trans_correct[Inst]:
       setup_tac>>
       Cases_on`x`>>
       full_simp_tac(srw_ss())[mem_load_32_alt]>>
-      Cases_on`st.memory (byte_align c')`>>fs[]>>
+      Cases_on`st.memory (byte_align c)`>>fs[]>>
       ntac 2 (IF_CASES_TAC>>fs[])>> gvs[] >>
       match_mp_tac ssa_locals_rel_set_var>>
       fs[every_var_inst_def,every_var_def])
@@ -10957,7 +10964,8 @@ QED
 
 Theorem exp_to_addr_ShareInst[local]:
   exp_to_addr exp = SOME (Addr n c) <=>
-    ((exp = Var n /\ c = 0w) \/ (exp = Op Add [Var n; Const c]))
+    ((exp = Var n /\ c = 0) \/
+     (?offset. exp = Op Add [Var n; Const offset] /\ c = w2i offset))
 Proof
   eq_tac
   >- (

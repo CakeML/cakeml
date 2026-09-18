@@ -536,7 +536,7 @@ QED
 
 Theorem mem_load_align_dm:
    good_dimindex (:α) ⇒
-   mem_load n (a:α addr) (align_dm s) = align_dm (mem_load n a s)
+   mem_load n a (align_dm (s:(α,'c,'ffi) labSem$state)) = align_dm (mem_load n a s)
 Proof
   strip_tac
   \\ simp[mem_load_def]
@@ -583,7 +583,7 @@ QED
 
 Theorem mem_load32_align_dm:
    good_dimindex (:α) ⇒
-   mem_load32 n (a:α addr) (align_dm s) = align_dm (mem_load32 n a s)
+   mem_load32 n a (align_dm (s:(α,'c,'ffi) labSem$state)) = align_dm (mem_load32 n a s)
 Proof
   strip_tac
   \\ simp[mem_load32_def]
@@ -609,7 +609,7 @@ QED
 
 Theorem mem_load_byte_align_dm:
    good_dimindex (:α) ⇒
-   mem_load_byte n (a:α addr) (align_dm s) = align_dm (mem_load_byte n a s)
+   mem_load_byte n a (align_dm (s:(α,'c,'ffi) labSem$state)) = align_dm (mem_load_byte n a s)
 Proof
   strip_tac
   \\ simp[mem_load_byte_def]
@@ -623,7 +623,7 @@ QED
 
 Theorem mem_store_align_dm:
    good_dimindex (:α) ⇒
-   mem_store n (a:α addr) (align_dm s) = align_dm (mem_store n a s)
+   mem_store n a (align_dm (s:(α,'c,'ffi) labSem$state)) = align_dm (mem_store n a s)
 Proof
   strip_tac
   \\ simp[mem_store_def]
@@ -670,7 +670,7 @@ QED
 
 Theorem mem_store32_align_dm:
    good_dimindex (:α) ⇒
-   mem_store32 n (a:α addr) (align_dm s) = align_dm (mem_store32 n a s)
+   mem_store32 n a (align_dm (s:(α,'c,'ffi) labSem$state)) = align_dm (mem_store32 n a s)
 Proof
   strip_tac
   \\ simp[mem_store32_def]
@@ -696,7 +696,7 @@ QED
 
 Theorem mem_store_byte_align_dm:
    good_dimindex (:α) ⇒
-   mem_store_byte n (a:α addr) (align_dm s) = align_dm (mem_store_byte n a s)
+   mem_store_byte n a (align_dm (s:(α,'c,'ffi) labSem$state)) = align_dm (mem_store_byte n a s)
 Proof
   strip_tac
   \\ simp[mem_store_byte_def]
@@ -710,7 +710,7 @@ QED
 
 Theorem mem_op_align_dm:
    good_dimindex (:α) ⇒
-   mem_op m n (a:α addr) (align_dm s) = align_dm (mem_op m n a s)
+   mem_op m n a (align_dm (s:(α,'c,'ffi) labSem$state)) = align_dm (mem_op m n a s)
 Proof
   Cases_on`m`
   \\ simp[mem_op_def,
@@ -973,49 +973,49 @@ Proof
 QED
 
 Theorem mem_load_align_sdm:
-   mem_load n (a:α addr) (align_sdm s) = align_sdm (mem_load n a s)
+   mem_load n (a:addr) (align_sdm s) = align_sdm (mem_load n a s)
 Proof
   simp[mem_load_def]
   \\ every_case_tac \\ fs[]
 QED
 
 Theorem mem_load32_align_sdm:
-   mem_load32 n (a:α addr) (align_sdm s) = align_sdm (mem_load32 n a s)
+   mem_load32 n (a:addr) (align_sdm s) = align_sdm (mem_load32 n a s)
 Proof
   simp[mem_load32_def]
   \\ every_case_tac \\ fs[]
 QED
 
 Theorem mem_load_byte_align_sdm:
-   mem_load_byte n (a:α addr) (align_sdm s) = align_sdm (mem_load_byte n a s)
+   mem_load_byte n (a:addr) (align_sdm s) = align_sdm (mem_load_byte n a s)
 Proof
   simp[mem_load_byte_def]
   \\ every_case_tac \\ fs[]
 QED
 
 Theorem mem_store_align_sdm:
-   mem_store n (a:α addr) (align_sdm s) = align_sdm (mem_store n a s)
+   mem_store n (a:addr) (align_sdm s) = align_sdm (mem_store n a s)
 Proof
   simp[mem_store_def]
   \\ every_case_tac \\ fs[]
 QED
 
 Theorem mem_store32_align_sdm:
-   mem_store32 n (a:α addr) (align_sdm s) = align_sdm (mem_store32 n a s)
+   mem_store32 n (a:addr) (align_sdm s) = align_sdm (mem_store32 n a s)
 Proof
   simp[mem_store32_def]
   \\ every_case_tac \\ fs[align_sdm_def]
 QED
 
 Theorem mem_store_byte_align_sdm:
-   mem_store_byte n (a:α addr) (align_sdm s) = align_sdm (mem_store_byte n a s)
+   mem_store_byte n (a:addr) (align_sdm s) = align_sdm (mem_store_byte n a s)
 Proof
   simp[mem_store_byte_def]
   \\ every_case_tac \\ fs[align_sdm_def]
 QED
 
 Theorem mem_op_align_sdm:
-   mem_op m n (a:α addr) (align_sdm s) = align_sdm (mem_op m n a s)
+   mem_op m n (a:addr) (align_sdm s) = align_sdm (mem_op m n a s)
 Proof
   Cases_on`m`
   \\ simp[mem_op_def,
@@ -1103,7 +1103,7 @@ QED
 
 Theorem share_mem_load_align_sdm:
   good_dimindex (:'a) ⇒
-  (share_mem_load r (ad:'a addr) (align_sdm s) n = NONE ⇔
+  (share_mem_load r ad (align_sdm (s:('a,'c,'ffi) labSem$state)) n = NONE ⇔
      share_mem_load r ad s n = NONE) ∧
   (share_mem_load r ad s n = SOME (res, s') ⇒
    share_mem_load r ad (align_sdm s) n = SOME (res, align_sdm s'))
@@ -1137,7 +1137,7 @@ QED
 
 Theorem share_mem_store_align_sdm:
   good_dimindex (:'a) ⇒
-  (share_mem_store r (ad:'a addr) (align_sdm s) n = NONE ⇔
+  (share_mem_store r ad (align_sdm (s:('a,'c,'ffi) labSem$state)) n = NONE ⇔
      share_mem_store r ad s n = NONE) ∧
   (share_mem_store r ad s n = SOME (res, s') ⇒
    share_mem_store r ad (align_sdm s) n = SOME (res, align_sdm s'))
@@ -1171,7 +1171,7 @@ QED
 
 Theorem share_mem_op_align_sdm_simp[simp]:
   good_dimindex (:'a) ⇒
-  (share_mem_op m r (a:'a addr) s = NONE ⇔ share_mem_op m r a (align_sdm s) = NONE) /\
+  (share_mem_op m r a (s:('a,'c,'ffi) labSem$state) = NONE ⇔ share_mem_op m r a (align_sdm s) = NONE) /\
   (share_mem_op m r a s = SOME (res, s') ==>
   share_mem_op m r a (align_sdm s) = SOME (res, align_sdm s'))
 Proof

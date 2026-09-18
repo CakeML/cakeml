@@ -184,7 +184,7 @@ Definition copy_prop_inst_def:
   (copy_prop_inst (FP (FPEqual r f1 f2)) cs =
       (Inst (FP (FPEqual r f1 f2)),
         remove_eq cs r)) ∧
-  (copy_prop_inst (FP (FPMovToReg r1 r2 d):'a inst) cs =
+  (copy_prop_inst (FP (FPMovToReg r1 r2 d):inst) cs =
       (Inst (FP (FPMovToReg r1 r2 d)),
         remove_eqs cs [r1;r2] )) ∧
   (copy_prop_inst (FP (FPMovFromReg d r1 r2)) cs =

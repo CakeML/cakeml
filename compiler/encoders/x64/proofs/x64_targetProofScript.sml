@@ -1153,6 +1153,10 @@ Proof
                      x64_next_def, x64_proj_def]
             \\ NTAC 2 STRIP_TAC
             \\ Cases_on `a`
+            \\ qabbrev_tac `c = (i2w i : word64)`
+            \\ `0xFFFFFFFF80000000w <= c /\ c <= 0x7FFFFFFFw`
+            by (qunabbrev_tac `c` \\ irule imm_lem
+                \\ fs (x64_config :: asmLib.asm_ok_rwts))
             \\ qabbrev_tac `r1 = n2w n : word4`
             \\ qabbrev_tac `r2 = n2w n' : word4`
             \\ `RexReg (r2 ' 3,(2 >< 0) r2) = num2Zreg n'`
@@ -1171,14 +1175,14 @@ Proof
                  --------------*)
                print_tac "Load"
                \\ `read_mem64 ms.MEM (ms.REG (num2Zreg n') + c) =
-                   s1.mem (s1.regs n' + c + 7w) @@
-                   s1.mem (s1.regs n' + c + 6w) @@
-                   s1.mem (s1.regs n' + c + 5w) @@
-                   s1.mem (s1.regs n' + c + 4w) @@
-                   s1.mem (s1.regs n' + c + 3w) @@
-                   s1.mem (s1.regs n' + c + 2w) @@
-                   s1.mem (s1.regs n' + c + 1w) @@
-                   s1.mem (s1.regs n' + c)`
+                   s1.mem (c + s1.regs n' + 7w) @@
+                   s1.mem (c + s1.regs n' + 6w) @@
+                   s1.mem (c + s1.regs n' + 5w) @@
+                   s1.mem (c + s1.regs n' + 4w) @@
+                   s1.mem (c + s1.regs n' + 3w) @@
+                   s1.mem (c + s1.regs n' + 2w) @@
+                   s1.mem (c + s1.regs n' + 1w) @@
+                   s1.mem (c + s1.regs n')`
                by (imp_res_tac (Q.SPECL [`c`, `n'`, `s1`, `ms`] mem_lem3)
                    \\ simp [])
                \\ load_tac
@@ -1188,7 +1192,7 @@ Proof
                    Load8
                  --------------*)
                print_tac "Load8"
-               \\ `ms.MEM (ms.REG (num2Zreg n') + c) = s1.mem (s1.regs n' + c)`
+               \\ `ms.MEM (ms.REG (num2Zreg n') + c) = s1.mem (c + s1.regs n')`
                by metis_tac [mem_lem1, wordsTheory.WORD_ADD_COMM]
                \\ load_tac
                )
@@ -1198,8 +1202,8 @@ Proof
                  --------------*)
                print_tac "Load16"
                \\ `read_mem16 ms.MEM (ms.REG (num2Zreg n') + c) =
-                   s1.mem (s1.regs n' + c + 1w) @@
-                   s1.mem (s1.regs n' + c)`
+                   s1.mem (c + s1.regs n' + 1w) @@
+                   s1.mem (c + s1.regs n')`
                by (imp_res_tac (Q.SPECL [`c`, `n'`, `s1`, `ms`] mem_lem2b)
                    \\ simp [])
                \\ load_tac
@@ -1210,10 +1214,10 @@ Proof
                  --------------*)
                print_tac "Load32"
                \\ `read_mem32 ms.MEM (ms.REG (num2Zreg n') + c) =
-                   s1.mem (s1.regs n' + c + 3w) @@
-                   s1.mem (s1.regs n' + c + 2w) @@
-                   s1.mem (s1.regs n' + c + 1w) @@
-                   s1.mem (s1.regs n' + c)`
+                   s1.mem (c + s1.regs n' + 3w) @@
+                   s1.mem (c + s1.regs n' + 2w) @@
+                   s1.mem (c + s1.regs n' + 1w) @@
+                   s1.mem (c + s1.regs n')`
                by (imp_res_tac (Q.SPECL [`c`, `n'`, `s1`, `ms`] mem_lem2)
                    \\ simp [])
                \\ Cases_on

@@ -491,13 +491,14 @@ Proof
         simp[evaluate_def,LET_THM,inst_def,mem_load_def,assign_def,word_exp_def,the_words_def]>>
         `lookup temp loc'' = SOME (Word c')` by metis_tac[]>>full_simp_tac(srw_ss())[mem_load_def]>>
         full_simp_tac(srw_ss())[state_component_equality,set_var_def,lookup_insert]>>srw_tac[][]>>
-        simp[state_component_equality,set_var_def,get_var_def,lookup_insert,word_op_def]>>
+        simp[state_component_equality,set_var_def,get_var_def,lookup_insert,word_op_def,
+             integer_wordTheory.i2w_pos]>>
         rw[]>>DISJ2_TAC>>rw[]>>
         `x ≠ temp` by DECIDE_TAC>>metis_tac[]))
     >>
       `inst_select_exp c tar temp (Load e) =
         let prog = inst_select_exp c temp temp e in
-          Seq prog (Inst (Mem Load tar (Addr temp (0w))))` by
+          Seq prog (Inst (Mem Load tar (Addr temp 0)))` by
       (full_simp_tac(srw_ss())[inst_select_exp_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])>>
       last_x_assum mp_tac>>simp[Once PULL_FORALL]>>
       disch_then (qspec_then`e`mp_tac)>>
@@ -506,7 +507,7 @@ Proof
       res_tac>>
       pop_assum(qspecl_then[`temp`,`c`] assume_tac)>>full_simp_tac(srw_ss())[evaluate_def,LET_THM]>>
       `lookup temp loc'' = SOME (Word c')` by metis_tac[]>>
-      simp[inst_def,assign_def,word_exp_def,word_op_def]>>full_simp_tac(srw_ss())[mem_load_def,the_words_def]>>
+      simp[inst_def,assign_def,word_exp_def,word_op_def,integer_wordTheory.i2w_pos]>>full_simp_tac(srw_ss())[mem_load_def,the_words_def]>>
       simp[state_component_equality,set_var_def,get_var_def,lookup_insert]>>
       srw_tac[][]>>DISJ2_TAC>>strip_tac>>
       `x ≠ temp` by DECIDE_TAC>>metis_tac[])
@@ -815,7 +816,7 @@ Resume inst_select_thm[Store]:
         `get_var var (st with locals := loc') = SOME x` by
           (full_simp_tac(srw_ss())[get_var_def]>>
           `var ≠ temp` by DECIDE_TAC>>metis_tac[])>>
-        fs[mem_store_def]>>
+        fs[mem_store_def,integer_wordTheory.i2w_pos]>>
         simp[get_var_def] >>
         IF_CASES_TAC>>fs[state_component_equality]>>
         TOP_CASE_TAC>>fs[locals_rel_def]>>
@@ -840,7 +841,7 @@ Resume inst_select_thm[Store]:
           (full_simp_tac(srw_ss())[get_var_def,every_var_def]>>
           `var ≠ temp` by DECIDE_TAC>>
           metis_tac[])>>
-        fs[mem_store_def]>>
+        fs[mem_store_def,integer_wordTheory.i2w_pos]>>
         simp[get_var_def] >>
         IF_CASES_TAC>>fs[state_component_equality,locals_rel_def]>>
         TOP_CASE_TAC>>rw[]>>
@@ -848,7 +849,7 @@ Resume inst_select_thm[Store]:
     >>
       `inst_select c temp (Store exp var) =
         Seq(inst_select_exp c temp temp expr)
-        (Inst (Mem Store var (Addr temp 0w)))` by
+        (Inst (Mem Store var (Addr temp 0)))` by
         (full_simp_tac(srw_ss())[inst_select_def,LET_THM]>>
         EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])>>
       full_simp_tac(srw_ss())[inst_select_def,LET_THM,Abbr`expr`]>>
@@ -870,7 +871,7 @@ Resume inst_select_thm[Store]:
       `get_var var (st with locals := loc') = SOME x` by
         (full_simp_tac(srw_ss())[get_var_def]>>`var ≠ temp` by DECIDE_TAC>>
         metis_tac[])>>
-      full_simp_tac(srw_ss())[mem_store_def]>>
+      full_simp_tac(srw_ss())[mem_store_def,integer_wordTheory.i2w_pos]>>
       simp[get_var_def] >>
       IF_CASES_TAC>>fs[state_component_equality]>>
       FULL_CASE_TAC>>fs[locals_rel_def]>>rw[]>>

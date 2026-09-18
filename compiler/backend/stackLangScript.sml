@@ -23,7 +23,7 @@ End
 
 Datatype:
   prog = Skip
-       | Inst ('a inst)
+       | Inst inst
        | Get num store_name
        | Set store_name num
        | OpCurrHeap binop num num
@@ -49,7 +49,7 @@ Datatype:
        | Install num num num num num num
            (* copy code from ptr, length of new code, code buffer start,
               data buffer start, length of new data, ret_addr *)
-       | ShMemOp memop num ('a addr) (* share memory operation, register, addr to load/store *)
+       | ShMemOp memop num (addr) (* share memory operation, register, addr to load/store *)
        | DataBufferWrite num num (* data buffer address, word to write *)
        (* new in stackLang, compared to wordLang, below *)
        | RawCall num            (* tail-call into body of function (past stack alloc) *)
@@ -75,13 +75,13 @@ Overload and_inst = “λr1 r2. Inst (Arith (Binop And r1 r1 (Reg r2)))”
 Overload xor_inst = “λr1 r2. Inst (Arith (Binop Xor r1 r1 (Reg r2)))”
 Overload add_1_inst = “λr1. Inst (Arith (Binop Add r1 r1 (Imm 1)))”
 Overload or_inst = “λr1 r2. Inst (Arith (Binop Or r1 r1 (Reg r2)))”
-Overload add_bytes_in_word_inst = “λr1. (Inst (Arith (Binop Add r1 r1 (Imm (w2i (bytes_in_word:'a word))))) : 'a stackLang$prog)”
+Overload add_bytes_in_word_inst = “λaw r1. Inst (Arith (Binop Add r1 r1 (Imm (&(arch_bytes aw)))))”
 Overload div2_inst = “λr. Inst (Arith (Shift Lsr r r (Imm 1)))”
 Overload left_shift_inst = “λr v. Inst (Arith (Shift Lsl r r (Imm (&v))))”
 Overload right_shift_inst = “λr v. Inst (Arith (Shift Lsr r r (Imm (&v))))”
 Overload const_inst = “λr w. Inst (Const r w)”
-Overload load_inst = “λr a. Inst (Mem Load r (Addr a 0w))”
-Overload store_inst = “λr a. Inst (Mem Store r (Addr a 0w))”
+Overload load_inst = “λr a. Inst (Mem Load r (Addr a 0))”
+Overload store_inst = “λr a. Inst (Mem Store r (Addr a 0))”
 
 Definition list_Seq_def:
   (list_Seq [] = Skip) /\

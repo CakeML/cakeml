@@ -68,9 +68,9 @@ Definition backend_config_ok_def:
     (c.data_conf.has_fp_ops ⇔ 1 < asm_conf.fp_reg_count) ∧
     max_stack_alloc ≤ 2 * max_heap_limit (:'a) c.data_conf − 1 ∧
     c.stack_conf.perf_calls = F ∧
-    addr_offset_ok asm_conf 0w ∧
-    hw_offset_ok asm_conf 0w ∧
-    (∀w. -8w ≤ w ∧ w ≤ 8w ⇒ byte_offset_ok asm_conf w) ∧
+    addr_offset_ok asm_conf 0 ∧
+    hw_offset_ok asm_conf 0 ∧
+    (∀w. -8 ≤ w ∧ w ≤ 8 ⇒ byte_offset_ok asm_conf w) ∧
     asm_conf.valid_imm (INL Add) 8 ∧
     asm_conf.valid_imm (INL Add) 4 ∧
     asm_conf.valid_imm (INL Add) 1 ∧
@@ -79,8 +79,8 @@ Definition backend_config_ok_def:
     find_name c.stack_conf.reg_names PERMUTES UNIV ∧
     names_ok c.stack_conf.reg_names asm_conf.reg_count asm_conf.avoid_regs ∧
     stackProps$fixed_names c.stack_conf.reg_names asm_conf ∧
-    (∀s. addr_offset_ok asm_conf (store_offset s)) ∧
-    (∀s. hw_offset_ok asm_conf (store_offset s)) ∧
+    (∀s. addr_offset_ok asm_conf (w2i (store_offset s : 'a word))) ∧
+    (∀s. hw_offset_ok asm_conf (w2i (store_offset s : 'a word))) ∧
     (∀n.
          n ≤ max_stack_alloc ⇒
          asm_conf.valid_imm (INL Sub) (w2i (n2w (n * (dimindex (:α) DIV 8)) : α word)) ∧
@@ -1294,8 +1294,8 @@ Theorem compile_to_word_conventions2:
       (ac.reg_count - (5 + LENGTH ac.avoid_regs)) prog ∧
     (EVERY (λ(n,m,prog).
               wordConvs$every_inst (wordConvs$inst_ok_less ac) prog)
-           p ∧ addr_offset_ok ac 0w ∧ hw_offset_ok ac 0w ∧
-     byte_offset_ok ac 0w ⇒
+           p ∧ addr_offset_ok ac 0 ∧ hw_offset_ok ac 0 ∧
+     byte_offset_ok ac 0 ⇒
                wordConvs$full_inst_ok_less ac prog) ∧
               (ac.two_reg_arith ⇒
                wordConvs$every_inst wordConvs$two_reg_inst prog) ∧
@@ -2363,7 +2363,7 @@ Proof
     \\ reverse conj_tac >- (
       first_x_assum irule
       \\ fs[mc_conf_ok_def]
-      \\ fs[WORD_LE,good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w]
+      \\ fs[]
     )
     \\ simp[Abbr`ppg`]
     \\ irule stack_namesProofTheory.stack_names_stack_asm_ok
@@ -2424,21 +2424,16 @@ Proof
       \\ simp[MEM_MAP, EXISTS_PROD]
       \\ simp[data_to_wordTheory.compile_part_def]
       \\ simp[PULL_EXISTS]
-      \\ reverse conj_tac
-      >- (
-        first_x_assum irule >>
-        fs[mc_conf_ok_def,WORD_LE,good_dimindex_def,
-          word_2comp_n2w,dimword_def,word_msb_n2w])
       \\ rw[]
       \\ irule data_to_wordProofTheory.comp_no_inst
       \\ EVAL_TAC
-      \\ fs[backend_config_ok_def, asmTheory.offset_ok_def]
+      \\ fs[backend_config_ok_def, asmTheory.int_offset_ok_def]
       \\ pairarg_tac \\ fs[]
       \\ pairarg_tac \\ fs[]
       \\ fsrw_tac[DNF_ss][]
       \\ conj_tac \\ first_x_assum irule
       \\ fs[mc_conf_ok_def]
-      \\ fs[WORD_LE,good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w] )
+      \\ fs[] )
     \\ simp[EVERY_MEM, FORALL_PROD] \\ fs[]
     \\ disch_then drule
     \\ simp[]
@@ -2553,20 +2548,15 @@ Proof
     \\ simp[MEM_MAP, EXISTS_PROD]
     \\ simp[data_to_wordTheory.compile_part_def]
     \\ simp[PULL_EXISTS]
-    \\ reverse conj_tac
-    >- (
-      first_x_assum irule >>
-      fs[mc_conf_ok_def,WORD_LE,good_dimindex_def,
-        word_2comp_n2w,dimword_def,word_msb_n2w])
     \\ rw[]
     \\ irule data_to_wordProofTheory.comp_no_inst
     \\ drule_then (fn t => simp [t]) cake_orac_config_eqs
-    \\ fs[backend_config_ok_def, asmTheory.offset_ok_def, ensure_fp_conf_ok_def]
+    \\ fs[backend_config_ok_def, asmTheory.int_offset_ok_def, ensure_fp_conf_ok_def]
     \\ rpt (pairarg_tac \\ fs[])
     \\ fsrw_tac[DNF_ss][]
     \\ conj_tac \\ first_x_assum irule
     \\ fs[mc_conf_ok_def]
-    \\ fs[WORD_LE,good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w])
+    \\ fs[])
   \\ simp[]
   \\ strip_tac
   \\ simp[EVERY_MAP]
@@ -3880,8 +3870,7 @@ Proof
     fs[stackPropsTheory.reg_name_def,Abbr`c4`,mc_conf_ok_def]>>
     unabbrev_all_tac >>
     fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]>>rfs[]>>
-    `-8w ≤ 0w:'a word ∧ 0w:'a word ≤ 8w` by
-      fs[WORD_LE,good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w]>>
+    `-8 ≤ (0:int) ∧ (0:int) ≤ 8` by fs[]>>
     metis_tac[])>>
   `stack_to_labProof$labels_ok p7` by
     (fs[Abbr`p7`]>>
@@ -4045,7 +4034,7 @@ Proof
         \\ pairarg_tac \\ simp []
         \\ conj_tac >- (
           drule_then (drule_then irule) (GEN_ALL good_code_lab_oracle)
-          \\ fs [Abbr `stoff`, backend_config_ok_def, asmTheory.offset_ok_def]
+          \\ fs [Abbr `stoff`, backend_config_ok_def, asmTheory.int_offset_ok_def]
           \\ asm_exists_tac
           \\ simp [])
         (* lab_to_targetProof$no_share_mem_inst (newly installed code)*)

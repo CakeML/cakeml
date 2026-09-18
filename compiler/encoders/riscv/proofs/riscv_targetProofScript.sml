@@ -692,6 +692,10 @@ Proof
               --------------*)
             print_tac "Mem"
             \\ Cases_on `a`
+            \\ mp_tac (Q.SPEC `i` imm12_lem)
+            \\ impl_tac
+            >- (fs (riscv_config :: asmLib.asm_ok_rwts) \\ intLib.ARITH_TAC)
+            \\ strip_tac
             \\ Cases_on `m`
             \\ next_tac
             )

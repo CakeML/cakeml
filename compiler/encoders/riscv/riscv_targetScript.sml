@@ -95,7 +95,8 @@ Overload temp_reg[local] = ``31w : word5``
 
 Definition riscv_ast_def:
    (riscv_ast (Inst Skip) = [ArithI (ADDI (0w, 0w, 0w))]) /\
-   (riscv_ast (Inst (Const r (i: word64))) =
+   (riscv_ast (Inst (Const r i)) =
+      let i = (i2w i : word64) in
       let imm12 = (11 >< 0) i in
       if i = sw2sw imm12 then
         [ArithI (ORI (n2w r, 0w, imm12))]
@@ -163,17 +164,20 @@ Definition riscv_ast_def:
       ArithR (AND (n2w r4, temp_reg, n2w r4));
       Shift (SRLI (n2w r4, n2w r4, 63w))]) /\
    (riscv_ast (Inst (Mem mop r1 (Addr r2 a))) =
+      let c = i2w a : word64 in
       case riscv_memop mop of
-         INL f => [Load (f (n2w r1, n2w r2, w2w a))]
-       | INR f => [Store (f (n2w r2, n2w r1, w2w a))]) /\
+         INL f => [Load (f (n2w r1, n2w r2, w2w c))]
+       | INR f => [Store (f (n2w r2, n2w r1, w2w c))]) /\
    (riscv_ast (Inst (FP _)) = riscv_encode_fail) /\
    (riscv_ast (Jump a) =
+      let a = (i2w a : word64) in
       if ^min21 <= a /\ a <= ^max21 then
          [Branch (JAL (0w, w2w (a >>> 1)))]
       else let imm12 = (11 >< 0) a in
          [ArithI (AUIPC (temp_reg, (31 >< 12) (a - sw2sw imm12)));
           Branch (JALR (0w, temp_reg, (11 >< 0) a))]) /\
    (riscv_ast (JumpCmp c r1 (Reg r2) a) =
+      let a = (i2w a : word64) in
       if -0xFFCw <= a /\ a <= 0xFFFw then
         let off12 = w2w (a >>> 1) in
         case c of
@@ -209,6 +213,7 @@ Definition riscv_ast_def:
                         Branch (BEQ (temp_reg, 0w, 4w));
                         Branch (JAL (0w, off20 - 2w))]) /\
    (riscv_ast (JumpCmp c r (Imm i) a) =
+      let a = (i2w a : word64) in
       if -0xFFCw <= a /\ a <= 0xFFFw then
         let off12 = w2w (a >>> 1) - 2w in
         case c of
@@ -256,6 +261,7 @@ Definition riscv_ast_def:
                         Branch (BEQ (temp_reg, 0w, 4w));
                         Branch (JAL (0w, off20))]) /\
    (riscv_ast (Call a) =
+      let a = (i2w a : word64) in
       if ^min21 <= a /\ a <= ^max21 then
          [Branch (JAL (1w, w2w (a >>> 1)))]
       else let imm12 = (11 >< 0) a in
@@ -263,6 +269,7 @@ Definition riscv_ast_def:
           Branch (JALR (1w, 1w, (11 >< 0) a))]) /\
    (riscv_ast (JumpReg r) = [Branch (JALR (0w, n2w r, 0w))]) /\
    (riscv_ast (Loc r i) =
+      let i = (i2w i : word64) in
       let imm12 = (11 >< 0) i in
       [ArithI (AUIPC (n2w r, (31 >< 12) (i - sw2sw imm12)));
        ArithI (ADDI (n2w r, n2w r, imm12))])
@@ -293,12 +300,12 @@ Definition riscv_config_def:
     ; big_endian := F
     ; valid_imm := (\b i. (if b = INL Sub then -2048 < i else -2048 <= i) /\
                           i <= 2047)
-    ; addr_offset := (^min12, ^max12)
-    ; hw_offset := (^min12, ^max12)
-    ; byte_offset := (^min12, ^max12)
-    ; jump_offset := (^min32, 0x7FFFF7FFw)
-    ; cjump_offset := (^min21 + 8w, ^max21 + 4w)
-    ; loc_offset := (^min32, 0x7FFFF7FFw)
+    ; addr_offset := (-2048, 2047)
+    ; hw_offset := (-2048, 2047)
+    ; byte_offset := (-2048, 2047)
+    ; jump_offset := (-2147483648, 2147481599)
+    ; cjump_offset := (-1048568, 1048579)
+    ; loc_offset := (-2147483648, 2147481599)
     ; code_alignment := 2
     |>
 End

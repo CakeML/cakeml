@@ -231,19 +231,19 @@ QED
 *)
 
 Definition inst_select_exp_def:
-  (inst_select_exp (c:'a asm_config) (tar:num) (temp:num) (Load exp) =
+  (inst_select_exp (c:asm_config) (tar:num) (temp:num) (Load (exp:'a wordLang$exp)) =
     case exp of
     | Op Add [exp';Const w] =>
-      if addr_offset_ok c w then
+      if addr_offset_ok c (w2i w) then
         let prog = inst_select_exp c temp temp exp' in
-          Seq prog (Inst (Mem Load tar (Addr temp w)))
+          Seq prog (Inst (Mem Load tar (Addr temp (w2i w))))
       else
         let prog = inst_select_exp c temp temp exp in
-          Seq prog (Inst (Mem Load tar (Addr temp (0w))))
+          Seq prog (Inst (Mem Load tar (Addr temp 0)))
     | _ =>
       let prog = inst_select_exp c temp temp exp in
-      Seq prog (Inst (Mem Load tar (Addr temp (0w))))) ∧
-  (inst_select_exp c (tar:num) (temp:num) (Const w) = (Inst (Const tar w))) ∧
+      Seq prog (Inst (Mem Load tar (Addr temp 0)))) ∧
+  (inst_select_exp c (tar:num) (temp:num) (Const w) = (Inst (Const tar (w2i w)))) ∧
   (inst_select_exp c (tar:num) (temp:num) (Var v) =
     Move 0 [tar,v]) ∧
   (inst_select_exp c tar temp (Lookup store_name) =
@@ -268,7 +268,7 @@ Definition inst_select_exp_def:
         Seq p1 (Inst (Arith (Binop Sub tar temp (Imm (w2i (-w))))))
       else
       (*no immediates*)
-        let p2 = Inst (Const (temp+1) w) in
+        let p2 = Inst (Const (temp+1) (w2i w)) in
         Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))
     | _ =>
       let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
@@ -284,7 +284,7 @@ Definition inst_select_exp_def:
               else
                  Seq prog (Inst (Arith (Shift sh tar temp (Imm (&n))))))
           else
-            Inst (Const tar 0w)
+            Inst (Const tar 0)
     | _ =>
       let p = inst_select_exp c temp temp exp in
       let p1 = inst_select_exp c (temp+1) (temp+1) e1 in
@@ -301,19 +301,19 @@ End
 
 Theorem inst_select_exp_pmatch:
   !c tar temp exp.
-  inst_select_exp (c:'a asm_config) tar temp exp =
+  inst_select_exp (c:asm_config) tar temp exp =
   pmatch exp of
     Load(Op Add [exp';Const w]) =>
-      if addr_offset_ok c w then
+      if addr_offset_ok c (w2i w) then
         let prog = inst_select_exp c temp temp exp' in
-          Seq prog (Inst (Mem Load tar (Addr temp w)))
+          Seq prog (Inst (Mem Load tar (Addr temp (w2i w))))
       else
         (let prog = inst_select_exp c temp temp (Op Add [exp'; Const w]) in
-          Seq prog (Inst (Mem Load tar (Addr temp (0w)))))
+          Seq prog (Inst (Mem Load tar (Addr temp 0))))
   | Load exp =>
       (let prog = inst_select_exp c temp temp exp in
-      Seq prog (Inst (Mem Load tar (Addr temp (0w)))))
-  | Const w => Inst (Const tar w)
+      Seq prog (Inst (Mem Load tar (Addr temp 0))))
+  | Const w => Inst (Const tar (w2i w))
   | Var v =>
     Move 0 [tar,v]
   | Lookup store_name =>
@@ -337,7 +337,7 @@ Theorem inst_select_exp_pmatch:
         Seq (inst_select_exp c temp temp e1) (Inst (Arith (Binop Sub tar temp (Imm (w2i (-w))))))
       else
       (*no immediates*)
-        let p2 = Inst (Const (temp+1) w) in
+        let p2 = Inst (Const (temp+1) (w2i w)) in
         Seq (inst_select_exp c temp temp e1) (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))
     | _ =>
       let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
@@ -353,7 +353,7 @@ Theorem inst_select_exp_pmatch:
               else
                  Seq prog (Inst (Arith (Shift sh tar temp (Imm (&n))))))
           else
-            Inst (Const tar 0w)
+            Inst (Const tar 0)
     | _ =>
       let p = inst_select_exp c temp temp exp in
       let p1 = inst_select_exp c (temp+1) (temp+1) e1 in
@@ -390,15 +390,15 @@ Definition inst_select_def:
     let exp = (flatten_exp o pull_exp) exp in
     case exp of
     | Op Add [exp';Const w] =>
-      if addr_offset_ok c w then
+      if addr_offset_ok c (w2i w) then
         let prog = inst_select_exp c temp temp exp' in
-          Seq prog (Inst (Mem Store var (Addr temp w)))
+          Seq prog (Inst (Mem Store var (Addr temp (w2i w))))
       else
         let prog = inst_select_exp c temp temp exp in
-          Seq prog (Inst (Mem Store var (Addr temp (0w))))
+          Seq prog (Inst (Mem Store var (Addr temp 0)))
     | _ =>
       let prog = inst_select_exp c temp temp exp in
-      Seq prog (Inst (Mem Store var (Addr temp (0w))))) ∧
+      Seq prog (Inst (Mem Store var (Addr temp 0)))) ∧
   (inst_select c temp (Seq p1 p2) =
     Seq (inst_select c temp p1) (inst_select c temp p2)) ∧
   (inst_select c temp (MustTerminate p1) =
@@ -407,10 +407,10 @@ Definition inst_select_def:
     let exp = (flatten_exp o pull_exp) exp in
     case exp of
     | Op Add [exp';Const w] =>
-      if ((op = Load ∨ op = Store) /\ addr_offset_ok c w) ∨
-          ((op = Load32 ∨ op  = Store32) /\ addr_offset_ok c w) ∨
-          ((op = Load16 ∨ op  = Store16) /\ hw_offset_ok c w) ∨
-          ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c w) then
+      if ((op = Load ∨ op = Store) /\ addr_offset_ok c (w2i w)) ∨
+          ((op = Load32 ∨ op  = Store32) /\ addr_offset_ok c (w2i w)) ∨
+          ((op = Load16 ∨ op  = Store16) /\ hw_offset_ok c (w2i w)) ∨
+          ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c (w2i w)) then
         let prog = inst_select_exp c temp temp exp' in
           Seq prog (ShareInst op v (Op Add [Var temp; Const w]))
       else
@@ -450,15 +450,15 @@ Theorem inst_select_pmatch:
     (let exp = (flatten_exp o pull_exp) exp in
     pmatch exp of
     | Op Add [exp';Const w] =>
-      if addr_offset_ok c w then
+      if addr_offset_ok c (w2i w) then
         let prog = inst_select_exp c temp temp exp' in
-          Seq prog (Inst (Mem Store var (Addr temp w)))
+          Seq prog (Inst (Mem Store var (Addr temp (w2i w))))
       else
         let prog = inst_select_exp c temp temp exp in
-          Seq prog (Inst (Mem Store var (Addr temp (0w))))
+          Seq prog (Inst (Mem Store var (Addr temp 0)))
     | _ =>
       let prog = inst_select_exp c temp temp exp in
-      Seq prog (Inst (Mem Store var (Addr temp (0w)))))
+      Seq prog (Inst (Mem Store var (Addr temp 0))))
   | Seq p1 p2 =>
     Seq (inst_select c temp p1) (inst_select c temp p2)
   | MustTerminate p1 =>
@@ -469,10 +469,10 @@ Theorem inst_select_pmatch:
     (let exp = (flatten_exp o pull_exp) exp in
     pmatch exp of
     | Op Add [exp';Const w] =>
-      if ((op = Load ∨ op = Store) /\ addr_offset_ok c w) \/
-          ((op = Load32 ∨ op  = Store32) /\ addr_offset_ok c w) \/
-          ((op = Load16 ∨ op  = Store16) /\ hw_offset_ok c w) \/
-          ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c w) then
+      if ((op = Load ∨ op = Store) /\ addr_offset_ok c (w2i w)) \/
+          ((op = Load32 ∨ op  = Store32) /\ addr_offset_ok c (w2i w)) \/
+          ((op = Load16 ∨ op  = Store16) /\ hw_offset_ok c (w2i w)) \/
+          ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c (w2i w)) then
         let prog = inst_select_exp c temp temp exp' in
           Seq prog (ShareInst op var (Op Add [Var temp; Const w]))
       else

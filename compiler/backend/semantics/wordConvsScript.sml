@@ -206,7 +206,7 @@ End
 
 (*** Well-formed instructions. This also includes the FP conditions since we do not allocate them ***)
 Definition inst_ok_less_def:
-  (inst_ok_less (c:'a asm_config) (Arith (Binop b r1 r2 (Imm w))) ⇔
+  (inst_ok_less (c:'a asm_config) ((Arith (Binop b r1 r2 (Imm w))):'a inst) ⇔
     c.valid_imm (INL b) w) ∧
   (inst_ok_less c (Arith (Shift l r1 r2 (Imm i))) ⇔
     (((i = 0) ==> (l = Lsl)) ∧ 0 ≤ i ∧ i < &dimindex(:'a))) ∧

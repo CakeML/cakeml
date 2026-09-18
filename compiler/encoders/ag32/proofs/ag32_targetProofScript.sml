@@ -527,9 +527,10 @@ Proof
          print_tac "Mem"
          \\ Cases_on `a`
          \\ Cases_on `m`
-         \\ (Cases_on `-32w <= c /\ c < 32w`
+         \\ (Cases_on `-32 <= i /\ i < 32`
              >| [all_tac,
-                 Cases_on `-0x7FFFFFw <= c /\ c < 0x7FFFFFw` >| [Cases_on `0w <= c`, all_tac]])
+                 Cases_on `-0x7FFFFFw <= (i2w i : word32) /\ (i2w i : word32) < 0x7FFFFFw`
+                 >| [Cases_on `0w <= (i2w i : word32)`, all_tac]])
          \\ next_tac
          )
          (*--------------

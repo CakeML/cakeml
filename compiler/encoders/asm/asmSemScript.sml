@@ -224,14 +224,14 @@ End
 
 Definition inst_def:
   (inst Skip s = s) /\
-  (inst (Const r imm) s = upd_reg r imm s) /\
+  (inst (Const r imm) s = upd_reg r (i2w imm) s) /\
   (inst (Arith x) s = arith_upd x s) /\
   (inst (Mem m r a) s = mem_op m r a s) /\
   (inst (FP fp) s = fp_upd fp s)
 End
 
 Definition jump_to_offset_def:
-  jump_to_offset w s = upd_pc (s.pc + w) s
+  jump_to_offset w s = upd_pc (s.pc + i2w w) s
 End
 
 Definition asm_def:
@@ -244,7 +244,7 @@ Definition asm_def:
   (asm (Call l) pc s = jump_to_offset l (upd_reg s.lr pc s)) /\
   (asm (JumpReg r) pc s =
      let a = read_reg r s in upd_pc a (assert (aligned s.align a) s)) /\
-  (asm (Loc r l) pc s = upd_pc pc (upd_reg r (s.pc + l) s))
+  (asm (Loc r l) pc s = upd_pc pc (upd_reg r (s.pc + i2w l) s))
 End
 
 Definition asm_step_def:

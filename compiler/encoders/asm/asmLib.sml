@@ -29,7 +29,8 @@ fun write_mem_word n =
 
 val asm_ok_rwts =
    [asm_ok_def, inst_ok_def, reg_ok_def, fp_reg_ok_def, arith_ok_def, fp_ok_def,
-    cmp_ok_def, reg_imm_ok_def, offset_ok_def, alignmentTheory.aligned_0]
+    cmp_ok_def, reg_imm_ok_def, offset_ok_def, int_offset_ok_def,
+    alignmentTheory.aligned_0]
 
 val asm_rwts =
    [upd_pc_def, upd_reg_def, upd_fp_reg_def, upd_mem_def, read_reg_def,
@@ -52,61 +53,59 @@ local
   val accessors =
     List.map
       (fst o Term.dest_comb o boolSyntax.lhs o Thm.concl o Drule.SPEC_ALL)
-      (TypeBase.accessors_of ``:'a asm_config``)
+      (TypeBase.accessors_of ``:asm_config``)
   fun asm_config_rwts tc =
     utilsLib.map_conv EVAL
       (List.map (fn f => boolSyntax.mk_icomb (f, tc)) accessors)
   val asm_tms =
     [
-     `Inst Skip : 'a asm`,
-     `Inst (Const r w) : 'a asm`,
-     `Inst (Arith (Binop b r1 r2 (Reg r3))) : 'a asm`,
-     `Inst (Arith (Binop b r1 r2 (Imm w))) : 'a asm`,
-     `Inst (Arith (Shift s r1 r2 n)) : 'a asm`,
-     `Inst (Arith (Div r1 r2 r3)) : 'a asm`,
-     `Inst (Arith (LongMul r1 r2 r3 r4)) : 'a asm`,
-     `Inst (Arith (LongDiv r1 r2 r3 r4 r5)) : 'a asm`,
-     `Inst (Arith (AddCarry r1 r2 r3 r4)) : 'a asm`,
-     `Inst (Arith (AddOverflow r1 r2 r3 r4)) : 'a asm`,
-     `Inst (Arith (SubOverflow r1 r2 r3 r4)) : 'a asm`,
-     `Inst (Mem Load r1 (Addr r2 w)) : 'a asm`,
-     `Inst (Mem Load8 r1 (Addr r2 w)) : 'a asm`,
-     `Inst (Mem Load16 r1 (Addr r2 w)) : 'a asm`,
-     `Inst (Mem Load32 r1 (Addr r2 w)) : 'a asm`,
-     `Inst (Mem Store r1 (Addr r2 w)) : 'a asm`,
-     `Inst (Mem Store8 r1 (Addr r2 w)) : 'a asm`,
-     `Inst (Mem Store16 r1 (Addr r2 w)) : 'a asm`,
-     `Inst (Mem Store32 r1 (Addr r2 w)) : 'a asm`,
-     `Inst (FP (FPLess r d1 d2)) : 'a asm`,
-     `Inst (FP (FPLessEqual r d1 d2)) : 'a asm`,
-     `Inst (FP (FPEqual r d1 d2)) : 'a asm`,
-     `Inst (FP (FPMov d1 d2)) : 'a asm`,
-     `Inst (FP (FPMovToReg r1 r2 d)) : 'a asm`,
-     `Inst (FP (FPMovFromReg d r1 r2)) : 'a asm`,
-     `Inst (FP (FPToInt r d)) : 'a asm`,
-     `Inst (FP (FPFromInt d r)) : 'a asm`,
-     `Inst (FP (FPAbs d1 d2)) : 'a asm`,
-     `Inst (FP (FPNeg d1 d2)) : 'a asm`,
-     `Inst (FP (FPSqrt d1 d2)) : 'a asm`,
-     `Inst (FP (FPAdd d1 d2 d3)) : 'a asm`,
-     `Inst (FP (FPSub d1 d2 d3)) : 'a asm`,
-     `Inst (FP (FPMul d1 d2 d3)) : 'a asm`,
-     `Inst (FP (FPDiv d1 d2 d3)) : 'a asm`,
-     `Inst (FP (FPFma d1 d2 d3)) : 'a asm`,
-     `Jump w : 'a asm`,
-     `JumpCmp x r1 (Reg r2) w : 'a asm`,
-     `JumpCmp x r1 (Imm i) w : 'a asm`,
-     `Call r : 'a asm`,
-     `JumpReg r : 'a asm`,
-     `Loc r w : 'a asm`
+     `Inst Skip : asm`,
+     `Inst (Const r w) : asm`,
+     `Inst (Arith (Binop b r1 r2 (Reg r3))) : asm`,
+     `Inst (Arith (Binop b r1 r2 (Imm w))) : asm`,
+     `Inst (Arith (Shift s r1 r2 n)) : asm`,
+     `Inst (Arith (Div r1 r2 r3)) : asm`,
+     `Inst (Arith (LongMul r1 r2 r3 r4)) : asm`,
+     `Inst (Arith (LongDiv r1 r2 r3 r4 r5)) : asm`,
+     `Inst (Arith (AddCarry r1 r2 r3 r4)) : asm`,
+     `Inst (Arith (AddOverflow r1 r2 r3 r4)) : asm`,
+     `Inst (Arith (SubOverflow r1 r2 r3 r4)) : asm`,
+     `Inst (Mem Load r1 (Addr r2 w)) : asm`,
+     `Inst (Mem Load8 r1 (Addr r2 w)) : asm`,
+     `Inst (Mem Load16 r1 (Addr r2 w)) : asm`,
+     `Inst (Mem Load32 r1 (Addr r2 w)) : asm`,
+     `Inst (Mem Store r1 (Addr r2 w)) : asm`,
+     `Inst (Mem Store8 r1 (Addr r2 w)) : asm`,
+     `Inst (Mem Store16 r1 (Addr r2 w)) : asm`,
+     `Inst (Mem Store32 r1 (Addr r2 w)) : asm`,
+     `Inst (FP (FPLess r d1 d2)) : asm`,
+     `Inst (FP (FPLessEqual r d1 d2)) : asm`,
+     `Inst (FP (FPEqual r d1 d2)) : asm`,
+     `Inst (FP (FPMov d1 d2)) : asm`,
+     `Inst (FP (FPMovToReg r1 r2 d)) : asm`,
+     `Inst (FP (FPMovFromReg d r1 r2)) : asm`,
+     `Inst (FP (FPToInt r d)) : asm`,
+     `Inst (FP (FPFromInt d r)) : asm`,
+     `Inst (FP (FPAbs d1 d2)) : asm`,
+     `Inst (FP (FPNeg d1 d2)) : asm`,
+     `Inst (FP (FPSqrt d1 d2)) : asm`,
+     `Inst (FP (FPAdd d1 d2 d3)) : asm`,
+     `Inst (FP (FPSub d1 d2 d3)) : asm`,
+     `Inst (FP (FPMul d1 d2 d3)) : asm`,
+     `Inst (FP (FPDiv d1 d2 d3)) : asm`,
+     `Inst (FP (FPFma d1 d2 d3)) : asm`,
+     `Jump w : asm`,
+     `JumpCmp x r1 (Reg r2) w : asm`,
+     `JumpCmp x r1 (Imm i) w : asm`,
+     `Call r : asm`,
+     `JumpReg r : asm`,
+     `Loc r w : asm`
     ]
   val conv = SIMP_CONV (srw_ss()++boolSimps.CONJ_ss++boolSimps.LET_ss)
 in
   fun target_asm_rwts rwts tc =
     let
-      val ty = hd (snd (Type.dest_type (Term.type_of tc)))
-      val parse_term = Term.inst [Type.alpha |-> ty] o Parse.Term
-      val w = Term.mk_var ("a", wordsSyntax.mk_word_type ty)
+      val parse_term = Parse.Term
       val rwt = asm_config_rwts tc
     in
       (rwt,
@@ -137,7 +136,6 @@ val ast_type0 = ast_type []
 
 fun asm_type a s = Type.mk_thy_type {Thy = "asm", Tyop = s, Args = a}
 val asm_type0 = asm_type []
-val asm_type = asm_type [``:64``]
 
 val add_asm_compset = computeLib.extend_compset
   [computeLib.Defs
@@ -146,13 +144,13 @@ val add_asm_compset = computeLib.extend_compset
       word_cmp_def, word_shift_def, arith_upd_def, fp_upd_def, addr_def,
       mem_load_def, write_mem_word_def, mem_store_def, read_mem_word_def,
       mem_op_def, is_test_def, inst_def, jump_to_offset_def,
-      asm_def, alignmentTheory.aligned_extract,offset_ok_def],
+      asm_def, alignmentTheory.aligned_extract,offset_ok_def,int_offset_ok_def],
    computeLib.Convs
      [(asm_ok_tm, 2, asm_ok_conv)],
    computeLib.Tys
      (List.map ast_type0 ["shift"] @
-      List.map asm_type0 ["cmp", "memop", "binop", "fp", "arith"] @
-      List.map asm_type  ["asm_config", "asm", "inst"])]
+      List.map asm_type0
+        ["cmp", "memop", "binop", "fp", "arith", "asm_config", "asm", "inst"])]
 
 (* some custom tools/tactics ---------------------------------------------- *)
 
@@ -378,7 +376,7 @@ fun asm_cases_tac i =
 
 local
   fun can_match [QUOTE s] =
-        Lib.can (Term.match_term (Parse.Term [QUOTE (s ^ " : 'a asm")]))
+        Lib.can (Term.match_term (Parse.Term [QUOTE (s ^ " : asm")]))
     | can_match _ = raise ERR "" ""
   val syntax1 = #4 o HolKernel.syntax_fns1 "asm"
   val syntax2 = #4 o HolKernel.syntax_fns2 "asm"

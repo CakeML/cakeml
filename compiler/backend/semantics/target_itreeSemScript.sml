@@ -60,7 +60,7 @@ Definition eval_to_def:
                         | MappedRead =>
                             (case a of
                              | Addr r off =>
-                                 let ad = mc.target.get_reg ms r + off in
+                                 let ad = mc.target.get_reg ms r + i2w off in
                                    if (if nb = 0w
                                        then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
                                       ad IN mc.shared_addresses ∧
@@ -75,7 +75,7 @@ Definition eval_to_def:
                         | MappedWrite =>
                             (case a of
                              | Addr r off =>
-                                 let ad = (mc.target.get_reg ms r) + off in
+                                 let ad = (mc.target.get_reg ms r) + i2w off in
                                    if (if nb = 0w
                                        then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
                                       (ad IN mc.shared_addresses) ∧

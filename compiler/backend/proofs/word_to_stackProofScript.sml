@@ -7369,7 +7369,7 @@ Theorem evaluate_ShareInst_Load:
   (op = Load \/ op = Load8 \/ op = Load16 \/ op = Load32) ==>
   ?ck t1.
     evaluate
-      (wShareInst op (2 * v) (Addr (2 * ad) offset) (k,f,f'),
+      (wShareInst op (2 * v) (Addr (2 * ad) (w2i offset)) (k,f,f'),
         t with clock := ck + t.clock) =
         (OPTION_MAP compile_result res,t1) /\
     ((?fv. res = SOME (FinalFFI fv) /\
@@ -7430,7 +7430,7 @@ Theorem evaluate_ShareInst_Store:
   (op = Store \/ op = Store8 \/ op = Store16 \/ op = Store32) ==>
   ?ck t1.
     evaluate
-      (wShareInst op (2 * v) (Addr (2 * ad) offset) (k,f,f'),
+      (wShareInst op (2 * v) (Addr (2 * ad) (w2i offset)) (k,f,f'),
         t with clock := ck + t.clock) =
         (OPTION_MAP compile_result res,t1) /\
     ((?fv. res = SOME (FinalFFI fv) /\
@@ -7483,7 +7483,7 @@ Theorem evaluate_ShareInst_correct_lemma:
   ad < f' + k ==>
   ?ck t1.
     evaluate
-      (wShareInst op (2 * v) (Addr (2 * ad) offset) (k,f,f'),
+      (wShareInst op (2 * v) (Addr (2 * ad) (w2i offset)) (k,f,f'),
         t with clock := ck + t.clock) =
       (OPTION_MAP compile_result res,t1) /\
     ((res = NONE /\ state_rel ac k f f' s1 t1 lens 0) \/
@@ -7514,7 +7514,7 @@ Resume comp_correct[ShareInst]:
   gvs[GSYM EVEN_MOD2,EVEN_EXISTS,GSYM LEFT_ADD_DISTRIB] >>
   drule_all evaluate_ShareInst_correct_lemma >>
   rpt strip_tac >>
-  gvs[] >>
+  gvs[integer_wordTheory.word_0_w2i] >>
   first_x_assum $ irule_at (Pos hd) >>
   gvs[]
 QED
@@ -11021,8 +11021,7 @@ Proof
     EVAL_TAC>>fs[]>>
     rw[]>>
     TRY(metis_tac[EVEN_DIV_2_props])>>
-    (qpat_assum`addr_offset_ok c c'` mp_tac ORELSE
-     qpat_assum`byte_offset_ok c c'` mp_tac) >>EVAL_TAC>>fs[])
+    fs[asmTheory.int_offset_ok_def])
   >- (
     ntac 3 (EVAL_TAC>>rw[])>>
     rpt(EVAL_TAC>>rw[]))
@@ -11096,7 +11095,7 @@ Proof
     fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,two_reg_inst_def,wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,asmTheory.fp_reg_ok_def,no_share_inst_def] >>
     ntac 3 (EVAL_TAC >> rw[]) >>
     EVERY_CASE_TAC >>
-    fs[wordLangTheory.exp_to_addr_def,asmTheory.offset_ok_def,aligned_def,align_def]
+    fs[asmTheory.int_offset_ok_def]
   )
   \\ EVAL_TAC
   \\ rw[] \\ EVAL_TAC \\ fs[]

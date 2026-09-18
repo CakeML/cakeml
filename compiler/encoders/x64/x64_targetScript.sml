@@ -36,12 +36,12 @@ Overload reg[local] = ``\r. Zr (total_num2Zreg r)``
 Overload xr[local] = ``\r. xmm_reg (n2w r)``
 
 Overload ld[local] =
-    ``\r1 r2 a.
-       Zr_rm (total_num2Zreg r1, Zm (NONE, ZregBase (total_num2Zreg r2), a))``
+    ``\r1 r2 (c : word64).
+       Zr_rm (total_num2Zreg r1, Zm (NONE, ZregBase (total_num2Zreg r2), c))``
 
 Overload st[local] =
-    ``\r1 r2 a.
-       Zrm_r (Zm (NONE, ZregBase (total_num2Zreg r2), a), total_num2Zreg r1)``
+    ``\r1 r2 (c : word64).
+       Zrm_r (Zm (NONE, ZregBase (total_num2Zreg r2), c), total_num2Zreg r1)``
 
 Definition x64_bop_def:
    (x64_bop Add = Zadd) /\
@@ -72,6 +72,7 @@ End
 Definition x64_ast_def:
    (x64_ast (Inst Skip) = [Znop(1)]) /\
    (x64_ast (Inst (Const r i)) =
+      let i = (i2w i : word64) in
       let sz = if (63 >< 31) i = 0w: 33 word then Z32 else Z64
       in
         if i = 0w
@@ -113,21 +114,21 @@ Definition x64_ast_def:
        Zmov (Z_ALWAYS, Z32, Zrm_i (reg r3, 0w));
        Zset (Z_O, T, reg r3)]) /\
    (x64_ast (Inst (Mem Load r1 (Addr r2 a))) =
-      [Zmov (Z_ALWAYS, Z64, ld r1 r2 a)]) /\
+      [Zmov (Z_ALWAYS, Z64, ld r1 r2 (i2w a))]) /\
    (x64_ast (Inst (Mem Load32 r1 (Addr r2 a))) =
-      [Zmov (Z_ALWAYS, Z32, ld r1 r2 a)]) /\
+      [Zmov (Z_ALWAYS, Z32, ld r1 r2 (i2w a))]) /\
    (x64_ast (Inst (Mem Load16 r1 (Addr r2 a))) =
-      [Zmovzx (Z16, ld r1 r2 a, Z64)]) /\
+      [Zmovzx (Z16, ld r1 r2 (i2w a), Z64)]) /\
    (x64_ast (Inst (Mem Load8 r1 (Addr r2 a))) =
-      [Zmovzx (Z8 T, ld r1 r2 a, Z64)]) /\
+      [Zmovzx (Z8 T, ld r1 r2 (i2w a), Z64)]) /\
    (x64_ast (Inst (Mem Store r1 (Addr r2 a))) =
-      [Zmov (Z_ALWAYS, Z64, st r1 r2 a)]) /\
+      [Zmov (Z_ALWAYS, Z64, st r1 r2 (i2w a))]) /\
    (x64_ast (Inst (Mem Store32 r1 (Addr r2 a))) =
-      [Zmov (Z_ALWAYS, Z32, st r1 r2 a)]) /\
+      [Zmov (Z_ALWAYS, Z32, st r1 r2 (i2w a))]) /\
    (x64_ast (Inst (Mem Store16 r1 (Addr r2 a))) =
-      [Zmov (Z_ALWAYS, Z16, st r1 r2 a)]) /\
+      [Zmov (Z_ALWAYS, Z16, st r1 r2 (i2w a))]) /\
    (x64_ast (Inst (Mem Store8 r1 (Addr r2 a))) =
-      [Zmov (Z_ALWAYS, Z8 (3 < r1), st r1 r2 a)]) /\
+      [Zmov (Z_ALWAYS, Z8 (3 < r1), st r1 r2 (i2w a))]) /\
 (**)
    (x64_ast (Inst (FP (FPLess n d1 d2))) =
      [SSE (COMISD (n2w d1, xr d2));
@@ -175,11 +176,11 @@ Definition x64_ast_def:
    (x64_ast (Inst (FP (FPFromInt d1 d2))) =
      [SSE (CVTDQ2PD (n2w d1, xr d2))]) /\
 (**)
-   (x64_ast (Jump a) = [Zjcc (Z_ALWAYS, a - 5w)]) /\
+   (x64_ast (Jump a) = [Zjcc (Z_ALWAYS, (i2w a : word64) - 5w)]) /\
    (x64_ast (JumpCmp cmp r1 (Reg r2) a) =
       [Zbinop (if is_test cmp then Ztest else Zcmp, Z64,
                Zrm_r (reg r1, total_num2Zreg r2));
-       Zjcc (x64_cmp cmp, a - 9w)]) /\
+       Zjcc (x64_cmp cmp, (i2w a : word64) - 9w)]) /\
    (x64_ast (JumpCmp cmp r (Imm i) a) =
       let width =
         if ~is_test cmp /\ 0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\
@@ -191,11 +192,12 @@ Definition x64_ast_def:
            13w
       in
         [Zbinop (if is_test cmp then Ztest else Zcmp, Z64, Zrm_i (reg r, i2w i));
-         Zjcc (x64_cmp cmp, a - width)]) /\
+         Zjcc (x64_cmp cmp, (i2w a : word64) - width)]) /\
    (x64_ast (Call _) = []) /\
    (x64_ast (JumpReg r) = [Zjmp (reg r)]) /\
    (x64_ast (Loc r i) =
-      [Zlea (Z64, Zr_rm (total_num2Zreg r, Zm (NONE, (ZripBase, i - 7w))))])
+      [Zlea (Z64, Zr_rm (total_num2Zreg r,
+                         Zm (NONE, (ZripBase, (i2w i : word64) - 7w))))])
 End
 
 (* Avoid x64$encode when encoding jcc because it can produce short jumps. *)
@@ -238,12 +240,12 @@ Definition x64_config_def:
     ; two_reg_arith := T
     ; big_endian := F
     ; valid_imm := \b i. -2147483648 <= i /\ i <= 2147483647
-    ; addr_offset := (^min32, ^max32)
-    ; hw_offset := (^min32, ^max32)
-    ; byte_offset := (^min32, ^max32)
-    ; jump_offset := (^min32 + 13w, ^max32 + 5w)
-    ; cjump_offset := (^min32 + 13w, ^max32 + 5w)
-    ; loc_offset := (^min32 + 7w, ^max32 + 7w)
+    ; addr_offset := (-2147483648, 2147483647)
+    ; hw_offset := (-2147483648, 2147483647)
+    ; byte_offset := (-2147483648, 2147483647)
+    ; jump_offset := (-2147483635, 2147483652)
+    ; cjump_offset := (-2147483635, 2147483652)
+    ; loc_offset := (-2147483641, 2147483654)
     ; code_alignment := 0
     |>
 End

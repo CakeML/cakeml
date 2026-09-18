@@ -22,7 +22,7 @@ Definition lab_inst_def:
   (lab_inst w (Jump _) = Jump w) /\
   (lab_inst w (JumpCmp c r ri _) = JumpCmp c r ri w) /\
   (lab_inst w (Call _) = Call w) /\
-  (lab_inst w (LocValue r _) = Loc r (w:'a word)) /\
+  (lab_inst w (LocValue r _) = Loc r w) /\
   (lab_inst w (Halt) = Jump w) /\
   (lab_inst w (Install) = Jump w) /\
   (lab_inst w (CallFFI n) = Jump w)
@@ -40,8 +40,8 @@ Definition enc_line_def:
   (enc_line enc skip_len (Asm a _ _) =
      let bs = enc (compile_shmem a) in Asm a bs (LENGTH bs)) /\
   (enc_line enc skip_len (LabAsm l _ _ _) =
-     let bs = enc (lab_inst 0w l) in
-       LabAsm l 0w bs (LENGTH bs))
+     let bs = enc (lab_inst 0 l) in
+       LabAsm l 0 bs (LENGTH bs))
 End
 
 Definition enc_sec_def:
@@ -106,13 +106,13 @@ End
 
 Definition get_jump_offset_def:
   (get_jump_offset (CallFFI s) ffis labs pos =
-     0w - n2w (pos + (3 + get_ffi_index ffis (ExtCall s)) * ffi_offset)) /\
+     -&(pos + (3 + get_ffi_index ffis (ExtCall s)) * ffi_offset)) /\
   (get_jump_offset Install ffis labs pos =
-     0w - n2w (pos + 2 * ffi_offset)) /\
+     -&(pos + 2 * ffi_offset)) /\
   (get_jump_offset Halt ffis labs pos =
-     0w - n2w (pos + ffi_offset)) /\
+     -&(pos + ffi_offset)) /\
   (get_jump_offset a ffis labs pos =
-     n2w (find_pos (get_label a) labs) - n2w pos)
+     &(find_pos (get_label a) labs) - &pos)
 End
 
 Definition enc_lines_again_def:
@@ -164,7 +164,7 @@ End
 (* checking that all labelled asm instructions are asm_ok *)
 
 Definition line_ok_light_def:
-  (line_ok_light (c:'a asm_config) (Label _ _ l) <=> T) /\
+  (line_ok_light (c:asm_config) (Label _ _ l) <=> T) /\
   (line_ok_light c (Asm b bytes l) <=> T) /\
   (line_ok_light c (LabAsm Halt w bytes l) <=>
      asm_ok (Jump w) c) /\
@@ -349,7 +349,7 @@ Datatype:
   = <| entry_pc: num
        ; nbytes: word8
        ; addr_reg: num
-       ; addr_off: num
+       ; addr_off: int
        ; reg: num
        ; exit_pc: num
     |>
@@ -397,7 +397,7 @@ End
 (* produce a list of ffi_names for shared memory instructions and
   a list of shmem_infos (e.g. pc of the shared memory instruction) *)
 Definition get_shmem_info_def:
-  (get_shmem_info ([]:'a prog) pos ffi_names (shmem_info: shmem_info_num list) =
+  (get_shmem_info ([]:prog) pos ffi_names (shmem_info: shmem_info_num list) =
     (ffi_names, shmem_info)) /\
   (get_shmem_info (Section k []::rest) pos ffi_names shmem_info =
     get_shmem_info rest pos ffi_names shmem_info) /\
@@ -413,7 +413,7 @@ Definition get_shmem_info_def:
         <|entry_pc:=pos
         ; nbytes:=nb
         ; addr_reg := (case ad of Addr r off => r)
-        ; addr_off := (case ad of Addr r off => w2n off)
+        ; addr_off := (case ad of Addr r off => off)
         ; reg:=r
         ; exit_pc:=pos+LENGTH bytes|>
       ]

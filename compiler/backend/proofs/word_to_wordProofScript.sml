@@ -958,7 +958,7 @@ Theorem compile_to_word_conventions:
     flat_exp_conventions prog ∧
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
     (EVERY (λ(n,m,prog). every_inst (inst_ok_less ac) prog) p ∧
-     addr_offset_ok ac 0w ∧ hw_offset_ok ac 0w ∧ byte_offset_ok ac 0w ⇒
+     addr_offset_ok ac 0 ∧ hw_offset_ok ac 0 ∧ byte_offset_ok ac 0 ⇒
       full_inst_ok_less ac prog) ∧
     (ac.two_reg_arith ⇒ every_inst two_reg_inst prog) ∧
     (no_share_inst prog ∨ ac.ISA ≠ Ag32)) progs

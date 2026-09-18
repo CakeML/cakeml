@@ -319,7 +319,7 @@ Definition pan_installed_def:
          DROP i (MAP w2n mc_conf.ffi_entry_pcs) ∧
          mc_conf.mmio_info =
          ZIP (GENLIST (λindex. index + i) (LENGTH shmem_extra),
-             (MAP (λrec. (rec.nbytes, Addr rec.addr_reg (n2w rec.addr_off), rec.reg,
+             (MAP (λrec. (rec.nbytes, Addr rec.addr_reg rec.addr_off, rec.reg,
                         n2w rec.exit_pc + mc_conf.target.get_pc ms))
                                                            shmem_extra)) ∧
     cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a))

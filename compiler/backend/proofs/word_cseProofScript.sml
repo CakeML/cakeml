@@ -48,7 +48,7 @@ Definition wf_data_def:
     (∀k v.
        balanced_map$lookup listCmp k data.loads_mem = SOME v ⇒
        lookup v data.to_canonical = SOME v) ∧
-    (∀op a (ofs:'a word) v.
+    (∀op a ofs v.
        balanced_map$lookup listCmp (loadToNumList op a ofs) data.loads_mem = SOME v ⇒
        lookup a data.to_canonical = SOME a) ∧
     balanced_map$invariant listCmp data.loads_mem
@@ -306,7 +306,7 @@ Theorem wf_data_untracked:
        src ≠ n) ∧
     (∀x v. ALOOKUP data.gets_mem x = SOME v ⇒ v ≠ n) ∧
     (∀k v. balanced_map$lookup listCmp k data.loads_mem = SOME v ⇒ v ≠ n) ∧
-    (∀op a (ofs:'a word) v.
+    (∀op a ofs v.
        balanced_map$lookup listCmp (loadToNumList op a ofs) data.loads_mem = SOME v ⇒
        a ≠ n)
 Proof
@@ -1789,7 +1789,7 @@ QED
    holder and the address must be self-mapped, and the fact's ∀-destination
    evaluation equation must hold. *)
 Theorem data_inv_insert_loads[local]:
-  ∀data (s:('a,'c,'ffi) wordSem$state) r op a (ofs:'a word) w.
+  ∀data (s:('a,'c,'ffi) wordSem$state) r op a ofs w.
     data_inv data s ∧
     sptree$lookup r data.to_canonical = SOME r ∧
     sptree$lookup a data.to_canonical = SOME a ∧
@@ -1883,7 +1883,7 @@ QED
 (* The instantiation of add_to_load_aux_correct at the word_cseInst Mem-arm
    call site. *)
 Theorem add_to_load_correct:
-  ∀data (s:('a,'c,'ffi) wordSem$state) op r a a' (ofs:'a word) w data' p'.
+  ∀data (s:('a,'c,'ffi) wordSem$state) op r a a' ofs w data' p'.
     data_inv data s ∧
     sptree$lookup r data.to_canonical = NONE ∧
     a' = canonicalRegs' r data a ∧
@@ -2471,7 +2471,7 @@ Proof
 QED
 
 Theorem wf_data_insert_loads[local]:
-  ∀data r op a (ofs:'a word).
+  ∀data r op a ofs.
     wf_data (:'a) data ∧
     sptree$lookup r data.to_canonical = SOME r ∧
     sptree$lookup a data.to_canonical = SOME a ⇒

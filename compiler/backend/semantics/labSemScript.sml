@@ -225,7 +225,7 @@ End
 Definition addr_def:
   addr (Addr r offset) s =
     case read_reg r s of
-    | Word w => SOME (w + offset)
+    | Word w => SOME (w + i2w offset)
     | _ => NONE
 End
 
@@ -304,8 +304,8 @@ Definition mem_op_def[simp]:
   (mem_op Store32 r a = mem_store32 r a) /\
   (mem_op Load8 r a = mem_load_byte r a) /\
   (mem_op Store8 r a = mem_store_byte r a) /\
-  (mem_op Load16 r (a:'a addr) = assert F) /\
-  (mem_op Store16 r (a:'a addr) = assert F)
+  (mem_op Load16 r (a:addr) = assert F) /\
+  (mem_op Store16 r (a:addr) = assert F)
 End
 
 Definition asm_inst_def[simp]:

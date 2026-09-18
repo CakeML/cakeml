@@ -56,7 +56,7 @@ Definition evaluate'_def:
                         | MappedRead =>
                             (case a of
                              | Addr r off =>
-                                 let ad = mc.target.get_reg ms r + off in
+                                 let ad = mc.target.get_reg ms r + i2w off in
                                    (if (if nb = 0w
                                         then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T)
                                        ∧ (ad IN mc.shared_addresses) /\
@@ -78,7 +78,7 @@ Definition evaluate'_def:
                         | MappedWrite =>
                             (case a of
                              | Addr r off =>
-                                 let ad = (mc.target.get_reg ms r) + off in
+                                 let ad = (mc.target.get_reg ms r) + i2w off in
                                    (if (if nb = 0w
                                         then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T)
                                        /\ (ad IN mc.shared_addresses) /\
@@ -278,7 +278,7 @@ Theorem evaluate'_1_ffi_changed:
   (EL n mc.ffi_names = SharedMem MappedRead /\
    ?nb ad r off reg pc'.
           ALOOKUP mc.mmio_info n = SOME (nb, Addr r off,reg,pc') /\
-          ad = mc.target.get_reg ms r + off /\
+          ad = mc.target.get_reg ms r + i2w off /\
           (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
           ad IN mc.shared_addresses /\
           is_valid_mapped_read (mc.target.get_pc ms) nb (Addr r off) reg
@@ -288,7 +288,7 @@ Theorem evaluate'_1_ffi_changed:
          (EL n mc.ffi_names = SharedMem MappedWrite /\
          ?nb ad r off reg pc'.
            ALOOKUP mc.mmio_info n = SOME (nb,Addr r off,reg,pc') /\
-           ad = mc.target.get_reg ms r + off /\
+           ad = mc.target.get_reg ms r + i2w off /\
            (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
            ad IN mc.shared_addresses /\
            is_valid_mapped_write (mc.target.get_pc ms) nb (Addr r off) reg
@@ -329,7 +329,7 @@ Theorem evaluate'_1_ffi_failed:
         (EL n mc.ffi_names = SharedMem MappedRead /\
         ?nb ad r off reg pc'.
           ALOOKUP mc.mmio_info n = SOME (nb, Addr r off,reg,pc') /\
-          ad = mc.target.get_reg ms r + off /\
+          ad = mc.target.get_reg ms r + i2w off /\
           (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
           ad IN mc.shared_addresses /\
           is_valid_mapped_read (mc.target.get_pc ms) nb (Addr r off) reg
@@ -339,7 +339,7 @@ Theorem evaluate'_1_ffi_failed:
          (EL n mc.ffi_names = SharedMem MappedWrite /\
          ?nb ad r off reg pc'.
            ALOOKUP mc.mmio_info n = SOME (nb,Addr r off,reg,pc') /\
-           ad = mc.target.get_reg ms r + off /\
+           ad = mc.target.get_reg ms r + i2w off /\
            (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
            ad IN mc.shared_addresses /\
            is_valid_mapped_write (mc.target.get_pc ms) nb (Addr r off) reg

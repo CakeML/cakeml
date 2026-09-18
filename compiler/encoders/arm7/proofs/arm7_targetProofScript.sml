@@ -950,6 +950,56 @@ QED
 
 val print_tac = asmLib.print_tac "correct"
 
+Theorem imm12_lem[local]:
+  !i. -4095 <= i /\ i <= 4095 ==>
+      0xFFFFF001w <= (i2w i : word32) /\ (i2w i : word32) <= 4095w
+Proof
+  rpt strip_tac
+  \\ `w2i (i2w i : word32) = i`
+       by (irule integer_wordTheory.w2i_i2w
+           \\ simp [integer_wordTheory.INT_MIN_def, integer_wordTheory.INT_MAX_def,
+                    wordsTheory.INT_MIN_def, wordsTheory.INT_MAX_def,
+                    wordsTheory.dimword_def, wordsTheory.dimindex_32]
+           \\ intLib.ARITH_TAC)
+  \\ `w2i (0xFFFFF001w : word32) = -4095 /\ w2i (4095w : word32) = 4095`
+       by EVAL_TAC
+  \\ asm_simp_tac bool_ss [integer_wordTheory.WORD_LEi]
+  \\ intLib.ARITH_TAC
+QED
+
+Theorem imm8_lem[local]:
+  !i. -255 <= i /\ i <= 255 ==>
+      0xFFFFFF01w <= (i2w i : word32) /\ (i2w i : word32) <= 255w
+Proof
+  rpt strip_tac
+  \\ `w2i (i2w i : word32) = i`
+       by (irule integer_wordTheory.w2i_i2w
+           \\ simp [integer_wordTheory.INT_MIN_def, integer_wordTheory.INT_MAX_def,
+                    wordsTheory.INT_MIN_def, wordsTheory.INT_MAX_def,
+                    wordsTheory.dimword_def, wordsTheory.dimindex_32]
+           \\ intLib.ARITH_TAC)
+  \\ `w2i (0xFFFFFF01w : word32) = -255 /\ w2i (255w : word32) = 255`
+       by EVAL_TAC
+  \\ asm_simp_tac bool_ss [integer_wordTheory.WORD_LEi]
+  \\ intLib.ARITH_TAC
+QED
+
+(* memory offsets: 12-bit immediates, except halfword access which is 8-bit *)
+
+val mem_tac12 =
+   `0xFFFFF001w <= c /\ c <= 4095w`
+   by (qunabbrev_tac `c` \\ irule imm12_lem
+       \\ fs (arm7_config :: asmLib.asm_ok_rwts))
+   \\ Cases_on `0w <= c`
+   \\ cnext_tac
+
+val mem_tac8 =
+   `0xFFFFFF01w <= c /\ c <= 255w`
+   by (qunabbrev_tac `c` \\ irule imm8_lem
+       \\ fs (arm7_config :: asmLib.asm_ok_rwts))
+   \\ Cases_on `0w <= c`
+   \\ cnext_tac
+
 val _ = diminish_srw_ss ["NORMEQ"]
 
 Theorem arm7_encoder_correct:
@@ -1094,9 +1144,10 @@ Proof
               --------------*)
             print_tac "Mem"
             \\ Cases_on `a`
+            \\ qabbrev_tac `c = (i2w i : word32)`
             \\ Cases_on `m`
-            \\ Cases_on `0w <= c`
-            \\ cnext_tac
+            >| [mem_tac12, mem_tac12, mem_tac8, mem_tac12,
+                mem_tac12, mem_tac12, mem_tac8, mem_tac12]
             )
          (*--------------
              FP

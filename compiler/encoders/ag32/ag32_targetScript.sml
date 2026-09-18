@@ -87,7 +87,7 @@ Definition ag32_enc_def:
    (ag32_enc (Inst Skip) =
       enc (Normal (fOr, 0w, Reg 0w, Imm 0w))) /\
    (ag32_enc (Inst (Const r i)) =
-      ag32_encode (ag32_constant (n2w r, i))) /\
+      ag32_encode (ag32_constant (n2w r, i2w i))) /\
    (ag32_enc (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
       enc (Normal (ag32_bop bop, n2w r1, Reg (n2w r2), Reg (n2w r3)))) /\
    (ag32_enc (Inst (Arith (Binop bop r1 r2 (asm$Imm i)))) =
@@ -121,100 +121,100 @@ Definition ag32_enc_def:
         [Normal (fSub, n2w r1, Reg (n2w r2), Reg (n2w r3));
          Normal (fOverflow, n2w r4, Imm 0w, Imm 0w)]) /\
    (ag32_enc (Inst (Mem Load r1 (Addr r2 a))) =
-    if -32w <= a /\ a < 32w then
+    if -32 <= a /\ a < 32 then
       ag32_encode
-        [Normal (fAdd, n2w r1, Reg (n2w r2), Imm (w2w a));
+        [Normal (fAdd, n2w r1, Reg (n2w r2), Imm (w2w (i2w a : word32)));
          LoadMEM (n2w r1, Reg (n2w r1))]
     else
       ag32_encode
-        (ag32_constant (temp_reg, a) ++
+        (ag32_constant (temp_reg, i2w a) ++
          [Normal (fAdd, n2w r1, Reg (n2w r2), Reg temp_reg);
          LoadMEM (n2w r1, Reg (n2w r1))])) /\
    (ag32_enc (Inst (Mem Load32 r1 (Addr r2 a))) =
-    if -32w <= a /\ a < 32w then
+    if -32 <= a /\ a < 32 then
       ag32_encode
-        [Normal (fAdd, n2w r1, Reg (n2w r2), Imm (w2w a));
+        [Normal (fAdd, n2w r1, Reg (n2w r2), Imm (w2w (i2w a : word32)));
          LoadMEM (n2w r1, Reg (n2w r1))]
     else
       ag32_encode
-        (ag32_constant (temp_reg, a) ++
+        (ag32_constant (temp_reg, i2w a) ++
          [Normal (fAdd, n2w r1, Reg (n2w r2), Reg temp_reg);
          LoadMEM (n2w r1, Reg (n2w r1))])) /\
 (* fake inst for 16bit (it is actually 32bit) *)
    (ag32_enc (Inst (Mem Load16 r1 (Addr r2 a))) =
-    if -32w <= a /\ a < 32w then
+    if -32 <= a /\ a < 32 then
       ag32_encode
-        [Normal (fAdd, n2w r1, Reg (n2w r2), Imm (w2w a));
+        [Normal (fAdd, n2w r1, Reg (n2w r2), Imm (w2w (i2w a : word32)));
          LoadMEM (n2w r1, Reg (n2w r1))]
     else
       ag32_encode
-        (ag32_constant (temp_reg, a) ++
+        (ag32_constant (temp_reg, i2w a) ++
          [Normal (fAdd, n2w r1, Reg (n2w r2), Reg temp_reg);
          LoadMEM (n2w r1, Reg (n2w r1))])) /\
    (ag32_enc (Inst (Mem Load8 r1 (Addr r2 a))) =
-    if -32w <= a /\ a < 32w then
+    if -32 <= a /\ a < 32 then
       ag32_encode
-        [Normal (fAdd, n2w r1, Reg (n2w r2), Imm (w2w a));
+        [Normal (fAdd, n2w r1, Reg (n2w r2), Imm (w2w (i2w a : word32)));
          LoadMEMByte (n2w r1, Reg (n2w r1))]
     else
       ag32_encode
-        (ag32_constant (temp_reg, a) ++
+        (ag32_constant (temp_reg, i2w a) ++
          [Normal (fAdd, n2w r1, Reg (n2w r2), Reg temp_reg);
          LoadMEMByte (n2w r1, Reg (n2w r1))])) /\
    (ag32_enc (Inst (Mem Store r1 (Addr r2 a))) =
-    if -32w <= a /\ a < 32w then
+    if -32 <= a /\ a < 32 then
       ag32_encode
-        [Normal (fAdd, temp_reg, Reg (n2w r2), Imm (w2w a));
+        [Normal (fAdd, temp_reg, Reg (n2w r2), Imm (w2w (i2w a : word32)));
          StoreMEM (Reg (n2w r1), Reg temp_reg)]
     else
       ag32_encode
-        (ag32_constant (temp_reg, a) ++
+        (ag32_constant (temp_reg, i2w a) ++
          [Normal (fAdd, temp_reg, Reg (n2w r2), Reg temp_reg);
          StoreMEM (Reg (n2w r1), Reg temp_reg)])) /\
    (ag32_enc (Inst (Mem Store32 r1 (Addr r2 a))) =
-    if -32w <= a /\ a < 32w then
+    if -32 <= a /\ a < 32 then
       ag32_encode
-        [Normal (fAdd, temp_reg, Reg (n2w r2), Imm (w2w a));
+        [Normal (fAdd, temp_reg, Reg (n2w r2), Imm (w2w (i2w a : word32)));
          StoreMEM (Reg (n2w r1), Reg temp_reg)]
     else
       ag32_encode
-        (ag32_constant (temp_reg, a) ++
+        (ag32_constant (temp_reg, i2w a) ++
          [Normal (fAdd, temp_reg, Reg (n2w r2), Reg temp_reg);
          StoreMEM (Reg (n2w r1), Reg temp_reg)])) /\
    (* fake inst for 16bit (it is actually 32bit) *)
    (ag32_enc (Inst (Mem Store16 r1 (Addr r2 a))) =
-    if -32w <= a /\ a < 32w then
+    if -32 <= a /\ a < 32 then
       ag32_encode
-        [Normal (fAdd, temp_reg, Reg (n2w r2), Imm (w2w a));
+        [Normal (fAdd, temp_reg, Reg (n2w r2), Imm (w2w (i2w a : word32)));
          StoreMEM (Reg (n2w r1), Reg temp_reg)]
     else
       ag32_encode
-        (ag32_constant (temp_reg, a) ++
+        (ag32_constant (temp_reg, i2w a) ++
          [Normal (fAdd, temp_reg, Reg (n2w r2), Reg temp_reg);
          StoreMEM (Reg (n2w r1), Reg temp_reg)])) /\
    (ag32_enc (Inst (Mem Store8 r1 (Addr r2 a))) =
-    if -32w <= a /\ a < 32w then
+    if -32 <= a /\ a < 32 then
       ag32_encode
-        [Normal (fAdd, temp_reg, Reg (n2w r2), Imm (w2w a));
+        [Normal (fAdd, temp_reg, Reg (n2w r2), Imm (w2w (i2w a : word32)));
          StoreMEMByte (Reg (n2w r1), Reg temp_reg)]
     else
       ag32_encode
-        (ag32_constant (temp_reg, a) ++
+        (ag32_constant (temp_reg, i2w a) ++
          [Normal (fAdd, temp_reg, Reg (n2w r2), Reg temp_reg);
          StoreMEMByte (Reg (n2w r1), Reg temp_reg)])) /\
    (ag32_enc (Inst (FP _)) = enc ReservedInstr) /\
    (ag32_enc (Jump a) =
         ag32_encode
-          (ag32_jump_constant (temp_reg, a, T) ++
+          (ag32_jump_constant (temp_reg, i2w a, T) ++
            [Jump (fAdd, temp_reg, Reg temp_reg)])) /\
    (ag32_enc (Call a) =
         ag32_encode
-          (ag32_jump_constant (temp_reg, a, T) ++
+          (ag32_jump_constant (temp_reg, i2w a, T) ++
            [Jump (fAdd, 0w, Reg temp_reg)])) /\
    (ag32_enc (JumpReg r) =
       enc (Jump (fSnd, temp_reg, Reg (n2w r)))) /\
    (ag32_enc (Loc r i) =
-      let j = i - 4w in
+      let j = (i2w i : word32) - 4w in
       ag32_encode
         (Jump (fAdd, n2w r, Imm 4w) ::
             (ag32_jump_constant (temp_reg, j, F) ++
@@ -222,7 +222,7 @@ Definition ag32_enc_def:
    (ag32_enc (JumpCmp cmp r1 (Reg r2) a) =
       let arg = (ag32_cmp cmp, Reg temp_reg, Reg (n2w r1), Reg (n2w r2)) in
       ag32_encode
-        (ag32_jump_constant (temp_reg, a, T) ++
+        (ag32_jump_constant (temp_reg, i2w a, T) ++
          [if cmp IN {Test; NotEqual; NotLess; NotLower} then
            JumpIfZero arg
          else
@@ -230,7 +230,7 @@ Definition ag32_enc_def:
    (ag32_enc (JumpCmp cmp r (asm$Imm i) a) =
       let arg = (ag32_cmp cmp, Reg temp_reg, Reg (n2w r), Imm (w2w (i2w i : word32))) in
       ag32_encode
-        (ag32_jump_constant (temp_reg, a, T) ++
+        (ag32_jump_constant (temp_reg, i2w a, T) ++
          [if cmp IN {Test; NotEqual; NotLess; NotLower} then
            JumpIfZero arg
          else
@@ -255,12 +255,12 @@ Definition ag32_config_def:
                            -8388607 <= n /\ n < 8388607
                          else
                            -32 <= n /\ n < 32
-    ; addr_offset := (-0x7FFFFFw, 0x7FFFFFw)
-    ; hw_offset := (-0x7FFFFFw, 0x7FFFFFw)
-    ; byte_offset := (-32w, 31w)
-    ; jump_offset := (-0x7FFFFFFFw + 4w, 0x7FFFFFFFw)
-    ; cjump_offset := (-0x7FFFFFFFw + 4w, 0x7FFFFFFFw)
-    ; loc_offset := (-0x7FFFFFFFw + 4w, 0x7FFFFFFFw)
+    ; addr_offset := (-0x7FFFFF, 0x7FFFFF)
+    ; hw_offset := (-0x7FFFFF, 0x7FFFFF)
+    ; byte_offset := (-32, 31)
+    ; jump_offset := (-2147483643, 2147483647)
+    ; cjump_offset := (-2147483643, 2147483647)
+    ; loc_offset := (-2147483643, 2147483647)
     |>
 End
 

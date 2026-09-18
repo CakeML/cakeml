@@ -17,7 +17,7 @@ val _ = patternMatchesSyntax.temp_enable_pmatch();
 Overload Asm[local] = ``λa. Asm (Asmi a)``
 
 Definition compile_jump_def:
-  (compile_jump (INL n) = LabAsm (Jump (Lab n 0)) 0w [] 0) /\
+  (compile_jump (INL n) = LabAsm (Jump (Lab n 0)) 0 [] 0) /\
   (compile_jump (INR r) = Asm (JumpReg r) [] 0)
 End
 
@@ -46,7 +46,7 @@ local val flatten_quotation = `
     case p of
     | Tick => (List [Asm (Inst (Skip)) [] 0],F,m)
     | Inst a => (List [Asm (Inst a) [] 0],F,m)
-    | Halt _ => (List [LabAsm Halt 0w [] 0],T,m)
+    | Halt _ => (List [LabAsm Halt 0 [] 0],T,m)
     | Seq p1 p2 =>
         let (xs,nr1,m) = flatten F p1 n m conts breaks in
         let (ys,nr2,m) = flatten F p2 n m conts breaks in
@@ -57,20 +57,20 @@ local val flatten_quotation = `
         let (ys,nr2,m) = flatten F p2 n m conts breaks in
           if (p1 = Skip) /\ (p2 = Skip) then (List [],F,m)
           else if p1 = Skip then
-            (List [LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ ys ++
+            (List [LabAsm (JumpCmp c r ri (Lab n m)) 0 [] 0] ++ ys ++
              List [Label n m 0],F,m+1)
           else if p2 = Skip then
-            (List [LabAsm (JumpCmp (negate c) r ri (Lab n m)) 0w [] 0] ++ xs ++
+            (List [LabAsm (JumpCmp (negate c) r ri (Lab n m)) 0 [] 0] ++ xs ++
              List [Label n m 0],F,m+1)
           else if nr1 then
-            (List [LabAsm (JumpCmp (negate c) r ri (Lab n m)) 0w [] 0] ++ xs ++
+            (List [LabAsm (JumpCmp (negate c) r ri (Lab n m)) 0 [] 0] ++ xs ++
              List [Label n m 0] ++ ys,nr2,m+1)
           else if nr2 then
-            (List [LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ ys ++
+            (List [LabAsm (JumpCmp c r ri (Lab n m)) 0 [] 0] ++ ys ++
              List [Label n m 0] ++ xs,nr1,m+1)
           else
-            (List [LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ ys ++
-             List [LabAsm (Jump (Lab n (m+1))) 0w [] 0; Label n m 0] ++ xs ++
+            (List [LabAsm (JumpCmp c r ri (Lab n m)) 0 [] 0] ++ ys ++
+             List [LabAsm (Jump (Lab n (m+1))) 0 [] 0; Label n m 0] ++ xs ++
              List [Label n (m+1) 0],nr1 ∧ nr2,m+2)
     | Loop p1 =>
         let cont_lab = m in
@@ -78,33 +78,33 @@ local val flatten_quotation = `
         let (xs,_,m) = flatten F p1 n (m+2) (cont_lab :: conts) (break_lab :: breaks) in
           (List [Label n cont_lab 0] ++
            xs ++
-           List [LabAsm (Jump (Lab n cont_lab)) 0w [] 0;
+           List [LabAsm (Jump (Lab n cont_lab)) 0 [] 0;
                  Label n break_lab 0],F,m)
     | Raise r => (List [Asm (JumpReg r) [] 0],T,m)
     | Return r => (List [Asm (JumpReg r) [] 0],T,m)
-    | Break k => (List [LabAsm (Jump (Lab n (find_lab k breaks))) 0w [] 0],T,m)
-    | Continue k => (List [LabAsm (Jump (Lab n (find_lab k conts))) 0w [] 0],T,m)
-    | RawCall n => (List [LabAsm (Jump (Lab n 1)) 0w [] 0],T,m)
+    | Break k => (List [LabAsm (Jump (Lab n (find_lab k breaks))) 0 [] 0],T,m)
+    | Continue k => (List [LabAsm (Jump (Lab n (find_lab k conts))) 0 [] 0],T,m)
+    | RawCall n => (List [LabAsm (Jump (Lab n 1)) 0 [] 0],T,m)
     | Call NONE dest handler => (List [compile_jump dest],T,m)
     | Call (SOME (p1,lr,l1,l2)) dest handler =>
         let (xs,nr1,m) = flatten F p1 n m conts breaks in
-        let prefix = List [LabAsm (LocValue lr (Lab l1 l2)) 0w [] 0;
+        let prefix = List [LabAsm (LocValue lr (Lab l1 l2)) 0 [] 0;
                  compile_jump dest; Label l1 l2 0] ++ xs in
         (case handler of
         | NONE => (prefix, nr1, m)
         | SOME (p2,k1,k2) =>
             let (ys,nr2,m) = flatten F p2 n m conts breaks in
-              (prefix ++ (List [LabAsm (Jump (Lab n m)) 0w [] 0; Label k1 k2 0] ++
+              (prefix ++ (List [LabAsm (Jump (Lab n m)) 0 [] 0; Label k1 k2 0] ++
               ys ++ List [Label n m 0]), nr1 ∧ nr2, m+1))
     | JumpLower r1 r2 target =>
-        (List [LabAsm (JumpCmp Lower r1 (Reg r2) (Lab target 0)) 0w [] 0],F,m)
-    | FFI ffi_index _ _ _ _ lr => (List [LabAsm (LocValue lr (Lab n m)) 0w [] 0;
-                                         LabAsm (CallFFI ffi_index) 0w [] 0;
+        (List [LabAsm (JumpCmp Lower r1 (Reg r2) (Lab target 0)) 0 [] 0],F,m)
+    | FFI ffi_index _ _ _ _ lr => (List [LabAsm (LocValue lr (Lab n m)) 0 [] 0;
+                                         LabAsm (CallFFI ffi_index) 0 [] 0;
                                          Label n m 0],F,m+1)
-    | LocValue i l1 l2 => (List [LabAsm (LocValue i (Lab l1 l2)) 0w [] 0],F,m)
+    | LocValue i l1 l2 => (List [LabAsm (LocValue i (Lab l1 l2)) 0 [] 0],F,m)
     | Install _ _ _ _ _ ret =>
-      (List [LabAsm (LocValue ret (Lab n m)) 0w [] 0;
-      LabAsm Install 0w [] 0;
+      (List [LabAsm (LocValue ret (Lab n m)) 0 [] 0;
+      LabAsm Install 0 [] 0;
       Label n m 0],F,m+1)
     | ShMemOp op r ad => (List [Asm (ShareMem op r ad) [] 0],F,m)
     | _  => (List [],F,m)`
@@ -147,19 +147,19 @@ Datatype:
 End
 
 Definition compile_def:
- compile stack_conf data_conf max_heap sp offset prog =
+ compile aw stack_conf data_conf max_heap sp offset prog =
    let prog = stack_rawcall$compile prog in
-   let prog = stack_alloc$compile data_conf prog in
-   let prog = stack_remove$compile stack_conf.jump offset (is_gen_gc data_conf.gc_kind)
+   let prog = stack_alloc$compile aw data_conf prog in
+   let prog = stack_remove$compile aw stack_conf.jump offset (is_gen_gc data_conf.gc_kind)
                 max_heap sp InitGlobals_location prog in
    let prog = stack_names$compile stack_conf.reg_names prog in
      MAP prog_to_section prog
 End
 
 Definition compile_no_stubs_def:
-  compile_no_stubs f jump offset sp prog =
+  compile_no_stubs aw f jump offset sp prog =
   MAP prog_to_section
     (stack_names$compile f
-      (MAP (prog_comp jump offset sp)
+      (MAP (prog_comp aw jump offset sp)
         (MAP prog_comp prog)))
 End

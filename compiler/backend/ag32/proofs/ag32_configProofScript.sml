@@ -27,9 +27,9 @@ Theorem ag32_backend_config_ok:
     backend_config_ok ag32_config ag32_backend_config
 Proof
   simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
-  \\ fs[ag32_backend_config_def,asmTheory.offset_ok_def,
+  \\ fs[ag32_backend_config_def,asmTheory.int_offset_ok_def,
         alignmentTheory.aligned_0,tlookup_bij_iff]
-  \\ fs[ag32_backend_config_def,ag32_targetTheory.ag32_config_def,asmTheory.offset_ok_def,
+  \\ fs[ag32_backend_config_def,ag32_targetTheory.ag32_config_def,asmTheory.int_offset_ok_def,
         alignmentTheory.aligned_0,tlookup_bij_iff]
   THEN1 blastLib.FULL_BBLAST_TAC
   THEN1 names_tac

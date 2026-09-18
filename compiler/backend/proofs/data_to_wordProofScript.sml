@@ -2301,7 +2301,7 @@ Theorem assign_no_inst[local]:
    (a.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
    (a.has_fp_ops ⇒ 1 < ac.fp_reg_count) ∧
    (a.has_fp_tern ==> 2 < ac.fp_reg_count /\ ac.ISA = ARMv7) /\
-  addr_offset_ok ac 0w /\ byte_offset_ok ac 0w) ⇒
+  addr_offset_ok ac 0 /\ byte_offset_ok ac 0) ⇒
   every_inst (inst_ok_less ac) (FST(assign a b c d e f g))
 Proof
   fs[assign_def]>>
@@ -2329,7 +2329,7 @@ Theorem comp_no_inst:
    (c.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
    (c.has_fp_ops ⇒ 1 < ac.fp_reg_count) ∧
    (c.has_fp_tern ==> 2 < ac.fp_reg_count /\ ac.ISA = ARMv7)) /\
-  addr_offset_ok ac 0w /\ byte_offset_ok ac 0w ⇒
+  addr_offset_ok ac 0 /\ byte_offset_ok ac 0 ⇒
   every_inst (inst_ok_less ac) (FST(comp c n m p))
 Proof
   ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
@@ -2342,28 +2342,21 @@ Proof
 QED
 
 Theorem bounds_lem[local]:
-  (dimindex(:'a) = 32 ∨ dimindex(:'a) = 64) ∧
-  (w:'a word = -3w ∨
-  w = -2w ∨
-  w = -1w ∨
-  w = 0w ∨
-  w = 1w ∨
-  w = 2w ∨
-  w = 3w ∨
-  w = 4w ∨
-  w = 5w ∨
-  w = 6w ∨
-  w = 7w)
+  (w:int = -3 ∨
+  w = -2 ∨
+  w = -1 ∨
+  w = 0 ∨
+  w = 1 ∨
+  w = 2 ∨
+  w = 3 ∨
+  w = 4 ∨
+  w = 5 ∨
+  w = 6 ∨
+  w = 7)
   ⇒
-  -8w ≤ w ∧ w ≤ 8w
+  -8 ≤ w ∧ w ≤ 8
 Proof
-  rw[]>>
-  EVAL_TAC>>
-  simp[dimword_def]>>
-  EVAL_TAC>>
-  simp[dimword_def]>>
-  EVAL_TAC>>
-  simp[numeral_bitTheory.iSUC,numeralTheory.numeral_evenodd,ODD]
+  strip_tac >> gvs[]
 QED
 
 Theorem data_to_word_compile_conventions:
@@ -2374,12 +2367,12 @@ Theorem data_to_word_compile_conventions:
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
     ((data_conf.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
     (data_conf.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
-    addr_offset_ok ac 0w /\
-    hw_offset_ok ac 0w /\
+    addr_offset_ok ac 0 /\
+    hw_offset_ok ac 0 /\
     (* NOTE: this condition is
        stricter than necessary, but we have much more byte_offset space
        anyway on all the targets *)
-    (∀w. -8w <= w ∧ w <= 8w ==> byte_offset_ok ac w)
+    (∀w. -8 <= w ∧ w <= 8 ==> byte_offset_ok ac w)
     ⇒ full_inst_ok_less ac prog) ∧
     (ac.two_reg_arith ⇒ every_inst two_reg_inst prog) ∧
     (no_share_inst prog ∨ ac.ISA ≠ Ag32)) p
@@ -2422,8 +2415,7 @@ Proof
    pairarg_tac \\ fs[]>>
    qmatch_goalsub_abbrev_tac `min ≤ ww ∧ ww ≤ max`>>
    first_x_assum(qspecl_then[`ww`] mp_tac)>>simp[Abbr`ww`]>>
-   impl_tac>>simp[asmTheory.offset_ok_def]>>
-   metis_tac[bounds_lem])
+   simp[asmTheory.int_offset_ok_def])
  >-
    (fs[MEM_MAP]>>PairCases_on`y`>>fs[compile_part_def]>>
    match_mp_tac comp_no_inst>>fs[]>>

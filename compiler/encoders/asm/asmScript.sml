@@ -63,7 +63,7 @@
    ------------------------------------------------------------------------- *)
 Theory asm
 Ancestors
-  words alignment ast
+  words alignment ast integer
 
 (* -- syntax of ASM instruction -- *)
 
@@ -128,31 +128,59 @@ End
 
 Datatype:
   inst = Skip
-       | Const reg ('a word)
+       | Const reg int
        | Arith arith
        | Mem memop reg addr
        | FP fp
 End
 
 Datatype:
-  asm = Inst ('a inst)
-      | Jump ('a word)
-      | JumpCmp cmp reg reg_imm ('a word)
-      | Call ('a word)
+  asm = Inst inst
+      | Jump int
+      | JumpCmp cmp reg reg_imm int
+      | Call int
       | JumpReg reg
-      | Loc reg ('a word)
+      | Loc reg int
 End
 
 (* -- ASM target-specific configuration -- *)
 
 Datatype:
+  arch_width = Arch32 | Arch64
+End
+
+Definition arch_width_bits_def:
+  arch_width_bits Arch32 = 32n /\
+  arch_width_bits Arch64 = 64n
+End
+
+Definition arch_bytes_def:
+  arch_bytes Arch32 = 4n /\
+  arch_bytes Arch64 = 8n
+End
+
+Definition arch_shift_def:
+  arch_shift Arch32 = 2n /\
+  arch_shift Arch64 = 3n
+End
+
+Datatype:
   architecture = ARMv7 | ARMv8 | MIPS | RISC_V | Ag32 | x86_64
+End
+
+Definition arch_wordsize_def:
+  arch_wordsize ARMv7  = Arch32 /\
+  arch_wordsize Ag32   = Arch32 /\
+  arch_wordsize ARMv8  = Arch64 /\
+  arch_wordsize MIPS   = Arch64 /\
+  arch_wordsize RISC_V = Arch64 /\
+  arch_wordsize x86_64 = Arch64
 End
 
 Datatype:
   asm_config =
     <| ISA            : architecture
-     ; encode         : 'a asm -> word8 list
+     ; encode         : asm -> word8 list
      ; big_endian     : bool
      ; code_alignment : num
      ; link_reg       : num option
@@ -164,11 +192,13 @@ Datatype:
      ; addr_offset    : int # int
      ; hw_offset      : int # int
      ; byte_offset    : int # int
-     ; jump_offset    : 'a word # 'a word
-     ; cjump_offset   : 'a word # 'a word
-     ; loc_offset     : 'a word # 'a word
+     ; jump_offset    : int # int
+     ; cjump_offset   : int # int
+     ; loc_offset     : int # int
      |>
 End
+
+Overload isa_bits = “λc. arch_width_bits (arch_wordsize c.ISA)”
 
 Definition reg_ok_def:
   reg_ok r c <=> r < c.reg_count /\ ~MEM r c.avoid_regs
@@ -193,11 +223,11 @@ Definition arith_ok_def:
               "Or" on "two_reg_arith" architectures. *)
      (c.two_reg_arith ==> (r1 = r2) \/ (b = Or) /\ (ri = Reg r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\ reg_imm_ok (INL b) ri c) /\
-  (arith_ok (Shift l r1 r2 ri) (c: 'a asm_config) <=>
+  (arith_ok (Shift l r1 r2 ri) c <=>
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\
      (case ri of
-      | Imm i => (((i = 0) ==> (l = Lsl)) /\ 0 ≤ i /\ i < & dimindex(:'a))
+      | Imm i => (((i = 0) ==> (l = Lsl)) /\ 0 ≤ i /\ i < & isa_bits c)
       | Reg r =>
         reg_ok r c ∧
         (c.ISA = x86_64 ⇒ r = 1)
@@ -256,11 +286,11 @@ Definition fp_ok_def:
       2 < c.fp_reg_count /\
       fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
   (fp_ok (FPMov d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
-  (fp_ok (FPMovToReg r1 r2 d) (c : 'a asm_config) <=>
-      reg_ok r1 c /\ ((dimindex(:'a) = 32) ==> r1 <> r2 /\ reg_ok r2 c) /\
+  (fp_ok (FPMovToReg r1 r2 d) c <=>
+      reg_ok r1 c /\ ((isa_bits c = 32) ==> r1 <> r2 /\ reg_ok r2 c) /\
       fp_reg_ok d c) /\
-  (fp_ok (FPMovFromReg d r1 r2) (c : 'a asm_config) <=>
-      reg_ok r1 c /\ ((dimindex(:'a) = 32) ==> r1 <> r2 /\ reg_ok r2 c) /\
+  (fp_ok (FPMovFromReg d r1 r2) c <=>
+      reg_ok r1 c /\ ((isa_bits c = 32) ==> r1 <> r2 /\ reg_ok r2 c) /\
       fp_reg_ok d c) /\
   (fp_ok (FPToInt r d) c <=> fp_reg_ok r c /\ fp_reg_ok d c) /\
   (fp_ok (FPFromInt d r) c <=> fp_reg_ok r c /\ fp_reg_ok d c)
@@ -276,8 +306,9 @@ Definition int_offset_ok_def:
 End
 
 Definition offset_ok_def:
-  offset_ok a offset w =
-  let (min, max) = offset in min <= w /\ w <= max /\ aligned a w
+  offset_ok a offset (i:int) =
+  let (min, max) = offset in
+    min <= i /\ i <= max /\ (&(2 ** a) : int) int_divides i
 End
 
 Overload addr_offset_ok  = “λc. int_offset_ok c.addr_offset”
@@ -292,7 +323,7 @@ Definition inst_ok_def:
   (inst_ok (Const r w) c = reg_ok r c) /\
   (inst_ok (Arith x) c = arith_ok x c) /\
   (inst_ok (FP x) c = fp_ok x c) /\
-  (inst_ok (Mem m r1 (Addr r2 w) : 'a inst) c <=>
+  (inst_ok (Mem m r1 (Addr r2 w)) c <=>
      reg_ok r1 c /\ reg_ok r2 c /\
      (if m IN {Load; Store; Load32; Store32} then
         addr_offset_ok c w

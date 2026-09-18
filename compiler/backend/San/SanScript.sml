@@ -11,9 +11,9 @@ Libs
 Definition san_prog_asm_def:
   san_prog_asm = [
     F, (Inst (Const 5 0w));
-    T, (Inst (Mem Load 6 (Addr 5 20000w)));
+    T, (Inst (Mem Load 6 (Addr 5 20000)));
     F, (Inst (Arith (Binop Add 7 6 (Imm 1w))));
-    T, (Inst (Mem Store 7 (Addr 5 20008w)));
+    T, (Inst (Mem Store 7 (Addr 5 20008)));
     F, (Jump (-32w: word64))] (* jump to the halt pc *)
 End
 
@@ -77,8 +77,8 @@ End
 Definition san_mmio_info_def:
   san_mmio_info =
     let max_size = dimindex (:64) DIV 8 in
-    ((0:num) =+ (n2w max_size,Addr 5 20000w,(6:num),EL 0 san_end_ffi_pcs)) $
-    (1 =+ (n2w max_size,Addr 5 20008w,7,EL 1 san_end_ffi_pcs)) $
+    ((0:num) =+ (n2w max_size,Addr 5 20000,(6:num),EL 0 san_end_ffi_pcs)) $
+    (1 =+ (n2w max_size,Addr 5 20008,7,EL 1 san_end_ffi_pcs)) $
     K ARB
 End
 

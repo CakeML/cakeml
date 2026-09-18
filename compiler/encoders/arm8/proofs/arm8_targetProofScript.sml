@@ -330,6 +330,61 @@ QED
 val ext12 = ``(11 >< 0) : word64 -> word12``
 val print_tac = asmLib.print_tac "correct"
 
+Theorem addr_lem[local]:
+  !i. -4351 <= i /\ i <= 4350 ==>
+      0xFFFFFFFFFFFFEF01w <= (i2w i : word64) /\ (i2w i : word64) <= 0x10FEw
+Proof
+  rpt strip_tac
+  \\ `w2i (i2w i : word64) = i`
+       by (irule integer_wordTheory.w2i_i2w
+           \\ simp [integer_wordTheory.INT_MIN_def, integer_wordTheory.INT_MAX_def,
+                    wordsTheory.INT_MIN_def, wordsTheory.INT_MAX_def,
+                    wordsTheory.dimword_def, wordsTheory.dimindex_64]
+           \\ intLib.ARITH_TAC)
+  \\ `w2i (0xFFFFFFFFFFFFEF01w : word64) = -4351 /\
+      w2i (0x10FEw : word64) = 4350` by EVAL_TAC
+  \\ asm_simp_tac bool_ss [integer_wordTheory.WORD_LEi]
+  \\ intLib.ARITH_TAC
+QED
+
+Theorem byte_lem[local]:
+  !i. -256 <= i /\ i <= 4095 ==>
+      0xFFFFFFFFFFFFFF00w <= (i2w i : word64) /\ (i2w i : word64) <= 0xFFFw
+Proof
+  rpt strip_tac
+  \\ `w2i (i2w i : word64) = i`
+       by (irule integer_wordTheory.w2i_i2w
+           \\ simp [integer_wordTheory.INT_MIN_def, integer_wordTheory.INT_MAX_def,
+                    wordsTheory.INT_MIN_def, wordsTheory.INT_MAX_def,
+                    wordsTheory.dimword_def, wordsTheory.dimindex_64]
+           \\ intLib.ARITH_TAC)
+  \\ `w2i (0xFFFFFFFFFFFFFF00w : word64) = -256 /\
+      w2i (0xFFFw : word64) = 4095` by EVAL_TAC
+  \\ asm_simp_tac bool_ss [integer_wordTheory.WORD_LEi]
+  \\ intLib.ARITH_TAC
+QED
+
+Theorem addr_bound_lem[local]:
+  !m n n' i. asm_ok (Inst (Mem m n (Addr n' i))) arm8_config ==>
+             0xFFFFFFFFFFFFEF01w <= (i2w i : word64) /\
+             (i2w i : word64) <= 0x10FEw
+Proof
+  rpt gen_tac \\ strip_tac \\ irule addr_lem
+  \\ Cases_on `m`
+  \\ full_simp_tac bool_ss (arm8_config :: asmLib.asm_ok_rwts)
+  \\ intLib.ARITH_TAC
+QED
+
+Theorem byte_bound_lem[local]:
+  !m n n' i. (m = Load8 \/ m = Store8) /\
+             asm_ok (Inst (Mem m n (Addr n' i))) arm8_config ==>
+             0xFFFFFFFFFFFFFF00w <= (i2w i : word64) /\
+             (i2w i : word64) <= 0xFFFw
+Proof
+  rpt gen_tac \\ strip_tac \\ irule byte_lem
+  \\ Cases_on `m` \\ fs (arm8_config :: asmLib.asm_ok_rwts) \\ intLib.ARITH_TAC
+QED
+
 Theorem arm8_encoder_correct:
     encoder_correct arm8_target
 Proof
@@ -539,8 +594,13 @@ Proof
               --------------*)
             print_tac "Mem"
             \\ Cases_on `a`
+            \\ qabbrev_tac `c = (i2w i : word64)`
             \\ Cases_on `m`
+            (* memory offsets: byte access has its own range *)
             >| [
+                `0xFFFFFFFFFFFFEF01w <= c /\ c <= 0x10FEw`
+                by (qunabbrev_tac `c` \\ metis_tac [addr_bound_lem])
+                \\
                Cases_on `c = sw2sw ((8 >< 0) c : word9)`
                >| [next_tac `0`
                    \\ Cases_on
@@ -554,9 +614,15 @@ Proof
                    ]
                ]
                ,
+                `0xFFFFFFFFFFFFFF00w <= c /\ c <= 0xFFFw`
+                by (qunabbrev_tac `c` \\ metis_tac [byte_bound_lem])
+                \\
                next_tac `0`
                \\ Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`
                ,
+                `0xFFFFFFFFFFFFEF01w <= c /\ c <= 0x10FEw`
+                by (qunabbrev_tac `c` \\ metis_tac [addr_bound_lem])
+                \\
                Cases_on `c = sw2sw ((8 >< 0) c)`
                >| [next_tac `0`
                    \\ Cases_on
@@ -570,6 +636,9 @@ Proof
                    ]
                ]
                ,
+                `0xFFFFFFFFFFFFEF01w <= c /\ c <= 0x10FEw`
+                by (qunabbrev_tac `c` \\ metis_tac [addr_bound_lem])
+                \\
                Cases_on `c = sw2sw ((8 >< 0) c)`
                >| [next_tac `0`
                    \\ Cases_on `¬word_msb c ∧ c = w2w ((11 >< 0) (c ⋙ 2)) ≪ 2`,
@@ -582,6 +651,9 @@ Proof
                    ]
                ]
                ,
+                `0xFFFFFFFFFFFFEF01w <= c /\ c <= 0x10FEw`
+                by (qunabbrev_tac `c` \\ metis_tac [addr_bound_lem])
+                \\
                Cases_on `c = sw2sw ((8 >< 0) c : word9)`
                >| [next_tac `0`
                    \\ Cases_on
@@ -595,9 +667,15 @@ Proof
                    ]
                ]
                ,
+                `0xFFFFFFFFFFFFFF00w <= c /\ c <= 0xFFFw`
+                by (qunabbrev_tac `c` \\ metis_tac [byte_bound_lem])
+                \\
                next_tac `0`
                \\ Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`
                ,
+                `0xFFFFFFFFFFFFEF01w <= c /\ c <= 0x10FEw`
+                by (qunabbrev_tac `c` \\ metis_tac [addr_bound_lem])
+                \\
                Cases_on `c = sw2sw ((8 >< 0) c)`
                >| [next_tac `0`
                    \\ Cases_on
@@ -611,6 +689,9 @@ Proof
                    ]
                ]
                ,
+                `0xFFFFFFFFFFFFEF01w <= c /\ c <= 0x10FEw`
+                by (qunabbrev_tac `c` \\ metis_tac [addr_bound_lem])
+                \\
                Cases_on `c = sw2sw ((8 >< 0) c)`
                >| [next_tac `0`
                    \\ Cases_on `¬word_msb c ∧ c = w2w ((11 >< 0) (c ⋙ 2)) ≪ 2`,

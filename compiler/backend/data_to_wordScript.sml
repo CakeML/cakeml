@@ -377,21 +377,21 @@ End
 
 Definition WriteLastByte_aux_def:
   WriteLastByte_aux offset a b n p =
-    If Equal n (Imm (w2i offset)) Skip
+    If Equal n (Imm offset) Skip
       (Seq (Inst (Mem Store8 b (Addr a offset))) p)
 End
 
 Definition WriteLastBytes_def:
   WriteLastBytes a b n =
-    WriteLastByte_aux (0w:'a word) a b n (
-      WriteLastByte_aux 1w a b n (
-        WriteLastByte_aux 2w a b n (
-          WriteLastByte_aux 3w a b n (
+    (WriteLastByte_aux 0 a b n (
+      WriteLastByte_aux 1 a b n (
+        WriteLastByte_aux 2 a b n (
+          WriteLastByte_aux 3 a b n (
             if dimindex(:'a) = 32 then Skip else
-            WriteLastByte_aux 4w a b n (
-              WriteLastByte_aux 5w a b n (
-                WriteLastByte_aux 6w a b n (
-                  WriteLastByte_aux 7w a b n Skip)))))))
+            WriteLastByte_aux 4 a b n (
+              WriteLastByte_aux 5 a b n (
+                WriteLastByte_aux 6 a b n (
+                  WriteLastByte_aux 7 a b n Skip))))))) : 'a wordLang$prog)
 End
 
 Definition RefByte_code_def:
@@ -951,8 +951,8 @@ Definition StringCmpLoop_code_def:
     If Equal 6 (Imm (w2i (bytes_in_word:'a word)))
       (Return 0 [8;10])
       (list_Seq
-         [Inst (Mem Load8 1 (Addr 2 0w));
-          Inst (Mem Load8 3 (Addr 4 0w));
+         [Inst (Mem Load8 1 (Addr 2 0));
+          Inst (Mem Load8 3 (Addr 4 0));
           If NotEqual 1 (Reg 3) (Return 0 [1;3]) Skip;
           Assign 2 (Op Add [Var 2; Const 1w]);
           Assign 4 (Op Add [Var 4; Const 1w]);
@@ -1098,11 +1098,11 @@ Definition MemEqList_def:
 End
 
 Definition get_gen_size_def:
-  (get_gen_size [] = bytes_in_word * (-1w):'a word) /\
-  (get_gen_size (x::xs) =
-     if w2n (bytes_in_word:'a word) * x < dimword (:'a)
-     then bytes_in_word * n2w x
-     else bytes_in_word * (-1w))
+  (get_gen_size aw [] = -&(arch_bytes aw)) /\
+  (get_gen_size aw (x::xs) =
+     if arch_bytes aw * x < 2 ** arch_width_bits aw
+     then &(arch_bytes aw * x)
+     else -&(arch_bytes aw))
 End
 
 Definition fp_cmp_inst_def:
@@ -1219,7 +1219,7 @@ val def = assign_Define `
          (list_Seq [
             Assign 1 (Op Add [real_addr c (adjust_var v1);
                               real_byte_offset (adjust_var v2)]);
-            Inst (Mem Load8 3 (Addr 1 0w));
+            Inst (Mem Load8 3 (Addr 1 0));
             Assign (adjust_var dest) (ShiftN Lsl (Var 3) 2)
           ], l)
       : 'a wordLang$prog # num`;
@@ -1257,7 +1257,7 @@ val def = assign_Define `
           Assign 1 (Op Add [real_addr c (adjust_var v1);
                             real_byte_offset (adjust_var v2)]);
           Assign 3 (ShiftN Lsr (Var (adjust_var v3)) 2);
-          Inst (Mem Store8 3 (Addr 1 0w));
+          Inst (Mem Store8 3 (Addr 1 0));
           Assign (adjust_var dest) Unit], l)
       : 'a wordLang$prog # num`;
 
@@ -2646,39 +2646,39 @@ Definition ByteCopyAdd_code_def:
         If Equal 2 (Imm 0) (Return 0 [8]) (* n = 0w *)
         (
           list_Seq[
-            Inst (Mem Load8 1 (Addr 4 0w));
-            Inst (Mem Store8 1(Addr 6 0w));
+            Inst (Mem Load8 1 (Addr 4 0));
+            Inst (Mem Store8 1(Addr 6 0));
             Return 0 [8]
           ]
         )
       )
       (list_Seq [
-        Inst (Mem Load8 1 (Addr 4 0w));
-        Inst (Mem Load8 3 (Addr 4 1w));
+        Inst (Mem Load8 1 (Addr 4 0));
+        Inst (Mem Load8 3 (Addr 4 1));
         If Equal 2 (Imm 2)
           (list_Seq [
-            Inst (Mem Store8 1 (Addr 6 0w));
-            Inst (Mem Store8 3 (Addr 6 1w));
+            Inst (Mem Store8 1 (Addr 6 0));
+            Inst (Mem Store8 3 (Addr 6 1));
             Return 0 [8]
           ])
           (list_Seq [
-            Inst (Mem Load8 5 (Addr 4 2w));
-            Inst (Mem Store8 1 (Addr 6 0w));
-            Inst (Mem Store8 3 (Addr 6 1w));
-            Inst (Mem Store8 5 (Addr 6 2w));
+            Inst (Mem Load8 5 (Addr 4 2));
+            Inst (Mem Store8 1 (Addr 6 0));
+            Inst (Mem Store8 3 (Addr 6 1));
+            Inst (Mem Store8 5 (Addr 6 2));
             Return 0 [8]
           ])
       ])
     )
     (list_Seq [
-     Inst (Mem Load8 1 (Addr 4 0w));
-     Inst (Mem Load8 3 (Addr 4 1w));
-     Inst (Mem Load8 5 (Addr 4 2w));
-     Inst (Mem Load8 7 (Addr 4 3w));
-     Inst (Mem Store8 1 (Addr 6 0w));
-     Inst (Mem Store8 3 (Addr 6 1w));
-     Inst (Mem Store8 5 (Addr 6 2w));
-     Inst (Mem Store8 7 (Addr 6 3w));
+     Inst (Mem Load8 1 (Addr 4 0));
+     Inst (Mem Load8 3 (Addr 4 1));
+     Inst (Mem Load8 5 (Addr 4 2));
+     Inst (Mem Load8 7 (Addr 4 3));
+     Inst (Mem Store8 1 (Addr 6 0));
+     Inst (Mem Store8 3 (Addr 6 1));
+     Inst (Mem Store8 5 (Addr 6 2));
+     Inst (Mem Store8 7 (Addr 6 3));
      Assign 9 (Op Sub [Var 2; Const 4w]);
      Assign 11 (Op Add [Var 4; Const 4w]);
      Assign 13 (Op Add [Var 6; Const 4w]);
@@ -2695,39 +2695,39 @@ Definition ByteCopySub_code_def:
         If Equal 2 (Imm 0) (Return 0 [8]) (* n = 0w *)
         (
           list_Seq[
-            Inst (Mem Load8 1 (Addr 4 0w));
-            Inst (Mem Store8 1(Addr 6 0w));
+            Inst (Mem Load8 1 (Addr 4 0));
+            Inst (Mem Store8 1(Addr 6 0));
             Return 0 [8]
           ]
         )
       )
       (list_Seq [
-        Inst (Mem Load8 1 (Addr 4 0w));
-        Inst (Mem Load8 3 (Addr 4 (-1w)));
+        Inst (Mem Load8 1 (Addr 4 0));
+        Inst (Mem Load8 3 (Addr 4 (-1)));
         If Equal 2 (Imm 2)
           (list_Seq [
-            Inst (Mem Store8 1 (Addr 6 0w));
-            Inst (Mem Store8 3 (Addr 6 (-1w)));
+            Inst (Mem Store8 1 (Addr 6 0));
+            Inst (Mem Store8 3 (Addr 6 (-1)));
             Return 0 [8]
           ])
           (list_Seq [
-            Inst (Mem Load8 5 (Addr 4 (-2w)));
-            Inst (Mem Store8 1 (Addr 6 0w));
-            Inst (Mem Store8 3 (Addr 6 (-1w)));
-            Inst (Mem Store8 5 (Addr 6 (-2w)));
+            Inst (Mem Load8 5 (Addr 4 (-2)));
+            Inst (Mem Store8 1 (Addr 6 0));
+            Inst (Mem Store8 3 (Addr 6 (-1)));
+            Inst (Mem Store8 5 (Addr 6 (-2)));
             Return 0 [8]
           ])
       ])
     )
     (list_Seq [
-     Inst (Mem Load8 1 (Addr 4 0w));
-     Inst (Mem Load8 3 (Addr 4 (-1w)));
-     Inst (Mem Load8 5 (Addr 4 (-2w)));
-     Inst (Mem Load8 7 (Addr 4 (-3w)));
-     Inst (Mem Store8 1 (Addr 6 0w));
-     Inst (Mem Store8 3 (Addr 6 (-1w)));
-     Inst (Mem Store8 5 (Addr 6 (-2w)));
-     Inst (Mem Store8 7 (Addr 6 (-3w)));
+     Inst (Mem Load8 1 (Addr 4 0));
+     Inst (Mem Load8 3 (Addr 4 (-1)));
+     Inst (Mem Load8 5 (Addr 4 (-2)));
+     Inst (Mem Load8 7 (Addr 4 (-3)));
+     Inst (Mem Store8 1 (Addr 6 0));
+     Inst (Mem Store8 3 (Addr 6 (-1)));
+     Inst (Mem Store8 5 (Addr 6 (-2)));
+     Inst (Mem Store8 7 (Addr 6 (-3)));
      Assign 9 (Op Sub [Var 2; Const 4w]);
      Assign 11 (Op Sub [Var 4; Const 4w]);
      Assign 13 (Op Sub [Var 6; Const 4w]);
@@ -2832,11 +2832,11 @@ Definition compile_def:
       (data_conf with <| has_fp_ops := (1 < asm_conf.fp_reg_count);
                       has_fp_tern := (asm_conf.ISA = ARMv7 /\ 2 < asm_conf.fp_reg_count) |>) in
     let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) prog in
-      word_to_word$compile word_conf (asm_conf:'a asm_config) p
+      word_to_word$compile word_conf (asm_conf:asm_config) p
 End
 
 Definition compile_0_def:
-  compile_0 data_conf (asm_conf:'a asm_config) prog =
+  compile_0 data_conf (asm_conf:asm_config) prog =
     let data_conf = (data_conf with
                       <| has_fp_ops := (1 < asm_conf.fp_reg_count);
                          has_fp_tern := (asm_conf.ISA = ARMv7 /\

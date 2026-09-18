@@ -6237,7 +6237,7 @@ Theorem stack_alloc_stack_asm_convs:
   EVERY (λ(n,p). (stack_asm_remove (c:'a asm_config) p)) prog ∧
   (* conf_ok is too strong, but we already have it anyway *)
   conf_ok (:'a) conf ∧
-  addr_offset_ok c 0w ∧
+  addr_offset_ok c 0 ∧
   reg_name 10 c ∧ good_dimindex(:'a) ∧
   c.valid_imm (INL Add) 8 ∧
   c.valid_imm (INL Add) 4 ∧
@@ -6252,7 +6252,7 @@ Proof
          computeLib.RESTR_EVAL_TAC [``integer_word$w2i``]>>every_case_tac >>
          fs [] >> computeLib.RESTR_EVAL_TAC [``integer_word$w2i``] >>
      fs[reg_name_def, good_dimindex_def,
-        asmTheory.offset_ok_def, data_to_wordTheory.conf_ok_def,
+        asmTheory.int_offset_ok_def, data_to_wordTheory.conf_ok_def,
         data_to_wordTheory.shift_length_def,
         integer_wordTheory.w2i_n2w_pos, wordsTheory.INT_MIN_def, dimword_def]>>
      pairarg_tac>>fs[]>>NO_TAC)

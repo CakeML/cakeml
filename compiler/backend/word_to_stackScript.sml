@@ -86,101 +86,101 @@ Definition wMove_def:
 End
 
 Definition wInst_def:
-  (wInst ((Const n c):'a inst) kf =
+  (wInst aw ((Const n c):inst) kf =
     wRegWrite1 (\n. Inst (Const n c)) n kf) /\
-  (wInst (Arith (Binop bop n1 n2 (Imm imm))) kf =
+  (wInst aw (Arith (Binop bop n1 n2 (Imm imm))) kf =
     let (l,n2) = wReg1 n2 kf in
     wStackLoad l
       (wRegWrite1 (\n1. Inst (Arith (Binop bop n1 n2 (Imm imm)))) n1 kf)) /\
-  (wInst (Arith (Binop bop n1 n2 (Reg n3))) kf =
+  (wInst aw (Arith (Binop bop n1 n2 (Reg n3))) kf =
     let (l,n2) = wReg1 n2 kf in
     let (l',n3) = wReg2 n3 kf in
     wStackLoad (l++l')
       (wRegWrite1 (\n1. Inst (Arith (Binop bop n1 n2 (Reg n3)))) n1 kf)) /\
-  (wInst (Arith (Shift sh n1 n2 (Imm imm))) kf =
+  (wInst aw (Arith (Shift sh n1 n2 (Imm imm))) kf =
     let (l,n2) = wReg1 n2 kf in
     wStackLoad l
       (wRegWrite1 (\n1. Inst (Arith (Shift sh n1 n2 (Imm imm)))) n1 kf)) /\
-  (wInst (Arith (Shift sh n1 n2 (Reg n3))) kf =
+  (wInst aw (Arith (Shift sh n1 n2 (Reg n3))) kf =
     let (l,n2) = wReg1 n2 kf in
     let (l',n3) = wReg2 n3 kf in
     wStackLoad (l++l')
       (wRegWrite1 (\n1. Inst (Arith (Shift sh n1 n2 (Reg n3)))) n1 kf)) /\
-  (wInst (Arith (Div n1 n2 n3)) kf =
+  (wInst aw (Arith (Div n1 n2 n3)) kf =
     let (l,n2) = wReg1 n2 kf in
     let (l',n3) = wReg2 n3 kf in
     wStackLoad (l++l')
       (wRegWrite1 (\n1. Inst (Arith (Div n1 n2 n3))) n1 kf)) ∧
-  (wInst (Arith (AddCarry n1 n2 n3 n4)) kf =
+  (wInst aw (Arith (AddCarry n1 n2 n3 n4)) kf =
     let (l,n2) = wReg1 n2 kf in
     let (l',n3) = wReg2 n3 kf in
     wStackLoad (l++l')
       (wRegWrite1 (\n1. Inst (Arith (AddCarry n1 n2 n3 n4))) n1 kf)) /\
-  (wInst (Arith (AddOverflow n1 n2 n3 n4)) kf =
+  (wInst aw (Arith (AddOverflow n1 n2 n3 n4)) kf =
     let (l,n2) = wReg1 n2 kf in
     let (l',n3) = wReg2 n3 kf in
     wStackLoad (l++l')
       (wRegWrite1 (\n1. Inst (Arith (AddOverflow n1 n2 n3 n4))) n1 kf)) /\
-  (wInst (Arith (SubOverflow n1 n2 n3 n4)) kf =
+  (wInst aw (Arith (SubOverflow n1 n2 n3 n4)) kf =
     let (l,n2) = wReg1 n2 kf in
     let (l',n3) = wReg2 n3 kf in
     wStackLoad (l++l')
       (wRegWrite1 (\n1. Inst (Arith (SubOverflow n1 n2 n3 n4))) n1 kf)) /\
-  (wInst (Arith (LongMul n1 n2 n3 n4)) kf =
+  (wInst aw (Arith (LongMul n1 n2 n3 n4)) kf =
     (*n1 = 2, n2 = 0, n3 = 0, n4 = 1 no spills necessary*)
       (Inst (Arith (LongMul 3 0 0 2)))) /\
-  (wInst (Arith (LongDiv n1 n2 n3 n4 n5)) kf =
+  (wInst aw (Arith (LongDiv n1 n2 n3 n4 n5)) kf =
     (*n1 = 0, n2 = 2, n3 = 2, n4 = 0 no spills necessary*)
     let (l,n5) = wReg1 n5 kf in
     wStackLoad l
       (Inst (Arith (LongDiv 0 3 3 0 n5)))) /\
-  (wInst (Mem Load n1 (Addr n2 offset)) kf =
+  (wInst aw (Mem Load n1 (Addr n2 offset)) kf =
     let (l,n2) = wReg1 n2 kf in
     wStackLoad l
       (wRegWrite1 (\n1. Inst (Mem Load n1 (Addr n2 offset))) n1 kf)) /\
-  (wInst (Mem Store n1 (Addr n2 offset)) kf =
+  (wInst aw (Mem Store n1 (Addr n2 offset)) kf =
     let (l1,n2) = wReg1 n2 kf in
     let (l2,n1) = wReg2 n1 kf in
       wStackLoad (l1 ++ l2)
         (Inst (Mem Store n1 (Addr n2 offset)))) /\
-  (wInst (Mem Load8 n1 (Addr n2 offset)) kf =
+  (wInst aw (Mem Load8 n1 (Addr n2 offset)) kf =
     let (l,n2) = wReg1 n2 kf in
     wStackLoad l
       (wRegWrite1 (\n1. Inst (Mem Load8 n1 (Addr n2 offset))) n1 kf)) /\
-  (wInst (Mem Store8 n1 (Addr n2 offset)) kf =
+  (wInst aw (Mem Store8 n1 (Addr n2 offset)) kf =
     let (l1,n2) = wReg1 n2 kf in
     let (l2,n1) = wReg2 n1 kf in
       wStackLoad (l1 ++ l2)
         (Inst (Mem Store8 n1 (Addr n2 offset)))) /\
-  (wInst (Mem Load32 n1 (Addr n2 offset)) kf =
+  (wInst aw (Mem Load32 n1 (Addr n2 offset)) kf =
     let (l,n2) = wReg1 n2 kf in
     wStackLoad l
       (wRegWrite1 (\n1. Inst (Mem Load32 n1 (Addr n2 offset))) n1 kf)) /\
-  (wInst (Mem Store32 n1 (Addr n2 offset)) kf =
+  (wInst aw (Mem Store32 n1 (Addr n2 offset)) kf =
     let (l1,n2) = wReg1 n2 kf in
     let (l2,n1) = wReg2 n1 kf in
       wStackLoad (l1 ++ l2)
         (Inst (Mem Store32 n1 (Addr n2 offset)))) /\
-  (wInst (FP (FPLess r f1 f2)) kf =
+  (wInst aw (FP (FPLess r f1 f2)) kf =
     wRegWrite1 (\r. Inst (FP (FPLess r f1 f2))) r kf) /\
-  (wInst (FP (FPLessEqual r f1 f2)) kf =
+  (wInst aw (FP (FPLessEqual r f1 f2)) kf =
     wRegWrite1 (\r. Inst (FP (FPLessEqual r f1 f2))) r kf) /\
-  (wInst (FP (FPEqual r f1 f2)) kf =
+  (wInst aw (FP (FPEqual r f1 f2)) kf =
     wRegWrite1 (\r. Inst (FP (FPEqual r f1 f2))) r kf) /\
-  (wInst (FP (FPMovToReg r1 r2 d)) kf =
-    if dimindex(:'a) = 64 then
+  (wInst aw (FP (FPMovToReg r1 r2 d)) kf =
+    if aw = Arch64 then
       wRegWrite1 (λr1. Inst (FP (FPMovToReg r1 0 d))) r1 kf
     else
       wRegWrite2 (λr2. wRegWrite1 (λr1. Inst(FP (FPMovToReg r1 r2 d))) r1 kf) r2 kf) /\
-  (wInst (FP (FPMovFromReg d r1 r2)) kf =
+  (wInst aw (FP (FPMovFromReg d r1 r2)) kf =
     let (l,n1) = wReg1 r1 kf in
     let (l',n2) =
-      if dimindex(:'a) = 64 then ([],0)
+      if aw = Arch64 then ([],0)
       else wReg2 r2 kf in
     wStackLoad (l++l')
       (Inst (FP (FPMovFromReg d n1 n2)))) /\
-  (wInst (FP f) kf = Inst (FP f)) /\ (*pass through the ones that don't use int registers *)
-  (wInst _ kf = Inst Skip)
+  (wInst aw (FP f) kf = Inst (FP f)) /\ (*pass through the ones that don't use int registers *)
+  (wInst aw _ kf = Inst Skip)
 End
 
 Definition wShareInst_def:
@@ -254,7 +254,7 @@ Definition wLive_def:
     if f = 0 then (Skip,bitmaps)
     else
       let (new_bitmaps,i) = insert_bitmap (write_bitmap (SND live) k f') bitmaps in
-        (Seq (Inst (Const k (n2w (i+1)))) (StackStore k 0):'a stackLang$prog,new_bitmaps)
+        (Seq (Inst (Const k (&(i+1)))) (StackStore k 0):stackLang$prog,new_bitmaps)
 End
 
 Definition SeqStackFree_def:
@@ -325,22 +325,22 @@ Definition perf_call_prefix_def:
          perf_rsp yet, so perf's fp-walker still sees the old (valid) frame
          while the new one is being built. After the final Sub, the layout
          will be (perf_rsp)=old_rbp, 8(perf_rsp)=ret_addr. *)
-      Inst (Mem Store k       (Addr perf_rsp (-8w))) ;
-      Inst (Mem Store perf_rbp (Addr perf_rsp (-16w))) ;
+      Inst (Mem Store k       (Addr perf_rsp (-8))) ;
+      Inst (Mem Store perf_rbp (Addr perf_rsp (-16))) ;
       (* Atomically commit the new frame, then sync perf_rbp := perf_rsp. *)
       Inst (Arith (Binop Sub perf_rsp perf_rsp (Imm 16))) ;
       Inst (Arith (Binop Or perf_rbp perf_rsp (Reg perf_rsp)))
-    ]
+    ] : stackLang$prog
 End
 
 Definition perf_call_suffix_def:
   perf_call_suffix =
     list_Seq [
       (* pop saved %rbp *)
-      Inst (Mem Load perf_rbp (Addr perf_rsp 0w)) ;
+      Inst (Mem Load perf_rbp (Addr perf_rsp 0)) ;
       (* discard both slots (saved-rbp + ret_addr) in one atomic step *)
       Inst (Arith (Binop Add perf_rsp perf_rsp (Imm 16)))
-    ]
+    ] : stackLang$prog
 End
 
 Definition handler_slots_def:
@@ -451,9 +451,9 @@ End
 
 (* Return should be 2,4,6,...,2k,2k+1,... *)
 Definition comp_def:
-  (comp conf perf (Skip:'a wordLang$prog) bs kf = (Skip:'a stackLang$prog,bs)) /\
+  (comp conf perf (Skip:'a wordLang$prog) bs kf = (Skip:stackLang$prog,bs)) /\
   (comp conf perf (Move _ xs) bs kf = (wMove xs kf,bs)) /\
-  (comp conf perf (Inst i) bs kf = (wInst i kf,bs)) /\
+  (comp conf perf (Inst i) bs kf = (wInst (arch_wordsize conf.ISA) i kf,bs)) /\
   (comp conf perf (Return v1 vs) bs kf =
      let (xs,x) = wReg1 v1 kf in
        (wStackLoad xs (SeqStackFree (skip_free kf vs) (Return x)),bs)) /\

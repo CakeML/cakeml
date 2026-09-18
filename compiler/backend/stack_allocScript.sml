@@ -14,7 +14,7 @@ Libs
 val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Definition memcpy_code_def:
-  memcpy_code =
+  memcpy_code aw =
     While NotEqual 0 (Imm 0)
       (list_Seq [load_inst 1 2;
                  add_bytes_in_word_inst 2;
@@ -24,38 +24,38 @@ Definition memcpy_code_def:
 End
 
 Definition clear_top_inst_def:
-  clear_top_inst i n =
-    Seq (left_shift_inst i (dimindex(:'a) - n - 1))
-        (right_shift_inst i (dimindex(:'a) - n - 1)):'a stackLang$prog
+  clear_top_inst aw i n =
+    Seq (left_shift_inst i (arch_width_bits aw - n - 1))
+        (right_shift_inst i (arch_width_bits aw - n - 1))
 End
 
 Definition word_gc_move_code_def:
-  word_gc_move_code conf =
+  word_gc_move_code aw conf =
     If Test 5 (Imm 1) Skip
       (list_Seq
         [move 0 5;
          Get 1 CurrHeap;
          right_shift_inst 0 (shift_length conf);
-         left_shift_inst 0 (word_shift (:'a));
+         left_shift_inst 0 (arch_shift aw);
          add_inst 0 1; (* here 0 is ptr_to_addr conf old w *)
          load_inst 1 0; (* here 1 is m (ptr_to_addr conf old w) *)
          If Test 1 (Imm 3)
            (list_Seq [right_shift_inst 1 2;
                       left_shift_inst 1 (shift_length conf);
-                      clear_top_inst 5 (small_shift_length conf - 1);
+                      clear_top_inst aw 5 (small_shift_length conf - 1);
                       or_inst 5 1])
            (list_Seq [(* get len+1w *)
-                      right_shift_inst 1 (dimindex (:'a) - conf.len_size);
+                      right_shift_inst 1 (arch_width_bits aw - conf.len_size);
                       add_1_inst 1;
                       (* store len+1w for later *)
                       move 6 1;
                       (* memcpy *)
                       move 2 0;
                       move 0 1;
-                      memcpy_code;
+                      memcpy_code aw;
                       (* compute original header_addr *)
                       move 0 6;
-                      left_shift_inst 0 (word_shift (:'a));
+                      left_shift_inst 0 (arch_shift aw);
                       sub_inst 2 0;
                       (* store i << 2 into header_addr *)
                       move 0 4;
@@ -63,94 +63,94 @@ Definition word_gc_move_code_def:
                       store_inst 0 2;
                       (* compute update_addr conf i w, where i in 4 and w in 5 *)
                       move 1 4;
-                      clear_top_inst 5 (small_shift_length conf - 1);
+                      clear_top_inst aw 5 (small_shift_length conf - 1);
                       left_shift_inst 1 (shift_length conf);
                       or_inst 5 1;
                       (* add to i in 4 *)
-                      add_inst 4 6])]) :'a stackLang$prog
+                      add_inst 4 6])])
 End
 
 Definition word_gc_move_list_code_def:
-  word_gc_move_list_code conf =
+  word_gc_move_list_code aw conf =
     While NotEqual 7 (Imm 0)
       (list_Seq [load_inst 5 8;
                  sub_1_inst 7;
-                 word_gc_move_code conf;
+                 word_gc_move_code aw conf;
                  store_inst 5 8;
                  add_bytes_in_word_inst 8])
 End
 
 Definition word_gc_move_loop_code_def:
-  word_gc_move_loop_code conf =
+  word_gc_move_loop_code aw conf =
     While NotEqual 3 (Reg 8)
      (list_Seq [load_inst 7 8;
                 If Test 7 (Imm 4)
-                  (list_Seq [right_shift_inst 7 (dimindex (:α) - conf.len_size);
+                  (list_Seq [right_shift_inst 7 (arch_width_bits aw - conf.len_size);
                              add_bytes_in_word_inst 8;
-                             word_gc_move_list_code conf])
-                  (list_Seq [right_shift_inst 7 (dimindex (:α) - conf.len_size);
+                             word_gc_move_list_code aw conf])
+                  (list_Seq [right_shift_inst 7 (arch_width_bits aw - conf.len_size);
                              add_1_inst 7;
-                             left_shift_inst 7 (word_shift (:'a));
-                             add_inst 8 7])]):'a stackLang$prog
+                             left_shift_inst 7 (arch_shift aw);
+                             add_inst 8 7])])
 End
 
 (* 7 is w, 8 is index into stack, 5 is input to word_gc_move_code *)
 Definition word_gc_move_bitmap_code_def:
-  word_gc_move_bitmap_code conf =
+  word_gc_move_bitmap_code aw conf =
     While NotLower 7 (Imm 2)
      (If Test 7 (Imm 1)
         (list_Seq [right_shift_inst 7 1;
                    add_bytes_in_word_inst 8])
         (list_Seq [StackLoadAny 5 8;
                    right_shift_inst 7 1;
-                   word_gc_move_code conf;
+                   word_gc_move_code aw conf;
                    StackStoreAny 5 8;
                    add_bytes_in_word_inst 8]))
 End
 
 (* 9 is w, 8 is index into stack *)
 Definition word_gc_move_bitmaps_code_def:
-  (word_gc_move_bitmaps_code conf):'a stackLang$prog =
+  (word_gc_move_bitmaps_code aw conf) =
     While NotTest 0 (Reg 0)
       (list_Seq [BitmapLoad 7 9;
-                 word_gc_move_bitmap_code conf;
+                 word_gc_move_bitmap_code aw conf;
                  BitmapLoad 0 9;
                  add_1_inst 9;
-                 right_shift_inst 0 (dimindex (:'a) - 1)])
+                 right_shift_inst 0 (arch_width_bits aw - 1)])
 End
 
 (* 9 is w, 8 is index into stack *)
 Definition word_gc_move_roots_bitmaps_code_def:
-  (word_gc_move_roots_bitmaps_code conf):'a stackLang$prog =
+  (word_gc_move_roots_bitmaps_code aw conf) =
     While NotTest 9 (Reg 9)
       (list_Seq [move 0 9;
                  sub_1_inst 9;
                  add_bytes_in_word_inst 8;
-                 word_gc_move_bitmaps_code conf;
+                 word_gc_move_bitmaps_code aw conf;
                  StackLoadAny 9 8])
 End
 
 Definition word_gen_gc_move_code_def:
-  word_gen_gc_move_code conf =
+  word_gen_gc_move_code aw conf =
     If Test 5 (Imm 1) Skip
       (list_Seq
         [move 0 5;
          Get 1 CurrHeap;
          right_shift_inst 0 (shift_length conf);
-         left_shift_inst 0 (word_shift (:'a));
+         left_shift_inst 0 (arch_shift aw);
          add_inst 0 1; (* here 0 is ptr_to_addr conf old w *)
          load_inst 1 0; (* here 1 is m (ptr_to_addr conf old w) *)
          If Test 1 (Imm 3)
            (list_Seq [right_shift_inst 1 2;
                       left_shift_inst 1 (shift_length conf);
-                      clear_top_inst 5 (small_shift_length conf - 1);
+                      clear_top_inst aw 5 (small_shift_length conf - 1);
                       or_inst 5 1])
            (list_Seq [(* put header in 6 *)
                       move 6 1;
                       (* get len+1w *)
-                      right_shift_inst 1 (dimindex (:'a) - conf.len_size);
+                      right_shift_inst 1 (arch_width_bits aw - conf.len_size);
                       add_1_inst 1;
-                      const_inst 2 0b1100w;
+                      const_inst 2 12;
                       and_inst 6 2;
                       If Equal 6 (Imm 8) (* is_ref_header *)
                         (list_Seq [
@@ -160,7 +160,7 @@ Definition word_gen_gc_move_code_def:
                           Get 4 (Temp 3w); (* pb *)
                           (* store len+1w for later *)
                           move 6 1;
-                          left_shift_inst 1 (word_shift (:'a));
+                          left_shift_inst 1 (arch_shift aw);
                           sub_inst 4 6;
                           sub_inst 3 1;
                           Set (Temp 2w) 3; (* new ib *)
@@ -169,14 +169,14 @@ Definition word_gen_gc_move_code_def:
                           move 2 0;
                           move 4 0;
                           move 0 6;
-                          memcpy_code;
+                          memcpy_code aw;
                           (* compute original header_addr *)
                           Get 0 (Temp 3w); (* fixed? *)
                           left_shift_inst 0 2;
                           store_inst 0 4;
                           (* compute update_addr conf i w, where w in 5 *)
                           Get 1 (Temp 3w);
-                          clear_top_inst 5 (small_shift_length conf - 1);
+                          clear_top_inst aw 5 (small_shift_length conf - 1);
                           left_shift_inst 1 (shift_length conf);
                           or_inst 5 1;
                           Get 3 (Temp 0w);
@@ -187,10 +187,10 @@ Definition word_gen_gc_move_code_def:
                           (* memcpy *)
                           move 2 0;
                           move 0 1;
-                          memcpy_code;
+                          memcpy_code aw;
                           (* compute original header_addr *)
                           move 0 6;
-                          left_shift_inst 0 (word_shift (:'a));
+                          left_shift_inst 0 (arch_shift aw);
                           sub_inst 2 0;
                           (* store i << 2 into header_addr *)
                           move 0 4;
@@ -198,22 +198,22 @@ Definition word_gen_gc_move_code_def:
                           store_inst 0 2;
                           (* compute update_addr conf i w, where i in 4 and w in 5 *)
                           move 1 4;
-                          clear_top_inst 5 (small_shift_length conf - 1);
+                          clear_top_inst aw 5 (small_shift_length conf - 1);
                           left_shift_inst 1 (shift_length conf);
                           or_inst 5 1;
                           (* add to i in 4 *)
-                          add_inst 4 6])])]) :'a stackLang$prog
+                          add_inst 4 6])])])
 End
 
 Definition word_gen_gc_partial_move_code_def:
-  word_gen_gc_partial_move_code conf =
+  word_gen_gc_partial_move_code aw conf =
     (* uses 0,1,2,6 as temps *)
     If Test 5 (Imm 1) Skip
       (list_Seq
         [move 0 5;
          Get 6 (Temp 0w);
          right_shift_inst 0 (shift_length conf);
-         left_shift_inst 0 (word_shift (:'a));
+         left_shift_inst 0 (arch_shift aw);
          Get 1 (Temp 1w);
          If Lower 0 (Reg 6) Skip
           (Seq (Get 6 (Temp 1w))
@@ -224,22 +224,22 @@ Definition word_gen_gc_partial_move_code_def:
              If Test 1 (Imm 3)
                (list_Seq [right_shift_inst 1 2;
                           left_shift_inst 1 (shift_length conf);
-                          clear_top_inst 5 (small_shift_length conf - 1);
+                          clear_top_inst aw 5 (small_shift_length conf - 1);
                           or_inst 5 1])
                (list_Seq [(* put header in 6 *)
                           move 6 1;
                           (* get len+1w *)
-                          right_shift_inst 1 (dimindex (:'a) - conf.len_size);
+                          right_shift_inst 1 (arch_width_bits aw - conf.len_size);
                           add_1_inst 1;
                           (* store len+1w for later *)
                           move 6 1;
                           (* memcpy *)
                           move 2 0;
                           move 0 1;
-                          memcpy_code;
+                          memcpy_code aw;
                           (* compute original header_addr *)
                           move 0 6;
-                          left_shift_inst 0 (word_shift (:'a));
+                          left_shift_inst 0 (arch_shift aw);
                           sub_inst 2 0;
                           (* store i << 2 into header_addr *)
                           move 0 4;
@@ -247,159 +247,159 @@ Definition word_gen_gc_partial_move_code_def:
                           store_inst 0 2;
                           (* compute update_addr conf i w, where i in 4 and w in 5 *)
                           move 1 4;
-                          clear_top_inst 5 (small_shift_length conf - 1);
+                          clear_top_inst aw 5 (small_shift_length conf - 1);
                           left_shift_inst 1 (shift_length conf);
                           or_inst 5 1;
                           (* add to i in 4 *)
-                          add_inst 4 6])])))]) :'a stackLang$prog
+                          add_inst 4 6])])))])
 End
 
 Definition word_gen_gc_move_bitmap_code_def:
-  word_gen_gc_move_bitmap_code conf =
+  word_gen_gc_move_bitmap_code aw conf =
     While NotLower 7 (Imm 2)
      (If Test 7 (Imm 1)
         (list_Seq [right_shift_inst 7 1;
                    add_bytes_in_word_inst 8])
         (list_Seq [StackLoadAny 5 8;
                    right_shift_inst 7 1;
-                   word_gen_gc_move_code conf;
+                   word_gen_gc_move_code aw conf;
                    StackStoreAny 5 8;
                    add_bytes_in_word_inst 8]))
 End
 
 Definition word_gen_gc_partial_move_bitmap_code_def:
-  word_gen_gc_partial_move_bitmap_code conf =
+  word_gen_gc_partial_move_bitmap_code aw conf =
     While NotLower 7 (Imm 2)
      (If Test 7 (Imm 1)
         (list_Seq [right_shift_inst 7 1;
                    add_bytes_in_word_inst 8])
         (list_Seq [StackLoadAny 5 8;
                    right_shift_inst 7 1;
-                   word_gen_gc_partial_move_code conf;
+                   word_gen_gc_partial_move_code aw conf;
                    StackStoreAny 5 8;
                    add_bytes_in_word_inst 8]))
 End
 
 (* 9 is w, 8 is index into stack *)
 Definition word_gen_gc_move_bitmaps_code_def:
-  (word_gen_gc_move_bitmaps_code conf):'a stackLang$prog =
+  (word_gen_gc_move_bitmaps_code aw conf) =
     While NotTest 0 (Reg 0)
       (list_Seq [BitmapLoad 7 9;
-                 word_gen_gc_move_bitmap_code conf;
+                 word_gen_gc_move_bitmap_code aw conf;
                  BitmapLoad 0 9;
                  add_1_inst 9;
-                 right_shift_inst 0 (dimindex (:'a) - 1)])
+                 right_shift_inst 0 (arch_width_bits aw - 1)])
 End
 
 (* 9 is w, 8 is index into stack *)
 Definition word_gen_gc_partial_move_bitmaps_code_def:
-  (word_gen_gc_partial_move_bitmaps_code conf):'a stackLang$prog =
+  (word_gen_gc_partial_move_bitmaps_code aw conf) =
     While NotTest 0 (Reg 0)
       (list_Seq [BitmapLoad 7 9;
-                 word_gen_gc_partial_move_bitmap_code conf;
+                 word_gen_gc_partial_move_bitmap_code aw conf;
                  BitmapLoad 0 9;
                  add_1_inst 9;
-                 right_shift_inst 0 (dimindex (:'a) - 1)])
+                 right_shift_inst 0 (arch_width_bits aw - 1)])
 End
 
 (* 9 is w, 8 is index into stack *)
 Definition word_gen_gc_move_roots_bitmaps_code_def:
-  (word_gen_gc_move_roots_bitmaps_code conf):'a stackLang$prog =
+  (word_gen_gc_move_roots_bitmaps_code aw conf) =
     While NotTest 9 (Reg 9)
       (list_Seq [move 0 9;
                  sub_1_inst 9;
                  add_bytes_in_word_inst 8;
-                 word_gen_gc_move_bitmaps_code conf;
+                 word_gen_gc_move_bitmaps_code aw conf;
                  StackLoadAny 9 8])
 End
 
 (* 9 is w, 8 is index into stack *)
 Definition word_gen_gc_partial_move_roots_bitmaps_code_def:
-  (word_gen_gc_partial_move_roots_bitmaps_code conf):'a stackLang$prog =
+  (word_gen_gc_partial_move_roots_bitmaps_code aw conf) =
     While NotTest 9 (Reg 9)
       (list_Seq [move 0 9;
                  sub_1_inst 9;
                  add_bytes_in_word_inst 8;
-                 word_gen_gc_partial_move_bitmaps_code conf;
+                 word_gen_gc_partial_move_bitmaps_code aw conf;
                  StackLoadAny 9 8])
 End
 
 Definition word_gen_gc_move_list_code_def:
-  word_gen_gc_move_list_code conf =
+  word_gen_gc_move_list_code aw conf =
     While NotEqual 7 (Imm 0)
       (list_Seq [load_inst 5 8;
                  sub_1_inst 7;
-                 word_gen_gc_move_code conf;
+                 word_gen_gc_move_code aw conf;
                  store_inst 5 8;
                  add_bytes_in_word_inst 8])
 End
 
 Definition word_gen_gc_partial_move_list_code_def:
-  word_gen_gc_partial_move_list_code conf =
+  word_gen_gc_partial_move_list_code aw conf =
     While NotEqual 7 (Imm 0)
       (list_Seq [load_inst 5 8;
                  sub_1_inst 7;
-                 word_gen_gc_partial_move_code conf;
+                 word_gen_gc_partial_move_code aw conf;
                  store_inst 5 8;
                  add_bytes_in_word_inst 8])
 End
 
 Definition word_gen_gc_move_data_code_def:
-  word_gen_gc_move_data_code conf =
+  word_gen_gc_move_data_code aw conf =
     While NotEqual 3 (Reg 8)
      (list_Seq [load_inst 7 8;
                 If Test 7 (Imm 4)
-                  (list_Seq [right_shift_inst 7 (dimindex (:α) - conf.len_size);
+                  (list_Seq [right_shift_inst 7 (arch_width_bits aw - conf.len_size);
                              add_bytes_in_word_inst 8;
-                             word_gen_gc_move_list_code conf])
-                  (list_Seq [right_shift_inst 7 (dimindex (:α) - conf.len_size);
+                             word_gen_gc_move_list_code aw conf])
+                  (list_Seq [right_shift_inst 7 (arch_width_bits aw - conf.len_size);
                              add_1_inst 7;
-                             left_shift_inst 7 (word_shift (:'a));
-                             add_inst 8 7])]):'a stackLang$prog
+                             left_shift_inst 7 (arch_shift aw);
+                             add_inst 8 7])])
 End
 
 Definition word_gen_gc_partial_move_ref_list_code_def:
-  word_gen_gc_partial_move_ref_list_code conf =
+  word_gen_gc_partial_move_ref_list_code aw conf =
     While NotEqual 9 (Reg 8)
      (list_Seq [load_inst 7 8;
-                right_shift_inst 7 (dimindex (:α) - conf.len_size);
+                right_shift_inst 7 (arch_width_bits aw - conf.len_size);
                 add_bytes_in_word_inst 8;
-                word_gen_gc_partial_move_list_code conf]):'a stackLang$prog
+                word_gen_gc_partial_move_list_code aw conf])
 End
 
 Definition word_gen_gc_partial_move_data_code_def:
-  word_gen_gc_partial_move_data_code conf =
+  word_gen_gc_partial_move_data_code aw conf =
     While NotEqual 3 (Reg 8)
      (list_Seq [load_inst 7 8;
                 If Test 7 (Imm 4)
-                  (list_Seq [right_shift_inst 7 (dimindex (:α) - conf.len_size);
+                  (list_Seq [right_shift_inst 7 (arch_width_bits aw - conf.len_size);
                              add_bytes_in_word_inst 8;
-                             word_gen_gc_partial_move_list_code conf])
-                  (list_Seq [right_shift_inst 7 (dimindex (:α) - conf.len_size);
+                             word_gen_gc_partial_move_list_code aw conf])
+                  (list_Seq [right_shift_inst 7 (arch_width_bits aw - conf.len_size);
                              add_1_inst 7;
-                             left_shift_inst 7 (word_shift (:'a));
-                             add_inst 8 7])]):'a stackLang$prog
+                             left_shift_inst 7 (arch_shift aw);
+                             add_inst 8 7])])
 End
 
 Definition word_gen_gc_move_refs_code_def:
-  word_gen_gc_move_refs_code conf =
+  word_gen_gc_move_refs_code aw conf =
     (* r2a in 8, r1a in 0 and Temp 4w *)
     While NotEqual 0 (Reg 8)
      (list_Seq [load_inst 7 8;
-                right_shift_inst 7 (dimindex (:α) - conf.len_size);
+                right_shift_inst 7 (arch_width_bits aw - conf.len_size);
                 add_bytes_in_word_inst 8;
-                word_gen_gc_move_list_code conf;
-                Get 0 (Temp 4w)]):'a stackLang$prog
+                word_gen_gc_move_list_code aw conf;
+                Get 0 (Temp 4w)])
 End
 
 Definition word_gen_gc_move_loop_code_def:
-  word_gen_gc_move_loop_code conf =
+  word_gen_gc_move_loop_code aw conf =
     (* 7 is 0w iff pbx = pb and pax = pa, 1 is pbx (Temp 4w), 2 is pb,
        8 is pax, 3 is pa *)
     While NotTest 7 (Reg 7)
       (If Equal 1 (Reg 2)
          (* case: pax <> pa, i.e. move_data *)
-         (list_Seq [word_gen_gc_move_data_code conf;
+         (list_Seq [word_gen_gc_move_data_code aw conf;
                     Get 5 (Temp 2w);
                     Get 7 (Temp 4w);
                     move 1 7;
@@ -410,7 +410,7 @@ Definition word_gen_gc_move_loop_code_def:
                     Set (Temp 6w) 8;
                     move 8 2;
                     Set (Temp 5w) 8;
-                    word_gen_gc_move_refs_code conf;
+                    word_gen_gc_move_refs_code aw conf;
                     move 7 8; (* pbx' *)
                     Get 1 (Temp 5w); (* pb *)
                     Get 2 (Temp 5w);
@@ -440,15 +440,15 @@ Definition word_gc_partial_or_full_def:
 End
 
 Definition SetNewTrigger_def:
-  SetNewTrigger (endh:num) (ib:num) gs =
-    list_Seq [const_inst 1 ((get_gen_size gs):'a word);
+  SetNewTrigger aw (endh:num) (ib:num) gs =
+    list_Seq [const_inst 1 (get_gen_size aw gs);
               Get 7 AllocSize;
               move 4 endh;
               sub_inst 4 ib;
               If Lower 1 (Reg 7)
                 (If Lower 4 (Reg 7)
                    (Set TriggerGC endh)
-                   (If Test 7 (Imm (if dimindex (:'a) = 32 then 3 else 7))
+                   (If Test 7 (Imm (if arch_width_bits aw = 32 then 3 else 7))
                      (Seq (add_inst 7 ib) (Set TriggerGC 7))
                      (Set TriggerGC endh)))
                 (If Lower 4 (Reg 1)
@@ -457,7 +457,7 @@ Definition SetNewTrigger_def:
 End
 
 Definition word_gc_code_def:
-  word_gc_code conf =
+  word_gc_code aw conf =
     case conf.gc_kind of
     | None =>
         (list_Seq
@@ -466,32 +466,32 @@ Definition word_gc_code_def:
                Set NextFree 2;
                Set TriggerGC 2;
                Set EndOfHeap 2;
-               If Test 1 (Reg 1) Skip (Seq (const_inst 1 1w) (Halt 1))])
+               If Test 1 (Reg 1) Skip (Seq (const_inst 1 1) (Halt 1))])
     | Simple =>
         (list_Seq
               [Set AllocSize 1;
                Set NextFree 0;
-               const_inst 1 0w;
+               const_inst 1 0;
                move 2 1;
                Get 3 OtherHeap;
                move 4 1;
                Get 5 Globals;
                move 6 1;
                move 8 1;
-               word_gc_move_code conf;
+               word_gc_move_code aw conf;
                Set Globals 5;
                move 7 5;
                right_shift_inst 7 (shift_length conf);
-               left_shift_inst 7 (word_shift (:'a));
+               left_shift_inst 7 (arch_shift aw);
                Get 9 OtherHeap;
                add_inst 7 9;
                Set GlobReal 7;
-               const_inst 7 0w;
+               const_inst 7 0;
                StackLoadAny 9 8;
                move 8 7;
-               word_gc_move_roots_bitmaps_code conf;
+               word_gc_move_roots_bitmaps_code aw conf;
                Get 8 OtherHeap;
-               word_gc_move_loop_code conf;
+               word_gc_move_loop_code aw conf;
                Get 0 CurrHeap;
                Get 1 OtherHeap;
                Get 2 HeapLength;
@@ -504,7 +504,7 @@ Definition word_gc_code_def:
                Set TriggerGC 2;
                Get 1 AllocSize;
                sub_inst 2 8;
-               If Lower 2 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip ])
+               If Lower 2 (Reg 1) (Seq (const_inst 1 1) (Halt 1)) Skip ])
     | Generational gen_sizes =>
         (word_gc_partial_or_full gen_sizes
               (* gen_gc_partial *)
@@ -519,40 +519,40 @@ Definition word_gc_code_def:
                Get 7 HeapLength;
                Get 5 Globals;
                Get 3 OtherHeap;
-               right_shift_inst 4 (shift (:'a));
+               right_shift_inst 4 (arch_shift aw);
                move 6 3;
-               word_gen_gc_partial_move_code conf;
+               word_gen_gc_partial_move_code aw conf;
                Set Globals 5;
                move 8 5;
                right_shift_inst 8 (shift_length conf);
-               left_shift_inst 8 (word_shift (:'a));
+               left_shift_inst 8 (arch_shift aw);
                Get 9 CurrHeap;
                add_inst 8 9;
                Set GlobReal 8;
-               const_inst 8 0w;
+               const_inst 8 0;
                StackLoadAny 9 8;
-               word_gen_gc_partial_move_roots_bitmaps_code conf;
+               word_gen_gc_partial_move_roots_bitmaps_code aw conf;
                Get 8 CurrHeap;
                Get 9 HeapLength;
                add_inst 9 8;
                Get 8 EndOfHeap;
-               word_gen_gc_partial_move_ref_list_code conf;
+               word_gen_gc_partial_move_ref_list_code aw conf;
                Get 8 OtherHeap;
-               word_gen_gc_partial_move_data_code conf;
+               word_gen_gc_partial_move_data_code aw conf;
                Get 2 OtherHeap;
                move 0 3;
                sub_inst 0 2;
-               right_shift_inst 0 (shift (:'a));
+               right_shift_inst 0 (arch_shift aw);
                Get 3 GenStart;
                Get 1 CurrHeap;
                add_inst 3 1;
-               memcpy_code;
+               memcpy_code aw;
                Get 0 NextFree;
                Set NextFree 3;
                Get 8 EndOfHeap;
                Get 2 TriggerGC;
-               SetNewTrigger 8 3 gen_sizes;
-               const_inst 1 0w;
+               SetNewTrigger aw 8 3 gen_sizes;
+               const_inst 1 0;
                Set (Temp 0w) 1;
                Set (Temp 1w) 1;
                Get 1 AllocSize;
@@ -569,7 +569,7 @@ Definition word_gc_code_def:
               (* gen_gc_full *)
               [Set AllocSize 1;
                Set NextFree 0;
-               const_inst 1 (0w:'a word);
+               const_inst 1 0;
                move 2 1;
                Get 3 OtherHeap;
                Get 4 HeapLength;
@@ -581,24 +581,24 @@ Definition word_gc_code_def:
                Set (Temp 5w) 4;
                Set (Temp 6w) 4;
                Get 4 HeapLength;
-               right_shift_inst 4 (shift (:'a));
+               right_shift_inst 4 (arch_shift aw);
                Set (Temp 3w) 4;
                move 4 1;
                Get 5 Globals;
                move 6 1;
                move 8 1;
-               word_gen_gc_move_code conf;
+               word_gen_gc_move_code aw conf;
                Set Globals 5;
                move 7 5;
                Get 9 OtherHeap;
                right_shift_inst 7 (shift_length conf);
-               left_shift_inst 7 (word_shift (:'a));
+               left_shift_inst 7 (arch_shift aw);
                add_inst 7 9;
                Set GlobReal 7;
-               const_inst 7 0w;
+               const_inst 7 0;
                StackLoadAny 9 8;
                move 8 7;
-               word_gen_gc_move_roots_bitmaps_code conf;
+               word_gen_gc_move_roots_bitmaps_code aw conf;
                Get 2 (Temp 2w);
                Get 8 OtherHeap;
                move 7 3;
@@ -607,7 +607,7 @@ Definition word_gc_code_def:
                move 6 2;
                sub_inst 6 1;
                or_inst 7 6;
-               word_gen_gc_move_loop_code conf;
+               word_gen_gc_move_loop_code aw conf;
                Get 0 CurrHeap;
                Get 1 OtherHeap;
                Get 2 (Temp 2w);
@@ -619,8 +619,8 @@ Definition word_gc_code_def:
                move 8 3;
                sub_inst 8 1;
                Set GenStart 8;
-               SetNewTrigger 2 3 gen_sizes;
-               const_inst 1 0w;
+               SetNewTrigger aw 2 3 gen_sizes;
+               const_inst 1 0;
                Set (Temp 0w) 1;
                Set (Temp 1w) 1;
                Set (Temp 2w) 1;
@@ -631,12 +631,12 @@ Definition word_gc_code_def:
                Get 1 AllocSize;
                Get 2 TriggerGC;
                sub_inst 2 3;
-               If Lower 2 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip ])
-                 :'a stackLang$prog
+               If Lower 2 (Reg 1) (Seq (const_inst 1 1) (Halt 1)) Skip ])
+
 End
 
 Definition stubs_def:
-  stubs conf = [(gc_stub_location, Seq (word_gc_code conf) (Return 0))]
+  stubs aw conf = [(gc_stub_location, Seq (word_gc_code aw conf) (Return 0))]
 End
 
 Definition stub_names_def:
@@ -647,7 +647,7 @@ End
 
 local
 val next_lab_quotation = `
-  next_lab (p:'a stackLang$prog) aux =
+  next_lab p aux =
     case p of
     | Seq p1 p2 => next_lab p1 (next_lab p2 aux)
     | If _ _ _ p1 p2 => next_lab p1 (next_lab p2 aux)
@@ -718,5 +718,5 @@ Definition prog_comp_def:
 End
 
 Definition compile_def:
-  compile c prog = stubs c ++ MAP prog_comp prog
+  compile aw c prog = stubs aw c ++ MAP prog_comp prog
 End

@@ -3670,13 +3670,13 @@ Definition startup_asm_code_def:
      Inst (Const 4 (n2w (code_start_offset num_ffis)));
      Inst (Const 1 code_length);
      Inst (Arith (Binop Add 4 4 (Reg 1)));
-     Inst (Mem Store 4 (Addr 2 (0w * bytes_in_word)));
-     Inst (Mem Store 4 (Addr 2 (3w * bytes_in_word)));
-     Inst (Mem Store 4 (Addr 2 (4w * bytes_in_word)));
+     Inst (Mem Store 4 (Addr 2 0));
+     Inst (Mem Store 4 (Addr 2 12));
+     Inst (Mem Store 4 (Addr 2 16));
      Inst (Const 1 bitmaps_length);
      Inst (Arith (Binop Add 4 1 (Reg 4)));
-     Inst (Mem Store 4 (Addr 2 (1w * bytes_in_word)));
-     Inst (Mem Store 4 (Addr 2 (2w * bytes_in_word)));
+     Inst (Mem Store 4 (Addr 2 4));
+     Inst (Mem Store 4 (Addr 2 8));
      Inst (Const 1 (n2w heap_size));
      Inst (Arith (Binop Add 4 2 (Reg 1)));
      Inst (Const 1 (n2w (code_start_offset num_ffis)));

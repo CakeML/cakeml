@@ -726,7 +726,7 @@ Definition share_mem_state_rel_def:
       call_FFI_rel^* s1.ffi st /\
       ALOOKUP mc_conf.mmio_info index = SOME (nb,Addr ad offs,re,pc') /\
       (mc_conf.prog_addresses = t1.mem_domain) ∧
-      ad' = mc_conf.target.get_reg ms2 ad + offs /\ (* eval the address value *)
+      ad' = mc_conf.target.get_reg ms2 ad + i2w offs /\ (* eval the address value *)
       target_state_rel mc_conf.target
         (t1 with pc := EL index mc_conf.ffi_entry_pcs) ms2 ==>
       (∃op. EL index mc_conf.ffi_names = SharedMem op /\
@@ -2345,7 +2345,7 @@ Proof
     TOP_CASE_TAC>>fs[]>>
     pop_assum mp_tac>>TOP_CASE_TAC>>fs[]>>
     ntac 2 strip_tac>>fs[state_rel_def]>>
-    `t1.regs n' = c'` by
+    `t1.regs n' = c` by
       (
       qpat_x_assum `!bn. bn < _ ==> ~(MEM _ _)` kall_tac>>
       first_x_assum(qspec_then`n'` assume_tac)>>
@@ -2373,7 +2373,7 @@ Proof
           fs[word_loc_val_byte_def]>>
           ntac 4 (FULL_CASE_TAC>>fs[])>>
           rfs[get_byte_def,byte_index_def]>>rveq>>
-          Cases_on `c + t1.regs n'`>>
+          Cases_on `i2w i + t1.regs n'`>>
           rename1 `k < dimword (:α)`>>
           old_drule aligned_IMP_ADD_LESS_dimword >>
           full_simp_tac std_ss [] \\ fs [] >>
@@ -2409,7 +2409,7 @@ Proof
           fs[word_loc_val_byte_def]>>
           ntac 8 (FULL_CASE_TAC>>fs[])>>
           rfs[get_byte_def,byte_index_def]>>rveq>>
-          Cases_on `c + t1.regs n'`>>
+          Cases_on `i2w i + t1.regs n'`>>
           rename1 `k < dimword (:α)`>>
           old_drule aligned_IMP_ADD_LESS_dimword >>
           full_simp_tac std_ss [] \\ fs [] >>
@@ -2432,7 +2432,7 @@ Proof
     FULL_CASE_TAC>>fs[]>>
     qpat_x_assum `!n. n < s1.code_buffer.space_left ==> _` kall_tac >>
     qpat_assum `!r.word_loc_val _ _ _ = SOME _` (qspec_then`n'` assume_tac)>>
-    qpat_x_assum`_=Word c'` SUBST_ALL_TAC>>
+    qpat_x_assum`_=Word c` SUBST_ALL_TAC>>
     fs[word_loc_val_def,GSYM word_add_n2w,alignmentTheory.aligned_extract]>>
     rw[]
     >- metis_tac[]
@@ -2456,7 +2456,7 @@ Proof
     TOP_CASE_TAC>>fs[]>>
     pop_assum mp_tac>>TOP_CASE_TAC>>fs[]>>
     ntac 2 strip_tac>>fs[state_rel_def]>>
-    `t1.regs n' = c'` by
+    `t1.regs n' = c` by
       (
       qpat_x_assum `!bn. bn < _ ==> ~(MEM _ _)` kall_tac>>
       first_x_assum(qspec_then`n'` assume_tac)>>
@@ -2484,7 +2484,7 @@ Proof
        >-
          (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
           fs[asmSemTheory.read_mem_def]>>
-          ‘byte_align (c + t1.regs n') ∈ s1.mem_domain’ by fs[]>>
+          ‘byte_align (i2w i + t1.regs n') ∈ s1.mem_domain’ by fs[]>>
           qpat_x_assum `!a. byte_align a IN s1.mem_domain ==> _` imp_res_tac >>
           fs[word_loc_val_byte_def]>>
           ntac 4 (FULL_CASE_TAC>>fs[])>>
@@ -2513,7 +2513,7 @@ Proof
           >-
            (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
             fs[asmSemTheory.read_mem_def]>>
-            ‘byte_align (c + t1.regs n') ∈ s1.mem_domain’ by fs[]>>
+            ‘byte_align (i2w i + t1.regs n') ∈ s1.mem_domain’ by fs[]>>
             qpat_x_assum `!a. byte_align a IN s1.mem_domain ==> _` imp_res_tac >>
             fs[word_loc_val_byte_def]>>
             ntac 4 (FULL_CASE_TAC>>fs[])>>
@@ -2542,7 +2542,7 @@ Proof
       >-
        (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
         fs[asmSemTheory.read_mem_def]>>
-        ‘byte_align (c + t1.regs n') ∈ s1.mem_domain’ by fs[]>>
+        ‘byte_align (i2w i + t1.regs n') ∈ s1.mem_domain’ by fs[]>>
         qpat_x_assum `!a. byte_align a IN s1.mem_domain ==> _` imp_res_tac >>
         fs[word_loc_val_byte_def]>>
         PURE_FULL_CASE_TAC>-fs[]>>
@@ -2564,7 +2564,7 @@ Proof
     TOP_CASE_TAC>>fs[]>>
     pop_assum mp_tac>>TOP_CASE_TAC>>fs[]>>
     ntac 2 strip_tac>>fs[state_rel_def]>>
-    `t1.regs n' = c'` by
+    `t1.regs n' = c` by
       (
       qpat_x_assum `!bn.bn < _ ==> ~(MEM _ _)`kall_tac>>
       first_x_assum(qspec_then`n'` assume_tac)>>
@@ -2683,7 +2683,7 @@ Proof
     FULL_CASE_TAC>>fs[]>>
     qpat_x_assum `!n. n < s1.code_buffer.space_left ==> _` kall_tac >>
     qpat_assum `!r.word_loc_val _ _ _ = SOME _` (qspec_then`n'` assume_tac)>>
-    qpat_x_assum`_=Word c''` SUBST_ALL_TAC>>
+    qpat_x_assum`_=Word c'` SUBST_ALL_TAC>>
     fs[word_loc_val_def,GSYM word_add_n2w,alignmentTheory.aligned_extract]>>
     rw[]
       >-
@@ -2738,7 +2738,7 @@ Proof
     strip_tac>>
     qpat_x_assum `!n. n < s1.code_buffer.space_left ==> _` kall_tac >>
     qpat_assum `!r.word_loc_val _ _ _ = SOME _` (qspec_then`n'` assume_tac)>>
-    qpat_x_assum`_=Word c''` SUBST_ALL_TAC>>
+    qpat_x_assum`_=Word c'` SUBST_ALL_TAC>>
     fs[word_loc_val_def]
     >- (* store32 - word32 *)
       (`aligned 2 x` by fs [aligned_w2n]>>
@@ -9631,7 +9631,7 @@ Definition line_to_info_def:
        <|entry_pc := (pos_val (FST x) p secs)
         ;nbytes:=nb
         ; addr_reg := (case ad of Addr r off => r)
-        ; addr_off := (case ad of Addr r off => w2n off)
+        ; addr_off := (case ad of Addr r off => off)
         ;reg:=r
         ;exit_pc:= (pos_val (FST x) p secs + LENGTH bytes)|>
         )]
@@ -9770,7 +9770,7 @@ Theorem MEM_get_shmem_info:
     <|entry_pc:=(pos_val pc p code2)
       ;nbytes:=r
       ; addr_reg := (case a of Addr r off => r)
-      ; addr_off := (case a of Addr r off => w2n off)
+      ; addr_off := (case a of Addr r off => off)
       ;reg:=re
       ;exit_pc:=(pos_val pc (p+LENGTH inst') code2)|>)
     (ZIP (get_shmem_info code2 p [] []))
@@ -9919,7 +9919,7 @@ Theorem get_shmem_info_ok_lemma:
           <|entry_pc := (EL index new_shmem_info).entry_pc
            ;nbytes := nb
            ; addr_reg := (case a of Addr r off => r)
-           ; addr_off := (case a of Addr r off => w2n off)
+           ; addr_off := (case a of Addr r off => off)
            ;reg := re
            ;exit_pc := p + (pos_val pc 0 code2 + len)|>))) /\
   (!pc line.
@@ -10135,7 +10135,7 @@ Theorem IMP_state_rel_make_init[local]:
    MAP (\rec. rec.entry_pc) new_shmem_info = DROP i (MAP w2n mc_conf.ffi_entry_pcs) /\
    (mc_conf.mmio_info = ZIP (GENLIST (λindex. index + i) (LENGTH new_shmem_info),
                               (MAP (\rec. (rec.nbytes,
-                                Addr rec.addr_reg (n2w rec.addr_off),
+                                Addr rec.addr_reg rec.addr_off,
                                 rec.reg, n2w rec.exit_pc)) new_shmem_info))) /\
    no_install_or_no_share_mem code mc_conf.ffi_names /\
    (!bn. bn < cbspace ==>
@@ -11012,7 +11012,7 @@ Theorem semantics_compile_lemma'[local]:
   MAP (\rec. w2n (mc_conf.target.get_pc ms) + rec.entry_pc) c'.shmem_extra =
     DROP i (MAP w2n mc_conf.ffi_entry_pcs) /\
   mc_conf.mmio_info = ZIP (GENLIST (λindex. index + i) (LENGTH c'.shmem_extra),
-                            (MAP (\rec. (rec.nbytes, Addr rec.addr_reg (n2w rec.addr_off),
+                            (MAP (\rec. (rec.nbytes, Addr rec.addr_reg rec.addr_off,
                               rec.reg, n2w rec.exit_pc + mc_conf.target.get_pc ms))
                                  c'.shmem_extra)) /\
   no_install_or_no_share_mem code mc_conf.ffi_names /\
@@ -11244,7 +11244,7 @@ Theorem semantics_compile:
   MAP (\rec. w2n (mc_conf.target.get_pc ms) + rec.entry_pc) c'.shmem_extra =
    DROP i (MAP w2n mc_conf.ffi_entry_pcs) /\
   mc_conf.mmio_info = ZIP (GENLIST (λindex. index + i) (LENGTH c'.shmem_extra),
-                              (MAP (\rec. (rec.nbytes, Addr rec.addr_reg (n2w rec.addr_off),
+                              (MAP (\rec. (rec.nbytes, Addr rec.addr_reg rec.addr_off,
                                 rec.reg, n2w rec.exit_pc + mc_conf.target.get_pc ms))
                                    c'.shmem_extra)) /\
   no_install_or_no_share_mem code mc_conf.ffi_names /\

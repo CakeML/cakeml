@@ -13,7 +13,7 @@ Theorem case_eq_thms =
    bool_case_eq::
    map (TypeBase.case_eq_of)
         [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``, ``:binop``,
-         ``:reg_imm`` ,``:arith``,``:'a addr``,``:memop``,``:'a result``,
+         ``:reg_imm`` ,``:arith``,``:addr``,``:memop``,``:'a result``,
          ``:'a ffi_result``])
     |> LIST_CONJ
 
@@ -926,7 +926,7 @@ Definition addr_name_def:
 End
 
 Definition inst_name_def:
-  (inst_name c (Const r w) ⇔ reg_name r c) ∧
+  (inst_name (c:'a asm_config) (Const r (w:'a word)) ⇔ reg_name r c) ∧
   (inst_name c (Mem m r a) ⇔ reg_name r c ∧ addr_name m a c) ∧
   (inst_name c (Arith x) ⇔ arith_name x c) ∧
   (inst_name c (FP f) ⇔ fp_name f c) ∧

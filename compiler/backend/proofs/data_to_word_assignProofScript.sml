@@ -22,7 +22,15 @@ val _ = temp_delsimps ["fromAList_def", "domain_union",
                        "sptree.insert_notEmpty", "sptree.isEmpty_union"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
-val _ = augment_srw_ss [rewrites [integer_wordTheory.i2w_pos, integer_wordTheory.i2w_w2i]]
+Theorem i2w_neg[local]:
+  i2w (-&n) = -n2w n
+Proof
+  rw[integer_wordTheory.i2w_def] >> fs[integerTheory.NUM_OF_INT] >>
+  `n = 0` by intLib.ARITH_TAC >> fs[]
+QED
+
+val _ = augment_srw_ss [rewrites [integer_wordTheory.i2w_pos,
+                                  integer_wordTheory.i2w_w2i, i2w_neg]]
 
 val _ = numLib.prefer_num ();
 

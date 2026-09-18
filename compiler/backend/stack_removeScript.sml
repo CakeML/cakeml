@@ -18,7 +18,7 @@ Definition max_stack_alloc_def:
 End
 
 Definition word_offset_def:
-  word_offset n = n2w (dimindex (:'a) DIV 8 * n):'a word
+  word_offset aw n = &(arch_bytes aw * n) : int
 End
 
 Definition store_list_def:
@@ -48,7 +48,7 @@ Definition store_length_def:
 End
 
 Definition store_offset_def:
-  store_offset name = 0w - word_offset (store_pos name)
+  store_offset aw name = - word_offset aw (store_pos name)
 End
 
 Definition stack_err_lab_def:
@@ -66,190 +66,190 @@ End
 *)
 
 Definition single_stack_alloc_def:
-  single_stack_alloc jump k n =
+  single_stack_alloc aw jump k n =
     if jump
     then
-      Seq (Inst (Arith (Binop Sub k k (Imm (w2i (word_offset n : 'a word))))) : 'a stackLang$prog)
+      Seq (Inst (Arith (Binop Sub k k (Imm (word_offset aw n)))))
           (JumpLower k (k+1) stack_err_lab)
     else
-       Seq (Inst (Arith (Binop Sub k k (Imm (w2i (word_offset n : 'a word))))) : 'a stackLang$prog)
-          (If Lower k (Reg (k+1)) (halt_inst 2w) Skip)
+       Seq (Inst (Arith (Binop Sub k k (Imm (word_offset aw n)))))
+          (If Lower k (Reg (k+1)) (halt_inst 2) Skip)
 End
 
 Definition stack_alloc_def:
-  stack_alloc jump k n =
+  stack_alloc aw jump k n =
     if n = 0 then Skip else
-    if n <= max_stack_alloc then single_stack_alloc jump k n else
-      Seq (single_stack_alloc jump k max_stack_alloc)
-          (stack_alloc jump k (n - max_stack_alloc))
+    if n <= max_stack_alloc then single_stack_alloc aw jump k n else
+      Seq (single_stack_alloc aw jump k max_stack_alloc)
+          (stack_alloc aw jump k (n - max_stack_alloc))
+Termination
+  WF_REL_TAC `measure (SND o SND o SND)` \\ fs [max_stack_alloc_def] \\ decide_tac
+End
+
+Definition single_stack_free_def:
+  single_stack_free aw k n =
+    Inst (Arith (Binop Add k k (Imm (word_offset aw n))))
+End
+
+Definition stack_free_def:
+  stack_free aw k n =
+    if n = 0 then Skip else
+    if n <= max_stack_alloc then single_stack_free aw k n else
+      Seq (single_stack_free aw k max_stack_alloc)
+          (stack_free aw k (n - max_stack_alloc))
 Termination
   WF_REL_TAC `measure (SND o SND)` \\ fs [max_stack_alloc_def] \\ decide_tac
 End
 
-Definition single_stack_free_def:
-  single_stack_free k n =
-    (Inst (Arith (Binop Add k k (Imm (w2i (word_offset n : 'a word))))) : 'a stackLang$prog)
-End
-
-Definition stack_free_def:
-  stack_free k n =
-    if n = 0 then Skip else
-    if n <= max_stack_alloc then single_stack_free k n else
-      Seq (single_stack_free k max_stack_alloc)
-          (stack_free k (n - max_stack_alloc))
-Termination
-  WF_REL_TAC `measure SND` \\ fs [max_stack_alloc_def] \\ decide_tac
-End
-
 (* upshift the stack pointer *)
 Definition upshift_def:
-  upshift r n =
+  upshift aw r n =
     if n ≤ max_stack_alloc then
-      (Inst (Arith (Binop Add r r (Imm (w2i (word_offset n : 'a word)))))):'a stackLang$prog
+      Inst (Arith (Binop Add r r (Imm (word_offset aw n))))
     else
-      Seq (Inst (Arith (Binop Add r r (Imm (w2i (word_offset max_stack_alloc : 'a word))))))
-      (upshift r (n-max_stack_alloc))
+      Seq (Inst (Arith (Binop Add r r (Imm (word_offset aw max_stack_alloc)))))
+      (upshift aw r (n-max_stack_alloc))
 Termination
-  WF_REL_TAC `measure SND` \\ fs [max_stack_alloc_def] \\ decide_tac
+  WF_REL_TAC `measure (SND o SND)` \\ fs [max_stack_alloc_def] \\ decide_tac
 End
 
 Definition downshift_def:
-  downshift r n =
+  downshift aw r n =
     if n ≤ max_stack_alloc then
-      (Inst (Arith (Binop Sub r r (Imm (w2i (word_offset n : 'a word)))))) :'a stackLang$prog
+      Inst (Arith (Binop Sub r r (Imm (word_offset aw n))))
     else
-      Seq (Inst (Arith (Binop Sub r r (Imm (w2i (word_offset max_stack_alloc : 'a word))))))
-      (downshift r (n-max_stack_alloc))
+      Seq (Inst (Arith (Binop Sub r r (Imm (word_offset aw max_stack_alloc)))))
+      (downshift aw r (n-max_stack_alloc))
 Termination
-  WF_REL_TAC `measure SND` \\ fs [max_stack_alloc_def] \\ decide_tac
+  WF_REL_TAC `measure (SND o SND)` \\ fs [max_stack_alloc_def] \\ decide_tac
 End
 
 (* Shifts k up and down to store r into n*)
 Definition stack_store_def:
-  stack_store k r n =
-     Seq (upshift k n)
-    (Seq (Inst (Mem Store r (Addr k 0w))) (downshift k n))
+  stack_store aw k r n =
+     Seq (upshift aw k n)
+    (Seq (Inst (Mem Store r (Addr k 0))) (downshift aw k n))
 End
 
 Definition stack_load_def:
-  stack_load r n =
-    Seq (upshift r n) (Inst (Mem Load r (Addr r 0w))):'a stackLang$prog
+  stack_load aw r n =
+    Seq (upshift aw r n) (Inst (Mem Load r (Addr r 0)))
 End
 
 Definition copy_each_def:
-  copy_each t1 t2 =
+  copy_each aw t1 t2 =
     While NotEqual 1 (Imm 1)
       (list_Seq [load_inst t1 t2;
-                 add_bytes_in_word_inst t2;
+                 add_bytes_in_word_inst aw t2;
                  If Test 1 (Imm 1) Skip (add_inst t1 3);
                  right_shift_inst 1 1;
                  store_inst t1 2;
-                 add_bytes_in_word_inst 2])
+                 add_bytes_in_word_inst aw 2])
 End
 
 Definition copy_loop_def:
-  copy_loop t1 t2 =
+  copy_loop aw t1 t2 =
     list_Seq [load_inst 1 t2;
-              add_bytes_in_word_inst t2;
+              add_bytes_in_word_inst aw t2;
               While Less 1 (Imm 0)
-                (list_Seq [copy_each t1 t2;
+                (list_Seq [copy_each aw t1 t2;
                            load_inst 1 t2;
-                           add_bytes_in_word_inst t2]);
-              copy_each t1 t2]
+                           add_bytes_in_word_inst aw t2]);
+              copy_each aw t1 t2]
 End
 
 Definition comp_def:
-  comp jump off k (p:'a stackLang$prog) =
+  comp aw jump off k p =
     case p of
     (* remove store accesses *)
     | Get r name =>
         if name = CurrHeap then move r (k+2)
-        else Inst (Mem Load r (Addr (k+1) (store_offset name)))
+        else Inst (Mem Load r (Addr (k+1) (store_offset aw name)))
     | Set name r =>
         if name = CurrHeap then move (k+2) r
-        else Inst (Mem Store r (Addr (k+1) (store_offset name)))
+        else Inst (Mem Store r (Addr (k+1) (store_offset aw name)))
     | OpCurrHeap op r n =>
         Inst (Arith (Binop op r n (Reg (k+2))))
     (* remove stack operations *)
-    | StackFree n => stack_free k n
-    | StackAlloc n => stack_alloc jump k n
+    | StackFree n => stack_free aw k n
+    | StackAlloc n => stack_alloc aw jump k n
     | StackStore r n =>
-      let w = word_offset n in
-      if offset_ok 0 off w then
+      let w = word_offset aw n in
+      if int_offset_ok off w then
         Inst (Mem Store r (Addr k w))
       else
-        stack_store k r n
+        stack_store aw k r n
     | StackLoad r n =>
-      let w = word_offset n in
-      if offset_ok 0 off w then
+      let w = word_offset aw n in
+      if int_offset_ok off w then
         Inst (Mem Load r (Addr k w))
       else
-        Seq (move r k) (stack_load r n)
-    | DataBufferWrite r1 r2 => Inst (Mem Store r2 (Addr r1 0w)) (* remove data buffer *)
+        Seq (move r k) (stack_load aw r n)
+    | DataBufferWrite r1 r2 => Inst (Mem Store r2 (Addr r1 0)) (* remove data buffer *)
     | StackLoadAny r i => Seq (Seq (move r i) (add_inst r k))
-                              (Inst (Mem Load r (Addr r 0w)))
+                              (Inst (Mem Load r (Addr r 0)))
     | StackStoreAny r i => Seq (Inst (Arith (Binop Add k k (Reg i))))
-                          (Seq (Inst (Mem Store r (Addr k 0w)))
+                          (Seq (Inst (Mem Store r (Addr k 0)))
                                (Inst (Arith (Binop Sub k k (Reg i)))))
     | StackGetSize r => Seq (Seq (move r k) (sub_inst r (k+1)))
-                            (right_shift_inst r (word_shift (:'a)))
-    | StackSetSize r => Seq (left_shift_inst r (word_shift (:'a)))
+                            (right_shift_inst r (arch_shift aw))
+    | StackSetSize r => Seq (left_shift_inst r (arch_shift aw))
                             (Seq (move k (k+1)) (add_inst k r))
     | BitmapLoad r v =>
-        list_Seq [Inst (Mem Load r (Addr (k+1) (store_offset BitmapBase)));
+        list_Seq [Inst (Mem Load r (Addr (k+1) (store_offset aw BitmapBase)));
                   add_inst r v;
-                  left_shift_inst r (word_shift (:'a));
-                  Inst (Mem Load r (Addr r 0w))]
+                  left_shift_inst r (arch_shift aw);
+                  Inst (Mem Load r (Addr r 0))]
     | StoreConsts t1 t2 _ =>
-        list_Seq [Inst (Mem Load t2 (Addr (k+1) (store_offset BitmapBase)));
+        list_Seq [Inst (Mem Load t2 (Addr (k+1) (store_offset aw BitmapBase)));
                   add_inst t2 1;
-                  left_shift_inst t2 (word_shift (:'a));
-                  copy_loop t1 t2;
+                  left_shift_inst t2 (arch_shift aw);
+                  copy_loop aw t1 t2;
                   move t1 1;
                   move t2 1]
     (* for the rest, just leave it unchanged *)
-    | Seq p1 p2 => Seq (comp jump off k p1) (comp jump off k p2)
-    | If c r ri p1 p2 => If c r ri (comp jump off k p1) (comp jump off k p2)
-    | Loop p1 => Loop (comp jump off k p1)
+    | Seq p1 p2 => Seq (comp aw jump off k p1) (comp aw jump off k p2)
+    | If c r ri p1 p2 => If c r ri (comp aw jump off k p1) (comp aw jump off k p2)
+    | Loop p1 => Loop (comp aw jump off k p1)
     | Call ret dest exc =>
         Call (case ret of
               | NONE => NONE
-              | SOME (p1,lr,l1,l2) => SOME (comp jump off k p1,lr,l1,l2))
+              | SOME (p1,lr,l1,l2) => SOME (comp aw jump off k p1,lr,l1,l2))
           dest (case exc of
                 | NONE => NONE
-                | SOME (p2,l1,l2) => SOME (comp jump off k p2,l1,l2))
+                | SOME (p2,l1,l2) => SOME (comp aw jump off k p2,l1,l2))
     | p => p
 End
 
 Definition prog_comp_def:
-  prog_comp jump off k (n,p) = (n,comp jump off k p)
+  prog_comp aw jump off k (n,p) = (n,comp aw jump off k p)
 End
 
 (* -- init code -- *)
 
 Definition store_list_code_def:
-  (store_list_code a t [] = Skip) /\
-  (store_list_code a t (INL w::xs) =
-    Seq (list_Seq [const_inst t w; store_inst t a; add_bytes_in_word_inst a])
-        (store_list_code a t xs)) /\
-  (store_list_code a t (INR i::xs) =
-    Seq (list_Seq [store_inst i a; add_bytes_in_word_inst a])
-        (store_list_code a t xs))
+  (store_list_code aw a t [] = Skip) /\
+  (store_list_code aw a t (INL w::xs) =
+    Seq (list_Seq [const_inst t w; store_inst t a; add_bytes_in_word_inst aw a])
+        (store_list_code aw a t xs)) /\
+  (store_list_code aw a t (INR i::xs) =
+    Seq (list_Seq [store_inst i a; add_bytes_in_word_inst aw a])
+        (store_list_code aw a t xs))
 End
 
 (* k+1 is base, k is stack pointer, discards 0 *)
 Definition init_memory_def:
-  init_memory k xs =
-    list_Seq [const_inst 0 bytes_in_word;
+  init_memory aw k xs =
+    list_Seq [const_inst 0 (&(arch_bytes aw));
               sub_inst k 0;
-              const_inst 0 0w;
+              const_inst 0 0;
               store_inst 0 k;
-              store_list_code (k+1) 0 xs]
+              store_list_code aw (k+1) 0 xs]
 End
 
 Definition store_init_def:
   store_init gen_gc (k:num) =
-    (K (INL 0w)) =++
+    (K (INL 0)) =++
       [(CurrHeap,INR (k+2));
        (GlobReal,INR (k+2));
        (NextFree,INR (k+2));
@@ -271,24 +271,24 @@ End
     reg 4: one past last address of stack *)
 
 Definition init_code_def:
-  init_code gen_gc max_heap k =
-    let max_heap = (if max_heap * w2n (bytes_in_word:'a word) < dimword (:'a)
-                    then n2w max_heap * bytes_in_word
-                    else 0w-1w) in
+  init_code aw gen_gc max_heap k =
+    let max_heap = (if max_heap * arch_bytes aw < 2 ** arch_width_bits aw
+                    then &(max_heap * arch_bytes aw)
+                    else -1) in
       list_Seq [(* compute the middle address, store in reg0 *)
                 move 0 4;
                 sub_inst 0 2;
-                right_shift_inst 0 (1 + word_shift (:'a));
-                left_shift_inst 0 (word_shift (:'a));
+                right_shift_inst 0 (1 + arch_shift aw);
+                left_shift_inst 0 (arch_shift aw);
                 add_inst 0 2;
                 (* if reg3 is not between start and end of memory, then put
                    it in the middle (i.e. split heap and stack evenly) *)
-                const_inst 5 (n2w max_stack_alloc * bytes_in_word:'a word);
+                const_inst 5 (&(max_stack_alloc * arch_bytes aw));
                 add_inst 2 5;
                 sub_inst 4 5;
                 If Lower 3 (Reg 2) (move 3 0)
                   (If Lower 4 (Reg 3) (move 3 0) Skip);
-                const_inst 0 (n2w max_stack_alloc * bytes_in_word:'a word);
+                const_inst 0 (&(max_stack_alloc * arch_bytes aw));
                 sub_inst 2 0;
                 add_inst 4 0;
                 (* shrink the heap if it is too big *)
@@ -298,8 +298,8 @@ Definition init_code_def:
                 If Lower 5 (Reg 0) (Seq (move 3 2) (add_inst 3 5)) Skip;
                 (* ensure heap is even number of words *)
                 sub_inst 3 2;
-                right_shift_inst 3 (word_shift (:'a) + 1);
-                left_shift_inst 3 (word_shift (:'a) + 1);
+                right_shift_inst 3 (arch_shift aw + 1);
+                left_shift_inst 3 (arch_shift aw + 1);
                 add_inst 3 2;
                 (* split heap into two, store heap length in 5 *)
                 move 5 3;
@@ -311,25 +311,25 @@ Definition init_code_def:
                 move k 4;
                 move (k+1) 3;
                 load_inst 3 (k+2);
-                right_shift_inst 3 (word_shift (:'a));
+                right_shift_inst 3 (arch_shift aw);
                 move 0 (k+2);
-                add_bytes_in_word_inst 0;
+                add_bytes_in_word_inst aw 0;
                 load_inst 4 0;
-                add_bytes_in_word_inst 0;
+                add_bytes_in_word_inst aw 0;
                 load_inst 6 0;
-                add_bytes_in_word_inst 0;
+                add_bytes_in_word_inst aw 0;
                 load_inst 7 0;
-                add_bytes_in_word_inst 0;
+                add_bytes_in_word_inst aw 0;
                 load_inst 1 0;
-                init_memory k (MAP (store_init gen_gc k) (REVERSE store_list));
+                init_memory aw k (MAP (store_init gen_gc k) (REVERSE store_list));
                 LocValue 0 1 0]
 End
 
 Definition init_stubs_def:
-  init_stubs gen_gc max_heap k start =
-    [(0n,Seq (init_code gen_gc max_heap k) (Call NONE (INL start) NONE));
-     (1n,halt_inst 0w);
-     (2n,halt_inst 2w)]
+  init_stubs aw gen_gc max_heap k start =
+    [(0n,Seq (init_code aw gen_gc max_heap k) (Call NONE (INL start) NONE));
+     (1n,halt_inst 0);
+     (2n,halt_inst 2)]
 End
 
 Definition stub_names_def:
@@ -340,7 +340,7 @@ Definition stub_names_def:
 End
 
 Theorem check_init_stubs_length:
-  LENGTH (init_stubs gen_gc max_heap k start) + 2 (* gc + dummy *) =
+  LENGTH (init_stubs aw gen_gc max_heap k start) + 2 (* gc + dummy *) =
   stack_num_stubs
 Proof
   EVAL_TAC
@@ -349,7 +349,7 @@ QED
 (* -- full compiler -- *)
 
 Definition compile_def:
-  compile jump off gen_gc max_heap k start prog =
-    init_stubs gen_gc max_heap k start ++
-    MAP (prog_comp jump off k) prog
+  compile aw jump off gen_gc max_heap k start prog =
+    init_stubs aw gen_gc max_heap k start ++
+    MAP (prog_comp aw jump off k) prog
 End

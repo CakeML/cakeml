@@ -1523,14 +1523,14 @@ Proof
      (full_simp_tac(srw_ss())[state_rel_def] \\ Cases_on `FLOOKUP s.store BitmapBase`
       \\ full_simp_tac(srw_ss())[is_SOME_Word_def] \\ Cases_on `x`
       \\ full_simp_tac(srw_ss())[is_SOME_Word_def])
-    \\ `inst (Mem Load t2 (Addr (k + 1) (store_offset BitmapBase))) t1' =
+    \\ `inst (Mem Load t2 (Addr (k + 1) (w2i (store_offset BitmapBase : 'a word)))) t1' =
           SOME (set_var t2 (Word ww) t1')` by
      (qpat_x_assum `state_rel jump off k s t1'` mp_tac
       \\ simp [Once state_rel_def] \\ full_simp_tac(srw_ss())[]
       \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
       \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[] \\ strip_tac
       \\ full_simp_tac(srw_ss())[wordLangTheory.word_op_def,stackSemTheory.inst_def,
-             word_exp_def,LET_THM]
+             word_exp_def,LET_THM,integer_wordTheory.i2w_w2i]
       \\ `mem_load (c + store_offset BitmapBase) t1' = SOME (Word ww)` by
         (match_mp_tac (GEN_ALL mem_load_lemma)>>fs[store_list_def]>>
           asm_exists_tac>> simp[])
@@ -2378,14 +2378,14 @@ Proof
     \\ `?ww. FLOOKUP s.store BitmapBase = SOME (Word ww)` by
      (full_simp_tac(srw_ss())[state_rel_def] \\ Cases_on `FLOOKUP s.store BitmapBase`
       \\ full_simp_tac(srw_ss())[is_SOME_Word_def] \\ Cases_on `x` \\ full_simp_tac(srw_ss())[is_SOME_Word_def])
-    \\ `inst (Mem Load r (Addr (k + 1) (store_offset BitmapBase))) t1 =
+    \\ `inst (Mem Load r (Addr (k + 1) (w2i (store_offset BitmapBase : 'a word)))) t1 =
           SOME (set_var r (Word ww) t1)` by
      (qpat_x_assum `state_rel jump off k s t1` mp_tac
       \\ simp [Once state_rel_def] \\ full_simp_tac(srw_ss())[]
       \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
       \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[] \\ strip_tac
       \\ full_simp_tac(srw_ss())[wordLangTheory.word_op_def,stackSemTheory.inst_def,
-             word_exp_def,LET_THM]
+             word_exp_def,LET_THM,integer_wordTheory.i2w_w2i]
       \\ `mem_load (c' + store_offset BitmapBase) t1 = SOME (Word ww)` by
         (
           match_mp_tac (GEN_ALL mem_load_lemma)>>fs[store_list_def]>>
@@ -4209,13 +4209,13 @@ QED
 Theorem stack_remove_comp_stack_asm_name:
   ∀jump off k p.
     stack_asm_name c p ∧ stack_asm_remove (c:'a asm_config) p ∧
-    addr_offset_ok c 0w ∧
+    addr_offset_ok c 0 ∧
     good_dimindex (:'a) ∧
     (∀n. n ≤ max_stack_alloc ⇒
     c.valid_imm (INL Sub) (w2i (n2w (n * (dimindex (:'a) DIV 8)) : 'a word)) ∧
     c.valid_imm (INL Add) (w2i (n2w (n * (dimindex (:'a) DIV 8)) : 'a word))) ∧
     (* Needed to implement the global store *)
-    (∀s. addr_offset_ok c (store_offset s)) ∧
+    (∀s. addr_offset_ok c (w2i (store_offset s : 'a word))) ∧
     reg_name (k+2) c ∧
     reg_name (k+1) c ∧
     reg_name k c ∧ k ≠ 0 ∧
@@ -4288,7 +4288,7 @@ QED
 Theorem stack_remove_stack_asm_name:
   EVERY (λ(n,p). stack_asm_name c p) prog ∧
   EVERY (λ(n,p). (stack_asm_remove (c:'a asm_config) p)) prog ∧
-  addr_offset_ok c 0w ∧
+  addr_offset_ok c 0 ∧
   good_dimindex (:'a) ∧
   (∀n. n ≤ max_stack_alloc ⇒
   c.valid_imm (INL Sub) (w2i (n2w (n * (dimindex (:'a) DIV 8)) : 'a word)) ∧
@@ -4296,7 +4296,7 @@ Theorem stack_remove_stack_asm_name:
   c.valid_imm (INL Add) 4 ∧
   c.valid_imm (INL Add) 8 ∧
   (* Needed to implement the global store *)
-  (∀s. addr_offset_ok c (store_offset s)) ∧
+  (∀s. addr_offset_ok c (w2i (store_offset s : 'a word))) ∧
   reg_name 7 c ∧
   reg_name (k+2) c ∧
   reg_name (k+1) c ∧
@@ -4308,7 +4308,7 @@ Proof
   >- (
     computeLib.RESTR_EVAL_TAC [``integer_word$w2i``]>>rw[]>>fs[reg_name_def]>>
     fs[good_dimindex_def,dimword_def,integer_wordTheory.w2i_n2w_pos,wordsTheory.INT_MIN_def]>>
-    pairarg_tac>>fs[asmTheory.offset_ok_def])>>
+    pairarg_tac>>fs[asmTheory.int_offset_ok_def])>>
   fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]>>
   metis_tac[stack_remove_comp_stack_asm_name]
 QED

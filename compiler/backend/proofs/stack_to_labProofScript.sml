@@ -3691,7 +3691,7 @@ val stack_asm_ok_def = stackPropsTheory.stack_asm_ok_def
 
 Theorem flatten_line_ok_pre[local]:
   ∀t p n m cs bs ls a b c.
-  byte_offset_ok c 0w /\
+  byte_offset_ok c 0 /\
   stack_asm_ok c p ∧
   flatten t p n m cs bs = (ls,a,b) ⇒
   EVERY (line_ok_pre c) (append ls)
@@ -3724,7 +3724,7 @@ Proof
 QED
 
 Theorem compile_all_enc_ok_pre:
-    byte_offset_ok c 0w ∧
+    byte_offset_ok c 0 ∧
     EVERY (λ(n,p).stack_asm_ok c p) prog ⇒
     all_enc_ok_pre c (MAP prog_to_section prog)
 Proof
@@ -3744,14 +3744,14 @@ Theorem stack_to_lab_compile_all_enc_ok:
   EVERY (λ(n,p). stack_asm_remove c p) prog ∧
   names_ok c1.reg_names (c:'a asm_config).reg_count c.avoid_regs ∧
   fixed_names c1.reg_names c ∧
-  addr_offset_ok c 0w ∧ good_dimindex (:α) ∧
-  byte_offset_ok c 0w ∧
+  addr_offset_ok c 0 ∧ good_dimindex (:α) ∧
+  byte_offset_ok c 0 ∧
   (∀n. n ≤ max_stack_alloc ⇒
   c.valid_imm (INL Sub) (w2i (n2w (n * (dimindex (:'a) DIV 8)) : 'a word)) ∧
   c.valid_imm (INL Add) (w2i (n2w (n * (dimindex (:'a) DIV 8)) : 'a word))) ∧
   c.valid_imm (INL Add) 1 ∧ c.valid_imm (INL Sub) 1 ∧
   c.valid_imm (INL Add) 4 ∧ c.valid_imm (INL Add) 8 ∧
-  (∀s. addr_offset_ok c (store_offset s)) ∧ reg_name 10 c ∧
+  (∀s. addr_offset_ok c (w2i (store_offset s : 'a word))) ∧ reg_name 10 c ∧
   reg_name (sp + 2) c ∧ reg_name (sp + 1) c ∧ reg_name sp c  ∧
   conf_ok (:'a) c2 ∧ sp ≠ 0 ⇒
   all_enc_ok_pre c (compile c1 c2 c3 sp c.addr_offset prog)

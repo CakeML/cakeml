@@ -32,21 +32,21 @@ Datatype:
 End
 
 Datatype:
-  asm_or_shmem = Asmi ('a asm) | ShareMem memop reg ('a addr)
+  asm_or_shmem = Asmi asm | ShareMem memop reg (addr)
 End
  (* Either an asm inst/jumpreg or code-buffer-write *)
 
 Datatype:
   line = Label num num num (* section number, label number, length *)
-       | Asm ('a asm_or_shmem) (word8 list) num (* instruction, encoded instruction, length *)
-       | LabAsm asm_with_lab ('a word) (word8 list) num
+       | Asm asm_or_shmem (word8 list) num (* instruction, encoded instruction, length *)
+       | LabAsm asm_with_lab int (word8 list) num
 End
                                   (* position, encoded instruction, length *)
 
 (* A section consists a name (num) and a list of assembly lines. *)
 
 Datatype:
-  sec = Section num (('a line) list)
+  sec = Section num (line list)
 End
 
 Definition Section_num_def[simp]:
@@ -58,4 +58,4 @@ End
 
 (* A full assembly program consists of a list of sections. *)
 
-Type prog = ``:('a sec) list``
+Type prog = ``:sec list``

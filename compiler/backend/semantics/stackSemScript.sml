@@ -473,14 +473,14 @@ Definition inst_def:
          else NONE
       | _ => NONE)
     | Mem Load r (Addr a w) =>
-       (case word_exp s (Op Add [Var a; Const w]) of
+       (case word_exp s (Op Add [Var a; Const (i2w w)]) of
         | NONE => NONE
         | SOME w =>
             case mem_load w s of
             | NONE => NONE
             | SOME w => SOME (set_var r w s))
     | Mem Load8 r (Addr a w) =>
-       (case word_exp s (Op Add [Var a; Const w]) of
+       (case word_exp s (Op Add [Var a; Const (i2w w)]) of
         | SOME w =>
            (case mem_load_byte_aux s.memory s.mdomain s.be w of
             | NONE => NONE
@@ -488,21 +488,21 @@ Definition inst_def:
         | _ => NONE)
     | Mem Load16 _ _ => NONE
     | Mem Load32 r (Addr a w) =>
-       (case word_exp s (Op Add [Var a; Const w]) of
+       (case word_exp s (Op Add [Var a; Const (i2w w)]) of
         | SOME w =>
            (case mem_load_32 s.memory s.mdomain s.be w of
             | NONE => NONE
             | SOME w => SOME (set_var r (Word (w2w w)) s))
         | _ => NONE)
     | Mem Store r (Addr a w) =>
-       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
+       (case (word_exp s (Op Add [Var a; Const (i2w w)]), get_var r s) of
         | (SOME a, SOME w) =>
             (case mem_store a w s of
              | SOME s1 => SOME s1
              | NONE => NONE)
         | _ => NONE)
     | Mem Store8 r (Addr a w) =>
-       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
+       (case (word_exp s (Op Add [Var a; Const (i2w w)]), get_var r s) of
         | (SOME a, SOME (Word w)) =>
             (case mem_store_byte_aux s.memory s.mdomain s.be a (w2w w) of
              | SOME new_m => SOME (s with memory := new_m)
@@ -510,7 +510,7 @@ Definition inst_def:
         | _ => NONE)
     | Mem Store16 _ _ => NONE
     | Mem Store32 r (Addr a w) =>
-       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
+       (case (word_exp s (Op Add [Var a; Const (i2w w)]), get_var r s) of
         | (SOME a, SOME (Word w)) =>
             (case mem_store_32 s.memory s.mdomain s.be a (w2w w) of
              | SOME new_m => SOME (s with memory := new_m)
@@ -926,7 +926,7 @@ Definition evaluate_def:
       | _ => (SOME Error,s))
       | _ => (SOME Error,s))) /\
   (evaluate (ShMemOp op r (Addr a w),s) =
-    (case word_exp s (Op Add [Var a; Const w]) of
+    (case word_exp s (Op Add [Var a; Const (i2w w)]) of
      | SOME a =>
          if s.clock = 0 then (SOME TimeOut,empty_env s) else
            sh_mem_op op r a (dec_clock s)

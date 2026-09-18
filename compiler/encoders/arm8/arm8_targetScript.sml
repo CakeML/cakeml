@@ -138,6 +138,7 @@ End
 Definition arm8_ast_def:
    (arm8_ast (Inst Skip) = [NoOperation]) /\
    (arm8_ast (Inst (Const r i)) =
+      let i = (i2w i : word64) in
       case arm8_enc_mov_imm i of
          SOME (imm16, hw) =>
            [Data (MoveWide@64 (1w, MoveWideOp_Z, hw, imm16, n2w r))]
@@ -224,31 +225,32 @@ Definition arm8_ast_def:
                (1w, T, T, ShiftType_LSL, n2w r3, 0w, n2w r2, n2w r1));
        Data (ConditionalSelect@64 (1w, F, T, 7w, 31w, 31w, n2w r4))]) /\
    (arm8_ast (Inst (Mem Load r1 (Addr r2 a))) =
-      arm8_load_store_ast MemOp_LOAD r1 r2 a) /\
+      arm8_load_store_ast MemOp_LOAD r1 r2 (i2w a)) /\
    (arm8_ast (Inst (Mem Load32 r1 (Addr r2 a))) =
-    arm8_load_store_ast32 MemOp_LOAD r1 r2 a) /\
+    arm8_load_store_ast32 MemOp_LOAD r1 r2 (i2w a)) /\
    (arm8_ast (Inst (Mem Load16 r1 (Addr r2 a))) =
-    arm8_load_store_ast16 MemOp_LOAD r1 r2 a) /\
+    arm8_load_store_ast16 MemOp_LOAD r1 r2 (i2w a)) /\
    (arm8_ast (Inst (Mem Load8 r1 (Addr r2 a))) =
       [LoadStore
          (LoadStoreImmediate@8
-            (0w, F, MemOp_LOAD, AccType_NORMAL, F, F, F, F, F, ~word_msb a,
-             a, n2w r2, n2w r1))]) /\
+            (0w, F, MemOp_LOAD, AccType_NORMAL, F, F, F, F, F,
+             ~word_msb (i2w a : word64), i2w a, n2w r2, n2w r1))]) /\
    (arm8_ast (Inst (Mem Store r1 (Addr r2 a))) =
-      arm8_load_store_ast MemOp_STORE r1 r2 a) /\
+      arm8_load_store_ast MemOp_STORE r1 r2 (i2w a)) /\
    (arm8_ast (Inst (Mem Store32 r1 (Addr r2 a))) =
-    arm8_load_store_ast32 MemOp_STORE r1 r2 a) /\
+    arm8_load_store_ast32 MemOp_STORE r1 r2 (i2w a)) /\
    (arm8_ast (Inst (Mem Store16 r1 (Addr r2 a))) =
-    arm8_load_store_ast16 MemOp_STORE r1 r2 a) /\
+    arm8_load_store_ast16 MemOp_STORE r1 r2 (i2w a)) /\
    (arm8_ast (Inst (Mem Store8 r1 (Addr r2 a))) =
       [LoadStore
          (LoadStoreImmediate@8
-            (0w, F, MemOp_STORE, AccType_NORMAL, F, F, F, F, F, ~word_msb a,
-             a, n2w r2, n2w r1))]) /\
+            (0w, F, MemOp_STORE, AccType_NORMAL, F, F, F, F, F,
+             ~word_msb (i2w a : word64), i2w a, n2w r2, n2w r1))]) /\
    (arm8_ast (Inst (FP _)) = arm8_encode_fail) /\
    (arm8_ast (Jump a) =
-      [Branch (BranchImmediate (a, BranchType_JMP))]) /\
+      [Branch (BranchImmediate ((i2w a : word64), BranchType_JMP))]) /\
    (arm8_ast (JumpCmp cmp r1 (Reg r2) a) =
+      let a = (i2w a : word64) in
       [Data (if is_test cmp then
                 LogicalShiftedRegister@64
                    (1w, LogicalOp_AND, F, T, ShiftType_LSL, 0,
@@ -258,6 +260,7 @@ Definition arm8_ast_def:
                    (1w, T, T, ShiftType_LSL, n2w r2, 0w, n2w r1, 0x1Fw));
        Branch (BranchConditional (a - 4w, cmp_cond cmp))]) /\
    (arm8_ast (JumpCmp cmp r (Imm i) a) =
+      let a = (i2w a : word64) in
       [Data (if is_test cmp then
                 LogicalImmediate@64
                    (1w, LogicalOp_AND, T, i2w i, n2w r, 0x1Fw)
@@ -265,10 +268,11 @@ Definition arm8_ast_def:
                 AddSubImmediate@64 (1w, T, T, i2w i, n2w r, 0x1Fw));
        Branch (BranchConditional (a - 4w, cmp_cond cmp))]) /\
    (arm8_ast (Call a) =
-      [Branch (BranchImmediate (a, BranchType_CALL))]) /\
+      [Branch (BranchImmediate ((i2w a : word64), BranchType_CALL))]) /\
    (arm8_ast (JumpReg r) =
       [Branch (BranchRegister (n2w r, BranchType_JMP))]) /\
    (arm8_ast (Loc r i) =
+      let i = (i2w i : word64) in
       if sw2sw (INT_MINw: word20) ≤ i ∧ i ≤ sw2sw (INT_MAXw: word20)
       then
         [Address (F, i, n2w r)]
@@ -335,12 +339,12 @@ Definition arm8_config_def:
     ; big_endian := F
     ; code_alignment := 2
     ; valid_imm := arm8_valid_imm
-    ; addr_offset := (^off_min, ^off_max)
-    ; hw_offset := (^off_min, ^off_max)
-    ; byte_offset := (^off_min9, ^off_max12)
-    ; jump_offset := (^jump_min, ^jump_max)
-    ; cjump_offset := (^cjump_min, ^cjump_max)
-    ; loc_offset := (^loc_min, ^loc_max)
+    ; addr_offset := (-4351, 4350)
+    ; hw_offset := (-4351, 4350)
+    ; byte_offset := (-256, 4095)
+    ; jump_offset := (-134217728, 134217727)
+    ; cjump_offset := (-1048572, 1048579)
+    ; loc_offset := (-2147483648, 2147483647)
     |>
 End
 
