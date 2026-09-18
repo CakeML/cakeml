@@ -320,7 +320,7 @@ Definition make_transition_string_def:
       encode_transition_cond
         mxaig mnext mcnstrs mlatches
         wxaig wnext wcnstrs wlatches klatches;
-    cnf = xaig_to_cnf xaig (Ext Transition)
+    cnf = xaig_map_then_cnf nsn2num nsn2num nsn_s_nsn_e2num xaig (Ext Transition)
   in
     (name, cnf_to_string cnf)
 End
@@ -334,7 +334,7 @@ Definition make_safety_string_def:
     name = «safety»;
     xaig  =
       encode_safety_cond mxaig mcnstrs msafes wxaig wcnstrs wsafes;
-    cnf = xaig_to_cnf xaig (Ext Safety)
+    cnf = xaig_map_then_cnf I I nsn_e2num xaig (Ext Safety)
   in
     (name, cnf_to_string cnf)
 End
@@ -347,7 +347,7 @@ Definition make_base_string_def:
     name = «base»;
     xaig  =
       encode_base_cond wxaig wreset wcnstrs wsafes wlatches;
-    cnf = xaig_to_cnf xaig (Ext Base)
+    cnf = xaig_map_then_cnf I I n_e2num xaig (Ext Base)
   in
     (name, cnf_to_string cnf)
 End
@@ -360,7 +360,7 @@ Definition make_induction_string_def:
     name = «induction»;
     xaig  =
       encode_induction_cond wxaig wnext wcnstrs wsafes wlatches;
-    cnf = xaig_to_cnf xaig (Ext Induction)
+    cnf = xaig_map_then_cnf nsn2num nsn2num nsn_e2num xaig (Ext Induction)
   in
     (name, cnf_to_string cnf)
 End
@@ -376,7 +376,9 @@ Definition make_liveness_string_def:
       encode_liveness_cond
         mxaig mcnstrs mlive
         wxaig wnext wcnstrs wsafes wlive wlatches interv;
-    cnf = xaig_to_cnf xaig (Ext Liveness)
+    cnf =
+      xaig_map_then_cnf nsn2num nsn2num nsn_s_nsn_s_nsn_e2num
+        xaig (Ext Liveness)
   in
     (name, cnf_to_string cnf)
 End
@@ -390,7 +392,7 @@ Definition make_decrease_string_def:
     xaig  =
       encode_decrease_cond
         wxaig wnext wcnstrs wsafes wlive wlatches interv;
-    cnf = xaig_to_cnf xaig (Ext Decrease)
+    cnf = xaig_map_then_cnf nsn2num nsn2num nsn_s_n_e2num xaig (Ext Decrease)
   in
     (name, cnf_to_string cnf)
 End
@@ -404,7 +406,9 @@ Definition make_closure_string_def:
     xaig  =
       encode_closure_cond
         wxaig wnext wcnstrs wsafes wlive wlatches interv;
-    cnf = xaig_to_cnf xaig (Ext Closure)
+    cnf =
+      xaig_map_then_cnf nsn_s_n2num nsn_s_n2num nsn_s_n_s_nsn_e2num
+        xaig (Ext Closure)
   in
     (name, cnf_to_string cnf)
 End
@@ -418,7 +422,9 @@ Definition make_stable_string_def:
     xaig  =
       encode_stable_cond
         wxaig wnext wcnstrs wsafes wlive wlatches interv;
-    cnf = xaig_to_cnf xaig (Ext Stable)
+    cnf =
+      xaig_map_then_cnf nsn_s_n2num nsn_s_n2num nsn_s_n_s_nsn_e2num
+        xaig (Ext Stable)
   in
     (name, cnf_to_string cnf)
 End
