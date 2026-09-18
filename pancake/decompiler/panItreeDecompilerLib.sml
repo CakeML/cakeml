@@ -46,14 +46,14 @@ val tree_simp_rules = [mem_stores_def, mem_store_def, pair_case_def, flatten_def
                        set_kvar_defs, FLOOKUP_SIMP, o_DEF, set_var_defs,
                        itree_bind_ffi_result_CASE_assoc, itree_bind_let_assoc,
                        itree_bind_cond_assoc, shape_of_def, size_of_shape_def, pair_CASE_sum_CASE_assoc, pair_CASE_if_assoc,
-                       mem_load_def, word_of_val_def, struct_of_val_def, LET_AND_split, LET_OR_split,
+                       mem_load_def, word_of_val_def, rstruct_of_val_def, LET_AND_split, LET_OR_split,
                        itree_bind_assoc, itree_bind_sum_case_assoc, itree_bind_pair_case_assoc,itree_bind_result_case_def,
                        ret_satisfy_Tau, ret_satisfy_Ret, ret_satisfy_Vis, pair_CASE_same, sum_CASE_eq_pair, COND_eq_pair,
                        bstate_fupdfupds,bstate_fupdcanon,bstate_accfupds,bstate_accessors,empty_locals_def, THE_LET_in,
                        sum_CASE_and, COND_and, OPTION_EQ_AND_IMPL_simp, EXISTS_OR_THM, EXISTS_sum_CASE_THM, EXISTS_COND_THM,
                        option_case_NONE_F, sum_CASE_same, LET_concrete, exists_LET, word_of_val_LET_in, LET_AND,
                        val_mem_valword, val_mem_valword_LET, if_then_else_word_simp, COND_ID,
-                       eval_exists_strengthen, ret_satisfy_if, word_lab_exists_word]
+                       eval_exists_strengthen, ret_satisfy_if, word_lab_exists_word, size_of_sh_with_ctxt_def, is_wf_shape_def]
 
 
 fun mk_var_from_shape_once avoid_names [] ty_arg = []
@@ -101,8 +101,10 @@ fun mk_eval_val_term vstv st exp =
   in
     if same_const “Val” c then
        “word_of_val (THE (eval ^st ^exp))”
+    else if same_const “RStruct” c then
+      “rstruct_of_val (THE (eval ^st ^exp))”
     else
-      “struct_of_val (THE (eval ^st ^exp))”
+      raise Domain
     end
 
 fun eval_some_rw th =
@@ -160,6 +162,7 @@ fun mk_call_pre_thm_with_argexps scode fundecs code_thm te =
       val args_vars = map strip_val_struct args
       val args_term = mk_list (args, mk_type ("v", [ty_arg]))
       val prog_q = mk_var ("q", type_of prog)
+      val rsh_t = mk_var ("rsh", “:shape”)
       val eval_some_terms = ListPair.map (fn (x, y) => “eval ^state ^x = SOME ^y”) (aexps, args)
       val v_THE_list = ListPair.map (fn (x, y) => (strip_val_struct x, mk_eval_val_term x state y)) (args, aexps)
       val eval_some_exists_terms = ListPair.map (fn (x, y) => boolSyntax.mk_exists (strip_val_struct x, y)) (args, eval_some_terms)
@@ -168,17 +171,17 @@ fun mk_call_pre_thm_with_argexps scode fundecs code_thm te =
       val shape_list = list_mk_var_ty "sh" (vname_list@args_vars@all_v_list) “:shape” var_count
       val var_shape_pair_list = map mk_pair (zip vname_list shape_list)
       val var_shape_pair_list_term = mk_list (var_shape_pair_list, mk_type("prod", [“:mlstring”, “:shape”]))
-      val asm_flookup_term = “FLOOKUP ^scode ^fname = SOME (^var_shape_pair_list_term, ^prog_q)”
+      val asm_flookup_term = “FLOOKUP ^scode ^fname = SOME (^var_shape_pair_list_term, ^prog_q, ^rsh_t)”
       val vname_list_term = mk_list (vname_list, “:mlstring”)
       val asm_all_distinct_term = “ALL_DISTINCT ^vname_list_term”
       val shape_eq_terms = ListPair.map (fn (sh, args) => “^sh = shape_of ^args ”) (shape_list, args)
       val vname_arg_list = ListPair.map mk_pair (vname_list, args)
       val vname_arg_list_term = mk_list (vname_arg_list, mk_type("prod", [“:mlstring”, mk_type ("v", [ty_arg])]))
-      val exists_terms = prog_q::vname_list@shape_list
+      val exists_terms = prog_q::rsh_t::vname_list@shape_list
       val asm_term = list_mk_conj ([asm_flookup_term, asm_all_distinct_term]@shape_eq_terms)
       val asm_exists_term = list_mk_conj (“^state.code = ^scode”::eval_some_exists_terms@[list_mk_exists (exists_terms, asm_term)])
       val arg_inner_term =
-      “let (vshapes,prog) = THE (FLOOKUP ^state.code ^fname)
+      “let (vshapes,prog,rsh) = THE (FLOOKUP ^state.code ^fname)
         in
           ^tau_term
           (^itc
@@ -186,7 +189,7 @@ fun mk_call_pre_thm_with_argexps scode fundecs code_thm te =
              ^state with
               locals :=
              FEMPTY |++ ZIP (MAP FST vshapes,^args_term)) >>=
-            (λres. itree_call_handler ^calty ^state res))”
+            (λres. itree_call_handler ^calty rsh ^state res))”
       val v_THE_list = ListPair.map (fn (x, y) => (strip_val_struct x, mk_eval_val_term x state y)) (args, aexps)
       val concl_rhs_term = foldr (fn ((x, v), t) => mk_let (mk_abs (x, t), v)) arg_inner_term v_THE_list
       val concl_term = mk_eq (te, concl_rhs_term)
@@ -196,7 +199,7 @@ fun mk_call_pre_thm_with_argexps scode fundecs code_thm te =
                             \\ DEP_REWRITE_TAC[itree_semantics_Call_with_pre]
                             \\ rpt strip_tac
                             \\ rw[FUN_EQ_THM, lookup_code_def]
-                            \\ FULL_CASE_TAC \\ gvs[word_of_val_def, struct_of_val_def, shape_of_def])
+                            \\ FULL_CASE_TAC \\ gvs[word_of_val_def, rstruct_of_val_def, shape_of_def])
       val code_tree_thm = tree_thm
                             |> UNDISCH_COMP_CONJUNCTS_ALL
                             |> DISCH_ALL
@@ -207,6 +210,7 @@ fun mk_call_pre_thm_with_argexps scode fundecs code_thm te =
   in
     code_tree_thm
     end
+
 
 
 fun mk_deccall_pre_thm_with_argexps scode fundecs code_thm te =
@@ -229,6 +233,7 @@ fun mk_deccall_pre_thm_with_argexps scode fundecs code_thm te =
       val args_vars = map strip_val_struct args
       val args_term = mk_list (args, mk_type ("v", [ty_arg]))
       val prog_q = mk_var ("q", type_of prog)
+      val rsh_t = mk_var ("rsh", “:shape”)
       val eval_some_terms = ListPair.map (fn (x, y) => “eval ^state ^x = SOME ^y”) (aexps, args)
       val v_THE_list = ListPair.map (fn (x, y) => (strip_val_struct x, mk_eval_val_term x state y)) (args, aexps)
       val eval_some_exists_terms = ListPair.map (fn (x, y) => boolSyntax.mk_exists (strip_val_struct x, y)) (args, eval_some_terms)
@@ -237,7 +242,7 @@ fun mk_deccall_pre_thm_with_argexps scode fundecs code_thm te =
       val shape_list = list_mk_var_ty "sh" (args_vars@vname_list@all_v_list) “:shape” var_count
       val var_shape_pair_list = map mk_pair (zip vname_list shape_list)
       val var_shape_pair_list_term = mk_list (var_shape_pair_list, mk_type("prod", [“:mlstring”, “:shape”]))
-      val asm_flookup_term = “FLOOKUP ^scode ^fname = SOME (^var_shape_pair_list_term, ^prog_q)”
+      val asm_flookup_term = “FLOOKUP ^scode ^fname = SOME (^var_shape_pair_list_term, ^prog_q, ^rsh_t)”
       val vname_list_term = mk_list (vname_list, “:mlstring”)
       val asm_all_distinct_term = “ALL_DISTINCT ^vname_list_term”
       val shape_eq_terms = ListPair.map (fn (sh, args) => “^sh = shape_of ^args ”) (shape_list, args)
@@ -253,11 +258,11 @@ fun mk_deccall_pre_thm_with_argexps scode fundecs code_thm te =
                                                             Pre_next (set_var ^rt retv (s' with locals := ^state.locals)))
                                                      (itree_semantics (^prog_q, ^state with locals := FEMPTY |++ ^vname_arg_list_term))”])
       val asm_let_term = foldr (fn ((x, v), t) => mk_let (mk_abs (x, t), v)) asm_inner_term v_THE_list
-      val exists_terms = prog_q::vname_list@shape_list
+      val exists_terms = prog_q::rsh_t::vname_list@shape_list
       val asm_exists_term = list_mk_exists (exists_terms, asm_let_term)
       val asm_all_term = list_mk_conj (“^state.code = ^scode”::eval_some_exists_terms@[asm_exists_term])
       val arg_inner_term =
-      “let (vshapes,prog) = THE (FLOOKUP ^scode ^fname)
+      “let (vshapes,prog,rsh) = THE (FLOOKUP ^scode ^fname)
         in
           ^tau_term
           (^itc
@@ -265,7 +270,7 @@ fun mk_deccall_pre_thm_with_argexps scode fundecs code_thm te =
              ^state with
               locals :=
              FEMPTY |++ ZIP (MAP FST vshapes,^args_term)) >>=
-            (λres. itree_deccall_handler ^rt ^sh ^state res t))”
+            (λres. itree_deccall_handler ^rt ^sh ^state rsh res t))”
       val concl_rhs_term = foldr (fn ((x, v), t) => mk_let (mk_abs (x, t), v)) arg_inner_term v_THE_list
       val concl_term = mk_eq (te, concl_rhs_term)
       val goal_term = mk_imp (“(∀s. Pre_next s ⇒ ^itc (^prog1,s) = t s)”, mk_imp (asm_all_term, concl_term))
@@ -274,7 +279,7 @@ fun mk_deccall_pre_thm_with_argexps scode fundecs code_thm te =
                             \\ DEP_REWRITE_TAC[cj 2 itree_semantics_DecCall_with_pre_ret_satisfy]
                             \\ rpt strip_tac
                             \\ rw[FUN_EQ_THM, lookup_code_def]
-                            \\ FULL_CASE_TAC \\ gvs[word_of_val_def, struct_of_val_def, shape_of_def])
+                            \\ FULL_CASE_TAC \\ gvs[word_of_val_def, rstruct_of_val_def, shape_of_def])
       val code_tree_thm_with_pre = (UNDISCH_COMP_CONJUNCTS_ALL  tree_thm)
                                      |> Rules.FILTER_DISCH_ALL (fn x => not (can (match_term “∀_. _ ⇒ itree_semantics _ = _”) x))
                                      |> DISCH_ALL
@@ -290,7 +295,7 @@ fun mk_deccall_pre_thm_with_argexps scode fundecs code_thm te =
                                     \\ DEP_REWRITE_TAC[cj 1 itree_semantics_DecCall_with_pre_ret_satisfy]
                                     \\ rpt strip_tac
                                     \\ rw[FUN_EQ_THM, lookup_code_def]
-                                    \\ FULL_CASE_TAC \\ gvs[word_of_val_def, struct_of_val_def, shape_of_def])
+                                    \\ FULL_CASE_TAC \\ gvs[word_of_val_def, rstruct_of_val_def, shape_of_def])
       val code_tree_thm_non_pre = (UNDISCH_COMP_CONJUNCTS_ALL  tree_thm_non_pre)
                                      |> Rules.FILTER_DISCH_ALL (fn x => not (can (match_term “∀_. _ ⇒ itree_semantics _ = _”) x))
                                      |> DISCH_ALL
@@ -330,9 +335,6 @@ fun inst_match_concl_lhs_list_list ths [] = []
   | inst_match_concl_lhs_list_list ths (trm::trms) = inst_match_concl_lhs_in_list ths trm::inst_match_concl_lhs_list_list ths trms
                                                                                   handle _ => inst_match_concl_lhs_list_list ths trms
 
-
-val teac = inst_match_concl_lhs_list_list (map UNDISCH_ALL (CONJUNCTS eval_eq_SOME_eval_to_let))
-                                          [“eval s (Cmp Less (Var Local «i») (Var Local «len»)) = SOME (ValWord v)”] |> map DISCH_ALL
 
 
 fun inst_match_concl_biim_lhs th trm_some =
@@ -390,7 +392,8 @@ fun mk_eval_word_op_exps trm_some =
           val biim_goal = mk_eq (eval_impl_hyps, list_mk_conj eval_biimpl_list)
           val biim_thm = prove (biim_goal, iff_tac
                                            \\ imp_res_tac eval_eq_SOME_strip_eval
-                                           \\ gvs[word_of_val_def, pan_op_def, eval_def, word_op_def, asmTheory.word_cmp_def, word_lab_exists_word]
+                                           \\ gvs[word_of_val_def, pan_op_def, eval_def, word_op_def, asmTheory.word_cmp_def,
+					          word_lab_exists_word]
                                            \\ rpt (FULL_CASE_TAC \\ gvs[word_of_val_def, pan_op_def, eval_def, word_sh_def,
                                                                         word_op_def, asmTheory.word_cmp_def, word_lab_exists_word])
                                            \\ rpt (FULL_CASE_TAC \\ gvs[word_of_val_def, pan_op_def, eval_def, word_sh_def,
@@ -398,7 +401,8 @@ fun mk_eval_word_op_exps trm_some =
           val impl_thm = prove (impl_goal, PURE_REWRITE_TAC[biim_thm]
                                            \\ rpt strip_tac
                                            \\ imp_res_tac eval_eq_SOME_eval_to_let
-                                           \\ gvs[word_of_val_def, pan_op_def, eval_def, word_op_def, asmTheory.word_cmp_def, word_lab_exists_word]
+                                           \\ gvs[word_of_val_def, pan_op_def, eval_def, word_op_def, asmTheory.word_cmp_def,
+					          word_lab_exists_word]
                                            \\ rpt (FULL_CASE_TAC \\ gvs[word_of_val_def, pan_op_def, eval_def, word_sh_def,
                                                                         word_op_def, asmTheory.word_cmp_def, word_lab_exists_word])
                                            \\ rpt (FULL_CASE_TAC \\ gvs[word_of_val_def, pan_op_def, eval_def, word_sh_def,
@@ -484,7 +488,8 @@ fun mk_eval_let_exps_thms exists_trm =
                                            \\ imp_res_tac eval_eq_SOME_strip_eval
                                            \\ rpt strip_tac
                                            \\ gvs[word_of_val_def, pan_op_def, eval_def, word_op_def, mem_load_byte_def, word_sh_def,
-                                                  word_of_Word_def, asmTheory.word_cmp_def, word_lab_exists_word, mem_load_def]
+                                                  word_of_Word_def, asmTheory.word_cmp_def, word_lab_exists_word, mem_load_def,
+						  is_wf_shape_def]
                                            \\ rpt (FULL_CASE_TAC \\ gvs[word_of_val_def, pan_op_def, eval_def, mem_load_byte_def,
                                                                         word_of_Word_def, word_op_def, asmTheory.word_cmp_def,
                                                                         word_lab_exists_word, mem_load_def, word_sh_def])
@@ -495,7 +500,8 @@ fun mk_eval_let_exps_thms exists_trm =
                                            \\ rpt strip_tac
                                            \\ imp_res_tac eval_eq_SOME_eval_to_let
                                            \\ gvs[word_of_val_def, pan_op_def, eval_def, word_op_def, mem_load_byte_def, word_sh_def,
-                                                  word_of_Word_def, asmTheory.word_cmp_def, word_lab_exists_word, mem_load_def]
+                                                  word_of_Word_def, asmTheory.word_cmp_def, word_lab_exists_word, mem_load_def,
+						  is_wf_shape_def]
                                            \\ rpt (FULL_CASE_TAC \\ gvs[word_of_val_def, pan_op_def, eval_def, mem_load_byte_def,
                                                                         word_of_Word_def, word_op_def, asmTheory.word_cmp_def,
                                                                         word_lab_exists_word, mem_load_def, word_sh_def])
@@ -925,7 +931,7 @@ fun once_reduce_tau_bu ext_thm thrm =
       val [from, to] = rep_thm |> concl |> strip_comb |> snd;
       val new_rhs = depth_abs_subst from to rhs;
       val wb_term = list_mk_comb (wbsim_call, [rhs, new_rhs]);
-      val wb_thm = prove (wb_term, rpt (wbisim_cong_tactic (rep_thm::ext_thm@[LET_THM, word_of_val_def, struct_of_val_def, FUN_EQ_THM])));
+      val wb_thm = prove (wb_term, rpt (wbisim_cong_tactic (rep_thm::ext_thm@[LET_THM, word_of_val_def, rstruct_of_val_def, FUN_EQ_THM])));
       val conj_thm = CONJ thrm wb_thm;
   in
     if term_eq rhs new_rhs then
@@ -942,7 +948,7 @@ fun once_reduce_tau ext_thm thrm =
       val [from, to] = rep_thm |> concl |> strip_comb |> snd;
       val new_rhs = depth_abs_subst from to rhs;
       val wb_term = list_mk_comb (wbsim_call, [rhs, new_rhs]);
-      val wb_thm = prove (wb_term, rpt (wbisim_cong_tactic (rep_thm::ext_thm@[LET_THM, word_of_val_def, struct_of_val_def, FUN_EQ_THM])));
+      val wb_thm = prove (wb_term, rpt (wbisim_cong_tactic (rep_thm::ext_thm@[LET_THM, word_of_val_def, rstruct_of_val_def, FUN_EQ_THM])));
       val conj_thm = CONJ thrm wb_thm;
   in
     if term_eq rhs new_rhs then
@@ -965,7 +971,7 @@ fun once_reduce_tau_ret extt thrm =
       val [from, to] = rep_thm |> concl |> strip_comb |> snd;
       val new_rhs = depth_abs_subst from to rhs;
       val wb_term = list_mk_comb (wbsim_call, [rhs, new_rhs]);
-      val wb_thm = prove (wb_term, rpt (wbisim_cong_tactic (rep_thm::extt@[LET_THM, word_of_val_def, struct_of_val_def, FUN_EQ_THM])));
+      val wb_thm = prove (wb_term, rpt (wbisim_cong_tactic (rep_thm::extt@[LET_THM, word_of_val_def, rstruct_of_val_def, FUN_EQ_THM])));
       val conj_thm = CONJ thrm wb_thm;
   in
     if term_eq rhs new_rhs then
@@ -987,7 +993,7 @@ fun once_reduce_tau_vis extt thrm =
       val [from, to] = rep_thm |> concl |> strip_comb |> snd;
       val new_rhs = depth_abs_subst from to rhs;
       val wb_term = list_mk_comb (wbsim_call, [rhs, new_rhs]);
-      val wb_thm = prove (wb_term, rpt (wbisim_cong_tactic (rep_thm::extt@[LET_THM, word_of_val_def, struct_of_val_def, FUN_EQ_THM])));
+      val wb_thm = prove (wb_term, rpt (wbisim_cong_tactic (rep_thm::extt@[LET_THM, word_of_val_def, rstruct_of_val_def, FUN_EQ_THM])));
       val conj_thm = CONJ thrm wb_thm;
   in
     if term_eq rhs new_rhs then
@@ -1039,7 +1045,7 @@ fun let_n2w_rw_once th =
                                     andalso ((same_const (rator (rand x)) “n2w”)
                                              orelse ((not (same_const (rator (rand x)) “THE”))
                                                      andalso (not (same_const (rator (rand x)) “word_of_val”))
-                                                     andalso (not (same_const (rator (rand x)) “struct_of_val”))))) let_terms
+                                                     andalso (not (same_const (rator (rand x)) “rstruct_of_val”))))) let_terms
       val let_rw_thms = map (QCONV (PURE_REWRITE_CONV [Once LET_THM])) let_n2w_terms
   in
     if null let_rw_thms then
