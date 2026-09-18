@@ -90,14 +90,14 @@ Definition eval_to'_def:
       else if mc.target.get_pc ms = mc.halt_pc then
         (if mc.target.get_reg ms mc.ptr_reg = 0w
          then (Ret' Termination,mc,ms) else (Ret' OutOfMemory,mc,ms))
-      else if mc.target.get_pc ms = mc.ccache_pc then
-        let (ms1,new_oracle) =
-          apply_oracle mc.ccache_interfer
-            (mc.target.get_reg ms mc.ptr_reg,
-             mc.target.get_reg ms mc.len_reg,
-             ms) in
-        let mc = mc with ccache_interfer := new_oracle in
-          eval_to' (k-1) mc ms1
+      else if mc.target.get_pc ms = mc.install_pc then
+        (case read_ffi_bytearray mc mc.ptr_reg mc.len_reg ms of
+         | SOME bytes =>
+           let (ms1,new_oracle) =
+             apply_oracle mc.install_interfer (bytes,ms) in
+           let mc = mc with install_interfer := new_oracle in
+             eval_to' (k-1) mc ms1
+         | _ => (Ret' Error,mc,ms))
       else
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => (Ret' Error,mc,ms)
@@ -308,7 +308,7 @@ Theorem eval_to'_1_Vis:
   eval_to' 1 (mc:('b,'a,'c) machine_config) ms = (Vis' (s,conf,ws) f,mc',ms') ⇔
     mc.target.get_pc ms ∉ (mc.prog_addresses DIFF set mc.ffi_entry_pcs) ∧
     mc.target.get_pc ms ≠ mc.halt_pc ∧
-    mc.target.get_pc ms ≠ mc.ccache_pc ∧
+    mc.target.get_pc ms ≠ mc.install_pc ∧
     ∃n.
       find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME n ∧
       ((s = SharedMem MappedRead /\
@@ -371,14 +371,14 @@ Theorem eval:
     else if mc.target.get_pc ms = mc.halt_pc then
       (if mc.target.get_reg ms mc.ptr_reg = 0w
        then Ret' Termination else Ret' OutOfMemory)
-    else if mc.target.get_pc ms = mc.ccache_pc then
-      let (ms1,new_oracle) =
-        apply_oracle mc.ccache_interfer
-          (mc.target.get_reg ms mc.ptr_reg,
-           mc.target.get_reg ms mc.len_reg,
-           ms) in
-      let mc = mc with ccache_interfer := new_oracle in
-        eval (mc, ms1)
+    else if mc.target.get_pc ms = mc.install_pc then
+      (case read_ffi_bytearray mc mc.ptr_reg mc.len_reg ms of
+       | SOME bytes =>
+         let (ms1,new_oracle) =
+           apply_oracle mc.install_interfer (bytes,ms) in
+         let mc = mc with install_interfer := new_oracle in
+           eval (mc, ms1)
+       | _ => Ret' Error)
     else
       case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
       | NONE => Ret' Error

@@ -285,7 +285,6 @@ Proof
   >~[`OpCurrHeap`]      >- suspend "OpCurrHeap"
   >~[`LocValue`]        >- suspend "LocValue"
   >~[`Install`]         >- suspend "Install"
-  >~[`CodeBufferWrite`] >- suspend "CodeBufferWrite"
   >~[`DataBufferWrite`] >- suspend "DataBufferWrite"
   >~[`FFI`]             >- suspend "FFI"
   >~[`ShareInst`]       >- suspend "ShareInst"
@@ -802,27 +801,21 @@ Resume compile_single_correct[Install]:
   qexists_tac`st.permute`>>fs[rm_perm]>>
   ntac 3 (last_x_assum kall_tac)>>
   simp[evaluate_def]>>
-  ntac 9 (TOP_CASE_TAC>>fs[])>>
-  Cases_on`st.compile_oracle 0`>>fs[]>>
-  ntac 4 (TOP_CASE_TAC>>fs[])>>
-  Cases_on`r`>>fs[]>>
-  ntac 3 (TOP_CASE_TAC>>fs[])>>
-  PairCases_on`h`>>fs[compile_single_def,shift_seq_def]>>
-  TOP_CASE_TAC>>fs[]>>
-  conj_tac>-
-    (old_drule (GEN_ALL code_rel_union_fromAList)>>
+  rpt (TOP_CASE_TAC>>fs[])>>
+  rpt (pairarg_tac>>fs[])>>
+  rpt (TOP_CASE_TAC>>fs[])>>
+  gvs[AllCaseEqs()]>>
+  qmatch_asmsub_rename_tac`st.compile_oracle 0 = (ocfg,(loc,body)::rest)`>>
+  PairCases_on`body`>>
+  fs[compile_single_def,shift_seq_def,o_DEF,PAIR_MAP]>>
+  conj_tac>- (
+    old_drule (GEN_ALL code_rel_union_fromAList)>>
     simp[]>>
-    disch_then(qspecl_then[`tt`,`kk`,`co`,`aa`,`(h0,h1,h2)::t`] assume_tac)>>
-    fs[compile_single_def])>>
-  conj_tac>-
-    (simp[domain_union]>>AP_TERM_TAC>>
-    simp[domain_fromAList]>>AP_TERM_TAC>>
-    simp[EXTENSION,MAP_MAP_o,compile_single_def,MEM_MAP,EXISTS_PROD])>>
-  simp[state_component_equality,o_DEF]
-QED
-
-Resume compile_single_correct[CodeBufferWrite]:
-  fs[evaluate_def,state_component_equality] >> every_case_tac >> fs[]
+    disch_then(qspecl_then[`tt`,`kk`,`co`,`aa`,`(loc,body0,body1)::rest`] assume_tac)>>
+    gvs[compile_single_def,fromAList_def])>>
+  simp[domain_union]>>AP_TERM_TAC>>
+  simp[domain_fromAList]>>AP_TERM_TAC>>
+  simp[EXTENSION,MAP_MAP_o,compile_single_def,MEM_MAP,EXISTS_PROD]
 QED
 
 Resume compile_single_correct[DataBufferWrite]:
@@ -1084,7 +1077,7 @@ Theorem code_rel_P[local] = Q.GEN `P` code_rel_not_created_subprogs;
 Theorem code_rel_no_alloc[local] = code_rel_P |> Q.SPEC `(<>) (Alloc 0 (LN,LN))`
     |> REWRITE_RULE [GSYM no_alloc_subprogs_def]
 
-Theorem code_rel_no_install[local] = code_rel_P |> Q.SPEC `(<>) (Install 0 0 0 0 (LN,LN))`
+Theorem code_rel_no_install[local] = code_rel_P |> Q.SPEC `(<>) (Install 0 0 0 0 0 (LN,LN))`
     |> REWRITE_RULE [GSYM no_install_subprogs_def]
 
 
@@ -1136,7 +1129,6 @@ Proof
   >~[`OpCurrHeap`]      >- suspend "ni_OpCurrHeap"
   >~[`LocValue`]        >- suspend "ni_LocValue"
   >~[`Install`]         >- suspend "ni_Install"
-  >~[`CodeBufferWrite`] >- suspend "ni_CodeBufferWrite"
   >~[`DataBufferWrite`] >- suspend "ni_DataBufferWrite"
   >~[`FFI`]             >- suspend "ni_FFI"
   >~[`ShareInst`]       >- suspend "ni_ShareInst"
@@ -1240,12 +1232,6 @@ QED
 
 Resume no_install_no_alloc_compile_single_correct[ni_Install]:
   fs[no_install_def]
-QED
-
-Resume no_install_no_alloc_compile_single_correct[ni_CodeBufferWrite]:
-  fs[no_alloc_def, no_install_def] >>
-  fs[evaluate_def, state_component_equality] >>
-  every_case_tac >> fs[]
 QED
 
 Resume no_install_no_alloc_compile_single_correct[ni_DataBufferWrite]:

@@ -6,6 +6,7 @@ Ancestors[qualified]
   arithmetic integer words
 Ancestors
   sptree (* for delete *)
+  mlstring (* for bytes_to_mlstring *)
 Libs
   preamble
 
@@ -187,4 +188,18 @@ Theorem lookup_list_delete:
            if MEM n xs then NONE else lookup n l
 Proof
   Induct >> rw [list_delete_def, lookup_delete] >> fs []
+QED
+
+(* The Install oracle carries the compiled code as a string; the values that
+   hold it below closLang carry it as bytes. *)
+Definition bytes_to_mlstring_def:
+  bytes_to_mlstring (bs:word8 list) = implode (MAP (λw. CHR (w2n w)) bs)
+End
+
+Theorem bytes_to_mlstring_explode:
+  bytes_to_mlstring (MAP (n2w o ORD) (explode s)) = s
+Proof
+  rw [bytes_to_mlstring_def, MAP_MAP_o, combinTheory.o_DEF]
+  \\ `!c. CHR (ORD c MOD 256) = c` by simp [ORD_BOUND, CHR_ORD]
+  \\ simp [implode_explode]
 QED

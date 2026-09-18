@@ -389,19 +389,11 @@ Proof
   \\ res_tac \\ gvs []
 QED
 
-Theorem v_to_bytes:
-   v_rel x y ==> (v_to_bytes x) = (v_to_bytes y)
+Theorem v_to_mlstring:
+   v_rel x y ==> (v_to_mlstring x) = (v_to_mlstring y)
 Proof
-  rw[v_to_bytes_def]
-  \\ DEEP_INTRO_TAC some_intro
-  \\ rw[OPTREL_def]
-  \\ DEEP_INTRO_TAC some_intro \\ rw[]
-  \\ imp_res_tac v_to_list \\ fs[] \\ rw[]
-  \\ TRY (strip_tac \\ rw[])
-  \\ fs[EVERY2_MAP,v_rel_Number]
-  \\ fsrw_tac[ETA_ss][EQ_SYM_EQ]
-  \\ fs[LIST_EQ_REWRITE,EL_MAP,LIST_REL_EL_EQN] \\ rfs[EL_MAP]
-  \\ METIS_TAC[EL_MAP,o_DEF]
+  rw[v_to_mlstring_def]
+  \\ Cases_on `x` \\ gvs [v_rel_simp]
 QED
 
 Theorem v_to_words:
@@ -431,7 +423,7 @@ Proof
   \\ simp[CaseEq"list",CaseEq"prod",CaseEq"option"]
   \\ strip_tac \\ rveq \\ fs[]
   \\ imp_res_tac v_to_words
-  \\ imp_res_tac v_to_bytes
+  \\ imp_res_tac v_to_mlstring
   \\ fs [] \\ rveq
   \\ `FDOM s1.code = FDOM t1.code` by fs[state_rel_def]
   \\ `t1.compile_oracle = (I ## (annotate 0) ## compile) o s1.compile_oracle`

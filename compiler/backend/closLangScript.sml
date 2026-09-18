@@ -225,4 +225,4 @@ End
 
 Type clos_prog = ``: closLang$exp list # (num # num # closLang$exp) list``
 
-Type clos_cc = ``:'c -> clos_prog -> (word8 list # word64 list # 'c) option``
+Type clos_cc = ``:'c -> clos_prog -> (mlstring # word64 list # 'c) option``

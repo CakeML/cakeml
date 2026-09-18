@@ -232,14 +232,16 @@ Proof
   \\ metis_tac []
 QED
 
-(* `data_to_bvi_v_def` is idempotent over `v_to_bytes` *)
-Theorem v_to_bytes_eq[simp]:
-  ∀x. v_to_bytes (data_to_bvi_v x) = v_to_bytes x
+(* `v_to_mlstring` agrees on refs related by `data_to_bvi_ref` *)
+Theorem v_to_mlstring_eq:
+  (∀n. FLOOKUP refs n = lookup n (map data_to_bvi_ref t_refs)) ⇒
+  ∀x. bvlSem$v_to_mlstring refs (data_to_bvi_v x) = v_to_mlstring t_refs x
 Proof
-  rw [ v_to_list_eq, bvlSemTheory.v_to_bytes_def
-     , v_to_bytes_def
-     , GSYM data_to_bvi_number_eq
-     , MAP_data_to_bvi_Number,MAP_o]
+  strip_tac \\ Cases
+  \\ simp [bvlSemTheory.v_to_mlstring_def, v_to_mlstring_def, lookup_map]
+  \\ Cases_on `lookup n t_refs` \\ simp []
+  \\ rename1 `data_to_bvi_ref r`
+  \\ Cases_on `r` \\ simp []
 QED
 
 (* `data_to_bvi_v_def` is idempotent over `v_to_words` *)
@@ -1221,7 +1223,9 @@ Resume compile_correct[Op]:
    \\ fs[bviSemTheory.do_install_def,dataSemTheory.do_install_def]
    \\ fs[case_eq_thms,GSYM MAP_REVERSE,bvlSemTheory.case_eq_thms]
    \\ ntac 4 (rfs [MAP_EQ_CONS])
-   \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
+   \\ `∀x. bvlSem$v_to_mlstring r.refs (data_to_bvi_v x) = v_to_mlstring t2.refs x` by
+        (irule v_to_mlstring_eq \\ fs [state_rel_def])
+   \\ fs [v_to_words_eq,data_to_bvi_v_eq]
    \\ rveq
    \\ fs[bvlPropsTheory.case_eq_thms,case_eq_thms]
    \\ rpt(pairarg_tac \\ fs[])
@@ -1244,16 +1248,16 @@ Resume compile_correct[Op]:
    (* single-cut: do_app reads args from full t2.locals (pre-cut); recover
       get_vars over t2.locals from the get_vars over the cut env1 *)
    \\ `get_vars (REVERSE vs) t2.locals =
-         SOME [x0; x0'; Number (&LENGTH bytes); Number (&LENGTH data)]` by
+         SOME [x0; x0'; Number (&LENGTH data)]` by
         (qpat_x_assum `get_vars (REVERSE vs) env1 = _` mp_tac
          \\ simp[Abbr`env1`] \\ strip_tac \\ imp_res_tac get_vars_inter \\ fs[])
    \\ fs[]
-   \\ qpat_x_assum `REVERSE vs = [_;_;_;_]` (assume_tac o GSYM) \\ fs[]
+   \\ qpat_x_assum `REVERSE vs = [_;_;_]` (assume_tac o GSYM) \\ fs[]
    \\ qmatch_goalsub_abbrev_tac`fromAList progs1`
    \\ qmatch_goalsub_abbrev_tac`union t2.code (fromAList progs2)`
    \\ qexists_tac `x0` \\ qexists_tac `x0'` \\ fs[]
    \\ conj_tac
-   >- (qpat_x_assum `vs = [v; v'; v''; v'³']` (fn th => fs[th] \\ assume_tac th) \\ fs[])
+   >- (qpat_x_assum `vs = [_;_;_]` (fn th => fs[th] \\ assume_tac th) \\ fs[])
    \\ conj_tac
    >- (
      rveq \\
@@ -1517,12 +1521,12 @@ Resume compile_correct[Op]:
               , case_eq_thms
               , pair_case_eq,SWAP_REVERSE_SYM,lookup_map]
       \\ ntac 5 (rfs [MAP_EQ_CONS])
-      \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
+      \\ fs [v_to_words_eq,data_to_bvi_v_eq]
       \\ `get_vars (REVERSE vs) t2.locals = SOME (REVERSE z')` by
            (qpat_x_assum `get_vars (REVERSE vs) env1 = _` mp_tac
             \\ simp[Abbr`env1`] \\ strip_tac \\ imp_res_tac get_vars_inter \\ fs[])
       \\ fs[]
-      \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
+      \\ fs [v_to_words_eq,data_to_bvi_v_eq]
       \\ IMP_RES_TAC data_to_bvi_v_eq \\ rveq
       \\ fs [lookup_map,case_eq_thms]
       \\ IMP_RES_TAC data_to_bvi_eq_ByteArray \\ rveq
@@ -1568,12 +1572,12 @@ Resume compile_correct[Op]:
               , case_eq_thms
               , pair_case_eq,SWAP_REVERSE_SYM,lookup_map]
       \\ ntac 5 (rfs [MAP_EQ_CONS])
-      \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
+      \\ fs [v_to_words_eq,data_to_bvi_v_eq]
       \\ `get_vars (REVERSE vs) t2.locals = SOME (REVERSE z')` by
            (qpat_x_assum `get_vars (REVERSE vs) env1 = _` mp_tac
             \\ simp[Abbr`env1`] \\ strip_tac \\ imp_res_tac get_vars_inter \\ fs[])
       \\ fs[]
-      \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
+      \\ fs [v_to_words_eq,data_to_bvi_v_eq]
       \\ IMP_RES_TAC data_to_bvi_v_eq \\ rveq
       \\ fs [lookup_map,case_eq_thms]
       \\ IMP_RES_TAC data_to_bvi_eq_ByteArray \\ rveq
@@ -1618,12 +1622,12 @@ Resume compile_correct[Op]:
               , case_eq_thms
               , pair_case_eq,SWAP_REVERSE_SYM,lookup_map]
       \\ ntac 5 (rfs [MAP_EQ_CONS])
-      \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
+      \\ fs [v_to_words_eq,data_to_bvi_v_eq]
       \\ `get_vars (REVERSE vs) t2.locals = SOME (REVERSE z')` by
            (qpat_x_assum `get_vars (REVERSE vs) env1 = _` mp_tac
             \\ simp[Abbr`env1`] \\ strip_tac \\ imp_res_tac get_vars_inter \\ fs[])
       \\ fs[]
-      \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
+      \\ fs [v_to_words_eq,data_to_bvi_v_eq]
       \\ IMP_RES_TAC data_to_bvi_v_eq \\ rveq
       \\ fs [lookup_map,case_eq_thms]
       \\ IMP_RES_TAC data_to_bvi_eq_ByteArray \\ rveq
