@@ -53,67 +53,22 @@ val _ = trans ">=" ``word_hs:word8->word8->bool``;
 (* shifts *)
 
 Definition var_word_lsl_def:
-  var_word_lsl (w:word8) (n:num) =
-    if n < 8 then
-    if n < 4 then
-      if n < 2 then if n < 1 then w else w << 1
-      else if n < 3 then w << 2
-      else w << 3
-    else if n < 6 then if n < 5 then w << 4 else w << 5
-    else if n < 7 then w << 6
-    else w << 7 else 0w
+  var_word_lsl (w:word8) (n:num) = word_lsl w n
 End
 
-Theorem var_word_lsl_thm[simp]:
-   var_word_lsl w n = word_lsl w n
-Proof
-  ntac 32 (
-    Cases_on `n` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [LSL_ADD])
-    \\ Cases_on `n'` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [LSL_ADD]))
-  \\ ntac 9 (once_rewrite_tac [var_word_lsl_def] \\ fs [])
-QED
+Theorem var_word_lsl_thm[simp] = var_word_lsl_def;
 
 Definition var_word_lsr_def:
-  var_word_lsr (w:word8) (n:num) =
-    if n < 8 then
-    if n < 4 then
-      if n < 2 then if n < 1 then w else w >>> 1
-      else if n < 3 then w >>> 2
-      else w >>> 3
-    else if n < 6 then if n < 5 then w >>> 4 else w >>> 5
-    else if n < 7 then w >>> 6
-    else w >>> 7 else 0w
+  var_word_lsr (w:word8) (n:num) = word_lsr w n
 End
 
-Theorem var_word_lsr_thm[simp]:
-   var_word_lsr w n = word_lsr w n
-Proof
-  ntac 32 (
-    Cases_on `n` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [LSR_ADD])
-    \\ Cases_on `n'` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [LSR_ADD]))
-  \\ ntac 9 (once_rewrite_tac [var_word_lsr_def] \\ fs [])
-QED
+Theorem var_word_lsr_thm[simp] = var_word_lsr_def;
 
 Definition var_word_asr_def:
-  var_word_asr (w:word8) (n:num) =
-    if n < 8 then
-    if n < 4 then
-      if n < 2 then if n < 1 then w else w >> 1
-      else if n < 3 then w >> 2
-      else w >> 3
-    else if n < 6 then if n < 5 then w >> 4 else w >> 5
-    else if n < 7 then w >> 6
-    else w >> 7 else w >> 8
+  var_word_asr (w:word8) (n:num) = word_asr w n
 End
 
-Theorem var_word_asr_thm[simp]:
-   var_word_asr w n = word_asr w n
-Proof
-  ntac 32 (
-    Cases_on `n` \\ fs [ADD1] THEN1 (rw [] \\ EVAL_TAC \\ fs [ASR_ADD])
-    \\ Cases_on `n'` \\ fs [ADD1] THEN1 (rw [] \\ EVAL_TAC \\ fs [ASR_ADD]))
-  \\ ntac 9 (once_rewrite_tac [var_word_asr_def] \\ fs [])
-QED
+Theorem var_word_asr_thm[simp] = var_word_asr_def;
 
 Theorem word_ror_eq_word_shifts:
   ∀(w:'a word) n.
@@ -134,16 +89,10 @@ Proof
 QED
 
 Definition var_word_ror_def:
-  var_word_ror (w:word8) n =
-    word_or (var_word_lsl w (8 - (n MOD 8)))
-            (var_word_lsr w (n MOD 8))
+  var_word_ror (w:word8) (n:num) = word_ror w n
 End
 
-Theorem var_word_ror_thm[simp]:
-  var_word_ror w n = word_ror w n
-Proof
-  simp [var_word_ror_def,word_ror_eq_word_shifts]
-QED
+Theorem var_word_ror_thm[simp] = var_word_ror_def;
 
 val _ = (next_ml_names := ["<<"]);
 val _ = translate var_word_lsl_def;
@@ -156,15 +105,6 @@ val _ = translate var_word_asr_def;
 
 val _ = (next_ml_names := ["ror"]);
 val _ = translate var_word_ror_def;
-
-Theorem var_word_ror_side[local]:
-  ∀w n. var_word_ror_side w n = T
-Proof
-  rw [fetch "-" "var_word_ror_side_def"]
-  \\ irule LESS_IMP_LESS_OR_EQ \\ fs []
-QED
-
-val _ = update_precondition var_word_ror_side;
 
 val sigs = module_signatures ["fromInt", "toInt", "andb",
   "orb", "xorb", "notb", "+", "-", "<<", ">>", "~>>", "ror"];

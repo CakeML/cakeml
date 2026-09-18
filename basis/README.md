@@ -157,3 +157,7 @@ HOL definitions of the pure functions used in the CakeML basis.
 
 [runtimeFFIScript.sml](runtimeFFIScript.sml):
 Logical model of the Runtime module's exit function calls.
+
+[wordShiftBasisTestScript.sml](wordShiftBasisTestScript.sml):
+Check that basis word shifts use one binary primitive and preserve
+the behavior of large shift counts.
