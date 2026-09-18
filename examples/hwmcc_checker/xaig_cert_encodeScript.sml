@@ -536,8 +536,19 @@ End
 
 (* Extending an xaig **********************************************************)
 
+(* Names of extensions. *)
 Datatype:
-  ext = Orig 'a | Ext mlstring | Anon num
+  ext_name =
+    Mreset | Mcnstrs0 | Mcnstrs1 | Msafes | Mnext
+  | Wreset | Wcnstrs0 | Wcnstrs1 | Wcnstrs2 | Wsafes0 | Wsafes1 | Wsafes2
+  | Wnext0 | Wnext1
+  | Lives_imply | Lives_hold10 | Lives_hold01 | Lives_hold12 | Lives_hold02
+  | Reset | Transition | Safety | Base | Induction | Liveness | Decrease
+  | Closure | Stable
+End
+
+Datatype:
+  ext = Orig 'a | Ext ext_name | Anon num
 End
 
 (* Lifting to gate names to ext *)
@@ -1233,18 +1244,18 @@ Definition encode_reset_cond_def:
   =
   let
     xaig  = ext_xaig (merge_xaigs mxaig wxaig);
-    xaig  = encode_xis_reset xaig «mreset» (ext_reset (left_reset mreset)) mlatches;
-    xaig  = encode_xlits_hold xaig «mcnstrs» (MAP (ext_lit ∘ left_name_lit) mcnstrs);
-    xaig  = encode_xis_reset xaig «wreset» (ext_reset (right_reset wreset)) klatches;
-    xaig  = encode_xlits_hold xaig «wcnstrs» (MAP (ext_lit ∘ right_name_lit) wcnstrs);
+    xaig  = encode_xis_reset xaig Mreset (ext_reset (left_reset mreset)) mlatches;
+    xaig  = encode_xlits_hold xaig Mcnstrs0 (MAP (ext_lit ∘ left_name_lit) mcnstrs);
+    xaig  = encode_xis_reset xaig Wreset (ext_reset (right_reset wreset)) klatches;
+    xaig  = encode_xlits_hold xaig Wcnstrs0 (MAP (ext_lit ∘ right_name_lit) wcnstrs);
     lhss =
-      [(Gate (Ext «mreset»), F);
-       (Gate (Ext «mcnstrs»), F)];
+      [(Gate (Ext Mreset), F);
+       (Gate (Ext Mcnstrs0), F)];
     rhss =
-      [(Gate (Ext «wreset»), F);
-       (Gate (Ext «wcnstrs»), F)];
+      [(Gate (Ext Wreset), F);
+       (Gate (Ext Wcnstrs0), F)];
   in
-    encode_imply xaig «reset» T lhss rhss
+    encode_imply xaig Reset T lhss rhss
 End
 
 Definition encode_transition_cond_def:
@@ -1262,32 +1273,32 @@ Definition encode_transition_cond_def:
   let
     xaig  = merge_xaigs mxaig wxaig;
     xaig  = ext_xaig (pair_xaigs xaig xaig);
-    xaig  = encode_xlits_hold xaig «mcnstrs0»
+    xaig  = encode_xlits_hold xaig Mcnstrs0
              (MAP (ext_lit ∘ left_lit ∘ left_name_lit) mcnstrs);
-    xaig  = encode_xlits_hold xaig «wcnstrs0»
+    xaig  = encode_xlits_hold xaig Wcnstrs0
              (MAP (ext_lit ∘ left_lit ∘ right_name_lit) wcnstrs);
-    xaig  = encode_xlits_hold xaig «mcnstrs1»
+    xaig  = encode_xlits_hold xaig Mcnstrs1
              (MAP (ext_lit ∘ right_lit ∘ left_name_lit) mcnstrs);
-    xaig  = encode_xlits_hold xaig «wcnstrs1»
+    xaig  = encode_xlits_hold xaig Wcnstrs1
              (MAP (ext_lit ∘ right_lit ∘ right_name_lit) wcnstrs);
-    xaig  = encode_xis_next xaig «mnext»
+    xaig  = encode_xis_next xaig Mnext
             (ext_lit ∘ left_lit ∘ left_name_lit)
             (ext_lit ∘ right_lit)
             mnext mlatches;
-    xaig  = encode_xis_next xaig «wnext»
+    xaig  = encode_xis_next xaig Wnext0
             (ext_lit ∘ left_lit ∘ right_name_lit)
             (ext_lit ∘ right_lit)
             wnext klatches;
     lhss =
-      [(Gate (Ext «mnext»), F);
-       (Gate (Ext «mcnstrs0»), F);
-       (Gate (Ext «mcnstrs1»), F);
-       (Gate (Ext «wcnstrs0»), F)];
+      [(Gate (Ext Mnext), F);
+       (Gate (Ext Mcnstrs0), F);
+       (Gate (Ext Mcnstrs1), F);
+       (Gate (Ext Wcnstrs0), F)];
     rhss =
-      [(Gate (Ext «wnext»), F);
-       (Gate (Ext «wcnstrs1»), F)];
+      [(Gate (Ext Wnext0), F);
+       (Gate (Ext Wcnstrs1), F)];
   in
-    encode_imply xaig «transition» T lhss rhss
+    encode_imply xaig Transition T lhss rhss
 End
 
 Definition encode_safety_cond_def:
@@ -1301,17 +1312,17 @@ Definition encode_safety_cond_def:
   =
   let
     xaig  = ext_xaig (merge_xaigs mxaig wxaig);
-    xaig  = encode_xlits_hold xaig «mcnstrs» (MAP (ext_lit ∘ left_name_lit) mcnstrs);
-    xaig  = encode_xlits_hold xaig «msafes» (MAP (ext_lit ∘ left_name_lit) msafes);
-    xaig  = encode_xlits_hold xaig «wcnstrs» (MAP (ext_lit ∘ right_name_lit) wcnstrs);
-    xaig  = encode_xlits_hold xaig «wsafes» (MAP (ext_lit ∘ right_name_lit) wsafes);
+    xaig  = encode_xlits_hold xaig Mcnstrs0 (MAP (ext_lit ∘ left_name_lit) mcnstrs);
+    xaig  = encode_xlits_hold xaig Msafes (MAP (ext_lit ∘ left_name_lit) msafes);
+    xaig  = encode_xlits_hold xaig Wcnstrs0 (MAP (ext_lit ∘ right_name_lit) wcnstrs);
+    xaig  = encode_xlits_hold xaig Wsafes0 (MAP (ext_lit ∘ right_name_lit) wsafes);
     lhss =
-      [(Gate (Ext «mcnstrs»),F);
-       (Gate (Ext «wcnstrs»),F);
-       (Gate (Ext «wsafes»),F)];
-    rhss = [(Gate (Ext «msafes»), F);]
+      [(Gate (Ext Mcnstrs0),F);
+       (Gate (Ext Wcnstrs0),F);
+       (Gate (Ext Wsafes0),F)];
+    rhss = [(Gate (Ext Msafes), F);]
   in
-    encode_imply xaig «safety» T lhss rhss
+    encode_imply xaig Safety T lhss rhss
 End
 
 
@@ -1325,15 +1336,15 @@ Definition encode_base_cond_def:
   ⇔
     let
       xaig  = ext_xaig wxaig;
-      xaig  = encode_xis_reset xaig «wreset» (ext_reset wreset) wlatches;
-      xaig  = encode_xlits_hold xaig «wcnstrs» (MAP ext_lit wcnstrs);
-      xaig  = encode_xlits_hold xaig «wsafes» (MAP ext_lit wsafes);
+      xaig  = encode_xis_reset xaig Wreset (ext_reset wreset) wlatches;
+      xaig  = encode_xlits_hold xaig Wcnstrs0 (MAP ext_lit wcnstrs);
+      xaig  = encode_xlits_hold xaig Wsafes0 (MAP ext_lit wsafes);
       lhss =
-        [(Gate (Ext «wreset»),F);
-         (Gate (Ext «wcnstrs»),F)];
-      rhss = [(Gate (Ext «wsafes»), F)]
+        [(Gate (Ext Wreset),F);
+         (Gate (Ext Wcnstrs0),F)];
+      rhss = [(Gate (Ext Wsafes0), F)]
   in
-    encode_imply xaig «base» T lhss rhss
+    encode_imply xaig Base T lhss rhss
 End
 
 Definition encode_induction_cond_def:
@@ -1346,25 +1357,25 @@ Definition encode_induction_cond_def:
   =
     let
       xaig  = ext_xaig (pair_xaigs wxaig wxaig);
-      xaig  = encode_xlits_hold xaig «wcnstrs0»
+      xaig  = encode_xlits_hold xaig Wcnstrs0
                (MAP (ext_lit ∘ left_lit) wcnstrs);
-      xaig  = encode_xlits_hold xaig «wsafes0»
+      xaig  = encode_xlits_hold xaig Wsafes0
                (MAP (ext_lit ∘ left_lit) wsafes);
-      xaig  = encode_xlits_hold xaig «wcnstrs1»
+      xaig  = encode_xlits_hold xaig Wcnstrs1
                (MAP (ext_lit ∘ right_lit) wcnstrs);
-      xaig  = encode_xlits_hold xaig «wsafes1»
+      xaig  = encode_xlits_hold xaig Wsafes1
                (MAP (ext_lit ∘ right_lit) wsafes);
-      xaig  = encode_xis_next xaig «wnext»
+      xaig  = encode_xis_next xaig Wnext0
                (ext_lit ∘ left_lit) (ext_lit ∘ right_lit)
                wnext wlatches;
       lhss =
-        [(Gate (Ext «wsafes0»), F);
-         (Gate (Ext «wnext»), F);
-         (Gate (Ext «wcnstrs1»), F);
-         (Gate (Ext «wcnstrs0»), F)];
-      rhss = [(Gate (Ext «wsafes1»), F)]
+        [(Gate (Ext Wsafes0), F);
+         (Gate (Ext Wnext0), F);
+         (Gate (Ext Wcnstrs1), F);
+         (Gate (Ext Wcnstrs0), F)];
+      rhss = [(Gate (Ext Wsafes1), F)]
     in
-      encode_imply xaig «induction» T lhss rhss
+      encode_imply xaig Induction T lhss rhss
 End
 
 Definition encode_liveness_cond_def:
@@ -1391,36 +1402,36 @@ Definition encode_liveness_cond_def:
                      (FLAT (qinterv_live_l_r interv wlive));
     msignals = MAP (ext_lit ∘ right_name_lit ∘ left_name_lit)
                      (FLAT (qleft_live mlive));
-    xaig   = encode_signal_imply xaig «lives_imply» wsignals msignals;
-    xaig   = encode_xlits_hold xaig «mcnstrs0»
+    xaig   = encode_signal_imply xaig Lives_imply wsignals msignals;
+    xaig   = encode_xlits_hold xaig Mcnstrs0
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ left_name_lit) mcnstrs);
-    xaig   = encode_xlits_hold xaig «wcnstrs0»
+    xaig   = encode_xlits_hold xaig Wcnstrs0
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_name_lit) wcnstrs);
-    xaig   = encode_xlits_hold xaig «wsafes0»
+    xaig   = encode_xlits_hold xaig Wsafes0
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_name_lit) wsafes);
-    xaig   = encode_xlits_hold xaig «mcnstrs1»
+    xaig   = encode_xlits_hold xaig Mcnstrs1
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit ∘ left_name_lit) mcnstrs);
-    xaig   = encode_xlits_hold xaig «wcnstrs1»
+    xaig   = encode_xlits_hold xaig Wcnstrs1
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit ∘ right_name_lit) wcnstrs);
-    xaig   = encode_xlits_hold xaig «wsafes1»
+    xaig   = encode_xlits_hold xaig Wsafes1
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit ∘ right_name_lit) wsafes);
     xaig =
-      encode_xis_next xaig «wnext»
+      encode_xis_next xaig Wnext0
         (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_name_lit)
         (ext_lit ∘ left_name_lit ∘ right_lit)
         wnext wlatches;
     lhss = [
-        (Gate (Ext «mcnstrs0»), F);
-        (Gate (Ext «wcnstrs0»), F);
-        (Gate (Ext «wsafes0»), F);
-        (Gate (Ext «mcnstrs1»), F);
-        (Gate (Ext «wcnstrs1»), F);
-        (Gate (Ext «wsafes1»), F);
-        (Gate (Ext «wnext»), F)
+        (Gate (Ext Mcnstrs0), F);
+        (Gate (Ext Wcnstrs0), F);
+        (Gate (Ext Wsafes0), F);
+        (Gate (Ext Mcnstrs1), F);
+        (Gate (Ext Wcnstrs1), F);
+        (Gate (Ext Wsafes1), F);
+        (Gate (Ext Wnext0), F)
     ];
-    rhss = [(Gate (Ext «lives_imply»), F)]
+    rhss = [(Gate (Ext Lives_imply), F)]
   in
-    encode_imply xaig «liveness» T lhss rhss
+    encode_imply xaig Liveness T lhss rhss
 End
 
 Definition encode_decrease_cond_def:
@@ -1437,31 +1448,31 @@ Definition encode_decrease_cond_def:
     qxaig  = qinterv_r_l interv wxaig;
     xaig   = pair_xaigs wxaig wxaig;
     xaig   = ext_xaig (merge_xaigs xaig qxaig);
-    xaig   = encode_xlits_hold xaig «wcnstrs0»
+    xaig   = encode_xlits_hold xaig Wcnstrs0
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit) wcnstrs);
-    xaig   = encode_xlits_hold xaig «wsafes0»
+    xaig   = encode_xlits_hold xaig Wsafes0
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit) wsafes);
-    xaig   = encode_xlits_hold xaig «wcnstrs1»
+    xaig   = encode_xlits_hold xaig Wcnstrs1
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit) wcnstrs);
-    xaig   = encode_xlits_hold xaig «wsafes1»
+    xaig   = encode_xlits_hold xaig Wsafes1
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit) wsafes);
-    xaig   = encode_xis_next xaig «wnext»
+    xaig   = encode_xis_next xaig Wnext0
               (ext_lit ∘ left_name_lit ∘ left_lit)
               (ext_lit ∘ left_name_lit ∘ right_lit)
               wnext wlatches;
     live  = MAP (MAP (ext_lit ∘ right_name_lit))
               (qinterv_live_r_l interv wlive);
-    xaig  = encode_lives_hold xaig «lives_hold» live;
+    xaig  = encode_lives_hold xaig Lives_hold10 live;
     lhss = [
-      (Gate (Ext «wcnstrs0»), F);
-      (Gate (Ext «wsafes0»), F);
-      (Gate (Ext «wcnstrs1»), F);
-      (Gate (Ext «wsafes1»), F);
-      (Gate (Ext «wnext»), F);
+      (Gate (Ext Wcnstrs0), F);
+      (Gate (Ext Wsafes0), F);
+      (Gate (Ext Wcnstrs1), F);
+      (Gate (Ext Wsafes1), F);
+      (Gate (Ext Wnext0), F);
     ];
-    rhss = [(Gate (Ext «lives_hold»), F)]
+    rhss = [(Gate (Ext Lives_hold10), F)]
   in
-    encode_imply xaig «decrease» T lhss rhss
+    encode_imply xaig Decrease T lhss rhss
 End
 
 Definition encode_closure_cond_def:
@@ -1481,19 +1492,19 @@ Definition encode_closure_cond_def:
     qxaig  = merge_xaigs qxaig₀ qxaig₁;
     xaig   = pair_xaigs (pair_xaigs wxaig wxaig) wxaig;
     xaig   = ext_xaig (merge_xaigs xaig qxaig);
-    xaig   = encode_xlits_hold xaig «wcnstrs0»
+    xaig   = encode_xlits_hold xaig Wcnstrs0
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ left_lit) wcnstrs);
-    xaig   = encode_xlits_hold xaig «wsafes0»
+    xaig   = encode_xlits_hold xaig Wsafes0
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ left_lit) wsafes);
-    xaig   = encode_xlits_hold xaig «wcnstrs1»
+    xaig   = encode_xlits_hold xaig Wcnstrs1
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_lit) wcnstrs);
-    xaig   = encode_xlits_hold xaig «wsafes1»
+    xaig   = encode_xlits_hold xaig Wsafes1
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_lit) wsafes);
-    xaig   = encode_xlits_hold xaig «wcnstrs2»
+    xaig   = encode_xlits_hold xaig Wcnstrs2
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit) wcnstrs);
-    xaig   = encode_xlits_hold xaig «wsafes2»
+    xaig   = encode_xlits_hold xaig Wsafes2
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit) wsafes);
-    xaig   = encode_xis_next xaig «wnext»
+    xaig   = encode_xis_next xaig Wnext0
               (ext_lit ∘ left_name_lit ∘ left_lit ∘ left_lit)
               (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_lit)
               wnext wlatches;
@@ -1501,21 +1512,21 @@ Definition encode_closure_cond_def:
               (qinterv_live_ll_r interv wlive);
     live₁ = MAP (MAP (ext_lit ∘ right_name_lit ∘ right_name_lit))
               (qinterv_live_lr_r interv wlive);
-    xaig = encode_lives_hold xaig «lives_hold02» live₀;
-    xaig = encode_lives_hold xaig «lives_hold12» live₁;
+    xaig = encode_lives_hold xaig Lives_hold02 live₀;
+    xaig = encode_lives_hold xaig Lives_hold12 live₁;
     lhss = [
-      (Gate (Ext «wcnstrs0»), F);
-      (Gate (Ext «wsafes0»), F);
-      (Gate (Ext «wcnstrs1»), F);
-      (Gate (Ext «wsafes1»), F);
-      (Gate (Ext «wcnstrs2»), F);
-      (Gate (Ext «wsafes2»), F);
-      (Gate (Ext «wnext»), F);
-      (Gate (Ext «lives_hold02»), F);
+      (Gate (Ext Wcnstrs0), F);
+      (Gate (Ext Wsafes0), F);
+      (Gate (Ext Wcnstrs1), F);
+      (Gate (Ext Wsafes1), F);
+      (Gate (Ext Wcnstrs2), F);
+      (Gate (Ext Wsafes2), F);
+      (Gate (Ext Wnext0), F);
+      (Gate (Ext Lives_hold02), F);
     ];
-    rhss = [(Gate (Ext «lives_hold12»), F)]
+    rhss = [(Gate (Ext Lives_hold12), F)]
   in
-    encode_imply xaig «closure» T lhss rhss
+    encode_imply xaig Closure T lhss rhss
 End
 
 Definition encode_stable_cond_def:
@@ -1535,23 +1546,23 @@ Definition encode_stable_cond_def:
     qxaig  = merge_xaigs qxaig₀ qxaig₁;
     xaig   = pair_xaigs (pair_xaigs wxaig wxaig) wxaig;
     xaig   = ext_xaig (merge_xaigs xaig qxaig);
-    xaig   = encode_xlits_hold xaig «wcnstrs0»
+    xaig   = encode_xlits_hold xaig Wcnstrs0
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ left_lit) wcnstrs);
-    xaig   = encode_xlits_hold xaig «wsafes0»
+    xaig   = encode_xlits_hold xaig Wsafes0
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ left_lit) wsafes);
-    xaig   = encode_xlits_hold xaig «wcnstrs1»
+    xaig   = encode_xlits_hold xaig Wcnstrs1
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_lit) wcnstrs);
-    xaig   = encode_xlits_hold xaig «wsafes1»
+    xaig   = encode_xlits_hold xaig Wsafes1
               (MAP (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_lit) wsafes);
-    xaig   = encode_xlits_hold xaig «wcnstrs2»
+    xaig   = encode_xlits_hold xaig Wcnstrs2
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit) wcnstrs);
-    xaig   = encode_xlits_hold xaig «wsafes2»
+    xaig   = encode_xlits_hold xaig Wsafes2
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit) wsafes);
-    xaig   = encode_xis_next xaig «wnext0»
+    xaig   = encode_xis_next xaig Wnext0
               (ext_lit ∘ left_name_lit ∘ left_lit ∘ left_lit)
               (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_lit)
               wnext wlatches;
-    xaig   = encode_xis_next xaig «wnext1»
+    xaig   = encode_xis_next xaig Wnext1
               (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_lit)
               (ext_lit ∘ left_name_lit ∘ right_lit)
               wnext wlatches;
@@ -1559,24 +1570,24 @@ Definition encode_stable_cond_def:
               (qinterv_live_ll_lr interv wlive);
     live₁ = MAP (MAP (ext_lit ∘ right_name_lit ∘ right_name_lit))
               (qinterv_live_lr_r interv wlive);
-    xaig = encode_lives_hold xaig «lives_hold01» live₀;
-    xaig = encode_lives_hold xaig «lives_hold12» live₁;
-    xaig = encode_signal_imply xaig «lives_imply» (FLAT live₀) (FLAT live₁) ;
+    xaig = encode_lives_hold xaig Lives_hold01 live₀;
+    xaig = encode_lives_hold xaig Lives_hold12 live₁;
+    xaig = encode_signal_imply xaig Lives_imply (FLAT live₀) (FLAT live₁) ;
     lhss = [
-        (Gate (Ext «wcnstrs0»), F);
-        (Gate (Ext «wsafes0»), F);
-        (Gate (Ext «wcnstrs1»), F);
-        (Gate (Ext «wsafes1»), F);
-        (Gate (Ext «wcnstrs2»), F);
-        (Gate (Ext «wsafes2»), F);
-        (Gate (Ext «wnext0»), F);
-        (Gate (Ext «wnext1»), F);
-        (Gate (Ext «lives_hold01»), F);
-        (Gate (Ext «lives_hold12»), F)
+        (Gate (Ext Wcnstrs0), F);
+        (Gate (Ext Wsafes0), F);
+        (Gate (Ext Wcnstrs1), F);
+        (Gate (Ext Wsafes1), F);
+        (Gate (Ext Wcnstrs2), F);
+        (Gate (Ext Wsafes2), F);
+        (Gate (Ext Wnext0), F);
+        (Gate (Ext Wnext1), F);
+        (Gate (Ext Lives_hold01), F);
+        (Gate (Ext Lives_hold12), F)
       ];
-    rhss = [(Gate (Ext «lives_imply»), F)];
+    rhss = [(Gate (Ext Lives_imply), F)];
   in
-    encode_imply xaig «stable» T lhss rhss
+    encode_imply xaig Stable T lhss rhss
 End
 
 (* Proving correctness of the encodings ***************************************)
@@ -2566,7 +2577,7 @@ Definition reset_encoding_is_unsat_def:
        (encode_reset_cond
           mxaig mreset mcnstrs mlatches
           wxaig wreset wcnstrs wlatches klatches)
-       ((Ext «reset»))))
+       ((Ext Reset))))
 End
 
 Theorem xeval_gate_encode_reset_cond:
@@ -2602,7 +2613,7 @@ Definition transition_encoding_is_unsat_def:
        (encode_transition_cond
           mxaig mnext mcnstrs mlatches
           wxaig wnext wcnstrs wlatches klatches)
-       (Ext «transition»)))
+       (Ext Transition)))
 End
 
 Theorem xeval_gate_encode_transition_cond:
@@ -2659,7 +2670,7 @@ Definition safety_encoding_is_unsat_def:
        (encode_safety_cond
           mxaig mcnstrs msafes
           wxaig wcnstrs wsafes)
-       (Ext «safety»)))
+       (Ext Safety)))
 End
 
 Theorem xeval_gate_encode_safety_cond:
@@ -2691,7 +2702,7 @@ Definition base_encoding_is_unsat_def:
      (xeval_gate ss
        (encode_base_cond
           wxaig wreset wcnstrs wsafes wlatches)
-       (Ext «base»)))
+       (Ext Base)))
 End
 
 Theorem xeval_gate_encode_base_cond:
@@ -2720,7 +2731,7 @@ Definition induction_encoding_is_unsat_def:
      (xeval_gate ss
        (encode_induction_cond
           wxaig wnext wcnstrs wsafes wlatches)
-       (Ext «induction»)))
+       (Ext Induction)))
 End
 
 Theorem xeval_gate_encode_induction_cond:
@@ -2756,7 +2767,7 @@ Definition liveness_encoding_is_unsat_def:
        (encode_liveness_cond
           mxaig mcnstrs mlive
           wxaig wnext wcnstrs wsafes wlive wlatches interv)
-       (Ext «liveness»)))
+       (Ext Liveness)))
 End
 
 Theorem xeval_gate_encode_liveness_cond:
@@ -2810,7 +2821,7 @@ Definition decrease_encoding_is_unsat_def:
      (xeval_gate ss
        (encode_decrease_cond
           wxaig wnext wcnstrs wsafes wlive wlatches interv)
-       (Ext «decrease»)))
+       (Ext Decrease)))
 End
 
 Theorem xeval_gate_encode_decrease_cond:
@@ -2848,7 +2859,7 @@ Definition closure_encoding_is_unsat_def:
      (xeval_gate ss
        (encode_closure_cond
           wxaig wnext wcnstrs wsafes wlive wlatches interv)
-       (Ext «closure»)))
+       (Ext Closure)))
 End
 
 Theorem xeval_gate_encode_closure_cond:
@@ -2886,7 +2897,7 @@ Definition stable_encoding_is_unsat_def:
      (xeval_gate ss
        (encode_stable_cond
           wxaig wnext wcnstrs wsafes wlive wlatches interv)
-       (Ext «stable»)))
+       (Ext Stable)))
 End
 
 Theorem xeval_gate_encode_stable_cond:
