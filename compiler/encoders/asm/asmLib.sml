@@ -39,10 +39,7 @@ val asm_rwts =
     mem_load_def, write_mem_word_def, mem_store_def, read_mem_word ``2n``,
     read_mem_word ``1n``, read_mem_word ``4n``, read_mem_word ``8n``,
     write_mem_word ``1n``, write_mem_word ``2n``, write_mem_word ``4n``, write_mem_word ``8n``,
-    mem_op_def, inst_def, jump_to_offset_def, asm_def,
-    prove
-      (“!a b x:'a y. a /\ (a ==> ~b) ==> ((if b then x else y) = y)”, rw [])
-    ]
+    mem_op_def, inst_def, jump_to_offset_def, asm_def, asm_if_lemma]
 
 (* compset support -------------------------------------------------------- *)
 

@@ -16,57 +16,15 @@ val ERR = mk_HOL_ERR "arm8_targetProofLib";
 
 
 
-val word_log2_7 = Q.prove(
-   `!s: word6. word_log2 (((1w: word1) @@ s) : word7) = 6w`,
-   lrw [wordsTheory.word_concat_def, wordsTheory.word_join_def,
-        wordsTheory.word_log2_def, wordsTheory.w2n_w2w]
-   \\ `(w2w s || (64w: (unit + 6) word)) <> 0w` by blastLib.BBLAST_TAC
-   \\ imp_res_tac wordsTheory.LOG2_w2n_lt
-   \\ fs [arithmeticTheory.LESS_MOD, DECIDE ``a < 7n ==> a < 128``]
-   \\ MATCH_MP_TAC bitTheory.LOG2_UNIQUE
-   \\ simp [wordsTheory.w2w_def, wordsTheory.word_or_n2w, wordsTheory.w2n_n2w,
-            (numLib.REDUCE_RULE o Q.SPEC `7`) bitTheory.BITWISE_LT_2EXP,
-            arithmeticTheory.LESS_MOD]
-   \\ simp [Once
-              (CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV bitTheory.BITWISE_def)]
-   )
+val word_log2_7 = arm8_targetProofLemmasTheory.word_log2_7
 
-val DecodeBitMasks_SOME = Q.prove(
-   `!r s. ?wmask: word64 tmask.
-          DecodeBitMasks (1w, s, r, F) = SOME (wmask,tmask)`,
-   simp [arm8Theory.DecodeBitMasks_def, arm8Theory.HighestSetBit_def]
-   \\ rw [word_log2_7]
-   >- blastLib.FULL_BBLAST_TAC
-   \\ EVAL_TAC
-   )
+val DecodeBitMasks_SOME = arm8_targetProofLemmasTheory.DecodeBitMasks_SOME
 
-val ShiftValue0 = Q.prove(
-   `!x. ShiftValue (x, DecodeShift 0w, 0) = x`,
-   rw [arm8Theory.ShiftValue_def, arm8Theory.DecodeShift_def,
-       arm8Theory.num2ShiftType_thm]
-   )
+val ShiftValue0 = arm8_targetProofLemmasTheory.ShiftValue0
 
-val valid_immediate_thm = Q.prove(
-   `!b c.
-        valid_immediate b c =
-        if (b = INL Add) \/ (b = INL Sub) \/
-           (b = INR Less) \/ (b = INR Lower) \/ (b = INR Equal) \/
-           (b = INR NotLess) \/ (b = INR NotLower) \/ (b = INR NotEqual) then
-           ((0xFFFFFFFFFFFFF000w && c) = 0w) \/
-           ((0xFFFFFFFFFFFFF000w && c) <> 0w) /\
-           ((0xFFFFFFFFFF000FFFw && c) = 0w)
-        else
-           ?N imms immr. EncodeBitMask c = SOME (N, imms, immr)`,
-   Cases
-   >| [ Cases_on `x`, Cases_on `y` ]
-   \\ rw [valid_immediate_def]
-   \\ TRY blastLib.BBLAST_PROVE_TAC
-   \\ Cases_on `EncodeBitMask c`
-   \\ simp []
-   \\ METIS_TAC [pairTheory.ABS_PAIR_THM]
-   )
+val valid_immediate_thm = arm8_targetProofLemmasTheory.valid_immediate_thm
 
-val lem1 = asmLib.v2w_BIT_n2w 5
+val lem1 = arm8_targetProofLemmasTheory.lem1
 
 val lem2 =
    blastLib.BBLAST_PROVE
@@ -75,7 +33,7 @@ val lem2 =
 
 val lem3 = bitstringLib.v2w_n2w_CONV ``v2w [T] : word1``
 
-val lem5 = asmLib.v2w_BIT_n2w 6
+val lem5 = arm8_targetProofLemmasTheory.lem5
 
 val lem6 = bitstringLib.v2w_n2w_CONV ``v2w [T; T; T; T; T; T] : word6``
 
@@ -92,11 +50,7 @@ val lem7b =
         c <> w2w ((11 >< 0) c : word12) ==>
         (c = sw2sw ((8 >< 0) c : word9))``
 
-val lem8 = Q.prove(
-   `!w: word64. aligned 2 w ==> ((1 >< 0) w = 0w: word2)`,
-    simp [alignmentTheory.aligned_extract]
-    \\ blastLib.BBLAST_TAC
-    )
+val lem8 = arm8_targetProofLemmasTheory.lem8
 
 val align_prove =
    Drule.EQT_ELIM o
@@ -123,35 +77,14 @@ val lem11 =
         sw2sw ((((20 >< 2) (c + 0xFFFFFFFFFFFFFFFCw): 19 word) @@
                 (0w: word2)): 21 word))``
 
-val lem13 = Q.prove(
-   `!c: word64.
-       (c = w2w ((11 >< 0) (c >>> 3) : word12) << 3) ==>
-       (w2w (v2w [c ' 14; c ' 13; c ' 12; c ' 11; c ' 10; c ' 9; c ' 8;
-                  c ' 7; c ' 6; c ' 5; c ' 4; c ' 3]: word12) << 3 = c)`,
-   blastLib.BBLAST_TAC
-   )
+val lem13 = arm8_targetProofLemmasTheory.lem13
 
-val lem14 = Q.prove(
-   `!s state c: word64 n.
-      target_state_rel arm8_target s state /\ n <> 18 /\ n <> 26 /\ n <> 31 /\
-      n < 32 /\ aligned 3 (c + s.regs n) ==> aligned 3 (c + state.REG (n2w n))`,
-   rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def]
-   )
+val lem14 = arm8_targetProofLemmasTheory.lem14
 
-val lem14b = Q.prove(
-   `!s state c: word64 n.
-      target_state_rel arm8_target s state /\ n <> 18 /\ n <> 31 /\ n <> 26 /\ n < 32 /\
-      aligned 2 (c + s.regs n) ==> aligned 2 (c + state.REG (n2w n))`,
-   rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def]
-   )
+val lem14b = arm8_targetProofLemmasTheory.lem14b
 
 
-val lem14c = Q.prove(
-   `!s state c: word64 n.
-      target_state_rel arm8_target s state /\ n <> 18 /\ n <> 31 /\ n <> 26 /\ n < 32 /\
-      aligned 1 (c + s.regs n) ==> aligned 1 (c + state.REG (n2w n))`,
-   rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def]
-   )
+val lem14c = arm8_targetProofLemmasTheory.lem14c
 
 val lem16 =
    blastLib.BBLAST_PROVE
@@ -178,29 +111,11 @@ val lem16c =
                [c ' 8; c ' 7; c ' 6; c ' 5; c ' 4; c ' 3; c ' 2; c ' 1;
                 c ' 0] : word9) = c)``
 
-val lem17 = Q.prove(
-   `!c: word64.
-      (c = w2w ((11 >< 0) c : word12)) ==>
-      (w2w (v2w [c ' 11; c ' 10; c ' 9; c ' 8; c ' 7; c ' 6; c ' 5; c ' 4;
-                 c ' 3; c ' 2; c ' 1; c ' 0]: word12) = c)`,
-   blastLib.BBLAST_TAC
-   )
+val lem17 = arm8_targetProofLemmasTheory.lem17
 
-val lem18 = Q.prove(
-   `!c: word64.
-       (c = w2w ((11 >< 0) (c >>> 2) : word12) << 2) ==>
-       (w2w (v2w [c ' 13; c ' 12; c ' 11; c ' 10; c ' 9; c ' 8; c ' 7;
-                  c ' 6; c ' 5; c ' 4; c ' 3; c ' 2]: word12) << 2 = c)`,
-   blastLib.BBLAST_TAC
-   )
+val lem18 = arm8_targetProofLemmasTheory.lem18
 
-val lem18b = Q.prove(
-   `!c: word64.
-       (c = w2w ((11 >< 0) (c >>> 1) : word12) << 1) ==>
-       (w2w (v2w [c ' 12; c ' 11; c ' 10; c ' 9; c ' 8; c ' 7;
-                  c ' 6; c ' 5; c ' 4; c ' 3; c ' 2; c ' 1]: word12) << 1 = c)`,
-   blastLib.BBLAST_TAC
-   )
+val lem18b = arm8_targetProofLemmasTheory.lem18b
 
 val lem20 = blastLib.BBLAST_PROVE ``a <> b ==> (a + -1w * b <> 0w: word64)``
 
@@ -243,27 +158,10 @@ val lem26 =
                     c ' 17; c ' 16; c ' 15; c ' 14; c ' 13; c ' 12] : word12)
            << 12 = c)``
 
-val lem27 = Q.prove(
-   `!c: word64 q r.
-     (arm8_enc_mov_imm c = SOME (q,r)) ==>
-     (c =
-      bit_field_insert
-       (w2n (((v2w [r ' 1; r ' 0]: word2) @@ (0w: word4)) : word6) + 15)
-       (w2n (((v2w [r ' 1; r ' 0]: word2) @@ (0w: word4)) : word6))
-         (v2w [q ' 15; q ' 14; q ' 13; q ' 12; q ' 11; q ' 10; q ' 9; q ' 8;
-               q ' 7; q ' 6; q ' 5; q ' 4; q ' 3; q ' 2; q ' 1; q ' 0] : word16)
-       0w)`,
-   lrw [arm8_enc_mov_imm_def]
-   \\ simp []
-   \\ CONV_TAC (DEPTH_CONV bitstringLib.v2w_n2w_CONV)
-   \\ simp []
-   \\ blastLib.FULL_BBLAST_TAC
-   )
+val lem27 = arm8_targetProofLemmasTheory.lem27
 
-val lem28 = metisLib.METIS_PROVE [wordsTheory.WORD_NOT_NOT]
-               ``(~c = n) = (c = ~n:'a word)``
-
-val lem29 = Q.prove( `!i. i < 31 ==> (i MOD 32 <> 31)`, rw [] )
+val lem28 = arm8_targetProofLemmasTheory.lem28
+val lem29 = arm8_targetProofLemmasTheory.lem29
 
 val lem30 = DECIDE ``!a. a < 32n /\ a <> 31 <=> a < 31``
 
@@ -404,46 +302,9 @@ val enc_ok_rwts =
 val arm8_fs = full_simp_tac (srw_ss());
 val arm8_rfs = rev_full_simp_tac (srw_ss());
 
-val bytes_in_memory_thm = Q.prove(
-   `!s state a b c d.
-      target_state_rel arm8_target s state /\
-      bytes_in_memory s.pc [a; b; c; d] s.mem s.mem_domain ==>
-      (state.exception = NoException) /\
-      (state.PSTATE.EL = 0w) /\
-      ~state.SCTLR_EL1.E0E /\
-      ~state.SCTLR_EL1.SA0 /\
-      ~state.TCR_EL1.TBI1 /\
-      ~state.TCR_EL1.TBI0 /\
-      aligned 2 state.PC /\
-      (state.MEM (state.PC + 3w) = d) /\
-      (state.MEM (state.PC + 2w) = c) /\
-      (state.MEM (state.PC + 1w) = b) /\
-      (state.MEM (state.PC) = a) /\
-      state.PC + 3w IN s.mem_domain /\
-      state.PC + 2w IN s.mem_domain /\
-      state.PC + 1w IN s.mem_domain /\
-      state.PC IN s.mem_domain`,
-   rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def,
-       arm8_ok_def, miscTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
-   \\ arm8_rfs []
-   )
+val bytes_in_memory_thm = arm8_targetProofLemmasTheory.bytes_in_memory_thm
 
-val bytes_in_memory_thm2 = Q.prove(
-   `!w s state a b c d.
-      target_state_rel arm8_target s state /\
-      bytes_in_memory (s.pc + w) [a; b; c; d] s.mem s.mem_domain ==>
-      (state.MEM (state.PC + w + 3w) = d) /\
-      (state.MEM (state.PC + w + 2w) = c) /\
-      (state.MEM (state.PC + w + 1w) = b) /\
-      (state.MEM (state.PC + w) = a) /\
-      state.PC + w + 3w IN s.mem_domain /\
-      state.PC + w + 2w IN s.mem_domain /\
-      state.PC + w + 1w IN s.mem_domain /\
-      state.PC + w IN s.mem_domain`,
-   rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def,
-       arm8_ok_def, miscTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
-   \\ arm8_rfs []
-   )
+val bytes_in_memory_thm2 = arm8_targetProofLemmasTheory.bytes_in_memory_thm2
 
 local
    fun is_reg_31 tm =

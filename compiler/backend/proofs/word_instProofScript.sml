@@ -1113,7 +1113,6 @@ Proof
   \\ IF_CASES_TAC \\ gvs []
   >- (
     IF_CASES_TAC \\ gvs []
-    >- simp[state_component_equality]
     \\ imp_res_tac evaluate_clock
     \\ gvs [dec_clock_def]
     \\ first_x_assum irule

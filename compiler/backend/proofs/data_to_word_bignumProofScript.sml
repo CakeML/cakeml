@@ -520,7 +520,7 @@ Theorem evaluate_AddNumSize:
       get_var src s.locals = SOME (Number i) ==>
       evaluate (AddNumSize c src,set_var 1 (Word w) t) =
         (NONE,set_var 1 (Word (w +
-           n2w (4 * LENGTH ((SND (i2mw i):'a word list))))) t)
+           n2w (2 * LENGTH ((SND (i2mw i):'a word list))))) t)
 Proof
   fs [AddNumSize_def] \\ rpt strip_tac
   \\ imp_res_tac state_rel_get_var_IMP
@@ -621,7 +621,7 @@ Proof
   THEN1
    (fs [EVAL ``i2mw 0``] \\ fs [EVAL ``small_int (:α) 0``]
     \\ fs [EVAL ``mc_header (F,[])``,dimword_def]
-    \\ `0n < 2 ** dimindex (:α) DIV 8` by fs [good_dimindex_def] \\ fs []
+    \\ `0n < 2 ** dimindex (:α) DIV 4` by fs [good_dimindex_def] \\ fs []
     \\ fs [AnyHeader_def]
     \\ fs [eq_eval,list_Seq_def,wordSemTheory.set_store_def,wordSemTheory.set_var_def]
     \\ fs [wordSemTheory.state_component_equality]
@@ -671,7 +671,7 @@ Proof
   \\ strip_tac \\ fs []
   \\ IF_CASES_TAC \\ fs []
   THEN1
-   (`i2mw i = (F,[w >>> 2])` by
+   (`i2mw i = (F,[w >>> 1])` by
       (fs [multiwordTheory.i2mw_def]
        \\ Cases_on `i` \\ fs [intLib.COOPER_PROVE ``Num (ABS (&n)) = n``]
        \\ once_rewrite_tac [multiwordTheory.n2mw_def] \\ fs []
@@ -693,7 +693,7 @@ Proof
     \\ rw [] \\ fs [] \\ TRY (eq_tac \\ rw [] \\ fs [])
     \\ EVAL_TAC \\ fs [n2w_mod])
   THEN1
-   (`i2mw i = (T,[0w - (w >> 2)])` by
+   (`i2mw i = (T,[0w - (w >> 1)])` by
       (fs [multiwordTheory.i2mw_def]
        \\ Cases_on `i` \\ fs [intLib.COOPER_PROVE ``Num (ABS (-&n)) = n``]
        \\ once_rewrite_tac [multiwordTheory.n2mw_def] \\ fs []
@@ -703,17 +703,17 @@ Proof
        \\ fs [DIV_EQ_X]
        \\ imp_res_tac memory_rel_Number_IMP \\ fs []
        \\ fs [small_int_def,Smallnum_def]
-       \\ `-n2w (4 * n) = i2w (- & (4 * n))` by
+       \\ `-n2w (2 * n) = i2w (- & (2 * n))` by
             (fs [integer_wordTheory.i2w_def] \\ NO_TAC) \\ fs []
-       \\ qspecl_then [`2`,`-&(4 * n)`] mp_tac (GSYM integer_wordTheory.i2w_DIV)
+       \\ qspecl_then [`1`,`-&(2 * n)`] mp_tac (GSYM integer_wordTheory.i2w_DIV)
        \\ impl_tac THEN1
         (fs [wordsTheory.INT_MIN_def]
          \\ fs [EXP_SUB,X_LE_DIV,dimword_def]
          \\ rfs [good_dimindex_def])
        \\ fs [] \\ strip_tac
-       \\ `-&(4 * n) / 4:int = - & n` by
+       \\ `-&(2 * n) / 2:int = - & n` by
         (rewrite_tac [MATCH_MP (GSYM integerTheory.INT_DIV_NEG)
-                         (intLib.COOPER_PROVE ``0 <> 4i``)]
+                         (intLib.COOPER_PROVE ``0 <> 2i``)]
          \\ fs [integerTheory.INT_DIV_CALCULATE]
          \\ fs [integerTheory.INT_EQ_NEG]
          \\ match_mp_tac integerTheory.INT_DIV_UNIQUE
@@ -995,7 +995,7 @@ QED
 
 Definition Arith_code_def:
   Arith_code index =
-    Seq (Assign 6 (Const (n2w (4 * index))))
+    Seq (Assign 6 (Const (n2w (2 * index))))
       (Call NONE (SOME AnyArith_location) [0; 2; 4; 6] NONE)
 End
 
@@ -1016,9 +1016,9 @@ Theorem Replicate_code_thm:
       get_var a1 r = SOME (Loc l1 l2) /\
       get_var a2 r = SOME (Word a) /\
       get_var a3 r = SOME v /\
-      get_var a4 r = SOME (Word (n2w (4 * n))) /\
+      get_var a4 r = SOME (Word (n2w (2 * n))) /\
       get_var a5 (r:('a,'c,'ffi) wordSem$state) = SOME ret_val /\
-      4 * n < dimword (:'a) /\
+      2 * n < dimword (:'a) /\
       n < r.clock ==>
       ?m.
         evaluate (Call NONE (SOME Replicate_location) [a1;a2;a3;a4;a5] NONE,r) =
@@ -1062,9 +1062,9 @@ Theorem Replicate_code_alt_thm:
         (r:('a,'c,'ffi) wordSem$state).memory r.mdomain = SOME m1 /\
       get_var a2 r = SOME (Word a) /\
       get_var a3 r = SOME v /\
-      get_var a4 r = SOME (Word (n2w (4 * n))) /\
+      get_var a4 r = SOME (Word (n2w (2 * n))) /\
       get_var 0 (r:('a,'c,'ffi) wordSem$state) = SOME ret_val /\
-      4 * n < dimword (:'a) /\
+      2 * n < dimword (:'a) /\
       n < r.clock ==>
       ?max.
         evaluate (Call (SOME ([0],(fromList [()],LN),Skip,l1,l2))
@@ -1157,7 +1157,7 @@ Theorem AnyArith_thm:
      state_rel c l1 l2 ^s (t:('a,'c,'ffi) wordSem$state) NONE locs /\
      get_vars [0;1;2] s.locals = SOME [Number i; Number j; Number (& op_index)] /\
      t.clock = MustTerminate_limit (:'a) - 2 /\ t.termdep <> 0 /\
-     lookup 6 t.locals = SOME (Word (n2w (4 * op_index))) /\
+     lookup 6 t.locals = SOME (Word (n2w (2 * op_index))) /\
      int_op op_index i j = SOME v ==>
      ?q r new_c.
        evaluate (AnyArith_code c,t) = (q,r) /\
@@ -1222,26 +1222,35 @@ Proof
   \\ rpt_drule AllocVar_thm
   \\ qabbrev_tac `il = LENGTH ((SND (i2mw i)):'a word list)`
   \\ qabbrev_tac `jl = LENGTH ((SND (i2mw j)):'a word list)`
-  \\ `w2n w1 DIV 4 + 1 = il + jl + 2` by
+  \\ `w2n w1 DIV 2 + 1 = il + jl + 2` by
    (fs [word_add_n2w]
-    \\ qsuff_tac `4 * il + (4 * jl) + 4 < dimword (:'a)`
+    \\ qsuff_tac `2 * il + (2 * jl) + 2 < dimword (:'a)`
     THEN1
      (qunabbrev_tac `w1` \\ fs []
-      \\ qspecl_then [`4`,`il + jl + 1`] mp_tac MULT_DIV \\ fs [])
+      \\ qspecl_then [`2`,`il + jl + 1`] mp_tac MULT_DIV \\ fs [])
     \\ fs [get_vars_SOME_IFF_data]
     \\ imp_res_tac state_rel_IMP_num_size_limit \\ rfs []
     \\ fs [state_rel_def,good_dimindex_def] \\ rfs [dimword_def] \\ NO_TAC)
   \\ strip_tac \\ Cases_on `res = SOME NotEnoughSpace` \\ fs []
   THEN1
    (fs [state_rel_def]
-    \\ `w2n w1 DIV 4 = il + jl + 1` by decide_tac \\ fs []
+    \\ `w2n w1 DIV 2 = il + jl + 1` by decide_tac \\ fs []
     \\ strip_tac \\ fs []
     \\ qsuff_tac `bignum_size s.limits.arch_64_bit i = il + 1 /\
                   bignum_size s.limits.arch_64_bit j = jl + 1`
-    THEN1 (fs [])
+    THEN1 (fs [arithmeticTheory.EXP] \\ rw [] \\ fs []
+           \\ first_x_assum match_mp_tac \\ fs [DIV_EQ_X])
     \\ fs [bignum_size_def,Abbr`il`,Abbr`jl`,multiwordTheory.i2mw_def]
     \\ fs [limits_inv_def,bignum_digits_LENGTH_n2mw])
-  \\ qpat_x_assum `w2n w1 DIV 4 + 1 = _` assume_tac
+  \\ qpat_x_assum `w2n w1 DIV 2 + 1 = _` assume_tac
+  \\ `il + (jl + 1) < 2 ** c.len_size` by
+     (qpat_x_assum `w2n w1 < 2 ** SUC c.len_size` mp_tac
+      \\ qpat_x_assum `w2n w1 DIV 2 + 1 = il + (jl + 2)` mp_tac
+      \\ rpt (pop_assum kall_tac)
+      \\ rpt strip_tac
+      \\ `il + (jl + 1) = w2n (w1:'a word) DIV 2` by decide_tac
+      \\ asm_rewrite_tac []
+      \\ fs [DIV_LT_X, arithmeticTheory.EXP])
   \\ fs [] \\ fs []
   \\ qabbrev_tac `s0 = (s with
           <|locals := fromList [Number i; Number j; Number (&op_index)];
@@ -1330,7 +1339,7 @@ Proof
   \\ once_rewrite_tac [eq_eval]
   \\ qpat_abbrev_tac `m5 = (_ =+ _) _`
   \\ fs [lookup_insert]
-  \\ `lookup 6 s9.locals = SOME (Word (n2w (4 * op_index)))` by
+  \\ `lookup 6 s9.locals = SOME (Word (n2w (2 * op_index)))` by
    (`lookup 6 s9.locals = lookup 6 s1.locals` by
      (qunabbrev_tac `s9` \\ fs [lookup_insert,wordSemTheory.set_store_def])
     \\ asm_rewrite_tac []
@@ -1426,7 +1435,8 @@ Proof
   \\ simp_tac (srw_ss())[APPEND,EVERY_DEF,EVAL ``domain (fromList [()]) = ∅``,
                          EVAL “cut_envs (fromList [()],LN) (insert 0 (Loc l1 l2) LN)”]
   \\ strip_tac
-  \\ `il + (jl + 1) < dimword (:α) DIV 8` by fs []
+  \\ `il + (jl + 1) < dimword (:α) DIV 8` by
+        (imp_res_tac LESS_TRANS \\ fs [])
   \\ IF_CASES_TAC THEN1
    (sg `F`
     \\ unabbrev_all_tac \\ fs [wordSemTheory.set_store_def]
@@ -1924,8 +1934,8 @@ Proof
    (qunabbrev_tac `if_stmt` \\ fs [eq_eval]
     \\ IF_CASES_TAC THEN1
      (fs [word_sh_def,lookup_insert,asmTheory.word_cmp_def]
-      \\ `v1 >>> (dimindex (:α) - 3) = 0w /\
-          v1 << 2 = Smallnum v` by
+      \\ `v1 >>> (dimindex (:α) - 2) = 0w /\
+          v1 << 1 = Smallnum v` by
        (ntac 2 (pop_assum mp_tac)
         \\ qpat_x_assum `good_dimindex (:'a)` mp_tac
         \\ rpt (pop_assum kall_tac)
@@ -1949,8 +1959,8 @@ Proof
       \\ fs [wordSemTheory.flush_state_def])
     \\ IF_CASES_TAC THEN1
      (fs [word_sh_def,lookup_insert,asmTheory.word_cmp_def]
-      \\ `(v1 + -1w) >>> (dimindex (:α) - 3) = 0w /\
-          -1w * v1 << 2 = Smallnum v` by
+      \\ `(v1 + -1w) >>> (dimindex (:α) - 2) = 0w /\
+          -1w * v1 << 1 = Smallnum v` by
        (ntac 3 (pop_assum mp_tac)
         \\ qpat_x_assum `good_dimindex (:'a)` mp_tac
         \\ rpt (pop_assum kall_tac)
@@ -2254,7 +2264,7 @@ Proof
        t4 =
         t with
         <|locals :=
-            insert 6 (Word (n2w (4 * index)))
+            insert 6 (Word (n2w (2 * index)))
               (insert 4 x2 (insert 2 x1 (insert 0 (Loc n l) LN)));
           locals_size := lookup AnyArith_location t.stack_size;
           stack := StackFrame t.locals_size (toAList y1) l' NONE::t.stack;
@@ -2288,7 +2298,7 @@ Proof
   >- fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
   \\ strip_tac
   \\ `index < 7` by (fs [int_op_def] \\ every_case_tac \\ fs [] \\ NO_TAC)
-  \\ `index < dimword (:'a) DIV 16` by (
+  \\ `index < dimword (:'a) DIV 16 /\ index < dimword (:'a) DIV 8` by (
       `good_dimindex (:'a)` by full_simp_tac std_ss [state_rel_def]
        \\ ntac 2 (pop_assum mp_tac) \\ rpt (pop_assum kall_tac)
        \\ rw [good_dimindex_def,dimword_def] \\ fs [])

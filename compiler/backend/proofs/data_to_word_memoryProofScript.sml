@@ -152,7 +152,7 @@ Definition Bignum_def:
 End
 
 Definition BlockNil_def:
-  BlockNil n = n2w n << 4 + 2w
+  BlockNil n = n2w n << 1
 End
 
 Definition Word64Rep_def:
@@ -233,7 +233,7 @@ Inductive v_inv_ck:
     v_inv_ck ck conf (RefPtr F n) refs (x,f,tf,heap:'a ml_heap)
 [~BlockNil:]
   vs = [] ∧
-  n < dimword(:'a) DIV 16 ∧
+  n < dimword(:'a) DIV 4 ∧
   ts = 0 ⇒
     v_inv_ck ck conf (Block ts n vs) refs
                (Data (Word (BlockNil n)),f,tf,heap:'a ml_heap)
@@ -303,7 +303,7 @@ Theorem v_inv_def:
   (v_inv conf (Block ts n vs) refs (x,f,tf,heap) <=>
      if vs = []
      then (x = Data (Word (BlockNil n))) /\
-          n < dimword(:'a) DIV 16 /\
+          n < dimword(:'a) DIV 4 /\
           ts = 0
      else
        ?ptr xs.
@@ -3384,7 +3384,7 @@ QED
 
 Theorem cons_thm_EMPTY:
    abs_ml_inv conf stack refs (roots,heap:'a ml_heap,be,a,sp,sp1,gens) limit ts /\
-    tag < dimword (:'a) DIV 16 ==>
+    tag < dimword (:'a) DIV 4 ==>
     abs_ml_inv conf ((Block 0 tag [])::stack) refs
       (Data (Word (BlockNil tag))::roots,heap,be,a,sp,sp1,gens) limit ts
 Proof
@@ -7177,7 +7177,7 @@ Proof
 QED
 
 Theorem Smallnum_i2w:
-   Smallnum i = i2w (4 * i)
+   Smallnum i = i2w (2 * i)
 Proof
   fs [Smallnum_def,integer_wordTheory.i2w_def]
   \\ Cases_on `i` \\ fs []
@@ -7188,7 +7188,7 @@ QED
 
 Theorem small_int_IMP_MIN_MAX:
    good_dimindex (:'a) /\ small_int (:'a) i ==>
-    INT_MIN (:'a) <= 4 * i ∧ 4 * i <= INT_MAX (:'a)
+    INT_MIN (:'a) <= 2 * i ∧ 2 * i <= INT_MAX (:'a)
 Proof
   fs [good_dimindex_def] \\ rw []
   \\ rfs [small_int_def,dimword_def,
@@ -7829,10 +7829,10 @@ Theorem word_ml_inv_Unit:
    word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs ws /\
     good_dimindex (:'a) ==>
     word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs
-      ((Unit,Word (2w:'a word))::ws)
+      ((Unit,Word (0w:'a word))::ws)
 Proof
   fs [word_ml_inv_def,PULL_EXISTS] \\ rw []
-  \\ qexists_tac `Data (Word 2w)`
+  \\ qexists_tac `Data (Word 0w)`
   \\ qexists_tac `hs` \\ fs [word_addr_def]
   \\ fs [dataSemTheory.Unit_def,EVAL ``tuple_tag``]
   \\ old_drule (GEN_ALL cons_thm_EMPTY)
@@ -7843,7 +7843,7 @@ QED
 
 Theorem memory_rel_Unit:
    memory_rel c be ts refs sp st m dm xs /\ good_dimindex (:'a) ==>
-   memory_rel c be ts refs sp st m dm ((Unit,Word (2w:'a word))::xs)
+   memory_rel c be ts refs sp st m dm ((Unit,Word (0w:'a word))::xs)
 Proof
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
   \\ match_mp_tac word_ml_inv_Unit \\ fs []
@@ -7874,7 +7874,7 @@ End
 Definition get_real_offset_def:
   get_real_offset (w:'a word) =
     if dimindex (:'a) = 32
-    then SOME (w + bytes_in_word) else SOME (w << 1 + bytes_in_word)
+    then SOME (w << 1 + bytes_in_word) else SOME (w << 2 + bytes_in_word)
 End
 
 Definition get_real_simple_addr_def:
@@ -7962,7 +7962,7 @@ QED
 
 Theorem get_real_offset_thm:
    good_dimindex (:'a) ==>
-    get_real_offset (n2w (4 * index)) =
+    get_real_offset (n2w (2 * index)) =
       SOME (bytes_in_word + n2w index * bytes_in_word:'a word)
 Proof
   fs [good_dimindex_def,dimword_def] \\ rw []
@@ -7988,11 +7988,11 @@ QED
 
 Theorem BlockNil_and_lemma:
    good_dimindex (:'a) ==>
-    (-2w && 16w * tag + 2w) = 16w * tag + 2w:'a word
+    (-2w && 2w * tag) = 2w * tag:'a word
 Proof
-  `!w:word64. (-2w && 16w * w + 2w) = 16w * w + 2w` by blastLib.BBLAST_TAC
-  \\ `!w:word32. (-2w && 16w * w + 2w) = 16w * w + 2w` by blastLib.BBLAST_TAC
-  \\ fs [GSYM word_mul_n2w,GSYM word_add_n2w]
+  `!w:word64. (-2w && 2w * w) = 2w * w` by blastLib.BBLAST_TAC
+  \\ `!w:word32. (-2w && 2w * w) = 2w * w` by blastLib.BBLAST_TAC
+  \\ fs [GSYM word_mul_n2w]
   \\ rfs [dimword_def,FORALL_WORD]
   \\ Cases_on `tag` \\ fs [good_dimindex_def] \\ rw []
   \\ fs [word_mul_n2w,word_add_n2w,word_2comp_n2w,word_and_n2w]
@@ -8000,10 +8000,10 @@ Proof
 QED
 
 Theorem word_ml_inv_num_lemma:
-   good_dimindex (:'a) ==> (-2w && 4w * v) = 4w * v:'a word
+   good_dimindex (:'a) ==> (-2w && 2w * v) = 2w * v:'a word
 Proof
-  `!w:word64. (-2w && 4w * w) = 4w * w` by blastLib.BBLAST_TAC
-  \\ `!w:word32. (-2w && 4w * w) = 4w * w` by blastLib.BBLAST_TAC
+  `!w:word64. (-2w && 2w * w) = 2w * w` by blastLib.BBLAST_TAC
+  \\ `!w:word32. (-2w && 2w * w) = 2w * w` by blastLib.BBLAST_TAC
   \\ rfs [dimword_def,FORALL_WORD]
   \\ fs [good_dimindex_def] \\ rw []
   \\ Cases_on `v` \\ fs [word_mul_n2w,word_and_n2w,word_2comp_n2w]
@@ -8015,7 +8015,7 @@ Theorem word_ml_inv_num:
     good_dimindex (:'a) /\
     small_enough_int (&n) ==>
     word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c s.refs
-      ((Number (&n),Word (n2w (4 * n):'a word))::ws)
+      ((Number (&n),Word (n2w (2 * n):'a word))::ws)
 Proof
   fs [word_ml_inv_def,PULL_EXISTS] \\ rw []
   \\ qexists_tac `Data (Word (Smallnum (&n)))`
@@ -8033,10 +8033,10 @@ Theorem word_ml_inv_zero =
   word_ml_inv_num |> Q.INST [`n`|->`0`] |> SIMP_RULE (srw_ss()) []
 
 Theorem word_ml_inv_neg_num_lemma:
-   good_dimindex (:'a) ==> (-2w && -4w * v) = -4w * v:'a word
+   good_dimindex (:'a) ==> (-2w && -2w * v) = -2w * v:'a word
 Proof
-  `!w:word64. (-2w && -4w * w) = -4w * w` by blastLib.BBLAST_TAC
-  \\ `!w:word32. (-2w && -4w * w) = -4w * w` by blastLib.BBLAST_TAC
+  `!w:word64. (-2w && -2w * w) = -2w * w` by blastLib.BBLAST_TAC
+  \\ `!w:word32. (-2w && -2w * w) = -2w * w` by blastLib.BBLAST_TAC
   \\ rfs [dimword_def,FORALL_WORD]
   \\ fs [good_dimindex_def] \\ rw []
   \\ Cases_on `v` \\ fs [word_mul_n2w,word_and_n2w,word_2comp_n2w]
@@ -8048,7 +8048,7 @@ Theorem word_ml_inv_neg_num:
     good_dimindex (:'a) /\
     small_enough_int (-&n) /\ n <> 0 ==>
     word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c s.refs
-      ((Number (-&n),Word (-n2w (4 * n):'a word))::ws)
+      ((Number (-&n),Word (-n2w (2 * n):'a word))::ws)
 Proof
   fs [word_ml_inv_def,PULL_EXISTS] \\ rw []
   \\ qexists_tac `Data (Word (Smallnum (-&n)))`
@@ -8157,7 +8157,7 @@ Proof
   \\ fs [heap_in_memory_store_def]
   \\ rpt_drule get_real_addr_get_addr \\ fs []
   \\ disch_then kall_tac
-  \\ `word_addr c v' = Word (n2w (4 * index))` by
+  \\ `word_addr c v' = Word (n2w (2 * index))` by
    (imp_res_tac heap_lookup_SPLIT
     \\ qpat_x_assum `abs_ml_inv _ _ _ _ _ _` kall_tac
     \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,BlockRep_def]
@@ -8261,7 +8261,7 @@ Proof
   \\ fs [heap_in_memory_store_def]
   \\ rpt_drule get_real_addr_get_addr \\ fs []
   \\ disch_then kall_tac
-  \\ `word_addr c v' = Word (n2w (4 * index))` by
+  \\ `word_addr c v' = Word (n2w (2 * index))` by
    (qpat_x_assum `abs_ml_inv _ _ _ _ _ _` kall_tac
     \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,BlockRep_def]
     \\ clean_tac
@@ -8462,7 +8462,7 @@ Proof
   \\ fs [heap_in_memory_store_def]
   \\ rpt_drule get_real_addr_get_addr \\ fs []
   \\ disch_then kall_tac
-  \\ `word_addr c v'' = Word (n2w (4 * index)) /\ n = LENGTH l` by
+  \\ `word_addr c v'' = Word (n2w (2 * index)) /\ n = LENGTH l` by
    (qpat_x_assum `abs_ml_inv _ _ _ _ _ _` kall_tac
     \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,BlockRep_def]
     \\ clean_tac
@@ -8540,7 +8540,7 @@ Proof
   \\ fs [heap_in_memory_store_def]
   \\ rpt_drule get_real_addr_get_addr \\ fs []
   \\ disch_then kall_tac
-  \\ `word_addr c v'' = Word (n2w (4 * LENGTH l))` by
+  \\ `word_addr c v'' = Word (n2w (2 * LENGTH l))` by
      (qpat_x_assum `abs_ml_inv _ _ _ _ _ _` kall_tac
       \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,BlockRep_def]
       \\ clean_tac
@@ -9758,7 +9758,7 @@ QED
 
 Theorem memory_rel_Cons_empty:
    memory_rel c be ts refs sp st m (dm:'a word set) vars /\
-    tag < dimword (:α) DIV 16 /\ good_dimindex (:'a) ==>
+    tag < dimword (:α) DIV 4 /\ good_dimindex (:'a) ==>
     memory_rel c be ts refs sp st m dm
       ((Block 0 tag [],Word (BlockNil tag))::vars)
 Proof
@@ -10779,8 +10779,8 @@ Theorem memory_rel_Block_IMP:
     ?w. v = Word w /\
         (* ASK: If the Block has no vals then it's timestamp is 0 *)
         if vals = [] then
-          w = n2w tag * 16w + 2w /\ ~(w ' 0) /\
-          tag < dimword (:'a) DIV 16 /\ ts' = 0
+          w = n2w (2 * tag) /\ ~(w ' 0) /\
+          tag < dimword (:'a) DIV 4 /\ ts' = 0
         else
           ?a x.
             w ' 0 /\ ~(word_bit 3 x) /\ ~(word_bit 2 x) /\
@@ -11036,18 +11036,38 @@ Proof
         MATCH_MP MULT_DIV (DECIDE ``0<2n``),ODD_MULT] \\ fs []
 QED
 
+Theorem encode_header_tag_mask_lsr:
+   encode_header c (4 * tag) n = SOME (w:'a word) /\ good_dimindex (:'a) ==>
+    tag < dimword (:α) DIV 16 /\
+    (w && tag_mask c) >>> 3 = n2w (2 * tag)
+Proof
+  strip_tac \\ conj_asm1_tac
+  THEN1 fs [encode_header_def,X_LT_DIV]
+  \\ `(w && tag_mask c) = n2w (16 * tag)` by
+   (fs [encode_header_def]
+    \\ old_drule (GEN_ALL make_header_tag_mask)
+    \\ strip_tac
+    \\ qpat_x_assum `make_header _ _ _ = _` (fn th => once_rewrite_tac [GSYM th])
+    \\ once_rewrite_tac [WORD_AND_COMM]
+    \\ asm_rewrite_tac [] \\ fs [])
+  \\ `16 * tag < dimword (:'a)` by fs [X_LT_DIV]
+  \\ asm_rewrite_tac []
+  \\ rewrite_tac [GSYM w2n_11,w2n_lsr]
+  \\ fs [] \\ fs [DIV_EQ_X]
+QED
+
 Theorem memory_rel_tag_limit:
    memory_rel c be ts refs sp st m dm ((Block ts' tag l,(w:'a word_loc))::rest) /\
     good_dimindex (:'a) ==>
-    tag < dimword (:'a) DIV 16
+    tag < dimword (:'a) DIV 4
 Proof
   strip_tac \\ old_drule memory_rel_Block_IMP \\ fs [] \\ rw []
   \\ every_case_tac \\ fs []
-  \\ imp_res_tac encode_header_tag_mask \\ fs []
+  \\ imp_res_tac encode_header_tag_mask \\ fs [X_LT_DIV]
 QED
 
-Theorem LESS_DIV_16_IMP[local]:
-  n < k DIV 16 ==> 16 * n + 2 < k:num
+Theorem LESS_DIV_4_IMP[local]:
+  n < k DIV 4 ==> 2 * n < k:num
 Proof
   fs [X_LT_DIV]
 QED
@@ -11060,14 +11080,14 @@ QED
 
 Theorem memory_rel_test_nil_eq:
    memory_rel c be ts refs sp st m dm ((Block ts' tag l,w:'a word_loc)::rest) /\
-    n < dimword (:'a) DIV 16 /\ good_dimindex (:'a) ==>
-    ?v. w = Word v /\ (v = n2w (16 * n + 2) <=> tag = n /\ l = [])
+    n < dimword (:'a) DIV 4 /\ good_dimindex (:'a) ==>
+    ?v. w = Word v /\ (v = n2w (2 * n) <=> tag = n /\ l = [])
 Proof
   strip_tac \\ old_drule memory_rel_Block_IMP \\ fs [] \\ rw []
   \\ reverse every_case_tac \\ fs []
   THEN1 (CCONTR_TAC \\ rw [] \\ fs [word_index,bitTheory.ADD_BIT0,MULT_BIT0])
   \\ fs [word_mul_n2w,word_add_n2w]
-  \\ imp_res_tac LESS_DIV_16_IMP \\ fs []
+  \\ imp_res_tac LESS_DIV_4_IMP \\ fs []
 QED
 
 Theorem memory_rel_test_none_eq:
@@ -12366,7 +12386,7 @@ Proof
 QED
 
 Theorem Smallnum_bits:
-   (1w && Smallnum i) = 0w /\ (2w && Smallnum i) = 0w
+   (1w && Smallnum i) = 0w
 Proof
   Cases_on `i`
   \\ srw_tac [wordsLib.WORD_MUL_LSL_ss]
@@ -12566,10 +12586,10 @@ Proof
 QED
 
 Theorem IMP_memory_rel_Number_num3:
-   good_dimindex (:'a) /\ n < 2 ** (dimindex (:'a) - 3) /\
+   good_dimindex (:'a) /\ n < 2 ** (dimindex (:'a) - 2) /\
     memory_rel c be ts refs sp st m dm vars ==>
     memory_rel c be ts refs sp st m dm
-     ((Number (&n),Word ((n2w n << 2):'a word))::vars)
+     ((Number (&n),Word ((n2w n << 1):'a word))::vars)
 Proof
   strip_tac \\ mp_tac (IMP_memory_rel_Number |> Q.INST [`i`|->`&n`]) \\ fs []
   \\ fs [Smallnum_def,WORD_MUL_LSL,word_mul_n2w]
@@ -12582,7 +12602,7 @@ Theorem IMP_memory_rel_Number_num:
    good_dimindex (:'a) /\ n < 2 ** (dimindex (:'a) - 4) /\
     memory_rel c be ts refs sp st m dm vars ==>
     memory_rel c be ts refs sp st m dm
-     ((Number (&n),Word ((n2w n << 2):'a word))::vars)
+     ((Number (&n),Word ((n2w n << 1):'a word))::vars)
 Proof
   strip_tac \\ mp_tac (IMP_memory_rel_Number |> Q.INST [`i`|->`&n`]) \\ fs []
   \\ fs [Smallnum_def,WORD_MUL_LSL,word_mul_n2w]
@@ -12719,7 +12739,7 @@ QED
 
 Theorem memory_rel_Boolv_T:
    memory_rel c be ts refs sp st m dm vars ∧ good_dimindex (:'a)
-   ⇒ memory_rel c be ts refs sp st m dm ((Boolv T,Word (18w:'a word))::vars)
+   ⇒ memory_rel c be ts refs sp st m dm ((Boolv T,Word (2w:'a word))::vars)
 Proof
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [word_ml_inv_def,PULL_EXISTS,EVAL ``Boolv F``,EVAL ``Boolv T``]
@@ -12732,7 +12752,7 @@ QED
 
 Theorem memory_rel_Boolv_F:
    memory_rel c be ts refs sp st m dm vars ∧ good_dimindex (:'a)
-   ⇒ memory_rel c be ts refs sp st m dm ((Boolv F,Word (2w:'a word))::vars)
+   ⇒ memory_rel c be ts refs sp st m dm ((Boolv F,Word (0w:'a word))::vars)
 Proof
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [word_ml_inv_def,PULL_EXISTS,EVAL ``Boolv F``,EVAL ``Boolv T``]
@@ -12745,7 +12765,7 @@ QED
 
 Theorem memory_rel_Boolv:
   memory_rel c be ts refs sp st m dm vars ∧ good_dimindex (:α) ∧
-  (b ⇒ v = Word 18w) ∧ (~b ⇒ v = Word (2w:'a word)) ⇒
+  (b ⇒ v = Word 2w) ∧ (~b ⇒ v = Word (0w:'a word)) ⇒
   memory_rel c be ts refs sp st m dm ((Boolv b,v)::vars)
 Proof
   rw [] \\ Cases_on ‘b’ \\ gvs []
@@ -12764,85 +12784,9 @@ Proof
         heap_length_def,el_length_def] \\ decide_tac
 QED
 
-val lt8 =
-  DECIDE ``(n < 8n) = (n = 0 \/ n = 1 \/ n = 2 \/ n = 3 \/
-                       n = 4 \/ n = 5 \/ n = 6 \/ n = 7)``
-
-Theorem Smallnum_test[local]:
-  ((Smallnum i && -1w ≪ (dimindex (:'a) − 2)) = 0w:'a word) /\
-    good_dimindex (:'a) /\ small_int (:'a) i ==>
-    ~(i < 0) /\ i < 2 ** (dimindex (:'a) - 4)
-Proof
-  Tactical.REVERSE (Cases_on `i`)
-  \\ srw_tac [wordsLib.WORD_MUL_LSL_ss]
-      [Smallnum_def, small_int_def, good_dimindex_def,
-       wordsTheory.dimword_def, GSYM wordsTheory.word_mul_n2w]
-  >- (Cases_on `n <= 2n ** dimindex(:'a) DIV 8`
-      \\ simp [wordsTheory.word_2comp_n2w, wordsTheory.dimword_def]
-      \\ Cases_on `dimindex(:'a) = 32`
-      \\ fs []
-      >- (`3758096384 <= 4294967296 - n /\ 4294967296 - n < 4294967296`
-          by decide_tac
-          \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
-          \\ qabbrev_tac `x = 4294967296 - n`
-          \\ `BITS 31 29 x = 7`
-          by (imp_res_tac
-                (bitTheory.BITS_ZEROL |> Q.SPEC `31` |> numLib.REDUCE_RULE)
-              \\ fs [bitTheory.BIT_COMP_THM3
-                     |> Q.SPECL [`31`, `28`, `0`] |> numLib.REDUCE_RULE |> GSYM]
-              \\ assume_tac
-                   (bitTheory.BITSLT_THM2
-                    |> Q.SPECL [`28`, `0`, `x`] |> numLib.REDUCE_RULE)
-              \\ assume_tac
-                   (bitTheory.BITSLT_THM
-                    |> Q.SPECL [`31`, `29`, `x`] |> numLib.REDUCE_RULE)
-              \\ fs [lt8]
-             )
-          \\ simp [bitTheory.BIT_OF_BITS_THM
-                   |> Q.SPECL [`0`, `31`, `29`] |> numLib.REDUCE_RULE |> GSYM]
-         )
-      \\ Cases_on `dimindex(:'a) = 64`
-      \\ fs []
-      \\ `16140901064495857664 <= 18446744073709551616 - n /\
-          18446744073709551616 - n < 18446744073709551616`
-      by decide_tac
-      \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
-      \\ qabbrev_tac `x = 18446744073709551616 - n`
-      \\ `BITS 63 61 x = 7`
-      by (imp_res_tac
-            (bitTheory.BITS_ZEROL |> Q.SPEC `63` |> numLib.REDUCE_RULE)
-          \\ fs [bitTheory.BIT_COMP_THM3
-                 |> Q.SPECL [`63`, `60`, `0`] |> numLib.REDUCE_RULE |> GSYM]
-          \\ assume_tac
-               (bitTheory.BITSLT_THM2
-                |> Q.SPECL [`60`, `0`, `x`] |> numLib.REDUCE_RULE)
-          \\ assume_tac
-               (bitTheory.BITSLT_THM
-                |> Q.SPECL [`63`, `60`, `x`] |> numLib.REDUCE_RULE)
-          \\ fs [lt8]
-         )
-      \\ simp [bitTheory.BIT_OF_BITS_THM
-               |> Q.SPECL [`0`, `63`, `61`] |> numLib.REDUCE_RULE |> GSYM]
-     )
-  \\ full_simp_tac (srw_ss()++wordsLib.WORD_BIT_EQ_ss) [wordsTheory.word_index]
-  \\ rfs [bitTheory.BIT_def, bitTheory.NOT_BITS2]
-  >- (imp_res_tac
-        (bitTheory.BITS_ZEROL |> Q.SPEC `28` |> numLib.REDUCE_RULE |> GSYM)
-      \\ pop_assum SUBST1_TAC
-      \\ simp [bitTheory.BIT_COMP_THM3
-               |> Q.SPECL [`28`, `27`, `0`] |> numLib.REDUCE_RULE |> GSYM,
-               bitTheory.BITSLT_THM2 |> Q.SPEC `27` |> numLib.REDUCE_RULE])
-  >- (imp_res_tac
-        (bitTheory.BITS_ZEROL |> Q.SPEC `60` |> numLib.REDUCE_RULE |> GSYM)
-      \\ pop_assum SUBST1_TAC
-      \\ simp [bitTheory.BIT_COMP_THM3
-               |> Q.SPECL [`60`, `59`, `0`] |> numLib.REDUCE_RULE |> GSYM,
-               bitTheory.BITSLT_THM2 |> Q.SPEC `59` |> numLib.REDUCE_RULE])
-QED
-
 Theorem small_int_w2i_i2w[local]:
     small_int (:α) i /\ good_dimindex (:'a) ==>
-    w2i ((i2w (4 * i)):'a word) = 4 * i
+    w2i ((i2w (2 * i)):'a word) = 2 * i
 Proof
   strip_tac \\ match_mp_tac integer_wordTheory.w2i_i2w
   \\ fs [small_int_def,dimword_def,good_dimindex_def,
@@ -12932,7 +12876,7 @@ Proof
   \\ `(Smallnum (&w2n i) && Smallnum (&w2n j)) = (Smallnum (&(w2n (i && j)))):'a word` by
    (fs [Smallnum_def]
     \\ fs[GSYM word_mul_n2w]
-    \\ `4w = n2w (2 ** 2)` by simp[]
+    \\ `2w = n2w (2 ** 1)` by simp[]
     \\ pop_assum SUBST_ALL_TAC
     \\ simp[GSYM WORD_MUL_LSL]
     \\ fs[GSYM w2w_def]
@@ -12960,7 +12904,7 @@ Proof
   \\ `(Smallnum (&w2n i) || Smallnum (&w2n j)) = (Smallnum (&(w2n (i || j)))):'a word` by
    (fs [Smallnum_def]
     \\ fs[GSYM word_mul_n2w]
-    \\ `4w = n2w (2 ** 2)` by simp[]
+    \\ `2w = n2w (2 ** 1)` by simp[]
     \\ pop_assum SUBST_ALL_TAC
     \\ simp[GSYM WORD_MUL_LSL]
     \\ fs[GSYM w2w_def]
@@ -12988,7 +12932,7 @@ Proof
   \\ `(Smallnum (&w2n i) ⊕ Smallnum (&w2n j)) = (Smallnum (&(w2n (i ⊕ j)))):'a word` by
    (fs [Smallnum_def]
     \\ fs[GSYM word_mul_n2w]
-    \\ `4w = n2w (2 ** 2)` by simp[]
+    \\ `2w = n2w (2 ** 1)` by simp[]
     \\ pop_assum SUBST_ALL_TAC
     \\ simp[GSYM WORD_MUL_LSL]
     \\ fs[GSYM w2w_def]
@@ -13296,16 +13240,6 @@ Proof
   \\ fs[word_bit_test,Smallnum_bits]
 QED
 
-Theorem Smallnum_1:
-   good_dimindex(:'a) ==> ¬(Smallnum i:'a word) ' 1
-Proof
-  strip_tac
-  \\ `1 < dimindex(:'a)` by fs[good_dimindex_def]
-  \\ strip_tac
-  \\ imp_res_tac word_bit_thm
-  \\ fs[word_bit_test,Smallnum_bits]
-QED
-
 Theorem do_eq_list_F_IMP_MEM[local]:
     !l l'.
       do_eq_list refs l l' = Eq_val F /\ LENGTH l' = LENGTH l ==>
@@ -13429,7 +13363,7 @@ val v_depth_ind = theorem"v_depth_ind";
 Theorem v_inv_Block_tag_limit:
    v_inv c (Block ts n l) refs (v,f,tf,(heap:'a ml_heap)) ∧
    heap_in_memory_store heap a sp sp1 gens c s m (dm:'a word set) limit
-  ⇒ n < dimword(:'a) DIV 16
+  ⇒ n < dimword(:'a) DIV 4
 Proof
   rw[v_inv_def] \\ fs[BlockRep_def]
   \\ fs[heap_in_memory_store_def]
@@ -13723,8 +13657,8 @@ Proof
     by metis_tac[MAX_LIST_sum_bound,LENGTH_MAP]
   \\ `n < dimword(:'a) DIV 16`
   by (
-    fs[memory_rel_def,word_ml_inv_def,bc_stack_ref_inv_def,abs_ml_inv_def]
-    \\ imp_res_tac v_inv_Block_tag_limit \\ fs[X_LT_DIV] )
+    qpat_x_assum `encode_header _ _ _ = SOME _` mp_tac
+    \\ fs[encode_header_def,X_LT_DIV] )
   \\ `n + LENGTH l + 1 < dimword(:'a) DIV 8` by ( fs[X_LT_DIV] )
   \\ match_mp_tac LESS_EQ_TRANS
   \\ qexists_tac`SUM (MAP vb_size l) + dimword(:'a) DIV 8`
@@ -15106,7 +15040,7 @@ Theorem memory_rel_Number_single_mul:
    memory_rel c be ts refs sp st m dm
       ((Number i1,Word (w1:'a word))::(Number i2,Word w2)::vars) /\
     good_dimindex(:'a) ==>
-      let (lw,hw) = single_mul w1 (w2 >>> 1) 0w in
+      let (lw,hw) = single_mul w1 w2 0w in
         (hw || ((w1 || w2) && 1w)) = 0w ==>
         memory_rel c be ts refs sp st m dm ((Number (i1 * i2),Word (lw >>> 1))::vars)
 Proof
@@ -15116,7 +15050,7 @@ Proof
    (old_drule memory_rel_swap \\ strip_tac
     \\ rpt_drule memory_rel_Number_const_test
     \\ disch_then (qspec_then `0` mp_tac)
-    \\ `small_int (:α) 0` by
+    \\ `small_int (:'a) 0` by
      (fs [good_dimindex_def,dimword_def,small_int_def])
     \\ fs [Smallnum_def] \\ strip_tac \\ rveq
     \\ fs [multiwordTheory.single_mul_def]
@@ -15127,7 +15061,7 @@ Proof
   THEN1
    (rpt_drule memory_rel_Number_const_test
     \\ disch_then (qspec_then `0` mp_tac)
-    \\ `small_int (:α) 0` by
+    \\ `small_int (:'a) 0` by
      (fs [good_dimindex_def,dimword_def,small_int_def])
     \\ fs [Smallnum_def] \\ strip_tac \\ rveq
     \\ fs [multiwordTheory.single_mul_def]
@@ -15144,64 +15078,58 @@ Proof
   \\ strip_tac \\ rveq \\ fs []
   \\ rpt_drule memory_rel_Number_IMP
   \\ qpat_x_assum `memory_rel c be ts refs sp st m dm _` kall_tac
-  \\ qpat_x_assum `small_int (:α) i2` mp_tac
+  \\ qpat_x_assum `small_int (:'a) i2` mp_tac
   \\ rpt_drule memory_rel_Number_IMP
   \\ rw [] \\ fs []
   \\ fs [multiwordTheory.single_mul_def]
-  \\ `w2n ((Smallnum i1):'a word) * w2n ((Smallnum i2 ⋙ 1):'a word)
-      DIV dimword (:α) < dimword (:'a)` by
+  \\ `w2n ((Smallnum i1):'a word) * w2n ((Smallnum i2):'a word)
+      DIV dimword (:'a) < dimword (:'a)` by
    (simp_tac std_ss [DIV_LT_X,ZERO_LT_dimword]
     \\ match_mp_tac bitTheory.LESS_MULT_MONO2 \\ fs [w2n_lt] \\ NO_TAC)
   \\ fs [] \\ fs [DIV_EQ_X] \\ rveq
-  \\ `4 <= w2n ((Smallnum i1):'a word)` by
+  \\ `2 <= w2n ((Smallnum i1):'a word)` by
    (Cases_on `i1` \\ fs [small_int_def,Smallnum_def,word_2comp_n2w]
-    \\ `(4 * n) < dimword (:α)` by
+    \\ `(2 * n) < dimword (:'a)` by
       (rfs [good_dimindex_def,dimword_def,small_int_def] \\ rfs [] \\ NO_TAC)
     \\ fs []
     \\ rfs [good_dimindex_def,dimword_def,small_int_def] \\ rfs [])
-  \\ `4 <= w2n ((Smallnum i2):'a word)` by
+  \\ `2 <= w2n ((Smallnum i2):'a word)` by
    (Cases_on `i2` \\ fs [small_int_def,Smallnum_def,word_2comp_n2w]
-    \\ `(4 * n) < dimword (:α)` by
+    \\ `(2 * n) < dimword (:'a)` by
       (rfs [good_dimindex_def,dimword_def,small_int_def] \\ rfs [] \\ NO_TAC)
     \\ fs []
     \\ rfs [good_dimindex_def,dimword_def,small_int_def] \\ rfs [])
-  \\ `2 <= w2n ((Smallnum i2 >>> 1):'a word)` by fs [w2n_lsr,X_LE_DIV]
   \\ reverse (Cases_on `i2`) \\ fs [Smallnum_def]
   \\ fs [GSYM Smallnum_def |> SIMP_RULE (srw_ss()) []]
   THEN1
-   (fs [DIV_LT_X]
-    \\ `dimword (:'a) DIV 4 <= w2n ((-n2w (4 * n) ⋙ 1):'a word)` by
-     (fs [w2n_lsr,word_2comp_n2w] \\ fs [X_LE_DIV]
-      \\ `(4 * n) < dimword (:α)` by
+   (`dimword (:'a) DIV 2 <= w2n ((-n2w (2 * n)):'a word)` by
+     (fs [word_2comp_n2w]
+      \\ `(2 * n) < dimword (:'a)` by
         (rfs [good_dimindex_def,dimword_def,small_int_def] \\ rfs [] \\ NO_TAC)
       \\ fs [] \\ rfs [good_dimindex_def,dimword_def,small_int_def] \\ rfs [])
     \\ sg `F` \\ fs []
-    \\ qpat_x_assum `_ < dimword (:α)` mp_tac \\ fs [NOT_LESS]
+    \\ qpat_x_assum `_ * _ < dimword (:'a)` mp_tac \\ fs [NOT_LESS]
     \\ match_mp_tac LESS_EQ_TRANS
-    \\ qexists_tac `4 * (dimword (:α) DIV 4)`
+    \\ qexists_tac `2 * (dimword (:'a) DIV 2)`
     \\ conj_tac THEN1 fs [good_dimindex_def,dimword_def]
     \\ match_mp_tac LESS_MONO_MULT2 \\ fs [])
   \\ reverse (Cases_on `i1`) \\ fs [Smallnum_def]
   THEN1
-   (fs [DIV_LT_X]
-    \\ `dimword (:'a) DIV 2 <= w2n ((-n2w (4 * n')):'a word)` by
-     (fs [w2n_lsr,word_2comp_n2w] \\ fs [X_LE_DIV]
-      \\ `(4 * n') < dimword (:α)` by
+   (`dimword (:'a) DIV 2 <= w2n ((-n2w (2 * n')):'a word)` by
+     (fs [word_2comp_n2w]
+      \\ `(2 * n') < dimword (:'a)` by
         (rfs [good_dimindex_def,dimword_def,small_int_def] \\ rfs [] \\ NO_TAC)
       \\ fs [] \\ rfs [good_dimindex_def,dimword_def,small_int_def] \\ rfs [])
     \\ sg `F` \\ fs []
-    \\ qpat_x_assum `_ < dimword (:α)` mp_tac \\ fs [NOT_LESS]
+    \\ qpat_x_assum `_ * _ < dimword (:'a)` mp_tac \\ fs [NOT_LESS]
     \\ match_mp_tac LESS_EQ_TRANS
-    \\ qexists_tac `(dimword (:α) DIV 2) * 2`
+    \\ qexists_tac `(dimword (:'a) DIV 2) * 2`
     \\ conj_tac THEN1 fs [good_dimindex_def,dimword_def]
     \\ match_mp_tac LESS_MONO_MULT2 \\ fs [])
-  \\ `(2 * n) < dimword (:'a) /\ (4 * n') < dimword (:α) /\
-      (4 * n) < dimword (:α)` by
+  \\ `(2 * n') < dimword (:'a) /\ (2 * n) < dimword (:'a)` by
     (rfs [good_dimindex_def,dimword_def,small_int_def] \\ rfs [] \\ NO_TAC)
-  \\ `n2w (4 * n) ⋙ 1 = n2w (2 * n):'a word` by
-       (rewrite_tac [GSYM w2n_11,w2n_lsr] \\ fs [] \\ fs [DIV_EQ_X])
   \\ fs [] \\ fs [word_mul_n2w]
-  \\ `n2w (8 * (n * n')) >>> 1 = n2w (n * n') << 2` by
+  \\ `(n2w (4 * (n * n')) >>> 1):'a word = n2w (n * n') << 1` by
        (rewrite_tac [GSYM w2n_11,w2n_lsr,WORD_MUL_LSL,word_mul_n2w]
         \\ fs [] \\ fs [DIV_EQ_X]) \\ fs []
   \\ match_mp_tac IMP_memory_rel_Number_num3
@@ -15213,21 +15141,21 @@ QED
 Theorem memory_rel_bounds_check:
    memory_rel c be ts refs sp st m dm ((Number i1,Word (w1:'a word))::vars) /\
     small_int (:'a) (& n) /\ good_dimindex (:'a) ==>
-    (word_ror w1 2 <+ n2w n <=> 0 <= i1 /\ i1 < & n) /\
-    (word_ror w1 2 <=+ n2w n <=> 0 <= i1 /\ i1 <= & n)
+    (word_ror w1 1 <+ n2w n <=> 0 <= i1 /\ i1 < & n) /\
+    (word_ror w1 1 <=+ n2w n <=> 0 <= i1 /\ i1 <= & n)
 Proof
   strip_tac \\ imp_res_tac memory_rel_any_Number_IMP
   \\ rveq \\ fs [] \\ rveq \\ fs []
-  \\ `n < dimword (:'a) /\ n < dimword (:'a) DIV 4 /\ n < dimword (:'a) DIV 8` by
+  \\ `n < dimword (:'a) /\ n < dimword (:'a) DIV 2 /\ n < dimword (:'a) DIV 4` by
       (fs [small_int_def,good_dimindex_def,dimword_def] \\ fs [] \\ NO_TAC)
   \\ fs [WORD_LO,WORD_LS]
   \\ reverse (Cases_on `small_int (:α) i1`) \\ fs []
   THEN1
-   (qsuff_tac `dimword (:α) DIV 4 <= w2n (w ⇄ 2)`
+   (qsuff_tac `dimword (:α) DIV 2 <= w2n (w ⇄ 1)`
     THEN1 (fs [] \\ fs [small_int_def] \\ intLib.COOPER_TAC)
-    \\ `(word_ror w 2) ' (dimindex (:'a) - 2)` by
+    \\ `(word_ror w 1) ' (dimindex (:'a) - 1)` by
       (fs [word_ror_def,fcpTheory.FCP_BETA,good_dimindex_def] \\ NO_TAC)
-    \\ Cases_on `word_ror w 2` \\ fs []
+    \\ Cases_on `word_ror w 1` \\ fs []
     \\ fs [word_index]
     \\ fs [bitTheory.BIT_def,bitTheory.BITS_THM]
     \\ rfs [good_dimindex_def,dimword_def]
@@ -15238,12 +15166,12 @@ Proof
   \\ imp_res_tac memory_rel_Number_IMP
   \\ fs [] \\ rveq \\ fs []
   \\ Cases_on `i1 < 0` THEN1
-   (qsuff_tac `dimword (:α) DIV 8 <= w2n ((Smallnum i1 ⇄ 2) :'a word)`
+   (qsuff_tac `dimword (:α) DIV 4 <= w2n ((Smallnum i1 ⇄ 1) :'a word)`
     THEN1 (fs [] \\ fs [small_int_def] \\ intLib.COOPER_TAC)
     \\ `(if dimindex (:'a) = 32
-         then i1 <> - 536870912
-         else i1 <> - 2305843009213693952) ==>
-        ((Smallnum i1 ⇄ 2):'a word) ' (dimindex (:'a) - 3)` by
+         then i1 <> - 1073741824
+         else i1 <> - 4611686018427387904) ==>
+        ((Smallnum i1 ⇄ 1):'a word) ' (dimindex (:'a) - 2)` by
       (strip_tac
        \\ fs [word_ror_def,fcpTheory.FCP_BETA,good_dimindex_def]
        \\ fs [Smallnum_def]
@@ -15260,7 +15188,7 @@ Proof
      (rfs [markerTheory.Abbrev_def,good_dimindex_def,dimword_def]
       \\ rfs [Smallnum_def,word_2comp_n2w,dimword_def,word_ror_n2w])
     \\ fs []
-    \\ Cases_on `word_ror ((Smallnum i1):'a word) 2` \\ fs []
+    \\ Cases_on `word_ror ((Smallnum i1):'a word) 1` \\ fs []
     \\ fs [word_index]
     \\ fs [bitTheory.BIT_def,bitTheory.BITS_THM]
     \\ rfs [good_dimindex_def,dimword_def]
@@ -17742,7 +17670,7 @@ Definition build_part_words_def:
                                MAP Word (hd::ws))) ∧
   build_part_words c m (Con t ns) (offset:'a word) =
     (if NULL ns then
-       if t < dimword (:'a) DIV 16 then SOME (Word (n2w (16 * t + 2)),[]) else NONE
+       if t < dimword (:'a) DIV 4 then SOME (Word (n2w (2 * t)),[]) else NONE
      else
        case encode_header c (4 * t) (LENGTH ns) of
        | NONE => NONE
