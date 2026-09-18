@@ -982,6 +982,9 @@ Proof
   \\ first_x_assum (qspecl_then [`x::rest`,`p`,
       `s with <|refs := s.refs; ffi := s.ffi|>`] mp_tac) \\ fs [] \\ strip_tac
   \\ fs [inc_clock_def]
+  \\ `!k. s with <|refs := s.refs; clock := k|> = s with clock := k` by
+       simp [bviSemTheory.state_component_equality]
+  \\ fs []
   \\ qexists_tac `c+1` \\ fs [list_to_v_def,EVAL ``cons_tag``]
   \\ rewrite_tac [APPEND,GSYM APPEND_ASSOC]
   \\ fs [state_component_equality]
@@ -2466,7 +2469,7 @@ Resume compile_exps_correct[Op]:
       \\ qmatch_goalsub_abbrev_tac `state_rel _ _ tt`
       \\ `tt = t2 with refs := t2.refs |+ (b3 x,Thunk m (adjust_bv b2 v))` by (
         unabbrev_all_tac \\ gvs [state_component_equality])
-      \\ simp [Abbr `tt`, Abbr `b3`]
+      \\ gvs [Abbr `tt`, Abbr `b3`]
       \\ irule state_rel_add_thunk \\ gvs []
       \\ imp_res_tac evaluate_ok)
     \\ Cases_on `∃m. op = ThunkOp (UpdateThunk m)` \\ gvs [] >- (
@@ -2929,8 +2932,6 @@ Resume compile_exps_correct[Op]:
       \\ simp[EL_APPEND1,EL_MAP,miscTheory.the_def,bvl_to_bvi_with_clock,bvl_to_bvi_id]
       \\ ‘&j + 2 = &(j + 2):int’ by intLib.COOPER_TAC \\ fs []
       \\ simp [DECIDE “j+2 = SUC (j+1)”,EL]
-      \\ reverse conj_tac
-      >- simp [state_component_equality]
       \\ simp [rich_listTheory.EL_APPEND1,EL_MAP,miscTheory.the_def])
     \\ Cases_on`∃n. op = GlobOp (SetGlobal n)` \\ full_simp_tac(srw_ss())[]
     THEN1 (

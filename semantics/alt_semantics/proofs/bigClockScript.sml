@@ -1005,6 +1005,7 @@ Proof
   >- (
     disj1_tac >> ntac 2 (last_assum $ irule_at Any) >> simp[] >>
     first_x_assum $ qspec_then `0` assume_tac >> gvs[] >>
+    Cases_on `res` >> gvs[] >>
     imp_res_tac evaluate_decs_clock_mono >> gvs[]
     )
   >- (
@@ -1118,7 +1119,8 @@ Proof
   first_assum $ qspecl_then [`h`,`env`,`s`] mp_tac >>
   impl_tac >- simp[] >> strip_tac >> gvs[] >>
   Cases_on `r` >> gvs[SF SFY_ss] >> disj2_tac >> goal_assum drule >>
-  simp[Once $ GSYM with_same_clock] >> last_x_assum irule >> rw[] >>
+  last_x_assum (qspecl_then [`a +++ env`,`s'`,`s'.clock`] mp_tac) >>
+  simp[with_same_clock] >> disch_then irule >> rw[] >>
   imp_res_tac evaluate_decs_clock_mono >> gvs[] >>
   Cases_on `s'.clock = clk` >> gvs[]
 QED
@@ -1157,7 +1159,9 @@ Proof
     disch_then $ qspecl_then [`l`,`env`,`st`] mp_tac >> impl_tac >> rw[] >>
     Cases_on `r` >> gvs[SF SFY_ss] >> disj1_tac >> goal_assum drule >>
     dxrule $ cj 2 evaluate_decs_clock_mono >> rw[] >> gvs[] >>
-    simp[Once $ GSYM with_same_clock] >> irule evaluate_decs_total_lemma >>
+    irule (evaluate_decs_total_lemma |> SPEC_ALL
+             |> Q.INST [`clk` |-> `(s:'ffi semanticPrimitives$state).clock`]
+             |> SIMP_RULE (srw_ss()) [with_same_clock] |> GEN_ALL) >>
     rw[] >> Cases_on `s'.clock = clk` >> gvs[]
     )
   >- (

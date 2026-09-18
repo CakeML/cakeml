@@ -2176,7 +2176,7 @@ Proof
   \\ fs[]
   \\ fs[Once STAR_COMM]
   \\ fs[GSYM STAR_ASSOC]
-  \\ fs[Once (GSYM with_same_refs)]
+  \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
   \\ imp_res_tac STATE_APPEND_JUNK
   \\ pop_assum(qspec_then`refs'++refs''` ASSUME_TAC o (PURE_REWRITE_RULE[GSYM STAR_ASSOC]))
   \\ Cases_on `n < LENGTH av`
@@ -2200,7 +2200,7 @@ Proof
       >> fs[MONAD_def, Marray_update_def, Mupdate_eq]
       >> fs[REFS_PRED_FRAME_def]
       >> rw[state_component_equality]
-      >> fs[Once (GSYM with_same_refs)]
+      >> full_simp_tac std_ss [Once (GSYM with_same_refs)]
       >> pop_assum(fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
       >> pop_assum(qspec_then`refs'++refs''` ASSUME_TAC)
       >> fs[GSYM STAR_ASSOC]
@@ -2292,7 +2292,7 @@ Proof
   \\ pop_assum(qspec_then`refs'++refs''`assume_tac) \\ fs[]
   \\ fs[Once STAR_COMM]
   \\ fs[GSYM STAR_ASSOC]
-  \\ fs[Once (GSYM with_same_refs)]
+  \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
   \\ imp_res_tac STATE_APPEND_JUNK
   \\ pop_assum(qspec_then`refs'++refs''` ASSUME_TAC o (PURE_REWRITE_RULE[GSYM STAR_ASSOC]))
   \\ Cases_on `n < LENGTH av`
@@ -2317,7 +2317,7 @@ Proof
       >> fs[MONAD_def, Marray_update_def, Mupdate_eq]
       >> fs[REFS_PRED_FRAME_def]
       >> rw[state_component_equality]
-      >> fs[Once (GSYM with_same_refs)]
+      >> full_simp_tac std_ss [Once (GSYM with_same_refs)]
       >> pop_assum(fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
       >> pop_assum(qspec_then`refs'++refs''` ASSUME_TAC)
       >> fs[GSYM STAR_ASSOC]
@@ -2571,7 +2571,7 @@ Proof
   \\ disch_then(qx_choose_then`k1`strip_assume_tac)
   \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
   \\ qexists_tac`k1` \\ fs[]
-  \\ fs[Once (GSYM with_same_refs)]
+  \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
   \\ first_x_assum (fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
   \\ first_x_assum(qspec_then `refs'` ASSUME_TAC)
   \\ fs[GSYM STAR_ASSOC, GC_STAR_GC]
@@ -2660,7 +2660,7 @@ Proof
       \\ fs[MONAD_def, Marray_update_def, Mupdate_eq]
       \\ fs[REFS_PRED_FRAME_def]
       \\ rw[state_component_equality]
-      \\ fs[Once (GSYM with_same_refs)]
+      \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
       \\ pop_assum(fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
       \\ pop_assum(qspec_then`refs'++refs''` ASSUME_TAC)
       \\ fs[ARRAY_REL_def, SEP_CLAUSES, SEP_EXISTS_THM]
@@ -2733,7 +2733,7 @@ Proof
   \\ first_assum(fn x => MATCH_MP (GEN_ALL store_lookup_CELL_st2heap) x |> ASSUME_TAC)
   \\ pop_assum(qspec_then`refs'++refs''` ASSUME_TAC o (PURE_REWRITE_RULE[GSYM STAR_ASSOC, GC_STAR_GC]))
   \\ fs[]
-  \\ fs[Once (GSYM with_same_refs)]
+  \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
   \\ first_x_assum(fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
   \\ pop_assum(qspec_then`refs'++refs''` ASSUME_TAC o (PURE_REWRITE_RULE[GSYM STAR_ASSOC, GC_STAR_GC]))
   \\ Cases_on `n < LENGTH av`
@@ -2748,7 +2748,7 @@ Proof
       \\ fs[MONAD_def, Marray_update_def, Mupdate_eq]
       \\ fs[REFS_PRED_FRAME_def]
       \\ rw[state_component_equality]
-      \\ fs[Once (GSYM with_same_refs)]
+      \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
       \\ pop_assum(fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
       \\ pop_assum(qspec_then`refs'++refs''` ASSUME_TAC)
       \\ fs[ARRAY_REL_def, SEP_CLAUSES, SEP_EXISTS_THM]
@@ -3417,7 +3417,7 @@ Proof
       \\ qexists_tac `st2heap p (s with refs := s.refs ++ refs' ++ refs'')`
       \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
       \\ SIMP_TAC bool_ss [STATE_SPLIT_REFS]
-      \\ fs[REFS_PRED_def] \\ fs[Once (GSYM with_same_refs)]
+      \\ fs[REFS_PRED_def] \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
       \\ first_x_assum(fn x => MATCH_MP (GEN_ALL STATE_APPEND_JUNK) x |> STRIP_ASSUME_TAC)
       \\ first_x_assum(qspec_then `refs' ++ refs''` STRIP_ASSUME_TAC)
       \\ fs[GSYM STAR_ASSOC, GC_STAR_GC]
@@ -3453,7 +3453,7 @@ Proof
       \\ qexists_tac `st2heap p (s with refs := s.refs ++ refs' ++ refs'')`
       \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
       \\ SIMP_TAC bool_ss [STATE_SPLIT_REFS]
-      \\ fs[REFS_PRED_def] \\ fs[Once (GSYM with_same_refs)]
+      \\ fs[REFS_PRED_def] \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
       \\ first_x_assum(fn x => MATCH_MP (GEN_ALL STATE_APPEND_JUNK) x |> STRIP_ASSUME_TAC)
       \\ first_x_assum(qspec_then `refs' ++ refs''` STRIP_ASSUME_TAC)
       \\ fs[STAR_ASSOC]

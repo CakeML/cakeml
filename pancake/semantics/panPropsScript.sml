@@ -707,7 +707,8 @@ Proof
       rw[Once evaluate_def] >>
       gvs[eval_upd_clock_eq,AllCaseEqs()] >>
       rpt(pairarg_tac >> gvs[]) >>
-      gvs[AllCaseEqs(),dec_clock_def]) >>
+      gvs[AllCaseEqs(),dec_clock_def] >>
+      gvs[state_component_equality]) >>
   gvs[evaluate_def,AllCaseEqs(),eval_upd_clock_eq] >>
   rpt(pairarg_tac >> gvs[]) >>
   gvs[oneline nb_op_def,AllCaseEqs(),
@@ -1455,8 +1456,7 @@ Theorem exns_wf_evaluate_decls:
 Proof
   recInduct evaluate_decls_ind >>
   rw[exceptions_def,evaluate_decls_def,FUPDATE_LIST_THM,is_exn_decl_def] >>
-  gvs[AllCaseEqs()]
-  >- simp[state_component_equality] >>
+  gvs[AllCaseEqs()] >>
   first_x_assum match_mp_tac >>
   qpat_x_assum ‘EVERY (λ(eid,sh). _) _’ mp_tac >>
   qmatch_goalsub_abbrev_tac ‘a1 ⇒ a2’ >>
