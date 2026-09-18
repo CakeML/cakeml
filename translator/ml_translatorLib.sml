@@ -3722,11 +3722,10 @@ fun hol2deep tm =
     val result = MATCH_MP lemma (CONJ th1 th2)
                 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "word_binop" tm result end else
-  (* word_lsl, _lsr, _asr *)
+  (* word_lsl, _lsr, _asr, _ror *)
   if can dest_word_shift tm andalso word_ty_ok (type_of tm) then let
     val n = tm |> rand
-    val _ = numSyntax.is_numeral n orelse
-            failwith "2nd arg to word shifts must be numeral constant"
+    in if numSyntax.is_numeral n then let
     val lemma = dest_word_shift tm |> SPEC n
                   |> SIMP_RULE std_ss (LET_THM :: word_shift_rewrites)
     val th1 = hol2deep (tm |> rator |> rand)
@@ -3735,7 +3734,28 @@ fun hol2deep tm =
                    |> REWRITE_RULE word_shift_rewrites
                    |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
                    |> REWRITE_RULE word_shift_rewrites
-    in check_inv "word_shift" tm result end else
+    in check_inv "word_shift" tm result end else let
+    val dim = wordsSyntax.dim_of tm
+    val (lemma, count_def, lookup_def) =
+      if dim = ``:8`` then
+        (Eval_word_shift8, shift_count8_def, shift8_lookup_def)
+      else if dim = ``:64`` then
+        (Eval_word_shift64, shift_count64_def, shift64_lookup_def)
+      else failwith "variable word shifts require word8 or word64"
+    val sh = if wordsSyntax.is_word_lsl tm then ``Lsl`` else
+             if wordsSyntax.is_word_lsr tm then ``Lsr`` else
+             if wordsSyntax.is_word_asr tm then ``Asr`` else ``Ror``
+    val lemma = INST [``sh:shift`` |-> sh, ``n:num`` |-> n] lemma
+                  |> REWRITE_RULE
+                       [count_def, lookup_def, shift_case_def, shift_distinct, MIN_DEF]
+    val count = lemma |> concl |> dest_imp |> fst |> dest_conj |> snd
+                      |> rand |> rand
+    val th1 = hol2deep (tm |> rator |> rand)
+    val th2 = hol2deep count
+                |> PROVE_HYP (EQT_ELIM (EVAL ``PRECONDITION (8 <> 0n)``))
+                |> PROVE_HYP (EQT_ELIM (EVAL ``PRECONDITION (64 <> 0n)``))
+    val result = MATCH_MP lemma (CONJ th1 th2)
+    in check_inv "variable_word_shift" tm result end end else
   (* $& o f *)
   if can (match_term int_of_num_o_pat) tm then let
     val x1 = tm |> rand

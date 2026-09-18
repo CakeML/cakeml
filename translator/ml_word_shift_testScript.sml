@@ -61,6 +61,43 @@ val _ = app (fn (width, dim) =>
       check true (mk_abs (word, oper (word, amount)))) amounts) operations
   end) widths;
 
+fun check_variable_shift sz sh expr =
+  let
+    val th = hol2deep expr |> PROVE_HYP TRUTH
+    val _ = if null (hyp th) then ()
+            else raise Fail ("Variable shift has a translation precondition: " ^
+              term_to_string expr ^ "\n" ^
+              String.concatWith "\n" (map term_to_string (hyp th)))
+    val code = rand (rator (concl th))
+    val shift = case find_terms is_shift_app code of
+                  [tm] => tm
+                | _ => raise Fail "Expected exactly one variable shift"
+    val (oper, args) = astSyntax.dest_App shift
+    val args = fst (listSyntax.dest_list args)
+    val _ = if oper ~~ ``Arith (Shift ^sh) (WordT ^sz)`` andalso
+               length args = 2 then ()
+            else raise Fail "Incorrect variable shift operation"
+    val (conversion, _) = astSyntax.dest_App (List.nth (args, 1))
+    val _ = if conversion ~~ ``FromTo IntT (WordT ^sz)`` then ()
+            else raise Fail "Variable shift count is not converted to a word"
+  in () end;
+
+val variable_shifts =
+  [(``Lsl``, wordsSyntax.mk_word_lsl), (``Lsr``, wordsSyntax.mk_word_lsr),
+   (``Asr``, wordsSyntax.mk_word_asr), (``Ror``, wordsSyntax.mk_word_ror)];
+
+val _ = app (fn (sz, dim) =>
+  let
+    val word = mk_var ("w", wordsSyntax.mk_word_type dim)
+    val amount = mk_var ("n", ``:num``)
+    val amounts = [amount, ``^amount + 18446744073709551616``]
+  in
+    app (fn (sh, oper) => app (fn count =>
+      check_variable_shift sz sh
+        (mk_abs (word, mk_abs (amount, oper (word, count))))) amounts)
+      variable_shifts
+  end) [(``W8``, ``:8``), (``W64``, ``:64``)];
+
 val _ = app (fn (_, dim) =>
   let
     val word = mk_var ("w", wordsSyntax.mk_word_type dim)

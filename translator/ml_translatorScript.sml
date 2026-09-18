@@ -1547,6 +1547,26 @@ Overload ShiftExp[local] =
         [x; Lit (if sz = W8 then Word8 (shift_count8 sh n)
                  else Word64 (shift_count64 sh n))]``;
 
+Theorem Eval_word_shift8:
+  Eval env x1 (WORD (w:word8)) /\
+  Eval env x2 (WORD (shift_count8 sh n)) ==>
+  Eval env (App (Arith (Shift sh) (WordT W8)) [x1; x2])
+    (WORD (shift8_lookup sh w n))
+Proof
+  rw [Eval_rw] >> Eval2_tac >>
+  fs [WORD_def, state_component_equality]
+QED
+
+Theorem Eval_word_shift64:
+  Eval env x1 (WORD (w:word64)) /\
+  Eval env x2 (WORD (shift_count64 sh n)) ==>
+  Eval env (App (Arith (Shift sh) (WordT W64)) [x1; x2])
+    (WORD (shift64_lookup sh w n))
+Proof
+  rw [Eval_rw] >> Eval2_tac >>
+  fs [WORD_def, state_component_equality]
+QED
+
 Theorem Eval_w2n:
     Eval env x1 (WORD (w:'a word)) ==>
     Eval env
