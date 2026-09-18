@@ -752,7 +752,7 @@ Proof
   \\ gvs[h_prog_def, h_prog_raise_def]
 QED
 
-        
+
 Theorem itree_semantics_Call:
  ((itree_semantics (Call calltyp fname aexps,s)):'a ptree) =
    (case OPT_MMAP (eval s) aexps of
@@ -950,7 +950,7 @@ Proof
    PURE_REWRITE_TAC[itree_semantics_def, o_DEF] \\ BETA_TAC
   \\ fs[h_prog_def, h_prog_primitive_def]
 QED
-        
+
 CoInductive ret_satisfy:
   (P v ⇒ ret_satisfy P (Ret v)) ∧
   (ret_satisfy P t ⇒ ret_satisfy P (Tau t)) ∧
