@@ -73,7 +73,6 @@ val fib_fundecs = topdecs_to_fundecs fib_topdecs
 
 val fib_result = decompile_2_reduce "fib" [] fib_fundecs
 
-
 val fib_shallow = List.nth (fst fib_result, 0) |> (fn (x,y,z) => x)
 
 
