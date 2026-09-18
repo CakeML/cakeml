@@ -23,6 +23,7 @@ End
 
 Datatype:
   arith = Add | Sub | Mul | Div | Mod | Neg | And | Xor | Or | Not | Abs | Sqrt | FMA
+        | Shift shift
 End
 
 (* Module names *)
@@ -78,8 +79,7 @@ Datatype:
     Arith arith prim_type
   (* conversions between primitive types: char<->int, word<->double, word<->int *)
   | FromTo prim_type prim_type
-  (* Operations on words *)
-  | Shift word_size shift num
+  (* Equality and comparisons *)
   | Equality
   | Test test prim_type
   (* Function application *)
