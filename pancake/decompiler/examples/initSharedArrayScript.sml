@@ -580,7 +580,7 @@ Theorem ret_satisfy_sum_shared_while:
                ∃rv s'.
                  x = INR (rv,s') ∧
                  (rv = NONE ⇒
-                  size_of_shape (shape_of (THE (FLOOKUP s'.locals «tot»))) ≤
+                  size_of_sh_with_ctxt s'.structs (shape_of (THE (FLOOKUP s'.locals «tot»))) ≤
                   32 ∧ ∃v. FLOOKUP s'.locals «tot» = SOME v)
                   ∧ (rv = NONE ∨ rv = SOME Error ∨ ∃ffe. rv = SOME (FinalFFI ffe)))
           (sum_shared_array_while_0 s)
@@ -592,7 +592,7 @@ Proof
       \\ first_x_assum $ qspecl_then [‘s’] assume_tac
       \\ gvs[FLOOKUP_SIMP, eval_def, FUNPOW_Tau_bind, word_of_val_def, FUPDATE_LIST_THM]
       \\ dxrule_then assume_tac ret_satisfy_wbisim_biim
-      \\ gvs[ret_satisfy_Ret, size_of_shape_def, shape_of_def]
+      \\ gvs[ret_satisfy_Ret, size_of_shape_def, shape_of_def, size_of_sh_with_ctxt_def]
      )
   \\ rpt strip_tac
   \\ qpat_x_assum ‘w_list _ _ _’ $ assume_tac o SRULE [Once w_list_cases]
@@ -634,7 +634,7 @@ Theorem ret_satisfy_sum_shared_array:
                ∃rv retv s'.
                  x = INR (rv,s') ∧
                  (rv = SOME (Return retv) ⇒
-                  (size_of_shape (shape_of (retv)) ≤ 32))
+                  (size_of_sh_with_ctxt s'.structs (shape_of (retv)) ≤ 32))
                   ∧ (rv = SOME (Return retv) ∨ rv = SOME Error ∨ ∃ffe. rv = SOME (FinalFFI ffe)))
           (sum_shared_array_body [ValWord base_addr; ValWord len] s)
 Proof
@@ -762,7 +762,7 @@ Proof
   \\ irule_at Any $ SIMP_RULE (srw_ss ()) [LET_THM] init_sh_array_correctness
   \\ last_assum $ irule_at Any
   \\ gvs[FLOOKUP_SIMP, eval_def, FUNPOW_Tau_bind, DOMSUB_FLOOKUP_THM, word_of_val_def, FUPDATE_LIST_THM, res_var_list_thm]
-  \\ gvs[Once itree_call_handler_def, itree_bind_assoc]
+  \\ gvs[Once itree_call_handler_def, itree_bind_assoc, shape_of_def]
   \\ irule_at (Pos hd) branch_terminate_satisfy_bind
   \\ irule_at (Pos hd) $ SIMP_RULE (srw_ss ()) [LET_THM] sum_sh_array_correctness
   \\ gvs[FLOOKUP_SIMP, eval_def, FUNPOW_Tau_bind, DOMSUB_FLOOKUP_THM, word_of_val_def, FUPDATE_LIST_THM, res_var_list_thm]
