@@ -184,30 +184,40 @@ Quote add_cakeml:
   case TextIO.inputAllFrom (Some fwitness) of
     None => TextIO.print_err "cannot read witness file\n"
   | Some witness =>
-  case ((* print "parsing...\n";  *)parse model witness) of
+  case ((* print "parsing model...\n";  *)parse_model model) of
     Error (msg, _) => TextIO.print_err msg
-  | Return (maiger, (waiger, ms)) =>
-  case ((* print "processing and checking...\n"; *) process_and_check maiger waiger ms) of
+  | Return maiger =>
+  case ((* print "parsing witness...\n";  *)parse_witness witness) of
+    Error (msg, _) => TextIO.print_err msg
+  | Return (waiger, ms) =>
+  case preprocess_model maiger of
+    (maig, (mreset, (mnext, (msafes, (mcnstrs, (mlive, (mlatches,
+      (mlatch_start, mmax_latch)))))))) =>
+  case preprocess_witness maiger waiger ms of
+    (waig, (wreset, (wnext, (wsafes, (wcnstrs, (wlive, (wlatches,
+      interv))))))) =>
+  case ((* print "processing and checking...\n"; *)
+        process_and_check
+          maig mreset mnext msafes mcnstrs mlive mlatches
+          mlatch_start mmax_latch
+          waig wreset wlive wlatches) of
     Error msg => TextIO.print_err msg
-  | Return
-      (maig, (mreset, (mnext, (msafes, (mcnstrs, (mlive, (mlatches,
-        (waig, (wreset, (wnext, (wsafes, (wcnstrs, (wlive, (wlatches,
-          (interv, klatches))))))))))))))) => (
+  | Return (mxaig, (wxaig, klatches)) => (
       write_reset
-        prefix maig mreset mcnstrs mlatches waig wreset wcnstrs
+        prefix mxaig mreset mcnstrs mlatches wxaig wreset wcnstrs
         wlatches klatches;
       write_transition
-        prefix maig mnext mcnstrs mlatches waig wnext wcnstrs
+        prefix mxaig mnext mcnstrs mlatches wxaig wnext wcnstrs
         wlatches klatches;
-      write_safety prefix maig mcnstrs msafes waig wcnstrs wsafes;
-      write_base prefix waig wreset wcnstrs wsafes wlatches;
-      write_induction prefix waig wnext wcnstrs wsafes wlatches;
+      write_safety prefix mxaig mcnstrs msafes wxaig wcnstrs wsafes;
+      write_base prefix wxaig wreset wcnstrs wsafes wlatches;
+      write_induction prefix wxaig wnext wcnstrs wsafes wlatches;
       write_liveness
-        prefix maig mcnstrs mlive waig wnext wcnstrs wsafes wlive wlatches
+        prefix mxaig mcnstrs mlive wxaig wnext wcnstrs wsafes wlive wlatches
         interv;
-      write_decrease prefix waig wnext wcnstrs wsafes wlive wlatches interv;
-      write_closure prefix waig wnext wcnstrs wsafes wlive wlatches interv;
-      write_stable prefix waig wnext wcnstrs wsafes wlive wlatches interv;
+      write_decrease prefix wxaig wnext wcnstrs wsafes wlive wlatches interv;
+      write_closure prefix wxaig wnext wcnstrs wsafes wlive wlatches interv;
+      write_stable prefix wxaig wnext wcnstrs wsafes wlive wlatches interv;
       print "SUCCESS"
     )
 End

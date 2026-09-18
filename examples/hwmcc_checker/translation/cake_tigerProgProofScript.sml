@@ -6,9 +6,9 @@ Ancestors
   cnf
   errorMonad (* for bind_def *)
   basis_ffi  (* for whole_prog_spec2 *)
-  aig_to_cnf  (* for aig_to_cnf_def_correct *)
+  xaig_to_cnf  (* for xaig_to_cnf_correct *)
   aig_parseProg  (* for ERRORMONAD_ERROR_TYPE_def *)
-  aig_cert_encode  (* for reset_encoding_is_unsat *)
+  xaig_cert_encode  (* for reset_encoding_is_unsat *)
   aig_cert_full  (* for make_reset_string_def *)
   cake_tigerProg
 Libs
@@ -20,63 +20,6 @@ Libs
 
 (** Top-Level Semantics *******************************************************)
 
-(* Parses the model. *)
-Definition parse_model_def:
-  parse_model str =
-    case parse_aiger str 0 of
-    | error _ => NONE
-    | return (maiger, _) => SOME maiger
-End
-
-Theorem parse_imp_parse_model[local]:
-  parse model witness = return (maiger, waiger, ms) ⇒
-  parse_model model = SOME maiger
-Proof
-  rw []
-  >> gvs [parse_def, parse_model_def, oneline bind_def, AllCaseEqs()]
-  >> rpt (pairarg_tac >> gvs [AllCaseEqs()])
-QED
-
-(* Converts the parsed AIG into the semantic definition from aigScript. *)
-Definition process_model_def:
-  process_model m =
-  let
-    maig   = m.aig;
-    mreset = ALOOKUP m.reset;
-    mnext  =
-      (λl.
-         case ALOOKUP m.next l of
-         | SOME lit => lit
-         | NONE => (Base Ff, F)  (* should not happen *));
-    msafes =
-      MAP not
-        (if m.counts.bad = 0 ∧ m.counts.justice = 0 then m.outputs
-         else m.bad);
-    mcnstrs = m.constraints;
-    mfair = MAP not m.fairness;
-    mlive = MAP (λsignals. mfair ++ (MAP not signals)) m.justice;
-    mlatches =
-      [m.counts.inputs + 1 .. m.counts.inputs + m.counts.latches];
-  in
-    (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatches)
-End
-
-Theorem process_and_check_imp_process_model[local]:
-  process_and_check maiger waiger ms =
-    return
-      (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatches, rest)
-  ⇒
-  process_model maiger =
-    (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatches)
-Proof
-  simp [process_and_check_def, process_model_def, process_mlatches_range_def,
-        aig_cert_fullTheory.preprocess_def, guard_def, oneline bind_def,
-        AllCaseEqs()]
-  >> rpt (pairarg_tac >> gvs [AllCaseEqs()])
-  >> rpt strip_tac >> gvs [lookup_fromAList, FUN_EQ_THM]
-QED
-
-
 (* Reads the model from a file in the file system.
    Part of the trusted computing base. *)
 Definition get_model_def:
@@ -85,8 +28,8 @@ Definition get_model_def:
   | NONE => NONE
   | SOME str =>
     case parse_model (implode str) of
-    | NONE => NONE
-    | SOME maiger => SOME (process_model maiger)
+    | error _ => NONE
+    | return maiger => SOME (preprocess_model maiger)
 End
 
 (* Asserts that str is a string represnetation of cnf. *)
@@ -125,10 +68,11 @@ Definition make_cert_sem_def:
          «decrease»; «closure»; «stable»]
   in
     (out = «SUCCESS» ∧ EVERY (λf. ALOOKUP fs.files f = NONE) fnames ⇒
-     ∃maig mreset mnext msafes mcnstrs mlive mlatches
+     ∃maig mreset mnext msafes mcnstrs mlive mlatches mlatch_start mmax_latch
       reset transition safety base induction liveness decrease closure stable.
         get_model fs fmodel =
-          SOME (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatches) ∧
+          SOME (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatches,
+                mlatch_start, mmax_latch) ∧
         LIST_REL (cnf_saved fs') fnames
           [reset; transition; safety; base; induction; liveness; decrease;
            closure; stable] ∧
@@ -166,9 +110,8 @@ val prog = get_ml_prog_state ()
 
 (*** write_{reset,transition,...} *********************************************)
 
-Overload "AIG_TYPE"[local] =
-  “LIST_TYPE
-     (PAIR_TYPE NUM (LIST_TYPE (PAIR_TYPE (AIG_VAR_TYPE NUM NUM NUM) BOOL)))”
+Overload "XAIG_TYPE"[local] =
+  “LIST_TYPE (PAIR_TYPE NUM (XAIG_GTY_TYPE NUM NUM NUM))”
 
 Overload "LIT_TYPE"[local] = “PAIR_TYPE (AIG_VAR_TYPE NUM NUM NUM) BOOL”
 
@@ -184,11 +127,11 @@ Overload "INTERV_TYPE"[local] =
 Theorem write_reset_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 9 < 65536 ∧
-  AIG_TYPE maig maigv ∧
+  XAIG_TYPE maig maigv ∧
   LATCH_OPTION_LIT_TYPE mreset mresetv ∧
   LIT_LIST mcnstrs mcnstrsv ∧
   LIST_TYPE NUM mlatches mlatchesv ∧
-  AIG_TYPE waig waigv ∧
+  XAIG_TYPE waig waigv ∧
   LATCH_OPTION_LIT_TYPE wreset wresetv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
   LIST_TYPE NUM wlatches wlatchesv ∧
@@ -235,7 +178,7 @@ Proof
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
-  >> drule_then assume_tac aig_to_cnf_def_correct
+  >> drule_then assume_tac xaig_to_cnf_correct
   >> simp [unsatisfiable_cnf_def,reset_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
@@ -243,11 +186,11 @@ QED
 Theorem write_transition_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 14 < 65536 ∧
-  AIG_TYPE maig maigv ∧
+  XAIG_TYPE maig maigv ∧
   LATCH_LIT_TYPE mnext mnextv ∧
   LIT_LIST mcnstrs mcnstrsv ∧
   LIST_TYPE NUM mlatches mlatchesv ∧
-  AIG_TYPE waig waigv ∧
+  XAIG_TYPE waig waigv ∧
   LATCH_LIT_TYPE wnext wnextv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
   LIST_TYPE NUM wlatches wlatchesv ∧
@@ -294,7 +237,7 @@ Proof
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
-  >> drule_then assume_tac aig_to_cnf_def_correct
+  >> drule_then assume_tac xaig_to_cnf_correct
   >> simp [unsatisfiable_cnf_def,transition_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
@@ -302,10 +245,10 @@ QED
 Theorem write_safety_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 10 < 65536 ∧
-  AIG_TYPE maig maigv ∧
+  XAIG_TYPE maig maigv ∧
   LIT_LIST mcnstrs mcnstrsv ∧
   LIT_LIST msafes msafesv ∧
-  AIG_TYPE waig waigv ∧
+  XAIG_TYPE waig waigv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
   LIT_LIST wsafes wsafesv ∧
   hasFreeFD fs
@@ -349,7 +292,7 @@ Proof
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
-  >> drule_then assume_tac aig_to_cnf_def_correct
+  >> drule_then assume_tac xaig_to_cnf_correct
   >> simp [unsatisfiable_cnf_def,safety_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
@@ -357,7 +300,7 @@ QED
 Theorem write_base_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 8 < 65536 ∧
-  AIG_TYPE waig waigv ∧
+  XAIG_TYPE waig waigv ∧
   LATCH_OPTION_LIT_TYPE wreset wresetv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
   LIT_LIST wsafes wsafesv ∧
@@ -402,7 +345,7 @@ Proof
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
-  >> drule_then assume_tac aig_to_cnf_def_correct
+  >> drule_then assume_tac xaig_to_cnf_correct
   >> simp [unsatisfiable_cnf_def,base_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
@@ -410,7 +353,7 @@ QED
 Theorem write_induction_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 13 < 65536 ∧
-  AIG_TYPE waig waigv ∧
+  XAIG_TYPE waig waigv ∧
   LATCH_LIT_TYPE wnext wnextv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
   LIT_LIST wsafes wsafesv ∧
@@ -455,7 +398,7 @@ Proof
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
-  >> drule_then assume_tac aig_to_cnf_def_correct
+  >> drule_then assume_tac xaig_to_cnf_correct
   >> simp [unsatisfiable_cnf_def,induction_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
@@ -463,10 +406,10 @@ QED
 Theorem write_liveness_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 12 < 65536 ∧
-  AIG_TYPE maig maigv ∧
+  XAIG_TYPE maig maigv ∧
   LIT_LIST mcnstrs mcnstrsv ∧
   LIST_TYPE LIT_LIST mlive mlivev ∧
-  AIG_TYPE waig waigv ∧
+  XAIG_TYPE waig waigv ∧
   LATCH_LIT_TYPE wnext wnextv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
   LIT_LIST wsafes wsafesv ∧
@@ -515,7 +458,7 @@ Proof
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
-  >> drule_then assume_tac aig_to_cnf_def_correct
+  >> drule_then assume_tac xaig_to_cnf_correct
   >> simp [unsatisfiable_cnf_def,liveness_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
@@ -523,7 +466,7 @@ QED
 Theorem write_decrease_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 12 < 65536 ∧
-  AIG_TYPE waig waigv ∧
+  XAIG_TYPE waig waigv ∧
   LATCH_LIT_TYPE wnext wnextv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
   LIT_LIST wsafes wsafesv ∧
@@ -570,7 +513,7 @@ Proof
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
-  >> drule_then assume_tac aig_to_cnf_def_correct
+  >> drule_then assume_tac xaig_to_cnf_correct
   >> simp [unsatisfiable_cnf_def,decrease_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
@@ -578,7 +521,7 @@ QED
 Theorem write_closure_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 11 < 65536 ∧
-  AIG_TYPE waig waigv ∧
+  XAIG_TYPE waig waigv ∧
   LATCH_LIT_TYPE wnext wnextv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
   LIT_LIST wsafes wsafesv ∧
@@ -625,7 +568,7 @@ Proof
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
-  >> drule_then assume_tac aig_to_cnf_def_correct
+  >> drule_then assume_tac xaig_to_cnf_correct
   >> simp [unsatisfiable_cnf_def,closure_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
@@ -633,7 +576,7 @@ QED
 Theorem write_stable_spec[local]:
   FILENAME prefix prefixv ∧
   strlen prefix + 10 < 65536 ∧
-  AIG_TYPE waig waigv ∧
+  XAIG_TYPE waig waigv ∧
   LATCH_LIT_TYPE wnext wnextv ∧
   LIT_LIST wcnstrs wcnstrsv ∧
   LIT_LIST wsafes wsafesv ∧
@@ -680,7 +623,7 @@ Proof
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
   >> gvs []
-  >> drule_then assume_tac aig_to_cnf_def_correct
+  >> drule_then assume_tac xaig_to_cnf_correct
   >> simp [unsatisfiable_cnf_def,stable_encoding_is_unsat_def]
   >> metis_tac [PAIR]
 QED
@@ -758,6 +701,28 @@ Proof
   >> metis_tac []
 QED
 
+(* The translated spec for process_and_check has free refinement invariants for
+   the polymorphic name types. make_cert only ever applies it to the num-named
+   circuits that preprocess_model and preprocess_witness return. *)
+Theorem process_and_check_v_thm_num[local] =
+  let
+    val nref =
+      “LIST_TYPE (PAIR_TYPE NUM LIT_LIST) --> LATCH_OPTION_LIT_TYPE -->
+       LATCH_LIT_TYPE --> LIT_LIST --> LIT_LIST --> LIST_TYPE LIT_LIST -->
+       LIST_TYPE NUM --> NUM --> NUM -->
+       LIST_TYPE (PAIR_TYPE NUM LIT_LIST) --> LATCH_OPTION_LIT_TYPE -->
+       LIST_TYPE LIT_LIST --> LIST_TYPE NUM -->
+       ERRORMONAD_ERROR_TYPE
+         (PAIR_TYPE XAIG_TYPE (PAIR_TYPE XAIG_TYPE (LIST_TYPE NUM)))
+         STRING_TYPE”
+    val th = aig_cert_fullProgTheory.process_and_check_v_thm
+    val (tmS, tyS) = match_term (rator (rator (concl th))) nref
+  in
+    MATCH_MP
+      (DISCH_ALL (INST tmS (INST_TYPE tyS th)))
+      (cj 1 EqualityType_NUM_BOOL)
+  end
+
 Theorem make_cert_spec:
   FILENAME fmodel fmodelv ∧
   FILENAME fwitness fwitnessv ∧
@@ -788,8 +753,7 @@ Proof
   >- (xapp_spec inputAllFrom_SOME_spec >> simp [OPTION_TYPE_def])
   >> Cases_on ‘file_content fs fmodel’ >> gvs [OPTION_TYPE_def]
   >> xmatch
-  >- (xapp >> xsimpl >>
-    qexistsl [‘emp’, ‘fs’] >> print_err_tac)
+  >- (xapp >> xsimpl >> qexistsl [‘emp’, ‘fs’] >> print_err_tac)
   >> xlet_autop
   >> xlet ‘POSTv sv.
        &OPTION_TYPE STRING_TYPE
@@ -800,8 +764,7 @@ Proof
   >> xmatch
   >- (xapp >> xsimpl >> qexistsl [‘emp’, ‘fs’] >> print_err_tac)
   >> xlet_autop
-  >> qmatch_asmsub_abbrev_tac ‘parse model witness’
-  >> reverse $ Cases_on ‘parse model witness’
+  >> reverse $ Cases_on ‘parse_model (implode x)’
   >- (
     qmatch_asmsub_rename_tac ‘error err’
     >> Cases_on ‘err’
@@ -810,12 +773,48 @@ Proof
     >> first_assum $ irule_at (Pos hd) >> qexistsl [‘fs’, ‘emp’]
     >> print_err_tac
   )
-  >> qmatch_asmsub_rename_tac ‘return res’
-  >> PairCases_on ‘res’
+  >> qmatch_asmsub_rename_tac ‘return maiger’
+  >> gvs [ERRORMONAD_ERROR_TYPE_def]
+  >> xmatch
+  >> xlet_autop
+  >> reverse $ Cases_on ‘parse_witness (implode x')’
+  >- (
+    qmatch_asmsub_rename_tac ‘error err’
+    >> Cases_on ‘err’
+    >> gvs [ERRORMONAD_ERROR_TYPE_def, PAIR_TYPE_def]
+    >> xmatch >> xapp >> xsimpl
+    >> first_assum $ irule_at (Pos hd) >> qexistsl [‘fs’, ‘emp’]
+    >> print_err_tac
+  )
+  >> qmatch_asmsub_rename_tac ‘return wit’
+  >> namedCases_on ‘wit’ ["waiger ms"]
   >> gvs [ERRORMONAD_ERROR_TYPE_def, PAIR_TYPE_def]
   >> xmatch
   >> xlet_autop
-  >> reverse $ Cases_on ‘process_and_check res0 res1 res2’
+  >> namedCases_on ‘preprocess_model maiger’
+       ["maig mreset mnext msafes mcnstrs mlive mlatches mlatch_start \
+        \mmax_latch"]
+  >> gvs [PAIR_TYPE_def]
+  >> xmatch
+  >> xlet_autop
+  >> namedCases_on ‘preprocess_witness maiger waiger ms’
+       ["waig wreset wnext wsafes wcnstrs wlive wlatches interv"]
+  >> gvs [PAIR_TYPE_def]
+  >> xmatch
+  >> xlet ‘POSTv v.
+       &ERRORMONAD_ERROR_TYPE
+          (PAIR_TYPE XAIG_TYPE (PAIR_TYPE XAIG_TYPE (LIST_TYPE NUM)))
+          STRING_TYPE
+          (process_and_check maig mreset mnext msafes mcnstrs mlive mlatches
+             mlatch_start mmax_latch waig wreset wlive wlatches) v *
+       STDIO fs’
+  >- (
+    xapp_spec process_and_check_v_thm_num
+    >> rpt (first_x_assum $ irule_at Any)
+    >> xsimpl)
+  >> reverse $ Cases_on
+       ‘process_and_check maig mreset mnext msafes mcnstrs mlive mlatches
+          mlatch_start mmax_latch waig wreset wlive wlatches’
   >- (
     qmatch_asmsub_rename_tac ‘error err’
     >> Cases_on ‘err’
@@ -824,8 +823,8 @@ Proof
     >> first_assum $ irule_at (Pos hd) >> qexistsl [‘fs’, ‘emp’]
     >> print_err_tac
   )
-  >> qmatch_asmsub_rename_tac ‘return aigs’
-  >> PairCases_on ‘aigs’
+  >> qmatch_asmsub_rename_tac ‘return xaigs’
+  >> PairCases_on ‘xaigs’
   >> gvs [ERRORMONAD_ERROR_TYPE_def, PAIR_TYPE_def]
   >> xmatch
   >> ntac 9 (xlet_auto >- write_side_tac)
@@ -837,20 +836,21 @@ Proof
   >> qexistsl [‘fs'’, ‘«SUCCESS»’]
   >> conj_tac
   >- (
-    conj_tac >- simp[Abbr`fs'`]>>
-    rw [make_cert_sem_def]
+    conj_tac >- simp [Abbr ‘fs'’]
+    >> rw [make_cert_sem_def]
     (* Showing get_model is successful *)
     >> simp [get_model_def]
-    >> drule_then assume_tac parse_imp_parse_model >> simp []
-    >> drule_then assume_tac process_and_check_imp_process_model >> simp []
     (* Showing cnf_saved *)
     >> simp [Abbr ‘fs'’, Req0 cnf_saved_write_file_files_eq,
              cnf_saved_write_file_files_neq, ALOOKUP_write_file_files_neq]
     (* Showing is_cnf_str *)
     >> rpt (qpat_assum ‘is_cnf_str _ _’ $ irule_at Any)
     (* Showing unsat ⇒ safe + live *)
+    >> drule_then SUBST_ALL_TAC preprocess_model_mlatches
     >> drule process_and_check_return
     >> simp [GSYM encodings_unsat_def]
+    >> rw []
+    >> first_x_assum drule >> simp []
   )
   >> xsimpl
 QED

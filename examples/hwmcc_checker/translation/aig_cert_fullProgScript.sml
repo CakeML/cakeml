@@ -24,9 +24,14 @@ val r = translate syntax_helperTheory.print_lits_def;
 val r = translate syntax_helperTheory.print_header_line_def;
 val r = translate aig_cert_fullTheory.cnf_to_string_def;
 
-val r = translate (aig_cert_fullTheory.parse_def |> demonadify);
-val r = translate aig_cert_fullTheory.preprocess_def;
-val r = translate (aig_cert_fullTheory.process_mlatches_range_def |> demonadify);
+val r = translate (aig_cert_fullTheory.parse_model_def |> demonadify);
+val r = translate aig_cert_fullTheory.preprocess_model_def;
+
+val r = translate (aig_cert_fullTheory.parse_witness_def |> demonadify);
+val r = translate aig_cert_fullTheory.preprocess_witness_def;
+
+val r = translate listTheory.mapPartial_def;
+val r = translate (aig_cert_fullTheory.check_model_def |> demonadify);
 
 val r = translate listTheory.LIST_REL_def;
 
