@@ -2069,7 +2069,7 @@ Theorem itree_semantics_DecCall_with_pre_ret_satisfy:
      (itree_semantics (q,s with locals := r) >>=
                       (λres. itree_deccall_handler rt sh s rsh res t)))) ∧
   ((∀s. Pre_next s ⇒ itree_semantics (prog1,s) = t s) ∧
-  (∃args q r.
+  (∃args q r rsh.
         OPT_MMAP (eval s) aexps = SOME args ∧
         lookup_code s.code fname args = SOME (q,r,rsh) ∧
         ret_satisfy
@@ -2781,7 +2781,7 @@ End
 
 
 Definition file_code_def:
-  file_code fundecs = FEMPTY |++ (MAP (λx. (x.name, (x.params, del_annot x.body))) (fundecs))
+  file_code fundecs = FEMPTY |++ (MAP (λx. (x.name, (x.params, del_annot x.body, x.return))) (fundecs))
 End
 
 Definition funcname_bodies_def:
