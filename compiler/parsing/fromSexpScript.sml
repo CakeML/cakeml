@@ -709,7 +709,11 @@ Definition sexparith_def:
      if s = "Or"  then SOME Or  else
      if s = "Not" then SOME Not else
      if s = "Sqrt" then SOME Sqrt else
-     if s = "FMA" then SOME FMA else NONE) ∧
+     if s = "FMA" then SOME FMA else
+     if s = "ShiftLsl" then SOME (Shift Lsl) else
+     if s = "ShiftLsr" then SOME (Shift Lsr) else
+     if s = "ShiftAsr" then SOME (Shift Asr) else
+     if s = "ShiftRor" then SOME (Shift Ror) else NONE) ∧
   sexparith _ = NONE
 End
 
@@ -770,15 +774,6 @@ Definition sexpop_def:
          if s = "AllocThunk" then SOME (ThunkOp (AllocThunk m)) else
          if s = "UpdateThunk" then SOME (ThunkOp (UpdateThunk m)) else NONE
    ) ∧
-  (sexpop (SX_CONS (SX_SYM s) (SX_NUM n)) =
-    if s = "Shift8Lsl" then SOME (Shift W8 Lsl n) else
-    if s = "Shift8Lsr" then SOME (Shift W8 Lsr n) else
-    if s = "Shift8Asr" then SOME (Shift W8 Asr n) else
-    if s = "Shift8Ror" then SOME (Shift W8 Ror n) else
-    if s = "Shift64Lsl" then SOME (Shift W64 Lsl n) else
-    if s = "Shift64Lsr" then SOME (Shift W64 Lsr n) else
-    if s = "Shift64Asr" then SOME (Shift W64 Asr n) else
-    if s = "Shift64Ror" then SOME (Shift W64 Ror n) else NONE) ∧
   (sexpop (SX_CONS (SX_SYM s) (SX_CONS x y)) =
     if s = "Arith" then
       (case (sexparith x, decode_prim_type y) of
@@ -1355,7 +1350,11 @@ Definition arithsexp_def:
   arithsexp Neg = SX_SYM "Neg" ∧
   arithsexp Abs = SX_SYM "Abs" ∧
   arithsexp Sqrt = SX_SYM "Sqrt" ∧
-  arithsexp FMA = SX_SYM "FMA"
+  arithsexp FMA = SX_SYM "FMA" ∧
+  arithsexp (Shift Lsl) = SX_SYM "ShiftLsl" ∧
+  arithsexp (Shift Lsr) = SX_SYM "ShiftLsr" ∧
+  arithsexp (Shift Asr) = SX_SYM "ShiftAsr" ∧
+  arithsexp (Shift Ror) = SX_SYM "ShiftRor"
 End
 
 Theorem arithsexp_11[simp]:
@@ -1369,7 +1368,9 @@ QED
 Theorem arithsexp_sexparith[simp]:
   ∀x. sexparith (arithsexp x) = SOME x
 Proof
-  Cases \\ fs [sexparith_def,arithsexp_def]
+  Cases >> simp [sexparith_def, arithsexp_def] >>
+  rename1 `Shift sh` >> Cases_on `sh` >>
+  simp [sexparith_def, arithsexp_def]
 QED
 
 Definition prim_typesexp_def:
@@ -1554,14 +1555,6 @@ Proof
 QED
 
 Definition opsexp_def:
-  (opsexp (Shift W8 Lsl n) = SX_CONS (SX_SYM "Shift8Lsl") (SX_NUM n)) ∧
-  (opsexp (Shift W8 Lsr n) = SX_CONS (SX_SYM "Shift8Lsr") (SX_NUM n)) ∧
-  (opsexp (Shift W8 Asr n) = SX_CONS (SX_SYM "Shift8Asr") (SX_NUM n)) ∧
-  (opsexp (Shift W8 Ror n) = SX_CONS (SX_SYM "Shift8Ror") (SX_NUM n)) ∧
-  (opsexp (Shift W64 Lsl n) = SX_CONS (SX_SYM "Shift64Lsl") (SX_NUM n)) ∧
-  (opsexp (Shift W64 Lsr n) = SX_CONS (SX_SYM "Shift64Lsr") (SX_NUM n)) ∧
-  (opsexp (Shift W64 Asr n) = SX_CONS (SX_SYM "Shift64Asr") (SX_NUM n)) ∧
-  (opsexp (Shift W64 Ror n) = SX_CONS (SX_SYM "Shift64Ror") (SX_NUM n)) ∧
   (opsexp Equality = SX_SYM "Equality") ∧
   (opsexp Opapp = SX_SYM "Opapp") ∧
   (opsexp Opassign = SX_SYM "Opassign") ∧
@@ -1628,10 +1621,7 @@ Proof
       \\ rw [] \\ gvs [AllCaseEqs()]
       \\ Cases_on ‘t'’ \\ gvs [encode_thunk_mode_def,decode_thunk_mode_def]) >>
   Cases_on`op`>>fs []>>rw[sexpop_def,opsexp_def] >>
-  rw[sexpop_def,opsexp_def,SEXSTR_def] >>
-  rename [‘Shift c1 c2 _’] >>
-  Cases_on`c1` >> rw[sexpop_def,opsexp_def] >>
-  Cases_on`c2` >> rw[sexpop_def,opsexp_def]
+  rw[sexpop_def,opsexp_def,SEXSTR_def]
 QED
 
 Theorem opsexp_11[simp]:
@@ -2235,7 +2225,8 @@ QED
 Theorem valid_sexp_arithsexp[local,simp]:
   valid_sexp (arithsexp a)
 Proof
-  Cases_on ‘a’ \\ EVAL_TAC
+  Cases_on `a` >> EVAL_TAC >>
+  rename1 `Shift sh` >> Cases_on `sh` >> EVAL_TAC
 QED
 
 Theorem valid_sexp_logsexp[local,simp]:
