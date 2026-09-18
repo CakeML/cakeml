@@ -3392,6 +3392,11 @@ fun dest_word_binop tm =
   if is_eq tm                   then Eval_word_eq else
     failwith("not a word binop")
 
+(* Reduce encoded shift counts to concrete word literals in generated code. *)
+val word_shift_rewrites =
+  [shift_count8_def, shift_count64_def, shift_distinct,
+   word_size_distinct, ONCE_REWRITE_RULE [EQ_SYM_EQ] word_size_distinct];
+
 fun dest_word_shift tm =
   if wordsSyntax.is_word_lsl tm then Eval_word_lsl else
   if wordsSyntax.is_word_lsr tm then Eval_word_lsr else
@@ -3659,6 +3664,7 @@ fun hol2deep tm =
     val dim = wordsSyntax.dim_of tm
     val th1 = hol2deep (rand tm)
     val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_n2w
+                           |> REWRITE_RULE word_shift_rewrites
                            |> CONV_RULE wordsLib.WORD_CONV) th1
     in check_inv "n2w" tm result end else
   (* i2w 'a word for known 'a *)
@@ -3666,6 +3672,7 @@ fun hol2deep tm =
     val dim = wordsSyntax.dim_of tm
     val th1 = hol2deep (rand tm)
     val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_i2w
+                           |> REWRITE_RULE word_shift_rewrites
                            |> CONV_RULE wordsLib.WORD_CONV) th1
     in check_inv "i2w" tm result end else
   (* w2n 'a word for known 'a *)
@@ -3674,7 +3681,9 @@ fun hol2deep tm =
     val dim = wordsSyntax.dim_of x1
     val th1 = hol2deep x1
     (* th1 should have instantiated 'a already *)
-    val result = MATCH_MP Eval_w2n th1 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    val result = MATCH_MP Eval_w2n th1
+                   |> REWRITE_RULE word_shift_rewrites
+                   |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "w2n" tm result end else
   (* w2i 'a word for known 'a *)
   if integer_wordSyntax.is_w2i tm andalso word_ty_ok (type_of (rand tm)) then let
@@ -3682,7 +3691,9 @@ fun hol2deep tm =
     val dim = wordsSyntax.dim_of x1
     val th1 = hol2deep x1
     (* th1 should have instantiated 'a already *)
-    val result = MATCH_MP Eval_w2i th1 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    val result = MATCH_MP Eval_w2i th1
+                   |> REWRITE_RULE word_shift_rewrites
+                   |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "w2i" tm result end else
   (* w2w 'a word for known 'a *)
   if wordsSyntax.is_w2w tm andalso word_ty_ok (type_of (rand tm))
@@ -3692,13 +3703,15 @@ fun hol2deep tm =
     val dim2 = wordsSyntax.dim_of x1
     val th1 = hol2deep x1
     val lemma = INST_TYPE [alpha|->dim1,beta|->dim2]Eval_w2w
+                  |> REWRITE_RULE word_shift_rewrites
     val h = lemma |> concl |> dest_imp |> fst
     val h_thm = EVAL h
     val lemma = REWRITE_RULE [h_thm] lemma
     val _ = Teq (rand (concl h_thm)) orelse failwith "false pre for w2w"
     val result =
         MATCH_MP (lemma |> SIMP_RULE std_ss [LET_THM]
-                        |> CONV_RULE (RAND_CONV (RATOR_CONV wordsLib.WORD_CONV)))
+                        |> CONV_RULE (RAND_CONV (RATOR_CONV wordsLib.WORD_CONV))
+                        |> REWRITE_RULE word_shift_rewrites)
           (hol2deep x1)
     in check_inv "w2w" tm result end else
   (* word_add, _and, _or, _xor, _sub *)
@@ -3714,12 +3727,14 @@ fun hol2deep tm =
     val n = tm |> rand
     val _ = numSyntax.is_numeral n orelse
             failwith "2nd arg to word shifts must be numeral constant"
-    val lemma = dest_word_shift tm |> SPEC n |> SIMP_RULE std_ss [LET_THM]
+    val lemma = dest_word_shift tm |> SPEC n
+                  |> SIMP_RULE std_ss (LET_THM :: word_shift_rewrites)
     val th1 = hol2deep (tm |> rator |> rand)
     val result = MATCH_MP lemma th1
                    |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
-                   |> REWRITE_RULE []
+                   |> REWRITE_RULE word_shift_rewrites
                    |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+                   |> REWRITE_RULE word_shift_rewrites
     in check_inv "word_shift" tm result end else
   (* $& o f *)
   if can (match_term int_of_num_o_pat) tm then let
