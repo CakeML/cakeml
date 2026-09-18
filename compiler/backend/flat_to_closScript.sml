@@ -97,6 +97,18 @@ Definition CopyByteAw8_def:
   CopyByteAw8 t = ^checkF
 End
 
+Definition compile_shift_def:
+  compile_shift t ws sh xs =
+    case (ws,xs) of
+    | (W8,[Op _ (IntOp (Const i)) []; x]) =>
+        if 0 <= i /\ i < 256 then
+          Op t (WordOp (WordShift W8 sh (Num i))) [x]
+        else Op t (WordOp (WordShiftVar W8 sh)) xs
+    | (W64,[Op _ (BlockOp (Constant (ConstWord64 n))) []; x]) =>
+        Op t (WordOp (WordShift W64 sh (w2n n))) [x]
+    | _ => Op t (WordOp (WordShiftVar ws sh)) xs
+End
+
 Definition compile_arith_def:
   compile_arith t (a: ast$arith) ty xs =
     case ty of
@@ -127,6 +139,7 @@ Definition compile_arith_def:
                    | And => Op t (WordOp (WordOpw ws Andw)) xs
                    | Or  => Op t (WordOp (WordOpw ws Orw)) xs
                    | Xor => Op t (WordOp (WordOpw ws Xor)) xs
+                   | Shift sh => compile_shift t ws sh xs
                    | _   => Let None xs (Var None 0))
     | BoolT => Op t (BlockOp BoolNot) xs
     | _ => Let None xs (Var None 0)
@@ -214,7 +227,6 @@ Definition compile_op_def:
     | Src Strsub => Let t xs (If t (Op t (MemOp (BoundsCheckByte F)) [Var t 0; Var t 1])
                                (Op t (MemOp DerefByteVec) [Var t 0; Var t 1])
                                (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
-    | Src (Shift x1 x2 x3) => Op t (WordOp (WordShift x1 x2 x3)) xs
     | Src Eval => Op t Install xs
     | Src (ThunkOp op) => Op t (ThunkOp op) xs
     | Src (Arith a ty) => compile_arith t a ty xs

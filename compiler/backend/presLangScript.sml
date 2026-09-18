@@ -211,7 +211,8 @@ Definition arith_to_display_def:
   arith_to_display Not = empty_item «Not» ∧
   arith_to_display Abs = empty_item «Abs» ∧
   arith_to_display Sqrt = empty_item «Sqrt» ∧
-  arith_to_display FMA = empty_item «FMA»
+  arith_to_display FMA = empty_item «FMA» ∧
+  arith_to_display (Shift sh) = Item NONE «Shift» [shift_to_display sh]
 End
 
 Definition prim_type_to_display_def:
@@ -232,10 +233,6 @@ End
 Definition op_to_display_def:
   op_to_display (p:ast$op) =
   case p of
-  | Shift ws sh num => Item NONE «Shift»
-                            [word_size_to_display ws;
-                             shift_to_display sh;
-                             num_to_display num]
   | Arith a ty => Item NONE «Arith»
                          [arith_to_display a;
                           prim_type_to_display ty]
@@ -661,6 +658,9 @@ Definition clos_op_to_display_def:
                                            [word_size_to_display ws;
                                             shift_to_display sh;
                                             num_to_display num]
+    | WordOp (WordShiftVar ws sh) => Item NONE «WordShiftVar»
+                                           [word_size_to_display ws;
+                                            shift_to_display sh]
     | WordOp (WordTest ws test) => Item NONE «WordTest»
                                         [word_size_to_display ws;
                                          test_to_display test]

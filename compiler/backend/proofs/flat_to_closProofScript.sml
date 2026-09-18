@@ -10,6 +10,48 @@ Ancestors
 Libs
   preamble helperLib[qualified] induct_tweakLib[qualified]
 
+Theorem evaluate_compile_shift:
+  evaluate ([compile_shift tra sz sh xs],env,s) =
+  evaluate ([Op tra (WordOp (WordShiftVar sz sh)) xs],env,s)
+Proof
+  Cases_on `sz` >> simp [compile_shift_def] >>
+  rpt (TOP_CASE_TAC >> simp [])
+  >~ [`WordShiftVar W8`] >- (
+    qmatch_goalsub_rename_tac `Op tra (WordOp (WordShift W8 sh (Num n))) [x]` >>
+    simp [evaluate_def, do_app_def, do_int_app_def] >>
+    Cases_on `evaluate ([x],env,s)` >>
+    rename1 `evaluate ([x],env,s) = (res,s1)` >>
+    Cases_on `res` >> simp [] >>
+    drule evaluate_SING >>
+    disch_then (qx_choose_then `v` SUBST_ALL_TAC) >>
+    Cases_on `v` >> simp [do_word_app_def] >>
+    DEEP_INTRO_TAC some_intro >> simp [] >>
+    rpt strip_tac >> DEEP_INTRO_TAC some_intro >> simp [FORALL_PROD] >>
+    qexists_tac `n2w (Num n)` >> Cases_on `n` >> gvs []) >>
+  qmatch_goalsub_rename_tac `Op tra (WordOp (WordShift W64 sh (w2n n))) [x]` >>
+  simp [evaluate_def, do_app_def, make_const_def] >>
+  Cases_on `evaluate ([x],env,s)` >>
+  rename1 `evaluate ([x],env,s) = (res,s1)` >>
+  Cases_on `res` >> simp [] >>
+  drule evaluate_SING >>
+  disch_then (qx_choose_then `v` SUBST_ALL_TAC) >>
+  Cases_on `v` >> simp [do_word_app_def]
+QED
+
+Theorem compile_shift_props:
+  closProps$set_globals (compile_shift tra sz sh xs) = elist_globals xs /\
+  esgc_free (compile_shift tra sz sh xs) = EVERY esgc_free xs /\
+  contains_App_SOME max_app [compile_shift tra sz sh xs] =
+    contains_App_SOME max_app xs /\
+  every_Fn_vs_NONE [compile_shift tra sz sh xs] = every_Fn_vs_NONE xs /\
+  no_mti (compile_shift tra sz sh xs) = EVERY no_mti xs
+Proof
+  Cases_on `sz` >> simp [compile_shift_def] >>
+  rpt (TOP_CASE_TAC >>
+       simp [closPropsTheory.set_globals_def, op_gbag_def, esgc_free_def,
+             contains_App_SOME_def, every_Fn_vs_NONE_def, no_mti_def, SF ETA_ss])
+QED
+
 Theorem LIST_REL_EL: (* TODO: move *)
   !xs ys r.
     LIST_REL r xs ys <=>
@@ -599,14 +641,13 @@ Theorem compile_op_evaluates_args:
   evaluate ([compile_op tra op xs],db,t) = (Rerr err,t1)
 Proof
   Cases_on `op`
-  >- ( (* Src case: split on inner ast$op *)
-    Cases_on `o'`
+  >~ [`Src src`] >- (
+    Cases_on `src`
     >~ [`Src (Arith _ _)`]
-    >- (rename [`Src (Arith a ty)`] \\ rw [compile_op_def]
-        \\ Cases_on `ty` \\ Cases_on `a`
-        \\ simp [compile_arith_def]
-        \\ TRY (irule evaluate_Op_error \\ simp [])
-        \\ TRY (irule evaluate_Let_error \\ simp []))
+    >- (
+      rename1 `Src (Arith a ty)` >> rw [compile_op_def] >>
+      Cases_on `ty` >> Cases_on `a` >>
+      simp [compile_arith_def, evaluate_compile_shift, evaluate_def])
     \\ fs [compile_op_def,evaluate_def,evaluate_APPEND,arg1_def,arg2_def]
     \\ every_case_tac \\ fs [evaluate_def]
     \\ fs [pair_case_eq,result_case_eq]
@@ -708,20 +749,6 @@ Proof
     \\ rename [`if i = j then _ else _`]
     \\ Cases_on `i = j` \\ fs [] \\ fs [LUPDATE_def])
   \\ fs []
-QED
-
-Theorem op_shifts:
-  (?w s n. op = Src (Shift w s n)) ==>
-  ^op_goal
-Proof
-  rw [] \\ Cases_on `w` \\ Cases_on `s` \\ rveq \\ fs []
-  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
-         CaseEq "ast$lit",store_assign_def,option_case_eq,CaseEq "store_v"]
-  \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
-  \\ fs [] \\ rveq \\ fs [PULL_EXISTS,SWAP_REVERSE_SYM,v_rel_def] \\ rveq \\ fs []
-  \\ rename [`v_rel (Litv ww) y`] \\ Cases_on `ww`
-  \\ fs [v_rel_def,do_shift_def] \\ rveq \\ fs []
-  \\ fs [compile_op_def,evaluate_def,do_app_def,do_word_app_def,v_rel_def]
 QED
 
 Theorem op_byte_arrays:
@@ -1258,62 +1285,44 @@ Theorem op_arith:
   (∃a ty. op = Src (Arith a ty)) ==>
   ^op_goal
 Proof
-  rpt strip_tac \\ rveq \\ fs []
-  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
-         CaseEq "ast$lit",store_assign_def,option_case_eq]
-  \\ gvs [AllCaseEqs()]
-  \\ Cases_on ‘ty’ using prim_type_cases
-  (* Eliminate impossible types: BoolT, CharT, StrT all make do_arith return NONE *)
-  \\ gvs [semanticPrimitivesTheory.do_arith_def]
-  (* Now only IntT, Float64T, WordT W8, WordT W64 remain. Destruct the value list. *)
-  \\ gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
-  \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
-  (* Derive concrete flatLang values from check_type *)
-  \\ rpt (first_x_assum (strip_assume_tac o MATCH_MP check_type_IntT_flat_to_v)
-          ORELSE first_x_assum (strip_assume_tac o MATCH_MP check_type_BoolT_flat_to_v)
-          ORELSE first_x_assum (strip_assume_tac o MATCH_MP check_type_Float64T_flat_to_v)
-          ORELSE first_x_assum (strip_assume_tac o MATCH_MP check_type_WordT_W8_flat_to_v)
-          ORELSE first_x_assum (strip_assume_tac o MATCH_MP check_type_WordT_W64_flat_to_v))
-  \\ gvs [Boolv_def, semanticPrimitivesTheory.Boolv_def, Boolv_def,
-          flatSemTheory.Boolv_def]
-  (* Now expand the_Litv functions with concrete Litv values *)
-  \\ gvs [flatSemTheory.flat_to_v_def,
-          semanticPrimitivesTheory.the_Litv_IntLit_def,
-          semanticPrimitivesTheory.the_Litv_Float64_def,
-          semanticPrimitivesTheory.the_Litv_Word8_def,
-          semanticPrimitivesTheory.the_Litv_Word64_def,
-          semanticPrimitivesTheory.do_arith_def, AllCaseEqs()]
-  \\ gvs []
-  (* Derive closLang value forms from v_rel *)
-  \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
-  \\ fs [compile_op_def, compile_arith_def]
-  \\ simp [closSemTheory.evaluate_def, closSemTheory.do_app_def,
-           do_int_app_def, do_eq_def, do_word_app_def,
-           fpSemTheory.fp_bop_comp_def, fpSemTheory.fp_uop_comp_def,
-           fpSemTheory.fp_top_comp_def, fpSemTheory.fpfma_def]
-  (* Handle IntT/Float64T/W64 cases *)
-  \\ TRY (IF_CASES_TAC \\ gvs [])
-  \\ rewrite_tac [Boolv_def, semanticPrimitivesTheory.Boolv_def,
-                  flatSemTheory.Boolv_def]
-  \\ gvs [v_rel_def, div_exn_v_def, flatSemTheory.v_to_flat_def]
-  \\ rewrite_tac [Boolv_def, semanticPrimitivesTheory.Boolv_def,
-                  flatSemTheory.Boolv_def]
-  \\ gvs [v_rel_def, div_exn_v_def, flatSemTheory.v_to_flat_def,
-          backend_commonTheory.true_tag_def,
-          backend_commonTheory.false_tag_def]
-  \\ rewrite_tac [Boolv_def, semanticPrimitivesTheory.Boolv_def,
-                  flatSemTheory.Boolv_def]
-  \\ gvs [v_rel_def, div_exn_v_def, flatSemTheory.v_to_flat_def,
-          Boolv_def, semanticPrimitivesTheory.Boolv_def,
-          flatSemTheory.Boolv_def,
-          backend_commonTheory.true_tag_def,
-          backend_commonTheory.false_tag_def]
-  (* Handle W8 cases: eliminate the 'some' pattern *)
-  \\ fs [some_def, EXISTS_PROD]
-  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-  \\ `(@x. w' = FST x ∧ w = SND x) = (w', w)` by
-       (irule SELECT_UNIQUE \\ simp [FORALL_PROD] \\ metis_tac [])
-  \\ simp []
+  rpt strip_tac >> gvs [flatSemTheory.do_app_def, AllCaseEqs()]
+  >~ [`do_arith _ _ _ = SOME (INL _)`] >- (
+    Cases_on `ty` using prim_type_cases >>
+    gvs [semanticPrimitivesTheory.do_arith_def, AllCaseEqs(),
+         LENGTH_EQ_NUM_compute, MAP_EQ_CONS, PULL_EXISTS] >>
+    imp_res_tac check_type_IntT_flat_to_v >>
+    gvs [flatSemTheory.flat_to_v_def, semanticPrimitivesTheory.the_Litv_IntLit_def,
+         v_rel_def, SWAP_REVERSE_SYM] >>
+    simp [compile_op_def, compile_arith_def, evaluate_def, do_app_def,
+          do_int_app_def, do_eq_def, div_exn_v_def, v_rel_def]) >>
+  Cases_on `ty` using prim_type_cases >>
+  gvs [semanticPrimitivesTheory.do_arith_def, AllCaseEqs(),
+       LENGTH_EQ_NUM_compute, MAP_EQ_CONS, PULL_EXISTS] >>
+  imp_res_tac check_type_BoolT_flat_to_v >>
+  imp_res_tac check_type_IntT_flat_to_v >>
+  imp_res_tac check_type_Float64T_flat_to_v >>
+  imp_res_tac check_type_WordT_W8_flat_to_v >>
+  imp_res_tac check_type_WordT_W64_flat_to_v >>
+  gvs [flatSemTheory.Boolv_def, semanticPrimitivesTheory.Boolv_def] >>
+  gvs [flatSemTheory.flat_to_v_def, semanticPrimitivesTheory.the_Litv_IntLit_def,
+       semanticPrimitivesTheory.the_Litv_Float64_def,
+       semanticPrimitivesTheory.the_Litv_Word8_def,
+       semanticPrimitivesTheory.the_Litv_Word64_def, v_rel_def, SWAP_REVERSE_SYM] >>
+  gvs [flatSemTheory.Boolv_def, semanticPrimitivesTheory.Boolv_def,
+       closSemTheory.Boolv_def, backend_commonTheory.true_tag_def,
+       backend_commonTheory.false_tag_def] >>
+  simp [compile_op_def, compile_arith_def, evaluate_compile_shift, evaluate_def,
+        do_app_def, do_int_app_def, do_word_app_def, do_eq_def,
+        flatSemTheory.v_to_flat_def, v_rel_def] >>
+  simp [flatSemTheory.Boolv_def, semanticPrimitivesTheory.Boolv_def,
+        closSemTheory.Boolv_def, backend_commonTheory.true_tag_def,
+        backend_commonTheory.false_tag_def, v_rel_def] >>
+  simp [fpSemTheory.fp_bop_comp_def, fpSemTheory.fp_uop_comp_def,
+        fpSemTheory.fp_top_comp_def, fpSemTheory.fpfma_def]
+  >~ [`shift64_lookup sh _ _`] >- (
+    Cases_on `sh` >> simp [shift64_lookup_def]) >>
+  DEEP_INTRO_TAC some_intro >> simp [FORALL_PROD] >>
+  Cases_on `sh` >> simp [shift8_lookup_def]
 QED
 
 Theorem op_from_to:
@@ -1631,7 +1640,7 @@ Theorem compile_op_correct:
   ^op_goal
 Proof
   EVERY (map assume_tac
-    [op_refs, op_str, op_shifts, op_thunk, op_eq_gc, op_byte_arrays,
+    [op_refs, op_str, op_thunk, op_eq_gc, op_byte_arrays,
      op_arrays, op_test, op_arith, op_from_to, op_globals, op_blocks,
      op_ffi, op_byte_copy, op_eval, op_vectors, op_id])
   \\ `?this_is_case. this_is_case op` by (qexists_tac `K T` \\ fs [])
@@ -2195,7 +2204,7 @@ Proof
   \\ simp [GSYM closPropsTheory.contains_App_SOME_EXISTS]
 QED
 
-val props_defs = [closPropsTheory.contains_App_SOME_def,
+val props_defs = [compile_shift_props, closPropsTheory.contains_App_SOME_def,
     closPropsTheory.every_Fn_vs_NONE_def,
     closPropsTheory.no_mti_def, Q.ISPEC `no_mti` ETA_THM,
     closPropsTheory.esgc_free_def]
