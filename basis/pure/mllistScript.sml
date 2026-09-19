@@ -384,17 +384,10 @@ Proof
   |> SIMP_RULE (srw_ss()++ETA_ss) [])]
 QED
 
-Definition mapPartial_def:
-  (mapPartial f [] = []) /\
-  (mapPartial f (h::t) = case (f h) of
-    NONE => mapPartial f t
-    |(SOME x) => x::mapPartial f t)
-End
-
 Theorem mapPartial_thm:
    !f l. mapPartial f l = MAP THE (FILTER IS_SOME (MAP f l))
 Proof
-  Induct_on `l` \\ rw [mapPartial_def] \\ Cases_on `f h` \\ rw [THE_DEF] \\ fs [IS_SOME_DEF]
+  Induct_on `l` \\ rw [listTheory.mapPartial_def] \\ Cases_on `f h` \\ rw [THE_DEF] \\ fs [IS_SOME_DEF]
 QED
 
 Theorem index_find_thm:
