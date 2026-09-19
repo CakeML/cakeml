@@ -148,7 +148,7 @@ Proof
   >~ [`Raise`] >- suspend "Raise"
   >~ [`Handle`] >- suspend "Handle"
   >~ [`Con`] >- suspend "Con"
-  >~ [`ast$Var`] >- suspend "Var"
+  >~ [`ast$Ident`] >- suspend "Ident"
   >~ [`ast$Fun`] >- suspend "Fun"
   >~ [`ast$App`] >- suspend "App"
   >~ [`Log`] >- suspend "Log"
@@ -239,7 +239,7 @@ Resume evaluate_v_ok[Con]:
   \\ strip_tac \\ gs [env_ok_def]
 QED
 
-Resume evaluate_v_ok[Var]:
+Resume evaluate_v_ok[Ident]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"]]
   >- (

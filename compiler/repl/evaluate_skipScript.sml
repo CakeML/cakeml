@@ -481,7 +481,7 @@ Proof
   >~ [`Raise`] >- suspend "Raise"
   >~ [`Handle`] >- suspend "Handle"
   >~ [`Con`] >- suspend "Con"
-  >~ [`ast$Var`] >- suspend "Var"
+  >~ [`ast$Ident`] >- suspend "Ident"
   >~ [`ast$Fun`] >- suspend "Fun"
   >~ [`ast$App`] >- suspend "App"
   >~ [`Log`] >- suspend "Log"
@@ -654,7 +654,7 @@ Resume evaluate_update[Con]:
   \\ gs [SF SFY_ss]
 QED
 
-Resume evaluate_update[Var]:
+Resume evaluate_update[Ident]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"]]
   \\ first_assum (irule_at Any) \\ gs [] \\ dsimp []
