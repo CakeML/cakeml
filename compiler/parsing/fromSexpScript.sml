@@ -837,7 +837,7 @@ Definition sexpexp_def:
             (lift2 Con
                    (sexpopt (sexpid odestSEXSTR) (EL 0 args))
                    (sexplist sexpexp (EL 1 args))) ++
-      guard (nm = "Var" ∧ LENGTH args = 1)
+      guard (nm = "Ident" ∧ LENGTH args = 1)
             (lift Var (sexpid odestSEXSTR (EL 0 args))) ++
       guard (nm = "Fun" ∧ LENGTH args = 2)
             (lift2 Fun (odestSEXSTR (EL 0 args)) (sexpexp (EL 1 args))) ++
@@ -902,7 +902,7 @@ Definition sexpexp_alt_def:
              OPTION_MAP2 Con (sexpopt (sexpid odestSEXSTR) (EL 0 args))
                (sexpexp_list (EL 1 args))
            else
-          if nm = "Var" ∧ LENGTH args = 1 then
+          if nm = "Ident" ∧ LENGTH args = 1 then
              lift Var (sexpid odestSEXSTR (EL 0 args))
            else
           if nm = "Fun" ∧ LENGTH args = 2 then
@@ -1682,7 +1682,7 @@ Definition expsexp_def:
   expsexp (Con cn es) =
     listsexp [SX_SYM "Con"; optsexp (OPTION_MAP idsexp cn);
               listsexp (MAP expsexp es)] ∧
-  expsexp (Var id) = listsexp [SX_SYM "Var"; idsexp id] ∧
+  expsexp (Var id) = listsexp [SX_SYM "Ident"; idsexp id] ∧
   expsexp (Fun x e) = listsexp [SX_SYM "Fun"; SEXSTR (explode x); expsexp e] ∧
   expsexp (App op es) =
     listsexp [SX_SYM "App"; opsexp op; listsexp (MAP expsexp es)] ∧
@@ -2101,7 +2101,7 @@ Proof
   \\ simp[Once sexpexp_def, EXISTS_PROD, dstrip_sexp_SOME, PULL_EXISTS]
   \\ rpt gen_tac
   \\ rename1 `guard (nm = "Raise" ∧ _) _`
-  \\ reverse (Cases_on `nm ∈ {"Raise"; "Handle"; "Lit"; "Con"; "Var"; "Fun";
+  \\ reverse (Cases_on `nm ∈ {"Raise"; "Handle"; "Lit"; "Con"; "Ident"; "Fun";
                               "App"; "Log"; "If"; "Mat"; "Let"; "Letrec";
                               "Lannot"; "Tannot"; "Open"}`)
   \\ pop_assum mp_tac
