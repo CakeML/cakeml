@@ -341,9 +341,9 @@ in
         end handle HOL_ERR _ => th |> concl
       val code = rand(rator cth)
       val tm =
-        if is_Var code then tm else
+        if is_Ident code then tm else
           (* TODO: mk_Long depending on m *)
-          subst [code |-> mk_Var(mk_Short (mlstringSyntax.mk_mlstring ml_name))] tm
+          subst [code |-> mk_Ident(mk_Short (mlstringSyntax.mk_mlstring ml_name))] tm
     in
       ASSUME tm |> SPEC_ALL |> UNDISCH_ALL
     end handle e as HOL_ERR holerr =>
@@ -2501,7 +2501,7 @@ fun prove_EvalPatBind goal hol2deep = let
    failwith "prove_EvalPatBind failed");
 
 fun to_pattern tm =
-  if astSyntax.is_Var tm then
+  if astSyntax.is_Ident tm then
     mk_Pvar(rand (rand tm))
   else if astSyntax.is_Con tm then
     let
@@ -3149,7 +3149,7 @@ fun inst_Eval_env v th = let
   val str = mlstringSyntax.mk_mlstring name
   val inv = get_type_inv (type_of v)
   val assum = mk_Eval(env_tm,
-                      astSyntax.mk_Var(astSyntax.mk_Short(str)),
+                      astSyntax.mk_Ident(astSyntax.mk_Short(str)),
                         mk_comb(inv, v))
   val new_env = mk_write(str,mk_var("v",v_ty),env_tm)
   val old_env = new_env |> rand
@@ -3211,7 +3211,7 @@ fun apply_Eval_Recclosure recc fname v th = let
   val pat = lemma |> concl |> find_term (can (match_term pat))
   val new_env = pat |> rand
   val assum_eval = mk_Eval(env_tm,
-                           astSyntax.mk_Var(astSyntax.mk_Short(vname_str)),
+                           astSyntax.mk_Ident(astSyntax.mk_Short(vname_str)),
                            mk_comb(inv, v))
   val assum = subst [env_tm|->new_env] assum_eval
   val thx = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
@@ -3467,7 +3467,7 @@ fun hol2deep tm =
     val inv = get_type_inv ty
     val str = mlstringSyntax.mk_mlstring name
     val result = ASSUME (mk_Eval(env_tm,
-                       astSyntax.mk_Var(astSyntax.mk_Short(str)),
+                       astSyntax.mk_Ident(astSyntax.mk_Short(str)),
                        mk_comb(inv,tm)))
     in check_inv "var" tm result end else
   (* constants *)
@@ -3522,7 +3522,7 @@ fun hol2deep tm =
     val ss = fst (match_term lhs tm)
     val pre = subst ss pre_var
     val pre_imp = mk_PreImp(pre, mk_Eval(env_tm,
-                                         astSyntax.mk_Var(astSyntax.mk_Short(str)),
+                                         astSyntax.mk_Ident(astSyntax.mk_Short(str)),
                                          mk_comb(inv,f)))
     val h = ASSUME pre_imp
             |> RW [PreImp_def] |> UNDISCH
@@ -4764,7 +4764,7 @@ fun prove_Eval_assumptions th =
 (* TODO: consolidate with concrete-mode translate? *)
 fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
   let
-    val vname = assert is_Var (cert |> concl |> rator |> rand) |> rand |> rand
+    val vname = assert is_Ident (cert |> concl |> rator |> rand) |> rand |> rand
     val LOOKUP_VAR_pat = LOOKUP_VAR_def |> SPEC vname |> SPEC_ALL |> concl |> lhs
     val cert = cert |> DISCH_ALL |> PURE_REWRITE_RULE[GSYM AND_IMP_INTRO] |> UNDISCH_ALL
     val lookup_var_hyp = first (can (match_term LOOKUP_VAR_pat)) (hyp cert)

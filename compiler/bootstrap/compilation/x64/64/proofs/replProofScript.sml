@@ -36,17 +36,17 @@ Proof
   \\ rw [] \\ res_tac \\ imp_res_tac no_closures_IMP_concrete_v
 QED
 
-val EqualityType_LIST_TYPE_AST_DEC_TYPE =
-  decProgTheory.EqualityType_LIST_TYPE_AST_DEC_TYPE;
+val EqualityType_LIST_TYPE_DEC_TYPE =
+  decProgTheory.EqualityType_LIST_TYPE_DEC_TYPE;
 
 val EqualityType_BACKEND_CONFIG_TYPE =
   decodeProgTheory.EqualityType_BACKEND_CONFIG_TYPE;
 
 Theorem concrete_v_decs:
-  LIST_TYPE AST_DEC_TYPE decs v ⇒ concrete_v v
+  LIST_TYPE DEC_TYPE decs v ⇒ concrete_v v
 Proof
   rw [] \\ drule EqualityType_concrete_v
-  \\ fs [EqualityType_LIST_TYPE_AST_DEC_TYPE]
+  \\ fs [EqualityType_LIST_TYPE_DEC_TYPE]
 QED
 
 Theorem concrete_v_config:
@@ -57,14 +57,14 @@ Proof
 QED
 
 Theorem LIST_TYPE_AST_DEC_IMP:
-  LIST_TYPE AST_DEC_TYPE decs decs_v ⇒
-  ∀x. LIST_v AST_DEC_v x = decs_v ⇔ x = decs
+  LIST_TYPE DEC_TYPE decs decs_v ⇒
+  ∀x. LIST_v DEC_v x = decs_v ⇔ x = decs
 Proof
-  assume_tac EqualityType_LIST_TYPE_AST_DEC_TYPE
+  assume_tac EqualityType_LIST_TYPE_DEC_TYPE
   \\ rw []
-  \\ ‘IsTypeRep (LIST_v AST_DEC_v) (LIST_TYPE AST_DEC_TYPE)’ by
+  \\ ‘IsTypeRep (LIST_v DEC_v) (LIST_TYPE DEC_TYPE)’ by
       (irule decProgTheory.IsTypeRep_LIST_v
-       \\ fs [decProgTheory.IsTypeRep_AST_DEC_v])
+       \\ fs [decProgTheory.IsTypeRep_DEC_v])
   \\ fs [ml_translatorTheory.IsTypeRep_def]
   \\ fs [ml_translatorTheory.EqualityType_def]
 QED
@@ -114,8 +114,8 @@ Theorem evaluate_Eval:
   compile_inc_progs_for_eval x64_config (id1,s1,decs) = SOME (s2,bs,ws) ∧
   s.compiler = compiler_inst x64_config ∧
   s.compiler_state = s1_v ∧
-  s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ⇒
-  LIST_TYPE AST_DEC_TYPE decs decs_v ∧
+  s.decode_decs = v_fun_abs decs_allowed (LIST_v DEC_v) ⇒
+  LIST_TYPE DEC_TYPE decs decs_v ∧
   BACKEND_CONFIG_TYPE s1 s1_v ∧
   BACKEND_CONFIG_TYPE s2 s2_v ∧
   LIST_TYPE WORD ws ws_v ∧
@@ -151,7 +151,7 @@ Proof
   fs [evaluate_def,do_eval_res_def]
   \\ fs [do_eval_def]
   \\ rpt strip_tac
-  \\ ‘v_fun_abs decs_allowed (LIST_v AST_DEC_v) decs_v = SOME decs’ by
+  \\ ‘v_fun_abs decs_allowed (LIST_v DEC_v) decs_v = SOME decs’ by
    (fs [source_evalProofTheory.v_rel_abs]
     \\ drule LIST_TYPE_AST_DEC_IMP \\ fs []
     \\ DEEP_INTRO_TAC some_intro \\ fs [IN_DEF])
@@ -218,7 +218,7 @@ Theorem evaluate_eval:
     st.eval_state = SOME (EvalDecs s) ∧
     s.compiler = compiler_inst x64_config ∧
     s.compiler_state = s1_v ∧
-    s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ∧
+    s.decode_decs = v_fun_abs decs_allowed (LIST_v DEC_v) ∧
     s.env_id_counter = (cur_gen1,next_id1,next_gen1) ∧
     env_v = Env env1 (env_id,0) ∧ decs_allowed decs ∧
     nsLookup env.v (Short eval_str) = SOME eval_v ⇒
@@ -227,7 +227,7 @@ Theorem evaluate_eval:
                      Conv NONE [env_v; Litv (IntLit (&env_id))];
                      decs_v]) ∧
     BACKEND_CONFIG_TYPE s1 s1_v ∧
-    LIST_TYPE AST_DEC_TYPE decs decs_v ∧
+    LIST_TYPE DEC_TYPE decs decs_v ∧
     (∀ck junk st1 res. evaluate_decs (st with
                                          <|clock := st.clock − ck; refs := st.refs ++ junk;
                                            eval_state := NONE |>) env1
@@ -286,7 +286,7 @@ Proof
   \\ rename [‘do_opapp [compiler64prog_compiler_for_eval_v;_]’]
   \\ qmatch_goalsub_abbrev_tac ‘do_opapp [_; arg_v]’
   \\ ‘PAIR_TYPE (PAIR_TYPE NUM NUM)
-      (PAIR_TYPE BACKEND_CONFIG_TYPE (LIST_TYPE AST_DEC_TYPE))
+      (PAIR_TYPE BACKEND_CONFIG_TYPE (LIST_TYPE DEC_TYPE))
       ((env_id,0),(s1,decs)) arg_v’ by
     fs [Abbr‘arg_v’,ml_translatorTheory.PAIR_TYPE_def]
   \\ assume_tac compiler64prog_compiler_for_eval_v_thm
@@ -489,13 +489,13 @@ Theorem evaluate_repl:
      st.eval_state = SOME (EvalDecs s) ∧
      s.compiler = compiler_inst x64_config ∧
      s.compiler_state = s1_v ∧
-     s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ∧
+     s.decode_decs = v_fun_abs decs_allowed (LIST_v DEC_v) ∧
      s.env_id_counter = (cur_gen,next_id,next_gen) ∧
      BACKEND_CONFIG_TYPE s1 s.compiler_state ∧
-     LIST_TYPE AST_DEC_TYPE decs decs_v ∧
+     LIST_TYPE DEC_TYPE decs decs_v ∧
      TYPES_TYPE types types_v ∧
      STRING_TYPE input_str input_str_v ∧
-     (STRING_TYPE --> SUM_TYPE STRING_TYPE (LIST_TYPE AST_DEC_TYPE)) parse parse_v ∧
+     (STRING_TYPE --> SUM_TYPE STRING_TYPE (LIST_TYPE DEC_TYPE)) parse parse_v ∧
      env_v = Conv NONE [Env env1 (env_id,0); Litv (IntLit (&env_id))] ∧
      conf_v = Conv NONE [s1_v; Litv (IntLit (&next_gen))] ∧
      repl_types T (ffi,repl_rs) (SND types,st with eval_state := NONE,env1) ∧
@@ -531,7 +531,7 @@ Proof
   \\ rename [‘do_opapp [repl_check_and_tweak_check_and_tweak_v;_]’]
   \\ qmatch_goalsub_abbrev_tac ‘do_opapp [_; arg_v]’
   \\ assume_tac repl_check_and_tweak_check_and_tweak_v_thm
-  \\ ‘PAIR_TYPE (LIST_TYPE AST_DEC_TYPE) (PAIR_TYPE TYPES_TYPE STRING_TYPE)
+  \\ ‘PAIR_TYPE (LIST_TYPE DEC_TYPE) (PAIR_TYPE TYPES_TYPE STRING_TYPE)
            (decs,types,input_str) arg_v’ by
     fs [Abbr‘arg_v’,PAIR_TYPE_def]
   \\ drule_all Arrow_IMP
@@ -958,7 +958,7 @@ Theorem evaluate_repl_thm =
 Theorem evaluate_start_repl:
   (st:'ffi semanticPrimitives$state).eval_state = SOME (EvalDecs s) ∧
   s.compiler = compiler_inst x64_config ∧
-  s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ∧
+  s.decode_decs = v_fun_abs decs_allowed (LIST_v DEC_v) ∧
   s.env_id_counter = (0,1,1) ∧
   BACKEND_CONFIG_TYPE s1 s.compiler_state ∧
   LIST_TYPE STRING_TYPE cl cl_v ∧
@@ -1107,7 +1107,7 @@ val ffi_inst = type_of “basis_ffi _ _ _” |> dest_type |> snd |> hd
 
 Theorem evaluate_decs_compiler64_prog:
   s.compiler = compiler_inst x64_config ∧
-  s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ∧
+  s.decode_decs = v_fun_abs decs_allowed (LIST_v DEC_v) ∧
   s.env_id_counter = (0,0,1) ∧ prog_syntax_ok compiler64_prog ∧
   has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
   s.compiler_state = BACKEND_CONFIG_v conf ∧
@@ -1270,7 +1270,7 @@ QED
 
 Theorem semantics_prog_compiler64_prog:
   s.compiler = compiler_inst x64_config ∧
-  s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ∧
+  s.decode_decs = v_fun_abs decs_allowed (LIST_v DEC_v) ∧
   s.env_id_counter = (0,0,1) ∧ has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧
   STD_streams fs ∧ hasFreeFD fs ∧ prog_syntax_ok compiler64_prog ∧
   s.compiler_state = BACKEND_CONFIG_v conf ∧

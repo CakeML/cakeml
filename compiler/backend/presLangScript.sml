@@ -335,7 +335,7 @@ Definition exp_to_display_def:
   | Raise e => Item NONE «Raise» [exp_to_display e]
   | Con opt_id es => Item NONE «Con» [option_to_display id_to_display opt_id;
                                       Tuple (exp_to_display_list es)]
-  | Var id => Item NONE «Var» [id_to_display id]
+  | Var id => Item NONE «Ident» [id_to_display id]
   | Fun n e => Item NONE «Fun» [String n; exp_to_display e]
   | App op es => Item NONE «App» (op_to_display op ::
                                   exp_to_display_list es)
