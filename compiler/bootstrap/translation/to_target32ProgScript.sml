@@ -282,7 +282,7 @@ val res = start_dynamic_init_fixed_store_translation
             store_pinv_def_opt;
 
 val _ = translate (lab_inst_def |> INST_TYPE [alpha |-> ``:32``])
-val _ = translate (cbw_to_asm_def |> INST_TYPE [alpha |-> ``:32``])
+val _ = translate (compile_shmem_def |> INST_TYPE [alpha |-> ``:32``])
 val _ = m_translate lookup_ins_table_32_def;
 val _ = m_translate enc_line_hash_32_def;
 val _ = m_translate enc_line_hash_32_ls_def;

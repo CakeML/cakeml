@@ -92,7 +92,7 @@ local
      ("LENGTH_const", listSyntax.length_tm),
      ("EL_const", listSyntax.el_tm),
      ("Fun_const",astSyntax.Fun_tm),
-     ("Var_const",astSyntax.Var_tm),
+     ("Ident_const",astSyntax.Ident_tm),
      ("Closure_const",semanticPrimitivesSyntax.Closure_tm),
      ("failure_pat",``\v. (M_failure(C v), state_var)``),
      ("Eval_pat",``Eval env exp (P (res:'a))``),
@@ -190,7 +190,7 @@ val SND_const = get_term "SND_const";
 val LENGTH_const = get_term "LENGTH_const";
 val EL_const = get_term "EL_const";
 val Fun_const = get_term "Fun_const";
-val Var_const = get_term "Var_const";
+val Ident_const = get_term "Ident_const";
 val Closure_const = get_term "Closure_const";
 val failure_pat = get_term "failure_pat";
 val Eval_pat = get_term "Eval_pat";

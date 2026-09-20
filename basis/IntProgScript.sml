@@ -26,6 +26,9 @@ val _ = trans "<=" intSyntax.leq_tm;
 val _ = trans ">=" intSyntax.geq_tm;
 val _ = trans "~" ``\i. - (i:int)``;
 
+val _ = next_ml_names := ["abs"];
+val res = translate integerTheory.INT_ABS;
+
 val _ = ml_prog_update open_local_block;
 
 val res = translate exp_for_dec_enc_def;
