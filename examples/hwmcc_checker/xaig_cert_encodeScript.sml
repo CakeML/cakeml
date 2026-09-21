@@ -308,43 +308,43 @@ QED
    to. h indicates the second copy of latches intervened literals should be
    mapped to. *)
 Definition qinterv_lit_def:
-  qinterv_lit f g h (interv: ('a, 'i, 'l) var -> ('l # bool) option) lit =
+  qinterv_lit f g h i (interv: ('a, 'i, 'l) var -> ('l # bool) option) lit =
   let (v, b) = lit in
     case interv v of
-    | NONE => lit_map_base f g lit
+    | NONE => lit_map f g h lit
     | SOME (l, b') =>
       (* if the intervened literal and the key in interv have different
          polarity, make sure result has negative polarity *)
-        (Base (Latch (h l)), b ≠ b')
+        (Base (Latch (i l)), b ≠ b')
 End
 
 Definition qinterv_gty_def:
-  qinterv_gty f g h interv (And xs) =
-    And (MAP (qinterv_lit f g h interv) xs) ∧
-  qinterv_gty f g h interv (Xor x₀ x₁) =
-    Xor (qinterv_lit f g h interv x₀) (qinterv_lit f g h interv x₁) ∧
-  qinterv_gty f g h interv (Ite cnd thn els) =
+  qinterv_gty f g h i interv (And xs) =
+    And (MAP (qinterv_lit f g h i interv) xs) ∧
+  qinterv_gty f g h i interv (Xor x₀ x₁) =
+    Xor (qinterv_lit f g h i interv x₀) (qinterv_lit f g h i interv x₁) ∧
+  qinterv_gty f g h i interv (Ite cnd thn els) =
     Ite
-      (qinterv_lit f g h interv cnd)
-      (qinterv_lit f g h interv thn)
-      (qinterv_lit f g h interv els) ∧
-  qinterv_gty f g h interv (Or xs) =
-    Or (MAP (qinterv_lit f g h interv) xs)
+      (qinterv_lit f g h i interv cnd)
+      (qinterv_lit f g h i interv thn)
+      (qinterv_lit f g h i interv els) ∧
+  qinterv_gty f g h i interv (Or xs) =
+    Or (MAP (qinterv_lit f g h i interv) xs)
 End
 
 Definition qinterv_gate_def:
-  qinterv_gate f g h interv ((n, gty): ('a, 'i, 'l) gate) =
-    (n, qinterv_gty f g h interv gty)
+  qinterv_gate f g h i interv ((n, gty): ('a, 'i, 'l) gate) =
+    (h n, qinterv_gty f g h i interv gty)
 End
 
 Definition qinterv_live_def:
-  qinterv_live f g h interv (live: ('a, 'i, 'l) lit list list) =
-    MAP (MAP (qinterv_lit f g h interv)) live
+  qinterv_live f g h i interv (live: ('a, 'i, 'l) lit list list) =
+    MAP (MAP (qinterv_lit f g h i interv)) live
 End
 
 Definition qinterv_def:
-  qinterv f g h interv (xaig: ('a, 'i, 'l) xaig) =
-    MAP (qinterv_gate f g h interv) xaig
+  qinterv f g h i interv (xaig: ('a, 'i, 'l) xaig) =
+    MAP (qinterv_gate f g h i interv) xaig
 End
 
 (** Specialized versions of the functions above. ******************************)
@@ -360,52 +360,52 @@ QED
 
 Definition qinterv_l_r_def:
   qinterv_l_r interv (xaig: ('a, 'i, 'l) xaig) =
-    qinterv INL INL INR interv xaig
+    qinterv INL INL I INR interv xaig
 End
 
 Definition qinterv_live_l_r_def:
   qinterv_live_l_r interv (live: ('a, 'i, 'l) lit list list) =
-    qinterv_live INL INL INR interv live
+    qinterv_live INL INL I INR interv live
 End
 
 Definition qinterv_live_r_l_def:
   qinterv_live_r_l interv (live: ('a, 'i, 'l) lit list list) =
-    qinterv_live INR INR INL interv live
+    qinterv_live INR INR I INL interv live
 End
 
 Definition qinterv_live_ll_r_def:
   qinterv_live_ll_r interv (live: ('a, 'i, 'l) lit list list) =
-    qinterv_live (INL ∘ INL) (INL ∘ INL) INR interv live
+    qinterv_live (INL ∘ INL) (INL ∘ INL) I INR interv live
 End
 
 Definition qinterv_live_ll_lr_def:
   qinterv_live_ll_lr interv (live: ('a, 'i, 'l) lit list list) =
-    qinterv_live (INL ∘ INL) (INL ∘ INL) (INL ∘ INR) interv live
+    qinterv_live (INL ∘ INL) (INL ∘ INL) I (INL ∘ INR) interv live
 End
 
 Definition qinterv_live_lr_r_def:
   qinterv_live_lr_r interv (live: ('a, 'i, 'l) lit list list) =
-    qinterv_live (INL ∘ INR) (INL ∘ INR) INR interv live
+    qinterv_live (INL ∘ INR) (INL ∘ INR) I INR interv live
 End
 
 Definition qinterv_r_l_def:
   qinterv_r_l interv (xaig: ('a, 'i, 'l) xaig) =
-    qinterv INR INR INL interv xaig
+    qinterv INR INR I INL interv xaig
 End
 
 Definition qinterv_ll_r_def:
   qinterv_ll_r interv (xaig: ('a, 'i, 'l) xaig) =
-    qinterv (INL ∘ INL) (INL ∘ INL) INR interv xaig
+    qinterv (INL ∘ INL) (INL ∘ INL) I INR interv xaig
 End
 
 Definition qinterv_ll_lr_def:
   qinterv_ll_lr interv (xaig: ('a, 'i, 'l) xaig) =
-    qinterv (INL ∘ INL) (INL ∘ INL) (INL ∘ INR) interv xaig
+    qinterv (INL ∘ INL) (INL ∘ INL) I (INL ∘ INR) interv xaig
 End
 
 Definition qinterv_lr_r_def:
   qinterv_lr_r interv (xaig: ('a, 'i, 'l) xaig) =
-    qinterv (INL ∘ INR) (INL ∘ INR) INR interv xaig
+    qinterv (INL ∘ INR) (INL ∘ INR) I INR interv xaig
 End
 
 (* Extending an xaig **********************************************************)
@@ -1944,14 +1944,14 @@ QED
 
 Theorem qinterv_r_l_cons[local]:
   qinterv_r_l interv (a::xaig) =
-    (qinterv_gate INR INR INL interv a)::(qinterv_r_l interv xaig)
+    (qinterv_gate INR INR I INL interv a)::(qinterv_r_l interv xaig)
 Proof
   simp [qinterv_r_l_def, qinterv_def]
 QED
 
 Theorem qinterv_ll_r_cons[local]:
   qinterv_ll_r interv (a::xaig) =
-    (qinterv_gate (INL ∘ INL) (INL ∘ INL) INR interv a)
+    (qinterv_gate (INL ∘ INL) (INL ∘ INL) I INR interv a)
     ::(qinterv_ll_r interv xaig)
 Proof
   simp [qinterv_ll_r_def, qinterv_def]
@@ -1959,7 +1959,7 @@ QED
 
 Theorem qinterv_lr_r_cons[local]:
   qinterv_lr_r interv (a::xaig) =
-    (qinterv_gate (INL ∘ INR) (INL ∘ INR) INR interv a)
+    (qinterv_gate (INL ∘ INR) (INL ∘ INR) I INR interv a)
     ::(qinterv_lr_r interv xaig)
 Proof
   simp [qinterv_lr_r_def, qinterv_def]
@@ -1967,7 +1967,7 @@ QED
 
 Theorem qinterv_ll_lr_cons[local]:
   qinterv_ll_lr interv (a::xaig) =
-    (qinterv_gate (INL ∘ INL) (INL ∘ INL) (INL ∘ INR) interv a)
+    (qinterv_gate (INL ∘ INL) (INL ∘ INL) I (INL ∘ INR) interv a)
     ::(qinterv_ll_lr interv xaig)
 Proof
   simp [qinterv_ll_lr_def, qinterv_def]
@@ -1975,7 +1975,7 @@ QED
 
 Theorem qinterv_l_r_cons[local]:
   qinterv_l_r interv (a::xaig) =
-    (qinterv_gate INL INL INR interv a)::(qinterv_l_r interv xaig)
+    (qinterv_gate INL INL I INR interv a)::(qinterv_l_r interv xaig)
 Proof
   simp [qinterv_l_r_def, qinterv_def]
 QED
@@ -1983,10 +1983,10 @@ QED
 Theorem xeval_lit_qinterv_r_l_eq[local]:
   (∀lit.
      xeval_lit (state_pair s₀ s₁) (qinterv_r_l interv xaig)
-       (qinterv_lit INR INR INL interv lit)
+       (qinterv_lit INR INR I INL interv lit)
      ⇔
      xeval_lit (state_pair s₁ s₀) (qinterv_l_r interv xaig)
-       (qinterv_lit INL INL INR interv lit)) ∧
+       (qinterv_lit INL INL I INR interv lit)) ∧
   (∀a.
      xeval_gate (state_pair s₀ s₁) (qinterv_r_l interv xaig) a ⇔
      xeval_gate (state_pair s₁ s₀) (qinterv_l_r interv xaig) a)
@@ -2038,10 +2038,10 @@ QED
 Theorem xeval_lit_qinterv_ll_r_eq[local]:
   (∀lit.
      xeval_lit (state_pair (state_pair s₀ s₁) s₂) (qinterv_ll_r interv xaig)
-       (qinterv_lit (INL ∘ INL) (INL ∘ INL) INR interv lit)
+       (qinterv_lit (INL ∘ INL) (INL ∘ INL) I INR interv lit)
      ⇔
      xeval_lit (state_pair s₀ s₂) (qinterv_l_r interv xaig)
-       (qinterv_lit INL INL INR interv lit)) ∧
+       (qinterv_lit INL INL I INR interv lit)) ∧
   (∀a.
      xeval_gate (state_pair (state_pair s₀ s₁) s₂)
        (qinterv_ll_r interv xaig) a ⇔
@@ -2094,10 +2094,10 @@ QED
 Theorem xeval_lit_qinterv_lr_r_eq[local]:
   (∀lit.
      xeval_lit (state_pair (state_pair s₀ s₁) s₂) (qinterv_lr_r interv xaig)
-       (qinterv_lit (INL ∘ INR) (INL ∘ INR) INR interv lit)
+       (qinterv_lit (INL ∘ INR) (INL ∘ INR) I INR interv lit)
      ⇔
      xeval_lit (state_pair s₁ s₂) (qinterv_l_r interv xaig)
-       (qinterv_lit INL INL INR interv lit)) ∧
+       (qinterv_lit INL INL I INR interv lit)) ∧
   (∀a.
      xeval_gate (state_pair (state_pair s₀ s₁) s₂)
        (qinterv_lr_r interv xaig) a ⇔
@@ -2150,10 +2150,10 @@ QED
 Theorem xeval_lit_qinterv_ll_lr_eq[local]:
   (∀lit.
      xeval_lit (state_pair (state_pair s₀ s₁) s₂) (qinterv_ll_lr interv xaig)
-       (qinterv_lit (INL ∘ INL) (INL ∘ INL) (INL ∘ INR) interv lit)
+       (qinterv_lit (INL ∘ INL) (INL ∘ INL) I (INL ∘ INR) interv lit)
      ⇔
      xeval_lit (state_pair s₀ s₁) (qinterv_l_r interv xaig)
-       (qinterv_lit INL INL INR interv lit)) ∧
+       (qinterv_lit INL INL I INR interv lit)) ∧
   (∀a.
      xeval_gate (state_pair (state_pair s₀ s₁) s₂)
        (qinterv_ll_lr interv xaig) a ⇔
@@ -2265,13 +2265,13 @@ QED
 
 Theorem FLAT_qinterv_live_flip[local]:
   FLAT (qinterv_live_lr_r interv wlive) =
-    MAP (qinterv_lit (INL ∘ INR) (INL ∘ INR) INR interv) (FLAT wlive)
+    MAP (qinterv_lit (INL ∘ INR) (INL ∘ INR) I INR interv) (FLAT wlive)
   ∧
   FLAT (qinterv_live_l_r interv wlive) =
-    MAP (qinterv_lit INL INL INR interv) (FLAT wlive)
+    MAP (qinterv_lit INL INL I INR interv) (FLAT wlive)
   ∧
   FLAT (qinterv_live_ll_lr interv wlive) =
-    MAP (qinterv_lit (INL ∘ INL) (INL ∘ INL) (INL ∘ INR) interv) (FLAT wlive)
+    MAP (qinterv_lit (INL ∘ INL) (INL ∘ INL) I (INL ∘ INR) interv) (FLAT wlive)
 Proof
   simp [qinterv_live_lr_r_def, qinterv_live_def, qinterv_live_l_r_def,
         qinterv_live_ll_lr_def,
@@ -3493,6 +3493,36 @@ QED
 
 (** Fusing encoding + mapping names to nums ***********************************)
 
+(** Intervention **************************************************************)
+
+Theorem lit_map_o_qinterv_lit:
+  lit_map f g h ∘ qinterv_lit f' g' h' i interv =
+  qinterv_lit (f ∘ f') (g ∘ g') (h ∘ h') (g ∘ i) interv
+Proof
+  simp [FUN_EQ_THM, qinterv_lit_def]
+  >> Cases >> simp []
+  >> CASE_TAC >> simp [GSYM lit_map_o]
+  >> CASE_TAC >> simp [lit_map_def, var_map_def, bvar_map_def]
+QED
+
+Theorem gty_map_o_qinterv_gty:
+  gty_map f g h ∘ qinterv_gty f' g' h' i interv =
+  qinterv_gty (f ∘ f') (g ∘ g') (h ∘ h') (g ∘ i) interv
+Proof
+  simp [FUN_EQ_THM]
+  >> Cases >> simp [qinterv_gty_def, gty_map_def]
+  >> simp [MAP_MAP_o, GSYM lit_map_o_qinterv_lit]
+QED
+
+Theorem gate_map_o_qinterv_gate:
+  gate_map f g h ∘ qinterv_gate f' g' h' i interv =
+  qinterv_gate (f ∘ f') (g ∘ g') (h ∘ h') (g ∘ i) interv
+Proof
+  simp [FUN_EQ_THM]
+  >> Cases >> simp [qinterv_gate_def, gate_map_def]
+  >> simp [GSYM gty_map_o_qinterv_gty]
+QED
+
 (*** xaig_map *****************************************************************)
 
 (* Theorem xaig_map_cons: *)
@@ -3746,6 +3776,6 @@ val encode_induction_cond_num =
   |> encode_imply_to_num
   |> encode_xlits_hold_to_num
   |> simp2num
-  (* interventions *)
-  |> step std_ss []
+  (* WIP interventions *)
+  |> step std_ss [qinterv_l_r_def, qinterv_def, MAP_MAP_o]
   |> reassoc

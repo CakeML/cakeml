@@ -123,23 +123,20 @@ QED
 Theorem gty_map_o:
   gty_map f g h ∘ gty_map f' g' h' = gty_map (f ∘ f') (g ∘ g') (h ∘ h')
 Proof
-  simp [FUN_EQ_THM] >> Cases >> simp [gty_map_def]
-  >> simp [MAP_MAP_o, lit_map_o, SRULE [FUN_EQ_THM] lit_map_o]
+  simp [FUN_EQ_THM] >> Cases >> simp [gty_map_def, MAP_MAP_o, GSYM lit_map_o]
 QED
 
 Theorem gate_map_o:
   gate_map f g h ∘ gate_map f' g' h' = gate_map (f ∘ f') (g ∘ g') (h ∘ h')
 Proof
-  simp [FUN_EQ_THM] >> Cases >> simp [gate_map_def]
-  >> simp [SRULE [FUN_EQ_THM] gty_map_o]
+  simp [FUN_EQ_THM] >> Cases >> simp [gate_map_def, GSYM gty_map_o]
 QED
 
 Theorem xaig_map_o:
   xaig_map f g h ∘ xaig_map f' g' h' = xaig_map (f ∘ f') (g ∘ g') (h ∘ h')
 Proof
   simp [FUN_EQ_THM] >> Induct >> simp []
-  >> simp [xaig_map_cons]
-  >> simp [SRULE [FUN_EQ_THM] gate_map_o]
+  >> simp [xaig_map_cons, GSYM gate_map_o]
 QED
 
 Theorem xaig_map_eq:
