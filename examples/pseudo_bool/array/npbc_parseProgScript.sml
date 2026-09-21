@@ -22,13 +22,14 @@ val r = translate strip_numbers_def;
 
 val r = translate pbcTheory.map_lit_def;
 
-val r = translate (hashNon_def |> SIMP_RULE std_ss [non_list_def]);
+val r = translate non_list_def;
+val r = translate hashNon_def;
 val r = translate hashChar_def;
 val r = translate hashChars_alt_def;
 val r = translate hashString_def;
 
 (* TODO: decouple parse_lit from goodChar *)
-val r = translate goodChar_def;
+val r = translate goodChar_eq;
 val r = translate goodChars_def;
 val r = translate goodString_def;
 
@@ -115,7 +116,13 @@ val r = translate parse_red_header_def;
 val r = translate parse_pbc_header_def;
 
 val r = translate strip_term_def;
-val r = translate tokenize_def;
+
+val _ = translate is_numeric_def;
+val _ = translate is_num_prefix_def;
+
+val r = translate int_start_def;
+
+val r = translate tokenize_eq;
 val r = translate strip_term_line_aux_def;
 val r = translate strip_term_line_def;
 
@@ -227,11 +234,6 @@ val fromString_unsafe_side = Q.prove(
   \\ simp_tac bool_ss [ONE,SEG_SUC_CONS,SEG_LENGTH_ID]
   \\ match_mp_tac fromchars_unsafe_side_thm
   \\ rw[]) |> update_precondition;
-
-val _ = translate is_numeric_def;
-val _ = translate is_num_prefix_def;
-
-val r = translate int_start_def;
 
 val _ = translate tokenize_fast_def;
 

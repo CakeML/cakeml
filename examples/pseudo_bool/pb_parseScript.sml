@@ -1058,6 +1058,68 @@ Definition int_start_def:
     F
 End
 
+Theorem fromChars_not_digits[local]:
+  ∀str.
+    str = [] ∨ ¬EVERY isDigit str ⇒
+    mlint$fromChars (STRLEN str) (strlit str) = NONE
+Proof
+  Cases
+  >- simp [mlintTheory.fromChars_def]
+  \\ rename1 ‘STRING c cs’
+  \\ qspecl_then [‘SUC (STRLEN cs)’,‘strlit (STRING c cs)’] mp_tac
+       mlintTheory.fromChars_IS_SOME_IFF
+  \\ simp []
+  \\ Cases_on ‘fromChars (SUC (STRLEN cs)) (implode (STRING c cs))’
+  \\ simp [EXISTS_MEM,EVERY_MEM]
+  \\ metis_tac []
+QED
+
+Theorem fromString_int_start[local]:
+  ¬int_start s ⇒ mlint$fromString s = NONE
+Proof
+  Cases_on ‘s’
+  \\ rename1 ‘strlit l’
+  \\ Cases_on ‘l’
+  >- EVAL_TAC
+  \\ rename1 ‘strlit (c::cs)’
+  \\ ‘∀ch. substring (implode (STRING ch cs)) 1 (STRLEN cs) = strlit cs’ by (
+    simp [mlstringTheory.substring_def]
+    \\ simp_tac bool_ss [ONE,SEG_SUC_CONS,SEG_LENGTH_ID])
+  \\ ‘(STRING c cs)❲STRLEN cs❳ = #";" ⇒
+      ¬EVERY isDigit (STRING c cs) ∧ (cs ≠ "" ⇒ ¬EVERY isDigit cs)’ by (
+    strip_tac
+    \\ ‘¬isDigit #";"’ by EVAL_TAC
+    \\ rewrite_tac [EVERY_EL]
+    \\ conj_tac
+    >- (simp [] \\ qexists_tac ‘STRLEN cs’ \\ simp [])
+    \\ Cases_on ‘cs’
+    \\ fs []
+    \\ rename1 ‘STRING d ds’
+    \\ qexists_tac ‘STRLEN ds’
+    \\ simp [])
+  \\ qspec_then ‘cs’ mp_tac fromChars_not_digits
+  \\ qspec_then ‘STRING c cs’ mp_tac fromChars_not_digits
+  \\ Cases_on ‘cs’
+  \\ fs [int_start_def,mlintTheory.fromString_def,is_numeric_def,
+         is_num_prefix_def,isDigit_def]
+  \\ rpt strip_tac
+  \\ rpt IF_CASES_TAC
+  \\ gvs []
+QED
+
+Theorem tokenize_eq:
+  tokenize s =
+  if int_start s then
+    case mlint$fromString s of
+      NONE => INL s
+    | SOME i => INR i
+  else INL s
+Proof
+  rw [tokenize_def]
+  \\ drule fromString_int_start
+  \\ simp []
+QED
+
 Definition tokenize_fast_def:
   tokenize_fast (s:mlstring) =
   if int_start s then

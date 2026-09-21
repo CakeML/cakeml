@@ -81,6 +81,19 @@ Definition goodChar_def:
   goodChar c ⇔ hashChar c ≠ 0
 End
 
+Theorem goodChar_eq:
+  goodChar c ⇔
+  let oc = ORD c in
+    if oc < 65 then
+      (if oc < 48 then oc = 36 ∨ oc = 45 else oc ≤ 57)
+    else if oc < 97 then oc ≤ 91 ∨ oc = 93 ∨ oc = 94 ∨ oc = 95
+    else oc ≤ 123 ∨ oc = 125
+Proof
+  simp [goodChar_def,hashChar_def,hashNon_def,non_list_eq,lookup_fromAList,
+        miscTheory.enumerate_def,pairTheory.SWAP_def]
+  \\ rw [sptreeTheory.lookup_insert]
+QED
+
 Definition goodChars_def:
   (goodChars 0 str = T) ∧
   (goodChars (SUC n) str =
