@@ -34,6 +34,18 @@ Libs
    - xeval_gate_encode_base_cond <- those theorems dont mention eval_gate directly anymore
  *)
 
+(* TODO upstream *)
+(*
+Theorem MAPi_MAP:
+  ∀l f g. MAPi f (MAP g l) = MAPi (λi a. f i (g a)) l
+Proof
+  Induct >> rw []
+  >> have ‘(λi a. f (SUC i) (g a)) = ((λi a. f i (g a)) ∘ SUC)’
+  >- simp [FUN_EQ_THM]
+  >> simp []
+QED
+*)
+
 Theorem xeval_lit_latch:
   xeval_lit ss xaig (Base (Latch l), b) ⇔ (b ⇎ SND ss l)
 Proof
@@ -44,75 +56,26 @@ QED
 (* Merging two xAIGs results in a new xAIG where the inputs and latches
    are shared. *)
 
-Definition left_name_var_def:
-  (left_name_var (Gate a)  = Gate (INL a)) ∧
-  (left_name_var (Base bv) = Base bv)
-End
-
 Definition left_name_lit_def:
-  left_name_lit (v, b) = (left_name_var v, b)
-End
-
-Definition left_name_gty_def:
-  left_name_gty (And xs) = And (MAP left_name_lit xs) ∧
-  left_name_gty (Xor x₀ x₁) = Xor (left_name_lit x₀) (left_name_lit x₁) ∧
-  left_name_gty (Ite cnd thn els) =
-    Ite (left_name_lit cnd) (left_name_lit thn) (left_name_lit els) ∧
-  left_name_gty (Or xs) = Or (MAP left_name_lit xs)
-End
-
-Definition left_name_gate_def:
-  left_name_gate (n, ins) = (INL n, left_name_gty ins)
-End
-
-Definition right_name_var_def:
-  (right_name_var (Gate a)  = Gate (INR a)) ∧
-  (right_name_var (Base bv) = Base bv)
+  left_name_lit = lit_map I I INL
 End
 
 Definition right_name_lit_def:
-  right_name_lit (v, b) = (right_name_var v, b)
-End
-
-Definition right_name_gty_def:
-  right_name_gty (And xs) = And (MAP right_name_lit xs) ∧
-  right_name_gty (Xor x₀ x₁) = Xor (right_name_lit x₀) (right_name_lit x₁) ∧
-  right_name_gty (Ite cnd thn els) =
-    Ite (right_name_lit cnd) (right_name_lit thn) (right_name_lit els) ∧
-  right_name_gty (Or xs) = Or (MAP right_name_lit xs)
-End
-
-Definition right_name_gate_def:
-  right_name_gate (n, ins) = (INR n, right_name_gty ins)
+  right_name_lit = lit_map I I INR
 End
 
 Definition merge_xaigs_def:
   merge_xaigs (xaig₁: ('a1, 'i, 'l) xaig) (xaig₂: ('a2, 'i, 'l) xaig) =
-    (MAP left_name_gate xaig₁ ++ MAP right_name_gate xaig₂)
+    (xaig_map I I INL xaig₁ ++ xaig_map I I INR xaig₂)
     :('a1 + 'a2, 'i, 'l) xaig
 End
-
-Theorem merge_xaigs_left_cons:
-  merge_xaigs (a::xaig₁) xaig₂ =
-  left_name_gate a::(merge_xaigs xaig₁) xaig₂
-Proof
-  simp [merge_xaigs_def]
-QED
-
-Theorem merge_xaigs_left_nil_right_cons:
-  merge_xaigs [] (a::xaig) =
-  right_name_gate a::(merge_xaigs [] xaig)
-Proof
-  simp [merge_xaigs_def]
-QED
 
 Theorem xeval_gate_merge_xaigs_left_nil_INL[local]:
   ¬xeval_gate ss (merge_xaigs [] xaig) (INL n)
 Proof
-  Induct_on ‘xaig’ >> rw [merge_xaigs_def, xeval_lit_def]
-  >> rpt (pairarg_tac >> gvs [])
-  >> rename1 ‘right_name_gate a’
-  >> Cases_on ‘a’ >> gvs [right_name_gate_def, merge_xaigs_def]
+  Induct_on ‘xaig’
+  >> gvs [merge_xaigs_def, xaig_map_def]
+  >> Cases >> simp [gate_map_def, xeval_lit_def]
 QED
 
 Theorem xeval_lit_merge_xaigs_left_nil_left[local]:
@@ -120,10 +83,12 @@ Theorem xeval_lit_merge_xaigs_left_nil_left[local]:
   xeval_lit ss [] m
 Proof
   Induct_on ‘xaig’
-  >> Cases_on ‘m’ >> fs [left_name_lit_def]
-  >> rename1 ‘left_name_var x’ >> Cases_on ‘x’ >> fs [left_name_var_def]
-  >> fs [merge_xaigs_def, xeval_lit_def]
-  >> Cases >> simp [right_name_gate_def]
+  >> gvs [merge_xaigs_def, xaig_map_def,
+          oneline left_name_lit_def, oneline lit_map_def,
+          oneline var_map_def, oneline bvar_map_def]
+  >> every_case_tac
+  >> gvs [xeval_lit_def]
+  >> Cases >> simp [gate_map_def, xeval_lit_def]
 QED
 
 Theorem xeval_gate_merge_xaigs_left_nil_INR[local]:
@@ -134,27 +99,17 @@ Theorem xeval_gate_merge_xaigs_left_nil_INR[local]:
      xeval_lit ss (merge_xaigs ([]: ('a, 'i, 'l) xaig) xaig) (right_name_lit m) =
      xeval_lit ss xaig m)
 Proof
-  Induct_on ‘xaig’ >> rw []
-  >- simp [merge_xaigs_def]
-  >-
-   (simp [merge_xaigs_def]
-    >> Cases_on ‘m’ >> simp [right_name_lit_def]
-    >> rename1 ‘right_name_var v’ >> Cases_on ‘v’ >> simp [right_name_var_def]
-    >> simp [xeval_lit_def])
-  >> simp [merge_xaigs_left_nil_right_cons]
-  >-
-   (simp [xeval_lit_def]
-    >> rename1 ‘right_name_gate h’ >> Cases_on ‘h’ >> simp [right_name_gate_def]
-    >> IF_CASES_TAC >> gvs []
-    >> rename1 ‘right_name_gty r’ >> Cases_on ‘r’ >> simp [right_name_gty_def]
-    >> gvs [EVERY_MAP, EXISTS_MAP])
-  >> Cases_on ‘m’ >> simp [right_name_lit_def]
-  >> rename1 ‘right_name_var v’ >> Cases_on ‘v’ >> simp [right_name_var_def]
-  >> simp [xeval_lit_def]
-  >> rename1 ‘right_name_gate h’ >> Cases_on ‘h’ >> simp [right_name_gate_def]
-  >> IF_CASES_TAC >> gvs []
-  >> rename1 ‘right_name_gty r'’ >> Cases_on ‘r'’ >> simp [right_name_gty_def]
-  >> gvs [EVERY_MAP, EXISTS_MAP]
+  simp [merge_xaigs_def, right_name_lit_def]
+  >> namedCases_on ‘ss’ ["is ls"]
+  >> mp_tac $
+       INST_TYPE [“:α” |-> “:ι”, “:β” |-> “:ι”, “:γ” |-> “:μ”,
+                  “:δ” |-> “:μ”, “:ε” |-> “:β”, “:ζ” |-> “:α + β”] xaig_map_eq
+  >> disch_then $
+       qspecl_then
+         [‘xaig’, ‘I’, ‘I’, ‘INR’, ‘is’, ‘is’, ‘ls’, ‘ls’]
+         mp_tac
+  >> impl_tac
+  >> simp [INJ_I, INJ_INR]
 QED
 
 Theorem xeval_gate_merge_xaigs_left[simp]:
@@ -168,20 +123,19 @@ Proof
   Induct_on ‘xaig₁’ >> rw []
   >- simp [xeval_gate_merge_xaigs_left_nil_INL]
   >- simp [xeval_lit_merge_xaigs_left_nil_left]
-  >> simp [merge_xaigs_left_cons]
-  >-
-   (simp [xeval_lit_def]
-    >> rename1 ‘left_name_gate a’ >> Cases_on ‘a’ >> simp [left_name_gate_def]
+  >> gvs [merge_xaigs_def, xaig_map_cons, left_name_lit_def, xeval_lit_def]
+  >- (
+    simp [oneline gate_map_def] >> CASE_TAC >> simp []
     >> IF_CASES_TAC >> gvs []
-    >> rename1 ‘left_name_gty r’ >> Cases_on ‘r’ >> simp [left_name_gty_def]
-    >> gvs [EVERY_MAP, EXISTS_MAP])
-  >> rename1 ‘left_name_lit m’ >> Cases_on ‘m’ >> simp [left_name_lit_def]
-  >> rename1 ‘left_name_var v’ >> Cases_on ‘v’ >> simp [left_name_var_def]
-  >> simp [xeval_lit_def]
-  >> rename1 ‘left_name_gate b’ >> Cases_on ‘b’ >> simp [left_name_gate_def]
+    >> simp [oneline gty_map_def] >> CASE_TAC >> simp []
+    >> simp [EVERY_MAP, EXISTS_MAP]
+  )
+  >> simp [oneline lit_map_def, oneline var_map_def, oneline bvar_map_def]
+  >> every_case_tac >> simp [xeval_lit_def]
+  >> simp [oneline gate_map_def] >> CASE_TAC >> simp []
   >> IF_CASES_TAC >> gvs []
-  >> rename1 ‘left_name_gty r'’ >> Cases_on ‘r'’ >> simp [left_name_gty_def]
-  >> gvs [EVERY_MAP, EXISTS_MAP]
+  >> simp [oneline gty_map_def] >> CASE_TAC >> simp []
+  >> simp [EVERY_MAP, EXISTS_MAP]
 QED
 
 Theorem xeval_gate_merge_xaigs_right[simp]:
@@ -195,101 +149,37 @@ Proof
   Induct_on ‘xaig₁’ >> rw []
   >- simp [xeval_gate_merge_xaigs_left_nil_INR]
   >- simp [xeval_gate_merge_xaigs_left_nil_INR]
-  >> simp [merge_xaigs_left_cons]
-  >-
-   (rename1 ‘left_name_gate a’ >> Cases_on ‘a’ >> simp [left_name_gate_def]
-    >> simp [xeval_lit_def])
-  >> Cases_on ‘m’ >> simp [right_name_lit_def]
-  >> rename1 ‘right_name_var v’ >> Cases_on ‘v’ >> simp [right_name_var_def]
-  >> rename1 ‘left_name_gate h’ >> Cases_on ‘h’ >> simp [left_name_gate_def]
-  >> simp [xeval_lit_def]
+  >> gvs [merge_xaigs_def, xaig_map_cons, left_name_lit_def, xeval_lit_def]
+  >- (simp [oneline gate_map_def] >> CASE_TAC >> simp [])
+  >> simp [right_name_lit_def, oneline lit_map_def, oneline var_map_def,
+           oneline bvar_map_def]
+  >> every_case_tac >> simp [xeval_lit_def]
+  >> simp [oneline gate_map_def] >> CASE_TAC >> simp []
 QED
 
 (* Pairing xAIGs ***************************************************************)
 
 (* Combines two xAIGs into one, keeping them separate using the sum type. *)
 
-Definition left_bvar_def:
-  (left_bvar (Input i) = Input (INL i)) ∧
-  (left_bvar (Latch l) = Latch (INL l)) ∧
-  (left_bvar Ff        = Ff)
-End
-
-Definition left_var_def:
-  (left_var (Gate a)  = Gate (INL a)) ∧
-  (left_var (Base bv) = Base (left_bvar bv))
-End
-
 Definition left_lit_def:
-  left_lit (v, b) = (left_var v, b)
-End
-
-Definition left_gty_def:
-  left_gty (And xs) = And (MAP left_lit xs) ∧
-  left_gty (Xor x₀ x₁) = Xor (left_lit x₀) (left_lit x₁) ∧
-  left_gty (Ite cnd thn els) =
-    Ite (left_lit cnd) (left_lit thn) (left_lit els) ∧
-  left_gty (Or xs) = Or (MAP left_lit xs)
-End
-
-Definition left_gate_def:
-  left_gate (n, ins) = (INL n, left_gty ins)
-End
-
-Definition right_bvar_def:
-  (right_bvar (Input i) = Input (INR i)) ∧
-  (right_bvar (Latch l) = Latch (INR l)) ∧
-  (right_bvar Ff        = Ff)
-End
-
-Definition right_var_def:
-  (right_var (Gate a)  = Gate (INR a)) ∧
-  (right_var (Base bv) = Base (right_bvar bv))
+  left_lit = lit_map INL INL INL
 End
 
 Definition right_lit_def:
-  right_lit (v, b) = (right_var v, b)
-End
-
-Definition right_gty_def:
-  right_gty (And xs) = And (MAP right_lit xs) ∧
-  right_gty (Xor x₀ x₁) = Xor (right_lit x₀) (right_lit x₁) ∧
-  right_gty (Ite cnd thn els) =
-    Ite (right_lit cnd) (right_lit thn) (right_lit els) ∧
-  right_gty (Or xs) = Or (MAP right_lit xs)
-End
-
-Definition right_gate_def:
-  right_gate (n, ins) = (INR n, right_gty ins)
+  right_lit = lit_map INR INR INR
 End
 
 Definition pair_xaigs_def:
-  pair_xaigs (xaig₁: ('a1, 'i1, 'l1) xaig)
-    (xaig₂: ('a2, 'i2, 'l2) xaig) =
-  MAP left_gate xaig₁ ++ MAP right_gate xaig₂
+  pair_xaigs (xaig₁: ('a1, 'i1, 'l1) xaig) (xaig₂: ('a2, 'i2, 'l2) xaig) =
+    xaig_map INL INL INL xaig₁ ++ xaig_map INR INR INR xaig₂
 End
-
-Theorem pair_xaigs_left_cons:
-  pair_xaigs (a::xaig₁) xaig₂ =
-  left_gate a::(pair_xaigs xaig₁ xaig₂)
-Proof
-  simp [pair_xaigs_def]
-QED
-
-Theorem pair_xaigs_left_nil_right_cons:
-  pair_xaigs [] (a::xaig₂) =
-  right_gate a::(pair_xaigs [] xaig₂)
-Proof
-  simp [pair_xaigs_def]
-QED
 
 Theorem xeval_gate_pair_left_nil_INL[local]:
   ¬xeval_gate ss (pair_xaigs [] xaig) (INL n)
 Proof
   Induct_on ‘xaig’ >> rw []
-  >> gvs [pair_xaigs_def, xeval_lit_def]
-  >> rename1 ‘right_gate a’ >> Cases_on ‘a’
-  >> simp [right_gate_def]
+  >> gvs [pair_xaigs_def, xeval_lit_def, xaig_map_cons]
+  >> simp [oneline gate_map_def] >> CASE_TAC >> simp []
 QED
 
 Theorem xeval_gate_pair_left_nil_INR[local]:
@@ -303,34 +193,31 @@ Theorem xeval_gate_pair_left_nil_INR[local]:
      xeval_lit ss₂ xaig m)
 Proof
   Induct_on ‘xaig’ >> rw []
-  >- simp [pair_xaigs_def, xeval_lit_def]
-  >-
-   (Cases_on ‘m’ >> simp [pair_xaigs_def, right_lit_def]
-    >> rename1 ‘right_var x’ >> Cases_on ‘x’
-    >> simp [right_var_def, xeval_lit_def]
-    >> Cases_on ‘ss₁’ >> Cases_on ‘ss₂’ >> simp [state_pair_def]
-    >> rename1 ‘right_bvar b’ >> Cases_on ‘b’
-    >> simp [right_bvar_def, eval_bvar_def])
-  >> simp [pair_xaigs_left_nil_right_cons]
-  >-
-   (rename1 ‘right_gate a’ >> Cases_on ‘a’
-    >> simp [right_gate_def, xeval_lit_def]
+  >> gvs [pair_xaigs_def, right_lit_def, xaig_map_cons]
+  >- (
+    simp [pair_xaigs_def, right_lit_def]
+    >> simp [oneline lit_map_def, oneline var_map_def, oneline bvar_map_def,
+             oneline state_pair_def]
+    >> every_case_tac
+    >> simp [xeval_lit_def]
+  )
+  >- (
+    simp [xeval_lit_def, oneline gate_map_def]
+    >> CASE_TAC >> simp [xeval_lit_def]
     >> IF_CASES_TAC >> gvs []
-    >> rename1 ‘right_gty r’ >> Cases_on ‘r’
-    >> gvs [right_gty_def, EVERY_MAP, EXISTS_MAP])
-  >> rename1 ‘right_lit m’ >> Cases_on ‘m’
-  >> simp [right_lit_def]
-  >> rename1 ‘right_var x’ >> Cases_on ‘x’
-  >> simp [right_var_def, xeval_lit_def]
-  >-
-   (rename1 ‘right_gate y’ >> Cases_on ‘y’
-    >> simp [right_gate_def]
-    >> IF_CASES_TAC >> gvs []
-    >> rename1 ‘right_gty r'’ >> Cases_on ‘r'’
-    >> gvs [right_gty_def, EVERY_MAP, EXISTS_MAP])
-  >> Cases_on ‘ss₁’ >> Cases_on ‘ss₂’ >> simp [state_pair_def]
-  >> rename1 ‘right_bvar b’ >> Cases_on ‘b’
-  >> simp [right_bvar_def, eval_bvar_def]
+    >> simp [oneline gty_map_def] >> CASE_TAC
+    >> simp [EVERY_MAP, EXISTS_MAP]
+  )
+  >> simp [oneline lit_map_def, oneline var_map_def, oneline bvar_map_def]
+  >> every_case_tac
+  >- (
+    simp [oneline gate_map_def, oneline gty_map_def]
+    >> every_case_tac >> simp [xeval_lit_def]
+    >> IF_CASES_TAC >> gvs [EVERY_MAP, EXISTS_MAP]
+  )
+  >> simp [oneline state_pair_def]
+  >> every_case_tac
+  >> simp [xeval_lit_def]
 QED
 
 Theorem xeval_lit_pair_left_nil_left[local]:
@@ -338,18 +225,14 @@ Theorem xeval_lit_pair_left_nil_left[local]:
   xeval_lit ss₁ [] n
 Proof
   Cases_on ‘ss₁’ >> Cases_on ‘ss₂’ >> simp [state_pair_def]
-  >> Induct_on ‘xaig₂’ >> gvs [pair_xaigs_def]
-  >> Cases_on ‘n’ >> gvs [left_lit_def]
-  >-
-   (rename1 ‘left_var v’ >> Cases_on ‘v’
-    >> simp [left_var_def, xeval_lit_def]
-    >> rename1 ‘left_bvar b’ >> Cases_on ‘b’
-    >> simp [left_bvar_def, eval_bvar_def])
-  >> Cases >> simp [right_gate_def]
-  >> rename1 ‘left_var v’ >> Cases_on ‘v’
-  >> gvs [left_var_def, xeval_lit_def]
-  >> rename1 ‘left_bvar b’ >> Cases_on ‘b’
-  >> simp [left_bvar_def, eval_bvar_def]
+  >> Induct_on ‘xaig₂’
+  >> gvs [pair_xaigs_def, left_lit_def, oneline lit_map_def, oneline var_map_def,
+          oneline bvar_map_def, xaig_map_cons]
+  >> every_case_tac
+  >> gvs [xeval_lit_def]
+  >> strip_tac
+  >> simp [oneline gate_map_def, oneline gty_map_def]
+  >> every_case_tac >> simp [xeval_lit_def]
 QED
 
 Theorem xeval_pair_left[simp]:
@@ -363,29 +246,23 @@ Proof
   Induct_on ‘xaig₁’ >> rw [xeval_lit_def]
   >- simp [xeval_gate_pair_left_nil_INL]
   >- simp [xeval_lit_pair_left_nil_left]
-  >> simp [pair_xaigs_left_cons]
-  >-
-   (simp [xeval_lit_def]
-    >> rename1 ‘left_gate a’ >> Cases_on ‘a’
-    >> simp [left_gate_def]
-    >> IF_CASES_TAC >> gvs []
-    >> rename1 ‘left_gty r’ >> Cases_on ‘r’
-    >> gvs [left_gty_def, EVERY_MAP, EXISTS_MAP]
-    >> simp [EVERY_MEM, MEM_MAP, PULL_EXISTS])
-  >> rename1 ‘left_lit m’ >> Cases_on ‘m’
-  >> simp [left_lit_def]
-  >> rename1 ‘left_var v’ >> Cases_on ‘v’
-  >> simp [xeval_lit_def, left_var_def]
-  >-
-   (rename1 ‘left_gate b’ >> Cases_on ‘b’
-    >> simp [xeval_lit_def, left_gate_def]
-    >> IF_CASES_TAC >> gvs []
-    >> rename1 ‘left_gty r'’ >> Cases_on ‘r'’
-    >> gvs [left_gty_def, EVERY_MAP, EXISTS_MAP]
-    >> simp [EVERY_MEM, MEM_MAP, PULL_EXISTS])
-  >> Cases_on ‘ss₁’ >> Cases_on ‘ss₂’ >> gvs [state_pair_def]
-  >> rename1 ‘left_bvar b’ >> Cases_on ‘b’
-  >> simp [left_bvar_def, eval_bvar_def]
+  >> gvs [pair_xaigs_def, xaig_map_cons, left_lit_def]
+  >- (
+    simp [oneline gate_map_def, oneline gty_map_def]
+    >> every_case_tac >> simp [xeval_lit_def]
+    >> IF_CASES_TAC >> gvs [EVERY_MAP, EXISTS_MAP]
+  )
+  >> simp [oneline lit_map_def, oneline var_map_def, oneline bvar_map_def]
+  >> every_case_tac
+  >- (
+    simp [xeval_lit_def]
+    >> simp [oneline gate_map_def, oneline gty_map_def]
+    >> every_case_tac >> simp [xeval_lit_def]
+    >> IF_CASES_TAC >> gvs [EVERY_MAP, EXISTS_MAP]
+  )
+  >> simp [oneline state_pair_def]
+  >> every_case_tac
+  >> simp [xeval_lit_def]
 QED
 
 Theorem xeval_pair_right[simp]:
@@ -399,20 +276,17 @@ Proof
   Induct_on ‘xaig₁’ >> rw [xeval_lit_def]
   >- simp [xeval_gate_pair_left_nil_INR]
   >- simp [xeval_gate_pair_left_nil_INR]
-  >> simp [pair_xaigs_left_cons]
-  >-
-   (rename1 ‘left_gate a’ >> Cases_on ‘a’
-    >> simp [left_gate_def, xeval_lit_def])
-  >> rename1 ‘right_lit m’ >> Cases_on ‘m’
-  >> simp [right_lit_def]
-  >> rename1 ‘right_var x’ >> Cases_on ‘x’
-  >> simp [xeval_lit_def, right_var_def]
-  >-
-   (rename1 ‘left_gate g’ >> Cases_on ‘g’
-    >> simp [left_gate_def, xeval_lit_def])
-  >> Cases_on ‘ss₁’ >> Cases_on ‘ss₂’ >> gvs [state_pair_def]
-  >> rename1 ‘right_bvar b’ >> Cases_on ‘b’
-  >> simp [right_bvar_def, eval_bvar_def]
+  >> gvs [pair_xaigs_def, xaig_map_cons, right_lit_def]
+  >- (
+    simp [oneline gate_map_def, oneline gty_map_def]
+    >> every_case_tac >> simp [xeval_lit_def]
+  )
+  >> simp [oneline gate_map_def, oneline lit_map_def,
+           oneline var_map_def, oneline bvar_map_def]
+  >> every_case_tac >> simp [xeval_lit_def]
+  >> simp [oneline state_pair_def]
+  >> every_case_tac
+  >> simp [xeval_lit_def]
 QED
 
 (** Intervention **************************************************************)
@@ -559,28 +433,12 @@ End
 
 (* Lifting to gate names to ext *)
 
-Definition ext_var_def:
-  (ext_var (Gate a) = Gate (Orig a)) ∧
-  (ext_var (Base bv) = Base bv)
-End
-
 Definition ext_lit_def:
-  ext_lit (v, b) = (ext_var v, b)
-End
-
-Definition ext_gty_def:
-  ext_gty (And xs) = And (MAP ext_lit xs) ∧
-  ext_gty (Xor x₀ x₁) = Xor (ext_lit x₀) (ext_lit x₁) ∧
-  ext_gty (Ite cnd thn els) = Ite (ext_lit cnd) (ext_lit thn) (ext_lit els) ∧
-  ext_gty (Or xs) = Or (MAP ext_lit xs)
-End
-
-Definition ext_gate_def:
-  ext_gate ((n, gty): (('a,'i,'l) gate)) = (Orig n, ext_gty gty)
+  ext_lit = lit_map I I Orig
 End
 
 Definition ext_xaig_def:
-  ext_xaig (xaig: ('a, 'i, 'l) xaig) = MAP ext_gate xaig
+  ext_xaig (xaig: ('a, 'i, 'l) xaig) = MAP (gate_map I I Orig) xaig
 End
 
 Theorem xeval_lit_Ext_ext_lit[simp]:
@@ -589,7 +447,7 @@ Theorem xeval_lit_Ext_ext_lit[simp]:
 Proof
   namedCases_on ‘x’ ["v b"]
   >> Cases_on ‘v’
-  >> simp [ext_lit_def, ext_var_def, xeval_lit_def]
+  >> simp [ext_lit_def, lit_map_def, var_map_def, xeval_lit_def]
 QED
 
 Theorem xeval_lit_Anon_ext_lit[simp]:
@@ -598,7 +456,7 @@ Theorem xeval_lit_Anon_ext_lit[simp]:
 Proof
   namedCases_on ‘x’ ["v b"]
   >> Cases_on ‘v’
-  >> simp [ext_lit_def, ext_var_def, xeval_lit_def]
+  >> simp [ext_lit_def, lit_map_def, var_map_def, xeval_lit_def]
 QED
 
 Theorem xeval_gate_ext_xaig[simp]:
@@ -606,23 +464,28 @@ Theorem xeval_gate_ext_xaig[simp]:
   (∀l. xeval_lit  ss (ext_xaig xaig) (ext_lit l) = xeval_lit ss xaig l) ∧
   (∀l. xeval_lit  ss (ext_xaig xaig) (Base bv, b) = xeval_lit ss xaig (Base bv, b))
 Proof
-  Induct_on ‘xaig’ >> rw [ext_xaig_def, xeval_lit_def]
+  Induct_on ‘xaig’ >> rw [ext_xaig_def, xeval_lit_def, ext_lit_def]
   >-
-   (Cases_on ‘l’ >> simp [ext_lit_def]
-    >> rename1 ‘ext_var v’ >> Cases_on ‘v’ >> simp [ext_var_def]
+   (Cases_on ‘l’
+    >> simp [lit_map_def, oneline var_map_def, oneline bvar_map_def]
+    >> every_case_tac >> gvs []
     >> simp [xeval_lit_def])
-  >-
-   (rename1 ‘ext_gate a’ >> Cases_on ‘a’ >> simp [ext_gate_def]
+  >- (
+    simp [oneline gate_map_def]
+    >> CASE_TAC >> simp []
     >> IF_CASES_TAC >> simp []
-    >> rename1 ‘ext_gty g’ >> Cases_on ‘g’ >> simp [ext_gty_def]
-    >> gvs [EVERY_MAP, EXISTS_MAP]
-    )
-  >> Cases_on ‘l’ >> simp [ext_lit_def]
-  >> rename1 ‘ext_var v’ >> Cases_on ‘v’ >> simp [ext_var_def]
+    >> simp [oneline gty_map_def]
+    >> CASE_TAC >> gvs [EVERY_MAP, EXISTS_MAP]
+  )
+  >> Cases_on ‘l’
+  >> simp [lit_map_def, oneline var_map_def, oneline bvar_map_def]
+  >> every_case_tac >> gvs []
   >> simp [xeval_lit_def]
-  >> rename1 ‘ext_gate b’ >> Cases_on ‘b’ >> simp [ext_gate_def]
-  >> rename1 ‘ext_gty g’ >> Cases_on ‘g’ >> simp [ext_gty_def]
-  >> IF_CASES_TAC >> gvs [EVERY_MAP, EXISTS_MAP]
+  >> simp [oneline gate_map_def]
+  >> CASE_TAC >> simp []
+  >> IF_CASES_TAC >> simp []
+  >> simp [oneline gty_map_def]
+  >> CASE_TAC >> gvs [EVERY_MAP, EXISTS_MAP]
 QED
 
 Definition iname_def:
@@ -642,7 +505,7 @@ Theorem iname_ext_lit[simp]:
 Proof
   namedCases_on ‘x’ ["v b"]
   >> Cases_on ‘v’
-  >> simp [ext_lit_def, ext_var_def, iname_def]
+  >> simp [ext_lit_def, lit_map_def, var_map_def, iname_def]
 QED
 
 Theorem xeval_lit_Anon_neq:
@@ -816,7 +679,7 @@ Theorem xeval_lit_encode_pointwise_equal_ext_lit:
   xeval_lit ss xaig (ext_lit n)
 Proof
   namedCases_on ‘n’ ["v b"] >> Cases_on ‘v’
-  >> simp [ext_lit_def, ext_var_def, encode_pointwise_equal_def, xeval_lit_def,
+  >> simp [ext_lit_def, lit_map_def, var_map_def, encode_pointwise_equal_def, xeval_lit_def,
            xeval_gate_xori_orig]
 QED
 
@@ -923,7 +786,7 @@ Theorem xeval_lit_encode_pointwise_imply_ext_lit:
   xeval_lit ss xaig (ext_lit n)
 Proof
   namedCases_on ‘n’ ["v b"] >> Cases_on ‘v’
-  >> simp [ext_lit_def, ext_var_def, encode_pointwise_imply_def, xeval_lit_def,
+  >> simp [ext_lit_def, lit_map_def, var_map_def, encode_pointwise_imply_def, xeval_lit_def,
            xeval_gate_impi_orig]
 QED
 
@@ -1231,7 +1094,7 @@ Theorem xeval_lit_encode_lives_hold_ext_lit:
   xeval_lit ss xaig (ext_lit n)
 Proof
   namedCases_on ‘n’ ["v b"] >> Cases_on ‘v’
-  >> simp [ext_lit_def, ext_var_def, encode_lives_hold_def, xeval_lit_def,
+  >> simp [ext_lit_def, lit_map_def, var_map_def, encode_lives_hold_def, xeval_lit_def,
            xeval_gate_ori_orig]
 QED
 
@@ -1697,14 +1560,14 @@ Theorem xlits_hold_merge_left[local,simp]:
   xlits_hold ss (merge_xaigs lxaig rxaig) (set (MAP left_name_lit preds)) ⇔
     xlits_hold ss lxaig (set preds)
 Proof
-  simp [xlits_hold_def, left_name_lit_def, MEM_MAP, PULL_EXISTS]
+  simp [xlits_hold_def, MEM_MAP, PULL_EXISTS]
 QED
 
 Theorem xlits_hold_merge_right[local,simp]:
   xlits_hold ss (merge_xaigs lxaig rxaig) (set (MAP right_name_lit preds)) ⇔
     xlits_hold ss rxaig (set preds)
 Proof
-  simp [xlits_hold_def, right_name_lit_def, MEM_MAP, PULL_EXISTS]
+  simp [xlits_hold_def, MEM_MAP, PULL_EXISTS]
 QED
 
 Theorem xlits_hold_pair_left[local,simp]:
@@ -1712,7 +1575,7 @@ Theorem xlits_hold_pair_left[local,simp]:
     (set (MAP left_lit preds)) ⇔
   xlits_hold s₁ lxaig (set preds)
 Proof
-  simp [xlits_hold_def, left_lit_def, MEM_MAP, PULL_EXISTS]
+  simp [xlits_hold_def, MEM_MAP, PULL_EXISTS]
 QED
 
 Theorem xlits_hold_pair_right[local,simp]:
@@ -1720,7 +1583,7 @@ Theorem xlits_hold_pair_right[local,simp]:
     (set (MAP right_lit preds)) ⇔
   xlits_hold s₂ rxaig (set preds)
 Proof
-  simp [xlits_hold_def, right_lit_def, MEM_MAP, PULL_EXISTS]
+  simp [xlits_hold_def, MEM_MAP, PULL_EXISTS]
 QED
 
 Theorem xlits_hold_encode_xlits_hold_ext_lit[local,simp]:
@@ -3627,3 +3490,262 @@ Theorem INJ_nsn_s_n_s_nsn_e2num:
 Proof
   simp [INJ_IFF, nsn_s_n_s_nsn_e2num_11]
 QED
+
+(** Fusing encoding + mapping names to nums ***********************************)
+
+(*** xaig_map *****************************************************************)
+
+(* Theorem xaig_map_cons: *)
+(*   xaig_map f g h (x::xs) = gate_map f g h x :: xaig_map f g h xs *)
+(* Proof *)
+(*   simp [xaig_map_def] *)
+(* QED *)
+
+Theorem xaig_map_append:
+  xaig_map f g h (xs ++ ys) = xaig_map f g h xs ++ xaig_map f g h ys
+Proof
+  simp [xaig_map_def]
+QED
+
+(*** encode_ ******************************************************************)
+
+(* Definition mapi_xori_num_aux_def: *)
+(*   mapi_xori_num_aux i []      = [] ∧ *)
+(*   mapi_xori_num_aux i (x::xs) = (i, Xor (FST x) (SND x))::mapi_xori_num_aux (i + 2) xs *)
+(* End *)
+
+(* Definition mapi_xori_num_def: *)
+(*   mapi_xori_num n xys = mapi_xori_num_aux (2 * n + 29) xys *)
+(* End *)
+
+(* Theorem mapi_xori_num_aux_thm: *)
+(*   ∀xys i. *)
+(*     mapi_xori_num_aux i xys = MAPi (λj (x,y). (2 * j + i, Xor x y)) xys *)
+(* Proof *)
+(*   Induct >> rw [mapi_xori_num_aux_def] *)
+(*   >> rpt (pairarg_tac >> gvs []) *)
+(*   >> simp [o_DEF, ADD1, LEFT_ADD_DISTRIB] *)
+(* QED *)
+
+(* Definition and_genlist_num_aux_def: *)
+(*   and_genlist_num_aux b i 0       = [] ∧ *)
+(*   and_genlist_num_aux b i (SUC c) = *)
+(*     (Gate i, b)::and_genlist_num_aux b (i + 2) c *)
+(* End *)
+
+(* Definition and_genlist_num_def: *)
+(*   and_genlist_num b n cnt = *)
+(*     And (and_genlist_num_aux b (2 * n + 29) cnt) *)
+(* End *)
+
+(* Theorem and_genlist_num_aux_thm: *)
+(*   ∀cnt i. and_genlist_num_aux b i cnt = GENLIST (λj. (Gate (2 * j + i), b)) cnt *)
+(* Proof *)
+(*   Induct *)
+(*   >> rw [and_genlist_num_aux_def, GENLIST_CONS, o_DEF, ADD1, LEFT_ADD_DISTRIB] *)
+(* QED *)
+
+(* Definition encode_pointwise_equal_num_def: *)
+(*   encode_pointwise_equal_num (xaig: (num, num, num) xaig) (name: num) xys n = *)
+(*   let *)
+(*     xor_gates = mapi_xori_num n xys; *)
+(*     xnor_lits = and_genlist_num T n (LENGTH xys); *)
+(*   in *)
+(*     (name, xnor_lits)::xor_gates ++ xaig *)
+(* End *)
+
+(* Theorem encode_pointwise_equal_to_num: *)
+(*   xaig_map f g (ext2num h) (encode_pointwise_equal xaig name xys) = *)
+(*   encode_pointwise_equal_num (xaig_map f g (ext2num h) xaig) *)
+(*     (ext_name2num name) *)
+(*     (MAP *)
+(*        (λx. *)
+(*           (lit_map f g (ext2num h) (FST x), *)
+(*            lit_map f g (ext2num h) (SND x))) xys) *)
+(*     (MAX (maxn (MAP FST xys)) (maxn (MAP SND xys))) *)
+(* Proof *)
+(*   simp [encode_pointwise_equal_def, encode_pointwise_equal_num_def, *)
+(*         xaig_map_def, gate_map_def, gty_map_def, ext2num_def, *)
+(*         and_genlist_num_def, and_genlist_num_aux_thm, *)
+(*         MAP_GENLIST, o_DEF, lit_map_def, var_map_def, ext2num_def, *)
+(*         mapi_xori_num_def, mapi_xori_num_aux_thm, LEFT_ADD_DISTRIB, *)
+(*         MAPi_MAP] *)
+(*   >> irule MAPi_CONG >> rw [] *)
+(*   >> simp [oneline xori_def] >> CASE_TAC *)
+(*   >> simp [gate_map_def, gty_map_def, ext2num_def] *)
+(* QED *)
+
+(*** lit_map ******************************************************************)
+
+(*** 2num *********************************************************************)
+
+Theorem sum2num_sum:
+  (sum2num f g ∘ INL = λx. 2 * f x) ∧
+  (sum2num f g ∘ INR = λx. 2 * g x + 1)
+Proof
+  simp [FUN_EQ_THM, sum2num_def]
+QED
+
+Theorem ext2num_Orig:
+  ext2num f ∘ Orig = λx. 2 * f x + 28
+Proof
+  simp [FUN_EQ_THM, ext2num_def,]
+QED
+
+Theorem ext2num_sum2num_Orig_sum:
+  (ext2num (sum2num f g) ∘ Orig ∘ INL = λx. 4 * f x + 28) ∧
+  (ext2num (sum2num f g) ∘ Orig ∘ INR = λx. 4 * g x + 30)
+Proof
+  simp [FUN_EQ_THM, ext2num_def, sum2num_def]
+QED
+
+Theorem ext2num_sum2num_Orig_sum_sum:
+  (ext2num (sum2num (sum2num f g) (sum2num f' g')) ∘ Orig ∘ INL ∘ INL =
+     λx. 8 * f x + 28) ∧
+  (ext2num (sum2num (sum2num f g) (sum2num f' g')) ∘ Orig ∘ INL ∘ INR =
+     λx. 8 * g x + 32) ∧
+  (ext2num (sum2num (sum2num f g) (sum2num f' g')) ∘ Orig ∘ INR ∘ INL =
+     λx. 8 * f' x + 30) ∧
+  (ext2num (sum2num (sum2num f g) (sum2num f' g')) ∘ Orig ∘ INR ∘ INR =
+     λx. 8 * g' x + 34)
+Proof
+  simp [FUN_EQ_THM, ext2num_def, sum2num_def]
+QED
+
+Theorem ext2num_sum2num_Orig_sum_sum_sum:
+  (ext2num
+     (sum2num (sum2num (sum2num f g) (sum2num f₁ g₁)) (sum2num f₂ g₂))
+   ∘ Orig ∘ INL ∘ INL ∘ INL =
+   λx. 16 * f x + 28) ∧
+  (ext2num
+     (sum2num (sum2num (sum2num f g) (sum2num f₁ g₁)) (sum2num f₂ g₂))
+   ∘ Orig ∘ INL ∘ INL ∘ INR =
+   λx. 16 * g x + 36) ∧
+  (ext2num
+     (sum2num (sum2num (sum2num f g) (sum2num f₁ g₁)) (sum2num f₂ g₂))
+   ∘ Orig ∘ INL ∘ INR ∘ INL =
+   λx. 16 * f₁ x + 32) ∧
+  (ext2num
+     (sum2num (sum2num (sum2num f g) (sum2num f₁ g₂)) (sum2num f₂ g₂))
+   ∘ Orig ∘ INL ∘ INR ∘ INR =
+   λx. 16 * g₂ x + 40)
+Proof
+  simp [FUN_EQ_THM, ext2num_def, sum2num_def]
+QED
+
+fun step ss ths = CONV_RULE (RHS_CONV (SIMP_CONV ss ths))
+
+val ext_case_def = definition "ext_case_def"
+
+val unfold_cond =
+  let
+    val thms =
+      [encode_reset_cond_def, xaig_map_def, FLAT, APPEND_NIL]
+    val cnv = SIMP_CONV (pure_ss ++ LET_ss)
+  in fn th => cnv (th::thms) end
+
+val collapse_circuits =
+  step std_ss
+    [ext_xaig_def, merge_xaigs_def, pair_xaigs_def,
+     xaig_map_def, MAP_APPEND, MAP_MAP_o, gate_map_o, qxleft_def]
+
+val encode_imply_to_num =
+  step (std_ss ++ LET_ss)
+    [encode_imply_def, MAP, MAX_DEF, MAX_LIST_def,
+     maxn_def, iname_def, ext_case_def, var_case_def,
+     gate_map_def, gty_map_def, lit_map_def, var_map_def]
+
+val encode_xlits_hold_to_num =
+  step arith_ss
+    [encode_xlits_hold_def, MAP, gate_map_def, gty_map_def, ext2num_def,
+     MAP_MAP_o, ext_lit_def, lit_map_o,
+     left_lit_def, right_lit_def,
+     right_name_lit_def, left_name_lit_def]
+
+val simp2num =
+  step std_ss
+    [nsn_e2num_def, nsn2num_def, ext2num_def, ext_name2num_thm,
+     nsn_s_nsn_s_nsn_e2num_def, nsn_s_nsn_s_nsn2num_def,
+     nsn_s_nsn_e2num_def, nsn_s_nsn2num_def, n_e2num_def,
+     sum2num_sum, ext2num_sum2num_Orig_sum, ext2num_sum2num_Orig_sum_sum,
+     ext2num_sum2num_Orig_sum_sum_sum,
+     ext2num_Orig]
+
+val reassoc = step pure_ss [GSYM APPEND_ASSOC]
+
+val encode_reset_cond_num =
+  “xaig_map (I: num -> num) (I: num -> num) nsn_e2num
+      (encode_reset_cond mxaig mreset mcnstrs mlatches wxaig wreset wcnstrs
+         wlatches klatches)”
+  |> unfold_cond encode_reset_cond_def
+  |> collapse_circuits
+  |> encode_imply_to_num
+  |> encode_xlits_hold_to_num
+  |> simp2num
+  |> reassoc
+
+val encode_transition_cond_num =
+  “xaig_map nsn2num nsn2num nsn_s_nsn_e2num
+     (encode_transition_cond
+        mxaig mnext mcnstrs mlatches
+        wxaig wnext wcnstrs wlatches klatches)”
+  |> unfold_cond encode_transition_cond_def
+  |> collapse_circuits
+  |> encode_imply_to_num
+  |> encode_xlits_hold_to_num
+  |> simp2num
+  |> reassoc
+
+val encode_safety_cond_num =
+  “xaig_map I I nsn_e2num
+     (encode_safety_cond mxaig mcnstrs msafes wxaig wcnstrs wsafes)”
+  |> unfold_cond encode_safety_cond_def
+  |> collapse_circuits
+  |> encode_imply_to_num
+  |> encode_xlits_hold_to_num
+  |> simp2num
+  |> reassoc
+
+val encode_base_cond_num =
+  “xaig_map I I n_e2num
+     (encode_base_cond wxaig wreset wcnstrs wsafes wlatches)”
+  |> unfold_cond encode_base_cond_def
+  |> collapse_circuits
+  |> encode_imply_to_num
+  |> encode_xlits_hold_to_num
+  |> simp2num
+  |> reassoc
+
+val encode_induction_cond_num =
+  “xaig_map nsn2num nsn2num nsn_e2num
+     (encode_induction_cond wxaig wreset wcnstrs wsafes wlatches)”
+  |> unfold_cond encode_induction_cond_def
+  |> collapse_circuits
+  |> encode_imply_to_num
+  |> encode_xlits_hold_to_num
+  |> simp2num
+  |> reassoc
+
+val encode_induction_cond_num =
+  “xaig_map nsn2num nsn2num nsn_e2num
+     (encode_induction_cond wxaig wreset wcnstrs wsafes wlatches)”
+  |> unfold_cond encode_induction_cond_def
+  |> collapse_circuits
+  |> encode_imply_to_num
+  |> encode_xlits_hold_to_num
+  |> simp2num
+  |> reassoc
+
+val encode_induction_cond_num =
+  “xaig_map nsn2num nsn2num nsn_s_nsn_s_nsn_e2num
+     (encode_liveness_cond
+        mxaig mcnstrs mlive
+        wxaig wnext wcnstrs wsafes wlive wlatches interv)”
+  |> unfold_cond encode_liveness_cond_def
+  |> collapse_circuits
+  |> encode_imply_to_num
+  |> encode_xlits_hold_to_num
+  |> simp2num
+  (* interventions *)
+  |> step std_ss []
+  |> reassoc
