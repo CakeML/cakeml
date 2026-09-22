@@ -3616,6 +3616,19 @@ Proof
   simp [FUN_EQ_THM, sum2num_def]
 QED
 
+Theorem sum2num_sum_sum:
+  (sum2num (sum2num f g) x ∘ INL ∘ INL =
+     λx. 4 * f x) ∧
+  (sum2num (sum2num f g) x ∘ INL ∘ INR =
+     λx. 4 * g x + 2) ∧
+  (sum2num x (sum2num f' g') ∘ INR ∘ INL =
+     λx. 4 * f' x + 1) ∧
+  (sum2num x (sum2num f' g') ∘ INR ∘ INR =
+     λx. 4 * g' x + 3)
+Proof
+  simp [FUN_EQ_THM, sum2num_def]
+QED
+
 Theorem ext2num_Orig:
   ext2num f ∘ Orig = λx. 2 * f x + 28
 Proof
@@ -3630,35 +3643,27 @@ Proof
 QED
 
 Theorem ext2num_sum2num_Orig_sum_sum:
-  (ext2num (sum2num (sum2num f g) (sum2num f' g')) ∘ Orig ∘ INL ∘ INL =
+  (ext2num (sum2num (sum2num f g) x) ∘ Orig ∘ INL ∘ INL =
      λx. 8 * f x + 28) ∧
-  (ext2num (sum2num (sum2num f g) (sum2num f' g')) ∘ Orig ∘ INL ∘ INR =
+  (ext2num (sum2num (sum2num f g) x) ∘ Orig ∘ INL ∘ INR =
      λx. 8 * g x + 32) ∧
-  (ext2num (sum2num (sum2num f g) (sum2num f' g')) ∘ Orig ∘ INR ∘ INL =
+  (ext2num (sum2num x (sum2num f' g')) ∘ Orig ∘ INR ∘ INL =
      λx. 8 * f' x + 30) ∧
-  (ext2num (sum2num (sum2num f g) (sum2num f' g')) ∘ Orig ∘ INR ∘ INR =
+  (ext2num (sum2num x (sum2num f' g')) ∘ Orig ∘ INR ∘ INR =
      λx. 8 * g' x + 34)
 Proof
   simp [FUN_EQ_THM, ext2num_def, sum2num_def]
 QED
 
 Theorem ext2num_sum2num_Orig_sum_sum_sum:
-  (ext2num
-     (sum2num (sum2num (sum2num f g) (sum2num f₁ g₁)) (sum2num f₂ g₂))
-   ∘ Orig ∘ INL ∘ INL ∘ INL =
-   λx. 16 * f x + 28) ∧
-  (ext2num
-     (sum2num (sum2num (sum2num f g) (sum2num f₁ g₁)) (sum2num f₂ g₂))
-   ∘ Orig ∘ INL ∘ INL ∘ INR =
-   λx. 16 * g x + 36) ∧
-  (ext2num
-     (sum2num (sum2num (sum2num f g) (sum2num f₁ g₁)) (sum2num f₂ g₂))
-   ∘ Orig ∘ INL ∘ INR ∘ INL =
-   λx. 16 * f₁ x + 32) ∧
-  (ext2num
-     (sum2num (sum2num (sum2num f g) (sum2num f₁ g₂)) (sum2num f₂ g₂))
-   ∘ Orig ∘ INL ∘ INR ∘ INR =
-   λx. 16 * g₂ x + 40)
+  (ext2num (sum2num (sum2num (sum2num f g) x) y) ∘ Orig ∘ INL ∘ INL ∘ INL =
+     λx. 16 * f x + 28) ∧
+  (ext2num (sum2num (sum2num (sum2num f g) x) y) ∘ Orig ∘ INL ∘ INL ∘ INR =
+     λx. 16 * g x + 36) ∧
+  (ext2num (sum2num (sum2num x (sum2num f₁ g₁)) y) ∘ Orig ∘ INL ∘ INR ∘ INL =
+     λx. 16 * f₁ x + 32) ∧
+  (ext2num (sum2num (sum2num x (sum2num f₁ g₁)) y) ∘ Orig ∘ INL ∘ INR ∘ INR =
+     λx. 16 * g₁ x + 40)
 Proof
   simp [FUN_EQ_THM, ext2num_def, sum2num_def]
 QED
@@ -3677,7 +3682,12 @@ val unfold_cond =
 val collapse_circuits =
   step std_ss
     [ext_xaig_def, merge_xaigs_def, pair_xaigs_def,
-     xaig_map_def, MAP_APPEND, MAP_MAP_o, gate_map_o, qxleft_def]
+     xaig_map_def, MAP_APPEND, MAP_MAP_o, gate_map_o, qxleft_def,
+     qinterv_def, qinterv_l_r_def, qinterv_r_l_def, qinterv_ll_r_def,
+     qinterv_ll_lr_def, qinterv_lr_r_def,
+     lit_map_base_def, live_map_base_def,
+     gate_map_o_qinterv_gate, lit_map_o_qinterv_lit, lit_map_o,
+     MAP_MAP_o, GSYM MAP_FLAT, GSYM MAP_o]
 
 val encode_imply_to_num =
   step (std_ss ++ LET_ss)
@@ -3697,9 +3707,10 @@ val simp2num =
     [nsn_e2num_def, nsn2num_def, ext2num_def, ext_name2num_thm,
      nsn_s_nsn_s_nsn_e2num_def, nsn_s_nsn_s_nsn2num_def,
      nsn_s_nsn_e2num_def, nsn_s_nsn2num_def, n_e2num_def,
+     nsn_s_n_e2num_def, nsn_s_n2num_def, nsn_s_n_s_nsn_e2num_def,
      sum2num_sum, ext2num_sum2num_Orig_sum, ext2num_sum2num_Orig_sum_sum,
-     ext2num_sum2num_Orig_sum_sum_sum,
-     ext2num_Orig]
+     ext2num_sum2num_Orig_sum_sum_sum, nsn_s_n_s_nsn2num_def,
+     ext2num_Orig, sum2num_sum_sum]
 
 val reassoc = step pure_ss [GSYM APPEND_ASSOC]
 
@@ -3756,17 +3767,7 @@ val encode_induction_cond_num =
   |> simp2num
   |> reassoc
 
-val encode_induction_cond_num =
-  “xaig_map nsn2num nsn2num nsn_e2num
-     (encode_induction_cond wxaig wreset wcnstrs wsafes wlatches)”
-  |> unfold_cond encode_induction_cond_def
-  |> collapse_circuits
-  |> encode_imply_to_num
-  |> encode_xlits_hold_to_num
-  |> simp2num
-  |> reassoc
-
-val encode_induction_cond_num =
+val encode_liveness_cond_num =
   “xaig_map nsn2num nsn2num nsn_s_nsn_s_nsn_e2num
      (encode_liveness_cond
         mxaig mcnstrs mlive
@@ -3776,6 +3777,37 @@ val encode_induction_cond_num =
   |> encode_imply_to_num
   |> encode_xlits_hold_to_num
   |> simp2num
-  (* WIP interventions *)
-  |> step std_ss [qinterv_l_r_def, qinterv_def, MAP_MAP_o]
+  |> reassoc
+
+val encode_decrease_cond_num =
+  “xaig_map nsn2num nsn2num nsn_s_n_e2num
+     (encode_decrease_cond
+        wxaig wnext wcnstrs wsafes wlive wlatches interv)”
+  |> unfold_cond encode_decrease_cond_def
+  |> collapse_circuits
+  |> encode_imply_to_num
+  |> encode_xlits_hold_to_num
+  |> simp2num
+  |> reassoc
+
+val encode_closure_cond_num =
+  “xaig_map nsn_s_n2num nsn_s_n2num nsn_s_n_s_nsn_e2num
+     (encode_closure_cond
+        wxaig wnext wcnstrs wsafes wlive wlatches interv)”
+  |> unfold_cond encode_closure_cond_def
+  |> collapse_circuits
+  |> encode_imply_to_num
+  |> encode_xlits_hold_to_num
+  |> simp2num
+  |> reassoc
+
+val encode_stable_cond_num =
+  “xaig_map nsn_s_n2num nsn_s_n2num nsn_s_n_s_nsn_e2num
+     (encode_stable_cond
+        wxaig wnext wcnstrs wsafes wlive wlatches interv)”
+  |> unfold_cond encode_stable_cond_def
+  |> collapse_circuits
+  |> encode_imply_to_num
+  |> encode_xlits_hold_to_num
+  |> simp2num
   |> reassoc
