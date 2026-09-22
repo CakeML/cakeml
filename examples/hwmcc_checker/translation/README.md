@@ -20,7 +20,3 @@ Proofs for the top-level binary cake_tiger.
 
 [cake_tigerProgScript.sml](cake_tigerProgScript.sml):
 Defines the top-level binary cake_tiger.
-
-[xpruneProgScript.sml](xpruneProgScript.sml):
-Uses monadic translator to produce locally stateful CakeML code
-implementing xprune_for
