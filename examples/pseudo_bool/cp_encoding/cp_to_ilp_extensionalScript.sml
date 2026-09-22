@@ -312,6 +312,105 @@ Definition cencode_regular_def:
               (reg_trans bnd name nstates trans Xs)), ec')
 End
 
+(* mdd (unrolled layered decision diagram; generalizes regular:
+   nstates becomes a per-layer node count, trans is indexed by layer then
+   source node). *)
+
+Definition mdd_state_def[simp]:
+  mdd_state name idx q = INR (name, Indices [idx; q] (SOME «st»))
+End
+
+Definition mdd_state_idx_row_def:
+  mdd_state_idx_row name idx nq =
+  let ls = GENLIST (λq. Pos (mdd_state name idx q)) nq in
+  Append
+    (cat_least_one name («pos» ^ toString idx) ls)
+    (cat_most_one name («pos» ^ toString idx) ls)
+End
+
+(* one row per layer, using that layer's own node count *)
+Definition mdd_state_idx_def:
+  mdd_state_idx name nodes_per_layer =
+  flat_app
+    (MAPi (λidx nq. mdd_state_idx_row name idx nq) nodes_per_layer)
+End
+
+Definition mdd_init_state_def:
+  mdd_init_state name =
+  List [
+    (SOME (mk_name name «st0»),
+      ([],[(1,Pos (mdd_state name 0 0))],1))]
+End
+
+Definition mdd_accept_state_def:
+  mdd_accept_state name nodes_per_layer finals =
+  let n = LENGTH nodes_per_layer - 1 in
+  cat_least_one name («st» ^ toString n)
+    (MAP (λf. Pos (mdd_state name n f))
+         (FILTER (λf. f < EL n nodes_per_layer) finals))
+End
+
+Definition mdd_frame_def:
+  mdd_frame name nodes_per_layer finals =
+  Append
+    (mdd_state_idx name nodes_per_layer)
+  (Append
+    (mdd_accept_state name nodes_per_layer finals)
+    (mdd_init_state name))
+End
+
+(* successor nodes of q at layer idx on reading value v (only valid nodes
+   of layer idx+1) *)
+Definition mdd_targets_def:
+  mdd_targets (nodes_per_layer:num list) trans (idx:num) (q:num) (v:int) =
+  MAP SND
+    (FILTER (λvt. FST vt = v ∧ SND vt < EL (idx+1) nodes_per_layer)
+      (mdd_edges trans idx q))
+End
+
+Definition mdd_trans_def:
+  mdd_trans bnd name nodes_per_layer trans Xs =
+  List (FLAT (MAPi (λidx X.
+    FLAT (MAPi (λvi v.
+      GENLIST (λq.
+        (SOME (mk_name name
+          (toString idx ^ «_» ^ toString q ^ «_» ^ toString vi ^ «t»)),
+         bits_imply bnd
+           [Pos (mdd_state name idx q); Pos (INL (Eq X v))]
+           (at_least_one
+             (MAP (λt. Pos (mdd_state name (idx+1) t))
+                  (mdd_targets nodes_per_layer trans idx q v))))
+      ) (EL idx nodes_per_layer)
+    ) (domlist bnd X))
+  ) Xs))
+End
+
+(* nodes_per_layer/trans lengths must line up with Xs (mirrors GCS's own
+   MDD constructor validation) — guarded here the same way
+   cencode_binpacking_aux_def guards the items/sizes length match, since
+   mdd_sem itself now requires it and an unguarded encoder would otherwise
+   be unsound whenever it doesn't hold. *)
+Definition encode_mdd_def:
+  encode_mdd bnd Xs nodes_per_layer trans finals name =
+  if LENGTH nodes_per_layer = LENGTH Xs + 1 ∧ LENGTH trans = LENGTH Xs then
+    FLAT (MAP (λ(X,v). encode_full_eq bnd X v) (reg_eq_pairs bnd Xs)) ++
+    abstr (mdd_frame name nodes_per_layer finals) ++
+    abstr (mdd_trans bnd name nodes_per_layer trans Xs)
+  else [false_constr]
+End
+
+Definition cencode_mdd_def:
+  cencode_mdd bnd Xs nodes_per_layer trans finals name ec =
+  if LENGTH nodes_per_layer = LENGTH Xs + 1 ∧ LENGTH trans = LENGTH Xs then
+    let (eqs,ec') =
+      fold_cenc (λ(X,v) ec. cencode_full_eq bnd X v ec)
+        (reg_eq_pairs bnd Xs) ec in
+      (Append eqs
+        (Append (mdd_frame name nodes_per_layer finals)
+                (mdd_trans bnd name nodes_per_layer trans Xs)), ec')
+  else (cfalse_constr, ec)
+End
+
 (* --- NFA run theory (crux of regular completeness) --- *)
 
 (* at most one element of a list satisfies P ⇒ the satisfying index is unique *)
@@ -637,6 +736,297 @@ Theorem cencode_regular_sem:
   enc_rel wi es (encode_regular bnd Xs nstates trans finals name) ec ec'
 Proof
   rw[cencode_regular_def,encode_regular_def]>>
+  gvs[UNCURRY_EQ]>>
+  PURE_REWRITE_TAC[GSYM APPEND_ASSOC]>>
+  irule enc_rel_Append>>
+  irule_at Any enc_rel_Append>>
+  irule_at Any enc_rel_abstr>>
+  irule_at Any enc_rel_abstr>>
+  irule_at Any enc_rel_fold_cenc>>
+  first_x_assum (irule_at Any)>>
+  rw[]>>
+  PairCases_on‘h’>>gvs[enc_rel_encode_full_eq]
+QED
+
+(* --- MDD run theory (crux of mdd completeness); generalizes the NFA run
+   theory above to per-layer node counts and transitions: mdd_run/
+   mdd_accepts already track a layer index in lockstep with recursion
+   depth, so run_imp_mdd_accepts threads that offset explicitly where
+   run_imp_nfa_accepts didn't need to. --- *)
+
+Theorem mdd_accepts_lt:
+  mdd_accepts trans finals nodes_per_layer idx q vs ⇒
+  idx < LENGTH nodes_per_layer ∧ q < EL idx nodes_per_layer
+Proof
+  Cases_on‘vs’>>rw[mdd_accepts_def]
+QED
+
+(* a witnessing node run implies acceptance (the direction we need) *)
+Theorem run_imp_mdd_accepts:
+  ∀vs run q idx.
+    LENGTH run = LENGTH vs + 1 ∧ EL 0 run = q ∧
+    (∀i. i ≤ LENGTH vs ⇒ idx + i < LENGTH nodes_per_layer ∧
+       EL i run < EL (idx+i) nodes_per_layer) ∧
+    (∀i. i < LENGTH vs ⇒
+       MEM (EL i vs, EL (i+1) run) (mdd_edges trans (idx+i) (EL i run))) ∧
+    MEM (EL (LENGTH vs) run) finals ⇒
+    mdd_accepts trans finals nodes_per_layer idx q vs
+Proof
+  Induct>>rw[]
+  >- (
+    gvs[mdd_accepts_def]>>
+    qpat_x_assum‘∀i. i ≤ _ ⇒ _’(qspec_then‘0’ mp_tac)>>
+    simp[])>>
+  simp[mdd_accepts_def]>>
+  conj_asm1_tac
+  >- (qpat_x_assum‘∀i. i ≤ _ ⇒ _’(qspec_then‘0’ mp_tac)>>simp[])>>
+  conj_asm1_tac
+  >- (qpat_x_assum‘∀i. i ≤ _ ⇒ _’(qspec_then‘0’ mp_tac)>>simp[])>>
+  qexists_tac‘EL 1 run’>>
+  conj_tac
+  >- (qpat_x_assum‘∀i. i < _ ⇒ MEM _ _’(qspec_then‘0’ mp_tac)>>simp[GSYM ADD1])>>
+  last_x_assum (qspecl_then [‘DROP 1 run’,‘EL 1 run’,‘idx+1’] mp_tac)>>
+  simp[EL_DROP,LENGTH_DROP]>>
+  disch_then irule>>
+  rw[]
+  >- (
+    qpat_x_assum‘∀i. i < SUC _ ⇒ MEM _ _’(qspec_then‘i+1’ mp_tac)>>impl_tac
+    >- simp[]>>
+    `EL (i+1) (h::vs) = EL i vs` by simp[GSYM ADD1,EL]>>
+    simp[])
+  >- (qpat_x_assum‘∀i. i ≤ SUC _ ⇒ _’(qspec_then‘i+1’ mp_tac)>>simp[])
+  >- (qpat_x_assum‘∀i. i ≤ SUC _ ⇒ _’(qspec_then‘i+1’ mp_tac)>>simp[])
+  >- (qpat_x_assum‘MEM _ finals’mp_tac>>simp[ADD1])
+QED
+
+(* the canonical run stays accepting (the key invariant) *)
+Theorem mdd_run_invariant:
+  mdd_accepts trans finals nodes_per_layer 0 0 as ⇒
+  ∀i. i ≤ LENGTH as ⇒
+    mdd_run trans finals nodes_per_layer as i < EL i nodes_per_layer ∧
+    mdd_accepts trans finals nodes_per_layer i
+      (mdd_run trans finals nodes_per_layer as i)
+      (DROP i as)
+Proof
+  strip_tac>>
+  Induct>>rw[]
+  >- (simp[mdd_run_def]>>metis_tac[mdd_accepts_lt,listTheory.EL])
+  >- simp[mdd_run_def]
+  >- (
+    `i < LENGTH as` by gvs[]>>fs[]>>
+    `DROP i as = EL i as :: DROP (SUC i) as` by
+      (irule DROP_CONS_EL>>simp[])>>
+    fs[Once mdd_accepts_def]>>
+    `mdd_accepts trans finals nodes_per_layer (SUC i)
+       (mdd_run trans finals nodes_per_layer as (SUC i)) (DROP (SUC i) as)` by
+      (simp[Once mdd_run_def]>>metis_tac[SELECT_AX,ADD1])>>
+    drule mdd_accepts_lt>>simp[])
+  >- (
+    `i < LENGTH as` by gvs[]>>fs[]>>
+    `DROP i as = EL i as :: DROP (SUC i) as` by
+      (irule DROP_CONS_EL>>simp[])>>
+    fs[Once mdd_accepts_def]>>
+    `mdd_accepts trans finals nodes_per_layer (SUC i)
+       (mdd_run trans finals nodes_per_layer as (SUC i)) (DROP (SUC i) as)` by
+      (simp[Once mdd_run_def]>>metis_tac[SELECT_AX,ADD1])>>
+    simp[])
+QED
+
+Theorem mdd_run_accepts:
+  mdd_accepts trans finals nodes_per_layer 0 0 as ⇒
+  mdd_run trans finals nodes_per_layer as 0 = 0 ∧
+  (∀i. i ≤ LENGTH as ⇒
+     mdd_run trans finals nodes_per_layer as i < EL i nodes_per_layer) ∧
+  (∀i. i < LENGTH as ⇒
+    MEM (EL i as, mdd_run trans finals nodes_per_layer as (i+1))
+        (mdd_edges trans i (mdd_run trans finals nodes_per_layer as i))) ∧
+  MEM (mdd_run trans finals nodes_per_layer as (LENGTH as)) finals
+Proof
+  strip_tac>>
+  drule mdd_run_invariant>>strip_tac>>
+  rw[]
+  >- simp[mdd_run_def]
+  >- (
+    `i ≤ LENGTH as` by gvs[]>>
+    first_x_assum drule>>strip_tac>>
+    `DROP i as = EL i as :: DROP (SUC i) as` by
+      (irule DROP_CONS_EL>>simp[])>>
+    fs[Once mdd_accepts_def]>>
+    simp[GSYM ADD1]>>
+    simp[Once mdd_run_def]>>
+    metis_tac[SELECT_AX,ADD1])
+  >- (
+    `LENGTH as ≤ LENGTH as` by simp[]>>
+    first_x_assum drule>>strip_tac>>
+    `DROP (LENGTH as) as = []` by
+      simp[DROP_LENGTH_TOO_LONG]>>
+    gvs[Once mdd_accepts_def])
+QED
+
+Theorem mdd_trans_sem:
+  valid_assignment bnd wi ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr (mdd_trans bnd name nodes_per_layer trans Xs)) ⇔
+  ∀idx q v.
+    idx < LENGTH Xs ∧ q < EL idx nodes_per_layer ∧
+    MEM v (domlist bnd (EL idx Xs)) ⇒
+    (wb (mdd_state name idx q) ∧ wb (INL (Eq (EL idx Xs) v)) ⇒
+     ∃t. MEM t (mdd_targets nodes_per_layer trans idx q v) ∧
+         wb (mdd_state name (idx+1) t)))
+Proof
+  strip_tac>>
+  simp[mdd_trans_def,append_thm,EVERY_MAP,EVERY_MEM,MEM_FLAT,
+    MEM_MAPi,MEM_GENLIST,PULL_EXISTS]>>
+  simp[bits_imply_sem,at_least_one_sem,MEM_MAP,PULL_EXISTS]>>
+  eq_tac>>rw[]>>
+  gvs[MEM_EL]>>
+  metis_tac[MEM_EL]
+QED
+
+Theorem MEM_mdd_targets:
+  MEM t (mdd_targets nodes_per_layer trans idx q v) ⇔
+  MEM (v,t) (mdd_edges trans idx q) ∧ t < EL (idx+1) nodes_per_layer
+Proof
+  rw[mdd_targets_def,MEM_MAP,MEM_FILTER,EXISTS_PROD]>>
+  metis_tac[]
+QED
+
+Theorem mdd_frame_sem:
+  nodes_per_layer ≠ [] ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr (mdd_frame name nodes_per_layer finals)) ⇔
+  (∀idx. idx < LENGTH nodes_per_layer ⇒
+     (∃q. q < EL idx nodes_per_layer ∧ wb (mdd_state name idx q)) ∧
+     iSUM (MAP (b2i o lit wb)
+       (GENLIST (λq. Pos (mdd_state name idx q)) (EL idx nodes_per_layer)))
+       ≤ 1) ∧
+  wb (mdd_state name 0 0) ∧
+  (∃f. MEM f finals ∧ f < EL (LENGTH nodes_per_layer - 1) nodes_per_layer ∧
+       wb (mdd_state name (LENGTH nodes_per_layer - 1) f)))
+Proof
+  strip_tac>>
+  simp[mdd_frame_def,mdd_state_idx_def,MAPi_GENLIST,combinTheory.S_DEF,
+    combinTheory.C_THM,mdd_state_idx_row_def,mdd_accept_state_def,
+    mdd_init_state_def,append_thm,EVERY_APPEND,EVERY_FLAT,EVERY_GENLIST,
+    MAP_GENLIST,PULL_EXISTS]>>
+  simp[MEM_GENLIST,MEM_MAP,MEM_FILTER,PULL_EXISTS]>>
+  `∀x. b2i x ≥ 1 ⇔ x` by (Cases>>simp[b2i_def])>>
+  simp[]>>
+  metis_tac[]
+QED
+
+Theorem encode_mdd_sem_1:
+  valid_assignment bnd wi ∧
+  ALOOKUP cs name = SOME (Extensional (Mdd Xs nodes_per_layer trans finals)) ∧
+  mdd_sem Xs nodes_per_layer trans finals wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
+    (encode_mdd bnd Xs nodes_per_layer trans finals name)
+Proof
+  rw[mdd_sem_def]>>
+  simp[encode_mdd_def,EVERY_APPEND]>>
+  `nodes_per_layer ≠ []` by (strip_tac>>gvs[])>>
+  drule mdd_run_accepts>>strip_tac>>
+  rw[]
+  >- (irule encode_full_eqs_reify>>simp[])
+  >- (
+    simp[mdd_frame_sem,reify_avar_def,reify_flag_def]>>
+    CONJ_TAC
+    >- (
+      simp[MAP_GENLIST,combinTheory.o_DEF]>>
+      gvs[reify_avar_def,reify_flag_def]>>
+      simp[iSUM_GENLIST_b2i_eq])
+    >- fs[LENGTH_MAP])
+  >- (
+    simp[mdd_trans_sem,reify_avar_def,reify_flag_def]>>
+    rw[]>>
+    gvs[reify_reif_def]>>
+    simp[MEM_mdd_targets]>>
+    first_x_assum drule>>gvs[EL_MAP])
+QED
+
+Theorem mdd_onehot_unique:
+  iSUM (MAP (b2i o lit wb)
+    (GENLIST (λq. Pos (mdd_state name idx q)) nq)) ≤ 1 ∧
+  q1 < nq ∧ q2 < nq ∧
+  wb (mdd_state name idx q1) ∧ wb (mdd_state name idx q2) ⇒ q1 = q2
+Proof
+  rw[]>>
+  `LENGTH (FILTER (lit wb)
+    (GENLIST (λq. Pos (mdd_state name idx q)) nq)) ≤ 1` by
+    (gvs[iSUM_FILTER])>>
+  drule FILTER_LENGTH_le_1_unique>>
+  disch_then (qspecl_then[`q1`,`q2`] mp_tac)>>
+  simp[EL_GENLIST]
+QED
+
+Theorem encode_mdd_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_mdd bnd Xs nodes_per_layer trans finals name) ⇒
+  mdd_sem Xs nodes_per_layer trans finals wi
+Proof
+  strip_tac>>simp[mdd_sem_def]>>
+  reverse (Cases_on ‘LENGTH nodes_per_layer = LENGTH Xs + 1 ∧
+                     LENGTH trans = LENGTH Xs’)
+  >- (qpat_x_assum ‘EVERY _ (encode_mdd _ _ _ _ _ _)’ mp_tac>>simp[encode_mdd_def])>>
+  qpat_x_assum ‘EVERY _ (encode_mdd _ _ _ _ _ _)’ mp_tac>>
+  simp[encode_mdd_def,EVERY_APPEND]>>strip_tac>>
+  `nodes_per_layer ≠ []` by (strip_tac>>gvs[])>>
+  qpat_x_assum‘EVERY _ (abstr (mdd_frame _ _ _))’ mp_tac>>
+  simp[mdd_frame_sem]>>strip_tac>>
+  qpat_x_assum‘EVERY _ (abstr (mdd_trans _ _ _ _ _))’ mp_tac>>
+  simp[mdd_trans_sem]>>strip_tac>>
+  `∀X v. MEM (X,v) (reg_eq_pairs bnd Xs) ⇒
+     (wb (INL (Eq X v)) ⇔ varc wi X = v)` by
+    metis_tac[encode_full_eqs_sem_2]>>
+  (* the canonical chosen node per layer *)
+  qabbrev_tac`run = λidx. @q. q < EL idx nodes_per_layer ∧ wb (mdd_state name idx q)`>>
+  `∀idx. idx ≤ LENGTH Xs ⇒
+     run idx < EL idx nodes_per_layer ∧ wb (mdd_state name idx (run idx))` by (
+    rw[Abbr`run`]>>
+    `idx < LENGTH Xs + 1` by simp[]>>
+    `∃q. q < EL idx nodes_per_layer ∧ wb (mdd_state name idx q)` by
+      (first_x_assum drule>>simp[])>>
+    metis_tac[SELECT_AX])>>
+  `∀idx q. idx ≤ LENGTH Xs ∧ q < EL idx nodes_per_layer ∧
+     wb (mdd_state name idx q) ⇒ q = run idx` by (
+    rw[]>>
+    `run idx < EL idx nodes_per_layer ∧ wb (mdd_state name idx (run idx))` by
+      (first_x_assum irule>>gvs[])>>
+    `iSUM (MAP (b2i o lit wb)
+       (GENLIST (λq. Pos (mdd_state name idx q)) (EL idx nodes_per_layer))) ≤ 1` by
+      (qpat_x_assum‘∀idx. idx < LENGTH Xs + 1 ⇒ _’ (qspec_then‘idx’ mp_tac)>>simp[])>>
+    metis_tac[mdd_onehot_unique, mdd_state_def])>>
+  `0 < EL 0 nodes_per_layer` by (
+    `run 0 < EL 0 nodes_per_layer ∧ wb (mdd_state name 0 (run 0))` by
+      (first_x_assum irule>>simp[])>>
+    intLib.ARITH_TAC)>>
+  irule run_imp_mdd_accepts>>
+  qexists_tac‘GENLIST run (LENGTH Xs + 1)’>>
+  rw[EL_GENLIST]
+  >- (
+    `MEM (EL i Xs, varc wi (EL i Xs)) (reg_eq_pairs bnd Xs)` by
+      (irule MEM_reg_eq_pairs>>simp[MEM_domlist])>>
+    `wb (INL (Eq (EL i Xs) (varc wi (EL i Xs))))` by metis_tac[]>>
+    `MEM (varc wi (EL i Xs)) (domlist bnd (EL i Xs))` by simp[MEM_domlist]>>
+    `run i < EL i nodes_per_layer` by (first_x_assum drule>>simp[])>>
+    last_x_assum (qspecl_then[`i`,`run i`,`varc wi (EL i Xs)`] mp_tac)>>
+    impl_tac >- gvs[]>>
+    strip_tac>>
+    gvs[MEM_mdd_targets,EL_MAP]>>
+    `t = run (i + 1)` by (first_x_assum irule>>gvs[ADD1])>>
+    gvs[])
+  >- (
+    `f = run (LENGTH Xs)` by (first_x_assum irule>>gvs[])>>
+    gvs[])
+QED
+
+Theorem cencode_mdd_sem:
+  valid_assignment bnd wi ∧
+  cencode_mdd bnd Xs nodes_per_layer trans finals name ec = (es,ec') ⇒
+  enc_rel wi es (encode_mdd bnd Xs nodes_per_layer trans finals name) ec ec'
+Proof
+  rw[cencode_mdd_def,encode_mdd_def]>>
   gvs[UNCURRY_EQ]>>
   PURE_REWRITE_TAC[GSYM APPEND_ASSOC]>>
   irule enc_rel_Append>>
@@ -1110,6 +1500,8 @@ Definition encode_extensional_constr_def:
       encode_regular bnd Xs nstates trans finals name
   | NegativeTable tss Xs => encode_negative_table bnd tss Xs name
   | SmartTable rows => encode_smart_table bnd rows name
+  | Mdd Xs nodes_per_layer trans finals =>
+      encode_mdd bnd Xs nodes_per_layer trans finals name
 End
 
 Theorem encode_extensional_constr_sem_1:
@@ -1122,7 +1514,7 @@ Proof
   Cases_on`c`>>
   rw[encode_extensional_constr_def,extensional_constr_sem_def]>>
   metis_tac[encode_table_sem_1,encode_regular_sem_1,encode_negative_table_sem_1,
-            encode_smart_table_sem_1,smart_reify_SmartTable]
+            encode_smart_table_sem_1,smart_reify_SmartTable,encode_mdd_sem_1]
 QED
 
 Theorem encode_extensional_constr_sem_2:
@@ -1133,7 +1525,7 @@ Proof
   Cases_on`c`>>
   rw[encode_extensional_constr_def,extensional_constr_sem_def]>>
   metis_tac[encode_table_sem_2,encode_regular_sem_2,encode_negative_table_sem_2,
-            encode_smart_table_sem_2]
+            encode_smart_table_sem_2,encode_mdd_sem_2]
 QED
 
 (* The reifications needed for tuple eq on a given row *)
@@ -1347,6 +1739,8 @@ Definition cencode_extensional_constr_def:
       cencode_regular bnd Xs nstates trans finals name ec
   | NegativeTable tss Xs => cencode_negative_table bnd tss Xs name ec
   | SmartTable rows => cencode_smart_table bnd rows name ec
+  | Mdd Xs nodes_per_layer trans finals =>
+      cencode_mdd bnd Xs nodes_per_layer trans finals name ec
 End
 
 Theorem cencode_extensional_constr_sem:
@@ -1380,5 +1774,6 @@ Proof
   >- metis_tac[cencode_regular_sem]
   >- metis_tac[cencode_negative_table_sem]
   >- metis_tac[cencode_smart_table_sem]
+  >- metis_tac[cencode_mdd_sem]
 QED
 

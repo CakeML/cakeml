@@ -78,6 +78,17 @@ Definition nfa_run_def:
          nfa_accepts trans finals nstates q' (DROP (SUC i) xs)
 End
 
+(* mdd_run: as nfa_run, but generalized to per-layer node counts/transitions
+   — at step SUC i the chosen node lives in layer SUC i, reached from the
+   layer-i node via mdd_edges at layer i. *)
+Definition mdd_run_def:
+  mdd_run trans finals nodes_per_layer xs 0 = 0 ∧
+  mdd_run trans finals nodes_per_layer xs (SUC i) =
+    @q'. MEM (EL i xs, q')
+          (mdd_edges trans i (mdd_run trans finals nodes_per_layer xs i)) ∧
+         mdd_accepts trans finals nodes_per_layer (SUC i) q' (DROP (SUC i) xs)
+End
+
 (* The stable "before" relation on positions of Xs (gcs sort_before): element
    at ip precedes element at i in the stable order. Ties broken by index, so
    the comparison is ≤ when ip < i and strict < otherwise; in particular
@@ -201,6 +212,8 @@ Definition reify_flag_def:
       match_row (EL (HD ids) tss) (MAP (varc wi) Xs)
     | SOME (Extensional (Regular Xs nstates trans finals)) =>
       (nfa_run trans finals nstates (MAP (varc wi) Xs) (EL 0 ids) = EL 1 ids)
+    | SOME (Extensional (Mdd Xs nodes_per_layer trans finals)) =>
+      (mdd_run trans finals nodes_per_layer (MAP (varc wi) Xs) (EL 0 ids) = EL 1 ids)
     | SOME (Extensional (SmartTable rows)) =>
       reify_smart_flag rows wi ids ann
     | SOME (Lexicographical (Lex Zr cmp Xs Ys)) =>
@@ -308,7 +321,22 @@ Definition reify_flag_def:
       if ann = SOME («pos») then
         BIT (Num (EL 1 vs)) (vp_first_occ wi Xs (EL 0 vs))
       else (* ann = SOME («pge») *)
-        &(vp_first_occ wi Xs (EL 0 vs)) ≥ EL 1 vs)
+        &(vp_first_occ wi Xs (EL 0 vs)) ≥ EL 1 vs
+    | SOME (Misc (MinDistance Xs D Z Ropt)) =>
+      (* «u» [a]: some position takes value a; «d» [a]: at least two
+         positions take value a (a duplicate); «w» [a;b]: some position
+         takes a and some (other, since a≠b whenever this flag is ever
+         built) position takes b; «m» [t]: the ladder's running
+         accumulator, some pair of positions achieves distance ≤ t *)
+      if ann = SOME («u») then
+        ∃X. MEM X Xs ∧ varc wi X = HD vs
+      else if ann = SOME («d») then
+        2 ≤ LENGTH (FILTER (λX. varc wi X = HD vs) Xs)
+      else if ann = SOME («w») then
+        (∃X. MEM X Xs ∧ varc wi X = EL 0 vs) ∧
+        (∃X. MEM X Xs ∧ varc wi X = EL 1 vs)
+      else (* ann = SOME («m») *)
+        md_le Xs D wi (HD vs))
 End
 
 (* char 91 is [, char 92 is backslash, char 93 is ] *)

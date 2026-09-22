@@ -428,6 +428,48 @@ Definition sexp_regular_body_def:
     | _ => fail («regular expects 4 args: (X1 ... Xn) nstates ((edges)...) (f1 ... fk)\n»)
 End
 
+(* mdd: (vars) (nodes-per-layer) ((layer-edges)...) (accepting...).
+   Layers reuse the same "per-node list of (symbol,target) edges" shape as
+   regular's transition table, one list-nesting level deeper (a list of
+   layers, each a list of per-node edge lists). Unlike regular, mdd
+   transitions are deterministic: reject two edges on the same symbol out
+   of one node (mirrors GCS's read_mdd, the only .scp reader that enforces
+   this — regular's in-memory representation allows NFA multi-target
+   edges, so it has no analogous check). *)
+Definition sexp_mdd_edges_def:
+  sexp_mdd_edges e =
+  do
+    edges <- sexp_reg_edges e;
+    if ALL_DISTINCT (MAP FST edges) then return edges
+    else fail («an mdd node has two edges on the same symbol\n»)
+  od
+End
+
+Definition sexp_mdd_layer_def:
+  sexp_mdd_layer e =
+    sexp_list_of («expected per-node list of mdd edge lists\n») sexp_mdd_edges e
+End
+
+Definition sexp_mdd_layers_def:
+  sexp_mdd_layers e =
+    sexp_list_of («expected list of mdd layers\n») sexp_mdd_layer e
+End
+
+Definition sexp_mdd_body_def:
+  sexp_mdd_body rest =
+    case rest of
+      [vars_e; nodes_per_layer_e; layers_e; finals_e] =>
+      (do
+         Xs <- sexp_varc_list vars_e;
+         nodes_per_layer <- sexp_num_list nodes_per_layer_e;
+         trans <- sexp_mdd_layers layers_e;
+         finals <- sexp_num_list finals_e;
+         return (Extensional (Mdd Xs nodes_per_layer trans finals))
+       od)
+    | _ =>
+      fail («mdd expects 4 args: (X1 ... Xn) (n0 ... nk) ((layer-edges)...) (f1 ... fk)\n»)
+End
+
 (* Negative (conflict) table body: same shape as table (rows then vars);
    the listed tuples are forbidden rather than allowed. *)
 Definition sexp_negative_table_body_def:
@@ -520,6 +562,7 @@ Definition sexp_extensional_dispatch_def:
     else if ctype = «lex_smart_table» then SOME (sexp_lex_smart_table_body rest)
     else if ctype = «at_most_one_smart_table» then SOME (sexp_amo_smart_table_body rest)
     else if ctype = «regular» then SOME (sexp_regular_body rest)
+    else if ctype = «mdd» then SOME (sexp_mdd_body rest)
     else NONE
 End
 
@@ -1302,6 +1345,26 @@ Theorem test_regular:
   sexp_constraint_dispatch («regular»)
     (fromStringL («((A) 2)»)) =
     INL («regular expects 4 args: (X1 ... Xn) nstates ((edges)...) (f1 ... fk)\n»)
+Proof
+  EVAL_TAC
+QED
+
+Theorem test_mdd:
+  (* MDD encoding X0 ≠ X1 over domain 0..2 (cake_three_constraints_request.md) *)
+  sexp_constraint_dispatch («mdd»)
+    (fromStringL («((X0 X1) (1 3 1) ((((0 0) (1 1) (2 2))) (((1 0) (2 0)) ((0 0) (2 0)) ((0 0) (1 0)))) (0))»)) =
+    INR (Extensional (Mdd [INL «X0»; INL «X1»] [1;3;1]
+           [[[(0,0);(1,1);(2,2)]];
+            [[(1,0);(2,0)]; [(0,0);(2,0)]; [(0,0);(1,0)]]]
+           [0])) ∧
+  (* duplicate edge on the same symbol out of one node is rejected *)
+  sexp_constraint_dispatch («mdd»)
+    (fromStringL («((X0) (1 1) ((((0 0) (0 1)))) (0))»)) =
+    INL («an mdd node has two edges on the same symbol\n») ∧
+  (* wrong arity *)
+  sexp_constraint_dispatch («mdd»)
+    (fromStringL («((X0) (1 1))»)) =
+    INL («mdd expects 4 args: (X1 ... Xn) (n0 ... nk) ((layer-edges)...) (f1 ... fk)\n»)
 Proof
   EVAL_TAC
 QED

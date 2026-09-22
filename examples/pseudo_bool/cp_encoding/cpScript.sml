@@ -164,6 +164,17 @@ Datatype:
   | NegativeTable ((int option) list list) ('a varc list)
     (* SmartTable rows: holds iff some row's entries all hold. *)
   | SmartTable (('a smart_entry) list list)
+    (* Mdd vars nodes_per_layer trans finals :
+       vars (n of them, read as a value string) is accepted by the layered
+       MDD with n+1 layers, 0..n; layer 0 has a single root node, node 0.
+       nodes_per_layer[i] is the node count of layer i.
+       trans[i] indexed by source node q in layer i gives EL q (EL i trans),
+       the list of (symbol,target) edges from that node into layer i+1
+       (so trans has n entries, one per variable/transition step).
+       finals indexes accepting nodes of the final layer, n.
+       A strict generalisation of Regular: a DFA/NFA is an Mdd whose layers
+       all share one node set and one transition function. *)
+  | Mdd ('a varc list) (num list) ((int # num) list list list) (num list)
 End
 
 (* The LexSmartTable and AtMostOneSmartTable constraints are implemented as
@@ -270,6 +281,15 @@ Datatype:
     Circuit ('a varc list)
     (* General Knapsack *)
   | Knapsack (int list list) ('a varc list) ('a varc list)
+    (* MinDistance Xs D Z Ropt : Xs (p ≥ 2 of them) are "selected point"
+       variables ranging over candidate site indices 0..n-1 (n = LENGTH D);
+       D is the n×n distance matrix (symmetric, zero diagonal,
+       non-negative); Z equals the minimum, over every pair of positions
+       i<j, of D[Xs[i]][Xs[j]] (duplicate site selections are allowed and
+       contribute distance 0, since D[a,a]=0). Ropt, when present, is a
+       p×p requirements matrix: D[Xs[i]][Xs[j]] ≥ Ropt[i][j] for every
+       i<j (only entries above the diagonal are read). *)
+  | MinDistance ('a varc list) (int list list) ('a varc) ((int list list) option)
 End
 
 Datatype:
@@ -729,6 +749,32 @@ Definition smart_table_sem_def:
   ∃row. MEM row rows ∧ EVERY (λe. smart_entry_holds e w) row
 End
 
+(* The next functions help define semantics for Mdd, generalizing
+   nfa_edges/nfa_accepts/regular_sem to per-layer node counts and
+   transitions: idx tracks the current layer (0 at the root, n at the
+   final layer once all of Xs has been consumed). *)
+Definition mdd_edges_def:
+  mdd_edges trans idx q =
+    if idx < LENGTH trans ∧ q < LENGTH (EL idx trans)
+    then EL q (EL idx trans) else []
+End
+
+Definition mdd_accepts_def:
+  (mdd_accepts trans finals nodes_per_layer idx q [] ⇔
+    idx < LENGTH nodes_per_layer ∧ q < EL idx nodes_per_layer ∧
+    MEM q finals) ∧
+  (mdd_accepts trans finals nodes_per_layer idx q (v::vs) ⇔
+    idx < LENGTH nodes_per_layer ∧ q < EL idx nodes_per_layer ∧
+    ∃q'. MEM (v,q') (mdd_edges trans idx q) ∧
+         mdd_accepts trans finals nodes_per_layer (idx+1) q' vs)
+End
+
+Definition mdd_sem_def:
+  mdd_sem Xs nodes_per_layer trans finals w ⇔
+  LENGTH nodes_per_layer = LENGTH Xs + 1 ∧ LENGTH trans = LENGTH Xs ∧
+  mdd_accepts trans finals nodes_per_layer 0 0 (MAP (varc w) Xs)
+End
+
 Definition extensional_constr_sem_def:
   extensional_constr_sem c w ⇔
   case c of
@@ -737,6 +783,8 @@ Definition extensional_constr_sem_def:
       regular_sem Xs nstates trans finals w
   | NegativeTable tss Xs => negative_table_sem tss Xs w
   | SmartTable rows => smart_table_sem rows w
+  | Mdd Xs nodes_per_layer trans finals =>
+      mdd_sem Xs nodes_per_layer trans finals w
 End
 
 (***
@@ -960,11 +1008,61 @@ Definition knapsack_sem_def:
   LIST_REL (λcs t. eval_iclin_term w (ZIP (cs,Xs)) = t) css (MAP (varc w) Ts)
 End
 
+(* D well-formed as an n×n symmetric, zero-diagonal, non-negative distance
+   matrix (n = LENGTH D) *)
+Definition dist_matrix_ok_def:
+  dist_matrix_ok D ⇔
+  let n = LENGTH D in
+  EVERY (λrow. LENGTH row = n) D ∧
+  (∀a b. a < n ∧ b < n ⇒ EL b (EL a D) = EL a (EL b D)) ∧
+  (∀a. a < n ⇒ EL a (EL a D) = 0) ∧
+  (∀a b. a < n ∧ b < n ⇒ EL b (EL a D) ≥ 0)
+End
+
+(* the (a,b) entry of D, for candidate sites a,b < LENGTH D *)
+Definition dist_at_def:
+  dist_at D a b = EL b (EL a D)
+End
+
+Definition min_distance_sem_def:
+  min_distance_sem Xs D Z Ropt w ⇔
+  dist_matrix_ok D ∧
+  EVERY (λX. 0 ≤ varc w X ∧ Num (varc w X) < LENGTH D) Xs ∧
+  (∃i j. i < j ∧ j < LENGTH Xs ∧
+     varc w Z = dist_at D (Num (varc w (EL i Xs))) (Num (varc w (EL j Xs)))) ∧
+  (∀i j. i < j ∧ j < LENGTH Xs ⇒
+     varc w Z ≤ dist_at D (Num (varc w (EL i Xs))) (Num (varc w (EL j Xs)))) ∧
+  (case Ropt of
+     NONE => T
+   | SOME R =>
+       LENGTH R = LENGTH Xs ∧ EVERY (λrow. LENGTH row = LENGTH Xs) R ∧
+       (∀i j. i < j ∧ j < LENGTH Xs ⇒ EL j (EL i R) ≥ 0) ∧
+       (∀i j. i < j ∧ j < LENGTH Xs ⇒
+          dist_at D (Num (varc w (EL i Xs))) (Num (varc w (EL j Xs))) ≥
+          EL j (EL i R)))
+End
+
+(* whether some pair of positions in Xs achieves distance exactly t under D;
+   the semantic content shared by min_distance_sem's own ∃ clause and by
+   the min_distance encoder's proof-only witness flags (u/d/w/m) *)
+Definition md_pair_def:
+  md_pair Xs D w (t:int) ⇔
+  ∃i j. i < j ∧ j < LENGTH Xs ∧
+    dist_at D (Num (varc w (EL i Xs))) (Num (varc w (EL j Xs))) = t
+End
+
+(* whether some pair of positions achieves distance ≤ t; this is exactly
+   what the min_distance encoder's ladder flag m_t means *)
+Definition md_le_def:
+  md_le Xs D w (t:int) ⇔ ∃t'. t' ≤ t ∧ md_pair Xs D w t'
+End
+
 Definition misc_constr_sem_def:
   misc_constr_sem c w ⇔
   case c of
     Circuit Xs => circuit_sem Xs w
   | Knapsack css Xs Ts => knapsack_sem css Xs Ts w
+  | MinDistance Xs D Z Ropt => min_distance_sem Xs D Z Ropt w
 End
 
 (***
