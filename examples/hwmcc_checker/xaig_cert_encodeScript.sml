@@ -3551,11 +3551,12 @@ Proof
   simp [xaig_map_def]
 QED
 
-(*** encode_ ******************************************************************)
+(*** encode_pointwise_equal_num ***********************************************)
 
 Definition mapi_xori_num_aux_def:
   mapi_xori_num_aux i []      = [] ∧
-  mapi_xori_num_aux i (x::xs) = (i, Xor (FST x) (SND x))::mapi_xori_num_aux (i + 2) xs
+  mapi_xori_num_aux i (x::xs) =
+    (i, Xor (FST x) (SND x))::mapi_xori_num_aux (i + 2) xs
 End
 
 Definition mapi_xori_num_def:
@@ -3619,6 +3620,8 @@ Proof
   >> simp [gate_map_def, gty_map_def, ext2num_def]
 QED
 
+(*** encode_xis_next_num ******************************************************)
+
 (* Assumes that cur and nxt are of the form (ext_lit ∘ ...), allowing us
    use 1 instead of calculating the max iname.  *)
 Definition encode_xis_next_num_def:
@@ -3637,7 +3640,7 @@ Proof
   Induct_on ‘xs’ >> gvs [maxn_def]
 QED
 
-Theorem maxn_map_latch_f:
+Theorem maxn_map_latch_f[local]:
   maxn (MAP (λl. (Base (Latch (f l)),b)) xs) = 1
 Proof
   Induct_on ‘xs’ >> gvs [maxn_def, iname_def]
@@ -3653,56 +3656,162 @@ Proof
   simp [encode_xis_next_def, encode_pointwise_equal_to_num,
         encode_pointwise_equal_num_def, encode_xis_next_num_def,
         MAP_MAP_o, o_DEF]
-  >> simp [GSYM MAP_MAP_o, GSYM o_DEF, maxn_map_ext_lit, max_map_latch_f]
+  >> simp [GSYM MAP_MAP_o, GSYM o_DEF, maxn_map_ext_lit, maxn_map_latch_f]
   >> simp [lit_map_def, var_map_def, bvar_map_def]
 QED
 
-(* Theorem MAP_PAIR_MAP[local]: *)
-(*   MAP (λxy. h (FST xy)) xys = MAP h (MAP FST xys) ∧ *)
-(*   MAP (λxy. h (SND xy)) xys = MAP h (MAP SND xys) *)
-(* Proof *)
-(*   simp[MAP_MAP_o, combinTheory.o_DEF] *)
-(* QED *)
+(*** encode_xis_reset_num *****************************************************)
 
-(* Theorem gate_map_xori: *)
-(*   gate_map f g I (xori n i xy) = *)
-(*     xori n i (lit_map f g I (FST xy), lit_map f g I (SND xy)) *)
-(* Proof *)
-(*   Cases_on ‘xy’ >> simp [gate_map_def, gty_map_def, xori_def] *)
-(* QED *)
+(* The idea is to move the mapping functions to the top-level, where we can
+   compose them with other maps (in particular the mappings to num). *)
 
-(* Theorem maxn_map_lit_map[local]: *)
-(*   maxn (MAP (λx. lit_map f g I x) xs) = maxn xs *)
-(* Proof *)
-(*   simp [maxn_def, MAP_MAP_o, o_DEF] *)
-(*   >> have ‘∀x:(α ext, δ, ε) lit. iname (lit_map f g I x) = iname x’ *)
-(*   >- ( *)
-(*     Cases *)
-(*     >> simp [lit_map_def, oneline var_map_def, oneline bvar_map_def] *)
-(*     >> every_case_tac *)
-(*     >> simp [iname_def] *)
-(*   ) *)
-(*   >> simp [ETA_AX] *)
-(* QED *)
+Definition latch_reset_pairs_gen_def:
+  latch_reset_pairs_gen f g reset [] = [] ∧
+  latch_reset_pairs_gen f g reset (l::ls) =
+  case reset l of
+    NONE => latch_reset_pairs_gen f g reset ls
+  | SOME r => ((Base (Latch (f l)),F), g r)::latch_reset_pairs_gen f g reset ls
+End
 
-(* Theorem map_gate_map_encode_pointwise_equal: *)
-(*   MAP (gate_map (f: g h) (encode_pointwise_equal name xys) = *)
-(*   encode_pointwise_equal name *)
-(*     (MAP (λxy. lit_map f g h (FST xy), lit_map f g h (SND xy)) xys) *)
-(* Proof *)
-(*   simp [encode_pointwise_equal_def, gate_map_def, gty_map_def, lit_map_def, *)
-(*         var_map_def, MAP_GENLIST, o_DEF, MAP_MAP_o, gate_map_xori] *)
-(*   >> simp [MAP_PAIR_MAP, maxn_map_lit_map] *)
-(*   >> simp [MAPi_MAP] *)
-(* QED *)
+Definition encode_xis_reset_gen_def:
+  encode_xis_reset_gen f g name reset ls =
+    encode_pointwise_equal name (latch_reset_pairs_gen f g reset ls)
+End
 
-(* Theorem map_gate_map_encode_xis_next: *)
-(*   MAP (gate_map f g I) (encode_xis_next name cur nxt next latches) = *)
-(*     encode_xis_next name (lit_map f g I ∘ cur) (lit_map f g I ∘ nxt) next latches *)
-(* Proof *)
-(*   simp [encode_xis_next_def, map_gate_map_encode_pointwise_equal, *)
-(*         MAP_MAP_o, o_DEF] *)
-(* QED *)
+Theorem length_latch_reset_pairs_gen[local]:
+  LENGTH (latch_reset_pairs_gen f' g' reset xs) =
+  LENGTH (latch_reset_pairs_gen f g reset xs)
+Proof
+  Induct_on ‘xs’
+  >> simp [latch_reset_pairs_gen_def]
+  >> strip_tac >> CASE_TAC >> simp []
+QED
+
+Theorem latch_reset_pairs_eq:
+  latch_reset_pairs reset latches =
+  latch_reset_pairs_gen I I reset latches
+Proof
+  Induct_on ‘latches’
+  >> simp [latch_reset_pairs_def, latch_reset_pairs_gen_def]
+QED
+
+Theorem latch_reset_pairs_gen_ext_reset:
+  latch_reset_pairs_gen f g (ext_reset reset) latches =
+  latch_reset_pairs_gen f (g ∘ ext_lit) reset latches
+Proof
+  Induct_on ‘latches’
+  >> simp [latch_reset_pairs_gen_def, ext_reset_def]
+  >> strip_tac
+  >> rename1 ‘reset h’ >> Cases_on ‘reset h’ >> simp []
+QED
+
+Theorem latch_reset_pairs_gen_left_reset:
+  latch_reset_pairs_gen f g (left_reset reset) latches =
+  latch_reset_pairs_gen f (g ∘ left_name_lit) reset latches
+Proof
+  Induct_on ‘latches’
+  >> simp [latch_reset_pairs_gen_def, left_reset_def]
+  >> strip_tac
+  >> rename1 ‘reset h’ >> Cases_on ‘reset h’ >> simp []
+QED
+
+Theorem latch_reset_pairs_gen_right_reset:
+  latch_reset_pairs_gen f g (right_reset reset) latches =
+  latch_reset_pairs_gen f (g ∘ right_name_lit) reset latches
+Proof
+  Induct_on ‘latches’
+  >> simp [latch_reset_pairs_gen_def, right_reset_def]
+  >> strip_tac
+  >> rename1 ‘reset h’ >> Cases_on ‘reset h’ >> simp []
+QED
+
+Theorem encode_xis_reset_eq:
+  encode_xis_reset name reset ls =
+  encode_xis_reset_gen I I name reset ls
+Proof
+  simp [encode_xis_reset_def, encode_xis_reset_gen_def, latch_reset_pairs_eq]
+QED
+
+Theorem encode_xis_reset_gen_ext_reset:
+  encode_xis_reset_gen f g name (ext_reset reset) latches =
+  encode_xis_reset_gen f (g ∘ ext_lit) name reset latches
+Proof
+  simp [encode_xis_reset_gen_def, latch_reset_pairs_gen_ext_reset]
+QED
+
+Theorem encode_xis_reset_gen_left_reset:
+  encode_xis_reset_gen f g name (left_reset reset) latches =
+  encode_xis_reset_gen f (g ∘ left_name_lit) name reset latches
+Proof
+  simp [encode_xis_reset_gen_def, latch_reset_pairs_gen_left_reset]
+QED
+
+Theorem encode_xis_reset_gen_right_reset:
+  encode_xis_reset_gen f g name (right_reset reset) latches =
+  encode_xis_reset_gen f (g ∘ right_name_lit) name reset latches
+Proof
+  simp [encode_xis_reset_gen_def, latch_reset_pairs_gen_right_reset]
+QED
+
+(* Analogously to encode_xis_reset_num, we assume that f is of the form
+   (ext_reset ∘ ...), allowing us to hardcode the max iname value. *)
+Definition encode_xis_reset_gen_num_def:
+  encode_xis_reset_gen_num name f g reset latches =
+  let
+    xys = latch_reset_pairs_gen f g reset latches;
+    xor_gates = mapi_xori_num 1 xys;
+    (* xys might be shorted than latches if a latch does not have a reset
+       defined, so we have to use LENGTH xys *)
+    xnor_lits = and_genlist_num T 1 (LENGTH xys);
+  in (name, xnor_lits)::xor_gates
+End
+
+Theorem maxn_latch_reset_pairs_gen_ext_lit[local]:
+  maxn (MAP FST (latch_reset_pairs_gen i (ext_lit ∘ j) reset latches)) = 1 ∧
+  maxn (MAP SND (latch_reset_pairs_gen i (ext_lit ∘ j) reset latches)) = 1
+Proof
+  Induct_on ‘latches’
+  >> gvs [latch_reset_pairs_gen_def, maxn_def]
+  >> strip_tac >> CASE_TAC >> gvs [iname_def]
+QED
+
+Theorem MAP_lit_map_latch_reset_pairs_gen[local]:
+  MAP (λx. (lit_map f g h (FST x), lit_map f g h (SND x)))
+      (latch_reset_pairs_gen p q reset latches) =
+  latch_reset_pairs_gen (g ∘ p) (lit_map f g h ∘ q) reset latches
+Proof
+  Induct_on ‘latches’
+  >> simp [latch_reset_pairs_gen_def]
+  >> strip_tac >> CASE_TAC
+  >> simp [lit_map_def, var_map_def, bvar_map_def]
+QED
+
+Theorem map_gate_map_encode_xis_reset_to_num_o:
+  MAP (gate_map f g (ext2num h))
+    (encode_xis_reset_gen i (ext_lit ∘ j) name reset latches)
+  =
+  encode_xis_reset_gen_num (ext_name2num name)
+    (g ∘ i) (lit_map f g (ext2num h) ∘ ext_lit ∘ j) reset latches
+Proof
+  simp [encode_xis_reset_gen_def, encode_pointwise_equal_to_num,
+        encode_pointwise_equal_num_def, encode_xis_reset_gen_num_def,
+        maxn_latch_reset_pairs_gen_ext_lit, MAP_lit_map_latch_reset_pairs_gen]
+  >> AP_TERM_TAC
+  >> simp [length_latch_reset_pairs_gen]
+QED
+
+Theorem map_gate_map_encode_xis_reset_to_num:
+  MAP (gate_map f g (ext2num h))
+    (encode_xis_reset_gen i ext_lit name reset latches)
+  =
+  encode_xis_reset_gen_num (ext_name2num name)
+    (g ∘ i) (lit_map f g (ext2num h) ∘ ext_lit) reset latches
+Proof
+  have ‘ext_lit :(γ, δ, ε) lit -> (γ ext, δ, ε) lit = ext_lit ∘ I’
+  >- simp []
+  >> pop_assum SUBST1_TAC
+  >> rewrite_tac [map_gate_map_encode_xis_reset_to_num_o]
+QED
 
 (*** 2num *********************************************************************)
 
@@ -3787,16 +3896,24 @@ val collapse_circuits =
      gate_map_o_qinterv_gate, lit_map_o_qinterv_lit, lit_map_o,
      MAP_MAP_o, GSYM MAP_FLAT, GSYM MAP_o]
 
+val encode_xis_next_to_num =
+  step std_ss
+    [map_gate_map_encode_xis_next_to_num, nsn_s_nsn_e2num_def]
+
+val encode_xis_reset_to_num =
+  step std_ss
+    [encode_xis_reset_eq, encode_xis_reset_gen_ext_reset,
+     encode_xis_reset_gen_left_reset,
+     encode_xis_reset_gen_right_reset,
+     map_gate_map_encode_xis_reset_to_num_o,
+     map_gate_map_encode_xis_reset_to_num,
+     nsn_e2num_def, n_e2num_def]
+
 val encode_imply_to_num =
   step (std_ss ++ LET_ss)
     [encode_imply_def, MAP, MAX_DEF, MAX_LIST_def,
      maxn_def, iname_def, ext_case_def, var_case_def,
      gate_map_def, gty_map_def, lit_map_def, var_map_def]
-
-val encode_xis_next_to_num =
-  step std_ss
-    [map_gate_map_encode_xis_next_to_num,
-     nsn_s_nsn_e2num_def]
 
 val encode_xlits_hold_to_num =
   step arith_ss
@@ -3823,6 +3940,7 @@ val encode_reset_cond_num =
          wlatches klatches)”
   |> unfold_cond encode_reset_cond_def
   |> collapse_circuits
+  |> encode_xis_reset_to_num
   |> encode_imply_to_num
   |> encode_xlits_hold_to_num
   |> simp2num
@@ -3856,6 +3974,7 @@ val encode_base_cond_num =
      (encode_base_cond wxaig wreset wcnstrs wsafes wlatches)”
   |> unfold_cond encode_base_cond_def
   |> collapse_circuits
+  |> encode_xis_reset_to_num
   |> encode_imply_to_num
   |> encode_xlits_hold_to_num
   |> simp2num
