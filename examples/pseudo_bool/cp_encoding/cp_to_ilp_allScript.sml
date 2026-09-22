@@ -58,6 +58,7 @@ QED
 
 Theorem encode_cp_one_sem_2:
   valid_assignment bnd wi ∧
+  bit_faithful bnd wi wb ∧
   EVERY (λx. iconstraint_sem x (wi,wb)) (encode_constraint bnd c name) ⇒
   constraint_sem c wi
 Proof
@@ -100,6 +101,7 @@ QED
 
 Theorem encode_constraints_sem_2:
   valid_assignment bnd wi ∧
+  bit_faithful bnd wi wb ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
     (encode_constraints bnd cs) ⇒
   EVERY (λc. constraint_sem (SND c) wi) cs
@@ -178,8 +180,7 @@ Theorem cencode_constraints_thm_1:
   valid_assignment bnd wi ∧
   cencode_constraints bnd cs init_ec = (es,ec') ∧
   EVERY (λc. constraint_sem (SND c) wi) cs ⇒
-  ∃wbf.
-  EVERY (λx. iconstraint_sem x (wi,wbf))
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (MAP SND (append es))
 Proof
   rw[EVERY_MAP]>>
@@ -193,6 +194,7 @@ QED
 
 Theorem cencode_constraints_thm_2:
   valid_assignment bnd wi ∧
+  bit_faithful bnd wi wbf ∧
   cencode_constraints bnd cs init_ec = (es,ec') ∧
   EVERY (λx. iconstraint_sem x (wi,wbf)) (MAP SND (append es)) ⇒
   EVERY (λc. constraint_sem (SND c) wi) cs

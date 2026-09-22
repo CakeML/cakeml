@@ -15,6 +15,8 @@ Datatype:
   | Ge ('a varc) int
     (* Reifies X ≥ i *)
   | Eq ('a varc) int (* Reifies X = i *)
+  | Bit 'a num (* Bit k of the two's-complement encoding of variable X *)
+  | Sign 'a (* Sign bit of the two's-complement encoding of variable X *)
 End
 
 Definition reify_reif_def:
@@ -22,6 +24,8 @@ Definition reify_reif_def:
   case reif of
     Ge X i => varc wi X ≥ i
   | Eq X i => varc wi X = i
+  | Bit X k => int_bit k (wi X)
+  | Sign X => wi X < 0
 End
 
 (* Generators for general reified variables involving comparison
@@ -277,21 +281,22 @@ Definition reify_flag_def:
     | SOME (Counting (NValue Xs Y)) =>
       MEM (HD vs) $ MAP (varc wi) Xs
     | SOME (Scheduling (Cumulative xs ws hs cap)) =>
-      (* cumulative flags carry the (int) time t in the Values list:
-         «cb»: task i has started by t;  «ca»: task i not finished by t;
-         «cact»: active (started ∧ not finished);
-         «cc»: bit b of task i's contribution at t (an upper-bounded natural
-               equal to its height when active and 0 otherwise). Every bit is
-               defined via BIT, so no bit-width bound is threaded. *)
-      let i = Num (EL 0 vs); t = EL 1 vs in
-      let bef = (varc wi (EL i xs) ≤ t) in
-      let aft = (varc wi (EL i xs) + varc wi (EL i ws) ≥ t + 1) in
-      if ann = SOME («cb») then bef
-      else if ann = SOME («ca») then aft
-      else if ann = SOME («cact») then bef ∧ aft
-      else (* ann = SOME («cc») *)
-        let b = Num (EL 2 vs) in
-        BIT b (if bef ∧ aft then Num (varc wi (EL i hs)) else 0)
+      (* cumulative flags are indexed by a task pair (i,j), j the checkpoint:
+         «sb»: task i starts no later than task j;
+         «sa»: task i has not finished when task j starts;
+         «sact»: task i is running when task j starts;
+         «scc»: running ∧ bit (EL 2 vs) of task i's height;
+         «sccs»: running ∧ task i's height is negative *)
+      let i = Num (EL 0 vs); j = Num (EL 1 vs) in
+      let bef = (varc wi (EL i xs) ≤ varc wi (EL j xs)) in
+      let aft = (varc wi (EL i xs) + varc wi (EL i ws) ≥ varc wi (EL j xs) + 1) in
+      if ann = SOME («sb») then bef
+      else if ann = SOME («sa») then aft
+      else if ann = SOME («sact») then bef ∧ aft
+      else if ann = SOME («scc») then
+        bef ∧ aft ∧ int_bit (Num (EL 2 vs)) (varc wi (EL i hs))
+      else (* ann = SOME («sccs») *)
+        bef ∧ aft ∧ varc wi (EL i hs) < 0
     | SOME (Sorting (Sort Xs Ys)) =>
       (* «pos»: bit (EL 1 vs) of the proof-only stable rank of element (EL 0 vs) *)
       let i = Num (EL 0 vs); b = Num (EL 1 vs) in
@@ -449,6 +454,10 @@ Definition format_reif_def:
   | Eq X i =>
     concat[format_varc X;«[eq»;
       int_to_string #"-" i;«]»]
+  | Bit X k =>
+    concat[format_varc (INL X);«[vb»;toString k;«]»]
+  | Sign X =>
+    concat[format_varc (INL X);«[vsign]»]
 End
 
 Definition format_annot_def:
@@ -579,6 +588,74 @@ Proof
   `GENLIST (λb. wb (flag b)) w = GENLIST (λb. BIT b m) w` by
     (simp[listTheory.GENLIST_FUN_EQ]>>metis_tac[])>>
   simp[pos_num_num_of_bits,num_of_bits_GENLIST_BIT,arithmeticTheory.LESS_MOD]
+QED
+
+(* The Bit/Sign literals of X agree with wi X within the bit width that
+   bnd assigns to X *)
+Definition bit_faithful_def:
+  bit_faithful bnd wi wb ⇔
+  ∀X.
+    let (comp,h) = bit_width bnd X in
+    (∀k. k < h ⇒ (wb (INL (Bit X k)) ⇔ int_bit k (wi X))) ∧
+    (comp ⇒ (wb (INL (Sign X)) ⇔ wi X < 0))
+End
+
+(* Variable X as the two's-complement sum of its Bit/Sign literals *)
+Definition ivar_bits_def:
+  ivar_bits bnd (X:'a) =
+  let (comp,h) = bit_width bnd X in
+  let bits = pos_num (λk. INL (Bit X k)) h in
+  if comp then
+    (-&(2**h),Pos (INL (Sign X))) :: bits
+  else (bits:'a avar lin_term)
+End
+
+Theorem ivar_bits_sem:
+  valid_assignment bnd wi ∧ bit_faithful bnd wi wb ⇒
+  eval_lin_term wb (ivar_bits bnd X) = wi X
+Proof
+  rw[ivar_bits_def]>>
+  pairarg_tac>>gvs[]>>
+  `(∀k. k < h ⇒ (wb (INL (Bit X k)) ⇔ int_bit k (wi X))) ∧
+   (comp ⇒ (wb (INL (Sign X)) ⇔ wi X < 0))` by (
+    gvs[bit_faithful_def]>>
+    first_x_assum (qspec_then `X` mp_tac)>>
+    simp[])>>
+  `?q r. bnd X = (q,r)` by metis_tac[PAIR]>>
+  `q ≤ wi X ∧ wi X ≤ r` by (gvs[valid_assignment_def]>>metis_tac[])>>
+  `-&(2 ** h) ≤ wi X ∧ wi X < &(2 ** h)` by (
+    conj_tac
+    >- (
+      Cases_on`0 ≤ wi X` >- (`(0:int) ≤ &(2**h)` by simp[]>>intLib.ARITH_TAC)>>
+      `?m. wi X = -&m ∧ 0 < m` by (Cases_on`wi X`>>gvs[]>>intLib.ARITH_TAC)>>
+      `q < 0` by intLib.ARITH_TAC>>
+      `bit_width bnd X = (T,h)` by gvs[bit_width_def]>>
+      `q ≤ -&m` by intLib.ARITH_TAC>>
+      drule_all bit_width_lemma2>>
+      rw[]>>intLib.ARITH_TAC)>>
+    Cases_on`wi X < 0` >- (`(0:int) ≤ &(2**h)` by simp[]>>intLib.ARITH_TAC)>>
+    `?n. wi X = &n` by intLib.ARITH_TAC>>
+    `&n ≤ r` by intLib.ARITH_TAC>>
+    drule_all bit_width_lemma1>>
+    rw[]>>intLib.ARITH_TAC)>>
+  `GENLIST (λk. wb (INL (Bit X k))) h = GENLIST (λk. int_bit k (wi X)) h` by (
+    irule GENLIST_CONG>>simp[])>>
+  `comp ∧ wb (INL (Sign X)) ⇔ wi X < 0` by (
+    Cases_on`comp`>>gvs[bit_width_def]>>
+    intLib.ARITH_TAC)>>
+  drule_all two_comp_reconstruct>>
+  strip_tac>>
+  IF_CASES_TAC
+  >- gvs[Excl "eval_lin_term_CONS",pos_num_def,two_comp_eval]>>
+  gvs[pos_num_num_of_bits,int_bitwiseTheory.int_of_bits_def]
+QED
+
+Theorem bit_faithful_reify_avar[simp]:
+  bit_faithful bnd wi (reify_avar cs wi)
+Proof
+  rw[bit_faithful_def]>>
+  pairarg_tac>>
+  simp[reify_avar_def,reify_reif_def]
 QED
 
 (***

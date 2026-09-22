@@ -800,8 +800,7 @@ Resume data_compile_correct[MakeSpace]:
     \\ ‘alloc (alloc_size k) (adjust_sets names)
           (t with <|locals := y; fp_regs := FEMPTY|>) = (res1,s1)’ by
       (‘t with
-           <|locals := insert 1 (Word (alloc_size k)) y; fp_regs := FEMPTY;
-             memory := t.memory; ffi := t.ffi|> =
+           <|locals := insert 1 (Word (alloc_size k)) y; fp_regs := FEMPTY|> =
         (t with <|locals := y; fp_regs := FEMPTY|>) with
           locals := insert 1 (Word (alloc_size k))
                       (t with <|locals := y; fp_regs := FEMPTY|>).locals’ by

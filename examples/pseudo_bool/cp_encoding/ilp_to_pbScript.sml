@@ -93,15 +93,16 @@ Definition mul_lin_term_def:
     MAP (λ(c:int,x). (c*d,x)) ls
 End
 
+(* f maps each ILP Boolean variable to its PB variable *)
 Definition encode_iconstraint_one_def:
-  encode_iconstraint_one bnd (is,bs,c) =
+  encode_iconstraint_one bnd (f:'b -> ('a,'c) epb) (is,bs,c) =
     (
     PGe,
     FLAT
       (MAP (λ(d,X).
         mul_lin_term d (encode_ivar bnd X)) is) ++
-    MAP (λ(d,l). (d,map_lit Var l)) bs,
-    c):(('a,'b) epb pbc)
+    MAP (λ(d,l). (d,map_lit f l)) bs,
+    c):(('a,'c) epb pbc)
 End
 
 Theorem eval_lin_term_mul_lin_term[simp]:
@@ -116,10 +117,11 @@ Proof
 QED
 
 Theorem encode_iconstraint_one_sem_1:
-  valid_assignment bnd wi ⇒
+  valid_assignment bnd wi ∧
+  (∀v. reify_epb (wi,wb) (f v) ⇔ wb v) ⇒
   iconstraint_sem iconstr (wi,wb) =
   satisfies_pbc (reify_epb (wi,wb))
-   (encode_iconstraint_one bnd iconstr)
+   (encode_iconstraint_one bnd f iconstr)
 Proof
   `∃is bs c. iconstr = (is,bs,c)`
     by metis_tac[PAIR] >>
@@ -141,12 +143,12 @@ Proof
     pairarg_tac>>gvs[]>>
     rename1`MEM (_,l) _`>>
     Cases_on`l`>>
-    gvs[lit_def,map_lit_def,reify_epb_def])
+    gvs[lit_def,map_lit_def])
 QED
 
 Theorem encode_iconstraint_one_sem_2:
-  satisfies_pbc w (encode_iconstraint_one bnd iconstr) =
-  iconstraint_sem iconstr (unreify_epb bnd w, λx. w (Var x))
+  satisfies_pbc w (encode_iconstraint_one bnd f iconstr) =
+  iconstraint_sem iconstr (unreify_epb bnd w, λx. w (f x))
 Proof
   `∃is bs c. iconstr = (is,bs,c)`
     by metis_tac[PAIR] >>
@@ -172,15 +174,16 @@ Proof
 QED
 
 Definition encode_iconstraint_all_def:
-  encode_iconstraint_all bnd cs =
-    MAP (encode_iconstraint_one bnd) cs
+  encode_iconstraint_all bnd f cs =
+    MAP (encode_iconstraint_one bnd f) cs
 End
 
 Theorem encode_iconstraint_all_sem_1:
-  valid_assignment bnd wi ⇒
+  valid_assignment bnd wi ∧
+  (∀v. reify_epb (wi,wb) (f v) ⇔ wb v) ⇒
   EVERY (\c. iconstraint_sem c (wi,wb)) ics =
   satisfies (reify_epb (wi,wb))
-   (set (encode_iconstraint_all bnd ics))
+   (set (encode_iconstraint_all bnd f ics))
 Proof
   rw[satisfies_def,EVERY_MEM,encode_iconstraint_all_def,MEM_MAP,PULL_EXISTS]>>
   metis_tac[encode_iconstraint_one_sem_1]
@@ -188,8 +191,8 @@ QED
 
 Theorem encode_iconstraint_all_sem_2:
   satisfies w
-   (set (encode_iconstraint_all bnd ics)) =
-  EVERY (\c. iconstraint_sem c (unreify_epb bnd w, λx. w (Var x))) ics
+   (set (encode_iconstraint_all bnd f ics)) =
+  EVERY (\c. iconstraint_sem c (unreify_epb bnd w, λx. w (f x))) ics
 Proof
   rw[satisfies_def,EVERY_MEM,encode_iconstraint_all_def,MEM_MAP,PULL_EXISTS]>>
   metis_tac[encode_iconstraint_one_sem_2]

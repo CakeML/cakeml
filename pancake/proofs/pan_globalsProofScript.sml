@@ -1577,8 +1577,7 @@ Theorem state_rel_write_bytearray:
               (t with memory := write_bytearray sz nbw t.memory t.memaddrs t.be)
 Proof
   Induct_on ‘nbw’ >>
-  rw[write_bytearray_def,read_bytearray_def,mem_load_byte_def,AllCaseEqs()]
-  >- gvs[state_rel_def] >>
+  rw[write_bytearray_def,read_bytearray_def,mem_load_byte_def,AllCaseEqs()] >>
   TOP_CASE_TAC
   >- gvs[mem_store_byte_def,AllCaseEqs()] >>
   first_x_assum drule >>
