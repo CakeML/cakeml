@@ -1816,7 +1816,7 @@ Proof
       >> simp[lit_to_val_def, lit_to_ml_val_def]
     )
     >> rpt strip_tac
-    >~ [‘Ident x’] >- (
+    >~ [‘scheme_ast$Ident x’] >- (
       gvs[Once valid_state_cases]
       >> gvs[Once static_scope_def]
       >> gvs[Once $ GSYM SPECIFICATION]

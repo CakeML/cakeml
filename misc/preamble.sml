@@ -274,15 +274,6 @@ fun any_match_mp impth th =
   in
     MATCH_MP th2 th  end
 
-val SWAP_IMP = let
-  val P = mk_var("P", bool)
-  val Q = mk_var("Q", bool)
-  val R = mk_var("R", bool)
-in
-  Feedback.trace ("meson", 0) (PROVE[])
-    (mk_imp(list_mk_imp([P,Q], R), list_mk_imp([Q,P], R)))
-end
-
 fun prove_hyps_by tac th = foldr (uncurry PROVE_HYP) th (map (fn h => prove(h,tac)) (hyp th));
 
 (* if the first conjunct under the goal's existential prefix matches the term

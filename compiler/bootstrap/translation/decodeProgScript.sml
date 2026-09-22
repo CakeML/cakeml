@@ -119,7 +119,8 @@ QED
 (* --- *)
 
 val res = translate dec_next_def;
-val res = translate chars_to_nums_def;
+val res = translate chars_to_nums_acc_def;
+val res = translate chars_to_nums_eq;
 val res = translate num_list_enc_decTheory.mlstring_dec_def;
 val res = translate mlstring_dec'_def;
 

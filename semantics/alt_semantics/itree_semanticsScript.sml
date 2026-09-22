@@ -519,6 +519,10 @@ Definition estep_def:
     else Estep (env with <| v := build_rec_env funs env env.v |>, s, Exp e, c)) ∧
   estep (env, s, Exp $ Tannot e t, c) = push env s e (Ctannot t) c ∧
   estep (env, s, Exp $ Lannot e l, c) = push env s e (Clannot l) c ∧
+  estep (env, s, Exp $ Open path e, c) = (
+    case open_dec_env path env of
+      NONE => Etype_error
+    | SOME opened => Estep (extend_dec_env opened env, s, Exp e, c)) ∧
   estep (env, s, Exn v, c) = exn_continue env s v c
 End
 
@@ -581,13 +585,13 @@ End
 Definition dstep_def:
   dstep benv st (Decl $ Dlet locs p e) c = (
     if ALL_DISTINCT (pat_bindings p) ∧
-       every_exp (one_con_check (collapse_env benv c).c) e then
+       check_exp_constructors (collapse_env benv c).c e then
       dreturn st c (ExpVal (collapse_env benv c) (Exp e) [] locs p)
     else Dtype_error ) ∧
   dstep benv st (Decl $ Dletrec locs funs) c = (
     if ALL_DISTINCT (MAP FST funs) ∧
        EVERY (\ (x,y,z) .
-         every_exp (one_con_check (collapse_env benv c).c) z) funs then
+         check_exp_constructors (collapse_env benv c).c z) funs then
       dreturn st c (Env $
         <| v := build_rec_env funs (collapse_env benv c) nsEmpty; c := nsEmpty |>)
     else Dtype_error) ∧
@@ -600,6 +604,10 @@ Definition dstep_def:
   dstep benv st (Decl $ Dexn locs cn ts) c =
     dreturn (st with next_exn_stamp := st.next_exn_stamp + 1) c
       (Env <| v := nsEmpty; c := nsSing cn (LENGTH ts, ExnStamp st.next_exn_stamp) |>) ∧
+  dstep benv st (Decl $ Dopen locs path) c = (
+    case open_dec_env path (collapse_env benv c) of
+    | NONE => Dtype_error
+    | SOME opened => dreturn st c (Env opened)) ∧
   dstep benv st (Decl $ Dmod mn ds) c =
     dpush st c (Env empty_dec_env) (Cdmod mn empty_dec_env ds) ∧
   dstep benv st (Decl $ Dlocal lds gds) c =

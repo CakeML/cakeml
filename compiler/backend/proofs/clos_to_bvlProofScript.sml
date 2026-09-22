@@ -2920,27 +2920,12 @@ Proof
   \\ old_drule v_rel_IMP_v_to_words_lemma \\ fs []
 QED
 
-Theorem v_rel_IMP_v_to_bytes_lemma[local]:
-    !x y.
-      v_rel max_app f refs code x y ==>
-      !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
-           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))
+Theorem v_rel_IMP_v_to_mlstring[local]:
+    v_rel max_app f refs code x y /\ closSem$v_to_mlstring x = SOME ss ==>
+    bvlSem$v_to_mlstring refs y = SOME ss
 Proof
-  ho_match_mp_tac closSemTheory.v_to_list_ind \\ rw []
-  \\ fs [bvlSemTheory.v_to_list_def,closSemTheory.v_to_list_def,v_rel_SIMP]
-  \\ Cases_on `tag = cons_tag` \\ fs [] \\ rveq \\ fs []
-  \\ res_tac \\ fs [case_eq_thms,v_rel_SIMP]
-  THEN1
-   (Cases_on `ns` \\ fs [] \\ rveq \\ fs [v_rel_SIMP] \\ rveq \\ fs []
-    \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs [v_rel_SIMP])
-  \\ Cases_on `ys` \\ fs [bvlSemTheory.v_to_list_def]
-QED
-
-Theorem v_rel_IMP_v_to_bytes[local]:
-    v_rel max_app f refs code x y ==> v_to_bytes y = v_to_bytes x
-Proof
-  rw [v_to_bytes_def,closSemTheory.v_to_bytes_def]
-  \\ old_drule v_rel_IMP_v_to_bytes_lemma \\ fs []
+  rw [closSemTheory.v_to_mlstring_def, AllCaseEqs ()]
+  \\ gvs [v_rel_SIMP, bvlSemTheory.v_to_mlstring_def]
 QED
 
 Theorem not_domain_lookup:
@@ -3723,7 +3708,7 @@ Proof
       \\ qunabbrev_tac `a1`
       \\ fs[SWAP_REVERSE_SYM]
       \\ pop_assum (fn th => fs [th])
-      \\ Cases_on `v_to_bytes a2` \\ fs [] THEN1 (rveq \\ fs[])
+      \\ Cases_on `v_to_mlstring a2` \\ fs [] THEN1 (rveq \\ fs[])
       \\ Cases_on `v_to_words a3` \\ fs [] THEN1 (rveq \\ fs[])
       \\ pairarg_tac \\ reverse (fs [bool_case_eq])
       THEN1 (rveq \\ fs[])
@@ -3751,7 +3736,7 @@ Proof
       \\ fs [bEval_def]
       \\ fs [bvlSemTheory.do_install_def,do_app_def]
       \\ fs [EVAL ``shift_seq 1 f 0``]
-      \\ old_drule (GEN_ALL v_rel_IMP_v_to_bytes) \\ strip_tac
+      \\ drule_all (GEN_ALL v_rel_IMP_v_to_mlstring) \\ strip_tac
       \\ `v_to_words y = v_to_words a3` by
         (imp_res_tac v_rel_IMP_v_to_words \\ fs [])
       \\ `p1.compile = pure_cc (compile_inc p1.max_app) t2.compile ∧

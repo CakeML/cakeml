@@ -405,6 +405,15 @@ val comment_ex =
 
 val comment_ex_parse = check_success $ parse_pancake comment_ex
 
+(* a single-line comment may be terminated by the end of the input *)
+val comment_eof_ex =
+ ‘fun main() {
+    return 1;
+  }
+  // a comment with no newline after it’
+
+val comment_eof_ex_parse = check_success $ parse_pancake comment_eof_ex
+
 val error_line_ex1 =
  ‘/* this
   nasty /* non recursive /*

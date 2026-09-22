@@ -33,6 +33,54 @@ Proof
   rw[tenv_equiv_def, nsAll2_def, nsSub_def]
 QED
 
+Theorem tenv_equiv_extend_dec_tenv:
+  tenv_equiv added1 added2 /\ tenv_equiv tenv1 tenv2 ==>
+  tenv_equiv (extend_dec_tenv added1 tenv1) (extend_dec_tenv added2 tenv2)
+Proof
+  rw [tenv_equiv_def, extend_dec_tenv_def]
+  >> metis_tac [nsAll2_nsAppend]
+QED
+
+Theorem tenv_equiv_nsLookup_v:
+  tenv_equiv tenv1 tenv2 ==>
+  nsLookup tenv1.v name = nsLookup tenv2.v name
+Proof
+  rw [tenv_equiv_def]
+  >> Cases_on `nsLookup tenv1.v name`
+  >- (
+    qpat_x_assum `nsAll2 _ tenv1.v tenv2.v`
+      (mp_then Any (qspec_then `name` mp_tac) nsAll2_nsLookup_none)
+    >> simp [])
+  >> drule_all nsAll2_nsLookup1
+  >> simp []
+QED
+
+Theorem tenv_equiv_open_tenv:
+   tenv_equiv tenv1 tenv2 ∧
+   open_tenv path tenv1 = SOME opened1 ⇒
+   ∃opened2.
+     open_tenv path tenv2 = SOME opened2 ∧
+     tenv_equiv opened1 opened2
+Proof
+  strip_tac >>
+  imp_res_tac open_tenv_success_components >>
+  fs [tenv_equiv_def] >>
+  `∃v2. nsOpen path tenv2.v = SOME v2 ∧
+        nsAll2 (λi v1 v2. v1 = v2) opened1.v v2`
+    by (imp_res_tac nsAll2_after_nsOpen >> fs []) >>
+  pop_assum strip_assume_tac >>
+  `∃c2. nsOpen path tenv2.c = SOME c2 ∧
+        nsAll2 (λi v1 v2. v1 = v2) opened1.c c2`
+    by (imp_res_tac nsAll2_after_nsOpen >> fs []) >>
+  pop_assum strip_assume_tac >>
+  `∃t2. nsOpen path tenv2.t = SOME t2 ∧
+        nsAll2 (λi v1 v2. v1 = v2) opened1.t t2`
+    by (imp_res_tac nsAll2_after_nsOpen >> fs []) >>
+  pop_assum strip_assume_tac >>
+  qexists_tac `<|v := v2; c := c2; t := t2|>` >>
+  rw [open_tenv_def, tenv_equiv_def]
+QED
+
 Theorem tenv_equiv_tenvLift:
    tenv_equiv t1 t2 ⇒ tenv_equiv (tenvLift m t1) (tenvLift m t2)
 Proof
@@ -118,7 +166,17 @@ Proof
   ho_match_mp_tac type_e_ind
   \\ rw[]
   \\ rw[Once type_e_cases]
-  \\ TRY(first_x_assum drule \\ rw[])
+  >~ [`open_tenv _ _ = SOME _`]
+  >- (
+    drule_all tenv_equiv_open_tenv
+    >> disch_then (qx_choose_then `opened2` strip_assume_tac)
+    >> qexists_tac `opened2`
+    >> simp []
+    >> imp_res_tac tenv_equiv_nsLookup_v
+    >> fs []
+    >> qpat_x_assum `!target. tenv_equiv _ target ==> _` irule
+    >> irule tenv_equiv_extend_dec_tenv
+    >> simp [])
   \\ fs[RES_FORALL, FORALL_PROD] \\ rw[]
   \\ res_tac
   \\ imp_res_tac type_p_tenv_equiv
@@ -150,6 +208,20 @@ Definition set_tids_tenv_def:
   nsAll (λi (ls,ts,tid). EVERY (λt. set_tids_subset tids t) ts ∧ tid ∈ tids) tenv.c ∧
   nsAll (λi (n,t). set_tids_subset tids t) tenv.v
 End
+
+Theorem set_tids_tenv_open_tenv:
+  set_tids_tenv tids tenv ∧
+  open_tenv path tenv = SOME opened ⇒
+  set_tids_tenv tids opened
+Proof
+  rw [open_tenv_def] >>
+  every_case_tac >>
+  gvs [set_tids_tenv_def] >>
+  imp_res_tac nsAll_after_nsOpen >>
+  fs [nsAll_def, FORALL_PROD] >>
+  rpt conj_tac >>
+  fs []
+QED
 
 Definition type_pe_determ_canon_def:
   type_pe_determ_canon n tenv tenvE p e ⇔
@@ -252,6 +324,10 @@ Inductive type_d_canon:
   (type_ds_canon (n+decls1) (extend_dec_tenv tenv1 tenv) ds decls2 tenv2)
   ==>
   type_d_canon n tenv (Dlocal lds ds) (decls1 + decls2) tenv2) ∧
+(!n tenv locs path opened.
+  open_tenv path tenv = SOME opened
+  ==>
+  type_d_canon n tenv (Dopen locs path) 0 opened) ∧
 (!n tenv.
   T
   ==>
@@ -633,6 +709,14 @@ Proof
   Induct>>fs[remap_tenvE_def]
 QED
 
+Theorem remap_tenvE_tveMask:
+  !tenvE.
+  remap_tenvE f (tveMask hidden tenvE) =
+  tveMask hidden (remap_tenvE f tenvE)
+Proof
+  Induct >> rw [remap_tenvE_def, tveMask_def]
+QED
+
 Theorem remap_tenvE_bind_var_list[local]:
   ∀n env tenvE.
   remap_tenvE f (bind_var_list n env tenvE) =
@@ -694,69 +778,163 @@ Theorem type_e_ts_tid_rename:
     type_funs tenv tenvE funs env ⇒
     type_funs (remap_tenv f tenv) (remap_tenvE f tenvE) funs (MAP (λ(n,t). (n, ts_tid_rename f t)) env))
 Proof
-  strip_tac>>
-  ho_match_mp_tac type_e_strongind>>
-  rw[]>>
-  simp[Once type_e_cases,ts_tid_rename_def]>>
-  fs[check_freevars_ts_tid_rename,num_tvs_remap_tenvE]>>
-  TRY(
-    fs[good_remap_def,prim_type_nums_def]>>
-    fs[ts_tid_rename_def]>>
-    rfs[]>>
-    NO_TAC)
-  >- ( (* pes *)
-    fs[remap_tenvE_bind_var_list]
-    \\ fs[RES_FORALL,FORALL_PROD]
-    \\ rw[]
-    \\ first_x_assum drule
-    \\ strip_tac \\ rw[]
-    \\ goal_assum (first_assum o mp_then Any mp_tac)
-    \\ imp_res_tac(CONJUNCT1(UNDISCH type_p_ts_tid_rename))
-    \\ fs[ts_tid_rename_def]
-    \\ fs[good_remap_def,prim_type_nums_def]
-    \\ rfs[])
-  >- (
-    fs[MAP_MAP_o,o_DEF,ts_tid_rename_type_subst]>>
-    fs[remap_tenv_def,nsLookup_nsMap]>>
-    CONJ_TAC>-
-      fs[EVERY_MAP,EVERY_MEM,check_freevars_ts_tid_rename]>>
-    simp[MAP_MAP_o,o_DEF]>>
-    fs[GSYM alist_to_fmap_MAP_values,ZIP_MAP,LAMBDA_PROD])
-  >- (
-    fs[good_remap_def,prim_type_nums_def]>>metis_tac[ETA_AX])
-  >- (
-    fs[lookup_var_def,remap_tenv_def]>>
-    pop_assum mp_tac>>
-    TOP_CASE_TAC>>rw[nsLookup_nsMap]>>
-    fs[lookup_varE_remap_tenvE]>>
-    simp[ts_tid_rename_deBruijn_subst]>>
-    qexists_tac`MAP (ts_tid_rename f) targs`>>fs[EVERY_MAP,EVERY_MEM]>>
-    metis_tac[check_freevars_ts_tid_rename])
-  >-
-    fs[remap_tenvE_def,good_remap_def,prim_type_nums_def]
-  >-
-    metis_tac[type_op_ts_tid_rename]
-  >-
-    (HINT_EXISTS_TAC>>fs[]>>
-     fs[remap_tenvE_bind_var_list, FORALL_PROD, RES_FORALL]
-     \\ rw[]
-     \\ first_x_assum drule \\ strip_tac \\ rw[]
-     \\ imp_res_tac type_p_ts_tid_rename
-     \\ asm_exists_tac \\ rw[])
-  >- (
-    fs[opt_bind_name_def]>>TOP_CASE_TAC>>fs[remap_tenvE_def]>>
-    metis_tac[])
-  >- (
-    fs[remap_tenvE_bind_var_list]>>
-    metis_tac[])
-  >- (
-    fs[remap_tenv_def,ts_tid_rename_type_name_subst]>>
-    fs[GSYM check_type_names_ts_tid_rename]>>
-    metis_tac[ts_tid_rename_type_name_subst])
-  >>
-    fs[check_freevars_def,check_freevars_ts_tid_rename,remap_tenvE_def,ALOOKUP_MAP]>>
-    fs[good_remap_def,prim_type_nums_def]
+  strip_tac >>
+  ho_match_mp_tac type_e_strongind >>
+  rw [] >>
+  simp [Once type_e_cases, ts_tid_rename_def] >>
+  fs [check_freevars_ts_tid_rename, num_tvs_remap_tenvE]
+  >- suspend "Int"
+  >- suspend "Char"
+  >- suspend "String"
+  >- suspend "Word8"
+  >- suspend "Word64"
+  >- suspend "Double"
+  >- suspend "Raise"
+  >- suspend "Handle"
+  >- suspend "Con"
+  >- suspend "Tuple"
+  >- suspend "Var"
+  >- suspend "Fun"
+  >- suspend "App"
+  >- suspend "Log"
+  >- suspend "If"
+  >- suspend "Mat"
+  >- suspend "Let"
+  >- suspend "Letrec"
+  >- suspend "Tannot"
+  >- suspend "Open"
+  >- suspend "FunCons"
 QED
+
+Resume type_e_ts_tid_rename[Int]:
+  fs [good_remap_def, prim_type_nums_def, ts_tid_rename_def]
+  >> rfs []
+QED
+
+Resume type_e_ts_tid_rename[Char]:
+  fs [good_remap_def, prim_type_nums_def, ts_tid_rename_def]
+  >> rfs []
+QED
+
+Resume type_e_ts_tid_rename[String]:
+  fs [good_remap_def, prim_type_nums_def, ts_tid_rename_def]
+  >> rfs []
+QED
+
+Resume type_e_ts_tid_rename[Word8]:
+  fs [good_remap_def, prim_type_nums_def, ts_tid_rename_def]
+  >> rfs []
+QED
+
+Resume type_e_ts_tid_rename[Word64]:
+  fs [good_remap_def, prim_type_nums_def, ts_tid_rename_def]
+  >> rfs []
+QED
+
+Resume type_e_ts_tid_rename[Double]:
+  fs [good_remap_def, prim_type_nums_def, ts_tid_rename_def]
+  >> rfs []
+QED
+
+Resume type_e_ts_tid_rename[Raise]:
+  fs [good_remap_def, prim_type_nums_def, ts_tid_rename_def]
+  >> rfs []
+QED
+
+Resume type_e_ts_tid_rename[Handle]:
+  fs[remap_tenvE_bind_var_list]
+  \\ fs[RES_FORALL,FORALL_PROD]
+  \\ rw[]
+  \\ first_x_assum drule
+  \\ strip_tac \\ rw[]
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ imp_res_tac(CONJUNCT1(UNDISCH type_p_ts_tid_rename))
+  \\ fs[ts_tid_rename_def]
+  \\ fs[good_remap_def,prim_type_nums_def]
+  \\ rfs[]
+QED
+
+Resume type_e_ts_tid_rename[Con]:
+  fs[MAP_MAP_o,o_DEF,ts_tid_rename_type_subst]>>
+  fs[remap_tenv_def,nsLookup_nsMap]>>
+  CONJ_TAC>-
+    fs[EVERY_MAP,EVERY_MEM,check_freevars_ts_tid_rename]>>
+  simp[MAP_MAP_o,o_DEF]>>
+  fs[GSYM alist_to_fmap_MAP_values,ZIP_MAP,LAMBDA_PROD]
+QED
+
+Resume type_e_ts_tid_rename[Tuple]:
+  fs[good_remap_def,prim_type_nums_def]>>metis_tac[ETA_AX]
+QED
+
+Resume type_e_ts_tid_rename[Var]:
+  fs[lookup_var_def,remap_tenv_def]>>
+  pop_assum mp_tac>>
+  TOP_CASE_TAC>>rw[nsLookup_nsMap]>>
+  fs[lookup_varE_remap_tenvE]>>
+  simp[ts_tid_rename_deBruijn_subst]>>
+  qexists_tac`MAP (ts_tid_rename f) targs`>>fs[EVERY_MAP,EVERY_MEM]>>
+  metis_tac[check_freevars_ts_tid_rename]
+QED
+
+Resume type_e_ts_tid_rename[Fun]:
+  fs[remap_tenvE_def,good_remap_def,prim_type_nums_def]
+QED
+
+Resume type_e_ts_tid_rename[App]:
+  metis_tac[type_op_ts_tid_rename]
+QED
+
+Resume type_e_ts_tid_rename[Log]:
+  fs [good_remap_def, prim_type_nums_def, ts_tid_rename_def]
+  >> rfs []
+QED
+
+Resume type_e_ts_tid_rename[If]:
+  fs [good_remap_def, prim_type_nums_def, ts_tid_rename_def]
+  >> rfs []
+QED
+
+Resume type_e_ts_tid_rename[Mat]:
+  HINT_EXISTS_TAC>>fs[]>>
+  fs[remap_tenvE_bind_var_list, FORALL_PROD, RES_FORALL]
+  \\ rw[]
+  \\ first_x_assum drule \\ strip_tac \\ rw[]
+  \\ imp_res_tac type_p_ts_tid_rename
+  \\ asm_exists_tac \\ rw[]
+QED
+
+Resume type_e_ts_tid_rename[Let]:
+  fs[opt_bind_name_def]>>TOP_CASE_TAC>>fs[remap_tenvE_def]>>
+  metis_tac[]
+QED
+
+Resume type_e_ts_tid_rename[Letrec]:
+  fs[remap_tenvE_bind_var_list]>>
+  metis_tac[]
+QED
+
+Resume type_e_ts_tid_rename[Tannot]:
+  fs[remap_tenv_def,ts_tid_rename_type_name_subst]>>
+  fs[GSYM check_type_names_ts_tid_rename]>>
+  metis_tac[ts_tid_rename_type_name_subst]
+QED
+
+Resume type_e_ts_tid_rename[Open]:
+  rename1 `open_tenv path tenv = SOME opened`
+  >> qexists_tac `remap_tenv f opened`
+  >> conj_tac
+  >- metis_tac [remap_tenv_open_tenv]
+  >> fs [remap_tenv_extend_dec_tenv, remap_tenvE_tveMask,
+         remap_tenv_def, nsLookup_nsMap, IS_SOME_MAP]
+QED
+
+Resume type_e_ts_tid_rename[FunCons]:
+  fs[check_freevars_def,check_freevars_ts_tid_rename,remap_tenvE_def,ALOOKUP_MAP]>>
+  fs[good_remap_def,prim_type_nums_def]
+QED
+
+Finalise type_e_ts_tid_rename;
 
 Theorem good_remap_LINV:
    good_remap f ∧ prim_tids T s ∧ INJ f s t ⇒ good_remap (LINV f s o f)
@@ -1739,6 +1917,19 @@ Proof
          remap_tenv_def, tenv_equiv_def,
          type_name_subst_tenv_equiv, EVERY_MEM]
     \\ fs[good_remap_def, prim_type_nums_def])
+  >- (
+    rename1 `open_tenv path tenv = SOME opened`
+    >> `set_tids_tenv tids opened`
+      by metis_tac [set_tids_tenv_open_tenv]
+    >> `open_tenv path (remap_tenv f tenv) = SOME (remap_tenv f opened)`
+      by metis_tac [remap_tenv_open_tenv]
+    >> `?mapped_open.
+         open_tenv path mapped_tenv = SOME mapped_open /\
+         tenv_equiv (remap_tenv f opened) mapped_open`
+      by metis_tac [tenv_equiv_open_tenv]
+    >> pop_assum strip_assume_tac
+    >> qexists_tac `mapped_open`
+    >> simp [Once type_d_canon_cases, prim_tids_def, prim_type_nums_def])
   >- ( (* Dmod *)
     first_x_assum drule>>
     rpt (disch_then drule) >> rw[]>>
@@ -1937,5 +2128,6 @@ Proof
    >> simp [tenv_abbrev_ok_def])
  >- fs [tenv_ok_def, tenv_val_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]
  >- metis_tac [extend_dec_tenv_ok]
+ >- metis_tac [tenv_ok_open_tenv]
  >- metis_tac [extend_dec_tenv_ok]
 QED

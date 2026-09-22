@@ -595,8 +595,24 @@ Theorem infer_e_sound:
     type_funs tenv tenvE funs (MAP2 (\(x,y,z) t. (x, (convert_t o t_walkstar s) t)) funs ts))
 Proof
   ho_match_mp_tac infer_e_ind >>
-  rw [infer_e_def, success_eqns, remove_pair_lem] >>
-  rw [check_t_def] >>
+  rw [infer_e_def, success_eqns, remove_pair_lem]
+  >~ [`type_e _ _ (Open path e) _`]
+  >- (
+    rename1 `open_ienv path ienv = SOME opened`
+    >> `∃typed_open. open_tenv path tenv = SOME typed_open`
+      by (
+        fs [env_rel_sound_def]
+        >> metis_tac [open_envs_none, option_nchotomy, NOT_SOME_NONE])
+    >> rename1 `open_tenv path tenv = SOME typed_open`
+    >> `ienv_ok (count st.next_uvar) (extend_dec_ienv opened ienv)`
+      by metis_tac [ienv_ok_open_ienv, ienv_ok_extend_dec_ienv]
+    >> `env_rel_sound s (extend_dec_ienv opened ienv)
+          (extend_dec_tenv typed_open tenv)
+          (tveMask (λn. IS_SOME (nsLookup typed_open.v (Short n))) tenvE)`
+      by metis_tac [env_rel_sound_open]
+    >> simp [Once type_e_cases]
+    >> metis_tac [num_tvs_tveMask])
+  >> rw [check_t_def] >>
   fs [check_t_def] >>
   ONCE_REWRITE_TAC [type_e_cases] >>
   rw [Tint_def, Tchar_def] >>
