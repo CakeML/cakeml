@@ -267,7 +267,10 @@ void ffidouble_floor(char *c, long clen, char *a, long alen) {
 #ifdef EVAL
 /* exported in CakeML .S file */
 extern char cake_text_begin;
+extern char cake_codebuffer_begin;
 extern char cake_codebuffer_end;
+
+static size_t cml_page_size;
 
 /* Signal handler for SIGINT */
 /* This is set to 1 when the runtime traps a SIGINT */
@@ -294,9 +297,17 @@ void ffikernel_ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
 }
 
 static void cml_init_eval(int local_argc, char **local_argv) {
-  if (mprotect(&cake_text_begin, &cake_codebuffer_end - &cake_text_begin,
-               PROT_READ | PROT_WRITE | PROT_EXEC) != 0) {
-    cml_runtime_error(errno, "cannot protect the text and code buffer");
+  long page_size = sysconf(_SC_PAGESIZE);
+  if (page_size <= 0) {
+    cml_runtime_error(0, "cannot determine the page size");
+  }
+  cml_page_size = (size_t)page_size;
+  uintptr_t text = (uintptr_t)&cake_text_begin;
+  uintptr_t begin = (uintptr_t)&cake_codebuffer_begin;
+  uintptr_t end = (uintptr_t)&cake_codebuffer_end;
+  if (text > begin || begin > end ||
+      begin - begin % cml_page_size < text || end % cml_page_size != 0) {
+    cml_runtime_error(0, "the text and code buffer do not have a safe page layout");
   }
   for (int i = 0; i < local_argc; i++) {
     if (strcmp(local_argv[i], "--repl") == 0 ||
@@ -425,8 +436,25 @@ void ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
  * regions overlap, hence memmove; and the register that held the source must
  * end up holding the destination, hence the return value. */
 void *cml_install(uint8_t *src, size_t len, uint8_t *dest) {
+#ifdef EVAL
+  if (len == 0) return dest;
+  /* CakeML guarantees that the destination range is inside the code buffer. */
+  size_t offset = (uintptr_t)dest % cml_page_size;
+  void *start = (void *)((uintptr_t)dest - offset);
+  size_t size = len + offset;
+  if (mprotect(start, size, PROT_WRITE) != 0) {
+    cml_runtime_error(errno, "cannot make the code buffer writable");
+  }
+#endif
+  /* memmove matches the semantics; CakeML's nonoverlapping installs could
+   * also use memcpy. */
   memmove(dest, src, len);
   __builtin___clear_cache((char *)dest, (char *)dest + len);
+#ifdef EVAL
+  if (mprotect(start, size, PROT_READ | PROT_EXEC) != 0) {
+    cml_runtime_error(errno, "cannot make the code buffer executable");
+  }
+#endif
   return dest;
 }
 

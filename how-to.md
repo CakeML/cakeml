@@ -120,9 +120,9 @@ If program execution aborts with a message saying that the heap or
 stack space has been exhausted, then it might be worth trying to run
 the program with more heap or stack space.
 
-The default heap and stack size is set to 1024 MB each.
-One can run the factorial program from above with 2048 MB of heap
-space and 512 MB of stack space by invoking it as follows:
+The default heap and stack size is set to 1024 MiB each.
+One can run the factorial program from above with 2048 MiB of heap
+space and 512 MiB of stack space by invoking it as follows:
 
     $ export CML_HEAP_SIZE=2048 ; export CML_STACK_SIZE=512 ; ./fac.cake 50
 
@@ -132,15 +132,9 @@ CakeML compiler. Note that, since the CakeML compiler is just another
 CakeML program, the values of these environment variables also affect
 the compiler's execution.
 
-Alternatively, the allocated heap and stack size can be set in `basis_ffi.c`
-by modifying these lines in the file.
-Note that `cml_heap_sz` and `cml_stack_sz` are given in bytes here.
-
-```
-unsigned long sz = 1024*1024; // 1 MB unit
-unsigned long cml_heap_sz = 1024 * sz;    // Default: 1 GB heap
-unsigned long cml_stack_sz = 1024 * sz;   // Default: 1 GB stack
-```
+Both variables accept positive decimal numbers of mebibytes (1024 * 1024
+bytes). To change the compiled-in default, adjust the default returned by
+`cml_memory_size` in `basis_ffi.c` and rebuild the executable.
 
 Basic profiling
 -------------------------------------
