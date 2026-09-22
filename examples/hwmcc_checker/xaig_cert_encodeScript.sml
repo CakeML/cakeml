@@ -35,7 +35,7 @@ Libs
  *)
 
 (* TODO upstream *)
-(*
+
 Theorem MAPi_MAP:
   ∀l f g. MAPi f (MAP g l) = MAPi (λi a. f i (g a)) l
 Proof
@@ -44,7 +44,7 @@ Proof
   >- simp [FUN_EQ_THM]
   >> simp []
 QED
-*)
+
 
 Theorem xeval_lit_latch:
   xeval_lit ss xaig (Base (Latch l), b) ⇔ (b ⇎ SND ss l)
@@ -911,7 +911,7 @@ End
 Definition encode_xis_next_def:
   encode_xis_next name cur nxt next latches =
     encode_pointwise_equal name
-      (MAP (λl. (cur (next l), nxt (Base (Latch l), F))) latches)
+      (MAP (λl. (cur (next l), (Base (Latch (nxt l)), F))) latches)
 End
 
 (* Encoding lives_imply *******************************************************)
@@ -1154,11 +1154,11 @@ Definition encode_transition_cond_def:
             (MAP (ext_lit ∘ right_lit ∘ right_name_lit) wcnstrs);
     mn   = encode_xis_next Mnext
             (ext_lit ∘ left_lit ∘ left_name_lit)
-            (ext_lit ∘ right_lit)
+            INR
             mnext mlatches;
     wn0  = encode_xis_next Wnext0
             (ext_lit ∘ left_lit ∘ right_name_lit)
-            (ext_lit ∘ right_lit)
+            INR
             wnext klatches;
     lhss =
       [(Gate (Ext Mnext), F);
@@ -1238,7 +1238,7 @@ Definition encode_induction_cond_def:
       ws1  = encode_xlits_hold Wsafes1
               (MAP (ext_lit ∘ right_lit) wsafes);
       wn0  = encode_xis_next Wnext0
-              (ext_lit ∘ left_lit) (ext_lit ∘ right_lit)
+              (ext_lit ∘ left_lit) INR
               wnext wlatches;
       lhss =
         [(Gate (Ext Wsafes0), F);
@@ -1290,7 +1290,7 @@ Definition encode_liveness_cond_def:
     wn0    =
       encode_xis_next Wnext0
         (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_name_lit)
-        (ext_lit ∘ left_name_lit ∘ right_lit)
+        INR
         wnext wlatches;
     lhss = [
         (Gate (Ext Mcnstrs0), F);
@@ -1331,7 +1331,7 @@ Definition encode_decrease_cond_def:
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit) wsafes);
     wn0    = encode_xis_next Wnext0
               (ext_lit ∘ left_name_lit ∘ left_lit)
-              (ext_lit ∘ left_name_lit ∘ right_lit)
+              INR
               wnext wlatches;
     live  = MAP (MAP (ext_lit ∘ right_name_lit))
               (qinterv_live_r_l interv wlive);
@@ -1380,7 +1380,7 @@ Definition encode_closure_cond_def:
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit) wsafes);
     wn0    = encode_xis_next Wnext0
               (ext_lit ∘ left_name_lit ∘ left_lit ∘ left_lit)
-              (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_lit)
+              (INL ∘ INR)
               wnext wlatches;
     live₀ = MAP (MAP (ext_lit ∘ right_name_lit ∘ left_name_lit))
               (qinterv_live_ll_r interv wlive);
@@ -1435,11 +1435,11 @@ Definition encode_stable_cond_def:
               (MAP (ext_lit ∘ left_name_lit ∘ right_lit) wsafes);
     wn0    = encode_xis_next Wnext0
               (ext_lit ∘ left_name_lit ∘ left_lit ∘ left_lit)
-              (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_lit)
+              (INL ∘ INR)
               wnext wlatches;
     wn1    = encode_xis_next Wnext1
               (ext_lit ∘ left_name_lit ∘ left_lit ∘ right_lit)
-              (ext_lit ∘ left_name_lit ∘ right_lit)
+              INR
               wnext wlatches;
     live₀ = MAP (MAP (ext_lit ∘ right_name_lit ∘ left_name_lit))
               (qinterv_live_ll_lr interv wlive);
@@ -1546,6 +1546,20 @@ Proof
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 *)
+
+(*** state_pair ***************************************************************)
+
+Theorem snd_state_pair_inr[local,simp]:
+  SND (state_pair s₁ s₂) (INR l) = SND s₂ l
+Proof
+  simp [oneline state_pair_def] >> rpt CASE_TAC >> simp []
+QED
+
+Theorem snd_state_pair_inl_inr[local,simp]:
+  SND (state_pair (state_pair s₁ s₂) s₃) (INL (INR l)) = SND s₂ l
+Proof
+  simp [oneline state_pair_def] >> rpt CASE_TAC >> simp []
+QED
 
 (*** xlits_hold ***************************************************************)
 
@@ -3539,73 +3553,156 @@ QED
 
 (*** encode_ ******************************************************************)
 
-(* Definition mapi_xori_num_aux_def: *)
-(*   mapi_xori_num_aux i []      = [] ∧ *)
-(*   mapi_xori_num_aux i (x::xs) = (i, Xor (FST x) (SND x))::mapi_xori_num_aux (i + 2) xs *)
-(* End *)
+Definition mapi_xori_num_aux_def:
+  mapi_xori_num_aux i []      = [] ∧
+  mapi_xori_num_aux i (x::xs) = (i, Xor (FST x) (SND x))::mapi_xori_num_aux (i + 2) xs
+End
 
-(* Definition mapi_xori_num_def: *)
-(*   mapi_xori_num n xys = mapi_xori_num_aux (2 * n + 29) xys *)
-(* End *)
+Definition mapi_xori_num_def:
+  mapi_xori_num n xys = mapi_xori_num_aux (2 * n + 29) xys
+End
 
-(* Theorem mapi_xori_num_aux_thm: *)
-(*   ∀xys i. *)
-(*     mapi_xori_num_aux i xys = MAPi (λj (x,y). (2 * j + i, Xor x y)) xys *)
+Theorem mapi_xori_num_aux_thm:
+  ∀xys i.
+    mapi_xori_num_aux i xys = MAPi (λj (x,y). (2 * j + i, Xor x y)) xys
+Proof
+  Induct >> rw [mapi_xori_num_aux_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> simp [o_DEF, ADD1, LEFT_ADD_DISTRIB]
+QED
+
+Definition and_genlist_num_aux_def:
+  and_genlist_num_aux b i 0       = [] ∧
+  and_genlist_num_aux b i (SUC c) =
+    (Gate i, b)::and_genlist_num_aux b (i + 2) c
+End
+
+Definition and_genlist_num_def:
+  and_genlist_num b n cnt =
+    And (and_genlist_num_aux b (2 * n + 29) cnt)
+End
+
+Theorem and_genlist_num_aux_thm:
+  ∀cnt i. and_genlist_num_aux b i cnt = GENLIST (λj. (Gate (2 * j + i), b)) cnt
+Proof
+  Induct
+  >> rw [and_genlist_num_aux_def, GENLIST_CONS, o_DEF, ADD1, LEFT_ADD_DISTRIB]
+QED
+
+Definition encode_pointwise_equal_num_def:
+  encode_pointwise_equal_num (name: num) xys n =
+  let
+    xor_gates = mapi_xori_num n xys;
+    xnor_lits = and_genlist_num T n (LENGTH xys);
+  in
+    (name, xnor_lits)::xor_gates
+End
+
+Theorem encode_pointwise_equal_to_num:
+  MAP (gate_map f g (ext2num h)) (encode_pointwise_equal name xys) =
+  encode_pointwise_equal_num
+    (ext_name2num name)
+    (MAP
+       (λx.
+          (lit_map f g (ext2num h) (FST x),
+           lit_map f g (ext2num h) (SND x))) xys)
+    (MAX (maxn (MAP FST xys)) (maxn (MAP SND xys)))
+Proof
+  simp [encode_pointwise_equal_def, encode_pointwise_equal_num_def,
+        gate_map_def, gty_map_def, ext2num_def,
+        and_genlist_num_def, and_genlist_num_aux_thm,
+        MAP_GENLIST, o_DEF, lit_map_def, var_map_def, ext2num_def,
+        mapi_xori_num_def, mapi_xori_num_aux_thm, LEFT_ADD_DISTRIB,
+        MAPi_MAP]
+  >> irule MAPi_CONG >> rw []
+  >> simp [oneline xori_def] >> CASE_TAC
+  >> simp [gate_map_def, gty_map_def, ext2num_def]
+QED
+
+(* Assumes that cur and nxt are of the form (ext_lit ∘ ...), allowing us
+   use 1 instead of calculating the max iname.  *)
+Definition encode_xis_next_num_def:
+  encode_xis_next_num name cur nxt next latches =
+  let
+    xys = (MAP (λl. (cur (next l), (Base (Latch (nxt l)),F))) latches);
+    xor_gates = mapi_xori_num 1 xys;
+    (* LENGTH of latches instead of xys to remove unnecessary dependency *)
+    xnor_lits = and_genlist_num T 1 (LENGTH latches);
+  in (name, xnor_lits)::xor_gates
+End
+
+Theorem maxn_map_ext_lit[local]:
+  maxn (MAP ext_lit xs) = 1
+Proof
+  Induct_on ‘xs’ >> gvs [maxn_def]
+QED
+
+Theorem maxn_map_latch_f:
+  maxn (MAP (λl. (Base (Latch (f l)),b)) xs) = 1
+Proof
+  Induct_on ‘xs’ >> gvs [maxn_def, iname_def]
+QED
+
+Theorem map_gate_map_encode_xis_next_to_num:
+  MAP (gate_map f g (ext2num h))
+    (encode_xis_next name (ext_lit ∘ i) j next latches)
+  =
+  encode_xis_next_num (ext_name2num name)
+    (lit_map f g (ext2num h) ∘ ext_lit ∘ i) (g ∘ j) next latches
+Proof
+  simp [encode_xis_next_def, encode_pointwise_equal_to_num,
+        encode_pointwise_equal_num_def, encode_xis_next_num_def,
+        MAP_MAP_o, o_DEF]
+  >> simp [GSYM MAP_MAP_o, GSYM o_DEF, maxn_map_ext_lit, max_map_latch_f]
+  >> simp [lit_map_def, var_map_def, bvar_map_def]
+QED
+
+(* Theorem MAP_PAIR_MAP[local]: *)
+(*   MAP (λxy. h (FST xy)) xys = MAP h (MAP FST xys) ∧ *)
+(*   MAP (λxy. h (SND xy)) xys = MAP h (MAP SND xys) *)
 (* Proof *)
-(*   Induct >> rw [mapi_xori_num_aux_def] *)
-(*   >> rpt (pairarg_tac >> gvs []) *)
-(*   >> simp [o_DEF, ADD1, LEFT_ADD_DISTRIB] *)
+(*   simp[MAP_MAP_o, combinTheory.o_DEF] *)
 (* QED *)
 
-(* Definition and_genlist_num_aux_def: *)
-(*   and_genlist_num_aux b i 0       = [] ∧ *)
-(*   and_genlist_num_aux b i (SUC c) = *)
-(*     (Gate i, b)::and_genlist_num_aux b (i + 2) c *)
-(* End *)
-
-(* Definition and_genlist_num_def: *)
-(*   and_genlist_num b n cnt = *)
-(*     And (and_genlist_num_aux b (2 * n + 29) cnt) *)
-(* End *)
-
-(* Theorem and_genlist_num_aux_thm: *)
-(*   ∀cnt i. and_genlist_num_aux b i cnt = GENLIST (λj. (Gate (2 * j + i), b)) cnt *)
+(* Theorem gate_map_xori: *)
+(*   gate_map f g I (xori n i xy) = *)
+(*     xori n i (lit_map f g I (FST xy), lit_map f g I (SND xy)) *)
 (* Proof *)
-(*   Induct *)
-(*   >> rw [and_genlist_num_aux_def, GENLIST_CONS, o_DEF, ADD1, LEFT_ADD_DISTRIB] *)
+(*   Cases_on ‘xy’ >> simp [gate_map_def, gty_map_def, xori_def] *)
 (* QED *)
 
-(* Definition encode_pointwise_equal_num_def: *)
-(*   encode_pointwise_equal_num (xaig: (num, num, num) xaig) (name: num) xys n = *)
-(*   let *)
-(*     xor_gates = mapi_xori_num n xys; *)
-(*     xnor_lits = and_genlist_num T n (LENGTH xys); *)
-(*   in *)
-(*     (name, xnor_lits)::xor_gates ++ xaig *)
-(* End *)
-
-(* Theorem encode_pointwise_equal_to_num: *)
-(*   xaig_map f g (ext2num h) (encode_pointwise_equal xaig name xys) = *)
-(*   encode_pointwise_equal_num (xaig_map f g (ext2num h) xaig) *)
-(*     (ext_name2num name) *)
-(*     (MAP *)
-(*        (λx. *)
-(*           (lit_map f g (ext2num h) (FST x), *)
-(*            lit_map f g (ext2num h) (SND x))) xys) *)
-(*     (MAX (maxn (MAP FST xys)) (maxn (MAP SND xys))) *)
+(* Theorem maxn_map_lit_map[local]: *)
+(*   maxn (MAP (λx. lit_map f g I x) xs) = maxn xs *)
 (* Proof *)
-(*   simp [encode_pointwise_equal_def, encode_pointwise_equal_num_def, *)
-(*         xaig_map_def, gate_map_def, gty_map_def, ext2num_def, *)
-(*         and_genlist_num_def, and_genlist_num_aux_thm, *)
-(*         MAP_GENLIST, o_DEF, lit_map_def, var_map_def, ext2num_def, *)
-(*         mapi_xori_num_def, mapi_xori_num_aux_thm, LEFT_ADD_DISTRIB, *)
-(*         MAPi_MAP] *)
-(*   >> irule MAPi_CONG >> rw [] *)
-(*   >> simp [oneline xori_def] >> CASE_TAC *)
-(*   >> simp [gate_map_def, gty_map_def, ext2num_def] *)
+(*   simp [maxn_def, MAP_MAP_o, o_DEF] *)
+(*   >> have ‘∀x:(α ext, δ, ε) lit. iname (lit_map f g I x) = iname x’ *)
+(*   >- ( *)
+(*     Cases *)
+(*     >> simp [lit_map_def, oneline var_map_def, oneline bvar_map_def] *)
+(*     >> every_case_tac *)
+(*     >> simp [iname_def] *)
+(*   ) *)
+(*   >> simp [ETA_AX] *)
 (* QED *)
 
-(*** lit_map ******************************************************************)
+(* Theorem map_gate_map_encode_pointwise_equal: *)
+(*   MAP (gate_map (f: g h) (encode_pointwise_equal name xys) = *)
+(*   encode_pointwise_equal name *)
+(*     (MAP (λxy. lit_map f g h (FST xy), lit_map f g h (SND xy)) xys) *)
+(* Proof *)
+(*   simp [encode_pointwise_equal_def, gate_map_def, gty_map_def, lit_map_def, *)
+(*         var_map_def, MAP_GENLIST, o_DEF, MAP_MAP_o, gate_map_xori] *)
+(*   >> simp [MAP_PAIR_MAP, maxn_map_lit_map] *)
+(*   >> simp [MAPi_MAP] *)
+(* QED *)
+
+(* Theorem map_gate_map_encode_xis_next: *)
+(*   MAP (gate_map f g I) (encode_xis_next name cur nxt next latches) = *)
+(*     encode_xis_next name (lit_map f g I ∘ cur) (lit_map f g I ∘ nxt) next latches *)
+(* Proof *)
+(*   simp [encode_xis_next_def, map_gate_map_encode_pointwise_equal, *)
+(*         MAP_MAP_o, o_DEF] *)
+(* QED *)
 
 (*** 2num *********************************************************************)
 
@@ -3632,7 +3729,7 @@ QED
 Theorem ext2num_Orig:
   ext2num f ∘ Orig = λx. 2 * f x + 28
 Proof
-  simp [FUN_EQ_THM, ext2num_def,]
+  simp [FUN_EQ_THM, ext2num_def]
 QED
 
 Theorem ext2num_sum2num_Orig_sum:
@@ -3682,7 +3779,8 @@ val unfold_cond =
 val collapse_circuits =
   step std_ss
     [ext_xaig_def, merge_xaigs_def, pair_xaigs_def,
-     xaig_map_def, MAP_APPEND, MAP_MAP_o, gate_map_o, qxleft_def,
+     xaig_map_def, MAP_APPEND, MAP_MAP_o, gate_map_o,
+     qxleft_def,
      qinterv_def, qinterv_l_r_def, qinterv_r_l_def, qinterv_ll_r_def,
      qinterv_ll_lr_def, qinterv_lr_r_def,
      lit_map_base_def, live_map_base_def,
@@ -3694,6 +3792,11 @@ val encode_imply_to_num =
     [encode_imply_def, MAP, MAX_DEF, MAX_LIST_def,
      maxn_def, iname_def, ext_case_def, var_case_def,
      gate_map_def, gty_map_def, lit_map_def, var_map_def]
+
+val encode_xis_next_to_num =
+  step std_ss
+    [map_gate_map_encode_xis_next_to_num,
+     nsn_s_nsn_e2num_def]
 
 val encode_xlits_hold_to_num =
   step arith_ss
@@ -3732,6 +3835,7 @@ val encode_transition_cond_num =
         wxaig wnext wcnstrs wlatches klatches)”
   |> unfold_cond encode_transition_cond_def
   |> collapse_circuits
+  |> encode_xis_next_to_num
   |> encode_imply_to_num
   |> encode_xlits_hold_to_num
   |> simp2num
