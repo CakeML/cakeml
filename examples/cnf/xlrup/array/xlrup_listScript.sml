@@ -665,7 +665,7 @@ Theorem check_xlrups_unsat_list_sound:
     (build_cfml_list kc (conv_cfml cfml) nc)
     (REPLICATE nx NONE)
     ([],1) def
-    (REPLICATE n 0w) 1w ∧
+    (REPLICATE n 0) 1 ∧
   EVERY (EVERY nz_lit) cfml ∧
   EVERY wf_xlrup xlrups ⇒
   sols (cfml,xfml) = {}

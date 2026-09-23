@@ -5,7 +5,7 @@ Theory ccnf_list
 Ancestors
   cnf ccnf syntax_helper mlvector
 Libs
-  preamble blastLib
+  preamble
 
 (* TODO: move? *)
 Theorem any_el_update_resize:
@@ -27,25 +27,25 @@ Proof
 QED
 
 (* We use a scheme where
-  <+ b is NONE,
+  < b is NONE,
   b is SOME F,
   b+1 is SOME T *)
 Definition all_assigned_list_def:
-  all_assigned_list dml (b:word8) k v (i:num) =
+  all_assigned_list dml (b:num) k v (i:num) =
   if i = 0 then T
   else
     let i1 = i - 1 in
     let c = sub v i1 in
     if c < 0
     then
-      if any_el (Num (-c)) dml (b-1w) = b
+      if any_el (Num (-c)) dml 0 = b
       then
         all_assigned_list dml b k v i1
       else
         if c = k then all_assigned_list dml b k v i1
         else F
     else
-      if b <+ any_el (Num c) dml (b-1w)
+      if b < any_el (Num c) dml 0
       then
         all_assigned_list dml b k v i1
       else
@@ -54,12 +54,12 @@ Definition all_assigned_list_def:
 End
 
 Definition dm_rel_def:
-  dm_rel dm dml (b:word8) ⇔
-  0w <+ b ∧ b <+ 255w ∧
+  dm_rel dm dml (b:num) ⇔
+  0 < b ∧
   ∀n.
-    (FLOOKUP dm n = NONE ⇔ (any_el n dml (b-1w) <+ b)) ∧
-    (FLOOKUP dm n = SOME F ⇔ any_el n dml (b-1w) = b) ∧
-    (FLOOKUP dm n = SOME T ⇔ any_el n dml (b-1w) = b+1w)
+    (FLOOKUP dm n = NONE ⇔ (any_el n dml 0 < b)) ∧
+    (FLOOKUP dm n = SOME F ⇔ any_el n dml 0 = b) ∧
+    (FLOOKUP dm n = SOME T ⇔ any_el n dml 0 = b+1)
 End
 
 Theorem all_assigned_list:
@@ -76,15 +76,12 @@ Proof
   >- (
     first_assum(qspec_then`Num (-sub v (i-1))` assume_tac)>>
     TOP_CASE_TAC>>gvs[]>>
-    every_case_tac>>gvs[]
-    >- FULL_BBLAST_TAC>>
+    every_case_tac>>gvs[]>>
     Cases_on`sub v (i-1) = k`>>gvs[])>>
   first_assum(qspec_then`Num (sub v (i-1))` assume_tac)>>
-  `b <+ b+1w` by FULL_BBLAST_TAC>>
   TOP_CASE_TAC>>gvs[]>>
   every_case_tac>>gvs[]>>
-  Cases_on`sub v (i-1) = k`>>gvs[]>>
-  FULL_BBLAST_TAC
+  Cases_on`sub v (i-1) = k`>>gvs[]
 QED
 
 Definition assert_def:
@@ -93,7 +90,7 @@ Definition assert_def:
 End
 
 Definition all_assigned_list'_def:
-  all_assigned_list' dml (b:word8) k v (i:num) =
+  all_assigned_list' dml (b:num) k v (i:num) =
   if i = 0 then SOME T
   else
     let i1 = i - 1 in
@@ -110,7 +107,7 @@ Definition all_assigned_list'_def:
         else SOME F
     else
       assert (Num c < LENGTH dml)
-      if b <+ EL (Num c) dml
+      if b < EL (Num c) dml
       then
         all_assigned_list' dml b k v i1
       else
@@ -148,7 +145,7 @@ Proof
 QED
 
 Definition delete_literals_sing_list_def:
-  delete_literals_sing_list dml b v i =
+  delete_literals_sing_list dml (b:num) v i =
   if i = 0 then SOME (T,dml)
   else
     let i1 = i - 1 in
@@ -156,37 +153,35 @@ Definition delete_literals_sing_list_def:
     if c < 0
     then
       let nc = Num (-c) in
-      if any_el nc dml (b-1w) = b
+      if any_el nc dml 0 = b
       then
         delete_literals_sing_list dml b v i1
       else
         (if all_assigned_list dml b c v i1
           then SOME (F,
-            update_resize dml (b-1w) (b+1w) nc)
+            update_resize dml 0 (b+1) nc)
           else NONE)
     else
       let nc = Num c in
-      if b <+ any_el nc dml (b-1w)
+      if b < any_el nc dml 0
       then
         delete_literals_sing_list dml b v i1
       else
         (if all_assigned_list dml b c v i1
           then SOME (F,
-            update_resize dml (b-1w) b nc)
+            update_resize dml 0 b nc)
           else NONE)
 End
 
 Theorem dm_rel_update_resize:
   dm_rel dm dml b ∧
-  bbb = (if bb then b+1w else b) ∧
-  b1 = b-1w ∧
+  bbb = (if bb then b+1 else b) ∧
   nn = n ⇒
   dm_rel (dm |+ (n,bb))
-    (update_resize dml b1 bbb nn) b
+    (update_resize dml 0 bbb nn) b
 Proof
   rw[dm_rel_def,any_el_update_resize,FLOOKUP_UPDATE]>>
-  rw[]>>
-  FULL_BBLAST_TAC
+  rw[]
 QED
 
 Theorem delete_literals_sing_list:
@@ -212,8 +207,7 @@ Proof
     strip_tac>>
     IF_CASES_TAC
     >- (
-      gvs[]>>every_case_tac>>gvs[]>>
-      FULL_BBLAST_TAC)>>
+      gvs[]>>every_case_tac>>gvs[])>>
     IF_CASES_TAC>>rw[]>>
     gvs[]>>every_case_tac>>gvs[]>>
     irule dm_rel_update_resize>>simp[])>>
@@ -223,17 +217,14 @@ Proof
   strip_tac>>
   IF_CASES_TAC
   >- (
-    gvs[]>>every_case_tac>>gvs[]>>
-    FULL_BBLAST_TAC)>>
+    gvs[]>>every_case_tac>>gvs[])>>
   IF_CASES_TAC>>rw[]>>
-  gvs[]>>every_case_tac>>gvs[]
-  >- (irule dm_rel_update_resize>>simp[])
-  >- FULL_BBLAST_TAC
-  >- (irule dm_rel_update_resize>>simp[])
+  gvs[]>>every_case_tac>>gvs[]>>
+  irule dm_rel_update_resize>>simp[]
 QED
 
 Definition delete_literals_sing_list'_def:
-  delete_literals_sing_list' dml b v i =
+  delete_literals_sing_list' dml (b:num) v i =
   if i = 0 then SOME (SOME (T,dml))
   else
     let i1 = i - 1 in
@@ -250,14 +241,14 @@ Definition delete_literals_sing_list'_def:
         OPTION_MAP
         (λres.
           if res
-          then SOME (F, LUPDATE (b+1w) nc dml)
+          then SOME (F, LUPDATE (b+1) nc dml)
           else NONE)
         (all_assigned_list' dml b c v i1)
       )
     else
       let nc = Num c in
       assert (nc < LENGTH dml)
-      (if b <+ EL nc dml
+      (if b < EL nc dml
       then
         delete_literals_sing_list' dml b v i1
       else
@@ -380,19 +371,19 @@ QED
   falsified, and then requires every remaining literal to be falsified or
   equal to the one it committed to.
 
-  In these tests b = 1w, so index v of the map holds 1w when -v is falsified,
-  2w when v is falsified and 0w when v is unassigned; literal 9 is falsified
+  In these tests b = 1, so index v of the map holds 1 when -v is falsified,
+  2 when v is falsified and 0 when v is unassigned; literal 9 is falsified
   throughout and variable 1 plays the role of x. *)
 
 (* A repeat of the committed literal is accepted and propagates it, in
   either literal order *)
 Theorem delete_literals_sing_list_repeat_propagates[local]:
-  delete_literals_sing_list [0w;0w;0w;0w;0w;0w;0w;0w;0w;2w] 1w
+  delete_literals_sing_list [0;0;0;0;0;0;0;0;0;2] 1
     (Vector [1;1;9]) 3 =
-    SOME (F,[0w;1w;0w;0w;0w;0w;0w;0w;0w;2w]) ∧
-  delete_literals_sing_list [0w;0w;0w;0w;0w;0w;0w;0w;0w;2w] 1w
+    SOME (F,[0;1;0;0;0;0;0;0;0;2]) ∧
+  delete_literals_sing_list [0;0;0;0;0;0;0;0;0;2] 1
     (Vector [9;1;1]) 3 =
-    SOME (F,[0w;1w;0w;0w;0w;0w;0w;0w;0w;2w])
+    SOME (F,[0;1;0;0;0;0;0;0;0;2])
 Proof
   EVAL_TAC
 QED
@@ -401,12 +392,12 @@ QED
   The first pins a repeat of a true literal; the second an opposite pair,
   which reduces by ordinary propagation and so does not reach the c = k test *)
 Theorem delete_literals_sing_list_satisfied_noop[local]:
-  delete_literals_sing_list [0w;2w;0w;0w;0w;0w;0w;0w;0w;2w] 1w
+  delete_literals_sing_list [0;2;0;0;0;0;0;0;0;2] 1
     (Vector [-1;-1;9]) 3 =
-    SOME (F,[0w;2w;0w;0w;0w;0w;0w;0w;0w;2w]) ∧
-  delete_literals_sing_list [0w;1w;0w;0w;0w;0w;0w;0w;0w;2w] 1w
+    SOME (F,[0;2;0;0;0;0;0;0;0;2]) ∧
+  delete_literals_sing_list [0;1;0;0;0;0;0;0;0;2] 1
     (Vector [-1;1;9]) 3 =
-    SOME (F,[0w;1w;0w;0w;0w;0w;0w;0w;0w;2w])
+    SOME (F,[0;1;0;0;0;0;0;0;0;2])
 Proof
   EVAL_TAC
 QED
@@ -414,41 +405,38 @@ QED
 (* Two distinct literals that are not falsified are rejected, in either
   literal order *)
 Theorem delete_literals_sing_list_two_survivors_reject[local]:
-  delete_literals_sing_list [0w;0w;0w;0w;0w;0w;0w;0w;0w;2w] 1w
+  delete_literals_sing_list [0;0;0;0;0;0;0;0;0;2] 1
     (Vector [1;-1;9]) 3 = NONE ∧
-  delete_literals_sing_list [0w;0w;0w;0w;0w;0w;0w;0w;0w;2w] 1w
+  delete_literals_sing_list [0;0;0;0;0;0;0;0;0;2] 1
     (Vector [-1;1;9]) 3 = NONE
 Proof
   EVAL_TAC
 QED
 
-(* Ensures that the dml is of sufficient size
-  and properly reset *)
+(* Ensures that the dml is of sufficient size.
+  Advancing the stamp by 2 makes every existing entry read as unassigned. *)
 Definition reset_dm_list_def:
-  reset_dm_list dml b sz =
+  reset_dm_list dml (b:num) sz =
   if LENGTH dml < sz then
-    (REPLICATE (2 * sz) 0w, 1w)
+    (REPLICATE (2 * sz) (0:num), 1)
   else
-    if b <+ 253w
-    then (dml,b+2w)
-    else (REPLICATE (LENGTH dml) 0w, 1w)
+    (dml,b+2)
 End
 
 Theorem dm_rel_FEMPTY_REPLICATE:
-  dm_rel FEMPTY (REPLICATE n 0w) 1w
+  dm_rel FEMPTY (REPLICATE n 0) 1
 Proof
   pure_rewrite_tac[dm_rel_def]>>
   rw[any_el_ALT,EL_REPLICATE]
 QED
 
 Theorem dm_rel_imp_any_el:
-  dm_rel dm dml b ∧ b <+ 253w ⇒
-  any_el n dml (b-1w) <+ b+2w
+  dm_rel dm dml b ⇒
+  any_el n dml 0 < b+2
 Proof
   rw[dm_rel_def]>>
   first_x_assum(qspec_then`n` assume_tac)>>
-  Cases_on`FLOOKUP dm n`>>gvs[]>>
-  FULL_BBLAST_TAC
+  Cases_on`FLOOKUP dm n`>>gvs[]
 QED
 
 Theorem dm_rel_reset_dm_list:
@@ -459,12 +447,9 @@ Proof
   rw[reset_dm_list_def]>>
   fs[LENGTH_REPLICATE,dm_rel_FEMPTY_REPLICATE]>>
   drule dm_rel_imp_any_el>>
-  fs[dm_rel_def]>>rw[]
-  >- FULL_BBLAST_TAC
-  >- FULL_BBLAST_TAC>>
-  pop_assum (qspec_then`n` assume_tac)>>
-  fs[any_el_ALT]>>rw[]>>gvs[]>>
-  FULL_BBLAST_TAC
+  rw[dm_rel_def]>>
+  qpat_x_assum`∀n. _`(qspec_then`n` assume_tac)>>
+  decide_tac
 QED
 
 (* The standard fml rel for ccnf.
@@ -781,14 +766,14 @@ Proof
 QED
 
 Definition init_lit_map_list_def:
-  init_lit_map_list i v dml b =
+  init_lit_map_list i v dml (b:num) =
   if i = 0
   then dml
   else
     let i1 = i - 1 in
     let d = sub v i1 in
-    let (bb,nc) = if d > 0 then (b+1w, d) else (b,-d) in
-    init_lit_map_list i1 v (update_resize dml (b-1w) bb (Num nc)) b
+    let (bb,nc) = if d > 0 then (b+1, d) else (b,-d) in
+    init_lit_map_list i1 v (update_resize dml 0 bb (Num nc)) b
 End
 
 Theorem init_lit_map_list_simps = [``init_lit_map_list 0 v dml b``,
@@ -813,14 +798,14 @@ Proof
 QED
 
 Definition init_lit_map_list'_def:
-  init_lit_map_list' i v dml b =
+  init_lit_map_list' i v dml (b:num) =
   if i = 0
   then SOME dml
   else
     let i1 = i - 1 in
     assert (i1 < length v)
     let d = sub v i1 in
-    let (bb,nc) = (if d > 0 then (b+1w, Num d) else (b,Num (-d))) in
+    let (bb,nc) = (if d > 0 then (b+1, Num d) else (b,Num (-d))) in
     assert (nc < LENGTH dml)
     (init_lit_map_list' i1 v
       (LUPDATE bb nc dml) b)
