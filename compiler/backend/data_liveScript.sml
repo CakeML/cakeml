@@ -44,6 +44,7 @@ Definition is_pure_def:
   (is_pure (MemOp UpdateCons) = F) /\
   (is_pure (MemOp FinaliseCons) = F) /\
   (is_pure (MemOp UpdateByte) = F) /\
+  (is_pure (MemOp (SetBit _)) = F) /\
   (is_pure (MemOp FromListByte) = F) /\
   (is_pure (MemOp (CopyByte _)) = F) /\
   (is_pure (MemOp XorByte) = F) /\
@@ -82,6 +83,7 @@ Theorem is_pure_pmatch:
     | MemOp UpdateCons => F
     | MemOp FinaliseCons => F
     | MemOp UpdateByte => F
+    | MemOp (SetBit _) => F
     | MemOp FromListByte => F
     | MemOp (CopyByte _) => F
     | MemOp XorByte => F

@@ -441,6 +441,18 @@ Proof
     \\ gs [EL_LUPDATE, ref_ok_def]
     \\ IF_CASES_TAC \\ gs []
     \\ rw [ref_rel_def])
+  \\ Cases_on ‘op = Aw8subBit_unsafe’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
+  \\ Cases_on ‘∃b. op = Aw8setBit_unsafe b’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+         store_assign_def]
+    \\ gs [state_ok_def, EVERY_EL, state_rel_def] \\ rw []
+    \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs []
+    \\ gs [EL_LUPDATE, ref_ok_def]
+    \\ IF_CASES_TAC \\ gs []
+    \\ rw [ref_rel_def])
   \\ Cases_on ‘op = Aupdate_unsafe’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,

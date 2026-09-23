@@ -738,6 +738,9 @@ Definition sexpop_def:
   if s = "CopyAw8Str" then SOME CopyAw8Str else
   if s = "CopyAw8Aw8" then SOME CopyAw8Aw8 else
   if s = "XorAw8Strunsafe" then SOME XorAw8Str_unsafe else
+  if s = "Aw8subBitunsafe" then SOME Aw8subBit_unsafe else
+  if s = "Aw8setBitunsafeT" then SOME (Aw8setBit_unsafe T) else
+  if s = "Aw8setBitunsafeF" then SOME (Aw8setBit_unsafe F) else
   if s = "Implode" then SOME Implode else
   if s = "Explode" then SOME Explode else
   if s = "Strsub" then SOME Strsub else
@@ -1578,6 +1581,8 @@ Definition opsexp_def:
   (opsexp CopyAw8Str = SX_SYM "CopyAw8Str") ∧
   (opsexp CopyAw8Aw8 = SX_SYM "CopyAw8Aw8") ∧
   (opsexp XorAw8Str_unsafe = SX_SYM "XorAw8Strunsafe") ∧
+  (opsexp Aw8subBit_unsafe = SX_SYM "Aw8subBitunsafe") ∧
+  (opsexp (Aw8setBit_unsafe b) = SX_SYM (if b then "Aw8setBitunsafeT" else "Aw8setBitunsafeF")) ∧
   (opsexp Implode = SX_SYM "Implode") ∧
   (opsexp Explode = SX_SYM "Explode") ∧
   (opsexp Strsub = SX_SYM "Strsub") ∧
@@ -1627,6 +1632,8 @@ Proof
       \\ gvs [sexpop_def,opsexp_def]
       \\ rw [] \\ gvs [AllCaseEqs()]
       \\ Cases_on ‘t'’ \\ gvs [encode_thunk_mode_def,decode_thunk_mode_def]) >>
+  Cases_on ‘∃b. op = Aw8setBit_unsafe b’
+  >- (gvs [] \\ Cases_on ‘b’ \\ rw [sexpop_def,opsexp_def]) >>
   Cases_on`op`>>fs []>>rw[sexpop_def,opsexp_def] >>
   rw[sexpop_def,opsexp_def,SEXSTR_def] >>
   rename [‘Shift c1 c2 _’] >>

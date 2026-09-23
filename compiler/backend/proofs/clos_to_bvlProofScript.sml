@@ -1534,6 +1534,7 @@ Theorem do_app[local]:
    (* store updates need special treatment *)
    (op <> MemOp Ref) /\ (op <> MemOp Update) ∧ (op <> MemOp XorByte) ∧
    (op ≠ MemOp RefArray) ∧ (∀f. op ≠ MemOp (RefByte f)) ∧ (op ≠ MemOp UpdateByte) ∧
+   (∀b. op ≠ MemOp (SetBit b)) ∧
    (op ≠ MemOp FromListByte) ∧ op ≠ MemOp ConcatByteVec ∧
    (∀b. op ≠ MemOp (CopyByte b)) ∧ (∀c. op ≠ BlockOp (Constant c)) ∧
    (∀n. op ≠ (FFI n)) ∧
@@ -1548,6 +1549,11 @@ Proof
   >-
    (gvs [closSemTheory.do_app_def,AllCaseEqs()] \\ rw []
     \\ gvs [bvlSemTheory.do_app_def])
+  \\ Cases_on `op = MemOp DerefBit`
+  >-
+   (gvs [closSemTheory.do_app_def,AllCaseEqs()] \\ rw []
+    \\ gvs [v_rel_SIMP] \\ gvs [state_rel_def] \\ res_tac
+    \\ gvs [v_rel_SIMP,bvlSemTheory.do_app_def] \\ metis_tac [])
   \\ Cases_on `op = BlockOp BoolNot`
   >-
    (gvs [closSemTheory.do_app_def,AllCaseEqs()] \\ rw []
@@ -4442,7 +4448,8 @@ Proof
       simp[SUBMAP_DEF,FDOM_DRESTRICT,DRESTRICT_DEF] >>
       srw_tac[][] >>
       simp[Abbr`pp`,LEAST_NOTIN_FDOM])
-    \\ Cases_on `op = MemOp UpdateByte` \\ full_simp_tac(srw_ss())[] THEN1 (
+    \\ Cases_on `op = MemOp UpdateByte ∨ ∃b. op = MemOp (SetBit b)` THEN1 (
+      pop_assum strip_assume_tac \\ gvs [] \\ (
       full_simp_tac(srw_ss())[closSemTheory.do_app_def,bvlSemTheory.do_app_def]
       \\ fs[case_eq_thms,PULL_EXISTS,bool_case_eq,AllCaseEqs()]
       \\ rw[] \\ fs[SWAP_REVERSE_SYM] \\ rw[]
@@ -4489,7 +4496,7 @@ Proof
           MATCH_MP_TAC v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
           \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC []))
       \\ `m IN FRANGE f2` by (full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
-      \\ full_simp_tac(srw_ss())[SUBMAP_DEF,FDIFF_def,DRESTRICT_DEF,FAPPLY_FUPDATE_THM, add_args_def])
+      \\ full_simp_tac(srw_ss())[SUBMAP_DEF,FDIFF_def,DRESTRICT_DEF,FAPPLY_FUPDATE_THM, add_args_def]))
     \\ Cases_on `∃n. op = FFI n` \\ full_simp_tac(srw_ss())[] THEN1 (
       full_simp_tac(srw_ss())[closSemTheory.do_app_def,bvlSemTheory.do_app_def]
       \\ Cases_on `REVERSE a` \\ full_simp_tac(srw_ss())[]

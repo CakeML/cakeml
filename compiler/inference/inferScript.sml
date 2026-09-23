@@ -612,6 +612,8 @@ Definition op_to_string_def:
   (op_to_string Aw8sub_unsafe = («Aw8sub_unsafe», 2)) ∧
   (op_to_string Aw8update_unsafe = («Aw8update_unsafe», 3)) ∧
   (op_to_string XorAw8Str_unsafe = («XorAw8Str_unsafe», 2)) ∧
+  (op_to_string Aw8subBit_unsafe = («Aw8subBit_unsafe», 2)) ∧
+  (op_to_string (Aw8setBit_unsafe _) = («Aw8setBit_unsafe», 2)) ∧
   (op_to_string CopyStrStr = («CopyStrStr», 3)) ∧
   (op_to_string CopyStrAw8 = («CopyStrAw8», 5)) ∧
   (op_to_string CopyAw8Str = («CopyAw8Str», 3)) ∧
@@ -783,6 +785,8 @@ constrain_op l op ts s =
    | (Aw8sub_unsafe, _) => failwith l («Unsafe ops do not have a type») s
    | (Aw8update_unsafe, _) => failwith l («Unsafe ops do not have a type») s
    | (XorAw8Str_unsafe, _) => failwith l («Unsafe ops do not have a type») s
+   | (Aw8subBit_unsafe, _) => failwith l («Unsafe ops do not have a type») s
+   | (Aw8setBit_unsafe _, _) => failwith l («Unsafe ops do not have a type») s
    | (AallocFixed, _) => failwith l («Unsafe ops do not have a type»)  s(* not actually unsafe *)
    | (Eval, _) => failwith l («Unsafe ops do not have a type») s
    | (Env_id, _) => failwith l («Unsafe ops do not have a type») s

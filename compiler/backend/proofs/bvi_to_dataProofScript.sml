@@ -61,6 +61,12 @@ Proof
   rw [data_to_bvi_v_def,Boolv_def,bvlSemTheory.Boolv_def]
 QED
 
+Theorem data_to_bvi_v_b2n[simp]:
+  ∀ts b. data_to_bvi_v (Block ts (multiword$b2n b) []) = Boolv b
+Proof
+  gen_tac \\ Cases \\ EVAL_TAC
+QED
+
 (* Projection for references, non-injective for value arrays *)
 Definition data_to_bvi_ref_def[simp]:
   data_to_bvi_ref (ValueArray l)   = ValueArray (MAP data_to_bvi_v l)
@@ -643,6 +649,7 @@ Proof
   >-(rename1 `MemOp (RefByte _)` >> rw[])
   >-(rename1 `MemOp (RefArray)` >> rw[])
   >-(rename1 `MemOp (UpdateByte)` >> rw[])
+  >-(rename1 `MemOp (SetBit _)` >> rw[])
   >-(rename1 `GlobOp (Global _)` >> rw[] >> fs[EL_MAP])
   >-(rename1 `GlobOp (SetGlobal _)` >> rw[] >> fs[LUPDATE_MAP])
   >-(rename1 `BlockOp (Cons _)` >> fsrw_tac[DNF_ss][] >>

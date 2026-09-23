@@ -211,6 +211,8 @@ Definition compile_op_def:
                                   (Op t (MemOp UpdateByte) [Var t 0; Var t 1; Var t 2])
                                   (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
     | Src Aw8update_unsafe => Op t (MemOp UpdateByte) xs
+    | Src Aw8subBit_unsafe => Op t (MemOp DerefBit) xs
+    | Src (Aw8setBit_unsafe b) => Op t (MemOp (SetBit b)) xs
     | Src Strsub => Let t xs (If t (Op t (MemOp (BoundsCheckByte F)) [Var t 0; Var t 1])
                                (Op t (MemOp DerefByteVec) [Var t 0; Var t 1])
                                (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))

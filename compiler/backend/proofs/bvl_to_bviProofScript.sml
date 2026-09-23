@@ -345,6 +345,13 @@ Proof
     \\ first_x_assum(qspec_then`k`mp_tac) \\ rw[]
     \\ res_tac
     \\ TRY asm_exists_tac \\ simp[SUBSET_DEF])
+  \\ Cases_on `∃b. op = MemOp (SetBit b)` THEN1
+   (gvs [bvlSemTheory.do_app_def,AllCaseEqs()] \\ rw [bv_ok_def]
+    \\ fs [state_ok_def] \\ rw [FLOOKUP_UPDATE] \\ fs [EVERY_MEM] \\ rw []
+    \\ every_case_tac \\ rw []
+    \\ Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP
+    \\ first_x_assum(qspec_then`k`strip_assume_tac) \\ rfs []
+    \\ res_tac \\ fs [] \\ simp[SUBSET_DEF])
   \\ Cases_on `∃b cmp. op = MemOp (StringCmp b cmp)` THEN1
    (gvs [bvlSemTheory.do_app_def]
     \\ disch_tac \\ gvs [AllCaseEqs()])
@@ -1468,7 +1475,8 @@ Proof
     spose_not_then strip_assume_tac >> srw_tac[][] >>
     full_simp_tac(srw_ss())[bvi_to_bvl_def,state_rel_def] >>
     last_x_assum(qspec_then`n`mp_tac) >> srw_tac[][])
-  \\ Cases_on `op = MemOp DerefByte` \\ fs [] THEN1
+  \\ Cases_on `op = MemOp DerefByte ∨ op = MemOp DerefBit` THEN1
+   (pop_assum strip_assume_tac \\ gvs [] \\
    (Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[]>>
     Cases_on`t`>>full_simp_tac(srw_ss())[]>>
     Cases_on`h`>>full_simp_tac(srw_ss())[]>>
@@ -1480,7 +1488,7 @@ Proof
     srw_tac[][adjust_bv_def,bvl_to_bvi_id] >>
     full_simp_tac(srw_ss())[state_rel_def] >>
     last_x_assum(qspec_then`n`mp_tac) >> simp[] >>
-    spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[])
+    spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]))
   \\ Cases_on `op = MemOp Update` \\ fs [] THEN1
    (fs [AllCaseEqs(),PULL_EXISTS] \\ rw []
     \\ rename [`FLOOKUP s5.refs n = _`]
@@ -1544,6 +1552,40 @@ Proof
   \\ Cases_on `op = MemOp UpdateByte` \\ fs [] THEN1
    (strip_tac
     \\ `?n i i' b. REVERSE a = [RefPtr b n; Number i; Number i']` by
+          (every_case_tac \\ fs [] \\ NO_TAC) \\ fs [] >>
+    simp[bEvalOp_def,adjust_bv_def] >>
+    simp[] >> srw_tac[][] >>
+    every_case_tac >> full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>srw_tac[][] >>
+    srw_tac[][adjust_bv_def,bvl_to_bvi_with_refs,bvl_to_bvi_id] >>
+    full_simp_tac(srw_ss())[state_rel_def] >>
+    TRY (
+      last_x_assum(qspec_then`n`mp_tac) >> simp[] >>
+      spose_not_then strip_assume_tac >> rpt var_eq_tac >>
+      full_simp_tac(srw_ss())[] >>
+      NO_TAC) >>
+    simp[bvi_to_bvl_def] >>
+    conj_asm1_tac >- (
+      simp[INJ_INSERT] >>
+      conj_tac >- (
+        qhdtm_x_assum`INJ`mp_tac >>
+        simp[INJ_DEF] ) >>
+      `n ∈ FDOM s5.refs` by full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
+      metis_tac[INJ_DEF]) >>
+    simp[FLOOKUP_UPDATE] >>
+    srw_tac[][] >> TRY (
+      last_x_assum(qspec_then`k`mp_tac) >> simp[] >> NO_TAC) >>
+    full_simp_tac(srw_ss())[bv_ok_def] >>
+    TRY (
+      qexists_tac`array_size`>>simp[]>>
+      srw_tac[][] >> full_simp_tac(srw_ss())[FLOOKUP_DEF] >> NO_TAC) >>
+    TRY (
+      BasicProvers.CASE_TAC >>
+      `k ∈ FDOM s5.refs ∧ n ∈ FDOM s5.refs` by fs[FLOOKUP_DEF] >>
+      metis_tac[INJ_DEF]) >>
+    METIS_TAC[])
+  \\ Cases_on `∃bit. op = MemOp (SetBit bit)` \\ fs [] THEN1
+   (strip_tac
+    \\ `?n i b. REVERSE a = [RefPtr b n; Number i]` by
           (every_case_tac \\ fs [] \\ NO_TAC) \\ fs [] >>
     simp[bEvalOp_def,adjust_bv_def] >>
     simp[] >> srw_tac[][] >>

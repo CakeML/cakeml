@@ -278,6 +278,8 @@ Definition op_to_display_def:
   | Aw8sub_unsafe => empty_item «Aw8sub_unsafe»
   | Aw8update_unsafe => empty_item «Aw8update_unsafe»
   | XorAw8Str_unsafe => empty_item «XorAw8Str_unsafe»
+  | Aw8subBit_unsafe => empty_item «Aw8subBit_unsafe»
+  | Aw8setBit_unsafe b => Item NONE «Aw8setBit_unsafe» [bool_to_display b]
   | ListAppend => empty_item «ListAppend»
   | ConfigGC => empty_item «ConfigGC»
   | FFI v35 => empty_item «FFI v35»
@@ -626,6 +628,8 @@ Definition clos_op_to_display_def:
     | MemOp RefArray => String «RefArray»
     | MemOp DerefByte => String «DerefByte»
     | MemOp UpdateByte => String «UpdateByte»
+    | MemOp DerefBit => String «DerefBit»
+    | MemOp (SetBit b) => Item NONE «SetBit» [bool_to_display b]
     | MemOp ConcatByteVec => String «ConcatByteVec»
     | MemOp (CopyByte b) => Item NONE «CopyByte» [bool_to_display b]
     | MemOp FromListByte => String «FromListByte»

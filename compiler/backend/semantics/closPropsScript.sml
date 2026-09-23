@@ -2519,7 +2519,7 @@ Proof
       (?m. opp = MemOp m ∧ (
         m = Length \/ (?b. m = BoundsCheckByte b) \/
         m = BoundsCheckArray \/ m = LengthByte \/
-        m = DerefByteVec \/ m = DerefByte \/ m = El \/
+        m = DerefByteVec \/ m = DerefByte \/ m = DerefBit \/ m = El \/
         ∃b cmp. m = StringCmp b cmp)) \/
       (?g. opp = GlobOp g ∧ (g = GlobalsPtr \/ g = SetGlobalsPtr)) \/
       (?n. opp = BlockOp (ElemAt n))`
@@ -2611,7 +2611,7 @@ Proof
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_values))
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_bytes))
     \\ asm_exists_tac \\ fs [LIST_REL_REPLICATE_same])
-  \\ Cases_on `?m. opp = MemOp m ∧ (m = UpdateByte \/ m = Update) \/ ?n. opp = FFI n` THEN1
+  \\ Cases_on `?m. opp = MemOp m ∧ (m = UpdateByte \/ m = Update \/ ∃b. m = SetBit b) \/ ?n. opp = FFI n` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ rw[Once do_app_def,AllCaseEqs(),PULL_EXISTS]
     \\ drule_then strip_assume_tac $ iffLR simple_val_rel_alt

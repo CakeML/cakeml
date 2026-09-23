@@ -122,6 +122,8 @@ Datatype:
   | Aupdate_unsafe
   | Aw8sub_unsafe
   | Aw8update_unsafe
+  | Aw8subBit_unsafe
+  | Aw8setBit_unsafe bool
   (* thunk operations *)
   | ThunkOp thunk_op
   (* List operations *)
