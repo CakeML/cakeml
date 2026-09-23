@@ -272,27 +272,6 @@ QED
 
 (* TODO Maybe the constant strings «» should be translated once? *)
 
-Definition xaig_map_then_cnf_def:
-  xaig_map_then_cnf f g h xaig name =
-    xaig_to_cnf (xaig_map f g h xaig) (h name)
-End
-
-Theorem xaig_map_then_cnf_correct:
-  xaig_map_then_cnf f g h xaig name = (cnf, limit) ∧
-  INJ f 𝕌(:α) 𝕌(:β) ∧ INJ g 𝕌(:γ) 𝕌(:δ) ∧ INJ h 𝕌(:ε) 𝕌(:ζ)
-  ⇒
-  (satisfiable_cnf (set cnf) ⇔ ∃is ls. xeval_gate (is,ls) xaig name) ∧
-  lits_within limit cnf
-Proof
-  simp [xaig_map_then_cnf_def]
-  >> strip_tac
-  >> dxrule_all $ GSYM exists_xeval_gate_xaig_map
-  >> disch_then $ qspecl_then [‘xaig’, ‘name’] mp_tac
-  >> simp [EXISTS_PROD] >> strip_tac
-  >> irule xaig_to_cnf_correct
-  >> simp []
-QED
-
 Definition make_reset_string_def:
   make_reset_string
     (mxaig: (num, num, num) xaig) mreset mcnstrs mlatches
@@ -301,10 +280,10 @@ Definition make_reset_string_def:
   let
     name = «reset»;
     xaig  =
-      encode_reset_cond
+      encode_reset_cond_num
         mxaig mreset mcnstrs mlatches
         wxaig wreset wcnstrs wlatches klatches;
-    cnf = xaig_map_then_cnf I I nsn_e2num xaig (Ext Reset)
+    cnf = xaig_to_cnf xaig 19
   in
     (name, cnf_to_string cnf)
 End
@@ -317,10 +296,10 @@ Definition make_transition_string_def:
   let
     name = «transition»;
     xaig  =
-      encode_transition_cond
+      encode_transition_cond_num
         mxaig mnext mcnstrs mlatches
         wxaig wnext wcnstrs wlatches klatches;
-    cnf = xaig_map_then_cnf nsn2num nsn2num nsn_s_nsn_e2num xaig (Ext Transition)
+    cnf = xaig_to_cnf xaig 20
   in
     (name, cnf_to_string cnf)
 End
@@ -333,8 +312,8 @@ Definition make_safety_string_def:
   let
     name = «safety»;
     xaig  =
-      encode_safety_cond mxaig mcnstrs msafes wxaig wcnstrs wsafes;
-    cnf = xaig_map_then_cnf I I nsn_e2num xaig (Ext Safety)
+      encode_safety_cond_num mxaig mcnstrs msafes wxaig wcnstrs wsafes;
+    cnf = xaig_to_cnf xaig 21
   in
     (name, cnf_to_string cnf)
 End
@@ -346,8 +325,8 @@ Definition make_base_string_def:
   let
     name = «base»;
     xaig  =
-      encode_base_cond wxaig wreset wcnstrs wsafes wlatches;
-    cnf = xaig_map_then_cnf I I n_e2num xaig (Ext Base)
+      encode_base_cond_num wxaig wreset wcnstrs wsafes wlatches;
+    cnf = xaig_to_cnf xaig 22
   in
     (name, cnf_to_string cnf)
 End
@@ -359,8 +338,8 @@ Definition make_induction_string_def:
   let
     name = «induction»;
     xaig  =
-      encode_induction_cond wxaig wnext wcnstrs wsafes wlatches;
-    cnf = xaig_map_then_cnf nsn2num nsn2num nsn_e2num xaig (Ext Induction)
+      encode_induction_cond_num wxaig wnext wcnstrs wsafes wlatches;
+    cnf = xaig_to_cnf xaig 23
   in
     (name, cnf_to_string cnf)
 End
@@ -373,12 +352,10 @@ Definition make_liveness_string_def:
   let
     name = «liveness»;
     xaig  =
-      encode_liveness_cond
+      encode_liveness_cond_num
         mxaig mcnstrs mlive
         wxaig wnext wcnstrs wsafes wlive wlatches interv;
-    cnf =
-      xaig_map_then_cnf nsn2num nsn2num nsn_s_nsn_s_nsn_e2num
-        xaig (Ext Liveness)
+    cnf = xaig_to_cnf xaig 24
   in
     (name, cnf_to_string cnf)
 End
@@ -390,9 +367,9 @@ Definition make_decrease_string_def:
   let
     name = «decrease»;
     xaig  =
-      encode_decrease_cond
+      encode_decrease_cond_num
         wxaig wnext wcnstrs wsafes wlive wlatches interv;
-    cnf = xaig_map_then_cnf nsn2num nsn2num nsn_s_n_e2num xaig (Ext Decrease)
+    cnf = xaig_to_cnf xaig 25
   in
     (name, cnf_to_string cnf)
 End
@@ -404,11 +381,9 @@ Definition make_closure_string_def:
   let
     name = «closure»;
     xaig  =
-      encode_closure_cond
+      encode_closure_cond_num
         wxaig wnext wcnstrs wsafes wlive wlatches interv;
-    cnf =
-      xaig_map_then_cnf nsn_s_n2num nsn_s_n2num nsn_s_n_s_nsn_e2num
-        xaig (Ext Closure)
+    cnf = xaig_to_cnf xaig 26
   in
     (name, cnf_to_string cnf)
 End
@@ -420,11 +395,9 @@ Definition make_stable_string_def:
   let
     name = «stable»;
     xaig  =
-      encode_stable_cond
+      encode_stable_cond_num
         wxaig wnext wcnstrs wsafes wlive wlatches interv;
-    cnf =
-      xaig_map_then_cnf nsn_s_n2num nsn_s_n2num nsn_s_n_s_nsn_e2num
-        xaig (Ext Stable)
+    cnf = xaig_to_cnf xaig 27
   in
     (name, cnf_to_string cnf)
 End

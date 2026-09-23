@@ -3062,12 +3062,13 @@ QED
    in the hopes of comparisons becoming cheaper. *)
 
 Theorem exists_xeval_gate_xaig_map:
-  INJ f 𝕌(:α) 𝕌(:β) ∧ INJ g 𝕌(:γ) 𝕌(:δ) ∧ INJ h 𝕌(:ε) 𝕌(:ζ)
-  ⇒
-  ((∃ss. xeval_gate ss (xaig_map f g h xaig) (h n)) ⇔
-   (∃ss. xeval_gate ss xaig n))
+  ∀f g h n xaig.
+    INJ f 𝕌(:α) 𝕌(:β) ∧ INJ g 𝕌(:γ) 𝕌(:δ) ∧ INJ h 𝕌(:ε) 𝕌(:ζ)
+    ⇒
+    ((∃ss. xeval_gate ss (xaig_map f g h xaig) (h n)) ⇔
+     (∃ss. xeval_gate ss xaig n))
 Proof
-  strip_tac >> eq_tac >> rw []
+  rpt strip_tac >> eq_tac >> rw []
   >> namedCases_on ‘ss’ ["is ls"]
   >- (
     qexists ‘(is ∘ f, ls ∘ g)’
@@ -3080,6 +3081,8 @@ Proof
   >> imp_res_tac LINV_DEF >> simp []
   >> metis_tac []
 QED
+
+(** Constructing the injective mapping to nums ********************************)
 
 Definition sum2num_def:
   sum2num f _ (INL x) = 2 * (f x) ∧
@@ -3292,6 +3295,365 @@ Theorem INJ_nsn_s_n_s_nsn_e2num:
     𝕌(:(((num + num) + num) + num + num) ext) 𝕌(:num)
 Proof
   simp [INJ_IFF, nsn_s_n_s_nsn_e2num_11]
+QED
+
+(** Combining encoding + mapping names to nums ********************************)
+
+Definition encode_reset_cond_num_def:
+  encode_reset_cond_num
+    mxaig mreset mcnstrs mlatches
+    wxaig wreset wcnstrs wlatches klatches
+  =
+  xaig_map (I: num -> num) (I: num -> num) nsn_e2num
+    (encode_reset_cond
+       mxaig mreset mcnstrs mlatches
+       wxaig wreset wcnstrs wlatches klatches)
+End
+
+Definition reset_encoding_num_is_unsat_def:
+  reset_encoding_num_is_unsat
+    mxaig mreset mcnstrs mlatches
+    wxaig wreset wcnstrs wlatches klatches
+  ⇔
+  (¬∃ss.
+    (xeval_gate ss
+       (encode_reset_cond_num
+          mxaig mreset mcnstrs mlatches
+          wxaig wreset wcnstrs wlatches klatches)
+       19))
+End
+
+Theorem reset_encoding_num_is_unsat_eq:
+  reset_encoding_num_is_unsat
+    mxaig mreset mcnstrs mlatches
+    wxaig wreset wcnstrs wlatches klatches
+  =
+  reset_encoding_is_unsat
+    mxaig mreset mcnstrs mlatches
+    wxaig wreset wcnstrs wlatches klatches
+Proof
+  simp [reset_encoding_num_is_unsat_def, reset_encoding_is_unsat_def,
+        encode_reset_cond_num_def]
+  >> qspecl_then
+       [‘I: num -> num’, ‘I: num -> num’, ‘nsn_e2num’, ‘Ext Reset’] mp_tac
+       exists_xeval_gate_xaig_map
+  >> impl_tac >- simp [INJ_DEF, nsn_e2num_11]
+  >> simp [nsn_e2num_def, ext2num_def]
+  >> metis_tac []
+QED
+
+Definition encode_transition_cond_num_def:
+  encode_transition_cond_num
+    mxaig mnext mcnstrs mlatches
+    wxaig wnext wcnstrs wlatches klatches
+  =
+  xaig_map nsn2num nsn2num nsn_s_nsn_e2num
+    (encode_transition_cond
+        mxaig mnext mcnstrs mlatches
+        wxaig wnext wcnstrs wlatches klatches)
+End
+
+Definition transition_encoding_num_is_unsat_def:
+  transition_encoding_num_is_unsat
+    mxaig mnext mcnstrs mlatches
+    wxaig wnext wcnstrs wlatches klatches
+  ⇔
+  (¬∃ss.
+    (xeval_gate ss
+       (encode_transition_cond_num
+          mxaig mnext mcnstrs mlatches
+          wxaig wnext wcnstrs wlatches klatches)
+       20))
+End
+
+Theorem transition_encoding_num_is_unsat_eq:
+  transition_encoding_num_is_unsat
+    mxaig mtransition mcnstrs mlatches
+    wxaig wtransition wcnstrs wlatches klatches
+  =
+  transition_encoding_is_unsat
+    mxaig mtransition mcnstrs mlatches
+    wxaig wtransition wcnstrs wlatches klatches
+Proof
+  simp [transition_encoding_num_is_unsat_def, transition_encoding_is_unsat_def,
+        encode_transition_cond_num_def]
+  >> qspecl_then
+       [‘nsn2num’, ‘nsn2num’, ‘nsn_s_nsn_e2num’, ‘Ext Transition’] mp_tac
+       exists_xeval_gate_xaig_map
+  >> impl_tac >- simp [INJ_DEF, nsn2num_11, nsn_s_nsn_e2num_11]
+  >> simp [nsn_s_nsn_e2num_def, ext2num_def]
+  >> metis_tac []
+QED
+
+Definition encode_safety_cond_num_def:
+  encode_safety_cond_num
+    mxaig mcnstrs msafes
+    wxaig wcnstrs wsafes
+  =
+  xaig_map (I: num -> num) (I: num -> num) nsn_e2num
+    (encode_safety_cond
+       mxaig mcnstrs msafes
+       wxaig wcnstrs wsafes)
+End
+
+Definition safety_encoding_num_is_unsat_def:
+  safety_encoding_num_is_unsat
+    mxaig mcnstrs msafes
+    wxaig wcnstrs wsafes
+  ⇔
+  (¬∃ss.
+    (xeval_gate ss
+       (encode_safety_cond_num
+          mxaig mcnstrs msafes
+          wxaig wcnstrs wsafes)
+       21))
+End
+
+Theorem safety_encoding_num_is_unsat_eq:
+  safety_encoding_num_is_unsat
+    mxaig mcnstrs msafes
+    wxaig wcnstrs wsafes
+  =
+  safety_encoding_is_unsat
+    mxaig mcnstrs msafes
+    wxaig wcnstrs wsafes
+Proof
+  simp [safety_encoding_num_is_unsat_def, safety_encoding_is_unsat_def,
+        encode_safety_cond_num_def]
+  >> qspecl_then
+       [‘I: num -> num’, ‘I: num -> num’, ‘nsn_e2num’, ‘Ext Safety’] mp_tac
+       exists_xeval_gate_xaig_map
+  >> impl_tac >- simp [INJ_DEF, nsn_e2num_11]
+  >> simp [nsn_e2num_def, ext2num_def]
+  >> metis_tac []
+QED
+
+Definition encode_base_cond_num_def:
+  encode_base_cond_num
+    wxaig wreset wcnstrs wsafes wlatches
+  =
+  xaig_map (I: num -> num) (I: num -> num) n_e2num
+    (encode_base_cond
+       wxaig wreset wcnstrs wsafes wlatches)
+End
+
+Definition base_encoding_num_is_unsat_def:
+  base_encoding_num_is_unsat
+    wxaig wreset wcnstrs wsafes wlatches
+  ⇔
+  (¬∃ss.
+    (xeval_gate ss
+       (encode_base_cond_num
+          wxaig wreset wcnstrs wsafes wlatches)
+       22))
+End
+
+Theorem base_encoding_num_is_unsat_eq:
+  base_encoding_num_is_unsat
+    wxaig wreset wcnstrs wsafes wlatches
+  =
+  base_encoding_is_unsat
+    wxaig wreset wcnstrs wsafes wlatches
+Proof
+  simp [base_encoding_num_is_unsat_def, base_encoding_is_unsat_def,
+        encode_base_cond_num_def]
+  >> qspecl_then
+       [‘I: num -> num’, ‘I: num -> num’, ‘n_e2num’, ‘Ext Base’] mp_tac
+       exists_xeval_gate_xaig_map
+  >> impl_tac >- simp [INJ_DEF, n_e2num_11]
+  >> simp [n_e2num_def, ext2num_def]
+  >> metis_tac []
+QED
+
+Definition encode_induction_cond_num_def:
+  encode_induction_cond_num
+    wxaig wnext wcnstrs wsafes wlatches
+  =
+  xaig_map nsn2num nsn2num nsn_e2num
+    (encode_induction_cond
+       wxaig wnext wcnstrs wsafes wlatches)
+End
+
+Definition induction_encoding_num_is_unsat_def:
+  induction_encoding_num_is_unsat
+    wxaig wnext wcnstrs wsafes wlatches
+  ⇔
+  (¬∃ss.
+    (xeval_gate ss
+       (encode_induction_cond_num
+          wxaig wnext wcnstrs wsafes wlatches)
+       23))
+End
+
+Theorem induction_encoding_num_is_unsat_eq:
+  induction_encoding_num_is_unsat
+    wxaig wnext wcnstrs wsafes wlatches
+  =
+  induction_encoding_is_unsat
+    wxaig wnext wcnstrs wsafes wlatches
+Proof
+  simp [induction_encoding_num_is_unsat_def, induction_encoding_is_unsat_def,
+        encode_induction_cond_num_def]
+  >> qspecl_then
+       [‘nsn2num’, ‘nsn2num’, ‘nsn_e2num’, ‘Ext Induction’] mp_tac
+       exists_xeval_gate_xaig_map
+  >> impl_tac >- simp [INJ_DEF, nsn2num_11, nsn_e2num_11]
+  >> simp [nsn_e2num_def, ext2num_def]
+  >> metis_tac []
+QED
+
+Definition encode_liveness_cond_num_def:
+  encode_liveness_cond_num
+    mxaig mcnstrs mlive
+    wxaig wnext wcnstrs wsafes wlive wlatches interv
+  =
+  xaig_map nsn2num nsn2num nsn_s_nsn_s_nsn_e2num
+    (encode_liveness_cond
+       mxaig mcnstrs mlive
+       wxaig wnext wcnstrs wsafes wlive wlatches interv)
+End
+
+Definition liveness_encoding_num_is_unsat_def:
+  liveness_encoding_num_is_unsat
+    mxaig mcnstrs mlive
+    wxaig wnext wcnstrs wsafes wlive wlatches interv
+  ⇔
+  (¬∃ss.
+    (xeval_gate ss
+       (encode_liveness_cond_num
+          mxaig mcnstrs mlive
+          wxaig wnext wcnstrs wsafes wlive wlatches interv)
+       24))
+End
+
+Theorem liveness_encoding_num_is_unsat_eq:
+  liveness_encoding_num_is_unsat
+    mxaig mcnstrs mlive
+    wxaig wnext wcnstrs wsafes wlive wlatches interv
+  =
+  liveness_encoding_is_unsat
+    mxaig mcnstrs mlive
+    wxaig wnext wcnstrs wsafes wlive wlatches interv
+Proof
+  simp [liveness_encoding_num_is_unsat_def, liveness_encoding_is_unsat_def,
+        encode_liveness_cond_num_def]
+  >> qspecl_then
+       [‘nsn2num’, ‘nsn2num’, ‘nsn_s_nsn_s_nsn_e2num’, ‘Ext Liveness’] mp_tac
+       exists_xeval_gate_xaig_map
+  >> impl_tac >- simp [INJ_DEF, nsn2num_11, nsn_s_nsn_s_nsn_e2num_11]
+  >> simp [nsn_s_nsn_s_nsn_e2num_def, ext2num_def]
+  >> metis_tac []
+QED
+
+Definition encode_decrease_cond_num_def:
+  encode_decrease_cond_num
+    wxaig wnext wcnstrs wsafes wlive wlatches interv
+  =
+  xaig_map nsn2num nsn2num nsn_s_n_e2num
+    (encode_decrease_cond
+       wxaig wnext wcnstrs wsafes wlive wlatches interv)
+End
+
+Definition decrease_encoding_num_is_unsat_def:
+  decrease_encoding_num_is_unsat
+    wxaig wnext wcnstrs wsafes wlive wlatches interv
+  ⇔
+  (¬∃ss.
+    (xeval_gate ss
+       (encode_decrease_cond_num
+          wxaig wnext wcnstrs wsafes wlive wlatches interv)
+       25))
+End
+
+Theorem decrease_encoding_num_is_unsat_eq:
+  decrease_encoding_num_is_unsat
+    wxaig wnext wcnstrs wsafes wlive wlatches interv
+  =
+  decrease_encoding_is_unsat
+    wxaig wnext wcnstrs wsafes wlive wlatches interv
+Proof
+  simp [decrease_encoding_num_is_unsat_def, decrease_encoding_is_unsat_def,
+        encode_decrease_cond_num_def]
+  >> qspecl_then
+       [‘nsn2num’, ‘nsn2num’, ‘nsn_s_n_e2num’, ‘Ext Decrease’] mp_tac
+       exists_xeval_gate_xaig_map
+  >> impl_tac >- simp [INJ_DEF, nsn2num_11, nsn_s_n_e2num_11]
+  >> simp [nsn_s_n_e2num_def, ext2num_def]
+  >> metis_tac []
+QED
+
+Definition encode_closure_cond_num_def:
+  encode_closure_cond_num
+    wxaig wnext wcnstrs wsafes wlive wlatches interv
+  =
+  xaig_map nsn_s_n2num nsn_s_n2num nsn_s_n_s_nsn_e2num
+    (encode_closure_cond
+       wxaig wnext wcnstrs wsafes wlive wlatches interv)
+End
+
+Definition closure_encoding_num_is_unsat_def:
+  closure_encoding_num_is_unsat
+    wxaig wnext wcnstrs wsafes wlive wlatches interv
+  ⇔
+  (¬∃ss.
+    (xeval_gate ss
+       (encode_closure_cond_num
+          wxaig wnext wcnstrs wsafes wlive wlatches interv)
+       26))
+End
+
+Theorem closure_encoding_num_is_unsat_eq:
+  closure_encoding_num_is_unsat
+    wxaig wnext wcnstrs wsafes wlive wlatches interv
+  =
+  closure_encoding_is_unsat
+    wxaig wnext wcnstrs wsafes wlive wlatches interv
+Proof
+  simp [closure_encoding_num_is_unsat_def, closure_encoding_is_unsat_def,
+        encode_closure_cond_num_def]
+  >> qspecl_then
+       [‘nsn_s_n2num’, ‘nsn_s_n2num’, ‘nsn_s_n_s_nsn_e2num’, ‘Ext Closure’]
+       mp_tac exists_xeval_gate_xaig_map
+  >> impl_tac >- simp [INJ_DEF, nsn_s_n2num_11, nsn_s_n_s_nsn_e2num_11]
+  >> simp [nsn_s_n_s_nsn_e2num_def, ext2num_def]
+  >> metis_tac []
+QED
+
+Definition encode_stable_cond_num_def:
+  encode_stable_cond_num
+    wxaig wnext wcnstrs wsafes wlive wlatches interv
+  =
+  xaig_map nsn_s_n2num nsn_s_n2num nsn_s_n_s_nsn_e2num
+    (encode_stable_cond
+       wxaig wnext wcnstrs wsafes wlive wlatches interv)
+End
+
+Definition stable_encoding_num_is_unsat_def:
+  stable_encoding_num_is_unsat
+    wxaig wnext wcnstrs wsafes wlive wlatches interv
+  ⇔
+  (¬∃ss.
+    (xeval_gate ss
+       (encode_stable_cond_num
+          wxaig wnext wcnstrs wsafes wlive wlatches interv)
+       27))
+End
+
+Theorem stable_encoding_num_is_unsat_eq:
+  stable_encoding_num_is_unsat
+    wxaig wnext wcnstrs wsafes wlive wlatches interv
+  =
+  stable_encoding_is_unsat
+    wxaig wnext wcnstrs wsafes wlive wlatches interv
+Proof
+  simp [stable_encoding_num_is_unsat_def, stable_encoding_is_unsat_def,
+        encode_stable_cond_num_def]
+  >> qspecl_then
+       [‘nsn_s_n2num’, ‘nsn_s_n2num’, ‘nsn_s_n_s_nsn_e2num’, ‘Ext Stable’]
+       mp_tac exists_xeval_gate_xaig_map
+  >> impl_tac >- simp [INJ_DEF, nsn_s_n2num_11, nsn_s_n_s_nsn_e2num_11]
+  >> simp [nsn_s_n_s_nsn_e2num_def, ext2num_def]
+  >> metis_tac []
 QED
 
 (** Fusing encoding + mapping names to nums ***********************************)
@@ -3792,17 +4154,26 @@ Proof
   simp [FUN_EQ_THM, ext2num_def, sum2num_def]
 QED
 
-(*** Defining rewrites ********************************************************)
+(*** Defining the rewrite *****************************************************)
 
-fun step ss ths = CONV_RULE (RHS_CONV (SIMP_CONV ss ths))
+fun step ss ths =
+  CONV_RULE (STRIP_QUANT_CONV (RHS_CONV (SIMP_CONV ss ths)))
 
 val ext_case_def = definition "ext_case_def"
 
 val unfold_cond =
-  let
-    val thms = [FLAT, APPEND_NIL]
-    val cnv = SIMP_CONV (pure_ss ++ LET_ss)
-  in fn th => cnv (th::thms) end
+  step (pure_ss ++ LET_ss) [
+    encode_reset_cond_def,
+    encode_transition_cond_def,
+    encode_safety_cond_def,
+    encode_base_cond_def,
+    encode_induction_cond_def,
+    encode_liveness_cond_def,
+    encode_decrease_cond_def,
+    encode_closure_cond_def,
+    encode_stable_cond_def,
+    FLAT, APPEND_NIL
+  ]
 
 (* After this step, the term should be a concatenation of lists of the form
    MAP (gate_map ...) ... *)
@@ -3847,8 +4218,8 @@ val encode_lives_hold_num_to_num =
   ]
 
 (* inline_encoders, compose, and simp2num should be applied at the end,
-   as their rewrites could prevent the more specific rewrites for some encoders.
- *)
+   as their rewrites could prevent the more specific rewrites for some
+   encoders. *)
 
 (* Inlines encode_xlits_hold and encode_imply. *)
 val inline_encoders =
@@ -3887,124 +4258,39 @@ val simp2num =
 
 val reassoc = step pure_ss [GSYM APPEND_ASSOC, APPEND]
 
-(*** Applying rewrites ********************************************************)
+(* Rewrite that can be used on the ..._cond_num functions to get a (more)
+   efficent version for translation *)
+fun numify_cond th =
+  th |> unfold_cond
+     |> unfold_circs
+     |> expose_ext2num
+     |> encode_xis_next_to_num
+     |> encode_xis_reset_to_num
+     |> encode_signal_imply_to_num
+     |> encode_lives_hold_num_to_num
+     |> inline_encoders
+     |> compose
+     |> simp2num
+     |> reassoc
 
-val encode_reset_cond_num =
-  “xaig_map (I: num -> num) (I: num -> num) nsn_e2num
-      (encode_reset_cond mxaig mreset mcnstrs mlatches wxaig wreset wcnstrs
-         wlatches klatches)”
-  |> unfold_cond encode_reset_cond_def
-  |> unfold_circs
-  |> expose_ext2num
-  |> encode_xis_reset_to_num
-  |> inline_encoders
-  |> compose
-  |> simp2num
-  |> reassoc
+(* When translating, these definitions should be used instead of the _def
+   original. *)
 
-val encode_transition_cond_num =
-  “xaig_map nsn2num nsn2num nsn_s_nsn_e2num
-     (encode_transition_cond
-        mxaig mnext mcnstrs mlatches
-        wxaig wnext wcnstrs wlatches klatches)”
-  |> unfold_cond encode_transition_cond_def
-  |> unfold_circs
-  |> expose_ext2num
-  |> encode_xis_next_to_num
-  |> inline_encoders
-  |> compose
-  |> simp2num
-  |> reassoc
-
-val encode_safety_cond_num =
-  “xaig_map (I: num -> num) (I: num -> num) nsn_e2num
-     (encode_safety_cond mxaig mcnstrs msafes wxaig wcnstrs wsafes)”
-  |> unfold_cond encode_safety_cond_def
-  |> unfold_circs
-  |> expose_ext2num
-  |> inline_encoders
-  |> compose
-  |> simp2num
-  |> reassoc
-
-val encode_base_cond_num =
-  “xaig_map (I: num -> num) (I: num -> num) n_e2num
-     (encode_base_cond wxaig wreset wcnstrs wsafes wlatches)”
-  |> unfold_cond encode_base_cond_def
-  |> unfold_circs
-  |> expose_ext2num
-  |> encode_xis_reset_to_num
-  |> inline_encoders
-  |> compose
-  |> simp2num
-  |> reassoc
-
-val encode_induction_cond_num =
-  “xaig_map nsn2num nsn2num nsn_e2num
-     (encode_induction_cond wxaig wreset wcnstrs wsafes wlatches)”
-  |> unfold_cond encode_induction_cond_def
-  |> unfold_circs
-  |> expose_ext2num
-  |> encode_xis_next_to_num
-  |> inline_encoders
-  |> compose
-  |> simp2num
-  |> reassoc
-
-val encode_liveness_cond_num =
-  “xaig_map nsn2num nsn2num nsn_s_nsn_s_nsn_e2num
-     (encode_liveness_cond
-        mxaig mcnstrs mlive
-        wxaig wnext wcnstrs wsafes wlive wlatches interv)”
-  |> unfold_cond encode_liveness_cond_def
-  |> unfold_circs
-  |> expose_ext2num
-  |> encode_xis_next_to_num
-  |> encode_signal_imply_to_num
-  |> inline_encoders
-  |> compose
-  |> simp2num
-  |> reassoc
-
-val encode_decrease_cond_num =
-  “xaig_map nsn2num nsn2num nsn_s_n_e2num
-     (encode_decrease_cond
-        wxaig wnext wcnstrs wsafes wlive wlatches interv)”
-  |> unfold_cond encode_decrease_cond_def
-  |> unfold_circs
-  |> expose_ext2num
-  |> encode_lives_hold_num_to_num
-  |> encode_xis_next_to_num
-  |> inline_encoders
-  |> compose
-  |> simp2num
-  |> reassoc
-
-val encode_closure_cond_num =
-  “xaig_map nsn_s_n2num nsn_s_n2num nsn_s_n_s_nsn_e2num
-     (encode_closure_cond
-        wxaig wnext wcnstrs wsafes wlive wlatches interv)”
-  |> unfold_cond encode_closure_cond_def
-  |> unfold_circs
-  |> expose_ext2num
-  |> encode_lives_hold_num_to_num
-  |> encode_xis_next_to_num
-  |> inline_encoders
-  |> compose
-  |> simp2num
-  |> reassoc
-
-val encode_stable_cond_num =
-  “xaig_map nsn_s_n2num nsn_s_n2num nsn_s_n_s_nsn_e2num
-     (encode_stable_cond
-        wxaig wnext wcnstrs wsafes wlive wlatches interv)”
-  |> unfold_cond encode_stable_cond_def
-  |> unfold_circs
-  |> expose_ext2num
-  |> encode_signal_imply_to_num
-  |> encode_lives_hold_num_to_num
-  |> encode_xis_next_to_num
-  |> inline_encoders
-  |> compose
-  |> simp2num
-  |> reassoc
+Theorem encode_reset_cond_num_fused =
+  numify_cond encode_reset_cond_num_def
+Theorem encode_transition_cond_num_fused =
+  numify_cond encode_transition_cond_num_def
+Theorem encode_safety_cond_num_fused =
+  numify_cond encode_safety_cond_num_def
+Theorem encode_base_cond_num_fused =
+  numify_cond encode_base_cond_num_def
+Theorem encode_induction_cond_num_fused =
+  numify_cond encode_induction_cond_num_def
+Theorem encode_liveness_cond_num_fused =
+  numify_cond encode_liveness_cond_num_def
+Theorem encode_decrease_cond_num_fused =
+  numify_cond encode_decrease_cond_num_def
+Theorem encode_closure_cond_num_fused =
+  numify_cond encode_closure_cond_num_def
+Theorem encode_stable_cond_num_fused =
+  numify_cond encode_stable_cond_num_def
