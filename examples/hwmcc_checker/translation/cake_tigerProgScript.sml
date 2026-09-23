@@ -218,7 +218,7 @@ Quote add_cakeml:
       write_decrease prefix wxaig wnext wcnstrs wsafes wlive wlatches interv;
       write_closure prefix wxaig wnext wcnstrs wsafes wlive wlatches interv;
       write_stable prefix wxaig wnext wcnstrs wsafes wlive wlatches interv;
-      print "SUCCESS"
+      print "SUCCESS\n"
     )
 End
 

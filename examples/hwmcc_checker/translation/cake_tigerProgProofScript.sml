@@ -43,7 +43,7 @@ Definition cnf_saved_def:
     ∃content. get_file_content fs name = SOME content ∧ is_cnf_str cnf content
 End
 
-(* Asserts that if out = «SUCCESS» and the files to be written do not yet
+(* Asserts that if out = «SUCCESS\n» and the files to be written do not yet
    exist in the filesystem, then:
    1. getting the model (parsing + processing) was successful
    2. there exist 9 CNF formulas, such that
@@ -67,7 +67,7 @@ Definition make_cert_sem_def:
         [«reset»; «transition»; «safety»; «base»; «induction»; «liveness»;
          «decrease»; «closure»; «stable»]
   in
-    (out = «SUCCESS» ∧ EVERY (λf. ALOOKUP fs.files f = NONE) fnames ⇒
+    (out = «SUCCESS\n» ∧ EVERY (λf. ALOOKUP fs.files f = NONE) fnames ⇒
      ∃maig mreset mnext msafes mcnstrs mlive mlatches mlatch_start mmax_latch
       reset transition safety base induction liveness decrease closure stable.
         get_model fs fmodel =
@@ -842,7 +842,7 @@ Proof
   >> qexistsl [‘emp’, ‘fs'’]
   >> conj_tac >- xsimpl
   >> rw []
-  >> qexistsl [‘fs'’, ‘«SUCCESS»’]
+  >> qexistsl [‘fs'’, ‘«SUCCESS\n»’]
   >> conj_tac
   >- (
     conj_tac >- simp [Abbr ‘fs'’]
