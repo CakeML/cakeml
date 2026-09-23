@@ -274,31 +274,27 @@ Proof
 QED
 
 (* Translate the encoder *)
-val res = translate enc_lit_def;
-val res = translate enc_clause_def;
+val res = translate cnfTheory.var_lit_def;
+val res = translate syntax_helperTheory.max_list_def;
+val res = translate mcnf_max_var_def;
+val res = translate lit_num_def;
+val res = translate clause_key_def;
+val res = translate ternaryComparisonsTheory.list_compare_def;
+val res = translate (blk_cmp_def |> SRULE [FUN_EQ_THM]);
+val res = translate alloc_blk_def;
+val res = translate blk_map_def;
+val res = translate blk_num_def;
+val res = translate mcnf_enc_string_def;
+val res = translate menc_lit_def;
+val res = translate menc_clause_def;
 val res = translate pbcTheory.negate_def;
 val res = translate lit_le_def;
 val res = translate sorted_nub_aux_def;
 val res = translate sorted_nub_def;
 val res = translate canon_clause_def;
-val res = translate miscTheory.enumerate_def;
-val res = translate enc_string_def;
 
 val res = translate mclause_cs_def;
 val res = translate mclause_obj_def;
-
-Theorem mclause_obj_side[local]:
-  ∀x y. mclause_obj_side x y ⇔ T
-Proof
-  simp[fetch "-" "mclause_obj_side_def"]>>
-  rw[]>>
-  CCONTR_TAC>>
-  `canon_clause [] = []` by simp[]>>
-  gvs[]
-QED
-
-val _ = mclause_obj_side |> update_precondition;
-
 val res = translate num_objs_def;
 val res = translate pbc_moTheory.map_objs_def;
 val res = translate (mfml_to_pbf_def |> SIMP_RULE std_ss [SUC_LEMMA]);
