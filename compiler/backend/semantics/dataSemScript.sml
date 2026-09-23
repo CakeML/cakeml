@@ -1011,6 +1011,13 @@ Definition do_app_aux_def:
              then Rval (Number (& (w2n (EL (Num i) ws))),s)
              else Error)
          | _ => Error)
+    | (MemOp DerefBit,[RefPtr _ ptr; Number i]) =>
+        (case lookup ptr s.refs of
+         | SOME (ByteArray _ ws) =>
+            (if 0 ≤ i ∧ i < 8 * &LENGTH ws
+             then Rval (Block 0 (multiword$b2n ((EL (Num i DIV 8) ws) ' (Num i MOD 8))) [],s)
+             else Error)
+         | _ => Error)
     | (MemOp UpdateByte,[RefPtr _ ptr; Number i; Number b]) =>
         (case lookup ptr s.refs of
          | SOME (ByteArray f bs) =>
@@ -1018,6 +1025,16 @@ Definition do_app_aux_def:
              then
                Rval (Unit, s with refs := insert ptr
                  (ByteArray f (LUPDATE (i2w b) (Num i) bs)) s.refs)
+             else Error)
+         | _ => Error)
+    | (MemOp (SetBit b),[RefPtr _ ptr; Number i]) =>
+        (case lookup ptr s.refs of
+         | SOME (ByteArray f bs) =>
+            (if 0 ≤ i ∧ i < 8 * &LENGTH bs
+             then
+               Rval (Unit, s with refs := insert ptr
+                 (ByteArray f (LUPDATE (((Num i MOD 8) :+ b) (EL (Num i DIV 8) bs))
+                                       (Num i DIV 8) bs)) s.refs)
              else Error)
          | _ => Error)
     | (MemOp XorByte,[RefPtr _ dst; RefPtr _ src]) =>

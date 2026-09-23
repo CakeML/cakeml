@@ -159,6 +159,12 @@ Definition real_byte_offset_def:
             ShiftN Lsr (Var r) 1]
 End
 
+Definition real_bit_offset_def:
+  real_bit_offset r =
+    Op Add [Const bytes_in_word;
+            ShiftN Lsr (Var r) 4]
+End
+
 Datatype:
   word_op_type = Bitwise binop | Carried binop
 End
@@ -1226,6 +1232,23 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_DerefBit (c:data_to_word$config) (l:num) (dest:num) v1 v2 =
+    (list_Seq
+        [Assign 1 (Op Add [real_addr c (adjust_var v1);
+                           real_bit_offset (adjust_var v2)]);
+         Inst (Mem Load8 3 (Addr 1 0w));
+         Assign
+           (adjust_var dest)
+           (ShiftN Lsl
+              (Op And [Const 1w;
+                       Shift Lsr
+                             (Var 3)
+                             (Op And [Const 7w;
+                                      ShiftN Lsr (Var (adjust_var v2)) 1])])
+              1)], l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
   assign_Update (c:data_to_word$config) (l:num) (dest:num) v1 v2 v3 =
                  (Seq (Store (Op Add [real_addr c (adjust_var v1);
                                       real_offset c (adjust_var v2)])
@@ -1260,6 +1283,21 @@ val def = assign_Define `
           Assign 3 (ShiftN Lsr (Var (adjust_var v3)) 1);
           Inst (Mem Store8 3 (Addr 1 0w));
           Assign (adjust_var dest) Unit], l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_SetBit (c:data_to_word$config) (l:num) (dest:num) (b:bool) v1 v2 =
+    (list_Seq
+        [Assign 1 (Op Add [real_addr c (adjust_var v1);
+                           real_bit_offset (adjust_var v2)]);
+         Inst (Mem Load8 3 (Addr 1 0w));
+         Assign 5 (Shift Lsl (Const 1w)
+                         (Op And [Const 7w;
+                                  ShiftN Lsr (Var (adjust_var v2)) 1]));
+         Assign 7 (if b then Op Or [Var 3; Var 5] else
+                     Op And [Var 3; Op Xor [Var 5; Const (0w - 1w)]]);
+         Inst (Mem Store8 7 (Addr 1 0w));
+         Assign (adjust_var dest) Unit], l)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
@@ -2468,9 +2506,11 @@ Definition assign_def:
     | MemOp El => arg2 args (assign_El c l dest) (Skip,l)
     | BlockOp (ElemAt n) => arg1 args (assign_ElemAt c n l dest) (Skip,l)
     | MemOp DerefByte => arg2 args (assign_DerefByte c l dest) (Skip,l)
+    | MemOp DerefBit => arg2 args (assign_DerefBit c l dest) (Skip,l)
     | MemOp Update => arg3 args (assign_Update c l dest) (Skip,l)
     | MemOp UpdateCons => arg3 args (assign_Update c l dest) (Skip,l)
     | MemOp UpdateByte => arg3 args (assign_UpdateByte c l dest) (Skip,l)
+    | MemOp (SetBit b) => arg2 args (assign_SetBit c l dest b) (Skip,l)
     | MemOp FinaliseCons => arg1 args (assign_FinaliseCons l dest) (Skip,l)
     | BlockOp ListAppend => arg2 args (assign_ListAppend c secn l dest names) (Skip,l)
     | BlockOp (Cons tag) => assign_Cons c l dest tag args

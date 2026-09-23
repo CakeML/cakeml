@@ -15019,6 +15019,190 @@ Proof
   \\ fs[]
 QED
 
+Theorem get_real_bit_offset_lemma:
+  get_var v t = SOME (Word w) ∧ good_dimindex (:α) ⇒
+  word_exp t (real_bit_offset v) = SOME (Word (bytes_in_word + (w:'a word) ⋙ 4))
+Proof
+  rw[real_bit_offset_def,wordSemTheory.get_var_def]
+  \\ eval_tac \\ fs[good_dimindex_def,dimword_def]
+QED
+
+Theorem b2w_index[local]:
+  i < dimindex (:'a) ⇒ ((b2w b : 'a word) ' i ⇔ i = 0 ∧ b)
+Proof
+  Cases_on ‘b’ \\ gvs [b2w_def, word_index]
+QED
+
+Theorem deref_bit_lemma[local]:
+  small_int (:'a) (&n) ∧ good_dimindex (:'a) ⇒
+  Smallnum (&n) ⋙ 4 = n2w (n DIV 8) :'a word ∧
+  32 ≤ dimindex (:'a) ∧
+  w2n ((7w && Smallnum (&n) ⋙ 1) :'a word) = n MOD 8 ∧
+  n MOD 8 < dimindex (:α) ∧
+  (∀b:word8. 1w && w2w b ⋙ (n MOD 8) = b2w (b ' (n MOD 8)) :'a word) ∧
+  (∀b:word8. w2w ((w2w b ‖ ((1w:'a word) ≪ (n MOD 8)))) = ((n MOD 8 :+ T) b)) ∧
+  (∀b:word8. w2w ((w2w b && ~((1w:'a word) ≪ (n MOD 8)))) = ((n MOD 8 :+ F) b))
+Proof
+  strip_tac
+  \\ ‘32 ≤ dimindex (:'a)’ by fs [good_dimindex_def]
+  \\ asm_rewrite_tac []
+  \\ conj_tac
+  >-
+   (simp [Smallnum_def]
+    \\ rewrite_tac [GSYM w2n_11, w2n_lsr]
+    \\ simp []
+    \\ DEP_REWRITE_TAC [LESS_MOD]
+    \\ conj_tac >- gvs [good_dimindex_def, dimword_def, small_int_def, DIV_LT_X]
+    \\ Cases_on ‘n = 0’ >- simp []
+    \\ rewrite_tac [GSYM (EVAL “8 * 2:num”)]
+    \\ DEP_REWRITE_TAC [miscTheory.MULT_DIV_MULT_LEMMA] \\ simp [])
+  \\ have ‘Smallnum (&n) ⋙ 1 = n2w n’
+  >-
+   (gvs [Smallnum_def] \\ rewrite_tac [GSYM w2n_11, w2n_lsr]
+    \\ gvs [small_int_def, good_dimindex_def, dimword_def]
+    \\ once_rewrite_tac [MULT_COMM]
+    \\ DEP_REWRITE_TAC [MULT_DIV] \\ fs [])
+  \\ have ‘n MOD 8 < dimword (:α) ∧ n MOD 8 < dimindex (:α)’
+  >-
+   (rw [] \\ irule LESS_TRANS
+    \\ qexists_tac ‘8’
+    \\ gvs [good_dimindex_def, dimword_def])
+  \\ simp []
+  \\ conj_tac
+  >-
+   (once_rewrite_tac [WORD_AND_COMM]
+    \\ rewrite_tac [WORD_AND_EXP_SUB1, GSYM (EVAL “2 ** 3 - 1”)]
+    \\ fs [])
+  \\ simp [fcpTheory.CART_EQ, word_and_def, fcpTheory.FCP_BETA, word_or_def,
+           word_lsr_def, word_lsl_def, w2w, word_1comp_def, wordsTheory.word_index,
+           SF CONJ_ss]
+  \\ once_rewrite_tac [fcpTheory.FCP_APPLY_UPDATE_THM] \\ gvs [b2w_index]
+  \\ rw [] \\ eq_tac \\ rw [] \\ gvs []
+QED
+
+Theorem assign_DerefBit:
+  op = MemOp DerefBit ==> ^assign_thm_goal
+Proof
+  strip_tac
+  \\ rpt strip_tac
+  \\ gvs [dataLangTheory.op_requires_names_def,
+          dataLangTheory.op_space_reset_def,
+          dataSemTheory.cut_state_opt_def]
+  \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs[]
+  \\ gvs [do_app, AllCaseEqs()]
+  \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
+  \\ imp_res_tac get_vars_2_IMP
+  \\ fs[state_rel_thm,set_var_def,option_le_max_right]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule0 memory_rel_get_vars_IMP
+  \\ strip_tac
+  \\ gvs [get_vars_def, AllCaseEqs()]
+  \\ rpt_drule0 memory_rel_ByteArray_IMP
+  \\ strip_tac \\ clean_tac
+  \\ qpat_x_assum ‘∀x._’ kall_tac
+  \\ rpt_drule0 get_var_get_real_addr_lemma
+  \\ imp_res_tac memory_rel_tl
+  \\ rename1 `i < &(8 * LENGTH bytes)`
+  \\ have `small_int (:'a) i`
+  >-
+   (simp[small_int_def]
+    \\ fs[good_dimindex_def]
+    \\ rfs[dimword_def]
+    \\ intLib.COOPER_TAC)
+  \\ rpt_drule0 memory_rel_Number_IMP
+  \\ qhdtm_x_assum`memory_rel` kall_tac
+  \\ strip_tac
+  \\ clean_tac
+  \\ qpat_x_assum`get_var _ _ = SOME (Word(Smallnum _))`assume_tac
+  \\ rpt_drule0 get_real_bit_offset_lemma
+  \\ simp [assign_def,list_Seq_def] \\ eval_tac
+  \\ simp[wordSemTheory.inst_def] \\ eval_tac
+  \\ ‘∃n. i = & n’ by intLib.COOPER_TAC \\ gvs []
+  \\ drule_all deref_bit_lemma \\ strip_tac
+  \\ first_x_assum $ qspec_then ‘n DIV 8’ mp_tac
+  \\ impl_tac >- simp [DIV_LT_X]
+  \\ strip_tac \\ simp [lookup_insert,adjust_var_11]
+  \\ rpt disch_tac
+  \\ conj_tac >- (rw [] \\ fs [])
+  \\ fs[inter_insert_ODD_adjust_set,option_le_max_right]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ simp []
+  \\ irule IMP_memory_rel_Cons_empty \\ simp []
+  \\ imp_res_tac memory_rel_tl \\ fs []
+  \\ conj_tac
+  >-
+   (rw [oneline multiwordTheory.b2n_def]
+    \\ gvs [dimword_def,good_dimindex_def])
+  \\ rewrite_tac [wordsTheory.LSL_BITWISE, BlockNil_def, GSYM multiwordTheory.b2w_def]
+QED
+
+Theorem assign_SetBit:
+  (∃b. op = MemOp (SetBit b)) ==> ^assign_thm_goal
+Proof
+  strip_tac
+  \\ rpt strip_tac
+  \\ gvs [dataLangTheory.op_requires_names_def,
+          dataLangTheory.op_space_reset_def,
+          dataSemTheory.cut_state_opt_def]
+  \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs[]
+  \\ gvs [do_app, AllCaseEqs()]
+  \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
+  \\ imp_res_tac get_vars_2_IMP
+  \\ fs[state_rel_thm,set_var_def,option_le_max_right]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule0 memory_rel_get_vars_IMP
+  \\ strip_tac
+  \\ gvs [get_vars_def, AllCaseEqs()]
+  \\ rpt_drule0 memory_rel_ByteArray_IMP
+  \\ strip_tac \\ clean_tac
+  \\ qpat_x_assum ‘∀x._’ $ mk_asm "here"
+  \\ rpt_drule0 get_var_get_real_addr_lemma
+  \\ imp_res_tac memory_rel_tl
+  \\ rename1 `i < &(8 * LENGTH bytes)`
+  \\ have `small_int (:'a) i`
+  >-
+   (simp[small_int_def]
+    \\ fs[good_dimindex_def]
+    \\ rfs[dimword_def]
+    \\ intLib.COOPER_TAC)
+  \\ rpt_drule0 memory_rel_Number_IMP
+  \\ qhdtm_x_assum`memory_rel` kall_tac
+  \\ strip_tac
+  \\ clean_tac
+  \\ qpat_x_assum`get_var _ _ = SOME (Word(Smallnum _))`assume_tac
+  \\ rpt_drule0 get_real_bit_offset_lemma
+  \\ simp [assign_def,list_Seq_def] \\ eval_tac
+  \\ simp[wordSemTheory.inst_def] \\ eval_tac
+  \\ ‘∃n. i = & n’ by intLib.COOPER_TAC \\ gvs []
+  \\ drule_all deref_bit_lemma \\ strip_tac
+  \\ first_x_assum $ qspec_then ‘n DIV 8’ mp_tac
+  \\ impl_keep_tac >- simp [DIV_LT_X]
+  \\ strip_tac \\ simp [lookup_insert,adjust_var_11]
+  \\ Cases_on ‘b’ \\ gvs []
+  \\ eval_tac \\ simp [lookup_insert]
+  \\ asm_x "here" $ qspec_then ‘n DIV 8’ drule
+  \\ gvs [wordSemTheory.mem_store_byte_aux_def,AllCaseEqs(),
+          wordSemTheory.mem_load_byte_aux_def]
+  \\ eval_tac
+  \\ gvs [Unit_def, wordSemTheory.word_exp_def, lookup_insert, adjust_var_11]
+  \\ rpt disch_tac
+  \\ rw [] \\ fs []
+  \\ fs[inter_insert_ODD_adjust_set,option_le_max_right]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ simp []
+  \\ fs [theWord_def]
+  \\ match_mp_tac memory_rel_Unit \\ fs []
+  \\ metis_tac [memory_rel_tl]
+QED
+
 Theorem assign_Const:
   (∃i. op = IntOp (Const i)) ==> ^assign_thm_goal
 Proof
