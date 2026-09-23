@@ -124,16 +124,28 @@ End
 val nulc_v_thm = translate nulc_def;
 
 val res = translate vb_ilit_def;
-val res = translate parse_vb_ilits_def;
+val res = translate parse_vb_ilits_int_def;
+
+Theorem parse_vb_ilits_int_side[local]:
+  ∀s i len acc.
+  len ≤ strlen s ⇒ parse_vb_ilits_int_side s i len acc
+Proof
+  ho_match_mp_tac parse_vb_ilits_int_ind>>
+  rw[]>>
+  simp[Once (fetch "-" "parse_vb_ilits_int_side_def")]>>
+  simp[fetch "ccnf_arrayProg" "parse_vb_num_side_def",parse_vb_num_aux_side,
+    parse_vb_int_side]
+QED
+
+val _ = parse_vb_ilits_int_side |> update_precondition;
+
+val res = translate parse_vb_ilits_eq;
 
 Theorem parse_vb_ilits_side[local]:
   ∀s i len acc.
   len ≤ strlen s ⇒ parse_vb_ilits_side s i len acc
 Proof
-  ho_match_mp_tac parse_vb_ilits_ind>>
-  rw[]>>
-  simp[Once (fetch "-" "parse_vb_ilits_side_def")]>>
-  simp[fetch "ccnf_arrayProg" "parse_vb_num_side_def",parse_vb_num_aux_side]
+  rw[fetch "-" "parse_vb_ilits_side_def",parse_vb_ilits_int_side]
 QED
 
 val _ = parse_vb_ilits_side |> update_precondition;

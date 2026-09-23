@@ -690,7 +690,29 @@ QED
 val _ = parse_vb_num_aux_side |> update_precondition;
 
 val res = translate parse_vb_num_def;
-val res = translate parse_vb_int_def;
+
+val res = translate vb_sgn_def;
+val res = translate vb_int_lo_def;
+
+Theorem vb_int_lo_side[local]:
+ !a b c.
+ c <= strlen a ==> vb_int_lo_side a b c
+Proof
+ rw[definition "vb_int_lo_side_def",parse_vb_num_aux_side]
+QED
+
+val _ = vb_int_lo_side |> update_precondition;
+
+val res = translate parse_vb_int_eq;
+
+Theorem parse_vb_int_side:
+ !s i len.
+ len <= strlen s ==> parse_vb_int_side s i len
+Proof
+ rw[definition "parse_vb_int_side_def",vb_int_lo_side]
+QED
+
+val _ = parse_vb_int_side |> update_precondition;
 
 Quote add_cakeml:
   fun unit_prop_vb_arr lno fml carr b s i1 len =
@@ -739,9 +761,7 @@ Proof
   strip_tac>>
   xcf "unit_prop_vb_arr" (get_ml_prog_state ())>>
   xlet_auto
-  >- (xsimpl >> fs[definition "parse_vb_int_side_def",
-                  definition "parse_vb_num_side_def"]
-     >> fs[parse_vb_num_aux_side]) >>
+  >- (xsimpl >> fs[parse_vb_int_side]) >>
   gvs[UNCURRY_EQ,PAIR_TYPE_def] >> xmatch >>
   xlet_auto >- xsimpl >>
   xif >- (
@@ -1048,9 +1068,7 @@ Proof
   xlet_auto
   >- (
     xsimpl>>
-    fs[definition "parse_vb_int_side_def",
-       definition "parse_vb_num_side_def"]>>
-    fs[parse_vb_num_aux_side])>>
+    fs[parse_vb_int_side])>>
   Cases_on`parse_vb_int s i l`>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
