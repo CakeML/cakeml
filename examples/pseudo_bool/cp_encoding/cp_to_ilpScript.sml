@@ -327,21 +327,7 @@ Definition reify_flag_def:
         BIT (Num (EL 1 vs)) (vp_first_occ wi Xs (EL 0 vs))
       else (* ann = SOME («pge») *)
         &(vp_first_occ wi Xs (EL 0 vs)) ≥ EL 1 vs
-    | SOME (Misc (MinDistance Xs D Z Ropt)) =>
-      (* «u» [a]: some position takes value a; «d» [a]: at least two
-         positions take value a (a duplicate); «w» [a;b]: some position
-         takes a and some (other, since a≠b whenever this flag is ever
-         built) position takes b; «m» [t]: the ladder's running
-         accumulator, some pair of positions achieves distance ≤ t *)
-      if ann = SOME («u») then
-        ∃X. MEM X Xs ∧ varc wi X = HD vs
-      else if ann = SOME («d») then
-        2 ≤ LENGTH (FILTER (λX. varc wi X = HD vs) Xs)
-      else if ann = SOME («w») then
-        (∃X. MEM X Xs ∧ varc wi X = EL 0 vs) ∧
-        (∃X. MEM X Xs ∧ varc wi X = EL 1 vs)
-      else (* ann = SOME («m») *)
-        md_le Xs D wi (HD vs))
+    )
 End
 
 (* char 91 is [, char 92 is backslash, char 93 is ] *)

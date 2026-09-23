@@ -281,15 +281,6 @@ Datatype:
     Circuit ('a varc list)
     (* General Knapsack *)
   | Knapsack (int list list) ('a varc list) ('a varc list)
-    (* MinDistance Xs D Z Ropt : Xs (p ≥ 2 of them) are "selected point"
-       variables ranging over candidate site indices 0..n-1 (n = LENGTH D);
-       D is the n×n distance matrix (symmetric, zero diagonal,
-       non-negative); Z equals the minimum, over every pair of positions
-       i<j, of D[Xs[i]][Xs[j]] (duplicate site selections are allowed and
-       contribute distance 0, since D[a,a]=0). Ropt, when present, is a
-       p×p requirements matrix: D[Xs[i]][Xs[j]] ≥ Ropt[i][j] for every
-       i<j (only entries above the diagonal are read). *)
-  | MinDistance ('a varc list) (int list list) ('a varc) ((int list list) option)
 End
 
 Datatype:
@@ -1008,61 +999,11 @@ Definition knapsack_sem_def:
   LIST_REL (λcs t. eval_iclin_term w (ZIP (cs,Xs)) = t) css (MAP (varc w) Ts)
 End
 
-(* D well-formed as an n×n symmetric, zero-diagonal, non-negative distance
-   matrix (n = LENGTH D) *)
-Definition dist_matrix_ok_def:
-  dist_matrix_ok D ⇔
-  let n = LENGTH D in
-  EVERY (λrow. LENGTH row = n) D ∧
-  (∀a b. a < n ∧ b < n ⇒ EL b (EL a D) = EL a (EL b D)) ∧
-  (∀a. a < n ⇒ EL a (EL a D) = 0) ∧
-  (∀a b. a < n ∧ b < n ⇒ EL b (EL a D) ≥ 0)
-End
-
-(* the (a,b) entry of D, for candidate sites a,b < LENGTH D *)
-Definition dist_at_def:
-  dist_at D a b = EL b (EL a D)
-End
-
-Definition min_distance_sem_def:
-  min_distance_sem Xs D Z Ropt w ⇔
-  dist_matrix_ok D ∧
-  EVERY (λX. 0 ≤ varc w X ∧ Num (varc w X) < LENGTH D) Xs ∧
-  (∃i j. i < j ∧ j < LENGTH Xs ∧
-     varc w Z = dist_at D (Num (varc w (EL i Xs))) (Num (varc w (EL j Xs)))) ∧
-  (∀i j. i < j ∧ j < LENGTH Xs ⇒
-     varc w Z ≤ dist_at D (Num (varc w (EL i Xs))) (Num (varc w (EL j Xs)))) ∧
-  (case Ropt of
-     NONE => T
-   | SOME R =>
-       LENGTH R = LENGTH Xs ∧ EVERY (λrow. LENGTH row = LENGTH Xs) R ∧
-       (∀i j. i < j ∧ j < LENGTH Xs ⇒ EL j (EL i R) ≥ 0) ∧
-       (∀i j. i < j ∧ j < LENGTH Xs ⇒
-          dist_at D (Num (varc w (EL i Xs))) (Num (varc w (EL j Xs))) ≥
-          EL j (EL i R)))
-End
-
-(* whether some pair of positions in Xs achieves distance exactly t under D;
-   the semantic content shared by min_distance_sem's own ∃ clause and by
-   the min_distance encoder's proof-only witness flags (u/d/w/m) *)
-Definition md_pair_def:
-  md_pair Xs D w (t:int) ⇔
-  ∃i j. i < j ∧ j < LENGTH Xs ∧
-    dist_at D (Num (varc w (EL i Xs))) (Num (varc w (EL j Xs))) = t
-End
-
-(* whether some pair of positions achieves distance ≤ t; this is exactly
-   what the min_distance encoder's ladder flag m_t means *)
-Definition md_le_def:
-  md_le Xs D w (t:int) ⇔ ∃t'. t' ≤ t ∧ md_pair Xs D w t'
-End
-
 Definition misc_constr_sem_def:
   misc_constr_sem c w ⇔
   case c of
     Circuit Xs => circuit_sem Xs w
   | Knapsack css Xs Ts => knapsack_sem css Xs Ts w
-  | MinDistance Xs D Z Ropt => min_distance_sem Xs D Z Ropt w
 End
 
 (***
