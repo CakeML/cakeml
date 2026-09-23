@@ -19,16 +19,7 @@ val r = translate aigTheory.bvar_map_def;
 val r = translate aigTheory.var_map_def;
 val r = translate aigTheory.lit_map_def;
 
-Theorem lit_map_base_eq[local] =
-  aigTheory.lit_map_base_def |> SRULE [FUN_EQ_THM];
-val r = translate lit_map_base_eq;
-
-val r = translate aigTheory.live_map_base_def;
-val r = translate aigTheory.qleft_live_def;
-
 val r = translate xaigTheory.get_lits_def;
 val r = translate xaigTheory.gty_map_def;
 val r = translate xaigTheory.gate_map_def;
-val r = translate xaigTheory.xaig_map_def;
-val r = translate xaigTheory.qxleft_def;
 val r = translate xaigTheory.aig_to_xaig_def;

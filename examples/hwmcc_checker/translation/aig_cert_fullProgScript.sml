@@ -37,13 +37,6 @@ val r = translate listTheory.LIST_REL_def;
 
 val r = translate (aig_cert_fullTheory.process_and_check_def |> demonadify);
 
-(* The mapped circuit is the one lowered to CNF, so its gate, input and latch
-   names are num whatever the encoded condition was named by. *)
-Theorem xaig_map_then_cnf_num[local] =
-  aig_cert_fullTheory.xaig_map_then_cnf_def
-  |> INST_TYPE [beta |-> “:num”, delta |-> “:num”, mk_vartype "'f" |-> “:num”];
-val r = translate xaig_map_then_cnf_num;
-
 val r = translate aig_cert_fullTheory.make_reset_string_def;
 val r = translate aig_cert_fullTheory.make_transition_string_def;
 val r = translate aig_cert_fullTheory.make_safety_string_def;
