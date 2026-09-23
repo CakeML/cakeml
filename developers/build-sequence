@@ -229,6 +229,7 @@ compiler/benchmarks/mlton_benchmarks/cakeml
 
 # compiler HOL bootstrap
 compiler/bootstrap/translation
+compiler/bootstrap/compilation/sexpr32:cake-sexpr-32
 compiler/bootstrap/compilation/x64/64:cake-x64-64.tar.gz
 compiler/bootstrap/compilation/x64/32:cake-x64-32.tar.gz
 compiler/bootstrap/compilation/x64/32/proofs

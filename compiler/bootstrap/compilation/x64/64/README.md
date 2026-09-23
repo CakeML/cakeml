@@ -17,10 +17,6 @@ This directory contains the end-to-end correctness theorem for the
 This file gives the CakeML REPL multi-line input and file loading
 capabilities.
 
-[sexprBootstrap32Script.sml](sexprBootstrap32Script.sml):
-Produces an sexp print-out of the bootstrap translated compiler
-definition for the 32-bit version of the compiler.
-
 [sexprBootstrap64Script.sml](sexprBootstrap64Script.sml):
 Produces an sexp print-out of the bootstrap translated compiler
 definition for the 64-bit version of the compiler.

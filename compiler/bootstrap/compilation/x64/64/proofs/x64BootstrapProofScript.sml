@@ -5,7 +5,7 @@ Theory x64BootstrapProof
 Ancestors
   holLightConsistency
   semanticsProps backendProof x64_configProof compiler64Prog
-  x64Bootstrap replProof candle_prover_semantics mlstring
+  x64Bootstrap replProof compiler64ReplProof candle_prover_semantics mlstring
 Libs
   preamble
 
@@ -99,7 +99,7 @@ Theorem mk_init_eval_state_lemma =
        source_evalProofTheory.mk_init_eval_state_def]
   |> ONCE_REWRITE_RULE [mk_compiler_fun_from_ci_tuple]
   |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_compiler_fun_from_ci_def,
-        GSYM compiler_inst_def];
+        GSYM compiler64ReplProofTheory.compiler_inst_def];
 
 Overload init_eval_state_for =
   “λext cl fs. (init_state (basis_ffi ext cl fs) with

@@ -246,7 +246,7 @@ Theorem repl_types_repl_prog:
       (repl_prog_types,st with <|eval_state := NONE; clock := ck1|>,
        repl_init_env) ∧
     do_opapp [CommandLine_arguments_v; Conv NONE []] = SOME (env_cl,e_cl) ∧
-    evaluate (st with <|eval_state := NONE; clock := ck1 − 2|>) env_cl
+    evaluate (st with <|eval_state := NONE; clock := ck1 − entry_cost|>) env_cl
       [e_cl] = (s_cl,res_cl) ∧
     (res_cl ≠ Rerr (Rabort Rtimeout_error) ⇒
      ∃cl_v.

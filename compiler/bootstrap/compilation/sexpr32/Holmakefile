@@ -1,0 +1,9 @@
+all: $(DEFAULT_TARGETS) README.md cake-sexpr-32
+
+sinclude $(CAKEMLDIR)/developers/readme.mk
+
+cake-sexpr-32: *sexprBootstrap32Script.sml
+
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
+endif

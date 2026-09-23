@@ -307,7 +307,11 @@ static void cml_init_eval(int local_argc, char **local_argv) {
   uintptr_t end = (uintptr_t)&cake_codebuffer_end;
   if (text > begin || begin > end ||
       begin - begin % cml_page_size < text || end % cml_page_size != 0) {
-    cml_runtime_error(0, "the text and code buffer do not have a safe page layout");
+    cml_runtime_error(0,
+      "unsafe text and code buffer page layout (page size %zu; "
+      "text %p, buffer begin %p, buffer end %p)",
+      cml_page_size, (void *)&cake_text_begin,
+      (void *)&cake_codebuffer_begin, (void *)&cake_codebuffer_end);
   }
   for (int i = 0; i < local_argc; i++) {
     if (strcmp(local_argv[i], "--repl") == 0 ||

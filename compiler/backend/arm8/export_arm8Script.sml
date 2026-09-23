@@ -26,7 +26,9 @@ Definition startup_def:
        «/* Start up code */\n»;
        «\n»;
        «     .text\n»;
-       «     .p2align 3\n»;
+       «     .p2align 16\n»;
+       «     .globl  cdecl(cake_text_begin)\n»;
+       «cdecl(cake_text_begin):\n»;
        «     .globl  cdecl(cml_main)\n»;
        «     .globl  cdecl(cml_heap)\n»;
        «     .globl  cdecl(cml_stack)\n»;
@@ -52,7 +54,15 @@ Definition startup_def:
     (SmartAppend (List
       (if ~pk then
         [«     _ldrel x2, cake_bitmaps\n»;
-         «     str    x2,[x1]                  /* store bitmap pointer */\n»]
+         «     str    x2,[x1]                  /* store bitmap pointer */\n»;
+         «     _ldrel x2, cdecl(cake_bitmaps_buffer_begin)\n»;
+         «     str    x2,[x1,#8]               /* bitmap buffer start */\n»;
+         «     _ldrel x2, cdecl(cake_bitmaps_buffer_end)\n»;
+         «     str    x2,[x1,#16]              /* bitmap buffer end */\n»;
+         «     _ldrel x2, cdecl(cake_codebuffer_begin)\n»;
+         «     str    x2,[x1,#24]              /* code buffer start */\n»;
+         «     _ldrel x2, cdecl(cake_codebuffer_end)\n»;
+         «     str    x2,[x1,#32]              /* code buffer end */\n»]
       else []))
     (SmartAppend (List
       [«     _ldrel x2, cdecl(cml_stack)     /* arg3: first address of stack */\n»;
@@ -90,7 +100,7 @@ val ffi_code' =
      (ffi_asm (REVERSE ffi_names))
      (List (MAP (\n. strlit(n ++ "\n"))
       (["cake_install:";
-       "     b   cdecl(cml_exit)";
+       "     b   cdecl(cml_install)";
        "     .p2align 4";
        "";
        "cake_exit:"] ++
@@ -212,6 +222,22 @@ Definition export_funcs_def:
     FOLDL export_func misc$Nil (FILTER ((flip MEM exp) o FST) lsyms)
 End
 
+(* ARMv8 supports 4, 16 and 64 KiB pages. Keep the buffer immediately after
+   the generated code, with its end on a boundary for all three page sizes. *)
+Definition arm8_code_buffer_def:
+  arm8_code_buffer =
+     MAP (\n. strlit (n ++ "\n"))
+       ["     .globl cdecl(cake_codebuffer_begin)";
+        "cdecl(cake_codebuffer_begin):";
+        "#if defined(EVAL)";
+        "     .space CODE_BUFFER_SIZE";
+        "#endif";
+        "     .p2align 16";
+        "     .globl cdecl(cake_codebuffer_end)";
+        "cdecl(cake_codebuffer_end):";
+        "     .space 4096"]
+End
+
 Definition arm8_export_def:
   arm8_export ffi_names bytes (data:word64 list) syms exp ret pk =
     let lsyms = get_sym_labels syms in
@@ -222,7 +248,7 @@ Definition arm8_export_def:
       (SmartAppend (List data_buffer)
       (SmartAppend (startup ret pk) (^ffi_code ret))))))
       (SmartAppend (split16 (words_line «\t.byte » byte_to_string) bytes)
-      (SmartAppend (List code_buffer)
+      (SmartAppend (List arm8_code_buffer)
       (SmartAppend (emit_symbols lsyms)
       (if ret then
         (SmartAppend ^entry_point_code (export_funcs lsyms exp))

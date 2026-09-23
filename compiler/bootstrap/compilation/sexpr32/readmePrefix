@@ -1,0 +1,2 @@
+This directory generates the target-independent 32-bit compiler
+S-expression used by the x64 and ARM8 releases.

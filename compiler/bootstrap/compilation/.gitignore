@@ -3,5 +3,8 @@ x64/64/cake
 x64/64/test-hello.cake
 x64/64/cake-sexpr-32
 x64/64/cake-sexpr-64
+arm8/64/cake-sexpr-32
+arm8/64/cake-sexpr-64
+sexpr32/cake-sexpr-32
 x64/64/output
 x64/64/expected_output
