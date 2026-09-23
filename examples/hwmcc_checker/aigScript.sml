@@ -223,6 +223,14 @@ Definition lit_map_def:
   lit_map f g h (v, b) = (var_map f g h v, b)
 End
 
+Theorem not_lit_map:
+  not (lit_map f g h x) = lit_map f g h (not x)
+Proof
+  simp [oneline lit_map_def, oneline var_map_def, oneline bvar_map_def,
+        oneline not_def]
+  >> every_case_tac
+QED
+
 Theorem lit_map_o:
   lit_map f g h ∘ lit_map f' g' h' = lit_map (f ∘ f') (g ∘ g') (h ∘ h')
 Proof

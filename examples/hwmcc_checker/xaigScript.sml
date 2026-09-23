@@ -120,6 +120,12 @@ Proof
   simp [xaig_map_def]
 QED
 
+Theorem xaig_map_append:
+  xaig_map f g h (xs ++ ys) = xaig_map f g h xs ++ xaig_map f g h ys
+Proof
+  simp [xaig_map_def]
+QED
+
 Theorem gty_map_o:
   gty_map f g h ∘ gty_map f' g' h' = gty_map (f ∘ f') (g ∘ g') (h ∘ h')
 Proof

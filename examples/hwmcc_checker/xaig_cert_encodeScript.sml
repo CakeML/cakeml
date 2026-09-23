@@ -35,7 +35,6 @@ Libs
  *)
 
 (* TODO upstream *)
-
 Theorem MAPi_MAP:
   ∀l f g. MAPi f (MAP g l) = MAPi (λi a. f i (g a)) l
 Proof
@@ -3507,6 +3506,27 @@ QED
 
 (** Fusing encoding + mapping names to nums ***********************************)
 
+Theorem maxn_map_ext_lit[local]:
+  maxn (MAP ext_lit xs) = 1
+Proof
+  Induct_on ‘xs’ >> gvs [maxn_def]
+QED
+
+Theorem maxn_map_latch_f[local]:
+  maxn (MAP (λl. (Base (Latch (f l)),b)) xs) = 1
+Proof
+  Induct_on ‘xs’ >> gvs [maxn_def, iname_def]
+QED
+
+Theorem map_fst_snd_zip[local]:
+  ∀xs ys.
+    MAP (λx. (f (FST x), g (SND x))) (ZIP (xs, ys)) =
+    ZIP (MAP f xs, MAP g ys)
+Proof
+  Induct >> simp [ZIP_def]
+  >> gen_tac >> Cases >> simp [ZIP_def]
+QED
+
 (** Intervention **************************************************************)
 
 Theorem lit_map_o_qinterv_lit:
@@ -3537,18 +3557,156 @@ Proof
   >> simp [GSYM gty_map_o_qinterv_gty]
 QED
 
-(*** xaig_map *****************************************************************)
+(** encode_lives_hold *********************************************************)
 
-(* Theorem xaig_map_cons: *)
-(*   xaig_map f g h (x::xs) = gate_map f g h x :: xaig_map f g h xs *)
-(* Proof *)
-(*   simp [xaig_map_def] *)
-(* QED *)
+Definition mapi_ori_num_aux_def:
+  mapi_ori_num_aux i []      = [] ∧
+  mapi_ori_num_aux i (xs::xss) =
+    (i, Or xs)::mapi_ori_num_aux (i + 2) xss
+End
 
-Theorem xaig_map_append:
-  xaig_map f g h (xs ++ ys) = xaig_map f g h xs ++ xaig_map f g h ys
+Definition mapi_ori_num_def:
+  mapi_ori_num n xys = mapi_ori_num_aux (2 * n + 29) xys
+End
+
+Theorem mapi_ori_num_aux_thm:
+  ∀xss i.
+    mapi_ori_num_aux i xss = MAPi (λj xs. (2 * j + i, Or xs)) xss
 Proof
-  simp [xaig_map_def]
+  Induct >> rw [mapi_ori_num_aux_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> simp [o_DEF, ADD1, LEFT_ADD_DISTRIB]
+QED
+
+Definition and_genlist_num_aux_def:
+  and_genlist_num_aux b i 0       = [] ∧
+  and_genlist_num_aux b i (SUC c) =
+    (Gate i, b)::and_genlist_num_aux b (i + 2) c
+End
+
+Definition and_genlist_num_def:
+  and_genlist_num b n cnt =
+    And (and_genlist_num_aux b (2 * n + 29) cnt)
+End
+
+Theorem and_genlist_num_aux_thm:
+  ∀cnt i. and_genlist_num_aux b i cnt = GENLIST (λj. (Gate (2 * j + i), b)) cnt
+Proof
+  Induct
+  >> rw [and_genlist_num_aux_def, GENLIST_CONS, o_DEF, ADD1, LEFT_ADD_DISTRIB]
+QED
+
+(* Assumes that xs and ys are of the form (MAP (MAP (ext_lit ∘ ...) ...),
+   allowing us use 1 instead of calculating the max iname.  *)
+Definition encode_lives_hold_num_def:
+  encode_lives_hold_num name xss =
+  let
+    ori_gates = mapi_ori_num 1 xss;
+    gty = and_genlist_num F 1 (LENGTH xss);
+  in (name, gty)::ori_gates
+End
+
+Theorem map_gate_map_encode_lives_hold_to_num:
+  MAP (gate_map f g (ext2num h))
+    (encode_lives_hold name (MAP (MAP (ext_lit ∘ i)) xss))
+  =
+  encode_lives_hold_num (ext_name2num name)
+    (MAP (MAP (lit_map f g (ext2num h) ∘ ext_lit ∘ i)) xss)
+Proof
+  simp [encode_lives_hold_def, encode_lives_hold_num_def,
+        gate_map_def, gty_map_def, lit_map_def, var_map_def, ext2num_def,
+        and_genlist_num_def, and_genlist_num_aux_thm, MAP_GENLIST,
+        mapi_ori_num_def, mapi_ori_num_aux_thm, MAPi_MAP,
+        GSYM MAP_FLAT, GSYM MAP_MAP_o, maxn_map_ext_lit, o_DEF,
+        LEFT_ADD_DISTRIB, ori_def]
+QED
+
+(** encode_pointwise_imply ****************************************************)
+
+Definition mapi_impi_num_aux_def:
+  mapi_impi_num_aux i []      = [] ∧
+  mapi_impi_num_aux i (x::xs) =
+    (i, Or [not (FST x); (SND x)])::mapi_impi_num_aux (i + 2) xs
+End
+
+Definition mapi_impi_num_def:
+  mapi_impi_num n xys = mapi_impi_num_aux (2 * n + 29) xys
+End
+
+Theorem mapi_impi_num_aux_thm:
+  ∀xys i.
+    mapi_impi_num_aux i xys = MAPi (λj (x,y). (2 * j + i, Or [not x; y])) xys
+Proof
+  Induct >> rw [mapi_impi_num_aux_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> simp [o_DEF, ADD1, LEFT_ADD_DISTRIB]
+QED
+
+Definition encode_pointwise_imply_num_def:
+  encode_pointwise_imply_num (name: num) xys n =
+  let
+    imp_gates = mapi_impi_num n xys;
+    gty = and_genlist_num F n (LENGTH xys);
+  in
+    (name, gty)::imp_gates
+End
+
+Theorem encode_pointwise_imply_to_num:
+  MAP (gate_map f g (ext2num h)) (encode_pointwise_imply name xys) =
+  encode_pointwise_imply_num
+    (ext_name2num name)
+    (MAP
+       (λx.
+          (lit_map f g (ext2num h) (FST x),
+           lit_map f g (ext2num h) (SND x))) xys)
+    (MAX (maxn (MAP FST xys)) (maxn (MAP SND xys)))
+Proof
+  simp [encode_pointwise_imply_def, encode_pointwise_imply_num_def,
+        gate_map_def, gty_map_def, ext2num_def,
+        and_genlist_num_def, and_genlist_num_aux_thm,
+        MAP_GENLIST, o_DEF, lit_map_def, var_map_def, ext2num_def,
+        mapi_impi_num_def, mapi_impi_num_aux_thm, LEFT_ADD_DISTRIB,
+        MAPi_MAP]
+  >> irule MAPi_CONG >> rw []
+  >> simp [oneline impi_def] >> CASE_TAC
+  >> simp [gate_map_def, gty_map_def, ext2num_def, not_lit_map]
+QED
+
+(*** encode_signal_imply_num **************************************************)
+
+(* Assumes that xs and ys are of the form MAP ((ext_lit ∘ ...) ...), allowing us
+   use 1 instead of calculating the max iname.  *)
+Definition encode_signal_imply_num_def:
+  encode_signal_imply_num name xs ys =
+  let
+    xys = ZIP (xs, ys);
+    imp_gates = mapi_impi_num 1 xys;
+    gty = and_genlist_num F 1 (LENGTH xys);
+  in (name, gty)::imp_gates
+End
+
+Theorem map_gate_map_encode_signal_imply_to_num:
+  MAP (gate_map f g (ext2num h))
+    (encode_signal_imply name (MAP (ext_lit ∘ i) xs) (MAP (ext_lit ∘ j) ys))
+  =
+  encode_signal_imply_num (ext_name2num name)
+    (MAP (lit_map f g (ext2num h) ∘ ext_lit ∘ i) xs)
+    (MAP (lit_map f g (ext2num h) ∘ ext_lit ∘ j) ys)
+Proof
+  simp [encode_signal_imply_def, encode_pointwise_imply_to_num,
+        encode_signal_imply_num_def, encode_pointwise_imply_num_def]
+  >> qmatch_goalsub_abbrev_tac ‘and_genlist_num _ (MAX xs' ys') _’
+  >> have ‘MAX xs' ys' = 1’
+  >- (
+    unabbrev_all_tac
+    >> map_every qid_spec_tac [‘xs’, ‘ys’]
+    >> Induct
+    >- (Cases >> simp [maxn_def, ZIP_def])
+    >> gen_tac
+    >> Cases >- (simp [ZIP_def, maxn_def])
+    >> gvs [maxn_def]
+  )
+  >> simp [map_fst_snd_zip, MAP_MAP_o, o_DEF]
 QED
 
 (*** encode_pointwise_equal_num ***********************************************)
@@ -3570,24 +3728,6 @@ Proof
   Induct >> rw [mapi_xori_num_aux_def]
   >> rpt (pairarg_tac >> gvs [])
   >> simp [o_DEF, ADD1, LEFT_ADD_DISTRIB]
-QED
-
-Definition and_genlist_num_aux_def:
-  and_genlist_num_aux b i 0       = [] ∧
-  and_genlist_num_aux b i (SUC c) =
-    (Gate i, b)::and_genlist_num_aux b (i + 2) c
-End
-
-Definition and_genlist_num_def:
-  and_genlist_num b n cnt =
-    And (and_genlist_num_aux b (2 * n + 29) cnt)
-End
-
-Theorem and_genlist_num_aux_thm:
-  ∀cnt i. and_genlist_num_aux b i cnt = GENLIST (λj. (Gate (2 * j + i), b)) cnt
-Proof
-  Induct
-  >> rw [and_genlist_num_aux_def, GENLIST_CONS, o_DEF, ADD1, LEFT_ADD_DISTRIB]
 QED
 
 Definition encode_pointwise_equal_num_def:
@@ -3633,18 +3773,6 @@ Definition encode_xis_next_num_def:
     xnor_lits = and_genlist_num T 1 (LENGTH latches);
   in (name, xnor_lits)::xor_gates
 End
-
-Theorem maxn_map_ext_lit[local]:
-  maxn (MAP ext_lit xs) = 1
-Proof
-  Induct_on ‘xs’ >> gvs [maxn_def]
-QED
-
-Theorem maxn_map_latch_f[local]:
-  maxn (MAP (λl. (Base (Latch (f l)),b)) xs) = 1
-Proof
-  Induct_on ‘xs’ >> gvs [maxn_def, iname_def]
-QED
 
 Theorem map_gate_map_encode_xis_next_to_num:
   MAP (gate_map f g (ext2num h))
@@ -3874,54 +4002,89 @@ Proof
   simp [FUN_EQ_THM, ext2num_def, sum2num_def]
 QED
 
+(*** Defining rewrites ********************************************************)
+
 fun step ss ths = CONV_RULE (RHS_CONV (SIMP_CONV ss ths))
 
 val ext_case_def = definition "ext_case_def"
 
 val unfold_cond =
   let
-    val thms =
-      [encode_reset_cond_def, xaig_map_def, FLAT, APPEND_NIL]
+    val thms = [FLAT, APPEND_NIL]
     val cnv = SIMP_CONV (pure_ss ++ LET_ss)
   in fn th => cnv (th::thms) end
 
-val collapse_circuits =
-  step std_ss
-    [ext_xaig_def, merge_xaigs_def, pair_xaigs_def,
-     xaig_map_def, MAP_APPEND, MAP_MAP_o, gate_map_o,
-     qxleft_def,
-     qinterv_def, qinterv_l_r_def, qinterv_r_l_def, qinterv_ll_r_def,
-     qinterv_ll_lr_def, qinterv_lr_r_def,
-     lit_map_base_def, live_map_base_def,
-     gate_map_o_qinterv_gate, lit_map_o_qinterv_lit, lit_map_o,
-     MAP_MAP_o, GSYM MAP_FLAT, GSYM MAP_o]
+(* After this step, the term should be a concatenation of lists of the form
+   MAP (gate_map ...) ... *)
+val unfold_circs =
+  step std_ss [
+    ext_xaig_def, merge_xaigs_def, pair_xaigs_def, xaig_map_def,
+    qxleft_def, qinterv_def, qinterv_l_r_def, qinterv_r_l_def, qinterv_ll_r_def,
+    qinterv_ll_lr_def, qinterv_lr_r_def,
+    MAP_APPEND, MAP_MAP_o, gate_map_o
+  ]
+
+(* expose ext2num as needed by some to_num rewrites *)
+val expose_ext2num =
+  step std_ss [
+    nsn_s_nsn_e2num_def, nsn_e2num_def, n_e2num_def,
+    nsn_s_nsn_s_nsn_e2num_def, nsn_s_n_e2num_def,
+    nsn_s_n_s_nsn_e2num_def, nsn_s_n_s_nsn2num_def
+  ]
 
 val encode_xis_next_to_num =
-  step std_ss
-    [map_gate_map_encode_xis_next_to_num, nsn_s_nsn_e2num_def]
+  step std_ss [
+    map_gate_map_encode_xis_next_to_num
+  ]
 
 val encode_xis_reset_to_num =
-  step std_ss
-    [encode_xis_reset_eq, encode_xis_reset_gen_ext_reset,
-     encode_xis_reset_gen_left_reset,
-     encode_xis_reset_gen_right_reset,
-     map_gate_map_encode_xis_reset_to_num_o,
-     map_gate_map_encode_xis_reset_to_num,
-     nsn_e2num_def, n_e2num_def]
+  step std_ss [
+    encode_xis_reset_eq, encode_xis_reset_gen_ext_reset,
+    encode_xis_reset_gen_left_reset,
+    encode_xis_reset_gen_right_reset,
+    map_gate_map_encode_xis_reset_to_num_o,
+    map_gate_map_encode_xis_reset_to_num,
+  ]
 
-val encode_imply_to_num =
-  step (std_ss ++ LET_ss)
-    [encode_imply_def, MAP, MAX_DEF, MAX_LIST_def,
-     maxn_def, iname_def, ext_case_def, var_case_def,
-     gate_map_def, gty_map_def, lit_map_def, var_map_def]
+val encode_signal_imply_to_num =
+  step std_ss [
+    GSYM MAP_FLAT, map_gate_map_encode_signal_imply_to_num
+  ]
 
-val encode_xlits_hold_to_num =
-  step arith_ss
-    [encode_xlits_hold_def, MAP, gate_map_def, gty_map_def, ext2num_def,
-     MAP_MAP_o, ext_lit_def, lit_map_o,
-     left_lit_def, right_lit_def,
-     right_name_lit_def, left_name_lit_def]
+val encode_lives_hold_num_to_num =
+  step std_ss [
+    map_gate_map_encode_lives_hold_to_num
+  ]
 
+(* inline_encoders, compose, and simp2num should be applied at the end,
+   as their rewrites could prevent the more specific rewrites for some encoders.
+ *)
+
+(* Inlines encode_xlits_hold and encode_imply. *)
+val inline_encoders =
+  step (arith_ss ++ LET_ss) [
+    encode_xlits_hold_def, encode_imply_def, MAP,
+    gate_map_def, gty_map_def, lit_map_def, var_map_def,
+    ext2num_def, maxn_def, MAX_LIST_def,
+    iname_def, ext_case_def, var_case_def, ext_name2num_thm
+  ]
+
+(* Compose maps as much as possible. *)
+val compose =
+  step std_ss [
+    (* reduce to common map *)
+    ext_lit_def, left_lit_def, right_lit_def,
+    left_name_lit_def, right_name_lit_def,
+    qinterv_live_def, qinterv_live_lr_r_def, qinterv_live_r_l_def,
+    qinterv_live_l_r_def, qinterv_live_ll_r_def, qinterv_live_ll_lr_def,
+    qleft_live_def, live_map_base_def, lit_map_base_def,
+    GSYM MAP_FLAT,
+    (* merge maps *)
+    MAP_MAP_o, lit_map_o, gate_map_o_qinterv_gate, lit_map_o_qinterv_lit,
+    GSYM MAP_o
+  ]
+
+(* Fuses maps to be over nums where possible.  *)
 val simp2num =
   step std_ss
     [nsn_e2num_def, nsn2num_def, ext2num_def, ext_name2num_thm,
@@ -3932,17 +4095,20 @@ val simp2num =
      ext2num_sum2num_Orig_sum_sum_sum, nsn_s_n_s_nsn2num_def,
      ext2num_Orig, sum2num_sum_sum]
 
-val reassoc = step pure_ss [GSYM APPEND_ASSOC]
+val reassoc = step pure_ss [GSYM APPEND_ASSOC, APPEND]
+
+(*** Applying rewrites ********************************************************)
 
 val encode_reset_cond_num =
   “xaig_map (I: num -> num) (I: num -> num) nsn_e2num
       (encode_reset_cond mxaig mreset mcnstrs mlatches wxaig wreset wcnstrs
          wlatches klatches)”
   |> unfold_cond encode_reset_cond_def
-  |> collapse_circuits
+  |> unfold_circs
+  |> expose_ext2num
   |> encode_xis_reset_to_num
-  |> encode_imply_to_num
-  |> encode_xlits_hold_to_num
+  |> inline_encoders
+  |> compose
   |> simp2num
   |> reassoc
 
@@ -3952,31 +4118,34 @@ val encode_transition_cond_num =
         mxaig mnext mcnstrs mlatches
         wxaig wnext wcnstrs wlatches klatches)”
   |> unfold_cond encode_transition_cond_def
-  |> collapse_circuits
+  |> unfold_circs
+  |> expose_ext2num
   |> encode_xis_next_to_num
-  |> encode_imply_to_num
-  |> encode_xlits_hold_to_num
+  |> inline_encoders
+  |> compose
   |> simp2num
   |> reassoc
 
 val encode_safety_cond_num =
-  “xaig_map I I nsn_e2num
+  “xaig_map (I: num -> num) (I: num -> num) nsn_e2num
      (encode_safety_cond mxaig mcnstrs msafes wxaig wcnstrs wsafes)”
   |> unfold_cond encode_safety_cond_def
-  |> collapse_circuits
-  |> encode_imply_to_num
-  |> encode_xlits_hold_to_num
+  |> unfold_circs
+  |> expose_ext2num
+  |> inline_encoders
+  |> compose
   |> simp2num
   |> reassoc
 
 val encode_base_cond_num =
-  “xaig_map I I n_e2num
+  “xaig_map (I: num -> num) (I: num -> num) n_e2num
      (encode_base_cond wxaig wreset wcnstrs wsafes wlatches)”
   |> unfold_cond encode_base_cond_def
-  |> collapse_circuits
+  |> unfold_circs
+  |> expose_ext2num
   |> encode_xis_reset_to_num
-  |> encode_imply_to_num
-  |> encode_xlits_hold_to_num
+  |> inline_encoders
+  |> compose
   |> simp2num
   |> reassoc
 
@@ -3984,9 +4153,11 @@ val encode_induction_cond_num =
   “xaig_map nsn2num nsn2num nsn_e2num
      (encode_induction_cond wxaig wreset wcnstrs wsafes wlatches)”
   |> unfold_cond encode_induction_cond_def
-  |> collapse_circuits
-  |> encode_imply_to_num
-  |> encode_xlits_hold_to_num
+  |> unfold_circs
+  |> expose_ext2num
+  |> encode_xis_next_to_num
+  |> inline_encoders
+  |> compose
   |> simp2num
   |> reassoc
 
@@ -3996,9 +4167,12 @@ val encode_liveness_cond_num =
         mxaig mcnstrs mlive
         wxaig wnext wcnstrs wsafes wlive wlatches interv)”
   |> unfold_cond encode_liveness_cond_def
-  |> collapse_circuits
-  |> encode_imply_to_num
-  |> encode_xlits_hold_to_num
+  |> unfold_circs
+  |> expose_ext2num
+  |> encode_xis_next_to_num
+  |> encode_signal_imply_to_num
+  |> inline_encoders
+  |> compose
   |> simp2num
   |> reassoc
 
@@ -4007,9 +4181,12 @@ val encode_decrease_cond_num =
      (encode_decrease_cond
         wxaig wnext wcnstrs wsafes wlive wlatches interv)”
   |> unfold_cond encode_decrease_cond_def
-  |> collapse_circuits
-  |> encode_imply_to_num
-  |> encode_xlits_hold_to_num
+  |> unfold_circs
+  |> expose_ext2num
+  |> encode_lives_hold_num_to_num
+  |> encode_xis_next_to_num
+  |> inline_encoders
+  |> compose
   |> simp2num
   |> reassoc
 
@@ -4018,9 +4195,12 @@ val encode_closure_cond_num =
      (encode_closure_cond
         wxaig wnext wcnstrs wsafes wlive wlatches interv)”
   |> unfold_cond encode_closure_cond_def
-  |> collapse_circuits
-  |> encode_imply_to_num
-  |> encode_xlits_hold_to_num
+  |> unfold_circs
+  |> expose_ext2num
+  |> encode_lives_hold_num_to_num
+  |> encode_xis_next_to_num
+  |> inline_encoders
+  |> compose
   |> simp2num
   |> reassoc
 
@@ -4029,8 +4209,12 @@ val encode_stable_cond_num =
      (encode_stable_cond
         wxaig wnext wcnstrs wsafes wlive wlatches interv)”
   |> unfold_cond encode_stable_cond_def
-  |> collapse_circuits
-  |> encode_imply_to_num
-  |> encode_xlits_hold_to_num
+  |> unfold_circs
+  |> expose_ext2num
+  |> encode_signal_imply_to_num
+  |> encode_lives_hold_num_to_num
+  |> encode_xis_next_to_num
+  |> inline_encoders
+  |> compose
   |> simp2num
   |> reassoc
