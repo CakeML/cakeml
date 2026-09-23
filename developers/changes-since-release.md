@@ -4,6 +4,9 @@ Changes since release v3479:
 
 The CakeML source language now supports open and let open (#1482).
 
+The monadic translator now targets CakeML's byte arrays for arrays of type
+word8 (#1494).
+
 ## Basis library
 
 ## Compiler backend and runtime
