@@ -3,6 +3,9 @@ Base semantics/checker for CNF and supporting extensions
 [array](array):
 Refinement of generic CNF functions to use arrays
 
+[basis_ffi.c](basis_ffi.c):
+A trimmed version of the original CakeML basis_ffi.c, customized for checkers.
+
 [ccnfScript.sml](ccnfScript.sml):
 A concrete CNF representation as lists of integers that will be packed.
 
