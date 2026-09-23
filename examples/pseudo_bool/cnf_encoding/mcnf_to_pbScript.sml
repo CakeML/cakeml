@@ -250,7 +250,7 @@ QED
 
 Theorem mfml_to_pbf_nondom:
   mfml_to_pbf mfml = (objs,pbf) ⇒
-  nondom_set ord (set pbf) objs = nondom_costs ord mfml
+  set_equiv ord (nondom_set ord (set pbf) objs) (nondom_costs ord mfml)
 Proof
   rw[nondom_set_def,nondom_costs_def]>>
   irule min_set_dom_ord>>
@@ -270,7 +270,7 @@ QED
 
 Theorem full_encode_mcnf_nondom:
   full_encode_mcnf mfml = (objs,pbf) ⇒
-  nondom_set ord (set pbf) objs = nondom_costs ord mfml
+  set_equiv ord (nondom_set ord (set pbf) objs) (nondom_costs ord mfml)
 Proof
   rw[full_encode_mcnf_def]>>pairarg_tac>>gvs[LIST_TO_SET_MAP]>>
   DEP_REWRITE_TAC[GSYM nondom_set_INJ]>>simp[]>>

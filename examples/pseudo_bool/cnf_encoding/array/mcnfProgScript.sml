@@ -365,7 +365,7 @@ Proof
 QED
 
 Definition mcnf_sem_def:
-  mcnf_sem ord mfml vs ⇔ set vs = nondom_costs ord mfml
+  mcnf_sem ord mfml vs ⇔ is_front ord vs (nondom_costs ord mfml)
 End
 
 Definition check_unsat_3_sem_def:
@@ -453,7 +453,7 @@ Proof
   rw[]>>
   qexists_tac`vs`>>
   simp[mcnf_sem_def]>>
-  metis_tac[full_encode_mcnf_nondom,PAIR]
+  metis_tac[full_encode_mcnf_nondom,is_front_set_equiv,PAIR]
 QED
 
 Definition check_unsat_2_sem_def:

@@ -180,7 +180,7 @@ Theorem check_mo_csteps_list_concl:
     (init_conf (LENGTH fml + 1) T NONE NONE) [] =
     SOME (fmlls',zeros',inds',vimap',vomap',pc',sols) ∧
   pc'.chk ∧ check_contradiction_fml_list F fmlls' n ⇒
-  set (ord_min mord sols) = nondom_set mord (set fml) objs
+  is_front mord (ord_min mord sols) (nondom_set mord (set fml) objs)
 Proof
   strip_tac>>
   qmatch_asmsub_abbrev_tac`check_mo_csteps_list mord objs csteps fmlls zeros
@@ -235,7 +235,7 @@ Theorem check_mo_top_list_concl:
     (mk_vimap (REPLICATE k NONE) (enumerate 1 fml))
     «»
     (LENGTH fml + 1) n = SOME vs ⇒
-  set vs = nondom_set mord (set fml) objs
+  is_front mord vs (nondom_set mord (set fml) objs)
 Proof
   rw[check_mo_top_list_def,AllCaseEqs()]>>
   drule_all check_mo_csteps_list_concl>>

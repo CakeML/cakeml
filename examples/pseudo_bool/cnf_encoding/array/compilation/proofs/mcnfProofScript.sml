@@ -116,7 +116,7 @@ Theorem machine_code_sound_front:
         parse_mo_ord (EL 1 cl) = SOME ord ∧
         get_mfml fs (EL 2 cl) = SOME mfml ∧
         out = print_front_str ord vs ∧
-        set vs = nondom_costs ord mfml
+        is_front ord vs (nondom_costs ord mfml)
     )
 Proof
   rw[]>>
@@ -127,3 +127,33 @@ Proof
   gvs[mcnfProgTheory.mcnf_sem_def]>>
   metis_tac[]
 QED
+
+val chk = machine_code_sound_front |> check_thm;
+
+(* Under the Pareto ordering the printed front is exactly the non-dominated
+  cost vectors, each vector once. Termination of the run is stated in
+  machine_code_sound *)
+Theorem machine_code_sound_pareto:
+  cake_pb_mcnf_run cl fs mc ms ⇒
+  ∃out err.
+    extract_fs ext (cl,fs) (cake_pb_mcnf_io_events ext cl fs) =
+      SOME (add_stdout (add_stderr fs err) out) ∧
+    (
+    LENGTH cl = 4 ∧ EL 1 cl = «pareto» ∧ out ≠ «» ⇒
+      ∃mfml vs.
+        get_mfml fs (EL 2 cl) = SOME mfml ∧
+        out = print_front_str Pareto vs ∧
+        ALL_DISTINCT vs ∧
+        set vs = nondom_costs Pareto mfml
+    )
+Proof
+  rw[]>>
+  drule machine_code_sound_front>>rw[]>>
+  first_x_assum (qspec_then `ext` mp_tac)>>rw[]>>
+  first_x_assum (irule_at Any)>>
+  rw[]>>
+  gvs[pbc_moTheory.parse_mo_ord_def,pbc_moTheory.is_front_Pareto]>>
+  metis_tac[]
+QED
+
+val chk = machine_code_sound_pareto |> check_thm;

@@ -37,10 +37,9 @@ QED
 Theorem in_nondom_set:
   v ∈ nondom_set ord npbf objs ⇔
   (∃w. satisfies w npbf ∧ obj_vecs objs w = v) ∧
-  (∀w. satisfies w npbf ∧ ord_le ord (obj_vecs objs w) v ⇒
-    obj_vecs objs w = v)
+  (∀w. satisfies w npbf ⇒ ¬ord_lt ord (obj_vecs objs w) v)
 Proof
-  rw[nondom_set_def,min_set_def,in_obj_img]>>
+  rw[nondom_set_def,in_min_set_ord,in_obj_img]>>
   metis_tac[]
 QED
 

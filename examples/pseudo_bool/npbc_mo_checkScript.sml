@@ -348,12 +348,6 @@ Proof
   metis_tac[]
 QED
 
-Theorem mo_ord_ok_antisym:
-  mo_ord_ok mord ∧ ord_le mord x y ∧ ord_le mord y x ⇒ x = y
-Proof
-  rw[mo_ord_ok_def,good_mo_ord_def]
-QED
-
 Theorem mo_ord_ok_sound:
   ord_ok mord objs aord xs ∧ good_aspo (FST aord,xs) ∧ mo_ord_ok mord ⇒
   ord_sound mord objs (FST aord,xs)
@@ -883,13 +877,16 @@ Proof
   metis_tac[mo_ord_ok_trans]
 QED
 
-(* The printed front is exactly the non-dominated set of the input *)
+(* The printed front is the non-dominated set of the input, up to the
+  ordering's equivalence: it meets every minimal equivalence class exactly
+  once. A printed vector is equivalent to, but not necessarily equal to, an
+  achievable minimal vector *)
 Theorem check_mo_top_sound:
   mo_ord_ok mord ∧
   all_core fml ∧
   id_ok fml id ∧
   check_mo_top mord objs csteps fml id n = SOME vs ⇒
-  set vs = nondom_set mord (core_only_fml T fml) objs
+  is_front mord vs (nondom_set mord (core_only_fml T fml) objs)
 Proof
   rw[check_mo_top_def,AllCaseEqs()]>>
   `mo_conf_ok mord objs fml (init_conf id T NONE NONE) []` by
@@ -901,10 +898,12 @@ Proof
   `core_only_fml T fml = core_only_fml F fml` by
     metis_tac[all_core_core_only_fml_eq]>>
   gvs[unsatisfiable_def,satisfiable_def]>>
-  simp[set_ord_min,nondom_set_def]>>
-  irule min_set_dom>>
+  irule is_front_set_equiv>>
+  irule_at Any ord_min_is_front>>
+  simp[nondom_set_def]>>
+  irule min_set_dom_ord>>
   rw[in_obj_img]>>
-  metis_tac[mo_ord_ok_trans,mo_ord_ok_antisym]
+  metis_tac[]
 QED
 
 (* Every ordering the checker accepts satisfies its requirements *)

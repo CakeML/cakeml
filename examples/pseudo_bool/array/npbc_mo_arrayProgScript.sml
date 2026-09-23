@@ -32,7 +32,9 @@ val res = translate ord_le_def;
 
 val res = translate ord_lt_def;
 
-val res = translate (nub_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
+val res = translate ord_equiv_def;
+
+val res = translate ord_dedup_def;
 
 val res = translate ord_min_def;
 
@@ -685,7 +687,7 @@ Theorem check_unsat_mo'_spec:
      &(
       SUM_TYPE STRING_TYPE sols_TYPE res v ∧
       case res of
-        INR vs => set vs = nondom_set mord (set fml) objs
+        INR vs => is_front mord vs (nondom_set mord (set fml) objs)
       | INL l => T))
 Proof
   rw[]>>
@@ -787,7 +789,7 @@ Proof
      &(
       SUM_TYPE STRING_TYPE sols_TYPE res v ∧
       case res of
-        INR vs => set vs = nondom_set mord (set fml) objs
+        INR vs => is_front mord vs (nondom_set mord (set fml) objs)
       | INL l => T)`
   >- (
     rpt xlet_autop>>
@@ -890,7 +892,7 @@ Theorem check_unsat_mo_top_spec:
      &(
       SUM_TYPE STRING_TYPE sols_TYPE res v ∧
       case res of
-        INR vs => set vs = nondom_set mord (set fml) objs
+        INR vs => is_front mord vs (nondom_set mord (set fml) objs)
       | INL l => T))
 Proof
   rw[]>>
@@ -968,7 +970,7 @@ Proof
           &(
           SUM_TYPE STRING_TYPE sols_TYPE res v ∧
           case res of
-            INR vs => set vs = nondom_set mord (set fml) objs
+            INR vs => is_front mord vs (nondom_set mord (set fml) objs)
           | INL l => T)`
   >- (
     xapp>>xsimpl>>
@@ -1066,7 +1068,8 @@ Theorem check_unsat_mo_top_norm_spec:
        SUM_TYPE STRING_TYPE sols_TYPE res v ∧
        case res of
          INR vs =>
-         set vs = pbc_mo$nondom_set mord (set (SND mprob)) (FST mprob)
+         is_front mord vs
+           (pbc_mo$nondom_set mord (set (SND mprob)) (FST mprob))
        | INL l => T))
 Proof
   rw[]>>

@@ -174,7 +174,7 @@ Definition check_unsat_3_sem_def:
   ∃objs fml vs.
     get_mo_fml fs f1 = SOME (objs,fml) ∧
     out = print_front_str ord vs ∧
-    set vs = pbc_mo$nondom_set ord (set fml) objs)
+    is_front ord vs (pbc_mo$nondom_set ord (set fml) objs))
 End
 
 Quote add_cakeml:

@@ -83,7 +83,7 @@ Theorem machine_code_sound:
         ∃objs fml vs.
           get_mo_fml fs (EL 2 cl) = SOME (objs,fml) ∧
           out = print_front_str ord vs ∧
-          set vs = pbc_mo$nondom_set ord (set fml) objs)
+          is_front ord vs (pbc_mo$nondom_set ord (set fml) objs))
       )
     )
 Proof
@@ -103,3 +103,56 @@ Proof
 QED
 
 val chk = machine_code_sound |> check_thm;
+
+(* Specialized to a run that reports a verified frontier *)
+Theorem machine_code_sound_front:
+  cake_pb_mo_run cl fs mc ms ⇒
+  ∃out err.
+    extract_fs ext (cl,fs) (cake_pb_mo_io_events ext cl fs) =
+      SOME (add_stdout (add_stderr fs err) out) ∧
+    (
+    LENGTH cl = 4 ∧ out ≠ «» ⇒
+      ∃ord objs fml vs.
+        parse_mo_ord (EL 1 cl) = SOME ord ∧
+        get_mo_fml fs (EL 2 cl) = SOME (objs,fml) ∧
+        out = print_front_str ord vs ∧
+        is_front ord vs (pbc_mo$nondom_set ord (set fml) objs)
+    )
+Proof
+  rw[]>>
+  drule machine_code_sound>>rw[]>>
+  first_x_assum (qspec_then `ext` mp_tac)>>rw[]>>
+  first_x_assum (irule_at Any)>>
+  rw[]>>
+  metis_tac[]
+QED
+
+val chk = machine_code_sound_front |> check_thm;
+
+(* Under the Pareto ordering the printed front is exactly the non-dominated
+  set, each vector once. Termination of the run is stated in
+  machine_code_sound *)
+Theorem machine_code_sound_pareto:
+  cake_pb_mo_run cl fs mc ms ⇒
+  ∃out err.
+    extract_fs ext (cl,fs) (cake_pb_mo_io_events ext cl fs) =
+      SOME (add_stdout (add_stderr fs err) out) ∧
+    (
+    LENGTH cl = 4 ∧ EL 1 cl = «pareto» ∧ out ≠ «» ⇒
+      ∃objs fml vs.
+        get_mo_fml fs (EL 2 cl) = SOME (objs,fml) ∧
+        out = print_front_str Pareto vs ∧
+        ALL_DISTINCT vs ∧
+        set vs = pbc_mo$nondom_set Pareto (set fml) objs
+    )
+Proof
+  rw[]>>
+  drule machine_code_sound_front>>rw[]>>
+  first_x_assum (qspec_then `ext` mp_tac)>>rw[]>>
+  first_x_assum (irule_at Any)>>
+  rw[]>>
+  gvs[pbc_moTheory.parse_mo_ord_def,pbc_moTheory.is_front_Pareto]>>
+  metis_tac[]
+QED
+
+val chk = machine_code_sound_pareto |> check_thm;
