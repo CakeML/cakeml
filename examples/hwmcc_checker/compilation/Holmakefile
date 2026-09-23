@@ -13,4 +13,4 @@ HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
 endif
 
 cake_tiger: cake_tigerCompileTheory.uo
-	gcc -o cake_tiger cake_tiger.S $(CAKEMLDIR)/basis/basis_ffi.c -lm
+	gcc -o cake_tiger cake_tiger.S $(CAKEMLDIR)/examples/cnf/basis_ffi.c
