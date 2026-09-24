@@ -494,6 +494,529 @@ Definition parse_pbf_def:
 End
 
 (*
+  Parsing an OPB file one line at a time, numbering and normalising
+  each constraint as it is read
+*)
+
+(* Drops the annotations at the head of a line *)
+Definition skip_annot_def:
+  skip_annot line =
+  case line of
+    (INL s)::ls =>
+    if strlen s ≥ 1 ∧ strsub s 0 = #"@" then skip_annot ls
+    else line
+  | _ => line
+End
+
+Theorem skip_annot_thm:
+  ∀line. skip_annot line = SND (parse_annot line)
+Proof
+  ho_match_mp_tac skip_annot_ind>>
+  rw[]>>
+  simp[Once skip_annot_def,Once parse_annot_def]>>
+  rpt (TOP_CASE_TAC>>gvs[])>>
+  pairarg_tac>>
+  gvs[]
+QED
+
+(* The guard and linear term of a line, and the unparsed remainder *)
+Definition parse_constraint_front_def:
+  parse_constraint_front ls =
+  let (arrow,gs,body) =
+    (case parse_reif_aux ls [] of
+      NONE => («==>»,[],ls)
+    | SOME (arrow,gs,rest) => (arrow,gs,rest)) in
+  case parse_constraint_LHS body of (rest,lhs) => (arrow,gs,lhs,rest)
+End
+
+(* The comparison and degree ending a line, including its ; terminator *)
+Definition parse_cmp_deg_def:
+  parse_cmp_deg rest =
+  case rest of
+    [INL cmp; INR deg; INL t] =>
+      if t = «;» then SOME (cmp,deg:int) else NONE
+  | [INL cmp; INL s] =>
+      (case strip_term s of
+        NONE => NONE
+      | SOME d =>
+        (case tokenize d of
+          INR deg => SOME (cmp,deg)
+        | INL _ => NONE))
+  | _ => NONE
+End
+
+(* parse_constraint on a line that still has its terminator *)
+Definition parse_constraint_ns_def:
+  parse_constraint_ns line =
+  case parse_constraint_front line of (arrow,gs,lhs,rest) =>
+  case parse_cmp_deg rest of
+    NONE => NONE
+  | SOME (cmp,deg) =>
+    (case parse_op cmp of
+      NONE => NONE
+    | SOME rel =>
+      (case mk_hd arrow gs rel of
+        NONE => NONE
+      | SOME hd => SOME ((hd,lhs,deg):mlstring pbc)))
+End
+
+Theorem strip_term_line_SNOC[local]:
+  ∀xs acc t.
+    strip_term_line_aux (xs ++ [t]) acc =
+    case t of
+      INR n => NONE
+    | INL s =>
+      if s = «;» then SOME (REVERSE acc ++ xs)
+      else
+        case strip_term s of
+          NONE => NONE
+        | SOME d => SOME (REVERSE acc ++ xs ++ [tokenize d])
+Proof
+  Induct
+  >- rw[strip_term_line_aux_def]>>
+  rw[]>>
+  Cases_on`xs`>>
+  gvs[strip_term_line_aux_def]>>
+  rewrite_tac[GSYM APPEND_ASSOC,APPEND]
+QED
+
+(* A token carrying the terminator is neither a literal nor an arrow *)
+Theorem strip_term_inert[local]:
+  strip_term s = SOME d ⇒ parse_lit s = NONE ∧ ¬is_arrow s
+Proof
+  simp[strip_term_def]>>
+  strip_tac>>
+  `¬goodChar #";"` by EVAL_TAC>>
+  namedCases_on`s`["l"]>>
+  gvs[parse_lit_def,goodString_eq_EVERY_goodChar]>>
+  `¬EVERY goodChar l` by (
+    simp[EXISTS_MEM,MEM_EL]>>
+    qexists_tac`#";"`>>
+    simp[]>>
+    qexists_tac`STRLEN l − 1`>>
+    simp[])>>
+  `STRLEN l ≥ 2 ⇒
+   ¬EVERY goodChar (explode (substring (implode l) 1 (STRLEN l − 1)))` by (
+    strip_tac>>
+    simp[mlstringTheory.substring_def,SEG_TAKE_DROP,EXISTS_MEM,MEM_EL]>>
+    qexists_tac`#";"`>>
+    simp[]>>
+    qexists_tac`STRLEN l − 2`>>
+    simp[EL_TAKE,EL_DROP])>>
+  rw[is_arrow_def]>>
+  strip_tac>>
+  gvs[]
+QED
+
+Theorem parse_constraint_LHS_aux_SNOC[local]:
+  ∀xs acc.
+    (∀s. t = INL s ⇒ parse_lit s = NONE) ⇒
+    parse_constraint_LHS_aux (xs ++ [t]) acc =
+    (FST (parse_constraint_LHS_aux xs acc) ++ [t],
+     SND (parse_constraint_LHS_aux xs acc))
+Proof
+  ho_match_mp_tac parse_constraint_LHS_aux_ind>>
+  rw[]>>
+  Cases_on`t`>>
+  gvs[parse_constraint_LHS_aux_def]>>
+  TOP_CASE_TAC>>
+  gvs[]
+QED
+
+Theorem parse_reif_aux_SNOC[local]:
+  ∀xs acc.
+    (∀s. t = INL s ⇒ parse_lit s = NONE ∧ ¬is_arrow s) ⇒
+    parse_reif_aux (xs ++ [t]) acc =
+    OPTION_MAP (λ(arrow,gs,rest). (arrow,gs,rest ++ [t]))
+      (parse_reif_aux xs acc)
+Proof
+  ho_match_mp_tac parse_reif_aux_ind>>
+  rw[]>>
+  Cases_on`t`>>
+  gvs[parse_reif_aux_def]>>
+  rw[]>>
+  TOP_CASE_TAC>>
+  gvs[]
+QED
+
+Theorem parse_constraint_LHS_aux_suffix[local]:
+  ∀xs acc rest lhs.
+    parse_constraint_LHS_aux xs acc = (rest,lhs) ⇒
+    ∃pre. xs = pre ++ rest
+Proof
+  ho_match_mp_tac parse_constraint_LHS_aux_ind>>
+  rw[parse_constraint_LHS_aux_def]>>
+  gvs[AllCaseEqs()]
+QED
+
+Theorem parse_reif_aux_suffix[local]:
+  ∀xs acc arrow gs rest.
+    parse_reif_aux xs acc = SOME (arrow,gs,rest) ⇒
+    ∃pre. xs = pre ++ rest
+Proof
+  ho_match_mp_tac parse_reif_aux_ind>>
+  rw[parse_reif_aux_def]>>
+  gvs[AllCaseEqs()]
+QED
+
+Theorem parse_constraint_front_SNOC[local]:
+  (∀s. t = INL s ⇒ parse_lit s = NONE ∧ ¬is_arrow s) ∧
+  parse_constraint_front xs = (arrow,gs,lhs,rest) ⇒
+  parse_constraint_front (xs ++ [t]) = (arrow,gs,lhs,rest ++ [t])
+Proof
+  strip_tac>>
+  drule parse_reif_aux_SNOC>>
+  `∀s. t = INL s ⇒ parse_lit s = NONE` by simp[]>>
+  drule parse_constraint_LHS_aux_SNOC>>
+  rpt strip_tac>>
+  gvs[parse_constraint_front_def,parse_constraint_LHS_def]>>
+  Cases_on`parse_reif_aux xs []`>>
+  gvs[]
+  >- (
+    Cases_on`parse_constraint_LHS_aux xs []`>>
+    gvs[])>>
+  rename1`SOME p`>>
+  PairCases_on`p`>>
+  gvs[]>>
+  Cases_on`parse_constraint_LHS_aux p2 []`>>
+  gvs[]
+QED
+
+Theorem parse_constraint_front_suffix[local]:
+  parse_constraint_front xs = (arrow,gs,lhs,rest) ⇒
+  ∃pre. xs = pre ++ rest
+Proof
+  rw[parse_constraint_front_def,parse_constraint_LHS_def]>>
+  Cases_on`parse_reif_aux xs []`>>
+  gvs[]
+  >- (
+    Cases_on`parse_constraint_LHS_aux xs []`>>
+    gvs[]>>
+    drule parse_constraint_LHS_aux_suffix>>
+    simp[])>>
+  rename1`SOME p`>>
+  PairCases_on`p`>>
+  gvs[]>>
+  Cases_on`parse_constraint_LHS_aux p2 []`>>
+  gvs[]>>
+  drule parse_reif_aux_suffix>>
+  drule parse_constraint_LHS_aux_suffix>>
+  metis_tac[APPEND_ASSOC]
+QED
+
+Theorem parse_cmp_deg_eq_SOME[local]:
+  parse_cmp_deg rest = SOME (cmp,deg) ⇔
+  rest = [INL cmp; INR deg; INL «;»] ∨
+  ∃s d. rest = [INL cmp; INL s] ∧
+    strip_term s = SOME d ∧ tokenize d = INR deg
+Proof
+  simp[parse_cmp_deg_def,AllCaseEqs()]>>
+  eq_tac>>
+  rw[]>>
+  simp[]
+QED
+
+(* Stripping the terminator first and recognising it last agree *)
+Theorem parse_constraint_front_strip[local]:
+  (∃ls. strip_term_line line = SOME ls ∧
+    parse_constraint_front ls = (arrow,gs,lhs,[INL cmp; INR deg])) ⇔
+  (∃rest. parse_constraint_front line = (arrow,gs,lhs,rest) ∧
+    parse_cmp_deg rest = SOME (cmp,deg))
+Proof
+  simp[strip_term_line_def,parse_cmp_deg_eq_SOME]>>
+  qspec_then`line` strip_assume_tac SNOC_CASES>>
+  gvs[SNOC_APPEND]
+  >- (
+    simp[strip_term_line_aux_def,parse_constraint_front_def,
+      parse_reif_aux_def,parse_constraint_LHS_def,
+      parse_constraint_LHS_aux_def])>>
+  rename1`parse_constraint_front (front ++ [t])`>>
+  simp[strip_term_line_SNOC]>>
+  eq_tac>>
+  strip_tac
+  >- (
+    Cases_on`t`>>
+    gvs[]>>
+    rename1`INL s`>>
+    Cases_on`s = «;»`>>
+    gvs[]
+    >- (
+      `strip_term «;» = SOME «»` by EVAL_TAC>>
+      drule strip_term_inert>>
+      strip_tac>>
+      drule_at Any parse_constraint_front_SNOC>>
+      disch_then(qspec_then`INL «;»` mp_tac)>>
+      simp[])>>
+    gvs[AllCaseEqs()]>>
+    `tokenize d = INR deg` by (
+      drule parse_constraint_front_suffix>>
+      strip_tac>>
+      pop_assum (mp_tac o Q.AP_TERM `LAST`)>>
+      simp[LAST_APPEND_CONS])>>
+    `∃a g lh r. parse_constraint_front front = (a,g,lh,r)` by
+      metis_tac[PAIR]>>
+    drule_at Any parse_constraint_front_SNOC>>
+    disch_then(qspec_then`INR deg` mp_tac)>>
+    gvs[]>>
+    strip_tac>>
+    gvs[]>>
+    qpat_x_assum`parse_constraint_front (_ ++ _) = _` kall_tac>>
+    drule strip_term_inert>>
+    strip_tac>>
+    drule_at Any parse_constraint_front_SNOC>>
+    disch_then(qspec_then`INL s` mp_tac)>>
+    simp[])
+  >- (
+    `t = INL «;»` by (
+      drule parse_constraint_front_suffix>>
+      strip_tac>>
+      pop_assum (mp_tac o Q.AP_TERM `LAST`)>>
+      simp[LAST_APPEND_CONS])>>
+    `strip_term «;» = SOME «»` by EVAL_TAC>>
+    drule strip_term_inert>>
+    strip_tac>>
+    `∃a g lh r. parse_constraint_front front = (a,g,lh,r)` by
+      metis_tac[PAIR]>>
+    drule_at Any parse_constraint_front_SNOC>>
+    disch_then(qspec_then`INL «;»` mp_tac)>>
+    gvs[])>>
+  `t = INL s` by (
+    drule parse_constraint_front_suffix>>
+    strip_tac>>
+    pop_assum (mp_tac o Q.AP_TERM `LAST`)>>
+    simp[LAST_APPEND_CONS])>>
+  `s ≠ «;»` by (
+    strip_tac>>
+    `strip_term «;» = SOME «» ∧ tokenize «» = INL «»` by EVAL_TAC>>
+    gvs[])>>
+  gvs[]>>
+  drule strip_term_inert>>
+  strip_tac>>
+  `∃a g lh r. parse_constraint_front front = (a,g,lh,r)` by
+    metis_tac[PAIR]>>
+  drule_at Any parse_constraint_front_SNOC>>
+  disch_then (fn th =>
+    qspec_then`INL s` mp_tac th>>
+    qspec_then`INR deg` mp_tac th)>>
+  gvs[]
+QED
+
+Theorem parse_constraint_eq_SOME[local]:
+  parse_constraint line = SOME c ⇔
+  ∃ls arrow gs lhs cmp deg rel hd.
+    strip_term_line line = SOME ls ∧
+    parse_constraint_front ls = (arrow,gs,lhs,[INL cmp; INR deg]) ∧
+    parse_op cmp = SOME rel ∧ mk_hd arrow gs rel = SOME hd ∧
+    c = (hd,lhs,deg)
+Proof
+  simp[parse_constraint_def,parse_constraint_front_def]>>
+  Cases_on`strip_term_line line`>>
+  simp[]>>
+  pairarg_tac>>
+  simp[]>>
+  Cases_on`parse_constraint_LHS body`>>
+  simp[AllCaseEqs()]>>
+  eq_tac>>
+  rw[]>>
+  simp[]
+QED
+
+Theorem parse_constraint_ns_thm:
+  ∀line. parse_constraint_ns line = parse_constraint line
+Proof
+  rw[]>>
+  qsuff_tac`∀c. parse_constraint_ns line = SOME c ⇔
+    parse_constraint line = SOME c`
+  >- (
+    Cases_on`parse_constraint_ns line`>>
+    Cases_on`parse_constraint line`>>
+    gvs[])>>
+  rw[]>>
+  simp[parse_constraint_eq_SOME,parse_constraint_ns_def,AllCaseEqs(),
+    PULL_EXISTS]>>
+  eq_tac>>
+  strip_tac>>
+  gvs[]
+  >- (
+    `∃ls. strip_term_line line = SOME ls ∧
+      parse_constraint_front ls = (arrow,gs,lhs,[INL cmp; INR deg])` by
+      simp[parse_constraint_front_strip]>>
+    simp[])>>
+  `∃rest. parse_constraint_front line = (arrow,gs,lhs,rest) ∧
+    parse_cmp_deg rest = SOME (cmp,deg)` by
+    simp[GSYM parse_constraint_front_strip]>>
+  simp[]
+QED
+
+(* acc holds the normalised constraints so far, in reverse *)
+Definition parse_norm_line_def:
+  parse_norm_line l s acc =
+  case parse_constraint_ns (skip_annot l) of
+    NONE => NONE
+  | SOME c => SOME (name_norm_pbc c s acc)
+End
+
+Definition parse_norm_lines_def:
+  (parse_norm_lines [] s acc = SOME (acc,s)) ∧
+  (parse_norm_lines (l::ls) s acc =
+    if nocomment_line l then
+      case parse_norm_line l s acc of
+        NONE => NONE
+      | SOME (acc1,s1) => parse_norm_lines ls s1 acc1
+    else parse_norm_lines ls s acc)
+End
+
+(* The objective and preserved lines are among the first two lines.
+  Whatever they leave over is a constraint. *)
+Definition parse_norm_header_def:
+  parse_norm_header l1 l2 s =
+  let ls =
+    (case l1 of NONE => [] | SOME l => [l]) ++
+    (case l2 of NONE => [] | SOME l => [l]) in
+  let (obj,pres,rest) = parse_obj_pres_maybe ls in
+  let (pres',s') = name_to_num_pres pres s in
+  let (obj',s'') = name_to_num_obj obj s' in
+  case parse_norm_lines rest s'' [] of
+    NONE => NONE
+  | SOME (acc,t) =>
+    SOME (OPTION_MAP list_to_num_set pres',normalise_obj obj',acc,t)
+End
+
+Definition parse_norm_pbf_toks_def:
+  parse_norm_pbf_toks tokss s =
+  let nocomments = FILTER nocomment_line tokss in
+  case parse_norm_header (oHD nocomments) (oHD (DROP 1 nocomments)) s of
+    NONE => NONE
+  | SOME (pres,obj,acc,s1) =>
+    (case parse_norm_lines (DROP 2 nocomments) s1 acc of
+      NONE => NONE
+    | SOME (acc1,t) => SOME ((pres,obj,REVERSE acc1),t))
+End
+
+Theorem parse_norm_lines_thm:
+  ∀ls s acc.
+    OPTION_MAP (REVERSE ## I) (parse_norm_lines ls s acc) =
+    OPTION_MAP (λafml. name_norm_pbf (MAP SND afml) s acc)
+      (OPT_MMAP parse_annot_constraint (FILTER nocomment_line ls))
+Proof
+  Induct>>
+  rw[parse_norm_lines_def,name_norm_pbf_def,OPT_MMAP_def]>>
+  simp[parse_norm_line_def,parse_annot_constraint_def,skip_annot_thm,
+    parse_constraint_ns_thm]>>
+  Cases_on`parse_annot h`>>
+  rename1`parse_annot h = (annot,line)`>>
+  gvs[]>>
+  Cases_on`parse_constraint line`>>
+  gvs[]>>
+  rename1`name_norm_pbc c s acc`>>
+  Cases_on`name_norm_pbc c s acc`>>
+  rename1`name_norm_pbc c s acc = (acc1,s1)`>>
+  gvs[]>>
+  Cases_on`OPT_MMAP parse_annot_constraint (FILTER nocomment_line ls)`>>
+  gvs[name_norm_pbf_def]
+QED
+
+Theorem parse_norm_lines_FILTER:
+  ∀ls s acc.
+    parse_norm_lines (FILTER nocomment_line ls) s acc =
+    parse_norm_lines ls s acc
+Proof
+  Induct>>
+  rw[parse_norm_lines_def]
+QED
+
+Theorem parse_constraints_OPT_MMAP[local]:
+  ∀ls acc.
+    parse_constraints ls acc =
+    OPTION_MAP (λr. REVERSE acc ++ r) (OPT_MMAP parse_annot_constraint ls)
+Proof
+  Induct>>
+  rw[parse_constraints_def,OPT_MMAP_def]>>
+  Cases_on`parse_annot_constraint h`>>
+  simp[]>>
+  Cases_on`OPT_MMAP parse_annot_constraint ls`>>
+  simp[]
+QED
+
+Theorem parse_norm_lines_APPEND[local]:
+  ∀xs s acc.
+    parse_norm_lines (xs ++ ys) s acc =
+    case parse_norm_lines xs s acc of
+      NONE => NONE
+    | SOME (acc1,s1) => parse_norm_lines ys s1 acc1
+Proof
+  Induct>>
+  rw[parse_norm_lines_def]>>
+  rpt (TOP_CASE_TAC>>gvs[])
+QED
+
+(* The objective and preserved lines are among the first two lines *)
+Theorem parse_obj_pres_maybe_TAKE[local]:
+  parse_obj_pres_maybe ls = (obj,pres,rest) ⇒
+  (∀P. EVERY P ls ⇒ EVERY P rest) ∧
+  ∃hrest.
+    parse_obj_pres_maybe (TAKE 2 ls) = (obj,pres,hrest) ∧
+    rest = hrest ++ DROP 2 ls
+Proof
+  Cases_on`ls`
+  >- (
+    EVAL_TAC>>
+    rw[])>>
+  rename1`l1::tl`>>
+  Cases_on`tl`>>
+  simp[parse_obj_pres_maybe_def,parse_obj_maybe_def,parse_pres_maybe_def]
+  >- (
+    Cases_on`parse_obj l1`>>
+    Cases_on`parse_pres l1`>>
+    rw[parse_obj_maybe_def,parse_pres_maybe_def]>>
+    simp[])>>
+  rename1`l1::l2::t`>>
+  Cases_on`parse_obj l1`>>
+  Cases_on`parse_pres l1`>>
+  Cases_on`parse_obj l2`>>
+  Cases_on`parse_pres l2`>>
+  rw[parse_obj_maybe_def,parse_pres_maybe_def]>>
+  simp[parse_obj_maybe_def,parse_pres_maybe_def]
+QED
+
+Theorem parse_norm_pbf_toks_thm:
+  parse_norm_pbf_toks tokss s =
+  OPTION_MAP (λprob. name_norm_prob (strip_annot_prob prob) s)
+    (parse_pbf_toks tokss)
+Proof
+  simp[parse_norm_pbf_toks_def,parse_pbf_toks_def,parse_norm_header_def]>>
+  qabbrev_tac`fl = FILTER nocomment_line tokss`>>
+  `EVERY nocomment_line fl` by simp[Abbr`fl`,EVERY_FILTER]>>
+  `(case oHD fl of NONE => [] | SOME l => [l]) ++
+   (case oHD (DROP 1 fl) of NONE => [] | SOME l => [l]) = TAKE 2 fl` by (
+    Cases_on`fl`>>
+    simp[]>>
+    rename1`l1::tl`>>
+    Cases_on`tl`>>
+    simp[])>>
+  `∃obj pres rest. parse_obj_pres_maybe fl = (obj,pres,rest)` by
+    metis_tac[PAIR]>>
+  drule parse_obj_pres_maybe_TAKE>>
+  strip_tac>>
+  simp[]>>
+  `EVERY nocomment_line (hrest ++ DROP 2 fl)` by metis_tac[]>>
+  `FILTER nocomment_line (hrest ++ DROP 2 fl) = hrest ++ DROP 2 fl` by
+    metis_tac[FILTER_EQ_ID]>>
+  Cases_on`name_to_num_pres pres s`>>
+  rename1`name_to_num_pres pres s = (pres1,s1)`>>
+  Cases_on`name_to_num_obj obj s1`>>
+  rename1`name_to_num_obj obj s1 = (obj1,s2)`>>
+  simp[parse_constraints_OPT_MMAP]>>
+  qspecl_then [`hrest ++ DROP 2 fl`,`s2`,`[]`] mp_tac parse_norm_lines_thm>>
+  simp[parse_norm_lines_APPEND]>>
+  Cases_on`OPT_MMAP parse_annot_constraint (hrest ++ DROP 2 fl)`>>
+  simp[]>>
+  rpt (TOP_CASE_TAC>>gvs[])>>
+  strip_tac>>
+  simp[name_norm_prob_def,strip_annot_prob_def]
+QED
+
+(*
   Parsing a proof file
 *)
 
@@ -534,6 +1057,68 @@ Definition int_start_def:
   else
     F
 End
+
+Theorem fromChars_not_digits[local]:
+  ∀str.
+    str = [] ∨ ¬EVERY isDigit str ⇒
+    mlint$fromChars (STRLEN str) (strlit str) = NONE
+Proof
+  Cases
+  >- simp [mlintTheory.fromChars_def]
+  \\ rename1 ‘STRING c cs’
+  \\ qspecl_then [‘SUC (STRLEN cs)’,‘strlit (STRING c cs)’] mp_tac
+       mlintTheory.fromChars_IS_SOME_IFF
+  \\ simp []
+  \\ Cases_on ‘fromChars (SUC (STRLEN cs)) (implode (STRING c cs))’
+  \\ simp [EXISTS_MEM,EVERY_MEM]
+  \\ metis_tac []
+QED
+
+Theorem fromString_int_start[local]:
+  ¬int_start s ⇒ mlint$fromString s = NONE
+Proof
+  Cases_on ‘s’
+  \\ rename1 ‘strlit l’
+  \\ Cases_on ‘l’
+  >- EVAL_TAC
+  \\ rename1 ‘strlit (c::cs)’
+  \\ ‘∀ch. substring (implode (STRING ch cs)) 1 (STRLEN cs) = strlit cs’ by (
+    simp [mlstringTheory.substring_def]
+    \\ simp_tac bool_ss [ONE,SEG_SUC_CONS,SEG_LENGTH_ID])
+  \\ ‘(STRING c cs)❲STRLEN cs❳ = #";" ⇒
+      ¬EVERY isDigit (STRING c cs) ∧ (cs ≠ "" ⇒ ¬EVERY isDigit cs)’ by (
+    strip_tac
+    \\ ‘¬isDigit #";"’ by EVAL_TAC
+    \\ rewrite_tac [EVERY_EL]
+    \\ conj_tac
+    >- (simp [] \\ qexists_tac ‘STRLEN cs’ \\ simp [])
+    \\ Cases_on ‘cs’
+    \\ fs []
+    \\ rename1 ‘STRING d ds’
+    \\ qexists_tac ‘STRLEN ds’
+    \\ simp [])
+  \\ qspec_then ‘cs’ mp_tac fromChars_not_digits
+  \\ qspec_then ‘STRING c cs’ mp_tac fromChars_not_digits
+  \\ Cases_on ‘cs’
+  \\ fs [int_start_def,mlintTheory.fromString_def,is_numeric_def,
+         is_num_prefix_def,isDigit_def]
+  \\ rpt strip_tac
+  \\ rpt IF_CASES_TAC
+  \\ gvs []
+QED
+
+Theorem tokenize_eq:
+  tokenize s =
+  if int_start s then
+    case mlint$fromString s of
+      NONE => INL s
+    | SOME i => INR i
+  else INL s
+Proof
+  rw [tokenize_def]
+  \\ drule fromString_int_start
+  \\ simp []
+QED
 
 Definition tokenize_fast_def:
   tokenize_fast (s:mlstring) =
@@ -1807,12 +2392,25 @@ EVAL ``parse_sol (plainVar_nf,()) (INL «sol») (toks_fast «x1 ~x2 ~x3 : -2»)`
 EVAL ``parse_sol (plainVar_nf,()) (INL «soli») (toks_fast «x1 ~x2 ~x3»)``
 *)
 
+Definition parse_solx_aux_def:
+  (parse_solx_aux f_ns [] assg free = SOME ((assg,free),f_ns)) ∧
+  (parse_solx_aux f_ns (INL s::ss) assg free =
+    if strlen s > 0 ∧ strsub s 0 = #"*" then
+      case parse_var f_ns (substring s 1 (strlen s - 1)) of
+        NONE => NONE
+      | SOME (v,f_ns') => parse_solx_aux f_ns' ss assg (insert v () free)
+    else
+      case parse_lit_num f_ns s of
+        NONE => NONE
+      | SOME (l,f_ns') => parse_solx_aux f_ns' ss (split_lit l::assg) free) ∧
+  (parse_solx_aux f_ns _ assg free = NONE)
+End
+
 Definition parse_solx_def:
-  (parse_solx f_ns rs =
-  case parse_assg f_ns rs [] of
-  | SOME (assg,NONE,f_ns') =>
-      SOME (Done (Sol assg),f_ns')
-  | _ => NONE)
+  parse_solx f_ns rs =
+  case parse_solx_aux f_ns rs [] LN of
+    SOME ((assg,free),f_ns') => SOME (Done (Sol assg free),f_ns')
+  | NONE => NONE
 End
 
 (*

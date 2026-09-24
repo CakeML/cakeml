@@ -3,7 +3,7 @@
 *)
 Theory ccnf_parseProg
 Ancestors
-  ccnf ccnf_list ccnf_arrayProg mlint syntax_helper
+  cnf ccnf ccnf_list ccnf_arrayProg mlint syntax_helper
 Libs
   preamble basis
 
@@ -143,6 +143,53 @@ val res = translate is_int_def;
 val res = translate tokenize_fast_def;
 
 val res = translate starts_with_def;
+
+val res = translate var_lit_def;
+val res = translate keep_line_def;
+
+val res = translate parse_header_line_def;
+
+Theorem parse_header_line_side_thm[local]:
+  ∀x. parse_header_line_side x ⇔ T
+Proof
+  rw[definition"parse_header_line_side_def"]>>
+  intLib.ARITH_TAC
+QED
+
+val _ = parse_header_line_side_thm |> update_precondition;
+
+(*** Printing back out in the DIMACS-style surface syntax ***)
+
+val res = translate print_lit_def;
+val res = translate print_lits_def;
+val res = translate max_list_def;
+val res = translate print_header_line_def;
+
+(* Reading a tokenized line from an instream, specialized to the
+  blanks/tokenize pair the DIMACS readers use *)
+Theorem inputLineTokens_specialize =
+  inputLineTokens_spec_lines
+  |> Q.GEN `f` |> Q.SPEC`blanks`
+  |> Q.GEN `fv` |> Q.SPEC`blanks_v`
+  |> Q.GEN `g` |> Q.ISPEC`tokenize`
+  |> Q.GEN `gv` |> Q.ISPEC`tokenize_v`
+  |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
+  |> SIMP_RULE std_ss [theorem"blanks_v_thm",theorem"tokenize_v_thm",blanks_def];
+
+(* Closing a proof file discards how far it had been read *)
+Theorem fastForwardFD_ADELKEY_same[simp]:
+  forwardFD fs fd n with infds updated_by ADELKEY fd =
+  fs with infds updated_by ADELKEY fd
+Proof
+  fs [forwardFD_def, IO_fs_component_equality]
+QED
+
+Theorem STDIO_refl:
+  STDIO A ==>>
+  STDIO A * GC
+Proof
+  xsimpl
+QED
 
 Theorem EqualityType_CNF_LIT_TYPE:
   EqualityType (CNF_LIT_TYPE NUM)
