@@ -106,6 +106,8 @@ local
      ("ARRAY_REL_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="ARRAY_REL"}),
      ("W8ARRAY_const",prim_mk_const{Thy="cfHeapsBase",Name="W8ARRAY"}),
      ("RW8ARRAY_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="RW8ARRAY"}),
+     ("BITARRAY_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="BITARRAY"}),
+     ("RBITARRAY_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="RBITARRAY"}),
      ("run_const",ml_monadBaseSyntax.run_tm),
      ("EXC_TYPE_aux_const",prim_mk_const{Thy="ml_monad_translator",Name="EXC_TYPE_aux"}),
      ("return_pat",``st_ex_return x``),
@@ -204,6 +206,8 @@ val RARRAY_REL_const = get_term "RARRAY_REL_const";
 val ARRAY_REL_const = get_term "ARRAY_REL_const";
 val W8ARRAY_const = get_term "W8ARRAY_const";
 val RW8ARRAY_const = get_term "RW8ARRAY_const";
+val BITARRAY_const = get_term "BITARRAY_const";
+val RBITARRAY_const = get_term "RBITARRAY_const";
 val run_const = get_term "run_const";
 val EXC_TYPE_aux_const = get_term "EXC_TYPE_aux_const";
 val return_pat = get_term "return_pat";
@@ -3608,14 +3612,31 @@ fun create_local_references init_state th = let
                              |> dest_abs |> snd |> dest_star
                              |> fst |> strip_comb |> fst
         val is_rw8array = same_const RW8ARRAY_const hprop_const
+        val is_rbitarray = same_const RBITARRAY_const hprop_const
         val is_rarray = same_const RARRAY_REL_const hprop_const
         val is_w8array = same_const W8ARRAY_const hprop_const
+        val is_bitarray = same_const BITARRAY_const hprop_const
         val is_farray = same_const ARRAY_REL_const hprop_const orelse is_w8array
+
+        fun remove_EQ_assums lemma = let
+            val EQ_pat = EQ_def |> SPEC_ALL |> concl |> dest_eq |> fst
+            val EQ_assums = lemma |> hyp |> filter (can (match_term EQ_pat))
+            fun remove [] th = th
+              | remove (goal::goals) th = let
+                  val l = auto_prove "EQ_assum" (goal, SIMP_TAC (srw_ss())
+                                                        [EQ_def])
+                  val th = MP (DISCH (concl l) th) l
+                  in remove goals th end
+                  handle HOL_ERR _ => remove goals th
+        in remove EQ_assums lemma end
 
         val lemma =
         if is_rw8array then
             ISPECL[exp, get_ref_fun, loc_name, env, H_part2, P, state_var]
                   EvalSt_W8AllocEmpty |> BETA_RULE |> UNDISCH
+        else if is_rbitarray then
+            ISPECL[exp, get_ref_fun, loc_name, env, H_part2, P, state_var]
+                  EvalSt_BitAllocEmpty |> BETA_RULE |> UNDISCH
         else if is_rarray then
             ISPECL[exp, get_ref_fun, loc_name,
                    rand TYPE, st_name, env, H_part2, P, state_var]
@@ -3642,17 +3663,20 @@ fun create_local_references init_state th = let
             val lemma = ISPECL args lemma |> UNDISCH
             val lemma = MATCH_MP (MATCH_MP lemma nexp_eval) xexp_eval
             val lemma = CONV_RULE (DEPTH_CONV BETA_CONV) lemma
-            val EQ_pat = EQ_def |> SPEC_ALL |> concl |> dest_eq |> fst
-            val EQ_assums = lemma |> hyp |> filter (can (match_term EQ_pat))
-            fun remove_EQ_assums [] th = th
-              | remove_EQ_assums (goal::goals) th = let
-                  val l = auto_prove "EQ_assum" (goal, SIMP_TAC (srw_ss())
-                                                        [EQ_def])
-                  val th = MP (DISCH (concl l) th) l
-                  in remove_EQ_assums goals th end
-                  handle HOL_ERR _ => remove_EQ_assums goals th
-            val lemma = remove_EQ_assums EQ_assums lemma
-        in lemma end
+        in remove_EQ_assums lemma end
+        else if is_bitarray then let
+            (* the initial state holds only the size, in bytes *)
+            val ntm = mk_comb(accessor, init_state)
+            val nexp_eval = get_field_access_eval_thm ntm
+            val nexp = concl nexp_eval |> rator |> rand
+            val n = concl nexp_eval |> rand |> rand
+            val lemma =
+              PURE_REWRITE_RULE [GSYM NUM_def, GSYM INT_def] EvalSt_BitAlloc
+            val lemma = ISPECL [exp, nexp, n, rator state_field, loc_name,
+                                env, H_part2, P, state] lemma |> UNDISCH
+            val lemma = MATCH_MP lemma nexp_eval
+            val lemma = CONV_RULE (DEPTH_CONV BETA_CONV) lemma
+        in remove_EQ_assums lemma end
         else MATCH_MP (ISPECL[exp, get_ref_exp, get_ref_fun, loc_name,
                        TYPE, st_name, env, H_part2, P, state]
                        EvalSt_Opref |> BETA_RULE |>
