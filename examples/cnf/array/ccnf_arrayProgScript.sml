@@ -33,11 +33,29 @@ Proof
   Cases_on`x`>>EVAL_TAC>>rw[]
 QED
 
-Theorem W8ARRAY_refl:
-  (W8ARRAY fml fmllsv ==>> W8ARRAY fml fmllsv) ∧
-  (W8ARRAY fml fmllsv ==>> W8ARRAY fml fmllsv * GC)
+(* An array of nums, used for the assignment map *)
+Definition NUM_ARRAY_def:
+  NUM_ARRAY av ls = SEP_EXISTS vs. ARRAY av vs * &LIST_REL NUM ls vs
+End
+
+Theorem NUM_ARRAY_refl:
+  (NUM_ARRAY av ls ==>> NUM_ARRAY av ls) ∧
+  (NUM_ARRAY av ls ==>> NUM_ARRAY av ls * GC)
 Proof
   xsimpl
+QED
+
+Theorem NUM_ARRAY_alloc_zero_spec:
+  ∀n nv zv.
+  NUM n nv ∧ NUM 0 zv ⇒
+  app (p:'ffi ffi_proj) ^(fetch_v "Array.array" (get_ml_prog_state()))
+    [nv; zv]
+    emp (POSTv av. NUM_ARRAY av (REPLICATE n 0))
+Proof
+  rw[NUM_ARRAY_def]>>
+  xapp>>xsimpl>>
+  qexists_tac`n`>>
+  simp[LIST_REL_REPLICATE_same]
 QED
 
 Quote add_cakeml:
@@ -57,7 +75,7 @@ End
 (* Carried by the Fail exception a checker step raises *)
 Definition format_failure_def:
   format_failure (lno:num) s =
-  «c Checking failed at line: » ^ toString lno ^ «. Reason: » ^ s
+  «c Checking failed at line: » ^ toString lno ^ «. Reason: » ^ s ^ «\n»
 End
 
 val res = translate format_failure_def;
@@ -67,22 +85,6 @@ val res = translate format_failure_def;
 Definition unwrap_TYPE_def:
   unwrap_TYPE P x y = ∃z. x = SOME z ∧ P z y
 End
-
-(* TODO:
-  w8ult should be native,
-  = on bytes should be efficient *)
-Definition w8ult_def:
-  w8ult (x:word8) (y:word8) ⇔
-    w2n x < w2n y
-End
-
-Theorem w8ult_thm[simp]:
-  w8ult x y ⇔ x <+ y
-Proof
-  rw[w8ult_def,WORD_LO]
-QED
-
-val res = translate w8ult_def;
 
 Definition uvsub_def:
   uvsub v n = sub_unsafe v n
@@ -111,14 +113,14 @@ Quote add_cakeml:
     in
       if c < 0
       then
-        (if Unsafe.w8sub carr (~c) = b
+        (if Unsafe.sub carr (~c) = b
         then
           all_assigned_arr carr b k v i1
         else
           if c = k then all_assigned_arr carr b k v i1
           else False)
       else
-        (if w8ult b (Unsafe.w8sub carr c)
+        (if b < Unsafe.sub carr c
         then
           all_assigned_arr carr b k v i1
         else
@@ -136,7 +138,7 @@ QED
 
 Theorem all_assigned_arr_spec:
   ∀Clist b k vec i bv kv vecv iv Carrv.
-  WORD8 b bv ∧
+  NUM b bv ∧
   INT k kv ∧
   vcclause_TYPE vec vecv ∧
   NUM i iv ∧
@@ -145,9 +147,9 @@ Theorem all_assigned_arr_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "all_assigned_arr" (get_ml_prog_state()))
     [Carrv; bv; kv; vecv; iv]
-    (W8ARRAY Carrv Clist)
+    (NUM_ARRAY Carrv Clist)
     (POSTv v.
-      W8ARRAY Carrv Clist *
+      NUM_ARRAY Carrv Clist *
       &BOOL res v)
 Proof
   ho_match_mp_tac all_assigned_list'_ind>>
@@ -166,7 +168,15 @@ Proof
   xlet_autop>>
   xif>>fs[]
   >- (
-    rpt xlet_autop>>
+    xlet_autop>>
+    xlet`POSTv sv. NUM_ARRAY Carrv Clist *
+      &NUM (EL (Num (-sub vec (i-1))) Clist) sv`
+    >- (
+      simp[NUM_ARRAY_def]>>xpull>>
+      xapp>>xsimpl>>
+      qexists_tac`Num (-sub vec (i-1))`>>
+      gvs[LIST_REL_EL_EQN,NUM_def,INT_def])>>
+    xlet_autop>>
     xif>>fs[]
     >- (xapp>>xsimpl)>>
     xlet_autop>>
@@ -175,8 +185,13 @@ Proof
     xcon>>
     xsimpl)
   >- (
-    xlet_auto
-    >- (xsimpl>>intLib.ARITH_TAC)>>
+    xlet`POSTv sv. NUM_ARRAY Carrv Clist *
+      &NUM (EL (Num (sub vec (i-1))) Clist) sv`
+    >- (
+      simp[NUM_ARRAY_def]>>xpull>>
+      xapp>>xsimpl>>
+      qexists_tac`Num (sub vec (i-1))`>>
+      gvs[LIST_REL_EL_EQN,NUM_def,INT_def,integerTheory.INT_NOT_LT])>>
     xlet_autop>>
     xif>>fs[]
     >- (xapp>>xsimpl)>>
@@ -186,12 +201,6 @@ Proof
     xcon>>
     xsimpl)
 QED
-
-Definition badd1_def[simp]:
-  badd1 b = (b+1w):word8
-End
-
-val res = translate badd1_def;
 
 Quote add_cakeml:
   fun delete_literals_sing_arr lno carr b v i =
@@ -206,24 +215,24 @@ Quote add_cakeml:
         let
           val nc = ~c
         in
-          if Unsafe.w8sub carr nc = b
+          if Unsafe.sub carr nc = b
           then
             delete_literals_sing_arr lno carr b v i1
           else
             if all_assigned_arr carr b c v i1
             then
-              (Unsafe.w8update carr nc (badd1 b); False)
+              (Unsafe.update carr nc (b + 1); False)
             else
               raise Fail (format_failure lno "clause not empty or singleton after reduction")
         end
       else
-        if w8ult b (Unsafe.w8sub carr c)
+        if b < Unsafe.sub carr c
         then
           delete_literals_sing_arr lno carr b v i1
         else
           if all_assigned_arr carr b c v i1
           then
-            (Unsafe.w8update carr c b; False)
+            (Unsafe.update carr c b; False)
           else
             raise Fail (format_failure lno "clause not empty or singleton after reduction")
     end
@@ -232,7 +241,7 @@ End
 Theorem delete_literals_sing_arr_spec:
   ∀Clist b vec i bv vecv iv Carrv res.
   NUM lno lnov ∧
-  WORD8 b bv ∧
+  NUM b bv ∧
   VECTOR_TYPE INT vec vecv ∧
   NUM i iv ∧
   delete_literals_sing_list' Clist b vec i = SOME res
@@ -240,14 +249,14 @@ Theorem delete_literals_sing_arr_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "delete_literals_sing_arr" (get_ml_prog_state()))
     [lnov; Carrv; bv; vecv; iv]
-    (W8ARRAY Carrv Clist)
+    (NUM_ARRAY Carrv Clist)
     (POSTve
       (λv.
         SEP_EXISTS b' Clist'.
-        W8ARRAY Carrv Clist' *
+        NUM_ARRAY Carrv Clist' *
         &(res = SOME(b',Clist') ∧ BOOL b' v))
       (λe.
-        W8ARRAY Carrv Clist *
+        NUM_ARRAY Carrv Clist *
         &(Fail_exn e ∧ res = NONE))
     )
 Proof
@@ -269,28 +278,55 @@ Proof
   rpt xlet_autop>>
   xif>>gvs[]
   >- (
-    rpt xlet_autop>>
+    xlet_autop>>
+    xlet`POSTv sv. NUM_ARRAY Carrv Clist *
+      &NUM (EL (Num (-sub vec (i-1))) Clist) sv`
+    >- (
+      simp[NUM_ARRAY_def]>>xpull>>
+      xapp>>xsimpl>>
+      qexists_tac`Num (-sub vec (i-1))`>>
+      gvs[LIST_REL_EL_EQN,NUM_def,INT_def])>>
+    xlet_autop>>
     xif>>gvs[]
     >- (xapp>>xsimpl)>>
     rpt xlet_autop>>
     xif>>gvs[]
     >- (
-      rpt xlet_autop>>
+      xlet_autop>>
+      xlet`POSTv uv. NUM_ARRAY Carrv
+        (LUPDATE (b+1) (Num (-sub vec (i-1))) Clist)`
+      >- (
+        simp[NUM_ARRAY_def]>>xpull>>
+        xapp>>xsimpl>>
+        qexists_tac`Num (-sub vec (i-1))`>>
+        imp_res_tac LIST_REL_LENGTH>>
+        gvs[NUM_def,INT_def,EVERY2_LUPDATE_same])>>
       xcon>>xsimpl>>
       EVAL_TAC)>>
     rpt xlet_autop>>
     xraise>>xsimpl>>
     metis_tac[Fail_exn_def])>>
-  xlet_auto
-  >-  (xsimpl>>gvs[]>>intLib.ARITH_TAC)>>
+  xlet`POSTv sv. NUM_ARRAY Carrv Clist *
+    &NUM (EL (Num (sub vec (i-1))) Clist) sv`
+  >- (
+    simp[NUM_ARRAY_def]>>xpull>>
+    xapp>>xsimpl>>
+    qexists_tac`Num (sub vec (i-1))`>>
+    gvs[LIST_REL_EL_EQN,NUM_def,INT_def,integerTheory.INT_NOT_LT])>>
   xlet_autop>>
   xif>>gvs[]
   >- (xapp>>xsimpl)>>
   xlet_autop>>
   xif>>fs[]
   >- (
-    xlet_auto
-    >- (xsimpl>>gvs[]>>intLib.ARITH_TAC)>>
+    xlet`POSTv uv. NUM_ARRAY Carrv
+      (LUPDATE b (Num (sub vec (i-1))) Clist)`
+    >- (
+      simp[NUM_ARRAY_def]>>xpull>>
+      xapp>>xsimpl>>
+      qexists_tac`Num (sub vec (i-1))`>>
+      imp_res_tac LIST_REL_LENGTH>>
+      gvs[NUM_def,INT_def,EVERY2_LUPDATE_same,integerTheory.INT_NOT_LT])>>
     xcon>>xsimpl>>
     EVAL_TAC)>>
   rpt xlet_autop>>
@@ -302,75 +338,48 @@ Definition bw0_def[simp]:
   bw0 = (0w):word8
 End
 
-Definition bw1_def[simp]:
-  bw1 = (1w):word8
-End
-
-Definition bw253_def[simp]:
-  bw253 = (253w):word8
-End
-
 val bw0_v_thm = translate bw0_def;
-val bw1_v_thm = translate bw1_def;
-val bw253_v_thm = translate bw253_def;
-
-Definition badd2_def[simp]:
-  badd2 b = (b+2w):word8
-End
-
-val res = translate badd2_def;
 
 Quote add_cakeml:
   fun reset_dm_arr carr b sz =
-  let
-    val len = Word8Array.length carr
-  in
-  if len < sz then
-    (Word8Array.array (2 * sz) bw0, bw1)
+  if Array.length carr < sz then
+    (Array.array (2 * sz) 0, 1)
   else
-    if w8ult b bw253
-    then (carr,badd2 b)
-    else (Word8Array.array len bw0, bw1)
-  end
+    (carr, b + 2)
 End
 
 Theorem reset_dm_arr_spec:
   NUM sz szv ∧
-  WORD8 b bv
+  NUM b bv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "reset_dm_arr" (get_ml_prog_state()))
     [Carrv; bv; szv]
-    (W8ARRAY Carrv Clist)
+    (NUM_ARRAY Carrv Clist)
     (POSTv v.
         SEP_EXISTS Carrv' b' Clist'.
-        W8ARRAY Carrv' Clist' *
-        &(PAIR_TYPE ($=) WORD8 (Carrv', b') v ∧
+        NUM_ARRAY Carrv' Clist' *
+        &(PAIR_TYPE ($=) NUM (Carrv', b') v ∧
           reset_dm_list Clist b sz = (Clist',b')))
 Proof
   rw[]>>
   xcf "reset_dm_arr" (get_ml_prog_state ())>>
-  assume_tac bw0_v_thm>>
-  assume_tac bw253_v_thm>>
-  rpt xlet_autop>>
-  xif>>gvs[]
+  xlet`POSTv lv. NUM_ARRAY Carrv Clist * &NUM (LENGTH Clist) lv`
   >- (
-    rpt xlet_autop>>
-    xcon>>xsimpl>>
-    simp[reset_dm_list_def,PAIR_TYPE_def]>>
-    CONJ_TAC >- metis_tac[bw1_def,bw1_v_thm]>>
-    xsimpl)>>
+    simp[NUM_ARRAY_def]>>xpull>>
+    xapp>>xsimpl>>
+    imp_res_tac LIST_REL_LENGTH>>simp[])>>
   xlet_autop>>
   xif>>gvs[]
   >- (
-    xlet_autop>>
-    xcon>>xsimpl>>
-    simp[reset_dm_list_def,PAIR_TYPE_def]>>
-    xsimpl)>>
-  rpt xlet_autop>>
-  xcon>>xsimpl>>
+    rpt xlet_autop>>
+    xcon>>
+    simp[reset_dm_list_def,PAIR_TYPE_def,NUM_ARRAY_def]>>
+    xsimpl>>
+    simp[LIST_REL_REPLICATE_same,NUM_def,INT_def])>>
+  xlet_autop>>
+  xcon>>
   simp[reset_dm_list_def,PAIR_TYPE_def]>>
-  CONJ_TAC >- metis_tac[bw1_def,bw1_v_thm]>>
   xsimpl
 QED
 
@@ -389,8 +398,8 @@ QED
 val _ = sz_lit_map_side |> update_precondition;
 
 Definition mk_bb_nc_def[simp]:
-  mk_bb_nc d (b:word8) =
-  if d > 0 then (b+1w, Num d) else (b,Num (-d))
+  mk_bb_nc d (b:num) =
+  if d > 0 then (b+1, Num d) else (b,Num (-d))
 End
 
 val res = translate mk_bb_nc_def;
@@ -414,14 +423,14 @@ Quote add_cakeml:
       val d = uvsub v i1
     in
       case mk_bb_nc d b of (bb,nc) =>
-        (Unsafe.w8update carr nc bb;
+        (Unsafe.update carr nc bb;
         init_lit_map_arr i1 v carr b)
     end
 End
 
 Theorem init_lit_map_arr_spec:
   ∀i vec Clist b bv vecv iv Carrv.
-  WORD8 b bv ∧
+  NUM b bv ∧
   VECTOR_TYPE INT vec vecv ∧
   NUM i iv ∧
   init_lit_map_list' i vec Clist b = SOME res
@@ -429,9 +438,9 @@ Theorem init_lit_map_arr_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "init_lit_map_arr" (get_ml_prog_state()))
     [iv; vecv; Carrv; bv]
-    (W8ARRAY Carrv Clist)
+    (NUM_ARRAY Carrv Clist)
     (POSTv v.
-      W8ARRAY Carrv res)
+      NUM_ARRAY Carrv res)
 Proof
   ho_match_mp_tac init_lit_map_list'_ind>>
   rpt strip_tac>>
@@ -450,7 +459,13 @@ Proof
   xlet_autop>>
   pairarg_tac>>gvs[PAIR_TYPE_def]>>
   xmatch>>
-  xlet_autop>>
+  xlet`POSTv uv. NUM_ARRAY Carrv (LUPDATE bb nc Clist)`
+  >- (
+    simp[NUM_ARRAY_def]>>xpull>>
+    xapp>>xsimpl>>
+    qexists_tac`nc`>>
+    imp_res_tac LIST_REL_LENGTH>>
+    fs[EVERY2_LUPDATE_same])>>
   xapp>>gvs[]
 QED
 
@@ -465,17 +480,17 @@ Quote add_cakeml:
 End
 
 Theorem resize_dm_spec:
-  WORD8 b bv ∧
+  NUM b bv ∧
   VECTOR_TYPE INT vec vecv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "resize_dm" (get_ml_prog_state()))
     [Carrv; bv; vecv]
-    (W8ARRAY Carrv Clist)
+    (NUM_ARRAY Carrv Clist)
     (POSTv v.
         SEP_EXISTS Carrv' b' Clist' bv'.
-        W8ARRAY Carrv' Clist' *
-        &(PAIR_TYPE ($=) WORD8 (Carrv', b') v ∧
+        NUM_ARRAY Carrv' Clist' *
+        &(PAIR_TYPE ($=) NUM (Carrv', b') v ∧
           resize_dm Clist b vec = (Clist',b')))
 Proof
   rw[]>>
@@ -490,7 +505,8 @@ Proof
   xapp>>xsimpl>>
   rpt (first_x_assum $ irule_at Any)>>
   rw[]>>
-  qexists_tac`x`>>xsimpl
+  qexists_tac`emp`>>qexists_tac`Clist`>>xsimpl>>
+  metis_tac[NUM_ARRAY_refl]
 QED
 
 Quote add_cakeml:
@@ -501,17 +517,17 @@ Quote add_cakeml:
 End
 
 Theorem prepare_rup_spec:
-  WORD8 b bv ∧
+  NUM b bv ∧
   VECTOR_TYPE INT vec vecv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "prepare_rup" (get_ml_prog_state()))
     [Carrv; bv; vecv]
-    (W8ARRAY Carrv Clist)
+    (NUM_ARRAY Carrv Clist)
     (POSTv v.
         SEP_EXISTS Carrv' b' Clist' bv'.
-        W8ARRAY Carrv' Clist' *
-        &(PAIR_TYPE ($=) WORD8 (Carrv', b') v ∧
+        NUM_ARRAY Carrv' Clist' *
+        &(PAIR_TYPE ($=) NUM (Carrv', b') v ∧
           prepare_rup Clist b vec = (Clist',b')))
 Proof
   rw[]>>
@@ -530,7 +546,8 @@ Proof
   xlet_autop>>
   xlet_autop>>
   xcon>>xsimpl>>
-  metis_tac[init_lit_map_list']
+  drule init_lit_map_list'>>
+  rw[NUM_ARRAY_refl]
 QED
 
 Quote add_cakeml:
@@ -566,24 +583,24 @@ End
 Theorem unit_prop_one_spec:
   NUM lno lnov ∧
   LIST_REL vcclause_TYPE fmlls fmllsv ∧
-  WORD8 b bv ∧
+  NUM b bv ∧
   NUM i iv ∧
   unit_prop_one' fmlls Clist b i = SOME res
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "unit_prop_one" (get_ml_prog_state()))
     [lnov; fmlv; Carrv; bv; iv]
-    (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
+    (ARRAY fmlv fmllsv * NUM_ARRAY Carrv Clist)
     (POSTve
       (λv.
         ARRAY fmlv fmllsv *
         SEP_EXISTS b' Clist'.
-        W8ARRAY Carrv Clist' *
+        NUM_ARRAY Carrv Clist' *
         &(res = SOME(b',Clist') ∧ BOOL b' v))
       (λe.
         ARRAY fmlv fmllsv *
         SEP_EXISTS Clist'.
-        W8ARRAY Carrv Clist' *
+        NUM_ARRAY Carrv Clist' *
         &(Fail_exn e ∧ res = NONE))
     )
 Proof
@@ -597,12 +614,12 @@ Proof
   >- (
     rpt xlet_autop>>
     xraise>>xsimpl>>
-    metis_tac[Fail_exn_def])>>
+    metis_tac[Fail_exn_def,NUM_ARRAY_refl])>>
   rename1`EL h fmlls`>>
   `vcclause_TYPE (EL h fmlls) (EL h fmllsv)` by fs[LIST_REL_EL_EQN]>>
   rpt xlet_autop>>
   xlet`POSTv bb.
-    ARRAY fmlv fmllsv * W8ARRAY Carrv Clist *
+    ARRAY fmlv fmllsv * NUM_ARRAY Carrv Clist *
     &BOOL (length (EL h fmlls) = 1 ∧ sub (EL h fmlls) 0 = 0) bb`
   >- (
     xlog>>
@@ -619,36 +636,39 @@ Proof
     `EL h fmlls ≠ vcc_none` by metis_tac[is_vcc_none]>>
     gvs[]>>
     xapp>>xsimpl>>
-    rpt(first_x_assum $ irule_at Any>>xsimpl))>>
+    qpat_x_assum`delete_literals_sing_list' _ _ _ _ = _` $ irule_at Any>>
+    qpat_x_assum`NUM lno _` $ irule_at Any>>
+    xsimpl>>
+    metis_tac[NUM_ARRAY_refl])>>
   `EL h fmlls = vcc_none` by metis_tac[is_vcc_none]>>
   gvs[]>>
   rpt xlet_autop>>
   xraise>>xsimpl>>
-  metis_tac[Fail_exn_def]
+  metis_tac[Fail_exn_def,NUM_ARRAY_refl]
 QED
 
 Theorem unit_prop_arr_spec:
   ∀ls lsv Carrv Clist b bv res.
   NUM lno lnov ∧
   LIST_REL vcclause_TYPE fmlls fmllsv ∧
-  WORD8 b bv ∧
+  NUM b bv ∧
   LIST_TYPE NUM ls lsv ∧
   unit_prop_list' fmlls Clist b ls = SOME res
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "unit_prop_arr" (get_ml_prog_state()))
     [lnov; fmlv; Carrv; bv; lsv]
-    (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
+    (ARRAY fmlv fmllsv * NUM_ARRAY Carrv Clist)
     (POSTve
       (λv.
         ARRAY fmlv fmllsv *
         SEP_EXISTS b' Clist'.
-        W8ARRAY Carrv Clist' *
+        NUM_ARRAY Carrv Clist' *
         &(res = SOME(b',Clist') ∧ BOOL b' v))
       (λe.
         ARRAY fmlv fmllsv *
         SEP_EXISTS Clist'.
-        W8ARRAY Carrv Clist' *
+        NUM_ARRAY Carrv Clist' *
         &(Fail_exn e ∧ res = NONE))
     )
 Proof
@@ -662,16 +682,21 @@ Proof
   >- (
     xcon>>xsimpl>>
     EVAL_TAC)>>
-  xlet_autop
+  xlet_auto
   >- (
     xsimpl>>
-    gvs[AllCaseEqs()])>>
+    metis_tac[NUM_ARRAY_refl])
+  >- (
+    xsimpl>>
+    gvs[AllCaseEqs()]>>
+    metis_tac[NUM_ARRAY_refl])>>
   xif>>gvs[]
   >- (
     xcon>>xsimpl>>
     EVAL_TAC)>>
   xapp>>xsimpl>>
-  first_x_assum $ irule_at Any>>xsimpl
+  first_x_assum $ irule_at Any>>xsimpl>>
+  metis_tac[NUM_ARRAY_refl]
 QED
 
 val res = translate parse_vb_num_aux_def;
@@ -690,7 +715,29 @@ QED
 val _ = parse_vb_num_aux_side |> update_precondition;
 
 val res = translate parse_vb_num_def;
-val res = translate parse_vb_int_def;
+
+val res = translate vb_sgn_def;
+val res = translate vb_int_lo_def;
+
+Theorem vb_int_lo_side[local]:
+ !a b c.
+ c <= strlen a ==> vb_int_lo_side a b c
+Proof
+ rw[definition "vb_int_lo_side_def",parse_vb_num_aux_side]
+QED
+
+val _ = vb_int_lo_side |> update_precondition;
+
+val res = translate parse_vb_int_eq;
+
+Theorem parse_vb_int_side:
+ !s i len.
+ len <= strlen s ==> parse_vb_int_side s i len
+Proof
+ rw[definition "parse_vb_int_side_def",vb_int_lo_side]
+QED
+
+val _ = parse_vb_int_side |> update_precondition;
 
 Quote add_cakeml:
   fun unit_prop_vb_arr lno fml carr b s i1 len =
@@ -708,7 +755,7 @@ Theorem unit_prop_arr_vb_spec:
   ∀fmlls Clist b s i l iv bv res.
   NUM lno lnov ∧
   LIST_REL vcclause_TYPE fmlls fmllsv ∧
-  WORD8 b bv ∧
+  NUM b bv ∧
   STRING_TYPE s sv ∧
   NUM i iv ∧
   NUM l lv ∧
@@ -718,17 +765,17 @@ Theorem unit_prop_arr_vb_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "unit_prop_vb_arr" (get_ml_prog_state()))
     [lnov; fmlv; Carrv; bv; sv; iv; lv]
-    (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
+    (ARRAY fmlv fmllsv * NUM_ARRAY Carrv Clist)
     (POSTve
       (λv.
         ARRAY fmlv fmllsv *
         SEP_EXISTS b' Clist'.
-        W8ARRAY Carrv Clist' *
+        NUM_ARRAY Carrv Clist' *
         &(res = SOME(b',Clist') ∧ OPTION_TYPE NUM b' v))
       (λe.
         ARRAY fmlv fmllsv *
         SEP_EXISTS Clist'.
-        W8ARRAY Carrv Clist' *
+        NUM_ARRAY Carrv Clist' *
         &(Fail_exn e ∧ res = NONE))
     )
 Proof
@@ -739,21 +786,26 @@ Proof
   strip_tac>>
   xcf "unit_prop_vb_arr" (get_ml_prog_state ())>>
   xlet_auto
-  >- (xsimpl >> fs[definition "parse_vb_int_side_def",
-                  definition "parse_vb_num_side_def"]
-     >> fs[parse_vb_num_aux_side]) >>
+  >- (xsimpl >> fs[parse_vb_int_side]) >>
   gvs[UNCURRY_EQ,PAIR_TYPE_def] >> xmatch >>
   xlet_auto >- xsimpl >>
   xif >- (
       xcon >> xsimpl >>
-      gvs[AllCaseEqs(),OPTION_TYPE_def]) >>
+      gvs[AllCaseEqs(),OPTION_TYPE_def] >>
+      metis_tac[NUM_ARRAY_refl]) >>
   gvs[TypeBase.case_eq_of ``:bool``] >>
   xlet_auto
-     >- (xsimpl >> intLib.ARITH_TAC)
-     >- (xsimpl >> rpt strip_tac >> rveq >> fs[]) >>
+     >- (
+       xsimpl >>
+       conj_tac >- intLib.ARITH_TAC >>
+       metis_tac[NUM_ARRAY_refl])
+     >- (
+       xsimpl >> rpt strip_tac >> rveq >> fs[] >>
+       metis_tac[NUM_ARRAY_refl]) >>
   xif >- (
       xcon >> xsimpl >>
-      gvs[AllCaseEqs(),OPTION_TYPE_def]) >>
+      gvs[AllCaseEqs(),OPTION_TYPE_def] >>
+      metis_tac[NUM_ARRAY_refl]) >>
   gvs[] >>
   first_x_assum drule_all >>
   strip_tac >> xapp >>
@@ -775,7 +827,7 @@ End
 Theorem is_rup_arr_spec':
   NUM lno lnov ∧
   LIST_REL vcclause_TYPE fmlls fmllsv ∧
-  WORD8 b bv ∧
+  NUM b bv ∧
   vcclause_TYPE v vv ∧
   LIST_TYPE NUM ls lsv ∧
   is_rup_list' fmlls Clist b v ls = SOME res
@@ -783,18 +835,18 @@ Theorem is_rup_arr_spec':
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_rup_arr" (get_ml_prog_state()))
     [lnov; fmlv; Carrv; bv; vv; lsv]
-    (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
+    (ARRAY fmlv fmllsv * NUM_ARRAY Carrv Clist)
     (POSTve
       (λv.
         ARRAY fmlv fmllsv *
         SEP_EXISTS b' Carrv' Clist'.
-        W8ARRAY Carrv' Clist' *
-        &(PAIR_TYPE ($=) WORD8 (Carrv', b') v ∧
+        NUM_ARRAY Carrv' Clist' *
+        &(PAIR_TYPE ($=) NUM (Carrv', b') v ∧
           res = (T, (Clist',b'))))
       (λe.
         ARRAY fmlv fmllsv *
         SEP_EXISTS Carrv' Clist'.
-        W8ARRAY Carrv' Clist' *
+        NUM_ARRAY Carrv' Clist' *
         &(Fail_exn e ∧ FST res = F))
     )
 Proof
@@ -803,25 +855,28 @@ Proof
   xlet_auto
   >- (
     xsimpl>>
-    metis_tac[W8ARRAY_refl])>>
+    metis_tac[NUM_ARRAY_refl])>>
   gvs[PAIR_TYPE_def,is_rup_list'_def]>>
   xmatch>>
-  xlet_autop
+  xlet_auto
   >- (
     xsimpl>>
-    metis_tac[W8ARRAY_refl])>>
+    metis_tac[NUM_ARRAY_refl])
+  >- (
+    xsimpl>>
+    metis_tac[NUM_ARRAY_refl])>>
   xif
   >- (xvar>>xsimpl)>>
   rpt xlet_autop>>
   xraise>>
   xsimpl>>
-  metis_tac[Fail_exn_def,W8ARRAY_refl]
+  metis_tac[Fail_exn_def,NUM_ARRAY_refl]
 QED
 
 Theorem is_rup_arr_spec:
   NUM lno lnov ∧
   LIST_REL vcclause_TYPE fmlls fmllsv ∧
-  WORD8 b bv ∧
+  NUM b bv ∧
   vcclause_TYPE v vv ∧
   LIST_TYPE NUM ls lsv ∧
   bnd_fml fmlls (LENGTH Clist)
@@ -829,18 +884,18 @@ Theorem is_rup_arr_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_rup_arr" (get_ml_prog_state()))
     [lnov; fmlv; Carrv; bv; vv; lsv]
-    (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
+    (ARRAY fmlv fmllsv * NUM_ARRAY Carrv Clist)
     (POSTve
       (λres.
         ARRAY fmlv fmllsv *
         SEP_EXISTS b' Carrv' Clist'.
-        W8ARRAY Carrv' Clist' *
-        &(PAIR_TYPE ($=) WORD8 (Carrv', b') res ∧
+        NUM_ARRAY Carrv' Clist' *
+        &(PAIR_TYPE ($=) NUM (Carrv', b') res ∧
           is_rup_list fmlls Clist b v ls = (T,(Clist',b'))))
       (λe.
         ARRAY fmlv fmllsv *
         SEP_EXISTS Carrv' Clist'.
-        W8ARRAY Carrv' Clist' *
+        NUM_ARRAY Carrv' Clist' *
         &(Fail_exn e ∧
           FST (is_rup_list fmlls Clist b v ls) = F))
     )
@@ -849,7 +904,9 @@ Proof
   drule is_rup_list'_SOME>>
   disch_then (qspecl_then [`v`,`ls`,`b`] assume_tac)>>
   fs[IS_SOME_EXISTS]>>
-  drule_all is_rup_arr_spec'>>
+  rename1`is_rup_list' _ _ _ _ _ = SOME res`>>
+  mp_tac is_rup_arr_spec'>>
+  impl_tac >- simp[]>>
   drule is_rup_list'>>
   rw[]
 QED
@@ -868,7 +925,7 @@ End
 Theorem is_rup_vb_arr_spec':
   NUM lno lnov ∧
   LIST_REL vcclause_TYPE fmlls fmllsv ∧
-  WORD8 b bv ∧
+  NUM b bv ∧
   vcclause_TYPE v vv ∧
   STRING_TYPE s sv ∧
   is_rup_vb_list' fmlls Clist b v s = SOME res
@@ -876,18 +933,18 @@ Theorem is_rup_vb_arr_spec':
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_rup_vb_arr" (get_ml_prog_state()))
     [lnov; fmlv; Carrv; bv; vv; sv]
-    (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
+    (ARRAY fmlv fmllsv * NUM_ARRAY Carrv Clist)
     (POSTve
       (λv.
         ARRAY fmlv fmllsv *
         SEP_EXISTS b' Carrv' Clist'.
-        W8ARRAY Carrv' Clist' *
-        &(PAIR_TYPE ($=) WORD8 (Carrv', b') v ∧
+        NUM_ARRAY Carrv' Clist' *
+        &(PAIR_TYPE ($=) NUM (Carrv', b') v ∧
           res = (T, (Clist',b'))))
       (λe.
         ARRAY fmlv fmllsv *
         SEP_EXISTS Carrv' Clist'.
-        W8ARRAY Carrv' Clist' *
+        NUM_ARRAY Carrv' Clist' *
         &(Fail_exn e ∧ FST res = F))
     )
 Proof
@@ -896,24 +953,26 @@ Proof
   xlet_auto
   >- (
     xsimpl>>
-    metis_tac[W8ARRAY_refl])>>
+    metis_tac[NUM_ARRAY_refl])>>
   gvs[PAIR_TYPE_def,is_rup_vb_list'_def]>>
   xmatch>>
   xlet_autop >>
-  xlet_autop >- (xsimpl >> metis_tac[W8ARRAY_refl]) >>
+  xlet_auto
+  >- (xsimpl >> metis_tac[NUM_ARRAY_refl])
+  >- (xsimpl >> metis_tac[NUM_ARRAY_refl]) >>
   Cases_on `b''` >> fs[OPTION_TYPE_def] >>
   xmatch
   >- (xvar >>xsimpl)
   >- (
      rpt xlet_autop >>xraise >>
      xsimpl >> simp[Fail_exn_def] >>
-     metis_tac[W8ARRAY_refl])
+     metis_tac[NUM_ARRAY_refl])
 QED
 
 Theorem is_rup_vb_arr_spec:
   NUM lno lnov ∧
   LIST_REL vcclause_TYPE fmlls fmllsv ∧
-  WORD8 b bv ∧
+  NUM b bv ∧
   vcclause_TYPE v vv ∧
   STRING_TYPE s sv ∧
   bnd_fml fmlls (LENGTH Clist)
@@ -921,18 +980,18 @@ Theorem is_rup_vb_arr_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_rup_vb_arr" (get_ml_prog_state()))
     [lnov; fmlv; Carrv; bv; vv; sv]
-    (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
+    (ARRAY fmlv fmllsv * NUM_ARRAY Carrv Clist)
     (POSTve
       (λres.
         ARRAY fmlv fmllsv *
         SEP_EXISTS b' Carrv' Clist'.
-        W8ARRAY Carrv' Clist' *
-        &(PAIR_TYPE ($=) WORD8 (Carrv', b') res ∧
+        NUM_ARRAY Carrv' Clist' *
+        &(PAIR_TYPE ($=) NUM (Carrv', b') res ∧
           is_rup_vb_list fmlls Clist b v s = (T,(Clist',b'))))
       (λe.
         ARRAY fmlv fmllsv *
         SEP_EXISTS Carrv' Clist'.
-        W8ARRAY Carrv' Clist' *
+        NUM_ARRAY Carrv' Clist' *
         &(Fail_exn e ∧
           FST (is_rup_vb_list fmlls Clist b v s) = F))
     )
@@ -941,7 +1000,9 @@ Proof
   drule is_rup_vb_list'_SOME>>
   disch_then (qspecl_then [`v`,`s`,`b`] assume_tac)>>
   fs[IS_SOME_EXISTS]>>
-  drule_all is_rup_vb_arr_spec'>>
+  rename1`is_rup_vb_list' _ _ _ _ _ = SOME res`>>
+  mp_tac is_rup_vb_arr_spec'>>
+  impl_tac >- simp[]>>
   drule is_rup_vb_list'>>
   rw[]
 QED
@@ -1048,9 +1109,7 @@ Proof
   xlet_auto
   >- (
     xsimpl>>
-    fs[definition "parse_vb_int_side_def",
-       definition "parse_vb_num_side_def"]>>
-    fs[parse_vb_num_aux_side])>>
+    fs[parse_vb_int_side])>>
   Cases_on`parse_vb_int s i l`>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>

@@ -736,6 +736,126 @@ Definition parse_vb_int_def:
   (v,i)
 End
 
+(* An unrolled reading of parse_vb_int.
+
+  A doubled number m = p0 + p1*128 + p2*128^2 + ... has m MOD 2 = p0 MOD 2 and
+  m DIV 2 = p0 DIV 2 + p1*64 + p2*8192 + ..., so the sign and the halving are
+  settled by the first byte alone and every later byte contributes its payload
+  scaled by 128^k DIV 2. The first byte's parity and half are taken with word8
+  masks and a shift on char_to_word8 c, which translates to a single
+  char-to-byte conversion (Eval_char_to_word8, translator/ml_translatorScript.sml);
+  n2w of a num bound separately translates to Word8.fromInt, a division. The
+  four unrolled bytes cover every number below 2^28, and the rest is left to
+  the general loop. *)
+
+Definition vb_sgn_def:
+  vb_sgn neg (h:num) = if neg then -&h else (&h:int)
+End
+
+Definition vb_int_lo_def:
+  vb_int_lo (s:mlstring) (i:num) (len:num) =
+  if i < len then
+    (let c = strsub s i in
+     let b = ORD c in
+     let w = char_to_word8 c in
+     let neg = (w2n (w && 1w) = 1) in
+     let h = w2n ((w && 127w) >>> 1) in
+     if b < 128 then (vb_sgn neg h, i + 1)
+     else if i + 1 < len then
+       (let b = ORD (strsub s (i + 1)) in
+        if b < 128 then (vb_sgn neg (h + b * 64), i + 2)
+        else if i + 2 < len then
+          (let h = h + (b - 128) * 64 in
+           let b = ORD (strsub s (i + 2)) in
+           if b < 128 then (vb_sgn neg (h + b * 8192), i + 3)
+           else if i + 3 < len then
+             (let h = h + (b - 128) * 8192 in
+              let b = ORD (strsub s (i + 3)) in
+              if b < 128 then (vb_sgn neg (h + b * 1048576), i + 4)
+              else
+                (let h = h + (b - 128) * 1048576 in
+                 let (m,j) =
+                   parse_vb_num_aux s (i + 4) len 268435456
+                     (2 * h + if neg then 1 else 0) in
+                 ((if m MOD 2 = 0n then (&(m DIV 2):int)
+                   else (-&(m DIV 2):int)), j)))
+           else (0, i + 3))
+        else (0, i + 2))
+     else (0, i + 1))
+  else (0, i)
+End
+
+Theorem vb_half_bits[local]:
+  b < 256 ==>
+  w2n ((n2w b :word8) && 1w) = b MOD 2 /\
+  w2n (((n2w b :word8) && 127w) >>> 1) = (b MOD 128) DIV 2
+Proof
+  simp[SIMP_RULE (srw_ss()) [] (Q.SPEC `1n` WORD_AND_EXP_SUB1),
+       SIMP_RULE (srw_ss()) [] (Q.SPEC `7n` WORD_AND_EXP_SUB1),
+       w2n_lsr, w2n_n2w] >>
+  `b MOD 2 < 2 /\ b MOD 128 < 128` by simp[MOD_LESS] >>
+  simp[LESS_MOD]
+QED
+
+Theorem vb_sgn_decode[local]:
+  (if m MOD 2 = 0n then (&(m DIV 2):int) else (-&(m DIV 2):int)) =
+  vb_sgn (m MOD 2 = 1) (m DIV 2)
+Proof
+  `m MOD 2 < 2` by simp[MOD_LESS] >>
+  `m MOD 2 = 0 \/ m MOD 2 = 1` by simp[] >>
+  gvs[vb_sgn_def]
+QED
+
+(* One byte of the general loop, run at an even multiplier so that the
+  accumulator stays of the form 2 * half + parity. *)
+Theorem vb_int_step[local]:
+  !ex s i len g par.
+    par < 2 ==>
+    (let (m,j) = parse_vb_num_aux s i len (2 * ex) (2 * g + par) in
+       ((if m MOD 2 = 0n then (&(m DIV 2):int) else (-&(m DIV 2):int)), j)) =
+    if i < len then
+      (let b = ORD (strsub s i) in
+       if b < 128 then (vb_sgn (par = 1) (g + b * ex), i + 1)
+       else
+         (let (m,j) =
+            parse_vb_num_aux s (i + 1) len (2 * (ex * 128))
+              (2 * (g + (b - 128) * ex) + par) in
+            ((if m MOD 2 = 0n then (&(m DIV 2):int) else (-&(m DIV 2):int)), j)))
+    else (0, i)
+Proof
+  rpt strip_tac >>
+  CONV_TAC (LHS_CONV (ONCE_REWRITE_CONV [parse_vb_num_aux_def])) >>
+  rw[]
+  >- fs[]
+  >- (AP_TERM_TAC >> AP_TERM_TAC >> simp[]) >>
+  `par = 0 \/ par = 1` by simp[] >>
+  gvs[vb_sgn_def]
+QED
+
+Theorem parse_vb_int_eq:
+  parse_vb_int s i len = vb_int_lo s i len
+Proof
+  simp[parse_vb_int_def, parse_vb_num_def] >>
+  CONV_TAC (LHS_CONV (ONCE_REWRITE_CONV [parse_vb_num_aux_def])) >>
+  `!m:num. (if m = 0 then 0i
+            else if m MOD 2 = 0 then (&(m DIV 2):int) else (-&(m DIV 2):int)) =
+           (if m MOD 2 = 0 then (&(m DIV 2):int) else (-&(m DIV 2):int))` by rw[] >>
+  Cases_on `i < len` >> Cases_on `ORD (strsub s i) < 128` >>
+  simp[vb_int_lo_def, ORD_BOUND, vb_half_bits]
+  >- simp[vb_sgn_decode] >>
+  `?r. r < 128 /\ ORD (strsub s i) = 128 + r` by
+    (qexists_tac `ORD (strsub s i) - 128` >> simp[ORD_BOUND]) >>
+  gvs[] >>
+  `r = 2 * (r DIV 2) + r MOD 2` by
+    simp[Once (Q.SPEC `r` (MATCH_MP DIVISION (DECIDE ``0n < 2``))), MULT_COMM] >>
+  pop_assum (fn th => CONV_TAC (LHS_CONV (ONCE_REWRITE_CONV [th]))) >>
+  `r MOD 2 < 2` by simp[MOD_LESS] >>
+  `(if r MOD 2 = 1 then 1n else 0) = r MOD 2` by rw[] >>
+  simp[SIMP_RULE (srw_ss()) [LET_THM] (Q.SPEC `64n` vb_int_step),
+       SIMP_RULE (srw_ss()) [LET_THM] (Q.SPEC `8192n` vb_int_step),
+       SIMP_RULE (srw_ss()) [LET_THM] (Q.SPEC `1048576n` vb_int_step)]
+QED
+
 (* Decode a doubled literal: even is positive, odd negative *)
 Definition vb_ilit_def:
   vb_ilit (m:num) =
@@ -760,6 +880,44 @@ Termination
   drule_all parse_vb_num_aux_i >>
   fs[]
 End
+
+(* As parse_vb_ilits, but reading each literal with the int decoder. The
+  doubled values 0 and 1 both decode to 0, so only the terminating zero is
+  read again as a number. *)
+Definition parse_vb_ilits_int_def:
+  parse_vb_ilits_int (s:mlstring) (i:num) (len:num) (acc:int list) =
+  let (v,j) = parse_vb_int s i len in
+  if v <> 0
+  then
+    parse_vb_ilits_int s j len (v::acc)
+  else
+    let (m,j) = parse_vb_num s i len in
+    if m = 0
+    then
+      acc
+    else
+      parse_vb_ilits_int s j len (vb_ilit m::acc)
+Termination
+  WF_REL_TAC` measure (λ(x,s,i,r). i-s)`>>
+  rw[]>> fs[parse_vb_int_def,parse_vb_num_def] >>
+  pairarg_tac >> gvs[] >>
+  `m <> 0` by (strip_tac >> gvs[]) >>
+  qpat_x_assum `parse_vb_num_aux _ _ _ _ _ = _` (assume_tac o GSYM) >>
+  drule_all parse_vb_num_aux_i >>
+  fs[]
+End
+
+Theorem parse_vb_ilits_eq:
+  !s i len acc.
+  parse_vb_ilits s i len acc = parse_vb_ilits_int s i len acc
+Proof
+  recInduct parse_vb_ilits_ind >>
+  rpt strip_tac >>
+  simp[Once parse_vb_ilits_def, Once parse_vb_ilits_int_def,
+       parse_vb_int_def] >>
+  Cases_on `parse_vb_num s i len` >> simp[] >>
+  rw[vb_ilit_def] >> gvs[]
+QED
 
 (* Other ASCII syntax parsing tools *)
 

@@ -62,12 +62,7 @@ Proof
   >- (
     drule_all bnd_fml_is_rup_list>>
     metis_tac[bnd_fml_insert_vcc_list])
-  >- (
-    irule bnd_fml_insert_vcc_list>>
-    drule bnd_clause_resize_dm>>
-    simp[]>>
-    rw[]>>irule bnd_fml_le>>
-    metis_tac[resize_dm_LENGTH])
+  >> metis_tac[bnd_fml_insert_vcc_list_resize_dm]
 QED
 
 
@@ -80,7 +75,7 @@ QED
   clause is derived by RUP from both. *)
 Theorem check_distrup_list_dup_import[local]:
   (case check_distrup_list (Import 1 (Vector [1;1]))
-      (REPLICATE 10 vcc_none) (REPLICATE 4 0w) 1w of
+      (REPLICATE 10 vcc_none) (REPLICATE 4 0) 1 of
     NONE => F
   | SOME (fml1,dml1,b1) =>
   case check_distrup_list (Import 2 (Vector [-1])) fml1 dml1 b1 of

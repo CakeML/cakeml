@@ -48,7 +48,7 @@ End
  ***)
 
 (* Every literal printed fits under the declared variable count *)
-Theorem max_cnf_clause[local]:
+Theorem max_cnf_clause:
   MEM c cs ∧ MEM l c ⇒
   var_lit l ≤ max_cnf cs
 Proof
