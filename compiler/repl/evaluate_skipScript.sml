@@ -1705,13 +1705,6 @@ Proof
     \\ first_assum (irule_at Any) \\ rw []
     \\ irule v_rel_update
     \\ first_assum (irule_at (Pat ‘v_rel’)) \\ gs [])
-  \\ Cases_on ‘∃sz sh n. op = Shift sz sh n’ \\ gs []
-  >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
-                           CaseEqs ["list", "v", "option", "prod", "lit",
-                                    "store_v", "word_size"]]
-    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
-    \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘op = Equality’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,

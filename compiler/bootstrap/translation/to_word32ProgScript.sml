@@ -151,6 +151,8 @@ val _ = translate (WordOp64_on_32_def |> inline_simp |> SIMP_RULE std_ss [word_m
 
 val _ = translate (ShiftVar_def |> inline_simp |> conv32);
 val _ = translate (WordShift64_on_32_def |> inline_simp |> conv32)
+val _ = translate (WordShiftVar64_on_32_def |> inline_simp |> conv32)
+val _ = translate (ShiftW8_def |> inline_simp |> conv32)
 val _ = translate (LoadBignum_def |> inline_simp |> conv32)
 
 Theorem Smallnum_alt[local]:

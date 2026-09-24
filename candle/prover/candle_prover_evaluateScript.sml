@@ -576,11 +576,6 @@ Proof
     \\ strip_tac
     \\ first_x_assum (drule_then assume_tac)
     \\ drule kernel_loc_ok_LENGTH \\ gs [])
-  \\ Cases_on ‘∃sz sh n. op = Shift sz sh n’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
   \\ Cases_on ‘op = Equality’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]

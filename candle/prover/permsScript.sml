@@ -508,10 +508,6 @@ Proof
     \\ gvs [store_alloc_def, perms_ok_def, SUBSET_DEF, PULL_EXISTS]
     \\ rw [EL_APPEND_EQN]
     \\ gs [NOT_LESS, LESS_OR_EQ, perms_ok_ref_def])
-  \\ Cases_on ‘∃sz sh n. op = Shift sz sh n’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [perms_ok_def])
   \\ Cases_on ‘op = Equality’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []

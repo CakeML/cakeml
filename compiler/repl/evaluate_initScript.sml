@@ -616,10 +616,6 @@ Proof
     \\ irule v_rel_update
     \\ first_assum (irule_at Any)
     \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
-  \\ Cases_on ‘∃sz sh n. op = Shift sz sh n’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def])
   \\ Cases_on ‘op = Equality’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,

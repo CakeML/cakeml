@@ -146,6 +146,8 @@ QED
 *)
 
 val _ = translate (ShiftVar_def |> inline_simp |> conv64);
+val _ = translate (WordShiftVar64_def |> inline_simp |> conv64)
+val _ = translate (ShiftW8_def |> inline_simp |> conv64)
 val _ = translate (LoadWord64_def |> inline_simp |> conv64)
 val _ = translate (WriteWord64_def |> inline_simp |> conv64)
 val _ = translate (LoadBignum_def |> inline_simp |> conv64)
