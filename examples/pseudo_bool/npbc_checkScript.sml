@@ -2661,7 +2661,7 @@ Datatype:
   (* Preserved set step b=T is add, b=F is remove *)
   | ChangePres bool var npbc subproof
   | CheckPres num_set
-  | Sol assg_raw
+  | Sol assg_raw num_set
 End
 
 Definition hide_def:
@@ -2677,6 +2677,77 @@ Proof
   Cases_on `n' = n`>>fs[]>>
   metis_tac[]
 QED
+
+(* These checks receive a positive remaining requirement. *)
+Definition satisfies_npbc_aux_def:
+  (satisfies_npbc_aux w [] (remaining:num) = F) ∧
+  (satisfies_npbc_aux w ((c,v)::xs) remaining =
+    if w v then
+      if 0 < c then
+        remaining ≤ Num c ∨
+        satisfies_npbc_aux w xs (remaining - Num c)
+      else satisfies_npbc_aux w xs remaining
+    else
+      if c < 0 then
+        remaining ≤ Num (-c) ∨
+        satisfies_npbc_aux w xs (remaining - Num (-c))
+      else satisfies_npbc_aux w xs remaining)
+End
+
+Theorem satisfies_npbc_aux_correct:
+  ∀xs remaining. 0 < remaining ⇒
+    (satisfies_npbc_aux w xs remaining ⇔
+     remaining ≤ SUM (MAP (eval_term w) xs))
+Proof
+  Induct >> simp[satisfies_npbc_aux_def] >>
+  qx_gen_tac `cv` >> namedCases_on `cv` ["c v"] >>
+  rw[satisfies_npbc_aux_def,eval_term_def,eval_lit_def,b2n_def]
+  >~ [`0 < c`, `c < 0`]
+  >- (`F` by intLib.ARITH_TAC)
+  >~ [`¬(0 < c)`, `¬(c < 0)`]
+  >- (`c = 0` by intLib.ARITH_TAC >> gvs[]) >>
+  Cases_on `remaining ≤ Num (ABS c)` >> fs[INT_ABS] >>
+  gvs[]
+QED
+
+Definition check_cube_aux_def:
+  (check_cube_aux w [] (remaining:num) = F) ∧
+  (check_cube_aux w ((c,v)::xs) remaining =
+    case w v of
+      NONE => check_cube_aux w xs remaining
+    | SOME b =>
+      if b then
+        if 0 < c then
+          remaining ≤ Num c ∨ check_cube_aux w xs (remaining - Num c)
+        else check_cube_aux w xs remaining
+      else
+        if c < 0 then
+          remaining ≤ Num (-c) ∨ check_cube_aux w xs (remaining - Num (-c))
+        else check_cube_aux w xs remaining)
+End
+
+Theorem check_cube_aux_correct:
+  ∀xs remaining. 0 < remaining ⇒
+    (check_cube_aux w xs remaining ⇔
+     remaining ≤ SUM (MAP (λcv.
+       case w (SND cv) of NONE => 0 | SOME b => eval_term (K b) cv) xs))
+Proof
+  Induct >> simp[check_cube_aux_def] >>
+  qx_gen_tac `cv` >> namedCases_on `cv` ["c v"] >>
+  namedCases_on `w v` ["", "b"] >>
+  rw[check_cube_aux_def,eval_term_def,eval_lit_def,b2n_def]
+  >~ [`0 < c`, `c < 0`]
+  >- (`F` by intLib.ARITH_TAC)
+  >~ [`¬(0 < c)`, `¬(c < 0)`]
+  >- (`c = 0` by intLib.ARITH_TAC >> gvs[]) >>
+  Cases_on `remaining ≤ Num (ABS c)` >> fs[INT_ABS] >>
+  gvs[]
+QED
+
+Definition check_cube_def:
+  check_cube w (xs,rhs) =
+    if rhs ≤ 0 then T else check_cube_aux w xs (Num rhs)
+End
 
 Definition to_flat_d_def:
   to_flat_d d n l acc =
@@ -2696,6 +2767,121 @@ Definition vec_lookup_d_def:
     if n < length vec then sub vec n else d
 End
 
+Theorem MAP_prepend[local]:
+  ∀n x xs. MAP f (prepend n x xs) = prepend n (f x) (MAP f xs)
+Proof
+  Induct >> once_rewrite_tac[prepend_def] >> simp[]
+QED
+
+Theorem to_flat_d_eq[local]:
+  ∀ls n acc.
+    to_flat_d d n ls (MAP (λx. case x of NONE => d | SOME v => v) acc) =
+    MAP (λx. case x of NONE => d | SOME v => v) (to_flat n ls acc)
+Proof
+  Induct >> once_rewrite_tac[to_flat_d_def,to_flat_def] >>
+  simp[MAP_REVERSE] >>
+  qx_gen_tac `kv` >> namedCases_on `kv` ["k v"] >> simp[] >>
+  first_x_assum (fn th => rewrite_tac[GSYM th]) >> simp[MAP_prepend]
+QED
+
+Theorem vec_lookup_d_toSortedAList:
+  vec_lookup_d d (Vector (to_flat_d d 0 (toSortedAList t) [])) n =
+  case lookup n t of NONE => d | SOME v => v
+Proof
+  mp_tac vec_lookup_num_man_to_vec >>
+  simp[spt_to_vec_def,vec_lookup_def,vec_lookup_d_def,
+       to_flat_d_eq |> Q.SPECL [`toSortedAList t`,`0`,`[]`]
+                    |> SIMP_RULE std_ss [MAP],length_def,sub_def] >>
+  Cases_on `n < LENGTH (to_flat 0 (toSortedAList t) [])` >>
+  simp[EL_MAP] >> rw[]
+QED
+
+Theorem toSortedAList_fromAList_sorted[local]:
+  SORTED $< (MAP FST ls) ⇒ toSortedAList (fromAList ls) = ls
+Proof
+  strip_tac >>
+  irule (SORTED_ALL_DISTINCT_LIST_TO_SET_EQ
+    |> Q.ISPEC `inv_image $< (FST:num # 'a -> num)`) >>
+  simp[transitive_def,antisymmetric_def,inv_image_def,FORALL_PROD] >>
+  `ALL_DISTINCT (MAP FST ls)` by (
+    irule SORTED_ALL_DISTINCT >> qexists_tac `($<):num->num->bool` >>
+    simp[irreflexive_def,transitive_def]) >>
+  simp[GSYM (sorted_map |> REWRITE_RULE[inv_image_def]),SORTED_toSortedAList] >>
+  conj_tac >- metis_tac[ALL_DISTINCT_MAP,ALL_DISTINCT_MAP_FST_toSortedAList] >>
+  conj_tac >- metis_tac[ALL_DISTINCT_MAP] >>
+  simp[EXTENSION,FORALL_PROD,MEM_toSortedAList,lookup_fromAList] >>
+  metis_tac[ALOOKUP_MEM,ALOOKUP_ALL_DISTINCT_MEM]
+QED
+
+Theorem vec_lookup_d_to_flat_d:
+  SORTED $< (MAP FST ls) ⇒
+  vec_lookup_d d (Vector (to_flat_d d 0 ls [])) n =
+  case ALOOKUP ls n of NONE => d | SOME v => v
+Proof
+  strip_tac >> drule toSortedAList_fromAList_sorted >>
+  metis_tac[vec_lookup_d_toSortedAList,lookup_fromAList]
+QED
+
+Definition mk_cube_vec_def:
+  mk_cube_vec (wm:(num # bool) list) (free:num_set) =
+    let fixed = MAP (λ(v,b). (v,SOME b)) (toSortedAList (fromAList wm)) in
+    let holes = MAP (λ(v,u). (v,NONE)) (toSortedAList free) in
+    let entries = mergesort$merge (λx y. FST x ≤ FST y) fixed holes in
+      Vector (to_flat_d (SOME F) 0 entries [])
+End
+
+Theorem merge_alist_correct[local]:
+  SORTED $< (MAP FST xs) ∧ SORTED $< (MAP FST ys) ∧
+  DISJOINT (set (MAP FST xs)) (set (MAP FST ys)) ⇒
+  SORTED $< (MAP FST (mergesort$merge (λx y. FST x ≤ FST y) xs ys)) ∧
+  ALOOKUP (mergesort$merge (λx y. FST x ≤ FST y) xs ys) = ALOOKUP (xs ++ ys)
+Proof
+  strip_tac >>
+  `ALL_DISTINCT (MAP FST xs) ∧ ALL_DISTINCT (MAP FST ys)` by (
+    conj_tac >> irule SORTED_ALL_DISTINCT >>
+    qexists_tac `($<):num->num->bool` >>
+    simp[irreflexive_def,transitive_def]) >>
+  qmatch_goalsub_abbrev_tac `SORTED _ (MAP _ zs)` >>
+  `PERM (xs ++ ys) zs` by simp[Abbr`zs`,mergesortTheory.merge_perm] >>
+  `ALL_DISTINCT (MAP FST (xs ++ ys))` by (
+    fs[MAP_APPEND,ALL_DISTINCT_APPEND,DISJOINT_DEF,EXTENSION] >>
+    metis_tac[]) >>
+  `ALL_DISTINCT (MAP FST zs)` by metis_tac[PERM_MAP,ALL_DISTINCT_PERM] >>
+  reverse conj_tac
+  >- metis_tac[ALOOKUP_ALL_DISTINCT_PERM_same,PERM_MAP,PERM_LIST_TO_SET] >>
+  irule (ALL_DISTINCT_SORTED_WEAKEN |> Q.ISPEC `($<=):num->num->bool`) >>
+  simp[] >> simp[Abbr`zs`,sorted_map,inv_image_def] >>
+  irule mergesortTheory.merge_sorted >> simp[transitive_def,total_def] >>
+  conj_tac >>
+  irule (SORTED_weaken |> Q.ISPEC `inv_image ($<) (FST:num # 'a -> num)`) >>
+  fs[GSYM sorted_map,inv_image_def]
+QED
+
+Theorem mk_cube_vec_lookup:
+  DISJOINT (set (MAP FST wm)) (domain free) ⇒
+  vec_lookup_d (SOME F) (mk_cube_vec wm free) n =
+    if lookup n free = NONE then
+      SOME (case ALOOKUP wm n of NONE => F | SOME b => b)
+    else NONE
+Proof
+  strip_tac >> simp[mk_cube_vec_def] >>
+  qmatch_goalsub_abbrev_tac `mergesort$merge _ fixed holes` >>
+  mp_tac (merge_alist_correct |> Q.GENL [`xs`,`ys`] |>
+    Q.ISPECL [`fixed:(num # bool option) list`,`holes:(num # bool option) list`]) >>
+  simp[Abbr`fixed`,Abbr`holes`,MAP_MAP_o,o_DEF,LAMBDA_PROD,
+       FST_pair,SORTED_toSortedAList] >>
+  impl_tac >- (
+    fs[DISJOINT_DEF,EXTENSION,MEM_MAP,EXISTS_PROD,MEM_toSortedAList,
+       GSYM domain_lookup,domain_fromAList] >>
+    metis_tac[domain_lookup]) >>
+  strip_tac >>
+  simp[vec_lookup_d_to_flat_d,ALOOKUP_APPEND,ALOOKUP_MAP,
+       ALOOKUP_toSortedAList,lookup_fromAList] >>
+  Cases_on `ALOOKUP wm n` >> Cases_on `lookup n free` >> simp[] >>
+  fs[DISJOINT_DEF,EXTENSION,domain_lookup] >>
+  metis_tac[ALOOKUP_MEM,MEM_MAP,FST]
+QED
+
 Definition check_obj_def:
   check_obj obj wm cs bopt =
   let wv = mk_obj_vec wm in
@@ -2709,6 +2895,139 @@ Definition check_obj_def:
       if b = new then SOME (new, w) else NONE
   else NONE
 End
+
+(* Guaranteed contribution of the fixed literals in a solution cube. *)
+Definition eval_cube_def:
+  (eval_cube w (free:num_set) [] acc = acc) ∧
+  (eval_cube w free (cv::cs) acc =
+    eval_cube w free cs
+      (acc + if lookup (SND cv) free = NONE then eval_term w cv else 0))
+End
+
+Definition check_sol_def:
+  check_sol wm free (cs:npbc list) =
+  if EVERY (λ(v,b). lookup v free = NONE) wm then
+    let cw = vec_lookup_d (SOME F) (mk_cube_vec wm free) in
+    if EVERY (λ(v,b). cw v = SOME b) wm ∧ EVERY (check_cube cw) cs then
+      SOME (λv. case cw v of NONE => F | SOME b => b)
+    else NONE
+  else NONE
+End
+
+Theorem eval_cube_sum:
+  ∀xs acc.
+    eval_cube w free xs acc =
+    acc + SUM (MAP (λcv.
+      if lookup (SND cv) free = NONE then eval_term w cv else 0) xs)
+Proof
+  Induct_on `xs` >> simp[Once eval_cube_def]
+QED
+
+Theorem eval_cube_le:
+  (∀v. lookup v free = NONE ⇒ w' v = w v) ⇒
+  eval_cube w free xs 0 ≤ SUM (MAP (eval_term w') xs)
+Proof
+  strip_tac >> simp[eval_cube_sum] >>
+  irule SUM_MAP_same_LE >> simp[EVERY_MEM,FORALL_PROD] >> rw[]
+QED
+
+Theorem eval_cube_attained:
+  ALL_DISTINCT (MAP SND xs) ⇒
+  ∃w'. (∀v. lookup v free = NONE ⇒ w' v = w v) ∧
+       SUM (MAP (eval_term w') xs) = eval_cube w free xs 0
+Proof
+  strip_tac >>
+  qexists_tac `λv. if lookup v free = NONE then w v else
+    case ALOOKUP (MAP SWAP xs) v of
+      NONE => F | SOME c => c < 0` >>
+  simp[eval_cube_sum] >> AP_TERM_TAC >> irule MAP_CONG >>
+  simp[FORALL_PROD] >> qx_genl_tac [`c`,`v`] >> strip_tac >>
+  `ALOOKUP (MAP SWAP xs) v = SOME c` by (
+    irule ALOOKUP_ALL_DISTINCT_MEM >>
+    simp[MAP_MAP_o,FST_o_SWAP,MEM_MAP,EXISTS_PROD,SWAP_def]) >>
+  rw[] >> Cases_on `c < 0` >> simp[]
+QED
+
+Theorem check_cube_correct:
+  check_cube cw (xs,rhs) ⇔
+  rhs ≤ &(SUM (MAP (λcv.
+    case cw (SND cv) of NONE => 0 | SOME b => eval_term (K b) cv) xs))
+Proof
+  rw[check_cube_def] >>
+  Cases_on `rhs ≤ 0` >- (simp[] >> intLib.ARITH_TAC) >>
+  `0 < Num rhs ∧ rhs = &(Num rhs)` by intLib.ARITH_TAC >>
+  simp[check_cube_aux_correct] >> intLib.ARITH_TAC
+QED
+
+Theorem check_sol_imp:
+  check_sol wm free cs = SOME w ∧
+  (∀v. lookup v free = NONE ⇒ w' v = w v) ⇒
+  satisfies w' (set cs)
+Proof
+  rw[check_sol_def,AllCaseEqs(),satisfies_def] >>
+  namedCases_on `c` ["xs rhs"] >> fs[EVERY_MEM,FORALL_PROD] >>
+  `DISJOINT (set (MAP FST wm)) (domain free)` by (
+    fs[DISJOINT_DEF,EXTENSION,MEM_MAP,EXISTS_PROD,domain_lookup] >>
+    metis_tac[NOT_SOME_NONE]) >>
+  qpat_x_assum `∀xs rhs. MEM (xs,rhs) cs ⇒ _` drule >>
+  simp[check_cube_correct,satisfies_npbc_def,mk_cube_vec_lookup] >>
+  qmatch_goalsub_abbrev_tac `rhs ≤ &lower` >>
+  `lower ≤ SUM (MAP (eval_term w') xs)` suffices_by intLib.ARITH_TAC >>
+  unabbrev_all_tac >> irule SUM_MAP_same_LE >>
+  simp[EVERY_MEM,FORALL_PROD] >>
+  rw[] >> fs[mk_cube_vec_lookup]
+QED
+
+Theorem check_sol_cong:
+  set cs = set cs' ⇒
+  check_sol wm free cs = check_sol wm free cs'
+Proof
+  simp[check_sol_def,EVERY_MEM]
+QED
+
+Theorem mk_obj_vec_lookup:
+  ALL_DISTINCT (MAP FST wm) ⇒
+  vec_lookup_d F (mk_obj_vec wm) n =
+    case ALOOKUP wm n of NONE => F | SOME b => b
+Proof
+  strip_tac >> simp[mk_obj_vec_def] >>
+  qmatch_goalsub_abbrev_tac `to_flat_d F 0 sorted` >>
+  `PERM wm sorted` by simp[Abbr`sorted`,sort_PERM] >>
+  `ALL_DISTINCT (MAP FST sorted)` by metis_tac[PERM_MAP,ALL_DISTINCT_PERM] >>
+  `ALOOKUP sorted = ALOOKUP wm` by
+    metis_tac[ALOOKUP_ALL_DISTINCT_PERM_same,PERM_MAP,PERM_LIST_TO_SET] >>
+  `SORTED $< (MAP FST sorted)` by (
+    irule (ALL_DISTINCT_SORTED_WEAKEN |> Q.ISPEC `($<=):num->num->bool`) >>
+    simp[] >> simp[Abbr`sorted`,sorted_map,inv_image_def] >>
+    irule sort_SORTED >> simp[transitive_def,total_def]) >>
+  simp[vec_lookup_d_to_flat_d]
+QED
+
+Theorem eval_term_const[local]:
+  eval_term (K (w (SND cv))) cv = eval_term w cv
+Proof
+  Cases_on `cv` >> simp[eval_term_def,eval_lit_def]
+QED
+
+Theorem check_sol_empty:
+  ALL_DISTINCT (MAP FST wm) ⇒
+  check_sol wm LN cs = OPTION_MAP SND (check_obj NONE wm cs NONE)
+Proof
+  strip_tac >>
+  `vec_lookup_d F (mk_obj_vec wm) =
+    λv. case ALOOKUP wm v of NONE => F | SOME b => b` by
+    simp[FUN_EQ_THM,mk_obj_vec_lookup] >>
+  `EVERY (λ(v,b). (case ALOOKUP wm v of NONE => F | SOME b => b) = b) wm` by (
+    simp[EVERY_MEM,FORALL_PROD] >> rpt strip_tac >>
+    drule_all ALOOKUP_ALL_DISTINCT_MEM >> simp[]) >>
+  simp[check_sol_def,check_obj_def,mk_cube_vec_lookup,domain_def,lookup_def] >>
+  simp[EVERY_MEM,FORALL_PROD,check_cube_correct,satisfies_npbc_def,
+       mk_cube_vec_lookup,domain_def,lookup_def,eval_term_const] >>
+  simp[eval_term_const |> Q.INST
+    [`w` |-> `λv. case ALOOKUP (wm:(num # bool) list) v of NONE => F | SOME b => b`]
+    |> SIMP_RULE std_ss [K_DEF]] >>
+  CONV_TAC (DEPTH_CONV ETA_CONV) >> IF_CASES_TAC >> simp[]
+QED
 
 (* For a bound b, the model improving constraint is
   f ≤ b-1 = f < b = not (f ≥ b) *)
@@ -3353,12 +3672,13 @@ Definition mk_ordsub_def:
 End
 
 Definition model_banning_def:
-  model_banning (presopt:num_set option) w =
+  model_banning (presopt:num_set option) (free:num_set) w =
   case presopt of
     NONE =>
       not (([],0):npbc)
   | SOME pres =>
-    (MAP (λv. let v = FST v in (if w v then -1 else 1,v)) (toSortedAList pres), 1):npbc
+    (MAP (λv. let v = FST v in (if w v then -1 else 1,v))
+      (toSortedAList (difference pres free)), 1):npbc
 End
 
 Theorem SUM_GE_1[local]:
@@ -3375,15 +3695,68 @@ Proof
 QED
 
 Theorem satisfies_npbc_model_banning:
-  satisfies_npbc w (model_banning presopt wb) ⇔
-  (pres_set_spt presopt) ∩ wb ≠
-  (pres_set_spt presopt) ∩ w
+  satisfies_npbc w (model_banning presopt free wb) ⇔
+  (pres_set_spt presopt DIFF domain free) ∩ wb ≠
+  (pres_set_spt presopt DIFF domain free) ∩ w
 Proof
   rw[model_banning_def]>>
   TOP_CASE_TAC>>simp[pres_set_spt_def]>>
   simp[not_thm,satisfies_npbc_def,MAP_MAP_o,o_DEF,Excl"eval_term_def"]>>
-  rw[SUM_GE_1,EXISTS_PROD,MEM_toSortedAList,EXTENSION,domain_lookup]>>
-  metis_tac[IN_DEF]
+  rw[SUM_GE_1,EXISTS_PROD,MEM_toSortedAList,EXTENSION,domain_lookup,
+     lookup_difference] >>
+  `∀v. lookup v free = NONE ⇔ lookup v free ≠ SOME ()` by (
+    gen_tac >> Cases_on `lookup v free` >> simp[oneTheory.one]) >>
+  simp[] >> metis_tac[IN_DEF]
+QED
+
+Definition cube_count_def:
+  cube_count (presopt:num_set option) (free:num_set) =
+  case presopt of NONE => 1
+  | SOME pres => 2 ** size (inter pres free)
+End
+
+Definition projected_cube_def:
+  projected_cube (pres:num set) free w =
+    IMAGE (λs. ((pres DIFF free) ∩ w) ∪ s) (POW (pres ∩ free))
+End
+
+Theorem projected_cube_mem:
+  pw ∈ projected_cube pres free w ⇔
+  pw ⊆ pres ∧ (pres DIFF free) ∩ pw = (pres DIFF free) ∩ w
+Proof
+  rw[projected_cube_def,IN_IMAGE,IN_POW,EQ_IMP_THM]
+  >- (fs[SUBSET_DEF,EXTENSION] >> metis_tac[])
+  >- (fs[SUBSET_DEF,EXTENSION] >> metis_tac[]) >>
+  qexists_tac `pw ∩ free` >> fs[SUBSET_DEF,EXTENSION] >> metis_tac[]
+QED
+
+Theorem projected_cube_card:
+  FINITE pres ⇒
+  CARD (projected_cube pres free w) = 2 ** CARD (pres ∩ free)
+Proof
+  strip_tac >> rw[projected_cube_def] >>
+  DEP_REWRITE_TAC[CARD_IMAGE_INJ] >>
+  simp[FINITE_POW,FINITE_INTER,IN_POW,CARD_POW] >>
+  rw[] >> fs[SUBSET_DEF,EXTENSION] >> metis_tac[]
+QED
+
+Theorem cube_count_card:
+  cube_count pres free =
+  CARD (projected_cube (pres_set_spt pres) (domain free) w)
+Proof
+  Cases_on `pres` >>
+  simp[cube_count_def,pres_set_spt_def,projected_cube_card,domain_inter,size_domain]
+QED
+
+Theorem check_sol_projected_cube:
+  check_sol wm free cs = SOME w ⇒
+  projected_cube pres (domain free) w ⊆ proj_pres pres {w | satisfies w (set cs)}
+Proof
+  rw[SUBSET_DEF,projected_cube_mem,proj_pres_def] >>
+  qmatch_goalsub_rename_tac `pw = _` >>
+  qexists_tac `(w DIFF domain free) ∪ (pw ∩ domain free)` >>
+  conj_tac >- (fs[EXTENSION] >> metis_tac[]) >>
+  drule check_sol_imp >> disch_then irule >> simp[IN_DEF,domain_lookup]
 QED
 
 Definition check_cstep_def:
@@ -3534,23 +3907,23 @@ Definition check_cstep_def:
     | SOME (pres',id') =>
       SOME (fml, pc with <| id := id'; pres := SOME pres' |>)
     )
-  | Sol w =>
+  | Sol w free =>
     (if pc.obj ≠ NONE ∨ ¬pc.chk then NONE
     else
-    case check_obj pc.obj w
-      (MAP SND (toAList (mk_core_fml T fml))) NONE of
+    case check_sol w free
+      (MAP SND (toAList (mk_core_fml T fml))) of
       NONE => NONE
-    | SOME (new,w) =>
-      let bound' = update_bound pc.chk pc.bound new in
-      let dbound' = update_dbound pc.dbound new in
-      let c = model_banning pc.pres w in
+    | SOME w =>
+      let bound' = update_bound pc.chk pc.bound 0 in
+      let dbound' = update_dbound pc.dbound 0 in
+      let c = model_banning pc.pres free w in
         SOME (
           insert pc.id (c,T) fml,
           pc with
           <| id := pc.id+1;
              bound := bound';
              dbound := dbound';
-             enum := pc.enum+1
+             enum := pc.enum + cube_count pc.pres free
              |>))
   | CheckPres ls' =>
     if check_eq_pres pc.pres ls'
@@ -5168,53 +5541,59 @@ Proof
     every_case_tac>>rw[]>>
     metis_tac[INJ_ID])
   >~[`Sol`] >- (
-    fs[check_cstep_def]>>
-    strip_tac>>
-    every_case_tac>>simp[]>>
-    gvs[update_bound_def,update_dbound_def]>>
-    `pc.id ∉ domain fml` by fs[id_ok_def]>>
-    CONJ_TAC >- fs[id_ok_def]>>
-    CONJ_TAC >- (
-      fs[valid_conf_def]>>
-      DEP_REWRITE_TAC[core_only_fml_T_insert_T,core_only_fml_F_insert_b]>>
-      simp[]>>
-      CONJ_TAC >-
-        metis_tac[sat_implies_INSERT]>>
-      rw[]>>
-      DEP_REWRITE_TAC[core_only_fml_T_insert_T,core_only_fml_F_insert_b]>>
-      fs[sat_obj_po_def]>>rw[]>>
-      first_x_assum drule>>
-      rw[]>>
-      qexists_tac`w'`>>simp[range_insert]>>
-      fs[satisfies_npbc_model_banning]>>
-      fs[EXTENSION,IN_DEF]>>
-      metis_tac[])>>
-    CONJ_TAC >- rw[opt_le_def]>>
-    CONJ_TAC >- rw[opt_le_def]>>
-    drule check_obj_imp>> strip_tac>>
-    CONJ_TAC >- (
-      rw[]>>
-      fs[GSYM range_mk_core_fml,range_toAList,sat_obj_le_def]>>
-      asm_exists_tac>>
-      simp[]) >>
-    CONJ_TAC>- (
-      rename1`check_obj _ _ _ _ = SOME (_,ww)`>>
-      qexists_tac`{pres_set_spt pc.pres ∩ ww}`>>
-      rw[bimp_pres_def]
-      >-
-        fs[proj_pres_def,GSYM range_mk_core_fml,range_toAList]
+    rename1 `check_cstep (Sol wm free) fml pc` >>
+    rw[check_cstep_def,AllCaseEqs()] >>
+    gvs[update_bound_def,update_dbound_def] >>
+    namedCases_on `check_sol wm free (MAP SND (toAList (mk_core_fml T fml)))`
+      ["", "w"] >> simp[] >>
+    `pc.id ∉ domain fml` by fs[id_ok_def] >>
+    conj_tac >- fs[id_ok_def] >>
+    conj_tac >- (
+      fs[valid_conf_def] >>
+      DEP_REWRITE_TAC[core_only_fml_T_insert_T,core_only_fml_F_insert_b] >>
+      simp[] >> conj_tac >- metis_tac[sat_implies_INSERT] >>
+      rw[] >>
+      DEP_REWRITE_TAC[core_only_fml_T_insert_T,core_only_fml_F_insert_b] >>
+      fs[sat_obj_po_def] >> rw[] >>
+      first_x_assum drule >> rw[] >>
+      qmatch_asmsub_rename_tac `satisfies witness (core_only_fml F fml)` >>
+      qexists_tac `witness` >> simp[] >>
+      fs[satisfies_npbc_model_banning,EXTENSION,IN_DEF] >> metis_tac[]
+    ) >>
+    conj_tac >- rw[opt_le_def] >>
+    conj_tac >- rw[opt_le_def] >>
+    conj_tac >- (
+      rw[sat_obj_le_def,eval_obj_def] >> qexists_tac `w` >>
+      drule check_sol_imp >> disch_then (qspec_then `w` mp_tac) >>
+      simp[GSYM range_mk_core_fml,range_toAList]
+    ) >>
+    conj_tac >- (
+      qexists_tac `projected_cube (pres_set_spt pc.pres) (domain free) w` >>
+      simp[GSYM cube_count_card] >> conj_tac
       >- (
-        qexists_tac`I`>>
-        simp[INJ_DEF,core_only_fml_F_insert_b,satisfies_npbc_model_banning]>>
-        rw[proj_pres_def]>>
-        metis_tac[])
+        drule check_sol_projected_cube >>
+        simp[GSYM range_mk_core_fml,range_toAList]) >>
+      conj_tac
       >- (
-        qexists_tac`I`>>
-        simp[INJ_DEF,core_only_fml_T_insert_T,satisfies_npbc_model_banning]>>
-        rw[proj_pres_def]>>
-        metis_tac[]))>>
-    DEP_REWRITE_TAC[bimp_pres_obj_NONE]>>
-    fs[eval_obj_def])
+        simp[bimp_pres_def] >> qexists_tac `I` >>
+        simp[INJ_DEF,core_only_fml_F_insert_b,satisfies_npbc_model_banning] >>
+        rw[proj_pres_def,projected_cube_mem] >>
+        qmatch_asmsub_rename_tac `satisfies witness (core_only_fml F fml)` >>
+        qexists_tac `witness` >> fs[SUBSET_DEF,EXTENSION] >> metis_tac[]
+      )
+      >- (
+        simp[bimp_pres_def] >> qexists_tac `I` >>
+        simp[INJ_DEF,core_only_fml_T_insert_T,satisfies_npbc_model_banning] >>
+        rw[proj_pres_def,projected_cube_mem]
+        >- (
+          qmatch_asmsub_rename_tac `satisfies witness (core_only_fml T fml)` >>
+          qexists_tac `witness` >> simp[]
+        ) >>
+        fs[EXTENSION] >> metis_tac[]
+      )
+    ) >>
+    conj_tac >> irule bimp_pres_obj_NONE >> rw[opt_le_def]
+  )
 QED
 
 Definition check_csteps_def:
@@ -6000,4 +6379,3 @@ Definition constraint_of_spt_def:
     (MAP (λ(v,c). (c,v)) ls,n)
 End
 *)
-
