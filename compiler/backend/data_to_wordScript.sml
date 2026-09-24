@@ -1759,6 +1759,22 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_BoundsCheckBit (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
+                   (list_Seq [Assign 1
+                               (let addr = real_addr c (adjust_var v1) in
+                                let header = Load addr in
+                                let extra = (if dimindex (:'a) = 32 then 2 else 3) in
+                                let k = dimindex (:'a) - c.len_size - extra in
+                                  ShiftN Lsl (Op Sub [ShiftN Lsr header k;
+                                                      Const bytes_in_word]) 3);
+                              Assign 3 (ShiftVar Ror (adjust_var v2) 1);
+                              If Lower 3 (Reg 1)
+                                 (Assign (adjust_var dest) TRUE_CONST)
+                                 (Assign (adjust_var dest) FALSE_CONST)],l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
   assign_BoundsCheckArray (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
                    (list_Seq [Assign 1
@@ -2535,6 +2551,8 @@ Definition assign_def:
         arg2 args (assign_BoundsCheckByte c secn l dest names leq) (Skip,l)
     | MemOp BoundsCheckArray =>
         arg2 args (assign_BoundsCheckArray c secn l dest names) (Skip,l)
+    | MemOp BoundsCheckBit =>
+        arg2 args (assign_BoundsCheckBit c secn l dest names) (Skip,l)
     | BlockOp BoundsCheckBlock =>
         arg2 args (assign_BoundsCheckBlock c secn l dest names) (Skip,l)
     | BlockOp Equal => arg2 args (assign_Equal c secn l dest names) (Skip,l)

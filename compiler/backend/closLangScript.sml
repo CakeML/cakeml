@@ -109,6 +109,7 @@ Datatype:
      | StringCmp bool ast$opb (* string comparisons *)
      | XorByte       (* xor a btye vector into a byte array *)
      | BoundsCheckArray
+     | BoundsCheckBit
      | BoundsCheckByte bool (* T = loose (<=) bound *)
      | MutCons num num (* allocate a cons with a mutable hole, tag, index of hole *)
      | UpdateCons    (* mutate the hole in a MutCons *)

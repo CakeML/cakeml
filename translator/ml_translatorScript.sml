@@ -3189,6 +3189,7 @@ Definition no_change_refs_def:
         | Aw8update => F
         | Aw8update_unsafe => F
         | Aw8updateBit_unsafe => F
+        | Aw8updateBit => F
         | CopyStrAw8 => F
         | CopyAw8Aw8 => F
         | XorAw8Str_unsafe => F

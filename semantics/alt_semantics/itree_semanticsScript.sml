@@ -150,6 +150,29 @@ Definition do_app_def:
                   )
         | _ => NONE
       )
+    | (Aw8subBit, [Loc _ lnum; Litv (IntLit i)]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+              SOME (s, Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8))))
+            else SOME (s, Rraise sub_exn_v)
+        | _ => NONE
+      )
+    | (Aw8updateBit, [Loc _ lnum; Litv (IntLit i); v]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if ¬(v = Boolv T ∨ v = Boolv F) then NONE else
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+              (case store_assign lnum
+                      (W8array (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                         (EL (Num i DIV 8) ws))
+                                        (Num i DIV 8) ws)) s of
+                  NONE => NONE
+                | SOME s' => SOME (s', Rval (Conv NONE []))
+              )
+            else SOME (s, Rraise sub_exn_v)
+        | _ => NONE
+      )
     | (Aw8subBit_unsafe, [Loc _ lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>

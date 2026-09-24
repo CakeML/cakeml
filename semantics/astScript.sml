@@ -93,6 +93,8 @@ Datatype:
   | Aw8sub
   | Aw8length
   | Aw8update
+  | Aw8subBit
+  | Aw8updateBit
   (* string/bytearray conversions *)
   | CopyStrStr
   | CopyStrAw8

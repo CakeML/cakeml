@@ -514,6 +514,11 @@ Definition do_app_def:
          | SOME (ByteArray ws) =>
              Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
          | _ => Error)
+    | (MemOp BoundsCheckBit,[RefPtr _ ptr; Number i]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray ws) =>
+             Rval (Boolv (0 <= i /\ i < 8 * & LENGTH ws),s)
+         | _ => Error)
     | (MemOp BoundsCheckArray,[RefPtr _ ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ValueArray ws) =>

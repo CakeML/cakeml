@@ -386,6 +386,16 @@ Proof
     \\ gvs [store_lookup_def, store_assign_def]
     \\ simp [EL_LUPDATE]
     \\ rw [perms_ok_ref_def] )
+  \\ Cases_on ‘op = Aw8subBit’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ rw [perms_ok_def, Boolv_def])
+  \\ Cases_on ‘op = Aw8updateBit’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [perms_ok_def]
+    \\ gvs [store_lookup_def, store_assign_def]
+    \\ simp [EL_LUPDATE]
+    \\ rw [perms_ok_ref_def] )
   \\ Cases_on ‘op = Aupdate_unsafe’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [perms_ok_def]

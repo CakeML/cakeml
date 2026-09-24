@@ -1658,8 +1658,8 @@ Proof
     srw_tac[][adjust_bv_def,bvl_to_bvi_id] >>
     full_simp_tac(srw_ss())[state_rel_def] >>
     last_x_assum(qspec_then`n`mp_tac) >> simp[])
-  \\ Cases_on `∃b. op = MemOp (BoundsCheckByte b)` THEN1
-   (fs [] \\ strip_tac
+  \\ Cases_on `(∃b. op = MemOp (BoundsCheckByte b)) ∨ op = MemOp BoundsCheckBit` THEN1
+   (pop_assum strip_assume_tac \\ gvs [] \\ strip_tac
     \\ `?x1 x2. REVERSE a = [x1;x2]` by (every_case_tac \\ fs [] \\ NO_TAC)
     \\ Cases_on `x1` \\ fs []
     \\ Cases_on `x2` \\ gvs [SWAP_REVERSE_SYM]

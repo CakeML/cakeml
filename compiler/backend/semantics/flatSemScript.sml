@@ -416,6 +416,26 @@ Definition do_app_def:
               | NONE => NONE
               | SOME s' => SOME (s with refs := s', Rval Unitv))
      | _ => NONE)
+  | (Src Aw8subBit, [Loc _ lnum; Litv (IntLit i)]) =>
+    (case store_lookup lnum s.refs of
+     | SOME (W8array ws) =>
+       if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+         SOME (s, Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8))))
+       else SOME (s, Rerr (Rraise subscript_exn_v))
+     | _ => NONE)
+  | (Src Aw8updateBit, [Loc _ lnum; Litv (IntLit i); v]) =>
+    (case store_lookup lnum s.refs of
+     | SOME (W8array ws) =>
+       if ¬(v = Boolv T ∨ v = Boolv F) then NONE else
+       if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+         (case store_assign lnum
+                 (W8array (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                    (EL (Num i DIV 8) ws))
+                                   (Num i DIV 8) ws)) s.refs of
+          | NONE => NONE
+          | SOME s' => SOME (s with refs := s', Rval Unitv))
+       else SOME (s, Rerr (Rraise subscript_exn_v))
+     | _ => NONE)
   | (Src Aw8subBit_unsafe, [Loc _ lnum; Litv (IntLit i)]) =>
     (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>

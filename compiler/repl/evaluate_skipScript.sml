@@ -1185,6 +1185,53 @@ Proof
     \\ qpat_x_assum ‘FLOOKUP fr _ = _’ mp_tac \\ rw [flookup_thm]
     \\ qpat_x_assum ‘FLOOKUP fr _ = _’ mp_tac \\ rw [flookup_thm]
     \\ gs [])
+  \\ Cases_on ‘op = Aw8subBit’ \\ gs []
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ drule_all_then assume_tac state_rel_store_lookup \\ gs [OPTREL_def]
+    \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def]
+    \\ rw [] \\ gvs [LIST_REL_EL_EQN, v_rel_def, sub_exn_v_def,
+                     subscript_stamp_def, stamp_rel_cases]
+    \\ first_assum (irule_at Any) \\ gs [state_rel_def]
+    \\ rw [Boolv_def]
+    \\ gs [v_rel_def, stamp_rel_cases, state_rel_def])
+  \\ Cases_on ‘op = Aw8updateBit’ \\ gs []
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ drule_all_then assume_tac state_rel_store_lookup \\ gs [OPTREL_def]
+    \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def]
+    \\ gvs [store_assign_def, store_lookup_def]
+    \\ drule_all v_rel_Boolv
+    \\ disch_then (fn th => assume_tac (Q.SPEC ‘T’ th) \\ assume_tac (Q.SPEC ‘F’ th))
+    \\ gvs []
+    \\ TRY (IF_CASES_TAC \\ gvs [store_v_same_type_def])
+    \\ TRY (every_case_tac \\ gvs [store_v_same_type_def] \\ NO_TAC)
+    \\ TRY (rw [] \\ gvs [v_rel_def, sub_exn_v_def, subscript_stamp_def,
+                           stamp_rel_cases]
+            \\ first_assum (irule_at Any) \\ gs [state_rel_def] \\ NO_TAC)
+    \\ rw [] \\ gs [v_rel_def]
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r1; ffi := f1; clock := s.clock;
+          next_type_stamp := nts1; next_exn_stamp := nes1;
+          eval_state := NONE |>’ \\ gs []
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r2; ffi := f2; clock := t.clock;
+          next_type_stamp := nts2; next_exn_stamp := nes2;
+          eval_state := NONE |>’ \\ gs []
+    \\ gs [state_rel_def, EL_LUPDATE]
+    \\ qx_gen_tac ‘n1’
+    \\ first_x_assum (qspec_then ‘n1’ assume_tac)
+    \\ rw [] \\ gs [ref_rel_def]
+    \\ qpat_x_assum ‘INJ ($' fr) _ _’ mp_tac \\ rw [INJ_DEF]
+    \\ qpat_x_assum ‘FLOOKUP fr _ = _’ mp_tac \\ rw [flookup_thm]
+    \\ qpat_x_assum ‘FLOOKUP fr _ = _’ mp_tac \\ rw [flookup_thm]
+    \\ gs [])
   \\ Cases_on ‘op = Aupdate_unsafe’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,

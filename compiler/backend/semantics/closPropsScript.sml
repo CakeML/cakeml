@@ -2518,7 +2518,7 @@ Proof
   \\ Cases_on `
       (?m. opp = MemOp m ∧ (
         m = Length \/ (?b. m = BoundsCheckByte b) \/
-        m = BoundsCheckArray \/ m = LengthByte \/
+        m = BoundsCheckArray \/ m = BoundsCheckBit \/ m = LengthByte \/
         m = DerefByteVec \/ m = DerefByte \/ m = DerefBit \/ m = El \/
         ∃b cmp. m = StringCmp b cmp)) \/
       (?g. opp = GlobOp g ∧ (g = GlobalsPtr \/ g = SetGlobalsPtr)) \/

@@ -1580,8 +1580,9 @@ Proof
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
      \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def]
      \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
-  \\ Cases_on `∃b. op = MemOp (BoundsCheckByte b)` THEN1
-    (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
+  \\ Cases_on `(∃b. op = MemOp (BoundsCheckByte b)) ∨ op = MemOp BoundsCheckBit` THEN1
+    (pop_assum strip_assume_tac \\ gvs []
+     \\ srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
      \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def]
      \\ imp_res_tac LIST_REL_LENGTH \\ fs [state_rel_def]
      \\ res_tac \\ fs [] \\ rveq \\ fs []

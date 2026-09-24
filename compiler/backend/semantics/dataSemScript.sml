@@ -1141,6 +1141,14 @@ Definition do_app_aux_def:
                Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
            | _ => Error)
          | _ => Error)
+    | (MemOp BoundsCheckBit,xs) =>
+        (case xs of
+         | [RefPtr _ ptr; Number i] =>
+          (case lookup ptr s.refs of
+           | SOME (ByteArray _ ws) =>
+               Rval (Boolv (0 <= i /\ i < 8 * & LENGTH ws),s)
+           | _ => Error)
+         | _ => Error)
     | (MemOp BoundsCheckArray,xs) =>
         (case xs of
          | [RefPtr _ ptr; Number i] =>
