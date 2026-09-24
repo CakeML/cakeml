@@ -28,6 +28,19 @@ Proof
   \\ rw[state_component_equality]
 QED
 
+Theorem ALLOCATE_W8ARRAY_evaluate:
+   !env s n xname xv w.
+    (nsLookup env.v (Short xname) = SOME xv) ==>
+    ml_translator$WORD (w:word8) xv ==>
+    eval_rel s env (App Aw8alloc [Lit (IntLit &n); Var (Short xname)])
+      (s with refs := s.refs ++ [W8array (REPLICATE n w)])
+      (Loc T (LENGTH s.refs))
+Proof
+  rw[ml_translatorTheory.WORD_def]
+  \\ rw[evaluate_def, do_app_def, store_alloc_def, ml_progTheory.eval_rel_def]
+  \\ rw[state_component_equality]
+QED
+
 Theorem ALLOCATE_EMPTY_RARRAY_evaluate:
    !env s.
      eval_rel s env (App Opref [App AallocEmpty [Con NONE []]])
@@ -36,6 +49,16 @@ Theorem ALLOCATE_EMPTY_RARRAY_evaluate:
 Proof
   rw[evaluate_def, do_app_def, do_opapp_def, do_con_check_def, build_conv_def,
      store_alloc_def,state_component_equality, ml_progTheory.eval_rel_def]
+QED
+
+Theorem ALLOCATE_EMPTY_RW8ARRAY_evaluate:
+   !env s.
+     eval_rel s env (App Opref [App Aw8alloc [Lit (IntLit 0); Lit (Word8 0w)]])
+       (s with refs := s.refs ++ [W8array []] ++ [Refv (Loc T (LENGTH s.refs))])
+       (Loc T (LENGTH s.refs + 1))
+Proof
+  rw[evaluate_def, do_app_def, store_alloc_def, state_component_equality,
+     ml_progTheory.eval_rel_def]
 QED
 
 Theorem LIST_REL_REPLICATE:
@@ -158,11 +181,28 @@ Proof
   \\ rw[REF_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def, store2heap_aux_def]
 QED
 
+Theorem rw8array_exact_thm:
+  ((l = l' + 1) /\ (n = l')) ==>
+  RW8ARRAY (Loc T l) av (store2heap_aux n [W8array av; Refv (Loc T l')])
+Proof
+  rw[RW8ARRAY_def, W8ARRAY_def, REF_def, SEP_EXISTS, HCOND_EXTRACT,
+     cell_def, one_def, STAR_def, SPLIT_def, store2heap_aux_def, cond_def]
+  \\ qexists_tac `Loc T l'` \\ qexists_tac `{Mem l' (W8array av)}`
+  \\ rw[EXTENSION] \\ metis_tac[]
+QED
+
 Theorem farray_exact_thm:
   (n = l) ==>
   ARRAY (Loc T l) av (store2heap_aux n [Varray av])
 Proof
  rw[ARRAY_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def, store2heap_aux_def]
+QED
+
+Theorem w8array_exact_thm:
+  (n = l) ==>
+  W8ARRAY (Loc T l) av (store2heap_aux n [W8array av])
+Proof
+ rw[W8ARRAY_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def, store2heap_aux_def]
 QED
 
 Theorem eliminate_inherited_references_thm:

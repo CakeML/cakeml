@@ -67,10 +67,10 @@ Proof
   rw[perms_ok_def, ListProgTheory.member_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
 QED
 
-Theorem perms_ok_filter_v[simp]:
-  perms_ok ps ListProg$filter_v
+Theorem perms_ok_filter_1_v[simp]:
+  perms_ok ps ListProg$filter_1_v
 Proof
-  rw[perms_ok_def, ListProgTheory.filter_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  rw[perms_ok_def, ListProgTheory.filter_1_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
 QED
 
 Theorem perms_ok_every_v[simp]:

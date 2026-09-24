@@ -81,6 +81,19 @@ Definition goodChar_def:
   goodChar c ⇔ hashChar c ≠ 0
 End
 
+Theorem goodChar_eq:
+  goodChar c ⇔
+  let oc = ORD c in
+    if oc < 65 then
+      (if oc < 48 then oc = 36 ∨ oc = 45 else oc ≤ 57)
+    else if oc < 97 then oc ≤ 91 ∨ oc = 93 ∨ oc = 94 ∨ oc = 95
+    else oc ≤ 123 ∨ oc = 125
+Proof
+  simp [goodChar_def,hashChar_def,hashNon_def,non_list_eq,lookup_fromAList,
+        miscTheory.enumerate_def,pairTheory.SWAP_def]
+  \\ rw [sptreeTheory.lookup_insert]
+QED
+
 Definition goodChars_def:
   (goodChars 0 str = T) ∧
   (goodChars (SUC n) str =
@@ -1852,4 +1865,156 @@ Proof
   qexists_tac`ft x`>>
   qexists_tac`st3`>>
   gvs[]
+QED
+
+(*--------------------------------------------------------------*
+   numbering and normalising one constraint at a time
+ *--------------------------------------------------------------*)
+
+Definition normalise_acc_def:
+  normalise_acc [] acc = REVERSE acc ∧
+  normalise_acc (c::cs) acc =
+    normalise_acc cs (REVERSE (MAP inject (to_gnpbc c)) ++ acc)
+End
+
+Theorem normalise_acc_thm:
+  ∀pbf acc. normalise_acc pbf acc = REVERSE acc ++ normalise pbf
+Proof
+  Induct>>
+  simp[normalise_acc_def,normalise_def]
+QED
+
+Theorem normalise_eq:
+  normalise pbf = normalise_acc pbf []
+Proof
+  simp[normalise_acc_thm]
+QED
+
+Definition name_to_num_pbc_def:
+  name_to_num_pbc (p,l,i) s =
+    let (p1,s1) = name_to_num_pbhd p s in
+    let (l1,s2) = name_to_num_lin_term l s1 [] in
+      ((p1,l1,i),s2)
+End
+
+(* acc holds the normalised constraints so far, in reverse *)
+Definition name_norm_pbc_def:
+  name_norm_pbc c s acc =
+    let (c1,s1) = name_to_num_pbc c s in
+      (REVERSE (MAP inject (to_gnpbc c1)) ++ acc,s1)
+End
+
+Definition name_norm_pbf_def:
+  name_norm_pbf [] s acc = (REVERSE acc,s) ∧
+  name_norm_pbf (c::cs) s acc =
+    let (acc1,s1) = name_norm_pbc c s acc in
+      name_norm_pbf cs s1 acc1
+End
+
+Definition name_norm_prob_def:
+  name_norm_prob (pres,obj,fml) s =
+  let (pres',s') = name_to_num_pres pres s in
+  let (obj',s'') = name_to_num_obj obj s' in
+  let (fml',s''') = name_norm_pbf fml s'' [] in
+    ((OPTION_MAP list_to_num_set pres',normalise_obj obj',fml'),s''')
+End
+
+Theorem name_to_num_pbf_acc:
+  ∀xs s acc ys t.
+    name_to_num_pbf xs s [] = (ys,t) ⇒
+    name_to_num_pbf xs s acc = (REVERSE acc ++ ys,t)
+Proof
+  Induct
+  >- simp[name_to_num_pbf_def]>>
+  PairCases>>
+  rpt gen_tac>>
+  simp[name_to_num_pbf_def]>>
+  rpt (pairarg_tac>>gvs[])>>
+  `∃ys0 t0. name_to_num_pbf xs s2 [] = (ys0,t0)` by metis_tac[PAIR]>>
+  first_x_assum drule>>
+  strip_tac>>
+  gvs[]
+QED
+
+Theorem name_norm_pbf_thm:
+  ∀fml s acc.
+    name_norm_pbf fml s acc =
+    (REVERSE acc ++ normalise (FST (name_to_num_pbf fml s [])),
+     SND (name_to_num_pbf fml s []))
+Proof
+  Induct
+  >- simp[name_norm_pbf_def,name_to_num_pbf_def,normalise_def]>>
+  PairCases>>
+  rpt gen_tac>>
+  simp[name_norm_pbf_def,name_norm_pbc_def,name_to_num_pbc_def,
+    name_to_num_pbf_def]>>
+  rpt (pairarg_tac>>gvs[])>>
+  qmatch_goalsub_rename_tac`name_to_num_pbf fml st []`>>
+  `∃ys0 t0. name_to_num_pbf fml st [] = (ys0,t0)` by metis_tac[PAIR]>>
+  drule name_to_num_pbf_acc>>
+  simp[normalise_def]
+QED
+
+Theorem name_norm_prob_thm:
+  name_norm_prob prob s = (normalise_prob ## I) (name_to_num_prob prob s)
+Proof
+  PairCases_on`prob`>>
+  simp[name_norm_prob_def,name_to_num_prob_def,name_norm_pbf_thm]>>
+  rpt (pairarg_tac>>gvs[])>>
+  simp[normalise_prob_def,normalise_obj_pbf_def]
+QED
+
+Theorem name_to_num_state_ok_name_norm_prob:
+  name_to_num_state_ok (s:'a name_to_num_state) ∧
+  name_norm_prob prob s = (res,t) ⇒
+  name_to_num_state_ok t
+Proof
+  rw[name_norm_prob_thm]>>
+  Cases_on`name_to_num_prob prob s`>>
+  gvs[]>>
+  drule_all name_to_num_state_ok_name_to_num_prob>>
+  simp[]
+QED
+
+Theorem name_norm_prob_sem_concl:
+  name_norm_prob (pres,obj,fml) s = ((pres',obj',fml'),t) ∧
+  name_to_num_state_ok s ⇒
+  pbc$sem_concl (set fml) obj (pres_set_list pres) concl =
+  npbc$sem_concl (set fml') obj' (pres_set_spt pres') concl
+Proof
+  rw[name_norm_prob_thm]>>
+  Cases_on`name_to_num_prob (pres,obj,fml) s`>>
+  rename1`name_to_num_prob _ s = (nprob,u)`>>
+  PairCases_on`nprob`>>
+  gvs[]>>
+  drule_all name_to_num_prob_concl_thm>>
+  metis_tac[normalise_prob_sem_concl]
+QED
+
+Theorem name_norm_prob_sem_output:
+  name_norm_prob (pres,obj,fml) s = ((pres',obj',fml'),t) ∧
+  name_norm_prob (prest,objt,fmlt) st = ((prest',objt',fmlt'),tt) ∧
+  name_to_num_state_ok s ∧
+  name_to_num_state_ok st ⇒
+  pbc$sem_output (set fml) obj (pres_set_list pres) bound
+    (set fmlt) objt (pres_set_list prest) output =
+  npbc$sem_output (set fml') obj' (pres_set_spt pres') bound
+    (set fmlt') objt' (pres_set_spt prest') output
+Proof
+  rw[name_norm_prob_thm]>>
+  Cases_on`name_to_num_prob (pres,obj,fml) s`>>
+  rename1`name_to_num_prob _ s = (nprob,u)`>>
+  PairCases_on`nprob`>>
+  Cases_on`name_to_num_prob (prest,objt,fmlt) st`>>
+  rename1`name_to_num_prob _ st = (nprobt,ut)`>>
+  PairCases_on`nprobt`>>
+  gvs[]>>
+  qpat_x_assum`name_to_num_prob (pres,obj,fml) s = _`
+    (mp_then (Pos hd) mp_tac name_to_num_prob_output_thm)>>
+  disch_then (qpat_x_assum`name_to_num_prob (prest,objt,fmlt) st = _` o
+    mp_then (Pos hd) mp_tac)>>
+  simp[]>>
+  disch_then kall_tac>>
+  irule normalise_prob_sem_output>>
+  simp[]
 QED

@@ -4,6 +4,9 @@ Changes since release v3479:
 
 The CakeML source language now supports open and let open (#1482).
 
+The monadic translator now targets CakeML's byte arrays for arrays of type
+word8 (#1494).
+
 ## Basis library
 
 ## Compiler backend and runtime
@@ -22,9 +25,9 @@ Queryable feature tags (#1470).
 
 ## Examples
 
-The PB checker has been reorganized with minor fixes.
+The PB checker has been reorganized with minor fixes, and also supports solutions cubes (#1496).
 
-The RUP algorithm has been updated.
+The CNF checker(s) have various improvements, especially the RUP algorithm has been updated. Additionally, there is now a centralized and cleaned up basis FFI C file for the checkers (#1495).
 
 ## Build infrastructure
 
