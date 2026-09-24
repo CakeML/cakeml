@@ -4,6 +4,8 @@ Changes since release v3479:
 
 The CakeML source language now supports open and let open (#1482).
 
+Operations for reading or writing a single bit of a byte array have also been added to the source language (#1497).
+
 ## Basis library
 
 ## Compiler backend and runtime
