@@ -110,7 +110,7 @@ Definition conf_ok_def:
   conf_ok (:'a) c <=>
     shift_length c < dimindex (:α) ∧
     shift (:α) ≤ shift_length c ∧ c.len_size ≠ 0 ∧
-    c.len_size + 7 < dimindex (:α)
+    c.len_size + 9 < dimindex (:α)
 End
 
 Definition max_heap_limit_def:
@@ -1286,16 +1286,15 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
-  assign_SetBit (c:data_to_word$config) (l:num) (dest:num) (b:bool) v1 v2 =
+  assign_UpdateBit (c:data_to_word$config) (l:num) (dest:num) v1 v2 v3 =
     (list_Seq
         [Assign 1 (Op Add [real_addr c (adjust_var v1);
                            real_bit_offset (adjust_var v2)]);
          Inst (Mem Load8 3 (Addr 1 0w));
-         Assign 5 (Shift Lsl (Const 1w)
-                         (Op And [Const 7w;
-                                  ShiftN Lsr (Var (adjust_var v2)) 1]));
-         Assign 7 (if b then Op Or [Var 3; Var 5] else
-                     Op And [Var 3; Op Xor [Var 5; Const (0w - 1w)]]);
+         Assign 5 (Op And [Const 7w; ShiftN Lsr (Var (adjust_var v2)) 1]);
+         Assign 7 (Op Or [Op And [Var 3; Op Xor [Shift Lsl (Const 1w) (Var 5);
+                                                 Const (0w - 1w)]];
+                          Shift Lsl (ShiftN Lsr (Var (adjust_var v3)) 1) (Var 5)]);
          Inst (Mem Store8 7 (Addr 1 0w));
          Assign (adjust_var dest) Unit], l)
       : 'a wordLang$prog # num`;
@@ -2510,7 +2509,7 @@ Definition assign_def:
     | MemOp Update => arg3 args (assign_Update c l dest) (Skip,l)
     | MemOp UpdateCons => arg3 args (assign_Update c l dest) (Skip,l)
     | MemOp UpdateByte => arg3 args (assign_UpdateByte c l dest) (Skip,l)
-    | MemOp (SetBit b) => arg2 args (assign_SetBit c l dest b) (Skip,l)
+    | MemOp UpdateBit => arg3 args (assign_UpdateBit c l dest) (Skip,l)
     | MemOp FinaliseCons => arg1 args (assign_FinaliseCons l dest) (Skip,l)
     | BlockOp ListAppend => arg2 args (assign_ListAppend c secn l dest names) (Skip,l)
     | BlockOp (Cons tag) => assign_Cons c l dest tag args

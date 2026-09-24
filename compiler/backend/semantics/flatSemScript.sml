@@ -423,12 +423,13 @@ Definition do_app_def:
          SOME (s, Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8))))
        else NONE
      | _ => NONE)
-  | (Src (Aw8setBit_unsafe b), [Loc _ lnum; Litv (IntLit i)]) =>
+  | (Src Aw8updateBit_unsafe, [Loc _ lnum; Litv (IntLit i); v]) =>
     (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>
-       if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+       if 0 ≤ i ∧ i < 8 * &LENGTH ws ∧ (v = Boolv T ∨ v = Boolv F) then
          (case store_assign lnum
-                 (W8array (LUPDATE (((Num i MOD 8) :+ b) (EL (Num i DIV 8) ws))
+                 (W8array (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                    (EL (Num i DIV 8) ws))
                                    (Num i DIV 8) ws)) s.refs of
           | NONE => NONE
           | SOME s' => SOME (s with refs := s', Rval Unitv))

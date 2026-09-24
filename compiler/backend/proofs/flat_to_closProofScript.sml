@@ -803,7 +803,7 @@ QED
 
 Theorem op_byte_bits:
   op = Src Aw8subBit_unsafe \/
-  (?b. op = Src (Aw8setBit_unsafe b)) ==>
+  op = Src Aw8updateBit_unsafe ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -822,7 +822,10 @@ Proof
   \\ last_x_assum (qspec_then `i` mp_tac)
   \\ fs [FLOOKUP_UPDATE] \\ IF_CASES_TAC \\ fs [EL_LUPDATE]
   \\ Cases_on `i = j` \\ fs []
-  \\ rveq \\ fs [] \\ rpt strip_tac \\ rveq \\ fs []
+  \\ rveq \\ fs [] \\ rpt strip_tac \\ rveq
+  \\ fs [closSemTheory.Boolv_def, flatSemTheory.Boolv_def,
+         backend_commonTheory.true_tag_def,
+         backend_commonTheory.false_tag_def]
 QED
 
 Theorem op_byte_copy:

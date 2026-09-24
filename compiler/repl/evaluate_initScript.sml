@@ -444,7 +444,7 @@ Proof
   \\ Cases_on ‘op = Aw8subBit_unsafe’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
-  \\ Cases_on ‘∃b. op = Aw8setBit_unsafe b’ \\ gs []
+  \\ Cases_on ‘op = Aw8updateBit_unsafe’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_assign_def]

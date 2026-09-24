@@ -381,7 +381,7 @@ Proof
     rw [do_app_cases] \\ gs []
     \\ rw [v_ok_def, Boolv_def]
     \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
-  \\ Cases_on ‘∃b. op = Aw8setBit_unsafe b’ \\ gs []
+  \\ Cases_on ‘op = Aw8updateBit_unsafe’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [v_ok_def]
     \\ gvs [store_lookup_def, store_assign_def, EVERY_EL, EL_LUPDATE]

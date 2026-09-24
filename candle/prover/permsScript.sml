@@ -380,7 +380,7 @@ Proof
   >- (
     rw [do_app_cases] \\ gs []
     \\ rw [perms_ok_def, Boolv_def])
-  \\ Cases_on ‘∃b. op = Aw8setBit_unsafe b’ \\ gs []
+  \\ Cases_on ‘op = Aw8updateBit_unsafe’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [perms_ok_def]
     \\ gvs [store_lookup_def, store_assign_def]

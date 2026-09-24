@@ -1534,7 +1534,7 @@ Theorem do_app[local]:
    (* store updates need special treatment *)
    (op <> MemOp Ref) /\ (op <> MemOp Update) ∧ (op <> MemOp XorByte) ∧
    (op ≠ MemOp RefArray) ∧ (∀f. op ≠ MemOp (RefByte f)) ∧ (op ≠ MemOp UpdateByte) ∧
-   (∀b. op ≠ MemOp (SetBit b)) ∧
+   (op ≠ MemOp UpdateBit) ∧
    (op ≠ MemOp FromListByte) ∧ op ≠ MemOp ConcatByteVec ∧
    (∀b. op ≠ MemOp (CopyByte b)) ∧ (∀c. op ≠ BlockOp (Constant c)) ∧
    (∀n. op ≠ (FFI n)) ∧
@@ -4448,14 +4448,14 @@ Proof
       simp[SUBMAP_DEF,FDOM_DRESTRICT,DRESTRICT_DEF] >>
       srw_tac[][] >>
       simp[Abbr`pp`,LEAST_NOTIN_FDOM])
-    \\ Cases_on `op = MemOp UpdateByte ∨ ∃b. op = MemOp (SetBit b)` THEN1 (
+    \\ Cases_on `op = MemOp UpdateByte ∨ op = MemOp UpdateBit` THEN1 (
       pop_assum strip_assume_tac \\ gvs [] \\ (
       full_simp_tac(srw_ss())[closSemTheory.do_app_def,bvlSemTheory.do_app_def]
       \\ fs[case_eq_thms,PULL_EXISTS,bool_case_eq,AllCaseEqs()]
       \\ rw[] \\ fs[SWAP_REVERSE_SYM] \\ rw[]
       \\ fs[v_rel_SIMP] \\ rw[]
       \\ imp_res_tac evaluate_const
-      \\ qmatch_assum_rename_tac`FLOOKUP _ n = SOME (ByteArray l)`
+      \\ (qmatch_assum_rename_tac`FLOOKUP _ n = SOME (ByteArray l)`
       \\ `?y m.
             FLOOKUP f2 n = SOME m /\ FLOOKUP t2.refs m = SOME y /\
             ref_rel (v_rel s.max_app f2 t2.refs t2.code) (ByteArray l) y` by
@@ -4496,7 +4496,7 @@ Proof
           MATCH_MP_TAC v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
           \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC []))
       \\ `m IN FRANGE f2` by (full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
-      \\ full_simp_tac(srw_ss())[SUBMAP_DEF,FDIFF_def,DRESTRICT_DEF,FAPPLY_FUPDATE_THM, add_args_def]))
+      \\ full_simp_tac(srw_ss())[SUBMAP_DEF,FDIFF_def,DRESTRICT_DEF,FAPPLY_FUPDATE_THM, add_args_def])))
     \\ Cases_on `∃n. op = FFI n` \\ full_simp_tac(srw_ss())[] THEN1 (
       full_simp_tac(srw_ss())[closSemTheory.do_app_def,bvlSemTheory.do_app_def]
       \\ Cases_on `REVERSE a` \\ full_simp_tac(srw_ss())[]

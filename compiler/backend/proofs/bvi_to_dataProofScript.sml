@@ -649,7 +649,10 @@ Proof
   >-(rename1 `MemOp (RefByte _)` >> rw[])
   >-(rename1 `MemOp (RefArray)` >> rw[])
   >-(rename1 `MemOp (UpdateByte)` >> rw[])
-  >-(rename1 `MemOp (SetBit _)` >> rw[])
+  >-(rename1 `MemOp UpdateBit` >>
+     imp_res_tac data_to_bvi_v_Boolv_IMP >> gvs [] >> rw [lookup_insert])
+  >-(rename1 `MemOp UpdateBit` >>
+     imp_res_tac data_to_bvi_v_Boolv_IMP >> gvs [] >> rw [lookup_insert])
   >-(rename1 `GlobOp (Global _)` >> rw[] >> fs[EL_MAP])
   >-(rename1 `GlobOp (SetGlobal _)` >> rw[] >> fs[LUPDATE_MAP])
   >-(rename1 `BlockOp (Cons _)` >> fsrw_tac[DNF_ss][] >>

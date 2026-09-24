@@ -99,7 +99,7 @@ Datatype:
      | DerefByte     (* loads a byte from a byte array *)
      | UpdateByte    (* updates a byte array *)
      | DerefBit      (* read a bit from a byte array *)
-     | SetBit bool   (* set a bit of a byte array *)
+     | UpdateBit     (* update a bit of a byte array *)
      | ConcatByteVec (* concatenate list of byte vectors *)
      | CopyByte bool (* copy a slice of a byte array, T means target should be allocated *)
      | FromListByte  (* convert list of chars to ByteVector *)
@@ -185,7 +185,7 @@ Definition pure_op_def:
     | MemOp (RefByte _) => F
     | MemOp RefArray => F
     | MemOp UpdateByte => F
-    | MemOp (SetBit _) => F
+    | MemOp UpdateBit => F
     | MemOp (CopyByte F) => F
     | MemOp XorByte => F
     | MemOp Ref => F

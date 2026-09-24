@@ -390,13 +390,14 @@ Definition do_app_def:
              then Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8)),s)
              else Error)
          | _ => Error)
-    | (MemOp (SetBit b),[RefPtr _ ptr; Number i]) =>
+    | (MemOp UpdateBit,[RefPtr _ ptr; Number i; v]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray bs) =>
-            (if 0 ≤ i ∧ i < 8 * &LENGTH bs
+            (if 0 ≤ i ∧ i < 8 * &LENGTH bs ∧ (v = Boolv T ∨ v = Boolv F)
              then
                Rval (Unit, s with refs := s.refs |+
-                 (ptr, ByteArray (LUPDATE (((Num i MOD 8) :+ b) (EL (Num i DIV 8) bs))
+                 (ptr, ByteArray (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                           (EL (Num i DIV 8) bs))
                                           (Num i DIV 8) bs)))
              else Error)
          | _ => Error)

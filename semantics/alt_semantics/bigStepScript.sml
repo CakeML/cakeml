@@ -26,7 +26,7 @@ Inductive opClass:
        op = Vlength ∨ op = Aalloc ∨ op = AallocEmpty ∨ op = Asub ∨
        op = Alength ∨ op = Aupdate ∨ op = Asub_unsafe ∨ op = Aupdate_unsafe ∨
        op = Aw8sub_unsafe ∨ op = Aw8update_unsafe ∨ op = ListAppend ∨
-       op = Aw8subBit_unsafe ∨ (∃b. op = Aw8setBit_unsafe b) ∨
+       op = Aw8subBit_unsafe ∨ op = Aw8updateBit_unsafe ∨
        op = ConfigGC ∨ op = Env_id ∨ op = Opderef ∨ op = AallocFixed
        ⇒
        opClass op Simple) ∧

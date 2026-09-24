@@ -958,6 +958,16 @@ Proof
   \\ gvs [state_rel_def]
 QED
 
+Theorem v_rel_Boolv:
+  state_rel l fr ft fe s t ∧
+  v_rel fr ft fe v1 v2 ⇒
+    ∀b. v1 = Boolv b ⇔ v2 = Boolv b
+Proof
+  rw [Boolv_def, state_rel_def] \\ rw [EQ_IMP_THM]
+  \\ gvs [v_rel_def, OPTREL_def, Once stamp_rel_cases, flookup_thm]
+  \\ qpat_x_assum ‘INJ ($' ft) _ _’ mp_tac \\ rw [INJ_DEF]
+QED
+
 Theorem do_app_update:
   do_app (s.refs,s.ffi) op vs = res ∧
   state_rel l fr ft fe s t ∧
@@ -1145,7 +1155,7 @@ Proof
     \\ first_assum (irule_at Any) \\ gs [v_rel_def]
     \\ rw [Boolv_def]
     \\ gs [v_rel_def, stamp_rel_cases, state_rel_def])
-  \\ Cases_on ‘∃b. op = Aw8setBit_unsafe b’ \\ gs []
+  \\ Cases_on ‘op = Aw8updateBit_unsafe’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
                            CaseEqs ["list", "v", "option", "prod", "lit",
@@ -1154,6 +1164,10 @@ Proof
     \\ drule_all_then assume_tac state_rel_store_lookup \\ gs [OPTREL_def]
     \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def]
     \\ gvs [store_assign_def, store_lookup_def]
+    \\ drule_all v_rel_Boolv
+    \\ disch_then (fn th => assume_tac (Q.SPEC ‘T’ th) \\ assume_tac (Q.SPEC ‘F’ th))
+    \\ gvs []
+    \\ TRY (every_case_tac \\ gvs [store_v_same_type_def] \\ NO_TAC)
     \\ rw [] \\ gs [v_rel_def]
     \\ Q.REFINE_EXISTS_TAC
       ‘<| refs := r1; ffi := f1; clock := s.clock;
@@ -2163,16 +2177,6 @@ Resume evaluate_update[App_Opapp]:
   \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
   \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
   \\ gs [state_rel_def]
-QED
-
-Theorem v_rel_Boolv:
-  state_rel l fr ft fe s t ∧
-  v_rel fr ft fe v1 v2 ⇒
-    ∀b. v1 = Boolv b ⇔ v2 = Boolv b
-Proof
-  rw [Boolv_def, state_rel_def] \\ rw [EQ_IMP_THM]
-  \\ gvs [v_rel_def, OPTREL_def, Once stamp_rel_cases, flookup_thm]
-  \\ qpat_x_assum ‘INJ ($' ft) _ _’ mp_tac \\ rw [INJ_DEF]
 QED
 
 Theorem v_rel_do_log:

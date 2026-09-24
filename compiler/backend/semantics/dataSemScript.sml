@@ -1027,9 +1027,9 @@ Definition do_app_aux_def:
                  (ByteArray f (LUPDATE (i2w b) (Num i) bs)) s.refs)
              else Error)
          | _ => Error)
-    | (MemOp (SetBit b),[RefPtr _ ptr; Number i]) =>
-        (case lookup ptr s.refs of
-         | SOME (ByteArray f bs) =>
+    | (MemOp UpdateBit,[RefPtr _ ptr; Number i; v]) =>
+        (case (lookup ptr s.refs, dest_Boolv v) of
+         | (SOME (ByteArray f bs), SOME b) =>
             (if 0 ≤ i ∧ i < 8 * &LENGTH bs
              then
                Rval (Unit, s with refs := insert ptr

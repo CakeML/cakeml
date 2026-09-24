@@ -345,7 +345,7 @@ Proof
     \\ first_x_assum(qspec_then`k`mp_tac) \\ rw[]
     \\ res_tac
     \\ TRY asm_exists_tac \\ simp[SUBSET_DEF])
-  \\ Cases_on `∃b. op = MemOp (SetBit b)` THEN1
+  \\ Cases_on `op = MemOp UpdateBit` THEN1
    (gvs [bvlSemTheory.do_app_def,AllCaseEqs()] \\ rw [bv_ok_def]
     \\ fs [state_ok_def] \\ rw [FLOOKUP_UPDATE] \\ fs [EVERY_MEM] \\ rw []
     \\ every_case_tac \\ rw []
@@ -1583,11 +1583,18 @@ Proof
       `k ∈ FDOM s5.refs ∧ n ∈ FDOM s5.refs` by fs[FLOOKUP_DEF] >>
       metis_tac[INJ_DEF]) >>
     METIS_TAC[])
-  \\ Cases_on `∃bit. op = MemOp (SetBit bit)` \\ fs [] THEN1
+  \\ Cases_on `op = MemOp UpdateBit` \\ fs [] THEN1
    (strip_tac
-    \\ `?n i b. REVERSE a = [RefPtr b n; Number i]` by
-          (every_case_tac \\ fs [] \\ NO_TAC) \\ fs [] >>
-    simp[bEvalOp_def,adjust_bv_def] >>
+    \\ `?n i b v. REVERSE a = [RefPtr b n; Number i; v]` by
+          (every_case_tac \\ fs [] \\ NO_TAC) \\ fs []
+    \\ `v = Boolv T ∨ v = Boolv F` by (every_case_tac \\ fs [])
+    \\ gvs [bvlSemTheory.Boolv_def, backend_commonTheory.bool_to_tag_def,
+            backend_commonTheory.true_tag_def,
+            backend_commonTheory.false_tag_def] >>
+    simp[bEvalOp_def,adjust_bv_def,bvlSemTheory.Boolv_def,
+         backend_commonTheory.bool_to_tag_def,
+         backend_commonTheory.true_tag_def,
+         backend_commonTheory.false_tag_def] >>
     simp[] >> srw_tac[][] >>
     every_case_tac >> full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>srw_tac[][] >>
     srw_tac[][adjust_bv_def,bvl_to_bvi_with_refs,bvl_to_bvi_id] >>
@@ -1598,13 +1605,13 @@ Proof
       full_simp_tac(srw_ss())[] >>
       NO_TAC) >>
     simp[bvi_to_bvl_def] >>
-    conj_asm1_tac >- (
+    (conj_asm1_tac >- (
       simp[INJ_INSERT] >>
       conj_tac >- (
         qhdtm_x_assum`INJ`mp_tac >>
         simp[INJ_DEF] ) >>
       `n ∈ FDOM s5.refs` by full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
-      metis_tac[INJ_DEF]) >>
+      metis_tac[INJ_DEF])) >>
     simp[FLOOKUP_UPDATE] >>
     srw_tac[][] >> TRY (
       last_x_assum(qspec_then`k`mp_tac) >> simp[] >> NO_TAC) >>

@@ -15040,8 +15040,8 @@ Theorem deref_bit_lemma[local]:
   w2n ((7w && Smallnum (&n) ⋙ 1) :'a word) = n MOD 8 ∧
   n MOD 8 < dimindex (:α) ∧
   (∀b:word8. 1w && w2w b ⋙ (n MOD 8) = b2w (b ' (n MOD 8)) :'a word) ∧
-  (∀b:word8. w2w ((w2w b ‖ ((1w:'a word) ≪ (n MOD 8)))) = ((n MOD 8 :+ T) b)) ∧
-  (∀b:word8. w2w ((w2w b && ~((1w:'a word) ≪ (n MOD 8)))) = ((n MOD 8 :+ F) b))
+  (∀(b:word8) x. w2w ((w2w b && ~((1w:'a word) ≪ (n MOD 8))) ‖
+                       (b2w x ≪ (n MOD 8))) = ((n MOD 8 :+ x) b))
 Proof
   strip_tac
   \\ ‘32 ≤ dimindex (:'a)’ by fs [good_dimindex_def]
@@ -15140,8 +15140,16 @@ Proof
   \\ rewrite_tac [wordsTheory.LSL_BITWISE, BlockNil_def, GSYM multiwordTheory.b2w_def]
 QED
 
-Theorem assign_SetBit:
-  (∃b. op = MemOp (SetBit b)) ==> ^assign_thm_goal
+Theorem bool_tag_lsr[local]:
+  tag < 2 ∧ good_dimindex (:'a) ⇒ (n2w (2 * tag) :'a word) ⋙ 1 = b2w (tag = 1)
+Proof
+  rw [] \\ ‘tag = 0 ∨ tag = 1’ by decide_tac
+  \\ gvs [b2w_def, wordsTheory.word_lsr_n2w, good_dimindex_def]
+  \\ simp [wordsTheory.word_bits_n2w, bitTheory.BITS_THM]
+QED
+
+Theorem assign_UpdateBit:
+  op = MemOp UpdateBit ==> ^assign_thm_goal
 Proof
   strip_tac
   \\ rpt strip_tac
@@ -15155,7 +15163,7 @@ Proof
   \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
-  \\ imp_res_tac get_vars_2_IMP
+  \\ imp_res_tac get_vars_3_IMP
   \\ fs[state_rel_thm,set_var_def,option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 memory_rel_get_vars_IMP
@@ -15174,9 +15182,11 @@ Proof
     \\ rfs[dimword_def]
     \\ intLib.COOPER_TAC)
   \\ rpt_drule0 memory_rel_Number_IMP
-  \\ qhdtm_x_assum`memory_rel` kall_tac
-  \\ strip_tac
-  \\ clean_tac
+  \\ strip_tac \\ clean_tac
+  \\ imp_res_tac memory_rel_tl
+  \\ gvs [oneline dest_Boolv_def, AllCaseEqs()]
+  \\ drule memory_rel_Block_IMP \\ simp [] \\ strip_tac \\ gvs []
+  \\ ntac 3 (qhdtm_x_assum`memory_rel` kall_tac)
   \\ qpat_x_assum`get_var _ _ = SOME (Word(Smallnum _))`assume_tac
   \\ rpt_drule0 get_real_bit_offset_lemma
   \\ simp [assign_def,list_Seq_def] \\ eval_tac
@@ -15186,8 +15196,8 @@ Proof
   \\ first_x_assum $ qspec_then ‘n DIV 8’ mp_tac
   \\ impl_keep_tac >- simp [DIV_LT_X]
   \\ strip_tac \\ simp [lookup_insert,adjust_var_11]
-  \\ Cases_on ‘b’ \\ gvs []
   \\ eval_tac \\ simp [lookup_insert]
+  \\ drule_all bool_tag_lsr \\ strip_tac \\ asm_rewrite_tac []
   \\ asm_x "here" $ qspec_then ‘n DIV 8’ drule
   \\ gvs [wordSemTheory.mem_store_byte_aux_def,AllCaseEqs(),
           wordSemTheory.mem_load_byte_aux_def]

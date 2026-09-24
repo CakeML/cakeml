@@ -1230,6 +1230,16 @@ Proof
     \\ fs [simple_state_rel_def]
     \\ res_tac \\ fs [Unitv_def]
   )
+  >~ [`Src Aw8updateBit_unsafe`] >- (
+    rpt strip_tac
+    \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
+    \\ gvs [Boolv_def, simple_val_rel_def, isClosure_def]
+    \\ drule_then (drule_then drule) simple_state_rel_store_lookup
+    \\ fs [sv_rel_cases] \\ rw [] \\ gvs []
+    \\ drule_then (drule_then drule) simple_state_rel_store_assign
+    \\ simp [sv_rel_cases]
+    \\ rw [] \\ simp [Unitv_def]
+  )
   >~ [`El _`] >- (
     rpt strip_tac
     \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
