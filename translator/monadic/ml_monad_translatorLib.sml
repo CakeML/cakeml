@@ -104,6 +104,8 @@ local
      ("write_const",ml_translatorSyntax.write),
      ("RARRAY_REL_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="RARRAY_REL"}),
      ("ARRAY_REL_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="ARRAY_REL"}),
+     ("W8ARRAY_const",prim_mk_const{Thy="cfHeapsBase",Name="W8ARRAY"}),
+     ("RW8ARRAY_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="RW8ARRAY"}),
      ("run_const",ml_monadBaseSyntax.run_tm),
      ("EXC_TYPE_aux_const",prim_mk_const{Thy="ml_monad_translator",Name="EXC_TYPE_aux"}),
      ("return_pat",``st_ex_return x``),
@@ -200,6 +202,8 @@ val Eval_name_RI_abs = get_term "Eval_name_RI_abs";
 val write_const = get_term "write_const";
 val RARRAY_REL_const = get_term "RARRAY_REL_const";
 val ARRAY_REL_const = get_term "ARRAY_REL_const";
+val W8ARRAY_const = get_term "W8ARRAY_const";
+val RW8ARRAY_const = get_term "RW8ARRAY_const";
 val run_const = get_term "run_const";
 val EXC_TYPE_aux_const = get_term "EXC_TYPE_aux_const";
 val return_pat = get_term "return_pat";
@@ -3600,17 +3604,19 @@ fun create_local_references init_state th = let
 
         val nenv = mk_write loc_name loc env
         val gen_th = INST[env |-> nenv] th |> clean_lookup_assums |> GEN loc
-        val is_rarray = concl th |> rand |> dest_pair |> fst
+        val hprop_const = concl th |> rand |> dest_pair |> fst
                              |> dest_abs |> snd |> dest_star
                              |> fst |> strip_comb |> fst
-                             |> same_const RARRAY_REL_const
-        val is_farray = concl th |> rand |> dest_pair |> fst
-                             |> dest_abs |> snd |> dest_star
-                             |> fst |> strip_comb |> fst
-                             |> same_const ARRAY_REL_const
+        val is_rw8array = same_const RW8ARRAY_const hprop_const
+        val is_rarray = same_const RARRAY_REL_const hprop_const
+        val is_w8array = same_const W8ARRAY_const hprop_const
+        val is_farray = same_const ARRAY_REL_const hprop_const orelse is_w8array
 
         val lemma =
-        if is_rarray then
+        if is_rw8array then
+            ISPECL[exp, get_ref_fun, loc_name, env, H_part2, P, state_var]
+                  EvalSt_W8AllocEmpty |> BETA_RULE |> UNDISCH
+        else if is_rarray then
             ISPECL[exp, get_ref_fun, loc_name,
                    rand TYPE, st_name, env, H_part2, P, state_var]
                   EvalSt_AllocEmpty |> BETA_RULE |> UNDISCH
@@ -3628,10 +3634,12 @@ fun create_local_references init_state th = let
             val (TYPE, x) = concl xexp_eval |> rand |> dest_comb
 
             val lemma =
-              PURE_REWRITE_RULE [GSYM NUM_def, GSYM INT_def] EvalSt_Alloc
-            val lemma =
-              ISPECL [exp, nexp, n, xexp, x, rator state_field, loc_name,
-                      TYPE, env, H_part2, P, state] lemma |> UNDISCH
+              PURE_REWRITE_RULE [GSYM NUM_def, GSYM INT_def]
+                (if is_w8array then EvalSt_W8Alloc else EvalSt_Alloc)
+            val args = [exp, nexp, n, xexp, x, rator state_field, loc_name] @
+                       (if is_w8array then [] else [TYPE]) @
+                       [env, H_part2, P, state]
+            val lemma = ISPECL args lemma |> UNDISCH
             val lemma = MATCH_MP (MATCH_MP lemma nexp_eval) xexp_eval
             val lemma = CONV_RULE (DEPTH_CONV BETA_CONV) lemma
             val EQ_pat = EQ_def |> SPEC_ALL |> concl |> dest_eq |> fst
