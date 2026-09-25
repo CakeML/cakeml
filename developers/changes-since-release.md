@@ -4,6 +4,8 @@ Changes since release v3479:
 
 The CakeML source language now supports open and let open (#1482).
 
+The CakeML source language now supports variable-length word shifts (#1500).
+
 Operations for reading or writing a single bit of a byte array have also been added to the source language (#1497).
 
 The monadic translator now targets CakeML's byte arrays for arrays of type word8 (#1494).
