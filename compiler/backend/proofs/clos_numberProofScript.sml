@@ -516,10 +516,10 @@ Proof
   \\ gvs [oneline do_app_def, AllCaseEqs()]
 QED
 
-Theorem v_to_bytes[local]:
-  v_rel m v w ⇒ v_to_bytes v = v_to_bytes w
+Theorem v_to_mlstring[local]:
+  v_rel m v w ⇒ v_to_mlstring v = v_to_mlstring w
 Proof
-  metis_tac [simple_val_rel, simple_val_rel_v_to_bytes]
+  metis_tac [simple_val_rel, simple_val_rel_v_to_mlstring]
 QED
 
 Theorem v_to_words[local]:
@@ -559,7 +559,7 @@ Proof
   strip_tac
   \\ `∃res. do_install x1 s1 = res` by fs[]
   \\ fs[do_install_def,case_eq_thms] \\ rveq \\ fs[]
-  \\ imp_res_tac v_to_bytes \\ fs[]
+  \\ imp_res_tac v_to_mlstring \\ fs[]
   \\ imp_res_tac v_to_words \\ fs[]
   \\ pairarg_tac \\ fs[] \\ pairarg_tac \\ fs[]
   \\ imp_res_tac state_rel_code \\ fs[]

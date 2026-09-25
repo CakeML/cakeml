@@ -19,6 +19,10 @@ Datatype:
                    rarray2 : int list;
                    farray1 : num list;
                    farray2 : int list;
+                   fbarray : word8 list;
+                   rbarray : word8 list;
+                   fbits : bool list;
+                   rbits : bool list;
                    |>
 End
 
@@ -36,13 +40,25 @@ val config =  global_state_config |>
                 ("farray1", ``0 : num``, 12,
                   ``Subscript``, ``Subscript``),
                 ("farray2", ``0 : int``, 7,
+                  ``Subscript``, ``Subscript``),
+                ("fbarray", ``0w : word8``, 5,
                   ``Subscript``, ``Subscript``)
               ] |>
               with_resizeable_arrays [
                 ("rarray1", ``[] : num list``,
                   ``Subscript``, ``Subscript``),
                 ("rarray2", ``[] : int list``,
+                  ``Subscript``, ``Subscript``),
+                ("rbarray", ``[] : word8 list``,
                   ``Subscript``, ``Subscript``)
+              ] |>
+              (* bool list arrays stored as byte arrays; the size is given in
+                 bytes, i.e. fbits has 3 * 8 = 24 elements, all F *)
+              with_fixed_bool_arrays [
+                ("fbits", 3, ``Subscript``, ``Subscript``)
+              ] |>
+              with_resizeable_bool_arrays [
+                ("rbits", ``Subscript``, ``Subscript``)
               ];
 
 Overload failwith = ``raise_Fail``
@@ -92,5 +108,50 @@ Definition test6_def:
   test6 n x = alloc_rarray1 n x
 End
 val test6_v_thm = test6_def |> m_translate;
+
+(* word8 list arrays are stored as CakeML byte arrays *)
+Definition test7_def:
+  test7 n =
+  do
+      x <- fbarray_sub n;
+      update_fbarray n (x + 1w);
+      fbarray_length
+  od
+End
+val test7_v_thm = test7_def |> m_translate;
+
+Definition test8_def:
+  test8 n =
+  do
+      alloc_rbarray n 0w;
+      x <- rbarray_sub 0;
+      update_rbarray 0 (x + 1w);
+      rbarray_length
+  od
+End
+val test8_v_thm = test8_def |> m_translate;
+
+(* bool list arrays are stored as CakeML byte arrays, 8 bools per byte *)
+Definition test9_def:
+  test9 n =
+  do
+      x <- fbits_sub n;
+      update_fbits n (~x);
+      fbits_length
+  od
+End
+val test9_v_thm = test9_def |> m_translate;
+
+(* alloc_rbits n allocates 8 * n bools, all F *)
+Definition test10_def:
+  test10 n =
+  do
+      alloc_rbits n;
+      x <- rbits_sub 0;
+      update_rbits 0 (~x);
+      rbits_length
+  od
+End
+val test10_v_thm = test10_def |> m_translate;
 
 (* ... *)

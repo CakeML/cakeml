@@ -113,3 +113,19 @@ Definition getRetExp_def:
 (getRetExp (Ret e) = e)
 End
 
+(* Lemmas used by flover_ss in FloverTactics *)
+
+Theorem bool_simps:
+  (∀ P. (P ∧ F) = F) ∧
+  (∀ P. (F ∨ P) = P) ∧
+  (∀ P Q. (if P then Q else F) = (P ∧ Q))
+Proof
+  fs[]
+QED
+
+Theorem cond_simp:
+  (if P then Q else R) = (P /\ Q \/ ~P /\ R)
+Proof
+  TOP_CASE_TAC
+QED
+

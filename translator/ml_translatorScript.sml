@@ -3073,6 +3073,7 @@ Theorem type_names_eq[local]:
                 | Dtype _ tds => MAP (\ (tvs,tn,ctors). tn) tds
                 | Dtabbrev _ tvs tn t => []
                 | Dlocal _ _ => []
+                | Dopen _ _ => []
                 | Denv _ => []
                 | Dexn _ v10 v11 => []) ds))) ++ names
 Proof
@@ -3187,6 +3188,8 @@ Definition no_change_refs_def:
         | Aw8alloc => F
         | Aw8update => F
         | Aw8update_unsafe => F
+        | Aw8updateBit_unsafe => F
+        | Aw8updateBit => F
         | CopyStrAw8 => F
         | CopyAw8Aw8 => F
         | XorAw8Str_unsafe => F

@@ -98,6 +98,8 @@ Datatype:
      | RefArray      (* makes an array by replicating a value *)
      | DerefByte     (* loads a byte from a byte array *)
      | UpdateByte    (* updates a byte array *)
+     | DerefBit      (* read a bit from a byte array *)
+     | UpdateBit     (* update a bit of a byte array *)
      | ConcatByteVec (* concatenate list of byte vectors *)
      | CopyByte bool (* copy a slice of a byte array, T means target should be allocated *)
      | FromListByte  (* convert list of chars to ByteVector *)
@@ -107,6 +109,7 @@ Datatype:
      | StringCmp bool ast$opb (* string comparisons *)
      | XorByte       (* xor a btye vector into a byte array *)
      | BoundsCheckArray
+     | BoundsCheckBit
      | BoundsCheckByte bool (* T = loose (<=) bound *)
      | MutCons num num (* allocate a cons with a mutable hole, tag, index of hole *)
      | UpdateCons    (* mutate the hole in a MutCons *)
@@ -183,6 +186,7 @@ Definition pure_op_def:
     | MemOp (RefByte _) => F
     | MemOp RefArray => F
     | MemOp UpdateByte => F
+    | MemOp UpdateBit => F
     | MemOp (CopyByte F) => F
     | MemOp XorByte => F
     | MemOp Ref => F
@@ -225,4 +229,4 @@ End
 
 Type clos_prog = ``: closLang$exp list # (num # num # closLang$exp # metadata) list``
 
-Type clos_cc = ``:'c -> clos_prog -> (word8 list # word64 list # 'c) option``
+Type clos_cc = ``:'c -> clos_prog -> (mlstring # word64 list # 'c) option``

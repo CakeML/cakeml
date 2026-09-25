@@ -8,6 +8,11 @@ documented here when they are merged into `master`.
 Sep 2nd 2026
 -------------------
 
+### Comments at the end of the input
+
+A `//` comment no longer has to be terminated by a newline: it may run
+to the end of the input.
+
 ### Feature tags
 
 It is now possible to query whether a compiler binary supports a given

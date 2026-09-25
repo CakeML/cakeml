@@ -1540,6 +1540,7 @@ Theorem do_app[local]:
    (* store updates need special treatment *)
    (op <> MemOp Ref) /\ (op <> MemOp Update) ∧ (op <> MemOp XorByte) ∧
    (op ≠ MemOp RefArray) ∧ (∀f. op ≠ MemOp (RefByte f)) ∧ (op ≠ MemOp UpdateByte) ∧
+   (op ≠ MemOp UpdateBit) ∧
    (op ≠ MemOp FromListByte) ∧ op ≠ MemOp ConcatByteVec ∧
    (∀b. op ≠ MemOp (CopyByte b)) ∧ (∀c. op ≠ BlockOp (Constant c)) ∧
    (∀n. op ≠ (FFI n)) ∧
@@ -1554,6 +1555,11 @@ Proof
   >-
    (gvs [closSemTheory.do_app_def,AllCaseEqs()] \\ rw []
     \\ gvs [bvlSemTheory.do_app_def])
+  \\ Cases_on `op = MemOp DerefBit`
+  >-
+   (gvs [closSemTheory.do_app_def,AllCaseEqs()] \\ rw []
+    \\ gvs [v_rel_SIMP] \\ gvs [state_rel_def] \\ res_tac
+    \\ gvs [v_rel_SIMP,bvlSemTheory.do_app_def] \\ metis_tac [])
   \\ Cases_on `op = BlockOp BoolNot`
   >-
    (gvs [closSemTheory.do_app_def,AllCaseEqs()] \\ rw []
@@ -1580,8 +1586,9 @@ Proof
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
      \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def]
      \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
-  \\ Cases_on `∃b. op = MemOp (BoundsCheckByte b)` THEN1
-    (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
+  \\ Cases_on `(∃b. op = MemOp (BoundsCheckByte b)) ∨ op = MemOp BoundsCheckBit` THEN1
+    (pop_assum strip_assume_tac \\ gvs []
+     \\ srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
      \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def]
      \\ imp_res_tac LIST_REL_LENGTH \\ fs [state_rel_def]
      \\ res_tac \\ fs [] \\ rveq \\ fs []
@@ -2926,27 +2933,12 @@ Proof
   \\ old_drule v_rel_IMP_v_to_words_lemma \\ fs []
 QED
 
-Theorem v_rel_IMP_v_to_bytes_lemma[local]:
-    !x y.
-      v_rel max_app f refs code x y ==>
-      !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
-           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))
+Theorem v_rel_IMP_v_to_mlstring[local]:
+    v_rel max_app f refs code x y /\ closSem$v_to_mlstring x = SOME ss ==>
+    bvlSem$v_to_mlstring refs y = SOME ss
 Proof
-  ho_match_mp_tac closSemTheory.v_to_list_ind \\ rw []
-  \\ fs [bvlSemTheory.v_to_list_def,closSemTheory.v_to_list_def,v_rel_SIMP]
-  \\ Cases_on `tag = cons_tag` \\ fs [] \\ rveq \\ fs []
-  \\ res_tac \\ fs [case_eq_thms,v_rel_SIMP]
-  THEN1
-   (Cases_on `ns` \\ fs [] \\ rveq \\ fs [v_rel_SIMP] \\ rveq \\ fs []
-    \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs [v_rel_SIMP])
-  \\ Cases_on `ys` \\ fs [bvlSemTheory.v_to_list_def]
-QED
-
-Theorem v_rel_IMP_v_to_bytes[local]:
-    v_rel max_app f refs code x y ==> v_to_bytes y = v_to_bytes x
-Proof
-  rw [v_to_bytes_def,closSemTheory.v_to_bytes_def]
-  \\ old_drule v_rel_IMP_v_to_bytes_lemma \\ fs []
+  rw [closSemTheory.v_to_mlstring_def, AllCaseEqs ()]
+  \\ gvs [v_rel_SIMP, bvlSemTheory.v_to_mlstring_def]
 QED
 
 Theorem not_domain_lookup:
@@ -3729,7 +3721,7 @@ Proof
       \\ qunabbrev_tac `a1`
       \\ fs[SWAP_REVERSE_SYM]
       \\ pop_assum (fn th => fs [th])
-      \\ Cases_on `v_to_bytes a2` \\ fs [] THEN1 (rveq \\ fs[])
+      \\ Cases_on `v_to_mlstring a2` \\ fs [] THEN1 (rveq \\ fs[])
       \\ Cases_on `v_to_words a3` \\ fs [] THEN1 (rveq \\ fs[])
       \\ pairarg_tac \\ reverse (fs [bool_case_eq])
       THEN1 (rveq \\ fs[])
@@ -3757,7 +3749,7 @@ Proof
       \\ fs [bEval_def]
       \\ fs [bvlSemTheory.do_install_def,do_app_def]
       \\ fs [EVAL ``shift_seq 1 f 0``]
-      \\ old_drule (GEN_ALL v_rel_IMP_v_to_bytes) \\ strip_tac
+      \\ drule_all (GEN_ALL v_rel_IMP_v_to_mlstring) \\ strip_tac
       \\ `v_to_words y = v_to_words a3` by
         (imp_res_tac v_rel_IMP_v_to_words \\ fs [])
       \\ `p1.compile = pure_cc (compile_inc p1.max_app) t2.compile ∧
@@ -4463,13 +4455,14 @@ Proof
       simp[SUBMAP_DEF,FDOM_DRESTRICT,DRESTRICT_DEF] >>
       srw_tac[][] >>
       simp[Abbr`pp`,LEAST_NOTIN_FDOM])
-    \\ Cases_on `op = MemOp UpdateByte` \\ full_simp_tac(srw_ss())[] THEN1 (
+    \\ Cases_on `op = MemOp UpdateByte ∨ op = MemOp UpdateBit` THEN1 (
+      pop_assum strip_assume_tac \\ gvs [] \\ (
       full_simp_tac(srw_ss())[closSemTheory.do_app_def,bvlSemTheory.do_app_def]
       \\ fs[case_eq_thms,PULL_EXISTS,bool_case_eq,AllCaseEqs()]
       \\ rw[] \\ fs[SWAP_REVERSE_SYM] \\ rw[]
       \\ fs[v_rel_SIMP] \\ rw[]
       \\ imp_res_tac evaluate_const
-      \\ qmatch_assum_rename_tac`FLOOKUP _ n = SOME (ByteArray l)`
+      \\ (qmatch_assum_rename_tac`FLOOKUP _ n = SOME (ByteArray l)`
       \\ `?y m.
             FLOOKUP f2 n = SOME m /\ FLOOKUP t2.refs m = SOME y /\
             ref_rel (v_rel s.max_app f2 t2.refs t2.code) (ByteArray l) y` by
@@ -4510,7 +4503,7 @@ Proof
           MATCH_MP_TAC v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
           \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC []))
       \\ `m IN FRANGE f2` by (full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
-      \\ full_simp_tac(srw_ss())[SUBMAP_DEF,FDIFF_def,DRESTRICT_DEF,FAPPLY_FUPDATE_THM, add_args_def])
+      \\ full_simp_tac(srw_ss())[SUBMAP_DEF,FDIFF_def,DRESTRICT_DEF,FAPPLY_FUPDATE_THM, add_args_def])))
     \\ Cases_on `∃n. op = FFI n` \\ full_simp_tac(srw_ss())[] THEN1 (
       full_simp_tac(srw_ss())[closSemTheory.do_app_def,bvlSemTheory.do_app_def]
       \\ Cases_on `REVERSE a` \\ full_simp_tac(srw_ss())[]

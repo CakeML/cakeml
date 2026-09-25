@@ -4483,3 +4483,9 @@ Theorem ALOOKUP_MAP_3:
 Proof
   fs [GSYM ALOOKUP_MAP_2, LAMBDA_PROD]
 QED
+
+Theorem SWAP_IMP:
+  (P ⇒ Q ⇒ R) ⇒ Q ⇒ P ⇒ R
+Proof
+  simp []
+QED

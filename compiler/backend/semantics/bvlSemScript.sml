@@ -51,7 +51,7 @@ Datatype:
     <| globals : (bvlSem$v option) list
      ; refs    : num |-> bvlSem$v ref
      ; clock   : num
-     ; compile : 'c -> (num # num # bvl$exp # metadata) list -> (word8 list # word64 list # 'c) option
+     ; compile : 'c -> (num # num # bvl$exp # metadata) list -> (mlstring # word64 list # 'c) option
      ; compile_oracle : num -> 'c # (num # num # bvl$exp # metadata) list
      ; code    : (num # bvl$exp # metadata) num_map
      ; ffi     : 'ffi ffi_state |>
@@ -115,9 +115,14 @@ End
 
 Overload Error[local] = ``(Rerr(Rabort Rtype_error)):(bvlSem$v#('c,'ffi) bvlSem$state, bvlSem$v)result``
 
-Definition v_to_bytes_def:
-  v_to_bytes lv = some ns:word8 list.
-                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)
+Definition v_to_mlstring_def:
+  v_to_mlstring refs lv =
+    case lv of
+    | RefPtr _ p =>
+        (case FLOOKUP refs p of
+         | SOME (ByteArray T bs) => SOME (bytes_to_mlstring bs)
+         | _ => NONE)
+    | _ => NONE
 End
 
 Definition v_to_words_def:
@@ -130,7 +135,7 @@ Definition do_install_def:
   do_install vs ^s =
       (case vs of
        | [v1;v2] =>
-           (case (v_to_bytes v1, v_to_words v2) of
+           (case (v_to_mlstring s.refs v1, v_to_words v2) of
             | (SOME bytes, SOME data) =>
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in
@@ -401,6 +406,24 @@ Definition do_app_def:
                  (ptr, ByteArray f (LUPDATE (i2w b) (Num i) bs)))
              else Error)
          | _ => Error)
+    | (MemOp DerefBit,[RefPtr _ ptr; Number i]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray _ ws) =>
+            (if 0 ≤ i ∧ i < 8 * &LENGTH ws
+             then Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8)),s)
+             else Error)
+         | _ => Error)
+    | (MemOp UpdateBit,[RefPtr _ ptr; Number i; v]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray f bs) =>
+            (if 0 ≤ i ∧ i < 8 * &LENGTH bs ∧ (v = Boolv T ∨ v = Boolv F)
+             then
+               Rval (Unit, s with refs := s.refs |+
+                 (ptr, ByteArray f (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                             (EL (Num i DIV 8) bs))
+                                            (Num i DIV 8) bs)))
+             else Error)
+         | _ => Error)
     | (MemOp ConcatByteVec,[lv]) =>
          (case
             (some wss. ∃ps.
@@ -520,6 +543,14 @@ Definition do_app_def:
           (case FLOOKUP s.refs ptr of
            | SOME (ByteArray _ ws) =>
                Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
+           | _ => Error)
+         | _ => Error)
+    | (MemOp BoundsCheckBit,xs) =>
+        (case xs of
+         | [RefPtr _ ptr; Number i] =>
+          (case FLOOKUP s.refs ptr of
+           | SOME (ByteArray _ ws) =>
+               Rval (Boolv (0 <= i /\ i < 8 * & LENGTH ws),s)
            | _ => Error)
          | _ => Error)
     | (MemOp BoundsCheckArray,xs) =>

@@ -2393,7 +2393,7 @@ Proof
           dxrule LESS_EQUAL_ADD>>strip_tac>>
           drule panPropsTheory.evaluate_add_clock_eq>>simp[]>>
           disch_then $ qspec_then ‘p’ assume_tac>>
-          ‘s with clock := s.clock = s’
+          ‘s with clock := k + p = s’
             by simp[state_component_equality]>>gvs[])>>
       gvs[div_bind_cases]>>
       drule_then drule nondiv_timeout_add_clock>>rw[]>>fs[]>>

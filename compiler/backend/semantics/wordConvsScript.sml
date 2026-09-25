@@ -351,7 +351,7 @@ End
 
 Definition wf_cutsets_def:
   (wf_cutsets (Alloc n s) = wf_names s) ∧
-  (wf_cutsets (Install _ _ _ _ s) = wf_names s) ∧
+  (wf_cutsets (Install _ _ _ _ _ s) = wf_names s) ∧
   (wf_cutsets (Call ret dest args h) =
     (case ret of
       NONE => T
@@ -393,7 +393,8 @@ Definition call_arg_convention_def:
     inst_arg_convention i) ∧
   (call_arg_convention (Return x ys) = (ys = GENLIST (\x.2*(x+1)) (LENGTH ys))) ∧
   (call_arg_convention (Raise y) = (y=2)) ∧
-  (call_arg_convention (Install ptr len _ _ _) = (ptr = 2 ∧ len = 4)) ∧
+  (call_arg_convention (Install ptr len cptr _ _ _) = (ptr = 2 ∧ len = 4 ∧
+                                                       cptr = 6)) ∧
   (call_arg_convention (FFI x ptr len ptr2 len2 args) = (ptr = 2 ∧ len = 4 ∧
                                                          ptr2 = 6 ∧ len2 = 8)) ∧
   (call_arg_convention (Alloc n s) = (n=2)) ∧
@@ -551,7 +552,7 @@ Definition not_created_subprogs_def:
   not_created_subprogs P (Alloc _ _) = P (Alloc 0 (LN,LN)) /\
   not_created_subprogs P (LocValue _ l) = P (LocValue 0 l) /\
   not_created_subprogs P (ShareInst _ _ _) = P (ShareInst ARB 0 (Var 0)) /\
-  not_created_subprogs P (Install _ _ _ _ _) = P (Install 0 0 0 0 (LN,LN)) /\
+  not_created_subprogs P (Install _ _ _ _ _ _) = P (Install 0 0 0 0 0 (LN,LN)) /\
   not_created_subprogs _ _ = T
 End
 
@@ -573,7 +574,7 @@ Theorem no_alloc_def = not_created_subprogs_P_def
   |> ISPEC no_alloc_P
   |> REWRITE_RULE [GSYM no_alloc_subprogs_def]
 
-val no_install_P = ``((<>) (Install 0 0 0 0 (LN,LN)))``
+val no_install_P = ``((<>) (Install 0 0 0 0 0 (LN,LN)))``
 
 Definition no_install_subprogs_def:
   no_install p = not_created_subprogs ^no_install_P p
