@@ -363,10 +363,10 @@ Proof
   fs [dest_closure_def,case_eq_thms] \\ rw [] \\ fs []
 QED
 
-Theorem v_rel_IMP_v_to_bytes[local]:
-    v_rel x y ==> v_to_bytes y = v_to_bytes x
+Theorem v_rel_IMP_v_to_mlstring[local]:
+    v_rel x y ==> v_to_mlstring y = v_to_mlstring x
 Proof
-  metis_tac [simple_val_rel, closPropsTheory.simple_val_rel_v_to_bytes]
+  metis_tac [simple_val_rel, closPropsTheory.simple_val_rel_v_to_mlstring]
 QED
 
 Theorem v_rel_IMP_v_to_words[local]:

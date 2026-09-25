@@ -242,6 +242,7 @@ Datatype:
   | TokenCheck_isTyvarT
   | TokenCheck_isAlphaSym
   | TokenCheck_isLongidT
+  | TokenCheck_isLongModidT
   | TokenCheck_opid_longid_nonempty
   | TokenCheck_opid_symbol_nonempty
   | TokenCheck_opid_alpha_nonempty
@@ -273,6 +274,7 @@ Definition eval_token_check_def:
   | TokenCheck_isTyvarT => isTyvarT t
   | TokenCheck_isAlphaSym  => isAlphaSym t
   | TokenCheck_isLongidT => isLongidT t
+  | TokenCheck_isLongModidT => isLongModidT t
   | TokenCheck_opid_longid_nonempty =>
       (     case destLongidT t of NONE => F | SOME (_,s) =>  s ≠ «»)
   | TokenCheck_opid_symbol_nonempty =>
@@ -1217,13 +1219,21 @@ Definition nt_rule_fo_def:
               SemB_append)
             SemB_append)
           (SemB_bindNT0 (INL nLetDec)))
-        (Seq_fo
-          (Tok_fo (TokenCheck_eq FunT) TokenMap_mktokLf)
+        (Choice_fo
           (Seq_fo
-            (Nt_fo (INL nAndFDecls) SemU_id)
-            (Empty_fo [])
-            SemB_append)
-          (SemB_bindNT0 (INL nLetDec)))) ∧
+            (Tok_fo (TokenCheck_eq FunT) TokenMap_mktokLf)
+            (Seq_fo
+              (Nt_fo (INL nAndFDecls) SemU_id)
+              (Empty_fo [])
+              SemB_append)
+            (SemB_bindNT0 (INL nLetDec)))
+          (Seq_fo
+            (Tok_fo (TokenCheck_eq OpenT) TokenMap_mktokLf)
+            (Seq_fo
+              (Nt_fo (INL nModPath) SemU_id)
+              (Empty_fo [])
+              SemB_append)
+            (SemB_bindNT0 (INL nLetDec))))) ∧
   nt_rule_fo (INL nLetDecs) =
     SOME
       (Choice_fo
@@ -1296,10 +1306,18 @@ Definition nt_rule_fo_def:
                     (Nt_fo (INL nTypeAbbrevDec) SemU_id)
                     (Empty_fo [])
                     (SemB_bindNT0 (INL nDecl)))
-                  (Seq_fo
-                    (Nt_fo (INL nStructure) SemU_id)
-                    (Empty_fo [])
-                    (SemB_bindNT0 (INL nDecl))))))))) ∧
+                  (Choice_fo
+                    (Seq_fo
+                      (Tok_fo (TokenCheck_eq OpenT) TokenMap_mktokLf)
+                      (Seq_fo
+                        (Nt_fo (INL nModPath) SemU_id)
+                        (Empty_fo [])
+                        SemB_append)
+                      (SemB_bindNT0 (INL nDecl)))
+                    (Seq_fo
+                      (Nt_fo (INL nStructure) SemU_id)
+                      (Empty_fo [])
+                      (SemB_bindNT0 (INL nDecl)))))))))) ∧
   nt_rule_fo (INL nTypeAbbrevDec) =
     SOME
       (Seq_fo
@@ -1416,6 +1434,14 @@ Definition nt_rule_fo_def:
       (Tok_fo
         (TokenCheck_alpha TokenAlpha_nonempty)
         (TokenMap_bindNT (INL nStructName))) ∧
+  nt_rule_fo (INL nModPath) =
+    SOME
+      (Seq_fo
+        (Choice_fo
+          (Nt_fo (INL nStructName) SemU_id)
+          (Tok_fo TokenCheck_isLongModidT TokenMap_mktokLf))
+        (Empty_fo [])
+        (SemB_bindNT0 (INL nModPath))) ∧
   nt_rule_fo (INL nStructure) =
     SOME
       (Seq_fo
@@ -1768,6 +1794,10 @@ val _ = cv_trans tokenUtilsTheory.isWordT_def;
 val _ = cv_trans tokenUtilsTheory.isTyvarT_def;
 val _ = cv_trans tokenUtilsTheory.isAlphaSym_def;
 val _ = cv_trans tokenUtilsTheory.isLongidT_def;
+val _ = cv_trans lexer_implTheory.get_token_eqn;
+val _ = cv_trans validModName_def;
+val _ = cv_trans validModPath_def;
+val _ = cv_trans isLongModidT_def;
 val _ = cv_trans optionTheory.IS_SOME_DEF;
 
 val _ = cv_trans eval_token_check_def;
@@ -1814,5 +1844,3 @@ val (_,_) = (bench_compare bench_src_short, bench_compare bench_src_short)
 val (_,_) = (bench_compare bench_src_fun, bench_compare bench_src_fun)
 val (_,_) = (bench_compare bench_src_expr, bench_compare bench_src_expr)
 val (_,_) = (bench_compare bench_src_long, bench_compare bench_src_long) *)
-
-

@@ -533,14 +533,11 @@ Definition comp_def:
        (Seq (Inst (Const 1 (n2w i)))
             (StoreConsts (FST kf) (FST kf + 1) (SOME store_consts_stub_location)),new_bs)) /\
   (comp conf perf (LocValue r l1) bs kf = (wRegWrite1 (λr. LocValue r l1 0) r kf,bs)) /\
-  (comp conf perf (Install r1 r2 r3 r4 live) bs kf =
-    let (l3,r3) = wReg1 r3 kf in
-    let (l4,r4) = wReg2 r4 kf in
-      (wStackLoad (l3++l4) (Install (r1 DIV 2) (r2 DIV 2) r3 r4 0),bs)) /\
-  (comp conf perf (CodeBufferWrite r1 r2) bs kf =
-    let (l1,r1) = wReg1 r1 kf in
-    let (l2,r2) = wReg2 r2 kf in
-      (wStackLoad (l1++l2) (CodeBufferWrite r1 r2),bs)) /\
+  (comp conf perf (Install r1 r2 r3 r4 r5 live) bs kf =
+    let (l4,r4) = wReg1 r4 kf in
+    let (l5,r5) = wReg2 r5 kf in
+      (wStackLoad (l4++l5)
+         (Install (r1 DIV 2) (r2 DIV 2) (r3 DIV 2) r4 r5 0),bs)) /\
   (comp conf perf (DataBufferWrite r1 r2) bs kf =
     let (l1,r1) = wReg1 r1 kf in
     let (l2,r2) = wReg2 r2 kf in

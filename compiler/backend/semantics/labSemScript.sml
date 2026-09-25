@@ -506,14 +506,6 @@ Definition evaluate_def:
                       evaluate (upd_pc p (dec_clock s)))
              | _ => (Error,s))
          | _ => (Error,s))
-    | SOME (Asm (Cbw r1 r2) _ _) =>
-      (case (read_reg r1 s,read_reg r2 s) of
-      | (Word w1, Word w2) =>
-        (case buffer_write s.code_buffer w1 (w2w w2) of
-        | SOME new_cb =>
-          evaluate (inc_pc (dec_clock (s with code_buffer:= new_cb)))
-        | _ => (Error,s))
-      | _ => (Error,s))
     | SOME (Asm (ShareMem m r ad) _ _) =>
        (case share_mem_op m r ad s of
         | SOME (FFI_final outcome,s') => (Halt (FFI_outcome outcome),s')
@@ -552,10 +544,15 @@ Definition evaluate_def:
              let s1 = upd_reg s.link_reg k s in
                evaluate (upd_pc p (dec_clock s1))))
     | SOME (LabAsm Install _ _ _) =>
-       (case (s.regs s.ptr_reg,s.regs s.len_reg,s.regs s.link_reg) of
-        | (Word w1, Word w2, Loc n1 n2) =>
-           (case (buffer_flush s.code_buffer w1 w2, loc_to_pc n1 n2 s.code) of
-            | (SOME (bytes, cb), SOME new_pc) =>
+       (case (code_buffer_install (SOME $ s.regs s.ptr_reg)
+                                  (SOME $ s.regs s.len_reg)
+                                  (SOME $ s.regs s.ptr2_reg)
+                                  (mem_load_byte_aux s.mem s.mem_domain s.be)
+                                  s.code_buffer,
+              s.regs s.link_reg) of
+        | (SOME (bytes, cb), Loc n1 n2) =>
+           (case (loc_to_pc n1 n2 s.code) of
+            | SOME new_pc =>
               let (cfg,prog) = s.compile_oracle 0 in (* the next oracle program *)
               let new_oracle = shift_seq 1 s.compile_oracle in
                 (case (s.compile cfg prog, prog) of

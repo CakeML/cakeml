@@ -482,7 +482,8 @@ Theorem do_app_with_code:
    do_app op vs (s with code := c) = Rval (r,s' with code := c)
 Proof
   rw [do_app_def,do_app_aux_def,case_eq_thms,pair_case_eq]
-  >~ [`ThunkOp`] >- gvs[bvlSemTheory.do_app_def, AllCaseEqs(), bvl_to_bvi_def]
+  >~ [`ThunkOp`] >- gvs[bvlSemTheory.do_app_def, AllCaseEqs(), bvl_to_bvi_def,
+                        bviSemTheory.state_component_equality]
   \\ fs[bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def,case_eq_thms]
   \\ TRY (pairarg_tac \\ fs [])
   \\ rw[] \\ fs[] \\ rw[] \\ fs[case_eq_thms,pair_case_eq] \\ rw[]

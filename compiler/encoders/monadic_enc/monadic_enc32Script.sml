@@ -70,7 +70,7 @@ Definition enc_line_hash_32_def:
     return (Label n1 n2 skip_len)) ∧
   (enc_line_hash_32 enc skip_len n (Asm a _ _) =
     do
-      bs <- lookup_ins_table_32 enc n (cbw_to_asm a);
+      bs <- lookup_ins_table_32 enc n (compile_shmem a);
       return (Asm a bs (LENGTH bs))
     od) ∧
   (enc_line_hash_32 enc skip_len n (LabAsm l _ _ _) =

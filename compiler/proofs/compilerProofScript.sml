@@ -296,11 +296,13 @@ Proof
       tenv_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def, env_rel_sound_def,
       env_rel_complete_def, init_config_def, primTypesTheory.prim_tenv_def,
       typeSystemTheory.lookup_var_def] >>
-  TRY (Cases_on `x`) >>
-  rw [namespaceTheory.nsLookupMod_def] >>
+  simp [env_rel_mods_def] >>
   simp [primTypesTheory.prim_type_ids_def, inf_set_tids_subset_def] >>
   rpt (
     irule namespacePropsTheory.nsAll_nsBind >>
     rw [unconvert_t_def, inf_set_tids_def,typeSystemTheory.check_freevars_def]) >>
-  rw [typeSystemTheory.prim_type_nums_def]
+  rw [typeSystemTheory.prim_type_nums_def] >>
+  rename1 `nsLookupMod nsEmpty module_path = NONE` >>
+  Cases_on `module_path` >>
+  simp [namespaceTheory.nsLookupMod_def]
 QED

@@ -128,7 +128,7 @@ Theorem evaluate_comp_Inst:
      k1 = t1.stack_space)
 Proof
   rw [] \\ reverse simple_case
-  THEN1 (pairarg_tac \\ fs [] \\ fs [bool_case_eq] \\ rveq \\ fs [])
+  THEN1 (pairarg_tac \\ fs [] \\ fs [bool_case_eq] \\ rveq \\ fs [state_component_equality])
   \\ every_case_tac \\ fs [word_exp_def]
 QED
 
@@ -552,8 +552,6 @@ Proof
     \\ simp [state_rel_def,PULL_EXISTS]
     \\ fs [state_rel_thm,state_component_equality,empty_env_def]
     \\ fs [state_rel_thm,state_component_equality,empty_env_def,dec_clock_def])
-  THEN1
-   (rename [`CodeBufferWrite`] \\ simple_case)
   THEN1
    (rename [`DataBufferWrite`] \\ simple_case)
   THEN1

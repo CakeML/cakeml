@@ -1152,7 +1152,6 @@ Proof
   >~[`OpCurrHeap`] >- suspend "OpCurrHeap"
   >~[`LocValue`] >- suspend "LocValue"
   >~[`Install`] >- suspend "Install"
-  >~[`CodeBufferWrite`] >- suspend "CodeBufferWrite"
   >~[`DataBufferWrite`] >- suspend "DataBufferWrite"
   >~[`FFI`] >- suspend "FFI"
   >~[`ShareInst`] >- suspend "ShareInst"
@@ -2145,8 +2144,10 @@ Resume evaluate_apply_colour[Install]:
     fs[list_insert_def,strong_locals_rel_def,domain_union]>>
     metis_tac[])>>
   strip_tac>>fs[]>>
+  gvs[code_buffer_install_SOME]>>
   imp_res_tac strong_locals_rel_get_var>>
   fs[list_insert_def]>>
+  simp[code_buffer_install_def]>>
   fs[strong_locals_rel_def,lookup_insert]>>rw[]
   >-
     (qpat_x_assum`INJ _ _ _` kall_tac>>
@@ -2159,15 +2160,6 @@ Resume evaluate_apply_colour[Install]:
     first_x_assum irule>>
     fs[EXTENSION]>>
     metis_tac[domain_lookup]
-QED
-
-Resume evaluate_apply_colour[CodeBufferWrite]:
-  exists_tac>>pairarg_tac>>fs[case_eq_thms]>>
-  imp_res_tac strong_locals_rel_get_var>>fs[list_insert_def]>>
-  rw[]>>fs[]>>
-  match_mp_tac (GEN_ALL strong_locals_rel_subset|>SIMP_RULE std_ss[Once CONJ_COMM])>>
-  asm_exists_tac>>
-  fs[SUBSET_DEF]
 QED
 
 Resume evaluate_apply_colour[DataBufferWrite]:
@@ -3068,11 +3060,6 @@ Proof
       (fs[GSYM INSERT_SING_UNION])
     >>
       fs[numset_list_insert_def])
-  >- (* CBW *)
-    (fs[case_eq_thms,numset_list_delete_def,wf_cutsets_def]>>
-    drule check_partial_col_INJ>> rpt (disch_then drule)>>
-    rw[hide_def,numset_list_insert_def,list_insert_def]>>
-    fs[domain_insert])
   >- (* DBW *)
     (fs[case_eq_thms,numset_list_delete_def,wf_cutsets_def]>>
     drule check_partial_col_INJ>> rpt (disch_then drule)>>
@@ -3949,7 +3936,6 @@ Proof
   >~[`StoreConsts`] >- suspend "StoreConsts"
   >~[`Tick`] >- suspend "Tick"
   >~[`Install`] >- suspend "Install"
-  >~[`CodeBufferWrite`] >- suspend "CodeBufferWrite"
   >~[`DataBufferWrite`] >- suspend "DataBufferWrite"
   >~[`FFI`] >- suspend "FFI"
   >~[`ShareInst _ _ _`] >- suspend "ShareInst"
@@ -4359,25 +4345,20 @@ Resume evaluate_remove_dead[Install]:
   drule_at Any strong_locals_rel_I_cut_env>>
   disch_then $ irule_at Any>>
   simp[state_component_equality]>>
+  gvs[code_buffer_install_SOME]>>
   CONJ_TAC >- (
     irule_at Any strong_locals_rel_subset>>
     first_x_assum (irule_at Any)>>
     simp[SUBSET_DEF,domain_union])>>
-  ntac 4 (CONJ_TAC >- (
+  CONJ_TAC >- (
+    qpat_assum `read_bytearray _ _ _ = SOME _` (irule_at Any)>>
+    rpt CONJ_TAC>>
     irule strong_locals_rel_I_get_var>>
     simp[]>>
     qexists_tac`{}`>>
     irule_at Any strong_locals_rel_subset>>
     first_x_assum (irule_at Any)>>
-    simp[SUBSET_DEF]))>>
-  simp[strong_locals_rel_def]
-QED
-
-Resume evaluate_remove_dead[CodeBufferWrite]:
-  gvs[evaluate_def,remove_dead_def,AllCaseEqs(),get_live_def]>>
-  fs[list_insert_def,PULL_EXISTS]>>
-  first_x_assum (irule_at Any)>>
-  simp[]>>
+    simp[SUBSET_DEF])>>
   ntac 2 (CONJ_TAC >- (
     irule strong_locals_rel_I_get_var>>
     simp[]>>
@@ -4385,9 +4366,7 @@ Resume evaluate_remove_dead[CodeBufferWrite]:
     irule_at Any strong_locals_rel_subset>>
     first_x_assum (irule_at Any)>>
     simp[SUBSET_DEF]))>>
-  irule_at Any strong_locals_rel_subset>>
-  first_x_assum (irule_at Any)>>
-  simp[SUBSET_DEF]
+  simp[strong_locals_rel_def]
 QED
 
 Resume evaluate_remove_dead[DataBufferWrite]:
@@ -6068,8 +6047,6 @@ Proof
         metis_tac[convention_partitions])>>
       strip_tac>>
       fs[Abbr`na2`,markerTheory.Abbrev_def]))
-  >- (* CBW *)
-    (rw[]>>fs[])
   >- (* DBW *)
     (rw[]>>fs[])
   >-
@@ -7724,7 +7701,6 @@ Proof
   >~[`OpCurrHeap`] >- suspend "OpCurrHeap"
   >~[`LocValue`] >- suspend "LocValue"
   >~[`Install`] >- suspend "Install"
-  >~[`CodeBufferWrite`] >- suspend "CodeBufferWrite"
   >~[`DataBufferWrite`] >- suspend "DataBufferWrite"
   >~[`FFI`] >- suspend "FFI"
   >~[`ShareInst`] >- suspend "ShareInst"
@@ -9717,6 +9693,7 @@ Resume ssa_cc_trans_correct[Install]:
     strip_tac>>
     pop_assum mp_tac >>
     rpt (TOP_CASE_TAC >> gvs []) >>
+    gvs[code_buffer_install_SOME] >>
     qmatch_goalsub_abbrev_tac ‘rstt = rst ⇒ _’ >> rw [] >>
     pairarg_tac>>fs[]>>
     pop_assum mp_tac>>
@@ -9778,8 +9755,8 @@ Resume ssa_cc_trans_correct[Install]:
         fs[is_phy_var_def]>>
         rw[]>>fs[])>>
     strip_tac>>
-    `get_var (option_lookup ssa'' n1) rcst_mov = SOME (Word w3) ∧
-     get_var (option_lookup ssa'' n2) rcst_mov = SOME (Word w4)` by
+    `get_var (option_lookup ssa'' n2) rcst_mov = SOME (Word dptrw) ∧
+     get_var (option_lookup ssa'' n3) rcst_mov = SOME (Word dptr_endw)` by
        (simp[Abbr`rcst_mov`]>>
        DEP_REWRITE_TAC [get_var_set_vars_notin]>>
        CONJ_TAC>-
@@ -9787,7 +9764,8 @@ Resume ssa_cc_trans_correct[Install]:
          res_tac>>fs[is_phy_var_def])>>
        fs[ssa_locals_rel_def])>>
     fs[evaluate_def,Abbr`rcst_mov`]>>
-    simp[get_var_def,set_vars_def,lookup_alist_insert]>>
+    simp[get_var_def,set_vars_def,lookup_alist_insert,
+         code_buffer_install_def]>>
     fs[word_state_eq_rel_def]>>
     qmatch_goalsub_abbrev_tac`evaluate (_,rcstt)`>>
     qabbrev_tac`ssa_cut = inter ssa'' s`>>
@@ -9855,10 +9833,6 @@ Resume ssa_cc_trans_correct[Install]:
       match_mp_tac (GEN_ALL ssa_map_ok_more)>>
       asm_exists_tac>>fs[])>>
     pairarg_tac>>fs[word_state_eq_rel_def]
-QED
-
-Resume ssa_cc_trans_correct[CodeBufferWrite]:
-    exp_tac2
 QED
 
 Resume ssa_cc_trans_correct[DataBufferWrite]:

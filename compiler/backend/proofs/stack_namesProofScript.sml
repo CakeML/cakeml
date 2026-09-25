@@ -453,15 +453,15 @@ Proof
   >~ [‘Install’] >-
    (simp[Once comp_def] >>
     fs[evaluate_def] >>
-    ntac 8 (TOP_CASE_TAC \\ fs[]) \\
+    rpt (TOP_CASE_TAC \\ fs[]) \\
     pairarg_tac>>fs[]>>
     pairarg_tac>>fs[]>>
     qpat_x_assum`(rename_state c f s).compile_oracle _ = _`mp_tac>>
     simp[Once rename_state_def]>> strip_tac>>fs[]>>
-    ntac 2 (TOP_CASE_TAC>>fs[])>>
+    TOP_CASE_TAC>>gvs[compile_def]>>
     qpat_x_assum`_ = (r,t)` mp_tac>>
     TOP_CASE_TAC \\
-    rveq>>fs[compile_def]>>
+    rveq>>gvs[compile_def]>>
     ntac 2 (TOP_CASE_TAC>>fs[])>>
     TOP_CASE_TAC>>simp[prog_comp_eta]>>
     fs[rename_state_def,shift_seq_def]>>
@@ -492,15 +492,6 @@ Proof
     rpt (CASE_TAC>>gs[])>>
     gs[wordLangTheory.word_op_def,dec_clock_rename_state]>>
     rveq>>gs[rename_state_def])
-  >~ [‘CodeBufferWrite’] >-
-   (simp[Once comp_def] \\
-    fs[evaluate_def] \\
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[] \\ rw[] \\
-    EVAL_TAC)
   >~ [‘DataBufferWrite’] >- (
     simp[Once comp_def] \\
     fs[evaluate_def])
@@ -651,7 +642,6 @@ Proof
   >- metis_tac[names_ok_imp,asmTheory.reg_ok_def]
   >- (CASE_TAC>>gs[stack_asm_ok_def]>>
       metis_tac[names_ok_imp,asmTheory.reg_ok_def,addr_ok_def,addr_name_def])
-  >- metis_tac[names_ok_imp,asmTheory.reg_ok_def]
 QED
 
 Theorem stack_names_stack_asm_ok:

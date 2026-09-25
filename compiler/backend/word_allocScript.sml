@@ -443,28 +443,25 @@ Definition ssa_cc_trans_def:
   (ssa_cc_trans (LocValue r l1) ssa na lt =
     let (r',ssa',na') = next_var_rename r ssa na in
       (LocValue r' l1,ssa',na')) ∧
-  (ssa_cc_trans (Install ptr len dptr dlen numset) ssa na lt =
+  (ssa_cc_trans (Install ptr len cptr dptr dptr_end numset) ssa na lt =
     let all_names = union (FST numset) (SND numset) in
     let ls = MAP FST (toAList all_names) in
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
     let stack_set = apply_nummaps_key (option_lookup ssa') numset in
     let ptr' = option_lookup ssa' ptr in
     let len' = option_lookup ssa' len in
+    let cptr' = option_lookup ssa' cptr in
     let dptr' = option_lookup ssa' dptr in
-    let dlen' = option_lookup ssa' dlen in
+    let dptr_end' = option_lookup ssa' dptr_end in
     let ssa_cut = inter ssa' all_names in
     let (ptr'',ssa'',na'') = next_var_rename ptr ssa_cut (na'+2) in
     let (ret_mov,ssa''',na''') =
       list_next_var_rename_move ssa'' na'' ls in
     let prog = (Seq (stack_mov)
-               (Seq (Move1 [(2,ptr');(4,len')])
-               (Seq (Install 2 4 dptr' dlen' stack_set)
+               (Seq (Move1 [(2,ptr');(4,len');(6,cptr')])
+               (Seq (Install 2 4 6 dptr' dptr_end' stack_set)
                (Seq (Move1 [(ptr'',2)]) ret_mov)))) in
     (prog,ssa''',na''')) ∧
-  (ssa_cc_trans (CodeBufferWrite r1 r2) ssa na lt =
-    let r1' = option_lookup ssa r1 in
-    let r2' = option_lookup ssa r2 in
-    (CodeBufferWrite r1' r2',ssa,na)) ∧
   (ssa_cc_trans (DataBufferWrite r1 r2) ssa na lt =
     let r1' = option_lookup ssa r1 in
     let r2' = option_lookup ssa r2 in
@@ -649,10 +646,8 @@ Definition apply_colour_def[simp]:
   (apply_colour f (MustTerminate s1) = MustTerminate (apply_colour f s1)) ∧
   (apply_colour f (If cmp r1 ri e2 e3) =
     If cmp (f r1) (apply_colour_imm f ri) (apply_colour f e2) (apply_colour f e3)) ∧
-  (apply_colour f (Install r1 r2 r3 r4 numset) =
-    Install (f r1) (f r2) (f r3) (f r4) (apply_nummaps_key f numset)) ∧
-  (apply_colour f (CodeBufferWrite r1 r2) =
-    CodeBufferWrite (f r1) (f r2)) ∧
+  (apply_colour f (Install r1 r2 r3 r4 r5 numset) =
+    Install (f r1) (f r2) (f r3) (f r4) (f r5) (apply_nummaps_key f numset)) ∧
   (apply_colour f (DataBufferWrite r1 r2) =
     DataBufferWrite (f r1) (f r2)) ∧
   (apply_colour f (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
@@ -803,10 +798,8 @@ Definition get_live_def:
   (get_live (Alloc num numset) live lt = insert num () (union (FST numset) (SND numset))) ∧
   (get_live (StoreConsts a b c d ws) live lt =
     insert c () (insert d () (delete a (delete b live)))) ∧
-  (get_live (Install r1 r2 r3 r4 numset) live lt =
-    list_insert [r1;r2;r3;r4] (union (FST numset) (SND numset))) ∧
-  (get_live (CodeBufferWrite r1 r2) live lt =
-    list_insert [r1;r2] live) ∧
+  (get_live (Install r1 r2 r3 r4 r5 numset) live lt =
+    list_insert [r1;r2;r3;r4;r5] (union (FST numset) (SND numset))) ∧
   (get_live (DataBufferWrite r1 r2) live lt =
     list_insert [r1;r2] live) ∧
   (get_live (FFI ffi_index ptr1 len1 ptr2 len2 numset) live lt =
@@ -1012,7 +1005,7 @@ Definition get_writes_def:
   (get_writes (Assign num exp) = insert num () LN)∧
   (get_writes (Get num store) = insert num () LN) ∧
   (get_writes (LocValue r l1) = insert r () LN) ∧
-  (get_writes (Install r1 _ _ _ _) = insert r1 () LN) ∧
+  (get_writes (Install r1 _ _ _ _ _) = insert r1 () LN) ∧
   (get_writes (OpCurrHeap b r1 _) = insert r1 () LN) ∧
   (get_writes (StoreConsts a b c d _) = insert a () (insert b () (insert c () (insert d () LN)))) ∧
   (get_writes (ShareInst Load v _) = insert v () LN) ∧
@@ -1031,7 +1024,7 @@ Theorem get_writes_pmatch:
     | Assign num exp => insert num () LN
     | Get num store => insert num () LN
     | LocValue r l1 => insert r () LN
-    | Install r1 _ _ _ _ => insert r1 () LN
+    | Install r1 _ _ _ _ _ => insert r1 () LN
     | OpCurrHeap b r1 _ => insert r1 () LN
     | StoreConsts a b c d _ => insert a () (insert b () (insert c () (insert d () LN)))
     | ShareInst Load v _ => insert v () LN
@@ -1147,10 +1140,8 @@ Definition get_clash_tree_def:
     get_clash_tree s lt) ∧
   (get_clash_tree (Alloc num numset) lt =
     Seq (Delta [] [num]) (Set (union (FST numset) (SND numset)))) ∧
-  (get_clash_tree (Install r1 r2 r3 r4 numset) lt =
-    Seq (Delta [] [r4;r3;r2;r1]) (Seq (Set (union (FST numset) (SND numset))) (Delta [r1] []))) ∧
-  (get_clash_tree (CodeBufferWrite r1 r2) lt =
-    Delta [] [r2;r1]) ∧
+  (get_clash_tree (Install r1 r2 r3 r4 r5 numset) lt =
+    Seq (Delta [] [r5;r4;r3;r2;r1]) (Seq (Set (union (FST numset) (SND numset))) (Delta [r1] []))) ∧
   (get_clash_tree (DataBufferWrite r1 r2) lt =
     Delta [] [r2;r1]) ∧
   (get_clash_tree (FFI ffi_index ptr1 len1 ptr2 len2 numset) lt =

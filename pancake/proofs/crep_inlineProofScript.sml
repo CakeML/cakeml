@@ -727,8 +727,7 @@ Proof
   Induct_on `vs` >> rw[]
   >- (
     Cases_on `vals` >> fs[FUPDATE_LIST, nested_decs_def] >>
-    qrefine `s'` >> fs[state_rel_def] >>
-    `s with locals := s.locals = s` by fs[state_component_equality] >> fs[]
+    fs[state_rel_def]
   ) >>
   Cases_on `es` >> Cases_on `vals` >> gs[nested_decs_def, FUPDATE_LIST_THM, evaluate_def] >>
   pairarg_tac >> gs[] >>

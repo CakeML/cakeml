@@ -4,7 +4,7 @@
 *)
 Theory ag32_ffi_codeProof
 Ancestors
-  ag32_prog ag32_memory ag32_targetProof[qualified]
+  ag32_prog ag32_memory ag32_ffi_returnSpec ag32_targetProof[qualified]
 Libs
   preamble ag32_decompilerLib blastLib[qualified]
 

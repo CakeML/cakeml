@@ -150,6 +150,51 @@ Definition do_app_def:
                   )
         | _ => NONE
       )
+    | (Aw8subBit, [Loc _ lnum; Litv (IntLit i)]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+              SOME (s, Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8))))
+            else SOME (s, Rraise sub_exn_v)
+        | _ => NONE
+      )
+    | (Aw8updateBit, [Loc _ lnum; Litv (IntLit i); v]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if ¬(v = Boolv T ∨ v = Boolv F) then NONE else
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+              (case store_assign lnum
+                      (W8array (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                         (EL (Num i DIV 8) ws))
+                                        (Num i DIV 8) ws)) s of
+                  NONE => NONE
+                | SOME s' => SOME (s', Rval (Conv NONE []))
+              )
+            else SOME (s, Rraise sub_exn_v)
+        | _ => NONE
+      )
+    | (Aw8subBit_unsafe, [Loc _ lnum; Litv (IntLit i)]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+              SOME (s, Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8))))
+            else NONE
+        | _ => NONE
+      )
+    | (Aw8updateBit_unsafe, [Loc _ lnum; Litv (IntLit i); v]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws ∧ (v = Boolv T ∨ v = Boolv F) then
+              (case store_assign lnum
+                      (W8array (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                         (EL (Num i DIV 8) ws))
+                                        (Num i DIV 8) ws)) s of
+                  NONE => NONE
+                | SOME s' => SOME (s', Rval (Conv NONE []))
+              )
+            else NONE
+        | _ => NONE
+      )
     | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
         SOME (s,
         (case copy_array (explode str,off) len NONE of
@@ -519,6 +564,10 @@ Definition estep_def:
     else Estep (env with <| v := build_rec_env funs env env.v |>, s, Exp e, c)) ∧
   estep (env, s, Exp $ Tannot e t, c) = push env s e (Ctannot t) c ∧
   estep (env, s, Exp $ Lannot e l, c) = push env s e (Clannot l) c ∧
+  estep (env, s, Exp $ Open path e, c) = (
+    case open_dec_env path env of
+      NONE => Etype_error
+    | SOME opened => Estep (extend_dec_env opened env, s, Exp e, c)) ∧
   estep (env, s, Exn v, c) = exn_continue env s v c
 End
 
@@ -581,13 +630,13 @@ End
 Definition dstep_def:
   dstep benv st (Decl $ Dlet locs p e) c = (
     if ALL_DISTINCT (pat_bindings p) ∧
-       every_exp (one_con_check (collapse_env benv c).c) e then
+       check_exp_constructors (collapse_env benv c).c e then
       dreturn st c (ExpVal (collapse_env benv c) (Exp e) [] locs p)
     else Dtype_error ) ∧
   dstep benv st (Decl $ Dletrec locs funs) c = (
     if ALL_DISTINCT (MAP FST funs) ∧
        EVERY (\ (x,y,z) .
-         every_exp (one_con_check (collapse_env benv c).c) z) funs then
+         check_exp_constructors (collapse_env benv c).c z) funs then
       dreturn st c (Env $
         <| v := build_rec_env funs (collapse_env benv c) nsEmpty; c := nsEmpty |>)
     else Dtype_error) ∧
@@ -600,6 +649,10 @@ Definition dstep_def:
   dstep benv st (Decl $ Dexn locs cn ts) c =
     dreturn (st with next_exn_stamp := st.next_exn_stamp + 1) c
       (Env <| v := nsEmpty; c := nsSing cn (LENGTH ts, ExnStamp st.next_exn_stamp) |>) ∧
+  dstep benv st (Decl $ Dopen locs path) c = (
+    case open_dec_env path (collapse_env benv c) of
+    | NONE => Dtype_error
+    | SOME opened => dreturn st c (Env opened)) ∧
   dstep benv st (Decl $ Dmod mn ds) c =
     dpush st c (Env empty_dec_env) (Cdmod mn empty_dec_env ds) ∧
   dstep benv st (Decl $ Dlocal lds gds) c =

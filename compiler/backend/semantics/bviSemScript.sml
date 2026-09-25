@@ -23,7 +23,7 @@ Datatype:
     <| refs    : num |-> bvlSem$v ref
      ; clock   : num
      ; global  : num option
-     ; compile : 'c -> (num # num # bvi$exp) list -> (word8 list # word64 list # 'c) option
+     ; compile : 'c -> (num # num # bvi$exp) list -> (mlstring # word64 list # 'c) option
      ; compile_oracle : num -> 'c # (num # num # bvi$exp) list
      ; code    : (num # bvi$exp) num_map
      ; ffi     : 'ffi ffi_state |>
@@ -172,11 +172,10 @@ End
 Definition do_install_def:
   do_install vs ^s =
       (case vs of
-       | [v1;v2;vl1;vl2] =>
-           (case (v_to_bytes v1, v_to_words v2) of
+       | [v1;v2;vl2] =>
+           (case (v_to_mlstring s.refs v1, v_to_words v2) of
             | (SOME bytes, SOME data) =>
-               if vl1 <> Number (& LENGTH bytes) \/
-                  vl2 <> Number (& LENGTH data)
+               if vl2 <> Number (& LENGTH data)
                then Rerr(Rabort Rtype_error) else
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in

@@ -136,6 +136,10 @@ QED
 
 val _ = translate maybe_handleRef_eq
 
+(* Both lexical and declaration opens reach module-path conversion. Translate
+   it with its unconditional certificate before either recursive consumer. *)
+val _ = translate (def_of_const ``ptree_ModPath``);
+
 val _ = translate (def_of_const ``ptree_Expr``);
 
 val _ = translate (def_of_const ``ptree_linfix``);

@@ -340,6 +340,38 @@ Proof
 srw_tac[][build_rec_env_def, build_rec_env_help_lem]
 QED
 
+Theorem do_con_check_nsAll2:
+  nsAll2 (λid x y. FST x = FST y) env1 env2 ⇒
+  do_con_check env1 cn arity = do_con_check env2 cn arity
+Proof
+  strip_tac >> Cases_on `cn` >> simp [do_con_check_def] >>
+  rename1 `nsLookup env1 name` >>
+  drule nsAll2_nsLookup_none >> disch_then (qspec_then `name` assume_tac) >>
+  Cases_on `nsLookup env1 name` >> fs [] >>
+  drule_all nsAll2_nsLookup1 >> strip_tac >>
+  rename1 `nsLookup env1 name = SOME ctor1` >>
+  rename1 `nsLookup env2 name = SOME ctor2` >>
+  Cases_on `ctor1` >> Cases_on `ctor2` >> fs []
+QED
+
+Theorem check_exp_constructors_nsAll2:
+  ∀env1 e env2.
+    nsAll2 (λid x y. FST x = FST y) env1 env2 ⇒
+    check_exp_constructors env1 e = check_exp_constructors env2 e
+Proof
+  ho_match_mp_tac check_exp_constructors_ind >>
+  rw [check_exp_constructors_def] >>
+  fs [EVERY_MEM, FORALL_PROD]
+  >~ [`nsOpen _ _`] >- (
+    Cases_on `nsOpen path env1`
+    >- (
+      Cases_on `nsOpen path env2` >> simp [] >>
+      drule_all nsAll2_before_nsOpen >> simp []) >>
+    drule_all nsAll2_after_nsOpen >> simp [] >> strip_tac >>
+    fs [] >> metis_tac [nsAll2_nsAppend]) >>
+  metis_tac [do_con_check_nsAll2]
+QED
+
 Theorem do_con_check_build_conv:
  !tenvC cn vs l.
   do_con_check tenvC cn l ⇒ ?v. build_conv tenvC cn vs = SOME v

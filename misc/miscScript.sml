@@ -4476,3 +4476,9 @@ Theorem TotOrd_pair_cmp:
 Proof
   rw [comparisonTheory.pair_cmp_lexTO, totoTheory.TO_lexTO]
 QED
+
+Theorem SWAP_IMP:
+  (P ⇒ Q ⇒ R) ⇒ Q ⇒ P ⇒ R
+Proof
+  simp []
+QED

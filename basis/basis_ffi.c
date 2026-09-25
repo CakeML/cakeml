@@ -376,8 +376,16 @@ void ffidouble_floor(char *c, long clen, char *a, long alen) {
     memcpy(a, d.bytes, sizeof d.bytes);
 }
 
-void cml_clear() {
-  __builtin___clear_cache(&cake_codebuffer_begin, &cake_codebuffer_end);
+/* Called out to by the generated code to install len bytes of freshly
+ * compiled code at dest. The contract is install_interfer_ok in
+ * compiler/backend/semantics/targetSemScript.sml: the destination must end up
+ * holding the bytes as they read before the call, whether or not the two
+ * regions overlap, hence memmove; and the register that held the source must
+ * end up holding the destination, hence the return value. */
+void *cml_install(uint8_t *src, size_t len, uint8_t *dest) {
+  memmove(dest, src, len);
+  __builtin___clear_cache((char *)dest, (char *)dest + len);
+  return dest;
 }
 
 int main (int local_argc, char **local_argv) {

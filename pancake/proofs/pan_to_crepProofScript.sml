@@ -4633,26 +4633,6 @@ Proof
   rw[FUN_EQ_THM,ELIM_UNCURRY]
 QED
 
-(*
-<<<<<<< HEAD
-=======
-(* TODO: move *)
-Theorem size_of_eids_eq:
-  size_of_eids pc = LENGTH(nub (FLAT (MAP (exp_ids ∘ FST o SND ∘ SND) (functions pc))))
-Proof
-  rw[panLangTheory.size_of_eids_def] >>
-  Induct_on ‘pc’ using panLangTheory.functions_ind >>
-  rw[panLangTheory.functions_def] >>
-  rw[nub_append] >>
-  ntac 2 AP_TERM_TAC >>
-  rw[FILTER_EQ,EQ_IMP_THM,MEM_FLAT,MEM_MAP,functions_eq_FILTER,PULL_EXISTS,MEM_FILTER] >>
-  PURE_FULL_CASE_TAC >> gvs[panLangTheory.is_function_def] >>
-  first_assum $ irule_at $ Pat ‘MEM _ _’ >>
-  gvs[panLangTheory.is_function_def]
-QED
-
->>>>>>> 16bf9d8a7d5d88459deadea1a3addc655933c532
-*)
 Theorem get_eids_imp_excp_rel:
   !seids (pc:'a decl list).
    panLang$size_of_eids pc < dimword (:'a) /\

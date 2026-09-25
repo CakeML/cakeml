@@ -549,7 +549,6 @@ Theorem evaluate_LoadRegs[local]:
            list_update (MAP (\n. n+2) save_regs) (MAP Word vals) t1.locals)
 Proof
   Induct \\ fs [LoadRegs_def,list_update_def]
-  THEN1 (rw [] \\ AP_TERM_TAC \\ fs [wordSemTheory.state_component_equality])
   \\ rw [] \\ fs [evaluate_def]
   \\ qpat_assum `state_rel _ _ _ _ _` (mp_tac o REWRITE_RULE [state_rel_def])
   \\ strip_tac

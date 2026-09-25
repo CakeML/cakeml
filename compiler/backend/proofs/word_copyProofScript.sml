@@ -1352,12 +1352,6 @@ Proof
     fs[evaluate_def]>>
     metis_tac[empty_eq_model]
   )
-  >~[`CodeBufferWrite`]
-  >- (
-    rpt gen_tac >> strip_tac>>
-    gvs[copy_prop_prog_def,evaluate_def] >>
-    fs[CPstate_modelsD_get_var,CPstate_modelsD_get_vars] >>
-    gvs[AllCaseEqs()])
   >~[`DataBufferWrite`]
   >- (
     rpt gen_tac >> strip_tac>>

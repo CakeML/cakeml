@@ -1356,6 +1356,7 @@ Proof
   rpt strip_tac >-
     (simp[semanticsTheory.evaluate_prog_with_clock_def,
           evaluateTheory.evaluate_decs_def,
+          semanticPrimitivesTheory.check_exp_constructors_def,
           astTheory.pat_bindings_def] >>
      simp[evaluateTheory.evaluate_def] >>
      simp[semanticPrimitivesTheory.do_con_check_def,semanticPrimitivesTheory.build_conv_def] >>
@@ -1370,6 +1371,7 @@ Proof
      qexists_tac `SUC ck` >>
      simp[semanticsTheory.evaluate_prog_with_clock_def,
           evaluateTheory.evaluate_decs_def,
+          semanticPrimitivesTheory.check_exp_constructors_def,
           astTheory.pat_bindings_def
          ] >>
      simp[evaluateTheory.evaluate_def] >>
@@ -1381,6 +1383,7 @@ Proof
   simp[LPREFIX_fromList_fromList] >>
   simp[semanticsTheory.evaluate_prog_with_clock_def,
        evaluateTheory.evaluate_decs_def,
+       semanticPrimitivesTheory.check_exp_constructors_def,
        astTheory.pat_bindings_def
       ] >>
   simp[evaluateTheory.evaluate_def] >>
@@ -1468,6 +1471,7 @@ Proof
   fs[evaluate_to_heap_def,semanticsTheory.semantics_prog_def] >>
   simp[semanticsTheory.evaluate_prog_with_clock_def,
           evaluateTheory.evaluate_decs_def,
+          semanticPrimitivesTheory.check_exp_constructors_def,
           astTheory.pat_bindings_def] >>
   simp[evaluateTheory.evaluate_def] >>
   simp[semanticPrimitivesTheory.do_con_check_def,semanticPrimitivesTheory.build_conv_def] >>

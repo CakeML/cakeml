@@ -126,14 +126,9 @@ val try_all:term -> tactic =
 val find_exists_tac =
   first_assum (try_all o concl);
 
-val bool_simps = Q.prove (
-  ‘(∀ P. (P ∧ F) = F) ∧
-  (∀ P. (F ∨ P) = P) ∧
-  (∀ P Q. (if P then Q else F) = (P ∧ Q))’, fs[]);
+val bool_simps = CommandsTheory.bool_simps;
 
-val cond_simp = Q.prove (
-‘(if P then Q else R) = (P /\ Q \/ ~P /\ R)’,
-  TOP_CASE_TAC);
+val cond_simp = CommandsTheory.cond_simp;
 
 val flover_ss =
   (mk_simpset ([DatatypeSimps.case_cong_ss [“:real expr”, “:real cmd”]]

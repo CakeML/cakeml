@@ -2929,7 +2929,7 @@ End
 
 Definition backend_from_data_tuple_cc_def:
   backend_from_data_tuple_cc asm_conf (c : config) cfg =
-    OPTION_MAP (I ## MAP upper_w2w ## I) o
+    OPTION_MAP (bytes_to_mlstring ## MAP upper_w2w ## I) o
       (λprogs.
         (λ(bm0,cfg) progs.
           (λ(progs,fs,bm).
@@ -2989,6 +2989,13 @@ Proof
   \\ rw [clos_knownTheory.option_upd_val_spt_def]
 QED
 
+Theorem bytes_to_mlstring_ws_to_chars:
+  bytes_to_mlstring ws = implode (ws_to_chars ws)
+Proof
+  rw [backend_commonTheory.bytes_to_mlstring_def,
+      semanticPrimitivesTheory.ws_to_chars_def]
+QED
+
 Theorem backend_from_flat_tuple_cc_eq_compile_inc_progs:
   ((^cake_orac_config_inv_f) c') = ((^cake_orac_config_inv_f) c) /\
   src_cfg = c'.source_conf /\
@@ -3027,7 +3034,7 @@ Proof
   \\ imp_res_tac known_compile_inc_retreive_spt
   \\ simp []
   \\ every_case_tac
-  \\ simp [DROP_APPEND]
+  \\ simp [DROP_APPEND, bytes_to_mlstring_ws_to_chars]
 QED
 
 Theorem compile_inc_progs_src_env[local]:
@@ -3200,6 +3207,20 @@ Proof
   \\ metis_tac [semantics_prog_deterministic, semantics_prog_total]
 QED
 
+Theorem nsDomMod_Bind_empty_modules[local]:
+  !v. nsDomMod (Bind v []) = {[]}
+Proof
+  rw [namespaceTheory.nsDomMod_def, EXTENSION, GSPECIFICATION] >>
+  eq_tac
+  >- (
+    rw [] >>
+    pairarg_tac >>
+    fs [] >>
+    Cases_on `n` >>
+    fs [namespaceTheory.nsLookupMod_def])
+  >- rw [EXISTS_PROD, namespaceTheory.nsLookupMod_def]
+QED
+
 Theorem source_eval_to_flat_semantics:
   ~ semantics_prog (add_eval_state ev s0) env prog Fail /\
   compile asm_conf (c : config) prog = SOME (b,bm,c') /\
@@ -3263,7 +3284,17 @@ Proof
     \\ fs [prim_sem_env_eq]
     \\ rveq \\ fs []
     \\ qexists_tac `I`
+    \\ simp [source_to_flatProofTheory.init_global_env_inv_def,
+          source_to_flatProofTheory.env_domain_eq_def,
+          nsDomMod_Bind_empty_modules]
     \\ EVAL_TAC
+    \\ rpt conj_tac
+    \\ simp [SUBSET_DEF, GSPECIFICATION, EXISTS_PROD,
+          namespaceTheory.nsLookupMod_def]
+    \\ gen_tac
+    \\ Cases_on `x`
+    \\ fs [namespaceTheory.nsLookup_def, namespaceTheory.nsLookupMod_def]
+    \\ rpt (IF_CASES_TAC \\ fs [])
   )
   \\ gs [add_eval_state_def]
   \\ qspec_then `the_ev` irule eval_oracle_semantics_prog_intro
@@ -3395,7 +3426,17 @@ Proof
         source_to_flatProofTheory.init_eval_state_ok_def]
   \\ fs [prim_sem_env_eq]
   \\ rveq \\ fs []
+  \\ simp [source_to_flatProofTheory.init_global_env_inv_def,
+        source_to_flatProofTheory.env_domain_eq_def,
+        nsDomMod_Bind_empty_modules]
   \\ EVAL_TAC
+  \\ rpt conj_tac
+  \\ simp [SUBSET_DEF, GSPECIFICATION, EXISTS_PROD,
+        namespaceTheory.nsLookupMod_def]
+  \\ gen_tac
+  \\ Cases_on `x`
+  \\ fs [namespaceTheory.nsLookup_def, namespaceTheory.nsLookupMod_def]
+  \\ rpt (IF_CASES_TAC \\ fs [])
 QED
 
 Theorem flat_semantics:
