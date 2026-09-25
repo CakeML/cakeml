@@ -8,11 +8,10 @@ Libs
   preamble cv_transLib
 
 val _ = cv_auto_trans inferTheory.init_config_def;
-val _ = cv_trans locationTheory.unknown_loc_def;
 
 fun infer_expr expr =
   rhs (concl (cv_eval
-    ``infertype_prog init_config [Dlet unknown_loc (Pvar «shifted») ^expr]``))
+    ``infertype_prog init_config [Dlet NoLocs (Pvar «shifted») ^expr]``))
   handle cv_repLib.NeedsTranslation (_, tm) =>
     raise Fail ("Word-shift test needs CV translation of: " ^ term_to_string tm);
 

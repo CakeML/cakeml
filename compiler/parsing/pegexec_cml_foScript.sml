@@ -1,6 +1,6 @@
 (*
   First-order PEG exec instantiated to CakeML surface types:
-    input: (token # locs) list
+    input: (token # location$locs) list
     values: mlptree list  (as in cmlPEG)
     errors: string
     rule keys: MMLnonT inf
@@ -330,11 +330,11 @@ Datatype:
   | App1_cr_fo kont_fo
   | App2_fo sem_b kont_fo
   | DropErr_fo kont_fo
-  | AddErr_fo locs string kont_fo
+  | AddErr_fo location$locs string kont_fo
   | CmpErrs_fo kont_fo
-  | CmpEO_fo ((locs # string) option) kont_fo
-  | ReturnTo_fo ((token # locs) list) ((mlptree list) option list) kont_fo
-  | RestoreEO_fo ((locs # string) option) kont_fo
+  | CmpEO_fo ((location$locs # string) option) kont_fo
+  | ReturnTo_fo ((token # location$locs) list) ((mlptree list) option list) kont_fo
+  | RestoreEO_fo ((location$locs # string) option) kont_fo
   | Poplist_fo kont_fo
   | Listsym_fo pegsym_fo kont_fo
   | Done_fo
@@ -343,11 +343,11 @@ End
 
 Datatype:
   evalcase_fo =
-    EV_fo pegsym_fo ((token # locs) list) ((mlptree list) option list)
-          ((locs # string) option) ((locs # string) list) kont_fo kont_fo
-  | AP_fo kont_fo ((token # locs) list) ((mlptree list) option list)
-          ((locs # string) option) ((locs # string) list)
-  | Result_fo (((token # locs) list, mlptree list, string) pegresult)
+    EV_fo pegsym_fo ((token # location$locs) list) ((mlptree list) option list)
+          ((location$locs # string) option) ((location$locs # string) list) kont_fo kont_fo
+  | AP_fo kont_fo ((token # location$locs) list) ((mlptree list) option list)
+          ((location$locs # string) option) ((location$locs # string) list)
+  | Result_fo (((token # location$locs) list, mlptree list, string) pegresult)
   | Looped_fo
 End
 
@@ -373,7 +373,7 @@ Definition poplistval_def:
 End
 
 Definition sloc_pexec_def:
-  sloc_pexec (i:(token # locs) list) =
+  sloc_pexec (i:(token # location$locs) list) =
     case i of
       [] => EOF_fo
     | (c,l)::t => l

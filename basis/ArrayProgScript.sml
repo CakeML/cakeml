@@ -12,14 +12,14 @@ val _ = translation_extends"Word8ArrayProg"
 val () = ml_prog_update (open_module "Array");
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [«'a»] «array» (Atapp [Atvar «'a»] (Short «array»))`` I);
+  ``Dtabbrev NoLocs [«'a»] «array» (Atapp [Atvar «'a»] (Short «array»))`` I);
 
 val () = append_decs
    ``[mk_binop «array» Aalloc;
       mk_unop «arrayEmpty» AallocEmpty;
       mk_binop «sub» Asub;
       mk_unop «length» Alength;
-      Dlet unknown_loc (Pvar «update»)
+      Dlet NoLocs (Pvar «update»)
        (Fun «x» (Fun «y» (Fun «z»
          (App Aupdate [Var (Short «x»); Var (Short «y»); Var (Short «z»)])))) ]``;
 
@@ -232,7 +232,7 @@ val _ = ml_prog_update open_local_block;
 
 (* Parser bug, see Issue #25 *)
 val array_findi_aux =
-``[(Dletrec unknown_loc
+``[(Dletrec NoLocs
 [(«findi_aux»,«f»,
  Fun «arr»
    (Fun «max»

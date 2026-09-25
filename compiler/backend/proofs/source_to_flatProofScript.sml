@@ -4095,7 +4095,6 @@ Proof
   >~ [‘Case [Mat _ _]’] >- suspend "Mat"
   >~ [‘Case [Let _ _ _]’] >- suspend "Let"
   >~ [‘Case [Letrec _ _]’] >- suspend "Letrec"
-  >~ [`Case [Lannot _ _]`] >- suspend "Lannot"
   >~ [`Case [Open _ _]`] >- suspend "Open"
   >~ [‘Case ((_, _) :: _)’] >- suspend "pattern"
   >~ [‘Case ([] : ast$dec list)’] >- suspend "empty_decs"
@@ -4111,11 +4110,6 @@ Proof
   >~ [‘Case [Dlocal _ _]’] >- suspend "Dlocal"
   \\ qexists_tac `genv`
   \\ simp [subglobals_refl]
-QED
-
-Resume compile_correct[Lannot]:
-  Cases_on `l` >> fs [compile_exp_def] >>
-  first_x_assum irule >> simp []
 QED
 
 Resume compile_correct[Open]:

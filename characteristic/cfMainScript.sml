@@ -17,7 +17,7 @@ Libs
 
 fun mk_main_call s =
 (* TODO: don't use the parser so much here? *)
-  ``Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []])``;
+  ``Dlet NoLocs (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []])``;
 val fname = mk_var("fname",``:mlstring``);
 val main_call = mk_main_call fname;
 

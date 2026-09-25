@@ -291,6 +291,7 @@ val res = translate compilerTheory.safe_substring_def;
 
 val _ = translate compilerTheory.get_nth_line_def;
 val _ = translate compilerTheory.locs_to_string_def;
+val _ = translate compilerTheory.ast_locs_to_string_def;
 val _ = translate compilerTheory.parse_cml_input_def;
 val _ = translate (compilerTheory.parse_sexp_input_def
                    |> PURE_REWRITE_RULE[fromSexpTheory.sexpdec_alt_intro1]);

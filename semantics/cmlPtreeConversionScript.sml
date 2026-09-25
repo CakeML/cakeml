@@ -21,6 +21,12 @@ End
 
 Type M = ``:PCstate0 list -> ('a # PCstate0 list) option``
 
+Definition to_locs_def:
+  to_locs (location$Locs (POSN r1 c1) (POSN r2 c2)) =
+    ast$Locs (&r1,&c1) (&r2,&c2) ∧
+  to_locs _ = NoLocs
+End
+
 Definition empty_PCstate0_def:
   empty_PCstate0 = <| fixities := FEMPTY ; ctr_arities := FEMPTY |>
 End
@@ -469,7 +475,7 @@ Definition ptree_TypeAbbrevDec_def:
             assert(tokcheck typetok TypeT ∧ tokcheck eqtok EqualsT) ;
             (vars, nm) <- ptree_TypeName tynm;
             typ <- ptree_Type nType typ_pt;
-            SOME(Dtabbrev (SND nt) vars nm typ)
+            SOME(Dtabbrev (to_locs (SND nt)) vars nm typ)
           od
         | _ => NONE
       else NONE
@@ -730,7 +736,7 @@ Definition ptree_Pattern_def[nocompute]:
          | _ => NONE)
 End
 
-Type ptree[local] = “:(token,MMLnonT,locs) parsetree”
+Type ptree[local] = “:(token,MMLnonT,location$locs) parsetree”
 fun partial_eval baseth c nodepat nt =
   let val tlf = list_mk_icomb(c, [nt, “Lf l : ptree”])
       val tnd = list_mk_icomb(c, [nt, nodepat])
@@ -789,7 +795,7 @@ Definition strip_loc_expr_def:
 End
 
 Definition merge_locsopt_def:
-  merge_locsopt (SOME l1) (SOME l2) = SOME (merge_locs l1 l2) ∧
+  merge_locsopt (SOME (Locs l1 _)) (SOME (Locs _ l2)) = SOME (Locs l1 l2) ∧
   merge_locsopt _ _ = NONE
 End
 
@@ -1097,7 +1103,7 @@ Definition ptree_Expr_def[nocompute]:
           | _ => NONE
       else NONE
     else NONE);
-    SOME(bind_loc e loc)
+    SOME(bind_loc e (to_locs loc))
   od  ∧
   (ptree_Exprlist nm ast =
      case ast of
@@ -1201,7 +1207,7 @@ Definition ptree_Expr_def[nocompute]:
               do
                 assert (tokcheck funtok OpenT);
                 path <- ptree_ModPath andfdecls_pt;
-                SOME (LetOpen locs path)
+                SOME (LetOpen (to_locs locs) path)
               od
             | [valtok; p_pt; eqtok; e_pt] =>
               do
@@ -1446,30 +1452,30 @@ Definition ptree_Decl_def:
              [dt] =>
              do
                tydec <- ptree_TypeDec dt;
-               SOME (Dtype (locs) tydec)
+               SOME (Dtype (to_locs locs) tydec)
              od ++ ptree_TypeAbbrevDec dt ++ ptree_Structure dt
            | [funtok; fdecls] =>
              do
                assert(tokcheck funtok FunT);
                fdecs <- ptree_AndFDecls fdecls;
-               SOME (Dletrec (locs) fdecs)
+               SOME (Dletrec (to_locs locs) fdecs)
              od ++
              do
                assert (tokcheck funtok ExceptionT);
                (enm, etys) <- ptree_Dconstructor fdecls;
-               SOME (Dexn (locs) enm etys)
+               SOME (Dexn (to_locs locs) enm etys)
              od ++
              do
                assert (tokcheck funtok OpenT);
                path <- ptree_ModPath fdecls;
-               SOME (Dopen locs path)
+               SOME (Dopen (to_locs locs) path)
              od
            | [valtok; patpt; eqtok; ept] =>
              do
                assert (tokcheckl [valtok; eqtok] [ValT; EqualsT]);
                pat <- ptree_Pattern nPattern patpt;
                e <- ptree_Expr nE ept;
-               SOME (Dlet (locs) pat e)
+               SOME (Dlet (to_locs locs) pat e)
              od
            | [localtok; decls1_pt; intok; decls2_pt; endtok] =>
              do
@@ -1545,7 +1551,7 @@ Definition ptree_TopLevelDecs_def:
              assert (tokcheck semitok SemicolonT);
              e <- ptree_Expr nE e_pt;
              tds <- ptree_TopLevelDecs tds_pt;
-             return (Dlet (SND nt) (Pvar «it») e :: tds)
+             return (Dlet (to_locs (SND nt)) (Pvar «it») e :: tds)
            od
          | _ => NONE) ∧
   (ptree_NonETopLevelDecs (Lf _) = fail) ∧

@@ -791,28 +791,27 @@ Definition sexpop_def:
   (sexpop _ = NONE)
 End
 
+Definition sexpint_def:
+  sexpint s = case sexplit s of SOME (IntLit i) => SOME i | _ => NONE
+End
+
 Definition sexplocpt_def:
-  (sexplocpt (SX_SYM s) =
-    if s = "unk" then SOME UNKNOWNpt
-    else if s = "eof" then SOME EOFpt
-    else NONE) ∧
-  (sexplocpt s =
+  sexplocpt s =
    do
      ls <- strip_sxcons s ;
-     guard (LENGTH ls = 2) (lift2 POSN
-                            (odestSXNUM (EL 0 ls))
-                            (odestSXNUM (EL 1 ls)))
-   od)
+     guard (LENGTH ls = 2) (lift2 $,
+                            (sexpint (EL 0 ls))
+                            (sexpint (EL 1 ls)))
+   od
 End
 
 Definition sexplocn_def:
   sexplocn s =
     do
-      ls <- strip_sxcons s;
-      guard (LENGTH ls = 2)
-            (lift2 Locs
-             (sexplocpt (EL 0 ls))
-             (sexplocpt (EL 1 ls)))
+      (nm, args) <- dstrip_sexp s;
+      guard (nm = "NoLocs" ∧ LENGTH args = 0) (SOME NoLocs) ++
+      guard (nm = "Locs" ∧ LENGTH args = 2)
+            (lift2 Locs (sexplocpt (EL 0 args)) (sexplocpt (EL 1 args)))
     od
 End
 
@@ -1641,26 +1640,30 @@ Proof
   Cases \\ Cases \\ simp[logsexp_def]
 QED
 
+Definition intsexp_def:
+  intsexp i = litsexp (IntLit i)
+End
+
 Definition locnsexp_def:
-  locnsexp (POSN n1 n2) = listsexp (MAP SX_NUM [n1;n2]) ∧
-  locnsexp UNKNOWNpt = SX_SYM "unk" ∧
-  locnsexp EOFpt = SX_SYM "eof"
+  locnsexp (r,c) = listsexp [intsexp r; intsexp c]
 End
 
 Theorem locnsexp_11[simp]:
   locnsexp p1 = locnsexp p2 ⇔ p1 = p2
 Proof
-  map_every Cases_on [‘p1’, ‘p2’] >> simp[locnsexp_def, listsexp_def]
+  map_every PairCases_on [‘p1’, ‘p2’] >>
+  simp[locnsexp_def, listsexp_def, intsexp_def]
 QED
 
 Definition locssexp_def:
-  locssexp (Locs p1 p2) = listsexp (MAP locnsexp [p1;p2])
+  locssexp NoLocs = listsexp [SX_SYM "NoLocs"] ∧
+  locssexp (Locs p1 p2) = listsexp [SX_SYM "Locs"; locnsexp p1; locnsexp p2]
 End
 
 Theorem locssexp_11[simp]:
    ∀l1 l2. locssexp l1 = locssexp l2 ⇔ l1 = l2
 Proof
-  Cases \\ Cases \\ simp[locssexp_def]
+  Cases \\ Cases \\ simp[locssexp_def, listsexp_def]
 QED
 
 Definition expsexp_def:
@@ -1835,11 +1838,16 @@ Proof
   rw[] >> simp[patsexp_def,Once sexppat_def]
 QED
 
+Theorem sexpint_intsexp[simp]:
+  sexpint (intsexp i) = SOME i
+Proof
+  simp[sexpint_def, intsexp_def]
+QED
+
 Theorem sexplocpt_locnsexp[simp]:
   sexplocpt (locnsexp p) = SOME p
 Proof
-  Cases_on ‘p’ >> simp[sexplocpt_def, locnsexp_def, listsexp_def] >>
-  simp[strip_sxcons_def]
+  PairCases_on ‘p’ >> simp[sexplocpt_def, locnsexp_def, listsexp_def]
 QED
 
 Theorem sexplocn_locnsexp[simp]:
@@ -2045,12 +2053,18 @@ Proof
           sexparith_arithsexp]
 QED
 
+Theorem intsexp_sexpint:
+  sexpint s = SOME i ⇔ intsexp i = s
+Proof
+  simp[sexpint_def, intsexp_def, AllCaseEqs(), litsexp_sexplit]
+QED
+
 Theorem locnsexp_sexplocpt0:
   sexplocpt s = SOME z ⇒ locnsexp z = s
 Proof
-  Cases_on ‘z’ >> Cases_on ‘s’ >>
+  PairCases_on ‘z’ >>
   simp[locnsexp_def,sexplocpt_def, AllCaseEqs(), PULL_EXISTS,
-       LENGTH_EQ_NUM_compute, listsexp_def]
+       LENGTH_EQ_NUM_compute, listsexp_def, intsexp_sexpint]
 QED
 
 Theorem locnsexp_sexplocpt[simp]:
@@ -2064,9 +2078,10 @@ Theorem locnsexp_sexplocn:
    (sexplocn s = SOME z ⇔ locssexp z = s) ∧
    (SOME z = sexplocn s ⇔ locssexp z = s)
 Proof
-  Cases_on`z` >>
-  simp[sexplocn_def, locssexp_def, listsexp_def, LENGTH_EQ_NUM_compute,
-       PULL_EXISTS] >> metis_tac[]
+  simp[EQ_SYM_EQ] >>
+  simp[sexplocn_def, OPTION_CHOICE_EQUALS_OPTION, dstrip_sexp_SOME,
+       PULL_EXISTS, LENGTH_EQ_NUM_compute, SF CONJ_ss] >>
+  Cases_on ‘z’ >> simp[locssexp_def, listsexp_def] >> metis_tac[]
 QED
 
 Theorem logsexp_sexplog:
@@ -2256,7 +2271,8 @@ QED
 Theorem locnsexp_valid[simp]:
   ∀p. valid_sexp (locnsexp p)
 Proof
-  Cases >> simp[locnsexp_def] >> EVAL_TAC
+  PairCases >> simp[locnsexp_def, intsexp_def, listsexp_valid, litsexp_valid] >>
+  EVAL_TAC
 QED
 
 Theorem locssexp_valid[simp]:

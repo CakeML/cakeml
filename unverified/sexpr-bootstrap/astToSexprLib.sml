@@ -43,17 +43,11 @@ fun int_to_exp i =
 
 fun loc_to_exp xs =
   let
-    fun loc_to_str tm =
-      if aconv tm “UNKNOWNpt” then "unk" else
-      if aconv (repeat rator tm) “POSN” then
-        "(" ^ (numSyntax.dest_numeral (rand (rator tm)) |> Arbnum.toString) ^
-        " " ^ (numSyntax.dest_numeral (rand tm) |> Arbnum.toString) ^ ")"
-      else "0 0 0"
-    fun join [] = ""
-      | join [x] = x
-      | join (x::xs) = x ^ " " ^ join xs
+    fun pt_to_exp tm =
+      let val (r, c) = pairSyntax.dest_pair tm
+      in exp_list [int_to_exp r, int_to_exp c] end
   in
-    exp_list [exp_str (join (map loc_to_str xs))]
+    exp_list (exp_str "Locs" :: map pt_to_exp xs)
   end
 
 val int_lit = astSyntax.IntLit_tm;
@@ -74,7 +68,6 @@ fun lit_to_exp t =
     else string_to_exp h
   end
 
-val shift_op = astSyntax.Shift_tm;
 val test_op = prim_mk_const{Thy="ast",Name="Test"};
 val arith_op = prim_mk_const{Thy="ast",Name="Arith"};
 val from_to_op = prim_mk_const{Thy="ast",Name="FromTo"};
@@ -125,20 +118,14 @@ fun op_to_exp arg =
     fun from_to xs = exp_tuple [exp_str "FromTo",
                                 test_ty (hd xs),
                                 test_ty (hd (tl xs))]
+    fun arith_name a =
+      if is_comb a then "Shift" ^ to_string (rand a) else to_string a
     fun arith xs = exp_tuple [exp_str "Arith",
-                              exp_str (hd xs |> dest_const |> fst),
+                              exp_str (arith_name (hd xs)),
                               test_ty (hd (tl xs))]
-    fun shift xs =
-      let
-        val consts = List.take (xs, 2)
-        val str = "Shift" ^ String.concat (map filtered_string consts)
-      in
-        exp_tuple [exp_str str, num_to_exp (last xs)]
-      end
     val (x, xs) = strip_comb arg
   in
-    if same_const x shift_op then shift xs
-    else if same_const x ffi_op then ffi xs
+    if same_const x ffi_op then ffi xs
     else if same_const x test_op then test xs
     else if same_const x arith_op then arith xs
     else if same_const x from_to_op then from_to xs
@@ -149,7 +136,8 @@ val cons = listSyntax.cons_tm;
 val comma = pairSyntax.comma_tm;
 val pvar = astSyntax.Pvar_tm;
 val pany = astSyntax.Pany;
-val locs = prim_mk_const{Thy="location",Name="Locs"};
+val locs = prim_mk_const{Thy="ast",Name="Locs"};
+val no_locs = prim_mk_const{Thy="ast",Name="NoLocs"};
 val nil_l = listSyntax.nil_tm;
 val app = astSyntax.App_tm;
 val lit = astSyntax.Lit_tm;
@@ -186,6 +174,7 @@ fun ast_to_exp term =
     else if same_const x plit then
       exp_list [exp_str "Plit", lit_to_exp (hd xs)]
     else if same_const x locs then loc_to_exp xs
+    else if same_const x no_locs then exp_list [exp_str "NoLocs"]
     else if same_const x nil_l then exp_list []
     else if same_const x cons then cons_to_exp term
     else if same_const x comma then tuple_to_exp term

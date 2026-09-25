@@ -4,7 +4,6 @@
 Theory ast
 Ancestors
   integer[qualified] words[qualified] string[qualified] mlstring[qualified] namespace
-  location[qualified]
 
 (* Literal constants *)
 Datatype:
@@ -186,6 +185,10 @@ End
 (* Short circuiting logical operations *)
 Datatype:
   lop = Andalso | Orelse
+End
+
+Datatype:
+  locs = NoLocs | Locs (int # int) (int # int)
 End
 
 (* Expressions *)

@@ -153,31 +153,31 @@ fun auto_prove proof_name (goal,tac:tactic) = let
   in if length rest = 0 then validation [] else let
   in failwith("auto_prove failed for " ^ proof_name) end end
 
-val unknown_loc = prim_mk_const {Name = "unknown_loc" , Thy = "location"}
+val no_locs = prim_mk_const {Name = "NoLocs", Thy = "ast"}
 val word8 = wordsSyntax.mk_int_word_type 8
 val word = wordsSyntax.mk_word_type alpha
 val venvironment = mk_environment v_ty
 val empty_dec_list = listSyntax.mk_nil astSyntax.dec_ty;
 val Dtype_x = astSyntax.mk_Dtype
-                (unknown_loc,
+                (no_locs,
                  mk_var("x",#1(dom_rng(#2(dom_rng(type_of astSyntax.Dtype_tm))))));
 val Dletrec_funs = astSyntax.mk_Dletrec
-                    (unknown_loc,
+                    (no_locs,
                      mk_var("funs",#1(dom_rng(#2(dom_rng(type_of astSyntax.Dletrec_tm))))));
 val Dexn_n_l =
   let val args = tl(#1(boolSyntax.strip_fun(type_of astSyntax.Dexn_tm))) in
-    astSyntax.mk_Dexn (unknown_loc,mk_var("n",el 1 args), mk_var("l",el 2 args))
+    astSyntax.mk_Dexn (no_locs,mk_var("n",el 1 args), mk_var("l",el 2 args))
   end
 val Dlet_v_x =
   let val args = tl(#1(boolSyntax.strip_fun(type_of astSyntax.Dlet_tm))) in
-    astSyntax.mk_Dlet (unknown_loc,mk_var("v",el 1 args), mk_var("x",el 2 args))
+    astSyntax.mk_Dlet (no_locs,mk_var("v",el 1 args), mk_var("x",el 2 args))
   end
 fun Dtype ls = astSyntax.mk_Dtype
-                (unknown_loc,
+                (no_locs,
                 listSyntax.mk_list(ls,listSyntax.dest_list_type
                                         (#1(dom_rng(#2(dom_rng(type_of astSyntax.Dtype_tm)))))))
 fun Dtabbrev name ty = astSyntax.mk_Dtabbrev
-                (unknown_loc,listSyntax.mk_nil mlstringSyntax.mlstring_ty, name, ty)
+                (no_locs,listSyntax.mk_nil mlstringSyntax.mlstring_ty, name, ty)
 
 fun Atapp ls x = astSyntax.mk_Atapp(listSyntax.mk_list(ls,astSyntax.ast_t_ty),x)
 fun mk_store_v ty = mk_thy_type{Thy="semanticPrimitives",Tyop="store_v",Args=[ty]}
@@ -1752,14 +1752,14 @@ val th = inv_defs |> map #2 |> hd
       in dtype end
     val dtype_parts = inv_defs |> map #2 |> map extract_dtype_part
     val dtype_list = listSyntax.mk_list(dtype_parts,type_of (hd dtype_parts))
-    in (astSyntax.mk_Dtype (unknown_loc,dtype_list),dtype_list) end
+    in (astSyntax.mk_Dtype (no_locs,dtype_list),dtype_list) end
   fun is_prim_Dexn tm =
     is_primitive_exception (tm |> rator |> rand |> mlstringSyntax.dest_mlstring)
   val dexn_list = if not is_exn_type then []
                   else dtype |> rand |> rator |> rand |> rand |> rand
                              |> listSyntax.dest_list |> fst
                              |> map pairSyntax.dest_pair
-                             |> map (fn (x,y) => astSyntax.mk_Dexn (unknown_loc,x,y))
+                             |> map (fn (x,y) => astSyntax.mk_Dexn (no_locs,x,y))
                              |> filter (not o is_prim_Dexn)
   (* cons assumption *)
   fun mk_assum tm =
@@ -4638,7 +4638,7 @@ fun translate_options options def =
         |> rand |> rator |> rand
       val ii = INST [cl_env_tm |-> get_curr_env()]
       val v_names = map (fn x => find_const_name (#1 x ^ "_v")) results
-      val _ = ml_prog_update (add_Dletrec unknown_loc recc v_names)
+      val _ = ml_prog_update (add_Dletrec no_locs recc v_names)
       val v_defs = List.take(get_curr_v_defs (), length v_names)
       val jj = INST [env_tm |-> get_curr_env()]
   (*
@@ -4676,7 +4676,7 @@ fun translate_options options def =
         val v = lemma |> concl |> rand |> rator |> rand
         val exp = lemma |> concl |> rand |> rand
         val v_name = find_const_name (fname ^ "_v")
-        val _ = ml_prog_update (add_Dlet_Fun unknown_loc n v exp v_name)
+        val _ = ml_prog_update (add_Dlet_Fun no_locs n v exp v_name)
         val v_def = hd (get_curr_v_defs ())
         val v_thm = lemma |> CONV_RULE (RAND_CONV (REWR_CONV (GSYM v_def)))
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
@@ -4831,7 +4831,7 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
             val v_names =
               map (fn x => find_const_name (mlstringSyntax.dest_mlstring x ^ "_v"))
                   recc_names
-          in add_Dletrec unknown_loc recc v_names state end
+          in add_Dletrec no_locs recc v_names state end
         val lemmas = LOOKUP_VAR_def :: map GSYM (get_v_defs state')
         val th = cert
                   |> INST[cl_env_tm |-> cl_env, env_tm |-> get_env state']
@@ -4852,7 +4852,7 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
                  |> MATCH_MP Eval_Var_LOOKUP_VAR_elim
         val v_name = find_const_name (fname ^ "_v")
         val (_,x,exp) = dest_Closure v
-        val state' = add_Dlet_Fun unknown_loc (mlstringSyntax.mk_mlstring ml_fname) x exp v_name state
+        val state' = add_Dlet_Fun no_locs (mlstringSyntax.mk_mlstring ml_fname) x exp v_name state
         val lemmas = LOOKUP_VAR_def :: map GSYM (get_v_defs state')
         val th = cert
                   |> INST[cl_env_tm |-> cl_env, env_tm |-> get_env state']

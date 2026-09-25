@@ -31,8 +31,7 @@ val _ = register_type ``:word_size``;
 val _ = register_type ``:prim_type``;
 val _ = register_type ``:arith``;
 val _ = register_type ``:op``;
-val _ = register_type ``:locn``;
-val _ = register_type ``:locs``;
+val _ = register_type ``:ast$locs``;
 val _ = register_type ``:exp``;
 val _ = register_type ``:dec``;
 
