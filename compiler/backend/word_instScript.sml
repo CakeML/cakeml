@@ -231,7 +231,7 @@ QED
 *)
 
 Definition inst_select_exp_def:
-  (inst_select_exp (c:asm_config) (tar:num) (temp:num) (Load (exp:'a wordLang$exp)) =
+  (inst_select_exp (c:asm_config) (tar:num) (temp:num) (Load (exp:'a wordLang$exp)) : 'a prog =
     case exp of
     | Op Add [exp';Const w] =>
       if addr_offset_ok c (w2i w) then
@@ -301,7 +301,7 @@ End
 
 Theorem inst_select_exp_pmatch:
   !c tar temp exp.
-  inst_select_exp (c:asm_config) tar temp exp =
+  inst_select_exp (c:asm_config) tar temp (exp:'a wordLang$exp) =
   pmatch exp of
     Load(Op Add [exp';Const w]) =>
       if addr_offset_ok c (w2i w) then

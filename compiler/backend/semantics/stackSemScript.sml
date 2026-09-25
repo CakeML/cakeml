@@ -92,8 +92,8 @@ Datatype:
      ; mdomain : ('a word) set
      ; sh_mdomain : ('a word) set
      ; bitmaps : 'a word list
-     ; compile : 'c -> (num # 'a stackLang$prog) list -> (word8 list # 'c) option
-     ; compile_oracle : num -> 'c # (num # 'a stackLang$prog) list # 'a word list
+     ; compile : 'c -> (num # stackLang$prog) list -> (word8 list # 'c) option
+     ; compile_oracle : num -> 'c # (num # stackLang$prog) list # 'a word list
      ; code_buffer : ('a,8) buffer
      ; data_buffer : ('a,'a) buffer
      ; gc_fun  : 'a gc_fun_type
@@ -101,7 +101,7 @@ Datatype:
      ; use_store : bool
      ; use_alloc : bool
      ; clock   : num
-     ; code    : ('a stackLang$prog) num_map
+     ; code    : stackLang$prog num_map
      ; ffi     : 'ffi ffi_state
      ; ffi_save_regs : num set
      ; be      : bool (* is big-endian *) |>
@@ -410,7 +410,7 @@ Definition inst_def:
   inst i (s:('a,'c,'ffi) stackSem$state) =
     case i of
     | Skip => SOME s
-    | Const reg w => assign reg (Const w) s
+    | Const reg w => assign reg (Const (i2w w)) s
     | Arith (Binop bop r1 r2 ri) =>
         if bop = Or /\ ri = Reg r2 then
           case FLOOKUP s.regs r2 of
@@ -747,7 +747,7 @@ Definition check_store_consts_opt_def:
 End
 
 Definition dest_Seq_def:
-  dest_Seq (Seq p1 p2) = SOME (p1,p2:'a stackLang$prog) /\
+  dest_Seq (Seq p1 p2) = SOME (p1,p2:stackLang$prog) /\
   dest_Seq _ = NONE
 End
 
@@ -771,7 +771,7 @@ Definition exit_loop_def[simp]:
 End
 
 Definition evaluate_def:
-  (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:('a,'c,'ffi) stackSem$state)) /\
+  (evaluate (Skip:stackLang$prog,s) = (NONE,s:('a,'c,'ffi) stackSem$state)) /\
   (evaluate (Halt v,s) =
      case get_var v s of
      | SOME w => (SOME (Halt w), empty_env s)
@@ -977,9 +977,9 @@ Definition evaluate_def:
      if ~s.use_stack then (SOME Error,s) else
        case get_var rn s of
        | SOME (Word (w:'a word)) =>
-         let i = s.stack_space + w2n (w >>> word_shift (:'a)) in
+         let i = s.stack_space + w2n (w >>> word_shift (dimindex (:'a))) in
            if i < LENGTH s.stack /\
-              ((w >>> word_shift (:'a)) << word_shift (:'a) = w)
+              ((w >>> word_shift (dimindex (:'a))) << word_shift (dimindex (:'a)) = w)
            then (NONE, set_var r (EL i s.stack) s)
            else (SOME Error,empty_env s)
        | _ => (SOME Error,empty_env s)) /\
@@ -993,9 +993,9 @@ Definition evaluate_def:
      if ~s.use_stack then (SOME Error,s) else
        case (get_var r s, get_var rn s) of
        | (SOME v, SOME (Word (w:'a word))) =>
-         let i = s.stack_space + w2n (w >>> word_shift (:'a)) in
+         let i = s.stack_space + w2n (w >>> word_shift (dimindex (:'a))) in
            if i < LENGTH s.stack /\
-              ((w >>> word_shift (:'a)) << word_shift (:'a) = w)
+              ((w >>> word_shift (dimindex (:'a))) << word_shift (dimindex (:'a)) = w)
            then (NONE, s with stack := LUPDATE v i s.stack)
            else (SOME Error,empty_env s)
        | _ => (SOME Error,empty_env s)) /\
@@ -1007,7 +1007,7 @@ Definition evaluate_def:
      case get_var r s of
      | SOME (Word (w:'a word)) =>
          if LENGTH s.stack ≤ w2n w then (SOME Error,empty_env s)
-         else (NONE, set_var r (Word (w << word_shift (:'a)))
+         else (NONE, set_var r (Word (w << word_shift (dimindex (:'a))))
                        (s with stack_space := w2n w))
      | _ => (SOME Error,s)) /\
   (evaluate (BitmapLoad r v,s) =
@@ -1018,7 +1018,7 @@ Definition evaluate_def:
          else (NONE, set_var r (Word (EL (w2n w) s.bitmaps)) s)
      | _ => (SOME Error,s))
 Termination
-  WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
+  WF_REL_TAC `(inv_image (measure I LEX measure prog_size)
                              (\(xs,(s:('a,'c,'ffi) stackSem$state)). (s.clock,xs)))`
    \\ rpt strip_tac
    \\ fs[empty_env_def,dec_clock_def,set_var_def,STOP_def]

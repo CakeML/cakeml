@@ -127,11 +127,11 @@ End
 (* Note: this needs to return a prog to support specific registers for AddCarry and other special insts
 *)
 Definition ssa_cc_trans_inst_def:
-  (ssa_cc_trans_inst (:'a) Skip ssa na = (Skip,ssa,na)) ∧
-  (ssa_cc_trans_inst (:'a) (Const reg w) ssa na =
+  (ssa_cc_trans_inst Skip ssa na = (Skip:'a prog,ssa,na)) ∧
+  (ssa_cc_trans_inst (Const reg w) ssa na =
     let (reg',ssa',na') = next_var_rename reg ssa na in
       (Inst (Const reg' w),ssa',na')) ∧
-  (ssa_cc_trans_inst (:'a) (Arith (Binop bop r1 r2 ri)) ssa na =
+  (ssa_cc_trans_inst (Arith (Binop bop r1 r2 ri)) ssa na =
     case ri of
       Reg r3 =>
       let r3' = option_lookup ssa r3 in
@@ -142,7 +142,7 @@ Definition ssa_cc_trans_inst_def:
       let r2' = option_lookup ssa r2 in
       let (r1',ssa',na') = next_var_rename r1 ssa na in
         (Inst (Arith (Binop bop r1' r2' ri)),ssa',na')) ∧
-  (ssa_cc_trans_inst (:'a) (Arith (Shift shift r1 r2 ri)) ssa na =
+  (ssa_cc_trans_inst (Arith (Shift shift r1 r2 ri)) ssa na =
     case ri of
     | Reg r3 =>
       let r3' = option_lookup ssa r3 in
@@ -154,12 +154,12 @@ Definition ssa_cc_trans_inst_def:
       let r2' = option_lookup ssa r2 in
       let (r1',ssa',na') = next_var_rename r1 ssa na in
         (Inst (Arith (Shift shift r1' r2' ri)),ssa',na')) ∧
-  (ssa_cc_trans_inst (:'a) (Arith (Div r1 r2 r3)) ssa na =
+  (ssa_cc_trans_inst (Arith (Div r1 r2 r3)) ssa na =
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
     (Inst (Arith (Div r1' r2' r3')),ssa',na')) ∧
-  (ssa_cc_trans_inst (:'a) (Arith (AddCarry r1 r2 r3 r4)) ssa na =
+  (ssa_cc_trans_inst (Arith (AddCarry r1 r2 r3 r4)) ssa na =
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
@@ -172,7 +172,7 @@ Definition ssa_cc_trans_inst_def:
      However, this helps with word_to_stack which currently only spills
      one register on writes
   *)
-  (ssa_cc_trans_inst (:'a) (Arith (AddOverflow r1 r2 r3 r4)) ssa na =
+  (ssa_cc_trans_inst (Arith (AddOverflow r1 r2 r3 r4)) ssa na =
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
     (* TODO: This might need to be made a strong preference *)
@@ -180,14 +180,14 @@ Definition ssa_cc_trans_inst_def:
     let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
     let mov_out = Move1 [(r4'',0)] in
       (Seq (Inst (Arith (AddOverflow r1' r2' r3' 0))) mov_out, ssa'',na'')) ∧
-  (ssa_cc_trans_inst (:'a) (Arith (SubOverflow r1 r2 r3 r4)) ssa na =
+  (ssa_cc_trans_inst (Arith (SubOverflow r1 r2 r3 r4)) ssa na =
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
     let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
     let mov_out = Move1 [(r4'',0)] in
       (Seq (Inst (Arith (SubOverflow r1' r2' r3' 0))) mov_out, ssa'',na'')) ∧
-  (ssa_cc_trans_inst (:'a) (Arith (LongMul r1 r2 r3 r4)) ssa na =
+  (ssa_cc_trans_inst (Arith (LongMul r1 r2 r3 r4)) ssa na =
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
     let mov_in = Move1 [(0,r3');(4,r4')] in
@@ -195,7 +195,7 @@ Definition ssa_cc_trans_inst_def:
     let (r2',ssa'',na'') = next_var_rename r2 ssa' na' in
     let mov_out = Move1 [(r2',0);(r1',6)] in
       (Seq mov_in  (Seq (Inst (Arith (LongMul 6 0 0 4))) mov_out),ssa'',na'')) ∧
-  (ssa_cc_trans_inst (:'a) (Arith (LongDiv r1 r2 r3 r4 r5)) ssa na =
+  (ssa_cc_trans_inst (Arith (LongDiv r1 r2 r3 r4 r5)) ssa na =
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
     let r5' = option_lookup ssa r5 in
@@ -204,40 +204,40 @@ Definition ssa_cc_trans_inst_def:
     let (r1',ssa'',na'') = next_var_rename r1 ssa' na' in
     let mov_out = Move1 [(r2',6);(r1',0)] in
       (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 6 6 0 r5'))) mov_out),ssa'',na'')) ∧
-  (ssa_cc_trans_inst (:'a) (Mem Load r (Addr a w)) ssa na =
+  (ssa_cc_trans_inst (Mem Load r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in
       (Inst (Mem Load r' (Addr a' w)),ssa',na')) ∧
-  (ssa_cc_trans_inst (:'a) (Mem Store r (Addr a w)) ssa na =
+  (ssa_cc_trans_inst (Mem Store r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let r' = option_lookup ssa r in
       (Inst (Mem Store r' (Addr a' w)),ssa,na)) ∧
-  (ssa_cc_trans_inst (:'a) (Mem Load32 r (Addr a w)) ssa na =
+  (ssa_cc_trans_inst (Mem Load32 r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in
       (Inst (Mem Load32 r' (Addr a' w)),ssa',na')) ∧
-  (ssa_cc_trans_inst (:'a) (Mem Store32 r (Addr a w)) ssa na =
+  (ssa_cc_trans_inst (Mem Store32 r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let r' = option_lookup ssa r in
       (Inst (Mem Store32 r' (Addr a' w)),ssa,na)) ∧
-  (ssa_cc_trans_inst (:'a) (Mem Load8 r (Addr a w)) ssa na =
+  (ssa_cc_trans_inst (Mem Load8 r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in
       (Inst (Mem Load8 r' (Addr a' w)),ssa',na')) ∧
-  (ssa_cc_trans_inst (:'a) (Mem Store8 r (Addr a w)) ssa na =
+  (ssa_cc_trans_inst (Mem Store8 r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let r' = option_lookup ssa r in
       (Inst (Mem Store8 r' (Addr a' w)),ssa,na)) ∧
-  (ssa_cc_trans_inst (:'a) (FP (FPLess r f1 f2)) ssa na =
+  (ssa_cc_trans_inst (FP (FPLess r f1 f2)) ssa na =
     let (r',ssa',na') = next_var_rename r ssa na in
       (Inst (FP (FPLess r' f1 f2)),ssa',na')) ∧
-  (ssa_cc_trans_inst (:'a) (FP (FPLessEqual r f1 f2)) ssa na =
+  (ssa_cc_trans_inst (FP (FPLessEqual r f1 f2)) ssa na =
     let (r',ssa',na') = next_var_rename r ssa na in
       (Inst (FP (FPLessEqual r' f1 f2)),ssa',na')) ∧
-  (ssa_cc_trans_inst (:'a) (FP (FPEqual r f1 f2)) ssa na =
+  (ssa_cc_trans_inst (FP (FPEqual r f1 f2)) ssa na =
     let (r',ssa',na') = next_var_rename r ssa na in
       (Inst (FP (FPEqual r' f1 f2)),ssa',na')) ∧
-  (ssa_cc_trans_inst (:'a) (FP (FPMovToReg r1 r2 d):inst) ssa na =
+  (ssa_cc_trans_inst (FP (FPMovToReg r1 r2 d):inst) ssa na =
     if dimindex(:'a) = 64 then
       let (r1',ssa',na') = next_var_rename r1 ssa na in
         (Inst (FP (FPMovToReg r1' r2 d)),ssa',na')
@@ -245,7 +245,7 @@ Definition ssa_cc_trans_inst_def:
       let (r1',ssa',na') = next_var_rename r1 ssa na in
       let (r2',ssa'',na'') = next_var_rename r2 ssa' na' in
         (Inst (FP (FPMovToReg r1' r2' d)),ssa'',na'')) ∧
-  (ssa_cc_trans_inst (:'a) (FP (FPMovFromReg d r1 r2)) ssa na =
+  (ssa_cc_trans_inst (FP (FPMovFromReg d r1 r2)) ssa na =
     if dimindex(:'a) = 64 then
       let r1' = option_lookup ssa r1 in
         (Inst (FP (FPMovFromReg d r1' 0)),ssa,na)
@@ -262,7 +262,7 @@ Definition ssa_cc_trans_inst_def:
       else
         (Inst (FP (FPMovFromReg d r1' r2')),ssa,na)) ∧
         (*Catchall -- for future instructions to be added, and all other FP *)
-  (ssa_cc_trans_inst (:'a) x ssa na = (Inst x,ssa,na))
+  (ssa_cc_trans_inst x ssa na = (Inst x,ssa,na))
 End
 
 (*Expressions only ever need to lookup a variable's current ssa map
@@ -365,7 +365,7 @@ Definition ssa_cc_trans_def:
     (prog, ssa'',na'')
   ) ∧
   (ssa_cc_trans (Inst i) ssa na lt =
-    let (i',ssa',na') = ssa_cc_trans_inst (:'a) i ssa na in
+    let (i',ssa',na') = ssa_cc_trans_inst i ssa na in
       (i',ssa',na')) ∧
   (ssa_cc_trans (Assign num exp) ssa na lt =
     let exp' = ssa_cc_trans_exp ssa exp in
@@ -674,77 +674,77 @@ End
 
 (*Writes made by any inst as a sptree*)
 Definition get_writes_inst_def:
-  (get_writes_inst (:'a) (Const reg w) = insert reg () LN) ∧
-  (get_writes_inst (:'a) (Arith (Binop bop r1 r2 ri)) = insert r1 () LN) ∧
-  (get_writes_inst (:'a) (Arith (Shift shift r1 r2 ri)) = insert r1 () LN) ∧
-  (get_writes_inst (:'a) (Arith (Div r1 r2 r3)) = insert r1 () LN) ∧
-  (get_writes_inst (:'a) (Arith (AddCarry r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
-  (get_writes_inst (:'a) (Arith (AddOverflow r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
-  (get_writes_inst (:'a) (Arith (SubOverflow r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
-  (get_writes_inst (:'a) (Arith (LongMul r1 r2 r3 r4)) = insert r2 () (insert r1 () LN)) ∧
-  (get_writes_inst (:'a) (Arith (LongDiv r1 r2 r3 r4 r5)) = insert r2 () (insert r1 () LN)) ∧
-  (get_writes_inst (:'a) (Mem Load r (Addr a w)) = insert r () LN) ∧
-  (get_writes_inst (:'a) (Mem Load32 r (Addr a w)) = insert r () LN) ∧
-  (get_writes_inst (:'a) (Mem Load8 r (Addr a w)) = insert r () LN) ∧
-  (get_writes_inst (:'a) (FP (FPLess r f1 f2)) = insert r () LN) ∧
-  (get_writes_inst (:'a) (FP (FPLessEqual r f1 f2)) = insert r () LN) ∧
-  (get_writes_inst (:'a) (FP (FPEqual r f1 f2)) = insert r () LN) ∧
-  (get_writes_inst (:'a) (FP (FPMovToReg r1 r2 d) :inst) =
-    if dimindex(:'a) = 64
+  (get_writes_inst (bits:num) (Const reg w) = insert reg () LN) ∧
+  (get_writes_inst bits (Arith (Binop bop r1 r2 ri)) = insert r1 () LN) ∧
+  (get_writes_inst bits (Arith (Shift shift r1 r2 ri)) = insert r1 () LN) ∧
+  (get_writes_inst bits (Arith (Div r1 r2 r3)) = insert r1 () LN) ∧
+  (get_writes_inst bits (Arith (AddCarry r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
+  (get_writes_inst bits (Arith (AddOverflow r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
+  (get_writes_inst bits (Arith (SubOverflow r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
+  (get_writes_inst bits (Arith (LongMul r1 r2 r3 r4)) = insert r2 () (insert r1 () LN)) ∧
+  (get_writes_inst bits (Arith (LongDiv r1 r2 r3 r4 r5)) = insert r2 () (insert r1 () LN)) ∧
+  (get_writes_inst bits (Mem Load r (Addr a w)) = insert r () LN) ∧
+  (get_writes_inst bits (Mem Load32 r (Addr a w)) = insert r () LN) ∧
+  (get_writes_inst bits (Mem Load8 r (Addr a w)) = insert r () LN) ∧
+  (get_writes_inst bits (FP (FPLess r f1 f2)) = insert r () LN) ∧
+  (get_writes_inst bits (FP (FPLessEqual r f1 f2)) = insert r () LN) ∧
+  (get_writes_inst bits (FP (FPEqual r f1 f2)) = insert r () LN) ∧
+  (get_writes_inst bits (FP (FPMovToReg r1 r2 d) :inst) =
+    if bits = 64
       then insert r1 () LN
       else insert r2 () (insert r1 () LN)) ∧
-  (get_writes_inst (:'a) inst = LN)
+  (get_writes_inst bits inst = LN)
 End
 
 (*Liveness for instructions, follows liveness equations
   live-sets are num_sets a.k.a. unit-sptrees*)
 Definition get_live_inst_def:
-  (get_live_inst (:'a) Skip live:num_set = live) ∧
-  (get_live_inst (:'a) (Const reg w) live = delete reg live) ∧
-  (get_live_inst (:'a) (Arith (Binop bop r1 r2 ri)) live =
+  (get_live_inst (bits:num) Skip live:num_set = live) ∧
+  (get_live_inst bits (Const reg w) live = delete reg live) ∧
+  (get_live_inst bits (Arith (Binop bop r1 r2 ri)) live =
     case ri of Reg r3 => insert r2 () (insert r3 () (delete r1 live))
     | _ => insert r2 () (delete r1 live)) ∧
-  (get_live_inst (:'a) (Arith (Shift shift r1 r2 ri)) live =
+  (get_live_inst bits (Arith (Shift shift r1 r2 ri)) live =
     case ri of Reg r3 => insert r2 () (insert r3 () (delete r1 live))
     | _ => insert r2 () (delete r1 live)) ∧
-  (get_live_inst (:'a) (Arith (Div r1 r2 r3)) live =
+  (get_live_inst bits (Arith (Div r1 r2 r3)) live =
     (insert r3 () (insert r2 () (delete r1 live)))) ∧
-  (get_live_inst (:'a) (Arith (AddCarry r1 r2 r3 r4)) live =
+  (get_live_inst bits (Arith (AddCarry r1 r2 r3 r4)) live =
     (*r4 is live anyway*)
     insert r4 () (insert r3 () (insert r2 () (delete r1 live)))) ∧
-  (get_live_inst (:'a) (Arith (AddOverflow r1 r2 r3 r4)) live =
+  (get_live_inst bits (Arith (AddOverflow r1 r2 r3 r4)) live =
     insert r3 () (insert r2 () (delete r4 (delete r1 live)))) ∧
-  (get_live_inst (:'a) (Arith (SubOverflow r1 r2 r3 r4)) live =
+  (get_live_inst bits (Arith (SubOverflow r1 r2 r3 r4)) live =
     insert r3 () (insert r2 () (delete r4 (delete r1 live)))) ∧
-  (get_live_inst (:'a) (Arith (LongMul r1 r2 r3 r4)) live =
+  (get_live_inst bits (Arith (LongMul r1 r2 r3 r4)) live =
     insert r4 () (insert r3 () (delete r2 (delete r1 live)))) ∧
-  (get_live_inst (:'a) (Arith (LongDiv r1 r2 r3 r4 r5)) live =
+  (get_live_inst bits (Arith (LongDiv r1 r2 r3 r4 r5)) live =
     insert r5 () (insert r4 () (insert r3 () (delete r2 (delete r1 live))))) ∧
-  (get_live_inst (:'a) (Mem Load r (Addr a w)) live =
+  (get_live_inst bits (Mem Load r (Addr a w)) live =
     insert a () (delete r live)) ∧
-  (get_live_inst (:'a) (Mem Store r (Addr a w)) live =
+  (get_live_inst bits (Mem Store r (Addr a w)) live =
     insert a () (insert r () live)) ∧
-  (get_live_inst (:'a) (Mem Load32 r (Addr a w)) live =
+  (get_live_inst bits (Mem Load32 r (Addr a w)) live =
     insert a () (delete r live)) ∧
-  (get_live_inst (:'a) (Mem Store32 r (Addr a w)) live =
+  (get_live_inst bits (Mem Store32 r (Addr a w)) live =
     insert a () (insert r () live)) ∧
-  (get_live_inst (:'a) (Mem Load8 r (Addr a w)) live =
+  (get_live_inst bits (Mem Load8 r (Addr a w)) live =
     insert a () (delete r live)) ∧
-  (get_live_inst (:'a) (Mem Store8 r (Addr a w)) live =
+  (get_live_inst bits (Mem Store8 r (Addr a w)) live =
     insert a () (insert r () live)) ∧
-  (get_live_inst (:'a) (FP (FPLess r f1 f2)) live = delete r live) ∧
-  (get_live_inst (:'a) (FP (FPLessEqual r f1 f2)) live = delete r live) ∧
-  (get_live_inst (:'a) (FP (FPEqual r f1 f2)) live = delete r live) ∧
-  (get_live_inst (:'a) (FP (FPMovToReg r1 r2 d): inst) live =
-    if dimindex(:'a) = 64
+  (get_live_inst bits (FP (FPLess r f1 f2)) live = delete r live) ∧
+  (get_live_inst bits (FP (FPLessEqual r f1 f2)) live = delete r live) ∧
+  (get_live_inst bits (FP (FPEqual r f1 f2)) live = delete r live) ∧
+  (get_live_inst bits (FP (FPMovToReg r1 r2 d): inst) live =
+    if bits = 64
       then delete r1 live
       else delete r1 (delete r2 live)) ∧
-  (get_live_inst (:'a) (FP (FPMovFromReg d r1 r2)) live =
-    if dimindex(:'a) = 64
+  (get_live_inst bits (FP (FPMovFromReg d r1 r2)) live =
+    if bits = 64
       then insert r1 () live
       else insert r2 () (insert r1 () live)) ∧
   (*Catchall -- for future instructions to be added*)
-  (get_live_inst (:'a) x live = live)
+  (get_live_inst bits x live = live)
 End
 
 Definition big_union_def:
@@ -771,7 +771,7 @@ Definition get_live_def:
   (get_live (Move pri ls) live lt =
     let killed = FOLDR delete live (MAP FST ls) in
       numset_list_insert (MAP SND ls) killed) ∧
-  (get_live (Inst i) live lt = get_live_inst (:'a) i live) ∧
+  (get_live (Inst i) live lt = get_live_inst (dimindex (:'a)) i live) ∧
   (*num is written, exp is read*)
   (get_live (Assign num exp) live lt =
     let sub = get_live_exp exp in
@@ -845,32 +845,32 @@ End
 
 (* Dead instruction removal *)
 Definition remove_dead_inst_def:
-  (remove_dead_inst (:'a) Skip (live:num_set) = T) ∧
-  (remove_dead_inst (:'a) (Const reg w) live = (lookup reg live = NONE)) ∧
-  (remove_dead_inst (:'a) (Arith (Binop bop r1 r2 ri)) live = (lookup r1 live = NONE)) ∧
-  (remove_dead_inst (:'a) (Arith (Shift shift r1 r2 n)) live = (lookup r1 live = NONE)) ∧
-  (remove_dead_inst (:'a) (Arith (Div r1 r2 r3)) live = (lookup r1 live = NONE)) ∧
-  (remove_dead_inst (:'a) (Arith (AddCarry r1 r2 r3 r4)) live =
+  (remove_dead_inst (bits:num) Skip (live:num_set) = T) ∧
+  (remove_dead_inst bits (Const reg w) live = (lookup reg live = NONE)) ∧
+  (remove_dead_inst bits (Arith (Binop bop r1 r2 ri)) live = (lookup r1 live = NONE)) ∧
+  (remove_dead_inst bits (Arith (Shift shift r1 r2 n)) live = (lookup r1 live = NONE)) ∧
+  (remove_dead_inst bits (Arith (Div r1 r2 r3)) live = (lookup r1 live = NONE)) ∧
+  (remove_dead_inst bits (Arith (AddCarry r1 r2 r3 r4)) live =
     (lookup r1 live = NONE ∧ lookup r4 live = NONE)) ∧
-  (remove_dead_inst (:'a) (Arith (AddOverflow r1 r2 r3 r4)) live =
+  (remove_dead_inst bits (Arith (AddOverflow r1 r2 r3 r4)) live =
     (lookup r1 live = NONE ∧ lookup r4 live = NONE)) ∧
-  (remove_dead_inst (:'a) (Arith (SubOverflow r1 r2 r3 r4)) live =
+  (remove_dead_inst bits (Arith (SubOverflow r1 r2 r3 r4)) live =
     (lookup r1 live = NONE ∧ lookup r4 live = NONE)) ∧
-  (remove_dead_inst (:'a) (Arith (LongMul r1 r2 r3 r4)) live =
+  (remove_dead_inst bits (Arith (LongMul r1 r2 r3 r4)) live =
     (lookup r1 live = NONE ∧ lookup r2 live = NONE)) ∧
-  (remove_dead_inst (:'a) (Arith (LongDiv r1 r2 r3 r4 r5)) live =
+  (remove_dead_inst bits (Arith (LongDiv r1 r2 r3 r4 r5)) live =
     (lookup r1 live = NONE ∧ lookup r2 live = NONE)) ∧
-  (remove_dead_inst (:'a) (Mem Load r (Addr a w)) live = (lookup r live = NONE)) ∧
-  (remove_dead_inst (:'a) (Mem Load32 r (Addr a w)) live = (lookup r live = NONE)) ∧
-  (remove_dead_inst (:'a) (Mem Load8 r (Addr a w)) live = (lookup r live = NONE)) ∧
-  (remove_dead_inst (:'a) (FP (FPLess r f1 f2)) live = (lookup r live = NONE)) ∧
-  (remove_dead_inst (:'a) (FP (FPLessEqual r f1 f2)) live = (lookup r live = NONE)) ∧
-  (remove_dead_inst (:'a) (FP (FPEqual r f1 f2)) live = (lookup r live = NONE)) ∧
-  (remove_dead_inst (:'a) (FP (FPMovToReg r1 r2 d) :inst) live =
-    if dimindex(:'a) = 64 then lookup r1 live = NONE
+  (remove_dead_inst bits (Mem Load r (Addr a w)) live = (lookup r live = NONE)) ∧
+  (remove_dead_inst bits (Mem Load32 r (Addr a w)) live = (lookup r live = NONE)) ∧
+  (remove_dead_inst bits (Mem Load8 r (Addr a w)) live = (lookup r live = NONE)) ∧
+  (remove_dead_inst bits (FP (FPLess r f1 f2)) live = (lookup r live = NONE)) ∧
+  (remove_dead_inst bits (FP (FPLessEqual r f1 f2)) live = (lookup r live = NONE)) ∧
+  (remove_dead_inst bits (FP (FPEqual r f1 f2)) live = (lookup r live = NONE)) ∧
+  (remove_dead_inst bits (FP (FPMovToReg r1 r2 d) :inst) live =
+    if bits = 64 then lookup r1 live = NONE
     else (lookup r1 live = NONE ∧ (lookup r2 live = NONE))) ∧
   (*Catchall -- for other instructions*)
-  (remove_dead_inst (:'a) x live = F)
+  (remove_dead_inst bits x live = F)
 End
 
 (* Delete dead code, w.r.t. a set of live variables.
@@ -889,9 +889,9 @@ Definition remove_dead_def:
     let killed = FOLDR delete live (MAP FST ls) in
       (Move pri ls, numset_list_insert (MAP SND ls) killed,nlive)) ∧
   (remove_dead (Inst i) live nlive lt =
-    if remove_dead_inst (:'a) i live
+    if remove_dead_inst (dimindex (:'a)) i live
     then (Skip,live,nlive)
-    else (Inst i, get_live_inst (:'a) i live,nlive)) ∧
+    else (Inst i, get_live_inst (dimindex (:'a)) i live,nlive)) ∧
   (remove_dead (Get num store) live nlive lt =
     if lookup num live = NONE then
       (Skip,live,nlive)
@@ -1001,7 +1001,7 @@ End
 (*Single step immediate writes by a prog*)
 Definition get_writes_def:
   (get_writes (Move pri ls : 'a prog) = numset_list_insert (MAP FST ls) LN)∧
-  (get_writes (Inst i) = get_writes_inst (:'a) i) ∧
+  (get_writes (Inst i) = get_writes_inst (dimindex (:'a)) i) ∧
   (get_writes (Assign num exp) = insert num () LN)∧
   (get_writes (Get num store) = insert num () LN) ∧
   (get_writes (LocValue r l1) = insert r () LN) ∧
@@ -1017,10 +1017,10 @@ End
 
 Theorem get_writes_pmatch:
   !inst.
-  get_writes inst =
+  get_writes (inst:'a prog) =
     pmatch inst of
     | Move pri ls => numset_list_insert (MAP FST ls) LN
-    | Inst i => get_writes_inst (:'a) i
+    | Inst i => get_writes_inst (dimindex (:'a)) i
     | Assign num exp => insert num () LN
     | Get num store => insert num () LN
     | LocValue r l1 => insert r () LN
@@ -1077,39 +1077,39 @@ QED
 
 (* Potentially more efficient liveset representation for checking / allocation*)
 Definition get_delta_inst_def:
-  (get_delta_inst (:'a) Skip = Delta [] []) ∧
-  (get_delta_inst (:'a) (Const reg w) = Delta [reg] []) ∧
-  (get_delta_inst (:'a) (Arith (Binop bop r1 r2 ri)) =
+  (get_delta_inst (bits:num) Skip = Delta [] []) ∧
+  (get_delta_inst bits (Const reg w) = Delta [reg] []) ∧
+  (get_delta_inst bits (Arith (Binop bop r1 r2 ri)) =
     case ri of Reg r3 => Delta [r1] [r2;r3]
                   | _ => Delta [r1] [r2]) ∧
-  (get_delta_inst (:'a) (Arith (Shift shift r1 r2 ri)) =
+  (get_delta_inst bits (Arith (Shift shift r1 r2 ri)) =
     case ri of Reg r3 => Delta [r1] [r2;r3]
                   | _ => Delta [r1] [r2]) ∧
-  (get_delta_inst (:'a) (Arith (Div r1 r2 r3)) = Delta [r1] [r3;r2]) ∧
-  (get_delta_inst (:'a) (Arith (AddCarry r1 r2 r3 r4)) = Delta [r1;r4] [r4;r3;r2]) ∧
-  (get_delta_inst (:'a) (Arith (AddOverflow r1 r2 r3 r4)) = Delta [r1;r4] [r3;r2]) ∧
-  (get_delta_inst (:'a) (Arith (SubOverflow r1 r2 r3 r4)) = Delta [r1;r4] [r3;r2]) ∧
-  (get_delta_inst (:'a) (Arith (LongMul r1 r2 r3 r4)) = Delta [r1;r2] [r4;r3]) ∧
-  (get_delta_inst (:'a) (Arith (LongDiv r1 r2 r3 r4 r5)) = Delta [r1;r2] [r5;r4;r3]) ∧
-  (get_delta_inst (:'a) (Mem Load r (Addr a w)) = Delta [r] [a]) ∧
-  (get_delta_inst (:'a) (Mem Store r (Addr a w)) = Delta [] [r;a]) ∧
-  (get_delta_inst (:'a) (Mem Load32 r (Addr a w)) = Delta [r] [a]) ∧
-  (get_delta_inst (:'a) (Mem Store32 r (Addr a w)) = Delta [] [r;a]) ∧
-  (get_delta_inst (:'a) (Mem Load8 r (Addr a w)) = Delta [r] [a]) ∧
-  (get_delta_inst (:'a) (Mem Store8 r (Addr a w)) = Delta [] [r;a]) ∧
-  (get_delta_inst (:'a) (FP (FPLess r f1 f2)) = Delta [r] []) ∧
-  (get_delta_inst (:'a) (FP (FPLessEqual r f1 f2)) = Delta [r] []) ∧
-  (get_delta_inst (:'a) (FP (FPEqual r f1 f2)) = Delta [r] []) ∧
-  (get_delta_inst (:'a) (FP (FPMovToReg r1 r2 d):inst) =
-    if dimindex(:'a) = 64
+  (get_delta_inst bits (Arith (Div r1 r2 r3)) = Delta [r1] [r3;r2]) ∧
+  (get_delta_inst bits (Arith (AddCarry r1 r2 r3 r4)) = Delta [r1;r4] [r4;r3;r2]) ∧
+  (get_delta_inst bits (Arith (AddOverflow r1 r2 r3 r4)) = Delta [r1;r4] [r3;r2]) ∧
+  (get_delta_inst bits (Arith (SubOverflow r1 r2 r3 r4)) = Delta [r1;r4] [r3;r2]) ∧
+  (get_delta_inst bits (Arith (LongMul r1 r2 r3 r4)) = Delta [r1;r2] [r4;r3]) ∧
+  (get_delta_inst bits (Arith (LongDiv r1 r2 r3 r4 r5)) = Delta [r1;r2] [r5;r4;r3]) ∧
+  (get_delta_inst bits (Mem Load r (Addr a w)) = Delta [r] [a]) ∧
+  (get_delta_inst bits (Mem Store r (Addr a w)) = Delta [] [r;a]) ∧
+  (get_delta_inst bits (Mem Load32 r (Addr a w)) = Delta [r] [a]) ∧
+  (get_delta_inst bits (Mem Store32 r (Addr a w)) = Delta [] [r;a]) ∧
+  (get_delta_inst bits (Mem Load8 r (Addr a w)) = Delta [r] [a]) ∧
+  (get_delta_inst bits (Mem Store8 r (Addr a w)) = Delta [] [r;a]) ∧
+  (get_delta_inst bits (FP (FPLess r f1 f2)) = Delta [r] []) ∧
+  (get_delta_inst bits (FP (FPLessEqual r f1 f2)) = Delta [r] []) ∧
+  (get_delta_inst bits (FP (FPEqual r f1 f2)) = Delta [r] []) ∧
+  (get_delta_inst bits (FP (FPMovToReg r1 r2 d):inst) =
+    if bits = 64
       then Delta [r1] []
       else Delta [r1;r2] []) ∧
-  (get_delta_inst (:'a) (FP (FPMovFromReg d r1 r2)) =
-    if dimindex(:'a) = 64
+  (get_delta_inst bits (FP (FPMovFromReg d r1 r2)) =
+    if bits = 64
       then Delta [] [r1]
       else Delta [] [r1;r2]) ∧
   (*Catchall -- for future instructions to be added*)
-  (get_delta_inst (:'a) x = Delta [] [])
+  (get_delta_inst bits x = Delta [] [])
 End
 
 Definition get_reads_exp_def:
@@ -1125,7 +1125,7 @@ Definition get_clash_tree_def:
   (get_clash_tree (Skip:'a prog) lt = Delta [] []) ∧
   (get_clash_tree (Move pri ls) lt =
     Delta (MAP FST ls) (MAP SND ls)) ∧
-  (get_clash_tree (Inst i) lt = get_delta_inst (:'a) i) ∧
+  (get_clash_tree (Inst i) lt = get_delta_inst (dimindex (:'a)) i) ∧
   (get_clash_tree (Assign num exp) lt = Delta [num] (get_reads_exp exp)) ∧
   (get_clash_tree (Get num store) lt = Delta [num] []) ∧
   (get_clash_tree (Store exp num) lt = Delta [] (num::get_reads_exp exp)) ∧
@@ -1505,7 +1505,7 @@ End
 
 Theorem get_forced_pmatch:
   !c prog acc.
-  (get_forced (c:asm_config) prog acc =
+  (get_forced (c:asm_config) (prog:'a wordLang$prog) acc =
     pmatch prog of
       Inst(Arith (AddCarry r1 r2 r3 r4)) =>
        if (c.ISA = MIPS ∨ c.ISA = RISC_V) then

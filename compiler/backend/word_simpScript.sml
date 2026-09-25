@@ -224,25 +224,25 @@ Definition const_fp_move_cs_def:
 End
 
 Definition const_fp_inst_cs_def:
-  (const_fp_inst_cs (:'a) (Const r _) cs = delete r cs) /\
-  (const_fp_inst_cs (:'a) (Arith (Binop _ r _ _)) cs = delete r cs) /\
-  (const_fp_inst_cs (:'a) (Arith (Shift _ r _ _)) cs = delete r cs) /\
-  (const_fp_inst_cs (:'a) (Arith (AddCarry r1 _ _ r2)) cs = delete r2 (delete r1 cs)) /\
-  (const_fp_inst_cs (:'a) (Arith (AddOverflow r1 _ _ r2)) cs = delete r2 (delete r1 cs)) /\
-  (const_fp_inst_cs (:'a) (Arith (SubOverflow r1 _ _ r2)) cs = delete r2 (delete r1 cs)) /\
-  (const_fp_inst_cs (:'a) (Arith (LongMul r1 r2 _ _)) cs = delete r1 (delete r2 cs)) /\
-  (const_fp_inst_cs (:'a) (Arith (LongDiv r1 r2 _ _ _)) cs = delete r1 (delete r2 cs)) /\
-  (const_fp_inst_cs (:'a) (Arith (Div r1 _ _)) cs = delete r1 cs) /\
-  (const_fp_inst_cs (:'a) (Mem Load r _) cs = delete r cs) /\
-  (const_fp_inst_cs (:'a) (Mem Load32 r _) cs = delete r cs) /\
-  (const_fp_inst_cs (:'a) (Mem Load8 r _) cs = delete r cs) /\
-  (const_fp_inst_cs (:'a) (FP (FPLess r f1 f2)) cs = delete r cs) ∧
-  (const_fp_inst_cs (:'a) (FP (FPLessEqual r f1 f2)) cs = delete r cs) ∧
-  (const_fp_inst_cs (:'a) (FP (FPEqual r f1 f2)) cs = delete r cs) ∧
-  (const_fp_inst_cs (:'a) ((FP (FPMovToReg r1 r2 d)):inst) cs =
+  (const_fp_inst_cs (Const r _) (cs:'a word num_map) = delete r cs) /\
+  (const_fp_inst_cs (Arith (Binop _ r _ _)) cs = delete r cs) /\
+  (const_fp_inst_cs (Arith (Shift _ r _ _)) cs = delete r cs) /\
+  (const_fp_inst_cs (Arith (AddCarry r1 _ _ r2)) cs = delete r2 (delete r1 cs)) /\
+  (const_fp_inst_cs (Arith (AddOverflow r1 _ _ r2)) cs = delete r2 (delete r1 cs)) /\
+  (const_fp_inst_cs (Arith (SubOverflow r1 _ _ r2)) cs = delete r2 (delete r1 cs)) /\
+  (const_fp_inst_cs (Arith (LongMul r1 r2 _ _)) cs = delete r1 (delete r2 cs)) /\
+  (const_fp_inst_cs (Arith (LongDiv r1 r2 _ _ _)) cs = delete r1 (delete r2 cs)) /\
+  (const_fp_inst_cs (Arith (Div r1 _ _)) cs = delete r1 cs) /\
+  (const_fp_inst_cs (Mem Load r _) cs = delete r cs) /\
+  (const_fp_inst_cs (Mem Load32 r _) cs = delete r cs) /\
+  (const_fp_inst_cs (Mem Load8 r _) cs = delete r cs) /\
+  (const_fp_inst_cs (FP (FPLess r f1 f2)) cs = delete r cs) ∧
+  (const_fp_inst_cs (FP (FPLessEqual r f1 f2)) cs = delete r cs) ∧
+  (const_fp_inst_cs (FP (FPEqual r f1 f2)) cs = delete r cs) ∧
+  (const_fp_inst_cs ((FP (FPMovToReg r1 r2 d)):inst) cs =
     if dimindex(:'a) = 64 then delete r1 cs
     else delete r2 (delete r1 cs)) ∧
-  (const_fp_inst_cs (:'a) _ cs = cs)
+  (const_fp_inst_cs _ cs = cs)
 End
 
 Definition get_var_imm_cs_def:
@@ -272,7 +272,7 @@ End
 
 Definition const_fp_loop_def:
   (const_fp_loop (Move pri moves : 'a prog) cs = (Move pri moves, const_fp_move_cs moves cs cs)) /\
-  (const_fp_loop (Inst i) cs = (Inst i, const_fp_inst_cs (:'a) i cs)) /\
+  (const_fp_loop (Inst i) cs = (Inst i, const_fp_inst_cs i cs)) /\
   (const_fp_loop (Assign v e) cs =
      let const_fp_e = const_fp_exp e cs in
        case const_fp_e of

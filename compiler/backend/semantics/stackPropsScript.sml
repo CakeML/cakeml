@@ -12,7 +12,7 @@ Theorem case_eq_thms =
   (pair_case_eq::
    bool_case_eq::
    map (TypeBase.case_eq_of)
-        [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``, ``:binop``,
+        [``:'a option``,``:'a list``,``:'a word_loc``,``:inst``, ``:binop``,
          ``:reg_imm`` ,``:arith``,``:addr``,``:memop``,``:'a result``,
          ``:'a ffi_result``])
     |> LIST_CONJ
@@ -809,7 +809,7 @@ End
 
 (* asm_ok out of stack_names *)
 Definition stack_asm_ok_def:
-  (stack_asm_ok c ((Inst i):'a stackLang$prog) ⇔ asm$inst_ok i c) ∧
+  (stack_asm_ok c ((Inst i):stackLang$prog) ⇔ asm$inst_ok i c) ∧
   (stack_asm_ok c (ShMemOp op r ad) ⇔ reg_ok r c ∧ addr_ok op ad c) ∧
   (stack_asm_ok c (Seq p1 p2) ⇔ stack_asm_ok c p1 ∧ stack_asm_ok c p2) ∧
   (stack_asm_ok c (If cmp n r p p') ⇔ stack_asm_ok c p ∧ stack_asm_ok c p') ∧
@@ -840,12 +840,12 @@ Definition reg_imm_name_def:
 End
 
 Definition arith_name_def:
-  (arith_name (Binop b r1 r2 ri) (c:'a asm_config) ⇔
+  (arith_name (Binop b r1 r2 ri) (c:asm_config) ⇔
     (c.two_reg_arith ⇒ r1 = r2 ∨ b = Or ∧ ri = Reg r2) ∧ reg_name r1 c ∧
     reg_name r2 c ∧ reg_imm_name (INL b) ri c) ∧
   (arith_name (Shift l r1 r2 (Imm i)) c ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
-    (i = 0 ⇒ l = Lsl) ∧ 0 ≤ i ∧ i < &dimindex (:α)) ∧
+    (i = 0 ⇒ l = Lsl) ∧ 0 ≤ i ∧ i < &isa_bits c) ∧
   (arith_name (Shift l r1 r2 (Reg r3)) c ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧
      reg_name r2 c ∧ reg_name r3 c ∧ (c.ISA = x86_64 ⇒ r3 = 4)) ∧
@@ -905,11 +905,11 @@ Definition fp_name_def:
       2 < c.fp_reg_count /\
       fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
   (fp_name (FPMov d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
-  (fp_name (FPMovToReg r1 r2 d) (c : 'a asm_config) <=>
-      reg_name r1 c /\ ((dimindex(:'a) = 32) ==> r1 <> r2 /\ reg_name r2 c) /\
+  (fp_name (FPMovToReg r1 r2 d) (c : asm_config) <=>
+      reg_name r1 c /\ ((isa_bits c = 32) ==> r1 <> r2 /\ reg_name r2 c) /\
       fp_reg_ok d c) /\
-  (fp_name (FPMovFromReg d r1 r2) (c : 'a asm_config) <=>
-      reg_name r1 c /\ ((dimindex(:'a) = 32) ==> r1 <> r2 /\ reg_name r2 c) /\
+  (fp_name (FPMovFromReg d r1 r2) (c : asm_config) <=>
+      reg_name r1 c /\ ((isa_bits c = 32) ==> r1 <> r2 /\ reg_name r2 c) /\
       fp_reg_ok d c) /\
   (fp_name (FPToInt d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
   (fp_name (FPFromInt d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c)
@@ -926,7 +926,7 @@ Definition addr_name_def:
 End
 
 Definition inst_name_def:
-  (inst_name (c:'a asm_config) (Const r (w:'a word)) ⇔ reg_name r c) ∧
+  (inst_name (c:asm_config) (Const r w) ⇔ reg_name r c) ∧
   (inst_name c (Mem m r a) ⇔ reg_name r c ∧ addr_name m a c) ∧
   (inst_name c (Arith x) ⇔ arith_name x c) ∧
   (inst_name c (FP f) ⇔ fp_name f c) ∧
@@ -934,7 +934,7 @@ Definition inst_name_def:
 End
 
 Definition stack_asm_name_def:
-  (stack_asm_name c ((Inst i):'a stackLang$prog) ⇔ inst_name c i) ∧
+  (stack_asm_name c ((Inst i):stackLang$prog) ⇔ inst_name c i) ∧
   (stack_asm_name c (OpCurrHeap b r1 r2) ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c) ∧
   (stack_asm_name c (ShMemOp op r a) ⇔ reg_name r c ∧ addr_name op a c) ∧
@@ -965,7 +965,7 @@ Definition fixed_names_def:
 End
 
 Definition stack_asm_remove_def:
-  (stack_asm_remove c ((Get n s):'a stackLang$prog) ⇔ reg_name n c) ∧
+  (stack_asm_remove c ((Get n s):stackLang$prog) ⇔ reg_name n c) ∧
   (stack_asm_remove c (OpCurrHeap binop v src) ⇔ reg_name v c ∧ reg_name src c) ∧
   (stack_asm_remove c (Set s n) ⇔ reg_name n c) ∧
   (stack_asm_remove c (StackStore n n0) ⇔ reg_name n c) ∧
@@ -1000,9 +1000,9 @@ End
 
 Definition alloc_arg_def:
   (alloc_arg (Alloc v) <=> (v = 1)) /\
-  (alloc_arg ((Seq p1 p2):'a stackLang$prog) <=>
+  (alloc_arg ((Seq p1 p2):stackLang$prog) <=>
      alloc_arg p1 /\ alloc_arg p2) /\
-  (alloc_arg ((If c r ri p1 p2):'a stackLang$prog) <=>
+  (alloc_arg ((If c r ri p1 p2):stackLang$prog) <=>
      alloc_arg p1 /\ alloc_arg p2) /\
   (alloc_arg (Loop p1) <=>
      alloc_arg p1) /\
@@ -1065,9 +1065,9 @@ Definition reg_bound_def:
      v1 < k) /\
   (reg_bound (JumpLower v1 v2 dest) k <=>
      v1 < k /\ v2 < k) /\
-  (reg_bound ((Seq p1 p2):'a stackLang$prog) k <=>
+  (reg_bound ((Seq p1 p2):stackLang$prog) k <=>
      reg_bound p1 k /\ reg_bound p2 k) /\
-  (reg_bound ((If c r ri p1 p2):'a stackLang$prog) k <=>
+  (reg_bound ((If c r ri p1 p2):stackLang$prog) k <=>
      r < k /\ (case ri of Reg n => n < k | _ => T) /\
      reg_bound p1 k /\ reg_bound p2 k) /\
   (reg_bound (Loop p1) k <=>
@@ -1100,10 +1100,10 @@ End
 
 (* Finally, stack_to_lab requires correct arguments for Call/FFI/Install calls *)
 Definition call_args_def:
-  (call_args ((Seq p1 p2):'a stackLang$prog) ptr len ptr2 len2 ret <=>
+  (call_args ((Seq p1 p2):stackLang$prog) ptr len ptr2 len2 ret <=>
      call_args p1 ptr len ptr2 len2 ret /\
      call_args p2 ptr len ptr2 len2 ret) /\
-  (call_args ((If c r ri p1 p2):'a stackLang$prog) ptr len ptr2 len2 ret <=>
+  (call_args ((If c r ri p1 p2):stackLang$prog) ptr len ptr2 len2 ret <=>
      call_args p1 ptr len ptr2 len2 ret /\
      call_args p2 ptr len ptr2 len2 ret) /\
   (call_args (Loop p1) ptr len ptr2 len2 ret <=>

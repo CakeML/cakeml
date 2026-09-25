@@ -272,8 +272,8 @@ Theorem case_eq_thms =
   (pair_case_eq::
    bool_case_eq::
    map TypeBase.case_eq_of
-       [``:'a line``,``:'a option``,``:asm_with_lab``,``:'a asm_or_shmem``,
-        ``:'a asm``, ``:'a word_loc``,``:'a list``,``:'a sec``,``:'a ffi_result``])
+       [``:line``,``:'a option``,``:asm_with_lab``,``:asm_or_shmem``,
+        ``:asm``, ``:'a word_loc``,``:'a list``,``:sec``,``:'a ffi_result``])
   |> LIST_CONJ
 
 Theorem evaluate_io_events_mono:
@@ -720,7 +720,7 @@ QED
 
 Theorem asm_inst_align_dm:
    good_dimindex (:α) ⇒
-   asm_inst (i:α inst) (align_dm s) = align_dm (asm_inst i s)
+   asm_inst i (align_dm (s:(α,'c,'ffi) labSem$state)) = align_dm (asm_inst i s)
 Proof
   Cases_on`i` \\ simp[asm_inst_def,mem_op_align_dm]
 QED
@@ -1024,7 +1024,7 @@ Proof
 QED
 
 Theorem asm_inst_align_sdm:
-   asm_inst (i:α inst) (align_sdm s) = align_sdm (asm_inst i s)
+   asm_inst (i:inst) (align_sdm s) = align_sdm (asm_inst i s)
 Proof
   Cases_on`i` \\ simp[asm_inst_def,mem_op_align_sdm]
 QED
@@ -1254,7 +1254,7 @@ QED
 
 (* asm_ok checks coming into lab_to_target *)
 Definition line_ok_pre_def:
-  (line_ok_pre (c:'a asm_config) (Asm b bytes l) ⇔ asm_ok (compile_shmem b) c) ∧
+  (line_ok_pre (c:asm_config) (Asm b bytes l) ⇔ asm_ok (compile_shmem b) c) ∧
   (line_ok_pre c _ ⇔ T)
 End
 

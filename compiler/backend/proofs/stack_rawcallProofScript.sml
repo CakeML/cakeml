@@ -18,7 +18,7 @@ val isWord_def = wordSemTheory.isWord_def;
 Overload good_dimindex[local] = ``misc$good_dimindex``
 Overload comp[local] = ``stack_rawcall$comp``
 Overload compile[local] = ``stack_rawcall$compile``
-Type prog[pp] = “:α stackLang$prog”
+Type prog[pp] = “:stackLang$prog”
 
 Definition state_ok_def:
   state_ok i code <=>

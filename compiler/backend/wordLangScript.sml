@@ -96,32 +96,32 @@ Definition every_var_imm_def:
 End
 
 Definition every_var_inst_def:
-  (every_var_inst (:'a) P (Const reg w) = P reg) ∧
-  (every_var_inst (:'a) P (Arith (Binop bop r1 r2 ri)) =
+  (every_var_inst (bits:num) P (Const reg w) = P reg) ∧
+  (every_var_inst bits P (Arith (Binop bop r1 r2 ri)) =
     (P r1 ∧ P r2 ∧ every_var_imm P ri)) ∧
-  (every_var_inst (:'a) P (Arith (Shift shift r1 r2 ri)) = (P r1 ∧ P r2 ∧ every_var_imm P ri)) ∧
-  (every_var_inst (:'a) P (Arith (Div r1 r2 r3)) = (P r1 ∧ P r2 ∧ P r3)) ∧
-  (every_var_inst (:'a) P (Arith (AddCarry r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
-  (every_var_inst (:'a) P (Arith (AddOverflow r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
-  (every_var_inst (:'a) P (Arith (SubOverflow r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
-  (every_var_inst (:'a) P (Arith (LongMul r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
-  (every_var_inst (:'a) P (Arith (LongDiv r1 r2 r3 r4 r5)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4 ∧ P r5)) ∧
-  (every_var_inst (:'a) P (Mem Load r (Addr a w)) = (P r ∧ P a)) ∧
-  (every_var_inst (:'a) P (Mem Store r (Addr a w)) = (P r ∧ P a)) ∧
-  (every_var_inst (:'a) P (Mem Load32 r (Addr a w)) = (P r ∧ P a)) ∧
-  (every_var_inst (:'a) P (Mem Store32 r (Addr a w)) = (P r ∧ P a)) ∧
-  (every_var_inst (:'a) P (Mem Load8 r (Addr a w)) = (P r ∧ P a)) ∧
-  (every_var_inst (:'a) P (Mem Store8 r (Addr a w)) = (P r ∧ P a)) ∧
-  (every_var_inst (:'a) P (FP (FPLess r d1 d2)) = P r) ∧
-  (every_var_inst (:'a) P (FP (FPLessEqual r d1 d2)) = P r) ∧
-  (every_var_inst (:'a) P (FP (FPEqual r d1 d2)) = P r) ∧
-  (every_var_inst (:'a) P (FP (FPMovToReg r1 r2 d):inst) =
-    if dimindex(:'a) = 64 then P r1
+  (every_var_inst bits P (Arith (Shift shift r1 r2 ri)) = (P r1 ∧ P r2 ∧ every_var_imm P ri)) ∧
+  (every_var_inst bits P (Arith (Div r1 r2 r3)) = (P r1 ∧ P r2 ∧ P r3)) ∧
+  (every_var_inst bits P (Arith (AddCarry r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
+  (every_var_inst bits P (Arith (AddOverflow r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
+  (every_var_inst bits P (Arith (SubOverflow r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
+  (every_var_inst bits P (Arith (LongMul r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
+  (every_var_inst bits P (Arith (LongDiv r1 r2 r3 r4 r5)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4 ∧ P r5)) ∧
+  (every_var_inst bits P (Mem Load r (Addr a w)) = (P r ∧ P a)) ∧
+  (every_var_inst bits P (Mem Store r (Addr a w)) = (P r ∧ P a)) ∧
+  (every_var_inst bits P (Mem Load32 r (Addr a w)) = (P r ∧ P a)) ∧
+  (every_var_inst bits P (Mem Store32 r (Addr a w)) = (P r ∧ P a)) ∧
+  (every_var_inst bits P (Mem Load8 r (Addr a w)) = (P r ∧ P a)) ∧
+  (every_var_inst bits P (Mem Store8 r (Addr a w)) = (P r ∧ P a)) ∧
+  (every_var_inst bits P (FP (FPLess r d1 d2)) = P r) ∧
+  (every_var_inst bits P (FP (FPLessEqual r d1 d2)) = P r) ∧
+  (every_var_inst bits P (FP (FPEqual r d1 d2)) = P r) ∧
+  (every_var_inst bits P (FP (FPMovToReg r1 r2 d):inst) =
+    if bits = 64 then P r1
     else (P r1 ∧ P r2)) ∧
-  (every_var_inst (:'a) P (FP (FPMovFromReg d r1 r2)) =
-    if dimindex(:'a) = 64 then P r1
+  (every_var_inst bits P (FP (FPMovFromReg d r1 r2)) =
+    if bits = 64 then P r1
     else (P r1 ∧ P r2)) ∧
-  (every_var_inst (:'a) P inst = T)
+  (every_var_inst bits P inst = T)
 End (*catchall*)
 
 Definition every_name_def:
@@ -133,7 +133,7 @@ End
 Definition every_var_def:
   (every_var P (Skip:'a prog) ⇔ T) ∧
   (every_var P (Move pri ls) = (EVERY P (MAP FST ls) ∧ EVERY P (MAP SND ls))) ∧
-  (every_var P (Inst i) = every_var_inst (:'a) P i) ∧
+  (every_var P (Inst i) = every_var_inst (dimindex (:'a)) P i) ∧
   (every_var P (Assign num exp) = (P num ∧ every_var_exp P exp)) ∧
   (every_var P (Get num store) = P num) ∧
   (every_var P (Store exp num) = (P num ∧ every_var_exp P exp)) ∧
@@ -214,34 +214,34 @@ Definition max_var_exp_def:
 End
 
 Definition max_var_inst_def:
-  (max_var_inst (:'a) Skip = 0) ∧
-  (max_var_inst (:'a) (Const reg w) = reg) ∧
-  (max_var_inst (:'a) (Arith (Binop bop r1 r2 ri)) =
+  (max_var_inst (bits:num) Skip = 0) ∧
+  (max_var_inst bits (Const reg w) = reg) ∧
+  (max_var_inst bits (Arith (Binop bop r1 r2 ri)) =
     case ri of Reg r => max3 r1 r2 r | _ => MAX r1 r2) ∧
-  (max_var_inst (:'a) (Arith (Shift shift r1 r2 n)) =
+  (max_var_inst bits (Arith (Shift shift r1 r2 n)) =
     case n  of Reg r => max3 r1 r2 r | _ => MAX r1 r2) ∧
-  (max_var_inst (:'a) (Arith (Div r1 r2 r3)) = max3 r1 r2 r3) ∧
-  (max_var_inst (:'a) (Arith (AddCarry r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
-  (max_var_inst (:'a) (Arith (AddOverflow r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
-  (max_var_inst (:'a) (Arith (SubOverflow r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
-  (max_var_inst (:'a) (Arith (LongMul r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
-  (max_var_inst (:'a) (Arith (LongDiv r1 r2 r3 r4 r5)) = MAX (MAX (MAX r1 r2) (MAX r3 r4)) r5) ∧
-  (max_var_inst (:'a) (Mem Load r (Addr a w)) = MAX a r) ∧
-  (max_var_inst (:'a) (Mem Store r (Addr a w)) = MAX a r) ∧
-  (max_var_inst (:'a) (Mem Load32 r (Addr a w)) = MAX a r) ∧
-  (max_var_inst (:'a) (Mem Store32 r (Addr a w)) = MAX a r) ∧
-  (max_var_inst (:'a) (Mem Load8 r (Addr a w)) = MAX a r) ∧
-  (max_var_inst (:'a) (Mem Store8 r (Addr a w)) = MAX a r) ∧
-  (max_var_inst (:'a) (FP (FPLess r f1 f2)) = r) ∧
-  (max_var_inst (:'a) (FP (FPLessEqual r f1 f2)) = r) ∧
-  (max_var_inst (:'a) (FP (FPEqual r f1 f2)) = r) ∧
-  (max_var_inst (:'a) (FP (FPMovToReg r1 r2 d):inst) =
-    if dimindex(:'a) = 64 then r1
+  (max_var_inst bits (Arith (Div r1 r2 r3)) = max3 r1 r2 r3) ∧
+  (max_var_inst bits (Arith (AddCarry r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
+  (max_var_inst bits (Arith (AddOverflow r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
+  (max_var_inst bits (Arith (SubOverflow r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
+  (max_var_inst bits (Arith (LongMul r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
+  (max_var_inst bits (Arith (LongDiv r1 r2 r3 r4 r5)) = MAX (MAX (MAX r1 r2) (MAX r3 r4)) r5) ∧
+  (max_var_inst bits (Mem Load r (Addr a w)) = MAX a r) ∧
+  (max_var_inst bits (Mem Store r (Addr a w)) = MAX a r) ∧
+  (max_var_inst bits (Mem Load32 r (Addr a w)) = MAX a r) ∧
+  (max_var_inst bits (Mem Store32 r (Addr a w)) = MAX a r) ∧
+  (max_var_inst bits (Mem Load8 r (Addr a w)) = MAX a r) ∧
+  (max_var_inst bits (Mem Store8 r (Addr a w)) = MAX a r) ∧
+  (max_var_inst bits (FP (FPLess r f1 f2)) = r) ∧
+  (max_var_inst bits (FP (FPLessEqual r f1 f2)) = r) ∧
+  (max_var_inst bits (FP (FPEqual r f1 f2)) = r) ∧
+  (max_var_inst bits (FP (FPMovToReg r1 r2 d):inst) =
+    if bits = 64 then r1
     else MAX r1 r2) ∧
-  (max_var_inst (:'a) (FP (FPMovFromReg d r1 r2)) =
-    if dimindex(:'a) = 64 then r1
+  (max_var_inst bits (FP (FPMovFromReg d r1 r2)) =
+    if bits = 64 then r1
     else MAX r1 r2) ∧
-  (max_var_inst (:'a) _ = 0)
+  (max_var_inst bits _ = 0)
 End
 
 Definition cutsets_max_def[simp]:
@@ -253,7 +253,7 @@ Definition max_var_def:
   (max_var (Skip:'a prog) = 0) ∧
   (max_var (Move pri ls) =
     MAX_LIST (MAP FST ls ++ MAP SND ls)) ∧
-  (max_var (Inst i) = max_var_inst (:'a) i) ∧
+  (max_var (Inst i) = max_var_inst (dimindex (:'a)) i) ∧
   (max_var (Assign num exp) = MAX num (max_var_exp exp)) ∧
   (max_var (Get num store) = num) ∧
   (max_var (Store exp num) = MAX num (max_var_exp exp)) ∧

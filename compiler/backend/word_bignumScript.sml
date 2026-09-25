@@ -475,7 +475,7 @@ Definition SeqIndex_def:
   SeqIndex i r arr p =
     let t = (case arr of Out => TempOut | In2 => TempIn2 | In1 => TempIn1) in
       Seq (Assign i (Op Add [Lookup t;
-           ShiftN Lsl (Lookup (Temp (n2w r))) (shift (:'a))])) p
+           ShiftN Lsl (Lookup (Temp (n2w r))) (shift (dimindex (:'a)))])) p
               :'a wordLang$prog
 End
 

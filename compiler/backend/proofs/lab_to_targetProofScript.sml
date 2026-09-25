@@ -4,8 +4,7 @@
 Theory lab_to_targetProof
 Ancestors
   ffi wordSem labSem labProps lab_to_target lab_filterProof asm
-  asmSem asmProps targetSem targetProps
-  stack_removeProof[qualified]
+  asmSem asmProps targetSem targetProps backendProps
 Libs
   preamble BasicProvers
 
@@ -93,7 +92,7 @@ QED
 val _ = temp_remove_rules_for_term"step";
 
 Definition enc_with_nop_def:
-  enc_with_nop enc (b:'a asm) bytes =
+  enc_with_nop enc (b:asm) bytes =
     let init = enc b in
     let step = enc (asm$Inst Skip) in
       if LENGTH step = 0 then bytes = init else
@@ -102,7 +101,7 @@ Definition enc_with_nop_def:
 End
 
 Theorem enc_with_nop_thm[local]:
-  enc_with_nop enc (b:'a asm) bytes =
+  enc_with_nop enc (b:asm) bytes =
       ?n. bytes = enc b ++ FLAT (REPLICATE n (enc (asm$Inst Skip)))
 Proof
   fs [enc_with_nop_def,LENGTH_NIL]
@@ -503,7 +502,7 @@ Proof
 QED
 
 Theorem code_similar_len_no_lab:
-    ∀(c1:'a labLang$prog) (c2:'a labLang$prog).
+    ∀(c1:labLang$prog) (c2:labLang$prog).
   code_similar c1 c2 ⇒
   MAP (len_no_lab ∘ Section_lines) c1 =
   MAP (len_no_lab ∘ Section_lines) c2
@@ -539,21 +538,21 @@ Definition word_loc_val_byte_def:
 End
 
 Definition line_ok_def:
-  (line_ok (c:'a asm_config) labs ffis pos (Label _ _ l) <=>
+  (line_ok (c:asm_config) labs ffis pos (Label _ _ l) <=>
      EVEN pos /\ (l = 0)) /\
   (line_ok c labs ffis pos (Asm b bytes l) <=>
      enc_with_nop c.encode (compile_shmem b) bytes /\
      (LENGTH bytes = l) /\ asm_ok (compile_shmem b) c) /\
   (line_ok c labs ffis pos (LabAsm Halt w bytes l) <=>
-     let w1 = (0w:'a word) - n2w (pos + ffi_offset) in
+     let w1 = -& (pos + ffi_offset) in
        enc_with_nop c.encode (Jump w1) bytes /\
        (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
   (line_ok c labs ffis pos (LabAsm Install w bytes l) <=>
-     let w1 = (0w:'a word) - n2w (pos + 2 * ffi_offset) in
+     let w1 = -& (pos + 2 * ffi_offset) in
        enc_with_nop c.encode (Jump w1) bytes /\
        (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
   (line_ok c labs ffis pos (LabAsm (CallFFI index) w bytes l) <=>
-     let w1 = (0w:'a word) - n2w (pos + (3 + get_ffi_index ffis (ExtCall index)) * ffi_offset) in
+     let w1 = -& (pos + (3 + get_ffi_index ffis (ExtCall index)) * ffi_offset) in
        enc_with_nop c.encode (Jump w1) bytes /\
        (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
   (line_ok c labs ffis pos (LabAsm (Call v24) w bytes l) <=>
@@ -563,7 +562,7 @@ Definition line_ok_def:
      (case lab_lookup l1 l2 labs of
        NONE => F
      | SOME t =>
-     let w1 = n2w t- n2w pos in
+     let w1 = &t - &pos in
        enc_with_nop c.encode (lab_inst w1 a) bytes /\
        (LENGTH bytes = l) /\ asm_ok (lab_inst w1 a) c))
 End
@@ -1411,8 +1410,8 @@ Theorem IMP_bytes_in_memory_Jump[local]:
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (Jump jtarget) l bytes n)) ==>
     ?tt enc.
-      (tt = n2w (find_pos jtarget labs) -
-            n2w (pos_val s1.pc 0 code2)) /\
+      (tt = &(find_pos jtarget labs) -
+            &(pos_val s1.pc 0 code2)) /\
       (enc = mc_conf.target.config.encode (Jump tt)) /\
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         enc t1.mem t1.mem_domain /\
@@ -1439,8 +1438,8 @@ Theorem IMP_bytes_in_memory_JumpCmp[local]:
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (JumpCmp cmp rr ri jtarget) l bytes n)) ==>
     ?tt enc.
-      (tt = n2w (find_pos jtarget labs) -
-            n2w (pos_val s1.pc 0 code2)) /\
+      (tt = &(find_pos jtarget labs) -
+            &(pos_val s1.pc 0 code2)) /\
       (enc = mc_conf.target.config.encode (JumpCmp cmp rr ri tt)) /\
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         enc t1.mem t1.mem_domain /\
@@ -1467,8 +1466,8 @@ Theorem IMP_bytes_in_memory_JumpCmp_1[local]:
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (JumpCmp cmp rr ri jtarget) l bytes n)) ==>
     ?tt bytes.
-      (tt = n2w (find_pos jtarget labs) -
-            n2w (pos_val s1.pc 0 code2)) /\
+      (tt = &(find_pos jtarget labs) -
+            &(pos_val s1.pc 0 code2)) /\
       enc_with_nop mc_conf.target.config.encode (JumpCmp cmp rr ri tt) bytes /\
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         bytes t1.mem t1.mem_domain /\
@@ -1512,8 +1511,8 @@ Theorem IMP_bytes_in_memory_LocValue[local]:
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (LocValue reg (Lab l1 l2)) l bytes n)) ==>
     ?tt bytes.
-      (tt = n2w (find_pos (Lab l1 l2) labs) -
-            n2w (pos_val s1.pc 0 code2)) /\
+      (tt = &(find_pos (Lab l1 l2) labs) -
+            &(pos_val s1.pc 0 code2)) /\
       enc_with_nop mc_conf.target.config.encode (Loc reg tt) bytes /\
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         bytes t1.mem t1.mem_domain /\
@@ -1570,7 +1569,7 @@ Theorem IMP_bytes_in_memory_CallFFI[local]:
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (CallFFI name) l bytes n)) ==>
     ?tt enc.
-      (tt = 0w - n2w (pos_val s1.pc 0 code2 + (3 + get_ffi_index ffi_names (ExtCall name)) * ffi_offset)) /\
+      (tt = -&(pos_val s1.pc 0 code2 + (3 + get_ffi_index ffi_names (ExtCall name)) * ffi_offset)) /\
       (enc = mc_conf.target.config.encode (Jump tt)) /\
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         enc t1.mem t1.mem_domain /\
@@ -1595,7 +1594,7 @@ Theorem IMP_bytes_in_memory_Halt[local]:
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm Halt l bytes n)) ==>
     ?tt enc.
-      (tt = 0w - n2w (pos_val s1.pc 0 code2 + ffi_offset)) /\
+      (tt = -&(pos_val s1.pc 0 code2 + ffi_offset)) /\
       (enc = mc_conf.target.config.encode (Jump tt)) /\
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         enc t1.mem t1.mem_domain /\
@@ -1620,7 +1619,7 @@ Theorem IMP_bytes_in_memory_Install[local]:
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm Install c l n)) ==>
     ?tt enc.
-      (tt = 0w - n2w (pos_val s1.pc 0 code2 + 2 * ffi_offset)) /\
+      (tt = -&(pos_val s1.pc 0 code2 + 2 * ffi_offset)) /\
       (enc = mc_conf.target.config.encode (Jump tt)) /\
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         enc t1.mem t1.mem_domain /\
@@ -3903,25 +3902,25 @@ Definition line_encd_def:
   (line_encd enc labs ffis pos (Asm b bytes len) ⇔
     enc (compile_shmem b) = bytes ∧ len = LENGTH bytes) ∧
   (line_encd enc labs ffis pos (LabAsm Halt _ bytes len) ⇔
-    enc (Jump (-n2w (pos + ffi_offset))) = bytes ∧
+    enc (Jump (-& (pos + ffi_offset))) = bytes ∧
     LENGTH bytes ≤ len) ∧
   (line_encd enc labs ffis pos (LabAsm Install _ bytes len) ⇔
-    enc (Jump (-n2w (pos + 2 * ffi_offset))) = bytes ∧
+    enc (Jump (-& (pos + 2 * ffi_offset))) = bytes ∧
     LENGTH bytes ≤ len) ∧
   (line_encd enc labs ffis pos (LabAsm (CallFFI s) _ bytes len) ⇔
-    enc (Jump (-n2w (pos + (get_ffi_index ffis (ExtCall s) + 3) * ffi_offset))) = bytes ∧
+    enc (Jump (-& (pos + (get_ffi_index ffis (ExtCall s) + 3) * ffi_offset))) = bytes ∧
     LENGTH bytes ≤ len) ∧
   (line_encd enc labs ffis pos (LabAsm (Jump l) _ bytes len) ⇔
-    enc (Jump (n2w (find_pos l labs) + -n2w pos)) = bytes ∧
+    enc (Jump (&(find_pos l labs) - &pos)) = bytes ∧
     LENGTH bytes ≤ len) ∧
   (line_encd enc labs ffis pos (LabAsm (JumpCmp a b c l) _ bytes len) ⇔
-    enc (JumpCmp a b c (n2w (find_pos l labs) + -n2w pos)) = bytes ∧
+    enc (JumpCmp a b c (&(find_pos l labs) - &pos)) = bytes ∧
     LENGTH bytes ≤ len) ∧
   (line_encd enc labs ffis pos (LabAsm (LocValue k l) _ bytes len) ⇔
-    enc (Loc k (n2w (find_pos l labs) + -n2w pos)) = bytes ∧
+    enc (Loc k (&(find_pos l labs) - &pos)) = bytes ∧
     LENGTH bytes ≤ len) ∧
   (line_encd enc labs ffis pos (LabAsm (Call l) _ bytes len) ⇔
-    enc (Call (n2w (find_pos l labs) + -n2w pos)) = bytes ∧
+    enc (Call (&(find_pos l labs) - &pos)) = bytes ∧
     LENGTH bytes ≤ len) ∧
   (line_encd enc labs ffis pos _ ⇔ T)
 End
@@ -4426,22 +4425,22 @@ Definition line_enc_with_nop_def:
   (line_enc_with_nop enc labs ffis pos (Asm b bytes len) ⇔
     enc_with_nop enc (compile_shmem b) bytes ∧ LENGTH bytes = len) ∧
   (line_enc_with_nop enc labs ffis pos (LabAsm Halt _ bytes len) ⇔
-    enc_with_nop enc (Jump (-n2w (pos + ffi_offset))) bytes ∧
+    enc_with_nop enc (Jump (-& (pos + ffi_offset))) bytes ∧
     LENGTH bytes = len) ∧
   (line_enc_with_nop enc labs ffis pos (LabAsm Install _ bytes len) ⇔
-    enc_with_nop enc (Jump (-n2w (pos + 2 * ffi_offset))) bytes ∧
+    enc_with_nop enc (Jump (-& (pos + 2 * ffi_offset))) bytes ∧
     LENGTH bytes = len) ∧
   (line_enc_with_nop enc labs ffis pos (LabAsm (CallFFI s) _ bytes len) ⇔
-    enc_with_nop enc (Jump (-n2w (pos + (get_ffi_index ffis (ExtCall s) + 3) * ffi_offset))) bytes ∧
+    enc_with_nop enc (Jump (-& (pos + (get_ffi_index ffis (ExtCall s) + 3) * ffi_offset))) bytes ∧
     LENGTH bytes = len) ∧
   (line_enc_with_nop enc labs ffis pos (LabAsm (Jump l) _ bytes len) ⇔
-    enc_with_nop enc (Jump (n2w (find_pos l labs) + -n2w pos)) bytes ∧
+    enc_with_nop enc (Jump (&(find_pos l labs) - &pos)) bytes ∧
     LENGTH bytes = len) ∧
   (line_enc_with_nop enc labs ffis pos (LabAsm (JumpCmp a b c l) _ bytes len) ⇔
-    enc_with_nop enc (JumpCmp a b c (n2w (find_pos l labs) + -n2w pos)) bytes ∧
+    enc_with_nop enc (JumpCmp a b c (&(find_pos l labs) - &pos)) bytes ∧
     LENGTH bytes = len) ∧
   (line_enc_with_nop enc labs ffis pos (LabAsm (LocValue k l) _ bytes len) ⇔
-    enc_with_nop enc (Loc k (n2w (find_pos l labs) + -n2w pos)) bytes ∧
+    enc_with_nop enc (Loc k (&(find_pos l labs) - &pos)) bytes ∧
     LENGTH bytes = len) ∧
   (line_enc_with_nop enc labs ffis pos (LabAsm _ _ bytes len) ⇔ LENGTH bytes = len) ∧
   (line_enc_with_nop enc labs ffis pos (Label _ _ len) ⇔ len = 0)
@@ -6994,7 +6993,7 @@ QED
 Theorem asm_fetch_aux_pos_val_SUC:
 !pc p code2 p'.
   all_enc_ok c labs ffi p' code2 /\
-  asm_fetch_aux pc (code2: 'a sec list) = SOME line ==>
+  asm_fetch_aux pc (code2: sec list) = SOME line ==>
   LENGTH (line_bytes line) + pos_val pc p code2 = pos_val (pc+1) p code2
 Proof
   ho_match_mp_tac pos_val_ind >>
@@ -7010,7 +7009,7 @@ Proof
 QED
 
 Theorem pos_val_asm_fetch_aux_distinct:
-  all_enc_ok c labs ffis p' (code2: 'a sec list) /\
+  all_enc_ok c labs ffis p' (code2: sec list) /\
   enc_ok c /\
   asm_fetch_aux pc code2 = SOME line /\
   a < LENGTH (line_bytes line) /\
@@ -7965,6 +7964,21 @@ Resume compile_correct[ShareMemOp]:
   metis_tac[word_loc_val_def]
 QED
 
+Theorem i2w_sub_nat[local,simp]:
+  (i2w (&m - &n):'a word) = n2w m - n2w n
+Proof
+  rw [integerTheory.int_sub,GSYM integer_wordTheory.word_i2w_add,
+      GSYM integer_wordTheory.MULT_MINUS_ONE,integer_wordTheory.i2w_pos]
+  \\ metis_tac [WORD_NEG_MUL]
+QED
+
+Theorem i2w_neg_nat[local,simp]:
+  (i2w (-&n):'a word) = -n2w n
+Proof
+  rw [GSYM integer_wordTheory.MULT_MINUS_ONE,integer_wordTheory.i2w_pos]
+  \\ metis_tac [WORD_NEG_MUL]
+QED
+
 Resume compile_correct[Jump]:
 (* Jump *)
   say "Jump"
@@ -7996,8 +8010,8 @@ Resume compile_correct[Jump]:
     \\ `LENGTH
           ((mc_conf.target.config.encode
             (Jump
-               (n2w (find_pos jtarget labs) +
-                -n2w (pos_val s1.pc 0 code2)))))
+               (&(find_pos jtarget labs) -
+                &(pos_val s1.pc 0 code2)))))
         <= LENGTH (line_bytes j)` suffices_by
       metis_tac[ffi_entry_pcs_disjoint_LENGTH_shorter]
     \\ Cases_on `j`
@@ -8483,7 +8497,7 @@ Resume compile_correct[CallFFI]:
        `shift_interfer l' mc_conf with
         ffi_interfer := shift_seq 1 mc_conf.ffi_interfer`,
        `code2`,`labs`,
-       `t1 with <| pc := p + n2w (pos_val new_pc 0 (code2:'a sec list)) ;
+       `t1 with <| pc := p + n2w (pos_val new_pc 0 (code2:sec list)) ;
                    mem := asm_write_bytearray c2' new_bytes t1.mem ;
                    regs := \a. get_reg_value (s1.io_regs 0 (ExtCall s) a) (t1.regs a) I ;
                    fp_regs := \n. s1.io_fp_regs 0 n |>`,
@@ -8755,6 +8769,7 @@ QED
 Resume compile_correct[Install]:
 (* Install *)
   say "Install" >>
+  qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm Install c l n)` >>
   qpat_x_assum`_ =(res,s2)` mp_tac >>
   ntac 4 (TOP_CASE_TAC >> fs[])>>
   pairarg_tac \\ fs[] \\
@@ -9624,7 +9639,7 @@ Proof
 QED
 
 Definition line_to_info_def:
-  line_to_info (secs: 'a sec list) p x = case SND x of
+  line_to_info (secs: sec list) p x = case SND x of
     SOME (Asm (ShareMem m r ad) bytes l) =>
       let (name,nb) = get_memop_info m in
       [(SharedMem name,
@@ -9762,7 +9777,7 @@ Proof
 QED
 
 Theorem MEM_get_shmem_info:
-  all_enc_ok c labs ffis p' (code2: 'a sec list) /\
+  all_enc_ok c labs ffis p' (code2: sec list) /\
   asm_fetch_aux pc code2 = SOME (Asm (ShareMem op re a) inst' len) /\
   get_memop_info op = (q,r:word8) ==>
   MEM
@@ -9795,7 +9810,7 @@ QED
 Theorem get_shmem_info_ALL_DISTINCT:
   LENGTH (prog_to_bytes code2) < dimword (:'a) /\
   enc_ok c /\
-  all_enc_ok c labs ffis p' (code2: 'a sec list) ==>
+  all_enc_ok c labs ffis p' (code2: sec list) ==>
   ALL_DISTINCT (MAP (\rec. rec.entry_pc) $ SND $ get_shmem_info code2 p [] [])
 Proof
   rw[] >>
@@ -9834,7 +9849,7 @@ Proof
 QED
 
 Theorem get_shmem_info_EMPTY_LENGTH_EQ:
-  all_enc_ok c labs ffis p' (code2: 'a sec list) ==>
+  all_enc_ok c labs ffis p' (code2: sec list) ==>
   LENGTH (FST (get_shmem_info code2 p [] [])) =
     LENGTH (SND (get_shmem_info code2 p [] []))
 Proof
@@ -9886,7 +9901,7 @@ Proof
 QED
 
 Theorem mmio_pcs_min_index_get_shmem_info_ok:
-  all_enc_ok c labs ffis' p' (code2: 'a sec list) /\
+  all_enc_ok c labs ffis' p' (code2: sec list) /\
   enc_ok c /\ EVERY (λx. ∃s. x = ExtCall s) ffis ∧
   get_shmem_info code2 p ffis [] = (new_ffi_names, new_shmem_info) ==>
   mmio_pcs_min_index new_ffi_names = SOME $ LENGTH ffis
@@ -9901,7 +9916,7 @@ Proof
 QED
 
 Theorem get_shmem_info_ok_lemma:
-  all_enc_ok c labs ffis' p' (code2: 'a sec list) /\
+  all_enc_ok c labs ffis' p' (code2: sec list) /\
   enc_ok c /\
   LENGTH (prog_to_bytes code2) < dimword (:'a) /\
   EVERY (λx. ∃s. x = ExtCall s) ffis ∧
@@ -9996,7 +10011,7 @@ Theorem asm_fetch_NOT_ffi_entry_pcs:
   LENGTH (prog_to_bytes code2) < dimword (:'a) /\
   mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
   LENGTH mc_conf.ffi_names = LENGTH mc_conf.ffi_entry_pcs /\
-  all_enc_ok mc_conf.target.config labs ffi_names 0 (code2:'a sec list) /\
+  all_enc_ok mc_conf.target.config labs ffi_names 0 (code2:sec list) /\
   enc_ok mc_conf.target.config /\
   (∀index.
     index < i ⇒
@@ -10116,7 +10131,7 @@ QED
 
 (* This is set up for the very first compile call *)
 Theorem IMP_state_rel_make_init[local]:
-  good_code mc_conf.target.config LN (code: 'a sec list) ∧
+  good_code mc_conf.target.config LN (code: sec list) ∧
    mc_conf_ok mc_conf ∧
    (no_share_mem_inst code ==>
      compiler_oracle_ok coracle labs (LENGTH (prog_to_bytes code2)) mc_conf.target.config mc_conf.ffi_names) ∧
@@ -10516,7 +10531,7 @@ Theorem semantics_make_init =
   |> Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).target.get_pc ms`
   |> Q.SPEC `make_init (mc_conf: ('a,'state,'b) machine_config)
        ffi t m dm sdm (ms:'state) code
-       (compile_lab mc_conf.target.config) (mc_conf.target.get_pc ms + (n2w (LENGTH (prog_to_bytes (code2:'a labLang$prog)))))
+       (compile_lab mc_conf.target.config) (mc_conf.target.get_pc ms + (n2w (LENGTH (prog_to_bytes (code2:labLang$prog)))))
        cbspace coracle`
   |> SIMP_RULE std_ss [make_init_simp]
   |> MATCH_MP (MATCH_MP IMP_LEMMA IMP_state_rel_make_init)
@@ -10996,9 +11011,9 @@ QED
 *)
 
 Theorem semantics_compile_lemma'[local]:
-  mc_conf_ok mc_conf ∧
+  mc_conf_ok (mc_conf:('a,'state,'b) machine_config) ∧
   (no_share_mem_inst code ==>
-    compiler_oracle_ok coracle c'.labels (LENGTH bytes) (asm_conf:'a asm_config) mc_conf.ffi_names) ∧
+    compiler_oracle_ok coracle c'.labels (LENGTH bytes) (asm_conf:asm_config) mc_conf.ffi_names) ∧
   (* Assumptions on input code *)
   good_code mc_conf.target.config LN code ∧
   (* Config state *)
@@ -11186,7 +11201,7 @@ QED
 (*
 Theorem start_pc_ok_not_vacuous_lemma:
   LENGTH  <= LENGTH mc_conf.ffi_entry_pcs /\
-  compile c (code: 'a sec list) = SOME (bytes,c') ∧
+  compile c (code: sec list) = SOME (bytes,c') ∧
   c'.ffi_names = SOME mc_conf.ffi_names /\
   MAP (\rec. rec.entry_pc + mc_conf.target.get_pc ms) c'.shmem_extra =
     DROP (LENGTH old_ffi_names) mc_conf.ffi_entry_pcs /\
@@ -11231,13 +11246,13 @@ QED
 *)
 
 Theorem semantics_compile:
-  mc_conf_ok mc_conf ∧
+  mc_conf_ok (mc_conf:('a,'state,'b) machine_config) ∧
   (no_share_mem_inst code ==>
     compiler_oracle_ok coracle c'.labels (LENGTH bytes) asm_conf mc_conf.ffi_names) ∧
   good_code asm_conf c.labels code ∧
   asm_conf = mc_conf.target.config ∧
   c.labels = LN ∧ c.pos = 0 ∧
-  compile asm_conf c (code: 'a sec list) = SOME (bytes,c') ∧
+  compile asm_conf c (code: sec list) = SOME (bytes,c') ∧
   c'.ffi_names = SOME mc_conf.ffi_names /\
   good_init_state mc_conf ms bytes cbspace t m dm sdm /\
   mmio_pcs_min_index mc_conf.ffi_names = SOME i /\

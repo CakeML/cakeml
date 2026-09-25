@@ -688,11 +688,9 @@ Proof
   EVAL_TAC
 QED
 
-(* Concrete word type: the load-fact keys compare distinct offsets, which is
-   only decidable at a fixed word width. *)
 Theorem test_pattern_match_and_cons[local]:
   word_common_subexp_elim $
-    Seqs [Inst (Arith (Shift Lsr 301 297 (Imm 9)) : 64 inst);
+    Seqs [Inst (Arith (Shift Lsr 301 297 (Imm 9)));
           OpCurrHeap Add 305 301;
           Inst (Mem Load 309 (Addr 305 8));
           Move 0 [(313,297)];
@@ -788,7 +786,7 @@ QED
    facts. *)
 Theorem test_load_cse[local]:
   word_common_subexp_elim $
-    Seqs [Inst (Mem Load 9 (Addr 7 0) : 64 inst);
+    Seqs [Inst (Mem Load 9 (Addr 7 0));
           Inst (Arith (Shift Lsr 11 9 (Imm 29)));
           Inst (Mem Load 13 (Addr 7 0));
           Inst (Arith (Shift Lsr 15 13 (Imm 29)));

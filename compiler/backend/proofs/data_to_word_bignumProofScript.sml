@@ -95,7 +95,7 @@ QED
 
 Theorem i2mw_small_int_IMP_0:
    (∀v1. i2mw v ≠ (F,[v1:'a word])) /\ (∀v1. i2mw v ≠ (T,[v1:'a word])) /\
-    small_int (:α) v /\ good_dimindex (:'a) ==> v = 0
+    small_int (dimindex (:α)) v /\ good_dimindex (:'a) ==> v = 0
 Proof
   CCONTR_TAC \\ fs [] \\ Cases_on `v` \\ fs []
   \\ fs [multiwordTheory.i2mw_def,small_int_def]
@@ -109,7 +109,7 @@ Proof
 QED
 
 Theorem state_rel_Number_small_int:
-   state_rel c r1 r2 s t (SOME [x]) locs /\ small_int (:'a) i ==>
+   state_rel c r1 r2 s t (SOME [x]) locs /\ small_int (dimindex (:'a)) i ==>
     state_rel c r1 r2 s t (SOME [(Number i,Word (Smallnum i:'a word))]) locs
 Proof
   fs [state_rel_thm] \\ rw[]
@@ -588,12 +588,12 @@ Theorem AnyHeader_thm:
                  (set_store (Temp t2) (Word a2)
                  (set_store (Temp t3) (Word a3) (set_var 7 temp t))))) /\
         (i = 0i ==>
-           small_int (:'a) 0i /\ i2mw i = (F,[]) /\
+           small_int (dimindex (:'a)) 0i /\ i2mw i = (F,[]) /\
            a2 = 0w /\ a3 = 0w) /\
-        (small_int (:'a) i /\ i <> 0 ==>
+        (small_int (dimindex (:'a)) i /\ i <> 0 ==>
            i2mw i = (i < 0,[a3]) /\
            FLOOKUP t.store (if a then OtherHeap else NextFree) = SOME (Word a2)) /\
-        (~small_int (:'a) i ==>
+        (~small_int (dimindex (:'a)) i ==>
            ?w x. get_var (adjust_var r) t = SOME (Word w) /\
                  get_real_addr c t.store w = SOME x /\
                  a2 = x + bytes_in_word)
@@ -606,20 +606,20 @@ Proof
   \\ fs [APPEND] \\ strip_tac
   \\ imp_res_tac memory_rel_any_Number_IMP
   \\ fs [] \\ fs [] \\ rveq \\ fs []
-  \\ rename1 `w ' 0 ⇔ ¬small_int (:α) i`
+  \\ rename1 `w ' 0 ⇔ ¬small_int (dimindex (:α)) i`
   \\ `(w = 0w) <=> (i = 0)` by
    (rpt_drule memory_rel_Number_const_test
     \\ disch_then (qspec_then `i` mp_tac)
     \\ fs [] \\ Cases_on `w = 0w` \\ fs [EVAL ``0w ' 0``]
     \\ rw [] \\ fs [] \\ rpt strip_tac
-    \\ fs [EVAL ``Smallnum 0``,EVAL ``small_int (:'a) 0``]
+    \\ fs [EVAL ``Smallnum 0``,EVAL ``small_int (dimindex (:'a)) 0``]
     \\ fs [small_int_def,Smallnum_def]
     \\ Cases_on `i` \\ fs []
     \\ rfs [good_dimindex_def,dimword_def]
     \\ rfs [good_dimindex_def,dimword_def])
   \\ Cases_on `i = 0` \\ fs []
   THEN1
-   (fs [EVAL ``i2mw 0``] \\ fs [EVAL ``small_int (:α) 0``]
+   (fs [EVAL ``i2mw 0``] \\ fs [EVAL ``small_int (dimindex (:α)) 0``]
     \\ fs [EVAL ``mc_header (F,[])``,dimword_def]
     \\ `0n < 2 ** dimindex (:α) DIV 4` by fs [good_dimindex_def] \\ fs []
     \\ fs [AnyHeader_def]
@@ -629,7 +629,7 @@ Proof
     \\ qexists_tac `Word 0w`
     \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs [])
   \\ fs [word_bit,word_bit_test]
-  \\ reverse (Cases_on `small_int (:'a) i`) \\ fs []
+  \\ reverse (Cases_on `small_int (dimindex (:'a)) i`) \\ fs []
   THEN1
    (fs [AnyHeader_def,eq_eval]
     \\ fs [eq_eval,list_Seq_def,wordSemTheory.set_store_def]
@@ -752,7 +752,7 @@ Proof
   \\ fs [state_rel_thm,get_var_def,wordSemTheory.get_var_def]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule (GEN_ALL memory_rel_lookup)
-  \\ Cases_on `small_int (:'a) i`
+  \\ Cases_on `small_int (dimindex (:'a)) i`
   THEN1
    (rw [] \\ simp [multiwordTheory.i2mw_def]
     \\ once_rewrite_tac [multiwordTheory.n2mw_def]
@@ -1358,7 +1358,7 @@ Proof
     \\ fs [EVAL ``MAP adjust_var [2]``]
     \\ fs [get_vars_def,wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
     \\ strip_tac
-    \\ `small_int (:α) (&op_index)` by
+    \\ `small_int (dimindex (:α)) (&op_index)` by
      (qpat_x_assum `good_dimindex (:'a)` mp_tac
       \\ qpat_x_assum `int_op _ _ _ = _` mp_tac
       \\ rpt (pop_assum kall_tac)
@@ -1565,7 +1565,7 @@ Proof
        (qunabbrev_tac `jl` \\ fs [EVAL ``i2mw 0``]
         \\ fs [word_list_def,SEP_CLAUSES,map_replicate]
         \\ strip_tac \\ asm_exists_tac \\ fs [])
-      \\ Cases_on `small_int (:'a) j` \\ fs [] THEN1
+      \\ Cases_on `small_int (dimindex (:'a)) j` \\ fs [] THEN1
        (qunabbrev_tac `my_frame`
         \\ qunabbrev_tac `t9`
         \\ qunabbrev_tac `s9` \\ fs []
@@ -1651,7 +1651,7 @@ Proof
        (qunabbrev_tac `il` \\ fs [EVAL ``i2mw 0``]
         \\ fs [word_list_def,SEP_CLAUSES,map_replicate]
         \\ strip_tac \\ asm_exists_tac \\ fs [])
-      \\ Cases_on `small_int (:'a) i` \\ fs [] THEN1
+      \\ Cases_on `small_int (dimindex (:'a)) i` \\ fs [] THEN1
        (qunabbrev_tac `my_frame`
         \\ qunabbrev_tac `t9`
         \\ qunabbrev_tac `s9` \\ fs []
@@ -1929,7 +1929,7 @@ Proof
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval,wordSemTheory.get_store_def]
   \\ qpat_x_assum ‘SOME _ = FLOOKUP s9.store NextFree’ $ assume_tac o GSYM
   \\ fs [eq_eval,wordSemTheory.get_store_def]
-  \\ Cases_on `small_int (:'a) v`
+  \\ Cases_on `small_int (dimindex (:'a)) v`
   THEN1
    (qunabbrev_tac `if_stmt` \\ fs [eq_eval]
     \\ IF_CASES_TAC THEN1
@@ -2549,10 +2549,10 @@ Proof
   \\ drule max_depth_Call_NONE
   \\ Cases_on `q' = SOME Error`
   THEN1 (fs [] \\ rw [] \\ fs [])
-  \\ disch_then (qspec_then `fromAList (stubs (:α) c)` mp_tac)
+  \\ disch_then (qspec_then `fromAList (stubs c : (num # num # α wordLang$prog) list)` mp_tac)
   \\ impl_tac THEN1
    (simp [] \\ fs [state_rel_thm,code_rel_def]
-    \\ qpat_x_assum `EVERY (λ(n,x). lookup n t.code = SOME x) (stubs (:α) c)` mp_tac
+    \\ qpat_x_assum `EVERY (λ(n,x). lookup n t.code = SOME x) (stubs c)` mp_tac
     \\ simp [subspt_lookup,lookup_fromAList]
     \\ strip_tac \\ imp_res_tac EVERY_IMP_ALOOKUP \\ fs [])
   \\ strip_tac \\ fs []

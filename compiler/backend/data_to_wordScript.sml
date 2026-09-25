@@ -107,16 +107,16 @@ Definition shift_length_def:
 End
 
 Definition conf_ok_def:
-  conf_ok (:'a) c <=>
-    shift_length c < dimindex (:α) ∧
-    shift (:α) ≤ shift_length c ∧ c.len_size ≠ 0 ∧
-    c.len_size + 7 < dimindex (:α)
+  conf_ok (bits:num) c <=>
+    shift_length c < bits ∧
+    shift bits ≤ shift_length c ∧ c.len_size ≠ 0 ∧
+    c.len_size + 7 < bits
 End
 
 Definition max_heap_limit_def:
-  max_heap_limit (:'a) c =
-    MIN (dimword (:'a) DIV 2 ** shift_length c)
-        (dimword (:'a) DIV 2 ** (shift (:'a) + 1))
+  max_heap_limit (bits:num) c =
+    MIN (2 ** bits DIV 2 ** shift_length c)
+        (2 ** bits DIV 2 ** (shift bits + 1))
 End
 
 Definition all_ones_def:
@@ -136,7 +136,7 @@ End
 
 Definition real_addr_def:
   (real_addr (conf:data_to_word$config) r): 'a wordLang$exp =
-    let k = shift (:'a) in
+    let k = shift (dimindex (:'a)) in
     let l = shift_length conf in
       if k = l ∧ conf.len_bits = 0 ∧ conf.tag_bits = 0 then
         Op Add [Lookup CurrHeap; Op Sub [Var r; Const 1w]]
@@ -352,7 +352,7 @@ Definition AllocVar_def:
   AllocVar c (limit:num) (names:num_set) =
     list_Seq [Assign 1 (ShiftN Lsr (Var 1) 1);
               If Lower 1 (Imm (&limit))
-                (Assign 1 (ShiftN Lsl (Op Add [Var 1; Const 1w]) (shift (:'a))))
+                (Assign 1 (ShiftN Lsl (Op Add [Var 1; Const 1w]) (shift (dimindex (:'a)))))
                 (Assign 1 (Const (-1w:'a word)));
               Assign 3 (Op Sub [Lookup TriggerGC; Lookup NextFree]);
               If Lower 3 (Reg 1)
@@ -399,23 +399,23 @@ Definition RefByte_code_def:
   RefByte_code c =
       let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
       let h = Op Add [ShiftN Lsr (Var 2) 1; Const bytes_in_word] in
-      let x = SmallLsr h (shift (:'a) - 1) in
-      let y = ShiftN Lsl h (dimindex (:'a) - shift (:'a) - c.len_size) in
+      let x = SmallLsr h (shift (dimindex (:'a)) - 1) in
+      let y = ShiftN Lsl h (dimindex (:'a) - shift (dimindex (:'a)) - c.len_size) in
         list_Seq
           [BignumHalt 2;
            Assign 1 x;
            AllocVar c limit (fromList [();();()]);
            (* compute length *)
-           Assign 5 (ShiftN Lsr h (shift (:'a)));
+           Assign 5 (ShiftN Lsr h (shift (dimindex (:'a))));
            Assign 7 (ShiftN Lsl (Var 5) 1);
            Assign 9 (Lookup NextFree);
            (* adjust end of heap *)
            Assign 1 (Op Add [Var 9;
-                             ShiftN Lsl (Var 5) (shift (:'a))]);
+                             ShiftN Lsl (Var 5) (shift (dimindex (:'a)))]);
            Set NextFree (Op Add [Var 1; Const bytes_in_word]);
            (* 3 := return value *)
            Assign 3 (Op Or [ShiftN Lsl (Op Sub [Var 9; Lookup CurrHeap])
-               (shift_length c − shift (:'a)); Const (1w:'a word)]);
+               (shift_length c − shift (dimindex (:'a))); Const (1w:'a word)]);
            (* compute header *)
            Assign 5 (Op Or [Op Or [y; Const 7w]; Var 6]);
            (* compute repeated byte *)
@@ -447,7 +447,7 @@ Definition Make_ptr_bits_code_def:
   Make_ptr_bits_code c tag len dest =
     list_Seq [Assign dest (Op Or
        [Const 1w; ShiftN Lsl (Op Sub [Lookup NextFree; Lookup CurrHeap])
-           (shift_length c − shift (:'a))]);
+           (shift_length c − shift (dimindex (:'a)))]);
         Maxout_bits_code c.tag_bits (1 + c.len_bits) dest tag;
         Maxout_bits_code c.len_bits 1 dest len] :'a wordLang$prog
 End
@@ -498,13 +498,13 @@ Definition RefArray_code_def:
   RefArray_code c =
         list_Seq
           [Assign 1 (ShiftN Lsl (Op Add [(ShiftN Lsr (Var 2) 1); Const 1w])
-                      (shift (:'a)));
+                      (shift (dimindex (:'a))));
            Set TriggerGC (Op Sub [Lookup TriggerGC; Var 1]);
            Assign 1 (Op Sub [Lookup EndOfHeap; Var 1]);
            Set EndOfHeap (Var 1);
            (* 3 := return value *)
            Assign 3 (Op Or [ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
-               (shift_length c − shift (:'a)); Const (1w:'a word)]);
+               (shift_length c − shift (dimindex (:'a))); Const (1w:'a word)]);
            (* compute header *)
            Assign 5 (Op Or [ShiftN Lsl (Var 2)
                               (dimindex (:'a) − c.len_size - 1);
@@ -636,9 +636,9 @@ Definition AnyArith_code_def:
                        ShiftVar Lsl 8 4]);
       Store (Var 5) 7;
       Assign 1 (Op Sub [Var 5; Lookup CurrHeap]);
-      Assign 1 (Op Or [ShiftVar Lsl 1 (shift_length c − shift (:'a)); Const 1w]);
+      Assign 1 (Op Or [ShiftVar Lsl 1 (shift_length c − shift (dimindex (:'a))); Const 1w]);
       Set NextFree (Op Add [Var 5; Const bytes_in_word;
-                            ShiftVar Lsl 6 (shift (:'a))]);
+                            ShiftVar Lsl 6 (shift (dimindex (:'a)))]);
       Return 0 [1]]:'a wordLang$prog
 End
 
@@ -679,7 +679,7 @@ Definition Install_code_def:
                 Assign 5 (Lookup CodeBuffer);
                 Assign 3 (real_addr c 4);
                 Assign 7 (ShiftN Lsr (Load (Var 3))
-                            (dimindex (:'a) - shift (:'a) - c.len_size));
+                            (dimindex (:'a) - shift (dimindex (:'a)) - c.len_size));
                 Assign 7 (Op Sub [Var 7; Const bytes_in_word]);
                 Assign 3 (Op Add [Var 3; Const bytes_in_word]);
                 Set BitmapBuffer (Var 2);
@@ -745,8 +745,8 @@ Definition Compare_code_def:
                  Assign 8 (ShiftN Lsr (Var 3) ((dimindex(:'a) − c.len_size)));
                  If Equal 1 (Reg 3) (* headers are the same *)
                    (list_Seq
-                     [Assign 2 (Op Add [Var 11;ShiftN Lsl (Var 6)(shift (:'a))]);
-                      Assign 4 (Op Add [Var 13;ShiftN Lsl (Var 6)(shift (:'a))]);
+                     [Assign 2 (Op Add [Var 11;ShiftN Lsl (Var 6)(shift (dimindex (:'a)))]);
+                      Assign 4 (Op Add [Var 13;ShiftN Lsl (Var 6)(shift (dimindex (:'a)))]);
                       If Test 1 (Imm 16)
                        (Call NONE (SOME Compare1_location) [0;6;2;4] NONE)
                        (Call NONE (SOME Compare1_location) [0;6;4;2] NONE)])
@@ -813,8 +813,8 @@ Definition Equal_code_def:
       If Equal 1 (Imm 16)
         (Seq (Assign 2 (Const 0w)) (Return 0 [2])) Skip;
       Assign 6 (ShiftVar Lsr 21 ((dimindex(:'a) − c.len_size)));
-      Assign 2 (Op Add [Var 20; ShiftVar Lsl 6 (shift (:'a))]);
-      Assign 4 (Op Add [Var 40; ShiftVar Lsl 6 (shift (:'a))]);
+      Assign 2 (Op Add [Var 20; ShiftVar Lsl 6 (shift (dimindex (:'a)))]);
+      Assign 4 (Op Add [Var 40; ShiftVar Lsl 6 (shift (dimindex (:'a)))]);
       Call NONE (SOME Compare1_location) [0;6;2;4] NONE]
 End
 
@@ -870,7 +870,7 @@ Definition Append_code_def:
              Assign 3 (Const header);
              Assign 5 (Op Sub [Lookup TriggerGC; Var 1]);
              Assign 7 (Op Or [ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                                   (shift_length c − shift (:'a));
+                                   (shift_length c − shift (dimindex (:'a)));
                               Const (1w || (small_shift_length c − 1 -- 0)
                                               (ptr_bits c 0 2))]);
              Set (Temp 2w) (Var 7);
@@ -910,7 +910,7 @@ Definition AppendLenLoop_code_def:
     If Test 2 (Imm 1)
       (list_Seq
         [Assign 1 (Op Sub [Lookup TriggerGC; Lookup NextFree]);
-         Assign 1 (Op Add [Var 4; ShiftVar Lsr 1 (shift (:'a) - 1)]);
+         Assign 1 (Op Add [Var 4; ShiftVar Lsr 1 (shift (dimindex (:'a)) - 1)]);
          Assign 4 (Lookup (Temp 0w));
          Assign 2 (Lookup (Temp 1w));
          AllocVar c (dimword (:α) DIV 8 - 1) (fromList [();()]);
@@ -989,7 +989,7 @@ Definition WriteWord64_def:
               Set NextFree (Op Add [Var 1; Const (2w * bytes_in_word)]);
               Assign (adjust_var dest)
                 (Op Or [ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                          (shift_length c − shift (:'a));
+                          (shift_length c − shift (dimindex (:'a)));
                         Const 1w])]:'a wordLang$prog
 End
 
@@ -1003,7 +1003,7 @@ Definition WriteWord64_on_32_def:
               Set NextFree (Op Add [Var 1; Const (3w * bytes_in_word)]);
               Assign (adjust_var dest)
                 (Op Or [ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                          (shift_length c − shift (:'a));
+                          (shift_length c − shift (dimindex (:'a)));
                         Const 1w])]:'a wordLang$prog
 End
 
@@ -1017,7 +1017,7 @@ Definition WriteWord32_on_32_def:
         Assign (adjust_var dest)
           (Op Or
              [ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                (shift_length c − shift (:α)); Const (1w:'a word)])]
+                (shift_length c − shift (dimindex (:α))); Const (1w:'a word)])]
 End
 
 Definition WordOp64_on_32_def:
@@ -1290,7 +1290,7 @@ val def = assign_Define `
                          StoreEach 1 (3::MAP adjust_var args) 0w;
                          Assign (adjust_var dest)
                            (Op Or [ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                                     (shift_length c − shift (:'a));
+                                     (shift_length c − shift (dimindex (:'a)));
                                    Const (1w ||
                                            (small_shift_length c − 1 -- 0)
                                               (ptr_bits c tag (LENGTH args)))]);
@@ -1358,9 +1358,9 @@ Definition lookup_mem_def:
 End
 
 Definition byte_len_def:
-  byte_len (:'a) num_bytes =
-    if dimindex (:'a) = 32 then num_bytes DIV 4 + 1
-                           else num_bytes DIV 8 + 1
+  byte_len (bits:num) num_bytes =
+    if bits = 32 then num_bytes DIV 4 + 1
+                 else num_bytes DIV 8 + 1
 End
 
 Definition make_byte_header_def:
@@ -1379,13 +1379,13 @@ End
 
 Definition make_cons_ptr_def:
   make_cons_ptr conf nf tag len =
-    Word (nf << (shift_length conf - shift (:'a)) || (1w:'a word)
+    Word (nf << (shift_length conf - shift (dimindex (:'a))) || (1w:'a word)
             || get_lowerbits conf (Word (ptr_bits conf tag len)))
 End
 
 Definition make_ptr_def:
   make_ptr conf nf tag len =
-    Word (nf << (shift_length conf - shift (:'a)) || (1w:'a word))
+    Word (nf << (shift_length conf - shift (dimindex (:'a))) || (1w:'a word))
 End
 
 Definition write_bytes_def:
@@ -1397,13 +1397,13 @@ Definition write_bytes_def:
 End
 
 Definition small_int_def:
-  small_int (:'a) i <=>
-    -&(dimword (:'a) DIV 4) <= i /\ i < &(dimword (:'a) DIV 4):int
+  small_int (bits:num) i <=>
+    -&(2 ** bits DIV 4) <= i /\ i < &(2 ** bits DIV 4):int
 End
 
 Definition part_to_words_def:
   part_to_words c m (Int i) offset =
-    (if small_int (:'a) i then SOME ((F,Word (Smallnum i)),[])
+    (if small_int (dimindex (:'a)) i then SOME ((F,Word (Smallnum i)),[])
      else let (sign,ws) = i2mw i in
             case encode_header c (if sign then 7 else 3) (LENGTH ws) of
             | NONE => NONE
@@ -1417,7 +1417,7 @@ Definition part_to_words_def:
        case encode_header c (4 * t) (LENGTH ns) of
        | NONE => NONE
        | SOME hd => SOME ((T,Word
-                              (offset ≪ (shift_length c − shift (:α)) +
+                              (offset ≪ (shift_length c − shift (dimindex (:α))) +
                                (ptr_bits c t (LENGTH ns) ‖ 1w))),
                           (F,Word hd)::(MAP (lookup_mem m) ns))) ∧
   part_to_words c m (W64 w) offset =
@@ -1432,7 +1432,7 @@ Definition part_to_words_def:
     (let bytes = MAP (n2w o ORD) (explode s) in
      let n = LENGTH bytes in
      let hd = make_byte_header c T n in
-     let k = byte_len (:α) n in
+     let k = byte_len (dimindex (:α)) n in
      let ws = write_bytes bytes (REPLICATE k 0w) c.be in
        if k < 2 ** (dimindex (:α) − 4) ∧ k < 2 ** c.len_size
        then SOME ((T,(make_ptr c offset (0w:'a word) k)),
@@ -1471,7 +1471,7 @@ val def = assign_Define `
       (list_Seq
         [Assign 1 (Lookup NextFree);
          Assign 3 (ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                    (shift_length c − shift (:'a)));
+                    (shift_length c − shift (dimindex (:'a))));
          StoreAnyConsts (adjust_var dest) 1 3 ws w],l)
       : 'a wordLang$prog # num`;
 
@@ -1497,13 +1497,13 @@ val def = assign_Define `
                    StoreEach 1 (5::MAP adjust_var rest) 0w;
                    Make_ptr_bits_code c 9 7 3;
                    Set NextFree (Op Add [Var 1; Const bytes_in_word;
-                     ShiftN Lsl (Var 7) (shift (:'a))]);
+                     ShiftN Lsl (Var 7) (shift (dimindex (:'a)))]);
                    Assign 15 (Var (adjust_var len));
                    Assign 13 (Op Add [Var 1;
                      Const (bytes_in_word * n2w (LENGTH rest + 1))]);
                    Assign 11 (Op Add [real_addr c (adjust_var old);
                      Const bytes_in_word;
-                     ShiftVar Lsl (adjust_var start) (shift (:'a) - 1)]);
+                     ShiftVar Lsl (adjust_var start) (shift (dimindex (:'a)) - 1)]);
                    If Test 15 (Reg 15) (Assign (adjust_var dest) (Var 3)) (list_Seq [
                      MustTerminate
                        (Call (SOME ([adjust_var dest],adjust_sets (get_names names),
@@ -1527,7 +1527,7 @@ val def = assign_Define `
                   StoreEach 1 (3::MAP adjust_var args) 0w;
                   Assign (adjust_var dest)
                     (Op Or [ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                              (shift_length c − shift (:'a));
+                              (shift_length c − shift (dimindex (:'a)));
                             Const 1w])],l))
       : 'a wordLang$prog # num`;
 
@@ -1549,7 +1549,7 @@ val def = assign_Define `
                   StoreEach 1 [3; adjust_var arg] 0w;
                   Assign (adjust_var dest)
                     (Op Or [ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                              (shift_length c − shift (:'a));
+                              (shift_length c − shift (dimindex (:'a)));
                             Const 1w])],l))
       : 'a wordLang$prog # num`;
 
@@ -1596,7 +1596,7 @@ End
 val def = assign_Define `
   assign_StringCmp (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) (b:bool) (cmp:ast$opb) v1 v2 =
-    (let k = (dimindex (:α) − c.len_size - shift (:'a)) in
+    (let k = (dimindex (:α) − c.len_size - shift (dimindex (:'a))) in
       list_Seq [
           Assign 1 (real_addr c (adjust_var v1)); (* address to header *)
           Assign 3 (real_addr c (adjust_var v2)); (* address to header *)
@@ -1830,7 +1830,7 @@ val def = assign_Define `
             (Assign (adjust_var dest)
                (let addr = real_addr c (adjust_var v1) in
                 let header = Load addr in
-                let k = dimindex(:'a) - shift(:'a) - c.len_size in
+                let k = dimindex(:'a) - shift (dimindex (:'a)) - c.len_size in
                 let fakelen = ShiftN Lsr header k in
                 let len = Op Sub [fakelen; Const bytes_in_word] in
                   (ShiftN Lsl len 1)),l)
@@ -2241,7 +2241,7 @@ val def = assign_Define `
       if ¬c.call_empty_ffi ∧ ffi_index = «» then (Assign (adjust_var dest) Unit,l) else
         let addr1 = real_addr c (adjust_var v1) in
         let header1 = Load addr1 in
-        let k = dimindex(:'a) - shift(:'a) - c.len_size in
+        let k = dimindex(:'a) - shift (dimindex (:'a)) - c.len_size in
         let fakelen1 = ShiftN Lsr header1 k in
         let addr2 = real_addr c (adjust_var v2) in
         let header2 = Load addr2 in
@@ -2295,13 +2295,13 @@ val def = assign_Define `
                    Assign 1 (Lookup BitmapBuffer);
                    Assign 3 (Op Sub [Lookup BitmapBufferEnd; Var 1]);
                    Assign 5 (ShiftVar Lsr (adjust_var v3) 1);
-                   Assign 3 (ShiftVar Lsr 3 (shift (:'a)));
+                   Assign 3 (ShiftVar Lsr 3 (shift (dimindex (:'a))));
                    If Lower 3 (Reg 5) (* too little data space *) GiveUp Skip;
                    Assign 1 (Lookup CodeBuffer);
                    Assign 3 (Op Sub [Lookup CodeBufferEnd; Var 1]);
                    Assign 5 (real_addr c (adjust_var v1));
                    Assign 5 (ShiftN Lsr (Load (Var 5))
-                               (dimindex (:'a) - shift (:'a) - c.len_size));
+                               (dimindex (:'a) - shift (dimindex (:'a)) - c.len_size));
                    Assign 5 (Op Sub [Var 5; Const bytes_in_word]);
                    If Lower 3 (Reg 5) (* too little code space *) GiveUp Skip;
                    Assign 1 (Lookup BitmapBuffer);
@@ -2742,7 +2742,7 @@ Definition ByteCopyNew_code_def:
 End
 
 Definition stubs_def:
-  stubs (:α) data_conf = [
+  stubs data_conf = [
     (FromList_location,4n,(FromList_code data_conf):α wordLang$prog );
     (FromList1_location,6n,FromList1_code data_conf);
     (RefByte_location,4n,RefByte_code data_conf);
@@ -2817,7 +2817,7 @@ Definition stub_names_def:
 End
 
 Theorem check_stubs_length:
-   word_num_stubs + LENGTH (stubs (:α) c) = data_num_stubs
+   word_num_stubs + LENGTH (stubs c) = data_num_stubs
 Proof
   CONV_TAC (BINOP_CONV EVAL) \\ EVAL_TAC
 QED
@@ -2833,7 +2833,7 @@ Definition compile_def:
     let data_conf =
       (data_conf with <| has_fp_ops := (1 < asm_conf.fp_reg_count);
                       has_fp_tern := (asm_conf.ISA = ARMv7 /\ 2 < asm_conf.fp_reg_count) |>) in
-    let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) prog in
+    let p = stubs data_conf ++ MAP (compile_part data_conf) prog in
       word_to_word$compile word_conf (asm_conf:asm_config) p
 End
 
@@ -2844,22 +2844,22 @@ Definition compile_0_def:
                          has_fp_tern := (asm_conf.ISA = ARMv7 /\
                                          2 < asm_conf.fp_reg_count) |>)
     in
-      stubs (:'a) data_conf ++ MAP (compile_part data_conf) prog
+      stubs data_conf ++ MAP (compile_part data_conf) prog
 End
 
 (* compute bignum call graph *)
 
 val th_FF = EVAL ``full_call_graph AnyArith_location
-       (fromAList (stubs (:'a) (data_conf with <| call_empty_ffi := F ;
+       (fromAList (stubs (data_conf with <| call_empty_ffi := F ;
                                                      has_longdiv := F |>)))``
 val th_FT = EVAL ``full_call_graph AnyArith_location
-       (fromAList (stubs (:'a) (data_conf with <| call_empty_ffi := F ;
+       (fromAList (stubs (data_conf with <| call_empty_ffi := F ;
                                                      has_longdiv := T |>)))``
 val th_TF = EVAL ``full_call_graph AnyArith_location
-       (fromAList (stubs (:'a) (data_conf with <| call_empty_ffi := T ;
+       (fromAList (stubs (data_conf with <| call_empty_ffi := T ;
                                                      has_longdiv := F |>)))``
 val th_TT = EVAL ``full_call_graph AnyArith_location
-       (fromAList (stubs (:'a) (data_conf with <| call_empty_ffi := T ;
+       (fromAList (stubs (data_conf with <| call_empty_ffi := T ;
                                                      has_longdiv := T |>)))``
 
 Definition AnyArith_call_tree_def:
@@ -2880,7 +2880,7 @@ End
 
 Theorem AnyArith_call_tree_thm:
   structure_le
-    (full_call_graph AnyArith_location (fromAList (stubs (:'a) (data_conf))))
+    (full_call_graph AnyArith_location (fromAList (stubs (data_conf))))
     AnyArith_call_tree
 Proof
   Cases_on `data_conf.call_empty_ffi`

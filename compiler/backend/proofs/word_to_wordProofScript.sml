@@ -949,7 +949,8 @@ QED
 
 (* syntax going into stackLang *)
 Theorem compile_to_word_conventions:
-  EVERY (λ(_,_,prg). no_share_inst prg ∨ ac.ISA ≠ Ag32) p ⇒
+  EVERY (λ(_,_,prg). no_share_inst prg ∨ ac.ISA ≠ Ag32)
+    (p:(num # num # 'a wordLang$prog) list) ⇒
   let (_,progs) = compile wc ac p in
   MAP FST progs = MAP FST p ∧
   EVERY2 labels_rel (MAP (extract_labels o SND o SND) p)
@@ -957,7 +958,8 @@ Theorem compile_to_word_conventions:
   EVERY (λ(n,m,prog).
     flat_exp_conventions prog ∧
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
-    (EVERY (λ(n,m,prog). every_inst (inst_ok_less ac) prog) p ∧
+    (isa_bits ac = dimindex (:'a) ∧
+     EVERY (λ(n,m,prog). every_inst (inst_ok_less ac) prog) p ∧
      addr_offset_ok ac 0 ∧ hw_offset_ok ac 0 ∧ byte_offset_ok ac 0 ⇒
       full_inst_ok_less ac prog) ∧
     (ac.two_reg_arith ⇒ every_inst two_reg_inst prog) ∧
@@ -1028,14 +1030,14 @@ Proof
   CONJ_TAC>- (
     strip_tac>>
     match_mp_tac (el 2 rmt_thms)>>
-    match_mp_tac word_alloc_full_inst_ok_less>>
+    match_mp_tac word_alloc_full_inst_ok_less>>simp[]>>
     match_mp_tac (el 2 rmd_thms)>>
     match_mp_tac full_inst_ok_less_remove_unreach>>
     match_mp_tac three_to_two_reg_prog_full_inst_ok_less >>
     irule full_inst_ok_less_copy_prop>>
     irule full_inst_ok_less_word_common_subexp_elim >>
     match_mp_tac (el 2 rmd_thms)>>
-    match_mp_tac full_ssa_cc_trans_full_inst_ok_less>>
+    match_mp_tac full_ssa_cc_trans_full_inst_ok_less>>simp[]>>
     match_mp_tac inst_select_full_inst_ok_less>>
     fs[]>>
     metis_tac[compile_exp_no_inst,MEM_EL])>>
@@ -2472,4 +2474,3 @@ Proof
     pairarg_tac>>gs[])
 )
 QED
-

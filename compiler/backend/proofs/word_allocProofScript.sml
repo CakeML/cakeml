@@ -1251,7 +1251,7 @@ Resume evaluate_apply_colour[Inst]:
   Cases_on`i`>> (TRY (Cases_on`a`))>> (TRY(Cases_on`m`))>>
   full_simp_tac(srw_ss())[get_live_def,get_live_inst_def,inst_def,assign_def,word_add_carry_def]
   >-
-  (Cases_on`word_exp st (Const c)`>>
+  (Cases_on`word_exp st (Const (i2w c))`>>
   fs[word_exp_def,set_var_def,domain_union,get_writes_def,get_writes_inst_def]>>
   match_mp_tac strong_locals_rel_insert>>
   metis_tac[INSERT_SING_UNION])
@@ -6715,11 +6715,11 @@ Proof
   Induct
   >- simp[evaluate_def, wordSemTheory.state_component_equality] >>
   rpt strip_tac >>
-  simp[evaluate_def, fake_move_def, inst_def, assign_def, word_exp_def,
+  simp[evaluate_def, fake_move_def, inst_def, assign_def, word_exp_def, integer_wordTheory.i2w_0,
        set_var_def] >>
   first_x_assum (qspec_then `cst with locals := insert h (Word 0w) cst.locals`
                             mp_tac) >>
-  simp[fake_move_def, inst_def, assign_def, word_exp_def, set_var_def] >>
+  simp[fake_move_def, inst_def, assign_def, word_exp_def, integer_wordTheory.i2w_0, set_var_def] >>
   disch_then kall_tac >>
   simp[foldr_insert_const_swap]
 QED
@@ -7847,7 +7847,7 @@ Resume ssa_cc_trans_correct[Inst]:
     fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,evaluate_def,LET_THM]
     >~[`Const`]
     >- (
-      Cases_on`word_exp st (Const c)`>>
+      Cases_on`word_exp st (Const (i2w c))`>>
       full_simp_tac(srw_ss())[set_var_def,word_exp_def]>>
       match_mp_tac ssa_locals_rel_set_var>>
       full_simp_tac(srw_ss())[every_var_inst_def,every_var_def])
@@ -10206,8 +10206,8 @@ Proof
 QED
 
 Theorem max_var_inst_max[local]:
-  ∀inst.
-    every_var_inst (λx. x ≤ max_var_inst inst) inst
+  ∀bits inst.
+    every_var_inst bits (λx. x ≤ max_var_inst bits inst) inst
 Proof
   ho_match_mp_tac max_var_inst_ind>>
   srw_tac[][every_var_inst_def,max_var_inst_def]>>
@@ -10992,7 +10992,8 @@ Proof
 QED
 
 Theorem ssa_cc_trans_full_inst_ok_less[local]:
-  ∀prog ssa na lt c.
+  ∀(prog:'a wordLang$prog) ssa na lt c.
+    isa_bits c = dimindex (:'a) ∧
     every_var (λx. x < na) prog ∧
     is_alloc_var na ∧
     ssa_map_ok na ssa ∧
@@ -11003,14 +11004,7 @@ Proof
   full_simp_tac(srw_ss())[ssa_cc_trans_def]>>srw_tac[][]>>
   unabbrev_all_tac>>
   full_simp_tac(srw_ss())[full_inst_ok_less_def]
-  >- (
-    full_simp_tac(srw_ss())[oneline ssa_cc_trans_inst_def,LET_THM,next_var_rename_def,ssa_map_ok_def,
-    AllCaseEqs()]>> rveq >>
-    full_simp_tac(srw_ss())[EQ_SYM_EQ,inst_ok_less_def,full_inst_ok_less_def,every_var_def,every_var_inst_def]>>
-    rw[]>>
-    fs[option_lookup_def]>>every_case_tac>>rw[]>>
-    pop_assum (assume_tac o SYM)>>res_tac>>
-    intLib.ARITH_TAC)
+  >- suspend "Inst"
   >>
   (* Some trivial cases *)
   TRY
@@ -11019,7 +11013,38 @@ Proof
     fs[]>>
     match_mp_tac every_var_mono>>
     HINT_EXISTS_TAC>>fs[])
-  >- ( (* If *)
+  >- suspend "If"
+  >>
+    TRY
+    (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>
+    rpt (pop_assum mp_tac)>>
+    LET_ELIM_TAC>>full_simp_tac(srw_ss())[full_inst_ok_less_def,EQ_SYM_EQ]>>NO_TAC)
+  >- suspend "Call"
+  >~[`Loop`] >- suspend "Loop"
+  >~[`Break`] >- suspend "Break"
+  >~[`Continue`] >- suspend "Continue"
+  >> (*ShareInst*)
+    qpat_x_assum `option_CASE _ _ _` mp_tac >>
+    ntac 2 TOP_CASE_TAC >>
+    strip_tac >>
+    IF_CASES_TAC >>
+    simp[full_inst_ok_less_def] >>
+    gvs[exp_to_addr_ShareInst,ssa_cc_trans_exp_def] >>
+    simp[exp_to_addr_def]
+QED
+
+Resume ssa_cc_trans_full_inst_ok_less[Inst]:
+  full_simp_tac(srw_ss())[oneline ssa_cc_trans_inst_def,LET_THM,next_var_rename_def,ssa_map_ok_def,
+    AllCaseEqs()]>> rveq >>
+    full_simp_tac(srw_ss())[EQ_SYM_EQ,inst_ok_less_def,full_inst_ok_less_def,every_var_def,every_var_inst_def]>>
+    rw[]>>
+    fs[option_lookup_def]>>every_case_tac>>rw[]>>
+    pop_assum (assume_tac o SYM)>>res_tac>>
+    intLib.ARITH_TAC
+QED
+
+Resume ssa_cc_trans_full_inst_ok_less[If]:
+  (* If *)
     pop_assum mp_tac>>
     fs[fix_inconsistencies_def,fake_moves_def]>>
     rpt(pairarg_tac>>gvs[])>>
@@ -11032,19 +11057,16 @@ Proof
       CONJ_TAC>-
         (match_mp_tac every_var_mono>>HINT_EXISTS_TAC>>fs[])>>
       match_mp_tac ssa_map_ok_more>>fs[])>>
-    metis_tac[fake_moves_conventions2])
-  >>
-    TRY
-    (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>
-    rpt (pop_assum mp_tac)>>
-    LET_ELIM_TAC>>full_simp_tac(srw_ss())[full_inst_ok_less_def,EQ_SYM_EQ]>>NO_TAC)
-  >-
-    ((*Call SOME*)
+    metis_tac[fake_moves_conventions2]
+QED
+
+Resume ssa_cc_trans_full_inst_ok_less[Call]:
+  (*Call SOME*)
     EVERY_CASE_TAC>>unabbrev_all_tac>>
     gvs[fix_inconsistencies_def]>>
     rpt(pairarg_tac>>gvs[])>>
     gvs[full_inst_ok_less_def]>>
-    rpt(first_x_assum (irule_at Any))>>
+    rpt(qpat_x_assum `∀c. _` (irule_at Any))>>
     imp_res_tac fake_moves_conventions2>>
     gvs[every_var_def,list_next_var_rename_move_def,next_var_rename_def]>>
     rpt(pairarg_tac>>gvs[])>>
@@ -11089,18 +11111,7 @@ Proof
       irule ssa_map_ok_insert >>
       irule_at Any ssa_map_ok_more >>
       first_x_assum (irule_at Any)>>
-      simp[Once convention_partitions])))
-  >~[`Loop`] >- suspend "Loop"
-  >~[`Break`] >- suspend "Break"
-  >~[`Continue`] >- suspend "Continue"
-  >> (*ShareInst*)
-    qpat_x_assum `option_CASE _ _ _` mp_tac >>
-    ntac 2 TOP_CASE_TAC >>
-    strip_tac >>
-    IF_CASES_TAC >>
-    simp[full_inst_ok_less_def] >>
-    gvs[exp_to_addr_ShareInst,ssa_cc_trans_exp_def] >>
-    simp[exp_to_addr_def]
+      simp[Once convention_partitions]))
 QED
 
 Resume ssa_cc_trans_full_inst_ok_less[Loop]:
@@ -11134,8 +11145,8 @@ QED
 Finalise ssa_cc_trans_full_inst_ok_less;
 
 Theorem full_ssa_cc_trans_full_inst_ok_less:
-  ∀prog n c.
-  full_inst_ok_less c prog ⇒
+  ∀(prog:'a wordLang$prog) n c.
+  isa_bits c = dimindex (:'a) ∧ full_inst_ok_less c prog ⇒
   full_inst_ok_less c (full_ssa_cc_trans n prog)
 Proof
   full_simp_tac(srw_ss())[full_ssa_cc_trans_def,list_next_var_rename_move_def]>>
@@ -11184,10 +11195,10 @@ QED
 
 (*Composing with a function using apply_colour*)
 Theorem every_var_inst_apply_colour_inst:
-    ∀P inst Q f.
-  every_var_inst P inst ∧
+    ∀bits P inst Q f.
+  every_var_inst bits P inst ∧
   (∀x. P x ⇒ Q (f x)) ⇒
-  every_var_inst Q (apply_colour_inst f inst)
+  every_var_inst bits Q (apply_colour_inst f inst)
 Proof
   ho_match_mp_tac every_var_inst_ind>>srw_tac[][every_var_inst_def]>>
   TRY(Cases_on`ri`>>full_simp_tac(srw_ss())[apply_colour_imm_def])>>
@@ -11397,8 +11408,8 @@ QED
 
 (*word_alloc preserves syntactic conventions*)
 Theorem word_alloc_full_inst_ok_less_lem[local]:
-  ∀f prog c.
-  full_inst_ok_less c prog ∧
+  ∀f (prog:'a wordLang$prog) c.
+  isa_bits c = dimindex (:'a) ∧ full_inst_ok_less c prog ∧
   EVERY (λ(x,y). (f x) ≠ (f y)) (get_forced c prog []) ⇒
   full_inst_ok_less c (apply_colour f prog)
 Proof
@@ -11441,8 +11452,8 @@ Proof
 QED
 
 Theorem word_alloc_full_inst_ok_less:
-  ∀fc alg k prog col_opt c.
-  full_inst_ok_less c prog ⇒
+  ∀fc alg k (prog:'a wordLang$prog) col_opt c.
+  isa_bits c = dimindex (:'a) ∧ full_inst_ok_less c prog ⇒
   full_inst_ok_less c (word_alloc fc c alg k prog col_opt)
 Proof
   fs[word_alloc_def,oracle_colour_ok_def]>>

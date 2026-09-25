@@ -10,11 +10,11 @@ Libs
 val _ = temp_delsimps ["misc.max3_def"];
 (*** Mono and conj lemmas for every_var/every_stack_var ***)
 Theorem every_var_inst_mono:
-  ∀P inst Q.
+  ∀bits P inst Q.
   (∀x. P x ⇒ Q x) ∧
-  every_var_inst P inst
+  every_var_inst bits P inst
   ⇒
-  every_var_inst Q inst
+  every_var_inst bits Q inst
 Proof
   ho_match_mp_tac every_var_inst_ind>>srw_tac[][every_var_inst_def]>>
   Cases_on`ri`>>full_simp_tac(srw_ss())[every_var_imm_def]
@@ -56,9 +56,9 @@ QED
 
 (*Conjunct*)
 Theorem every_var_inst_conj:
-  ∀P inst Q.
-  every_var_inst P inst ∧ every_var_inst Q inst ⇔
-  every_var_inst (λx. P x ∧ Q x) inst
+  ∀bits P inst Q.
+  every_var_inst bits P inst ∧ every_var_inst bits Q inst ⇔
+  every_var_inst bits (λx. P x ∧ Q x) inst
 Proof
   ho_match_mp_tac every_var_inst_ind>>srw_tac[][every_var_inst_def]>>
   TRY(Cases_on`ri`>>full_simp_tac(srw_ss())[every_var_imm_def])>>
@@ -206,10 +206,10 @@ End
 
 (*** Well-formed instructions. This also includes the FP conditions since we do not allocate them ***)
 Definition inst_ok_less_def:
-  (inst_ok_less (c:'a asm_config) ((Arith (Binop b r1 r2 (Imm w))):'a inst) ⇔
+  (inst_ok_less (c:asm_config) ((Arith (Binop b r1 r2 (Imm w))):inst) ⇔
     c.valid_imm (INL b) w) ∧
   (inst_ok_less c (Arith (Shift l r1 r2 (Imm i))) ⇔
-    (((i = 0) ==> (l = Lsl)) ∧ 0 ≤ i ∧ i < &dimindex(:'a))) ∧
+    (((i = 0) ==> (l = Lsl)) ∧ 0 ≤ i ∧ i < &isa_bits c)) ∧
   (inst_ok_less c (Arith (Div r1 r2 r3)) ⇔
     (c.ISA ∈ {ARMv8; MIPS; RISC_V})) ∧
   (inst_ok_less c (Arith (LongMul r1 r2 r3 r4)) ⇔
@@ -255,9 +255,9 @@ Definition inst_ok_less_def:
     fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
   (inst_ok_less c (FP (FPMov d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPMovToReg r1 r2 d)) ⇔
-      ((dimindex(:'a) = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧
+      ((isa_bits c = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧
   (inst_ok_less c (FP (FPMovFromReg d r1 r2)) ⇔
-      ((dimindex(:'a) = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧
+      ((isa_bits c = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧
   (inst_ok_less c (FP (FPToInt d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPFromInt d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less _ _ = T)
@@ -480,7 +480,8 @@ Proof
   >~ [`Inst`]
   >- (fs[every_var_def,max_var_def,max_var_exp_IMP] >>
       rpt $ pop_assum mp_tac >>
-      MAP_EVERY qid_spec_tac $ List.rev [`P`,`i`] >>
+      qmatch_goalsub_abbrev_tac `every_var_inst bits` >>
+      MAP_EVERY qid_spec_tac $ List.rev [`bits`,`P`,`i`] >>
       ho_match_mp_tac every_var_inst_ind >> rpt strip_tac >>
       fs[every_var_inst_def,max_var_inst_def] >>
       simp_tac(pure_ss)[MAX_DEF,max3_def] >>

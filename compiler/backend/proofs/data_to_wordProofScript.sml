@@ -1786,7 +1786,7 @@ Theorem compile_semantics:
   (t :(α, γ, 'ffi) wordSem$state).handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
   init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ∧
   good_dimindex (:α) ∧ lookup 0 t.locals = SOME (Loc 1 0) ∧ t.stack = [] ∧
-  conf_ok (:α) c ∧ t.termdep = 0 ∧ code_rel c (fromAList prog) x1 ∧
+  conf_ok (dimindex (:α)) c ∧ t.termdep = 0 ∧ code_rel c (fromAList prog) x1 ∧
   cc =
   (λcfg.
        OPTION_MAP (bytes_to_mlstring ## MAP upper_w2w ## I) ∘ tcc cfg ∘
@@ -2049,7 +2049,7 @@ Theorem stub_labels:
     EVERY (λ(n,m,p).
     EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) (extract_labels p)  ∧
                      ALL_DISTINCT (extract_labels p))
-    (stubs (:'a) data_conf)
+    (stubs data_conf)
 Proof
   simp[data_to_wordTheory.stubs_def,generated_bignum_stubs_eq]>>
   rpt conj_tac >>
@@ -2059,13 +2059,13 @@ Proof
 QED
 
 Theorem stubs_with_has_fp_ops[simp]:
-   stubs (:α) (data_conf with has_fp_ops := b) = stubs (:α) data_conf
+   stubs (data_conf with has_fp_ops := b) = stubs data_conf
 Proof
   EVAL_TAC \\ fs []
 QED
 
 Theorem stubs_with_has_fp_tern[simp]:
-  stubs (:'a) (data_conf with has_fp_tern := b) = stubs (:'a) data_conf
+  stubs (data_conf with has_fp_tern := b) = stubs data_conf
 Proof
   EVAL_TAC \\ fs []
 QED
@@ -2106,7 +2106,7 @@ Proof
 QED
 
 Theorem stubs_no_share_inst:
-  EVERY (\x. no_share_inst (SND $ SND x)) (data_to_word$stubs (:'a) data_conf)
+  EVERY (\x. no_share_inst (SND $ SND x)) (data_to_word$stubs data_conf)
 Proof
   EVAL_TAC >>
   rw [] >>
@@ -2212,7 +2212,7 @@ QED
 
 Theorem data_to_word_compile_lab_pres:
     let (c,p) = compile data_conf word_conf asm_conf prog in
-    MAP FST p = MAP FST (stubs(:α) data_conf) ++ MAP FST prog ∧
+    MAP FST p = MAP FST (stubs data_conf : (num # num # α wordLang$prog) list) ++ MAP FST prog ∧
     EVERY (λn,m,(p:α wordLang$prog).
       let labs = extract_labels p in
       EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧
@@ -2296,12 +2296,13 @@ fun cases_on_op q = Cases_on q >|
       [[`n`], [`m`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
 
 Theorem assign_no_inst[local]:
+  isa_bits ac = dimindex (:'a) ∧
   ((a.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
    (a.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
    (a.has_fp_ops ⇒ 1 < ac.fp_reg_count) ∧
    (a.has_fp_tern ==> 2 < ac.fp_reg_count /\ ac.ISA = ARMv7) /\
   addr_offset_ok ac 0 /\ byte_offset_ok ac 0) ⇒
-  every_inst (inst_ok_less ac) (FST(assign a b c d e f g))
+  every_inst (inst_ok_less ac) (FST(assign a b c d e f g) :'a wordLang$prog)
 Proof
   fs[assign_def]>>
   cases_on_op`e`>>fs[every_inst_def]>>
@@ -2324,12 +2325,13 @@ inst_ok_less_def
 
 Theorem comp_no_inst:
     ∀c n m p.
+  isa_bits ac = dimindex (:'a) ∧
   ((c.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
    (c.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
    (c.has_fp_ops ⇒ 1 < ac.fp_reg_count) ∧
    (c.has_fp_tern ==> 2 < ac.fp_reg_count /\ ac.ISA = ARMv7)) /\
   addr_offset_ok ac 0 /\ byte_offset_ok ac 0 ⇒
-  every_inst (inst_ok_less ac) (FST(comp c n m p))
+  every_inst (inst_ok_less ac) (FST(comp c n m p) :'a wordLang$prog)
 Proof
   ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
   simp[Once comp_def,every_inst_def,force_thunk_def]>>
@@ -2364,7 +2366,8 @@ Theorem data_to_word_compile_conventions:
   EVERY (λ(n,m,prog).
     flat_exp_conventions (prog:'a wordLang$prog) ∧
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
-    ((data_conf.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
+    (isa_bits ac = dimindex (:'a) ∧
+    (data_conf.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
     (data_conf.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
     addr_offset_ok ac 0 /\
     hw_offset_ok ac 0 /\
@@ -2377,7 +2380,7 @@ Theorem data_to_word_compile_conventions:
     (no_share_inst prog ∨ ac.ISA ≠ Ag32)) p
 Proof
  fs[data_to_wordTheory.compile_def]>>
- qpat_abbrev_tac`p= stubs(:'a) data_conf ++B`>>
+ qpat_abbrev_tac`p= stubs data_conf ++B`>>
  pairarg_tac>>fs[]>>
  Q.SPECL_THEN [`wc`,`p`,`ac`] mp_tac (GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
  impl_tac >-
@@ -2401,6 +2404,7 @@ Proof
    qpat_x_assum`∀w. _ ==> byte_offset_ok _ _ ` mp_tac>>
    qpat_x_assum`addr_offset_ok _ _` mp_tac>>
    qpat_x_assum`good_dimindex _` mp_tac>>
+   qpat_x_assum`isa_bits ac = _` mp_tac>>
    rpt(pop_assum kall_tac)>>
    fs[stubs_def,generated_bignum_stubs_eq]>>rw[]>>
    TRY(rename1`ByteCopySub_code`>>
@@ -2428,11 +2432,11 @@ Proof
 QED
 
 Theorem data_to_word_names:
-   word_to_word$compile c1 c2 (stubs(:α)c.data_conf ++ MAP (compile_part c3) prog) = (col,p) ==>
-    MAP FST p = (MAP FST (stubs(:α)c.data_conf))++MAP FST prog
+   word_to_word$compile c1 c2 (stubs c.data_conf ++ MAP (compile_part c3) prog) = (col,p : (num # num # α wordLang$prog) list) ==>
+    MAP FST p = (MAP FST (stubs c.data_conf : (num # num # α wordLang$prog) list))++MAP FST prog
 Proof
   rw[]>>assume_tac(GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
-  pop_assum (qspecl_then [`c1`,`stubs(:α)c.data_conf++(MAP (compile_part c3) prog)`,`c2`] mp_tac)>>impl_tac
+  pop_assum (qspecl_then [`c1`,`stubs c.data_conf++(MAP (compile_part c3) prog)`,`c2`] mp_tac)>>impl_tac
   >- (irule_at Any EVERY_MONOTONIC>>
       qexists ‘λx. no_share_inst (SND $ SND x)’>>simp[FORALL_PROD]>>
       irule_at Any stubs_no_share_inst>>
@@ -2446,21 +2450,21 @@ Proof
 QED
 
 Theorem ALL_DISTINCT_MAP_FST_stubs:
-   ALL_DISTINCT (MAP FST (data_to_word$stubs a c))
+   ALL_DISTINCT (MAP FST (data_to_word$stubs c))
 Proof
-  Cases_on`a` \\ EVAL_TAC
+  EVAL_TAC
 QED
 
 Theorem MAP_FST_stubs_bound:
-   MEM n (MAP FST (data_to_word$stubs a c)) ⇒ n < data_num_stubs
+   MEM n (MAP FST (data_to_word$stubs c)) ⇒ n < data_num_stubs
 Proof
-  Cases_on`a` \\ EVAL_TAC
+  EVAL_TAC
   \\ strip_tac \\ rveq \\ EVAL_TAC
 QED
 
 Theorem max_heap_limit_has_fp_ops[simp]:
-   max_heap_limit (:α) (conf with has_fp_ops := b) =
-    max_heap_limit (:α) conf
+   max_heap_limit (dimindex (:α)) (conf with has_fp_ops := b) =
+    max_heap_limit (dimindex (:α)) conf
 Proof
   EVAL_TAC
 QED
@@ -2573,8 +2577,8 @@ QED
 Theorem word_get_code_labels_assign[local]:
   ∀x.
     assign c secn v w x y z = (res1,res2) ⇒
-    word_get_code_labels res1 SUBSET
-    closLang$assign_get_code_label x ∪ (set(MAP FST (stubs (:α) c)))
+    word_get_code_labels (res1:α wordLang$prog) SUBSET
+    closLang$assign_get_code_label x ∪ (set(MAP FST (stubs c : (num # num # α wordLang$prog) list)))
 Proof
   ho_match_mp_tac closLangTheory.assign_get_code_label_ind>>
   rw[assign_def,all_assign_defs,arg1_def,arg2_def,arg3_def,arg4_def,
@@ -2599,7 +2603,7 @@ QED
 Theorem data_to_word_comp_code_labels[local]:
   ∀c secn l p.
   word_get_code_labels ((FST (comp c secn l p)):'a wordLang$prog) SUBSET
-  data_get_code_labels p ∪ set(MAP FST (stubs (:α) c))
+  data_get_code_labels p ∪ set(MAP FST (stubs c : (num # num # α wordLang$prog) list))
 Proof
   ho_match_mp_tac comp_ind>>
   rw[]>>Cases_on`p`>>fs[]>>
@@ -2693,8 +2697,8 @@ Proof
 QED
 
 Theorem stubs_labels[local]:
-  BIGUNION (set (MAP (λ(n,m,pp). word_get_code_labels pp)  (stubs (:'a) dc)))
-  ⊆ set (MAP FST (stubs (:'a) dc))
+  BIGUNION (set (MAP (λ(n,m,pp). word_get_code_labels pp)  (stubs dc : (num # num # α wordLang$prog) list)))
+  ⊆ set (MAP FST (stubs dc : (num # num # α wordLang$prog) list))
 Proof
   rpt(EVAL_TAC>>
   IF_CASES_TAC>>
@@ -2707,7 +2711,7 @@ Theorem data_to_word_good_code_labels:
   word_good_code_labels prog' elabs
 Proof
   fs[data_to_wordTheory.compile_def]>>rw[]>>
-  qmatch_asmsub_abbrev_tac` stubs _ dc`>>
+  qmatch_asmsub_abbrev_tac` stubs dc`>>
   pop_assum kall_tac>>
   qmatch_asmsub_abbrev_tac`LHS = _`>>
   `prog' = SND LHS` by (unabbrev_all_tac>>fs[])>>
@@ -2739,7 +2743,7 @@ Proof
       fs[MEM_MAP]>>metis_tac[]
 QED
 
-val th = EVAL``MAP FST (stubs (:'a) c)``;
+val th = EVAL``MAP FST (stubs c)``;
 
 (* TODO: move somewhere better *)
 Definition stubs_fst_def:
@@ -2780,7 +2784,7 @@ Theorem data_to_word_good_handlers:
 Proof
   fs[data_to_wordTheory.compile_def]>>
   rw[]>>
-  qmatch_asmsub_abbrev_tac` stubs _ dc`>>
+  qmatch_asmsub_abbrev_tac` stubs dc`>>
   pop_assum kall_tac>>
   qmatch_asmsub_abbrev_tac`LHS = _`>>
   `prog' = SND LHS` by (unabbrev_all_tac>>fs[])>>

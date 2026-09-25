@@ -2433,7 +2433,7 @@ Proof
   \\ `heap_length heap < dimword (:α)` by
     (fs [good_dimindex_def,dimword_def] \\ fs [])
   \\ `n3 = heap_length heap /\
-      (bytes_in_word * n2w (heap_length heap)) ⋙ shift (:α) =
+      (bytes_in_word * n2w (heap_length heap)) ⋙ shift (dimindex (:α)) =
       n2w (heap_length heap):'a word` by
    (unabbrev_all_tac \\ rewrite_tac [GSYM w2n_11,w2n_n2w,w2n_lsr]
     \\ fs [bytes_in_word_def,w2n_n2w,word_mul_n2w]
@@ -3616,7 +3616,7 @@ Proof
   \\ fs[word_gen_gc_partial_def]
   \\ ntac 3 (pairarg_tac \\ fs[])
   \\ rveq \\ fs[]
-  \\ `((bytes_in_word:'a word) * n2w gen_conf.gen_start) ⋙ shift (:α) =
+  \\ `((bytes_in_word:'a word) * n2w gen_conf.gen_start) ⋙ shift (dimindex (:α)) =
       n2w gen_conf.gen_start`
       by  (fs[bytes_in_word_mul_eq_shift]
            >> MATCH_MP_TAC lsl_lsr
@@ -3755,7 +3755,7 @@ Proof
   \\ fs[]
   \\ old_drule LESS_EQ_IMP_APPEND \\ strip_tac \\ rveq \\ fs[]
   \\ fs[word_list_APPEND]
-  \\ `(bytes_in_word * n2w (heap_length s1.h1)) ⋙ shift (:α) = (n2w(heap_length s1.h1):'a word)`
+  \\ `(bytes_in_word * n2w (heap_length s1.h1)) ⋙ shift (dimindex (:α)) = (n2w(heap_length s1.h1):'a word)`
       by(REWRITE_TAC [GSYM w2n_11,w2n_lsr] \\ fs[bytes_in_word_def,word_mul_n2w]
          \\ `heap_length s1.h1 * (dimindex (:α) DIV 8) < dimword (:'a)`
              by (fs[good_dimindex_def,dimword_def] \\ rfs[] \\ fs[])
@@ -4027,8 +4027,8 @@ Proof
   \\ TRY (qexists_tac `n` \\ fs [] \\ NO_TAC)
   THEN1
    (rw [MIN_DEF] THEN1 (qexists_tac `n` \\ fs []) \\ fs [NOT_LESS]
-    \\ `?k. get_gen_size a33 = bytes_in_word * k` by
-      (Cases_on `a33` \\ rw [get_gen_size_def] \\ metis_tac [WORD_MULT_COMM])
+    \\ `?k. word_gen_size a33 = bytes_in_word * k` by
+      (Cases_on `a33` \\ rw [word_gen_size_def] \\ metis_tac [WORD_MULT_COMM])
     \\ fs [] \\ imp_res_tac MULT_bytes_in_word_LESS_EQ_IMP
     \\ qexists_tac `l` \\ fs [])
   \\ imp_res_tac byte_aligned_IMP_bytes_in_word \\ rveq
@@ -4431,8 +4431,8 @@ QED
 
 Definition code_rel_def:
   code_rel c s_code (t_code: (num # 'a wordLang$prog) num_map) <=>
-    domain t_code = domain s_code UNION set (MAP FST (stubs (:'a) c)) /\
-    EVERY (\(n,x). lookup n t_code = SOME x) (stubs (:'a) c) /\
+    domain t_code = domain s_code UNION set (MAP FST (stubs c:(num # num # 'a wordLang$prog) list)) /\
+    EVERY (\(n,x). lookup n t_code = SOME x) (stubs c) /\
     !n arg_count prog.
       (lookup n s_code = SOME (arg_count:num,prog)) ==>
       (lookup n t_code = SOME (arg_count+1,FST (comp c n 2 prog)))
@@ -4570,7 +4570,7 @@ QED
 Definition init_store_ok_def:
   init_store_ok c store m (dm:'a word set) code_buffer data_buffer <=>
     ?limit curr.
-      limit <= max_heap_limit (:'a) c /\
+      limit <= max_heap_limit (dimindex (:'a)) c /\
       FLOOKUP store Globals = SOME (Word 0w) /\
       FLOOKUP store GlobReal = SOME (Word curr) /\
       FLOOKUP store GenStart = SOME (Word 0w) ∧
@@ -4624,7 +4624,7 @@ Theorem state_rel_init:
     t.store ' HeapLength = Word (bytes_in_word * n2w lim.heap_limit) /\
     lim.has_fp_ops = c.has_fp_ops /\
     lim.has_fp_tops = c.has_fp_tern /\
-    conf_ok (:'a) c /\
+    conf_ok (dimindex (:'a)) c /\
     init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ==>
     state_rel c l1 l2 (initial_state ffi code co cc T lim t.stack_size t.clock)
                       (t:('a,'c,'ffi) state) NONE []
@@ -4677,7 +4677,7 @@ Proof
   \\ simp_tac bool_ss [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``)]
   \\ once_rewrite_tac [MULT_COMM]
   \\ simp_tac bool_ss [aligned_add_pow] \\ rfs []
-  \\ fs [gen_starts_in_store_def,max_heap_limit_def]
+  \\ fs [gen_starts_in_store_def,max_heap_limit_def,dimword_def]
   \\ Cases \\ fs [] \\ rw[] \\ EVAL_TAC
   \\ Cases_on `l` \\ fs []
 QED
@@ -6961,7 +6961,7 @@ Proof
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs [])
   >~ [‘Number’] >-
    (fs [] \\ rveq \\ fs [] \\ fs [v_inv_def]
-    \\ Cases_on `small_int (:α) i` \\ fs [] \\ rveq \\ fs []
+    \\ Cases_on `small_int (dimindex (:α)) i` \\ fs [] \\ rveq \\ fs []
     THEN1
      (qexists_tac `p1` \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
       \\ fs [size_of_def])
@@ -8022,7 +8022,7 @@ Proof
 QED
 
 Theorem shift_lsl:
-   good_dimindex (:'a) ==> w << shift (:'a) = w * bytes_in_word:'a word
+   good_dimindex (:'a) ==> w << shift (dimindex (:'a)) = w * bytes_in_word:'a word
 Proof
   rw [good_dimindex_def,shift_def,bytes_in_word_def]
   \\ fs [WORD_MUL_LSL]
@@ -8305,7 +8305,7 @@ Proof
         FLOOKUP t.store HeapLength = SOME (Word heap_length1)` by
           full_simp_tac(srw_ss())[state_rel_def,heap_in_memory_store_def]
   \\ ‘2 MOD dimword (:α) = 2 ∧ 2 < dimindex (:α) ∧
-      shift (:α) MOD dimword (:α) = shift (:α) ∧ shift (:α) < dimindex (:α)’
+      shift (dimindex (:α)) MOD dimword (:α) = shift (dimindex (:α)) ∧ shift (dimindex (:α)) < dimindex (:α)’
     by fs [dimword_def, state_rel_def, good_dimindex_def, shift_def]
   \\ fs [word_exp_rw,get_var_set_var_thm,wordSemTheory.get_store_def] \\ rfs []
   \\ rfs [word_exp_rw,wordSemTheory.set_var_def,lookup_insert]
@@ -8372,7 +8372,7 @@ Proof
       \\ gvs [alloc_locals_insert_1]
       \\ strip_tac \\ gvs [])
   \\ fs [lookup_insert]
-  \\ `1w ≪ shift (:α) + w ⋙ 1 ≪ shift (:α) =
+  \\ `1w ≪ shift (dimindex (:α)) + w ⋙ 1 ≪ shift (dimindex (:α)) =
       alloc_size (w2n w DIV 2 + 1)` by
    (fs [alloc_size_def] \\ IF_CASES_TAC THEN1
      (sg `w >>> 1 = n2w (w2n w DIV 2)`
@@ -8591,7 +8591,7 @@ Proof
 QED
 
 Theorem small_int_0:
-   good_dimindex (:'a) ==> small_int (:α) 0
+   good_dimindex (:'a) ==> small_int (dimindex (:α)) 0
 Proof
   fs [good_dimindex_def,small_int_def,dimword_def] \\ rw [] \\ fs []
 QED

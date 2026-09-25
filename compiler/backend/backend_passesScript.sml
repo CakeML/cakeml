@@ -235,7 +235,7 @@ Definition to_word_all_def:
             <|has_fp_ops := (1 < asm_conf.fp_reg_count);
               has_fp_tern :=
                 (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
-    let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) p in
+    let p = stubs data_conf ++ MAP (compile_part data_conf) p in
     let ps = ps ++ [(«after data_to_word»,Word p names)] in
     let (p,ps) = word_internal_all asm_conf ps names p in
     let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
@@ -304,7 +304,7 @@ Definition to_lab_all_def:
     let (ps,bm,c,p,names) = to_stack_all asm_conf c p in
     let stack_conf = c.stack_conf in
     let data_conf = c.data_conf in
-    let max_heap = 2 * max_heap_limit (:'a) c.data_conf - 1 in
+    let max_heap = &(2 * max_heap_limit (dimindex (:'a)) c.data_conf - 1) in
     let sp = asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3) in
     let offset = asm_conf.addr_offset in
     let prog = stack_rawcall$compile p in
@@ -362,10 +362,10 @@ Proof
 QED
 
 Definition from_stack_all_def:
-  from_stack_all ps (asm_conf:asm_config) (c:config) names p bm =
+  from_stack_all ps (asm_conf:asm_config) (c:config) names p (bm:'a word list) =
     let stack_conf = c.stack_conf in
     let data_conf = c.data_conf in
-    let max_heap = 2 * max_heap_limit (:'a) c.data_conf - 1 in
+    let max_heap = &(2 * max_heap_limit (dimindex (:'a)) c.data_conf - 1) in
     let sp = asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3) in
     let offset = asm_conf.addr_offset in
     let prog = stack_rawcall$compile p in
@@ -448,7 +448,7 @@ Definition from_data_all_def:
             <|has_fp_ops := (1 < asm_conf.fp_reg_count);
               has_fp_tern :=
                 (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
-    let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) p in
+    let p = stubs data_conf ++ MAP (compile_part data_conf) p in
     let ps = ps ++ [(«after data_to_word»,Word p names)] in
       from_word_0_all ps asm_conf c names p
 End

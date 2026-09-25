@@ -355,7 +355,7 @@ End
 Definition PushHandler_def:
   PushHandler perf l1 l2 (k,f,f') =
     Seq (StackAlloc (handler_slots perf))
-   (Seq (Inst (Const k 1w))
+   (Seq (Inst (Const k 1))
    (Seq (StackStore k 0)
    (Seq (LocValue k l1 l2)
    (Seq (StackStore k 1)
@@ -483,7 +483,7 @@ Definition comp_def:
         else
           let r = FST kf + 1 in
           (Seq
-            (const_inst r (i2w i))
+            (const_inst r i)
             (wStackLoad x1 (If cmp r' (Reg r) q1 q2)),bs)) /\
   (comp conf perf (Loop _ p1 _) bs kf =
      let (q1,bs) = comp conf perf p1 bs kf in
@@ -530,7 +530,7 @@ Definition comp_def:
        (Seq q1 (Alloc 1),bs)) /\
   (comp conf perf (StoreConsts a b c d ws) bs kf =
      let (new_bs,i) = insert_bitmap (const_words_to_bitmap ws (LENGTH ws)) bs in
-       (Seq (Inst (Const 1 (n2w i)))
+       (Seq (Inst (Const 1 (&i)))
             (StoreConsts (FST kf) (FST kf + 1) (SOME store_consts_stub_location)),new_bs)) /\
   (comp conf perf (LocValue r l1) bs kf = (wRegWrite1 (λr. LocValue r l1 0) r kf,bs)) /\
   (comp conf perf (Install r1 r2 r3 r4 r5 live) bs kf =

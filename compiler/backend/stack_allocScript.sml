@@ -17,10 +17,10 @@ Definition memcpy_code_def:
   memcpy_code aw =
     While NotEqual 0 (Imm 0)
       (list_Seq [load_inst 1 2;
-                 add_bytes_in_word_inst 2;
+                 add_bytes_in_word_inst aw 2;
                  sub_1_inst 0;
                  store_inst 1 3;
-                 add_bytes_in_word_inst 3])
+                 add_bytes_in_word_inst aw 3])
 End
 
 Definition clear_top_inst_def:
@@ -77,7 +77,7 @@ Definition word_gc_move_list_code_def:
                  sub_1_inst 7;
                  word_gc_move_code aw conf;
                  store_inst 5 8;
-                 add_bytes_in_word_inst 8])
+                 add_bytes_in_word_inst aw 8])
 End
 
 Definition word_gc_move_loop_code_def:
@@ -86,7 +86,7 @@ Definition word_gc_move_loop_code_def:
      (list_Seq [load_inst 7 8;
                 If Test 7 (Imm 4)
                   (list_Seq [right_shift_inst 7 (arch_width_bits aw - conf.len_size);
-                             add_bytes_in_word_inst 8;
+                             add_bytes_in_word_inst aw 8;
                              word_gc_move_list_code aw conf])
                   (list_Seq [right_shift_inst 7 (arch_width_bits aw - conf.len_size);
                              add_1_inst 7;
@@ -100,12 +100,12 @@ Definition word_gc_move_bitmap_code_def:
     While NotLower 7 (Imm 2)
      (If Test 7 (Imm 1)
         (list_Seq [right_shift_inst 7 1;
-                   add_bytes_in_word_inst 8])
+                   add_bytes_in_word_inst aw 8])
         (list_Seq [StackLoadAny 5 8;
                    right_shift_inst 7 1;
                    word_gc_move_code aw conf;
                    StackStoreAny 5 8;
-                   add_bytes_in_word_inst 8]))
+                   add_bytes_in_word_inst aw 8]))
 End
 
 (* 9 is w, 8 is index into stack *)
@@ -125,7 +125,7 @@ Definition word_gc_move_roots_bitmaps_code_def:
     While NotTest 9 (Reg 9)
       (list_Seq [move 0 9;
                  sub_1_inst 9;
-                 add_bytes_in_word_inst 8;
+                 add_bytes_in_word_inst aw 8;
                  word_gc_move_bitmaps_code aw conf;
                  StackLoadAny 9 8])
 End
@@ -259,12 +259,12 @@ Definition word_gen_gc_move_bitmap_code_def:
     While NotLower 7 (Imm 2)
      (If Test 7 (Imm 1)
         (list_Seq [right_shift_inst 7 1;
-                   add_bytes_in_word_inst 8])
+                   add_bytes_in_word_inst aw 8])
         (list_Seq [StackLoadAny 5 8;
                    right_shift_inst 7 1;
                    word_gen_gc_move_code aw conf;
                    StackStoreAny 5 8;
-                   add_bytes_in_word_inst 8]))
+                   add_bytes_in_word_inst aw 8]))
 End
 
 Definition word_gen_gc_partial_move_bitmap_code_def:
@@ -272,12 +272,12 @@ Definition word_gen_gc_partial_move_bitmap_code_def:
     While NotLower 7 (Imm 2)
      (If Test 7 (Imm 1)
         (list_Seq [right_shift_inst 7 1;
-                   add_bytes_in_word_inst 8])
+                   add_bytes_in_word_inst aw 8])
         (list_Seq [StackLoadAny 5 8;
                    right_shift_inst 7 1;
                    word_gen_gc_partial_move_code aw conf;
                    StackStoreAny 5 8;
-                   add_bytes_in_word_inst 8]))
+                   add_bytes_in_word_inst aw 8]))
 End
 
 (* 9 is w, 8 is index into stack *)
@@ -308,7 +308,7 @@ Definition word_gen_gc_move_roots_bitmaps_code_def:
     While NotTest 9 (Reg 9)
       (list_Seq [move 0 9;
                  sub_1_inst 9;
-                 add_bytes_in_word_inst 8;
+                 add_bytes_in_word_inst aw 8;
                  word_gen_gc_move_bitmaps_code aw conf;
                  StackLoadAny 9 8])
 End
@@ -319,7 +319,7 @@ Definition word_gen_gc_partial_move_roots_bitmaps_code_def:
     While NotTest 9 (Reg 9)
       (list_Seq [move 0 9;
                  sub_1_inst 9;
-                 add_bytes_in_word_inst 8;
+                 add_bytes_in_word_inst aw 8;
                  word_gen_gc_partial_move_bitmaps_code aw conf;
                  StackLoadAny 9 8])
 End
@@ -331,7 +331,7 @@ Definition word_gen_gc_move_list_code_def:
                  sub_1_inst 7;
                  word_gen_gc_move_code aw conf;
                  store_inst 5 8;
-                 add_bytes_in_word_inst 8])
+                 add_bytes_in_word_inst aw 8])
 End
 
 Definition word_gen_gc_partial_move_list_code_def:
@@ -341,7 +341,7 @@ Definition word_gen_gc_partial_move_list_code_def:
                  sub_1_inst 7;
                  word_gen_gc_partial_move_code aw conf;
                  store_inst 5 8;
-                 add_bytes_in_word_inst 8])
+                 add_bytes_in_word_inst aw 8])
 End
 
 Definition word_gen_gc_move_data_code_def:
@@ -350,7 +350,7 @@ Definition word_gen_gc_move_data_code_def:
      (list_Seq [load_inst 7 8;
                 If Test 7 (Imm 4)
                   (list_Seq [right_shift_inst 7 (arch_width_bits aw - conf.len_size);
-                             add_bytes_in_word_inst 8;
+                             add_bytes_in_word_inst aw 8;
                              word_gen_gc_move_list_code aw conf])
                   (list_Seq [right_shift_inst 7 (arch_width_bits aw - conf.len_size);
                              add_1_inst 7;
@@ -363,7 +363,7 @@ Definition word_gen_gc_partial_move_ref_list_code_def:
     While NotEqual 9 (Reg 8)
      (list_Seq [load_inst 7 8;
                 right_shift_inst 7 (arch_width_bits aw - conf.len_size);
-                add_bytes_in_word_inst 8;
+                add_bytes_in_word_inst aw 8;
                 word_gen_gc_partial_move_list_code aw conf])
 End
 
@@ -373,7 +373,7 @@ Definition word_gen_gc_partial_move_data_code_def:
      (list_Seq [load_inst 7 8;
                 If Test 7 (Imm 4)
                   (list_Seq [right_shift_inst 7 (arch_width_bits aw - conf.len_size);
-                             add_bytes_in_word_inst 8;
+                             add_bytes_in_word_inst aw 8;
                              word_gen_gc_partial_move_list_code aw conf])
                   (list_Seq [right_shift_inst 7 (arch_width_bits aw - conf.len_size);
                              add_1_inst 7;
@@ -387,7 +387,7 @@ Definition word_gen_gc_move_refs_code_def:
     While NotEqual 0 (Reg 8)
      (list_Seq [load_inst 7 8;
                 right_shift_inst 7 (arch_width_bits aw - conf.len_size);
-                add_bytes_in_word_inst 8;
+                add_bytes_in_word_inst aw 8;
                 word_gen_gc_move_list_code aw conf;
                 Get 0 (Temp 4w)])
 End

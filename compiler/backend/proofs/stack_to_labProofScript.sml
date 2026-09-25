@@ -1238,7 +1238,7 @@ Theorem flatten_correct:
                state_rel s2 t2
        | SOME (Vcont n1 n2) =>
            state_rel s2 t2 ∧
-           code_installed t2.pc [LabAsm (Jump (Lab n1 n2)) 0w [] 0] t2.code
+           code_installed t2.pc [LabAsm (Jump (Lab n1 n2)) 0 [] 0] t2.code
        | SOME Vtimeout => t2.ffi = s2.ffi ∧ t2.clock = 0
        | _ => F
 Proof
@@ -1963,7 +1963,7 @@ Resume flatten_correct[Loop]:
     \\ simp [Once flatten_def,FILTER_APPEND]
     \\ ‘state_rel s1 t2 ∧
         asm_fetch_aux t2.pc t2.code =
-        SOME (LabAsm (Jump (Lab n l)) 0w [] 0)’ by
+        SOME (LabAsm (Jump (Lab n l)) 0 [] 0)’ by
      (drule cont_loop_IMP \\ strip_tac
       \\ gvs [] \\ simp [find_lab_def,oEL_def])
     \\ gvs [] \\ reverse $ Cases_on ‘halt_view r’ \\ gvs []
@@ -2888,7 +2888,7 @@ Proof
 QED
 
 Definition halt_assum_def:
-  halt_assum (:('ffi#'c)) code <=>
+  halt_assum (:(α#'ffi#'c)) code <=>
    !(s:(α,'c,'ffi)stackSem$state).
      subspt code s.code /\ s.clock <> 0 ==>
      ∃t. evaluate (Call NONE (INL 1) NONE,s) = (SOME (Halt (Word 0w)),t) /\
@@ -2896,7 +2896,7 @@ Definition halt_assum_def:
 End
 
 Theorem flatten_semantics:
-   halt_assum (:'ffi#'c) (s1:(α,'c,'ffi)stackSem$state).code /\
+   halt_assum (:α#'ffi#'c) (s1:(α,'c,'ffi)stackSem$state).code /\
    state_rel s1 (s2:('a,'c,'ffi)labSem$state) /\
    loc_to_pc start 0 s2.code = SOME s2.pc /\
    semantics start s1 <> Fail ==>
@@ -3117,25 +3117,25 @@ Overload stack_alloc_compile[local] = ``stack_alloc$compile``
 Overload stack_remove_compile[local] = ``stack_remove$compile``
 
 Definition full_make_init_def:
-  full_make_init stack_conf data_conf max_heap sp offset bitmaps code s4 save_regs data_sp coracle =
+  full_make_init aw stack_conf data_conf max_heap sp offset bitmaps code s4 save_regs data_sp coracle =
   let ggc = is_gen_gc data_conf.gc_kind in
   let jump = stack_conf.jump in
-  let code1 = stack_alloc$compile data_conf (stack_rawcall$compile code) in
-  let code2 = compile jump offset ggc max_heap sp InitGlobals_location code1 in
-  let code3 = fromAList (compile stack_conf.reg_names code2) in
+  let code1 = stack_alloc$compile aw data_conf (stack_rawcall$compile code) in
+  let code2 = compile aw jump offset ggc max_heap sp InitGlobals_location code1 in
+  let code3 = fromAList (stack_names$compile stack_conf.reg_names code2) in
   let coracle1 = (I ## MAP prog_comp ## I) o coracle in
-  let coracle2 = (I ## MAP (prog_comp jump offset sp) ## I) o coracle1 in
-  let coracle3 = (I ## compile stack_conf.reg_names ## I) o coracle2 in
+  let coracle2 = (I ## MAP (prog_comp aw jump offset sp) ## I) o coracle1 in
+  let coracle3 = (I ## stack_names$compile stack_conf.reg_names ## I) o coracle2 in
   let s3 = make_init code3 coracle3 (MAP (find_name stack_conf.reg_names) [2;3;4]) save_regs s4 in
   let s2 = make_init stack_conf.reg_names (fromAList code2) coracle2 s3 in
-  let s1 = make_init_any ggc max_heap bitmaps data_sp coracle1 jump offset sp (fromAList code1) s2 in
+  let s1 = make_init_any aw ggc max_heap bitmaps data_sp coracle1 jump offset sp (fromAList code1) s2 in
     (make_init data_conf (fromAList code) coracle s1,
-     make_init_opt ggc max_heap bitmaps data_sp coracle1 jump offset sp (fromAList code1) s2)
+     make_init_opt aw ggc max_heap bitmaps data_sp coracle1 jump offset sp (fromAList code1) s2)
 End
 
 Theorem full_make_init_buffer:
-    (FST(full_make_init a b c d e f g h i j k)).code_buffer.buffer = [] ∧
-  (FST(full_make_init a b c d e f g h i j k)).data_buffer.buffer = []
+    (FST(full_make_init aw a b c d e f g h i j k)).code_buffer.buffer = [] ∧
+  (FST(full_make_init aw a b c d e f g h i j k)).data_buffer.buffer = []
 Proof
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
      stack_removeProofTheory.make_init_any_def] >>
@@ -3147,15 +3147,15 @@ Proof
 QED
 
 Theorem full_make_init_ffi:
-    (FST(full_make_init a b c d e f g h i j k)).ffi = h.ffi
+    (FST(full_make_init aw a b c d e f g h i j k)).ffi = h.ffi
 Proof
   fs [full_make_init_def,stack_allocProofTheory.make_init_def] >>
   fs [stack_removeProofTheory.make_init_any_ffi] \\ EVAL_TAC
 QED
 
 Theorem full_make_init_compile:
-   (FST(full_make_init a b c d e f g h i j k)).compile =
-   (λc. (λp. h.compile c (MAP prog_to_section (MAP (prog_comp a.reg_names) (MAP (prog_comp a.jump e d) p)))) o MAP prog_comp)
+   (FST(full_make_init aw a b c d e f g h i j k)).compile =
+   (λc. (λp. h.compile c (MAP prog_to_section (MAP (prog_comp a.reg_names) (MAP (prog_comp aw a.jump e d) p)))) o MAP prog_comp)
 Proof
   fs [full_make_init_def,stack_allocProofTheory.make_init_def]
   \\ simp[stack_removeProofTheory.make_init_any_def,
@@ -3193,9 +3193,9 @@ Definition memory_assumption_def:
 End
 
 Theorem halt_assum_lemma[local]:
-  halt_assum (:'ffi#'c)
+  halt_assum (:α#'ffi#'c)
      (fromAList (stack_names$compile f
-       (compile jump off gen max_heap k l code)))
+       (compile aw jump off gen max_heap k l code)))
 Proof
   fs [halt_assum_def] \\ rw []
   \\ fs [stackSemTheory.evaluate_def,
@@ -3206,9 +3206,9 @@ Proof
          stack_removeTheory.init_stubs_def,
          subspt_def,
          lookup_fromAList,domain_fromAList,
-         EVAL ``stack_names$comp f (halt_inst 0w)``]
+         EVAL ``stack_names$comp f (halt_inst 0)``]
   \\ first_x_assum(qspec_then`1`mp_tac) \\ simp[]
-  \\ fs [stackSemTheory.evaluate_def,EVAL ``inst (Const n 0w) (dec_clock s)``,
+  \\ fs [stackSemTheory.evaluate_def,EVAL ``inst (Const n 0) (dec_clock s)``,
          get_var_def,FLOOKUP_UPDATE]
 QED
 
@@ -3255,8 +3255,8 @@ Proof
 QED
 
 Theorem MAP_FST_compile_compile[local]:
-  MAP FST (compile jump off gen max_heap k InitGlobals_location
-              (stack_alloc$compile c
+  MAP FST (compile aw jump off gen max_heap k InitGlobals_location
+              (stack_alloc$compile aw c
                  (stack_rawcall$compile code))) =
     0::1::2::gc_stub_location::MAP FST code
 Proof
@@ -3341,8 +3341,8 @@ Proof
 QED
 
 Theorem extract_label_store_list_code[local]:
-  ∀a t ls.
-  extract_labels (store_list_code a t ls) = []
+  ∀aw a t ls.
+  extract_labels (store_list_code aw a t ls) = []
 Proof
   ho_match_mp_tac stack_removeTheory.store_list_code_ind>>
   EVAL_TAC>>fs[]
@@ -3355,7 +3355,7 @@ Theorem stack_to_lab_compile_lab_pres:
              EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧
              ALL_DISTINCT labs) prog ∧
   ALL_DISTINCT (MAP FST prog) ⇒
-  labels_ok (compile c c2 c3 sp offset prog)
+  labels_ok (compile aw c c2 c3 sp offset prog)
 Proof
   rw[labels_ok_def,stack_to_labTheory.compile_def]
   >-
@@ -3426,13 +3426,13 @@ Definition contain_def:
 End
 
 Theorem full_make_init_semantics:
-   full_make_init stack_conf data_conf max_heap sp offset
+   full_make_init aw stack_conf data_conf max_heap sp offset
     (bitmaps:'a word list) code t save_regs data_sp coracle = (s,opt) ∧
-   good_dimindex(:'a) ∧
-   t.code = stack_to_lab$compile stack_conf data_conf max_heap sp offset code ∧
+   good_dimindex(:'a) ∧ arch_width_bits aw = dimindex (:'a) ∧
+   t.code = stack_to_lab$compile aw stack_conf data_conf max_heap sp offset code ∧
    t.compile_oracle = (λn.
      let (c,p,b) = coracle n in
-       (c,compile_no_stubs stack_conf.reg_names stack_conf.jump offset sp p)) ∧
+       (c,compile_no_stubs aw stack_conf.reg_names stack_conf.jump offset sp p)) ∧
    ¬t.failed ∧
    memory_assumption stack_conf.reg_names bitmaps data_sp t ∧
    max_stack_alloc ≤ max_heap ∧
@@ -3539,7 +3539,7 @@ Proof
         old_drule (stack_remove_call_args |> SIMP_RULE (srw_ss()) [EQ_SYM_EQ,Once CONJ_COMM] |> GEN_ALL) >> simp[]>>
         fs[stack_removeTheory.compile_def,FORALL_AND_THM,GSYM AND_IMP_INTRO]>>
         disch_then kall_tac>>
-        disch_then(qspecl_then[`offset`,`sp`,`stack_conf.jump`] assume_tac)>>
+        disch_then(qspecl_then[`offset`,`sp`,`stack_conf.jump`,`aw`] assume_tac)>>
         old_drule (stack_names_call_args |> SIMP_RULE (srw_ss()) [EQ_SYM_EQ,Once CONJ_COMM] |> GEN_ALL)>>
         simp[]>>
         disch_then(qspec_then`stack_conf.reg_names` assume_tac)>>rfs[]>>
@@ -3587,7 +3587,7 @@ Proof
            prog_to_section_def] \\
       pairarg_tac \\ fs[Once loc_to_pc_def] )
     \\ rfs[])
-  \\ `discharge_these stack_conf.jump offset ggc max_heap sp InitGlobals_location coracle1 code1 s2`
+  \\ `discharge_these aw stack_conf.jump offset ggc max_heap sp InitGlobals_location coracle1 code1 s2`
   by (
     simp[discharge_these_def] \\ fs[good_code_def]
     \\ simp[Abbr`s2`]
@@ -3596,7 +3596,7 @@ Proof
       imp_res_tac stack_rawcallProofTheory.stack_rawcall_reg_bound \\
       imp_res_tac stack_alloc_reg_bound \\
       rfs[EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS,Abbr`code1`] \\
-      first_x_assum(qspec_then`data_conf`mp_tac) \\ simp[] \\
+      first_x_assum(qspecl_then[`data_conf`,`aw`]mp_tac) \\ simp[] \\
       ntac 4 strip_tac \\
       conj_tac >- metis_tac[] \\
       fs[stack_allocTheory.compile_def,stack_allocTheory.stubs_def]
@@ -3613,7 +3613,7 @@ Proof
       fs[Abbr`coracle1`]>>
       old_drule (GEN_ALL stack_alloc_reg_bound)>>
       disch_then old_drule>>
-      disch_then(qspec_then `ARB` assume_tac)>>
+      disch_then(qspecl_then [`ARB`,`aw`] assume_tac)>>
       fs[stack_allocTheory.compile_def]>>
       fs[Once EVERY_MAP,LAMBDA_PROD,EVERY_MEM,FORALL_PROD]>>
       conj_tac>-
@@ -3742,31 +3742,32 @@ QED
 Theorem stack_to_lab_compile_all_enc_ok:
   EVERY (λ(n,p). stack_asm_name c p) prog ∧
   EVERY (λ(n,p). stack_asm_remove c p) prog ∧
-  names_ok c1.reg_names (c:'a asm_config).reg_count c.avoid_regs ∧
+  names_ok c1.reg_names (c:asm_config).reg_count c.avoid_regs ∧
   fixed_names c1.reg_names c ∧
   addr_offset_ok c 0 ∧ good_dimindex (:α) ∧
+  arch_width_bits aw = dimindex (:α) ∧ isa_bits c = dimindex (:α) ∧
   byte_offset_ok c 0 ∧
   (∀n. n ≤ max_stack_alloc ⇒
-  c.valid_imm (INL Sub) (w2i (n2w (n * (dimindex (:'a) DIV 8)) : 'a word)) ∧
-  c.valid_imm (INL Add) (w2i (n2w (n * (dimindex (:'a) DIV 8)) : 'a word))) ∧
+  c.valid_imm (INL Sub) (&(n * arch_bytes aw)) ∧
+  c.valid_imm (INL Add) (&(n * arch_bytes aw))) ∧
   c.valid_imm (INL Add) 1 ∧ c.valid_imm (INL Sub) 1 ∧
   c.valid_imm (INL Add) 4 ∧ c.valid_imm (INL Add) 8 ∧
-  (∀s. addr_offset_ok c (w2i (store_offset s : 'a word))) ∧ reg_name 10 c ∧
+  (∀s. addr_offset_ok c (store_offset aw s)) ∧ reg_name 10 c ∧
   reg_name (sp + 2) c ∧ reg_name (sp + 1) c ∧ reg_name sp c  ∧
-  conf_ok (:'a) c2 ∧ sp ≠ 0 ⇒
-  all_enc_ok_pre c (compile c1 c2 c3 sp c.addr_offset prog)
+  conf_ok (arch_width_bits aw) c2 ∧ sp ≠ 0 ⇒
+  all_enc_ok_pre c (compile aw c1 c2 c3 sp c.addr_offset prog)
 Proof
   rw[stack_to_labTheory.compile_def]>>
   match_mp_tac compile_all_enc_ok_pre>>fs[]>>
   match_mp_tac stack_names_stack_asm_ok>>fs[]>>
-  match_mp_tac stack_remove_stack_asm_name>>fs[stackPropsTheory.reg_name_def]>>
+  match_mp_tac stack_remove_stack_asm_name>>gvs[stackPropsTheory.reg_name_def]>>
   match_mp_tac stack_alloc_stack_asm_convs>>fs[stackPropsTheory.reg_name_def]>>
   fs [stack_rawcallProofTheory.stack_alloc_stack_asm_convs]
 QED
 
 Theorem IMP_init_store_ok:
-   max_heap = 2 * max_heap_limit (:'a) c1 -1 /\
-  (fmis,xxx) = full_make_init stack_conf c1 max_heap sp offset (bitmaps:'a word list) code s save_regs data_sp coracle
+   max_heap = 2 * max_heap_limit (dimindex (:'a)) c1 -1 /\
+  (fmis,xxx) = full_make_init aw stack_conf c1 max_heap sp offset (bitmaps:'a word list) code s save_regs data_sp coracle
   ==>
     init_store_ok c1
       (fmis.store \\ Handler)
@@ -3801,7 +3802,7 @@ QED
 Theorem IMP_init_state_ok:
   4 < kkk /\
   (bitmaps:'a word list) = 4w::t ∧
-  good_dimindex (:α) /\
+  good_dimindex (:α) /\ isa_bits ac = dimindex (:'a) /\
   (∀n.
     (λ((bm0,cfg),progs).
      EVERY
@@ -3817,7 +3818,7 @@ Theorem IMP_init_state_ok:
         (compile_word_to_stack
            ac F kkk progs
            (Nil, bm0))) (word_oracle n)) ∧
-    (full_make_init scc dc max_heap stk stoff bitmaps p6 lab_st save_regs data_sp stack_oracle = (fmis,SOME xxx))
+    (full_make_init aw scc dc max_heap stk stoff bitmaps p6 lab_st save_regs data_sp stack_oracle = (fmis,SOME xxx))
     ==>
     init_state_ok ac kkk fmis word_oracle
 Proof
@@ -3850,10 +3851,10 @@ Proof
 QED
 
 Theorem full_make_init_has_fp_ops[simp]:
-  full_make_init stack_conf
+  full_make_init aw stack_conf
       (dconf with <| has_fp_ops := b1; has_fp_tern := b2 |>)
       mheap sp offset bitmaps code s save_regs dsp cor =
-    full_make_init stack_conf dconf
+    full_make_init aw stack_conf dconf
       mheap sp offset bitmaps code s save_regs dsp cor
 Proof
   rewrite_tac [full_make_init_def] \\ fs []
@@ -4171,7 +4172,7 @@ QED
 
 (* stack_remove *)
 Theorem get_code_labels_comp[local]:
-  !a b c p. get_code_labels (comp a b c p) SUBSET (stack_err_lab,0) INSERT get_code_labels p
+  !aw a b c p. get_code_labels (comp aw a b c p) SUBSET (stack_err_lab,0) INSERT get_code_labels p
 Proof
   HO_MATCH_MP_TAC stack_removeTheory.comp_ind \\ rw []
   \\ Cases_on `p` \\ once_rewrite_tac [stack_removeTheory.comp_def]
@@ -4215,7 +4216,7 @@ Proof
 QED
 
 Theorem init_stubs_labels[local]:
-  EVERY (λp. get_code_labels p SUBSET (set [(1n,0n);(start,0n)])) (MAP SND (init_stubs ggc mh k start))
+  EVERY (λp. get_code_labels p SUBSET (set [(1n,0n);(start,0n)])) (MAP SND (init_stubs aw ggc mh k start))
 Proof
   rpt(EVAL_TAC>>rw[]>>fs[])
 QED
@@ -4261,8 +4262,8 @@ QED
 
 (* ---- stack_remove ---- *)
 Theorem stack_remove_get_code_labels_comp[local]:
-  !a b c p.
-  get_code_labels (comp a b c p) SUBSET (stack_err_lab,0) INSERT get_code_labels p
+  !aw a b c p.
+  get_code_labels (comp aw a b c p) SUBSET (stack_err_lab,0) INSERT get_code_labels p
 Proof
   HO_MATCH_MP_TAC stack_removeTheory.comp_ind \\ rw []
   \\ Cases_on `p` \\ once_rewrite_tac [stack_removeTheory.comp_def]
@@ -4306,8 +4307,8 @@ Proof
 QED
 
 Theorem stack_remove_stack_get_handler_labels_comp[local]:
-  !a b c p m.
-  stack_get_handler_labels m (comp a b c p) =
+  !aw a b c p m.
+  stack_get_handler_labels m (comp aw a b c p) =
   stack_get_handler_labels m p
 Proof
   HO_MATCH_MP_TAC stack_removeTheory.comp_ind \\ rw []
@@ -4347,7 +4348,7 @@ Proof
 QED
 
 Theorem stack_remove_init_code_labels[local]:
-  x ∈ get_code_labels (init_code ggc mh sp) ⇒ x = (1n,0n)
+  x ∈ get_code_labels (init_code aw ggc mh sp) ⇒ x = (1n,0n)
 Proof
   rpt(EVAL_TAC>>rw[]>>fs[])
 QED
@@ -4356,7 +4357,7 @@ Theorem stack_remove_stack_good_code_labels:
   ∀prog.
   MEM loc (MAP FST prog) ∧
   stack_good_code_labels prog elabs ⇒
-  stack_good_code_labels (stack_remove$compile jump off ggc mh sp loc prog) elabs
+  stack_good_code_labels (stack_remove$compile aw jump off ggc mh sp loc prog) elabs
 Proof
   rw[]>>
   simp[stack_removeTheory.compile_def]>>
@@ -4390,7 +4391,7 @@ Theorem stack_remove_stack_good_code_labels_incr:
   ∀prog.
   stack_err_lab ∈ elabs ∧
   stack_good_code_labels prog elabs ⇒
-  stack_good_code_labels (MAP (prog_comp jump offset sp) prog) elabs
+  stack_good_code_labels (MAP (prog_comp aw jump offset sp) prog) elabs
 Proof
   rw[]>>
   fs[stack_good_code_labels_def]>>rw[]>>
@@ -4428,7 +4429,7 @@ Proof
 QED
 
 Theorem stack_alloc_init_code_labels[local]:
-  get_code_labels (word_gc_code c) = {}
+  get_code_labels (word_gc_code aw c) = {}
 Proof
   simp[stack_allocTheory.word_gc_code_def]>>
   EVAL_TAC>>
@@ -4439,7 +4440,7 @@ QED
 Theorem stack_alloc_stack_good_code_labels:
   ∀prog c.
   stack_good_code_labels prog elabs ⇒
-  stack_good_code_labels (stack_alloc$compile c prog) elabs
+  stack_good_code_labels (stack_alloc$compile aw c prog) elabs
 Proof
   simp[stack_allocTheory.compile_def]>>
   fs[stack_good_code_labels_def]>>rw[]
@@ -4554,7 +4555,7 @@ QED
 
 (* stack_to_lab *)
 Theorem stack_to_lab_stack_good_code_labels:
-  compile stack_conf data_conf max_heap sp offset prog = prog' ∧
+  compile aw stack_conf data_conf max_heap sp offset prog = prog' ∧
   MEM InitGlobals_location (MAP FST prog) ∧
   stack_good_code_labels prog elabs ∧
   EVERY sec_labels_ok  prog' ⇒
@@ -4581,7 +4582,7 @@ QED
 Theorem stack_to_lab_stack_good_code_labels_incr:
   stack_err_lab ∈ elabs ∧
   gc_stub_location ∈ elabs ∧
-  compile_no_stubs f jump offset sp prog = prog' ∧
+  compile_no_stubs aw f jump offset sp prog = prog' ∧
   stack_good_code_labels prog elabs ∧
   EVERY sec_labels_ok  prog' ⇒
   get_labels prog' ⊆ get_code_labels prog' ∪ IMAGE (λn. n,0) elabs ∪ IMAGE (λn. n,1) elabs
@@ -4658,7 +4659,7 @@ QED
 Theorem stack_remove_stack_good_handler_labels_incr:
   ∀prog.
   stack_good_handler_labels prog ⇒
-  stack_good_handler_labels (MAP (prog_comp jump offset sp) prog)
+  stack_good_handler_labels (MAP (prog_comp aw jump offset sp) prog)
 Proof
   simp[stack_good_handler_labels_def]>>
   rw[]>>
@@ -4686,7 +4687,7 @@ QED
 Theorem stack_remove_stack_good_handler_labels:
   ∀prog.
   stack_good_handler_labels prog ⇒
-  stack_good_handler_labels (stack_remove$compile jump off ggc mh sp loc prog)
+  stack_good_handler_labels (stack_remove$compile aw jump off ggc mh sp loc prog)
 Proof
   rw[]>>
   simp[stack_removeTheory.compile_def]>>
@@ -4729,7 +4730,7 @@ QED
 Theorem stack_alloc_stack_good_handler_labels:
   ∀prog c.
   stack_good_handler_labels prog ⇒
-  stack_good_handler_labels (stack_alloc$compile c prog)
+  stack_good_handler_labels (stack_alloc$compile aw c prog)
 Proof
   rw[stack_allocTheory.compile_def]>>
   match_mp_tac stack_good_handler_labels_append>>rw[]
@@ -4760,7 +4761,7 @@ Proof
 QED
 
 Theorem stack_to_lab_stack_good_handler_labels:
-  compile stack_conf data_conf max_heap sp offset prog = prog' ∧
+  compile aw stack_conf data_conf max_heap sp offset prog = prog' ∧
   stack_good_handler_labels prog ∧
   EVERY sec_labels_ok  prog' ⇒
   restrict_nonzero (get_labels prog') ⊆ get_code_labels prog'
@@ -4776,7 +4777,7 @@ Proof
 QED
 
 Theorem stack_to_lab_stack_good_handler_labels_incr:
-  compile_no_stubs f jump offset sp prog = prog' ∧
+  compile_no_stubs aw f jump offset sp prog = prog' ∧
   stack_good_handler_labels prog ∧
   EVERY sec_labels_ok prog' ⇒
   restrict_nonzero (get_labels prog') ⊆ get_code_labels prog'
@@ -4855,7 +4856,7 @@ QED
 
 Theorem stack_alloc_compile_no_shmemop:
   EVERY (λ(a,p). no_shmemop p) prog ⇒
-  EVERY (λ(a,p). no_shmemop p) (stack_alloc_compile data prog)
+  EVERY (λ(a,p). no_shmemop p) (stack_alloc_compile aw data prog)
 Proof
   rw[stack_allocTheory.compile_def]>-
    (EVAL_TAC>>every_case_tac>>fs[no_shmemop_def])>>
@@ -4863,7 +4864,7 @@ Proof
 QED
 
 Theorem upshift_no_shmemop[simp]:
-  ∀k n. no_shmemop (upshift k n)
+  ∀aw k n. no_shmemop (upshift aw k n)
 Proof
   recInduct stack_removeTheory.upshift_ind \\ rw []
   \\ once_rewrite_tac [stack_removeTheory.upshift_def] \\ rw []
@@ -4871,7 +4872,7 @@ Proof
 QED
 
 Theorem downshift_no_shmemop[simp]:
-  ∀k n. no_shmemop (downshift k n)
+  ∀aw k n. no_shmemop (downshift aw k n)
 Proof
   recInduct stack_removeTheory.downshift_ind \\ rw []
   \\ once_rewrite_tac [stack_removeTheory.downshift_def] \\ rw []
@@ -4879,7 +4880,7 @@ Proof
 QED
 
 Theorem stack_free_no_shmemop[simp]:
-  ∀k n. no_shmemop (stack_free k n)
+  ∀aw k n. no_shmemop (stack_free aw k n)
 Proof
   recInduct stack_removeTheory.stack_free_ind \\ rw []
   \\ once_rewrite_tac [stack_removeTheory.stack_free_def] \\ rw []
@@ -4887,7 +4888,7 @@ Proof
 QED
 
 Theorem stack_alloc_no_shmemop[simp]:
-  ∀jump k n. no_shmemop (stack_alloc jump k n)
+  ∀aw jump k n. no_shmemop (stack_alloc aw jump k n)
 Proof
   recInduct stack_removeTheory.stack_alloc_ind \\ rw []
   \\ once_rewrite_tac [stack_removeTheory.stack_alloc_def] \\ rw []>>
@@ -4896,7 +4897,7 @@ Proof
 QED
 
 Theorem stack_remove_comp_no_shmemop:
-  ∀jump off k p. no_shmemop p ⇒ no_shmemop (comp jump off k p)
+  ∀aw jump off k p. no_shmemop p ⇒ no_shmemop (comp aw jump off k p)
 Proof
   recInduct stack_removeTheory.comp_ind \\ rw []
   \\ Cases_on `p` \\ fs []
@@ -4912,7 +4913,7 @@ Proof
 QED
 
 Theorem stack_remove_prog_comp_no_shmemop:
-  ∀p. no_shmemop p ⇒ no_shmemop (SND (prog_comp jump off k (n,p)))
+  ∀p. no_shmemop p ⇒ no_shmemop (SND (prog_comp aw jump off k (n,p)))
 Proof
   Induct>>fs[stack_removeTheory.prog_comp_def]>>rpt strip_tac>>
   irule stack_remove_comp_no_shmemop>>fs[]
@@ -4920,7 +4921,7 @@ QED
 
 Theorem stack_remove_compile_no_shmemop:
   EVERY (λ(a,p). no_shmemop p) prog ⇒
-  EVERY (λ(a,p). no_shmemop p) (stack_remove_compile jump offset gckind mh sp loc prog)
+  EVERY (λ(a,p). no_shmemop p) (stack_remove_compile aw jump offset gckind mh sp loc prog)
 Proof
   rw[stack_removeTheory.compile_def]>-
    (EVAL_TAC>>every_case_tac>>fs[no_shmemop_def])>>
@@ -4929,7 +4930,7 @@ Proof
   rpt (pairarg_tac>>fs[])>>
   last_x_assum $ qspec_then ‘y’ assume_tac>>gvs[]>>
   rpt (pairarg_tac>>fs[])>>
-  ‘p = SND (prog_comp jump offset sp y)’ by gvs[]>>
+  ‘p = SND (prog_comp aw jump offset sp y)’ by gvs[]>>
   gvs[]>>
   irule stack_remove_prog_comp_no_shmemop>>fs[]
 QED
@@ -5010,7 +5011,7 @@ QED
 Theorem compile_no_share_mem_inst:
   ∀prog prog'.
   EVERY (\(a,p). no_shmemop p) prog ∧
-  compile stack_conf data_conf max_heap sp offset prog = prog' ==>
+  compile aw stack_conf data_conf max_heap sp offset prog = prog' ==>
   labProps$no_share_mem_inst prog'
 Proof
   rw[stack_to_labTheory.compile_def]>>
@@ -5023,19 +5024,19 @@ QED
 
 Theorem stack_remove_prog_comp_no_shmemop_MAP:
   EVERY (\(a,p). no_shmemop p) prog ⇒
-  EVERY (\(a,p). no_shmemop p) (MAP (prog_comp jump offset sp) prog)
+  EVERY (\(a,p). no_shmemop p) (MAP (prog_comp aw jump offset sp) prog)
 Proof
   rw[EVERY_MEM]>>
   pairarg_tac>>fs[MEM_MAP]>>
   first_x_assum $ qspec_then ‘y’ assume_tac>>gvs[]>>
   rpt (pairarg_tac>>fs[])>>gvs[]>>
-  ‘p = SND (prog_comp jump offset sp (a'',p''))’ by gvs[]>>
+  ‘p = SND (prog_comp aw jump offset sp (a'',p''))’ by gvs[]>>
   gvs[]>>irule stack_remove_prog_comp_no_shmemop>>fs[]
 QED
 
 Theorem compile_no_stubs_no_share_mem_inst:
   EVERY (\(a,p). no_shmemop p) prog ∧
-  compile_no_stubs f jump offset sp prog = prog' ==>
+  compile_no_stubs aw f jump offset sp prog = prog' ==>
   labProps$no_share_mem_inst prog'
 Proof
   rw[compile_no_stubs_def]>>
@@ -5111,7 +5112,7 @@ QED
 
 Theorem stack_alloc_compile_no_install:
   EVERY (λ(a,p). no_install p) prog ⇒
-  EVERY (λ(a,p). no_install p) (stack_alloc_compile data prog)
+  EVERY (λ(a,p). no_install p) (stack_alloc_compile aw data prog)
 Proof
   rw[stack_allocTheory.compile_def]>-
    (EVAL_TAC>>every_case_tac>>fs[stackPropsTheory.no_install_def])>>
@@ -5119,7 +5120,7 @@ Proof
 QED
 
 Theorem upshift_no_install[simp]:
-  ∀k n. no_install (upshift k n)
+  ∀aw k n. no_install (upshift aw k n)
 Proof
   recInduct stack_removeTheory.upshift_ind \\ rw []
   \\ once_rewrite_tac [stack_removeTheory.upshift_def] \\ rw []
@@ -5127,7 +5128,7 @@ Proof
 QED
 
 Theorem downshift_no_install[simp]:
-  ∀k n. no_install (downshift k n)
+  ∀aw k n. no_install (downshift aw k n)
 Proof
   recInduct stack_removeTheory.downshift_ind \\ rw []
   \\ once_rewrite_tac [stack_removeTheory.downshift_def] \\ rw []
@@ -5135,7 +5136,7 @@ Proof
 QED
 
 Theorem stack_free_no_install[simp]:
-  ∀k n. no_install (stack_free k n)
+  ∀aw k n. no_install (stack_free aw k n)
 Proof
   recInduct stack_removeTheory.stack_free_ind \\ rw []
   \\ once_rewrite_tac [stack_removeTheory.stack_free_def] \\ rw []
@@ -5144,7 +5145,7 @@ Proof
 QED
 
 Theorem stack_alloc_no_install[simp]:
-  ∀jump k n. no_install (stack_alloc jump k n)
+  ∀aw jump k n. no_install (stack_alloc aw jump k n)
 Proof
   recInduct stack_removeTheory.stack_alloc_ind \\ rw []
   \\ once_rewrite_tac [stack_removeTheory.stack_alloc_def] \\ rw []>>
@@ -5155,7 +5156,7 @@ Proof
 QED
 
 Theorem stack_remove_comp_no_install:
-  ∀jump off k p. no_install p ⇒ no_install (comp jump off k p)
+  ∀aw jump off k p. no_install p ⇒ no_install (comp aw jump off k p)
 Proof
   recInduct stack_removeTheory.comp_ind \\ rw []
   \\ Cases_on `p` \\ fs []
@@ -5173,7 +5174,7 @@ Proof
 QED
 
 Theorem stack_remove_prog_comp_no_install:
-  ∀p. no_install p ⇒ no_install (SND (prog_comp jump off k (n,p)))
+  ∀p. no_install p ⇒ no_install (SND (prog_comp aw jump off k (n,p)))
 Proof
   Induct>>fs[stack_removeTheory.prog_comp_def]>>rpt strip_tac>>
   irule stack_remove_comp_no_install>>fs[]
@@ -5181,7 +5182,7 @@ QED
 
 Theorem stack_remove_compile_no_install:
   EVERY (λ(a,p). no_install p) prog ⇒
-  EVERY (λ(a,p). no_install p) (stack_remove_compile jump offset gckind mh sp loc prog)
+  EVERY (λ(a,p). no_install p) (stack_remove_compile aw jump offset gckind mh sp loc prog)
 Proof
   rw[stack_removeTheory.compile_def]>-
    (EVAL_TAC>>every_case_tac>>fs[stackPropsTheory.no_install_def])>>
@@ -5190,7 +5191,7 @@ Proof
   rpt (pairarg_tac>>fs[])>>
   last_x_assum $ qspec_then ‘y’ assume_tac>>gvs[]>>
   rpt (pairarg_tac>>fs[])>>
-  ‘p = SND (prog_comp jump offset sp y)’ by gvs[]>>
+  ‘p = SND (prog_comp aw jump offset sp y)’ by gvs[]>>
   gvs[]>>
   irule stack_remove_prog_comp_no_install>>fs[]
 QED
@@ -5272,7 +5273,7 @@ QED
 Theorem stack_to_lab_compile_no_install:
   ∀prog prog'.
   EVERY (\(a,p). no_install p) prog ∧
-  compile stack_conf data_conf max_heap sp offset prog = prog' ==>
+  compile aw stack_conf data_conf max_heap sp offset prog = prog' ==>
   labProps$no_install prog'
 Proof
   rw[stack_to_labTheory.compile_def]>>

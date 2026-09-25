@@ -30,9 +30,9 @@ Datatype:
                      counter is shared with ExtCall) *)
      ; io_fp_regs : num (* seq number *) -> num (* FP register *) -> word64
      ; cc_fp_regs : num -> num -> word64
-     ; code       : 'a labLang$prog
-     ; compile    : 'c -> 'a labLang$prog -> (word8 list # 'c) option
-     ; compile_oracle : num -> 'c # 'a labLang$prog
+     ; code       : labLang$prog
+     ; compile    : 'c -> labLang$prog -> (word8 list # 'c) option
+     ; compile_oracle : num -> 'c # labLang$prog
      ; code_buffer : ('a,8) buffer
      ; clock      : num
      ; failed     : bool
@@ -310,7 +310,7 @@ End
 
 Definition asm_inst_def[simp]:
   (asm_inst Skip s = (s:('a,'c,'ffi) labSem$state)) /\
-  (asm_inst (Const r imm) s = upd_reg r (Word imm) s) /\
+  (asm_inst (Const r imm) s = upd_reg r (Word (i2w imm)) s) /\
   (asm_inst (Arith x) s = arith_upd x s) /\
   (asm_inst (Mem m r a) s = mem_op m r a s) /\
   (asm_inst (FP fp) s = fp_upd fp s)

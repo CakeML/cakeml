@@ -27,6 +27,8 @@ val _ = temp_delsimps ["fromAList_def", "domain_union", "domain_insert",
                        "sptree.insert_notEmpty","misc.max3_def"]
 
 val _ = numLib.temp_prefer_num();
+val _ = augment_srw_ss [rewrites [integer_wordTheory.i2w_pos,
+                                  integer_wordTheory.i2w_w2i]];
 
 val get_labels_def = stackSemTheory.get_labels_def;
 val extract_labels_def = stackPropsTheory.extract_labels_def
@@ -49,7 +51,7 @@ QED
 Theorem PushHandler_F:
   PushHandler F l1 l2 (k,f,f') =
     Seq (StackAlloc 3)
-   (Seq (Inst (Const k 1w))
+   (Seq (Inst (Const k 1))
    (Seq (StackStore k 0)
    (Seq (LocValue k l1 l2)
    (Seq (StackStore k 1)
@@ -893,7 +895,7 @@ Proof
 QED
 
 Definition state_rel_def:
-  state_rel (ac:'a asm_config) k f f' (s:('a,num # 'c,'ffi) wordSem$state)
+  state_rel (ac:asm_config) k f f' (s:('a,num # 'c,'ffi) wordSem$state)
     (t:('a,'c,'ffi) stackSem$state) lens extra ⇔
     (s.clock = t.clock) /\ (s.gc_fun = t.gc_fun) /\ (s.permute = K I) /\
     (t.ffi = s.ffi) /\ t.use_stack /\ t.use_store /\ t.use_alloc /\
@@ -933,7 +935,8 @@ Definition state_rel_def:
     ) /\
     (lookup raise_stub_location t.code = SOME (raise_stub F k)) /\
     (lookup store_consts_stub_location t.code = SOME (store_consts_stub k)) /\
-    good_dimindex (:'a) /\ 8 <= dimindex (:'a) /\
+    good_dimindex (:'a) /\ isa_bits ac = dimindex (:'a) /\
+    8 <= dimindex (:'a) /\
     LENGTH t.bitmaps + LENGTH s.data_buffer.buffer + s.data_buffer.space_left +1 < dimword (:α) /\
     1 ≤ LENGTH t.bitmaps ∧ HD t.bitmaps = 4w ∧
     t.stack_space + f <= LENGTH t.stack /\ LENGTH t.stack < dimword (:'a) /\
@@ -4686,19 +4689,22 @@ Proof
 QED
 
 Theorem evaluate_wInst:
-   ∀i s t s'.
+   ∀i (s:(α,num # γ,'ffi) wordSem$state) t s'.
    inst i s = SOME s' ∧
-   every_var_inst is_phy_var i ∧
-   max_var_inst i < 2 * f' + 2 * k ∧
+   every_var_inst (dimindex (:α)) is_phy_var i ∧
+   max_var_inst (dimindex (:α)) i < 2 * f' + 2 * k ∧
    inst_arg_convention i ∧
    state_rel ac k f f' s t lens 0
   ⇒
    ∃t'.
-     evaluate (wInst i (k,f,f'), t) = (NONE,t') ∧
+     evaluate (wInst (arch_wordsize ac.ISA) i (k,f,f'), t) = (NONE,t') ∧
      state_rel ac k f f' s' t' lens 0 /\
      LENGTH t'.stack = LENGTH t.stack /\ t'.stack_space = t.stack_space
 Proof
   rpt strip_tac
+  \\ `((arch_wordsize ac.ISA = Arch64) ⇔ dimindex (:α) = 64)` by
+    (fs [state_rel_def] \\ Cases_on `arch_wordsize ac.ISA`
+     \\ fs [asmTheory.arch_width_bits_def])
   \\ fs[inst_def]
   \\ gvs[Once $ AllCaseEqs()]
   \\ simp[wInst_def,stackSemTheory.evaluate_def,stackSemTheory.inst_def]
@@ -6746,7 +6752,7 @@ Theorem evaluate_const_inst[local]:
   t.clock = t'.clock ∧
   state_rel ac k f f' s t' lens extra∧
   LENGTH t'.stack = LENGTH t.stack /\ t'.stack_space = t.stack_space /\
-  stackSem$get_var (k + 1) t' = (SOME (Word i))
+  stackSem$get_var (k + 1) t' = (SOME (Word (i2w i)))
 Proof
     simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]>>
     simp[stackSemTheory.inst_def] >>
@@ -6858,7 +6864,7 @@ Resume comp_correct[If]:
   >- (
     fs[get_labels_wStackLoad,get_labels_def]>>
     dxrule_all evaluate_const_inst>>
-    disch_then (qspec_then `i2w i` mp_tac) >>
+    disch_then (qspec_then `i` mp_tac) >>
     rw[] >>
     simp[Once stackSemTheory.evaluate_def,evaluate_const_inst_clock]>>
     simp[evaluate_wStackLoad_seq]>>
@@ -10347,8 +10353,9 @@ Proof
 QED
 
 Definition init_state_ok_def:
-  init_state_ok (ac:'a asm_config) k ^t coracle <=>
-    4n < k /\ good_dimindex (:'a) /\ 8 <= dimindex (:'a) /\
+  init_state_ok (ac:asm_config) k ^t coracle <=>
+    4n < k /\ good_dimindex (:'a) /\ isa_bits ac = dimindex (:'a) /\
+    8 <= dimindex (:'a) /\
     t.use_stack /\ t.use_store /\ t.use_alloc /\ gc_fun_ok t.gc_fun /\
     t.stack_space <= LENGTH t.stack /\
     FLOOKUP t.regs 0 = SOME (Loc 1 0) /\
@@ -10372,7 +10379,7 @@ Definition init_state_ok_def:
 End
 
 Definition make_init_def:
-  make_init (ac:'a asm_config) k ^t code coracle =
+  make_init (ac:asm_config) k ^t code coracle =
     <| locals  := insert 0 (Loc 1 0) LN
      ; fp_regs := t.fp_regs
      ; store   := t.store \\ Handler
@@ -10981,7 +10988,8 @@ Proof
 QED
 
 Theorem word_to_stack_stack_asm_name_lem:
-  ∀c perf p bs kf.
+  ∀c perf (p:'a wordLang$prog) bs kf.
+  isa_bits c = dimindex (:'a) ∧
   perf = F ∧
   post_alloc_conventions (FST kf) p ∧
   full_inst_ok_less c p ∧
@@ -11011,11 +11019,15 @@ Proof
     Cases_on`p_1`>>Cases_on`p_2`>>EVAL_TAC>>fs[]>>every_case_tac>>fs[]>>
     EVAL_TAC>>fs[])
   >- (
+    ‘(arch_wordsize c.ISA = Arch64) ⇔ dimindex (:'a) = 64’ by
+      (Cases_on ‘arch_wordsize c.ISA’ >>
+       fs[asmTheory.arch_width_bits_def]) >>
     Cases_on`i`>>TRY(Cases_on`m`)>>TRY(Cases_on`a`)>>
     TRY(Cases_on`b`>>Cases_on`r`)>>TRY(Cases_on`r`)>>
     TRY(Cases_on`f`)>>
     fs wconvs>>
     fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,two_reg_inst_def,wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,asmTheory.fp_reg_ok_def] >>
+    fs[oneline wInst_def] >>
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>fs[]>>
@@ -11157,7 +11169,7 @@ Proof
 QED
 
 Theorem word_to_stack_stack_asm_remove_lem:
-  ∀(c:'a asm_config) perf (p:'a wordLang$prog) bs kf.
+  ∀(c:asm_config) perf (p:'a wordLang$prog) bs kf.
   (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ∧ perf = F ⇒
   stack_asm_remove c (FST (comp c perf p bs kf))
 Proof
@@ -11230,7 +11242,8 @@ Proof
 QED
 
 Theorem word_to_stack_stack_asm_convs:
-  EVERY (λ(n,m,p).
+  isa_bits c = dimindex (:'a) ∧
+  EVERY (λ(n,m,p:'a wordLang$prog).
     full_inst_ok_less c p ∧
     (c.two_reg_arith ⇒ every_inst two_reg_inst p) ∧
     (no_share_inst p ∨ c.ISA ≠ Ag32) ∧
@@ -11383,7 +11396,8 @@ Proof
 QED
 
 Theorem word_to_stack_reg_bound:
-  ∀c perf p n args.
+  ∀c perf (p:'a wordLang$prog) n args.
+    isa_bits c = dimindex (:'a) ∧
     post_alloc_conventions (FST args) p ∧
     4 ≤ FST args ∧ perf = F ⇒
     reg_bound (FST(word_to_stack$comp c perf p n args)) (FST args+2)
@@ -11406,9 +11420,12 @@ Proof
     Cases_on`p_1`>>Cases_on`p_2`>>fs[format_var_def]>>
     EVERY_CASE_TAC>>fs [reg_bound_def])
   >- (
+    ‘(arch_wordsize conf.ISA = Arch64) ⇔ dimindex (:'a) = 64’ by
+      (Cases_on ‘arch_wordsize conf.ISA’ >>
+       fs[asmTheory.arch_width_bits_def]) >>
     Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
     TRY(Cases_on`f`)>>
-    fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def,wRegWrite2_def]>>
+    fs[oneline wInst_def,wRegWrite1_def,wReg1_def,wReg2_def,wRegWrite2_def]>>
     EVERY_CASE_TAC>>
     fs[wStackLoad_def,reg_bound_def]>>fs [reg_bound_def,convs_def,inst_arg_convention_def])
   >- (
@@ -11579,7 +11596,8 @@ QED
 
 (* Gluing all the conventions together *)
 Theorem word_to_stack_stack_convs:
-  word_to_stack$compile (ac:'a asm_config) F (p:(num # num # 'a wordLang$prog) list) = (bytes,c',f', p') ∧
+  word_to_stack$compile (ac:asm_config) F (p:(num # num # 'a wordLang$prog) list) = (bytes,c',f', p') ∧
+  isa_bits ac = dimindex (:'a) ∧
   EVERY (post_alloc_conventions k) (MAP (SND o SND) p) ∧
   k = (ac.reg_count- (5 +LENGTH ac.avoid_regs)) ∧
   4 ≤ k
@@ -11602,7 +11620,7 @@ Proof
   rename1`compile_word_to_stack ac _ k p bm = _`>>
   map_every qid_spec_tac [`bm`,`p''`,`progs`, `fs`, `bitmaps`,`p`]>>
   Induct>>fs[compile_word_to_stack_def,FORALL_PROD]>>
-  ntac 13 strip_tac>>
+  ntac 14 strip_tac>>
   pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
   rveq>>fs[]
@@ -11633,8 +11651,9 @@ Proof
 QED
 
 Theorem compile_word_to_stack_convs:
-  ∀p bm q bm'.
+  ∀(p:(num # num # 'a wordLang$prog) list) bm q bm'.
    compile_word_to_stack c F k p bm = (q,bm') ∧
+   isa_bits c = dimindex (:'a) ∧
    EVERY (λ(n,m,p).
      full_inst_ok_less c p ∧
      (c.two_reg_arith ⇒ every_inst two_reg_inst p) ∧
@@ -11819,7 +11838,7 @@ Proof
 QED
 
 Theorem word_to_stack_good_code_labels:
-  compile (asm_conf:'a asm_config) F (progs:(num # num # 'a wordLang$prog) list) = (bytes,bs,fs,prog') ∧
+  compile (asm_conf:asm_config) F (progs:(num # num # 'a wordLang$prog) list) = (bytes,bs,fs,prog') ∧
   good_code_labels progs elabs ⇒
   stack_good_code_labels prog' elabs
 Proof
@@ -11848,7 +11867,7 @@ QED
 Theorem word_to_stack_good_code_labels_incr:
   raise_stub_location ∈ elabs ∧
   store_consts_stub_location ∈ elabs ∧
-  compile_word_to_stack (ac:'a asm_config) F k (prog:(num # num # 'a wordLang$prog) list) bs = (prog',fs', bs') ⇒
+  compile_word_to_stack (ac:asm_config) F k (prog:(num # num # 'a wordLang$prog) list) bs = (prog',fs', bs') ⇒
   good_code_labels prog elabs ⇒
   stack_good_code_labels prog' elabs
 Proof
@@ -11877,7 +11896,7 @@ QED
 
 Theorem word_to_stack_good_handler_labels:
   EVERY (λ(n,m,pp). good_handlers n pp) (prog:(num # num # 'a wordLang$prog) list) ⇒
-  compile (asm_conf:'a asm_config) F prog = (bytes,bs,fs,prog') ⇒
+  compile (asm_conf:asm_config) F prog = (bytes,bs,fs,prog') ⇒
   stack_good_handler_labels prog'
 Proof
   fs[word_to_stackTheory.compile_def]>>
@@ -11905,7 +11924,7 @@ QED
 
 Theorem word_to_stack_good_handler_labels_incr:
   EVERY (λ(n,m,pp). good_handlers n pp) (prog:(num # num # 'a wordLang$prog) list) ⇒
-  compile_word_to_stack (ac:'a asm_config) F k prog bs = (prog',fs', bs') ⇒
+  compile_word_to_stack (ac:asm_config) F k prog bs = (prog',fs', bs') ⇒
   stack_good_handler_labels prog'
 Proof
   fs[stack_good_handler_labels_def]>>
@@ -12113,8 +12132,7 @@ Proof
   conj_tac
   >- (
     simp[no_install_def] >>
-    irule comp_no_install >>
-    qrefinel [‘_’, ‘_’, ‘_’, ‘_’, ‘F’]>>simp[]>>
+    drule comp_no_install >> disch_then irule >> simp[] >>
     metis_tac[FST_EQ_EQUIV]
   ) >>
   last_x_assum irule >>
@@ -12341,7 +12359,7 @@ Proof
   conj_tac
   >- (
     simp[no_shmemop_def] >>
-    irule comp_no_shmemop >>
+    drule comp_no_shmemop >> disch_then irule >>
     metis_tac[FST_EQ_EQUIV]
   ) >>
   last_x_assum irule >>
@@ -12349,7 +12367,7 @@ Proof
 QED
 
 Theorem compile_no_shmemop:
-  compile (cf:'a asm_config) F (prog:(num # num # 'a wordLang$prog) list) = (bs,fs,ns,prog') /\
+  compile (cf:asm_config) F (prog:(num # num # 'a wordLang$prog) list) = (bs,fs,ns,prog') /\
   EVERY (\(n,m,pp). no_share_inst pp) prog ==>
   EVERY (\(a,p). no_shmemop p) prog'
 Proof
@@ -12365,7 +12383,7 @@ QED
 Theorem word_to_stack_compile_no_install:
   ALL_DISTINCT (MAP FST prog) ∧
   no_install_code (fromAList prog) ∧
-  word_to_stack$compile (ac:'a asm_config) F (prog:(num # num # 'a wordLang$prog) list) = (bm, c, fs, p) ⇒
+  word_to_stack$compile (ac:asm_config) F (prog:(num # num # 'a wordLang$prog) list) = (bm, c, fs, p) ⇒
   EVERY (λ(n,x). no_install x) p
 Proof
   strip_tac>>
@@ -12374,8 +12392,8 @@ Proof
   gvs[]>>
   conj_tac >- EVAL_TAC>>
   conj_tac >- EVAL_TAC>>
-  irule compile_word_to_stack_no_install>>
-  first_assum $ irule_at Any>>
+  drule_at Any compile_word_to_stack_no_install>>
+  simp[]>>disch_then irule>>
   fs[wordPropsTheory.no_install_code_def,lookup_fromAList]>>
   fs[EVERY_MEM]>>rpt strip_tac>>
   pairarg_tac>>fs[]>>

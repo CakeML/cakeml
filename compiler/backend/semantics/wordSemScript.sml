@@ -717,7 +717,7 @@ Definition inst_def:
   inst i ^s =
     case i of
     | Skip => SOME s
-    | Const reg w => assign reg (Const w) s
+    | Const reg w => assign reg (Const (i2w w)) s
     | Arith (Binop bop r1 r2 ri) =>
         assign r1
           (Op bop [Var r2; case ri of Reg r3 => Var r3

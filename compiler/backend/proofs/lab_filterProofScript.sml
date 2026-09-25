@@ -944,9 +944,9 @@ Proof
       reverse(Cases_on`t1.regs t1.len2_reg`>>full_simp_tac(srw_ss())[])>-same_inst_tac>>
       (Cases_on`t1.regs t1.link_reg`>>full_simp_tac(srw_ss())[])>-same_inst_tac>>
       reverse(Cases_on`t1.regs t1.ptr2_reg`>>full_simp_tac(srw_ss())[])>-same_inst_tac>>
-      Cases_on`read_bytearray c'' (w2n c') (mem_load_byte_aux t1.mem t1.mem_domain t1.be)`>>full_simp_tac(srw_ss())[]
+      Cases_on`read_bytearray c' (w2n c) (mem_load_byte_aux t1.mem t1.mem_domain t1.be)`>>full_simp_tac(srw_ss())[]
       >- same_inst_tac>>
-      Cases_on`read_bytearray c'''' (w2n c''') (mem_load_byte_aux t1.mem t1.mem_domain t1.be)`>>full_simp_tac(srw_ss())[]
+      Cases_on`read_bytearray c''' (w2n c'') (mem_load_byte_aux t1.mem t1.mem_domain t1.be)`>>full_simp_tac(srw_ss())[]
       >- same_inst_tac>>
       Cases_on`loc_to_pc n' n0 (filter_skip t1.code)`>>full_simp_tac(srw_ss())[]
       >-

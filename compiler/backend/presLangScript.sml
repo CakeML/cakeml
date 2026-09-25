@@ -1132,7 +1132,7 @@ Definition stack_seqs_def:
 End
 
 Theorem MEM_append_stack_seqs[local]:
-  ∀x. MEM a (append (stack_seqs x)) ⇒ prog_size ARB a ≤ prog_size ARB x
+  ∀x. MEM a (append (stack_seqs x)) ⇒ prog_size a ≤ prog_size x
 Proof
   Induct \\ simp [Once stack_seqs_def,stackLangTheory.prog_size_def]
   \\ rw [] \\ res_tac \\ gvs []
@@ -1140,8 +1140,8 @@ QED
 
 Theorem list_size_append_stack_seqs[local]:
   ∀x.
-  list_size (prog_size ARB) (append (stack_seqs x)) =
-  prog_size ARB x + 1
+  list_size prog_size (append (stack_seqs x)) =
+  prog_size x + 1
 Proof
   Induct \\ simp [Once stack_seqs_def,stackLangTheory.prog_size_def,list_size_def,list_size_append]
 QED

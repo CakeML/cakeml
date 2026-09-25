@@ -506,7 +506,7 @@ QED
 
 Theorem shift_eq_bytes_in_word[local]:
     good_dimindex (:α) ==>
-    (w << (shift (:α) MOD dimword (:α)) = w * bytes_in_word:α word)
+    (w << (shift (dimindex (:α)) MOD dimword (:α)) = w * bytes_in_word:α word)
 Proof
   fs [shift_def,good_dimindex_def] \\ rw []
   \\ fs [WORD_MUL_LSL,bytes_in_word_def,dimword_def]
@@ -788,7 +788,7 @@ Proof
     \\ fs [SeqIndex_def,evaluate_def,array_rel_def]
     \\ Cases_on `a`
     \\ fs [word_exp_def,get_store_def,FLOOKUP_DEF,word_sh_def]
-    \\ `shift (:α) MOD dimword (:α) < dimindex (:α)` by
+    \\ `shift (dimindex (:α)) MOD dimword (:α) < dimindex (:α)` by
           (fs [good_dimindex_def,shift_def,dimword_def])
     \\ fs [the_words_def,word_op_def,get_var_def,set_var_def,lookup_insert,
            mem_load_def]
@@ -814,7 +814,7 @@ Proof
     \\ fs [SeqIndex_def,evaluate_def,array_rel_def]
     \\ once_rewrite_tac [evaluate_SeqTemp] \\ fs [evaluate_def]
     \\ fs [word_exp_def,get_store_def,FLOOKUP_DEF,word_sh_def,set_var_def]
-    \\ `shift (:α) MOD dimword (:α) < dimindex (:α)` by
+    \\ `shift (dimindex (:α)) MOD dimword (:α) < dimindex (:α)` by
           (fs [good_dimindex_def,shift_def,dimword_def])
     \\ fs [the_words_def,word_op_def,set_var_def,lookup_insert,get_var_def,
            mem_store_def]
