@@ -738,6 +738,10 @@ Definition sexpop_def:
   if s = "CopyAw8Str" then SOME CopyAw8Str else
   if s = "CopyAw8Aw8" then SOME CopyAw8Aw8 else
   if s = "XorAw8Strunsafe" then SOME XorAw8Str_unsafe else
+  if s = "Aw8subBit" then SOME Aw8subBit else
+  if s = "Aw8updateBit" then SOME Aw8updateBit else
+  if s = "Aw8subBitunsafe" then SOME Aw8subBit_unsafe else
+  if s = "Aw8updateBitunsafe" then SOME Aw8updateBit_unsafe else
   if s = "Implode" then SOME Implode else
   if s = "Explode" then SOME Explode else
   if s = "Strsub" then SOME Strsub else
@@ -1578,6 +1582,10 @@ Definition opsexp_def:
   (opsexp CopyAw8Str = SX_SYM "CopyAw8Str") ∧
   (opsexp CopyAw8Aw8 = SX_SYM "CopyAw8Aw8") ∧
   (opsexp XorAw8Str_unsafe = SX_SYM "XorAw8Strunsafe") ∧
+  (opsexp Aw8subBit = SX_SYM "Aw8subBit") ∧
+  (opsexp Aw8updateBit = SX_SYM "Aw8updateBit") ∧
+  (opsexp Aw8subBit_unsafe = SX_SYM "Aw8subBitunsafe") ∧
+  (opsexp Aw8updateBit_unsafe = SX_SYM "Aw8updateBitunsafe") ∧
   (opsexp Implode = SX_SYM "Implode") ∧
   (opsexp Explode = SX_SYM "Explode") ∧
   (opsexp Strsub = SX_SYM "Strsub") ∧

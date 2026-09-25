@@ -124,6 +124,7 @@ val _ = translate (real_addr_def |> inline_simp |> conv32_RHS |> SIMP_RULE std_s
 
 val _ = translate (real_offset_def |> inline_simp |> conv32)
 val _ = translate (real_byte_offset_def |> inline_simp |> conv32)
+val _ = translate (real_bit_offset_def |> inline_simp |> conv32)
 val _ = translate (GiveUp_def |> wcomp_simp |> conv32)
 
 val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``]

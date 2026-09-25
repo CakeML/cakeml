@@ -1211,6 +1211,16 @@ QED
 val s_i1 = ``s_i1 : ('f_orac_st, 'ffi) flatSem$state``;
 val s1_i1 = mk_var ("s1_i1", type_of s_i1);
 
+Theorem v_rel_Bool_eqn:
+  genv_c_ok genv.c ==> (v_rel genv (Boolv b) v <=> (v = Boolv b))
+Proof
+  rw [v_rel_eqns, Boolv_def, semanticPrimitivesTheory.Boolv_def, genv_c_ok_def,
+    has_bools_def, PULL_EXISTS]
+  \\ EQ_TAC \\ fs []
+  \\ rw []
+  \\ metis_tac []
+QED
+
 Theorem do_app[local]:
   ∀genv s1 s2 op vs r ^s1_i1 vs_i1.
     do_app s1 op vs = SOME (s2, r) ∧
@@ -1357,6 +1367,36 @@ Proof
       fsrw_tac[][] >>
       srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
       srw_tac[][v_rel_lems])
+  >~ [‘Aw8subBit’] >- (
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      full_simp_tac(srw_ss())[store_lookup_def] >>
+      full_simp_tac(srw_ss())[ADD1, REWRITE_RULE [ADD1] EL] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      every_case_tac >>
+      full_simp_tac(srw_ss())[LIST_REL_EL_EQN, sv_rel_cases] >>
+      res_tac >>
+      srw_tac[][] >>
+      full_simp_tac(srw_ss())[] >>
+      srw_tac[][markerTheory.Abbrev_def, v_rel_lems] >>
+      intLib.ARITH_TAC)
+  >~ [‘Aw8updateBit’] >- (
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      gvs [v_rel_Bool_eqn] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      full_simp_tac(srw_ss())[store_lookup_def, store_assign_def, store_v_same_type_def] >>
+      full_simp_tac(srw_ss())[ADD1, REWRITE_RULE [ADD1] EL, REWRITE_RULE [ADD1] LUPDATE_def] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      srw_tac[][Unitv_def] >>
+      every_case_tac >>
+      full_simp_tac(srw_ss())[LIST_REL_EL_EQN, sv_rel_cases] >>
+      res_tac >>
+      srw_tac[][] >>
+      fsrw_tac[][] >>
+      srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
+      srw_tac[][v_rel_lems] >>
+      fs [flatSemTheory.Boolv_def, backend_commonTheory.true_tag_def,
+      backend_commonTheory.false_tag_def])
   >~ [‘CopyStrStr’] >- (
     rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
     \\ fs[v_rel_eqns,IMPLODE_EXPLODE_I,result_rel_cases]
@@ -1593,6 +1633,36 @@ Proof
       fsrw_tac[][] >>
       srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
       srw_tac[][v_rel_lems] >> CCONTR_TAC >> rfs [] >> rveq >> fs [])
+  >~ [‘Aw8subBit_unsafe’] >- (
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      full_simp_tac(srw_ss())[store_lookup_def] >>
+      fs [REWRITE_RULE [ADD1] EL, ADD1, REWRITE_RULE [ADD1] LUPDATE_def] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      every_case_tac >>
+      full_simp_tac(srw_ss())[LIST_REL_EL_EQN, sv_rel_cases] >>
+      res_tac >>
+      srw_tac[][] >>
+      full_simp_tac(srw_ss())[] >>
+      rfs[] >>
+      srw_tac[][markerTheory.Abbrev_def, v_rel_lems])
+  >~ [‘Aw8updateBit_unsafe’] >- (
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      gvs [v_rel_Bool_eqn] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      full_simp_tac(srw_ss())[store_lookup_def, store_assign_def, store_v_same_type_def] >>
+      fs [REWRITE_RULE [ADD1] EL, ADD1, REWRITE_RULE [ADD1] LUPDATE_def] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      srw_tac[][] >>
+      every_case_tac >>
+      full_simp_tac(srw_ss())[LIST_REL_EL_EQN, Unitv_def, sv_rel_cases] >>
+      res_tac >>
+      srw_tac[][] >>
+      fsrw_tac[][] >>
+      srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
+      srw_tac[][v_rel_lems] >> CCONTR_TAC >> rfs [] >> rveq >>
+      fs [flatSemTheory.Boolv_def, backend_commonTheory.true_tag_def,
+          backend_commonTheory.false_tag_def])
   >- ((* ThunkOp *)
     srw_tac[][semanticPrimitivesPropsTheory.do_app_cases,
               flatSemTheory.do_app_def, thunk_op_def] >>
@@ -2712,16 +2782,6 @@ Theorem invariant_dec_clock:
 Proof
   simp [invariant_def, dec_clock_def, evaluateTheory.dec_clock_def]
   \\ simp [s_rel_cases]
-QED
-
-Theorem v_rel_Bool_eqn:
-  genv_c_ok genv.c ==> (v_rel genv (Boolv b) v <=> (v = Boolv b))
-Proof
-  rw [v_rel_eqns, Boolv_def, semanticPrimitivesTheory.Boolv_def, genv_c_ok_def,
-    has_bools_def, PULL_EXISTS]
-  \\ EQ_TAC \\ fs []
-  \\ rw []
-  \\ metis_tac []
 QED
 
 Theorem evaluate_Bool:
