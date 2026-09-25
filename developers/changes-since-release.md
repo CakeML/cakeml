@@ -14,6 +14,11 @@ The monadic translator also has new support for space-efficient bool arrays repr
 
 ## Basis library
 
+The shift and rotate functions `<<`, `>>`, `~>>` and `ror` in the `Word8` and
+`Word64` modules now take the shift amount as a word of the same size instead
+of an int, e.g. `Word8.<< : Word8.word -> Word8.word -> Word8.word` (#1500).
+Programs that call these functions with an int amount need to be updated.
+
 ## Compiler backend and runtime
 
 The compiler handles dynamic installation of new code in new way (#1487). This

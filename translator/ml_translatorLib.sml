@@ -3404,6 +3404,12 @@ fun dest_word_shift tm =
   if wordsSyntax.is_word_ror tm then Eval_word_ror else
     failwith("not a word shift")
 
+fun dest_word_shift_bv tm =
+  if wordsSyntax.is_word_lsl_bv tm then Eval_word_lsl_bv else
+  if wordsSyntax.is_word_lsr_bv tm then Eval_word_lsr_bv else
+  if wordsSyntax.is_word_asr_bv tm then Eval_word_asr_bv else
+    failwith("not a variable-length word shift")
+
 (* CakeML signature generation and manipulation *)
 val generate_sigs = ref false;
 
@@ -3756,6 +3762,28 @@ fun hol2deep tm =
                 |> PROVE_HYP (EQT_ELIM (EVAL ``PRECONDITION (64 <> 0n)``))
     val result = MATCH_MP lemma (CONJ th1 th2)
     in check_inv "variable_word_shift" tm result end end else
+  (* word_lsl_bv, _lsr_bv, _asr_bv *)
+  if can dest_word_shift_bv tm andalso word_ty_ok (type_of tm) then let
+    val lemma = dest_word_shift_bv tm |> SIMP_RULE std_ss [LET_THM]
+    val th1 = hol2deep (tm |> rator |> rand)
+    val th2 = hol2deep (tm |> rand)
+    val result = MATCH_MP (MATCH_MP lemma th1) th2
+                   |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+                   |> REWRITE_RULE word_shift_rewrites
+                   |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+                   |> REWRITE_RULE word_shift_rewrites
+    in check_inv "word_shift_bv" tm result end else
+  (* word_ror_bv (only for word8 and word64) *)
+  if wordsSyntax.is_word_ror_bv tm andalso
+     (wordsSyntax.dim_of tm = ``:8`` orelse
+      wordsSyntax.dim_of tm = ``:64``) then let
+    val th1 = hol2deep (tm |> rator |> rand)
+    val th2 = hol2deep (tm |> rand)
+    val th3 = MATCH_MP (MATCH_MP Eval_word_ror_bv th1) th2
+    val pre = th3 |> concl |> dest_imp |> fst
+    val result = MP th3 (EQT_ELIM (EVAL pre))
+                   |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    in check_inv "word_ror_bv" tm result end else
   (* $& o f *)
   if can (match_term int_of_num_o_pat) tm then let
     val x1 = tm |> rand

@@ -111,3 +111,46 @@ val _ = app (fn (_, dim) =>
     app (fn (_, dest) =>
       check false (mk_abs (word, wordsSyntax.mk_w2w (word, dest)))) widths
   end) widths;
+
+(* Shifts by a word-valued amount (word_lsl_bv, word_lsr_bv, word_asr_bv,
+   and word_ror_bv for word8 and word64) *)
+fun check_bv_shift sh expr =
+  let
+    val th = hol2deep expr |> PROVE_HYP TRUTH
+    val _ = if null (hyp th) then ()
+            else raise Fail ("Word-amount shift has a translation precondition: " ^
+                             term_to_string expr)
+    val code = rand (rator (concl th))
+    fun is_var_shift tm =
+      is_shift_app tm andalso
+      (let val (oper, args) = astSyntax.dest_App tm
+           val amount = List.nth (fst (listSyntax.dest_list args), 1)
+       in oper ~~ ``Arith (Shift ^sh) (WordT W8)`` orelse
+          oper ~~ ``Arith (Shift ^sh) (WordT W64)`` end
+       andalso not (astSyntax.is_Lit
+                      (List.nth (fst (listSyntax.dest_list
+                                        (snd (astSyntax.dest_App tm))), 1))))
+    val _ = case find_terms is_var_shift code of
+              [_] => ()
+            | _ => raise Fail ("Expected exactly one word-amount shift: " ^
+                               term_to_string expr)
+    val _ = app check_shift_app
+              (filter (not o is_var_shift) (find_terms is_shift_app code))
+  in () end;
+
+val bv_shifts =
+  [(``Lsl``, wordsSyntax.mk_word_lsl_bv), (``Lsr``, wordsSyntax.mk_word_lsr_bv),
+   (``Asr``, wordsSyntax.mk_word_asr_bv)];
+
+val _ = app (fn (width, dim) =>
+  let
+    val word = mk_var ("w", wordsSyntax.mk_word_type dim)
+    val amount = mk_var ("n", wordsSyntax.mk_word_type dim)
+    val ops = if width = 8 orelse width = 64 then
+                (``Ror``, wordsSyntax.mk_word_ror_bv) :: bv_shifts
+              else bv_shifts
+  in
+    app (fn (sh, oper) =>
+      check_bv_shift sh (mk_abs (word, mk_abs (amount, oper (word, amount)))))
+      ops
+  end) widths;

@@ -50,61 +50,11 @@ val _ = trans ">" ``word_hi:word8->word8->bool``;
 val _ = trans "<=" ``word_ls:word8->word8->bool``;
 val _ = trans ">=" ``word_hs:word8->word8->bool``;
 
-(* shifts *)
-
-Definition var_word_lsl_def:
-  var_word_lsl (w:word8) (n:num) = word_lsl w n
-End
-
-Theorem var_word_lsl_thm[simp] = var_word_lsl_def;
-
-Definition var_word_lsr_def:
-  var_word_lsr (w:word8) (n:num) = word_lsr w n
-End
-
-Theorem var_word_lsr_thm[simp] = var_word_lsr_def;
-
-Definition var_word_asr_def:
-  var_word_asr (w:word8) (n:num) = word_asr w n
-End
-
-Theorem var_word_asr_thm[simp] = var_word_asr_def;
-
-Theorem word_ror_eq_word_shifts:
-  ∀(w:'a word) n.
-    word_ror w n =
-    word_or (word_lsl w (dimindex (:'a) - (n MOD (dimindex (:'a)))))
-            (word_lsr w (n MOD (dimindex (:'a))))
-Proof
-  rw [fcpTheory.CART_EQ,word_ror_def,word_or_def,word_lsl_def,
-      word_lsr_def,fcpTheory.FCP_BETA]
-  \\ ‘0 < dimindex (:α)’ by fs []
-  \\ once_rewrite_tac[GSYM MOD_PLUS]
-  \\ qabbrev_tac ‘k = n MOD dimindex (:α)’ \\ simp []
-  \\ Cases_on ‘i + k < dimindex (:'a)’ \\ simp []
-  \\ gvs [NOT_LESS]
-  \\ ‘k < dimindex (:α)’ by fs[Abbr`k`]
-  \\ AP_TERM_TAC
-  \\ gvs [LESS_EQ_EXISTS]
-QED
-
-Definition var_word_ror_def:
-  var_word_ror (w:word8) (n:num) = word_ror w n
-End
-
-Theorem var_word_ror_thm[simp] = var_word_ror_def;
-
-val _ = (next_ml_names := ["<<"]);
-val _ = translate var_word_lsl_def;
-
-val _ = (next_ml_names := [">>"]);
-val _ = translate var_word_lsr_def;
-
-val _ = (next_ml_names := ["~>>"]);
-val _ = translate var_word_asr_def;
-
-val _ = (next_ml_names := ["ror"]);
-val _ = translate var_word_ror_def;
+(* shifts and rotates (the shift amount is a word) *)
+val _ = trans "<<" ``word_lsl_bv:word8->word8->word8``;
+val _ = trans ">>" ``word_lsr_bv:word8->word8->word8``;
+val _ = trans "~>>" ``word_asr_bv:word8->word8->word8``;
+val _ = trans "ror" ``word_ror_bv:word8->word8->word8``;
 
 val sigs = module_signatures ["fromInt", "toInt", "andb",
   "orb", "xorb", "notb", "+", "-", "<<", ">>", "~>>", "ror"];

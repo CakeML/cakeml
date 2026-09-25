@@ -738,7 +738,7 @@ val _ = translate (eq_w8z_def |> SIMP_RULE std_ss [w8z_def]);
 
 Definition set_bit_word'_def:
   set_bit_word' (w:word8) n b =
-  let nw = var_word_lsl 1w n in
+  let nw = word_lsl 1w n in
   if b then w ‖ nw else w && ¬nw
 End
 
@@ -756,7 +756,7 @@ QED
 
 Definition get_bit_word'_def:
   get_bit_word' (w:word8) n =
-  let nw = var_word_lsl 1w n in
+  let nw = word_lsl 1w n in
   (w && nw <> 0w)
 End
 
@@ -841,7 +841,7 @@ val res = translate nabs_def;
 
 Definition flip_bit_word'_def:
   flip_bit_word' (w:word8) n =
-  let nw = var_word_lsl 1w n in
+  let nw = word_lsl 1w n in
   let b = (w && nw = 0w) in
   if b then w ‖ nw else w && ¬nw
 End
