@@ -39,14 +39,14 @@ Definition eval_to_def:
       else if mc.target.get_pc ms = mc.halt_pc then
         (if mc.target.get_reg ms mc.ptr_reg = 0w
          then Ret' Termination else Ret' OutOfMemory)
-      else if mc.target.get_pc ms = mc.ccache_pc then
-        let (ms1,new_oracle) =
-          apply_oracle mc.ccache_interfer
-            (mc.target.get_reg ms mc.ptr_reg,
-             mc.target.get_reg ms mc.len_reg,
-             ms) in
-        let mc = mc with ccache_interfer := new_oracle in
-          eval_to (k-1) mc ms1
+      else if mc.target.get_pc ms = mc.install_pc then
+        (case read_ffi_bytearray mc mc.ptr_reg mc.len_reg ms of
+         | SOME bytes =>
+           let (ms1,new_oracle) =
+             apply_oracle mc.install_interfer (bytes,ms) in
+           let mc = mc with install_interfer := new_oracle in
+             eval_to (k-1) mc ms1
+         | _ => Ret' Error)
       else
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => Ret' Error

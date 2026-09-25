@@ -34,7 +34,7 @@ Definition approx_of_def:
          approx_of lims vs (delete r refs) + LENGTH vs + 1
      | SOME (Thunk _ v) =>
          approx_of lims [v] (delete r refs) + 2
-     | SOME (MutBlock tg ls c rs) =>
+     | SOME (MutBlock tg fin ls c rs) =>
          approx_of lims (ls ++ [c] ++ rs) (delete r refs) +
          LENGTH ls + LENGTH rs + 2) /\
   (approx_of lims [Block ts tag []] refs = 0) /\
@@ -94,6 +94,20 @@ Theorem OPTION_MAP2_MAX_CANCEL[simp]:
   OPTION_MAP2 MAX (OPTION_MAP2 MAX x y) y = OPTION_MAP2 MAX x y
 Proof
   Cases_on `x` \\ Cases_on `y` \\ fs [] \\ rw [MAX_DEF]
+QED
+
+(* ops that are not allowed_op have stack_consumed = NONE, which has to
+   propagate through do_stack's safe_for_space computation *)
+Theorem OPTION_MAP2_NONE[simp]:
+  OPTION_MAP2 f NONE y = NONE ∧ OPTION_MAP2 f x NONE = NONE
+Proof
+  Cases_on `x` \\ fs []
+QED
+
+Theorem the_NONE[simp]:
+  the x NONE = x
+Proof
+  fs [miscTheory.the_def]
 QED
 
 Theorem initial_state_simp[simp]:
@@ -3380,4 +3394,3 @@ Proof
   imp_res_tac the_le_IMP_option_le >>
   fs[option_le_max]
 QED
-

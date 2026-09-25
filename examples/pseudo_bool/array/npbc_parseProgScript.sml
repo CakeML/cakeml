@@ -9,7 +9,7 @@ Libs
 
 val _ = translation_extends"npbc_arrayProg";
 
-val _ = (computeLib.the_compset := computeLib.set_skip (!computeLib.the_compset) “COND” (SOME 1));
+val _ = computeLib.upd_compset (fn c => computeLib.set_skip c “COND” (SOME 1));
 
 val r = translate strip_numbers_aux_def;
 val strip_numbers_aux_side_def = theorem "strip_numbers_aux_side_def";
@@ -22,13 +22,14 @@ val r = translate strip_numbers_def;
 
 val r = translate pbcTheory.map_lit_def;
 
-val r = translate (hashNon_def |> SIMP_RULE std_ss [non_list_def]);
+val r = translate non_list_def;
+val r = translate hashNon_def;
 val r = translate hashChar_def;
 val r = translate hashChars_alt_def;
 val r = translate hashString_def;
 
 (* TODO: decouple parse_lit from goodChar *)
-val r = translate goodChar_def;
+val r = translate goodChar_eq;
 val r = translate goodChars_def;
 val r = translate goodString_def;
 
@@ -74,14 +75,29 @@ val r = translate term_le_def;
 val r = translate mk_coeff_def;
 val r = translate normalise_lhs_def;
 
-val r = translate pbc_to_npbc_def;
+val r = translate flip_coeffs_def;
+val r = translate pbcTheory.negate_op_def;
+val r = translate ge_of_def;
+val r = translate pbcTheory.negate_def;
+val r = translate rel_ges_def;
+val r = translate to_npbc_def;
+val r = translate to_gnpbc_def;
+val r = translate inject_def;
 
 val r = translate parse_constraint_LHS_aux_def;
 val r = translate parse_constraint_LHS_def;
 
+val r = translate is_arrow_def;
+val r = translate parse_reif_aux_def;
+val r = translate parse_op_def;
+val r = translate mk_hd_def;
+
+val r = translate pbcTheory.map_pbhd_def;
 val r = translate pbcTheory.map_pbc_def;
 val r = translate pbcTheory.map_obj_def;
 val r = translate map_f_ns_def;
+val r = translate map_f_ns_lits_def;
+val r = translate mk_npbc_def;
 val r = translate parse_constraint_npbc_def;
 
 val r = translate strip_rup_hint_aux_def;
@@ -100,7 +116,13 @@ val r = translate parse_red_header_def;
 val r = translate parse_pbc_header_def;
 
 val r = translate strip_term_def;
-val r = translate tokenize_def;
+
+val _ = translate is_numeric_def;
+val _ = translate is_num_prefix_def;
+
+val r = translate int_start_def;
+
+val r = translate tokenize_eq;
 val r = translate strip_term_line_aux_def;
 val r = translate strip_term_line_def;
 
@@ -212,11 +234,6 @@ val fromString_unsafe_side = Q.prove(
   \\ simp_tac bool_ss [ONE,SEG_SUC_CONS,SEG_LENGTH_ID]
   \\ match_mp_tac fromchars_unsafe_side_thm
   \\ rw[]) |> update_precondition;
-
-val _ = translate is_numeric_def;
-val _ = translate is_num_prefix_def;
-
-val r = translate int_start_def;
 
 val _ = translate tokenize_fast_def;
 
@@ -1720,6 +1737,7 @@ val res = translate parse_sol_def;
 val res = translate parse_eobj_def;
 val res = translate parse_obji_def;
 
+val res = translate parse_solx_aux_def;
 val res = translate parse_solx_def;
 val res = translate list_to_num_set_def;
 val res = translate parse_epres_def;
@@ -3454,9 +3472,8 @@ QED
 *)
 
 (* normalise *)
-val res = translate flip_coeffs_def;
-val res = translate pbc_ge_def;
-val res = translate normalise_def;
+val res = translate normalise_acc_def;
+val res = translate normalise_eq;
 val res = translate normalise_obj_pbf_def;
 val res = translate normalise_prob_def;
 
@@ -3465,10 +3482,17 @@ val res = translate name_to_num_var_def;
 val res = translate name_to_num_lit_def;
 val res = translate name_to_num_lin_term_def;
 val res = translate name_to_num_obj_def;
+val res = translate name_to_num_lits_def;
+val res = translate name_to_num_pbhd_def;
 val res = translate name_to_num_pbf_def;
 val res = translate name_to_num_list_def;
 val res = translate name_to_num_pres_def;
 val res = translate name_to_num_prob_def;
+
+val res = translate name_to_num_pbc_def;
+val res = translate name_norm_pbc_def;
+val res = translate name_norm_pbf_def;
+val res = translate name_norm_prob_def;
 
 Definition hash_str_def:
   hash_str (s:mlstring) =
@@ -3497,7 +3521,24 @@ Definition normalise_full_2_def:
   normalise_prob probt', u)
 End
 
-val res = translate normalise_full_2_def;
+Theorem normalise_full_2_eq:
+  normalise_full_2 prob probt =
+  let s = init_state hash_str compare in
+  let (nprob,t) = name_norm_prob prob s in
+  let (nprobt,u) = name_norm_prob probt t in
+  (nprob,nprobt,u)
+Proof
+  simp[normalise_full_2_def,name_norm_prob_thm]>>
+  rpt (pairarg_tac>>gvs[])
+QED
+
+val res = translate normalise_full_2_eq;
+
+Definition init_ntn_def:
+  init_ntn = init_state hash_str (compare:mlstring -> mlstring -> ordering)
+End
+
+val res = translate init_ntn_def;
 
 Definition name_to_num_var_nf_def:
   name_to_num_var_nf v s =
@@ -3523,7 +3564,7 @@ Overload "prob_TYPE" = ``
     (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
     INT))
   (LIST_TYPE
-    (PAIR_TYPE PBC_PBOP_TYPE
+    (PAIR_TYPE (PBC_PBHD_TYPE STRING_TYPE)
       (PAIR_TYPE
         (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
         INT))))``
@@ -3614,8 +3655,8 @@ Overload "annot_prob_TYPE" = ``
     (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
     INT))
   (LIST_TYPE
-    (PAIR_TYPE (OPTION_TYPE STRING_TYPE)
-    ((PAIR_TYPE PBC_PBOP_TYPE
+    (PAIR_TYPE (LIST_TYPE STRING_TYPE)
+    ((PAIR_TYPE (PBC_PBHD_TYPE STRING_TYPE)
       (PAIR_TYPE
         (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
         INT))))))``
@@ -3623,6 +3664,8 @@ Overload "annot_prob_TYPE" = ``
 val res = translate lit_string_def;
 val res = translate lhs_string_def;
 val res = translate op_string_def;
+val res = translate rel_string_def;
+val res = translate lits_string_def;
 val res = translate pbc_string_def;
 val res = translate annot_pbc_string_def;
 val res = translate obj_string_def;
@@ -3636,7 +3679,7 @@ Definition default_prob_def:
   default_prob = (NONE,NONE,[]):
     mlstring list option #
     ((int # mlstring pbc$lit) list # int) option #
-    (pbop # (int # mlstring pbc$lit) list # int) list
+    (mlstring pbhd # (int # mlstring pbc$lit) list # int) list
 End
 
 val res = translate default_prob_def;
@@ -3680,4 +3723,3 @@ Definition mk_usage_string_def:
 End
 
 val res = translate mk_usage_string_def;
-

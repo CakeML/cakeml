@@ -1051,7 +1051,7 @@ Proof
     \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
     \\ qrefine `ck + ck'` \\ gvs []
     \\ `∀ck'. evaluate (xs,env,t1 with clock := ck + (ck' + t1.clock)) =
-          (Rval [RefPtr v0 ptr],t2 with clock := ck' + t2.clock)` by (
+          (Rval [RefPtr F ptr],t2 with clock := ck' + t2.clock)` by (
       rw [] \\ drule evaluate_add_clock \\ gvs []) \\ gvs []
     \\ imp_res_tac state_rel_refs_clocks_eqs \\ gvs [PULL_EXISTS]
     >- (qexists `0` \\ gvs [state_rel_def])

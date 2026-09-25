@@ -1585,6 +1585,13 @@ Proof
     \\ pairarg_tac \\ gvs []
     \\ rw []
     >- (
+      gvs [flatSemTheory.bad_thunk_update_def, bad_thunk_update_def]
+      \\ gvs [oneline flatSemTheory.dest_thunk_def, oneline dest_thunk_def,
+              AllCaseEqs()]
+      \\ Cases_on `y` \\ gvs [Once v_rel_cases]
+      \\ gvs [state_rel_def, store_rel_def, store_lookup_def]
+      \\ last_x_assum $ qspec_then `n'` assume_tac \\ gvs [])
+    >- (
       gvs [store_alloc_def]
       \\ drule state_rel_LEAST \\ rw []
       \\ gvs [state_rel_def, store_rel_def] \\ rw []
@@ -1600,6 +1607,13 @@ Proof
   \\ qpat_x_assum `store_assign _ _ _ = _` mp_tac
   \\ simp [store_assign_def, store_v_same_type_def]
   \\ ntac 2 CASE_TAC \\ rw [GSYM PULL_EXISTS]
+  >- (
+    gvs [flatSemTheory.bad_thunk_update_def, bad_thunk_update_def] \\ rw []
+    \\ gvs [oneline flatSemTheory.dest_thunk_def, oneline dest_thunk_def,
+            AllCaseEqs()]
+    \\ Cases_on `y'` \\ gvs [Once v_rel_cases]
+    \\ gvs [state_rel_def, store_rel_def, store_lookup_def]
+    \\ last_x_assum $ qspec_then `n` assume_tac \\ gvs [])
   >- (
     gvs [state_rel_def, store_rel_def]
     \\ first_x_assum (qspec_then `lnum` mp_tac) \\ gvs [] \\ rw []
@@ -1653,31 +1667,15 @@ Proof
   \\ simp [Once v_rel_cases]
 QED
 
-Theorem v_rel_to_bytes:
-  !x y xs. v_rel x y /\ flatSem$v_to_bytes x = SOME xs ==>
-           ?ys. closSem$v_to_bytes y = SOME xs
+Theorem v_rel_to_mlstring:
+  !x y s. v_rel x y /\ flatSem$v_to_mlstring x = SOME s ==>
+          closSem$v_to_mlstring y = SOME s
 Proof
-  simp [flatSemTheory.v_to_bytes_def, closSemTheory.v_to_bytes_def]
-  \\ rpt gen_tac
-  \\ DEEP_INTRO_TAC some_intro
-  \\ DEEP_INTRO_TAC some_intro
-  \\ rpt strip_tac
-  \\ fs []
-  \\ drule_then drule v_rel_to_list
-  >- (
-    simp [LIST_REL_MAP1, CONV_RULE (DEPTH_CONV ETA_CONV) LIST_REL_MAP2]
-    \\ simp [v_rel_def, EQ_SYM_EQ, ETA_THM]
-    \\ CONV_TAC (DEPTH_CONV ETA_CONV)
-    \\ simp []
-  )
-  \\ strip_tac
-  \\ last_x_assum (qspec_then `xs` mp_tac)
-  \\ rveq \\ fs []
-  \\ simp [Once EQ_SYM_EQ]
-  \\ full_simp_tac bool_ss [LIST_REL_MAP1, GSYM LIST_REL_eq]
-  \\ first_x_assum mp_tac
-  \\ match_mp_tac LIST_REL_mono
-  \\ simp [Once v_rel_cases]
+  rpt gen_tac
+  \\ simp [flatSemTheory.v_to_mlstring_def, AllCaseEqs()]
+  \\ strip_tac \\ gvs []
+  \\ gvs [Once v_rel_cases, closSemTheory.v_to_mlstring_def,
+          backend_commonTheory.bytes_to_mlstring_explode]
 QED
 
 Theorem do_eval_install:
@@ -1702,7 +1700,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs [case_eq_thms, pair_case_eq]
   \\ rveq \\ fs []
-  \\ drule_then drule v_rel_to_bytes
+  \\ drule_then drule v_rel_to_mlstring
   \\ drule_then drule v_rel_to_words
   \\ rw []
   \\ fs [do_install_def, pure_co_def |> REWRITE_RULE [FUN_EQ_THM],

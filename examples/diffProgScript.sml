@@ -202,13 +202,5 @@ Proof
   \\ xsimpl
 QED
 
-val name = "diff"
-val (sem_thm,prog_tm) = whole_prog_thm st name (UNDISCH diff_whole_prog_spec)
-Definition diff_prog_def:
-  diff_prog = ^prog_tm
-End
-
 Theorem diff_semantics =
-  sem_thm |> REWRITE_RULE[GSYM diff_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO]
+  prove_sem_thm "diff" "diff_prog" diff_whole_prog_spec;

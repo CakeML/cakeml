@@ -92,7 +92,7 @@ local
      ("LENGTH_const", listSyntax.length_tm),
      ("EL_const", listSyntax.el_tm),
      ("Fun_const",astSyntax.Fun_tm),
-     ("Var_const",astSyntax.Var_tm),
+     ("Ident_const",astSyntax.Ident_tm),
      ("Closure_const",semanticPrimitivesSyntax.Closure_tm),
      ("failure_pat",``\v. (M_failure(C v), state_var)``),
      ("Eval_pat",``Eval env exp (P (res:'a))``),
@@ -104,6 +104,8 @@ local
      ("write_const",ml_translatorSyntax.write),
      ("RARRAY_REL_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="RARRAY_REL"}),
      ("ARRAY_REL_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="ARRAY_REL"}),
+     ("W8ARRAY_const",prim_mk_const{Thy="cfHeapsBase",Name="W8ARRAY"}),
+     ("RW8ARRAY_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="RW8ARRAY"}),
      ("run_const",ml_monadBaseSyntax.run_tm),
      ("EXC_TYPE_aux_const",prim_mk_const{Thy="ml_monad_translator",Name="EXC_TYPE_aux"}),
      ("return_pat",``st_ex_return x``),
@@ -190,7 +192,7 @@ val SND_const = get_term "SND_const";
 val LENGTH_const = get_term "LENGTH_const";
 val EL_const = get_term "EL_const";
 val Fun_const = get_term "Fun_const";
-val Var_const = get_term "Var_const";
+val Ident_const = get_term "Ident_const";
 val Closure_const = get_term "Closure_const";
 val failure_pat = get_term "failure_pat";
 val Eval_pat = get_term "Eval_pat";
@@ -200,6 +202,8 @@ val Eval_name_RI_abs = get_term "Eval_name_RI_abs";
 val write_const = get_term "write_const";
 val RARRAY_REL_const = get_term "RARRAY_REL_const";
 val ARRAY_REL_const = get_term "ARRAY_REL_const";
+val W8ARRAY_const = get_term "W8ARRAY_const";
+val RW8ARRAY_const = get_term "RW8ARRAY_const";
 val run_const = get_term "run_const";
 val EXC_TYPE_aux_const = get_term "EXC_TYPE_aux_const";
 val return_pat = get_term "return_pat";
@@ -276,7 +280,9 @@ val translator_state = {
   EXN_TYPE = ref (get_term "UNIT_TYPE"),
   exn_type = ref unit_ty, (* WHAT IS THE DIFFERENCE BETWEEN THESE LAST TWO? *)
   VALID_STORE_THM = ref (NONE : thm option),
-  type_theories = ref ([current_theory(), "ml_translator"] : string list),
+  (* theories other than the one being built that supply type invariants;
+     see all_type_theories *)
+  type_theories = ref (["ml_translator"] : string list),
   exn_handles = ref ([] : (term * thm) list),
   exn_raises = ref ([] : (term * thm) list),
   exn_functions_defs = ref ([] : (thm * thm) list),
@@ -316,6 +322,12 @@ val translator_state = {
   Helper functions.
 
 ******************************************************************************)
+
+(* The theory being built also supplies type invariants, for types translated
+   after it was entered.  Its name is only available once a segment is open, so
+   it is read here rather than stored in translator_state. *)
+fun all_type_theories () =
+  current_theory() :: (!(#type_theories translator_state));
 
 (* This is not used in this file, but is in the signature *)
 fun add_access_pattern th =
@@ -1065,8 +1077,10 @@ fun init_translation (monad_translation_params : monadic_translation_parameters)
       #exn_type st :=
         (type_of (!(#EXN_TYPE st)) |> dest_type |> snd |> List.hd);
       #VALID_STORE_THM st := store_pred_exists_thm;
-      #type_theories st :=
-        (current_theory() :: (add_type_theories @ ["ml_translator"]));
+      (* NB: this overwrites, so any theories inherited from an earlier
+         m_translation_extends are dropped.  No script currently both extends
+         and initialises, so this is not reachable in practice. *)
+      #type_theories st := (add_type_theories @ ["ml_translator"]);
       #store_pinv_def st := store_pinv_def_opt;
 
       (* Exceptions *)
@@ -1306,10 +1320,10 @@ local
       val (name, name_thy) =
         if ty <> unit_ty then get_name ty else ("UNIT_TYPE", "UNIT_TYPE")
       val inv_def = tryfind (fn thy_name => fetch thy_name (name ^ "_def"))
-                            (!(#type_theories translator_state))
+                            (all_type_theories ())
           handle HOL_ERR _ =>
                  tryfind (fn thy_name => fetch thy_name (name_thy ^ "_def"))
-                         (!(#type_theories translator_state))
+                         (all_type_theories ())
           handle  HOL_ERR _ =>
             let
               val thms = DB.find (name ^ "_def") |> List.map (#1 o snd)
@@ -3590,17 +3604,19 @@ fun create_local_references init_state th = let
 
         val nenv = mk_write loc_name loc env
         val gen_th = INST[env |-> nenv] th |> clean_lookup_assums |> GEN loc
-        val is_rarray = concl th |> rand |> dest_pair |> fst
+        val hprop_const = concl th |> rand |> dest_pair |> fst
                              |> dest_abs |> snd |> dest_star
                              |> fst |> strip_comb |> fst
-                             |> same_const RARRAY_REL_const
-        val is_farray = concl th |> rand |> dest_pair |> fst
-                             |> dest_abs |> snd |> dest_star
-                             |> fst |> strip_comb |> fst
-                             |> same_const ARRAY_REL_const
+        val is_rw8array = same_const RW8ARRAY_const hprop_const
+        val is_rarray = same_const RARRAY_REL_const hprop_const
+        val is_w8array = same_const W8ARRAY_const hprop_const
+        val is_farray = same_const ARRAY_REL_const hprop_const orelse is_w8array
 
         val lemma =
-        if is_rarray then
+        if is_rw8array then
+            ISPECL[exp, get_ref_fun, loc_name, env, H_part2, P, state_var]
+                  EvalSt_W8AllocEmpty |> BETA_RULE |> UNDISCH
+        else if is_rarray then
             ISPECL[exp, get_ref_fun, loc_name,
                    rand TYPE, st_name, env, H_part2, P, state_var]
                   EvalSt_AllocEmpty |> BETA_RULE |> UNDISCH
@@ -3618,10 +3634,12 @@ fun create_local_references init_state th = let
             val (TYPE, x) = concl xexp_eval |> rand |> dest_comb
 
             val lemma =
-              PURE_REWRITE_RULE [GSYM NUM_def, GSYM INT_def] EvalSt_Alloc
-            val lemma =
-              ISPECL [exp, nexp, n, xexp, x, rator state_field, loc_name,
-                      TYPE, env, H_part2, P, state] lemma |> UNDISCH
+              PURE_REWRITE_RULE [GSYM NUM_def, GSYM INT_def]
+                (if is_w8array then EvalSt_W8Alloc else EvalSt_Alloc)
+            val args = [exp, nexp, n, xexp, x, rator state_field, loc_name] @
+                       (if is_w8array then [] else [TYPE]) @
+                       [env, H_part2, P, state]
+            val lemma = ISPECL args lemma |> UNDISCH
             val lemma = MATCH_MP (MATCH_MP lemma nexp_eval) xexp_eval
             val lemma = CONV_RULE (DEPTH_CONV BETA_CONV) lemma
             val EQ_pat = EQ_def |> SPEC_ALL |> concl |> dest_eq |> fst
@@ -3987,7 +4005,7 @@ local
      (pack_option pack_thm)                     (!(#VALID_STORE_THM st)),
       pack_thm                                  (!(#EXN_TYPE_def st)),
       pack_term                                 (!(#EXN_TYPE st)),
-     (pack_list pack_string)                    (!(#type_theories st)),
+     (pack_list pack_string)                    (all_type_theories ()),
      (pack_list (pack_pair pack_term pack_thm)) (!(#exn_handles st)),
      (pack_list (pack_pair pack_term pack_thm)) (!(#exn_raises st)),
      (pack_list (pack_pair pack_thm pack_thm))  (!(#exn_functions_defs st)),
@@ -4027,25 +4045,17 @@ local
         farrays_functions_defs, local_state_init_H, store_pinv_def,
         dynamic_refs_bindings, local_code_abbrevs, mem_derive_case_ref
       ] => let
-
-        (* Need to add the current theory to type_theories or we cannot
-           access definitions generated after extending! *)
+        (* The theory this state was saved from is recorded in the packed list,
+           so its definitions remain reachable after extending. *)
         val type_theories_unpacked = type_theories |>
                                      (unpack_list unpack_string)
-
-        val curr_thy =
-          case List.find (fn thy => thy = current_theory())
-                  type_theories_unpacked
-          of
-              NONE => [current_theory ()]
-            | _ => []
       in
         #refs_type st := (refs_type |> unpack_type);
         #exn_type st := (exn_type |> unpack_type);
         #VALID_STORE_THM st := (VALID_STORE_THM |> (unpack_option unpack_thm));
         #EXN_TYPE_def st := (EXN_TYPE_def |> unpack_thm);
         #EXN_TYPE st := (EXN_TYPE |> unpack_term);
-        #type_theories st := (type_theories_unpacked @ curr_thy);
+        #type_theories st := type_theories_unpacked;
         #exn_handles st := (exn_handles |>
                             (unpack_list (unpack_pair unpack_term unpack_thm)));
         #exn_raises st := (exn_raises |>

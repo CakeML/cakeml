@@ -289,10 +289,10 @@ QED
 
 Definition pan_installed_def:
   pan_installed bytes cbspace bitmaps data_sp ffi_names (r1,r2) (mc_conf:('a,'state,'b) machine_config) shmem_extra ms p_mem p_dom sdm' ⇔
-  ∃t m io_regs cc_regs bitmap_ptr bitmaps_dm sdm.
+  ∃t m bitmap_ptr bitmaps_dm sdm.
   let heap_stack_dm = { w | t.regs r1 <=+ w ∧ w <+ t.regs r2 } in
     (∀a. a ∈ p_dom ⇒ m a = p_mem a) ∧
-    good_init_state mc_conf ms bytes cbspace t m (heap_stack_dm ∪ bitmaps_dm) sdm io_regs cc_regs ∧ sdm' = sdm ∩ byte_aligned ∧
+    good_init_state mc_conf ms bytes cbspace t m (heap_stack_dm ∪ bitmaps_dm) sdm ∧ sdm' = sdm ∩ byte_aligned ∧
     byte_aligned (t.regs r1) /\
 
     byte_aligned (t.regs r2) /\
@@ -1263,7 +1263,7 @@ Theorem pan_to_target_compile_semantics:
   s.locals = FEMPTY ∧
   s.globals = FEMPTY ∧
   size_of_eids pan_code < dimword (:α) ∧
-  FDOM s.eshapes = FDOM ((get_eids(functions pan_code)):mlstring |-> 'a word) ∧
+  s.eshapes = FEMPTY ∧
   backend_config_ok mc.target.config c ∧ lab_to_targetProof$mc_conf_ok mc ∧
   mc_init_ok mc.target.config c mc ∧ mc.target.config.ISA ≠ Ag32 ∧
   0w <₊ mc.target.get_reg ms mc.len_reg ∧
@@ -1478,7 +1478,9 @@ Proof
    (case mc.target.config.link_reg of NONE => 0 | SOME n => n) =
    labst.link_reg ∧ ¬labst.failed’
     by (gs[Abbr ‘labst’, Abbr ‘sp’,
-           lab_to_targetProofTheory.make_init_def]>>
+           lab_to_targetProofTheory.make_init_def,
+           targetPropsTheory.target_io_regs_callee_saved,
+           targetPropsTheory.target_cc_regs_callee_saved]>>
         gs[Abbr ‘lorac’]>>
         drule backendProofTheory.byte_aligned_MOD>>gs[]>>
         strip_tac>>
@@ -2170,7 +2172,7 @@ Proof
           rewrite_tac[lab_to_targetProofTheory.make_init_def]>>simp[]>>
           gs[wordSemTheory.theWord_def]>>
           gs[set_sepTheory.fun2set_eq]>>
-          qpat_x_assum ‘good_init_state _ _ _ _ _ _ _ _ _ _’ mp_tac >>
+          qpat_x_assum ‘good_init_state _ _ _ _ _ _ _ _’ mp_tac >>
           simp[targetSemTheory.good_init_state_def] >>
           ‘byte_aligned a’
             by(gs[stack_removeProofTheory.addresses_thm] >>

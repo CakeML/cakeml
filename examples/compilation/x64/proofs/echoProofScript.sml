@@ -12,7 +12,7 @@ Libs
 
 val echo_io_events_def = new_specification("echo_io_events_def",["echo_io_events"],
   echo_semantics
-  |> Q.GENL[`cl`,`fs`]
+  |> Q.GENL[`ext`,`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,GSYM RIGHT_EXISTS_IMP_THM]);
 
 val (echo_sem,echo_output) = echo_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR

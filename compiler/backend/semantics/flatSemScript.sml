@@ -47,7 +47,7 @@ End
 
 Datatype:
   install_config =
-   <| compile : 'c -> flatLang$exp list -> (word8 list # word64 list # 'c) option
+   <| compile : 'c -> flatLang$exp list -> (mlstring # word64 list # 'c) option
     ; compile_oracle : num -> 'c # flatLang$exp list
     |>
 End
@@ -214,8 +214,11 @@ Definition vs_to_string_def:
   (vs_to_string _ = NONE)
 End
 
-Definition v_to_bytes_def:
-  v_to_bytes lv = some ns. v_to_list lv = SOME (MAP (Litv o Word8) ns)
+Definition v_to_mlstring_def:
+  v_to_mlstring lv =
+    case lv of
+    | Litv (StrLit s) => SOME s
+    | _ => NONE
 End
 
 Definition v_to_words_def:
@@ -276,6 +279,38 @@ Definition flat_to_v_def:
     (if Conv x y = Boolv T then Boolv T else
      if Conv x y = Boolv F then Boolv F else Vectorv []) ∧
   flat_to_v _ = Vectorv []
+End
+
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk [Loc b n] st =
+    (case store_lookup n st of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) =>
+         if b then BadRef else IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) =>
+         if b then BadRef else IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk vs st = NotThunk
+End
+
+Definition update_thunk_def:
+  update_thunk [Loc F n] st [v] =
+    (case dest_thunk [v] st of
+     | NotThunk => store_assign n (Thunk Evaluated v) st
+     | _ => NONE) ∧
+  update_thunk _ st _ = NONE
+End
+
+Definition bad_thunk_update_def:
+  bad_thunk_update m v refs ⇔
+    m = Evaluated ∧ dest_thunk [v] refs ≠ NotThunk
 End
 
 Definition do_app_def:
@@ -564,10 +599,12 @@ Definition do_app_def:
   | (Src (ThunkOp th_op), vs) =>
      (case (th_op,vs) of
       | (AllocThunk m, [v]) =>
-          (let (r,n) = store_alloc (Thunk m v) s.refs in
+          (if bad_thunk_update m v s.refs then NONE else
+           let (r,n) = store_alloc (Thunk m v) s.refs in
              SOME (s with refs := r, Rval (Loc F n)))
-      | (UpdateThunk m, [Loc _ lnum; v]) =>
-          (case store_assign lnum (Thunk m v) s.refs of
+      | (UpdateThunk m, [Loc F lnum; v]) =>
+          (if bad_thunk_update m v s.refs then NONE else
+           case store_assign lnum (Thunk m v) s.refs of
            | SOME r => SOME (s with refs := r, Rval (Conv NONE []))
            | NONE => NONE)
       | _ => NONE)
@@ -704,7 +741,7 @@ Definition do_eval_def:
   do_eval (vs :v list) eval_config =
   (case vs of
     | [v1; v2] =>
-      (case (v_to_bytes v1, v_to_words v2) of
+      (case (v_to_mlstring v1, v_to_words v2) of
        | (SOME bytes, SOME data) =>
          let (st,decs) = eval_config.compile_oracle 0 in
          let new_oracle = shift_seq 1 eval_config.compile_oracle in
@@ -717,31 +754,6 @@ Definition do_eval_def:
           | _ => NONE)
        | _ => NONE)
     | _ => NONE)
-End
-
-Datatype:
-  dest_thunk_ret
-    = BadRef
-    | NotThunk
-    | IsThunk thunk_mode v
-End
-
-Definition dest_thunk_def:
-  dest_thunk [Loc _ n] st =
-    (case store_lookup n st of
-     | NONE => BadRef
-     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
-     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
-     | SOME _ => NotThunk) ∧
-  dest_thunk vs st = NotThunk
-End
-
-Definition update_thunk_def:
-  update_thunk [Loc _ n] st [v] =
-    (case dest_thunk [v] st of
-     | NotThunk => store_assign n (Thunk Evaluated v) st
-     | _ => NONE) ∧
-  update_thunk _ st _ = NONE
 End
 
 Definition AppUnit_def:

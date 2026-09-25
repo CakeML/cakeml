@@ -61,7 +61,7 @@ Datatype:
      ; global      : num option
      ; handler     : num
      ; refs        : v ref num_map
-     ; compile     : 'c -> (num # num # dataLang$prog) list -> (word8 list # word64 list # 'c) option
+     ; compile     : 'c -> (num # num # dataLang$prog) list -> (mlstring # word64 list # 'c) option
      ; clock       : num
      ; code        : (num # dataLang$prog) num_map
      ; ffi         : 'ffi ffi_state
@@ -93,8 +93,8 @@ QED
 
 Definition small_num_def:
   small_num arch64 (i:int) =
-    if arch64 then -(2 ** 61) <= i /\ i < (2 ** 61)
-              else -(2 ** 29) <= i /\ i < (2 ** 29)
+    if arch64 then -(2 ** 62) <= i /\ i < (2 ** 62)
+              else -(2 ** 30) <= i /\ i < (2 ** 30)
 End
 
 Definition bignum_digits_def:
@@ -127,7 +127,7 @@ Definition size_of_def:
                                  (n + LENGTH vs + 1, refs, seen)
      | SOME (Thunk _ v) => let (n,refs,seen) = size_of lims [v] (delete r refs) seen in
                              (n + 2, refs, seen)
-     | SOME (MutBlock tg ls c rs) =>
+     | SOME (MutBlock tg fin ls c rs) =>
          let (n,refs,seen) = size_of lims (ls ++ [c] ++ rs) (delete r refs) seen in
            (n + LENGTH ls + LENGTH rs + 2, refs, seen)) /\
   (size_of lims [Block ts tag []]) refs seen = (0, refs, seen) /\
@@ -182,8 +182,13 @@ Definition size_of_heap_def:
       n
 End
 
+Definition no_thunks_in_refs_def:
+  no_thunks_in_refs refs ⇔ ∀k e v. lookup k refs ≠ SOME (Thunk e v)
+End
+
 Overload add_space_safe =
   ``λk ^s. s.safe_for_space
+           ∧ no_thunks_in_refs s.refs
            ∧ size_of_heap s + k <= s.limits.heap_limit``
 
 Overload heap_peak =
@@ -220,7 +225,7 @@ End
 
 (* Determines which operations are safe for space *)
 Definition allowed_op_def:
-  allowed_op op _ = (op <> closLang$Install)
+  allowed_op op _ = (op <> closLang$Install /\ !t i. op <> MemOp (MutCons t i))
 End
 
 Definition v_to_list_def:
@@ -400,6 +405,7 @@ End
 Overload do_space_safe =
   ``λop vs ^s. if op_space_reset op
               then s.safe_for_space
+                   ∧ no_thunks_in_refs s.refs
                    ∧ size_of_heap_args vs s
                        + space_consumed s op vs
                      <= s.limits.heap_limit
@@ -440,9 +446,14 @@ Definition do_stack_def:
               ; stack_max := OPTION_MAP2 MAX s.stack_max new_stack |>
 End
 
-Definition v_to_bytes_def:
-  v_to_bytes lv = some ns:word8 list.
-                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)
+Definition v_to_mlstring_def:
+  v_to_mlstring refs lv =
+    case lv of
+    | RefPtr _ p =>
+        (case lookup p refs of
+         | SOME (ByteArray T bs) => SOME (bytes_to_mlstring bs)
+         | _ => NONE)
+    | _ => NONE
 End
 
 Definition v_to_words_def:
@@ -496,11 +507,10 @@ Overload Error[local] =
 Definition do_install_def:
   do_install vs ^s =
       (case vs of
-       | [v1;v2;vl1;vl2] =>
-           (case (v_to_bytes v1, v_to_words v2) of
+       | [v1;v2;vl2] =>
+           (case (v_to_mlstring s.refs v1, v_to_words v2) of
             | (SOME bytes, SOME data) =>
-               if vl1 <> Number (& LENGTH bytes) \/
-                  vl2 <> Number (& LENGTH data)
+               if vl2 <> Number (& LENGTH data)
                then Rerr(Rabort Rtype_error) else
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in
@@ -564,6 +574,11 @@ Definition lim_safe_def[simp]:
       4 * tag < 2 ** (arch_size lims) DIV 16 /\
       4 * tag < 2 ** (arch_size lims - lims.length_limit - 2)
       )
+∧ (lim_safe lims (MemOp (MutCons tag i)) xs =
+      (LENGTH xs < 2 ** lims.length_limit /\
+       LENGTH xs < 2 ** (arch_size lims - 4) /\
+       4 * tag < 2 ** (arch_size lims) DIV 16 /\
+       4 * tag < 2 ** (arch_size lims - lims.length_limit - 2)))
 ∧ (lim_safe lims (BlockOp (FromList tag)) xs =
    (case xs of
     | [len;lv] =>
@@ -799,6 +814,53 @@ Definition dest_Boolv_def:
   dest_Boolv _ = NONE
 End
 
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk (RefPtr b ptr) refs =
+    (case lookup ptr refs of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) =>
+         if b then BadRef else IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) =>
+         if b then BadRef else IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk v refs = NotThunk
+End
+
+Definition bad_thunk_update_def:
+  bad_thunk_update m v refs ⇔
+    m = Evaluated ∧ dest_thunk v refs ≠ NotThunk
+End
+
+(* mirrors bviSem$finalise_cons, but threads the timestamp counter so that
+   each block produced by the finalisation gets a fresh time stamp *)
+Definition finalise_cons_def:
+  (finalise_cons (RefPtr b ptr) refs ts =
+    case lookup ptr refs of
+    | SOME (MutBlock tag finalised l c r) =>
+        if ~finalised then
+          (case finalise_cons c (delete ptr refs) ts of
+           | SOME (c',refs',ts') =>
+               SOME (Block (case ts' of NONE => 0 | SOME n => n) tag (l ++ [c'] ++ r),
+                     insert ptr (MutBlock tag T l c r) refs',
+                     OPTION_MAP SUC ts')
+           | NONE => NONE)
+        else NONE
+    | SOME res => SOME (RefPtr b ptr,refs,ts)
+    | NONE => NONE) ∧
+  (finalise_cons v refs ts = SOME (v,refs,ts))
+Termination
+  WF_REL_TAC ‘measure (sptree$size o FST o SND)’
+  \\ rw [] \\ imp_res_tac miscTheory.lookup_zero
+  \\ fs [sptreeTheory.size_delete]
+End
+
 Definition do_app_aux_def:
   do_app_aux op ^vs ^s =
     case (op,vs) of
@@ -1011,6 +1073,25 @@ Definition do_app_aux_def:
                               (ValueArray (LUPDATE x (Num i) xs)) s.refs)
              else Error)
          | _ => Error)
+    | (MemOp (MutCons tag i),xs) =>
+        (let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
+           if i >= LENGTH xs then Error else
+             let l = TAKE i xs in
+             let c = EL i xs in
+             let r = DROP (i+1) xs in
+               Rval (RefPtr F ptr,
+                     s with refs := insert ptr (MutBlock tag F l c r) s.refs))
+    | (MemOp UpdateCons,[RefPtr _ ptr; Number i; x]) =>
+        (case lookup ptr s.refs of
+         | SOME (MutBlock tag finalised l c r) =>
+             if i <> & LENGTH l \/ finalised then Error else
+               Rval (Unit, s with refs := insert ptr (MutBlock tag F l x r) s.refs)
+         | _ => Error)
+    | (MemOp FinaliseCons,[x]) =>
+        (case finalise_cons x s.refs s.tstamps of
+         | SOME (v,refs',ts') =>
+             Rval (v, s with <| refs := refs' ; tstamps := ts' |>)
+         | NONE => Error)
     | (IntOp intop, vs) =>
         (case do_int_app intop vs of
         | SOME res => Rval (res ,s)
@@ -1055,11 +1136,13 @@ Definition do_app_aux_def:
     | (ThunkOp th_op,vs) =>
         (case (th_op,vs) of
          | (AllocThunk m, [v]) =>
-             (let ptr = (LEAST ptr. ptr ∉ domain s.refs) in
+             (if bad_thunk_update m v s.refs then Error else
+              let ptr = (LEAST ptr. ptr ∉ domain s.refs) in
                 Rval (RefPtr F ptr,
                       s with refs := insert ptr (Thunk m v) s.refs))
-         | (UpdateThunk m, [RefPtr _ ptr; v]) =>
-             (case lookup ptr s.refs of
+         | (UpdateThunk m, [RefPtr F ptr; v]) =>
+             (if bad_thunk_update m v s.refs then Error else
+              case lookup ptr s.refs of
               | SOME (Thunk NotEvaluated _) =>
                  Rval (Unit,s with refs := insert ptr (Thunk m v) s.refs)
               | _ => Error)
@@ -1261,23 +1344,6 @@ End
 
 Definition install_sfs_def[simp]:
   install_sfs op ^s = s with safe_for_space := (op ≠ closLang$Install ∧ s.safe_for_space)
-End
-
-Datatype:
-  dest_thunk_ret
-    = BadRef
-    | NotThunk
-    | IsThunk thunk_mode v
-End
-
-Definition dest_thunk_def:
-  dest_thunk (RefPtr _ ptr) refs =
-    (case lookup ptr refs of
-     | NONE => BadRef
-     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
-     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
-     | SOME _ => NotThunk) ∧
-  dest_thunk v refs = NotThunk
 End
 
 Definition set_vars_def:

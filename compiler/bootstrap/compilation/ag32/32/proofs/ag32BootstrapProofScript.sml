@@ -30,7 +30,7 @@ Definition compiler_instance_def:
        config_dom := UNIV ;
        config_v := BACKEND_CONFIG_v ;
        decs_dom := decs_allowed ;
-       decs_v := LIST_v AST_DEC_v |>
+       decs_v := LIST_v DEC_v |>
 End
 
 Theorem compiler_instance_lemma[local]:
@@ -49,7 +49,7 @@ val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events
   |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_init_eval_state_def,the_EvalDecs_def]
   |> SIMP_RULE (srw_ss()) [GSYM source_evalProofTheory.mk_init_eval_state_def
                            |> SIMP_RULE (srw_ss()) []]
-  |> Q.GENL[`cl`,`fs`]
+  |> Q.INST [`ext`|->`no_ext`] |> Q.GENL[`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (cake_sem,cake_output) = cake_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
@@ -348,23 +348,28 @@ Theorem cake_extract_writes:
      (out = explode help_string) ∧ (err = "")
    else if has_version_flag (TL cl) then
      (out = explode current_build_info_str) ∧ (err = "")
-   else if has_pancake_flag (TL cl) then
-     let (cout, cerr) = compile_pancake_32 (TL cl) inp in
-     (out = explode (concat (append cout))) ∧
-     (err = explode cerr)
    else
-     let (cout, cerr) = compile_32 (TL cl) inp in
-     (out = explode (concat (append cout))) ∧
-     (err = explode cerr)
+     case parse_pancake_feature (TL cl) of
+       SOME rest => out = explode(print_bool(query_news rest)) ∧ err = ""
+     | NONE =>
+        if has_pancake_flag (TL cl) then
+          let (cout, cerr) = compile_pancake_32 (TL cl) inp in
+            (out = explode (concat (append cout))) ∧
+            (err = explode cerr)
+        else
+          let (cout, cerr) = compile_32 (TL cl) inp in
+            (out = explode (concat (append cout))) ∧
+            (err = explode cerr)
 Proof
   strip_tac
-  \\ drule(GEN_ALL(DISCH_ALL cake_output))
-  \\ disch_then(qspec_then`stdin_fs inp`mp_tac)
-  \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
+  \\ qabbrev_tac ‘fs = stdin_fs inp’
+  \\ ‘IS_SOME (stdin_content fs) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs’ by
+    (simp[wfFS_stdin_fs, STD_streams_stdin_fs, Abbr‘fs’,
+          TextIOProofTheory.stdin_content_def, stdin_fs_def])
+  \\ drule_all(GEN_ALL(DISCH_ALL cake_output))
+  \\ unabbrev_all_tac
   \\ simp[compilerTheory.full_compile_32_def]
   \\ pairarg_tac \\ simp[]
-  \\ impl_tac
-  >- (gvs [TextIOProofTheory.stdin_content_def, stdin_fs_def])
   \\ ntac 2 (IF_CASES_TAC \\ fs[]
   >- (
     simp[TextIOProofTheory.add_stdo_def]
@@ -398,6 +403,39 @@ Proof
         \\ pop_assum mp_tac \\ rw[]
         \\ fs[])
       >- ( rw[] \\ rw[OPTREL_def]))))>>
+  reverse PURE_TOP_CASE_TAC
+  >- (simp[TextIOProofTheory.add_stdo_def]
+      \\ SELECT_ELIM_TAC
+      \\ simp[TextIOProofTheory.stdo_def]
+      \\ conj_tac
+      >- (
+       simp[stdin_fs_def]
+       \\ qexists_tac`implode""`
+       \\ simp[] )
+      \\ simp[Once stdin_fs_def, AFUPDKEY_def]
+      \\ Cases \\ simp[] \\ strip_tac \\ rveq
+      \\ pop_assum mp_tac
+      \\ simp[TextIOProofTheory.up_stdo_def]
+      \\ simp[fsFFITheory.fsupdate_def]
+      \\ simp[stdin_fs_def]
+      \\ rw[]
+      \\ (
+       drule (GEN_ALL extract_fs_extract_writes)
+       \\ simp[AFUPDKEY_ALOOKUP]
+       \\ disch_then match_mp_tac
+       \\ rw[fsFFIPropsTheory.inFS_fname_def]
+       \\ fs[]
+       >- (
+         fs[CaseEq"option",CaseEq"bool",FORALL_PROD]
+         \\ rw[] \\ CCONTR_TAC \\ fs[]
+         \\ rveq \\ fs[] )
+       >- (
+         pop_assum mp_tac
+         \\ rw[] \\ fs[] \\ rw[]
+         \\ pop_assum mp_tac \\ rw[]
+         \\ fs[])
+       >- ( rw[] \\ rw[OPTREL_def])))>>
+  simp[]>>
   IF_CASES_TAC>>fs[]
   \\ (simp[TextIOProofTheory.add_stdout_fastForwardFD, STD_streams_stdin_fs]
   \\ DEP_REWRITE_TAC[TextIOProofTheory.add_stderr_fastForwardFD]
@@ -556,3 +594,6 @@ Proof
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ metis_tac[]
 QED
+
+val _ = check_thm cake_extract_writes;
+val _ = check_thm cake_ag32_next;

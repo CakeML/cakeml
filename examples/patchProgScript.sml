@@ -237,13 +237,5 @@ Proof
   \\ xsimpl
 QED
 
-val name = "patch"
-val (sem_thm,prog_tm) = whole_prog_thm st name (UNDISCH patch_whole_prog_spec)
-Definition patch_prog_def:
-  patch_prog = ^prog_tm
-End
-
 Theorem patch_semantics =
-  sem_thm |> REWRITE_RULE[GSYM patch_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO]
+  prove_sem_thm "patch" "patch_prog" patch_whole_prog_spec;

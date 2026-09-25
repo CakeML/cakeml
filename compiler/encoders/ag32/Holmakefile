@@ -1,5 +1,3 @@
-INCLUDES = $(HOLDIR)/examples/l3-machine-code/common ../asm
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

@@ -11,7 +11,7 @@ Libs
   preamble
 
 val sort_io_events_def = new_specification("sort_io_events_def", ["sort_io_events"],
-  sort_semantics |> Q.GENL[`cl`,`fs`]
+  sort_semantics |> Q.GENL[`ext`,`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM),RIGHT_EXISTS_AND_THM]);
 
 val (sort_sem,sort_output) = sort_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR

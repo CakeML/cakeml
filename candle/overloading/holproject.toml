@@ -1,0 +1,5 @@
+name = "candle_overloading"
+
+[projects.cakeml]
+path = "../.."
+exclude = ["candle/standard", "candle/prover"]

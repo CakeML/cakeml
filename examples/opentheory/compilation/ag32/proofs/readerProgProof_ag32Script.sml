@@ -1,0 +1,284 @@
+(*
+  End-to-end correctness theorem for the OpenTheory article
+  checker. The theorem reaches the next-state function of the
+  verified hardware platform called Silver.
+*)
+Theory readerProgProof_ag32
+Ancestors
+  semanticsProps backendProof ag32_configProof ag32_memory
+  ag32_memoryProof ag32_ffi_codeProof ag32_machine_config
+  ag32_basis_ffiProof readerProg readerCompile_ag32 holSoundness
+Libs
+  preamble
+
+val _ = numLib.prefer_num ();
+
+val reader_io_events_def =
+  new_specification ("reader_io_events_def", ["reader_io_events"],
+  reader_semantics |> Q.INST [`ext`|->`no_ext`] |> Q.GENL [`cl`,`fs`]
+  |> SIMP_RULE std_ss [GSYM RIGHT_EXISTS_IMP_THM]
+  |> SIMP_RULE std_ss [SKOLEM_THM]);
+
+val (reader_sem,reader_output) = reader_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
+val (reader_not_fail,reader_sem_sing) = reader_sem
+  |> SRULE [reader_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR;
+
+val ffinames_to_string_list_def = backendTheory.ffinames_to_string_list_def;
+
+Theorem extcalls_ffi_names:
+  extcalls info.lab_conf.ffi_names = ffis
+Proof
+  rewrite_tac [reader_compiled]
+  \\ qspec_tac (‘info.lab_conf.ffi_names’,‘xs’) \\ Cases
+  \\ gvs [extcalls_def,ffinames_to_string_list_def,miscTheory.the_def]
+  \\ Induct_on ‘x’
+  \\ gvs [extcalls_def,ffinames_to_string_list_def,miscTheory.the_def]
+  \\ Cases \\ gvs [extcalls_def,ffinames_to_string_list_def,miscTheory.the_def]
+QED
+
+val ffis = ffis_def |> CONV_RULE (RAND_CONV EVAL);
+val ffi_names = extcalls_ffi_names |> SRULE [ffis]
+
+val LENGTH_code = “LENGTH code” |> SCONV [reader_compiled];
+val LENGTH_data = “LENGTH data” |> SCONV [reader_compiled];
+val shmem = “info.lab_conf.shmem_extra” |> SCONV [reader_compiled];
+
+Overload reader_machine_config =
+  “ag32_machine_config (extcalls info.lab_conf.ffi_names) (LENGTH code) (LENGTH data)”
+
+Theorem target_state_rel_reader_start_asm_state:
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+   LENGTH inp ≤ stdin_size ∧
+   is_ag32_init_state (init_memory code data (extcalls info.lab_conf.ffi_names) (cl,inp)) ms ⇒
+   ∃n. target_state_rel ag32_target (init_asm_state code data (extcalls info.lab_conf.ffi_names) (cl,inp)) (FUNPOW Next n ms) ∧
+       ((FUNPOW Next n ms).io_events = ms.io_events) ∧
+       (∀x. x ∉ (ag32_startup_addresses) ⇒
+         ((FUNPOW Next n ms).MEM x = ms.MEM x))
+Proof
+  strip_tac
+  \\ drule (GEN_ALL init_asm_state_RTC_asm_step)
+  \\ disch_then drule
+  \\ simp_tac std_ss []
+  \\ disch_then(qspecl_then[`code`,`data`,`extcalls info.lab_conf.ffi_names`]mp_tac)
+  \\ impl_tac >- ( EVAL_TAC>> fs[ffi_names,LENGTH_data,LENGTH_code,extcalls_def])
+  \\ strip_tac
+  \\ drule (GEN_ALL target_state_rel_ag32_init)
+  \\ rveq
+  \\ qmatch_goalsub_abbrev_tac`_ ∉ md`
+  \\ disch_then(qspec_then`md`assume_tac)
+  \\ drule (GEN_ALL RTC_asm_step_ag32_target_state_rel_io_events)
+  \\ simp[EVAL``(ag32_init_asm_state m md).mem_domain``]
+QED
+
+val reader_startup_clock_def =
+  new_specification("reader_startup_clock_def",["reader_startup_clock"],
+  GEN_ALL (Q.SPEC`ms0`(Q.GEN`ms`target_state_rel_reader_start_asm_state))
+  |> SIMP_RULE bool_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM]);
+
+val compile_correct_applied =
+  MATCH_MP compile_correct (cj 1 reader_compiled)
+  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
+  |> C MATCH_MP reader_not_fail
+  |> C MATCH_MP ag32_backend_config_ok
+  |> REWRITE_RULE[reader_sem_sing,AND_IMP_INTRO]
+  |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
+  |> C MATCH_MP (CONJ(UNDISCH ag32_machine_config_ok)(UNDISCH ag32_init_ok))
+  |> DISCH(#1(dest_imp(concl ag32_init_ok)))
+  |> C MATCH_MP is_ag32_machine_config_ag32_machine_config
+  |> Q.GEN`cbspace` |> Q.SPEC`0`
+  |> Q.GEN`data_sp` |> Q.SPEC`0`;
+
+Theorem reader_installed:
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+   LENGTH inp ≤ stdin_size ∧
+   is_ag32_init_state (init_memory code data (extcalls info.lab_conf.ffi_names) (cl,inp)) ms0 ⇒
+   installed code 0 data 0 info.lab_conf.ffi_names
+     (heap_regs ag32_backend_config.stack_conf.reg_names)
+     (reader_machine_config) info.lab_conf.shmem_extra
+     (FUNPOW Next (reader_startup_clock ms0 inp cl) ms0)
+Proof
+  rewrite_tac[ffi_names, extcalls_def, shmem]
+  \\ strip_tac
+  \\ qmatch_asmsub_abbrev_tac ‘init_memory _ _ ff’
+  \\ qmatch_goalsub_abbrev_tac ‘installed _ _ _ _ dd’
+  \\ ‘dd = SOME (MAP ExtCall ff)’ by
+   (unabbrev_all_tac
+    \\ assume_tac (cj 1 reader_compiled)
+    \\ drule ag32_configProofTheory.compile_imp_ffi_names
+    \\ gvs [reader_compiled]
+    \\ gvs [GSYM reader_compiled,ffis]
+    \\ simp [backendTheory.set_oracle_def,
+             ag32_configTheory.ag32_backend_config_def])
+  \\ asm_rewrite_tac []
+  \\ irule ag32_installed
+  \\ drule reader_startup_clock_def
+  \\ disch_then drule
+  \\ rewrite_tac[ffi_names, extcalls_def]
+  \\ unabbrev_all_tac
+  \\ disch_then drule
+  \\ strip_tac
+  \\ simp[]
+  \\ conj_tac >- (EVAL_TAC)
+  \\ conj_tac >- (simp[LENGTH_code] \\ EVAL_TAC)
+  \\ conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC)
+  \\ conj_tac >- (EVAL_TAC)
+  \\ rpt $ goal_assum $ drule_at Any
+  \\ simp[]
+  \\ fs[ffi_names]
+QED
+
+Theorem reader_machine_sem =
+  compile_correct_applied
+  |> C MATCH_MP (UNDISCH reader_installed)
+  |> DISCH_ALL
+
+val _ = Parse.hide "mem";
+val mem = ``mem:'U->'U-> bool``;
+Overload reader[local] = ``\inp r. readLines init_state inp r``
+
+Theorem all_lines_stdin_fs[local]:
+  all_lines_stdin (stdin_fs inp) = lines_of (implode inp)
+Proof
+  EVAL_TAC
+QED
+
+Theorem reader_extract_writes:
+   wfcl cl ∧
+   LENGTH cl = 1 ⇒
+     let events = MAP get_output_io_event (reader_io_events cl (stdin_fs inp));
+         out = extract_writes 1 events;
+         err = extract_writes 2 events;
+         refs = SND (init_reader () init_refs) in
+       case reader (FLAT (MAP (MAP tokenize ∘ tokens is_newline)
+                              (lines_of (implode inp)))) refs of
+       (M_failure (Failure e), refs) =>
+         (out = "") ∧
+         (err = explode e)
+     | (M_success (s, _), refs) =>
+         (is_set_theory ^mem ==>
+           (∀asl c.
+              MEM (Sequent asl c) s.thms ⇒
+                (thyof refs.the_context, asl) |= c)) ∧
+         refs.the_context extends init_ctxt ∧
+         (out = explode (concat (append (msg_success s refs.the_context)))) ∧
+         (err = "")
+     | _ => F
+Proof
+  strip_tac \\ fs []
+  \\ mp_tac (GEN_ALL (DISCH_ALL reader_output))
+  \\ disch_then (qspecl_then [`stdin_fs inp`, `cl`] mp_tac)
+  \\ fs [wfFS_stdin_fs, STD_streams_stdin_fs, LENGTH_EQ_NUM_compute]
+  \\ impl_tac
+  >- (qexists_tac `inp` \\ EVAL_TAC)
+  \\ strip_tac
+  \\ Cases_on `init_reader () init_refs`
+  \\ drule readerProofTheory.init_reader_ok
+  \\ strip_tac \\ rveq \\ fs []
+  \\ PURE_TOP_CASE_TAC \\ fs []
+  \\ reverse PURE_TOP_CASE_TAC \\ fs []
+  >-
+   (PURE_CASE_TAC \\ fs []
+    \\ conj_tac
+    \\ irule extract_fs_extract_writes
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ simp [RIGHT_EXISTS_AND_THM]
+    \\ simp [readerProofTheory.reader_main_def,
+             readerProofTheory.read_from_def]
+    \\ simp [fsFFIPropsTheory.all_lines_from_def, all_lines_stdin_fs]
+    \\ (conj_tac >- simp [fsFFIPropsTheory.inFS_fname_def,
+                          TextIOProofTheory.add_stdo_def, stdin_fs_def])
+    \\ (conj_tac >- simp [stdin_fs_def])
+    \\ conj_tac
+    \\ simp [stdin_fs_def, fsFFIPropsTheory.fastForwardFD_def,
+            miscTheory.the_def, TextIOProofTheory.add_stdo_def,
+            TextIOProofTheory.up_stdo_def, TextIOProofTheory.stdo_def,
+            fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP]
+    \\ SELECT_ELIM_TAC
+    \\ (conj_asm1_tac >- (qexists_tac ‘«»’ \\ simp []))
+    \\ fs []
+    \\ rw [OPTREL_def]
+    \\ fs [AllCaseEqs (), PULL_EXISTS]
+    \\ rw [] \\ fs []
+    \\ CCONTR_TAC \\ fs [] \\ rw [] \\ fs [])
+  \\ CASE_TAC \\ fs []
+  \\ once_rewrite_tac [CONJ_ASSOC]
+  \\ conj_tac
+  >-
+   (rw []
+    \\ assume_tac readerProofTheory.READER_STATE_init_state
+    \\ drule_all readerProofTheory.readLines_thm \\ rw []
+    \\ DEP_REWRITE_TAC [proves_sound] \\ simp []
+    \\ fs [readerProofTheory.READER_STATE_def, EVERY_MEM]
+    \\ first_x_assum (assume_tac o REWRITE_RULE [holKernelProofTheory.THM_def] o
+                      Q.GENL [`a`,`b`] o Q.SPEC `Sequent a b`)
+    \\ fs [holKernelProofTheory.STATE_def, holKernelProofTheory.CONTEXT_def]
+    \\ rveq
+    \\ qpat_x_assum ‘ds ++ _ = _’ (assume_tac o SYM) \\ fs[])
+  \\ conj_tac
+  \\ irule extract_fs_extract_writes
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ simp [RIGHT_EXISTS_AND_THM]
+  \\ simp [readerProofTheory.reader_main_def,
+           readerProofTheory.read_from_def]
+  \\ simp [fsFFIPropsTheory.all_lines_from_def, all_lines_stdin_fs]
+  \\ (conj_tac >- simp [fsFFIPropsTheory.inFS_fname_def,
+                        TextIOProofTheory.add_stdo_def, stdin_fs_def])
+  \\ (conj_tac >- simp [stdin_fs_def])
+  \\ conj_tac
+  \\ simp [stdin_fs_def, fsFFIPropsTheory.fastForwardFD_def,
+          miscTheory.the_def, TextIOProofTheory.add_stdo_def,
+          TextIOProofTheory.up_stdo_def, TextIOProofTheory.stdo_def,
+          fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP]
+  \\ SELECT_ELIM_TAC
+  \\ (conj_asm1_tac >- (qexists_tac ‘«»’ \\ simp []))
+  \\ fs []
+  \\ rw [OPTREL_def]
+  \\ fs [AllCaseEqs (), PULL_EXISTS]
+  \\ rw [] \\ fs []
+  \\ CCONTR_TAC \\ fs [] \\ rw [] \\ fs []
+QED
+
+Theorem reader_ag32_next:
+   SUM (MAP strlen cl) + LENGTH cl <= cline_size /\
+   LENGTH inp <= stdin_size /\
+   wfcl cl /\
+   (LENGTH cl = 1) /\
+   is_ag32_init_state (init_memory code data (extcalls info.lab_conf.ffi_names) (cl,inp)) ms0
+   ==>
+   ?k1. !k. k1 <= k ==>
+     let ms = FUNPOW Next k ms0 in
+     let outs = MAP (get_ag32_io_event) ms.io_events in
+       (ms.PC = (reader_machine_config).halt_pc) /\
+       (get_mem_word ms.MEM ms.PC = Encode (Jump (fAdd,0w,Imm 0w))) /\
+       outs ≼ MAP get_output_io_event (reader_io_events cl (stdin_fs inp)) /\
+       ((ms.R (n2w (reader_machine_config).ptr_reg) = 0w) ==>
+        (outs = MAP get_output_io_event (reader_io_events cl (stdin_fs inp))))
+Proof
+  strip_tac
+  \\ mp_tac (GEN_ALL reader_machine_sem)
+  \\ disch_then (mp_tac o CONV_RULE (RESORT_FORALL_CONV rev))
+  \\ disch_then (qspec_then `cl` mp_tac)
+  \\ disch_then (qspecl_then [`stdin_fs inp`, `inp`, `ms0`] mp_tac)
+  \\ impl_tac
+  >-
+   (
+    fs [STD_streams_stdin_fs, wfFS_stdin_fs, LENGTH_EQ_NUM_compute]
+    \\ qexists_tac `inp`
+    \\ simp [stdin_fs_def, TextIOProofTheory.stdin_def])
+  \\ strip_tac
+  \\ irule ag32_next
+  \\ conj_tac >- (simp [ffi_names, extcalls_def] \\ EVAL_TAC)
+  \\ conj_tac >- (simp [ffi_names, extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC)
+  \\ conj_tac >- (simp [ffi_names, extcalls_def] \\ EVAL_TAC)
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ drule reader_startup_clock_def
+  \\ rpt (disch_then drule)
+  \\ strip_tac
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ metis_tac []
+QED

@@ -342,7 +342,7 @@ Definition scan_strlit_def:
     | #"\""::cs =>
         SOME (StringS (REVERSE acc), Locs loc loc, cs)
     | #"\n"::cs =>
-        SOME (ErrorS, Locs loc (next_line loc), cs)
+        scan_strlit (#"\n"::acc) cs (next_line loc)
     | #"\\"::_ =>
         (case scan_escseq cs loc of
            NONE => SOME (ErrorS, Locs loc loc, cs)

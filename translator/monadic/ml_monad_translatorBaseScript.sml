@@ -678,6 +678,11 @@ Definition RARRAY_REL_def:
   RARRAY_REL TYPE rv l = SEP_EXISTS av. RARRAY rv av * &LIST_REL TYPE l av
 End
 
+(* Resizable byte arrays *)
+Definition RW8ARRAY_def:
+  RW8ARRAY rv av = SEP_EXISTS arv. REF rv arv * W8ARRAY arv av
+End
+
 Theorem RARRAY_HPROP_SAT_EQ:
    RARRAY (Loc T l) av s <=>
   ?l'. s = {Mem l' (Varray av); Mem l (Refv (Loc T l'))}

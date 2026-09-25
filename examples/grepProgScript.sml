@@ -1034,14 +1034,5 @@ Proof
   \\ xsimpl
 QED
 
-val name = "grep"
-val spec = grep_whole_prog_spec |> UNDISCH
-val (sem_thm,prog_tm) = whole_prog_thm st name spec
-
-Definition grep_prog_def:
-  grep_prog = ^prog_tm
-End
-
 Theorem grep_semantics =
-  sem_thm |> REWRITE_RULE[GSYM grep_prog_def]
-  |> DISCH_ALL |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  prove_sem_thm "grep" "grep_prog" grep_whole_prog_spec;

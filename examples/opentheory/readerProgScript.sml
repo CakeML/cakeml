@@ -366,24 +366,16 @@ Proof
   \\ drule init_reader_success \\ rw []
 QED
 
-val _ = add_user_heap_thm HOL_STORE_init_precond;
+val th = prove_sem_thm "reader_main" "reader_prog" reader_whole_prog_spec;
+val goal = find_term is_exists (concl th |> rator);
 
-val st = get_ml_prog_state ();
-val name = "reader_main";
-val spec = UNDISCH reader_whole_prog_spec;
-val (sem_thm,prog_tm) = whole_prog_thm st name spec
-Definition reader_prog_def:
-  reader_prog = ^prog_tm
-End
+Theorem lemma[local]:
+  ^goal
+Proof
+  irule_at Any HOL_STORE_init_precond \\ EVAL_TAC
+  \\ once_rewrite_tac (find "refs_def" |> map (fn (_,(th,_,_)) => th))
+  \\ simp []
+  \\ rpt $ simp [Once cfStoreTheory.store2heap_aux_def]
+QED
 
-Theorem reader_semantics =
-  sem_thm
-  |> REWRITE_RULE[GSYM reader_prog_def]
-  |> DISCH_ALL
-  |> ONCE_REWRITE_RULE [AND_IMP_INTRO]
-  |> REWRITE_RULE
-    [EVAL ``hasFreeFD fs``
-     |> CONV_RULE (RHS_CONV (SIMP_CONV std_ss []))
-     |> ONCE_REWRITE_RULE [CONJ_COMM] |> GSYM
-     |> CONV_RULE (LHS_CONV (ONCE_REWRITE_CONV [CONJ_COMM]))]
-  |> REWRITE_RULE [AND_IMP_INTRO, GSYM CONJ_ASSOC]
+Theorem reader_semantics = th |> REWRITE_RULE [lemma];

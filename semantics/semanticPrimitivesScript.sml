@@ -218,7 +218,7 @@ End
 *)
 Type compiler_args = ``: ((num # num) # v # dec list)``
 Type compiler_fun = ``: compiler_args ->
-     (v # word8 list # word64 list)option``
+     (v # mlstring # word64 list)option``
 
 Datatype:
  eval_decs_state =
@@ -277,6 +277,50 @@ Definition one_con_check_def[simp]:
   one_con_check envc (Con cn es) = do_con_check envc cn (LENGTH es) ∧
   one_con_check envc _ = T
 End
+
+(* Constructor prechecks also inspect unevaluated function bodies, but must
+   follow the lexical constructor environment through each local open. *)
+Definition check_exp_constructors_def:
+  check_exp_constructors envc (Raise e) = check_exp_constructors envc e ∧
+  check_exp_constructors envc (Handle e pes) =
+    (check_exp_constructors envc e ∧
+     EVERY (λ(p,e). check_exp_constructors envc e) pes) ∧
+  check_exp_constructors envc (Lit l) = T ∧
+  check_exp_constructors envc (Con cn es) =
+    (do_con_check envc cn (LENGTH es) ∧
+     EVERY (check_exp_constructors envc) es) ∧
+  check_exp_constructors envc (Var n) = T ∧
+  check_exp_constructors envc (Fun n e) = check_exp_constructors envc e ∧
+  check_exp_constructors envc (App op es) =
+    EVERY (check_exp_constructors envc) es ∧
+  check_exp_constructors envc (Log op e1 e2) =
+    (check_exp_constructors envc e1 ∧ check_exp_constructors envc e2) ∧
+  check_exp_constructors envc (If e1 e2 e3) =
+    (check_exp_constructors envc e1 ∧ check_exp_constructors envc e2 ∧
+     check_exp_constructors envc e3) ∧
+  check_exp_constructors envc (Mat e pes) =
+    (check_exp_constructors envc e ∧
+     EVERY (λ(p,e). check_exp_constructors envc e) pes) ∧
+  check_exp_constructors envc (Let n e1 e2) =
+    (check_exp_constructors envc e1 ∧ check_exp_constructors envc e2) ∧
+  check_exp_constructors envc (Letrec funs e) =
+    (EVERY (λ(f,n,e). check_exp_constructors envc e) funs ∧
+     check_exp_constructors envc e) ∧
+  check_exp_constructors envc (Tannot e t) = check_exp_constructors envc e ∧
+  check_exp_constructors envc (Lannot e l) = check_exp_constructors envc e ∧
+  check_exp_constructors envc (Open path e) =
+    (case nsOpen path envc of
+       NONE => F
+     | SOME opened => check_exp_constructors (nsAppend opened envc) e)
+End
+
+Theorem check_exp_constructors_open:
+  check_exp_constructors envc (Open path e) ⇔
+  ∃opened. nsOpen path envc = SOME opened ∧
+    check_exp_constructors (nsAppend opened envc) e
+Proof
+  Cases_on `nsOpen path envc` >> simp [check_exp_constructors_def]
+QED
 
 Definition build_conv_def:
   build_conv (envC:((mlstring),(mlstring),(num#stamp))namespace) cn vs =
@@ -522,20 +566,6 @@ Definition maybe_all_list_def:
         case maybe_all_list vs of NONE => NONE | SOME xs => SOME (x::xs)
 End
 
-Definition v_to_word8_def:
-  v_to_word8 v =
-    case v of
-    | Litv (Word8 w) => SOME w
-    | _ => NONE
-End
-
-Definition v_to_word8_list_def:
-  v_to_word8_list v =
-    case v_to_list v of
-    | NONE => NONE
-    | SOME xs => maybe_all_list (MAP v_to_word8 xs)
-End
-
 Definition v_to_word64_def:
   v_to_word64 v =
     case v of
@@ -548,6 +578,13 @@ Definition v_to_word64_list_def:
     case v_to_list v of
     | NONE => NONE
     | SOME xs => maybe_all_list (MAP v_to_word64 xs)
+End
+
+Definition v_to_mlstring_def:
+  v_to_mlstring v =
+    case v of
+    | Litv (StrLit s) => SOME s
+    | _ => NONE
 End
 
 Definition lookup_env_def:
@@ -610,9 +647,9 @@ Termination
 End
 
 Definition compiler_agrees_def:
-  compiler_agrees (f:((num#num)#v#(dec)list ->(v#(word8)list#(word64)list)option))
+  compiler_agrees (f:((num#num)#v#(dec)list ->(v#mlstring#(word64)list)option))
       args (st_v,bs_v,ws_v) ⇔
-    case (f args,args,v_to_word8_list bs_v,v_to_word64_list ws_v) of
+    case (f args,args,v_to_mlstring bs_v,v_to_word64_list ws_v) of
     | (SOME (st,c_bs,c_ws),(v16,prev_st_v,_),SOME bs,SOME ws) =>
         st = st_v ∧ c_bs = bs ∧ c_ws = ws ∧ concrete_v st_v ∧
         concrete_v prev_st_v
@@ -772,14 +809,56 @@ Definition xor_bytes_def:
     | SOME rest => SOME (word_xor b1 b2 :: rest)
 End
 
+(* With `dest_thunk` we check 3 things:
+     - The values contain exactly one reference
+     - The reference is valid
+     - The reference points to a thunk
+   We distinguish between `BadRef` and `NotThunk` instead of returning an option
+   with `NONE` for both, because we want `update_thunk` to succeed when
+   `dest_thunk` fails but only when the reference actually exists and points to
+   something other than a thunk. *)
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk [Loc b n] st =
+    (case store_lookup n st of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) =>
+         if b then BadRef else IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) =>
+         if b then BadRef else IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk vs st = NotThunk
+End
+
+Definition update_thunk_def:
+  update_thunk [Loc F n] st [v] =
+    (case dest_thunk [v] st of
+     | NotThunk => store_assign n (Thunk Evaluated v) st
+     | _ => NONE) ∧
+  update_thunk _ st _ = NONE
+End
+
+Definition bad_thunk_update_def:
+  bad_thunk_update m v st ⇔
+    m = Evaluated ∧ dest_thunk [v] st ≠ NotThunk
+End
+
 Definition thunk_op_def:
   thunk_op (s: v store_v list, t: 'ffi ffi_state) th_op vs =
     case (th_op,vs) of
     | (AllocThunk m, [v]) =>
-        (let (s',n) = store_alloc (Thunk m v) s in
+        (if bad_thunk_update m v s then NONE else
+         let (s',n) = store_alloc (Thunk m v) s in
            SOME ((s',t), Rval (Loc F n)))
-    | (UpdateThunk m, [Loc _ lnum; v]) =>
-        (case store_assign lnum (Thunk m v) s of
+    | (UpdateThunk m, [Loc F lnum; v]) =>
+        (if bad_thunk_update m v s then NONE else
+         case store_assign lnum (Thunk m v) s of
          | SOME s' => SOME ((s',t), Rval (Conv NONE []))
          | NONE => NONE)
     | _ => NONE
@@ -1331,38 +1410,17 @@ Definition extend_dec_env_def:
     <|c := nsAppend new_env.c env.c; v := nsAppend new_env.v env.v|>
 End
 
+(* Select a module's contents as a declaration delta.  In particular, this
+   does not append env: evaluate_decs performs that extension exactly once. *)
+Definition open_dec_env_def:
+  open_dec_env path (env:v sem_env) =
+    case nsOpen path env.v of
+    | NONE => NONE
+    | SOME env_v =>
+      case nsOpen path env.c of
+      | NONE => NONE
+      | SOME env_c => SOME <|v := env_v; c := env_c|>
+End
+
 val _ = set_fixity "+++" (Infixl 480);
 Overload "+++" = “extend_dec_env”;
-
-(* With `dest_thunk` we check 3 things:
-     - The values contain exactly one reference
-     - The reference is valid
-     - The reference points to a thunk
-   We distinguish between `BadRef` and `NotThunk` instead of returning an option
-   with `NONE` for both, because we want `update_thunk` to succeed when
-   `dest_thunk` fails but only when the reference actually exists and points to
-   something other than a thunk. *)
-Datatype:
-  dest_thunk_ret
-    = BadRef
-    | NotThunk
-    | IsThunk thunk_mode v
-End
-
-Definition dest_thunk_def:
-  dest_thunk [Loc _ n] st =
-    (case store_lookup n st of
-     | NONE => BadRef
-     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
-     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
-     | SOME _ => NotThunk) ∧
-  dest_thunk vs st = NotThunk
-End
-
-Definition update_thunk_def:
-  update_thunk [Loc _ n] st [v] =
-    (case dest_thunk [v] st of
-     | NotThunk => store_assign n (Thunk Evaluated v) st
-     | _ => NONE) ∧
-  update_thunk _ st _ = NONE
-End

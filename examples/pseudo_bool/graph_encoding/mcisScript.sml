@@ -117,7 +117,7 @@ End
 Definition has_mapping_al1_def:
   has_mapping_al1 (a:num) vt =
   ((«al1» ^ toString a)
-  ,(GreaterEqual,
+  ,(PGe,
     (1, Pos (Unmapped a)) ::
     GENLIST (λv. (1, Pos (Mapped a v))) vt,
     1): enc pbc)
@@ -126,7 +126,7 @@ End
 Definition has_mapping_am1_def:
   has_mapping_am1 (a:num) vt =
   ((«am1» ^ toString a)
-  ,(LessEqual,
+  ,(PLe,
     (1, Pos (Unmapped a)) ::
     GENLIST (λv. (1, Pos (Mapped a v))) vt,
     1): enc pbc)
@@ -141,7 +141,7 @@ End
 Definition one_one_def:
   one_one u vp =
   ((«inj» ^ toString u)
-  ,(GreaterEqual,
+  ,(PGe,
     (GENLIST (λb. (1, Neg (Mapped b u))) vp),
     (&vp-1)): enc pbc)
 End
@@ -156,7 +156,7 @@ Definition edge_map_def:
   if a = b then [] else
   [
   (concat [«adj»; toString a; «_»; toString u; «_»; toString b]
-  ,(GreaterEqual,
+  ,(PGe,
     (1,Neg (Mapped a u)) ::
     (1,Pos (Unmapped b)) ::
     MAP (λv. (1,Pos (Mapped b v))) (neighbours et u),
@@ -169,7 +169,7 @@ Definition not_edge_map_def:
   else
   [
   (concat [«adj»; toString a; «_»; toString u; «_»; toString b]
-  ,(GreaterEqual,
+  ,(PGe,
     (1,Neg (Mapped a u)) ::
     (1,Pos (Unmapped b)) ::
     MAP (λv. (1,Pos (Mapped b v))) (not_neighbours (vt,et) u),
@@ -184,7 +184,7 @@ Definition all_full_edge_map_def:
       if is_edge ep a a ⇎ is_edge et u u
       then [
         (concat [«adj»; toString a; «_»; toString u; «_SELF»],
-        (GreaterEqual, [(1,Neg (Mapped a u))], 1):enc pbc)]
+        (PGe, [(1,Neg (Mapped a u))], 1):enc pbc)]
       else
         FLAT (MAP (λb. edge_map (a,b) u et) (neighbours ep a)) ++
         FLAT (MAP (λb. not_edge_map (a,b) u vt et) (not_neighbours (vp,ep) a) )) vp)) vt)
@@ -194,7 +194,7 @@ End
 Definition unmapped_obj_def:
   unmapped_obj vp =
   SOME((GENLIST (λb. (1, Pos (Unmapped b))) vp), 0)
-    : ((enc lin_term # int) option)
+  : ((enc lin_term # int) option)
 End
 
 Definition encode_base_def:
@@ -242,35 +242,12 @@ Proof
   simp[]
 QED
 
-Theorem iSUM_zero:
-  (∀x. MEM x ls ⇒ x ≥ 0) ⇒
-  iSUM ls ≥ 0
+Theorem iSUM_ge_zero:
+  (∀x. MEM x ls ⇒ x ≥ 0) ⇒ iSUM ls ≥ 0
 Proof
-  Induct_on`ls`>> rw[iSUM_def]>>
-  fs[]>>
-  first_x_assum(qspec_then`h` assume_tac)>>
-  fs[]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem iSUM_geq:
-  ∀ls.
-  (∀x. MEM x ls ⇒ x ≥ 0) ∧
-  (∃x. MEM x ls ∧ x ≥ n)
-  ⇒
-  iSUM ls ≥ n
-Proof
-  Induct>>rw[iSUM_def]
-  >- (
-    `iSUM ls ≥ 0` by
-      (irule iSUM_zero>>
-      metis_tac[])>>
-    intLib.ARITH_TAC)>>
-  gs[]>>
-  last_x_assum mp_tac>>
-  impl_tac >- metis_tac[]>>
-  first_x_assum(qspec_then`h` assume_tac)>>
-  fs[]>>
+  Induct_on ‘ls’>>
+  rw[iSUM_def,SF DNF_ss]>>
+  last_x_assum (drule_then assume_tac)>>
   intLib.ARITH_TAC
 QED
 
@@ -284,7 +261,7 @@ Proof
   Cases_on`y`>>fs[]
   >- (
     `iSUM ls ≥ 0` by (
-      match_mp_tac iSUM_zero>>
+      match_mp_tac iSUM_ge_zero>>
       rw[]>>res_tac>>
       rw[])>>
     rw[EQ_IMP_THM]
@@ -416,13 +393,6 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem iSUM_MAP_const:
-  ∀ls c. iSUM (MAP (λv. c) ls) = c * &(LENGTH ls)
-Proof
-  Induct>>simp[iSUM_def]>>
-  intLib.ARITH_TAC
-QED
-
 Theorem iSUM_SNOC:
   ∀ls.
   iSUM (SNOC x ls) = x + iSUM ls
@@ -472,17 +442,40 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem neg_b2i:
-  1 - b2i p = b2i (~ p)
-Proof
-  Cases_on`p`>>simp[]
-QED
-
 Theorem MEM_if:
   MEM x (if P then A else B) ⇔
   if P then MEM x A else MEM x B
 Proof
   rw[]
+QED
+
+Theorem iSUM_MAP_b2i_ge_0:
+  iSUM (MAP (λv. b2i (P v)) ls) ≥ 0
+Proof
+  induct_on ‘ls’>>
+  rw[iSUM_def]>>
+  Cases_on ‘P h’>>
+  fs[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem iSUM_MAP_b2i_ge_1:
+  iSUM (MAP (λv. b2i (P v)) ls) ≥ 1 ⇔ ∃v. MEM v ls ∧ P v
+Proof
+  induct_on ‘ls’>>
+  rw[iSUM_def]>>
+  rename1 ‘P h’>>
+  Cases_on ‘P h’>>
+  fs[SF DNF_ss]>>
+  ‘iSUM (MAP (λv. b2i (P v)) ls) ≥ 0’ suffices_by intLib.ARITH_TAC>>
+  simp[iSUM_MAP_b2i_ge_0]
+QED
+
+Theorem one_iSUM_MAP_b2i:
+  1 + iSUM (MAP (λv. b2i (P v)) ls) ≥ 1
+Proof
+  ‘iSUM (MAP (λv. b2i (P v)) ls) ≥ 0’ suffices_by intLib.ARITH_TAC>>
+  simp[iSUM_MAP_b2i_ge_0]
 QED
 
 Theorem encode_base_correct:
@@ -499,16 +492,16 @@ Theorem encode_base_correct:
   )
 Proof
   rw[EQ_IMP_THM]
-  >- (
+  >-(
     fs[injective_partial_map_eq]>>
     simp[satisfiable_def]>>
-    qexists_tac`λenc.
+    qexists_tac‘λenc.
       case enc of
         Unmapped a => a ∉ vs
       | Mapped a u => a ∈ vs ∧ f a = u
-      | _ => ARB` >>
+      | _ => ARB’ >>
     rw[encode_base_def]
-    >- (
+    >-(
       rename1`all_has_mapping`>>
       simp[all_has_mapping_def,satisfies_def,MEM_GENLIST,MEM_MAP]>>
       `∀a. a < vp ∧ a ∈ vs ⇒
@@ -523,8 +516,8 @@ Proof
       simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def,
         has_mapping_al1_def,has_mapping_am1_def]>>
       Cases_on`a ∈ vs`>>simp[iSUM_def,iSUM_GENLIST_const])
-    >- (
-      rename1`all_one_one`>>
+    >-(
+      rename1‘all_one_one’>>
       simp[all_one_one_def,satisfies_def,MEM_GENLIST,one_one_def,MEM_MAP,PULL_EXISTS]>>
       rw[]>>
       simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
@@ -535,29 +528,34 @@ Proof
       simp[]>>
       DEP_REWRITE_TAC[iSUM_sub_b2i_geq]>>
       simp[Abbr`ls`]>>
-      CONJ_TAC>- (
+      CONJ_TAC
+      >-(
         simp[MEM_GENLIST]>>
+        rw[neg_b2i]>>
+        rename1‘b2i P = _’>>
+        qexists‘¬P’>>
         metis_tac[])>>
       rw[]>>
       gs[EL_GENLIST]>>
       metis_tac[])
-    >- (
-      rename1`all_full_edge_map`>>
+    >-(
+      rename1‘all_full_edge_map’>>
       simp[all_full_edge_map_def,satisfies_def,MEM_GENLIST,MEM_FLAT]>>
       rw[]>>
       gvs[MEM_FLAT,MEM_GENLIST,MEM_MAP]>>
       pop_assum mp_tac>>
-      qmatch_goalsub_abbrev_tac`if P then _ else _`>>
+      qmatch_goalsub_abbrev_tac‘if P then _ else _’>>
       IF_CASES_TAC
-      >- (
+      >-(
         rw[Abbr`P`]>>
         simp[satisfies_pbc_def,iSUM_def,eval_lin_term_def]>>
         Cases_on`a ∈ vs`>>simp[iSUM_def]>>
         `f a ≠ u` by metis_tac[MEM_neighbours]>>
-        simp[])>>
+        simp[]>>
+        metis_tac[])>>
       simp[MEM_FLAT,MEM_MAP,PULL_EXISTS,MEM_if]>>
       rw[]
-      >- (
+      >-(
         (* edge_map constraint *)
         gvs[edge_map_def,MEM_if,MEM_neighbours]>>
         simp[satisfies_pbc_def,MAP_MAP_o,o_DEF,eval_lin_term_def]>>
@@ -566,70 +564,62 @@ Proof
           metis_tac[])>>
         simp[]>>
         reverse (Cases_on`b ∈ vs`)>>fs[]
-        >- (
-          simp[iSUM_def,iSUM_MAP_const]>>
-          Cases_on`a ∈ vs ∧ f a = u`>>simp[])>>
+        >-(
+          simp[iSUM_def,npbcTheory.iSUM_CONST]>>
+          rename1 ‘b2i P + _’>>
+          Cases_on ‘P’>>
+          simp[])>>
         reverse (Cases_on`f a = u`>>rw[]>>simp[iSUM_def])
         >- (
           simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
-          match_mp_tac iSUM_zero>>
+          match_mp_tac iSUM_ge_zero>>
           simp[MEM_MAP,MEM_neighbours]>>
           rw[]>>
           simp[])>>
         Cases_on`a ∈ vs`>>fs[]
-        >- (
-          match_mp_tac iSUM_geq>>
-          rw[]
-          >-
-            (fs[MEM_MAP]>>pairarg_tac>>simp[])>>
-          simp[MEM_MAP,MEM_FILTER,LAMBDA_PROD,PULL_EXISTS,EXISTS_PROD,MEM_neighbours]>>
-          qexists_tac`f b`>>simp[]>>
-          fs[INJ_DEF])>>
+        >-simp[iSUM_MAP_b2i_ge_1,MEM_neighbours]>>
         simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
-        match_mp_tac iSUM_zero>>
+        match_mp_tac iSUM_ge_zero>>
         simp[MEM_MAP,MEM_neighbours]>>
         rw[]>>
         simp[])
-      >- (
+      >-(
         (* not_edge_map constraint *)
         gvs[not_edge_map_def,MEM_if,MEM_not_neighbours]>>
         simp[satisfies_pbc_def,MAP_MAP_o,o_DEF,eval_lin_term_def]>>
         reverse (Cases_on`b ∈ vs`)>>fs[]
         >- (
-          simp[iSUM_def,iSUM_MAP_const]>>
-          Cases_on`a ∈ vs ∧ f a = u`>>simp[])>>
+          simp[iSUM_def,npbcTheory.iSUM_CONST]>>
+          rename1 ‘b2i P + _’>>
+          Cases_on ‘P’>>
+          simp[])>>
         reverse (Cases_on`f a = u`>>rw[]>>simp[iSUM_def])
         >- (
           simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
-          match_mp_tac iSUM_zero>>
+          match_mp_tac iSUM_ge_zero>>
           simp[MEM_MAP,MEM_not_neighbours]>>
           rw[]>>
           simp[])>>
         Cases_on`a ∈ vs`>>fs[]
         >- (
-          match_mp_tac iSUM_geq>>
-          rw[]
-          >-
-            (fs[MEM_MAP]>>pairarg_tac>>simp[])>>
-          simp[MEM_MAP,MEM_FILTER,LAMBDA_PROD,PULL_EXISTS,EXISTS_PROD,MEM_not_neighbours]>>
+          simp[iSUM_MAP_b2i_ge_1,MEM_not_neighbours]>>
           fs[INJ_DEF])>>
         simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
-        match_mp_tac iSUM_zero>>
+        match_mp_tac iSUM_ge_zero>>
         simp[MEM_MAP,MEM_not_neighbours]>>
         rw[]>>
         simp[]))
-    >- (
+    >-(
       simp[eval_obj_def,unmapped_obj_def,MAP_GENLIST, o_DEF,eval_lin_term_def]>>
       DEP_REWRITE_TAC[iSUM_GENLIST_eq_k]>>
-      fs[])
-  )>>
+      fs[]))>>
   fs[satisfiable_def,injective_partial_map_eq]>>
-  qexists_tac`λn. @m. m < vt ∧ w (Mapped n m)`>>
-  qabbrev_tac`dom = {n | n < vp ∧ ¬ w (Unmapped n)}`>>
-  qexists_tac `dom`>>
+  qexists_tac ‘λn. @m. m < vt ∧ w (Mapped n m)’>>
+  qabbrev_tac ‘dom = {n | n < vp ∧ ¬ w (Unmapped n)}’>>
+  qexists_tac ‘dom’>>
   simp[]>>
-  reverse CONJ_TAC >-
-    (
+  reverse CONJ_TAC
+  >-(
     fs[eval_obj_def,unmapped_obj_def,MAP_GENLIST,o_DEF,neg_b2i,eval_lin_term_def]>>
     qpat_x_assum`_ = _` mp_tac>>
     `GENLIST (λb. b2i (w (Unmapped b))) vp =
@@ -641,33 +631,33 @@ Proof
     >-
       fs[Abbr`dom`,SUBSET_DEF]>>
     intLib.ARITH_TAC)>>
-  CONJ_TAC>-
-    simp[Abbr`dom`,SUBSET_DEF]>>
+  CONJ_TAC
+  >-simp[Abbr`dom`,SUBSET_DEF]>>
   fs[satisfies_def,encode_base_def,SF DNF_ss]>>
-  `∀n. n < vp ∧ ¬w (Unmapped n) ⇒
+  ‘∀n. n < vp ∧ ¬w (Unmapped n) ⇒
    ∃m. m < vt ∧ w (Mapped n m) ∧
-   ∀m'. m' < vt ∧ w (Mapped n m') ⇔ m = m'` by (
-     fs[all_has_mapping_def,MEM_GENLIST,has_mapping_al1_def,
+   ∀m'. m' < vt ∧ w (Mapped n m') ⇔ m = m'’ by (
+    fs[all_has_mapping_def,MEM_GENLIST,has_mapping_al1_def,
       has_mapping_am1_def,PULL_EXISTS,MEM_MAP,PULL_EXISTS,SF DNF_ss]>>
-     rw[]>>
-     first_x_assum drule>>
-     first_x_assum drule>>
-     simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
-     simp[iSUM_def]>>
-     rw[]>>
-     `iSUM (GENLIST (λv. b2i (w (Mapped n v))) vt) = 1` by intLib.ARITH_TAC>>
-     pop_assum mp_tac>>
-     DEP_REWRITE_TAC[iSUM_eq_1]>>
-     CONJ_TAC>-
-       (simp[MEM_GENLIST]>>metis_tac[])>>
-     rw[]>>gs[EL_GENLIST]>>
-     asm_exists_tac>>fs[]>>
-     CCONTR_TAC>>gs[]>>
-     Cases_on`i=m'`>>gs[]>>
-     first_x_assum drule>>
-     fs[])>>
+    rw[]>>
+    first_x_assum drule>>
+    first_x_assum drule>>
+    simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
+    simp[iSUM_def]>>
+    rw[]>>
+    ‘iSUM (GENLIST (λv. b2i (w (Mapped n v))) vt) = 1’ by intLib.ARITH_TAC>>
+    pop_assum mp_tac>>
+    DEP_REWRITE_TAC[iSUM_eq_1]>>
+    CONJ_TAC>-
+     (simp[MEM_GENLIST]>>metis_tac[])>>
+    rw[]>>gs[EL_GENLIST]>>
+    asm_exists_tac>>fs[]>>
+    CCONTR_TAC>>gs[]>>
+    Cases_on`i=m'`>>gs[]>>
+    first_x_assum drule>>
+    fs[])>>
   rw[]
-  >- (
+  >-(
     fs[Abbr`dom`]>>
     rw[INJ_DEF]
     >- (
@@ -684,15 +674,17 @@ Proof
     simp[]>>
     DEP_REWRITE_TAC[iSUM_sub_b2i_geq]>>
     simp[Abbr`ls`]>>
-    CONJ_TAC>- (
+    CONJ_TAC
+    >-(
       simp[MEM_GENLIST]>>
-      metis_tac[])>>
+      rw[]>>
+      metis_tac[SYM neg_b2i])>>
     rw[]>>
     first_x_assum drule>>
     simp[EL_GENLIST]>>
     disch_then(qspec_then`n` mp_tac)>>
     simp[])
-  >- (
+  >-(
     fs[Abbr`dom`,good_graph_eq]>>
     first_assum(qspec_then`a` mp_tac)>>
     first_x_assum(qspec_then`b` drule)>>
@@ -769,7 +761,7 @@ Proof
 QED
 
 Theorem satisfies_pbc_geq_1:
-  satisfies_pbc w (GreaterEqual,xs, 1) ∧
+  satisfies_pbc w (PGe,xs, 1) ∧
   EVERY ($= 1) (MAP FST xs) ⇒
   ∃x. MEM x (MAP SND xs)  ∧ eval_lit w x = 1
 Proof
@@ -796,16 +788,10 @@ QED
 (* Encode variable x <-> y_1 ∧ y_2 ...., where y_i are literals *)
 Definition iff_and_def:
   iff_and x ys =
-    (GreaterEqual,(1, Pos x)::MAP (λy.(1, negate y)) ys,1):'a pbc ::
+    (PGe,(1, Pos x)::MAP (λy.(1, negate y)) ys,1):'a pbc ::
     MAP (λy.
-      (GreaterEqual, [(1, Neg x); (1,y)], 1)) ys
+      (PGe, [(1, Neg x); (1,y)], 1)) ys
 End
-
-Theorem eval_lit_negate:
-  eval_lit w (negate x) = 1 - eval_lit w x
-Proof
-  Cases_on`x`>>simp[]
-QED
 
 Theorem iff_and:
   satisfies w (set (iff_and x ys)) ⇒
@@ -816,28 +802,21 @@ Proof
   rw[EQ_IMP_THM]
   >- (
     rw[EVERY_MEM]>>first_x_assum drule>>
-    Cases_on`y`>>Cases_on`w a`>>simp[iSUM_def])>>
-  drule iSUM_geq_1>>
-  impl_tac>- (
-    rw[MEM_MAP]>- metis_tac[]>>
-    Cases_on`y'`>>simp[]
-    >- (
-      qexists_tac`(¬ (w a))`>>
-      Cases_on`w a`>>simp[])>>
-    metis_tac[])>>
-  rw[]>>Cases_on`i`>>
-  gs[MAP_MAP_o,EL_MAP]>>
-  fs[EVERY_EL,eval_lit_negate]>>
-  first_x_assum drule>>
-  rw[]>>gvs[]
+    Cases_on`lit w y`>>simp[])>>
+  qpat_x_assum`_ + iSUM _ ≥ 1` mp_tac>>
+  qpat_x_assum`EVERY _ _` mp_tac>>
+  rpt(pop_assum kall_tac)>>
+  qid_spec_tac`ys`>>
+  Induct>>rw[iSUM_def]>>
+  Cases_on`w x`>>gvs[]
 QED
 
 (* Encode variable x <-> y_1 ∨ y_2 ...., where y_i are literals *)
 Definition iff_or_def:
   iff_or x ys =
-    (GreaterEqual, (1, Neg x)::MAP (λy.(1, y)) ys, 1):'a pbc ::
+    (PGe, (1, Neg x)::MAP (λy.(1, y)) ys, 1):'a pbc ::
     MAP (λy.
-      (GreaterEqual, [(1, Pos x); (1, negate y)], 1)) ys
+      (PGe, [(1, Pos x); (1, negate y)], 1)) ys
 End
 
 Theorem iff_or:
@@ -848,20 +827,14 @@ Proof
   fs[satisfies_pbc_def,satisfies_def,MEM_MAP,PULL_EXISTS,eval_lin_term_def]>>
   rw[EQ_IMP_THM]
   >- (
-    drule iSUM_geq_1>>
-    impl_tac>- (
-      rw[] >- (qexists_tac`F`>>simp[])>>
-      gvs[MEM_MAP]>>
-      Cases_on`y'`>>simp[]
-      >- metis_tac[]>>
-      qexists_tac`¬ (w a)`>>
-      Cases_on`w a`>>simp[])>>
-    rw[]>>Cases_on`i`>>gs[]>>
-    gs[MAP_MAP_o,EL_MAP]>>
-    simp[EXISTS_MEM,MEM_EL]>>
-    metis_tac[EL_MEM])>>
+    qpat_x_assum`_ + iSUM _ ≥ 1` mp_tac>>
+    gvs[]>>
+    rpt(pop_assum kall_tac)>>
+    qid_spec_tac`ys`>>
+    Induct>>rw[iSUM_def]>>
+    Cases_on`lit w h`>>gvs[])>>
   fs[EXISTS_MEM]>>
-  first_x_assum drule>>simp[iSUM_def,eval_lit_negate]>>
+  first_x_assum drule>>
   Cases_on`w x`>>simp[]
 QED
 
@@ -873,27 +846,21 @@ Proof
   fs[satisfies_pbc_def,satisfies_def,MEM_MAP,PULL_EXISTS,eval_lin_term_def]>>
   rw[]
   >- (
-    Cases_on`w x`>>gs[iSUM_def]
+    Cases_on`w x`>>gs[iSUM_def]>>
+    simp[MAP_MAP_o,eval_term_def,eval_lit_def,o_ABS_R]
     >- (
       fs[EXISTS_MEM]>>
-      match_mp_tac iSUM_geq>>simp[MEM_MAP,PULL_EXISTS]>>
-      first_x_assum (irule_at Any)>>rw[]>>
-      Cases_on`y'`>>Cases_on`w a`>>simp[])>>
-    qmatch_goalsub_abbrev_tac`b2i A`>>
-    `~A` by simp[Abbr`A`,NOT_EXISTS]>>
-    simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
-    match_mp_tac iSUM_zero>>
-    simp[MEM_MAP]>>
-    rw[]>>
-    simp[]>>
-    Cases_on`y'`>>Cases_on`w a`>>simp[])>>
-  Cases_on`w x`>>gs[iSUM_def]
-  >-
-    (Cases_on`y`>>Cases_on`w a`>>simp[])>>
-  fs[EVERY_MEM]>>
-  first_x_assum drule>>
-  Cases_on`y`>>Cases_on`w a`>>simp[]>>
-  qmatch_goalsub_abbrev_tac`b2i A`>>Cases_on`A`>>simp[]
+      qmatch_goalsub_abbrev_tac ‘a + b ≥ 1’>>
+      ‘a ≥ 0 ∧ b ≥ 1’ suffices_by intLib.ARITH_TAC>>
+      simp[Abbr‘a’,Abbr‘b’,iSUM_MAP_b2i_ge_1]>>
+      metis_tac[])>>
+    qmatch_goalsub_abbrev_tac ‘_ + c’>>
+    ‘c ≥ 0’ suffices_by intLib.ARITH_TAC>>
+    simp[Abbr‘c’,iSUM_MAP_b2i_ge_0])>>
+  Cases_on`w x`>>gs[iSUM_def,lit_negate]>>
+  qmatch_goalsub_abbrev_tac ‘a + b’>>
+  ‘a ≥ 0 ∧ b = 1’ suffices_by intLib.ARITH_TAC>>
+  fs[Abbr‘a’,Abbr‘b’,EVERY_MEM]
 QED
 
 (* encoding for the base case f-g *)
@@ -903,7 +870,7 @@ Definition walk_base_def:
     (* x_{f,g}^1 <-> !x_f,bot ∧ !x_g,bot *)
     iff_and (Walk f g 0) [Neg (Unmapped f); Neg (Unmapped g)]
   else
-    [(GreaterEqual, [(1,Neg (Walk f g 0))], 1): enc pbc]
+    [(PGe, [(1,Neg (Walk f g 0))], 1): enc pbc]
 End
 
 Definition walk_aux_def:
@@ -1320,15 +1287,15 @@ Definition encode_connected_def:
   FLAT (GENLIST (λf.
     FLAT (GENLIST (λg.
       if f < g then
-        [(GreaterEqual, [(1, Pos(Unmapped f));(1, Pos(Unmapped g));(1, Pos(Walk f g k))], 1)]
+        [(PGe, [(1, Pos(Unmapped f));(1, Pos(Unmapped g));(1, Pos(Walk f g k))], 1)]
       else []) vp)) vp) ++
   walk_k (vp,ep) k
 End
 
 Definition encode_def:
   encode (vp,ep) (vt,et) =
-  MAP (SOME ## I) (encode_base (vp,ep) (vt,et)) ++
-  MAP (λc. (NONE,c)) (encode_connected (vp,ep) vt)
+  MAP ((λa. [a]) ## I) (encode_base (vp,ep) (vt,et)) ++
+  MAP (λc. ([],c)) (encode_connected (vp,ep) vt)
 End
 
 Theorem walk_k_free:
@@ -1501,24 +1468,25 @@ Proof
     fs[injective_partial_map_eq]>>
     simp[satisfiable_def]>>
     rw[encode_def,encode_base_def]>>
-    qabbrev_tac`w = λenc.
+    qabbrev_tac‘w = λenc.
       case enc of
         Unmapped a => a ∉ vs
       | Mapped a u => a ∈ vs ∧ f a = u
-      | _ => ARB`>>
-    qspecl_then [`w`,`vp`,`ep`,`LOG 2 (2 * (MIN vp vt) − 1)`] assume_tac (GEN_ALL mk_satisfies_walk_k_alt)>>
+      | _ => ARB’>>
+    qspecl_then [`w`,`vp`,`ep`,`LOG 2 (2 * (MIN vp vt) − 1)`]
+      assume_tac (GEN_ALL mk_satisfies_walk_k_alt)>>
     fs[Abbr`w`]>>
     qexists_tac`w'`>>simp[]>>
     rw[]
     >- (
-      rename1`all_has_mapping`>>
+      rename1‘all_has_mapping’>>
       simp[all_has_mapping_def,satisfies_def,MEM_GENLIST,MEM_MAP]>>
-      `∀a. a < vp ∧ a ∈ vs ⇒
-        iSUM (GENLIST (λv. b2i (f a = v)) vt) = 1` by (
+      ‘∀a. a < vp ∧ a ∈ vs ⇒
+        iSUM (GENLIST (λv. b2i (f a = v)) vt) = 1’ by (
         rw[]>>
         DEP_REWRITE_TAC[iSUM_eq_1,eval_lin_term_def]>>
         CONJ_TAC>-
-          (simp[MEM_GENLIST]>>metis_tac[])>>
+         (simp[MEM_GENLIST]>>metis_tac[])>>
         qexists_tac`f a`>>
         CONJ_ASM1_TAC>>fs[EL_GENLIST,INJ_DEF])>>
       rw[]>>
@@ -1526,7 +1494,7 @@ Proof
         has_mapping_al1_def,has_mapping_am1_def]>>
       Cases_on`a ∈ vs`>>simp[iSUM_def,iSUM_GENLIST_const])
     >- (
-      rename1`all_one_one`>>
+      rename1‘all_one_one’>>
       simp[all_one_one_def,satisfies_def,MEM_GENLIST,one_one_def,MEM_MAP,PULL_EXISTS]>>
       rw[]>>
       simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
@@ -1537,9 +1505,12 @@ Proof
       simp[]>>
       DEP_REWRITE_TAC[iSUM_sub_b2i_geq]>>
       simp[Abbr`ls`]>>
-      CONJ_TAC>- (
-        simp[MEM_GENLIST]>>
-        metis_tac[])>>
+      CONJ_TAC
+      >-(
+        rw[MEM_GENLIST,neg_b2i]>>
+        rename1 ‘b2i P = b2i _’>>
+        qexists ‘¬P’>>
+        simp[])>>
       rw[]>>
       gs[EL_GENLIST]>>
       metis_tac[])
@@ -1556,70 +1527,44 @@ Proof
         simp[satisfies_pbc_def,iSUM_def,eval_lin_term_def]>>
         Cases_on`a ∈ vs`>>simp[iSUM_def]>>
         `f a ≠ u` by metis_tac[MEM_neighbours]>>
-        simp[])>>
+        simp[]>>
+        metis_tac[])>>
       simp[MEM_FLAT,MEM_MAP,PULL_EXISTS,MEM_if]>>
       rw[]
       >- (
         (* edge_map constraint *)
         gvs[edge_map_def,MEM_if,MEM_neighbours]>>
         simp[satisfies_pbc_def,MAP_MAP_o,o_DEF,eval_lin_term_def]>>
-        `b < vp` by
-          (fs[good_graph_eq,is_edge_thm]>>
+        ‘b < vp’ by (
+          fs[good_graph_eq,is_edge_thm]>>
           metis_tac[])>>
         simp[]>>
-        reverse (Cases_on`b ∈ vs`)>>fs[]
+        reverse (Cases_on‘b ∈ vs’)>>fs[]
         >- (
-          simp[iSUM_def,iSUM_MAP_const]>>
-          Cases_on`a ∈ vs ∧ f a = u`>>simp[])>>
+          simp[iSUM_def,npbcTheory.iSUM_CONST]>>
+          rename1 ‘b2i P + _’>>
+          ‘b2i P ≥ 0’ suffices_by intLib.ARITH_TAC>>
+          simp[b2i_geq_zero])>>
         reverse (Cases_on`f a = u`>>rw[]>>simp[iSUM_def])
-        >- (
-          simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
-          match_mp_tac iSUM_zero>>
-          simp[MEM_MAP,MEM_neighbours]>>
-          rw[]>>
-          simp[])>>
-        Cases_on`a ∈ vs`>>fs[]
-        >- (
-          match_mp_tac iSUM_geq>>
-          rw[]
-          >-
-            (fs[MEM_MAP]>>pairarg_tac>>simp[])>>
-          simp[MEM_MAP,MEM_FILTER,LAMBDA_PROD,PULL_EXISTS,EXISTS_PROD,MEM_neighbours]>>
-          qexists_tac`f b`>>simp[]>>
-          fs[INJ_DEF])>>
-        simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
-        match_mp_tac iSUM_zero>>
-        simp[MEM_MAP,MEM_neighbours]>>
-        rw[]>>
-        simp[])
+        >-simp[one_iSUM_MAP_b2i]>>
+        Cases_on‘a ∈ vs’>>fs[]
+        >-simp[iSUM_MAP_b2i_ge_1,MEM_neighbours]>>
+        simp[one_iSUM_MAP_b2i])
       >- (
         (* not_edge_map constraint *)
         gvs[not_edge_map_def,MEM_if,MEM_not_neighbours]>>
         simp[satisfies_pbc_def,MAP_MAP_o,o_DEF,eval_lin_term_def]>>
         reverse (Cases_on`b ∈ vs`)>>fs[]
         >- (
-          simp[iSUM_def,iSUM_MAP_const]>>
-          Cases_on`a ∈ vs ∧ f a = u`>>simp[])>>
+          simp[iSUM_def,npbcTheory.iSUM_CONST]>>
+          rename1 ‘b2i P + _’>>
+          ‘b2i P ≥ 0’ suffices_by intLib.ARITH_TAC>>
+          simp[b2i_geq_zero])>>
         reverse (Cases_on`f a = u`>>rw[]>>simp[iSUM_def])
-        >- (
-          simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
-          match_mp_tac iSUM_zero>>
-          simp[MEM_MAP,MEM_not_neighbours]>>
-          rw[]>>
-          simp[])>>
+        >-simp[one_iSUM_MAP_b2i]>>
         Cases_on`a ∈ vs`>>fs[]
-        >- (
-          match_mp_tac iSUM_geq>>
-          rw[]
-          >-
-            (fs[MEM_MAP]>>pairarg_tac>>simp[])>>
-          simp[MEM_MAP,MEM_FILTER,LAMBDA_PROD,PULL_EXISTS,EXISTS_PROD,MEM_not_neighbours]>>
-          fs[INJ_DEF])>>
-        simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
-        match_mp_tac iSUM_zero>>
-        simp[MEM_MAP,MEM_not_neighbours]>>
-        rw[]>>
-        simp[]))
+        >-fs[iSUM_MAP_b2i_ge_1,MEM_not_neighbours,INJ_DEF]>>
+        simp[one_iSUM_MAP_b2i]))
     >- (
       (* connectedness *)
       reverse(rw[encode_connected_def])>>
@@ -1669,14 +1614,14 @@ Proof
     >- (
       simp[eval_obj_def,unmapped_obj_def,MAP_GENLIST, o_DEF,eval_lin_term_def]>>
       DEP_REWRITE_TAC[iSUM_GENLIST_eq_k]>>
-      fs[])
-    )>>
+      fs[]))>>
   fs[satisfiable_def,injective_partial_map_eq]>>
-  qexists_tac`λn. @m. m < vt ∧ w (Mapped n m)`>>
-  qabbrev_tac`dom = {n | n < vp ∧ ¬ w (Unmapped n)}`>>
-  qexists_tac `dom`>>
+  qexists_tac ‘λn. @m. m < vt ∧ w (Mapped n m)’>>
+  qabbrev_tac ‘dom = {n | n < vp ∧ ¬ w (Unmapped n)}’>>
+  qexists_tac ‘dom’>>
   simp[]>>
-  reverse CONJ_ASM1_TAC >- (
+  reverse CONJ_ASM1_TAC
+  >- (
     reverse CONJ_TAC >- (
       pop_assum kall_tac>>
       fs[eval_obj_def,unmapped_obj_def,MAP_GENLIST,o_DEF,neg_b2i,eval_lin_term_def]>>
@@ -1724,8 +1669,8 @@ Proof
     disch_then(qspecl_then[`a`,`b`] assume_tac)>>
     gs[]>>
     qexists_tac`walk`>>fs[SUBSET_DEF,EVERY_MEM])>>
-  CONJ_TAC>-
-    simp[Abbr`dom`,SUBSET_DEF]>>
+  CONJ_TAC
+  >-simp[Abbr`dom`,SUBSET_DEF]>>
   fs[satisfies_def,encode_def,encode_base_def,SF DNF_ss]>>
   `∀n. n < vp ∧ ¬w (Unmapped n) ⇒
    ∃m. m < vt ∧ w (Mapped n m) ∧
@@ -1767,8 +1712,9 @@ Proof
     simp[]>>
     DEP_REWRITE_TAC[iSUM_sub_b2i_geq]>>
     simp[Abbr`ls`]>>
-    CONJ_TAC>- (
-      simp[MEM_GENLIST]>>
+    CONJ_TAC
+    >- (
+      rw[MEM_GENLIST,neg_b2i]>>
       metis_tac[])>>
     rw[]>>
     first_x_assum drule>>
@@ -1850,6 +1796,10 @@ Proof
       metis_tac[EL_MEM,Abbr`ee`]>>
     fs[MEM_not_neighbours])
 QED
+
+
+
+
 
 Definition enc_string_def:
   (enc_string (Walk f g k) =
@@ -1943,8 +1893,9 @@ Proof
   fs[unmapped_obj_def,eval_obj_def,eval_lin_term_def]>>
   CONJ_ASM1_TAC
   >- (
-    match_mp_tac iSUM_zero>>
-    simp[MEM_MAP,MEM_GENLIST,PULL_EXISTS])>>
+    match_mp_tac iSUM_ge_zero>>
+    rw[MEM_MAP,MEM_GENLIST]>>
+    simp[eval_term_def,eval_lit_def])>>
   qmatch_goalsub_abbrev_tac`iSUM ls`>>
   `q = LENGTH ls` by
     fs[Abbr`ls`]>>
@@ -2048,11 +1999,10 @@ Proof
   (* Upper bound optimization *)
   Cases_on`ubi`>>
   fs[SF DNF_ss,EQ_IMP_THM,is_ccis_def,is_cis_def,LIST_TO_SET_MAP]
-  >-
-    metis_tac[injective_partial_map_exists,SND]>>
-  `eval_obj (unmapped_obj q) w ≥ 0` by
-    (fs[unmapped_obj_def,eval_obj_def,eval_lin_term_def]>>
-    match_mp_tac iSUM_zero>>
+  >-metis_tac[injective_partial_map_exists,SND]>>
+  ‘eval_obj (unmapped_obj q) w ≥ 0’ by (
+    fs[unmapped_obj_def,eval_obj_def,eval_lin_term_def]>>
+    match_mp_tac iSUM_ge_zero>>
     simp[MEM_MAP,MEM_GENLIST,PULL_EXISTS])>>
   first_x_assum drule>>
   disch_then(qspec_then`q - Num (eval_obj (unmapped_obj q) w)` mp_tac)>>
@@ -2070,7 +2020,7 @@ Definition full_encode_mcis_def:
   full_encode_mcis gp gt =
   (map_obj enc_string
     (unmapped_obj (FST gp)),
-  MAP (SOME ## map_pbc enc_string) (encode_base gp gt))
+  MAP ((λa. [a]) ## map_pbc enc_string) (encode_base gp gt))
 End
 
 Theorem full_encode_mcis_sem_concl:
@@ -2141,11 +2091,10 @@ Proof
   (* Upper bound optimization *)
   Cases_on`ubi`>>
   fs[SF DNF_ss,EQ_IMP_THM,is_cis_def,LIST_TO_SET_MAP]
-  >-
-    metis_tac[injective_partial_map_exists]>>
-  `eval_obj (unmapped_obj q) w ≥ 0` by
-    (fs[unmapped_obj_def,eval_obj_def,eval_lin_term_def]>>
-    match_mp_tac iSUM_zero>>
+  >-metis_tac[injective_partial_map_exists]>>
+  ‘eval_obj (unmapped_obj q) w ≥ 0’ by (
+    fs[unmapped_obj_def,eval_obj_def,eval_lin_term_def]>>
+    match_mp_tac iSUM_ge_zero>>
     simp[MEM_MAP,MEM_GENLIST,PULL_EXISTS])>>
   first_x_assum drule>>
   disch_then(qspec_then`q - Num (eval_obj (unmapped_obj q) w)` mp_tac)>>
@@ -2163,7 +2112,7 @@ Theorem full_encode_mcis_eq =
   |> SIMP_RULE (srw_ss()) [FORALL_PROD,encode_base_def]
   |> SIMP_RULE (srw_ss()) [all_has_mapping_def,all_one_one_def,all_full_edge_map_def,
     has_mapping_al1_def,has_mapping_am1_def,one_one_def,edge_map_def,not_edge_map_def]
-  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,
     map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,MAP_if]
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN,FOLDN_APPEND,FOLDN_APPEND_op]
   |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
@@ -2201,7 +2150,7 @@ Theorem encode_connected_thm:
   FLAT (GENLIST (λf.
     FLAT (GENLIST (λg.
       if f < g then
-        [(GreaterEqual, [(1, Pos(Unmapped f));(1, Pos(Unmapped g));(1, Pos(Walk f g k))], 1)]
+        [(PGe, [(1, Pos(Unmapped f));(1, Pos(Unmapped g));(1, Pos(Walk f g k))], 1)]
       else []) vp)) vp) ++
   walk_k (vp,ep) k
 Proof
@@ -2219,10 +2168,10 @@ Theorem walk_k_eq =
   |> SIMP_RULE (srw_ss()) [if_APPEND];
 
 val enc_encode_connected =
-  ``MAP (\c. (NONE:mlstring option,(map_pbc enc_string c))) (encode_connected (p_1,p_2) vt)``
+  ``MAP (\c. ([]:mlstring list,(map_pbc enc_string c))) (encode_connected (p_1,p_2) vt)``
   |> SIMP_CONV (srw_ss()) [encode_connected_thm]
   |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,
-    pbc_ge_def,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,LET_DEF,MAP_if]
+    map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,LET_DEF,MAP_if]
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN]
   |> PURE_REWRITE_RULE[GSYM APPEND_ASSOC]
   |> SIMP_RULE std_ss [FOLDN_APPEND]
@@ -2234,7 +2183,7 @@ Theorem full_encode_mccis_eq =
   |> SIMP_RULE (srw_ss()) [FORALL_PROD,encode_def,encode_base_def]
   |> SIMP_RULE (srw_ss()) [all_has_mapping_def,all_one_one_def,all_full_edge_map_def,
     has_mapping_al1_def,has_mapping_am1_def,one_one_def,edge_map_def,not_edge_map_def]
-  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,
     map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,LET_DEF,MAP_if]
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN]
   |> PURE_REWRITE_RULE[GSYM APPEND_ASSOC]

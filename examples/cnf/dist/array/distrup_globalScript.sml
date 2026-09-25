@@ -8,7 +8,7 @@ Ancestors
   distrup_list distrup_arrayProg words byte distrup_fullProg distInfer distInferRefine
 
 Datatype:
-  state = <| procs  : 'name |-> ((int vector option list # word8 list # word8) option);
+  state = <| procs  : 'name |-> ((int vector list # num list # num) option);
              facts  :  int vector list;
              validated  : bool
            |>
@@ -32,8 +32,7 @@ Inductive step:
   step st (Act id (Import n c)) (st with procs := st.procs |+ (id,lst'))
 [~events_ok_Produce:]
   FLOOKUP st.procs id = SOME(SOME vlst) ∧
-  events_ok (SOME vlst) events' [Lrup n c hints] (SOME vlst') ∧
-  MEM c st.facts
+  events_ok (SOME vlst) events' [Lrup n c hints] (SOME vlst')
   ⇒
   step st (Act id (Lrup n c hints)) (st with <|procs := st.procs |+ (id,SOME vlst');
                                            facts := c::st.facts|>)
@@ -63,7 +62,9 @@ Definition state_rel_def:
   state_rel ast cst ⇔
     ast.validated = (if cst.validated then {Vector []} else {}) ∧
     ast.facts = cst.facts ∧
-    fmap_rel (OPTREL (λfml (fmls,dml,b). fml_rel fml fmls ∧ (∃dm. dm_rel dm dml b))) ast.procs cst.procs
+    fmap_rel (OPTREL (λfml (fmls,dml,b).
+      fml_rel fml fmls ∧ (∃dm. dm_rel dm dml b)))
+      ast.procs cst.procs
 End
 
 Inductive label_rel:
@@ -145,26 +146,7 @@ Proof
           irule fmap_rel_FUPDATE_I >>
           simp[] >>
           drule_all_then strip_assume_tac check_distrup_list >>
-          gvs[distrupTheory.check_distrup_def] >>
-          conj_tac >- metis_tac[] >>
-          irule fmap_rel_fdomsub >>
-          simp[])
-      >- (irule_at (Pos hd) step_spin >>
-          gvs[state_rel_def] >>
-          drule_all fmap_rel_FLOOKUP_imp2 >>
-          rw[OPTREL_SOME] >>
-          rw[] >>
-          ‘cst.procs |+ (id,NONE) = cst.procs’ suffices_by simp[] >>
-          rw[fmap_eq_flookup,FLOOKUP_UPDATE] >> rw[] >> rw[])
-      >- (irule_at (Pos hd) step_import >>
-          gvs[state_rel_def] >>
-          drule_all fmap_rel_FLOOKUP_imp2 >>
-          rw[OPTREL_SOME] >>
-          rw[] >>
-          irule fmap_rel_FUPDATE_I >>
-          simp[] >>
-          drule_all_then strip_assume_tac check_distrup_list >>
-          gvs[distrupTheory.check_distrup_def] >>
+          gvs[distrupTheory.check_distrup_def,ccnfTheory.insert_vcc_def] >>
           conj_tac >- metis_tac[] >>
           irule fmap_rel_fdomsub >>
           simp[])
@@ -185,22 +167,7 @@ Proof
           rw[OPTREL_SOME] >>
           simp[] >>
           drule_all_then strip_assume_tac check_distrup_list >>
-          gvs[distrupTheory.check_distrup_def] >>
-          conj_tac
-          >- (drule ccnfTheory.is_rup_sound >>
-              rw[sat_infer_def]) >>
-          irule fmap_rel_FUPDATE_I >>
-          simp[] >>
-          conj_tac >- metis_tac[] >>
-          irule fmap_rel_fdomsub >>
-          simp[])
-      >- (irule_at (Pos hd) step_produce_succeed >>
-          gvs[state_rel_def] >>
-          drule_all fmap_rel_FLOOKUP_imp2 >>
-          rw[OPTREL_SOME] >>
-          simp[] >>
-          drule_all_then strip_assume_tac check_distrup_list >>
-          gvs[distrupTheory.check_distrup_def] >>
+          gvs[distrupTheory.check_distrup_def,ccnfTheory.insert_vcc_def] >>
           conj_tac
           >- (drule ccnfTheory.is_rup_sound >>
               rw[sat_infer_def]) >>
@@ -213,22 +180,6 @@ Proof
   >- (qhdtm_x_assum ‘events_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[events_ok_cases] >>
       gvs[events_ok_NIL] >>
       rw[act_rel_cases,label_rel_cases]
-      >- (irule_at (Pos hd) step_produce_fail >>
-          gvs[state_rel_def] >>
-          drule_all fmap_rel_FLOOKUP_imp2 >>
-          rw[OPTREL_SOME] >>
-          simp[] >>
-          irule fmap_rel_FUPDATE_I >>
-          simp[] >>
-          irule fmap_rel_fdomsub >>
-          simp[])
-      >- (irule_at (Pos hd) step_spin >>
-          gvs[state_rel_def] >>
-          drule_all fmap_rel_FLOOKUP_imp2 >>
-          rw[OPTREL_SOME] >>
-          simp[] >>
-          ‘cst.procs |+ (id,NONE) = cst.procs’ suffices_by simp[] >>
-          rw[fmap_eq_flookup,FLOOKUP_UPDATE] >> rw[] >> rw[])
       >- (irule_at (Pos hd) step_produce_fail >>
           gvs[state_rel_def] >>
           drule_all fmap_rel_FLOOKUP_imp2 >>
@@ -314,26 +265,6 @@ Proof
       simp[] >>
       ‘cst.procs |+ (id,NONE) = cst.procs’ suffices_by simp[] >>
       rw[fmap_eq_flookup,FLOOKUP_UPDATE] >> rw[] >> rw[])
-  >- (irule_at (Pos hd) step_delete >>
-      gvs[state_rel_def] >>
-      drule_all fmap_rel_FLOOKUP_imp2 >>
-      rw[OPTREL_SOME] >>
-      simp[] >>
-      drule_all_then strip_assume_tac check_distrup_list >>
-      gvs[distrupTheory.check_distrup_def] >>
-      irule fmap_rel_FUPDATE_I >>
-      simp[] >>
-      gvs[delete_ids_eq_DRESTRICT] >>
-      conj_tac >- metis_tac[] >>
-      irule fmap_rel_fdomsub >>
-      simp[])
-  >- (irule_at (Pos hd) step_spin >>
-      gvs[state_rel_def] >>
-      drule_all fmap_rel_FLOOKUP_imp2 >>
-      rw[OPTREL_SOME] >>
-      simp[] >>
-      ‘cst.procs |+ (id,NONE) = cst.procs’ suffices_by simp[] >>
-      rw[fmap_eq_flookup,FLOOKUP_UPDATE] >> rw[] >> rw[])
 QED
 
 Theorem state_rel_reduce:
@@ -358,7 +289,7 @@ Definition init_def:
   init st fml ⇔
     FEVERY (λ(n,v).
       v = NONE ∨
-      ∃n k. v = SOME (REPLICATE n NONE, REPLICATE k 0w, 1w))
+      ∃n k. v = SOME (REPLICATE n vcc_none, REPLICATE k 0, 1))
       st.procs ∧
     set st.facts ⊆ fml ∧
     ¬st.validated
@@ -375,37 +306,30 @@ Proof
   fs[init_def]>>
   irule $ INST_TYPE [alpha |-> “:num”, beta |-> alpha] sat_step_sound >>
   simp[] >>
-  Q.SUBGOAL_THEN ‘∃ast. state_rel ast st’ strip_assume_tac
-  >- (rw[state_rel_def] >>
-      Q.REFINE_EXISTS_TAC ‘<| procs := _; facts := _; validated := _|>’ >>
-      simp[] >>
-      qexists_tac`(OPTION_MAP (λ_. FEMPTY)) o_f st.procs`>>
-      rw[fmap_rel_def, oneline OPTREL_THM] >>
-      TOP_CASE_TAC>>gvs[FEVERY_DEF]>>
-      pairarg_tac>>gvs[]>>
-      first_x_assum drule >>
-      gvs[flookup_thm] >>
-      rw[] >>
-      gvs[ccnf_listTheory.fml_rel_def,any_el_ALT,EL_REPLICATE] >>
-      irule_at Any ccnf_listTheory.dm_rel_FEMPTY_REPLICATE) >>
+  Q.SUBGOAL_THEN
+    ‘∃ast. state_rel ast st ∧
+           ast.procs = (OPTION_MAP (λ_. FEMPTY)) o_f st.procs’
+    strip_assume_tac
+  >- (
+    qexists_tac
+      ‘<| procs := OPTION_MAP (λ_. FEMPTY) o_f st.procs;
+          facts := st.facts;
+          validated := {} |>’ >>
+    simp[state_rel_def] >>
+    rw[fmap_rel_def, oneline OPTREL_THM] >>
+    TOP_CASE_TAC>>gvs[FEVERY_DEF]>>
+    pairarg_tac>>gvs[]>>
+    first_x_assum drule >>
+    gvs[flookup_thm] >>
+    rw[] >>
+    simp[ccnf_listTheory.fml_rel_REPLICATE_vcc_none] >>
+    irule_at Any ccnf_listTheory.dm_rel_FEMPTY_REPLICATE)>>
   drule_all state_rel_reduce >>
   rw[] >>
   first_assum $ irule_at $ Pos last >>
   gvs[state_rel_def] >>
-  rw[] >>
-  rev_drule $ cj 2 fmap_rel_FLOOKUP_imp >>
-  disch_then drule >>
-  rw[OPTREL_SOME,ELIM_UNCURRY] >>
-  gvs[FDOM_FLOOKUP,SF DNF_ss,FEVERY_DEF] >>
-  last_x_assum drule >>
-  strip_tac>>gvs[flookup_thm]>>
-  Q.SUBGOAL_THEN ‘facts = FEMPTY’ SUBST_ALL_TAC
-  >- (rw[fmap_eq_flookup] >>
-      gvs[ccnf_listTheory.fml_rel_def,any_el_ALT] >>
-      rename1 ‘FLOOKUP _ m’ >>
-      first_x_assum $ qspec_then ‘m’ mp_tac >>
-      rw[EL_REPLICATE]) >>
-  rw[]
+  rw[FLOOKUP_o_f]>>
+  gvs[AllCaseEqs()]
 QED
 
 Definition satisfiable_def:

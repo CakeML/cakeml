@@ -1,10 +1,5 @@
 ARCH = x64
 WORD_SIZE = 64
-INCLUDES = $(CAKEMLDIR)/semantics $(CAKEMLDIR)/basis ../../../.. $(CAKEMLDIR)/unverified/sexpr-bootstrap \
-					 ../../../../encoders/asm ../../../../encoders/$(ARCH)\
-					 ../../../../backend/$(ARCH) ../../../../backend/serialiser ../../../translation \
-                                         $(CAKEMLDIR)/cv_translator
-
 all: $(DEFAULT_TARGETS) README.md cake-$(ARCH)-$(WORD_SIZE).tar.gz test-hello-cake test-candle-records
 .PHONY: all test-hello-cake test-candle-records
 

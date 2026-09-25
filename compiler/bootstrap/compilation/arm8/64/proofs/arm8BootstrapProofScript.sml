@@ -27,7 +27,7 @@ Definition compiler_instance_def:
        config_dom := UNIV ;
        config_v := BACKEND_CONFIG_v ;
        decs_dom := decs_allowed ;
-       decs_v := LIST_v AST_DEC_v |>
+       decs_v := LIST_v DEC_v |>
 End
 
 Theorem compiler_instance_lemma[local]:
@@ -45,7 +45,7 @@ val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events
   |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_init_eval_state_def,the_EvalDecs_def]
   |> SIMP_RULE (srw_ss()) [GSYM source_evalProofTheory.mk_init_eval_state_def
                            |> SIMP_RULE (srw_ss()) []]
-  |> Q.GENL[`cl`,`fs`]
+  |> Q.GENL[`ext`,`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (cake_sem,cake_output) = cake_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR

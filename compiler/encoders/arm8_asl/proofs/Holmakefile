@@ -1,6 +1,3 @@
-INCLUDES = .. ../../asm ../../arm8/proofs\
-           $(HOLDIR)/examples/l3-machine-code/arm8/asl-equiv
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

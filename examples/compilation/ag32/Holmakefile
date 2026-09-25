@@ -1,5 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis $(CAKEMLDIR)/compiler $(CAKEMLDIR)/cv_translator ../..
-
 LOCAL_PARALLELISM_LIMIT = 1
 
 all: $(DEFAULT_TARGETS) README.md

@@ -89,7 +89,8 @@ QED
 
 Theorem word_neg[local]:
    -w = 0w - w
-Proofrw []
+Proof
+  rw []
 QED
 
 val r = translate ag32_bop_def;

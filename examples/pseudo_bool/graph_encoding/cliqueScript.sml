@@ -104,7 +104,7 @@ Definition mk_constraint_def:
   mk_constraint e x y =
   if y ≤ x ∨ is_edge e x y then []
   else
-    [((x,y),(GreaterEqual,[(1,Neg x);(1,Neg y)], 1)):(annot # num pbc)]
+    [((x,y),(PGe,[(1,Neg x);(1,Neg y)], 1)):(annot # num pbc)]
 End
 
 (* Encoding *)
@@ -119,7 +119,7 @@ End
 Definition clique_obj_def:
   clique_obj v =
   SOME((GENLIST (λb. (1, Neg b)) v), 0)
-    : ((num lin_term # int) option)
+  : ((num lin_term # int) option)
 End
 
 Theorem iSUM_SNOC:
@@ -181,6 +181,13 @@ Proof
   Cases_on`vs b`>>fs[IN_APP]
 QED
 
+Theorem b2i_neg:
+  b2i (¬P a) = b2i (a ∉ P)
+Proof
+  ‘P a ⇔ a ∈ P’ suffices_by simp[b2i_def]>>
+  simp[IN_DEF]
+QED
+
 Theorem encode_correct_1:
   good_graph (v,e) ∧
   encode (v,e) = constraints ∧
@@ -199,10 +206,15 @@ Proof
       first_x_assum(qspecl_then[`x`,`y`] mp_tac)>>
       gvs[])>>
     fs[]
-    >- (Cases_on`y ∈ vs`>>fs[])
-    >- (Cases_on`x ∈ vs`>>fs[]))
+    >- (
+      Cases_on ‘y ∈ vs’>>
+      fs[IN_DEF])
+    >- (
+      Cases_on ‘x ∈ vs’>>
+      fs[IN_DEF]))
   >- (
     simp[eval_obj_def,clique_obj_def,eval_lin_term_def,MAP_GENLIST,o_DEF]>>
+    simp[Once b2i_neg]>>
     simp[iSUM_GENLIST_eq_k])
 QED
 
@@ -232,7 +244,8 @@ Proof
   simp[iSUM_GENLIST_eq_k]>>
   `w ∩ count v ∩ count v = w ∩ count v` by
     (rw[EXTENSION]>>metis_tac[])>>
-  simp[]
+  simp[Once b2i_neg]>>
+  simp[iSUM_GENLIST_eq_k]
 QED
 
 Theorem encode_correct:
@@ -279,7 +292,7 @@ Proof
 QED
 
 Definition annot_string_def:
-  annot_string ((x,y):annot) = SOME (concat[«noedge»; toString (x+1) ; «_» ; toString (y+1)])
+  annot_string ((x,y):annot) = [concat[«noedge»; toString (x+1) ; «_» ; toString (y+1)]]
 End
 
 Definition full_encode_def:
@@ -474,7 +487,7 @@ Theorem full_encode_eq =
   full_encode_def
   |> SIMP_RULE (srw_ss()) [FORALL_PROD,encode_def]
   |> SIMP_RULE (srw_ss()) [mk_constraint_def]
-  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,MAP_if]
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,MAP_if]
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN,FOLDN_APPEND_op]
   |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
   |> SIMP_RULE (srw_ss()) [if_APPEND];
@@ -484,7 +497,7 @@ Theorem full_encode_eq =
 Definition maximal_clique_constraints_def:
   maximal_clique_constraints (v,e) =
   GENLIST (λx.
-    (INR x, (GreaterEqual,
+    (INR x, (PGe,
       (1, Pos x) :: MAP (λy. (1,Pos y)) (strict_not_neighbours (v,e) x), 1))
   ) v
 End
@@ -498,7 +511,7 @@ End
 Theorem satisfies_pbc_MAP_Pos:
   ∀ls.
   satisfies_pbc vs
-    (GreaterEqual,MAP (λy. (1,Pos y)) ls,1)
+    (PGe,MAP (λy. (1,Pos y)) ls,1)
   ⇔
   ∃y. MEM y ls ∧ y ∈ vs
 Proof
@@ -554,8 +567,8 @@ Proof
 QED
 
 Definition mannot_string_def:
-  (mannot_string (INL ((x,y):annot)) = SOME (concat[«noedge»; toString (x+1) ; «_» ; toString (y+1)])) ∧
-  (mannot_string (INR (x:num)) = SOME (concat[«maximal»; toString (x+1)]))
+  (mannot_string (INL ((x,y):annot)) = [concat[«noedge»; toString (x+1) ; «_» ; toString (y+1)]]) ∧
+  (mannot_string (INR (x:num)) = [concat[«maximal»; toString (x+1)]])
 End
 
 Definition full_mencode_def:
@@ -649,7 +662,7 @@ Theorem full_mencode_eq =
   full_mencode_def
   |> SIMP_RULE (srw_ss()) [FORALL_PROD,mencode_def,encode_def]
   |> SIMP_RULE (srw_ss()) [mk_constraint_def,maximal_clique_constraints_def]
-  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,MAP_if]
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,MAP_if]
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN,FOLDN_APPEND_op]
   |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
   |> SIMP_RULE (srw_ss()) [if_APPEND];

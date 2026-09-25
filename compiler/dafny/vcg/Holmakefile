@@ -1,5 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/compiler/dafny $(CAKEMLDIR)/compiler/dafny/semantics $(HOLDIR)/examples/algorithms
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

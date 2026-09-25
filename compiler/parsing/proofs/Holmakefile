@@ -1,5 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/semantics/proofs ..
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

@@ -759,6 +759,19 @@ Proof
   \\ fs []
 QED
 
+Definition contains_def:
+  contains s c = IS_SOME (str_findi (λx. x = c) 0 s)
+End
+
+Theorem contains_thm:
+  contains s c ⇔ MEM c (explode s)
+Proof
+  Cases_on ‘s’
+  \\ simp [contains_def, str_findi_OLEAST, MEM_EL,
+           optionTheory.IS_SOME_EQ_NOT_NONE, WhileTheory.OLEAST_EQ_NONE]
+  \\ metis_tac []
+QED
+
 Definition isStringThere_aux_def:
   (isStringThere_aux s1 s2 s1i s2i 0 = T) /\
   (isStringThere_aux s1 s2 s1i s2i (SUC len) =
@@ -1296,6 +1309,93 @@ Theorem StrongLinearOrder_mlstring_lt:
 Proof
   rw[StrongLinearOrder,trichotomous_mlstring_lt,
      StrongOrder,irreflexive_mlstring_lt,transitive_mlstring_lt]
+QED
+
+Theorem fast_lt_nonrefl:
+   ∀s. ¬fast_lt s s
+Proof
+  rw[fast_lt_def, mlstring_lt_nonrefl]
+QED
+
+Theorem fast_lt_trans:
+   ∀s1 s2 s3. fast_lt s1 s2 ∧ fast_lt s2 s3 ⇒ fast_lt s1 s3
+Proof
+  rw[fast_lt_def]
+  >> Cases_on ‘strlen s1 = strlen s2’ >> Cases_on ‘strlen s2 = strlen s3’ >> gvs[]
+  >> metis_tac[mlstring_lt_trans]
+QED
+
+Theorem fast_le_thm:
+   ∀s1 s2. fast_le s1 s2 ⇔ s1 = s2 ∨ fast_lt s1 s2
+Proof
+  rw[fast_le_def, fast_lt_def]
+  >> Cases_on ‘strlen s1 = strlen s2’ >> gvs[mlstring_le_thm]
+  >> Cases_on ‘s1 = s2’ >> gvs[LESS_OR_EQ]
+QED
+
+Theorem fast_gt_thm:
+   ∀s1 s2. fast_gt s1 s2 ⇔ fast_lt s2 s1
+Proof
+  rw[fast_gt_def, fast_lt_def, mlstring_gt_thm]
+  >> gvs[]
+QED
+
+Theorem fast_ge_thm:
+   ∀s1 s2. fast_ge s1 s2 ⇔ fast_le s2 s1
+Proof
+  rw[fast_ge_def, fast_le_def, mlstring_ge_thm]
+  >> gvs[]
+QED
+
+Theorem transitive_fast_le:
+   transitive fast_le
+Proof
+  rw[transitive_def, fast_le_def]
+  >> Cases_on ‘strlen x = strlen y’ >> Cases_on ‘strlen y = strlen z’ >> gvs[]
+  >> metis_tac[transitive_mlstring_le, transitive_def]
+QED
+
+Theorem antisymmetric_fast_le:
+   antisymmetric fast_le
+Proof
+  rw[antisymmetric_def, fast_le_def]
+  >> Cases_on ‘strlen x = strlen y’ >> gvs[]
+  >> metis_tac[antisymmetric_mlstring_le, antisymmetric_def, LESS_EQUAL_ANTISYM]
+QED
+
+Theorem total_fast_le:
+   total fast_le
+Proof
+  rw[total_def, fast_le_def]
+  >> Cases_on ‘strlen x = strlen y’ >> gvs[]
+  >> metis_tac[total_mlstring_le, total_def]
+QED
+
+Theorem transitive_fast_lt:
+   transitive fast_lt
+Proof
+  metis_tac[transitive_def, fast_lt_trans]
+QED
+
+Theorem irreflexive_fast_lt:
+   irreflexive fast_lt
+Proof
+  rw[irreflexive_def, fast_lt_nonrefl]
+QED
+
+Theorem trichotomous_fast_lt:
+   trichotomous fast_lt
+Proof
+  rw[trichotomous, fast_lt_def]
+  >> Cases_on ‘strlen a = strlen b’ >> gvs[]
+  >> metis_tac[trichotomous_mlstring_lt, trichotomous, LESS_LESS_CASES]
+QED
+
+Theorem StrongLinearOrder_fast_lt:
+   StrongLinearOrder fast_lt
+Proof
+  rw[StrongLinearOrder, StrongOrder, trichotomous_fast_lt, irreflexive_fast_lt,
+     transitive_fast_lt]
 QED
 
 Definition collate_aux_def:

@@ -18,7 +18,7 @@ Definition enc_line_def:
   enc_line (c:'a asm_config) skip_len (Label n1 n2 n3) =
     Label n1 n2 skip_len ∧
   enc_line c skip_len (Asm a v0 v1) =
-    (let bs = c.encode (cbw_to_asm a) in Asm a bs (LENGTH bs)) ∧
+    (let bs = c.encode (compile_shmem a) in Asm a bs (LENGTH bs)) ∧
   enc_line c skip_len (LabAsm l v2 v3 v4) =
     (let bs = c.encode (lab_inst 0w l) in LabAsm l 0w bs (LENGTH bs))
 End

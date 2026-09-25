@@ -434,7 +434,7 @@ Proof
   simp []
 QED
 
-val (_,prog_tm) = whole_prog_thm st "main" (UNDISCH main_whole_prog_spec);
+val (_,prog_tm) = prove_sem_thm st "main" (UNDISCH main_whole_prog_spec);
 
 val _ = enable_astPP()
 val _ = Globals.max_print_depth:= ~1

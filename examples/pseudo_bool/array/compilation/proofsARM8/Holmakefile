@@ -1,11 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics/proofs\
-					 $(CAKEMLDIR)/compiler/backend/proofs\
-					 $(HOLDIR)/examples/l3-machine-code/arm8/asl-equiv \
-					 $(CAKEMLDIR)/compiler/encoders/arm8_asl \
-					 $(CAKEMLDIR)/compiler/encoders/arm8_asl/proofs\
-					 $(CAKEMLDIR)/compiler/backend/arm8_asl \
-					 .. ../..
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

@@ -51,8 +51,8 @@ Definition convert_eshapes_def:
 End
 
 Definition convert_code_def:
-  convert_code ctxt = FMAP_MAP2 ((\(nm, (params, prog)).
-    (MAP (I ## compile_shape ctxt.structs) params, compile (ctxt with locals := params) prog)))
+  convert_code ctxt = FMAP_MAP2 ((\(nm, (params, prog, rshape)).
+    (MAP (I ## compile_shape ctxt.structs) params, compile (ctxt with locals := params) prog, compile_shape ctxt.structs rshape)))
 End
 
 Definition convert_s_def:
@@ -913,7 +913,7 @@ QED
 
 Theorem lookup_code_flds_ok[local]:
   OPT_MMAP (eval s) argexps = SOME args ∧
-  lookup_code s.code fname args = SOME (prog, newlocals) ∧
+  lookup_code s.code fname args = SOME (prog, newlocals, rshape) ∧
   alist_to_fmap ctxt.locals = FMAP_MAP2 (shape_of o SND) s.locals ∧
   alist_to_fmap ctxt.globals = FMAP_MAP2 (shape_of o SND ) s.globals ∧
   ctxt.structs = MAP (\(nm, info). (nm, info.fields)) s.structs ∧
@@ -928,7 +928,7 @@ Theorem lookup_code_flds_ok[local]:
   (? new_l.
   lookup_code (convert_s ctxt s).code fname (MAP convert_v args) =
     SOME (compile (ctxt with locals := new_l) prog,
-        FMAP_MAP2 (λ(nm,v). convert_v v) newlocals) ∧
+        FMAP_MAP2 (λ(nm,v). convert_v v) newlocals, (compile_shape ctxt.structs rshape)) ∧
     alist_to_fmap new_l = FMAP_MAP2 (shape_of o SND) newlocals
   ) ∧
   FEVERY (\(nm, v). v_flds_ok s.structs v) newlocals ∧
@@ -1178,7 +1178,7 @@ Proof
     >> gvs [bool_case_eq, convert_res_def, is_cont_res_def, empty_locals_def,
         FEVERY_FEMPTY, convert_s_def, FMAP_MAP2_FEMPTY, dec_clock_def,
         pair_case_eq, option_case_eq, result_case_eq, markerTheory.label_def,
-        res_vs_def]
+        res_vs_def, shape_of_convert_v_rev]
     (* Return and Exception cases remain *)
     >~ [`evaluate _ = (SOME (Exception _ _), _)`]
     >- (
@@ -1416,6 +1416,20 @@ Proof
     >> simp [convert_s_def, convert_code_def, state_component_equality]
     >> simp [FMAP_MAP2_FUPDATE, Cong MAP_CONG, PAIR_MAP, ELIM_UNCURRY]
   )
+  >- (
+    first_x_assum (drule_at (Pat `compile_decs _ _= _`))
+    >> simp []
+    >> imp_res_tac compile_decs_structs
+    >> simp []
+    >> strip_tac
+    >> gs [is_wf_shape_compile_shape, EVERY_MAP, ELIM_UNCURRY]
+    >> conj_asm1_tac
+    >- simp[convert_s_def,convert_eshapes_def,FLOOKUP_FMAP_MAP2]
+    >> drule_then irule (Q.prove (`evaluate_decls s decs = r /\ s' = s ==>
+            evaluate_decls s' decs = r`, simp []))
+    >> simp [convert_s_def, convert_eshapes_def, state_component_equality]
+    >> simp [FMAP_MAP2_FUPDATE, Cong MAP_CONG, PAIR_MAP, ELIM_UNCURRY]
+  )
 QED
 
 Theorem decs_stcnames_compile_decs:
@@ -1554,15 +1568,15 @@ Proof
 QED
 
 Theorem compile_decs_no_names[local]:
-  !ctxt decs. EVERY (λd. is_function d ∨ is_decl d)
+  !ctxt decs. EVERY (λd. is_function d ∨ is_decl d ∨ is_exn_decl d)
     (FST (compile_decs ctxt decs))
 Proof
   recInduct (name_ind_cases [] compile_decs_ind)
-  >> rw [compile_decs_def, ELIM_UNCURRY, is_function_def, is_decl_def]
+  >> rw [compile_decs_def, ELIM_UNCURRY, is_function_def, is_decl_def, is_exn_decl_def]
 QED
 
 Theorem compile_top_no_names:
-  EVERY (λd. is_function d ∨ is_decl d) (pan_structs$compile_top pan_code)
+  EVERY (λd. is_function d ∨ is_decl d ∨ is_exn_decl d) (pan_structs$compile_top pan_code)
 Proof
   simp [compile_top_def, compile_decs_no_names]
 QED
@@ -1596,4 +1610,3 @@ Theorem size_of_shape_compile_pass_eq:
 Proof
   metis_tac [size_of_sh_with_ctxt_eq, size_of_compile_shape, compile_shape_no_name]
 QED
-

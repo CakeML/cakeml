@@ -207,11 +207,10 @@ fun main () =
   let
     val step_arr = Word8Array.array 17 (Word8.fromInt 0)
     val buf_arr = Word8Array.array 0 (Word8.fromInt 0)
-    val fml = Array.array 4096 None
-    val carr = Word8Array.array 1024 (Word8.fromInt 0)
-    val b = Word8.fromInt 1
+    val fml = Array.array 4096 vcc_none
+    val carr = Array.array 1024 0
   in
-    loop step_arr buf_arr (Some (fml, carr, b)) 1
+    loop step_arr buf_arr (Some (fml, carr, 1)) 1
   end;
 
 End
@@ -468,7 +467,8 @@ End
 
 Definition is_final_event_def:
   is_final_event event ⇔
-    ∃xs. event = IO_event (ExtCall «step») [] xs ∧
+    ∃xs. LENGTH xs = 17 ∧
+         event = IO_event (ExtCall «step») [] xs ∧
          SND (HD xs) ∉  {n2w (ORD #"a"); n2w (ORD #"i"); n2w (ORD #"d"); n2w (ORD #"V")}
 End
 
@@ -1655,22 +1655,22 @@ Inductive events_ok:
   events_ok st events aevents (SOME (fmlls, Clist, b)) ∧
   is_validate_events validate_events ∧
   is_output_event #"V" #"1" output_event ∧
-  check_distrup_list Validate_Unsat fmlls Clist b = SOME (fmlls', Clist', b')
+  check_distrup_list ValidateUnsat fmlls Clist b = SOME (fmlls', Clist', b')
   ⇒
-  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) (SOME (fmlls', Clist', b'))
+  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [ValidateUnsat]) (SOME (fmlls', Clist', b'))
 [~validate_Fail:]
   events_ok st events aevents (SOME (fmlls, Clist, b)) ∧
   is_validate_events validate_events ∧
   is_output_event #"V" #"0" output_event ∧
-  check_distrup_list Validate_Unsat fmlls Clist b = NONE
+  check_distrup_list ValidateUnsat fmlls Clist b = NONE
   ⇒
-  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) NONE
+  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [ValidateUnsat]) NONE
 [~validate_None:]
   events_ok st events aevents NONE ∧
   is_validate_events validate_events ∧
   is_output_event #"V" #"0" output_event
   ⇒
-  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) NONE
+  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [ValidateUnsat]) NONE
 End
 
 Theorem check_top_NONE:
@@ -1693,8 +1693,8 @@ QED
 
 Theorem check_top_SOME:
   NUM lno lnov ∧
-  LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
-  WORD8 b bv ∧
+  LIST_REL vcclause_TYPE fmlls fmllsv ∧
+  NUM b bv ∧
   DISTRUP_DISTRUP_TYPE inst instv ∧
   bnd_fml fmlls (LENGTH Clist) ∧
   stv =
@@ -1702,7 +1702,7 @@ Theorem check_top_SOME:
       [Conv NONE [fmlv; Carrv; bv]] ⇒
   app (p:'ffi ffi_proj) check_top_v [lnov; instv; stv]
       (ARRAY fmlv fmllsv *
-       W8ARRAY Carrv Clist)
+       NUM_ARRAY Carrv Clist)
       (POSTv res.
          SEP_EXISTS v1 v2 msg stopt.
          &(res = Conv NONE [v1;v2] ∧
@@ -1713,12 +1713,12 @@ Theorem check_top_SOME:
          | SOME (fmlls', Clist', b') =>
             SEP_EXISTS v11 v12 v13 fmllsv'.
             ARRAY v11 fmllsv' *
-            W8ARRAY v12 Clist' *
+            NUM_ARRAY v12 Clist' *
             &(
               v1 = Conv (SOME (TypeStamp «Some» 2))
                 [Conv NONE [v11;v12;v13]] ∧
-              WORD8 b' v13 ∧
-              LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls' fmllsv'
+              NUM b' v13 ∧
+              LIST_REL vcclause_TYPE fmlls' fmllsv'
             )
       )
 Proof
@@ -1937,8 +1937,8 @@ Theorem loop_SOME:
   ∀inputs lno lnov events aevents fmlls fmllsv Clist step_arr step_arrv
     buf_arr buf_arrv b bv stv fmlv Carrv.
     NUM lno lnov ∧
-    LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
-    WORD8 b bv ∧
+    LIST_REL vcclause_TYPE fmlls fmllsv ∧
+    NUM b bv ∧
     bnd_fml fmlls (LENGTH Clist) ∧
     events_ok st events aevents (SOME (fmlls, Clist, b)) ∧
     stv =
@@ -1948,7 +1948,7 @@ Theorem loop_SOME:
     app (p:'ffi ffi_proj) loop_v [step_arrv; buf_arrv; stv; lnov]
         (CUSTOM_FFI Step inputs events tb *
          ARRAY fmlv fmllsv *
-         W8ARRAY Carrv Clist *
+         NUM_ARRAY Carrv Clist *
          W8ARRAY buf_arrv buf_arr *
          W8ARRAY step_arrv step_arr)
         (POSTv res.
@@ -1986,7 +1986,7 @@ Proof
               CUSTOM_FFI Produce_callback inputs (events ++ produce_events) tb *
               W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
               ARRAY fmlv fmllsv *
-              W8ARRAY Carrv Clist *
+              NUM_ARRAY Carrv Clist *
               cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"a" ∧
                     is_produce_events i cl produce_events ∧
                     ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Lrup i cl hs)) v ∧
@@ -2059,7 +2059,7 @@ Proof
               CUSTOM_FFI Import_callback inputs (events ++ import_events) tb *
               W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
               ARRAY fmlv fmllsv *
-              W8ARRAY Carrv Clist *
+              NUM_ARRAY Carrv Clist *
               cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"i" ∧
                     is_import_events i cl import_events ∧
                     ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Import i cl)) v ∧
@@ -2114,7 +2114,7 @@ Proof
               CUSTOM_FFI Delete_callback inputs (events ++ delete_events) tb *
               W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
               ARRAY fmlv fmllsv *
-              W8ARRAY Carrv Clist *
+              NUM_ARRAY Carrv Clist *
               cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"d" ∧
                     is_delete_events delete_events ∧
                     ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Del hs)) v ∧
@@ -2169,7 +2169,7 @@ Proof
               CUSTOM_FFI Validate_UNSAT_callback inputs (events ++ validate_events) tb *
               W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
               ARRAY fmlv fmllsv *
-              W8ARRAY Carrv Clist *
+              NUM_ARRAY Carrv Clist *
               cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"V" ∧
                     is_validate_events validate_events ∧
                     ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME ValidateUnsat) v ∧
@@ -2239,7 +2239,7 @@ Proof
 QED
 
 Definition init_st_def:
-  init_st = (SOME (REPLICATE 4096n (NONE:vcclause option), REPLICATE 1024n (0w:word8), (1w:word8)))
+  init_st = (SOME (REPLICATE 4096n vcc_none, REPLICATE 1024n (0:num), (1:num)))
 End
 
 Theorem main_spec:
@@ -2253,19 +2253,23 @@ Proof
   rpt strip_tac >>
   xcf_with_def (fetch "-" "main_v_def") >>
   xmatch  >> gvs [] >>
+  ntac 5 xlet_autop>>
+  xlet_auto_spec (SOME ccnf_arrayProgTheory.NUM_ARRAY_alloc_zero_spec)
+  >- xsimpl>>
   rpt xlet_autop>>
   xapp_spec loop_SOME >>
   qexists ‘emp’ >> xsimpl >>
   qexists_tac`tb`>>
-  first_x_assum $ irule_at Any>>
   irule_at Any events_ok_init>>
   qexists_tac`inputs`>>
-  qexists ‘REPLICATE 4096 NONE’ >>
+  qexists ‘REPLICATE 4096 vcc_none’ >>
+  qexists_tac`REPLICATE 1024 0`>>
   xsimpl >>
   conj_tac >-
    (gvs [ccnf_listTheory.bnd_fml_def,miscTheory.any_el_ALT,EL_REPLICATE, SF CONJ_ss]) >>
   conj_tac >-
-   (gvs [LIST_REL_EL_EQN,OPTION_TYPE_def,EL_REPLICATE]) >>
+   (gvs [LIST_REL_EL_EQN,EL_REPLICATE,
+         ccnf_arrayProgTheory.vcc_none_v_thm]) >>
   rw [] >> rename [‘CUSTOM_FFI Terminate [] xx’] >>
   gvs[init_st_def]>>
   pop_assum $ irule_at Any >>
@@ -2423,6 +2427,7 @@ Proof
   rename [‘init_state (custom_ffi (State Step inputs tb)) with clock := ck4’] >>
   qrefinel [‘_’,‘ck4’] >> fs [] >>
   fs [evaluateTheory.evaluate_decs_def,astTheory.pat_bindings_def,
+      semanticPrimitivesTheory.check_exp_constructors_def,
       evaluateTheory.evaluate_def,semanticPrimitivesTheory.build_conv_def,
       semanticPrimitivesTheory.do_con_check_def] >>
   simp [semanticPrimitivesTheory.extend_dec_env_def] >>

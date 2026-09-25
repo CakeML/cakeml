@@ -1,5 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis/pure .. ../../encoders/arm8
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

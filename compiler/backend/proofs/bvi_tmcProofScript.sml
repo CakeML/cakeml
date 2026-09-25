@@ -163,8 +163,8 @@ Definition state_rel_def:
     t.clock = s.clock ∧
     OPTREL (λp p'. FLOOKUP f p = SOME p') s.global t.global ∧
     t.ffi = s.ffi ∧
-    t.compile_oracle = state_co compile_prog s.compile_oracle ∧
-    s.compile = state_cc compile_prog t.compile ∧
+    t.compile_oracle = state_co compile_each s.compile_oracle ∧
+    s.compile = state_cc compile_each t.compile ∧
     code_rel s.code t.code ∧
     namespace_rel s.code t.code ∧
     (∀n. let ((next,cfg),prog) = s.compile_oracle n in
@@ -173,9 +173,9 @@ Definition state_rel_def:
     fmap_inj f
 End
 
-(* Structural facts about compile_prog and the namespace allocation.
+(* Structural facts about compile_each and the namespace allocation.
    These follow bvi_tailrecProof; they only depend on the recursion shape of
-   compile_prog (NONE keeps an entry, SOME emits wrapper + worker). *)
+   compile_each (NONE keeps an entry, SOME emits wrapper + worker). *)
 
 Theorem more_free_names[local]:
   free_names n name ⇒ free_names (n + bvl_to_bvi_namespaces) name
@@ -250,39 +250,47 @@ Proof
   >> metis_tac [rewrite_wrapper_NONE_irrel, NOT_SOME_NONE, optionTheory.option_CASES]
 QED
 
-Theorem compile_prog_LENGTH:
-  ∀n prog. LENGTH (SND (compile_prog n prog)) ≥ LENGTH prog
+Theorem compile_each_LENGTH:
+  ∀n prog. LENGTH (SND (compile_each n prog)) ≥ LENGTH prog
 Proof
-  recInduct bvi_tmcTheory.compile_prog_ind >> conj_tac
-  >- fs [bvi_tmcTheory.compile_prog_def]
+  recInduct bvi_tmcTheory.compile_each_ind >> conj_tac
+  >- fs [bvi_tmcTheory.compile_each_def]
   >> rw [] >> Cases_on `compile_exp loc next arity exp` >> fs []
-  >- (fs [bvi_tmcTheory.compile_prog_def] >> pairarg_tac >> fs [])
-  >> PairCases_on `x` >> fs [bvi_tmcTheory.compile_prog_def] >> pairarg_tac >> fs []
+  >- (fs [bvi_tmcTheory.compile_each_def] >> pairarg_tac >> fs [])
+  >> PairCases_on `x` >> fs [bvi_tmcTheory.compile_each_def] >> pairarg_tac >> fs []
 QED
 
-Theorem compile_prog_next_mono:
-  ∀n xs n1 ys. compile_prog n xs = (n1,ys) ⇒ ∃k. n1 = n + bvl_to_bvi_namespaces * k
+Theorem compile_each_next_mono:
+  ∀n xs n1 ys. compile_each n xs = (n1,ys) ⇒ ∃k. n1 = n + bvl_to_bvi_namespaces * k
 Proof
-  recInduct bvi_tmcTheory.compile_prog_ind >> rw [bvi_tmcTheory.compile_prog_def]
+  recInduct bvi_tmcTheory.compile_each_ind >> rw [bvi_tmcTheory.compile_each_def]
   >> rpt (pairarg_tac >> fs [bvlPropsTheory.case_eq_thms]) >> rveq >> fs []
   >> TRY (qexists_tac `0` >> simp [] >> NO_TAC)
   >> TRY (qexists_tac `k` >> simp [] >> NO_TAC)
   >> TRY (qexists_tac `k+1` >> simp [] >> NO_TAC)
 QED
 
-Theorem compile_prog_MEM:
-  compile_prog n xs = (n1,ys) /\ MEM e (MAP FST ys) ==>
+Theorem compile_prog_next_mono:
+  ∀b n xs n1 ys. compile_prog b n xs = (n1,ys) ⇒ ∃k. n1 = n + bvl_to_bvi_namespaces * k
+Proof
+  rpt gen_tac \\ Cases_on `b` \\ gvs [bvi_tmcTheory.compile_prog_def]
+  >- (strip_tac \\ imp_res_tac compile_each_next_mono \\ qexists_tac `k` \\ simp [])
+  \\ rw [] \\ qexists_tac `0` \\ simp []
+QED
+
+Theorem compile_each_MEM:
+  compile_each n xs = (n1,ys) /\ MEM e (MAP FST ys) ==>
   MEM e (MAP FST xs) \/ (n <= e /\ e < n1 /\ (∃k. e = n + k * bvl_to_bvi_namespaces))
 Proof
   qspec_tac (`e`,`e`) >> qspec_tac (`n1`,`n1`) >> qspec_tac (`ys`,`ys`)
   >> qspec_tac (`n`,`n`) >> qspec_tac (`xs`,`xs`) >> Induct
-  >- fs [bvi_tmcTheory.compile_prog_def]
+  >- fs [bvi_tmcTheory.compile_each_def]
   >> gen_tac >> PairCases_on `h` >> rename1 `(name, arity, exp)`
-  >> simp [bvi_tmcTheory.compile_prog_def] >> rpt gen_tac
+  >> simp [bvi_tmcTheory.compile_each_def] >> rpt gen_tac
   >> rpt (pairarg_tac >> fs []) >> PURE_CASE_TAC >> fs []
   >> TRY (PURE_CASE_TAC >> fs []) >> fs [MEM_MAP, PULL_EXISTS, FORALL_PROD]
   >> rpt strip_tac >> rveq >> fs [] >> TRY (metis_tac []) >> rveq
-  >> imp_res_tac compile_prog_next_mono >> fs []
+  >> imp_res_tac compile_each_next_mono >> fs []
   >> first_x_assum drule
   >> TRY (simp [backend_commonTheory.bvl_to_bvi_namespaces_def] >> rw []
           >> rpt disj2_tac >> qexists_tac `0` >> simp [] >> NO_TAC)
@@ -290,52 +298,69 @@ Proof
   >> fs [] >> rpt disj2_tac >> qexists_tac `k'' + 1` >> simp []
 QED
 
-Theorem compile_prog_intro[local]:
+Theorem compile_prog_MEM:
+  compile_prog b n xs = (n1,ys) /\ MEM e (MAP FST ys) ==>
+  MEM e (MAP FST xs) \/ (n <= e /\ e < n1 /\ (∃k. e = n + k * bvl_to_bvi_namespaces))
+Proof
+  rw [bvi_tmcTheory.compile_prog_def] \\ gvs []
+  \\ metis_tac [compile_each_MEM]
+QED
+
+Theorem compile_each_intro[local]:
   ∀xs n ys n1 name.
     ¬MEM name (MAP FST xs) ∧ free_names n name ∧
-    compile_prog n xs = (n1, ys) ⇒
+    compile_each n xs = (n1, ys) ⇒
       ¬MEM name (MAP FST ys) ∧ free_names n1 name
 Proof
-  Induct >- fs [bvi_tmcTheory.compile_prog_def]
-  >> gen_tac >> PairCases_on `h` >> rpt gen_tac >> simp [bvi_tmcTheory.compile_prog_def]
+  Induct >- fs [bvi_tmcTheory.compile_each_def]
+  >> gen_tac >> PairCases_on `h` >> rpt gen_tac >> simp [bvi_tmcTheory.compile_each_def]
   >> rpt (pairarg_tac >> fs []) >> PURE_TOP_CASE_TAC >> fs []
   >- (rpt strip_tac >> rveq >> fs [] >> metis_tac [])
   >> PURE_CASE_TAC >> fs [] >> rpt strip_tac >> rveq >> fs []
   >> metis_tac [is_free_name, more_free_names]
 QED
 
-Theorem compile_prog_ALL_DISTINCT:
-  compile_prog n xs = (n1,ys) /\ ALL_DISTINCT (MAP FST xs) /\
+Theorem compile_each_ALL_DISTINCT:
+  compile_each n xs = (n1,ys) /\ ALL_DISTINCT (MAP FST xs) /\
   EVERY (free_names n o FST) xs ==>
   ALL_DISTINCT (MAP FST ys) /\ EVERY (free_names n1 o FST) ys
 Proof
   qspec_tac (`n1`,`n1`) >> qspec_tac (`ys`,`ys`) >> qspec_tac (`n`,`n`)
-  >> qspec_tac (`xs`,`xs`) >> Induct >- fs [bvi_tmcTheory.compile_prog_def]
+  >> qspec_tac (`xs`,`xs`) >> Induct >- fs [bvi_tmcTheory.compile_each_def]
   >> gen_tac >> PairCases_on `h` >> rename1 `(name, arity, exp)`
-  >> simp [bvi_tmcTheory.compile_prog_def] >> rpt gen_tac
+  >> simp [bvi_tmcTheory.compile_each_def] >> rpt gen_tac
   >> rpt (pairarg_tac >> fs []) >> PURE_CASE_TAC >> fs []
   >- (rpt strip_tac >> fs [] >> rveq >> qpat_x_assum `_ = (_, ys'')` kall_tac
-      >> res_tac >> simp [MAP] >> metis_tac [more_free_names, compile_prog_intro])
+      >> res_tac >> simp [MAP] >> metis_tac [more_free_names, compile_each_intro])
   >> PURE_CASE_TAC >> fs [] >> reverse (rpt strip_tac) >> rveq
   >> fs [is_free_name] >> imp_res_tac EVERY_free_names_SUCSUC >> res_tac >> simp []
-  >- (fs [free_names_def] >> imp_res_tac compile_prog_next_mono >> rveq >> fs []
+  >- (fs [free_names_def] >> imp_res_tac compile_each_next_mono >> rveq >> fs []
       >> `bvl_to_bvi_namespaces ≠ 0` by EVAL_TAC >> CCONTR_TAC >> fs [] >> rveq >> fs []
       >> first_x_assum (qspec_then `k+k''+1` mp_tac) >> simp [])
   >> reverse conj_tac
-  >- (CCONTR_TAC >> fs [] >> drule (GEN_ALL compile_prog_MEM) >> disch_then drule
+  >- (CCONTR_TAC >> fs [] >> drule (GEN_ALL compile_each_MEM) >> disch_then drule
       >> simp [MEM_MAP] >> fs [EVERY_MEM] >> `0 < bvl_to_bvi_namespaces` by EVAL_TAC >> fs []
       >> gen_tac >> Cases_on `MEM y xs` >> fs [] >> res_tac >> fs [is_free_name])
-  >> CCONTR_TAC >> fs [] >> drule (GEN_ALL compile_prog_MEM) >> disch_then drule
-  >> simp [MEM_MAP] >> metis_tac [compile_prog_intro, more_free_names]
+  >> CCONTR_TAC >> fs [] >> drule (GEN_ALL compile_each_MEM) >> disch_then drule
+  >> simp [MEM_MAP] >> metis_tac [compile_each_intro, more_free_names]
 QED
 
-Theorem compile_prog_namespace_rel:
-  compile_prog next prog = (next1,prog2) ∧ in_ns_3 next ∧ bvl_num_stubs ≤ next ∧
+Theorem compile_prog_ALL_DISTINCT:
+  compile_prog b n xs = (n1,ys) /\ ALL_DISTINCT (MAP FST xs) /\
+  EVERY (free_names n o FST) xs ==>
+  ALL_DISTINCT (MAP FST ys) /\ EVERY (free_names n1 o FST) ys
+Proof
+  rw [bvi_tmcTheory.compile_prog_def] \\ gvs []
+  \\ metis_tac [compile_each_ALL_DISTINCT]
+QED
+
+Theorem compile_each_namespace_rel:
+  compile_each next prog = (next1,prog2) ∧ in_ns_3 next ∧ bvl_num_stubs ≤ next ∧
   EVERY ($~ o in_ns_3 o FST) (FILTER ((<=) bvl_num_stubs o FST) prog) ⇒
   namespace_rel (fromAList prog) (fromAList prog2)
 Proof
   rw [namespace_rel_def,EVERY_MEM,domain_fromAList,MEM_MAP,PULL_EXISTS,MEM_FILTER]
-  >> imp_res_tac compile_prog_MEM >> fs [MEM_MAP,PULL_EXISTS]
+  >> imp_res_tac compile_each_MEM >> fs [MEM_MAP,PULL_EXISTS]
   >> res_tac >> fs [] >> fs [backend_commonTheory.bvl_to_bvi_namespaces_def]
   >> CCONTR_TAC >> fs []
   >> (metis_tac []
@@ -367,43 +392,43 @@ Proof
   rw [state_rel_def]
 QED
 
-Theorem compile_prog_untouched[local]:
+Theorem compile_each_untouched[local]:
   ∀next prog prog2 loc exp arity.
     free_names next loc ∧ lookup loc (fromAList prog) = SOME (arity, exp) ∧
     compile_exp loc next arity exp = NONE ∧
-    compile_prog next prog = (next1, prog2) ⇒
+    compile_each next prog = (next1, prog2) ⇒
       lookup loc (fromAList prog2) = SOME (arity, exp)
 Proof
-  ho_match_mp_tac bvi_tmcTheory.compile_prog_ind >> rw []
+  ho_match_mp_tac bvi_tmcTheory.compile_each_ind >> rw []
   >> fs [fromAList_def, lookup_def]
   >> Cases_on `loc' = loc` >> rw []
-  >- (Cases_on `lookup loc (fromAList xs)` >> fs [bvi_tmcTheory.compile_prog_def]
+  >- (Cases_on `lookup loc (fromAList xs)` >> fs [bvi_tmcTheory.compile_each_def]
       >> rpt (pairarg_tac >> fs []) >> rfs [] >> rw [] >> simp [fromAList_def])
   >> fs [lookup_insert]
   >> Cases_on `compile_exp loc next arity exp` >> fs []
-  >- (fs [bvi_tmcTheory.compile_prog_def] >> pairarg_tac >> fs [] >> rw []
+  >- (fs [bvi_tmcTheory.compile_each_def] >> pairarg_tac >> fs [] >> rw []
       >> fs [fromAList_def, lookup_insert])
   >> PairCases_on `x` >> imp_res_tac more_free_names >> imp_res_tac compile_exp_next_addr
-  >> fs [bvi_tmcTheory.compile_prog_def] >> pairarg_tac >> fs [] >> rw []
+  >> fs [bvi_tmcTheory.compile_each_def] >> pairarg_tac >> fs [] >> rw []
   >> fs [fromAList_def, lookup_insert]
   >> first_x_assum drule >> disch_then drule
   >> rw [fromAList_def, lookup_insert, is_free_name]
 QED
 
-Theorem compile_prog_touched[local]:
+Theorem compile_each_touched[local]:
   ∀next prog prog2 loc exp arity.
     ALL_DISTINCT (MAP FST prog) ∧ EVERY (free_names next o FST) prog ∧
     free_names next loc ∧ lookup loc (fromAList prog) = SOME (arity, exp) ∧
     (∃w. compile_exp loc next arity exp = SOME w) ∧
-    compile_prog next prog = (next1, prog2) ⇒
+    compile_each next prog = (next1, prog2) ⇒
       ∃k. ∀wrap work.
         compile_exp loc (next + bvl_to_bvi_namespaces * k) arity exp = SOME (wrap, work) ⇒
           lookup loc (fromAList prog2) = SOME (arity, wrap) ∧
           lookup (next + bvl_to_bvi_namespaces * k) (fromAList prog2) = SOME (arity + 2, work)
 Proof
-  ho_match_mp_tac bvi_tmcTheory.compile_prog_ind >> rw []
+  ho_match_mp_tac bvi_tmcTheory.compile_each_ind >> rw []
   >> fs [fromAList_def, lookup_def]
-  >> pop_assum mp_tac >> simp [bvi_tmcTheory.compile_prog_def]
+  >> pop_assum mp_tac >> simp [bvi_tmcTheory.compile_each_def]
   >> rpt (pairarg_tac >> fs []) >> PURE_TOP_CASE_TAC >> fs []
   >- (strip_tac >> rveq
       >> `loc' ≠ loc` by (CCONTR_TAC >> gvs [lookup_insert])
@@ -436,8 +461,8 @@ Proof
   >> rw [] >> gvs [arithmeticTheory.MULT_CLAUSES, arithmeticTheory.LEFT_ADD_DISTRIB]
 QED
 
-Theorem compile_prog_code_rel:
-  compile_prog next prog = (next1, prog2) ∧ ALL_DISTINCT (MAP FST prog) ∧
+Theorem compile_each_code_rel:
+  compile_each next prog = (next1, prog2) ∧ ALL_DISTINCT (MAP FST prog) ∧
   EVERY (free_names next o FST) prog ∧ EVERY (no_mutcons o SND o SND) prog ⇒
   code_rel (fromAList prog) (fromAList prog2)
 Proof
@@ -447,11 +472,11 @@ Proof
   >> `free_names next loc` by (drule EVERY_free_names_thm >> disch_then drule >> simp [])
   >> Cases_on `compile_exp loc next arity exp`
   >- (qexists_tac `next` >> rw []
-      >- (drule compile_prog_untouched >> rpt (disch_then drule) >> simp [])
+      >- (drule compile_each_untouched >> rpt (disch_then drule) >> simp [])
       >> gvs [])
   >> PairCases_on `x`
   >> `∃w. compile_exp loc next arity exp = SOME w` by metis_tac []
-  >> drule compile_prog_touched >> rpt (disch_then drule)
+  >> drule compile_each_touched >> rpt (disch_then drule)
   >> strip_tac
   >> first_x_assum (qspecl_then [`next1`,`prog2`] mp_tac) >> impl_tac >- gvs []
   >> strip_tac >> qexists_tac `next + bvl_to_bvi_namespaces * k` >> rw []
@@ -665,28 +690,71 @@ QED
 Definition hole_has_val_def:
   hole_has_val (f : num |-> num) (env1 : v list) (env2 : v list) (refs : num |-> v ref) c ⇔
   LENGTH env2 = LENGTH env1 + 2 ∧
-  ∃hole_ptr tag left right.
+  ∃hole_ptr tag finalised left right.
     env2❲LENGTH env1❳ = RefPtr F hole_ptr ∧
     env2❲LENGTH env1 + 1❳ = Number (&LENGTH left) ∧
     backend_common$small_enough_int (&LENGTH left) ∧
     hole_ptr ∉ FRANGE f ∧
-    FLOOKUP refs hole_ptr = SOME (MutBlock tag left c right)
+    FLOOKUP refs hole_ptr = SOME (MutBlock tag finalised left c right)
 End
 
 Definition holes_unchanged_except_def:
   holes_unchanged_except f refs refs' changed ⇔
-    (∀ptr val.
+    ∀ptr tag finalised left child right.
        ptr ∉ FRANGE f ∧
-       ptr ∉ changed ∧
-       FLOOKUP refs ptr = SOME val ⇒
-       FLOOKUP refs' ptr = SOME val) ∧
-    (∀ptr tag left child right.
-       ptr ∉ FRANGE f ∧
-       ptr ∈ changed ∧
-       FLOOKUP refs ptr = SOME (MutBlock tag left child right) ⇒
-       ∃child'.
-         FLOOKUP refs' ptr = SOME (MutBlock tag left child' right))
+       FLOOKUP refs ptr = SOME (MutBlock tag finalised left child right) ⇒
+       ∃finalised' child'.
+         FLOOKUP refs' ptr = SOME (MutBlock tag finalised' left child' right) ∧
+         (ptr ∉ changed ⇒ child = child')
 End
+
+Definition hole_not_finalised_def:
+  hole_not_finalised refs ptr ⇔
+    ∃tag left child right.
+      FLOOKUP refs ptr = SOME (MutBlock tag F left child right)
+End
+
+Definition holes_still_not_finalised_def:
+  holes_still_not_finalised f (refs :β |-> γ ref) (refs' :β |-> γ ref) ⇔
+    ∀ptr.
+      ptr ∉ FRANGE f ∧
+      hole_not_finalised refs ptr ⇒
+      hole_not_finalised refs' ptr
+End
+
+Theorem holes_still_not_finalised_refl:
+  ∀f refs.
+    holes_still_not_finalised f refs refs
+Proof
+  rw []
+  >> gvs [holes_still_not_finalised_def]
+QED
+
+Theorem holes_still_not_finalised_ins:
+  ∀f refs refs' ptr tag l c r.
+    holes_still_not_finalised f refs refs' ⇒
+    holes_still_not_finalised f refs refs'⟨ptr ↦ MutBlock tag F l c r⟩
+Proof
+  rw []
+  >> gvs [holes_still_not_finalised_def, hole_not_finalised_def]
+  >> rw []
+  >> first_x_assum drule
+  >> gvs [FLOOKUP_SIMP]
+  >> IF_CASES_TAC >> gvs []
+QED
+
+Theorem holes_still_not_finalised_del:
+  ∀f refs refs' ptr tag l c r.
+    holes_still_not_finalised f refs⟨ptr ↦ MutBlock tag F l c r⟩ refs' ⇒
+    holes_still_not_finalised f refs refs'
+Proof
+  rw []
+  >> gvs [holes_still_not_finalised_def, hole_not_finalised_def]
+  >> rw []
+  >> first_x_assum drule
+  >> gvs [FLOOKUP_SIMP]
+  >> IF_CASES_TAC >> gvs []
+QED
 
 Definition only_fresh_def:
   only_fresh (f : num |-> num) (f' : num |-> num) (refs_old : num |-> v ref) =
@@ -706,15 +774,6 @@ Theorem holes_unchanged_except_submap:
     holes_unchanged_except f' refs refs' changed
 Proof
   rw [holes_unchanged_except_def]
-  >-
-   (first_x_assum $ qspecl_then [‘ptr’, ‘val’] mp_tac
-    >> strip_tac
-    >> gvs []
-    >> pop_assum irule
-    >> spose_not_then assume_tac
-    >> drule SUBMAP_FRANGE
-    >> strip_tac
-    >> gvs [SUBSET_DEF])
   >> first_x_assum irule
   >> gvs []
   >> spose_not_then assume_tac
@@ -732,25 +791,41 @@ Theorem holes_unchanged_except_trans:
     holes_unchanged_except f refs refs'' changed
 Proof
   rw [holes_unchanged_except_def]
+  >> last_x_assum drule_all
+  >> strip_tac
+  >> last_x_assum $ drule_at Any
+  >> impl_tac
   >-
-   (rpt $ first_x_assum $ qspecl_then [‘ptr’, ‘val’] mp_tac
-    >> rpt strip_tac
-    >> gvs []
-    >> first_x_assum irule
-    >> spose_not_then assume_tac
+   (spose_not_then assume_tac
     >> gvs [only_fresh_def]
     >> first_x_assum drule_all
     >> strip_tac
     >> gvs [FLOOKUP_DEF])
-  >> first_x_assum irule
-  >> first_x_assum drule_all
   >> strip_tac
-  >> rpt $ first_assum $ irule_at Any
-  >> spose_not_then assume_tac
-  >> gvs [only_fresh_def]
-  >> first_x_assum drule_all
+  >> gvs []
+QED
+
+Theorem holes_still_not_finalised_trans:
+  ∀f f' refs refs' refs'' changed.
+    holes_still_not_finalised f refs refs' ∧
+    holes_still_not_finalised f' refs' refs'' ∧
+    only_fresh f f' refs ∧
+    f ⊑ f' ⇒
+    holes_still_not_finalised f refs refs''
+Proof
+  rw [holes_still_not_finalised_def]
+  >> last_x_assum drule_all
   >> strip_tac
-  >> gvs [FLOOKUP_DEF]
+  >> last_x_assum $ drule_at Any
+  >> impl_tac
+  >-
+   (spose_not_then assume_tac
+    >> gvs [only_fresh_def]
+    >> first_x_assum drule_all
+    >> strip_tac
+    >> gvs [FLOOKUP_DEF, hole_not_finalised_def])
+  >> strip_tac
+  >> gvs []
 QED
 
 Theorem holes_unchanged_except_subset:
@@ -760,17 +835,13 @@ Theorem holes_unchanged_except_subset:
     holes_unchanged_except f refs refs' changed'
 Proof
   rw [holes_unchanged_except_def]
-  >-
-   (first_x_assum irule
-    >> gvs [SUBSET_DEF]
-    >> first_x_assum $ drule_at Concl
-    >> gvs [])
-  >> Cases_on ‘ptr ∈ changed’
-  >-
-   (first_x_assum $ irule_at Any
-    >> gvs []
-    >> first_assum $ irule_at Any)
-  >> last_x_assum drule
+  >> first_x_assum drule_all
+  >> strip_tac
+  >> gvs []
+  >> strip_tac
+  >> gvs [SUBSET_DEF]
+  >> first_x_assum $ drule_at Concl
+  >> strip_tac
   >> gvs []
 QED
 
@@ -781,12 +852,6 @@ Theorem holes_unchanged_except_del:
     holes_unchanged_except f refs_old refs_new (changed DIFF {ptr})
 Proof
   rw [holes_unchanged_except_def]
-  >-
-   (first_x_assum irule
-    >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
-    >> IF_CASES_TAC
-    >- gvs []
-    >> gvs [])
   >> rpt $ first_x_assum $ irule_at Any
   >> Cases_on ‘ptr = ptr'’
   >- gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
@@ -806,31 +871,31 @@ Proof
 QED
 
 Theorem holes_unchanged_except_changed:
-  ∀f refs_old refs_new changed ptr tag l c r.
-    holes_unchanged_except f refs_old⟨ptr ↦ MutBlock tag l c r⟩ refs_new EMPTY ∧
-    FLOOKUP refs_old ptr = SOME (MutBlock tag l c' r) ⇒
+  ∀f refs_old refs_new changed ptr tag fin l c r.
+    holes_unchanged_except f refs_old⟨ptr ↦ MutBlock tag fin l c r⟩ refs_new EMPTY ∧
+    FLOOKUP refs_old ptr = SOME (MutBlock tag fin' l c' r) ⇒
     holes_unchanged_except f refs_old refs_new {ptr}
 Proof
   rw [holes_unchanged_except_def]
+  >> first_x_assum drule
+  >> Cases_on ‘ptr = ptr'’
   >-
-   (gvs []
-    >> rw []
-    >> first_x_assum irule
-    >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF])
-  >> first_x_assum $ irule_at Any
-  >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
+   (gvs [FLOOKUP_DEF, FLOOKUP_SIMP]
+    >> strip_tac
+    >> gvs [])
+  >> gvs [FLOOKUP_DEF, FLOOKUP_SIMP]
 QED
 
 Theorem holes_unchanged_except_filled:
-  ∀f refs_old refs_new changed ptr tag l c r.
+  ∀f refs_old refs_new changed ptr tag fin l c r.
     holes_unchanged_except f refs_old refs_new EMPTY ∧
-    FLOOKUP refs_old ptr = SOME (MutBlock tag l c' r) ⇒
-    holes_unchanged_except f refs_old refs_new⟨ptr ↦ MutBlock tag l c r⟩ {ptr}
+    FLOOKUP refs_old ptr = SOME (MutBlock tag fin' l c' r) ⇒
+    holes_unchanged_except f refs_old refs_new⟨ptr ↦ MutBlock tag fin l c r⟩ {ptr}
 Proof
   rw []
   >> irule holes_unchanged_except_changed
   >> first_assum $ irule_at Any
-  >> qexists ‘c’
+  >> qexistsl [‘fin’, ‘c’]
   >> gvs [holes_unchanged_except_def]
   >> rw []
   >> gvs [FLOOKUP_SIMP]
@@ -866,7 +931,7 @@ Theorem hole_has_val_submap:
     hole_has_val f env1 env2 refs c
 Proof
   rw [hole_has_val_def]
-  >> qexistsl [‘hole_ptr’, ‘tag’, ‘left’, ‘right’]
+  >> qexistsl [‘hole_ptr’, ‘tag’, ‘finalised’, ‘left’, ‘right’]
   >> gvs []
   >> drule SUBMAP_FRANGE
   >> strip_tac
@@ -1014,20 +1079,21 @@ Proof
 QED
 
 Definition mb_rel_def:
-  (mb_rel f refs (Block tag xs) (RefPtr b ptr) =
-   if b ∨ ptr ∈ FRANGE f then F else
+  (mb_rel f (refs_old : num |-> v ref) refs (Block tag xs) (RefPtr b ptr) =
+   if b ∨ ptr ∈ FRANGE f ∨ ptr ∈ FDOM refs_old then F else
      case FLOOKUP refs ptr of
-     | SOME (MutBlock tag' left' child' right') =>
+     | SOME (MutBlock tag' fin' left' child' right') =>
          (tag = tag' ∧
+          fin' = F ∧
           ∃left child right.
             xs = left ++ [child] ++ right ∧
             LIST_REL (v_rel f) left left' ∧
-            mb_rel f (refs \\ ptr) child child' ∧
+            mb_rel f refs_old (refs \\ ptr) child child' ∧
             LIST_REL (v_rel f) right right')
      | _ => F) ∧
-  (mb_rel f refs v1 v2 = v_rel f v1 v2)
+  (mb_rel f _ refs v1 v2 = v_rel f v1 v2)
 Termination
-  wf_rel_tac ‘measure $ CARD o FDOM o FST o SND’
+  wf_rel_tac ‘measure $ CARD o FDOM o FST o SND o SND’
   >> rpt gen_tac
   >> strip_tac
   >> gvs [finite_mapTheory.FDOM_DOMSUB, FLOOKUP_DEF]
@@ -1037,13 +1103,14 @@ Termination
 End
 
 Theorem mb_rel_cons:
-  ∀refs ptr f tag left left' v v' right right'.
-    mb_rel f (refs \\ ptr) v v' ∧
+  ∀refs_old refs ptr f tag left left' v v' right right'.
+    mb_rel f refs_old (refs \\ ptr) v v' ∧
     LIST_REL (v_rel f) left left' ∧
     LIST_REL (v_rel f) right right' ∧
-    FLOOKUP refs ptr = SOME (MutBlock tag left' v' right') ∧
-    ptr ∉ FRANGE f ⇒
-    mb_rel f refs (Block tag (left ++ [v] ++ right)) (RefPtr F ptr)
+    FLOOKUP refs ptr = SOME (MutBlock tag F left' v' right') ∧
+    ptr ∉ FRANGE f ∧
+    ptr ∉ FDOM refs_old ⇒
+    mb_rel f refs_old refs (Block tag (left ++ [v] ++ right)) (RefPtr F ptr)
 Proof
   rw []
   >> simp [mb_rel_def]
@@ -1052,12 +1119,13 @@ Proof
 QED
 
 Theorem mb_rel_del:
-  ∀f refs v1 v2 ptr tag left ptr' right.
-    mb_rel f refs v1 v2 ∧
-    FLOOKUP refs ptr = SOME (MutBlock tag left (RefPtr F ptr') right) ∧
+  ∀f refs_old refs v1 v2 ptr tag left ptr' right.
+    mb_rel f refs_old refs v1 v2 ∧
+    FLOOKUP refs ptr = SOME (MutBlock tag F left (RefPtr F ptr') right) ∧
     ptr' ∉ FDOM refs ∧
+    ptr' ∉ FDOM refs_old ∧
     ptr' ∉ FRANGE f ⇒
-    mb_rel f (refs \\ ptr) v1 v2
+    mb_rel f refs_old (refs \\ ptr) v1 v2
 Proof
   recInduct mb_rel_ind
   >> rw [mb_rel_def]
@@ -1109,6 +1177,17 @@ Proof
   >> gvs []
 QED
 
+Theorem holes_still_not_finalised_frange_update:
+  ∀f p k v refs.
+    FLOOKUP f p = SOME k ⇒
+    holes_still_not_finalised f refs (refs⟨k ↦ v⟩)
+Proof
+  rw [holes_still_not_finalised_def, FLOOKUP_SIMP]
+  >> gvs [hole_not_finalised_def]
+  >> ‘k ≠ ptr’ by (CCONTR_TAC >> gvs [IN_FRANGE_FLOOKUP] >> metis_tac [])
+  >> gvs [FLOOKUP_SIMP]
+QED
+
 Theorem ref_rel_submap:
   ∀f f' v w. ref_rel f v w ∧ f ⊑ f' ⇒ ref_rel f' v w
 Proof
@@ -1148,7 +1227,8 @@ Theorem state_rel_alloc:
       (s with refs := s.refs⟨src ↦ rv⟩) (s' with refs := s'.refs⟨tgt ↦ rw⟩) ∧
     f ⊑ f⟨src ↦ tgt⟩ ∧
     only_fresh f (f⟨src ↦ tgt⟩) s'.refs ∧
-    holes_unchanged_except f s'.refs (s'.refs⟨tgt ↦ rw⟩) ∅
+    holes_unchanged_except f s'.refs (s'.refs⟨tgt ↦ rw⟩) ∅ ∧
+    holes_still_not_finalised f s'.refs (s'.refs⟨tgt ↦ rw⟩)
 Proof
   rpt gen_tac >> strip_tac
   >> ‘src ∉ FDOM f’ by gvs [state_rel_def, state_ref_rel_def]
@@ -1162,7 +1242,10 @@ Proof
           >> irule FLOOKUP_SUBMAP >> first_assum $ irule_at Any >> gvs [])
       >> irule fmap_inj_update >> gvs [])
   >- (gvs [only_fresh_def] >> rw [] >> gvs [FRANGE_FUPDATE, DOMSUB_NOT_IN_DOM])
-  >> gvs [holes_unchanged_except_def, FLOOKUP_SIMP] >> rw [] >> gvs [FLOOKUP_DEF]
+  >- (gvs [holes_unchanged_except_def, FLOOKUP_SIMP] >> rw [] >> gvs [FLOOKUP_DEF])
+  >> gvs [holes_still_not_finalised_def, FLOOKUP_SIMP, hole_not_finalised_def, SUBSET_DEF]
+  >> rw []
+  >> gvs [FLOOKUP_DEF]
 QED
 
 Theorem state_ref_rel_lookup:
@@ -1257,11 +1340,11 @@ Proof
 QED
 
 Theorem no_mutblock:
-  ∀f refs t_refs ptr tag l c r.
-    state_ref_rel f refs t_refs ∧ FLOOKUP refs ptr = SOME (MutBlock tag l c r) ⇒ F
+  ∀f refs t_refs ptr tag fin l c r.
+    state_ref_rel f refs t_refs ∧ FLOOKUP refs ptr = SOME (MutBlock tag fin l c r) ⇒ F
 Proof
   rw [] >> fs [state_ref_rel_def] >> rw []
-  >> qexistsl [‘ptr’, ‘MutBlock tag l c r’] >> gvs [ref_rel_cases]
+  >> qexistsl [‘ptr’, ‘MutBlock tag fin l c r’] >> gvs [ref_rel_cases]
 QED
 
 (* Install reads byte/word vectors out of values; these are lists of Numbers
@@ -1281,13 +1364,6 @@ Proof
   >> simp [Once v_rel_cases] >> rw [] >> res_tac >> gvs []
 QED
 
-Theorem v_to_bytes_eq[local]:
-  (v_to_bytes lv = SOME bytes) ⇔ (v_to_list lv = SOME (MAP (Number o $& o w2n) bytes))
-Proof
-  simp [bvlSemTheory.v_to_bytes_def] >> DEEP_INTRO_TAC some_intro >> rw []
-  >> eq_tac >> rw [] >> gvs [LIST_EQ_REWRITE, EL_MAP]
-QED
-
 Theorem v_to_words_eq[local]:
   (v_to_words lv = SOME ws) ⇔ (v_to_list lv = SOME (MAP Word64 ws))
 Proof
@@ -1295,11 +1371,15 @@ Proof
   >> eq_tac >> rw [] >> gvs [LIST_EQ_REWRITE, EL_MAP]
 QED
 
-Theorem v_to_bytes_v_rel:
-  v_to_bytes lv = SOME bytes ∧ v_rel f lv lw ⇒ v_to_bytes lw = SOME bytes
+Theorem v_to_mlstring_v_rel:
+  v_to_mlstring refs lv = SOME str ∧ v_rel f lv lw ∧
+  state_ref_rel f refs refs' ⇒
+  v_to_mlstring refs' lw = SOME str
 Proof
-  rw [v_to_bytes_eq] >> drule_all v_to_list_v_rel >> strip_tac
-  >> imp_res_tac list_rel_v_rel_number >> gvs []
+  simp [bvlSemTheory.v_to_mlstring_def, AllCaseEqs ()] >> rw []
+  >> gvs [Once v_rel_cases, state_ref_rel_def]
+  >> res_tac
+  >> gvs [ref_rel_cases]
 QED
 
 Theorem v_to_words_v_rel:
@@ -1316,10 +1396,11 @@ Theorem do_build_v_rel:
     ∃f' v' refs2'.
       do_build m' i parts refs2 = (v', refs2') ∧ v_rel f' v v' ∧
       state_ref_rel f' refs1' refs2' ∧ fmap_inj f' ∧ f ⊑ f' ∧
-      only_fresh f f' refs2 ∧ holes_unchanged_except f refs2 refs2' ∅
+      only_fresh f f' refs2 ∧ holes_unchanged_except f refs2 refs2' ∅ ∧
+      holes_still_not_finalised f refs2 refs2'
 Proof
   Induct_on ‘parts’ >> rw [bvlSemTheory.do_build_def]
-  >- (qexists ‘f’ >> gvs [only_fresh_refl, holes_unchanged_except_refl])
+  >- (qexists ‘f’ >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl])
   >> Cases_on ‘h’ >> gvs [bvlSemTheory.do_part_def]
   >- (last_x_assum (qspecl_then [‘m⦇i↦Block n (MAP m l)⦈’,‘i+1’,‘refs1’,‘v’,
         ‘refs1'’,‘f’,‘m'⦇i↦Block n (MAP m' l)⦈’,‘refs2’] mp_tac)
@@ -1365,8 +1446,22 @@ Proof
       >- (irule SUBMAP_TRANS >> first_assum $ irule_at Any >> gvs [])
       >- (irule only_fresh_trans >> first_assum $ irule_at Any
           >> first_assum $ irule_at Any >> gvs [SUBSET_DEF])
-      >> irule holes_unchanged_except_trans >> first_assum $ irule_at Any
-      >> first_assum $ irule_at Any >> gvs [])
+      >- (irule holes_unchanged_except_trans >> first_assum $ irule_at Any
+          >> first_assum $ irule_at Any >> gvs [])
+      >> irule holes_still_not_finalised_trans
+      >> first_assum $ irule_at $ Pos last
+      >> first_assum $ irule_at Any
+      >> gvs []
+      >-
+       (gvs [holes_still_not_finalised_def, hole_not_finalised_def]
+        >> rw []
+        >> gvs [FLOOKUP_SIMP]
+        >> IF_CASES_TAC
+        >- gvs [FLOOKUP_DEF]
+        >> gvs [])
+      >> irule holes_still_not_finalised_frange_update
+      >> qexists ‘src’
+      >> gvs [FLOOKUP_DEF])
   >> (last_x_assum (qspecl_then [‘m⦇i↦Word64 c⦈’,‘i+1’,‘refs1’,‘v’,
         ‘refs1'’,‘f’,‘m'⦇i↦Word64 c⦈’,‘refs2’] mp_tac)
       >> impl_tac
@@ -1381,7 +1476,8 @@ Theorem do_build_const_v_rel:
     ∃f' v' refs2'.
       do_build_const l refs2 = (v', refs2') ∧ v_rel f' v v' ∧
       state_ref_rel f' refs1' refs2' ∧ fmap_inj f' ∧ f ⊑ f' ∧
-      only_fresh f f' refs2 ∧ holes_unchanged_except f refs2 refs2' ∅
+      only_fresh f f' refs2 ∧ holes_unchanged_except f refs2 refs2' ∅ ∧
+      holes_still_not_finalised f refs2 refs2'
 Proof
   rw [bvlSemTheory.do_build_const_def]
   >> drule do_build_v_rel >> rpt (disch_then drule)
@@ -1402,7 +1498,8 @@ Theorem do_app_op_rel:
       state_rel f' t t' ∧
       f SUBMAP f' ∧
       only_fresh f f' s'.refs ∧
-      holes_unchanged_except f s'.refs t'.refs ∅
+      holes_unchanged_except f s'.refs t'.refs ∅ ∧
+      holes_still_not_finalised f s'.refs t'.refs
 Proof
   rw []
   >> Cases_on ‘op’
@@ -1423,7 +1520,7 @@ Resume do_app_op_rel[IntOp]:
    (gvs [do_app_def, do_app_aux_def, CaseEq "option"]
     >> imp_res_tac LIST_REL_LENGTH
     >> first_assum $ irule_at Any
-    >> gvs [v_rel_cases, only_fresh_refl, holes_unchanged_except_refl, NULL_LENGTH])
+    >> gvs [v_rel_cases, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl, NULL_LENGTH])
   >~ [‘LessConstSmall n’] >-
    (gvs [AllCaseEqs (), v_rel_cases, do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
     >> Cases_on ‘vs’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def]
@@ -1431,27 +1528,27 @@ Resume do_app_op_rel[IntOp]:
     >- (Cases_on ‘t'’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def, bvl_to_bvi_id, bvlSemTheory.Boolv_def])
     >> gvs [bvlSemTheory.Boolv_def, bvl_to_bvi_id]
     >> first_assum $ irule_at Any
-    >> gvs [only_fresh_refl, holes_unchanged_except_refl])
+    >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl])
   >> gvs [AllCaseEqs (), v_rel_cases, do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
   >> reverse $ Cases_on ‘vs’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def]
   >> Cases_on ‘t’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def]
   >> Cases_on ‘t'’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def, bvl_to_bvi_id, bvlSemTheory.Boolv_def]
   >> first_assum $ irule_at Any
-  >> gvs [only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
 QED
 
 Resume do_app_op_rel[WordOp]:
   gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def]
   >> drule_all do_word_app_v_rel >> strip_tac >> gvs []
   >> qexists ‘f’
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> drule do_word_app_v_rel_refl >> simp []
 QED
 
 Resume do_app_op_rel[Label]:
   gvs [AllCaseEqs (), v_rel_cases, do_app_def, do_app_aux_def]
   >> first_assum $ irule_at Any
-  >> gvs [only_fresh_refl, holes_unchanged_except_refl, state_rel_def, code_rel_def, domain_lookup]
+  >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl, state_rel_def, code_rel_def, domain_lookup]
   >> Cases_on ‘v’
   >> last_x_assum $ drule
   >> strip_tac
@@ -1470,11 +1567,11 @@ Resume do_app_op_rel[GlobOp]:
    (gvs [do_app_def, do_app_aux_def, AllCaseEqs (), v_rel_cases]
     >> ‘OPTREL (λp p'. FLOOKUP f p = SOME p') s.global s'.global’ by gvs [state_rel_def]
     >> gvs [OPTREL_def]
-    >> qexists ‘f’ >> gvs [only_fresh_refl, holes_unchanged_except_refl])
+    >> qexists ‘f’ >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl])
   >~ [‘do_app (GlobOp SetGlobalsPtr)’] >-
    (gvs [do_app_def, do_app_aux_def, AllCaseEqs (), v_rel_cases]
     >> qexists ‘f’
-    >> simp [only_fresh_refl, holes_unchanged_except_refl]
+    >> simp [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
     >> rpt conj_tac
     >- simp [bvlSemTheory.Unit_def]
     >> gvs [state_rel_def, OPTREL_def])
@@ -1488,7 +1585,7 @@ Resume do_app_op_rel[GlobOp]:
     >> first_x_assum drule >> strip_tac >> gvs [ref_rel_cases]
     >> ‘n < LENGTH ys’ by (imp_res_tac LIST_REL_LENGTH >> gvs [])
     >> ‘v_rel f (EL n xs) (EL n ys)’ by gvs [LIST_REL_EL_EQN]
-    >> qexists ‘f’ >> simp [only_fresh_refl, holes_unchanged_except_refl]
+    >> qexists ‘f’ >> simp [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
     >> qpat_x_assum ‘v_rel f (EL n xs) _’ mp_tac
     >> simp [Once v_rel_cases])
   (* SetGlobal *)
@@ -1509,6 +1606,8 @@ Resume do_app_op_rel[GlobOp]:
      >> irule EVERY2_LUPDATE_same >> simp [Once v_rel_cases] >> gvs [])
     ORELSE
     (irule holes_unchanged_except_frange_update >> first_assum $ irule_at Any)
+    ORELSE
+    (irule holes_still_not_finalised_frange_update >> first_assum $ irule_at Any)
     ORELSE
     simp [bvlSemTheory.Unit_def])
 QED
@@ -1543,7 +1642,7 @@ val memop_read_tac =
   qexists ‘f’
   >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
   >> drule_all state_ref_rel_lookup >> strip_tac
-  >> gvs [ref_rel_cases, bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [ref_rel_cases, bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> imp_res_tac LIST_REL_LENGTH >> gvs []
   >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
 
@@ -1554,7 +1653,7 @@ val memop_el_ref_tac =
   >> drule_all state_ref_rel_lookup >> strip_tac >> gvs [ref_rel_cases]
   >> qmatch_asmsub_rename_tac ‘LIST_REL (v_rel f) xs ws’
   >> imp_res_tac LIST_REL_LENGTH
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> ‘Num i'' < LENGTH xs’ by intLib.ARITH_TAC
   >> ‘v_rel f (EL (Num i'') xs) (EL (Num i'') ws)’ by gvs [LIST_REL_EL_EQN]
   >> pop_assum mp_tac >> simp [Once v_rel_cases];
@@ -1563,7 +1662,7 @@ val memop_el_ref_tac =
 val memop_el_block_tac =
   qexists ‘f’
   >> imp_res_tac LIST_REL_LENGTH
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> ‘v_rel f (EL (Num i'') xs'') (EL (Num i'') ys)’ by gvs [LIST_REL_EL_EQN]
   >> pop_assum mp_tac >> simp [Once v_rel_cases];
 
@@ -1581,6 +1680,7 @@ val memop_update_val_tac =
   >> rpt conj_tac
   >> (intLib.ARITH_TAC
       ORELSE (irule holes_unchanged_except_frange_update >> first_assum $ irule_at Any)
+      ORELSE (irule holes_still_not_finalised_frange_update >> first_assum $ irule_at Any)
       ORELSE (gvs [state_rel_def] >> irule state_ref_rel_update
               >> simp [ref_rel_cases] >> irule EVERY2_LUPDATE_same
               >> simp [Once v_rel_cases] >> gvs []));
@@ -1596,12 +1696,13 @@ val memop_update_byte_tac =
   >> rpt conj_tac
   >> (intLib.ARITH_TAC
       ORELSE (irule holes_unchanged_except_frange_update >> first_assum $ irule_at Any)
+      ORELSE (irule holes_still_not_finalised_frange_update >> first_assum $ irule_at Any)
       ORELSE (gvs [state_rel_def] >> irule state_ref_rel_update >> simp [ref_rel_cases]));
 
 (* Turning a stack of mutable conses into a Block (FinaliseCons). *)
 val memop_finalise_tac =
   qexists ‘f’
-  >> simp [only_fresh_refl, holes_unchanged_except_refl]
+  >> simp [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
   >> gvs [bviSemTheory.finalise_cons_def, AllCaseEqs ()]
   >> imp_res_tac state_ref_rel_lookup
@@ -1618,7 +1719,7 @@ val memop_mutblock_tac =
 val memop_configgc_tac =
   qexists ‘f’
   >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl,
-          bvlSemTheory.Unit_def];
+          holes_still_not_finalised_refl, bvlSemTheory.Unit_def];
 
 (* Comparing two ByteArray references without changing the state (StringCmp).
    Both byte arrays are equal on the two sides, so the comparison agrees. *)
@@ -1626,8 +1727,58 @@ val memop_strcmp_tac =
   qexists ‘f’
   >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
   >> imp_res_tac state_ref_rel_lookup
-  >> gvs [ref_rel_cases, bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [ref_rel_cases, bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
+
+Theorem do_app_op_finalise_rel:
+  ∀v1 refs v1' v2 f s s'.
+    finalise_cons v1 s.refs = SOME (v2,refs) ∧
+    state_rel f s s' ∧
+    v_rel f v1 v1' ⇒
+    ∃f' v2' refs'.
+      finalise_cons v1' s'.refs = SOME (v2',refs') ∧
+      f SUBMAP f' ∧
+      v_rel f' v2 v2' ∧
+      state_rel f' (s with refs := refs) (s' with refs := refs') ∧
+      only_fresh f f' s'.refs ∧
+      holes_unchanged_except f s'.refs refs' ∅ ∧
+      holes_still_not_finalised f s'.refs refs'
+Proof
+  recInduct finalise_cons_ind
+  >> rw [] >> gvs [finalise_cons_def, v_rel_cases]
+  >-
+   (reverse $ gvs [AllCaseEqs ()]
+    >-
+     (gvs [state_rel_def, state_ref_rel_def]
+      >> last_x_assum drule
+      >> strip_tac
+      >> gvs [ref_rel_cases])
+    >> qrefinel [‘f’, ‘_’, ‘s'.refs’]
+    >> gvs [state_rel_def, state_ref_rel_def, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
+    >> last_x_assum $ drule
+    >> strip_tac
+    >> gvs [ref_rel_cases])
+  >> qexists ‘f’
+  >> gvs [state_rel_def, state_ref_rel_def, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
+QED
+
+val memop_finalise_tac =
+drule do_app_op_finalise_rel
+>> disch_then drule
+>> gvs [v_rel_cases]
+>> strip_tac
+>> rpt $ first_assum $ irule_at Any
+>> gvs [v_rel_cases]
+
+val memop_finalise_block_tac =
+drule do_app_op_finalise_rel
+>> disch_then drule
+>> gvs [v_rel_cases]
+>> disch_then $ qspec_then ‘Block n ys’ mp_tac
+>> gvs []
+>> strip_tac
+>> rpt $ first_assum $ irule_at Any
+>> gvs [v_rel_cases]
 
 Resume do_app_op_rel[MemOp]:
   Cases_on ‘m’
@@ -1637,7 +1788,24 @@ Resume do_app_op_rel[MemOp]:
             memop_create_tac >> NO_TAC, memop_update_val_tac >> NO_TAC,
             memop_update_byte_tac >> NO_TAC, memop_el_ref_tac >> NO_TAC,
             memop_el_block_tac >> NO_TAC, memop_read_tac >> NO_TAC,
-            memop_configgc_tac >> NO_TAC, memop_strcmp_tac >> NO_TAC]
+            memop_configgc_tac >> NO_TAC, memop_strcmp_tac >> NO_TAC,
+            memop_finalise_tac >> NO_TAC, memop_finalise_block_tac >> NO_TAC]
+QED
+
+Theorem dest_thunk_not_thunk_rel:
+  ∀v v' refs refs' f.
+    bvlSem$dest_thunk v refs = NotThunk ∧
+    v_rel f v v' ∧
+    state_ref_rel f refs refs' ⇒
+    bvlSem$dest_thunk v' refs' = NotThunk
+Proof
+  rw []
+  >> gvs [v_rel_cases, state_ref_rel_def, bvlSemTheory.dest_thunk_def]
+  >> Cases_on ‘FLOOKUP refs n’ >- gvs [FLOOKUP_DEF]
+  >> first_x_assum drule
+  >> strip_tac
+  >> gvs [FLOOKUP_DEF]
+  >> rpt CASE_TAC >> gvs [ref_rel_cases]
 QED
 
 Resume do_app_op_rel[ThunkOp]:
@@ -1656,10 +1824,17 @@ Resume do_app_op_rel[ThunkOp]:
     >> simp [bvl_to_bvi_refs] >> qexists ‘f’
     >> simp [only_fresh_refl, bvlSemTheory.Unit_def]
     >> rpt conj_tac
+    >-
+     (gvs [bvlSemTheory.bad_thunk_update_def]
+      >> rw []
+      >> imp_res_tac dest_thunk_not_thunk_rel)
     >- simp [Once v_rel_cases]
     >- (gvs [state_rel_def] >> irule state_ref_rel_update >> simp [ref_rel_cases])
-    >> gvs [holes_unchanged_except_def, FLOOKUP_SIMP]
-    >> rw [] >> gvs [IN_FRANGE_FLOOKUP] >> metis_tac [])
+    >-
+     (gvs [holes_unchanged_except_def, FLOOKUP_SIMP]
+      >> rw [] >> gvs [IN_FRANGE_FLOOKUP] >> metis_tac [])
+    >> irule holes_still_not_finalised_frange_update
+    >> first_assum $ irule_at Any)
   (* AllocThunk *)
   >> qmatch_goalsub_rename_tac ‘Thunk mode v'’
   >> simp [bvl_to_bvi_refs]
@@ -1677,6 +1852,9 @@ Resume do_app_op_rel[ThunkOp]:
       >> simp [SUBMAP_FUPDATE_FLOOKUP, FLOOKUP_DEF]
       >> gvs [state_ref_rel_def, fresh_ptr_fresh])
   >> strip_tac >> simp [Once v_rel_cases]
+  >> gvs [bvlSemTheory.bad_thunk_update_def]
+      >> rw []
+  >> imp_res_tac dest_thunk_not_thunk_rel
 QED
 
 Resume do_app_op_rel[FFI]:
@@ -1696,8 +1874,10 @@ Resume do_app_op_rel[FFI]:
       >> simp [ref_rel_cases]
       >> first_assum $ irule_at Any)
   >> gvs [holes_unchanged_except_def, FLOOKUP_SIMP]
-  >> rw [] >> gvs [IN_FRANGE_FLOOKUP]
-  >> metis_tac []
+  >> conj_tac
+  >- (rw [] >> gvs [IN_FRANGE_FLOOKUP] >> metis_tac [])
+  >> irule holes_still_not_finalised_frange_update
+  >> first_assum $ irule_at Any
 QED
 
 (* Structural block operations with a fresh, state-preserving result
@@ -1706,7 +1886,7 @@ QED
 val block_simple_tac =
   qexists ‘f’
   >> rpt (qpat_x_assum ‘v_rel f _ _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases]))
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> imp_res_tac LIST_REL_LENGTH
   >> gvs [bvlSemTheory.Boolv_def]
   >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
@@ -1715,31 +1895,31 @@ val block_simple_tac =
 val block_el_block_tac =
   qexists ‘f’
   >> qpat_x_assum ‘v_rel f (Block _ _) _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> qmatch_asmsub_rename_tac ‘LIST_REL (v_rel f) aa bb’
   >> imp_res_tac LIST_REL_LENGTH >> gvs []
   >> ‘v_rel f (EL n aa) (EL n bb)’ by gvs [LIST_REL_EL_EQN]
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl];
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl];
 
 (* ElemAt reading an element out of a ValueArray reference. *)
 val block_el_ref_tac =
   qexists ‘f’
   >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
   >> qpat_x_assum ‘v_rel f (RefPtr _ _) _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> drule_all state_ref_rel_lookup >> strip_tac >> gvs [ref_rel_cases]
   >> qmatch_asmsub_rename_tac ‘LIST_REL (v_rel f) aa bb’
   >> imp_res_tac LIST_REL_LENGTH >> gvs []
   >> ‘v_rel f (EL n aa) (EL n bb)’ by gvs [LIST_REL_EL_EQN]
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl];
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl];
 
 (* ConsExtend: result is an append of (a prefix of) two related blocks. *)
 val block_consextend_tac =
   qexists ‘f’
   >> qpat_x_assum ‘v_rel f (Block _ _) _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> rpt (qpat_x_assum ‘v_rel f (Number _) _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases]))
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> imp_res_tac LIST_REL_LENGTH >> gvs []
   >> simp [Once v_rel_cases]
   >> irule EVERY2_APPEND_suff >> conj_tac
@@ -1751,14 +1931,14 @@ val block_fromlist_tac =
   >> qpat_x_assum ‘v_rel f (Number _) _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
   >> drule_all v_to_list_v_rel >> strip_tac
   >> imp_res_tac LIST_REL_LENGTH
-  >> gvs [only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> simp [Once v_rel_cases];
 
 (* ListAppend: append two lists. *)
 val block_listappend_tac =
   qexists ‘f’
   >> imp_res_tac v_to_list_v_rel
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> irule list_to_v_v_rel >> irule EVERY2_APPEND_suff >> gvs [];
 
 (* Equal: structural equality preserved by the renaming (uses do_eq_v_rel). *)
@@ -1769,7 +1949,7 @@ val block_equal_tac =
   >> qspecl_then [‘s.refs’,‘x1'’,‘x2'’,‘s'.refs’,‘y’,‘y'’] mp_tac (cj 1 do_eq_v_rel)
   >> impl_tac >- gvs []
   >> strip_tac
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
 
 (* EqualConst on a string constant (a compare-by-contents byte array). *)
@@ -1777,9 +1957,9 @@ val block_equalconst_ba_tac =
   qexists ‘f’
   >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
   >> qpat_x_assum ‘v_rel f (RefPtr _ _) _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> drule_all state_ref_rel_lookup >> strip_tac >> gvs [ref_rel_cases]
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
 
 (* Build: evaluate a constant, possibly allocating byte arrays for strings. *)
@@ -1800,7 +1980,7 @@ val block_boolnot_tac =
   >> qpat_x_assum ‘v_rel f _ y’ mp_tac
   >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def]
   >> strip_tac
-  >> gvs [bvlSemTheory.Boolv_def, bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> gvs [bvlSemTheory.Boolv_def, bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
 
 Resume do_app_op_rel[BlockOp]:
@@ -1816,17 +1996,16 @@ QED
 
 Resume do_app_op_rel[Install]:
   gvs [do_app_def, do_install_def, AllCaseEqs (), PULL_EXISTS]
-  >> qpat_x_assum `v_rel f (Number (&LENGTH bytes)) _`
-       (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
   >> qpat_x_assum `v_rel f (Number (&LENGTH data)) _`
        (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
   >> gvs []
-  >> drule_all v_to_bytes_v_rel >> strip_tac
+  >> `state_ref_rel f s.refs s'.refs` by fs [state_rel_def]
+  >> drule_all v_to_mlstring_v_rel >> strip_tac
   >> drule_all v_to_words_v_rel >> strip_tac
   >> gvs []
-  >> `s'.compile_oracle = state_co compile_prog s.compile_oracle ∧
-      s.compile = state_cc compile_prog s'.compile ∧
-      state_ref_rel f s.refs s'.refs ∧ s'.clock = s.clock ∧
+  >> `s'.compile_oracle = state_co compile_each s.compile_oracle ∧
+      s.compile = state_cc compile_each s'.compile ∧
+      s'.clock = s.clock ∧
       OPTREL (λp p'. FLOOKUP f p = SOME p') s.global s'.global ∧
       s'.ffi = s.ffi ∧ code_rel s.code s'.code ∧
       namespace_rel s.code s'.code ∧ fmap_inj f ∧
@@ -1838,12 +2017,12 @@ Resume do_app_op_rel[Install]:
   >> rename1 `s.compile_oracle 0 = ((state0,cfg),progs0)`
   >> gvs [backendPropsTheory.state_co_def, backendPropsTheory.state_cc_def,
           miscTheory.shift_seq_def]
-  >> Cases_on `compile_prog state0 progs0`
-  >> rename1 `compile_prog state0 progs0 = (state1,progs1)`
+  >> Cases_on `compile_each state0 progs0`
+  >> rename1 `compile_each state0 progs0 = (state1,progs1)`
   >> gvs [AllCaseEqs ()]
   >> `∃w rest. progs1 = (k,w)::rest` by
-       (qpat_x_assum `compile_prog state0 ((k,prog)::v7) = _` mp_tac
-        >> PairCases_on `prog` >> simp [bvi_tmcTheory.compile_prog_def]
+       (qpat_x_assum `compile_each state0 ((k,prog)::v7) = _` mp_tac
+        >> PairCases_on `prog` >> simp [bvi_tmcTheory.compile_each_def]
         >> rpt (pairarg_tac >> simp []) >> CASE_TAC >> simp [] >> rw []
         >> Cases_on `x` >> gvs [])
   >> gvs []
@@ -1853,13 +2032,13 @@ Resume do_app_op_rel[Install]:
           (qspec_then `0` mp_tac) >> simp [])
   >> `in_ns_3 state0 ∧ bvl_num_stubs ≤ state0` by gvs [input_condition_def]
   >> `ALL_DISTINCT (MAP FST ((k,w)::rest))` by
-       (irule (cj 1 compile_prog_ALL_DISTINCT)
+       (irule (cj 1 compile_each_ALL_DISTINCT)
         >> first_x_assum (irule_at Any) >> gvs [input_condition_def])
   >> `code_rel (fromAList ((k,prog)::v7)) (fromAList ((k,w)::rest))` by
-       (irule compile_prog_code_rel
+       (irule compile_each_code_rel
         >> first_x_assum (irule_at Any) >> gvs [input_condition_def])
   >> `namespace_rel (fromAList ((k,prog)::v7)) (fromAList ((k,w)::rest))` by
-       (irule compile_prog_namespace_rel
+       (irule compile_each_namespace_rel
         >> first_x_assum (irule_at Any) >> gvs [input_condition_def])
   >> `DISJOINT (domain s.code) (set (MAP FST ((k,prog)::v7)))` by
        (simp [] >> gvs [pred_setTheory.IN_DISJOINT] >> metis_tac [])
@@ -1875,12 +2054,12 @@ Resume do_app_op_rel[Install]:
         >> qx_gen_tac `nn` >> spose_not_then strip_assume_tac
         >> Cases_on `in_ns_3 nn ∧ bvl_num_stubs ≤ nn`
         >- (`¬MEM nn (MAP FST qq)` by metis_tac []
-            >> drule (GEN_ALL compile_prog_MEM) >> disch_then drule >> simp []
+            >> drule (GEN_ALL compile_each_MEM) >> disch_then drule >> simp []
             >> CCONTR_TAC >> fs [] >> res_tac >> fs [])
         >> qpat_x_assum `namespace_rel s.code s'.code` mp_tac
         >> simp [namespace_rel_def] >> spose_not_then strip_assume_tac
         >> `nn ∈ domain s.code` by metis_tac [NOT_LESS]
-        >> drule (GEN_ALL compile_prog_MEM) >> disch_then drule
+        >> drule (GEN_ALL compile_each_MEM) >> disch_then drule
         >> strip_tac >- metis_tac []
         >> fs [backend_commonTheory.bvl_to_bvi_namespaces_def]
         >> res_tac >> fs [])
@@ -1917,7 +2096,7 @@ Resume do_app_op_rel[Install]:
       >> qpat_x_assum `(state1,cfg1) = FST (s.compile_oracle 1)`
            (assume_tac o SYM)
       >> simp [domain_fromAList]
-      >> imp_res_tac compile_prog_next_mono
+      >> imp_res_tac compile_each_next_mono
       >> rw []
       >- (res_tac >> simp [])
       >- (`k < bvl_num_stubs` by
@@ -1927,7 +2106,7 @@ Resume do_app_op_rel[Install]:
                   (qspec_then `k` mp_tac) >> simp [])
           >> decide_tac)
       >> `MEM n (MAP FST ((k,w)::rest))` by simp []
-      >> drule (GEN_ALL compile_prog_MEM) >> disch_then drule >> strip_tac
+      >> drule (GEN_ALL compile_each_MEM) >> disch_then drule >> strip_tac
       >- (Cases_on `bvl_num_stubs ≤ n`
           >- (qpat_x_assum `∀nm. in_ns_3 nm ∧ bvl_num_stubs ≤ nm ⇒ ¬MEM _ _`
                 (qspec_then `n` mp_tac) >> simp [])
@@ -1936,7 +2115,7 @@ Resume do_app_op_rel[Install]:
            (mp_tac o ONCE_REWRITE_RULE [arithmeticTheory.MULT_COMM])
       >> simp [])
   >- simp [only_fresh_refl]
-  >> simp [holes_unchanged_except_refl]
+  >> simp [holes_unchanged_except_refl, holes_still_not_finalised_refl]
 QED
 
 Finalise do_app_op_rel;
@@ -2027,6 +2206,16 @@ Proof
   EVAL_TAC
 QED
 
+Theorem finalise_cons_refs_SUBSET:
+  ∀v1 refs1 v2 refs2.
+    finalise_cons v1 refs1 = SOME (v2,refs2) ⇒
+    FDOM refs1 ⊆ FDOM refs2
+Proof
+  recInduct finalise_cons_ind
+  >> rw [] >> gvs [finalise_cons_def, AllCaseEqs ()]
+  >> imp_res_tac $ iffRL SUBSET_INSERT_DELETE
+QED
+
 Theorem do_app_refs_SUBSET:
   (do_app op a r = Rval (q,t)) ⇒ FDOM r.refs SUBSET FDOM t.refs
 Proof
@@ -2034,6 +2223,7 @@ Proof
   >> imp_res_tac bvlPropsTheory.do_app_refs_SUBSET
   >> gvs [bvi_to_bvl_refs]
   >> gvs [SUBSET_INSERT_RIGHT]
+  >- imp_res_tac finalise_cons_refs_SUBSET
   >> Cases_on ‘a’ >> gvs [do_install_def, AllCaseEqs ()]
   >> Cases_on ‘r.compile_oracle 0’
   >> gvs [AllCaseEqs ()]
@@ -2101,7 +2291,9 @@ Theorem evaluate_fill_hole:
     f ⊑ f' ∧
     result_rel (LIST_REL (v_rel f')) (eor_rel f') r r' ∧
     hole_has_val f env1 env2 s'.refs c ∧
+    hole_not_finalised s'.refs hole_ptr ∧
     holes_unchanged_except f s'.refs t'.refs ∅ ∧
+    holes_still_not_finalised f s'.refs t'.refs ∧
     only_fresh f f' s'.refs ∧
     state_rel f' t t' ∧
     env2❲LENGTH env1❳ = RefPtr F hole_ptr ⇒
@@ -2112,10 +2304,11 @@ Theorem evaluate_fill_hole:
       f SUBMAP f_fill ∧
       only_fresh f f_fill s'.refs ∧
       holes_unchanged_except f s'.refs t_fill.refs {hole_ptr} ∧
+      holes_still_not_finalised f s'.refs t_fill.refs ∧
       ∀v.
         r = Rval [v] ⇒
         ∃v_fill.
-          mb_rel f_fill (t_fill.refs \\ hole_ptr) v v_fill ∧
+          mb_rel f_fill s'.refs (t_fill.refs \\ hole_ptr) v v_fill ∧
           hole_has_val f env1 env2 t_fill.refs v_fill
 Proof
   rw []
@@ -2137,13 +2330,15 @@ Proof
   >> gvs []
   >> imp_res_tac evaluate_SING_IMP
   >> gvs []
-  >> first_x_assum $ drule_all
-  >> strip_tac
   >> first_x_assum drule
   >> disch_then drule
   >> impl_tac
   >- gvs []
   >> strip_tac
+  >> gvs []
+  >> ‘¬finalised'’ by
+    (imp_res_tac holes_still_not_finalised_def
+     >> gvs [hole_not_finalised_def])
   >> gvs []
   >> qexists ‘f'’
   >> gvs [opt_res_rel_def, GSYM PULL_EXISTS]
@@ -2158,6 +2353,8 @@ Proof
   >-
    (irule holes_unchanged_except_filled
     >> rpt $ first_assum $ irule_at Any)
+  >> conj_tac
+  >- (irule holes_still_not_finalised_ins >> gvs [])
   >> gvs [hole_has_val_def, FLOOKUP_SIMP]
   >> Cases_on ‘w'’ >> gvs [mb_rel_def]
   >> Cases_on ‘w’ >> gvs [mb_rel_def, v_rel_cases]
@@ -2172,7 +2369,9 @@ Theorem evaluate_fill_hole_val:
     f ⊑ f' ∧
     v_rel f' v v' ∧
     hole_has_val f env1 env2 s'.refs c ∧
+    hole_not_finalised s'.refs hole_ptr ∧
     holes_unchanged_except f s'.refs t'.refs ∅ ∧
+    holes_still_not_finalised f s'.refs t'.refs ∧
     only_fresh f f' s'.refs ∧
     state_rel f' t t' ∧
     env2❲LENGTH env1❳ = RefPtr F hole_ptr ⇒
@@ -2183,8 +2382,9 @@ Theorem evaluate_fill_hole_val:
       f SUBMAP f_fill ∧
       only_fresh f f_fill s'.refs ∧
       holes_unchanged_except f s'.refs t_fill.refs {hole_ptr} ∧
+      holes_still_not_finalised f s'.refs t_fill.refs ∧
       ∃v_fill.
-        mb_rel f_fill (t_fill.refs \\ hole_ptr) v v_fill ∧
+        mb_rel f_fill s'.refs (t_fill.refs \\ hole_ptr) v v_fill ∧
         hole_has_val f env1 env2 t_fill.refs v_fill
 Proof
   rw []
@@ -2362,6 +2562,43 @@ Proof
   >> gvs []
 QED
 
+Theorem evaluate_pure_exp_lemma[local]:
+  (∀e n.
+     pure_exp n e ⇒
+     ∀env.
+       n ≤ LENGTH env ⇒
+       ∃v. ∀(s:('c,'ffi) bviSem$state). evaluate ([e],env,s) = (Rval v,s)) ∧
+  (∀(x:bvi$exp option). T) ∧
+  (∀xs n.
+     pure_exps n xs ⇒
+     ∀env.
+       n ≤ LENGTH env ⇒
+       ∃v. ∀(s:('c,'ffi) bviSem$state). evaluate (xs,env,s) = (Rval v,s))
+Proof
+  ho_match_mp_tac bviTheory.exp_induction
+  >> rw []
+  >> gvs [pure_exp_def, evaluate_def]
+  >- (* Let *)
+   (qpat_x_assum ‘∀n. pure_exps n xs ⇒ _’ drule >> strip_tac
+    >> first_x_assum drule >> strip_tac >> gvs []
+    >> qpat_x_assum ‘∀n. pure_exp n e ⇒ _’ drule >> strip_tac
+    >> first_x_assum irule >> gvs [])
+  >- (* Op *)
+   (qpat_x_assum ‘∀n. pure_exps n xs ⇒ _’ drule >> strip_tac
+    >> first_x_assum drule >> strip_tac >> gvs []
+    >> Cases_on ‘x’ >> gvs [pure_op_def, do_app_def, do_app_aux_def]
+    >- (* IntOp *)
+     (Cases_on ‘i’ >> Cases_on ‘xs’ >> gvs [pure_op_def, evaluate_def])
+    (* BlockOp *)
+    >> Cases_on ‘b’ >> gvs [pure_op_def, do_app_def, do_app_aux_def, bvl_to_bvi_id])
+  (* cons *)
+  >> once_rewrite_tac [evaluate_CONS]
+  >> qpat_x_assum ‘∀n. pure_exp n e ⇒ _’ drule >> strip_tac
+  >> first_x_assum drule >> strip_tac >> gvs []
+  >> qpat_x_assum ‘∀n. pure_exps n xs ⇒ _’ drule >> strip_tac
+  >> first_x_assum drule >> strip_tac >> gvs []
+QED
+
 Theorem evaluate_pure_exps:
   ∀n xs.
     pure_exps n xs ⇒
@@ -2371,75 +2608,63 @@ Theorem evaluate_pure_exps:
         ∀s.
           evaluate (xs,env,s) = (Rval v,s)
 Proof
-  recInduct pure_exps_ind
-  >> rw []
-  >> gvs [pure_exps_def, evaluate_def]
-  >-
-   (last_x_assum drule
-    >> strip_tac
-    >> gvs [])
-  >-
-   (last_x_assum drule
-    >> strip_tac
-    >> gvs []
-    >> Cases_on ‘op’ >> gvs [pure_op_def, do_app_def, do_app_aux_def]
-    >- (* IntOp *)
-     (Cases_on ‘i’ >> Cases_on ‘args’ >> gvs [pure_op_def, evaluate_def])
-    (* BlockOp *)
-    >> Cases_on ‘b’ >> gvs [pure_op_def, do_app_def, do_app_aux_def, bvl_to_bvi_id])
-  >> last_x_assum drule
-  >> strip_tac
-  >> gvs []
-  >> first_x_assum drule
-  >> strip_tac
-  >> gvs []
+  metis_tac [evaluate_pure_exp_lemma]
 QED
 
-Theorem evaluate_bvi_to_cb_aux_inl:
-  ∀n loc tag args bs vs.
-    bvi_to_cb_aux n loc tag args = SOME (bs,INL vs) ⇒
-    bs = args ∧
-    ∀env.
-      n ≤ LENGTH env ⇒
-      ∃v.
-        ∀s.
-          evaluate (args,env,s) = (Rval v,s) ∧
-          evaluate (MAP (λn. Var n) vs,v,s) = (Rval v,s)
+Theorem evaluate_bvi_to_cb_aux_inl_lemma[local]:
+  (∀n loc tag exp bs vs.
+     bvi_to_cb_aux_sing n loc tag exp = SOME (bs,INL vs) ⇒
+     bs = [exp] ∧
+     ∀env.
+       n ≤ LENGTH env ⇒
+       ∃v.
+         ∀(s:('c,'ffi) bviSem$state).
+           evaluate ([exp],env,s) = (Rval v,s) ∧
+           evaluate (MAP (λn. Var n) vs,v,s) = (Rval v,s)) ∧
+  (∀n loc tag args bs vs.
+     bvi_to_cb_aux n loc tag args = SOME (bs,INL vs) ⇒
+     bs = args ∧
+     ∀env.
+       n ≤ LENGTH env ⇒
+       ∃v.
+         ∀(s:('c,'ffi) bviSem$state).
+           evaluate (args,env,s) = (Rval v,s) ∧
+           evaluate (MAP (λn. Var n) vs,v,s) = (Rval v,s))
 Proof
-  recInduct bvi_to_cb_aux_ind >> rw [bvi_to_cb_aux_def, call_to_cb_def] >> gvs [evaluate_def]
+  ho_match_mp_tac bvi_to_cb_aux_ind >> rw [bvi_to_cb_aux_def, call_to_cb_def] >> gvs [evaluate_def]
   >- gvs [CaseEq "prod", CaseEq "option", CaseEq "sum"]
   >- gvs [CaseEq "prod", CaseEq "option", CaseEq "sum"]
   >- gvs [CaseEq "option", CaseEq "prod", CaseEq "sum", evaluate_def]
   >-
-   (imp_res_tac evaluate_pure_exps
-    >> qexists ‘v’
+   (gvs [AllCaseEqs()]
+    >> ‘pure_exps n [Op op args]’ by gvs [pure_exp_def]
+    >> ‘∃w. ∀(s:('c,'ffi) bviSem$state). evaluate ([Op op args],env,s) = (Rval w,s)’
+         by metis_tac [evaluate_pure_exps]
+    >> qexists ‘w’
     >> gen_tac
-    >> first_x_assum $ qspec_then ‘s’ assume_tac
-    >> gvs [CaseEq "option", CaseEq "prod", CaseEq "sum", CaseEq "result", evaluate_def])
-  >- gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
-  >- gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
-  >- (gvs [pure_exps_def] >> qexists ‘[env❲v30❳]’ >> gvs [])
-  >- gvs [pure_exps_def]
-  >-
-   (gvs [pure_exps_def]
-    >> imp_res_tac evaluate_pure_exps
-    >> pop_assum kall_tac
-    >> gvs []
-    >> ‘n ≤ LENGTH (v ++ env)’ by gvs []
-    >> imp_res_tac evaluate_pure_exps
-    >> pop_assum kall_tac
-    >> gvs []
-    >> qexists ‘v'³'’
-    >> gen_tac
-    >> gvs []
-    >> pop_assum $ qspec_then ‘s’ assume_tac
+    >> first_assum $ qspec_then ‘s’ assume_tac
     >> imp_res_tac evaluate_SING_IMP
-    >> gvs [])
-  >- gvs [pure_exps_def]
-  >- gvs [pure_exps_def]
-  >- gvs [pure_exps_def]
-  >- gvs [pure_exps_def]
-  >- gvs [pure_exps_def]
+    >> gvs [evaluate_def, AllCaseEqs()])
+  >- gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
+  >- gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
+  >- (rename1 ‘pure_exp n (Var k)’
+      >> gvs [pure_exp_def] >> qexists ‘[env❲k❳]’ >> gvs [])
+  >- gvs [pure_exp_def]
+  >-
+   (rename1 ‘pure_exp n (Let es e)’
+    >> ‘pure_exps n [Let es e]’ by gvs [pure_exp_def]
+    >> ‘∃w. ∀(s:('c,'ffi) bviSem$state). evaluate ([Let es e],env,s) = (Rval w,s)’
+         by metis_tac [evaluate_pure_exps]
+    >> qexists ‘w’
+    >> gen_tac
+    >> first_assum $ qspec_then ‘s’ assume_tac
+    >> imp_res_tac evaluate_SING_IMP
+    >> gvs [evaluate_def])
+  >- gvs [pure_exp_def]
+  >- gvs [pure_exp_def]
+  >- gvs [pure_exp_def]
+  >- gvs [pure_exp_def]
+  >- gvs [pure_exp_def]
   >-
    (gvs [CaseEq "option"]
     >> gvs [CaseEq "prod"]
@@ -2476,27 +2701,44 @@ Proof
   >> gvs [APPEND]
 QED
 
-Theorem evaluate_bvi_to_cb_aux_inr:
-  ∀n loc tag args env s t r bs cb.
-    bvi_to_cb_aux n loc tag args = SOME (bs,INR cb) ∧
-    evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (r,t) ∧
-    n ≤ LENGTH env ⇒
-    ∃as u.
-      evaluate (bs,env,s) = (as,u) ∧
-      (∀vs.
-         as = Rval vs ⇒
-         evaluate ([cb_to_bvi loc cb],vs,u) = (r,t) ∧
-         ∀extras.
-           evaluate ([cb_to_bvi loc cb],vs ++ extras,u) = (r,t)) ∧
-      (∀e.
-         as = Rerr e ⇒
-         (as,u) = (r,t))
+Theorem evaluate_bvi_to_cb_aux_inl = cj 2 evaluate_bvi_to_cb_aux_inl_lemma;
+
+Theorem evaluate_bvi_to_cb_aux_inr_lemma[local]:
+  (∀n loc tag exp env s t r bs cb.
+     bvi_to_cb_aux_sing n loc tag exp = SOME (bs,INR cb) ∧
+     evaluate ([Op (BlockOp (Cons tag)) [exp]],env,
+               (s:('c,'ffi) bviSem$state)) = (r,t) ∧
+     n ≤ LENGTH env ⇒
+     ∃as u.
+       evaluate (bs,env,s) = (as,u) ∧
+       (∀vs.
+          as = Rval vs ⇒
+          evaluate ([cb_to_bvi loc cb],vs,u) = (r,t) ∧
+          ∀extras.
+            evaluate ([cb_to_bvi loc cb],vs ++ extras,u) = (r,t)) ∧
+       (∀e.
+          as = Rerr e ⇒
+          (as,u) = (r,t))) ∧
+  (∀n loc tag args env s t r bs cb.
+     bvi_to_cb_aux n loc tag args = SOME (bs,INR cb) ∧
+     evaluate ([Op (BlockOp (Cons tag)) args],env,
+               (s:('c,'ffi) bviSem$state)) = (r,t) ∧
+     n ≤ LENGTH env ⇒
+     ∃as u.
+       evaluate (bs,env,s) = (as,u) ∧
+       (∀vs.
+          as = Rval vs ⇒
+          evaluate ([cb_to_bvi loc cb],vs,u) = (r,t) ∧
+          ∀extras.
+            evaluate ([cb_to_bvi loc cb],vs ++ extras,u) = (r,t)) ∧
+       (∀e.
+          as = Rerr e ⇒
+          (as,u) = (r,t)))
 Proof
-  recInduct bvi_to_cb_aux_ind
+  ho_match_mp_tac bvi_to_cb_aux_ind
   >> rw []
   >> imp_res_tac bvi_to_cb_aux_wf_inr
   >> gvs []
-  >- gvs [bvi_to_cb_aux_def]
   >- (* call *)
    (gvs [bvi_to_cb_aux_def, call_to_cb_def, CaseEq "prod", CaseEq "option"]
     >> rename [‘bind 0 args = (vs,n')’]
@@ -2538,6 +2780,10 @@ Proof
   >- gvs [bvi_to_cb_aux_def]
   >- gvs [bvi_to_cb_aux_def]
   >- gvs [bvi_to_cb_aux_def]
+  (* [] *)
+  >- gvs [bvi_to_cb_aux_def]
+  (* [exp] - dispatch to the single-expression case *)
+  >- (gvs [bvi_to_cb_aux_def] >> first_x_assum drule >> gvs [])
   (* Cons *)
   >> rename [‘CallBlock _ left child right’, ‘evaluate ([Op _ (x1::x2::xs)],_,_) = _’]
   >> gvs [bvi_to_cb_aux_def, CaseEq "prod", CaseEq "option", CaseEq "sum", CaseEq "call_block", CaseEq "list"]
@@ -2644,6 +2890,8 @@ Proof
   >> gvs [CaseEq "prod", CaseEq "result", do_app_def, do_app_aux_def, evaluate_shift_cb_sing]
 QED
 
+Theorem evaluate_bvi_to_cb_aux_inr = cj 2 evaluate_bvi_to_cb_aux_inr_lemma;
+
 Theorem evaluate_bvi_to_cb:
   ∀cb n loc x env s t r bs.
     evaluate ([x],env,s) = (r,t) ∧
@@ -2705,6 +2953,7 @@ Theorem evaluate_rewrite_tmc:
       f SUBMAP f' ∧
       only_fresh f f' s'.refs ∧
       holes_unchanged_except f s'.refs t'.refs ∅ ∧
+      holes_still_not_finalised f s'.refs t'.refs ∧
       (∀loc_opt.
          optimised_code loc loc_opt s.code s'.code ⇒
          (∀wrap.
@@ -2716,12 +2965,14 @@ Theorem evaluate_rewrite_tmc:
               state_rel f_wrap t t_wrap ∧
               f SUBMAP f_wrap ∧
               only_fresh f f_wrap s'.refs ∧
-              holes_unchanged_except f s'.refs t_wrap.refs ∅) ∧
+              holes_unchanged_except f s'.refs t_wrap.refs ∅ ∧
+              holes_still_not_finalised f s'.refs t_wrap.refs) ∧
          (opt ⇒
           (∀i j hole_ptr work.
              i = LENGTH env1 ∧
              j = LENGTH env1 + 1 ∧
              (∃c. hole_has_val f env1 env2 s'.refs c) ∧
+             hole_not_finalised s'.refs hole_ptr ∧
              rewrite_worker loc loc_opt i j (LENGTH env1) (HD xs) = work ∧
              env2❲i❳ = RefPtr F hole_ptr ⇒
              ∃r_work f_work t_work.
@@ -2731,10 +2982,11 @@ Theorem evaluate_rewrite_tmc:
                f SUBMAP f_work ∧
                only_fresh f f_work s'.refs ∧
                holes_unchanged_except f s'.refs t_work.refs {hole_ptr} ∧
+               holes_still_not_finalised f s'.refs t_work.refs ∧
                ∀res_v.
                  r = Rval [res_v] ⇒
                  ∃res_v'.
-                   mb_rel f_work (t_work.refs \\ hole_ptr) res_v res_v' ∧
+                   mb_rel f_work s'.refs (t_work.refs \\ hole_ptr) res_v res_v' ∧
                    hole_has_val f env1 env2 t_work.refs res_v')))
 Proof
   ho_match_mp_tac $ MATCH_MP WF_INDUCTION_THM WF_I_I
@@ -2748,7 +3000,9 @@ Proof
   (* -- at this point the indfuction is set up -- *)
   >> Cases_on ‘xs’
   >~ [‘evaluate ([],_,_)’] >-
-   (gvs [evaluate_def] >> first_x_assum $ irule_at Any >> fs [only_fresh_def, holes_unchanged_except_def])
+   (gvs [evaluate_def]
+    >> first_x_assum $ irule_at Any
+    >> fs [only_fresh_def, holes_unchanged_except_def, holes_still_not_finalised_def])
   >> reverse $ Cases_on ‘t'’
   >~ [‘evaluate (x::y::xs,_,_)’] >- suspend "list"
   >> reverse $ Cases_on ‘bvi_to_cb (LENGTH env1) loc h’
@@ -2837,6 +3091,8 @@ Resume evaluate_rewrite_tmc[op_non_opt]:
     >> imp_res_tac evaluate_refs_SUBSET)
   >> conj_asm1_tac
   >- imp_res_tac holes_unchanged_except_trans
+  >> conj_asm1_tac
+  >- imp_res_tac holes_still_not_finalised_trans
   >> rw []
   >- gvs [rewrite_wrapper_def]
   >> gvs [rewrite_worker_def]
@@ -2859,6 +3115,7 @@ Definition hypothesis_def:
               result_rel (LIST_REL (v_rel f'')) (eor_rel f'') r' r'' ∧
               state_rel f'' t' t'' ∧ f' ⊑ f'' ∧ only_fresh f' f'' s'³'.refs ∧
               holes_unchanged_except f' s'³'.refs t''.refs ∅ ∧
+              holes_still_not_finalised f' s'³'.refs t''.refs ∧
               ∀loc_opt.
                 optimised_code loc' loc_opt s''.code s'³'.code ⇒
                 (∀wrap.
@@ -2869,10 +3126,12 @@ Definition hypothesis_def:
                      result_rel (LIST_REL (v_rel f_wrap)) (eor_rel f_wrap) r'
                        r_wrap ∧ state_rel f_wrap t' t_wrap ∧ f' ⊑ f_wrap ∧
                      only_fresh f' f_wrap s'³'.refs ∧
-                     holes_unchanged_except f' s'³'.refs t_wrap.refs ∅) ∧
+                     holes_unchanged_except f' s'³'.refs t_wrap.refs ∅ ∧
+                     holes_still_not_finalised f' s'³'.refs t_wrap.refs) ∧
                 (opt' ⇒
                  ∀hole_ptr.
                    (∃c. hole_has_val f' env1' env2' s'³'.refs c) ∧
+                   hole_not_finalised s'³'.refs hole_ptr ∧
                    env2'❲LENGTH env1'❳ = RefPtr F hole_ptr ⇒
                    ∃r_work f_work t_work.
                      evaluate
@@ -2881,12 +3140,12 @@ Definition hypothesis_def:
                      (r_work,t_work) ∧ opt_res_rel f_work r' r_work ∧
                      state_rel f_work t' t_work ∧ f' ⊑ f_work ∧
                      only_fresh f' f_work s'³'.refs ∧
-                     holes_unchanged_except f' s'³'.refs t_work.refs
-                       {hole_ptr} ∧
+                     holes_unchanged_except f' s'³'.refs t_work.refs {hole_ptr} ∧
+                     holes_still_not_finalised f' s'³'.refs t_work.refs ∧
                      ∀res_v.
                        r' = Rval [res_v] ⇒
                        ∃res_v'.
-                         mb_rel f_work (t_work.refs \\ hole_ptr) res_v res_v' ∧
+                         mb_rel f_work s'³'.refs (t_work.refs \\ hole_ptr) res_v res_v' ∧
                          hole_has_val f' env1' env2' t_work.refs res_v')
 End
 
@@ -2898,7 +3157,7 @@ Definition alloc_hole_has_val_def:
       c_idx = LENGTH left ∧
       backend_common$small_enough_int (&LENGTH left) ∧
       hole_ptr ∉ FRANGE f ∧
-      FLOOKUP refs hole_ptr = SOME (MutBlock tag left c right)
+      FLOOKUP refs hole_ptr = SOME (MutBlock tag F left c right)
 End
 
 Theorem wf_vars_list_rel:
@@ -2965,13 +3224,63 @@ Proof
   >> ‘j ∈ FRANGE f’ by gvs [FRANGE_FLOOKUP]
 QED
 
+Theorem holes_unchanged_except_finalised:
+  ∀f p ptr r1 r2 tag fin1 left child right fin2.
+    holes_unchanged_except f (r1 \\ ptr) r2 EMPTY ∧
+    FLOOKUP r1 ptr = SOME (MutBlock tag fin1 left child right) ∧
+    ptr ∉ FRANGE f ⇒
+    holes_unchanged_except f r1 r2⟨ptr ↦ MutBlock tag fin2 left child right⟩ EMPTY
+Proof
+  rw []
+  >> gvs [holes_unchanged_except_def]
+  >> rw []
+  >> Cases_on ‘ptr = ptr'’
+  >- gvs [DOMSUB_FLOOKUP, FLOOKUP_SIMP]
+  >> gvs [FLOOKUP_SIMP]
+  >> first_x_assum irule
+  >> gvs [DOMSUB_FLOOKUP_NEQ]
+QED
+
+Theorem holes_still_not_finalised_sub:
+  ptr ∉ FDOM refs ∧
+  holes_still_not_finalised f refs refs' ⇒
+  holes_still_not_finalised f refs (refs' \\ ptr)
+Proof
+  rw [holes_still_not_finalised_def]
+  >> first_x_assum drule_all
+  >> strip_tac
+  >> gvs [hole_not_finalised_def]
+  >> Cases_on ‘ptr = ptr'’
+  >- gvs [DOMSUB_FLOOKUP, FDOM_DEF, FLOOKUP_DEF]
+  >> gvs [DOMSUB_FLOOKUP_NEQ]
+QED
+
+Theorem holes_still_not_finalised_non_dom:
+  ∀f refs refs' ptr tag l c r.
+    holes_still_not_finalised f refs refs' ∧
+    ptr ∉ FDOM refs ⇒
+    holes_still_not_finalised f refs refs'⟨ptr ↦ MutBlock tag T l c r⟩
+Proof
+  rw [holes_still_not_finalised_def]
+  >> first_x_assum drule_all
+  >> strip_tac
+  >> gvs [hole_not_finalised_def, FLOOKUP_SIMP]
+  >> IF_CASES_TAC
+  >- gvs [FLOOKUP_DEF]
+  >> gvs []
+QED
+
 Theorem evaluate_finalise_cons:
-  ∀v2 t_refs f s_refs v1.
-    state_ref_rel f s_refs t_refs ∧
-    mb_rel f t_refs v1 v2 ⇒
-    ∃v3.
-      finalise_cons v2 t_refs = SOME v3 ∧
-      v_rel f v1 v3
+  ∀v2 t_refs (f :num |-> num) f' u_refs v1 (s_refs : num |-> v ref).
+    state_ref_rel f' u_refs t_refs ∧
+    mb_rel f' s_refs t_refs v1 v2 ∧
+    holes_still_not_finalised f s_refs t_refs ⇒
+    ∃v3 t_refs'.
+      finalise_cons v2 t_refs = SOME (v3,t_refs') ∧
+      v_rel f' v1 v3 ∧
+      state_ref_rel f' u_refs t_refs' ∧
+      holes_unchanged_except f' t_refs t_refs' EMPTY ∧
+      holes_still_not_finalised f s_refs t_refs'
 Proof
   recInduct finalise_cons_ind
   >> rw []
@@ -2981,40 +3290,37 @@ Proof
      (CASE_TAC
       >-
        (gvs [state_ref_rel_def]
-        >> ‘n ∈ FDOM s_refs’ by gvs [FLOOKUP_DEF]
-        >> Cases_on ‘FLOOKUP s_refs n’
+        >> ‘n ∈ FDOM u_refs’ by gvs [FLOOKUP_DEF]
+        >> Cases_on ‘FLOOKUP u_refs n’
         >- gvs [FLOOKUP_DEF]
         >> first_x_assum drule
         >> strip_tac
         >> gvs [])
-      >> CASE_TAC
-      >> gvs [state_ref_rel_def]
-      >> Cases_on ‘FLOOKUP s_refs n’
+      >> CASE_TAC >> gvs []
+      >> gvs [state_ref_rel_def, holes_unchanged_except_refl]
+      >> Cases_on ‘FLOOKUP u_refs n’
       >- gvs [FLOOKUP_DEF]
       >> last_x_assum drule
       >> strip_tac
       >> gvs [ref_rel_cases, v_rel_cases])
     >> Cases_on ‘FLOOKUP refs ptr’ >> gvs []
     >> Cases_on ‘x’ >> gvs []
-    >> drule_all state_ref_rel_sub
-    >> strip_tac
-    >> CASE_TAC
-    >-
-     (first_x_assum drule_all
-      >> strip_tac
-      >> gvs [])
-    >> irule LIST_REL_APPEND_suff
-    >> gvs []
+    >> imp_res_tac state_ref_rel_sub
+    >> imp_res_tac holes_still_not_finalised_sub
     >> first_x_assum drule_all
-    >> strip_tac >> gvs [v_rel_cases])
+    >> strip_tac >> gvs [] >> irule_at Any LIST_REL_APPEND_suff >> gvs [v_rel_cases]
+    >> irule_at Any state_ref_rel_filled >> gvs []
+    >> irule_at Any holes_unchanged_except_finalised >> gvs []
+    >> irule holes_still_not_finalised_non_dom
+    >> gvs [])
   >~ [‘Number i’] >-
-   (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def])
+   (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def, holes_unchanged_except_def])
   >~ [‘Word64 w’] >-
-   (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def])
+   (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def, holes_unchanged_except_def])
   >~ [‘Block xs ys’] >-
-   (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def])
+   (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def, holes_unchanged_except_def])
   >~ [‘CodePtr p’] >-
-   (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def])
+   (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def, holes_unchanged_except_def])
 QED
 
 Theorem code_rel_cases:
@@ -3066,6 +3372,23 @@ Proof
   >> simp []
 QED
 
+Theorem mb_rel_refs_old_subset:
+  ∀f r2 r3 v1 v2 r1.
+    mb_rel f r2 r3 v1 v2 ∧
+    (FDOM r1) SUBSET (FDOM r2) ⇒
+    mb_rel f r1 r3 v1 v2
+Proof
+  recInduct mb_rel_ind
+  >> rw [mb_rel_def]
+  >-
+   (spose_not_then assume_tac
+    >> gvs [SUBSET_DEF])
+  >> CASE_TAC >- gvs []
+  >> CASE_TAC >> gvs []
+  >> rpt $ first_assum $ irule_at Any
+  >> gvs []
+QED
+
 Theorem evaluate_cb:
   ∀cb loc f opt env env2 ^s s' t r clock.
     evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
@@ -3082,7 +3405,8 @@ Theorem evaluate_cb:
        state_rel f' t t' ∧
        f ⊑ f' ∧
        only_fresh f f' s'.refs ∧
-       holes_unchanged_except f s'.refs t'.refs ∅) ∧
+       holes_unchanged_except f s'.refs t'.refs ∅ ∧
+       holes_still_not_finalised f s'.refs t'.refs) ∧
     ∀loc_opt.
       optimised_code loc loc_opt s.code s'.code ⇒
       (∀tag left child right.
@@ -3093,10 +3417,12 @@ Theorem evaluate_cb:
            state_rel f_wrap t t_wrap ∧
            f SUBMAP f_wrap ∧
            only_fresh f f_wrap s'.refs ∧
-           holes_unchanged_except f s'.refs t_wrap.refs ∅) ∧
+           holes_unchanged_except f s'.refs t_wrap.refs ∅ ∧
+           holes_still_not_finalised f s'.refs t_wrap.refs) ∧
       (∀refs extras ptr idx hole_ptr.
          state_ref_rel f s.refs refs ∧
          (∃c. alloc_hole_has_val f refs extras ptr idx c) ∧
+         (FDOM s'.refs) SUBSET (FDOM refs) ∧
          EL ptr extras = RefPtr F hole_ptr ⇒
          ∃r_aux t_aux f_aux.
            evaluate ([cb_to_bvi_worker_aux (shift_cb (LENGTH extras) cb) loc_opt ptr idx],extras ++ env2,s' with refs := refs) = (r_aux,t_aux) ∧
@@ -3105,16 +3431,18 @@ Theorem evaluate_cb:
            f ⊑ f_aux ∧
            only_fresh f f_aux refs ∧
            holes_unchanged_except f refs t_aux.refs {hole_ptr} ∧
+           holes_still_not_finalised f refs t_aux.refs ∧
            ∀res_v.
              r = Rval [res_v] ⇒
              ∃res_v'.
-               mb_rel f_aux (t_aux.refs \\ hole_ptr) res_v res_v' ∧
+               mb_rel f_aux s'.refs (t_aux.refs \\ hole_ptr) res_v res_v' ∧
                alloc_hole_has_val f t_aux.refs extras ptr idx res_v') ∧
       (opt ⇒
        (∀ptr idx work hole_ptr.
           ptr = LENGTH env ∧
           idx = LENGTH env + 1 ∧
           (∃c. hole_has_val f env env2 s'.refs c) ∧
+          hole_not_finalised s'.refs hole_ptr ∧
           EL ptr env2 = RefPtr F hole_ptr ⇒
           ∃r_work f_work t_work.
             evaluate ([cb_to_bvi_worker cb loc_opt ptr idx], env2, s') = (r_work,t_work) ∧
@@ -3123,184 +3451,192 @@ Theorem evaluate_cb:
             f SUBMAP f_work ∧
             only_fresh f f_work s'.refs ∧
             holes_unchanged_except f s'.refs t_work.refs {hole_ptr} ∧
+            holes_still_not_finalised f s'.refs t_work.refs ∧
             ∀res_v.
               r = Rval [res_v] ⇒
               ∃res_v'.
-                mb_rel f_work (t_work.refs \\ hole_ptr) res_v res_v' ∧
+                mb_rel f_work s'.refs (t_work.refs \\ hole_ptr) res_v res_v' ∧
                 hole_has_val f env env2 t_work.refs res_v'))
 Proof
   reverse $ Induct
   >- (rpt gen_tac
       >> strip_tac
       >> rename [‘RCall ts args’]
-        >> gvs [wf_cb_def, cb_to_bvi_def, evaluate_def, CaseEq "prod"]
-        >> imp_res_tac evaluate_vars_source
-        >> gvs []
-        >> imp_res_tac env_rel_length
-        >> imp_res_tac evaluate_vars_target
-        >> gvs [bvlSemTheory.find_code_def, CaseEq "prod", CaseEq "option"]
-        >> drule code_rel_cases
-        >> ‘code_rel s.code s'.code’ by gvs [state_rel_def]
-        >> disch_then drule
-        >> strip_tac
-        >> ‘s.clock = s'.clock’ by gvs [state_rel_def]
-        >> gvs []
-        >> Cases_on ‘s'.clock < ts + 1’
-        >- (gvs [optimised_code_def]
-            >> conj_tac
-            >-
-             (qexists ‘f’
-              >> gvs [state_rel_def, only_fresh_refl, holes_unchanged_except_refl])
-            >> rw []
-            >-
-             (gvs [cb_to_bvi_worker_aux_def, shift_cb_def, optimise_call_def, evaluate_def, evaluate_APPEND, evaluate_shift_vars]
-              >> gvs [alloc_hole_has_val_def, do_app_def, do_app_aux_def]
-              >> gvs [bvlSemTheory.find_code_def, EL_APPEND_EQN]
-              >> qexists ‘f’
-              >> gvs [state_rel_def, only_fresh_refl, holes_unchanged_except_refl, opt_res_rel_def])
-            >> gvs [cb_to_bvi_worker_def, optimise_call_def, evaluate_def, evaluate_APPEND]
-            >> imp_res_tac env_rel_length_opt
+      >> gvs [wf_cb_def, cb_to_bvi_def, evaluate_def, CaseEq "prod"]
+      >> imp_res_tac evaluate_vars_source
+      >> gvs []
+      >> imp_res_tac env_rel_length
+      >> imp_res_tac evaluate_vars_target
+      >> gvs [bvlSemTheory.find_code_def, CaseEq "prod", CaseEq "option"]
+      >> drule code_rel_cases
+      >> ‘code_rel s.code s'.code’ by gvs [state_rel_def]
+      >> disch_then drule
+      >> strip_tac
+      >> ‘s.clock = s'.clock’ by gvs [state_rel_def]
+      >> gvs []
+      >> Cases_on ‘s'.clock < ts + 1’
+      >- (gvs [optimised_code_def]
+          >> conj_tac
+          >-
+           (qexists ‘f’
+            >> gvs [state_rel_def, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl])
+          >> rw []
+          >-
+           (gvs [cb_to_bvi_worker_aux_def, shift_cb_def, optimise_call_def, evaluate_def, evaluate_APPEND, evaluate_shift_vars]
+            >> gvs [alloc_hole_has_val_def, do_app_def, do_app_aux_def]
             >> gvs [bvlSemTheory.find_code_def, EL_APPEND_EQN]
             >> qexists ‘f’
-            >> gvs [state_rel_def, only_fresh_refl, holes_unchanged_except_refl, opt_res_rel_def])
-        >- (gvs [CaseEq "prod"]
-            >> qmatch_asmsub_rename_tac ‘evaluate ([exp],_,_) = (res,res_s)’
-            >> ‘(res,res_s) = (r,t)’ by gvs [CaseEq "result", CaseEq "error_result", CaseEq "exn_or_ret"]
-            >> rw []
-            (* Untransformed *)
-            >- (gvs [hypothesis_def]
-                 >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ts + 1) s’] mp_tac
-                 >> impl_tac >- gvs [dec_clock_def]
-                 >> imp_res_tac wf_vars_env_rel
-                 >> simp []
-                 >> rpt $ disch_then drule
-                 >> ‘state_rel f (dec_clock (ts + 1) s) (dec_clock (ts + 1) s')’ by
-                   (irule state_rel_dec
-                    >> Cases_on ‘s'.clock’
-                    >- gvs []
-                    >> gvs [])
-                 >> disch_then drule
-                 >> gvs [GSYM PULL_FORALL]
-                 >> disch_then $ qspec_then ‘loc’ mp_tac
-                 >> strip_tac
-                 >> rename [‘state_rel _ t _’]
-                 >> Cases_on ‘exp = body2’
-                 >- (gvs []
-                     >> rename [‘state_rel f' _ t'’]
-                     >> rename [‘result_rel _ _ _ r'’]
-                     >> qexistsl [‘r'’, ‘t'’, ‘f'’]
-                     >> conj_tac
-                     >-
-                      (gvs []
-                       >> Cases_on ‘r’ >> gvs []
-                       >> every_case_tac >> gvs [])
-                     >> rpt $ first_assum $ irule_at Any)
-                 >- (gvs []
-                     >> first_x_assum drule
-                     >> disch_then drule
-                     >> strip_tac
-                     >> gvs []
-                     >> qexistsl [‘r_wrap’, ‘t_wrap’, ‘f_wrap’]
-                     >> conj_tac
-                     >-
-                      (gvs []
-                       >> Cases_on ‘r’ >> gvs []
-                       >> every_case_tac >> gvs [])
-                     >> rpt $ first_assum $ irule_at Any))
-            (* Aux *)
-            >- (qpat_x_assum ‘_ ≠ _ ⇒ _’ kall_tac
-                >> rename [‘optimised_code _ loc_opt _ _’]
-                >> gvs [shift_cb_def, cb_to_bvi_worker_def, cb_to_bvi_worker_aux_def, optimise_call_def, evaluate_def, evaluate_APPEND, evaluate_shift_vars]
-                >> gvs [alloc_hole_has_val_def, do_app_def, do_app_aux_def]
-                >> gvs [bvlSemTheory.find_code_def, EL_APPEND_EQN]
-                >> gvs [hypothesis_def]
-                >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ts + 1) s’] mp_tac
-                >> impl_tac >- gvs [dec_clock_def]
-                >> disch_then drule
-                >> drule_then drule wf_vars_env_rel_opt
-                >> disch_then $ qspecl_then [‘hole_ptr’, ‘&LENGTH left’] mp_tac
-                >> impl_tac >- gvs []
-                >> strip_tac
-                >> disch_then drule
-                >> disch_then $ qspecl_then [‘dec_clock (ts + 1) (s' with refs := refs)’, ‘loc’] mp_tac
-                >> impl_tac
-                >- gvs [state_rel_def, dec_clock_def]
-                >> gvs [GSYM PULL_FORALL]
-                >> strip_tac
-                >> rename [‘state_rel f' t t'’, ‘result_rel _ _ _ r'’]
-                >> CASE_TAC
-                >- gvs [optimised_code_def]
-                >> gvs []
-                >> first_x_assum drule
-                >> strip_tac
-                >> gvs [optimised_code_def]
-                >> pop_assum $ qspec_then ‘hole_ptr’ mp_tac
-                >> impl_tac
-                >-
-                 (gvs [hole_has_val_def]
-                  >> gvs [EL_APPEND_EQN, LENGTH_MAP])
-                >> strip_tac
-                >> gvs []
-                >> qexistsl [‘r_work’, ‘t_work’, ‘f_work’]
-                >> conj_tac
-                >- (Cases_on ‘r’ >> gvs []
-                     >> every_case_tac >> gvs [opt_res_rel_def])
-                >> conj_tac
-                >- (gvs [opt_res_rel_def])
-                >- (gvs []
-                    >> rw []
-                    >> gvs []
-                    >> first_assum $ irule_at Any
-                    >> gvs [hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP]))
-            (* Work *)
-            >- (qpat_x_assum ‘_ ≠ _ ⇒ _’ kall_tac
-                >> rename [‘optimised_code _ loc_opt _ _’]
-                >> gvs [cb_to_bvi_worker_def, evaluate_def]
-                >> gvs [optimise_call_def, evaluate_def, evaluate_APPEND]
-                >> imp_res_tac env_rel_length_opt
-                >> gvs [bvlSemTheory.find_code_def, EL_APPEND_EQN]
-                >> gvs [hypothesis_def]
-                >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ts + 1) s’] mp_tac
-                >> impl_tac >- gvs [dec_clock_def]
-                >> disch_then drule
-                >> drule_then drule wf_vars_env_rel_opt
-                >> imp_res_tac env_rel_strip_extras
-                >> imp_res_tac env_rel_length_opt
-                >> ‘hole_ptr = hole_ptr'’ by gvs [EL_APPEND_EQN]
-                >> disch_then $ qspecl_then [‘hole_ptr’, ‘hole_idx’] mp_tac
-                >> impl_tac >- gvs []
-                >> strip_tac
-                >> disch_then drule
-                >> disch_then $ qspecl_then [‘dec_clock (ts + 1) s'’, ‘loc’] mp_tac
-                >> impl_tac
-                >-
-                 (gvs []
-                  >> gvs [state_rel_def, dec_clock_def])
-                >> gvs [GSYM PULL_FORALL]
-                >> strip_tac
-                >> rename [‘state_rel f' t t'’, ‘result_rel _ _ _ r'’]
-                >> first_x_assum drule
-                >> gvs []
-                >> strip_tac
-                >> pop_assum $ qspec_then ‘hole_ptr’ mp_tac
-                >> impl_tac
-                >-
-                 (gvs [hole_has_val_def]
-                  >> gvs [EL_APPEND_EQN, LENGTH_MAP])
-                >> strip_tac
-                >> gvs []
-                >> qexistsl [‘r_work’, ‘f_work’, ‘t_work’]
-                >> ‘(env2' ++ [RefPtr F hole_ptr; Number hole_idx])❲LENGTH env❳ = RefPtr F hole_ptr’ by gvs [EL_APPEND_EQN]
-                >> ‘(env2' ++ [RefPtr F hole_ptr; Number hole_idx])❲LENGTH env + 1❳ = Number hole_idx’ by gvs [EL_APPEND_EQN]
-                >> gvs [optimised_code_def]
-                >> conj_tac
-                >-
-                 (Cases_on ‘r’ >> gvs []
+            >> gvs [state_rel_def, only_fresh_refl, holes_unchanged_except_refl, opt_res_rel_def, holes_still_not_finalised_def])
+          >> gvs [cb_to_bvi_worker_def, optimise_call_def, evaluate_def, evaluate_APPEND]
+          >> imp_res_tac env_rel_length_opt
+          >> gvs [bvlSemTheory.find_code_def, EL_APPEND_EQN]
+          >> qexists ‘f’
+          >> gvs [state_rel_def, only_fresh_refl, holes_unchanged_except_refl, opt_res_rel_def, holes_still_not_finalised_refl])
+      >- (gvs [CaseEq "prod"]
+          >> qmatch_asmsub_rename_tac ‘evaluate ([exp],_,_) = (res,res_s)’
+          >> ‘(res,res_s) = (r,t)’ by gvs [CaseEq "result", CaseEq "error_result", CaseEq "exn_or_ret"]
+          >> rw []
+          (* Untransformed *)
+          >- (gvs [hypothesis_def]
+              >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ts + 1) s’] mp_tac
+              >> impl_tac >- gvs [dec_clock_def]
+              >> imp_res_tac wf_vars_env_rel
+              >> simp []
+              >> rpt $ disch_then drule
+              >> ‘state_rel f (dec_clock (ts + 1) s) (dec_clock (ts + 1) s')’ by
+                (irule state_rel_dec
+                 >> Cases_on ‘s'.clock’
+                 >- gvs []
+                 >> gvs [])
+              >> disch_then drule
+              >> gvs [GSYM PULL_FORALL]
+              >> disch_then $ qspec_then ‘loc’ mp_tac
+              >> strip_tac
+              >> rename [‘state_rel _ t _’]
+              >> Cases_on ‘exp = body2’
+              >- (gvs []
+                  >> rename [‘state_rel f' _ t'’]
+                  >> rename [‘result_rel _ _ _ r'’]
+                  >> qexistsl [‘r'’, ‘t'’, ‘f'’]
+                  >> conj_tac
+                  >-
+                   (gvs []
+                    >> Cases_on ‘r’ >> gvs []
+                    >> every_case_tac >> gvs [])
+                  >> rpt $ first_assum $ irule_at Any)
+              >- (gvs []
+                  >> first_x_assum drule
+                  >> disch_then drule
+                  >> strip_tac
+                  >> gvs []
+                  >> qexistsl [‘r_wrap’, ‘t_wrap’, ‘f_wrap’]
+                  >> conj_tac
+                  >-
+                   (gvs []
+                    >> Cases_on ‘r’ >> gvs []
+                    >> every_case_tac >> gvs [])
+                  >> rpt $ first_assum $ irule_at Any))
+          (* Aux *)
+          >- (qpat_x_assum ‘_ ≠ _ ⇒ _’ kall_tac
+              >> rename [‘optimised_code _ loc_opt _ _’]
+              >> gvs [shift_cb_def, cb_to_bvi_worker_def, cb_to_bvi_worker_aux_def, optimise_call_def, evaluate_def, evaluate_APPEND, evaluate_shift_vars]
+              >> gvs [alloc_hole_has_val_def, do_app_def, do_app_aux_def]
+              >> gvs [bvlSemTheory.find_code_def, EL_APPEND_EQN]
+              >> gvs [hypothesis_def]
+              >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ts + 1) s’] mp_tac
+              >> impl_tac >- gvs [dec_clock_def]
+              >> disch_then drule
+              >> drule_then drule wf_vars_env_rel_opt
+              >> disch_then $ qspecl_then [‘hole_ptr’, ‘&LENGTH left’] mp_tac
+              >> impl_tac >- gvs []
+              >> strip_tac
+              >> disch_then drule
+              >> disch_then $ qspecl_then [‘dec_clock (ts + 1) (s' with refs := refs)’, ‘loc’] mp_tac
+              >> impl_tac
+              >- gvs [state_rel_def, dec_clock_def]
+              >> gvs [GSYM PULL_FORALL]
+              >> strip_tac
+              >> rename [‘state_rel f' t t'’, ‘result_rel _ _ _ r'’]
+              >> CASE_TAC
+              >- gvs [optimised_code_def]
+              >> gvs []
+              >> first_x_assum drule
+              >> strip_tac
+              >> gvs [optimised_code_def]
+              >> pop_assum $ qspec_then ‘hole_ptr’ mp_tac
+              >> impl_tac
+              >-
+               (gvs [hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP]
+                >> imp_res_tac holes_still_not_finalised_def
+                >> gvs [hole_not_finalised_def])
+              >> strip_tac
+              >> gvs []
+              >> qexistsl [‘r_work’, ‘t_work’, ‘f_work’]
+              >> conj_tac
+              >- (Cases_on ‘r’ >> gvs []
                   >> every_case_tac >> gvs [opt_res_rel_def])
-                >> rw []
-                >> gvs []
-                >> first_assum $ irule_at Any
-                >> gvs [hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP])))
+              >> conj_tac
+              >- (gvs [opt_res_rel_def])
+              >- (gvs []
+                  >> rw []
+                  >> irule_at Any mb_rel_refs_old_subset
+                  >> first_assum $ irule_at $ Pos hd
+                  >> gvs [hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP, holes_still_not_finalised_def]
+                  >> first_x_assum drule
+                  >> impl_tac
+                  >- gvs [hole_not_finalised_def]
+                  >> strip_tac
+                  >> gvs [hole_not_finalised_def]))
+          (* Work *)
+          >- (qpat_x_assum ‘_ ≠ _ ⇒ _’ kall_tac
+              >> rename [‘optimised_code _ loc_opt _ _’]
+              >> gvs [cb_to_bvi_worker_def, evaluate_def]
+              >> gvs [optimise_call_def, evaluate_def, evaluate_APPEND]
+              >> imp_res_tac env_rel_length_opt
+              >> gvs [bvlSemTheory.find_code_def, EL_APPEND_EQN]
+              >> gvs [hypothesis_def]
+              >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ts + 1) s’] mp_tac
+              >> impl_tac >- gvs [dec_clock_def]
+              >> disch_then drule
+              >> drule_then drule wf_vars_env_rel_opt
+              >> imp_res_tac env_rel_strip_extras
+              >> imp_res_tac env_rel_length_opt
+              >> ‘hole_ptr = hole_ptr'’ by gvs [EL_APPEND_EQN]
+              >> disch_then $ qspecl_then [‘hole_ptr’, ‘hole_idx’] mp_tac
+              >> impl_tac >- gvs []
+              >> strip_tac
+              >> disch_then drule
+              >> disch_then $ qspecl_then [‘dec_clock (ts + 1) s'’, ‘loc’] mp_tac
+              >> impl_tac
+              >-
+               (gvs []
+                >> gvs [state_rel_def, dec_clock_def])
+              >> gvs [GSYM PULL_FORALL]
+              >> strip_tac
+              >> rename [‘state_rel f' t t'’, ‘result_rel _ _ _ r'’]
+              >> first_x_assum drule
+              >> gvs []
+              >> strip_tac
+              >> pop_assum $ qspec_then ‘hole_ptr’ mp_tac
+              >> impl_tac
+              >-
+               (gvs [hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP]
+                >> imp_res_tac holes_still_not_finalised_def
+                >> gvs [hole_not_finalised_def])
+              >> strip_tac
+              >> gvs []
+              >> qexistsl [‘r_work’, ‘f_work’, ‘t_work’]
+              >> ‘(env2' ++ [RefPtr F hole_ptr; Number hole_idx])❲LENGTH env❳ = RefPtr F hole_ptr’ by gvs [EL_APPEND_EQN]
+              >> ‘(env2' ++ [RefPtr F hole_ptr; Number hole_idx])❲LENGTH env + 1❳ = Number hole_idx’ by gvs [EL_APPEND_EQN]
+              >> gvs [optimised_code_def]
+              >> conj_tac
+              >-
+               (Cases_on ‘r’ >> gvs []
+                >> every_case_tac >> gvs [opt_res_rel_def])
+              >> rw []
+              >> gvs []
+              >> first_assum $ irule_at Any
+              >> gvs [hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP])))
   >- (rpt gen_tac
       >> strip_tac
       >> rename [‘CallBlock tag left child right’]
@@ -3353,7 +3689,7 @@ Proof
         >> gvs [EL_APPEND_EQN, LENGTH_MAP, LENGTH_REVERSE]
         >> first_x_assum $ qspecl_then [‘s'.refs⟨
                                          (LEAST ptr. ptr ∉ FDOM s'.refs) ↦
-                                         MutBlock tag (MAP (λn. env2❲n❳) (REVERSE right)) (Number 0) (MAP (λn. env2❲n❳) (REVERSE left))⟩’,
+                                         MutBlock tag F (MAP (λn. env2❲n❳) (REVERSE right)) (Number 0) (MAP (λn. env2❲n❳) (REVERSE left))⟩’,
                                         ‘[RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)]’, ‘0’, ‘LENGTH right’] mp_tac
         >> disch_then $ qspec_then ‘LEAST ptr. ptr ∉ FDOM s'.refs’ mp_tac
         >> impl_tac
@@ -3363,8 +3699,11 @@ Proof
            (irule state_ref_rel_filled
             >> gvs [state_rel_def]
             >> imp_res_tac fresh_not_in_range_f)
-          >> gvs [alloc_hole_has_val_def, FLOOKUP_SIMP, backend_commonTheory.small_enough_int_def, state_rel_def]
-          >> imp_res_tac fresh_not_in_range_f)
+          >> conj_tac
+          >-
+           (gvs [alloc_hole_has_val_def, FLOOKUP_SIMP, backend_commonTheory.small_enough_int_def, state_rel_def]
+            >> imp_res_tac fresh_not_in_range_f)
+          >> gvs [SUBSET_INSERT_RIGHT])
         >> strip_tac
         >> gvs []
         >> imp_res_tac evaluate_SING_IMP
@@ -3383,9 +3722,12 @@ Proof
             >> irule fresh_not_in_range_f
             >> gvs [state_rel_def]
             >> first_assum $ irule_at Any)
-          >> irule holes_unchanged_except_del_SING
-          >> first_assum $ irule_at $ Pos $ el 2
-          >> irule_at Any fresh_ptr_fresh)
+          >> conj_tac
+          >-
+           (irule holes_unchanged_except_del_SING
+            >> first_assum $ irule_at $ Pos $ el 2
+            >> irule_at Any fresh_ptr_fresh)
+          >> imp_res_tac holes_still_not_finalised_del)
         >> reverse CASE_TAC >- gvs [opt_res_rel_def]
         >> gvs []
         >> imp_res_tac evaluate_SING_IMP
@@ -3397,33 +3739,53 @@ Proof
         >> drule mb_rel_cons
         >> rpt $ disch_then $ drule_at Any
         >> disch_then $ qspecl_then [‘MAP (λn. env❲n❳) (REVERSE right)’, ‘MAP (λn. env❲n❳) (REVERSE left)’] mp_tac
+        >> qpat_x_assum ‘LENGTH _ = LENGTH _’ kall_tac
         >> impl_tac
         >-
          (gvs [holes_unchanged_except_def, FLOOKUP_SIMP]
+          >> first_x_assum drule
+          >> gvs []
+          >> strip_tac
+          >> gvs []
           >> drule_all env_rel_submap
           >> strip_tac
           >> imp_res_tac wf_vars_list_rel
           >> gvs [MAP_REVERSE]
-          >> irule non_fresh_not_in_frange
+          >> irule_at Any non_fresh_not_in_frange
           >> rpt $ first_assum $ irule_at Any
-          >> gvs [FDOM_DEF])
+          >> gvs [FDOM_DEF]
+          >> qspec_then ‘s'.refs’ assume_tac fresh_ptr_fresh
+          >> gvs [])
         >> strip_tac
         >> rename [‘state_rel _ u t_aux’]
         >> ‘state_ref_rel f_aux u.refs t_aux.refs’ by gvs [state_rel_def]
-        >> drule_all evaluate_finalise_cons
+        >> drule evaluate_finalise_cons
+        >> disch_then drule
+        >> drule_then assume_tac holes_still_not_finalised_del
+        >> disch_then drule
         >> strip_tac
         >> gvs []
         >> qexists ‘f_aux’
         >> gvs [bvl_to_bvi_id]
         >> conj_tac
-        >- gvs [holes_unchanged_except_def, FLOOKUP_SIMP, REVERSE_APPEND, GSYM MAP_REVERSE, rw_block_args]
+        >-
+         (gvs [holes_unchanged_except_def, FLOOKUP_SIMP, REVERSE_APPEND, GSYM MAP_REVERSE, rw_block_args]
+          >> first_x_assum drule
+          >> gvs []
+          >> strip_tac
+          >> gvs [])
         >> conj_tac
+        >- gvs [state_rel_def]
+        >> conj_asm1_tac
         >-
          (irule only_fresh_del
           >> first_assum $ irule_at $ Pos $ el 2
           >> irule fresh_not_in_range_f
           >> gvs [state_rel_def]
           >> first_assum $ irule_at Any)
+        >> irule holes_unchanged_except_trans
+        >> first_x_assum $ irule_at $ Pos last
+        >> gvs []
         >> irule holes_unchanged_except_del_SING
         >> first_assum $ irule_at $ Pos $ el 2
         >> irule_at Any fresh_ptr_fresh)
@@ -3456,8 +3818,8 @@ Proof
           >> gvs [FDOM_DEF, FLOOKUP_DEF])
         >> gvs []
         >> first_x_assum $ qspecl_then [‘refs⟨
-                                         hole_ptr ↦ MutBlock tag' left' (RefPtr F (LEAST ptr. ptr ∉ FDOM refs)) right';
-                                         (LEAST ptr. ptr ∉ FDOM refs) ↦ MutBlock tag
+                                         hole_ptr ↦ MutBlock tag' F left' (RefPtr F (LEAST ptr. ptr ∉ FDOM refs)) right';
+                                         (LEAST ptr. ptr ∉ FDOM refs) ↦ MutBlock tag F
                                                                       (MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))
                                                                       (Number 0)
                                                                       (MAP (λn. env2❲n❳) (REVERSE left))⟩’,
@@ -3483,30 +3845,36 @@ Proof
               >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
               >> gvs [FLOOKUP_DEF])
             >> gvs [])
-          >> qexistsl [‘Number 0’, ‘tag’, ‘(MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))’, ‘(MAP (λn. env2❲n❳) (REVERSE left))’]
-          >> gvs [LENGTH_MAP, backend_commonTheory.small_enough_int_def]
           >> conj_tac
-          >- imp_res_tac fresh_not_in_range_f
-          >> gvs [FLOOKUP_SIMP])
+          >-
+           (qexistsl [‘Number 0’, ‘tag’, ‘(MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))’, ‘(MAP (λn. env2❲n❳) (REVERSE left))’]
+            >> gvs [LENGTH_MAP, backend_commonTheory.small_enough_int_def]
+            >> conj_tac
+            >- imp_res_tac fresh_not_in_range_f
+            >> gvs [FLOOKUP_SIMP])
+          >> gvs [SUBSET_INSERT_RIGHT])
         >> strip_tac
         >> reverse $ Cases_on ‘r’
         >-
          (gvs [shift_cb_dist, shift_cb_suc]
           >> rpt $ first_assum $ irule_at Any
-        >> conj_tac
-        >-
-         (irule only_fresh_del
-          >> irule_at Any only_fresh_del
-          >> first_assum $ irule_at $ Pos hd
-          >> imp_res_tac fresh_not_in_range_f
-          >> gvs [])
-          >> irule holes_unchanged_except_changed
-          >> first_assum $ irule_at Any
-          >> irule_at Any holes_unchanged_except_del_SING
-          >> gvs [flookup_com_neq]
-          >> first_assum $ irule_at Any
-          >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
-          >> gvs [])
+          >> conj_tac
+          >-
+           (irule only_fresh_del
+            >> irule_at Any only_fresh_del
+            >> first_assum $ irule_at $ Pos hd
+            >> imp_res_tac fresh_not_in_range_f
+            >> gvs [])
+          >> conj_tac
+          >-
+           (irule holes_unchanged_except_changed
+            >> first_assum $ irule_at Any
+            >> irule_at Any holes_unchanged_except_del_SING
+            >> gvs [flookup_com_neq]
+            >> first_assum $ irule_at Any
+            >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
+            >> gvs [])
+          >> rpt $ imp_res_tac holes_still_not_finalised_del)
         >> gvs []
         >> qexistsl [‘r_aux’, ‘t_aux’, ‘f_aux’]
         >> conj_tac
@@ -3535,6 +3903,8 @@ Proof
           >> first_assum $ irule_at Any
           >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
           >> gvs [])
+        >> conj_tac
+        >- rpt $ imp_res_tac holes_still_not_finalised_del
         >> imp_res_tac evaluate_SING_IMP
         >> gvs [rw_block_args]
         >> irule_at Any mb_rel_cons
@@ -3546,9 +3916,20 @@ Proof
           >-
            (gvs [DOMSUB_FLOOKUP_THM]
             >> gvs [holes_unchanged_except_def]
-            >> first_x_assum irule
+            >> first_x_assum rev_drule
+            >> gvs [FLOOKUP_SIMP]
+            >> strip_tac
+            >> gvs [FLOOKUP_SIMP]
+            >> gvs [holes_still_not_finalised_def, hole_not_finalised_def]
+            >> first_x_assum rev_drule
             >> gvs [FLOOKUP_SIMP])
           >> gvs []
+          >> conj_tac
+          >-
+           (spose_not_then assume_tac
+            >> imp_res_tac SUBSET_DEF
+            >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
+            >> gvs [])
           >> irule non_fresh_not_in_frange
           >> rpt $ first_assum $ irule_at Any
           >> gvs [FLOOKUP_SIMP])
@@ -3556,15 +3937,27 @@ Proof
         >> gvs [DOMSUB_COMMUTES]
         >> pop_assum $ irule_at Any
         >> gvs [DOMSUB_FLOOKUP_THM, holes_unchanged_except_def, FLOOKUP_SIMP]
-        >> first_assum $ irule_at $ Pos last
+        >> first_assum drule
+        >> first_x_assum rev_drule
+        >> gvs []
+        >> rpt strip_tac
+        >> gvs []
         >> drule_all env_rel_submap
         >> strip_tac
         >> gvs []
         >> imp_res_tac wf_vars_list_rel
         >> ‘TAKE (LENGTH left'') (REVERSE right) = REVERSE right’ by gvs [LENGTH_REVERSE, TAKE_LENGTH_ID]
+        >> qpat_x_assum ‘LENGTH _ = LENGTH _’ kall_tac
         >> gvs [MAP_REVERSE]
-        >> irule non_fresh_not_in_frange
+        >> irule_at Any non_fresh_not_in_frange
         >> rpt $ first_assum $ irule_at Any
+        >> gvs [holes_still_not_finalised_def, hole_not_finalised_def]
+        >> first_x_assum rev_drule
+        >> gvs [FLOOKUP_SIMP]
+        >> strip_tac
+        >> spose_not_then assume_tac
+        >> imp_res_tac SUBSET_DEF
+        >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
         >> gvs [])
       (* Work *)
       >> first_x_assum drule
@@ -3598,8 +3991,8 @@ Proof
       >> ‘TAKE (LENGTH right) (REVERSE right) = REVERSE right’ by gvs [LENGTH_REVERSE, TAKE_LENGTH_ID]
       >> simp []
       >> first_x_assum $ qspecl_then [‘s'.refs⟨
-                                       hole_ptr ↦ MutBlock tag' left' (RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)) right';
-                                       (LEAST ptr. ptr ∉ FDOM s'.refs) ↦ MutBlock tag
+                                       hole_ptr ↦ MutBlock tag' F left' (RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)) right';
+                                       (LEAST ptr. ptr ∉ FDOM s'.refs) ↦ MutBlock tag F
                                                                        (MAP (λn. (env2' ++ [RefPtr F hole_ptr; Number (&LENGTH left')])❲n❳) (REVERSE right))
                                                                        (MAP (λn. (env2' ++ [RefPtr F hole_ptr; Number (&LENGTH left')])❲n❳) (REVERSE right) ++
                                                                         Number 0::MAP (λn. (env2' ++ [RefPtr F hole_ptr; Number (&LENGTH left')])❲n❳) (REVERSE left))❲LENGTH right❳
@@ -3627,10 +4020,15 @@ Proof
           >> gvs [])
         >> gvs [alloc_hole_has_val_def, backend_commonTheory.small_enough_int_def]
         >> gvs [FLOOKUP_SIMP, LENGTH_MAP]
-        >> irule fresh_not_in_range_f
-        >> qexists ‘s.refs’
-        >> gvs [state_rel_def])
+        >> conj_tac
+        >-
+         (irule fresh_not_in_range_f
+          >> qexists ‘s.refs’
+          >> gvs [state_rel_def])
+        >> gvs [SUBSET_INSERT_RIGHT])
       >> strip_tac
+      >> gvs []
+      >> ‘¬finalised’ by gvs [hole_not_finalised_def]
       >> gvs []
       >> reverse $ Cases_on ‘r’
       >-
@@ -3643,13 +4041,16 @@ Proof
           >> first_assum $ irule_at $ Pos hd
           >> gvs [state_rel_def]
           >> imp_res_tac fresh_not_in_range_f)
-        >> irule holes_unchanged_except_changed
-        >> first_assum $ irule_at Any
-        >> irule_at Any holes_unchanged_except_del_SING
-        >> gvs [flookup_com_neq]
-        >> first_assum $ irule_at Any
-        >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
-        >> gvs [])
+        >> conj_tac
+        >-
+         (irule holes_unchanged_except_changed
+          >> first_assum $ irule_at Any
+          >> irule_at Any holes_unchanged_except_del_SING
+          >> gvs [flookup_com_neq]
+          >> first_assum $ irule_at Any
+          >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
+          >> gvs [])
+        >> ntac 2 $ imp_res_tac holes_still_not_finalised_del)
       >> qexists ‘f_aux’
       >> imp_res_tac evaluate_SING_IMP
       >> gvs []
@@ -3673,42 +4074,55 @@ Proof
         >> first_assum $ irule_at Any
         >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
         >> gvs [])
+      >> conj_tac
+      >- ntac 2 $ imp_res_tac holes_still_not_finalised_del
       >> imp_res_tac evaluate_SING_IMP
-      >> gvs []
       >> gvs [alloc_hole_has_val_def]
       >> qexists ‘RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)’
+      >> qpat_x_assum ‘holes_unchanged_except _ _ _ _’ mp_tac
+      >> simp [holes_unchanged_except_def]
+      >> strip_tac
+      >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
+      >> last_assum drule
+      >> last_x_assum rev_drule
+      >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
+      >> strip_tac
+      >> strip_tac
+      >> qpat_x_assum ‘LENGTH _ = LENGTH _’ kall_tac
+      >> gvs []
+      >> gvs [rw_block_args]
+      >> irule mb_rel_cons
       >> conj_tac
       >-
-       (gvs [rw_block_args]
-        >> irule mb_rel_cons
-        >> conj_tac
+       (qspec_then ‘s'.refs’ assume_tac fresh_ptr_fresh
+        >> gvs [])
+      >> conj_tac
+      >-
+       (irule non_fresh_not_in_frange
+        >> first_assum $ irule_at $ Pos last
+        >> gvs [FLOOKUP_SIMP, FDOM_DEF])
+      >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF, DOMSUB_FLOOKUP_THM]
+      >> imp_res_tac env_rel_submap
+      >> imp_res_tac wf_vars_list_rel
+      >> gvs [MAP_REVERSE]
+      >> drule mb_rel_del
+      >> disch_then $ qspecl_then [‘hole_ptr’, ‘tag'’, ‘left'’, ‘LEAST ptr. ptr ∉ FDOM s'.refs’, ‘right'’] mp_tac
+      >> impl_tac
+      >-
+       (conj_tac
         >-
-         (irule non_fresh_not_in_frange
-          >> rpt $ first_assum $ irule_at Any
-          >> gvs [FLOOKUP_SIMP, FDOM_DEF])
-        >> gvs [FLOOKUP_SIMP, DOMSUB_FLOOKUP_THM, holes_unchanged_except_def]
-        >> imp_res_tac env_rel_submap
-        >> imp_res_tac wf_vars_list_rel
-        >> gvs [MAP_REVERSE]
-        >> drule mb_rel_del
-        >> disch_then $ qspecl_then [‘hole_ptr’, ‘tag'’, ‘left'’, ‘LEAST ptr. ptr ∉ FDOM s'.refs’, ‘right'’] mp_tac
-        >> impl_tac
-        >-
-         (conj_tac
-          >-
-           (gvs [DOMSUB_FLOOKUP_THM]
-            >> gvs [holes_unchanged_except_def]
-            >> first_x_assum irule
-            >> gvs [FLOOKUP_SIMP])
-          >> gvs []
-          >> irule non_fresh_not_in_frange
-          >> rpt $ first_assum $ irule_at Any
-          >> gvs [FLOOKUP_SIMP])
-        >> strip_tac
-        >> gvs [DOMSUB_COMMUTES])
-      >> gvs [holes_unchanged_except_def, backend_commonTheory.small_enough_int_def]
-      >> first_x_assum $ irule_at Any
-      >> gvs [FLOOKUP_SIMP])
+         (gvs [DOMSUB_FLOOKUP_THM, FLOOKUP_SIMP, FLOOKUP_DEF]
+          >> ntac 2 $ imp_res_tac holes_still_not_finalised_del
+          >> gvs [holes_still_not_finalised_def]
+          >> pop_assum drule_all
+          >> strip_tac
+          >> gvs [hole_not_finalised_def, FLOOKUP_DEF])
+        >> gvs []
+        >> irule non_fresh_not_in_frange
+        >> first_assum $ irule_at $ Pos last
+        >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF])
+      >> strip_tac
+      >> gvs [DOMSUB_COMMUTES])
 QED
 
 Theorem evaluate_pres_opt_code:
@@ -3739,27 +4153,40 @@ Proof
   >> gvs []
 QED
 
-Theorem bvi_to_cb_aux_no_mutcons:
-  ∀n loc tag args cb bs.
-    bvi_to_cb_aux n loc tag args = SOME (bs,cb) ∧
-    no_mutcons (Op (BlockOp (Cons tag)) args) ⇒
-    EVERY (λx. no_mutcons x) bs
+Theorem bvi_to_cb_aux_no_mutcons_lemma[local]:
+  (∀n loc tag exp cb bs.
+     bvi_to_cb_aux_sing n loc tag exp = SOME (bs,cb) ∧
+     no_mutcons (Op (BlockOp (Cons tag)) [exp]) ⇒
+     EVERY (λx. no_mutcons x) bs) ∧
+  (∀n loc tag args cb bs.
+     bvi_to_cb_aux n loc tag args = SOME (bs,cb) ∧
+     no_mutcons (Op (BlockOp (Cons tag)) args) ⇒
+     EVERY (λx. no_mutcons x) bs)
 Proof
-  recInduct bvi_to_cb_aux_ind
+  ho_match_mp_tac bvi_to_cb_aux_ind
   >> rw []
-  >- gvs [bvi_to_cb_aux_def]
+  (* Call *)
   >- gvs [bvi_to_cb_aux_def, call_to_cb_def, AllCaseEqs ()]
+  (* Op *)
   >-
    (Cases_on ‘op’ >> gvs [bvi_to_cb_aux_def, dest_Cons_def, AllCaseEqs ()]
     >> Cases_on ‘b’ >> gvs [bvi_to_cb_aux_def, dest_Cons_def, AllCaseEqs ()])
+  (* remaining single expressions, [] and [exp] *)
   >- gvs [bvi_to_cb_aux_def]
   >- gvs [bvi_to_cb_aux_def]
   >- gvs [bvi_to_cb_aux_def]
   >- gvs [bvi_to_cb_aux_def]
   >- gvs [bvi_to_cb_aux_def]
   >- gvs [bvi_to_cb_aux_def]
+  >- gvs [bvi_to_cb_aux_def]
+  >- gvs [bvi_to_cb_aux_def]
+  >- gvs [bvi_to_cb_aux_def]
+  >- gvs [bvi_to_cb_aux_def]
+  (* cons *)
   >> gvs [bvi_to_cb_aux_def, AllCaseEqs ()]
 QED
+
+Theorem bvi_to_cb_aux_no_mutcons = cj 2 bvi_to_cb_aux_no_mutcons_lemma;
 
 Theorem bvi_to_cb_no_mutcons:
   ∀cb bs n loc x.
@@ -3861,6 +4288,8 @@ Resume evaluate_rewrite_tmc[call_block]:
     >> imp_res_tac evaluate_refs_SUBSET)
   >> conj_tac
   >- imp_res_tac holes_unchanged_except_trans
+  >> conj_tac
+  >- imp_res_tac holes_still_not_finalised_trans
   >> gen_tac
   >> strip_tac
   >> drule_all evaluate_pres_opt_code
@@ -3881,7 +4310,9 @@ Resume evaluate_rewrite_tmc[call_block]:
      (irule only_fresh_trans
       >> rpt $ first_assum $ irule_at Any
       >> imp_res_tac evaluate_refs_SUBSET)
-    >> imp_res_tac holes_unchanged_except_trans)
+    >> conj_tac
+    >- imp_res_tac holes_unchanged_except_trans
+    >> imp_res_tac holes_still_not_finalised_trans)
   >> reverse $ imp_res_tac bvi_to_cb_cases
   >-
    (gvs [rewrite_worker_def, evaluate_def]
@@ -3898,6 +4329,10 @@ Resume evaluate_rewrite_tmc[call_block]:
         >> irule_at Any unchanged_hole_has_val
         >> rpt $ first_assum $ irule_at Any
         >> gvs [])
+      >> conj_tac
+      >-
+       (imp_res_tac holes_still_not_finalised_def
+        >> gvs [hole_has_val_def])
       >> gvs [EL_APPEND_EQN])
     >> strip_tac
     >> gvs []
@@ -3916,8 +4351,13 @@ Resume evaluate_rewrite_tmc[call_block]:
       >> irule holes_unchanged_except_subset
       >> first_assum $ irule_at Any
       >> gvs [])
+    >> conj_tac
+    >- imp_res_tac holes_still_not_finalised_trans
     >> rw []
+    >> irule_at Any mb_rel_refs_old_subset
     >> first_assum $ irule_at Any
+    >> conj_tac
+    >- imp_res_tac evaluate_refs_SUBSET
     >> irule hole_has_val_submap
     >> drule_all hole_has_val_unappend
     >> strip_tac
@@ -3937,6 +4377,10 @@ Resume evaluate_rewrite_tmc[call_block]:
       >> irule_at Any unchanged_hole_has_val
       >> rpt $ first_assum $ irule_at Any
       >> gvs [])
+    >> conj_tac
+    >-
+     (imp_res_tac holes_still_not_finalised_def
+      >> gvs [hole_has_val_def])
     >> gvs [EL_APPEND_EQN])
   >> strip_tac
   >> gvs []
@@ -3955,8 +4399,13 @@ Resume evaluate_rewrite_tmc[call_block]:
     >> irule holes_unchanged_except_subset
     >> first_assum $ irule_at Any
     >> gvs [])
+  >> conj_tac
+  >- imp_res_tac holes_still_not_finalised_trans
   >> rw []
+  >> irule_at Any mb_rel_refs_old_subset
   >> first_assum $ irule_at Any
+  >> conj_tac
+  >- imp_res_tac evaluate_refs_SUBSET
   >> irule hole_has_val_submap
   >> drule_all hole_has_val_unappend
   >> strip_tac
@@ -4015,8 +4464,10 @@ Resume evaluate_rewrite_tmc[list]:
       >> rpt $ goal_assum $ drule_at Any
       >> irule evaluate_refs_SUBSET
       >> goal_assum $ drule_at Any)
-    >> irule holes_unchanged_except_trans
-    >> rpt $ goal_assum $ drule_at Any)
+    >-
+     (irule holes_unchanged_except_trans
+      >> rpt $ goal_assum $ drule_at Any)
+    >> imp_res_tac holes_still_not_finalised_trans)
   >> rename [‘state_rel f3 t t'’]
   >> qexists ‘f3’ >> fs []
   >> rw []
@@ -4026,8 +4477,10 @@ Resume evaluate_rewrite_tmc[list]:
     >> rpt $ goal_assum $ drule_at Any
     >> irule evaluate_refs_SUBSET
     >> goal_assum $ drule_at Any)
-  >> irule holes_unchanged_except_trans
-  >> rpt $ goal_assum $ drule_at Any
+  >-
+   (irule holes_unchanged_except_trans
+    >> rpt $ goal_assum $ drule_at Any)
+  >> imp_res_tac holes_still_not_finalised_trans
 QED
 
 Resume evaluate_rewrite_tmc[var]:
@@ -4043,6 +4496,8 @@ Resume evaluate_rewrite_tmc[var]:
   >- irule only_fresh_refl
   >> conj_asm1_tac
   >- irule holes_unchanged_except_refl
+  >> conj_asm1_tac
+  >- irule holes_still_not_finalised_refl
   >> strip_tac
   >> gvs [rewrite_wrapper_def]
   >> rw []
@@ -4105,6 +4560,8 @@ Resume evaluate_rewrite_tmc[if]:
        (irule holes_unchanged_except_trans
         >> first_assum $ irule_at Any
         >> gvs [])
+      >> conj_tac
+      >- imp_res_tac holes_still_not_finalised_trans
       >> gen_tac
       >> strip_tac
       >> gvs []
@@ -4127,7 +4584,9 @@ Resume evaluate_rewrite_tmc[if]:
            (irule only_fresh_trans
             >> rpt $ first_assum $ irule_at Any
             >> imp_res_tac evaluate_refs_SUBSET)
-          >> imp_res_tac holes_unchanged_except_trans)
+          >> conj_tac
+          >- imp_res_tac holes_unchanged_except_trans
+          >> imp_res_tac holes_still_not_finalised_trans)
         >> gvs [evaluate_def]
         >> rpt $ first_assum $ irule_at Any
         >> conj_tac
@@ -4137,7 +4596,9 @@ Resume evaluate_rewrite_tmc[if]:
          (irule only_fresh_trans
           >> rpt $ first_assum $ irule_at Any
           >> imp_res_tac evaluate_refs_SUBSET)
-        >> imp_res_tac holes_unchanged_except_trans)
+        >> conj_tac
+        >- imp_res_tac holes_unchanged_except_trans
+        >> imp_res_tac holes_still_not_finalised_trans)
       >> gvs []
       >> first_x_assum $ qspecl_then [‘c’] mp_tac
       >> impl_tac
@@ -4145,11 +4606,15 @@ Resume evaluate_rewrite_tmc[if]:
        (drule env_rel_strip_extras
         >> strip_tac
         >> gvs []
-        >> irule unchanged_hole_has_val
-        >> qexists ‘EMPTY’
-        >> gvs []
-        >> first_assum $ irule_at $ Pos hd
-        >> gvs [])
+        >> conj_tac
+        >-
+         (irule unchanged_hole_has_val
+          >> qexists ‘EMPTY’
+          >> gvs []
+          >> first_assum $ irule_at $ Pos hd
+          >> gvs [])
+        >> ntac 2 $ imp_res_tac holes_still_not_finalised_def
+        >> gvs [hole_has_val_def])
       >> strip_tac
       >> gvs [rewrite_worker_def, evaluate_def]
       >> imp_res_tac env_rel_length_opt
@@ -4171,8 +4636,13 @@ Resume evaluate_rewrite_tmc[if]:
         >> irule holes_unchanged_except_subset
         >> first_assum $ irule_at Any
         >> gvs [])
+      >> conj_tac
+      >- imp_res_tac holes_still_not_finalised_trans
       >> rw []
-      >> rpt $ first_assum $ irule_at Any
+      >> irule_at Any mb_rel_refs_old_subset
+      >> first_assum $ irule_at Any
+      >> conj_tac
+      >- imp_res_tac evaluate_refs_SUBSET
       >> irule hole_has_val_submap
       >> first_assum $ irule_at Any
       >> gvs [])
@@ -4206,6 +4676,8 @@ Resume evaluate_rewrite_tmc[if]:
      (irule holes_unchanged_except_trans
       >> first_assum $ irule_at Any
       >> gvs [])
+    >> conj_tac
+    >- imp_res_tac holes_still_not_finalised_trans
     >> gen_tac
     >> strip_tac
     >> gvs []
@@ -4215,21 +4687,11 @@ Resume evaluate_rewrite_tmc[if]:
     >> strip_tac
     >> gvs []
     >> rw []
+    >-
+     (drule wrapper_strip_if_else
+      >> strip_tac
       >-
-       (drule wrapper_strip_if_else
-        >> strip_tac
-        >-
-         (gvs [evaluate_def]
-          >> rpt $ first_assum $ irule_at Any
-          >> conj_tac
-          >- imp_res_tac SUBMAP_TRANS
-          >> conj_tac
-          >-
-           (irule only_fresh_trans
-            >> rpt $ first_assum $ irule_at Any
-            >> imp_res_tac evaluate_refs_SUBSET)
-          >> imp_res_tac holes_unchanged_except_trans)
-        >> gvs [evaluate_def]
+       (gvs [evaluate_def]
         >> rpt $ first_assum $ irule_at Any
         >> conj_tac
         >- imp_res_tac SUBMAP_TRANS
@@ -4238,7 +4700,21 @@ Resume evaluate_rewrite_tmc[if]:
          (irule only_fresh_trans
           >> rpt $ first_assum $ irule_at Any
           >> imp_res_tac evaluate_refs_SUBSET)
-        >> imp_res_tac holes_unchanged_except_trans)
+        >> conj_tac
+        >- imp_res_tac holes_unchanged_except_trans
+        >> imp_res_tac holes_still_not_finalised_trans)
+      >> gvs [evaluate_def]
+      >> rpt $ first_assum $ irule_at Any
+      >> conj_tac
+      >- imp_res_tac SUBMAP_TRANS
+      >> conj_tac
+      >-
+       (irule only_fresh_trans
+        >> rpt $ first_assum $ irule_at Any
+        >> imp_res_tac evaluate_refs_SUBSET)
+      >> conj_tac
+      >- imp_res_tac holes_unchanged_except_trans
+      >> imp_res_tac holes_still_not_finalised_trans)
     >> gvs []
     >> first_x_assum $ qspecl_then [‘c’] mp_tac
     >> impl_tac
@@ -4246,11 +4722,15 @@ Resume evaluate_rewrite_tmc[if]:
      (drule env_rel_strip_extras
       >> strip_tac
       >> gvs []
-      >> irule unchanged_hole_has_val
-      >> qexists ‘EMPTY’
-      >> gvs []
-      >> first_assum $ irule_at $ Pos hd
-      >> gvs [])
+      >> conj_tac
+      >-
+       (irule unchanged_hole_has_val
+        >> qexists ‘EMPTY’
+        >> gvs []
+        >> first_assum $ irule_at $ Pos hd
+        >> gvs [])
+      >> ntac 2 $ imp_res_tac holes_still_not_finalised_def
+      >> gvs [hole_has_val_def])
     >> strip_tac
     >> gvs [rewrite_worker_def, evaluate_def]
     >> imp_res_tac env_rel_length_opt
@@ -4272,8 +4752,13 @@ Resume evaluate_rewrite_tmc[if]:
       >> irule holes_unchanged_except_subset
       >> first_assum $ irule_at Any
       >> gvs [])
+    >> conj_tac
+    >- imp_res_tac holes_still_not_finalised_trans
     >> rw []
-    >> rpt $ first_assum $ irule_at Any
+    >> irule_at Any mb_rel_refs_old_subset
+    >> first_assum $ irule_at Any
+    >> conj_tac
+    >- imp_res_tac evaluate_refs_SUBSET
     >> irule hole_has_val_submap
     >> first_assum $ irule_at Any
     >> gvs [])
@@ -4367,6 +4852,8 @@ Resume evaluate_rewrite_tmc[lett]:
    (irule holes_unchanged_except_trans
     >> first_assum $ irule_at Any
     >> gvs [])
+  >> conj_tac
+  >- imp_res_tac holes_still_not_finalised_trans
   >> gen_tac
   >> strip_tac
   >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
@@ -4388,9 +4875,9 @@ Resume evaluate_rewrite_tmc[lett]:
       >> first_assum $ irule_at Any
       >> imp_res_tac evaluate_refs_SUBSET
       >> gvs [])
-    >> irule holes_unchanged_except_trans
-    >> first_assum $ irule_at Any
-    >> gvs [])
+    >> conj_tac
+    >- imp_res_tac holes_unchanged_except_trans
+    >> imp_res_tac holes_still_not_finalised_trans)
   >> gvs []
   >> first_x_assum $ qspecl_then [‘hole_ptr’, ‘c’] mp_tac
   >> impl_tac
@@ -4404,6 +4891,11 @@ Resume evaluate_rewrite_tmc[lett]:
       >> irule unchanged_hole_has_val
       >> rpt $ first_assum $ irule_at Any
       >> gvs [])
+    >> conj_tac
+    >-
+     (gvs [holes_still_not_finalised_def]
+      >> first_x_assum $ irule
+      >> gvs [hole_has_val_def])
     >> imp_res_tac env_rel_length_opt
     >> gvs [EL_APPEND_EQN])
   >> strip_tac
@@ -4426,8 +4918,13 @@ Resume evaluate_rewrite_tmc[lett]:
     >> irule holes_unchanged_except_subset
     >> first_assum $ irule_at Any
     >> gvs [])
+  >> conj_tac
+  >- imp_res_tac holes_still_not_finalised_trans
   >> rw []
-  >> rpt $ first_assum $ irule_at Any
+  >> irule_at Any mb_rel_refs_old_subset
+  >> first_assum $ irule_at Any
+  >> conj_tac
+  >- imp_res_tac evaluate_refs_SUBSET
   >> irule hole_has_val_submap
   >> imp_res_tac hole_has_val_unappend
   >> first_assum $ irule_at Any
@@ -4482,15 +4979,14 @@ Resume evaluate_rewrite_tmc[tick]:
    (gvs [GSYM PULL_FORALL]
     >> rpt $ first_assum $ irule_at Any
     >> gvs []
-    >> gvs [only_fresh_refl, holes_unchanged_except_refl]
+    >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
     >> rw []
     >-
      (gvs [rewrite_wrapper_def, evaluate_def]
       >> rpt $ first_assum $ irule_at Any
-      >> conj_tac
-      >> gvs [only_fresh_refl, holes_unchanged_except_refl])
+      >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl])
     >> first_assum $ irule_at Any
-    >> gvs [rewrite_worker_def, evaluate_def, opt_res_rel_def, holes_unchanged_except_refl, only_fresh_refl])
+    >> gvs [rewrite_worker_def, evaluate_def, opt_res_rel_def, holes_unchanged_except_refl, only_fresh_refl, holes_still_not_finalised_refl])
   >> gvs [GSYM PULL_FORALL]
   >> first_x_assum $ qspecl_then [‘[x]’, ‘dec_clock 1 s’] mp_tac
   >> impl_tac >- gvs [dec_clock_def]
@@ -4609,311 +5105,339 @@ Resume evaluate_rewrite_tmc[call_non_opt]:
   >> pop_assum kall_tac
   >> rename [‘state_rel f' u u'’, ‘result_rel _ _ _ v_xs'’]
   >> reverse $ gvs [CaseEq "result"]
-  >- (* Error case *) (rename [‘evaluate (xs,env2,s') = (Rerr e',t')’, ‘exc_rel (eor_rel f') e _’]
-                       >> gvs [GSYM PULL_FORALL]
-                       >> rpt $ first_assum $ irule_at Any
-                       >> gen_tac
-                       >> strip_tac
-                       >> rw []
-                       >- gvs [evaluate_def, rewrite_wrapper_def]
-                       >> gvs [evaluate_def, rewrite_worker_def, fill_hole_def]
-                       >> IF_CASES_TAC
-                       >- gvs []
-                       >> gvs []
-                       >> rpt $ first_assum $ irule_at Any
-                       >> conj_tac
-                       >- gvs [opt_res_rel_def]
-                       >> irule holes_unchanged_except_subset
-                       >> first_assum $ irule_at Any
-                       >> gvs [])
-  >- (* value case *) (gvs [GSYM PULL_FORALL, CaseEq "option", CaseEq "prod"]
-                       >> drule_all find_code_rel
-                       >> strip_tac
-                       >> gvs []
-                       >> ‘u.clock = u'.clock’ by gvs [state_rel_def]
-                       >> IF_CASES_TAC
-                       >- (qexistsl [‘u' with clock := 0’, ‘f'’, ‘Rerr (Rabort Rtimeout_error)’]
-                            >> gvs [state_rel_with_clock]
-                            >> rw []
-                            >- gvs [rewrite_wrapper_def]
-                            >> gvs [rewrite_worker_def]
-                            >> gvs [evaluate_def, fill_hole_def]
-                            >> IF_CASES_TAC
-                            >- gvs []
-                            >> gvs []
-                            >> first_assum $ irule_at Any
-                            >> gvs [opt_res_rel_def, state_rel_with_clock]
-                            >> irule holes_unchanged_except_subset
-                            >> first_assum $ irule_at Any
-                            >> gvs [])
-                       >> gvs [CaseEq "prod"]
-                       >> first_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ticks + 1) u’] mp_tac
-                       >> impl_tac
-                       >- (imp_res_tac evaluate_clock >> gvs [dec_clock_def])
-                       >> rpt $ disch_then drule
-                       >> drule state_rel_dec
-                       >> Cases_on ‘u.clock’
-                       >- gvs []
-                       >> gvs []
-                       >> disch_then $ qspec_then ‘ticks + 1’ mp_tac
-                       >> impl_tac
-                       >- gvs []
-                       >> strip_tac
-                       >> disch_then drule
-                       >> disch_then $ qspec_then ‘loc'’ mp_tac
-                       >> impl_tac
-                       >- gvs [CaseEq "result", CaseEq "error_result"]
-                       >> strip_tac
-                       >> Cases_on ‘exp = body'’
-                       >- (gvs []
-                           >> pop_assum kall_tac
-                           >> qmatch_asmsub_rename_tac ‘result_rel _ _ cres _’
-                           >> reverse $ Cases_on ‘∃v_raise h. cres = Rerr (Rraise (Exn v_raise)) ∧ handler = SOME h’
-                           >- (gvs []
-                               >> qexistsl [‘t''’, ‘f''’, ‘r''’]
-                               >> ‘(cres,s'') = (r,t) ∧ ∀vs. r ≠ Rerr (Rraise (Ret vs))’ by
-                                 (Cases_on ‘cres’ >> gvs []
-                                  >> every_case_tac >> gvs [])
-                               >> gvs []
-                               >> conj_tac
-                               >- (Cases_on ‘r''’ >> gvs [] >> every_case_tac >> gvs [])
-                               >> conj_tac
-                               >- imp_res_tac SUBMAP_TRANS
-                               >> conj_tac
-                               >-
-                                (irule only_fresh_trans
-                                 >> rpt $ first_assum $ irule_at Any
-                                 >> imp_res_tac evaluate_refs_SUBSET)
-                               >> conj_tac
-                               >-
-                                (irule holes_unchanged_except_trans
-                                 >> first_assum $ irule_at Any
-                                 >> gvs []
-                                 >> irule holes_unchanged_except_subset
-                                 >> first_assum $ irule_at Any
-                                 >> gvs [])
-                               >> rw []
-                               >- gvs [rewrite_wrapper_def]
-                               >- (gvs [rewrite_worker_def]
-                                   >> ho_match_mp_tac evaluate_fill_hole
-                                   >> rpt $ first_assum $ irule_at Any
-                                   >> gvs [evaluate_def]
-                                   >> IF_CASES_TAC
-                                   >- gvs []
-                                   >> gvs []
-                                   >> conj_tac
-                                   >-
-                                    (Cases_on ‘cres’ >> gvs []
-                                     >> every_case_tac >> gvs [])
-                                   >> conj_tac
-                                   >- imp_res_tac SUBMAP_TRANS
-                                   >> conj_tac
-                                   >-
-                                    (irule holes_unchanged_except_trans
-                                     >> first_assum $ irule_at Any
-                                     >> gvs []
-                                     >> irule holes_unchanged_except_subset
-                                     >> first_assum $ irule_at Any
-                                     >> gvs [])
-                                   >> irule only_fresh_trans
-                                   >> rpt $ first_assum $ irule_at Any
-                                   >> imp_res_tac evaluate_refs_SUBSET))
-                           >- (gvs []
-                               >> qmatch_asmsub_rename_tac ‘eor_rel _ (Exn v_raise) tv’
-                               >> Cases_on ‘tv’ >> gvs []
-                               >> rename [‘state_rel _ k k'’, ‘v_rel _ _ v_raise'’, ‘LIST_REL _ vs vs'’]
-                               >> ‘env_rel opt f'' (v_raise::env) (v_raise'::env2)’ by
-                                 (imp_res_tac env_rel_submap
-                                  >> imp_res_tac env_rel_cons)
-                               >> Cases_on ‘evaluate ([h],v_raise::env,k)’ >> gvs []
-                               >- (‘q ≠ Rerr (Rabort Rtype_error) ∧ ∀vs. q ≠ Rerr (Rraise (Ret vs))’ by
-                                     (Cases_on ‘q’ >> gvs [] >> every_case_tac >> gvs [])
-                                   >> first_x_assum $ qspecl_then [‘[h]’, ‘k’] mp_tac
-                                   >> impl_tac
-                                   >- (imp_res_tac evaluate_clock >> gvs [dec_clock_def])
-                                   >> disch_then drule
-                                   >> asm_simp_tac std_ss [EVERY_DEF]
-                                   >> rpt $ disch_then drule
-                                   >> impl_tac
-                                   >- gvs []
-                                   >> disch_then $ qspec_then ‘loc’ mp_tac
-                                   >> strip_tac
-                                   >> gvs []
-                                   >> ‘(q,r') = (r,t)’ by (Cases_on ‘q’ >> gvs [] >> every_case_tac >> gvs [])
-                                   >> gvs []
-                                   >> qexistsl [‘t''’, ‘f'³'’, ‘r''’]
-                                   >> conj_tac
-                                   >- (Cases_on ‘r''’ >> gvs [] >> every_case_tac >> gvs [])
-                                   >> rpt $ first_assum $ irule_at Any
-                                   >- (conj_asm1_tac
-                                       >- imp_res_tac SUBMAP_TRANS
-                                       >> conj_asm1_tac
-                                       >-
-                                        (irule only_fresh_trans
-                                         >> rpt $ first_assum $ irule_at $ Pos last
-                                         >> imp_res_tac evaluate_refs_SUBSET
-                                         >> gvs []
-                                         >> conj_tac
-                                         >- imp_res_tac SUBSET_TRANS
-                                         >> irule only_fresh_trans
-                                         >> rpt $ first_assum $ irule_at Any)
-                                       >> conj_tac
-                                       >-
-                                        (irule holes_unchanged_except_trans
-                                         >> first_assum $ irule_at $ Pos last
-                                         >> gvs []
-                                         >> conj_tac
-                                         >- imp_res_tac SUBMAP_TRANS
-                                         >> conj_tac
-                                         >-
-                                          (irule only_fresh_trans
-                                           >> rpt $ first_assum $ irule_at $ Pos last
-                                           >> imp_res_tac evaluate_refs_SUBSET)
-                                         >> irule holes_unchanged_except_trans
-                                         >> rpt $ first_assum $ irule_at $ Pos last)
-                                       >> rw []
-                                       >- gvs [rewrite_wrapper_def]
-                                       >> gvs [rewrite_worker_def]
-                                       >> ho_match_mp_tac evaluate_fill_hole
-                                       >> rpt $ first_assum $ irule_at Any
-                                       >> gvs [evaluate_def]
-                                       >> conj_tac
-                                       >- (Cases_on ‘r''’ >> gvs [] >> every_case_tac >> gvs [])
-                                       >> irule holes_unchanged_except_trans
-                                       >> rpt $ first_assum $ irule_at $ Pos last
-                                       >> conj_tac
-                                       >- imp_res_tac SUBMAP_TRANS
-                                       >> conj_tac
-                                       >-
-                                        (irule only_fresh_trans
-                                         >> rpt $ first_assum $ irule_at $ Pos last
-                                         >> imp_res_tac evaluate_refs_SUBSET)
-                                       >> irule holes_unchanged_except_trans
-                                       >> first_assum $ irule_at $ Pos last
-                                       >> gvs []))))
-                       >- (gvs []
-                           >> first_x_assum drule
-                           >> disch_then drule
-                           >> strip_tac
-                           >> gvs []
-                           >> qmatch_asmsub_rename_tac ‘result_rel _ _ cres _’
-                           >> reverse $ Cases_on ‘∃v_raise h. cres = Rerr (Rraise (Exn v_raise)) ∧ handler = SOME h’
-                           >- (gvs []
-                               >> qexistsl [‘t_wrap’, ‘f_wrap’, ‘r_wrap’]
-                               >> ‘(cres,s'') = (r,t) ∧ ∀vs. r ≠ Rerr (Rraise (Ret vs))’ by
-                                 (Cases_on ‘cres’ >> gvs [] >> every_case_tac >> gvs [])
-                               >> gvs []
-                               >> conj_tac
-                               >- (Cases_on ‘r_wrap’ >> gvs [] >> every_case_tac >> gvs [])
-                               >> conj_tac
-                               >- imp_res_tac SUBMAP_TRANS
-                               >> conj_tac
-                               >-
-                                (irule only_fresh_trans
-                                 >> rpt $ first_assum $ irule_at $ Pos last
-                                 >> imp_res_tac evaluate_refs_SUBSET)
-                               >> conj_tac
-                               >-
-                                (irule holes_unchanged_except_trans
-                                 >> first_assum $ irule_at $ Pos last
-                                 >> gvs [])
-                               >> rw []
-                               >- gvs [rewrite_wrapper_def]
-                               >> gvs [rewrite_worker_def]
-                               >> ho_match_mp_tac evaluate_fill_hole
-                               >> rpt $ first_assum $ irule_at Any
-                               >> gvs [evaluate_def]
-                               >> IF_CASES_TAC
-                               >- gvs []
-                               >> gvs []
-                               >> conj_tac
-                               >- (Cases_on ‘r_wrap’ >> gvs [] >> every_case_tac >> gvs [])
-                               >> conj_tac
-                               >- imp_res_tac SUBMAP_TRANS
-                               >> conj_tac
-                               >-
-                                (irule holes_unchanged_except_trans
-                                 >> first_assum $ irule_at Any
-                                 >> gvs []
-                                 >> irule holes_unchanged_except_subset
-                                 >> first_assum $ irule_at Any
-                                 >> gvs [])
-                               >> irule only_fresh_trans
-                               >> rpt $ first_assum $ irule_at Any
-                               >> imp_res_tac evaluate_refs_SUBSET)
-                           >- (gvs []
-                               >> qmatch_asmsub_rename_tac ‘eor_rel _ (Exn v_raise) tv’
-                               >> Cases_on ‘tv’ >> gvs []
-                               >> rename [‘state_rel _ k k'’, ‘v_rel _ _ v_raise'’, ‘LIST_REL _ vs vs'’]
-                               >> ‘env_rel opt f_wrap (v_raise::env) (v_raise'::env2)’ by
-                                 (imp_res_tac env_rel_submap
-                                  >> imp_res_tac env_rel_cons)
-                               >> Cases_on ‘evaluate ([h],v_raise::env,k)’ >> gvs []
-                               >> ‘q ≠ Rerr (Rabort Rtype_error) ∧ ∀vs. q ≠ Rerr (Rraise (Ret vs))’ by
-                                 (Cases_on ‘q’ >> gvs [] >> every_case_tac >> gvs [])
-                               >> first_x_assum $ qspecl_then [‘[h]’, ‘k’] mp_tac
-                               >> impl_tac
-                               >- (imp_res_tac evaluate_clock >> gvs [dec_clock_def])
-                               >> disch_then drule
-                               >> asm_simp_tac std_ss [EVERY_DEF]
-                               >> rpt $ disch_then drule
-                               >> impl_tac
-                               >- gvs []
-                               >> disch_then $ qspec_then ‘loc’ mp_tac
-                               >> strip_tac
-                               >> gvs []
-                               >> ‘(q,r') = (r,t)’ by (Cases_on ‘q’ >> gvs [] >> every_case_tac >> gvs [])
-                               >> gvs []
-                               >> qexistsl [‘t'³'’, ‘f'³'’, ‘r''’]
-                               >> conj_tac
-                               >- (Cases_on ‘r''’ >> gvs [] >> every_case_tac >> gvs [])
-                               >> rpt $ first_assum $ irule_at Any
-                               >> conj_asm1_tac
-                               >- imp_res_tac SUBMAP_TRANS
-                               >> conj_asm1_tac
-                               >-
-                                (irule only_fresh_trans
-                                 >> rpt $ first_assum $ irule_at $ Pos last
-                                 >> imp_res_tac evaluate_refs_SUBSET
-                                 >> gvs []
-                                 >> conj_tac
-                                 >- imp_res_tac SUBSET_TRANS
-                                 >> irule only_fresh_trans
-                                 >> rpt $ first_assum $ irule_at Any)
-                               >> conj_tac
-                               >-
-                                (irule holes_unchanged_except_trans
-                                 >> first_assum $ irule_at $ Pos last
-                                 >> gvs []
-                                 >> conj_tac
-                                 >- imp_res_tac SUBMAP_TRANS
-                                 >> conj_tac
-                                 >-
-                                  (irule only_fresh_trans
-                                   >> rpt $ first_assum $ irule_at $ Pos last
-                                   >> imp_res_tac evaluate_refs_SUBSET)
-                                 >> irule holes_unchanged_except_trans
-                                 >> rpt $ first_assum $ irule_at $ Pos last)
-                               >> rw []
-                               >- gvs [rewrite_wrapper_def]
-                               >> gvs [rewrite_worker_def]
-                               >> ho_match_mp_tac evaluate_fill_hole
-                               >> rpt $ first_assum $ irule_at Any
-                               >> gvs [evaluate_def]
-                               >> conj_tac
-                               >- (Cases_on ‘r''’ >> gvs [] >> every_case_tac >> gvs [])
-                               >> irule holes_unchanged_except_trans
-                               >> rpt $ first_assum $ irule_at $ Pos last
-                               >> conj_tac
-                               >- imp_res_tac SUBMAP_TRANS
-                               >> conj_tac
-                               >-
-                                (irule only_fresh_trans
-                                 >> rpt $ first_assum $ irule_at $ Pos last
-                                 >> imp_res_tac evaluate_refs_SUBSET)
-                               >> irule holes_unchanged_except_trans
-                               >> first_assum $ irule_at $ Pos last
-                               >> gvs [])))
+  (* Error case *)
+  >-
+   (rename [‘evaluate (xs,env2,s') = (Rerr e',t')’, ‘exc_rel (eor_rel f') e _’]
+    >> gvs [GSYM PULL_FORALL]
+    >> rpt $ first_assum $ irule_at Any
+    >> gen_tac
+    >> strip_tac
+    >> rw []
+    >- gvs [evaluate_def, rewrite_wrapper_def]
+    >> gvs [evaluate_def, rewrite_worker_def, fill_hole_def]
+    >> IF_CASES_TAC
+    >- gvs []
+    >> gvs []
+    >> rpt $ first_assum $ irule_at Any
+    >> conj_tac
+    >- gvs [opt_res_rel_def]
+    >> irule holes_unchanged_except_subset
+    >> first_assum $ irule_at Any
+    >> gvs [])
+  >> gvs [GSYM PULL_FORALL, CaseEq "option", CaseEq "prod"]
+  >> drule_all find_code_rel
+  >> strip_tac
+  >> gvs []
+  >> ‘u.clock = u'.clock’ by gvs [state_rel_def]
+  >> IF_CASES_TAC
+  >-
+   (qexistsl [‘u' with clock := 0’, ‘f'’, ‘Rerr (Rabort Rtimeout_error)’]
+    >> gvs [state_rel_with_clock]
+    >> rw []
+    >- gvs [rewrite_wrapper_def]
+    >> gvs [rewrite_worker_def]
+    >> gvs [evaluate_def, fill_hole_def]
+    >> IF_CASES_TAC
+    >- gvs []
+    >> gvs []
+    >> first_assum $ irule_at Any
+    >> gvs [opt_res_rel_def, state_rel_with_clock]
+    >> irule holes_unchanged_except_subset
+    >> first_assum $ irule_at Any
+    >> gvs [])
+  >> gvs [CaseEq "prod"]
+  >> first_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ticks + 1) u’] mp_tac
+  >> impl_tac
+  >- (imp_res_tac evaluate_clock >> gvs [dec_clock_def])
+  >> rpt $ disch_then drule
+  >> drule state_rel_dec
+  >> Cases_on ‘u.clock’
+  >- gvs []
+  >> gvs []
+  >> disch_then $ qspec_then ‘ticks + 1’ mp_tac
+  >> impl_tac
+  >- gvs []
+  >> strip_tac
+  >> disch_then drule
+  >> disch_then $ qspec_then ‘loc'’ mp_tac
+  >> impl_tac
+  >- gvs [CaseEq "result", CaseEq "error_result"]
+  >> strip_tac
+  >> Cases_on ‘exp = body'’
+  >-
+   (gvs []
+    >> pop_assum kall_tac
+    >> qmatch_asmsub_rename_tac ‘result_rel _ _ cres _’
+    >> reverse $ Cases_on ‘∃v_raise h. cres = Rerr (Rraise (Exn v_raise)) ∧ handler = SOME h’
+    >-
+     (gvs []
+      >> qexistsl [‘t''’, ‘f''’, ‘r''’]
+      >> ‘(cres,s'') = (r,t) ∧ ∀vs. r ≠ Rerr (Rraise (Ret vs))’ by
+        (Cases_on ‘cres’ >> gvs []
+         >> every_case_tac >> gvs [])
+      >> gvs []
+      >> conj_tac
+      >- (Cases_on ‘r''’ >> gvs [] >> every_case_tac >> gvs [])
+      >> conj_tac
+      >- imp_res_tac SUBMAP_TRANS
+      >> conj_tac
+      >-
+       (irule only_fresh_trans
+        >> rpt $ first_assum $ irule_at Any
+        >> imp_res_tac evaluate_refs_SUBSET)
+      >> conj_tac
+      >-
+       (irule holes_unchanged_except_trans
+        >> first_assum $ irule_at Any
+        >> gvs []
+        >> irule holes_unchanged_except_subset
+        >> first_assum $ irule_at Any
+        >> gvs [])
+      >> conj_tac
+      >- imp_res_tac holes_still_not_finalised_trans
+      >> rw []
+      >- gvs [rewrite_wrapper_def]
+      >-
+       (gvs [rewrite_worker_def]
+        >> ho_match_mp_tac evaluate_fill_hole
+        >> rpt $ first_assum $ irule_at Any
+        >> gvs [evaluate_def]
+        >> IF_CASES_TAC
+        >- gvs []
+        >> gvs []
+        >> conj_tac
+        >-
+         (Cases_on ‘cres’ >> gvs []
+          >> every_case_tac >> gvs [])
+        >> conj_tac
+        >- imp_res_tac SUBMAP_TRANS
+        >> conj_tac
+        >-
+         (irule holes_unchanged_except_trans
+          >> first_assum $ irule_at Any
+          >> gvs []
+          >> irule holes_unchanged_except_subset
+          >> first_assum $ irule_at Any
+          >> gvs [])
+        >> conj_tac
+        >- imp_res_tac holes_still_not_finalised_trans
+        >> irule only_fresh_trans
+        >> rpt $ first_assum $ irule_at Any
+        >> imp_res_tac evaluate_refs_SUBSET))
+    >-
+     (gvs []
+      >> qmatch_asmsub_rename_tac ‘eor_rel _ (Exn v_raise) tv’
+      >> Cases_on ‘tv’ >> gvs []
+      >> rename [‘state_rel _ k k'’, ‘v_rel _ _ v_raise'’, ‘LIST_REL _ vs vs'’]
+      >> ‘env_rel opt f'' (v_raise::env) (v_raise'::env2)’ by
+        (imp_res_tac env_rel_submap
+         >> imp_res_tac env_rel_cons)
+      >> Cases_on ‘evaluate ([h],v_raise::env,k)’ >> gvs []
+      >> ‘q ≠ Rerr (Rabort Rtype_error) ∧ ∀vs. q ≠ Rerr (Rraise (Ret vs))’ by
+        (Cases_on ‘q’ >> gvs [] >> every_case_tac >> gvs [])
+      >> first_x_assum $ qspecl_then [‘[h]’, ‘k’] mp_tac
+      >> impl_tac
+      >- (imp_res_tac evaluate_clock >> gvs [dec_clock_def])
+      >> disch_then drule
+      >> asm_simp_tac std_ss [EVERY_DEF]
+      >> rpt $ disch_then drule
+      >> impl_tac
+      >- gvs []
+      >> disch_then $ qspec_then ‘loc’ mp_tac
+      >> strip_tac
+      >> gvs []
+      >> ‘(q,r') = (r,t)’ by (Cases_on ‘q’ >> gvs [] >> every_case_tac >> gvs [])
+      >> gvs []
+      >> qexistsl [‘t''’, ‘f'³'’, ‘r''’]
+      >> conj_tac
+      >- (Cases_on ‘r''’ >> gvs [] >> every_case_tac >> gvs [])
+      >> rpt $ first_assum $ irule_at Any
+      >> conj_asm1_tac
+      >- imp_res_tac SUBMAP_TRANS
+      >> conj_asm1_tac
+      >-
+       (irule only_fresh_trans
+        >> rpt $ first_assum $ irule_at $ Pos last
+        >> imp_res_tac evaluate_refs_SUBSET
+        >> gvs []
+        >> conj_tac
+        >- imp_res_tac SUBSET_TRANS
+        >> irule only_fresh_trans
+        >> rpt $ first_assum $ irule_at Any)
+      >> conj_tac
+      >-
+       (irule holes_unchanged_except_trans
+        >> first_assum $ irule_at $ Pos last
+        >> gvs []
+        >> conj_tac
+        >- imp_res_tac SUBMAP_TRANS
+        >> conj_tac
+        >-
+         (irule only_fresh_trans
+          >> rpt $ first_assum $ irule_at $ Pos last
+          >> imp_res_tac evaluate_refs_SUBSET)
+        >> irule holes_unchanged_except_trans
+        >> rpt $ first_assum $ irule_at $ Pos last)
+      >> conj_tac
+      >- imp_res_tac holes_still_not_finalised_trans
+      >> rw []
+      >- gvs [rewrite_wrapper_def]
+      >> gvs [rewrite_worker_def]
+      >> ho_match_mp_tac evaluate_fill_hole
+      >> rpt $ first_assum $ irule_at Any
+      >> gvs [evaluate_def]
+      >> conj_tac
+      >- (Cases_on ‘r''’ >> gvs [] >> every_case_tac >> gvs [])
+      >> conj_tac
+      >-
+       (irule holes_unchanged_except_trans
+        >> rpt $ first_assum $ irule_at $ Pos last
+        >> conj_tac
+        >- imp_res_tac SUBMAP_TRANS
+        >> conj_tac
+        >-
+         (irule only_fresh_trans
+          >> rpt $ first_assum $ irule_at $ Pos last
+          >> imp_res_tac evaluate_refs_SUBSET)
+        >> irule holes_unchanged_except_trans
+        >> first_assum $ irule_at $ Pos last
+        >> gvs [])
+      >> imp_res_tac holes_still_not_finalised_trans))
+  >-
+   (gvs []
+    >> first_x_assum drule
+    >> disch_then drule
+    >> strip_tac
+    >> gvs []
+    >> qmatch_asmsub_rename_tac ‘result_rel _ _ cres _’
+    >> reverse $ Cases_on ‘∃v_raise h. cres = Rerr (Rraise (Exn v_raise)) ∧ handler = SOME h’
+    >-
+     (gvs []
+      >> qexistsl [‘t_wrap’, ‘f_wrap’, ‘r_wrap’]
+      >> ‘(cres,s'') = (r,t) ∧ ∀vs. r ≠ Rerr (Rraise (Ret vs))’ by
+        (Cases_on ‘cres’ >> gvs [] >> every_case_tac >> gvs [])
+      >> gvs []
+      >> conj_tac
+      >- (Cases_on ‘r_wrap’ >> gvs [] >> every_case_tac >> gvs [])
+      >> conj_tac
+      >- imp_res_tac SUBMAP_TRANS
+      >> conj_tac
+      >-
+       (irule only_fresh_trans
+        >> rpt $ first_assum $ irule_at $ Pos last
+        >> imp_res_tac evaluate_refs_SUBSET)
+      >> conj_tac
+      >-
+       (irule holes_unchanged_except_trans
+        >> first_assum $ irule_at $ Pos last
+        >> gvs [])
+      >> conj_tac
+      >- imp_res_tac holes_still_not_finalised_trans
+      >> rw []
+      >- gvs [rewrite_wrapper_def]
+      >> gvs [rewrite_worker_def]
+      >> ho_match_mp_tac evaluate_fill_hole
+      >> rpt $ first_assum $ irule_at Any
+      >> gvs [evaluate_def]
+      >> IF_CASES_TAC
+      >- gvs []
+      >> gvs []
+      >> conj_tac
+      >- (Cases_on ‘r_wrap’ >> gvs [] >> every_case_tac >> gvs [])
+      >> conj_tac
+      >- imp_res_tac SUBMAP_TRANS
+      >> conj_tac
+      >-
+       (irule holes_unchanged_except_trans
+        >> first_assum $ irule_at Any
+        >> gvs []
+        >> irule holes_unchanged_except_subset
+        >> first_assum $ irule_at Any
+        >> gvs [])
+      >> conj_tac
+      >- imp_res_tac holes_still_not_finalised_trans
+      >> irule only_fresh_trans
+      >> rpt $ first_assum $ irule_at Any
+      >> imp_res_tac evaluate_refs_SUBSET)
+    >-
+     (gvs []
+      >> qmatch_asmsub_rename_tac ‘eor_rel _ (Exn v_raise) tv’
+      >> Cases_on ‘tv’ >> gvs []
+      >> rename [‘state_rel _ k k'’, ‘v_rel _ _ v_raise'’, ‘LIST_REL _ vs vs'’]
+      >> ‘env_rel opt f_wrap (v_raise::env) (v_raise'::env2)’ by
+        (imp_res_tac env_rel_submap
+         >> imp_res_tac env_rel_cons)
+      >> Cases_on ‘evaluate ([h],v_raise::env,k)’ >> gvs []
+      >> ‘q ≠ Rerr (Rabort Rtype_error) ∧ ∀vs. q ≠ Rerr (Rraise (Ret vs))’ by
+        (Cases_on ‘q’ >> gvs [] >> every_case_tac >> gvs [])
+      >> first_x_assum $ qspecl_then [‘[h]’, ‘k’] mp_tac
+      >> impl_tac
+      >- (imp_res_tac evaluate_clock >> gvs [dec_clock_def])
+      >> disch_then drule
+      >> asm_simp_tac std_ss [EVERY_DEF]
+      >> rpt $ disch_then drule
+      >> impl_tac
+      >- gvs []
+      >> disch_then $ qspec_then ‘loc’ mp_tac
+      >> strip_tac
+      >> gvs []
+      >> ‘(q,r') = (r,t)’ by (Cases_on ‘q’ >> gvs [] >> every_case_tac >> gvs [])
+      >> gvs []
+      >> qexistsl [‘t'³'’, ‘f'³'’, ‘r''’]
+      >> conj_tac
+      >- (Cases_on ‘r''’ >> gvs [] >> every_case_tac >> gvs [])
+      >> rpt $ first_assum $ irule_at Any
+      >> conj_asm1_tac
+      >- imp_res_tac SUBMAP_TRANS
+      >> conj_asm1_tac
+      >-
+       (irule only_fresh_trans
+        >> rpt $ first_assum $ irule_at $ Pos last
+        >> imp_res_tac evaluate_refs_SUBSET
+        >> gvs []
+        >> conj_tac
+        >- imp_res_tac SUBSET_TRANS
+        >> irule only_fresh_trans
+        >> rpt $ first_assum $ irule_at Any)
+      >> conj_tac
+      >-
+       (irule holes_unchanged_except_trans
+        >> first_assum $ irule_at $ Pos last
+        >> gvs []
+        >> conj_tac
+        >- imp_res_tac SUBMAP_TRANS
+        >> conj_tac
+        >-
+         (irule only_fresh_trans
+          >> rpt $ first_assum $ irule_at $ Pos last
+          >> imp_res_tac evaluate_refs_SUBSET)
+        >> irule holes_unchanged_except_trans
+        >> rpt $ first_assum $ irule_at $ Pos last)
+      >> conj_tac
+      >- imp_res_tac holes_still_not_finalised_trans
+      >> rw []
+      >- gvs [rewrite_wrapper_def]
+      >> gvs [rewrite_worker_def]
+      >> ho_match_mp_tac evaluate_fill_hole
+      >> rpt $ first_assum $ irule_at Any
+      >> gvs [evaluate_def]
+      >> conj_tac
+      >- (Cases_on ‘r''’ >> gvs [] >> every_case_tac >> gvs [])
+      >> conj_tac
+      >-
+       (irule holes_unchanged_except_trans
+        >> rpt $ first_assum $ irule_at $ Pos last
+        >> conj_tac
+        >- imp_res_tac SUBMAP_TRANS
+        >> conj_tac
+        >-
+         (irule only_fresh_trans
+          >> rpt $ first_assum $ irule_at $ Pos last
+          >> imp_res_tac evaluate_refs_SUBSET)
+        >> irule holes_unchanged_except_trans
+        >> first_assum $ irule_at $ Pos last
+        >> gvs [])
+      >> imp_res_tac holes_still_not_finalised_trans))
 QED
 
 Definition dest_thunk_ret_rel_def:
@@ -4954,6 +5478,8 @@ Proof
   >> first_x_assum drule
   >> strip_tac
   >> gvs [CaseEq "ref", CaseEq "thunk_mode", ref_rel_cases]
+  >> rw []
+  >- (Cases_on ‘tm’ >> gvs [])
   >> qexistsl [‘tm’, ‘x'’, ‘y’]
   >> gvs []
   >> conj_tac
@@ -4972,13 +5498,13 @@ Resume evaluate_rewrite_tmc[force]:
   >> imp_res_tac dest_thunk_rel
   >> gvs [dest_thunk_ret_rel_def, CaseEq "thunk_mode"]
   >- (first_assum $ irule_at Any
-      >> gvs [only_fresh_refl, holes_unchanged_except_refl]
+      >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
       >> rw []
       >- gvs [rewrite_wrapper_def]
       >> gvs [rewrite_worker_def]
       >> ho_match_mp_tac evaluate_fill_hole_val
       >> rpt $ first_assum $ irule_at Any
-      >> gvs [evaluate_def, holes_unchanged_except_refl, only_fresh_refl])
+      >> gvs [evaluate_def, holes_unchanged_except_refl, only_fresh_refl, holes_still_not_finalised_refl])
   >> gvs [CaseEq "option", CaseEq "prod"]
   >> drule find_code_rel
   >> ‘LIST_REL (v_rel f) [EL n env1; v1] [EL n env2; v2]’ by
@@ -5000,13 +5526,13 @@ Resume evaluate_rewrite_tmc[force]:
       >> qexists ‘f’
       >> conj_tac
       >- gvs [state_rel_def]
-      >> gvs [only_fresh_refl, holes_unchanged_except_refl]
+      >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
       >> rw []
       >- gvs [rewrite_wrapper_def]
       >> gvs [rewrite_worker_def]
       >> gvs [evaluate_def, fill_hole_def]
       >> qexists ‘f’
-      >> gvs [opt_res_rel_def, state_rel_def, holes_unchanged_except_refl, only_fresh_refl])
+      >> gvs [opt_res_rel_def, state_rel_def, holes_unchanged_except_refl, only_fresh_refl, holes_still_not_finalised_refl])
   >> gvs []
   >- (‘∃q u. evaluate ([exp],args,dec_clock 1 s) = (q,u)’ by
         (Cases_on ‘evaluate ([exp],args,dec_clock 1 s)’ >> gvs [])
@@ -5148,6 +5674,7 @@ Resume evaluate_rewrite_tmc[letcall]:
                       >> rpt $ first_assum $ irule_at Any
                       >> imp_res_tac evaluate_refs_SUBSET)
                   >> conj_asm1_tac >- imp_res_tac holes_unchanged_except_trans
+                  >> conj_asm1_tac >- imp_res_tac holes_still_not_finalised_trans
                   >> rw []
                   >- gvs [rewrite_wrapper_def]
                   >> gvs [rewrite_worker_def, evaluate_def, fill_hole_def]
@@ -5181,6 +5708,7 @@ Resume evaluate_rewrite_tmc[letcall]:
                       >> conj_asm1_tac
                       >- (fs [dec_clock_def]
                           >> metis_tac [holes_unchanged_except_trans, only_fresh_trans, SUBMAP_TRANS, SUBSET_TRANS])
+                      >> conj_asm1_tac >- imp_res_tac holes_still_not_finalised_trans
                       >> rw []
                       >- gvs [rewrite_wrapper_def]
                       >> gvs [rewrite_worker_def]
@@ -5196,6 +5724,7 @@ Resume evaluate_rewrite_tmc[letcall]:
                   >> rpt $ first_assum $ irule_at Any
                   >> imp_res_tac evaluate_refs_SUBSET)
               >> conj_asm1_tac >- imp_res_tac holes_unchanged_except_trans
+              >> conj_asm1_tac >- imp_res_tac holes_still_not_finalised_trans
               >> rw []
               >- gvs [rewrite_wrapper_def]
               >> gvs [rewrite_worker_def, evaluate_def, fill_hole_def]
@@ -5231,6 +5760,7 @@ Resume evaluate_rewrite_tmc[letcall]:
                   >> rpt $ first_assum $ irule_at Any
                   >> imp_res_tac evaluate_refs_SUBSET)
               >> conj_asm1_tac >- metis_tac [holes_unchanged_except_trans]
+              >> conj_asm1_tac >- imp_res_tac holes_still_not_finalised_trans
               >> rw []
               >- gvs [rewrite_wrapper_def]
               >> gvs [rewrite_worker_def, evaluate_def, fill_hole_def]
@@ -5265,6 +5795,8 @@ Resume evaluate_rewrite_tmc[letcall]:
               >> conj_asm1_tac
               >- (fs [dec_clock_def]
                   >> metis_tac [holes_unchanged_except_trans, only_fresh_trans, SUBMAP_TRANS, SUBSET_TRANS])
+              >> conj_asm1_tac
+              >- imp_res_tac holes_still_not_finalised_trans
               >> rw []
               >- gvs [rewrite_wrapper_def]
               >> gvs [rewrite_worker_def]
@@ -5280,14 +5812,18 @@ Resume evaluate_rewrite_tmc[letcall]:
               >> rpt $ first_assum $ irule_at Any
               >> imp_res_tac evaluate_refs_SUBSET)
           >> conj_asm1_tac >- metis_tac [holes_unchanged_except_trans]
+          >> conj_tac >- imp_res_tac holes_still_not_finalised_trans
           >> rw []
           >- gvs [rewrite_wrapper_def]
           >> gvs [rewrite_worker_def, evaluate_def, fill_hole_def]
           >> qexists ‘f_wrap’
           >> gvs [opt_res_rel_def]
-          >> irule holes_unchanged_except_subset
-          >> first_assum $ irule_at Any
-          >> gvs []))
+          >> conj_tac
+          >-
+           (irule holes_unchanged_except_subset
+            >> first_assum $ irule_at Any
+            >> gvs [])
+          >> imp_res_tac holes_still_not_finalised_trans))
 QED
 
 Resume evaluate_rewrite_tmc[return]:
@@ -5330,19 +5866,19 @@ QED
 
 Finalise evaluate_rewrite_tmc;
 
-Theorem evaluate_compile_prog:
+Theorem evaluate_compile_each:
    input_condition next prog ∧
    (∀n next cfg prog. co n = ((next,cfg),prog) ⇒ input_condition next prog) ∧
-   (∀n. MEM n (MAP FST (SND (compile_prog next prog))) ∧ in_ns_3 n ⇒ n < FST (FST (co 0))) ∧
+   (∀n. MEM n (MAP FST (SND (compile_each next prog))) ∧ in_ns_3 n ⇒ n < FST (FST (co 0))) ∧
    evaluate ([Call 0 (SOME start) [] NONE], [],
              initial_state ffi0 (fromAList prog) co
-                 (state_cc compile_prog cc) k) = (r, s) ∧
+                 (state_cc compile_each cc) k) = (r, s) ∧
    r ≠ Rerr (Rabort Rtype_error) ⇒
    ∃f s2 r2.
      evaluate
       ([Call 0 (SOME start) [] NONE], [],
-        initial_state ffi0 (fromAList (SND (compile_prog next prog)))
-            (state_co compile_prog co) cc k)
+        initial_state ffi0 (fromAList (SND (compile_each next prog)))
+            (state_co compile_each co) cc k)
      = (r2, s2) ∧
      result_rel (LIST_REL (v_rel f)) (eor_rel f) r r2 ∧
      state_rel f s s2
@@ -5350,9 +5886,9 @@ Proof
   rw []
   >> qmatch_asmsub_abbrev_tac `(es,env,st1)`
   >> ‘env_rel F FEMPTY env env’ by gvs [env_rel_def, Abbr ‘env’]
-  >> Cases_on `compile_prog next prog`
+  >> Cases_on `compile_each next prog`
   >> fs []
-  >> drule (GEN_ALL compile_prog_code_rel)
+  >> drule (GEN_ALL compile_each_code_rel)
   >> impl_tac
   >- gvs [input_condition_def]
   >> strip_tac
@@ -5364,7 +5900,7 @@ Proof
     >- gvs [state_ref_rel_def]
     >> conj_tac
     >-
-     (irule compile_prog_namespace_rel
+     (irule compile_each_namespace_rel
       >> first_assum $ irule_at Any
       >> gvs [])
     >> rpt strip_tac
@@ -5390,14 +5926,14 @@ Proof
   rw[state_rel_def]
 QED
 
-Theorem compile_prog_semantics:
+Theorem compile_each_semantics:
   input_condition n prog ∧
   (∀k n cfg prog. co k = ((n,cfg),prog) ⇒ input_condition n prog) ∧
   (∀k. MEM k (MAP FST prog2) ∧ in_ns_3 k ⇒ k < FST(FST (co 0))) ∧
-  SND (compile_prog n prog) = prog2 ∧
-  semantics ffi (fromAList prog) co (state_cc compile_prog cc) start ≠ ffi$Fail ⇒
-  semantics ffi (fromAList prog) co (state_cc compile_prog cc) start =
-  semantics ffi (fromAList prog2) (state_co compile_prog co) cc start
+  SND (compile_each n prog) = prog2 ∧
+  semantics ffi (fromAList prog) co (state_cc compile_each cc) start ≠ ffi$Fail ⇒
+  semantics ffi (fromAList prog) co (state_cc compile_each cc) start =
+  semantics ffi (fromAList prog2) (state_co compile_each co) cc start
 Proof
   simp [GSYM AND_IMP_INTRO]
   >> ntac 4 strip_tac
@@ -5414,7 +5950,7 @@ Proof
      (qpat_x_assum ‘_ = (r,s)’ kall_tac
       >> first_assum $ qspec_then ‘k'’ mp_tac
       >> disch_then $ subterm (fn tm => Cases_on ‘^(assert(has_pair_type)tm)’) o concl
-      >> drule evaluate_compile_prog
+      >> drule evaluate_compile_each
       >> rpt $ disch_then drule
       >> impl_tac
       >-
@@ -5443,7 +5979,7 @@ Proof
       >> disch_then(qspec_then `k'` mp_tac)
       >> impl_tac >- (rpt(PURE_FULL_CASE_TAC >> fs[]))
       >> simp[inc_clock_def] >> ntac 2 strip_tac
-      >> drule (GEN_ALL evaluate_compile_prog)
+      >> drule (GEN_ALL evaluate_compile_each)
       >> rpt(disch_then drule)
       >> unabbrev_all_tac >> disch_then drule
       >> impl_tac >- (rpt(PURE_FULL_CASE_TAC >> fs[]))
@@ -5453,7 +5989,7 @@ Proof
       >> Cases_on ‘e’ >> gvs []
       >> Cases_on ‘a’ >> gvs [])
     >> first_assum (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl)
-    >> drule (GEN_ALL evaluate_compile_prog)
+    >> drule (GEN_ALL evaluate_compile_each)
     >> ntac 3 (disch_then drule) >> simp []
     >> impl_tac
     >-
@@ -5473,7 +6009,7 @@ Proof
    (qpat_x_assum ‘∀k. _’ mp_tac
     >> first_x_assum (qspec_then `k` assume_tac)
     >> strip_tac >> rfs[]
-    >> drule (GEN_ALL evaluate_compile_prog)
+    >> drule (GEN_ALL evaluate_compile_each)
     >> rveq >> disch_then drule
     >> disch_then drule
     >> first_x_assum (qspec_then `k` assume_tac)
@@ -5491,7 +6027,7 @@ Proof
     >> first_assum (qspec_then `k` mp_tac)
     >> (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
     >> strip_tac
-    >> drule (GEN_ALL evaluate_compile_prog)
+    >> drule (GEN_ALL evaluate_compile_each)
     >> rveq
     >> (disch_then drule)
     >> (disch_then drule)
@@ -5542,7 +6078,7 @@ Proof
   >> ntac 2 (pop_assum kall_tac)
   >> simp [LNTH_fromList, PULL_EXISTS, GSYM FORALL_AND_THM]
   >> rpt gen_tac >> rveq
-  >> drule (GEN_ALL evaluate_compile_prog)
+  >> drule (GEN_ALL evaluate_compile_each)
   >> rpt(disch_then drule)
   >> disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["start","k","ffi0","cc"])))
   >> disch_then (qspecl_then [`start`,`k`,`ffi`,`cc`] mp_tac)
@@ -5558,4 +6094,197 @@ Proof
   >> imp_res_tac state_rel_const
   >> conj_tac >> rw []
   >> qexists_tac `k` >> fs []
+QED
+
+Theorem compile_prog_semantics:
+  input_condition n prog ∧
+  (∀k n cfg prog. co k = ((n,cfg),prog) ⇒ input_condition n prog) ∧
+  (∀k. MEM k (MAP FST prog2) ∧ in_ns_3 k ⇒ k < FST(FST (co 0))) ∧
+  SND (compile_prog b n prog) = prog2 ∧
+  semantics ffi (fromAList prog) co (state_cc (compile_prog b) cc) start ≠
+    ffi$Fail ⇒
+  semantics ffi (fromAList prog) co (state_cc (compile_prog b) cc) start =
+  semantics ffi (fromAList prog2) (state_co (compile_prog b) co) cc start
+Proof
+  Cases_on `b`
+  >-
+   (`bvi_tmc$compile_prog T = compile_each` by
+      fs [FUN_EQ_THM, bvi_tmcTheory.compile_prog_def]
+    \\ fs [] \\ metis_tac [compile_each_semantics])
+  \\ `bvi_tmc$compile_prog F = CURRY I` by
+       fs [FUN_EQ_THM, bvi_tmcTheory.compile_prog_def]
+  \\ fs [] \\ rw []
+  \\ irule semantics_CURRY_I \\ fs []
+QED
+
+(* -------------------------------------------------------------------------
+   Code labels: the pass only introduces calls to the fresh worker names it
+   allocates, so every label of the output is a label of the input or one of
+   the names strictly below the final next-name.
+   ------------------------------------------------------------------------- *)
+
+Theorem get_code_labels_MAP_Var[local,simp]:
+  BIGUNION (set (MAP get_code_labels (MAP (λn. Var n) vs))) = ∅
+Proof
+  Induct_on ‘vs’ \\ gvs []
+QED
+
+Theorem cb_to_bvi_worker_aux_code_labels[local]:
+  ∀cb loc_opt ptr idx.
+    get_code_labels (cb_to_bvi_worker_aux cb loc_opt ptr idx) = {loc_opt}
+Proof
+  recInduct bvi_tmcTheory.cb_to_bvi_worker_aux_ind
+  \\ simp [bvi_tmcTheory.cb_to_bvi_worker_aux_def, bvi_tmcTheory.optimise_call_def,
+           bvi_tmcTheory.mut_cons_def, bvi_tmcTheory.update_cons_def,
+           closLangTheory.assign_get_code_label_def]
+QED
+
+Theorem cb_to_bvi_worker_code_labels[local]:
+  get_code_labels (cb_to_bvi_worker cb loc_opt ptr idx) = {loc_opt}
+Proof
+  Cases_on ‘cb’
+  \\ simp [bvi_tmcTheory.cb_to_bvi_worker_def, bvi_tmcTheory.optimise_call_def,
+           bvi_tmcTheory.mut_cons_def, bvi_tmcTheory.update_cons_def,
+           closLangTheory.assign_get_code_label_def,
+           cb_to_bvi_worker_aux_code_labels]
+QED
+
+Theorem cb_to_bvi_wrapper_code_labels[local]:
+  get_code_labels (cb_to_bvi_wrapper tag left child right loc_opt) = {loc_opt}
+Proof
+  simp [bvi_tmcTheory.cb_to_bvi_wrapper_def, bvi_tmcTheory.mut_cons_def,
+        bvi_tmcTheory.finalise_cons_def,
+        closLangTheory.assign_get_code_label_def,
+        cb_to_bvi_worker_aux_code_labels]
+QED
+
+Theorem bvi_to_cb_aux_code_labels_lemma[local]:
+  (∀n loc tag exp bs r.
+     bvi_to_cb_aux_sing n loc tag exp = SOME (bs,r) ⇒
+     BIGUNION (set (MAP get_code_labels bs)) ⊆ get_code_labels exp) ∧
+  (∀n loc tag args bs r.
+     bvi_to_cb_aux n loc tag args = SOME (bs,r) ⇒
+     BIGUNION (set (MAP get_code_labels bs)) ⊆
+     BIGUNION (set (MAP get_code_labels args)))
+Proof
+  ho_match_mp_tac bvi_tmcTheory.bvi_to_cb_aux_ind
+  \\ rw []
+  \\ gvs [bvi_tmcTheory.bvi_to_cb_aux_def, bvi_tmcTheory.call_to_cb_def, CaseEq "call_block",
+          CaseEq "prod", CaseEq "option", CaseEq "sum", CaseEq "list"]
+  \\ gvs [SUBSET_DEF] \\ rw [] \\ res_tac \\ gvs []
+QED
+
+Theorem bvi_to_cb_code_labels[local]:
+  ∀n loc exp bs cb.
+    bvi_to_cb n loc exp = SOME (bs,cb) ⇒
+    BIGUNION (set (MAP get_code_labels bs)) ⊆ get_code_labels exp
+Proof
+  Cases_on ‘exp’
+  \\ gvs [bvi_tmcTheory.bvi_to_cb_def, bvi_tmcTheory.call_to_cb_def, CaseEq "prod", CaseEq "option",
+          CaseEq "sum"]
+  \\ rw []
+  >- gvs [SUBSET_DEF]
+  \\ drule (cj 2 bvi_to_cb_aux_code_labels_lemma)
+  \\ gvs [SUBSET_DEF]
+QED
+
+Theorem rewrite_wrapper_code_labels[local]:
+  ∀loc loc_opt n exp y.
+    rewrite_wrapper loc loc_opt n exp = SOME y ⇒
+    get_code_labels y ⊆ get_code_labels exp ∪ {loc_opt}
+Proof
+  recInduct bvi_tmcTheory.rewrite_wrapper_ind
+  \\ rw [bvi_tmcTheory.rewrite_wrapper_def]
+  \\ gvs [CaseEq "option", CaseEq "prod", CaseEq "call_block",
+          cb_to_bvi_wrapper_code_labels]
+  \\ imp_res_tac bvi_to_cb_code_labels
+  \\ gvs [SUBSET_DEF] \\ rw [] \\ res_tac \\ gvs []
+QED
+
+Theorem rewrite_worker_code_labels[local]:
+  ∀loc loc_opt p i n exp.
+    get_code_labels (rewrite_worker loc loc_opt p i n exp) ⊆
+    get_code_labels exp ∪ {loc_opt}
+Proof
+  recInduct bvi_tmcTheory.rewrite_worker_ind
+  \\ rw [bvi_tmcTheory.rewrite_worker_def, bvi_tmcTheory.fill_hole_def,
+         closLangTheory.assign_get_code_label_def]
+  \\ every_case_tac
+  \\ gvs [bvi_tmcTheory.fill_hole_def, closLangTheory.assign_get_code_label_def,
+          cb_to_bvi_worker_code_labels]
+  \\ imp_res_tac bvi_to_cb_code_labels
+  \\ gvs [SUBSET_DEF] \\ rw [] \\ res_tac \\ gvs []
+QED
+
+Theorem compile_exp_code_labels[local]:
+  compile_exp loc next arity exp = SOME (exp_w,exp_k) ⇒
+  get_code_labels exp_w ⊆ get_code_labels exp ∪ {next} ∧
+  get_code_labels exp_k ⊆ get_code_labels exp ∪ {next}
+Proof
+  rw [bvi_tmcTheory.compile_exp_def, CaseEq "option"]
+  \\ imp_res_tac rewrite_wrapper_code_labels
+  \\ gvs [rewrite_worker_code_labels]
+QED
+
+Theorem compile_each_good_code_labels:
+  ∀n c n2 c2.
+    compile_each n c = (n2,c2) ∧
+    BIGUNION (set (MAP (get_code_labels o SND o SND) c)) ⊆ all ∧
+    { n + k * bvl_to_bvi_namespaces | k | n + k * bvl_to_bvi_namespaces < n2 } ⊆ all ⇒
+    BIGUNION (set (MAP (get_code_labels o SND o SND) c2)) ⊆ all
+Proof
+  recInduct bvi_tmcTheory.compile_each_ind
+  \\ simp [bvi_tmcTheory.compile_each_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ rpt gen_tac \\ strip_tac
+  \\ gvs [CaseEq "option", CaseEq "prod"]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ drule compile_each_next_mono \\ strip_tac
+  \\ ‘next < n’ by gvs [backend_commonTheory.bvl_to_bvi_namespaces_def]
+  \\ ‘next ∈ all’ by
+       (fs [SUBSET_DEF, PULL_EXISTS]
+        \\ first_x_assum (qspec_then ‘0’ mp_tac) \\ simp [])
+  \\ drule compile_exp_code_labels \\ strip_tac
+  \\ rpt conj_tac
+  >- (gvs [SUBSET_DEF] \\ rw [] \\ res_tac \\ gvs [])
+  >- (gvs [SUBSET_DEF] \\ rw [] \\ res_tac \\ gvs [])
+  \\ first_x_assum irule
+  \\ gvs [SUBSET_DEF, PULL_EXISTS] \\ rw []
+  \\ qpat_x_assum ‘∀kk. _ ⇒ next + kk * bvl_to_bvi_namespaces ∈ all’
+       (qspec_then ‘k' + 1’ mp_tac)
+  \\ simp [RIGHT_ADD_DISTRIB]
+QED
+
+Theorem compile_prog_good_code_labels:
+  ∀b n c n2 c2.
+    compile_prog b n c = (n2,c2) ∧
+    BIGUNION (set (MAP (get_code_labels o SND o SND) c)) ⊆ all ∧
+    { n + k * bvl_to_bvi_namespaces | k | n + k * bvl_to_bvi_namespaces < n2 } ⊆ all ⇒
+    BIGUNION (set (MAP (get_code_labels o SND o SND) c2)) ⊆ all
+Proof
+  rw [bvi_tmcTheory.compile_prog_def] \\ gvs []
+  \\ metis_tac [compile_each_good_code_labels]
+QED
+
+Theorem compile_each_keeps_names:
+  ∀next xs next' ys.
+    compile_each next xs = (next',ys) ∧ MEM x (MAP FST xs) ⇒
+    MEM x (MAP FST ys)
+Proof
+  recInduct bvi_tmcTheory.compile_each_ind
+  \\ simp [bvi_tmcTheory.compile_each_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ rpt gen_tac
+  \\ gvs [CaseEq "option", CaseEq "prod"]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ rw [] \\ gvs []
+QED
+
+Theorem compile_prog_keeps_names:
+  ∀b next xs next' ys.
+    compile_prog b next xs = (next',ys) ∧ MEM x (MAP FST xs) ⇒
+    MEM x (MAP FST ys)
+Proof
+  rw [bvi_tmcTheory.compile_prog_def] \\ gvs []
+  \\ metis_tac [compile_each_keeps_names]
 QED

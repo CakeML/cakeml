@@ -23,7 +23,7 @@ Datatype:
     <| refs    : num |-> bvlSem$v ref
      ; clock   : num
      ; global  : num option
-     ; compile : 'c -> (num # num # bvi$exp) list -> (word8 list # word64 list # 'c) option
+     ; compile : 'c -> (num # num # bvi$exp) list -> (mlstring # word64 list # 'c) option
      ; compile_oracle : num -> 'c # (num # num # bvi$exp) list
      ; code    : (num # bvi$exp) num_map
      ; ffi     : 'ffi ffi_state |>
@@ -57,13 +57,15 @@ End
 Definition finalise_cons_def:
   (finalise_cons (RefPtr b ptr) refs =
     case FLOOKUP refs ptr of
-    | SOME (MutBlock tag l c r) =>
-        (case finalise_cons c (refs \\ ptr) of
-         | SOME c' => SOME (Block tag (l ++ [c'] ++ r))
-         | NONE => NONE)
-    | SOME res => SOME (RefPtr b ptr)
+    | SOME (MutBlock tag finalised l c r) =>
+        if ~finalised then
+          (case finalise_cons c (refs \\ ptr) of
+           | SOME (c',refs') => SOME (Block tag (l ++ [c'] ++ r),refs'⟨ptr ↦ MutBlock tag T l c r⟩)
+           | NONE => NONE)
+        else NONE
+    | SOME res => SOME (RefPtr b ptr,refs)
     | NONE => NONE) ∧
-  (finalise_cons v refs = SOME v)
+  (finalise_cons v refs = SOME (v,refs))
 Termination
   wf_rel_tac ‘measure $ CARD o FDOM o SND’
   >> simp [finite_mapTheory.FDOM_DOMSUB, FLOOKUP_DEF]
@@ -147,17 +149,17 @@ Definition do_app_aux_def:
              let l = TAKE i xs in
              let c = EL i xs in
              let r = DROP (i+1) xs in
-             let b = MutBlock tag l c r in
+             let b = MutBlock tag F l c r in
                SOME (SOME (RefPtr F ptr, (s with refs := s.refs |+ (ptr,b)))))
     | (MemOp UpdateCons,[RefPtr _ ptr; Number i; x]) =>
         (case FLOOKUP s.refs ptr of
-         | SOME (MutBlock tag l c r) =>
-             if i ≠ & LENGTH l then NONE else
-               SOME (SOME (Unit, s with refs := s.refs |+ (ptr,MutBlock tag l x r)))
+         | SOME (MutBlock tag finalised l c r) =>
+             if i ≠ & LENGTH l ∨ finalised then NONE else
+               SOME (SOME (Unit, s with refs := s.refs |+ (ptr,MutBlock tag F l x r)))
          | _ => NONE)
     | (MemOp FinaliseCons,[x]) =>
         (case finalise_cons x s.refs of
-         | SOME v => SOME (SOME (v, s))
+         | SOME (v,refs') => SOME (SOME (v,s with refs := refs'))
          | NONE => NONE)
     | (GlobOp AllocGlobal, _) => NONE
     | (MemOp FromListByte, _) => NONE
@@ -170,11 +172,10 @@ End
 Definition do_install_def:
   do_install vs ^s =
       (case vs of
-       | [v1;v2;vl1;vl2] =>
-           (case (v_to_bytes v1, v_to_words v2) of
+       | [v1;v2;vl2] =>
+           (case (v_to_mlstring s.refs v1, v_to_words v2) of
             | (SOME bytes, SOME data) =>
-               if vl1 <> Number (& LENGTH bytes) \/
-                  vl2 <> Number (& LENGTH data)
+               if vl2 <> Number (& LENGTH data)
                then Rerr(Rabort Rtype_error) else
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in
@@ -215,11 +216,13 @@ Datatype:
 End
 
 Definition dest_thunk_def:
-  dest_thunk (RefPtr _ ptr) refs =
+  dest_thunk (RefPtr b ptr) refs =
     (case FLOOKUP refs ptr of
      | NONE => BadRef
-     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
-     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
+     | SOME (Thunk Evaluated v) =>
+         if b then BadRef else IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) =>
+         if b then BadRef else IsThunk NotEvaluated v
      | SOME _ => NotThunk) ∧
   dest_thunk vs refs = NotThunk
 End

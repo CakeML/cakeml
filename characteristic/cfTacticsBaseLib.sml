@@ -180,8 +180,8 @@ fun fetch_v name st =
   let
       val env = ml_progLib.get_env st
       val ident_expr = parse nEbase_t ptree_t [QUOTE name]
-      val ident_expr = find_term astSyntax.is_Var ident_expr
-      val ident = astSyntax.dest_Var ident_expr
+      val ident_expr = find_term astSyntax.is_Ident ident_expr
+      val ident = astSyntax.dest_Ident ident_expr
       val evalth = (REWRITE_CONV [ml_progTheory.nsLookup_merge_env] THENC EVAL)
                       ``nsLookup (^env).v ^ident``
   in (optionLib.dest_some o rhs o concl) evalth end

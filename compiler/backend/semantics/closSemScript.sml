@@ -120,9 +120,11 @@ End
 Overload Error[local] =
   ``(Rerr(Rabort Rtype_error)):(closSem$v#(('c,'ffi) closSem$state), closSem$v)result``
 
-Definition v_to_bytes_def:
-  v_to_bytes lv = some ns:word8 list.
-                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)
+Definition v_to_mlstring_def:
+  v_to_mlstring lv =
+    case lv of
+    | ByteVector bs => SOME (bytes_to_mlstring bs)
+    | _ => NONE
 End
 
 Definition v_to_words_def:
@@ -135,7 +137,7 @@ Definition do_install_def:
   do_install vs ^s =
       (case vs of
        | [v1;v2] =>
-           (case (v_to_bytes v1, v_to_words v2) of
+           (case (v_to_mlstring v1, v_to_words v2) of
             | (SOME bytes, SOME data) =>
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in
@@ -249,6 +251,45 @@ Definition do_word_app_def:
          | [Word64 w1; Word64 w2] => (SOME (Boolv (fp_cmp_comp cmp w1 w2)))
          | _ => NONE) /\
   do_word_app (op:closLang$word_op) (vs:closSem$v list) = NONE
+End
+
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk [RefPtr b ptr] refs =
+    (case FLOOKUP refs ptr of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) =>
+         if b then BadRef else IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) =>
+         if b then BadRef else IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk vs refs = NotThunk
+End
+
+Definition store_thunk_def:
+  store_thunk ptr v refs =
+    case FLOOKUP refs ptr of
+    | SOME (Thunk NotEvaluated _) => SOME (refs |+ (ptr,v))
+    | _ => NONE
+End
+
+Definition update_thunk_def:
+  update_thunk [RefPtr F ptr] refs [v] =
+    (case dest_thunk [v] refs of
+     | NotThunk => store_thunk ptr (Thunk Evaluated v) refs
+     | _ => NONE) ∧
+  update_thunk _ _ _ = NONE
+End
+
+Definition bad_thunk_update_def:
+  bad_thunk_update m v refs ⇔
+    m = Evaluated ∧ dest_thunk [v] refs ≠ NotThunk
 End
 
 Definition do_app_def:
@@ -464,10 +505,12 @@ Definition do_app_def:
     | (ThunkOp th_op, vs) =>
         (case (th_op,vs) of
          | (AllocThunk m, [v]) =>
-             (let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
+             (if bad_thunk_update m v s.refs then Error else
+              let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
                 Rval (RefPtr F ptr, s with refs := s.refs |+ (ptr,Thunk m v)))
-         | (UpdateThunk m, [RefPtr _ ptr; v]) =>
-             (case FLOOKUP s.refs ptr of
+         | (UpdateThunk m, [RefPtr F ptr; v]) =>
+             (if bad_thunk_update m v s.refs then Error else
+              case FLOOKUP s.refs ptr of
               | SOME (Thunk NotEvaluated _) =>
                  Rval (Unit, s with refs := s.refs |+ (ptr,Thunk m v))
               | _ => Error)
@@ -620,38 +663,6 @@ Proof
   rw[do_install_def,case_eq_thms] \\ fs []
   \\ pairarg_tac \\ gvs[case_eq_thms,pair_case_eq,bool_case_eq]
 QED
-
-Datatype:
-  dest_thunk_ret
-    = BadRef
-    | NotThunk
-    | IsThunk thunk_mode v
-End
-
-Definition dest_thunk_def:
-  dest_thunk [RefPtr _ ptr] refs =
-    (case FLOOKUP refs ptr of
-     | NONE => BadRef
-     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
-     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
-     | SOME _ => NotThunk) ∧
-  dest_thunk vs refs = NotThunk
-End
-
-Definition store_thunk_def:
-  store_thunk ptr v refs =
-    case FLOOKUP refs ptr of
-    | SOME (Thunk NotEvaluated _) => SOME (refs |+ (ptr,v))
-    | _ => NONE
-End
-
-Definition update_thunk_def:
-  update_thunk [RefPtr _ ptr] refs [v] =
-    (case dest_thunk [v] refs of
-     | NotThunk => store_thunk ptr (Thunk Evaluated v) refs
-     | _ => NONE) ∧
-  update_thunk _ _ _ = NONE
-End
 
 Definition AppUnit_def:
   AppUnit x = closLang$App None NONE x [Op None (BlockOp (Cons 0)) []]

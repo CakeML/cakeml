@@ -102,56 +102,17 @@ Proof
   irule crep_to_loopProofTheory.first_compile_prog_all_distinct
 QED
 
-Definition decl_eids_def:
-  decl_eids (Function fd) = exp_ids fd.body /\
-  decl_eids _ = []
-End
-
-Theorem FDOM_get_eids_eq[local]:
-  FLAT (MAP decl_eids p) = FLAT (MAP decl_eids p2) /\ (p = p2 \/ T) ==>
-  FDOM (get_eids (functions p)) = FDOM (get_eids (functions p2))
+Theorem get_eids_pan_simp_compile_eq:
+  !prog. FDOM(get_eids_from_decls prog) = FDOM(get_eids_from_decls (pan_simp$compile_prog prog))
 Proof
-  rw [pan_to_crepTheory.get_eids_def] >>
-  subgoal `!p. FLAT (MAP (exp_ids o SND o SND) (functions p)) =
-    FLAT (MAP decl_eids p)`
-  >- (
-    Induct >>
-    simp [panLangTheory.functions_def, decl_eids_def] >>
-    Cases >>
-    simp [panLangTheory.functions_def, decl_eids_def]
-  )
-  >>
-  simp []
-QED
-
-Theorem size_of_eids_eq[local]:
-  FLAT (MAP decl_eids p) = FLAT (MAP decl_eids p2) /\ (p = p2 \/ T) ==>
-  size_of_eids p = size_of_eids p2
-Proof
-  rw [panLangTheory.size_of_eids_def] >>
-  qmatch_goalsub_abbrev_tac `MAP ff _` >>
-  subgoal `ff = decl_eids`
-  >- (
-    fs [markerTheory.Abbrev_def, FUN_EQ_THM] >>
-    Cases >>
-    simp [decl_eids_def]
-  )
-  >>
-  simp []
-QED
-
-Theorem FDOM_get_eids_pan_simp_compile_eq:
-  !prog. FDOM (get_eids(functions prog)) =
-  FDOM (get_eids (functions(pan_simp$compile_prog prog)))
-Proof
-  rw [] >>
-  irule FDOM_get_eids_eq >>
-  simp [pan_simpTheory.compile_prog_def, MAP_MAP_o] >>
+  rw[pan_to_crepTheory.get_eids_from_decls_def,pan_simpTheory.compile_prog_def, MAP_MAP_o, MAP2_MAP, o_DEF,ELIM_UNCURRY,MAP_ZIP] >>
   AP_TERM_TAC >>
   irule MAP_CONG >>
-  simp [] >>
-  Cases >> simp [decl_eids_def] >>
-  simp [exp_ids_compile_eq]
+  simp[] >>
+  Induct_on ‘prog’ >>
+  simp[panLangTheory.exceptions_def] >>
+  Cases >>
+  gvs[panLangTheory.exceptions_def]
 QED
 
 Theorem map_map2_fst_lemma:
@@ -191,8 +152,8 @@ QED
 
 Theorem compile_decs_exp_ids:
   ∀ctxt pan_code.
-    MAP (exp_ids ∘ SND ∘ SND) (functions(FST(SND(compile_decs ctxt pan_code)))) =
-    MAP (exp_ids ∘ SND ∘ SND) (functions pan_code)
+    MAP (exp_ids ∘ FST o SND ∘ SND) (functions(FST(SND(compile_decs ctxt pan_code)))) =
+    MAP (exp_ids ∘ FST o SND ∘ SND) (functions pan_code)
 Proof
   recInduct pan_globalsTheory.compile_decs_ind >>
   rw[pan_globalsTheory.compile_decs_def,ELIM_UNCURRY,panLangTheory.exp_ids_def,
@@ -201,8 +162,8 @@ QED
 
 Theorem fperm_exp_ids:
   ∀f g pan_code.
-    MAP (exp_ids ∘ SND ∘ SND) (functions(fperm_decs f g pan_code)) =
-    MAP (exp_ids ∘ SND ∘ SND) (functions pan_code)
+    MAP (exp_ids ∘ FST o SND ∘ SND) (functions(fperm_decs f g pan_code)) =
+    MAP (exp_ids ∘ FST o SND ∘ SND) (functions pan_code)
 Proof
   recInduct pan_globalsTheory.fperm_decs_ind >>
   rw[pan_globalsTheory.fperm_decs_def,ELIM_UNCURRY,panLangTheory.exp_ids_def,
@@ -221,24 +182,47 @@ QED
 Theorem functions_resort_decls:
   functions(resort_decls xs) = functions xs
 Proof
-  rw[pan_globalsTheory.resort_decls_def,panPropsTheory.functions_eq_FILTER,FILTER_APPEND,FILTER_FILTER,ETA_THM]
+  rw[pan_globalsTheory.resort_decls_def,panPropsTheory.functions_eq_FILTER,FILTER_APPEND,FILTER_FILTER,ETA_THM,FILTER_EQ_NIL,EVERY_MEM] >>
+  metis_tac[not_is_function]
 QED
 
 Theorem FDOM_get_eids_pan_globals_compile_eq:
-  ∀pan_code main args body.
-    ALOOKUP (functions pan_code) main = SOME (args,body) ⇒
-    FDOM(get_eids (functions (compile_top pan_code main))) =
-    FDOM(get_eids (functions pan_code))
+  ∀pan_code main args body rshape.
+    ALOOKUP (functions pan_code) main = SOME (args,body,rshape) ⇒
+    FDOM(get_eids_from_decls (compile_top pan_code main)) =
+    FDOM(get_eids_from_decls pan_code)
 Proof
   rw[pan_globalsTheory.compile_top_def,ELIM_UNCURRY,panLangTheory.functions_def,
-     pan_to_crepTheory.get_eids_def,map_map2_fst_lemma,
+     pan_to_crepTheory.get_eids_from_decls_def,
      panLangTheory.exp_ids_def,
      exp_ids_nested_seq,
      compile_decs_exp_ids,
      fperm_exp_ids,
-     functions_resort_decls
+     MAP2_MAP,MAP_MAP_o,o_DEF,
+     MAP_ZIP,
+     exceptions_append,
+     panLangTheory.exceptions_def,
     ] >>
-  simp [last (RES_CANON FLAT_EQ_NIL),EVERY_MAP,compile_decs_no_exp_ids_main]
+  qpat_abbrev_tac ‘a1 = compile_decs _ _’ >>
+  PairCases_on ‘a1’ >>
+  pop_assum $ assume_tac o GSYM o PURE_REWRITE_RULE[markerTheory.Abbrev_def] >>
+  gvs[] >>
+  imp_res_tac compile_decs_EVERY_is_function >>
+  imp_res_tac compile_decs_exns_are_exns >>
+  sg ‘exceptions a11 = []’
+  >- (qhdtm_x_assum ‘EVERY’ mp_tac >>
+      rpt $ pop_assum kall_tac >>
+      Induct_on ‘a11’ using panLangTheory.exceptions_ind >>
+      rw[panLangTheory.is_function_def,panLangTheory.exceptions_def]) >>
+  gvs[] >>
+  simp[pan_globalsTheory.resort_decls_def,
+       exceptions_append,
+       fperm_decs_append,
+       fperm_decs_decls,
+       not_is_function,
+       EVERY_FILTER,
+       fperm_decs_FILTER_is_function,
+       exceptions_FILTER_is_function]
 QED
 
 Definition globals_allocatable_def:
@@ -287,21 +271,20 @@ Proof
 QED
 
 Theorem FDOM_get_eids_structs_compile_decs_eq[local]:
-  !ctxt prog. FDOM (get_eids(functions prog)) =
-  FDOM (get_eids (functions (FST (pan_structs$compile_decs ctxt prog))))
+  !ctxt prog. FDOM (get_eids_from_decls prog) =
+  FDOM (get_eids_from_decls (FST (pan_structs$compile_decs ctxt prog)))
 Proof
-  rw [] >>
-  irule FDOM_get_eids_eq >>
-  simp [] >>
+  rw[pan_to_crepTheory.get_eids_from_decls_def,pan_simpTheory.compile_prog_def, MAP_MAP_o, MAP2_MAP, o_DEF,ELIM_UNCURRY,MAP_ZIP] >>
+  AP_TERM_TAC >>
   map_every qid_spec_tac [`prog`, `ctxt`] >>
   recInduct pan_structsTheory.compile_decs_ind >>
-  simp [pan_structsTheory.compile_decs_def, panLangTheory.functions_def,
-    decl_eids_def, ELIM_UNCURRY, exp_ids_structs_compile]
+  simp [pan_structsTheory.compile_decs_def, panLangTheory.exceptions_def,
+        ELIM_UNCURRY, exp_ids_structs_compile]
 QED
 
 Theorem FDOM_get_eids_structs_compile_eq[local]:
-  FDOM (get_eids (functions (pan_structs$compile_top prog))) =
-  FDOM (get_eids(functions prog))
+  FDOM (get_eids_from_decls (pan_structs$compile_top prog)) =
+  FDOM (get_eids_from_decls prog)
 Proof
   rw [] >>
   simp [pan_structsTheory.compile_top_def, FDOM_get_eids_structs_compile_decs_eq]
@@ -311,13 +294,12 @@ Theorem FDOM_get_eids_structs_compile_decs_eq[local]:
   !ctxt prog. size_of_eids prog =
   size_of_eids (FST (pan_structs$compile_decs ctxt prog))
 Proof
-  rw [] >>
-  irule size_of_eids_eq >>
+  rw [panLangTheory.size_of_eids_def] >>
   simp [] >>
   map_every qid_spec_tac [`prog`, `ctxt`] >>
   recInduct pan_structsTheory.compile_decs_ind >>
-  simp [pan_structsTheory.compile_decs_def, panLangTheory.functions_def,
-    decl_eids_def, ELIM_UNCURRY, exp_ids_structs_compile]
+  simp [pan_structsTheory.compile_decs_def, panLangTheory.is_exn_decl_def,
+        ELIM_UNCURRY, exp_ids_structs_compile]
 QED
 
 Theorem size_of_eids_structs_compile_eq[local]:
@@ -334,21 +316,24 @@ Proof
 QED
 
 Theorem no_names_compile_prog:
-  EVERY (λd. is_function d ∨ is_decl d) pan_code ⇒
-  EVERY (λd. is_function d ∨ is_decl d) (pan_simp$compile_prog pan_code)
+  EVERY (λd. is_function d ∨ is_decl d ∨ is_exn_decl d) pan_code ⇒
+  EVERY (λd. is_function d ∨ is_decl d ∨ is_exn_decl d) (pan_simp$compile_prog pan_code)
 Proof
   simp [pan_simpTheory.compile_prog_def, EVERY_MAP] >>
   match_mp_tac MONO_EVERY >>
-  Cases >> simp [panLangTheory.is_function_def, panPropsTheory.is_decl_def]
+  Cases >>
+  simp [panLangTheory.is_function_def,
+        panLangTheory.is_decl_def,
+        panLangTheory.is_exn_decl_def]
 QED
 
 Theorem semantics_decls_has_main':
   s.code = FEMPTY ∧
   ALL_DISTINCT(MAP FST(functions code)) ∧
   semantics_decls s start code ≠ Fail ⇒
-  ∃body.
+  ∃body rshape.
     ALOOKUP (functions code) start =
-    SOME ([],body)
+    SOME ([],body,rshape)
 Proof
   rpt strip_tac >>
   drule panPropsTheory.semantics_decls_has_main' >>
@@ -360,9 +345,9 @@ Theorem semantics_decls_has_main''[local]:
   s.code = FEMPTY ∧
   ALL_DISTINCT(MAP FST(functions code)) ∧
   v ≠ Fail ⇒
-  ∃body.
+  ∃body rshape.
     ALOOKUP (functions code) start =
-    SOME ([],body)
+    SOME ([],body,rshape)
 Proof
   metis_tac [semantics_decls_has_main']
 QED
@@ -377,27 +362,62 @@ Proof
 QED
 
 Theorem size_of_eids_compile_top:
-  ALOOKUP (functions pan_code) main = SOME(args,body) ⇒
+  ALOOKUP (functions pan_code) main = SOME(args,body,rshape) ⇒
   size_of_eids (pan_globals$compile_top pan_code main) = size_of_eids pan_code
 Proof
   rw[panLangTheory.size_of_eids_def] >>
-  ntac 2 AP_TERM_TAC >>
+  AP_TERM_TAC >>
   simp[pan_globalsTheory.compile_top_def,ELIM_UNCURRY,
-       panLangTheory.exp_ids_def,exp_ids_nested_seq] >>
+       panLangTheory.exp_ids_def,exp_ids_nested_seq,
+       FILTER_APPEND, panLangTheory.is_exn_decl_def] >>
+  qpat_abbrev_tac ‘a1 = compile_decs _ _’ >>
+  PairCases_on ‘a1’ >>
+  pop_assum $ assume_tac o GSYM o PURE_REWRITE_RULE[markerTheory.Abbrev_def] >>
+  gvs[] >>
+  imp_res_tac compile_decs_EVERY_is_function >>
+  imp_res_tac compile_decs_exns_are_exns >>
+  sg ‘exceptions a11 = []’
+  >- (qhdtm_x_assum ‘EVERY’ mp_tac >>
+      rpt $ pop_assum kall_tac >>
+      Induct_on ‘a11’ using panLangTheory.exceptions_ind >>
+      rw[panLangTheory.is_function_def,panLangTheory.exceptions_def]) >>
+  gvs[] >>
+  simp[pan_globalsTheory.resort_decls_def,
+       exceptions_append,
+       fperm_decs_append,
+       fperm_decs_decls,
+       not_is_function,
+       EVERY_FILTER,
+       fperm_decs_FILTER_is_function,
+       exceptions_FILTER_is_function,
+       FILTER_APPEND,
+       FILTER_IDEM
+      ] >>
+  simp[FILTER_FILTER] >>
+  PURE_REWRITE_TAC[GSYM APPEND_ASSOC] >>
   qmatch_goalsub_abbrev_tac ‘a1 ++ _ = _’ >>
-  ‘a1 = []’
-    by(rw[Abbr ‘a1’,FLAT_EQ_NIL,EVERY_MAP,compile_decs_no_exp_ids_main]) >>
-  simp[] >> simp[Abbr ‘a1’] >>
-  qmatch_goalsub_abbrev_tac ‘FLAT (MAP f l1) = FLAT (MAP f l2)’ >>
-  ‘∀ll. FLAT (MAP f ll) = FLAT (MAP (exp_ids o SND o SND) (functions ll))’
-    by(recInduct panLangTheory.functions_ind >>
-       rw[panLangTheory.functions_def,Abbr ‘f’]) >>
-  pop_assum $ simp o single >>
-  simp[Abbr ‘l1’, Abbr ‘l2’,compile_decs_exp_ids,fperm_exp_ids,functions_resort_decls]
+  sg ‘a1 = []’
+  >- (simp[Abbr ‘a1’,FILTER_EQ_NIL,EVERY_MEM] >>
+      Cases >>
+      simp[panLangTheory.is_exn_decl_def,panLangTheory.is_name_def]) >>
+  simp[Abbr ‘a1’] >>
+  gvs[FILTER_EQ_NIL,EVERY_MEM] >>
+  rpt conj_tac >> Cases >>
+  gvs[panLangTheory.is_exn_decl_def,panLangTheory.is_name_def,
+      panLangTheory.is_function_def,panLangTheory.is_decl_def] >>
+  metis_tac[panLangTheory.is_function_def]
+QED
+
+(* TODO: move*)
+Theorem functions_FILTER_nil:
+  functions (FILTER is_exn_decl xs) = []
+Proof
+  Induct_on ‘xs’ using panLangTheory.functions_ind >>
+  rw[panLangTheory.functions_def,panLangTheory.is_exn_decl_def]
 QED
 
 Theorem FLOOKUP_make_funcs_main:
-  ALOOKUP (functions pan_code) main = SOME([],body) ⇒
+  ALOOKUP (functions pan_code) main = SOME([],body,rshape) ⇒
   FLOOKUP (make_funcs (compile_prog(compile_top pan_code main))) main =
   SOME (first_name,0)
 Proof
@@ -409,7 +429,17 @@ Proof
      panLangTheory.functions_def,GENLIST_CONS,FLOOKUP_UPDATE,
      pan_to_crepTheory.crep_vars_def,
      panLangTheory.size_of_shape_def
-    ]
+    ] >>
+  qpat_abbrev_tac ‘a1 = compile_decs _ _’ >>
+  PairCases_on ‘a1’ >>
+  pop_assum $ assume_tac o GSYM o PURE_REWRITE_RULE[markerTheory.Abbrev_def] >>
+  gvs[] >>
+  imp_res_tac compile_decs_EVERY_is_function >>
+  imp_res_tac compile_decs_exns_are_exns >>
+  gvs[FILTER_APPEND] >>
+  simp[panPropsTheory.functions_append,
+       panLangTheory.functions_def,functions_FILTER_nil,
+       panLangTheory.inlinable_def,GENLIST_CONS]
 QED
 
 Theorem compile_shape_no_name:
@@ -486,6 +516,16 @@ Theorem ALL_DISTINCT_MAP_INJ_o[local] =
   |> Q.SPEC `MAP FST (xs : ('a # 'e) list)`
   |> SIMP_RULE std_ss [MAP_MAP_o, o_DEF]
 
+Theorem functions_compile_decs_exns:
+  functions(FST(SND(SND(compile_decs ctxt prog)))) = []
+Proof
+  qpat_abbrev_tac ‘a1 = compile_decs ctxt prog’ >>
+  PairCases_on ‘a1’ >>
+  pop_assum $ assume_tac o GSYM o PURE_REWRITE_RULE[markerTheory.Abbrev_def] >>
+  imp_res_tac compile_decs_exns_are_exns >>
+  gvs[functions_FILTER_nil]
+QED
+
 Theorem state_rel_imp_semantics:
   (∀addr'. addr' ∈ s.memaddrs ⇒ t.memory addr' = wlab_wloc(s.memory addr')) ∧
   no_labels t.memory t.mdomain ∧
@@ -508,7 +548,7 @@ Theorem state_rel_imp_semantics:
   t.code = fromAList (pan_to_word$compile_prog c pan_code) ∧
   s.globals = FEMPTY ∧
   s.locals = FEMPTY ∧ size_of_eids pan_code < dimword (:α) ∧
-  FDOM s.eshapes = FDOM (get_eids(functions pan_code)) ∧
+  s.eshapes = FEMPTY ∧
   lookup 0 t.locals = SOME (Loc 1 0) /\ good_dimindex (:'a) ∧
   semantics_decls s start pan_code <> Fail ==>
   semantics (t:('a,'b, 'ffi) wordSem$state) (first_name) =
@@ -517,6 +557,7 @@ Proof
 
   rw [] >>
   imp_res_tac semantics_decls_decl_structs >>
+  imp_res_tac panPropsTheory.semantics_decls_has_main >>
   drule_at (Pos last) pan_simpProofTheory.state_rel_imp_semantics_decls >>
   disch_then $ qspec_then ‘s’ mp_tac >>
   impl_tac
@@ -538,38 +579,30 @@ Proof
          compile_top_no_names, function_names_structs_compile_top]
   ) >>
 
-  strip_tac >> gvs[] >>
+  strip_tac >> gvs[FLOOKUP_FUPDATE_LIST,AllCaseEqs(),alookup_distinct_reverse] >>
   drule_at (Pos last) pan_to_crepProofTheory.state_rel_imp_semantics_decls >>
   simp[] >>
   qmatch_goalsub_abbrev_tac ‘state_rel s1’ >>
   disch_then $ qspec_then ‘crep_state s1 (compile_top (compile_top (compile_prog pan_code)) «main») s1.memory’ mp_tac >>
   impl_keep_tac
-  >- (simp[compile_top_only_functions,compile_top_localised] >>
-      simp[FMAP_MAP2_THM] >>
-      dep_rewrite.DEP_ONCE_REWRITE_TAC [FDOM_get_eids_pan_globals_compile_eq] >>
-      conj_asm1_tac
-      >- (qexists ‘[]’ >>
-          drule_then irule semantics_decls_has_main'' >>
-          simp[]) >>
-      simp[GSYM FDOM_get_eids_pan_simp_compile_eq, FDOM_get_eids_structs_compile_eq] >>
+  >- (
+      simp[compile_top_only_functions_or_exns,compile_top_localised] >>
+      simp[FMAP_MAP2_FEMPTY] >>
       conj_tac
       >- (
         gvs[crep_state_def,pan_to_crepProofTheory.state_rel_def] >>
         gs[markerTheory.Abbrev_def]
       ) >>
       conj_tac
-      >- (gvs[pan_globalsTheory.compile_top_def,ELIM_UNCURRY,
-              panLangTheory.functions_def,new_main_name_correct,
-              compile_decs_fun_names,functions_fperm_decs,
-              MAP_MAP_o,o_DEF,MEM_MAP,FORALL_PROD,
-              functions_resort_decls] >>
-          conj_tac
-          >- (rw[pan_globalsTheory.fperm_name_def] >>
-              metis_tac[SIMP_RULE std_ss [FORALL_PROD,MEM_MAP] new_main_name_correct]) >>
-          irule ALL_DISTINCT_MAP_INJ_o >>
-          simp []) >>
-      simp[crep_state_def] >>
-      gvs[size_of_eids_compile_top,size_of_eids_compile_eq,size_of_eids_structs_compile_eq]
+      >- metis_tac[ALL_DISTINCT_compile_top] >>
+      simp[crep_state_def, FMAP_MAP2_def] >>
+
+      Cases_on ‘ALOOKUP(functions(compile_top(pan_simp$compile_prog pan_code))) «main»’
+      >- simp[pan_globalsTheory.compile_top_def,panLangTheory.size_of_eids_def] >>
+      rename1 ‘ALOOKUP _ _ = SOME x’ >> PairCases_on ‘x’ >>
+      simp[size_of_eids_compile_top,
+           size_of_eids_compile_eq,
+           size_of_eids_structs_compile_eq]
      ) >>
   disch_then $ strip_assume_tac o GSYM >>
   gvs[Abbr ‘s1’] >>
@@ -605,7 +638,7 @@ Proof
   irule loop_to_wordProofTheory.state_rel_imp_semantics >>
   unabbrev_all_tac >>
   simp[crep_state_def] >>
-  ‘∃prog. ALOOKUP (functions (compile_top (compile_prog pan_code))) «main» = SOME([],prog)’
+  ‘∃prog rshape. ALOOKUP (functions (compile_top (compile_prog pan_code))) «main» = SOME([],prog,rshape)’
     by(drule_then irule semantics_decls_has_main'' >>
        simp[]) >>
   conj_asm1_tac
@@ -783,7 +816,7 @@ Proof
   rw $ [loopPropsTheory.every_prog_def,loop_inst_ok_def,crep_to_loopTheory.prog_if_def,crepPropsTheory.every_exp_def] @ butlast(CONJUNCTS crep_to_loopTheory.compile_exp_def) \\
   rpt(pairarg_tac \\ gvs[]) \\
   gvs[loopPropsTheory.every_prog_def,loop_inst_ok_def,crep_to_loopTheory.prog_if_def]
-  THEN1 (gvs[DefnBase.one_line_ify NONE crep_to_loopTheory.compile_crepop_def,AllCaseEqs(),
+  THEN1 (gvs[oneline crep_to_loopTheory.compile_crepop_def,AllCaseEqs(),
              loopPropsTheory.every_prog_def,loop_inst_ok_def] \\
          rw[EVERY_MEM,MEM_MAPi] \\
          rw[loopPropsTheory.every_prog_def,loop_inst_ok_def] \\
@@ -791,7 +824,7 @@ Proof
                               crep_to_loopProofTheory.compile_exps_alt] \\
          rpt(pairarg_tac \\ gvs[]) \\
          metis_tac[EVERY_MEM])
-  THEN1 (gvs[DefnBase.one_line_ify NONE crep_to_loopTheory.compile_crepop_def,AllCaseEqs(),
+  THEN1 (gvs[oneline crep_to_loopTheory.compile_crepop_def,AllCaseEqs(),
              loopPropsTheory.every_prog_def,loop_inst_ok_def] \\
          rw[EVERY_MEM,MEM_MAPi] \\
          rw[loopPropsTheory.every_prog_def,loop_inst_ok_def] \\
@@ -829,8 +862,8 @@ Proof
       every_prog_loop_inst_ok_nested_seq] \\
   gvs[EVERY_APPEND,loopPropsTheory.every_prog_def,loop_inst_ok_def,
       crep_to_loopTheory.compile_def]
-  >~ [‘MAP2’] >-
-    (drule $ cj 2 every_inst_ok_less_crep_to_loop_compile_exp \\
+  >>~- ([‘MAP2’],
+     drule $ cj 2 every_inst_ok_less_crep_to_loop_compile_exp \\
      fs [MAP2_ZIP, crep_to_loopTheory.gen_temps_def, EVERY_MAP, UNCURRY,
         loopPropsTheory.every_prog_def, loop_inst_ok_def] \\
      disch_then $ qspecl_then [‘ctxt.vmax + 1’,‘ns’,‘es’] mp_tac \\
@@ -1040,28 +1073,22 @@ Proof
       every_inst_ok_less_store_globals
      ] \\
   imp_res_tac every_inst_ok_less_pan_to_crep_compile_exp
-  >~ [‘ret_hdl’] >-
-   (gvs[] \\
-    conj_tac >-
-     (gvs[EVERY_MEM,PULL_FORALL] \\
+  >~ [`exp_hdl`, `size_of_shape _ = 0`]
+  >- (
+    gvs[] \\
+    rpt conj_tac >-
+      gvs[crepPropsTheory.every_exp_def]
+    >-(gvs[EVERY_MEM,PULL_FORALL,crepPropsTheory.every_exp_def] \\
       metis_tac[every_inst_ok_less_pan_to_crep_compile_exp,EVERY_MEM,FST,SND,PAIR]) \\
-    simp[DefnBase.one_line_ify NONE pan_to_crepTheory.ret_hdl_def] \\
-    PURE_TOP_CASE_TAC \\ rw[crepPropsTheory.exps_of_def,crepLangTheory.assign_ret_def] \\
+    simp[DefnBase.one_line_ify NONE pan_to_crepTheory.exp_hdl_def,
+         DefnBase.one_line_ify NONE pan_to_crepTheory.ret_hdl_def] \\
+    rpt(PURE_TOP_CASE_TAC \\ gvs[]) \\ rw[crepPropsTheory.exps_of_def,crepLangTheory.assign_ret_def] \\
     rw[exps_of_nested_seq,EVERY_FLAT,EVERY_MAP,load_globals_alt,MAP2_MAP,MEM_ZIP] \\
     gvs[EVERY_MEM,MEM_ZIP,PULL_EXISTS,PULL_FORALL,crepPropsTheory.exps_of_def,
-        crepPropsTheory.every_exp_def])
-  >~ [‘ret_hdl’] >-
-   (gvs[] \\
-    conj_tac >-
-     (gvs[EVERY_MEM,PULL_FORALL] \\
-      metis_tac[every_inst_ok_less_pan_to_crep_compile_exp,EVERY_MEM,FST,SND,PAIR]) \\
-    simp[DefnBase.one_line_ify NONE pan_to_crepTheory.ret_hdl_def] \\
-    PURE_TOP_CASE_TAC \\ rw[crepPropsTheory.exps_of_def,crepLangTheory.assign_ret_def] \\
-    rw[exps_of_nested_seq,EVERY_FLAT,EVERY_MAP,load_globals_alt,MAP2_MAP,MEM_ZIP] \\
-    gvs[EVERY_MEM,MEM_ZIP,PULL_EXISTS,PULL_FORALL,crepPropsTheory.exps_of_def,
-        crepPropsTheory.every_exp_def])
-  >~ [‘exp_hdl’] >-
-   (gvs[] \\
+        crepPropsTheory.every_exp_def]
+  )
+  >>~- ([‘exp_hdl’],
+    gvs[] \\
     conj_tac >-
      (gvs[EVERY_MEM,PULL_FORALL] \\
       metis_tac[every_inst_ok_less_pan_to_crep_compile_exp,EVERY_MEM,FST,SND,PAIR]) \\
@@ -1069,33 +1096,11 @@ Proof
     rpt(PURE_TOP_CASE_TAC \\ gvs[]) \\ rw[crepPropsTheory.exps_of_def,crepLangTheory.assign_ret_def] \\
     rw[exps_of_nested_seq,EVERY_FLAT,EVERY_MAP,load_globals_alt,MAP2_MAP,MEM_ZIP] \\
     gvs[EVERY_MEM,MEM_ZIP,PULL_EXISTS,PULL_FORALL,crepPropsTheory.exps_of_def,
-        crepPropsTheory.every_exp_def])
-  >~ [‘exp_hdl’] >-
-   (gvs[] \\
-    rpt conj_tac >-
-     (gvs[EVERY_MEM,PULL_FORALL] \\
-      metis_tac[every_inst_ok_less_pan_to_crep_compile_exp,EVERY_MEM,FST,SND,PAIR]) \\
-    simp[DefnBase.one_line_ify NONE pan_to_crepTheory.exp_hdl_def,
-         DefnBase.one_line_ify NONE pan_to_crepTheory.ret_hdl_def] \\
-    rpt(PURE_TOP_CASE_TAC \\ gvs[]) \\ rw[crepPropsTheory.exps_of_def,crepLangTheory.assign_ret_def] \\
-    rw[exps_of_nested_seq,EVERY_FLAT,EVERY_MAP,load_globals_alt,MAP2_MAP,MEM_ZIP] \\
-    gvs[EVERY_MEM,MEM_ZIP,PULL_EXISTS,PULL_FORALL,crepPropsTheory.exps_of_def,
-        crepPropsTheory.every_exp_def])
-  >~ [‘exp_hdl’] >-
-   (gvs[] \\
-    rpt conj_tac >-
-     (gvs[EVERY_MEM,PULL_FORALL] \\
-      metis_tac[every_inst_ok_less_pan_to_crep_compile_exp,EVERY_MEM,FST,SND,PAIR]) \\
-    simp[DefnBase.one_line_ify NONE pan_to_crepTheory.exp_hdl_def,
-         DefnBase.one_line_ify NONE pan_to_crepTheory.ret_hdl_def] \\
-    rpt(PURE_TOP_CASE_TAC \\ gvs[]) \\ rw[crepPropsTheory.exps_of_def,crepLangTheory.assign_ret_def] \\
-    rw[exps_of_nested_seq,EVERY_FLAT,EVERY_MAP,load_globals_alt,MAP2_MAP,MEM_ZIP] \\
-    gvs[EVERY_MEM,MEM_ZIP,PULL_EXISTS,PULL_FORALL,crepPropsTheory.exps_of_def,
         crepPropsTheory.every_exp_def]) \\
   simp[every_inst_ok_nested_decs,crepPropsTheory.exps_of_def,every_inst_ok_nested_decs,crepPropsTheory.length_load_globals_eq_read_size,load_globals_alt] \\
   rw[EVERY_MEM,MAP2_MAP,MEM_ZIP,MEM_MAP,UNCURRY_DEF] \\
   gvs[UNCURRY_DEF,crepPropsTheory.exps_of_def,EVERY_MEM,MEM_EL,PULL_EXISTS,EL_MAP,
-      crepPropsTheory.every_exp_def,DefnBase.one_line_ify NONE pan_to_crepTheory.ret_hdl_def] \\
+      crepPropsTheory.every_exp_def] \\
   metis_tac[every_inst_ok_less_pan_to_crep_compile_exp,MEM_EL,EVERY_MEM,
             FST,SND,PAIR]
 QED
@@ -1104,7 +1109,8 @@ Definition good_panops_def:
   good_panops (Function fi) =
   EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (exps_of fi.body) ∧
   good_panops (Decl sh v exp) =
-  every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2) exp
+  every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2) exp ∧
+  good_panops _ = T
 End
 
 Theorem every_inst_ok_less_pan_to_crep_compile_to_crep:
@@ -1377,6 +1383,17 @@ Proof
   rpt(PURE_TOP_CASE_TAC >> gvs[panLangTheory.functions_def,ELIM_UNCURRY]) >>
   gvs[good_panops_def,panPropsTheory.exps_of_def,pan_exps_of_nested_seq,
       EVERY_FLAT,EVERY_MAP,panPropsTheory.every_exp_def] >>
+  conj_tac
+  >- (qpat_abbrev_tac ‘a1 = compile_decs _ _’ >>
+      PairCases_on ‘a1’ >>
+      pop_assum $ assume_tac o GSYM o PURE_REWRITE_RULE[markerTheory.Abbrev_def] >>
+      gvs[] >>
+      imp_res_tac compile_decs_EVERY_is_function >>
+      imp_res_tac compile_decs_exns_are_exns >>
+      rw[EVERY_MEM,MEM_FILTER] >>
+      gvs[oneline panLangTheory.is_exn_decl_def] >>
+      PURE_FULL_CASE_TAC >> gvs[good_panops_def]
+     ) >>
   conj_tac
   >- (irule $ REWRITE_RULE [EVERY_MAP] every_inst_ok_less_pan_globals_compile_decs_init >>
       irule every_inst_ok_less_fperm_decs >>

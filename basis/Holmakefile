@@ -1,8 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/developers $(CAKEMLDIR)/misc\
-					 $(CAKEMLDIR)/semantics $(CAKEMLDIR)/characteristic\
-					 $(CAKEMLDIR)/translator $(CAKEMLDIR)/translator/monadic\
-					 $(CAKEMLDIR)/compiler/printing  pure
-
 all: $(DEFAULT_TARGETS) README.md basis_ffi.o
 .PHONY: all
 

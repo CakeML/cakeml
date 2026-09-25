@@ -46,11 +46,5 @@ Proof
   \\ xsimpl
 QED
 
-val (helloErr_sem_thm, helloErr_prog_tm) = whole_prog_thm st "helloErr" helloErr_whole_prog_spec;
-Definition helloErr_prog_def:
-  helloErr_prog = ^helloErr_prog_tm
-End
-
 Theorem helloErr_semantics =
-  helloErr_sem_thm |> ONCE_REWRITE_RULE[GSYM helloErr_prog_def]
-  |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  prove_sem_thm "helloErr" "helloErr_prog" helloErr_whole_prog_spec;

@@ -4285,16 +4285,16 @@ Definition check_cstep_list_def:
         fml', zeros', inds,
         vimap, vomap,
         pc with <| id:=id'; pres:=SOME pres' |>))
-  | Sol w =>
+  | Sol w free =>
     (if pc.obj ≠ NONE ∨ ¬pc.chk then NONE
     else
     let corels = core_fmlls fml inds in
-    case check_obj pc.obj w (MAP SND corels) NONE of
+    case check_sol w free (MAP SND corels) of
       NONE => NONE
-    | SOME (new,w) =>
-      let bound' = update_bound pc.chk pc.bound new in
-      let dbound' = update_dbound pc.dbound new in
-      let c = model_banning pc.pres w in
+    | SOME w =>
+      let bound' = update_bound pc.chk pc.bound 0 in
+      let dbound' = update_dbound pc.dbound 0 in
+      let c = model_banning pc.pres free w in
         SOME (
           update_resize fml NONE (SOME (c,T)) pc.id,
           zeros,
@@ -4305,7 +4305,7 @@ Definition check_cstep_list_def:
           <| id := pc.id+1;
              bound := bound';
              dbound := dbound';
-             enum := pc.enum+1 |>))
+             enum := pc.enum + cube_count pc.pres free |>))
   | CheckPres ls' =>
     if check_eq_pres pc.pres ls'
     then SOME (fml, zeros, inds, vimap, vomap, pc)
@@ -4763,7 +4763,7 @@ Proof
       rw[EXTENSION,MEM_MAP,EXISTS_PROD,MEM_toAList,MEM_core_fmlls]>>
       simp[lookup_mk_core_fml]>>
       metis_tac[ind_rel_lookup_core_only_list,fml_rel_lookup_core_only])>>
-    drule check_obj_cong>>rw[]>>fs[]>>
+    drule check_sol_cong>>rw[]>>fs[]>>
     rw[]
     >- metis_tac[fml_rel_update_resize]
     >- metis_tac[ind_rel_update_resize_sorted_insert]

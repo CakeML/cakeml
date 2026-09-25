@@ -11,7 +11,7 @@ Libs
 val reader_io_events_def = new_specification (
   "reader_io_events_def", ["reader_io_events"],
   reader_semantics
-  |> Q.GENL[`cl`,`fs`]
+  |> Q.GENL[`ext`,`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,GSYM RIGHT_EXISTS_IMP_THM]);
 
 val (reader_sem, reader_output) =
@@ -70,11 +70,11 @@ Theorem machine_code_sound:
    wfFS fs ∧
    STD_streams fs ⇒
      (installed_x64 reader_code mc ms ⇒
-        machine_sem mc (basis_ffi cl fs) ms ⊆
+        machine_sem mc (basis_ffi ext cl fs) ms ⊆
           extend_with_resource_limit
-            {Terminate Success (reader_io_events cl fs)}) ∧
+            {Terminate Success (reader_io_events ext cl fs)}) ∧
      ∃fs_out hol_refs s.
-       extract_fs fs (reader_io_events cl fs) = SOME fs_out ∧
+       extract_fs ext (cl,fs) (reader_io_events ext cl fs) = SOME fs_out ∧
        (no_errors fs fs_out ⇒
           reader_main fs init_refs (TL cl) = (fs_out, hol_refs, SOME s) ∧
           hol_refs.the_context extends init_ctxt ∧

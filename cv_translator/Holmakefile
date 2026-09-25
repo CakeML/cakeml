@@ -1,12 +1,3 @@
-INCLUDES = $(HOLDIR)/examples/bootstrap \
-           ../basis/pure \
-           ../compiler/inference \
-           ../compiler/backend \
-           ../compiler/backend/x64 \
-           ../compiler/backend/arm8 \
-           ../compiler/backend/ag32 \
-           ../compiler/backend/cv_compute
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

@@ -13,5 +13,5 @@ A simple hello world program in CakeML
 This directory contains the end-to-end correctness theorem for the
 32-bit version of the CakeML compiler.
 
-[x64BootstrapScript.sml](x64BootstrapScript.sml):
+[x64_32BootstrapScript.sml](x64_32BootstrapScript.sml):
 Evaluation of the 32-bit version of the compiler into x64 machine code.
