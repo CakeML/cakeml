@@ -71,6 +71,7 @@ Proof
       prove_tac
       )
     >- prove_tac
+    >- prove_tac
     ) >>
   prove_tac
 QED

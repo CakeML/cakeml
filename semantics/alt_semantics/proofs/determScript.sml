@@ -39,7 +39,8 @@ Proof
   fs [] >>
   rw [] >>
   gs[] >> res_tac >> gs[] >>
-  metis_tac []
+  qpat_x_assum ‘REVERSE vs = _’ (mp_tac o AP_TERM “LENGTH : v list -> num”) >>
+  simp []
 QED
 
 Theorem decs_determ:

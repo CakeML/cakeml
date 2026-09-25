@@ -32,9 +32,10 @@ Proof
 QED
 
 Theorem opClass_11[simp]:
-  (opClass op Simple ⇒ ¬opClass op Force ∧ ¬opClass op FunApp) ∧
-  (opClass op Force ⇒ ¬opClass op Simple ∧ ¬opClass op FunApp) ∧
-  (opClass op FunApp ⇒ ¬opClass op Simple ∧ ¬opClass op Force)
+  (opClass op Simple ⇒ ¬opClass op Force ∧ ¬opClass op FunApp ∧ ¬opClass op PtrEqOp) ∧
+  (opClass op Force ⇒ ¬opClass op Simple ∧ ¬opClass op FunApp ∧ ¬opClass op PtrEqOp) ∧
+  (opClass op FunApp ⇒ ¬opClass op Simple ∧ ¬opClass op Force ∧ ¬opClass op PtrEqOp) ∧
+  (opClass op PtrEqOp ⇒ ¬opClass op Simple ∧ ¬opClass op Force ∧ ¬opClass op FunApp)
 Proof
   Cases_on ‘op’ >> gvs[opClass_cases]
 QED
@@ -94,10 +95,6 @@ Proof
     drule do_app_io_events_mono >> rw[] >>
     metis_tac[io_events_mono_trans]
     ) >>
-  TRY (rename1 ‘opClass op Icing’ >>
-       drule do_app_io_events_mono >> rw[]) >>
-  TRY (rename1 ‘opClass op Reals’ >>
-       drule do_app_io_events_mono >> rw[]) >>
   metis_tac[io_events_mono_trans]
 QED
 
