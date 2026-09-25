@@ -10,6 +10,13 @@ Ancestors
 
 val _ = cv_memLib.use_long_names := true;
 
+(* Deduplicate constructor uses within a scope, retaining local-open boundaries.
+   An open is checked even when its body contains no constructor uses. *)
+Datatype:
+  con_check = ConCheck ((mlstring, mlstring) id) num
+            | OpenCheck (mlstring list) (con_check list)
+End
+
 Definition collect_conses_def:
   (collect_conses p (Raise e) = collect_conses p e) ∧
   (collect_conses p (Handle e pes) =
@@ -21,7 +28,7 @@ Definition collect_conses_def:
      case cn of
      | NONE => collect_conses_list p es
      | SOME c =>
-         let x = (c,LENGTH es) in
+         let x = ConCheck c (LENGTH es) in
            collect_conses_list (if MEM x p then p else x::p) es) ∧
   (collect_conses p (Var v) = p) ∧
   (collect_conses p (Fun x e) = collect_conses p e) ∧
@@ -34,6 +41,7 @@ Definition collect_conses_def:
      collect_conses (collect_conses p e2) e1) ∧
   (collect_conses p (Tannot e a) = collect_conses p e) ∧
   (collect_conses p (Lannot e a) = collect_conses p e) ∧
+  (collect_conses p (Open path e) = OpenCheck path (collect_conses [] e)::p) ∧
   (collect_conses p (Letrec funs e) =
      collect_conses_list3 (collect_conses p e) funs) ∧
   (collect_conses_list p [] = p) ∧
@@ -69,30 +77,42 @@ QED
 
 Definition do_con_checks_def:
   do_con_checks cenv [] = T ∧
-  do_con_checks cenv ((c,n)::rest) =
-    case nsLookup cenv c of
-    | NONE => F
-    | SOME (l,_) => l = n ∧ do_con_checks cenv rest
+  do_con_checks cenv (ConCheck c n::rest) =
+    (do_con_check cenv (SOME c) n ∧ do_con_checks cenv rest) ∧
+  do_con_checks cenv (OpenCheck path checks::rest) =
+    ((case nsOpen path cenv of
+      | NONE => F
+      | SOME opened => do_con_checks (nsAppend opened cenv) checks) ∧
+     do_con_checks cenv rest)
 End
 
+val _ = cv_auto_trans semanticPrimitivesTheory.do_con_check_def;
 val pre = cv_trans_pre "" do_con_checks_def;
 Theorem do_con_checks_pre[cv_pre]:
   ∀cenv v. do_con_checks_pre cenv v
 Proof
-  Induct_on ‘v’ \\ simp [Once pre]
+  ho_match_mp_tac do_con_checks_ind
+  \\ rw [] \\ simp [Once pre]
+QED
+
+Theorem do_con_checks_cons:
+  do_con_checks cenv (check::checks) =
+  (do_con_checks cenv [check] ∧ do_con_checks cenv checks)
+Proof
+  Cases_on ‘check’ \\ simp [do_con_checks_def]
 QED
 
 Theorem collect_conses_acc_lemma[local]:
-  (∀(p:((mlstring, mlstring) id # num) list) v q p.
+  (∀(p:con_check list) v q p.
      collect_conses p v = q ⇒
      set p ∪ set (collect_conses [] v) = set q) ∧
-  (∀(p:((mlstring, mlstring) id # num) list) v q p.
+  (∀(p:con_check list) v q p.
      collect_conses_list p v = q ⇒
      set p ∪ set (collect_conses_list [] v) = set q) ∧
-  (∀(p:((mlstring, mlstring) id # num) list) v q p.
+  (∀(p:con_check list) v q p.
      collect_conses_list2 p v = q ⇒
      set p ∪ set (collect_conses_list2 [] v) = set q) ∧
-  (∀(p:((mlstring, mlstring) id # num) list) v q p.
+  (∀(p:con_check list) v q p.
      collect_conses_list3 p v = q ⇒
      set p ∪ set (collect_conses_list3 [] v) = set q)
 Proof
@@ -112,6 +132,7 @@ Proof
   \\ once_asm_rewrite_tac []
   \\ once_asm_rewrite_tac []
   \\ simp_tac (srw_ss()) [AC UNION_ASSOC UNION_COMM]
+  \\ simp [EXTENSION, DISJ_COMM]
 QED
 
 Theorem collect_conses_acc[local] =
@@ -119,59 +140,54 @@ Theorem collect_conses_acc[local] =
 
 Theorem do_con_checks_set:
   ∀xs. do_con_checks cenv xs =
-       ∀c n. MEM (c,n) xs ⇒ ∃y. nsLookup cenv c = SOME (n,y)
+       ∀check. MEM check xs ⇒ do_con_checks cenv [check]
 Proof
-  Induct \\ gvs [FORALL_PROD,do_con_checks_def,SF DNF_ss]
-  \\ rw [] \\ Cases_on ‘nsLookup cenv p_1’ \\ gvs []
-  \\ PairCases_on ‘x’ \\ gvs []
+  Induct \\ simp [Once do_con_checks_cons, do_con_checks_def,
+                  DISJ_IMP_THM, FORALL_AND_THM]
 QED
 
 Theorem do_con_checks_collect_conses_thm:
-  (∀(p:((mlstring, mlstring) id # num) list) v.
-     do_con_checks env_c (collect_conses [] v) =
-     every_exp (one_con_check env_c) v) ∧
-  (∀(p:((mlstring, mlstring) id # num) list) v.
-     do_con_checks env_c (collect_conses_list [] v) =
-     EVERY (every_exp (one_con_check env_c)) v) ∧
-  (∀(p:((mlstring, mlstring) id # num) list) v.
-     do_con_checks env_c (collect_conses_list2 [] v) =
-     EVERY (λ(x,e). every_exp (one_con_check env_c) e) v) ∧
-  (∀(p:((mlstring, mlstring) id # num) list) v.
-     do_con_checks env_c (collect_conses_list3 [] v) =
-     EVERY (λ(x,y,e). every_exp (one_con_check env_c) e) v)
+  (∀p v env_c.
+     do_con_checks env_c (collect_conses p v) =
+     (do_con_checks env_c p ∧ check_exp_constructors env_c v)) ∧
+  (∀p v env_c.
+     do_con_checks env_c (collect_conses_list p v) =
+     (do_con_checks env_c p ∧ EVERY (check_exp_constructors env_c) v)) ∧
+  (∀p v env_c.
+     do_con_checks env_c (collect_conses_list2 p v) =
+     (do_con_checks env_c p ∧ EVERY (λ(x,e). check_exp_constructors env_c e) v)) ∧
+  (∀p v env_c.
+     do_con_checks env_c (collect_conses_list3 p v) =
+     (do_con_checks env_c p ∧ EVERY (λ(x,y,e). check_exp_constructors env_c e) v))
 Proof
-  ho_match_mp_tac collect_conses_ind \\ rpt strip_tac
-  >~ [‘Con’] >-
-   (Cases_on ‘cn’ \\ gvs []
-    \\ simp [collect_conses_def,do_con_checks_def,SF ETA_ss,
-             semanticPrimitivesTheory.do_con_check_def]
-    \\ rpt $ pop_assum mp_tac
-    \\ once_rewrite_tac [do_con_checks_set]
-    \\ once_rewrite_tac [collect_conses_acc]
-    \\ gvs [SF DNF_ss]
-    \\ Cases_on ‘nsLookup env_c x’ \\ gvs []
-    \\ Cases_on ‘x'’ \\ gvs [] \\ rw [] \\ eq_tac \\ rw [])
-  \\ simp [collect_conses_def]
-  \\ rpt $ pop_assum mp_tac
-  \\ once_rewrite_tac [do_con_checks_set]
-  \\ once_rewrite_tac [collect_conses_acc]
-  \\ once_rewrite_tac [collect_conses_acc]
-  \\ gvs [SF DNF_ss] \\ gvs [SF ETA_ss]
-  \\ rw [] \\ eq_tac \\ rw []
+  ho_match_mp_tac collect_conses_ind
+  \\ rw []
+  \\ simp [collect_conses_def, semanticPrimitivesTheory.check_exp_constructors_def,
+           do_con_checks_def, SF ETA_ss, AC CONJ_ASSOC CONJ_COMM]
+  \\ Cases_on ‘cn’ \\ gvs [semanticPrimitivesTheory.do_con_check_def]
+  \\ rename1 ‘MEM (ConCheck constructor_id (LENGTH arguments)) checks’
+  \\ Cases_on ‘MEM (ConCheck constructor_id (LENGTH arguments)) checks’
+  \\ gvs [do_con_checks_def, semanticPrimitivesTheory.do_con_check_def,
+          AC CONJ_ASSOC CONJ_COMM]
+  \\ ‘do_con_checks env_c checks ⇒
+      do_con_checks env_c [ConCheck constructor_id (LENGTH arguments)]’ by
+    metis_tac [do_con_checks_set]
+  \\ fs [do_con_checks_def, semanticPrimitivesTheory.do_con_check_def]
+  \\ metis_tac []
 QED
 
 Theorem to_do_con_checks_list3:
-  EVERY (λ(f,n,e). every_exp (one_con_check env_c) e) funs =
+  EVERY (λ(f,n,e). check_exp_constructors env_c e) funs =
   do_con_checks env_c (collect_conses_list3 [] funs)
 Proof
-  gvs [do_con_checks_collect_conses_thm]
+  simp [do_con_checks_collect_conses_thm, do_con_checks_def]
 QED
 
 Theorem to_do_con_checks:
-  every_exp (one_con_check env_c) e =
+  check_exp_constructors env_c e =
   do_con_checks env_c (collect_conses [] e)
 Proof
-  gvs [do_con_checks_collect_conses_thm]
+  simp [do_con_checks_collect_conses_thm, do_con_checks_def]
 QED
 
 val _ = cv_auto_trans semanticPrimitivesTheory.build_tdefs_def;

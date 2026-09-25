@@ -47,7 +47,7 @@ End
 
 Datatype:
   install_config =
-   <| compile : 'c -> flatLang$exp list -> (word8 list # word64 list # 'c) option
+   <| compile : 'c -> flatLang$exp list -> (mlstring # word64 list # 'c) option
     ; compile_oracle : num -> 'c # flatLang$exp list
     |>
 End
@@ -217,8 +217,11 @@ Definition vs_to_string_def:
   (vs_to_string _ = NONE)
 End
 
-Definition v_to_bytes_def:
-  v_to_bytes lv = some ns. v_to_list lv = SOME (MAP (Litv o Word8) ns)
+Definition v_to_mlstring_def:
+  v_to_mlstring lv =
+    case lv of
+    | Litv (StrLit s) => SOME s
+    | _ => NONE
 End
 
 Definition v_to_words_def:
@@ -422,6 +425,45 @@ Definition do_app_def:
              (case store_assign lnum (W8array (LUPDATE w n ws)) s.refs of
               | NONE => NONE
               | SOME s' => SOME (s with refs := s', Rval Unitv))
+     | _ => NONE)
+  | (Src Aw8subBit, [Loc _ lnum; Litv (IntLit i)]) =>
+    (case store_lookup lnum s.refs of
+     | SOME (W8array ws) =>
+       if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+         SOME (s, Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8))))
+       else SOME (s, Rerr (Rraise subscript_exn_v))
+     | _ => NONE)
+  | (Src Aw8updateBit, [Loc _ lnum; Litv (IntLit i); v]) =>
+    (case store_lookup lnum s.refs of
+     | SOME (W8array ws) =>
+       if ¬(v = Boolv T ∨ v = Boolv F) then NONE else
+       if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+         (case store_assign lnum
+                 (W8array (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                    (EL (Num i DIV 8) ws))
+                                   (Num i DIV 8) ws)) s.refs of
+          | NONE => NONE
+          | SOME s' => SOME (s with refs := s', Rval Unitv))
+       else SOME (s, Rerr (Rraise subscript_exn_v))
+     | _ => NONE)
+  | (Src Aw8subBit_unsafe, [Loc _ lnum; Litv (IntLit i)]) =>
+    (case store_lookup lnum s.refs of
+     | SOME (W8array ws) =>
+       if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+         SOME (s, Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8))))
+       else NONE
+     | _ => NONE)
+  | (Src Aw8updateBit_unsafe, [Loc _ lnum; Litv (IntLit i); v]) =>
+    (case store_lookup lnum s.refs of
+     | SOME (W8array ws) =>
+       if 0 ≤ i ∧ i < 8 * &LENGTH ws ∧ (v = Boolv T ∨ v = Boolv F) then
+         (case store_assign lnum
+                 (W8array (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                    (EL (Num i DIV 8) ws))
+                                   (Num i DIV 8) ws)) s.refs of
+          | NONE => NONE
+          | SOME s' => SOME (s with refs := s', Rval Unitv))
+       else NONE
      | _ => NONE)
   | (Src CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
       SOME (s,
@@ -748,7 +790,7 @@ Definition do_eval_def:
   do_eval (vs :v list) eval_config =
   (case vs of
     | [v1; v2] =>
-      (case (v_to_bytes v1, v_to_words v2) of
+      (case (v_to_mlstring v1, v_to_words v2) of
        | (SOME bytes, SOME data) =>
          let (st,decs) = eval_config.compile_oracle 0 in
          let new_oracle = shift_seq 1 eval_config.compile_oracle in

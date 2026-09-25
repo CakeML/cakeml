@@ -2522,8 +2522,8 @@ Proof
   \\ Cases_on `
       (?m. opp = MemOp m ∧ (
         m = Length \/ (?b. m = BoundsCheckByte b) \/
-        m = BoundsCheckArray \/ m = LengthByte \/
-        m = DerefByteVec \/ m = DerefByte \/ m = El \/
+        m = BoundsCheckArray \/ m = BoundsCheckBit \/ m = LengthByte \/
+        m = DerefByteVec \/ m = DerefByte \/ m = DerefBit \/ m = El \/
         ∃b cmp. m = StringCmp b cmp)) \/
       (?g. opp = GlobOp g ∧ (g = GlobalsPtr \/ g = SetGlobalsPtr)) \/
       (?n. opp = BlockOp (ElemAt n))`
@@ -2624,6 +2624,20 @@ Proof
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_values))
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_bytes))
     \\ asm_exists_tac \\ fs [LIST_REL_REPLICATE_same])
+  \\ Cases_on `opp = MemOp UpdateBit` THEN1
+   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+    \\ rw[Once do_app_def,AllCaseEqs(),PULL_EXISTS]
+    \\ drule_then strip_assume_tac $ iffLR simple_val_rel_alt
+    \\ fs[] \\ rveq
+    \\ imp_res_tac simple_val_rel_Boolv \\ gvs []
+    \\ simp[do_app_def]
+    \\ TRY (res_tac \\ fs [isClos_cases] \\ NO_TAC)
+    \\ drule (GEN_ALL simple_state_rel_FLOOKUP_refs_IMP)
+    \\ strip_tac >> res_tac \\ fs[]
+    \\ full_simp_tac(bool_ss)[GSYM state_fupdcanon]
+    \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_bytes)
+             \\ asm_exists_tac \\ fs [] \\ NO_TAC)
+    \\ rw [] \\ gvs [] \\ imp_res_tac simple_val_rel_Boolv \\ gvs [])
   \\ Cases_on `?m. opp = MemOp m ∧ (m = UpdateByte \/ m = Update) \/ ?n. opp = FFI n` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ rw[Once do_app_def,AllCaseEqs(),PULL_EXISTS]
@@ -2699,12 +2713,13 @@ Definition simple_compile_state_rel_def:
                         shift_seq 1 t.compile_oracle; code := t.code |>)))
 End
 
-Theorem simple_val_rel_v_to_bytes:
-  simple_val_rel vr /\ vr x y ==> v_to_bytes x = v_to_bytes y
+Theorem simple_val_rel_v_to_mlstring:
+  simple_val_rel vr /\ vr x y ==> v_to_mlstring x = v_to_mlstring y
 Proof
-  rw [v_to_bytes_def]
-  \\ imp_res_tac v_rel_to_list_byte1
-  \\ rfs [listTheory.MAP_o]
+  strip_tac
+  \\ Cases_on `y` \\ gvs [simple_val_rel_alt, v_to_mlstring_def]
+  \\ res_tac
+  \\ Cases_on `x` \\ gvs []
 QED
 
 Theorem simple_val_rel_Word64_left:
@@ -2766,7 +2781,7 @@ Proof
   \\ simp [do_install_def]
   \\ fs [pure_co_def]
   \\ rpt (TYPE_CASE_TAC "list" \\ fs [])
-  \\ imp_res_tac simple_val_rel_v_to_bytes
+  \\ imp_res_tac simple_val_rel_v_to_mlstring
   \\ imp_res_tac simple_val_rel_v_to_words
   \\ Cases_on `SND (s.compile_oracle 0)`
   \\ FIRST_X_ASSUM drule \\ rfs [] \\ rveq

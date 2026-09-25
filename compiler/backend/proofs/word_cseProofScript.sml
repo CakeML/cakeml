@@ -3341,7 +3341,6 @@ Proof
   >~ [`wordLang$If`] >- suspend "If"
   >~ [`wordLang$LocValue`] >- suspend "LocValue"
   >~ [`wordLang$Install`] >- suspend "Install"
-  >~ [`wordLang$CodeBufferWrite`] >- suspend "CodeBufferWrite"
   >~ [`wordLang$DataBufferWrite`] >- suspend "DataBufferWrite"
   >~ [`wordLang$FFI`] >- suspend "FFI"
   >~ [`wordLang$Call`] >- suspend "Call"
@@ -3722,13 +3721,6 @@ QED
 
 Resume comp_correct[Install]:
   gvs [word_cse_def]
-QED
-
-Resume comp_correct[CodeBufferWrite]:
-  rpt gen_tac \\ strip_tac
-  \\ gvs [word_cse_def, evaluate_def, AllCaseEqs()]
-  \\ irule data_inv_state_agree
-  \\ qexists_tac ‘s’ \\ gvs []
 QED
 
 Resume comp_correct[DataBufferWrite]:

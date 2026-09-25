@@ -5802,9 +5802,9 @@ Proof
     rw[] \\
     fs[get_var_def] \\
     imp_res_tac FLOOKUP_SUBMAP \\ fs[] \\
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[] \\
+    gvs[wordSemTheory.code_buffer_install_SOME] \\
+    imp_res_tac FLOOKUP_SUBMAP \\ fs[] \\
+    simp[wordSemTheory.code_buffer_install_def] \\
     TOP_CASE_TAC \\ fs[] \\
     Cases_on`progs` \\ fs[] \\
     TOP_CASE_TAC \\ fs[] \\
@@ -5851,12 +5851,6 @@ Proof
          simp[GSYM SUBMAP_DOMSUB_gen]>>
          metis_tac[SUBMAP_DOMSUB,SUBMAP_TRANS,SUBMAP_DRESTRICT_MONOTONE,
                    SUBSET_REFL]))
-  (* CodeBufferWrite *)
-  \\ conj_tac >- (
-    rw[Once comp_def,evaluate_def,get_var_def] \\
-    fs[case_eq_thms] \\ rw[] \\
-    imp_res_tac FLOOKUP_SUBMAP \\ fs[] \\
-    simp[state_component_equality] )
   (* DataBufferWrite *)
   \\ conj_tac >- (
     rw[Once comp_def,evaluate_def,get_var_def] \\

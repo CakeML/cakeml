@@ -218,7 +218,7 @@ End
 *)
 Type compiler_args = ``: ((num # num) # v # dec list)``
 Type compiler_fun = ``: compiler_args ->
-     (v # word8 list # word64 list)option``
+     (v # mlstring # word64 list)option``
 
 Datatype:
  eval_decs_state =
@@ -282,6 +282,50 @@ Definition one_con_check_def[simp]:
   one_con_check envc (Con cn es) = do_con_check envc cn (LENGTH es) ∧
   one_con_check envc _ = T
 End
+
+(* Constructor prechecks also inspect unevaluated function bodies, but must
+   follow the lexical constructor environment through each local open. *)
+Definition check_exp_constructors_def:
+  check_exp_constructors envc (Raise e) = check_exp_constructors envc e ∧
+  check_exp_constructors envc (Handle e pes) =
+    (check_exp_constructors envc e ∧
+     EVERY (λ(p,e). check_exp_constructors envc e) pes) ∧
+  check_exp_constructors envc (Lit l) = T ∧
+  check_exp_constructors envc (Con cn es) =
+    (do_con_check envc cn (LENGTH es) ∧
+     EVERY (check_exp_constructors envc) es) ∧
+  check_exp_constructors envc (Var n) = T ∧
+  check_exp_constructors envc (Fun n e) = check_exp_constructors envc e ∧
+  check_exp_constructors envc (App op es) =
+    EVERY (check_exp_constructors envc) es ∧
+  check_exp_constructors envc (Log op e1 e2) =
+    (check_exp_constructors envc e1 ∧ check_exp_constructors envc e2) ∧
+  check_exp_constructors envc (If e1 e2 e3) =
+    (check_exp_constructors envc e1 ∧ check_exp_constructors envc e2 ∧
+     check_exp_constructors envc e3) ∧
+  check_exp_constructors envc (Mat e pes) =
+    (check_exp_constructors envc e ∧
+     EVERY (λ(p,e). check_exp_constructors envc e) pes) ∧
+  check_exp_constructors envc (Let n e1 e2) =
+    (check_exp_constructors envc e1 ∧ check_exp_constructors envc e2) ∧
+  check_exp_constructors envc (Letrec funs e) =
+    (EVERY (λ(f,n,e). check_exp_constructors envc e) funs ∧
+     check_exp_constructors envc e) ∧
+  check_exp_constructors envc (Tannot e t) = check_exp_constructors envc e ∧
+  check_exp_constructors envc (Lannot e l) = check_exp_constructors envc e ∧
+  check_exp_constructors envc (Open path e) =
+    (case nsOpen path envc of
+       NONE => F
+     | SOME opened => check_exp_constructors (nsAppend opened envc) e)
+End
+
+Theorem check_exp_constructors_open:
+  check_exp_constructors envc (Open path e) ⇔
+  ∃opened. nsOpen path envc = SOME opened ∧
+    check_exp_constructors (nsAppend opened envc) e
+Proof
+  Cases_on `nsOpen path envc` >> simp [check_exp_constructors_def]
+QED
 
 Definition build_conv_def:
   build_conv (envC:((mlstring),(mlstring),(num#stamp))namespace) cn vs =
@@ -527,20 +571,6 @@ Definition maybe_all_list_def:
         case maybe_all_list vs of NONE => NONE | SOME xs => SOME (x::xs)
 End
 
-Definition v_to_word8_def:
-  v_to_word8 v =
-    case v of
-    | Litv (Word8 w) => SOME w
-    | _ => NONE
-End
-
-Definition v_to_word8_list_def:
-  v_to_word8_list v =
-    case v_to_list v of
-    | NONE => NONE
-    | SOME xs => maybe_all_list (MAP v_to_word8 xs)
-End
-
 Definition v_to_word64_def:
   v_to_word64 v =
     case v of
@@ -553,6 +583,13 @@ Definition v_to_word64_list_def:
     case v_to_list v of
     | NONE => NONE
     | SOME xs => maybe_all_list (MAP v_to_word64 xs)
+End
+
+Definition v_to_mlstring_def:
+  v_to_mlstring v =
+    case v of
+    | Litv (StrLit s) => SOME s
+    | _ => NONE
 End
 
 Definition lookup_env_def:
@@ -615,9 +652,9 @@ Termination
 End
 
 Definition compiler_agrees_def:
-  compiler_agrees (f:((num#num)#v#(dec)list ->(v#(word8)list#(word64)list)option))
+  compiler_agrees (f:((num#num)#v#(dec)list ->(v#mlstring#(word64)list)option))
       args (st_v,bs_v,ws_v) ⇔
-    case (f args,args,v_to_word8_list bs_v,v_to_word64_list ws_v) of
+    case (f args,args,v_to_mlstring bs_v,v_to_word64_list ws_v) of
     | (SOME (st,c_bs,c_ws),(v16,prev_st_v,_),SOME bs,SOME ws) =>
         st = st_v ∧ c_bs = bs ∧ c_ws = ws ∧ concrete_v st_v ∧
         concrete_v prev_st_v
@@ -1095,6 +1132,51 @@ Definition do_app_def:
                   )
         | _ => NONE
       )
+    | (Aw8subBit, [Loc _ lnum; Litv (IntLit i)]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+              SOME ((s,t), Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8))))
+            else SOME ((s,t), Rerr (Rraise sub_exn_v))
+        | _ => NONE
+      )
+    | (Aw8updateBit, [Loc _ lnum; Litv (IntLit i); v]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if ¬(v = Boolv T ∨ v = Boolv F) then NONE else
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+              (case store_assign lnum
+                      (W8array (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                         (EL (Num i DIV 8) ws))
+                                        (Num i DIV 8) ws)) s of
+                  NONE => NONE
+                | SOME s' => SOME ((s',t), Rval (Conv NONE []))
+              )
+            else SOME ((s,t), Rerr (Rraise sub_exn_v))
+        | _ => NONE
+      )
+    | (Aw8subBit_unsafe, [Loc _ lnum; Litv (IntLit i)]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+              SOME ((s,t), Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8))))
+            else NONE
+        | _ => NONE
+      )
+    | (Aw8updateBit_unsafe, [Loc _ lnum; Litv (IntLit i); v]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws ∧ (v = Boolv T ∨ v = Boolv F) then
+              (case store_assign lnum
+                      (W8array (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                         (EL (Num i DIV 8) ws))
+                                        (Num i DIV 8) ws)) s of
+                  NONE => NONE
+                | SOME s' => SOME ((s',t), Rval (Conv NONE []))
+              )
+            else NONE
+        | _ => NONE
+      )
     | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
         SOME ((s,t),
         (case copy_array (explode str,off) len NONE of
@@ -1376,6 +1458,18 @@ End
 Definition extend_dec_env_def:
   extend_dec_env new_env (env: v sem_env) =
     <|c := nsAppend new_env.c env.c; v := nsAppend new_env.v env.v|>
+End
+
+(* Select a module's contents as a declaration delta.  In particular, this
+   does not append env: evaluate_decs performs that extension exactly once. *)
+Definition open_dec_env_def:
+  open_dec_env path (env:v sem_env) =
+    case nsOpen path env.v of
+    | NONE => NONE
+    | SOME env_v =>
+      case nsOpen path env.c of
+      | NONE => NONE
+      | SOME env_c => SOME <|v := env_v; c := env_c|>
 End
 
 val _ = set_fixity "+++" (Infixl 480);

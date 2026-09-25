@@ -126,6 +126,7 @@ End
 
 val result = translate FIND_thm;
 
+val result = next_ml_names := ["filter"];
 val result = translate FILTER;
 
 val _ = ml_prog_update open_local_block;

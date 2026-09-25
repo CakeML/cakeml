@@ -613,6 +613,10 @@ Definition op_to_string_def:
   (op_to_string Aw8sub_unsafe = («Aw8sub_unsafe», 2)) ∧
   (op_to_string Aw8update_unsafe = («Aw8update_unsafe», 3)) ∧
   (op_to_string XorAw8Str_unsafe = («XorAw8Str_unsafe», 2)) ∧
+  (op_to_string Aw8subBit = («Aw8subBit», 2)) ∧
+  (op_to_string Aw8updateBit = («Aw8updateBit», 3)) ∧
+  (op_to_string Aw8subBit_unsafe = («Aw8subBit_unsafe», 2)) ∧
+  (op_to_string Aw8updateBit_unsafe = («Aw8updateBit_unsafe», 3)) ∧
   (op_to_string CopyStrStr = («CopyStrStr», 3)) ∧
   (op_to_string CopyStrAw8 = («CopyStrAw8», 5)) ∧
   (op_to_string CopyAw8Str = («CopyAw8Str», 3)) ∧
@@ -674,6 +678,9 @@ op_simple_constraints op =
    | Aw8sub => (T, [Tem Tword8array_num; Tem Tint_num], Tem Tword8_num)
    | Aw8length => (T, [Tem Tword8array_num], Tem Tint_num)
    | Aw8update => (T, [Tem Tword8array_num; Tem Tint_num; Tem Tword8_num],
+        Tem Ttup_num)
+   | Aw8subBit => (T, [Tem Tword8array_num; Tem Tint_num], Tem Tbool_num)
+   | Aw8updateBit => (T, [Tem Tword8array_num; Tem Tint_num; Tem Tbool_num],
         Tem Ttup_num)
    | CopyStrStr => (T, [Tem Tstring_num; Tem Tint_num; Tem Tint_num],
         Tem Tstring_num)
@@ -788,6 +795,8 @@ constrain_op l op ts s =
    | (Aw8sub_unsafe, _) => failwith l («Unsafe ops do not have a type») s
    | (Aw8update_unsafe, _) => failwith l («Unsafe ops do not have a type») s
    | (XorAw8Str_unsafe, _) => failwith l («Unsafe ops do not have a type») s
+   | (Aw8subBit_unsafe, _) => failwith l («Unsafe ops do not have a type») s
+   | (Aw8updateBit_unsafe, _) => failwith l («Unsafe ops do not have a type») s
    | (AallocFixed, _) => failwith l («Unsafe ops do not have a type»)  s(* not actually unsafe *)
    | (Eval, _) => failwith l («Unsafe ops do not have a type») s
    | (Env_id, _) => failwith l («Unsafe ops do not have a type») s
@@ -854,6 +863,41 @@ Proof
   fs [failwith_def] >> rw [] >> fs [] >>
   unabbrev_all_tac >> fs []
 QED
+
+Definition extend_dec_ienv_def:
+  extend_dec_ienv ienv' ienv =
+     <| inf_v := nsAppend ienv'.inf_v ienv.inf_v;
+        inf_c := nsAppend ienv'.inf_c ienv.inf_c;
+        inf_t := nsAppend ienv'.inf_t ienv.inf_t |>
+End
+
+Definition open_ienv_def:
+  open_ienv path (ienv:inf_env) =
+    case nsOpen path ienv.inf_v of
+    | NONE => NONE
+    | SOME env_v =>
+      case nsOpen path ienv.inf_c of
+      | NONE => NONE
+      | SOME env_c =>
+        case nsOpen path ienv.inf_t of
+        | NONE => NONE
+        | SOME env_t =>
+          SOME <|inf_v := env_v; inf_c := env_c; inf_t := env_t|>
+End
+
+Definition mod_path_to_string_def:
+  mod_path_to_string [] = «» ∧
+  mod_path_to_string (mn::path) =
+    if NULL path then mn else concat [mn; «.»; mod_path_to_string path]
+End
+
+Definition infer_open_def:
+  infer_open l path ienv =
+    case open_ienv path ienv of
+    | NONE =>
+      failwith l (concat [«Undefined module: »; mod_path_to_string path])
+    | SOME opened => return opened
+End
 
 Definition infer_e_def:
   (infer_e l ienv (Raise e) =
@@ -992,6 +1036,10 @@ Definition infer_e_def:
      od) ∧
   (infer_e l ienv (Lannot e new_l) =
     infer_e (l with loc := SOME new_l) ienv e) ∧
+  (infer_e l ienv (Open path e) =
+    do opened <- infer_open l path ienv;
+       infer_e l (extend_dec_ienv opened ienv) e
+    od) ∧
   (infer_es l ienv [] =
     return []) ∧
   (infer_es l ienv (e::es) =
@@ -1042,19 +1090,42 @@ Theorem infer_e_expand = infer_e_def
   |> SRULE [st_ex_bind_def,st_ex_ignore_bind_def,FUN_EQ_THM_state,st_ex_return_def,
             failwith_def,option_case_rand,COND_RATOR];
 
-Definition extend_dec_ienv_def:
-  extend_dec_ienv ienv' ienv =
-     <| inf_v := nsAppend ienv'.inf_v ienv.inf_v;
-        inf_c := nsAppend ienv'.inf_c ienv.inf_c;
-        inf_t := nsAppend ienv'.inf_t ienv.inf_t |>
-End
-
 Definition lift_ienv_def:
   lift_ienv mn ienv =
     <| inf_v := nsLift mn ienv.inf_v;
        inf_c := nsLift mn ienv.inf_c;
        inf_t := nsLift mn ienv.inf_t |>
 End
+
+(* Select a module's inference components as a declaration delta. *)
+
+Theorem open_ienv_success_components:
+  open_ienv path ienv = SOME opened ⇒
+  nsOpen path ienv.inf_v = SOME opened.inf_v ∧
+  nsOpen path ienv.inf_c = SOME opened.inf_c ∧
+  nsOpen path ienv.inf_t = SOME opened.inf_t
+Proof
+  rw [open_ienv_def] >>
+  every_case_tac >> gvs []
+QED
+
+Theorem infer_open_success:
+  infer_open l path ienv st = (M_success opened,st') ⇔
+  open_ienv path ienv = SOME opened ∧ st' = st
+Proof
+  Cases_on `open_ienv path ienv` >>
+  simp [infer_open_def, failwith_def, st_ex_return_def] >>
+  metis_tac []
+QED
+
+Theorem infer_open_missing:
+  open_ienv path ienv = NONE ⇒
+  infer_open l path ienv st =
+    (M_failure
+       (l.loc,concat [«Undefined module: »; mod_path_to_string path]),st)
+Proof
+  simp [infer_open_def, failwith_def]
+QED
 
 Definition infer_d_def:
 (infer_d ienv (Dlet locs p e) =
@@ -1128,6 +1199,8 @@ Definition infer_d_def:
               inf_c := nsSing cn ([], ts', Texn_num);
               inf_t := nsEmpty |>
   od) ∧
+(infer_d ienv (Dopen locs path) =
+  infer_open <|loc := SOME locs; err := ienv.inf_t|> path ienv) ∧
 (infer_d ienv (Denv n) =
   failwith <| loc := NONE; err := ienv.inf_t |>
     («Env declaration (Denv) is not supported.»)) ∧

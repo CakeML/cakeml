@@ -69,7 +69,7 @@ fun strip_annot_exp tm =
   else if is_Handle tm then
     let val (e, pes) = dest_Handle tm in
     mk_Handle (strip_annot_exp e, strip_annot_pes pes) end
-  else if is_Lit tm orelse is_Var tm then tm
+  else if is_Lit tm orelse is_Ident tm then tm
   else if is_Con tm then
     let val (cn, es) = dest_Con tm in
     mk_Con (cn, strip_annot_exps es) end
@@ -206,15 +206,15 @@ fun norm_exp gen e = let
   fun wrap_if_needed needs_wrapping e b =
     if needs_wrapping then (
       let val x = fresh () |> mlstringSyntax.mk_mlstring in
-      (mk_Var (mk_Short x), b @ [(x, e)])
+      (mk_Ident (mk_Short x), b @ [(x, e)])
       end
     ) else (e, b)
 
   fun norm is_named as_value e =
     if is_Lit e then
       (e, [])
-    else if is_Var e then let
-      val name = dest_Var e
+    else if is_Ident e then let
+      val name = dest_Ident e
       val _ = record_var (dest_Short name)
               handle HOL_ERR _ => ()
     in (e, []) end

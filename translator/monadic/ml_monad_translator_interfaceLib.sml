@@ -219,10 +219,41 @@ fun mk_farray_init (field_name, init_value, init_info, sub_exn, update_exn) =
   in (field_name, (init_info : int, Define `^init_eq`),
       get, set, len, sub, update) |> to_named_tuple end;
 
+(* keeps the bool arrays added with with_fixed_bool_arrays *)
 fun with_fixed_arrays farrays (translator_config : config) =
   let val farrays_init_list = List.map mk_farray_init farrays
+      val bool_arrays = List.filter (is_bool_array o #name)
+                          (!(#fixed_arrays translator_config))
   in
-    #fixed_arrays translator_config := farrays_init_list;
+    #fixed_arrays translator_config := bool_arrays @ farrays_init_list;
+    translator_config
+  end;
+
+(*
+ *  Mark state fields of type bool list as fixed-size bool arrays. These are
+ *  stored as byte arrays: the given size is the number of bytes, i.e. the
+ *  array has 8 times as many elements, and all elements are initially F.
+ *)
+fun register_bool_array field_name =
+  let val state_type = !(#state_type internal_state)
+      val ty = #ty (assoc field_name (TypeBase.fields_of state_type))
+               handle HOL_ERR _ => failwith ("register_bool_array: " ^
+                                             field_name ^ " is not a field")
+  in
+    if Type.compare (ty, listSyntax.mk_list_type bool) = EQUAL then
+      add_bool_array field_name
+    else failwith ("register_bool_array: " ^ field_name ^
+                   " does not have type bool list")
+  end;
+
+fun with_fixed_bool_arrays farrays (translator_config : config) =
+  let fun mk_init (field_name, size, sub_exn, update_exn) =
+        (register_bool_array field_name;
+         mk_farray_init (field_name, boolSyntax.F, size, sub_exn, update_exn))
+      val farrays_init_list = List.map mk_init farrays
+  in
+    #fixed_arrays translator_config :=
+      !(#fixed_arrays translator_config) @ farrays_init_list;
     translator_config
   end;
 
@@ -248,10 +279,29 @@ fun mk_rarray_init (field_name, init_value, sub_exn, update_exn) =
     to_named_tuple
   end;
 
+(* keeps the bool arrays added with with_resizeable_bool_arrays *)
 fun with_resizeable_arrays rarrays (translator_config : config) =
   let val rarrays_init_list = List.map mk_rarray_init rarrays
+      val bool_arrays = List.filter (is_bool_array o #name)
+                          (!(#resizeable_arrays translator_config))
   in
-    #resizeable_arrays translator_config := rarrays_init_list;
+    #resizeable_arrays translator_config := bool_arrays @ rarrays_init_list;
+    translator_config
+  end;
+
+(*
+ *  Mark state fields of type bool list as resizeable bool arrays. These are
+ *  stored as byte arrays and are initially empty. For such a field x,
+ *  alloc_x n allocates an array of 8 * n elements that are all F.
+ *)
+fun with_resizeable_bool_arrays rarrays (translator_config : config) =
+  let fun mk_init (field_name, sub_exn, update_exn) =
+        (register_bool_array field_name;
+         mk_rarray_init (field_name, listSyntax.mk_nil bool, sub_exn, update_exn))
+      val rarrays_init_list = List.map mk_init rarrays
+  in
+    #resizeable_arrays translator_config :=
+      !(#resizeable_arrays translator_config) @ rarrays_init_list;
     translator_config
   end;
 
@@ -344,15 +394,7 @@ fun extract_farrays_manip_funs (name, init, get, set, len, sub, upd) =
 
 local
 
-  val IMP_STAR_GC = Q.prove(
-      `(STAR a x) s ∧ (y = GC) ⇒ (STAR a y) s`,
-      fs [set_sepTheory.STAR_def] >>
-      rw [] >> asm_exists_tac >> fs [] >>
-      EVAL_TAC >>
-      fs [set_sepTheory.SEP_EXISTS_THM] >>
-      qexists_tac `K T` >>
-      fs []
-    )
+  val IMP_STAR_GC = ml_monad_translatorTheory.IMP_STAR_GC
 
 in
 
@@ -533,25 +575,11 @@ val m_translation_extends = ml_monad_translatorLib.m_translation_extends;
 
 local
 
-  val st_ex_eta_intro = Q.prove(
-    `∀  f : 'b -> 'a -> ('d, 'c) exc # 'a .
-      f = ( λ x s . f x s)`,
-      metis_tac[ETA_THM]
-  );
+  val st_ex_eta_intro = ml_monad_translatorTheory.st_ex_eta_intro;
 
-  val ignore_st_ex_eta_intro = Q.prove(
-    `∀  f : 'a -> ('d, 'c) exc # 'a .
-      f = ( λ s . f s)`,
-      fs[ETA_THM]
-  );
+  val ignore_st_ex_eta_intro = ml_monad_translatorTheory.ignore_st_ex_eta_intro;
 
-  val remove_state_arg = Q.prove(
-    `∀ f:'a -> ('b, 'c) exc # 'a  g . (∀ s . (f s = g s)) ⇔ (f = λ a . g a)`,
-    rw[] >>
-    EQ_TAC >>
-    rw[] >>
-    fs[ETA_THM, EQ_EXT]
-  );
+  val remove_state_arg = ml_monad_translatorTheory.remove_state_arg;
 
   (* Theorems to push/pull state term into compound terms *)
   (* TODO - add more theorems, these will not be enough *)

@@ -346,7 +346,9 @@ Proof
   \\ drule_then drule repl_types_eval \\ fs []
   \\ pop_assum kall_tac
   \\ simp [evaluateTheory.evaluate_decs_def,astTheory.pat_bindings_def]
-  \\ simp [evaluateTheory.evaluate_def,semanticPrimitivesTheory.do_con_check_def]
+  \\ simp [evaluateTheory.evaluate_def,
+           semanticPrimitivesTheory.check_exp_constructors_def,
+           semanticPrimitivesTheory.do_con_check_def]
   \\ simp [semanticPrimitivesTheory.build_conv_def]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
   \\ fs [evaluateTheory.dec_clock_def,semanticPrimitivesTheory.pmatch_def,
@@ -358,7 +360,9 @@ Proof
   \\ drule_then drule repl_types_eval \\ fs []
   \\ pop_assum kall_tac
   \\ simp [evaluateTheory.evaluate_decs_def,astTheory.pat_bindings_def]
-  \\ simp [evaluateTheory.evaluate_def,semanticPrimitivesTheory.do_con_check_def]
+  \\ simp [evaluateTheory.evaluate_def,
+           semanticPrimitivesTheory.check_exp_constructors_def,
+           semanticPrimitivesTheory.do_con_check_def]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
   \\ fs [evaluateTheory.dec_clock_def,semanticPrimitivesTheory.pmatch_def,
          extend_dec_env_empty,Abbr‘s13’]

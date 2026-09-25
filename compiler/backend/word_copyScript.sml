@@ -356,12 +356,8 @@ Definition copy_prop_prog_def:
         remove_eqs cs [a;b;c;d])) ∧
   (copy_prop_prog (LocValue r l1) cs =
       (LocValue r l1, remove_eq cs r)) ∧
-  (copy_prop_prog (Install r1 r2 r3 r4 live) cs =
-     (Install r1 r2 r3 r4 live, empty_eq)) ∧
-  (copy_prop_prog (CodeBufferWrite r1 r2) cs =
-     let r1' = lookup_eq cs r1 in
-     let r2' = lookup_eq cs r2 in
-     (CodeBufferWrite r1' r2', cs)) ∧
+  (copy_prop_prog (Install r1 r2 r3 r4 r5 live) cs =
+     (Install r1 r2 r3 r4 r5 live, empty_eq)) ∧
   (copy_prop_prog (DataBufferWrite r1 r2) cs =
      let r1' = lookup_eq cs r1 in
      let r2' = lookup_eq cs r2 in

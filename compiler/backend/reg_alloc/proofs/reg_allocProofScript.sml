@@ -462,8 +462,7 @@ Theorem assign_Atemps_FOREACH_lem[local]:
         else EL m s'.node_tag = EL m s.node_tag)
 Proof
   Induct>>rw[st_ex_FOREACH_def]>>
-  fs msimps>-
-    simp[ra_state_component_equality]>>
+  fs msimps>>
   drule (GEN_ALL assign_Atemp_tag_correct)>>
   rpt(disch_then drule)>>
   disch_then(qspec_then`ks` assume_tac)>>fs[]>>
@@ -662,7 +661,7 @@ Theorem assign_Stemps_FOREACH_lem[local]:
     s' = s with node_tag := s'.node_tag
 Proof
   Induct>>rw[st_ex_FOREACH_def]>>
-  fs msimps>- simp[ra_state_component_equality]>>
+  fs msimps>>
   drule (GEN_ALL assign_Stemp_tag_correct)>>
   rpt(disch_then drule)>>
   rw[]>>gvs[]>>
@@ -1151,9 +1150,7 @@ Theorem list_insert_edge_succeeds:
     (b = x ∧ MEM a ys) ∨
     (has_edge s.adj_ls a b))
 Proof
-  Induct>>rw[list_insert_edge_def]>>fs msimps
-  >-
-    fs[ra_state_component_equality]>>
+  Induct>>rw[list_insert_edge_def]>>fs msimps>>
   drule (GEN_ALL insert_edge_succeeds)>>
   disch_then (qspecl_then [`h`,`x`] assume_tac)>>rfs[]>>
   last_x_assum drule>>
@@ -1935,8 +1932,6 @@ Theorem extend_graph_succeeds:
     (∃x y. f x = a ∧ f y = b ∧ MEM (x,y) forced) ∨ (has_edge s.adj_ls a b))
 Proof
   Induct>>fs[extend_graph_def]>>fs msimps
-  >-
-    rw[ra_state_component_equality]
   >>
     Cases>>fs[extend_graph_def]>>rw[]>>fs msimps>>
     drule (GEN_ALL insert_edge_succeeds)>>
@@ -1973,9 +1968,7 @@ Theorem mk_tags_st_ex_FOREACH_lem[local]:
     else
        EL x s'.node_tag = EL x s.node_tag)
 Proof
-  Induct>>fs[st_ex_FOREACH_def]>>fs msimps
-  >-
-    simp[ra_state_component_equality]>>
+  Induct>>fs[st_ex_FOREACH_def]>>fs msimps>>
   rw[]>>
   TRY(rename1`lookup (fa h) fs`>>Cases_on`lookup (fa h) fs`>> gvs[])>>
   (reverse IF_CASES_TAC >- fs[good_ra_state_def])>>

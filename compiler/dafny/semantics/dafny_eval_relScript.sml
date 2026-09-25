@@ -476,6 +476,7 @@ Proof
       st with clock := ck’ by
     (gvs [state_component_equality])
   \\ gvs []
+  \\ qexists_tac ‘st with clock := ck'’ \\ gvs [state_component_equality]
 QED
 
 Theorem LIST_REL_eval_exp_MAP_Var:

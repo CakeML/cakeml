@@ -1457,7 +1457,7 @@ Theorem evaluate_clock_const[local]:
      ["Skip", "Alloc", "StoreConsts", "Move", "Inst", "Assign",
       "Get", "Set", "OpCurrHeap", "Store", "Return", "Raise",
       "wordLang$Break", "wordLang$Continue",
-      "LocValue", "Install", "CodeBufferWrite", "DataBufferWrite",
+      "LocValue", "Install", "DataBufferWrite",
       "FFI", "ShareInst", "PtrEq"]) end)
 Proof
   gvs[evaluate_def] >> rpt gen_tac >>
@@ -1480,7 +1480,7 @@ Theorem evaluate_clock_with_const[local]:
      ["Skip", "Alloc", "StoreConsts", "Move", "Inst", "Assign",
       "Get", "Set", "OpCurrHeap", "Store", "Return", "Raise",
       "wordLang$Break", "wordLang$Continue",
-      "LocValue", "Install", "CodeBufferWrite", "DataBufferWrite",
+      "LocValue", "Install", "DataBufferWrite",
       "FFI", "ShareInst", "PtrEq"]) end)
 Proof
   gvs[evaluate_def] >> rpt strip_tac >>
@@ -1504,7 +1504,7 @@ Theorem evaluate_ptr_eq_oracle_with_const[local]:
      ["Skip", "Alloc", "StoreConsts", "Move", "Inst", "Assign",
       "Get", "Set", "OpCurrHeap", "Store", "Return", "Raise",
       "wordLang$Break", "wordLang$Continue", "Tick",
-      "LocValue", "CodeBufferWrite", "DataBufferWrite",
+      "LocValue", "DataBufferWrite",
       "FFI", "ShareInst"]) end)
 Proof
   gvs[evaluate_def] >> rpt strip_tac >>
@@ -1527,7 +1527,7 @@ Theorem evaluate_compile_oracle_with_const[local]:
      ["Skip", "Alloc", "StoreConsts", "Move", "Inst", "Assign",
       "Get", "Set", "OpCurrHeap", "Store", "Return", "Raise",
       "wordLang$Break", "wordLang$Continue", "Tick",
-      "LocValue", "CodeBufferWrite", "DataBufferWrite",
+      "LocValue", "DataBufferWrite",
       "FFI", "ShareInst", "PtrEq"]) end)
 Proof
   gvs[evaluate_def] >> rpt strip_tac >>
@@ -5277,10 +5277,6 @@ Proof
     gvs[] >>
     simp[state_component_equality] >>
     fs[s_key_eq_refl])
-  >~[`CodeBufferWrite`] >- (
-    fs[evaluate_def]>>every_case_tac>>
-    simp[]>>
-    fs[s_key_eq_refl])
   >~[`DataBufferWrite`] >- (
     fs[evaluate_def]>>every_case_tac>>
     simp[]>>
@@ -6052,7 +6048,6 @@ Proof
   >~[`Tick`] >- suspend "Tick"
   >~[`LocValue`] >- suspend "LocValue"
   >~[`Skip`] >- suspend "Skip"
-  >~[`CodeBufferWrite`] >- suspend "CodeBufferWrite"
   >~[`DataBufferWrite`] >- suspend "DataBufferWrite"
   >~[`PtrEq`] >- suspend "PtrEq"
 QED
@@ -6112,8 +6107,7 @@ Resume locals_rel_evaluate_thm[Call]:
   PairCases_on `x'` >> fs[] >>
   TOP_CASE_TAC
   >-(
-    gvs[AllCaseEqs()]
-    >- fs[flush_state_def] >>
+    gvs[AllCaseEqs()] >>
     gvs[call_env_def,flush_state_def,dec_clock_def,
       oneline bad_fun_return_def, AllCasePreds()]>>
     simp[state_component_equality]>>
@@ -6288,12 +6282,6 @@ QED
 
 Resume locals_rel_evaluate_thm[Skip]:
   gvs[evaluate_def]
-QED
-
-Resume locals_rel_evaluate_thm[CodeBufferWrite]:
-  gvs[evaluate_def] >>
-  DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
-  gvs[AllCaseEqs(),state_component_equality]
 QED
 
 Resume locals_rel_evaluate_thm[DataBufferWrite]:

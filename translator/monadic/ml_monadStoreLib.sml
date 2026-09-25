@@ -74,6 +74,11 @@ val CONS_const = listSyntax.cons_tm
 val REF_const = cfHeapsBaseTheory.REF_def |> left_const
 val RARRAY_const = ml_monad_translatorBaseTheory.RARRAY_def |> left_const
 val ARRAY_const = cfHeapsBaseTheory.ARRAY_def |> left_const
+val W8ARRAY_const = cfHeapsBaseTheory.W8ARRAY_def |> left_const
+val RW8ARRAY_const = ml_monad_translatorBaseTheory.RW8ARRAY_def |> left_const
+val BITARRAY_const = ml_monad_translatorBaseTheory.BITARRAY_def |> left_const
+val RBITARRAY_const = ml_monad_translatorBaseTheory.RBITARRAY_def |> left_const
+val BITS_BYTES_tm = ml_monad_translatorBaseTheory.BITS_BYTES_def |> left_const
 val one_const = numSyntax.term_of_int 1
 val cond_const = set_sepTheory.cond_def |> left_const
 val get_refs_const = let
@@ -85,7 +90,7 @@ val get_refs_const = let
   in mk_abs(state_var, body) end
 val opref_expr = let
     val name_var = mk_var("name", mlstringSyntax.mlstring_ty)
-    val var_exp = astSyntax.mk_Var(astSyntax.mk_Short name_var)
+    val var_exp = astSyntax.mk_Ident(astSyntax.mk_Short name_var)
     val body = astSyntax.mk_App(astSyntax.Opref,
                  listSyntax.mk_list([var_exp], astSyntax.exp_ty))
   in mk_abs(name_var, body) end
@@ -124,6 +129,10 @@ fun mk_RARRAY_REL TYPE r x =
 
 fun mk_ARRAY_REL TYPE r x =
   ISPECL [TYPE, r, x] ARRAY_REL_def |> concl |> dest_eq |> fst
+
+(* Arrays of type word8 list are stored as CakeML byte arrays *)
+fun is_byte_array_ty ty =
+  can (match_type (listSyntax.mk_list_type (wordsSyntax.mk_int_word_type 8))) ty
 
 fun mk_REFS_PRED H refs p s =
   ISPECL [H, p, refs, s] REFS_PRED_def |> concl |> dest_eq |> fst
@@ -202,7 +211,7 @@ val value_def = def
 
 *)
 
-fun derive_eval_thm_ALLOCATE_EMPTY_ARRAY v_name value_def = let
+fun derive_eval_thm_ALLOCATE_EMPTY_ARRAY name v_name value_def = let
     val env = get_env(get_ml_prog_state())
     val s = get_state(get_ml_prog_state())
 
@@ -211,15 +220,31 @@ fun derive_eval_thm_ALLOCATE_EMPTY_ARRAY v_name value_def = let
     (* val ref_v_name = find_const_name (v_name ^ "_ref_v") *)
     val ref_name = find_const_name (v_name ^ "_ref")
 
-    (* Provisional *)
-    val array_v_def = define_abbrev false array_v_name empty_v_list
-    val ri = get_type_inv (concl value_def |> rhs |> type_of |> dest_type |> snd |> List.hd)
-    val array_v_thm = Q.prove(`LIST_REL ^ri [] []`, rw[])
-    val array_v_thm = SIMP_RULE pure_ss [GSYM value_def, GSYM array_v_def] array_v_thm
-    (***)
+    val is_bytes = is_byte_array_ty (concl value_def |> rhs |> type_of)
+    val is_bits = ml_monadBaseLib.is_bool_array name
+    val array_v_def = define_abbrev false array_v_name
+                        (if is_bytes then concl value_def |> rhs
+                         else if is_bits then
+                           listSyntax.mk_nil (wordsSyntax.mk_int_word_type 8)
+                         else empty_v_list)
+    val array_v_thm =
+      if is_bytes then
+        prove(mk_eq (lhs (concl value_def), lhs (concl array_v_def)),
+              rewrite_tac [value_def, array_v_def])
+      else if is_bits then
+        prove(list_mk_comb (BITS_BYTES_tm,
+                [lhs (concl value_def), lhs (concl array_v_def)]),
+              rewrite_tac [value_def, array_v_def, BITS_BYTES_def,
+                           bytes_to_bits_def])
+      else let
+        val ri = get_type_inv (concl value_def |> rhs |> type_of |> dest_type |> snd |> List.hd)
+        val array_v_thm = Q.prove(`LIST_REL ^ri [] []`, rw[])
+      in SIMP_RULE pure_ss [GSYM value_def, GSYM array_v_def] array_v_thm end
 
     (* Expand the definitions *)
-    val th = SPECL [env, s] ALLOCATE_EMPTY_RARRAY_evaluate
+    val th = SPECL [env, s] (if is_bytes orelse is_bits
+                             then ALLOCATE_EMPTY_RW8ARRAY_evaluate
+                             else ALLOCATE_EMPTY_RARRAY_evaluate)
     val th = SIMP_RULE pure_ss [GSYM array_v_def] th
     val res_pair = rand(concl th)
     val res_pair_eq = EVAL res_pair
@@ -251,8 +276,19 @@ fun derive_eval_thm_ALLOCATE_ARRAY name n init_value_def = let
     val lookup_assum = list_mk_comb(nsLookup_env_short_term, [env, mlstringSyntax.mk_mlstring init_value_name]) |> ((RATOR_CONV BETA_CONV) THENC BETA_CONV) |> concl |> rhs
     val lookup_assum = EVAL lookup_assum
 
-    val th = ISPECL [env, s, numSyntax.term_of_int n] ALLOCATE_ARRAY_evaluate |> SPEC_ALL
-    val th = MATCH_MP th lookup_assum
+    val is_bytes = is_byte_array_ty (listSyntax.mk_list_type (type_of (lhs (concl init_value_def))))
+    val is_bits = ml_monadBaseLib.is_bool_array name
+    val _ = not is_bits orelse aconv (rhs (concl init_value_def)) boolSyntax.F orelse
+            raise ERR "derive_eval_thm_ALLOCATE_ARRAY"
+                    ("bool arrays must be initialised with F: " ^ name)
+    val th = if is_bits then
+               ISPECL [env, s, numSyntax.term_of_int n] ALLOCATE_BITARRAY_evaluate
+             else if is_bytes then
+               ISPECL [env, s, numSyntax.term_of_int n] ALLOCATE_W8ARRAY_evaluate
+               |> SPEC_ALL |> C MATCH_MP lookup_assum |> C MATCH_MP init_value_v_thm
+             else
+               ISPECL [env, s, numSyntax.term_of_int n] ALLOCATE_ARRAY_evaluate
+               |> SPEC_ALL |> C MATCH_MP lookup_assum
 
     (* Abbreviate the constants and simplify the theorem *)
     val th = CONV_RULE (RAND_CONV computeLib.EVAL_CONV) th
@@ -269,11 +305,27 @@ fun derive_eval_thm_ALLOCATE_ARRAY name n init_value_def = let
 
     (* Define init_array *)
     val init_name = find_const_name ("init_" ^ name)
-    val init_v_th = MATCH_MP (SPEC (numSyntax.term_of_int n) LIST_REL_REPLICATE) init_value_v_thm
-    val init_array = concl init_v_th |> rator |> rand
-    val array_abbrev = define_abbrev false init_name init_array
-    val init_v_th = PURE_REWRITE_RULE
-                      [GSYM array_abbrev, GSYM array_v_def] init_v_th
+    val init_v_th =
+      if is_bits then let
+        (* the bool array has 8 elements per byte *)
+        val init_array = rich_listSyntax.mk_replicate
+                           (numSyntax.term_of_int (8 * n), boolSyntax.F)
+        val array_abbrev = define_abbrev false init_name init_array
+        val goal = list_mk_comb (BITS_BYTES_tm,
+                     [lhs (concl array_abbrev), lhs (concl array_v_def)])
+      in prove(goal, rewrite_tac [array_abbrev, array_v_def, BITS_BYTES_def,
+                                  bytes_to_bits_REPLICATE] \\ EVAL_TAC) end
+      else if is_bytes then let
+        val init_array = rich_listSyntax.mk_replicate
+                           (numSyntax.term_of_int n, lhs (concl init_value_def))
+        val array_abbrev = define_abbrev false init_name init_array
+        val goal = mk_eq (lhs (concl array_abbrev), lhs (concl array_v_def))
+      in prove(goal, rewrite_tac [array_abbrev, array_v_def] \\ EVAL_TAC) end
+      else let
+        val init_v_th = MATCH_MP (SPEC (numSyntax.term_of_int n) LIST_REL_REPLICATE) init_value_v_thm
+        val init_array = concl init_v_th |> rator |> rand
+        val array_abbrev = define_abbrev false init_name init_array
+      in PURE_REWRITE_RULE [GSYM array_abbrev, GSYM array_v_def] init_v_th end
     val _ = save_thm (init_name ^"_v_thm", init_v_th)
     val _ = print ("Saved theorem: " ^init_name ^"_v_thm")
 in (init_v_th, array_loc_def, th) end;
@@ -310,7 +362,7 @@ fun create_store refs_init_list rarrays_init_list farrays_init_list =
           val init_name = concl def |> lhs |> dest_const |> fst
 
           val (array_v_def, array_loc_def, ref_def, eval_th) =
-            derive_eval_thm_ALLOCATE_EMPTY_ARRAY init_name def
+            derive_eval_thm_ALLOCATE_EMPTY_ARRAY name init_name def
           val _ = ml_prog_update(add_Dlet eval_th name)
         in
           (array_v_def, array_loc_def, ref_def)
@@ -439,16 +491,19 @@ fun create_store_X_hprop refs_manip_list
     *)
     fun create_rarray_hprop ((name, get_f), rarray_ref_loc) =
       let
-        val ref_inv = dest_abs get_f |> snd |> type_of |> dest_type |> snd |>
-                      List.hd |> get_type_inv
+        val ty = dest_abs get_f |> snd |> type_of
         val ty_subst = match_type (type_of state_var)
                                   (type_of get_f |> dom_rng |> fst)
         val get_term = mk_comb (get_f, Term.inst ty_subst state_var) |>
                        BETA_CONV |> concl |> dest_eq |> snd
-
-        val hprop = mk_RARRAY_REL ref_inv rarray_ref_loc get_term
       in
-        hprop
+        if is_byte_array_ty ty then
+          list_mk_comb (RW8ARRAY_const, [rarray_ref_loc, get_term])
+        else if ml_monadBaseLib.is_bool_array name then
+          list_mk_comb (RBITARRAY_const, [rarray_ref_loc, get_term])
+        else
+          mk_RARRAY_REL (get_type_inv (listSyntax.dest_list_type ty))
+                        rarray_ref_loc get_term
       end
     val rarrays_hprops = List.map create_rarray_hprop create_rarray_hprop_params
 
@@ -461,16 +516,19 @@ fun create_store_X_hprop refs_manip_list
     *)
     fun create_farray_hprop ((name, get_f), farray_loc) =
       let
-        val ref_inv = dest_abs get_f |> snd |> type_of |> dest_type |> snd |>
-                      List.hd |> get_type_inv
+        val ty = dest_abs get_f |> snd |> type_of
         val ty_subst = match_type (type_of state_var)
                                   (type_of get_f |> dom_rng |> fst)
         val get_term = mk_comb (get_f, Term.inst ty_subst state_var) |>
                        BETA_CONV |> concl |> dest_eq |> snd
-
-        val hprop = mk_ARRAY_REL ref_inv farray_loc get_term
       in
-        hprop
+        if is_byte_array_ty ty then
+          list_mk_comb (W8ARRAY_const, [farray_loc, get_term])
+        else if ml_monadBaseLib.is_bool_array name then
+          list_mk_comb (BITARRAY_const, [farray_loc, get_term])
+        else
+          mk_ARRAY_REL (get_type_inv (listSyntax.dest_list_type ty))
+                       farray_loc get_term
       end
     val farrays_hprops = List.map create_farray_hprop create_farray_hprop_params
 
@@ -619,7 +677,8 @@ local
          val hprop = PURE_REWRITE_CONV [GSYM STAR_ASSOC] w
                      |> concl |> rhs |> rator |> rator |> rand
        in
-         if same_const RARRAY_const (strip_comb hprop |> fst) then ALL_TAC g
+         if List.exists (same_const (strip_comb hprop |> fst))
+                   [RARRAY_const, RW8ARRAY_const] then ALL_TAC g
          else FAIL_TAC "Not a resizable array" g
        end
        handle UNCHANGED => FAIL_TAC "Not a resizable array" g
@@ -629,7 +688,8 @@ local
          val hprop = PURE_REWRITE_CONV [GSYM STAR_ASSOC] w
                      |> concl |> rhs |> rator |> rator |> rand
        in
-         if same_const ARRAY_const (strip_comb hprop |> fst) then ALL_TAC g
+         if List.exists (same_const (strip_comb hprop |> fst))
+                   [ARRAY_const, W8ARRAY_const] then ALL_TAC g
          else FAIL_TAC "Not a fixed-size array" g
        end
        handle UNCHANGED => FAIL_TAC "Not a fixed-size array" g
@@ -703,7 +763,7 @@ in
           \\ PURE_REWRITE_TAC
             (List.concat(List.map (fn (_, x, y) => [x, y])
                                    rarrays_trans_results))
-          \\ irule rarray_exact_thm
+          \\ (irule rarray_exact_thm ORELSE irule rw8array_exact_thm)
           \\ SIMP_TAC list_ss [])
 
       val solve_first_farray_subheap_tac =
@@ -715,12 +775,12 @@ in
           REPEAT (irule H_STAR_GC_SAT_IMP)
           \\ PURE_REWRITE_TAC (List.concat(List.map (fn (_, x) => [x])
                                farrays_trans_results))
-          \\ irule farray_exact_thm
+          \\ (irule farray_exact_thm ORELSE irule w8array_exact_thm)
           \\ SIMP_TAC list_ss [])
 
       val solve_tac =
         ntac 3 STRIP_TAC
-        \\ FULL_SIMP_TAC (srw_ss()) [REFS_PRED_def, REF_REL_def, RARRAY_REL_def, ARRAY_REL_def, store_X_hprop_def]
+        \\ FULL_SIMP_TAC (srw_ss()) [REFS_PRED_def, REF_REL_def, RARRAY_REL_def, ARRAY_REL_def, RBITARRAY_def, BITARRAY_def, store_X_hprop_def]
         \\ PURE_REWRITE_TAC[EMP_STAR_GC, SAT_GC] (* In case the store is empty *)
         \\ SIMP_TAC bool_ss [SEP_CLAUSES, SEP_EXISTS_THM]
         \\ (CONV_TAC o STRIP_QUANT_CONV) EXTRACT_PURE_FACTS_CONV
@@ -933,7 +993,15 @@ fun prove_store_access_specs refs_manip_list
     fun prove_rarray_specs ((name, get_def, get_fun, set_fun_def, set_fun, length_def, sub_def, update_def, alloc_def), loc_def) = let
         val name_v = mlstringSyntax.mk_mlstring name
         val loc = concl loc_def |> lhs
-        val TYPE =  get_fun |> dest_abs |> snd |> type_of |> dest_type |> snd |> List.hd |> get_type_inv
+        val arr_ty = get_fun |> dest_abs |> snd |> type_of
+        val is_bytes = is_byte_array_ty arr_ty
+        val is_bits = ml_monadBaseLib.is_bool_array name
+        val TYPE = listSyntax.dest_list_type arr_ty |> get_type_inv
+        fun spec_arr th_R th_RB th_RBITS (name_v::loc::args) =
+              if is_bytes then ISPECL (name_v::loc::args) th_RB
+              else if is_bits then ISPECL (name_v::loc::args) th_RBITS
+              else ISPECL (name_v::loc::TYPE::args) th_R
+          | spec_arr _ _ _ _ = failwith "spec_arr"
         val EXN_TYPE = exn_ri
         val get_arr = get_fun
         val set_arr = set_fun
@@ -962,7 +1030,9 @@ fun prove_store_access_specs refs_manip_list
         in th end
 
         (* length *)
-        val length_thm = ISPECL[name_v, loc, TYPE, EXN_TYPE, H_part, get_arr] EvalM_R_Marray_length
+        val length_thm = spec_arr EvalM_R_Marray_length EvalM_RB_Marray_length
+                  EvalM_RBITS_Marray_length
+                           [name_v, loc, EXN_TYPE, H_part, get_arr]
         val length_thm = rewrite_thm length_thm
 
         val thm_name = name ^"_length_thm"
@@ -982,13 +1052,15 @@ fun prove_store_access_specs refs_manip_list
 
         val sub_thm =
           if usesSubscript then let
-            val th = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,sub_exn]
-                            EvalM_R_Marray_sub_subscript |> SPEC_ALL
+            val th = spec_arr EvalM_R_Marray_sub_subscript EvalM_RB_Marray_sub_subscript
+                  EvalM_RBITS_Marray_sub_subscript
+                            [name_v,loc,EXN_TYPE,H_part,get_arr,sub_exn] |> SPEC_ALL
             val th = MP th subscript_eval |> UNDISCH |> UNDISCH |> rewrite_thm
           in th end
           else let
-            val th = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,sub_exn,sub_rexp]
-                            EvalM_R_Marray_sub_handle |> SPEC_ALL
+            val th = spec_arr EvalM_R_Marray_sub_handle EvalM_RB_Marray_sub_handle
+                  EvalM_RBITS_Marray_sub_handle
+                            [name_v,loc,EXN_TYPE,H_part,get_arr,sub_exn,sub_rexp] |> SPEC_ALL
             val th = rewrite_thm th |> UNDISCH |> UNDISCH |> UNDISCH
             val th = MP th Eval_sub_rexp
           in th end
@@ -1016,16 +1088,18 @@ fun prove_store_access_specs refs_manip_list
         val update_thm =
           if usesSubscript then let
             val th =
-              ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr', update_exn]
-                      EvalM_R_Marray_update_subscript
+              spec_arr EvalM_R_Marray_update_subscript EvalM_RB_Marray_update_subscript
+                  EvalM_RBITS_Marray_update_subscript
+                [name_v,loc,EXN_TYPE,H_part,get_arr,set_arr',update_exn]
             val th = SPEC_ALL th |> UNDISCH |> UNDISCH
             val th = MP th subscript_eval |> remove_assumption
                         |> remove_assumption |> UNDISCH_ALL
           in rewrite_thm th end
           else let
             val th =
-              ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr,
-                     update_exn,update_rexp] EvalM_R_Marray_update_handle
+              spec_arr EvalM_R_Marray_update_handle EvalM_RB_Marray_update_handle
+                  EvalM_RBITS_Marray_update_handle
+                [name_v,loc,EXN_TYPE,H_part,get_arr,set_arr,update_exn,update_rexp]
             val th = SPEC_ALL th |> UNDISCH |> UNDISCH
             val th = remove_assumption th |> remove_assumption
             val th = UNDISCH th
@@ -1044,8 +1118,9 @@ fun prove_store_access_specs refs_manip_list
                               EvalM_R_Marray_alloc |> SPEC_ALL
 
         *)
-        val alloc_thm = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr']
-                              EvalM_R_Marray_alloc |> SPEC_ALL
+        val alloc_thm = spec_arr EvalM_R_Marray_alloc EvalM_RB_Marray_alloc
+                  EvalM_RBITS_Marray_alloc
+                          [name_v,loc,EXN_TYPE,H_part,get_arr,set_arr'] |> SPEC_ALL
         val alloc_thm = rewrite_thm alloc_thm |> UNDISCH
         val alloc_thm = remove_assumption alloc_thm |> remove_assumption
 
@@ -1070,7 +1145,16 @@ fun prove_store_access_specs refs_manip_list
     fun prove_farray_specs ((name, get_def, get_fun, set_fun_def, set_fun, length_def, sub_def, update_def), loc_def) = let
         val name_v = mlstringSyntax.mk_mlstring name
         val loc = concl loc_def |> lhs
-        val TYPE =  get_fun |> dest_abs |> snd |> type_of |> dest_type |> snd |> List.hd |> get_type_inv
+        val arr_ty = get_fun |> dest_abs |> snd |> type_of
+        val is_bytes = is_byte_array_ty arr_ty
+        val is_bits = ml_monadBaseLib.is_bool_array name
+        val TYPE = listSyntax.dest_list_type arr_ty |> get_type_inv
+        (* byte/bool-array lemmas take no element refinement invariant *)
+        fun spec_arr th_F th_B th_BITS (name_v::loc::args) =
+              if is_bytes then ISPECL (name_v::loc::args) th_B
+              else if is_bits then ISPECL (name_v::loc::args) th_BITS
+              else ISPECL (name_v::loc::TYPE::args) th_F
+          | spec_arr _ _ _ _ = failwith "spec_arr"
         val EXN_TYPE = exn_ri
         val get_arr = get_fun
         val set_arr = set_fun
@@ -1099,7 +1183,9 @@ fun prove_store_access_specs refs_manip_list
         in th end
 
         (* length *)
-        val length_thm = ISPECL[name_v, loc, TYPE, EXN_TYPE, H_part, get_arr] EvalM_F_Marray_length
+        val length_thm = spec_arr EvalM_F_Marray_length EvalM_B_Marray_length
+                  EvalM_BITS_Marray_length
+                           [name_v, loc, EXN_TYPE, H_part, get_arr]
         val length_thm = rewrite_thm length_thm
 
         val thm_name = name ^"_length_thm"
@@ -1119,13 +1205,15 @@ fun prove_store_access_specs refs_manip_list
 
         val sub_thm =
           if usesSubscript then let
-            val th = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,sub_exn]
-                            EvalM_F_Marray_sub_subscript |> SPEC_ALL
+            val th = spec_arr EvalM_F_Marray_sub_subscript EvalM_B_Marray_sub_subscript
+                  EvalM_BITS_Marray_sub_subscript
+                            [name_v,loc,EXN_TYPE,H_part,get_arr,sub_exn] |> SPEC_ALL
             val th = MP th subscript_eval |> UNDISCH |> UNDISCH |> rewrite_thm
           in th end
           else let
-            val th = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,sub_exn,sub_rexp]
-                            EvalM_F_Marray_sub_handle |> SPEC_ALL
+            val th = spec_arr EvalM_F_Marray_sub_handle EvalM_B_Marray_sub_handle
+                  EvalM_BITS_Marray_sub_handle
+                            [name_v,loc,EXN_TYPE,H_part,get_arr,sub_exn,sub_rexp] |> SPEC_ALL
             val th = rewrite_thm th |> UNDISCH |> UNDISCH |> UNDISCH
             val th = MP th Eval_sub_rexp
           in th end
@@ -1148,16 +1236,18 @@ fun prove_store_access_specs refs_manip_list
         val update_thm =
           if usesSubscript then let
             val th =
-              ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr,update_exn]
-                      EvalM_F_Marray_update_subscript
+              spec_arr EvalM_F_Marray_update_subscript EvalM_B_Marray_update_subscript
+                  EvalM_BITS_Marray_update_subscript
+                [name_v,loc,EXN_TYPE,H_part,get_arr,set_arr,update_exn]
             val th = SPEC_ALL th |> UNDISCH |> UNDISCH
             val th = MP th subscript_eval |> remove_assumption
                         |> remove_assumption |> UNDISCH_ALL
           in rewrite_thm th end
           else let
             val th =
-              ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr,
-                     update_exn,update_rexp] EvalM_F_Marray_update_handle
+              spec_arr EvalM_F_Marray_update_handle EvalM_B_Marray_update_handle
+                  EvalM_BITS_Marray_update_handle
+                [name_v,loc,EXN_TYPE,H_part,get_arr,set_arr,update_exn,update_rexp]
             val th = SPEC_ALL th |> UNDISCH |> UNDISCH
             val th = remove_assumption th |> remove_assumption
             val th = UNDISCH th
