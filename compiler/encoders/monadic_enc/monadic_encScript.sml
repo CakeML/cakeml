@@ -127,11 +127,11 @@ End
 Definition hash_inst_def:
   (hash_inst m Skip = 45n) ∧
   (hash_inst m (Const r w) =
-    roll_hash [r;w2n w MOD m] 46n) ∧
+    roll_hash [r;Num (ABS w) MOD m] 46n) ∧
   (hash_inst m (Arith a) =
     roll_hash [hash_arith m a] 47n) ∧
   (hash_inst m (Mem mop r (Addr rr w)) =
-    roll_hash [hash_memop mop; r; rr; w2n w MOD m] 48n) ∧
+    roll_hash [hash_memop mop; r; rr; Num (ABS w) MOD m] 48n) ∧
   (hash_inst m (FP fp) =
     roll_hash [hash_fp fp] 49n)
 End
@@ -140,14 +140,14 @@ Definition hash_asm_def:
   (hash_asm m (Inst i) =
     roll_hash [hash_inst m i] 50n) ∧
   (hash_asm m (Jump w) =
-    roll_hash [w2n w MOD m] 51n) ∧
+    roll_hash [Num (ABS w) MOD m] 51n) ∧
   (hash_asm m (JumpCmp c r ri w) =
-    roll_hash [hash_cmp c; r; hash_reg_imm m ri; w2n w MOD m] 52n) ∧
+    roll_hash [hash_cmp c; r; hash_reg_imm m ri; Num (ABS w) MOD m] 52n) ∧
   (hash_asm m (Call w) =
-    roll_hash [w2n w MOD m] 53n) ∧
+    roll_hash [Num (ABS w) MOD m] 53n) ∧
   (hash_asm m (JumpReg r) =
     roll_hash [r] 54n) ∧
   (hash_asm m (Loc r w) =
-    roll_hash [r; w2n w MOD m] 55n)
+    roll_hash [r; Num (ABS w) MOD m] 55n)
 End
 

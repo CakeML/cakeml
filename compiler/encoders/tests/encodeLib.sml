@@ -25,7 +25,7 @@ val () =
       prim_mk_const{Thy="riscv_target",Name="riscv_config"},
       prim_mk_const{Thy="arm8_target",Name="valid_immediate"},
       prim_mk_const{Thy="asm",Name="asm_ok"}]
- ; computeLib.extend_compset
+ ; computeLib.upd_compset (computeLib.extend_compset
     [computeLib.Extenders
        [arm7_targetLib.add_arm7_encode_compset,
         arm8_targetLib.add_arm8_encode_compset,
@@ -34,16 +34,14 @@ val () =
         riscv_targetLib.add_riscv_encode_compset,
         asmLib.add_asm_compset
        ]
-    ] computeLib.the_compset
+    ])
  )
 
-val ty32 = fcpSyntax.mk_int_numeric_type 32
-val ty64 = fcpSyntax.mk_int_numeric_type 64
 val eval = rhs o concl o EVAL
 fun string_quotation l = [QUOTE (String.concatWith " " l)] : string quotation
 
 val mk_asm_ok = Lib.curry (#2 (HolKernel.syntax_fns2 "asm" "asm_ok"))
-fun ok tm = Lib.equal boolSyntax.T o eval o mk_asm_ok tm
+fun ok tm = aconv boolSyntax.T o eval o mk_asm_ok tm
 
 fun mk s = #2 (HolKernel.syntax_fns1 (s ^ "_target") (s ^ "_enc"))
 
@@ -115,71 +113,50 @@ in
   fun print_not_ok () = print "[not asm_ok]\n"
 end
 
-local
-  val cnv = Conv.REWR_CONV (GSYM wordsTheory.n2w_mod)
-            THENC Conv.RAND_CONV (Conv.RAND_CONV wordsLib.SIZES_CONV)
-            THENC numLib.REDUCE_CONV
-  fun reduce_literal_conv tm =
-    if fst (wordsSyntax.dest_mod_word_literal tm) =
-       wordsSyntax.dest_word_literal tm
-      then raise mk_HOL_ERR "encodeLib" "reduce_literal" "already reduced"
-    else cnv tm
-  val REDUCE_LITERALS_CONV = Conv.DEPTH_CONV reduce_literal_conv
-in
-  val reduce = boolSyntax.rhs o Thm.concl o Conv.QCONV REDUCE_LITERALS_CONV
-end
-
 fun encoding q =
   let
-    val tm = Feedback.trace ("notify type variable guesses", 0) Parse.Term q
-    val tm32 = reduce (Term.inst [Type.alpha |-> ty32] tm)
-    val tm64 = reduce (Term.inst [Type.alpha |-> ty64] tm)
-    val ok64 = ok tm64
-    val asm32 = Parse.term_to_string tm32
-    val asm64 = Parse.term_to_string tm64
+    val tm = Parse.Term q
+    val asm = Parse.term_to_string tm
   in
-    { asm = fn SOME is64 => print (if is64 then asm64 else asm32)
-             | NONE =>
-                 if asm32 = asm64 then print asm32
-                 else print ("32 asm: " ^ asm32 ^ "\n64 asm: " ^ asm64),
+    { asm = fn _ => print asm,
       arm7 = fn () =>
-              if ok tm32 arm7_config
+              if ok tm arm7_config
                 then let
-                       val l = eval (mk_arm7_enc tm32)
+                       val l = eval (mk_arm7_enc tm)
                      in
                        armAssemblerLib.print_arm_disassemble
                          (string_quotation (split32 false l))
                      end
               else print_not_ok (),
       arm8 = fn () =>
-              if ok64 arm8_config
+              if ok tm arm8_config
                 then let
-                       val l = eval (mk_arm8_enc tm64)
+                       val l = eval (mk_arm8_enc tm)
                      in
                        arm8AssemblerLib.print_arm8_disassemble
                          (string_quotation (split32 false l))
                      end
               else print_not_ok (),
       mips = fn () =>
-              if ok64 mips_config
+              if ok tm mips_config
                 then let
-                       val l = (eval (mk_mips_enc tm64))
+                       val l = (eval (mk_mips_enc tm))
                      in
                        print_mips_disassemble (split32 true l)
                      end
               else print_not_ok (),
       riscv = fn () =>
-              if ok64 riscv_config
+              if ok tm riscv_config
                 then let
-                       val l = eval (mk_riscv_enc tm64)
+                       val l = eval (mk_riscv_enc tm)
                      in
                        print_riscv_disassemble (split32 false l)
                      end
               else print_not_ok (),
       x64 = fn () =>
-              if ok64 x64_config
+              if ok tm x64_config
                 then let
-                       val l = eval (mk_x64_enc tm64)
+                       val l = eval (mk_x64_enc tm)
                      in
                        print_x64_disassemble l
                      end
@@ -243,40 +220,40 @@ val () = Count.apply (encodings [ARMv7, ARMv8, MIPS, RISCV])
 val () = Count.apply (encodings [All])
    [
     `Inst Skip`,
-    `Inst (Const 8 0w)`,
-    `Inst (Const 6 0x100000000w)`,
-    `Inst (Const 6 0x100000001w)`,
-    `Inst (Const 6 0x100010001w)`,
+    `Inst (Const 8 0)`,
+    `Inst (Const 6 0x100000000)`,
+    `Inst (Const 6 0x100000001)`,
+    `Inst (Const 6 0x100010001)`,
     `Inst (Arith (Binop Add 6 6 (Imm 1)))`,
     `Inst (Arith (Binop Add 6 6 (Imm 0x10000)))`,
     `Inst (Arith (Binop Add 6 6 (Reg 7)))`,
     `Inst (Arith (Binop Or 6 6 (Imm 0xFF)))`,
     `Inst (Arith (Binop Xor 6 6 (Imm (-1))))`,
-    `Inst (Arith (Shift Lsr 6 6 1))`,
-    `Inst (Arith (Shift Asr 6 6 1))`,
-    `Inst (Arith (Shift Ror 6 6 1))`,
+    `Inst (Arith (Shift Lsr 6 6 (Imm 1)))`,
+    `Inst (Arith (Shift Asr 6 6 (Imm 1)))`,
+    `Inst (Arith (Shift Ror 6 6 (Imm 1)))`,
     `Inst (Arith (Div 6 7 8))`,
     `Inst (Arith (LongDiv 0 2 0 2 3))`,
     `Inst (Arith (LongMul 2 0 0 3))`,
     `Inst (Arith (AddCarry 7 7 8 9))`,
     `Inst (Arith (AddOverflow 7 7 8 9))`,
     `Inst (Arith (SubOverflow 7 7 8 9))`,
-    `Inst (Mem Load 6 (Addr 7 0w))`,
-    `Inst (Mem Load 6 (Addr 7 0x10w))`,
-    `Inst (Mem Load 6 (Addr 7 0x101w))`,
-    `Inst (Mem Load8 6 (Addr 7 0x10w))`,
- (* `Inst (Mem Load32 6 (Addr 7 0x10w))`, *)
-    `Inst (Mem Store 6 (Addr 7 0w))`,
-    `Inst (Mem Store 6 (Addr 7 0x10w))`,
-    `Inst (Mem Store 6 (Addr 7 0x101w))`,
-    `Inst (Mem Store8 6 (Addr 7 0x10w))`,
- (* `Inst (Mem Store32 6 (Addr 7 0x10w))`, *)
-    `Jump 12w`,
-    `JumpCmp Less 6 (Reg 7) 12w`,
-    `JumpCmp NotLess 6 (Imm 1) 12w`,
-    `Call 0x10w`,
+    `Inst (Mem Load 6 (Addr 7 0))`,
+    `Inst (Mem Load 6 (Addr 7 0x10))`,
+    `Inst (Mem Load 6 (Addr 7 0x101))`,
+    `Inst (Mem Load8 6 (Addr 7 0x10))`,
+ (* `Inst (Mem Load32 6 (Addr 7 0x10))`, *)
+    `Inst (Mem Store 6 (Addr 7 0))`,
+    `Inst (Mem Store 6 (Addr 7 0x10))`,
+    `Inst (Mem Store 6 (Addr 7 0x101))`,
+    `Inst (Mem Store8 6 (Addr 7 0x10))`,
+ (* `Inst (Mem Store32 6 (Addr 7 0x10))`, *)
+    `Jump 12`,
+    `JumpCmp Less 6 (Reg 7) 12`,
+    `JumpCmp NotLess 6 (Imm 1) 12`,
+    `Call 0x10`,
     `JumpReg 6`,
-    `Loc 6 0xF00w`
+    `Loc 6 0xF00`
    ]
 
 val () = Count.apply (encodings [ARMv7, MIPS])

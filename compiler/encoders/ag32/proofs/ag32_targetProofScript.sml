@@ -124,7 +124,7 @@ val store_lem =
 
 val store_lem2 =
   blastLib.BBLAST_PROVE
-   ``!(c:word32). 0w <= c /\ c <= 0x7FFFFFw ==>
+   ``!(c:word32). 0w <= c /\ c < 0x7FFFFFw ==>
       (w2w ((w2w c) : 23 word) = c)``
 
 val mem_lem =
@@ -177,6 +177,7 @@ end
 
 val enc_rwts =
   [asmPropsTheory.offset_monotonic_def, ag32_config, ag32_asm_ok,
+   asmTheory.arch_width_bits_def, asmTheory.arch_wordsize_def,
    integer_wordTheory.i2w_pos, integer_wordTheory.i2w_minus_1] @
   encode_rwts @ asmLib.asm_rwts
 
@@ -212,11 +213,11 @@ Proof
   rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
         ag32_proj_def, ag32_target_def, ag32_config, ag32_ok_def,
         set_sepTheory.fun2set_eq, ag32_encoding] @ enc_ok_rwts)
-   >| [ Cases_on `0w <= w1` \\ Cases_on `0w <= w2`,
+   >| [ Cases_on `0w <= (i2w w1 : word32)` \\ Cases_on `0w <= (i2w w2 : word32)`,
         Cases_on `ri` \\ Cases_on `cmp`,
-        Cases_on `0w <= w1` \\ Cases_on `0w <= w2`,
-        Cases_on `0xFFFFFFE0w <= w1 + 0xFFFFFFFCw /\ w1 + 0xFFFFFFFCw < 32w`
-        \\ Cases_on `0xFFFFFFE0w <= w2 + 0xFFFFFFFCw /\ w2 + 0xFFFFFFFCw < 32w`
+        Cases_on `0w <= (i2w w1 : word32)` \\ Cases_on `0w <= (i2w w2 : word32)`,
+        Cases_on `0xFFFFFFE0w <= (i2w w1 : word32) + 0xFFFFFFFCw /\ (i2w w1 : word32) + 0xFFFFFFFCw < 32w`
+        \\ Cases_on `0xFFFFFFE0w <= (i2w w2 : word32) + 0xFFFFFFFCw /\ (i2w w2 : word32) + 0xFFFFFFFCw < 32w`
    ]
    \\ lfs (enc_rwts @ encode_extra_rwts)
    \\ rw [length_ag32_encode]
@@ -336,8 +337,18 @@ in
     end (asl, g)
 end
 
+Theorem aligned_i2w[local]:
+  4 int_divides i ⇒ aligned 2 (i2w i : word32)
+Proof
+  rw [integerTheory.INT_DIVIDES]
+  \\ simp [GSYM integer_wordTheory.word_i2w_mul, integer_wordTheory.i2w_pos,
+           alignmentTheory.aligned_bitwise_and]
+  \\ blastLib.BBLAST_TAC
+QED
+
 val state_tac =
-  NO_STRIP_FULL_SIMP_TAC (srw_ss())
+  imp_res_tac aligned_i2w
+  \\ NO_STRIP_FULL_SIMP_TAC (srw_ss())
      [asmPropsTheory.sym_target_state_rel, ag32_target_def,
       asmPropsTheory.all_pcs, ag32_ok_def, ag32_config,
       combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
@@ -352,8 +363,11 @@ val state_tac =
          GSYM wordsTheory.word_mul_def,
          ONCE_REWRITE_RULE [wordsTheory.WORD_ADD_COMM]
              alignmentTheory.aligned_add_sub]
-  \\ full_simp_tac (srw_ss()++bitstringLib.v2w_n2w_ss) [load_lem2, store_lem]
+  \\ imp_res_tac aligned_i2w
+  \\ full_simp_tac (srw_ss()++bitstringLib.v2w_n2w_ss)
+       [load_lem2, store_lem, alignmentTheory.aligned_add_sub]
   \\ blastLib.FULL_BBLAST_TAC
+
 
 Theorem bytes_in_memory_IMP_all_pcs_MEM[local]:
   !env a xs m dm.
@@ -418,28 +432,101 @@ Proof
    \\ rw [ag32_target_def, ag32_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
    \\ Cases_on `i`
-   >- (
+   >- suspend "Inst" (* close Inst *)
+      (*--------------
+          Jump
+        --------------*)
+   >- suspend "Jump"
+   >- suspend "JumpCmp"
+   >- suspend "Call"
+   >- suspend "JumpReg"
+   >- suspend "Loc"
+QED
+
+Resume ag32_encoder_correct[Inst]:
       (*--------------
           Inst
         --------------*)
       Cases_on `i'`
-      >- (
+      >- suspend "Skip"
+      >- suspend "Const"
+      >- suspend "Arith"
+      >- suspend "Mem"
+         (*--------------
+             FP
+           --------------*)
+         \\ print_tac "FP"
+         \\ Cases_on `f`
+         \\ next_tac
+
+QED
+
+Resume ag32_encoder_correct[Jump]:
+      print_tac "Jump"
+      \\ next_tac
+
+QED
+
+Resume ag32_encoder_correct[JumpCmp]:
+      (*--------------
+          JumpCmp
+        --------------*)
+      print_tac "JumpCmp"
+      \\ Cases_on `r`
+      >- (Cases_on `c` \\ next_tac)
+      \\ mp_tac (Q.SPEC `i` imm6_lem)
+      \\ impl_tac >- (fs enc_rwts \\ intLib.ARITH_TAC)
+      \\ strip_tac
+      \\ Cases_on `c`
+      \\ next_tac
+QED
+
+Resume ag32_encoder_correct[Call]:
+      print_tac "Call"
+      \\ next_tac
+
+QED
+
+Resume ag32_encoder_correct[JumpReg]:
+      (*--------------
+          JumpReg
+        --------------*)
+      print_tac "JumpReg"
+      \\ next_tac
+
+QED
+
+Resume ag32_encoder_correct[Loc]:
+      (*--------------
+          Loc
+        --------------*)
+      print_tac "Loc"
+      \\ next_tac
+
+QED
+
+
+Resume ag32_encoder_correct[Skip]:
          (*--------------
              Skip
            --------------*)
          print_tac "Skip"
          \\ next_tac
-         )
-      >- (
+
+QED
+
+Resume ag32_encoder_correct[Const]:
          (*--------------
              Const
            --------------*)
          print_tac "Const"
-         \\ Cases_on `-0x7FFFFFw <= c /\ c < 0x7FFFFFw`
-         >| [Cases_on `0w <= c`, all_tac]
+         \\ Cases_on `-0x7FFFFFw <= (i2w i : word32) /\ (i2w i : word32) < 0x7FFFFFw`
+         >| [Cases_on `0w <= (i2w i : word32)`, all_tac]
          \\ next_tac
-         )
-      >- (
+
+QED
+
+Resume ag32_encoder_correct[Arith]:
          (*--------------
              Arith
            --------------*)
@@ -461,22 +548,7 @@ Proof
                 >| [all_tac, Cases_on `0w <= (i2w i : word32)` \\ fs []]
                 \\ next_tac)
             )
-         >- (
-            (*--------------
-                Shift
-              --------------*)
-            print_tac "Shift"
-            \\ Cases_on `r`
-            THENL [ALL_TAC,
-                   `?shift_len. i = &shift_len`
-                     by (fs enc_rwts \\ qexists_tac `Num i` \\ intLib.ARITH_TAC)
-                   \\ gvs []
-                   \\ ‘w2w ((n2w shift_len):word32) = n2w shift_len : 6 word’ by
-                         gvs [asmTheory.asm_ok_def,asmTheory.inst_ok_def,
-                              asmTheory.arith_ok_def,wordsTheory.w2w_def]]
-            \\ Cases_on `s`
-            \\ next_tac
-            )
+         >- suspend "Shift"
          >- (
             (*--------------
                 Div
@@ -519,66 +591,188 @@ Proof
             print_tac "SubOverflow"
             \\ next_tac
             )
-         )
-      >- (
-         (*--------------
-             Mem
-           --------------*)
-         print_tac "Mem"
-         \\ Cases_on `a`
-         \\ Cases_on `m`
-         \\ (Cases_on `-32 <= i /\ i < 32`
-             >| [all_tac,
-                 Cases_on `-0x7FFFFFw <= (i2w i : word32) /\ (i2w i : word32) < 0x7FFFFFw`
-                 >| [Cases_on `0w <= (i2w i : word32)`, all_tac]])
-         \\ next_tac
-         )
-         (*--------------
-             FP
-           --------------*)
-         \\ print_tac "FP"
-         \\ Cases_on `f`
-         \\ next_tac
-      ) (* close Inst *)
-      (*--------------
-          Jump
-        --------------*)
-   >- (
-      print_tac "Jump"
-      \\ next_tac
-      )
-   >- (
-      (*--------------
-          JumpCmp
-        --------------*)
-      print_tac "JumpCmp"
-      \\ Cases_on `r`
-      >- (Cases_on `c` \\ next_tac)
-      \\ mp_tac (Q.SPEC `i` imm6_lem)
-      \\ impl_tac >- (fs enc_rwts \\ intLib.ARITH_TAC)
-      \\ strip_tac
-      \\ Cases_on `c`
-      \\ next_tac
-      )
-      (*--------------
-          Call
-        --------------*)
-   >- (
-      print_tac "Call"
-      \\ next_tac
-      )
-   >- (
-      (*--------------
-          JumpReg
-        --------------*)
-      print_tac "JumpReg"
-      \\ next_tac
-      )
-   >- (
-      (*--------------
-          Loc
-        --------------*)
-      print_tac "Loc"
-      \\ next_tac
-      )
+
 QED
+
+Resume ag32_encoder_correct[Shift]:
+            print_tac "Shift"
+            \\ Cases_on `r`
+            THENL [ALL_TAC,
+                   `?shift_len. i = &shift_len`
+                     by (fs enc_rwts \\ qexists_tac `Num i` \\ intLib.ARITH_TAC)
+                   \\ gvs []
+                   \\ ‘w2w ((n2w shift_len):word32) = n2w shift_len : 6 word’ by
+                         gvs [asmTheory.asm_ok_def,asmTheory.inst_ok_def,
+                              asmTheory.arith_ok_def, ag32_config,
+                              asmTheory.arch_wordsize_def, asmTheory.arch_width_bits_def,
+                              wordsTheory.w2w_def]]
+            \\ Cases_on `s`
+            \\ next_tac
+QED
+
+Resume ag32_encoder_correct[Mem]:
+  Cases_on `a`
+  \\ Cases_on `m`
+  >- suspend "Load"
+  >- suspend "Load8"
+  >- suspend "Load16"
+  >- suspend "Load32"
+  >- suspend "Store"
+  >- suspend "Store8"
+  >- suspend "Store16"
+  >- suspend "Store32"
+QED
+
+Resume ag32_encoder_correct[Load]:
+  Cases_on `-32 <= i /\ i < 32`
+  >- suspend "LoadSmall"
+  >- suspend "LoadLarge"
+QED
+
+Resume ag32_encoder_correct[LoadLarge]:
+  Cases_on `-0x7FFFFFw <= (i2w i : word32) /\ (i2w i : word32) < 0x7FFFFFw`
+  >| [Cases_on `0w <= (i2w i : word32)`, all_tac]
+  \\ next_tac
+QED
+
+Resume ag32_encoder_correct[LoadSmall]:
+  mp_tac (Q.SPEC `i` imm6_lem)
+  \\ impl_tac >- intLib.ARITH_TAC
+  \\ strip_tac
+  \\ next_tac
+QED
+
+Resume ag32_encoder_correct[Load8]:
+  Cases_on `-32 <= i /\ i < 32`
+  >- suspend "Load8Small"
+  >- suspend "Load8Large"
+QED
+
+Resume ag32_encoder_correct[Load8Large]:
+  Cases_on `-0x7FFFFFw <= (i2w i : word32) /\ (i2w i : word32) < 0x7FFFFFw`
+  >| [Cases_on `0w <= (i2w i : word32)`, all_tac]
+  \\ next_tac
+QED
+
+Resume ag32_encoder_correct[Load8Small]:
+  mp_tac (Q.SPEC `i` imm6_lem)
+  \\ impl_tac >- intLib.ARITH_TAC
+  \\ strip_tac
+  \\ next_tac
+QED
+
+Resume ag32_encoder_correct[Load16]:
+  Cases_on `-32 <= i /\ i < 32`
+  >- suspend "Load16Small"
+  >- suspend "Load16Large"
+QED
+
+Resume ag32_encoder_correct[Load16Large]:
+  Cases_on `-0x7FFFFFw <= (i2w i : word32) /\ (i2w i : word32) < 0x7FFFFFw`
+  >| [Cases_on `0w <= (i2w i : word32)`, all_tac]
+  \\ next_tac
+QED
+
+Resume ag32_encoder_correct[Load16Small]:
+  mp_tac (Q.SPEC `i` imm6_lem)
+  \\ impl_tac >- intLib.ARITH_TAC
+  \\ strip_tac
+  \\ next_tac
+QED
+
+Resume ag32_encoder_correct[Load32]:
+  Cases_on `-32 <= i /\ i < 32`
+  >- suspend "Load32Small"
+  >- suspend "Load32Large"
+QED
+
+Resume ag32_encoder_correct[Load32Large]:
+  Cases_on `-0x7FFFFFw <= (i2w i : word32) /\ (i2w i : word32) < 0x7FFFFFw`
+  >| [Cases_on `0w <= (i2w i : word32)`, all_tac]
+  \\ next_tac
+QED
+
+Resume ag32_encoder_correct[Load32Small]:
+  mp_tac (Q.SPEC `i` imm6_lem)
+  \\ impl_tac >- intLib.ARITH_TAC
+  \\ strip_tac
+  \\ next_tac
+QED
+
+Resume ag32_encoder_correct[Store]:
+  Cases_on `-32 <= i /\ i < 32`
+  >- suspend "StoreSmall"
+  >- suspend "StoreLarge"
+QED
+
+Resume ag32_encoder_correct[StoreLarge]:
+  Cases_on `-0x7FFFFFw <= (i2w i : word32) /\ (i2w i : word32) < 0x7FFFFFw`
+  >| [Cases_on `0w <= (i2w i : word32)`, all_tac]
+  \\ next_tac
+QED
+
+Resume ag32_encoder_correct[StoreSmall]:
+  mp_tac (Q.SPEC `i` imm6_lem)
+  \\ impl_tac >- intLib.ARITH_TAC
+  \\ strip_tac
+  \\ next_tac
+QED
+
+Resume ag32_encoder_correct[Store8]:
+  Cases_on `-32 <= i /\ i < 32`
+  >- suspend "Store8Small"
+  >- suspend "Store8Large"
+QED
+
+Resume ag32_encoder_correct[Store8Large]:
+  Cases_on `-0x7FFFFFw <= (i2w i : word32) /\ (i2w i : word32) < 0x7FFFFFw`
+  >| [Cases_on `0w <= (i2w i : word32)`, all_tac]
+  \\ next_tac
+QED
+
+Resume ag32_encoder_correct[Store8Small]:
+  mp_tac (Q.SPEC `i` imm6_lem)
+  \\ impl_tac >- intLib.ARITH_TAC
+  \\ strip_tac
+  \\ next_tac
+QED
+
+Resume ag32_encoder_correct[Store16]:
+  Cases_on `-32 <= i /\ i < 32`
+  >- suspend "Store16Small"
+  >- suspend "Store16Large"
+QED
+
+Resume ag32_encoder_correct[Store16Large]:
+  Cases_on `-0x7FFFFFw <= (i2w i : word32) /\ (i2w i : word32) < 0x7FFFFFw`
+  >| [Cases_on `0w <= (i2w i : word32)`, all_tac]
+  \\ next_tac
+QED
+
+Resume ag32_encoder_correct[Store16Small]:
+  mp_tac (Q.SPEC `i` imm6_lem)
+  \\ impl_tac >- intLib.ARITH_TAC
+  \\ strip_tac
+  \\ next_tac
+QED
+
+Resume ag32_encoder_correct[Store32]:
+  Cases_on `-32 <= i /\ i < 32`
+  >- suspend "Store32Small"
+  >- suspend "Store32Large"
+QED
+
+Resume ag32_encoder_correct[Store32Large]:
+  Cases_on `-0x7FFFFFw <= (i2w i : word32) /\ (i2w i : word32) < 0x7FFFFFw`
+  >| [Cases_on `0w <= (i2w i : word32)`, all_tac]
+  \\ next_tac
+QED
+
+Resume ag32_encoder_correct[Store32Small]:
+  mp_tac (Q.SPEC `i` imm6_lem)
+  \\ impl_tac >- intLib.ARITH_TAC
+  \\ strip_tac
+  \\ next_tac
+QED
+
+Finalise ag32_encoder_correct;

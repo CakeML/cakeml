@@ -533,7 +533,7 @@ val encode_rwts =
       open armTheory
    in
       [arm7_enc_def, arm7_bop_def, arm7_sh_def, arm7_cmp_def,
-       arm7_encode_def, arm7_encode1_def, encode_def, arm7_vfp_cmp_def,
+       arm7_encode_def, arm7_encode1_def, arm7_encode_fail_def, encode_def, arm7_vfp_cmp_def,
        e_branch_def, e_data_def, e_load_def, e_store_def, e_vfp_def,
        e_multiply_def, EncodeImmShift_def, EncodeImmShift_def,
        EncodeVFPReg_def, EncodeRegShift_def
@@ -541,7 +541,8 @@ val encode_rwts =
    end
 
 val enc_rwts =
-   [asmPropsTheory.offset_monotonic_def, lem4, lem5, lem8, lem4b, lem5b,
+   [asmPropsTheory.offset_monotonic_def,
+    asmTheory.arch_width_bits_def, asmTheory.arch_wordsize_def, lem4, lem5, lem8, lem4b, lem5b,
     arm_stepTheory.Aligned, alignmentTheory.aligned_0,
     alignmentTheory.aligned_numeric, arm7_asm_ok, Once valid_immediate2,
     integer_wordTheory.i2w_pos, integer_wordTheory.i2w_minus_1] @
@@ -924,6 +925,17 @@ val arm7_encoding = Q.prove (
    )
    |> SIMP_RULE (bool_ss++boolSimps.LET_ss) []
 
+Theorem i2w_32_signed[local]:
+  -2147483648 ≤ i ∧ i ≤ 2147483647 ⇒ w2i (i2w i : word32) = i
+Proof
+  strip_tac
+  \\ irule integer_wordTheory.w2i_i2w
+  \\ simp [integer_wordTheory.INT_MIN_def, integer_wordTheory.INT_MAX_def,
+           wordsTheory.INT_MIN_def, wordsTheory.INT_MAX_def,
+           wordsTheory.dimword_def, wordsTheory.dimindex_32]
+  \\ intLib.ARITH_TAC
+QED
+
 Theorem arm7_target_ok[local]:
   target_ok arm7_target
 Proof
@@ -934,6 +946,13 @@ Proof
    >| [all_tac, Cases_on `ri` \\ Cases_on `cmp`, all_tac, all_tac]
    \\ lfs enc_rwts
    \\ NTAC 3 (rw [Once valid_immediate2])
+   \\ imp_res_tac i2w_32_signed
+   \\ TRY (`(i2w w1 : word32) ≤ i2w w2` by fs [integer_wordTheory.WORD_LEi, integer_wordTheory.word_0_w2i])
+   \\ TRY (`(i2w w2 : word32) ≤ i2w w1` by fs [integer_wordTheory.WORD_LEi, integer_wordTheory.word_0_w2i])
+   \\ TRY (`0w ≤ (i2w w1 : word32)` by fs [integer_wordTheory.WORD_LEi, integer_wordTheory.word_0_w2i])
+   \\ TRY (`0w ≤ (i2w w2 : word32)` by fs [integer_wordTheory.WORD_LEi, integer_wordTheory.word_0_w2i])
+   \\ TRY (`(i2w w1 : word32) < 0w` by fs [integer_wordTheory.WORD_LTi, integer_wordTheory.word_0_w2i])
+   \\ TRY (`(i2w w2 : word32) < 0w` by fs [integer_wordTheory.WORD_LTi, integer_wordTheory.word_0_w2i])
    \\ blastLib.FULL_BBLAST_TAC
 QED
 
@@ -1010,20 +1029,34 @@ Proof
    \\ rw [arm7_target_def, arm7_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
    \\ Cases_on `i`
-   >- (
-      (*--------------
-          Inst
-        --------------*)
-      Cases_on `i'`
-      >- (
-         (*--------------
+   >- suspend "Inst"
+   >- suspend "Jump"
+   >- suspend "JumpCmp"
+   >- suspend "Call"
+   >- suspend "JumpReg"
+   >- suspend "Loc"
+QED
+
+Resume arm7_encoder_correct[Inst]:
+  Cases_on `i'`
+  >- suspend "Skip"
+  >- suspend "Const"
+  >- suspend "Arith"
+  >- suspend "Mem"
+  >- suspend "FP"
+QED
+
+Resume arm7_encoder_correct[Skip]:
+  (*--------------
              Skip
            --------------*)
          print_tac "Skip"
          \\ next_tac
-         )
-      >- (
-         (*--------------
+QED
+
+Resume arm7_encoder_correct[Const]:
+  qabbrev_tac `c = (i2w i : word32)`
+  \\ (*--------------
              Const
            --------------*)
          print_tac "Const"
@@ -1034,14 +1067,22 @@ Proof
              \\ imp_res_tac decode_some_encode_neg_immediate
              \\ simp [])
          \\ cnext_tac
-         )
-      >- (
-         (*--------------
-             Arith
-           --------------*)
-         Cases_on `a`
-         >- (
-            (*--------------
+QED
+
+Resume arm7_encoder_correct[Arith]:
+  Cases_on `a`
+  >- suspend "Binop"
+  >- suspend "Shift"
+  >- suspend "Div"
+  >- suspend "LongMul"
+  >- suspend "LongDiv"
+  >- suspend "AddCarry"
+  >- suspend "AddOverflow"
+  >- suspend "SubOverflow"
+QED
+
+Resume arm7_encoder_correct[Binop]:
+  (*--------------
                 Binop
               --------------*)
             print_tac "Binop"
@@ -1051,9 +1092,10 @@ Proof
             >- next_tac
             \\ Cases_on `b`
             \\ next_tac
-            )
-         >- (
-            (*--------------
+QED
+
+Resume arm7_encoder_correct[Shift]:
+  (*--------------
                 Shift
               --------------*)
             print_tac "Shift"
@@ -1075,30 +1117,34 @@ Proof
               \\ Cases_on `s`
               \\ next_tac
               )
-            )
-         >- (
-            (*--------------
+QED
+
+Resume arm7_encoder_correct[Div]:
+  (*--------------
                 Div
               --------------*)
             print_tac "Div"
             \\ next_tac
-            )
-         >- (
-            (*--------------
+QED
+
+Resume arm7_encoder_correct[LongMul]:
+  (*--------------
                 LongMul
               --------------*)
             print_tac "LongMul"
             \\ next_tac
-            )
-         >- (
-            (*--------------
+QED
+
+Resume arm7_encoder_correct[LongDiv]:
+  (*--------------
                 LongDiv
               --------------*)
             print_tac "LongDiv"
             \\ next_tac
-            )
-         >- (
-            (*--------------
+QED
+
+Resume arm7_encoder_correct[AddCarry]:
+  (*--------------
                 AddCarry
               --------------*)
             print_tac "AddCarry"
@@ -1111,10 +1157,30 @@ Proof
                Cases_on `CARRY_OUT r2 r3 F`,
                Cases_on `CARRY_OUT r2 r3 (CARRY_OUT r4 (-1w) T)`
             ]
-            \\ next_tac
-            )
-         >- (
-            (*--------------
+            >- suspend "Carry0"
+            >- suspend "Carry1"
+            >- suspend "Carry2"
+            >- suspend "Carry3"
+QED
+
+Resume arm7_encoder_correct[Carry0]:
+  next_tac
+QED
+
+Resume arm7_encoder_correct[Carry1]:
+  next_tac
+QED
+
+Resume arm7_encoder_correct[Carry2]:
+  next_tac
+QED
+
+Resume arm7_encoder_correct[Carry3]:
+  next_tac
+QED
+
+Resume arm7_encoder_correct[AddOverflow]:
+  (*--------------
                 AddOverflow
               --------------*)
             print_tac "AddOverflow"
@@ -1124,9 +1190,10 @@ Proof
             \\ qabbrev_tac `r4 = ms.REG (R_mode ms.CPSR.M (n2w n2))`
             \\ Cases_on `OVERFLOW r2 r3 F`
             \\ next_tac
-            )
-         >- (
-            (*--------------
+QED
+
+Resume arm7_encoder_correct[SubOverflow]:
+  (*--------------
                 SubOverflow
               --------------*)
             print_tac "SubOverflow"
@@ -1136,10 +1203,10 @@ Proof
             \\ qabbrev_tac `r4 = ms.REG (R_mode ms.CPSR.M (n2w n2))`
             \\ Cases_on `OVERFLOW r2 (~r3) T`
             \\ next_tac
-            )
-         )
-         >- (
-            (*--------------
+QED
+
+Resume arm7_encoder_correct[Mem]:
+  (*--------------
                 Mem
               --------------*)
             print_tac "Mem"
@@ -1148,27 +1215,113 @@ Proof
             \\ Cases_on `m`
             >| [mem_tac12, mem_tac12, mem_tac8, mem_tac12,
                 mem_tac12, mem_tac12, mem_tac8, mem_tac12]
-            )
-         (*--------------
-             FP
-           --------------*)
-         \\ print_tac "FP"
-         \\ Cases_on `f`
-         >- (print_tac "FPLess"         \\ fp_cmp_tac)
-         >- (print_tac "FPLessEqual"    \\ fp_cmp_tac)
-         >- (print_tac "FPEqual"        \\ fp_cmp_tac)
-         >- (print_tac "FPAbs"  \\ next_tac)
-         >- (print_tac "FPNeg"  \\ next_tac)
-         >- (print_tac "FPSqrt" \\ next_tac)
-         >- (print_tac "FPAdd"  \\ next_tac)
-         >- (print_tac "FPSub"  \\ next_tac)
-         >- (print_tac "FPMul"  \\ next_tac)
-         >- (print_tac "FPDiv"  \\ next_tac)
-         >- (print_tac "FPFma"  \\ next_tac)
-         >- (print_tac "FPMov"  \\ next_tac)
-         >- (print_tac "FPMovToReg"   \\ next_tac)
-         >- (print_tac "FPMovFromReg" \\ next_tac)
-         >- (print_tac "FPToInt"
+QED
+
+Resume arm7_encoder_correct[FP]:
+  Cases_on `f`
+  >- suspend "FPLess"
+  >- suspend "FPLessEqual"
+  >- suspend "FPEqual"
+  >- suspend "FPAbs"
+  >- suspend "FPNeg"
+  >- suspend "FPSqrt"
+  >- suspend "FPAdd"
+  >- suspend "FPSub"
+  >- suspend "FPMul"
+  >- suspend "FPDiv"
+  >- suspend "FPFma"
+  >- suspend "FPMov"
+  >- suspend "FPMovToReg"
+  >- suspend "FPMovFromReg"
+  >- suspend "FPToInt"
+  >- suspend "FPFromInt"
+QED
+
+Theorem aligned_i2w[local]:
+  4 int_divides i ⇒ aligned 2 (i2w i : word32)
+Proof
+  rw [integerTheory.INT_DIVIDES]
+  \\ simp [GSYM integer_wordTheory.word_i2w_mul, integer_wordTheory.i2w_pos,
+           alignmentTheory.aligned_bitwise_and]
+  \\ blastLib.BBLAST_TAC
+QED
+
+Theorem branch_offset_i2w[local]:
+  (-33554424 ≤ i ∧ i ≤ 33554439 ∧ 4 int_divides i ⇒
+    0xFE000008w ≤ (i2w i : word32) ∧ (i2w i : word32) ≤ 0x2000007w ∧
+    aligned 2 (i2w i : word32)) ∧
+  (-33554420 ≤ i ∧ i ≤ 33554443 ∧ 4 int_divides i ⇒
+    0xFE00000Cw ≤ (i2w i : word32) ∧ (i2w i : word32) ≤ 0x200000Bw ∧
+    aligned 2 (i2w i : word32))
+Proof
+  conj_tac \\ strip_tac
+  \\ `w2i (i2w i : word32) = i` by
+       (irule i2w_32_signed \\ intLib.ARITH_TAC)
+  \\ fs ([integer_wordTheory.WORD_LEi, aligned_i2w] @
+         map EVAL [``w2i (0xFE000008w : word32)``,
+                   ``w2i (0x2000007w : word32)``,
+                   ``w2i (0xFE00000Cw : word32)``,
+                   ``w2i (0x200000Bw : word32)``])
+QED
+
+Resume arm7_encoder_correct[FPLess]:
+  print_tac "FPLess"         \\ fp_cmp_tac
+QED
+
+Resume arm7_encoder_correct[FPLessEqual]:
+  print_tac "FPLessEqual"    \\ fp_cmp_tac
+QED
+
+Resume arm7_encoder_correct[FPEqual]:
+  print_tac "FPEqual"        \\ fp_cmp_tac
+QED
+
+Resume arm7_encoder_correct[FPAbs]:
+  print_tac "FPAbs"  \\ next_tac
+QED
+
+Resume arm7_encoder_correct[FPNeg]:
+  print_tac "FPNeg"  \\ next_tac
+QED
+
+Resume arm7_encoder_correct[FPSqrt]:
+  print_tac "FPSqrt" \\ next_tac
+QED
+
+Resume arm7_encoder_correct[FPAdd]:
+  print_tac "FPAdd"  \\ next_tac
+QED
+
+Resume arm7_encoder_correct[FPSub]:
+  print_tac "FPSub"  \\ next_tac
+QED
+
+Resume arm7_encoder_correct[FPMul]:
+  print_tac "FPMul"  \\ next_tac
+QED
+
+Resume arm7_encoder_correct[FPDiv]:
+  print_tac "FPDiv"  \\ next_tac
+QED
+
+Resume arm7_encoder_correct[FPFma]:
+  print_tac "FPFma"  \\ next_tac
+QED
+
+Resume arm7_encoder_correct[FPMov]:
+  print_tac "FPMov"  \\ next_tac
+QED
+
+Resume arm7_encoder_correct[FPMovToReg]:
+  print_tac "FPMovToReg"   \\ next_tac
+QED
+
+Resume arm7_encoder_correct[FPMovFromReg]:
+  print_tac "FPMovFromReg" \\ next_tac
+QED
+
+Resume arm7_encoder_correct[FPToInt]:
+  print_tac "FPToInt"
              \\ Cases_on `fp64_to_int roundTiesToEven (s1.fp_regs n0)`
              >- next_tac
              \\ rename1 `fp64_to_int roundTiesToEven _ = SOME i`
@@ -1182,54 +1335,76 @@ Proof
              \\ Cases_on `ODD n`
              \\ next_tac
              \\ imp_res_tac fp_to_int_lem2
-            )
-         >- (print_tac "FPFromInt"
+QED
+
+Resume arm7_encoder_correct[FPFromInt]:
+  print_tac "FPFromInt"
              \\ assume_tac (GSYM bitTheory.BIT0_ODD)
              \\ wordsLib.Cases_on_word_value
                   `(4 >< 4) (n2w n : word5) : word1` (* low or hi *)
              \\ next_tac
-            )
-      ) (* close Inst *)
-      (*--------------
-          Jump
-        --------------*)
-   >- (
-      print_tac "Jump"
+QED
+
+Resume arm7_encoder_correct[Jump]:
+  qmatch_goalsub_rename_tac `arm7_enc (Jump off)`
+  \\ qabbrev_tac `c = (i2w off : word32)`
+  \\ `0xFE000008w ≤ c ∧ c ≤ 0x2000007w ∧ aligned 2 c` by
+       (qunabbrev_tac `c`
+        \\ irule (CONJUNCT1 branch_offset_i2w)
+        \\ fs enc_rwts)
+  \\   print_tac "Jump"
       \\ qabbrev_tac `a = (25 >< 2) (c + 0xFFFFFFF8w): word24`
       \\ next_tac
       \\ imp_res_tac lem15
       \\ simp [lem7, alignmentTheory.aligned_add_sub, aligned_add]
-      )
-   >- (
-      (*--------------
+QED
+
+Resume arm7_encoder_correct[JumpCmp]:
+  qmatch_goalsub_rename_tac `arm7_enc (JumpCmp c n r off)`
+  \\ qabbrev_tac `c0 = (i2w off : word32)`
+  \\ `0xFE00000Cw ≤ c0 ∧ c0 ≤ 0x200000Bw ∧ aligned 2 c0` by
+       (qunabbrev_tac `c0`
+        \\ irule (CONJUNCT2 branch_offset_i2w)
+        \\ fs (arm7_config :: asmLib.asm_ok_rwts))
+  \\   (*--------------
           JumpCmp
         --------------*)
       print_tac "JumpCmp"
       \\ Cases_on `r`
       >- cmp_tac false
       \\ cmp_tac true
-      )
-      (*--------------
-          Call
-        --------------*)
-   >- (
-      print_tac "Call"
+QED
+
+Resume arm7_encoder_correct[Call]:
+  qmatch_goalsub_rename_tac `arm7_enc (Call off)`
+  \\ qabbrev_tac `c = (i2w off : word32)`
+  \\ `0xFE000008w ≤ c ∧ c ≤ 0x2000007w ∧ aligned 2 c` by
+       (qunabbrev_tac `c`
+        \\ irule (CONJUNCT1 branch_offset_i2w)
+        \\ fs enc_rwts)
+  \\   print_tac "Call"
       \\ qabbrev_tac `a = (25 >< 2) (c + 0xFFFFFFF8w): word24`
       \\ next_tac
       \\ imp_res_tac lem9
       \\ imp_res_tac lem10
       \\ simp [alignmentTheory.aligned_numeric, alignmentTheory.aligned_add_sub,
                aligned_add]
-      )
-   >- (
-      (*--------------
+QED
+
+Resume arm7_encoder_correct[JumpReg]:
+  (*--------------
           JumpReg
         --------------*)
       print_tac "JumpReg"
       \\ next_tac
-      )
-   >- (
-      (*--------------
+QED
+
+Resume arm7_encoder_correct[Loc]:
+  qmatch_goalsub_rename_tac `arm7_enc (Loc n off)`
+  \\ qabbrev_tac `c = (i2w off : word32)`
+  \\ `aligned 2 c` by
+       (qunabbrev_tac `c` \\ irule aligned_i2w \\ fs enc_rwts)
+  \\   (*--------------
           Loc
         --------------*)
       print_tac "Loc"
@@ -1254,5 +1429,6 @@ Proof
       \\ rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
              updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1]
       \\ blastLib.FULL_BBLAST_TAC
-      )
 QED
+
+Finalise arm7_encoder_correct;

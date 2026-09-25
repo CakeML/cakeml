@@ -45,7 +45,7 @@ in
         (List.map arm_type ["instruction", "offset1", "SRType", "MachineCode"]),
        computeLib.Convs
         [(bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV)],
-       computeLib.Extenders [optionLib.OPTION_rws]])
+       computeLib.Extenders [asmLib.add_asm_compset, optionLib.OPTION_rws]])
 end
 
 val add_arm7_encode_compset = computeLib.extend_compset

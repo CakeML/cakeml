@@ -135,7 +135,9 @@ fun asm_type a s = Type.mk_thy_type {Thy = "asm", Tyop = s, Args = a}
 val asm_type0 = asm_type []
 
 val add_asm_compset = computeLib.extend_compset
-  [computeLib.Defs
+  [computeLib.Extenders
+     [intReduce.add_int_compset, integer_wordLib.add_integer_word_compset],
+   computeLib.Defs
      [upd_pc_def, upd_reg_def, upd_fp_reg_def, upd_mem_def, read_reg_def,
       read_fp_reg_def, read_mem_def, assert_def, reg_imm_def, binop_upd_def,
       word_cmp_def, word_shift_def, arith_upd_def, fp_upd_def, addr_def,

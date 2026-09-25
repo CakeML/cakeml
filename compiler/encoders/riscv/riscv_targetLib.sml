@@ -38,7 +38,7 @@ in
            astSyntax.shift_ty] @ riscv_tys),
        computeLib.Convs
          [(bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV)],
-       computeLib.Extenders [pairLib.add_pair_compset]])
+       computeLib.Extenders [asmLib.add_asm_compset, pairLib.add_pair_compset]])
 end
 
 val add_riscv_encode_compset = computeLib.extend_compset

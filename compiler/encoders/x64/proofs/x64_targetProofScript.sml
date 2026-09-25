@@ -620,7 +620,8 @@ val asm_state_failed =
     |> SPEC_ALL |> concl |> rator |> rand |> rator;
 
 val enc_rwts =
-  [x64_config, Zreg2num_num2Zreg_imp, binop_lem1, loc_lem1, loc_lem2,
+  [x64_config, asmTheory.arch_width_bits_def, asmTheory.arch_wordsize_def,
+   Zreg2num_num2Zreg_imp, binop_lem1, loc_lem1, loc_lem2,
    const_lem1, const_lem2, binop_lem9b, jump_lem1, jump_lem3, jump_lem4,
    jump_lem5, jump_lem6, cmp_lem7, is_rax, x64_asm_ok, xmm_reg, xmm_reg3,
    integer_wordTheory.i2w_pos, integer_wordTheory.i2w_minus_1,
@@ -940,27 +941,80 @@ Proof
   Cases \\ simp [x64_cmp_def]
 QED
 
+Theorem offset_i2w_signed[local]:
+  -2147483648 ≤ i ∧ i ≤ 2147483654 ⇒ w2i (i2w i : word64) = i
+Proof
+  strip_tac
+  \\ irule integer_wordTheory.w2i_i2w
+  \\ simp [integer_wordTheory.INT_MIN_def, integer_wordTheory.INT_MAX_def,
+           wordsTheory.INT_MIN_def, wordsTheory.INT_MAX_def,
+           wordsTheory.dimword_def, wordsTheory.dimindex_64]
+  \\ intLib.ARITH_TAC
+QED
+
+Theorem branch_offset_i2w[local]:
+  (-2147483635 ≤ i ∧ i ≤ 2147483652 ⇒
+    0xFFFFFFFF8000000Dw ≤ (i2w i : word64) ∧
+    (i2w i : word64) ≤ 0x80000004w) ∧
+  (-2147483641 ≤ i ∧ i ≤ 2147483654 ⇒
+    0xFFFFFFFF80000007w ≤ (i2w i : word64) ∧
+    (i2w i : word64) ≤ 0x80000006w)
+Proof
+  conj_tac \\ strip_tac
+  \\ `w2i (i2w i : word64) = i` by
+       (irule offset_i2w_signed \\ intLib.ARITH_TAC)
+  \\ fs ([integer_wordTheory.WORD_LEi] @
+         map EVAL [``w2i (0xFFFFFFFF8000000Dw : word64)``,
+                   ``w2i (0x80000004w : word64)``,
+                   ``w2i (0xFFFFFFFF80000007w : word64)``,
+                   ``w2i (0x80000006w : word64)``])
+QED
+
 Theorem x64_target_ok[local]:
   target_ok x64_target
 Proof
   rw [asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
        x64_proj_def, x64_target_def, x64_config, x64_encoding, x64_ok_def,
        set_sepTheory.fun2set_eq, asmPropsTheory.enc_ok_def]
-   >| [simp encode_rwts,
-       all_tac,
-       Cases_on `ri`
-       >| [all_tac,
-           Cases_on `~is_test cmp /\ 0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\
-                     (i2w i : word64) <= 0x7fw`
-           >| [all_tac, Cases_on `r = 0`]
-       ],
-       all_tac,
-       all_tac
-   ]
-   \\ full_simp_tac (srw_ss()++boolSimps.LET_ss)
-        (asmPropsTheory.offset_monotonic_def :: x64_cmp_neq_p :: enc_ok_rwts)
-   \\ rw [jump_lem1, jump_lem3, jump_lem4, jump_lem5, jump_lem6, loc_lem1]
+   >| [simp encode_rwts, suspend "Jump", suspend "JumpCmp",
+       suspend "Call", suspend "Loc"]
 QED
+
+Resume x64_target_ok[Jump]:
+  rw [asmPropsTheory.offset_monotonic_def]
+  \\ fs (x64_config :: asmLib.asm_ok_rwts)
+  \\ imp_res_tac branch_offset_i2w
+  \\ simp enc_rwts
+QED
+
+Resume x64_target_ok[JumpCmp]:
+  Cases_on `ri`
+  >| [all_tac,
+      Cases_on `~is_test cmp /\ 0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\
+                (i2w i : word64) <= 0x7fw`
+      >| [all_tac, Cases_on `r = 0`]]
+  \\ rw [asmPropsTheory.offset_monotonic_def]
+  \\ fs (x64_config :: asmLib.asm_ok_rwts)
+  \\ imp_res_tac branch_offset_i2w
+  \\ simp (x64_cmp_neq_p :: enc_rwts)
+  \\ rw []
+QED
+
+Resume x64_target_ok[Call]:
+  rw [asmPropsTheory.offset_monotonic_def]
+  \\ fs (x64_config :: asmLib.asm_ok_rwts)
+  \\ imp_res_tac branch_offset_i2w
+  \\ simp enc_rwts
+QED
+
+Resume x64_target_ok[Loc]:
+  rw [asmPropsTheory.offset_monotonic_def]
+  \\ fs (x64_config :: asmLib.asm_ok_rwts)
+  \\ imp_res_tac branch_offset_i2w
+  \\ simp enc_rwts
+QED
+
+Finalise x64_target_ok;
 
 (* -------------------------------------------------------------------------
    x64 encoder_correct
@@ -983,23 +1037,34 @@ Proof
    \\ rw [x64_target_def, x64_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
    \\ Cases_on `i`
-   >- (
-      (*--------------
-          Inst
-        --------------*)
-      Cases_on `i'`
-      >- (
-         (*--------------
-             Skip
-           --------------*)
-         print_tac "Skip"
+   >- suspend "Inst"
+
+   >- suspend "Jump"
+   >- suspend "JumpCmp"
+
+   >- fsrw_tac [] enc_rwts
+   >- suspend "JumpReg"
+   >- suspend "Loc"
+QED
+
+Resume x64_encoder_correct[Inst]:
+  Cases_on `i'`
+      >- suspend "Skip"
+      >- suspend "Const"
+      >- suspend "Arith"
+         >- suspend "Mem"
+
+         \\ suspend "FP"
+QED
+
+Resume x64_encoder_correct[Skip]:
+  print_tac "Skip"
          \\ next_tac []
-         )
-      >- (
-         (*--------------
-             Const
-           --------------*)
-         print_tac "Const"
+QED
+
+Resume x64_encoder_correct[Const]:
+  print_tac "Const"
+  \\ qabbrev_tac `c = (i2w i : word64)`
          \\ Cases_on `c = 0w`
          >- (
            Cases_on `word_bit 3 (n2w n : word4)`
@@ -1012,26 +1077,31 @@ Proof
          \\ Cases_on `(63 >< 31) c = 0w : 33 word`
          >| [Cases_on `word_bit 3 (n2w n : word4)`, all_tac]
          \\ next_tac []
-         )
-      >- (
-         (*--------------
-             Arith
-           --------------*)
-         Cases_on `a`
-         >- (
-            (*--------------
-                Binop
-              --------------*)
-            print_tac "Binop"
+QED
+
+Resume x64_encoder_correct[Arith]:
+  Cases_on `a`
+         >- suspend "Binop"
+         >- suspend "Shift"
+         >- suspend "Div"
+         >- suspend "LongMul"
+         >- suspend "LongDiv"
+         >- suspend "AddCarry"
+         >- suspend "AddOverflow"
+         >- suspend "SubOverflow"
+QED
+
+Resume x64_encoder_correct[Binop]:
+  print_tac "Binop"
             \\ Cases_on `r`
             >- (
-               (* Reg *)
+
                Cases_on `(b = Or) /\ (n0 = n')`
                >- next_tac []
                \\ Cases_on `b`
                \\ next_tac []
                )
-               (* Imm *)
+
             \\ Cases_on `(b = Xor) /\ (i = -1)`
             >- next_tac []
             \\ `0xFFFFFFFF80000000w <= (i2w i : word64) /\
@@ -1046,12 +1116,10 @@ Proof
                 \\ Cases_on `n0 = 0`
                 \\ next_tac []
                )
-            )
-         >- (
-            (*--------------
-                Shift
-              --------------*)
-            print_tac "Shift"
+QED
+
+Resume x64_encoder_correct[Shift]:
+  print_tac "Shift"
             \\ reverse (Cases_on`r`)
             >- (
               `?nn. i = &nn` by (fs enc_rwts \\ qexists_tac `Num i` \\ intLib.ARITH_TAC)
@@ -1078,33 +1146,25 @@ Proof
                 \\ simp[word_extract_6,wordsTheory.w2w_def])
               \\ Cases_on`s`
               \\ next_tac [])
-            )
-         >- (
-            (*--------------
-                Div
-              --------------*)
-            print_tac "Div"
+QED
+
+Resume x64_encoder_correct[Div]:
+  print_tac "Div"
             \\ next_tac []
-            )
-         >- (
-            (*--------------
-                LongMul
-              --------------*)
-            print_tac "LongMul"
+QED
+
+Resume x64_encoder_correct[LongMul]:
+  print_tac "LongMul"
             \\ next_tac []
-            )
-         >- (
-            (*--------------
-                LongDiv
-              --------------*)
-            print_tac "LongDiv"
+QED
+
+Resume x64_encoder_correct[LongDiv]:
+  print_tac "LongDiv"
             \\ next_tac []
-            )
-         >- (
-            (*--------------
-                AddCarry
-              --------------*)
-            print_tac "AddCarry"
+QED
+
+Resume x64_encoder_correct[AddCarry]:
+  print_tac "AddCarry"
             \\ Cases_on `word_bit 3 (n2w n2 : word4)`
             >- (`(3 >< 3) (n2w n2 : word4) = 1w : word1`
                 by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
@@ -1112,12 +1172,10 @@ Proof
             \\ `(3 >< 3) (n2w n2 : word4) = 0w : word1`
             by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
             \\ next_tac [4,1,3,5]
-            )
-         >- (
-            (*--------------
-                AddOverflow
-              --------------*)
-            print_tac "AddOverflow"
+QED
+
+Resume x64_encoder_correct[AddOverflow]:
+  print_tac "AddOverflow"
             \\ Cases_on `word_bit 3 (n2w n2 : word4)`
             >- (`(3 >< 3) (n2w n2 : word4) = 1w : word1`
                 by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
@@ -1126,12 +1184,10 @@ Proof
             \\ `(3 >< 3) (n2w n2 : word4) = 0w : word1`
             by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
             \\ next_tac [3, 5]
-            )
-         >- (
-            (*--------------
-                SubOverflow
-              --------------*)
-            print_tac "SubOverflow"
+QED
+
+Resume x64_encoder_correct[SubOverflow]:
+  print_tac "SubOverflow"
             \\ Cases_on `word_bit 3 (n2w n2 : word4)`
             >- (`(3 >< 3) (n2w n2 : word4) = 1w : word1`
                 by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
@@ -1140,13 +1196,10 @@ Proof
             \\ `(3 >< 3) (n2w n2 : word4) = 0w : word1`
             by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
             \\ next_tac [3, 5]
-            )
-         )
-         >- (
-            (*--------------
-                Mem
-              --------------*)
-            qexists_tac `0`
+QED
+
+Resume x64_encoder_correct[Mem]:
+  qexists_tac `0`
             \\ simp [asmPropsTheory.asserts_eval,
                      asmPropsTheory.asserts2_eval,
                      asmPropsTheory.interference_ok_def,
@@ -1169,11 +1222,19 @@ Proof
             \\ qunabbrev_tac `instr`
             \\ NO_STRIP_FULL_SIMP_TAC (std_ss++listSimps.LIST_ss) []
             \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
-            >- (
-               (*--------------
-                   Load
-                 --------------*)
-               print_tac "Load"
+            >- suspend "Load"
+            >- suspend "Load8"
+            >- suspend "Load16"
+            >- suspend "Load32"
+            >- suspend "Store"
+            >- suspend "Store8"
+            >- suspend "Store16"
+
+            \\ suspend "Store32"
+QED
+
+Resume x64_encoder_correct[Load]:
+  print_tac "Load"
                \\ `read_mem64 ms.MEM (ms.REG (num2Zreg n') + c) =
                    s1.mem (c + s1.regs n' + 7w) @@
                    s1.mem (c + s1.regs n' + 6w) @@
@@ -1186,33 +1247,27 @@ Proof
                by (imp_res_tac (Q.SPECL [`c`, `n'`, `s1`, `ms`] mem_lem3)
                    \\ simp [])
                \\ load_tac
-               )
-            >- (
-               (*--------------
-                   Load8
-                 --------------*)
-               print_tac "Load8"
+QED
+
+Resume x64_encoder_correct[Load8]:
+  print_tac "Load8"
                \\ `ms.MEM (ms.REG (num2Zreg n') + c) = s1.mem (c + s1.regs n')`
                by metis_tac [mem_lem1, wordsTheory.WORD_ADD_COMM]
                \\ load_tac
-               )
-            >- (
-               (*--------------
-                   Load16
-                 --------------*)
-               print_tac "Load16"
+QED
+
+Resume x64_encoder_correct[Load16]:
+  print_tac "Load16"
                \\ `read_mem16 ms.MEM (ms.REG (num2Zreg n') + c) =
                    s1.mem (c + s1.regs n' + 1w) @@
                    s1.mem (c + s1.regs n')`
                by (imp_res_tac (Q.SPECL [`c`, `n'`, `s1`, `ms`] mem_lem2b)
                    \\ simp [])
                \\ load_tac
-               )
-            >- (
-               (*--------------
-                   Load32
-                 --------------*)
-               print_tac "Load32"
+QED
+
+Resume x64_encoder_correct[Load32]:
+  print_tac "Load32"
                \\ `read_mem32 ms.MEM (ms.REG (num2Zreg n') + c) =
                    s1.mem (c + s1.regs n' + 3w) @@
                    s1.mem (c + s1.regs n' + 2w) @@
@@ -1228,21 +1283,17 @@ Proof
                by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
                \\ qpat_x_assum `~(a /\ b)` (K all_tac)
                \\ load_tac
-               )
-            >- (
-               (*--------------
-                   Store
-                 --------------*)
-               print_tac "Store"
+QED
+
+Resume x64_encoder_correct[Store]:
+  print_tac "Store"
                \\ `?wv. read_mem64 ms.MEM (ms.REG (num2Zreg n') + c) = wv`
                by metis_tac [mem_lem3]
                \\ store_tac
-               )
-            >- (
-               (*--------------
-                   Store8
-                 --------------*)
-               print_tac "Store8"
+QED
+
+Resume x64_encoder_correct[Store8]:
+  print_tac "Store8"
                \\ `?wv. ms.MEM (ms.REG (num2Zreg n') + c) = wv`
                by metis_tac [mem_lem1, wordsTheory.WORD_ADD_COMM]
                \\ wordsLib.Cases_on_word_value `(3 >< 3) r1: word1`
@@ -1256,12 +1307,10 @@ Proof
                    Cases_on `3 < n` >| [all_tac, imp_res_tac mem_lem8]
                ]
                \\ store_tac
-               )
-            >- (
-               (*--------------
-                   Store16
-                 --------------*)
-               print_tac "Store16"
+QED
+
+Resume x64_encoder_correct[Store16]:
+  print_tac "Store16"
                \\ `?wv. read_mem16 ms.MEM (ms.REG (num2Zreg n') + c) = wv`
                by metis_tac [mem_lem2b]
                \\ Cases_on `((3 >< 3) r1 = 0w: word1) /\ ((3 >< 3) r2 = 0w: word1)`
@@ -1271,11 +1320,10 @@ Proof
                  by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
                \\ qpat_x_assum `~(a /\ b)` (K all_tac)
                \\ store_tac
-               )
-               (*--------------
-                   Store32
-                 --------------*)
-            \\ print_tac "Store32"
+QED
+
+Resume x64_encoder_correct[Store32]:
+  print_tac "Store32"
             \\ `?wv. read_mem32 ms.MEM (ms.REG (num2Zreg n') + c) = wv`
             by metis_tac [mem_lem2]
             \\ Cases_on `((3 >< 3) r1 = 0w: word1) /\ ((3 >< 3) r2 = 0w: word1)`
@@ -1285,27 +1333,87 @@ Proof
             by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
             \\ qpat_x_assum `~(a /\ b)` (K all_tac)
             \\ store_tac
-            )
-         (*--------------
-             FP
-           --------------*)
-         \\ print_tac "FP"
+QED
+
+Resume x64_encoder_correct[FP]:
+  print_tac "FP"
          \\ Cases_on `f`
-         >- (print_tac "FPLess" \\ fp_cmp_tac)
-         >- (print_tac "FPLessEqual" \\ fp_cmp_tac)
-         >- (print_tac "FPEqual" \\ fp_cmp_tac)
-         >- (print_tac "FPAbs" \\ next_tac [5, 5])
-         >- (print_tac "FPNeg" \\ next_tac [5, 5])
-         >- (print_tac "FPSqrt" \\ next_tac [])
-         >- (print_tac "FPAdd" \\ next_tac [])
-         >- (print_tac "FPSub" \\ next_tac [])
-         >- (print_tac "FPMul" \\ next_tac [])
-         >- (print_tac "FPDiv" \\ next_tac [])
-         >- (print_tac "FPFma" \\ next_tac [])
-         >- (print_tac "FPMov" \\ next_tac [])
-         >- (print_tac "FPMovToReg" \\ next_tac [])
-         >- (print_tac "FPMovFromReg" \\ next_tac [])
-         >- (print_tac "FPToInt"
+         >- suspend "FPLess"
+         >- suspend "FPLessEqual"
+         >- suspend "FPEqual"
+         >- suspend "FPAbs"
+         >- suspend "FPNeg"
+         >- suspend "FPSqrt"
+         >- suspend "FPAdd"
+         >- suspend "FPSub"
+         >- suspend "FPMul"
+         >- suspend "FPDiv"
+         >- suspend "FPFma"
+         >- suspend "FPMov"
+         >- suspend "FPMovToReg"
+         >- suspend "FPMovFromReg"
+         >- suspend "FPToInt"
+         \\ suspend "FPFromInt"
+QED
+
+Resume x64_encoder_correct[FPLess]:
+  print_tac "FPLess" \\ fp_cmp_tac
+QED
+
+Resume x64_encoder_correct[FPLessEqual]:
+  print_tac "FPLessEqual" \\ fp_cmp_tac
+QED
+
+Resume x64_encoder_correct[FPEqual]:
+  print_tac "FPEqual" \\ fp_cmp_tac
+QED
+
+Resume x64_encoder_correct[FPAbs]:
+  print_tac "FPAbs" \\ next_tac [5, 5]
+QED
+
+Resume x64_encoder_correct[FPNeg]:
+  print_tac "FPNeg" \\ next_tac [5, 5]
+QED
+
+Resume x64_encoder_correct[FPSqrt]:
+  print_tac "FPSqrt" \\ next_tac []
+QED
+
+Resume x64_encoder_correct[FPAdd]:
+  print_tac "FPAdd" \\ next_tac []
+QED
+
+Resume x64_encoder_correct[FPSub]:
+  print_tac "FPSub" \\ next_tac []
+QED
+
+Resume x64_encoder_correct[FPMul]:
+  print_tac "FPMul" \\ next_tac []
+QED
+
+Resume x64_encoder_correct[FPDiv]:
+  print_tac "FPDiv" \\ next_tac []
+QED
+
+Resume x64_encoder_correct[FPFma]:
+  print_tac "FPFma" \\ next_tac []
+QED
+
+Resume x64_encoder_correct[FPMov]:
+  print_tac "FPMov" \\ next_tac []
+QED
+
+Resume x64_encoder_correct[FPMovToReg]:
+  print_tac "FPMovToReg" \\ next_tac []
+QED
+
+Resume x64_encoder_correct[FPMovFromReg]:
+  print_tac "FPMovFromReg" \\ next_tac []
+QED
+
+Resume x64_encoder_correct[FPToInt]:
+  print_tac "FPToInt"
              \\ Cases_on `fp64_to_int roundTiesToEven (s1.fp_regs n0)`
              >- next_tac []
              \\ rename1 `fp64_to_int roundTiesToEven _ = SOME i`
@@ -1315,94 +1423,170 @@ Proof
                  \\ next_tac [4, 5]
                 )
              \\ next_tac []
-            )
-         \\ (print_tac "FPFromInt" \\ next_tac [])
-      ) (* close Inst *)
-      (*--------------
-          Jump
-        --------------*)
-   >- (
-      print_tac "Jump"
+QED
+
+Resume x64_encoder_correct[FPFromInt]:
+  (print_tac "FPFromInt" \\ next_tac [])
+QED
+
+Resume x64_encoder_correct[Jump]:
+  qmatch_goalsub_rename_tac `x64_enc (Jump off)`
+  \\ qabbrev_tac `c = (i2w off : word64)`
+  \\ `0xFFFFFFFF8000000Dw ≤ c ∧ c ≤ 0x80000004w` by
+       (qunabbrev_tac `c`
+        \\ irule (CONJUNCT1 branch_offset_i2w)
+        \\ fs (x64_config :: asmLib.asm_ok_rwts))
+  \\   print_tac "Jump"
       \\ next_tac []
-      )
-   >- (
-      (*--------------
-          JumpCmp
-        --------------*)
-      print_tac "JumpCmp"
+QED
+
+Resume x64_encoder_correct[JumpCmp]:
+  qmatch_goalsub_rename_tac `x64_enc (JumpCmp c n r off)`
+  \\ qabbrev_tac `c0 = (i2w off : word64)`
+  \\ `0xFFFFFFFF8000000Dw ≤ c0 ∧ c0 ≤ 0x80000004w` by
+       (qunabbrev_tac `c0`
+        \\ irule (CONJUNCT1 branch_offset_i2w)
+        \\ fs (x64_config :: asmLib.asm_ok_rwts))
+  \\   print_tac "JumpCmp"
       \\ Cases_on `r`
-      >- (
-         (* Reg *)
-         Cases_on `c`
-         \\ next_tac [3]
-         )
-      \\ `0xFFFFFFFF80000000w <= (i2w i : word64) /\
+      >- suspend "CmpReg"
+      \\ suspend "CmpImm"
+QED
+
+Resume x64_encoder_correct[CmpReg]:
+  Cases_on `c`
+  >| [suspend "CmpRegEqual",
+      suspend "CmpRegLower",
+      suspend "CmpRegLess",
+      suspend "CmpRegTest",
+      suspend "CmpRegNotEqual",
+      suspend "CmpRegNotLower",
+      suspend "CmpRegNotLess",
+      suspend "CmpRegNotTest"]
+QED
+
+Resume x64_encoder_correct[CmpRegEqual]:
+  next_tac [3]
+QED
+
+Resume x64_encoder_correct[CmpRegLower]:
+  next_tac [3]
+QED
+
+Resume x64_encoder_correct[CmpRegLess]:
+  next_tac [3]
+QED
+
+Resume x64_encoder_correct[CmpRegTest]:
+  next_tac [3]
+QED
+
+Resume x64_encoder_correct[CmpRegNotEqual]:
+  next_tac [3]
+QED
+
+Resume x64_encoder_correct[CmpRegNotLower]:
+  next_tac [3]
+QED
+
+Resume x64_encoder_correct[CmpRegNotLess]:
+  next_tac [3]
+QED
+
+Resume x64_encoder_correct[CmpRegNotTest]:
+  next_tac [3]
+QED
+
+Resume x64_encoder_correct[CmpImm]:
+  `0xFFFFFFFF80000000w <= (i2w i : word64) /\
           (i2w i : word64) <= 0x7FFFFFFFw`
            by (irule imm_lem \\ fs enc_rwts)
       \\ Cases_on `c`
-      >| [
-        Cases_on `0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\ (i2w i : word64) <= 0x7fw`
+  >| [suspend "CmpImmEqual",
+      suspend "CmpImmLower",
+      suspend "CmpImmLess",
+      suspend "CmpImmTest",
+      suspend "CmpImmNotEqual",
+      suspend "CmpImmNotLower",
+      suspend "CmpImmNotLess",
+      suspend "CmpImmNotTest"]
+QED
+
+Resume x64_encoder_correct[CmpImmEqual]:
+  Cases_on `0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\ (i2w i : word64) <= 0x7fw`
         >- next_tac [4]
         \\ Cases_on `n = 0`
         >- next_tac [6]
         \\ next_tac [7]
-        ,
-        Cases_on `0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\ (i2w i : word64) <= 0x7fw`
+QED
+
+Resume x64_encoder_correct[CmpImmLower]:
+  Cases_on `0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\ (i2w i : word64) <= 0x7fw`
         >- next_tac [4]
         \\ Cases_on `n = 0`
         >- next_tac [6]
         \\ next_tac [7]
-        ,
-        Cases_on `0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\ (i2w i : word64) <= 0x7fw`
+QED
+
+Resume x64_encoder_correct[CmpImmLess]:
+  Cases_on `0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\ (i2w i : word64) <= 0x7fw`
         >- next_tac [4]
         \\ Cases_on `n = 0`
         >- next_tac [6]
         \\ next_tac [7]
-        ,
-        Cases_on `n = 0`
+QED
+
+Resume x64_encoder_correct[CmpImmTest]:
+  Cases_on `n = 0`
         >- next_tac [6]
         \\ next_tac [7]
-        ,
-        Cases_on `0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\ (i2w i : word64) <= 0x7fw`
+QED
+
+Resume x64_encoder_correct[CmpImmNotEqual]:
+  Cases_on `0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\ (i2w i : word64) <= 0x7fw`
         >- next_tac [4]
         \\ Cases_on `n = 0`
         >- next_tac [6]
         \\ next_tac [7]
-        ,
-        Cases_on `0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\ (i2w i : word64) <= 0x7fw`
+QED
+
+Resume x64_encoder_correct[CmpImmNotLower]:
+  Cases_on `0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\ (i2w i : word64) <= 0x7fw`
         >- next_tac [4]
         \\ Cases_on `n = 0`
         >- next_tac [6]
         \\ next_tac [7]
-        ,
-        Cases_on `0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\ (i2w i : word64) <= 0x7fw`
+QED
+
+Resume x64_encoder_correct[CmpImmNotLess]:
+  Cases_on `0xFFFFFFFFFFFFFF80w <= (i2w i : word64) /\ (i2w i : word64) <= 0x7fw`
         >- next_tac [4]
         \\ Cases_on `n = 0`
         >- next_tac [6]
         \\ next_tac [7]
-        ,
-        Cases_on `n = 0`
+QED
+
+Resume x64_encoder_correct[CmpImmNotTest]:
+  Cases_on `n = 0`
         >- next_tac [6]
         \\ next_tac [7]
-      ]
-      )
-      (*--------------
-          no Call
-        --------------*)
-   >- fsrw_tac [] enc_rwts
-   >- (
-      (*--------------
-          JumpReg
-        --------------*)
-      print_tac "JumpReg"
+QED
+
+Resume x64_encoder_correct[JumpReg]:
+  print_tac "JumpReg"
       \\ wordsLib.Cases_on_word_value `(3 >< 3) (n2w n : word4): word1`
       \\ next_tac []
-      )
-   >- (
-      (*--------------
-          Loc
-        --------------*)
-      print_tac "Loc"
-      \\ next_tac []
-      )
 QED
+
+Resume x64_encoder_correct[Loc]:
+  qmatch_goalsub_rename_tac `x64_enc (Loc n off)`
+  \\ qabbrev_tac `c = (i2w off : word64)`
+  \\ `0xFFFFFFFF80000007w ≤ c ∧ c ≤ 0x80000006w` by
+       (qunabbrev_tac `c`
+        \\ irule (CONJUNCT2 branch_offset_i2w)
+        \\ fs (x64_config :: asmLib.asm_ok_rwts))
+  \\   print_tac "Loc"
+      \\ next_tac []
+QED
+
+Finalise x64_encoder_correct;

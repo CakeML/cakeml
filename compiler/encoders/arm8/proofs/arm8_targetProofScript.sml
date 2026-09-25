@@ -310,6 +310,17 @@ Theorem arm8_encoding = arm8_encoding |>
     SIMP_RULE (srw_ss()++boolSimps.LET_ss)
        [arm8_enc_def, listTheory.LIST_BIND_def]
 
+Theorem offset_i2w_signed[local]:
+  -2147483648 ≤ i ∧ i ≤ 2147483647 ⇒ w2i (i2w i : word64) = i
+Proof
+  strip_tac
+  \\ irule integer_wordTheory.w2i_i2w
+  \\ simp [integer_wordTheory.INT_MIN_def, integer_wordTheory.INT_MAX_def,
+           wordsTheory.INT_MIN_def, wordsTheory.INT_MAX_def,
+           wordsTheory.dimword_def, wordsTheory.dimindex_64]
+  \\ intLib.ARITH_TAC
+QED
+
 Theorem arm8_target_ok[local]:
   target_ok arm8_target
 Proof
@@ -320,6 +331,23 @@ Proof
    \\ lfs enc_rwts
    \\ rw[]
    \\ lfs enc_rwts
+   \\ `w2i (i2w w1 : word64) = w1` by
+        (irule offset_i2w_signed \\ intLib.ARITH_TAC)
+   \\ `w2i (i2w w2 : word64) = w2` by
+        (irule offset_i2w_signed \\ intLib.ARITH_TAC)
+   \\ TRY (`(i2w w1 : word64) ≤ i2w w2` by
+        fs [integer_wordTheory.WORD_LEi, integer_wordTheory.word_0_w2i])
+   \\ TRY (`(i2w w2 : word64) ≤ i2w w1` by
+        fs [integer_wordTheory.WORD_LEi, integer_wordTheory.word_0_w2i])
+   \\ TRY (`0w ≤ (i2w w1 : word64)` by
+        fs [integer_wordTheory.WORD_LEi, integer_wordTheory.word_0_w2i])
+   \\ TRY (`0w ≤ (i2w w2 : word64)` by
+        fs [integer_wordTheory.WORD_LEi, integer_wordTheory.word_0_w2i])
+   \\ TRY (`(i2w w1 : word64) < 0w` by
+        fs [integer_wordTheory.WORD_LTi, integer_wordTheory.word_0_w2i])
+   \\ TRY (`(i2w w2 : word64) < 0w` by
+        fs [integer_wordTheory.WORD_LTi, integer_wordTheory.word_0_w2i])
+   \\ rw []
    \\ blastLib.FULL_BBLAST_TAC
 QED
 
@@ -371,7 +399,8 @@ Theorem addr_bound_lem[local]:
 Proof
   rpt gen_tac \\ strip_tac \\ irule addr_lem
   \\ Cases_on `m`
-  \\ full_simp_tac bool_ss (arm8_config :: asmLib.asm_ok_rwts)
+  \\ full_simp_tac (srw_ss()++boolSimps.LET_ss)
+       (arm8_config :: asmLib.asm_ok_rwts)
   \\ intLib.ARITH_TAC
 QED
 
@@ -382,7 +411,10 @@ Theorem byte_bound_lem[local]:
              (i2w i : word64) <= 0xFFFw
 Proof
   rpt gen_tac \\ strip_tac \\ irule byte_lem
-  \\ Cases_on `m` \\ fs (arm8_config :: asmLib.asm_ok_rwts) \\ intLib.ARITH_TAC
+  \\ Cases_on `m`
+  \\ full_simp_tac (srw_ss()++boolSimps.LET_ss)
+       (arm8_config :: asmLib.asm_ok_rwts)
+  \\ intLib.ARITH_TAC
 QED
 
 Theorem arm8_encoder_correct:
@@ -393,26 +425,37 @@ Proof
    \\ rw [arm8_target_def, asmSemTheory.asm_step_def, arm8_config]
    \\ qunabbrev_tac `state_rel`
    \\ Cases_on `i`
-   >- (
-      (*--------------
-          Inst
-        --------------*)
-      Cases_on `i'`
-      >- (
-         (*--------------
-             Skip
-           --------------*)
-         print_tac "Skip"
+   >- suspend "Inst"
+
+   >- suspend "Jump"
+   >- suspend "JumpCmp"
+
+   >- suspend "Call"
+   >- suspend "JumpReg"
+   >- suspend "Loc"
+QED
+
+Resume arm8_encoder_correct[Inst]:
+  Cases_on `i'`
+      >- suspend "Skip"
+      >- suspend "Const"
+      >- suspend "Arith"
+         >- suspend "Mem"
+
+         \\ suspend "FP"
+QED
+
+Resume arm8_encoder_correct[Skip]:
+  print_tac "Skip"
          \\ next_tac `0`
          \\ enc_rwts_tac
          \\ next_state_tac01
          \\ state_tac []
-         )
-      >- (
-         (*--------------
-             Const
-           --------------*)
-         print_tac "Const"
+QED
+
+Resume arm8_encoder_correct[Const]:
+  print_tac "Const"
+  \\ qabbrev_tac `c = (i2w i : word64)`
          \\ REVERSE (Cases_on `arm8_enc_mov_imm c`)
          >- (
              next_tac `0`
@@ -452,17 +495,22 @@ Proof
          \\ next_state_tacN (`12w`, 0) filter_reg_31
          \\ state_tac []
          \\ blastLib.BBLAST_TAC
-         )
-      >- (
-         (*--------------
-             Arith
-           --------------*)
-         Cases_on `a`
-         >- (
-            (*--------------
-                Binop
-              --------------*)
-            print_tac "Binop"
+QED
+
+Resume arm8_encoder_correct[Arith]:
+  Cases_on `a`
+         >- suspend "Binop"
+         >- suspend "Shift"
+         >- suspend "Div"
+         >- suspend "LongMul"
+         >- suspend "LongDiv"
+         >- suspend "AddCarry"
+         >- suspend "AddOverflow"
+         >- suspend "SubOverflow"
+QED
+
+Resume arm8_encoder_correct[Binop]:
+  print_tac "Binop"
             \\ next_tac `0`
             \\ Cases_on `r`
             >| [Cases_on `b`,
@@ -477,12 +525,10 @@ Proof
             \\ fs []
             \\ next_state_tac01
             \\ state_tac []
-            )
-         >- (
-            (*--------------
-                Shift
-              --------------*)
-            print_tac "Shift"
+QED
+
+Resume arm8_encoder_correct[Shift]:
+  print_tac "Shift"
             \\ next_tac `0`
             \\ reverse (Cases_on`r`)
             >- (
@@ -508,22 +554,19 @@ Proof
               \\ next_state_tac01
               \\ state_tac[]
               \\ rw [arm8Theory.ShiftValue_def, arm8Theory.DecodeShift_def,
-                arm8Theory.num2ShiftType_thm]))
-         >- (
-            (*--------------
-                Div
-              --------------*)
-            print_tac "Div"
+                arm8Theory.num2ShiftType_thm])
+QED
+
+Resume arm8_encoder_correct[Div]:
+  print_tac "Div"
             \\ next_tac `0`
             \\ enc_rwts_tac
             \\ next_state_tac01
             \\ state_tac []
-            )
-         >- (
-            (*--------------
-                LongMul
-              --------------*)
-            print_tac "LongMul"
+QED
+
+Resume arm8_encoder_correct[LongMul]:
+  print_tac "LongMul"
             \\ next_tac `1`
             \\ enc_rwts_tac
             \\ asmLib.split_bytes_in_memory_tac 4
@@ -531,19 +574,15 @@ Proof
             \\ next_state_tacN (`4w`, 0) filter_reg_31
             \\ state_tac [GSYM wordsTheory.word_mul_def, mul_long,
                           arm8Theory.ExtendWord_def]
-            )
-         >- (
-            (*--------------
-                LongDiv
-              --------------*)
-            print_tac "LongDiv"
+QED
+
+Resume arm8_encoder_correct[LongDiv]:
+  print_tac "LongDiv"
             \\ enc_rwts_tac
-            )
-         >- (
-            (*--------------
-                AddCarry
-              --------------*)
-            print_tac "AddCarry"
+QED
+
+Resume arm8_encoder_correct[AddCarry]:
+  print_tac "AddCarry"
             \\ next_tac `4`
             \\ enc_rwts_tac
             \\ asmLib.split_bytes_in_memory_tac 4
@@ -560,24 +599,20 @@ Proof
             \\ rw [wordsTheory.add_with_carry_def]
             \\ Cases_on `ms.REG (n2w i) = 0w`
             \\ full_simp_tac arith_ss []
-            )
-         >- (
-            (*--------------
-                AddOverflow
-              --------------*)
-            print_tac "AddOverflow"
+QED
+
+Resume arm8_encoder_correct[AddOverflow]:
+  print_tac "AddOverflow"
             \\ next_tac `1`
             \\ enc_rwts_tac
             \\ asmLib.split_bytes_in_memory_tac 4
             \\ next_state_tac01
             \\ next_state_tacN (`4w`, 0) filter_reg_31
             \\ state_tac [integer_wordTheory.overflow_add]
-            )
-         >- (
-            (*--------------
-                SubOverflow
-              --------------*)
-            print_tac "SubOverflow"
+QED
+
+Resume arm8_encoder_correct[SubOverflow]:
+  print_tac "SubOverflow"
             \\ next_tac `1`
             \\ enc_rwts_tac
             \\ asmLib.split_bytes_in_memory_tac 4
@@ -586,125 +621,10 @@ Proof
             \\ state_tac
                  [SIMP_RULE (srw_ss()) [] integer_wordTheory.sub_overflow]
             \\ fs []
-            )
-         )
-         >- (
-            (*--------------
-                Mem
-              --------------*)
-            print_tac "Mem"
-            \\ Cases_on `a`
-            \\ qabbrev_tac `c = (i2w i : word64)`
-            \\ Cases_on `m`
-            (* memory offsets: byte access has its own range *)
-            >| [
-                `0xFFFFFFFFFFFFEF01w <= c /\ c <= 0x10FEw`
-                by (qunabbrev_tac `c` \\ metis_tac [addr_bound_lem])
-                \\
-               Cases_on `c = sw2sw ((8 >< 0) c : word9)`
-               >| [next_tac `0`
-                   \\ Cases_on
-                        `~word_msb c /\ (c = w2w (^ext12 (c >>> 3)) << 3)`,
-                   Cases_on `word_msb c`
-                   >| [next_tac `1`,
-                       Cases_on `c = w2w (^ext12 (c >>> 3)) << 3`
-                       >| [next_tac `0`,
-                           next_tac `1`
-                       ]
-                   ]
-               ]
-               ,
-                `0xFFFFFFFFFFFFFF00w <= c /\ c <= 0xFFFw`
-                by (qunabbrev_tac `c` \\ metis_tac [byte_bound_lem])
-                \\
-               next_tac `0`
-               \\ Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`
-               ,
-                `0xFFFFFFFFFFFFEF01w <= c /\ c <= 0x10FEw`
-                by (qunabbrev_tac `c` \\ metis_tac [addr_bound_lem])
-                \\
-               Cases_on `c = sw2sw ((8 >< 0) c)`
-               >| [next_tac `0`
-                   \\ Cases_on
-                      `¬word_msb c ∧ (c = w2w ((11 >< 0) (c ⋙ 1)) ≪ 1)`,
-                   Cases_on `word_msb c`
-                   >| [next_tac `1`,
-                       Cases_on ‘c = w2w ((11 >< 0) (c ⋙ 1)) ≪ 1’
-                       >| [next_tac `0`,
-                           next_tac `1`
-                       ]
-                   ]
-               ]
-               ,
-                `0xFFFFFFFFFFFFEF01w <= c /\ c <= 0x10FEw`
-                by (qunabbrev_tac `c` \\ metis_tac [addr_bound_lem])
-                \\
-               Cases_on `c = sw2sw ((8 >< 0) c)`
-               >| [next_tac `0`
-                   \\ Cases_on `¬word_msb c ∧ c = w2w ((11 >< 0) (c ⋙ 2)) ≪ 2`,
-                   Cases_on `word_msb c`
-                   >| [next_tac `1`,
-                       Cases_on ‘c = w2w ((11 >< 0) (c ⋙ 2)) ≪ 2’
-                       >| [next_tac `0`,
-                           next_tac `1`
-                       ]
-                   ]
-               ]
-               ,
-                `0xFFFFFFFFFFFFEF01w <= c /\ c <= 0x10FEw`
-                by (qunabbrev_tac `c` \\ metis_tac [addr_bound_lem])
-                \\
-               Cases_on `c = sw2sw ((8 >< 0) c : word9)`
-               >| [next_tac `0`
-                   \\ Cases_on
-                        `~word_msb c /\ (c = w2w (^ext12 (c >>> 3)) << 3)`,
-                   Cases_on `word_msb c`
-                   >| [next_tac `1`,
-                       Cases_on `c = w2w (^ext12 (c >>> 3)) << 3`
-                       >| [next_tac `0`,
-                           next_tac `1`
-                       ]
-                   ]
-               ]
-               ,
-                `0xFFFFFFFFFFFFFF00w <= c /\ c <= 0xFFFw`
-                by (qunabbrev_tac `c` \\ metis_tac [byte_bound_lem])
-                \\
-               next_tac `0`
-               \\ Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`
-               ,
-                `0xFFFFFFFFFFFFEF01w <= c /\ c <= 0x10FEw`
-                by (qunabbrev_tac `c` \\ metis_tac [addr_bound_lem])
-                \\
-               Cases_on `c = sw2sw ((8 >< 0) c)`
-               >| [next_tac `0`
-                   \\ Cases_on
-                      `¬word_msb c ∧ (c = w2w ((11 >< 0) (c ⋙ 1)) ≪ 1)`,
-                   Cases_on `word_msb c`
-                   >| [next_tac `1`,
-                       Cases_on ‘c = w2w ((11 >< 0) (c ⋙ 1)) ≪ 1’
-                       >| [next_tac `0`,
-                           next_tac `1`
-                       ]
-                   ]
-               ]
-               ,
-                `0xFFFFFFFFFFFFEF01w <= c /\ c <= 0x10FEw`
-                by (qunabbrev_tac `c` \\ metis_tac [addr_bound_lem])
-                \\
-               Cases_on `c = sw2sw ((8 >< 0) c)`
-               >| [next_tac `0`
-                   \\ Cases_on `¬word_msb c ∧ c = w2w ((11 >< 0) (c ⋙ 2)) ≪ 2`,
-                   Cases_on `word_msb c`
-                   >| [next_tac `1`,
-                       Cases_on ‘c = w2w ((11 >< 0) (c ⋙ 2)) ≪ 2’
-                       >| [next_tac `0`,
-                           next_tac `1`
-                       ]
-                   ]
-               ]
-            ]
-            \\ enc_rwts_tac
+QED
+
+val mem_finish_tac =
+  enc_rwts_tac
             \\ rfs []
             \\ fs [lem7, lem7b, lem31, lem35]
             \\ TRY (`aligned 3 (c + ms.REG (n2w n'))`
@@ -724,31 +644,216 @@ Proof
             \\ simp_tac (srw_ss()++wordsLib.WORD_EXTRACT_ss) []
             \\ NTAC 2 (lrw [FUN_EQ_THM, combinTheory.APPLY_UPDATE_THM])
             \\ full_simp_tac (srw_ss()++wordsLib.WORD_CANCEL_ss) []
-            )
-         (*--------------
-             FP
-           --------------*)
-         \\ print_tac "FP"
+
+Resume arm8_encoder_correct[Mem]:
+  print_tac "Mem"
+            \\ Cases_on `a`
+            \\ qabbrev_tac `c = (i2w i : word64)`
+            \\ Cases_on `m`
+
+  >| [suspend "Load",
+      suspend "Load8",
+      suspend "Load16",
+      suspend "Load32",
+      suspend "Store",
+      suspend "Store8",
+      suspend "Store16",
+      suspend "Store32"]
+QED
+
+Resume arm8_encoder_correct[Load]:
+  `0xFFFFFFFFFFFFEF01w <= c /\ c <= 0x10FEw`
+                by (qunabbrev_tac `c` \\ metis_tac [addr_bound_lem])
+                \\
+               Cases_on `c = sw2sw ((8 >< 0) c : word9)`
+               >| [next_tac `0`
+                   \\ Cases_on
+                        `~word_msb c /\ (c = w2w (^ext12 (c >>> 3)) << 3)`,
+                   Cases_on `word_msb c`
+                   >| [next_tac `1`,
+                       Cases_on `c = w2w (^ext12 (c >>> 3)) << 3`
+                       >| [next_tac `0`,
+                           next_tac `1`
+                       ]
+                   ]
+               ]
+  \\ mem_finish_tac
+QED
+
+Resume arm8_encoder_correct[Load8]:
+  `0xFFFFFFFFFFFFFF00w <= c /\ c <= 0xFFFw`
+                by (qunabbrev_tac `c` \\ metis_tac [byte_bound_lem])
+                \\
+               next_tac `0`
+               \\ Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`
+  \\ mem_finish_tac
+QED
+
+Resume arm8_encoder_correct[Load16]:
+  `0xFFFFFFFFFFFFEF01w <= c /\ c <= 0x10FEw`
+                by (qunabbrev_tac `c` \\ metis_tac [addr_bound_lem])
+                \\
+               Cases_on `c = sw2sw ((8 >< 0) c)`
+               >| [next_tac `0`
+                   \\ Cases_on
+                      `¬word_msb c ∧ (c = w2w ((11 >< 0) (c ⋙ 1)) ≪ 1)`,
+                   Cases_on `word_msb c`
+                   >| [next_tac `1`,
+                       Cases_on ‘c = w2w ((11 >< 0) (c ⋙ 1)) ≪ 1’
+                       >| [next_tac `0`,
+                           next_tac `1`
+                       ]
+                   ]
+               ]
+  \\ mem_finish_tac
+QED
+
+Resume arm8_encoder_correct[Load32]:
+  `0xFFFFFFFFFFFFEF01w <= c /\ c <= 0x10FEw`
+                by (qunabbrev_tac `c` \\ metis_tac [addr_bound_lem])
+                \\
+               Cases_on `c = sw2sw ((8 >< 0) c)`
+               >| [next_tac `0`
+                   \\ Cases_on `¬word_msb c ∧ c = w2w ((11 >< 0) (c ⋙ 2)) ≪ 2`,
+                   Cases_on `word_msb c`
+                   >| [next_tac `1`,
+                       Cases_on ‘c = w2w ((11 >< 0) (c ⋙ 2)) ≪ 2’
+                       >| [next_tac `0`,
+                           next_tac `1`
+                       ]
+                   ]
+               ]
+  \\ mem_finish_tac
+QED
+
+Resume arm8_encoder_correct[Store]:
+  `0xFFFFFFFFFFFFEF01w <= c /\ c <= 0x10FEw`
+                by (qunabbrev_tac `c` \\ metis_tac [addr_bound_lem])
+                \\
+               Cases_on `c = sw2sw ((8 >< 0) c : word9)`
+               >| [next_tac `0`
+                   \\ Cases_on
+                        `~word_msb c /\ (c = w2w (^ext12 (c >>> 3)) << 3)`,
+                   Cases_on `word_msb c`
+                   >| [next_tac `1`,
+                       Cases_on `c = w2w (^ext12 (c >>> 3)) << 3`
+                       >| [next_tac `0`,
+                           next_tac `1`
+                       ]
+                   ]
+               ]
+  \\ mem_finish_tac
+QED
+
+Resume arm8_encoder_correct[Store8]:
+  `0xFFFFFFFFFFFFFF00w <= c /\ c <= 0xFFFw`
+                by (qunabbrev_tac `c` \\ metis_tac [byte_bound_lem])
+                \\
+               next_tac `0`
+               \\ Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`
+  \\ mem_finish_tac
+QED
+
+Resume arm8_encoder_correct[Store16]:
+  `0xFFFFFFFFFFFFEF01w <= c /\ c <= 0x10FEw`
+                by (qunabbrev_tac `c` \\ metis_tac [addr_bound_lem])
+                \\
+               Cases_on `c = sw2sw ((8 >< 0) c)`
+               >| [next_tac `0`
+                   \\ Cases_on
+                      `¬word_msb c ∧ (c = w2w ((11 >< 0) (c ⋙ 1)) ≪ 1)`,
+                   Cases_on `word_msb c`
+                   >| [next_tac `1`,
+                       Cases_on ‘c = w2w ((11 >< 0) (c ⋙ 1)) ≪ 1’
+                       >| [next_tac `0`,
+                           next_tac `1`
+                       ]
+                   ]
+               ]
+  \\ mem_finish_tac
+QED
+
+Resume arm8_encoder_correct[Store32]:
+  `0xFFFFFFFFFFFFEF01w <= c /\ c <= 0x10FEw`
+                by (qunabbrev_tac `c` \\ metis_tac [addr_bound_lem])
+                \\
+               Cases_on `c = sw2sw ((8 >< 0) c)`
+               >| [next_tac `0`
+                   \\ Cases_on `¬word_msb c ∧ c = w2w ((11 >< 0) (c ⋙ 2)) ≪ 2`,
+                   Cases_on `word_msb c`
+                   >| [next_tac `1`,
+                       Cases_on ‘c = w2w ((11 >< 0) (c ⋙ 2)) ≪ 2’
+                       >| [next_tac `0`,
+                           next_tac `1`
+                       ]
+                   ]
+               ]
+  \\ mem_finish_tac
+QED
+
+Resume arm8_encoder_correct[FP]:
+  print_tac "FP"
          \\ Cases_on `f`
          \\ enc_rwts_tac
+QED
 
-      ) (* close Inst *)
-      (*--------------
-          Jump
-        --------------*)
-   >- (
-      print_tac "Jump"
+Theorem aligned_i2w[local]:
+  4 int_divides i ⇒ aligned 2 (i2w i : word64)
+Proof
+  rw [integerTheory.INT_DIVIDES]
+  \\ simp [GSYM integer_wordTheory.word_i2w_mul, integer_wordTheory.i2w_pos,
+           alignmentTheory.aligned_bitwise_and]
+  \\ blastLib.BBLAST_TAC
+QED
+
+Theorem branch_offset_i2w[local]:
+  (-134217728 ≤ i ∧ i ≤ 134217727 ∧ 4 int_divides i ⇒
+    0xFFFFFFFFF8000000w ≤ (i2w i : word64) ∧
+    (i2w i : word64) ≤ 0x7FFFFFFw ∧ aligned 2 (i2w i : word64)) ∧
+  (-1048572 ≤ i ∧ i ≤ 1048579 ∧ 4 int_divides i ⇒
+    0xFFFFFFFFFFF00004w ≤ (i2w i : word64) ∧
+    (i2w i : word64) ≤ 0x100003w ∧ aligned 2 (i2w i : word64)) ∧
+  (-2147483648 ≤ i ∧ i ≤ 2147483647 ∧ 4 int_divides i ⇒
+    0xFFFFFFFF80000000w ≤ (i2w i : word64) ∧
+    (i2w i : word64) ≤ 0x7FFFFFFFw ∧ aligned 2 (i2w i : word64))
+Proof
+  rpt conj_tac \\ strip_tac
+  \\ `w2i (i2w i : word64) = i` by
+       (irule offset_i2w_signed \\ intLib.ARITH_TAC)
+  \\ fs ([integer_wordTheory.WORD_LEi, aligned_i2w] @
+         map EVAL [``w2i (0xFFFFFFFFF8000000w : word64)``,
+                   ``w2i (0x7FFFFFFw : word64)``,
+                   ``w2i (0xFFFFFFFFFFF00004w : word64)``,
+                   ``w2i (0x100003w : word64)``,
+                   ``w2i (0xFFFFFFFF80000000w : word64)``,
+                   ``w2i (0x7FFFFFFFw : word64)``])
+QED
+
+Resume arm8_encoder_correct[Jump]:
+  qmatch_goalsub_rename_tac `arm8_enc (Jump off)`
+  \\ qabbrev_tac `c = (i2w off : word64)`
+  \\ `0xFFFFFFFFF8000000w ≤ c ∧ c ≤ 0x7FFFFFFw ∧ aligned 2 c` by
+       (qunabbrev_tac `c`
+        \\ irule (CONJUNCT1 branch_offset_i2w)
+        \\ full_simp_tac (srw_ss()++boolSimps.LET_ss)
+             (arm8_config :: asmLib.asm_ok_rwts))
+  \\   print_tac "Jump"
       \\ next_tac `0`
       \\ enc_rwts_tac
       \\ next_state_tac01
       \\ state_tac [alignmentTheory.aligned_extract]
       \\ blastLib.FULL_BBLAST_TAC
-      )
-   >- (
-      (*--------------
-          JumpCmp
-        --------------*)
-      print_tac "JumpCmp"
+QED
+
+Resume arm8_encoder_correct[JumpCmp]:
+  qmatch_goalsub_rename_tac `arm8_enc (JumpCmp c n r off)`
+  \\ qabbrev_tac `c0 = (i2w off : word64)`
+  \\ `0xFFFFFFFFFFF00004w ≤ c0 ∧ c0 ≤ 0x100003w ∧ aligned 2 c0` by
+       (qunabbrev_tac `c0`
+        \\ irule (CONJUNCT1 (CONJUNCT2 branch_offset_i2w))
+        \\ full_simp_tac (srw_ss()++boolSimps.LET_ss)
+             (arm8_config :: asmLib.asm_ok_rwts))
+  \\   print_tac "JumpCmp"
       \\ next_tac `1`
       \\ Cases_on `r`
       >| [
@@ -757,14 +862,14 @@ Proof
          \\ asmLib.split_bytes_in_memory_tac 4
          \\ next_state_tac0 true List.last List.tl `ms`
          >| [
-            cmp_case_tac `ms.REG (n2w n) = ms.REG (n2w n')`,
-            cmp_case_tac `ms.REG (n2w n) <+ ms.REG (n2w n')`,
-            cmp_case_tac `ms.REG (n2w n) < ms.REG (n2w n')`,
-            cmp_case_tac `(ms.REG (n2w n) && ms.REG (n2w n')) = 0w`,
-            cmp_case_tac `ms.REG (n2w n) <> ms.REG (n2w n')`,
-            cmp_case_tac `~(ms.REG (n2w n) <+ ms.REG (n2w n'))`,
-            cmp_case_tac `~(ms.REG (n2w n) < ms.REG (n2w n'))`,
-            cmp_case_tac `(ms.REG (n2w n) && ms.REG (n2w n')) <> 0w`
+            suspend "CmpRegEqual",
+            suspend "CmpRegLower",
+            suspend "CmpRegLess",
+            suspend "CmpRegTest",
+            suspend "CmpRegNotEqual",
+            suspend "CmpRegNotLower",
+            suspend "CmpRegNotLess",
+            suspend "CmpRegNotTest"
          ],
          Cases_on `c`
          \\ enc_rwts_tac
@@ -774,49 +879,145 @@ Proof
          \\ imp_res_tac Decode_EncodeBitMask
          \\ next_state_tac0 true List.last List.tl `ms`
          >| [
-            cmp_case_tac `ms.REG (n2w n) = (i2w i : word64)`,
-            cmp_case_tac `ms.REG (n2w n) = (i2w i : word64)`,
-            cmp_case_tac `ms.REG (n2w n) <+ (i2w i : word64)`,
-            cmp_case_tac `ms.REG (n2w n) <+ (i2w i : word64)`,
-            cmp_case_tac `ms.REG (n2w n) < (i2w i : word64)`,
-            cmp_case_tac `ms.REG (n2w n) < (i2w i : word64)`,
-            cmp_case_tac `(ms.REG (n2w n) && (i2w i : word64)) = 0w`,
-            cmp_case_tac `ms.REG (n2w n) <> (i2w i : word64)`,
-            cmp_case_tac `ms.REG (n2w n) <> (i2w i : word64)`,
-            cmp_case_tac `~(ms.REG (n2w n) <+ (i2w i : word64))`,
-            cmp_case_tac `~(ms.REG (n2w n) <+ (i2w i : word64))`,
-            cmp_case_tac `~(ms.REG (n2w n) < (i2w i : word64))`,
-            cmp_case_tac `~(ms.REG (n2w n) < (i2w i : word64))`,
-            cmp_case_tac `(ms.REG (n2w n) && (i2w i : word64)) <> 0w`
+            suspend "CmpImmEqual0",
+            suspend "CmpImmEqual1",
+            suspend "CmpImmLower0",
+            suspend "CmpImmLower1",
+            suspend "CmpImmLess0",
+            suspend "CmpImmLess1",
+            suspend "CmpImmTest",
+            suspend "CmpImmNotEqual0",
+            suspend "CmpImmNotEqual1",
+            suspend "CmpImmNotLower0",
+            suspend "CmpImmNotLower1",
+            suspend "CmpImmNotLess0",
+            suspend "CmpImmNotLess1",
+            suspend "CmpImmNotTest"
          ]
       ]
-      )
-      (*--------------
-          Call
-        --------------*)
-   >- (
-      print_tac "Call"
+QED
+
+Resume arm8_encoder_correct[CmpRegEqual]:
+  cmp_case_tac `ms.REG (n2w n) = ms.REG (n2w n')`
+QED
+
+Resume arm8_encoder_correct[CmpRegLower]:
+  cmp_case_tac `ms.REG (n2w n) <+ ms.REG (n2w n')`
+QED
+
+Resume arm8_encoder_correct[CmpRegLess]:
+  cmp_case_tac `ms.REG (n2w n) < ms.REG (n2w n')`
+QED
+
+Resume arm8_encoder_correct[CmpRegTest]:
+  cmp_case_tac `(ms.REG (n2w n) && ms.REG (n2w n')) = 0w`
+QED
+
+Resume arm8_encoder_correct[CmpRegNotEqual]:
+  cmp_case_tac `ms.REG (n2w n) <> ms.REG (n2w n')`
+QED
+
+Resume arm8_encoder_correct[CmpRegNotLower]:
+  cmp_case_tac `~(ms.REG (n2w n) <+ ms.REG (n2w n'))`
+QED
+
+Resume arm8_encoder_correct[CmpRegNotLess]:
+  cmp_case_tac `~(ms.REG (n2w n) < ms.REG (n2w n'))`
+QED
+
+Resume arm8_encoder_correct[CmpRegNotTest]:
+  cmp_case_tac `(ms.REG (n2w n) && ms.REG (n2w n')) <> 0w`
+QED
+
+Resume arm8_encoder_correct[CmpImmEqual0]:
+  cmp_case_tac `ms.REG (n2w n) = (i2w i : word64)`
+QED
+
+Resume arm8_encoder_correct[CmpImmEqual1]:
+  cmp_case_tac `ms.REG (n2w n) = (i2w i : word64)`
+QED
+
+Resume arm8_encoder_correct[CmpImmLower0]:
+  cmp_case_tac `ms.REG (n2w n) <+ (i2w i : word64)`
+QED
+
+Resume arm8_encoder_correct[CmpImmLower1]:
+  cmp_case_tac `ms.REG (n2w n) <+ (i2w i : word64)`
+QED
+
+Resume arm8_encoder_correct[CmpImmLess0]:
+  cmp_case_tac `ms.REG (n2w n) < (i2w i : word64)`
+QED
+
+Resume arm8_encoder_correct[CmpImmLess1]:
+  cmp_case_tac `ms.REG (n2w n) < (i2w i : word64)`
+QED
+
+Resume arm8_encoder_correct[CmpImmTest]:
+  cmp_case_tac `(ms.REG (n2w n) && (i2w i : word64)) = 0w`
+QED
+
+Resume arm8_encoder_correct[CmpImmNotEqual0]:
+  cmp_case_tac `ms.REG (n2w n) <> (i2w i : word64)`
+QED
+
+Resume arm8_encoder_correct[CmpImmNotEqual1]:
+  cmp_case_tac `ms.REG (n2w n) <> (i2w i : word64)`
+QED
+
+Resume arm8_encoder_correct[CmpImmNotLower0]:
+  cmp_case_tac `~(ms.REG (n2w n) <+ (i2w i : word64))`
+QED
+
+Resume arm8_encoder_correct[CmpImmNotLower1]:
+  cmp_case_tac `~(ms.REG (n2w n) <+ (i2w i : word64))`
+QED
+
+Resume arm8_encoder_correct[CmpImmNotLess0]:
+  cmp_case_tac `~(ms.REG (n2w n) < (i2w i : word64))`
+QED
+
+Resume arm8_encoder_correct[CmpImmNotLess1]:
+  cmp_case_tac `~(ms.REG (n2w n) < (i2w i : word64))`
+QED
+
+Resume arm8_encoder_correct[CmpImmNotTest]:
+  cmp_case_tac `(ms.REG (n2w n) && (i2w i : word64)) <> 0w`
+QED
+
+Resume arm8_encoder_correct[Call]:
+  qmatch_goalsub_rename_tac `arm8_enc (Call off)`
+  \\ qabbrev_tac `c = (i2w off : word64)`
+  \\ `0xFFFFFFFFF8000000w ≤ c ∧ c ≤ 0x7FFFFFFw ∧ aligned 2 c` by
+       (qunabbrev_tac `c`
+        \\ irule (CONJUNCT1 branch_offset_i2w)
+        \\ full_simp_tac (srw_ss()++boolSimps.LET_ss)
+             (arm8_config :: asmLib.asm_ok_rwts))
+  \\   print_tac "Call"
       \\ next_tac `0`
       \\ enc_rwts_tac
       \\ next_state_tac01
       \\ state_tac [alignmentTheory.aligned_extract]
       \\ blastLib.FULL_BBLAST_TAC
-      )
-   >- (
-      (*--------------
-          JumpReg
-        --------------*)
-      print_tac "JumpReg"
+QED
+
+Resume arm8_encoder_correct[JumpReg]:
+  print_tac "JumpReg"
       \\ next_tac `0`
       \\ enc_rwts_tac
       \\ next_state_tac01
       \\ state_tac [alignmentTheory.aligned_extract]
-      )
-   >- (
-      (*--------------
-          Loc
-        --------------*)
-      print_tac "Loc">>
+QED
+
+Resume arm8_encoder_correct[Loc]:
+  qmatch_goalsub_rename_tac `arm8_enc (Loc n off)`
+  \\ qabbrev_tac `c = (i2w off : word64)`
+  \\ `0xFFFFFFFF80000000w ≤ c ∧ c ≤ 0x7FFFFFFFw ∧ aligned 2 c` by
+       (qunabbrev_tac `c`
+        \\ irule (CONJUNCT2 (CONJUNCT2 branch_offset_i2w))
+        \\ full_simp_tac (srw_ss()++boolSimps.LET_ss)
+             (arm8_config :: asmLib.asm_ok_rwts))
+  \\   print_tac "Loc">>
       Cases_on`sw2sw (INT_MINw: word20) ≤ c ∧ c ≤ sw2sw (INT_MAXw: word20)`
       >- (
         next_tac`0`
@@ -841,5 +1042,7 @@ Proof
       \\ asmLib.split_bytes_in_memory_tac 4
       \\ next_state_tacN (`20w`, 1) filter_reg_31
       \\ state_tac [alignmentTheory.aligned_extract]
-      \\ blastLib.FULL_BBLAST_TAC)
+      \\ blastLib.FULL_BBLAST_TAC
 QED
+
+Finalise arm8_encoder_correct;
