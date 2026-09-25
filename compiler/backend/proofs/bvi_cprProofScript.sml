@@ -4742,8 +4742,6 @@ Proof
       >> ‘q ≠ Rerr (Rabort Rtype_error)’ by (Cases_on ‘q’ >> gvs[])
       >> first_x_assum $ drule_all_then assume_tac
       >> gvs[]
-
-                
       >> qpat_x_assum ‘evaluate ([x],env,inc_clock ck t) = _’ kall_tac
       >> qpat_x_assum ‘r.ffi.io_events ≼ t1.ffi.io_events’ kall_tac
       >> qspecl_then [‘[x]’,‘env’,‘s’] mp_tac (cj 1 cpr_correct)
@@ -5064,15 +5062,18 @@ Proof
           >> Cases_on ‘FLOOKUP s.refs n'’ >> gvs[]
           >> Cases_on ‘x’ >> gvs[]
           >> Cases_on ‘t'’ >> gvs[]
-          >- gvs[state_rel_def]
-          >> Cases_on ‘find_code (SOME force_loc) [RefPtr b n'; a] s.code’ >> gvs[]
+          >- (Cases_on ‘b’ >> gvs[]
+              >> gvs[state_rel_def]
+             )
+          >> Cases_on ‘b’ >> gvs[]
+          >> Cases_on ‘find_code (SOME force_loc) [RefPtr F n'; a] s.code’ >> gvs[]
           >> Cases_on ‘x’ >> gvs[]
           >> Cases_on ‘s.clock = 0’ >> gvs[]
           >- (gvs[state_rel_def]
               >> drule_all_then assume_tac code_rel_find_code_SOME_dest
               >> Cases_on ‘lookup force_loc m’ >> gvs[]
               >- (qexists ‘1’ >> gvs[]
-                  >> Cases_on ‘evaluate ([r],[RefPtr b n'; a],dec_clock 1 (inc_clock 1 t))’ >> gvs[]
+                  >> Cases_on ‘evaluate ([r],[RefPtr F n'; a],dec_clock 1 (inc_clock 1 t))’ >> gvs[]
                   >> Cases_on ‘q’ >> gvs[]
                   >- (drule_then assume_tac evaluate_io_events_mono
                       >> gvs[]
@@ -5083,7 +5084,7 @@ Proof
                  )
               >> Cases_on ‘x’ >> gvs[]
               >> qexists ‘1’ >> gvs[]
-              >> Cases_on ‘evaluate ([make_wrapper 2 r' q],[RefPtr b n'; a], dec_clock 1 (inc_clock 1 t))’ >> gvs[]
+              >> Cases_on ‘evaluate ([make_wrapper 2 r' q],[RefPtr F n'; a], dec_clock 1 (inc_clock 1 t))’ >> gvs[]
               >> every_case_tac >> gvs[]
               >> drule_then assume_tac evaluate_io_events_mono
               >> gvs[]
@@ -5162,13 +5163,15 @@ Proof
       >> Cases_on ‘FLOOKUP s.refs n'’ >> gvs[]
       >> Cases_on ‘x’ >> gvs[]
       >> Cases_on ‘t'’ >> gvs[]
-      >- (gvs[state_rel_def, worker_body_def, evaluate_def]
+      >- (Cases_on ‘b’ >> gvs[]
+          >> gvs[state_rel_def, worker_body_def, evaluate_def]
           >> qexists ‘0’ >> gvs[]
           >> Cases_on ‘evaluate (flatten_exp sh (Force force_loc n),env,inc_clock 0 t)’ >> gvs[]
           >> Cases_on ‘q’ >> gvs[]
           >> drule_then assume_tac evaluate_io_events_mono >> gvs[]
          )
-      >> Cases_on ‘find_code (SOME force_loc) [RefPtr b n'; a] s.code’ >> gvs[]
+      >> Cases_on ‘b’ >> gvs[]
+      >> Cases_on ‘find_code (SOME force_loc) [RefPtr F n'; a] s.code’ >> gvs[]
       >> Cases_on ‘x’ >> gvs[]
       >> Cases_on ‘s.clock = 0’ >> gvs[]
       >- (gvs[state_rel_def, worker_body_def, evaluate_def]
