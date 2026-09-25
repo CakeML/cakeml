@@ -41,39 +41,37 @@ Definition cpr_merge_def:
   (cpr_merge_list (x::xs) (y::ys) = cpr_merge x y :: cpr_merge_list xs ys)
 End
 
+
+Definition field_shape_def:
+  (field_shape (Op (BlockOp (Cons t)) xs) = ConsShape t (field_shape_list xs)) /\
+  (field_shape _ = Leaf) /\
+  (field_shape_list [] = []) /\
+  (field_shape_list (x::xs) = field_shape x :: field_shape_list xs)
+End
+
 Definition shape_and_tail_def:
-  (shape_and_tail fname env (Var n) = (Leaf, [])) /\
-  (shape_and_tail fname env (If g e1 e2) =
-   let (sh1, c1) = shape_and_tail fname env e1;
-       (sh2, c2) = shape_and_tail fname env e2
+  (shape_and_tail fname (Var n) = (Leaf, [])) /\
+  (shape_and_tail fname (If g e1 e2) =
+   let (sh1, c1) = shape_and_tail fname e1;
+       (sh2, c2) = shape_and_tail fname e2
    in
      (cpr_merge sh1 sh2, c1 ++ c2)) /\
-  (shape_and_tail fname env (Let xs b) =
-     shape_and_tail fname (REPLICATE (LENGTH xs) Leaf ++ env) b) /\
-  (shape_and_tail fname env (Raise e) = (Flexible, [])) /\
-  (shape_and_tail fname env (Tick e) = shape_and_tail fname env e) /\
-  (shape_and_tail fname env (Call ts dest args hdl) =
-   case dest of
-     SOME dname => if fname = dname then (Flexible, []) else (Flexible, [dname])
-   | _ => (Leaf, [])) /\
-  (shape_and_tail fname env (Force loc v) = (Leaf,[])) /\
-  (shape_and_tail fname env (Op op xs) =
-     (case op of
-        BlockOp (Cons tag) =>
-          let (shl, cs) = shape_and_tail_list fname env xs in
-          (ConsShape tag shl, cs)
-      | _ => (Leaf, []))) /\
-  (shape_and_tail fname env (LetCall ret ticks dest args b) =
-     shape_and_tail fname (REPLICATE ret Leaf ++ env) b) /\
-  (shape_and_tail fname env (Return xs) = (Leaf, [])) ∧
-  (shape_and_tail_list fname env xs =
-   FOLDR (λx (shs, cs). let (xsh, xc) = shape_and_tail fname env x in
-                          (xsh::shs, xc ++ cs))
-         ([], []) xs)
-Termination
-  WF_REL_TAC ‘measure (\x. case x of
-                             INL (_, _,e) => exp_size e
-                           | INR (_,_,es) => list_size exp_size es)’
+  (shape_and_tail fname (Let xs b) =
+     shape_and_tail fname b) /\
+  (shape_and_tail fname (Raise e) = (Flexible, [])) /\
+  (shape_and_tail fname (Tick e) = shape_and_tail fname e) /\
+  (shape_and_tail fname (Call ts dest args hdl) =
+   case hdl of
+     SOME _ => (Leaf, [])
+   | NONE => 
+       case dest of
+         SOME dname => if fname = dname then (Flexible, []) else (Flexible, [dname])
+       | _ => (Leaf, [])) /\
+  (shape_and_tail fname (Force loc v) = (Leaf,[])) /\
+  (shape_and_tail fname (Op op xs) = (field_shape (Op op xs), [])) /\
+  (shape_and_tail fname (LetCall ret ticks dest args b) =
+     shape_and_tail fname b) /\
+  (shape_and_tail fname (Return xs) = (Leaf, []))
 End
 
 (* csh_map is a map of function to (worker_shape, worker) option *)
@@ -93,12 +91,13 @@ val tail_shape_test = EVAL “tail_shape (insert 1002 (ConsShape 1 [Leaf;Leaf], 
 
 Definition return_shape_def:
   return_shape csh_map fname (arity:num) body =
-  let (sh, cs) = shape_and_tail fname (REPLICATE arity Leaf) body;
+  let (sh, cs) = shape_and_tail fname body;
       csh = tail_shape csh_map cs
   in
-    case csh of
-      Flexible => sh
-    | _ => if sub_shape csh sh then csh else Leaf
+    case (csh, sh) of
+        (Flexible, _) => sh
+      | (_, Flexible) => csh
+      | _ => if sub_shape csh sh then csh else Leaf
 End
 
 Definition shape_width_def:
@@ -142,12 +141,15 @@ Definition worker_body_def:
      LetCall ret ticks dest args (worker_body csh_map fname next sh b)) ∧
   (worker_body csh_map fname next sh (Return xs) = Return xs) ∧
   (worker_body csh_map fname next sh (Call ts dest args hdl) =
-   case dest of
-     SOME dname => if fname = dname then TailCall (shape_width sh) 0 next args
-                   else case lookup dname csh_map of
-                        | NONE => Call ts dest args hdl
-                        | SOME (csh:cpr_shape, dwk:num) => TailCall (shape_width sh) 0 dwk args
-   | _ => Call ts dest args hdl) ∧
+   case hdl of
+     SOME _ => Call ts dest args hdl
+   | NONE =>
+       case dest of
+         SOME dname => (if fname = dname then TailCall (shape_width sh) ts next args
+                        else case lookup dname csh_map of
+                             | NONE => Call ts dest args hdl
+                             | SOME (csh:cpr_shape, dwk:num) => TailCall (shape_width sh) ts dwk args)
+       | _ => Call ts dest args hdl) ∧
   (worker_body csh_map fname next sh e = Return (flatten_exp sh e))
 End
 
@@ -166,18 +168,57 @@ End
 Definition make_wrapper_def:
   make_wrapper arity next sh =
     LetCall (shape_width sh) 0 next (GENLIST Var arity)
-            (rebuild 1 sh)
+            (rebuild 0 sh)
+End
+
+Definition no_ret_def:            (* no Return anywhere *)
+  (no_ret (If g e1 e2) ⇔ no_ret g ∧ no_ret e1 ∧ no_ret e2) ∧
+  (no_ret (Let xs e) ⇔ no_ret_list xs ∧ no_ret e) ∧
+  (no_ret (Tick e) ⇔ no_ret e) ∧
+  (no_ret (Raise e) ⇔ no_ret e) ∧
+  (no_ret (Return xs) ⇔ F) ∧
+  (no_ret (Call ts d args hdl) ⇔
+     no_ret_list args ∧ case hdl of NONE => T | SOME h => no_ret h) ∧
+  (no_ret (LetCall r ts d args e) ⇔ no_ret_list args ∧ no_ret e) ∧
+  (no_ret (Op op es) ⇔ no_ret_list es) ∧
+  (no_ret e ⇔ T) ∧
+
+  (no_ret_list [] ⇔ T) ∧
+  (no_ret_list (x::xs) ⇔ (no_ret x ∧ no_ret_list xs))
+End
+
+Definition tail_form_def:         (* Return only in tail position *)
+  (tail_form (If g e1 e2) ⇔ no_ret g ∧ tail_form e1 ∧ tail_form e2) ∧
+  (tail_form (Let xs e) ⇔ no_ret_list xs ∧ tail_form e) ∧
+  (tail_form (Tick e) ⇔ tail_form e) ∧
+  (tail_form (LetCall r ts d args e) ⇔ no_ret_list args ∧ tail_form e) ∧
+  (tail_form (Return xs) ⇔ no_ret_list xs) ∧
+  (tail_form e ⇔ no_ret e)
 End
 
 Definition split_fun_def:
   split_fun csh_map next loc arity body =
     let sh = return_shape csh_map loc arity body in
-      if split_ok sh then
+      if split_ok sh ∧ tail_form body then
         SOME (worker_body csh_map loc next sh body,          (* the worker  *)
               make_wrapper arity next sh,                    (* the wrapper *)
               insert loc (sh, next) csh_map)                 (* update map  *)
       else NONE
 End
+
+val test_hdl_bad =
+  “If (Op (BlockOp (EqualConst (Int 0))) [Var 0])
+      (Op (BlockOp (Cons 0)) [Var 0; Var 0])
+      (Call 0 (SOME 1000) [Var 0] (SOME (Op (IntOp (Const 0)) [])))”
+ 
+val eval_bad = EVAL “return_shape LN 1000 1 ^test_hdl_bad”
+
+val test_hdl_nontail =
+  “Let [Call 0 (SOME 300) [Var 0] (SOME (Op (IntOp (Const 0)) []))]
+       (Op (BlockOp (Cons 0)) [Var 0; Var 1])”
+ 
+val eval_nontail = EVAL “return_shape LN 1000 1 ^test_hdl_nontail”
+
         
         
 val test = “If (Op (BlockOp (EqualConst (Int 0))) [Var 0])
@@ -214,7 +255,7 @@ val test_worker = “If (Op (BlockOp (EqualConst (Int 0))) [Var 0])
                       Op (IntOp Add) [Var 0; Op (IntOp (Const 1)) []];
                       Var 0]))”
 
-val test_shape_and_tail = EVAL “shape_and_tail 1000 (REPLICATE 1 Leaf) ^test”
+val test_shape_and_tail = EVAL “shape_and_tail 1000 ^test”
                        
 val test_return_shape = EVAL “return_shape LN 1000 1 ^test”
 
@@ -277,7 +318,7 @@ Definition compile_prog_with_map_def:
        NONE =>
          let (n, ys) = compile_prog_with_map csh_map next xs in
            (n, (loc, arity, exp)::ys)
-     | SOME (wrapper, worker, new_map) =>
+     | SOME (worker, wrapper, new_map) =>
          let (n, ys) = compile_prog_with_map new_map (next + bvl_to_bvi_namespaces) xs in
            (n, (loc, arity, wrapper)::(next, arity, worker)::ys))
 End
@@ -288,96 +329,8 @@ End
 
         
 val res = EVAL “compile_prog 1004 [(1000n, 1n, ^test_rec)]”;
-(* = (1008,
-      [(1000,1,
-        If (Op (BlockOp (EqualConst (Int 0))) [Var 0])
-          (Let [Call 0 (SOME 300) [Var 0] NONE]
-             (Return
-                [Var 0; Var 0;
-                 Op (IntOp Add) [Var 0; Op (IntOp (Const 1)) []]]))
-          (Let [Call 0 (SOME 300) [Var 0] NONE]
-             (LetCall 3 0 1004
-                [Op (IntOp Add) [Var 0; Op (IntOp (Const 1)) []]]
-                (Return [Var 0; Var 1; Var 2]))));
-       (1004,1,
-        LetCall 3 0 1004 [Var 0]
-          (Op (BlockOp (Cons 0))
-             [Op (BlockOp (Cons 0)) [Var 1; Var 2]; Var 3]))]) *)
 
-              
+
+
+             
 val res_new = EVAL “compile_prog 2000 [(1000n, 1n, ^test1);(1004, 1n, ^test2)]”;
-
-
-    
-val let1 = “Let [e1;e2;LetCall 2 0 2004 [Var 0] (Op (BlockOp (Cons 0)) [Var 1; Var 2]); e3;e4] e”
-
-val let2 = “Let [e1;e2] (LetCall 2 0 2004 [Var 0] )”
-
-
-
-
-Definition remap_add_def:
-  (remap_add _ 0n (shift:num) = [shift]) ∧
-  (remap_add [] (SUC n) shift = 0::remap_add [] n shift) ∧
-  (remap_add (remap::remapping) (SUC n) shift = remap::remap_add remapping n shift)
-End
-
-val test_remap = EVAL “remap_add [] 2 2”
-        
-(* Let opt *)
-Definition lcop_unfold_def:
-  (lcop_unfold remapping _ (Var n) = Var (n + SUM (TAKE (n + 1) remapping))) ∧
-  (lcop_unfold remapping curr_v (If g e1 e2) =
-   If g (lcop_unfold remapping curr_v e1) (lcop_unfold remapping curr_v e2)) ∧
-  (lcop_unfold remapping curr_v (Let vs e) = lcop_unfold_lets remapping curr_v vs e []) ∧
-  (lcop_unfold remapping curr_v (Op op es) = Op op (MAP (lcop_unfold remapping curr_v) es)) ∧
-  (lcop_unfold _ _ e = e) (* TODO *) ∧
-
-  (lcop_unfold_lets remapping curr_v [] e racc = Let (REVERSE racc) (lcop_unfold remapping curr_v e)) ∧
-  (lcop_unfold_lets remapping curr_v (x::xs) e racc =
-   case x of
-     LetCall nret ticks f args body =>
-       let new_remap = remap_add remapping curr_v nret;
-           body_shift = curr_v + SUM (TAKE (curr_v + 1) remapping)
-       in
-       Let (REVERSE racc)
-           (LetCall nret ticks f (MAP (lcop_unfold remapping curr_v) args)
-                    (lcop_unfold_lets new_remap (curr_v + 1) xs e [lcop_unfold [body_shift] nret body]))
-       | _ => lcop_unfold_lets remapping (curr_v + 1) xs e ((lcop_unfold remapping curr_v x)::racc))
-Termination
-  wf_rel_tac ‘measure (λx.
-                         case x of
-                           INL (_, _, e)         => 2 * exp_size e
-                         | INR (_, _, xs, e, _)  => 2 * (list_size exp_size xs + exp_size e) + 1)’
-End
-
-
-val lcop_test1 = EVAL “lcop_unfold [] 0 (Let [Op (IntOp (Const 0)) [];
-                                              Op (IntOp (Const 1)) [];
-                                              LetCall 2 0 300 [Var 0;Var 1]
-                                                      (Op (BlockOp (Cons 0)) [Var 0; Var 1]);
-                                             ] (Op (BlockOp (Cons 0)) [Var 2; Var 2]))”
-
-
-val lcop_test = EVAL “lcop_unfold [] 0 (Let [Op (IntOp (Const 0)) [];
-                                             Op (IntOp (Const 1)) [];
-                                             LetCall 2 0 300 [Var 0;Var 1]
-                                                     (Op (BlockOp (Cons 0)) [Var 0; Var 1]);
-                                             Op (IntOp (Const 0)) [];
-                                             Op (IntOp (Const 1)) [];
-                                             LetCall 2 0 300 [Var 3;Var 4]
-                                                     (Op (BlockOp (Cons 0)) [Var 0; Var 1]);
-                                            ] (Op (BlockOp (Cons 0)) [Var 2; Var 5]))”
-
-                                              
-(* Let [Op (IntOp (Const 0)) []; Op (IntOp (Const 1)) []]
-       (LetCall 2 0 300 [Var 0; Var 1]
-          (Let
-             [Op (BlockOp (Cons 0)) [Var 2; Var 3]; Op (IntOp (Const 0)) [];
-              Op (IntOp (Const 1)) []]
-             (LetCall 2 0 300 [Var 5; Var 6]
-                (Let [Op (BlockOp (Cons 0)) [Var 7; Var 8]]
-                   (Op (BlockOp (Cons 0)) [Var 4; Var 9])))))
-*)
-
-                     
