@@ -1177,27 +1177,17 @@ Proof
   \\ PairCases_on ‘h’ \\ fs []
 QED
 
-(*
-Definition weaken_aux_def:
-  (weaken_aux v [] n = ([],n)) ∧
-  (weaken_aux v ((c:int,l)::xs) n =
-    let (xs',n') = weaken_aux v xs n in
-     if l = v then
-      (xs',n'-Num(ABS c))
-    else
-      ((c,l)::xs',n'))
-End
-*)
-
 (* List weakening
-  assumes the constraint is compact
-  weakens the vs in order *)
+  assumes the constraint is compact and vs is strictly sorted;
+  a v that does not occur in the constraint is skipped *)
 Definition weaken_aux_def:
   (weaken_aux vs [] n = ([],n)) ∧
   (weaken_aux [] xs n = (xs,n)) ∧
   (weaken_aux (v::vs) ((c:int,l)::xs) n =
     if l = v then
       weaken_aux vs xs (n-ABS c)
+    else if v < l then
+      weaken_aux vs ((c,l)::xs) n
     else
     let (xs',n') = weaken_aux (v::vs) xs n in
       ((c,l)::xs',n'))

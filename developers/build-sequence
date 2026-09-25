@@ -156,6 +156,10 @@ examples/cnf/dist
 examples/cnf/dist/array
 examples/cnf/dist/array/compilation
 examples/cnf/dist/array/compilation/proofs
+examples/cnf/lrup
+examples/cnf/lrup/array
+examples/cnf/lrup/array/compilation
+examples/cnf/lrup/array/compilation/proofs
 
 examples/scpog_checker
 examples/scpog_checker/array
@@ -169,6 +173,12 @@ examples/pseudo_bool/array
 examples/pseudo_bool/array/compilation
 examples/pseudo_bool/array/compilation/proofs
 examples/pseudo_bool/array/compilation/proofsARM8
+examples/pseudo_bool/cnf_encoding/array
+examples/pseudo_bool/cnf_encoding/array/compilation
+examples/pseudo_bool/cnf_encoding/array/compilation/proofs
+examples/pseudo_bool/graph_encoding/array
+examples/pseudo_bool/graph_encoding/array/compilation
+examples/pseudo_bool/graph_encoding/array/compilation/proofs
 examples/pseudo_bool/cp_encoding
 examples/pseudo_bool/cp_encoding/array
 examples/pseudo_bool/cp_encoding/array/compilation

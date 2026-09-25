@@ -5,7 +5,7 @@ Theory npbc_arrayProg
 Libs
   preamble basis
 Ancestors
-  UnsafeProg UnsafeProof npbc npbc_list
+  UnsafeProg UnsafeProof npbc npbc_list pb_parse
 
 val _ = hide_environments true;
 val _ = translation_extends"UnsafeProg";
@@ -734,43 +734,22 @@ Proof
   fs[EL_REPLICATE]
 QED
 
-Definition coeff_lit_string_def:
-  coeff_lit_string (c,v:var) =
-    if c < 0
-    then toString (Num ~c) ^ « ~x»^ toString v
-    else toString (Num c) ^ « x»^ toString v
-End
-
-Definition npbc_lhs_string_def:
-  npbc_lhs_string (xs: ((int # var) list)) =
-  concatWith « »
-    (MAP coeff_lit_string xs)
-End
-
-Definition npbc_string_def:
-  (npbc_string (xs,i:int) =
-    concat [
-      npbc_lhs_string xs;
-      « >= »;
-      toString  i; «;»])
-End
-
 Definition err_check_string_def:
   err_check_string c c' =
   concat[
     «constraint id check failed. expect: »;
-    npbc_string c;
+    npbc_constr_string c;
     « got (in checker): »;
-    npbc_string c']
+    npbc_constr_string c']
 End
 
 Definition err_imp_string_def:
   err_imp_string c c' =
   concat[
     «imply-add for constraint id. expect: »;
-    npbc_string c;
+    npbc_constr_string c;
     « from: »;
-    npbc_string c']
+    npbc_constr_string c']
 End
 
 val res = translate coeff_lit_string_def;
@@ -782,6 +761,7 @@ val coeff_lit_string_side = Q.prove(
 ) |> update_precondition;
 
 val res = translate npbc_lhs_string_def;
+val res = translate npbc_constr_string_def;
 val res = translate npbc_string_def;
 val res = translate err_check_string_def;
 val res = translate err_imp_string_def;
@@ -2758,7 +2738,7 @@ Quote add_cakeml:
   | l::ls =>
     if in_hashset_arr l hs then
       every_hs hs ls
-    else Some (npbc_string l)
+    else Some (npbc_constr_string l)
 End
 
 Theorem every_hs_spec:

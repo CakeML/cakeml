@@ -111,6 +111,42 @@ Definition strip_annot_prob_def:
   (pres,obj,MAP SND afml)
 End
 
+(***
+  Printing normalised constraints.
+
+  Variables are numbered rather than named, so a coefficient carries the sign
+  of its literal: (c,v) prints as |c| x_v when c is positive and |c| ~x_v when
+  it is negative.
+
+  As for pbc, the fragments carry no line terminator and npbc_string prints one
+  constraint per line.
+***)
+
+Definition coeff_lit_string_def:
+  coeff_lit_string (c,v:var) =
+    if c < 0
+    then toString (Num ~c) ^ « ~x»^ toString v
+    else toString (Num c) ^ « x»^ toString v
+End
+
+Definition npbc_lhs_string_def:
+  npbc_lhs_string (xs: ((int # var) list)) =
+  concatWith « »
+    (MAP coeff_lit_string xs)
+End
+
+Definition npbc_constr_string_def:
+  (npbc_constr_string (xs,i:int) =
+    concat [
+      npbc_lhs_string xs;
+      « >= »;
+      int_to_string #"-" i; «;»])
+End
+
+Definition npbc_string_def:
+  npbc_string c = npbc_constr_string c ^ «\n»
+End
+
 (*
   Parse an OPB file as a string-variabled PB problem
 *)

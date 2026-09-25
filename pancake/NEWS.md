@@ -5,6 +5,21 @@ User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
 
+Sep 2nd 2026
+-------------------
+
+### Feature tags
+
+It is now possible to query whether a compiler binary supports a given
+Pancake feature, using the following command-line option:
+
+    ./cake --pancake_feature=[tag]
+
+This will print `true` or `false` depending on whether `[tag]` is the
+tag of an enabled feature. Feature tags, and when they become enabled
+or disabled, is documented in this NEWS file. For example, and
+`varshifts` and `exndecls` are feature tags.
+
 Aug 20th 2026
 -------------------
 
@@ -18,6 +33,8 @@ Pancake now supports variable length shifts.
       return 1 + 1 << a + 3; // shift lengths can be arbitrary expressions, so this too is permitted
     }
 
+<sub>Feature enabled: `varshifts`</sub>
+
 Aug 18th 2026
 -------------------
 
@@ -27,7 +44,7 @@ Pancake now supports exception declarations, and has a revised
 exception syntax. For example:
 
     exception Err : 1; // Declare an exception Err with payload of shape 1
-    
+
     fun 1 f() {
       throw Err (5+1); // Throw exception Err with payload 6 attached.
     }
@@ -44,6 +61,8 @@ exception syntax. For example:
 Between `try` and `catch`, only function calls of the form `f(args)`
 or `x = f(args)` are allowed. Note also that the occurrence of `x` in
 the `catch` clause is not a binding occurrence.
+
+<sub>Feature enabled: `exndecls`</sub>
 
 Jul 30th 2026
 -------------------
@@ -75,6 +94,7 @@ Syntax example:
 Permitted positions for `__add_with_carry__` are declaration RHS and assignment RHS;
 standalone, handler-attached, and tail-return calls are not supported.
 
+<sub>Feature enabled: `add_with_carry`</sub>
 
 May 21st 2026
 -------------------
@@ -114,6 +134,8 @@ But this is not:
 
 Named structs are treated as separate shapes to their unnamed counterparts during static checking.
 
+<sub>Feature enabled: `structs`</sub>
+
 April 24th 2026
 -------------------
 
@@ -123,6 +145,19 @@ The Pancake compiler now unconditionally compiles with GC set to `none`; any
 `--gc=...` flag passed alongside `--pancake` is silently ignored. This removes
 the unused GC runtime that Zhewen Shen's BSc thesis (p. 35) noted was being
 linked into every Pancake binary.
+
+February 6th 2026
+-------------------
+
+### Function inlining
+
+The new `inline` keyword before function signatures marks functions
+that are to be considered for inlining. Function calls with exception
+handlers are never inlined. Syntax example:
+
+    inline fun 1 add5(1 x) { return x + 5; }
+
+<sub>Feature enabled: `inline`</sub>
 
 August 26th 2025
 -------------------
@@ -135,6 +170,8 @@ devices. The syntax is as follows:
 
     !st16 1000, v; // store 16 bits from variable v (12) to shared memory address 1000
     !ld16 v, 1000 + 12; // load 16 bits from shared memory address 1012 to v
+
+<sub>Feature enabled: `16bitshmem`</sub>
 
 ### Shape declarations
 
@@ -149,15 +186,21 @@ in addition to global variables and function arguments:
 
 If a shape is not provided in any place it is expected, the compiler assumes a default shape of `1`.
 
+<sub>Feature enabled: `shapedecls`</sub>
+
 ### Extended static errors
 
 The compiler has new errors to enforce sensible usage of shapes.
 Warnings for estimated locations of memory addresses now support struct fields.
 
+<sub>Feature enabled: `shapechecks`</sub>
+
 ### Silver backend not supported
 
 The Silver (`ag32`) compilation target is no longer supported by the Pancake compiler,
 and no longer considered in the Pancake compiler correctness proofs.
+
+<sub>Feature disabled: `ag32`</sub>
 
 August 20th 2025
 -------------------
@@ -174,16 +217,22 @@ Pancake now supports global variables. Syntax examples:
     }
     var z = 7; // ...regardless of declaration order
 
+<sub>Feature enabled: `globals`</sub>
+
 ### Top address
 
 The new `@top` keyword is an analogue to `@base`, which tells you where internal memory ends.
 The addressable internal memory is thus all aligned addresses `w` such that `@base <= w < @top`.
 `@base` and `@top` are always word-aligned.
 
+<sub>Feature enabled: `top`</sub>
+
 ### Function pointers no longer supported
 
 Previous versions of Pancake allowed storing function pointers in variables
 and internal memory. This feature is now dropped.
+
+<sub>Feature disabled: `funptrs`</sub>
 
 May 13th 2025
 -------------------
@@ -193,6 +242,8 @@ The syntax is as exemplified here.
 
     st32 @base, v; // store 32 bits from variable v to @base
     v = ld32 @base+4 // load 32 bits from address @base+4 to variable v.
+
+<sub>Feature disabled: `32bit`</sub>
 
 March 27th 2025
 -------------------
@@ -208,12 +259,17 @@ warnings, such as missing `return` statements in function definitions.
 Previously, this was limited to out-of-scope errors. Errors and warnings
 include the location where the issue was found.
 
+<sub>Feature enabled: `staticchecks`</sub>
+
 November 11th 2024
 -------------------
 
 The syntax for annotations is changed from `/*@ ... @*/` to
 `/@ ... @/`. This is to allow annotation strings to be processed
 by the C preprocessor, rather than being ignored as comments.
+
+<sub>Feature enabled: `annots`</sub>
+<sub>Feature disabled: `oldannots`</sub>
 
 October 30th 2024
 -------------------
@@ -228,6 +284,8 @@ loops and `if` statements. So, e.g.,
 is now well-formed, and equivalent to
 
     while(1) { skip; }
+
+<sub>Feature enabled: `emptyblocks`</sub>
 
 September 15th 2024
 -------------------
@@ -249,6 +307,8 @@ arbitrary shapes.
 The precedence of load expressions (`lds` and `ld8`) has also been
 changed to be between that of comparisons and bitwise operators.
 
+<sub>Feature enabled: `st`</sub>
+
 August 26th 2024
 -------------------
 
@@ -256,6 +316,8 @@ A new keyword, `@biw` (bytes in word), has been added. `@biw` is a
 constant expression whose value is `8` on 64-bit architectures and `4`
 on 32-bit architectures. Its purpose is to make portable code easier
 to write.
+
+<sub>Feature enabled: `biw`</sub>
 
 August 25th 2024
 -------------------
@@ -269,6 +331,8 @@ devices. The syntax is as follows:
     !st32 1000, v; // store 32 bits from variable v (12) to shared memory address 1000
     !ld32 v, 1000 + 12; // load 32 bits from shared memory address 1012 to v
 
+<sub>Feature enabled: `32bitshmem`</sub>
+
 ### Annotation comments ###
 
 The parser now supports a special comment format called *annotations*,
@@ -280,12 +344,15 @@ consume Pancake abstract syntax produced by the explorer.
 Location information is also retained in the AST in the form of
 such `Annot` nodes.
 
+<sub>Feature enabled: `oldannots`</sub>
+
 August 24th 2024
 -------------------
 
 The compiler flag `--main_return=true` now passes the return value
 from the Pancake main function to the caller via `cml_main`.
 
+<sub>Feature enabled: `main_return`</sub>
 
 July 29th 2024
 -------------------
@@ -300,6 +367,8 @@ July 28th 2024
 The compiler now supports the `--explore` command line parameter when
 compiling Pancake programs. It can be used to output the various
 intermediate representations produced during compilation as text.
+
+<sub>Feature enabled: `explore`</sub>
 
 July 1st 2024
 -------------------
@@ -330,15 +399,21 @@ The new compiler flag `main_return` can be used to return control to
 the caller, instead of exiting, after the main function has finished
 executing. By default, this flag is set to `false`.
 
+<sub>Feature enabled: `mep`</sub>
+
 June 26th 2024
 -------------------
 
 Signed word comparison operators `<+`, `<=+`, `>=+` and `>+` have been added.
 
+<sub>Feature enabled: `swcomp`</sub>
+
 June 9th 2024
 -------------------
 
 The operators `&&` (logical AND) and `||` (logical OR) have been added.
+
+<sub>Feature enabled: `andor`</sub>
 
 June 5th 2024
 -------------------

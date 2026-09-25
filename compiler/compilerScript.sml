@@ -11,7 +11,7 @@ Ancestors
   export_x64 arm8_config export_arm8 riscv_config export_riscv
   mips_config export_mips arm7_config export_arm7 ag32_config
   export_ag32 panPtreeConversion pan_to_target panStatic
-  pan_passes
+  pan_passes news
 Libs
   preamble
 
@@ -81,6 +81,12 @@ OPTIONS:
   --explore     outputs intermediate forms of the compiled program
 
   --pancake     takes a pancake program as input
+
+  --pancake_feature=T  here S can be any string denoting a Pancake feature tag.
+                Prints true or false depending on whether this
+                compiler binary supports feature T.
+                Tags are documented in the NEWS.md in the pancake/
+                subdirectory at code.cakeml.org
 
   --no_warn     silences pancake warning output
 
@@ -343,6 +349,10 @@ Definition parse_bool_def:
   else NONE
 End
 
+Definition print_bool_def:
+  print_bool b = if b then «true» else «false»
+End
+
 (* Finds the first occurence of the flag and
   returns the rest of the string after it *)
 Definition find_str_def:
@@ -518,6 +528,13 @@ Definition parse_gc_def:
       | INR s =>
         INR (concat [«Error parsing GenGC argument: »;s])
     else INR (concat [«Unrecognized GC option: »;rest])
+End
+
+Definition parse_pancake_feature_def:
+  parse_pancake_feature ls =
+  case find_str «--pancake_feature=» ls of
+    NONE => NONE
+  | SOME rest => SOME rest
 End
 
 (*
@@ -763,13 +780,16 @@ Definition full_compile_64_def:
   else if has_version_flag cl then
     add_stdout fs current_build_info_str
   else
-    let (out, err) =
-        if has_pancake_flag cl then
-          compile_pancake_64 cl inp
-        else
-          compile_64 cl inp
-    in
-      add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err
+    case parse_pancake_feature cl of
+      SOME rest => add_stdout fs $ print_bool $ query_news rest
+    | NONE =>
+        let (out, err) =
+            if has_pancake_flag cl then
+              compile_pancake_64 cl inp
+            else
+              compile_64 cl inp
+        in
+          add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err
 End
 
 Definition compile_32_def:
@@ -839,11 +859,14 @@ Definition full_compile_32_def:
   else if has_version_flag cl then
     add_stdout fs current_build_info_str
   else
-    let (out, err) =
-        if has_pancake_flag cl then
-          compile_pancake_32 cl inp
-        else
-          compile_32 cl inp
-    in
-      add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err
+    case parse_pancake_feature cl of
+      SOME rest => add_stdout fs $ print_bool $ query_news rest
+    | NONE =>
+        let (out, err) =
+            if has_pancake_flag cl then
+              compile_pancake_32 cl inp
+            else
+              compile_32 cl inp
+        in
+          add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err
 End

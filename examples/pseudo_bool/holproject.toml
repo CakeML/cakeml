@@ -3,5 +3,5 @@ name = "pseudo_bool"
 [projects.cakeml]
 path = "../.."
 
-[projects.lpr_checker]
-path = "../lpr_checker"
+[projects.cnf]
+path = "../cnf"

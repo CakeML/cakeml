@@ -3,18 +3,29 @@
 *)
 Theory cnf_to_pb
 Ancestors
-  pbc pbc_normalise lpr_parsing
+  pbc pbc_normalise cnf syntax_helper dimacs
 Libs
   preamble
 
-(* Convert CNF in int list list representation to pbc *)
+(* cnf and pbc both name their literal constructors Pos/Neg, so every
+  literal below is written with its theory qualifier. *)
+Definition to_pblit_def:
+  (to_pblit (cnf$Pos v) = pbc$Pos v) ∧
+  (to_pblit (cnf$Neg v) = pbc$Neg v)
+End
+
+Theorem eval_term_to_pblit[simp]:
+  eval_term w (1:int,to_pblit l) = 1 ⇔ satisfies_lit w l
+Proof
+  `∀b:bool. b2i b = 1 ⇔ b` by (Cases>>simp[])>>
+  Cases_on`l`>>simp[to_pblit_def,satisfies_lit_def]
+QED
+
+(* A clause is canonicalised before it is encoded, so a literal repeated
+  in the clause contributes only one term to the constraint *)
 Definition clause_to_pbc_def:
   clause_to_pbc cl =
-  let ls = MAP (λl.
-    if l > 0 then
-      (1,Pos (Num (ABS l)))
-    else
-      (1:int,Neg (Num (ABS l)))) cl in
+  let ls = MAP (λl. (1:int, to_pblit l)) (canon_clause cl) in
   (PGe,ls,1:int)
 End
 
@@ -59,26 +70,12 @@ Proof
 QED
 
 Theorem clause_to_pbc_sound:
-  wf_clause cl ⇒
-  (satisfies_clause w (interp_cclause cl) ⇔
-  satisfies_pbc w (clause_to_pbc cl))
+  satisfies_clause w cl ⇔
+  satisfies_pbc w (clause_to_pbc cl)
 Proof
-  rw[clause_to_pbc_def,satisfies_pbc_def]>>
+  rw[clause_to_pbc_def]>>
   DEP_REWRITE_TAC[eval_lin_term_coeff_1]>>
-  rw[MEM_MAP]
-  >-
-    (IF_CASES_TAC>>simp[])>>
-  simp[satSemTheory.satisfies_clause_def,lprTheory.interp_cclause_def,lprTheory.interp_lit_def,PULL_EXISTS]>>
-  eq_tac>>rw[]
-  >- (
-    asm_exists_tac>>simp[]>>
-    rw[]>>fs[]>>
-    fs[satSemTheory.satisfies_literal_def])>>
-  asm_exists_tac>>fs[lprTheory.wf_clause_def]>>
-  CONJ_TAC >- metis_tac[]>>
-  rw[]>>
-  fs[satSemTheory.satisfies_literal_def]>>
-  Cases_on`w (Num (ABS l'))`>>fs[]
+  rw[MEM_MAP,satisfies_clause_def,PULL_EXISTS]
 QED
 
 Theorem FST_clause_to_pbc[simp]:
@@ -88,22 +85,20 @@ Proof
 QED
 
 Theorem fml_to_pbf_sound:
-  EVERY wf_clause fml ⇒
-  (satisfies w (interp fml) ⇔
-  satisfies w (set (fml_to_pbf fml)))
+  satisfies_cnf w (set fml) ⇔
+  satisfies w (set (fml_to_pbf fml))
 Proof
   rw[fml_to_pbf_def,normalise_thm]>>
-  gvs[EVERY_MEM]>>
-  rw[pbcTheory.satisfies_def,lprTheory.interp_def,satSemTheory.satisfies_def,
+  rw[pbcTheory.satisfies_def,satisfies_cnf_def,satisfies_fml_gen_def,
     PULL_EXISTS,MEM_MAP]>>
   metis_tac[clause_to_pbc_sound]
 QED
 
-Theorem fml_to_pbf_parse_dimacs:
-  parse_dimacs strs = SOME fml ⇒
-  (satisfies w (interp fml) ⇔
-  satisfies w (set (fml_to_pbf fml)))
+(* Canonicalisation happens before the encoding, so a clause written with
+  a repeated literal yields only one term for it *)
+Theorem clause_to_pbc_test[local]:
+  clause_to_pbc (THE (parse_lits 5 (toks «2 2 4 0»))) =
+  (PGe,[(1,pbc$Pos 4); (1,pbc$Pos 2)],1)
 Proof
-  metis_tac[ fml_to_pbf_sound,parse_dimacs_wf]
+  EVAL_TAC
 QED
-
