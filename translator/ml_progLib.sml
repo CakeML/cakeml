@@ -532,22 +532,22 @@ fun add_dec dec_tm pick_name s =
     val n = dest_Pvar p
     in add_Dlet_lit loc n l s end
   else if is_Dlet dec_tm
-          andalso is_Var (rand dec_tm)
+          andalso is_Ident (rand dec_tm)
           andalso is_Pvar (rand (rator dec_tm)) then let
     val (loc,p,f) = dest_Dlet dec_tm
     val v_tm = dest_Pvar p
-    val var_name = dest_Var f
+    val var_name = dest_Ident f
     in add_Dlet_Var_Var loc v_tm var_name s end
   else if is_Dlet dec_tm
           andalso is_App (rand dec_tm)
           andalso aconv Opref (rand (rator (rand dec_tm)))
           andalso length (fst (listSyntax.dest_list (rand (rand dec_tm)))) = 1
-          andalso is_Var (rand (rator (rand (rand dec_tm))))
+          andalso is_Ident (rand (rator (rand (rand dec_tm))))
           andalso is_Pvar (rand (rator dec_tm)) then let
     val (loc,p,f) = dest_Dlet dec_tm
     val n = dest_Pvar p
     val (_,args) = dest_App f
-    val var_name = dest_Var (listSyntax.dest_list args |> fst |> hd)
+    val var_name = dest_Ident (listSyntax.dest_list args |> fst |> hd)
     val prefix = get_mod_prefix s
     val v_name = prefix ^ pick_name (mlstringSyntax.dest_mlstring n) ^ "_v"
     in add_Dlet_Var_Ref_Var loc n var_name v_name s end

@@ -7688,7 +7688,7 @@ Definition heap_in_memory_store_def:
     (* +3 is breathing room for lists: *)
     (heap_length heap + 3) * (dimindex (:'a) DIV 8) < dimword (:'a) /\
     shift (:'a) <= shift_length c /\ c.len_size <> 0 /\
-    c.len_size + 7 (* 5 tag bits + 2-3 bits for byte arrays *) < dimindex (:'a) /\
+    c.len_size + 9 (* enough space to make bit indices smallnums *) < dimindex (:'a) /\
     shift_length c < dimindex (:'a) /\ Globals ∈ FDOM s /\
     ?curr other.
       byte_aligned curr /\ byte_aligned other /\
@@ -9771,6 +9771,14 @@ Proof
   \\ fs [word_addr_def,BlockNil_def,WORD_MUL_LSL,word_mul_n2w]
   \\ fs [GSYM word_mul_n2w]
   \\ match_mp_tac BlockNil_and_lemma \\ fs []
+QED
+
+Theorem IMP_memory_rel_Cons_empty:
+  memory_rel c be ts refs sp st m dm vars ∧ tag < dimword (:α) DIV 4 ∧
+  good_dimindex (:α) ∧ w = BlockNil tag ⇒
+  memory_rel c be ts refs sp st m dm ((Block 0 tag [],Word (w:'a word))::vars)
+Proof
+  metis_tac [memory_rel_Cons_empty]
 QED
 
 Theorem memory_rel_Ref:
@@ -12025,10 +12033,10 @@ Theorem memory_rel_ByteArray_IMP:
            Word (set_byte addr w (theWord (m (byte_align addr))) be)) m) dm
            ((RefPtr bl p,v)::vars)) ∧
      if dimindex (:'a) = 32 then
-       LENGTH vals + 4 < 2 ** (dimindex (:'a) - 3) /\
+       LENGTH vals + 4 < 2 ** (dimindex (:'a) - 5) /\
        (x >>> (dimindex (:'a) - c.len_size - 2) = n2w (LENGTH vals + 4))
      else
-       LENGTH vals + 8 < 2 ** (dimindex (:'a) - 3) /\
+       LENGTH vals + 8 < 2 ** (dimindex (:'a) - 5) /\
        (x >>> (dimindex (:'a) - c.len_size - 3) = n2w (LENGTH vals + 8))
 Proof
   CONV_TAC(RAND_CONV(REWRITE_CONV[GSYM hide_memory_rel_def]))
@@ -12236,7 +12244,7 @@ Proof
     \\ simp []
     \\ conj_tac
     >- (
-      `c.len_size + 2 ≤ 29` by decide_tac
+      `c.len_size + 2 ≤ 27` by decide_tac
       \\ old_drule bitTheory.TWOEXP_MONO2
       \\ CONV_TAC(LAND_CONV(RAND_CONV(SIMP_CONV(srw_ss())[])))
       \\ decide_tac)
@@ -12268,7 +12276,7 @@ Proof
     \\ simp[] \\ rfs [dimword_def]
     \\ conj_tac
     >- (
-      `c.len_size + 3 ≤ 61` by decide_tac
+      `c.len_size + 3 ≤ 59` by decide_tac
       \\ old_drule bitTheory.TWOEXP_MONO2
       \\ CONV_TAC(LAND_CONV(RAND_CONV(SIMP_CONV(srw_ss())[])))
       \\ decide_tac)

@@ -480,6 +480,8 @@ Definition type_op_def:
     | (Aw8sub, [t1; t2]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t = Tword8)
     | (Aw8length, [t1]) => (t1 = Tword8array) /\ (t = Tint)
     | (Aw8update, [t1; t2; t3]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tword8) /\ (t = Ttup [])
+    | (Aw8subBit, [t1; t2]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t = Tbool)
+    | (Aw8updateBit, [t1; t2; t3]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tbool) /\ (t = Ttup [])
     | (CopyStrStr, [t1; t2; t3]) => (t1 = Tstring) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t = Tstring)
     | (CopyStrAw8, [t1; t2; t3; t4; t5]) =>
       (t1 = Tstring) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t4 = Tword8array) /\ (t5 = Tint) /\ (t = Ttup [])

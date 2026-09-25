@@ -92,6 +92,8 @@ Datatype:
   | Aw8sub
   | Aw8length
   | Aw8update
+  | Aw8subBit
+  | Aw8updateBit
   (* string/bytearray conversions *)
   | CopyStrStr
   | CopyStrAw8
@@ -121,6 +123,8 @@ Datatype:
   | Aupdate_unsafe
   | Aw8sub_unsafe
   | Aw8update_unsafe
+  | Aw8subBit_unsafe
+  | Aw8updateBit_unsafe
   (* thunk operations *)
   | ThunkOp thunk_op
   (* List operations *)
@@ -200,7 +204,7 @@ Datatype:
   (* Constructor application.
      A Nothing constructor indicates a tuple pattern. *)
   | Con (((modN, conN)id)option) (exp list)
-  | Var ((modN, varN) id)
+  | Ident ((modN, varN) id)
   | Fun varN exp
   (* Application a primitive operator to arguments.
      Includes function application. *)
@@ -225,6 +229,8 @@ Datatype:
   (* Open one non-empty module path for the lexical scope of the body. *)
   | Open (modN list) exp
 End
+
+Overload Var = “Ident”
 
 Type type_def = ``: ( tvarN list # typeN # (conN # ast_t list) list) list``
 
@@ -292,8 +298,8 @@ Definition every_exp_def[simp]:
              p (ast$Lit l)) ∧
   (every_exp p (Con cn es) ⇔
              p (Con cn es) ∧ EVERY (every_exp p) es) ∧
-  (every_exp p (Var v) ⇔
-             p (Var v)) ∧
+  (every_exp p (Ident v) ⇔
+             p (Ident v)) ∧
   (every_exp p (Fun x e) ⇔
              p (Fun x e) ∧ every_exp p e) ∧
   (every_exp p (App op es) ⇔

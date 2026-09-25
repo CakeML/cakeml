@@ -351,7 +351,7 @@ End
 Definition simple_dlet_def:
   simple_dlet p e =
     case p of
-    | ast$Pvar pv => (case e of ast$Var v => SOME (pv,v) | _ => NONE)
+    | ast$Pvar pv => (case e of ast$Ident v => SOME (pv,v) | _ => NONE)
     | _ => NONE
 End
 

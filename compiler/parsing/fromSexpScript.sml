@@ -742,6 +742,10 @@ Definition sexpop_def:
   if s = "CopyAw8Str" then SOME CopyAw8Str else
   if s = "CopyAw8Aw8" then SOME CopyAw8Aw8 else
   if s = "XorAw8Strunsafe" then SOME XorAw8Str_unsafe else
+  if s = "Aw8subBit" then SOME Aw8subBit else
+  if s = "Aw8updateBit" then SOME Aw8updateBit else
+  if s = "Aw8subBitunsafe" then SOME Aw8subBit_unsafe else
+  if s = "Aw8updateBitunsafe" then SOME Aw8updateBit_unsafe else
   if s = "Implode" then SOME Implode else
   if s = "Explode" then SOME Explode else
   if s = "Strsub" then SOME Strsub else
@@ -831,7 +835,7 @@ Definition sexpexp_def:
             (lift2 Con
                    (sexpopt (sexpid odestSEXSTR) (EL 0 args))
                    (sexplist sexpexp (EL 1 args))) ++
-      guard (nm = "Var" ∧ LENGTH args = 1)
+      guard (nm = "Ident" ∧ LENGTH args = 1)
             (lift Var (sexpid odestSEXSTR (EL 0 args))) ++
       guard (nm = "Fun" ∧ LENGTH args = 2)
             (lift2 Fun (odestSEXSTR (EL 0 args)) (sexpexp (EL 1 args))) ++
@@ -896,7 +900,7 @@ Definition sexpexp_alt_def:
              OPTION_MAP2 Con (sexpopt (sexpid odestSEXSTR) (EL 0 args))
                (sexpexp_list (EL 1 args))
            else
-          if nm = "Var" ∧ LENGTH args = 1 then
+          if nm = "Ident" ∧ LENGTH args = 1 then
              lift Var (sexpid odestSEXSTR (EL 0 args))
            else
           if nm = "Fun" ∧ LENGTH args = 2 then
@@ -1570,6 +1574,10 @@ Definition opsexp_def:
   (opsexp CopyAw8Str = SX_SYM "CopyAw8Str") ∧
   (opsexp CopyAw8Aw8 = SX_SYM "CopyAw8Aw8") ∧
   (opsexp XorAw8Str_unsafe = SX_SYM "XorAw8Strunsafe") ∧
+  (opsexp Aw8subBit = SX_SYM "Aw8subBit") ∧
+  (opsexp Aw8updateBit = SX_SYM "Aw8updateBit") ∧
+  (opsexp Aw8subBit_unsafe = SX_SYM "Aw8subBitunsafe") ∧
+  (opsexp Aw8updateBit_unsafe = SX_SYM "Aw8updateBitunsafe") ∧
   (opsexp Implode = SX_SYM "Implode") ∧
   (opsexp Explode = SX_SYM "Explode") ∧
   (opsexp Strsub = SX_SYM "Strsub") ∧
@@ -1675,7 +1683,7 @@ Definition expsexp_def:
   expsexp (Con cn es) =
     listsexp [SX_SYM "Con"; optsexp (OPTION_MAP idsexp cn);
               listsexp (MAP expsexp es)] ∧
-  expsexp (Var id) = listsexp [SX_SYM "Var"; idsexp id] ∧
+  expsexp (Var id) = listsexp [SX_SYM "Ident"; idsexp id] ∧
   expsexp (Fun x e) = listsexp [SX_SYM "Fun"; SEXSTR (explode x); expsexp e] ∧
   expsexp (App op es) =
     listsexp [SX_SYM "App"; opsexp op; listsexp (MAP expsexp es)] ∧
@@ -2106,7 +2114,7 @@ Proof
   \\ simp[Once sexpexp_def, EXISTS_PROD, dstrip_sexp_SOME, PULL_EXISTS]
   \\ rpt gen_tac
   \\ rename1 `guard (nm = "Raise" ∧ _) _`
-  \\ reverse (Cases_on `nm ∈ {"Raise"; "Handle"; "Lit"; "Con"; "Var"; "Fun";
+  \\ reverse (Cases_on `nm ∈ {"Raise"; "Handle"; "Lit"; "Con"; "Ident"; "Fun";
                               "App"; "Log"; "If"; "Mat"; "Let"; "Letrec";
                               "Lannot"; "Tannot"; "Open"}`)
   \\ pop_assum mp_tac

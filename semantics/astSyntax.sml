@@ -87,7 +87,7 @@ structure astSyntax = struct
   val (Raise_tm,mk_Raise,dest_Raise,is_Raise) = s "Raise";
   val (Shift_tm,mk_Shift,dest_Shift,is_Shift) = s "Shift";
   val (StrLit_tm,mk_StrLit,dest_StrLit,is_StrLit) = s "StrLit";
-  val (Var_tm,mk_Var,dest_Var,is_Var) = s "Var";
+  val (Ident_tm,mk_Ident,dest_Ident,is_Ident) = s "Ident";
   val (Word64_tm,mk_Word64,dest_Word64,is_Word64) = s "Word64";
   val (Word8_tm,mk_Word8,dest_Word8,is_Word8) = s "Word8";
   end

@@ -275,6 +275,10 @@ Definition op_to_display_def:
   | Aw8sub_unsafe => empty_item «Aw8sub_unsafe»
   | Aw8update_unsafe => empty_item «Aw8update_unsafe»
   | XorAw8Str_unsafe => empty_item «XorAw8Str_unsafe»
+  | Aw8subBit => empty_item «Aw8subBit»
+  | Aw8updateBit => empty_item «Aw8updateBit»
+  | Aw8subBit_unsafe => empty_item «Aw8subBit_unsafe»
+  | Aw8updateBit_unsafe => empty_item «Aw8updateBit_unsafe»
   | ListAppend => empty_item «ListAppend»
   | ConfigGC => empty_item «ConfigGC»
   | FFI v35 => empty_item «FFI v35»
@@ -332,7 +336,7 @@ Definition exp_to_display_def:
   | Raise e => Item NONE «Raise» [exp_to_display e]
   | Con opt_id es => Item NONE «Con» [option_to_display id_to_display opt_id;
                                       Tuple (exp_to_display_list es)]
-  | Var id => Item NONE «Var» [id_to_display id]
+  | Var id => Item NONE «Ident» [id_to_display id]
   | Fun n e => Item NONE «Fun» [String n; exp_to_display e]
   | App op es => Item NONE «App» (op_to_display op ::
                                   exp_to_display_list es)
@@ -623,6 +627,8 @@ Definition clos_op_to_display_def:
     | MemOp RefArray => String «RefArray»
     | MemOp DerefByte => String «DerefByte»
     | MemOp UpdateByte => String «UpdateByte»
+    | MemOp DerefBit => String «DerefBit»
+    | MemOp UpdateBit => String «UpdateBit»
     | MemOp ConcatByteVec => String «ConcatByteVec»
     | MemOp (CopyByte b) => Item NONE «CopyByte» [bool_to_display b]
     | MemOp FromListByte => String «FromListByte»
@@ -630,6 +636,7 @@ Definition clos_op_to_display_def:
     | MemOp LengthByteVec => String «LengthByteVec»
     | MemOp DerefByteVec => String «DerefByteVec»
     | MemOp BoundsCheckArray => String «BoundsCheckArray»
+    | MemOp BoundsCheckBit => String «BoundsCheckBit»
     | MemOp (BoundsCheckByte b) => Item NONE «BoundsCheckByte» [bool_to_display b]
     | MemOp closLang$ConfigGC => String «ConfigGC»
     | MemOp (StringCmp b opb) => Item NONE «StringCmp» [bool_to_display b;

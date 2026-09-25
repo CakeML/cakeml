@@ -11,32 +11,7 @@ Libs
 
 val _ = translation_extends"lrup_arrayProg";
 
-val _ = translate parse_header_line_def;
-
-Theorem parse_header_line_side_thm[local]:
-  ∀x. parse_header_line_side x ⇔ T
-Proof
-  rw[definition"parse_header_line_side_def"]>>
-  intLib.ARITH_TAC
-QED
-
-val _ = parse_header_line_side_thm |> update_precondition;
-
-val _ = translate var_lit_def;
 val _ = translate parse_vclause_def;
-val _ = translate keep_line_def;
-
-val blanks_v_thm = fetch "ccnf_parseProg" "blanks_v_thm";
-val tokenize_v_thm = fetch "ccnf_parseProg" "tokenize_v_thm";
-
-val inputLineTokens_specialize =
-  inputLineTokens_spec_lines
-  |> Q.GEN `f` |> Q.SPEC`blanks`
-  |> Q.GEN `fv` |> Q.SPEC`blanks_v`
-  |> Q.GEN `g` |> Q.ISPEC`tokenize`
-  |> Q.GEN `gv` |> Q.ISPEC`tokenize_v`
-  |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
-  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_v_thm,blanks_def] ;
 
 Overload "VCFML_TYPE" = ``LIST_TYPE vcclause_TYPE``
 
@@ -486,11 +461,7 @@ Quote add_cakeml:
         TextIO.output TextIO.stdErr "c empty clause not derived at end of proof\n")
 End
 
-val _ = translate print_lit_def;
-val _ = translate print_lits_def;
-val _ = translate max_list_def;
 val _ = translate max_cnf_def;
-val _ = translate print_header_line_def;
 val _ = translate print_cnf_def;
 val _ = translate unconv_cfml_def;
 
@@ -661,13 +632,6 @@ Definition check_unsat_sem_def:
   else if LENGTH cl = 3 then check_unsat_2_sem fs (EL 1 cl) out
   else out = «»
 End
-
-Theorem STDIO_refl:
-  STDIO A ==>>
-  STDIO A * GC
-Proof
-  xsimpl
-QED
 
 Theorem check_unsat_spec:
    hasFreeFD fs

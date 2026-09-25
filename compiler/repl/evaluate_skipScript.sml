@@ -481,7 +481,7 @@ Proof
   >~ [`Raise`] >- suspend "Raise"
   >~ [`Handle`] >- suspend "Handle"
   >~ [`Con`] >- suspend "Con"
-  >~ [`ast$Var`] >- suspend "Var"
+  >~ [`ast$Ident`] >- suspend "Ident"
   >~ [`ast$Fun`] >- suspend "Fun"
   >~ [`ast$App`] >- suspend "App"
   >~ [`Log`] >- suspend "Log"
@@ -654,7 +654,7 @@ Resume evaluate_update[Con]:
   \\ gs [SF SFY_ss]
 QED
 
-Resume evaluate_update[Var]:
+Resume evaluate_update[Ident]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"]]
   \\ first_assum (irule_at Any) \\ gs [] \\ dsimp []
@@ -958,6 +958,16 @@ Proof
   \\ gvs [state_rel_def]
 QED
 
+Theorem v_rel_Boolv:
+  state_rel l fr ft fe s t ∧
+  v_rel fr ft fe v1 v2 ⇒
+    ∀b. v1 = Boolv b ⇔ v2 = Boolv b
+Proof
+  rw [Boolv_def, state_rel_def] \\ rw [EQ_IMP_THM]
+  \\ gvs [v_rel_def, OPTREL_def, Once stamp_rel_cases, flookup_thm]
+  \\ qpat_x_assum ‘INJ ($' ft) _ _’ mp_tac \\ rw [INJ_DEF]
+QED
+
 Theorem do_app_update:
   do_app (s.refs,s.ffi) op vs = res ∧
   state_rel l fr ft fe s t ∧
@@ -1116,6 +1126,95 @@ Proof
     \\ drule_all_then assume_tac state_rel_store_lookup \\ gs [OPTREL_def]
     \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def]
     \\ gvs [store_assign_def, store_lookup_def]
+    \\ rw [] \\ gs [v_rel_def]
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r1; ffi := f1; clock := s.clock;
+          next_type_stamp := nts1; next_exn_stamp := nes1;
+          eval_state := NONE |>’ \\ gs []
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r2; ffi := f2; clock := t.clock;
+          next_type_stamp := nts2; next_exn_stamp := nes2;
+          eval_state := NONE |>’ \\ gs []
+    \\ gs [state_rel_def, EL_LUPDATE]
+    \\ qx_gen_tac ‘n1’
+    \\ first_x_assum (qspec_then ‘n1’ assume_tac)
+    \\ rw [] \\ gs [ref_rel_def]
+    \\ qpat_x_assum ‘INJ ($' fr) _ _’ mp_tac \\ rw [INJ_DEF]
+    \\ qpat_x_assum ‘FLOOKUP fr _ = _’ mp_tac \\ rw [flookup_thm]
+    \\ qpat_x_assum ‘FLOOKUP fr _ = _’ mp_tac \\ rw [flookup_thm]
+    \\ gs [])
+  \\ Cases_on ‘op = Aw8subBit_unsafe’ \\ gs []
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ drule_all_then assume_tac state_rel_store_lookup \\ gs [OPTREL_def]
+    \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def]
+    \\ rw [] \\ gs []
+    \\ first_assum (irule_at Any) \\ gs [v_rel_def]
+    \\ rw [Boolv_def]
+    \\ gs [v_rel_def, stamp_rel_cases, state_rel_def])
+  \\ Cases_on ‘op = Aw8updateBit_unsafe’ \\ gs []
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ drule_all_then assume_tac state_rel_store_lookup \\ gs [OPTREL_def]
+    \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def]
+    \\ gvs [store_assign_def, store_lookup_def]
+    \\ drule_all v_rel_Boolv
+    \\ disch_then (fn th => assume_tac (Q.SPEC ‘T’ th) \\ assume_tac (Q.SPEC ‘F’ th))
+    \\ gvs []
+    \\ TRY (every_case_tac \\ gvs [store_v_same_type_def] \\ NO_TAC)
+    \\ rw [] \\ gs [v_rel_def]
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r1; ffi := f1; clock := s.clock;
+          next_type_stamp := nts1; next_exn_stamp := nes1;
+          eval_state := NONE |>’ \\ gs []
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r2; ffi := f2; clock := t.clock;
+          next_type_stamp := nts2; next_exn_stamp := nes2;
+          eval_state := NONE |>’ \\ gs []
+    \\ gs [state_rel_def, EL_LUPDATE]
+    \\ qx_gen_tac ‘n1’
+    \\ first_x_assum (qspec_then ‘n1’ assume_tac)
+    \\ rw [] \\ gs [ref_rel_def]
+    \\ qpat_x_assum ‘INJ ($' fr) _ _’ mp_tac \\ rw [INJ_DEF]
+    \\ qpat_x_assum ‘FLOOKUP fr _ = _’ mp_tac \\ rw [flookup_thm]
+    \\ qpat_x_assum ‘FLOOKUP fr _ = _’ mp_tac \\ rw [flookup_thm]
+    \\ gs [])
+  \\ Cases_on ‘op = Aw8subBit’ \\ gs []
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ drule_all_then assume_tac state_rel_store_lookup \\ gs [OPTREL_def]
+    \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def]
+    \\ rw [] \\ gvs [LIST_REL_EL_EQN, v_rel_def, sub_exn_v_def,
+                     subscript_stamp_def, stamp_rel_cases]
+    \\ first_assum (irule_at Any) \\ gs [state_rel_def]
+    \\ rw [Boolv_def]
+    \\ gs [v_rel_def, stamp_rel_cases, state_rel_def])
+  \\ Cases_on ‘op = Aw8updateBit’ \\ gs []
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ drule_all_then assume_tac state_rel_store_lookup \\ gs [OPTREL_def]
+    \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def]
+    \\ gvs [store_assign_def, store_lookup_def]
+    \\ drule_all v_rel_Boolv
+    \\ disch_then (fn th => assume_tac (Q.SPEC ‘T’ th) \\ assume_tac (Q.SPEC ‘F’ th))
+    \\ gvs []
+    \\ TRY (IF_CASES_TAC \\ gvs [store_v_same_type_def])
+    \\ TRY (every_case_tac \\ gvs [store_v_same_type_def] \\ NO_TAC)
+    \\ TRY (rw [] \\ gvs [v_rel_def, sub_exn_v_def, subscript_stamp_def,
+                           stamp_rel_cases]
+            \\ first_assum (irule_at Any) \\ gs [state_rel_def] \\ NO_TAC)
     \\ rw [] \\ gs [v_rel_def]
     \\ Q.REFINE_EXISTS_TAC
       ‘<| refs := r1; ffi := f1; clock := s.clock;
@@ -2118,16 +2217,6 @@ Resume evaluate_update[App_Opapp]:
   \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
   \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
   \\ gs [state_rel_def]
-QED
-
-Theorem v_rel_Boolv:
-  state_rel l fr ft fe s t ∧
-  v_rel fr ft fe v1 v2 ⇒
-    ∀b. v1 = Boolv b ⇔ v2 = Boolv b
-Proof
-  rw [Boolv_def, state_rel_def] \\ rw [EQ_IMP_THM]
-  \\ gvs [v_rel_def, OPTREL_def, Once stamp_rel_cases, flookup_thm]
-  \\ qpat_x_assum ‘INJ ($' ft) _ _’ mp_tac \\ rw [INJ_DEF]
 QED
 
 Theorem v_rel_do_log:
