@@ -81,13 +81,13 @@ End
 
 Definition inline_all_def:
   (inline_all cs [] = (cs,[])) ∧
-  (inline_all cs ((name,arity,body)::prog) =
+  (inline_all cs ((name,arity,body,md)::prog) =
      let body = inline_exp cs body in
      let cs1 = if wrapper_ok name arity body then
                  insert name (arity,body) cs
                else cs in
      let (cs2,prog2) = inline_all cs1 prog in
-       (cs2,(name,arity,body)::prog2))
+       (cs2,(name,arity,body,md)::prog2))
 End
 
 Definition remove_ticks_exp_def:
@@ -122,8 +122,8 @@ End
 Definition compile_inc_def:
   compile_inc cs prog =
     let (cs1,prog1) = inline_all cs prog in
-      (cs1,MAP (λ(name,arity,body).
-                  (name,arity,remove_ticks_exp body)) prog1)
+      (cs1,MAP (λ(name,arity,body,md).
+                  (name,arity,remove_ticks_exp body,md)) prog1)
 End
 
 Definition compile_prog_def:
