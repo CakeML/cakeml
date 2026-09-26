@@ -15,6 +15,9 @@ PEG execution really is a function (`peg_exec` to be precise), we also have
 that execution is *deterministic*. (The necessary background theory of PEGs
 is in the main HOL distribution.)
 
+[ast_sexpScript.sml](ast_sexpScript.sml):
+Definitions to convert between the CakeML AST and s-expressions.
+
 [cmlPEGScript.sml](cmlPEGScript.sml):
 Definition of the PEG for CakeML.
 Includes a proof that the PEG is well-formed.
