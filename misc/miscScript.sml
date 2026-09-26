@@ -2633,6 +2633,12 @@ Proof
   \\ fs[alignmentTheory.byte_align_def]
 QED
 
+Theorem MULT_DIV_MULT:
+  ∀m l k. 0 < m ∧ 0 < l ⇒ (m * k) DIV (m * l) = k DIV l
+Proof
+  metis_tac [DIV_DIV_DIV_MULT, MULT_COMM, MULT_DIV]
+QED
+
 Theorem IMP_MULT_DIV_LESS:
    m <> 0 /\ d < k ==> m * (d DIV m) < k
 Proof
