@@ -594,7 +594,6 @@ Definition word_tc_def:
 End
 
 Definition op_to_string_def:
-  (op_to_string (Shift _ _ _) = («Shift», 1)) ∧
   (op_to_string Equality = («Equality», 2)) ∧
   (op_to_string (Arith a ty) =
      («Arith»,
@@ -672,7 +671,6 @@ op_simple_constraints op =
    | Test test ty => (supported_test test ty,
                       [Tem (t_num_of ty); Tem (t_num_of ty)],
                       Tem Tbool_num)
-   | Shift wz _ _ => (T, [Tem (word_tc wz)], Tem (word_tc wz))
    | Aw8alloc => (T, [Tem Tint_num; Tem Tword8_num], Tem Tword8array_num)
    | Aw8sub => (T, [Tem Tword8array_num; Tem Tint_num], Tem Tword8_num)
    | Aw8length => (T, [Tem Tword8array_num], Tem Tint_num)

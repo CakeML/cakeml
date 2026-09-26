@@ -67,7 +67,7 @@ val dec_tms =
   compiler64_prog_def |> concl |> rhs |> listSyntax.dest_list |> fst
   |> el 44
 
-  ast_to_exp “Dtype (Locs UNKNOWNpt UNKNOWNpt) [([],"ast_lop",[("Or",[]); ("And",[])])]”
+  ast_to_exp “Dtype NoLocs [([],"ast_lop",[("Or",[]); ("And",[])])]”
 
 val filename1 = "cake-sexpr-64"
 val filename2 = "cake-sexpr-64-correct"

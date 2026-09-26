@@ -46,7 +46,7 @@ val HOL_EXN_TYPE_def = theorem"HOL_EXN_TYPE_def";
 (* add an abbreviation mapping hol_type to type for HOL Light *)
 
 val _ = ml_prog_update
-  (add_Dtabbrev “unknown_loc” “[]:mlstring list” “«hol_type»”
+  (add_Dtabbrev “NoLocs” “[]:mlstring list” “«hol_type»”
                 “Atapp [] (Short «type»)”);
 
 val _ = ml_prog_update (open_module "Kernel");

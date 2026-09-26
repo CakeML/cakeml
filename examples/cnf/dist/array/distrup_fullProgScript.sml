@@ -215,7 +215,7 @@ fun main () =
 
 End
 
-val main_call = ``Dlet unknown_loc Pany (App Opapp [Var (Short «main»); Con NONE []]) ``;;
+val main_call = ``Dlet NoLocs Pany (App Opapp [Var (Short «main»); Con NONE []]) ``;;
 
 val prog = get_ml_prog_state () |> get_prog;
 

@@ -521,7 +521,7 @@ End
 val st = get_ml_prog_state();
 
 val maincall =
-  ``Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short «forward_matching_lines»); Con NONE []])``
+  ``Dlet NoLocs (Pcon NONE []) (App Opapp [Var (Short «forward_matching_lines»); Con NONE []])``
 
 Datatype:
   filter_ffi =
@@ -1299,7 +1299,7 @@ Theorem forward_matching_lines_semantics:
  ==>
  ?events.
  semantics_prog (^(get_state st) with ffi := (filter_ffi <|input:=input|>)) ^(get_env st)
-  [Dlet unknown_loc (Pcon NONE [])
+  [Dlet NoLocs (Pcon NONE [])
            (App Opapp [Var (Short «forward_matching_lines»); Con NONE []])]
   (Diverge events) /\
  LFILTER is_emit events = LMAP (output_event_of o cut_at_null_w) (LFILTER (language o MAP (CHR o w2n) o cut_at_null_w) input)
@@ -1408,7 +1408,7 @@ Theorem forward_matching_lines_ffidiv_semantics:
  ==>
  ?bytes events.
  semantics_prog (^(get_state st) with ffi := (filter_ffi <|input:=input|>)) ^(get_env st)
-  [Dlet unknown_loc (Pcon NONE [])
+  [Dlet NoLocs (Pcon NONE [])
            (App Opapp [Var (Short «forward_matching_lines»); Con NONE []])]
   (Terminate (FFI_outcome(Final_event (ExtCall «accept_call») [] bytes FFI_diverged))
              events) /\

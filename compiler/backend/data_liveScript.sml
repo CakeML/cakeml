@@ -22,6 +22,7 @@ Definition is_pure_def:
   (is_pure (IntOp LessEq) = F) /\
   (is_pure (WordOp (WordOpw W64 _)) = F) /\
   (is_pure (WordOp (WordShift W64 _ _)) = F) /\
+  (is_pure (WordOp (WordShiftVar W64 _)) = F) /\
   (is_pure (WordOp WordFromInt) = F) /\
   (is_pure (WordOp WordToInt) = F) /\
   (is_pure (WordOp (WordFromWord b)) = F) /\
@@ -63,6 +64,7 @@ Theorem is_pure_pmatch:
     | GlobOp SetGlobalsPtr => F
     | WordOp (WordOpw W64 _) => F
     | WordOp (WordShift W64 _ _) => F
+    | WordOp (WordShiftVar W64 _) => F
     | WordOp WordFromInt => F
     | WordOp WordToInt => F
     | WordOp (WordFromWord b) => F

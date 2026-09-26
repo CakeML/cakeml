@@ -85,6 +85,7 @@ structure astSyntax = struct
   val (Pref_tm,mk_Pref,dest_Pref,is_Pref) = s "Pref";
   val (Pvar_tm,mk_Pvar,dest_Pvar,is_Pvar) = s "Pvar";
   val (Raise_tm,mk_Raise,dest_Raise,is_Raise) = s "Raise";
+  val (Shift_tm,mk_Shift,dest_Shift,is_Shift) = s "Shift";
   val (StrLit_tm,mk_StrLit,dest_StrLit,is_StrLit) = s "StrLit";
   val (Ident_tm,mk_Ident,dest_Ident,is_Ident) = s "Ident";
   val (Word64_tm,mk_Word64,dest_Word64,is_Word64) = s "Word64";
@@ -118,7 +119,6 @@ structure astSyntax = struct
   val (If_tm,mk_If,dest_If,is_If) = s "If";
   val (Let_tm,mk_Let,dest_Let,is_Let) = s "Let";
   val (Log_tm,mk_Log,dest_Log,is_Log) = s "Log";
-  val (Shift_tm,mk_Shift,dest_Shift,is_Shift) = s "Shift";
   end
   local val s = HolKernel.syntax_fns4 "ast" in
   (* four-argument functions *)

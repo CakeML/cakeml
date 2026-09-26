@@ -20,7 +20,7 @@ val _ = ml_prog_update (open_module "Double");
 val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] «double» (Atapp [] (Short «double»))`` I);
+  ``Dtabbrev NoLocs [] «double» (Atapp [] (Short «double»))`` I);
 
 val _ = ml_prog_update open_local_block;
 
@@ -139,11 +139,11 @@ val _ = translate prepareString_def;
 val _ = ml_prog_update open_local_in_block;
 
 val _ = append_prog
-  “[Dlet unknown_loc (Pvar «fromWord»)
+  “[Dlet NoLocs (Pvar «fromWord»)
                      (Fun «x» (App (FromTo (WordT W64) Float64T) [Var (Short «x»)]))]”
 
 val _ = append_prog
-  “[Dlet unknown_loc (Pvar «toWord»)
+  “[Dlet NoLocs (Pvar «toWord»)
                      (Fun «x» (App (FromTo Float64T (WordT W64)) [Var (Short «x»)]))]”
 
 (* --------------------------------------------------------------------------
@@ -248,7 +248,7 @@ End
  * ------------------------------------------------------------------------- *)
 
 val _ = append_prog
-  “[Dlet unknown_loc (Pvar «fma») (Fun «x» (Fun «y» (Fun «z»
+  “[Dlet NoLocs (Pvar «fma») (Fun «x» (Fun «y» (Fun «z»
     (App (Arith FMA Float64T) [Var (Short «z»); Var (Short «x»);
     Var (Short «y»)]))))]”
 
@@ -753,7 +753,7 @@ QED
  * ------------------------------------------------------------------------- *)
 
 val _ = append_prog “
-  [Dlet unknown_loc
+  [Dlet NoLocs
      (Pvar «pp_double»)
      (Fun «x» (App Opapp [
         Var (Long «PrettyPrinter» (Short «token»));

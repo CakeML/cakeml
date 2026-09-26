@@ -36,7 +36,6 @@ val r = translate parse_to_ast_def;
 
 (* codegen *)
 
-val r = translate locationTheory.unknown_loc_def;
 val r = translate lit_to_ml_val_def;
 val r = translate cake_print_def;
 val r = translate cons_list_def;

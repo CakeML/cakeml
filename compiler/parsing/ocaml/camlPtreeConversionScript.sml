@@ -7,12 +7,14 @@ Libs
 Ancestors
   misc[qualified] mllist pegexec[qualified] caml_lex camlPEG ast
   precparser sum[qualified] cmlParse[qualified]
-  lexer_impl[qualified]
+  lexer_impl[qualified] cmlPtreeConversion[qualified]
 
 val _ =
   temp_bring_to_front_overload "destResult" {Name="destResult", Thy="pegexec"};
 
 val _ = patternMatchesSyntax.temp_enable_pmatch();
+
+Overload to_locs[local] = “cmlPtreeConversion$to_locs”
 
 (* -------------------------------------------------------------------------
  * Sum monad syntax
@@ -2526,7 +2528,7 @@ Definition ptree_ExcDefinition_def:
             res <- ptree_ConstrDecl cdecl;
             case res of
             | INR _ => fail (locs, «Record type exceptions are forbidden»)
-            | INL (nm, args) => return $ Dexn locs nm (ctor_tup args)
+            | INL (nm, args) => return $ Dexn (to_locs locs) nm (ctor_tup args)
           od
       | [exnt; lhsid; eq; rhsid] =>
           fail (locs, «Exception abbreviation is not supported»)
@@ -2737,7 +2739,7 @@ Definition build_rec_funs_def:
                   (case vars of
                    | _::_::_ => [Con NONE vars]
                    | _ => vars) in
-    let constr = Dlet locs (Pvar (mk_record_constr_name cname fds))
+    let constr = Dlet (to_locs locs) (Pvar (mk_record_constr_name cname fds))
                       (FOLDR (λf x. Fun f x) rhs fds) in
     let pvars = MAP Pvar fds in
     let pat = Pcon (SOME (Short cname))
@@ -2745,11 +2747,11 @@ Definition build_rec_funs_def:
                     | _::_::_ => [Pcon NONE pvars]
                     | _ => pvars) in
     let projs = MAP (λf.
-                  Dlet locs (Pvar (mk_record_proj_name f cname))
+                  Dlet (to_locs locs) (Pvar (mk_record_proj_name f cname))
                     (Fun «» (Mat (Var (Short «»))
                         [(pat, Var (Short f))]))) fds in
     let upds = MAP (λf.
-                  Dlet locs (Pvar (mk_record_update_name f cname))
+                  Dlet (to_locs locs) (Pvar (mk_record_update_name f cname))
                     (Fun «» (Mat (Var (Short «»))
                         [(pat, Fun f rhs)]))) fds in
       constr :: projs ++ upds
@@ -2839,7 +2841,7 @@ Definition ptree_TypeDefinition_def:
                     «datatypes and type abbreviations cannot be made »;
                     «mutually recursive»]) else return ();
             abbrevs <<-
-              MAP (λ(locs,tys,nm,trs). Dtabbrev locs tys nm trs) abbrevs;
+              MAP (λ(locs,tys,nm,trs). Dtabbrev (to_locs locs) tys nm trs) abbrevs;
             case datas of
             | [] => return abbrevs
             | _ =>
@@ -2852,7 +2854,7 @@ Definition ptree_TypeDefinition_def:
                 recfuns <<- FLAT $ MAP build_rec_funs recs;
                 defs <<- MAP strip_record_fields defs;
                 (* Datatype constructors for everything: *)
-                datas <<- Dtype locs (MAP SND defs);
+                datas <<- Dtype (to_locs locs) (MAP SND defs);
                 (* Record-related function definitions: *)
                 return (datas::abbrevs ++ recfuns)
             od
@@ -2872,13 +2874,13 @@ Definition build_dlet_def:
              INL (INL (c, fs), x) =>
                let v = « c» in
                Dlocal
-                 [Dlet locs (Pvar v) x]
-                 (MAP (λf. Dlet locs (Pvar f)
+                 [Dlet (to_locs locs) (Pvar v) x]
+                 (MAP (λf. Dlet (to_locs locs) (Pvar f)
                                 (build_record_proj c f (Var (Short v)))) fs)
            | INL (INR p, x) =>
-               Dlet locs p x
+               Dlet (to_locs locs) p x
            | INR (f,ps,bd) =>
-               Dlet locs (Pvar f) (build_fun_lam bd ps))
+               Dlet (to_locs locs) (Pvar f) (build_fun_lam bd ps))
         binds
 End
 
@@ -2906,7 +2908,7 @@ End
 
 Definition ptree_ExprDec_def:
   ptree_ExprDec locs pt =
-    fmap (λx. [Dlet locs (Pvar «it») x])
+    fmap (λx. [Dlet (to_locs locs) (Pvar «it») x])
          (ptree_Expr nExpr pt)
 End
 
@@ -3235,7 +3237,7 @@ Definition ptree_Definition_def:
             expect_tok lett LetT;
             expect_tok rect RecT;
             binds <- ptree_LetRecBindings lbs;
-            return [Dletrec locs (build_letrec binds)]
+            return [Dletrec (to_locs locs) (build_letrec binds)]
           od
       | _ => fail (locs, «Impossible: nTopLetRec»)
     else if nterm = INL nTypeDefinition then

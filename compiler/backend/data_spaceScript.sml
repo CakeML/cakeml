@@ -33,6 +33,7 @@ Definition op_space_req_def:
   (op_space_req (BlockOp (Build parts)) l = SUM (MAP part_space_req parts)) /\
   (op_space_req (WordOp (WordOpw W64 _)) _ = 3) /\
   (op_space_req (WordOp (WordShift W64 _ _)) _ = 3) /\
+  (op_space_req (WordOp (WordShiftVar W64 _)) _ = 3) /\
   (op_space_req (WordOp WordFromInt) _ = 3) /\
   (op_space_req (WordOp WordToInt) _ = 3) /\
   (op_space_req (WordOp (WordFromWord F)) _ = 3) /\

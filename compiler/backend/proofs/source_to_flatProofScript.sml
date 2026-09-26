@@ -1252,14 +1252,6 @@ Proof
   pop_assum mp_tac >>
   Cases_on `op` >>
   simp [astOp_to_flatOp_def, astTheory.getOpClass_def]
-  >~ [‘Shift’] >- (
-      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases] >>
-      full_simp_tac(srw_ss())[v_rel_eqns] >>
-      fs[flatSemTheory.do_app_def] >>
-      TRY (rename1 `shift8_lookup s11 w11 n11`) >>
-      TRY (rename1 `shift64_lookup s11 w11 n11`) >>
-      full_simp_tac(srw_ss())[v_rel_eqns]
-      \\ Cases_on`w11` \\ Cases_on`s11` \\ fs[shift8_lookup_def,shift64_lookup_def, result_rel_cases, Once v_rel_eqns])
   >~ [‘Equality’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
@@ -4163,7 +4155,6 @@ Proof
   >~ [‘Case [Mat _ _]’] >- suspend "Mat"
   >~ [‘Case [Let _ _ _]’] >- suspend "Let"
   >~ [‘Case [Letrec _ _]’] >- suspend "Letrec"
-  >~ [`Case [Lannot _ _]`] >- suspend "Lannot"
   >~ [`Case [Open _ _]`] >- suspend "Open"
   >~ [‘Case ((_, _) :: _)’] >- suspend "pattern"
   >~ [‘Case ([] : ast$dec list)’] >- suspend "empty_decs"
@@ -4179,11 +4170,6 @@ Proof
   >~ [‘Case [Dlocal _ _]’] >- suspend "Dlocal"
   \\ qexists_tac `genv`
   \\ simp [subglobals_refl]
-QED
-
-Resume compile_correct[Lannot]:
-  Cases_on `l` >> fs [compile_exp_def] >>
-  first_x_assum irule >> simp []
 QED
 
 Resume compile_correct[Open]:

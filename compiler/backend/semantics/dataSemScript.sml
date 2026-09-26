@@ -681,6 +681,9 @@ Definition lim_safe_def[simp]:
 ∧ (lim_safe lims (WordOp (WordShift W64 _ _)) _ =
    (1 < lims.length_limit)
   )
+∧ (lim_safe lims (WordOp (WordShiftVar W64 _)) _ =
+   (1 < lims.length_limit)
+  )
 ∧ (lim_safe lims (WordOp (WordFromWord _)) _ =
    (1 < lims.length_limit)
   )
@@ -778,6 +781,12 @@ Definition do_word_app_def:
         | SOME w => SOME (Number &(w2n (shift_lookup sh w n)))) /\
   do_word_app (WordShift W64 sh n) [Word64 w] =
        SOME (Word64 (shift_lookup sh w n)) /\
+  do_word_app (WordShiftVar W8 sh) [Number i; Number n] =
+       (case some (w:word8,count:word8). i = &(w2n w) /\ n = &(w2n count) of
+        | NONE => NONE
+        | SOME (w,count) => SOME (Number &(w2n (shift_lookup sh w (w2n count))))) /\
+  do_word_app (WordShiftVar W64 sh) [Word64 w; Word64 count] =
+       SOME (Word64 (shift_lookup sh w (w2n count))) /\
   do_word_app (WordFromInt) [Number i] =
        SOME (Word64 (i2w i)) /\
   do_word_app WordToInt [Word64 w] =

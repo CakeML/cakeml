@@ -978,6 +978,8 @@ Definition do_arith_def:
      | (And, [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_and v1 v2)
      | (Or,  [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_or v1 v2)
      | (Xor, [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_xor v1 v2)
+     | (Shift sh, [v1;v2]) =>
+         SOME (INR $ Litv $ Word8 $ shift8_lookup sh v1 (w2n v2))
      | _ => NONE) ∧
   (do_arith a (WordT W64) vals =
      case (a, MAP the_Litv_Word64 vals) of
@@ -986,6 +988,8 @@ Definition do_arith_def:
      | (And, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_and v1 v2)
      | (Or,  [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_or v1 v2)
      | (Xor, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_xor v1 v2)
+     | (Shift sh, [v1;v2]) =>
+         SOME (INR $ Litv $ Word64 $ shift64_lookup sh v1 (w2n v2))
      | _ => NONE) ∧
   (do_arith a BoolT vals =
      case (a, vals) of
@@ -1033,10 +1037,6 @@ Definition do_app_def:
           (SOME xs, SOME ys) => SOME ((s,t), Rval (list_to_v (xs ++ ys)))
         | _ => NONE
       )
-    | (Shift W8 op n, [Litv (Word8 w)]) =>
-        SOME ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
-    | (Shift W64 op n, [Litv (Word64 w)]) =>
-        SOME ((s,t), Rval (Litv (Word64 (shift64_lookup op w n))))
     | (Equality, [v1; v2]) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE

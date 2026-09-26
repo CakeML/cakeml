@@ -5,3 +5,6 @@ the logic of HOL.
 This file checks that the CakeML standard basis library passes the
 type inferencer. This file also acts as a test of cv_compute
 evaluation of the type inferencer.
+
+[wordShiftTypeCheckScript.sml](wordShiftTypeCheckScript.sml):
+Type inference and cv_eval regression tests for binary word shifts.

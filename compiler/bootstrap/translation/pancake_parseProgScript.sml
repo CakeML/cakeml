@@ -59,11 +59,11 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-val _ = register_type “:(panLexer$token, pancakeNT, locs) parsetree”;
+val _ = register_type “:(panLexer$token, pancakeNT, location$locs) parsetree”;
 val _ = register_type “:pancakeNT”;
 
 val _ = translate $ INST_TYPE [alpha|->“:panLexer$token”,
-                             beta|->“:(panLexer$token, pancakeNT, locs) parsetree list”,
+                             beta|->“:(panLexer$token, pancakeNT, location$locs) parsetree list”,
                              gamma|->“:string”] mknt_def
 
 val _ = translate $ INST_TYPE [alpha|->“:string list”] extract_sum_def
@@ -71,7 +71,7 @@ val _ = translate $ INST_TYPE [alpha|->“:string list”] extract_sum_def
 val _ = translate extract_sum_def
 
 val _ = translate $ INST_TYPE [alpha|->“:panLexer$token”,
-                             beta|->“:(panLexer$token, pancakeNT, locs) parsetree list”,
+                             beta|->“:(panLexer$token, pancakeNT, location$locs) parsetree list”,
                              gamma|->“:string”] choicel_def;
 
 val _ = translate choicel_def;

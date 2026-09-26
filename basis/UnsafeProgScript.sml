@@ -21,13 +21,13 @@ val () = ml_prog_update (open_module "Unsafe");
 
 val () = append_decs
    ``[mk_binop «sub» Asub_unsafe;
-      Dlet unknown_loc (Pvar «update»)
+      Dlet NoLocs (Pvar «update»)
        (Fun «x» (Fun «y» (Fun «z»
          (App Aupdate_unsafe [Var (Short «x»); Var (Short «y»); Var (Short «z»)])))) ]``;
 
 val () = append_decs
    ``[mk_binop «w8sub» Aw8sub_unsafe;
-      Dlet unknown_loc (Pvar «w8update»)
+      Dlet NoLocs (Pvar «w8update»)
        (Fun «x» (Fun «y» (Fun «z»
          (App Aw8update_unsafe [Var (Short «x»); Var (Short «y»); Var (Short «z»)])))) ]``;
 

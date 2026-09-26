@@ -1491,6 +1491,82 @@ Proof
   \\ fs [MULT_DIV]
 QED
 
+(* Encode natural-number shift counts without wrapping large shifts. *)
+Definition shift_count8_def:
+  shift_count8 sh n : word8 =
+    n2w (if sh = Ror then n MOD 8 else MIN n 8)
+End
+
+Definition shift_count64_def:
+  shift_count64 sh n : word64 =
+    n2w (if sh = Ror then n MOD 64 else MIN n 64)
+End
+
+Theorem do_arith_shift_count8[local,simp]:
+  do_arith (Shift sh) (WordT W8)
+    [Litv (Word8 w); Litv (Word8 (shift_count8 sh n))] =
+  SOME (INR (Litv (Word8 (shift8_lookup sh w n))))
+Proof
+  Cases_on `sh` >>
+  simp [shift_count8_def, do_arith_def, the_Litv_Word8_def,
+        shift8_lookup_def, dimword_def] >>
+  Cases_on `n < 8` >> simp [MIN_DEF, LSL_LIMIT, LSR_LIMIT, ASR_LIMIT] >>
+  `n MOD 8 < 256` by (
+    irule LESS_TRANS >> qexists_tac `8` >> simp []) >>
+  simp []
+QED
+
+Theorem do_arith_shift_count64[local,simp]:
+  do_arith (Shift sh) (WordT W64)
+    [Litv (Word64 w); Litv (Word64 (shift_count64 sh n))] =
+  SOME (INR (Litv (Word64 (shift64_lookup sh w n))))
+Proof
+  Cases_on `sh` >>
+  simp [shift_count64_def, do_arith_def, the_Litv_Word64_def,
+        shift64_lookup_def, dimword_def] >>
+  Cases_on `n < 64` >> simp [MIN_DEF, LSL_LIMIT, LSR_LIMIT, ASR_LIMIT] >>
+  `n MOD 64 < 2 ** 64` by (
+    irule LESS_TRANS >> qexists_tac `64` >> simp []) >>
+  fs []
+QED
+
+Theorem do_app_shift_counts[local,simp]:
+  do_app st (Arith (Shift sh) (WordT W8))
+    [Litv (Word8 w8); Litv (Word8 (shift_count8 sh n))] =
+    SOME (st, Rval (Litv (Word8 (shift8_lookup sh w8 n)))) /\
+  do_app st (Arith (Shift sh) (WordT W64))
+    [Litv (Word64 w64); Litv (Word64 (shift_count64 sh n))] =
+    SOME (st, Rval (Litv (Word64 (shift64_lookup sh w64 n))))
+Proof
+  Cases_on `st` >> simp [do_app_def, check_type_def]
+QED
+
+Overload ShiftExp[local] =
+  ``\sz sh n x.
+      App (Arith (Shift sh) (WordT sz))
+        [x; Lit (if sz = W8 then Word8 (shift_count8 sh n)
+                 else Word64 (shift_count64 sh n))]``;
+
+Theorem Eval_word_shift8:
+  Eval env x1 (WORD (w:word8)) /\
+  Eval env x2 (WORD (shift_count8 sh n)) ==>
+  Eval env (App (Arith (Shift sh) (WordT W8)) [x1; x2])
+    (WORD (shift8_lookup sh w n))
+Proof
+  rw [Eval_rw] >> Eval2_tac >>
+  fs [WORD_def, state_component_equality]
+QED
+
+Theorem Eval_word_shift64:
+  Eval env x1 (WORD (w:word64)) /\
+  Eval env x2 (WORD (shift_count64 sh n)) ==>
+  Eval env (App (Arith (Shift sh) (WordT W64)) [x1; x2])
+    (WORD (shift64_lookup sh w n))
+Proof
+  rw [Eval_rw] >> Eval2_tac >>
+  fs [WORD_def, state_component_equality]
+QED
+
 Theorem Eval_w2n:
     Eval env x1 (WORD (w:'a word)) ==>
     Eval env
@@ -1499,9 +1575,9 @@ Theorem Eval_w2n:
        else if dimindex (:'a) = 64 then
          App (FromTo (WordT W64) IntT) [x1]
        else if dimindex (:'a) < 8 then
-         App (FromTo (WordT W8) IntT) [App (Shift W8 Lsr (8 - dimindex (:'a))) [x1]]
+         App (FromTo (WordT W8) IntT) [ShiftExp W8 Lsr (8 - dimindex (:'a)) x1]
        else
-         App (FromTo (WordT W64) IntT) [App (Shift W64 Lsr (64 - dimindex (:'a))) [x1]])
+         App (FromTo (WordT W64) IntT) [ShiftExp W64 Lsr (64 - dimindex (:'a)) x1])
       (NUM (w2n w))
 Proof
   rw[Eval_rw,WORD_def] \\ fs []
@@ -1551,9 +1627,9 @@ Theorem Eval_i2w:
        else if dimindex (:'a) = 64 then
          App (FromTo IntT (WordT W64)) [x1]
        else if dimindex (:'a) < 8 then
-         App (Shift W8 Lsl (8 - dimindex (:'a))) [App (FromTo IntT (WordT W8)) [x1]]
+         ShiftExp W8 Lsl (8 - dimindex (:'a)) (App (FromTo IntT (WordT W8)) [x1])
        else
-         App (Shift W64 Lsl (64 - dimindex (:'a))) [App (FromTo IntT (WordT W64)) [x1]])
+         ShiftExp W64 Lsl (64 - dimindex (:'a)) (App (FromTo IntT (WordT W64)) [x1]))
       (WORD ((i2w n):'a word))
 Proof
   rw[Eval_rw,WORD_def] \\ fs [] \\ rfs []
@@ -1592,12 +1668,13 @@ Theorem Eval_n2w:
        else if dimindex (:'a) = 64 then
          App (FromTo IntT (WordT W64)) [x1]
        else if dimindex (:'a) < 8 then
-         App (Shift W8 Lsl (8 - dimindex (:'a))) [App (FromTo IntT (WordT W8)) [x1]]
+         ShiftExp W8 Lsl (8 - dimindex (:'a)) (App (FromTo IntT (WordT W8)) [x1])
        else
-         App (Shift W64 Lsl (64 - dimindex (:'a))) [App (FromTo IntT (WordT W64)) [x1]])
+         ShiftExp W64 Lsl (64 - dimindex (:'a)) (App (FromTo IntT (WordT W64)) [x1]))
       (WORD ((n2w n):'a word))
 Proof
-  qsuff_tac `n2w n = i2w (& n)` THEN1 fs [Eval_i2w,NUM_def]
+  qsuff_tac `(n2w n : 'a word) = i2w (& n)` THEN1
+    fs [SIMP_RULE (srw_ss()) [] Eval_i2w, NUM_def]
   \\ fs [integer_wordTheory.i2w_def]
 QED
 
@@ -1608,17 +1685,17 @@ Theorem Eval_w2w:
       (if (dimindex (:'a) <= 8 <=> dimindex (:'b) <= 8) then
          let w = if dimindex (:'a) <= 8 then W8 else W64 in
            if dimindex (:'b) <= dimindex (:'a) then
-             App (Shift w Lsr (dimindex (:'a) - dimindex (:'b))) [x1]
+             ShiftExp w Lsr (dimindex (:'a) - dimindex (:'b)) x1
            else
-             App (Shift w Lsl (dimindex (:'b) - dimindex (:'a))) [x1]
+             ShiftExp w Lsl (dimindex (:'b) - dimindex (:'a)) x1
        else if dimindex (:'b) <= 8 then
-         App (Shift W64 Lsl (64 - dimindex (:'a)))
-           [App (Shift W64 Lsr (8 - dimindex (:'b)))
-              [App (FromTo IntT (WordT W64)) [App (FromTo (WordT W8) IntT) [x1]]]]
+         ShiftExp W64 Lsl (64 - dimindex (:'a))
+           (ShiftExp W64 Lsr (8 - dimindex (:'b))
+             (App (FromTo IntT (WordT W64)) [App (FromTo (WordT W8) IntT) [x1]]))
        else
-         App (Shift W8 Lsl (8 - dimindex (:'a)))
-           [App (FromTo IntT (WordT W8)) [App (FromTo (WordT W64) IntT)
-              [App (Shift W64 Lsr (64 - dimindex (:'b))) [x1]]]])
+         ShiftExp W8 Lsl (8 - dimindex (:'a))
+           (App (FromTo IntT (WordT W8)) [App (FromTo (WordT W64) IntT)
+              [ShiftExp W64 Lsr (64 - dimindex (:'b)) x1]]))
       (WORD ((w2w w):'a word))
 Proof
   IF_CASES_TAC THEN1
@@ -1664,12 +1741,12 @@ QED
 Theorem Eval_word_lsl:
    !n.
       Eval env x1 (WORD (w1:'a word)) ==>
-      Eval env (App (Shift (if dimindex (:'a) <= 8 then W8 else W64) Lsl n) [x1])
+      Eval env (ShiftExp (if dimindex (:'a) <= 8 then W8 else W64) Lsl n x1)
         (WORD (word_lsl w1 n))
 Proof
-  rw[Eval_rw,WORD_def]
+  rw[Eval_rw,WORD_def] \\ fs []
   \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
-  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
+  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def,check_type_def]
   \\ fs [LESS_EQ_EXISTS]
   \\ qpat_x_assum ‘_ + _ = NUMERAL _’ (assume_tac o GSYM)
   \\ full_simp_tac std_ss []
@@ -1684,14 +1761,14 @@ Theorem Eval_word_lsr:
       Eval env (let w = (if dimindex (:'a) <= 8 then W8 else W64) in
                 let k = (if dimindex (:'a) <= 8 then 8 else 64) - dimindex(:'a) in
                   if dimindex (:'a) = 8 \/ dimindex (:'a) = 64 then
-                    App (Shift w Lsr n) [x1]
+                    ShiftExp w Lsr n x1
                   else
-                    App (Shift w Lsl k) [App (Shift w Lsr (n+k)) [x1]])
+                    ShiftExp w Lsl k (ShiftExp w Lsr (n+k) x1))
         (WORD (word_lsr w1 n))
 Proof
   rw[Eval_rw,WORD_def]
   \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
-  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
+  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def,check_type_def]
   \\ TRY
    (fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
     \\ fs [fcpTheory.CART_EQ,word_lsr_def,fcpTheory.FCP_BETA,w2w] \\ rw []
@@ -1713,14 +1790,14 @@ Theorem Eval_word_asr:
       Eval env (let w = (if dimindex (:'a) <= 8 then W8 else W64) in
                 let k = (if dimindex (:'a) <= 8 then 8 else 64) - dimindex(:'a) in
                   if dimindex (:'a) = 8 \/ dimindex (:'a) = 64 then
-                    App (Shift w Asr n) [x1]
+                    ShiftExp w Asr n x1
                   else
-                    App (Shift w Lsl k) [App (Shift w Asr (n+k)) [x1]])
+                    ShiftExp w Lsl k (ShiftExp w Asr (n+k) x1))
         (WORD (word_asr w1 n))
 Proof
   rw[Eval_rw,WORD_def]
   \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
-  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
+  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def,check_type_def]
   \\ TRY (* takes care of = 8 and = 64 cases *)
    (fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
     \\ fs [fcpTheory.CART_EQ,word_asr_def,fcpTheory.FCP_BETA,w2w] \\ rw []
@@ -1742,17 +1819,264 @@ Theorem Eval_word_ror:
    !n.
       Eval env x1 (WORD (w1:'a word)) ==>
       (dimindex (:'a) <> 8 ==> dimindex (:'a) = 64) ==>
-      Eval env (App (Shift (if dimindex (:'a) <= 8 then W8 else W64) Ror n) [x1])
+      Eval env (ShiftExp (if dimindex (:'a) <= 8 then W8 else W64) Ror n x1)
         (WORD (word_ror w1 n))
 Proof
   Cases_on `dimindex (:'a) = 8` \\ fs []
   \\ Cases_on `dimindex (:'a) = 64` \\ fs []
   \\ rw[Eval_rw,WORD_def]
   \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
-  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
+  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def,check_type_def]
   \\ fs [LESS_EQ_EXISTS]
   \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
   \\ fs [fcpTheory.CART_EQ,word_ror_def,fcpTheory.FCP_BETA,w2w] \\ rw []
+QED
+
+(* variable-length shifts *)
+
+Theorem WORD_word8[local]:
+  dimindex (:'a) <= 8 ==>
+  WORD (w:'a word) = WORD ((w2w w << (8 - dimindex (:'a))):word8)
+Proof
+  rw [WORD_def,FUN_EQ_THM,w2w_id]
+QED
+
+Theorem WORD_word64[local]:
+  ~(dimindex (:'a) <= 8) /\ dimindex (:'a) <= 64 ==>
+  WORD (w:'a word) = WORD ((w2w w << (64 - dimindex (:'a))):word64)
+Proof
+  rw [WORD_def,FUN_EQ_THM,w2w_id]
+QED
+
+Theorem Eval_WORD8_to[local]:
+  dimindex (:'a) <= 8 ==> Eval env x (WORD (w:'a word)) ==>
+  Eval env x (WORD ((w2w w << (8 - dimindex (:'a))):word8))
+Proof
+  metis_tac [WORD_word8]
+QED
+
+Theorem Eval_WORD8_from[local]:
+  dimindex (:'a) <= 8 /\
+  Eval env x (WORD ((w2w w << (8 - dimindex (:'a))):word8)) ==>
+  Eval env x (WORD (w:'a word))
+Proof
+  metis_tac [WORD_word8]
+QED
+
+Theorem Eval_WORD64_to[local]:
+  ~(dimindex (:'a) <= 8) ==> dimindex (:'a) <= 64 ==>
+  Eval env x (WORD (w:'a word)) ==>
+  Eval env x (WORD ((w2w w << (64 - dimindex (:'a))):word64))
+Proof
+  metis_tac [WORD_word64]
+QED
+
+Theorem Eval_WORD64_from[local]:
+  ~(dimindex (:'a) <= 8) /\ dimindex (:'a) <= 64 /\
+  Eval env x (WORD ((w2w w << (64 - dimindex (:'a))):word64)) ==>
+  Eval env x (WORD (w:'a word))
+Proof
+  metis_tac [WORD_word64]
+QED
+
+Theorem WORD_dimindex[local]:
+  Eval env x (WORD (w:'a word)) ==> dimindex (:'a) <= 64
+Proof
+  rw [Eval_rw,WORD_def]
+  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+QED
+
+Theorem Eval_ShiftExp8[local]:
+  Eval env x (WORD (w:word8)) ==>
+  Eval env (App (Arith (Shift sh) (WordT W8)) [x; Lit (Word8 (shift_count8 sh n))])
+    (WORD (shift8_lookup sh w n))
+Proof
+  rw [Eval_rw,WORD_def]
+  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ qexists_tac `ck1` \\ fs [state_component_equality]
+QED
+
+Theorem Eval_ShiftExp64[local]:
+  Eval env x (WORD (w:word64)) ==>
+  Eval env (App (Arith (Shift sh) (WordT W64)) [x; Lit (Word64 (shift_count64 sh n))])
+    (WORD (shift64_lookup sh w n))
+Proof
+  rw [Eval_rw,WORD_def]
+  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ qexists_tac `ck1` \\ fs [state_component_equality]
+QED
+
+Theorem Eval_var_shift8[local]:
+  Eval env x1 (WORD (w1:word8)) /\ Eval env x2 (WORD (w2:word8)) ==>
+  Eval env (App (Arith (Shift sh) (WordT W8)) [x1; x2])
+    (WORD (shift8_lookup sh w1 (w2n w2)))
+Proof
+  rw [Eval_rw] >> Eval2_tac >>
+  fs [WORD_def, state_component_equality, do_app_def, check_type_def,
+      do_arith_def, the_Litv_Word8_def]
+QED
+
+Theorem Eval_var_shift64[local]:
+  Eval env x1 (WORD (w1:word64)) /\ Eval env x2 (WORD (w2:word64)) ==>
+  Eval env (App (Arith (Shift sh) (WordT W64)) [x1; x2])
+    (WORD (shift64_lookup sh w1 (w2n w2)))
+Proof
+  rw [Eval_rw] >> Eval2_tac >>
+  fs [WORD_def, state_component_equality, do_app_def, check_type_def,
+      do_arith_def, the_Litv_Word64_def]
+QED
+
+Theorem Eval_WORD_eq[local]:
+  Eval env e (WORD a) /\ a = b ==> Eval env e (WORD b)
+Proof
+  metis_tac []
+QED
+
+Theorem w2w_lsl_bv_lemma[local]:
+  dimindex (:'a) <= dimindex (:'b) ==>
+  w2w (w1:'a word) << (dimindex (:'b) - dimindex (:'a)) << n =
+  (w2w (w1 << n) << (dimindex (:'b) - dimindex (:'a))):'b word
+Proof
+  rw [fcpTheory.CART_EQ,word_lsl_def,w2w,fcpTheory.FCP_BETA]
+  \\ eq_tac \\ rw [] \\ gvs [fcpTheory.FCP_BETA,w2w]
+QED
+
+Theorem w2w_lsr_bv_lemma[local]:
+  dimindex (:'a) <= dimindex (:'b) ==>
+  w2w (w1:'a word) << (dimindex (:'b) - dimindex (:'a)) >>> n
+    >>> (dimindex (:'b) - dimindex (:'a)) << (dimindex (:'b) - dimindex (:'a)) =
+  (w2w (w1 >>> n) << (dimindex (:'b) - dimindex (:'a))):'b word
+Proof
+  rw [fcpTheory.CART_EQ,word_lsl_def,word_lsr_def,w2w,fcpTheory.FCP_BETA]
+  \\ eq_tac \\ rw [] \\ gvs [fcpTheory.FCP_BETA,w2w]
+QED
+
+Theorem w2w_asr_bv_lemma[local]:
+  dimindex (:'a) <= dimindex (:'b) ==>
+  w2w (w1:'a word) << (dimindex (:'b) - dimindex (:'a)) >> n
+    >>> (dimindex (:'b) - dimindex (:'a)) << (dimindex (:'b) - dimindex (:'a)) =
+  (w2w (w1 >> n) << (dimindex (:'b) - dimindex (:'a))):'b word
+Proof
+  rw [fcpTheory.CART_EQ,word_lsl_def,word_lsr_def,word_asr_def,word_msb_def,
+      w2w,fcpTheory.FCP_BETA]
+  \\ eq_tac \\ rw [] \\ gvs [fcpTheory.FCP_BETA,w2w]
+QED
+
+Theorem w2n_shift_count_lemma[local]:
+  dimindex (:'a) <= dimindex (:'b) ==>
+  w2n ((w2w (w:'a word) << (dimindex (:'b) - dimindex (:'a)) >>>
+        (dimindex (:'b) - dimindex (:'a))):'b word) = w2n w
+Proof
+  strip_tac
+  \\ `w2w w << (dimindex (:'b) - dimindex (:'a)) >>>
+        (dimindex (:'b) - dimindex (:'a)) = (w2w w):'b word` by
+    (rw [fcpTheory.CART_EQ,word_lsl_def,word_lsr_def,w2w,fcpTheory.FCP_BETA]
+     \\ eq_tac \\ rw [] \\ gvs [fcpTheory.FCP_BETA,w2w])
+  \\ simp [w2n_w2w]
+QED
+
+Theorem w2n_shift_count_eq_lemma[local]:
+  dimindex (:'a) = dimindex (:'b) ==>
+  w2n ((w2w (w:'a word) << (dimindex (:'b) - dimindex (:'a))):'b word) = w2n w
+Proof
+  simp [w2n_w2w]
+QED
+val var_shift_tac =
+  rpt strip_tac
+  \\ imp_res_tac WORD_dimindex
+  \\ Cases_on `dimindex (:'a) <= 8`
+  \\ imp_res_tac Eval_WORD8_to
+  \\ imp_res_tac Eval_WORD64_to
+  \\ asm_simp_tac (srw_ss()) [LET_THM]
+  \\ ((irule Eval_WORD8_from \\ conj_tac >- first_assum ACCEPT_TAC) ORELSE
+      (irule Eval_WORD64_from \\ asm_rewrite_tac []))
+  \\ IF_CASES_TAC
+  \\ irule Eval_WORD_eq
+  \\ rpt (irule_at Any Eval_ShiftExp8 ORELSE irule_at Any Eval_ShiftExp64 ORELSE
+          irule_at Any Eval_var_shift8 ORELSE irule_at Any Eval_var_shift64)
+  \\ rpt (first_assum (irule_at Any))
+  \\ rewrite_tac [shift8_lookup_def,shift64_lookup_def,shift_case_def,
+                 word_lsl_bv_def,word_lsr_bv_def,word_asr_bv_def]
+  \\ DEP_REWRITE_TAC (map (GEN_ALL o REWRITE_RULE [dimindex_8,dimindex_64] o INST_TYPE [beta|->``:8``])
+                        [w2n_shift_count_lemma,w2n_shift_count_eq_lemma] @
+                      map (GEN_ALL o REWRITE_RULE [dimindex_8,dimindex_64] o INST_TYPE [beta|->``:64``])
+                        [w2n_shift_count_lemma,w2n_shift_count_eq_lemma])
+  \\ DEP_REWRITE_TAC (map (GEN_ALL o REWRITE_RULE [dimindex_8,dimindex_64] o INST_TYPE [beta|->``:8``])
+                        [w2w_lsl_bv_lemma,w2w_lsr_bv_lemma,w2w_asr_bv_lemma] @
+                      map (GEN_ALL o REWRITE_RULE [dimindex_8,dimindex_64] o INST_TYPE [beta|->``:64``])
+                        [w2w_lsl_bv_lemma,w2w_lsr_bv_lemma,w2w_asr_bv_lemma])
+  \\ gvs []
+  \\ rw [fcpTheory.CART_EQ,word_lsr_def,word_asr_def,word_msb_def,w2w,
+         fcpTheory.FCP_BETA]
+  \\ eq_tac \\ rw [] \\ gvs [fcpTheory.FCP_BETA,w2w];
+
+Theorem Eval_word_lsl_bv:
+  Eval env x1 (WORD (w1:'a word)) ==>
+  Eval env x2 (WORD (w2:'a word)) ==>
+  Eval env (let w = (if dimindex (:'a) <= 8 then W8 else W64) in
+            let k = (if dimindex (:'a) <= 8 then 8 else 64) - dimindex(:'a) in
+              if dimindex (:'a) = 8 \/ dimindex (:'a) = 64 then
+                App (Arith (Shift Lsl) (WordT w)) [x1; x2]
+              else
+                App (Arith (Shift Lsl) (WordT w)) [x1; ShiftExp w Lsr k x2])
+    (WORD (word_lsl_bv w1 w2))
+Proof
+  var_shift_tac
+QED
+
+Theorem Eval_word_lsr_bv:
+  Eval env x1 (WORD (w1:'a word)) ==>
+  Eval env x2 (WORD (w2:'a word)) ==>
+  Eval env (let w = (if dimindex (:'a) <= 8 then W8 else W64) in
+            let k = (if dimindex (:'a) <= 8 then 8 else 64) - dimindex(:'a) in
+              if dimindex (:'a) = 8 \/ dimindex (:'a) = 64 then
+                App (Arith (Shift Lsr) (WordT w)) [x1; x2]
+              else
+                ShiftExp w Lsl k (ShiftExp w Lsr k
+                  (App (Arith (Shift Lsr) (WordT w)) [x1; ShiftExp w Lsr k x2])))
+    (WORD (word_lsr_bv w1 w2))
+Proof
+  var_shift_tac
+QED
+
+Theorem Eval_word_asr_bv:
+  Eval env x1 (WORD (w1:'a word)) ==>
+  Eval env x2 (WORD (w2:'a word)) ==>
+  Eval env (let w = (if dimindex (:'a) <= 8 then W8 else W64) in
+            let k = (if dimindex (:'a) <= 8 then 8 else 64) - dimindex(:'a) in
+              if dimindex (:'a) = 8 \/ dimindex (:'a) = 64 then
+                App (Arith (Shift Asr) (WordT w)) [x1; x2]
+              else
+                ShiftExp w Lsl k (ShiftExp w Lsr k
+                  (App (Arith (Shift Asr) (WordT w)) [x1; ShiftExp w Lsr k x2])))
+    (WORD (word_asr_bv w1 w2))
+Proof
+  var_shift_tac
+QED
+
+
+Theorem Eval_word_ror_bv:
+  Eval env x1 (WORD (w1:'a word)) ==>
+  Eval env x2 (WORD (w2:'a word)) ==>
+  (dimindex (:'a) = 8 \/ dimindex (:'a) = 64) ==>
+  Eval env
+    (App (Arith (Shift Ror) (if dimindex (:'a) <= 8 then WordT W8 else WordT W64))
+       [x1; x2])
+    (WORD (word_ror_bv w1 w2))
+Proof
+  rpt strip_tac
+  \\ imp_res_tac WORD_dimindex
+  \\ Cases_on `dimindex (:'a) <= 8`
+  \\ imp_res_tac Eval_WORD8_to
+  \\ imp_res_tac Eval_WORD64_to
+  \\ asm_simp_tac (srw_ss()) []
+  \\ ((irule Eval_WORD8_from \\ conj_tac >- first_assum ACCEPT_TAC) ORELSE
+      (irule Eval_WORD64_from \\ asm_rewrite_tac []))
+  \\ irule Eval_WORD_eq
+  \\ (irule_at Any Eval_var_shift8 ORELSE irule_at Any Eval_var_shift64)
+  \\ rpt (first_assum (irule_at Any))
+  \\ gvs [shift8_lookup_def,shift64_lookup_def,word_ror_bv_def,w2n_w2w]
+  \\ rw [fcpTheory.CART_EQ,word_ror_def,w2w,fcpTheory.FCP_BETA]
 QED
 
 val _ = augment_srw_ss [
