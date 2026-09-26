@@ -35,6 +35,20 @@ Definition wf_slot_def:
   wf_slot (Stored cs vs d mc b) = (length cs = length vs)
 End
 
+Definition core_slot_def:
+  core_slot s =
+  case s of
+    Empty => F
+  | Stored cs vs d mc b => b
+End
+
+Definition set_core_slot_def:
+  set_core_slot s b =
+  case s of
+    Empty => Empty
+  | Stored cs vs d mc b0 => Stored cs vs d mc b
+End
+
 (* Executable reads use sub_unsafe; their indices are in bounds *)
 Theorem sub_unsafe_sub[simp]:
   sub_unsafe v n = sub v n
@@ -76,6 +90,15 @@ Definition reset_dm_list_def:
     (REPLICATE (2 * sz) (0:num), 1)
   else
     (dml,b+2)
+End
+
+(* Ensures that the assignment has at least sz entries *)
+Definition grow_assg_def:
+  grow_assg dml (b:num) sz =
+  if LENGTH dml < sz then
+    (REPLICATE (2 * sz) (0:num), 1)
+  else
+    (dml,b)
 End
 
 (* The slack of a constraint under the assignment, over its terms from
@@ -143,16 +166,9 @@ Definition slot_bound_def:
   slot_bound (Stored cs vs d mc b) n = (∀j. j < length vs ⇒ sub vs j < n)
 End
 
-(* Ensures that the assignment has at least sz entries *)
-Definition grow_assg_def:
-  grow_assg dml (b:num) sz =
-  if LENGTH dml < sz then
-    (REPLICATE (2 * sz) (0:num), 1)
-  else
-    (dml,b)
-End
-
-(* The spec's second pass without the guard on assigned variables *)
+(* Documentation: the spec's second pass without the guard on assigned
+  variables; rup_pass2_compact shows that the guard does not change the
+  result when the variables are distinct and unassigned *)
 Definition rup_pass2_unguarded_def:
   rup_pass2_unguarded assg max [] l = SOME assg ∧
   rup_pass2_unguarded assg max ((k:num,i:int,n:num)::ys) l =
@@ -227,28 +243,24 @@ Proof
   simp[enc_def]
 QED
 
-Theorem dec_terms_thm:
-  ∀cs vs i acc l.
-    cs = Vector (MAP FST l) ∧ vs = Vector (MAP SND l) ∧ i ≤ LENGTH l ⇒
-    dec_terms cs vs i acc = TAKE i l ++ acc
+Theorem dec_terms_GENLIST:
+  ∀cs vs i acc.
+  dec_terms cs vs i acc = GENLIST (λj. (sub cs j, sub vs j)) i ++ acc
 Proof
   ho_match_mp_tac dec_terms_ind>>
   rw[]>>
   simp[Once dec_terms_def]>>
   rw[]>>
-  gvs[mlvectorTheory.sub_def,EL_MAP]>>
-  qspecl_then [`i-1`,`l`] mp_tac SNOC_EL_TAKE>>
-  simp[ADD1,SNOC_APPEND]
+  Cases_on`i`>>
+  gvs[GENLIST,SNOC_APPEND]
 QED
 
 Theorem dec_enc[simp]:
   dec (enc c b) = c
 Proof
   PairCases_on`c`>>
-  simp[enc_def,dec_def,mlvectorTheory.length_def]>>
-  qspecl_then [`Vector (MAP FST c0)`,`Vector (MAP SND c0)`,`LENGTH c0`,`[]`,`c0`]
-    mp_tac dec_terms_thm>>
-  simp[]
+  simp[enc_def,dec_def,dec_terms_GENLIST,mlvectorTheory.length_def,
+    mlvectorTheory.sub_def,LIST_EQ_REWRITE,EL_MAP]
 QED
 
 Theorem enc_opt_eq_Empty[simp]:
@@ -259,6 +271,56 @@ Proof
   rename1`enc_opt (SOME p)`>>
   PairCases_on`p`>>
   simp[enc_opt_def]
+QED
+
+Theorem core_slot_enc[simp]:
+  core_slot (enc c b) = b ∧
+  ¬core_slot Empty
+Proof
+  PairCases_on`c`>>
+  simp[core_slot_def,enc_def]
+QED
+
+Theorem set_core_slot_enc[simp]:
+  set_core_slot (enc c b0) b = enc c b ∧
+  set_core_slot Empty b = Empty
+Proof
+  PairCases_on`c`>>
+  simp[set_core_slot_def,enc_def]
+QED
+
+Theorem set_core_slot_eq_Empty[simp]:
+  set_core_slot s b = Empty ⇔ s = Empty
+Proof
+  Cases_on`s`>>simp[set_core_slot_def]
+QED
+
+Theorem dec_set_core_slot[simp]:
+  dec (set_core_slot s b) = dec s
+Proof
+  Cases_on`s`>>simp[set_core_slot_def,dec_def]
+QED
+
+Theorem slot_bound_set_core_slot[simp]:
+  slot_bound (set_core_slot s b) n ⇔ slot_bound s n
+Proof
+  Cases_on`s`>>simp[set_core_slot_def,slot_bound_def]
+QED
+
+Theorem slot_CASE_default:
+  (case s of Empty => x | Stored cs vs d mc b => f (Stored cs vs d mc b)) =
+  if s = Empty then x else f s
+Proof
+  Cases_on`s`>>simp[]
+QED
+
+Theorem core_slot_test:
+  core_slot (enc ([(2,1)],1) T) ∧
+  ¬core_slot (enc ([(2,1)],1) F) ∧
+  set_core_slot (enc ([(2,1)],1) F) T = enc ([(2,1)],1) T ∧
+  set_core_slot Empty T = Empty
+Proof
+  EVAL_TAC
 QED
 
 Theorem slot_bound_enc:
@@ -351,6 +413,22 @@ Theorem reset_dm_list_LENGTH:
   LENGTH dml ≤ LENGTH dml'
 Proof
   rw[reset_dm_list_def]>>
+  simp[]
+QED
+
+Theorem reset_dm_list_sz:
+  reset_dm_list dml b sz = (dml',b') ⇒
+  sz ≤ LENGTH dml'
+Proof
+  rw[reset_dm_list_def]>>
+  simp[]
+QED
+
+Theorem grow_assg_LENGTH:
+  grow_assg dml b sz = (dml',b') ⇒
+  sz ≤ LENGTH dml' ∧ LENGTH dml ≤ LENGTH dml'
+Proof
+  rw[grow_assg_def]>>
   simp[]
 QED
 
@@ -630,9 +708,60 @@ Proof
   gvs[]
 QED
 
-(* On a list with no repeated variable, none of them assigned (which is
-  what the first pass leaves for a normalised constraint), the guard in
-  rup_pass2 never fires *)
+(* The reads of the passes stay within the assignment when every variable
+  of the slot is below its length *)
+Theorem rup_pass1_slot_pre:
+  ∀i acc.
+    i ≤ length cs ∧ i ≤ length vs ∧
+    (∀j. j < i ⇒ sub vs j < LENGTH assg) ⇒
+    SND (rup_pass1_slot assg b cs vs lim i acc)
+Proof
+  Induct>>
+  rw[Once rup_pass1_slot_def]
+QED
+
+Theorem LENGTH_rup_pass2_slot:
+  ∀i assg.
+    LENGTH (FST (rup_pass2_slot assg b max cs vs l i)) = LENGTH assg
+Proof
+  Induct>>
+  rw[Once rup_pass2_slot_def]
+QED
+
+Theorem rup_pass2_slot_pre:
+  ∀i assg.
+    i ≤ length cs ∧ i ≤ length vs ∧
+    (∀j. j < i ⇒ sub vs j < LENGTH assg) ⇒
+    SND (rup_pass2_slot assg b max cs vs l i)
+Proof
+  Induct>>
+  rw[Once rup_pass2_slot_def]
+QED
+
+Theorem LENGTH_update_assg_slot:
+  LENGTH (FST (SND (update_assg_slot assg b s))) = LENGTH assg
+Proof
+  Cases_on`s`>>
+  rw[update_assg_slot_def]>>
+  rpt (pairarg_tac>>gvs[])>>
+  rw[]>>
+  metis_tac[LENGTH_rup_pass2_slot,FST]
+QED
+
+Theorem update_assg_slot_pre:
+  wf_slot s ∧ slot_bound s (LENGTH assg) ⇒
+  SND (SND (update_assg_slot assg b s))
+Proof
+  Cases_on`s`>>
+  rw[update_assg_slot_def,wf_slot_def,slot_bound_def]>>
+  rpt (pairarg_tac>>gvs[])>>
+  rw[]>>
+  metis_tac[rup_pass1_slot_pre,rup_pass2_slot_pre,SND,LESS_EQ_REFL]
+QED
+
+(* Documentation: on a list with no repeated variable, none of them
+  assigned (which is what the first pass leaves for a normalised
+  constraint), the guard in rup_pass2 never fires *)
 Theorem rup_pass2_compact:
   ∀ys assg.
     ALL_DISTINCT (MAP (λ(k,i,n). n) ys) ∧
@@ -737,26 +866,27 @@ Termination
 End
 
 Definition check_imp_slot_def:
-  check_imp_slot drhs cs vs n i [] rhs =
-    check_lslack_slot cs n i rhs ∧
-  check_imp_slot drhs cs vs n i ((d,y)::ys) rhs =
+  check_imp_slot drhs cs vs n i ys rhs =
+  case ys of
+    [] => check_lslack_slot cs n i rhs
+  | (d,y)::ys' =>
     if n ≤ i then T
     else
       let c = sub_unsafe cs i in
       let x = sub_unsafe vs i in
       if x < y then
         let rhs = rhs - ABS c in
-        if 0 < rhs then check_imp_slot drhs cs vs n (i+1) ((d,y)::ys) rhs
+        if 0 < rhs then check_imp_slot drhs cs vs n (i+1) ys rhs
         else F
       else if y < (x:num) then
-        check_imp_slot drhs cs vs n i ys rhs
+        check_imp_slot drhs cs vs n i ys' rhs
       else if match_sign c d then
         let rhs = rhs - imp_terms drhs c d in
-        if 0 < rhs then check_imp_slot drhs cs vs n (i+1) ys rhs
+        if 0 < rhs then check_imp_slot drhs cs vs n (i+1) ys' rhs
         else F
       else
         let rhs = rhs - ABS c in
-        if 0 < rhs then check_imp_slot drhs cs vs n (i+1) ((d,y)::ys) rhs
+        if 0 < rhs then check_imp_slot drhs cs vs n (i+1) ys rhs
         else F
 Termination
   WF_REL_TAC ‘measure (λ(drhs,cs,vs,n,i,ys,rhs). (n - i) + LENGTH ys)’>>
@@ -769,9 +899,9 @@ Definition imp_slot_def:
   case s of
     Empty => F
   | Stored cs vs crhs mc b =>
-    contr_slot s ∨
     (let rhs = crhs - drhs + 1 in
-      0 < rhs ∧ check_imp_slot drhs cs vs (length cs) 0 dls rhs)
+      0 < rhs ∧ check_imp_slot drhs cs vs (length cs) 0 dls rhs) ∨
+    contr_slot s
 End
 
 Theorem eq_imp_slot_test:
@@ -836,9 +966,12 @@ Theorem check_imp_slot_enc:
     check_imp_lists drhs (DROP i l) ys rhs)
 Proof
   ho_match_mp_tac check_imp_slot_ind>>
-  rw[]
+  rw[]>>
+  Cases_on`ys`
   >- simp[Once check_imp_slot_def,Once check_imp_lists_def,
       check_lslack_slot_enc]>>
+  rename1`check_imp_lists drhs (DROP i l) (h::ys)`>>
+  PairCases_on`h`>>
   Cases_on`i < LENGTH l`
   >- (
     simp[Once check_imp_slot_def]>>
@@ -853,84 +986,103 @@ Proof
   simp[Once check_imp_slot_def,Once check_imp_lists_def]
 QED
 
-Theorem check_imp_slot_Vector:
-  check_imp_slot drhs (Vector (MAP FST l)) (Vector (MAP SND l)) (LENGTH l)
-    i ys rhs ⇔
-  check_imp_lists drhs (DROP i l) ys rhs
-Proof
-  metis_tac[check_imp_slot_enc]
-QED
-
 Theorem imp_slot_enc:
   imp_slot (enc c b) d ⇔ imp c d
 Proof
   PairCases_on`c`>>PairCases_on`d`>>
   `contr_slot (enc (c0,c1) b) ⇔ check_contradiction (c0,c1)` by
     simp[contr_slot_enc]>>
+  `∀rhs.
+    check_imp_slot d1 (Vector (MAP FST c0)) (Vector (MAP SND c0))
+      (LENGTH c0) 0 d0 rhs ⇔
+    check_imp_lists d1 c0 d0 rhs` by
+    metis_tac[check_imp_slot_enc,DROP_0]>>
   gvs[imp_slot_def,imp_def,check_trivial_def,check_imp_def,enc_def,
-    mlvectorTheory.length_def,check_imp_slot_Vector]
+    mlvectorTheory.length_def]>>
+  metis_tac[]
 QED
 
+(* The substitution's value at variable n (subst_fun s n) *)
+Definition subst_fun_slot_def:
+  subst_fun_slot (s:subst) n =
+  case s of
+    INL (m,v) => if n = m then SOME v else NONE
+  | INR vec => if n < length vec then sub_unsafe vec n else NONE
+End
+
 Definition subst_aux_slot_def:
-  subst_aux_slot f cs vs i old new (k:int) =
+  subst_aux_slot s cs vs i old new (k:int) =
   if i = 0 then (old,new,k)
   else
     let i1 = i - 1 in
     let c = sub_unsafe cs i1 in
     let l = sub_unsafe vs i1 in
-    case f l of
-      NONE => subst_aux_slot f cs vs i1 ((c,l)::old) new k
+    case subst_fun_slot s l of
+      NONE => subst_aux_slot s cs vs i1 ((c,l)::old) new k
     | SOME (INL b) =>
-      subst_aux_slot f cs vs i1 old new (if is_Pos c = b then k + ABS c else k)
-    | SOME (INR (Pos n)) => subst_aux_slot f cs vs i1 old ((c,n)::new) k
-    | SOME (INR (Neg n)) => subst_aux_slot f cs vs i1 old ((0-c,n)::new) k
+      subst_aux_slot s cs vs i1 old new (if is_Pos c = b then k + ABS c else k)
+    | SOME (INR (Pos n)) => subst_aux_slot s cs vs i1 old ((c,n)::new) k
+    | SOME (INR (Neg n)) => subst_aux_slot s cs vs i1 old ((0-c,n)::new) k
 End
 
 Definition subst_same_slot_def:
-  subst_same_slot f cs vs i =
-  if i = 0 then T
-  else
-    let i1 = i - 1 in
-    case f (sub_unsafe vs i1) of
-      NONE => subst_same_slot f cs vs i1
-    | SOME (INL b) => is_Pos (sub_unsafe cs i1) = b ∧ subst_same_slot f cs vs i1
+  subst_same_slot s cs vs i len =
+  if i < len then
+    case subst_fun_slot s (sub_unsafe vs i) of
+      NONE => subst_same_slot s cs vs (i+1) len
+    | SOME (INL b) =>
+      is_Pos (sub_unsafe cs i) = b ∧ subst_same_slot s cs vs (i+1) len
     | SOME (INR _) => F
+  else T
+Termination
+  WF_REL_TAC`measure (λ(s,cs,vs,i,len). len - i)`
 End
 
 Definition subst_slot_def:
-  subst_slot f s =
-  case s of
-    Empty => subst f ([],0)
+  subst_slot s sl =
+  case sl of
+    Empty => subst (subst_fun s) ([],0)
   | Stored cs vs d mc b =>
-    let (old,new,k) = subst_aux_slot f cs vs (length cs) [] [] 0 in
+    let (old,new,k) = subst_aux_slot s cs vs (length cs) [] [] 0 in
     let (sorted,k2) = clean_up new in
     let (result,k3) = add_lists old sorted in
     (result, d - (k + k2 + &k3))
 End
 
 Definition subst_opt_slot_def:
-  subst_opt_slot f s =
-  case s of
+  subst_opt_slot s sl =
+  case sl of
     Empty => NONE
   | Stored cs vs d mc b =>
-    if subst_same_slot f cs vs (length cs) then NONE
+    if subst_same_slot s cs vs 0 (length cs) then NONE
     else
-      let res = subst_slot f s in
-      if SND res = 0 ∨ imp_slot s res then NONE
+      let res = subst_slot s sl in
+      if SND res = 0 ∨ imp_slot sl res then NONE
       else SOME res
 End
 
 Theorem subst_slot_test:
-  let f = (λv. if v = 1 then SOME (INL T)
-            else if v = 2 then SOME (INR (Pos 3)) else NONE) in
+  let s = INR (Vector [NONE; SOME (INL T); SOME (INR (Pos 3))]) in
   let c = ([(2,1);(-3,2);(1,4)],3) in
-  subst_slot f (enc c T) = subst f c ∧
-  subst_opt_slot f (enc c T) = subst_opt f c ∧
-  subst_opt_slot (λv. NONE) (enc c T) = subst_opt (λv. NONE) c ∧
-  subst_opt_slot (λv. if v = 1 then SOME (INL T) else NONE) (enc c T) =
-    subst_opt (λv. if v = 1 then SOME (INL T) else NONE) c
+  subst_slot s (enc c T) = subst (subst_fun s) c ∧
+  subst_opt_slot s (enc c T) = subst_opt (subst_fun s) c ∧
+  subst_opt_slot (INR (Vector [])) (enc c T) =
+    subst_opt (subst_fun (INR (Vector []))) c ∧
+  subst_opt_slot (INL (1,INL T)) (enc c T) =
+    subst_opt (subst_fun (INL (1,INL T))) c
 Proof
   EVAL_TAC
+QED
+
+Theorem subst_fun_slot_thm[simp]:
+  subst_fun_slot s n = subst_fun s n
+Proof
+  Cases_on`s`
+  >- (
+    rename1`INL p`>>
+    PairCases_on`p`>>
+    simp[subst_fun_slot_def,subst_fun_def])>>
+  simp[subst_fun_slot_def,subst_fun_def,spt_to_vecTheory.vec_lookup_def]
 QED
 
 Theorem subst_aux_APPEND:
@@ -952,10 +1104,10 @@ QED
 Theorem subst_aux_slot_thm:
   ∀i old new k.
   i ≤ LENGTH l ⇒
-  subst_aux_slot f (Vector (MAP FST l)) (Vector (MAP SND l)) i old new k =
-  (FST (subst_aux f (TAKE i l)) ++ old,
-   FST (SND (subst_aux f (TAKE i l))) ++ new,
-   SND (SND (subst_aux f (TAKE i l))) + k)
+  subst_aux_slot s (Vector (MAP FST l)) (Vector (MAP SND l)) i old new k =
+  (FST (subst_aux (subst_fun s) (TAKE i l)) ++ old,
+   FST (SND (subst_aux (subst_fun s) (TAKE i l))) ++ new,
+   SND (SND (subst_aux (subst_fun s) (TAKE i l))) + k)
 Proof
   Induct>>
   rw[Once subst_aux_slot_def,subst_aux_def]>>
@@ -969,7 +1121,7 @@ Proof
 QED
 
 Theorem subst_slot_enc:
-  subst_slot f (enc c b) = subst f c
+  subst_slot s (enc c b) = subst (subst_fun s) c
 Proof
   PairCases_on`c`>>
   simp[subst_slot_def,enc_def,subst_def,subst_lhs_def,
@@ -991,47 +1143,46 @@ Proof
 QED
 
 Theorem subst_same_slot_thm:
-  ∀i.
-  i ≤ LENGTH l ⇒
-  (subst_same_slot f (Vector (MAP FST l)) (Vector (MAP SND l)) i ⇔
-    SND (SND (SND (subst_opt_aux f (TAKE i l)))))
+  ∀s cs vs i len.
+  cs = Vector (MAP FST l) ∧ vs = Vector (MAP SND l) ∧ len = LENGTH l ⇒
+  (subst_same_slot s cs vs i len ⇔
+    SND (SND (SND (subst_opt_aux (subst_fun s) (DROP i l)))))
 Proof
-  Induct>>
-  rw[Once subst_same_slot_def,subst_opt_aux_def]>>
-  `TAKE (SUC i) l = TAKE i l ++ [EL i l]` by
-    simp[GSYM SNOC_EL_TAKE,SNOC_APPEND]>>
+  ho_match_mp_tac subst_same_slot_ind>>
+  rw[]>>
+  simp[Once subst_same_slot_def]>>
+  reverse (Cases_on`i < LENGTH l`)
+  >- (
+    `DROP i l = []` by simp[DROP_LENGTH_TOO_LONG]>>
+    simp[subst_opt_aux_def])>>
+  `DROP i l = [EL i l] ++ DROP (i+1) l` by simp[DROP_EL_CONS,ADD1]>>
+  pop_assum SUBST1_TAC>>
+  simp[subst_opt_aux_same_APPEND]>>
   Cases_on`EL i l`>>
-  gvs[subst_opt_aux_same_APPEND,subst_opt_aux_def,
-    mlvectorTheory.sub_def,EL_MAP]>>
+  gvs[subst_opt_aux_def,mlvectorTheory.sub_def,EL_MAP]>>
   every_case_tac>>gvs[]>>
   metis_tac[]
 QED
 
-Theorem subst_opt_slot_alt:
-  subst_opt_slot f s =
-  if (case s of
-        Empty => T
-      | Stored cs vs d mc b => subst_same_slot f cs vs (length cs))
-  then NONE
-  else
-    let res = subst_slot f s in
-    if SND res = 0 ∨ imp_slot s res then NONE
-    else SOME res
-Proof
-  Cases_on`s`>>
-  simp[subst_opt_slot_def]
-QED
-
 Theorem subst_opt_slot_enc:
-  subst_opt_slot f (enc c b) = subst_opt f c
+  subst_opt_slot s (enc c b) = subst_opt (subst_fun s) c
 Proof
   PairCases_on`c`>>
-  `(case enc (c0,c1) b of
-      Empty => T
-    | Stored cs vs d mc b => subst_same_slot f cs vs (length cs)) ⇔
-    SND (SND (SND (subst_opt_aux f c0)))` by
-    simp[enc_def,mlvectorTheory.length_def,subst_same_slot_thm]>>
-  simp[subst_opt_slot_alt,subst_slot_enc,imp_slot_enc,subst_opt_eq,
+  `subst_opt_slot s (enc (c0,c1) b) =
+    if subst_same_slot s (Vector (MAP FST c0)) (Vector (MAP SND c0))
+      0 (LENGTH c0)
+    then NONE
+    else
+      let res = subst_slot s (enc (c0,c1) b) in
+      if SND res = 0 ∨ imp_slot (enc (c0,c1) b) res then NONE
+      else SOME res` by
+    simp[subst_opt_slot_def,enc_def,mlvectorTheory.length_def]>>
+  pop_assum SUBST1_TAC>>
+  `subst_same_slot s (Vector (MAP FST c0)) (Vector (MAP SND c0))
+      0 (LENGTH c0) ⇔
+    SND (SND (SND (subst_opt_aux (subst_fun s) c0)))` by
+    metis_tac[subst_same_slot_thm,DROP_0]>>
+  simp[subst_slot_enc,imp_slot_enc,subst_opt_eq,
     subst_def,subst_lhs_def]>>
   rpt (pairarg_tac>>gvs[])>>
   imp_res_tac subst_opt_aux_thm_1>>
@@ -1074,18 +1225,6 @@ Theorem restore_slot_test:
   restore_slot 2 (enc ([(2,1);(-3,4);(1,4)],3) T) = (F,F)
 Proof
   EVAL_TAC
-QED
-
-Theorem dec_terms_GENLIST:
-  ∀cs vs i acc.
-  dec_terms cs vs i acc = GENLIST (λj. (sub cs j, sub vs j)) i ++ acc
-Proof
-  ho_match_mp_tac dec_terms_ind>>
-  rw[]>>
-  simp[Once dec_terms_def]>>
-  rw[]>>
-  Cases_on`i`>>
-  gvs[GENLIST,SNOC_APPEND]
 QED
 
 Theorem restore_scan_thm:
@@ -1175,9 +1314,13 @@ Definition mk_hashset_slot_def:
     mk_hashset_slot ss (LUPDATE (s::EL h acc) h acc))
 End
 
+Definition mem_slots_def:
+  (mem_slots c [] ⇔ F) ∧
+  (mem_slots c (s::ss) ⇔ eq_slot c s ∨ mem_slots c ss)
+End
+
 Definition in_hashset_slot_def:
-  in_hashset_slot c hs =
-  EXISTS (eq_slot c) (EL (hash_constraint c) hs)
+  in_hashset_slot c hs = mem_slots c (EL (hash_constraint c) hs)
 End
 
 Theorem hash_slot_test:
@@ -1219,6 +1362,12 @@ Proof
   simp[hash_constraint_def,splim_def]
 QED
 
+Theorem mem_slots_EXISTS:
+  ∀ss. mem_slots c ss ⇔ EXISTS (eq_slot c) ss
+Proof
+  Induct>>rw[mem_slots_def]
+QED
+
 Theorem LENGTH_mk_hashset_slot:
   ∀ss acc. LENGTH (mk_hashset_slot ss acc) = LENGTH acc
 Proof
@@ -1238,7 +1387,7 @@ Proof
   strip_tac
   >- metis_tac[]>>
   `hash_slot h < splim` by simp[hash_slot_thm,hash_constraint_lt_splim]>>
-  gvs[in_hashset_slot_def,EL_LUPDATE]>>
+  gvs[in_hashset_slot_def,mem_slots_EXISTS,EL_LUPDATE]>>
   every_case_tac>>
   gvs[]>>
   metis_tac[]
@@ -1266,9 +1415,13 @@ Definition eq_slots_def:
   | _ => F
 End
 
+Definition mem_eq_slots_def:
+  (mem_eq_slots s [] ⇔ F) ∧
+  (mem_eq_slots s (t::ts) ⇔ eq_slots s t ∨ mem_eq_slots s ts)
+End
+
 Definition in_hashset_slots_def:
-  in_hashset_slots s hs =
-  EXISTS (eq_slots s) (EL (hash_slot s) hs)
+  in_hashset_slots s hs = mem_eq_slots s (EL (hash_slot s) hs)
 End
 
 Theorem eq_slots_test:
@@ -1300,6 +1453,12 @@ Proof
   metis_tac[LENGTH_GENLIST]
 QED
 
+Theorem mem_eq_slots_EXISTS:
+  ∀ts. mem_eq_slots s ts ⇔ EXISTS (eq_slots s) ts
+Proof
+  Induct>>rw[mem_eq_slots_def]
+QED
+
 Theorem in_hashset_slots_mk_hashset_slot:
   ∀ss s acc.
   LENGTH acc = splim ∧
@@ -1313,7 +1472,7 @@ Proof
   strip_tac
   >- metis_tac[]>>
   `hash_slot h < splim` by simp[hash_slot_thm,hash_constraint_lt_splim]>>
-  gvs[in_hashset_slots_def,EL_LUPDATE]>>
+  gvs[in_hashset_slots_def,mem_eq_slots_EXISTS,EL_LUPDATE]>>
   every_case_tac>>
   gvs[]>>
   metis_tac[]
@@ -1343,67 +1502,68 @@ Proof
     first_assum (irule_at Any)>>
     metis_tac[eq_slots_thm])>>
   `hash_slot x < splim` by simp[hash_slot_thm,hash_constraint_lt_splim]>>
-  gvs[in_hashset_slots_def,EL_REPLICATE]
+  gvs[in_hashset_slots_def,mem_eq_slots_def,EL_REPLICATE]
 QED
 
 (* Solutions and objective *)
 
-Definition thresh_slot_def:
-  thresh_slot g cs vs i len (r:num) =
+(* Whether the terms from index i reach r under the assignment vector wv
+  (unlisted variables are false) *)
+Definition sat_slot_aux_def:
+  sat_slot_aux wv cs vs i len (r:int) =
   if i < len then
-    let e:num = g (sub_unsafe cs i) (sub_unsafe vs i) in
-    r ≤ e ∨ thresh_slot g cs vs (i+1) len (r - e)
+    let c = sub_unsafe cs i in
+    let v = sub_unsafe vs i in
+    if (if v < length wv then sub_unsafe wv v else F) then
+      if 0 < c then r ≤ c ∨ sat_slot_aux wv cs vs (i+1) len (r - c)
+      else sat_slot_aux wv cs vs (i+1) len r
+    else if c < 0 then r ≤ -c ∨ sat_slot_aux wv cs vs (i+1) len (r + c)
+    else sat_slot_aux wv cs vs (i+1) len r
   else F
 Termination
-  WF_REL_TAC`measure (λ(g,cs,vs,i,len,r). len - i)`
+  WF_REL_TAC`measure (λ(wv,cs,vs,i,len,r). len - i)`
 End
 
-Definition eval_term_cv_def:
-  eval_term_cv w (c:int) (v:num) = Num (ABS c) * eval_lit w (c < 0) v
-End
-
-Definition cube_term_cv_def:
-  cube_term_cv cw (c:int) (v:num) =
-  case cw v of
-    NONE => 0
-  | SOME b => Num (ABS c) * eval_lit (K b) (c < 0) v
+(* The same under the cube vector cv (unlisted variables are fixed to
+  false, NONE entries are free) *)
+Definition cube_slot_aux_def:
+  cube_slot_aux cv cs vs i len (r:int) =
+  if i < len then
+    let c = sub_unsafe cs i in
+    let v = sub_unsafe vs i in
+    case (if v < length cv then sub_unsafe cv v else SOME F) of
+      NONE => cube_slot_aux cv cs vs (i+1) len r
+    | SOME b =>
+      if b then
+        if 0 < c then r ≤ c ∨ cube_slot_aux cv cs vs (i+1) len (r - c)
+        else cube_slot_aux cv cs vs (i+1) len r
+      else if c < 0 then r ≤ -c ∨ cube_slot_aux cv cs vs (i+1) len (r + c)
+      else cube_slot_aux cv cs vs (i+1) len r
+  else F
+Termination
+  WF_REL_TAC`measure (λ(cv,cs,vs,i,len,r). len - i)`
 End
 
 Definition sat_slot_def:
-  sat_slot w s =
+  sat_slot wv s =
   case s of
     Empty => T
-  | Stored cs vs d mc b =>
-    d ≤ 0 ∨ thresh_slot (eval_term_cv w) cs vs 0 (length cs) (Num d)
+  | Stored cs vs d mc b => d ≤ 0 ∨ sat_slot_aux wv cs vs 0 (length cs) d
 End
 
 Definition cube_slot_def:
-  cube_slot cw s =
+  cube_slot cv s =
   case s of
     Empty => T
-  | Stored cs vs d mc b =>
-    d ≤ 0 ∨ thresh_slot (cube_term_cv cw) cs vs 0 (length cs) (Num d)
+  | Stored cs vs d mc b => d ≤ 0 ∨ cube_slot_aux cv cs vs 0 (length cs) d
 End
-
-Theorem UNCURRY_eval_term_cv:
-  UNCURRY (eval_term_cv w) = eval_term w
-Proof
-  simp[FUN_EQ_THM,FORALL_PROD,eval_term_cv_def]
-QED
-
-Theorem UNCURRY_cube_term_cv:
-  UNCURRY (cube_term_cv cw) =
-  (λcv. case cw (SND cv) of NONE => 0 | SOME b => eval_term (K b) cv)
-Proof
-  simp[FUN_EQ_THM,FORALL_PROD,cube_term_cv_def]
-QED
 
 Definition check_obj_slots_def:
   check_obj_slots obj wm ss bopt =
   let wv = mk_obj_vec wm in
   let w = vec_lookup_d F wv in
   let new = eval_obj obj w in
-  if EVERY (sat_slot w) ss
+  if EVERY (sat_slot wv) ss
   then
     case bopt of NONE => SOME (new, w)
     | SOME b =>
@@ -1411,41 +1571,116 @@ Definition check_obj_slots_def:
   else NONE
 End
 
+Definition sol_free_ok_def:
+  sol_free_ok wm (free:num_set) ⇔
+  EVERY (λ(v,b). sptree$lookup v free = NONE) wm
+End
+
+Definition sol_cw_ok_def:
+  sol_cw_ok cw wm ⇔ EVERY (λ(v:num,b). cw v = SOME b) wm
+End
+
+Definition sol_fun_def:
+  sol_fun cw = (λv:num. case cw v of NONE => F | SOME b => b)
+End
+
 Definition check_sol_slots_def:
   check_sol_slots wm free ss =
-  if EVERY (λ(v,b). lookup v free = NONE) wm then
-    let cw = vec_lookup_d (SOME F) (mk_cube_vec wm free) in
-    if EVERY (λ(v,b). cw v = SOME b) wm ∧ EVERY (cube_slot cw) ss then
-      SOME (λv. case cw v of NONE => F | SOME b => b)
+  if sol_free_ok wm free then
+    let cv = mk_cube_vec wm free in
+    let cw = vec_lookup_d (SOME F) cv in
+    if sol_cw_ok cw wm ∧ EVERY (cube_slot cv) ss then SOME (sol_fun cw)
     else NONE
   else NONE
 End
 
-Theorem thresh_slot_thm:
-  ∀g cs vs i len r.
+Theorem cube_slot_test:
+  let s = enc ([(2,1);(-3,4);(1,7)],4) T in
+  let c = ([(2,1);(-3,4);(1,7)],4) in
+  (cube_slot (Vector [NONE;SOME T]) s ⇔
+    check_cube (vec_lookup_d (SOME F) (Vector [NONE;SOME T])) c) ∧
+  (cube_slot (Vector [NONE;NONE;NONE;NONE;NONE;NONE;NONE;NONE]) s ⇔
+    check_cube
+      (vec_lookup_d (SOME F) (Vector [NONE;NONE;NONE;NONE;NONE;NONE;NONE;NONE]))
+      c)
+Proof
+  EVAL_TAC
+QED
+
+Theorem sat_slot_aux_thm:
+  ∀wv cs vs i len r.
   0 < r ⇒
-  (thresh_slot g cs vs i len r ⇔
-    r ≤ SUM (MAP (UNCURRY g)
+  (sat_slot_aux wv cs vs i len r ⇔
+    r ≤ &SUM (MAP (eval_term (vec_lookup_d F wv))
       (GENLIST (λj. (sub cs (i+j), sub vs (i+j))) (len - i))))
 Proof
-  ho_match_mp_tac thresh_slot_ind>>
+  ho_match_mp_tac sat_slot_aux_ind>>
   rw[]>>
-  simp[Once thresh_slot_def]>>
-  Cases_on`i < len`
+  simp[Once sat_slot_aux_def]>>
+  reverse (Cases_on`i < len`)
   >- (
+    `len - i = 0` by simp[]>>
     simp[]>>
-    `len - i = SUC (len - (i+1))` by simp[]>>
-    qpat_x_assum`len - i = _` SUBST1_TAC>>
-    simp[GENLIST_CONS,combinTheory.o_DEF,ADD1]>>
-    Cases_on`r ≤ g (sub cs i) (sub vs i)`>>
-    gvs[])>>
-  `len - i = 0` by simp[]>>
-  qpat_x_assum`len - i = 0` SUBST1_TAC>>
-  gvs[]
+    intLib.ARITH_TAC)>>
+  `len - i = SUC (len - (i+1))` by simp[]>>
+  pop_assum SUBST1_TAC>>
+  REWRITE_TAC[GENLIST_CONS]>>
+  simp[combinTheory.o_DEF,ADD1,vec_lookup_d_def]>>
+  qmatch_goalsub_abbrev_tac`SUM (MAP _ rest)`>>
+  Cases_on`sub vs i < length wv ∧ sub wv (sub vs i)`>>
+  gvs[]>>
+  rw[GSYM integerTheory.INT_ADD,integerTheory.Num_EQ_ABS]>>
+  qmatch_goalsub_abbrev_tac`&SUM ls`>>
+  `0 ≤ &SUM ls` by simp[]>>
+  Cases_on`r ≤ ABS (sub cs i)`>>
+  gvs[integerTheory.INT_ABS,integerTheory.INT_NOT_LE,
+    intLib.ARITH_PROVE ``∀a b:int. (0 < a - b ⇔ b < a) ∧ (0 < a + b ⇔ -b < a)``,
+    intLib.ARITH_PROVE ``∀c:int. 0 < c ⇒ (c < 0 ⇔ F)``]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem cube_slot_aux_thm:
+  ∀cv cs vs i len r.
+  0 < r ⇒
+  (cube_slot_aux cv cs vs i len r ⇔
+    r ≤ &SUM (MAP (λx.
+      case vec_lookup_d (SOME F) cv (SND x) of
+        NONE => 0
+      | SOME b => eval_term (K b) x)
+      (GENLIST (λj. (sub cs (i+j), sub vs (i+j))) (len - i))))
+Proof
+  ho_match_mp_tac cube_slot_aux_ind>>
+  rpt strip_tac>>
+  simp[Once cube_slot_aux_def]>>
+  reverse (Cases_on`i < len`)
+  >- (
+    `len - i = 0` by simp[]>>
+    simp[]>>
+    intLib.ARITH_TAC)>>
+  `len - i = SUC (len - (i+1))` by simp[]>>
+  pop_assum SUBST1_TAC>>
+  REWRITE_TAC[GENLIST_CONS]>>
+  simp[combinTheory.o_DEF,ADD1]>>
+  qmatch_goalsub_abbrev_tac`SUM (MAP _ rest)`>>
+  `(if sub vs i < length cv then sub cv (sub vs i) else SOME F) =
+    vec_lookup_d (SOME F) cv (sub vs i)` by simp[vec_lookup_d_def]>>
+  gvs[]>>
+  Cases_on`vec_lookup_d (SOME F) cv (sub vs i)`>>
+  gvs[]>>
+  rename1`SOME b`>>
+  Cases_on`b`>>
+  rw[GSYM integerTheory.INT_ADD,integerTheory.Num_EQ_ABS]>>
+  qmatch_goalsub_abbrev_tac`&SUM ls`>>
+  `0 ≤ &SUM ls` by simp[]>>
+  Cases_on`r ≤ ABS (sub cs i)`>>
+  gvs[integerTheory.INT_ABS,integerTheory.INT_NOT_LE,
+    intLib.ARITH_PROVE ``∀a b:int. (0 < a - b ⇔ b < a) ∧ (0 < a + b ⇔ -b < a)``,
+    intLib.ARITH_PROVE ``∀c:int. 0 < c ⇒ (c < 0 ⇔ F)``]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem sat_slot_thm:
-  sat_slot w s ⇔ satisfies_npbc w (dec s)
+  sat_slot wv s ⇔ satisfies_npbc (vec_lookup_d F wv) (dec s)
 Proof
   Cases_on`s`
   >- simp[sat_slot_def,dec_def,satisfies_npbc_def]>>
@@ -1453,13 +1688,12 @@ Proof
   simp[sat_slot_def,dec_def,dec_terms_GENLIST,satisfies_npbc_def]>>
   Cases_on`d ≤ 0`
   >- (simp[]>>intLib.ARITH_TAC)>>
-  `0 < Num d` by intLib.ARITH_TAC>>
-  simp[thresh_slot_thm,UNCURRY_eval_term_cv]>>
-  intLib.ARITH_TAC
+  `0 < d` by intLib.ARITH_TAC>>
+  simp[sat_slot_aux_thm]
 QED
 
 Theorem cube_slot_thm:
-  cube_slot cw s ⇔ check_cube cw (dec s)
+  cube_slot cv s ⇔ check_cube (vec_lookup_d (SOME F) cv) (dec s)
 Proof
   Cases_on`s`
   >- simp[cube_slot_def,dec_def,check_cube_correct]>>
@@ -1467,9 +1701,8 @@ Proof
   simp[cube_slot_def,dec_def,dec_terms_GENLIST,check_cube_correct]>>
   Cases_on`d ≤ 0`
   >- (simp[]>>intLib.ARITH_TAC)>>
-  `0 < Num d` by intLib.ARITH_TAC>>
-  simp[thresh_slot_thm,UNCURRY_cube_term_cv]>>
-  intLib.ARITH_TAC
+  `0 < d` by intLib.ARITH_TAC>>
+  simp[cube_slot_aux_thm]
 QED
 
 Theorem check_obj_slots_thm:
@@ -1482,8 +1715,8 @@ QED
 Theorem check_sol_slots_thm:
   check_sol_slots wm free ss = check_sol wm free (MAP dec ss)
 Proof
-  simp[check_sol_slots_def,check_sol_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,
-    cube_slot_thm]
+  simp[check_sol_slots_def,check_sol_def,sol_free_ok_def,sol_cw_ok_def,
+    sol_fun_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,cube_slot_thm]
 QED
 
 (* Negation *)
@@ -1609,6 +1842,33 @@ Proof
   simp[slot_max_var_def,enc_def,mlvectorTheory.length_def,max_var_vs_thm]
 QED
 
+Theorem max_var_vs_bound:
+  ∀i m.
+  m ≤ max_var_vs vs i m ∧
+  ∀j. j < i ⇒ sub vs j ≤ max_var_vs vs i m
+Proof
+  Induct>>
+  ONCE_REWRITE_TAC[max_var_vs_def]>>
+  simp[]>>
+  rpt gen_tac>>
+  qmatch_goalsub_abbrev_tac`max_var_vs vs i m'`>>
+  first_x_assum (qspec_then`m'` strip_assume_tac)>>
+  `m ≤ m' ∧ sub vs i ≤ m'` by rw[Abbr`m'`]>>
+  rw[]>>
+  `j = i ∨ j < i` by decide_tac>>
+  metis_tac[LESS_EQ_TRANS]
+QED
+
+Theorem slot_bound_slot_max_var:
+  slot_bound s (slot_max_var s + 1)
+Proof
+  Cases_on`s`>>
+  rw[slot_bound_def,slot_max_var_def]>>
+  rename1`sub vs j`>>
+  `sub vs j ≤ max_var_vs vs (length vs) 0` by metis_tac[max_var_vs_bound]>>
+  simp[]
+QED
+
 
 (* Negation of a stored slot, sharing its variable vector *)
 
@@ -1654,6 +1914,33 @@ Proof
     neg_terms_thm,MAP_MAP_o,combinTheory.o_DEF,
     LAMBDA_PROD,max_coeff_negate]>>
   simp[MAP_EQ_f,FORALL_PROD]
+QED
+
+Theorem LENGTH_neg_terms:
+  ∀i acc s.
+  LENGTH (FST (neg_terms cs i acc s)) = i + LENGTH acc
+Proof
+  Induct>>
+  rw[Once neg_terms_def]
+QED
+
+Theorem wf_slot_not_slot:
+  wf_slot s ⇒ wf_slot (not_slot s b)
+Proof
+  Cases_on`s`>>
+  rw[not_slot_def,wf_slot_def]>>
+  pairarg_tac>>
+  gvs[wf_slot_def,mlvectorTheory.length_def]>>
+  metis_tac[LENGTH_neg_terms,FST,LENGTH,ADD_0]
+QED
+
+Theorem slot_bound_not_slot[simp]:
+  slot_bound (not_slot s b) n ⇔ slot_bound s n
+Proof
+  Cases_on`s`>>
+  rw[not_slot_def]>>
+  pairarg_tac>>
+  simp[slot_bound_def]
 QED
 
 (* A new constraint, its negation (sharing the variable vector) and its
@@ -1714,21 +2001,28 @@ Proof
 QED
 
 (* nfc is the slot of the negated constraint *)
+Definition lookup_hash_imp_slot_def:
+  lookup_hash_imp_slot r nfc skipped (id,cs) =
+  case sptree$lookup id r of
+    NONE => EXISTS (λnc. imp_slot nfc (not nc)) cs ∨ MEM id skipped
+  | SOME _ => T
+End
+
 Definition check_hash_goals_slot_def:
   check_hash_goals_slot nfc skipped r rsubs =
-  EVERY (λ(id,cs).
-      lookup id r ≠ NONE ∨
-      EXISTS (λnc. imp_slot nfc (not nc)) cs ∨
-      MEM id skipped)
-    (enumerate 0 rsubs)
+  EVERY (lookup_hash_imp_slot r nfc skipped) (enumerate 0 rsubs)
 End
 
 Theorem check_hash_goals_slot_enc:
   check_hash_goals_slot (enc (not c) b) skipped r rsubs ⇔
   check_hash_goals c skipped r rsubs
 Proof
-  simp[check_hash_goals_slot_def,check_hash_goals_def,check_hash_imp_def,
-    imp_slot_enc]
+  simp[check_hash_goals_slot_def,check_hash_goals_def,check_hash_imp_def]>>
+  irule EVERY_CONG>>
+  simp[FORALL_PROD,lookup_hash_imp_slot_def,imp_slot_enc]>>
+  rw[]>>
+  every_case_tac>>
+  simp[]
 QED
 
 Theorem neg_sat_slot_test:
@@ -1741,10 +2035,11 @@ Theorem neg_sat_slot_test:
      7) ∧
   enc_mv ([(2,1);(-3,7);(1,4)],2) T = (enc ([(2,1);(-3,7);(1,4)],2) T, 7) ∧
   slot_max_var (enc ([(2,1);(-3,7);(1,4)],2) T) = 7 ∧
-  (sat_slot (λv. v = 1) (enc ([(2,1);(-3,4);(1,7)],4) T) ⇔
-    satisfies_npbc (λv. v = 1) ([(2,1);(-3,4);(1,7)],4)) ∧
-  (sat_slot (λv. v = 7) (enc ([(2,1);(-3,4);(1,7)],5) T) ⇔
-    satisfies_npbc (λv. v = 7) ([(2,1);(-3,4);(1,7)],5))
+  (sat_slot (Vector [F;T]) (enc ([(2,1);(-3,4);(1,7)],4) T) ⇔
+    satisfies_npbc (vec_lookup_d F (Vector [F;T])) ([(2,1);(-3,4);(1,7)],4)) ∧
+  (sat_slot (Vector [F;F;F;F;F;F;F;T]) (enc ([(2,1);(-3,4);(1,7)],5) T) ⇔
+    satisfies_npbc (vec_lookup_d F (Vector [F;F;F;F;F;F;F;T]))
+      ([(2,1);(-3,4);(1,7)],5))
 Proof
   EVAL_TAC
 QED
