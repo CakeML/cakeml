@@ -1,3 +1,8 @@
+(*
+  LetCall unfolding for BVI: a [LetCall] among the bindings of a [Let] is
+  hoisted out, and the remaining bindings and the body of the [Let] move
+  into the continuation of the [LetCall].
+*)
 Theory bvi_lclunf
 Ancestors
   bvi
@@ -5,7 +10,7 @@ Libs
   preamble
 
 
-        
+
 Datatype:
   rename_kind = Push num | ReorderAdd num num num | Delay num
 End
@@ -133,4 +138,4 @@ Proof
   EVAL_TAC
 QED
 
-               
+

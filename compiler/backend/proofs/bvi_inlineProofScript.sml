@@ -77,26 +77,20 @@ Proof
   >> EVAL_TAC
 QED
 
-Theorem canonical_wrapper_thm:
-  ∀name arity body.
-    canonical_wrapper name arity body ⇔
-      ∃rets ticks worker tag.
-        worker ≠ name ∧
-        body =
-          bvi$LetCall rets ticks worker (GENLIST bvi$Var arity)
-            (bvi$Op (BlockOp (Cons tag))
-               (REVERSE (GENLIST bvi$Var rets)))
+Theorem cons_tree_inline_exp:
+  (∀i e j. cons_tree i e = SOME j ⇒ inline_exp cs e = e) ∧
+  (∀i es j. cons_trees i es = SOME j ⇒ inline_exps cs es = es)
 Proof
-  recInduct canonical_wrapper_ind
-  >> simp [canonical_wrapper_def]
-  >> metis_tac []
+  ho_match_mp_tac cons_tree_ind
+  >> rw [cons_tree_def, inline_exp_def]
+  >> gvs [AllCaseEqs()] >> metis_tac []
 QED
 
 Theorem wrapper_ok_inline_exp[simp]:
   wrapper_ok name arity body ⇒ inline_exp cs body = body
 Proof
-  rw [wrapper_ok_def, canonical_wrapper_thm]
-  >> gvs [inline_exp_def]
+  Cases_on ‘body’ >> rw [wrapper_ok_def, inline_exp_def]
+  >> metis_tac [cons_tree_inline_exp]
 QED
 
 Theorem inline_all_MAP_FST:

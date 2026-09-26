@@ -24,20 +24,37 @@ Proof
   Cases_on ‘n’ >> simp [bvi_mk_tick_def, FUNPOW_SUC]
 QED
 
-(* [Op] reverses its argument list, so a wrapper that boxes the worker's
-   [rets] results in order lists them reversed under the [Cons]. *)
-Definition canonical_wrapper_def:
-  (canonical_wrapper name arity
-     (bvi$LetCall rets ticks worker args
-        (bvi$Op (BlockOp (Cons tag)) rvs)) ⇔
-     worker ≠ name ∧
-     args = GENLIST bvi$Var arity ∧
-     rvs = REVERSE (GENLIST bvi$Var rets)) ∧
-  (canonical_wrapper name arity _ ⇔ F)
+(* [cons_tree i e = SOME j] iff [e] is a tree of [Cons] blocks whose
+   leaves, left to right, are [Var i], [Var (i+1)], ..., [Var (j-1)]. *)
+Definition cons_tree_def:
+  (cons_tree i (bvi$Var n) = if n = i then SOME (i + 1) else NONE) ∧
+  (cons_tree i (bvi$Op op xs) =
+     case op of
+     | BlockOp (Cons _) => cons_trees i xs
+     | _ => NONE) ∧
+  (cons_tree i _ = NONE) ∧
+  (cons_trees i [] = SOME i) ∧
+  (cons_trees i (x::xs) =
+     case cons_tree i x of
+     | NONE => NONE
+     | SOME j => cons_trees j xs)
+Termination
+  WF_REL_TAC ‘measure $ λx. pmatch x of
+    | INL (_,e) => bvi$exp_size e
+    | INR (_,es) => bvi$exp2_size es’
+  >> rpt strip_tac >> simp [bviTheory.exp_size_def]
 End
 
+(* The worker-wrapper protocol of [bvi_cpr]: the wrapper passes its
+   arguments to the worker, which returns [rets] results; the wrapper
+   boxes them in a tree of [Cons] blocks that uses each result once, in
+   order. *)
 Definition wrapper_ok_def:
-  wrapper_ok name arity body ⇔ canonical_wrapper name arity body
+  (wrapper_ok name arity (bvi$LetCall rets ticks worker args tree) ⇔
+     worker ≠ name ∧
+     args = GENLIST bvi$Var arity ∧
+     cons_tree 0 tree = SOME rets) ∧
+  (wrapper_ok name arity _ ⇔ F)
 End
 
 (* [cs] is a cache of code-table entries.  The correctness invariant
@@ -133,7 +150,16 @@ End
 Theorem canonical_four_result_wrapper:
   wrapper_ok 10 3
     (LetCall 4 0 11 (GENLIST Var 3)
-      (Op (BlockOp (Cons 7)) (REVERSE (GENLIST Var 4))))
+      (Op (BlockOp (Cons 7)) (GENLIST Var 4)))
+Proof
+  EVAL_TAC
+QED
+
+Theorem nested_wrapper:
+  wrapper_ok 10 1
+    (LetCall 3 0 11 [Var 0]
+      (Op (BlockOp (Cons 0))
+        [Op (BlockOp (Cons 1)) [Var 0; Var 1]; Var 2]))
 Proof
   EVAL_TAC
 QED
@@ -148,6 +174,12 @@ Theorem malformed_wrappers_rejected:
   ¬wrapper_ok 10 3
       (LetCall 4 0 11 (GENLIST Var 3)
         (Op (BlockOp (Cons 7)) [Var 0; Var 1; Var 2])) ∧
+  ¬wrapper_ok 10 3
+      (LetCall 4 0 11 (GENLIST Var 3)
+        (Op (BlockOp (Cons 7)) (REVERSE (GENLIST Var 4)))) ∧
+  ¬wrapper_ok 10 1
+      (LetCall 2 0 11 [Var 0]
+        (Op (BlockOp (Cons 0)) [Var 0; Var 0])) ∧
   ¬wrapper_ok 10 3 (Return (GENLIST Var 3))
 Proof
   EVAL_TAC

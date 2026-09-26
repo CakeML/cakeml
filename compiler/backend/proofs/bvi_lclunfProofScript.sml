@@ -1,10 +1,14 @@
+(*
+  Correctness of LetCall unfolding: [lc_unfold] preserves the semantics
+  of every BVI expression.
+*)
 Theory bvi_lclunfProof
 Ancestors
   bvi_lclunf bviProps bviSem
 Libs
   preamble
 
-        
+
 Theorem revar_ssh_push:
   revar_ssh (Push push::xs) ssh n = let n' = revar_ssh xs ssh n in if ssh ≤ n' then n' + push else n'
 Proof
@@ -189,7 +193,7 @@ Proof
 QED
 
 
-   
+
 Theorem rename_eq:
   (!rs x env env' (s: ('a,'b) state).
      env_rel rs env env' ==>
