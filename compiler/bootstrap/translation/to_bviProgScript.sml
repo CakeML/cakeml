@@ -152,7 +152,43 @@ val r = translate bvi_tmcTheory.bvi_to_cb_aux_def;
 
 val r = translate bvi_cprTheory.sub_shape_def;
 val r = translate bvi_cprTheory.cpr_merge_def;
+val r = translate bvi_cprTheory.imm_part_def;
+val r = translate bvi_cprTheory.inc_refs_def;
+val r = translate bvi_cprTheory.refcounts_def;
+val r = translate bvi_cprTheory.unshared_def;
+val r = translate bvi_cprTheory.all_below_def;
+val r = translate bvi_cprTheory.backward_def;
+val r = translate bvi_cprTheory.str_count_def;
+val r = translate bvi_cprTheory.tree_strs_def;
+val r = translate bvi_cprTheory.build_ok_def;
+
+Theorem bvi_cpr_build_ok_side[local]:
+  ∀ps. bvi_cpr_build_ok_side ps ⇔ T
+Proof
+  Cases \\ simp [fetch "-" "bvi_cpr_build_ok_side_def"]
+QED
+
+val _ = bvi_cpr_build_ok_side |> update_precondition;
+val r = translate bvi_cprTheory.part_shape_def;
+val r = translate bvi_cprTheory.reach_def;
+val r = translate bvi_cprTheory.renum_list_def;
+val r = translate bvi_cprTheory.renum_def;
+val r = translate bvi_cprTheory.sub_parts_def;
+val r = translate bvi_cprTheory.sub_build_def;
+val r = translate bvi_cprTheory.part_exp_def;
+val r = translate bvi_cprTheory.flatten_part_def;
 val r = translate bvi_cprTheory.field_shape_def;
+
+Theorem bvi_cpr_field_shape_side[local]:
+  (∀x. bvi_cpr_field_shape_side x ⇔ T) ∧
+  (∀xs. bvi_cpr_field_shape_list_side xs ⇔ T)
+Proof
+  ho_match_mp_tac bvi_cprTheory.field_shape_ind
+  \\ rw [] \\ simp [Once (fetch "-" "bvi_cpr_field_shape_side_def")]
+  \\ Cases_on ‘ps’ \\ simp [bvi_cprTheory.build_ok_def]
+QED
+
+val _ = bvi_cpr_field_shape_side |> update_precondition;
 val r = translate_no_ind bvi_cprTheory.shape_and_tail_def;
 
 Theorem bvi_cpr_shape_and_tail_ind[local]:
@@ -172,10 +208,31 @@ QED
 
 val _ = bvi_cpr_shape_and_tail_ind |> update_precondition;
 val r = translate bvi_cprTheory.tail_shape_def;
-val r = translate bvi_cprTheory.return_shape_def;
 val r = translate bvi_cprTheory.shape_width_def;
+val r = translate bvi_cprTheory.cap_shape_def;
+
+Theorem cap_shape_width[local]:
+  (∀k sh. 1 ≤ k ⇒ bvi_cpr$shape_width (bvi_cpr$cap_shape k sh) ≤ k) ∧
+  (∀extra shs.
+     bvi_cpr$shape_width_list (bvi_cpr$cap_list extra shs) ≤ extra + LENGTH shs)
+Proof
+  ho_match_mp_tac bvi_cprTheory.cap_shape_ind
+  \\ rw [bvi_cprTheory.cap_shape_def, bvi_cprTheory.shape_width_def]
+QED
+
+Theorem bvi_cpr_cap_shape_side[local]:
+  (∀k sh. bvi_cpr_cap_shape_side k sh ⇔ T) ∧
+  (∀extra shs. bvi_cpr_cap_list_side extra shs ⇔ T)
+Proof
+  ho_match_mp_tac bvi_cprTheory.cap_shape_ind
+  \\ rw [] \\ simp [Once (fetch "-" "bvi_cpr_cap_shape_side_def")]
+  \\ simp [cap_shape_width]
+QED
+
+val _ = bvi_cpr_cap_shape_side |> update_precondition;
+val r = translate bvi_cprTheory.return_shape_def;
 val r = translate bvi_cprTheory.split_ok_def;
-val r = translate bvi_cprTheory.flatten_exp_def;
+val r = translate (bvi_cprTheory.flatten_exp_def |> REWRITE_RULE [GSYM sub_check_def]);
 val r = translate bvi_cprTheory.worker_body_def;
 val r = translate bvi_cprTheory.rebuild_def;
 val r = translate bvi_cprTheory.make_wrapper_def;

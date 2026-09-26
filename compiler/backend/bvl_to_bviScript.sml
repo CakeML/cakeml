@@ -528,7 +528,7 @@ Datatype:
             ; next_name4 : num
             ; do_tailrec : bool
             ; do_tmc : bool
-            ; do_cpr : bool
+            ; cpr_width : num (* maximum returned fields; ≤ 1 disables CPR *)
             ; inlines : (num # bvl$exp) spt
             ; cpr_map : (bvi_cpr$cpr_shape # num) spt
             ; bvi_inlines : (num # bvi$exp) spt
@@ -546,7 +546,7 @@ Definition default_config_def:
      ; next_name4 := num_stubs + 4
      ; do_tailrec := T
      ; do_tmc := T
-     ; do_cpr := T
+     ; cpr_width := 8
      ; inlines := LN
      ; cpr_map := LN
      ; bvi_inlines := LN
@@ -583,7 +583,7 @@ Definition compile_def:
     let (n2, code') = bvi_tailrec$compile_prog c.do_tailrec (num_stubs + 2) code in
     let (n3, code') = bvi_tmc$compile_prog c.do_tmc (num_stubs + 3) code' in
     let ((n4, cpr_map), code') =
-      bvi_cpr$compile_prog c.do_cpr (num_stubs + 4, LN) code' in
+      bvi_cpr$compile_prog c.cpr_width (num_stubs + 4, LN) code' in
     let (bvi_inlines, code') = bvi_inline$compile_prog code' in
       (loc, code', inlines, bvi_inlines, n1, n2, n3, n4, cpr_map,
        get_names (MAP FST code') names)
@@ -601,7 +601,7 @@ Definition bvl_to_bvi_compile_inc_all_def:
     let (nn3, p) = bvi_tmc$compile_prog c.do_tmc c.next_name3 p in
     let c = c with <| next_name3 := nn3 |> in
     let ((nn4, cpr_map), p) =
-      bvi_cpr$compile_prog c.do_cpr (c.next_name4, c.cpr_map) p in
+      bvi_cpr$compile_prog c.cpr_width (c.next_name4, c.cpr_map) p in
     let c = c with <| next_name4 := nn4; cpr_map := cpr_map |> in
     let (bvi_inlines, p) = bvi_inline$compile_inc c.bvi_inlines p in
     let c = c with <| bvi_inlines := bvi_inlines |> in

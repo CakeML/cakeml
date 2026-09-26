@@ -130,7 +130,7 @@ Definition to_bvi_all_def:
     let (n2,code2) = bvi_tailrec$compile_prog c0.do_tailrec (bvl_num_stubs + 2) code in
     let (n3,code3) = bvi_tmc$compile_prog c0.do_tmc (bvl_num_stubs + 3) code2 in
     let ((n4,cm),code4) =
-      bvi_cpr$compile_prog c0.do_cpr (bvl_num_stubs + 4, LN) code3 in
+      bvi_cpr$compile_prog c0.cpr_width (bvl_num_stubs + 4, LN) code3 in
     let (bvi_inlines,code') = bvi_inline$compile_prog code4 in
     let (s,p,l,bl,n1,n2,n3,names) =
       (loc,code',inlines,bvi_inlines,n1,n2,n3,get_names (MAP FST code') names) in

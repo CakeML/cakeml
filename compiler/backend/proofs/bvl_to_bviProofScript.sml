@@ -4736,7 +4736,7 @@ Definition full_cc_def:
       state_cc (compile_inc limit split cut) (state_cc compile_inc
         (state_cc (bvi_tailrec$compile_prog c.do_tailrec)
           (state_cc (bvi_tmc$compile_prog c.do_tmc)
-            (state_cc (bvi_cpr$compile_prog c.do_cpr)
+            (state_cc (bvi_cpr$compile_prog c.cpr_width)
               (state_cc bvi_inline$compile_inc cc)))))
 End
 
@@ -4746,7 +4746,7 @@ Definition full_co_def:
     let split = c.split_main_at_seq in
     let cut = c.exp_cut in
       state_co bvi_inline$compile_inc
-        (state_co (bvi_cpr$compile_prog c.do_cpr)
+        (state_co (bvi_cpr$compile_prog c.cpr_width)
           (state_co (bvi_tmc$compile_prog c.do_tmc)
             (state_co (bvi_tailrec$compile_prog c.do_tailrec)
               (state_co compile_inc
@@ -5668,9 +5668,9 @@ Proof
   \\ old_drule bvi_inlineProofTheory.compile_inc_ALL_DISTINCT
   \\ impl_tac
   >- (simp[Abbr`ys`]
-  \\ qmatch_goalsub_abbrev_tac`bvi_cpr$compile_prog c.do_cpr CS TS`
+  \\ qmatch_goalsub_abbrev_tac`bvi_cpr$compile_prog c.cpr_width CS TS`
   \\ PairCases_on `CS`
-  \\ Cases_on `bvi_cpr$compile_prog c.do_cpr (CS0,CS1) TS`
+  \\ Cases_on `bvi_cpr$compile_prog c.cpr_width (CS0,CS1) TS`
   \\ rename1 `_ = (cst,cys)` \\ PairCases_on `cst` \\ simp []
   \\ `ALL_DISTINCT (MAP FST TS) ∧ EVERY (bvi_cprProof$free_names CS0 o FST) TS`
        suffices_by metis_tac [bvi_cprProofTheory.compile_prog_ALL_DISTINCT]

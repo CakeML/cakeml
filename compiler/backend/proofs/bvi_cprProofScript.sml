@@ -53,8 +53,10 @@ Definition exp_shape_ok_def:
   (exp_shape_ok Leaf (e:bvi$exp) ⇔ T) ∧
   (exp_shape_ok Flexible e ⇔ T) ∧
   (exp_shape_ok (ConsShape t shs) e ⇔
-     ∃xs. e = Op (BlockOp (Cons t)) xs ∧ LENGTH xs = LENGTH shs ∧
-          exp_shape_ok_list shs xs) ∧
+     (∃xs. e = Op (BlockOp (Cons t)) xs ∧ LENGTH xs = LENGTH shs ∧
+           exp_shape_ok_list shs xs) ∨
+     (∃ps. e = Op (BlockOp (Build ps)) [] ∧ build_ok ps ∧
+           sub_shape (ConsShape t shs) (field_shape e))) ∧
 
   (exp_shape_ok_list [] xs ⇔ xs = []) ∧
   (exp_shape_ok_list (sh::shs) xs ⇔
@@ -142,6 +144,614 @@ Proof
   >> rw[flat_vals_def]
 QED
 
+(* Constants [Build ps]: the value of each part when the string part, if
+   any, is at pointer [ptr]. *)
+Definition part_val_def:
+  part_val ps ptr r =
+    case LLOOKUP ps r of
+      SOME (Int i) => Number i
+    | SOME (W64 w) => Word64 w
+    | SOME (Str s) => RefPtr T ptr
+    | SOME (Con t ns) =>
+        Block t (MAP (λn. if n < r then part_val ps ptr n else Number 0) ns)
+    | NONE => Number 0
+Termination
+  WF_REL_TAC ‘measure (SND o SND)’
+End
+
+(* The references after allocating the first string part, if any. *)
+Definition str_refs_def:
+  (str_refs [] (ptr:num) (refs:num |-> v ref) = refs) ∧
+  (str_refs (Str s :: ps) ptr refs =
+     refs |+ (ptr, ByteArray T (MAP (n2w o ORD) (mlstring$explode s)))) ∧
+  (str_refs (_ :: ps) ptr refs = str_refs ps ptr refs)
+End
+
+Theorem lookup_fromList_LLOOKUP:
+  lookup n (fromList ps) = LLOOKUP ps n
+Proof
+  rw[lookup_fromList, LLOOKUP_THM]
+QED
+
+Theorem LLOOKUP_APPEND_LESS:
+  n < LENGTH xs ⇒ LLOOKUP (xs ++ ys) n = LLOOKUP xs n
+Proof
+  rw[LLOOKUP_THM, EL_APPEND1]
+QED
+
+Theorem str_count_APPEND:
+  ∀xs ys. str_count (xs ++ ys) = str_count xs + str_count ys
+Proof
+  Induct >> simp[str_count_def]
+  >> Cases_on ‘h’ >> simp[str_count_def]
+QED
+
+Theorem str_refs_APPEND:
+  ∀xs ys ptr refs.
+    str_refs (xs ++ ys) ptr refs =
+    if str_count xs = 0 then str_refs ys ptr refs else str_refs xs ptr refs
+Proof
+  Induct >> simp[str_refs_def, str_count_def]
+  >> Cases_on ‘h’ >> simp[str_refs_def, str_count_def]
+QED
+
+Theorem str_refs_no_str:
+  ∀xs ptr refs. str_count xs = 0 ⇒ str_refs xs ptr refs = refs
+Proof
+  Induct >> simp[str_refs_def, str_count_def]
+  >> Cases_on ‘h’ >> simp[str_refs_def, str_count_def]
+QED
+
+Theorem LLOOKUP_Str_count:
+  ∀ps i s. LLOOKUP ps i = SOME (Str s) ⇒ 0 < str_count ps
+Proof
+  Induct >> rw[LLOOKUP_def]
+  >- simp[str_count_def]
+  >> first_x_assum drule
+  >> Cases_on ‘h’ >> simp[str_count_def]
+QED
+
+Theorem str_unique:
+  ∀ps i j s1 s2.
+    str_count ps ≤ 1 ∧ LLOOKUP ps i = SOME (Str s1) ∧
+    LLOOKUP ps j = SOME (Str s2) ⇒
+    i = j ∧ s1 = s2
+Proof
+  Induct >> simp[LLOOKUP_def]
+  >> rpt gen_tac >> strip_tac
+  >> ‘str_count ps ≤ 1’ by (Cases_on ‘h’ >> gvs[str_count_def])
+  >> Cases_on ‘i = 0’ >> Cases_on ‘j = 0’ >> gvs[str_count_def]
+  >> imp_res_tac LLOOKUP_Str_count >> gvs[]
+  >> first_x_assum (qspecl_then [‘i - 1’,‘j - 1’,‘s1’,‘s2’] mp_tac)
+  >> simp[]
+QED
+
+Theorem str_refs_unique:
+  ∀ps j s ptr refs.
+    str_count ps ≤ 1 ∧ LLOOKUP ps j = SOME (Str s) ⇒
+    str_refs ps ptr refs =
+    refs |+ (ptr, ByteArray T (MAP (n2w o ORD) (mlstring$explode s)))
+Proof
+  Induct >> simp[LLOOKUP_def]
+  >> rpt gen_tac >> strip_tac
+  >> Cases_on ‘j = 0’ >> gvs[str_refs_def]
+  >> imp_res_tac LLOOKUP_Str_count
+  >> Cases_on ‘h’ >> gvs[str_count_def, str_refs_def]
+  >> first_x_assum drule_all >> simp[]
+QED
+
+(* The value and the references built by [do_build]; there is at most one
+   string part, allocated at the least fresh pointer. *)
+Theorem do_build_part_val:
+  ∀rest pre m refs refs0 ptr.
+    str_count (pre ++ rest) ≤ 1 ∧ pre ++ rest ≠ [] ∧
+    (∀n. n < LENGTH pre ⇒ m n = part_val (pre ++ rest) ptr n) ∧
+    (∀n. LENGTH pre ≤ n ⇒ m n = Number 0) ∧
+    refs = str_refs pre ptr refs0 ∧ ptr = (LEAST p. p ∉ FDOM refs0) ⇒
+    do_build m (LENGTH pre) rest refs =
+      (part_val (pre ++ rest) ptr (LENGTH (pre ++ rest) - 1),
+       str_refs (pre ++ rest) ptr refs0)
+Proof
+  Induct
+  >- (rw[bvlSemTheory.do_build_def]
+      >> Cases_on ‘pre’ >> gvs[])
+  >> rpt gen_tac >> strip_tac
+  >> qpat_x_assum ‘refs = _’ (assume_tac o SYM)
+  >> qpat_x_assum ‘ptr = _’ (assume_tac o SYM)
+  >> simp[bvlSemTheory.do_build_def]
+  >> Cases_on ‘do_part m h refs’ >> rename1 ‘do_part m h refs = (x,refs1)’
+  >> simp[]
+  >> last_x_assum (qspecl_then [‘pre ++ [h]’,‘(LENGTH pre =+ x) m’,‘refs1’,
+                                ‘refs0’,‘ptr’] mp_tac)
+  >> ‘LLOOKUP (pre ++ h::rest) (LENGTH pre) = SOME h’
+    by simp[LLOOKUP_THM, EL_APPEND2]
+  >> rewrite_tac[GSYM APPEND_ASSOC, APPEND, LENGTH_APPEND, LENGTH]
+  >> impl_tac
+  >- (simp[combinTheory.APPLY_UPDATE_THM, str_refs_APPEND]
+      >> Cases_on ‘h’
+      >> gvs[bvlSemTheory.do_part_def, str_refs_def, str_count_APPEND,
+             str_count_def, str_refs_no_str]
+      >> rw[str_refs_no_str]
+      >> simp[Once part_val_def]
+      >> rw[MAP_EQ_f]
+      >> rewrite_tac[GSYM APPEND_ASSOC, APPEND]
+      >> rw[])
+  >> simp[ADD1]
+QED
+
+Theorem do_build_const_part_val:
+  str_count ps ≤ 1 ∧ ps ≠ [] ⇒
+  do_build_const ps refs =
+    (part_val ps (LEAST p. p ∉ FDOM refs) (LENGTH ps - 1),
+     str_refs ps (LEAST p. p ∉ FDOM refs) refs)
+Proof
+  rw[bvlSemTheory.do_build_const_def]
+  >> qspecl_then [‘ps’,‘[]’,‘λx. Number 0’,‘refs’,‘refs’,
+                  ‘LEAST p. p ∉ FDOM refs’] mp_tac do_build_part_val
+  >> simp[str_refs_def]
+QED
+
+Theorem part_val_APPEND:
+  ∀xs ptr k ys. k < LENGTH xs ⇒ part_val (xs ++ ys) ptr k = part_val xs ptr k
+Proof
+  ho_match_mp_tac part_val_ind >> rw[]
+  >> ONCE_REWRITE_TAC[part_val_def]
+  >> simp[LLOOKUP_APPEND_LESS]
+  >> CASE_TAC >> CASE_TAC >> rw[MAP_EQ_f]
+QED
+
+Theorem all_below_EVERY:
+  ∀ns. all_below i ns ⇔ EVERY (λn. n < i) ns
+Proof
+  Induct >> simp[all_below_def]
+QED
+
+Theorem backward_LLOOKUP:
+  ∀ps i j t ns.
+    backward i ps ∧ LLOOKUP ps j = SOME (Con t ns) ⇒ EVERY (λn. n < i + j) ns
+Proof
+  Induct >> simp[LLOOKUP_def]
+  >> rpt gen_tac >> strip_tac
+  >> Cases_on ‘j = 0’
+  >> Cases_on ‘h’ >> gvs[backward_def, all_below_EVERY]
+  >> first_x_assum drule_all
+  >> gvs[EVERY_MEM]
+QED
+
+Inductive reaches:
+  (∀pm r. reaches pm r r) ∧
+  (∀pm r t ns n j.
+     lookup r pm = SOME (Con t ns) ∧ MEM n ns ∧ n < r ∧ reaches pm n j ⇒
+     reaches pm r j)
+End
+
+Theorem reach_domain:
+  (∀pm r acc j.
+     j ∈ domain (reach pm r acc) ⇔ j ∈ domain acc ∨ reaches pm r j) ∧
+  (∀pm r ns acc j.
+     j ∈ domain (reach_list pm r ns acc) ⇔
+     j ∈ domain acc ∨ ∃n. MEM n ns ∧ n < r ∧ reaches pm n j)
+Proof
+  ho_match_mp_tac reach_ind >> rw[]
+  >- (simp[Once reach_def, Once reaches_cases]
+      >> Cases_on ‘lookup r pm’ >> gvs[]
+      >- metis_tac[]
+      >> rename1 ‘lookup r pm = SOME p’ >> Cases_on ‘p’ >> gvs[]
+      >> metis_tac[])
+  >- simp[reach_def]
+  >> simp[Once reach_def] >> metis_tac[]
+QED
+
+Theorem reaches_le:
+  ∀pm r j. reaches pm r j ⇒ j ≤ r
+Proof
+  Induct_on ‘reaches’ >> rw[]
+QED
+
+Theorem reaches_child:
+  ∀pm r j. reaches pm r j ⇒
+    ∀t ns n. lookup j pm = SOME (Con t ns) ∧ MEM n ns ∧ n < j ⇒ reaches pm r n
+Proof
+  Induct_on ‘reaches’ >> rw[]
+  >- (irule (cj 2 reaches_rules) >> metis_tac[reaches_rules])
+  >> irule (cj 2 reaches_rules) >> metis_tac[]
+QED
+
+Theorem tree_strs_pos:
+  (∀pm r. 0 < tree_strs pm r ⇔
+          ∃j s. reaches pm r j ∧ lookup j pm = SOME (Str s)) ∧
+  (∀pm r ns. 0 < tree_strs_list pm r ns ⇔
+             ∃n j s. MEM n ns ∧ n < r ∧ reaches pm n j ∧
+                     lookup j pm = SOME (Str s))
+Proof
+  ho_match_mp_tac tree_strs_ind >> rw[]
+  >- (simp[Once tree_strs_def, Once reaches_cases]
+      >> Cases_on ‘lookup r pm’ >> gvs[]
+      >> rename1 ‘lookup r pm = SOME p’ >> Cases_on ‘p’
+      >> gvs[RIGHT_AND_OVER_OR, EXISTS_OR_THM]
+      >> metis_tac[])
+  >- simp[tree_strs_def]
+  >> ‘∀a b:num. 0 < a + b ⇔ 0 < a ∨ 0 < b’ by decide_tac
+  >> simp[Once tree_strs_def]
+  >> IF_CASES_TAC >> simp[]
+  >> metis_tac[]
+QED
+
+Theorem tree_strs_list_SUM:
+  ∀ns. EVERY (λn. n < r) ns ⇒
+       tree_strs_list pm r ns = SUM (MAP (tree_strs pm) ns)
+Proof
+  Induct >> simp[tree_strs_def]
+QED
+
+Theorem part_shape_list_MAP:
+  ∀ns. EVERY (λn. n < r) ns ⇒
+       part_shape_list pm r ns = MAP (part_shape pm) ns
+Proof
+  Induct >> simp[part_shape_def]
+QED
+
+Theorem tree_strs_list_zero:
+  ∀ns. tree_strs_list pm r ns = 0 ⇔
+       ∀n. MEM n ns ∧ n < r ⇒ tree_strs pm n = 0
+Proof
+  Induct >> simp[tree_strs_def] >> metis_tac[]
+QED
+
+(* The value of a part with no string does not depend on the pointer. *)
+Theorem part_val_ptr:
+  ∀ps ptr r ptr'.
+    tree_strs (fromList ps) r = 0 ⇒ part_val ps ptr r = part_val ps ptr' r
+Proof
+  ho_match_mp_tac part_val_ind >> rw[]
+  >> ONCE_REWRITE_TAC[part_val_def]
+  >> qpat_x_assum ‘tree_strs _ _ = 0’
+       (assume_tac o SRULE[Once tree_strs_def, lookup_fromList_LLOOKUP])
+  >> every_case_tac >> gvs[tree_strs_list_zero]
+  >> rw[MAP_EQ_f]
+  >> metis_tac[]
+QED
+
+Theorem renum_list_MAP:
+  ∀ns. (∀m. MEM m ns ⇒ ∃k. lookup m rank = SOME k ∧ k < n ∧ f k = g m) ⇒
+       MAP (λk. if k < n then f k else Number 0) (renum_list rank ns) =
+       MAP g ns
+Proof
+  Induct >> simp[renum_list_def]
+  >> rpt strip_tac
+  >- (first_assum (qspec_then ‘h’ mp_tac) >> impl_tac >- simp[]
+      >> strip_tac >> simp[])
+  >> first_x_assum irule >> metis_tac[]
+QED
+
+Theorem str_count_renum:
+  str_count [renum rank p] = str_count [p] ∧
+  str_refs [renum rank p] ptr refs = str_refs [p] ptr refs
+Proof
+  Cases_on ‘p’ >> simp[renum_def, str_count_def, str_refs_def]
+QED
+
+Theorem part_val_push:
+  backward 0 ps ∧ LLOOKUP ps i = SOME p ∧
+  (∀t ns m. p = Con t ns ∧ MEM m ns ⇒
+     ∃k. lookup m rank = SOME k ∧ k < LENGTH xs ∧
+         ∀ptr. part_val xs ptr k = part_val ps ptr m) ⇒
+  part_val (xs ++ [renum rank p]) ptr (LENGTH xs) = part_val ps ptr i
+Proof
+  strip_tac
+  >> ‘LLOOKUP (xs ++ [renum rank p]) (LENGTH xs) = SOME (renum rank p)’
+    by simp[LLOOKUP_THM, EL_APPEND2]
+  >> ONCE_REWRITE_TAC[part_val_def]
+  >> asm_rewrite_tac[]
+  >> Cases_on ‘p’ >> gvs[renum_def]
+  >> drule_all backward_LLOOKUP >> strip_tac
+  >> qmatch_goalsub_rename_tac ‘renum_list rank cs’
+  >> ‘MAP (λn. if n < i then part_val ps ptr n else Number 0) cs =
+      MAP (part_val ps ptr) cs’
+    by (rw[MAP_EQ_f] >> gvs[EVERY_MEM])
+  >> pop_assum SUBST1_TAC
+  >> irule renum_list_MAP
+  >> rw[] >> first_x_assum drule >> rw[]
+  >> simp[part_val_APPEND]
+QED
+
+(* [sub_parts] keeps the parts in [keep], a set closed under references:
+   each kept part [j] is at the index [rank j], with the same value. *)
+Theorem sub_parts_thm:
+  ∀pm keep r i rank n acc.
+    pm = fromList ps ∧ backward 0 ps ∧ str_count ps ≤ 1 ∧ r < LENGTH ps ∧
+    (∀j. j ∈ domain keep ⇒ j ≤ r) ∧
+    (∀j t ns m. j ∈ domain keep ∧ LLOOKUP ps j = SOME (Con t ns) ∧ MEM m ns ⇒
+                m ∈ domain keep) ∧
+    n = LENGTH acc ∧
+    (∀j. j < i ∧ j ∈ domain keep ⇒
+         ∃k. lookup j rank = SOME k ∧ k < n ∧
+             ∀ptr. part_val (REVERSE acc) ptr k = part_val ps ptr j) ∧
+    (r < i ∧ r ∈ domain keep ⇒ lookup r rank = SOME (n - 1)) ∧
+    str_count (REVERSE acc) =
+      (if ∃j s. j < i ∧ j ∈ domain keep ∧ LLOOKUP ps j = SOME (Str s)
+       then 1 else 0) ∧
+    (∀ptr refs. str_refs (REVERSE acc) ptr refs =
+       if ∃j s. j < i ∧ j ∈ domain keep ∧ LLOOKUP ps j = SOME (Str s)
+       then str_refs ps ptr refs else refs) ⇒
+    let res = sub_parts pm keep r i rank n acc in
+      (r ∈ domain keep ⇒
+         res ≠ [] ∧ ∀ptr. part_val res ptr (LENGTH res - 1) = part_val ps ptr r) ∧
+      str_count res =
+        (if ∃j s. j ∈ domain keep ∧ LLOOKUP ps j = SOME (Str s) then 1 else 0) ∧
+      ∀ptr refs. str_refs res ptr refs =
+        if ∃j s. j ∈ domain keep ∧ LLOOKUP ps j = SOME (Str s)
+        then str_refs ps ptr refs else refs
+Proof
+  ho_match_mp_tac sub_parts_ind >> rpt gen_tac >> strip_tac
+  >> rpt gen_tac >> strip_tac
+  >> simp[Once sub_parts_def]
+  >> IF_CASES_TAC
+  >- (‘∀j. j ∈ domain keep ⇒ j < i’
+        by (rpt strip_tac
+            >> qpat_x_assum ‘∀j. j ∈ domain keep ⇒ j ≤ r’ drule >> decide_tac)
+      >> ‘(∃j s. j < i ∧ j ∈ domain keep ∧ LLOOKUP ps j = SOME (Str s)) ⇔
+          ∃j s. j ∈ domain keep ∧ LLOOKUP ps j = SOME (Str s)’
+        by metis_tac[]
+      >> pop_assum (fn eq => RULE_ASSUM_TAC (REWRITE_RULE [eq]))
+      >> rpt conj_tac
+      >- (strip_tac
+          >> qpat_x_assum ‘∀j. j < i ∧ j ∈ domain keep ⇒ _’
+               (qspec_then ‘r’ mp_tac)
+          >> gvs[] >> strip_tac
+          >> Cases_on ‘acc’ >> gvs[])
+      >- first_assum ACCEPT_TAC
+      >> first_assum ACCEPT_TAC)
+  >> ‘∃p. lookup i pm = SOME p’ by simp[lookup_fromList_LLOOKUP, LLOOKUP_THM]
+  >> Cases_on ‘lookup i keep’ >> gvs[]
+  >- (first_x_assum irule
+      >> ‘i ∉ domain keep’ by simp[domain_lookup]
+      >> simp[DECIDE “(j:num) < i + 1 ⇔ j < i ∨ j = i”, RIGHT_AND_OVER_OR,
+              EXISTS_OR_THM, DISJ_IMP_THM, FORALL_AND_THM]
+      >> rw[] >> gvs[]
+      >> metis_tac[])
+  >> first_x_assum irule
+  >> ‘i ∈ domain keep’ by simp[domain_lookup]
+  >> ‘LLOOKUP ps i = SOME p’ by gvs[lookup_fromList_LLOOKUP]
+  >> simp[DECIDE “(j:num) < i + 1 ⇔ j < i ∨ j = i”, RIGHT_AND_OVER_OR,
+          EXISTS_OR_THM, DISJ_IMP_THM, FORALL_AND_THM, lookup_insert,
+          str_count_APPEND, str_count_renum, str_refs_APPEND]
+  >> ‘(∃s. p = Str s) ⇒
+      ¬∃j s. j < i ∧ j ∈ domain keep ∧ LLOOKUP ps j = SOME (Str s)’
+    by (rpt strip_tac >> gvs[]
+        >> qspecl_then [‘ps’,‘i’,‘j’] mp_tac str_unique >> simp[])
+  >> rpt conj_tac
+  >- (Cases_on ‘∃s. p = Str s’ >> gvs[str_refs_def, str_count_def]
+      >- (‘¬∃j s. j < i ∧ j ∈ domain keep ∧ LLOOKUP ps j = SOME (Str s)’
+            by metis_tac[]
+          >> simp[] >> rpt gen_tac
+          >> irule EQ_SYM >> irule str_refs_unique >> metis_tac[])
+      >> rpt gen_tac
+      >> Cases_on ‘∃j s. j < i ∧ j ∈ domain keep ∧ LLOOKUP ps j = SOME (Str s)’
+      >> simp[]
+      >> Cases_on ‘p’ >> gvs[str_refs_def])
+  >- metis_tac[]
+  >- (rpt strip_tac
+      >> qpat_x_assum ‘∀j. j < i ∧ j ∈ domain keep ⇒ _’ drule_all
+      >> strip_tac >> qexists_tac ‘k’ >> simp[part_val_APPEND])
+  >- (gen_tac >> once_rewrite_tac[GSYM LENGTH_REVERSE]
+      >> irule part_val_push >> simp[]
+      >> rpt strip_tac >> gvs[]
+      >> ‘m ∈ domain keep’ by metis_tac[]
+      >> drule_all backward_LLOOKUP >> simp[EVERY_MEM] >> strip_tac
+      >> qpat_x_assum ‘∀j. j < i ∧ j ∈ domain keep ⇒ _’ irule
+      >> simp[])
+  >> Cases_on ‘∃s. p = Str s’ >> gvs[str_count_def]
+  >- metis_tac[]
+  >> Cases_on ‘p’ >> gvs[str_count_def]
+QED
+
+Theorem sub_build_thm:
+  backward 0 ps ∧ str_count ps ≤ 1 ∧ r < LENGTH ps ⇒
+  sub_build (fromList ps) r ≠ [] ∧
+  (∀ptr. part_val (sub_build (fromList ps) r) ptr
+           (LENGTH (sub_build (fromList ps) r) - 1) = part_val ps ptr r) ∧
+  str_count (sub_build (fromList ps) r) ≤ 1 ∧
+  ∀ptr refs.
+    str_refs (sub_build (fromList ps) r) ptr refs =
+    if tree_strs (fromList ps) r = 0 then refs else str_refs ps ptr refs
+Proof
+  strip_tac
+  >> qspecl_then [‘fromList ps’,‘reach (fromList ps) r LN’,‘r’,‘0’,‘LN’,‘0’,‘[]’]
+       mp_tac sub_parts_thm
+  >> impl_tac
+  >- (simp[reach_domain, str_refs_def, str_count_def]
+      >> rpt strip_tac
+      >- (imp_res_tac reaches_le)
+      >> drule_all backward_LLOOKUP >> simp[EVERY_MEM] >> strip_tac
+      >> irule reaches_child
+      >> simp[lookup_fromList_LLOOKUP] >> metis_tac[])
+  >> simp[GSYM sub_build_def, reach_domain, reaches_rules]
+  >> ‘(∃j s. reaches (fromList ps) r j ∧ LLOOKUP ps j = SOME (Str s)) ⇔
+      0 < tree_strs (fromList ps) r’
+    by simp[tree_strs_pos, lookup_fromList_LLOOKUP]
+  >> rw[] >> gvs[]
+QED
+
+Theorem evaluate_Build:
+  evaluate ([Op (BlockOp (Build ps)) []],env,s:('a,'b) bviSem$state) =
+    (Rval [FST (do_build_const ps s.refs)],
+     s with refs := SND (do_build_const ps s.refs))
+Proof
+  simp[evaluate_def, do_app_def, do_app_aux_def, bvlSemTheory.do_app_def,
+       bvi_to_bvl_def, bvl_to_bvi_def, UNCURRY]
+QED
+
+Theorem evaluate_part_exp:
+  backward 0 ps ∧ str_count ps ≤ 1 ∧ r < LENGTH ps ∧
+  (0 < tree_strs (fromList ps) r ⇒ ptr = LEAST p. p ∉ FDOM s.refs) ⇒
+  evaluate ([part_exp (fromList ps) r],env,s) =
+    (Rval [part_val ps ptr r],
+     if tree_strs (fromList ps) r = 0 then s
+     else s with refs := str_refs ps ptr s.refs)
+Proof
+  strip_tac
+  >> ‘∃p. LLOOKUP ps r = SOME p’ by simp[LLOOKUP_THM]
+  >> simp[part_exp_def, lookup_fromList_LLOOKUP]
+  >> Cases_on ‘p’ >> simp[]
+  >- (rename1 ‘LLOOKUP ps r = SOME (Con tg cs)’
+      >> Cases_on ‘cs’ >> simp[]
+      >- (‘tree_strs (fromList ps) r = 0’
+            by simp[Once tree_strs_def, lookup_fromList_LLOOKUP, tree_strs_def]
+          >> simp[evaluate_def, do_app_def, do_app_aux_def,
+                  bvlSemTheory.do_app_def, bvl_to_bvi_id]
+          >> simp[Once part_val_def])
+      >> drule_all sub_build_thm >> strip_tac
+      >> simp[evaluate_Build, do_build_const_part_val]
+      >> Cases_on ‘tree_strs (fromList ps) r = 0’ >> gvs[]
+      >> simp[state_component_equality]
+      >> irule part_val_ptr >> simp[])
+  >> ONCE_REWRITE_TAC[part_val_def] >> simp[]
+  >- (‘tree_strs (fromList ps) r = 0’
+        by simp[Once tree_strs_def, lookup_fromList_LLOOKUP]
+      >> rw[]
+      >> simp[evaluate_def, do_app_def, do_app_aux_def, bvlSemTheory.do_app_def,
+              bvl_to_bvi_id, evaluate_Build, bvlSemTheory.do_build_const_def,
+              bvlSemTheory.do_build_def, bvlSemTheory.do_part_def])
+  >- (‘tree_strs (fromList ps) r = 1’
+        by simp[Once tree_strs_def, lookup_fromList_LLOOKUP]
+      >> gvs[evaluate_Build, bvlSemTheory.do_build_const_def,
+             bvlSemTheory.do_build_def, bvlSemTheory.do_part_def,
+             state_component_equality]
+      >> drule_all str_refs_unique >> simp[])
+  >> ‘tree_strs (fromList ps) r = 0’
+    by simp[Once tree_strs_def, lookup_fromList_LLOOKUP]
+  >> simp[evaluate_Build, bvlSemTheory.do_build_const_def,
+          bvlSemTheory.do_build_def, bvlSemTheory.do_part_def,
+          state_component_equality]
+QED
+
+Theorem sub_shape_list_LENGTH:
+  ∀l1 l2. sub_shape_list l1 l2 ⇒ LENGTH l1 = LENGTH l2
+Proof
+  Induct >> Cases_on ‘l2’ >> simp[sub_shape_def]
+QED
+
+(* The fields of a constant, flattened along a shape of its tree, evaluate
+   to the flattened value; only the field holding the string allocates. *)
+Theorem evaluate_flatten_part:
+  (∀pm sh r ptr env (s:('a,'b) bviSem$state).
+     pm = fromList ps ∧ backward 0 ps ∧ str_count ps ≤ 1 ∧ r < LENGTH ps ∧
+     sub_shape sh (part_shape pm r) ∧ tree_strs pm r ≤ 1 ∧
+     (0 < tree_strs pm r ⇒ ptr = LEAST p. p ∉ FDOM s.refs) ⇒
+     v_shape sh (part_val ps ptr r) ∧
+     evaluate (flatten_part pm sh r,env,s) =
+       (Rval (flat_vals sh (part_val ps ptr r)),
+        if tree_strs pm r = 0 then s
+        else s with refs := str_refs ps ptr s.refs)) ∧
+  (∀pm shs ns ptr env (s:('a,'b) bviSem$state).
+     pm = fromList ps ∧ backward 0 ps ∧ str_count ps ≤ 1 ∧
+     EVERY (λn. n < LENGTH ps) ns ∧
+     sub_shape_list shs (MAP (part_shape pm) ns) ∧
+     SUM (MAP (tree_strs pm) ns) ≤ 1 ∧
+     (0 < SUM (MAP (tree_strs pm) ns) ⇒ ptr = LEAST p. p ∉ FDOM s.refs) ⇒
+     v_shape_list shs (MAP (part_val ps ptr) ns) ∧
+     evaluate (flatten_parts pm shs ns,env,s) =
+       (Rval (flat_vals_list shs (MAP (part_val ps ptr) ns)),
+        if SUM (MAP (tree_strs pm) ns) = 0 then s
+        else s with refs := str_refs ps ptr s.refs))
+Proof
+  ho_match_mp_tac flatten_part_ind >> rpt conj_tac
+  >- (rpt gen_tac >> strip_tac >> rpt gen_tac >> strip_tac
+      >> gvs[]
+      >> ‘∃p. LLOOKUP ps r = SOME p’ by simp[LLOOKUP_THM]
+      >> qpat_x_assum ‘sub_shape _ _’ mp_tac
+      >> simp[Once part_shape_def, lookup_fromList_LLOOKUP]
+      >> Cases_on ‘p’ >> simp[sub_shape_def]
+      >> rename1 ‘LLOOKUP ps r = SOME (Con tg cs)’
+      >> Cases_on ‘NULL cs’ >> simp[sub_shape_def] >> strip_tac >> gvs[]
+      >> drule_all backward_LLOOKUP >> strip_tac
+      >> gvs[part_shape_list_MAP, EVERY_REVERSE]
+      >> ‘LENGTH cs = LENGTH shs’
+        by (imp_res_tac sub_shape_list_LENGTH >> gvs[])
+      >> ‘tree_strs (fromList ps) r =
+          SUM (MAP (tree_strs (fromList ps)) (REVERSE cs))’
+        by simp[Once tree_strs_def, lookup_fromList_LLOOKUP, tree_strs_list_SUM,
+                MAP_REVERSE, SUM_REVERSE]
+      >> ‘part_val ps ptr r = Block t (MAP (part_val ps ptr) cs)’
+        by (simp[Once part_val_def] >> rw[MAP_EQ_f] >> gvs[EVERY_MEM])
+      >> first_x_assum (qspec_then ‘cs’ mp_tac)
+      >> simp[lookup_fromList_LLOOKUP]
+      >> disch_then (qspecl_then [‘ptr’,‘env’,‘s’] mp_tac)
+      >> impl_tac
+      >- (gvs[EVERY_MEM] >> rw[] >> res_tac >> decide_tac)
+      >> strip_tac
+      >> gvs[flatten_part_def, lookup_fromList_LLOOKUP, v_shape_def,
+             flat_vals_def, dest_cons_def, MAP_REVERSE])
+  >- (rpt gen_tac >> strip_tac >> gvs[]
+      >> drule_all evaluate_part_exp
+      >> simp[flatten_part_def, v_shape_def, flat_vals_def])
+  >- (rpt gen_tac >> strip_tac
+      >> qpat_x_assum ‘sub_shape _ _’ mp_tac
+      >> simp[Once part_shape_def] >> every_case_tac >> simp[sub_shape_def])
+  >- (rpt gen_tac >> strip_tac
+      >> Cases_on ‘ns’ >> gvs[sub_shape_def, flatten_part_def, v_shape_def,
+                             flat_vals_def, evaluate_def])
+  >- simp[sub_shape_def]
+  >> rpt gen_tac >> strip_tac >> rpt gen_tac >> strip_tac
+  >> qpat_x_assum ‘pm = _’ SUBST_ALL_TAC
+  >> qpat_x_assum ‘∀ptr env s. _ ⇒ v_shape _ _ ∧ _’
+       (qspecl_then [‘ptr’,‘env’,‘s’] mp_tac)
+  >> gvs[sub_shape_def] >> strip_tac
+  >> simp[flatten_part_def, evaluate_APPEND, v_shape_def, flat_vals_def]
+  >> Cases_on ‘tree_strs (fromList ps) r = 0’
+  >- (qpat_x_assum ‘∀ptr env s. _ ⇒ v_shape_list _ _ ∧ _’
+        (qspecl_then [‘ptr’,‘env’,‘s’] mp_tac)
+      >> gvs[sub_shape_def])
+  >> ‘SUM (MAP (tree_strs (fromList ps)) ns) = 0’ by gvs[]
+  >> qpat_x_assum ‘∀ptr env s. _ ⇒ v_shape_list _ _ ∧ _’
+       (qspecl_then [‘ptr’,‘env’,‘s with refs := str_refs ps ptr s.refs’] mp_tac)
+  >> gvs[sub_shape_def]
+QED
+
+Theorem part_shape_list_LENGTH:
+  ∀ns. LENGTH (part_shape_list pm r ns) = LENGTH ns
+Proof
+  Induct >> simp[part_shape_def]
+QED
+
+Theorem sub_shape_part_shape_Con:
+  sub_shape (ConsShape t shs) (part_shape (fromList ps) r) ⇒
+  ∃ns. LLOOKUP ps r = SOME (Con t ns) ∧ ns ≠ [] ∧ LENGTH ns = LENGTH shs
+Proof
+  simp[Once part_shape_def, lookup_fromList_LLOOKUP]
+  >> every_case_tac >> simp[sub_shape_def] >> strip_tac
+  >> imp_res_tac sub_shape_list_LENGTH
+  >> gvs[part_shape_list_LENGTH, NULL_EQ]
+QED
+
+Theorem evaluate_flatten_Build:
+  build_ok ps ∧
+  sub_shape (ConsShape t shs) (part_shape (fromList ps) (LENGTH ps - 1)) ∧
+  evaluate ([Op (BlockOp (Build ps)) []],env,s) = (Rval [v],s1) ⇒
+  v_shape (ConsShape t shs) v ∧
+  evaluate (flatten_exp (ConsShape t shs) (Op (BlockOp (Build ps)) []),env,s) =
+    (Rval (flat_vals (ConsShape t shs) v),s1)
+Proof
+  strip_tac
+  >> ‘ps ≠ [] ∧ backward 0 ps ∧ str_count ps ≤ 1 ∧
+      tree_strs (fromList ps) (LENGTH ps - 1) = str_count ps’
+    by gvs[build_ok_def, NULL_EQ]
+  >> gvs[evaluate_Build, do_build_const_part_val]
+  >> drule sub_shape_part_shape_Con >> strip_tac
+  >> ‘flatten_exp (ConsShape t shs) (Op (BlockOp (Build ps)) []) =
+      flatten_part (fromList ps) (ConsShape t shs) (LENGTH ps - 1)’
+    by simp[flatten_exp_def, flatten_part_def, lookup_fromList_LLOOKUP]
+  >> pop_assum SUBST1_TAC
+  >> qspecl_then [‘fromList ps’,‘ConsShape t shs’,‘LENGTH ps - 1’,
+                  ‘LEAST p. p ∉ FDOM s.refs’,‘env’,‘s’]
+       mp_tac (cj 1 evaluate_flatten_part)
+  >> impl_tac >- (Cases_on ‘ps’ >> gvs[])
+  >> strip_tac >> simp[]
+  >> Cases_on ‘str_count ps = 0’
+  >> simp[str_refs_no_str, state_component_equality]
+QED
+
 Theorem evaluate_flatten_exp:
   (∀e sh env (s: ('a,'b) state) v t.
     exp_shape_ok sh e ∧ evaluate ([e],env,s) = (Rval [v],t) ⇒
@@ -192,14 +802,34 @@ Proof
      )
   >- (Cases_on ‘sh’ >> gvs[exp_shape_ok_def, flat_vals_def, flatten_exp_def, evaluate_def, v_shape_def]
      )
-  >- (Cases_on ‘sh’ >> gvs[exp_shape_ok_def, flat_vals_def, flatten_exp_def, evaluate_def, v_shape_def]
+  >- (qmatch_asmsub_rename_tac ‘exp_shape_ok _ (Op op _)’
+      >> Cases_on ‘∃ps. op = BlockOp (Build ps) ∧ xs = [] ∧ build_ok ps’
+      >- (gvs[]
+          >> ‘evaluate ([Op (BlockOp (Build ps)) []],env,s) = (Rval [v],t)’
+            by simp[evaluate_def]
+          >> Cases_on ‘sh’
+          >- simp[v_shape_def]
+          >- (gvs[exp_shape_ok_def, field_shape_def]
+              >> drule_all evaluate_flatten_Build >> simp[])
+          >> simp[v_shape_def])
+      >> Cases_on ‘sh’ >> gvs[exp_shape_ok_def, flat_vals_def, flatten_exp_def, evaluate_def, v_shape_def]
       >> every_case_tac >> gvs[do_app_def, do_app_aux_def, dest_cons_def]
       >> assume_tac evaluate_LENGTH
       >> pop_assum $ qspecl_then [‘xs’, ‘env’, ‘s’] assume_tac >> gvs[]
       >> first_x_assum $ rev_drule_then assume_tac
       >> metis_tac[]
      )
-  >- (Cases_on ‘sh’ >> gvs[exp_shape_ok_def, flat_vals_def, flatten_exp_def, evaluate_def, v_shape_def]
+  >- (qmatch_asmsub_rename_tac ‘exp_shape_ok _ (Op op _)’
+      >> Cases_on ‘∃ps. op = BlockOp (Build ps) ∧ xs = [] ∧ build_ok ps’
+      >- (gvs[]
+          >> ‘evaluate ([Op (BlockOp (Build ps)) []],env,s) = (Rval [v],t)’
+            by simp[evaluate_def]
+          >> Cases_on ‘sh’
+          >- simp[flatten_exp_def, flat_vals_def]
+          >- (gvs[exp_shape_ok_def, field_shape_def]
+              >> drule_all evaluate_flatten_Build >> simp[])
+          >> simp[flatten_exp_def, flat_vals_def])
+      >> Cases_on ‘sh’ >> gvs[exp_shape_ok_def, flat_vals_def, flatten_exp_def, evaluate_def, v_shape_def]
       >> every_case_tac >> gvs[do_app_def, do_app_aux_def, dest_cons_def]
       >> assume_tac evaluate_LENGTH
       >> pop_assum $ qspecl_then [‘xs’, ‘env’, ‘s’] assume_tac >> gvs[]
@@ -295,7 +925,13 @@ Proof
      )
   >- (Cases_on ‘sh’ >> gvs[exp_shape_ok_def, flatten_exp_def, evaluate_def, v_shape_def]
      )
-  >- (Cases_on ‘sh’ >> gvs[exp_shape_ok_def, flatten_exp_def, evaluate_def, v_shape_def]
+  >- (qmatch_asmsub_rename_tac ‘exp_shape_ok _ (Op op _)’
+      >> Cases_on ‘∃ps. op = BlockOp (Build ps) ∧ xs = []’
+      >- (gvs[]
+          >> ‘evaluate ([Op (BlockOp (Build ps)) []],env,s) = (Rerr err,t)’
+            by simp[evaluate_def]
+          >> gvs[evaluate_Build])
+      >> Cases_on ‘sh’ >> gvs[exp_shape_ok_def, flatten_exp_def, evaluate_def, v_shape_def]
       >> every_case_tac >> gvs[do_app_def, do_app_aux_def, dest_cons_def]
      )
   >- (Cases_on ‘sh’ >> gvs[exp_shape_ok_def, flatten_exp_def, evaluate_def, v_shape_def]
@@ -382,6 +1018,15 @@ Definition map_ok_def:
     ∀d dsh dwk. lookup d m = SOME (dsh,dwk) ⇒ split_ok dsh ∧ flex_free dsh
 End
 
+Theorem flex_free_part_shape:
+  (∀pm r. flex_free (part_shape pm r)) ∧
+  (∀pm r ns. flex_free_list (part_shape_list pm r ns))
+Proof
+  ho_match_mp_tac part_shape_ind >> rw[]
+  >> simp[Once part_shape_def]
+  >> every_case_tac >> gvs[flex_free_def]
+QED
+
 Theorem flex_free_field_shape:
   (∀e. flex_free (field_shape e)) ∧
   (∀l. flex_free_list (field_shape_list l))
@@ -389,6 +1034,8 @@ Proof
   Induct >> rw[flex_free_def, field_shape_def]
   >> Cases_on ‘o'’ >> rw[flex_free_def, field_shape_def]
   >> Cases_on ‘b’ >> rw[flex_free_def, field_shape_def]
+  >> rename1 ‘Op (BlockOp (Build ps)) args’
+  >> Cases_on ‘args’ >> rw[flex_free_def, field_shape_def, flex_free_part_shape]
 QED
 
 Theorem shape_and_tail_wf:
@@ -505,9 +1152,12 @@ Proof
   >- (Cases_on ‘s’ >> gvs[sub_shape_def, field_shape_def, exp_shape_ok_def]
       >> Cases_on ‘o'’ >> gvs[sub_shape_def, field_shape_def, exp_shape_ok_def]
       >> Cases_on ‘b’ >> gvs[sub_shape_def, field_shape_def, exp_shape_ok_def]
-      >> first_assum $ drule_then assume_tac
-      >> drule exp_shape_ok_list_length_eq
-      >> rw[]
+      >- (first_assum $ drule_then assume_tac
+          >> drule exp_shape_ok_list_length_eq
+          >> rw[])
+      >> qmatch_asmsub_rename_tac ‘Op (BlockOp (Build ps)) args’
+      >> Cases_on ‘args’ >> gvs[field_shape_def, sub_shape_def]
+      >> Cases_on ‘build_ok ps’ >> gvs[sub_shape_def]
      )
   >- (Cases_on ‘s’ >> gvs[sub_shape_def, field_shape_def, exp_shape_ok_def]
      )
@@ -548,15 +1198,8 @@ Proof
   >- (every_case_tac >> gvs[]
       >> Cases_on ‘sh'’ >> gvs[sub_shape_def, split_ok_def, shape_width_def, tail_ok_def]
      )
-  >- (Cases_on ‘o'’ >> gvs[sub_shape_def, split_ok_def, shape_width_def, field_shape_def, shape_width_def]
-      >> Cases_on ‘sh'’ >> gvs[sub_shape_def, shape_width_def, exp_shape_ok_def]
-      >> Cases_on ‘b’ >> gvs[sub_shape_def, field_shape_def]
-      >> conj_asm2_tac
-      >- (drule exp_shape_ok_list_length_eq
-          >> rw[]
-         )
-      >> irule $ cj 2 sub_shape_field_shape_ok
-      >> rw[]
+  >- (irule $ cj 1 sub_shape_field_shape_ok
+      >> gvs[]
      )
   >> Cases_on ‘sh'’ >> gvs[sub_shape_def, split_ok_def, shape_width_def]
 QED
@@ -596,9 +1239,25 @@ Proof
   >> metis_tac[]
 QED
 
+Theorem cap_shape_sub_shape:
+  (∀k sh. sub_shape (cap_shape k sh) sh) ∧
+  (∀extra shs. sub_shape_list (cap_list extra shs) shs)
+Proof
+  ho_match_mp_tac cap_shape_ind
+  >> rw[cap_shape_def, sub_shape_def]
+QED
+
+Theorem flex_free_cap_shape:
+  (∀k sh. flex_free sh ⇒ flex_free (cap_shape k sh)) ∧
+  (∀extra shs. flex_free_list shs ⇒ flex_free_list (cap_list extra shs))
+Proof
+  ho_match_mp_tac cap_shape_ind
+  >> rw[cap_shape_def, flex_free_def]
+QED
+
 Theorem return_shape_tail_ok:
   ∀m f body sh.
-    map_ok m ∧ return_shape m f body = sh ∧ split_ok sh ⇒
+    map_ok m ∧ return_shape cw m f body = sh ∧ split_ok sh ⇒
     tail_ok m f sh body ∧ flex_free sh
 Proof
   rpt gen_tac >> strip_tac
@@ -606,24 +1265,21 @@ Proof
   >> Cases_on ‘shape_and_tail f body’ >> gvs[]
   >> rename1 ‘shape_and_tail f body = (own,cs)’
   >> drule_then assume_tac shape_and_tail_wf
-  >> drule_all_then strip_assume_tac tail_shape_cases
-  >> Cases_on ‘tail_shape m cs’ >> fs[]
-  >- (Cases_on ‘own’ >> gvs[flex_free_def, tail_ok_Leaf]
-     )
-  >- gvs[flex_free_def, tail_ok_Leaf]
-  >- (Cases_on ‘own’ >> gvs[flex_free_def, tail_ok_Leaf, sub_shape_def]
-      >> full_case_tac >> gvs[flex_free_def, tail_ok_Leaf, sub_shape_def]
-      >> first_x_assum $ qspec_then ‘cs’ assume_tac >> gvs[flex_free_def, tail_ok_def]
-      >> irule shape_and_tail_tail_ok >> gvs[flex_free_def, tail_ok_Leaf, sub_shape_def]
-     )
-  >- (gvs[flex_free_def, tail_ok_Leaf, sub_shape_def]
-      >> first_x_assum $ qspec_then ‘cs’ assume_tac >> gvs[flex_free_def, tail_ok_def]
-      >> irule shape_and_tail_tail_ok >> gvs[flex_free_def, tail_ok_Leaf, sub_shape_def]
-     )
-  >- (first_x_assum $ qspec_then ‘cs’ assume_tac >> gvs[flex_free_def, tail_ok_def]
-      >> irule shape_and_tail_tail_ok >> gvs[flex_free_def, tail_ok_Leaf, sub_shape_def, sub_shape_refl]
-  )
-  >> gvs[split_ok_def, shape_width_def]
+  >> drule_then (qspec_then ‘cs’ strip_assume_tac) tail_shape_cases
+  >- (gvs[]
+      >- (‘flex_free (cap_shape cw own)’ by metis_tac[flex_free_cap_shape]
+          >> simp[]
+          >> irule shape_and_tail_tail_ok
+          >> simp[cap_shape_sub_shape])
+      >> gvs[cap_shape_def, split_ok_def, shape_width_def])
+  >- (gvs[] >> every_case_tac >> gvs[split_ok_def, shape_width_def])
+  >> drule split_ok_ConsShape >> strip_tac >> gvs[]
+  >- (Cases_on ‘sub_shape (ConsShape t shs) own’
+      >- (Cases_on ‘own’ >> gvs[]
+          >> irule shape_and_tail_tail_ok >> metis_tac[])
+      >> Cases_on ‘own’ >> gvs[split_ok_def, shape_width_def, flex_free_def])
+  >> irule shape_and_tail_tail_ok
+  >> simp[sub_shape_def]
 QED
 
 Definition submap_def:
@@ -651,21 +1307,21 @@ Proof
 QED
 
 Definition fun_rel_def:
-  fun_rel m2 prog2 (loc,arity,e) ⇔
+  fun_rel cw m2 prog2 (loc,arity,e) ⇔
     case lookup loc m2 of
       NONE => MEM (loc,arity,e) prog2
     | SOME (sh,wk) =>
         ∃m'. submap m' m2 ∧ map_ok m' ∧
-             return_shape m' loc e = sh ∧ split_ok sh ∧ tail_form e ∧
+             return_shape cw m' loc e = sh ∧ split_ok sh ∧ tail_form e ∧
              MEM (loc,arity,make_wrapper arity wk sh) prog2 ∧
              MEM (wk,arity,worker_body m' loc wk sh e) prog2
 End
 
 Theorem split_fun_map_ok:
   ∀m next loc arity body wkb wrap m'.
-    map_ok m ∧ split_fun m next loc arity body = SOME (wkb,wrap,m') ⇒
+    map_ok m ∧ split_fun cw m next loc arity body = SOME (wkb,wrap,m') ⇒
     ∃sh. m' = insert loc (sh,next) m ∧
-         return_shape m loc body = sh ∧ split_ok sh ∧ flex_free sh ∧
+         return_shape cw m loc body = sh ∧ split_ok sh ∧ flex_free sh ∧
          wkb = worker_body m loc next sh body ∧
          wrap = make_wrapper arity next sh ∧
          tail_ok m loc sh body ∧ tail_form body ∧
@@ -730,14 +1386,14 @@ QED
 
 Theorem compile_prog_with_map_next_mono:
   ∀xs csh next n1 c1 ys.
-    compile_prog_with_map csh next xs = ((n1,c1),ys) ⇒
+    compile_prog_with_map cw csh next xs = ((n1,c1),ys) ⇒
     ∃k. n1 = next + bvl_to_bvi_namespaces * k
 Proof
   Induct >> rw[compile_prog_with_map_def]
   >- (qexists_tac ‘0’ >> simp[])
   >> PairCases_on ‘h’
   >> gvs[compile_prog_with_map_def]
-  >> Cases_on ‘split_fun csh next h0 h1 h2’ >> gvs[]
+  >> Cases_on ‘split_fun cw csh next h0 h1 h2’ >> gvs[]
   >- (pairarg_tac >> gvs[] >> first_x_assum drule >> simp[])
   >> PairCases_on ‘x’ >> gvs[] >> pairarg_tac >> gvs[]
   >> first_x_assum drule >> strip_tac
@@ -746,14 +1402,14 @@ QED
 
 Theorem compile_prog_with_map_MEM:
   ∀xs csh next n1 c1 ys e.
-    compile_prog_with_map csh next xs = ((n1,c1),ys) ∧ MEM e (MAP FST ys) ⇒
+    compile_prog_with_map cw csh next xs = ((n1,c1),ys) ∧ MEM e (MAP FST ys) ⇒
     MEM e (MAP FST xs) ∨
     next ≤ e ∧ e < n1 ∧ ∃k. e = next + k * bvl_to_bvi_namespaces
 Proof
   Induct >> rw[compile_prog_with_map_def]
   >> PairCases_on ‘h’
   >> gvs[compile_prog_with_map_def]
-  >> Cases_on ‘split_fun csh next h0 h1 h2’ >> gvs[]
+  >> Cases_on ‘split_fun cw csh next h0 h1 h2’ >> gvs[]
   >- (pairarg_tac >> gvs[] >> metis_tac[])
   >> PairCases_on ‘x’ >> gvs[] >> pairarg_tac >> gvs[]
   >> assume_tac bvl_to_bvi_namespaces_pos
@@ -767,7 +1423,7 @@ QED
 
 Theorem compile_prog_with_map_keeps_names:
   ∀xs csh next st ys x.
-    compile_prog_with_map csh next xs = (st,ys) ∧ MEM x (MAP FST xs) ⇒
+    compile_prog_with_map cw csh next xs = (st,ys) ∧ MEM x (MAP FST xs) ⇒
     MEM x (MAP FST ys)
 Proof
   Induct >> simp[compile_prog_with_map_def]
@@ -778,7 +1434,7 @@ QED
 
 Theorem compile_prog_with_map_HD:
   ∀xs csh next st ys.
-    compile_prog_with_map csh next xs = (st,ys) ∧ xs ≠ [] ⇒
+    compile_prog_with_map cw csh next xs = (st,ys) ∧ xs ≠ [] ⇒
     ys ≠ [] ∧ FST (HD ys) = FST (HD xs)
 Proof
   Cases >> simp[] >> PairCases_on ‘h’
@@ -788,14 +1444,14 @@ QED
 
 Theorem compile_prog_with_map_ALL_DISTINCT:
   ∀xs csh next n1 c1 ys.
-    compile_prog_with_map csh next xs = ((n1,c1),ys) ∧
+    compile_prog_with_map cw csh next xs = ((n1,c1),ys) ∧
     ALL_DISTINCT (MAP FST xs) ∧ EVERY (free_names next o FST) xs ⇒
     ALL_DISTINCT (MAP FST ys) ∧ EVERY (free_names n1 o FST) ys
 Proof
   Induct >> simp[compile_prog_with_map_def]
   >> rpt gen_tac >> PairCases_on ‘h’
   >> simp[compile_prog_with_map_def]
-  >> Cases_on ‘split_fun csh next h0 h1 h2’ >> simp[]
+  >> Cases_on ‘split_fun cw csh next h0 h1 h2’ >> simp[]
   >- (pairarg_tac >> simp[] >> strip_tac >> gvs[]
       >> first_x_assum drule_all >> strip_tac
       >> drule compile_prog_with_map_next_mono >> strip_tac >> gvs[]
@@ -821,7 +1477,7 @@ Proof
 QED
 
 Theorem fun_rel_CONS:
-  fun_rel m p x ⇒ fun_rel m (y::p) x
+  fun_rel cw m p x ⇒ fun_rel cw m (y::p) x
 Proof
   PairCases_on ‘x’ >> rw[fun_rel_def] >> every_case_tac >> gvs[]
   >> metis_tac[]
@@ -829,10 +1485,10 @@ QED
 
 Theorem compile_prog_with_map_thm:
   ∀xs csh next n1 c1 ys.
-    compile_prog_with_map csh next xs = ((n1,c1),ys) ∧
+    compile_prog_with_map cw csh next xs = ((n1,c1),ys) ∧
     map_ok csh ∧ ALL_DISTINCT (MAP FST xs) ∧ EVERY (free_names next o FST) xs ∧
     (∀loc. MEM loc (MAP FST xs) ⇒ lookup loc csh = NONE) ⇒
-    submap csh c1 ∧ map_ok c1 ∧ EVERY (fun_rel c1 ys) xs ∧
+    submap csh c1 ∧ map_ok c1 ∧ EVERY (fun_rel cw c1 ys) xs ∧
     (∀d sh wk.
        lookup d c1 = SOME (sh,wk) ∧ lookup d csh = NONE ⇒
        MEM d (MAP FST xs) ∧ MEM wk (MAP FST ys) ∧ ¬MEM wk (MAP FST xs)) ∧
@@ -844,7 +1500,7 @@ Proof
   >- rw[submap_refl]
   >> rpt gen_tac >> PairCases_on ‘h’
   >> simp[compile_prog_with_map_def]
-  >> Cases_on ‘split_fun csh next h0 h1 h2’ >> simp[]
+  >> Cases_on ‘split_fun cw csh next h0 h1 h2’ >> simp[]
   >- (pairarg_tac >> simp[] >> strip_tac >> gvs[]
       >> first_x_assum drule >> impl_tac >- metis_tac[]
       >> strip_tac >> simp[]
@@ -859,17 +1515,17 @@ Proof
           >> metis_tac[free_names_neq])
       >> rw[] >> metis_tac[])
   >> PairCases_on ‘x’ >> simp[] >> pairarg_tac >> simp[] >> strip_tac >> gvs[]
-  >> qmatch_asmsub_rename_tac ‘compile_prog_with_map _ _ xs = (_,rest)’
+  >> qmatch_asmsub_rename_tac ‘compile_prog_with_map cw _ _ xs = (_,rest)’
   >> drule_all split_fun_map_ok >> strip_tac >> gvs[]
   >> ‘EVERY (free_names (next + bvl_to_bvi_namespaces) o FST) xs’
     by (gvs[EVERY_MEM] >> metis_tac[free_names_add, MULT_RIGHT_1])
   >> ‘∀loc. MEM loc (MAP FST xs) ⇒
-            lookup loc (insert h0 (return_shape csh h0 h2,next) csh) = NONE’
+            lookup loc (insert h0 (return_shape cw csh h0 h2,next) csh) = NONE’
     by (rw[lookup_insert] >> metis_tac[])
   >> first_x_assum drule_all >> strip_tac
   >> ‘lookup h0 csh = NONE’ by metis_tac[]
   >> ‘submap csh c1’ by metis_tac[submap_trans, submap_insert]
-  >> ‘lookup h0 c1 = SOME (return_shape csh h0 h2,next)’
+  >> ‘lookup h0 c1 = SOME (return_shape cw csh h0 h2,next)’
     by gvs[submap_def, lookup_insert]
   >> simp[]
   >> rpt conj_tac
@@ -981,7 +1637,7 @@ Proof
 QED
 
 Definition code_rel_def:
-  code_rel m c1 c2 ⇔
+  code_rel cw m c1 c2 ⇔
     map_ok m ∧
     (∀d arity body.
        lookup d c1 = SOME (arity,body) ⇒
@@ -989,7 +1645,7 @@ Definition code_rel_def:
          NONE => lookup d c2 = SOME (arity,body)
        | SOME (sh,wk) =>
            ∃m'. submap m' m ∧ map_ok m' ∧
-                return_shape m' d body = sh ∧ split_ok sh ∧
+                return_shape cw m' d body = sh ∧ split_ok sh ∧
                 lookup d c2 = SOME (arity,make_wrapper arity wk sh) ∧
                 lookup wk c2 = SOME (arity,worker_body m' d wk sh body) ∧
                 tail_form body) ∧
@@ -1027,7 +1683,7 @@ QED
 
 Theorem code_rel_find_code_lookup:
   ∀m c1 c2 dest vs args body.
-    code_rel m c1 c2 ∧ find_code dest vs c1 = SOME (args,body) ⇒
+    code_rel cw m c1 c2 ∧ find_code dest vs c1 = SOME (args,body) ⇒
     ∃d.
       lookup d c1 = SOME (LENGTH args,body) ∧
       case lookup d m of
@@ -1042,7 +1698,7 @@ Proof
   >- (Cases_on ‘lookup x c1’ >> gvs[]
       >> Cases_on ‘x'’ >> gvs[]
       >> qexists ‘x’ >> gvs[]
-      >> qpat_x_assum ‘code_rel _ _ _’ $ assume_tac o SRULE [code_rel_def]
+      >> qpat_x_assum ‘code_rel cw _ _ _’ $ assume_tac o SRULE [code_rel_def]
       >> gvs[]
       >> first_assum $ drule_then assume_tac
       >> Cases_on ‘lookup x m’ >> gvs[]
@@ -1062,7 +1718,7 @@ Proof
   >> qexists ‘loc’
   >> ‘LENGTH (FRONT vs) = q’ by gvs[LENGTH_FRONT]
   >> gvs[]
-  >> qpat_x_assum ‘code_rel _ _ _’ $ assume_tac o SRULE [code_rel_def]
+  >> qpat_x_assum ‘code_rel cw _ _ _’ $ assume_tac o SRULE [code_rel_def]
   >> gvs[]
   >> first_assum $ drule_then assume_tac
   >> Cases_on ‘lookup loc m’ >> gvs[]
@@ -1078,7 +1734,7 @@ QED
 
 Theorem code_rel_find_code_SOME_dest:
   ∀m c1 c2 d vs args body.
-    code_rel m c1 c2 ∧ find_code (SOME d) vs c1 = SOME (args,body) ⇒
+    code_rel cw m c1 c2 ∧ find_code (SOME d) vs c1 = SOME (args,body) ⇒
     args = vs ∧ lookup d c1 = SOME (LENGTH args,body) ∧
     case lookup d m of
       NONE => find_code (SOME d) vs c2 = SOME (args,body)
@@ -1089,7 +1745,7 @@ Theorem code_rel_find_code_SOME_dest:
 Proof
   rpt gen_tac >> strip_tac
   >> gvs[bvlSemTheory.find_code_def, AllCaseEqs()]
-  >> qpat_x_assum ‘code_rel _ _ _’ $ assume_tac o SRULE [code_rel_def]
+  >> qpat_x_assum ‘code_rel cw _ _ _’ $ assume_tac o SRULE [code_rel_def]
   >> gvs[]
   >> first_assum $ drule_then assume_tac
   >> Cases_on ‘lookup d m’ >> gvs[bvlSemTheory.find_code_def]
@@ -1106,7 +1762,7 @@ Proof
 QED
 
 Theorem code_rel_domain:
-  code_rel m c1 c2 ⇒ domain c1 ⊆ domain c2
+  code_rel cw m c1 c2 ⇒ domain c1 ⊆ domain c2
 Proof
   rw[code_rel_def, SUBSET_DEF, domain_lookup]
   >> Cases_on ‘v’ >> gvs[]
@@ -1141,12 +1797,12 @@ End
 (* [m] maps each split function to its shape and worker. The source
    oracle carries CPR's state [(next, map)] for each chunk. *)
 Definition state_rel_def:
-  state_rel m (s:((num # (cpr_shape # num) num_map) # 'c,'ffi) bviSem$state)
+  state_rel cw m (s:((num # (cpr_shape # num) num_map) # 'c,'ffi) bviSem$state)
     (t:('c,'ffi) bviSem$state) ⇔
-    code_rel m s.code t.code ∧
+    1 < cw ∧ code_rel cw m s.code t.code ∧
     t.refs = s.refs ∧ t.clock = s.clock ∧ t.global = s.global ∧ t.ffi = s.ffi ∧
-    t.compile_oracle = state_co (compile_prog T) s.compile_oracle ∧
-    s.compile = state_cc (compile_prog T) t.compile ∧
+    t.compile_oracle = state_co (compile_prog cw) s.compile_oracle ∧
+    s.compile = state_cc (compile_prog cw) t.compile ∧
     (∀n. input_condition (FST (FST (FST (s.compile_oracle n))))
            (SND (s.compile_oracle n))) ∧
     submap (SND (FST (FST (s.compile_oracle 0)))) m ∧
@@ -1157,13 +1813,13 @@ Definition state_rel_def:
 End
 
 Theorem state_rel_with_clock:
-  state_rel m s t ⇒ state_rel m (s with clock := k) (t with clock := k)
+  state_rel cw m s t ⇒ state_rel cw m (s with clock := k) (t with clock := k)
 Proof
   rw[state_rel_def]
 QED
 
 Theorem state_rel_dec_clock:
-  state_rel m s t ⇒ state_rel m (dec_clock n s) (dec_clock n t)
+  state_rel cw m s t ⇒ state_rel cw m (dec_clock n s) (dec_clock n t)
 Proof
   rw[dec_clock_def]
   >> ‘t.clock = s.clock’ by gvs[state_rel_def]
@@ -1214,15 +1870,15 @@ QED
 
 (* One CPR chunk extends related code tables to related code tables. *)
 Theorem code_rel_compile:
-  code_rel m c1 c2 ∧ submap csh m ∧
-  compile_prog_with_map csh next progs = ((next1,csh1),progs1) ∧
+  code_rel cw m c1 c2 ∧ submap csh m ∧
+  compile_prog_with_map cw csh next progs = ((next1,csh1),progs1) ∧
   input_condition next progs ∧ DISJOINT (domain c1) (set (MAP FST progs)) ∧
   (∀n. n ∈ domain c2 ∧ in_ns_4 n ⇒ n < next) ∧
   (∀n. n ∈ domain c1 ∧ bvl_num_stubs ≤ n ⇒ ¬in_ns_4 n) ∧
   (∀d sh wk. lookup d m = SOME (sh,wk) ⇒ in_ns_4 wk ∧ bvl_num_stubs ≤ wk) ⇒
   DISJOINT (domain c2) (set (MAP FST progs1)) ∧ ALL_DISTINCT (MAP FST progs1) ∧
   submap m (union m csh1) ∧ submap csh1 (union m csh1) ∧
-  code_rel (union m csh1) (union c1 (fromAList progs))
+  code_rel cw (union m csh1) (union c1 (fromAList progs))
     (union c2 (fromAList progs1)) ∧
   (∀d sh wk. lookup d (union m csh1) = SOME (sh,wk) ⇒
      in_ns_4 wk ∧ bvl_num_stubs ≤ wk) ∧
@@ -1268,7 +1924,7 @@ Proof
     >> Cases_on ‘MEM x (MAP FST progs)’
     >- (
       ‘x ∉ domain c1’ by (gvs[IN_DISJOINT] >> metis_tac[])
-      >> qpat_x_assum ‘code_rel m c1 c2’ (strip_assume_tac o SRULE[code_rel_def])
+      >> qpat_x_assum ‘code_rel cw m c1 c2’ (strip_assume_tac o SRULE[code_rel_def])
       >> ‘∃f fsh. lookup f m = SOME (fsh,x)’ by metis_tac[]
       >> ‘in_ns_4 x ∧ bvl_num_stubs ≤ x’ by metis_tac[]
       >> metis_tac[])
@@ -1295,7 +1951,7 @@ Proof
           >- (‘MEM d (MAP FST progs)’ by metis_tac[]
               >> gvs[IN_DISJOINT] >> metis_tac[])
           >> gvs[submap_def] >> res_tac >> gvs[])
-    >> qpat_x_assum ‘code_rel m c1 c2’ (strip_assume_tac o SRULE[code_rel_def])
+    >> qpat_x_assum ‘code_rel cw m c1 c2’ (strip_assume_tac o SRULE[code_rel_def])
     >> simp[code_rel_def]
     >> rpt conj_tac
     >- (
@@ -1320,7 +1976,7 @@ Proof
       >> ‘lookup d m = NONE’ by metis_tac[]
       >> ‘lookup d (union m csh1) = lookup d csh1’ by simp[lookup_union]
       >> pop_assum SUBST1_TAC
-      >> ‘fun_rel csh1 progs1 (d,arity,body)’ by gvs[EVERY_MEM]
+      >> ‘fun_rel cw csh1 progs1 (d,arity,body)’ by gvs[EVERY_MEM]
       >> gvs[fun_rel_def]
       >> Cases_on ‘lookup d csh1’ >> gvs[]
       >> rename1 ‘lookup d csh1 = SOME q’ >> PairCases_on ‘q’ >> gvs[]
@@ -1363,8 +2019,8 @@ Proof
 QED
 
 Theorem do_install_state_rel:
-  state_rel m s t ∧ do_app Install vs s = Rval (v,s1) ⇒
-  ∃m1 t1. submap m m1 ∧ do_app Install vs t = Rval (v,t1) ∧ state_rel m1 s1 t1
+  state_rel cw m s t ∧ do_app Install vs s = Rval (v,s1) ⇒
+  ∃m1 t1. submap m m1 ∧ do_app Install vs t = Rval (v,t1) ∧ state_rel cw m1 s1 t1
 Proof
   strip_tac
   >> qpat_x_assum ‘do_app _ _ _ = _’ mp_tac
@@ -1372,26 +2028,27 @@ Proof
   >> ‘∃n0 c0 cfg0 progs. s.compile_oracle 0 = (((n0,c0),cfg0),progs)’
     by metis_tac[PAIR]
   >> simp[]
-  >> Cases_on ‘compile_prog T (n0,c0) progs’
-  >> rename1 ‘compile_prog T (n0,c0) progs = (st1,progs1)’
+  >> Cases_on ‘compile_prog cw (n0,c0) progs’
+  >> rename1 ‘compile_prog cw (n0,c0) progs = (st1,progs1)’
   >> PairCases_on ‘st1’
-  >> rename1 ‘compile_prog T (n0,c0) progs = ((n1,c1),progs1)’
+  >> rename1 ‘compile_prog cw (n0,c0) progs = ((n1,c1),progs1)’
   >> ‘t.compile_oracle 0 = (cfg0,progs1) ∧ t.refs = s.refs’
     by gvs[state_rel_def, backendPropsTheory.state_co_def]
   >> ‘∀cfg p. s.compile ((n0,c0),cfg) p =
-              case t.compile cfg (SND (compile_prog T (n0,c0) p)) of
+              case t.compile cfg (SND (compile_prog cw (n0,c0) p)) of
                 NONE => NONE
               | SOME (b,d,cfg1) =>
-                  SOME (b,d,FST (compile_prog T (n0,c0) p),cfg1)’
+                  SOME (b,d,FST (compile_prog cw (n0,c0) p),cfg1)’
     by (gvs[state_rel_def, backendPropsTheory.state_cc_def] >> rw[]
         >> pairarg_tac >> simp[] >> CASE_TAC >> simp[]
         >> PairCases_on ‘x’ >> simp[])
   >> simp[] >> strip_tac >> gvs[AllCaseEqs()]
   >> qmatch_asmsub_rename_tac ‘s.compile_oracle 0 = (_,(k,kbody)::rest)’
   >> qabbrev_tac ‘progs = (k,kbody)::rest’
-  >> ‘compile_prog_with_map c0 n0 progs = ((n1,c1),progs1)’
+  >> ‘1 < cw’ by gvs[state_rel_def]
+  >> ‘compile_prog_with_map cw c0 n0 progs = ((n1,c1),progs1)’
     by gvs[compile_prog_def]
-  >> qpat_x_assum ‘state_rel m s t’
+  >> qpat_x_assum ‘state_rel cw m s t’
        (fn th => assume_tac th >> strip_assume_tac (SRULE [state_rel_def] th))
   >> ‘submap c0 m’ by (qpat_x_assum ‘submap (SND _) m’ mp_tac >> simp[])
   >> ‘∀n. n ∈ domain t.code ∧ in_ns_4 n ⇒ n < n0’
@@ -1434,8 +2091,8 @@ Proof
 QED
 
 Theorem do_app_state_rel:
-  state_rel m s t ∧ do_app op vs s = Rval (v,s1) ⇒
-  ∃m1 t1. submap m m1 ∧ do_app op vs t = Rval (v,t1) ∧ state_rel m1 s1 t1
+  state_rel cw m s t ∧ do_app op vs s = Rval (v,s1) ⇒
+  ∃m1 t1. submap m m1 ∧ do_app op vs t = Rval (v,t1) ∧ state_rel cw m1 s1 t1
 Proof
   strip_tac
   >> Cases_on ‘op = Install’
@@ -1455,7 +2112,7 @@ Proof
 QED
 
 Theorem do_app_state_rel_err:
-  state_rel m s t ∧ do_app op vs s = Rerr e ∧ e ≠ Rabort Rtype_error ⇒
+  state_rel cw m s t ∧ do_app op vs s = Rerr e ∧ e ≠ Rabort Rtype_error ⇒
   do_app op vs t = Rerr e
 Proof
   strip_tac
@@ -1523,18 +2180,18 @@ QED
 Theorem cpr_correct:
   ∀xs env (s:((num # (cpr_shape # num) num_map) # 'c,'ffi) bviSem$state).
     (∀m t res s1.
-       state_rel m s t ∧ evaluate (xs,env,s) = (res,s1) ∧
+       state_rel cw m s t ∧ evaluate (xs,env,s) = (res,s1) ∧
        res ≠ Rerr (Rabort Rtype_error) ⇒
        ∃ck m1 t1.
-         submap m m1 ∧ state_rel m1 s1 t1 ∧
+         submap m m1 ∧ state_rel cw m1 s1 t1 ∧
          evaluate (xs,env,inc_clock ck t) = (res,t1)) ∧
     (∀m t e f wk sh res s1.
-       xs = [e] ∧ state_rel m s t ∧
+       xs = [e] ∧ state_rel cw m s t ∧
        lookup f m = SOME (sh,wk) ∧ split_ok sh ∧
        tail_ok m f sh e ∧ tail_form e ∧
        evaluate ([e],env,s) = (res,s1) ∧ res ≠ Rerr (Rabort Rtype_error) ⇒
        ∃ck m1 t1.
-         submap m m1 ∧ state_rel m1 s1 t1 ∧
+         submap m m1 ∧ state_rel cw m1 s1 t1 ∧
          case res of
            Rval [v] =>
              v_shape sh v ∧
@@ -1574,11 +2231,11 @@ Resume cpr_correct[Cons]:
     >> reverse (Cases_on ‘r1’) >> simp[]
     >- (
       strip_tac >> gvs[]
-      >> qpat_x_assum ‘∀m' t'. state_rel m' s t' ⇒ _’ drule
+      >> qpat_x_assum ‘∀m' t'. state_rel cw m' s t' ⇒ _’ drule
       >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
       >> qexistsl_tac [‘ck1’,‘m1’,‘t1’] >> simp[])
     >> rename1 ‘evaluate ([x],env,s) = (Rval v1,s2)’
-    >> qpat_x_assum ‘∀m t res s1. state_rel m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
+    >> qpat_x_assum ‘∀m t res s1. state_rel cw m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
          (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
     >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
     >> Cases_on ‘evaluate (y::xs,env,s2)’
@@ -1609,7 +2266,7 @@ Resume cpr_correct[If]:
     >> qpat_x_assum ‘evaluate ([If _ _ _],_,_) = _’ (assume_tac o SRULE[evaluate_def])
     >> Cases_on ‘evaluate ([x1],env,s)’ >> rename1 ‘evaluate ([x1],env,s) = (r1,s2)’
     >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
-    >> qpat_x_assum ‘∀m t res s1. state_rel m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
+    >> qpat_x_assum ‘∀m t res s1. state_rel cw m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
          (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
     >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
     >> reverse (Cases_on ‘r1’) >> gvs[]
@@ -1618,12 +2275,12 @@ Resume cpr_correct[If]:
     >> drule_then assume_tac evaluate_inc_clock_Rval
     >> Cases_on ‘HD vs = Boolv T’ >> gvs[]
     >- (
-      qpat_x_assum ‘∀m t. state_rel m s2 t ⇒ _’ drule
+      qpat_x_assum ‘∀m t. state_rel cw m s2 t ⇒ _’ drule
       >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
       >> qexistsl_tac [‘ck1 + ck2’,‘m2’,‘t2’]
       >> simp[evaluate_def] >> metis_tac[submap_trans])
     >> Cases_on ‘HD vs = Boolv F’ >> gvs[]
-    >> qpat_x_assum ‘∀m t. state_rel m s2 t ⇒ _’ drule
+    >> qpat_x_assum ‘∀m t. state_rel cw m s2 t ⇒ _’ drule
     >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
     >> qexistsl_tac [‘ck1 + ck2’,‘m2’,‘t2’]
     >> simp[evaluate_def] >> metis_tac[submap_trans])
@@ -1632,7 +2289,7 @@ Resume cpr_correct[If]:
     >> qpat_x_assum ‘evaluate ([If _ _ _],_,_) = _’ (assume_tac o SRULE[evaluate_def])
     >> Cases_on ‘evaluate ([x1],env,s)’ >> rename1 ‘evaluate ([x1],env,s) = (r1,s2)’
     >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
-    >> qpat_x_assum ‘∀m t res s1. state_rel m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
+    >> qpat_x_assum ‘∀m t res s1. state_rel cw m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
          (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
     >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
     >> reverse (Cases_on ‘r1’) >> gvs[]
@@ -1643,7 +2300,7 @@ Resume cpr_correct[If]:
     >> Cases_on ‘HD vs = Boolv T’ >> gvs[]
     >- (
       ‘tail_ok m1 f sh x2’ by (irule tail_ok_submap >> qexists_tac ‘m’ >> gvs[submap_def])
-      >> qpat_x_assum ‘∀m' t' f wk sh. state_rel m' s2 t' ∧ _ ⇒ _’
+      >> qpat_x_assum ‘∀m' t' f wk sh. state_rel cw m' s2 t' ∧ _ ⇒ _’
            (qspecl_then [‘m1’,‘t1’,‘f’,‘wk’,‘sh’] mp_tac) >> simp[]
       >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
       >> qexistsl_tac [‘ck1 + ck2’,‘m2’,‘t2’]
@@ -1653,7 +2310,7 @@ Resume cpr_correct[If]:
       >> gvs[AllCaseEqs()] >> simp[evaluate_def])
     >> Cases_on ‘HD vs = Boolv F’ >> gvs[]
     >> ‘tail_ok m1 f sh x3’ by (irule tail_ok_submap >> qexists_tac ‘m’ >> gvs[submap_def])
-    >> qpat_x_assum ‘∀m' t' f wk sh. state_rel m' s2 t' ∧ _ ⇒ _’
+    >> qpat_x_assum ‘∀m' t' f wk sh. state_rel cw m' s2 t' ∧ _ ⇒ _’
          (qspecl_then [‘m1’,‘t1’,‘f’,‘wk’,‘sh’] mp_tac) >> simp[]
     >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
     >> qexistsl_tac [‘ck1 + ck2’,‘m2’,‘t2’]
@@ -1670,7 +2327,7 @@ Resume cpr_correct[Let]:
     >> qpat_x_assum ‘evaluate ([Let _ _],_,_) = _’ (assume_tac o SRULE[evaluate_def])
     >> Cases_on ‘evaluate (xs,env,s)’ >> rename1 ‘evaluate (xs,env,s) = (r1,s2)’
     >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
-    >> qpat_x_assum ‘∀m t res s1. state_rel m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
+    >> qpat_x_assum ‘∀m t res s1. state_rel cw m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
          (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
     >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
     >> reverse (Cases_on ‘r1’) >> gvs[]
@@ -1678,7 +2335,7 @@ Resume cpr_correct[Let]:
       qexistsl_tac [‘ck1’,‘m1’,‘t1’] >> simp[evaluate_def])
     >> rename1 ‘evaluate (xs,env,s) = (Rval vs,s2)’
     >> drule_then assume_tac evaluate_inc_clock_Rval
-    >> qpat_x_assum ‘∀m t. state_rel m s2 t ⇒ _’ drule
+    >> qpat_x_assum ‘∀m t. state_rel cw m s2 t ⇒ _’ drule
     >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
     >> ‘submap m m2’ by metis_tac[submap_trans]
     >> qexistsl_tac [‘ck1 + ck2’,‘m2’,‘t2’]
@@ -1688,7 +2345,7 @@ Resume cpr_correct[Let]:
     >> qpat_x_assum ‘evaluate ([Let _ _],_,_) = _’ (assume_tac o SRULE[evaluate_def])
     >> Cases_on ‘evaluate (xs,env,s)’ >> rename1 ‘evaluate (xs,env,s) = (r1,s2)’
     >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
-    >> qpat_x_assum ‘∀m t res s1. state_rel m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
+    >> qpat_x_assum ‘∀m t res s1. state_rel cw m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
          (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
     >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
     >> reverse (Cases_on ‘r1’) >> gvs[]
@@ -1697,7 +2354,7 @@ Resume cpr_correct[Let]:
     >> drule_then assume_tac evaluate_inc_clock_Rval
     >> ‘lookup f m1 = SOME (sh,wk)’ by gvs[submap_def]
     >> ‘tail_ok m1 f sh x2’ by (irule tail_ok_submap >> qexists_tac ‘m’ >> gvs[submap_def])
-    >> qpat_x_assum ‘∀m' t' f wk sh. state_rel m' s2 t' ∧ _ ⇒ _’
+    >> qpat_x_assum ‘∀m' t' f wk sh. state_rel cw m' s2 t' ∧ _ ⇒ _’
          (qspecl_then [‘m1’,‘t1’,‘f’,‘wk’,‘sh’] mp_tac) >> simp[]
     >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
     >> qexistsl_tac [‘ck1 + ck2’,‘m2’,‘t2’]
@@ -1710,9 +2367,9 @@ QED
 Resume cpr_correct[Raise]:
   rpt gen_tac >> strip_tac
   >> ‘∀m t res s1.
-        state_rel m s t ∧ evaluate ([Raise x1],env,s) = (res,s1) ∧
+        state_rel cw m s t ∧ evaluate ([Raise x1],env,s) = (res,s1) ∧
         res ≠ Rerr (Rabort Rtype_error) ⇒
-        ∃ck m1 t1. submap m m1 ∧ state_rel m1 s1 t1 ∧
+        ∃ck m1 t1. submap m m1 ∧ state_rel cw m1 s1 t1 ∧
           evaluate ([Raise x1],env,inc_clock ck t) = (res,t1)’
     by (rpt strip_tac
         >> qpat_x_assum ‘evaluate ([Raise _],_,_) = _’
@@ -1720,7 +2377,7 @@ Resume cpr_correct[Raise]:
         >> Cases_on ‘evaluate ([x1],env,s)’
         >> rename1 ‘evaluate ([x1],env,s) = (r1,s2)’
         >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
-        >> qpat_x_assum ‘∀m t res s1. state_rel m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
+        >> qpat_x_assum ‘∀m t res s1. state_rel cw m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
              (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
         >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
         >> qexistsl_tac [‘ck1’,‘m1’,‘t1’]
@@ -1741,7 +2398,7 @@ Resume cpr_correct[Return]:
   >> qpat_x_assum ‘evaluate ([Return _],_,_) = _’ (assume_tac o SRULE[evaluate_def])
   >> Cases_on ‘evaluate (xs,env,s)’ >> rename1 ‘evaluate (xs,env,s) = (r1,s2)’
   >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
-  >> qpat_x_assum ‘∀m t res s1. state_rel m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
+  >> qpat_x_assum ‘∀m t res s1. state_rel cw m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
        (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
   >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
   >> qexistsl_tac [‘ck1’,‘m1’,‘t1’]
@@ -1755,7 +2412,7 @@ Resume cpr_correct[Op]:
     >> qpat_x_assum ‘evaluate ([Op _ _],_,_) = _’ (assume_tac o SRULE[evaluate_def])
     >> Cases_on ‘evaluate (xs,env,s)’ >> rename1 ‘evaluate (xs,env,s) = (r1,s2)’
     >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
-    >> qpat_x_assum ‘∀m t res s1. state_rel m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
+    >> qpat_x_assum ‘∀m t res s1. state_rel cw m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
          (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
     >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
     >> reverse (Cases_on ‘r1’) >> gvs[]
@@ -1791,8 +2448,8 @@ Resume cpr_correct[Tick]:
     >> ‘t.clock = s.clock’ by gvs[state_rel_def]
     >> Cases_on ‘s.clock = 0’ >> gvs[]
     >- (qexistsl_tac [‘0’,‘m’,‘t’] >> simp[evaluate_def, inc_clock_ZERO, submap_refl])
-    >> ‘state_rel m (dec_clock 1 s) (dec_clock 1 t)’ by simp[state_rel_dec_clock]
-    >> qpat_x_assum ‘∀m t. state_rel m (dec_clock 1 s) t ⇒ _’ drule
+    >> ‘state_rel cw m (dec_clock 1 s) (dec_clock 1 t)’ by simp[state_rel_dec_clock]
+    >> qpat_x_assum ‘∀m t. state_rel cw m (dec_clock 1 s) t ⇒ _’ drule
     >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
     >> qexistsl_tac [‘ck1’,‘m1’,‘t1’]
     >> simp[evaluate_def, dec_clock_inv_clock1, inc_clock_clock])
@@ -1802,8 +2459,8 @@ Resume cpr_correct[Tick]:
     >> ‘t.clock = s.clock’ by gvs[state_rel_def]
     >> Cases_on ‘s.clock = 0’ >> gvs[]
     >- (qexistsl_tac [‘0’,‘m’,‘t’] >> simp[evaluate_def, inc_clock_ZERO, submap_refl])
-    >> ‘state_rel m (dec_clock 1 s) (dec_clock 1 t)’ by simp[state_rel_dec_clock]
-    >> qpat_x_assum ‘∀m' t' f wk sh. state_rel m' (dec_clock 1 s) t' ∧ _ ⇒ _’
+    >> ‘state_rel cw m (dec_clock 1 s) (dec_clock 1 t)’ by simp[state_rel_dec_clock]
+    >> qpat_x_assum ‘∀m' t' f wk sh. state_rel cw m' (dec_clock 1 s) t' ∧ _ ⇒ _’
          (qspecl_then [‘m’,‘dec_clock 1 t’,‘f’,‘wk’,‘sh’] mp_tac) >> simp[]
     >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
     >> qexistsl_tac [‘ck1’,‘m1’,‘t1’]
@@ -1817,7 +2474,7 @@ Resume cpr_correct[Force]:
       >> imp_res_tac split_ok_ConsShape >> gvs[exp_shape_ok_def])
   >> rpt strip_tac
   >> qpat_x_assum ‘evaluate ([Force _ _],_,_) = _’ (assume_tac o SRULE[evaluate_def])
-  >> ‘t.refs = s.refs ∧ t.clock = s.clock ∧ code_rel m s.code t.code’
+  >> ‘t.refs = s.refs ∧ t.clock = s.clock ∧ code_rel cw m s.code t.code’
     by gvs[state_rel_def]
   >> Cases_on ‘n < LENGTH env’ >> gvs[]
   >> Cases_on ‘dest_thunk env❲n❳ s.refs’ >> gvs[]
@@ -1843,10 +2500,10 @@ Resume cpr_correct[Force]:
     by (Cases_on ‘r0’ >> gvs[] >> rename1 ‘Rerr e’ >> Cases_on ‘e’ >> gvs[]
         >> rename1 ‘Rraise ex’ >> Cases_on ‘ex’ >> gvs[])
   >> gvs[]
-  >> ‘state_rel m (dec_clock 1 s) (dec_clock 1 t)’ by simp[state_rel_dec_clock]
+  >> ‘state_rel cw m (dec_clock 1 s) (dec_clock 1 t)’ by simp[state_rel_dec_clock]
   >> Cases_on ‘lookup force_loc m’ >> gvs[]
   >- (
-    qpat_x_assum ‘∀m' t'. state_rel m' (dec_clock 1 s) t' ⇒ _’ drule
+    qpat_x_assum ‘∀m' t'. state_rel cw m' (dec_clock 1 s) t' ⇒ _’ drule
     >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
     >> qexistsl_tac [‘ck1’,‘m1’,‘t1’]
     >> simp[evaluate_def, dec_clock_inv_clock1, inc_clock_clock, inc_clock_code,
@@ -1855,7 +2512,7 @@ Resume cpr_correct[Force]:
     >> rename1 ‘Rraise ex’ >> Cases_on ‘ex’ >> gvs[])
   >> rename1 ‘lookup force_loc m = SOME p’ >> PairCases_on ‘p’ >> gvs[]
   >> rename1 ‘lookup force_loc m = SOME (sh,wk)’
-  >> qpat_x_assum ‘∀m' t' f wk sh. state_rel m' (dec_clock 1 s) t' ∧ _ ⇒ _’
+  >> qpat_x_assum ‘∀m' t' f wk sh. state_rel cw m' (dec_clock 1 s) t' ∧ _ ⇒ _’
        (qspecl_then [‘m’,‘dec_clock 1 t’,‘force_loc’,‘wk’,‘sh’] mp_tac) >> simp[]
   >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
   >> qspecl_then [‘wk’,‘inc_clock ck1 (dec_clock 1 t)’,‘[env❲n❳; fv]’,
@@ -1884,7 +2541,7 @@ Resume cpr_correct[Call]:
     >> Cases_on ‘evaluate (xs,env,s1)’ >> rename1 ‘evaluate (xs,env,s1) = (r1,s2)’
     >> strip_tac
     >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
-    >> qpat_x_assum ‘∀m t res s1'. state_rel m s1 t ∧ _ = (res,s1') ∧ _ ⇒ _’
+    >> qpat_x_assum ‘∀m t res s1'. state_rel cw m s1 t ∧ _ = (res,s1') ∧ _ ⇒ _’
          (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
     >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
     >> reverse (Cases_on ‘r1’) >> gvs[]
@@ -1896,7 +2553,7 @@ Resume cpr_correct[Call]:
     >> Cases_on ‘find_code dest vs s2.code’ >> gvs[]
     >> rename1 ‘find_code dest vs s2.code = SOME p’ >> PairCases_on ‘p’
     >> rename1 ‘find_code dest vs s2.code = SOME (args,body)’
-    >> ‘code_rel m1 s2.code t1.code ∧ t1.clock = s2.clock’ by gvs[state_rel_def]
+    >> ‘code_rel cw m1 s2.code t1.code ∧ t1.clock = s2.clock’ by gvs[state_rel_def]
     >> drule_all code_rel_find_code_lookup >> strip_tac
     >> ‘∃tb. find_code dest vs t1.code = SOME (args,tb)’
       by (Cases_on ‘lookup d m1’ >> gvs[]
@@ -1908,14 +2565,14 @@ Resume cpr_correct[Call]:
       >> simp[state_rel_with_clock]
       >> ‘¬(IS_NONE dest ∧ IS_SOME handler)’ by (Cases_on ‘dest’ >> gvs[])
       >> simp[evaluate_def])
-    >> ‘state_rel m1 (dec_clock (ticks + 1) s2) (dec_clock (ticks + 1) t1)’
+    >> ‘state_rel cw m1 (dec_clock (ticks + 1) s2) (dec_clock (ticks + 1) t1)’
       by simp[state_rel_dec_clock]
     >> Cases_on ‘evaluate ([body],args,dec_clock (ticks + 1) s2)’
     >> rename1 ‘evaluate ([body],args,dec_clock (ticks + 1) s2) = (r0,s3)’
     >> ‘r0 ≠ Rerr (Rabort Rtype_error) ∧ ∀vs. r0 ≠ Rerr (Rraise (Ret vs))’
       by (Cases_on ‘r0’ >> gvs[] >> rename1 ‘Rerr e’ >> Cases_on ‘e’ >> gvs[]
           >> rename1 ‘Rraise ex’ >> Cases_on ‘ex’ >> gvs[])
-    >> subgoal ‘∃ck2 m2 t2. submap m1 m2 ∧ state_rel m2 s3 t2 ∧
+    >> subgoal ‘∃ck2 m2 t2. submap m1 m2 ∧ state_rel cw m2 s3 t2 ∧
                   evaluate ([tb],args,inc_clock ck2 (dec_clock (ticks + 1) t1)) =
                     (r0,t2)’
     >- (
@@ -1923,7 +2580,7 @@ Resume cpr_correct[Call]:
       >> rename1 ‘lookup d m1 = SOME p’ >> PairCases_on ‘p’ >> gvs[]
       >> rename1 ‘lookup d m1 = SOME (sh,wk)’
       >> qpat_x_assum
-           ‘∀m' t' f wk sh. state_rel m' (dec_clock (ticks + 1) s2) t' ∧ _ ⇒ _’
+           ‘∀m' t' f wk sh. state_rel cw m' (dec_clock (ticks + 1) s2) t' ∧ _ ⇒ _’
            (qspecl_then [‘m1’,‘dec_clock (ticks + 1) t1’,‘d’,‘wk’,‘sh’] mp_tac)
       >> simp[]
       >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
@@ -1945,7 +2602,7 @@ Resume cpr_correct[Call]:
         by (Cases_on ‘hr’ >> gvs[] >> rename1 ‘Rerr e’ >> Cases_on ‘e’ >> gvs[]
             >> rename1 ‘Rraise ex’ >> Cases_on ‘ex’ >> gvs[])
       >> gvs[]
-      >> qpat_x_assum ‘∀m t. state_rel m s3 t ⇒ _’ drule
+      >> qpat_x_assum ‘∀m t. state_rel cw m s3 t ⇒ _’ drule
       >> disch_then (qx_choosel_then [‘ck3’,‘m3’,‘t3’] strip_assume_tac)
       >> qexistsl_tac [‘ck1 + (ck2 + ck3)’,‘m3’,‘t3’]
       >> ‘submap m m3’ by metis_tac[submap_trans]
@@ -1968,7 +2625,7 @@ Resume cpr_correct[Call]:
     >> qpat_x_assum ‘evaluate ([Call _ _ _ _],_,_) = _’ (assume_tac o SRULE[evaluate_def])
     >> Cases_on ‘evaluate (xs,env,s1)’ >> rename1 ‘evaluate (xs,env,s1) = (r1,s2)’
     >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
-    >> qpat_x_assum ‘∀m t res s1'. state_rel m s1 t ∧ _ = (res,s1') ∧ _ ⇒ _’
+    >> qpat_x_assum ‘∀m t res s1'. state_rel cw m s1 t ∧ _ = (res,s1') ∧ _ ⇒ _’
          (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
     >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
     >> reverse (Cases_on ‘r1’) >> gvs[]
@@ -1978,7 +2635,7 @@ Resume cpr_correct[Call]:
     >> Cases_on ‘find_code (SOME d) vs s2.code’ >> gvs[]
     >> rename1 ‘find_code _ vs s2.code = SOME p’ >> PairCases_on ‘p’
     >> rename1 ‘find_code _ vs s2.code = SOME (args,body)’
-    >> ‘code_rel m1 s2.code t1.code ∧ t1.clock = s2.clock’ by gvs[state_rel_def]
+    >> ‘code_rel cw m1 s2.code t1.code ∧ t1.clock = s2.clock’ by gvs[state_rel_def]
     >> ‘lookup d m1 = SOME (sh,dwk)’ by gvs[submap_def]
     >> drule_all code_rel_find_code_SOME_dest >> strip_tac >> gvs[]
     >> drule_then assume_tac evaluate_inc_clock_Rval
@@ -1989,7 +2646,7 @@ Resume cpr_correct[Call]:
     >- (
       qexistsl_tac [‘ck1’,‘m1’,‘t1 with clock := 0’]
       >> simp[state_rel_with_clock, evaluate_def])
-    >> ‘state_rel m1 (dec_clock (ticks + 1) s2) (dec_clock (ticks + 1) t1)’
+    >> ‘state_rel cw m1 (dec_clock (ticks + 1) s2) (dec_clock (ticks + 1) t1)’
       by simp[state_rel_dec_clock]
     >> Cases_on ‘evaluate ([body],args,dec_clock (ticks + 1) s2)’
     >> rename1 ‘evaluate ([body],args,dec_clock (ticks + 1) s2) = (r0,s3)’
@@ -1998,7 +2655,7 @@ Resume cpr_correct[Call]:
           >> rename1 ‘Rraise ex’ >> Cases_on ‘ex’ >> gvs[])
     >> gvs[]
     >> qpat_x_assum
-         ‘∀m' t' f' wk' sh'. state_rel m' (dec_clock (ticks + 1) s2) t' ∧ _ ⇒ _’
+         ‘∀m' t' f' wk' sh'. state_rel cw m' (dec_clock (ticks + 1) s2) t' ∧ _ ⇒ _’
          (qspecl_then [‘m1’,‘dec_clock (ticks + 1) t1’,‘d’,‘dwk’,‘sh’] mp_tac)
     >> simp[]
     >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
@@ -2027,7 +2684,7 @@ Resume cpr_correct[LetCall]:
          (assume_tac o SRULE[evaluate_def])
     >> Cases_on ‘evaluate (xs,env,s1)’ >> rename1 ‘evaluate (xs,env,s1) = (r1,s2)’
     >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
-    >> qpat_x_assum ‘∀m t res s1'. state_rel m s1 t ∧ _ = (res,s1') ∧ _ ⇒ _’
+    >> qpat_x_assum ‘∀m t res s1'. state_rel cw m s1 t ∧ _ = (res,s1') ∧ _ ⇒ _’
          (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
     >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
     >> reverse (Cases_on ‘r1’) >> gvs[]
@@ -2037,7 +2694,7 @@ Resume cpr_correct[LetCall]:
     >> Cases_on ‘find_code (SOME dest) vs s2.code’ >> gvs[]
     >> rename1 ‘find_code _ vs s2.code = SOME p’ >> PairCases_on ‘p’
     >> rename1 ‘find_code _ vs s2.code = SOME (args,body)’
-    >> ‘code_rel m1 s2.code t1.code ∧ t1.clock = s2.clock’ by gvs[state_rel_def]
+    >> ‘code_rel cw m1 s2.code t1.code ∧ t1.clock = s2.clock’ by gvs[state_rel_def]
     >> drule_all code_rel_find_code_SOME_dest >> strip_tac >> gvs[]
     >> ‘∃tb. find_code (SOME dest) args t1.code = SOME (args,tb)’
       by (Cases_on ‘lookup dest m1’ >> gvs[]
@@ -2047,12 +2704,12 @@ Resume cpr_correct[LetCall]:
     >- (
       qexistsl_tac [‘ck1’,‘m1’,‘t1 with clock := 0’]
       >> simp[state_rel_with_clock, evaluate_def])
-    >> ‘state_rel m1 (dec_clock (ticks + 1) s2) (dec_clock (ticks + 1) t1)’
+    >> ‘state_rel cw m1 (dec_clock (ticks + 1) s2) (dec_clock (ticks + 1) t1)’
       by simp[state_rel_dec_clock]
     >> Cases_on ‘evaluate ([body],args,dec_clock (ticks + 1) s2)’
     >> rename1 ‘evaluate ([body],args,dec_clock (ticks + 1) s2) = (r0,s3)’
     >> ‘r0 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
-    >> subgoal ‘∃ck2 m2 t2. submap m1 m2 ∧ state_rel m2 s3 t2 ∧
+    >> subgoal ‘∃ck2 m2 t2. submap m1 m2 ∧ state_rel cw m2 s3 t2 ∧
                   evaluate ([tb],args,inc_clock ck2 (dec_clock (ticks + 1) t1)) =
                     (r0,t2)’
     >- (
@@ -2061,7 +2718,7 @@ Resume cpr_correct[LetCall]:
       >> rename1 ‘lookup dest m1 = SOME (sh,wk)’
       >> ‘∀vs. r0 ≠ Rerr (Rraise (Ret vs))’ by metis_tac[evaluate_tail_no_Ret]
       >> qpat_x_assum
-           ‘∀m' t' f wk sh. state_rel m' (dec_clock (ticks + 1) s2) t' ∧ _ ⇒ _’
+           ‘∀m' t' f wk sh. state_rel cw m' (dec_clock (ticks + 1) s2) t' ∧ _ ⇒ _’
            (qspecl_then [‘m1’,‘dec_clock (ticks + 1) t1’,‘dest’,‘wk’,‘sh’] mp_tac)
       >> simp[]
       >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
@@ -2077,7 +2734,7 @@ Resume cpr_correct[LetCall]:
     >> Cases_on ‘∃ret_vs. r0 = Rerr (Rraise (Ret ret_vs)) ∧ LENGTH ret_vs = rets’
     >- (
       gvs[]
-      >> qpat_x_assum ‘∀m t. state_rel m s3 t ⇒ _’ drule
+      >> qpat_x_assum ‘∀m t. state_rel cw m s3 t ⇒ _’ drule
       >> disch_then (qx_choosel_then [‘ck3’,‘m3’,‘t3’] strip_assume_tac)
       >> qexistsl_tac [‘ck1 + (ck2 + ck3)’,‘m3’,‘t3’]
       >> ‘submap m m3’ by metis_tac[submap_trans]
@@ -2098,7 +2755,7 @@ Resume cpr_correct[LetCall]:
          (assume_tac o SRULE[evaluate_def])
     >> Cases_on ‘evaluate (xs,env,s1)’ >> rename1 ‘evaluate (xs,env,s1) = (r1,s2)’
     >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
-    >> qpat_x_assum ‘∀m t res s1'. state_rel m s1 t ∧ _ = (res,s1') ∧ _ ⇒ _’
+    >> qpat_x_assum ‘∀m t res s1'. state_rel cw m s1 t ∧ _ = (res,s1') ∧ _ ⇒ _’
          (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
     >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
     >> reverse (Cases_on ‘r1’) >> gvs[]
@@ -2108,7 +2765,7 @@ Resume cpr_correct[LetCall]:
     >> Cases_on ‘find_code (SOME dest) vs s2.code’ >> gvs[]
     >> rename1 ‘find_code _ vs s2.code = SOME p’ >> PairCases_on ‘p’
     >> rename1 ‘find_code _ vs s2.code = SOME (args,body)’
-    >> ‘code_rel m1 s2.code t1.code ∧ t1.clock = s2.clock’ by gvs[state_rel_def]
+    >> ‘code_rel cw m1 s2.code t1.code ∧ t1.clock = s2.clock’ by gvs[state_rel_def]
     >> drule_all code_rel_find_code_SOME_dest >> strip_tac >> gvs[]
     >> ‘∃tb. find_code (SOME dest) args t1.code = SOME (args,tb)’
       by (Cases_on ‘lookup dest m1’ >> gvs[]
@@ -2118,12 +2775,12 @@ Resume cpr_correct[LetCall]:
     >- (
       qexistsl_tac [‘ck1’,‘m1’,‘t1 with clock := 0’]
       >> simp[state_rel_with_clock, evaluate_def])
-    >> ‘state_rel m1 (dec_clock (ticks + 1) s2) (dec_clock (ticks + 1) t1)’
+    >> ‘state_rel cw m1 (dec_clock (ticks + 1) s2) (dec_clock (ticks + 1) t1)’
       by simp[state_rel_dec_clock]
     >> Cases_on ‘evaluate ([body],args,dec_clock (ticks + 1) s2)’
     >> rename1 ‘evaluate ([body],args,dec_clock (ticks + 1) s2) = (r0,s3)’
     >> ‘r0 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
-    >> subgoal ‘∃ck2 m2 t2. submap m1 m2 ∧ state_rel m2 s3 t2 ∧
+    >> subgoal ‘∃ck2 m2 t2. submap m1 m2 ∧ state_rel cw m2 s3 t2 ∧
                   evaluate ([tb],args,inc_clock ck2 (dec_clock (ticks + 1) t1)) =
                     (r0,t2)’
     >- (
@@ -2132,7 +2789,7 @@ Resume cpr_correct[LetCall]:
       >> rename1 ‘lookup dest m1 = SOME (dsh,dwk)’
       >> ‘∀vs. r0 ≠ Rerr (Rraise (Ret vs))’ by metis_tac[evaluate_tail_no_Ret]
       >> qpat_x_assum
-           ‘∀m' t' f wk sh. state_rel m' (dec_clock (ticks + 1) s2) t' ∧ _ ⇒ _’
+           ‘∀m' t' f wk sh. state_rel cw m' (dec_clock (ticks + 1) s2) t' ∧ _ ⇒ _’
            (qspecl_then [‘m1’,‘dec_clock (ticks + 1) t1’,‘dest’,‘dwk’,‘dsh’] mp_tac)
       >> simp[]
       >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
@@ -2150,7 +2807,7 @@ Resume cpr_correct[LetCall]:
       gvs[]
       >> ‘lookup f m2 = SOME (sh,wk)’ by gvs[submap_def]
       >> ‘tail_ok m2 f sh y’ by (irule tail_ok_submap >> qexists_tac ‘m’ >> gvs[submap_def])
-      >> qpat_x_assum ‘∀m' t' f wk sh. state_rel m' s3 t' ∧ _ ⇒ _’
+      >> qpat_x_assum ‘∀m' t' f wk sh. state_rel cw m' s3 t' ∧ _ ⇒ _’
            (qspecl_then [‘m2’,‘t2’,‘f’,‘wk’,‘sh’] mp_tac) >> simp[]
       >> disch_then (qx_choosel_then [‘ck3’,‘m3’,‘t3’] strip_assume_tac)
       >> qexistsl_tac [‘ck1 + (ck2 + ck3)’,‘m3’,‘t3’]
@@ -2175,26 +2832,26 @@ QED
 Finalise cpr_correct;
 
 Theorem compile_prog_evaluate:
-  input_condition n prog ∧
+  1 < cw ∧ input_condition n prog ∧
   (∀k st cfg p. co k = ((st,cfg),p) ⇒ input_condition (FST st) p) ∧
-  compile_prog T (n,LN) prog = (st1,prog2) ∧
+  compile_prog cw (n,LN) prog = (st1,prog2) ∧
   (∀k. MEM k (MAP FST prog2) ∧ in_ns_4 k ⇒ k < FST (FST (FST (co 0)))) ∧
   SND (FST (FST (co 0))) = SND st1 ∧
   evaluate ([Call 0 (SOME start) [] NONE],[],
             initial_state ffi0 (fromAList prog) co
-              (state_cc (compile_prog T) cc) k) = (r,s) ∧
+              (state_cc (compile_prog cw) cc) k) = (r,s) ∧
   r ≠ Rerr (Rabort Rtype_error) ⇒
   ∃ck m t.
     evaluate ([Call 0 (SOME start) [] NONE],[],
               initial_state ffi0 (fromAList prog2)
-                (state_co (compile_prog T) co) cc (k + ck)) = (r,t) ∧
-    state_rel m s t
+                (state_co (compile_prog cw) co) cc (k + ck)) = (r,t) ∧
+    state_rel cw m s t
 Proof
   strip_tac
   >> PairCases_on ‘st1’
-  >> ‘compile_prog_with_map LN n prog = ((st10,st11),prog2)’
+  >> ‘compile_prog_with_map cw LN n prog = ((st10,st11),prog2)’
     by gvs[compile_prog_def]
-  >> ‘code_rel LN (LN:(num # bvi$exp) num_map) (LN:(num # bvi$exp) num_map) ∧
+  >> ‘code_rel cw LN (LN:(num # bvi$exp) num_map) (LN:(num # bvi$exp) num_map) ∧
       submap LN (LN:(cpr_shape # num) num_map) ∧
       DISJOINT (domain (LN:(num # bvi$exp) num_map)) (set (MAP FST prog)) ∧
       (∀x. x ∈ domain (LN:(num # bvi$exp) num_map) ∧ in_ns_4 x ⇒ x < n) ∧
@@ -2205,10 +2862,10 @@ Proof
     by simp[code_rel_def, map_ok_def, submap_refl]
   >> drule_all code_rel_compile >> simp[] >> strip_tac
   >> qabbrev_tac ‘s0 = initial_state ffi0 (fromAList prog) co
-                         (state_cc (compile_prog T) cc) k’
+                         (state_cc (compile_prog cw) cc) k’
   >> qabbrev_tac ‘t0 = initial_state ffi0 (fromAList prog2)
-                         (state_co (compile_prog T) co) cc k’
-  >> subgoal ‘state_rel st11 s0 t0’
+                         (state_co (compile_prog cw) co) cc k’
+  >> subgoal ‘state_rel cw st11 s0 t0’
   >- (
     simp[state_rel_def, Abbr ‘s0’, Abbr ‘t0’]
     >> rpt conj_tac
@@ -2242,7 +2899,7 @@ Theorem compile_prog_semantics:
   semantics ffi (fromAList prog) co (state_cc (compile_prog b) cc) start =
   semantics ffi (fromAList prog2) (state_co (compile_prog b) co) cc start
 Proof
-  Cases_on ‘b’
+  Cases_on ‘1 < b’
   >- (
     strip_tac
     >> irule semantics_fwd_sim >> simp[]
@@ -2252,7 +2909,7 @@ Proof
     >> disch_then (qx_choosel_then [‘ck’,‘m’,‘t’] strip_assume_tac)
     >> qexistsl_tac [‘ck’,‘r’,‘t’]
     >> gvs[state_rel_def])
-  >> ‘bvi_cpr$compile_prog F = CURRY I’
+  >> ‘bvi_cpr$compile_prog b = CURRY I’
     by simp[FUN_EQ_THM, FORALL_PROD, compile_prog_def]
   >> strip_tac >> gvs[]
   >> irule semantics_CURRY_I >> simp[]
@@ -2262,11 +2919,10 @@ Theorem compile_prog_next_mono:
   compile_prog b (n,csh) xs = ((n1,c1),ys) ⇒
   ∃k. n1 = n + bvl_to_bvi_namespaces * k
 Proof
-  Cases_on ‘b’ >> rw[compile_prog_def]
-  >- (
-    drule compile_prog_with_map_next_mono >> strip_tac
-    >> qexists_tac ‘k’ >> simp[])
-  >> qexists_tac ‘0’ >> simp[]
+  rw[compile_prog_def]
+  >- (qexists_tac ‘0’ >> simp[])
+  >> drule compile_prog_with_map_next_mono >> strip_tac
+  >> qexists_tac ‘k’ >> simp[]
 QED
 
 Theorem compile_prog_MEM:
@@ -2294,6 +2950,22 @@ Proof
   >> metis_tac[compile_prog_with_map_keeps_names]
 QED
 
+Theorem part_exp_code_labels[local]:
+  get_code_labels (part_exp pm r) = {}
+Proof
+  simp[part_exp_def] >> every_case_tac
+  >> simp[closLangTheory.assign_get_code_label_def]
+QED
+
+Theorem flatten_part_code_labels[local]:
+  (∀pm sh r. BIGUNION (set (MAP get_code_labels (flatten_part pm sh r))) = {}) ∧
+  (∀pm shs ns.
+     BIGUNION (set (MAP get_code_labels (flatten_parts pm shs ns))) = {})
+Proof
+  ho_match_mp_tac flatten_part_ind >> rw[flatten_part_def]
+  >> every_case_tac >> gvs[part_exp_code_labels]
+QED
+
 Theorem flatten_exp_code_labels[local]:
   (∀sh e. BIGUNION (set (MAP get_code_labels (flatten_exp sh e))) ⊆
           get_code_labels e) ∧
@@ -2301,7 +2973,8 @@ Theorem flatten_exp_code_labels[local]:
             BIGUNION (set (MAP get_code_labels xs)))
 Proof
   ho_match_mp_tac flatten_exp_ind >> rw[flatten_exp_def]
-  >- (every_case_tac >> gvs[SUBSET_DEF])
+  >- (every_case_tac >> gvs[flatten_part_code_labels]
+      >> gvs[SUBSET_DEF])
   >> gvs[SUBSET_DEF]
 QED
 
@@ -2329,7 +3002,7 @@ QED
 
 Theorem compile_prog_with_map_good_code_labels:
   ∀xs csh next n1 c1 ys.
-    compile_prog_with_map csh next xs = ((n1,c1),ys) ∧
+    compile_prog_with_map cw csh next xs = ((n1,c1),ys) ∧
     BIGUNION (set (MAP (get_code_labels o SND o SND) xs)) ⊆ all ∧
     {next + k * bvl_to_bvi_namespaces | k |
        next + k * bvl_to_bvi_namespaces < n1} ⊆ all ∧
@@ -2339,7 +3012,7 @@ Proof
   Induct >> simp[compile_prog_with_map_def]
   >> rpt gen_tac >> PairCases_on ‘h’
   >> simp[compile_prog_with_map_def]
-  >> Cases_on ‘split_fun csh next h0 h1 h2’ >> simp[]
+  >> Cases_on ‘split_fun cw csh next h0 h1 h2’ >> simp[]
   >- (
     pairarg_tac >> simp[] >> strip_tac >> gvs[]
     >> last_x_assum irule >> metis_tac[])
@@ -2359,7 +3032,7 @@ Proof
     irule SUBSET_TRANS >> irule_at Any worker_body_code_labels
     >> gvs[SUBSET_DEF] >> metis_tac[])
   >> last_x_assum irule
-  >> qpat_assum ‘compile_prog_with_map _ _ _ = _’ (irule_at Any)
+  >> qpat_assum ‘compile_prog_with_map cw _ _ _ = _’ (irule_at Any)
   >> conj_tac
   >- (rw[lookup_insert] >> gvs[] >> res_tac)
   >> simp[SUBSET_DEF, PULL_EXISTS] >> rpt strip_tac

@@ -2657,10 +2657,93 @@ val _ = cv_trans bvi_tmcTheory.compile_prog_def;
 
 val _ = cv_trans bvi_cprTheory.sub_shape_def;
 val _ = cv_trans bvi_cprTheory.cpr_merge_def;
+val _ = cv_auto_trans bvi_cprTheory.imm_part_def;
+val _ = cv_trans bvi_cprTheory.inc_refs_def;
+val _ = cv_trans bvi_cprTheory.refcounts_def;
+val _ = cv_trans bvi_cprTheory.unshared_def;
+val _ = cv_trans bvi_cprTheory.all_below_def;
+val _ = cv_trans bvi_cprTheory.backward_def;
+val _ = cv_trans bvi_cprTheory.str_count_def;
+val pre = cv_trans_pre_rec "" bvi_cprTheory.tree_strs_def
+  (WF_REL_TAC ‘inv_image ($< LEX $<)
+                 (λx. case x of INL (pm,r) => (cv$c2n r + 1, 0)
+                              | INR (pm,r,ns) => (cv$c2n r, cv_size ns))’
+   \\ cv_termination_tac
+   \\ rw[pairTheory.LEX_DEF]
+   \\ gvs[cvTheory.c2b_def, oneline cvTheory.cv_lt_def0, AllCaseEqs(),
+          oneline cvTheory.b2c_def]);
+
+Theorem bvi_cpr_tree_strs_pre[cv_pre,local]:
+  (∀pm r. bvi_cpr_tree_strs_pre pm r) ∧
+  (∀pm r ns. bvi_cpr_tree_strs_list_pre pm r ns)
+Proof
+  ho_match_mp_tac bvi_cprTheory.tree_strs_ind
+  \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = cv_trans bvi_cprTheory.build_ok_def;
+
+val pre = cv_trans_pre_rec "" bvi_cprTheory.part_shape_def
+  (WF_REL_TAC ‘inv_image ($< LEX $<)
+                 (λx. case x of INL (pm,r) => (cv$c2n r + 1, 0)
+                              | INR (pm,r,ns) => (cv$c2n r, cv_size ns))’
+   \\ cv_termination_tac
+   \\ rw[pairTheory.LEX_DEF]
+   \\ gvs[cvTheory.c2b_def, oneline cvTheory.cv_lt_def0, AllCaseEqs(),
+          oneline cvTheory.b2c_def]);
+
+Theorem bvi_cpr_part_shape_pre[cv_pre,local]:
+  (∀pm r. bvi_cpr_part_shape_pre pm r) ∧
+  (∀pm r ns. bvi_cpr_part_shape_list_pre pm r ns)
+Proof
+  ho_match_mp_tac bvi_cprTheory.part_shape_ind
+  \\ rw [] \\ simp [Once pre]
+QED
+
+val pre = cv_trans_pre_rec "" bvi_cprTheory.reach_def
+  (WF_REL_TAC ‘inv_image ($< LEX $<)
+                 (λx. case x of INL (pm,r,acc) => (cv$c2n r + 1, 0)
+                              | INR (pm,r,ns,acc) => (cv$c2n r, cv_size ns))’
+   \\ cv_termination_tac
+   \\ rw[pairTheory.LEX_DEF]
+   \\ gvs[cvTheory.c2b_def, oneline cvTheory.cv_lt_def0, AllCaseEqs(),
+          oneline cvTheory.b2c_def]);
+
+Theorem bvi_cpr_reach_pre[cv_pre,local]:
+  (∀pm r acc. bvi_cpr_reach_pre pm r acc) ∧
+  (∀pm r ns acc. bvi_cpr_reach_list_pre pm r ns acc)
+Proof
+  ho_match_mp_tac bvi_cprTheory.reach_ind
+  \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = cv_trans bvi_cprTheory.renum_list_def;
+val _ = cv_trans bvi_cprTheory.renum_def;
+
+val pre = cv_trans_pre "" bvi_cprTheory.sub_parts_def;
+
+Theorem bvi_cpr_sub_parts_pre[cv_pre,local]:
+  ∀pm keep r i rank n acc. bvi_cpr_sub_parts_pre pm keep r i rank n acc
+Proof
+  ho_match_mp_tac bvi_cprTheory.sub_parts_ind
+  \\ rw [] \\ simp [Once pre]
+QED
+val _ = cv_trans bvi_cprTheory.sub_build_def;
+val _ = cv_trans bvi_cprTheory.part_exp_def;
+val _ = cv_trans bvi_cprTheory.flatten_part_def;
 val _ = cv_trans bvi_cprTheory.field_shape_def;
 val _ = cv_auto_trans bvi_cprTheory.shape_and_tail_def;
-val _ = cv_auto_trans bvi_cprTheory.return_shape_def;
 val _ = cv_trans bvi_cprTheory.shape_width_def;
+val pre = cv_trans_pre "" bvi_cprTheory.cap_shape_def;
+
+Theorem bvi_cpr_cap_shape_pre[cv_pre,local]:
+  (∀k sh. bvi_cpr_cap_shape_pre k sh) ∧
+  (∀extra shs. bvi_cpr_cap_list_pre extra shs)
+Proof
+  ho_match_mp_tac bvi_cprTheory.cap_shape_ind
+  \\ rw [] \\ simp [Once pre]
+QED
+val _ = cv_auto_trans bvi_cprTheory.return_shape_def;
 val _ = cv_trans bvi_cprTheory.flatten_exp_def;
 val _ = cv_auto_trans bvi_cprTheory.worker_body_def;
 val _ = cv_trans bvi_cprTheory.rebuild_def;
@@ -2669,7 +2752,7 @@ val _ = cv_trans bvi_cprTheory.tail_form_def;
 
 val pre = cv_auto_trans_pre "" bvi_cprTheory.compile_prog_with_map_def;
 Theorem bvi_cpr_compile_prog_with_map_pre[cv_pre,local]:
-  ∀csh_map next v. bvi_cpr_compile_prog_with_map_pre csh_map next v
+  ∀cw csh_map next v. bvi_cpr_compile_prog_with_map_pre cw csh_map next v
 Proof
   ho_match_mp_tac bvi_cprTheory.compile_prog_with_map_ind
   \\ rw [] \\ simp [Once pre]

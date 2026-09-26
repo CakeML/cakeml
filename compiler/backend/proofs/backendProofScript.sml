@@ -407,7 +407,7 @@ val cake_orac_config_inv_f =
   ``(\ (sc, cc, bc, mc). (sc.pattern_cfg, cc.max_app, cc.do_call, IS_SOME cc.known_conf,
         known_static_conf cc.known_conf, cc.do_mti, bc.inline_size_limit,
         bc.split_main_at_seq, bc.exp_cut, bc.do_tailrec, bc.do_tmc,
-        bc.do_cpr, mc))
+        bc.cpr_width, mc))
     o (\c. (c.source_conf, c.clos_conf, c.bvl_conf, c.data_conf,
             c.word_to_word_conf.reg_alg, c.stack_conf, (asm_conf: 'a asm_config)))``
 
@@ -775,7 +775,7 @@ Theorem bvl_to_bvi_compile_semantics2:
       (state_co bvl_to_bvi_compile_inc
         (state_co (bvl_inline_compile_inc c.inline_size_limit
             c.split_main_at_seq c.exp_cut) co))) ∧
-  is_state_oracle (bvi_cpr_compile_prog c.do_cpr)
+  is_state_oracle (bvi_cpr_compile_prog c.cpr_width)
     (state_co (bvi_tmc_compile_prog c.do_tmc)
       (state_co (bvi_tailrec_compile_prog c.do_tailrec)
         (state_co bvl_to_bvi_compile_inc
@@ -824,9 +824,9 @@ Proof
   \\ fs [backendPropsTheory.FST_state_co]
   \\ qmatch_goalsub_abbrev_tac `bvi_tmc_compile_prog c.do_tmc cst cpr`
   \\ Cases_on `bvi_tmc_compile_prog c.do_tmc cst cpr`
-  \\ qmatch_goalsub_abbrev_tac `bvi_cpr_compile_prog c.do_cpr pst ppr`
+  \\ qmatch_goalsub_abbrev_tac `bvi_cpr_compile_prog c.cpr_width pst ppr`
   \\ PairCases_on `pst`
-  \\ Cases_on `bvi_cpr_compile_prog c.do_cpr (pst0,pst1) ppr`
+  \\ Cases_on `bvi_cpr_compile_prog c.cpr_width (pst0,pst1) ppr`
   \\ rename1 `bvi_cpr_compile_prog _ _ _ = (pst',_)`
   \\ PairCases_on `pst'`
   \\ imp_res_tac bvi_tailrecProofTheory.compile_prog_next_mono
@@ -1835,7 +1835,7 @@ QED
 
 Theorem is_state_oracle_cpr_cake_orac:
   compile asm_conf c prog = SOME (b,bm,c') ==>
-  is_state_oracle (bvi_cpr_compile_prog c.bvl_conf.do_cpr)
+  is_state_oracle (bvi_cpr_compile_prog c.bvl_conf.cpr_width)
     (state_co (bvi_tmc_compile_prog c.bvl_conf.do_tmc)
       (state_co (bvi_tailrec_compile_prog c.bvl_conf.do_tailrec)
         (state_co bvl_to_bvi_compile_inc (state_co

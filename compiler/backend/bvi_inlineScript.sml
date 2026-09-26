@@ -96,6 +96,9 @@ Termination
   >> rpt strip_tac >> simp [bviTheory.exp_size_def]
 End
 
+(* Only wrappers that appear earlier in the program, or in an earlier chunk,
+   are inlined. A call to a wrapper that appears later, such as from a
+   closure stub that clos_to_bvl places before its function, stays a call. *)
 Definition inline_all_def:
   (inline_all cs [] = (cs,[])) ∧
   (inline_all cs ((name,arity,body)::prog) =
