@@ -20,7 +20,7 @@ Definition destResult_def:
   destResult _ = Failure unknown_loc "Something catastrophic happened"
 End
 
-Type M[local,pp] = “:(token # locs) list -> ((token # locs) list, α, string) pegresult”
+Type M[local,pp] = “:(token # location$locs) list -> ((token # location$locs) list, α, string) pegresult”
 Definition pegresult_bind_def:
   pegresult_bind (f:α M) (g:α -> β M) : β M =
   λtoks.
