@@ -1,7 +1,10 @@
-
+(*
+  Correctness of the constructed product result (CPR) optimisation of
+  BVI, bvi_cpr.
+*)
 Theory bvi_cprProof
 Ancestors
-  bvi bviSem bviProps bvi_cpr backend_common[qualified]
+  bvi bviSem bviProps bvi_cpr backend_common[qualified] bvi_inline[qualified]
 Libs
   preamble
 
@@ -21,7 +24,7 @@ Proof
   Induct >> rw[sub_shape_def]
 QED
 
-            
+
 Theorem sub_shape_trans:
   (∀s1 s2 s3. sub_shape s1 s2 ∧ sub_shape s2 s3 ⇒ sub_shape s1 s3) ∧
   (∀l1 l2 l3. sub_shape_list l1 l2 ∧ sub_shape_list l2 l3 ⇒ sub_shape_list l1 l3)
@@ -40,7 +43,7 @@ Proof
   >- (Cases_on ‘l2’ >> gvs[sub_shape_def]
       >> Cases_on ‘l3’ >> gvs[sub_shape_def]
       >> metis_tac[]
-     )     
+     )
 QED
 
 Theorem sub_shape_flex_free:
@@ -75,9 +78,9 @@ Proof
       >> rw[sub_shape_refl]
      )
   >- (Cases_on ‘s2’ >> gvs[sub_shape_def, cpr_merge_def]
-      >> rw[sub_shape_def, cpr_merge_def]      
+      >> rw[sub_shape_def, cpr_merge_def]
      )
-  >- (Cases_on ‘s2’ >> gvs[sub_shape_def, cpr_merge_def]     
+  >- (Cases_on ‘s2’ >> gvs[sub_shape_def, cpr_merge_def]
      )
   >- (Cases_on ‘s2’ >> gvs[sub_shape_def, cpr_merge_def]
       >> rw[sub_shape_refl]
@@ -143,7 +146,7 @@ Proof
   >> fs[]
 QED
 
-        
+
 Theorem exp_shape_ok_mono:
   (∀sh sh' e.
      sub_shape sh' sh ∧ flex_free sh ∧ exp_shape_ok sh e ⇒ exp_shape_ok sh' e) ∧
@@ -425,7 +428,7 @@ Proof
           >> Cases_on ‘a’ >> gvs[]
           >> first_x_assum $ dxrule_then assume_tac >> gvs[flatten_exp_def]
           >> first_x_assum $ dxrule_then assume_tac >> gvs[flatten_exp_def]
-       )                     
+       )
       >> last_assum $ rev_dxrule_then assume_tac >> gvs[]
       >> first_x_assum $ dxrule_then assume_tac >> gvs[]
      )
@@ -453,7 +456,7 @@ Proof
   >- (irule LESS_EQ_TRANS
       >> first_assum $ irule_at Any
       >> irule $ iffRL ADD_MONO_LESS_EQ
-      >> irule LESS_EQ_ADD                        
+      >> irule LESS_EQ_ADD
      )
   >> first_x_assum $ dxrule_then assume_tac >> gvs[flat_vals_def, TAKE_SUM]
   >> drule_then assume_tac $ cj 1 flat_vals_LENGTH
@@ -475,7 +478,7 @@ Proof
      )
   >> rev_drule_then assume_tac APPEND_LENGTH_EQ
   >> pop_assum $ drule_then assume_tac
-  >> gvs[]                                                        
+  >> gvs[]
   >> first_x_assum $ drule_then assume_tac >> gvs[]
   >> ‘i + shape_width sh + shape_width_list shs ≤ LENGTH env’ by rw[]
   >> first_x_assum $ drule_then assume_tac >> gvs[]
@@ -497,7 +500,7 @@ Proof
   >> Cases_on ‘o'’ >> rw[flex_free_def, field_shape_def]
   >> Cases_on ‘b’ >> rw[flex_free_def, field_shape_def]
 QED
-   
+
 Theorem shape_and_tail_wf:
   ∀e f sh cs. shape_and_tail f e = (sh,cs) ⇒ flex_free sh ∨ sh = Flexible
 Proof
@@ -565,7 +568,7 @@ Proof
       >> Cases_on ‘sh1’ >> gvs[sub_shape_def, cpr_merge_def]
       >> every_case_tac >> gvs[sub_shape_def, cpr_merge_def]
       >> last_x_assum $ dxrule_then assume_tac
-      >> rw[]   
+      >> rw[]
      )
   >- (Cases_on ‘sh1’ >> gvs[sub_shape_def, cpr_merge_def]
       >> Cases_on ‘sh2’ >> gvs[sub_shape_def, cpr_merge_def]
@@ -679,7 +682,7 @@ Proof
   Induct >> rw[tail_ok_def, exp_shape_ok_def]
   >> Cases_on ‘o'’ >> gvs[tail_ok_def]
 QED
-   
+
 Theorem tail_shape_cases:
   ∀m cs.
     map_ok m ⇒
@@ -704,8 +707,8 @@ Proof
 QED
 
 Theorem return_shape_tail_ok:
-  ∀m f arity body sh.
-    map_ok m ∧ return_shape m f arity body = sh ∧ split_ok sh ⇒
+  ∀m f body sh.
+    map_ok m ∧ return_shape m f body = sh ∧ split_ok sh ⇒
     tail_ok m f sh body ∧ flex_free sh
 Proof
   rpt gen_tac >> strip_tac
@@ -754,7 +757,7 @@ Proof
   >> drule_then strip_assume_tac split_ok_ConsShape
   >> gvs[exp_shape_ok_def]
 QED
-   
+
 Theorem worker_body_returns:
   ∀m f wk sh e.
     tail_ok m f sh e ∧ split_ok sh ⇒
@@ -806,41 +809,14 @@ Proof
   >> every_case_tac >> gvs[]
 QED
 
-        
-Definition map_inv_def:
-  map_inv m next ⇔
-    map_ok m ∧
-    (∀d dsh dwk. lookup d m = SOME (dsh,dwk) ⇒ d < next ∧ dwk < next) ∧
-    (∀d1 d2 s1 s2 w.
-       lookup d1 m = SOME (s1,w) ∧ lookup d2 m = SOME (s2,w) ⇒ d1 = d2)
-End
 
-Theorem map_inv_submap:
-  map_ok m ∧ submap m m' ∧ map_inv m' n ⇒ map_inv m n
-Proof
-  rw[submap_def, map_inv_def]
-  >- (last_x_assum $ drule_then assume_tac >> gvs[]
-     )
-  >- (last_x_assum $ drule_then assume_tac >> gvs[]
-      >> last_x_assum $ drule_then assume_tac >> gvs[]
-     )
-  >> first_x_assum $ irule
-  >> metis_tac[]
-QED
-
-Definition prog_keys_ok_def:
-  prog_keys_ok (next:num) prog ⇔
-    ALL_DISTINCT (MAP FST prog) ∧
-    EVERY (λ(loc,arity,e). loc < next) prog
-End
-   
 Definition fun_rel_def:
   fun_rel m2 prog2 (loc,arity,e) ⇔
     case lookup loc m2 of
       NONE => MEM (loc,arity,e) prog2
     | SOME (sh,wk) =>
         ∃m'. submap m' m2 ∧ map_ok m' ∧
-             return_shape m' loc arity e = sh ∧ split_ok sh ∧ tail_form e ∧
+             return_shape m' loc e = sh ∧ split_ok sh ∧ tail_form e ∧
              MEM (loc,arity,make_wrapper arity wk sh) prog2 ∧
              MEM (wk,arity,worker_body m' loc wk sh e) prog2
 End
@@ -849,7 +825,7 @@ Theorem split_fun_map_ok:
   ∀m next loc arity body wkb wrap m'.
     map_ok m ∧ split_fun m next loc arity body = SOME (wkb,wrap,m') ⇒
     ∃sh. m' = insert loc (sh,next) m ∧
-         return_shape m loc arity body = sh ∧ split_ok sh ∧ flex_free sh ∧
+         return_shape m loc body = sh ∧ split_ok sh ∧ flex_free sh ∧
          wkb = worker_body m loc next sh body ∧
          wrap = make_wrapper arity next sh ∧
          tail_ok m loc sh body ∧ tail_form body ∧
@@ -866,220 +842,218 @@ Proof
   >> metis_tac[]
 QED
 
-Theorem compile_prog_with_map_fun_greater:
-  ∀m next prog n r.
-    compile_prog_with_map m next prog = (n,r) ⇒
-    next ≤ n ∧
-    ∀q. ¬MEM q (MAP FST prog) ∧ MEM q (MAP FST r) ⇒ next ≤ q
+(* CPR workers are named in namespace 4 of bvl_to_bvi. *)
+Definition in_ns_4_def:
+  in_ns_4 n ⇔ n MOD bvl_to_bvi_namespaces = 4
+End
+
+Definition free_names_def:
+  free_names n (name: num) ⇔ ∀k. n + bvl_to_bvi_namespaces * k ≠ name
+End
+
+Theorem bvl_to_bvi_namespaces_pos[local]:
+  0 < bvl_to_bvi_namespaces
 Proof
-  Induct_on ‘prog’ >> rw[compile_prog_with_map_def]
-  >- (Cases_on ‘h’ >> Cases_on ‘r'’ >> gvs[compile_prog_with_map_def]
-      >> Cases_on ‘split_fun m next q q' r''’ >> gvs[]
-      >- (Cases_on ‘compile_prog_with_map m next prog’ >> gvs[]
-          >> first_x_assum $ drule_then assume_tac >> gvs[]
-         )
-      >> Cases_on ‘x’ >> gvs[]
-      >> Cases_on ‘r'’ >> gvs[]
-      >> Cases_on ‘compile_prog_with_map r'³' (next + bvl_to_bvi_namespaces) prog’ >> gvs[]
-      >> first_x_assum $ drule_then assume_tac >> gvs[]
-     )
-  >> Cases_on ‘h’ >> Cases_on ‘r'’ >> gvs[compile_prog_with_map_def]
-  >> Cases_on ‘split_fun m next q' q'' r''’ >> gvs[]
-  >- (Cases_on ‘compile_prog_with_map m next prog’ >> gvs[]
-      >> first_x_assum $ drule_then assume_tac >> gvs[]
-     )
-  >> Cases_on ‘x’ >> gvs[]
-  >> Cases_on ‘r'’ >> gvs[]
-  >> Cases_on ‘compile_prog_with_map r'³' (next + bvl_to_bvi_namespaces) prog’ >> gvs[]
-  >> first_x_assum $ drule_then assume_tac >> gvs[]
-  >> pop_assum $ drule_all_then assume_tac >> gvs[]
+  EVAL_TAC
 QED
 
-Theorem compile_prog_with_map_thm:
-  ∀prog m next n prog2.
-    compile_prog_with_map m next prog = (n,prog2) ∧
-    map_inv m next ∧ prog_keys_ok next prog ∧
-    (∀loc arity e. MEM (loc,arity,e) prog ⇒ lookup loc m = NONE) ⇒
-    ∃m2.
-      submap m m2 ∧ map_inv m2 n ∧ next ≤ n ∧
-      ALL_DISTINCT (MAP FST prog2) ∧
-      EVERY (fun_rel m2 prog2) prog ∧
-      (∀loc arity e.
-         MEM (loc,arity,e) prog2 ⇒
-         (∃e'. MEM (loc,arity,e') prog) ∨
-         ∃f fsh. lookup f m2 = SOME (fsh,loc)) ∧
-      (∀d sh wk.
-         lookup d m2 = SOME (sh,wk) ∧ lookup d m = NONE ⇒
-         MEM d (MAP FST prog) ∧ next ≤ wk)
+Theorem free_names_add[local]:
+  free_names n x ⇒ ∀j. free_names (n + bvl_to_bvi_namespaces * j) x
 Proof
-  Induct >> rw[]
-  >- (gvs[compile_prog_with_map_def]
-      >> last_x_assum $ irule_at Any
-      >> gvs[submap_def]
-     )
-  >> Cases_on ‘h’ >> Cases_on ‘r’
-  >> gvs[compile_prog_with_map_def, prog_keys_ok_def]
-  >> Cases_on ‘split_fun m next q q' r'’ >> gvs[]
-  >~ [‘NONE’]
-  >- suspend "NONE"
-  >~ [‘SOME _’]
-  >- suspend "SOME"
+  rw[free_names_def]
+  >> first_x_assum (qspec_then ‘j + k’ mp_tac) >> simp[LEFT_ADD_DISTRIB]
 QED
 
+Theorem free_names_neq[local]:
+  free_names n x ⇒ ∀j. x ≠ n + j * bvl_to_bvi_namespaces
+Proof
+  rw[free_names_def] >> first_x_assum (qspec_then ‘j’ mp_tac) >> simp[]
+QED
 
+Theorem free_names_add_succ[local]:
+  free_names n x ⇒
+  free_names (n + (bvl_to_bvi_namespaces + j * bvl_to_bvi_namespaces)) x
+Proof
+  rw[free_names_def]
+  >> first_x_assum (qspec_then ‘j + k + 1’ mp_tac) >> simp[LEFT_ADD_DISTRIB]
+QED
 
-Resume compile_prog_with_map_thm[NONE]:
-  Cases_on ‘compile_prog_with_map m next prog’ >> gvs[]
-  >> last_x_assum $ drule_then assume_tac
+Theorem free_names_refl_F[local,simp]:
+  free_names n n ⇔ F
+Proof
+  simp[free_names_def] >> qexists_tac ‘0’ >> simp[]
+QED
+
+Theorem free_names_succ_F[local,simp]:
+  free_names n (n + (bvl_to_bvi_namespaces + j * bvl_to_bvi_namespaces)) ⇔ F
+Proof
+  simp[free_names_def] >> qexists_tac ‘j + 1’ >> simp[]
+QED
+
+Theorem compile_prog_with_map_next_mono:
+  ∀xs csh next n1 c1 ys.
+    compile_prog_with_map csh next xs = ((n1,c1),ys) ⇒
+    ∃k. n1 = next + bvl_to_bvi_namespaces * k
+Proof
+  Induct >> rw[compile_prog_with_map_def]
+  >- (qexists_tac ‘0’ >> simp[])
+  >> PairCases_on ‘h’
+  >> gvs[compile_prog_with_map_def]
+  >> Cases_on ‘split_fun csh next h0 h1 h2’ >> gvs[]
+  >- (pairarg_tac >> gvs[] >> first_x_assum drule >> simp[])
+  >> PairCases_on ‘x’ >> gvs[] >> pairarg_tac >> gvs[]
+  >> first_x_assum drule >> strip_tac
+  >> qexists_tac ‘k + 1’ >> simp[]
+QED
+
+Theorem compile_prog_with_map_MEM:
+  ∀xs csh next n1 c1 ys e.
+    compile_prog_with_map csh next xs = ((n1,c1),ys) ∧ MEM e (MAP FST ys) ⇒
+    MEM e (MAP FST xs) ∨
+    next ≤ e ∧ e < n1 ∧ ∃k. e = next + k * bvl_to_bvi_namespaces
+Proof
+  Induct >> rw[compile_prog_with_map_def]
+  >> PairCases_on ‘h’
+  >> gvs[compile_prog_with_map_def]
+  >> Cases_on ‘split_fun csh next h0 h1 h2’ >> gvs[]
+  >- (pairarg_tac >> gvs[] >> metis_tac[])
+  >> PairCases_on ‘x’ >> gvs[] >> pairarg_tac >> gvs[]
+  >> assume_tac bvl_to_bvi_namespaces_pos
+  >> drule compile_prog_with_map_next_mono >> strip_tac
   >> gvs[]
-  >> pop_assum mp_tac >> impl_tac
-  >- (rpt strip_tac
-      >> first_x_assum $ irule
-      >> metis_tac[]
-     )
-  >> rpt strip_tac
-  >> rw[]
-  >> drule_then assume_tac compile_prog_with_map_fun_greater
-  >> gvs[]
-  >> pop_assum $ qspec_then ‘q’ assume_tac >> gvs[]
-  >> qexists ‘m2’ >> gvs[]
-  >> conj_tac
-  >- (conj_tac
-      >- (gvs[fun_rel_def]
-          >> Cases_on ‘lookup q m2’ >> gvs[]
-          >> every_case_tac >> gvs[]
-         )
-      >> gvs[EVERY_MEM]
-      >> rpt strip_tac
-      >> first_x_assum $ drule_then assume_tac >> gvs[]
-      >> Cases_on ‘e’ >> Cases_on ‘r''’
-      >> gvs[fun_rel_def]
-      >> Cases_on ‘lookup q'' m2’ >> gvs[]
-      >> Cases_on ‘x’ >> gvs[]
-      >> qexists ‘m'’ >> gvs[]
-     )
-  >> rw[]
-  >- metis_tac[]
-  >- (first_x_assum $ qspecl_then [‘loc’, ‘arity’, ‘e’] assume_tac >> gvs[]
-      >- metis_tac[]
-      >> metis_tac[]
-     )
-  >- metis_tac[]
+  >> first_x_assum drule_all >> strip_tac >> gvs[]
+  >> disj2_tac
+  >> qmatch_goalsub_rename_tac ‘bvl_to_bvi_namespaces + j * bvl_to_bvi_namespaces = _’
+  >> qexists_tac ‘j + 1’ >> simp[]
+QED
+
+Theorem compile_prog_with_map_keeps_names:
+  ∀xs csh next st ys x.
+    compile_prog_with_map csh next xs = (st,ys) ∧ MEM x (MAP FST xs) ⇒
+    MEM x (MAP FST ys)
+Proof
+  Induct >> simp[compile_prog_with_map_def]
+  >> rpt strip_tac >> PairCases_on ‘h’
+  >> gvs[compile_prog_with_map_def, AllCaseEqs(), UNCURRY]
+  >> metis_tac[PAIR]
+QED
+
+Theorem compile_prog_with_map_HD:
+  ∀xs csh next st ys.
+    compile_prog_with_map csh next xs = (st,ys) ∧ xs ≠ [] ⇒
+    ys ≠ [] ∧ FST (HD ys) = FST (HD xs)
+Proof
+  Cases >> simp[] >> PairCases_on ‘h’
+  >> rw[compile_prog_with_map_def]
+  >> gvs[AllCaseEqs(), UNCURRY]
+QED
+
+Theorem compile_prog_with_map_ALL_DISTINCT:
+  ∀xs csh next n1 c1 ys.
+    compile_prog_with_map csh next xs = ((n1,c1),ys) ∧
+    ALL_DISTINCT (MAP FST xs) ∧ EVERY (free_names next o FST) xs ⇒
+    ALL_DISTINCT (MAP FST ys) ∧ EVERY (free_names n1 o FST) ys
+Proof
+  Induct >> simp[compile_prog_with_map_def]
+  >> rpt gen_tac >> PairCases_on ‘h’
+  >> simp[compile_prog_with_map_def]
+  >> Cases_on ‘split_fun csh next h0 h1 h2’ >> simp[]
+  >- (pairarg_tac >> simp[] >> strip_tac >> gvs[]
+      >> first_x_assum drule_all >> strip_tac
+      >> drule compile_prog_with_map_next_mono >> strip_tac >> gvs[]
+      >> conj_tac
+      >- (strip_tac >> drule_all compile_prog_with_map_MEM >> strip_tac >> gvs[]
+          >> metis_tac[free_names_neq])
+      >> metis_tac[free_names_add, MULT_COMM])
+  >> PairCases_on ‘x’ >> simp[] >> pairarg_tac >> simp[] >> strip_tac >> gvs[]
+  >> ‘EVERY (free_names (next + bvl_to_bvi_namespaces) o FST) xs’
+    by (gvs[EVERY_MEM] >> metis_tac[free_names_add, MULT_RIGHT_1])
+  >> first_x_assum drule_all >> strip_tac
+  >> drule compile_prog_with_map_next_mono >> strip_tac >> gvs[]
+  >> assume_tac bvl_to_bvi_namespaces_pos
+  >> rpt conj_tac
+  >- (strip_tac >> gvs[])
+  >- (strip_tac >> drule_all compile_prog_with_map_MEM >> strip_tac >> gvs[])
+  >- (strip_tac >> drule_all compile_prog_with_map_MEM >> strip_tac
+      >> gvs[EVERY_MEM, MEM_MAP]
+      >> rename1 ‘MEM y0 xs’
+      >> qpat_x_assum ‘∀e. MEM e xs ⇒ free_names (FST y0) _’ drule >> simp[])
+  >- metis_tac[free_names_add_succ]
+  >> simp[free_names_def]
+QED
+
+Theorem fun_rel_CONS:
+  fun_rel m p x ⇒ fun_rel m (y::p) x
+Proof
+  PairCases_on ‘x’ >> rw[fun_rel_def] >> every_case_tac >> gvs[]
   >> metis_tac[]
 QED
 
-        
-Resume compile_prog_with_map_thm[SOME]:
-  Cases_on ‘x’ >> gvs[]
-  >> Cases_on ‘r’ >> gvs[]
-  >> Cases_on ‘compile_prog_with_map r'' (next + bvl_to_bvi_namespaces) prog’ >> gvs[]
-  >> ‘map_ok m’ by gvs[map_inv_def]
-  >> drule_all_then assume_tac split_fun_map_ok
-  >> gvs[]
-  >> last_x_assum $ drule_then assume_tac
-  >> gvs[]
-  >> pop_assum mp_tac >> impl_keep_tac
-  >- (conj_tac
-      >- (fs[map_inv_def]
-          >> conj_tac
-          >- (rpt gen_tac >> strip_tac
-              >> gvs[lookup_insert]
-              >> Cases_on ‘d = q’
-              >> gvs[backend_commonTheory.bvl_to_bvi_namespaces_def]
-              >> last_x_assum $ drule_then assume_tac
-              >> gvs[]
-             )
-          >> rpt gen_tac >> strip_tac
-          >> gvs[lookup_insert]
-          >> Cases_on ‘d1 = q’ >> gvs[]
-          >- (Cases_on ‘d2 = d1’ >> gvs[]
-              >> last_x_assum $ drule_then assume_tac
-              >> gvs[]
-             )
-          >> Cases_on ‘d2 = q’ >> gvs[]
-          >> last_x_assum $ drule_then assume_tac
-          >> gvs[]
-         )
-      >> conj_tac
-      >- (gvs[EVERY_MEM]
-          >> rpt strip_tac
-          >> last_x_assum $ drule_then assume_tac
-          >> Cases_on ‘e’ >> gvs[]
-         )
-      >> rpt strip_tac
-      >> rw[lookup_insert]
-      >- (CCONTR_TAC >> gvs[MEM_MAP]
-         )
-      >> last_x_assum $ irule
-      >> metis_tac[]
-     )
+Theorem compile_prog_with_map_thm:
+  ∀xs csh next n1 c1 ys.
+    compile_prog_with_map csh next xs = ((n1,c1),ys) ∧
+    map_ok csh ∧ ALL_DISTINCT (MAP FST xs) ∧ EVERY (free_names next o FST) xs ∧
+    (∀loc. MEM loc (MAP FST xs) ⇒ lookup loc csh = NONE) ⇒
+    submap csh c1 ∧ map_ok c1 ∧ EVERY (fun_rel c1 ys) xs ∧
+    (∀d sh wk.
+       lookup d c1 = SOME (sh,wk) ∧ lookup d csh = NONE ⇒
+       MEM d (MAP FST xs) ∧ MEM wk (MAP FST ys) ∧ ¬MEM wk (MAP FST xs)) ∧
+    (∀x. MEM x (MAP FST ys) ⇒
+       MEM x (MAP FST xs) ∨
+       ∃d sh. lookup d c1 = SOME (sh,x) ∧ lookup d csh = NONE)
+Proof
+  Induct >> simp[compile_prog_with_map_def]
+  >- rw[submap_refl]
+  >> rpt gen_tac >> PairCases_on ‘h’
+  >> simp[compile_prog_with_map_def]
+  >> Cases_on ‘split_fun csh next h0 h1 h2’ >> simp[]
+  >- (pairarg_tac >> simp[] >> strip_tac >> gvs[]
+      >> first_x_assum drule >> impl_tac >- metis_tac[]
+      >> strip_tac >> simp[]
+      >> rpt conj_tac
+      >- (simp[fun_rel_def] >> Cases_on ‘lookup h0 c1’ >> simp[]
+          >> rename1 ‘lookup h0 c1 = SOME p’ >> PairCases_on ‘p’ >> metis_tac[])
+      >- gvs[EVERY_MEM, fun_rel_CONS]
+      >- (rpt gen_tac >> strip_tac
+          >> qpat_x_assum ‘∀d sh wk. _ ⇒ MEM d _ ∧ _’ drule_all >> strip_tac >> simp[]
+          >> strip_tac >> gvs[]
+          >> drule_all compile_prog_with_map_MEM >> strip_tac >> gvs[]
+          >> metis_tac[free_names_neq])
+      >> rw[] >> metis_tac[])
+  >> PairCases_on ‘x’ >> simp[] >> pairarg_tac >> simp[] >> strip_tac >> gvs[]
+  >> qmatch_asmsub_rename_tac ‘compile_prog_with_map _ _ xs = (_,rest)’
+  >> drule_all split_fun_map_ok >> strip_tac >> gvs[]
+  >> ‘EVERY (free_names (next + bvl_to_bvi_namespaces) o FST) xs’
+    by (gvs[EVERY_MEM] >> metis_tac[free_names_add, MULT_RIGHT_1])
+  >> ‘∀loc. MEM loc (MAP FST xs) ⇒
+            lookup loc (insert h0 (return_shape csh h0 h2,next) csh) = NONE’
+    by (rw[lookup_insert] >> metis_tac[])
+  >> first_x_assum drule_all >> strip_tac
+  >> ‘lookup h0 csh = NONE’ by metis_tac[]
+  >> ‘submap csh c1’ by metis_tac[submap_trans, submap_insert]
+  >> ‘lookup h0 c1 = SOME (return_shape csh h0 h2,next)’
+    by gvs[submap_def, lookup_insert]
+  >> simp[]
+  >> rpt conj_tac
+  >- (simp[fun_rel_def] >> qexists_tac ‘csh’ >> simp[submap_refl])
+  >- gvs[EVERY_MEM, fun_rel_CONS]
+  >- (rpt gen_tac >> strip_tac
+      >> Cases_on ‘d = h0’ >> gvs[]
+      >- (conj_tac
+          >- (strip_tac >> gvs[])
+          >> strip_tac >> gvs[EVERY_MEM, MEM_MAP]
+          >> rename1 ‘MEM y0 xs’
+          >> qpat_x_assum ‘∀e. MEM e xs ⇒ free_names (FST y0) _’ drule >> simp[])
+      >> qpat_x_assum ‘∀d sh wk. _ ∧ lookup d (insert _ _ _) = NONE ⇒ _’
+           (qspecl_then [‘d’,‘sh’,‘wk’] mp_tac)
+      >> simp[lookup_insert] >> strip_tac >> simp[]
+      >> strip_tac >> gvs[]
+      >> drule_all compile_prog_with_map_MEM >> strip_tac >> gvs[])
   >> rpt strip_tac >> gvs[]
-  >> drule_then assume_tac compile_prog_with_map_fun_greater
-  >> gvs[]
-  >> first_assum $ qspec_then ‘q’ $ drule_then assume_tac
-  >> Cases_on ‘MEM q (MAP FST r)’ >> fs[]
-  >> first_x_assum $ qspec_then ‘next’ assume_tac
-  >> gvs[]
-  >> subgoal ‘¬MEM next (MAP FST prog)’
-  >- (gvs[EVERY_MEM, MEM_MAP]
-      >> rpt strip_tac
-      >> last_x_assum $ drule_then assume_tac
-      >> Cases_on ‘y’ >> gvs[]
-     )
-  >> first_x_assum $ drule_then assume_tac >> gvs[]
-  >> Cases_on ‘MEM next (MAP FST r)’ >> gvs[]
-  >- fs[backend_commonTheory.bvl_to_bvi_namespaces_def]
-  >> first_assum $ irule_at Any
-  >> conj_asm1_tac
-  >- (irule submap_trans
-      >> first_assum $ irule_at Any
-      >> irule submap_insert
-      >> rw[]
-     )
-  >> conj_tac
-  >- (subgoal ‘lookup q m2 = SOME (return_shape m q q' r',next)’
-      >- gvs[submap_def]
-      >> rw[fun_rel_def]
-      >> qexists ‘m’
-      >> gvs[]
-     )
-  >> conj_tac
-  >- (rw[EVERY_MEM]
-      >> subgoal ‘fun_rel m2 r e’
-      >- gvs[EVERY_MEM]
-      >> Cases_on ‘e’ >> gvs[]
-      >> Cases_on ‘r''’ >> gvs[fun_rel_def]
-      >> Cases_on ‘lookup q'' m2’ >> gvs[]
-      >> Cases_on ‘x’ >> gvs[]
-      >> metis_tac[]
-     )
-  >> conj_tac
-  >- (rw[]
-      >- metis_tac[]
-      >- (disj2_tac
-          >> gvs[submap_def]
-          >> last_x_assum $
-                          qspecl_then [‘q’, ‘(return_shape m q arity r', loc)’] assume_tac
-          >> gvs[lookup_insert]
-          >> metis_tac[]
-         )
-      >> metis_tac[]
-     )
-  >> rpt gen_tac >> strip_tac
-  >> Cases_on ‘d = q’ >> gvs[]
-  >- (‘lookup d m2 = SOME (return_shape m d q' r',next)’ by gvs[submap_def]
-      >> gvs[]
-     )
-  >> first_x_assum $ drule_then assume_tac
-  >> pop_assum mp_tac >> impl_tac
-  >- gvs[lookup_insert]
-  >> rw[]
+  >- metis_tac[]
+  >> qpat_x_assum ‘∀x. MEM x (MAP FST rest) ⇒ _’ drule >> strip_tac >> gvs[]
+  >> gvs[lookup_insert, AllCaseEqs()] >> metis_tac[]
 QED
-
-Finalise compile_prog_with_map_thm; 
-        
-
-
 
 Theorem code_rel_of_fun_rel:
   ∀m2 prog prog2.
@@ -1091,7 +1065,7 @@ Theorem code_rel_of_fun_rel:
         NONE => lookup d (fromAList prog2) = SOME (arity,body)
       | SOME (sh,wk) =>
           ∃m'. submap m' m2 ∧ map_ok m' ∧
-               return_shape m' d arity body = sh ∧ split_ok sh ∧
+               return_shape m' d body = sh ∧ split_ok sh ∧
                tail_form body ∧
                lookup d (fromAList prog2) =
                  SOME (arity,make_wrapper arity wk sh) ∧
@@ -1116,7 +1090,7 @@ Theorem no_ret_list_APPEND:
 Proof
   Induct_on ‘a’ >> rw[no_ret_def]
 QED
-        
+
 Theorem no_ret_flatten_exp:
   (∀sh e. no_ret e ⇒ no_ret_list (flatten_exp sh e)) ∧
   (∀shs xs. no_ret_list xs ⇒ no_ret_list (flatten_list shs xs))
@@ -1230,7 +1204,7 @@ Proof
       >> metis_tac[]
      )
 QED
-   
+
 Theorem evaluate_genlist_prefix:
   ∀n vs env (s:('c,'ffi) bviSem$state).
     n ≤ LENGTH vs ⇒
@@ -1244,7 +1218,7 @@ Proof
   >> pop_assum $ assume_tac o CONV_RULE (DEPTH_CONV ETA_CONV)
   >> gvs[TAKE_APPEND1]
 QED
-   
+
 Theorem evaluate_TailCall:
   ∀w ticks d xs env (s:('c,'ffi) bviSem$state) vs s1 args cbody rvs t.
     evaluate (xs,env,s) = (Rval vs,s1) ∧
@@ -1267,7 +1241,7 @@ Definition code_rel_def:
          NONE => lookup d c2 = SOME (arity,body)
        | SOME (sh,wk) =>
            ∃m'. submap m' m ∧ map_ok m' ∧
-                return_shape m' d arity body = sh ∧ split_ok sh ∧
+                return_shape m' d body = sh ∧ split_ok sh ∧
                 lookup d c2 = SOME (arity,make_wrapper arity wk sh) ∧
                 lookup wk c2 = SOME (arity,worker_body m' d wk sh body) ∧
                 tail_form body) ∧
@@ -1279,42 +1253,13 @@ Theorem code_rel_find_code:
   code_rel m c1 c2 ∧ find_code (SOME f) args c1 = SOME (a, e) ∧ lookup f m = NONE
   ⇒ find_code (SOME f) args c2 = SOME (a, e)
 Proof
-  rw[code_rel_def, bvlSemTheory.find_code_def]        
+  rw[code_rel_def, bvlSemTheory.find_code_def]
   >> Cases_on ‘lookup f c1’ >> gvs[]
   >> Cases_on ‘x’ >> gvs[]
   >> last_x_assum $ drule_then assume_tac
   >> Cases_on ‘lookup f m’ >> gvs[]
 QED
 
-
-Definition oracle_free_def:
-  oracle_free s ⇔ ∀n. SND (s.compile_oracle n) = []
-End
-
-Definition state_rel_def:
-  state_rel m s t ⇔
-    code_rel m s.code t.code ∧
-    s.refs = t.refs ∧ s.global = t.global ∧ s.ffi = t.ffi ∧
-    s.compile = t.compile ∧ s.compile_oracle = t.compile_oracle ∧
-    oracle_free s
-End
-
-Theorem state_rel_clock:
-  ∀m s t k.
-    state_rel m s t ⇒
-    state_rel m (s with clock := k) t ∧ state_rel m s (t with clock := k)
-Proof
-  rw[state_rel_def, oracle_free_def]
-  >> gvs[]
-QED
-
-Theorem state_rel_inc_clock:
-  ∀m s t k. state_rel m s t ⇒ state_rel m s (inc_clock k t)
-Proof
-  rw[inc_clock_def] >> irule $ cj 2 state_rel_clock
-  >> first_assum $ irule_at Any
-QED
-        
 Theorem code_rel_find_code_NONE:
   ∀m c1 c2 f args a e.
     code_rel m c1 c2 ∧ find_code (SOME f) args c1 = SOME (a,e) ∧
@@ -1327,7 +1272,7 @@ Proof
   >> last_x_assum $ drule_then assume_tac
   >> Cases_on ‘lookup f m’ >> gvs[]
 QED
-   
+
 Theorem code_rel_find_code_SOME:
   ∀m c1 c2 f args a body sh wk.
     code_rel m c1 c2 ∧ find_code (SOME f) args c1 = SOME (a,body) ∧
@@ -1518,1405 +1463,6 @@ Proof
   >> gvs[]
 QED
 
-Theorem cpr_correct:
-  ∀xs env s.
-    (∀m t res s1.
-       state_rel m s t ∧
-       evaluate (xs,env,s) = (res,s1) ∧
-       res ≠ Rerr (Rabort Rtype_error) ∧ res ≠ Rerr (Rabort Rtimeout_error) ⇒
-       ∃ck t1.
-         state_rel m s1 t1 ∧
-         evaluate (xs,env,inc_clock ck t) = (res,t1)) ∧
-    (∀m t e f wk sh res s1.
-       xs = [e] ∧ state_rel m s t ∧
-       lookup f m = SOME (sh,wk) ∧ split_ok sh ∧
-       tail_ok m f sh e ∧ tail_form e ∧
-       evaluate ([e],env,s) = (res,s1) ∧
-       res ≠ Rerr (Rabort Rtype_error) ∧ res ≠ Rerr (Rabort Rtimeout_error) ⇒
-       ∃ck t1.
-         state_rel m s1 t1 ∧
-         case res of
-           Rval [v] =>
-             v_shape sh v ∧
-             evaluate ([worker_body m f wk sh e],env,inc_clock ck t) =
-               (Rerr (Rraise (Ret (flat_vals sh v))),t1)
-         | Rerr err =>
-             evaluate ([worker_body m f wk sh e],env,inc_clock ck t) =
-               (Rerr err,t1)
-         | _ => F)
-Proof
-  recInduct evaluate_ind
-  >> rpt conj_tac
-         
-  >- (rw[evaluate_def]
-      >> qexists ‘0’ >> gvs[inc_clock_def, state_rel_def]
-     )
-  >- (rw[evaluate_def]
-      >> Cases_on ‘evaluate ([x],env,s)’ >> gvs[]
-      >> reverse $ Cases_on ‘q’ >> gvs[]
-      >- (last_x_assum $ drule_then assume_tac
-          >> gvs[no_ret_def]
-          >> qexistsl [‘ck’,‘t1’] >> gvs[inc_clock_def]
-         )
-      >> Cases_on ‘evaluate (y::xs,env,r)’ >> gvs[]
-      >> Cases_on ‘q’ >> gvs[no_ret_def]
-      >- (last_x_assum $ drule_then assume_tac
-          >> gvs[]
-          >> last_x_assum $ drule_then assume_tac
-          >> gvs[]
-          >> first_assum $ irule_at Any
-          >> qpat_x_assum ‘evaluate ([_], _, inc_clock _ _) = _’ $ assume_tac
-          >> drule_then assume_tac evaluate_add_clock
-          >> gvs[]
-          >> pop_assum $ qspec_then ‘ck'’ assume_tac
-          >> qexists ‘ck + ck'’ >> gvs[inc_clock_def]
-         )
-      >> last_x_assum $ drule_then assume_tac
-      >> gvs[]
-      >> last_x_assum $ drule_then assume_tac
-      >> gvs[]
-      >> first_assum $ irule_at Any
-      >> qpat_x_assum ‘evaluate ([_], _, inc_clock _ _) = _’ $ assume_tac
-      >> drule_then assume_tac evaluate_add_clock
-      >> gvs[]
-      >> pop_assum $ qspec_then ‘ck'’ assume_tac
-      >> qexists ‘ck + ck'’ >> gvs[inc_clock_def]
-     )
-  >- (rw[evaluate_def]
-      >- (qexists ‘0’ >> gvs[inc_clock_def, state_rel_def]
-         )
-      >> qexistsl [‘0’,‘t’] >> gvs[inc_clock_def, state_rel_def]
-      >> imp_res_tac split_ok_ConsShape
-      >> gvs[tail_ok_def, exp_shape_ok_def]
-     )
-  >- (rw[evaluate_def]
-      >- (Cases_on ‘evaluate ([x1],env,s)’ >> gvs[]
-          >> reverse $ Cases_on ‘q’ >> gvs[no_ret_def]
-          >- (last_x_assum $ drule_then assume_tac
-              >> gvs[]
-              >> qexistsl [‘ck’,‘t1’] >> gvs[inc_clock_def]
-             )
-          >> Cases_on ‘HD a = Boolv T’ >> gvs[]
-          >- (last_x_assum $ drule_then assume_tac
-              >> gvs[]
-              >> last_x_assum $ drule_then assume_tac
-              >> gvs[]
-              >> qpat_x_assum ‘evaluate ([x1], _, inc_clock _ _) = _’ $ assume_tac
-              >> drule_then assume_tac evaluate_add_clock
-              >> gvs[]
-              >> pop_assum $ qspec_then ‘ck'’ assume_tac
-              >> qexistsl [‘ck + ck'’,‘t1'’] >> gvs[inc_clock_def]
-             )
-          >> Cases_on ‘HD a = Boolv F’ >> gvs[]
-          >> last_x_assum $ drule_then assume_tac
-          >> gvs[]
-          >> last_x_assum $ drule_then assume_tac
-          >> gvs[]
-          >> qpat_x_assum ‘evaluate ([x1], _, inc_clock _ _) = _’ $ assume_tac
-          >> drule_then assume_tac evaluate_add_clock
-          >> gvs[]
-          >> pop_assum $ qspec_then ‘ck'’ assume_tac
-          >> qexistsl [‘ck + ck'’,‘t1'’] >> gvs[inc_clock_def]
-         )
-      >> Cases_on ‘evaluate ([x1],env,s)’ >> gvs[]
-      >> reverse $ Cases_on ‘q’ >> gvs[no_ret_def, tail_ok_def, tail_form_def]
-      >- (gvs[worker_body_def, evaluate_def]
-          >> last_x_assum $ drule_then assume_tac
-          >> gvs[]
-          >> qexistsl [‘ck’,‘t1’] >> gvs[inc_clock_def]
-         )
-      >> Cases_on ‘HD a = Boolv T’ >> gvs[]
-      >> assume_tac evaluate_LENGTH
-      >> pop_assum $ qspecl_then [‘[x2]’, ‘env’, ‘r’] assume_tac
-      >> gvs[]
-      >> Cases_on ‘res’ >> gvs[]
-      >- (Cases_on ‘a'’ >> gvs[]
-          >> assume_tac evaluate_LENGTH
-          >> pop_assum $ qspecl_then [‘[x1]’, ‘env’, ‘s’] assume_tac
-          >> gvs[]
-          >> Cases_on ‘a’ >> gvs[]
-          >> drule_then assume_tac no_ret_tail_form
-          >> gvs[]
-          >> last_x_assum $ drule_then assume_tac >> gvs[]
-          >> first_x_assum $ drule_all_then assume_tac
-          >> gvs[evaluate_def, worker_body_def]
-          >> qpat_x_assum ‘evaluate ([x1], _, inc_clock _ _) = _’ $ assume_tac
-          >> drule_then assume_tac evaluate_add_clock
-          >> gvs[]
-          >> pop_assum $ qspec_then ‘ck'’ assume_tac
-          >> qexistsl [‘ck + ck'’,‘t1'’] >> gvs[inc_clock_def]
-         )
-      >- (last_x_assum $ drule_then assume_tac >> gvs[]
-          >> first_x_assum $ drule_all_then assume_tac
-          >> gvs[evaluate_def, worker_body_def]
-          >> qpat_x_assum ‘evaluate ([x1], _, inc_clock _ _) = _’ $ assume_tac
-          >> drule_then assume_tac evaluate_add_clock
-          >> gvs[]
-          >> pop_assum $ qspec_then ‘ck'’ assume_tac
-          >> qexistsl [‘ck + ck'’,‘t1'’] >> gvs[inc_clock_def]
-         )
-      >- (Cases_on ‘HD a = Boolv F’ >> gvs[]
-          >> assume_tac evaluate_LENGTH
-          >> pop_assum $ qspecl_then [‘[x1]’, ‘env’, ‘s’] assume_tac
-          >> gvs[]
-          >> Cases_on ‘a’ >> gvs[]
-          >> assume_tac evaluate_LENGTH
-          >> pop_assum $ qspecl_then [‘[x3]’, ‘env’, ‘r’] assume_tac
-          >> gvs[]
-          >> Cases_on ‘a'’ >> gvs[]
-          >> last_x_assum $ drule_then assume_tac >> gvs[]
-          >> first_x_assum $ drule_all_then assume_tac
-          >> gvs[evaluate_def, worker_body_def]
-          >> qpat_x_assum ‘evaluate ([x1], _, inc_clock _ _) = _’ $ assume_tac
-          >> drule_then assume_tac evaluate_add_clock
-          >> gvs[]
-          >> pop_assum $ qspec_then ‘ck'’ assume_tac
-          >> qexistsl [‘ck + ck'’,‘t1'’] >> gvs[inc_clock_def]
-         )
-      >> Cases_on ‘HD a = Boolv F’ >> gvs[]
-      >> assume_tac evaluate_LENGTH
-      >> pop_assum $ qspecl_then [‘[x1]’, ‘env’, ‘s’] assume_tac
-      >> gvs[]
-      >> Cases_on ‘a’ >> gvs[]
-      >> last_x_assum $ drule_then assume_tac >> gvs[]
-      >> first_x_assum $ drule_all_then assume_tac
-      >> gvs[evaluate_def, worker_body_def]
-      >> qpat_x_assum ‘evaluate ([x1], _, inc_clock _ _) = _’ $ assume_tac
-      >> drule_then assume_tac evaluate_add_clock
-      >> gvs[]
-      >> pop_assum $ qspec_then ‘ck'’ assume_tac
-      >> qexistsl [‘ck + ck'’,‘t1'’] >> gvs[inc_clock_def]
-     )
-  >- (rw[evaluate_def]
-      >- (Cases_on ‘evaluate (xs,env,s)’ >> gvs[no_ret_def]
-          >> reverse $ Cases_on ‘q’ >> gvs[]
-          >- (last_x_assum $ drule_then assume_tac
-              >> gvs[]
-              >> qexistsl [‘ck’, ‘t1’] >> gvs[]
-             )
-          >> Cases_on ‘res’ >> gvs[]
-          >- (assume_tac evaluate_LENGTH
-              >> pop_assum $ qspecl_then [‘[x2]’, ‘a ++ env’, ‘r’] assume_tac
-              >> gvs[]
-              >> Cases_on ‘a'’ >> gvs[]
-              >> last_x_assum $ drule_then assume_tac >> gvs[]
-              >> first_x_assum $ drule_all_then assume_tac
-              >> gvs[evaluate_def, worker_body_def]
-              >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ $ assume_tac
-              >> drule_then assume_tac evaluate_add_clock
-              >> gvs[]
-              >> pop_assum $ qspec_then ‘ck'’ assume_tac
-              >> qexistsl [‘ck + ck'’,‘t1'’] >> gvs[inc_clock_def]
-             )
-          >> last_x_assum $ drule_then assume_tac >> gvs[]
-          >> first_x_assum $ drule_all_then assume_tac
-          >> gvs[evaluate_def, worker_body_def]
-          >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ $ assume_tac
-          >> drule_then assume_tac evaluate_add_clock
-          >> gvs[]
-          >> pop_assum $ qspec_then ‘ck'’ assume_tac
-          >> qexistsl [‘ck + ck'’,‘t1'’] >> gvs[inc_clock_def]
-         )
-      >> Cases_on ‘evaluate (xs,env,s)’ >> gvs[no_ret_def]
-      >> reverse $ Cases_on ‘q’ >> gvs[]
-      >- (last_x_assum $ drule_then assume_tac
-          >> gvs[tail_form_def, worker_body_def, evaluate_def]
-          >> qexistsl [‘ck’, ‘t1’] >> gvs[]
-         )
-      >> Cases_on ‘res’ >> gvs[]
-      >- (assume_tac evaluate_LENGTH
-          >> pop_assum $ qspecl_then [‘[x2]’, ‘a ++ env’, ‘r’] assume_tac
-          >> gvs[]
-          >> Cases_on ‘a'’ >> gvs[tail_form_def, tail_ok_def]
-          >> first_x_assum $ drule_then assume_tac >> gvs[]
-          >> first_x_assum $ drule_all_then assume_tac
-          >> gvs[evaluate_def, worker_body_def]
-          >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ $ assume_tac
-          >> drule_then assume_tac evaluate_add_clock
-          >> gvs[]
-          >> pop_assum $ qspec_then ‘ck'’ assume_tac
-          >> qexistsl [‘ck + ck'’,‘t1'’] >> gvs[inc_clock_def]
-         )
-      >> first_x_assum $ drule_then assume_tac >> gvs[tail_form_def, tail_ok_def]
-      >> first_x_assum $ drule_all_then assume_tac
-      >> gvs[evaluate_def, worker_body_def]
-      >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ $ assume_tac
-      >> drule_then assume_tac evaluate_add_clock
-      >> gvs[]
-      >> pop_assum $ qspec_then ‘ck'’ assume_tac
-      >> qexistsl [‘ck + ck'’,‘t1'’] >> gvs[inc_clock_def]
-   )
-  >- (rw[evaluate_def]
-      >- (Cases_on ‘evaluate ([x1],env,s)’ >> gvs[no_ret_def]
-          >> reverse $ Cases_on ‘q’ >> gvs[]
-          >- (last_x_assum $ drule_then assume_tac
-              >> gvs[tail_form_def, worker_body_def, evaluate_def]
-              >> qexistsl [‘ck’, ‘t1’] >> gvs[]
-             )
-          >> assume_tac evaluate_LENGTH
-          >> pop_assum $ qspecl_then [‘[x1]’, ‘env’, ‘s’] assume_tac
-          >> gvs[]
-          >> Cases_on ‘a’ >> gvs[]
-          >> last_x_assum $ drule_then assume_tac >> gvs[]
-          >> qexistsl [‘ck’, ‘t1’] >> gvs[]
-         )
-      >> Cases_on ‘evaluate ([x1],env,s)’ >> gvs[]
-      >> reverse $ Cases_on ‘q’ >> gvs[]
-      >- (last_x_assum $ drule_then assume_tac
-          >> gvs[tail_form_def, worker_body_def, evaluate_def, no_ret_def]
-          >> qexistsl [‘ck’, ‘t1’] >> gvs[]
-         )
-      >> assume_tac evaluate_LENGTH
-      >> pop_assum $ qspecl_then [‘[x1]’, ‘env’, ‘s’] assume_tac
-      >> gvs[]
-      >> Cases_on ‘a’ >> gvs[]
-      >> last_x_assum $ drule_then assume_tac >> gvs[tail_form_def, worker_body_def, evaluate_def, no_ret_def]
-      >> qexistsl [‘ck’, ‘t1’] >> gvs[]
-     )
-  >- (rw[evaluate_def, no_ret_def, tail_form_def, tail_ok_def, exp_shape_ok_def]
-      >> Cases_on ‘evaluate (xs,env,s)’ >> gvs[]
-      >> reverse $ Cases_on ‘q’ >> gvs[]
-      >- (last_x_assum $ drule_then assume_tac
-          >> gvs[tail_form_def, worker_body_def, evaluate_def, no_ret_def]
-          >> qexistsl [‘ck’, ‘t1’] >> gvs[]
-         )
-      >> last_x_assum $ drule_then assume_tac
-      >> gvs[tail_form_def, worker_body_def, evaluate_def, no_ret_def]
-      >> qexistsl [‘ck’, ‘t1’] >> gvs[]
-     )
-  >- (rpt gen_tac >> strip_tac
-      >> conj_asm1_tac
-      >- (rw[evaluate_def, no_ret_def, tail_form_def, tail_ok_def, exp_shape_ok_def]
-          >> Cases_on ‘evaluate (xs,env,s)’ >> gvs[]
-          >> reverse $ Cases_on ‘q’ >> gvs[]
-          >- (last_x_assum $ drule_then assume_tac
-              >> gvs[tail_form_def, worker_body_def, evaluate_def, no_ret_def]
-              >> qexistsl [‘ck’, ‘t1’] >> gvs[]
-             )
-          >> Cases_on ‘op’ >> gvs[]
-          >~ [‘Label’]
-          >- (gvs[do_app_def, do_app_aux_def]
-              >> every_case_tac >> gvs[]
-              >- (assume_tac evaluate_LENGTH
-                  >> pop_assum $ qspecl_then [‘xs’, ‘env’, ‘s’] assume_tac
-                  >> gvs[evaluate_def, bvlSemTheory.do_app_def]
-                  >> every_case_tac >> gvs[]
-                  >> qpat_x_assum ‘state_rel _ _ _’ $ assume_tac o SRULE [state_rel_def, code_rel_def]
-                  >> gvs[domain_lookup]
-                  >> Cases_on ‘v’ >> gvs[]
-                  >> first_x_assum $ drule_then assume_tac
-                  >> Cases_on ‘lookup n m’ >> gvs[]
-                  >> Cases_on ‘x’ >> gvs[]
-                 )
-              >>  assume_tac evaluate_LENGTH
-              >> pop_assum $ qspecl_then [‘xs’, ‘env’, ‘s’] assume_tac
-              >> gvs[evaluate_def, bvlSemTheory.do_app_def]
-             )
-          >~ [‘Install’]
-          >- (gvs[do_app_def, do_app_aux_def, do_install_def]
-              >> every_case_tac >> gvs[]
-              >- (Cases_on ‘r.compile_oracle 0’ >> gvs[]
-                  >> every_case_tac >> gvs[]
-                  >> last_x_assum $ drule_then assume_tac >> gvs[]
-                  >> qpat_x_assum ‘state_rel m r _’ $ assume_tac o SRULE[state_rel_def]
-                  >> gvs[oracle_free_def]
-                  >> pop_assum $ qspec_then ‘0’ assume_tac >> gvs[]
-                 )
-              >> Cases_on ‘r.compile_oracle 0’ >> gvs[]
-              >> every_case_tac >> gvs[]
-              >> last_x_assum $ drule_then assume_tac >> gvs[]
-              >> qpat_x_assum ‘state_rel m r _’ $ assume_tac o SRULE[state_rel_def]
-              >> gvs[oracle_free_def]
-              >> pop_assum $ qspec_then ‘0’ assume_tac >> gvs[]
-             )
-          >- (last_x_assum $ drule_then assume_tac
-              >> gvs[do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
-              >> every_case_tac >> gvs[bvl_to_bvi_with_refs, bvl_to_bvi_with_ffi, bvl_to_bvi_id]
-              >> qexists ‘ck’ >> gvs[state_rel_def, bvl_to_bvi_with_refs, bvl_to_bvi_with_ffi,
-                                     bvl_to_bvi_id, oracle_free_def]
-             )
-          >- (last_x_assum $ drule_then assume_tac
-              >> gvs[do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
-              >> every_case_tac >> gvs[bvl_to_bvi_with_refs, bvl_to_bvi_with_ffi, bvl_to_bvi_id]
-              >> qexists ‘ck’ >> gvs[state_rel_def, bvl_to_bvi_with_refs, bvl_to_bvi_with_ffi,
-                                     bvl_to_bvi_id, oracle_free_def]
-             )
-          >- (last_x_assum $ drule_then assume_tac
-              >> gvs[do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
-              >> every_case_tac >> gvs[bvl_to_bvi_with_refs, bvl_to_bvi_with_ffi, bvl_to_bvi_id]
-              >> qexists ‘ck’ >> gvs[state_rel_def, bvl_to_bvi_with_refs, bvl_to_bvi_with_ffi,
-                                     bvl_to_bvi_id, oracle_free_def]
-             )
-          >- (last_x_assum $ drule_then assume_tac
-              >> gvs[do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
-              >> every_case_tac >> gvs[bvl_to_bvi_with_refs, bvl_to_bvi_with_ffi, bvl_to_bvi_id]
-              >> qexists ‘ck’ >> gvs[state_rel_def, bvl_to_bvi_with_refs, bvl_to_bvi_with_ffi,
-                                     bvl_to_bvi_id, oracle_free_def]
-              >> Cases_on ‘do_build_const l t1.refs’
-              >> gvs[state_rel_def, bvl_to_bvi_with_refs, bvl_to_bvi_with_ffi,
-                     bvl_to_bvi_id, oracle_free_def]
-             )
-          >- (last_x_assum $ drule_then assume_tac
-              >> gvs[do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
-              >> every_case_tac >> gvs[bvl_to_bvi_with_refs, bvl_to_bvi_with_ffi, bvl_to_bvi_id]
-              >> qexists ‘ck’ >> gvs[state_rel_def, bvl_to_bvi_with_refs, bvl_to_bvi_with_ffi,
-                                     bvl_to_bvi_id, oracle_free_def]
-              >> Cases_on ‘t1.global’ >> gvs[]
-             )
-          >- (last_x_assum $ drule_then assume_tac
-              >> gvs[do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
-              >> qexists ‘ck’
-              >> rpt (full_case_tac >> gvs[state_rel_def, bvl_to_bvi_with_refs, bvl_to_bvi_with_ffi,
-                                           bvl_to_bvi_id, oracle_free_def])
-             )  
-          >> last_x_assum $ drule_then assume_tac
-          >> gvs[do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
-          >> every_case_tac >> gvs[bvl_to_bvi_with_refs, bvl_to_bvi_with_ffi, bvl_to_bvi_id]
-          >> qexists ‘ck’ >> gvs[state_rel_def, bvl_to_bvi_with_refs, bvl_to_bvi_with_ffi,
-                                 bvl_to_bvi_id, oracle_free_def]
-         )
-      >> rw[evaluate_def, no_ret_def, tail_form_def, tail_ok_def, exp_shape_ok_def]
-      >> assume_tac evaluate_LENGTH
-      >> pop_assum $ qspecl_then [‘[Op op xs]’, ‘env’, ‘s’] assume_tac
-      >> gvs[]
-      >> Cases_on ‘res’ >> gvs[]
-      >- (Cases_on ‘a’ >> gvs[no_ret_def, tail_form_def]
-          >> first_x_assum $ drule_then assume_tac >> gvs[tail_ok_def]
-          >> drule_all_then assume_tac $ cj 1 evaluate_flatten_exp
-          >> gvs[]
-          >> rw[Once evaluate_def, worker_body_def]
-          >> qexistsl [‘ck’, ‘t1’] >> gvs[]
-         )
-      >> first_x_assum $ drule_then assume_tac >> gvs[tail_ok_def, no_ret_def, tail_form_def]
-      >> drule_all_then assume_tac $ cj 1 evaluate_flatten_exp_err
-      >> rw[Once evaluate_def, worker_body_def]
-      >> qexistsl [‘ck’, ‘t1’] >> gvs[]
-     )
-  >- (rw[evaluate_def]
-      >- (gvs[dec_clock_def, no_ret_def]
-          >> drule_then assume_tac $ cj 1 state_rel_clock
-          >> pop_assum $ qspec_then ‘s.clock - 1’ assume_tac
-          >> last_x_assum $ drule_then assume_tac
-          >> gvs[]
-          >> qexistsl [‘ck + 1’, ‘t1’] >> gvs[inc_clock_def]
-         )
-      >> assume_tac evaluate_LENGTH
-      >> pop_assum $ qspecl_then [‘[x]’, ‘env’, ‘dec_clock 1 s’] assume_tac
-      >> gvs[]
-      >> reverse $ Cases_on ‘res’ >> gvs[no_ret_def]
-      >- (gvs[dec_clock_def, no_ret_def]
-          >> drule_then assume_tac $ cj 1 state_rel_clock
-          >> pop_assum $ qspec_then ‘s.clock - 1’ assume_tac
-          >> first_x_assum $ drule_then assume_tac
-          >> gvs[]
-          >> first_x_assum $ drule_then assume_tac
-          >> gvs[tail_ok_def, tail_form_def]
-          >> rw[worker_body_def, evaluate_def]
-          >> qexistsl [‘ck + 1’, ‘t1’] >> gvs[inc_clock_def, dec_clock_def]
-         ) 
-      >> Cases_on ‘a’ >> gvs[tail_form_def, tail_ok_def]
-      >> gvs[dec_clock_def, no_ret_def]
-      >> drule_then assume_tac $ cj 1 state_rel_clock
-      >> pop_assum $ qspec_then ‘s.clock - 1’ assume_tac
-      >> first_x_assum $ drule_then assume_tac
-      >> gvs[tail_form_def]
-      >> first_x_assum $ drule_then assume_tac
-      >> gvs[]
-      >> rw[worker_body_def, evaluate_def]
-      >> qexistsl [‘ck + 1’, ‘t1’] >> gvs[inc_clock_def, dec_clock_def]
-     )
-  >- (rw[evaluate_def]
-      >- (Cases_on ‘dest_thunk env❲n❳ s.refs’ >> gvs[]
-          >> ‘dest_thunk env❲n❳ t.refs = dest_thunk env❲n❳ s.refs’ by gvs[state_rel_def]
-          >> gvs[]
-          >> Cases_on ‘t'’ >> gvs[]
-          >- metis_tac[inc_clock_def, state_rel_clock]
-          >> Cases_on ‘find_code (SOME force_loc) [env❲n❳; v] s.code’ >> gvs[]
-          >> Cases_on ‘x’ >> gvs[]
-          >> ‘code_rel m s.code t.code’ by gvs[state_rel_def]
-          >> Cases_on ‘lookup force_loc m’ >> gvs[]
-          >- (drule_all_then assume_tac code_rel_find_code_NONE
-              >> gvs[]
-              >> Cases_on ‘s.clock = 0’ >> gvs[]
-              >> Cases_on ‘evaluate ([r],q,dec_clock 1 s)’ >> gvs[]
-              >> reverse $ Cases_on ‘q'’ >> gvs[]
-              >- (Cases_on ‘e’ >> gvs[]
-                  >- (Cases_on ‘a’ >> gvs[dec_clock_def, no_ret_def]
-                      >> drule_then assume_tac $ cj 1 state_rel_clock
-                      >> pop_assum $ qspec_then ‘s.clock - 1’ assume_tac
-                      >> last_x_assum $ drule_then assume_tac
-                      >> gvs[]
-                      >> qexistsl [‘ck + 1’, ‘t1’] >> gvs[inc_clock_def]
-                     )
-                  >> drule_then assume_tac $ cj 1 state_rel_clock
-                  >> pop_assum $ qspec_then ‘s.clock - 1’ assume_tac >> gvs[dec_clock_def]
-                  >> last_x_assum $ drule_then assume_tac
-                  >> gvs[]
-                  >> qexistsl [‘ck + 1’, ‘t1’] >> gvs[inc_clock_def]
-                 )
-              >> drule_then assume_tac $ cj 1 state_rel_clock
-              >> pop_assum $ qspec_then ‘s.clock - 1’ assume_tac >> gvs[dec_clock_def]
-              >> last_x_assum $ drule_then assume_tac
-              >> gvs[]
-              >> qexistsl [‘ck + 1’, ‘t1’] >> gvs[inc_clock_def]
-             )
-          >> Cases_on ‘x’ >> gvs[]
-          >> drule_all_then assume_tac code_rel_find_code_lookup
-          >> Cases_on ‘s.clock = 0’ >> gvs[]
-          >> Cases_on ‘evaluate ([r],q,dec_clock 1 s)’ >> gvs[]
-          >> Cases_on ‘lookup d m’ >> gvs[]
-          >- (reverse $ Cases_on ‘q''’ >> gvs[]
-              >- (Cases_on ‘e’ >> gvs[]
-                  >- (Cases_on ‘a’ >> gvs[]
-                      >> ‘state_rel m (dec_clock 1 s) t’ by gvs[state_rel_def, dec_clock_def, oracle_free_def]
-                      >> last_x_assum $ drule_then assume_tac
-                      >> gvs[]
-                      >> qexistsl [‘ck + 1’,‘t1’] >> gvs[inc_clock_def, dec_clock_def]
-                     )
-                  >> ‘state_rel m (dec_clock 1 s) t’ by gvs[state_rel_def, dec_clock_def, oracle_free_def]
-                  >> last_x_assum $ drule_then assume_tac
-                  >> gvs[]
-                  >> qexistsl [‘ck + 1’,‘t1’] >> gvs[inc_clock_def, dec_clock_def]
-                 )
-              >> ‘state_rel m (dec_clock 1 s) t’ by gvs[state_rel_def, dec_clock_def, oracle_free_def]
-              >> last_x_assum $ drule_then assume_tac
-              >> gvs[]
-              >> qexistsl [‘ck + 1’,‘t1’] >> gvs[inc_clock_def, dec_clock_def]
-             )
-          >> Cases_on ‘x’ >> gvs[]
-          >> Cases_on ‘q''’ >> gvs[]
-          >- (assume_tac evaluate_LENGTH
-              >> pop_assum $ qspecl_then [‘[r]’, ‘q’, ‘dec_clock 1 s’] assume_tac
-              >> gvs[]
-              >> Cases_on ‘a’ >> gvs[]
-              >> rw[make_wrapper_def, evaluate_def]
-              >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH q), q, t) =
-                                               (Rval (TAKE (LENGTH q) (DROP 0 q)), t)’
-              >- (irule evaluate_genlist_vars
-                  >> gvs[]
-                 )
-              >> pop_assum $ assume_tac o SRULE[]
-              >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-              >> gvs[bvlSemTheory.find_code_def, dec_clock_def, inc_clock_def]
-              >> ‘state_rel m (s with clock := s.clock − 1) t’ by gvs[state_rel_def, dec_clock_def, oracle_free_def]
-              >> first_x_assum $ drule_all_then assume_tac
-              >> gvs[]
-              >> qexistsl [‘ck + 2’,‘t1’] >> gvs[inc_clock_def, dec_clock_def]
-              >> drule_then assume_tac $ cj 1 flat_vals_LENGTH
-              >> gvs[]
-              >> ‘evaluate ([rebuild 0 q'³'],flat_vals q'³' h ++ q,t1) = (Rval [h],t1)’ suffices_by rw[]
-              >> irule $ cj 1 evaluate_rebuild
-              >> rw[]
-              >> DEP_REWRITE_TAC [TAKE_APPEND1]
-              >> rw[]
-             )
-          >> Cases_on ‘e’ >> gvs[]
-          >- (Cases_on ‘a’ >> gvs[]
-              >> rw[make_wrapper_def, evaluate_def]
-              >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH q), q, t) =
-                                               (Rval (TAKE (LENGTH q) (DROP 0 q)), t)’
-              >- (irule evaluate_genlist_vars
-                  >> gvs[]
-                 )
-              >> pop_assum $ assume_tac o SRULE[]
-              >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-              >> gvs[bvlSemTheory.find_code_def, dec_clock_def, inc_clock_def]
-              >> ‘state_rel m (s with clock := s.clock − 1) t’ by gvs[state_rel_def, dec_clock_def, oracle_free_def]
-              >> first_x_assum $ drule_all_then assume_tac
-              >> gvs[]
-              >> qexistsl [‘ck + 2’,‘t1’] >> gvs[inc_clock_def, dec_clock_def]
-             )
-          >> rw[make_wrapper_def, evaluate_def]
-          >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH q), q, t) =
-                                           (Rval (TAKE (LENGTH q) (DROP 0 q)), t)’
-          >- (irule evaluate_genlist_vars
-              >> gvs[]
-             )
-          >> pop_assum $ assume_tac o SRULE[]
-          >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-          >> gvs[bvlSemTheory.find_code_def, dec_clock_def, inc_clock_def]
-          >> ‘state_rel m (s with clock := s.clock − 1) t’ by gvs[state_rel_def, dec_clock_def, oracle_free_def]
-          >> first_x_assum $ drule_all_then assume_tac
-          >> gvs[]
-          >> qexistsl [‘ck + 2’,‘t1’] >> gvs[inc_clock_def, dec_clock_def]
-         )
-      >> drule_then assume_tac split_ok_ConsShape
-      >> gvs[tail_ok_def, exp_shape_ok_def]
-     )
-  >- (rw[evaluate_def]
-      >- (Cases_on ‘evaluate (xs,env,s1)’ >> gvs[]
-          >> Cases_on ‘q’ >> gvs[]
-          >- (Cases_on ‘find_code dest a r.code’ >> gvs[]
-              >> Cases_on ‘x’ >> gvs[]
-              >> Cases_on ‘r.clock < ticks + 1’ >> gvs[]
-              >> Cases_on ‘evaluate ([r'],q,dec_clock (ticks + 1) r)’ >> gvs[]
-              >> Cases_on ‘q'’ >> gvs[]
-              >- (assume_tac evaluate_LENGTH
-                  >> pop_assum $ qspecl_then [‘[r']’, ‘q’, ‘dec_clock (ticks + 1) r’] assume_tac
-                  >> gvs[]
-                  >> Cases_on ‘a'’ >> gvs[]
-                  >> first_x_assum $ drule_then assume_tac
-                  >> gvs[]
-                  >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-                  >> drule_all_then assume_tac code_rel_find_code_lookup
-                  >> gvs[]
-                  >> Cases_on ‘lookup d m’ >> gvs[]
-                  >- (‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-                      >> last_x_assum $ drule_then assume_tac
-                      >> gvs[]
-                      >> first_assum $ irule_at Any
-                      >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-                      >> drule_then (qspec_then ‘ticks + 1 + ck'’ assume_tac) evaluate_add_clock
-                      >> gvs[]
-                      >> qexists ‘ck + ticks + 1 + ck'’ >> gvs[inc_clock_def, dec_clock_def]
-                     )
-                  >> Cases_on ‘x’ >> gvs[]
-                  >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-                  >> first_x_assum $ drule_all_then assume_tac
-                  >> gvs[]
-                  >> first_assum $ irule_at Any
-                  >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-                  >> drule_then (qspec_then ‘ticks + 2 + ck'’ assume_tac) evaluate_add_clock
-                  >> gvs[]
-                  >> qexists ‘ck + ticks + 2 + ck'’ >> gvs[inc_clock_def, dec_clock_def, evaluate_def, make_wrapper_def]
-                  >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH q), q, t) =
-                                                   (Rval (TAKE (LENGTH q) (DROP 0 q)), t)’
-                  >- (irule evaluate_genlist_vars
-                      >> gvs[]
-                     )
-                  >> pop_assum $ assume_tac o SRULE[]
-                  >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-                  >> gvs[bvlSemTheory.find_code_def]
-                  >> drule_then assume_tac $ cj 1 flat_vals_LENGTH
-                  >> gvs[]
-                  >> ‘evaluate ([rebuild 0 q'],flat_vals q' h ++ q,t1') = (Rval [h],t1')’ suffices_by rw[]
-                  >> irule $ cj 1 evaluate_rebuild
-                  >> rw[]
-                  >> DEP_REWRITE_TAC [TAKE_APPEND1]
-                  >> rw[]
-                 )
-              >> Cases_on ‘e’ >> gvs[]
-              >- (Cases_on ‘a'’ >> gvs[]
-                  >> Cases_on ‘handler’ >> gvs[]
-                  >- (first_x_assum $ drule_then assume_tac
-                      >> gvs[]
-                      >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-                      >> last_x_assum $ drule_then assume_tac
-                      >> gvs[]
-                      >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-                      >> drule_all_then assume_tac code_rel_find_code_lookup
-                      >> gvs[]
-                      >> Cases_on ‘lookup d m’ >> gvs[]
-                      >- (qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-                          >> drule_then (qspec_then ‘ticks + 1 + ck'’ assume_tac) evaluate_add_clock
-                          >> gvs[]
-                          >> qexists ‘ck + ticks + 1 + ck'’ >> gvs[inc_clock_def, dec_clock_def]
-                         )
-                      >> Cases_on ‘x’ >> gvs[]
-                      >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-                      >> last_x_assum $ drule_all_then assume_tac
-                      >> gvs[]                                                
-                      >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-                      >> drule_then (qspec_then ‘ticks + 2 + ck''’ assume_tac) evaluate_add_clock
-                      >> gvs[]
-                      >> qexists ‘ck + ticks + 2 + ck''’ >> gvs[inc_clock_def, dec_clock_def, evaluate_def, make_wrapper_def]
-                      >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH q), q, t) =
-                                                       (Rval (TAKE (LENGTH q) (DROP 0 q)), t)’
-                      >- (irule evaluate_genlist_vars
-                          >> gvs[]
-                         )
-                      >> pop_assum $ assume_tac o SRULE[]
-                      >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-                      >> gvs[bvlSemTheory.find_code_def]
-                      >> drule_then assume_tac $ cj 1 flat_vals_LENGTH
-                      >> gvs[]
-                     )
-                  >> Cases_on ‘evaluate ([x],v::env,r'')’ >> gvs[]
-                  >> Cases_on ‘q'’ >> gvs[]
-                  >- (assume_tac evaluate_LENGTH
-                      >> pop_assum $ qspecl_then [‘[x]’, ‘v::env’, ‘r''’] assume_tac
-                      >> gvs[]
-                      >> Cases_on ‘a'’ >> gvs[] 
-                      >> first_x_assum $ drule_then assume_tac
-                      >> gvs[]
-                      >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-                      >> drule_all_then assume_tac code_rel_find_code_lookup
-                      >> gvs[]
-                      >> Cases_on ‘lookup d m’ >> gvs[]
-                      >- (‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-                          >> first_x_assum $ drule_all_then assume_tac
-                          >> gvs[]
-                          >> last_x_assum $ drule_then assume_tac
-                          >> gvs[]
-                          >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-                          >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def,
-                                                                               oracle_free_def, inc_clock_def]
-                          >> last_x_assum $ drule_then assume_tac
-                          >> gvs[]
-                          >> first_assum $ irule_at Any
-                          >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-                          >> drule_then (qspec_then ‘ticks + 1 + ck' + ck''’ assume_tac) evaluate_add_clock
-                          >> gvs[]
-                          >> qexists ‘ck + ticks + 1 + ck' + ck''’ >> gvs[inc_clock_def, dec_clock_def]
-                          >> qpat_x_assum ‘evaluate ([r'], _, t1 with clock := _) = _’ assume_tac
-                          >> drule_then (qspec_then ‘ck''’ assume_tac) evaluate_add_clock
-                          >> gvs[inc_clock_def, dec_clock_def]
-                         )
-                      >> Cases_on ‘x'’ >> gvs[]
-                      >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-                      >> first_x_assum $ drule_all_then assume_tac
-                      >> gvs[]
-                      >> last_x_assum $ drule_all_then assume_tac
-                      >> gvs[]
-                      >> first_assum $ irule_at Any
-                      >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-                      >> drule_then (qspec_then ‘ticks + 2 + ck' + ck''’ assume_tac) evaluate_add_clock
-                      >> gvs[]
-                      >> qexists ‘ck + ticks + 2 + ck' + ck''’
-                      >> gvs[inc_clock_def, dec_clock_def, evaluate_def, make_wrapper_def]
-                      >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH q), q, t) =
-                                                       (Rval (TAKE (LENGTH q) (DROP 0 q)), t)’
-                      >- (irule evaluate_genlist_vars
-                          >> gvs[]
-                         )
-                      >> pop_assum $ assume_tac o SRULE[]
-                      >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-                      >> gvs[bvlSemTheory.find_code_def]
-                      >> qpat_x_assum ‘evaluate ([worker_body m d r'⁴' q' r'], _, t1 with clock := _) = _’ assume_tac
-                      >> drule_then (qspec_then ‘ck''’ assume_tac) evaluate_add_clock
-                      >> gvs[inc_clock_def, dec_clock_def]
-                     )
-                  >> Cases_on ‘e’ >> gvs[]
-                  >- (Cases_on ‘a'’ >> gvs[]
-                      >> first_x_assum $ drule_then assume_tac
-                      >> gvs[]
-                      >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-                      >> drule_all_then assume_tac code_rel_find_code_lookup
-                      >> gvs[]
-                      >> Cases_on ‘lookup d m’ >> gvs[]
-                      >- (‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-                          >> first_x_assum $ drule_all_then assume_tac
-                          >> gvs[]
-                          >> last_x_assum $ drule_then assume_tac
-                          >> gvs[]
-                          >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-                          >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def,
-                                                                               oracle_free_def, inc_clock_def]
-                          >> last_x_assum $ drule_then assume_tac
-                          >> gvs[]
-                          >> first_assum $ irule_at Any
-                          >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-                          >> drule_then (qspec_then ‘ticks + 1 + ck' + ck''’ assume_tac) evaluate_add_clock
-                          >> gvs[]
-                          >> qexists ‘ck + ticks + 1 + ck' + ck''’ >> gvs[inc_clock_def, dec_clock_def]
-                          >> qpat_x_assum ‘evaluate ([r'], _, t1 with clock := _) = _’ assume_tac
-                          >> drule_then (qspec_then ‘ck''’ assume_tac) evaluate_add_clock
-                          >> gvs[inc_clock_def, dec_clock_def]
-                         )
-                      >> Cases_on ‘x'’ >> gvs[]
-                      >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-                      >> first_x_assum $ drule_all_then assume_tac
-                      >> gvs[]
-                      >> last_x_assum $ drule_all_then assume_tac
-                      >> gvs[]
-                      >> first_assum $ irule_at Any
-                      >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-                      >> drule_then (qspec_then ‘ticks + 2 + ck' + ck''’ assume_tac) evaluate_add_clock
-                      >> gvs[]
-                      >> qexists ‘ck + ticks + 2 + ck' + ck''’
-                      >> gvs[inc_clock_def, dec_clock_def, evaluate_def, make_wrapper_def]
-                      >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH q), q, t) =
-                                                       (Rval (TAKE (LENGTH q) (DROP 0 q)), t)’
-                      >- (irule evaluate_genlist_vars
-                          >> gvs[]
-                         )
-                      >> pop_assum $ assume_tac o SRULE[]
-                      >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-                      >> gvs[bvlSemTheory.find_code_def]
-                      >> qpat_x_assum ‘evaluate ([worker_body m d r'⁴' q' r'], _, t1 with clock := _) = _’ assume_tac
-                      >> drule_then (qspec_then ‘ck''’ assume_tac) evaluate_add_clock
-                      >> gvs[inc_clock_def, dec_clock_def]
-                     )
-                  >> first_x_assum $ drule_then assume_tac
-                  >> gvs[]
-                  >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-                  >> drule_all_then assume_tac code_rel_find_code_lookup
-                  >> gvs[]
-                  >> Cases_on ‘lookup d m’ >> gvs[]
-                  >- (‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-                      >> first_x_assum $ drule_all_then assume_tac
-                      >> gvs[]
-                      >> last_x_assum $ drule_then assume_tac
-                      >> gvs[]
-                      >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-                      >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def,
-                                                                           oracle_free_def, inc_clock_def]
-                      >> last_x_assum $ drule_then assume_tac
-                      >> gvs[]
-                      >> first_assum $ irule_at Any
-                      >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-                      >> drule_then (qspec_then ‘ticks + 1 + ck' + ck''’ assume_tac) evaluate_add_clock
-                      >> gvs[]
-                      >> qexists ‘ck + ticks + 1 + ck' + ck''’ >> gvs[inc_clock_def, dec_clock_def]
-                      >> qpat_x_assum ‘evaluate ([r'], _, t1 with clock := _) = _’ assume_tac
-                      >> drule_then (qspec_then ‘ck''’ assume_tac) evaluate_add_clock
-                      >> gvs[inc_clock_def, dec_clock_def]
-                     )
-                  >> Cases_on ‘x'’ >> gvs[]
-                  >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-                  >> first_x_assum $ drule_all_then assume_tac
-                  >> gvs[]
-                  >> last_x_assum $ drule_all_then assume_tac
-                  >> gvs[]
-                  >> first_assum $ irule_at Any
-                  >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-                  >> drule_then (qspec_then ‘ticks + 2 + ck' + ck''’ assume_tac) evaluate_add_clock
-                  >> gvs[]
-                  >> qexists ‘ck + ticks + 2 + ck' + ck''’
-                  >> gvs[inc_clock_def, dec_clock_def, evaluate_def, make_wrapper_def]
-                  >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH q), q, t) =
-                                                   (Rval (TAKE (LENGTH q) (DROP 0 q)), t)’
-                  >- (irule evaluate_genlist_vars
-                      >> gvs[]
-                     )
-                  >> pop_assum $ assume_tac o SRULE[]
-                  >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-                  >> gvs[bvlSemTheory.find_code_def]
-                  >> qpat_x_assum ‘evaluate ([worker_body m d r'⁴' q' r'], _, t1 with clock := _) = _’ assume_tac
-                  >> drule_then (qspec_then ‘ck''’ assume_tac) evaluate_add_clock
-                  >> gvs[inc_clock_def, dec_clock_def]
-                 )
-              >> first_x_assum $ drule_then assume_tac
-              >> gvs[]
-              >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-              >> drule_all_then assume_tac code_rel_find_code_lookup
-              >> gvs[]
-              >> Cases_on ‘lookup d m’ >> gvs[]
-              >- (‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-                  >> last_x_assum $ drule_then assume_tac
-                  >> gvs[]
-                  >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-                  >> drule_then (qspec_then ‘ticks + 1 + ck'’ assume_tac) evaluate_add_clock
-                  >> gvs[]
-                  >> qexists ‘ck + ticks + 1 + ck'’ >> gvs[inc_clock_def, dec_clock_def]
-                 )
-              >> Cases_on ‘x’ >> gvs[]
-              >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-              >> first_x_assum $ drule_all_then assume_tac
-              >> gvs[]
-              >> first_assum $ irule_at Any
-              >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-              >> drule_then (qspec_then ‘ticks + 2 + ck'’ assume_tac) evaluate_add_clock
-              >> gvs[]
-              >> qexists ‘ck + ticks + 2 + ck'’
-              >> gvs[inc_clock_def, dec_clock_def, evaluate_def, make_wrapper_def]
-              >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH q), q, t) =
-                                               (Rval (TAKE (LENGTH q) (DROP 0 q)), t)’
-              >- (irule evaluate_genlist_vars
-                  >> gvs[]
-                 )
-              >> pop_assum $ assume_tac o SRULE[]
-              >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-              >> gvs[bvlSemTheory.find_code_def]
-             )
-          >> first_x_assum $ drule_all_then assume_tac
-          >> gvs[]
-          >> first_assum $ irule_at Any
-          >> qexists ‘ck’ >> gvs[]
-         )
-      >> Cases_on ‘evaluate (xs,env,s1)’ >> fs[]
-      >> reverse $ Cases_on ‘q’ >> fs[]
-      >- (gvs[worker_body_def, evaluate_def, tail_ok_def, tail_form_def, no_ret_def]
-          >> reverse $ Cases_on ‘handler’ >> gvs[]
-          >- (rw[evaluate_def]
-              >> last_x_assum $ drule_then assume_tac
-              >> gvs[]
-              >> qexists ‘ck’ >> gvs[]
-             )
-          >> Cases_on ‘dest’ >> gvs[]
-          >- (rw[evaluate_def]
-              >> last_x_assum $ drule_then assume_tac
-              >> gvs[]
-              >> qexists ‘ck’ >> gvs[]
-             )
-          >> Cases_on ‘f = x’ >> gvs[]
-          >- (rw[evaluate_def]
-              >> last_x_assum $ drule_then assume_tac
-              >> gvs[]
-              >> qexists ‘ck’ >> gvs[]
-             )
-          >> full_case_tac >> gvs[]
-          >- (rw[evaluate_def]
-              >> last_x_assum $ drule_then assume_tac
-              >> gvs[]
-              >> qexists ‘ck’ >> gvs[]
-             )
-          >> full_case_tac >> gvs[]
-          >> rw[evaluate_def]
-          >> last_x_assum $ drule_then assume_tac
-          >> gvs[]
-          >> qexists ‘ck’ >> gvs[]
-         )
-      >> Cases_on ‘find_code dest a r.code’ >> fs[]                                  
-      >> Cases_on ‘x’ >> gvs[]
-      >> Cases_on ‘r.clock < ticks + 1’ >> gvs[]
-      >> Cases_on ‘evaluate ([r'],q,dec_clock (ticks + 1) r)’ >> gvs[]
-      >> Cases_on ‘q'’ >> gvs[]
-      >- (assume_tac evaluate_LENGTH
-          >> pop_assum $ qspecl_then [‘[r']’, ‘q’, ‘dec_clock (ticks + 1) r’] assume_tac
-          >> gvs[]
-          >> Cases_on ‘a'’ >> gvs[tail_ok_def, tail_form_def, no_ret_def, tail_ok_def]
-          >> rw[worker_body_def, evaluate_def]
-          >> first_x_assum $ drule_then assume_tac
-          >> gvs[]
-          >> Cases_on ‘handler’ >> gvs[tail_ok_def, split_ok_def, shape_width_def]
-          >- (‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-              >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest
-              >> gvs[]
-              >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-              >> first_x_assum $ drule_all_then assume_tac
-              >> gvs[]
-              >> rw[evaluate_def]
-              >> first_assum $ irule_at Any
-              >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-              >> drule_then (qspec_then ‘ticks + 1 + ck'’ assume_tac) evaluate_add_clock
-              >> gvs[]
-              >> qexists ‘ck + ticks + 1 + ck'’ >> gvs[inc_clock_def, dec_clock_def, bvlSemTheory.find_code_def]
-              >> drule_then assume_tac $ cj 1 flat_vals_LENGTH
-              >> gvs[]
-              >> DEP_REWRITE_TAC[evaluate_genlist_prefix]
-              >> gvs[]
-             )
-          >> Cases_on ‘f = d’ >> gvs[]
-          >- (‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-              >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest
-              >> gvs[]
-              >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-              >> first_x_assum $ drule_all_then assume_tac
-              >> gvs[]
-              >> rw[evaluate_def]
-              >> first_assum $ irule_at Any
-              >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-              >> drule_then (qspec_then ‘ticks + 1 + ck'’ assume_tac) evaluate_add_clock
-              >> gvs[]
-              >> qexists ‘ck + ticks + 1 + ck'’ >> gvs[inc_clock_def, dec_clock_def, bvlSemTheory.find_code_def]
-              >> drule_then assume_tac $ cj 1 flat_vals_LENGTH
-              >> gvs[]
-              >> DEP_REWRITE_TAC[evaluate_genlist_prefix]
-              >> gvs[]
-             )
-          >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-          >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest
-          >> gvs[]
-          >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by
-            gvs[state_rel_def, dec_clock_def, oracle_free_def]
-          >> first_x_assum $ drule_all_then assume_tac
-          >> gvs[]
-          >> first_assum $ irule_at Any
-          >> qexists ‘ck + ck' + 1 + ticks’
-          >> irule evaluate_TailCall
-          >> qpat_x_assum ‘evaluate (xs,env,inc_clock ck t) = _’ $ assume_tac
-          >> drule_then assume_tac evaluate_add_clock
-          >> pop_assum $ qspec_then ‘ck' + 1 + ticks’ assume_tac
-          >> ‘inc_clock (ck' + 1 + ticks) (inc_clock ck t) =
-              inc_clock (ck + ck' + 1 + ticks) t’ by
-            gvs[inc_clock_def, state_component_equality]
-          >> gvs[]
-          >> irule_at Any (cj 1 flat_vals_LENGTH)
-          >> gvs[inc_clock_def, dec_clock_def, state_component_equality, bvlSemTheory.find_code_def]
-         )
-      >> reverse $ Cases_on ‘e’ >> gvs[]
-      >- (rw[worker_body_def, evaluate_def]
-          >> first_x_assum $ drule_then assume_tac
-          >> gvs[]
-          >> Cases_on ‘handler’ >> gvs[tail_ok_def, split_ok_def, shape_width_def]
-          >- (‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-              >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest
-              >> gvs[]
-              >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-              >> first_x_assum $ drule_all_then assume_tac
-              >> gvs[]
-              >> rw[evaluate_def]
-              >> first_assum $ irule_at Any
-              >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-              >> drule_then (qspec_then ‘ticks + 1 + ck'’ assume_tac) evaluate_add_clock
-              >> gvs[]
-              >> qexists ‘ck + ticks + 1 + ck'’ >> gvs[inc_clock_def, dec_clock_def, bvlSemTheory.find_code_def]
-              >> drule_then assume_tac $ cj 1 flat_vals_LENGTH
-              >> gvs[]
-              >> DEP_REWRITE_TAC[evaluate_genlist_prefix]
-              >> gvs[]
-             )
-          >> Cases_on ‘f = d’ >> gvs[]
-          >- (‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-              >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest
-              >> gvs[]
-              >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-              >> first_x_assum $ drule_all_then assume_tac
-              >> gvs[]
-              >> rw[evaluate_def]
-              >> first_assum $ irule_at Any
-              >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-              >> drule_then (qspec_then ‘ticks + 1 + ck'’ assume_tac) evaluate_add_clock
-              >> gvs[]
-              >> qexists ‘ck + ticks + 1 + ck'’ >> gvs[inc_clock_def, dec_clock_def, bvlSemTheory.find_code_def]
-              >> drule_then assume_tac $ cj 1 flat_vals_LENGTH
-              >> gvs[]
-              >> DEP_REWRITE_TAC[evaluate_genlist_prefix]
-              >> gvs[]
-             )
-          >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-          >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest
-          >> gvs[]
-          >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by
-            gvs[state_rel_def, dec_clock_def, oracle_free_def]
-          >> first_x_assum $ drule_all_then assume_tac
-          >> gvs[]
-          >> first_assum $ irule_at Any
-          >> rw[evaluate_def]
-          >> qexists ‘ck + ck' + 1 + ticks’
-          >> qpat_x_assum ‘evaluate (xs,env,inc_clock ck t) = _’ $ assume_tac
-          >> drule_then assume_tac evaluate_add_clock
-          >> pop_assum $ qspec_then ‘ck' + 1 + ticks’ assume_tac
-          >> ‘inc_clock (ck' + 1 + ticks) (inc_clock ck t) =
-              inc_clock (ck + ck' + 1 + ticks) t’ by
-            gvs[inc_clock_def, state_component_equality]
-          >> gvs[bvlSemTheory.find_code_def, dec_clock_def, inc_clock_def]
-         )
-      >> Cases_on ‘a'’ >> gvs[]
-      >> Cases_on ‘handler’ >> gvs[tail_ok_def, split_ok_def, shape_width_def]
-      >- (first_x_assum $ drule_then assume_tac
-          >> gvs[]
-          >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-          >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest
-          >> gvs[]
-          >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-          >> first_x_assum $ drule_all_then assume_tac
-          >> gvs[]
-          >> rw[evaluate_def, worker_body_def]
-          >> first_assum $ irule_at Any
-          >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-          >> drule_then (qspec_then ‘ticks + 1 + ck'’ assume_tac) evaluate_add_clock
-          >> gvs[]
-          >> qexists ‘ck + ticks + 1 + ck'’ >> gvs[inc_clock_def, dec_clock_def, bvlSemTheory.find_code_def]
-          >> drule_then assume_tac $ cj 1 flat_vals_LENGTH
-          >> gvs[]
-          >> DEP_REWRITE_TAC[evaluate_genlist_prefix]
-          >> gvs[]
-         )
-      >> first_x_assum $ drule_then assume_tac
-      >> gvs[]
-      >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-      >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest
-      >> gvs[]
-      >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-      >> first_x_assum $ drule_all_then assume_tac
-      >> gvs[]
-      >> first_assum $ irule_at Any
-      >> rw[evaluate_def, worker_body_def]
-      >- (qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-          >> drule_then (qspec_then ‘ticks + 1 + ck'’ assume_tac) evaluate_add_clock
-          >> gvs[]
-          >> qexists ‘ck + ticks + 1 + ck'’ >> gvs[inc_clock_def, dec_clock_def, bvlSemTheory.find_code_def]
-         )
-      >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-      >> drule_then (qspec_then ‘1 + ck' + ticks’ assume_tac) evaluate_add_clock
-      >> gvs[]
-      >> qexists ‘ck + 1 + ck' + ticks’ >> gvs[inc_clock_def, dec_clock_def, bvlSemTheory.find_code_def]
-     )
-  >- (rw[evaluate_def]
-      >- (Cases_on ‘evaluate (xs,env,s1)’ >> gvs[]
-          >> reverse $ Cases_on ‘q’ >> gvs[]
-          >- (first_x_assum $ drule_then assume_tac
-              >> gvs[]
-              >> qexistsl [‘ck’, ‘t1’] >> gvs[]
-             )
-          >> Cases_on ‘find_code (SOME dest) a r.code ’ >> gvs[]
-          >> Cases_on ‘x’ >> gvs[]
-          >> Cases_on ‘r.clock < ticks + 1’ >> gvs[]
-          >> Cases_on ‘evaluate ([r'],q,dec_clock (ticks + 1) r)’ >> gvs[]
-          >> Cases_on ‘q'’ >> gvs[]
-          >> Cases_on ‘e’ >> gvs[]
-          >- (Cases_on ‘a'’ >> gvs[]
-              >- (first_x_assum $ drule_then assume_tac
-                  >> gvs[]
-                  >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-                  >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest
-                  >> gvs[]
-                  >> Cases_on ‘lookup dest m’ >> gvs[]
-                  >- (‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-                      >> last_x_assum $ drule_then assume_tac
-                      >> gvs[]
-                      >> first_assum $ irule_at Any
-                      >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-                      >> drule_then (qspec_then ‘ticks + 1 + ck'’ assume_tac) evaluate_add_clock
-                      >> gvs[]
-                      >> qexists ‘ck + ticks + 1 + ck'’ >> gvs[inc_clock_def, dec_clock_def]
-                     )
-                  >> Cases_on ‘x’ >> gvs[]
-                  >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-                  >> first_x_assum $ drule_all_then assume_tac
-                  >> gvs[]
-                  >> first_assum $ irule_at Any
-                  >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-                  >> drule_then (qspec_then ‘ticks + 2 + ck'’ assume_tac) evaluate_add_clock
-                  >> gvs[]
-                  >> qexists ‘ck + ticks + 2 + ck'’ >> gvs[inc_clock_def, dec_clock_def, evaluate_def, make_wrapper_def]
-                  >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH a), a, t) =
-                                                   (Rval (TAKE (LENGTH a) (DROP 0 a)), t)’
-                  >- (irule evaluate_genlist_vars
-                      >> gvs[]
-                     )
-                  >> pop_assum $ assume_tac o SRULE[]
-                  >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-                  >> gvs[bvlSemTheory.find_code_def]
-                 )
-              >> Cases_on ‘LENGTH l = rets’ >> gvs[]
-              >> assume_tac evaluate_LENGTH
-              >> pop_assum $ qspecl_then [‘[y]’, ‘l ++ env’, ‘r''’] assume_tac
-              >> gvs[]
-              >> Cases_on ‘res’ >> gvs[]
-              >- (Cases_on ‘a'’ >> gvs[]
-                  >> first_x_assum $ drule_then assume_tac
-                  >> gvs[]
-                  >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-                  >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest
-                  >> gvs[]
-                  >> Cases_on ‘lookup dest m’ >> gvs[]
-                  >- (‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-                      >> last_x_assum $ drule_then assume_tac
-                      >> gvs[]
-                      >> last_x_assum $ drule_then assume_tac
-                      >> gvs[]
-                      >> first_assum $ irule_at Any
-                      >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-                      >> drule_then (qspec_then ‘ticks + 1 + ck' + ck''’ assume_tac) evaluate_add_clock
-                      >> gvs[]
-                      >> qexists ‘ck + ticks + 1 + ck' + ck''’ >> gvs[dec_clock_def, inc_clock_def]
-                      >> qpat_x_assum ‘evaluate ([r'], a, _) = _’ assume_tac
-                      >> drule_then (qspec_then ‘ck''’ assume_tac) evaluate_add_clock
-                      >> gvs[dec_clock_def, inc_clock_def]
-                     )
-                  >> Cases_on ‘x’ >> gvs[]
-                  >> drule_all_then assume_tac evaluate_tail_no_Ret >> gvs[]
-                 )
-              >> first_x_assum $ drule_then assume_tac
-              >> gvs[]
-              >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-              >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest
-              >> gvs[]
-              >> Cases_on ‘lookup dest m’ >> gvs[]
-              >- (‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-                  >> last_x_assum $ drule_then assume_tac
-                  >> gvs[]
-                  >> last_x_assum $ drule_then assume_tac
-                  >> gvs[]
-                  >> first_assum $ irule_at Any
-                  >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-                  >> drule_then (qspec_then ‘ticks + 1 + ck' + ck''’ assume_tac) evaluate_add_clock
-                  >> gvs[]
-                  >> qexists ‘ck + ticks + 1 + ck' + ck''’ >> gvs[dec_clock_def, inc_clock_def]
-                  >> qpat_x_assum ‘evaluate ([r'], a, _) = _’ assume_tac
-                  >> drule_then (qspec_then ‘ck''’ assume_tac) evaluate_add_clock
-                  >> gvs[dec_clock_def, inc_clock_def]
-                 )
-              >> Cases_on ‘x’ >> gvs[]
-              >> drule_all_then assume_tac evaluate_tail_no_Ret >> gvs[]
-             )
-          >> first_x_assum $ drule_then assume_tac
-          >> gvs[]
-          >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-          >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest
-          >> gvs[]
-          >> Cases_on ‘lookup dest m’ >> gvs[]
-          >- (‘state_rel m (dec_clock (ticks + 1) r) t1’ by gvs[state_rel_def, dec_clock_def, oracle_free_def, inc_clock_def]
-              >> last_x_assum $ drule_then assume_tac
-              >> gvs[]
-              >> last_x_assum $ drule_then assume_tac
-              >> gvs[]
-              >> first_assum $ irule_at Any
-              >> qpat_x_assum ‘evaluate (xs, _, inc_clock _ _) = _’ assume_tac
-              >> drule_then (qspec_then ‘ticks + 1 + ck'’ assume_tac) evaluate_add_clock
-              >> gvs[]
-              >> qexists ‘ck + ticks + 1 + ck'’ >> gvs[dec_clock_def, inc_clock_def]
-             )
-          >> Cases_on ‘x’ >> gvs[]
-          >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by
-            gvs[state_rel_def, dec_clock_def, oracle_free_def]
-          >> first_x_assum $ drule_all_then assume_tac
-          >> gvs[]
-          >> rename1 ‘evaluate ([worker_body m dest x1 x0 r'],a,inc_clock ck0 t1) = _’
-          >> qexists ‘ck + ck0 + ticks + 2’
-          >> qpat_x_assum ‘evaluate (xs,env,inc_clock ck t) = _’ $ assume_tac
-          >> drule_then assume_tac evaluate_add_clock
-          >> pop_assum $ qspec_then ‘ck0 + ticks + 2’ assume_tac
-          >> gvs[inc_clock_def]
-          >> subgoal ‘evaluate
-                      ([make_wrapper (LENGTH a) x1 x0],a,
-                       dec_clock (ticks + 1)
-                                 (t1 with clock := ck0 + (ticks + (t1.clock + 2)))) = (Rerr (Rabort a'),t1')’
-          >- (irule evaluate_make_wrapper_err
-              >> gvs[dec_clock_def]
-              )
-          >> gvs[inc_clock_def, dec_clock_def]
-         )
-      >> rw[worker_body_def, evaluate_def]
-      >> Cases_on ‘evaluate (xs,env,s1)’ >> gvs[tail_ok_def, tail_form_def]
-      >> reverse $ Cases_on ‘q’ >> gvs[]
-      >- (first_x_assum $ drule_all_then strip_assume_tac
-          >> qexistsl [‘ck’,‘t1’] >> gvs[]
-         )
-      >> first_x_assum $ drule_all_then strip_assume_tac
-      >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-      >> Cases_on ‘find_code (SOME dest) a r.code’ >> gvs[]
-      >> PairCases_on ‘x’ >> gvs[]
-      >> Cases_on ‘r.clock < ticks + 1’ >> gvs[]
-      >> Cases_on ‘evaluate ([x1],x0,dec_clock (ticks + 1) r)’ >> gvs[]
-      >> Cases_on ‘q’ >> gvs[]
-      >> Cases_on ‘e’ >> gvs[]
-      >- (Cases_on ‘a'’ >> gvs[]
-          >- (Cases_on ‘lookup dest m’
-              >- (drule_all_then strip_assume_tac code_rel_find_code_SOME_dest >> gvs[]
-                  >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by
-                    gvs[state_rel_def, dec_clock_def, oracle_free_def]
-                  >> qpat_x_assum ‘∀m' t'. state_rel m' (dec_clock _ _) t' ⇒ _’ $
-                                  qspecl_then [‘m’,‘t1’] mp_tac
-                  >> impl_tac >- gvs[] >> strip_tac
-                  >> rename1 ‘evaluate ([x1],x0,inc_clock ck0 t1) = _’
-                  >> qexists ‘ck + ck0 + ticks + 1’
-                  >> qpat_x_assum ‘evaluate (xs,env,inc_clock ck t) = _’ $ assume_tac
-                  >> drule_then assume_tac evaluate_add_clock
-                  >> pop_assum $ qspec_then ‘ck0 + ticks + 1’ assume_tac
-                  >> gvs[inc_clock_def, dec_clock_def]
-                 )
-              >> rename1 ‘lookup dest m = SOME z’ >> PairCases_on ‘z’
-              >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest >> gvs[]
-              >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by
-                gvs[state_rel_def, dec_clock_def, oracle_free_def]
-              >> first_x_assum $ qspecl_then [‘m’,‘t1’,‘dest’,‘z1’,‘z0’] mp_tac
-              >> impl_tac >- gvs[] >> strip_tac
-              >> rename1 ‘evaluate ([worker_body m dest z1 z0 x1],x0,inc_clock ck0 t1) = _’
-              >> qexists ‘ck + ck0 + ticks + 2’
-              >> qpat_x_assum ‘evaluate (xs,env,inc_clock ck t) = _’ $ assume_tac
-              >> drule_then assume_tac evaluate_add_clock
-              >> pop_assum $ qspec_then ‘ck0 + ticks + 2’ assume_tac
-              >> gvs[dec_clock_def, inc_clock_def]
-              >> first_assum $ irule_at Any
-              >> ‘evaluate ([make_wrapper (LENGTH x0) z1 z0],x0, inc_clock (ck0 + 1) t1) =
-                  (Rerr (Rraise (Exn v)),t1')’ suffices_by gvs[inc_clock_def, dec_clock_def]
-              >> irule evaluate_make_wrapper_err
-              >> gvs[dec_clock_def, inc_clock_def]
-             )
-          >> Cases_on ‘LENGTH l = rets’ >> gvs[]
-          >> assume_tac evaluate_LENGTH
-          >> pop_assum $ qspecl_then [‘[y]’, ‘l ++ env’, ‘r'’] assume_tac
-          >> gvs[]
-          >> Cases_on ‘res’ >> gvs[]
-          >- (Cases_on ‘a'’ >> gvs[]
-              >> Cases_on ‘lookup dest m’
-              >- (drule_all_then strip_assume_tac code_rel_find_code_SOME_dest >> gvs[]
-                  >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by
-                    gvs[state_rel_def, dec_clock_def, oracle_free_def]
-                  >> qpat_x_assum ‘∀m' t'. state_rel m' (dec_clock _ _) t' ⇒ _’ $
-                                  qspecl_then [‘m’,‘t1’] mp_tac
-                  >> impl_tac >- gvs[] >> strip_tac
-                  >> rename1 ‘evaluate ([x1],x0,inc_clock ck0 t1) = _’
-                  >> first_x_assum $ drule_all_then assume_tac
-                  >> gvs[]
-                  >> first_assum $ irule_at Any
-                  >> gvs[] 
-                  >> qexists ‘ck + ck0 + ticks + 1 + ck'’
-                  >> qpat_x_assum ‘evaluate (xs,env,inc_clock ck t) = _’ $ assume_tac
-                  >> drule_then assume_tac evaluate_add_clock
-                  >> pop_assum $ qspec_then ‘ck0 + ticks + 1 + ck'’ assume_tac
-                  >> gvs[inc_clock_def, dec_clock_def]
-                  >> qpat_x_assum ‘evaluate ([x1],x0,_) = _’ $ assume_tac
-                  >> drule_then assume_tac evaluate_add_clock
-                  >> pop_assum $ qspec_then ‘ck'’ assume_tac
-                  >> gvs[inc_clock_def, dec_clock_def]
-                 )
-              >> rename1 ‘lookup dest m = SOME z’ >> PairCases_on ‘z’
-              >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest >> gvs[]
-              >> drule_all_then assume_tac evaluate_tail_no_Ret >> gvs[]
-             )
-          >> Cases_on ‘lookup dest m’
-          >- (drule_all_then strip_assume_tac code_rel_find_code_SOME_dest >> gvs[]
-              >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by
-                gvs[state_rel_def, dec_clock_def, oracle_free_def]
-              >> qpat_x_assum ‘∀m' t'. state_rel m' (dec_clock _ _) t' ⇒ _’ $
-                              qspecl_then [‘m’,‘t1’] mp_tac
-              >> impl_tac >- gvs[] >> strip_tac
-              >> rename1 ‘evaluate ([x1],x0,inc_clock ck0 t1) = _’
-              >> first_x_assum $ drule_all_then assume_tac
-              >> gvs[]
-              >> first_assum $ irule_at Any
-              >> gvs[] 
-              >> qexists ‘ck + ck0 + ticks + 1 + ck'’
-              >> qpat_x_assum ‘evaluate (xs,env,inc_clock ck t) = _’ $ assume_tac
-              >> drule_then assume_tac evaluate_add_clock
-              >> pop_assum $ qspec_then ‘ck0 + ticks + 1 + ck'’ assume_tac
-              >> gvs[inc_clock_def, dec_clock_def]
-              >> qpat_x_assum ‘evaluate ([x1],x0,_) = _’ $ assume_tac
-              >> drule_then assume_tac evaluate_add_clock
-              >> pop_assum $ qspec_then ‘ck'’ assume_tac
-              >> gvs[inc_clock_def, dec_clock_def]
-             )
-          >> rename1 ‘lookup dest m = SOME z’ >> PairCases_on ‘z’
-          >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest >> gvs[]
-          >> drule_all_then assume_tac evaluate_tail_no_Ret >> gvs[]
-         )
-      >> Cases_on ‘lookup dest m’
-      >- (drule_all_then strip_assume_tac code_rel_find_code_SOME_dest >> gvs[]
-          >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by
-            gvs[state_rel_def, dec_clock_def, oracle_free_def]
-          >> qpat_x_assum ‘∀m' t'. state_rel m' (dec_clock _ _) t' ⇒ _’ $
-                          qspecl_then [‘m’,‘t1’] mp_tac
-          >> impl_tac >- gvs[] >> strip_tac
-          >> rename1 ‘evaluate ([x1],x0,inc_clock ck0 t1) = _’
-          >> qexists ‘ck + ck0 + ticks + 1’
-          >> qpat_x_assum ‘evaluate (xs,env,inc_clock ck t) = _’ $ assume_tac
-          >> drule_then assume_tac evaluate_add_clock
-          >> pop_assum $ qspec_then ‘ck0 + ticks + 1’ assume_tac
-          >> gvs[inc_clock_def, dec_clock_def]
-         )
-      >> rename1 ‘lookup dest m = SOME z’ >> PairCases_on ‘z’
-      >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest >> gvs[]
-      >> ‘state_rel m (dec_clock (ticks + 1) r) t1’ by
-        gvs[state_rel_def, dec_clock_def, oracle_free_def]
-      >> first_x_assum $ qspecl_then [‘m’,‘t1’,‘dest’,‘z1’,‘z0’] mp_tac
-      >> impl_tac >- gvs[] >> strip_tac
-      >> rename1 ‘evaluate ([worker_body m dest z1 z0 x1],x0,inc_clock ck0 t1) = _’
-      >> qexists ‘ck + ck0 + ticks + 2’
-      >> qpat_x_assum ‘evaluate (xs,env,inc_clock ck t) = _’ $ assume_tac
-      >> drule_then assume_tac evaluate_add_clock
-      >> pop_assum $ qspec_then ‘ck0 + ticks + 2’ assume_tac
-      >> gvs[dec_clock_def, inc_clock_def]
-      >> first_assum $ irule_at Any
-      >> ‘evaluate ([make_wrapper (LENGTH x0) z1 z0],x0, inc_clock (ck0 + 1) t1) =
-          (Rerr (Rabort a'),t1')’ suffices_by gvs[inc_clock_def, dec_clock_def]
-      >> irule evaluate_make_wrapper_err
-      >> gvs[dec_clock_def, inc_clock_def]
-     )
-QED
-
-Theorem evaluate_wrapper_sim:
-  ∀m t d arity body sh wk args (s:('a, 'b) bviSem$state) res s1.
-    state_rel m s t ∧ lookup d s.code = SOME (arity,body) ∧
-    lookup d m = SOME (sh,wk) ∧ LENGTH args = arity ∧
-    evaluate ([body],args,s) = (res,s1) ∧
-    res ≠ Rerr (Rabort Rtype_error) ∧ res ≠ Rerr (Rabort Rtimeout_error) ⇒
-    ∃ck t1.
-      state_rel m s1 t1 ∧
-      evaluate ([make_wrapper arity wk sh],args,inc_clock (ck + 1) t) =
-        (res,t1)
-Proof
-  rpt strip_tac
-  >> ‘code_rel m s.code t.code’ by gvs[state_rel_def]
-  >> drule_then assume_tac code_rel_find_code_SOME_dest
-  >> pop_assum $ qspecl_then [‘d’, ‘args’] assume_tac >> gvs[bvlSemTheory.find_code_def]
-  >> Cases_on ‘lookup d t.code’ >> gvs[]
-  >> Cases_on ‘x’ >> gvs[]
-  >> drule_all_then assume_tac $ SRULE [] $ cj 2 cpr_correct
-  >> gvs[]
-  >> assume_tac evaluate_LENGTH
-  >> pop_assum $ qspecl_then [‘[body]’, ‘args’, ‘s’] assume_tac >> gvs[]
-  >> reverse $ Cases_on ‘res’ >> gvs[]
-  >- (drule_all_then assume_tac evaluate_tail_no_Ret
-      >> first_assum $ irule_at Any
-      >> irule_at Any evaluate_make_wrapper_err
-      >> gvs[dec_clock_def, inc_clock_def]
-      >> metis_tac[]
-     )
-  >> Cases_on ‘a’ >> gvs[]
-  >> first_assum $ irule_at Any
-  >> rw[make_wrapper_def, evaluate_def]
-  >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH args), args, t) =
-                                   (Rval (TAKE (LENGTH args) (DROP 0 args)), t)’
-  >- (irule evaluate_genlist_vars
-      >> gvs[]
-     )
-  >> pop_assum $ assume_tac o SRULE[]
-  >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-  >> gvs[bvlSemTheory.find_code_def]
-  >> qexists ‘ck’ >> gvs[inc_clock_def, dec_clock_def]
-  >> drule_all_then assume_tac $ cj 1 flat_vals_LENGTH
-  >> gvs[]
-  >> irule $ cj 1 evaluate_rebuild
-  >> gvs[]
-  >> DEP_REWRITE_TAC[TAKE_APPEND1]
-  >> gvs[]
-QED
- 
-Theorem compile_prog_state_rel:
-  ∀next prog n prog2 (s:('c,'ffi) bviSem$state).
-    compile_prog next prog = (n,prog2) ∧
-    map_inv LN next ∧ prog_keys_ok next prog ∧
-    s.code = fromAList prog ∧ oracle_free s ⇒
-    ∃m. state_rel m s (s with code := fromAList prog2)
-Proof
-  rw[compile_prog_def]
-  >> drule_then assume_tac compile_prog_with_map_thm
-  >> pop_assum mp_tac >> impl_tac >- gvs[lookup_def]
-  >> strip_tac
-  >> qexists ‘m2’
-  >> gvs[state_rel_def, code_rel_def]
-  >> rpt conj_tac >> gvs[]
-  >- gvs[map_inv_def]
-  >- (rpt gen_tac >> strip_tac
-      >> drule_at Any code_rel_of_fun_rel
-      >> gvs[prog_keys_ok_def]
-      >> disch_then $ drule_then assume_tac
-      >> gvs[]
-      >> pop_assum $ drule_then assume_tac
-      >> Cases_on ‘lookup d m2’ >> gvs[]
-      >> Cases_on ‘x’ >> gvs[]
-      >> first_assum $ irule_at Any
-      >> gvs[]
-     )
-  >- (rw[domain_fromAList] >> gvs[MEM_MAP]
-      >> PairCases_on ‘y’ >> gvs[]
-      >> first_x_assum $ drule_then assume_tac >> gvs[]
-      >- (disj1_tac >> gvs[domain_fromAList, MEM_MAP] >> metis_tac[FST])
-      >> metis_tac[]
-      )
-  >> rpt gen_tac >> strip_tac
-  >> conj_tac
-  >- (first_x_assum $ drule_then assume_tac
-      >> gvs[lookup_def, domain_fromAList]
-     )
-  >> first_x_assum $ drule_then assume_tac >> gvs[lookup_def]
-  >> gvs[domain_fromAList, MEM_MAP]
-  >> rpt strip_tac >> PairCases_on ‘y'’
-  >> gvs[prog_keys_ok_def, EVERY_MEM]
-  >> last_x_assum $ drule_then assume_tac
-  >> gvs[]
-QED
-   
-Theorem compile_prog_init_state_rel:
-  ∀next prog n prog2 ffi co cc.
-    compile_prog next prog = (n,prog2) ∧ map_inv LN next ∧
-    prog_keys_ok next prog ∧ (∀k. SND (co k) = []) ⇒
-    ∃m. ∀k. state_rel m (initial_state ffi (fromAList prog) co cc k)
-                        (initial_state ffi (fromAList prog2) co cc k)
-Proof
-  rpt strip_tac
-  >> qspecl_then [‘next’,‘prog’,‘n’,‘prog2’,
-                  ‘initial_state ffi (fromAList prog) co cc 0’] mp_tac
-       compile_prog_state_rel
-  >> impl_tac >- gvs[initial_state_def, oracle_free_def]
-  >> strip_tac >> qexists ‘m’ >> rw[]
-  >> ‘initial_state ffi (fromAList prog) co cc k =
-        (initial_state ffi (fromAList prog) co cc 0) with clock := k ∧
-      initial_state ffi (fromAList prog2) co cc k =
-        ((initial_state ffi (fromAList prog) co cc 0)
-           with code := fromAList prog2) with clock := k’
-       by gvs[initial_state_def, state_component_equality]
-  >> gvs[]
-  >> dxrule_then (qspec_then ‘k’ assume_tac) $ cj 1 state_rel_clock
-  >> dxrule_then (qspec_then ‘k’ assume_tac) $ cj 2 state_rel_clock
-  >> gvs[]
-QED
-
 Theorem code_rel_domain:
   code_rel m c1 c2 ⇒ domain c1 ⊆ domain c2
 Proof
@@ -2927,77 +1473,6 @@ Proof
   >> Cases_on ‘x'’ >> gvs[]
 QED
 
-        
-Theorem do_app_state_rel_rval:
-  ∀op vs m s t v s1.
-    state_rel m s t ∧ do_app op vs s = Rval (v,s1)  ⇒
-    ∃t1. do_app op vs t = Rval (v,t1) ∧ state_rel m s1 t1 ∧
-         t1.clock = t.clock ∧ s1.clock = s.clock
-Proof
-  rw[state_rel_def]
-  >> Cases_on ‘op’ >> gvs[]
-  >~ [‘Install’]
-  >- (gvs[do_app_def, do_install_def]
-      >> Cases_on ‘s.compile_oracle 0’ >> gvs[]
-      >> gvs[oracle_free_def]
-      >> first_x_assum $ qspec_then ‘0’ assume_tac >> gvs[]
-      >> every_case_tac >> gvs[]
-     )
-  >~ [‘Label’]
-  >- (gvs[do_app_def, do_app_aux_def]
-      >> every_case_tac >> gvs[]
-      >> drule_then assume_tac code_rel_domain
-      >> gvs[SUBSET_DEF, domain_lookup]
-      >> metis_tac[]
-      )
-  >> gvs[do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
-  >> every_case_tac
-  >> gvs[bvl_to_bvi_id, bvl_to_bvi_with_refs, bvl_to_bvi_with_ffi,
-         bvi_to_bvl_def, bvl_to_bvi_def, oracle_free_def,
-         state_component_equality]
-  >> Cases_on ‘do_build_const l t.refs’ >> gvs[]
-QED
-
-Theorem do_app_state_rel_rerr:
-  ∀op vs m s t v e.
-    state_rel m s t ∧ do_app op vs s = Rerr e ∧ e ≠ Rabort Rtype_error ⇒ do_app op vs t = Rerr e 
-Proof
-  rw[state_rel_def]
-  >> Cases_on ‘op’ >> gvs[]
-  >~ [‘Install’]
-  >- (gvs[do_app_def, do_install_def]
-      >> Cases_on ‘s.compile_oracle 0’ >> gvs[]
-      >> gvs[oracle_free_def]
-      >> first_x_assum $ qspec_then ‘0’ assume_tac >> gvs[]
-     )
-  >~ [‘Label’]
-  >- (gvs[do_app_def, do_app_aux_def]
-      >> every_case_tac >> gvs[]
-      )
-  >> gvs[do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
-  >> every_case_tac
-  >> gvs[bvl_to_bvi_id, bvl_to_bvi_with_refs, bvl_to_bvi_with_ffi,
-         bvi_to_bvl_def, bvl_to_bvi_def, oracle_free_def,
-         state_component_equality]
-  >> Cases_on ‘do_build_const l t.refs’ >> gvs[]
-QED
-
-
-Theorem lag_events:
-  ∀xs env (s:('a,'b) state) res s1 (t:('a,'b) state).
-    evaluate (xs,env,s) = (res,s1) ∧ t.ffi = s.ffi ⇒
-    t.ffi.io_events ≼ s1.ffi.io_events
-Proof
-  rw[] >> imp_res_tac evaluate_io_events_mono >> gvs[]
-QED
-
-Theorem state_rel_dec_clock:
-  ∀m s t k1 k2. state_rel m s t ⇒ state_rel m (dec_clock k1 s) (dec_clock k2 t)
-Proof
-  rw[dec_clock_def] >> rw[state_rel_clock]
-QED
-
-        
 Theorem evaluate_TailCall_err:
   ∀w ticks d xs env (s:('c,'ffi) bviSem$state) vs s1 args cbody err t.
     evaluate (xs,env,s) = (Rval vs,s1) ∧
@@ -3012,2304 +1487,1469 @@ Proof
   >> rename1 ‘Rraise x’ >> Cases_on ‘x’ >> gvs[]
 QED
 
+(* The condition on each program chunk given to CPR. *)
+Definition input_condition_def:
+  input_condition next prog ⇔
+    EVERY (free_names next o FST) prog ∧
+    ALL_DISTINCT (MAP FST prog) ∧
+    EVERY ($~ o in_ns_4 o FST) (FILTER ((<=) bvl_num_stubs o FST) prog) ∧
+    bvl_num_stubs ≤ next ∧ in_ns_4 next
+End
 
-Theorem cpr_lag:
-  ∀xs env (s:('a,'b) state).
-    (∀m t res s1.
-       state_rel m s t ∧ t.clock ≤ s.clock ∧
-       evaluate (xs,env,s) = (res,s1) ∧ res ≠ Rerr (Rabort Rtype_error) ⇒
-       ∃t1.
-         (evaluate (xs,env,t) = (res,t1) ∧ state_rel m s1 t1 ∧
-          t1.clock ≤ s1.clock) ∨
-         (evaluate (xs,env,t) = (Rerr (Rabort Rtimeout_error),t1) ∧
-          t1.ffi.io_events ≼ s1.ffi.io_events)) ∧
-    (∀m t e f wk sh res s1.
-       xs = [e] ∧ state_rel m s t ∧ t.clock ≤ s.clock ∧
-       lookup f m = SOME (sh,wk) ∧ split_ok sh ∧
-       tail_ok m f sh e ∧ tail_form e ∧
-       evaluate ([e],env,s) = (res,s1) ∧ res ≠ Rerr (Rabort Rtype_error) ⇒
-       ∃t1.
-         ((case res of
-             Rval [v] => v_shape sh v ∧
-                         evaluate ([worker_body m f wk sh e],env,t) =
-                         (Rerr (Rraise (Ret (flat_vals sh v))),t1)
-           | Rerr err => evaluate ([worker_body m f wk sh e],env,t) =
-                         (Rerr err,t1)
-           | _ => F) ∧ state_rel m s1 t1 ∧ t1.clock ≤ s1.clock) ∨
-         (evaluate ([worker_body m f wk sh e],env,t) =
-          (Rerr (Rabort Rtimeout_error),t1) ∧
-          t1.ffi.io_events ≼ s1.ffi.io_events))
+(* [m] maps each split function to its shape and worker. The source
+   oracle carries CPR's state [(next, map)] for each chunk. *)
+Definition state_rel_def:
+  state_rel m (s:((num # (cpr_shape # num) num_map) # 'c,'ffi) bviSem$state)
+    (t:('c,'ffi) bviSem$state) ⇔
+    code_rel m s.code t.code ∧
+    t.refs = s.refs ∧ t.clock = s.clock ∧ t.global = s.global ∧ t.ffi = s.ffi ∧
+    t.compile_oracle = state_co (compile_prog T) s.compile_oracle ∧
+    s.compile = state_cc (compile_prog T) t.compile ∧
+    (∀n. input_condition (FST (FST (FST (s.compile_oracle n))))
+           (SND (s.compile_oracle n))) ∧
+    submap (SND (FST (FST (s.compile_oracle 0)))) m ∧
+    (∀n. n ∈ domain t.code ∧ in_ns_4 n ⇒
+         n < FST (FST (FST (s.compile_oracle 0)))) ∧
+    (∀n. n ∈ domain s.code ∧ bvl_num_stubs ≤ n ⇒ ¬in_ns_4 n) ∧
+    (∀d sh wk. lookup d m = SOME (sh,wk) ⇒ in_ns_4 wk ∧ bvl_num_stubs ≤ wk)
+End
+
+Theorem state_rel_with_clock:
+  state_rel m s t ⇒ state_rel m (s with clock := k) (t with clock := k)
 Proof
-  recInduct evaluate_ind
-  >> rpt conj_tac
-  >- (fs[evaluate_def]
-     )
-  >- (rw[evaluate_def]
-      >> Cases_on ‘evaluate ([x],env,s)’ >> gvs[]
-      >> Cases_on ‘q’ >> gvs[]
-      >- (last_x_assum $ drule_all_then assume_tac
-          >> gvs[]
-          >- (Cases_on ‘evaluate (y::xs,env,r)’ >> gvs[]
-              >> Cases_on ‘q’ >> gvs[]
-              >- (last_x_assum $ drule_all_then assume_tac
-                  >> gvs[]
-                 )
-              >> last_x_assum $ drule_all_then assume_tac
-              >> gvs[]
-              >> metis_tac[]
-             )
-          >> qexists ‘t1’ >> disj2_tac >> gvs[]
-          >> irule IS_PREFIX_TRANS
-          >> first_assum $ irule_at Any
-          >> Cases_on ‘evaluate (y::xs,env,r)’ >> gvs[]
-          >> Cases_on ‘q’ >> gvs[]
-          >> drule_then assume_tac evaluate_io_events_mono
-          >> gvs[]
-         )
-      >> last_x_assum $ drule_all_then assume_tac
-      >> gvs[]
-      >> metis_tac[]
-     )
-  >- (rw[evaluate_def]
-      >> Cases_on ‘sh’ >> gvs[tail_ok_def, tail_form_def, exp_shape_ok_def,
-                              split_ok_def, no_ret_def, shape_width_def]
-     )
-  >- (rw[evaluate_def]
-      >- (Cases_on ‘evaluate ([x1],env,s)’ >> gvs[]
-          >> Cases_on ‘q’ >> gvs[]
-          >- (last_x_assum $ drule_all_then assume_tac
-              >> gvs[]
-              >- (IF_CASES_TAC >> gvs[]
-                  >> IF_CASES_TAC >> gvs[]
-                 )
-              >> Cases_on ‘HD a = Boolv T’ >> gvs[]
-              >- (qexists ‘t1’ >> disj2_tac >> gvs[]
-                  >> irule IS_PREFIX_TRANS
-                  >> first_assum $ irule_at Any
-                  >> rev_drule_then assume_tac evaluate_io_events_mono
-                  >> gvs[]
-                 )
-              >> Cases_on ‘HD a = Boolv F’ >> gvs[]
-              >> qexists ‘t1’ >> disj2_tac >> gvs[]
-              >> irule IS_PREFIX_TRANS
-              >> first_assum $ irule_at Any
-              >> rev_drule_then assume_tac evaluate_io_events_mono
-              >> gvs[]
-             )
-          >> last_x_assum $ drule_all_then assume_tac
-          >> gvs[]
-          >> metis_tac[]
-         )
-      >> Cases_on ‘evaluate ([x1],env,s)’ >> gvs[]
-      >> Cases_on ‘q’ >> gvs[]
-      >- (last_x_assum $ drule_all_then assume_tac
-          >> gvs[]
-          >- (Cases_on ‘HD a = Boolv T’ >> gvs[tail_form_def, tail_ok_def]
-              >- (first_x_assum $ drule_all_then assume_tac
-                  >> rw[worker_body_def, evaluate_def]
-                 )
-              >> Cases_on ‘HD a = Boolv F’ >> gvs[tail_form_def, tail_ok_def]
-              >> first_x_assum $ drule_all_then assume_tac
-              >> rw[worker_body_def, evaluate_def]
-             )
-          >> Cases_on ‘HD a = Boolv T’ >> gvs[tail_form_def, tail_ok_def]
-          >- (assume_tac evaluate_LENGTH
-              >> pop_assum $ qspecl_then [‘[x2]’, ‘env’, ‘r’] assume_tac
-              >> gvs[]
-              >> Cases_on ‘res’ >> gvs[]
-              >- (Cases_on ‘a'’ >> gvs[]
-                  >> qexists ‘t1’ >> disj2_tac
-                  >> rw[worker_body_def, evaluate_def]
-                  >> irule IS_PREFIX_TRANS
-                  >> first_assum $ irule_at Any
-                  >> rev_drule_then assume_tac evaluate_io_events_mono
-                  >> gvs[]
-                 )
-              >> qexists ‘t1’ >> disj2_tac
-              >> rw[worker_body_def, evaluate_def]
-              >> irule IS_PREFIX_TRANS
-              >> first_assum $ irule_at Any
-              >> rev_drule_then assume_tac evaluate_io_events_mono
-              >> gvs[]
-             )
-          >> Cases_on ‘HD a = Boolv F’ >> gvs[tail_form_def, tail_ok_def]
-          >> assume_tac evaluate_LENGTH
-          >> pop_assum $ qspecl_then [‘[x3]’, ‘env’, ‘r’] assume_tac
-          >> gvs[]
-          >> Cases_on ‘res’ >> gvs[]
-          >- (Cases_on ‘a'’ >> gvs[]
-              >> qexists ‘t1’ >> disj2_tac
-              >> rw[worker_body_def, evaluate_def]
-              >> irule IS_PREFIX_TRANS
-              >> first_assum $ irule_at Any
-              >> rev_drule_then assume_tac evaluate_io_events_mono
-              >> gvs[]
-             )
-          >> qexists ‘t1’ >> disj2_tac
-          >> rw[worker_body_def, evaluate_def]
-          >> irule IS_PREFIX_TRANS
-          >> first_assum $ irule_at Any
-          >> rev_drule_then assume_tac evaluate_io_events_mono
-          >> gvs[]
-         )
-      >> last_x_assum $ drule_all_then assume_tac
-      >> gvs[worker_body_def, evaluate_def]
-      >> metis_tac[]
-     )
-  >- (rw[evaluate_def]
-      >- (Cases_on ‘evaluate (xs,env,s)’ >> gvs[]
-          >> Cases_on ‘q’ >> gvs[]
-          >- (first_x_assum $ drule_all_then assume_tac >> gvs[]
-              >> qexists ‘t1’ >> disj2_tac
-              >> rw[worker_body_def, evaluate_def]
-              >> irule IS_PREFIX_TRANS
-              >> first_assum $ irule_at Any
-              >> rev_drule_then assume_tac evaluate_io_events_mono
-              >> gvs[]
-             )
-          >> first_x_assum $ drule_all_then assume_tac >> gvs[]
-          >> metis_tac[]
-         )
-      >> Cases_on ‘evaluate (xs,env,s)’ >> gvs[]
-      >> Cases_on ‘q’ >> gvs[]
-      >- (assume_tac evaluate_LENGTH
-          >> pop_assum $ qspecl_then [‘[x2]’, ‘a ++ env’, ‘r’] assume_tac
-          >> gvs[]
-          >> Cases_on ‘res’ >> gvs[]
-          >- (Cases_on ‘a'’ >> gvs[]
-              >> rw[worker_body_def, evaluate_def]
-              >> first_x_assum $ drule_all_then assume_tac >> gvs[tail_form_def, tail_ok_def]
-              >> irule IS_PREFIX_TRANS
-              >> first_assum $ irule_at Any
-              >> rev_drule_then irule evaluate_io_events_mono
-             )
-          >> first_x_assum $ drule_all_then assume_tac >> gvs[tail_form_def, tail_ok_def]
-          >- rw[worker_body_def, evaluate_def]
-          >> rw[worker_body_def, evaluate_def]
-          >> qexists ‘t1’ >> disj2_tac >> gvs[]
-          >> irule IS_PREFIX_TRANS
-          >> first_assum $ irule_at Any
-          >> rev_drule_then irule evaluate_io_events_mono
-         )
-      >> rw[worker_body_def, evaluate_def]
-      >> first_x_assum $ drule_all_then assume_tac >> gvs[tail_form_def, tail_ok_def]
-      >- metis_tac[]
-      >> qexists ‘t1’ >> disj2_tac >> gvs[]
-      >> irule IS_PREFIX_TRANS
-      >> first_assum $ irule_at Any
-      >> rev_drule_then irule evaluate_io_events_mono
-     )
-  >- (rw[evaluate_def]
-      >- (rpt full_case_tac >> gvs[AllCaseEqs ()]
-          >> first_x_assum $ drule_all_then assume_tac >> gvs[]
-          >- metis_tac[]
-          >> qexists ‘r’ >> disj2_tac >> gvs[]
-          >> irule_at Any IS_PREFIX_TRANS
-          >> first_assum $ irule_at Any
-          >> rev_drule_then irule evaluate_io_events_mono
-         )
-      >> rpt full_case_tac >> gvs[AllCaseEqs (), tail_form_def, tail_ok_def]
-      >> rw[evaluate_def, worker_body_def]
-      >- (first_x_assum $ drule_all_then assume_tac >> gvs[]
-         )
-      >> first_x_assum $ drule_all_then assume_tac >> gvs[]
-      >> metis_tac[]
-     )
-  >- (rw[evaluate_def]
-      >- (rpt full_case_tac >> gvs[AllCaseEqs ()]
-          >> first_x_assum $ drule_all_then assume_tac >> gvs[]
-          >- metis_tac[]
-          >> qexists ‘r’ >> disj2_tac >> gvs[]
-          >> irule_at Any IS_PREFIX_TRANS
-          >> first_assum $ irule_at Any
-          >> rev_drule_then irule evaluate_io_events_mono
-         )
-      >> rpt full_case_tac >> gvs[AllCaseEqs (), tail_form_def, tail_ok_def]
-      >> rw[evaluate_def, worker_body_def]
-      >- (first_x_assum $ drule_all_then assume_tac >> gvs[]
-         )
-      >> first_x_assum $ drule_all_then assume_tac >> gvs[]
-      >> metis_tac[]
-     )
-  >- (rw[evaluate_def]
-      >- (Cases_on ‘evaluate (xs,env,s)’ >> gvs[]
-          >> Cases_on ‘q’ >> gvs[]
-          >- (last_x_assum $ drule_all_then assume_tac >> gvs[]
-              >- (Cases_on ‘do_app op (REVERSE a) r’ >> gvs[]
-                  >- (Cases_on ‘a'’ >> gvs[]
-                      >> drule_all_then assume_tac do_app_state_rel_rval
-                      >> gvs[]
-                     )
-                  >> qexists ‘t1’ >> disj1_tac >> gvs[]
-                  >> drule_all_then assume_tac  do_app_state_rel_rerr
-                  >> gvs[]
-                 )
-              >> Cases_on ‘do_app op (REVERSE a) r’ >> gvs[]
-              >- (Cases_on ‘a'’ >> gvs[]
-                  >> drule_all_then assume_tac do_app_io_events_mono
-                  >> irule IS_PREFIX_TRANS
-                  >> first_assum $ irule_at Any
-                  >> gvs[]
-                 )
-              >> metis_tac[]
-             )
-          >> last_x_assum $ drule_all_then assume_tac >> gvs[]
-          >> metis_tac[]
-         )
-      >> Cases_on ‘evaluate (xs,env,s)’ >> gvs[]
-      >> Cases_on ‘q’ >> gvs[]
-      >- (Cases_on ‘do_app op (REVERSE a) r’ >> gvs[]
-          >- (Cases_on ‘a'’ >> gvs[]
-              >> last_x_assum $ drule_all_then assume_tac >> gvs[tail_ok_def, tail_form_def]
-              >- (rw[evaluate_def, worker_body_def]
-                  >> drule_all_then assume_tac do_app_state_rel_rval
-                  >> gvs[]
-                  >> qexists ‘t1'’ >> gvs[] >> disj1_tac
-                  >> ‘v_shape sh q ∧evaluate (flatten_exp sh (Op op xs),env,t) = (Rval (flat_vals sh q),t1')’ suffices_by rw[]
-                  >> irule $ cj 1 evaluate_flatten_exp
-                  >> gvs[evaluate_def]
-                 )
-              >> rw[evaluate_def, worker_body_def]
-              >> drule_then assume_tac $ cj 1 evaluate_flatten_exp_err
-              >> gvs[evaluate_def]
-              >> pop_assum $ qspecl_then [‘env’, ‘t’] assume_tac >> gvs[]
-              >> irule IS_PREFIX_TRANS
-              >> first_assum $ irule_at Any
-              >> drule_all_then assume_tac do_app_io_events_mono
-              >> gvs[]
-             )
-          >> last_x_assum $ drule_all_then assume_tac >> gvs[tail_ok_def, tail_form_def]
-          >- (rw[evaluate_def, worker_body_def]
-              >> drule_all_then assume_tac do_app_state_rel_rerr
-              >> gvs[]
-              >> qexists ‘t1’ >> gvs[] >> disj1_tac
-              >> ‘evaluate (flatten_exp sh (Op op xs),env,t) = (Rerr e,t1)’ suffices_by rw[]
-              >> irule $ cj 1 evaluate_flatten_exp_err
-              >> gvs[evaluate_def]
-             )
-          >> rw[evaluate_def, worker_body_def]
-          >> drule_then assume_tac $ cj 1 evaluate_flatten_exp_err
-          >> gvs[evaluate_def]
-          >> pop_assum $ qspecl_then [‘env’, ‘t’] assume_tac >> gvs[]
-          >> qexists ‘t1’ >> disj2_tac >> gvs[]
-         )
-      >> last_x_assum $ drule_all_then assume_tac >> gvs[tail_ok_def, tail_form_def]
-      >- (drule_then assume_tac $ cj 1 evaluate_flatten_exp_err
-          >> pop_assum $ qspecl_then [‘env’, ‘t’] (assume_tac o SRULE[evaluate_def]) >> gvs[]
-          >> rw[evaluate_def, worker_body_def]
-          >> metis_tac[]
-         )
-      >> drule_then assume_tac $ cj 1 evaluate_flatten_exp_err
-      >> pop_assum $ qspecl_then [‘env’, ‘t’] (assume_tac o SRULE[evaluate_def]) >> gvs[]
-      >> rw[evaluate_def, worker_body_def]
-      >> metis_tac[]
-     )
-        
-  >- (rw[evaluate_def]
-      >- metis_tac[]
-      >- metis_tac[evaluate_def, worker_body_def]
-      >- (full_case_tac >> gvs[]
-          >- (qexists ‘t’ >> disj2_tac >> gvs[]
-              >> qpat_x_assum ‘evaluate ([x],env,dec_clock 1 s) = _’ assume_tac
-              >> drule_then assume_tac evaluate_io_events_mono
-              >> gvs[state_rel_def, dec_clock_def]
-             )
-          >> last_x_assum $ qspecl_then [‘m’,‘dec_clock 1 t’] mp_tac
-          >> impl_tac
-          >- gvs[state_rel_def, dec_clock_def, oracle_free_def, state_component_equality]
-          >> strip_tac
-          >> qexists ‘t1’ >> gvs[]
-         )
-      >> rw[worker_body_def, evaluate_def]
-      >> Cases_on ‘t.clock = 0’ >> gvs[]
-      >- (qexists ‘t’ >> disj2_tac >> gvs[]
-          >> qpat_x_assum ‘evaluate ([x],env,dec_clock 1 s) = _’ assume_tac
-          >> drule_then assume_tac evaluate_io_events_mono
-          >> gvs[state_rel_def, dec_clock_def]
-         )
-      >> first_x_assum $ qspecl_then [‘m’,‘dec_clock 1 t’,‘f’,‘wk’,‘sh’] mp_tac
-      >> impl_tac
-      >- gvs[state_rel_def, dec_clock_def, oracle_free_def,
-             state_component_equality, tail_ok_def, tail_form_def]
-      >> strip_tac
-      >> qexists ‘t1’ >> gvs[]
-     )
-        
-  >- (rw[evaluate_def]
-      >> ‘dest_thunk env❲n❳ t.refs = dest_thunk env❲n❳ s.refs’ by gvs[state_rel_def]
-      >> gvs[AllCaseEqs()]
-      >~ [‘IsThunk Evaluated’]
-      >- (qexists ‘t’ >> disj1_tac >> gvs[worker_body_def, evaluate_def]
-          >> ‘v_shape sh v ∧ evaluate (flatten_exp sh (Force force_loc n),env,t) = (Rval (flat_vals sh v), t)’ suffices_by rw[]
-          >> irule $ cj 1 evaluate_flatten_exp
-          >> gvs[evaluate_def, tail_ok_def, tail_form_def]
-         )
-      >- (qexists ‘t with clock := 0’ >> disj1_tac
-          >> conj_tac
-          >- (‘code_rel m s.code t.code’ by gvs[state_rel_def]
-              >> Cases_on ‘lookup force_loc m’
-              >- (drule_all_then assume_tac code_rel_find_code_NONE >> gvs[])
-              >> rename1 ‘lookup force_loc m = SOME z’ >> PairCases_on ‘z’
-              >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest
-              >> gvs[]
-              >> metis_tac[]
-             )
-          >> gvs[state_rel_def, oracle_free_def]
-       )
+  rw[state_rel_def]
+QED
 
-      >- (‘code_rel m s.code t.code’ by gvs[state_rel_def]
-          >> Cases_on ‘t.clock = 0’
-          >- (qexists ‘t with clock := 0’ >> disj2_tac
-              >> conj_tac
-              >- (Cases_on ‘lookup force_loc m’
-                  >- (drule_all_then assume_tac code_rel_find_code_NONE >> gvs[]
-                     )
-                  >> PairCases_on ‘x’
-                  >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest
-                  >> gvs[] >> metis_tac[]
-                 )
-              >> irule lag_events >> gvs[state_rel_def, dec_clock_def]
-              >> first_assum $ irule_at Any
-              >> gvs[state_accessors]
-             )
-          >> Cases_on ‘lookup force_loc m’ >> gvs[]
-          >- (drule_all_then assume_tac code_rel_find_code_NONE >> gvs[]
-              >> last_x_assum $ qspecl_then [‘m’,‘dec_clock 1 t’] mp_tac
-              >> impl_tac
-              >- (irule_at Any state_rel_dec_clock >> gvs[dec_clock_def]
-                 )
-              >> strip_tac >> qexists ‘t1’ >> gvs[] >> metis_tac[]
-             )
-          >> PairCases_on ‘x’
-          >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest >> gvs[]
-          >> Cases_on ‘t.clock ≤ 1’ >> gvs[]
-          >- (gvs[make_wrapper_def, evaluate_def, bvlSemTheory.find_code_def, dec_clock_def]
-              >> irule lag_events
-              >> first_x_assum $ irule_at Any
-              >> gvs[state_accessors, state_rel_def]
-             )
-          >> qpat_x_assum ‘∀m' t' f wk sh. _ ∧ _ ∧ lookup _ _ = _ ∧ _ ⇒ _’ $
-                          qspecl_then [‘m’,‘dec_clock 1 (dec_clock 1 t)’,‘force_loc’,‘x1’,‘x0’] mp_tac
-          >> impl_tac
-          >- (irule_at Any state_rel_dec_clock >> gvs[dec_clock_def, state_rel_def]
-             )
+Theorem state_rel_dec_clock:
+  state_rel m s t ⇒ state_rel m (dec_clock n s) (dec_clock n t)
+Proof
+  rw[dec_clock_def]
+  >> ‘t.clock = s.clock’ by gvs[state_rel_def]
+  >> simp[state_rel_with_clock]
+QED
 
-          >> assume_tac evaluate_LENGTH
-          >> pop_assum $ qspecl_then [‘[exp]’,‘[env❲n❳; v]’,‘dec_clock 1 s’] assume_tac >> gvs[]
-          >> Cases_on ‘v6’ >> gvs[]
-          >> strip_tac
-          >> qexists ‘t1’
-          >- (disj1_tac >> gvs[]
-              >> drule_then assume_tac (cj 1 flat_vals_LENGTH)
-              >> gvs[make_wrapper_def, evaluate_def, bvlSemTheory.find_code_def, dec_clock_def]
-              >> irule (cj 1 evaluate_rebuild) >> gvs[]
-              >> DEP_REWRITE_TAC[TAKE_APPEND1] >> gvs[]
-             )
-          >> disj2_tac
-          >> gvs[make_wrapper_def, evaluate_def, bvlSemTheory.find_code_def, dec_clock_def]
-         )
-      >- (‘code_rel m s.code t.code’ by gvs[state_rel_def]
-          >> Cases_on ‘t.clock = 0’
-          >- (qexists ‘t with clock := 0’ >> disj2_tac
-              >> conj_tac
-              >- (Cases_on ‘lookup force_loc m’
-                  >- (drule_all_then assume_tac code_rel_find_code_NONE >> gvs[]
-                     )
-                  >> PairCases_on ‘x’
-                  >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest
-                  >> gvs[] >> metis_tac[]
-                 )
-              >> irule lag_events >> gvs[state_rel_def, dec_clock_def]
-              >> first_assum $ irule_at Any
-              >> gvs[state_accessors]
-             )
-          >> Cases_on ‘lookup force_loc m’ >> gvs[]
-          >- (drule_all_then assume_tac code_rel_find_code_NONE >> gvs[]
-              >> last_x_assum $ qspecl_then [‘m’,‘dec_clock 1 t’] mp_tac
-              >> impl_tac
-              >- (irule_at Any state_rel_dec_clock >> gvs[dec_clock_def]
-                 )
-              >> strip_tac >> qexists ‘t1’ >> gvs[] >> metis_tac[]
-             )
-          >> PairCases_on ‘x’
-          >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest >> gvs[]
-          >> Cases_on ‘t.clock ≤ 1’ >> gvs[]
-          >- (gvs[make_wrapper_def, evaluate_def, bvlSemTheory.find_code_def, dec_clock_def]
-              >> irule lag_events
-              >> first_x_assum $ irule_at Any
-              >> gvs[state_accessors, state_rel_def]
-             )
-          >> qpat_x_assum ‘∀m' t' f wk sh. _ ∧ _ ∧ lookup _ _ = _ ∧ _ ⇒ _’ $
-                          qspecl_then [‘m’,‘dec_clock 1 (dec_clock 1 t)’,‘force_loc’,‘x1’,‘x0’] mp_tac
-          >> impl_tac
-          >- (irule_at Any state_rel_dec_clock >> gvs[dec_clock_def, state_rel_def]
-             )
-          >> strip_tac >> gvs[]
-          >> qexists ‘t1’
-          >- (disj1_tac >> gvs[]
-              >> irule evaluate_make_wrapper_err >> gvs[]
-              >> gvs[dec_clock_def]
-             )
-          >> disj2_tac >> gvs[]
-          >> gvs[make_wrapper_def, evaluate_def, bvlSemTheory.find_code_def, dec_clock_def]
-         )
-      >- (‘code_rel m s.code t.code’ by gvs[state_rel_def]
-          >> Cases_on ‘t.clock = 0’
-          >- (qexists ‘t with clock := 0’ >> disj2_tac
-              >> conj_tac
-              >- (Cases_on ‘lookup force_loc m’
-                  >- (drule_all_then assume_tac code_rel_find_code_NONE >> gvs[]
-                     )
-                  >> rename1 ‘lookup force_loc m = SOME z’ >> PairCases_on ‘z’
-                  >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest
-                  >> gvs[] >> metis_tac[]
-                 )
-              >> irule lag_events >> gvs[state_rel_def, dec_clock_def]
-              >> first_assum $ irule_at Any
-              >> gvs[state_accessors]
-              )
-          >> Cases_on ‘lookup force_loc m’
-          >- (drule_all_then assume_tac code_rel_find_code_NONE >> gvs[]
-              >> last_x_assum $ qspecl_then [‘m’,‘dec_clock 1 t’] mp_tac
-              >> impl_tac
-              >- (irule_at Any state_rel_dec_clock >> gvs[dec_clock_def]
-                 )
-              >> strip_tac >> qexists ‘t1’ >> gvs[] >> metis_tac[]
-             )
-          >> rename1 ‘lookup force_loc m = SOME z’ >> PairCases_on ‘z’
-          >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest >> gvs[]
-          >> Cases_on ‘t.clock ≤ 1’
-          >- (qexists ‘dec_clock 1 t with clock := 0’ >> disj2_tac
-              >> gvs[make_wrapper_def, evaluate_def, bvlSemTheory.find_code_def, dec_clock_def]
-              >> irule lag_events >> gvs[state_rel_def]
-              >> first_assum $ irule_at Any
-              >> gvs[state_accessors]
-             )
-          >> qpat_x_assum ‘∀m' t' f wk sh. _ ∧ _ ∧ lookup _ _ = _ ∧ _ ⇒ _’ $
-                          qspecl_then [‘m’,‘dec_clock 1 (dec_clock 1 t)’,‘force_loc’,‘z1’,‘z0’] mp_tac
-          >> impl_tac
-          >- (irule_at Any state_rel_dec_clock >> gvs[dec_clock_def, state_rel_def]
-             )
-          >> strip_tac >> qexists ‘t1’
-          >- (disj1_tac
-              >> gvs[]
-              >> irule evaluate_make_wrapper_err >> gvs[dec_clock_def]
-           )                  
-          >> disj2_tac
-          >> gvs[]
-          >> irule evaluate_make_wrapper_err >> gvs[dec_clock_def]
-         )
-      >> Cases_on ‘sh’ >> gvs [tail_ok_def, exp_shape_ok_def, split_ok_def, shape_width_def]
-     )
+Theorem evaluate_make_wrapper:
+  lookup wk (t:('c,'ffi) bviSem$state).code = SOME (LENGTH args,wbody) ∧
+  evaluate ([wbody],args,t) = (Rerr (Rraise (Ret (flat_vals sh v))),t1) ∧
+  v_shape sh v ⇒
+  evaluate ([make_wrapper (LENGTH args) wk sh],args,inc_clock 1 t) =
+    (Rval [v],t1)
+Proof
+  rw[make_wrapper_def, evaluate_def]
+  >> qspecl_then [‘LENGTH args’,‘args’,‘[]’,‘inc_clock 1 t’] mp_tac
+       evaluate_genlist_prefix
+  >> simp[] >> disch_then kall_tac
+  >> simp[bvlSemTheory.find_code_def, inc_clock_def, dec_clock_def]
+  >> drule_then assume_tac (cj 1 flat_vals_LENGTH) >> simp[]
+  >> irule (cj 1 evaluate_rebuild)
+  >> qpat_x_assum ‘LENGTH _ = _’ (assume_tac o SYM)
+  >> simp[TAKE_LENGTH_APPEND]
+QED
 
+Theorem evaluate_make_wrapper_Rerr:
+  lookup wk (t:('c,'ffi) bviSem$state).code = SOME (LENGTH args,wbody) ∧
+  evaluate ([wbody],args,t) = (Rerr err,t1) ∧ (∀vs. err ≠ Rraise (Ret vs)) ⇒
+  evaluate ([make_wrapper (LENGTH args) wk sh],args,inc_clock 1 t) =
+    (Rerr err,t1)
+Proof
+  rw[make_wrapper_def, evaluate_def]
+  >> qspecl_then [‘LENGTH args’,‘args’,‘[]’,‘inc_clock 1 t’] mp_tac
+       evaluate_genlist_prefix
+  >> simp[] >> disch_then kall_tac
+  >> simp[bvlSemTheory.find_code_def, inc_clock_def, dec_clock_def]
+  >> Cases_on ‘err’ >> simp[]
+  >> rename1 ‘Rraise x’ >> Cases_on ‘x’ >> gvs[]
+QED
 
-  >- (rw[evaluate_def]
-      >- (Cases_on ‘evaluate (xs,env,s1)’ >> gvs[]
-          >> Cases_on ‘q’ >> gvs[]
-          >- (first_x_assum $ drule_all_then assume_tac >> reverse $ gvs[]
-              >- (qexists_tac ‘t1’ >> disj2_tac >> gvs []
-                  >> irule_at Any IS_PREFIX_TRANS >> first_assum (irule_at Any)
-                  >> every_case_tac >> gvs []
-                  >> imp_res_tac evaluate_io_events_mono >> gvs [dec_clock_def]
-                  >> metis_tac [IS_PREFIX_TRANS, IS_PREFIX_REFL]
-                 )
-              >> Cases_on ‘find_code dest a r.code’ >> gvs[]
-              >> Cases_on ‘x’ >> gvs[]
-              >> Cases_on ‘r.clock < ticks + 1’ >> gvs[]
-              >- (Cases_on ‘dest’ >> gvs[]
-                  >- (gvs[bvlSemTheory.find_code_def]
-                      >> Cases_on ‘LAST a’ >> gvs[]
-                      >> Cases_on ‘lookup n r.code’ >> gvs[]
-                      >> Cases_on ‘x’ >> gvs[]
-                      >> subgoal ‘∃body'. lookup n t1.code = SOME (q',body')’
-                      >- (gvs [state_rel_def, code_rel_def]
-                          >> first_x_assum $ drule_all_then assume_tac >> gvs[]
-                          >> Cases_on ‘lookup n m’ >> gvs[]
-                          >> Cases_on ‘x’ >> gvs[]
-                         )
-                      >> gvs[]
-                      >> qexists_tac ‘t1 with clock := 0’ >> disj1_tac >> simp []
-                      >> irule $ cj 1 state_rel_clock
-                      >> irule $ cj 2 state_rel_clock
-                      >> first_assum $ irule
-                     )
-                  >> drule_at_then Any assume_tac code_rel_find_code_SOME_dest >> gvs[]
-                  >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-                  >> first_x_assum $ drule_all_then assume_tac >> gvs[]
-                  >> Cases_on ‘lookup x m’ >> gvs[]
-                  >- (qexists ‘t1 with clock := 0’ >> gvs[]
-                      >> disj1_tac
-                      >> irule $ cj 1 state_rel_clock
-                      >> irule $ cj 2 state_rel_clock
-                      >> first_assum $ irule
-                     )
-                  >> Cases_on ‘x'’ >> gvs[]
-                  >> qexists ‘t1 with clock := 0’ >> gvs[]
-                  >> disj1_tac
-                  >> irule $ cj 1 state_rel_clock
-                  >> irule $ cj 2 state_rel_clock
-                  >> first_assum $ irule
-                 )
-              >> Cases_on ‘dest’ >> gvs[]
-              >- (gvs[bvlSemTheory.find_code_def]
-                  >> Cases_on ‘LAST a’ >> gvs[]
-                  >> Cases_on ‘lookup n r.code’ >> gvs[]
-                  >> Cases_on ‘x’ >> gvs[]
-                  >> subgoal ‘∃body'. lookup n t1.code = SOME (q',body')’
-                  >- (gvs [state_rel_def, code_rel_def]
-                      >> first_x_assum $ drule_all_then assume_tac >> gvs[]
-                      >> Cases_on ‘lookup n m’ >> gvs[]
-                      >> Cases_on ‘x’ >> gvs[]
-                     )
-                  >> gvs[]
-                  >> IF_CASES_TAC
-                  >- (qexists_tac ‘t1 with clock := 0’ >> disj2_tac >> gvs [state_rel_def]
-                      >> every_case_tac >> gvs []
-                      >> imp_res_tac evaluate_io_events_mono >> gvs [dec_clock_def]
-                      >> metis_tac [IS_PREFIX_TRANS, IS_PREFIX_REFL]
-                     )
+Theorem in_ns_4_add[local]:
+  in_ns_4 (n + k * bvl_to_bvi_namespaces) ⇔ in_ns_4 n
+Proof
+  assume_tac bvl_to_bvi_namespaces_pos
+  >> ‘n + k * bvl_to_bvi_namespaces = k * bvl_to_bvi_namespaces + n’ by simp[]
+  >> pop_assum SUBST1_TAC
+  >> simp[in_ns_4_def, MOD_TIMES]
+QED
 
-                  >> ‘LENGTH (FRONT a) = q'’ by gvs [LENGTH_FRONT]
-                  >> Cases_on ‘evaluate ([r'],FRONT a,dec_clock (ticks+1) r)’
-                  >> rename1 ‘_ = (res0,s0)’
-                  >> ‘res0 ≠ Rerr (Rabort Rtype_error) ∧ ∀vs. res0 ≠ Rerr (Rraise (Ret vs))’ by (every_case_tac >> gvs [])
-                  >> ‘s1' = s0’ by (every_case_tac >> gvs []) >> gvs [] 
-                  >> Cases_on ‘lookup n m’ >> gvs[]
-                  >- (subgoal ‘body' = r'’
-                      >- (‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-                          >> gvs[code_rel_def]
-                          >> first_x_assum $ drule_then assume_tac
-                          >> gvs[]
-                         )
-                      >> gvs[]
-                      >> last_x_assum $ qspecl_then [‘m’,‘dec_clock (ticks+1) t1’] mp_tac
-                      >> impl_tac >- gvs [state_rel_dec_clock, dec_clock_def]
-                      >> strip_tac >> gvs [] >> qexists_tac ‘t1'’ >> every_case_tac >> gvs []
-                     )
-                  >> Cases_on ‘x’ >> gvs[]
-                  >> ‘code_rel m r.code t1.code’ by gvs [state_rel_def]
-                  >> pop_assum $ assume_tac o SRULE[code_rel_def] >> gvs[]
-                  >> first_x_assum $ qspecl_then [‘n’,‘LENGTH (FRONT a)’,‘r'’] assume_tac >> gvs[]
-                  >> drule_all_then assume_tac $ SRULE [] return_shape_tail_ok >> gvs[]
-                  >> Cases_on ‘(dec_clock (ticks+1) t1).clock = 0’
-                  >- (qexists_tac ‘dec_clock (ticks+1) t1 with clock := 0’ >> disj2_tac
-                      >> gvs [evaluate_def, state_rel_def, dec_clock_def, make_wrapper_def]
-                      >> imp_res_tac evaluate_io_events_mono >> gvs []
-                      >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH (FRONT a)), FRONT a, t) =
-                                                       (Rval (TAKE (LENGTH (FRONT a)) (DROP 0 (FRONT a))), t)’
-                      >- (irule evaluate_genlist_vars
-                          >> gvs[]
-                         )
-                      >> pop_assum $ assume_tac o SRULE[]
-                      >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-                      >> gvs[bvlSemTheory.find_code_def]
-                     )
-                  >> first_x_assum $ qspecl_then [‘m’,‘dec_clock 1 (dec_clock (ticks+1) t1)’,‘n’,‘r''’,
-                                                  ‘return_shape m' n (LENGTH (FRONT a)) r'’] mp_tac
-                  >> impl_tac
-                  >- (gvs [state_rel_clock, dec_clock_def]
-                      >> irule tail_ok_submap
-                      >> qexists ‘m'’
-                      >> gvs[submap_def]
-                     )
-                  >> strip_tac >> Cases_on ‘res0’ >> gvs []
-                  >- (Cases_on ‘a'’ >> gvs [] >> Cases_on ‘t'’ >> gvs []
-                      >> qexists_tac ‘t1'’ >> disj1_tac
-                      >> gvs [evaluate_def, state_rel_def, dec_clock_def, make_wrapper_def]
-                      >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH (FRONT a)), FRONT a, t) =
-                                                       (Rval (TAKE (LENGTH (FRONT a)) (DROP 0 (FRONT a))), t)’
-                      >- (irule evaluate_genlist_vars
-                          >> gvs[]
-                         )
-                      >> pop_assum $ assume_tac o SRULE[]
-                      >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-                      >> gvs[bvlSemTheory.find_code_def]
-                      >> subgoal ‘worker_body m' n r'' (return_shape m' n (LENGTH (FRONT a)) r') r' =
-                                  worker_body m n r'' (return_shape m' n (LENGTH (FRONT a)) r') r'’
-                      >- (irule worker_body_submap
-                          >> gvs[submap_def]
-                         )
-                      >> gvs[]
-                      >> subgoal ‘LENGTH (flat_vals (return_shape m' n (LENGTH (FRONT a)) r') h) =
-                                  shape_width (return_shape m' n (LENGTH (FRONT a)) r')’
-                      >- gvs[flat_vals_LENGTH]
-                      >> gvs[]
-                      >> ‘evaluate
-                          ([rebuild 0 (return_shape m' n (LENGTH (FRONT a)) r')],
-                           flat_vals (return_shape m' n (LENGTH (FRONT a)) r') h ++
-                           FRONT a,t1') = (Rval [h],t1')’ suffices_by rw[]
-                      >> irule $ cj 1 evaluate_rebuild
-                      >> gvs[TAKE_APPEND1]
-                     )
-                  >- (Cases_on ‘e’ >> gvs[]
-                      >- (Cases_on ‘a'’ >> gvs[]
-                          >> qexists_tac ‘t1'’ >> disj1_tac
-                          >> gvs [evaluate_def, state_rel_def, dec_clock_def, make_wrapper_def]
-                          >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH (FRONT a)), FRONT a, t) =
-                                                           (Rval (TAKE (LENGTH (FRONT a)) (DROP 0 (FRONT a))), t)’
-                          >- (irule evaluate_genlist_vars
-                              >> gvs[]
-                             )
-                          >> pop_assum $ assume_tac o SRULE[]
-                          >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-                          >> gvs[bvlSemTheory.find_code_def]
-                          >> subgoal ‘worker_body m' n r'' (return_shape m' n (LENGTH (FRONT a)) r') r' =
-                                      worker_body m n r'' (return_shape m' n (LENGTH (FRONT a)) r') r'’
-                          >- (irule worker_body_submap
-                              >> gvs[submap_def]
-                             )
-                          >> gvs [evaluate_def, state_rel_def, dec_clock_def, make_wrapper_def]
-                         )
-                      >> qexists_tac ‘t1'’ >> disj1_tac
-                      >> gvs [evaluate_def, state_rel_def, dec_clock_def, make_wrapper_def]
-                      >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH (FRONT a)), FRONT a, t) =
-                                                       (Rval (TAKE (LENGTH (FRONT a)) (DROP 0 (FRONT a))), t)’
-                      >- (irule evaluate_genlist_vars
-                          >> gvs[]
-                         )
-                      >> pop_assum $ assume_tac o SRULE[]
-                      >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-                      >> gvs[bvlSemTheory.find_code_def]
-                      >> subgoal ‘worker_body m' n r'' (return_shape m' n (LENGTH (FRONT a)) r') r' =
-                                  worker_body m n r'' (return_shape m' n (LENGTH (FRONT a)) r') r'’
-                      >- (irule worker_body_submap
-                          >> gvs[submap_def]
-                         )
-                      >> gvs [evaluate_def, state_rel_def, dec_clock_def, make_wrapper_def]
-                     )
-                  >> (qexists_tac ‘t1'’ >> disj2_tac
-                      >> gvs[evaluate_def, make_wrapper_def]
-                      >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH (FRONT a)), FRONT a, t) =
-                                                       (Rval (TAKE (LENGTH (FRONT a)) (DROP 0 (FRONT a))), t)’
-                      >- (irule evaluate_genlist_vars
-                          >> gvs[]
-                         )
-                      >> pop_assum $ assume_tac o SRULE[]
-                      >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-                      >> gvs[bvlSemTheory.find_code_def]
-                      >> subgoal ‘worker_body m' n r'' (return_shape m' n (LENGTH (FRONT a)) r') r' =
-                                  worker_body m n r'' (return_shape m' n (LENGTH (FRONT a)) r') r'’
-                      >- (irule worker_body_submap
-                          >> gvs[submap_def]
-                         )
-                      >> gvs [evaluate_def, state_rel_def, dec_clock_def, make_wrapper_def])
-                 )
-              >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-              >> drule_all_then assume_tac code_rel_find_code_SOME_dest >> gvs[]
-              >> Cases_on ‘lookup x m’ >> gvs[]
-              >- (Cases_on ‘evaluate ([r'],a,dec_clock (ticks + 1) r)’ >> gvs[]
-                  >> Cases_on ‘q’ >> gvs[]
-                  >- (IF_CASES_TAC >> gvs[]
-                      >- (‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                          >> qspecl_then [‘[r']’,‘a’,‘dec_clock (ticks + 1) r’] mp_tac
-                                      bviPropsTheory.evaluate_io_events_mono
-                          >> gvs [dec_clock_def]
-                         )
-                      >> last_x_assum $ qspecl_then [‘m’, ‘dec_clock (ticks + 1) t1’] mp_tac
-                      >> impl_tac >- gvs[state_rel_def, dec_clock_def, oracle_free_def]
-                      >> strip_tac >> gvs[]
-                     )
-                  >> Cases_on ‘e’ >> gvs[]
-                  >- (Cases_on ‘a'’ >> gvs[]
-                      >> Cases_on ‘handler’ >> gvs[]
-                      >- (IF_CASES_TAC >> gvs[]
-                          >- (‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                              >> qspecl_then [‘[r']’,‘a’,‘dec_clock (ticks + 1) r’] mp_tac
-                                             bviPropsTheory.evaluate_io_events_mono
-                              >> gvs [dec_clock_def]
-                             )
-                          >> last_x_assum $ qspecl_then [‘m’, ‘dec_clock (ticks + 1) t1’] mp_tac
-                          >> impl_tac >- gvs[state_rel_def, dec_clock_def, oracle_free_def]
-                          >> strip_tac >> gvs[]
-                         )
-                      >> Cases_on ‘evaluate ([x'],v::env,r'')’ >> gvs[]
-                      >> Cases_on ‘q’ >> gvs[]
-                      >- (IF_CASES_TAC >> gvs[]
-                          >- (‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                              >> qspecl_then [‘[r']’,‘a’,‘dec_clock (ticks + 1) r’] mp_tac
-                                             bviPropsTheory.evaluate_io_events_mono
-                              >> gvs[dec_clock_def]
-                              >> drule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                              >> metis_tac[isPREFIX_TRANS]
-                             )
-                          >> qpat_x_assum ‘∀_ _. _ ∧ _ ⇒ _’ $ qspecl_then [‘m’, ‘dec_clock (ticks + 1) t1’] mp_tac
-                          >> impl_tac >- gvs[state_rel_def, dec_clock_def, oracle_free_def]
-                          >> strip_tac >> gvs[]
-                          >- (last_x_assum $ qspecl_then [‘m’, ‘t1'’] mp_tac
-                              >> impl_tac >- gvs[state_rel_def, dec_clock_def, oracle_free_def]
-                              >> strip_tac >> gvs[]
-                             )
-                          >> irule isPREFIX_TRANS
-                          >> first_assum $ irule_at Any
-                          >> irule bviPropsTheory.evaluate_io_events_mono
-                          >> metis_tac[]
-                         )
-                      >> Cases_on ‘e’ >> gvs[]
-                      >- (Cases_on ‘a'’ >> gvs[]
-                          >> IF_CASES_TAC >> gvs[]
-                          >- (‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                              >> qspecl_then [‘[r']’,‘a’,‘dec_clock (ticks + 1) r’] mp_tac
-                                             bviPropsTheory.evaluate_io_events_mono
-                              >> gvs[dec_clock_def]
-                              >> drule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                              >> metis_tac[isPREFIX_TRANS]
-                             )
-                          >> qpat_x_assum ‘∀_ _. _ ∧ _ ⇒ _’ $ qspecl_then [‘m’, ‘dec_clock (ticks + 1) t1’] mp_tac
-                          >> impl_tac >- gvs[state_rel_def, dec_clock_def, oracle_free_def]
-                          >> strip_tac >> gvs[]
-                          >- (last_x_assum $ qspecl_then [‘m’, ‘t1'’] mp_tac
-                              >> impl_tac >- gvs[state_rel_def, dec_clock_def, oracle_free_def]
-                              >> strip_tac >> gvs[]
-                             )
-                          >> irule isPREFIX_TRANS
-                          >> first_assum $ irule_at Any
-                          >> irule bviPropsTheory.evaluate_io_events_mono
-                          >> metis_tac[]
-                         )
-                      >> IF_CASES_TAC
-                      >- (qexists_tac ‘t1 with clock := 0’ >> gvs[]
-                          >> disj2_tac
-                          >> dxrule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                          >> dxrule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                          >> ‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                          >> gvs[dec_clock_def]
-                          >> metis_tac[isPREFIX_TRANS]
-                         )
-                      >> qpat_x_assum ‘∀m' t'. state_rel m' (dec_clock (ticks + 1) r) t' ∧ _ ⇒ _’
-                                      (qspecl_then [‘m’,‘dec_clock (ticks + 1) t1’] mp_tac)
-                      >> impl_tac >- gvs [state_rel_clock, dec_clock_def]
-                      >> strip_tac
-                      >- (gvs[]
-                          >> qpat_x_assum ‘∀m' t'. state_rel m' r'' t' ∧ _ ⇒ _’
-                                          (qspecl_then [‘m’,‘t1'’] mp_tac)
-                          >> impl_tac >- gvs []
-                          >> strip_tac
-                          >- (qexists_tac ‘t1''’ >> disj1_tac >> gvs []
-                             )
-                          >> qexists_tac ‘t1''’ >> disj2_tac >> gvs [] >>
-                          disj2_tac >> gvs[state_rel_def, dec_clock_def]
-                          >> imp_res_tac evaluate_io_events_mono
-                          >> gvs[]
-                          >> metis_tac[IS_PREFIX_TRANS, IS_PREFIX_REFL]
-                         )
-                      >> gvs [] >> qexists_tac ‘t1'’ >> disj2_tac >> gvs []
-                      >> irule isPREFIX_TRANS
-                      >> first_assum $ irule_at Any
-                      >> irule bviPropsTheory.evaluate_io_events_mono
-                      >> metis_tac[]
-                     )
-                  >> IF_CASES_TAC >> gvs[]
-                  >- (qexists_tac ‘t1 with clock := 0’ >> gvs[]
-                      >> disj2_tac
-                      >> dxrule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                      >> dxrule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                      >> ‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                      >> gvs[dec_clock_def]
-                      >> metis_tac[isPREFIX_TRANS]
-                     )
-                  >> last_x_assum $ qspecl_then [‘m’, ‘dec_clock (ticks + 1) t1’] mp_tac
-                  >> impl_tac >- gvs[state_rel_def, dec_clock_def, oracle_free_def]
-                  >> strip_tac >> gvs[]
-                  >- metis_tac[]
-                  >> metis_tac[]
-                 )
-              >> Cases_on ‘x'’ >> gvs[]
-              >> Cases_on ‘evaluate ([r'],a,dec_clock (ticks + 1) r)’ >> gvs[]
-              >> Cases_on ‘q'’ >> gvs[]
-              >- (IF_CASES_TAC >> gvs[]
-                  >- (‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                      >> qspecl_then [‘[r']’,‘a’,‘dec_clock (ticks + 1) r’] mp_tac
-                                     bviPropsTheory.evaluate_io_events_mono
-                      >> gvs [dec_clock_def]
-                     )
-                  >> gvs[evaluate_def, make_wrapper_def]
-                  >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH a), a, t) =
-                                                   (Rval (TAKE (LENGTH a) (DROP 0 a)), t)’
-                  >- (irule evaluate_genlist_vars
-                      >> gvs[]
-                     )
-                  >> pop_assum $ assume_tac o SRULE[]
-                  >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-                  >> rw[bvlSemTheory.find_code_def, dec_clock_def]
-                  >- (irule isPREFIX_TRANS
-                      >> irule_at (Pos last) bviPropsTheory.evaluate_io_events_mono
-                      >> last_assum $ irule_at (Pos hd)
-                      >> rw[dec_clock_def]
-                      >> ‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                      >> gvs[]
-                     )
-                  >> assume_tac evaluate_LENGTH
-                  >> pop_assum $ qspecl_then [‘[r']’, ‘a’, ‘dec_clock (ticks + 1) r’] assume_tac >> gvs[]
-                  >> Cases_on ‘a'’ >> gvs[]
-                  >> ‘state_rel m (dec_clock (ticks + 1) r) (t1 with clock := t1.clock − (ticks + 2))’
-                    by gvs[dec_clock_def, state_rel_clock]
-                  >> ‘t1.clock ≤ ticks + ((dec_clock (ticks + 1) r).clock + 2)’ by gvs[dec_clock_def]
-                  >> first_x_assum $ drule_then assume_tac >> gvs[]
-                  >> pop_assum $ drule_all_then assume_tac >> gvs[]
-                  >> ‘LENGTH (flat_vals q h) = shape_width q’ by rw[flat_vals_LENGTH]
-                  >> gvs[]
-                  >> ‘evaluate ([rebuild 0 q],flat_vals q h ++ a,t1') = (Rval [h],t1')’ suffices_by rw[]
-                  >> irule $ cj 1 evaluate_rebuild
-                  >> gvs[TAKE_APPEND1]
-                 )
-              >> Cases_on ‘e’ >> gvs[]
-              >- (Cases_on ‘a'’ >> gvs[]
-                  >> Cases_on ‘handler’ >> gvs[]
-                  >- (IF_CASES_TAC >> gvs[]
-                      >- (‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                          >> qspecl_then [‘[r']’,‘a’,‘dec_clock (ticks + 1) r’] mp_tac
-                                         bviPropsTheory.evaluate_io_events_mono
-                          >> gvs [dec_clock_def]
-                         )
-                      >> gvs[evaluate_def, make_wrapper_def]
-                      >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH a), a, t) =
-                                                       (Rval (TAKE (LENGTH a) (DROP 0 a)), t)’
-                      >- (irule evaluate_genlist_vars
-                          >> gvs[]
-                         )
-                      >> pop_assum $ assume_tac o SRULE[]
-                      >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-                      >> rw[bvlSemTheory.find_code_def, dec_clock_def]
-                      >- (irule isPREFIX_TRANS
-                          >> irule_at (Pos last) bviPropsTheory.evaluate_io_events_mono
-                          >> last_assum $ irule_at (Pos hd)
-                          >> rw[dec_clock_def]
-                          >> ‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                          >> gvs[]
-                         )
-                      >> ‘state_rel m (dec_clock (ticks + 1) r) (t1 with clock := t1.clock − (ticks + 2))’
-                        by gvs[dec_clock_def, state_rel_clock]
-                      >> ‘t1.clock ≤ ticks + ((dec_clock (ticks + 1) r).clock + 2)’ by gvs[dec_clock_def]
-                      >> first_x_assum $ drule_then assume_tac >> gvs[]
-                      >> pop_assum $ drule_all_then assume_tac >> gvs[]
-                     )
-                  >> Cases_on ‘evaluate ([x'],v::env,r'³')’ >> gvs[]
-                  >> Cases_on ‘q'’ >> gvs[]
-                  >- (IF_CASES_TAC >> gvs[]
-                      >- (irule isPREFIX_TRANS
-                          >> irule_at (Pos last) bviPropsTheory.evaluate_io_events_mono
-                          >> last_assum $ irule_at (Pos hd)
-                          >> irule isPREFIX_TRANS
-                          >> irule_at (Pos last) bviPropsTheory.evaluate_io_events_mono
-                          >> last_assum $ irule_at (Pos hd)
-                          >> rw[dec_clock_def]
-                          >> ‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                          >> gvs[]
-                         )
-                      >> gvs[evaluate_def, make_wrapper_def]
-                      >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH a), a, t) =
-                                                       (Rval (TAKE (LENGTH a) (DROP 0 a)), t)’
-                      >- (irule evaluate_genlist_vars
-                          >> gvs[]
-                         )
-                      >> pop_assum $ assume_tac o SRULE[]
-                      >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-                      >> rw[bvlSemTheory.find_code_def]
-                      >- (irule isPREFIX_TRANS
-                          >> irule_at (Pos last) bviPropsTheory.evaluate_io_events_mono
-                          >> last_assum $ irule_at (Pos hd)
-                          >> irule isPREFIX_TRANS
-                          >> irule_at (Pos last) bviPropsTheory.evaluate_io_events_mono
-                          >> last_assum $ irule_at (Pos hd)
-                          >> rw[dec_clock_def]
-                          >> ‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                          >> gvs[]
-                         )
-                      >> assume_tac evaluate_LENGTH
-                      >> pop_assum $ qspecl_then [‘[x']’, ‘v::env’, ‘r'''’] assume_tac >> gvs[]
-                      >> Cases_on ‘a'’ >> gvs[]
-                      >> ‘state_rel m (dec_clock (ticks + 1) r) (dec_clock 1 (dec_clock (ticks + 1) t1))’
-                        by gvs[dec_clock_def, state_rel_clock]
-                      >> ‘(dec_clock 1 (dec_clock (ticks + 1) t1)).clock ≤ (dec_clock (ticks + 1) r).clock’ by gvs[dec_clock_def]
-                      >> first_x_assum $ drule_all_then assume_tac >> gvs[]
-                      >- (last_x_assum $ drule_all_then assume_tac >> gvs[]
-                         )
-                      >> irule isPREFIX_TRANS
-                      >> irule_at (Pos last) bviPropsTheory.evaluate_io_events_mono
-                      >> last_assum $ irule_at (Pos hd)
-                      >> gvs[]
-                     )
-                  >> Cases_on ‘e’ >> gvs[]
-                  >- (Cases_on ‘a'’ >> gvs[]
-                      >> IF_CASES_TAC >> gvs[]
-                      >- (irule isPREFIX_TRANS
-                          >> irule_at (Pos last) bviPropsTheory.evaluate_io_events_mono
-                          >> last_assum $ irule_at (Pos hd)
-                          >> irule isPREFIX_TRANS
-                          >> irule_at (Pos last) bviPropsTheory.evaluate_io_events_mono
-                          >> last_assum $ irule_at (Pos hd)
-                          >> rw[dec_clock_def]
-                          >> ‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                          >> gvs[]
-                         )
-                      >> gvs[evaluate_def, make_wrapper_def]
-                      >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH a), a, t) =
-                                                       (Rval (TAKE (LENGTH a) (DROP 0 a)), t)’
-                      >- (irule evaluate_genlist_vars
-                          >> gvs[]
-                         )
-                      >> pop_assum $ assume_tac o SRULE[]
-                      >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-                      >> rw[bvlSemTheory.find_code_def]
-                      >- (irule isPREFIX_TRANS
-                          >> irule_at (Pos last) bviPropsTheory.evaluate_io_events_mono
-                          >> last_assum $ irule_at (Pos hd)
-                          >> irule isPREFIX_TRANS
-                          >> irule_at (Pos last) bviPropsTheory.evaluate_io_events_mono
-                          >> last_assum $ irule_at (Pos hd)
-                          >> rw[dec_clock_def]
-                          >> ‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                          >> gvs[]
-                         )
-                      >> ‘state_rel m (dec_clock (ticks + 1) r) (dec_clock 1 (dec_clock (ticks + 1) t1))’
-                        by gvs[dec_clock_def, state_rel_clock]
-                      >> ‘(dec_clock 1 (dec_clock (ticks + 1) t1)).clock ≤ (dec_clock (ticks + 1) r).clock’ by gvs[dec_clock_def]
-                      >> first_x_assum $ drule_all_then assume_tac >> gvs[]
-                      >- (last_x_assum $ drule_all_then assume_tac >> gvs[]
-                         )
-                      >> irule isPREFIX_TRANS
-                      >> irule_at (Pos last) bviPropsTheory.evaluate_io_events_mono
-                      >> last_assum $ irule_at (Pos hd)
-                      >> gvs[]
-                     )
-                  >> Cases_on ‘a'’ >> gvs[]
-                  >- (IF_CASES_TAC >> gvs[]
-                      >- (qexists_tac ‘t1 with clock := 0’ >> gvs[]
-                          >> disj2_tac
-                          >> dxrule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                          >> dxrule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                          >> ‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                          >> gvs[dec_clock_def]
-                          >> metis_tac[isPREFIX_TRANS]
-                         )
-                      >> gvs[evaluate_def, make_wrapper_def]
-                      >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH a), a, t) =
-                                                       (Rval (TAKE (LENGTH a) (DROP 0 a)), t)’
-                      >- (irule evaluate_genlist_vars
-                          >> gvs[]
-                         )
-                      >> pop_assum $ assume_tac o SRULE[]
-                      >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-                      >> rw[bvlSemTheory.find_code_def, dec_clock_def]
-                      >- (qexists_tac ‘t1 with clock := 0’ >> gvs[]
-                          >> disj2_tac
-                          >> dxrule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                          >> dxrule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                          >> ‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                          >> gvs[dec_clock_def]
-                          >> metis_tac[isPREFIX_TRANS]
-                         )
-                      >> ‘state_rel m (dec_clock (ticks + 1) r) (t1 with clock := t1.clock − (ticks + 2))’
-                        by gvs[dec_clock_def, state_rel_clock]
-                      >> ‘(t1 with clock := t1.clock − (ticks + 2)).clock ≤ (dec_clock (ticks + 1) r).clock’ by gvs[dec_clock_def]
-                      >> first_x_assum $ drule_all_then assume_tac >> gvs[]
-                      >- (last_x_assum $ drule_all_then assume_tac >> gvs[]
-                          >> metis_tac[]
-                         )
-                      >> qexists ‘t1'’ >> disj2_tac >> gvs[]
-                      >> irule isPREFIX_TRANS
-                      >> irule_at (Pos last) bviPropsTheory.evaluate_io_events_mono
-                      >> last_assum $ irule_at (Pos hd)
-                      >> gvs[]
-                     )
-                  >> IF_CASES_TAC >> gvs[]
-                  >- (dxrule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                      >> dxrule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                      >> ‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                      >> gvs[dec_clock_def]
-                      >> metis_tac[isPREFIX_TRANS]
-                     )
-                  >> gvs[evaluate_def, make_wrapper_def]
-                  >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH a), a, t) =
-                                                   (Rval (TAKE (LENGTH a) (DROP 0 a)), t)’
-                  >- (irule evaluate_genlist_vars
-                      >> gvs[]
-                     )
-                  >> pop_assum $ assume_tac o SRULE[]
-                  >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-                  >> rw[bvlSemTheory.find_code_def, dec_clock_def]
-                  >- (dxrule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                      >> dxrule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                      >> ‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                      >> gvs[dec_clock_def]
-                      >> metis_tac[isPREFIX_TRANS]
-                     )
-                     
-                  >> ‘state_rel m (dec_clock (ticks + 1) r) (t1 with clock := t1.clock − (ticks + 2))’
-                    by gvs[dec_clock_def, state_rel_clock]
-                  >> ‘(t1 with clock := t1.clock − (ticks + 2)).clock ≤ (dec_clock (ticks + 1) r).clock’ by gvs[dec_clock_def]
-                  >> first_x_assum $ drule_all_then assume_tac >> gvs[]
-                  >- (last_x_assum $ drule_all_then assume_tac >> gvs[]
-                     )
-                  >> irule isPREFIX_TRANS
-                  >> irule_at (Pos last) bviPropsTheory.evaluate_io_events_mono
-                  >> last_assum $ irule_at (Pos hd)
-                  >> gvs[]
-                 )
-              >> Cases_on ‘a'’ >> gvs[]
-              >- (IF_CASES_TAC >> gvs[]
-                  >- (qexists_tac ‘t1 with clock := 0’ >> gvs[]
-                      >> disj2_tac
-                      >> dxrule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                      >> dxrule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                      >> ‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                      >> gvs[dec_clock_def]
-                      >> metis_tac[isPREFIX_TRANS]
-                     )
-                  >> gvs[evaluate_def, make_wrapper_def]
-                  >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH a), a, t) =
-                                                   (Rval (TAKE (LENGTH a) (DROP 0 a)), t)’
-                  >- (irule evaluate_genlist_vars
-                      >> gvs[]
-                     )
-                  >> pop_assum $ assume_tac o SRULE[]
-                  >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-                  >> rw[bvlSemTheory.find_code_def, dec_clock_def]
-                  >- (qexists_tac ‘t1 with clock := 0’ >> gvs[]
-                      >> disj2_tac
-                      >> dxrule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                      >> dxrule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                      >> ‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                      >> gvs[dec_clock_def]
-                      >> metis_tac[isPREFIX_TRANS]
-                     )
-                  >> ‘state_rel m (dec_clock (ticks + 1) r) (t1 with clock := t1.clock − (ticks + 2))’
-                    by gvs[dec_clock_def, state_rel_clock]
-                  >> ‘(t1 with clock := t1.clock − (ticks + 2)).clock ≤ (dec_clock (ticks + 1) r).clock’ by gvs[dec_clock_def]
-                  >> first_x_assum $ drule_all_then assume_tac >> gvs[]
-                  >> metis_tac[]
-                 )
-              >> IF_CASES_TAC >> gvs[]
-              >- (dxrule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                  >> dxrule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                  >> ‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                  >> gvs[dec_clock_def]
-                  >> metis_tac[isPREFIX_TRANS]
-                 )
-              >> gvs[evaluate_def, make_wrapper_def]
-              >> subgoal ‘∀(t:('a, 'b) state). evaluate (GENLIST (λarg. Var (arg + 0)) (LENGTH a), a, t) =
-                                               (Rval (TAKE (LENGTH a) (DROP 0 a)), t)’
-              >- (irule evaluate_genlist_vars
-                  >> gvs[]
-                 )
-              >> pop_assum $ assume_tac o SRULE[]
-              >> pop_assum $ assume_tac o (CONV_RULE $ DEPTH_CONV ETA_CONV)
-              >> rw[bvlSemTheory.find_code_def, dec_clock_def]
-              >- (dxrule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                  >> dxrule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                  >> ‘t1.ffi = r.ffi’ by gvs [state_rel_def]
-                  >> gvs[dec_clock_def]
-                  >> metis_tac[isPREFIX_TRANS]
-                 )
-              >> ‘state_rel m (dec_clock (ticks + 1) r) (t1 with clock := t1.clock − (ticks + 2))’
-                by gvs[dec_clock_def, state_rel_clock]
-              >> ‘(t1 with clock := t1.clock − (ticks + 2)).clock ≤ (dec_clock (ticks + 1) r).clock’ by gvs[dec_clock_def]
-              >> first_x_assum $ drule_all_then assume_tac >> gvs[]
-             )
-          >> last_x_assum $ drule_all_then assume_tac >> gvs[]
-          >> metis_tac[]
-         )
-                
-      >> Cases_on ‘handler’ >> Cases_on ‘dest’
-      >> gvs[tail_ok_def, tail_form_def, split_ok_def, shape_width_def, no_ret_def]
-      >> rename1 ‘Call ticks (SOME d) xs NONE’
-      >> ‘∃wk'. lookup d m = SOME (sh,wk') ∧
-                worker_body m f wk sh (Call ticks (SOME d) xs NONE) =
-                  TailCall (shape_width sh) ticks wk' xs’
-           by (gvs[worker_body_def] >> IF_CASES_TAC >> gvs[]
-               >> every_case_tac >> gvs[])
-      >> gvs[]
-      >- (Cases_on ‘evaluate (xs,env,s1)’ >> gvs[]
-          >> reverse $ Cases_on ‘q’ >> gvs[]
-          >- (last_x_assum $ drule_all_then assume_tac >> gvs[]
-              >> rw[evaluate_def, worker_body_def]
-              >> metis_tac[]
-             )
-          >> first_x_assum $ drule_all_then assume_tac >> reverse $ gvs[]
-          >- (Cases_on ‘find_code (SOME d) a r.code’ >> gvs[]
-              >> Cases_on ‘x’ >> gvs[]
-              >> Cases_on ‘r.clock < ticks + 1’ >> gvs[]
-              >- (qexists ‘t1’ >> disj2_tac >> rw[evaluate_def, worker_body_def]
-                 )
-              >> Cases_on ‘evaluate ([r'],q,dec_clock (ticks + 1) r)’ >> gvs[]
-              >> Cases_on ‘q'’ >> gvs[]
-              >- (qexists ‘t1’ >> disj2_tac >> rw[evaluate_def, worker_body_def]
-                  >> irule isPREFIX_TRANS
-                  >> first_assum $ irule_at (Pos hd)
-                  >> drule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                  >> gvs[dec_clock_def]
-                 )
-              >> Cases_on ‘e’ >> gvs[]
-              >- (Cases_on ‘a'’ >> gvs[]
-                  >> qexists ‘t1’ >> disj2_tac >> rw[evaluate_def, worker_body_def]
-                  >> irule isPREFIX_TRANS
-                  >> first_assum $ irule_at (Pos hd)
-                  >> drule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                  >> gvs[dec_clock_def]
-                 )
-              >> qexists ‘t1’ >> disj2_tac >> rw[evaluate_def, worker_body_def]
-              >> irule isPREFIX_TRANS
-              >> first_assum $ irule_at (Pos hd)
-              >> drule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-              >> gvs[dec_clock_def]
-             )
-          >> Cases_on ‘find_code (SOME d) a r.code’ >> gvs[]
-          >> PairCases_on ‘x’ >> gvs[]
-          >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-          >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest >> gvs[]
-          >> gvs[worker_body_def]
-          >> Cases_on ‘r.clock < ticks + 1’ >> gvs[]
-          >- (qexists ‘t1 with clock := 0’ >> disj1_tac
-              >> gvs[evaluate_def, bvlSemTheory.find_code_def]
-              >> irule $ cj 1 state_rel_clock >> irule $ cj 2 state_rel_clock
-              >> first_assum $ irule
-             )
-
-          >> Cases_on ‘evaluate ([x1],a,dec_clock (ticks + 1) r)’ >> gvs[]
-          >> rename1 ‘_ = (res0,s0)’
-          >> ‘res = res0 ∧ s1' = s0 ∧ res0 ≠ Rerr (Rabort Rtype_error) ∧
-              ∀rvs. res0 ≠ Rerr (Rraise (Ret rvs))’
-            by (every_case_tac >> gvs[]
-               )
-          >> gvs[]
-          >> Cases_on ‘t1.clock < ticks + 1’
-          >- (qexists ‘t1 with clock := 0’ >> disj2_tac
-              >> gvs[evaluate_def, bvlSemTheory.find_code_def]
-              >> irule lag_events >> gvs[state_rel_def, dec_clock_def]
-              >> first_assum $ irule_at Any >> gvs[state_accessors]
-             )
-          >> first_x_assum $ qspecl_then
-                           [‘m’,‘dec_clock (ticks + 1) t1’,‘d’,‘wk’,‘sh’] mp_tac
-          >> impl_tac
-          >- (irule_at Any state_rel_dec_clock >> gvs[dec_clock_def])
-          >> strip_tac
-          >- (Cases_on ‘res’ >> gvs[]
-              >- (Cases_on ‘a'’ >> gvs[] >> Cases_on ‘t'’ >> gvs[]
-                  >> qexists ‘t1'’ >> disj1_tac >> gvs[]
-                  >> irule_at Any evaluate_TailCall
-                  >> irule_at Any (cj 1 flat_vals_LENGTH)
-                  >> gvs[bvlSemTheory.find_code_def, dec_clock_def]
-                  >> metis_tac[]
-                 )
-              >> qexists ‘t1'’ >> disj1_tac >> gvs[]
-              >> irule evaluate_TailCall_err
-              >> gvs[bvlSemTheory.find_code_def, dec_clock_def]
-              >> metis_tac[]
-             )
-          >> qexists ‘t1'’ >> disj2_tac >> gvs[]
-          >> irule_at Any evaluate_TailCall_err
-          >> gvs[bvlSemTheory.find_code_def, dec_clock_def]
-          >> metis_tac[]
-             
-         )
-                
-      >> Cases_on ‘evaluate (xs,env,s1)’ >> gvs[]
-      >> reverse $ Cases_on ‘q’ >> gvs[]
-      >- (last_x_assum $ drule_all_then assume_tac >> gvs[]
-          >> rw[evaluate_def, worker_body_def]
-          >> metis_tac[]
-         )
-      >> first_x_assum $ drule_all_then assume_tac >> reverse $ gvs[]
-      >- (Cases_on ‘find_code (SOME d) a r.code’ >> gvs[]
-          >> Cases_on ‘x’ >> gvs[]
-          >> Cases_on ‘r.clock < ticks + 1’ >> gvs[]
-          >- (qexists ‘t1’ >> disj2_tac >> rw[evaluate_def, worker_body_def]
-             )
-          >> Cases_on ‘evaluate ([r'],q,dec_clock (ticks + 1) r)’ >> gvs[]
-          >> Cases_on ‘q'’ >> gvs[]
-          >- (qexists ‘t1’ >> disj2_tac >> rw[evaluate_def, worker_body_def]
-              >> irule isPREFIX_TRANS
-              >> first_assum $ irule_at (Pos hd)
-              >> drule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-              >> gvs[dec_clock_def]
-             )
-          >> Cases_on ‘e’ >> gvs[]
-          >- (Cases_on ‘a'’ >> gvs[]
-              >> qexists ‘t1’ >> disj2_tac >> rw[evaluate_def, worker_body_def]
-              >> irule isPREFIX_TRANS
-              >> first_assum $ irule_at (Pos hd)
-              >> drule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-              >> gvs[dec_clock_def]
-             )
-          >> qexists ‘t1’ >> disj2_tac >> rw[evaluate_def, worker_body_def]
-          >> irule isPREFIX_TRANS
-          >> first_assum $ irule_at (Pos hd)
-          >> drule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-          >> gvs[dec_clock_def]
-         )
-      >> Cases_on ‘find_code (SOME d) a r.code’ >> gvs[]
-      >> PairCases_on ‘x’ >> gvs[]
-      >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-      >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest >> gvs[]
-      >> gvs[worker_body_def]
-      >> Cases_on ‘r.clock < ticks + 1’ >> gvs[]
-      >- (qexists ‘t1 with clock := 0’ >> disj1_tac
-          >> gvs[evaluate_def, bvlSemTheory.find_code_def]
-          >> irule $ cj 1 state_rel_clock >> irule $ cj 2 state_rel_clock
-          >> first_assum $ irule
-         )
-
-      >> Cases_on ‘evaluate ([x1],a,dec_clock (ticks + 1) r)’ >> gvs[]
-      >> rename1 ‘_ = (res0,s0)’
-      >> ‘res = res0 ∧ s1' = s0 ∧ res0 ≠ Rerr (Rabort Rtype_error) ∧
-          ∀rvs. res0 ≠ Rerr (Rraise (Ret rvs))’
-        by (every_case_tac >> gvs[]
-           )
-      >> gvs[]
-      >> Cases_on ‘t1.clock < ticks + 1’
-      >- (qexists ‘t1 with clock := 0’ >> disj2_tac
-          >> gvs[evaluate_def, bvlSemTheory.find_code_def]
-          >> irule lag_events >> gvs[state_rel_def, dec_clock_def]
-          >> first_assum $ irule_at Any >> gvs[state_accessors]
-         )
-
-      >> qpat_x_assum ‘∀m' t' f' wk' sh'. _ ∧ _ ∧ _ ∧ _ ∧ tail_ok _ _ _ x1 ⇒ _’ $
-                      qspecl_then [‘m’,‘dec_clock (ticks + 1) t1’,‘d’,‘dwk’,‘sh’] mp_tac
-      >> impl_tac
-      >- (conj_tac
-          >- (irule state_rel_dec_clock >> gvs[])
-          >> gvs[dec_clock_def])
-      >> strip_tac
-
-      >- (Cases_on ‘res’ >> gvs[]
-          >- (rename1 ‘Rval vs’ >> Cases_on ‘vs’ >> gvs[]
-              >> rename1 ‘Rval (v::vs)’ >> Cases_on ‘vs’ >> gvs[]
-              >> qexists ‘t1'’ >> disj1_tac >> gvs[]
-              >> irule_at Any evaluate_TailCall
-              >> irule_at Any (cj 1 flat_vals_LENGTH)
-              >> gvs[bvlSemTheory.find_code_def, dec_clock_def]
-              >> metis_tac[])
-          >> qexists ‘t1'’ >> disj1_tac >> gvs[]
-          >> irule evaluate_TailCall_err
-          >> gvs[bvlSemTheory.find_code_def, dec_clock_def]
-          >> metis_tac[]
-          )
-
-      >> qexists ‘t1'’ >> disj2_tac >> gvs[]
-      >> irule_at Any evaluate_TailCall_err
-      >> gvs[bvlSemTheory.find_code_def, dec_clock_def]
-      >> metis_tac[]             
-     )
-
-        
-  >> rw[evaluate_def]
-  >- (Cases_on ‘evaluate (xs,env,s1)’ >> gvs[]
-      >> reverse $ Cases_on ‘q’ >> gvs[]
-      >- (first_x_assum $ drule_all_then assume_tac >> gvs[] >> metis_tac[]
-         )
-      >> first_x_assum $ drule_all_then assume_tac >> reverse $ gvs[]
-      >- (Cases_on ‘find_code (SOME dest) a r.code’ >> gvs[]
-          >> PairCases_on ‘x’ >> gvs[]
-          >> Cases_on ‘r.clock < ticks + 1’ >> gvs[]
-          >- metis_tac[state_rel_clock]
-          >> Cases_on ‘evaluate ([x1],x0,dec_clock (ticks + 1) r)’ >> gvs[]
-          >> Cases_on ‘q’ >> gvs[]
-          >> Cases_on ‘e’ >> gvs[]
-          >- (Cases_on ‘a'’ >> gvs[]
-              >- (irule isPREFIX_TRANS
-                  >> first_assum $ irule_at Any
-                  >> drule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                  >> gvs[dec_clock_def]
-                 )
-              >> Cases_on ‘LENGTH l = rets’ >> gvs[]
-              >> qexists ‘t1’ >> disj2_tac >> gvs[]
-              >> irule isPREFIX_TRANS
-              >> first_assum $ irule_at Any
-              >> drule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-              >> gvs[dec_clock_def]
-              >> irule isPREFIX_TRANS
-              >> first_assum $ irule_at Any
-              >> irule bviPropsTheory.evaluate_io_events_mono
-              >> metis_tac[]
-             )
-          >> qexists ‘t1’ >> disj2_tac >> gvs[]
-          >> irule isPREFIX_TRANS
-          >> first_assum $ irule_at Any
-          >> drule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-          >> gvs[dec_clock_def]
-         )
-         
-      >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-      >> Cases_on ‘find_code (SOME dest) a r.code’ >> gvs[]
-      >> PairCases_on ‘x’ >> gvs[]
-      >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest >> gvs[]
-      >> Cases_on ‘r.clock < ticks + 1’ >> gvs[]
-      >- (Cases_on ‘lookup dest m’ >> gvs[]
-          >- (qexists ‘t1 with clock := 0’ >> disj1_tac >> gvs[]
-              >> irule $ cj 1 state_rel_clock >> irule $ cj 2 state_rel_clock
-              >> first_assum $ irule)
-          >> PairCases_on ‘x’ >> gvs[]
-          >> qexists ‘t1 with clock := 0’ >> disj1_tac
-          >> gvs[make_wrapper_def, evaluate_def, bvlSemTheory.find_code_def]
-          >> irule $ cj 1 state_rel_clock >> irule $ cj 2 state_rel_clock
-          >> first_assum $ irule
-         )
-         
-      >> Cases_on ‘evaluate ([x1],a,dec_clock (ticks + 1) r)’ >> gvs[]
-      >> Cases_on ‘q’ >> gvs[]
-      >> Cases_on ‘e’ >> gvs[]
-      >- (Cases_on ‘a'’ >> gvs[]
-          >- (Cases_on ‘lookup dest m’ >> gvs[]
-              >- (IF_CASES_TAC >> gvs[]
-                  >- (drule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                      >> gvs[dec_clock_def]
-                      >> irule isPREFIX_TRANS
-                      >> first_assum $ irule_at Any
-                      >> ‘t1.ffi = r.ffi’ suffices_by rw[]
-                      >> gvs[state_rel_def]
-                     )
-                  >> last_x_assum $ qspecl_then [‘m’, ‘dec_clock (ticks + 1) t1’] mp_tac
-                  >> impl_tac >- gvs[state_rel_dec_clock, dec_clock_def]
-                  >> strip_tac >> gvs[]
-                 )
-              >> PairCases_on ‘x’ >> gvs[]
-              >> Cases_on ‘t1.clock < ticks + 1’ >> gvs[]
-              >- (drule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                  >> gvs[dec_clock_def]
-                  >> irule isPREFIX_TRANS
-                  >> first_assum $ irule_at Any
-                  >> ‘t1.ffi = r.ffi’ suffices_by rw[]
-                  >> gvs[state_rel_def]
-                 )
-              >> Cases_on ‘t1.clock ≤ ticks + 1’ >> gvs[]
-              >- (qexists ‘t1 with clock := 0’ >> disj2_tac
-                  >> ‘t1.clock = ticks + 1’ by gvs[]
-                  >> gvs[dec_clock_def, make_wrapper_def, evaluate_def]
-                  >> conj_tac
-                  >- (qspecl_then [‘LENGTH a’,‘a’,‘[]’,‘t1 with clock := 0’] assume_tac
-                                  evaluate_genlist_prefix
-                      >> gvs[bvlSemTheory.find_code_def]
-                     )
-                  >> irule lag_events
-                  >> first_assum $ irule_at Any
-                  >> gvs[state_rel_def, state_accessors]
-                 )
-              >> subgoal ‘state_rel m (dec_clock (ticks + 1) r) (dec_clock 1 (dec_clock (ticks + 1) t1))’
-              >- (irule state_rel_dec_clock
-                  >> gvs[dec_clock_def, state_rel_clock]
-                 )
-              >> ‘(dec_clock 1 (dec_clock (ticks + 1) t1)).clock ≤ (dec_clock (ticks + 1) r).clock’ by gvs[dec_clock_def]
-              >> first_x_assum $ drule_all_then assume_tac >> gvs[]
-              >- (qexists ‘t1'’ >> disj1_tac >> gvs[]
-                  >> ‘evaluate ([make_wrapper (LENGTH a) x1' x0],a,dec_clock (ticks + 1) t1) =
-                      (Rerr (Rraise (Exn v)),t1')’ suffices_by rw[]
-                  >> irule evaluate_make_wrapper_err
-                  >> gvs[dec_clock_def]
-                 )
-                
-              >> qexists ‘t1'’ >> disj2_tac >> gvs[]
-              >> ‘evaluate ([make_wrapper (LENGTH a) x1' x0],a,dec_clock (ticks + 1) t1) =
-                  (Rerr (Rabort Rtimeout_error),t1')’ suffices_by rw[]
-              >> irule evaluate_make_wrapper_err
-              >> gvs[dec_clock_def]
-             )
-          >> Cases_on ‘LENGTH l = rets’ >> gvs[]
-          >> Cases_on ‘lookup dest m’ >> gvs[]
-          >- (IF_CASES_TAC >> gvs[]
-              >- (qexists ‘t1 with clock := 0’ >> disj2_tac >> gvs[]
-                  >> irule isPREFIX_TRANS
-                  >> irule_at (Pos last) evaluate_io_events_mono
-                  >> last_assum $ irule_at (Pos hd)
-                  >> irule lag_events
-                  >> first_assum $ irule_at Any
-                  >> gvs[state_rel_def, dec_clock_def, state_accessors]
-                 )
-              >> qpat_x_assum ‘∀m' t'. state_rel m' (dec_clock (ticks + 1) r) t' ∧ _ ⇒ _’ $
-                              qspecl_then [‘m’,‘dec_clock (ticks + 1) t1’] mp_tac
-              >> impl_tac
-              >- (irule_at Any state_rel_dec_clock >> gvs[dec_clock_def])
-              >> strip_tac >- gvs[]
-              >> qexists ‘t1'’ >> disj2_tac >> gvs[]
-              >> irule IS_PREFIX_TRANS
-              >> first_assum $ irule_at Any
-              >> irule evaluate_io_events_mono
-              >> metis_tac[]
-             )
-          >> PairCases_on ‘x’ >> gvs[]
-          >> drule_all_then assume_tac evaluate_tail_no_Ret >> gvs[]
-         )
-      >> Cases_on ‘lookup dest m’ >> gvs[]
-      >- (IF_CASES_TAC
-          >- (qexists ‘t1 with clock := 0’ >> disj2_tac >> gvs[]
-              >> irule lag_events >> gvs[state_rel_def, dec_clock_def]
-              >> first_assum $ irule_at Any >> gvs[state_accessors])
-          >> qpat_x_assum ‘∀m' t'. state_rel m' (dec_clock (ticks + 1) r) t' ∧ _ ⇒ _’ $
-                          qspecl_then [‘m’,‘dec_clock (ticks + 1) t1’] mp_tac
-          >> impl_tac
-          >- (irule_at Any state_rel_dec_clock >> gvs[dec_clock_def])
-          >> strip_tac
-          >> qexists ‘t1'’ >> gvs[]
-         )
-      >> PairCases_on ‘x’ >> gvs[]
-      >> IF_CASES_TAC
-      >- (qexists ‘t1 with clock := 0’ >> disj2_tac >> gvs[]
-          >> irule lag_events >> gvs[state_rel_def, dec_clock_def]
-          >> first_assum $ irule_at Any >> gvs[state_accessors]
-         )
-      >> Cases_on ‘t1.clock ≤ ticks + 1’ >> gvs[]
-      >- (qexists ‘t1 with clock := 0’ >> disj2_tac
-          >> ‘t1.clock = ticks + 1’ by gvs[]
-          >> gvs[dec_clock_def, make_wrapper_def, evaluate_def]
-          >> conj_tac
-          >- (qspecl_then [‘LENGTH a’,‘a’,‘[]’,‘t1 with clock := 0’] assume_tac
-                          evaluate_genlist_prefix
-              >> gvs[bvlSemTheory.find_code_def]
-             )
-          >> irule lag_events
-          >> first_assum $ irule_at Any
-          >> gvs[state_rel_def, state_accessors]
-         )
-
-      >> qpat_x_assum ‘∀m' t' f wk sh. _ ∧ _ ∧ _ ∧ _ ∧ tail_ok _ _ _ x1 ⇒ _’ $
-                      qspecl_then [‘m’,‘dec_clock 1 (dec_clock (ticks + 1) t1)’,
-                                   ‘dest’,‘x1'’,‘x0’] mp_tac
-      >> impl_tac
-      >- (irule_at Any state_rel_dec_clock >> gvs[dec_clock_def, state_rel_clock]
-         )
-      >> strip_tac
-      >- (qexists ‘t1'’ >> disj1_tac >> gvs[]
-          >> ‘evaluate ([make_wrapper (LENGTH a) x1' x0],a,dec_clock (ticks + 1) t1) =
-              (Rerr (Rabort a'),t1')’ suffices_by rw[]
-          >> irule evaluate_make_wrapper_err >> gvs[dec_clock_def]
-         )
-      >> qexists ‘t1'’ >> disj2_tac >> gvs[]
-      >> ‘evaluate ([make_wrapper (LENGTH a) x1' x0],a,dec_clock (ticks + 1) t1) =
-          (Rerr (Rabort Rtimeout_error),t1')’ suffices_by rw[]
-      >> irule_at Any evaluate_make_wrapper_err >> gvs[dec_clock_def]
-     )
-  >> rw[worker_body_def, evaluate_def]
-  >> gvs[tail_ok_def, tail_form_def]
-  >> Cases_on ‘evaluate (xs,env,s1)’ >> gvs[]
-  >> reverse $ Cases_on ‘q’ >> gvs[]
-  >- (first_x_assum $ drule_all_then assume_tac >> gvs[] >> metis_tac[]
-     )
-  >> first_x_assum $ drule_all_then assume_tac >> reverse $ gvs[]
-  >- (Cases_on ‘find_code (SOME dest) a r.code’ >> gvs[]
-      >> PairCases_on ‘x’ >> gvs[]
-      >> Cases_on ‘r.clock < ticks + 1’ >> gvs[]
-      >- metis_tac[state_rel_clock]
-      >> Cases_on ‘evaluate ([x1],x0,dec_clock (ticks + 1) r)’ >> gvs[]
-      >> Cases_on ‘q’ >> gvs[]
-      >> Cases_on ‘e’ >> gvs[]
-      >- (Cases_on ‘a'’ >> gvs[]
-          >- (irule isPREFIX_TRANS
-              >> first_assum $ irule_at Any
-              >> drule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-              >> gvs[dec_clock_def]
-             )
-          >> Cases_on ‘LENGTH l = rets’ >> gvs[]
-          >> qexists ‘t1’ >> disj2_tac >> gvs[]
-          >> irule isPREFIX_TRANS
-          >> first_assum $ irule_at Any
-          >> drule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-          >> gvs[dec_clock_def]
-          >> irule isPREFIX_TRANS
-          >> first_assum $ irule_at Any
-          >> irule bviPropsTheory.evaluate_io_events_mono
-          >> metis_tac[]
-         )
-      >> qexists ‘t1’ >> disj2_tac >> gvs[]
-      >> irule isPREFIX_TRANS
-      >> first_assum $ irule_at Any
-      >> drule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-      >> gvs[dec_clock_def]
-     )
-     
-  >> ‘code_rel m r.code t1.code’ by gvs[state_rel_def]
-  >> Cases_on ‘find_code (SOME dest) a r.code’ >> gvs[]
-  >> PairCases_on ‘x’ >> gvs[]
-  >> drule_all_then strip_assume_tac code_rel_find_code_SOME_dest >> gvs[]
-  >> Cases_on ‘r.clock < ticks + 1’ >> gvs[]
-  (* LEAF: source timed out at the call; so does the target *)
-  >- (Cases_on ‘lookup dest m’ >> gvs[]
-      >- (qexists ‘t1 with clock := 0’ >> disj1_tac >> gvs[]
-          >> irule $ cj 1 state_rel_clock >> irule $ cj 2 state_rel_clock
-          >> first_assum $ irule)
-      >> PairCases_on ‘x’ >> gvs[]
-      >> qexists ‘t1 with clock := 0’ >> disj1_tac
-      >> gvs[make_wrapper_def, evaluate_def, bvlSemTheory.find_code_def]
-      >> irule $ cj 1 state_rel_clock >> irule $ cj 2 state_rel_clock
-      >> first_assum $ irule
-     )
-     
-  >> Cases_on ‘evaluate ([x1],a,dec_clock (ticks + 1) r)’ >> gvs[]
-  >> Cases_on ‘q’ >> gvs[]
-  >> Cases_on ‘e’ >> gvs[]
-  >- (Cases_on ‘a'’ >> gvs[]
-      >- (Cases_on ‘lookup dest m’ >> gvs[]
-          >- (IF_CASES_TAC >> gvs[]
-              >- (drule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-                  >> gvs[dec_clock_def]
-                  >> irule isPREFIX_TRANS
-                  >> first_assum $ irule_at Any
-                  >> ‘t1.ffi = r.ffi’ suffices_by rw[]
-                  >> gvs[state_rel_def]
-                 )
-              >> last_x_assum $ qspecl_then [‘m’, ‘dec_clock (ticks + 1) t1’] mp_tac
-              >> impl_tac >- gvs[state_rel_dec_clock, dec_clock_def]
-              >> strip_tac >> gvs[]
-             )
-          >> PairCases_on ‘x’ >> gvs[]
-          >> Cases_on ‘t1.clock < ticks + 1’ >> gvs[]
-          >- (drule_then assume_tac bviPropsTheory.evaluate_io_events_mono
-              >> gvs[dec_clock_def]
-              >> irule isPREFIX_TRANS
-              >> first_assum $ irule_at Any
-              >> ‘t1.ffi = r.ffi’ suffices_by rw[]
-              >> gvs[state_rel_def]
-             )
-          >> Cases_on ‘t1.clock ≤ ticks + 1’ >> gvs[]
-          >- (qexists ‘t1 with clock := 0’ >> disj2_tac
-              >> ‘t1.clock = ticks + 1’ by gvs[]
-              >> gvs[dec_clock_def, make_wrapper_def, evaluate_def]
-              >> conj_tac
-              >- (qspecl_then [‘LENGTH a’,‘a’,‘[]’,‘t1 with clock := 0’] assume_tac
-                              evaluate_genlist_prefix
-                  >> gvs[bvlSemTheory.find_code_def]
-                 )
-              >> irule lag_events
-              >> first_assum $ irule_at Any
-              >> gvs[state_rel_def, state_accessors]
-             )
-          >> subgoal ‘state_rel m (dec_clock (ticks + 1) r) (dec_clock 1 (dec_clock (ticks + 1) t1))’
-          >- (irule state_rel_dec_clock
-              >> gvs[dec_clock_def, state_rel_clock]
-             )
-          >> ‘(dec_clock 1 (dec_clock (ticks + 1) t1)).clock ≤ (dec_clock (ticks + 1) r).clock’ by gvs[dec_clock_def]
-          >> first_x_assum $ drule_all_then assume_tac >> gvs[]
-          >- (qexists ‘t1'’ >> disj1_tac >> gvs[]
-              >> ‘evaluate ([make_wrapper (LENGTH a) x1' x0],a,dec_clock (ticks + 1) t1) =
-                  (Rerr (Rraise (Exn v)),t1')’ suffices_by rw[]
-              >> irule evaluate_make_wrapper_err
-              >> gvs[dec_clock_def]
-             )
-             
-          >> qexists ‘t1'’ >> disj2_tac >> gvs[]
-          >> ‘evaluate ([make_wrapper (LENGTH a) x1' x0],a,dec_clock (ticks + 1) t1) =
-              (Rerr (Rabort Rtimeout_error),t1')’ suffices_by rw[]
-          >> irule evaluate_make_wrapper_err
-          >> gvs[dec_clock_def]
-         )
-      >> Cases_on ‘LENGTH l = rets’ >> gvs[]
-      >> Cases_on ‘lookup dest m’ >> gvs[]
-      >- (IF_CASES_TAC >> gvs[]
-          >- (qexists ‘t1 with clock := 0’ >> disj2_tac >> gvs[]
-              >> irule isPREFIX_TRANS
-              >> irule_at (Pos last) evaluate_io_events_mono
-              >> last_assum $ irule_at (Pos hd)
-              >> irule lag_events
-              >> first_assum $ irule_at Any
-              >> gvs[state_rel_def, dec_clock_def, state_accessors]
-             )
-          >> qpat_x_assum ‘∀m' t'. state_rel m' (dec_clock (ticks + 1) r) t' ∧ _ ⇒ _’ $
-                          qspecl_then [‘m’,‘dec_clock (ticks + 1) t1’] mp_tac
-          >> impl_tac
-          >- (irule_at Any state_rel_dec_clock >> gvs[dec_clock_def])
-          >> strip_tac >- gvs[]
-          >> qexists ‘t1'’ >> disj2_tac >> gvs[]
-          >> irule IS_PREFIX_TRANS
-          >> first_assum $ irule_at Any
-          >> irule evaluate_io_events_mono
-          >> metis_tac[]
-         )
-      >> PairCases_on ‘x’ >> gvs[]
-      >> drule_all_then assume_tac evaluate_tail_no_Ret >> gvs[]
-     )
-     
-  >> Cases_on ‘lookup dest m’ >> gvs[]
-  >- (IF_CASES_TAC
-      >- (qexists ‘t1 with clock := 0’ >> disj2_tac >> gvs[]
-          >> irule lag_events >> gvs[state_rel_def, dec_clock_def]
-          >> first_assum $ irule_at Any >> gvs[state_accessors]
-         )
-      >> qpat_x_assum ‘∀m' t'. state_rel m' (dec_clock (ticks + 1) r) t' ∧ _ ⇒ _’ $
-                      qspecl_then [‘m’,‘dec_clock (ticks + 1) t1’] mp_tac
-      >> impl_tac
-      >- (irule_at Any state_rel_dec_clock >> gvs[dec_clock_def])
-      >> strip_tac
-      >> qexists ‘t1'’ >> gvs[]
-     )
-  >> PairCases_on ‘x’ >> gvs[]
-  >> IF_CASES_TAC
-  >- (qexists ‘t1 with clock := 0’ >> disj2_tac >> gvs[]
-      >> irule lag_events >> gvs[state_rel_def, dec_clock_def]
-      >> first_assum $ irule_at Any >> gvs[state_accessors]
-     )
-  >> Cases_on ‘t1.clock ≤ ticks + 1’ >> gvs[]
-  >- (qexists ‘t1 with clock := 0’ >> disj2_tac
-      >> ‘t1.clock = ticks + 1’ by gvs[]
-      >> gvs[dec_clock_def, make_wrapper_def, evaluate_def]
-      >> conj_tac
-      >- (qspecl_then [‘LENGTH a’,‘a’,‘[]’,‘t1 with clock := 0’] assume_tac
-                      evaluate_genlist_prefix
-          >> gvs[bvlSemTheory.find_code_def]
-         )
-      >> irule lag_events
-      >> first_assum $ irule_at Any
-      >> gvs[state_rel_def, state_accessors]
-     )
-
-  >> qpat_x_assum ‘∀m' t' f wk sh. _ ∧ _ ∧ _ ∧ _ ∧ tail_ok _ _ _ x1 ⇒ _’ $
-                  qspecl_then [‘m’,‘dec_clock 1 (dec_clock (ticks + 1) t1)’,
-                               ‘dest’,‘x1'’,‘x0’] mp_tac
-  >> impl_tac
-  >- (irule_at Any state_rel_dec_clock >> gvs[dec_clock_def, state_rel_clock]
-     )
+(* One CPR chunk extends related code tables to related code tables. *)
+Theorem code_rel_compile:
+  code_rel m c1 c2 ∧ submap csh m ∧
+  compile_prog_with_map csh next progs = ((next1,csh1),progs1) ∧
+  input_condition next progs ∧ DISJOINT (domain c1) (set (MAP FST progs)) ∧
+  (∀n. n ∈ domain c2 ∧ in_ns_4 n ⇒ n < next) ∧
+  (∀n. n ∈ domain c1 ∧ bvl_num_stubs ≤ n ⇒ ¬in_ns_4 n) ∧
+  (∀d sh wk. lookup d m = SOME (sh,wk) ⇒ in_ns_4 wk ∧ bvl_num_stubs ≤ wk) ⇒
+  DISJOINT (domain c2) (set (MAP FST progs1)) ∧ ALL_DISTINCT (MAP FST progs1) ∧
+  submap m (union m csh1) ∧ submap csh1 (union m csh1) ∧
+  code_rel (union m csh1) (union c1 (fromAList progs))
+    (union c2 (fromAList progs1)) ∧
+  (∀d sh wk. lookup d (union m csh1) = SOME (sh,wk) ⇒
+     in_ns_4 wk ∧ bvl_num_stubs ≤ wk) ∧
+  (∀n. MEM n (MAP FST progs1) ∧ in_ns_4 n ⇒ n < next1)
+Proof
+  strip_tac
+  >> ‘map_ok m ∧ map_ok csh’ by metis_tac[code_rel_def, submap_map_ok]
+  >> ‘∀loc. MEM loc (MAP FST progs) ⇒ lookup loc m = NONE ∧ lookup loc csh = NONE’
+    by (rpt gen_tac >> strip_tac
+        >> ‘lookup loc m = NONE’
+          by (Cases_on ‘lookup loc m’ >> simp[] >> rename1 ‘SOME q’ >> PairCases_on ‘q’
+              >> gvs[code_rel_def, IN_DISJOINT] >> metis_tac[])
+        >> gvs[submap_def] >> Cases_on ‘lookup loc csh’ >> gvs[]
+        >> first_x_assum drule >> simp[])
+  >> ‘ALL_DISTINCT (MAP FST progs) ∧ EVERY (free_names next o FST) progs ∧
+      bvl_num_stubs ≤ next ∧ in_ns_4 next ∧
+      ∀x. MEM x (MAP FST progs) ∧ bvl_num_stubs ≤ x ⇒ ¬in_ns_4 x’
+    by (gvs[input_condition_def, EVERY_MEM, MEM_FILTER, MEM_MAP, PULL_EXISTS]
+        >> metis_tac[])
+  >> drule compile_prog_with_map_thm >> impl_tac >- metis_tac[]
   >> strip_tac
-  >- (qexists ‘t1'’ >> disj1_tac >> gvs[]
-      >> ‘evaluate ([make_wrapper (LENGTH a) x1' x0],a,dec_clock (ticks + 1) t1) =
-          (Rerr (Rabort a'),t1')’ suffices_by rw[]
-      >> irule evaluate_make_wrapper_err >> gvs[dec_clock_def]
-     )
-  >> qexists ‘t1'’ >> disj2_tac >> gvs[]
-  >> ‘evaluate ([make_wrapper (LENGTH a) x1' x0],a,dec_clock (ticks + 1) t1) =
-      (Rerr (Rabort Rtimeout_error),t1')’ suffices_by rw[]
-  >> irule_at Any evaluate_make_wrapper_err >> gvs[dec_clock_def]
+  >> drule_all compile_prog_with_map_ALL_DISTINCT >> strip_tac
+  >> drule compile_prog_with_map_next_mono >> strip_tac
+  >> ‘∀x. MEM x (MAP FST progs1) ∧ ¬MEM x (MAP FST progs) ⇒
+          next ≤ x ∧ x < next1 ∧ in_ns_4 x’
+    by (rpt gen_tac >> strip_tac >> drule_all compile_prog_with_map_MEM
+        >> strip_tac >> gvs[in_ns_4_add])
+  >> ‘submap m (union m csh1)’ by rw[submap_def, lookup_union]
+  >> subgoal ‘submap csh1 (union m csh1)’
+  >- (
+    simp[submap_def, lookup_union] >> rpt strip_tac
+    >> Cases_on ‘lookup d m’ >> simp[]
+    >> rename1 ‘lookup d m = SOME y’
+    >> Cases_on ‘lookup d csh’
+    >- (PairCases_on ‘x’
+        >> qpat_x_assum ‘∀d sh wk. lookup d csh1 = SOME (sh,wk) ∧ _ ⇒ _’
+             (qspecl_then [‘d’,‘x0’,‘x1’] mp_tac)
+        >> simp[] >> strip_tac >> res_tac >> gvs[])
+    >> gvs[submap_def] >> res_tac >> gvs[])
+  >> subgoal ‘DISJOINT (domain c2) (set (MAP FST progs1))’
+  >- (
+    simp[IN_DISJOINT] >> rpt strip_tac >> CCONTR_TAC >> fs[]
+    >> Cases_on ‘MEM x (MAP FST progs)’
+    >- (
+      ‘x ∉ domain c1’ by (gvs[IN_DISJOINT] >> metis_tac[])
+      >> qpat_x_assum ‘code_rel m c1 c2’ (strip_assume_tac o SRULE[code_rel_def])
+      >> ‘∃f fsh. lookup f m = SOME (fsh,x)’ by metis_tac[]
+      >> ‘in_ns_4 x ∧ bvl_num_stubs ≤ x’ by metis_tac[]
+      >> metis_tac[])
+    >> ‘next ≤ x ∧ in_ns_4 x’ by metis_tac[]
+    >> ‘x < next’ by metis_tac[]
+    >> simp[])
+  >> simp[]
+  >> rpt conj_tac
+  >- (
+    ‘∀x a b. MEM (x,a,b) progs1 ⇒
+             lookup x (union c2 (fromAList progs1)) = SOME (a,b)’
+      by (rpt strip_tac
+          >> ‘x ∉ domain c2’
+            by (gvs[IN_DISJOINT, MEM_MAP] >> metis_tac[FST])
+          >> gvs[lookup_union, domain_lookup, lookup_fromAList]
+          >> Cases_on ‘lookup x c2’ >> gvs[]
+          >> irule ALOOKUP_ALL_DISTINCT_MEM >> simp[])
+    >> ‘∀d. d ∈ domain c1 ⇒ lookup d (union m csh1) = lookup d m’
+      by (rpt strip_tac >> simp[lookup_union]
+          >> Cases_on ‘lookup d m’ >> simp[]
+          >> Cases_on ‘lookup d csh1’ >> simp[]
+          >> rename1 ‘lookup d csh1 = SOME q’ >> PairCases_on ‘q’
+          >> Cases_on ‘lookup d csh’
+          >- (‘MEM d (MAP FST progs)’ by metis_tac[]
+              >> gvs[IN_DISJOINT] >> metis_tac[])
+          >> gvs[submap_def] >> res_tac >> gvs[])
+    >> qpat_x_assum ‘code_rel m c1 c2’ (strip_assume_tac o SRULE[code_rel_def])
+    >> simp[code_rel_def]
+    >> rpt conj_tac
+    >- (
+      gvs[map_ok_def, lookup_union, AllCaseEqs()] >> metis_tac[])
+    >- (
+      rpt gen_tac >> strip_tac
+      >> Cases_on ‘d ∈ domain c1’
+      >- (
+        ‘lookup d c1 = SOME (arity,body)’ by gvs[lookup_union, domain_lookup]
+        >> ‘lookup d (union m csh1) = lookup d m’ by metis_tac[]
+        >> pop_assum SUBST1_TAC
+        >> qpat_x_assum ‘∀d arity body. lookup d c1 = _ ⇒ _’ drule
+        >> Cases_on ‘lookup d m’ >> simp[lookup_union]
+        >> rename1 ‘lookup d m = SOME q’ >> PairCases_on ‘q’ >> simp[]
+        >> strip_tac >> qexists_tac ‘m'’ >> simp[]
+        >> metis_tac[submap_trans])
+      >> ‘lookup d c1 = NONE’ by gvs[lookup_NONE_domain]
+      >> ‘lookup d (fromAList progs) = SOME (arity,body)’ by gvs[lookup_union]
+      >> ‘MEM (d,arity,body) progs’
+        by (gvs[lookup_fromAList] >> imp_res_tac ALOOKUP_MEM)
+      >> ‘MEM d (MAP FST progs)’ by (simp[MEM_MAP] >> metis_tac[FST])
+      >> ‘lookup d m = NONE’ by metis_tac[]
+      >> ‘lookup d (union m csh1) = lookup d csh1’ by simp[lookup_union]
+      >> pop_assum SUBST1_TAC
+      >> ‘fun_rel csh1 progs1 (d,arity,body)’ by gvs[EVERY_MEM]
+      >> gvs[fun_rel_def]
+      >> Cases_on ‘lookup d csh1’ >> gvs[]
+      >> rename1 ‘lookup d csh1 = SOME q’ >> PairCases_on ‘q’ >> gvs[]
+      >> qexists_tac ‘m'’ >> simp[]
+      >> metis_tac[submap_trans])
+    >- (
+      rpt strip_tac
+      >- (qpat_x_assum ‘∀d. d ∈ domain c2 ⇒ _’ drule >> strip_tac >> simp[]
+          >> metis_tac[submap_def])
+      >> gvs[domain_fromAList]
+      >> qpat_x_assum ‘∀x. MEM x (MAP FST progs1) ⇒ _’ drule >> strip_tac >> simp[]
+      >> metis_tac[submap_def])
+    >- (
+      simp[lookup_union, domain_fromAList] >> rpt gen_tac
+      >> Cases_on ‘lookup d m’ >> simp[]
+      >- (strip_tac
+          >> ‘lookup d csh = NONE’
+            by (Cases_on ‘lookup d csh’ >> gvs[submap_def] >> res_tac >> gvs[])
+          >> ‘MEM d (MAP FST progs) ∧ MEM wk (MAP FST progs1) ∧
+              ¬MEM wk (MAP FST progs)’ by metis_tac[]
+          >> ‘next ≤ wk ∧ in_ns_4 wk’ by metis_tac[]
+          >> simp[] >> strip_tac
+          >> ‘bvl_num_stubs ≤ wk’ by simp[]
+          >> metis_tac[])
+      >> strip_tac >> gvs[]
+      >> metis_tac[]))
+  >- (
+    simp[lookup_union] >> rpt gen_tac >> Cases_on ‘lookup d m’ >> simp[]
+    >- (strip_tac
+        >> ‘lookup d csh = NONE’
+          by (Cases_on ‘lookup d csh’ >> gvs[submap_def] >> res_tac >> gvs[])
+        >> ‘MEM wk (MAP FST progs1) ∧ ¬MEM wk (MAP FST progs)’ by metis_tac[]
+        >> ‘next ≤ wk ∧ in_ns_4 wk’ by metis_tac[]
+        >> simp[])
+    >> strip_tac >> gvs[] >> metis_tac[])
+  >- (
+    rpt strip_tac >> Cases_on ‘MEM n (MAP FST progs)’
+    >- (Cases_on ‘bvl_num_stubs ≤ n’ >- metis_tac[] >> gvs[])
+    >> qpat_x_assum ‘∀x. MEM x (MAP FST progs1) ∧ ¬MEM x (MAP FST progs) ⇒ _’
+         (qspec_then ‘n’ mp_tac)
+    >> simp[])
 QED
 
-Theorem cpr_lag_timeout:
-  ∀xs env m s t s1.
-    state_rel m s t ∧ t.clock ≤ s.clock ∧
-    evaluate (xs,env,s) = (Rerr (Rabort Rtimeout_error),s1) ⇒
-    ∃t1. evaluate (xs,env,t) = (Rerr (Rabort Rtimeout_error),t1) ∧
-         t1.ffi.io_events ≼ s1.ffi.io_events
+Theorem do_install_state_rel:
+  state_rel m s t ∧ do_app Install vs s = Rval (v,s1) ⇒
+  ∃m1 t1. submap m m1 ∧ do_app Install vs t = Rval (v,t1) ∧ state_rel m1 s1 t1
 Proof
-  rpt strip_tac
-  >> drule_at Any (cj 1 cpr_lag)
-  >> gvs[] >> disch_then $ drule_then strip_assume_tac
-  >> gvs[state_rel_def]
+  strip_tac
+  >> qpat_x_assum ‘do_app _ _ _ = _’ mp_tac
+  >> simp[do_app_def, do_install_def]
+  >> ‘∃n0 c0 cfg0 progs. s.compile_oracle 0 = (((n0,c0),cfg0),progs)’
+    by metis_tac[PAIR]
+  >> simp[]
+  >> Cases_on ‘compile_prog T (n0,c0) progs’
+  >> rename1 ‘compile_prog T (n0,c0) progs = (st1,progs1)’
+  >> PairCases_on ‘st1’
+  >> rename1 ‘compile_prog T (n0,c0) progs = ((n1,c1),progs1)’
+  >> ‘t.compile_oracle 0 = (cfg0,progs1) ∧ t.refs = s.refs’
+    by gvs[state_rel_def, backendPropsTheory.state_co_def]
+  >> ‘∀cfg p. s.compile ((n0,c0),cfg) p =
+              case t.compile cfg (SND (compile_prog T (n0,c0) p)) of
+                NONE => NONE
+              | SOME (b,d,cfg1) =>
+                  SOME (b,d,FST (compile_prog T (n0,c0) p),cfg1)’
+    by (gvs[state_rel_def, backendPropsTheory.state_cc_def] >> rw[]
+        >> pairarg_tac >> simp[] >> CASE_TAC >> simp[]
+        >> PairCases_on ‘x’ >> simp[])
+  >> simp[] >> strip_tac >> gvs[AllCaseEqs()]
+  >> qmatch_asmsub_rename_tac ‘s.compile_oracle 0 = (_,(k,kbody)::rest)’
+  >> qabbrev_tac ‘progs = (k,kbody)::rest’
+  >> ‘compile_prog_with_map c0 n0 progs = ((n1,c1),progs1)’
+    by gvs[compile_prog_def]
+  >> qpat_x_assum ‘state_rel m s t’
+       (fn th => assume_tac th >> strip_assume_tac (SRULE [state_rel_def] th))
+  >> ‘submap c0 m’ by (qpat_x_assum ‘submap (SND _) m’ mp_tac >> simp[])
+  >> ‘∀n. n ∈ domain t.code ∧ in_ns_4 n ⇒ n < n0’
+    by (qpat_x_assum ‘∀n. n ∈ domain t.code ∧ _ ⇒ _’ mp_tac >> simp[])
+  >> ‘input_condition n0 progs’
+    by (qpat_x_assum ‘∀n. input_condition _ _’ (qspec_then ‘0’ mp_tac)
+        >> simp[])
+  >> ‘DISJOINT (domain s.code) (set (MAP FST progs))’ by simp[Abbr ‘progs’]
+  >> drule_all code_rel_compile >> strip_tac
+  >> ‘FST (s.compile_oracle 1) = ((n1,c1),cfg1)’ by gvs[shift_seq_def]
+  >> qpat_x_assum ‘((n1,c1),cfg1) = _’ kall_tac
+  >> ‘FST (t.compile_oracle 1) = cfg1’
+    by (qpat_x_assum ‘t.compile_oracle = _’ SUBST1_TAC
+        >> simp[backendPropsTheory.FST_state_co])
+  >> ‘∃p1 rest1. progs1 = (k,p1)::rest1’
+    by (qspecl_then [‘progs’,‘c0’,‘n0’,‘(n1,c1)’,‘progs1’] mp_tac
+          compile_prog_with_map_HD
+        >> simp[Abbr ‘progs’] >> Cases_on ‘progs1’ >> simp[]
+        >> rename1 ‘FST h = k’ >> PairCases_on ‘h’ >> simp[])
+  >> gvs[]
+  >> qexists_tac ‘union m c1’ >> simp[shift_seq_def]
+  >> ‘insert k kbody (fromAList rest) = fromAList progs’
+    by simp[Abbr ‘progs’, fromAList_def]
+  >> pop_assum SUBST1_TAC
+  >> ‘insert k p1 (fromAList rest1) = fromAList ((k,p1)::rest1)’
+    by simp[fromAList_def]
+  >> pop_assum SUBST1_TAC
+  >> drule compile_prog_with_map_next_mono >> strip_tac
+  >> simp[state_rel_def]
+  >> rpt conj_tac
+  >- simp[FUN_EQ_THM, backendPropsTheory.state_co_def]
+  >- (rpt strip_tac >> gvs[domain_fromAList] >> res_tac >> simp[])
+  >- (
+    gen_tac >> Cases_on ‘n ∈ domain s.code’ >- metis_tac[]
+    >> simp[domain_fromAList] >> strip_tac
+    >> qpat_x_assum ‘input_condition n0 progs’ mp_tac
+    >> simp[input_condition_def, EVERY_MEM, MEM_FILTER, MEM_MAP, PULL_EXISTS]
+    >> strip_tac >> gvs[MEM_MAP] >> metis_tac[])
+  >> metis_tac[]
 QED
 
-
-
-Theorem do_app_no_timeout:
-  ∀op vs (s:('c,'ffi) bviSem$state) e.
-    do_app op vs s = Rerr e ⇒ e ≠ Rabort Rtimeout_error
+Theorem do_app_state_swap[local]:
+  op ≠ Install ⇒
+    ((do_app op args s = Rval (value,s1) ∧
+      domain s.code ⊆ domain t.code ⇒
+      do_app op args
+        (t with <| refs := s.refs; clock := s.clock;
+                   global := s.global; ffi := s.ffi |>) =
+      Rval
+        (value,
+         t with <| refs := s1.refs; clock := s1.clock;
+                   global := s1.global; ffi := s1.ffi |>)) ∧
+     (do_app op args s = Rerr error ∧ error ≠ Rabort Rtype_error ⇒
+      do_app op args
+        (t with <| refs := s.refs; clock := s.clock;
+                   global := s.global; ffi := s.ffi |>) =
+      Rerr error))
 Proof
-  rw[do_app_def, do_install_def]
-  >> every_case_tac >> gvs[]
-  >- (Cases_on ‘s.compile_oracle 0’ >> gvs[]
-      >> every_case_tac >> gvs[]
-     )
-  >> gvs[bvlSemTheory.do_app_def, do_app_aux_def]
-  >> rpt full_case_tac >> gvs[]
-  >- (rpt full_case_tac >> gvs[]
-     )
-  >- (rpt full_case_tac >> gvs[]
-     )
-  >- (rpt full_case_tac >> gvs[bvlSemTheory.do_build_const_def]
-      >> Cases_on ‘do_build (λx. Number 0) 0 l s.refs’ >> gvs[]
-     )
-  >> every_case_tac >> gvs[]
+  strip_tac
+  >> Cases_on `op`
+  >> gvs [do_app_def, do_app_aux_def, bvi_to_bvl_def, bvl_to_bvi_def,
+          bvlSemTheory.do_app_def, AllCaseEqs(), state_component_equality,
+          SUBSET_DEF, pairTheory.ELIM_UNCURRY]
+  >> rpt strip_tac
+  >> gvs []
+  >- metis_tac []
+  >> qmatch_asmsub_rename_tac
+       `s.refs |+ (global_ptr,
+                   ValueArray (LUPDATE new_value set_index global_values)) =
+        s1.refs`
+  >> qexists_tac
+       `SOME (Unit,
+              t with
+                <| refs := s.refs |+ (global_ptr,
+                     ValueArray (LUPDATE new_value set_index global_values));
+                   clock := s1.clock; global := s1.global; ffi := s1.ffi |>)`
+  >> conj_tac
+  >- (qexists_tac `global_ptr` >> gvs [])
+  >> disj2_tac
+  >> gvs []
 QED
 
-Theorem cpr_timeout:
-  ∀xs env (s:('a,'b) state).
+Theorem do_app_state_rel:
+  state_rel m s t ∧ do_app op vs s = Rval (v,s1) ⇒
+  ∃m1 t1. submap m m1 ∧ do_app op vs t = Rval (v,t1) ∧ state_rel m1 s1 t1
+Proof
+  strip_tac
+  >> Cases_on ‘op = Install’
+  >- (gvs[] >> metis_tac[do_install_state_rel])
+  >> ‘t with <| refs := s.refs; clock := s.clock; global := s.global;
+                ffi := s.ffi |> = t’
+    by gvs[state_rel_def, state_component_equality]
+  >> ‘domain s.code ⊆ domain t.code’ by metis_tac[state_rel_def, code_rel_domain]
+  >> ‘do_app op vs t =
+        Rval (v,t with <| refs := s1.refs; clock := s1.clock;
+                          global := s1.global; ffi := s1.ffi |>)’
+    by metis_tac[do_app_state_swap]
+  >> qexistsl_tac [‘m’,‘t with <| refs := s1.refs; clock := s1.clock;
+                                  global := s1.global; ffi := s1.ffi |>’]
+  >> imp_res_tac do_app_code >> imp_res_tac do_app_oracle
+  >> gvs[state_rel_def, submap_refl] >> metis_tac[]
+QED
+
+Theorem do_app_state_rel_err:
+  state_rel m s t ∧ do_app op vs s = Rerr e ∧ e ≠ Rabort Rtype_error ⇒
+  do_app op vs t = Rerr e
+Proof
+  strip_tac
+  >> Cases_on ‘op = Install’
+  >- gvs[do_app_def, do_install_def, AllCaseEqs(), UNCURRY]
+  >> ‘t with <| refs := s.refs; clock := s.clock; global := s.global;
+                ffi := s.ffi |> = t’
+    by gvs[state_rel_def, state_component_equality]
+  >> metis_tac[do_app_state_swap]
+QED
+
+Theorem evaluate_wrapper_worker:
+  ∀wk (t:('c,'ffi) bviSem$state) args wbody r sh t1.
+    lookup wk t.code = SOME (LENGTH args,wbody) ∧
+    (case r of
+       Rval [v] =>
+         v_shape sh v ∧
+         evaluate ([wbody],args,t) = (Rerr (Rraise (Ret (flat_vals sh v))),t1)
+     | Rerr err => evaluate ([wbody],args,t) = (Rerr err,t1)
+     | _ => F) ∧
+    (∀vs. r ≠ Rerr (Rraise (Ret vs))) ⇒
+    evaluate ([make_wrapper (LENGTH args) wk sh],args,inc_clock 1 t) = (r,t1)
+Proof
+  rpt strip_tac >> Cases_on ‘r’ >> gvs[]
+  >- (rename1 ‘Rval rv’ >> Cases_on ‘rv’ >> gvs[]
+      >> rename1 ‘Rval (v::rest)’ >> Cases_on ‘rest’ >> gvs[]
+      >> drule_all evaluate_make_wrapper >> simp[])
+  >> drule_all evaluate_make_wrapper_Rerr >> simp[]
+QED
+
+Theorem evaluate_inc_clock_Rval[local]:
+  evaluate (xs,env,inc_clock ck1 (t:('c,'ffi) bviSem$state)) = (Rval v,t1) ⇒
+  evaluate (xs,env,inc_clock (ck1 + ck2) t) = (Rval v,inc_clock ck2 t1)
+Proof
+  strip_tac >> drule evaluate_add_clock >> simp[inc_clock_ADD]
+  >> ‘ck1 + ck2 = ck2 + ck1’ by simp[]
+  >> pop_assum SUBST1_TAC >> simp[]
+QED
+
+Theorem evaluate_inc_clock_res[local]:
+  evaluate (xs,env,inc_clock ck1 (t:('c,'ffi) bviSem$state)) = (r,t1) ∧
+  r ≠ Rerr (Rabort Rtimeout_error) ⇒
+  evaluate (xs,env,inc_clock (ck1 + ck2) t) = (r,inc_clock ck2 t1)
+Proof
+  strip_tac >> drule_all evaluate_add_clock >> simp[inc_clock_ADD]
+  >> ‘ck1 + ck2 = ck2 + ck1’ by simp[]
+  >> pop_assum SUBST1_TAC >> simp[]
+QED
+
+(* In a worker, a tail call of a split function becomes a tail call of its
+   worker. *)
+Theorem worker_body_tail_call[local]:
+  tail_ok m f sh (Call ts dest args hdl) ∧ lookup f m = SOME (sh,wk) ∧
+  split_ok sh ⇒
+  ∃d dwk.
+    dest = SOME d ∧ hdl = NONE ∧ lookup d m = SOME (sh,dwk) ∧
+    worker_body m f wk sh (Call ts dest args hdl) =
+      TailCall (shape_width sh) ts dwk args
+Proof
+  strip_tac >> imp_res_tac split_ok_ConsShape
+  >> Cases_on ‘hdl’ >> gvs[tail_ok_def]
+  >> gvs[worker_body_def] >> rw[] >> gvs[]
+QED
+
+Theorem cpr_correct:
+  ∀xs env (s:((num # (cpr_shape # num) num_map) # 'c,'ffi) bviSem$state).
     (∀m t res s1.
-       state_rel m s t ∧
-       evaluate (xs,env,s) = (res,s1) ∧
+       state_rel m s t ∧ evaluate (xs,env,s) = (res,s1) ∧
        res ≠ Rerr (Rabort Rtype_error) ⇒
-       ∃ck t1 res'.
-         evaluate (xs,env,inc_clock ck t) = (res',t1) ∧
-         s1.ffi.io_events ≼ t1.ffi.io_events) ∧
+       ∃ck m1 t1.
+         submap m m1 ∧ state_rel m1 s1 t1 ∧
+         evaluate (xs,env,inc_clock ck t) = (res,t1)) ∧
     (∀m t e f wk sh res s1.
        xs = [e] ∧ state_rel m s t ∧
        lookup f m = SOME (sh,wk) ∧ split_ok sh ∧
        tail_ok m f sh e ∧ tail_form e ∧
-       evaluate ([e],env,s) = (res,s1) ∧
-       res ≠ Rerr (Rabort Rtype_error) ⇒
-       ∃ck t1 res'.
-         evaluate ([worker_body m f wk sh e],env,inc_clock ck t) = (res',t1) ∧
-         s1.ffi.io_events ≼ t1.ffi.io_events)
+       evaluate ([e],env,s) = (res,s1) ∧ res ≠ Rerr (Rabort Rtype_error) ⇒
+       ∃ck m1 t1.
+         submap m m1 ∧ state_rel m1 s1 t1 ∧
+         case res of
+           Rval [v] =>
+             v_shape sh v ∧
+             evaluate ([worker_body m f wk sh e],env,inc_clock ck t) =
+               (Rerr (Rraise (Ret (flat_vals sh v))),t1)
+         | Rerr err =>
+             evaluate ([worker_body m f wk sh e],env,inc_clock ck t) =
+               (Rerr err,t1)
+         | _ => F)
 Proof
-  recInduct evaluate_ind
-  >> rpt conj_tac
-  >- gvs[evaluate_def, state_rel_def]
-  >- (rw[evaluate_def]
-      >> Cases_on ‘evaluate ([x],env,s)’ >> gvs[]
-      >> reverse $ Cases_on ‘q’ >> gvs[]
-      >- (last_x_assum $ drule_all_then strip_assume_tac >> gvs[]
-          >> qexists ‘ck’ >> gvs[]
-          >> Cases_on ‘res'’ >> gvs[]
-          >> Cases_on ‘evaluate (y::xs,env,t1)’ >> gvs[]
-          >> Cases_on ‘q’ >> gvs[]
-          >> irule IS_PREFIX_TRANS
-          >> first_assum $ irule_at Any
-          >> drule_then irule evaluate_io_events_mono
-         )
-      >> Cases_on ‘evaluate (y::xs,env,r)’ >> gvs[]
-      >> ‘s1 = r'’ by (Cases_on ‘q’ >> gvs[]) >> gvs[]
-      >> ‘q ≠ Rerr (Rabort Rtype_error)’ by (Cases_on ‘q’ >> gvs[])
-      >> first_x_assum $ drule_all_then assume_tac
-      >> gvs[]
-      >> qpat_x_assum ‘evaluate ([x],env,inc_clock ck t) = _’ kall_tac
-      >> qpat_x_assum ‘r.ffi.io_events ≼ t1.ffi.io_events’ kall_tac
-      >> qspecl_then [‘[x]’,‘env’,‘s’] mp_tac (cj 1 cpr_correct)
-      >> disch_then $ qspecl_then [‘m’,‘t’,‘Rval a’,‘r’] mp_tac
-      >> impl_tac >- gvs[]
-      >> strip_tac
-      >> qpat_x_assum ‘∀m' t'. state_rel m' r t' ⇒ _’ $ drule_then strip_assume_tac
-      >> qexists ‘ck + ck'’
-      >> qpat_x_assum ‘evaluate ([x],env,inc_clock ck t) = (Rval a,_)’ assume_tac
-      >> drule_then (qspec_then ‘ck'’ assume_tac) evaluate_add_clock
-      >> ‘inc_clock ck' (inc_clock ck t) = inc_clock (ck + ck') t’
-        by gvs[inc_clock_def, state_component_equality]
-      >> gvs[]
-      >> Cases_on ‘res'’ >> gvs[]                                           
-     )
-
-  >- (rw[evaluate_def]
-      >- gvs[state_rel_def]
-      >> rw[evaluate_def, worker_body_def]
-      >> Cases_on ‘sh’ >> gvs[tail_ok_def, exp_shape_ok_def, split_ok_def, shape_width_def]   
-     )
-
-  >- (rw[evaluate_def]
-      >> Cases_on ‘evaluate ([x1],env,s)’ >> gvs[]
-      >> reverse $ Cases_on ‘q’ >> gvs[]
-      >- (last_x_assum $ drule_all_then assume_tac >> gvs[]
-          >> qexists ‘ck’ >> gvs[]
-          >> Cases_on ‘res'’ >> gvs[]
-          >> IF_CASES_TAC >> gvs[]
-          >- (Cases_on ‘evaluate ([x2],env,t1)’ >> gvs[]
-              >> irule isPREFIX_TRANS
-              >> first_assum $ irule_at Any
-              >> irule evaluate_io_events_mono
-              >> metis_tac[]
-             )
-          >> IF_CASES_TAC >> gvs[]
-          >> Cases_on ‘evaluate ([x3],env,t1)’ >> gvs[]
-          >> irule isPREFIX_TRANS
-          >> first_assum $ irule_at Any
-          >> irule evaluate_io_events_mono
-          >> metis_tac[]
-       )
-      >- (qspecl_then [‘[x1]’,‘env’,‘s’] mp_tac (cj 1 cpr_correct)
-          >> disch_then $ qspecl_then [‘m’,‘t’,‘Rval a’,‘r’] mp_tac
-          >> impl_tac >- gvs[]
-          >> strip_tac
-          >> Cases_on ‘HD a = Boolv T’ >> gvs[]
-          >- (first_x_assum $ drule_all_then strip_assume_tac >> gvs[]
-              >> first_x_assum $ drule_all_then strip_assume_tac >> gvs[]
-              >> qexists ‘ck + ck' + ck''’
-              >> qpat_x_assum ‘evaluate ([x1],env,inc_clock ck t) = _’ assume_tac
-              >> drule_then (qspec_then ‘ck' + ck''’ assume_tac) evaluate_add_clock
-              >> ‘inc_clock (ck' + ck'') (inc_clock ck t) = inc_clock (ck + ck' + ck'') t’
-                by gvs[inc_clock_def, state_component_equality]
-              >> gvs[]
-              >> qexistsl [‘SND (evaluate ([x2],env,inc_clock (ck' + ck'') t1))’,
-                           ‘FST (evaluate ([x2],env,inc_clock (ck' + ck'') t1))’]
-              >> simp[]
-              >> irule IS_PREFIX_TRANS
-              >> first_assum $ irule_at Any
-              >> qspecl_then [‘[x2]’,‘env’,‘inc_clock ck'' t1’,‘ck'’] mp_tac
-                             evaluate_add_to_clock_io_events_mono
-              >> gvs[inc_clock_def, state_component_equality]
-              )
-          >> Cases_on ‘HD a = Boolv F’ >> gvs[]
-          >> qpat_x_assum ‘∀m' t'. state_rel m' r t' ⇒ _’ $ drule_then strip_assume_tac
-          >> qexists ‘ck + ck'’
-          >> qpat_x_assum ‘evaluate ([x1],env,inc_clock ck t) = (Rval a,_)’ assume_tac
-          >> drule_then (qspec_then ‘ck'’ assume_tac) evaluate_add_clock
-          >> ‘inc_clock ck' (inc_clock ck t) = inc_clock (ck + ck') t’
-            by gvs[inc_clock_def, state_component_equality]
-          >> gvs[]
-       )
-      >- (gvs[worker_body_def, evaluate_def]
-          >> qpat_x_assum ‘∀m' t'. state_rel m' s t' ⇒ _’ $ drule_then strip_assume_tac
-          >> qexists ‘ck’ >> gvs[]
-          >> Cases_on ‘res'’ >> gvs[]
-          >> full_case_tac >> gvs[tail_ok_def, tail_form_def]
-          >- (Cases_on ‘evaluate ([worker_body m f wk sh x3],env,t1)’ >> gvs[]
-              >> irule IS_PREFIX_TRANS
-              >> first_assum $ irule_at Any
-              >> drule_then irule evaluate_io_events_mono
-             )
-          >> full_case_tac >> gvs[tail_ok_def, tail_form_def]
-          >> Cases_on ‘evaluate ([worker_body m f wk sh x2],env,t1)’ >> gvs[]
-          >> irule IS_PREFIX_TRANS
-          >> first_assum $ irule_at Any
-          >> drule_then irule evaluate_io_events_mono
-         )
-      >> gvs[worker_body_def, evaluate_def, tail_ok_def, tail_form_def]
-      >> qspecl_then [‘[x1]’,‘env’,‘s’] mp_tac (cj 1 cpr_correct)
-      >> disch_then $ qspecl_then [‘m’,‘t’,‘Rval a’,‘r’] mp_tac
-      >> impl_tac >- gvs[]
-      >> strip_tac
-      >> Cases_on ‘HD a = Boolv T’ >> gvs[]
-      >- (first_x_assum $ drule_all_then strip_assume_tac
-          >> qpat_x_assum ‘∀_ _ _ _ _. _ ∧ _ ∧ _ ∧ tail_ok _ _ _ x2 ⇒ _’ $ drule_all_then assume_tac
-          >> gvs[]
-          >> qexists ‘ck + ck''’
-          >> qpat_x_assum ‘evaluate ([x1],env,inc_clock ck t) = (Rval a,_)’ assume_tac
-          >> drule_then (qspec_then ‘ck''’ assume_tac) evaluate_add_clock
-          >> ‘inc_clock ck'' (inc_clock ck t) = inc_clock (ck + ck'') t’
-            by gvs[inc_clock_def, state_component_equality]
-          >> gvs[]
-         )
-      >> Cases_on ‘HD a = Boolv F’ >> gvs[]
-      >> qpat_x_assum ‘∀_ _ _ _ _. _ ∧ _ ∧ _ ∧ tail_ok _ _ _ x3 ⇒ _’ $ drule_all_then assume_tac
-      >> gvs[]
-      >> qexists ‘ck + ck'’
-      >> qpat_x_assum ‘evaluate ([x1],env,inc_clock ck t) = (Rval a,_)’ assume_tac
-      >> drule_then (qspec_then ‘ck'’ assume_tac) evaluate_add_clock
-      >> ‘inc_clock ck' (inc_clock ck t) = inc_clock (ck + ck') t’
-        by gvs[inc_clock_def, state_component_equality]
-      >> gvs[]
-     )
-
-  >- (rw[evaluate_def]
-      >- (Cases_on ‘evaluate (xs,env,s)’ >> gvs[]
-          >> Cases_on ‘q’ >> gvs[]
-          >- (qspecl_then [‘xs’,‘env’,‘s’] mp_tac (cj 1 cpr_correct)
-              >> disch_then $ qspecl_then [‘m’,‘t’,‘Rval a’,‘r’] mp_tac
-              >> impl_tac >- gvs[]
-              >> strip_tac
-              >> qpat_x_assum ‘∀m' t'. state_rel m' r t' ⇒ _’ $ drule_then strip_assume_tac
-              >> qexists ‘ck + ck'’
-              >> qpat_x_assum ‘evaluate (xs,env,inc_clock ck t) = (Rval a,_)’ assume_tac
-              >> drule_then (qspec_then ‘ck'’ assume_tac) evaluate_add_clock
-              >> ‘inc_clock ck' (inc_clock ck t) = inc_clock (ck + ck') t’
-                by gvs[inc_clock_def, state_component_equality]
-              >> gvs[]
-             )
-          >> qpat_x_assum ‘∀m' t'. state_rel m' s t' ⇒ _’ $ drule_then strip_assume_tac
-          >> qexists ‘ck’ >> gvs[]
-          >> Cases_on ‘res'’ >> gvs[]
-          >> Cases_on ‘evaluate ([x2],a ++ env,t1)’ >> gvs[]
-          >> irule IS_PREFIX_TRANS
-          >> first_assum $ irule_at Any
-          >> drule_then irule evaluate_io_events_mono
-         )
-      >> gvs[worker_body_def, evaluate_def, tail_ok_def, tail_form_def]
-      >> Cases_on ‘evaluate (xs,env,s)’ >> gvs[]
-      >> reverse $ Cases_on ‘q’ >> gvs[]
-
-      >- (first_x_assum $ drule_all_then strip_assume_tac
-          >> qexists ‘ck’ >> gvs[]
-          >> Cases_on ‘res'’ >> gvs[]
-          >> Cases_on ‘evaluate ([worker_body m f wk sh x2],a ++ env,t1)’ >> gvs[]
-          >> irule IS_PREFIX_TRANS
-          >> first_assum $ irule_at Any
-          >> drule_then irule evaluate_io_events_mono
-         )
-
-      >> qspecl_then [‘xs’,‘env’,‘s’] mp_tac (cj 1 cpr_correct)
-      >> disch_then $ qspecl_then [‘m’,‘t’,‘Rval a’,‘r’] mp_tac
-      >> impl_tac >- gvs[]
-      >> strip_tac
-      >> qpat_x_assum ‘∀_ _ _ _ _. _ ∧ _ ∧ _ ∧ tail_ok _ _ _ x2 ⇒ _’
-                      $ drule_all_then strip_assume_tac
-      >> qexists ‘ck + ck'’
-      >> qpat_x_assum ‘evaluate (xs,env,inc_clock ck t) = (Rval a,_)’ assume_tac
-      >> drule_then (qspec_then ‘ck'’ assume_tac) evaluate_add_clock
-      >> ‘inc_clock ck' (inc_clock ck t) = inc_clock (ck + ck') t’
-        by gvs[inc_clock_def, state_component_equality]
-      >> gvs[]
-     )
-     
-  >- (rw[evaluate_def]
-      >- (Cases_on ‘evaluate ([x1],env,s)’ >> gvs[]
-          >> Cases_on ‘q’ >> gvs[]
-          >- (qpat_x_assum ‘∀m' t'. state_rel m' s t' ⇒ _’ $ drule_then strip_assume_tac
-              >> qexists ‘ck’ >> gvs[]
-              >> Cases_on ‘res'’ >> gvs[]
-             )
-          >> qpat_x_assum ‘∀m' t'. state_rel m' s t' ⇒ _’ $ drule_then strip_assume_tac
-          >> qexists ‘ck’ >> gvs[]
-          >> Cases_on ‘res'’ >> gvs[]
-         )
-      >> gvs[worker_body_def, evaluate_def]
-      >> Cases_on ‘evaluate ([x1],env,s)’ >> gvs[]
-      >> Cases_on ‘q’ >> gvs[]
-      >- (last_x_assum $ drule_then strip_assume_tac
-          >> qexists ‘ck’ >> gvs[]
-          >> Cases_on ‘res'’ >> gvs[]
-         )               
-      >> last_x_assum $ drule_then strip_assume_tac
-      >> qexists ‘ck’ >> gvs[]
-      >> Cases_on ‘res'’ >> gvs[]
-     )
-
-  >- (rw[evaluate_def]
-      >- (Cases_on ‘evaluate (xs,env,s)’ >> gvs[]
-          >> Cases_on ‘q’ >> gvs[]
-          >- (qpat_x_assum ‘∀m' t'. state_rel m' s t' ⇒ _’ $ drule_then strip_assume_tac
-              >> qexists ‘ck’ >> gvs[]
-              >> Cases_on ‘res'’ >> gvs[]
-             )
-          >> qpat_x_assum ‘∀m' t'. state_rel m' s t' ⇒ _’ $ drule_then strip_assume_tac
-          >> qexists ‘ck’ >> gvs[]
-          >> Cases_on ‘res'’ >> gvs[]
-         )
-      >> gvs[worker_body_def, evaluate_def]
-      >> Cases_on ‘evaluate (xs,env,s)’ >> gvs[]
-      >> Cases_on ‘q’ >> gvs[]
-      >- (last_x_assum $ drule_then strip_assume_tac
-          >> qexists ‘ck’ >> gvs[]
-          >> Cases_on ‘res'’ >> gvs[]
-         )               
-      >> last_x_assum $ drule_then strip_assume_tac
-      >> qexists ‘ck’ >> gvs[]
-      >> Cases_on ‘res'’ >> gvs[]
-     )
-     
-  >- (rw[evaluate_def]
-      >- (Cases_on ‘evaluate (xs,env,s)’ >> gvs[]
-          >> Cases_on ‘q’ >> gvs[]
-          >- (qspecl_then [‘xs’,‘env’,‘s’] mp_tac (cj 1 cpr_correct)
-              >> disch_then $ qspecl_then [‘m’,‘t’,‘Rval a’,‘r’] mp_tac
-              >> impl_tac >- gvs[]
-              >> strip_tac
-              >> qexists ‘ck’ >> gvs[]
-              >> Cases_on ‘do_app op (REVERSE a) r’ >> gvs[]
-              >- (PairCases_on ‘a'’ >> gvs[]
-                  >> drule_all_then assume_tac do_app_state_rel_rval >> gvs[state_rel_def]
-                 )
-              >> drule_all_then assume_tac do_app_state_rel_rerr
-              >> gvs[state_rel_def]
-             )
-          >> qpat_x_assum ‘∀m' t'. state_rel m' s t' ⇒ _’ $ drule_then strip_assume_tac
-          >> qexists ‘ck’ >> gvs[]
-          >> Cases_on ‘res'’ >> gvs[]
-          >> Cases_on ‘do_app op (REVERSE a) t1’ >> gvs[]
-          >- (PairCases_on ‘a'’ >> gvs[]
-              >> irule IS_PREFIX_TRANS
-              >> first_assum $ irule_at Any
-              >> drule_then irule do_app_io_events_mono
-             )
-          >> gvs[]
-         )
-      >> gvs[worker_body_def, evaluate_def]
-      >> Cases_on ‘evaluate (xs,env,s)’ >> gvs[]
-      >> Cases_on ‘q’ >> gvs[]
-      >- (gvs[worker_body_def, evaluate_def, tail_ok_def, tail_form_def]
-          >> qspecl_then [‘[Op op xs]’,‘env’,‘s’] mp_tac (cj 1 cpr_correct)
-          >> disch_then $ qspecl_then [‘m’,‘t’,‘res’,‘s1’] mp_tac
-          >> impl_tac
-          >- (gvs[evaluate_def]
-              >> Cases_on ‘do_app op (REVERSE a) r’ >> gvs[]
-              >> imp_res_tac do_app_no_Ret
-              >- (every_case_tac >> gvs[]
-                 )
-              >> drule_then assume_tac do_app_no_timeout
-              >> rw[]
-             )
-          >> strip_tac
-          >> qexists ‘ck’ >> gvs[]
-          >> Cases_on ‘res’ >> gvs[]
-          >- (assume_tac evaluate_LENGTH
-              >> pop_assum $ qspecl_then [‘[Op op xs]’, ‘env’, ‘inc_clock ck t’] assume_tac >> gvs[]
-              >> Cases_on ‘a'’ >> gvs[]
-              >> drule_all_then assume_tac (cj 1 evaluate_flatten_exp)
-              >> gvs[state_rel_def]
-             )
-          >> drule_then assume_tac (cj 1 evaluate_flatten_exp_err)
-          >> pop_assum $ qspecl_then [‘env’,‘inc_clock ck t’] assume_tac
-          >> gvs[state_rel_def]
-         )
-      >> gvs[worker_body_def, evaluate_def, tail_ok_def, tail_form_def]
-      >> last_x_assum $ drule_then strip_assume_tac
-      >> Cases_on ‘res'’ >> gvs[]
-      >- (Cases_on ‘do_app op (REVERSE a) t1’ >> gvs[]
-          >- (drule_then assume_tac $ cj 1 evaluate_flatten_exp
-              >> gvs[evaluate_def]
-              >> pop_assum $ qspecl_then [‘env’, ‘inc_clock ck t’] assume_tac >> gvs[]
-              >> Cases_on ‘a'’ >> gvs[]
-              >> qexists ‘ck’ >> gvs[]
-              >> drule_then assume_tac do_app_io_events_mono
-              >> irule isPREFIX_TRANS
-              >> metis_tac[]
-             )
-          >> drule_then assume_tac $ cj 1 evaluate_flatten_exp_err
-          >> gvs[evaluate_def]
-          >> pop_assum $ qspecl_then [‘env’, ‘inc_clock ck t’] assume_tac >> gvs[]
-          >> qexists ‘ck’ >> gvs[]
-         )
-      >> drule_then assume_tac $ cj 1 evaluate_flatten_exp_err
-      >> gvs[evaluate_def]
-      >> pop_assum $ qspecl_then [‘env’, ‘inc_clock ck t’] assume_tac >> gvs[]
-      >> qexists ‘ck’ >> gvs[]
-     )
-     
-  >- (rw[evaluate_def]
-      >- (qexists ‘1’ >> gvs[]
-          >> Cases_on ‘evaluate ([x],env,dec_clock 1 (inc_clock 1 t))’ >> gvs[]
-          >> drule_then assume_tac evaluate_io_events_mono
-          >> gvs[dec_clock_def, inc_clock_def, state_rel_def]
-         )
-      >- (gvs[worker_body_def, evaluate_def]
-          >> qexists ‘1’ >> gvs[]
-          >> Cases_on ‘evaluate ([worker_body m f wk sh x],env,dec_clock 1 (inc_clock 1 t))’ >> gvs[]
-          >> drule_then assume_tac evaluate_io_events_mono
-          >> gvs[dec_clock_def, inc_clock_def, state_rel_def]
-         )
-      >- (‘state_rel m (dec_clock 1 s) t’ by gvs[state_rel_clock, dec_clock_def]
-          >> last_x_assum $ drule_then strip_assume_tac
-          >> gvs[]
-          >> qexists ‘ck + 1’
-          >> gvs[dec_clock_def, inc_clock_def]
-         )
-      >> gvs[worker_body_def, evaluate_def, tail_ok_def, tail_form_def]
-      >> ‘state_rel m (dec_clock 1 s) t’ by gvs[state_rel_clock, dec_clock_def]
-      >> first_x_assum $ drule_all_then strip_assume_tac
-      >> qexists ‘ck + 1’
-      >> gvs[dec_clock_def, inc_clock_def]
-     )
-        
-  >- (rw[evaluate_def]
-      >- (Cases_on ‘env❲n❳’ >> gvs[dest_thunk_def]
-          >> Cases_on ‘FLOOKUP s.refs n'’ >> gvs[]
-          >> Cases_on ‘x’ >> gvs[]
-          >> Cases_on ‘t'’ >> gvs[]
-          >- (Cases_on ‘b’ >> gvs[]
-              >> gvs[state_rel_def]
-             )
-          >> Cases_on ‘b’ >> gvs[]
-          >> Cases_on ‘find_code (SOME force_loc) [RefPtr F n'; a] s.code’ >> gvs[]
-          >> Cases_on ‘x’ >> gvs[]
-          >> Cases_on ‘s.clock = 0’ >> gvs[]
-          >- (gvs[state_rel_def]
-              >> drule_all_then assume_tac code_rel_find_code_SOME_dest
-              >> Cases_on ‘lookup force_loc m’ >> gvs[]
-              >- (qexists ‘1’ >> gvs[]
-                  >> Cases_on ‘evaluate ([r],[RefPtr F n'; a],dec_clock 1 (inc_clock 1 t))’ >> gvs[]
-                  >> Cases_on ‘q’ >> gvs[]
-                  >- (drule_then assume_tac evaluate_io_events_mono
-                      >> gvs[]
-                     )
-                  >> every_case_tac >> gvs[]
-                  >> drule_then assume_tac evaluate_io_events_mono
-                  >> gvs[]
-                 )
-              >> Cases_on ‘x’ >> gvs[]
-              >> qexists ‘1’ >> gvs[]
-              >> Cases_on ‘evaluate ([make_wrapper 2 r' q],[RefPtr F n'; a], dec_clock 1 (inc_clock 1 t))’ >> gvs[]
-              >> every_case_tac >> gvs[]
-              >> drule_then assume_tac evaluate_io_events_mono
-              >> gvs[]
-             )
-          >> Cases_on ‘evaluate ([r],q,dec_clock 1 s)’ >> gvs[]
-          >> Cases_on ‘q'’ >> gvs[]
-          >- (‘s.refs = t.refs ∧ code_rel m s.code t.code’ by gvs[state_rel_def]
-              >> gvs[]
-              >> drule_all_then assume_tac code_rel_find_code_SOME_dest
-              >> gvs[]
-              >> Cases_on ‘lookup force_loc m’ >> gvs[]
-              >- (‘state_rel m (dec_clock 1 s) t’ by gvs[state_rel_clock, dec_clock_def]
-                  >> last_x_assum $ drule_all_then strip_assume_tac
-                  >> gvs[]
-                  >> qexists ‘ck + 1’ >> gvs[inc_clock_def, dec_clock_def]
-                  >> every_case_tac >> gvs[]
-                 )
-              >> Cases_on ‘x’ >> gvs[make_wrapper_def, evaluate_def]
-              >> rw[bvlSemTheory.find_code_def]
-              >> ‘state_rel m (dec_clock 1 s) t’ by gvs[state_rel_clock, dec_clock_def]
-              >> first_x_assum $ drule_all_then assume_tac
-              >> gvs[]
-              >> qexists ‘ck + 2’ >> gvs[dec_clock_def, inc_clock_def]
-              >> every_case_tac >> gvs[]
-              >> drule_then assume_tac evaluate_io_events_mono
-              >> irule isPREFIX_TRANS
-              >> metis_tac[]
-             )
-          >> Cases_on ‘e’ >> gvs[]
-          >- (Cases_on ‘a'’ >> gvs[]
-              >> ‘s.refs = t.refs ∧ code_rel m s.code t.code’ by gvs[state_rel_def]
-              >> gvs[]
-              >> drule_all_then assume_tac code_rel_find_code_SOME_dest
-              >> gvs[]
-              >> Cases_on ‘lookup force_loc m’ >> gvs[]
-              >- (‘state_rel m (dec_clock 1 s) t’ by gvs[state_rel_clock, dec_clock_def]
-                  >> last_x_assum $ drule_all_then strip_assume_tac
-                  >> gvs[]
-                  >> qexists ‘ck + 1’ >> gvs[inc_clock_def, dec_clock_def]
-                  >> every_case_tac >> gvs[]
-                 )
-              >> Cases_on ‘x’ >> gvs[make_wrapper_def, evaluate_def]
-              >> rw[bvlSemTheory.find_code_def]
-              >> ‘state_rel m (dec_clock 1 s) t’ by gvs[state_rel_clock, dec_clock_def]
-              >> first_x_assum $ drule_all_then assume_tac
-              >> gvs[]
-              >> qexists ‘ck + 2’ >> gvs[dec_clock_def, inc_clock_def]
-              >> every_case_tac >> gvs[]
-              >> drule_then assume_tac evaluate_io_events_mono
-              >> irule isPREFIX_TRANS
-              >> metis_tac[]
-             )
-          >> ‘s.refs = t.refs ∧ code_rel m s.code t.code’ by gvs[state_rel_def]
-          >> gvs[]
-          >> drule_all_then assume_tac code_rel_find_code_SOME_dest
-          >> gvs[]
-          >> Cases_on ‘lookup force_loc m’ >> gvs[]
-          >- (‘state_rel m (dec_clock 1 s) t’ by gvs[state_rel_clock, dec_clock_def]
-              >> last_x_assum $ drule_all_then strip_assume_tac
-              >> gvs[]
-              >> qexists ‘ck + 1’ >> gvs[inc_clock_def, dec_clock_def]
-              >> every_case_tac >> gvs[]
-             )
-          >> Cases_on ‘x’ >> gvs[make_wrapper_def, evaluate_def]
-          >> rw[bvlSemTheory.find_code_def]
-          >> ‘state_rel m (dec_clock 1 s) t’ by gvs[state_rel_clock, dec_clock_def]
-          >> first_x_assum $ drule_all_then assume_tac
-          >> gvs[]
-          >> qexists ‘ck + 2’ >> gvs[dec_clock_def, inc_clock_def]
-          >> every_case_tac >> gvs[]
-          >> drule_then assume_tac evaluate_io_events_mono
-          >> irule isPREFIX_TRANS
-          >> metis_tac[]
-       )
-      >> Cases_on ‘env❲n❳’ >> gvs[dest_thunk_def]
-      >> Cases_on ‘FLOOKUP s.refs n'’ >> gvs[]
-      >> Cases_on ‘x’ >> gvs[]
-      >> Cases_on ‘t'’ >> gvs[]
-      >- (Cases_on ‘b’ >> gvs[]
-          >> gvs[state_rel_def, worker_body_def, evaluate_def]
-          >> qexists ‘0’ >> gvs[]
-          >> Cases_on ‘evaluate (flatten_exp sh (Force force_loc n),env,inc_clock 0 t)’ >> gvs[]
-          >> Cases_on ‘q’ >> gvs[]
-          >> drule_then assume_tac evaluate_io_events_mono >> gvs[]
-         )
-      >> Cases_on ‘b’ >> gvs[]
-      >> Cases_on ‘find_code (SOME force_loc) [RefPtr F n'; a] s.code’ >> gvs[]
-      >> Cases_on ‘x’ >> gvs[]
-      >> Cases_on ‘s.clock = 0’ >> gvs[]
-      >- (gvs[state_rel_def, worker_body_def, evaluate_def]
-          >> drule_all_then assume_tac code_rel_find_code_SOME_dest >> gvs[]
-          >> Cases_on ‘lookup force_loc m’ >> gvs[]
-          >- (qexists ‘1’ >> gvs[]
-              >> Cases_on ‘evaluate (flatten_exp sh (Force force_loc n),env,inc_clock 1 t)’ >> gvs[]
-              >> Cases_on ‘q’ >> gvs[]
-              >- (drule_then assume_tac evaluate_io_events_mono
-                  >> gvs[]
-                 )
-              >> drule_then assume_tac evaluate_io_events_mono
-              >> gvs[]
-             )
-          >> Cases_on ‘x’ >> gvs[]
-          >> qexists ‘1’ >> gvs[]
-          >> Cases_on ‘evaluate (flatten_exp sh (Force force_loc n),env,inc_clock 1 t)’ >> gvs[]
-          >> every_case_tac >> gvs[]
-          >> drule_then assume_tac evaluate_io_events_mono
-          >> gvs[]
-         )
-      >> Cases_on ‘evaluate ([r],q,dec_clock 1 s)’ >> gvs[]
-      >> Cases_on ‘q'’ >> gvs[]
-      >> drule_then strip_assume_tac split_ok_ConsShape
-      >> gvs[tail_ok_def, exp_shape_ok_def]
-     )
-
-  >- (rw[evaluate_def]
-      >- (Cases_on ‘evaluate (xs,env,s1)’ >> gvs[]
-          >> Cases_on ‘q’ >> gvs[]
-          >- (qspecl_then [‘xs’,‘env’,‘s1’] mp_tac (cj 1 cpr_correct)
-              >> disch_then $ qspecl_then [‘m’,‘t’,‘Rval a’,‘r’] mp_tac
-              >> impl_tac
-              >- gvs[]
-              >> strip_tac
-              >> Cases_on ‘find_code dest a r.code’ >> gvs[]
-              >> Cases_on ‘x’ >> gvs[]
-              >> Cases_on ‘r.clock < ticks + 1’ >> gvs[]
-              >- (cheat
-                 )
-              >> cheat
-             )
-          >> cheat
-         )
-      >> cheat
-     )
-        
-  >> cheat
+  recInduct evaluate_ind >> rpt conj_tac
+  >- suspend "Nil"
+  >- suspend "Cons"
+  >- suspend "Var"
+  >- suspend "If"
+  >- suspend "Let"
+  >- suspend "Raise"
+  >- suspend "Return"
+  >- suspend "Op"
+  >- suspend "Tick"
+  >- suspend "Force"
+  >- suspend "Call"
+  >- suspend "LetCall"
 QED
 
+Resume cpr_correct[Nil]:
+  rw[evaluate_def] >> qexistsl_tac [‘0’,‘m’] >> simp[submap_refl, inc_clock_ZERO]
+QED
+
+Resume cpr_correct[Cons]:
+  rpt gen_tac >> strip_tac
+  >> conj_tac >- (
+    rpt strip_tac
+    >> qpat_x_assum ‘evaluate (x::y::xs,_,_) = _’ mp_tac
+    >> simp[evaluate_def]
+    >> Cases_on ‘evaluate ([x],env,s)’ >> rename1 ‘evaluate ([x],env,s) = (r1,s2)’
+    >> reverse (Cases_on ‘r1’) >> simp[]
+    >- (
+      strip_tac >> gvs[]
+      >> qpat_x_assum ‘∀m' t'. state_rel m' s t' ⇒ _’ drule
+      >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
+      >> qexistsl_tac [‘ck1’,‘m1’,‘t1’] >> simp[])
+    >> rename1 ‘evaluate ([x],env,s) = (Rval v1,s2)’
+    >> qpat_x_assum ‘∀m t res s1. state_rel m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
+         (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
+    >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
+    >> Cases_on ‘evaluate (y::xs,env,s2)’
+    >> rename1 ‘evaluate (y::xs,env,s2) = (r2,s3)’
+    >> strip_tac
+    >> ‘r2 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
+    >> qpat_x_assum ‘∀v4 s1 v1. _’ (qspecl_then [‘Rval v1’,‘s2’,‘v1’] mp_tac)
+    >> simp[] >> disch_then (qspecl_then [‘m1’,‘t1’] mp_tac o CONJUNCT1) >> simp[]
+    >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
+    >> ‘submap m m2’ by metis_tac[submap_trans]
+    >> qexistsl_tac [‘ck1 + ck2’,‘m2’,‘t2’]
+    >> drule_then (qspec_then ‘ck2’ assume_tac) evaluate_inc_clock_Rval
+    >> Cases_on ‘r2’ >> gvs[evaluate_def])
+  >> simp[]
+QED
+
+Resume cpr_correct[Var]:
+  rw[evaluate_def]
+  >> gvs[tail_ok_def]
+  >> imp_res_tac split_ok_ConsShape >> gvs[exp_shape_ok_def]
+  >> qexistsl_tac [‘0’,‘m’] >> simp[submap_refl, inc_clock_ZERO]
+QED
+
+Resume cpr_correct[If]:
+  rpt gen_tac >> strip_tac
+  >> conj_tac >- (
+    rpt strip_tac
+    >> qpat_x_assum ‘evaluate ([If _ _ _],_,_) = _’ (assume_tac o SRULE[evaluate_def])
+    >> Cases_on ‘evaluate ([x1],env,s)’ >> rename1 ‘evaluate ([x1],env,s) = (r1,s2)’
+    >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
+    >> qpat_x_assum ‘∀m t res s1. state_rel m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
+         (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
+    >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
+    >> reverse (Cases_on ‘r1’) >> gvs[]
+    >- (qexistsl_tac [‘ck1’,‘m1’,‘t1’] >> simp[evaluate_def])
+    >> rename1 ‘evaluate ([x1],env,s) = (Rval vs,s2)’
+    >> drule_then assume_tac evaluate_inc_clock_Rval
+    >> Cases_on ‘HD vs = Boolv T’ >> gvs[]
+    >- (
+      qpat_x_assum ‘∀m t. state_rel m s2 t ⇒ _’ drule
+      >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
+      >> qexistsl_tac [‘ck1 + ck2’,‘m2’,‘t2’]
+      >> simp[evaluate_def] >> metis_tac[submap_trans])
+    >> Cases_on ‘HD vs = Boolv F’ >> gvs[]
+    >> qpat_x_assum ‘∀m t. state_rel m s2 t ⇒ _’ drule
+    >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
+    >> qexistsl_tac [‘ck1 + ck2’,‘m2’,‘t2’]
+    >> simp[evaluate_def] >> metis_tac[submap_trans])
+  >- (
+    rpt strip_tac >> gvs[tail_ok_def, tail_form_def, worker_body_def]
+    >> qpat_x_assum ‘evaluate ([If _ _ _],_,_) = _’ (assume_tac o SRULE[evaluate_def])
+    >> Cases_on ‘evaluate ([x1],env,s)’ >> rename1 ‘evaluate ([x1],env,s) = (r1,s2)’
+    >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
+    >> qpat_x_assum ‘∀m t res s1. state_rel m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
+         (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
+    >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
+    >> reverse (Cases_on ‘r1’) >> gvs[]
+    >- (qexistsl_tac [‘ck1’,‘m1’,‘t1’] >> simp[evaluate_def])
+    >> rename1 ‘evaluate ([x1],env,s) = (Rval vs,s2)’
+    >> drule_then assume_tac evaluate_inc_clock_Rval
+    >> ‘lookup f m1 = SOME (sh,wk)’ by gvs[submap_def]
+    >> Cases_on ‘HD vs = Boolv T’ >> gvs[]
+    >- (
+      ‘tail_ok m1 f sh x2’ by (irule tail_ok_submap >> qexists_tac ‘m’ >> gvs[submap_def])
+      >> qpat_x_assum ‘∀m' t' f wk sh. state_rel m' s2 t' ∧ _ ⇒ _’
+           (qspecl_then [‘m1’,‘t1’,‘f’,‘wk’,‘sh’] mp_tac) >> simp[]
+      >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
+      >> qexistsl_tac [‘ck1 + ck2’,‘m2’,‘t2’]
+      >> ‘worker_body m1 f wk sh x2 = worker_body m f wk sh x2’
+        by metis_tac[worker_body_submap]
+      >> ‘submap m m2’ by metis_tac[submap_trans]
+      >> gvs[AllCaseEqs()] >> simp[evaluate_def])
+    >> Cases_on ‘HD vs = Boolv F’ >> gvs[]
+    >> ‘tail_ok m1 f sh x3’ by (irule tail_ok_submap >> qexists_tac ‘m’ >> gvs[submap_def])
+    >> qpat_x_assum ‘∀m' t' f wk sh. state_rel m' s2 t' ∧ _ ⇒ _’
+         (qspecl_then [‘m1’,‘t1’,‘f’,‘wk’,‘sh’] mp_tac) >> simp[]
+    >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
+    >> qexistsl_tac [‘ck1 + ck2’,‘m2’,‘t2’]
+    >> ‘worker_body m1 f wk sh x3 = worker_body m f wk sh x3’
+      by metis_tac[worker_body_submap]
+    >> ‘submap m m2’ by metis_tac[submap_trans]
+    >> gvs[AllCaseEqs()] >> simp[evaluate_def])
+QED
+
+Resume cpr_correct[Let]:
+  rpt gen_tac >> strip_tac
+  >> conj_tac >- (
+    rpt strip_tac
+    >> qpat_x_assum ‘evaluate ([Let _ _],_,_) = _’ (assume_tac o SRULE[evaluate_def])
+    >> Cases_on ‘evaluate (xs,env,s)’ >> rename1 ‘evaluate (xs,env,s) = (r1,s2)’
+    >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
+    >> qpat_x_assum ‘∀m t res s1. state_rel m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
+         (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
+    >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
+    >> reverse (Cases_on ‘r1’) >> gvs[]
+    >- (
+      qexistsl_tac [‘ck1’,‘m1’,‘t1’] >> simp[evaluate_def])
+    >> rename1 ‘evaluate (xs,env,s) = (Rval vs,s2)’
+    >> drule_then assume_tac evaluate_inc_clock_Rval
+    >> qpat_x_assum ‘∀m t. state_rel m s2 t ⇒ _’ drule
+    >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
+    >> ‘submap m m2’ by metis_tac[submap_trans]
+    >> qexistsl_tac [‘ck1 + ck2’,‘m2’,‘t2’]
+    >> simp[evaluate_def])
+  >- (
+    rpt strip_tac >> gvs[tail_ok_def, tail_form_def, worker_body_def]
+    >> qpat_x_assum ‘evaluate ([Let _ _],_,_) = _’ (assume_tac o SRULE[evaluate_def])
+    >> Cases_on ‘evaluate (xs,env,s)’ >> rename1 ‘evaluate (xs,env,s) = (r1,s2)’
+    >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
+    >> qpat_x_assum ‘∀m t res s1. state_rel m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
+         (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
+    >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
+    >> reverse (Cases_on ‘r1’) >> gvs[]
+    >- (qexistsl_tac [‘ck1’,‘m1’,‘t1’] >> simp[evaluate_def])
+    >> rename1 ‘evaluate (xs,env,s) = (Rval vs,s2)’
+    >> drule_then assume_tac evaluate_inc_clock_Rval
+    >> ‘lookup f m1 = SOME (sh,wk)’ by gvs[submap_def]
+    >> ‘tail_ok m1 f sh x2’ by (irule tail_ok_submap >> qexists_tac ‘m’ >> gvs[submap_def])
+    >> qpat_x_assum ‘∀m' t' f wk sh. state_rel m' s2 t' ∧ _ ⇒ _’
+         (qspecl_then [‘m1’,‘t1’,‘f’,‘wk’,‘sh’] mp_tac) >> simp[]
+    >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
+    >> qexistsl_tac [‘ck1 + ck2’,‘m2’,‘t2’]
+    >> ‘worker_body m1 f wk sh x2 = worker_body m f wk sh x2’
+      by metis_tac[worker_body_submap]
+    >> ‘submap m m2’ by metis_tac[submap_trans]
+    >> gvs[AllCaseEqs()] >> simp[evaluate_def])
+QED
+
+Resume cpr_correct[Raise]:
+  rpt gen_tac >> strip_tac
+  >> ‘∀m t res s1.
+        state_rel m s t ∧ evaluate ([Raise x1],env,s) = (res,s1) ∧
+        res ≠ Rerr (Rabort Rtype_error) ⇒
+        ∃ck m1 t1. submap m m1 ∧ state_rel m1 s1 t1 ∧
+          evaluate ([Raise x1],env,inc_clock ck t) = (res,t1)’
+    by (rpt strip_tac
+        >> qpat_x_assum ‘evaluate ([Raise _],_,_) = _’
+             (assume_tac o SRULE[evaluate_def])
+        >> Cases_on ‘evaluate ([x1],env,s)’
+        >> rename1 ‘evaluate ([x1],env,s) = (r1,s2)’
+        >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
+        >> qpat_x_assum ‘∀m t res s1. state_rel m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
+             (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
+        >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
+        >> qexistsl_tac [‘ck1’,‘m1’,‘t1’]
+        >> Cases_on ‘r1’ >> gvs[evaluate_def])
+  >> simp[] >> rpt strip_tac >> gvs[worker_body_def]
+  >> first_x_assum drule_all
+  >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
+  >> qexistsl_tac [‘ck1’,‘m1’,‘t1’]
+  >> gvs[evaluate_def, AllCaseEqs()]
+QED
+
+Resume cpr_correct[Return]:
+  rpt gen_tac >> strip_tac
+  >> reverse conj_tac
+  >- (rpt strip_tac >> gvs[tail_ok_def]
+      >> imp_res_tac split_ok_ConsShape >> gvs[exp_shape_ok_def])
+  >> rpt strip_tac
+  >> qpat_x_assum ‘evaluate ([Return _],_,_) = _’ (assume_tac o SRULE[evaluate_def])
+  >> Cases_on ‘evaluate (xs,env,s)’ >> rename1 ‘evaluate (xs,env,s) = (r1,s2)’
+  >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
+  >> qpat_x_assum ‘∀m t res s1. state_rel m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
+       (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
+  >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
+  >> qexistsl_tac [‘ck1’,‘m1’,‘t1’]
+  >> Cases_on ‘r1’ >> gvs[evaluate_def]
+QED
+
+Resume cpr_correct[Op]:
+  rpt gen_tac >> strip_tac
+  >> conj_asm1_tac >- (
+    rpt strip_tac
+    >> qpat_x_assum ‘evaluate ([Op _ _],_,_) = _’ (assume_tac o SRULE[evaluate_def])
+    >> Cases_on ‘evaluate (xs,env,s)’ >> rename1 ‘evaluate (xs,env,s) = (r1,s2)’
+    >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
+    >> qpat_x_assum ‘∀m t res s1. state_rel m s t ∧ _ = (res,s1) ∧ _ ⇒ _’
+         (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
+    >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
+    >> reverse (Cases_on ‘r1’) >> gvs[]
+    >- (qexistsl_tac [‘ck1’,‘m1’,‘t1’] >> simp[evaluate_def])
+    >> rename1 ‘evaluate (xs,env,s) = (Rval vs,s2)’
+    >> Cases_on ‘do_app op (REVERSE vs) s2’ >> gvs[]
+    >- (rename1 ‘do_app op (REVERSE vs) s2 = Rval p’ >> PairCases_on ‘p’ >> gvs[]
+        >> drule_all do_app_state_rel
+        >> disch_then (qx_choosel_then [‘m2’,‘t2’] strip_assume_tac)
+        >> qexistsl_tac [‘ck1’,‘m2’,‘t2’] >> simp[evaluate_def]
+        >> metis_tac[submap_trans])
+    >> drule_all do_app_state_rel_err >> strip_tac
+    >> qexistsl_tac [‘ck1’,‘m1’,‘t1’] >> simp[evaluate_def])
+  >> rpt strip_tac >> gvs[]
+  >> first_x_assum drule_all
+  >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
+  >> qexistsl_tac [‘ck1’,‘m1’,‘t1’] >> simp[]
+  >> gvs[tail_ok_def, worker_body_def]
+  >> Cases_on ‘res’ >> simp[]
+  >- (rename1 ‘Rval rv’
+      >> imp_res_tac evaluate_SING_IMP >> gvs[]
+      >> drule_all (cj 1 evaluate_flatten_exp) >> strip_tac
+      >> simp[evaluate_def])
+  >> drule_all (cj 1 evaluate_flatten_exp_err) >> strip_tac
+  >> simp[evaluate_def]
+QED
+
+Resume cpr_correct[Tick]:
+  rpt gen_tac >> strip_tac
+  >> conj_tac >- (
+    rpt strip_tac
+    >> qpat_x_assum ‘evaluate ([Tick _],_,_) = _’ (assume_tac o SRULE[evaluate_def])
+    >> ‘t.clock = s.clock’ by gvs[state_rel_def]
+    >> Cases_on ‘s.clock = 0’ >> gvs[]
+    >- (qexistsl_tac [‘0’,‘m’,‘t’] >> simp[evaluate_def, inc_clock_ZERO, submap_refl])
+    >> ‘state_rel m (dec_clock 1 s) (dec_clock 1 t)’ by simp[state_rel_dec_clock]
+    >> qpat_x_assum ‘∀m t. state_rel m (dec_clock 1 s) t ⇒ _’ drule
+    >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
+    >> qexistsl_tac [‘ck1’,‘m1’,‘t1’]
+    >> simp[evaluate_def, dec_clock_inv_clock1, inc_clock_clock])
+  >- (
+    rpt strip_tac >> gvs[tail_ok_def, tail_form_def, worker_body_def]
+    >> qpat_x_assum ‘evaluate ([Tick _],_,_) = _’ (assume_tac o SRULE[evaluate_def])
+    >> ‘t.clock = s.clock’ by gvs[state_rel_def]
+    >> Cases_on ‘s.clock = 0’ >> gvs[]
+    >- (qexistsl_tac [‘0’,‘m’,‘t’] >> simp[evaluate_def, inc_clock_ZERO, submap_refl])
+    >> ‘state_rel m (dec_clock 1 s) (dec_clock 1 t)’ by simp[state_rel_dec_clock]
+    >> qpat_x_assum ‘∀m' t' f wk sh. state_rel m' (dec_clock 1 s) t' ∧ _ ⇒ _’
+         (qspecl_then [‘m’,‘dec_clock 1 t’,‘f’,‘wk’,‘sh’] mp_tac) >> simp[]
+    >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
+    >> qexistsl_tac [‘ck1’,‘m1’,‘t1’]
+    >> gvs[AllCaseEqs()] >> simp[evaluate_def, dec_clock_inv_clock1, inc_clock_clock])
+QED
+
+Resume cpr_correct[Force]:
+  rpt gen_tac >> strip_tac
+  >> reverse conj_tac
+  >- (rpt strip_tac >> gvs[tail_ok_def]
+      >> imp_res_tac split_ok_ConsShape >> gvs[exp_shape_ok_def])
+  >> rpt strip_tac
+  >> qpat_x_assum ‘evaluate ([Force _ _],_,_) = _’ (assume_tac o SRULE[evaluate_def])
+  >> ‘t.refs = s.refs ∧ t.clock = s.clock ∧ code_rel m s.code t.code’
+    by gvs[state_rel_def]
+  >> Cases_on ‘n < LENGTH env’ >> gvs[]
+  >> Cases_on ‘dest_thunk env❲n❳ s.refs’ >> gvs[]
+  >> rename1 ‘IsThunk mode fv’ >> Cases_on ‘mode’ >> gvs[]
+  >- (qexistsl_tac [‘0’,‘m’,‘t’] >> simp[evaluate_def, inc_clock_ZERO, submap_refl])
+  >> Cases_on ‘find_code (SOME force_loc) [env❲n❳; fv] s.code’ >> gvs[]
+  >> rename1 ‘find_code _ _ s.code = SOME p’ >> PairCases_on ‘p’
+  >> rename1 ‘find_code _ _ s.code = SOME (args,body)’
+  >> drule_all code_rel_find_code_SOME_dest >> strip_tac
+  >> qpat_x_assum ‘∀args' exp. _’ (qspecl_then [‘args’,‘body’] mp_tac) >> simp[]
+  >> Cases_on ‘s.clock = 0’ >> gvs[]
+  >- (
+    ‘∃p. find_code (SOME force_loc) [env❲n❳; fv] t.code = SOME p’
+      by (Cases_on ‘lookup force_loc m’ >> gvs[]
+          >> rename1 ‘lookup force_loc m = SOME q’ >> PairCases_on ‘q’ >> gvs[])
+    >> PairCases_on ‘p’
+    >> qexistsl_tac [‘0’,‘m’,‘t with clock := 0’]
+    >> simp[evaluate_def, inc_clock_ZERO, submap_refl, state_rel_with_clock])
+  >> strip_tac
+  >> Cases_on ‘evaluate ([body],[env❲n❳; fv],dec_clock 1 s)’
+  >> rename1 ‘evaluate ([body],_,dec_clock 1 s) = (r0,s3)’
+  >> ‘res = r0 ∧ s1 = s3 ∧ ∀vs. r0 ≠ Rerr (Rraise (Ret vs))’
+    by (Cases_on ‘r0’ >> gvs[] >> rename1 ‘Rerr e’ >> Cases_on ‘e’ >> gvs[]
+        >> rename1 ‘Rraise ex’ >> Cases_on ‘ex’ >> gvs[])
+  >> gvs[]
+  >> ‘state_rel m (dec_clock 1 s) (dec_clock 1 t)’ by simp[state_rel_dec_clock]
+  >> Cases_on ‘lookup force_loc m’ >> gvs[]
+  >- (
+    qpat_x_assum ‘∀m' t'. state_rel m' (dec_clock 1 s) t' ⇒ _’ drule
+    >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
+    >> qexistsl_tac [‘ck1’,‘m1’,‘t1’]
+    >> simp[evaluate_def, dec_clock_inv_clock1, inc_clock_clock, inc_clock_code,
+            inc_clock_refs]
+    >> Cases_on ‘r0’ >> gvs[] >> rename1 ‘Rerr e’ >> Cases_on ‘e’ >> gvs[]
+    >> rename1 ‘Rraise ex’ >> Cases_on ‘ex’ >> gvs[])
+  >> rename1 ‘lookup force_loc m = SOME p’ >> PairCases_on ‘p’ >> gvs[]
+  >> rename1 ‘lookup force_loc m = SOME (sh,wk)’
+  >> qpat_x_assum ‘∀m' t' f wk sh. state_rel m' (dec_clock 1 s) t' ∧ _ ⇒ _’
+       (qspecl_then [‘m’,‘dec_clock 1 t’,‘force_loc’,‘wk’,‘sh’] mp_tac) >> simp[]
+  >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
+  >> qspecl_then [‘wk’,‘inc_clock ck1 (dec_clock 1 t)’,‘[env❲n❳; fv]’,
+                  ‘worker_body m force_loc wk sh body’,‘r0’,‘sh’,‘t1’] mp_tac
+       evaluate_wrapper_worker
+  >> simp[inc_clock_code, dec_clock_code]
+  >> strip_tac
+  >> qexistsl_tac [‘ck1 + 1’,‘m1’,‘t1’]
+  >> ‘inc_clock (ck1 + 1) (dec_clock 1 t) =
+      inc_clock 1 (inc_clock ck1 (dec_clock 1 t))’ by simp[inc_clock_ADD]
+  >> simp[evaluate_def, dec_clock_inv_clock1, inc_clock_clock, inc_clock_code,
+          inc_clock_refs]
+  >> Cases_on ‘r0’ >> gvs[] >> rename1 ‘Rerr e’ >> Cases_on ‘e’ >> gvs[]
+  >> rename1 ‘Rraise ex’ >> Cases_on ‘ex’ >> gvs[]
+QED
+
+Resume cpr_correct[Call]:
+  rpt gen_tac >> strip_tac
+  >> conj_tac >- (
+    rpt strip_tac
+    >> qpat_x_assum ‘evaluate ([Call _ _ _ _],_,_) = _’ (assume_tac o SRULE[evaluate_def])
+    >> Cases_on ‘IS_NONE dest ∧ IS_SOME handler’ >- gvs[]
+    >> qpat_x_assum ‘¬(IS_NONE dest ∧ IS_SOME handler) ⇒ _’ drule >> strip_tac
+    >> ‘¬(dest = NONE ∧ IS_SOME handler)’ by (Cases_on ‘dest’ >> gvs[])
+    >> qpat_x_assum ‘(if _ then _ else _) = _’ mp_tac >> simp[]
+    >> Cases_on ‘evaluate (xs,env,s1)’ >> rename1 ‘evaluate (xs,env,s1) = (r1,s2)’
+    >> strip_tac
+    >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
+    >> qpat_x_assum ‘∀m t res s1'. state_rel m s1 t ∧ _ = (res,s1') ∧ _ ⇒ _’
+         (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
+    >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
+    >> reverse (Cases_on ‘r1’) >> gvs[]
+    >- (
+      qexistsl_tac [‘ck1’,‘m1’,‘t1’] >> simp[evaluate_def]
+      >> Cases_on ‘dest’ >> gvs[])
+    >> rename1 ‘evaluate (xs,env,s1) = (Rval vs,s2)’
+    >> ‘(IS_NONE dest ∧ IS_SOME handler) ⇔ F’ by (Cases_on ‘dest’ >> gvs[])
+    >> Cases_on ‘find_code dest vs s2.code’ >> gvs[]
+    >> rename1 ‘find_code dest vs s2.code = SOME p’ >> PairCases_on ‘p’
+    >> rename1 ‘find_code dest vs s2.code = SOME (args,body)’
+    >> ‘code_rel m1 s2.code t1.code ∧ t1.clock = s2.clock’ by gvs[state_rel_def]
+    >> drule_all code_rel_find_code_lookup >> strip_tac
+    >> ‘∃tb. find_code dest vs t1.code = SOME (args,tb)’
+      by (Cases_on ‘lookup d m1’ >> gvs[]
+          >> rename1 ‘lookup d m1 = SOME q’ >> PairCases_on ‘q’ >> gvs[])
+    >> drule_then assume_tac evaluate_inc_clock_Rval
+    >> Cases_on ‘s2.clock < ticks + 1’ >> gvs[]
+    >- (
+      qexistsl_tac [‘ck1’,‘m1’,‘t1 with clock := 0’]
+      >> simp[state_rel_with_clock]
+      >> ‘¬(IS_NONE dest ∧ IS_SOME handler)’ by (Cases_on ‘dest’ >> gvs[])
+      >> simp[evaluate_def])
+    >> ‘state_rel m1 (dec_clock (ticks + 1) s2) (dec_clock (ticks + 1) t1)’
+      by simp[state_rel_dec_clock]
+    >> Cases_on ‘evaluate ([body],args,dec_clock (ticks + 1) s2)’
+    >> rename1 ‘evaluate ([body],args,dec_clock (ticks + 1) s2) = (r0,s3)’
+    >> ‘r0 ≠ Rerr (Rabort Rtype_error) ∧ ∀vs. r0 ≠ Rerr (Rraise (Ret vs))’
+      by (Cases_on ‘r0’ >> gvs[] >> rename1 ‘Rerr e’ >> Cases_on ‘e’ >> gvs[]
+          >> rename1 ‘Rraise ex’ >> Cases_on ‘ex’ >> gvs[])
+    >> subgoal ‘∃ck2 m2 t2. submap m1 m2 ∧ state_rel m2 s3 t2 ∧
+                  evaluate ([tb],args,inc_clock ck2 (dec_clock (ticks + 1) t1)) =
+                    (r0,t2)’
+    >- (
+      Cases_on ‘lookup d m1’ >> gvs[]
+      >> rename1 ‘lookup d m1 = SOME p’ >> PairCases_on ‘p’ >> gvs[]
+      >> rename1 ‘lookup d m1 = SOME (sh,wk)’
+      >> qpat_x_assum
+           ‘∀m' t' f wk sh. state_rel m' (dec_clock (ticks + 1) s2) t' ∧ _ ⇒ _’
+           (qspecl_then [‘m1’,‘dec_clock (ticks + 1) t1’,‘d’,‘wk’,‘sh’] mp_tac)
+      >> simp[]
+      >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
+      >> qspecl_then [‘wk’,‘inc_clock ck2 (dec_clock (ticks + 1) t1)’,‘args’,
+                      ‘worker_body m1 d wk sh body’,‘r0’,‘sh’,‘t2’] mp_tac
+           evaluate_wrapper_worker
+      >> simp[inc_clock_code, dec_clock_code] >> strip_tac
+      >> qexistsl_tac [‘ck2 + 1’,‘m2’,‘t2’]
+      >> ‘inc_clock (ck2 + 1) (dec_clock (ticks + 1) t1) =
+          inc_clock 1 (inc_clock ck2 (dec_clock (ticks + 1) t1))’ by simp[inc_clock_ADD]
+      >> simp[])
+    >> ‘¬(IS_NONE dest ∧ IS_SOME handler)’ by (Cases_on ‘dest’ >> gvs[])
+    >> ‘submap m m2’ by metis_tac[submap_trans]
+    >> Cases_on ‘∃v x. r0 = Rerr (Rraise (Exn v)) ∧ handler = SOME x’
+    >- (
+      gvs[]
+      >> Cases_on ‘evaluate ([x],v::env,s3)’ >> rename1 ‘evaluate ([x],v::env,s3) = (hr,s4)’
+      >> ‘res = hr ∧ s1' = s4 ∧ ∀vs. hr ≠ Rerr (Rraise (Ret vs))’
+        by (Cases_on ‘hr’ >> gvs[] >> rename1 ‘Rerr e’ >> Cases_on ‘e’ >> gvs[]
+            >> rename1 ‘Rraise ex’ >> Cases_on ‘ex’ >> gvs[])
+      >> gvs[]
+      >> qpat_x_assum ‘∀m t. state_rel m s3 t ⇒ _’ drule
+      >> disch_then (qx_choosel_then [‘ck3’,‘m3’,‘t3’] strip_assume_tac)
+      >> qexistsl_tac [‘ck1 + (ck2 + ck3)’,‘m3’,‘t3’]
+      >> ‘submap m m3’ by metis_tac[submap_trans]
+      >> qpat_x_assum ‘evaluate ([tb],_,_) = _’ assume_tac
+      >> drule_then (qspec_then ‘ck3’ mp_tac) evaluate_inc_clock_res
+      >> simp[] >> strip_tac
+      >> simp[evaluate_def, dec_clock_inv_clock, inc_clock_code, inc_clock_clock]
+      >> Cases_on ‘hr’ >> gvs[] >> rename1 ‘Rerr e’ >> Cases_on ‘e’ >> gvs[]
+      >> rename1 ‘Rraise ex’ >> Cases_on ‘ex’ >> gvs[])
+    >> ‘res = r0 ∧ s1' = s3’
+      by (Cases_on ‘r0’ >> gvs[] >> rename1 ‘Rerr e’ >> Cases_on ‘e’ >> gvs[]
+          >> rename1 ‘Rraise ex’ >> Cases_on ‘ex’ >> gvs[] >> Cases_on ‘handler’ >> gvs[])
+    >> qexistsl_tac [‘ck1 + ck2’,‘m2’,‘t2’]
+    >> simp[evaluate_def, dec_clock_inv_clock, inc_clock_code, inc_clock_clock]
+    >> Cases_on ‘r0’ >> gvs[] >> rename1 ‘Rerr e’ >> Cases_on ‘e’ >> gvs[]
+    >> rename1 ‘Rraise ex’ >> Cases_on ‘ex’ >> gvs[] >> Cases_on ‘handler’ >> gvs[])
+  >- (
+    rpt strip_tac >> gvs[]
+    >> drule_all worker_body_tail_call >> strip_tac >> gvs[tail_form_def, no_ret_def]
+    >> qpat_x_assum ‘evaluate ([Call _ _ _ _],_,_) = _’ (assume_tac o SRULE[evaluate_def])
+    >> Cases_on ‘evaluate (xs,env,s1)’ >> rename1 ‘evaluate (xs,env,s1) = (r1,s2)’
+    >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
+    >> qpat_x_assum ‘∀m t res s1'. state_rel m s1 t ∧ _ = (res,s1') ∧ _ ⇒ _’
+         (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
+    >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
+    >> reverse (Cases_on ‘r1’) >> gvs[]
+    >- (
+      qexistsl_tac [‘ck1’,‘m1’,‘t1’] >> simp[evaluate_def])
+    >> rename1 ‘evaluate (xs,env,s1) = (Rval vs,s2)’
+    >> Cases_on ‘find_code (SOME d) vs s2.code’ >> gvs[]
+    >> rename1 ‘find_code _ vs s2.code = SOME p’ >> PairCases_on ‘p’
+    >> rename1 ‘find_code _ vs s2.code = SOME (args,body)’
+    >> ‘code_rel m1 s2.code t1.code ∧ t1.clock = s2.clock’ by gvs[state_rel_def]
+    >> ‘lookup d m1 = SOME (sh,dwk)’ by gvs[submap_def]
+    >> drule_all code_rel_find_code_SOME_dest >> strip_tac >> gvs[]
+    >> drule_then assume_tac evaluate_inc_clock_Rval
+    >> ‘find_code (SOME dwk) args t1.code =
+          SOME (args,worker_body m1 d dwk sh body)’
+      by simp[bvlSemTheory.find_code_def]
+    >> Cases_on ‘s2.clock < ticks + 1’ >> gvs[]
+    >- (
+      qexistsl_tac [‘ck1’,‘m1’,‘t1 with clock := 0’]
+      >> simp[state_rel_with_clock, evaluate_def])
+    >> ‘state_rel m1 (dec_clock (ticks + 1) s2) (dec_clock (ticks + 1) t1)’
+      by simp[state_rel_dec_clock]
+    >> Cases_on ‘evaluate ([body],args,dec_clock (ticks + 1) s2)’
+    >> rename1 ‘evaluate ([body],args,dec_clock (ticks + 1) s2) = (r0,s3)’
+    >> ‘res = r0 ∧ s1' = s3 ∧ ∀vs. r0 ≠ Rerr (Rraise (Ret vs))’
+      by (Cases_on ‘r0’ >> gvs[] >> rename1 ‘Rerr e’ >> Cases_on ‘e’ >> gvs[]
+          >> rename1 ‘Rraise ex’ >> Cases_on ‘ex’ >> gvs[])
+    >> gvs[]
+    >> qpat_x_assum
+         ‘∀m' t' f' wk' sh'. state_rel m' (dec_clock (ticks + 1) s2) t' ∧ _ ⇒ _’
+         (qspecl_then [‘m1’,‘dec_clock (ticks + 1) t1’,‘d’,‘dwk’,‘sh’] mp_tac)
+    >> simp[]
+    >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
+    >> qexistsl_tac [‘ck1 + ck2’,‘m2’,‘t2’]
+    >> ‘submap m m2’ by metis_tac[submap_trans]
+    >> ‘dec_clock (ticks + 1) (inc_clock ck2 t1) =
+        inc_clock ck2 (dec_clock (ticks + 1) t1)’ by simp[dec_clock_inv_clock]
+    >> Cases_on ‘r0’ >> gvs[]
+    >- (
+      rename1 ‘Rval rv’ >> Cases_on ‘rv’ >> gvs[]
+      >> rename1 ‘Rval (v::rest)’ >> Cases_on ‘rest’ >> gvs[]
+      >> irule evaluate_TailCall
+      >> conj_tac >- (irule (cj 1 flat_vals_LENGTH) >> simp[])
+      >> qexistsl_tac [‘args’,‘worker_body m1 d dwk sh body’,‘inc_clock ck2 t1’,‘args’]
+      >> simp[inc_clock_code, inc_clock_clock])
+    >> irule evaluate_TailCall_err >> simp[]
+    >> qexistsl_tac [‘args’,‘worker_body m1 d dwk sh body’,‘inc_clock ck2 t1’,‘args’]
+    >> simp[inc_clock_code, inc_clock_clock])
+QED
+
+Resume cpr_correct[LetCall]:
+  rpt gen_tac >> strip_tac
+  >> conj_tac >- (
+    rpt strip_tac
+    >> qpat_x_assum ‘evaluate ([LetCall _ _ _ _ _],_,_) = _’
+         (assume_tac o SRULE[evaluate_def])
+    >> Cases_on ‘evaluate (xs,env,s1)’ >> rename1 ‘evaluate (xs,env,s1) = (r1,s2)’
+    >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
+    >> qpat_x_assum ‘∀m t res s1'. state_rel m s1 t ∧ _ = (res,s1') ∧ _ ⇒ _’
+         (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
+    >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
+    >> reverse (Cases_on ‘r1’) >> gvs[]
+    >- (
+      qexistsl_tac [‘ck1’,‘m1’,‘t1’] >> simp[evaluate_def])
+    >> rename1 ‘evaluate (xs,env,s1) = (Rval vs,s2)’
+    >> Cases_on ‘find_code (SOME dest) vs s2.code’ >> gvs[]
+    >> rename1 ‘find_code _ vs s2.code = SOME p’ >> PairCases_on ‘p’
+    >> rename1 ‘find_code _ vs s2.code = SOME (args,body)’
+    >> ‘code_rel m1 s2.code t1.code ∧ t1.clock = s2.clock’ by gvs[state_rel_def]
+    >> drule_all code_rel_find_code_SOME_dest >> strip_tac >> gvs[]
+    >> ‘∃tb. find_code (SOME dest) args t1.code = SOME (args,tb)’
+      by (Cases_on ‘lookup dest m1’ >> gvs[]
+          >> rename1 ‘lookup dest m1 = SOME q’ >> PairCases_on ‘q’ >> gvs[])
+    >> drule_then assume_tac evaluate_inc_clock_Rval
+    >> Cases_on ‘s2.clock < ticks + 1’ >> gvs[]
+    >- (
+      qexistsl_tac [‘ck1’,‘m1’,‘t1 with clock := 0’]
+      >> simp[state_rel_with_clock, evaluate_def])
+    >> ‘state_rel m1 (dec_clock (ticks + 1) s2) (dec_clock (ticks + 1) t1)’
+      by simp[state_rel_dec_clock]
+    >> Cases_on ‘evaluate ([body],args,dec_clock (ticks + 1) s2)’
+    >> rename1 ‘evaluate ([body],args,dec_clock (ticks + 1) s2) = (r0,s3)’
+    >> ‘r0 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
+    >> subgoal ‘∃ck2 m2 t2. submap m1 m2 ∧ state_rel m2 s3 t2 ∧
+                  evaluate ([tb],args,inc_clock ck2 (dec_clock (ticks + 1) t1)) =
+                    (r0,t2)’
+    >- (
+      Cases_on ‘lookup dest m1’ >> gvs[]
+      >> rename1 ‘lookup dest m1 = SOME p’ >> PairCases_on ‘p’ >> gvs[]
+      >> rename1 ‘lookup dest m1 = SOME (sh,wk)’
+      >> ‘∀vs. r0 ≠ Rerr (Rraise (Ret vs))’ by metis_tac[evaluate_tail_no_Ret]
+      >> qpat_x_assum
+           ‘∀m' t' f wk sh. state_rel m' (dec_clock (ticks + 1) s2) t' ∧ _ ⇒ _’
+           (qspecl_then [‘m1’,‘dec_clock (ticks + 1) t1’,‘dest’,‘wk’,‘sh’] mp_tac)
+      >> simp[]
+      >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
+      >> qspecl_then [‘wk’,‘inc_clock ck2 (dec_clock (ticks + 1) t1)’,‘args’,
+                      ‘worker_body m1 dest wk sh body’,‘r0’,‘sh’,‘t2’] mp_tac
+           evaluate_wrapper_worker
+      >> simp[inc_clock_code, dec_clock_code] >> strip_tac
+      >> qexistsl_tac [‘ck2 + 1’,‘m2’,‘t2’]
+      >> ‘inc_clock (ck2 + 1) (dec_clock (ticks + 1) t1) =
+          inc_clock 1 (inc_clock ck2 (dec_clock (ticks + 1) t1))’ by simp[inc_clock_ADD]
+      >> simp[])
+    >> ‘submap m m2’ by metis_tac[submap_trans]
+    >> Cases_on ‘∃ret_vs. r0 = Rerr (Rraise (Ret ret_vs)) ∧ LENGTH ret_vs = rets’
+    >- (
+      gvs[]
+      >> qpat_x_assum ‘∀m t. state_rel m s3 t ⇒ _’ drule
+      >> disch_then (qx_choosel_then [‘ck3’,‘m3’,‘t3’] strip_assume_tac)
+      >> qexistsl_tac [‘ck1 + (ck2 + ck3)’,‘m3’,‘t3’]
+      >> ‘submap m m3’ by metis_tac[submap_trans]
+      >> qpat_x_assum ‘evaluate ([tb],_,_) = _’ assume_tac
+      >> drule_then (qspec_then ‘ck3’ mp_tac) evaluate_inc_clock_res
+      >> simp[] >> strip_tac
+      >> simp[evaluate_def, dec_clock_inv_clock, inc_clock_code, inc_clock_clock])
+    >> ‘res = r0 ∧ s1' = s3’
+      by (Cases_on ‘r0’ >> gvs[] >> rename1 ‘Rerr e’ >> Cases_on ‘e’ >> gvs[]
+          >> rename1 ‘Rraise ex’ >> Cases_on ‘ex’ >> gvs[])
+    >> qexistsl_tac [‘ck1 + ck2’,‘m2’,‘t2’]
+    >> simp[evaluate_def, dec_clock_inv_clock, inc_clock_code, inc_clock_clock]
+    >> Cases_on ‘r0’ >> gvs[] >> rename1 ‘Rerr e’ >> Cases_on ‘e’ >> gvs[]
+    >> rename1 ‘Rraise ex’ >> Cases_on ‘ex’ >> gvs[])
+  >- (
+    rpt strip_tac >> gvs[tail_ok_def, tail_form_def, worker_body_def]
+    >> qpat_x_assum ‘evaluate ([LetCall _ _ _ _ _],_,_) = _’
+         (assume_tac o SRULE[evaluate_def])
+    >> Cases_on ‘evaluate (xs,env,s1)’ >> rename1 ‘evaluate (xs,env,s1) = (r1,s2)’
+    >> ‘r1 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
+    >> qpat_x_assum ‘∀m t res s1'. state_rel m s1 t ∧ _ = (res,s1') ∧ _ ⇒ _’
+         (qspecl_then [‘m’,‘t’] mp_tac) >> simp[]
+    >> disch_then (qx_choosel_then [‘ck1’,‘m1’,‘t1’] strip_assume_tac)
+    >> reverse (Cases_on ‘r1’) >> gvs[]
+    >- (
+      qexistsl_tac [‘ck1’,‘m1’,‘t1’] >> simp[evaluate_def])
+    >> rename1 ‘evaluate (xs,env,s1) = (Rval vs,s2)’
+    >> Cases_on ‘find_code (SOME dest) vs s2.code’ >> gvs[]
+    >> rename1 ‘find_code _ vs s2.code = SOME p’ >> PairCases_on ‘p’
+    >> rename1 ‘find_code _ vs s2.code = SOME (args,body)’
+    >> ‘code_rel m1 s2.code t1.code ∧ t1.clock = s2.clock’ by gvs[state_rel_def]
+    >> drule_all code_rel_find_code_SOME_dest >> strip_tac >> gvs[]
+    >> ‘∃tb. find_code (SOME dest) args t1.code = SOME (args,tb)’
+      by (Cases_on ‘lookup dest m1’ >> gvs[]
+          >> rename1 ‘lookup dest m1 = SOME q’ >> PairCases_on ‘q’ >> gvs[])
+    >> drule_then assume_tac evaluate_inc_clock_Rval
+    >> Cases_on ‘s2.clock < ticks + 1’ >> gvs[]
+    >- (
+      qexistsl_tac [‘ck1’,‘m1’,‘t1 with clock := 0’]
+      >> simp[state_rel_with_clock, evaluate_def])
+    >> ‘state_rel m1 (dec_clock (ticks + 1) s2) (dec_clock (ticks + 1) t1)’
+      by simp[state_rel_dec_clock]
+    >> Cases_on ‘evaluate ([body],args,dec_clock (ticks + 1) s2)’
+    >> rename1 ‘evaluate ([body],args,dec_clock (ticks + 1) s2) = (r0,s3)’
+    >> ‘r0 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac >> gvs[])
+    >> subgoal ‘∃ck2 m2 t2. submap m1 m2 ∧ state_rel m2 s3 t2 ∧
+                  evaluate ([tb],args,inc_clock ck2 (dec_clock (ticks + 1) t1)) =
+                    (r0,t2)’
+    >- (
+      Cases_on ‘lookup dest m1’ >> gvs[]
+      >> rename1 ‘lookup dest m1 = SOME p’ >> PairCases_on ‘p’ >> gvs[]
+      >> rename1 ‘lookup dest m1 = SOME (dsh,dwk)’
+      >> ‘∀vs. r0 ≠ Rerr (Rraise (Ret vs))’ by metis_tac[evaluate_tail_no_Ret]
+      >> qpat_x_assum
+           ‘∀m' t' f wk sh. state_rel m' (dec_clock (ticks + 1) s2) t' ∧ _ ⇒ _’
+           (qspecl_then [‘m1’,‘dec_clock (ticks + 1) t1’,‘dest’,‘dwk’,‘dsh’] mp_tac)
+      >> simp[]
+      >> disch_then (qx_choosel_then [‘ck2’,‘m2’,‘t2’] strip_assume_tac)
+      >> qspecl_then [‘dwk’,‘inc_clock ck2 (dec_clock (ticks + 1) t1)’,‘args’,
+                      ‘worker_body m1 dest dwk dsh body’,‘r0’,‘dsh’,‘t2’] mp_tac
+           evaluate_wrapper_worker
+      >> simp[inc_clock_code, dec_clock_code] >> strip_tac
+      >> qexistsl_tac [‘ck2 + 1’,‘m2’,‘t2’]
+      >> ‘inc_clock (ck2 + 1) (dec_clock (ticks + 1) t1) =
+          inc_clock 1 (inc_clock ck2 (dec_clock (ticks + 1) t1))’ by simp[inc_clock_ADD]
+      >> simp[])
+    >> ‘submap m m2’ by metis_tac[submap_trans]
+    >> Cases_on ‘∃ret_vs. r0 = Rerr (Rraise (Ret ret_vs)) ∧ LENGTH ret_vs = rets’
+    >- (
+      gvs[]
+      >> ‘lookup f m2 = SOME (sh,wk)’ by gvs[submap_def]
+      >> ‘tail_ok m2 f sh y’ by (irule tail_ok_submap >> qexists_tac ‘m’ >> gvs[submap_def])
+      >> qpat_x_assum ‘∀m' t' f wk sh. state_rel m' s3 t' ∧ _ ⇒ _’
+           (qspecl_then [‘m2’,‘t2’,‘f’,‘wk’,‘sh’] mp_tac) >> simp[]
+      >> disch_then (qx_choosel_then [‘ck3’,‘m3’,‘t3’] strip_assume_tac)
+      >> qexistsl_tac [‘ck1 + (ck2 + ck3)’,‘m3’,‘t3’]
+      >> ‘submap m m3’ by metis_tac[submap_trans]
+      >> ‘worker_body m2 f wk sh y = worker_body m f wk sh y’
+        by metis_tac[worker_body_submap]
+      >> qpat_x_assum ‘evaluate ([tb],_,_) = _’ assume_tac
+      >> drule_then (qspec_then ‘ck3’ mp_tac) evaluate_inc_clock_res
+      >> simp[] >> strip_tac
+      >> gvs[AllCaseEqs()]
+      >> simp[evaluate_def, dec_clock_inv_clock, inc_clock_code, inc_clock_clock])
+    >> ‘res = r0 ∧ s1' = s3’
+      by (Cases_on ‘r0’ >> gvs[] >> rename1 ‘Rerr e’ >> Cases_on ‘e’ >> gvs[]
+          >> rename1 ‘Rraise ex’ >> Cases_on ‘ex’ >> gvs[])
+    >> qexistsl_tac [‘ck1 + ck2’,‘m2’,‘t2’]
+    >> Cases_on ‘r0’ >> gvs[]
+    >> simp[evaluate_def, dec_clock_inv_clock, inc_clock_code, inc_clock_clock]
+    >> rename1 ‘Rerr e’ >> Cases_on ‘e’ >> gvs[]
+    >> rename1 ‘Rraise ex’ >> Cases_on ‘ex’ >> gvs[])
+QED
+
+Finalise cpr_correct;
+
+Theorem compile_prog_evaluate:
+  input_condition n prog ∧
+  (∀k st cfg p. co k = ((st,cfg),p) ⇒ input_condition (FST st) p) ∧
+  compile_prog T (n,LN) prog = (st1,prog2) ∧
+  (∀k. MEM k (MAP FST prog2) ∧ in_ns_4 k ⇒ k < FST (FST (FST (co 0)))) ∧
+  SND (FST (FST (co 0))) = SND st1 ∧
+  evaluate ([Call 0 (SOME start) [] NONE],[],
+            initial_state ffi0 (fromAList prog) co
+              (state_cc (compile_prog T) cc) k) = (r,s) ∧
+  r ≠ Rerr (Rabort Rtype_error) ⇒
+  ∃ck m t.
+    evaluate ([Call 0 (SOME start) [] NONE],[],
+              initial_state ffi0 (fromAList prog2)
+                (state_co (compile_prog T) co) cc (k + ck)) = (r,t) ∧
+    state_rel m s t
+Proof
+  strip_tac
+  >> PairCases_on ‘st1’
+  >> ‘compile_prog_with_map LN n prog = ((st10,st11),prog2)’
+    by gvs[compile_prog_def]
+  >> ‘code_rel LN (LN:(num # bvi$exp) num_map) (LN:(num # bvi$exp) num_map) ∧
+      submap LN (LN:(cpr_shape # num) num_map) ∧
+      DISJOINT (domain (LN:(num # bvi$exp) num_map)) (set (MAP FST prog)) ∧
+      (∀x. x ∈ domain (LN:(num # bvi$exp) num_map) ∧ in_ns_4 x ⇒ x < n) ∧
+      (∀x. x ∈ domain (LN:(num # bvi$exp) num_map) ∧ bvl_num_stubs ≤ x ⇒
+           ¬in_ns_4 x) ∧
+      (∀d sh wk. lookup d (LN:(cpr_shape # num) num_map) = SOME (sh,wk) ⇒
+                 in_ns_4 wk ∧ bvl_num_stubs ≤ wk)’
+    by simp[code_rel_def, map_ok_def, submap_refl]
+  >> drule_all code_rel_compile >> simp[] >> strip_tac
+  >> qabbrev_tac ‘s0 = initial_state ffi0 (fromAList prog) co
+                         (state_cc (compile_prog T) cc) k’
+  >> qabbrev_tac ‘t0 = initial_state ffi0 (fromAList prog2)
+                         (state_co (compile_prog T) co) cc k’
+  >> subgoal ‘state_rel st11 s0 t0’
+  >- (
+    simp[state_rel_def, Abbr ‘s0’, Abbr ‘t0’]
+    >> rpt conj_tac
+    >- (
+      gen_tac >> ‘∃st cfg p. co n' = ((st,cfg),p)’ by metis_tac[PAIR]
+      >> simp[]
+      >> qpat_x_assum ‘∀k st cfg p. co k = _ ⇒ _’ drule >> simp[])
+    >- (
+      simp[domain_fromAList] >> rpt strip_tac
+      >> qpat_x_assum ‘∀k. MEM k (MAP FST prog2) ∧ _ ⇒ _’ irule >> simp[])
+    >- (
+      qpat_x_assum ‘input_condition n prog’ mp_tac
+      >> simp[domain_fromAList, input_condition_def, EVERY_MEM, MEM_FILTER,
+              MEM_MAP, PULL_EXISTS]
+      >> rpt strip_tac >> res_tac)
+    >> qpat_x_assum ‘∀d sh wk. lookup d st11 = _ ⇒ _’ ACCEPT_TAC)
+  >> drule_all (cj 1 cpr_correct)
+  >> disch_then (qx_choosel_then [‘ck’,‘m1’,‘t1’] strip_assume_tac)
+  >> qexistsl_tac [‘ck’,‘m1’,‘t1’]
+  >> gvs[Abbr ‘t0’, inc_clock_def, initial_state_with_simp]
+QED
+
+Theorem evaluate_initial_state_mono[local]:
+  bviSem$evaluate (es,[],bviSem$initial_state ffi c co cc k1) = (r,s) ∧
+  r ≠ Rerr (Rabort Rtimeout_error) ∧ k1 ≤ k2 ⇒
+  ∃s1. bviSem$evaluate (es,[],bviSem$initial_state ffi c co cc k2) = (r,s1) ∧
+       s1.ffi = s.ffi
+Proof
+  strip_tac
+  >> drule_all evaluate_add_clock
+  >> disch_then (qspec_then ‘k2 - k1’ mp_tac)
+  >> simp[inc_clock_def]
+QED
+
+Theorem semantics_fwd_sim[local]:
+  (∀k r s.
+     evaluate ([Call 0 (SOME start) [] NONE],[],
+               initial_state ffi c1 co1 cc1 k) = (r,s) ∧
+     r ≠ Rerr (Rabort Rtype_error) ⇒
+     ∃ck t.
+       evaluate ([Call 0 (SOME start) [] NONE],[],
+                 initial_state ffi c2 co2 cc2 (k + ck)) = (r,t) ∧
+       t.ffi = s.ffi) ∧
+  semantics ffi c1 co1 cc1 start ≠ Fail ⇒
+  semantics ffi c1 co1 cc1 start = semantics ffi c2 co2 cc2 start
+Proof
+  strip_tac
+  >> ‘∀k e. FST (evaluate ([Call 0 (SOME start) [] NONE],[],
+                           initial_state ffi c1 co1 cc1 k)) = Rerr e ⇒
+            e = Rabort Rtimeout_error ∨ ∃f. e = Rabort (Rffi_error f)’
+    by (qpat_x_assum ‘_ ≠ Fail’ mp_tac >> simp[semantics_def] >> metis_tac[])
+  >> ‘∀k. ∃ck t.
+        evaluate ([Call 0 (SOME start) [] NONE],[],
+                  initial_state ffi c2 co2 cc2 (k + ck)) =
+          (FST (evaluate ([Call 0 (SOME start) [] NONE],[],
+                          initial_state ffi c1 co1 cc1 k)),t) ∧
+        t.ffi = (SND (evaluate ([Call 0 (SOME start) [] NONE],[],
+                                initial_state ffi c1 co1 cc1 k))).ffi’
+    by (
+      gen_tac
+      >> Cases_on ‘evaluate ([Call 0 (SOME start) [] NONE],[],
+                             initial_state ffi c1 co1 cc1 k)’
+      >> qpat_x_assum ‘∀k r s. _ ∧ _ ⇒ ∃ck t. _’
+           (qspecl_then [‘k’,‘q’,‘r’] mp_tac)
+      >> impl_tac
+      >- (
+        simp[] >> strip_tac
+        >> qpat_x_assum ‘∀k e. _ ⇒ _’ (qspecl_then [‘k’,‘Rabort Rtype_error’] mp_tac)
+        >> simp[])
+      >> simp[])
+  >> qpat_x_assum ‘∀k r s. _ ∧ _ ⇒ ∃ck t. _’ kall_tac
+  >> ‘∀k e. FST (evaluate ([Call 0 (SOME start) [] NONE],[],
+                           initial_state ffi c2 co2 cc2 k)) = Rerr e ⇒
+            e = Rabort Rtimeout_error ∨ ∃f. e = Rabort (Rffi_error f)’
+    by (
+      rpt strip_tac
+      >> Cases_on ‘evaluate ([Call 0 (SOME start) [] NONE],[],
+                             initial_state ffi c2 co2 cc2 k)’
+      >> gvs[]
+      >> Cases_on ‘e = Rabort Rtimeout_error’ >> simp[]
+      >> drule evaluate_add_clock >> simp[]
+      >> qpat_x_assum ‘∀k. ∃ck t. _’ (qspec_then ‘k’ strip_assume_tac)
+      >> disch_then (qspec_then ‘ck’ mp_tac)
+      >> simp[inc_clock_def]
+      >> strip_tac >> gvs[]
+      >> qpat_x_assum ‘∀k e. FST (evaluate (_,_,initial_state _ c1 _ _ _)) = _ ⇒ _’
+           (qspecl_then [‘k’,‘e’] mp_tac)
+      >> simp[])
+  >> simp[semantics_def]
+  >> IF_CASES_TAC >- metis_tac[]
+  >> IF_CASES_TAC >- metis_tac[]
+  >> DEEP_INTRO_TAC some_intro >> simp[]
+  >> conj_tac
+  >- (
+    rpt strip_tac
+    >> DEEP_INTRO_TAC some_intro >> simp[]
+    >> conj_tac
+    >- (
+      simp[PULL_EXISTS] >> qx_genl_tac [‘k2’,‘s2’,‘r2’,‘out2’] >> strip_tac
+      >> qpat_x_assum ‘∀k. ∃ck t. _’ (qspec_then ‘k’ strip_assume_tac)
+      >> gvs[]
+      >> ‘r ≠ Rerr (Rabort Rtimeout_error) ∧ r2 ≠ Rerr (Rabort Rtimeout_error)’
+        by (conj_tac >> strip_tac >> gvs[])
+      >> qpat_assum ‘evaluate (_,_,initial_state _ c2 _ _ _) = (r,t)’
+           (mp_then (Pos hd) (qspec_then ‘ck + k + k2’ mp_tac)
+              evaluate_initial_state_mono)
+      >> qpat_assum ‘evaluate (_,_,initial_state _ c2 _ _ _) = (r2,s2)’
+           (mp_then (Pos hd) (qspec_then ‘ck + k + k2’ mp_tac)
+              evaluate_initial_state_mono)
+      >> simp[] >> rpt strip_tac
+      >> gvs[] >> every_case_tac >> gvs[])
+    >> qpat_x_assum ‘∀k. ∃ck t. _’ (qspec_then ‘k’ strip_assume_tac)
+    >> gvs[]
+    >> qpat_assum ‘evaluate (_,_,initial_state _ c2 _ _ _) = (r,t)’ (irule_at Any)
+    >> qexists_tac ‘outcome’ >> simp[])
+  >> strip_tac
+  >> DEEP_INTRO_TAC some_intro >> simp[]
+  >> conj_tac
+  >- (
+    simp[PULL_EXISTS] >> qx_genl_tac [‘k2’,‘s2’,‘r2’,‘out2’] >> rpt strip_tac
+    >> ‘r2 ≠ Rerr (Rabort Rtimeout_error)’ by (strip_tac >> gvs[])
+    >> qpat_x_assum ‘∀k. ∃ck t. _’ (qspec_then ‘k2’ strip_assume_tac)
+    >> namedCases_on ‘evaluate ([Call 0 (SOME start) [] NONE],[],
+                                initial_state ffi c1 co1 cc1 k2)’ ["r1 s1"]
+    >> gvs[]
+    >> qpat_assum ‘evaluate (_,_,initial_state _ c2 _ _ _) = (r2,s2)’
+         (mp_then (Pos hd) (qspec_then ‘ck + k2’ mp_tac)
+            evaluate_initial_state_mono)
+    >> simp[] >> strip_tac >> gvs[]
+    >> qpat_x_assum ‘∀k s r outcome. _ ⇒ ¬_’
+         (qspecl_then [‘k2’,‘s1’,‘r1’,‘out2’] mp_tac)
+    >> simp[])
+  >> strip_tac
+  >> qmatch_abbrev_tac ‘build_lprefix_lub l1 = build_lprefix_lub l2’
+  >> ‘(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2’
+    suffices_by metis_tac[build_lprefix_lub_thm, lprefix_lub_new_chain,
+                          unique_lprefix_lub]
+  >> conj_asm1_tac
+  >- (
+    unabbrev_all_tac
+    >> conj_tac
+    >> Ho_Rewrite.ONCE_REWRITE_TAC [GSYM o_DEF]
+    >> REWRITE_TAC [IMAGE_COMPOSE]
+    >> match_mp_tac prefix_chain_lprefix_chain
+    >> simp [prefix_chain_def, PULL_EXISTS]
+    >> qx_genl_tac [‘k1’,‘k2’]
+    >> qspecl_then [‘k1’,‘k2’] mp_tac LESS_EQ_CASES
+    >> metis_tac [LESS_EQ_EXISTS, initial_state_with_simp,
+                  evaluate_add_to_clock_io_events_mono
+                    |> CONV_RULE (RESORT_FORALL_CONV (sort_vars ["s"]))
+                    |> Q.SPEC ‘s with clock := k’
+                    |> SIMP_RULE (srw_ss()) [inc_clock_def]])
+  >> simp [equiv_lprefix_chain_thm]
+  >> unabbrev_all_tac >> simp [PULL_EXISTS]
+  >> ntac 2 (pop_assum kall_tac)
+  >> simp [LNTH_fromList, PULL_EXISTS, GSYM FORALL_AND_THM]
+  >> qx_genl_tac [‘n’,‘x’,‘k’]
+  >> qpat_x_assum ‘∀k. ∃ck t. _’ (qspec_then ‘k’ strip_assume_tac)
+  >> conj_tac
+  >- (strip_tac >> qexists_tac ‘k + ck’ >> gvs[])
+  >> strip_tac >> qexists_tac ‘k’
+  >> qspecl_then [‘[Call 0 (SOME start) [] NONE]’,‘[]’,
+                  ‘initial_state ffi c2 co2 cc2 k’,‘ck’] mp_tac
+       evaluate_add_to_clock_io_events_mono
+  >> simp[inc_clock_def]
+  >> strip_tac
+  >> gvs[]
+  >> drule_then assume_tac IS_PREFIX_LENGTH
+  >> conj_asm1_tac >- simp[]
+  >> irule (GSYM is_prefix_el) >> simp[]
+QED
 
 Theorem compile_prog_semantics:
-  ∀start prog next n prog2 ffi co cc.
-    compile_prog next prog = (n,prog2) ∧
-    map_inv LN next ∧ prog_keys_ok next prog ∧
-    (∀k. SND (co k) = []) ∧
-    semantics ffi (fromAList prog) co cc start ≠ Fail ⇒
-    semantics ffi (fromAList prog2) co cc start =
-    semantics ffi (fromAList prog) co cc start
+  input_condition n prog ∧
+  (∀k st cfg p. co k = ((st,cfg),p) ⇒ input_condition (FST st) p) ∧
+  compile_prog b (n,LN) prog = (st1,prog2) ∧
+  (∀k. MEM k (MAP FST prog2) ∧ in_ns_4 k ⇒ k < FST (FST (FST (co 0)))) ∧
+  SND (FST (FST (co 0))) = SND st1 ∧
+  semantics ffi (fromAList prog) co (state_cc (compile_prog b) cc) start ≠
+    Fail ⇒
+  semantics ffi (fromAList prog) co (state_cc (compile_prog b) cc) start =
+  semantics ffi (fromAList prog2) (state_co (compile_prog b) co) cc start
 Proof
-  rpt strip_tac
-  >> qspecl_then [‘next’,‘prog’,‘n’,‘prog2’,‘ffi’,‘co’,‘cc’] mp_tac
-       compile_prog_init_state_rel
-  >> impl_tac >- gvs[] >> strip_tac
-  >> qabbrev_tac ‘es = [bvi$Call 0 (SOME start) [] NONE]’
-  >> qabbrev_tac ‘init1 = initial_state ffi (fromAList prog)  co cc’
-  >> qabbrev_tac ‘init2 = initial_state ffi (fromAList prog2) co cc’
-  >> ‘∀j k. inc_clock j (init2 k) = init2 (k + j)’ by
-       gvs[Abbr‘init2’, inc_clock_def, initial_state_def,
-           state_component_equality]
-  >> ‘∀k. (init1 k).clock = k ∧ (init2 k).clock = k’ by
-       gvs[Abbr‘init1’, Abbr‘init2’, initial_state_def]
-  >> qpat_x_assum ‘semantics _ (fromAList prog) _ _ _ ≠ Fail’ mp_tac
-  >> simp[semantics_def] >> IF_CASES_TAC >- simp[]
+  Cases_on ‘b’
+  >- (
+    strip_tac
+    >> irule semantics_fwd_sim >> simp[]
+    >> rpt strip_tac
+    >> drule_all compile_prog_evaluate
+    >> disch_then (qx_choosel_then [‘ck’,‘m’,‘t’] strip_assume_tac)
+    >> qexistsl_tac [‘ck’,‘t’]
+    >> gvs[state_rel_def])
+  >> ‘bvi_cpr$compile_prog F = CURRY I’
+    by simp[FUN_EQ_THM, FORALL_PROD, compile_prog_def]
   >> strip_tac >> gvs[]
-  >> subgoal ‘∀k. FST (evaluate (es,[],init1 k)) ≠ Rerr (Rabort Rtype_error)’
-  >- (strip_tac
-      >> first_x_assum $ qspec_then ‘k’ assume_tac >> gvs[]
-      >> Cases_on ‘FST (evaluate (es,[],init1 k))’ >> gvs[]
-     )
-  >> subgoal ‘∀k. FST (evaluate (es,[],init2 k)) ≠ Rerr (Rabort Rtype_error)’
-  >- (rpt strip_tac
-      >> Cases_on ‘evaluate (es,[],init1 k)’
-      >> qpat_x_assum ‘∀k. FST (evaluate (es,[],init1 k)) ≠ _’ $ qspec_then ‘k’ assume_tac
-      >> qpat_x_assum ‘∀k. state_rel _ (init1 _) (init2 _)’ $ qspec_then ‘k’ assume_tac
-      >> gvs[]
-      >> drule_at Any (cj 1 cpr_lag)
-      >> disch_then $ qspecl_then [‘es’,‘[]’] mp_tac >> gvs[]
-      >> rpt strip_tac >> gvs[]
-     )
-  >> subgoal ‘∀k. ∃ck.
-       (FST (evaluate (es,[],init1 k)) ≠ Rerr (Rabort Rtimeout_error) ⇒
-          FST (evaluate (es,[],init2 (k + ck))) =
-          FST (evaluate (es,[],init1 k)) ∧
-          (SND (evaluate (es,[],init2 (k + ck)))).ffi =
-          (SND (evaluate (es,[],init1 k))).ffi) ∧
-       (SND (evaluate (es,[],init1 k))).ffi.io_events ≼
-       (SND (evaluate (es,[],init2 (k + ck)))).ffi.io_events’
-  >- (strip_tac
-      >> Cases_on ‘evaluate (es,[],init1 k)’
-      >> qpat_x_assum ‘∀k. state_rel _ (init1 _) (init2 _)’
-                      $ qspec_then ‘k’ assume_tac
-      >> Cases_on ‘q = Rerr (Rabort Rtimeout_error)’
-      >- (drule_at Any (cj 1 cpr_timeout)
-          >> disch_then $ qspecl_then [‘es’,‘[]’] mp_tac
-          >> rpt strip_tac
-          >> gvs[]
-          >> qexists ‘ck’ >> gvs[]
-         )
-      >> gvs[]
-      >> drule_at Any (cj 1 $ INST_TYPE [alpha |-> beta, beta |-> alpha] cpr_correct)
-      >> disch_then $ qspecl_then [‘es’,‘[]’, ‘init1 k’, ‘m’, ‘init2 k’] mp_tac
-      >> strip_tac >> gvs[]
-      >> qsuff_tac ‘q ≠ Rerr (Rabort Rtype_error)’
-      >- (rpt strip_tac
-          >> gvs[]
-          >> qexists ‘ck’ >> gvs[state_rel_def]
-         )
-      >> ‘FST (evaluate (es,[],init1 k)) ≠ Rerr (Rabort Rtype_error)’ by rw[]
-      >> Cases_on ‘evaluate (es,[],init1 k)’ >> gvs[]
-     )
-  >> subgoal ‘∀k. (SND (evaluate (es,[],init2 k))).ffi.io_events ≼
-                                                  (SND (evaluate (es,[],init1 k))).ffi.io_events’
-  >- (strip_tac
-      >> Cases_on ‘evaluate (es,[],init1 k)’
-      >> qpat_x_assum ‘∀k. state_rel _ (init1 _) (init2 _)’
-                      $ qspec_then ‘k’ assume_tac
-      >> Cases_on ‘q = Rerr (Rabort Rtimeout_error)’
-      >- (gvs[] >> drule_at Any cpr_lag_timeout
-          >> disch_then $ qspecl_then [‘es’,‘[]’] mp_tac
-          >> rpt strip_tac >> gvs[]
-         )
-      >> first_x_assum $ qspec_then ‘k’ strip_assume_tac
-      >> gvs[]
-      >> qspecl_then [‘es’,‘[]’,‘init2 k’,‘ck’] mp_tac
-                     evaluate_add_to_clock_io_events_mono
-      >> gvs[]
-     )
-  >> cheat
+  >> irule semantics_CURRY_I >> simp[]
 QED
 
+Theorem compile_prog_next_mono:
+  compile_prog b (n,csh) xs = ((n1,c1),ys) ⇒
+  ∃k. n1 = n + bvl_to_bvi_namespaces * k
+Proof
+  Cases_on ‘b’ >> rw[compile_prog_def]
+  >- (
+    drule compile_prog_with_map_next_mono >> strip_tac
+    >> qexists_tac ‘k’ >> simp[])
+  >> qexists_tac ‘0’ >> simp[]
+QED
+
+Theorem compile_prog_MEM:
+  compile_prog b (n,csh) xs = ((n1,c1),ys) ∧ MEM e (MAP FST ys) ⇒
+  MEM e (MAP FST xs) ∨
+  n ≤ e ∧ e < n1 ∧ ∃k. e = n + k * bvl_to_bvi_namespaces
+Proof
+  rw[compile_prog_def] >> gvs[]
+  >> metis_tac[compile_prog_with_map_MEM]
+QED
+
+Theorem compile_prog_ALL_DISTINCT:
+  compile_prog b (n,csh) xs = ((n1,c1),ys) ∧
+  ALL_DISTINCT (MAP FST xs) ∧ EVERY (free_names n o FST) xs ⇒
+  ALL_DISTINCT (MAP FST ys) ∧ EVERY (free_names n1 o FST) ys
+Proof
+  rw[compile_prog_def] >> gvs[]
+  >> metis_tac[compile_prog_with_map_ALL_DISTINCT]
+QED
+
+Theorem compile_prog_keeps_names:
+  compile_prog b st xs = (st1,ys) ∧ MEM x (MAP FST xs) ⇒ MEM x (MAP FST ys)
+Proof
+  PairCases_on ‘st’ >> rw[compile_prog_def] >> gvs[]
+  >> metis_tac[compile_prog_with_map_keeps_names]
+QED
+
+Theorem compile_prog_HD:
+  compile_prog b st xs = (st1,ys) ∧ xs ≠ [] ⇒
+  ys ≠ [] ∧ FST (HD ys) = FST (HD xs)
+Proof
+  PairCases_on ‘st’ >> rw[compile_prog_def] >> gvs[]
+  >> metis_tac[compile_prog_with_map_HD]
+QED
+
+Theorem flatten_exp_code_labels[local]:
+  (∀sh e. BIGUNION (set (MAP get_code_labels (flatten_exp sh e))) ⊆
+          get_code_labels e) ∧
+  (∀shs xs. BIGUNION (set (MAP get_code_labels (flatten_list shs xs))) ⊆
+            BIGUNION (set (MAP get_code_labels xs)))
+Proof
+  ho_match_mp_tac flatten_exp_ind >> rw[flatten_exp_def]
+  >- (every_case_tac >> gvs[SUBSET_DEF])
+  >> gvs[SUBSET_DEF]
+QED
+
+Theorem rebuild_code_labels[local]:
+  (∀sh i. get_code_labels (rebuild i sh) = {}) ∧
+  (∀shs i. BIGUNION (set (MAP get_code_labels (rebuild_list i shs))) = {})
+Proof
+  Induct >> simp[rebuild_def, closLangTheory.assign_get_code_label_def]
+  >> fs[BIGUNION_EQ_EMPTY] >> gen_tac
+  >> first_x_assum (qspec_then ‘i + shape_width sh’ strip_assume_tac)
+  >> simp[]
+QED
+
+Theorem worker_body_code_labels[local]:
+  ∀csh fname next sh e.
+    get_code_labels (worker_body csh fname next sh e) ⊆
+    get_code_labels e ∪ {next} ∪ {wk | ∃d s. lookup d csh = SOME (s,wk)}
+Proof
+  ho_match_mp_tac worker_body_ind >> rw[worker_body_def]
+  >> assume_tac (cj 1 flatten_exp_code_labels)
+  >> every_case_tac >> gvs[SUBSET_DEF, MEM_MAP, MEM_GENLIST, PULL_EXISTS]
+  >> rpt strip_tac >> res_tac >> gvs[MEM_MAP]
+  >> metis_tac[]
+QED
+
+Theorem compile_prog_with_map_good_code_labels:
+  ∀xs csh next n1 c1 ys.
+    compile_prog_with_map csh next xs = ((n1,c1),ys) ∧
+    BIGUNION (set (MAP (get_code_labels o SND o SND) xs)) ⊆ all ∧
+    {next + k * bvl_to_bvi_namespaces | k |
+       next + k * bvl_to_bvi_namespaces < n1} ⊆ all ∧
+    (∀d sh wk. lookup d csh = SOME (sh,wk) ⇒ wk ∈ all) ⇒
+    BIGUNION (set (MAP (get_code_labels o SND o SND) ys)) ⊆ all
+Proof
+  Induct >> simp[compile_prog_with_map_def]
+  >> rpt gen_tac >> PairCases_on ‘h’
+  >> simp[compile_prog_with_map_def]
+  >> Cases_on ‘split_fun csh next h0 h1 h2’ >> simp[]
+  >- (
+    pairarg_tac >> simp[] >> strip_tac >> gvs[]
+    >> last_x_assum irule >> metis_tac[])
+  >> PairCases_on ‘x’ >> simp[] >> pairarg_tac >> simp[] >> strip_tac
+  >> gvs[split_fun_def]
+  >> drule compile_prog_with_map_next_mono >> strip_tac
+  >> assume_tac bvl_to_bvi_namespaces_pos
+  >> ‘next ∈ all’
+    by (
+      qpat_x_assum ‘{_ | k | _} ⊆ all’ mp_tac
+      >> simp[SUBSET_DEF, PULL_EXISTS]
+      >> disch_then (qspec_then ‘0’ mp_tac) >> simp[])
+  >> rpt conj_tac
+  >- simp[make_wrapper_def, rebuild_code_labels, SUBSET_DEF, MEM_MAP,
+          MEM_GENLIST, PULL_EXISTS]
+  >- (
+    irule SUBSET_TRANS >> irule_at Any worker_body_code_labels
+    >> gvs[SUBSET_DEF] >> metis_tac[])
+  >> last_x_assum irule
+  >> qpat_assum ‘compile_prog_with_map _ _ _ = _’ (irule_at Any)
+  >> conj_tac
+  >- (rw[lookup_insert] >> gvs[] >> res_tac)
+  >> simp[SUBSET_DEF, PULL_EXISTS] >> rpt strip_tac
+  >> qmatch_goalsub_rename_tac ‘next + (_ + j * _) ∈ _’
+  >> qpat_x_assum ‘{_ | k | _} ⊆ all’ mp_tac
+  >> simp[SUBSET_DEF, PULL_EXISTS]
+  >> disch_then (qspec_then ‘j + 1’ mp_tac)
+  >> simp[RIGHT_ADD_DISTRIB]
+QED
+
+Theorem compile_prog_good_code_labels:
+  compile_prog b (n,csh) xs = ((n1,c1),ys) ∧
+  BIGUNION (set (MAP (get_code_labels o SND o SND) xs)) ⊆ all ∧
+  {n + k * bvl_to_bvi_namespaces | k | n + k * bvl_to_bvi_namespaces < n1} ⊆ all ∧
+  (∀d sh wk. lookup d csh = SOME (sh,wk) ⇒ wk ∈ all) ⇒
+  BIGUNION (set (MAP (get_code_labels o SND o SND) ys)) ⊆ all
+Proof
+  rw[compile_prog_def] >> gvs[]
+  >> metis_tac[compile_prog_with_map_good_code_labels]
+QED
+
+Theorem cons_tree_rebuild:
+  (∀sh i. bvi_inline$cons_tree i (rebuild i sh) = SOME (i + shape_width sh)) ∧
+  (∀shs i.
+     bvi_inline$cons_trees i (rebuild_list i shs) =
+     SOME (i + shape_width_list shs))
+Proof
+  Induct >> simp[rebuild_def, bvi_inlineTheory.cons_tree_def, shape_width_def]
+QED
+
+Theorem make_wrapper_wrapper_ok:
+  wk ≠ d ⇒ bvi_inline$wrapper_ok d arity (make_wrapper arity wk sh)
+Proof
+  simp[make_wrapper_def, bvi_inlineTheory.wrapper_ok_def, cons_tree_rebuild]
+QED
