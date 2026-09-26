@@ -24,6 +24,8 @@ This means, e.g., that smallnums can use 63 bits on 64-bit architectures.
 
 Queryable feature tags (#1470).
 
+The initial version of the decompiler-into-itree of Pancake---DecompIt (#1492).
+
 ## Candle
 
 ## Examples

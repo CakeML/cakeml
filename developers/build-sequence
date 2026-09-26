@@ -110,6 +110,8 @@ pancake/semantics
 pancake/parser
 pancake/static_checker
 pancake/proofs
+pancake/decompiler
+pancake/decompiler/examples
 
 # dafny compiler
 compiler/dafny
