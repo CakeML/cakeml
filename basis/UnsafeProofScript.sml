@@ -48,15 +48,16 @@ fun prove_array_spec v_def =
   rpt strip_tac \\
   xcf_with_def v_def \\ TRY xpull \\
   fs [cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def, cf_aw8update_def,
-      cf_copyaw8aw8_def, cf_aalloc_def, cf_asub_def, cf_alength_def,
+      cf_aw8subbit_def, cf_aw8updatebit_def, cf_copyaw8aw8_def, cf_aalloc_def, cf_asub_def, cf_alength_def,
       cf_aupdate_def, cf_copystraw8_def, cf_copyaw8str_def,
       cf_xoraw8str_def] \\
   irule local_elim \\ reduce_tac \\
   fs [app_aw8alloc_def, app_aw8sub_def, app_aw8length_def, app_aw8update_def,
+      app_aw8subbit_def, app_aw8updatebit_def,
       app_aalloc_def, app_asub_def, app_alength_def, app_aupdate_def,
       app_copyaw8aw8_def, app_copystraw8_def, app_copyaw8str_def,
       app_xoraw8str_def] \\
-  xsimpl \\ fs [INT_def, NUM_def, WORD_def, w2w_def, UNIT_TYPE_def,STRING_TYPE_def] \\
+  xsimpl \\ fs [INT_def, NUM_def, WORD_def, BOOL_def, w2w_def, UNIT_TYPE_def,STRING_TYPE_def] \\
   TRY (simp_tac (arith_ss ++ intSimps.INT_ARITH_ss) []) \\
   TRY (
     qmatch_assum_rename_tac`STRING_TYPE s sv`
@@ -81,6 +82,57 @@ Theorem w8array_update_spec:
        (POSTv v. cond (UNIT_TYPE () v) * W8ARRAY av (LUPDATE w n a))
 Proof
   prove_array_spec Unsafe_w8update_v_def
+QED
+
+Theorem w8array_subBit_spec:
+   !a av n nv.
+     NUM n nv /\ n < 8 * LENGTH a ==>
+     app (p:'ffi ffi_proj) Unsafe_w8subBit_v [av; nv]
+       (W8ARRAY av a)
+       (POSTv v. cond (BOOL ((EL (n DIV 8) a) ' (n MOD 8)) v) * W8ARRAY av a)
+Proof
+  prove_array_spec Unsafe_w8subBit_v_def
+QED
+
+Theorem w8array_updateBit_spec:
+   !a av n nv b bv.
+     NUM n nv /\ n < 8 * LENGTH a /\ BOOL b bv ==>
+     app (p:'ffi ffi_proj) Unsafe_w8updateBit_v
+       [av; nv; bv]
+       (W8ARRAY av a)
+       (POSTv v. cond (UNIT_TYPE () v) *
+                 W8ARRAY av (LUPDATE (((n MOD 8) :+ b) (EL (n DIV 8) a))
+                                     (n DIV 8) a))
+Proof
+  prove_array_spec Unsafe_w8updateBit_v_def
+QED
+
+Theorem bitarray_subBit_spec:
+   !bs av n nv.
+     NUM n nv /\ n < LENGTH bs ==>
+     app (p:'ffi ffi_proj) Unsafe_w8subBit_v [av; nv]
+       (BITARRAY av bs) (POSTv v. cond (BOOL (EL n bs) v) * BITARRAY av bs)
+Proof
+  rw [BITARRAY_def, BITS_BYTES_def] \\ xpull
+  \\ xapp_spec w8array_subBit_spec
+  \\ gvs [LENGTH_bytes_to_bits] \\ xsimpl
+  \\ rw [EL_bytes_to_bits]
+  \\ qexists_tac `n` \\ simp []
+QED
+
+Theorem bitarray_updateBit_spec:
+   !bs av n nv b bv.
+     NUM n nv /\ n < LENGTH bs /\ BOOL b bv ==>
+     app (p:'ffi ffi_proj) Unsafe_w8updateBit_v
+       [av; nv; bv]
+       (BITARRAY av bs)
+       (POSTv v. cond (UNIT_TYPE () v) * BITARRAY av (LUPDATE b n bs))
+Proof
+  rw [BITARRAY_def, BITS_BYTES_def] \\ xpull
+  \\ xapp_spec w8array_updateBit_spec
+  \\ qexists_tac `emp` \\ qexists_tac `n` \\ qexists_tac `b`
+  \\ gvs [LENGTH_bytes_to_bits] \\ xsimpl
+  \\ rw [LUPDATE_bytes_to_bits]
 QED
 
 Theorem w8xor_str_spec:
