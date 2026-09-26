@@ -1,5 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/cv_translator $(CAKEMLDIR)/compiler ..
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

@@ -1,5 +1,4 @@
 CLINE_OPTIONS = -k
-INCLUDES = $(CAKEMLDIR)/misc .. ../../../syntax-lib
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

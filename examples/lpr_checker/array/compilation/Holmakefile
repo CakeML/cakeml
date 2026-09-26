@@ -1,6 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis $(CAKEMLDIR)/compiler $(CAKEMLDIR)/cv_translator ..
-CLINE_OPTIONS =
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

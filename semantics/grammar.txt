@@ -108,8 +108,8 @@ E ::=
  | "raise" E
  | ElogicOR
 
-Fdecl ::= V V "=" E                    // (V,V,E)
-                                       // second V is parameter
+Fdecl ::= V Pattern+ "=" E
+        | V Pattern+ ":" Type "=" E
 
 AndFDecls ::= FDecl                    // ([FDecl])
            |  FDecl "and" AndFDecls    // FDecl :: AndFDecls

@@ -21,6 +21,12 @@ End
 
 Type M = ``:PCstate0 list -> ('a # PCstate0 list) option``
 
+Definition to_locs_def:
+  to_locs (location$Locs (POSN r1 c1) (POSN r2 c2)) =
+    ast$Locs (&r1,&c1) (&r2,&c2) ∧
+  to_locs _ = NoLocs
+End
+
 Definition empty_PCstate0_def:
   empty_PCstate0 = <| fixities := FEMPTY ; ctr_arities := FEMPTY |>
 End
@@ -469,7 +475,7 @@ Definition ptree_TypeAbbrevDec_def:
             assert(tokcheck typetok TypeT ∧ tokcheck eqtok EqualsT) ;
             (vars, nm) <- ptree_TypeName tynm;
             typ <- ptree_Type nType typ_pt;
-            SOME(Dtabbrev (SND nt) vars nm typ)
+            SOME(Dtabbrev (to_locs (SND nt)) vars nm typ)
           od
         | _ => NONE
       else NONE
@@ -730,7 +736,7 @@ Definition ptree_Pattern_def[nocompute]:
          | _ => NONE)
 End
 
-Type ptree[local] = “:(token,MMLnonT,locs) parsetree”
+Type ptree[local] = “:(token,MMLnonT,location$locs) parsetree”
 fun partial_eval baseth c nodepat nt =
   let val tlf = list_mk_icomb(c, [nt, “Lf l : ptree”])
       val tnd = list_mk_icomb(c, [nt, nodepat])
@@ -789,7 +795,7 @@ Definition strip_loc_expr_def:
 End
 
 Definition merge_locsopt_def:
-  merge_locsopt (SOME l1) (SOME l2) = SOME (merge_locs l1 l2) ∧
+  merge_locsopt (SOME (Locs l1 _)) (SOME (Locs _ l2)) = SOME (Locs l1 l2) ∧
   merge_locsopt _ _ = NONE
 End
 
@@ -854,6 +860,50 @@ Definition letFromPat_def:
     | _ => Mat rhs [(p,body)]
 End
 
+Definition ptree_StructName_def:
+  ptree_StructName (Lf _) = NONE ∧
+  ptree_StructName (Nd nm args) =
+    if FST nm <> mkNT nStructName then NONE
+    else
+      case args of
+          [pt] => destAlphaT ' (destTOK ' (destLf pt))
+        | _ => NONE
+End
+
+Definition path_to_mods_def:
+  path_to_mods End = [] ∧
+  path_to_mods (Mod mn path) = mn::path_to_mods path
+End
+
+Definition ptree_ModPath_def:
+  ptree_ModPath (Lf _) = NONE ∧
+  ptree_ModPath (Nd nm args) =
+    if FST nm ≠ mkNT nModPath then NONE
+    else
+      case args of
+        [pt] =>
+          OPTION_MAP (λmn. [mn]) (ptree_StructName pt) ++
+          do
+            tk <- destTOK ' (destLf pt);
+            (path,mn) <- destLongidT tk;
+            return (path_to_mods path ++ [mn])
+          od
+      | _ => NONE
+End
+
+(* Local declarations scope over the declarations and body to their right. *)
+Datatype:
+  let_dec = LetVal pat exp
+          | LetFun ((varN # varN # exp) list)
+          | LetOpen locs (modN list)
+End
+
+Definition let_dec_exp_def:
+  let_dec_exp (LetVal p rhs) body = letFromPat p rhs body ∧
+  let_dec_exp (LetFun funs) body = Letrec funs body ∧
+  let_dec_exp (LetOpen locs path) body = Lannot (Open path body) locs
+End
+
 Definition ptree_Expr_def[nocompute]:
   ptree_Expr ent (Lf _) = NONE ∧
   ptree_Expr ent (Nd (nt,loc) subs) =
@@ -900,11 +950,7 @@ Definition ptree_Expr_def[nocompute]:
               letdecs <- ptree_LetDecs letdecs_pt;
               eseq <- ptree_Eseq ept;
               e <- Eseq_encode eseq;
-              SOME(FOLDR (λdf acc. case df of
-                                       INL (p,e0) => letFromPat p e0 acc
-                                     | INR fds => Letrec fds acc)
-                         e
-                         letdecs)
+              SOME (FOLDR let_dec_exp e letdecs)
             od
           | _ => NONE
       else if nt = mkNT nEapp then
@@ -1057,7 +1103,7 @@ Definition ptree_Expr_def[nocompute]:
           | _ => NONE
       else NONE
     else NONE);
-    SOME(bind_loc e loc)
+    SOME(bind_loc e (to_locs loc))
   od  ∧
   (ptree_Exprlist nm ast =
      case ast of
@@ -1116,7 +1162,17 @@ Definition ptree_Expr_def[nocompute]:
                 body0 <- ptree_Expr nE body_pt;
                 SOME(fname,dePat p1 (FOLDR mkFun body0 (TL ps)))
               od
-            | _ => NONE
+          | [fname_pt; pats_pt; colont; typept; eqt; body_pt] =>
+              do
+                assert(tokcheckl [colont; eqt] [ColonT; EqualsT]);
+                fname <- ptree_V fname_pt;
+                ps <- ptree_PbaseList1 pats_pt;
+                p1 <- oHD ps;
+                body0 <- ptree_Expr nE body_pt;
+                ty <- ptree_Type nType typept;
+                SOME(fname,dePat p1 (FOLDR mkFun (Tannot body0 ty) (TL ps)))
+              od
+          | _ => NONE
         else NONE) ∧
   (ptree_LetDecs ptree =
     case ptree of
@@ -1138,7 +1194,7 @@ Definition ptree_Expr_def[nocompute]:
   (ptree_LetDec ptree =
     case ptree of
         Lf _ => NONE
-      | Nd (nt,_) args =>
+      | Nd (nt,locs) args =>
         if nt <> mkNT nLetDec then NONE
         else
           case args of
@@ -1146,14 +1202,19 @@ Definition ptree_Expr_def[nocompute]:
               do
                 assert (tokcheck funtok FunT);
                 fds <- ptree_AndFDecls andfdecls_pt;
-                SOME (INR fds)
+                SOME (LetFun fds)
+              od ++
+              do
+                assert (tokcheck funtok OpenT);
+                path <- ptree_ModPath andfdecls_pt;
+                SOME (LetOpen (to_locs locs) path)
               od
             | [valtok; p_pt; eqtok; e_pt] =>
               do
                 assert(tokcheckl [valtok;eqtok] [ValT; EqualsT]);
                 p <- ptree_Pattern nPattern p_pt;
                 e <- ptree_Expr nE e_pt;
-                SOME (INL(p,e))
+                SOME (LetVal p e)
               od
             | _ => NONE) ∧
   (ptree_PEs (Lf _) = NONE : (pat # exp) list option) ∧
@@ -1273,15 +1334,28 @@ Theorem ptree_Expr_pevaled[compute] =
 Theorem ptree_Expr_others[compute] =
         LIST_CONJ (List.drop (CONJUNCTS ptree_Expr_def, 2))
 
-Definition ptree_StructName_def:
-  ptree_StructName (Lf _) = NONE ∧
-  ptree_StructName (Nd nm args) =
-    if FST nm <> mkNT nStructName then NONE
-    else
-      case args of
-          [pt] => destAlphaT ' (destTOK ' (destLf pt))
-        | _ => NONE
-End
+Theorem ptree_ModPath_StructName:
+  ptree_StructName pt = SOME mn ⇒
+  ptree_ModPath (Nd (mkNT nModPath,loc) [pt]) = SOME [mn]
+Proof
+  simp [ptree_ModPath_def]
+QED
+
+Theorem ptree_ModPath_LongidT[simp]:
+  ptree_ModPath (Nd (mkNT nModPath,loc) [Lf (TOK (LongidT p n),locs)]) =
+    SOME (path_to_mods p ++ [n])
+Proof
+  simp [ptree_ModPath_def, ptree_StructName_def]
+QED
+
+Theorem ptree_ModPath_nonempty:
+  ptree_ModPath pt = SOME path ⇒ path ≠ []
+Proof
+  Cases_on `pt` >> simp [ptree_ModPath_def] >>
+  rw [AllCaseEqs()] >>
+  fs [OPTION_CHOICE_EQUALS_OPTION, optionTheory.OPTION_BIND_def] >>
+  gvs [APPEND_eq_NIL]
+QED
 
 Definition ptree_OptTypEqn_def:
   ptree_OptTypEqn (Lf _) = NONE : ast_t option option ∧
@@ -1378,25 +1452,30 @@ Definition ptree_Decl_def:
              [dt] =>
              do
                tydec <- ptree_TypeDec dt;
-               SOME (Dtype (locs) tydec)
+               SOME (Dtype (to_locs locs) tydec)
              od ++ ptree_TypeAbbrevDec dt ++ ptree_Structure dt
            | [funtok; fdecls] =>
              do
                assert(tokcheck funtok FunT);
                fdecs <- ptree_AndFDecls fdecls;
-               SOME (Dletrec (locs) fdecs)
+               SOME (Dletrec (to_locs locs) fdecs)
              od ++
              do
                assert (tokcheck funtok ExceptionT);
                (enm, etys) <- ptree_Dconstructor fdecls;
-               SOME (Dexn (locs) enm etys)
+               SOME (Dexn (to_locs locs) enm etys)
+             od ++
+             do
+               assert (tokcheck funtok OpenT);
+               path <- ptree_ModPath fdecls;
+               SOME (Dopen (to_locs locs) path)
              od
            | [valtok; patpt; eqtok; ept] =>
              do
                assert (tokcheckl [valtok; eqtok] [ValT; EqualsT]);
                pat <- ptree_Pattern nPattern patpt;
                e <- ptree_Expr nE ept;
-               SOME (Dlet (locs) pat e)
+               SOME (Dlet (to_locs locs) pat e)
              od
            | [localtok; decls1_pt; intok; decls2_pt; endtok] =>
              do
@@ -1472,7 +1551,7 @@ Definition ptree_TopLevelDecs_def:
              assert (tokcheck semitok SemicolonT);
              e <- ptree_Expr nE e_pt;
              tds <- ptree_TopLevelDecs tds_pt;
-             return (Dlet (SND nt) (Pvar «it») e :: tds)
+             return (Dlet (to_locs (SND nt)) (Pvar «it») e :: tds)
            od
          | _ => NONE) ∧
   (ptree_NonETopLevelDecs (Lf _) = fail) ∧

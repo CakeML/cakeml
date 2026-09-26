@@ -13,7 +13,7 @@ val _ = translation_extends "mlbasicsProg";
 val _ = ml_prog_update (open_module "Int");
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] «int» (Atapp [] (Short «int»))`` I);
+  ``Dtabbrev NoLocs [] «int» (Atapp [] (Short «int»))`` I);
 
 val _ = trans "+" intSyntax.plus_tm;
 val _ = trans "-" intSyntax.minus_tm;
@@ -25,6 +25,9 @@ val _ = trans ">" intSyntax.greater_tm;
 val _ = trans "<=" intSyntax.leq_tm;
 val _ = trans ">=" intSyntax.geq_tm;
 val _ = trans "~" ``\i. - (i:int)``;
+
+val _ = next_ml_names := ["abs"];
+val res = translate integerTheory.INT_ABS;
 
 val _ = ml_prog_update open_local_block;
 

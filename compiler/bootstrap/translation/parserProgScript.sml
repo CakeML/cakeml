@@ -65,11 +65,11 @@ val _ = (find_def_for_const := def_of_const);
 
 (* parsing: peg_exec and cmlPEG *)
 
-val res = register_type``:(tokens$token,MMLnonT,locs) parsetree``;
+val res = register_type``:(tokens$token,MMLnonT,location$locs) parsetree``;
 val res = register_type``:MMLnonT``;
 
 (* checking GRAMMAR_PARSETREE_TYPE etc is known to be an EqualityType *)
-val EqType_PT_rule = EqualityType_rule [] ``:(tokens$token,MMLnonT,locs) parsetree``;
+val EqType_PT_rule = EqualityType_rule [] ``:(tokens$token,MMLnonT,location$locs) parsetree``;
 
 val _ = translate (def_of_const ``validAddSym``);
 
@@ -166,6 +166,10 @@ QED
 
 val _ = translate maybe_handleRef_eq
 
+(* Both lexical and declaration opens reach module-path conversion. Translate
+   it with its unconditional certificate before either recursive consumer. *)
+val _ = translate (def_of_const ``ptree_ModPath``);
+
 val _ = translate (def_of_const ``ptree_Expr``);
 
 val _ = translate (def_of_const ``ptree_linfix``);
@@ -243,15 +247,20 @@ val _ = translate (def_of_const ``ptree_TopLevelDecs``);
 
 val _ = translate (RW [monad_unitbind_assert] parse_prog_def);
 
-Theorem parse_prog_side_lemma = Q.prove(`
-  !x. parse_prog_side x = T`,
+Theorem parse_prog_side_lemma:
+  !x. parse_prog_side x = T
+Proof
   SIMP_TAC std_ss [fetch "-" "parse_prog_side_def",
     fetch "-" "peg_exec_side_def", fetch "-" "coreloop_side_def"]
   THEN REPEAT STRIP_TAC
-  THEN STRIP_ASSUME_TAC (Q.SPEC `v1` owhile_TopLevelDecs_total)
+  THEN qmatch_goalsub_rename_tac
+    `pegexec$EV (pnt nTopLevelDecs) input_tokens [] NONE [] done failed`
+  THEN STRIP_ASSUME_TAC (Q.SPEC `input_tokens` owhile_TopLevelDecs_total)
   THEN FULL_SIMP_TAC std_ss [INTRO_FLOOKUP] THEN POP_ASSUM MP_TAC
-  THEN CONV_TAC (DEPTH_CONV ETA_CONV) THEN FULL_SIMP_TAC std_ss [])
-  |> update_precondition;
+  THEN CONV_TAC (DEPTH_CONV ETA_CONV) THEN FULL_SIMP_TAC std_ss []
+QED
+
+val _ = update_precondition parse_prog_side_lemma;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

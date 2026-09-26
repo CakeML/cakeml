@@ -153,31 +153,31 @@ fun auto_prove proof_name (goal,tac:tactic) = let
   in if length rest = 0 then validation [] else let
   in failwith("auto_prove failed for " ^ proof_name) end end
 
-val unknown_loc = prim_mk_const {Name = "unknown_loc" , Thy = "location"}
+val no_locs = prim_mk_const {Name = "NoLocs", Thy = "ast"}
 val word8 = wordsSyntax.mk_int_word_type 8
 val word = wordsSyntax.mk_word_type alpha
 val venvironment = mk_environment v_ty
 val empty_dec_list = listSyntax.mk_nil astSyntax.dec_ty;
 val Dtype_x = astSyntax.mk_Dtype
-                (unknown_loc,
+                (no_locs,
                  mk_var("x",#1(dom_rng(#2(dom_rng(type_of astSyntax.Dtype_tm))))));
 val Dletrec_funs = astSyntax.mk_Dletrec
-                    (unknown_loc,
+                    (no_locs,
                      mk_var("funs",#1(dom_rng(#2(dom_rng(type_of astSyntax.Dletrec_tm))))));
 val Dexn_n_l =
   let val args = tl(#1(boolSyntax.strip_fun(type_of astSyntax.Dexn_tm))) in
-    astSyntax.mk_Dexn (unknown_loc,mk_var("n",el 1 args), mk_var("l",el 2 args))
+    astSyntax.mk_Dexn (no_locs,mk_var("n",el 1 args), mk_var("l",el 2 args))
   end
 val Dlet_v_x =
   let val args = tl(#1(boolSyntax.strip_fun(type_of astSyntax.Dlet_tm))) in
-    astSyntax.mk_Dlet (unknown_loc,mk_var("v",el 1 args), mk_var("x",el 2 args))
+    astSyntax.mk_Dlet (no_locs,mk_var("v",el 1 args), mk_var("x",el 2 args))
   end
 fun Dtype ls = astSyntax.mk_Dtype
-                (unknown_loc,
+                (no_locs,
                 listSyntax.mk_list(ls,listSyntax.dest_list_type
                                         (#1(dom_rng(#2(dom_rng(type_of astSyntax.Dtype_tm)))))))
 fun Dtabbrev name ty = astSyntax.mk_Dtabbrev
-                (unknown_loc,listSyntax.mk_nil mlstringSyntax.mlstring_ty, name, ty)
+                (no_locs,listSyntax.mk_nil mlstringSyntax.mlstring_ty, name, ty)
 
 fun Atapp ls x = astSyntax.mk_Atapp(listSyntax.mk_list(ls,astSyntax.ast_t_ty),x)
 fun mk_store_v ty = mk_thy_type{Thy="semanticPrimitives",Tyop="store_v",Args=[ty]}
@@ -341,9 +341,9 @@ in
         end handle HOL_ERR _ => th |> concl
       val code = rand(rator cth)
       val tm =
-        if is_Var code then tm else
+        if is_Ident code then tm else
           (* TODO: mk_Long depending on m *)
-          subst [code |-> mk_Var(mk_Short (mlstringSyntax.mk_mlstring ml_name))] tm
+          subst [code |-> mk_Ident(mk_Short (mlstringSyntax.mk_mlstring ml_name))] tm
     in
       ASSUME tm |> SPEC_ALL |> UNDISCH_ALL
     end handle e as HOL_ERR holerr =>
@@ -1454,6 +1454,27 @@ fun define_ref_inv is_exn_type tys = let
   val cases_thms = map (SPEC_ALL o get_nchotomy_of) tys |> LIST_CONJ
                    |> rename_bound_vars_rule "x_" |> CONJUNCTS
   val all = zip names (zip tys cases_thms) |> map (fn (x,(y,z)) => (x,y,z))
+  val cons_tags = let
+    fun entries (_,ty,case_th) =
+      map (fn x => let
+             val c = repeat rator x |> dest_const |> fst
+             val tag = if is_exn_type andalso is_primitive_exception c
+                       then c else tag_name name c
+             in (c,tag,smart_full_name_of_type ty) end)
+          (map rand (find_terms is_eq (concl case_th)))
+    val tags = List.concat (map entries all)
+    fun check [] = ()
+      | check ((c,tag,ty_name)::rest) =
+          (case List.find (fn (_,t,_) => t = tag) rest of
+             NONE => ()
+           | SOME (c2,_,ty_name2) =>
+               failwith ("name mangling maps the constructors " ^ c ^
+                         " (of type " ^ ty_name ^ ") and " ^ c2 ^
+                         " (of type " ^ ty_name2 ^
+                         ") to the same ML constructor name " ^ tag ^
+                         "; rename one of them");
+           check rest)
+    in check tags; map (fn (c,tag,_) => (c,tag)) tags end
   val tmp_v_var = genvar v_ty
   val real_v_var = mk_var("v",v_ty)
   fun mk_lhs (name,ty,case_th) = let
@@ -1484,9 +1505,7 @@ fun define_ref_inv is_exn_type tys = let
       | mk_lines ml_ty_name lhs ty (x::xs) input stamp = let
       val k = length xs + 1
       val cons_name = (repeat rator x |> dest_const |> fst)
-      val tag = if is_exn_type andalso is_primitive_exception cons_name
-                then cons_name
-                else tag_name name cons_name
+      val tag = Lib.assoc cons_name cons_tags
       fun rename [] = []
         | rename (x::xs) = let val n = int_to_string k ^ "_" ^
                                        int_to_string (length xs + 1)
@@ -1733,14 +1752,14 @@ val th = inv_defs |> map #2 |> hd
       in dtype end
     val dtype_parts = inv_defs |> map #2 |> map extract_dtype_part
     val dtype_list = listSyntax.mk_list(dtype_parts,type_of (hd dtype_parts))
-    in (astSyntax.mk_Dtype (unknown_loc,dtype_list),dtype_list) end
+    in (astSyntax.mk_Dtype (no_locs,dtype_list),dtype_list) end
   fun is_prim_Dexn tm =
     is_primitive_exception (tm |> rator |> rand |> mlstringSyntax.dest_mlstring)
   val dexn_list = if not is_exn_type then []
                   else dtype |> rand |> rator |> rand |> rand |> rand
                              |> listSyntax.dest_list |> fst
                              |> map pairSyntax.dest_pair
-                             |> map (fn (x,y) => astSyntax.mk_Dexn (unknown_loc,x,y))
+                             |> map (fn (x,y) => astSyntax.mk_Dexn (no_locs,x,y))
                              |> filter (not o is_prim_Dexn)
   (* cons assumption *)
   fun mk_assum tm =
@@ -2482,7 +2501,7 @@ fun prove_EvalPatBind goal hol2deep = let
    failwith "prove_EvalPatBind failed");
 
 fun to_pattern tm =
-  if astSyntax.is_Var tm then
+  if astSyntax.is_Ident tm then
     mk_Pvar(rand (rand tm))
   else if astSyntax.is_Con tm then
     let
@@ -3130,7 +3149,7 @@ fun inst_Eval_env v th = let
   val str = mlstringSyntax.mk_mlstring name
   val inv = get_type_inv (type_of v)
   val assum = mk_Eval(env_tm,
-                      astSyntax.mk_Var(astSyntax.mk_Short(str)),
+                      astSyntax.mk_Ident(astSyntax.mk_Short(str)),
                         mk_comb(inv, v))
   val new_env = mk_write(str,mk_var("v",v_ty),env_tm)
   val old_env = new_env |> rand
@@ -3192,7 +3211,7 @@ fun apply_Eval_Recclosure recc fname v th = let
   val pat = lemma |> concl |> find_term (can (match_term pat))
   val new_env = pat |> rand
   val assum_eval = mk_Eval(env_tm,
-                           astSyntax.mk_Var(astSyntax.mk_Short(vname_str)),
+                           astSyntax.mk_Ident(astSyntax.mk_Short(vname_str)),
                            mk_comb(inv, v))
   val assum = subst [env_tm|->new_env] assum_eval
   val thx = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
@@ -3373,12 +3392,23 @@ fun dest_word_binop tm =
   if is_eq tm                   then Eval_word_eq else
     failwith("not a word binop")
 
+(* Reduce encoded shift counts to concrete word literals in generated code. *)
+val word_shift_rewrites =
+  [shift_count8_def, shift_count64_def, shift_distinct,
+   word_size_distinct, ONCE_REWRITE_RULE [EQ_SYM_EQ] word_size_distinct];
+
 fun dest_word_shift tm =
   if wordsSyntax.is_word_lsl tm then Eval_word_lsl else
   if wordsSyntax.is_word_lsr tm then Eval_word_lsr else
   if wordsSyntax.is_word_asr tm then Eval_word_asr else
   if wordsSyntax.is_word_ror tm then Eval_word_ror else
     failwith("not a word shift")
+
+fun dest_word_shift_bv tm =
+  if wordsSyntax.is_word_lsl_bv tm then Eval_word_lsl_bv else
+  if wordsSyntax.is_word_lsr_bv tm then Eval_word_lsr_bv else
+  if wordsSyntax.is_word_asr_bv tm then Eval_word_asr_bv else
+    failwith("not a variable-length word shift")
 
 (* CakeML signature generation and manipulation *)
 val generate_sigs = ref false;
@@ -3448,7 +3478,7 @@ fun hol2deep tm =
     val inv = get_type_inv ty
     val str = mlstringSyntax.mk_mlstring name
     val result = ASSUME (mk_Eval(env_tm,
-                       astSyntax.mk_Var(astSyntax.mk_Short(str)),
+                       astSyntax.mk_Ident(astSyntax.mk_Short(str)),
                        mk_comb(inv,tm)))
     in check_inv "var" tm result end else
   (* constants *)
@@ -3503,7 +3533,7 @@ fun hol2deep tm =
     val ss = fst (match_term lhs tm)
     val pre = subst ss pre_var
     val pre_imp = mk_PreImp(pre, mk_Eval(env_tm,
-                                         astSyntax.mk_Var(astSyntax.mk_Short(str)),
+                                         astSyntax.mk_Ident(astSyntax.mk_Short(str)),
                                          mk_comb(inv,f)))
     val h = ASSUME pre_imp
             |> RW [PreImp_def] |> UNDISCH
@@ -3640,6 +3670,7 @@ fun hol2deep tm =
     val dim = wordsSyntax.dim_of tm
     val th1 = hol2deep (rand tm)
     val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_n2w
+                           |> REWRITE_RULE word_shift_rewrites
                            |> CONV_RULE wordsLib.WORD_CONV) th1
     in check_inv "n2w" tm result end else
   (* i2w 'a word for known 'a *)
@@ -3647,6 +3678,7 @@ fun hol2deep tm =
     val dim = wordsSyntax.dim_of tm
     val th1 = hol2deep (rand tm)
     val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_i2w
+                           |> REWRITE_RULE word_shift_rewrites
                            |> CONV_RULE wordsLib.WORD_CONV) th1
     in check_inv "i2w" tm result end else
   (* w2n 'a word for known 'a *)
@@ -3655,7 +3687,9 @@ fun hol2deep tm =
     val dim = wordsSyntax.dim_of x1
     val th1 = hol2deep x1
     (* th1 should have instantiated 'a already *)
-    val result = MATCH_MP Eval_w2n th1 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    val result = MATCH_MP Eval_w2n th1
+                   |> REWRITE_RULE word_shift_rewrites
+                   |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "w2n" tm result end else
   (* w2i 'a word for known 'a *)
   if integer_wordSyntax.is_w2i tm andalso word_ty_ok (type_of (rand tm)) then let
@@ -3663,7 +3697,9 @@ fun hol2deep tm =
     val dim = wordsSyntax.dim_of x1
     val th1 = hol2deep x1
     (* th1 should have instantiated 'a already *)
-    val result = MATCH_MP Eval_w2i th1 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    val result = MATCH_MP Eval_w2i th1
+                   |> REWRITE_RULE word_shift_rewrites
+                   |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "w2i" tm result end else
   (* w2w 'a word for known 'a *)
   if wordsSyntax.is_w2w tm andalso word_ty_ok (type_of (rand tm))
@@ -3673,13 +3709,15 @@ fun hol2deep tm =
     val dim2 = wordsSyntax.dim_of x1
     val th1 = hol2deep x1
     val lemma = INST_TYPE [alpha|->dim1,beta|->dim2]Eval_w2w
+                  |> REWRITE_RULE word_shift_rewrites
     val h = lemma |> concl |> dest_imp |> fst
     val h_thm = EVAL h
     val lemma = REWRITE_RULE [h_thm] lemma
     val _ = Teq (rand (concl h_thm)) orelse failwith "false pre for w2w"
     val result =
         MATCH_MP (lemma |> SIMP_RULE std_ss [LET_THM]
-                        |> CONV_RULE (RAND_CONV (RATOR_CONV wordsLib.WORD_CONV)))
+                        |> CONV_RULE (RAND_CONV (RATOR_CONV wordsLib.WORD_CONV))
+                        |> REWRITE_RULE word_shift_rewrites)
           (hol2deep x1)
     in check_inv "w2w" tm result end else
   (* word_add, _and, _or, _xor, _sub *)
@@ -3690,18 +3728,62 @@ fun hol2deep tm =
     val result = MATCH_MP lemma (CONJ th1 th2)
                 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "word_binop" tm result end else
-  (* word_lsl, _lsr, _asr *)
+  (* word_lsl, _lsr, _asr, _ror *)
   if can dest_word_shift tm andalso word_ty_ok (type_of tm) then let
     val n = tm |> rand
-    val _ = numSyntax.is_numeral n orelse
-            failwith "2nd arg to word shifts must be numeral constant"
-    val lemma = dest_word_shift tm |> SPEC n |> SIMP_RULE std_ss [LET_THM]
+    in if numSyntax.is_numeral n then let
+    val lemma = dest_word_shift tm |> SPEC n
+                  |> SIMP_RULE std_ss (LET_THM :: word_shift_rewrites)
     val th1 = hol2deep (tm |> rator |> rand)
     val result = MATCH_MP lemma th1
                    |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
-                   |> REWRITE_RULE []
+                   |> REWRITE_RULE word_shift_rewrites
                    |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
-    in check_inv "word_shift" tm result end else
+                   |> REWRITE_RULE word_shift_rewrites
+    in check_inv "word_shift" tm result end else let
+    val dim = wordsSyntax.dim_of tm
+    val (lemma, count_def, lookup_def) =
+      if dim = ``:8`` then
+        (Eval_word_shift8, shift_count8_def, shift8_lookup_def)
+      else if dim = ``:64`` then
+        (Eval_word_shift64, shift_count64_def, shift64_lookup_def)
+      else failwith "variable word shifts require word8 or word64"
+    val sh = if wordsSyntax.is_word_lsl tm then ``Lsl`` else
+             if wordsSyntax.is_word_lsr tm then ``Lsr`` else
+             if wordsSyntax.is_word_asr tm then ``Asr`` else ``Ror``
+    val lemma = INST [``sh:shift`` |-> sh, ``n:num`` |-> n] lemma
+                  |> REWRITE_RULE
+                       [count_def, lookup_def, shift_case_def, shift_distinct, MIN_DEF]
+    val count = lemma |> concl |> dest_imp |> fst |> dest_conj |> snd
+                      |> rand |> rand
+    val th1 = hol2deep (tm |> rator |> rand)
+    val th2 = hol2deep count
+                |> PROVE_HYP (EQT_ELIM (EVAL ``PRECONDITION (8 <> 0n)``))
+                |> PROVE_HYP (EQT_ELIM (EVAL ``PRECONDITION (64 <> 0n)``))
+    val result = MATCH_MP lemma (CONJ th1 th2)
+    in check_inv "variable_word_shift" tm result end end else
+  (* word_lsl_bv, _lsr_bv, _asr_bv *)
+  if can dest_word_shift_bv tm andalso word_ty_ok (type_of tm) then let
+    val lemma = dest_word_shift_bv tm |> SIMP_RULE std_ss [LET_THM]
+    val th1 = hol2deep (tm |> rator |> rand)
+    val th2 = hol2deep (tm |> rand)
+    val result = MATCH_MP (MATCH_MP lemma th1) th2
+                   |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+                   |> REWRITE_RULE word_shift_rewrites
+                   |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+                   |> REWRITE_RULE word_shift_rewrites
+    in check_inv "word_shift_bv" tm result end else
+  (* word_ror_bv (only for word8 and word64) *)
+  if wordsSyntax.is_word_ror_bv tm andalso
+     (wordsSyntax.dim_of tm = ``:8`` orelse
+      wordsSyntax.dim_of tm = ``:64``) then let
+    val th1 = hol2deep (tm |> rator |> rand)
+    val th2 = hol2deep (tm |> rand)
+    val th3 = MATCH_MP (MATCH_MP Eval_word_ror_bv th1) th2
+    val pre = th3 |> concl |> dest_imp |> fst
+    val result = MP th3 (EQT_ELIM (EVAL pre))
+                   |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    in check_inv "word_ror_bv" tm result end else
   (* $& o f *)
   if can (match_term int_of_num_o_pat) tm then let
     val x1 = tm |> rand
@@ -4584,7 +4666,7 @@ fun translate_options options def =
         |> rand |> rator |> rand
       val ii = INST [cl_env_tm |-> get_curr_env()]
       val v_names = map (fn x => find_const_name (#1 x ^ "_v")) results
-      val _ = ml_prog_update (add_Dletrec unknown_loc recc v_names)
+      val _ = ml_prog_update (add_Dletrec no_locs recc v_names)
       val v_defs = List.take(get_curr_v_defs (), length v_names)
       val jj = INST [env_tm |-> get_curr_env()]
   (*
@@ -4622,7 +4704,7 @@ fun translate_options options def =
         val v = lemma |> concl |> rand |> rator |> rand
         val exp = lemma |> concl |> rand |> rand
         val v_name = find_const_name (fname ^ "_v")
-        val _ = ml_prog_update (add_Dlet_Fun unknown_loc n v exp v_name)
+        val _ = ml_prog_update (add_Dlet_Fun no_locs n v exp v_name)
         val v_def = hd (get_curr_v_defs ())
         val v_thm = lemma |> CONV_RULE (RAND_CONV (REWR_CONV (GSYM v_def)))
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
@@ -4745,7 +4827,7 @@ fun prove_Eval_assumptions th =
 (* TODO: consolidate with concrete-mode translate? *)
 fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
   let
-    val vname = assert is_Var (cert |> concl |> rator |> rand) |> rand |> rand
+    val vname = assert is_Ident (cert |> concl |> rator |> rand) |> rand |> rand
     val LOOKUP_VAR_pat = LOOKUP_VAR_def |> SPEC vname |> SPEC_ALL |> concl |> lhs
     val cert = cert |> DISCH_ALL |> PURE_REWRITE_RULE[GSYM AND_IMP_INTRO] |> UNDISCH_ALL
     val lookup_var_hyp = first (can (match_term LOOKUP_VAR_pat)) (hyp cert)
@@ -4777,7 +4859,7 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
             val v_names =
               map (fn x => find_const_name (mlstringSyntax.dest_mlstring x ^ "_v"))
                   recc_names
-          in add_Dletrec unknown_loc recc v_names state end
+          in add_Dletrec no_locs recc v_names state end
         val lemmas = LOOKUP_VAR_def :: map GSYM (get_v_defs state')
         val th = cert
                   |> INST[cl_env_tm |-> cl_env, env_tm |-> get_env state']
@@ -4798,7 +4880,7 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
                  |> MATCH_MP Eval_Var_LOOKUP_VAR_elim
         val v_name = find_const_name (fname ^ "_v")
         val (_,x,exp) = dest_Closure v
-        val state' = add_Dlet_Fun unknown_loc (mlstringSyntax.mk_mlstring ml_fname) x exp v_name state
+        val state' = add_Dlet_Fun no_locs (mlstringSyntax.mk_mlstring ml_fname) x exp v_name state
         val lemmas = LOOKUP_VAR_def :: map GSYM (get_v_defs state')
         val th = cert
                   |> INST[cl_env_tm |-> cl_env, env_tm |-> get_env state']

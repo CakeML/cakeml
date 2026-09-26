@@ -1,5 +1,3 @@
-INCLUDES = ../developers ../misc ../semantics ../semantics/proofs ../basis/pure
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

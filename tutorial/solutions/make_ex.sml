@@ -1,6 +1,6 @@
 (*
-   This SML program generates makes a copy of its argument files in the parent
-   folder where the "(*ex *) ... (* ex*)" blocks have been removed
+   This SML program generates makes a copy of its argument files in the
+   problems folder where the "(*ex *) ... (* ex*)" blocks have been removed
 *)
 
 exception NotAFile of string;
@@ -23,7 +23,7 @@ and drop_until_solution_end src dst =
 fun handle_file fname =
   let val src = TextIO.openIn(fname)
       (* In CakeML, BadFilename should take the filename as string *)
-      val dst = TextIO.openOut("../" ^ fname)
+      val dst = TextIO.openOut("../problems/" ^ fname)
       (* CakeMl's openOut is probably not correct on unexisting files *)
       val _ = copy_until_solution_start src dst
       val _ = TextIO.closeIn(src)

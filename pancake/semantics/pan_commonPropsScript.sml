@@ -99,6 +99,12 @@ Proof
   res_tac >> fs []
 QED
 
+Theorem distinct_lists_eq_disjoint:
+  distinct_lists xs ys ⇔ DISJOINT (set xs) (set ys)
+Proof
+  fs[DISJOINT_ALT, distinct_lists_def, EVERY_MEM]
+QED
+
 Theorem distinct_lists_append:
   ALL_DISTINCT (xs ++ ys)  ==>
   distinct_lists xs ys
@@ -139,6 +145,12 @@ Theorem distinct_lists_append_intro:
 Proof
   rw [] >>
   fs [ALL_DISTINCT_APPEND, distinct_lists_def, EVERY_MEM]
+QED
+
+Theorem distinct_lists_append_right_elim:
+  distinct_lists xs (ys ++ zs) ⇒ distinct_lists xs ys ∧ distinct_lists xs zs
+Proof
+  fs[distinct_lists_def, EVERY_MEM]
 QED
 
 Theorem opt_mmap_flookup_update:
@@ -217,6 +229,16 @@ Proof
   CCONTR_TAC >> fs [] >>
   first_x_assum drule >>
   DECIDE_TAC
+QED
+
+Theorem mem_genlist_add_suc_val:
+  ∀n x k.
+    MEM x (GENLIST (\x. SUC x + k) n) ⇒ k < x ∧ x ≤ n + k
+Proof
+  Induct >> fs[]
+  >> ntac 3 strip_tac
+  >> fs[GENLIST]
+  >> metis_tac[ADD_MONO_LESS_EQ, LESS_EQ_SUC_REFL, LESS_EQ_TRANS]
 QED
 
 Theorem update_eq_zip_flookup:
@@ -800,4 +822,14 @@ Proof
     match_mp_tac ALL_DISTINCT_alist_to_fmap_REVERSE >>
     fs [ALL_DISTINCT_fmap_to_alist_keys]) >>
   gs []
+QED
+
+Theorem MAP3_MAP2:
+  ∀l1 l2 l3 f.
+  LENGTH l1 = LENGTH l3 ∧ LENGTH l2 = LENGTH l3 ⇒
+    MAP3 f l1 l2 l3 = MAP2 (UNCURRY f) (ZIP(l1, l2)) l3
+Proof
+  Induct >> fs[]
+  >> rpt strip_tac
+  >> Cases_on `l3` >> Cases_on `l2` >> fs[]
 QED

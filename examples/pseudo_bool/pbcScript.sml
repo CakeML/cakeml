@@ -23,17 +23,56 @@ End
   c_i l_i < n
   where coefficients c_i and n are arbitrary integers and l_i are literals
 
+  Each inequality may additionally be reified by a conjunction of
+  literals, in any of the three directions ⟹, ⟸, ⟺; the equality only
+  in the ⟹ direction (see pbhd below).
+
   All of these will be normalized to ≥ constraints
 *)
 
 (* A linear term over variables *)
 Type lin_term[pp] = ``:(int # 'a lit) list``;
 
+(* The inequalities, which are closed under negation *)
 Datatype:
-  pbop = Equal | GreaterEqual | Greater | LessEqual | Less
+  pbop = GreaterEqual | Greater | LessEqual | Less
 End
 
-Type pbc[pp] = ``:(pbop # 'a lin_term # int)``
+(* A relation is an equality, or one of the inequalities.
+  This is pbop option rather than a datatype of its own so that it
+  inherits option's translator infrastructure; the overloads name the
+  two cases. *)
+Type pbrel = ``:pbop option``
+Overload REq = “NONE : pbop option”
+Overload RIneq = “SOME : pbop -> pbop option”
+
+(*
+  The head of a constraint carries its reification guard L:
+
+    Fwd L rel    ⋀L ⟹ Σ rel n     (L = [] is an unreified constraint)
+    Bwd l op     Σ op n ⟹ l
+    Iff l op     l ⟺ Σ op n
+
+  Bwd and Iff take a pbop rather than a pbrel because ¬(Σ = n) is a
+  disjunction, so those forms are not a conjunction of ≥ constraints
+  over the same variables — the form to_gnpbc produces. Fwd takes a
+  pbrel, so ⋀L ⟹ Σ = n remains expressible, as two constraints.
+*)
+Datatype:
+  pbhd =
+    Fwd ('a lit list) pbrel
+  | Bwd ('a lit) pbop
+  | Iff ('a lit) pbop
+End
+
+Type pbc[pp] = ``:('a pbhd # 'a lin_term # int)``
+
+(* The unreified heads *)
+Overload PGe = “Fwd [] (RIneq GreaterEqual)”
+Overload PGt = “Fwd [] (RIneq Greater)”
+Overload PLe = “Fwd [] (RIneq LessEqual)”
+Overload PLt = “Fwd [] (RIneq Less)”
+Overload PEq = “Fwd [] REq”
 
 (* 0-1 integer-valued semantics *)
 Definition b2i_def[simp]:
@@ -68,19 +107,77 @@ Definition eval_lin_term_def:
   eval_lin_term w (xs:'a lin_term) = iSUM (MAP (eval_term w) xs)
 End
 
+Theorem iSUM_APPEND[simp]:
+  iSUM(x++y) = iSUM x + iSUM y
+Proof
+  Induct_on`x`>>rw[iSUM_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem eval_lin_term_NIL[simp]:
+  eval_lin_term w [] = 0
+Proof
+  rw[eval_lin_term_def,iSUM_def]
+QED
+
+Theorem eval_lin_term_CONS[simp]:
+  eval_lin_term w ((c,x)::rest) =
+    c * eval_lit w x + eval_lin_term w rest
+Proof
+  simp[eval_lin_term_def,iSUM_def]
+QED
+
+Theorem eval_lin_term_append[simp]:
+  eval_lin_term w (xs++ys) = eval_lin_term w xs + eval_lin_term w ys
+Proof
+  rw[eval_lin_term_def]
+QED
+
 Definition do_op_def[simp]:
-  (do_op Equal (l:int) (r:int) ⇔ l = r) ∧
-  (do_op GreaterEqual l r ⇔ l ≥ r) ∧
+  (do_op GreaterEqual (l:int) (r:int) ⇔ l ≥ r) ∧
   (do_op Greater l r ⇔ l > r) ∧
   (do_op LessEqual l r ⇔ l ≤ r) ∧
   (do_op Less l r ⇔ l < r)
 End
 
+Definition do_rel_def[simp]:
+  (do_rel REq (l:int) (r:int) ⇔ (l = r)) ∧
+  (do_rel (RIneq op) l r ⇔ do_op op l r)
+End
+
+Definition negate_op_def[simp]:
+  (negate_op GreaterEqual = Less) ∧
+  (negate_op Greater = LessEqual) ∧
+  (negate_op LessEqual = Greater) ∧
+  (negate_op Less = GreaterEqual)
+End
+
+Theorem negate_op_thm:
+  do_op (negate_op op) l r ⇔ ¬ do_op op l r
+Proof
+  Cases_on`op`>>simp[]>>
+  intLib.ARITH_TAC
+QED
+
 (* satisfaction of a pseudo-boolean constraint *)
 Definition satisfies_pbc_def:
-  (satisfies_pbc w (pbop,xs,n) ⇔
-    do_op pbop (eval_lin_term w xs) n)
+  (satisfies_pbc w (Fwd ls rel,xs,n) ⇔
+    (EVERY (lit w) ls ⇒ do_rel rel (eval_lin_term w xs) n)) ∧
+  (satisfies_pbc w (Bwd l op,xs,n) ⇔
+    (do_op op (eval_lin_term w xs) n ⇒ lit w l)) ∧
+  (satisfies_pbc w (Iff l op,xs,n) ⇔
+    (lit w l ⇔ do_op op (eval_lin_term w xs) n))
 End
+
+Theorem satisfies_pbc_plain[simp]:
+  (satisfies_pbc w (PGe,xs,n) ⇔ eval_lin_term w xs ≥ n) ∧
+  (satisfies_pbc w (PGt,xs,n) ⇔ eval_lin_term w xs > n) ∧
+  (satisfies_pbc w (PLe,xs,n) ⇔ eval_lin_term w xs ≤ n) ∧
+  (satisfies_pbc w (PLt,xs,n) ⇔ eval_lin_term w xs < n) ∧
+  (satisfies_pbc w (PEq,xs,n) ⇔ eval_lin_term w xs = n)
+Proof
+  simp[satisfies_pbc_def]
+QED
 
 (* satisfaction of a set of constraints *)
 Definition satisfies_def:
@@ -119,7 +216,7 @@ Proof
   Cases_on`p`>>simp[]
 QED
 
-Theorem lit_negate:
+Theorem lit_negate[simp]:
   lit w (negate v) = ¬lit w v
 Proof
   Cases_on ‘v’>>
@@ -205,7 +302,7 @@ QED
 Theorem optimal_witness:
   satisfies w pbf ∧
   unsatisfiable (
-    (Less,f,(eval_lin_term w f)) INSERT pbf) ⇒
+    (PLt,f,(eval_lin_term w f)) INSERT pbf) ⇒
   optimal_val pbf (f,c) = SOME (eval_lin_term w f + c)
 Proof
   rw[]>>
@@ -234,8 +331,15 @@ Definition lit_var_def[simp]:
   (lit_var (Neg v) = v)
 End
 
+Definition pbhd_vars_def[simp]:
+  (pbhd_vars (Fwd ls rel) = set (MAP lit_var ls)) ∧
+  (pbhd_vars (Bwd l op) = {lit_var l}) ∧
+  (pbhd_vars (Iff l op) = {lit_var l})
+End
+
 Definition pbc_vars_def:
-  (pbc_vars (pbop,xs,n) = set (MAP (lit_var o SND) xs))
+  (pbc_vars (hd,xs,n) =
+    pbhd_vars hd ∪ set (MAP (lit_var o SND) xs))
 End
 
 Definition pbf_vars_def:
@@ -248,9 +352,140 @@ Definition map_lit_def[simp]:
   (map_lit f (Neg v) = Neg (f v))
 End
 
+Theorem lit_var_map_lit:
+  !x. lit_var (map_lit f x) = f (lit_var x)
+Proof
+  Cases>>EVAL_TAC
+QED
+
+Theorem map_lit_o:
+  map_lit f (map_lit g x) = map_lit (f o g) x
+Proof
+  Cases_on`x`>>simp[]
+QED
+
+Theorem MAP_map_lit_o:
+  MAP (map_lit f) (MAP (map_lit g) ls) = MAP (map_lit (f o g)) ls
+Proof
+  Induct_on`ls`>>simp[map_lit_o]
+QED
+
+Theorem map_lin_term_o:
+  MAP (λ(a,b). (a, map_lit f b)) (MAP (λ(a,b). (a, map_lit g b)) xs) =
+  MAP (λ(a,b). (a, map_lit (f o g) b)) xs
+Proof
+  Induct_on`xs`>>simp[]>>
+  Cases_on`h`>>simp[map_lit_o]
+QED
+
+Theorem lit_map_lit:
+  lit w (map_lit f x) ⇔ lit (w o f) x
+Proof
+  Cases_on`x`>>rw[]
+QED
+
+Theorem lit_EVERY_map_lit:
+  ∀ls. EVERY (lit w) (MAP (map_lit f) ls) ⇔ EVERY (lit (w o f)) ls
+Proof
+  Induct>>rw[]>>
+  Cases_on`h`>>rw[]
+QED
+
+Theorem map_lit_I:
+  map_lit I = I
+Proof
+  simp[FUN_EQ_THM]>>
+  Cases>>simp[]
+QED
+
+Theorem map_lit_cong:
+  f (lit_var x) = g (lit_var x) ⇒
+  map_lit f x = map_lit g x
+Proof
+  Cases_on`x`>>gvs[]
+QED
+
+Theorem MAP_map_lit_cong:
+  ∀ls f g.
+  (∀x. MEM x (MAP lit_var ls) ⇒ f x = g x) ⇒
+  MAP (map_lit f) ls = MAP (map_lit g) ls
+Proof
+  Induct>>rw[]>>
+  Cases_on`h`>>gvs[]
+QED
+
+Theorem MAP_map_lin_term_cong:
+  ∀xs f g.
+  (∀x. MEM x (MAP (lit_var o SND) xs) ⇒ f x = g x) ⇒
+  MAP (λ(a,b). (a, map_lit f b)) xs = MAP (λ(a,b). (a, map_lit g b)) xs
+Proof
+  Induct>>rw[]>>
+  Cases_on`h`>>gvs[]>>
+  Cases_on`r`>>gvs[]
+QED
+
+Theorem MAP_map_lit_I:
+  (∀x. MEM x (MAP lit_var ls) ⇒ f x = x) ⇒
+  MAP (map_lit f) ls = ls
+Proof
+  strip_tac>>
+  qspecl_then [`ls`,`f`,`I`] mp_tac MAP_map_lit_cong>>
+  gvs[map_lit_I]
+QED
+
+Theorem MAP_map_lin_term_I:
+  (∀x. MEM x (MAP (lit_var o SND) xs) ⇒ f x = x) ⇒
+  MAP (λ(a,b). (a, map_lit f b)) xs = xs
+Proof
+  Induct_on`xs`>>rw[]>>
+  Cases_on`h`>>gvs[]>>
+  Cases_on`r`>>gvs[]
+QED
+
+Theorem lit_cong:
+  w (lit_var x) = w' (lit_var x) ⇒
+  (lit w x ⇔ lit w' x)
+Proof
+  Cases_on`x`>>gvs[]
+QED
+
+Theorem lit_EVERY_cong:
+  (∀x. MEM x (MAP lit_var ls) ⇒ w x = w' x) ⇒
+  (EVERY (lit w) ls ⇔ EVERY (lit w') ls)
+Proof
+  Induct_on`ls`>>rw[]>>
+  Cases_on`h`>>gvs[]
+QED
+
+Theorem eval_lin_term_cong:
+  (∀x. MEM x xs ⇒ eval_term f x = eval_term g x) ⇒
+  eval_lin_term f xs = eval_lin_term g xs
+Proof
+  Induct_on`xs`>>rw[]>>
+  fs[eval_lin_term_def,iSUM_def]
+QED
+
+Theorem eval_lin_term_cong_vars:
+  (∀x. MEM x (MAP (lit_var o SND) xs) ⇒ w x = w' x) ⇒
+  eval_lin_term w xs = eval_lin_term w' xs
+Proof
+  strip_tac>>
+  match_mp_tac eval_lin_term_cong>>
+  gvs[MEM_MAP,PULL_EXISTS,FORALL_PROD]>>
+  rw[]>>
+  first_x_assum drule>>
+  Cases_on`p_2`>>gvs[]
+QED
+
+Definition map_pbhd_def[simp]:
+  (map_pbhd f (Fwd ls rel) = Fwd (MAP (map_lit f) ls) rel) ∧
+  (map_pbhd f (Bwd l op) = Bwd (map_lit f l) op) ∧
+  (map_pbhd f (Iff l op) = Iff (map_lit f l) op)
+End
+
 Definition map_pbc_def:
-  map_pbc f (pbop,xs,n) =
-    (pbop,MAP (λ(a,b). (a, map_lit f b)) xs,n)
+  map_pbc f (hd,xs,n) =
+    (map_pbhd f hd,MAP (λ(a,b). (a, map_lit f b)) xs,n)
 End
 
 Theorem eval_lin_term_MAP:
@@ -266,18 +501,17 @@ Proof
 QED
 
 Theorem satisfies_map_pbc:
-  satisfies_pbc w (map_pbc f pbc) ⇒
+  satisfies_pbc w (map_pbc f pbc) ⇔
   satisfies_pbc (w o f) pbc
 Proof
   PairCases_on`pbc`>>
-  simp[satisfies_pbc_def,map_pbc_def,MAP_MAP_o,o_DEF,pbc_vars_def]>>
-  qmatch_goalsub_abbrev_tac`do_op _ A _ ⇒ do_op _ B _`>>
-  qsuff_tac`A=B` >- fs[]>>
-  metis_tac[eval_lin_term_MAP]
+  Cases_on`pbc0`>>
+  simp[satisfies_pbc_def,map_pbc_def,eval_lin_term_MAP,lit_EVERY_map_lit,
+    lit_map_lit]
 QED
 
 Theorem satisfies_map_pbf:
-  satisfies w (IMAGE (map_pbc f) pbf) ⇒
+  satisfies w (IMAGE (map_pbc f) pbf) ⇔
   satisfies (w o f) pbf
 Proof
   fs[satisfies_def,PULL_EXISTS]>>
@@ -288,28 +522,54 @@ Theorem map_pbc_o:
   map_pbc f (map_pbc g pbc) = map_pbc (f o g) pbc
 Proof
   PairCases_on`pbc`>>
-  EVAL_TAC>>simp[o_DEF,MAP_MAP_o]>>
-  match_mp_tac LIST_EQ>>simp[EL_MAP]>>rw[]>>
-  Cases_on`EL x pbc1`>>fs[]>>
-  Cases_on`r`>>fs[map_lit_def]
+  Cases_on`pbc0`>>
+  simp[map_pbc_def,map_lin_term_o,MAP_map_lit_o,map_lit_o]
 QED
 
 Theorem map_pbc_I:
   (∀x. x ∈ pbc_vars pbc ⇒ f x = x) ⇒
   map_pbc f pbc = pbc
 Proof
-  PairCases_on`pbc`>>EVAL_TAC>>rw[MEM_MAP]>>
-  rw[MAP_EQ_ID]>>
-  Cases_on`x`>>fs[]>>
-  Cases_on`r`>>fs[map_lit_def]>>
-  first_x_assum match_mp_tac>>simp[]>>
-  metis_tac[lit_var_def,SND]
+  PairCases_on`pbc`>>
+  namedCases_on`pbc0` ["ls rel","l op","l op"]>>
+  simp[pbc_vars_def,map_pbc_def]>>
+  strip_tac>>
+  DEP_REWRITE_TAC[MAP_map_lit_I,MAP_map_lin_term_I]>>
+  rw[]>>
+  Cases_on`l`>>gvs[]
 QED
 
-Theorem lit_var_map_lit:
-  !x. lit_var (map_lit f x) = f (lit_var x)
+Theorem map_pbhd_cong:
+  (∀x. x ∈ pbhd_vars hd ⇒ f x = g x) ⇒
+  map_pbhd f hd = map_pbhd g hd
 Proof
-  Cases>>EVAL_TAC
+  namedCases_on`hd` ["ls rel","l op","l op"]>>rw[]
+  >- (
+    match_mp_tac MAP_map_lit_cong>>
+    gvs[])>>
+  match_mp_tac map_lit_cong>>
+  gvs[]
+QED
+
+Theorem map_pbc_cong:
+  (∀x. x ∈ pbc_vars c ⇒ f x = g x) ⇒
+  map_pbc f c = map_pbc g c
+Proof
+  PairCases_on`c`>>
+  rw[map_pbc_def,pbc_vars_def]
+  >- (
+    match_mp_tac map_pbhd_cong>>
+    metis_tac[IN_UNION])>>
+  match_mp_tac MAP_map_lin_term_cong>>
+  gvs[MEM_MAP]>>
+  metis_tac[IN_UNION]
+QED
+
+Theorem pbhd_vars_map_pbhd:
+  pbhd_vars (map_pbhd f hd) = IMAGE f (pbhd_vars hd)
+Proof
+  Cases_on`hd`>>
+  simp[LIST_TO_SET_MAP,MAP_MAP_o,o_DEF,IMAGE_IMAGE,lit_var_map_lit]
 QED
 
 Theorem pbc_vars_map_pbc:
@@ -317,7 +577,7 @@ Theorem pbc_vars_map_pbc:
   IMAGE f (pbc_vars pbc)
 Proof
   PairCases_on`pbc`>>
-  simp[pbc_vars_def,map_pbc_def,o_DEF,MAP_MAP_o,LAMBDA_PROD,LIST_TO_SET_MAP,IMAGE_IMAGE,lit_var_map_lit]
+  simp[pbc_vars_def,map_pbc_def,o_DEF,MAP_MAP_o,LAMBDA_PROD,LIST_TO_SET_MAP,IMAGE_IMAGE,lit_var_map_lit,pbhd_vars_map_pbhd]
 QED
 
 Theorem pbf_vars_IMAGE:
@@ -335,7 +595,7 @@ Theorem satisfies_INJ:
   satisfies (w o LINV f s) (IMAGE (map_pbc f) pbf)
 Proof
   rw[]>>
-  match_mp_tac (GEN_ALL satisfies_map_pbf)>>
+  match_mp_tac (GEN_ALL (iffLR satisfies_map_pbf))>>
   simp[IMAGE_IMAGE,o_DEF]>>
   simp[map_pbc_o,o_DEF]>>
   drule LINV_DEF>>strip_tac>>
@@ -357,16 +617,23 @@ Theorem satisfies_pbc_vars:
   satisfies_pbc w c ⇒
   satisfies_pbc w' c
 Proof
-  PairCases_on`c`>>rw[satisfies_pbc_def]>>
-  fs[pbc_vars_def,eval_lin_term_def]>>
-  qmatch_asmsub_abbrev_tac`iSUM ls `>>
-  qmatch_goalsub_abbrev_tac`iSUM ls'`>>
-  qsuff_tac `ls = ls'`>>rw[]>>fs[]>>
-  unabbrev_all_tac>>
-  fs[MAP_EQ_f,MEM_MAP,PULL_EXISTS,FORALL_PROD]>>
-  rw[]>>
-  first_x_assum drule>>
-  Cases_on`p_2`>>simp[]
+  PairCases_on`c`>>
+  strip_tac>>
+  `eval_lin_term w c1 = eval_lin_term w' c1` by (
+    match_mp_tac eval_lin_term_cong_vars>>
+    gvs[pbc_vars_def]>>
+    metis_tac[])>>
+  namedCases_on`c0` ["ls rel","l op","l op"]
+  >- (
+    `EVERY (lit w) ls ⇔ EVERY (lit w') ls` by (
+      match_mp_tac lit_EVERY_cong>>
+      gvs[pbc_vars_def]>>
+      metis_tac[])>>
+    fs[satisfies_pbc_def])>>
+  `lit w l ⇔ lit w' l` by (
+    match_mp_tac lit_cong>>
+    gvs[pbc_vars_def])>>
+  fs[satisfies_pbc_def]
 QED
 
 Theorem satisfies_pbf_vars:
@@ -379,21 +646,10 @@ Proof
 QED
 
 Theorem satisfies_INJ_2:
-  INJ f (pbf_vars pbf) UNIV ∧
   satisfies (w o f) pbf ⇒
   satisfies w (IMAGE (map_pbc f) pbf)
 Proof
-  rw[]>>
-  drule satisfies_INJ>>
-  disch_then (drule_at Any)>>
-  simp[]>>
-  match_mp_tac satisfies_pbf_vars>>
-  fs[]>>
-  drule LINV_DEF>>
-  simp[pbf_vars_IMAGE]>>
-  rw[]>>
-  first_x_assum drule>>
-  metis_tac[]
+  simp[satisfies_map_pbf]
 QED
 
 Theorem satisfiable_INJ_iff:
@@ -476,14 +732,6 @@ Definition sem_concl_def:
       CARD (proj_pres pres {w | satisfies w pbf}) ≤ n)))
 End
 
-Theorem eval_lin_term_cong:
-  (∀x. MEM x xs ⇒ eval_term f x = eval_term g x) ⇒
-  eval_lin_term f xs = eval_lin_term g xs
-Proof
-  Induct_on`xs`>>rw[]>>
-  fs[eval_lin_term_def,iSUM_def]
-QED
-
 Theorem eval_lin_term_INJ:
   INJ f s UNIV ∧
   set (MAP (lit_var o SND) xs) ⊆ s ⇒
@@ -549,7 +797,7 @@ Proof
   >- (
     rename1`eval_obj _ fw`>>
     gvs[eval_obj_map_obj,FORALL_AND_THM,IMP_CONJ_THM]>>
-    drule satisfies_map_pbf>>
+    drule (iffLR satisfies_map_pbf)>>
     strip_tac>>
     first_x_assum (irule_at Any)>>simp[]>>
     simp[o_DEF,EXTENSION]>>
@@ -598,7 +846,7 @@ Theorem image_sol_set':
 Proof
   rw[proj_pres_def,Once EXTENSION,EQ_IMP_THM]
   >- (
-    drule satisfies_map_pbf>>
+    drule (iffLR satisfies_map_pbf)>>
     strip_tac>>
     first_x_assum (irule_at Any)>>simp[]>>
     simp[o_DEF,EXTENSION]>>
@@ -967,7 +1215,7 @@ Proof
       first_assum (irule_at Any)>>
       simp[SUBSET_DEF]>>
       (* Undo mapping f in assms *)
-      drule satisfies_map_pbf>> strip_tac>>
+      drule (iffLR satisfies_map_pbf)>> strip_tac>>
       (* implies *)
       first_x_assum drule_all>>rw[]>>
       (* Solve *)
@@ -987,7 +1235,7 @@ Proof
       first_assum (irule_at Any)>>
       simp[SUBSET_DEF]>>
       (* Undo mapping g in assms *)
-      drule satisfies_map_pbf>> strip_tac>>
+      drule (iffLR satisfies_map_pbf)>> strip_tac>>
       (* implies *)
       first_x_assum drule_all>>rw[]>>
       (* Solve *)

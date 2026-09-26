@@ -606,9 +606,8 @@ Definition word_cse_def:
   (word_cse data (Return r1 r2) = (data, Return r1 r2)) ∧
   (word_cse data (Tick) = (data, Tick)) ∧
   (word_cse data (Alloc r m) = (empty_data, Alloc r m)) ∧
-  (word_cse data (Install p l dp dl m) = (empty_data, Install p l dp dl m)) ∧
-  (* Buffer writes touch only the code/data buffers, nothing we track. *)
-  (word_cse data (CodeBufferWrite r1 r2) = (data, CodeBufferWrite r1 r2)) ∧
+  (word_cse data (Install p l cp dp dpe m) = (empty_data, Install p l cp dp dpe m)) ∧
+  (* Buffer writes touch only the data buffer, nothing we track. *)
   (word_cse data (DataBufferWrite r1 r2) = (data, DataBufferWrite r1 r2)) ∧
   (* FFI cuts the local environment, so all knowledge is stale. *)
   (word_cse data (FFI s p1 l1 p2 l2 m) = (empty_data, FFI s p1 l1 p2 l2 m)) ∧

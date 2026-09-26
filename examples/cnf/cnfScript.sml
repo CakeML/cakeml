@@ -67,13 +67,13 @@ Definition unsatisfiable_cnf_def:
 End
 
 (* Free variables *)
-Definition lit_var_def:
-  (lit_var (Pos v) = v) ∧
-  (lit_var (Neg v) = v)
+Definition var_lit_def[simp]:
+  (var_lit (Pos v) = v) ∧
+  (var_lit (Neg v) = v)
 End
 
 Definition clause_vars_def:
-  (clause_vars (c:'a clause) = set (MAP lit_var c))
+  (clause_vars (c:'a clause) = set (MAP var_lit c))
 End
 
 (* Helpers *)
@@ -109,6 +109,17 @@ Proof
   Induct_on`ls`>>rw[]>>
   first_x_assum irule>>
   metis_tac[satisfies_fml_gen_delete]
+QED
+
+Theorem FRANGE_delete_ids_SUBSET:
+  ∀ls fml.
+  FRANGE (delete_ids fml ls) ⊆ FRANGE fml
+Proof
+  simp[delete_ids_def]>>
+  Induct>>rw[]>>
+  irule SUBSET_TRANS>>
+  first_x_assum (irule_at Any)>>
+  simp[FRANGE_DOMSUB_SUBSET]
 QED
 
 Theorem satisfies_fml_gen_insert:
@@ -156,10 +167,4 @@ Proof
   qexists_tac`k`>>simp[] >>
   fs[lookup_build_fml]
 QED
-
-
-Definition var_lit_def[simp]:
-  (var_lit (Pos n) = n) ∧
-  (var_lit (Neg n) = n)
-End
 

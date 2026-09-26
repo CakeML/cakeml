@@ -676,6 +676,8 @@ Proof
       `exp_size e' < exp_size (Letrec l e')`
              by srw_tac [ARITH_ss] [exp_size_def] >>
       metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, with_clock_clock])
+  >> rename1 `exp_size (Open path body)`
+  >> Cases_on `open_dec_env path env` >> simp []
 QED
 
 Theorem big_clocked_total:
@@ -1003,6 +1005,7 @@ Proof
   >- (
     disj1_tac >> ntac 2 (last_assum $ irule_at Any) >> simp[] >>
     first_x_assum $ qspec_then `0` assume_tac >> gvs[] >>
+    Cases_on `res` >> gvs[] >>
     imp_res_tac evaluate_decs_clock_mono >> gvs[]
     )
   >- (
@@ -1045,6 +1048,8 @@ Proof
   ho_match_mp_tac evaluate_dec_ind >> rw[] >>
   simp[Once evaluate_dec_cases, with_same_clock] >> gvs[] >>
   gvs[big_clocked_unclocked_equiv]
+  >~ [`open_dec_env _ _ = SOME _`] >- irule_at Any EQ_REFL
+  >~ [`open_dec_env _ _ = NONE`] >- irule_at Any EQ_REFL
   >- (goal_assum drule >> simp[])
   >- (irule_at Any OR_INTRO_THM1 >> goal_assum drule >> simp[])
   >- (irule_at Any OR_INTRO_THM1 >> goal_assum drule >> simp[])
@@ -1114,7 +1119,8 @@ Proof
   first_assum $ qspecl_then [`h`,`env`,`s`] mp_tac >>
   impl_tac >- simp[] >> strip_tac >> gvs[] >>
   Cases_on `r` >> gvs[SF SFY_ss] >> disj2_tac >> goal_assum drule >>
-  simp[Once $ GSYM with_same_clock] >> last_x_assum irule >> rw[] >>
+  last_x_assum (qspecl_then [`a +++ env`,`s'`,`s'.clock`] mp_tac) >>
+  simp[with_same_clock] >> disch_then irule >> rw[] >>
   imp_res_tac evaluate_decs_clock_mono >> gvs[] >>
   Cases_on `s'.clock = clk` >> gvs[]
 QED
@@ -1134,7 +1140,7 @@ Proof
   Cases_on `d` >> rw[Once evaluate_dec_cases, SF DNF_ss]
   >- ( (* Dlet *)
     Cases_on `ALL_DISTINCT (pat_bindings p) ∧
-              every_exp (one_con_check env.c) e` >> gvs[] >>
+              check_exp_constructors env.c e` >> gvs[] >>
     qspecl_then [`st with clock := clk`,`env`,`e`] assume_tac big_clocked_total >>
     gvs[] >> Cases_on `r` >> gvs[SF SFY_ss] >>
     Cases_on `pmatch env.c s'.refs p a []` >> gvs[SF SFY_ss]
@@ -1153,12 +1159,16 @@ Proof
     disch_then $ qspecl_then [`l`,`env`,`st`] mp_tac >> impl_tac >> rw[] >>
     Cases_on `r` >> gvs[SF SFY_ss] >> disj1_tac >> goal_assum drule >>
     dxrule $ cj 2 evaluate_decs_clock_mono >> rw[] >> gvs[] >>
-    simp[Once $ GSYM with_same_clock] >> irule evaluate_decs_total_lemma >>
+    irule (evaluate_decs_total_lemma |> SPEC_ALL
+             |> Q.INST [`clk` |-> `(s:'ffi semanticPrimitives$state).clock`]
+             |> SIMP_RULE (srw_ss()) [with_same_clock] |> GEN_ALL) >>
     rw[] >> Cases_on `s'.clock = clk` >> gvs[]
     )
   >- (
     Cases_on `declare_env st.eval_state env` >> gvs[] >> PairCases_on `x` >> gvs[]
     )
+  >> rename1 `open_dec_env path env`
+  >> Cases_on `open_dec_env path env` >> simp []
 QED
 
 Theorem big_clocked_decs_total:

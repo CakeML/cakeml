@@ -1,5 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/unverified/reg_alloc $(CAKEMLDIR)/translator/monadic/monad_base $(CAKEMLDIR)/basis/pure
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

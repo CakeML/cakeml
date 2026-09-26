@@ -1589,6 +1589,7 @@ Proof
         metis_tac[check_t_more4])
      >- metis_tac[pure_add_constraints_wfs]
      >- metis_tac[pure_add_constraints_success]
+     >- simp[Abbr`ntenv`]
      >-
        (fs[Abbr`ntenv`,simp_tenv_invC_def,lookup_var_bind_var_list,alist_to_ns_def,nsLookup_nsAppend_some]>>
        Cases_on`x`>>fs[nsLookup_def]
@@ -1831,6 +1832,34 @@ Theorem infer_e_complete:
 Proof
   ho_match_mp_tac type_e_strongind >>
   rw [add_constraint_success2,success_eqns,infer_e_def]
+  >~ [`open_ienv _ _ = SOME _`]
+  >- (
+    rename1 `open_tenv path tenv = SOME opened`
+    >> `?inferred_open. open_ienv path ienv = SOME inferred_open`
+      by (
+        fs [env_rel_complete_def]
+        >> imp_res_tac open_envs_none
+        >> Cases_on `open_ienv path ienv`
+        >> fs []
+        >> qpat_x_assum `!path. open_ienv path ienv = NONE <=> _`
+             (qspec_then `path` mp_tac)
+        >> fs [])
+    >> rename1 `open_ienv path ienv = SOME inferred_open`
+    >> `ienv_ok (count st.next_uvar) (extend_dec_ienv inferred_open ienv)`
+      by metis_tac [ienv_ok_open_ienv, ienv_ok_extend_dec_ienv]
+    >> `env_rel_complete s (extend_dec_ienv inferred_open ienv)
+          (extend_dec_tenv opened tenv)
+          (tveMask (\n. IS_SOME (nsLookup opened.v (Short n))) tenvE)`
+      by metis_tac [env_rel_complete_open]
+    >> first_x_assum (qspecl_then
+         [`loc`, `s`, `extend_dec_ienv inferred_open ienv`, `st`, `constraints`]
+         mp_tac)
+    >> simp [num_tvs_tveMask]
+    >> disch_then (qx_choosel_then
+         [`inferred_ty`, `final_st`, `final_subst`, `final_constraints`]
+         strip_assume_tac)
+    >> qexistsl_tac [`inferred_ty`, `final_st`, `final_subst`, `final_constraints`]
+    >> simp [])
   (*Easy cases*) >~
   [‘Tapp [] Tint_num = _’]
   >- (qexists_tac `s` >>
@@ -2506,6 +2535,9 @@ Proof
       fs[MAP_EQ_f,FORALL_PROD]>>
     fs[bind_var_list_def]>>
     qpat_abbrev_tac `new_tenv = nsAppend A ienv.inf_v`>>
+    `env_rel_mods (ienv with inf_v := new_tenv) tenv` by (
+      simp [Abbr`new_tenv`]
+      >> fs [env_rel_complete_def]) >>
     fs[sub_completion_def] >>
     qabbrev_tac `fun_tys = MAP SND env` >>
     Q.SPECL_THEN [`st`,`constraints`,`s`,`fun_tys`,`num_tvs tenvE`]

@@ -27,6 +27,7 @@ Definition fvs_def:
     (fvs_funs funs ∪ fvs e) DIFF set (MAP (Short o FST) funs) ∧
   fvs (Tannot e t) = fvs e ∧
   fvs (Lannot e l) = fvs e ∧
+  fvs (Open path e) = fvs e ∧
   fvs_list [] = {} ∧
   fvs_list (e::es) = fvs e ∪ fvs_list es ∧
   fvs_pes [] = {} ∧
@@ -197,6 +198,30 @@ Proof
   Induct \\ gvs [fvs_def, fvs_list_APPEND] \\ gvs [EXTENSION] \\ metis_tac []
 QED
 
+Theorem no_Open_thm[local,simp]:
+  (no_Open (Raise e) ⇔ no_Open e) ∧
+  (no_Open (Handle e pes) ⇔ no_Open e ∧ EVERY (λ(p,e). no_Open e) pes) ∧
+  (no_Open (Lit l) ⇔ T) ∧
+  (no_Open (Con cn es) ⇔ EVERY no_Open es) ∧
+  (no_Open (Var v) ⇔ T) ∧
+  (no_Open (Fun x e) ⇔ no_Open e) ∧
+  (no_Open (App op es) ⇔ EVERY no_Open es) ∧
+  (no_Open (Log lop e1 e2) ⇔ no_Open e1 ∧ no_Open e2) ∧
+  (no_Open (If e1 e2 e3) ⇔ no_Open e1 ∧ no_Open e2 ∧ no_Open e3) ∧
+  (no_Open (Mat e pes) ⇔ no_Open e ∧ EVERY (λ(p,e). no_Open e) pes) ∧
+  (no_Open (Let xo e1 e2) ⇔ no_Open e1 ∧ no_Open e2) ∧
+  (no_Open (Letrec funs e) ⇔
+     no_Open e ∧ EVERY (λ(f,x,e). no_Open e) funs) ∧
+  (no_Open (Tannot e t) ⇔ no_Open e) ∧
+  (no_Open (Lannot e a) ⇔ no_Open e) ∧
+  (no_Open (Open path e) ⇔ F)
+Proof
+  ‘no_Open = every_exp (λx. ¬is_Open x)’ by simp [FUN_EQ_THM, no_Open_def]
+  \\ simp [is_Open_def, SF ETA_ss]
+QED
+
+Theorem open_free_dec_simp[local,simp] = open_free_dec_def;
+
 (* declarations that are all dropped leave the set of used names alone *)
 Theorem dce_decs_empty_used[local]:
   (∀used ds ds1 used1.
@@ -239,14 +264,14 @@ Inductive v_rel:
     v_rel f (Vectorv vs1) (Vectorv vs2)
 [~Closure:]
   ∀f env1 env2 v e.
-    env1.c = env2.c ∧
+    env1.c = env2.c ∧ no_Open e ∧
     (∀x v1.
        x ∈ fvs e ∧ x ≠ Short v ∧ nsLookup env1.v x = SOME v1 ⇒
        ∃v2. nsLookup env2.v x = SOME v2 ∧ v_rel f v1 v2) ⇒
     v_rel f (Closure env1 v e) (Closure env2 v e)
 [~Recclosure:]
   ∀f env1 env2 funs n.
-    env1.c = env2.c ∧
+    env1.c = env2.c ∧ EVERY (λ(f,x,e). no_Open e) funs ∧
     (∀x v1.
        x ∈ fvs_funs funs ∧ ¬MEM x (MAP (Short o FST) funs) ∧
        nsLookup env1.v x = SOME v1 ⇒
@@ -469,7 +494,7 @@ QED
 
 Theorem env_rel_build_rec_env[local]:
   ∀f names names2 env1 env2 funs.
-    env_rel f names env1 env2 ∧
+    env_rel f names env1 env2 ∧ EVERY (λ(f,x,e). no_Open e) funs ∧
     fvs_funs funs DIFF set (MAP (Short o FST) funs) ⊆ names ∧
     names2 DIFF set (MAP (Short o FST) funs) ⊆ names ⇒
     env_rel f names2 (env1 with v := build_rec_env funs env1 env1.v)
@@ -546,11 +571,12 @@ Theorem v_rel_simps[local]:
   (v_rel f (Vectorv vs) v ⇔ ∃ws. v = Vectorv ws ∧ LIST_REL (v_rel f) vs ws) ∧
   (v_rel f (Env e i) v ⇔ F) ∧
   (v_rel f (Closure e1 x body) v ⇔
-     ∃e2. v = Closure e2 x body ∧ e1.c = e2.c ∧
+     ∃e2. v = Closure e2 x body ∧ e1.c = e2.c ∧ no_Open body ∧
           ∀y v1. y ∈ fvs body ∧ y ≠ Short x ∧ nsLookup e1.v y = SOME v1 ⇒
                  ∃v2. nsLookup e2.v y = SOME v2 ∧ v_rel f v1 v2) ∧
   (v_rel f (Recclosure e1 funs g) v ⇔
      ∃e2. v = Recclosure e2 funs g ∧ e1.c = e2.c ∧
+          EVERY (λ(f,x,e). no_Open e) funs ∧
           ∀y v1. y ∈ fvs_funs funs ∧ ¬MEM y (MAP (Short o FST) funs) ∧
                  nsLookup e1.v y = SOME v1 ⇒
                  ∃v2. nsLookup e2.v y = SOME v2 ∧ v_rel f v1 v2)
@@ -842,11 +868,21 @@ Proof
   \\ rw [] \\ res_tac \\ gvs []
 QED
 
+Theorem no_Open_find_recfun[local]:
+  ∀funs g x e.
+    find_recfun g funs = SOME (x,e) ∧ EVERY (λ(f,x,e). no_Open e) funs ⇒
+    no_Open e
+Proof
+  Induct \\ simp [Once find_recfun_def]
+  \\ PairCases \\ rw [] \\ metis_tac []
+QED
+
 (* function application: the closure carries exactly the bindings that the
    body's free variables need *)
 Theorem do_opapp_v_rel[local]:
   LIST_REL (v_rel f) vs ws ∧ do_opapp vs = SOME (env1,e) ⇒
-  ∃env2. do_opapp ws = SOME (env2,e) ∧ env_rel f (fvs e) env1 env2
+  ∃env2. do_opapp ws = SOME (env2,e) ∧ env_rel f (fvs e) env1 env2 ∧
+         no_Open e
 Proof
   strip_tac
   \\ gvs [semanticPrimitivesPropsTheory.do_opapp_cases, v_rel_simps]
@@ -854,10 +890,11 @@ Proof
    (rename [‘env_rel f (fvs e)
                (ea with v := nsBind x a (build_rec_env funs ea ea.v))
                (eb with v := nsBind x b (build_rec_env funs eb eb.v))’]
+    \\ drule_all no_Open_find_recfun \\ strip_tac
     \\ ‘env_rel f (fvs e DELETE Short x)
           (ea with v := build_rec_env funs ea ea.v)
           (eb with v := build_rec_env funs eb eb.v)’ by
-         (irule env_rel_build_rec_env
+         (irule env_rel_build_rec_env \\ conj_tac >- gvs []
           \\ qexists_tac ‘fvs_funs funs DIFF set (MAP (Short o FST) funs)’
           \\ gvs [env_rel_def]
           \\ drule fvs_find_recfun \\ gvs [SUBSET_DEF] \\ rw [] \\ res_tac
@@ -968,7 +1005,8 @@ Theorem evaluate_v_rel[local]:
      evaluate s1 env1 es = (s1',res1) ∧
      res1 ≠ Rerr (Rabort Rtype_error) ⇒
      ∀f s2 env2.
-       state_rel f s1 s2 ∧ env_rel f (fvs_list es) env1 env2 ⇒
+       state_rel f s1 s2 ∧ env_rel f (fvs_list es) env1 env2 ∧
+       EVERY no_Open es ⇒
        ∃f' s2' res2.
          evaluate s2 env2 es = (s2',res2) ∧ f ⊑ f' ∧
          state_rel f' s1' s2' ∧
@@ -978,6 +1016,7 @@ Theorem evaluate_v_rel[local]:
      res1 ≠ Rerr (Rabort Rtype_error) ⇒
      ∀f s2 env2 v2 err_v2.
        state_rel f s1 s2 ∧ env_rel f (fvs_pes pes) env1 env2 ∧
+       EVERY (λ(p,e). no_Open e) pes ∧
        v_rel f v1 v2 ∧ v_rel f err_v1 err_v2 ⇒
        ∃f' s2' res2.
          evaluate_match s2 env2 v2 pes err_v2 = (s2',res2) ∧ f ⊑ f' ∧
@@ -1002,6 +1041,7 @@ Proof
   >~ [‘Letrec funs e’]                  >- suspend "Letrec"
   >~ [‘Tannot e t’]                     >- suspend "Tannot"
   >~ [‘Lannot e l’]                     >- suspend "Lannot"
+  >~ [‘Open path e’]                    >- gvs []
   >~ [‘evaluate_match _ _ _ [] _’]      >- suspend "match_empty"
   >~ [‘evaluate_match _ _ _ ((p,e)::pes) _’] >- suspend "match_cons"
 QED
@@ -1223,7 +1263,8 @@ Resume evaluate_v_rel[Log]:
   >- (first_x_assum drule
       \\ disch_then $ qspec_then ‘env2’ mp_tac
       \\ impl_tac
-      >- (drule_then irule env_rel_mono \\ simp [fvs_def]
+      >- (reverse conj_tac >- gvs [do_log_def, AllCaseEqs()]
+          \\ drule_then irule env_rel_mono \\ simp [fvs_def]
           \\ gvs [do_log_def, AllCaseEqs()] \\ simp [SUBSET_DEF])
       \\ strip_tac \\ fs []
       \\ first_assum $ irule_at Any \\ imp_res_tac SUBMAP_TRANS \\ simp [])
@@ -1249,7 +1290,8 @@ Resume evaluate_v_rel[If]:
   \\ first_x_assum drule
   \\ disch_then $ qspec_then ‘env2’ mp_tac
   \\ impl_tac
-  >- (drule_then irule env_rel_mono \\ simp [fvs_def]
+  >- (reverse conj_tac >- gvs [do_log_def, do_if_def, AllCaseEqs()]
+      \\ drule_then irule env_rel_mono \\ simp [fvs_def]
       \\ gvs [do_if_def, AllCaseEqs()] \\ simp [SUBSET_DEF])
   \\ strip_tac \\ fs []
   \\ first_assum $ irule_at Any \\ imp_res_tac SUBMAP_TRANS \\ simp []
@@ -1311,7 +1353,7 @@ Resume evaluate_v_rel[Letrec]:
   \\ disch_then $ qspec_then ‘env2 with v := build_rec_env funs env2 env2.v’
        mp_tac
   \\ impl_tac
-  >- (irule env_rel_build_rec_env
+  >- (irule env_rel_build_rec_env \\ conj_tac >- gvs []
       \\ qexists_tac ‘fvs_list [Letrec funs e]’ \\ gvs [fvs_def]
       \\ gvs [SUBSET_DEF])
   \\ strip_tac \\ gvs []
@@ -2027,7 +2069,7 @@ QED
 
 Theorem new_rel_build_rec_env[local]:
   ∀f names names2 env1 env2 funs.
-    env_rel f names env1 env2 ∧
+    env_rel f names env1 env2 ∧ EVERY (λ(f,x,e). no_Open e) funs ∧
     fvs_funs funs DIFF set (MAP (Short o FST) funs) ⊆ names ⇒
     new_rel f names2 <|v := build_rec_env funs env1 nsEmpty; c := nsEmpty|>
                      <|v := build_rec_env funs env2 nsEmpty; c := nsEmpty|>
@@ -2163,7 +2205,7 @@ Theorem evaluate_decs_v_rel[local]:
     res1 ≠ Rerr (Rabort Rtype_error) ⇒
     ∀f s2 env2 used ds1 used1.
       dce_decs used ds = (ds1,used1) ∧
-      ¬has_Denv_decs (append ds1) ∧
+      ¬has_Denv_decs (append ds1) ∧ open_free_decs ds ∧
       state_rel f s1 s2 ∧
       env_rel f (names_set used1) env1 env2 ⇒
       ∃f' s2' res2.
@@ -2188,6 +2230,7 @@ Proof
   >~ [‘Dexn locs cn ts’]             >- suspend "Dexn"
   >~ [‘Dmod mn ds’]                  >- suspend "Dmod"
   >~ [‘Dlocal lds ds’]               >- suspend "Dlocal"
+  >~ [‘Dopen locs path’]             >- gvs []
 QED
 
 Resume evaluate_decs_v_rel[empty]:
@@ -2257,7 +2300,7 @@ Resume evaluate_decs_v_rel[Dlet]:
   >- (‘ALL_DISTINCT (pat_bindings (prune_pat used p))’ by
         metis_tac [prune_pat_bindings]
       \\ ‘env1.c = env2.c’ by gvs [env_rel_def]
-      \\ ‘every_exp (one_con_check env2.c) e’ by
+      \\ ‘check_exp_constructors env2.c e’ by
            gvs []
       \\ gvs [evaluate_decs_def]
       \\ drule (cj 1 evaluate_v_rel) \\ gvs []
@@ -2304,7 +2347,7 @@ Resume evaluate_decs_v_rel[Dlet]:
   >- (‘ALL_DISTINCT (pat_bindings (prune_pat used p))’ by
         metis_tac [prune_pat_bindings]
       \\ ‘env1.c = env2.c’ by gvs [env_rel_def]
-      \\ ‘every_exp (one_con_check env2.c) e’ by
+      \\ ‘check_exp_constructors env2.c e’ by
            gvs []
       \\ gvs [evaluate_decs_def]
       \\ drule (cj 1 evaluate_v_rel) \\ gvs []
@@ -2335,7 +2378,7 @@ Resume evaluate_decs_v_rel[Dlet]:
   \\ ‘ALL_DISTINCT (pat_bindings (prune_pat used p))’ by
        metis_tac [prune_pat_bindings]
   \\ ‘env1.c = env2.c’ by gvs [env_rel_def]
-  \\ ‘every_exp (one_con_check env2.c) e’ by
+  \\ ‘check_exp_constructors env2.c e’ by
        gvs []
   \\ gvs [evaluate_decs_def]
   \\ drule (cj 1 evaluate_v_rel) \\ gvs []
@@ -2368,7 +2411,7 @@ Resume evaluate_decs_v_rel[Dletrec]:
       \\ gvs [nsLookup_alist_to_ns_eq, ALOOKUP_rec_env]
       \\ rw [] \\ gvs [MEM_MAP] \\ PairCases_on ‘y’ \\ gvs [] \\ res_tac)
   \\ ‘env1.c = env2.c’ by gvs [env_rel_def]
-  \\ ‘EVERY (λ(f,n,e). every_exp (one_con_check env2.c) e) funs’ by
+  \\ ‘EVERY (λ(f,n,e). check_exp_constructors env2.c e) funs’ by
        gvs []
   \\ gvs [extend_dec_env_build_rec_env]
   \\ qexists_tac ‘f’ \\ gvs []
@@ -2566,7 +2609,7 @@ Theorem evaluate_prog_with_clock_correct[local]:
   evaluate_prog_with_clock s env k prog = (ffi,r1) ∧
   r1 ≠ Rerr (Rabort Rtype_error) ∧
   dce_decs empty_names prog = (res,x') ∧
-  ¬has_Denv_decs (append res) ∧
+  ¬has_Denv_decs (append res) ∧ open_free_decs prog ∧
   (∀x. s.eval_state = SOME x ⇒ ∃ev. x = EvalDecs ev) ∧
   env.v = nsEmpty ⇒
   ∃r2. evaluate_prog_with_clock s env k (append res) = (ffi,r2) ∧
@@ -2587,7 +2630,7 @@ QED
 Theorem dce_decs_semantics[local]:
   env.v = nsEmpty ∧
   dce_decs empty_names prog = (res,x) ∧
-  ¬has_Denv_decs (append res) ∧
+  ¬has_Denv_decs (append res) ∧ open_free_decs prog ∧
   (∀x. s.eval_state = SOME x ⇒ ∃ev. x = EvalDecs ev) ∧
   ¬semantics_prog s env prog Fail ∧
   semantics_prog s env prog outcome ⇒

@@ -731,7 +731,7 @@ val success_eqns =
              read_def, option_case_eq, check_dups_success,
              type_name_check_subst_success,
              check_ctor_types_success,
-             check_ctors_success];
+             check_ctors_success, infer_open_success];
 
 Theorem success_eqns =
   success_eqns
@@ -1718,6 +1718,19 @@ rw [check_t_def, infer_deBruijn_subst_alt, LENGTH_COUNT_LIST,
 metis_tac []
 QED
 
+Theorem ienv_val_ok_open_extend:
+  open_ienv path ienv = SOME opened ∧
+  ienv_val_ok uvars ienv.inf_v ⇒
+  ienv_val_ok uvars (extend_dec_ienv opened ienv).inf_v
+Proof
+  rw [ienv_val_ok_def, extend_dec_ienv_def]
+  >> irule nsAll_nsAppend
+  >> simp []
+  >> imp_res_tac open_ienv_success_components
+  >> drule_all nsAll_after_nsOpen
+  >> simp [LAMBDA_PROD]
+QED
+
 Theorem infer_e_check_t:
   (∀l ienv e st st' t.
      infer_e l ienv e st = (M_success t, st') ∧
@@ -1745,6 +1758,8 @@ Proof
  fsrw_tac[] [check_t_def] >>
  imp_res_tac infer_e_next_uvar_mono >>
  fsrw_tac[] [EVERY_MAP, check_t_def, check_t_infer_db_subst]
+ >~ [`open_ienv path ienv = SOME opened`]
+ >- metis_tac [ienv_val_ok_open_extend]
  >- metis_tac [check_t_more4]
  >- (fs [ienv_val_ok_def] >>
      imp_res_tac nsLookup_nsAll >>
@@ -1941,6 +1956,46 @@ Proof
  >> metis_tac [check_env_more]
 QED
 
+Theorem nsAll_after_nsOpen_id_invariant:
+  nsOpen path env = SOME opened ∧
+  nsAll P env ∧
+  (∀id1 id2 v. P id1 v ⇔ P id2 v) ⇒
+  nsAll P opened
+Proof
+  strip_tac >>
+  drule nsAll_after_nsOpen >>
+  disch_then (qspec_then `P` mp_tac) >>
+  impl_tac >- simp [] >>
+  strip_tac >>
+  qpat_x_assum `nsAll _ opened` mp_tac >>
+  match_mp_tac nsAll_mono >>
+  simp [] >>
+  metis_tac []
+QED
+
+Theorem ienv_ok_extend_dec_ienv:
+   !e1 e2 n. ienv_ok n e1 ∧ ienv_ok n e2 ⇒ ienv_ok n (extend_dec_ienv e1 e2)
+Proof
+ rw [ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_ctor_ok_def,
+     typeSoundInvariantsTheory.tenv_abbrev_ok_def, extend_dec_ienv_def]
+ >> metis_tac [nsAll_nsAppend]
+QED
+
+Theorem ienv_ok_open_ienv:
+   !uvars ienv path opened.
+    ienv_ok uvars ienv ∧ open_ienv path ienv = SOME opened ⇒
+    ienv_ok uvars opened
+Proof
+  rw [ienv_ok_def, ienv_val_ok_def,
+      typeSoundInvariantsTheory.tenv_ctor_ok_def,
+      typeSoundInvariantsTheory.tenv_abbrev_ok_def] >>
+  imp_res_tac open_ienv_success_components >>
+  rpt conj_tac >>
+  irule nsAll_after_nsOpen_id_invariant >>
+  simp [] >>
+  metis_tac []
+QED
+
 Theorem infer_e_check_s:
  (!l ienv e st st' t tvs.
     infer_e l ienv e st = (M_success t, st') ∧
@@ -1976,6 +2031,8 @@ Proof
  ho_match_mp_tac infer_e_ind
  >> rw [infer_e_def, success_eqns]
  >> rw []
+ >~ [`open_ienv path ienv = SOME opened`]
+ >- metis_tac [ienv_ok_open_ienv, ienv_ok_extend_dec_ienv]
  >- (
    old_drule (CONJUNCT1 infer_e_wfs)
    >> rw []
@@ -2615,6 +2672,32 @@ Definition inf_set_tids_ienv_def:
   nsAll (λi (n,t). inf_set_tids_subset tids t) ienv.inf_v
 End
 
+Theorem inf_set_tids_ienv_extend_dec_ienv:
+  inf_set_tids_ienv tids added ∧ inf_set_tids_ienv tids base ⇒
+  inf_set_tids_ienv tids (extend_dec_ienv added base)
+Proof
+  rw [inf_set_tids_ienv_def, extend_dec_ienv_def]
+  >> irule nsAll_nsAppend
+  >> simp []
+QED
+
+Theorem inf_set_tids_ienv_open_ienv:
+  inf_set_tids_ienv tids ienv ∧
+  open_ienv path ienv = SOME opened ⇒
+  inf_set_tids_ienv tids opened
+Proof
+  rw [inf_set_tids_ienv_def] >>
+  imp_res_tac open_ienv_success_components >>
+  rpt conj_tac >>
+  irule nsAll_after_nsOpen_id_invariant >>
+  simp [] >>
+  metis_tac []
+QED
+
+Theorem inf_set_tids_ienv_open_ienv_components =
+  inf_set_tids_ienv_open_ienv
+  |> SRULE [inf_set_tids_ienv_def]
+
 Definition inf_set_tids_subst_def:
   inf_set_tids_subst tids subst ⇔
   !t. t ∈ FRANGE subst ⇒ inf_set_tids_subset tids t
@@ -2957,14 +3040,6 @@ Proof
  >> simp []
 QED
 
-Theorem ienv_ok_extend_dec_ienv:
-   !e1 e2 n. ienv_ok n e1 ∧ ienv_ok n e2 ⇒ ienv_ok n (extend_dec_ienv e1 e2)
-Proof
- rw [ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_ctor_ok_def,
-     typeSoundInvariantsTheory.tenv_abbrev_ok_def, extend_dec_ienv_def]
- >> metis_tac [nsAll_nsAppend]
-QED
-
 Theorem infer_d_check:
  (!d ienv st1 st2 ienv'.
   infer_d ienv d st1 = (M_success ienv', st2) ∧
@@ -2978,7 +3053,7 @@ Theorem infer_d_check:
   ienv_ok {} ienv')
 Proof
  Induct>>rw[]>>
- fs [infer_d_def, success_eqns]>>
+ fs [infer_d_def, success_eqns, infer_open_success]>>
  rpt (pairarg_tac >> fs [success_eqns])>>
  fs [init_state_def]>> rw[]>>
  strip_assume_tac init_infer_state_wfs
@@ -3084,7 +3159,8 @@ Proof
   \\ rw []
   \\ metis_tac [ienv_ok_extend_dec_ienv]
  )
- >- fs[ienv_ok_def,ienv_val_ok_def]
+ >- (irule ienv_ok_open_ienv >> metis_tac [])
+ >- fs [ienv_ok_def, ienv_val_ok_def]
  >>
    match_mp_tac ienv_ok_extend_dec_ienv>>
    rpt (first_x_assum old_drule)>> rw[]>>
@@ -3149,7 +3225,7 @@ Theorem infer_d_next_id_mono:
   st.next_id ≤ st'.next_id))
 Proof
   Induct>>rw[]>>
-  fs [infer_d_def, success_eqns]>>
+  fs [infer_d_def, success_eqns, infer_open_success]>>
   rpt (pairarg_tac >> fs [success_eqns])>>
   fs[init_state_def,init_infer_state_def]>>
   rw[]>>
@@ -3484,6 +3560,14 @@ Definition remap_tenv_def:
    |>
 End
 
+Theorem remap_tenv_open_tenv:
+  open_tenv path tenv = SOME opened ⇒
+  open_tenv path (remap_tenv f tenv) = SOME (remap_tenv f opened)
+Proof
+  rw [open_tenv_def, remap_tenv_def, nsOpen_nsMap] >>
+  every_case_tac >> gvs []
+QED
+
 Theorem remap_tenv_I[simp]:
    remap_tenv I = I
 Proof
@@ -3787,8 +3871,16 @@ Proof
   Q.ISPEC_THEN`EVERY _ _ ∧ _ `(fn th => once_rewrite_tac[th])(GSYM hide_def)
   \\ Q.ISPEC_THEN`inf_set_tids_subset _ _ ∧ _ `(fn th => once_rewrite_tac[th])(GSYM hide_def)
   \\ ho_match_mp_tac infer_e_ind >>
-  rw [pat_bindings_def, infer_e_def, success_eqns, remove_pair_lem] >>
-  fs[inf_set_tids_subset_def,inf_set_tids_def]>>
+  rw [pat_bindings_def, infer_e_def, success_eqns, remove_pair_lem]
+  >~ [`open_ienv path cenv = SOME opened`]
+  >- (
+    first_x_assum irule
+    >> simp []
+    >> qexistsl_tac [`opened`, `st`]
+    >> simp []
+    >> irule inf_set_tids_ienv_extend_dec_ienv
+    >> metis_tac [inf_set_tids_ienv_open_ienv])
+  >> fs[inf_set_tids_subset_def,inf_set_tids_def]>>
   TRY(fs[prim_tids_def,prim_type_nums_def,hide_def]>> NO_TAC)>>
   rpt(first_x_assum old_drule) >> rw[] >>
   fs[hide_def] >>
@@ -4039,8 +4131,10 @@ Theorem infer_d_inf_set_tids:
      inf_set_tids_ienv (count st'.next_id) ienv')
 Proof
   Induct
-  \\ rw[infer_d_def, success_eqns]
+  \\ rw[infer_d_def, success_eqns, infer_open_success]
   \\ rpt(pairarg_tac \\ fs[success_eqns]) \\ rw[]
+  >~ [`open_ienv path ienv = SOME opened`]
+  >- metis_tac [inf_set_tids_ienv_open_ienv]
   \\ rpt(first_x_assum old_drule \\ rw[])
   \\ imp_res_tac generalise_list_length
   \\ imp_res_tac start_type_id_prim_tids_count
@@ -4214,7 +4308,7 @@ Theorem infer_d_wfs:
      t_wfs st'.subst)
 Proof
   Induct
-  \\ rw[infer_d_def, success_eqns, init_state_def]
+  \\ rw[infer_d_def, success_eqns, infer_open_success, init_state_def]
   \\ rpt(pairarg_tac \\ fs[success_eqns])
   \\ rw[] >>
   imp_res_tac type_name_check_subst_state >>

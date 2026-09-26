@@ -596,10 +596,10 @@ Proof
   mp_tac do_app_inst \\ fs [] \\ EVERY_CASE_TAC \\ metis_tac []
 QED
 
-Theorem v_rel_IMP_v_to_bytes[local]:
-    v_rel max_app x y ==> v_to_bytes y = v_to_bytes x
+Theorem v_rel_IMP_v_to_mlstring[local]:
+    v_rel max_app x y ==> v_to_mlstring y = v_to_mlstring x
 Proof
-  metis_tac [simple_val_rel, simple_val_rel_v_to_bytes]
+  metis_tac [simple_val_rel, simple_val_rel_v_to_mlstring]
 QED
 
 Theorem v_rel_IMP_v_to_words[local]:

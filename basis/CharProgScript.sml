@@ -3,7 +3,7 @@
 *)
 Theory CharProg
 Ancestors
-  RatProg
+  RatProg mlstring
 Libs
   preamble ml_translatorLib ml_progLib basisFunctionsLib
 
@@ -16,7 +16,7 @@ val _ = ml_prog_update (open_module "Char");
 val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] «char» (Atapp [] (Short «char»))`` I);
+  ``Dtabbrev NoLocs [] «char» (Atapp [] (Short «char»))`` I);
 
 val _ = trans "ord" stringSyntax.ord_tm;
 val _ = trans "chr" stringSyntax.chr_tm;
@@ -77,5 +77,8 @@ QED
 val _ = update_precondition some_char_side_thm;
 
 val _ = ml_prog_update close_local_blocks;
+
+val _ = next_ml_names := ["contains"];
+val res = translate mlstringTheory.contains_def;
 
 val _ = ml_prog_update (close_module NONE);

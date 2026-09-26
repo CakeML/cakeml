@@ -12,7 +12,7 @@ Libs
 
 val helloErr_io_events_def =
   new_specification("helloErr_io_events_def",["helloErr_io_events"],
-  helloErr_semantics |> Q.GENL[`cl`,`fs`]
+  helloErr_semantics |> Q.GENL[`ext`,`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (helloErr_sem,helloErr_output) = helloErr_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR

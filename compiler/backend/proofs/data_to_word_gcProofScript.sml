@@ -4460,7 +4460,7 @@ End
 Definition code_oracle_rel_def:
   code_oracle_rel c
       (s_compile:'c -> (num # num # dataLang$prog) list ->
-                       (word8 list # word64 list # 'c) option)
+                       (mlstring # word64 list # 'c) option)
       s_compile_oracle t_store
       (t_compile:'c -> (num # num # 'a wordLang$prog) list ->
                        (word8 list # 'a word list # 'c) option)
@@ -4474,8 +4474,8 @@ Definition code_oracle_rel_def:
     FLOOKUP t_store BitmapBufferEnd =
       SOME (Word (t_data_buffer.position +
                   bytes_in_word * n2w t_data_buffer.space_left)) /\
-    s_compile = (\cfg. OPTION_MAP (I ## MAP upper_w2w ## I) o t_compile cfg o
-                       MAP (compile_part c)) /\
+    s_compile = (\cfg. OPTION_MAP (bytes_to_mlstring ## MAP upper_w2w ## I) o
+                       t_compile cfg o MAP (compile_part c)) /\
     t_compile_oracle = (I ## MAP (compile_part c)) o s_compile_oracle /\
     (!n. EVERY (\(n,_). data_num_stubs <= n) (SND (s_compile_oracle n)))
 End
@@ -4544,6 +4544,14 @@ Theorem state_rel_def[allow_rebind,compute] =
 Theorem state_rel_with_clock:
    state_rel a b c s1 s2 d e ⇒
    state_rel a b c (s1 with clock := k) (s2 with clock := k) d e
+Proof
+  srw_tac[][state_rel_def] \\ fs []
+QED
+
+(* the relation places no constraint on the FP registers *)
+Theorem state_rel_with_fp_regs:
+   state_rel a b c s1 (s2:('a,'c,'ffi) wordSem$state) d e ⇒
+   state_rel a b c s1 (s2 with fp_regs := f) d e
 Proof
   srw_tac[][state_rel_def] \\ fs []
 QED
@@ -4723,9 +4731,9 @@ Theorem get_var_T_OR_F:
    state_rel c l1 l2 ^s (t:('a,'c,'ffi) state) NONE locs /\
     get_var n s.locals = SOME x /\
     get_var (adjust_var n) t = SOME w ==>
-    18 MOD dimword (:'a) <> 2 MOD dimword (:'a) /\
-    ((x = Boolv T) ==> (w = Word 18w)) /\
-    ((x = Boolv F) ==> (w = Word 2w))
+    2 MOD dimword (:'a) <> 0 MOD dimword (:'a) /\
+    ((x = Boolv T) ==> (w = Word 2w)) /\
+    ((x = Boolv F) ==> (w = Word 0w))
 Proof
   full_simp_tac(srw_ss())[state_rel_def,get_var_def,wordSemTheory.get_var_def]
   \\ strip_tac \\ strip_tac THEN1 (full_simp_tac(srw_ss())[good_dimindex_def] \\ full_simp_tac(srw_ss())[dimword_def])
@@ -4746,9 +4754,9 @@ Theorem get_var_isT_OR_isF:
   state_rel c l1 l2 ^s (t:('a,'c,'ffi) state) NONE locs /\
     get_var n s.locals = SOME x /\
     get_var (adjust_var n) t = SOME w ==>
-    18 MOD dimword (:'a) <> 2 MOD dimword (:'a) /\
-    ((isBool T x) ==> (w = Word 18w)) /\
-    ((isBool F x) ==> (w = Word 2w))
+    2 MOD dimword (:'a) <> 0 MOD dimword (:'a) /\
+    ((isBool T x) ==> (w = Word 2w)) /\
+    ((isBool F x) ==> (w = Word 0w))
 Proof
   full_simp_tac(srw_ss())[state_rel_def,get_var_def,wordSemTheory.get_var_def]
   \\ strip_tac \\ strip_tac
@@ -6979,6 +6987,9 @@ Proof
     \\ simp [Once v_inv_def]
     \\ strip_tac
     \\ rpt var_eq_tac
+    (* the MutBlock conjunct of v_inv's RefPtr case gets in the way of the
+       first_assum picks below *)
+    \\ TRY (qpat_x_assum `!tg fin l c r'. _ ==> ~_` kall_tac)
     \\ Cases_on ‘lookup r refs1’ \\ fs []
     THEN1
      (qexists_tac `p1` \\ fs [] \\ qsuff_tac `MEM (f ' r) p1`
@@ -6987,6 +6998,39 @@ Proof
       \\ qexists_tac `r` \\ fs [] \\ gvs [domain_lookup])
     \\ rename [‘lookup r refs1 = SOME v’]
     \\ reverse (Cases_on `v`) \\ fs []
+    (* a MutBlock's payload is traversed exactly like a ValueArray's; the size
+       accounting lines up because lookup_len of BlockRep tg zs is
+       LENGTH zs + 1 = LENGTH ls + LENGTH rs + 2, which is what size_of charges
+       for a MutBlock ref *)
+    >~ [‘MutBlock tg fin ls cv rs’] >-
+     (pop_assum mp_tac
+      \\ pairarg_tac \\ fs [] \\ rw []
+      \\ first_assum (qspec_then `r` mp_tac)
+      \\ (impl_tac THEN1 fs [reachable_refs_def,get_refs_def])
+      \\ rewrite_tac [bc_ref_inv_def]
+      \\ fs [subspt_lookup]
+      \\ first_assum old_drule \\ strip_tac \\ fs []
+      \\ fs [FLOOKUP_DEF,BlockRep_def]
+      \\ strip_tac
+      \\ last_x_assum
+           (qspecl_then [`ls ++ [cv] ++ rs`,`zs`,`f ' r :: p1`,`refs`] mp_tac)
+      \\ impl_tac THEN1
+       (fs [] \\ old_drule EVERY2_SWAP \\ fs [lookup_delete,SUBSET_DEF,PULL_EXISTS]
+        \\ rw [] \\ fs []
+        \\ last_x_assum match_mp_tac
+        \\ fs [reachable_refs_def,get_refs_def]
+        (* one ref_edge step out of r reaches all three parts of the payload *)
+        \\ once_rewrite_tac [RTC_CASES1] \\ disj2_tac
+        \\ qexists_tac `r'` \\ fs []
+        \\ simp [ref_edge_def,get_refs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]
+        >- (disj1_tac \\ disj1_tac \\ qexists_tac `x` \\ fs [])
+        >- (disj1_tac \\ disj2_tac \\ gvs [])
+        \\ disj2_tac \\ qexists_tac `x` \\ fs [])
+      \\ strip_tac \\ qexists_tac `p2` \\ fs []
+      \\ rfs [lookup_len_def,el_length_def]
+      \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+      \\ once_rewrite_tac [traverse_heap_cases]
+      \\ rpt disj2_tac \\ fs [])
     >~ [‘ByteArray b l’] >-
      (rveq \\ fs [] \\ fs []
       \\ first_x_assum (qspec_then `r` mp_tac)
@@ -8232,17 +8276,17 @@ Theorem AllocVar_thm_gen:
     evaluate (AllocVar c limit names,t) = (q,r) /\
     limit < dimword (:'a) DIV 8 ==>
     (q = SOME NotEnoughSpace ==> r.ffi = s.ffi /\ option_le r.stack_max s.stack_max /\
-          (c.gc_kind <> None /\ w2n w DIV 4 < limit /\ no_thunks_in_refs s.refs ==>
+          (c.gc_kind <> None /\ w2n w DIV 2 < limit /\ no_thunks_in_refs s.refs ==>
              !roots2 dups n2 r2 s2.
                PERM roots2 (dups ++ toList x ++ FLAT (MAP extract_stack s.stack) ++
                             [the_global s.global]) /\
                set dups SUBSET set (toList x ++ FLAT (MAP extract_stack s.stack) ++
                                     [the_global s.global]) /\
                size_of s.limits roots2 s.refs LN = (n2,r2,s2) ==>
-               s.limits.heap_limit < n2 + (w2n w DIV 4 + 1))) /\
+               s.limits.heap_limit < n2 + (w2n w DIV 2 + 1))) /\
     (q <> SOME NotEnoughSpace ==>
-      w2n w DIV 4 < limit /\
-      state_rel c l1 l2 (s with <|locals := x; space := w2n w DIV 4 + 1|>) r NONE locs /\
+      w2n w DIV 2 < limit /\
+      state_rel c l1 l2 (s with <|locals := x; space := w2n w DIV 2 + 1|>) r NONE locs /\
       FLOOKUP r.store (Temp 29w) = FLOOKUP t.store (Temp 29w) /\
       r.code = t.code /\
       r.code_buffer = t.code_buffer /\
@@ -8266,7 +8310,7 @@ Proof
   \\ rfs [word_exp_rw,wordSemTheory.set_var_def,lookup_insert]
   \\ fs [asmTheory.word_cmp_def]
   \\ fs [WORD_LO,w2n_lsr] \\ rfs []
-  \\ reverse (Cases_on `w2n w DIV 4 < limit`) \\ fs []
+  \\ reverse (Cases_on `w2n w DIV 2 < limit`) \\ fs []
   >- (rfs [word_exp_rw,wordSemTheory.set_var_def,lookup_insert]
       \\ gvs [asmTheory.word_cmp_def,WORD_LO]
       \\ reverse FULL_CASE_TAC
@@ -8313,24 +8357,27 @@ Proof
          \\ fs [lookup_inter_alt,domain_inter])
       \\ drule_all state_rel_cut_env_cut_env
       \\ strip_tac
+      \\ qabbrev_tac ‘t1 = t with <|locals := union y2 y1; fp_regs := FEMPTY|>’
+      \\ ‘state_rel c l1 l2 (s with locals := x) t1 NONE locs’ by
+           (simp [Abbr‘t1’] \\ drule state_rel_with_fp_regs \\ simp [])
+      \\ qpat_x_assum ‘state_rel _ _ _ _ (t with locals := _) _ _’ kall_tac
       \\ drule_at (Pos $ el 2) alloc_fail \\ gvs []
       \\ disch_then old_drule
-      \\ qabbrev_tac ‘t1 = t with locals := union y2 y1’
       \\ ‘t with
-          <|locals := insert 1 (Word (-1w)) (union y2 y1);
+          <|locals := insert 1 (Word (-1w)) (union y2 y1); fp_regs := FEMPTY;
             memory := t.memory; ffi := s.ffi|> =
           t1 with locals := insert 1 (Word (-1w)) t1.locals’ by
             gvs [Abbr‘t1’,wordSemTheory.state_component_equality]
       \\ gvs [alloc_locals_insert_1]
       \\ strip_tac \\ gvs [])
   \\ fs [lookup_insert]
-  \\ `1w ≪ shift (:α) + w ⋙ 2 ≪ shift (:α) =
-      alloc_size (w2n w DIV 4 + 1)` by
+  \\ `1w ≪ shift (:α) + w ⋙ 1 ≪ shift (:α) =
+      alloc_size (w2n w DIV 2 + 1)` by
    (fs [alloc_size_def] \\ IF_CASES_TAC THEN1
-     (sg `w >>> 2 = n2w (w2n w DIV 4)`
+     (sg `w >>> 1 = n2w (w2n w DIV 2)`
       \\ fs [shift_lsl,state_rel_def,bytes_in_word_def,word_add_n2w,word_mul_n2w]
       \\ rewrite_tac [GSYM w2n_11,w2n_lsr] \\ fs [])
-    \\ qsuff_tac `(w2n w DIV 4 + 1) * (dimindex (:α) DIV 8) < dimword (:'a)`
+    \\ qsuff_tac `(w2n w DIV 2 + 1) * (dimindex (:α) DIV 8) < dimword (:'a)`
     THEN1 fs [] \\ pop_assum kall_tac
     \\ fs [EVAL ``good_dimindex (:'a)``,state_rel_def,dimword_def]
     \\ rfs [] \\ NO_TAC)
@@ -8369,10 +8416,10 @@ Proof
          cut_env_insert_1,cut_env_adjust_sets_ODD]
   \\ drule_all cut_env_IMP_cut_env
   \\ strip_tac \\ gvs []
-  \\ qabbrev_tac ‘t1 = t with locals := y’
-  \\ qabbrev_tac ‘nw = alloc_size (w2n w DIV 4 + 1) : 'a word’
+  \\ qabbrev_tac ‘t1 = t with <|locals := y; fp_regs := FEMPTY|>’
+  \\ qabbrev_tac ‘nw = alloc_size (w2n w DIV 2 + 1) : 'a word’
   \\ ‘t with
-      <|locals := insert 1 (Word nw) y;
+      <|locals := insert 1 (Word nw) y; fp_regs := FEMPTY;
         memory := t.memory; ffi := t.ffi|> =
       t1 with locals := insert 1 (Word nw) t1.locals’ by
     gvs [Abbr‘t1’,wordSemTheory.state_component_equality]
@@ -8384,6 +8431,9 @@ Proof
      \\ fs [lookup_inter_alt,domain_inter])
   \\ drule_all state_rel_cut_env_cut_env
   \\ strip_tac
+  \\ ‘state_rel c l1 l2 (s with locals := x) t1 NONE locs’ by
+       (simp [Abbr‘t1’] \\ drule state_rel_with_fp_regs \\ simp [])
+  \\ qpat_x_assum ‘state_rel _ _ _ _ (t with locals := _) _ _’ kall_tac
   \\ old_drule alloc_alt_gen \\ gvs []
   \\ disch_then old_drule
   \\ pairarg_tac \\ gvs []
@@ -8398,7 +8448,7 @@ Proof
           wordSemTheory.set_var_def,EVAL ``read_bytearray a 0 m``,
           ffiTheory.call_FFI_def,EVAL ``write_bytearray a [] m dm b``]
   \\ gvs [cut_env_adjust_sets_ODD]
-  \\ qabbrev_tac ‘s0 = s with <|locals := x; space := w2n w DIV 4 + 1|>’
+  \\ qabbrev_tac ‘s0 = s with <|locals := x; space := w2n w DIV 2 + 1|>’
   \\ `dataSem$cut_env names s0.locals = SOME x` by
     (fs [dataSemTheory.cut_env_def,Abbr‘s0’] \\ rveq
      \\ fs [lookup_inter_alt,domain_inter])
@@ -8415,11 +8465,11 @@ Theorem AllocVar_thm:
     evaluate (AllocVar c limit names,t) = (q,r) /\
     limit < dimword (:'a) DIV 8 ==>
     (q = SOME NotEnoughSpace ⇒ r.ffi = s.ffi ∧ option_le r.stack_max s.stack_max ∧
-          (c.gc_kind <> None /\ w2n w DIV 4 < limit /\ no_thunks_in_refs s.refs ⇒
-           s.limits.heap_limit < size_of_heap (cut_locals names s) + w2n w DIV 4 + 1)) ∧
+          (c.gc_kind <> None /\ w2n w DIV 2 < limit /\ no_thunks_in_refs s.refs ⇒
+           s.limits.heap_limit < size_of_heap (cut_locals names s) + w2n w DIV 2 + 1)) ∧
     (q ≠ SOME NotEnoughSpace ⇒
-      w2n w DIV 4 < limit /\
-      state_rel c l1 l2 (s with <|locals := x; space := w2n w DIV 4 + 1|>) r NONE locs ∧
+      w2n w DIV 2 < limit /\
+      state_rel c l1 l2 (s with <|locals := x; space := w2n w DIV 2 + 1|>) r NONE locs ∧
       FLOOKUP r.store (Temp 29w) = FLOOKUP t.store (Temp 29w) /\
       r.code = t.code /\
       r.code_buffer = t.code_buffer /\
@@ -8453,8 +8503,8 @@ Theorem AllocVar_thm_nary:
     state_rel c l1 l2 s t NONE locs /\
     dataSem$cut_env (sptree$list_insert args x') s.locals = SOME xa /\
     get_vars args s.locals = SOME vals /\
-    get_var 1 t = SOME (Word (n2w (4 * i))) /\
-    4 * i < dimword (:'a) /\
+    get_var 1 t = SOME (Word (n2w (2 * i))) /\
+    2 * i < dimword (:'a) /\
     evaluate (AllocVar c limit (sptree$list_insert args x'), t) = (q,r) /\
     limit < dimword (:'a) DIV 8 ==>
     (q = SOME NotEnoughSpace ==>
@@ -8472,10 +8522,10 @@ Theorem AllocVar_thm_nary:
        q = NONE)
 Proof
   rpt gen_tac \\ strip_tac
-  \\ `w2n (n2w (4 * i) : 'a word) DIV 4 = i` by
-       (fs [] \\ qspecl_then [`4`,`i`] mp_tac MULT_DIV \\ fs [])
+  \\ `w2n (n2w (2 * i) : 'a word) DIV 2 = i` by
+       (fs [] \\ qspecl_then [`2`,`i`] mp_tac MULT_DIV \\ fs [])
   \\ mp_tac (AllocVar_thm_gen |> Q.INST
-       [`names`|->`sptree$list_insert args x'`,`x`|->`xa`,`w`|->`n2w (4 * i)`])
+       [`names`|->`sptree$list_insert args x'`,`x`|->`xa`,`w`|->`n2w (2 * i)`])
   \\ impl_tac THEN1 fs []
   \\ fs [] \\ strip_tac
   \\ rpt strip_tac \\ fs []
@@ -8654,10 +8704,10 @@ QED
 
 Theorem state_rel_IMP_Number_arg:
    state_rel c l1 l2 (call_env xs ss s) (call_env ys ss t) NONE locs /\
-    n < dimword (:'a) DIV 16 /\ LENGTH ys = LENGTH xs + 1 ==>
+    n < dimword (:'a) DIV 8 /\ LENGTH ys = LENGTH xs + 1 ==>
     state_rel c l1 l2
       (call_env (xs ++ [Number (& n)]) ss s)
-      (call_env (ys ++ [Word (n2w (4 * n):'a word)]) ss t) NONE locs
+      (call_env (ys ++ [Word (n2w (2 * n):'a word)]) ss t) NONE locs
 Proof
   fs [state_rel_thm,call_env_def,wordSemTheory.call_env_def] \\ rw []
   THEN1 (Cases_on `ys` \\ fs [lookup_fromList,lookup_fromList2])
@@ -8671,7 +8721,7 @@ Proof
   \\ full_simp_tac std_ss [SNOC_APPEND,GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert
   \\ simp_tac std_ss [APPEND]
-  \\ `n2w (4 * n) = Smallnum (&n)` by
+  \\ `n2w (2 * n) = Smallnum (&n)` by
      (fs [good_dimindex_def,dimword_def,Smallnum_def] \\ NO_TAC)
   \\ fs [] \\ match_mp_tac IMP_memory_rel_Number
   \\ full_simp_tac std_ss [SNOC_APPEND,GSYM APPEND_ASSOC,APPEND]

@@ -1,7 +1,7 @@
 This directory contains definitions used for miscellaneous translator
 examples used in the original ICFP paper about the translator.
 
-[copying_gcScript.sml](copying_gcScript.sml):
+[copying_gc_modelScript.sml](copying_gc_modelScript.sml):
 Algorithm of a copying garbage collector.
 
 [ninetyOneScript.sml](ninetyOneScript.sml):

@@ -194,11 +194,25 @@ Definition thm2bytes_def:
     MAP (n2w:num->word8) (MAP ORD (explode (thm_to_string ctxt th)))
 End
 
+(* the bytes written on the kernel channel can be read back: the context the
+   theorem was proved in is recoverable from the event alone *)
+
+Definition bytes2str_def:
+  bytes2str (out:word8 list) = implode (MAP (CHR o w2n) out)
+End
+
+Theorem bytes2str_thm2bytes:
+  bytes2str (thm2bytes ctxt th) = thm_to_string ctxt th
+Proof
+  rw [bytes2str_def, thm2bytes_def, MAP_MAP_o, combinTheory.o_DEF]
+QED
+
 Definition ok_event_def:
   ok_event (IO_event n out y) ⇔
     n = ExtCall kernel_ffi ⇒
       ∃ctxt th. THM ctxt th ∧
-                thm2bytes ctxt th = out
+                thm2bytes ctxt th = out ∧
+                ctxt extends init_ctxt
 End
 
 (* -------------------------------------------------------------------------

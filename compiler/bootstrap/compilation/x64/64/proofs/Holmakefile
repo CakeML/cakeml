@@ -1,9 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics/proofs $(CAKEMLDIR)/candle/prover \
-					 ../../../../../encoders/x64/proofs\
-					 ../../../../../backend/x64/proofs\
-					 ../../../../../backend/proofs\
-					 ../../../../translation ..
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

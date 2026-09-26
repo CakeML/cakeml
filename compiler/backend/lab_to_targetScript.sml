@@ -28,19 +28,17 @@ Definition lab_inst_def:
   (lab_inst w (CallFFI n) = Jump w)
 End
 
-Definition cbw_to_asm_def[simp]:
-  cbw_to_asm a =
+Definition compile_shmem_def[simp]:
+  compile_shmem a =
   case a of
-    Asmi a => a
-  | Cbw r1 r2 => Inst (Mem Store8 r2 (Addr r1 0w))
+  | Asmi a => a
   | ShareMem m r ad => Inst (Mem m r ad)
 End
-
 
 Definition enc_line_def:
   (enc_line enc skip_len (Label n1 n2 n3) = Label n1 n2 skip_len) /\
   (enc_line enc skip_len (Asm a _ _) =
-     let bs = enc (cbw_to_asm a) in Asm a bs (LENGTH bs)) /\
+     let bs = enc (compile_shmem a) in Asm a bs (LENGTH bs)) /\
   (enc_line enc skip_len (LabAsm l _ _ _) =
      let bs = enc (lab_inst 0w l) in
        LabAsm l 0w bs (LENGTH bs))

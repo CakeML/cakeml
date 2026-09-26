@@ -121,6 +121,9 @@ Definition free_vars_def:
     free_vars locals acc e ∧
   free_vars locals acc (Lannot e l) =
     free_vars locals acc e ∧
+  (* programs containing Open are not transformed, see compile_decs *)
+  free_vars locals acc (Open path e) =
+    free_vars locals acc e ∧
   free_vars_list locals acc [] = acc ∧
   free_vars_list locals acc (e::es) =
     free_vars_list locals (free_vars locals acc e) es ∧
@@ -170,7 +173,6 @@ Definition pure_op_def:
     | Arith a ty => (ty = IntT ⇒ a ≠ Div ∧ a ≠ Mod)
     (* do_conversion raises only in chr *)
     | FromTo ty1 ty2 => ¬(ty1 = IntT ∧ ty2 = CharT)
-    | Shift ws sh n => T
     | Equality => T
     | Test t ty => T
     (* reads of the state, which do not change it *)
@@ -247,6 +249,7 @@ Definition pure_exp_def:
   pure_exp (Letrec funs e) = pure_exp e ∧
   pure_exp (Tannot e t) = pure_exp e ∧
   pure_exp (Lannot e l) = pure_exp e ∧
+  pure_exp (Open path e) = F ∧
   pure_exp_list [] = T ∧
   pure_exp_list (e::es) = (pure_exp e ∧ pure_exp_list es) ∧
   pure_exp_pes [] = T ∧
@@ -343,8 +346,34 @@ Termination
                            | INR ds => list_size dec_size ds)’
 End
 
+(* the transformation does not support Open and Dopen *)
+Definition is_Open_def:
+  is_Open (Open path e) = T ∧
+  is_Open _ = F
+End
+
+Definition no_Open_def:
+  no_Open e = every_exp (λx. ¬is_Open x) e
+End
+
+Definition open_free_dec_def:
+  open_free_dec (Dlet l p e) = no_Open e ∧
+  open_free_dec (Dletrec l funs) = EVERY (λ(f,x,e). no_Open e) funs ∧
+  open_free_dec (Dopen l path) = F ∧
+  open_free_dec (Dmod mn ds) = open_free_decs ds ∧
+  open_free_dec (Dlocal lds ds) = (open_free_decs lds ∧ open_free_decs ds) ∧
+  open_free_dec _ = T ∧
+  open_free_decs [] = T ∧
+  open_free_decs (d::ds) = (open_free_dec d ∧ open_free_decs ds)
+Termination
+  wf_rel_tac ‘measure (λx. case x of
+                           | INL d => dec_size d
+                           | INR ds => list_size dec_size ds)’
+End
+
 Definition compile_decs_def:
   compile_decs ds =
+    if ¬open_free_decs ds then ds else
     let ds1 = append (FST (dce_decs empty_names ds)) in
       if has_Denv_decs ds1 then ds else ds1
 End

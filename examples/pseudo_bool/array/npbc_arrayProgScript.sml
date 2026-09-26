@@ -5,7 +5,7 @@ Theory npbc_arrayProg
 Libs
   preamble basis
 Ancestors
-  UnsafeProg UnsafeProof npbc npbc_list
+  UnsafeProg UnsafeProof npbc npbc_list pb_parse
 
 val _ = hide_environments true;
 val _ = translation_extends"UnsafeProg";
@@ -734,43 +734,22 @@ Proof
   fs[EL_REPLICATE]
 QED
 
-Definition coeff_lit_string_def:
-  coeff_lit_string (c,v:var) =
-    if c < 0
-    then toString (Num ~c) ^ « ~x»^ toString v
-    else toString (Num c) ^ « x»^ toString v
-End
-
-Definition npbc_lhs_string_def:
-  npbc_lhs_string (xs: ((int # var) list)) =
-  concatWith « »
-    (MAP coeff_lit_string xs)
-End
-
-Definition npbc_string_def:
-  (npbc_string (xs,i:int) =
-    concat [
-      npbc_lhs_string xs;
-      « >= »;
-      toString  i; «;»])
-End
-
 Definition err_check_string_def:
   err_check_string c c' =
   concat[
     «constraint id check failed. expect: »;
-    npbc_string c;
+    npbc_constr_string c;
     « got (in checker): »;
-    npbc_string c']
+    npbc_constr_string c']
 End
 
 Definition err_imp_string_def:
   err_imp_string c c' =
   concat[
     «imply-add for constraint id. expect: »;
-    npbc_string c;
+    npbc_constr_string c;
     « from: »;
-    npbc_string c']
+    npbc_constr_string c']
 End
 
 val res = translate coeff_lit_string_def;
@@ -782,6 +761,7 @@ val coeff_lit_string_side = Q.prove(
 ) |> update_precondition;
 
 val res = translate npbc_lhs_string_def;
+val res = translate npbc_constr_string_def;
 val res = translate npbc_string_def;
 val res = translate err_check_string_def;
 val res = translate err_imp_string_def;
@@ -2758,7 +2738,7 @@ Quote add_cakeml:
   | l::ls =>
     if in_hashset_arr l hs then
       every_hs hs ls
-    else Some (npbc_string l)
+    else Some (npbc_constr_string l)
 End
 
 Theorem every_hs_spec:
@@ -4596,17 +4576,29 @@ QED
 val res = translate eval_obj_compute;
 val res = translate npbc_checkTheory.opt_lt_def;
 
+val res = translate npbc_checkTheory.satisfies_npbc_aux_def;
+
 Theorem satisfies_npbc_compute:
   satisfies_npbc w xsn ⇔
     case xsn of (xs,n) =>
-    &(FOLDL (λn cv. eval_term w cv + n) 0 xs) ≥ n
+    if n ≤ 0 then T else satisfies_npbc_aux w xs (Num n)
 Proof
-  `?xs n. xsn = (xs,n)` by metis_tac[PAIR]>>
-  simp[satisfies_npbc_def,SUM_MAP_FOLDL]>>
-  intLib.ARITH_TAC
+  namedCases_on `xsn` ["xs n"] >> simp[satisfies_npbc_def] >>
+  Cases_on `n ≤ 0` >- (simp[] >> intLib.ARITH_TAC) >>
+  `0 < Num n ∧ n = &(Num n)` by intLib.ARITH_TAC >>
+  simp[npbc_checkTheory.satisfies_npbc_aux_correct] >> intLib.ARITH_TAC
 QED
 
 val res = translate satisfies_npbc_compute;
+
+Theorem satisfies_npbc_side[local]:
+  satisfies_npbc_side w xsn
+Proof
+  simp[fetch "-" "satisfies_npbc_side_def"] >> rpt strip_tac >>
+  intLib.ARITH_TAC
+QED
+
+val _ = satisfies_npbc_side |> update_precondition;
 
 val r = translate (npbc_checkTheory.to_flat_d_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
 
@@ -4628,6 +4620,29 @@ val _ = to_flat_d_ind |> update_precondition;
 val res = translate npbc_checkTheory.mk_obj_vec_def;
 val res = translate npbc_checkTheory.vec_lookup_d_def;
 val res = translate npbc_checkTheory.check_obj_def;
+
+Theorem merge_compute:
+  mergesort$merge R xs ys = REVERSE (merge_tail F R xs ys [])
+Proof
+  simp[mllistTheory.mergetail_merge]
+QED
+
+val res = translate mergesortTheory.merge_tail_def;
+val res = translate merge_compute;
+val res = translate npbc_checkTheory.mk_cube_vec_def;
+val res = translate npbc_checkTheory.check_cube_aux_def;
+val res = translate npbc_checkTheory.check_cube_def;
+
+Theorem check_cube_side[local]:
+  check_cube_side w xsn
+Proof
+  simp[fetch "-" "check_cube_side_def"] >> rpt strip_tac >>
+  intLib.ARITH_TAC
+QED
+
+val _ = check_cube_side |> update_precondition;
+
+val res = translate npbc_checkTheory.check_sol_def;
 
 val res = translate npbc_checkTheory.model_improving_def;
 
@@ -5540,12 +5555,12 @@ End
 val res = translate change_pres_update_def;
 
 Definition sol_update_def:
-  sol_update pc id' bound' dbound' =
+  sol_update pc id' bound' dbound' count =
     pc with
           <| id := id';
              bound := bound';
              dbound := dbound';
-             enum := pc.enum + 1 |>
+             enum := pc.enum + count |>
 End
 
 val res = translate sol_update_def;
@@ -5707,7 +5722,11 @@ End
 
 val res = translate obj_chk_check_def;
 
+val res = translate sptreeTheory.difference_def;
+val res = translate sptreeTheory.inter_def;
+val res = translate sptreeTheory.size_def;
 val res = translate npbc_checkTheory.model_banning_def;
+val res = translate npbc_checkTheory.cube_count_def;
 
 Quote add_cakeml:
   fun mk_perm_arr vimap ls =
@@ -5920,31 +5939,31 @@ Quote add_cakeml:
       (get_id pc) (get_pres pc) v c pfs zeros of
       (fml',(pres',(id',zeros'))) =>
         (fml', (zeros', (inds, (vimap, (vomap, change_pres_update pc id' pres'))))))
-  | Sol w => (
+  | Sol w free => (
     let
       val obj = get_obj pc
       val chk = get_chk pc
     in
       if obj_chk_check obj chk then
-        (case check_obj obj w
-          (map_snd (core_fmlls_arr fml inds)) None of
+        (case check_sol w free
+          (map_snd (core_fmlls_arr fml inds)) of
         None =>
          raise Fail (format_failure lno
-          ("supplied assignment did not satisfy constraints or did not improve objective"))
-        | Some neww =>
+          ("supplied solution cube has conflicting assignments or does not satisfy constraints"))
+        | Some ww =>
         let
-          val new = fst neww
-          val bound' = update_bound chk (get_bound pc) new
-          val dbound' = update_dbound (get_dbound pc) new
+          val bound' = update_bound chk (get_bound pc) 0
+          val dbound' = update_dbound (get_dbound pc) 0
           val id = get_id pc
           val pres = get_pres pc
-          val c = model_banning pres (snd neww) in
+          val c = model_banning pres free ww
+          val count = cube_count pres free in
           (Array.updateResize fml None id (Some (c,True)),
            (zeros,
            (sorted_insert id inds,
            (update_vimap_arr True vimap id (fst c),
            (vomap,
-            sol_update pc (id+1) bound' dbound')))))
+            sol_update pc (id+1) bound' dbound' count)))))
         end)
       else
         raise Fail (format_failure lno
@@ -6492,46 +6511,31 @@ Proof
     xraise>>xsimpl>>
     metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])
   >- ( (* Sol *)
-    xmatch>>
-    rpt xlet_autop>>
-    xlet_auto >-
-      (xsimpl>>simp (eq_lemmas()))>>
-    xif>>fs[obj_chk_check_def,get_chk_def,get_obj_def]
+    qmatch_goalsub_rename_tac `check_sol wm free _` >>
+    xmatch >> rpt xlet_autop >>
+    xlet_auto >- (xsimpl >> simp (eq_lemmas())) >>
+    xif >> fs[obj_chk_check_def,get_chk_def,get_obj_def]
     >- (
-      rpt xlet_autop>>
-      xlet`POSTv v. ARRAY fmlv fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv *
-        &( OPTION_TYPE (PAIR_TYPE INT (NUM --> BOOL))
-          (check_obj NONE l (MAP SND (core_fmlls fmlls inds)) NONE) v)`
+      rpt xlet_autop >>
+      namedCases_on `check_sol wm free (MAP SND (core_fmlls fmlls inds))`
+        ["", "w"] >>
+      fs[map_snd_def,OPTION_TYPE_def] >> xmatch
       >- (
-        xapp>>xsimpl>>
-        rpt(first_x_assum (irule_at Any))>>
-        qexists_tac`NONE`>>simp[OPTION_TYPE_def]>>
-        rw[map_snd_def])>>
-      Cases_on`check_obj NONE l (MAP SND (core_fmlls fmlls inds)) NONE`>>
-      fs[map_snd_def,OPTION_TYPE_def]>>
-      xmatch
-      >- (
-        rpt xlet_autop>>
-        xraise>>xsimpl>>
-        metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])>>
-      Cases_on`x`>>gvs[]>>
-      rpt xlet_autop>>
-      rename1`bvv = Conv _ []`>>
-      `BOOL T bvv` by
-        (fs[]>>EVAL_TAC)>>
-      rpt xlet_autop>>
-      xcon>>xsimpl>>
-      simp[PAIR_TYPE_def,OPTION_TYPE_def]>>
-      qmatch_goalsub_abbrev_tac`ARRAY _ A`>>
-      qexists_tac`A`>>xsimpl>>
-      fs[get_id_def,sol_update_def,get_bound_def,get_dbound_def,get_pres_def]>>
-      unabbrev_all_tac>>
-      match_mp_tac LIST_REL_update_resize>>
-      fs[OPTION_TYPE_def,PAIR_TYPE_def]>>
-      EVAL_TAC)
+        rpt xlet_autop >> xraise >> xsimpl >>
+        metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl]) >>
+      rpt xlet_autop >>
+      rename1 `bvv = Conv _ []` >>
+      `BOOL T bvv` by (fs[] >> EVAL_TAC) >>
+      rpt xlet_autop >> xcon >> xsimpl >>
+      simp[PAIR_TYPE_def,OPTION_TYPE_def] >>
+      qmatch_goalsub_abbrev_tac `ARRAY _ A` >>
+      qexists_tac `A` >> xsimpl >>
+      fs[get_id_def,sol_update_def,get_bound_def,get_dbound_def,get_pres_def] >>
+      unabbrev_all_tac >>
+      match_mp_tac LIST_REL_update_resize >>
+      fs[OPTION_TYPE_def,PAIR_TYPE_def] >> EVAL_TAC)
     >- (
-      rpt xlet_autop>>
-      xraise>>xsimpl>>
+      rpt xlet_autop >> xraise >> xsimpl >>
       metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl]))
 QED
 

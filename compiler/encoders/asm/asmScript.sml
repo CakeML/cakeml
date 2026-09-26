@@ -328,3 +328,9 @@ Definition is_load_def[simp]:
   (is_load Load32 = T) ∧
   (is_load _ = F)
 End
+
+Theorem asm_if_lemma:
+  !a b x:'a y. a /\ (a ==> ~b) ==> ((if b then x else y) = y)
+Proof
+  rw []
+QED

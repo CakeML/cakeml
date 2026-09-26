@@ -1517,7 +1517,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
   \\ rveq \\ fs []
-  \\ drule_then drule (MATCH_MP simple_val_rel_v_to_bytes simple_val_rel)
+  \\ drule_then drule (MATCH_MP simple_val_rel_v_to_mlstring simple_val_rel)
   \\ drule_then drule (MATCH_MP simple_val_rel_v_to_words simple_val_rel)
   \\ rw []
   \\ fs [option_case_eq, pair_case_eq]

@@ -211,7 +211,8 @@ Definition arith_to_display_def:
   arith_to_display Not = empty_item «Not» ∧
   arith_to_display Abs = empty_item «Abs» ∧
   arith_to_display Sqrt = empty_item «Sqrt» ∧
-  arith_to_display FMA = empty_item «FMA»
+  arith_to_display FMA = empty_item «FMA» ∧
+  arith_to_display (Shift sh) = Item NONE «Shift» [shift_to_display sh]
 End
 
 Definition prim_type_to_display_def:
@@ -232,10 +233,6 @@ End
 Definition op_to_display_def:
   op_to_display (p:ast$op) =
   case p of
-  | Shift ws sh num => Item NONE «Shift»
-                            [word_size_to_display ws;
-                             shift_to_display sh;
-                             num_to_display num]
   | Arith a ty => Item NONE «Arith»
                          [arith_to_display a;
                           prim_type_to_display ty]
@@ -278,6 +275,10 @@ Definition op_to_display_def:
   | Aw8sub_unsafe => empty_item «Aw8sub_unsafe»
   | Aw8update_unsafe => empty_item «Aw8update_unsafe»
   | XorAw8Str_unsafe => empty_item «XorAw8Str_unsafe»
+  | Aw8subBit => empty_item «Aw8subBit»
+  | Aw8updateBit => empty_item «Aw8updateBit»
+  | Aw8subBit_unsafe => empty_item «Aw8subBit_unsafe»
+  | Aw8updateBit_unsafe => empty_item «Aw8updateBit_unsafe»
   | ListAppend => empty_item «ListAppend»
   | ConfigGC => empty_item «ConfigGC»
   | FFI v35 => empty_item «FFI v35»
@@ -335,7 +336,7 @@ Definition exp_to_display_def:
   | Raise e => Item NONE «Raise» [exp_to_display e]
   | Con opt_id es => Item NONE «Con» [option_to_display id_to_display opt_id;
                                       Tuple (exp_to_display_list es)]
-  | Var id => Item NONE «Var» [id_to_display id]
+  | Var id => Item NONE «Ident» [id_to_display id]
   | Fun n e => Item NONE «Fun» [String n; exp_to_display e]
   | App op es => Item NONE «App» (op_to_display op ::
                                   exp_to_display_list es)
@@ -362,6 +363,8 @@ Definition exp_to_display_def:
       [Tuple (fun_to_display_list fns);
        exp_to_display e]
   | Tannot e _ => Item NONE «Tannot» [exp_to_display e]
+  | Open path e =>
+      Item NONE «Open» [Tuple (MAP String path); exp_to_display e]
   | Lannot e _ => Item NONE «Lannot» [exp_to_display e]) ∧
   (exp_to_display_list [] = []) ∧
   (exp_to_display_list (x::xs) =
@@ -401,6 +404,7 @@ Definition source_to_display_dec_def:
                                    Tuple (source_to_display_dec_list ds)]
   | Dlocal xs ys => Item NONE «Dlocal» [Tuple (source_to_display_dec_list xs);
                                         Tuple (source_to_display_dec_list ys)]
+  | Dopen _ path => Item NONE «Dopen» [Tuple (MAP String path)]
   | Denv n => Item NONE «Denv» [String n])  ∧
   (source_to_display_dec_list [] = []) ∧
   (source_to_display_dec_list (x::xs) =
@@ -623,6 +627,8 @@ Definition clos_op_to_display_def:
     | MemOp RefArray => String «RefArray»
     | MemOp DerefByte => String «DerefByte»
     | MemOp UpdateByte => String «UpdateByte»
+    | MemOp DerefBit => String «DerefBit»
+    | MemOp UpdateBit => String «UpdateBit»
     | MemOp ConcatByteVec => String «ConcatByteVec»
     | MemOp (CopyByte b) => Item NONE «CopyByte» [bool_to_display b]
     | MemOp FromListByte => String «FromListByte»
@@ -630,11 +636,15 @@ Definition clos_op_to_display_def:
     | MemOp LengthByteVec => String «LengthByteVec»
     | MemOp DerefByteVec => String «DerefByteVec»
     | MemOp BoundsCheckArray => String «BoundsCheckArray»
+    | MemOp BoundsCheckBit => String «BoundsCheckBit»
     | MemOp (BoundsCheckByte b) => Item NONE «BoundsCheckByte» [bool_to_display b]
     | MemOp closLang$ConfigGC => String «ConfigGC»
     | MemOp (StringCmp b opb) => Item NONE «StringCmp» [bool_to_display b;
                                                                  opb_to_display opb]
     | MemOp XorByte => String «XorByte»
+    | MemOp (MutCons tag i) => item_with_nums «MutCons» [tag; i]
+    | MemOp UpdateCons => String «UpdateCons»
+    | MemOp FinaliseCons => String «FinaliseCons»
     | Label num => Item NONE «Label» [String (attach_name ns (SOME num))]
     | FFI s => Item NONE «FFI» [string_imp s]
     | IntOp (Const i) => Item NONE «Const» [int_to_display i]
@@ -655,6 +665,9 @@ Definition clos_op_to_display_def:
                                            [word_size_to_display ws;
                                             shift_to_display sh;
                                             num_to_display num]
+    | WordOp (WordShiftVar ws sh) => Item NONE «WordShiftVar»
+                                           [word_size_to_display ws;
+                                            shift_to_display sh]
     | WordOp (WordTest ws test) => Item NONE «WordTest»
                                         [word_size_to_display ws;
                                          test_to_display test]
@@ -1195,13 +1208,11 @@ Definition stack_prog_to_display_def:
      Item NONE «loc_value» [num_to_display n1;
                             String (attach_name ns (SOME n2));
                             num_to_display n3] ∧
-   stack_prog_to_display (SUC k) ns (Install n1 n2 n3 n4 n5) =
-     item_with_nums «install» [n1; n2; n3; n4; n5] ∧
+   stack_prog_to_display (SUC k) ns (Install n1 n2 n3 n4 n5 n6) =
+     item_with_nums «install» [n1; n2; n3; n4; n5; n6] ∧
    stack_prog_to_display (SUC k) ns (ShMemOp mop r a) =
      Item NONE «sh_mem» [asm_memop_to_display mop;
                                   num_to_display r; asm_addr_to_display a] ∧
-   stack_prog_to_display (SUC k) ns (CodeBufferWrite n1 n2) =
-     item_with_nums «code_buffer_write» [n1; n2] ∧
    stack_prog_to_display (SUC k) ns (DataBufferWrite n1 n2) =
      item_with_nums «data_buffer_write» [n1; n2] ∧
    stack_prog_to_display (SUC k) ns (RawCall n) =
@@ -1276,7 +1287,6 @@ Definition lab_line_to_display_def:
         Item NONE «label» [String (attach_name ns (SOME s)); num_to_display n]
     | Asm aoc enc len => (case aoc of
       | Asmi i => Item NONE «asm» [asm_asm_to_display i]
-      | Cbw r1 r2 => item_with_nums «cbw» [r1; r2]
       | ShareMem mop r a => Item NONE «share_mem» [asm_memop_to_display mop;
                                                    num_to_display r;
                                                    asm_addr_to_display a])
@@ -1411,11 +1421,9 @@ Definition word_prog_to_display_def:
   (word_prog_to_display (SUC k) ns Tick = empty_item «tick») /\
   (word_prog_to_display (SUC k) ns (LocValue n1 n2) =
     Item NONE «loc_value» [String (attach_name ns (SOME n1)); num_to_display n2]) /\
-  (word_prog_to_display (SUC k) ns (Install n1 n2 n3 n4 ms) =
-    Item NONE «install» (MAP num_to_display [n1; n2; n3; n4]
+  (word_prog_to_display (SUC k) ns (Install n1 n2 n3 n4 n5 ms) =
+    Item NONE «install» (MAP num_to_display [n1; n2; n3; n4; n5]
         ++ [num_sets_to_display ms])) /\
-  (word_prog_to_display (SUC k) ns (CodeBufferWrite n1 n2) =
-    item_with_nums «code_buffer_write» [n1; n2]) /\
   (word_prog_to_display (SUC k) ns (DataBufferWrite n1 n2) =
     item_with_nums «data_buffer_write» [n1; n2]) /\
   (word_prog_to_display (SUC k) ns (FFI nm n1 n2 n3 n4 ms) =

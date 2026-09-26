@@ -45,12 +45,6 @@ Proof
   metis_tac[]
 QED
 
-Theorem lit_negate[simp]:
-  lit w (negate x) = ¬lit w x
-Proof
-  Cases_on`x`>>simp[]
-QED
-
 Theorem eval_lit_negate[simp]:
   eval_lit w (negate x) = 1 - eval_lit w x
 Proof
@@ -82,13 +76,6 @@ Theorem iSUM_MAP_eq:
 Proof
   Induct_on`xs`>>rw[iSUM_def]>>
   gvs[SF DNF_ss]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem iSUM_APPEND[simp]:
-  iSUM(x++y) = iSUM x + iSUM y
-Proof
-  Induct_on`x`>>rw[iSUM_def]>>
   intLib.ARITH_TAC
 QED
 
@@ -124,18 +111,6 @@ Proof
   gs[SF DNF_ss]>>
   last_x_assum drule_all >>
   intLib.ARITH_TAC
-QED
-
-Theorem eval_lin_term_NIL[simp]:
-  eval_lin_term w [] = 0
-Proof
-  rw[eval_lin_term_def,iSUM_def]
-QED
-
-Theorem eval_lin_term_append[simp]:
-  eval_lin_term w (xs++ys) = eval_lin_term w xs + eval_lin_term w ys
-Proof
-  rw[eval_lin_term_def]
 QED
 
 Theorem iSUM_MAP_const[simp]:
@@ -224,13 +199,6 @@ Proof
   Induct_on`xs`>>rw[iSUM_def]>>
   pairarg_tac>>simp[]>>
   intLib.ARITH_TAC
-QED
-
-Theorem eval_lin_term_CONS[simp]:
-  eval_lin_term w ((c,x)::rest) =
-    c * eval_lit w x + eval_lin_term w rest
-Proof
-  simp[eval_lin_term_def,iSUM_def]
 QED
 
 Theorem eval_lin_term_ge_1:

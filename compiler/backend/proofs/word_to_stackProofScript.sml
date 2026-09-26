@@ -5776,7 +5776,6 @@ Proof
   >~ [`wordLang$If`] >- suspend "If"
   >~ [`wordLang$LocValue`] >- suspend "LocValue"
   >~ [`wordLang$Install`] >- suspend "Install"
-  >~ [`wordLang$CodeBufferWrite`] >- suspend "CodeBufferWrite"
   >~ [`wordLang$DataBufferWrite`] >- suspend "DataBufferWrite"
   >~ [`wordLang$FFI`] >- suspend "FFI"
   >~ [`wordLang$ShareInst`] >- suspend "ShareInst"
@@ -6945,6 +6944,7 @@ Resume comp_correct[Install]:
   qexists_tac`0` \\
   fs[comp_def,wordSemTheory.evaluate_def]
   \\ gvs[convs_def,case_eq_thms,UNCURRY_EQ]
+  \\ gvs[wordSemTheory.code_buffer_install_SOME]
   \\ fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2]
   \\ simp[wStackLoad_append]
   \\ simp[evaluate_wStackLoad_seq]
@@ -6959,8 +6959,10 @@ Resume comp_correct[Install]:
   \\ fs[]
   \\ `t''.code_buffer = s.code_buffer /\
      t''.data_buffer = s.data_buffer /\
+     t''.memory = s.memory /\ t''.mdomain = s.mdomain /\ t''.be = s.be /\
      t''.use_stack` by fs[state_rel_def]
   \\ full_simp_tac(srw_ss())[stackSemTheory.evaluate_def]
+  \\ simp[wordSemTheory.code_buffer_install_def]
   \\ qhdtm_assum`state_rel`(fn th =>
        let val conjs = th |> REWRITE_RULE[state_rel_def] |> CONJUNCTS
            val conjs =(filter ((fn tm => is_eq tm andalso is_pabs(rhs tm)) o concl) conjs)
@@ -6978,7 +6980,7 @@ Resume comp_correct[Install]:
       \\ rpt (pairarg_tac \\ gvs[]))
   \\ fs[]
   \\ fs[CONV_RULE (LHS_CONV SYM_CONV) UNCURRY_EQ]
-  \\ gvs[Abbr`new_oracle`]
+  \\ gvs[]
   \\ fs[shift_seq_def]
   \\ Cases_on `s.compile_oracle 1` >> gvs[]
   \\ pairarg_tac \\ fs[]
@@ -7067,32 +7069,6 @@ Resume comp_correct[Install]:
   \\ simp[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
   \\ strip_tac \\ strip_tac
   \\ rveq \\ fs[TWOxDIV2]
-QED
-
-Resume comp_correct[CodeBufferWrite]:
-  REPEAT STRIP_TAC \\ qexists_tac `0`
-  \\ fs[get_labels_def]
-  \\ fs[convs_def]
-  \\ fs[wordLangTheory.max_var_def,wordLangTheory.max_var_exp_def,
-     wordLangTheory.every_var_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2]
-  \\ fs[comp_def]
-  \\ fs[wordSemTheory.evaluate_def]
-  \\ gvs[AllCaseEqs(),UNCURRY_EQ]
-  \\ simp[wStackLoad_append]
-  \\ simp[evaluate_wStackLoad_seq]
-  \\ dxrule_all evaluate_wStackLoad_wReg1
-  \\ strip_tac
-  \\ simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]
-  \\ simp[evaluate_wStackLoad_seq]
-  \\ dxrule_all evaluate_wStackLoad_wReg2
-  \\ strip_tac
-  \\ simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]
-  \\ fs[stackSemTheory.evaluate_def]
-  \\ `t''.code_buffer = s.code_buffer` by fs[state_rel_def]
-  \\ fs[]
-  \\ fs[state_rel_def]
-  \\ gvs[]
-  \\ metis_tac[]
 QED
 
 Resume comp_correct[DataBufferWrite]:
@@ -12113,7 +12089,6 @@ Proof
     rw[no_install_def]
   )
   >- fs[wordConvsTheory.no_install_def] (* Install *)
-  >- gvs[no_install_def,wStackLoad_no_install_lem,ELIM_UNCURRY] (* CodeBufferWrite *)
   >- gvs[no_install_def,wStackLoad_no_install_lem,ELIM_UNCURRY] (* DataBufferWrite *)
   >- ( (* ShareInst *)
     Cases_on `exp_to_addr exp` >> fs[] >- gvs[no_install_def]>>
@@ -12351,7 +12326,6 @@ Proof
       pairarg_tac >>
       gvs[no_shmemop_def,wStackLoad_no_shmemop_lem,
         no_share_inst_def])
-  >- gvs[no_shmemop_def,wStackLoad_no_shmemop_lem,ELIM_UNCURRY] (* CodeBufferWrite *)
   >- gvs[no_shmemop_def,wStackLoad_no_shmemop_lem,ELIM_UNCURRY] (* DataBufferWrite *)
   >- fs[no_share_inst_def] (* ShareInst *)
 QED

@@ -33,7 +33,10 @@ Definition approx_of_def:
      | SOME (ValueArray vs) =>
          approx_of lims vs (delete r refs) + LENGTH vs + 1
      | SOME (Thunk _ v) =>
-         approx_of lims [v] (delete r refs) + 2) /\
+         approx_of lims [v] (delete r refs) + 2
+     | SOME (MutBlock tg fin ls c rs) =>
+         approx_of lims (ls ++ [c] ++ rs) (delete r refs) +
+         LENGTH ls + LENGTH rs + 2) /\
   (approx_of lims [Block ts tag []] refs = 0) /\
   (approx_of lims [Block ts tag vs] refs =
     approx_of lims vs refs + LENGTH vs + 1)
@@ -59,14 +62,22 @@ Proof
   \\ rveq \\ res_tac \\ res_tac \\ fs []
   \\ imp_res_tac subspt_trans \\ res_tac \\ simp []
   \\ ntac 2 (pop_assum kall_tac)
-  \\ TRY (
-    gvs [AllCaseEqs()]
-    \\ rveq \\ fs []
-    \\ fs [subspt_lookup] \\ res_tac \\ fs []
-    \\ rpt (pairarg_tac \\ fs [])
-    \\ rveq \\ fs [lookup_delete]
-    \\ first_x_assum (qspec_then ‘delete r refsT’ mp_tac)
-    \\ fs [lookup_delete] \\ NO_TAC)
+  >- (gvs [AllCaseEqs()]
+      \\ rveq \\ fs []
+      \\ fs [subspt_lookup] \\ res_tac \\ fs []
+      \\ rpt (pairarg_tac \\ fs [])
+      \\ rveq \\ fs [lookup_delete]
+      \\ first_x_assum (qspec_then ‘delete r refsT’ mp_tac)
+      \\ fs [lookup_delete])
+  >- (gvs [AllCaseEqs()]
+      \\ rveq \\ fs []
+      \\ fs [subspt_lookup] \\ res_tac \\ fs []
+      \\ rpt (pairarg_tac \\ fs [])
+      \\ rveq \\ fs [lookup_delete]
+      \\ first_x_assum (qspec_then ‘delete r refsT’ mp_tac)
+      \\ fs [lookup_delete])
+  >- (Cases_on ‘lookup ts seen’ \\ fs []
+      \\ rveq \\ fs [] \\ res_tac \\ fs [])
   \\ Cases_on ‘lookup ts seen’ \\ fs []
   \\ rveq \\ fs [] \\ res_tac \\ fs []
 QED
@@ -83,6 +94,20 @@ Theorem OPTION_MAP2_MAX_CANCEL[simp]:
   OPTION_MAP2 MAX (OPTION_MAP2 MAX x y) y = OPTION_MAP2 MAX x y
 Proof
   Cases_on `x` \\ Cases_on `y` \\ fs [] \\ rw [MAX_DEF]
+QED
+
+(* ops that are not allowed_op have stack_consumed = NONE, which has to
+   propagate through do_stack's safe_for_space computation *)
+Theorem OPTION_MAP2_NONE[simp]:
+  OPTION_MAP2 f NONE y = NONE ∧ OPTION_MAP2 f x NONE = NONE
+Proof
+  Cases_on `x` \\ fs []
+QED
+
+Theorem the_NONE[simp]:
+  the x NONE = x
+Proof
+  fs [miscTheory.the_def]
 QED
 
 Theorem initial_state_simp[simp]:

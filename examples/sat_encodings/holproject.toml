@@ -1,0 +1,5 @@
+name = "sat_encodings"
+
+[projects.cakeml]
+path = "../.."
+exclude = ["examples/cnf"]

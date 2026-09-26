@@ -61,7 +61,7 @@ Datatype:
      ; global      : num option
      ; handler     : num
      ; refs        : v ref num_map
-     ; compile     : 'c -> (num # num # dataLang$prog) list -> (word8 list # word64 list # 'c) option
+     ; compile     : 'c -> (num # num # dataLang$prog) list -> (mlstring # word64 list # 'c) option
      ; clock       : num
      ; code        : (num # dataLang$prog) num_map
      ; ffi         : 'ffi ffi_state
@@ -93,8 +93,8 @@ QED
 
 Definition small_num_def:
   small_num arch64 (i:int) =
-    if arch64 then -(2 ** 61) <= i /\ i < (2 ** 61)
-              else -(2 ** 29) <= i /\ i < (2 ** 29)
+    if arch64 then -(2 ** 62) <= i /\ i < (2 ** 62)
+              else -(2 ** 30) <= i /\ i < (2 ** 30)
 End
 
 Definition bignum_digits_def:
@@ -126,7 +126,10 @@ Definition size_of_def:
      | SOME (ValueArray vs) => let (n,refs,seen) = size_of lims vs (delete r refs) seen in
                                  (n + LENGTH vs + 1, refs, seen)
      | SOME (Thunk _ v) => let (n,refs,seen) = size_of lims [v] (delete r refs) seen in
-                             (n + 2, refs, seen)) /\
+                             (n + 2, refs, seen)
+     | SOME (MutBlock tg fin ls c rs) =>
+         let (n,refs,seen) = size_of lims (ls ++ [c] ++ rs) (delete r refs) seen in
+           (n + LENGTH ls + LENGTH rs + 2, refs, seen)) /\
   (size_of lims [Block ts tag []]) refs seen = (0, refs, seen) /\
   (size_of lims [Block ts tag vs] refs seen =
      if IS_SOME (sptree$lookup ts seen) then (0, refs, seen) else
@@ -222,7 +225,7 @@ End
 
 (* Determines which operations are safe for space *)
 Definition allowed_op_def:
-  allowed_op op _ = (op <> closLang$Install)
+  allowed_op op _ = (op <> closLang$Install /\ !t i. op <> MemOp (MutCons t i))
 End
 
 Definition v_to_list_def:
@@ -443,9 +446,14 @@ Definition do_stack_def:
               ; stack_max := OPTION_MAP2 MAX s.stack_max new_stack |>
 End
 
-Definition v_to_bytes_def:
-  v_to_bytes lv = some ns:word8 list.
-                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)
+Definition v_to_mlstring_def:
+  v_to_mlstring refs lv =
+    case lv of
+    | RefPtr _ p =>
+        (case lookup p refs of
+         | SOME (ByteArray T bs) => SOME (bytes_to_mlstring bs)
+         | _ => NONE)
+    | _ => NONE
 End
 
 Definition v_to_words_def:
@@ -499,11 +507,10 @@ Overload Error[local] =
 Definition do_install_def:
   do_install vs ^s =
       (case vs of
-       | [v1;v2;vl1;vl2] =>
-           (case (v_to_bytes v1, v_to_words v2) of
+       | [v1;v2;vl2] =>
+           (case (v_to_mlstring s.refs v1, v_to_words v2) of
             | (SOME bytes, SOME data) =>
-               if vl1 <> Number (& LENGTH bytes) \/
-                  vl2 <> Number (& LENGTH data)
+               if vl2 <> Number (& LENGTH data)
                then Rerr(Rabort Rtype_error) else
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in
@@ -567,6 +574,11 @@ Definition lim_safe_def[simp]:
       4 * tag < 2 ** (arch_size lims) DIV 16 /\
       4 * tag < 2 ** (arch_size lims - lims.length_limit - 2)
       )
+∧ (lim_safe lims (MemOp (MutCons tag i)) xs =
+      (LENGTH xs < 2 ** lims.length_limit /\
+       LENGTH xs < 2 ** (arch_size lims - 4) /\
+       4 * tag < 2 ** (arch_size lims) DIV 16 /\
+       4 * tag < 2 ** (arch_size lims - lims.length_limit - 2)))
 ∧ (lim_safe lims (BlockOp (FromList tag)) xs =
    (case xs of
     | [len;lv] =>
@@ -669,6 +681,9 @@ Definition lim_safe_def[simp]:
 ∧ (lim_safe lims (WordOp (WordShift W64 _ _)) _ =
    (1 < lims.length_limit)
   )
+∧ (lim_safe lims (WordOp (WordShiftVar W64 _)) _ =
+   (1 < lims.length_limit)
+  )
 ∧ (lim_safe lims (WordOp (WordFromWord _)) _ =
    (1 < lims.length_limit)
   )
@@ -766,6 +781,12 @@ Definition do_word_app_def:
         | SOME w => SOME (Number &(w2n (shift_lookup sh w n)))) /\
   do_word_app (WordShift W64 sh n) [Word64 w] =
        SOME (Word64 (shift_lookup sh w n)) /\
+  do_word_app (WordShiftVar W8 sh) [Number i; Number n] =
+       (case some (w:word8,count:word8). i = &(w2n w) /\ n = &(w2n count) of
+        | NONE => NONE
+        | SOME (w,count) => SOME (Number &(w2n (shift_lookup sh w (w2n count))))) /\
+  do_word_app (WordShiftVar W64 sh) [Word64 w; Word64 count] =
+       SOME (Word64 (shift_lookup sh w (w2n count))) /\
   do_word_app (WordFromInt) [Number i] =
        SOME (Word64 (i2w i)) /\
   do_word_app WordToInt [Word64 w] =
@@ -824,6 +845,29 @@ End
 Definition bad_thunk_update_def:
   bad_thunk_update m v refs ⇔
     m = Evaluated ∧ dest_thunk v refs ≠ NotThunk
+End
+
+(* mirrors bviSem$finalise_cons, but threads the timestamp counter so that
+   each block produced by the finalisation gets a fresh time stamp *)
+Definition finalise_cons_def:
+  (finalise_cons (RefPtr b ptr) refs ts =
+    case lookup ptr refs of
+    | SOME (MutBlock tag finalised l c r) =>
+        if ~finalised then
+          (case finalise_cons c (delete ptr refs) ts of
+           | SOME (c',refs',ts') =>
+               SOME (Block (case ts' of NONE => 0 | SOME n => n) tag (l ++ [c'] ++ r),
+                     insert ptr (MutBlock tag T l c r) refs',
+                     OPTION_MAP SUC ts')
+           | NONE => NONE)
+        else NONE
+    | SOME res => SOME (RefPtr b ptr,refs,ts)
+    | NONE => NONE) ∧
+  (finalise_cons v refs ts = SOME (v,refs,ts))
+Termination
+  WF_REL_TAC ‘measure (sptree$size o FST o SND)’
+  \\ rw [] \\ imp_res_tac miscTheory.lookup_zero
+  \\ fs [sptreeTheory.size_delete]
 End
 
 Definition do_app_aux_def:
@@ -976,6 +1020,13 @@ Definition do_app_aux_def:
              then Rval (Number (& (w2n (EL (Num i) ws))),s)
              else Error)
          | _ => Error)
+    | (MemOp DerefBit,[RefPtr _ ptr; Number i]) =>
+        (case lookup ptr s.refs of
+         | SOME (ByteArray _ ws) =>
+            (if 0 ≤ i ∧ i < 8 * &LENGTH ws
+             then Rval (Block 0 (multiword$b2n ((EL (Num i DIV 8) ws) ' (Num i MOD 8))) [],s)
+             else Error)
+         | _ => Error)
     | (MemOp UpdateByte,[RefPtr _ ptr; Number i; Number b]) =>
         (case lookup ptr s.refs of
          | SOME (ByteArray f bs) =>
@@ -983,6 +1034,16 @@ Definition do_app_aux_def:
              then
                Rval (Unit, s with refs := insert ptr
                  (ByteArray f (LUPDATE (i2w b) (Num i) bs)) s.refs)
+             else Error)
+         | _ => Error)
+    | (MemOp UpdateBit,[RefPtr _ ptr; Number i; v]) =>
+        (case (lookup ptr s.refs, dest_Boolv v) of
+         | (SOME (ByteArray f bs), SOME b) =>
+            (if 0 ≤ i ∧ i < 8 * &LENGTH bs
+             then
+               Rval (Unit, s with refs := insert ptr
+                 (ByteArray f (LUPDATE (((Num i MOD 8) :+ b) (EL (Num i DIV 8) bs))
+                                       (Num i DIV 8) bs)) s.refs)
              else Error)
          | _ => Error)
     | (MemOp XorByte,[RefPtr _ dst; RefPtr _ src]) =>
@@ -1038,6 +1099,25 @@ Definition do_app_aux_def:
                               (ValueArray (LUPDATE x (Num i) xs)) s.refs)
              else Error)
          | _ => Error)
+    | (MemOp (MutCons tag i),xs) =>
+        (let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
+           if i >= LENGTH xs then Error else
+             let l = TAKE i xs in
+             let c = EL i xs in
+             let r = DROP (i+1) xs in
+               Rval (RefPtr F ptr,
+                     s with refs := insert ptr (MutBlock tag F l c r) s.refs))
+    | (MemOp UpdateCons,[RefPtr _ ptr; Number i; x]) =>
+        (case lookup ptr s.refs of
+         | SOME (MutBlock tag finalised l c r) =>
+             if i <> & LENGTH l \/ finalised then Error else
+               Rval (Unit, s with refs := insert ptr (MutBlock tag F l x r) s.refs)
+         | _ => Error)
+    | (MemOp FinaliseCons,[x]) =>
+        (case finalise_cons x s.refs s.tstamps of
+         | SOME (v,refs',ts') =>
+             Rval (v, s with <| refs := refs' ; tstamps := ts' |>)
+         | NONE => Error)
     | (IntOp intop, vs) =>
         (case do_int_app intop vs of
         | SOME res => Rval (res ,s)
@@ -1068,6 +1148,14 @@ Definition do_app_aux_def:
           (case lookup ptr s.refs of
            | SOME (ByteArray _ ws) =>
                Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
+           | _ => Error)
+         | _ => Error)
+    | (MemOp BoundsCheckBit,xs) =>
+        (case xs of
+         | [RefPtr _ ptr; Number i] =>
+          (case lookup ptr s.refs of
+           | SOME (ByteArray _ ws) =>
+               Rval (Boolv (0 <= i /\ i < 8 * & LENGTH ws),s)
            | _ => Error)
          | _ => Error)
     | (MemOp BoundsCheckArray,xs) =>

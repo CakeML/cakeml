@@ -794,11 +794,16 @@ Resume data_compile_correct[MakeSpace]:
     \\ pairarg_tac \\ fs []
     \\ drule_all state_rel_cut_env_cut_env \\ strip_tac
     \\ rename [‘_ = (res1,s1)’]
-    \\ ‘alloc (alloc_size k) (adjust_sets names) (t with locals := y) = (res1,s1)’ by
+    \\ ‘state_rel c l1 l2 (s with locals := x)
+          (t with <|locals := y; fp_regs := FEMPTY|>) NONE locs’ by
+         (drule state_rel_with_fp_regs \\ simp [])
+    \\ ‘alloc (alloc_size k) (adjust_sets names)
+          (t with <|locals := y; fp_regs := FEMPTY|>) = (res1,s1)’ by
       (‘t with
-           <|locals := insert 1 (Word (alloc_size k)) y; memory := t.memory;
-             ffi := t.ffi|> =
-        (t with locals := y) with locals := insert 1 (Word (alloc_size k)) (t with locals := y).locals’ by
+           <|locals := insert 1 (Word (alloc_size k)) y; fp_regs := FEMPTY|> =
+        (t with <|locals := y; fp_regs := FEMPTY|>) with
+          locals := insert 1 (Word (alloc_size k))
+                      (t with <|locals := y; fp_regs := FEMPTY|>).locals’ by
           gvs [wordSemTheory.state_component_equality]
        \\ full_simp_tac std_ss [alloc_locals_insert_1])
     \\ `dataSem$cut_env names x = SOME x` by
@@ -1783,7 +1788,7 @@ Theorem compile_semantics:
   conf_ok (:α) c ∧ t.termdep = 0 ∧ code_rel c (fromAList prog) x1 ∧
   cc =
   (λcfg.
-       OPTION_MAP (I ## MAP upper_w2w ## I) ∘ tcc cfg ∘
+       OPTION_MAP (bytes_to_mlstring ## MAP upper_w2w ## I) ∘ tcc cfg ∘
        MAP (compile_part c)) ∧
   Abbrev (tco = (I ## MAP (compile_part c)) ∘ co) ∧
   (∀n. EVERY (λ(n,_). data_num_stubs <= n) (SND (co n))) ∧
@@ -1809,7 +1814,7 @@ Proof
   strip_tac
   \\ `state_rel_ext c 1 0
         (initial_state t.ffi (fromAList prog) co
-        (λcfg. OPTION_MAP (I ## MAP upper_w2w ## I) ∘ tcc cfg ∘
+        (λcfg. OPTION_MAP (bytes_to_mlstring ## MAP upper_w2w ## I) ∘ tcc cfg ∘
                  MAP (compile_part c)) T (get_limits c t) t.stack_size t.clock) t` by
    (fs[state_rel_ext_def]>>rw[]>>
     fs[code_rel_ext_def]>>
@@ -2134,7 +2139,7 @@ Proof
       Maxout_bits_code_def,MemEqList_no_share_inst,
       WriteWord64_def,WordOp64_on_32_def,WriteWord64_on_32_def,
       LoadWord64_def,WordShift64_on_32_def,LoadBignum_def,
-      WriteWord32_on_32_def] >>
+      WriteWord32_on_32_def,WordShiftVar64_def,WordShiftVar64_on_32_def] >>
     rpt (
       TOP_CASE_TAC >>
       simp[no_share_inst_def,list_Seq_no_share_inst])
@@ -2309,7 +2314,8 @@ Proof
     fp_bop_inst_def, fp_top_inst_def, oneline AssignCmp_def, SetBool_def]>>
   (IF_CASES_TAC ORELSE TOP_CASE_TAC)>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
     Maxout_bits_code_def,GiveUp_def,
-    inst_ok_less_def,assign_def_extras,MemEqList_no_inst] \\ FAIL_TAC ""
+    inst_ok_less_def,assign_def_extras,MemEqList_no_inst]>>
+  every_case_tac>>fs[every_inst_def,list_Seq_def]
 QED
 
 (*

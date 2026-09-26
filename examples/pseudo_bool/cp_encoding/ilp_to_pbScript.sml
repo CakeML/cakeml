@@ -96,7 +96,7 @@ End
 Definition encode_iconstraint_one_def:
   encode_iconstraint_one bnd (is,bs,c) =
     (
-    pbc$GreaterEqual,
+    PGe,
     FLAT
       (MAP (λ(d,X).
         mul_lin_term d (encode_ivar bnd X)) is) ++
@@ -200,8 +200,8 @@ Definition encode_bound_var_def:
   let (lb,ub) = bnd X in
   let bX = encode_ivar bnd (X:'a) in
   [
-    (pbc$GreaterEqual,bX,lb);
-    (pbc$LessEqual,bX,ub);
+    (PGe,bX,lb);
+    (PLe,bX,ub);
   ]
 End
 

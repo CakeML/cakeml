@@ -795,6 +795,34 @@ Termination
   \\ rw [] \\ imp_res_tac dec_next_LENGTH \\ fs []
 End
 
+Definition chars_to_nums_acc_def:
+  chars_to_nums_acc ns acc =
+    if NULL ns then acc else
+      let (k,ks) = dec_next 0 1 ns in
+        chars_to_nums_acc ks (k::acc)
+Termination
+  WF_REL_TAC ‘measure (LENGTH o FST)’ \\ rw []
+  \\ pop_assum mp_tac
+  \\ Cases_on ‘ns’ \\ fs []
+  \\ once_rewrite_tac [dec_next_def]
+  \\ rw [] \\ imp_res_tac dec_next_LENGTH \\ fs []
+End
+
+Theorem chars_to_nums_acc_thm:
+  ∀ns acc. chars_to_nums_acc ns acc = REVERSE (chars_to_nums ns) ++ acc
+Proof
+  recInduct chars_to_nums_acc_ind \\ rw []
+  \\ once_rewrite_tac [chars_to_nums_acc_def, chars_to_nums_def]
+  \\ IF_CASES_TAC \\ gvs []
+  \\ pairarg_tac \\ gvs []
+QED
+
+Theorem chars_to_nums_eq:
+  chars_to_nums ns = REVERSE (chars_to_nums_acc ns [])
+Proof
+  rw [chars_to_nums_acc_thm]
+QED
+
 Theorem dec_next_nums_to_chars:
   ∀h l ns k.
     dec_next k (CUT ** l) (nums_to_chars (h::ns)) = (k + (CUT ** l) * h, nums_to_chars ns)

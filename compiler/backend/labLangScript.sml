@@ -32,13 +32,13 @@ Datatype:
 End
 
 Datatype:
-  asm_or_cbw = Asmi ('a asm) | Cbw reg reg | ShareMem memop reg ('a addr)
+  asm_or_shmem = Asmi ('a asm) | ShareMem memop reg ('a addr)
 End
  (* Either an asm inst/jumpreg or code-buffer-write *)
 
 Datatype:
   line = Label num num num (* section number, label number, length *)
-       | Asm ('a asm_or_cbw) (word8 list) num (* instruction, encoded instruction, length *)
+       | Asm ('a asm_or_shmem) (word8 list) num (* instruction, encoded instruction, length *)
        | LabAsm ('a asm_with_lab) ('a word) (word8 list) num
 End
                                   (* position, encoded instruction, length *)

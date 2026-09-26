@@ -1,8 +1,23 @@
-Changes since release v3400:
+Changes since release v3479:
 
 ## Source language and front‑end
 
+The CakeML source language now supports open and let open (#1482).
+
+The CakeML source language now supports variable-length word shifts (#1500).
+
+Operations for reading or writing a single bit of a byte array have also been added to the source language (#1497).
+
+The monadic translator now targets CakeML's byte arrays for arrays of type word8 (#1494).
+
+The monadic translator also has new support for space-efficient bool arrays represented as byte arrays (#1498).
+
 ## Basis library
+
+The shift and rotate functions `<<`, `>>`, `~>>` and `ror` in the `Word8` and
+`Word64` modules now take the shift amount as a word of the same size instead
+of an int, e.g. `Word8.<< : Word8.word -> Word8.word -> Word8.word` (#1500).
+Programs that call these functions with an int amount need to be updated.
 
 ### List
 
@@ -40,21 +55,23 @@ afterwards, and returns `None` if the file cannot be opened.
 
 ## Compiler backend and runtime
 
-### BVI
+The compiler handles dynamic installation of new code in new way (#1487). This
+paves the way for supporting Eval on Arm.
 
-BVI now supports multi-arg calls/returns (with a separate constructor).
+Smallnums and nullary constructors have improved runtime representation (#1487).
+This means, e.g., that smallnums can use 63 bits on 64-bit architectures.
 
 ## Pancake
 
+Queryable feature tags (#1470).
+
 ## Candle
-
-### Parser
-
-The parser now supports multi-line string literals.
 
 ## Examples
 
-The CakePB example now has a verified CP encoder frontend.
+The PB checker has been reorganized with minor fixes, and also supports solutions cubes (#1496).
+
+The CNF checker(s) have various improvements, especially the RUP algorithm has been updated. Additionally, there is now a centralized and cleaned up basis FFI C file for the checkers (#1495).
 
 ## Build infrastructure
 
@@ -92,15 +109,3 @@ Theorem get_mode_fsupdate[simp]:
 ```
 
 ## Miscellaneous
-
-`CONCAT_WITH` (misc) and `concatWith_CONCAT_WITH` (mlstring)
-have been removed due to being unused.
-
-inferScript.sml now uses the state-exception monad defined in
-ml_monadBase instead of a locally defined version of it.
-
-Some files have been refactored to use `monadsyntax.temp_enable_monad`
-instead of manual overloads of constants such as `monad_bind`.
-
-Some files have been refactored to use `st_ex_ignore_bind` instead of
-a locally defined version using `st_ex_bind`.
