@@ -51,9 +51,6 @@ A small example of using the HOL to CakeML translator.
 A collection of functions that have in the past turned out to be tricky to
 translate.
 
-[ml_word_shift_testScript.sml](ml_word_shift_testScript.sml):
-Translator regression tests for binary word shifts and word conversions.
-
 [monadic](monadic):
 Extensions to the proof-producing translator to support
 stateful/imperative (monadic) HOL functions.
