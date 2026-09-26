@@ -401,6 +401,41 @@ QED
 
 val _ = reg_enc_dec clos_known_val_approx_enc'_thm;
 
+(* cpr_shape *)
+
+val (e,d) = enc_dec_for “:bvi_cpr$cpr_shape”
+
+Definition bvi_cpr_cpr_shape_enc'_def:
+  ^e
+End
+
+Definition bvi_cpr_cpr_shape_dec'_def:
+  ^d
+Termination
+  WF_REL_TAC `measure num_tree_size`
+  \\ reverse (rw [])
+  \\ imp_res_tac MEM_list_size
+  \\ rpt (pop_assum $ qspec_then ‘num_tree_size’ mp_tac)
+  \\ rpt (goal_term (fn tm =>
+            tmCases_on (rand (find_term (can (match_term “nth _ _”)) tm)) []
+            \\ fs [num_tree_size_def,list_dec'_def]))
+  \\ rename [‘list_dec' I xs’] \\ Cases_on ‘xs’
+  \\ fs [list_dec'_def] \\ rw []
+  \\ imp_res_tac MEM_num_tree_size \\ fs [num_tree_size_def]
+End
+
+Theorem bvi_cpr_cpr_shape_enc'_thm[simp]:
+  ∀x. bvi_cpr_cpr_shape_dec' (bvi_cpr_cpr_shape_enc' x) = x
+Proof
+  ho_match_mp_tac bvi_cpr_cpr_shape_enc'_ind \\ rw []
+  \\ fs [bvi_cpr_cpr_shape_enc'_def]
+  \\ once_rewrite_tac [bvi_cpr_cpr_shape_dec'_def] \\ gvs []
+  \\ fs [SF ETA_ss]
+  \\ match_mp_tac list_enc'_mem \\ fs []
+QED
+
+val _ = reg_enc_dec bvi_cpr_cpr_shape_enc'_thm;
+
 (* automation for producing enc/dec for record types *)
 
 fun define_abbrev name tm = let

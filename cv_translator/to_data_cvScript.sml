@@ -2591,7 +2591,15 @@ Proof
   Induct \\ simp [Once pre]
 QED
 
-val _ = cv_auto_trans bvi_inlineTheory.canonical_wrapper_def;
+val pre = cv_auto_trans_pre "" (bvi_inlineTheory.cons_tree_def |> measure_args [1,1]);
+Theorem bvi_inline_cons_tree_pre[cv_pre,local]:
+  (∀i v. bvi_inline_cons_tree_pre i v) ∧
+  (∀i v. bvi_inline_cons_trees_pre i v)
+Proof
+  ho_match_mp_tac bvi_inlineTheory.cons_tree_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
+
 val _ = cv_auto_trans bvi_inlineTheory.wrapper_ok_def;
 
 val pre = cv_auto_trans_pre "" (bvi_inlineTheory.inline_exp_def |> measure_args [1,1]);
@@ -2644,6 +2652,30 @@ Proof
 QED
 
 val _ = cv_trans bvi_tmcTheory.compile_prog_def;
+
+(* bvi_cpr *)
+
+val _ = cv_trans bvi_cprTheory.sub_shape_def;
+val _ = cv_trans bvi_cprTheory.cpr_merge_def;
+val _ = cv_trans bvi_cprTheory.field_shape_def;
+val _ = cv_auto_trans bvi_cprTheory.shape_and_tail_def;
+val _ = cv_auto_trans bvi_cprTheory.return_shape_def;
+val _ = cv_trans bvi_cprTheory.shape_width_def;
+val _ = cv_trans bvi_cprTheory.flatten_exp_def;
+val _ = cv_auto_trans bvi_cprTheory.worker_body_def;
+val _ = cv_trans bvi_cprTheory.rebuild_def;
+val _ = cv_trans bvi_cprTheory.no_ret_def;
+val _ = cv_trans bvi_cprTheory.tail_form_def;
+
+val pre = cv_auto_trans_pre "" bvi_cprTheory.compile_prog_with_map_def;
+Theorem bvi_cpr_compile_prog_with_map_pre[cv_pre,local]:
+  ∀csh_map next v. bvi_cpr_compile_prog_with_map_pre csh_map next v
+Proof
+  ho_match_mp_tac bvi_cprTheory.compile_prog_with_map_ind
+  \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = cv_trans bvi_cprTheory.compile_prog_def;
 
 (* bvl_to_bvi *)
 

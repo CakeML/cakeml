@@ -105,6 +105,7 @@ Optimisations can be configured using the following advanced options.
   --call=B    true means clos_to_bvl phase is to use call optimisation
   --tmc=B     true means tail-call modulo cons optimisations is used
   --tailrec=B true means attempts to turn functions into tail-rec form
+  --cpr=B     true means tuple-returning functions return their fields unboxed
   --inline_factor=N  threshold used by for ClosLang inliner in known pass
   --max_body_size=N  threshold used by for ClosLang inliner in known pass
   --max_app=N   max number of optimised curried applications in multi pass
@@ -487,9 +488,10 @@ Definition parse_bvl_conf_def:
   let expcut = find_num «--exp_cut=» ls bvl.exp_cut in
   let tmc = find_bool «--tmc=» ls bvl.do_tmc in
   let tailrec = find_bool «--tailrec=» ls bvl.do_tailrec in
+  let cpr = find_bool «--cpr=» ls bvl.do_cpr in
   let splitmain = find_bool «--split=» ls bvl.split_main_at_seq in
-  case (inlinesz,expcut,splitmain,tmc,tailrec) of
-    (INL i,INL e,INL m,INL do_tmc,INL do_tailrec) =>
+  case (inlinesz,expcut,splitmain,tmc,tailrec,cpr) of
+    (INL i,INL e,INL m,INL do_tmc,INL do_tailrec,INL do_cpr) =>
     INL
       (bvl with <|
         inline_size_limit := i;
@@ -497,13 +499,15 @@ Definition parse_bvl_conf_def:
         split_main_at_seq := m;
         do_tmc            := do_tmc;
         do_tailrec        := do_tailrec;
+        do_cpr            := do_cpr;
       |>)
   | _ =>
     INR (concat [get_err_str inlinesz;
                  get_err_str expcut;
                  get_err_str splitmain;
                  get_err_str tmc;
-                 get_err_str tailrec])
+                 get_err_str tailrec;
+                 get_err_str cpr])
 End
 
 (* wtw *)

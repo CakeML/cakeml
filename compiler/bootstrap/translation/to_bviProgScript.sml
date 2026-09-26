@@ -113,7 +113,7 @@ val r = translate bvi_tailrecTheory.compile_prog_def;
 
 val r = translate bvi_inlineTheory.bvi_mk_tick_def;
 
-val r = translate bvi_inlineTheory.canonical_wrapper_def;
+val r = translate bvi_inlineTheory.cons_tree_def;
 val r = translate bvi_inlineTheory.wrapper_ok_def;
 
 val r = translate bvi_inlineTheory.inline_exp_def;
@@ -145,6 +145,45 @@ val r = translate bvi_tmcTheory.pure_exp_eq;
    it stands. *)
 
 val r = translate bvi_tmcTheory.bvi_to_cb_aux_def;
+
+(* ------------------------------------------------------------------------- *)
+(* bvi_cpr                                                                   *)
+(* ------------------------------------------------------------------------- *)
+
+val r = translate bvi_cprTheory.sub_shape_def;
+val r = translate bvi_cprTheory.cpr_merge_def;
+val r = translate bvi_cprTheory.field_shape_def;
+val r = translate_no_ind bvi_cprTheory.shape_and_tail_def;
+
+Theorem bvi_cpr_shape_and_tail_ind[local]:
+  bvi_cpr_shape_and_tail_ind
+Proof
+  once_rewrite_tac [fetch "-" "bvi_cpr_shape_and_tail_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD]
+  \\ first_x_assum irule
+  \\ simp [Once EQ_SYM_EQ, PAIR_FST_SND_EQ]
+QED
+
+val _ = bvi_cpr_shape_and_tail_ind |> update_precondition;
+val r = translate bvi_cprTheory.tail_shape_def;
+val r = translate bvi_cprTheory.return_shape_def;
+val r = translate bvi_cprTheory.shape_width_def;
+val r = translate bvi_cprTheory.split_ok_def;
+val r = translate bvi_cprTheory.flatten_exp_def;
+val r = translate bvi_cprTheory.worker_body_def;
+val r = translate bvi_cprTheory.rebuild_def;
+val r = translate bvi_cprTheory.make_wrapper_def;
+val r = translate bvi_cprTheory.no_ret_def;
+val r = translate bvi_cprTheory.tail_form_def;
+val r = translate bvi_cprTheory.split_fun_def;
+val r = translate bvi_cprTheory.compile_prog_with_map_def;
+val r = translate bvi_cprTheory.compile_prog_def;
 
 (* ------------------------------------------------------------------------- *)
 (* bvl_to_bvi                                                                *)

@@ -11,7 +11,7 @@ Ancestors
   bvl bvi backend_common bvl_inline[qualified]
   bvl_const[qualified] bvl_handle[qualified] bvi_let[qualified]
   bvi_tailrec[qualified] bvi_inline[qualified] bvi_tmc[qualified]
-  dataLang[qualified]
+  bvi_cpr[qualified] dataLang[qualified]
 Libs
   preamble
 
@@ -525,9 +525,12 @@ Datatype:
             ; next_name1 : num (* there should be as many of       *)
             ; next_name2 : num (* these as bvl_to_bvi_namespaces-1 *)
             ; next_name3 : num
+            ; next_name4 : num
             ; do_tailrec : bool
             ; do_tmc : bool
+            ; do_cpr : bool
             ; inlines : (num # bvl$exp) spt
+            ; cpr_map : (bvi_cpr$cpr_shape # num) spt
             ; bvi_inlines : (num # bvi$exp) spt
             |>
 End
@@ -540,9 +543,12 @@ Definition default_config_def:
      ; next_name1 := num_stubs + 1
      ; next_name2 := num_stubs + 2
      ; next_name3 := num_stubs + 3
+     ; next_name4 := num_stubs + 4
      ; do_tailrec := T
      ; do_tmc := T
+     ; do_cpr := T
      ; inlines := LN
+     ; cpr_map := LN
      ; bvi_inlines := LN
      |>
 End
@@ -576,8 +582,10 @@ Definition compile_def:
     let (loc, code, n1) = compile_prog start 0 prog in
     let (n2, code') = bvi_tailrec$compile_prog c.do_tailrec (num_stubs + 2) code in
     let (n3, code') = bvi_tmc$compile_prog c.do_tmc (num_stubs + 3) code' in
+    let ((n4, cpr_map), code') =
+      bvi_cpr$compile_prog c.do_cpr (num_stubs + 4, LN) code' in
     let (bvi_inlines, code') = bvi_inline$compile_prog code' in
-      (loc, code', inlines, bvi_inlines, n1, n2, n3,
+      (loc, code', inlines, bvi_inlines, n1, n2, n3, n4, cpr_map,
        get_names (MAP FST code') names)
 End
 
@@ -592,6 +600,9 @@ Definition bvl_to_bvi_compile_inc_all_def:
     let c = c with <| next_name2 := nn2 |> in
     let (nn3, p) = bvi_tmc$compile_prog c.do_tmc c.next_name3 p in
     let c = c with <| next_name3 := nn3 |> in
+    let ((nn4, cpr_map), p) =
+      bvi_cpr$compile_prog c.do_cpr (c.next_name4, c.cpr_map) p in
+    let c = c with <| next_name4 := nn4; cpr_map := cpr_map |> in
     let (bvi_inlines, p) = bvi_inline$compile_inc c.bvi_inlines p in
     let c = c with <| bvi_inlines := bvi_inlines |> in
       (c, p)

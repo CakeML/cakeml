@@ -328,7 +328,8 @@ End
 
 Definition config_tuple2_def:
   config_tuple2 c = (c.bvl_conf.inlines, c.bvl_conf.next_name1,
-    c.bvl_conf.next_name2, c.bvl_conf.next_name3, c.bvl_conf.bvi_inlines,
+    c.bvl_conf.next_name2, c.bvl_conf.next_name3,
+    (c.bvl_conf.next_name4, c.bvl_conf.cpr_map), c.bvl_conf.bvi_inlines,
     c.word_conf.bitmaps_length, c.lab_conf)
 End
 
@@ -404,7 +405,8 @@ QED
 val cake_orac_config_inv_f =
   ``(\ (sc, cc, bc, mc). (sc.pattern_cfg, cc.max_app, cc.do_call, IS_SOME cc.known_conf,
         known_static_conf cc.known_conf, cc.do_mti, bc.inline_size_limit,
-        bc.split_main_at_seq, bc.exp_cut, bc.do_tailrec, bc.do_tmc, mc))
+        bc.split_main_at_seq, bc.exp_cut, bc.do_tailrec, bc.do_tmc,
+        bc.do_cpr, mc))
     o (\c. (c.source_conf, c.clos_conf, c.bvl_conf, c.data_conf,
             c.word_to_word_conf.reg_alg, c.stack_conf, (asm_conf: 'a asm_config)))``
 
@@ -518,7 +520,7 @@ Theorem cake_orac_eqs:
   compile asm_conf c prog = SOME (b,bm,c') /\ bvl_c = c.bvl_conf ==>
   bvl_to_bviProof$full_co bvl_c
     (cake_orac asm_conf c' src config_tuple2 (\ps. ps.bvl_prog)) =
-  cake_orac asm_conf c' src (SND o SND o SND o SND o SND o config_tuple2) (\ps. ps.bvi_prog)
+  cake_orac asm_conf c' src (SND o SND o SND o SND o SND o SND o config_tuple2) (\ps. ps.bvi_prog)
   )
   /\
   pure_co bvi_to_data_compile_prog o
@@ -542,8 +544,8 @@ Theorem cake_orac_eqs:
   (λ((bm0,cfg),prg). (λ(prg2,fs,bm). (cfg,prg2,append(FST bm)))
     (compile_word_to_stack asm_conf F (asm_conf.reg_count -
       (LENGTH asm_conf.avoid_regs + 5)) prg (Nil, bm0))) ∘
-  cake_orac asm_conf c' src (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.word_prog) =
-  cake_orac asm_conf c' src (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+  cake_orac asm_conf c' src (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.word_prog) =
+  cake_orac asm_conf c' src (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
     (λps. (ps.stack_prog,ps.cur_bm))
   )
   /\
@@ -759,8 +761,8 @@ fun qsubpat_x_assum tac = let
 
 Theorem bvl_to_bvi_compile_semantics2:
   bvl_to_bvi_compile start c names prog =
-    (start',prog',inlines,bvi_inlines,n1,n2,n3,names1) ∧
-  (?v. FST (co 0) = (inlines, n1, n2, n3, bvi_inlines, v)) ∧
+    (start',prog',inlines,bvi_inlines,n1,n2,n3,n4,cm,names1) ∧
+  (?v. FST (co 0) = (inlines, n1, n2, n3, (n4, cm), bvi_inlines, v)) ∧
   (∀n. ALL_DISTINCT (MAP FST (SND (co n)))) ∧
   ALL_DISTINCT (MAP FST prog) ∧
   is_state_oracle (bvi_tailrec_compile_prog c.do_tailrec)
@@ -771,7 +773,13 @@ Theorem bvl_to_bvi_compile_semantics2:
     (state_co (bvi_tailrec_compile_prog c.do_tailrec)
       (state_co bvl_to_bvi_compile_inc
         (state_co (bvl_inline_compile_inc c.inline_size_limit
-            c.split_main_at_seq c.exp_cut) co)))
+            c.split_main_at_seq c.exp_cut) co))) ∧
+  is_state_oracle (bvi_cpr$compile_prog c.do_cpr)
+    (state_co (bvi_tmc_compile_prog c.do_tmc)
+      (state_co (bvi_tailrec_compile_prog c.do_tailrec)
+        (state_co bvl_to_bvi_compile_inc
+          (state_co (bvl_inline_compile_inc c.inline_size_limit
+              c.split_main_at_seq c.exp_cut) co))))
   ⇒
   bvlSem$semantics ffi0 (fromAList prog) co (bvl_to_bviProof$full_cc c cc)
     start ≠ Fail ⇒
@@ -792,6 +800,7 @@ Proof
     \\ rveq \\ fs []
     \\ imp_res_tac bvi_tailrecProofTheory.compile_prog_next_mono
     \\ imp_res_tac bvi_tmcProofTheory.compile_prog_next_mono
+    \\ imp_res_tac bvi_cprProofTheory.compile_prog_next_mono
     \\ rveq \\ fs []
     \\ simp [bvl_to_bviProofTheory.mult_nss_in_ns_2]
     \\ simp [bvl_to_bviProofTheory.in_ns_def,
@@ -808,10 +817,20 @@ Proof
   \\ fs [backendPropsTheory.FST_state_co]
   \\ qmatch_goalsub_abbrev_tac `bvi_tailrec_compile_prog c.do_tailrec tst tpr`
   \\ Cases_on `bvi_tailrec_compile_prog c.do_tailrec tst tpr`
+  \\ qpat_x_assum `is_state_oracle (bvi_cpr$compile_prog _) _` assume_tac
+  \\ drule is_state_oracle_k
+  \\ disch_then (qspecl_then [`n`] assume_tac)
+  \\ fs [backendPropsTheory.FST_state_co]
   \\ qmatch_goalsub_abbrev_tac `bvi_tmc_compile_prog c.do_tmc cst cpr`
   \\ Cases_on `bvi_tmc_compile_prog c.do_tmc cst cpr`
+  \\ qmatch_goalsub_abbrev_tac `bvi_cpr$compile_prog c.do_cpr pst ppr`
+  \\ PairCases_on `pst`
+  \\ Cases_on `bvi_cpr$compile_prog c.do_cpr (pst0,pst1) ppr`
+  \\ rename1 `bvi_cpr$compile_prog _ _ _ = (pst',_)`
+  \\ PairCases_on `pst'`
   \\ imp_res_tac bvi_tailrecProofTheory.compile_prog_next_mono
   \\ imp_res_tac bvi_tmcProofTheory.compile_prog_next_mono
+  \\ imp_res_tac bvi_cprProofTheory.compile_prog_next_mono
   \\ fs [PAIR_FST_SND_EQ, backendPropsTheory.FST_state_co]
   \\ rveq \\ fs []
   \\ fs [bvl_to_bviProofTheory.in_ns_def]
@@ -921,6 +940,30 @@ Proof
   \\ simp [EVAL ``0 < bvl_to_bvi_namespaces``]
 QED
 
+Theorem configs_nn4_MULT_namespaces:
+  ?k. (cake_configs asm_conf c' syntax n).bvl_conf.next_name4
+    = c'.bvl_conf.next_name4 + (k * bvl_to_bvi_namespaces)
+Proof
+  Induct_on `n` \\ fs [cake_configs_def, state_orac_states_def]
+  >- (qexists_tac `0` \\ simp [])
+  \\ simp [compile_inc_progs_def, bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ drule bvi_cprProofTheory.compile_prog_next_mono
+  \\ rw []
+  \\ rveq \\ fs []
+  \\ metis_tac [arithmeticTheory.RIGHT_ADD_DISTRIB]
+QED
+
+Theorem configs_nn4_MOD_namespaces:
+  (cake_configs asm_conf c' syntax n).bvl_conf.next_name4
+        MOD bvl_to_bvi_namespaces
+    = c'.bvl_conf.next_name4 MOD bvl_to_bvi_namespaces
+Proof
+  mp_tac configs_nn4_MULT_namespaces
+  \\ rw []
+  \\ simp [EVAL ``0 < bvl_to_bvi_namespaces``]
+QED
+
 Theorem configs_nn2_MOD_namespaces_ok:
   compile asm_conf c prog = SOME (b, bm, c') /\ backend_config_ok asm_conf c ==>
   c'.bvl_conf.next_name2 MOD bvl_to_bvi_namespaces = 2
@@ -949,19 +992,39 @@ Proof
   \\ EVAL_TAC
 QED
 
+Theorem configs_nn4_MOD_namespaces_ok:
+  compile asm_conf c prog = SOME (b, bm, c') /\ backend_config_ok asm_conf c ==>
+  c'.bvl_conf.next_name4 MOD bvl_to_bvi_namespaces = 4
+Proof
+  fs [backendTheory.compile_def, compile_tap_def, bvl_to_bviTheory.compile_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rw []
+  \\ drule_then assume_tac attach_bitmaps_SOME
+  \\ rveq \\ fs []
+  \\ drule bvi_cprProofTheory.compile_prog_next_mono
+  \\ rw [] \\ simp [EVAL ``0 < bvl_to_bvi_namespaces``]
+  \\ EVAL_TAC
+QED
+
 Theorem bvl_to_bvi_compile_inc_all_num_stubs_LE:
   bvl_to_bvi_compile_inc_all c bvl = (c', bvi) ==>
-  bvl_num_stubs <= c.next_name2 /\ bvl_num_stubs <= c.next_name3 ==>
+  bvl_num_stubs <= c.next_name2 /\ bvl_num_stubs <= c.next_name3 /\
+  bvl_num_stubs <= c.next_name4 ==>
   EVERY ($<= bvl_num_stubs) (MAP FST bvi)
 Proof
   rw [EVERY_MEM, bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
   (* bvi_inline runs last and preserves names, so the final program's names
-     are bvi_tmc's output: a name is either in the bvi_tailrec output, or a
-     fresh ns-3 name (>= next_name3 >= num_stubs) *)
+     are bvi_cpr's output: a name is either in the bvi_tmc output, or a
+     fresh ns-4 name (>= next_name4 >= num_stubs); a bvi_tmc output name is
+     either in the bvi_tailrec output, or a fresh ns-3 name *)
   \\ imp_res_tac bvi_inlineProofTheory.compile_inc_MAP_FST
   \\ fs []
+  \\ drule (GEN_ALL bvi_cprProofTheory.compile_prog_MEM)
+  \\ disch_then drule
+  \\ strip_tac
+  \\ gvs []
   \\ drule (GEN_ALL bvi_tmcProofTheory.compile_prog_MEM)
   \\ disch_then drule
   \\ strip_tac
@@ -987,17 +1050,20 @@ Proof
   \\ drule (GEN_ALL bvl_to_bvi_compile_inc_all_num_stubs_LE)
   \\ disch_then irule
   \\ `bvl_num_stubs <= c'.bvl_conf.next_name2 /\
-      bvl_num_stubs <= c'.bvl_conf.next_name3` by (
+      bvl_num_stubs <= c'.bvl_conf.next_name3 /\
+      bvl_num_stubs <= c'.bvl_conf.next_name4` by (
     fs [backendTheory.compile_def, compile_tap_def, bvl_to_bviTheory.compile_def]
     \\ rpt (pairarg_tac \\ fs [])
     \\ drule_then assume_tac attach_bitmaps_SOME
     \\ rveq \\ fs []
     \\ imp_res_tac bvi_tailrecProofTheory.compile_prog_next_mono
     \\ imp_res_tac bvi_tmcProofTheory.compile_prog_next_mono
+    \\ imp_res_tac bvi_cprProofTheory.compile_prog_next_mono
     \\ rw [])
-  \\ conj_tac
+  \\ rpt conj_tac
   >- (mp_tac configs_nn2_MULT_namespaces \\ rw [] \\ fs [])
-  \\ mp_tac configs_nn3_MULT_namespaces \\ rw [] \\ fs []
+  >- (mp_tac configs_nn3_MULT_namespaces \\ rw [] \\ fs [])
+  \\ mp_tac configs_nn4_MULT_namespaces \\ rw [] \\ fs []
 QED
 
 Theorem stack_to_lab_orac_eq_std_sym = stack_to_lab_orac_eq
@@ -1223,13 +1289,15 @@ QED
 Theorem bvl_to_bvi_compile_inc_all_DISTINCT:
   bvl_to_bvi_compile_inc_all c p = (c', p') /\
   ALL_DISTINCT (MAP FST p) /\ c.next_name2 MOD bvl_to_bvi_namespaces = 2 /\
-  c.next_name3 MOD bvl_to_bvi_namespaces = 3 ==>
+  c.next_name3 MOD bvl_to_bvi_namespaces = 3 /\
+  c.next_name4 MOD bvl_to_bvi_namespaces = 4 /\
+  bvl_num_stubs <= c.next_name4 ==>
   ALL_DISTINCT (MAP FST p')
 Proof
   mp_tac (GEN_ALL ALL_DISTINCT_MAP_FST_SND_full_co
     |> Q.SPECL [`n`,
          `K ((c.inlines, c.next_name1, c.next_name2, c.next_name3,
-              c.bvi_inlines, cfg), p)`, `c`])
+              (c.next_name4, c.cpr_map), c.bvi_inlines, cfg), p)`, `c`])
   \\ simp [bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def, full_co_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ simp [state_co_def]
@@ -1240,7 +1308,7 @@ QED
 Theorem cake_orac_stack_ALL_DISTINCT:
   compile asm_conf c prog = SOME (b, bm, c') ==>
   ALL_DISTINCT (MAP FST (FST (SND (cake_orac asm_conf c' syntax
-    (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+    (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
     (λps. (ps.stack_prog,ps.cur_bm)) n))))
 Proof
   rw []
@@ -1254,12 +1322,15 @@ Proof
   \\ simp[word_to_wordTheory.full_compile_single_def, UNCURRY]
   \\ simp [ETA_THM]
   \\ drule_then irule bvl_to_bvi_compile_inc_all_DISTINCT
-  \\ simp [configs_nn2_MOD_namespaces, configs_nn3_MOD_namespaces]
+  \\ simp [configs_nn2_MOD_namespaces, configs_nn3_MOD_namespaces,
+           configs_nn4_MOD_namespaces]
+  \\ mp_tac configs_nn4_MULT_namespaces \\ strip_tac \\ simp []
   \\ fs [backendTheory.compile_def, compile_tap_def, bvl_to_bviTheory.compile_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ drule attach_bitmaps_SOME
   \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
   \\ imp_res_tac bvi_tmcProofTheory.compile_prog_next_mono
+  \\ imp_res_tac bvi_cprProofTheory.compile_prog_next_mono
   \\ rw []
   \\ simp []
   \\ EVAL_TAC
@@ -1336,7 +1407,7 @@ QED
 
 Theorem lab_labels_ok_oracle:
   compile asm_conf c prog = SOME (b, bm, c') /\
-  cake_orac asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+  cake_orac asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
     (λps. ps.lab_prog) i = (cfg,code) ==>
   stack_to_labProof$labels_ok code
 Proof
@@ -1433,7 +1504,7 @@ Theorem accum_lab_conf_labels:
   compile asm_conf c prog = SOME (b, bm, c') ==>
   domain (cake_configs asm_conf c' syntax i).lab_conf.labels ⊆
   domain c'.lab_conf.labels ∪ BIGUNION (set (MAP (set ∘ MAP Section_num ∘
-    SND ∘ cake_orac asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+    SND ∘ cake_orac asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
     (λps. ps.lab_prog)) (COUNT_LIST i)))
 Proof
   disch_tac \\ Induct_on `i`
@@ -1701,6 +1772,18 @@ Proof
   \\ fs [EVAL ``0 < bvl_to_bvi_namespaces``]
 QED
 
+Theorem cpr_compile_prog_MEM_not_nss_4:
+  ∀ys xs n1 c1 n csh e do_it.
+  bvi_cpr$compile_prog do_it (n,csh) xs = ((n1,c1),ys) ∧ MEM e (MAP FST ys) ∧
+  n MOD bvl_to_bvi_namespaces = 4 /\ e MOD bvl_to_bvi_namespaces ≠ 4 ⇒
+  MEM e (MAP FST xs)
+Proof
+  rw []
+  \\ drule_then drule (GEN_ALL bvi_cprProofTheory.compile_prog_MEM)
+  \\ rw []
+  \\ fs [EVAL ``0 < bvl_to_bvi_namespaces``]
+QED
+
 Theorem is_state_oracle_tailrec_cake_orac:
   compile asm_conf c prog = SOME (b,bm,c') ==>
   is_state_oracle (bvi_tailrec_compile_prog c.bvl_conf.do_tailrec)
@@ -1732,6 +1815,32 @@ Theorem is_state_oracle_tmc_cake_orac:
       (bvl_inline_compile_inc c.bvl_conf.inline_size_limit
         c.bvl_conf.split_main_at_seq c.bvl_conf.exp_cut)
       (cake_orac asm_conf c' syntax config_tuple2 (λps. ps.bvl_prog)))))
+Proof
+  rw []
+  \\ REWRITE_TAC [state_co_eq_comp, o_ASSOC]
+  \\ irule is_state_oracle_cake_orac_comp
+  \\ rw []
+  \\ simp [compile_inc_progs_defs, state_co_fun_def,
+           bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ fs [config_tuple2_def]
+  \\ rveq \\ fs []
+  \\ drule_then (fn t => fs (CONJUNCTS t)) cake_orac_config_eqs
+  \\ rveq \\ fs []
+  \\ rveq \\ fs []
+  \\ rfs [] \\ fs []
+QED
+
+Theorem is_state_oracle_cpr_cake_orac:
+  compile asm_conf c prog = SOME (b,bm,c') ==>
+  is_state_oracle (bvi_cpr$compile_prog c.bvl_conf.do_cpr)
+    (state_co (bvi_tmc_compile_prog c.bvl_conf.do_tmc)
+      (state_co (bvi_tailrec_compile_prog c.bvl_conf.do_tailrec)
+        (state_co bvl_to_bvi_compile_inc (state_co
+        (bvl_inline_compile_inc c.bvl_conf.inline_size_limit
+          c.bvl_conf.split_main_at_seq c.bvl_conf.exp_cut)
+        (cake_orac asm_conf c' syntax config_tuple2 (λps. ps.bvl_prog))))))
 Proof
   rw []
   \\ REWRITE_TAC [state_co_eq_comp, o_ASSOC]
@@ -1788,6 +1897,36 @@ Proof
   simp [oracle_monotonic_def]
 QED
 
+(* bvi_cpr only adds names in namespace 4, so a slice of another namespace
+   cannot see it. *)
+Theorem oracle_monotonic_bvi_cpr_inter:
+  z ≠ 4 ∧ (∀n. FST (FST (FST (co n))) MOD bvl_to_bvi_namespaces = 4) ⇒
+  (oracle_monotonic
+     (λx. set (MAP FST (SND x)) ∩ PREIMAGE (λi. i MOD bvl_to_bvi_namespaces) {z})
+     R init (state_co (bvi_cpr$compile_prog b) co) ⇔
+   oracle_monotonic
+     (λx. set (MAP FST (SND x)) ∩ PREIMAGE (λi. i MOD bvl_to_bvi_namespaces) {z})
+     R init co)
+Proof
+  strip_tac
+  >> ‘∀n. set (MAP FST (SND (state_co (bvi_cpr$compile_prog b) co n))) ∩
+          PREIMAGE (λi. i MOD bvl_to_bvi_namespaces) {z} =
+          set (MAP FST (SND (co n))) ∩
+          PREIMAGE (λi. i MOD bvl_to_bvi_namespaces) {z}’
+    by (
+      gen_tac
+      >> first_x_assum (qspec_then ‘n’ mp_tac)
+      >> simp [state_co_def]
+      >> rpt (pairarg_tac >> gvs [])
+      >> rename1 ‘compile_prog b sa p0 = (sb,p1)’
+      >> PairCases_on ‘sa’ >> PairCases_on ‘sb’
+      >> rw [EXTENSION, IN_PREIMAGE]
+      >> metis_tac [cpr_compile_prog_MEM_not_nss_4,
+                    bvi_cprProofTheory.compile_prog_keeps_names])
+  >> simp_tac bool_ss [oracle_monotonic_def]
+  >> asm_rewrite_tac []
+QED
+
 Theorem oracle_monotonic_subset_inject:
   !g. (!x y. R (g x) (g y) ==> R' x y) ∧
   IMAGE g init_set' ⊆ init_set ∧ (∀n. IMAGE g (f' (co' n)) ⊆ f (co n)) ==>
@@ -1842,12 +1981,12 @@ Theorem monotonic_DISJOINT_labels_lab:
   compile asm_conf c prog = SOME (b, bm, c') /\
   oracle_monotonic (set ∘ MAP Section_num ∘ SND) (≠)
     (domain c'.lab_conf.labels)
-    (cake_orac asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+    (cake_orac asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
                 (λps. ps.lab_prog))
   ==>
   DISJOINT (domain (cake_configs asm_conf c' syntax i).lab_conf.labels)
     (set (MAP Section_num (SND (cake_orac asm_conf c' syntax
-      (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.lab_prog) i))))
+      (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.lab_prog) i))))
 Proof
   rw []
   \\ old_drule accum_lab_conf_labels
@@ -1876,12 +2015,12 @@ Theorem monotonic_labels_stack_to_lab:
   ==>
   oracle_monotonic (set o MAP FST o FST o SND) (≠)
     (set (MAP FST (FST (SND (SND (to_stack asm_conf c prog))))) ∪ count (SUC gc_stub_location))
-    (cake_orac asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+    (cake_orac asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
         (λps. (ps.stack_prog,ps.cur_bm)))
  ==>
   oracle_monotonic (set ∘ MAP Section_num ∘ SND) (≠)
     (domain c'.lab_conf.labels)
-    (cake_orac asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+    (cake_orac asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
         (λps. ps.lab_prog))
 Proof
   disch_tac
@@ -1917,11 +2056,11 @@ Theorem monotonic_labels_bvi_down_to_stack:
   ==>
   oracle_monotonic (set o MAP FST o SND) (≠)
     (set (MAP FST (FST (SND (to_bvi c prog)))) ∪ count (SUC data_num_stubs))
-    (cake_orac asm_conf c' syntax (SND o SND o SND o SND o SND o config_tuple2) (\ps. ps.bvi_prog))
+    (cake_orac asm_conf c' syntax (SND o SND o SND o SND o SND o SND o config_tuple2) (\ps. ps.bvi_prog))
   ==>
   oracle_monotonic (set o MAP FST o FST o SND) (≠)
     (set (MAP FST (FST (SND (SND (to_stack asm_conf c prog))))) ∪ count (SUC gc_stub_location))
-    (cake_orac asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+    (cake_orac asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
         (λps. (ps.stack_prog,ps.cur_bm)))
 Proof
   disch_tac
@@ -1973,7 +2112,7 @@ Theorem monotonic_labels_bvl_to_bvi:
   ==>
   oracle_monotonic (set o MAP FST o SND) (≠)
     (set (MAP FST (FST (SND (to_bvi c prog)))) ∪ count (SUC data_num_stubs))
-    (cake_orac asm_conf c' syntax (SND o SND o SND o SND o SND o config_tuple2) (\ps. ps.bvi_prog))
+    (cake_orac asm_conf c' syntax (SND o SND o SND o SND o SND o SND o config_tuple2) (\ps. ps.bvi_prog))
 Proof
   rw []
   \\ irule (Q.ISPEC `\i. i MOD bvl_to_bvi_namespaces` oracle_monotonic_slice)
@@ -1995,6 +2134,10 @@ Proof
       \\ rveq \\ fs []
       \\ imp_res_tac bvi_inlineProofTheory.compile_inc_MAP_FST
       \\ fs []
+      \\ CCONTR_TAC \\ fs []
+      \\ drule_then drule cpr_compile_prog_MEM_not_nss_4
+      \\ drule_then drule configs_nn4_MOD_namespaces_ok
+      \\ rw [configs_nn4_MOD_namespaces]
       \\ CCONTR_TAC \\ fs []
       \\ drule_then drule tmc_compile_prog_MEM_not_nss_3
       \\ drule_then drule configs_nn3_MOD_namespaces_ok
@@ -2026,6 +2169,9 @@ Proof
       \\ Cases_on `n < SUC data_num_stubs`
       >- ( pop_assum mp_tac \\ EVAL_TAC \\ simp [] )
       \\ rw []
+      \\ drule_then drule cpr_compile_prog_MEM_not_nss_4
+      \\ simp [EVAL ``(bvl_num_stubs + 4) MOD bvl_to_bvi_namespaces``]
+      \\ disch_tac
       \\ drule_then drule tmc_compile_prog_MEM_not_nss_3
       \\ simp [EVAL ``(bvl_num_stubs + 3) MOD bvl_to_bvi_namespaces``]
       \\ disch_tac
@@ -2047,9 +2193,12 @@ Proof
     \\ imp_res_tac bvi_inlineProofTheory.compile_inc_MAP_FST
     \\ fs []
     \\ simp [SUBSET_DEF, PULL_EXISTS, IN_PREIMAGE]
+    \\ drule_then drule configs_nn4_MOD_namespaces_ok
     \\ drule_then drule configs_nn3_MOD_namespaces_ok
     \\ drule_then drule configs_nn2_MOD_namespaces_ok
     \\ rw []
+    \\ drule_then drule cpr_compile_prog_MEM_not_nss_4
+    \\ rw [configs_nn4_MOD_namespaces]
     \\ drule_then drule tmc_compile_prog_MEM_not_nss_3
     \\ rw [configs_nn3_MOD_namespaces]
     \\ drule_then drule tailrec_compile_prog_MEM_not_nss_2
@@ -2079,6 +2228,10 @@ Proof
       \\ imp_res_tac bvl_to_bviProofTheory.compile_inc_next
       \\ simp []
       \\ gen_tac \\ disch_tac \\ fs []
+      \\ drule_then drule configs_nn4_MOD_namespaces_ok
+      \\ drule_then drule cpr_compile_prog_MEM_not_nss_4
+      \\ simp [configs_nn4_MOD_namespaces]
+      \\ rpt disch_tac \\ fs []
       \\ drule_then drule configs_nn3_MOD_namespaces_ok
       \\ drule_then drule tmc_compile_prog_MEM_not_nss_3
       \\ simp [configs_nn3_MOD_namespaces]
@@ -2103,6 +2256,9 @@ Proof
       (* bvi_inline runs last and preserves names *)
       \\ imp_res_tac bvi_inlineProofTheory.compile_inc_MAP_FST
       \\ fs []
+      \\ drule_then drule cpr_compile_prog_MEM_not_nss_4
+      \\ simp [EVAL ``(bvl_num_stubs + 4) MOD bvl_to_bvi_namespaces``]
+      \\ rw []
       \\ drule_then drule tmc_compile_prog_MEM_not_nss_3
       \\ simp [EVAL ``(bvl_num_stubs + 3) MOD bvl_to_bvi_namespaces``]
       \\ rw []
@@ -2128,6 +2284,13 @@ Proof
     \\ drule_then (mp_tac o GSYM) bvl_to_bvi_orac_eq
     \\ simp [full_co_def]
     \\ disch_then kall_tac
+    \\ DEP_REWRITE_TAC [oracle_monotonic_bvi_cpr_inter]
+    \\ conj_tac
+    >- (
+      simp [FST_state_co, cake_orac_def, config_tuple2_def, UNCURRY,
+            configs_nn4_MOD_namespaces]
+      \\ metis_tac [configs_nn4_MOD_namespaces_ok]
+    )
     \\ qmatch_goalsub_abbrev_tac `state_co (bvi_tmc_compile_prog _) inner`
     \\ sg `oracle_monotonic
           (\x. set (MAP FST (SND x)) INTER
@@ -2174,6 +2337,9 @@ Proof
           EVAL ``(bvl_num_stubs + 2) MOD bvl_to_bvi_namespaces``]
       \\ assume_tac (EVAL ``SUC data_num_stubs <= bvl_num_stubs``)
       \\ fs [] \\ rw [] \\ simp []
+      \\ drule_then drule cpr_compile_prog_MEM_not_nss_4
+      \\ simp [EVAL ``(bvl_num_stubs + 4) MOD bvl_to_bvi_namespaces``]
+      \\ disch_tac \\ fs []
       \\ drule_then drule tmc_compile_prog_MEM_not_nss_3
       \\ simp [EVAL ``(bvl_num_stubs + 3) MOD bvl_to_bvi_namespaces``]
       \\ disch_tac \\ fs []
@@ -2207,6 +2373,13 @@ Proof
     \\ drule_then (mp_tac o GSYM) bvl_to_bvi_orac_eq
     \\ simp [full_co_def]
     \\ disch_then kall_tac
+    \\ DEP_REWRITE_TAC [oracle_monotonic_bvi_cpr_inter]
+    \\ conj_tac
+    >- (
+      simp [FST_state_co, cake_orac_def, config_tuple2_def, UNCURRY,
+            configs_nn4_MOD_namespaces]
+      \\ metis_tac [configs_nn4_MOD_namespaces_ok]
+    )
     \\ irule (Q.ISPEC `\n. n MOD bvl_to_bvi_namespaces = 3`
             oracle_monotonic_state_with_inv
         |> Q.SPEC `\n. n`)
@@ -2257,6 +2430,9 @@ Proof
         EVAL ``(bvl_num_stubs + 3) MOD bvl_to_bvi_namespaces``]
     \\ assume_tac (EVAL ``SUC data_num_stubs <= bvl_num_stubs``)
     \\ fs [] \\ rw [] \\ simp []
+    \\ drule_then drule cpr_compile_prog_MEM_not_nss_4
+    \\ simp [EVAL ``(bvl_num_stubs + 4) MOD bvl_to_bvi_namespaces``]
+    \\ disch_tac \\ fs []
     \\ drule_then drule (GEN_ALL bvi_tmcProofTheory.compile_prog_MEM)
     \\ disch_tac \\ fs []
     \\ drule_then drule tailrec_compile_prog_MEM_not_nss_2
@@ -2269,6 +2445,81 @@ Proof
     >- (gvs [] \\ qpat_x_assum `_ MOD _ = 3` mp_tac \\ EVAL_TAC \\ simp [])
     \\ qpat_x_assum `MEM _ (MAP FST (stubs _ _))` mp_tac
     \\ EVAL_TAC \\ rw [] \\ simp []
+  )
+  \\ Cases_on `z = 4`
+  >- (
+    (* labels in modulus group 4 are allocated by bvi_cpr *)
+    irule (Q.ISPEC `((<) : num -> num -> bool)` oracle_monotonic_rel_mono)
+    \\ simp []
+    \\ drule_then (mp_tac o GSYM) bvl_to_bvi_orac_eq
+    \\ simp [full_co_def]
+    \\ disch_then kall_tac
+    \\ irule (Q.ISPEC `\st. FST st MOD bvl_to_bvi_namespaces = 4`
+            oracle_monotonic_state_with_inv
+        |> Q.SPEC `FST`)
+    \\ drule_then (fn t => simp [t]) is_state_oracle_cpr_cake_orac
+    \\ conj_tac
+    >- (
+      rpt gen_tac \\ disch_tac
+      \\ PairCases_on `st` \\ PairCases_on `st'`
+      \\ fs []
+      \\ drule bvi_cprProofTheory.compile_prog_next_mono
+      \\ disch_tac \\ fs [EVAL ``0 < bvl_to_bvi_namespaces``]
+      \\ gen_tac \\ disch_tac \\ fs []
+      \\ drule_then drule (GEN_ALL bvi_cprProofTheory.compile_prog_MEM)
+      \\ strip_tac \\ fs []
+      \\ fs [state_co_def]
+      \\ rpt (pairarg_tac \\ fs [])
+      \\ rveq \\ fs []
+      \\ qpat_x_assum `cake_orac _ _ _ _ _ _ = _` mp_tac
+      \\ simp [cake_orac_def, config_tuple2_def]
+      \\ strip_tac \\ rveq \\ fs []
+      \\ rpt (pairarg_tac \\ fs [])
+      \\ rveq \\ fs []
+      \\ drule_then drule tmc_compile_prog_MEM_not_nss_3
+      \\ drule_then drule configs_nn3_MOD_namespaces_ok
+      \\ rw [configs_nn3_MOD_namespaces]
+      \\ drule_then drule tailrec_compile_prog_MEM_not_nss_2
+      \\ drule_then drule configs_nn2_MOD_namespaces_ok
+      \\ rw [configs_nn2_MOD_namespaces]
+      \\ drule_then drule
+            (GEN_ALL bvl_to_bviProofTheory.compile_inc_next_range)
+      \\ rw []
+    )
+    \\ simp [FST_state_co, pred_setTheory.IN_PREIMAGE, cake_orac_0,
+            config_tuple2_def]
+    \\ fs [backendTheory.compile_def, compile_tap_def,
+          to_bvi_def, to_bvl_def, to_clos_def, to_flat_def,
+          bvl_to_bviTheory.compile_def, bvi_inlineTheory.compile_prog_def]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ drule_then assume_tac attach_bitmaps_SOME
+    \\ ntac 6 (rveq \\ fs [])
+    \\ imp_res_tac bvi_inlineProofTheory.compile_inc_MAP_FST
+    \\ fs []
+    \\ drule bvi_cprProofTheory.compile_prog_next_mono
+    \\ disch_tac \\ fs []
+    \\ simp [EVAL ``0 < bvl_to_bvi_namespaces``,
+        EVAL ``(bvl_num_stubs + 4) MOD bvl_to_bvi_namespaces``]
+    \\ assume_tac (EVAL ``SUC data_num_stubs <= bvl_num_stubs``)
+    \\ fs [] \\ rw [] \\ simp []
+    >- (
+      drule_then drule (GEN_ALL bvi_cprProofTheory.compile_prog_MEM)
+      \\ strip_tac \\ fs []
+      \\ drule_then drule tmc_compile_prog_MEM_not_nss_3
+      \\ simp [EVAL ``(bvl_num_stubs + 3) MOD bvl_to_bvi_namespaces``]
+      \\ disch_tac
+      \\ drule_then drule tailrec_compile_prog_MEM_not_nss_2
+      \\ simp [EVAL ``(bvl_num_stubs + 2) MOD bvl_to_bvi_namespaces``]
+      \\ disch_tac
+      \\ old_drule bvl_to_bviProofTheory.compile_prog_code_labels_domain
+      \\ disch_tac \\ fs []
+      \\ fs [EVAL ``0 < bvl_to_bvi_namespaces``,
+             EVAL ``bvl_num_stubs MOD bvl_to_bvi_namespaces``]
+      >- (qpat_x_assum `_ MOD _ = 4` mp_tac \\ EVAL_TAC)
+      \\ qpat_x_assum `MEM _ (MAP FST (stubs _ _))` mp_tac
+      \\ EVAL_TAC \\ rw [] \\ simp []
+    )
+    \\ EVAL_TAC
   )
   \\ qpat_x_assum `z < _`
     (mp_tac o CONV_RULE EVAL o REWRITE_RULE [GSYM IN_COUNT])
@@ -2334,7 +2585,7 @@ Theorem good_code_lab_oracle:
     - older labels must always be there
     - newer labels should never overlap older ones
   *)
-  cake_orac asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+  cake_orac asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
     (λps. ps.lab_prog) i = (cfg,code) /\
   backend_config_ok asm_conf c /\
   asm_conf = mc.target.config /\
@@ -2668,7 +2919,7 @@ Proof
 QED
 
 Theorem data_to_word_orac_eq_std = data_to_word_orac_eq
-  |> SPEC_ALL |> Q.GEN `f4` |> Q.ISPEC `(SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)` |> GEN_ALL
+  |> SPEC_ALL |> Q.GEN `f4` |> Q.ISPEC `(SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)` |> GEN_ALL
 
 Theorem data_to_word_orac_eq_sym_std = data_to_word_orac_eq_std
   |> SIMP_RULE bool_ss []
@@ -3698,6 +3949,7 @@ Proof
     \\ imp_res_tac clos_to_bvlProofTheory.compile_all_distinct_locs
     \\ drule_then (fn t => simp [t]) is_state_oracle_tailrec_cake_orac
     \\ drule_then (fn t => simp [t]) is_state_oracle_tmc_cake_orac
+    \\ drule_then (fn t => simp [t]) is_state_oracle_cpr_cake_orac
     (* equalities on final config *)
     \\ EVERY (map imp_res_tac from_EXS)
     \\ fs []
@@ -3717,7 +3969,7 @@ Proof
   \\ disch_then (qspec_then `dataProps$zero_limits` mp_tac)
   \\ once_rewrite_tac [dataPropsTheory.semantics_zero_limits]
   \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\
-  qmatch_assum_abbrev_tac `from_data _ c4 n4 p4 = _` \\
+  qmatch_assum_abbrev_tac `from_data _ c4 nm4 p4 = _` \\
   qhdtm_x_assum`from_data`mp_tac
   \\ simp[from_data_def]
   \\ pairarg_tac \\ fs[]
@@ -3730,16 +3982,16 @@ Proof
   qmatch_goalsub_abbrev_tac`cake_orac _ _ orac_syntax _ (\ps. ps.bvi_prog)` \\
   simp [simple_orac_eqs] \\
   qabbrev_tac `data_oracle = cake_orac mc.target.config c' orac_syntax
-        (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.data_prog)` \\
+        (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.data_prog)` \\
   qabbrev_tac `word_oracle = cake_orac mc.target.config c' orac_syntax
-        (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.word_prog)` \\
+        (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.word_prog)` \\
   qmatch_assum_rename_tac`compile _ _ p5 = (bm,c6,_,p6)` \\
   fs[from_stack_def,from_lab_def] \\
 
   qabbrev_tac `stack_oracle = cake_orac mc.target.config c' orac_syntax
-        (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. (ps.stack_prog, ps.cur_bm))` \\
+        (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. (ps.stack_prog, ps.cur_bm))` \\
   qabbrev_tac `lab_oracle = cake_orac mc.target.config c' orac_syntax
-        (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.lab_prog)` \\
+        (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.lab_prog)` \\
   qmatch_assum_abbrev_tac`_ _ (compile _ c4.lab_conf p7) = SOME (bytes,bitmaps,c')`
   \\ drule attach_bitmaps_SOME
   \\ disch_tac \\ fs []
@@ -3835,13 +4087,14 @@ Proof
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
   \\ rveq
   \\ old_drule clos_to_bvlProofTheory.compile_all_distinct_locs
   \\ strip_tac
   \\ disch_then(qspec_then`0`mp_tac) \\ simp[] \\ strip_tac
   \\ `stubs (:'a) c4.data_conf = stubs (:'a) c4_data_conf` by ( simp[Abbr`c4_data_conf`] )
-  \\ qmatch_assum_rename_tac`bvi_tmc_compile_prog _ _ _ = (_,p3)`
-  (* bvi_inline runs after bvi_tmc and preserves names *)
+  \\ qmatch_assum_rename_tac`bvi_cpr$compile_prog _ _ _ = (_,p3)`
+  (* bvi_inline runs after bvi_cpr and preserves names *)
   \\ qpat_assum `bvi_inline$compile_prog _ = _`
        (strip_assume_tac o REWRITE_RULE [bvi_inlineTheory.compile_prog_def])
   \\ imp_res_tac bvi_inlineProofTheory.compile_inc_MAP_FST

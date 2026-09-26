@@ -382,6 +382,34 @@ Proof
   \\ rw [] \\ every_case_tac \\ gvs []
 QED
 
+(* bvi_cpr cpr_shape encoding *)
+
+val cpr_shape_exp = backend_enc_decTheory.bvi_cpr_cpr_shape_enc'_def
+                |> SRULE [SF ETA_ss, num_tree_enc_decTheory.list_enc'_def];
+val cpr_shape_exps = MAP |> CONJUNCTS |> map (Q.ISPEC ‘bvi_cpr_cpr_shape_enc'’);
+
+val name = "cpr_shape_enc_aux"
+val c = “bvi_cpr_cpr_shape_enc'”
+val r = mk_var(name,type_of c)
+val c_list = “MAP bvi_cpr_cpr_shape_enc'”
+val r_list = mk_var(name ^ "_list",type_of c_list)
+
+Definition cpr_shape_enc_aux_def:
+  ^(LIST_CONJ (CONJUNCTS cpr_shape_exp @ cpr_shape_exps |> map SPEC_ALL)
+           |> concl |> subst [c|->r,c_list|->r_list])
+End
+
+val _ = cv_auto_trans cpr_shape_enc_aux_def;
+
+Theorem cpr_shape_enc_aux_thm[cv_inline,local]:
+  bvi_cpr_cpr_shape_enc' = cpr_shape_enc_aux ∧
+  MAP bvi_cpr_cpr_shape_enc' = cpr_shape_enc_aux_list
+Proof
+  gvs [FUN_EQ_THM] \\ Induct
+  \\ gvs [cpr_shape_enc_aux_def,backend_enc_decTheory.bvi_cpr_cpr_shape_enc'_def,
+          num_tree_enc_decTheory.list_enc'_def,SF ETA_ss]
+QED
+
 val _ = cv_auto_trans backend_enc_decTheory.bvl_to_bvi_config_enc_def;
 
 (* closLang_exp encoding *)
