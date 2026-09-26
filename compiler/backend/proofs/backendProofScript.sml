@@ -3554,7 +3554,17 @@ Proof
   \\ fs [prim_sem_env_eq]
   \\ rveq \\ fs []
   \\ qexists_tac `I`
+  \\ simp [source_to_flatProofTheory.init_global_env_inv_def,
+        source_to_flatProofTheory.env_domain_eq_def,
+        nsDomMod_Bind_empty_modules]
   \\ EVAL_TAC
+  \\ rpt conj_tac
+  \\ simp [SUBSET_DEF, GSPECIFICATION, EXISTS_PROD,
+        namespaceTheory.nsLookupMod_def]
+  \\ gen_tac
+  \\ Cases_on `x`
+  \\ fs [namespaceTheory.nsLookup_def, namespaceTheory.nsLookupMod_def]
+  \\ rpt (IF_CASES_TAC \\ fs [])
 QED
 
 Theorem flat_semantics:

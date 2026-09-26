@@ -3092,7 +3092,8 @@ Proof
                  r with
                  <|clock := t.clock − 1;
                    compile_oracle := (λi. r.compile_oracle (i + 1));
-                   ptr_eq_oracle := (λi. r.ptr_eq_oracle (i + 1))|>)` \\ fs [] \\ rveq \\ fs []
+                   ptr_eq_oracle := (λi. r.ptr_eq_oracle (i + 1));
+                   code := FEMPTY|>)` \\ fs [] \\ rveq \\ fs []
       \\ `q ≠ Rerr (Rabort Rtype_error)` by (every_case_tac \\ fs [] \\ rveq \\ fs [])
       \\ fs []
       \\ first_x_assum old_drule
@@ -3132,7 +3133,7 @@ Proof
       \\ conj_tac THEN1
        (`wfv_state g2 l2 t.code (r with
           <|clock := t.clock − 1;
-            compile_oracle := (λi. r.compile_oracle (i + 1));
+            compile_oracle := (λi. r.compile_oracle (i + 1)); code := FEMPTY;
             ptr_eq_oracle := (λi. r.ptr_eq_oracle (i + 1))|>)`
               by (fs [code_inv_def,wfv_state_def] \\ fs [] \\ rfs [])
         \\ match_mp_tac (GEN_ALL wfv_state_subg)

@@ -103,8 +103,8 @@ Proof
     rpt (TOP_CASE_TAC >> gvs[step_result_rel_cases]) >>
     simp[return_def] >> gvs[ctxt_rel_def] >>
     simp[ctxt_frame_rel_cases]
-    )
-  >- (
+    ) >>
+  (
     rw[application_def, cml_application_thm] >>
     Cases_on `do_app (st,ffi) op vs` >> gvs[] >>
     Cases_on `do_app st op vs` >> gvs[]

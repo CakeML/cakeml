@@ -1995,8 +1995,8 @@ Definition ptr_eq_trace_def:
      case (get_var v1 s, get_var v2 s) of
      | (SOME (Word w1), SOME (Word w2)) => [[w1 = w2]]
      | _ => [[]]) ∧
-  (ptr_eq_trace (Install ptr len dptr dlen names) s =
-     case evaluate (Install ptr len dptr dlen names, s) of
+  (ptr_eq_trace (Install ptr len cptr dptr dlen names) s =
+     case evaluate (Install ptr len cptr dptr dlen names, s) of
      | (NONE,_) => [[];[]]
      | _ => [[]]) ∧
   (ptr_eq_trace (MustTerminate p) s =

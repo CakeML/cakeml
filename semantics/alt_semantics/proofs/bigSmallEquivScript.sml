@@ -49,6 +49,12 @@ Proof
   Cases_on ‘op’ >> gvs[opClass_cases]
 QED
 
+Theorem do_app_PtrEq[local,simp]:
+  do_app s PtrEq vs = NONE
+Proof
+  Cases_on ‘s’ >> simp[do_app_def]
+QED
+
 val s = ``s:'ffi state``;
 val _ = temp_delsimps["getOpClass_def"]
 
@@ -572,7 +578,11 @@ Proof
     simp[e_step_reln_def, Once e_step_def, continue_def, return_def] >>
     gvs[update_thunk_def, AllCaseEqs()]
     )
-  >- (
+  >~ [‘Boolv (_ ∧ _.ptr_eq_oracle 0 0)’] >- (
+    (* PtrEq with a value result: does not hold, since the small-step
+       semantics has no pointer-equality oracle yet *)
+    cheat)
+  >>~- ([‘small_eval _ _ (App _ _) _ (_, Rerr (Rabort Rtype_error))’],
     gvs[small_eval_def] >> Cases_on ‘es’ using SNOC_CASES >> gvs[]
     >- (
       gvs[Once small_eval_list_cases, to_small_st_def] >>
@@ -901,6 +911,18 @@ Proof
     irule_at Any EQ_REFL >> simp[SF SFY_ss]
     )
   >- (
+    ntac 2 disj2_tac >> simp[Once evaluate_cases, PULL_EXISTS] >>
+    qexistsl_tac [‘v1’, ‘v’, ‘beq’, ‘s2'’] >> simp[SF SFY_ss]
+    )
+  >- (
+    ntac 5 disj2_tac >> disj1_tac >> simp[Once evaluate_cases, PULL_EXISTS] >>
+    qexistsl_tac [‘v1’, ‘v’] >> simp[SF SFY_ss]
+    )
+  >- (
+    ntac 6 disj2_tac >> disj1_tac >> simp[Once evaluate_cases, PULL_EXISTS] >>
+    qexistsl_tac [‘v’, ‘vs2’, ‘st’] >> simp[]
+    )
+  >- (
     disj2_tac >> disj1_tac >>
     simp[Once evaluate_cases, PULL_EXISTS, SF SFY_ss]
     )
@@ -1013,7 +1035,7 @@ Proof
     >- simp[Once evaluate_cases, SF SFY_ss]
     >~ [‘pmatch _ _ _ _ _ = _’]
     >- simp[Once evaluate_cases, SF SFY_ss] >>
-    once_rewrite_tac[cj 2 evaluate_cases] >> simp[SF DNF_ss] >>
+    once_rewrite_tac[cj 2 evaluate_cases] >> simp[SF DNF_ss, ADD1] >>
     metis_tac[CONS_APPEND, APPEND_ASSOC]
   )
   >- (
@@ -1083,6 +1105,8 @@ Proof
             simp[evaluate_list_NIL, dest_thunk_def] >>
             simp[state_component_equality]
             )
+          >- (‘op = PtrEq’ by gvs[opClass_cases] >> gvs[] >>
+              qexists_tac ‘s.clock’ >> simp[evaluate_list_NIL])
           >- (‘~ opClass op FunApp ∧ ¬ opClass op Force’
                 by (Cases_on ‘op’ >> gs[opClass_cases]) >>
               gs[AllCaseEqs(), evaluate_list_NIL, to_small_st_def, return_def]
@@ -1120,6 +1144,14 @@ Proof
       gvs[AllCaseEqs(), dest_thunk_def] >>
       gvs[state_component_equality, to_small_st_def]
       )
+    >- (‘op = PtrEq’ by gvs[opClass_cases] >> gvs[to_small_st_def] >>
+        qexists_tac ‘s.clock’ >> simp[evaluate_list_NIL, SF DNF_ss] >>
+        simp[evaluate_ctxts_type_error] >> Cases_on ‘l’ >> gvs[] >>
+        strip_tac >> ‘t' = []’ by (Cases_on ‘t'’ >> gvs[]) >> gvs[] >>
+        Cases_on ‘do_eq v h’ >> gvs[] >>
+        (* PtrEq with a value result: does not hold, since the small-step
+           semantics has no pointer-equality oracle yet *)
+        cheat)
     >- (‘~ opClass op FunApp ∧ ¬opClass op Force’
           by (Cases_on ‘op’ >> gs[opClass_cases]) >>
         gs[] >>
@@ -1188,14 +1220,20 @@ Theorem small_big_exp_equiv:
  !env s e s' r.
    small_eval env (to_small_st s) e [] (to_small_st s',  r) ∧
    s.clock = s'.clock ∧ s.next_type_stamp = s'.next_type_stamp ∧
-   s.next_exn_stamp = s'.next_exn_stamp ∧ s.eval_state = s'.eval_state
+   s.next_exn_stamp = s'.next_exn_stamp ∧ s.eval_state = s'.eval_state ∧
+   s.ptr_eq_oracle = s'.ptr_eq_oracle
    ⇔
    evaluate F env s e (s',r)
 Proof
   rw[] >> reverse eq_tac
   >- (
     rw[] >> imp_res_tac big_exp_to_small_exp >>
-    gvs[small_eval_def, to_small_res_def] >>
+    gvs[small_eval_def, to_small_res_def]
+    >~ [‘_.ptr_eq_oracle = _.ptr_eq_oracle’]
+    >- (
+      (* does not hold when a PtrEq is evaluated, since that advances the
+         oracle; the small-step semantics has no pointer-equality oracle yet *)
+      cheat) >>
     metis_tac[evaluate_no_new_types_exns, big_unclocked, FST]
     ) >>
   rw[] >> reverse (Cases_on ‘r’ >| [all_tac, Cases_on ‘e'’]) >>
@@ -2002,7 +2040,10 @@ Proof
       )
     >- (
       gvs[state_component_equality] >>
-      drule $ cj 1 evaluate_no_new_types_exns >> simp[]
+      drule $ cj 1 evaluate_no_new_types_exns >> simp[] >>
+      (* the oracle is unchanged unless a PtrEq was evaluated; the small-step
+         semantics has no pointer-equality oracle yet *)
+      cheat
       )
     )
   >- ( (* Dmod *)
@@ -2293,6 +2334,14 @@ Proof
       rename1 ‘evaluate _ _ _ _ (s3, res)’ >>
       Cases_on ‘res’ >> gvs[SF SFY_ss] >> rename1 ‘Rval v'’ >>
       Cases_on ‘update_thunk (REVERSE vs2 ++ [v] ++ l) s3.refs [v']’ >> gvs[SF SFY_ss]
+      ) >>
+    Cases_on ‘opClass op PtrEqOp’ >> gvs[]
+    >- (
+      Cases_on ‘LENGTH l + (LENGTH a + 1) = 2’ >- (
+        ‘LENGTH (REVERSE a ++ [v] ++ l) = 2’ by simp[] >>
+        pop_assum mp_tac >> simp[LENGTH_EQ_NUM_compute] >> strip_tac >> gvs[] >>
+        Cases_on ‘do_eq h h'’ >> metis_tac[]) >>
+      metis_tac[]
       ) >>
     Cases_on ‘op’ >> gs[opClass_cases, do_app_def] >> disj1_tac >>
     first_x_assum $ irule_at Any >> every_case_tac >> gvs[SF SFY_ss]

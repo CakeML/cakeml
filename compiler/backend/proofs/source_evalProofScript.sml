@@ -2195,12 +2195,14 @@ Proof
   >- suspend "Letrec"
   >- suspend "Tannot"
   >- suspend "Lannot"
+  >- suspend "Open"
   >- suspend "match_cons"
   >- suspend "dec_cons"
   >- suspend "Dlet"
   >- suspend "Dtype"
   >- suspend "Denv"
   >- suspend "Dexn"
+  >- suspend "Dopen"
   >- suspend "Dmod"
   >- suspend "Dlocal"
 QED
@@ -2413,6 +2415,11 @@ Resume evaluate_ptr_eq_prefix[Lannot]:
   last_x_assum drule \\ simp []
 QED
 
+Resume evaluate_ptr_eq_prefix[Open]:
+  Cases_on `open_dec_env path env` \\ gvs []
+  \\ last_x_assum drule \\ simp []
+QED
+
 Resume evaluate_ptr_eq_prefix[match_cons]:
   `is_record ci t.eval_state` by (drule ptr_eq_lockstep_simps \\ simp [])
   \\ imp_res_tac ptr_eq_lockstep_simps
@@ -2440,7 +2447,7 @@ QED
 
 Resume evaluate_ptr_eq_prefix[Dlet]:
   `is_record ci t.eval_state` by (drule ptr_eq_lockstep_simps \\ simp [])
-  \\ Cases_on `ALL_DISTINCT (pat_bindings p) /\ every_exp (one_con_check env.c) e`
+  \\ Cases_on `ALL_DISTINCT (pat_bindings p) /\ check_exp_constructors env.c e`
   \\ gvs []
   \\ Cases_on `evaluate s env [e]` \\ Cases_on `evaluate t env [e]`
   \\ gvs []
@@ -2472,6 +2479,10 @@ QED
 Resume evaluate_ptr_eq_prefix[Dexn]:
   gvs [ptr_eq_lockstep_def]
   \\ disj1_tac \\ irule_at Any EQ_REFL
+QED
+
+Resume evaluate_ptr_eq_prefix[Dopen]:
+  every_case_tac \\ gvs []
 QED
 
 Resume evaluate_ptr_eq_prefix[Dmod]:

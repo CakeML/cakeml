@@ -1849,9 +1849,9 @@ QED
 
 Theorem stubs_ptr_eq_free:
   EVERY (λ(n,a,p).
-      n ∉ {Install_location; InstallCode_location; InstallData_location} ⇒
+      n ∉ {Install_location; InstallData_location} ⇒
       ptr_eq_free (set (MAP FST (stubs (:'a) c)) DIFF
-        {Install_location; InstallCode_location; InstallData_location}) p)
+        {Install_location; InstallData_location}) p)
     (stubs (:'a) c)
 Proof
   EVAL_TAC \\ rw [] \\ EVAL_TAC
@@ -1860,7 +1860,7 @@ QED
 Theorem code_rel_ptr_eq_free:
   code_rel c s_code (t_code : (num # 'a wordLang$prog) num_map) ⇒
   code_ptr_eq_free (set (MAP FST (stubs (:'a) c)) DIFF
-    {Install_location; InstallCode_location; InstallData_location}) t_code
+    {Install_location; InstallData_location}) t_code
 Proof
   rw [code_rel_def, code_ptr_eq_free_def, MEM_MAP, EXISTS_PROD]
   \\ assume_tac stubs_ptr_eq_free
@@ -1871,7 +1871,7 @@ QED
 Theorem assign_ptr_eq_free:
   op ≠ BlockOp PtrEqual ∧ op ≠ Install ⇒
   ptr_eq_free (set (MAP FST (stubs (:'a) c)) DIFF
-      {Install_location; InstallCode_location; InstallData_location})
+      {Install_location; InstallData_location})
     (FST (assign c n l dest op args names_opt : 'a wordLang$prog # num))
 Proof
   strip_tac
@@ -1905,7 +1905,7 @@ Proof
   \\ imp_res_tac dataPropsTheory.do_app_ptr_eq_oracle
   \\ drule evaluate_ptr_eq_free
   \\ disch_then (qspec_then `set (MAP FST (stubs (:'a) c)) DIFF
-       {Install_location; InstallCode_location; InstallData_location}` mp_tac)
+       {Install_location; InstallData_location}` mp_tac)
   \\ impl_tac
   >- (
     simp [assign_ptr_eq_free]

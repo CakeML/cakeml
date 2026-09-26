@@ -622,7 +622,7 @@ Definition ptr_eq_free_def:
   (ptr_eq_free ns (If _ _ _ p1 p2) ⇔ ptr_eq_free ns p1 ∧ ptr_eq_free ns p2) ∧
   (ptr_eq_free ns (MustTerminate p) ⇔ ptr_eq_free ns p) ∧
   (ptr_eq_free ns (Loop _ p _) ⇔ ptr_eq_free ns p) ∧
-  (ptr_eq_free ns (Install _ _ _ _ _) ⇔ F) ∧
+  (ptr_eq_free ns (Install _ _ _ _ _ _) ⇔ F) ∧
   (ptr_eq_free ns _ ⇔ T)
 End
 

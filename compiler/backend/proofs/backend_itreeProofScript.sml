@@ -311,10 +311,13 @@ Theorem oracle_IMP_itree_preservation:
   s.eval_state = NONE ∧
   (∀f:(((ffi_outcome + word8 list) list) ffi_state).
     ffi_respects_convention (inr P) (f.oracle, f.ffi_state) ⇒
-    Fail ∉ semantics_prog (s with ffi := f) env prog ∧
-    machine_sem (mc:(α,β,γ) machine_config) f ms ⊆
-      extend_with_resource_limit' safe_for_space
-        (semantics_prog (s with ffi := f) env prog))
+    ∃po.
+      Fail ∉ semantics_determ (s with <| ffi := f; ptr_eq_oracle := po |>)
+               env prog ∧
+      machine_sem (mc:(α,β,γ) machine_config) f ms ⊆
+        extend_with_resource_limit' safe_for_space
+          (semantics_determ (s with <| ffi := f; ptr_eq_oracle := po |>)
+             env prog))
   ⇒ prune (inr P) safe_for_space (itree_of s env prog) (machine_sem_itree (mc,ms))
 Proof
   rw[GSYM prune_eq_bisimilar_up_to_oom, bisimilar_up_to_oom_def] >>
@@ -327,7 +330,7 @@ Proof
   strip_tac >> gvs[] >>
   irule trace_rel_IMP_bisimilar_up_to_oom >> simp[SF SFY_ss] >> reverse conj_asm2_tac
   >- simp[ffi_invariant_itree_of, ffi_invariant_machine_sem_itree] >>
-  qabbrev_tac `st = s with ffi := make_ffi xs` >>
+  qabbrev_tac `st = s with <| ffi := make_ffi xs; ptr_eq_oracle := po |>` >>
   `st.eval_state = NONE` by (unabbrev_all_tac >> gvs[]) >> last_x_assum kall_tac >>
   `∀n io. trace_prefix n (list_oracle,xs) (itree_of st env prog) ≠ (io, SOME Error)`
     by (
@@ -607,14 +610,31 @@ Proof
   irule oracle_IMP_itree_preservation >> simp[extend_with_resource_limit'_def] >>
   reverse conj_tac >- simp[prim_sem_env_eq] >>
   gen_tac >> strip_tac >>
-  `(FST $ THE $ prim_sem_env f).eval_state = NONE` by simp[prim_sem_env_eq] >>
-  conj_asm1_tac >> gvs[IN_DEF]
+  `∀po. Fail ∉ semantics_determ
+          (FST (THE (prim_sem_env
+                       (ARB:((ffi_outcome + word8 list) list) ffi_state))) with
+             <|ffi := f; ptr_eq_oracle := po|>) start_env prog` by (
+    gen_tac >> simp[IN_DEF] >>
+    qmatch_goalsub_abbrev_tac `semantics_determ st0` >>
+    `st0.eval_state = NONE` by simp[Abbr `st0`, prim_sem_env_eq] >>
+    drule $ cj 3 itree_semantics >>
+    disch_then $ qspecl_then [`prog`,`start_env`] assume_tac >> simp[] >>
+    `itree_of st0 start_env prog = itree_semantics prog` by (
+      simp[Abbr `st0`, itree_of_def, dstate_of_def,
+           itree_semanticsTheory.itree_semantics_def] >>
+      simp[GSYM (Q.ISPEC `ARB:((ffi_outcome + word8 list) list) ffi_state`
+                   start_dstate), dstate_of_def, prim_sem_env_eq]) >>
+    simp[] >> irule safe_itree_trace_prefix_Error >> simp[] >>
+    goal_assum $ drule_at Any >> simp[Abbr `st0`]) >>
+  mp_tac (SRULE [LET_THM, UNCURRY, start_env] compile_correct
+          |> INST_TYPE [“:'ffi” |-> “:(ffi_outcome + word8 list) list”]
+          |> Q.INST [‘ffi’ |-> ‘f’]) >>
+  simp[] >> impl_tac
   >- (
-    simp[itree_semantics, itree_semantics_itree_of] >>
-    irule safe_itree_trace_prefix_Error >> simp[] >>
-    goal_assum $ drule_at Any >> simp[EVAL ``prim_sem_env f``]
+    simp[semanticsTheory.semantics_prog_def] >> gen_tac >>
+    first_x_assum (qspec_then `po` mp_tac) >> simp[IN_DEF, prim_sem_env_eq]
     ) >>
-  irule $ SRULE [LET_THM, UNCURRY, start_env] compile_correct >> simp[SF SFY_ss]
+  strip_tac >> qexists_tac `po` >> gvs[IN_DEF, prim_sem_env_eq]
 QED
 
 

@@ -1724,7 +1724,7 @@ val def = assign_Define `
 val def = assign_Define `
   assign_PtrEq (l:num) (dest:num) v1 v2 =
                  (PtrEq (adjust_var dest) (adjust_var v1) (adjust_var v2)
-                    18w 2w,l)
+                    2w 0w,l)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
