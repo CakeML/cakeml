@@ -3223,7 +3223,7 @@ fun m_translate_main def =
 
 ******************************************************************************)
 
-val unknown_loc = locationTheory.unknown_loc_def |> concl |> dest_eq |> fst;
+val no_locs = prim_mk_const {Name = "NoLocs", Thy = "ast"};
 
 fun add_dynamic_v_thms (name, ml_name, th, pre_def) = let
     val th = UNDISCH_ALL th
@@ -3288,7 +3288,7 @@ fun m_translate def =
       val ii = INST [cl_env_tm |-> get_curr_env()]
       val v_names = List.map (fn x => find_const_name (#1 x ^ "_v")) results
       val _ = if not (!(#local_state_init_H translator_state))
-              then ml_prog_update (add_Dletrec unknown_loc recc v_names)
+              then ml_prog_update (add_Dletrec no_locs recc v_names)
               else ()
       val v_defs =
         if not (!(#local_state_init_H translator_state)) then
@@ -3365,7 +3365,7 @@ fun m_translate def =
               val v = lemma |> concl |> rand |> rator |> rand
               val exp = lemma |> concl |> rand |> rand
               val v_name = find_const_name (fname ^ "_v")
-              val _ = ml_prog_update (add_Dlet_Fun unknown_loc n v exp
+              val _ = ml_prog_update (add_Dlet_Fun no_locs n v exp
                                                    v_name)
               val v_def = hd (get_curr_v_defs ())
               val v_thm = lemma |>
@@ -3948,7 +3948,7 @@ fun m_translate_run def =
     val v = th |> concl |> rand |> rator |> rand
     val e = th |> concl |> rand |> rand
     val v_name = find_const_name (fname ^ "_v")
-    val _ = ml_prog_update (add_Dlet_Fun unknown_loc fname_str v e v_name)
+    val _ = ml_prog_update (add_Dlet_Fun no_locs fname_str v e v_name)
     val s = get_curr_prog_state ()
     val v_def = hd (get_v_defs s)
     val th = th |> REWRITE_RULE [GSYM v_def]

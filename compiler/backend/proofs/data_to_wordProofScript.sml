@@ -2139,7 +2139,7 @@ Proof
       Maxout_bits_code_def,MemEqList_no_share_inst,
       WriteWord64_def,WordOp64_on_32_def,WriteWord64_on_32_def,
       LoadWord64_def,WordShift64_on_32_def,LoadBignum_def,
-      WriteWord32_on_32_def] >>
+      WriteWord32_on_32_def,WordShiftVar64_def,WordShiftVar64_on_32_def] >>
     rpt (
       TOP_CASE_TAC >>
       simp[no_share_inst_def,list_Seq_no_share_inst])
@@ -2314,7 +2314,8 @@ Proof
     fp_bop_inst_def, fp_top_inst_def, oneline AssignCmp_def, SetBool_def]>>
   (IF_CASES_TAC ORELSE TOP_CASE_TAC)>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
     Maxout_bits_code_def,GiveUp_def,
-    inst_ok_less_def,assign_def_extras,MemEqList_no_inst] \\ FAIL_TAC ""
+    inst_ok_less_def,assign_def_extras,MemEqList_no_inst]>>
+  every_case_tac>>fs[every_inst_def,list_Seq_def]
 QED
 
 (*
