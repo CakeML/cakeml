@@ -261,13 +261,6 @@ Proof
   srw_tac[][LIST_EQ_REWRITE,EQ_IMP_THM,EL_MAP]
 QED
 
-(* TODO - already in HOL as ZIP_GENLIST *)
-Theorem ZIP_GENLIST1:
-   ∀l f n. LENGTH l = n ⇒ ZIP (GENLIST f n,l) = GENLIST (λx. (f x, EL x l)) n
-Proof
-  Induct \\ rw[] \\ rw[GENLIST_CONS,o_DEF]
-QED
-
 (* used once *)
 Theorem MAP_REVERSE_STEP:
    ∀x f. x ≠ [] ⇒ MAP f (REVERSE x) = f (LAST x) :: MAP f (REVERSE (FRONT x))
@@ -302,14 +295,6 @@ Proof
   simp[LIST_REL_EL_EQN]
 QED
 
-(* only used in bvi_to_dataProof *)
-Theorem LIST_REL_lookup_fromList:
-   LIST_REL (\v x. lookup v (fromList args) = SOME x)
-     (GENLIST I (LENGTH args)) args
-Proof
-  SIMP_TAC std_ss [lookup_fromList,LIST_REL_GENLIST_I]
-QED
-
 Theorem LIST_REL_lookup_fromList_MAP:
    LIST_REL (λv x. ∃z. lookup v (fromList args) = SOME z ∧ x = f z)
     (GENLIST I (LENGTH args)) (MAP f args)
@@ -327,18 +312,6 @@ Proof
     (fn q => Q.ISPEC_THEN q FULL_STRUCT_CASES_TAC SNOC_CASES >>
              fs[LIST_REL_SNOC])
     [`l1`,`l2`]
-QED
-
-Theorem lemmas[local]:
-  (2 + 2 * n - 1 = 2 * n + 1:num) /\
-    (2 + 2 * n' = 2 * n'' + 2 <=> n' = n'':num) /\
-    (2 * m = 2 * n <=> (m = n)) /\
-    ((2 * n'' + 1) DIV 2 = n'') /\
-    ((2 * n) DIV 2 = n) /\
-    (2 + 2 * n' <> 2 * n'' + 1) /\
-    (2 * m + 1 <> 2 * n' + 2)
-Proof
-  intLib.ARITH_TAC
 QED
 
 Definition lookup_any_def:
@@ -428,16 +401,6 @@ Proof
   \\ full_simp_tac(srw_ss())[DIV_LE_X] \\ DECIDE_TAC
 QED
 
-Theorem EXISTS_ZIP:
-   !l f. EXISTS (\(x,y). f x) l = EXISTS f (MAP FST l)
-Proof
-  Induct_on `l` >>
-  srw_tac[][] >>
-  Cases_on `h` >>
-  full_simp_tac(srw_ss())[] >>
-  metis_tac []
-QED
-
 Theorem EVERY_ZIP:
    !l f. EVERY (\(x,y). f x) l = EVERY f (MAP FST l)
 Proof
@@ -521,14 +484,6 @@ End
 Definition tlookup_def:
   tlookup m k = case lookup k m of NONE => k | SOME k => k
 End
-
-Theorem tlookup_id:
-   x ∉ domain names
-   ⇒ tlookup names x = x
-Proof
-  rw[tlookup_def]
-  \\ fs[domain_lookup] \\ CASE_TAC \\ fs[]
-QED
 
 Theorem tlookup_bij_suff:
    set (toList names) = domain names ⇒
@@ -688,42 +643,6 @@ Definition anub_def:
    (k,v)::(anub ls (k::acc)))
 End
 
-val anub_ind = theorem"anub_ind"
-
-Theorem EVERY_anub_imp:
-   ∀ls acc x y.
-      EVERY P (anub ((x,y)::ls) acc) ∧ x ∉ set acc
-      ⇒
-      P (x,y) ∧ EVERY P (anub ls (x::acc))
-Proof
-  ho_match_mp_tac anub_ind >> srw_tac[][anub_def] >>
-  full_simp_tac(srw_ss())[MEM_MAP,PULL_EXISTS,FORALL_PROD,EXISTS_PROD]
-QED
-
-(* terrible rewrite *)
-Theorem ALOOKUP_anub:
-   ALOOKUP (anub ls acc) k =
-    if MEM k acc then ALOOKUP (anub ls acc) k
-    else ALOOKUP ls k
-Proof
-  qid_spec_tac`acc` >>
-  Induct_on`ls` >>
-  srw_tac[][anub_def] >>
-  Cases_on`h`>>srw_tac[][anub_def]>>full_simp_tac(srw_ss())[] >- (
-    first_x_assum(qspec_then`acc`mp_tac) >>
-    srw_tac[][] ) >>
-  first_x_assum(qspec_then`q::acc`mp_tac) >>
-  srw_tac[][]
-QED
-
-Theorem anub_eq_nil:
-   anub x y = [] ⇔ EVERY (combin$C MEM y) (MAP FST x)
-Proof
-  qid_spec_tac`y` >>
-  Induct_on`x`>>srw_tac[][anub_def]>>
-  Cases_on`h`>>srw_tac[][anub_def]
-QED
-
 Theorem EVERY_anub_suff:
    ∀ls acc.
     (∀x. ¬MEM x acc ⇒ case ALOOKUP ls x of SOME v => P (x,v) | NONE => T)
@@ -742,25 +661,6 @@ Proof
   `q ≠ x` by full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[]
 QED
 
-Theorem anub_notin_acc:
-   ∀ls acc. MEM x acc ⇒ ¬MEM x (MAP FST (anub ls acc))
-Proof
-  Induct >> simp[anub_def] >>
-  Cases >> simp[anub_def] >> srw_tac[][] >>
-  metis_tac[]
-QED
-
-Theorem anub_tl_anub:
-   ∀x y h t. anub x y = h::t ⇒ ∃a b. t = anub a b ∧ set a ⊆ set x ∧ set b ⊆ set ((FST h)::y)
-Proof
-  Induct >> srw_tac[][anub_def] >>
-  Cases_on`h`>>full_simp_tac(srw_ss())[anub_def] >>
-  pop_assum mp_tac  >> srw_tac[][] >>
-  res_tac >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[SUBSET_DEF] >>
-  metis_tac[MEM]
-QED
-
 Theorem anub_all_distinct_keys:
    ∀ls acc.
     ALL_DISTINCT acc ⇒
@@ -771,17 +671,6 @@ Proof
   `ALL_DISTINCT (h0::acc)` by full_simp_tac(srw_ss())[ALL_DISTINCT]>>res_tac>>
   full_simp_tac(srw_ss())[ALL_DISTINCT_APPEND]>>
   metis_tac[]
-QED
-
-Theorem MEM_anub_ALOOKUP:
-   MEM (k,v) (anub ls []) ⇒
-    ALOOKUP ls k = SOME v
-Proof
-  srw_tac[][]>>
-  Q.ISPECL_THEN[`ls`,`[]`] assume_tac anub_all_distinct_keys>>
-  Q.ISPECL_THEN [`ls`,`k`,`[]`] assume_tac (GEN_ALL ALOOKUP_anub)>>
-  full_simp_tac(srw_ss())[]>>
-  metis_tac[ALOOKUP_ALL_DISTINCT_MEM]
 QED
 
 Type num_set = ``:unit spt``
@@ -798,55 +687,6 @@ Theorem domain_nat_set_from_list[simp]:
 Proof
   Induct >> simp[sptreeTheory.domain_insert] >>
   srw_tac[][EXTENSION] >> metis_tac[]
-QED
-
-Theorem wf_nat_set_from_list:
-   ∀ls ns. wf ns ⇒ wf (FOLDL (λs n. insert n z s) ns ls)
-Proof
-  Induct >> simp[] >> srw_tac[][sptreeTheory.wf_insert]
-QED
-
-Theorem BIT_11:
-   ∀n m. (BIT n = BIT m) ⇔ (n = m)
-Proof
-  simp[EQ_IMP_THM] >>
-  Induct >> simp[BIT0_ODD,FUN_EQ_THM] >- (
-    Cases >> simp[] >>
-    qexists_tac`1` >> simp[GSYM BIT_DIV2,BIT_ZERO] ) >>
-  simp[GSYM BIT_DIV2] >>
-  Cases >> simp[GSYM BIT_DIV2] >- (
-    qexists_tac`1` >>
-    simp[BIT_ZERO] >>
-    simp[BIT_def,BITS_THM] ) >>
-  srw_tac[][] >>
-  first_x_assum MATCH_MP_TAC >>
-  simp[FUN_EQ_THM] >>
-  gen_tac >>
-  first_x_assum(qspec_then`x*2`mp_tac) >>
-  simp[arithmeticTheory.MULT_DIV]
-QED
-
-Theorem BIT_11_2:
-   ∀n m. (∀z. (z < 2 ** (MAX n m)) ⇒ (BIT n z ⇔ BIT m z)) ⇔ (n = m)
-Proof
-  simp[Once EQ_IMP_THM] >>
-  Induct >- (
-    simp[] >>
-    Cases >> simp[] >>
-    qexists_tac`2 ** SUC n - 1` >>
-    simp[BIT_EXP_SUB1] ) >>
-  Cases >> simp[] >- (
-    qexists_tac`2 ** SUC n - 1` >>
-    simp[BIT_EXP_SUB1] ) >>
-  strip_tac >>
-  first_x_assum MATCH_MP_TAC >>
-  qx_gen_tac`z` >>
-  first_x_assum(qspec_then`z*2`mp_tac) >>
-  simp[GSYM BIT_DIV2,arithmeticTheory.MULT_DIV] >>
-  srw_tac[][] >> first_x_assum MATCH_MP_TAC >>
-  full_simp_tac(srw_ss())[arithmeticTheory.MAX_DEF] >>
-  srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-  simp[arithmeticTheory.EXP]
 QED
 
 (* only used below in proof of theorem that is in turn used just twice *)
@@ -958,17 +798,6 @@ Proof
   full_simp_tac arith_ss [BIT_TIMES2_1,BIT_TIMES2]
 QED
 
-Theorem BIT_num_from_bin_list_leading:
-   ∀l x. EVERY ($> 2) l ∧ LENGTH l ≤ x ⇒ ¬BIT x (num_from_bin_list l)
-Proof
-  simp[numposrepTheory.num_from_bin_list_def] >>
-  srw_tac[][] >>
-  MATCH_MP_TAC NOT_BIT_GT_TWOEXP >>
-  MATCH_MP_TAC arithmeticTheory.LESS_LESS_EQ_TRANS >>
-  qexists_tac`2 ** LENGTH (REVERSE l)` >>
-  simp[numposrepTheory.l2n_lt]
-QED
-
 Definition least_from_def:
   least_from P n = if (∃x. P x ∧ n ≤ x) then $LEAST (λx. P x ∧ n ≤ x) else $LEAST P
 End
@@ -1004,30 +833,10 @@ Proof
     full_simp_tac(srw_ss())[] )
 QED
 
-Theorem FUNPOW_mono:
-   (∀x y. R1 x y ⇒ R2 x y) ∧
-    (∀R1 R2. (∀x y. R1 x y ⇒ R2 x y) ⇒ ∀x y. f R1 x y ⇒ f R2 x y) ⇒
-    ∀n x y. FUNPOW f n R1 x y ⇒ FUNPOW f n R2 x y
-Proof
-  strip_tac >> Induct >> simp[] >>
-  simp[arithmeticTheory.FUNPOW_SUC] >>
-  first_x_assum match_mp_tac >> srw_tac[][]
-QED
-
 Theorem FUNPOW_SUC_PLUS:
    ∀n a. FUNPOW SUC n = (+) n
 Proof
 Induct \\ simp[FUNPOW,FUN_EQ_THM]
-QED
-
-(* used just once; better as
-     transitive R ==> transitive (OPTREL R)
-   or that with transitive expanded out *)
-Theorem OPTREL_trans:
-   ∀R x y z. (∀a b c. (x = SOME a) ∧ (y = SOME b) ∧ (z = SOME c) ∧ R a b ∧ R b c ⇒ R a c)
-    ∧ OPTREL R x y ∧ OPTREL R y z ⇒ OPTREL R x z
-Proof
-  srw_tac[][optionTheory.OPTREL_def]
 QED
 
 Definition UPDATE_LIST_def:
@@ -1128,13 +937,6 @@ res_tac >>
 srw_tac[ARITH_ss][arithmeticTheory.ADD1]
 QED
 
-Theorem ALOOKUP_find_index_NONE:
-   (ALOOKUP env k = NONE) ⇒ (find_index k (MAP FST env) m = NONE)
-Proof
-  srw_tac[][ALOOKUP_FAILS] >>
-  srw_tac[][GSYM find_index_NOT_MEM,MEM_MAP,EXISTS_PROD]
-QED
-
 val ALOOKUP_find_index_SOME = Q.prove(
   `∀env. (ALOOKUP env k = SOME v) ⇒
       ∀m. ∃i. (find_index k (MAP FST env) m = SOME (m+i)) ∧
@@ -1176,12 +978,6 @@ Proof
   PROVE_TAC[find_index_ALL_DISTINCT_EL]
 QED
 
-Theorem find_index_APPEND_same:
-   !l1 n m i l2. (find_index n l1 m = SOME i) ==> (find_index n (l1 ++ l2) m = SOME i)
-Proof
-  Induct >> srw_tac[][find_index_def]
-QED
-
 Theorem find_index_ALL_DISTINCT_REVERSE:
    ∀ls x m j. ALL_DISTINCT ls ∧ (find_index x ls m = SOME j) ⇒ (find_index x (REVERSE ls) m = SOME (m + LENGTH ls + m - j - 1))
 Proof
@@ -1192,16 +988,6 @@ Proof
   qmatch_assum_rename_tac`z < LENGTH ls` >>
   qexists_tac`LENGTH ls - z - 1` >>
   lrw[EL_REVERSE,PRE_SUB1]
-QED
-
-Theorem THE_find_index_suff:
-   ∀P x ls n. (∀m. m < LENGTH ls ⇒ P (m + n)) ∧ MEM x ls ⇒
-    P (THE (find_index x ls n))
-Proof
-  srw_tac[][] >>
-  imp_res_tac find_index_MEM >>
-  pop_assum(qspec_then`n`mp_tac) >>
-  srw_tac[DNF_ss,ARITH_ss][]
 QED
 
 Theorem find_index_APPEND1:
@@ -1216,26 +1002,10 @@ Proof
   simp[]
 QED
 
-Theorem find_index_APPEND2:
-   ∀l1 n l2 m i. (find_index n (l1 ++ l2) m = SOME i) ∧ (m + LENGTH l1 ≤ i) ⇒ (find_index n l2 (m+LENGTH l1) = SOME i)
-Proof
-  Induct >> simp[find_index_def] >>
-  srw_tac[][] >> fsrw_tac[ARITH_ss][] >>
-  res_tac >> fsrw_tac[ARITH_ss][ADD1]
-QED
-
 Theorem find_index_is_MEM:
    ∀x ls n j. (find_index x ls n = SOME j) ⇒ MEM x ls
 Proof
   metis_tac[find_index_NOT_MEM,optionTheory.NOT_SOME_NONE]
-QED
-
-Theorem find_index_MAP_inj:
-   ∀ls x n f. (∀y. MEM y ls ⇒ (f x = f y) ⇒ x = y) ⇒ (find_index (f x) (MAP f ls) n = find_index x ls n)
-Proof
-  Induct >- simp[find_index_def] >>
-  srw_tac[][] >> srw_tac[][find_index_def] >>
-  metis_tac[]
 QED
 
 Theorem find_index_shift_0:
@@ -1271,82 +1041,6 @@ Proof
   Induct >> simp[find_index_def] >> srw_tac[][] >>
   BasicProvers.CASE_TAC >>
   simp[arithmeticTheory.ADD1]
-QED
-
-Theorem find_index_in_FILTER_ZIP_EQ:
-   ∀P l1 l2 x n1 n2 v1 j1 j2.
-      (LENGTH l1 = LENGTH v1) ∧
-      (FILTER (P o FST) (ZIP(l1,v1)) = l2) ∧
-      (find_index x l1 n1 = SOME (n1+j1)) ∧
-      (find_index x (MAP FST l2) n2 = SOME (n2+j2)) ∧
-      P x
-      ⇒
-      j1 < LENGTH l1 ∧ j2 < LENGTH l2 ∧
-      (EL j1 (ZIP(l1,v1)) = EL j2 l2)
-Proof
-  gen_tac >> Induct >> simp[find_index_def] >>
-  rpt gen_tac >>
-  BasicProvers.CASE_TAC >- (
-    strip_tac >> full_simp_tac(srw_ss())[] >>
-    Cases_on`j1`>>fsrw_tac[ARITH_ss][]>>
-    full_simp_tac(srw_ss())[find_index_def] >>
-    Cases_on`j2`>>fsrw_tac[ARITH_ss][] >>
-    Cases_on`v1`>>fsrw_tac[ARITH_ss][find_index_def]) >>
-  strip_tac >>
-  Cases_on`v1`>>full_simp_tac(srw_ss())[] >>
-  Cases_on`P h`>>full_simp_tac(srw_ss())[find_index_def] >- (
-    rev_full_simp_tac(srw_ss())[] >>
-    imp_res_tac find_index_LESS_LENGTH >>
-    fsrw_tac[ARITH_ss][] >>
-    first_x_assum(qspecl_then[`x`,`n1+1`]mp_tac) >>
-    simp[] >>
-    disch_then(qspecl_then[`n2+1`,`t`]mp_tac) >> simp[] >>
-    Cases_on`j1=0`>>fsrw_tac[ARITH_ss][]>>
-    Cases_on`j2=0`>>fsrw_tac[ARITH_ss][]>>
-    disch_then(qspecl_then[`PRE j1`,`PRE j2`]mp_tac) >>
-    simp[rich_listTheory.EL_CONS] ) >>
-  first_x_assum(qspecl_then[`x`,`n1+1`]mp_tac) >>
-  simp[] >>
-  disch_then(qspecl_then[`n2`,`t`]mp_tac) >> simp[] >>
-  imp_res_tac find_index_LESS_LENGTH >>
-  fsrw_tac[ARITH_ss][] >>
-  Cases_on`j1=0`>>fsrw_tac[ARITH_ss][]>>
-  disch_then(qspec_then`PRE j1`mp_tac) >>
-  simp[rich_listTheory.EL_CONS]
-QED
-
-Theorem ALL_DISTINCT_PERM_ALOOKUP_ZIP:
-   ∀l1 l2 l3. ALL_DISTINCT (MAP FST l1) ∧ PERM (MAP FST l1) l2
-    ⇒ (set l1 = set (ZIP (l2, MAP (THE o ALOOKUP (l1 ++ l3)) l2)))
-Proof
-  srw_tac[][EXTENSION,FORALL_PROD,EQ_IMP_THM] >- (
-    qmatch_assum_rename_tac`MEM (x,y) l1` >>
-    imp_res_tac PERM_LENGTH >> full_simp_tac(srw_ss())[] >>
-    simp[MEM_ZIP] >>
-    imp_res_tac MEM_PERM >>
-    full_simp_tac(srw_ss())[MEM_MAP,EXISTS_PROD] >>
-    `MEM x l2` by metis_tac[] >>
-    `∃m. m < LENGTH l2 ∧ (x = EL m l2)` by metis_tac[MEM_EL] >>
-    qexists_tac`m`>>simp[]>>
-    simp[EL_MAP] >>
-    imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
-    srw_tac[][ALOOKUP_APPEND] ) >>
-  qmatch_rename_tac`MEM (x,y) l1` >>
-  imp_res_tac PERM_LENGTH >>
-  full_simp_tac(srw_ss())[MEM_ZIP] >>
-  simp[EL_MAP] >>
-  imp_res_tac MEM_PERM >>
-  full_simp_tac(srw_ss())[MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
-  first_x_assum(qspec_then`n`mp_tac) >>
-  impl_tac >- simp[] >>
-  disch_then(Q.X_CHOOSE_THEN`m`strip_assume_tac) >>
-  qexists_tac`m` >>
-  simp[EL_MAP] >>
-  Cases_on`EL m l1`>>simp[ALOOKUP_APPEND] >>
-  BasicProvers.CASE_TAC >- (
-    imp_res_tac ALOOKUP_FAILS >>
-    metis_tac[MEM_EL] ) >>
-  metis_tac[MEM_EL,ALOOKUP_ALL_DISTINCT_MEM,optionTheory.THE_DEF]
 QED
 
 (* surely better with UNZIP rather than ZIP: i.e., UNZIP l1 = (a,b)...  *)
@@ -1391,29 +1085,6 @@ Proof
   last_x_assum(qspecl_then[`MAP FST ll`,`MAP SND ll`,`c`,`d`]mp_tac) >>
   simp[] >> strip_tac >>
   metis_tac[PERM_TRANS]
-QED
-
-(* never used *)
-Theorem RTC_invariant:
-   !R P. (!x y. P x /\ R x y ==> P y) ==> !x y. RTC R x y ==> P x ==> RTC (R RINTER (\x y. P x /\ P y)) x y
-Proof
-  rpt gen_tac >> strip_tac >>
-  ho_match_mp_tac RTC_INDUCT >>
-  srw_tac[][] >> res_tac >> full_simp_tac(srw_ss())[] >>
-  simp[Once RTC_CASES1] >>
-  disj2_tac >>
-  HINT_EXISTS_TAC >>
-  simp[RINTER]
-QED
-
-(* never used *)
-Theorem RTC_RSUBSET:
-   !R1 R2. R1 RSUBSET R2 ==> (RTC R1) RSUBSET (RTC R2)
-Proof
-  simp[RSUBSET] >> rpt gen_tac >> strip_tac >>
-  ho_match_mp_tac RTC_INDUCT >>
-  simp[] >>
-  metis_tac[RTC_CASES1]
 QED
 
 Theorem PERM_PART:
@@ -1476,117 +1147,9 @@ Proof
   Induct THEN SRW_TAC[][]
 QED
 
-(* never used *)
-Theorem FOLDL_invariant_rest:
-   ∀P f ls a. P ls a ∧ (∀x n. n < LENGTH ls ∧ P (DROP n ls) x ⇒ P (DROP (SUC n) ls) (f x (EL n ls))) ⇒ P [] (FOLDL f a ls)
-Proof
-  ntac 2 gen_tac >>
-  Induct >> srw_tac[][] >>
-  first_x_assum match_mp_tac >>
-  conj_tac >- (
-    first_x_assum (qspecl_then[`a`,`0`] mp_tac) >> srw_tac[][] ) >>
-  srw_tac[][] >> first_x_assum (qspecl_then[`x`,`SUC n`] mp_tac) >> srw_tac[][]
-QED
-
 Definition between_def:
   between x y z ⇔ x:num ≤ z ∧ z < y
 End
-
-Theorem IN_between:
-   x ∈ between y z ⇔ y ≤ x ∧ x < z
-Proof
-  rw[IN_DEF] \\ EVAL_TAC
-QED
-
-(* never used *)
-Theorem SUC_LEAST:
-   !x. P x ==> (SUC ($LEAST P) = LEAST x. 0 < x /\ P (PRE x))
-Proof
-  GEN_TAC THEN STRIP_TAC THEN
-  numLib.LEAST_ELIM_TAC THEN
-  STRIP_TAC THEN1 PROVE_TAC[] THEN
-  numLib.LEAST_ELIM_TAC THEN
-  STRIP_TAC THEN1 (
-    Q.EXISTS_TAC `SUC x` THEN
-    SRW_TAC[][] ) THEN
-  Q.X_GEN_TAC`nn` THEN
-  STRIP_TAC THEN
-  Q.X_GEN_TAC`m` THEN
-  `?n. nn = SUC n` by ( Cases_on `nn` THEN SRW_TAC[][] THEN DECIDE_TAC ) THEN
-  SRW_TAC[][] THEN
-  FULL_SIMP_TAC(srw_ss())[] THEN
-  `~(n < m)` by PROVE_TAC[] THEN
-  `~(SUC m < SUC n)` by (
-    SPOSE_NOT_THEN STRIP_ASSUME_TAC THEN
-    RES_TAC THEN
-    FULL_SIMP_TAC(srw_ss())[] ) THEN
-  DECIDE_TAC
-QED
-
-(* never used *)
-Definition fmap_linv_def:
-  fmap_linv f1 f2 ⇔ (FDOM f2 = FRANGE f1) /\ (!x. x IN FDOM f1 ==> (FLOOKUP f2 (FAPPLY f1 x) = SOME x))
-End
-
-(* never used *)
-Theorem fmap_linv_unique:
-   !f f1 f2. fmap_linv f f1 /\ fmap_linv f f2 ==> (f1 = f2)
-Proof
-  SRW_TAC[][fmap_linv_def,GSYM fmap_EQ_THM] THEN
-  FULL_SIMP_TAC(srw_ss())[FRANGE_DEF,FLOOKUP_DEF] THEN
-  PROVE_TAC[]
-QED
-
-(* never used *)
-Theorem INJ_has_fmap_linv:
-   INJ (FAPPLY f) (FDOM f) (FRANGE f) ==> ?g. fmap_linv f g
-Proof
-  STRIP_TAC THEN
-  Q.EXISTS_TAC `FUN_FMAP (\x. @y. FLOOKUP f y = SOME x) (FRANGE f)` THEN
-  SRW_TAC[][fmap_linv_def,FLOOKUP_FUN_FMAP,FRANGE_DEF] THEN1 PROVE_TAC[] THEN
-  SELECT_ELIM_TAC THEN
-  FULL_SIMP_TAC (srw_ss()) [INJ_DEF,FRANGE_DEF,FLOOKUP_DEF]
-QED
-
-(* never used *)
-Theorem has_fmap_linv_inj:
-   (?g. fmap_linv f g) = (INJ (FAPPLY f) (FDOM f) (FRANGE f))
-Proof
-  Tactical.REVERSE EQ_TAC THEN1 PROVE_TAC[INJ_has_fmap_linv] THEN
-  SRW_TAC[][fmap_linv_def,INJ_DEF,EQ_IMP_THM]
-  THEN1 ( SRW_TAC[][FRANGE_DEF] THEN PROVE_TAC[] )
-  THEN1 ( FULL_SIMP_TAC(srw_ss())[FLOOKUP_DEF] THEN PROVE_TAC[] )
-QED
-
-(* never used *)
-Theorem fmap_linv_FAPPLY:
-   fmap_linv f g /\ x IN FDOM f ==> (g ' (f ' x) = x)
-Proof
-  SRW_TAC[][fmap_linv_def,FLOOKUP_DEF]
-QED
-
-(* TODO - candidate for move to HOL *)
-Theorem plus_compose:
-   !n:num m. $+ n o $+ m = $+ (n + m)
-Proof
-  SRW_TAC[ARITH_ss][FUN_EQ_THM]
-QED
-
-(* TODO: move elsewhere? export as rewrite? *)
-(* never used *)
-Theorem IN_option_rwt:
- (x ∈ case opt of NONE => {} | SOME y => Q y) ⇔
-  (∃y. (opt = SOME y) ∧ x ∈ Q y)
-Proof
-Cases_on `opt` >> srw_tac[][EQ_IMP_THM]
-QED
-
-(* never used *)
-Theorem IN_option_rwt2:
- x ∈ option_CASE opt {} s ⇔ ∃y. (opt = SOME y) ∧ x ∈ s y
-Proof
-Cases_on `opt` >> srw_tac[][]
-QED
 
 (* Re-expressing folds *)
 
@@ -1601,50 +1164,10 @@ PairCases_on `p` THEN
 SRW_TAC[][]
 QED
 
-(* never used *)
-Theorem FOLDR_CONS_5tup:
- !f ls a. FOLDR (\(c,d,x,y,z) w. f c d x y z :: w) a ls = (MAP (\(c,d,x,y,z). f c d x y z) ls)++a
-Proof
-GEN_TAC THEN
-Induct THEN1 SRW_TAC[][] THEN
-Q.X_GEN_TAC `p` THEN
-PairCases_on `p` THEN
-SRW_TAC[][]
-QED
-
-(* never used *)
-Theorem FOLDR_transitive_property:
- !P ls f a. P [] a /\ (!n a. n < LENGTH ls /\ P (DROP (SUC n) ls) a ==> P (DROP n ls) (f (EL n ls) a)) ==> P ls (FOLDR f a ls)
-Proof
-GEN_TAC THEN Induct THEN SRW_TAC[][] THEN
-`P ls (FOLDR f a ls)` by (
-  FIRST_X_ASSUM MATCH_MP_TAC THEN
-  SRW_TAC[][] THEN
-  Q.MATCH_ASSUM_RENAME_TAC `P (DROP (SUC n) ls) b` THEN
-  FIRST_X_ASSUM (Q.SPECL_THEN [`SUC n`,`b`] MP_TAC) THEN
-  SRW_TAC[][] ) THEN
-FIRST_X_ASSUM (Q.SPEC_THEN `0` MP_TAC) THEN
-SRW_TAC[][]
-QED
-
 (* Re-expressing curried lambdas *)
 
 Theorem FST_triple:
  (λ(n,ns,b). n) = FST
-Proof
-srw_tac[][FUN_EQ_THM,pairTheory.UNCURRY]
-QED
-
-(* never used *)
-Theorem FST_5tup:
- (λ(n,ns,b,x,y). n) = FST
-Proof
-srw_tac[][FUN_EQ_THM,pairTheory.UNCURRY]
-QED
-
-(* never used *)
-Theorem SND_triple:
- (λ(n,ns,b). f ns b) = UNCURRY f o SND
 Proof
 srw_tac[][FUN_EQ_THM,pairTheory.UNCURRY]
 QED
@@ -1662,41 +1185,12 @@ Proof
 srw_tac[][FUN_EQ_THM,pairTheory.UNCURRY]
 QED
 
-(* never used *)
-Theorem SND_FST_pair:
- (λ((n,m),c).m) = SND o FST
-Proof
-srw_tac[][FUN_EQ_THM,pairTheory.UNCURRY]
-QED
-
-(* never used *)
-Theorem MAP_ZIP_SND_triple:
- (LENGTH l1 = LENGTH l2) ⇒ (MAP (λ(x,y,z). f y z) (ZIP(l1,l2)) = MAP (UNCURRY f) l2)
-Proof
-strip_tac >> (
-MAP_ZIP
-|> Q.GEN`g`
-|> Q.ISPEC `UNCURRY (f:'b->'c->'d)`
-|> SIMP_RULE(srw_ss())[combinTheory.o_DEF,pairTheory.LAMBDA_PROD]
-|> UNDISCH_ALL
-|> CONJUNCTS
-|> Lib.el 4
-|> MATCH_ACCEPT_TAC)
-QED
-
 (* Specialisations to identity function *)
 
 Theorem I_PERMUTES[simp]:
    I PERMUTES s
 Proof
 rw[BIJ_DEF, INJ_DEF, SURJ_DEF]
-QED
-
-(* never used *)
-Theorem INJ_I:
- ∀s t. INJ I s t ⇔ s ⊆ t
-Proof
-SRW_TAC[][INJ_DEF,SUBSET_DEF]
 QED
 
 
@@ -1745,25 +1239,6 @@ srw_tac[][] >>
 PairCases_on `h` >>
 full_simp_tac(srw_ss())[]
 QED
-
-(* use INJ_MAP_EQ_IFF and INJ_DEF *)
-Theorem map_some_eq:
- !l1 l2. (MAP SOME l1 = MAP SOME l2) ⇔ (l1 = l2)
-Proof
- Induct_on `l1` >>
- srw_tac[][] >>
- Cases_on `l2` >>
- srw_tac[][]
-QED
-
-(* never used *)
-Theorem map_some_eq_append:
- !l1 l2 l3. (MAP SOME l1 ++ MAP SOME l2 = MAP SOME l3) ⇔ (l1 ++ l2 = l3)
-Proof
-metis_tac [map_some_eq, MAP_APPEND]
-QED
-
-val _ = augment_srw_ss [rewrites [map_some_eq,map_some_eq_append]];
 
 
 (* list misc *)
@@ -1836,22 +1311,6 @@ Theorem LENGTH_EQ_FILTER_FILTER:
 Proof
   Induct \\ SIMP_TAC std_ss [LENGTH,FILTER,EVERY_DEF] \\ STRIP_TAC
   \\ Cases_on `P h` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD_CLAUSES]
-QED
-
-Theorem LIST_REL_MAP_FILTER_NEQ:
-   ∀P f1 f2 z1 z2 l1 l2.
-      LIST_REL P (MAP f1 l1) (MAP f2 l2) ∧
-      (∀y1 y2. MEM (y1,y2) (ZIP(l1,l2)) ⇒ (SND y1 ≠ z1 ⇔ SND y2 ≠ z2) ∧ (P (f1 y1) (f2 y2)))
-      ⇒
-      LIST_REL P (MAP f1 (FILTER (λ(x,y). y ≠ z1) l1)) (MAP f2 (FILTER (λ(x,y). y ≠ z2) l2))
-Proof
-  ntac 5 gen_tac >>
-  Induct >> simp[] >>
-  Cases >> simp[] >>
-  Cases >> simp[] >>
-  strip_tac >>
-  Cases_on`h`>>fs[] >> rw[] >>
-  METIS_TAC[SND]
 QED
 
 (* move into HOL? *)
@@ -1935,41 +1394,6 @@ Proof
   \\ rw[]
   \\ Cases_on`ls` \\ fs[numposrepTheory.l2n_def]
   \\ EVAL_TAC
-QED
-
-Theorem num_from_hex_string_length_2_less_16:
-   ∀h1 h2. isHexDigit h1 ⇒ num_from_hex_string [h1;h2] < 16 ⇒ h1 = #"0"
-Proof
-  rw[ASCIInumbersTheory.num_from_hex_string_def,ASCIInumbersTheory.s2n_def,
-     numposrepTheory.l2n_def]
-  \\ Cases_on`UNHEX h1 MOD 16` \\ fs[]
-  \\ fs[MOD_EQ_0_DIVISOR]
-  \\ fs[stringTheory.isHexDigit_def]
-  \\ Cases_on`h1` \\ fs[]
-  >- (
-    `MEM (n - 48) (COUNT_LIST (58 - 48))` by simp[MEM_COUNT_LIST]
-    \\ pop_assum mp_tac
-    \\ CONV_TAC(LAND_CONV EVAL)
-    \\ strip_tac
-    \\ rfs[SUB_RIGHT_EQ]
-    \\ fs[ASCIInumbersTheory.UNHEX_def])
-  >- (
-    `MEM (n - 97) (COUNT_LIST (103 - 97))` by simp[MEM_COUNT_LIST]
-    \\ pop_assum mp_tac
-    \\ CONV_TAC(LAND_CONV EVAL)
-    \\ strip_tac
-    \\ rfs[SUB_RIGHT_EQ]
-    \\ fs[ASCIInumbersTheory.UNHEX_def]
-    \\ `n = 97` by decide_tac
-    \\ fs[ASCIInumbersTheory.UNHEX_def] )
-  \\ `MEM (n - 65) (COUNT_LIST (71 - 65))` by simp[MEM_COUNT_LIST]
-  \\ pop_assum mp_tac
-  \\ CONV_TAC(LAND_CONV EVAL)
-  \\ strip_tac
-  \\ rfs[SUB_RIGHT_EQ]
-  \\ fs[ASCIInumbersTheory.UNHEX_def]
-  \\ `n = 65` by decide_tac
-  \\ fs[ASCIInumbersTheory.UNHEX_def]
 QED
 
 Theorem num_from_hex_string_num_to_hex_string[simp]:
@@ -2085,12 +1509,6 @@ Proof
   \\ metis_tac [ADD_DIV_ADD_DIV, MULT_COMM, DECIDE ``0n < 2``]
 QED
 
-Theorem SUM_REPLICATE:
-   ∀n m. SUM (REPLICATE n m) = n * m
-Proof
-  Induct \\ simp[REPLICATE,ADD1]
-QED
-
 Theorem SUM_MAP_BOUND:
     (∀x. f x ≤ c) ⇒ (SUM (MAP f ls) ≤ LENGTH ls * c)
 Proof
@@ -2149,20 +1567,6 @@ Proof
   rw[FLAT_EQ_NIL,EVERY_MAP]
 QED
 
-Theorem UPDATE_LIST_NOT_MEM:
-   ∀ls f x. ¬MEM x(MAP FST ls) ⇒ (f =++ ls) x = f x
-Proof
-  Induct >> simp[UPDATE_LIST_THM,combinTheory.APPLY_UPDATE_THM]
-QED
-
-Theorem MAP_ZIP_UPDATE_LIST_ALL_DISTINCT_same:
-   ∀ks vs f. LENGTH ks = LENGTH vs ∧ ALL_DISTINCT ks ⇒ (MAP (f =++ ZIP (ks,vs)) ks = vs)
-Proof
-  Induct >> simp[LENGTH_NIL_SYM] >>
-  gen_tac >> Cases >> simp[UPDATE_LIST_THM] >>
-  simp[UPDATE_LIST_NOT_MEM,MAP_ZIP,combinTheory.APPLY_UPDATE_THM]
-QED
-
 Theorem flookup_update_list_none:
  !x m l.
   (FLOOKUP (m |++ l) x = NONE)
@@ -2190,37 +1594,6 @@ Proof
  imp_res_tac ALOOKUP_MEM >>
  fs [] >>
  metis_tac []
-QED
-
-Theorem MULT_LE_EXP:
-   ∀a:num b. a ≠ 1 ⇒ a * b ≤ a ** b
-Proof
-  Induct_on`b` >> simp[arithmeticTheory.MULT,arithmeticTheory.EXP] >>
-  Cases >> simp[] >> strip_tac >>
-  first_x_assum(qspec_then`SUC n`mp_tac) >>
-  simp[arithmeticTheory.MULT] >>
-  Cases_on`b=0` >- (
-    simp[arithmeticTheory.EXP] ) >>
-  `SUC b ≤ b + b * n` suffices_by simp[] >>
-  simp[arithmeticTheory.ADD1] >>
-  Cases_on`b * n` >> simp[] >>
-  fs[arithmeticTheory.MULT_EQ_0] >> fs[]
-QED
-
-Theorem domain_rrestrict_subset:
-   domain (rrestrict r s) ⊆ domain r ∩ s
-Proof
-  rw[set_relationTheory.domain_def,
-     set_relationTheory.rrestrict_def,
-     SUBSET_DEF] >> metis_tac[]
-QED
-
-Theorem range_rrestrict_subset:
-   range (rrestrict r s) ⊆ range r ∩ s
-Proof
-  rw[set_relationTheory.range_def,
-     set_relationTheory.rrestrict_def,
-     SUBSET_DEF] >> metis_tac[]
 QED
 
 Theorem PERM_MAP_BIJ:
@@ -2287,18 +1660,6 @@ Proof
   Induct >> simp[EXP,EVEN_DOUBLE]
 QED
 
-Theorem FST_UNZIP_MAPi:
-   ∀l f. FST (UNZIP (MAPi f l)) = MAPi ((o) ((o) FST) f) l
-Proof
-  Induct >> simp[]
-QED
-
-Theorem SND_UNZIP_MAPi:
-   ∀l f. SND (UNZIP (MAPi f l)) = MAPi ((o) ((o) SND) f) l
-Proof
-  Induct >> simp[]
-QED
-
 Theorem ALL_DISTINCT_FLAT:
    ∀l. ALL_DISTINCT (FLAT l) ⇔
         (∀l0. MEM l0 l ⇒ ALL_DISTINCT l0) ∧
@@ -2320,12 +1681,6 @@ Theorem ALL_DISTINCT_APPEND_APPEND_IMP:
     ALL_DISTINCT (xs ++ ys) /\ ALL_DISTINCT (xs ++ zs) /\ ALL_DISTINCT (ys ++ zs)
 Proof
   fs [ALL_DISTINCT_APPEND]
-QED
-
-Theorem GSPEC_o:
-   GSPEC f o g = { x | ∃y. (g x, T) = f y }
-Proof
-  simp[FUN_EQ_THM, GSPECIFICATION]
 QED
 
 
@@ -2358,72 +1713,10 @@ Definition option_fold_def:
   (option_fold f x (SOME y) = f y x)
 End
 
-Theorem SPLITP_CONS_IMP:
-   ∀ls l' r. (SPLITP P ls = (l', r)) /\ (r <> []) ==> (EXISTS P ls)
-Proof
-  rw[] \\ imp_res_tac SPLITP_IMP \\ imp_res_tac SPLITP_JOIN
-  \\ Cases_on `r` \\ rfs[NULL_EQ, EXISTS_DEF, HD]
-QED
-
-
-Theorem LAST_CONS_alt:
-   P x ==> ((ls <> [] ==> P (LAST ls)) <=> (P (LAST (CONS x ls))))
-Proof
-  Cases_on`ls` \\ rw[]
-QED
-
 Theorem EL_CONS_IF:
   EL n (x :: xs) = (if n = 0 then x else EL (PRE n) xs)
 Proof    Cases_on `n` \\ fs []
 QED
-
-Theorem EVERY_TOKENS:
-   ∀P ls. EVERY (EVERY ($~ o P)) (TOKENS P ls)
-Proof
-  recInduct TOKENS_ind
-  \\ rw[TOKENS_def]
-  \\ pairarg_tac \\ fs[NULL_EQ]
-  \\ IF_CASES_TAC \\ fs[]
-  \\ imp_res_tac SPLITP_IMP
-QED
-
-Theorem TOKENS_START:
-  !l a. TOKENS (\x. x = a) (a::l) = TOKENS (\x. x = a) l
-Proof
-  gen_tac \\ Induct_on `l` \\ rw[TOKENS_def] \\ pairarg_tac \\ fs[NULL_EQ] \\ rw[]
-  >-(imp_res_tac SPLITP_NIL_FST_IMP \\ fs[] \\ rw[TOKENS_def])
-  >-(fs[SPLITP])
-  >-(pairarg_tac \\ fs[NULL_EQ] \\ rw[]
-    \\ imp_res_tac SPLITP_NIL_FST_IMP
-    \\ imp_res_tac SPLITP_IMP \\ rfs[]
-    \\ simp[TOKENS_def] \\ rw[NULL_EQ])
-  >-(pairarg_tac \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP])
-QED
-
-Theorem TOKENS_END:
-   !l a.
-      TOKENS (\x. x = a) (l ++ [a]) = TOKENS (\x. x = a) l
-Proof
-    rw[]
-    \\ `TOKENS (\x. x = a) (l ++ [a]) = TOKENS (\x. x = a) l ++ TOKENS (\x. x = a) ""` by fs[TOKENS_APPEND]
-    \\ fs[TOKENS_def] \\ rw[]
-QED
-
-
-Theorem TOKENS_LENGTH_END:
-   !l a.
-      LENGTH (TOKENS (\x. x = a) (l ++ [a])) = LENGTH (TOKENS (\x. x = a) l)
-Proof
-  rw[] \\ AP_TERM_TAC \\ rw[TOKENS_END]
-QED
-
-Theorem TOKENS_LENGTH_START:
-   !l a.
-      LENGTH (TOKENS (\x. x = a) (a::l)) = LENGTH (TOKENS (\x. x= a) l)
-Proof
-  rw[] \\ AP_TERM_TAC \\ rw[TOKENS_START]
-QED
-
 
 Theorem DROP_EMPTY:
    !ls n. (DROP n ls = []) ==> (n >= LENGTH ls)
@@ -2432,38 +1725,6 @@ Proof
     \\ Cases_on `n > LENGTH ls` \\ fs[]
     \\ `n < LENGTH (h::ls)` by fs[]
     \\ fs[DROP_EL_CONS]
-QED
-
-Theorem FRONT_APPEND'[local]:
-  !l h a b t. l = h ++ [a; b] ++ t ==>
-      FRONT l = h ++ FRONT([a; b] ++ t)
-Proof
-  Induct \\ rw[FRONT_DEF, FRONT_APPEND]
-      >-(rw[LIST_EQ_REWRITE])
-      \\ Cases_on `h'` \\ fs[FRONT_APPEND, FRONT_DEF]
-QED
-
-
-Theorem EVERY_NOT_IMP[local]:
-  !ls a. (EVERY ($~ o (\x. x = a)) ls) ==> (LIST_ELEM_COUNT a ls = 0)
-Proof
-  Induct \\ rw[LIST_ELEM_COUNT_DEF] \\ fs[LIST_ELEM_COUNT_DEF]
-QED
-
-Theorem LIST_ELEM_COUNT_CONS[local]:
-  !h t a. LIST_ELEM_COUNT a (h::t) = LIST_ELEM_COUNT a [h] + LIST_ELEM_COUNT a t
-Proof
-  simp_tac std_ss [Once CONS_APPEND, LIST_ELEM_COUNT_THM]
-QED
-
-Theorem FRONT_COUNT_IMP[local]:
-  !l1 l2 a. l1 <> [] /\ FRONT l1 = l2 ==> (LIST_ELEM_COUNT a l2 = LIST_ELEM_COUNT a l1) \/ (LIST_ELEM_COUNT a l2 + 1 = LIST_ELEM_COUNT a l1)
-Proof
-  gen_tac \\ Induct_on `l1` \\ gen_tac \\ Cases_on `l2` \\ rw[FRONT_DEF]
-    >-(Cases_on `h = a` \\ rw[LIST_ELEM_COUNT_DEF])
-    \\ rw[LIST_ELEM_COUNT_DEF] \\ fs[LIST_ELEM_COUNT_DEF]
-    \\ Cases_on `LENGTH (FILTER (\x. x = a) l1)`
-    \\ first_x_assum (qspecl_then [`a`] mp_tac) \\ rw[] \\ rfs[]
 QED
 
 Theorem OPT_MMAP_MAP_o:
@@ -2785,30 +2046,6 @@ Proof
   \\ fs[LENGTH_FIELDS]
 QED
 
-Theorem CONCAT_FIELDS:
-   ∀ls. CONCAT (FIELDS P ls) = FILTER ($~ o P) ls
-Proof
-  gen_tac
-  \\ completeInduct_on`LENGTH ls`
-  \\ Cases
-  \\ simp[FIELDS_def]
-  \\ pairarg_tac \\ fs[]
-  \\ strip_tac
-  \\ fs[Once SPLITP]
-  \\ Cases_on`P h` \\ fs[] \\ rveq \\ simp[]
-  \\ Cases_on`SPLITP P t` \\ fs[]
-  \\ Cases_on`NULL r` \\ fs[NULL_EQ]
-  >- (
-    imp_res_tac SPLITP_NIL_SND_EVERY
-    \\ fs[FILTER_EQ_ID] )
-  \\ imp_res_tac SPLITP_IMP
-  \\ rfs[NULL_EQ]
-  \\ imp_res_tac SPLITP_JOIN
-  \\ simp[FILTER_APPEND]
-  \\ fs[GSYM FILTER_EQ_ID]
-  \\ Cases_on`r` \\ fs[]
-QED
-
 Theorem FIELDS_next:
    ∀ls l1 l2.
    FIELDS P ls = l1::l2 ⇒
@@ -2891,12 +2128,6 @@ Proof
   asm_simp_tac std_ss [TOKENS_APPEND]
 QED
 
-Theorem the_nil_eq_cons:
-   (the [] x = y::z) ⇔ x = SOME (y ::z)
-Proof
-  Cases_on`x` \\ EVAL_TAC
-QED
-
 Definition splitlines_def:
   splitlines ls =
   let lines = FIELDS ((=) #"\n") ls in
@@ -2956,56 +2187,6 @@ Proof
   \\ every_case_tac \\ fs[] \\ rw[] \\ fs[NULL_EQ, FIELDS_def]
   \\ qmatch_assum_abbrev_tac`FRONT (x::y) = _`
   \\ Cases_on`y` \\ fs[]
-QED
-
-Theorem n2l_DIV_MOD:
-   !b n k. 1 < b /\ 0 < k /\ b ** k <= n ==>
-   (n2l b (n MOD (b ** k)) ++ REPLICATE (k - LENGTH (n2l b (n MOD (b ** k)))) 0 ++
-    n2l b (n DIV (b ** k)) = n2l b n)
-Proof
-  ho_match_mp_tac numposrepTheory.n2l_ind
-  \\ rw[]
-  \\ Cases_on`b < 2` \\ fs[]
-  \\ Cases_on`n < b` \\ fs[]
-  >- ( `b <= b ** k` by ( Cases_on`k` \\ fs[EXP] ) \\ fs[] )
-  \\ Cases_on`k` \\ fs[EXP]
-  \\ fs[GSYM DIV_DIV_DIV_MULT]
-  \\ fs[DIV_MOD_MOD_DIV]
-  \\ rw[Once numposrepTheory.n2l_def,SimpRHS]
-  \\ qmatch_assum_rename_tac`b * b ** k <= n`
-  \\ Cases_on`k=0` \\ fs[EXP]
-  >- (
-    rw[Once numposrepTheory.n2l_def,REPLICATE_NIL] \\
-    rw[numposrepTheory.LENGTH_n2l])
-  \\ simp[Once numposrepTheory.n2l_def]
-  \\ simp[MOD_MULT_MOD]
-  \\ fs[numposrepTheory.LENGTH_n2l]
-  \\ first_x_assum(qspec_then`k`mp_tac)
-  \\ impl_tac >- simp[X_LE_DIV]
-  \\ disch_then(assume_tac o SYM) \\ simp[]
-  \\ rfs[DIV_EQ_0]
-  \\ reverse IF_CASES_TAC \\ fs[]
-  >- simp[logrootTheory.LOG_DIV,ADD1]
-  \\ IF_CASES_TAC \\ fs[]
-  >- (
-    `0 < b ** k` by simp[] \\
-    `0 < b * b ** k` by simp[LESS_MULT2] \\
-    fs[MOD_EQ_0_DIVISOR,ZERO_DIV,Once numposrepTheory.n2l_def]
-    \\ Cases_on`k` \\ fs[REPLICATE]
-    \\ metis_tac[MULT_ASSOC] )
-  \\ conj_asm1_tac
-  >- (
-    qspecl_then[`b ** k`,`b`]mp_tac MOD_MULT_MOD
-    \\ simp[]
-    \\ disch_then(qspec_then`n`mp_tac)
-    \\ simp[LESS_MOD])
-  \\ simp[]
-  \\ `n MOD b DIV b = 0` by simp[DIV_EQ_0]
-  \\ simp[Once numposrepTheory.n2l_def]
-  \\ rewrite_tac[GSYM REPLICATE,ADD1]
-  \\ `LOG b (n MOD b) = 0`
-  by ( simp[logrootTheory.LOG_EQ_0] )
-  \\ simp[]
 QED
 
 Theorem irreflexive_inv_image:
@@ -3097,21 +2278,6 @@ Definition list_set_eq_def:
   list_set_eq l1 l2 ⇔ list_subset l1 l2 ∧ list_subset l2 l1
 End
 
-Theorem list_subset_LENGTH:
-    !l1 l2.ALL_DISTINCT l1 ∧
-  list_subset l1 l2 ⇒
-  LENGTH l1 ≤ LENGTH l2
-Proof
-  fs[list_subset_def,EVERY_MEM]>>
-  Induct>>rw[]>>
-  first_x_assum(qspec_then`FILTER ($~ o $= h) l2` assume_tac)>>
-  rfs[MEM_FILTER]>>
-  `LENGTH (FILTER ($~ o $= h) l2) < LENGTH l2` by
-    (match_mp_tac LENGTH_FILTER_LESS>>
-    fs[EXISTS_MEM])>>
-  fs[]
-QED
-
 Theorem BIJ_UPDATE:
    !f s t x y. BIJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
     BIJ ((x =+ y) f) (x INSERT s) (y INSERT t)
@@ -3146,22 +2312,6 @@ Theorem SPLITP_TAKE_DROP:
 Proof
   Induct_on`l` >> rw[SPLITP] >> Cases_on`i` >> fs[] >>
   res_tac >> fs[FST,SND]
-QED
-
-Theorem SND_SPLITP_DROP:
-  !P n l. EVERY ($~ o P) (TAKE n l) ==>
-   SND (SPLITP P (DROP n l)) = SND (SPLITP P l)
-Proof
- Induct_on`n` >> rw[SPLITP] >> Cases_on`l` >> fs[SPLITP]
-QED
-
-Theorem FST_SPLITP_DROP:
-  !P n l. EVERY ($~ o P) (TAKE n l) ==>
-   FST (SPLITP P l) = (TAKE n l) ++ FST (SPLITP P (DROP n l))
-Proof
- Induct_on`n` >> rw[SPLITP] >> Cases_on`l` >>
- PURE_REWRITE_TAC[DROP_def,TAKE_def,APPEND] >> simp[] >>
- fs[SPLITP]
 QED
 
 Theorem TAKE_DROP_SUBLIST:
@@ -3247,14 +2397,6 @@ Proof
   rw[] \\ Induct_on`ls` \\ rw[MULT_SUC]
 QED
 
-Theorem LAST_FLAT:
-   ∀ls. ~NULL (FLAT ls) ==> (LAST (FLAT ls) = LAST (LAST (FILTER ($~ o NULL) ls)))
-Proof
-  ho_match_mp_tac SNOC_INDUCT \\ rw[]
-  \\ fs[FLAT_SNOC,FILTER_SNOC]
-  \\ Cases_on`x` \\ fs[]
-QED
-
 Theorem TOKENS_unchanged:
   EVERY ($~ o P) ls ==> TOKENS P ls = if NULL ls then [] else [ls]
 Proof
@@ -3275,17 +2417,6 @@ Proof
   \\ Cases_on`MEM (HD r) l` \\ fs[] >- metis_tac[]
   \\ `MEM (HD r) (h::ls)` by metis_tac[MEM_APPEND]
   \\ fs[] \\ rw[] \\ metis_tac[]
-QED
-
-Theorem TOKENS_FLAT_MAP_SNOC:
-   EVERY (EVERY ((<>) x)) ls ∧ EVERY ($~ o NULL) ls ==>
-   TOKENS ((=) x) (FLAT (MAP (SNOC x) ls)) = ls
-Proof
-  Induct_on`ls` \\ rw[TOKENS_NIL]
-  \\ rewrite_tac[GSYM APPEND_ASSOC,SNOC_APPEND,APPEND]
-  \\ DEP_REWRITE_TAC[TOKENS_APPEND] \\ rw[]
-  \\ DEP_REWRITE_TAC[TOKENS_unchanged]
-  \\ fs[EVERY_MEM]
 QED
 
 (* insert a string (l1) at specified index (n) in a list (l2) *)
@@ -3317,14 +2448,6 @@ Proof
   simp[insert_atI_def]
 QED
 
-Theorem insert_atI_app:
-   ∀n l c1 c2.  n + LENGTH c1 + LENGTH c2 <= LENGTH l ==>
-     insert_atI (c1 ++ c2) n l =
-     insert_atI c1 n (insert_atI c2 (n + LENGTH c1) l)
-Proof
-  Induct_on`c1` >> fs[insert_atI_NIL,insert_atI_CONS,LENGTH_insert_atI,ADD1]
-QED
-
 Theorem insert_atI_end:
    insert_atI l1 (LENGTH l2) l2 = l2 ++ l1
 Proof
@@ -3339,15 +2462,6 @@ Proof
        GSYM DROP_DROP_T,DROP_LENGTH_TOO_LONG,DROP_LENGTH_NIL_rwt]
     >> fs[DROP_LENGTH_NIL_rwt,LENGTH_TAKE,DROP_APPEND1,TAKE_APPEND,TAKE_TAKE,
        DROP_DROP_T,DROP_APPEND2,TAKE_LENGTH_TOO_LONG,TAKE_SUM,LENGTH_DROP]
-QED
-
-Theorem LUPDATE_insert_commute:
-   ∀ws pos1 pos2 a w.
-     pos2 < pos1 ∧ pos1 + LENGTH ws <= LENGTH a ⇒
-     insert_atI ws pos1 (LUPDATE w pos2 a) =
-       LUPDATE w pos2 (insert_atI ws pos1 a)
-Proof
-  Induct >> simp[insert_atI_NIL,insert_atI_CONS, LUPDATE_commutes]
 QED
 
 Theorem LESS_EQ_LENGTH:
@@ -3434,95 +2548,6 @@ Proof
   \\ rw[is_subseq_def]
 QED
 
-(* TODO - candidate for move to HOL *)
-Theorem is_subseq_snoc:
-   ∀l1 l2 x. is_subseq l1 l2 ⇒ is_subseq (SNOC x l1) l2
-Proof
-  recInduct is_subseq_ind
-  \\ rw[is_subseq_def] \\ fs[]
-QED
-
-(* TODO - candidate for move to HOL *)
-Theorem is_subseq_append1:
-   ∀l3 l1 l2. is_subseq l1 l2 ⇒ is_subseq (l3 ++ l1) l2
-Proof
-  Induct
-  \\ rw[is_subseq_def] \\ fs[]
-  \\ metis_tac[is_subseq_cons]
-QED
-
-(* TODO - candidate for move to HOL *)
-Theorem is_subseq_append2:
-   ∀l4 l1 l2. is_subseq l1 l2 ⇒ is_subseq (l1 ++ l4) l2
-Proof
-  ho_match_mp_tac SNOC_INDUCT
-  \\ rw[is_subseq_def] \\ fs[]
-  \\ metis_tac[is_subseq_snoc, SNOC_APPEND, APPEND_ASSOC]
-QED
-
-(* TODO - candidate for move to HOL *)
-Theorem is_subseq_IS_SUBLIST:
-   is_subseq l1 l2 ∧ IS_SUBLIST l3 l1 ⇒ is_subseq l3 l2
-Proof
-  rw[IS_SUBLIST_APPEND]
-  \\ metis_tac[is_subseq_append1, is_subseq_append2]
-QED
-
-(* TODO - candidate for move to HOL *)
-Theorem is_subseq_MEM:
-   ∀l1 l2 x. is_subseq l1 l2 ∧ MEM x l2 ⇒ MEM x l1
-Proof
-  recInduct is_subseq_ind
-  \\ rw[is_subseq_def]
-  \\ metis_tac[]
-QED
-
-(* TODO - candidate for move to HOL *)
-Theorem IS_PREFIX_is_subseq:
-   ∀l1 l2. IS_PREFIX l1 l2 ⇒ is_subseq l1 l2
-Proof
-  recInduct is_subseq_ind
-  \\ rw[is_subseq_def]
-  \\ fs[IS_PREFIX_NIL]
-QED
-
-(* TODO - candidate for move to HOL *)
-Theorem IS_SUBLIST_is_subseq:
-   ∀l1 l2. IS_SUBLIST l1 l2 ⇒ is_subseq l1 l2
-Proof
-  recInduct is_subseq_ind
-  \\ rw[is_subseq_def, IS_SUBLIST]
-  \\ simp[IS_PREFIX_is_subseq]
-QED
-
-(* TODO - candidate for move to HOL *)
-Theorem is_subseq_ALL_DISTINCT:
-   ∀l1 l2. ALL_DISTINCT l1 ∧ is_subseq l1 l2 ⇒ ALL_DISTINCT l2
-Proof
-  recInduct is_subseq_ind
-  \\ rw[is_subseq_def] \\ fs[] \\ rfs[]
-  \\ metis_tac[is_subseq_MEM]
-QED
-
-(* TODO - candidate for move to HOL *)
-Theorem is_subseq_append_suff:
-   ∀l1 l3 l2 l4.
-   is_subseq l1 l3 ∧ is_subseq l2 l4 ⇒
-   is_subseq (l1 ++ l2) (l3 ++ l4)
-Proof
-  recInduct is_subseq_ind
-  \\ rw[is_subseq_def]
-  \\ metis_tac[is_subseq_append1]
-QED
-
-(* TODO - candidate for move to HOL *)
-Theorem is_subseq_FLAT_suff:
-   ∀ls1 ls2. LIST_REL is_subseq ls1 ls2 ⇒ is_subseq (FLAT ls1) (FLAT ls2)
-Proof
-  ho_match_mp_tac LIST_REL_ind
-  \\ rw[is_subseq_append_suff]
-QED
-
 Theorem LIST_REL_IMP_LAST:
    !P xs ys.
       LIST_REL P xs ys /\ (xs <> [] \/ ys <> []) ==> P (LAST xs) (LAST ys)
@@ -3542,20 +2567,6 @@ Theorem EVEN_make_even[simp]:
    EVEN (make_even x)
 Proof
   rw[make_even_def, EVEN_ADD]
-QED
-
-Theorem ALOOKUP_MAP_FST_INJ_SOME:
-   ∀ls x y.
-    ALOOKUP ls x = SOME y ∧ (∀x'. IS_SOME (ALOOKUP ls x') ∧ f x' = f x ⇒ x = x') ⇒
-    ALOOKUP (MAP (f ## g) ls) (f x) = SOME (g y)
-Proof
-  Induct \\ simp[]
-  \\ Cases \\ rw[]
-  >- metis_tac[IS_SOME_EXISTS]
-  \\ first_x_assum irule
-  \\ rw[]
-  \\ first_x_assum irule
-  \\ rw[]
 QED
 
 Theorem v2w_32_F[simp]:
@@ -3601,14 +2612,6 @@ Proof
   \\ simp[]
 QED
 
-Theorem byte_align_extract:
-   byte_align (x:word32) = (((31 >< 2) x):word30) @@ (0w:word2)
-Proof
-  rw[alignmentTheory.byte_align_def]
-  \\ rw[alignmentTheory.align_def]
-  \\ blastLib.BBLAST_TAC
-QED
-
 Theorem byte_align_IN_IMP_IN_range:
    byte_align a ∈ dm ∧
    (dm = { w | low <=+ w ∧ w <+ hi }) ∧
@@ -3630,13 +2633,6 @@ Proof
   \\ fs[alignmentTheory.byte_align_def]
 QED
 
-Theorem MULT_DIV_MULT_LEMMA:
-   !m l k. 0 < m /\ 0 < l ==> (m * k) DIV (l * m) = k DIV l
-Proof
-  rw [] \\ qsuff_tac `k * m DIV (m * l) = k DIV l` THEN1 fs []
-  \\ simp [GSYM DIV_DIV_DIV_MULT] \\ simp [MULT_DIV]
-QED
-
 Theorem IMP_MULT_DIV_LESS:
    m <> 0 /\ d < k ==> m * (d DIV m) < k
 Proof
@@ -3655,14 +2651,6 @@ Proof
   \\ rfs [] \\ metis_tac [LT_MULT_LCANCEL]
 QED
 
-Theorem toPath_fromList:
-   (toPath (x, fromList []) = stopped_at x) ∧
-   (toPath (x, fromList ((y,z)::t)) = pcons x y (toPath (z, fromList t)))
-Proof
-  conj_tac >- EVAL_TAC
-  \\ rw[pathTheory.pcons_def, pathTheory.first_def, pathTheory.path_rep_bijections_thm]
-QED
-
 Definition steps_def:
   (steps f x [] = []) ∧
   (steps f x (j::js) =
@@ -3679,15 +2667,6 @@ Definition steps_rel_def:
 End
 
 val steps_rel_ind = theorem"steps_rel_ind";
-
-Theorem steps_rel_okpath:
-   ∀R x tr.
-    steps_rel R x tr ⇔ okpath R (toPath (x,fromList tr))
-Proof
-  recInduct steps_rel_ind
-  \\ rewrite_tac[toPath_fromList]
-  \\ rw[steps_rel_def, pathTheory.first_def, pathTheory.path_rep_bijections_thm]
-QED
 
 Theorem steps_rel_LRC:
     ∀R x tr.
@@ -3981,21 +2960,6 @@ Proof
    \\ rw[lookup_def]
 QED
 
-Theorem empty_sub:
-     isEmpty(difference a b) ∧ (subspt b a) ==> (domain a = domain b)
-Proof
-    fs[subspt_def] >>
-    rw[] >>
-    imp_res_tac difference_sub >>
-    metis_tac[GSYM SUBSET_DEF, SUBSET_ANTISYM]
-QED
-
-Theorem subspt_delete:
-     ∀ a b x . subspt a b ⇒ subspt (delete x a) b
-Proof
-    rw[subspt_def, lookup_delete]
-QED
-
 Theorem inter_union_empty:
      ∀ a b c . isEmpty (inter (union a b) c)
   ⇔ isEmpty (inter a c) ∧ isEmpty (inter b c)
@@ -4067,13 +3031,6 @@ Proof
   metis_tac[]
 QED
 
-Theorem range_insert_SUBSET:
-  range (insert n l fml) ⊆ l INSERT range fml
-Proof
-  rw[SUBSET_DEF]>>
-  metis_tac[range_insert_2]
-QED
-
 (* END TODO *)
 
 Theorem TWOxDIV2:
@@ -4092,83 +3049,6 @@ Proof
   \\ gen_tac \\ Cases \\ simp[alist_insert_def]
   \\ simp[alist_insert_append,alist_insert_def]
   \\ rw[] \\ simp[alist_insert_pull_insert]
-QED
-
-Theorem alist_insert_ALL_DISTINCT:
-    ∀xs ys t ls.
-  ALL_DISTINCT xs ∧
-  LENGTH xs = LENGTH ys ∧
-  PERM (ZIP (xs,ys)) ls ⇒
-  alist_insert xs ys t = alist_insert (MAP FST ls) (MAP SND ls) t
-Proof
-  ho_match_mp_tac alist_insert_ind>>rw[]>>
-  fs[LENGTH_NIL_SYM]>>rveq>>fs[ZIP]>>
-  simp[alist_insert_def]>>
-  fs[PERM_CONS_EQ_APPEND]>>
-  simp[alist_insert_append,alist_insert_def]>>
-  `¬MEM xs (MAP FST M)` by
-    (CCONTR_TAC>>fs[]>>
-    imp_res_tac PERM_MEM_EQ>>
-    fs[FORALL_PROD,MEM_MAP,EXISTS_PROD]>>
-    res_tac>>
-    imp_res_tac MEM_ZIP>>
-    fs[EL_MEM])>>
-  simp[alist_insert_pull_insert]>>
-  simp[GSYM alist_insert_append]>>
-  metis_tac[MAP_APPEND]
-QED
-
-Theorem n2w_lt:
-   (0w:'a word) < n2w a ∧ (0w:'a word) < n2w b ∧
-   a < dimword (:'a) ∧ b < dimword (:'a)
-   ⇒
-   ((n2w a:'a word) < (n2w b:'a word) ⇔ a < b)
-Proof
-  simp[word_lt_n2w]
-QED
-
-Theorem n2w_le:
-   (0w:'a word) < n2w a ∧ (0w:'a word) < n2w b ∧
-   a < dimword (:'a) ∧ b < dimword (:'a)
-   ⇒
-   ((n2w a:'a word) ≤ (n2w b:'a word) ⇔ a ≤ b)
-Proof
-  srw_tac[][WORD_LESS_OR_EQ,LESS_OR_EQ]
-  \\ metis_tac[n2w_lt]
-QED
-
-Theorem word_lt_0w:
-   2 * n < dimword (:'a) ⇒ ((0w:'a word) < n2w n ⇔ 0 < n)
-Proof
-  simp[WORD_LT]
-  \\ Cases_on`0 < n` \\ simp[]
-  \\ simp[word_msb_n2w_numeric]
-  \\ simp[NOT_LESS_EQUAL]
-  \\ simp[wordsTheory.INT_MIN_def]
-  \\ simp[dimword_def]
-  \\ Cases_on`dimindex(:'a)`\\simp[]
-  \\ simp[EXP]
-QED
-
-Theorem word_sub_lt:
-   0w < n ∧ 0w < m ∧ n ≤ m ⇒ m - n < m
-Proof
-  rpt strip_tac
-  \\ Cases_on`m`>>Cases_on`n`
-  \\ qpat_x_assum`_ ≤ _`mp_tac
-  \\ asm_simp_tac std_ss [n2w_le]
-  \\ simp_tac std_ss [GSYM n2w_sub]
-  \\ strip_tac
-  \\ qmatch_assum_rename_tac`a:num ≤ b`
-  \\ Cases_on`a=b`>-full_simp_tac(srw_ss())[]
-  \\ `a < b` by simp[]
-  \\ `0 < a` by (Cases_on`a`\\full_simp_tac(srw_ss())[]\\metis_tac[WORD_LESS_REFL])
-  \\ `b - a < b` by simp[]
-  \\ Cases_on`0w < n2w (b - a)`
-  >- (
-    dep_rewrite.DEP_ONCE_REWRITE_TAC[n2w_lt]
-    \\ simp[])
-  \\ full_simp_tac(srw_ss())[word_lt_n2w,LET_THM]
 QED
 
 (* see #521 *)
@@ -4190,22 +3070,6 @@ Proof
          [bytes_in_memory_def, wordsTheory.WORD_ADD_0, wordsTheory.word_add_n2w,
           GSYM wordsTheory.WORD_ADD_ASSOC, arithmeticTheory.ADD1]
   THEN DECIDE_TAC
-QED
-
-Theorem bytes_in_memory_change_domain:
-   ∀a bs m md1 md2.
-    bytes_in_memory a bs m md1 ∧
-   (∀n. n < LENGTH bs ∧ a + n2w n ∈ md1 ⇒ a + n2w n ∈ md2)
-  ⇒ bytes_in_memory a bs m md2
-Proof
-  Induct_on`bs`
-  \\ rw[bytes_in_memory_def]
-  >- ( first_x_assum(qspec_then`0`mp_tac) \\ rw[] )
-  \\ first_x_assum irule
-  \\ goal_assum(first_assum o mp_then Any mp_tac)
-  \\ strip_tac
-  \\ first_x_assum(qspec_then`SUC n`mp_tac)
-  \\ simp[ADD1,GSYM word_add_n2w]
 QED
 
 Theorem bytes_in_memory_change_mem:
