@@ -93,6 +93,8 @@ Datatype:
   | Aw8sub
   | Aw8length
   | Aw8update
+  | Aw8subBit
+  | Aw8updateBit
   (* string/bytearray conversions *)
   | CopyStrStr
   | CopyStrAw8
@@ -122,6 +124,8 @@ Datatype:
   | Aupdate_unsafe
   | Aw8sub_unsafe
   | Aw8update_unsafe
+  | Aw8subBit_unsafe
+  | Aw8updateBit_unsafe
   (* thunk operations *)
   | ThunkOp thunk_op
   (* List operations *)

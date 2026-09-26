@@ -110,7 +110,7 @@ Definition conf_ok_def:
   conf_ok (:'a) c <=>
     shift_length c < dimindex (:α) ∧
     shift (:α) ≤ shift_length c ∧ c.len_size ≠ 0 ∧
-    c.len_size + 7 < dimindex (:α)
+    c.len_size + 9 < dimindex (:α)
 End
 
 Definition max_heap_limit_def:
@@ -157,6 +157,12 @@ Definition real_byte_offset_def:
   real_byte_offset r : 'a wordLang$exp =
     Op Add [Const bytes_in_word;
             ShiftN Lsr (Var r) 1]
+End
+
+Definition real_bit_offset_def:
+  real_bit_offset r =
+    Op Add [Const bytes_in_word;
+            ShiftN Lsr (Var r) 4]
 End
 
 Datatype:
@@ -1226,6 +1232,23 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_DerefBit (c:data_to_word$config) (l:num) (dest:num) v1 v2 =
+    (list_Seq
+        [Assign 1 (Op Add [real_addr c (adjust_var v1);
+                           real_bit_offset (adjust_var v2)]);
+         Inst (Mem Load8 3 (Addr 1 0w));
+         Assign
+           (adjust_var dest)
+           (ShiftN Lsl
+              (Op And [Const 1w;
+                       Shift Lsr
+                             (Var 3)
+                             (Op And [Const 7w;
+                                      ShiftN Lsr (Var (adjust_var v2)) 1])])
+              1)], l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
   assign_Update (c:data_to_word$config) (l:num) (dest:num) v1 v2 v3 =
                  (Seq (Store (Op Add [real_addr c (adjust_var v1);
                                       real_offset c (adjust_var v2)])
@@ -1260,6 +1283,20 @@ val def = assign_Define `
           Assign 3 (ShiftN Lsr (Var (adjust_var v3)) 1);
           Inst (Mem Store8 3 (Addr 1 0w));
           Assign (adjust_var dest) Unit], l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_UpdateBit (c:data_to_word$config) (l:num) (dest:num) v1 v2 v3 =
+    (list_Seq
+        [Assign 1 (Op Add [real_addr c (adjust_var v1);
+                           real_bit_offset (adjust_var v2)]);
+         Inst (Mem Load8 3 (Addr 1 0w));
+         Assign 5 (Op And [Const 7w; ShiftN Lsr (Var (adjust_var v2)) 1]);
+         Assign 7 (Op Or [Op And [Var 3; Op Xor [Shift Lsl (Const 1w) (Var 5);
+                                                 Const (0w - 1w)]];
+                          Shift Lsl (ShiftN Lsr (Var (adjust_var v3)) 1) (Var 5)]);
+         Inst (Mem Store8 7 (Addr 1 0w));
+         Assign (adjust_var dest) Unit], l)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
@@ -1717,6 +1754,22 @@ val def = assign_Define `
                               Assign 3 (ShiftVar Ror (adjust_var v2) 1);
                               (if leq then If NotLower 1 (Reg 3) else
                                            If Lower 3 (Reg 1))
+                                 (Assign (adjust_var dest) TRUE_CONST)
+                                 (Assign (adjust_var dest) FALSE_CONST)],l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_BoundsCheckBit (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
+                   (list_Seq [Assign 1
+                               (let addr = real_addr c (adjust_var v1) in
+                                let header = Load addr in
+                                let extra = (if dimindex (:'a) = 32 then 2 else 3) in
+                                let k = dimindex (:'a) - c.len_size - extra in
+                                  ShiftN Lsl (Op Sub [ShiftN Lsr header k;
+                                                      Const bytes_in_word]) 3);
+                              Assign 3 (ShiftVar Ror (adjust_var v2) 1);
+                              If Lower 3 (Reg 1)
                                  (Assign (adjust_var dest) TRUE_CONST)
                                  (Assign (adjust_var dest) FALSE_CONST)],l)
       : 'a wordLang$prog # num`;
@@ -2468,9 +2521,11 @@ Definition assign_def:
     | MemOp El => arg2 args (assign_El c l dest) (Skip,l)
     | BlockOp (ElemAt n) => arg1 args (assign_ElemAt c n l dest) (Skip,l)
     | MemOp DerefByte => arg2 args (assign_DerefByte c l dest) (Skip,l)
+    | MemOp DerefBit => arg2 args (assign_DerefBit c l dest) (Skip,l)
     | MemOp Update => arg3 args (assign_Update c l dest) (Skip,l)
     | MemOp UpdateCons => arg3 args (assign_Update c l dest) (Skip,l)
     | MemOp UpdateByte => arg3 args (assign_UpdateByte c l dest) (Skip,l)
+    | MemOp UpdateBit => arg3 args (assign_UpdateBit c l dest) (Skip,l)
     | MemOp FinaliseCons => arg1 args (assign_FinaliseCons l dest) (Skip,l)
     | BlockOp ListAppend => arg2 args (assign_ListAppend c secn l dest names) (Skip,l)
     | BlockOp (Cons tag) => assign_Cons c l dest tag args
@@ -2496,6 +2551,8 @@ Definition assign_def:
         arg2 args (assign_BoundsCheckByte c secn l dest names leq) (Skip,l)
     | MemOp BoundsCheckArray =>
         arg2 args (assign_BoundsCheckArray c secn l dest names) (Skip,l)
+    | MemOp BoundsCheckBit =>
+        arg2 args (assign_BoundsCheckBit c secn l dest names) (Skip,l)
     | BlockOp BoundsCheckBlock =>
         arg2 args (assign_BoundsCheckBlock c secn l dest names) (Skip,l)
     | BlockOp Equal => arg2 args (assign_Equal c secn l dest names) (Skip,l)

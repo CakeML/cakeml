@@ -4,8 +4,11 @@ Changes since release v3479:
 
 The CakeML source language now supports open and let open (#1482).
 
-The monadic translator now targets CakeML's byte arrays for arrays of type
-word8 (#1494).
+Operations for reading or writing a single bit of a byte array have also been added to the source language (#1497).
+
+The monadic translator now targets CakeML's byte arrays for arrays of type word8 (#1494).
+
+The monadic translator also has new support for space-efficient bool arrays represented as byte arrays (#1498).
 
 ## Basis library
 

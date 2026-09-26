@@ -550,7 +550,7 @@ Definition conf_ok_check_def:
   conf_ok_check (:'a) c <=>
     shift_length c < dimindex (:α) ∧
     shift (:α) ≤ shift_length c ∧ c.len_size ≠ 0 ∧
-    c.len_size + 7 < dimindex (:α)
+    c.len_size + 9 < dimindex (:α)
 End
 
 (* data *)

@@ -801,6 +801,60 @@ Proof
     \\ `ABS k = k` by intLib.COOPER_TAC \\ simp [])
 QED
 
+Theorem op_byte_bits:
+  op = Src Aw8subBit_unsafe \/
+  op = Src Aw8updateBit_unsafe ==>
+  ^op_goal
+Proof
+  rpt strip_tac \\ rveq \\ fs []
+  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+         CaseEq "ast$lit",store_assign_def,option_case_eq,CaseEq "store_v"]
+  \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
+  \\ fs [] \\ rveq \\ fs [PULL_EXISTS,SWAP_REVERSE_SYM,v_rel_def] \\ rveq \\ fs []
+  \\ imp_res_tac lookup_byte_array
+  \\ fs [compile_op_def,v_rel_def]
+  \\ fs [evaluate_def,do_app_def]
+  \\ fs [v_rel_def,Unit_def,EVAL ``tuple_tag``]
+  \\ rename [`store_v_same_type (EL j s1.refs)`]
+  \\ Cases_on `EL j s1.refs` \\ fs [store_v_same_type_def]
+  \\ fs [state_rel_def,store_rel_def]
+  \\ strip_tac
+  \\ last_x_assum (qspec_then `i` mp_tac)
+  \\ fs [FLOOKUP_UPDATE] \\ IF_CASES_TAC \\ fs [EL_LUPDATE]
+  \\ Cases_on `i = j` \\ fs []
+  \\ rveq \\ fs [] \\ rpt strip_tac \\ rveq
+  \\ fs [closSemTheory.Boolv_def, flatSemTheory.Boolv_def,
+         backend_commonTheory.true_tag_def,
+         backend_commonTheory.false_tag_def]
+QED
+
+Theorem op_byte_bits_safe:
+  op = Src Aw8subBit \/ op = Src Aw8updateBit ==>
+  ^op_goal
+Proof
+  rpt strip_tac \\ rveq \\ fs []
+  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+         CaseEq "ast$lit",store_assign_def,option_case_eq,CaseEq "store_v"]
+  \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
+  \\ fs [] \\ rveq \\ fs [PULL_EXISTS,SWAP_REVERSE_SYM,v_rel_def] \\ rveq \\ fs []
+  \\ imp_res_tac lookup_byte_array
+  \\ fs [compile_op_def,subscript_exn_v_def,v_rel_def]
+  \\ fs [evaluate_def,do_app_def]
+  \\ gvs [closSemTheory.Boolv_def, flatSemTheory.Boolv_def,
+          backend_commonTheory.true_tag_def,
+          backend_commonTheory.false_tag_def]
+  \\ IF_CASES_TAC \\ gvs [v_rel_def]
+  \\ fs [option_case_eq] \\ rveq \\ fs [v_rel_def,Unit_def,EVAL ``tuple_tag``]
+  \\ rename [`store_v_same_type (EL j s1.refs)`]
+  \\ Cases_on `EL j s1.refs` \\ fs [store_v_same_type_def]
+  \\ fs [state_rel_def,store_rel_def]
+  \\ strip_tac
+  \\ last_x_assum (qspec_then `i` mp_tac)
+  \\ fs [FLOOKUP_UPDATE] \\ IF_CASES_TAC \\ fs [EL_LUPDATE]
+  \\ Cases_on `i = j` \\ fs []
+  \\ rveq \\ fs [] \\ rpt strip_tac \\ rveq \\ fs []
+QED
+
 Theorem op_byte_copy:
   op = Src CopyStrAw8 \/
   op = Src CopyAw8Str \/
@@ -1633,7 +1687,7 @@ Proof
   EVERY (map assume_tac
     [op_refs, op_str, op_shifts, op_thunk, op_eq_gc, op_byte_arrays,
      op_arrays, op_test, op_arith, op_from_to, op_globals, op_blocks,
-     op_ffi, op_byte_copy, op_eval, op_vectors, op_id])
+     op_ffi, op_byte_copy, op_byte_bits, op_byte_bits_safe, op_eval, op_vectors, op_id])
   \\ `?this_is_case. this_is_case op` by (qexists_tac `K T` \\ fs [])
   \\ rpt strip_tac \\ fs [] \\ Cases_on `op`
   >- (Cases_on `o'` \\ fs [] \\ gvs [flatSemTheory.do_app_def])

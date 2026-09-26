@@ -849,6 +849,26 @@ Proof
       >> rpt (disch_then drule)
       >> rw []
       >> metis_tac [store_type_extension_refl]) >~
+  [‘Aw8subBit’]
+  >- (rw [do_app_cases, PULL_EXISTS] >>
+      first_x_assum drule >> strip_tac >> gvs [] >>
+      Cases_on `0 ≤ n ∧ n < &(8 * LENGTH ws)` >> gvs [] >>
+      simp [type_v_exn, sub_exn_v_def] >>
+      metis_tac [Tbool_def, type_v_Boolv, store_type_extension_refl]) >~
+  [‘Aw8updateBit’]
+  >- (rw [do_app_cases, PULL_EXISTS] >>
+      first_x_assum drule >> strip_tac >> gvs [] >>
+      drule_all prim_canonical_Boolv_cases >> strip_tac >> gvs [] >>
+      Cases_on `0 ≤ n ∧ n < &(8 * LENGTH ws)` >> gvs [] >>
+      simp [type_v_exn, sub_exn_v_def] >>
+      TRY (metis_tac [store_type_extension_refl]) >>
+      qmatch_goalsub_abbrev_tac `store_assign _ (W8array ws1)` >>
+      `type_sv ctMap tenvS (W8array ws1) W8array_t` by rw [type_sv_def] >>
+      drule store_assign_type_sound >>
+      rpt (disch_then drule) >>
+      rw [] >>
+      simp [Once type_v_cases] >>
+      metis_tac [store_type_extension_refl]) >~
   [‘CopyStrStr’]
   >- ((* copy string *)
       rw [do_app_cases, PULL_EXISTS] >>
