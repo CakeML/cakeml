@@ -15638,8 +15638,8 @@ Proof
     \\ DEP_REWRITE_TAC [LESS_MOD]
     \\ conj_tac >- gvs [good_dimindex_def, dimword_def, small_int_def, DIV_LT_X]
     \\ Cases_on ‘n = 0’ >- simp []
-    \\ rewrite_tac [GSYM (EVAL “8 * 2:num”)]
-    \\ DEP_REWRITE_TAC [miscTheory.MULT_DIV_MULT_LEMMA] \\ simp [])
+    \\ rewrite_tac [GSYM (EVAL “2 * 8:num”)]
+    \\ DEP_REWRITE_TAC [miscTheory.MULT_DIV_MULT] \\ simp [])
   \\ have ‘Smallnum (&n) ⋙ 1 = n2w n’
   >-
    (gvs [Smallnum_def] \\ rewrite_tac [GSYM w2n_11, w2n_lsr]
