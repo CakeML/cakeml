@@ -243,8 +243,10 @@ Word8.~>>: Word8.word -> int -> Word8.word
 Word8.ror: Word8.word -> int -> Word8.word
 Word8Array.array: int -> Word8.word -> byte_array
 Word8Array.sub: byte_array -> int -> Word8.word
+Word8Array.subBit: byte_array -> int -> bool
 Word8Array.length: byte_array -> int
 Word8Array.update: byte_array -> int -> Word8.word -> unit
+Word8Array.updateBit: byte_array -> int -> bool -> unit
 Word8Array.copy: byte_array -> int -> int -> byte_array -> int -> unit
 Word8Array.copyVec: string -> int -> int -> byte_array -> int -> unit
 Word8Array.substring: byte_array -> int -> int -> string
