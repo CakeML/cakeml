@@ -594,7 +594,6 @@ Definition word_tc_def:
 End
 
 Definition op_to_string_def:
-  (op_to_string (Shift _ _ _) = («Shift», 1)) ∧
   (op_to_string Equality = («Equality», 2)) ∧
   (op_to_string (Arith a ty) =
      («Arith»,
@@ -612,6 +611,10 @@ Definition op_to_string_def:
   (op_to_string Aw8sub_unsafe = («Aw8sub_unsafe», 2)) ∧
   (op_to_string Aw8update_unsafe = («Aw8update_unsafe», 3)) ∧
   (op_to_string XorAw8Str_unsafe = («XorAw8Str_unsafe», 2)) ∧
+  (op_to_string Aw8subBit = («Aw8subBit», 2)) ∧
+  (op_to_string Aw8updateBit = («Aw8updateBit», 3)) ∧
+  (op_to_string Aw8subBit_unsafe = («Aw8subBit_unsafe», 2)) ∧
+  (op_to_string Aw8updateBit_unsafe = («Aw8updateBit_unsafe», 3)) ∧
   (op_to_string CopyStrStr = («CopyStrStr», 3)) ∧
   (op_to_string CopyStrAw8 = («CopyStrAw8», 5)) ∧
   (op_to_string CopyAw8Str = («CopyAw8Str», 3)) ∧
@@ -668,11 +671,13 @@ op_simple_constraints op =
    | Test test ty => (supported_test test ty,
                       [Tem (t_num_of ty); Tem (t_num_of ty)],
                       Tem Tbool_num)
-   | Shift wz _ _ => (T, [Tem (word_tc wz)], Tem (word_tc wz))
    | Aw8alloc => (T, [Tem Tint_num; Tem Tword8_num], Tem Tword8array_num)
    | Aw8sub => (T, [Tem Tword8array_num; Tem Tint_num], Tem Tword8_num)
    | Aw8length => (T, [Tem Tword8array_num], Tem Tint_num)
    | Aw8update => (T, [Tem Tword8array_num; Tem Tint_num; Tem Tword8_num],
+        Tem Ttup_num)
+   | Aw8subBit => (T, [Tem Tword8array_num; Tem Tint_num], Tem Tbool_num)
+   | Aw8updateBit => (T, [Tem Tword8array_num; Tem Tint_num; Tem Tbool_num],
         Tem Ttup_num)
    | CopyStrStr => (T, [Tem Tstring_num; Tem Tint_num; Tem Tint_num],
         Tem Tstring_num)
@@ -783,6 +788,8 @@ constrain_op l op ts s =
    | (Aw8sub_unsafe, _) => failwith l («Unsafe ops do not have a type») s
    | (Aw8update_unsafe, _) => failwith l («Unsafe ops do not have a type») s
    | (XorAw8Str_unsafe, _) => failwith l («Unsafe ops do not have a type») s
+   | (Aw8subBit_unsafe, _) => failwith l («Unsafe ops do not have a type») s
+   | (Aw8updateBit_unsafe, _) => failwith l («Unsafe ops do not have a type») s
    | (AallocFixed, _) => failwith l («Unsafe ops do not have a type»)  s(* not actually unsafe *)
    | (Eval, _) => failwith l («Unsafe ops do not have a type») s
    | (Env_id, _) => failwith l («Unsafe ops do not have a type») s

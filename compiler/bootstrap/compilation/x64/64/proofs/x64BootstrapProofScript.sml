@@ -28,7 +28,7 @@ Definition compiler_instance_def:
        config_dom := UNIV ;
        config_v := BACKEND_CONFIG_v ;
        decs_dom := decs_allowed ;
-       decs_v := LIST_v AST_DEC_v |>
+       decs_v := LIST_v DEC_v |>
 End
 
 Theorem compiler_instance_lemma[local]:

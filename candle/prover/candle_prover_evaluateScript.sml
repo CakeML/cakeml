@@ -148,7 +148,7 @@ Proof
   >~ [`Raise`] >- suspend "Raise"
   >~ [`Handle`] >- suspend "Handle"
   >~ [`Con`] >- suspend "Con"
-  >~ [`ast$Var`] >- suspend "Var"
+  >~ [`ast$Ident`] >- suspend "Ident"
   >~ [`ast$Fun`] >- suspend "Fun"
   >~ [`ast$App`] >- suspend "App"
   >~ [`Log`] >- suspend "Log"
@@ -239,7 +239,7 @@ Resume evaluate_v_ok[Con]:
   \\ strip_tac \\ gs [env_ok_def]
 QED
 
-Resume evaluate_v_ok[Var]:
+Resume evaluate_v_ok[Ident]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"]]
   >- (
@@ -369,6 +369,32 @@ Proof
     \\ simp [v_ok_def]
     \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
   \\ Cases_on ‘op = Aw8update_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [v_ok_def]
+    \\ gvs [store_lookup_def, store_assign_def, EVERY_EL, EL_LUPDATE]
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ rw [SF CONJ_ss, oEL_LUPDATE] \\ gs [ref_ok_def, SF SFY_ss]
+    \\ irule kernel_loc_ok_LUPDATE1 \\ gs []
+    \\ strip_tac \\ gs [])
+  \\ Cases_on ‘op = Aw8subBit_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ rw [v_ok_def, Boolv_def]
+    \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
+  \\ Cases_on ‘op = Aw8updateBit_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [v_ok_def]
+    \\ gvs [store_lookup_def, store_assign_def, EVERY_EL, EL_LUPDATE]
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ rw [SF CONJ_ss, oEL_LUPDATE] \\ gs [ref_ok_def, SF SFY_ss]
+    \\ irule kernel_loc_ok_LUPDATE1 \\ gs []
+    \\ strip_tac \\ gs [])
+  \\ Cases_on ‘op = Aw8subBit’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ rw [v_ok_def, Boolv_def]
+    \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
+  \\ Cases_on ‘op = Aw8updateBit’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [v_ok_def]
     \\ gvs [store_lookup_def, store_assign_def, EVERY_EL, EL_LUPDATE]
@@ -576,11 +602,6 @@ Proof
     \\ strip_tac
     \\ first_x_assum (drule_then assume_tac)
     \\ drule kernel_loc_ok_LENGTH \\ gs [])
-  \\ Cases_on ‘∃sz sh n. op = Shift sz sh n’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
   \\ Cases_on ‘op = Equality’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]

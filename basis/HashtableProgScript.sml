@@ -63,7 +63,7 @@ val _ = ml_prog_update open_local_in_block;
 
 (* provides the Hashtable.hashtable name for the hashtable type *)
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [«'a»;«'b»] «hashtable» (Atapp [Atvar «'a»; Atvar «'b»] (Short «hashtable»))`` I);
+  ``Dtabbrev NoLocs [«'a»;«'b»] «hashtable» (Atapp [Atvar «'a»; Atvar «'b»] (Short «hashtable»))`` I);
 
 Quote add_cakeml:
   fun delete ht k =

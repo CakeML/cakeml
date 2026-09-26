@@ -38,22 +38,22 @@ Theorem check_distrup_arr_spec:
   NUM lno lnov ∧
   DISTRUP_DISTRUP_TYPE distrup distrupv ∧
   LIST_REL vcclause_TYPE fmlls fmllsv ∧
-  WORD8 b bv ∧
+  NUM b bv ∧
   bnd_fml fmlls (LENGTH Clist)
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_distrup_arr" (get_ml_prog_state()))
     [lnov; distrupv; fmlv; Carrv; bv]
-    (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
+    (ARRAY fmlv fmllsv * NUM_ARRAY Carrv Clist)
     (POSTve
       (λres.
         SEP_EXISTS v1 v2 v3.
         SEP_EXISTS fmlls' fmllsv' b' Clist'.
         ARRAY v1 fmllsv' *
-        W8ARRAY v2 Clist' *
+        NUM_ARRAY v2 Clist' *
         &(res = Conv NONE [v1; v2; v3] ∧
           LIST_REL vcclause_TYPE fmlls' fmllsv' ∧
-          WORD8 b' v3 ∧
+          NUM b' v3 ∧
           check_distrup_list distrup fmlls Clist b =
             SOME (fmlls', (Clist', b'))))
       (λe.
@@ -71,8 +71,8 @@ Proof
       POSTve
         (λres.
              (SEP_EXISTS b' Carrv' Clist'.
-                W8ARRAY Carrv' Clist' *
-                &(PAIR_TYPE $= WORD8 (Carrv',b') res ∧
+                NUM_ARRAY Carrv' Clist' *
+                &(PAIR_TYPE $= NUM (Carrv',b') res ∧
                  is_rup_list fmlls Clist b v l = (T,Clist',b'))) *
              ARRAY fmlv fmllsv)
         (λe.
@@ -95,7 +95,7 @@ Proof
     xlet_auto
     >- (
       xsimpl>>
-      rw[]>>metis_tac[W8ARRAY_refl])>>
+      rw[]>>metis_tac[NUM_ARRAY_refl])>>
     fs[PAIR_TYPE_def]>>
     xmatch>> rpt xlet_autop>>
     xcon>>xsimpl)

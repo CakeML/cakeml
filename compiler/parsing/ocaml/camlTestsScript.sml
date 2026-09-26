@@ -43,7 +43,7 @@ fun strip_Lannot t =
     end
   else t;
 
-val locs_ty = “:locs”;
+val locs_ty = “:ast$locs”;
 fun aconv_mod_locs t1 t2 =
   case total (match_term t1) t2
   of SOME (s,[]) =>

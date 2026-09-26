@@ -31,7 +31,7 @@ Definition simple_exp_def:
       | FromTo _ _ => T
       | _ => F)
     | Lit lit => T
-    | Var v => T
+    | Ident v => T
     | Con opt xs => T
     | _ => F
 End
@@ -41,7 +41,7 @@ Theorem simple_exp_simps[simp] =
     “simple_exp (Handle e pes)”,
     “simple_exp (Lit lit)”,
     “simple_exp (Con opt xs)”,
-    “simple_exp (Var n)”,
+    “simple_exp (Ident n)”,
     “simple_exp (Fun n x)”,
     “simple_exp (App op xs)”,
     “simple_exp (Log lop x y)”,
@@ -196,7 +196,7 @@ Proof
   >~ [`_::_::_ : exp list`] >- suspend "Cons"
   >~ [`Lit`] >- suspend "Lit"
   >~ [`Con`] >- suspend "Con"
-  >~ [`ast$Var`] >- suspend "Var"
+  >~ [`ast$Ident`] >- suspend "Ident"
   >~ [`ast$App`] >- suspend "App"
   >~ [`[]:dec list`] >- suspend "decs_Nil"
   >~ [`_::_::_:dec list`] >- suspend "decs_Cons"
@@ -238,7 +238,7 @@ Resume evaluate_basis_v_ok[Con]:
   \\ strip_tac \\ gs [SF SFY_ss]
 QED
 
-Resume evaluate_basis_v_ok[Var]:
+Resume evaluate_basis_v_ok[Ident]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"]]
   \\ gs [env_ok_def, SF SFY_ss]

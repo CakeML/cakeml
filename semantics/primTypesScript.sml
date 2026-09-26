@@ -11,12 +11,12 @@ Ancestors
    exceptions and types must match those in semanticPrimitives *)
 Definition prim_types_program_def:
   prim_types_program =
-   [Dexn unknown_loc «Bind» [];
-    Dexn unknown_loc «Chr» [];
-    Dexn unknown_loc «Div» [];
-    Dexn unknown_loc «Subscript» [];
-    Dtype unknown_loc [([],«bool»,[(«False»,[]); («True»,[])])];
-    Dtype unknown_loc
+   [Dexn NoLocs «Bind» [];
+    Dexn NoLocs «Chr» [];
+    Dexn NoLocs «Div» [];
+    Dexn NoLocs «Subscript» [];
+    Dtype NoLocs [([],«bool»,[(«False»,[]); («True»,[])])];
+    Dtype NoLocs
           [([«'a»],«list»,
             [(«[]»,[]); («::»,[Atvar «'a»; Atapp [Atvar «'a»] (Short «list»)])])]]
 End

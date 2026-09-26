@@ -358,6 +358,7 @@ val _ = data_to_wordTheory.real_addr_def |> arch_spec
           |> SRULE [backend_commonTheory.word_shift_def] |> cv_trans;
 val _ = data_to_wordTheory.real_offset_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.real_byte_offset_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.real_bit_offset_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.make_header_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.make_byte_header_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.encode_header_def |> arch_spec |> SRULE [] |> cv_trans;
@@ -372,6 +373,9 @@ val _ = data_to_wordTheory.WriteWord64_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.WriteWord64_on_32_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.WriteWord32_on_32_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.WordShift64_on_32_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.WordShiftVar64_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.WordShiftVar64_on_32_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.ShiftW8_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.WordOp64_on_32_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.LoadBignum_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.LoadWord64_def |> arch_spec |> SRULE [] |> cv_trans;

@@ -37,5 +37,12 @@ sig
 
     val define_run : hol_type -> string list -> string -> thm
 
+    (*
+     * Bool arrays stored as byte arrays: registers a state field of type
+     * bool list as such an array, and tests whether a field is registered
+     *)
+    val add_bool_array : string -> unit
+    val is_bool_array : string -> bool
+
 end
 

@@ -142,6 +142,14 @@ unsigned long cml_heap_sz = 1024 * sz;    // Default: 1 GB heap
 unsigned long cml_stack_sz = 1024 * sz;   // Default: 1 GB stack
 ```
 
+Huge pages on Linux
+-------------------
+
+Programs that allocate heavily may run faster with the heap backed by
+huge pages. On Linux with glibc, this is an optional setting to try:
+
+    $ export GLIBC_TUNABLES=glibc.malloc.hugetlb=1 ; ./fac.cake 50
+
 Basic profiling
 -------------------------------------
 
