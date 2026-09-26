@@ -175,6 +175,7 @@ End
 Overload bvl_inline_compile_prog[local] = ``bvl_inline$compile_prog``
 Overload bvi_tailrec_compile_prog[local] = ``bvi_tailrec$compile_prog``
 Overload bvi_tmc_compile_prog[local] = ``bvi_tmc$compile_prog``
+Overload bvi_cpr_compile_prog[local] = ``bvi_cpr$compile_prog``
 Overload bvi_inline_compile_inc[local] = ``bvi_inline$compile_inc``
 Overload bvi_to_data_compile_prog[local] = ``bvi_to_data$compile_prog``
 Overload bvl_to_bvi_compile_prog[local] = ``bvl_to_bvi$compile_prog``
@@ -774,7 +775,7 @@ Theorem bvl_to_bvi_compile_semantics2:
       (state_co bvl_to_bvi_compile_inc
         (state_co (bvl_inline_compile_inc c.inline_size_limit
             c.split_main_at_seq c.exp_cut) co))) ∧
-  is_state_oracle (bvi_cpr$compile_prog c.do_cpr)
+  is_state_oracle (bvi_cpr_compile_prog c.do_cpr)
     (state_co (bvi_tmc_compile_prog c.do_tmc)
       (state_co (bvi_tailrec_compile_prog c.do_tailrec)
         (state_co bvl_to_bvi_compile_inc
@@ -817,16 +818,16 @@ Proof
   \\ fs [backendPropsTheory.FST_state_co]
   \\ qmatch_goalsub_abbrev_tac `bvi_tailrec_compile_prog c.do_tailrec tst tpr`
   \\ Cases_on `bvi_tailrec_compile_prog c.do_tailrec tst tpr`
-  \\ qpat_x_assum `is_state_oracle (bvi_cpr$compile_prog _) _` assume_tac
+  \\ qpat_x_assum `is_state_oracle (bvi_cpr_compile_prog _) _` assume_tac
   \\ drule is_state_oracle_k
   \\ disch_then (qspecl_then [`n`] assume_tac)
   \\ fs [backendPropsTheory.FST_state_co]
   \\ qmatch_goalsub_abbrev_tac `bvi_tmc_compile_prog c.do_tmc cst cpr`
   \\ Cases_on `bvi_tmc_compile_prog c.do_tmc cst cpr`
-  \\ qmatch_goalsub_abbrev_tac `bvi_cpr$compile_prog c.do_cpr pst ppr`
+  \\ qmatch_goalsub_abbrev_tac `bvi_cpr_compile_prog c.do_cpr pst ppr`
   \\ PairCases_on `pst`
-  \\ Cases_on `bvi_cpr$compile_prog c.do_cpr (pst0,pst1) ppr`
-  \\ rename1 `bvi_cpr$compile_prog _ _ _ = (pst',_)`
+  \\ Cases_on `bvi_cpr_compile_prog c.do_cpr (pst0,pst1) ppr`
+  \\ rename1 `bvi_cpr_compile_prog _ _ _ = (pst',_)`
   \\ PairCases_on `pst'`
   \\ imp_res_tac bvi_tailrecProofTheory.compile_prog_next_mono
   \\ imp_res_tac bvi_tmcProofTheory.compile_prog_next_mono
@@ -1774,7 +1775,7 @@ QED
 
 Theorem cpr_compile_prog_MEM_not_nss_4:
   ∀ys xs n1 c1 n csh e do_it.
-  bvi_cpr$compile_prog do_it (n,csh) xs = ((n1,c1),ys) ∧ MEM e (MAP FST ys) ∧
+  bvi_cpr_compile_prog do_it (n,csh) xs = ((n1,c1),ys) ∧ MEM e (MAP FST ys) ∧
   n MOD bvl_to_bvi_namespaces = 4 /\ e MOD bvl_to_bvi_namespaces ≠ 4 ⇒
   MEM e (MAP FST xs)
 Proof
@@ -1834,7 +1835,7 @@ QED
 
 Theorem is_state_oracle_cpr_cake_orac:
   compile asm_conf c prog = SOME (b,bm,c') ==>
-  is_state_oracle (bvi_cpr$compile_prog c.bvl_conf.do_cpr)
+  is_state_oracle (bvi_cpr_compile_prog c.bvl_conf.do_cpr)
     (state_co (bvi_tmc_compile_prog c.bvl_conf.do_tmc)
       (state_co (bvi_tailrec_compile_prog c.bvl_conf.do_tailrec)
         (state_co bvl_to_bvi_compile_inc (state_co
@@ -1903,13 +1904,13 @@ Theorem oracle_monotonic_bvi_cpr_inter:
   z ≠ 4 ∧ (∀n. FST (FST (FST (co n))) MOD bvl_to_bvi_namespaces = 4) ⇒
   (oracle_monotonic
      (λx. set (MAP FST (SND x)) ∩ PREIMAGE (λi. i MOD bvl_to_bvi_namespaces) {z})
-     R init (state_co (bvi_cpr$compile_prog b) co) ⇔
+     R init (state_co (bvi_cpr_compile_prog b) co) ⇔
    oracle_monotonic
      (λx. set (MAP FST (SND x)) ∩ PREIMAGE (λi. i MOD bvl_to_bvi_namespaces) {z})
      R init co)
 Proof
   strip_tac
-  >> ‘∀n. set (MAP FST (SND (state_co (bvi_cpr$compile_prog b) co n))) ∩
+  >> ‘∀n. set (MAP FST (SND (state_co (bvi_cpr_compile_prog b) co n))) ∩
           PREIMAGE (λi. i MOD bvl_to_bvi_namespaces) {z} =
           set (MAP FST (SND (co n))) ∩
           PREIMAGE (λi. i MOD bvl_to_bvi_namespaces) {z}’
@@ -4093,7 +4094,7 @@ Proof
   \\ strip_tac
   \\ disch_then(qspec_then`0`mp_tac) \\ simp[] \\ strip_tac
   \\ `stubs (:'a) c4.data_conf = stubs (:'a) c4_data_conf` by ( simp[Abbr`c4_data_conf`] )
-  \\ qmatch_assum_rename_tac`bvi_cpr$compile_prog _ _ _ = (_,p3)`
+  \\ qmatch_assum_rename_tac`bvi_cpr_compile_prog _ _ _ = (_,p3)`
   (* bvi_inline runs after bvi_cpr and preserves names *)
   \\ qpat_assum `bvi_inline$compile_prog _ = _`
        (strip_assume_tac o REWRITE_RULE [bvi_inlineTheory.compile_prog_def])

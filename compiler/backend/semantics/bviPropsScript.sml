@@ -766,7 +766,7 @@ Definition adj_orac_rel_def:
     adj_orac_ok cc f s1 ∧ s2 = adj_orac cc f s1
 End
 
-Theorem do_app_cfg_swap[local]:
+Theorem do_app_cfg_swap:
   op ≠ Install ⇒
     ((do_app op args s = Rval (value,s1) ∧
       domain s.code ⊆ domain t.code ⇒
@@ -960,119 +960,165 @@ Proof
   \\ gvs [adj_orac_initial_state, adj_orac_simps]
 QED
 
+Theorem evaluate_initial_state_mono[local]:
+  evaluate (es,[],initial_state ffi c co cc k1) = (r,s) ∧
+  r ≠ Rerr (Rabort Rtimeout_error) ∧ k1 ≤ k2 ⇒
+  ∃s1. evaluate (es,[],initial_state ffi c co cc k2) = (r,s1) ∧
+       s1.ffi = s.ffi
+Proof
+  strip_tac
+  >> drule_all evaluate_add_clock
+  >> disch_then (qspec_then ‘k2 - k1’ mp_tac)
+  >> simp[inc_clock_def]
+QED
+
+(* A forward simulation that may use more clock and relates the results by
+   any [result_rel] gives equal observable semantics. *)
+Theorem semantics_fwd_sim:
+  (∀k r s.
+     evaluate ([Call 0 (SOME start) [] NONE],[],
+               initial_state ffi c1 co1 cc1 k) = (r,s) ∧
+     r ≠ Rerr (Rabort Rtype_error) ⇒
+     ∃ck r' t.
+       evaluate ([Call 0 (SOME start) [] NONE],[],
+                 initial_state ffi c2 co2 cc2 (k + ck)) = (r',t) ∧
+       result_rel R1 R2 r r' ∧ t.ffi = s.ffi) ∧
+  semantics ffi c1 co1 cc1 start ≠ Fail ⇒
+  semantics ffi c1 co1 cc1 start = semantics ffi c2 co2 cc2 start
+Proof
+  strip_tac
+  >> ‘∀k e. FST (evaluate ([Call 0 (SOME start) [] NONE],[],
+                           initial_state ffi c1 co1 cc1 k)) = Rerr e ⇒
+            e = Rabort Rtimeout_error ∨ ∃f. e = Rabort (Rffi_error f)’
+    by (qpat_x_assum ‘_ ≠ Fail’ mp_tac >> simp[semantics_def] >> metis_tac[])
+  >> ‘∀k. ∃ck r' t.
+        evaluate ([Call 0 (SOME start) [] NONE],[],
+                  initial_state ffi c2 co2 cc2 (k + ck)) = (r',t) ∧
+        result_rel R1 R2 (FST (evaluate ([Call 0 (SOME start) [] NONE],[],
+                                        initial_state ffi c1 co1 cc1 k))) r' ∧
+        t.ffi = (SND (evaluate ([Call 0 (SOME start) [] NONE],[],
+                                initial_state ffi c1 co1 cc1 k))).ffi’
+    by (
+      gen_tac
+      >> Cases_on ‘evaluate ([Call 0 (SOME start) [] NONE],[],
+                             initial_state ffi c1 co1 cc1 k)’
+      >> qpat_x_assum ‘∀k r s. _ ∧ _ ⇒ ∃ck r' t. _’
+           (qspecl_then [‘k’,‘q’,‘r’] mp_tac)
+      >> impl_tac
+      >- (
+        simp[] >> strip_tac
+        >> qpat_x_assum ‘∀k e. _ ⇒ _’ (qspecl_then [‘k’,‘Rabort Rtype_error’] mp_tac)
+        >> simp[])
+      >> simp[])
+  >> qpat_x_assum ‘∀k r s. _ ∧ _ ⇒ ∃ck r' t. _’ kall_tac
+  >> ‘∀k e. FST (evaluate ([Call 0 (SOME start) [] NONE],[],
+                           initial_state ffi c2 co2 cc2 k)) = Rerr e ⇒
+            e = Rabort Rtimeout_error ∨ ∃f. e = Rabort (Rffi_error f)’
+    by (
+      rpt strip_tac
+      >> Cases_on ‘evaluate ([Call 0 (SOME start) [] NONE],[],
+                             initial_state ffi c2 co2 cc2 k)’
+      >> gvs[]
+      >> Cases_on ‘e = Rabort Rtimeout_error’ >> simp[]
+      >> drule evaluate_add_clock >> simp[]
+      >> qpat_x_assum ‘∀k. ∃ck r' t. _’ (qspec_then ‘k’ strip_assume_tac)
+      >> disch_then (qspec_then ‘ck’ mp_tac)
+      >> simp[inc_clock_def]
+      >> strip_tac >> gvs[]
+      >> first_x_assum drule >> strip_tac >> gvs[])
+  >> simp[semantics_def]
+  >> IF_CASES_TAC >- metis_tac[]
+  >> IF_CASES_TAC >- metis_tac[]
+  >> DEEP_INTRO_TAC some_intro >> simp[]
+  >> conj_tac
+  >- (
+    rpt strip_tac
+    >> DEEP_INTRO_TAC some_intro >> simp[]
+    >> conj_tac
+    >- (
+      simp[PULL_EXISTS] >> qx_genl_tac [‘k2’,‘s2’,‘r2’,‘out2’] >> strip_tac
+      >> qpat_x_assum ‘∀k. ∃ck r' t. _’ (qspec_then ‘k’ strip_assume_tac)
+      >> gvs[]
+      >> ‘r' ≠ Rerr (Rabort Rtimeout_error) ∧ r2 ≠ Rerr (Rabort Rtimeout_error)’
+        by (conj_tac >> strip_tac >> gvs[] >> every_case_tac >> gvs[])
+      >> qpat_assum ‘evaluate (_,_,initial_state _ c2 _ _ (ck + k)) = (r',t)’
+           (mp_then (Pos hd) (qspec_then ‘ck + k + k2’ mp_tac)
+              evaluate_initial_state_mono)
+      >> qpat_assum ‘evaluate (_,_,initial_state _ c2 _ _ k2) = (r2,s2)’
+           (mp_then (Pos hd) (qspec_then ‘ck + k + k2’ mp_tac)
+              evaluate_initial_state_mono)
+      >> simp[] >> rpt strip_tac
+      >> gvs[] >> every_case_tac >> gvs[])
+    >> qpat_x_assum ‘∀k. ∃ck r' t. _’ (qspec_then ‘k’ strip_assume_tac)
+    >> gvs[]
+    >> qpat_assum ‘evaluate (_,_,initial_state _ c2 _ _ _) = (r',t)’ (irule_at Any)
+    >> every_case_tac >> gvs[])
+  >> strip_tac
+  >> DEEP_INTRO_TAC some_intro >> simp[]
+  >> conj_tac
+  >- (
+    simp[PULL_EXISTS] >> qx_genl_tac [‘k2’,‘s2’,‘r2’,‘out2’]
+    >> CCONTR_TAC >> gvs[]
+    >> ‘r2 ≠ Rerr (Rabort Rtimeout_error)’ by (strip_tac >> gvs[])
+    >> qpat_x_assum ‘∀k. ∃ck r' t. _’ (qspec_then ‘k2’ strip_assume_tac)
+    >> namedCases_on ‘evaluate ([Call 0 (SOME start) [] NONE],[],
+                                initial_state ffi c1 co1 cc1 k2)’ ["r1 s1"]
+    >> gvs[]
+    >> qpat_assum ‘evaluate (_,_,initial_state _ c2 _ _ _) = (r2,s2)’
+         (mp_then (Pos hd) (qspec_then ‘k2 + ck’ mp_tac)
+            evaluate_initial_state_mono)
+    >> simp[] >> CCONTR_TAC >> gvs[]
+    >> qpat_x_assum ‘∀k s r outcome. _’ (qspecl_then [‘k2’,‘s1’,‘r1’] mp_tac)
+    >> every_case_tac >> gvs[])
+  >> strip_tac
+  >> qmatch_abbrev_tac ‘build_lprefix_lub l1 = build_lprefix_lub l2’
+  >> ‘(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2’
+    suffices_by metis_tac[build_lprefix_lub_thm, lprefix_lub_new_chain,
+                          unique_lprefix_lub]
+  >> conj_asm1_tac
+  >- (
+    unabbrev_all_tac
+    >> conj_tac
+    >> Ho_Rewrite.ONCE_REWRITE_TAC [GSYM o_DEF]
+    >> REWRITE_TAC [IMAGE_COMPOSE]
+    >> match_mp_tac prefix_chain_lprefix_chain
+    >> simp [prefix_chain_def, PULL_EXISTS]
+    >> qx_genl_tac [‘k1’,‘k2’]
+    >> qspecl_then [‘k1’,‘k2’] mp_tac LESS_EQ_CASES
+    >> metis_tac [LESS_EQ_EXISTS, initial_state_with_simp,
+                  evaluate_add_to_clock_io_events_mono
+                    |> CONV_RULE (RESORT_FORALL_CONV (sort_vars ["s"]))
+                    |> Q.SPEC ‘s with clock := k’
+                    |> SIMP_RULE (srw_ss()) [inc_clock_def]])
+  >> simp [equiv_lprefix_chain_thm]
+  >> unabbrev_all_tac >> simp [PULL_EXISTS]
+  >> ntac 2 (pop_assum kall_tac)
+  >> simp [LNTH_fromList, PULL_EXISTS, GSYM FORALL_AND_THM]
+  >> qx_genl_tac [‘n’,‘x’,‘k’]
+  >> qpat_x_assum ‘∀k. ∃ck r' t. _’ (qspec_then ‘k’ strip_assume_tac)
+  >> conj_tac
+  >- (strip_tac >> qexists_tac ‘k + ck’ >> gvs[])
+  >> strip_tac >> qexists_tac ‘k’
+  >> qspecl_then [‘[Call 0 (SOME start) [] NONE]’,‘[]’,
+                  ‘initial_state ffi c2 co2 cc2 k’,‘ck’] mp_tac
+       evaluate_add_to_clock_io_events_mono
+  >> simp[inc_clock_def]
+  >> strip_tac
+  >> gvs[]
+  >> drule_then assume_tac IS_PREFIX_LENGTH
+  >> conj_asm1_tac >- simp[]
+  >> irule (GSYM is_prefix_el) >> simp[]
+QED
+
 Theorem semantics_CURRY_I:
   semantics ffi code co (state_cc (CURRY I) cc) start ≠ ffi$Fail ⇒
   semantics ffi code co (state_cc (CURRY I) cc) start =
   semantics ffi code (state_co (CURRY I) co) cc start
 Proof
   strip_tac
-  \\ simp [Ntimes semantics_def 2]
-  \\ IF_CASES_TAC \\ fs []
-  >- (qpat_x_assum `_ ≠ Fail` mp_tac \\ simp [semantics_def] \\ metis_tac [])
-  \\ DEEP_INTRO_TAC some_intro \\ simp []
-  \\ conj_tac
-  >-
-   (gen_tac \\ strip_tac \\ rveq \\ simp []
-    \\ IF_CASES_TAC \\ fs []
-    >-
-     (qpat_x_assum `_ = (r,s)` kall_tac
-      \\ first_assum (qspec_then `k'` mp_tac)
-      \\ disch_then (subterm (fn tm => Cases_on `^(assert(has_pair_type)tm)`) o concl)
-      \\ drule (GEN_ALL evaluate_CURRY_I)
-      \\ first_x_assum (qspec_then `k'` strip_assume_tac)
-      \\ rfs [] \\ CCONTR_TAC \\ fs [] \\ rfs [] \\ fs [] \\ rfs [])
-    \\ DEEP_INTRO_TAC some_intro \\ simp []
-    \\ conj_tac
-    >-
-     (gen_tac \\ strip_tac \\ rveq \\ fs []
-      \\ qmatch_assum_abbrev_tac `evaluate (opts,[],sopt) = _`
-      \\ qmatch_assum_abbrev_tac `evaluate (exps,[],st) = (r,s)`
-      \\ qspecl_then [`opts`,`[]`,`sopt`] mp_tac
-           evaluate_add_to_clock_io_events_mono
-      \\ qspecl_then [`exps`,`[]`,`st`] mp_tac
-           evaluate_add_to_clock_io_events_mono
-      \\ simp [inc_clock_def, Abbr`sopt`, Abbr`st`]
-      \\ ntac 2 strip_tac
-      \\ qpat_x_assum `evaluate _ = (r',s')` assume_tac
-      \\ drule evaluate_add_clock
-      \\ disch_then (qspec_then `k` mp_tac)
-      \\ impl_tac >- (rpt (PURE_FULL_CASE_TAC \\ fs []))
-      \\ qpat_x_assum `evaluate _ = (r,s)` assume_tac
-      \\ drule evaluate_add_clock
-      \\ disch_then (qspec_then `k'` mp_tac)
-      \\ impl_tac >- (rpt (PURE_FULL_CASE_TAC \\ fs []))
-      \\ simp [inc_clock_def] \\ ntac 2 strip_tac
-      \\ drule (GEN_ALL evaluate_CURRY_I)
-      \\ impl_tac >- (rpt (PURE_FULL_CASE_TAC \\ fs []))
-      \\ strip_tac
-      \\ rpt (PURE_FULL_CASE_TAC \\ fs [])
-      \\ gvs [])
-    \\ drule (GEN_ALL evaluate_CURRY_I)
-    \\ impl_tac
-    >-
-     (spose_not_then assume_tac
-      \\ rpt (last_x_assum (qspec_then `k` mp_tac)) \\ fs [])
-    \\ strip_tac
-    \\ asm_exists_tac \\ fs []
-    \\ TOP_CASE_TAC \\ fs []
-    \\ TOP_CASE_TAC \\ fs []
-    \\ TOP_CASE_TAC \\ fs [])
-  \\ strip_tac \\ IF_CASES_TAC \\ fs []
-  >-
-   (Cases_on `evaluate ([Call 0 (SOME start) [] NONE],[],
-                        initial_state ffi code co (state_cc (CURRY I) cc) k)`
-    \\ drule (GEN_ALL evaluate_CURRY_I)
-    \\ impl_tac
-    >- (qpat_x_assum `∀k e. FST (evaluate (_,_,initial_state _ _ co _ _)) ≠ _ ∨ _`
-          (qspecl_then [`k`,`Rabort Rtype_error`] mp_tac) \\ fs [])
-    \\ strip_tac \\ gvs []
-    \\ qpat_x_assum `∀k e. FST _ ≠ _ ∨ _` (qspecl_then [`k`,`e`] mp_tac) \\ fs [])
-  \\ DEEP_INTRO_TAC some_intro \\ simp []
-  \\ conj_tac
-  >-
-   (spose_not_then assume_tac \\ rw []
-    \\ Cases_on `evaluate ([Call 0 (SOME start) [] NONE],[],
-                           initial_state ffi code co (state_cc (CURRY I) cc) k)`
-    \\ drule (GEN_ALL evaluate_CURRY_I)
-    \\ impl_tac
-    >- (qpat_x_assum `∀k e. FST (evaluate (_,_,initial_state _ _ co _ _)) ≠ _ ∨ _`
-          (qspecl_then [`k`,`Rabort Rtype_error`] mp_tac) \\ fs [])
-    \\ strip_tac \\ gvs []
-    \\ metis_tac [])
-  \\ strip_tac
-  \\ qmatch_abbrev_tac `lprefix_lub$build_lprefix_lub l1 =
-                        lprefix_lub$build_lprefix_lub l2`
-  \\ `(lprefix_lub$lprefix_chain l1 ∧ lprefix_lub$lprefix_chain l2) ∧
-      lprefix_lub$equiv_lprefix_chain l1 l2`
-     suffices_by metis_tac [build_lprefix_lub_thm, lprefix_lub_new_chain,
-                            unique_lprefix_lub]
-  \\ conj_asm1_tac
-  >-
-   (unabbrev_all_tac
-    \\ conj_tac
-    \\ Ho_Rewrite.ONCE_REWRITE_TAC [GSYM o_DEF]
-    \\ REWRITE_TAC [IMAGE_COMPOSE]
-    \\ match_mp_tac prefix_chain_lprefix_chain
-    \\ simp [prefix_chain_def, PULL_EXISTS]
-    \\ qx_genl_tac [`k1`,`k2`]
-    \\ qspecl_then [`k1`,`k2`] mp_tac LESS_EQ_CASES
-    \\ metis_tac [LESS_EQ_EXISTS, initial_state_with_simp,
-                  evaluate_add_to_clock_io_events_mono
-                    |> CONV_RULE (RESORT_FORALL_CONV (sort_vars ["s"]))
-                    |> Q.SPEC `s with clock := k`
-                    |> SIMP_RULE (srw_ss()) [inc_clock_def]])
-  \\ simp [equiv_lprefix_chain_thm]
-  \\ unabbrev_all_tac \\ simp [PULL_EXISTS]
-  \\ ntac 2 (pop_assum kall_tac)
-  \\ simp [LNTH_fromList, PULL_EXISTS, GSYM FORALL_AND_THM]
-  \\ rpt gen_tac \\ rveq
-  \\ Cases_on `evaluate ([Call 0 (SOME start) [] NONE],[],
-                         initial_state ffi code co (state_cc (CURRY I) cc) k)`
-  \\ drule (GEN_ALL evaluate_CURRY_I)
-  \\ impl_tac
-  >- (qpat_x_assum `∀k e. FST (evaluate (_,_,initial_state _ _ co _ _)) ≠ _ ∨ _`
-        (qspecl_then [`k`,`Rabort Rtype_error`] mp_tac) \\ fs [])
-  \\ strip_tac
-  \\ conj_tac \\ rw []
-  \\ qexists_tac `k` \\ fs []
+  \\ irule semantics_fwd_sim \\ simp []
+  \\ qexistsl_tac [`$=`,`$=`]
+  \\ rpt strip_tac
+  \\ drule_all evaluate_CURRY_I \\ strip_tac
+  \\ qexistsl_tac [`0`,`r`,`s2`] \\ simp []
 QED

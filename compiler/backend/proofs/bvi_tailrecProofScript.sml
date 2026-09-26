@@ -2491,145 +2491,15 @@ Theorem compile_each_semantics:
    semantics ffi (fromAList prog) co (state_cc compile_each cc) start =
    semantics ffi (fromAList prog2) (state_co compile_each co) cc start
 Proof
-   simp [GSYM AND_IMP_INTRO]
-   \\ ntac 4 strip_tac
-   \\ fs[AND_IMP_INTRO]
-   \\ simp [Ntimes semantics_def 2]
-   \\ IF_CASES_TAC \\ fs []
-   \\ DEEP_INTRO_TAC some_intro \\ simp []
-   \\ conj_tac >- (
-     gen_tac \\ strip_tac \\ rveq \\ simp []
-     \\ simp [semantics_def]
-     \\ IF_CASES_TAC \\ fs [] >- (
-       qpat_x_assum`_ = (r,s)`kall_tac
-       \\ first_assum(qspec_then`k'`mp_tac)
-       \\ disch_then(subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl)
-       \\ drule (GEN_ALL evaluate_compile_each)
-       \\ rpt(disch_then drule)
-       \\ first_x_assum (qspec_then `k'` strip_assume_tac)
-       \\ rfs [] \\ CCONTR_TAC \\ fs [] \\ rfs[] \\ fs[] \\ rfs[])
-     \\ DEEP_INTRO_TAC some_intro \\ simp []
-     \\ conj_tac >- (
-       gen_tac \\ strip_tac \\ rveq \\ fs []
-       \\ qmatch_assum_abbrev_tac `evaluate (opts,[],sopt) = _`
-       \\ qmatch_assum_abbrev_tac `evaluate (exps,[],st) = (r,s)`
-       \\ qspecl_then [`opts`,`[]`,`sopt`] mp_tac evaluate_add_to_clock_io_events_mono
-       \\ qspecl_then [`exps`,`[]`,`st`] mp_tac (INST_TYPE[alpha|->``:num#'a``]evaluate_add_to_clock_io_events_mono)
-       \\ simp [inc_clock_def, Abbr`sopt`, Abbr`st`]
-       \\ ntac 2 strip_tac
-       \\ qpat_x_assum `evaluate _ = (r',s')` assume_tac
-       \\ drule bviPropsTheory.evaluate_add_clock
-       \\ disch_then(qspec_then `k` mp_tac)
-       \\ impl_tac >- (rpt(PURE_FULL_CASE_TAC >> fs[]))
-       \\ qpat_x_assum `evaluate _ = (r,s)` assume_tac
-       \\ drule bviPropsTheory.evaluate_add_clock
-       \\ disch_then(qspec_then `k'` mp_tac)
-       \\ impl_tac >- (rpt(PURE_FULL_CASE_TAC >> fs[]))
-       \\ simp[inc_clock_def] >> ntac 2 strip_tac
-       \\ drule (GEN_ALL evaluate_compile_each)
-       \\ rpt(disch_then drule)
-       \\ unabbrev_all_tac \\ disch_then drule
-       \\ impl_tac >- (rpt(PURE_FULL_CASE_TAC >> fs[]))
-       \\ strip_tac
-       \\ rpt(PURE_FULL_CASE_TAC >> fs[state_rel_def,state_component_equality]))
-     \\ first_assum (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl)
-     \\ drule (GEN_ALL evaluate_compile_each)
-     \\ ntac 3 (disch_then drule) \\ simp []
-     \\ impl_tac
-     >-
-       (spose_not_then assume_tac
-       \\ rpt(last_x_assum (qspec_then `k` mp_tac))
-       \\ fs [])
-     \\ strip_tac
-     \\ asm_exists_tac
-     \\ imp_res_tac state_rel_const \\ fs[]
-     \\ TOP_CASE_TAC \\ fs[]
-     \\ TOP_CASE_TAC \\ fs[]
-     \\ TOP_CASE_TAC \\ fs[])
-   \\ strip_tac
-   \\ simp [semantics_def]
-   \\ IF_CASES_TAC \\ fs [] >- (
-     qpat_x_assum`∀k. _`mp_tac
-     \\ first_x_assum (qspec_then `k` assume_tac)
-     \\ strip_tac \\ rfs[]
-     \\ drule (GEN_ALL evaluate_compile_each)
-     \\ rveq \\ disch_then drule
-     \\ disch_then drule
-     \\ first_x_assum (qspec_then `k` assume_tac)
-     \\ qmatch_asmsub_abbrev_tac`FST(evaluate p)`
-     \\ Cases_on`evaluate p` \\ pop_assum(assume_tac o SIMP_RULE std_ss [markerTheory.Abbrev_def])
-     \\ unabbrev_all_tac \\ disch_then drule
-     \\ impl_tac >- (fs[] >> every_case_tac >> fs[])
-     \\ strip_tac
-     \\ fs[] \\ rveq \\ fs[] \\ rveq \\ fs[])
-   \\ DEEP_INTRO_TAC some_intro \\ simp []
-   \\ conj_tac >- (
-    spose_not_then assume_tac \\ rw []
-    \\ qpat_x_assum`∀k. _`mp_tac
-    \\ first_assum (qspec_then `k` mp_tac)
-    \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
-    \\ strip_tac
-    \\ drule (GEN_ALL evaluate_compile_each)
-    \\ rveq
-    \\ (disch_then drule)
-    \\ (disch_then drule)
-    \\ (disch_then drule)
-    \\ impl_tac >- (
-      strip_tac \\ fs[]
-      \\ rpt(first_x_assum(qspec_then`k`mp_tac))\\ simp[] )
-    \\ strip_tac
-    \\ qmatch_assum_rename_tac `state_rel rr _`
-    \\ fs[] \\ rveq \\ metis_tac[])
-  \\ strip_tac
-  \\ qmatch_abbrev_tac `lprefix_lub$build_lprefix_lub l1 = lprefix_lub$build_lprefix_lub l2`
-  \\ `(lprefix_lub$lprefix_chain l1 ∧
-       lprefix_lub$lprefix_chain l2) ∧
-       lprefix_lub$equiv_lprefix_chain l1 l2`
-     suffices_by metis_tac [build_lprefix_lub_thm,
-                            lprefix_lub_new_chain,
-                            unique_lprefix_lub]
-  \\ conj_asm1_tac
-  >-
-    (unabbrev_all_tac
-    \\ conj_tac
-    \\ Ho_Rewrite.ONCE_REWRITE_TAC [GSYM o_DEF]
-    \\ REWRITE_TAC [IMAGE_COMPOSE]
-    \\ match_mp_tac prefix_chain_lprefix_chain
-    \\ simp [prefix_chain_def, PULL_EXISTS]
-    \\ qx_genl_tac [`k1`,`k2`]
-    \\ qspecl_then [`k1`,`k2`] mp_tac LESS_EQ_CASES
-    \\ metis_tac [
-         LESS_EQ_EXISTS,
-         bviPropsTheory.initial_state_with_simp,
-         bvlPropsTheory.initial_state_with_simp,
-         bviPropsTheory.evaluate_add_to_clock_io_events_mono
-           |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
-           |> Q.SPEC`s with clock := k`
-           |> SIMP_RULE (srw_ss())[bviPropsTheory.inc_clock_def],
-         bvlPropsTheory.evaluate_add_to_clock_io_events_mono
-           |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
-           |> Q.SPEC`s with clock := k`
-           |> SIMP_RULE (srw_ss())[bvlPropsTheory.inc_clock_def]])
-  \\ simp [equiv_lprefix_chain_thm]
-  \\ unabbrev_all_tac \\ simp [PULL_EXISTS]
-  \\ ntac 2 (pop_assum kall_tac)
-  \\ simp [LNTH_fromList, PULL_EXISTS, GSYM FORALL_AND_THM]
-  \\ rpt gen_tac \\ rveq
-  \\ drule (GEN_ALL evaluate_compile_each)
-  \\ rpt(disch_then drule)
-  \\ disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["start","k","ffi0","cc"])))
-  \\ disch_then (qspecl_then [`start`,`k`,`ffi`,`cc`] mp_tac)
-  \\ qmatch_goalsub_abbrev_tac`p = (_,_)`
-  \\ Cases_on`p` \\ pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])
-  \\ simp []
-  \\ impl_tac >- (
-    strip_tac
-    \\ rpt(last_x_assum (qspec_then `k` mp_tac))
-    \\ fs [])
+  strip_tac \\ rveq
+  \\ irule semantics_fwd_sim \\ simp []
+  \\ qexistsl_tac [`$=`,`$=`]
+  \\ rpt strip_tac
+  \\ drule_all evaluate_compile_each
   \\ strip_tac
   \\ imp_res_tac state_rel_const
-  \\ conj_tac \\ rw []
-  \\ qexists_tac `k` \\ fs []
+  \\ qexistsl_tac [`0`,`r`,`s2`]
+  \\ simp []
 QED
 
 Theorem compile_prog_semantics:

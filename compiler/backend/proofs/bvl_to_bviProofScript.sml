@@ -4426,7 +4426,7 @@ Proof
         \\ decide_tac )
       \\ conj_asm1_tac
       >- (
-        (* nss=5: exclude residues 1,2,3,4 (asm gives ¬in_ns 2/3/4) ⇒ in_ns 0 *)
+        (* not in namespaces 2–4 (asm), nor 1, so the name is in namespace 0 *)
         qpat_x_assum `∀n. MEM n (MAP FST (append code)) ⇒
                           ¬in_ns 2 (n - num_stubs) ∧ ¬in_ns 3 (n - num_stubs) ∧
                           ¬in_ns 4 (n - num_stubs)`
@@ -5097,6 +5097,12 @@ Proof
   \\ assume_tac (EVAL ``nss``) \\ simp [arithmeticTheory.MOD_TIMES]
 QED
 
+Theorem add_mult_nss_MOD[local]:
+  (n + k * nss) MOD nss = n MOD nss
+Proof
+  once_rewrite_tac [ADD_COMM] >> simp [MOD_TIMES]
+QED
+
 Theorem cpr_input_condition_intro[local]:
   ALL_DISTINCT (MAP FST zs) ∧
   (∀x. MEM x (MAP FST zs) ∧ num_stubs ≤ x ⇒ ¬in_ns 4 x) ∧
@@ -5104,13 +5110,10 @@ Theorem cpr_input_condition_intro[local]:
   bvi_cprProof$input_condition n zs
 Proof
   rw [bvi_cprProofTheory.input_condition_def, EVERY_MEM, MEM_FILTER,
-      bvi_cprProofTheory.in_ns_4_def, bvi_cprProofTheory.free_names_def,
-      in_ns_def, MEM_MAP, PULL_EXISTS]
+      bvi_cprProofTheory.free_names_def, in_ns_def, MEM_MAP, PULL_EXISTS]
   >> strip_tac
-  >> ‘(n + k * nss) MOD nss = n MOD nss’
-    by (once_rewrite_tac [ADD_COMM] >> simp [MOD_TIMES])
-  >> first_x_assum drule >> simp []
-  >> qpat_x_assum ‘_ = FST e’ (assume_tac o SYM) >> gvs []
+  >> first_x_assum drule >> simp [add_mult_nss_MOD]
+  >> qpat_x_assum ‘_ = FST e’ (assume_tac o SYM) >> gvs [add_mult_nss_MOD]
 QED
 
 Theorem cpr_inline_semantics[local]:
@@ -5166,10 +5169,7 @@ Proof
   >> drule_all (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
   >> strip_tac
   >- metis_tac []
-  >> gvs [in_ns_def]
-  >> ‘(n + k * nss) MOD nss = n MOD nss’
-    by (once_rewrite_tac [ADD_COMM] >> simp [MOD_TIMES])
-  >> gvs []
+  >> gvs [in_ns_def, add_mult_nss_MOD]
 QED
 
 Theorem bvi_tmc_not_in_ns_4[local]:
@@ -5182,10 +5182,7 @@ Proof
   >> drule_all (GEN_ALL bvi_tmcProofTheory.compile_prog_MEM)
   >> strip_tac
   >- metis_tac []
-  >> gvs [in_ns_def]
-  >> ‘(n + k * nss) MOD nss = n MOD nss’
-    by (once_rewrite_tac [ADD_COMM] >> simp [MOD_TIMES])
-  >> gvs []
+  >> gvs [in_ns_def, add_mult_nss_MOD]
 QED
 
 Theorem tailrec_co_not_in_ns_4[local]:
@@ -5697,11 +5694,9 @@ Proof
       by metis_tac [bvi_tailrec_not_in_ns_4, bvi_tmc_not_in_ns_4, in_ns_def]
     >> rw [EVERY_MEM, bvi_cprProofTheory.free_names_def]
     >> strip_tac
-    >> ‘(CS0 + k * nss) MOD nss = CS0 MOD nss’
-      by (once_rewrite_tac [ADD_COMM] >> simp [MOD_TIMES])
     >> qpat_x_assum ‘∀x. MEM x (MAP FST TS) ∧ _ ⇒ _’ (qspec_then ‘FST e’ mp_tac)
     >> simp [MEM_MAP, in_ns_def]
-    >> metis_tac [])
+    >> metis_tac [add_mult_nss_MOD])
   \\ simp [Abbr `TS`]
   \\ qmatch_goalsub_abbrev_tac`bvi_tmc$compile_prog c.do_tmc M YS`
       \\ Cases_on`bvi_tmc$compile_prog c.do_tmc M YS`
@@ -6002,11 +5997,11 @@ Proof
   \\ simp[]
 QED
 
-(* The code-label containment for the whole pass boundary, composing all four
-   stages of [compile]: bvl_inline, compile_prog, bvi_tailrec and bvi_inline.
-   The last two only ever shrink the label set relative to the names they keep,
-   so the shape matches compile_prog_get_code_labels above, widened by the
-   fresh names bvi_tailrec allocates. *)
+(* The code-label containment for the whole pass boundary, composing the
+   stages of [compile]: bvl_inline, compile_prog, bvi_tailrec, bvi_tmc,
+   bvi_cpr and bvi_inline. The shape matches compile_prog_get_code_labels
+   above, widened by the fresh names bvi_tailrec, bvi_tmc and bvi_cpr allocate
+   in namespaces 2, 3 and 4. *)
 Theorem compile_get_code_labels:
    ∀start c names prog loc code inlines bvi_inlines n1 n2 n3 n4 cm names'.
    bvl_to_bvi$compile start c names prog =

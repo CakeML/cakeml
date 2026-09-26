@@ -24,74 +24,6 @@ Proof
   Induct >> rw[sub_shape_def]
 QED
 
-
-Theorem sub_shape_trans:
-  (∀s1 s2 s3. sub_shape s1 s2 ∧ sub_shape s2 s3 ⇒ sub_shape s1 s3) ∧
-  (∀l1 l2 l3. sub_shape_list l1 l2 ∧ sub_shape_list l2 l3 ⇒ sub_shape_list l1 l3)
-Proof
-  Induct >> rw[sub_shape_def]
-  >- (Cases_on ‘s2’ >> gvs[sub_shape_def]
-      >- (Cases_on ‘s3’ >> gvs[sub_shape_def]
-          >> metis_tac[]
-         )
-      >> Cases_on ‘s3’ >> gvs[sub_shape_def]
-     )
-  >- (Cases_on ‘s2’ >> gvs[sub_shape_def]
-     )
-  >- (Cases_on ‘l2’ >> gvs[sub_shape_def]
-     )
-  >- (Cases_on ‘l2’ >> gvs[sub_shape_def]
-      >> Cases_on ‘l3’ >> gvs[sub_shape_def]
-      >> metis_tac[]
-     )
-QED
-
-Theorem sub_shape_flex_free:
-  (∀s1 s2. sub_shape s1 s2 ∧ flex_free s2 ⇒ flex_free s1) ∧
-  (∀l1 l2. sub_shape_list l1 l2 ∧ flex_free_list l2 ⇒ flex_free_list l1)
-Proof
-  Induct >> rw[sub_shape_def, flex_free_def]
-  >- (Cases_on ‘s2’ >> gvs[sub_shape_def, flex_free_def]
-      >> metis_tac[]
-     )
-  >- (Cases_on ‘s2’ >> gvs[sub_shape_def, flex_free_def]
-     )
-  >- (Cases_on ‘l2’ >> gvs[sub_shape_def, flex_free_def]
-      >> metis_tac[]
-     )
-  >> Cases_on ‘l2’ >> gvs[sub_shape_def, flex_free_def]
-  >> metis_tac[]
-QED
-
-Theorem cpr_merge_sub_shape:
-  (∀s1 s2. sub_shape (cpr_merge s1 s2) s1 ∧ sub_shape (cpr_merge s1 s2) s2) ∧
-  (∀l1 l2. LENGTH l1 = LENGTH l2 ⇒
-           sub_shape_list (cpr_merge_list l1 l2) l1 ∧ sub_shape_list (cpr_merge_list l1 l2) l2)
-Proof
-  Induct >> rw[sub_shape_def, cpr_merge_def]
-  >- (Cases_on ‘s2’ >> gvs[sub_shape_def, cpr_merge_def]
-     )
-  >- (Cases_on ‘s2’ >> gvs[sub_shape_def, cpr_merge_def]
-     )
-  >- (Cases_on ‘s2’ >> gvs[sub_shape_def, cpr_merge_def]
-      >- rw[sub_shape_def, cpr_merge_def]
-      >> rw[sub_shape_refl]
-     )
-  >- (Cases_on ‘s2’ >> gvs[sub_shape_def, cpr_merge_def]
-      >> rw[sub_shape_def, cpr_merge_def]
-     )
-  >- (Cases_on ‘s2’ >> gvs[sub_shape_def, cpr_merge_def]
-     )
-  >- (Cases_on ‘s2’ >> gvs[sub_shape_def, cpr_merge_def]
-      >> rw[sub_shape_refl]
-     )
-  >- (Cases_on ‘l2’ >> gvs[sub_shape_def, cpr_merge_def]
-     )
-  >- (Cases_on ‘l2’ >> gvs[sub_shape_def, cpr_merge_def]
-     )
-QED
-
-
 Theorem flex_free_cpr_merge:
   (∀s1 s2. (flex_free s1) ∧ (flex_free s2) ⇒ flex_free (cpr_merge s1 s2)) ∧
   (∀l1 l2. (flex_free_list l1) ∧ (flex_free_list l2) ⇒ flex_free_list (cpr_merge_list l1 l2))
@@ -109,7 +41,6 @@ Proof
   >> last_x_assum $ irule
   >> gvs[flex_free_def]
 QED
-
 
 Theorem split_ok_ConsShape:
   ∀sh. split_ok sh ⇒ ∃t shs. sh = ConsShape t shs ∧ 1 < shape_width sh
@@ -130,52 +61,11 @@ Definition exp_shape_ok_def:
      ∃x xs'. xs = x::xs' ∧ exp_shape_ok sh x ∧ exp_shape_ok_list shs xs')
 End
 
-Theorem field_shape_exp_shape_ok:
-  (∀e. exp_shape_ok (field_shape e) e ∧ flex_free (field_shape e)) ∧
-  (∀xs. exp_shape_ok_list (field_shape_list xs) xs ∧
-        flex_free_list (field_shape_list xs))
-Proof
-  ho_match_mp_tac field_shape_ind >> rw[exp_shape_ok_def, field_shape_def, flex_free_def]
-  >> Induct_on ‘xs’ >> gvs[exp_shape_ok_def, field_shape_def, flex_free_def]
-QED
-
 Theorem exp_shape_ok_list_length_eq:
   ∀l l'. exp_shape_ok_list l l' ⇒ LENGTH l = LENGTH l'
 Proof
   Induct >> rw[exp_shape_ok_def]
   >> fs[]
-QED
-
-
-Theorem exp_shape_ok_mono:
-  (∀sh sh' e.
-     sub_shape sh' sh ∧ flex_free sh ∧ exp_shape_ok sh e ⇒ exp_shape_ok sh' e) ∧
-  (∀l l' le.
-     sub_shape_list l' l ∧ flex_free_list l ∧ exp_shape_ok_list l le ⇒ exp_shape_ok_list l' le)
-Proof
-  Induct >> rw[sub_shape_def, flex_free_def, exp_shape_ok_def]
-  >- (Cases_on ‘sh'’ >> gvs[sub_shape_def, flex_free_def, exp_shape_ok_def]
-     )
-  >- (Cases_on ‘sh'’ >> gvs[sub_shape_def, flex_free_def, exp_shape_ok_def]
-      >> last_x_assum $ rev_drule_then assume_tac
-      >> first_x_assum $ drule_then assume_tac
-      >> metis_tac[exp_shape_ok_list_length_eq]
-     )
-  >- (Cases_on ‘l'’ >> gvs[sub_shape_def, flex_free_def, exp_shape_ok_def]
-     )
-  >> Cases_on ‘l'’ >> gvs[sub_shape_def, flex_free_def, exp_shape_ok_def]
-QED
-
-
-Theorem flatten_exp_LENGTH:
-  (∀sh e. exp_shape_ok sh e ⇒ LENGTH (flatten_exp sh e) = shape_width sh) ∧
-  (∀shs xs. exp_shape_ok_list shs xs ⇒
-            LENGTH (flatten_list shs xs) = shape_width_list shs)
-Proof
-  Induct >> rw[flatten_exp_def, shape_width_def, exp_shape_ok_def]
-  >- (FULL_CASE_TAC >> gvs[]
-     )
-  >> rw[flatten_exp_def]
 QED
 
 Definition tail_ok_def:
@@ -736,55 +626,6 @@ Proof
   >> gvs[split_ok_def, shape_width_def]
 QED
 
-Definition returns_def:
-  (returns n (If g e1 e2) ⇔ returns n e1 ∧ returns n e2) ∧
-  (returns n (Let xs e) ⇔ returns n e) ∧
-  (returns n (Tick e) ⇔ returns n e) ∧
-  (returns n (LetCall r ts d args e) ⇔ returns n e) ∧
-  (returns n (Raise e) ⇔ T) ∧
-  (returns n (Return xs) ⇔ LENGTH xs = n) ∧
-  (returns n (Call ts d args hdl) ⇔
-     n = 1 ∧ case hdl of NONE => T | SOME h => returns 1 h) ∧
-  (returns n e ⇔ n = 1)
-End
-
-Theorem tail_ok_returns:
-  ∀m f sh e. tail_ok m f sh e ∧ split_ok sh ⇒ returns 1 e
-Proof
-  ho_match_mp_tac tail_ok_ind
-  >> rw[tail_ok_def,returns_def]
-  >- gvs[split_ok_def, shape_width_def]
-  >> drule_then strip_assume_tac split_ok_ConsShape
-  >> gvs[exp_shape_ok_def]
-QED
-
-Theorem worker_body_returns:
-  ∀m f wk sh e.
-    tail_ok m f sh e ∧ split_ok sh ⇒
-    returns (shape_width sh) (worker_body m f wk sh e)
-Proof
-  ho_match_mp_tac worker_body_ind
-  >> rw[worker_body_def,tail_ok_def,returns_def] >> gvs[]
-  >~ [‘Call ts dest args hdl’]
-  >- (Cases_on ‘hdl’ >> gvs[split_ok_def,shape_width_def, returns_def, tail_ok_def]
-      >> rw[split_ok_def,shape_width_def, returns_def, tail_ok_def]
-     )
-  >~ [‘Return xs’]
-  >- (drule_then strip_assume_tac split_ok_ConsShape
-      >> gvs[exp_shape_ok_def]
-     )
-  >> gvs[returns_def]
-  >> irule $ cj 1 flatten_exp_LENGTH
-  >> gvs[]
-QED
-
-Theorem make_wrapper_returns:
-  ∀arity wk sh. returns 1 (make_wrapper arity wk sh)
-Proof
-  rw[make_wrapper_def,returns_def]
-  >> Cases_on ‘sh’ >> rw[rebuild_def,returns_def]
-QED
-
 Definition submap_def:
   submap m1 m2 ⇔ ∀d x. lookup d m1 = SOME x ⇒ lookup d m2 = SOME x
 End
@@ -808,7 +649,6 @@ Proof
   rw[submap_def, lookup_insert]
   >> every_case_tac >> gvs[]
 QED
-
 
 Definition fun_rel_def:
   fun_rel m2 prog2 (loc,arity,e) ⇔
@@ -843,9 +683,7 @@ Proof
 QED
 
 (* CPR workers are named in namespace 4 of bvl_to_bvi. *)
-Definition in_ns_4_def:
-  in_ns_4 n ⇔ n MOD bvl_to_bvi_namespaces = 4
-End
+Overload in_ns_4[local] = “λn. n MOD bvl_to_bvi_namespaces = 4”
 
 Definition free_names_def:
   free_names n (name: num) ⇔ ∀k. n + bvl_to_bvi_namespaces * k ≠ name
@@ -1055,96 +893,6 @@ Proof
   >> gvs[lookup_insert, AllCaseEqs()] >> metis_tac[]
 QED
 
-Theorem code_rel_of_fun_rel:
-  ∀m2 prog prog2.
-    ALL_DISTINCT (MAP FST prog) ∧ ALL_DISTINCT (MAP FST prog2) ∧
-    EVERY (fun_rel m2 prog2) prog ⇒
-    ∀d arity body.
-      lookup d (fromAList prog) = SOME (arity,body) ⇒
-      case lookup d m2 of
-        NONE => lookup d (fromAList prog2) = SOME (arity,body)
-      | SOME (sh,wk) =>
-          ∃m'. submap m' m2 ∧ map_ok m' ∧
-               return_shape m' d body = sh ∧ split_ok sh ∧
-               tail_form body ∧
-               lookup d (fromAList prog2) =
-                 SOME (arity,make_wrapper arity wk sh) ∧
-               lookup wk (fromAList prog2) =
-                 SOME (arity,worker_body m' d wk sh body)
-Proof
-  rpt strip_tac
-  >> gvs[lookup_fromAList]
-  >> drule_then assume_tac ALOOKUP_MEM >> gvs[EVERY_MEM]
-  >> first_assum $ drule_then $ assume_tac o SRULE [fun_rel_def]
-  >> Cases_on ‘lookup d m2’ >> gvs[]
-  >- (drule_all_then assume_tac ALOOKUP_ALL_DISTINCT_MEM
-      >> gvs[]
-     )
-  >> Cases_on ‘x’ >> gvs[]
-  >> first_assum $ irule_at Any
-  >> gvs[ALOOKUP_ALL_DISTINCT_MEM]
-QED
-
-Theorem no_ret_list_APPEND:
-  ∀a b. no_ret_list a ∧ no_ret_list b ⇒ no_ret_list (a ++ b)
-Proof
-  Induct_on ‘a’ >> rw[no_ret_def]
-QED
-
-Theorem no_ret_flatten_exp:
-  (∀sh e. no_ret e ⇒ no_ret_list (flatten_exp sh e)) ∧
-  (∀shs xs. no_ret_list xs ⇒ no_ret_list (flatten_list shs xs))
-Proof
-  Induct >> rw[flatten_exp_def, no_ret_def]
-  >- (every_case_tac >> gvs[no_ret_def]
-     )
-  >> Cases_on ‘xs’ >> gvs[flatten_exp_def, no_ret_def, no_ret_list_APPEND]
-QED
-
-Theorem no_ret_rebuild:
-  (∀sh i. no_ret (rebuild i sh)) ∧
-  (∀shs i. no_ret_list (rebuild_list i shs))
-Proof
-  Induct >> rw[rebuild_def, no_ret_def]
-QED
-
-Theorem tail_form_rebuild:
-  (∀sh i. tail_form (rebuild i sh)) ∧
-  (∀shs. EVERY (λsh. ∀i. tail_form (rebuild i sh)) shs)
-Proof
-  Induct >> rw[tail_form_def, rebuild_def, no_ret_def, no_ret_rebuild]
-QED
-
-Theorem no_ret_list_GENLIST_Var:
-  ∀n. no_ret_list (GENLIST Var n)
-Proof
-  Induct >> rw[no_ret_def, GENLIST, SNOC_APPEND, no_ret_list_APPEND]
-QED
-
-Theorem tail_form_make_wrapper:
-  (∀sh arity wk. tail_form (make_wrapper arity wk sh)) ∧
-  (∀shs. EVERY (λsh. ∀arity wk. tail_form (make_wrapper arity wk sh)) shs)
-Proof
-  Induct >> rw[make_wrapper_def, tail_form_def, no_ret_def, tail_form_rebuild, no_ret_list_GENLIST_Var]
-QED
-
-Theorem tail_form_worker_body:
-  ∀m f wk sh e. tail_form e ⇒ tail_form (worker_body m f wk sh e)
-Proof
-  ho_match_mp_tac worker_body_ind
-  >> rw[worker_body_def, tail_form_def]
-  >~ [‘Call ts dest args hdl’]
-  >- (Cases_on ‘hdl’ >> gvs[tail_form_def, no_ret_def]
-      >> Cases_on ‘dest’ >> gvs[tail_form_def, no_ret_def]
-      >> IF_CASES_TAC
-      >> gvs[tail_form_def, no_ret_def, no_ret_list_GENLIST_Var]
-      >> every_case_tac
-      >> gvs[tail_form_def, no_ret_def, EVERY_GENLIST, no_ret_list_GENLIST_Var]
-     )
-  >> drule_then assume_tac $ cj 1 no_ret_flatten_exp
-  >> rw[]
-QED
-
 Theorem do_app_no_Ret:
   ∀op vs (s:('c,'ffi) bviSem$state) e.
     do_app op vs s = Rerr e ⇒ ∀ws. e ≠ Rraise (Ret ws)
@@ -1249,65 +997,6 @@ Definition code_rel_def:
     (∀d sh wk. lookup d m = SOME (sh,wk) ⇒ d ∈ domain c1 ∧ wk ∉ domain c1)
 End
 
-Theorem code_rel_find_code:
-  code_rel m c1 c2 ∧ find_code (SOME f) args c1 = SOME (a, e) ∧ lookup f m = NONE
-  ⇒ find_code (SOME f) args c2 = SOME (a, e)
-Proof
-  rw[code_rel_def, bvlSemTheory.find_code_def]
-  >> Cases_on ‘lookup f c1’ >> gvs[]
-  >> Cases_on ‘x’ >> gvs[]
-  >> last_x_assum $ drule_then assume_tac
-  >> Cases_on ‘lookup f m’ >> gvs[]
-QED
-
-Theorem code_rel_find_code_NONE:
-  ∀m c1 c2 f args a e.
-    code_rel m c1 c2 ∧ find_code (SOME f) args c1 = SOME (a,e) ∧
-    lookup f m = NONE ⇒
-    find_code (SOME f) args c2 = SOME (a,e)
-Proof
-  rw[code_rel_def, bvlSemTheory.find_code_def]
-  >> Cases_on ‘lookup f c1’ >> gvs[]
-  >> Cases_on ‘x’ >> gvs[]
-  >> last_x_assum $ drule_then assume_tac
-  >> Cases_on ‘lookup f m’ >> gvs[]
-QED
-
-Theorem code_rel_find_code_SOME:
-  ∀m c1 c2 f args a body sh wk.
-    code_rel m c1 c2 ∧ find_code (SOME f) args c1 = SOME (a,body) ∧
-    lookup f m = SOME (sh,wk) ⇒
-    find_code (SOME f) args c2 = SOME (a,make_wrapper (LENGTH a) wk sh) ∧
-    split_ok sh ∧ flex_free sh ∧ tail_form body ∧ tail_ok m f sh body ∧
-    ∃m'. submap m' m ∧
-         find_code (SOME wk) args c2 = SOME (a,worker_body m' f wk sh body)
-Proof
-  rpt gen_tac >> strip_tac
-  >> gvs[code_rel_def, bvlSemTheory.find_code_def]
-  >> Cases_on ‘lookup f c2’ >> gvs[]
-  >- (Cases_on ‘lookup f c1’ >> gvs[]
-      >> Cases_on ‘x’ >> gvs[]
-      >> last_x_assum $ drule_then assume_tac
-      >> gvs[]
-     )
-  >> Cases_on ‘lookup f c1’ >> gvs[]
-  >> Cases_on ‘x’ >> gvs[]
-  >> Cases_on ‘x'’ >> gvs[]
-  >> last_x_assum $ drule_then assume_tac
-  >> gvs[]
-  >> rev_drule_all_then assume_tac (SRULE [Once EQ_SYM] return_shape_tail_ok)
-  >> gvs[]
-  >> irule_at Any tail_ok_submap
-  >> qexistsl [‘m'’, ‘m'’]
-  >> gvs[submap_def]
-QED
-
-Theorem no_ret_tail_form:
-  no_ret e ⇒ tail_form e
-Proof
-  Induct_on ‘e’ using tail_form_ind >> rw[no_ret_def, tail_form_def]
-QED
-
 Theorem worker_body_submap:
   ∀m' f wk sh e m.
     submap m' m ∧ tail_ok m' f sh e ∧ split_ok sh ⇒
@@ -1334,20 +1023,6 @@ Proof
   >> first_x_assum $ drule_then assume_tac
   >> first_x_assum $ drule_then assume_tac
   >> rw[]
-QED
-
-Theorem evaluate_make_wrapper_err:
-  ∀arity wk sh args (s:('c,'ffi) bviSem$state) wbody err t.
-    LENGTH args = arity ∧ lookup wk s.code = SOME (arity,wbody) ∧
-    s.clock ≠ 0 ∧ (∀vs. err ≠ Rraise (Ret vs)) ∧
-    evaluate ([wbody],args,dec_clock 1 s) = (Rerr err,t) ⇒
-    evaluate ([make_wrapper arity wk sh],args,s) = (Rerr err,t)
-Proof
-  rw[make_wrapper_def, evaluate_def, bvlSemTheory.find_code_def]
-  >> qspecl_then [‘LENGTH args’,‘args’,‘[]’,‘s’] assume_tac evaluate_genlist_prefix
-  >> gvs[]
-  >> Cases_on ‘err’ >> gvs[]
-  >> rename1 ‘Rraise x’ >> Cases_on ‘x’ >> gvs[]
 QED
 
 Theorem code_rel_find_code_lookup:
@@ -1419,39 +1094,6 @@ Proof
   >> first_assum $ drule_then assume_tac
   >> Cases_on ‘lookup d m’ >> gvs[bvlSemTheory.find_code_def]
   >> rename1 ‘lookup d m = SOME x’ >> PairCases_on ‘x’ >> gvs[]
-  >> drule_all_then strip_assume_tac
-                    (SRULE [Once EQ_SYM] return_shape_tail_ok)
-  >> gvs[]
-  >> irule_at Any tail_ok_submap
-  >> qexists ‘m'’ >> gvs[]
-  >> conj_tac
-  >- gvs[submap_def]
-  >> irule worker_body_submap
-  >> gvs[]
-QED
-
-Theorem code_rel_find_code_NONE_exists:
-  ∀m c1 c2 vs args body.
-    code_rel m c1 c2 ∧ find_code NONE vs c1 = SOME (args,body) ⇒
-    ∃d.
-      vs ≠ [] ∧ LAST vs = CodePtr d ∧ args = FRONT vs ∧
-      lookup d c1 = SOME (LENGTH args,body) ∧
-      case lookup d m of
-        NONE => find_code NONE vs c2 = SOME (args,body)
-      | SOME (sh,wk) =>
-          find_code NONE vs c2 = SOME (args,make_wrapper (LENGTH args) wk sh) ∧
-          split_ok sh ∧ flex_free sh ∧ tail_form body ∧ tail_ok m d sh body ∧
-          lookup wk c2 = SOME (LENGTH args,worker_body m d wk sh body)
-Proof
-  rpt gen_tac >> strip_tac
-  >> gvs[bvlSemTheory.find_code_def, AllCaseEqs()]
-  >> ‘LENGTH (FRONT vs) = LENGTH vs − 1’ by gvs[LENGTH_FRONT]
-  >> gvs[]
-  >> qpat_x_assum ‘code_rel _ _ _’ $ assume_tac o SRULE [code_rel_def]
-  >> gvs[]
-  >> first_assum $ drule_then assume_tac
-  >> Cases_on ‘lookup loc m’ >> gvs[bvlSemTheory.find_code_def]
-  >> PairCases_on ‘x’ >> gvs[]
   >> drule_all_then strip_assume_tac
                     (SRULE [Once EQ_SYM] return_shape_tail_ok)
   >> gvs[]
@@ -1567,7 +1209,7 @@ Proof
   assume_tac bvl_to_bvi_namespaces_pos
   >> ‘n + k * bvl_to_bvi_namespaces = k * bvl_to_bvi_namespaces + n’ by simp[]
   >> pop_assum SUBST1_TAC
-  >> simp[in_ns_4_def, MOD_TIMES]
+  >> simp[MOD_TIMES]
 QED
 
 (* One CPR chunk extends related code tables to related code tables. *)
@@ -1691,20 +1333,19 @@ Proof
       >> gvs[domain_fromAList]
       >> qpat_x_assum ‘∀x. MEM x (MAP FST progs1) ⇒ _’ drule >> strip_tac >> simp[]
       >> metis_tac[submap_def])
-    >- (
-      simp[lookup_union, domain_fromAList] >> rpt gen_tac
-      >> Cases_on ‘lookup d m’ >> simp[]
-      >- (strip_tac
-          >> ‘lookup d csh = NONE’
-            by (Cases_on ‘lookup d csh’ >> gvs[submap_def] >> res_tac >> gvs[])
-          >> ‘MEM d (MAP FST progs) ∧ MEM wk (MAP FST progs1) ∧
-              ¬MEM wk (MAP FST progs)’ by metis_tac[]
-          >> ‘next ≤ wk ∧ in_ns_4 wk’ by metis_tac[]
-          >> simp[] >> strip_tac
-          >> ‘bvl_num_stubs ≤ wk’ by simp[]
-          >> metis_tac[])
-      >> strip_tac >> gvs[]
-      >> metis_tac[]))
+    >> simp[lookup_union, domain_fromAList] >> rpt gen_tac
+    >> Cases_on ‘lookup d m’ >> simp[]
+    >- (strip_tac
+        >> ‘lookup d csh = NONE’
+          by (Cases_on ‘lookup d csh’ >> gvs[submap_def] >> res_tac >> gvs[])
+        >> ‘MEM d (MAP FST progs) ∧ MEM wk (MAP FST progs1) ∧
+            ¬MEM wk (MAP FST progs)’ by metis_tac[]
+        >> ‘next ≤ wk ∧ in_ns_4 wk’ by metis_tac[]
+        >> simp[] >> strip_tac
+        >> ‘bvl_num_stubs ≤ wk’ by simp[]
+        >> metis_tac[])
+    >> strip_tac >> gvs[]
+    >> metis_tac[])
   >- (
     simp[lookup_union] >> rpt gen_tac >> Cases_on ‘lookup d m’ >> simp[]
     >- (strip_tac
@@ -1714,12 +1355,11 @@ Proof
         >> ‘next ≤ wk ∧ in_ns_4 wk’ by metis_tac[]
         >> simp[])
     >> strip_tac >> gvs[] >> metis_tac[])
-  >- (
-    rpt strip_tac >> Cases_on ‘MEM n (MAP FST progs)’
-    >- (Cases_on ‘bvl_num_stubs ≤ n’ >- metis_tac[] >> gvs[])
-    >> qpat_x_assum ‘∀x. MEM x (MAP FST progs1) ∧ ¬MEM x (MAP FST progs) ⇒ _’
-         (qspec_then ‘n’ mp_tac)
-    >> simp[])
+  >> rpt strip_tac >> Cases_on ‘MEM n (MAP FST progs)’
+  >- (Cases_on ‘bvl_num_stubs ≤ n’ >- metis_tac[] >> gvs[])
+  >> qpat_x_assum ‘∀x. MEM x (MAP FST progs1) ∧ ¬MEM x (MAP FST progs) ⇒ _’
+       (qspec_then ‘n’ mp_tac)
+  >> simp[]
 QED
 
 Theorem do_install_state_rel:
@@ -1793,47 +1433,6 @@ Proof
   >> metis_tac[]
 QED
 
-Theorem do_app_state_swap[local]:
-  op ≠ Install ⇒
-    ((do_app op args s = Rval (value,s1) ∧
-      domain s.code ⊆ domain t.code ⇒
-      do_app op args
-        (t with <| refs := s.refs; clock := s.clock;
-                   global := s.global; ffi := s.ffi |>) =
-      Rval
-        (value,
-         t with <| refs := s1.refs; clock := s1.clock;
-                   global := s1.global; ffi := s1.ffi |>)) ∧
-     (do_app op args s = Rerr error ∧ error ≠ Rabort Rtype_error ⇒
-      do_app op args
-        (t with <| refs := s.refs; clock := s.clock;
-                   global := s.global; ffi := s.ffi |>) =
-      Rerr error))
-Proof
-  strip_tac
-  >> Cases_on `op`
-  >> gvs [do_app_def, do_app_aux_def, bvi_to_bvl_def, bvl_to_bvi_def,
-          bvlSemTheory.do_app_def, AllCaseEqs(), state_component_equality,
-          SUBSET_DEF, pairTheory.ELIM_UNCURRY]
-  >> rpt strip_tac
-  >> gvs []
-  >- metis_tac []
-  >> qmatch_asmsub_rename_tac
-       `s.refs |+ (global_ptr,
-                   ValueArray (LUPDATE new_value set_index global_values)) =
-        s1.refs`
-  >> qexists_tac
-       `SOME (Unit,
-              t with
-                <| refs := s.refs |+ (global_ptr,
-                     ValueArray (LUPDATE new_value set_index global_values));
-                   clock := s1.clock; global := s1.global; ffi := s1.ffi |>)`
-  >> conj_tac
-  >- (qexists_tac `global_ptr` >> gvs [])
-  >> disj2_tac
-  >> gvs []
-QED
-
 Theorem do_app_state_rel:
   state_rel m s t ∧ do_app op vs s = Rval (v,s1) ⇒
   ∃m1 t1. submap m m1 ∧ do_app op vs t = Rval (v,t1) ∧ state_rel m1 s1 t1
@@ -1848,7 +1447,7 @@ Proof
   >> ‘do_app op vs t =
         Rval (v,t with <| refs := s1.refs; clock := s1.clock;
                           global := s1.global; ffi := s1.ffi |>)’
-    by metis_tac[do_app_state_swap]
+    by metis_tac[do_app_cfg_swap]
   >> qexistsl_tac [‘m’,‘t with <| refs := s1.refs; clock := s1.clock;
                                   global := s1.global; ffi := s1.ffi |>’]
   >> imp_res_tac do_app_code >> imp_res_tac do_app_oracle
@@ -1865,7 +1464,7 @@ Proof
   >> ‘t with <| refs := s.refs; clock := s.clock; global := s.global;
                 ffi := s.ffi |> = t’
     by gvs[state_rel_def, state_component_equality]
-  >> metis_tac[do_app_state_swap]
+  >> metis_tac[do_app_cfg_swap]
 QED
 
 Theorem evaluate_wrapper_worker:
@@ -2632,156 +2231,6 @@ Proof
   >> gvs[Abbr ‘t0’, inc_clock_def, initial_state_with_simp]
 QED
 
-Theorem evaluate_initial_state_mono[local]:
-  bviSem$evaluate (es,[],bviSem$initial_state ffi c co cc k1) = (r,s) ∧
-  r ≠ Rerr (Rabort Rtimeout_error) ∧ k1 ≤ k2 ⇒
-  ∃s1. bviSem$evaluate (es,[],bviSem$initial_state ffi c co cc k2) = (r,s1) ∧
-       s1.ffi = s.ffi
-Proof
-  strip_tac
-  >> drule_all evaluate_add_clock
-  >> disch_then (qspec_then ‘k2 - k1’ mp_tac)
-  >> simp[inc_clock_def]
-QED
-
-Theorem semantics_fwd_sim[local]:
-  (∀k r s.
-     evaluate ([Call 0 (SOME start) [] NONE],[],
-               initial_state ffi c1 co1 cc1 k) = (r,s) ∧
-     r ≠ Rerr (Rabort Rtype_error) ⇒
-     ∃ck t.
-       evaluate ([Call 0 (SOME start) [] NONE],[],
-                 initial_state ffi c2 co2 cc2 (k + ck)) = (r,t) ∧
-       t.ffi = s.ffi) ∧
-  semantics ffi c1 co1 cc1 start ≠ Fail ⇒
-  semantics ffi c1 co1 cc1 start = semantics ffi c2 co2 cc2 start
-Proof
-  strip_tac
-  >> ‘∀k e. FST (evaluate ([Call 0 (SOME start) [] NONE],[],
-                           initial_state ffi c1 co1 cc1 k)) = Rerr e ⇒
-            e = Rabort Rtimeout_error ∨ ∃f. e = Rabort (Rffi_error f)’
-    by (qpat_x_assum ‘_ ≠ Fail’ mp_tac >> simp[semantics_def] >> metis_tac[])
-  >> ‘∀k. ∃ck t.
-        evaluate ([Call 0 (SOME start) [] NONE],[],
-                  initial_state ffi c2 co2 cc2 (k + ck)) =
-          (FST (evaluate ([Call 0 (SOME start) [] NONE],[],
-                          initial_state ffi c1 co1 cc1 k)),t) ∧
-        t.ffi = (SND (evaluate ([Call 0 (SOME start) [] NONE],[],
-                                initial_state ffi c1 co1 cc1 k))).ffi’
-    by (
-      gen_tac
-      >> Cases_on ‘evaluate ([Call 0 (SOME start) [] NONE],[],
-                             initial_state ffi c1 co1 cc1 k)’
-      >> qpat_x_assum ‘∀k r s. _ ∧ _ ⇒ ∃ck t. _’
-           (qspecl_then [‘k’,‘q’,‘r’] mp_tac)
-      >> impl_tac
-      >- (
-        simp[] >> strip_tac
-        >> qpat_x_assum ‘∀k e. _ ⇒ _’ (qspecl_then [‘k’,‘Rabort Rtype_error’] mp_tac)
-        >> simp[])
-      >> simp[])
-  >> qpat_x_assum ‘∀k r s. _ ∧ _ ⇒ ∃ck t. _’ kall_tac
-  >> ‘∀k e. FST (evaluate ([Call 0 (SOME start) [] NONE],[],
-                           initial_state ffi c2 co2 cc2 k)) = Rerr e ⇒
-            e = Rabort Rtimeout_error ∨ ∃f. e = Rabort (Rffi_error f)’
-    by (
-      rpt strip_tac
-      >> Cases_on ‘evaluate ([Call 0 (SOME start) [] NONE],[],
-                             initial_state ffi c2 co2 cc2 k)’
-      >> gvs[]
-      >> Cases_on ‘e = Rabort Rtimeout_error’ >> simp[]
-      >> drule evaluate_add_clock >> simp[]
-      >> qpat_x_assum ‘∀k. ∃ck t. _’ (qspec_then ‘k’ strip_assume_tac)
-      >> disch_then (qspec_then ‘ck’ mp_tac)
-      >> simp[inc_clock_def]
-      >> strip_tac >> gvs[]
-      >> qpat_x_assum ‘∀k e. FST (evaluate (_,_,initial_state _ c1 _ _ _)) = _ ⇒ _’
-           (qspecl_then [‘k’,‘e’] mp_tac)
-      >> simp[])
-  >> simp[semantics_def]
-  >> IF_CASES_TAC >- metis_tac[]
-  >> IF_CASES_TAC >- metis_tac[]
-  >> DEEP_INTRO_TAC some_intro >> simp[]
-  >> conj_tac
-  >- (
-    rpt strip_tac
-    >> DEEP_INTRO_TAC some_intro >> simp[]
-    >> conj_tac
-    >- (
-      simp[PULL_EXISTS] >> qx_genl_tac [‘k2’,‘s2’,‘r2’,‘out2’] >> strip_tac
-      >> qpat_x_assum ‘∀k. ∃ck t. _’ (qspec_then ‘k’ strip_assume_tac)
-      >> gvs[]
-      >> ‘r ≠ Rerr (Rabort Rtimeout_error) ∧ r2 ≠ Rerr (Rabort Rtimeout_error)’
-        by (conj_tac >> strip_tac >> gvs[])
-      >> qpat_assum ‘evaluate (_,_,initial_state _ c2 _ _ _) = (r,t)’
-           (mp_then (Pos hd) (qspec_then ‘ck + k + k2’ mp_tac)
-              evaluate_initial_state_mono)
-      >> qpat_assum ‘evaluate (_,_,initial_state _ c2 _ _ _) = (r2,s2)’
-           (mp_then (Pos hd) (qspec_then ‘ck + k + k2’ mp_tac)
-              evaluate_initial_state_mono)
-      >> simp[] >> rpt strip_tac
-      >> gvs[] >> every_case_tac >> gvs[])
-    >> qpat_x_assum ‘∀k. ∃ck t. _’ (qspec_then ‘k’ strip_assume_tac)
-    >> gvs[]
-    >> qpat_assum ‘evaluate (_,_,initial_state _ c2 _ _ _) = (r,t)’ (irule_at Any)
-    >> qexists_tac ‘outcome’ >> simp[])
-  >> strip_tac
-  >> DEEP_INTRO_TAC some_intro >> simp[]
-  >> conj_tac
-  >- (
-    simp[PULL_EXISTS] >> qx_genl_tac [‘k2’,‘s2’,‘r2’,‘out2’] >> rpt strip_tac
-    >> ‘r2 ≠ Rerr (Rabort Rtimeout_error)’ by (strip_tac >> gvs[])
-    >> qpat_x_assum ‘∀k. ∃ck t. _’ (qspec_then ‘k2’ strip_assume_tac)
-    >> namedCases_on ‘evaluate ([Call 0 (SOME start) [] NONE],[],
-                                initial_state ffi c1 co1 cc1 k2)’ ["r1 s1"]
-    >> gvs[]
-    >> qpat_assum ‘evaluate (_,_,initial_state _ c2 _ _ _) = (r2,s2)’
-         (mp_then (Pos hd) (qspec_then ‘ck + k2’ mp_tac)
-            evaluate_initial_state_mono)
-    >> simp[] >> strip_tac >> gvs[]
-    >> qpat_x_assum ‘∀k s r outcome. _ ⇒ ¬_’
-         (qspecl_then [‘k2’,‘s1’,‘r1’,‘out2’] mp_tac)
-    >> simp[])
-  >> strip_tac
-  >> qmatch_abbrev_tac ‘build_lprefix_lub l1 = build_lprefix_lub l2’
-  >> ‘(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2’
-    suffices_by metis_tac[build_lprefix_lub_thm, lprefix_lub_new_chain,
-                          unique_lprefix_lub]
-  >> conj_asm1_tac
-  >- (
-    unabbrev_all_tac
-    >> conj_tac
-    >> Ho_Rewrite.ONCE_REWRITE_TAC [GSYM o_DEF]
-    >> REWRITE_TAC [IMAGE_COMPOSE]
-    >> match_mp_tac prefix_chain_lprefix_chain
-    >> simp [prefix_chain_def, PULL_EXISTS]
-    >> qx_genl_tac [‘k1’,‘k2’]
-    >> qspecl_then [‘k1’,‘k2’] mp_tac LESS_EQ_CASES
-    >> metis_tac [LESS_EQ_EXISTS, initial_state_with_simp,
-                  evaluate_add_to_clock_io_events_mono
-                    |> CONV_RULE (RESORT_FORALL_CONV (sort_vars ["s"]))
-                    |> Q.SPEC ‘s with clock := k’
-                    |> SIMP_RULE (srw_ss()) [inc_clock_def]])
-  >> simp [equiv_lprefix_chain_thm]
-  >> unabbrev_all_tac >> simp [PULL_EXISTS]
-  >> ntac 2 (pop_assum kall_tac)
-  >> simp [LNTH_fromList, PULL_EXISTS, GSYM FORALL_AND_THM]
-  >> qx_genl_tac [‘n’,‘x’,‘k’]
-  >> qpat_x_assum ‘∀k. ∃ck t. _’ (qspec_then ‘k’ strip_assume_tac)
-  >> conj_tac
-  >- (strip_tac >> qexists_tac ‘k + ck’ >> gvs[])
-  >> strip_tac >> qexists_tac ‘k’
-  >> qspecl_then [‘[Call 0 (SOME start) [] NONE]’,‘[]’,
-                  ‘initial_state ffi c2 co2 cc2 k’,‘ck’] mp_tac
-       evaluate_add_to_clock_io_events_mono
-  >> simp[inc_clock_def]
-  >> strip_tac
-  >> gvs[]
-  >> drule_then assume_tac IS_PREFIX_LENGTH
-  >> conj_asm1_tac >- simp[]
-  >> irule (GSYM is_prefix_el) >> simp[]
-QED
-
 Theorem compile_prog_semantics:
   input_condition n prog ∧
   (∀k st cfg p. co k = ((st,cfg),p) ⇒ input_condition (FST st) p) ∧
@@ -2797,10 +2246,11 @@ Proof
   >- (
     strip_tac
     >> irule semantics_fwd_sim >> simp[]
+    >> qexistsl_tac [‘$=’,‘$=’]
     >> rpt strip_tac
     >> drule_all compile_prog_evaluate
     >> disch_then (qx_choosel_then [‘ck’,‘m’,‘t’] strip_assume_tac)
-    >> qexistsl_tac [‘ck’,‘t’]
+    >> qexistsl_tac [‘ck’,‘r’,‘t’]
     >> gvs[state_rel_def])
   >> ‘bvi_cpr$compile_prog F = CURRY I’
     by simp[FUN_EQ_THM, FORALL_PROD, compile_prog_def]
@@ -2842,14 +2292,6 @@ Theorem compile_prog_keeps_names:
 Proof
   PairCases_on ‘st’ >> rw[compile_prog_def] >> gvs[]
   >> metis_tac[compile_prog_with_map_keeps_names]
-QED
-
-Theorem compile_prog_HD:
-  compile_prog b st xs = (st1,ys) ∧ xs ≠ [] ⇒
-  ys ≠ [] ∧ FST (HD ys) = FST (HD xs)
-Proof
-  PairCases_on ‘st’ >> rw[compile_prog_def] >> gvs[]
-  >> metis_tac[compile_prog_with_map_HD]
 QED
 
 Theorem flatten_exp_code_labels[local]:
