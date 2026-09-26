@@ -237,7 +237,7 @@ End
 Definition rup_pass2_def:
   rup_pass2 assg max [] l = SOME assg ∧
   rup_pass2 assg max ((k:num,i:int,n:num)::ys) l =
-    if max < l + k then
+    if max < l + k ∧ FLOOKUP assg n = NONE then
       rup_pass2 (assg |+ (n,0 ≤ i)) max ys l
     else
       rup_pass2 assg max ys l
@@ -620,7 +620,7 @@ Proof
   \\ gvs [rup_pass2_def] \\ rpt gen_tac \\ strip_tac
   \\ qabbrev_tac ‘x = if h1 < 0 then 1 − b2n (w h2) else b2n (w h2)’
   \\ ‘x ≤ 1’ by (rw [Abbr‘x’] \\ Cases_on ‘w h2’ \\ gvs [])
-  \\ reverse (Cases_on ‘max < c1 + h0’) \\ gvs []
+  \\ reverse (Cases_on ‘max < c1 + h0 ∧ FLOOKUP assg h2 = NONE’) \\ gvs []
   \\ last_x_assum irule \\ fs []
   \\ gvs [SF DNF_ss,SF SFY_ss]
   \\ fs [lslack_def] \\ fs [GSYM lslack_def]
