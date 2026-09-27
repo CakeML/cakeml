@@ -1864,7 +1864,7 @@ End
 (* m is the slot's largest variable: vimap is resized once to cover it *)
 Definition update_vimap_slot_def:
   (update_vimap_slot fresh vimap v m Empty = vimap) ∧
-  (update_vimap_slot fresh vimap v m (Stored cs vs d mc b) =
+  (update_vimap_slot fresh vimap v m (Stored cs vs d mc sm b) =
     let vimap =
       if m < LENGTH vimap then vimap
       else update_resize vimap Vnone Vnone m in

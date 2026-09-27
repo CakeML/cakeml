@@ -10,9 +10,9 @@ Libs
 
 (* A formula slot: no constraint, or a constraint stored as its
   coefficients, its variables, its degree, its largest absolute
-  coefficient and its core flag. *)
+  coefficient, the sum of its absolute coefficients and its core flag. *)
 Datatype:
-  slot = Empty | Stored (int vector) (num vector) int num bool
+  slot = Empty | Stored (int vector) (num vector) int num num bool
 End
 
 Definition max_coeff_def:
@@ -22,7 +22,7 @@ End
 
 Definition enc_def:
   enc ((l,d):npbc) b =
-  Stored (Vector (MAP FST l)) (Vector (MAP SND l)) d (max_coeff l) b
+  Stored (Vector (MAP FST l)) (Vector (MAP SND l)) d (max_coeff l) (lslack l) b
 End
 
 Definition enc_opt_def:
@@ -32,21 +32,21 @@ End
 
 Definition wf_slot_def:
   wf_slot Empty = T ∧
-  wf_slot (Stored cs vs d mc b) = (length cs = length vs)
+  wf_slot (Stored cs vs d mc sm b) = (length cs = length vs)
 End
 
 Definition core_slot_def:
   core_slot s =
   case s of
     Empty => F
-  | Stored cs vs d mc b => b
+  | Stored cs vs d mc sm b => b
 End
 
 Definition set_core_slot_def:
   set_core_slot s b =
   case s of
     Empty => Empty
-  | Stored cs vs d mc b0 => Stored cs vs d mc b
+  | Stored cs vs d mc sm b0 => Stored cs vs d mc sm b
 End
 
 (* Executable reads use sub_unsafe; their indices are in bounds *)
@@ -68,7 +68,7 @@ Definition dec_def:
   dec s =
   case s of
     Empty => ([],0)
-  | Stored cs vs d mc b => (dec_terms cs vs (length cs) [], d)
+  | Stored cs vs d mc sm b => (dec_terms cs vs (length cs) [], d)
 End
 
 (* The assignment, as in ccnf: an entry below the stamp b is unassigned,
@@ -142,7 +142,7 @@ Definition update_assg_slot_def:
   update_assg_slot assg b s =
   case s of
     Empty => (F,assg,T)
-  | Stored cs vs d mc core =>
+  | Stored cs vs d mc sm core =>
     if d ≤ 0 then (F,assg,T)
     else
       let l = Num (ABS d) in
@@ -160,10 +160,29 @@ Definition max_var_def:
   max_var ((i,n)::xs) = MAX n (max_var xs)
 End
 
+(* The sum and the largest of the absolute coefficients, and the largest
+  variable, in one pass *)
+Definition sum_max_abs_def:
+  (sum_max_abs [] (s:num) (m:num) (mv:num) = (s,m,mv)) ∧
+  (sum_max_abs ((c:int,v:num)::l) s m mv =
+    let k = Num (ABS c) in
+    sum_max_abs l (s + k) (if m < k then k else m) (if mv < v then v else mv))
+End
+
+Definition terms_fst_def:
+  terms_fst [] = [] ∧
+  terms_fst ((c:int,v:num)::l) = c :: terms_fst l
+End
+
+Definition terms_snd_def:
+  terms_snd [] = [] ∧
+  terms_snd ((c:int,v:num)::l) = v :: terms_snd l
+End
+
 (* every variable of the slot is below n *)
 Definition slot_bound_def:
   slot_bound Empty n = T ∧
-  slot_bound (Stored cs vs d mc b) n = (∀j. j < length vs ⇒ sub vs j < n)
+  slot_bound (Stored cs vs d mc sm b) n = (∀j. j < length vs ⇒ sub vs j < n)
 End
 
 (* Documentation: the spec's second pass without the guard on assigned
@@ -182,6 +201,12 @@ End
 
 Theorem dec_enc_test:
   dec (enc ([(2,1);(-3,4)],5) T) = ([(2,1);(-3,4)],5)
+Proof
+  EVAL_TAC
+QED
+
+Theorem enc_test:
+  enc ([(2,1);(-3,4)],5) T = Stored (Vector [2;-3]) (Vector [1;4]) 5 3 5 T
 Proof
   EVAL_TAC
 QED
@@ -263,6 +288,44 @@ Proof
     mlvectorTheory.sub_def,LIST_EQ_REWRITE,EL_MAP]
 QED
 
+Theorem sum_max_abs_thm:
+  ∀l s m mv.
+  sum_max_abs l s m mv =
+  (s + lslack l, MAX m (max_coeff l), MAX mv (max_var l))
+Proof
+  Induct>>
+  simp[sum_max_abs_def,lslack_def,max_coeff_def,max_var_def,FORALL_PROD]>>
+  rw[MAX_DEF]
+QED
+
+(* The sum as it appears in not *)
+Theorem SUM_MAP_ABS_lslack:
+  SUM (MAP (λi. Num (ABS (FST i))) l) = lslack l
+Proof
+  simp[lslack_def,combinTheory.o_DEF]
+QED
+
+Theorem terms_fst_MAP:
+  ∀l. terms_fst l = MAP FST l
+Proof
+  Induct>>simp[terms_fst_def,FORALL_PROD]
+QED
+
+Theorem terms_snd_MAP:
+  ∀l. terms_snd l = MAP SND l
+Proof
+  Induct>>simp[terms_snd_def,FORALL_PROD]
+QED
+
+(* The encoding in one pass over the terms *)
+Theorem enc_thm:
+  enc ((l,d):npbc) b =
+  let (s,mc,mv) = sum_max_abs l 0 0 0 in
+  Stored (Vector (terms_fst l)) (Vector (terms_snd l)) d mc s b
+Proof
+  simp[enc_def,sum_max_abs_thm,terms_fst_MAP,terms_snd_MAP]
+QED
+
 Theorem enc_opt_eq_Empty[simp]:
   enc_opt x = Empty ⇔ x = NONE
 Proof
@@ -308,7 +371,7 @@ Proof
 QED
 
 Theorem slot_CASE_default:
-  (case s of Empty => x | Stored cs vs d mc b => f (Stored cs vs d mc b)) =
+  (case s of Empty => x | Stored cs vs d mc sm b => f (Stored cs vs d mc sm b)) =
   if s = Empty then x else f s
 Proof
   Cases_on`s`>>simp[]
@@ -779,21 +842,11 @@ QED
 
 (* Readers *)
 
-Definition contr_slot_aux_def:
-  contr_slot_aux cs i (rhs:int) =
-  if rhs ≤ 0 then F
-  else if i = 0 then T
-  else
-    let i1 = i - 1 in
-    contr_slot_aux cs i1 (rhs - ABS (sub_unsafe cs i1))
-End
-
 Definition contr_slot_def:
   contr_slot s =
   case s of
     Empty => F
-  | Stored cs vs d mc b =>
-    &(length cs * mc) < d ∨ contr_slot_aux cs (length cs) d
+  | Stored cs vs d mc sm b => &sm < d
 End
 
 Theorem contr_slot_test:
@@ -805,41 +858,11 @@ Proof
   EVAL_TAC
 QED
 
-Theorem contr_slot_aux_thm:
-  ∀i rhs.
-  contr_slot_aux cs i rhs ⇔
-  &SUM (GENLIST (λj. Num (ABS (sub cs j))) i) < rhs
-Proof
-  Induct>>
-  rw[Once contr_slot_aux_def,GENLIST,SUM_SNOC]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem lslack_le_max_coeff:
-  ∀l. SUM (MAP (Num o ABS o FST) l) ≤ LENGTH l * max_coeff l
-Proof
-  Induct>>simp[FORALL_PROD,max_coeff_def]>>rw[]>>
-  `LENGTH l * max_coeff l ≤ LENGTH l * MAX (Num (ABS p_1)) (max_coeff l)` by
-    simp[]>>
-  `Num (ABS p_1) ≤ MAX (Num (ABS p_1)) (max_coeff l)` by simp[]>>
-  simp[MULT_CLAUSES]
-QED
-
 Theorem contr_slot_enc:
   contr_slot (enc c b) ⇔ check_contradiction c
 Proof
   PairCases_on`c`>>
-  simp[contr_slot_def,enc_def,contr_slot_aux_thm,check_contradiction_thm,
-    mlvectorTheory.length_def,mlvectorTheory.sub_def]>>
-  `SUM (GENLIST (λj. Num (ABS (EL j (MAP FST c0)))) (LENGTH c0)) =
-    lslack c0` by (
-    simp[lslack_def]>>
-    AP_TERM_TAC>>
-    simp[LIST_EQ_REWRITE,EL_MAP])>>
-  `lslack c0 ≤ LENGTH c0 * max_coeff c0` by
-    simp[lslack_def,lslack_le_max_coeff]>>
-  simp[]>>
-  intLib.ARITH_TAC
+  simp[contr_slot_def,enc_def,check_contradiction_thm]
 QED
 
 Definition eq_terms_def:
@@ -853,7 +876,7 @@ Definition eq_slot_def:
   eq_slot ((l,d):npbc) s =
   case s of
     Empty => (l = [] ∧ d = 0)
-  | Stored cs vs d' mc b => d = d' ∧ eq_terms cs vs (length cs) 0 l
+  | Stored cs vs d' mc sm b => d = d' ∧ eq_terms cs vs (length cs) 0 l
 End
 
 Definition check_lslack_slot_def:
@@ -898,10 +921,10 @@ Definition imp_slot_def:
   drhs ≤ 0 ∨
   case s of
     Empty => F
-  | Stored cs vs crhs mc b =>
-    (let rhs = crhs - drhs + 1 in
-      0 < rhs ∧ check_imp_slot drhs cs vs (length cs) 0 dls rhs) ∨
-    contr_slot s
+  | Stored cs vs crhs mc sm b =>
+    &sm < crhs ∨
+    let rhs = crhs - drhs + 1 in
+    0 < rhs ∧ check_imp_slot drhs cs vs (length cs) 0 dls rhs
 End
 
 Theorem eq_imp_slot_test:
@@ -990,15 +1013,13 @@ Theorem imp_slot_enc:
   imp_slot (enc c b) d ⇔ imp c d
 Proof
   PairCases_on`c`>>PairCases_on`d`>>
-  `contr_slot (enc (c0,c1) b) ⇔ check_contradiction (c0,c1)` by
-    simp[contr_slot_enc]>>
   `∀rhs.
     check_imp_slot d1 (Vector (MAP FST c0)) (Vector (MAP SND c0))
       (LENGTH c0) 0 d0 rhs ⇔
     check_imp_lists d1 c0 d0 rhs` by
     metis_tac[check_imp_slot_enc,DROP_0]>>
   gvs[imp_slot_def,imp_def,check_trivial_def,check_imp_def,enc_def,
-    mlvectorTheory.length_def]>>
+    mlvectorTheory.length_def,check_contradiction_thm]>>
   metis_tac[]
 QED
 
@@ -1042,7 +1063,7 @@ Definition subst_slot_def:
   subst_slot s sl =
   case sl of
     Empty => subst (subst_fun s) ([],0)
-  | Stored cs vs d mc b =>
+  | Stored cs vs d mc sm b =>
     let (old,new,k) = subst_aux_slot s cs vs (length cs) [] [] 0 in
     let (sorted,k2) = clean_up new in
     let (result,k3) = add_lists old sorted in
@@ -1053,7 +1074,7 @@ Definition subst_opt_slot_def:
   subst_opt_slot s sl =
   case sl of
     Empty => NONE
-  | Stored cs vs d mc b =>
+  | Stored cs vs d mc sm b =>
     if subst_same_slot s cs vs 0 (length cs) then NONE
     else
       let res = subst_slot s sl in
@@ -1216,7 +1237,7 @@ Definition restore_slot_def:
   restore_slot x s =
   case s of
     Empty => (F,F)
-  | Stored cs vs d mc b => restore_scan cs vs x (length cs) F F
+  | Stored cs vs d mc sm b => restore_scan cs vs x (length cs) F F
 End
 
 Theorem restore_slot_test:
@@ -1302,7 +1323,7 @@ Definition hash_slot_def:
   hash_slot s =
   case s of
     Empty => hash_constraint ([],0)
-  | Stored cs vs d mc b =>
+  | Stored cs vs d mc sm b =>
     ((Num (ABS d) + h_base * hash_terms_slot cs vs (length cs) 0) MOD h_mod)
       MOD splim
 End
@@ -1349,7 +1370,7 @@ Theorem hash_slot_thm:
 Proof
   Cases_on`s`
   >- simp[hash_slot_def,dec_def]>>
-  rename1`Stored cs vs d mc b`>>
+  rename1`Stored cs vs d mc sm b`>>
   simp[hash_slot_def,dec_def,dec_terms_GENLIST,hash_constraint_def]>>
   qspecl_then [`length cs`,`[]`] mp_tac hash_terms_slot_thm>>
   simp[hash_list_def]
@@ -1409,7 +1430,7 @@ Definition eq_slots_def:
   eq_slots s s' =
   case (s,s') of
     (Empty,Empty) => T
-  | (Stored cs vs d mc b, Stored cs' vs' d' mc' b') =>
+  | (Stored cs vs d mc sm b, Stored cs' vs' d' mc' sm' b') =>
     d = d' ∧ length cs = length cs' ∧
     eq_terms_slots (cs:int vector) vs cs' vs' (length cs)
   | _ => F
@@ -1548,14 +1569,14 @@ Definition sat_slot_def:
   sat_slot wv s =
   case s of
     Empty => T
-  | Stored cs vs d mc b => d ≤ 0 ∨ sat_slot_aux wv cs vs 0 (length cs) d
+  | Stored cs vs d mc sm b => d ≤ 0 ∨ sat_slot_aux wv cs vs 0 (length cs) d
 End
 
 Definition cube_slot_def:
   cube_slot cv s =
   case s of
     Empty => T
-  | Stored cs vs d mc b => d ≤ 0 ∨ cube_slot_aux cv cs vs 0 (length cs) d
+  | Stored cs vs d mc sm b => d ≤ 0 ∨ cube_slot_aux cv cs vs 0 (length cs) d
 End
 
 Definition check_obj_slots_def:
@@ -1684,7 +1705,7 @@ Theorem sat_slot_thm:
 Proof
   Cases_on`s`
   >- simp[sat_slot_def,dec_def,satisfies_npbc_def]>>
-  rename1`Stored cs vs d mc b`>>
+  rename1`Stored cs vs d mc sm b`>>
   simp[sat_slot_def,dec_def,dec_terms_GENLIST,satisfies_npbc_def]>>
   Cases_on`d ≤ 0`
   >- (simp[]>>intLib.ARITH_TAC)>>
@@ -1697,7 +1718,7 @@ Theorem cube_slot_thm:
 Proof
   Cases_on`s`
   >- simp[cube_slot_def,dec_def,check_cube_correct]>>
-  rename1`Stored cs vs d mc b`>>
+  rename1`Stored cs vs d mc sm b`>>
   simp[cube_slot_def,dec_def,dec_terms_GENLIST,check_cube_correct]>>
   Cases_on`d ≤ 0`
   >- (simp[]>>intLib.ARITH_TAC)>>
@@ -1721,61 +1742,26 @@ QED
 
 (* Negation *)
 
-(* Encoding with the largest variable, computed in the same pass as the
-  largest coefficient *)
-Definition max_cv_def:
-  (max_cv [] (m:num) (mv:num) = (m,mv)) ∧
-  (max_cv ((c:int,v:num)::l) m mv =
-    let k = Num (ABS c) in
-    max_cv l (if m < k then k else m) (if mv < v then v else mv))
-End
-
-Theorem max_cv_thm:
-  ∀l m mv.
-  max_cv l m mv = (MAX m (max_coeff l), MAX mv (max_var l))
-Proof
-  Induct>>
-  simp[max_cv_def,max_coeff_def,max_var_def,FORALL_PROD]>>
-  rw[MAX_DEF]
-QED
-
+(* Encoding with the largest variable, from the same pass *)
 Definition enc_mv_def:
   enc_mv ((l,d):npbc) b =
-  let (mc,mv) = max_cv l 0 0 in
-  (Stored (Vector (MAP FST l)) (Vector (MAP SND l)) d mc b, mv)
+  let (s,mc,mv) = sum_max_abs l 0 0 0 in
+  (Stored (Vector (terms_fst l)) (Vector (terms_snd l)) d mc s b, mv)
 End
 
 Theorem enc_mv_enc:
   enc_mv c b = (enc c b, max_var (FST c))
 Proof
   PairCases_on`c`>>
-  simp[enc_mv_def,max_cv_thm,enc_def]
-QED
-
-Definition sum_max_abs_def:
-  (sum_max_abs [] (s:num) (m:num) (mv:num) = (s,m,mv)) ∧
-  (sum_max_abs ((c:int,v:num)::l) s m mv =
-    let k = Num (ABS c) in
-    sum_max_abs l (s + k) (if m < k then k else m) (if mv < v then v else mv))
-End
-
-Theorem sum_max_abs_thm:
-  ∀l s m mv.
-  sum_max_abs l s m mv =
-  (s + SUM (MAP (λi. Num (ABS (FST i))) l), MAX m (max_coeff l),
-   MAX mv (max_var l))
-Proof
-  Induct>>
-  simp[sum_max_abs_def,max_coeff_def,max_var_def,FORALL_PROD]>>
-  rw[MAX_DEF]
+  simp[enc_mv_def,sum_max_abs_thm,enc_def,terms_fst_MAP,terms_snd_MAP]
 QED
 
 (* The negation and its largest variable *)
 Definition neg_slot_def:
   neg_slot ((l,n):npbc) b =
   let (s,mc,mv) = sum_max_abs l 0 0 0 in
-  (Stored (Vector (MAP (λ(c:int,v:num). -c) l)) (Vector (MAP SND l))
-    (&s + 1 - n) mc b, mv)
+  (Stored (Vector (MAP (λ(c:int,v:num). -c) l)) (Vector (terms_snd l))
+    (&s + 1 - n) mc s b, mv)
 End
 
 Theorem max_coeff_negate:
@@ -1784,12 +1770,19 @@ Proof
   Induct>>simp[max_coeff_def,FORALL_PROD]
 QED
 
+Theorem lslack_negate:
+  ∀l. lslack (MAP (λ(c,l). (-c,l)) l) = lslack l
+Proof
+  Induct>>fs[lslack_def,FORALL_PROD]
+QED
+
 Theorem neg_slot_enc:
   neg_slot c b = (enc (not c) b, max_var (FST c))
 Proof
   PairCases_on`c`>>
   simp[neg_slot_def,sum_max_abs_thm,enc_def,not_def,MAP_MAP_o,
-    combinTheory.o_DEF,LAMBDA_PROD,max_coeff_negate]>>
+    combinTheory.o_DEF,LAMBDA_PROD,max_coeff_negate,lslack_negate,
+    SUM_MAP_ABS_lslack,terms_snd_MAP]>>
   simp[MAP_EQ_f,FORALL_PROD]
 QED
 
@@ -1808,7 +1801,7 @@ Definition slot_max_var_def:
   slot_max_var s =
   case s of
     Empty => 0
-  | Stored cs vs d mc b => max_var_vs vs (length vs) 0
+  | Stored cs vs d mc sm b => max_var_vs vs (length vs) 0
 End
 
 Theorem max_var_SNOC:
@@ -1872,36 +1865,34 @@ QED
 
 (* Negation of a stored slot, sharing its variable vector *)
 
-(* The negated coefficients and the sum of their absolute values *)
+(* The negated coefficients *)
 Definition neg_terms_def:
-  neg_terms cs i acc (s:num) =
-  if i = 0 then (acc,s)
+  neg_terms cs i acc =
+  if i = 0 then acc
   else
     let i1 = i - 1 in
     let c:int = sub_unsafe cs i1 in
-    neg_terms cs i1 ((-c)::acc) (s + Num (ABS c))
+    neg_terms cs i1 ((-c)::acc)
 End
 
 Definition not_slot_def:
   not_slot s b =
   case s of
     Empty => Empty
-  | Stored cs vs d mc b0 =>
-    let (ncs,s) = neg_terms cs (length cs) [] 0 in
-    Stored (Vector ncs) vs (&s + 1 - d) mc b
+  | Stored cs vs d mc sm b0 =>
+    Stored (Vector (neg_terms cs (length cs) [])) vs (&sm + 1 - d) mc sm b
 End
 
 Theorem neg_terms_thm:
-  ∀i acc s.
+  ∀i acc.
   i ≤ LENGTH l ⇒
-  neg_terms (Vector (MAP FST l)) i acc s =
-  (MAP (λ(c,v). -c) (TAKE i l) ++ acc,
-   s + SUM (MAP (λi. Num (ABS (FST i))) (TAKE i l)))
+  neg_terms (Vector (MAP FST l)) i acc =
+  MAP (λ(c,v). -c) (TAKE i l) ++ acc
 Proof
   Induct>>
   rw[Once neg_terms_def]>>
   `TAKE (SUC i) l = SNOC (EL i l) (TAKE i l)` by simp[TAKE_SUC_BY_TAKE]>>
-  simp[mlvectorTheory.sub_def,EL_MAP,MAP_SNOC,SUM_SNOC]>>
+  simp[mlvectorTheory.sub_def,EL_MAP,MAP_SNOC]>>
   Cases_on`EL i l`>>
   simp[SNOC_APPEND]
 QED
@@ -1912,13 +1903,13 @@ Proof
   PairCases_on`c`>>
   simp[not_slot_def,enc_def,not_def,mlvectorTheory.length_def,
     neg_terms_thm,MAP_MAP_o,combinTheory.o_DEF,
-    LAMBDA_PROD,max_coeff_negate]>>
+    LAMBDA_PROD,max_coeff_negate,lslack_negate,SUM_MAP_ABS_lslack]>>
   simp[MAP_EQ_f,FORALL_PROD]
 QED
 
 Theorem LENGTH_neg_terms:
-  ∀i acc s.
-  LENGTH (FST (neg_terms cs i acc s)) = i + LENGTH acc
+  ∀i acc.
+  LENGTH (neg_terms cs i acc) = i + LENGTH acc
 Proof
   Induct>>
   rw[Once neg_terms_def]
@@ -1928,29 +1919,24 @@ Theorem wf_slot_not_slot:
   wf_slot s ⇒ wf_slot (not_slot s b)
 Proof
   Cases_on`s`>>
-  rw[not_slot_def,wf_slot_def]>>
-  pairarg_tac>>
-  gvs[wf_slot_def,mlvectorTheory.length_def]>>
-  metis_tac[LENGTH_neg_terms,FST,LENGTH,ADD_0]
+  rw[not_slot_def,wf_slot_def,mlvectorTheory.length_def,LENGTH_neg_terms]
 QED
 
 Theorem slot_bound_not_slot[simp]:
   slot_bound (not_slot s b) n ⇔ slot_bound s n
 Proof
   Cases_on`s`>>
-  rw[not_slot_def]>>
-  pairarg_tac>>
-  simp[slot_bound_def]
+  rw[not_slot_def,slot_bound_def]
 QED
 
 (* A new constraint, its negation (sharing the variable vector) and its
   largest variable *)
 Definition neg_pos_slot_def:
   neg_pos_slot ((l,n):npbc) b1 b2 =
-  let vs = Vector (MAP SND l) in
+  let vs = Vector (terms_snd l) in
   let (s,mc,mv) = sum_max_abs l 0 0 0 in
-  (Stored (Vector (MAP FST l)) vs n mc b1,
-   Stored (Vector (MAP (λ(c:int,v:num). -c) l)) vs (&s + 1 - n) mc b2,
+  (Stored (Vector (terms_fst l)) vs n mc s b1,
+   Stored (Vector (MAP (λ(c:int,v:num). -c) l)) vs (&s + 1 - n) mc s b2,
    mv)
 End
 
@@ -1959,7 +1945,8 @@ Theorem neg_pos_slot_enc:
 Proof
   PairCases_on`c`>>
   simp[neg_pos_slot_def,sum_max_abs_thm,enc_def,not_def,MAP_MAP_o,
-    combinTheory.o_DEF,LAMBDA_PROD,max_coeff_negate]>>
+    combinTheory.o_DEF,LAMBDA_PROD,max_coeff_negate,lslack_negate,
+    SUM_MAP_ABS_lslack,terms_fst_MAP,terms_snd_MAP]>>
   simp[MAP_EQ_f,FORALL_PROD]
 QED
 
@@ -1975,7 +1962,7 @@ Definition check_fresh_aux_constr_slot_def:
   check_fresh_aux_constr_slot asv s =
   case s of
     Empty => T
-  | Stored cs vs d mc b => fresh_vs asv vs (length vs)
+  | Stored cs vs d mc sm b => fresh_vs asv vs (length vs)
 End
 
 Theorem fresh_vs_thm:

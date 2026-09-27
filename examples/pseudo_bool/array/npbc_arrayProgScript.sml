@@ -283,8 +283,10 @@ Proof
   gvs[LIST_REL_EL_EQN,fslot_TYPE_def,wf_slot_def]
 QED
 
-val r = translate max_coeff_def;
-val r = translate enc_def;
+val r = translate sum_max_abs_def;
+val r = translate terms_fst_def;
+val r = translate terms_snd_def;
+val r = translate enc_thm;
 
 val r = translate dec_terms_def;
 val r = translate dec_def;
@@ -312,7 +314,7 @@ Quote add_cakeml:
   let val s = Array.lookup fml Empty n in
     case s of
       Empty => Empty
-    | Stored cs vs d mc b' =>
+    | Stored cs vs d mc sm b' =>
       if not b orelse b' then s
       else Empty
   end
@@ -366,7 +368,7 @@ Quote add_cakeml:
     case s of
       Empty =>
         raise Fail (format_failure lno (lookup_err_string b ^ Int.toString n))
-    | Stored cs vs d mc b' =>
+    | Stored cs vs d mc sm b' =>
       if not b orelse b' then s
       else
         raise Fail (format_failure lno (lookup_err_string b ^ Int.toString n))
@@ -738,24 +740,7 @@ QED
 val res = translate (not_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
 val res = translate sorted_insert_def;
 
-val res = translate contr_slot_aux_def;
 val res = translate contr_slot_def;
-
-Theorem contr_slot_aux_side[local]:
-  ∀cs i rhs. i ≤ length cs ⇒ contr_slot_aux_side cs i rhs
-Proof
-  ho_match_mp_tac contr_slot_aux_ind>>
-  rw[]>>
-  simp[Once (fetch "-" "contr_slot_aux_side_def")]
-QED
-
-Theorem contr_slot_side[local]:
-  contr_slot_side s
-Proof
-  simp[fetch "-" "contr_slot_side_def",contr_slot_aux_side]
-QED
-
-val _ = contr_slot_side |> update_precondition;
 
 Quote add_cakeml:
   fun check_contradiction_fml_arr b fml n =
@@ -996,9 +981,7 @@ Proof
   simp[SLOT_TYPE_def]
 QED
 
-val r = translate max_cv_def;
 val r = translate enc_mv_def;
-val r = translate sum_max_abs_def;
 val r = translate neg_slot_def;
 
 Quote add_cakeml:
@@ -1347,7 +1330,7 @@ Quote add_cakeml:
   fun update_assg_arr assg st s =
   case s of
     Empty => False
-  | Stored cs vs d mc b =>
+  | Stored cs vs d mc sm b =>
     if d <= 0 then False
     else
       let
@@ -1476,13 +1459,14 @@ Proof
     rw[]>>gvs[]>>
     xsimpl)>>
   Cases_on`get_rup_constraint_list b fmlls h nc`>>gvs[]>>
+  rename1`get_rup_constraint_list b fmlls h nc = Stored cs vs d mc sm cb`>>
   rpt (pairarg_tac>>gvs[])>>
   `pre` by (every_case_tac>>gvs[])>>
   xlet`POSTv v. ARRAY fmlv fmllsv * NUM_ARRAY assgv assg'' * &BOOL done' v`
   >- (
     xapp>>xsimpl>>
     qexistsl_tac[`ARRAY fmlv fmllsv`,`done'`,`assg''`,`assg`,
-      `Stored v' v0 i n b'`,`st`]>>
+      `Stored cs vs d mc sm cb`,`st`]>>
     gvs[]>>
     xsimpl)>>
   xif
@@ -1911,12 +1895,13 @@ Proof
         rw[]>>gvs[]>>
         metis_tac[ARRAY_NUM_ARRAY_refl])>>
       Cases_on`lookup_core_only_list b fmlls n`>>gvs[]>>
+      rename1`lookup_core_only_list b fmlls n = Stored cs vs d mc sm cb`>>
       xlet`POSTv bv. ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
-        &BOOL (imp_slot (Stored v' v0 i n' b') p') bv`
+        &BOOL (imp_slot (Stored cs vs d mc sm cb) p') bv`
       >- (
         xapp>>xsimpl>>
         gvs[fslot_TYPE_def]>>
-        qexistsl_tac[`p'`,`Stored v' v0 i n' b'`]>>
+        qexistsl_tac[`p'`,`Stored cs vs d mc sm cb`]>>
         simp[imp_slot_side])>>
       xif
       >- (
@@ -1925,11 +1910,11 @@ Proof
         simp[PAIR_TYPE_def,OPTION_TYPE_def]>>
         metis_tac[ARRAY_NUM_ARRAY_refl])>>
       xlet`POSTv cv. ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
-        &constraint_TYPE (dec (Stored v' v0 i n' b')) cv`
+        &constraint_TYPE (dec (Stored cs vs d mc sm cb)) cv`
       >- (
         xapp>>xsimpl>>
         gvs[fslot_TYPE_def]>>
-        qexists_tac`Stored v' v0 i n' b'`>>
+        qexists_tac`Stored cs vs d mc sm cb`>>
         simp[dec_side])>>
       rpt xlet_autop>>
       xraise>>xsimpl>>
@@ -1942,12 +1927,13 @@ Proof
         rw[]>>gvs[]>>
         metis_tac[ARRAY_NUM_ARRAY_refl])>>
       Cases_on`lookup_core_only_list b fmlls n`>>gvs[]>>
+      rename1`lookup_core_only_list b fmlls n = Stored cs vs d mc sm cb`>>
       xlet`POSTv bv. ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
-        &BOOL (eq_slot p' (Stored v' v0 i n' b')) bv`
+        &BOOL (eq_slot p' (Stored cs vs d mc sm cb)) bv`
       >- (
         xapp>>xsimpl>>
         gvs[fslot_TYPE_def]>>
-        qexistsl_tac[`p'`,`Stored v' v0 i n' b'`]>>
+        qexistsl_tac[`p'`,`Stored cs vs d mc sm cb`]>>
         simp[eq_slot_side])>>
       xif
       >- (
@@ -1956,11 +1942,11 @@ Proof
         simp[PAIR_TYPE_def,OPTION_TYPE_def]>>
         metis_tac[ARRAY_NUM_ARRAY_refl])>>
       xlet`POSTv cv. ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
-        &constraint_TYPE (dec (Stored v' v0 i n' b')) cv`
+        &constraint_TYPE (dec (Stored cs vs d mc sm cb)) cv`
       >- (
         xapp>>xsimpl>>
         gvs[fslot_TYPE_def]>>
-        qexists_tac`Stored v' v0 i n' b'`>>
+        qexists_tac`Stored cs vs d mc sm cb`>>
         simp[dec_side])>>
       rpt xlet_autop>>
       xraise>>xsimpl>>
@@ -2381,13 +2367,13 @@ Proof
       xsimpl>>
       simp[extract_clauses_list_def])>>
     Cases_on`lookup_core_only_list b fmlls x`>>gvs[]>>
-    rename1`lookup_core_only_list b fmlls x = Stored cs vs d mc cb`>>
+    rename1`lookup_core_only_list b fmlls x = Stored cs vs d mc sm cb`>>
     xlet_autop>>
     xlet`POSTv v. ARRAY fmlv fmllsv *
-      &constraint_TYPE (subst_slot s (Stored cs vs d mc cb)) v`
+      &constraint_TYPE (subst_slot s (Stored cs vs d mc sm cb)) v`
     >- (
       xapp>>xsimpl>>
-      qexistsl_tac[`Stored cs vs d mc cb`,`s`]>>
+      qexistsl_tac[`Stored cs vs d mc sm cb`,`s`]>>
       gvs[fslot_TYPE_def,subst_slot_side])>>
     rpt xlet_autop>>
     xapp>>
@@ -3179,27 +3165,27 @@ Proof
       xmatch>>
       xcon>>xsimpl)>>
     xapp>>gvs[])>>
-  rename1`lookup_core_only_list b fmlls h = Stored cs vs d mc cb`>>
-  `hash_slot (Stored cs vs d mc cb) < splim` by
+  rename1`lookup_core_only_list b fmlls h = Stored cs vs d mc sm cb`>>
+  `hash_slot (Stored cs vs d mc sm cb) < splim` by
     simp[hash_slot_thm,hash_constraint_lt_splim]>>
   imp_res_tac LIST_REL_LENGTH>>
   xlet`POSTv u. ARRAY fmlv fmllsv * SEP_EXISTS hsv1. ARRAY hspv hsv1 *
     &LIST_REL (LIST_TYPE fslot_TYPE)
-      (LUPDATE (Stored cs vs d mc cb::
-        EL (hash_slot (Stored cs vs d mc cb)) hs)
-        (hash_slot (Stored cs vs d mc cb)) hs) hsv1`
+      (LUPDATE (Stored cs vs d mc sm cb::
+        EL (hash_slot (Stored cs vs d mc sm cb)) hs)
+        (hash_slot (Stored cs vs d mc sm cb)) hs) hsv1`
   >- (
     xmatch>>
     xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY hspv hsv *
-      &NUM (hash_slot (Stored cs vs d mc cb)) v`
+      &NUM (hash_slot (Stored cs vs d mc sm cb)) v`
     >- (
       xapp>>xsimpl>>
-      qexists_tac`Stored cs vs d mc cb`>>
+      qexists_tac`Stored cs vs d mc sm cb`>>
       gvs[SLOT_TYPE_def,hash_slot_side])>>
     xlet_auto >- (xsimpl>>gvs[])>>
     xlet_autop>>
     xapp>>xsimpl>>
-    qexists_tac`hash_slot (Stored cs vs d mc cb)`>>
+    qexists_tac`hash_slot (Stored cs vs d mc sm cb)`>>
     gvs[]>>
     rw[]>>
     match_mp_tac EVERY2_LUPDATE_same>>
@@ -3493,7 +3479,7 @@ val res = translate neg_terms_def;
 val res = translate not_slot_def;
 
 Theorem neg_terms_side[local]:
-  ∀i cs acc s. i ≤ length cs ⇒ neg_terms_side cs i acc s
+  ∀i cs acc. i ≤ length cs ⇒ neg_terms_side cs i acc
 Proof
   Induct>>
   rw[]>>
@@ -3716,14 +3702,14 @@ Proof
     xmatch>>
     xapp>>simp[])>>
   xmatch>>
-  qmatch_asmsub_rename_tac`any_el h fmlls Empty = Stored cs vs d mc cb`>>
+  qmatch_asmsub_rename_tac`any_el h fmlls Empty = Stored cs vs d mc sm cb`>>
   xlet`POSTv pq. ARRAY fmlv fmllsv *
-    &PAIR_TYPE BOOL BOOL (restore_slot x (Stored cs vs d mc cb)) pq`
+    &PAIR_TYPE BOOL BOOL (restore_slot x (Stored cs vs d mc sm cb)) pq`
   >- (
     xapp>>xsimpl>>
-    qexistsl_tac[`x`,`Stored cs vs d mc cb`]>>
+    qexistsl_tac[`x`,`Stored cs vs d mc sm cb`]>>
     simp[SLOT_TYPE_def,restore_slot_side])>>
-  Cases_on`restore_slot x (Stored cs vs d mc cb)`>>
+  Cases_on`restore_slot x (Stored cs vs d mc sm cb)`>>
   rename1`_ = (pp,qq)`>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
@@ -4620,7 +4606,7 @@ Quote add_cakeml:
   fun update_vimap_slot_arr fresh vimap v m s =
   case s of
     Empty => vimap
-  | Stored cs vs d mc b =>
+  | Stored cs vs d mc sm b =>
     let val vimap =
       if m < Array.length vimap then vimap
       else Array.updateResize vimap Vnone m Vnone
@@ -5791,9 +5777,9 @@ Quote add_cakeml:
     (case Array.lookup fml Empty i of
       Empty => raise Fail (format_failure lno
         "core transfer given invalid ids")
-    | Stored cs vs d mc b =>
+    | Stored cs vs d mc sm b =>
       core_from_inds_arr lno
-        (Array.updateResize fml Empty i (Stored cs vs d mc True)) is)
+        (Array.updateResize fml Empty i (Stored cs vs d mc sm True)) is)
 End
 
 Theorem core_from_inds_arr_spec:
@@ -5858,7 +5844,7 @@ Quote add_cakeml:
   | (i::is) =>
   case Array.lookup fml Empty i of
     Empty => all_core_arr fml is iacc
-  | Stored cs vs d mc b' =>
+  | Stored cs vs d mc sm b' =>
       if b' then all_core_arr fml is (i::iacc)
       else None
 End
@@ -7720,9 +7706,9 @@ Proof
   gvs[fslot_TYPE_def,SLOT_TYPE_def]>>
   xmatch
   >- (xcon>>xsimpl>>EVAL_TAC)>>
-  rename1`any_el n fmlls Empty = Stored cs vs d mc cb`>>
+  rename1`any_el n fmlls Empty = Stored cs vs d mc sm cb`>>
   xapp>>xsimpl>>
-  qexistsl_tac[`c`,`Stored cs vs d mc cb`]>>
+  qexistsl_tac[`c`,`Stored cs vs d mc sm cb`]>>
   simp[SLOT_TYPE_def,imp_slot_side]
 QED
 
