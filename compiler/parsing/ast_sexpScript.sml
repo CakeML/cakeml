@@ -270,6 +270,10 @@ Definition from_dec_def:
   (from_decs (d::ds) = from_dec d :: from_decs ds)
 End
 
+Definition from_dec_list_def:
+  from_dec_list ds = Expr (from_decs ds)
+End
+
 (* s-expression -> type *******************************************************)
 
 Definition dest_atom_def:
@@ -988,4 +992,12 @@ Termination
   >> irule LESS_TRANS
   >> first_assum $ irule_at (Pos hd)
   >> gvs [EL_MEM, HD_MEM]
+End
+
+Definition to_dec_list_def:
+  to_dec_list sexp =
+  do
+    ls <- dest_expr sexp;
+    to_decs ls
+  od
 End
