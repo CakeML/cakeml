@@ -56,13 +56,12 @@ Definition repl_prog_env_def:
   repl_prog_env = merge_env ^env init_env
 End
 
-val _ = cv_trans locationTheory.unknown_loc_def
 
 Theorem CommandLine_arguments_lemma[local] =
   “case infertype_prog_inc (init_config,start_type_id) repl_prog of
    | M_failure _ => F
    | M_success env => infertype_prog_inc env
-    [Dlet unknown_loc Pany
+    [Dlet NoLocs Pany
       (App Opapp
         [Var (Long «CommandLine» (Short «arguments»));
          Con NONE []])] = M_success env”
@@ -70,7 +69,7 @@ Theorem CommandLine_arguments_lemma[local] =
 
 Theorem infertype_prog_inc_CommandLine_arguments:
   infertype_prog_inc repl_prog_types
-    [Dlet unknown_loc Pany
+    [Dlet NoLocs Pany
       (App Opapp
         [Var (Long «CommandLine» (Short «arguments»));
          Con NONE []])] = M_success repl_prog_types
@@ -82,7 +81,7 @@ Theorem Repl_charsFrom_lemma[local] =
   “case infertype_prog_inc (init_config,start_type_id) repl_prog of
    | M_failure _ => F
    | M_success env => infertype_prog_inc env
-    [Dlet unknown_loc Pany
+    [Dlet NoLocs Pany
       (App Opapp
         [Var (Long «Repl» (Short «charsFrom»));
          Lit (StrLit «config_enc_str.txt»)])] = M_success env”
@@ -90,7 +89,7 @@ Theorem Repl_charsFrom_lemma[local] =
 
 Theorem infertype_prog_inc_Repl_charsFrom:
   infertype_prog_inc repl_prog_types
-    [Dlet unknown_loc Pany
+    [Dlet NoLocs Pany
       (App Opapp
         [Var (Long «Repl» (Short «charsFrom»));
          Lit (StrLit «config_enc_str.txt»)])] = M_success repl_prog_types
