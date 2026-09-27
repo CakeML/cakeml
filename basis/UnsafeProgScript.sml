@@ -35,7 +35,7 @@ val () = append_decs
 
 val () = append_decs
    ``[mk_binop «w8subBit» Aw8subBit_unsafe;
-      Dlet unknown_loc (Pvar «w8updateBit»)
+      Dlet NoLocs (Pvar «w8updateBit»)
        (Fun «x» (Fun «y» (Fun «z»
          (App Aw8updateBit_unsafe [Var (Short «x»); Var (Short «y»); Var (Short «z»)])))) ]``;
 
