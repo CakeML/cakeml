@@ -376,6 +376,26 @@ Proof
     \\ gvs [store_lookup_def, store_assign_def]
     \\ simp [EL_LUPDATE]
     \\ rw [perms_ok_ref_def] )
+  \\ Cases_on ‘op = Aw8subBit_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ rw [perms_ok_def, Boolv_def])
+  \\ Cases_on ‘op = Aw8updateBit_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [perms_ok_def]
+    \\ gvs [store_lookup_def, store_assign_def]
+    \\ simp [EL_LUPDATE]
+    \\ rw [perms_ok_ref_def] )
+  \\ Cases_on ‘op = Aw8subBit’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ rw [perms_ok_def, Boolv_def])
+  \\ Cases_on ‘op = Aw8updateBit’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [perms_ok_def]
+    \\ gvs [store_lookup_def, store_assign_def]
+    \\ simp [EL_LUPDATE]
+    \\ rw [perms_ok_ref_def] )
   \\ Cases_on ‘op = Aupdate_unsafe’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [perms_ok_def]
@@ -508,10 +528,6 @@ Proof
     \\ gvs [store_alloc_def, perms_ok_def, SUBSET_DEF, PULL_EXISTS]
     \\ rw [EL_APPEND_EQN]
     \\ gs [NOT_LESS, LESS_OR_EQ, perms_ok_ref_def])
-  \\ Cases_on ‘∃sz sh n. op = Shift sz sh n’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [perms_ok_def])
   \\ Cases_on ‘op = Equality’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []

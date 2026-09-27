@@ -433,7 +433,9 @@ Definition supported_arith_def[simp]:
      if MEM a [Add; Sub; Mul; Div] then SOME 2 else
      if MEM a [FMA] then SOME 3 else NONE) ∧
   (supported_arith a (WordT _) =
-     if MEM a [Add; Sub; And; Or; Xor] then SOME 2 else NONE) ∧
+     if MEM a [Add; Sub; And; Or; Xor;
+               Shift Lsl; Shift Lsr; Shift Asr; Shift Ror]
+     then SOME 2 else NONE) ∧
   (supported_arith a BoolT =
      if MEM a [Not] then SOME 1 else NONE) ∧
   (supported_arith a (ty:prim_type) = NONE)
@@ -464,8 +466,6 @@ Definition type_op_def:
  (type_op:op -> t list -> t -> bool) op ts t=
    case (op,ts) of
       (Opapp, [t1; t2]) => t1 = Tfn t2 t
-    | (Shift W8 _ _, [t1]) => (t1 = Tword8) /\ (t = Tword8)
-    | (Shift W64 _ _, [t1]) => (t1 = Tword64) /\ (t = Tword64)
     | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tbool)
     | (Arith a ty, ts) => EVERY (λarg. arg = t_of ty) ts /\ (t = t_of ty) /\
                           supported_arith a ty = SOME (LENGTH ts)
@@ -480,6 +480,8 @@ Definition type_op_def:
     | (Aw8sub, [t1; t2]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t = Tword8)
     | (Aw8length, [t1]) => (t1 = Tword8array) /\ (t = Tint)
     | (Aw8update, [t1; t2; t3]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tword8) /\ (t = Ttup [])
+    | (Aw8subBit, [t1; t2]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t = Tbool)
+    | (Aw8updateBit, [t1; t2; t3]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tbool) /\ (t = Ttup [])
     | (CopyStrStr, [t1; t2; t3]) => (t1 = Tstring) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t = Tstring)
     | (CopyStrAw8, [t1; t2; t3; t4; t5]) =>
       (t1 = Tstring) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t4 = Tword8array) /\ (t5 = Tint) /\ (t = Ttup [])

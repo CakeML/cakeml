@@ -154,13 +154,13 @@ End
 Definition cake_print_def:
   cake_print e =
     (* val _ = print e; *)
-    [Dlet unknown_loc Pany (App Opapp [Var (Short «print»); e])]
+    [Dlet NoLocs Pany (App Opapp [Var (Short «print»); e])]
 End
 
 Definition scheme_basis_types_def:
   scheme_basis_types = [
-    Dtype unknown_loc [([«'a»],«option», [(«None»,[]); («Some»,[Atvar «'a»])])];
-    Dtype unknown_loc [
+    Dtype NoLocs [([«'a»],«option», [(«None»,[]); («Some»,[Atvar «'a»])])];
+    Dtype NoLocs [
       ([], «sprim», [
         («SAdd», []);
         («SMul», []);
@@ -173,7 +173,7 @@ Definition scheme_basis_types_def:
         («IsNull», []);
         («IsPair», [])
       ])];
-    Dtype unknown_loc [
+    Dtype NoLocs [
       ([], «sval», [
         («SNum», [Atapp [] (Short «int»)]);
         («SBool», [Atapp [] (Short «bool»)]);
@@ -199,7 +199,7 @@ End
 
 Definition scheme_basis_def:
   scheme_basis = [
-    Dletrec unknown_loc [
+    Dletrec NoLocs [
       («sadd», «k», Fun «n» $ Fun «ts» $ Mat (Var (Short «ts»)) [
         (Pcon (SOME $ Short «[]») [],
           App Opapp [Var (Short «k»); Con (SOME $ Short «SNum») [Var (Short «n»)]]);
@@ -219,7 +219,7 @@ Definition scheme_basis_def:
       ])
     ];
 
-    Dletrec unknown_loc [
+    Dletrec NoLocs [
       («smul», «k», Fun «n» $ Fun «ts» $ Mat (Var (Short «ts»)) [
         (Pcon (SOME $ Short «[]») [],
           App Opapp [Var (Short «k»); Con (SOME $ Short «SNum») [Var (Short «n»)]]);
@@ -239,7 +239,7 @@ Definition scheme_basis_def:
       ])
     ];
 
-    Dlet unknown_loc (Pvar «sminus») $ Fun «k» $ Fun «ts» $
+    Dlet NoLocs (Pvar «sminus») $ Fun «k» $ Fun «ts» $
       Mat (Var (Short «ts»)) [
         (Pcon (SOME $ Short «[]») [],
           Con (SOME $ Short «Ex») [Lit $ StrLit «Arity mismatch»]);
@@ -265,7 +265,7 @@ Definition scheme_basis_def:
           ])
       ];
 
-    Dlet unknown_loc (Pvar «seqv») $ Fun «k» $ Fun «ts» $
+    Dlet NoLocs (Pvar «seqv») $ Fun «k» $ Fun «ts» $
       Mat (Var (Short «ts»)) [
         (Pcon (SOME $ Short «[]») [],
           Con (SOME $ Short «Ex») [Lit $ StrLit «Arity mismatch»]);
@@ -300,7 +300,7 @@ Definition scheme_basis_def:
           ])
       ];
 
-    Dlet unknown_loc (Pvar «cons») $ Fun «k» $ Fun «ts» $
+    Dlet NoLocs (Pvar «cons») $ Fun «k» $ Fun «ts» $
       Mat (Var (Short «ts»)) [
         (Pcon (SOME $ Short «[]») [],
           Con (SOME $ Short «Ex») [Lit $ StrLit «Arity mismatch»]);
@@ -321,7 +321,7 @@ Definition scheme_basis_def:
           ])
       ];
 
-    Dlet unknown_loc (Pvar «car») $ Fun «k» $ Fun «ts» $
+    Dlet NoLocs (Pvar «car») $ Fun «k» $ Fun «ts» $
       Mat (Var (Short «ts»)) [
         (Pcon (SOME $ Short «[]») [],
           Con (SOME $ Short «Ex») [Lit $ StrLit «Arity mismatch»]);
@@ -341,7 +341,7 @@ Definition scheme_basis_def:
           ])
       ];
 
-    Dlet unknown_loc (Pvar «cdr») $ Fun «k» $ Fun «ts» $
+    Dlet NoLocs (Pvar «cdr») $ Fun «k» $ Fun «ts» $
       Mat (Var (Short «ts»)) [
         (Pcon (SOME $ Short «[]») [],
           Con (SOME $ Short «Ex») [Lit $ StrLit «Arity mismatch»]);
@@ -361,7 +361,7 @@ Definition scheme_basis_def:
           ])
       ];
 
-    Dlet unknown_loc (Pvar «isnull») $ Fun «k» $ Fun «ts» $
+    Dlet NoLocs (Pvar «isnull») $ Fun «k» $ Fun «ts» $
       Mat (Var (Short «ts»)) [
         (Pcon (SOME $ Short «[]») [],
           Con (SOME $ Short «Ex») [Lit $ StrLit «Arity mismatch»]);
@@ -379,7 +379,7 @@ Definition scheme_basis_def:
           ])
       ];
 
-    Dlet unknown_loc (Pvar «ispair») $ Fun «k» $ Fun «ts» $
+    Dlet NoLocs (Pvar «ispair») $ Fun «k» $ Fun «ts» $
       Mat (Var (Short «ts»)) [
         (Pcon (SOME $ Short «[]») [],
           Con (SOME $ Short «Ex») [Lit $ StrLit «Arity mismatch»]);
@@ -397,7 +397,7 @@ Definition scheme_basis_def:
           ])
       ];
 
-    Dlet unknown_loc (Pvar «throw») $ Fun «k» $ Fun «ts» $
+    Dlet NoLocs (Pvar «throw») $ Fun «k» $ Fun «ts» $
       Mat (Var (Short «ts»)) [
         (Pcon (SOME $ Short «[]») [],
           Con (SOME $ Short «Ex») [Lit $ StrLit «Arity mismatch»]);
@@ -413,7 +413,7 @@ Definition scheme_basis_def:
 End
 
 Definition scheme_basis_list_def:
-  scheme_basis_list = Dletrec unknown_loc [
+  scheme_basis_list = Dletrec NoLocs [
     («allocate_list», «ts», Mat (Var (Short «ts»)) [
       (Pcon (SOME $ Short «[]») [],
         Con (SOME $ Short «Null») []);
@@ -429,7 +429,7 @@ Definition scheme_basis_list_def:
 End
 
 Definition scheme_basis_app_def:
-  scheme_basis_app = Dletrec unknown_loc [
+  scheme_basis_app = Dletrec NoLocs [
     («callcc», «k», Fun «ts» $ Mat (Var (Short «ts»)) [
       (Pcon (SOME $ Short «[]») [],
         Con (SOME $ Short «Ex») [Lit $ StrLit «Arity mismatch»]);
@@ -485,8 +485,8 @@ End
 
 Definition codegen_def:
   codegen p = INR $ scheme_basis_types ++ scheme_basis ++ [scheme_basis_list; scheme_basis_app] ++ [
-    Dlet unknown_loc (Pvar «res») $ compile_scheme_prog p;
-    Dlet unknown_loc Pany $ Mat (Var (Short «res»)) [
+    Dlet NoLocs (Pvar «res») $ compile_scheme_prog p;
+    Dlet NoLocs Pany $ Mat (Var (Short «res»)) [
       (Pcon (SOME $ Short «SNum») [Pvar «n»],
         App (FFI «scheme_out») [Lit $ StrLit «num»; App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
       (Pcon (SOME $ Short «SBool») [Pcon (SOME $ Short «True») []],

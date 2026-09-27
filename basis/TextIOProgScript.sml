@@ -60,11 +60,11 @@ val _ = translate get_in_def;
 val _ = ml_prog_update open_local_in_block;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] «raw_instream» (Atapp [] (Short «instream»))`` I);
+  ``Dtabbrev NoLocs [] «raw_instream» (Atapp [] (Short «instream»))`` I);
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] «outstream» (Atapp [] (Short «outstream»))`` I);
+  ``Dtabbrev NoLocs [] «outstream» (Atapp [] (Short «outstream»))`` I);
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] «instream» (Atapp [] (Short «instreambuffered»))`` I);
+  ``Dtabbrev NoLocs [] «instream» (Atapp [] (Short «instreambuffered»))`` I);
 
 Quote add_cakeml:
   exception BadFileName;

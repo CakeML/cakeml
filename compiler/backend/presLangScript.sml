@@ -211,7 +211,8 @@ Definition arith_to_display_def:
   arith_to_display Not = empty_item «Not» ∧
   arith_to_display Abs = empty_item «Abs» ∧
   arith_to_display Sqrt = empty_item «Sqrt» ∧
-  arith_to_display FMA = empty_item «FMA»
+  arith_to_display FMA = empty_item «FMA» ∧
+  arith_to_display (Shift sh) = Item NONE «Shift» [shift_to_display sh]
 End
 
 Definition prim_type_to_display_def:
@@ -232,10 +233,6 @@ End
 Definition op_to_display_def:
   op_to_display (p:ast$op) =
   case p of
-  | Shift ws sh num => Item NONE «Shift»
-                            [word_size_to_display ws;
-                             shift_to_display sh;
-                             num_to_display num]
   | Arith a ty => Item NONE «Arith»
                          [arith_to_display a;
                           prim_type_to_display ty]
@@ -278,6 +275,10 @@ Definition op_to_display_def:
   | Aw8sub_unsafe => empty_item «Aw8sub_unsafe»
   | Aw8update_unsafe => empty_item «Aw8update_unsafe»
   | XorAw8Str_unsafe => empty_item «XorAw8Str_unsafe»
+  | Aw8subBit => empty_item «Aw8subBit»
+  | Aw8updateBit => empty_item «Aw8updateBit»
+  | Aw8subBit_unsafe => empty_item «Aw8subBit_unsafe»
+  | Aw8updateBit_unsafe => empty_item «Aw8updateBit_unsafe»
   | ListAppend => empty_item «ListAppend»
   | ConfigGC => empty_item «ConfigGC»
   | FFI v35 => empty_item «FFI v35»
@@ -626,6 +627,8 @@ Definition clos_op_to_display_def:
     | MemOp RefArray => String «RefArray»
     | MemOp DerefByte => String «DerefByte»
     | MemOp UpdateByte => String «UpdateByte»
+    | MemOp DerefBit => String «DerefBit»
+    | MemOp UpdateBit => String «UpdateBit»
     | MemOp ConcatByteVec => String «ConcatByteVec»
     | MemOp (CopyByte b) => Item NONE «CopyByte» [bool_to_display b]
     | MemOp FromListByte => String «FromListByte»
@@ -633,6 +636,7 @@ Definition clos_op_to_display_def:
     | MemOp LengthByteVec => String «LengthByteVec»
     | MemOp DerefByteVec => String «DerefByteVec»
     | MemOp BoundsCheckArray => String «BoundsCheckArray»
+    | MemOp BoundsCheckBit => String «BoundsCheckBit»
     | MemOp (BoundsCheckByte b) => Item NONE «BoundsCheckByte» [bool_to_display b]
     | MemOp closLang$ConfigGC => String «ConfigGC»
     | MemOp (StringCmp b opb) => Item NONE «StringCmp» [bool_to_display b;
@@ -661,6 +665,9 @@ Definition clos_op_to_display_def:
                                            [word_size_to_display ws;
                                             shift_to_display sh;
                                             num_to_display num]
+    | WordOp (WordShiftVar ws sh) => Item NONE «WordShiftVar»
+                                           [word_size_to_display ws;
+                                            shift_to_display sh]
     | WordOp (WordTest ws test) => Item NONE «WordTest»
                                         [word_size_to_display ws;
                                          test_to_display test]

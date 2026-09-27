@@ -124,6 +124,7 @@ val _ = translate (real_addr_def |> inline_simp |> conv64_RHS |> SIMP_RULE std_s
 
 val _ = translate (real_offset_def |> inline_simp |> conv64)
 val _ = translate (real_byte_offset_def |> inline_simp |> conv64)
+val _ = translate (real_bit_offset_def |> inline_simp |> conv64)
 val _ = translate (GiveUp_def |> wcomp_simp |> conv64)
 
 val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``]
@@ -146,6 +147,8 @@ QED
 *)
 
 val _ = translate (ShiftVar_def |> inline_simp |> conv64);
+val _ = translate (WordShiftVar64_def |> inline_simp |> conv64)
+val _ = translate (ShiftW8_def |> inline_simp |> conv64)
 val _ = translate (LoadWord64_def |> inline_simp |> conv64)
 val _ = translate (WriteWord64_def |> inline_simp |> conv64)
 val _ = translate (LoadBignum_def |> inline_simp |> conv64)

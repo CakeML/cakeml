@@ -110,7 +110,7 @@ Definition conf_ok_def:
   conf_ok (:'a) c <=>
     shift_length c < dimindex (:α) ∧
     shift (:α) ≤ shift_length c ∧ c.len_size ≠ 0 ∧
-    c.len_size + 7 < dimindex (:α)
+    c.len_size + 9 < dimindex (:α)
 End
 
 Definition max_heap_limit_def:
@@ -157,6 +157,12 @@ Definition real_byte_offset_def:
   real_byte_offset r : 'a wordLang$exp =
     Op Add [Const bytes_in_word;
             ShiftN Lsr (Var r) 1]
+End
+
+Definition real_bit_offset_def:
+  real_bit_offset r =
+    Op Add [Const bytes_in_word;
+            ShiftN Lsr (Var r) 4]
 End
 
 Datatype:
@@ -1083,6 +1089,55 @@ Definition WordShift64_on_32_def:
          | Ror => []))
 End
 
+Definition WordShiftVar64_def:
+  WordShiftVar64 sh =
+    (* shifts 3 by 5 *)
+    case sh of
+    | Ror => Assign 3 (Shift Ror (Var 3) (Op And [Var 5; Const 63w]))
+    | _ => If Lower 5 (Imm 64w) (Assign 3 (Shift sh (Var 3) (Var 5)))
+             (Assign 3 (if sh = Asr then ShiftN Asr (Var 3) 63 else Const 0w))
+           : 'a wordLang$prog
+End
+
+Definition WordShiftVar64_on_32_def:
+  WordShiftVar64_on_32 sh = list_Seq
+    (* shifts 11,13 by 21,23, writes results in 31 and 33 *)
+    [if sh = Ror then Assign 23 (Op And [Var 23; Const 63w]) else
+       Seq (If Equal 21 (Imm 0w) Skip (Assign 23 (Const 64w)))
+           (If Lower 23 (Imm 64w) Skip
+              (list_Seq ((if sh = Asr then [] else
+                            [Assign 11 (Const 0w); Assign 13 (Const 0w)]) ++
+                         [Assign 23 (Const 63w)])));
+     If Lower 23 (Imm 32w) Skip
+       (list_Seq [WordShift64_on_32 sh 32; Move 0 [(11,31);(13,33)];
+                  Assign 23 (Op Sub [Var 23; Const 32w])]);
+     Assign 33 (if sh = Lsl then Shift Lsl (Var 13) (Var 23) else
+                  Op Or [Shift Lsr (Var 13) (Var 23);
+                         Shift Lsl (ShiftN Lsl (Var 11) 1)
+                           (Op Sub [Const 31w; Var 23])]);
+     Assign 31 (case sh of
+                | Lsl => Op Or [Shift Lsl (Var 11) (Var 23);
+                                Shift Lsr (ShiftN Lsr (Var 13) 1)
+                                  (Op Sub [Const 31w; Var 23])]
+                | Ror => Op Or [Shift Lsr (Var 11) (Var 23);
+                                Shift Lsl (ShiftN Lsl (Var 13) 1)
+                                  (Op Sub [Const 31w; Var 23])]
+                | _ => Shift sh (Var 11) (Var 23))] : 'a wordLang$prog
+End
+
+Definition ShiftW8_def:
+  ShiftW8 sh (e:'a wordLang$exp) k =
+    case sh of
+    | Lsl => ShiftN Lsr (Shift Lsl (ShiftN Lsl e (dimindex (:'a) - 9)) k)
+                    (dimindex (:'a) - 9)
+    | Lsr => ShiftN Lsl (Shift Lsr (ShiftN Lsr e 1) k) 1
+    | Asr => ShiftN Lsl (ShiftN Lsr (Shift Asr (ShiftN Lsl e (dimindex (:'a) - 9)) k)
+                                (dimindex (:'a) - 8)) 1
+    | Ror => Op Or [ShiftN Lsl (Shift Lsr (ShiftN Lsr e 1) k) 1;
+                    ShiftN Lsr (Shift Lsl (ShiftN Lsl e (dimindex (:'a) - 9))
+                                  (Op Sub [Const 8w; k])) (dimindex (:'a) - 9)]
+End
+
 Definition Smallnum_def:
   Smallnum i =
     if i < 0 then 0w - n2w (Num (2 * (0 - i))) else n2w (Num (2 * i))
@@ -1226,6 +1281,23 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_DerefBit (c:data_to_word$config) (l:num) (dest:num) v1 v2 =
+    (list_Seq
+        [Assign 1 (Op Add [real_addr c (adjust_var v1);
+                           real_bit_offset (adjust_var v2)]);
+         Inst (Mem Load8 3 (Addr 1 0w));
+         Assign
+           (adjust_var dest)
+           (ShiftN Lsl
+              (Op And [Const 1w;
+                       Shift Lsr
+                             (Var 3)
+                             (Op And [Const 7w;
+                                      ShiftN Lsr (Var (adjust_var v2)) 1])])
+              1)], l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
   assign_Update (c:data_to_word$config) (l:num) (dest:num) v1 v2 v3 =
                  (Seq (Store (Op Add [real_addr c (adjust_var v1);
                                       real_offset c (adjust_var v2)])
@@ -1260,6 +1332,20 @@ val def = assign_Define `
           Assign 3 (ShiftN Lsr (Var (adjust_var v3)) 1);
           Inst (Mem Store8 3 (Addr 1 0w));
           Assign (adjust_var dest) Unit], l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_UpdateBit (c:data_to_word$config) (l:num) (dest:num) v1 v2 v3 =
+    (list_Seq
+        [Assign 1 (Op Add [real_addr c (adjust_var v1);
+                           real_bit_offset (adjust_var v2)]);
+         Inst (Mem Load8 3 (Addr 1 0w));
+         Assign 5 (Op And [Const 7w; ShiftN Lsr (Var (adjust_var v2)) 1]);
+         Assign 7 (Op Or [Op And [Var 3; Op Xor [Shift Lsl (Const 1w) (Var 5);
+                                                 Const (0w - 1w)]];
+                          Shift Lsl (ShiftN Lsr (Var (adjust_var v3)) 1) (Var 5)]);
+         Inst (Mem Store8 7 (Addr 1 0w));
+         Assign (adjust_var dest) Unit], l)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
@@ -1722,6 +1808,22 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_BoundsCheckBit (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
+                   (list_Seq [Assign 1
+                               (let addr = real_addr c (adjust_var v1) in
+                                let header = Load addr in
+                                let extra = (if dimindex (:'a) = 32 then 2 else 3) in
+                                let k = dimindex (:'a) - c.len_size - extra in
+                                  ShiftN Lsl (Op Sub [ShiftN Lsr header k;
+                                                      Const bytes_in_word]) 3);
+                              Assign 3 (ShiftVar Ror (adjust_var v2) 1);
+                              If Lower 3 (Reg 1)
+                                 (Assign (adjust_var dest) TRUE_CONST)
+                                 (Assign (adjust_var dest) FALSE_CONST)],l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
   assign_BoundsCheckArray (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
                    (list_Seq [Assign 1
@@ -2121,6 +2223,40 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_WordShiftVarW8 sh (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
+        (list_Seq
+           [Assign 1 (ShiftN Lsr (Var (adjust_var v2)) 1);
+            if sh = Ror then Assign 1 (Op And [Var 1; Const 7w])
+            else If Lower 1 (Imm 8w) Skip (Assign 1 (Const 8w));
+            Assign (adjust_var dest) (ShiftW8 sh (Var (adjust_var v1)) (Var 1))],l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_WordShiftVarW64 sh (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
+         ((case encode_header c 3 (if dimindex(:'a) < 64 then 2 else 1) of
+          | NONE => GiveUp
+          | SOME (header:'a word) =>
+            if dimindex(:'a) < 64 then
+              list_Seq [
+                Assign 15 (real_addr c (adjust_var v1));
+                Assign 11 (Load (Op Add [Var 15; Const bytes_in_word]));
+                Assign 13 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
+                Assign 17 (real_addr c (adjust_var v2));
+                Assign 21 (Load (Op Add [Var 17; Const bytes_in_word]));
+                Assign 23 (Load (Op Add [Var 17; Const (2w * bytes_in_word)]));
+                WordShiftVar64_on_32 sh;
+                WriteWord64_on_32 c header dest 33 31]
+            else
+              list_Seq
+                [LoadWord64 c 3 (adjust_var v1);
+                 LoadWord64 c 5 (adjust_var v2);
+                 WordShiftVar64 sh;
+                 WriteWord64 c header dest 3]),l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
   assign_WordFromWord b (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 =
           if b then
@@ -2468,9 +2604,11 @@ Definition assign_def:
     | MemOp El => arg2 args (assign_El c l dest) (Skip,l)
     | BlockOp (ElemAt n) => arg1 args (assign_ElemAt c n l dest) (Skip,l)
     | MemOp DerefByte => arg2 args (assign_DerefByte c l dest) (Skip,l)
+    | MemOp DerefBit => arg2 args (assign_DerefBit c l dest) (Skip,l)
     | MemOp Update => arg3 args (assign_Update c l dest) (Skip,l)
     | MemOp UpdateCons => arg3 args (assign_Update c l dest) (Skip,l)
     | MemOp UpdateByte => arg3 args (assign_UpdateByte c l dest) (Skip,l)
+    | MemOp UpdateBit => arg3 args (assign_UpdateBit c l dest) (Skip,l)
     | MemOp FinaliseCons => arg1 args (assign_FinaliseCons l dest) (Skip,l)
     | BlockOp ListAppend => arg2 args (assign_ListAppend c secn l dest names) (Skip,l)
     | BlockOp (Cons tag) => assign_Cons c l dest tag args
@@ -2496,6 +2634,8 @@ Definition assign_def:
         arg2 args (assign_BoundsCheckByte c secn l dest names leq) (Skip,l)
     | MemOp BoundsCheckArray =>
         arg2 args (assign_BoundsCheckArray c secn l dest names) (Skip,l)
+    | MemOp BoundsCheckBit =>
+        arg2 args (assign_BoundsCheckBit c secn l dest names) (Skip,l)
     | BlockOp BoundsCheckBlock =>
         arg2 args (assign_BoundsCheckBlock c secn l dest names) (Skip,l)
     | BlockOp Equal => arg2 args (assign_Equal c secn l dest names) (Skip,l)
@@ -2517,6 +2657,8 @@ Definition assign_def:
     | WordOp (WordOpw W64 opw) => arg2 args (assign_WordOpW64 opw c secn l dest names) (Skip,l)
     | WordOp (WordShift W8 sh n) => arg1 args (assign_WordShiftW8 sh n c secn l dest names) (Skip,l)
     | WordOp (WordShift W64 sh n) => arg1 args (assign_WordShiftW64 sh n c secn l dest names) (Skip,l)
+    | WordOp (WordShiftVar W8 sh) => arg2 args (assign_WordShiftVarW8 sh c secn l dest names) (Skip,l)
+    | WordOp (WordShiftVar W64 sh) => arg2 args (assign_WordShiftVarW64 sh c secn l dest names) (Skip,l)
     | WordOp (WordFromWord b) => arg1 args (assign_WordFromWord b c secn l dest names) (Skip,l)
     | WordOp (WordFromInt) => arg1 args (assign_WordFromInt c secn l dest names) (Skip,l)
     | WordOp (WordToInt) => arg1 args (assign_WordToInt c secn l dest names) (Skip,l)

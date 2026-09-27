@@ -441,6 +441,30 @@ Proof
     \\ gs [EL_LUPDATE, ref_ok_def]
     \\ IF_CASES_TAC \\ gs []
     \\ rw [ref_rel_def])
+  \\ Cases_on ‘op = Aw8subBit_unsafe’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
+  \\ Cases_on ‘op = Aw8updateBit_unsafe’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+         store_assign_def]
+    \\ gs [state_ok_def, EVERY_EL, state_rel_def] \\ rw []
+    \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs []
+    \\ gs [EL_LUPDATE, ref_ok_def]
+    \\ IF_CASES_TAC \\ gs []
+    \\ rw [ref_rel_def])
+  \\ Cases_on ‘op = Aw8subBit’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
+  \\ Cases_on ‘op = Aw8updateBit’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+         store_assign_def]
+    \\ gs [state_ok_def, EVERY_EL, state_rel_def] \\ rw []
+    \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs []
+    \\ gs [EL_LUPDATE, ref_ok_def]
+    \\ IF_CASES_TAC \\ gs []
+    \\ rw [ref_rel_def])
   \\ Cases_on ‘op = Aupdate_unsafe’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
@@ -616,10 +640,6 @@ Proof
     \\ irule v_rel_update
     \\ first_assum (irule_at Any)
     \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
-  \\ Cases_on ‘∃sz sh n. op = Shift sz sh n’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def])
   \\ Cases_on ‘op = Equality’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,

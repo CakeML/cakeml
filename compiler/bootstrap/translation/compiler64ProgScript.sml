@@ -293,6 +293,7 @@ val res = translate compilerTheory.safe_substring_def;
 
 val _ = translate compilerTheory.get_nth_line_def;
 val _ = translate compilerTheory.locs_to_string_def;
+val _ = translate compilerTheory.ast_locs_to_string_def;
 val _ = translate compilerTheory.parse_cml_input_def;
 val _ = translate (compilerTheory.parse_sexp_input_def
                      |> PURE_REWRITE_RULE[fromSexpTheory.sexpdec_alt_intro1]);
@@ -497,7 +498,7 @@ val r = translate compiler_for_eval_alt;
 
 (* fun eval_prim env s1 decs s2 bs ws = Eval [env,s1,decs,s2,bs,ws] *)
 val _ = append_prog
-        “[Dlet (Locs (POSN 1 2) (POSN 2 21)) (Pvar «eval_prim»)
+        “[Dlet (Locs (1,2) (2,21)) (Pvar «eval_prim»)
           (Fun «x» (Mat (Var (Short «x»))
                     [(Pcon NONE [Pvar «env»; Pvar «s1»; Pvar «decs»;
                                  Pvar «s2»; Pvar «bs»; Pvar «ws»],

@@ -124,6 +124,7 @@ val _ = translate (real_addr_def |> inline_simp |> conv32_RHS |> SIMP_RULE std_s
 
 val _ = translate (real_offset_def |> inline_simp |> conv32)
 val _ = translate (real_byte_offset_def |> inline_simp |> conv32)
+val _ = translate (real_bit_offset_def |> inline_simp |> conv32)
 val _ = translate (GiveUp_def |> wcomp_simp |> conv32)
 
 val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``]
@@ -151,6 +152,8 @@ val _ = translate (WordOp64_on_32_def |> inline_simp |> SIMP_RULE std_ss [word_m
 
 val _ = translate (ShiftVar_def |> inline_simp |> conv32);
 val _ = translate (WordShift64_on_32_def |> inline_simp |> conv32)
+val _ = translate (WordShiftVar64_on_32_def |> inline_simp |> conv32)
+val _ = translate (ShiftW8_def |> inline_simp |> conv32)
 val _ = translate (LoadBignum_def |> inline_simp |> conv32)
 
 Theorem Smallnum_alt[local]:
