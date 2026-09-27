@@ -31,7 +31,7 @@ Proof
         alignmentTheory.aligned_0,tlookup_bij_iff]
   \\ fs[ag32_backend_config_def,ag32_targetTheory.ag32_config_def,asmTheory.int_offset_ok_def,
         alignmentTheory.aligned_0,tlookup_bij_iff]
-  THEN1 blastLib.FULL_BBLAST_TAC
+  THEN1 (EVAL_TAC \\ intLib.ARITH_TAC)
   THEN1 names_tac
   >- (
     fs [stack_removeTheory.store_offset_def,
@@ -48,8 +48,7 @@ Proof
     \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
     \\ rveq \\ fs [] \\ EVAL_TAC)
   \\ fs[stack_removeTheory.max_stack_alloc_def]
-  \\ EVAL_TAC>>fs[]
-  \\ fs [bitTheory.BIT_def,bitTheory.BITS_THM,LESS_DIV_EQ_ZERO]
+  \\ EVAL_TAC \\ intLib.ARITH_TAC
 QED
 
 Theorem ag32_machine_config_ok:
