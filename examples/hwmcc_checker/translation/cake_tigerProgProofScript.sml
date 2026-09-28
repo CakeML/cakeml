@@ -4,6 +4,7 @@
 Theory cake_tigerProgProof
 Ancestors
   cnf
+  dimacs (* for print_cnf *)
   errorMonad (* for bind_def *)
   basis_ffi  (* for whole_prog_spec2 *)
   aig_parseProg  (* for ERRORMONAD_ERROR_TYPE_def *)
@@ -32,15 +33,17 @@ Definition get_model_def:
     | return maiger => SOME (preprocess_model maiger)
 End
 
-(* Asserts that str is a string represnetation of cnf. *)
+(* Asserts that str is the DIMACS text of cnf, whose header declares a
+   variable count bounding the (nonzero) variables of cnf. *)
 Definition is_cnf_str_def:
-  is_cnf_str cnf str ⇔ ∃limit. str = explode (cnf_to_string (cnf, limit))
+  is_cnf_str cnf str ⇔
+    ∃limit. str = explode (concat (print_cnf limit cnf)) ∧ lits_within limit cnf
 End
 
 (* Asserts that cnf is saved in the file system. *)
 Definition cnf_saved_def:
   cnf_saved fs name cnf =
-    ∃content. get_file_content fs name = SOME content ∧ is_cnf_str cnf content
+    ∃content. file_content fs name = SOME content ∧ is_cnf_str cnf content
 End
 
 (* Asserts that if out = «SUCCESS\n» and the files to be written do not yet
@@ -168,17 +171,16 @@ Proof
     gvs [make_fname_def, concat_def]
     >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
     >> gvs [FILENAME_def, make_reset_string_def]
+    >> pairarg_tac >> gvs []
   )
   >> xsimpl
   >> rw []
   >> gvs [make_reset_string_def]
-  >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
-  >> namedCases_on ‘cnf_limit’ ["cnf limit"]
-  >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
+  >> pairarg_tac >> gvs []
+  >> drule_then assume_tac xaig_to_cnf_correct
+  >> qexistsl [‘cnf’, ‘explode (concat (print_cnf limit cnf))’]
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
-  >> gvs []
-  >> drule_then assume_tac xaig_to_cnf_correct
   >> simp [unsatisfiable_cnf_def, GSYM reset_encoding_num_is_unsat_eq,
            reset_encoding_num_is_unsat_def]
   >> metis_tac [PAIR]
@@ -228,17 +230,16 @@ Proof
     gvs [make_fname_def, concat_def]
     >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
     >> gvs [FILENAME_def, make_transition_string_def]
+    >> pairarg_tac >> gvs []
   )
   >> xsimpl
   >> rw []
   >> gvs [make_transition_string_def]
-  >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
-  >> namedCases_on ‘cnf_limit’ ["cnf limit"]
-  >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
+  >> pairarg_tac >> gvs []
+  >> drule_then assume_tac xaig_to_cnf_correct
+  >> qexistsl [‘cnf’, ‘explode (concat (print_cnf limit cnf))’]
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
-  >> gvs []
-  >> drule_then assume_tac xaig_to_cnf_correct
   >> simp [unsatisfiable_cnf_def, GSYM transition_encoding_num_is_unsat_eq,
            transition_encoding_num_is_unsat_def]
   >> metis_tac [PAIR]
@@ -284,17 +285,16 @@ Proof
     gvs [make_fname_def, concat_def]
     >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
     >> gvs [FILENAME_def, make_safety_string_def]
+    >> pairarg_tac >> gvs []
   )
   >> xsimpl
   >> rw []
   >> gvs [make_safety_string_def]
-  >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
-  >> namedCases_on ‘cnf_limit’ ["cnf limit"]
-  >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
+  >> pairarg_tac >> gvs []
+  >> drule_then assume_tac xaig_to_cnf_correct
+  >> qexistsl [‘cnf’, ‘explode (concat (print_cnf limit cnf))’]
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
-  >> gvs []
-  >> drule_then assume_tac xaig_to_cnf_correct
   >> simp [unsatisfiable_cnf_def, GSYM safety_encoding_num_is_unsat_eq,
            safety_encoding_num_is_unsat_def]
   >> metis_tac [PAIR]
@@ -338,17 +338,16 @@ Proof
     gvs [make_fname_def, concat_def]
     >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
     >> gvs [FILENAME_def, make_base_string_def]
+    >> pairarg_tac >> gvs []
   )
   >> xsimpl
   >> rw []
   >> gvs [make_base_string_def]
-  >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
-  >> namedCases_on ‘cnf_limit’ ["cnf limit"]
-  >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
+  >> pairarg_tac >> gvs []
+  >> drule_then assume_tac xaig_to_cnf_correct
+  >> qexistsl [‘cnf’, ‘explode (concat (print_cnf limit cnf))’]
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
-  >> gvs []
-  >> drule_then assume_tac xaig_to_cnf_correct
   >> simp [unsatisfiable_cnf_def, GSYM base_encoding_num_is_unsat_eq,
            base_encoding_num_is_unsat_def]
   >> metis_tac [PAIR]
@@ -392,17 +391,16 @@ Proof
     gvs [make_fname_def, concat_def]
     >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
     >> gvs [FILENAME_def, make_induction_string_def]
+    >> pairarg_tac >> gvs []
   )
   >> xsimpl
   >> rw []
   >> gvs [make_induction_string_def]
-  >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
-  >> namedCases_on ‘cnf_limit’ ["cnf limit"]
-  >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
+  >> pairarg_tac >> gvs []
+  >> drule_then assume_tac xaig_to_cnf_correct
+  >> qexistsl [‘cnf’, ‘explode (concat (print_cnf limit cnf))’]
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
-  >> gvs []
-  >> drule_then assume_tac xaig_to_cnf_correct
   >> simp [unsatisfiable_cnf_def, GSYM induction_encoding_num_is_unsat_eq,
            induction_encoding_num_is_unsat_def]
   >> metis_tac [PAIR]
@@ -453,17 +451,16 @@ Proof
     gvs [make_fname_def, concat_def]
     >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
     >> gvs [FILENAME_def, make_liveness_string_def]
+    >> pairarg_tac >> gvs []
   )
   >> xsimpl
   >> rw []
   >> gvs [make_liveness_string_def]
-  >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
-  >> namedCases_on ‘cnf_limit’ ["cnf limit"]
-  >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
+  >> pairarg_tac >> gvs []
+  >> drule_then assume_tac xaig_to_cnf_correct
+  >> qexistsl [‘cnf’, ‘explode (concat (print_cnf limit cnf))’]
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
-  >> gvs []
-  >> drule_then assume_tac xaig_to_cnf_correct
   >> simp [unsatisfiable_cnf_def, GSYM liveness_encoding_num_is_unsat_eq,
            liveness_encoding_num_is_unsat_def]
   >> metis_tac [PAIR]
@@ -509,17 +506,16 @@ Proof
     gvs [make_fname_def, concat_def]
     >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
     >> gvs [FILENAME_def, make_decrease_string_def]
+    >> pairarg_tac >> gvs []
   )
   >> xsimpl
   >> rw []
   >> gvs [make_decrease_string_def]
-  >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
-  >> namedCases_on ‘cnf_limit’ ["cnf limit"]
-  >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
+  >> pairarg_tac >> gvs []
+  >> drule_then assume_tac xaig_to_cnf_correct
+  >> qexistsl [‘cnf’, ‘explode (concat (print_cnf limit cnf))’]
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
-  >> gvs []
-  >> drule_then assume_tac xaig_to_cnf_correct
   >> simp [unsatisfiable_cnf_def, GSYM decrease_encoding_num_is_unsat_eq,
            decrease_encoding_num_is_unsat_def]
   >> metis_tac [PAIR]
@@ -565,17 +561,16 @@ Proof
     gvs [make_fname_def, concat_def]
     >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
     >> gvs [FILENAME_def, make_closure_string_def]
+    >> pairarg_tac >> gvs []
   )
   >> xsimpl
   >> rw []
   >> gvs [make_closure_string_def]
-  >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
-  >> namedCases_on ‘cnf_limit’ ["cnf limit"]
-  >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
+  >> pairarg_tac >> gvs []
+  >> drule_then assume_tac xaig_to_cnf_correct
+  >> qexistsl [‘cnf’, ‘explode (concat (print_cnf limit cnf))’]
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
-  >> gvs []
-  >> drule_then assume_tac xaig_to_cnf_correct
   >> simp [unsatisfiable_cnf_def, GSYM closure_encoding_num_is_unsat_eq,
            closure_encoding_num_is_unsat_def]
   >> metis_tac [PAIR]
@@ -621,17 +616,16 @@ Proof
     gvs [make_fname_def, concat_def]
     >> Cases_on ‘prefix’ >> Cases_on ‘out_string0’
     >> gvs [FILENAME_def, make_stable_string_def]
+    >> pairarg_tac >> gvs []
   )
   >> xsimpl
   >> rw []
   >> gvs [make_stable_string_def]
-  >> qmatch_asmsub_abbrev_tac ‘cnf_to_string cnf_limit’
-  >> namedCases_on ‘cnf_limit’ ["cnf limit"]
-  >> qexistsl [‘cnf’, ‘explode (cnf_to_string (cnf, limit))’]
+  >> pairarg_tac >> gvs []
+  >> drule_then assume_tac xaig_to_cnf_correct
+  >> qexistsl [‘cnf’, ‘explode (concat (print_cnf limit cnf))’]
   >> xsimpl
   >> conj_tac >- (simp [is_cnf_str_def] >> qexists ‘limit’ >> simp [])
-  >> gvs []
-  >> drule_then assume_tac xaig_to_cnf_correct
   >> simp [unsatisfiable_cnf_def, GSYM stable_encoding_num_is_unsat_eq,
            stable_encoding_num_is_unsat_def]
   >> metis_tac [PAIR]
@@ -695,7 +689,7 @@ Theorem cnf_saved_write_file_files_neq[local]:
   n' ≠ n ∧ ALOOKUP fs.files n' = NONE ⇒
   (cnf_saved (write_file fs n' content') n cnf ⇔ cnf_saved fs n cnf)
 Proof
-  rw [cnf_saved_def, get_file_content_def, write_file_def]
+  rw [cnf_saved_def, file_content_def, write_file_def]
   >> CASE_TAC >> gvs []
   >> metis_tac [fresh_iname_spec]
 QED
@@ -704,7 +698,7 @@ Theorem cnf_saved_write_file_files_eq[local]:
   consistentFS fs ⇒
   (cnf_saved (write_file fs n content) n cnf ⇔ is_cnf_str cnf content)
 Proof
-  rw [cnf_saved_def, get_file_content_def, write_file_def]
+  rw [cnf_saved_def, file_content_def, write_file_def]
   >> CASE_TAC >> gvs [AFUPDKEY_ALOOKUP]
   >> CASE_TAC >> gvs [consistentFS_def, ALOOKUP_NONE]
   >> metis_tac []
@@ -982,7 +976,7 @@ Theorem make_cert_sem_add_stdout[local]:
   (make_cert_sem fs (add_stdout fs' out) fmodel out' prefix ⇔
      make_cert_sem fs fs' fmodel out' prefix)
 Proof
-  rw [make_cert_sem_def, cnf_saved_def, get_file_content_def, add_stdo_files,
+  rw [make_cert_sem_def, cnf_saved_def, file_content_def, add_stdo_files,
       Req0 ALOOKUP_add_stdout_inode_tbl_file, PULL_EXISTS]
 QED
 
@@ -990,7 +984,7 @@ Theorem make_cert_sem_with_numchars[local]:
   make_cert_sem fs (fs' with numchars := xs) fmodel out prefix ⇔
     make_cert_sem fs fs' fmodel out prefix
 Proof
-  simp [make_cert_sem_def, cnf_saved_def, get_file_content_def]
+  simp [make_cert_sem_def, cnf_saved_def, file_content_def]
 QED
 
 Theorem main_whole_prog_spec2:

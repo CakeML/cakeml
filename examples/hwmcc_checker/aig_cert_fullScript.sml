@@ -6,7 +6,7 @@ Ancestors
   errorMonad (* for monad_thms *)
   listRange
   mlint (* for num_to_str *)
-  syntax_helper (* for the DIMACS printer *)
+  dimacs (* for the DIMACS printer *)
   xaig aig_parse xaig_cert xaig_cert_encode xaig_to_cnf
 Libs
   preamble
@@ -45,15 +45,6 @@ Proof
   >> CASE_TAC >> simp []
 QED
 
-
-(* Convert cnf to string  *****************************************************)
-
-(* DIMACS output; the header declares limit as the variable count, which
-   is an upper bound on the variables actually occurring (see lits_within) *)
-Definition cnf_to_string_def:
-  cnf_to_string (cnf: num clause list, limit: num) =
-  concat (print_header_line limit (LENGTH cnf) :: MAP (print_lits #"\n") cnf)
-End
 
 (* end-to-end processing of model and witness *********************************)
 
@@ -283,9 +274,11 @@ Definition make_reset_string_def:
       encode_reset_cond_num
         mxaig mreset mcnstrs mlatches
         wxaig wreset wcnstrs wlatches klatches;
-    cnf = xaig_to_cnf xaig 19
+    (* limit bounds the variables of cnf (see lits_within); the DIMACS header
+       declares it as the variable count *)
+    (cnf, limit) = xaig_to_cnf xaig 19
   in
-    (name, cnf_to_string cnf)
+    (name, concat (print_cnf limit cnf))
 End
 
 Definition make_transition_string_def:
@@ -299,9 +292,9 @@ Definition make_transition_string_def:
       encode_transition_cond_num
         mxaig mnext mcnstrs mlatches
         wxaig wnext wcnstrs wlatches klatches;
-    cnf = xaig_to_cnf xaig 20
+    (cnf, limit) = xaig_to_cnf xaig 20
   in
-    (name, cnf_to_string cnf)
+    (name, concat (print_cnf limit cnf))
 End
 
 Definition make_safety_string_def:
@@ -313,9 +306,9 @@ Definition make_safety_string_def:
     name = «safety»;
     xaig  =
       encode_safety_cond_num mxaig mcnstrs msafes wxaig wcnstrs wsafes;
-    cnf = xaig_to_cnf xaig 21
+    (cnf, limit) = xaig_to_cnf xaig 21
   in
-    (name, cnf_to_string cnf)
+    (name, concat (print_cnf limit cnf))
 End
 
 Definition make_base_string_def:
@@ -326,9 +319,9 @@ Definition make_base_string_def:
     name = «base»;
     xaig  =
       encode_base_cond_num wxaig wreset wcnstrs wsafes wlatches;
-    cnf = xaig_to_cnf xaig 22
+    (cnf, limit) = xaig_to_cnf xaig 22
   in
-    (name, cnf_to_string cnf)
+    (name, concat (print_cnf limit cnf))
 End
 
 Definition make_induction_string_def:
@@ -339,9 +332,9 @@ Definition make_induction_string_def:
     name = «induction»;
     xaig  =
       encode_induction_cond_num wxaig wnext wcnstrs wsafes wlatches;
-    cnf = xaig_to_cnf xaig 23
+    (cnf, limit) = xaig_to_cnf xaig 23
   in
-    (name, cnf_to_string cnf)
+    (name, concat (print_cnf limit cnf))
 End
 
 Definition make_liveness_string_def:
@@ -355,9 +348,9 @@ Definition make_liveness_string_def:
       encode_liveness_cond_num
         mxaig mcnstrs mlive
         wxaig wnext wcnstrs wsafes wlive wlatches interv;
-    cnf = xaig_to_cnf xaig 24
+    (cnf, limit) = xaig_to_cnf xaig 24
   in
-    (name, cnf_to_string cnf)
+    (name, concat (print_cnf limit cnf))
 End
 
 Definition make_decrease_string_def:
@@ -369,9 +362,9 @@ Definition make_decrease_string_def:
     xaig  =
       encode_decrease_cond_num
         wxaig wnext wcnstrs wsafes wlive wlatches interv;
-    cnf = xaig_to_cnf xaig 25
+    (cnf, limit) = xaig_to_cnf xaig 25
   in
-    (name, cnf_to_string cnf)
+    (name, concat (print_cnf limit cnf))
 End
 
 Definition make_closure_string_def:
@@ -383,9 +376,9 @@ Definition make_closure_string_def:
     xaig  =
       encode_closure_cond_num
         wxaig wnext wcnstrs wsafes wlive wlatches interv;
-    cnf = xaig_to_cnf xaig 26
+    (cnf, limit) = xaig_to_cnf xaig 26
   in
-    (name, cnf_to_string cnf)
+    (name, concat (print_cnf limit cnf))
 End
 
 Definition make_stable_string_def:
@@ -397,7 +390,7 @@ Definition make_stable_string_def:
     xaig  =
       encode_stable_cond_num
         wxaig wnext wcnstrs wsafes wlive wlatches interv;
-    cnf = xaig_to_cnf xaig 27
+    (cnf, limit) = xaig_to_cnf xaig 27
   in
-    (name, cnf_to_string cnf)
+    (name, concat (print_cnf limit cnf))
 End

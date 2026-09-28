@@ -22,7 +22,7 @@ val r = translate aig_cert_fullTheory.range_is_subset_def;
 val r = translate syntax_helperTheory.print_lit_def;
 val r = translate syntax_helperTheory.print_lits_def;
 val r = translate syntax_helperTheory.print_header_line_def;
-val r = translate aig_cert_fullTheory.cnf_to_string_def;
+val r = translate dimacsTheory.print_cnf_def;
 
 val r = translate (aig_cert_fullTheory.parse_model_def |> demonadify);
 val r = translate aig_cert_fullTheory.preprocess_model_def;

@@ -469,7 +469,10 @@ Quote add_cakeml:
   fun check_unsat_1 f1 =
   case parse_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr (mv,(ncl,vcfml)) => TextIO.print_list (print_cnf (unconv_cfml vcfml))
+  | Inr (mv,(ncl,vcfml)) =>
+    let val f = unconv_cfml vcfml in
+      TextIO.print_list (print_cnf (max_cnf f) f)
+    end
 End
 
 (* The formula a run of the checker is about: the contents of the input
@@ -484,7 +487,7 @@ End
 Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs f1 out ⇔
   case get_cnf fs f1 of
-    SOME fml => out = concat (print_cnf fml)
+    SOME fml => out = concat (print_cnf (max_cnf fml) fml)
   | NONE => out = «»
 End
 
@@ -534,6 +537,7 @@ Proof
   `unconv_cfml (conv_cfml fml) = fml` by
     metis_tac[unconv_cfml_conv_cfml,parse_cnf_toks_nz_lit]>>
   gvs[]>>
+  xlet_autop>>
   xlet_autop>>
   xapp_spec print_list_spec>>xsimpl>>
   asm_exists_tac>>xsimpl>>

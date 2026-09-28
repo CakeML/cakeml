@@ -448,6 +448,33 @@ Definition print_header_line_def:
   «p cnf » ^ toString v ^ « » ^ toString len ^ «\n»
 End
 
+(* The printers produce single newline-terminated lines *)
+
+Theorem toString_not_newline[local]:
+  ¬MEM #"\n" (explode (toString (n:num)))
+Proof
+  Cases_on`toString n`>>
+  drule num_to_str_every>>
+  rw[EVERY_MEM]>>
+  strip_tac>>first_x_assum drule>>
+  EVAL_TAC
+QED
+
+Theorem print_lits_newline:
+  ∃t. print_lits #"\n" ls = t ^ «\n» ∧ ¬MEM #"\n" (explode t)
+Proof
+  Induct_on`ls`>>rw[print_lits_nil,print_lits_cons]
+  >- (qexists`«0»`>>EVAL_TAC)>>
+  qexists`print_lit h ^ « » ^ t`>>
+  Cases_on`h`>>simp[print_lit_def,toString_not_newline]
+QED
+
+Theorem print_header_line_newline:
+  ∃t. print_header_line v len = t ^ «\n» ∧ ¬MEM #"\n" (explode t)
+Proof
+  rw[print_header_line_def,toString_not_newline]
+QED
+
 (***
   Round trip: parsing a printed line returns it unchanged.
 ***)

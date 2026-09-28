@@ -32,22 +32,23 @@ End
 
 (* CNF printer *)
 
-(* The variable count declared in the printed header *)
+(* The largest variable occurring in cs *)
 Definition max_cnf_def:
   max_cnf cs = max_list 0 (MAP (max_list 0 o MAP var_lit) cs)
 End
 
+(* The header declares v as the variable count *)
 Definition print_cnf_def:
-  print_cnf cs =
-  print_header_line (max_cnf cs) (LENGTH cs) ::
+  print_cnf v cs =
+  print_header_line v (LENGTH cs) ::
   MAP (print_lits #"\n") cs
 End
 
 (***
-  Round trip: parsing the printed formula returns it unchanged
+  Round trip: parsing the printed formula returns it unchanged, when the
+  declared variable count bounds every variable
  ***)
 
-(* Every literal printed fits under the declared variable count *)
 Theorem max_cnf_clause:
   MEM c cs ∧ MEM l c ⇒
   var_lit l ≤ max_cnf cs
@@ -61,23 +62,24 @@ Proof
 QED
 
 Theorem LIST_REL_parse_lits_print[local]:
-  EVERY (EVERY nz_lit) cs ⇒
-  LIST_REL (λs c. parse_lits (max_cnf cs) s = SOME c)
+  EVERY (EVERY nz_lit) cs ∧
+  EVERY (EVERY (λl. var_lit l ≤ v)) cs ⇒
+  LIST_REL (λs c. parse_lits v s = SOME c)
     (MAP toks (MAP (print_lits #"\n") cs)) cs
 Proof
   strip_tac>>
-  simp[LIST_REL_MAP1,LIST_REL_EL_EQN,EVERY_EL]>>
+  simp[LIST_REL_MAP1,LIST_REL_EL_EQN]>>
   rw[]>>
   DEP_REWRITE_TAC[parse_lits_print_lits]>>
-  gvs[EVERY_EL,EVERY_MEM]>>
-  metis_tac[max_cnf_clause,MEM_EL]
+  gvs[EVERY_EL]
 QED
 
 Theorem parse_cnf_toks_print_cnf_toks:
-  EVERY (EVERY nz_lit) cs
+  EVERY (EVERY nz_lit) cs ∧
+  EVERY (EVERY (λl. var_lit l ≤ v)) cs
   ⇒
   ∃mv cl.
-  parse_cnf_toks (MAP toks (print_cnf cs)) = SOME (mv,cl,cs)
+  parse_cnf_toks (MAP toks (print_cnf v cs)) = SOME (mv,cl,cs)
 Proof
   strip_tac>>
   simp[parse_cnf_toks_def,parse_dimacs_toks_gen_def,print_cnf_def]>>
@@ -92,16 +94,17 @@ Proof
   simp[Abbr`b`]>>
   qmatch_goalsub_abbrev_tac`parse_body_gen _ _ ss []`>>
   `LIST_REL (λs c. parse_lits a s = SOME c) ss cs` by
-    simp[Abbr`ss`,Abbr`a`,LIST_REL_parse_lits_print]>>
+    simp[Abbr`ss`,LIST_REL_parse_lits_print]>>
   drule parse_body_gen_LIST_REL>>
   disch_then(qspec_then`[]` mp_tac)>>
   simp[]
 QED
 
 Theorem parse_cnf_print_cnf:
-  EVERY (EVERY nz_lit) cs
+  EVERY (EVERY nz_lit) cs ∧
+  EVERY (EVERY (λl. var_lit l ≤ v)) cs
   ⇒
-  parse_cnf (print_cnf cs) = SOME cs
+  parse_cnf (print_cnf v cs) = SOME cs
 Proof
   rw[parse_cnf_def]>>
   assume_tac parse_cnf_toks_print_cnf_toks>>
