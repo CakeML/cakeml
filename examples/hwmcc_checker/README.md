@@ -13,7 +13,7 @@ Parser for the AIGER format.
 Mapping And-Inverter Graphs into CNF
 
 [compilation](compilation):
-Compilation scripts for cake_tiger.
+Compilation scripts for caketaiger.
 
 [examples](examples):
 Examples to test the AIGER infrastructure.

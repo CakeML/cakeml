@@ -1,7 +1,7 @@
 (*
-  Proofs for the top-level binary cake_tiger.
+  Proofs for the top-level binary caketaiger.
 *)
-Theory cake_tigerProgProof
+Theory caketaigerProgProof
 Ancestors
   cnf
   dimacs (* for print_cnf *)
@@ -11,7 +11,7 @@ Ancestors
   xaig_cert_encode  (* for reset_encoding_is_unsat *)
   xaig_to_cnf  (* for xaig_to_cnf_correct *)
   aig_cert_full  (* for make_reset_string_def *)
-  cake_tigerProg
+  caketaigerProg
 Libs
   preamble
   basis
@@ -117,7 +117,7 @@ End
 
 (** CFCML *********************************************************************)
 
-val _ = translation_extends "cake_tigerProg";
+val _ = translation_extends "caketaigerProg";
 
 val prog = get_ml_prog_state ()
 

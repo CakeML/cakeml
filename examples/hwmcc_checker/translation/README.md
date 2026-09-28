@@ -15,8 +15,8 @@ Translates aig_parse.
 [aig_to_cnfProgScript.sml](aig_to_cnfProgScript.sml):
 Translates xaig_to_cnf (and its dependencies on xaig).
 
-[cake_tigerProgProofScript.sml](cake_tigerProgProofScript.sml):
-Proofs for the top-level binary cake_tiger.
+[caketaigerProgProofScript.sml](caketaigerProgProofScript.sml):
+Proofs for the top-level binary caketaiger.
 
-[cake_tigerProgScript.sml](cake_tigerProgScript.sml):
-Defines the top-level binary cake_tiger.
+[caketaigerProgScript.sml](caketaigerProgScript.sml):
+Defines the top-level binary caketaiger.

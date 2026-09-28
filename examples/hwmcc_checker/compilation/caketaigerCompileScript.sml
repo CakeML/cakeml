@@ -1,9 +1,9 @@
 (*
-  Generates the cake_tiger binary.
+  Generates the caketaiger binary.
 *)
-Theory cake_tigerCompile
+Theory caketaigerCompile
 Ancestors
-  cake_tigerProgProof x64_config
+  caketaigerProgProof x64_config
 Libs
   preamble eval_cake_compile_x64Lib
 
@@ -13,5 +13,5 @@ Definition x64_config'_def:
     x64_backend_config (* with stack_conf := x64_stack_conf *)
 End
 
-Theorem cake_tiger_compiled =
-  eval_cake_compile_x64_with_conf "" x64_config'_def main_prog_def "cake_tiger.S";
+Theorem caketaiger_compiled =
+  eval_cake_compile_x64_with_conf "" x64_config'_def main_prog_def "caketaiger.S";

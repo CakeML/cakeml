@@ -1,13 +1,13 @@
 (*
-  Compose the end-to-end correctness theorems of cake_tiger and of the
-  verified LRUP checker cake_lrup: if cake_tiger prints SUCCESS and cake_lrup
+  Compose the end-to-end correctness theorems of caketaiger and of the
+  verified LRUP checker cake_lrup: if caketaiger prints SUCCESS and cake_lrup
   verifies each of the CNF files it wrote, then the input model is safe and
   live.
 *)
-Theory cake_tiger_lrupProof
+Theory caketaiger_lrupProof
 Ancestors
   semanticsProps mlstring fsFFI fsFFIProps TextIOProof syntax_helper dimacs
-  aig_to_cnf lrup_arrayFullProg cake_tigerProgProof cake_tigerProof lrupProof
+  aig_to_cnf lrup_arrayFullProg caketaigerProgProof caketaigerProof lrupProof
 Libs
   preamble
 
@@ -106,7 +106,7 @@ Proof
   \\ gvs[]
 QED
 
-(* The text cake_tiger writes for a CNF reads back as that CNF *)
+(* The text caketaiger writes for a CNF reads back as that CNF *)
 Theorem is_cnf_str_parse_cnf[local]:
   is_cnf_str cs txt ⇒ parse_cnf (lines_of (implode txt)) = SOME cs
 Proof
@@ -139,10 +139,10 @@ Proof
   \\ metis_tac[cnf_saved_lrup_verified]
 QED
 
-(* An observed run of cake_tiger that printed SUCCESS satisfies main_sem on
+(* An observed run of caketaiger that printed SUCCESS satisfies main_sem on
    the file system before the print, which has the same file contents *)
-Theorem cake_tiger_success[local]:
-  cake_tiger_run cl fs mc ms ∧
+Theorem caketaiger_success[local]:
+  caketaiger_run cl fs mc ms ∧
   Terminate Success evs ∈ machine_sem mc (basis_ffi ext cl fs) ms ∧
   extract_fs ext (cl,fs) evs = SOME fs₁ ∧
   stdout fs init ∧ stdout fs₁ (init ^ «SUCCESS\n»)
@@ -152,8 +152,8 @@ Theorem cake_tiger_success[local]:
 Proof
   strip_tac
   \\ drule_then (qspec_then`ext`strip_assume_tac)
-       cake_tigerProofTheory.machine_code_sound
-  \\ `evs = cake_tiger_io_events ext cl fs` by
+       caketaigerProofTheory.machine_code_sound
+  \\ `evs = caketaiger_io_events ext cl fs` by
     metis_tac[SUBSET_DEF, Terminate_Success_extend_with_resource_limit]
   \\ gvs[]
   \\ `out = «SUCCESS\n»` by metis_tac[stdout_add_stdout_output]
@@ -161,14 +161,14 @@ Proof
   \\ metis_tac[file_content_add_stdo]
 QED
 
-Theorem cake_tiger_lrup_sound:
-  cake_tiger_run cl fs mc ms ∧
+Theorem caketaiger_lrup_sound:
+  caketaiger_run cl fs mc ms ∧
   (LENGTH cl = 3 ∨ LENGTH cl = 4) ∧ cnf_files_fresh fs (cl_prefix cl) ∧
-  (* cake_tiger terminated normally and printed SUCCESS *)
+  (* caketaiger terminated normally and printed SUCCESS *)
   Terminate Success evs ∈ machine_sem mc (basis_ffi ext cl fs) ms ∧
   extract_fs ext (cl,fs) evs = SOME fs₁ ∧
   stdout fs init ∧ stdout fs₁ (init ^ «SUCCESS\n») ∧
-  (* cake_lrup verified the text of each file cake_tiger wrote *)
+  (* cake_lrup verified the text of each file caketaiger wrote *)
   EVERY (λf. ∃txt. file_content fs₁ f = SOME txt ∧ lrup_verified txt)
     (cnf_fnames (cl_prefix cl))
   ⇒
@@ -181,7 +181,7 @@ Theorem cake_tiger_lrup_sound:
       (IMAGE set (set (qleft_live mlive))) (set mlatches)
 Proof
   rpt strip_tac
-  \\ drule_all cake_tiger_success \\ strip_tac
+  \\ drule_all caketaiger_success \\ strip_tac
   \\ `make_cert_sem fs fs' (EL 1 cl) «SUCCESS\n» (cl_prefix cl)` by
     gvs[main_sem_def]
   \\ pop_assum mp_tac \\ rewrite_tac[make_cert_sem_def]

@@ -1,10 +1,10 @@
-Compilation scripts for cake_tiger.
+Compilation scripts for caketaiger.
 
-[cake_tigerARM8CompileScript.sml](cake_tigerARM8CompileScript.sml):
-Generates the cake_tiger binary for ARM8.
+[caketaigerARM8CompileScript.sml](caketaigerARM8CompileScript.sml):
+Generates the caketaiger binary for ARM8.
 
-[cake_tigerCompileScript.sml](cake_tigerCompileScript.sml):
-Generates the cake_tiger binary.
+[caketaigerCompileScript.sml](caketaigerCompileScript.sml):
+Generates the caketaiger binary.
 
 [proofs](proofs):
-Prove the end-to-end correctness theorem for cake_tiger.
+Prove the end-to-end correctness theorem for caketaiger.

@@ -1,7 +1,7 @@
 (*
-  Defines the top-level binary cake_tiger.
+  Defines the top-level binary caketaiger.
 *)
-Theory cake_tigerProg
+Theory caketaigerProg
 Ancestors
   infer_cv  (* TODO Remove once we have a proper CF spec *)
   aig_cert_fullProg
@@ -15,7 +15,7 @@ val _ = translation_extends "aig_cert_fullProg";
 (* Copied from examples/xlrup_checker/array/xlrup_arrayFullProgScript.sml *)
 val usage_string = ‘
 
-Usage: ./cake_tiger model witness [prefix]
+Usage: ./caketaiger model witness [prefix]
 
 ’
 
@@ -53,7 +53,7 @@ val current_build_info_str_tm = EVAL ``
     let hol    = print_option «HOL4:  » ^hol_version_tm in
     let poly   = print_option «PolyML:» ^poly_version_tm in
       concat
-        [ «cake_tiger\n\n»
+        [ «caketaiger\n\n»
         ; «Version details:\n»
         ; ^date_tm; «\n»
         ; commit; hol; poly ]``
@@ -253,13 +253,13 @@ val prog =
   |> (fn tm => “^tm ++ ^main”)
   |> EVAL |> concl |> rand;
 
-Definition cake_tiger_prog_def:
-  cake_tiger_prog = ^prog
+Definition caketaiger_prog_def:
+  caketaiger_prog = ^prog
 End
 
 val _ = cv_auto_trans inferTheory.init_config_def;
 
-val _ = cv_trans_deep_embedding EVAL cake_tiger_prog_def;
+val _ = cv_trans_deep_embedding EVAL caketaiger_prog_def;
 
-val basis_types = cv_eval “infertype_prog init_config cake_tiger_prog”;
+val basis_types = cv_eval “infertype_prog init_config caketaiger_prog”;
 *)
