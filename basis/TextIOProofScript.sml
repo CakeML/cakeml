@@ -1878,9 +1878,9 @@ Proof
     fs [Abbr ‘fd’, Abbr ‘fs₁’]
     >> conj_tac >- (
       irule get_fd_content_openFileFS_nextFD >> simp []
-      >> irule get_file_content_emptyFile >> simp [])
+      >> irule file_content_emptyFile >> simp [])
     >> irule get_mode_openFileFS_nextFD >> simp []
-    >> irule_at Any get_file_content_emptyFile
+    >> irule_at Any file_content_emptyFile
     >> simp []
   )
   >> xlet_auto_spec (SOME output_STDIO_spec)
@@ -6164,13 +6164,6 @@ Proof
   \\ IF_CASES_TAC \\ gvs []
   \\ gvs[ORD_11]
 QED
-
-Definition file_content_def:
-  file_content fs fname =
-    case ALOOKUP fs.files fname of
-    | NONE => NONE
-    | SOME ino => ALOOKUP fs.inode_tbl (File ino)
-End
 
 Definition stdin_content_def:
   stdin_content fs =

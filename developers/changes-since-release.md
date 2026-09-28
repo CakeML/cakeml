@@ -49,10 +49,10 @@ The CNF checker(s) have various improvements, especially the RUP algorithm has b
 better reflecting the implementation of `ffiopen_out` in `basis_ffi.c`.
 
 `get_file_content` has been renamed to `get_fd_content` to better reflect
-its definition and to free up the name for a different definition.
+its definition.
 
-`get_file_content` now defines a function that returns the contents of a file
-(not a file descriptor).
+`file_content`, which returns the contents of a file by name (not a file
+descriptor), is now defined here instead of in `TextIOProof`.
 
 ### fsFFIProps
 

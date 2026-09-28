@@ -1458,12 +1458,12 @@ Proof
 QED
 
 Theorem get_fd_content_openFileFS_nextFD:
-  get_file_content fs name = SOME content ∧ hasFreeFD fs ∧ fd = nextFD fs ⇒
+  file_content fs name = SOME content ∧ hasFreeFD fs ∧ fd = nextFD fs ⇒
   get_fd_content (openFileFS name fs mode pos) fd = SOME (content, pos)
 Proof
   strip_tac
   >> sg ‘nextFD fs ≤ fs.maxFD’ >- (irule nextFD_maxFD >> simp [])
-  >> gvs [get_file_content_def, get_fd_content_def, openFileFS_def,
+  >> gvs [file_content_def, get_fd_content_def, openFileFS_def,
           openFile_def, AllCaseEqs()]
 QED
 
@@ -1520,12 +1520,12 @@ Proof
 QED
 
 Theorem get_mode_openFileFS_nextFD:
-  get_file_content fs name = SOME content ∧ hasFreeFD fs ∧ fd = nextFD fs ⇒
+  file_content fs name = SOME content ∧ hasFreeFD fs ∧ fd = nextFD fs ⇒
   get_mode (openFileFS name fs mode pos) fd = SOME mode
 Proof
   strip_tac
   >> sg ‘nextFD fs ≤ fs.maxFD’ >- (irule nextFD_maxFD >> simp [])
-  >> gvs [get_file_content_def, get_mode_def, openFileFS_def,
+  >> gvs [file_content_def, get_mode_def, openFileFS_def,
           openFile_def, AllCaseEqs()]
 QED
 
@@ -1670,11 +1670,11 @@ Proof
   simp [write_file_def] >> CASE_TAC >> simp []
 QED
 
-Theorem get_file_content_write_file:
+Theorem file_content_write_file:
   consistentFS fs ⇒
-  get_file_content (write_file fs name content) name = SOME content
+  file_content (write_file fs name content) name = SOME content
 Proof
-  simp [write_file_def, get_file_content_def]
+  simp [write_file_def, file_content_def]
   >> CASE_TAC
   >> gvs [AFUPDKEY_ALOOKUP, ALOOKUP_EXISTS_IFF, AllCaseEqs()]
   >> rw [consistentFS_def, MEM_MAP]
@@ -1745,9 +1745,9 @@ Proof
   simp [emptyFile_def, write_file_with_numchars]
 QED
 
-Theorem get_file_content_emptyFile:
+Theorem file_content_emptyFile:
   consistentFS fs ⇒
-  get_file_content (emptyFile fs name) name = SOME ""
+  file_content (emptyFile fs name) name = SOME ""
 Proof
-  simp [emptyFile_def, get_file_content_write_file]
+  simp [emptyFile_def, file_content_write_file]
 QED
