@@ -891,6 +891,41 @@ Proof
   rw[basis_ffiTheory.no_ext_def]
 QED
 
+(* TODO: move to basis_ffi *)
+Theorem extract_fs_with_numchars_keeps_files[local]:
+  ∀ls cls fs cls' fs' fnm.
+    extract_fs_with_numchars no_ext (cls,fs) ls = SOME (cls',fs') ∧
+    inFS_fname fs fnm ⇒
+    inFS_fname fs' fnm
+Proof
+  Induct
+  >- gvs[basis_ffiTheory.extract_fs_with_numchars_def]
+  \\ rw[Once $ DefnBase.one_line_ify NONE
+          basis_ffiTheory.extract_fs_with_numchars_def]
+  \\ fs[CaseEq"option",CaseEq"ffi_result",CaseEq"ffiname",CaseEq"io_event",
+        CaseEq"oracle_result",CaseEq"bool",basis_ffiTheory.no_ext_def]
+  \\ rveq \\ fs[]
+  >~ [‘is_basis_ffi_name _’]
+  >- (last_x_assum drule_all \\ simp[])
+  \\ last_x_assum drule \\ disch_then irule
+  \\ fs[fsFFITheory.fs_ffi_part_def]
+  \\ reverse(fs[CaseEq"bool"]) \\ rveq
+  \\ fs[fsFFITheory.ffi_open_in_def,
+        fsFFITheory.ffi_open_out_def,
+        fsFFITheory.ffi_write_def,
+        fsFFITheory.ffi_read_def,
+        fsFFITheory.ffi_close_def]
+  \\ fs[OPTION_CHOICE_EQUALS_OPTION, CaseEq"list"]
+  \\ rpt (pairarg_tac \\ fs[])
+  \\ gvs[fsFFITheory.closeFD_def, fsFFITheory.read_def, fsFFITheory.write_def,
+         fsFFITheory.openFile_def, fsFFITheory.openFile_truncate_def,
+         fsFFITheory.bumpFD_def, fsFFITheory.fsupdate_def,
+         fsFFIPropsTheory.inFS_fname_def, AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ gvs[])
+  \\ simp[fsFFITheory.emptyFile_def, fsFFITheory.write_file_def]
+  \\ CASE_TAC \\ rw[]
+QED
+
 (* TODO: why is this proof so slow? make it faster? *)
 Theorem extract_fs_extract_writes:
    ∀ls fs fs' off off' out rest.
@@ -960,12 +995,16 @@ Proof
         \\ metis_tac[])
       >- (
         fs[fsFFITheory.ffi_open_out_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[] \\ rfs[]
-        \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
-        \\ fs[fsFFITheory.openFile_truncate_def]
-        \\ fs[fsFFIPropsTheory.inFS_fname_def]
-        \\ imp_res_tac ALOOKUP_MEM
-        \\ fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
-        \\ metis_tac[])
+        \\ PairCases_on `x` \\ gvs[]
+        \\ PairCases_on `z`
+        \\ `inFS_fname fs' (implode fname)` by
+          gvs[fsFFITheory.openFile_truncate_def, fsFFIPropsTheory.inFS_fname_def]
+        \\ drule_all extract_fs_with_numchars_keeps_files \\ strip_tac
+        \\ `inFS_fname fs (implode fname)` by
+          gvs[fsFFIPropsTheory.inFS_fname_numchars]
+        \\ gvs[fsFFITheory.openFile_truncate_def, fsFFITheory.emptyFile_def,
+               fsFFITheory.write_file_def, fsFFIPropsTheory.inFS_fname_def,
+               AFUPDKEY_ALOOKUP])
       >- (
         fs[fsFFITheory.ffi_read_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[] \\ rfs[]
         \\ fs[CaseEq"list"]
@@ -3502,6 +3541,9 @@ Proof
   \\ rpt(pairarg_tac \\ fs[])
   \\ rveq \\ fs[]
   \\ fs[fsFFITheory.openFile_truncate_def]
+  \\ `ALOOKUP fs.infds (nextFD fs) = NONE` by simp[ALOOKUP_NONE]
+  \\ qpat_x_assum `∀fd. IS_SOME _ ⇔ _` (qspec_then `nextFD fs` mp_tac)
+  \\ simp[]
 QED
 
 Theorem ag32_fs_ok_ffi_close:
