@@ -46,6 +46,19 @@ Definition cnf_saved_def:
     ∃content. file_content fs name = SOME content ∧ is_cnf_str cnf content
 End
 
+(* The CNF files make_cert writes, named with the given prefix *)
+Definition cnf_fnames_def:
+  cnf_fnames prefix =
+    MAP (make_fname prefix)
+      [«reset»; «transition»; «safety»; «base»; «induction»; «liveness»;
+       «decrease»; «closure»; «stable»]
+End
+
+(* None of the CNF files make_cert would write exists yet *)
+Definition cnf_files_fresh_def:
+  cnf_files_fresh fs prefix ⇔ EVERY (λf. ¬inFS_fname fs f) (cnf_fnames prefix)
+End
+
 (* Asserts that if out = «SUCCESS\n» and the files to be written do not yet
    exist in the filesystem, then:
    1. getting the model (parsing + processing) was successful
@@ -64,19 +77,13 @@ End
    remove the precondition of the files to be written not yet existing *)
 Definition make_cert_sem_def:
   make_cert_sem fs fs' fmodel out prefix ⇔
-  let
-    fnames =
-      MAP (make_fname prefix)
-        [«reset»; «transition»; «safety»; «base»; «induction»; «liveness»;
-         «decrease»; «closure»; «stable»]
-  in
-    (out = «SUCCESS\n» ∧ EVERY (λf. ALOOKUP fs.files f = NONE) fnames ⇒
+    (out = «SUCCESS\n» ∧ cnf_files_fresh fs prefix ⇒
      ∃maig mreset mnext msafes mcnstrs mlive mlatches mlatch_start mmax_latch
       reset transition safety base induction liveness decrease closure stable.
         get_model fs fmodel =
           SOME (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatches,
                 mlatch_start, mmax_latch) ∧
-        LIST_REL (cnf_saved fs') fnames
+        LIST_REL (cnf_saved fs') (cnf_fnames prefix)
           [reset; transition; safety; base; induction; liveness; decrease;
            closure; stable] ∧
         (EVERY (λcnf. unsatisfiable_cnf (set cnf))
@@ -96,12 +103,15 @@ Proof
   simp [make_cert_sem_def]
 QED
 
+(* The prefix of the CNF file names for command line cl *)
+Definition cl_prefix_def:
+  cl_prefix cl = if LENGTH cl = 4 then cl❲3❳ else «»
+End
+
 Definition main_sem_def:
   main_sem cl fs fs' out =
-  if LENGTH cl = 3 then
-    make_cert_sem fs fs' cl❲1❳ out «»
-  else if LENGTH cl = 4 then
-    make_cert_sem fs fs' cl❲1❳ out cl❲3❳
+  if LENGTH cl = 3 ∨ LENGTH cl = 4 then
+    make_cert_sem fs fs' cl❲1❳ out (cl_prefix cl)
   else out = «»
 End
 
@@ -679,6 +689,19 @@ Proof
   >> rpt (CASE_TAC >> simp [])
 QED
 
+Theorem strlen_make_fname[local]:
+  strlen (make_fname p s) = strlen p + strlen s + 4
+Proof
+  Cases_on ‘p’ >> Cases_on ‘s’ >> simp [make_fname_def, concat_def]
+QED
+
+(* TODO: move to fsFFIProps *)
+Theorem not_inFS_fname_ALOOKUP[local]:
+  ¬inFS_fname fs f ⇔ ALOOKUP fs.files f = NONE
+Proof
+  simp [inFS_fname_def] >> Cases_on ‘ALOOKUP fs.files f’ >> simp []
+QED
+
 Theorem ALOOKUP_write_file_files_neq[local]:
   n' ≠ n ⇒ (ALOOKUP (write_file fs n' str).files n = ALOOKUP fs.files n)
 Proof
@@ -730,9 +753,7 @@ Theorem make_cert_spec:
   FILENAME fmodel fmodelv ∧
   FILENAME fwitness fwitnessv ∧
   FILENAME prefix prefixv ∧
-  (* 14 = max length of property name + file extension
-     TODO Factor out the string constants and compute their length here *)
-  strlen prefix + 14 < 65536 ∧
+  EVERY (λf. strlen f < 65536) (cnf_fnames prefix) ∧
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) make_cert_v
@@ -746,6 +767,8 @@ Theorem make_cert_spec:
            make_cert_sem fs fs' fmodel out prefix))
 Proof
   rw []
+  >> qpat_x_assum ‘EVERY _ (cnf_fnames _)’ $
+       strip_assume_tac o SRULE [cnf_fnames_def, strlen_make_fname]
   >> xcf "make_cert" prog
   >> simp [Once STDIO_STD_streams, Once STDIO_consistentFS] >> xpull
   >> xlet_autop
@@ -840,7 +863,8 @@ Proof
   >> conj_tac
   >- (
     conj_tac >- simp [Abbr ‘fs'’]
-    >> rw [make_cert_sem_def]
+    >> rw [make_cert_sem_def, cnf_files_fresh_def, cnf_fnames_def,
+           not_inFS_fname_ALOOKUP]
     (* Showing get_model is successful *)
     >> simp [get_model_def]
     (* Showing cnf_saved *)
@@ -905,12 +929,13 @@ Proof
     >> simp []
     >> qpat_assum ‘CARD _ < _’ $ irule_at Any
     >> qexists ‘«»’  (* instantiate prefix *)
-    >> fs [FILENAME_def, wfcl_def, validArg_def]
+    >> fs [FILENAME_def, wfcl_def, validArg_def, cnf_fnames_def,
+           strlen_make_fname]
     >> ntac 2 $ qpat_assum ‘STRING_TYPE _ _’ $ irule_at Any
     >> simp []
     >> xsimpl
     >> rw []
-    >> simp [main_sem_def]
+    >> simp [main_sem_def, cl_prefix_def]
     >> qpat_assum ‘make_cert_sem _ _ _ _ _’ $ irule_at Any
     >> xsimpl
   )
@@ -936,11 +961,12 @@ Proof
     >> xapp
     >> simp []
     >> qpat_assum ‘CARD _ < _’ $ irule_at Any
-    >> fs [FILENAME_def, wfcl_def, validArg_def]
+    >> fs [FILENAME_def, wfcl_def, validArg_def, cnf_fnames_def,
+           strlen_make_fname]
     >> ntac 3 $ qpat_assum ‘STRING_TYPE _ _’ $ irule_at Any
     >> simp []
     >> xsimpl
-    >> rw [main_sem_def]
+    >> rw [main_sem_def, cl_prefix_def]
     >> qpat_assum ‘make_cert_sem _ _ _ _ _’ $ irule_at Any
     >> xsimpl
   )

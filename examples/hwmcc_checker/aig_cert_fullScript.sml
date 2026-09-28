@@ -261,8 +261,6 @@ Proof
   >> simp [range_inter_thm]
 QED
 
-(* TODO Maybe the constant strings «» should be translated once? *)
-
 Definition make_reset_string_def:
   make_reset_string
     (mxaig: (num, num, num) xaig) mreset mcnstrs mlatches
