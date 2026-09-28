@@ -11,6 +11,7 @@ Ancestors
 Libs
   preamble
 
+(* TODO: move to semanticsProps *)
 Theorem Terminate_Success_extend_with_resource_limit[local]:
   Terminate Success e ∈ extend_with_resource_limit {Terminate Success io} ⇒
   e = io
@@ -81,12 +82,12 @@ QED
    normally and printed «s VERIFIED UNSAT\n» *)
 Definition lrup_verified_def:
   lrup_verified txt ⇔
-    ∃cl fs mc ms ext evs fs' init.
+    ∃cl fs mc ms ext evs fs₁ init.
       cake_lrup_run cl fs mc ms ∧ LENGTH cl = 3 ∧
       file_content fs (EL 1 cl) = SOME txt ∧
       Terminate Success evs ∈ machine_sem mc (basis_ffi ext cl fs) ms ∧
-      extract_fs ext (cl,fs) evs = SOME fs' ∧
-      stdout fs init ∧ stdout fs' (init ^ «s VERIFIED UNSAT\n»)
+      extract_fs ext (cl,fs) evs = SOME fs₁ ∧
+      stdout fs init ∧ stdout fs₁ (init ^ «s VERIFIED UNSAT\n»)
 End
 
 Theorem lrup_verified_sound:
@@ -162,8 +163,7 @@ Proof
 QED
 
 Theorem caketaiger_lrup_sound:
-  caketaiger_run cl fs mc ms ∧
-  (LENGTH cl = 3 ∨ LENGTH cl = 4) ∧ cnf_files_fresh fs (cl_prefix cl) ∧
+  caketaiger_run cl fs mc ms ∧ cnf_files_fresh fs (cl_prefix cl) ∧
   (* caketaiger terminated normally and printed SUCCESS *)
   Terminate Success evs ∈ machine_sem mc (basis_ffi ext cl fs) ms ∧
   extract_fs ext (cl,fs) evs = SOME fs₁ ∧
