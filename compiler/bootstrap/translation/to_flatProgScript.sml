@@ -71,19 +71,6 @@ val _ = use_long_names:=true;
 (* source_to_flat                                                            *)
 (* ------------------------------------------------------------------------- *)
 
-(* TODO:
- *   - This is a discrepancy between HOL's standard libraries and mllist.
- *     Probably the compiler should be using the mllist versions?
- *)
-val res = translate EL;
-val list_el_side = Q.prove(
-  `!n xs. list_el_side n xs = (n < LENGTH xs)`,
-  Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "list_el_side_def"]
-  THEN fs[CONTAINER_def])
-  |> update_precondition;
-
-(* -- *)
-
 val res = translate listTheory.REV_DEF;
 val res = translate listTheory.TAKE_def;
 val res = translate listTheory.DROP_def;

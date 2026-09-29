@@ -4,11 +4,11 @@
 Theory basisProg
 Ancestors
   std_prelude CommandLineProof TextIOProof RuntimeProof
-  PrettyPrinterProg SexpProg
+  PrettyPrinterProg AstSexpProg
 Libs
   preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
-val _ = translation_extends"SexpProg";
+val _ = translation_extends"AstSexpProg";
 
 val print_e = ``Var(Long«TextIO»(Short«print»))``
 val eval_thm = let

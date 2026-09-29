@@ -29,4 +29,5 @@ CommandLine
 Double
 TextIO
 Sexp
+AstSexp
 basis
