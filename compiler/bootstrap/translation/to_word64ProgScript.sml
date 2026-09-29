@@ -344,6 +344,15 @@ val res = translate word_cseTheory.bm_inter_eq_def;
 val res = translate sptreeTheory.inter_eq_def;
 val res = translate word_cseTheory.merge_data_def;
 
+val _ = translate word_cseTheory.intToNum_def;
+
+Theorem word_cse_inttonum_side:
+  word_cse_inttonum_side i
+Proof
+  rw [fetch "-" "word_cse_inttonum_side_def"] \\ intLib.COOPER_TAC
+QED
+val _ = word_cse_inttonum_side |> update_precondition;
+
 val res = translate (word_cseTheory.word_cseInst_def |> spec64);
 val res = translate_no_ind (word_cseTheory.word_cse_def |> spec64);
 
@@ -361,6 +370,10 @@ QED
 val _ = word_cse_ind |> update_precondition;
 
 val res = translate (word_cseTheory.word_common_subexp_elim_def |> spec64);
+
+val _ = res |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "word_cseTheory.word_common_subexp_elim_def.");
 
 val res = translate (word_copyTheory.copy_prop_def |> spec64);
 
@@ -718,6 +731,9 @@ val res = translate (data_to_wordTheory.compile_def
                      |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def, loc_values]
                      |> conv64_RHS);
 
+val _ = res |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "data_to_wordTheory.compile_def.");
 
 (* explorer specific functions *)
 

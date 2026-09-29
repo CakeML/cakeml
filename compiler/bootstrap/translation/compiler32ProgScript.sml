@@ -192,62 +192,6 @@ val r = backend_passesTheory.any_prog_pp_def |> spec32 |> translate;
 val r = backend_passesTheory.pp_with_title_def |> translate;
 val r = backend_passesTheory.compile_tap_def |> spec32 |> translate;
 
-val word_side_int = prove(``!x:int. word_cse_inttonum_side x``,
-  rw[fetch "to_word32Prog" "word_cse_inttonum_side_def"] >> intLib.COOPER_TAC);
-
-val word_side_inst = prove(``!d i. word_cse_word_cseinst_side d i``,
-  rw[fetch "to_word32Prog" "word_cse_word_cseinst_side_def",
-     fetch "to_word32Prog" "word_cse_add_to_data_const_side_def",
-     fetch "to_word32Prog" "word_cse_add_to_data_side_def",
-     fetch "to_word32Prog" "word_cse_loadtonumlist_side_def",
-     fetch "to_word32Prog" "word_cse_insttonumlist_side_def",
-     fetch "to_word32Prog" "word_cse_arithtonumlist_side_def",
-     fetch "to_word32Prog" "word_cse_regimmtonumlist_side_def",
-     word_side_int]);
-
-val word_side_ind = INST_TYPE[alpha|->``:32``]
-  (TypeBase.induction_of ``:32 wordLang$prog``);
-val (word_side_preds,_) = strip_forall (concl word_side_ind);
-val word_side_trivial_preds = map (fn v =>
-  let val dom = hd (snd (dest_type (type_of v))) in
-    mk_abs (mk_var ("x",dom),``T``)
-  end) (tl word_side_preds);
-val word_side_ind = ISPECL
-  (``\p:32 wordLang$prog. !d. word_cse_word_cse_side d p`` ::
-   word_side_trivial_preds) word_side_ind;
-val word_side_prog = CONJUNCT1 (MP word_side_ind
-  (prove(fst (dest_imp (concl word_side_ind)),
-    rpt conj_tac >> rpt strip_tac >>
-    simp[Once (fetch "to_word32Prog" "word_cse_word_cse_side_def"),
-         word_side_inst] >> metis_tac[]))) |> SIMP_RULE std_ss [];
-
-val word_side_cse = prove(``!p. word_cse_word_common_subexp_elim_side p``,
-  rw[fetch "to_word32Prog" "word_cse_word_common_subexp_elim_side_def",
-     word_side_prog]);
-val word_side_wtw = prove(``!x y z. word_to_word_compile_side x y z``,
-  rw[fetch "to_word32Prog" "word_to_word_compile_side_def",word_side_cse]);
-val word_side_dtw = prove(``!x y z p. data_to_word_compile_side x y z p``,
-  rw[fetch "to_word32Prog" "data_to_word_compile_side_def",word_side_wtw]);
-val word_side_backend = prove(``!x y z. backend_compile_side x y z``,
-  rw[fetch "-" "backend_compile_side_def",word_side_dtw]);
-val word_side_internal = prove(
-  ``!a b c d. backend_passes_word_internal_all_side a b c d``,
-  rw[fetch "-" "backend_passes_word_internal_all_side_def",word_side_cse]);
-val word_side_to_word = prove(
-  ``!x y z. backend_passes_to_word_all_side x y z``,
-  rw[fetch "-" "backend_passes_to_word_all_side_def",word_side_internal]);
-val word_side_target = prove(
-  ``!x y z. backend_passes_to_target_all_side x y z``,
-  rw[fetch "-" "backend_passes_to_target_all_side_def",
-     fetch "-" "backend_passes_to_lab_all_side_def",
-     fetch "-" "backend_passes_to_stack_all_side_def",word_side_to_word]);
-val word_side_tap = prove(
-  ``!x y z. backend_passes_compile_tap_side x y z``,
-  rw[fetch "-" "backend_passes_compile_tap_side_def",
-     word_side_target,word_side_backend]);
-val _ = update_precondition word_side_tap;
-val r = fetch "-" "backend_passes_compile_tap_v_thm";
-
 val _ = r |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of " ^
                   "backend_passesTheory.compile_tap_def.");
@@ -282,37 +226,7 @@ val r = pan_passesTheory.pan_to_strs_def |> spec32 |> translate;
 val r = pan_passesTheory.crep_to_strs_def |> spec32 |> translate;
 val r = pan_passesTheory.loop_to_strs_def |> spec32 |> translate;
 val r = pan_passesTheory.any_pan_prog_pp_def |> spec32 |> translate;
-
 val r = pan_passesTheory.pan_compile_tap_def |> spec32 |> translate;
-
-val pan_side_single = prove(
-  ``!a b c d e. word_to_word_compile_single_side a b c d e``,
-  rw[fetch "from_pancake32Prog" "word_to_word_compile_single_side_def",
-     word_side_cse]);
-val pan_side_full = prove(
-  ``!a b c d e. word_to_word_full_compile_single_side a b c d e``,
-  rw[fetch "from_pancake32Prog" "word_to_word_full_compile_single_side_def",
-     pan_side_single]);
-val pan_side_wtw = prove(``!x y z. word_to_word_compile_1_side x y z``,
-  rw[fetch "from_pancake32Prog" "word_to_word_compile_1_side_def",
-     pan_side_full]);
-val pan_side_prog = prove(``!x y z. pan_to_target_compile_prog_side x y z``,
-  rw[fetch "from_pancake32Prog" "pan_to_target_compile_prog_side_def",
-     pan_side_wtw]);
-val pan_side_from_word = prove(
-  ``!a b c d e. backend_passes_from_word_0_all_side a b c d e``,
-  rw[fetch "-" "backend_passes_from_word_0_all_side_def",
-     word_side_internal]);
-val pan_side_target = prove(
-  ``!x y z. pan_passes_pan_to_target_all_side x y z``,
-  rw[fetch "-" "pan_passes_pan_to_target_all_side_def",
-     pan_side_from_word]);
-val pan_side_tap = prove(
-  ``!x y z. pan_passes_pan_compile_tap_side x y z``,
-  rw[fetch "-" "pan_passes_pan_compile_tap_side_def",
-     pan_side_prog,pan_side_target]);
-val _ = update_precondition pan_side_tap;
-val r = fetch "-" "pan_passes_pan_compile_tap_v_thm";
 
 val _ = r |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of " ^
