@@ -2926,7 +2926,7 @@ Proof
       `r <> Error` by(CCONTR_TAC >> fs[]) >> fs[] >>
       Cases_on `r` >> fs[] >>
       qpat_x_assum `FST _ = _` mp_tac >>
-      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
       strip_tac >> fs[] >> rveq >>
       old_drule(GEN_ALL evaluate_ADD_clock) >> simp[] >>
       rpt strip_tac >> first_x_assum(qspec_then `ck + k` assume_tac) >>
@@ -2984,7 +2984,7 @@ Proof
   simp[labSemTheory.semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
     last_x_assum(qspec_then`k+1`mp_tac) >>
-    (fn g => subterm(fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >>
     simp[] >> spose_not_then strip_assume_tac >>
     old_drule (GEN_ALL flatten_call_correct) >>
     old_drule (GEN_ALL state_rel_with_clock) >>
@@ -3012,7 +3012,7 @@ Proof
     spose_not_then strip_assume_tac >>
     fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
     last_x_assum(qspec_then`k+1`mp_tac) >>
-    (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)`)) >>
     simp[] >>
     spose_not_then strip_assume_tac >>
     old_drule (GEN_ALL flatten_call_correct) >>
@@ -3062,8 +3062,8 @@ Proof
   simp[LNTH_fromList,PULL_EXISTS] >>
   simp[GSYM FORALL_AND_THM] >>
   rpt gen_tac >>
-  (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >> full_simp_tac(srw_ss())[] >>
-  (fn g => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm (#2 g)) tm)` g) (#2 g)) >> full_simp_tac(srw_ss())[] >>
+  goal_term (subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)`)) >> full_simp_tac(srw_ss())[] >>
+  goal_term (fn w => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm w) tm)`) w) >> full_simp_tac(srw_ss())[] >>
   qmatch_assum_abbrev_tac`stackSem$evaluate (e,s) = _` >>
   qispl_then[`e`,`s`](mp_tac o Q.GEN`extra`) stackPropsTheory.evaluate_add_clock_io_events_mono >>
   disch_then(qspec_then`1`strip_assume_tac) >> rev_full_simp_tac(srw_ss())[] >>

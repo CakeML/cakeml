@@ -1320,7 +1320,7 @@ Proof
       full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
       qhdtm_x_assum`dataSem$evaluate`kall_tac >>
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
-      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
       strip_tac >>
       old_drule compile_correct >> simp[] >> full_simp_tac(srw_ss())[] >>
       simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
@@ -1374,7 +1374,7 @@ Proof
   IF_CASES_TAC >- (
     full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
     last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
-    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
     strip_tac >>
     old_drule compile_correct >> simp[] >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
@@ -1395,7 +1395,7 @@ Proof
   conj_tac >- (
     srw_tac[][extend_with_resource_limit_def] >> full_simp_tac(srw_ss())[] >>
     qpat_x_assum`∀x y. _`(qspec_then`k`mp_tac)>>
-    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
     strip_tac >>
     old_drule(compile_correct)>>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
@@ -1497,7 +1497,7 @@ Proof
     rveq >>
     rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[]) >>
     every_case_tac >> fs[]) >>
-  (fn g => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists(#2 g)), residue = “k:num”}] (assert(has_pair_type)tm))`) (#2 g) g) >>
+  goal_term (fn w => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists w), residue = “k:num”}] (assert(has_pair_type)tm))`) w) >>
   old_drule compile_correct >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (
@@ -1545,7 +1545,7 @@ Proof
       full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
       qhdtm_x_assum`dataSem$evaluate`kall_tac >>
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
-      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
       strip_tac >>
       old_drule compile_correct >> simp[] >> full_simp_tac(srw_ss())[] >>
       simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
@@ -1614,7 +1614,7 @@ Proof
   IF_CASES_TAC >- (
     full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
     last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
-    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
     strip_tac >>
     old_drule compile_correct >> simp[] >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
@@ -1725,7 +1725,7 @@ Proof
     rveq >>
     rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[]) >>
     every_case_tac >> fs[]) >>
-  (fn g => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists(#2 g)), residue = “k:num”}] (assert(has_pair_type)tm))`) (#2 g) g) >>
+  goal_term (fn w => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists w), residue = “k:num”}] (assert(has_pair_type)tm))`) w) >>
   old_drule compile_correct >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (

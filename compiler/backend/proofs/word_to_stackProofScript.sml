@@ -10146,7 +10146,7 @@ Proof
       fs[] >> rveq >> fs[] >>
       qhdtm_x_assum`wordSem$evaluate`kall_tac >>
       last_x_assum(qspec_then`k''`mp_tac)>>simp[] >>
-      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
       strip_tac >>
       drule0 comp_Call >> fs[] >>
       simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
@@ -10157,7 +10157,7 @@ Proof
       Cases_on`q`>>fs[]>>
       strip_tac >>
       qpat_x_assum`_ ≠ SOME TimeOut`mp_tac >>
-      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
       strip_tac >> fs[] >>
       drule0 (GEN_ALL stackPropsTheory.evaluate_add_clock) >>
       disch_then(qspec_then`ck`mp_tac) >>
@@ -10208,7 +10208,7 @@ Proof
   IF_CASES_TAC >- (
     fs[] >> rveq >> fs[] >>
     last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
-    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
     strip_tac >>
     drule0 comp_Call >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
@@ -10230,7 +10230,7 @@ Proof
   conj_tac >- (
     rw[extend_with_resource_limit_def] >> fs[] >>
     qpat_x_assum`∀x y. _`(qspec_then`k'`mp_tac)>>
-    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
     strip_tac >>
     drule0 comp_Call >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
@@ -10322,7 +10322,7 @@ Proof
     IF_CASES_TAC >> simp[] >> strip_tac >> fs[] >>
     first_x_assum(qspec_then`ck+k'`mp_tac)>>simp[]>>
     TOP_CASE_TAC >> simp[]) >>
-    (fn g => subterm (fn tm => Cases_on`^(Term.subst[{redex = #1(dest_exists(#2 g)), residue = ``k':num``}] (assert(has_pair_type)tm))`) (#2 g) g) >>
+    goal_term (fn w => subterm (fn tm => Cases_on`^(Term.subst[{redex = #1(dest_exists w), residue = ``k':num``}] (assert(has_pair_type)tm))`) w) >>
   drule0 comp_Call >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (
@@ -10470,7 +10470,7 @@ Proof
       fs[] >> rveq >> fs[] >>
       qhdtm_x_assum`wordSem$evaluate`kall_tac >>
       last_x_assum(qspec_then`k''`mp_tac) >> simp[] >>
-      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
       CCONTR_TAC >>
       drule0 comp_Call >> fs[] >>
       drule0(GEN_ALL state_rel_with_clock) >>
@@ -10482,7 +10482,7 @@ Proof
       Cases_on`q`>>fs[]>>
       CCONTR_TAC >> fs [] >>
       qpat_x_assum`_ ≠ SOME TimeOut`mp_tac >>
-      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
       strip_tac >> fs[] >>
       drule0 (GEN_ALL stackPropsTheory.evaluate_add_clock) >>
       disch_then(qspec_then`ck`mp_tac) >>
@@ -10549,7 +10549,7 @@ Proof
   >- (
     fs[] >> rveq >> fs[] >>
     last_x_assum(qspec_then`k'`mp_tac)>> simp[] >>
-    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
     CCONTR_TAC >>
     drule0 comp_Call >> fs[] >>
     drule0(GEN_ALL state_rel_with_clock) >>
@@ -10577,7 +10577,7 @@ Proof
   >- (
     rw [] >>  fs[] >>
     qpat_x_assum`∀x y. _`(qspec_then`k'`mp_tac)>>
-    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
     strip_tac >>
     drule0 comp_Call >> fs [] >>
     drule0(GEN_ALL state_rel_with_clock) >>
@@ -10651,8 +10651,8 @@ Proof
     IF_CASES_TAC >> simp[] >> strip_tac >> fs[] >>
     first_x_assum(qspec_then`ck+k'`mp_tac)>>simp[]>>
     TOP_CASE_TAC >> simp[]) >>
-    (fn g => subterm (fn tm => Cases_on`^(Term.subst[{redex = #1(dest_exists(#2 g)), residue = ``k':num``}]
-      (assert(has_pair_type)tm))`) (#2 g) g) >>
+    goal_term (fn w => subterm (fn tm => Cases_on`^(Term.subst[{redex = #1(dest_exists w), residue = ``k':num``}]
+      (assert(has_pair_type)tm))`) w) >>
   drule0 comp_Call >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (

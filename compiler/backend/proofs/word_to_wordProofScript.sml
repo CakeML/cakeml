@@ -2300,7 +2300,7 @@ Proof
   IF_CASES_TAC >- (
     full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
     last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
-    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
     gs[]>>
     qmatch_asmsub_abbrev_tac ‘FST ev’>>Cases_on ‘ev’>>gs[]>>
     ‘code_rel (s with clock := k').code
