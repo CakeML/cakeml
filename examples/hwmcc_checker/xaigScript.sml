@@ -373,7 +373,7 @@ QED
 Definition aig_to_xaig_def:
   (aig_to_xaig ([]:('a,'i,'l) aig) = []) ∧
   (aig_to_xaig ((n,ins)::tl) =
-    (n,And ins)::aig_to_xaig tl)
+    (n,And [FST ins; SND ins])::aig_to_xaig tl)
 End
 
 (* Sanity check *)

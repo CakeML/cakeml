@@ -55,7 +55,7 @@ Definition not_def:
   not ((v, b): ('a,'i,'l) lit) = (v, ¬b)
 End
 
-Type and[pp] = “:'a # (('a,'i,'l) lit list)”
+Type and[pp] = “:'a # (('a,'i,'l) lit # ('a,'i,'l) lit)”
 Type aig[pp] = “:('a,'i,'l) and list”
 
 (* Note that we can conjunction over a list of literals as opposed to a pair.
@@ -69,7 +69,7 @@ Definition eval_lit_def:
   (eval_gate ss ([]:('a,'i,'l) aig) n = F) ∧
   (eval_gate ss (h::tl) n =
    let (n', ins) = h in
-     if n' = n then EVERY (eval_lit ss tl) ins
+     if n' = n then eval_lit ss tl (FST ins) ∧ (eval_lit ss tl) (SND ins)
      else eval_gate ss tl n)
 End
 
@@ -253,7 +253,8 @@ Definition qleft_live_def:
 End
 
 Definition and_map_base_def:
-  and_map_base f g (n, ins) = (n, MAP (lit_map_base f g) ins)
+  and_map_base f g (n, ins) =
+    (n, (lit_map_base f g (FST ins), lit_map_base f g (SND ins)))
 End
 
 Definition qleft_def:

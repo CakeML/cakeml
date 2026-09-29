@@ -9,9 +9,6 @@ Verified certificate checker for the Hardware Model Checking Competition.
 [aig_parseScript.sml](aig_parseScript.sml):
 Parser for the AIGER format.
 
-[aig_to_cnfScript.sml](aig_to_cnfScript.sml):
-Mapping And-Inverter Graphs into CNF
-
 [compilation](compilation):
 Compilation scripts for caketaiger.
 

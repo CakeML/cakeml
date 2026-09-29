@@ -314,7 +314,7 @@ Definition parse_ands_aux_def:
     rhs1 <<- rhs0     - delta1;
     rhs0 <<- convert_lit max_input max_latch rhs0;
     rhs1 <<- convert_lit max_input max_latch rhs1;
-    ands <<- (lhs, [rhs0; rhs1])::ands;
+    ands <<- (lhs, (rhs0, rhs1))::ands;
     parse_ands_aux s i max_input max_latch n (lhs + 1) ands
   od
 End
@@ -564,7 +564,8 @@ End
 
 Definition shared_aig_def:
   shared_aig micnt mlcnt iren lren (aig: (num, num, num) aig) =
-    MAP (I ## MAP (shared_lit micnt mlcnt iren lren)) aig
+    MAP (I ## shared_lit micnt mlcnt iren lren ##
+         shared_lit micnt mlcnt iren lren) aig
 End
 
 (* Making the intervention map ************************************************)

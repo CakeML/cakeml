@@ -4,7 +4,7 @@
 Theory aig_to_cnfProg
 Ancestors
   ml_translator  (* MEMBER_INTRO *)
-  ml_monad_translator aig_cert_encodeProg xaig_to_cnf aig_to_cnf
+  ml_monad_translator aig_cert_encodeProg xaig_to_cnf
 Libs
   preamble ml_translatorLib ml_monad_translator_interfaceLib
 
@@ -394,9 +394,9 @@ End
 Theorem new_live_update:
   ∀xs m n. new_live xs (m |+ (n,())) = new_live xs m |+ (n,())
 Proof
-  Induct \\ simp [aig_to_cnfTheory.new_live_def]
+  Induct \\ simp [xaig_to_cnfTheory.new_live_def]
   \\ PairCases \\ namedCases_on ‘h0’ ["k", "v"]
-  \\ rw [aig_to_cnfTheory.new_live_def]
+  \\ rw [xaig_to_cnfTheory.new_live_def]
   \\ Cases_on ‘k = n’ \\ gvs []
   \\ irule FUPDATE_COMMUTES \\ simp []
 QED
@@ -409,10 +409,10 @@ Theorem mark_each_gate_thm:
          state_rel s1 (new_live xs seen) aig
 Proof
   Induct
-  \\ gvs [aig_to_cnfTheory.new_live_def, mark_each_gate_def,
+  \\ gvs [xaig_to_cnfTheory.new_live_def, mark_each_gate_def,
           ml_monadBaseTheory.st_ex_return_def]
   \\ PairCases
-  \\ gvs [aig_to_cnfTheory.new_live_def, mark_each_gate_def,
+  \\ gvs [xaig_to_cnfTheory.new_live_def, mark_each_gate_def,
           ml_monadBaseTheory.st_ex_return_def]
   \\ CASE_TAC \\ fs [max_each_def]
   \\ simp [ml_monadBaseTheory.st_ex_bind_def]

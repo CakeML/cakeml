@@ -7,7 +7,7 @@
 Theory caketaiger_lrupProof
 Ancestors
   semanticsProps mlstring fsFFI fsFFIProps TextIOProof syntax_helper dimacs
-  aig_to_cnf lrup_arrayFullProg caketaigerProgProof caketaigerProof lrupProof
+  xaig_to_cnf lrup_arrayFullProg caketaigerProgProof caketaigerProof lrupProof
 Libs
   preamble
 

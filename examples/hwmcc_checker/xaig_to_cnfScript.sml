@@ -3,7 +3,7 @@
 *)
 Theory xaig_to_cnf
 Ancestors
-  misc mlstring aig xaig cnf aig_to_cnf
+  misc mlstring aig xaig cnf syntax_helper
 Libs
   preamble
 
@@ -32,6 +32,25 @@ Proof
   >- (gvs [TO_FLOOKUP,FLOOKUP_FUNION,FUN_EQ_THM] \\ rw [] \\ CASE_TAC \\ rw [])
   \\ gvs [SUBMAP_DEF, EXTENSION]
   \\ rw [] \\ eq_tac \\ rw [] \\ res_tac \\ fs []
+QED
+
+Definition new_live_def:
+  new_live ([] : (('a,'i,'l) var # bool) list) l = (l:'a |-> unit) ∧
+  new_live ((x,b) :: xs) l =
+    case x of
+    | Gate n => fmap_update (new_live xs l) n ()
+    | Base _ => new_live xs l
+End
+
+Theorem new_live_thm:
+  ∀h1 live aa.
+    MEM (Gate aa,r) h1 ⇒
+    FLOOKUP (new_live h1 live) aa = SOME ()
+Proof
+  Induct
+  \\ fs [new_live_def,FORALL_PROD]
+  \\ Cases \\ fs []
+  \\ rw [] \\ rw [FLOOKUP_SIMP]
 QED
 
 Theorem new_live_pres[local]:
@@ -341,6 +360,66 @@ Theorem xnot_eval_gate:
   ∀xaig a. ~MEM a (MAP FST xaig) ⇒ ¬xeval_gate (is,ls) xaig a
 Proof
   Induct \\ fs [xeval_gate_cons, FORALL_PROD]
+QED
+
+Definition DISJOINT3_def:
+  DISJOINT3 s1 s2 s3 ⇔
+    DISJOINT s1 s2 ∧ DISJOINT s1 s3 ∧ DISJOINT s2 s3
+End
+
+Definition aig_read_def:
+  aig_read is im n = ∃t. is t ∧ FLOOKUP im t = SOME n
+End
+
+Theorem aig_read_thm:
+  INJ (FAPPLY (im_2 ⊌ ix)) (FDOM im_2 ∪ FDOM ix) UNIV ∧
+  FLOOKUP im_2 i = SOME x ⇒
+  aig_read is (im_2 ⊌ ix) x = is i
+Proof
+  rw [aig_read_def]
+  \\ qsuff_tac ‘∀y. FLOOKUP (im_2 ⊌ ix) y = SOME x ⇔ y = i’
+  >- (disch_then $ rewrite_tac o single \\ fs [])
+  \\ rw [] \\ reverse eq_tac \\ rw []
+  >- gvs [FLOOKUP_FUNION]
+  \\ fs [INJ_DEF]
+  \\ last_x_assum irule
+  \\ fs [FLOOKUP_DEF,FUNION_DEF]
+QED
+
+Theorem IMP_DISJOINT3:
+  INJ (FAPPLY lm_1) (FDOM lm_1) 𝕌(:num) ∧
+  i ∉ FDOM lm_1 ∧
+  (∀n. next_1 ≤ n ⇒ n ∉ FRANGE im_1 ∧ n ∉ FRANGE lm_1 ∧ n ∉ s) ∧
+  DISJOINT3 (FRANGE im_1) (FRANGE lm_1) s
+  ⇒
+  INJ (FAPPLY lm_1⟨i ↦ next_1⟩) (i INSERT FDOM lm_1) 𝕌(:num) ∧
+  (∀n. next_1 + 1 ≤ n ⇒ n ∉ FRANGE (lm_1 \\ i)) ∧
+  DISJOINT3 (next_1 INSERT FRANGE (lm_1 \\ i)) (FRANGE im_1) s
+Proof
+  rw []
+  \\ ‘FRANGE (lm_1 \\ i) SUBSET FRANGE lm_1’ by fs [FRANGE_DOMSUB_SUBSET]
+  >-
+   (gvs [INJ_DEF, SF DNF_ss, SF CONJ_ss]
+    \\ gvs [FAPPLY_FUPDATE_THM, CaseEq"bool", SF DNF_ss]
+    \\ ntac 3 $ first_x_assum $ qspec_then ‘next_1’ mp_tac
+    \\ gvs [FRANGE_DEF] \\ rw []
+    \\ metis_tac [])
+  >-
+   (first_x_assum $ qspec_then ‘n’ mp_tac \\ fs []
+    \\ simp [] \\ rpt strip_tac
+    \\ gvs [SUBSET_DEF])
+  \\ fs [DISJOINT3_def]
+  \\ once_rewrite_tac [DISJOINT_SYM]
+  \\ conj_tac
+  \\ irule DISJOINT_SUBSET
+  \\ pop_assum $ irule_at Any \\ fs []
+  \\ once_rewrite_tac [DISJOINT_SYM] \\ fs []
+QED
+
+Theorem DISJOINT3_COMM_12:
+  DISJOINT3 x y z ⇔ DISJOINT3 y x z
+Proof
+  rw [DISJOINT3_def] \\ metis_tac [IN_DISJOINT]
 QED
 
 (* A property of the renamed variables that survives extensions of the
@@ -982,8 +1061,7 @@ QED
    upwards, see rename_inv_def, so xvar_to_lit can map every literal,
    including the constants FF and TT, into a CNF literal without any
    special casing.  Variable 0 is never used: it is not allowed to appear
-   in the output.  This is why xvar_to_num is not aig_to_cnf's var_to_num,
-   which sends the constant false to 0. *)
+   in the output. *)
 
 Definition xvar_to_num_def:
   xvar_to_num (Gate n) = n:num ∧
@@ -1119,12 +1197,15 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem set_eq_every[local]:
-  set (eq_every_pos x xs) ∪ set (eq_every_neg x xs) =
-  set (eq_every_to_cnf x xs)
+Theorem and_to_cnf_thm[local]:
+  satisfies_cnf w (set (eq_every_pos y xs) ∪ set (eq_every_neg y xs)) ⇔
+  (satisfies_lit w y ⇔ EVERY (satisfies_lit w) xs)
 Proof
-  simp [eq_every_pos_def, eq_every_neg_def, eq_every_to_cnf_def]
-  \\ simp [EXTENSION] \\ metis_tac []
+  simp [satisfies_cnf_def, satisfies_fml_gen_def, eq_every_pos_def,
+        eq_every_neg_def, satisfies_clause_def, satisfies_lit_negate,
+        MEM_MAP, EVERY_MEM, SF DNF_ss]
+  \\ Cases_on ‘satisfies_lit w y’ \\ simp []
+  \\ metis_tac []
 QED
 
 Theorem gty_to_cnf_thm:
@@ -1135,8 +1216,7 @@ Theorem gty_to_cnf_thm:
 Proof
   Cases \\ rw [gty_to_cnf_def, gty_pos_def, gty_neg_def]
   >-
-   (fs [set_eq_every, eq_every_to_cnf_thm, satisfies_lit_def, EVERY_MAP,
-        xeval_lit_def]
+   (fs [and_to_cnf_thm, satisfies_lit_def, EVERY_MAP, xeval_lit_def]
     \\ AP_TERM_TAC \\ irule EVERY_EQ_EVERY \\ fs [])
   >- fs [xor_to_cnf_thm, satisfies_lit_def, xeval_lit_def]
   >- fs [ite_to_cnf_thm, satisfies_lit_def, xeval_lit_def]
@@ -1471,6 +1551,20 @@ Proof
   \\ Cases_on ‘pol_of pm h0’ \\ gvs [xgty_to_cnf_def, SUBSET_DEF]
 QED
 
+Definition find_suffix_def:
+  find_suffix n [] = NONE ∧
+  find_suffix n ((k,xs)::rest) =
+    if k = n then SOME ((k,xs)::rest) else find_suffix n rest
+End
+
+Theorem find_suffix_fast_forward:
+  ∀past.
+    ALL_DISTINCT (MAP FST past ++ h0::rest) ⇒
+    find_suffix h0 (past ++ (h0,h1)::ands) = SOME ((h0,h1)::ands)
+Proof
+  Induct \\ fs [find_suffix_def, FORALL_PROD]
+QED
+
 Definition xcnf_witness_def:
   xcnf_witness i_dom l_dom is ls xaig n =
     if n ∈ i_dom then is n else
@@ -1632,6 +1726,26 @@ Theorem var_lit_xvar_to_lit[local]:
   var_lit (xvar_to_lit t) = xvar_to_num (FST t)
 Proof
   Cases_on ‘t’ \\ Cases_on ‘r’ \\ fs [xvar_to_lit_def]
+QED
+
+Definition lits_within_def:
+  lits_within limit cnf ⇔
+    EVERY (EVERY nz_lit) cnf ∧
+    EVERY (EVERY (λl. var_lit l < limit)) cnf
+End
+
+Theorem lits_within_APPEND:
+  lits_within limit (xs ++ ys) ⇔
+  lits_within limit xs ∧ lits_within limit ys
+Proof
+  fs [lits_within_def] \\ metis_tac []
+QED
+
+Theorem lits_within_CONS:
+  lits_within limit (c::cs) ⇔
+  EVERY (λl. nz_lit l ∧ var_lit l < limit) c ∧ lits_within limit cs
+Proof
+  fs [lits_within_def, EVERY_CONJ] \\ metis_tac []
 QED
 
 Theorem lits_within_gty[local]:
