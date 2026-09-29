@@ -248,7 +248,7 @@ The syntax is as exemplified here.
     st32 @base, v; // store 32 bits from variable v to @base
     v = ld32 @base+4 // load 32 bits from address @base+4 to variable v.
 
-<sub>Feature disabled: `32bit`</sub>
+<sub>Feature enabled: `32bit`</sub>
 
 March 27th 2025
 -------------------
