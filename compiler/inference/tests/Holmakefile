@@ -1,5 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis ..
-
 all: $(DEFAULT_TARGETS) README.md check-basis-types
 .PHONY: all check-basis-types
 

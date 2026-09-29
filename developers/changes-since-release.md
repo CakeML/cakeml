@@ -39,9 +39,6 @@ has been added to basis.
 
 ### String
 
-`String.concatWith` has been reimplemented using `concat` and `intersperse`,
-avoiding potentially quadratic behavior due to left-associative concatenations (#1425).
-
 `String.Fast.compare` has been added.
 Like the other operations in the `String.Fast` module, it orders strings by
 length first and only compares contents when the lengths are equal, which is faster.
@@ -104,6 +101,14 @@ registers translations of the following:
  - `$\\`
  - `FUNION`
  - `fdiff_fdom` (a wrapper around `FDIFF _ (FDOM _)`)
+
+This replaces the old association-list translation of finite maps from the
+`Alist` module in `ListProg`, which has been disabled. Finite maps can now
+only be translated at key types for which `add_fmap_for_cmp` has been called,
+so definitions that are polymorphic in the key type must be instantiated
+before translation, e.g. with `INST_TYPE [alpha |-> “:mlstring”]`, and `|++`
+must be rewritten into `FOLDL` over `|+`. The bootstrap translation calls
+`add_fmap_for_cmp` for `mlstring`, `int` and `num` keys in `decProg`.
 
 ### simp additions
 

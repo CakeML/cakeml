@@ -38,7 +38,9 @@ fun add_fmap_for_cmp th = let
   val res = fempty_thm |> concl |> rator
   val fmap_ty = res |> rand |> type_of
   val fmap_inv = res |> rator
-  val _ = add_type_inv fmap_inv fmap_ty
+  val rep_ty = fempty_thm |> concl |> SCONV [FMAP_TYPE_def] |> concl |> rand
+                          |> dest_exists |> fst |> type_of
+  val _ = add_type_inv fmap_inv rep_ty
   val _ = add_user_proved_v_thm fempty_thm
   (* lookup *)
   val th1 = cj 2 ops_thm
