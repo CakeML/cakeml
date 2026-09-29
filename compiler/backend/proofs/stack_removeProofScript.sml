@@ -1317,10 +1317,10 @@ Proof
          wordLangTheory.word_sh_def,mem_store_def,dec_clock_def]
   \\ rewrite_tac [STOP_def]
   \\ fs [copy_each_def,list_Seq_def]
-  \\ (fn x =>
-        qexists_tac ‘1’ x
+  \\ (fn x => fn c =>
+        qexists_tac ‘1’ x c
         |> fst |> hd |> snd |> find_term (can (match_term “stackSem$evaluate _”))
-        |> rand |> rand |> (fn tm => qabbrev_tac ‘t8 = ^tm’ x))
+        |> rand |> rand |> (fn tm => qabbrev_tac ‘t8 = ^tm’ x c))
   \\ fs [EL_LENGTH_APPEND]
   \\ last_x_assum (qspecl_then [‘x’,‘t8’] mp_tac)
   \\ (impl_tac
@@ -1383,10 +1383,10 @@ Proof
     \\ fs [evaluate_def,get_var_def,get_var_imm_def,wordSemTheory.word_cmp_def,inst_def,
            word_exp_def,get_var_def,wordLangTheory.word_op_def,mem_load_def,assign_def,
            set_var_def,FLOOKUP_UPDATE]
-    \\ (fn x =>
-        qexists_tac ‘0’ x
+    \\ (fn x => fn c =>
+        qexists_tac ‘0’ x c
         |> fst |> hd |> snd |> find_term (can (match_term “stackSem$evaluate _”))
-        |> rand |> rand |> (fn tm => qabbrev_tac ‘t8 = ^tm’ x))
+        |> rand |> rand |> (fn tm => qabbrev_tac ‘t8 = ^tm’ x c))
     \\ old_drule copy_each_thm \\ fs []
     \\ disch_then (qspecl_then [‘x'’,‘t8’] mp_tac)
     \\ unabbrev_all_tac \\ fs [FLOOKUP_UPDATE,get_var_def]
@@ -1408,10 +1408,10 @@ Proof
       \\ fs [fmap_EXT,FLOOKUP_DEF,FAPPLY_FUPDATE_THM,EXTENSION]
       \\ rw [] \\ TRY eq_tac \\ rw []\\ fs []))
   \\ simp [EVAL “list_Seq [_;_]”]
-  \\ (fn x =>
-        (qexists_tac ‘0’ \\ qexists_tac ‘ARB’ \\ qexists_tac ‘ARB’ \\ qexists_tac ‘ARB’) x
+  \\ (fn x => fn c =>
+        (qexists_tac ‘0’ \\ qexists_tac ‘ARB’ \\ qexists_tac ‘ARB’ \\ qexists_tac ‘ARB’) x c
         |> fst |> hd |> snd |> find_term (can (match_term “stackSem$evaluate _”))
-        |> rand |> rand |> (fn tm => qabbrev_tac ‘t8 = ^tm’ x))
+        |> rand |> rand |> (fn tm => qabbrev_tac ‘t8 = ^tm’ x c))
   \\ fs [evaluate_def,get_var_def,get_var_imm_def,wordSemTheory.word_cmp_def,inst_def,
          word_exp_def,get_var_def,wordLangTheory.word_op_def,mem_load_def,assign_def,
          set_var_def,FLOOKUP_UPDATE]
@@ -1841,7 +1841,7 @@ Proof
     >- (
       strip_tac \\ rveq \\ fs[]
       \\ qmatch_asmsub_abbrev_tac`state_rel _ _ _ ss _`
-      \\ (fn g => subterm (fn tm => (sg `state_rel jump off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
+      \\ (fn g => fn c => subterm (fn tm => (sg `state_rel jump off k ss (^tm with clock := s.clock - 1)`) g c) (#2 g))
       >- (
         simp[Abbr`ss`,dec_clock_def]
         \\ match_mp_tac state_rel_with_clock
@@ -1856,7 +1856,7 @@ Proof
     >- (
       strip_tac \\ rveq \\ fs[]
       \\ qmatch_asmsub_abbrev_tac`state_rel _ _ _ ss _`
-      \\ (fn g => subterm (fn tm => (sg `state_rel jump off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
+      \\ (fn g => fn c => subterm (fn tm => (sg `state_rel jump off k ss (^tm with clock := s.clock - 1)`) g c) (#2 g))
       >- (
         simp[Abbr`ss`,dec_clock_def]
         \\ match_mp_tac state_rel_with_clock
@@ -1873,7 +1873,7 @@ Proof
       \\ strip_tac \\ fs[] \\ rfs[]
       \\ qmatch_asmsub_abbrev_tac`state_rel _ _ _ (dec_clock sss) _`
       \\ qabbrev_tac`ss = dec_clock sss`
-      \\ (fn g => subterm (fn tm => (sg `state_rel jump off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
+      \\ (fn g => fn c => subterm (fn tm => (sg `state_rel jump off k ss (^tm with clock := s.clock - 1)`) g c) (#2 g))
       >- (
         simp[Abbr`ss`,dec_clock_def,Abbr`sss`]
         \\ match_mp_tac state_rel_with_clock
@@ -1892,7 +1892,7 @@ Proof
     >- (
       strip_tac \\ rveq \\ fs[]
       \\ qmatch_asmsub_abbrev_tac`state_rel _ _ _ ss _`
-      \\ (fn g => subterm (fn tm => (sg `state_rel jump off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
+      \\ (fn g => fn c => subterm (fn tm => (sg `state_rel jump off k ss (^tm with clock := s.clock - 1)`) g c) (#2 g))
       >- (
         simp[Abbr`ss`,dec_clock_def]
         \\ match_mp_tac state_rel_with_clock
@@ -1908,7 +1908,7 @@ Proof
     >- (
       strip_tac \\ rveq
       \\ qmatch_asmsub_abbrev_tac`state_rel _ _ _ ss _`
-      \\ (fn g => subterm (fn tm => (sg `state_rel jump off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
+      \\ (fn g => fn c => subterm (fn tm => (sg `state_rel jump off k ss (^tm with clock := s.clock - 1)`) g c) (#2 g))
       >- (
         simp[Abbr`ss`,dec_clock_def]
         \\ match_mp_tac state_rel_with_clock
@@ -1925,7 +1925,7 @@ Proof
     \\ strip_tac \\ fs[] \\ rfs[]
     \\ qmatch_asmsub_abbrev_tac`state_rel _ _ _ (dec_clock sss) _`
     \\ qabbrev_tac`ss = dec_clock sss`
-    \\ (fn g => subterm (fn tm => (sg `state_rel jump off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
+    \\ (fn g => fn c => subterm (fn tm => (sg `state_rel jump off k ss (^tm with clock := s.clock - 1)`) g c) (#2 g))
     >- (
       simp[Abbr`ss`,dec_clock_def,Abbr`sss`]
       \\ match_mp_tac state_rel_with_clock

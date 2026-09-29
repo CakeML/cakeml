@@ -2770,7 +2770,7 @@ Resume flatten_correct[FFI]:
     full_simp_tac(srw_ss())[] >>
     `t1.ffi = s.ffi` by(fs[state_rel_def]) >>
     fs[] >>
-    (fn g => subterm (fn tm => qexists_tac `^tm with <| clock := t1.clock|>` g) (#2 g)) >> simp[] >>
+    (fn g => fn c => subterm (fn tm => qexists_tac `^tm with <| clock := t1.clock|>` g c) (#2 g)) >> simp[] >>
     full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_DRESTRICT] >> rev_full_simp_tac(srw_ss())[] >>
     simp[] >>
     reverse conj_tac
@@ -2793,8 +2793,8 @@ Resume flatten_correct[LocValue]:
     \\ CASE_TAC
     THEN1 (imp_res_tac loc_check_IMP_loc_to_pc \\ fs [])
     \\ full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,upd_reg_def]
-    \\ (fn g => subterm (fn tm =>
-         qexists_tac `^tm with <| clock := t1.clock|>` g) (#2 g))
+    \\ (fn g => fn c => subterm (fn tm =>
+         qexists_tac `^tm with <| clock := t1.clock|>` g c) (#2 g))
     \\ fs[state_rel_def,set_var_def,FLOOKUP_UPDATE,APPLY_UPDATE_THM]
     \\ srw_tac[][] \\ res_tac \\ fs [])
 QED

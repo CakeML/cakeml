@@ -384,8 +384,8 @@ val tac1 = simp [Once list_Seq_def, evaluate_def,inst_def,word_exp_def,get_var_d
        wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE];
 
 fun abbrev_under_exists tm tac =
-  (fn state => (`?^(tm). ^(hd (fst (hd (fst (tac state)))))` by
-        (fs [markerTheory.Abbrev_def] \\ NO_TAC)) state);
+  (fn state => fn c => (`?^(tm). ^(hd (fst (hd (fst (tac state c)))))` by
+        (fs [markerTheory.Abbrev_def] \\ NO_TAC)) state c);
 
 Theorem memcpy_code_thm[local]:
   !n a b m dm b1 m1 (s:('a,'c,'b)stackSem$state).

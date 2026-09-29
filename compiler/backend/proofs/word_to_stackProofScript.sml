@@ -8016,10 +8016,10 @@ Resume comp_correct[Call_tail]:
       Cases_on `s'.stack_max` \\ fsrw_tac[][the_eqn] \\
       rveq \\ fs[GREATER_EQ])
     \\ fsrw_tac[][stackSemTheory.dec_clock_def]
-    \\ (fn g =>
+    \\ (fn g => fn c =>
          qabbrev_tac `t5 = ^((qexists_tac`0`
-         \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t5)`) g
-         |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g)
+         \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t5)`) g c
+         |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g c)
     \\ `state_rel ac k f'' stack_var_count (call_env args1 ss (dec_clock s)) t5 lens 0` by
         (
         fsrw_tac[][state_rel_def,dec_clock_def,Abbr`t5`] \\
@@ -8424,10 +8424,10 @@ Resume comp_correct[Call_returning]:
     qpat_abbrev_tac`word_state = call_env args1 ss st`>>
     strip_tac >>
     (*This looks hacky but it works*)
-    (fn g =>
+    (fn g => fn c =>
          qabbrev_tac `stack_state = ^((qexists_tac`0`
-         \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t7)`) g
-         |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g) >>
+         \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t7)`) g c
+         |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g c) >>
     `state_rel ac k f'' stack_var_count word_state stack_state (f'::lens) 0` by(
        `stack_arg_count' = (LENGTH args1 -k)` by
           (simp[Abbr`stack_arg_count'`]) >>
@@ -8680,10 +8680,10 @@ Resume comp_correct[Call_returning]:
       qpat_abbrev_tac `FREE = (LENGTH vs + 1 - k)` >>
       fs[]) \\
     fs[] \\ gvs[] \\
-    (fn g =>
+    (fn g => fn c =>
        qabbrev_tac `stack_state2 = ^((qexists_tac`0`
-       \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t7)`) g
-       |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g) >>
+       \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t7)`) g c
+       |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g c) >>
     `state_rel ac k f f' (set_vars vs l x) stack_state2 lens 0` by (
       ntac 2 $ qpat_x_assum `state_rel ac k _ _ _ t5 _ _` mp_tac >>
       qmatch_goalsub_abbrev_tac `P` >>
@@ -9254,10 +9254,10 @@ Resume comp_correct[Call_returning]:
   qpat_abbrev_tac`word_state = call_env args1 ss st`>>
   strip_tac >>
   (*This looks hacky but it works*)
-  (fn g =>
+  (fn g => fn c =>
        qabbrev_tac `stack_state = ^((qexists_tac`0`
-       \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t7)`) g
-       |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g) >>
+       \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t7)`) g c
+       |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g c) >>
   `state_rel ac k f'' stack_var_count word_state stack_state (f'::lens) 0` by (
     `stack_arg_count' = (LENGTH args1 -k)` by
        (simp[Abbr`stack_arg_count'`]) >>
@@ -9513,10 +9513,10 @@ Resume comp_correct[Call_returning]:
   simp[PopHandler_F,stackSemTheory.evaluate_def] \\
   simp_tac(pure_ss)[GSYM stackSemTheory.state_fupdcanon] \\
   simp[stackSemTheory.set_store_def] \\
-  (fn g =>
+  (fn g => fn c =>
      qabbrev_tac `stack_state2 = ^((qexists_tac`0`
-     \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t7)`) g
-     |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g) >>
+     \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t7)`) g c
+     |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g c) >>
   `state_rel ac k f f' (set_vars vs l x) stack_state2 lens 0` by (
     ntac 2 $ qpat_x_assum `state_rel ac k _ _ _ t5 _ _` mp_tac >>
     qmatch_goalsub_abbrev_tac `P` >>
