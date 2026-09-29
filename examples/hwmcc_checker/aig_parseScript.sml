@@ -246,7 +246,7 @@ Definition parse_lit_def:
 End
 
 Definition parse_literals_aux_def:
-  parse_literals_aux s i max_input max_latch 0 acc = return (acc, i) ∧
+  parse_literals_aux s i max_input max_latch 0 acc = return (REVERSE acc, i) ∧
   parse_literals_aux s i max_input max_latch (SUC n) acc =
   do
     (lit, i) <- parse_lit s i max_input max_latch;
@@ -255,14 +255,14 @@ Definition parse_literals_aux_def:
   od
 End
 
-(* Returns the parsed literals in reversed order. *)
+(* Returns the parsed literals. *)
 Definition parse_literals_def:
   parse_literals s i max_input max_latch n =
     parse_literals_aux s i max_input max_latch n []
 End
 
 Definition parse_justices_aux_def:
-  parse_justices_aux s i max_input max_latch [] acc = return (acc, i) ∧
+  parse_justices_aux s i max_input max_latch [] acc = return (REVERSE acc, i) ∧
   parse_justices_aux s i max_input max_latch (n::ns) acc =
   do
     (row, i) <- parse_literals s i max_input max_latch n;
@@ -270,7 +270,7 @@ Definition parse_justices_aux_def:
   od
 End
 
-(* Returns the parsed justice lists in reversed order.
+(* Returns the parsed justice lists.
 
    Since a justice property consists of a list of literals, we first parse
    the lengths of these lists for each of the j justice properties,

@@ -130,6 +130,9 @@ Overload "LIT_TYPE"[local] = “PAIR_TYPE (AIG_VAR_TYPE NUM NUM NUM) BOOL”
 
 Overload "LIT_LIST"[local] = “LIST_TYPE LIT_TYPE”
 
+Overload "AIG_TYPE"[local] =
+  “LIST_TYPE (PAIR_TYPE NUM (PAIR_TYPE LIT_TYPE LIT_TYPE))”
+
 Overload "LATCH_LIT_TYPE"[local] = “NUM --> LIT_TYPE”
 
 Overload "LATCH_OPTION_LIT_TYPE"[local] = “NUM --> OPTION_TYPE LIT_TYPE”
@@ -733,10 +736,10 @@ QED
 Theorem process_and_check_v_thm_num[local] =
   let
     val nref =
-      “LIST_TYPE (PAIR_TYPE NUM LIT_LIST) --> LATCH_OPTION_LIT_TYPE -->
+      “AIG_TYPE --> LATCH_OPTION_LIT_TYPE -->
        LATCH_LIT_TYPE --> LIT_LIST --> LIT_LIST --> LIST_TYPE LIT_LIST -->
        LIST_TYPE NUM --> NUM --> NUM -->
-       LIST_TYPE (PAIR_TYPE NUM LIT_LIST) --> LATCH_OPTION_LIT_TYPE -->
+       AIG_TYPE --> LATCH_OPTION_LIT_TYPE -->
        LIST_TYPE LIT_LIST --> LIST_TYPE NUM -->
        ERRORMONAD_ERROR_TYPE
          (PAIR_TYPE XAIG_TYPE (PAIR_TYPE XAIG_TYPE (LIST_TYPE NUM)))

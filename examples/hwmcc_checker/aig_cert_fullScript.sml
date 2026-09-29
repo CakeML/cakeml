@@ -111,7 +111,15 @@ Definition parse_witness_def:
   od
 End
 
-(* TODO Pad to short witness signals/justices; did this in the past *)
+Definition resize_def:
+  resize pad len ls =
+  let len' = LENGTH ls in
+    if len' < len then
+      PAD_RIGHT pad len ls
+    else if len < len' then
+      TAKE len ls
+    else ls
+End
 
 Definition preprocess_witness_def:
   preprocess_witness maiger waiger ms =
@@ -120,6 +128,8 @@ Definition preprocess_witness_def:
        mapping *)
     micnt = maiger.counts.inputs;
     mlcnt = maiger.counts.latches;
+    mfcnt = maiger.counts.fairness;
+    mjcnt = maiger.counts.justice;
     (* -- witness -- *)
     wcounts = waiger.counts;
     wicnt = wcounts.inputs;
@@ -148,13 +158,17 @@ Definition preprocess_witness_def:
     wlatches =
       GENLIST (λk. shared_latch_key micnt mlcnt iren lren (wlatch_start + k))
         wlcnt;
-    wfair = MAP (not ∘ shared_lit micnt mlcnt iren lren) waiger.fairness;
-    wjust = waiger.justice;
+    wfair =
+      resize TT mfcnt
+        (MAP (not ∘ shared_lit micnt mlcnt iren lren) waiger.fairness);
+    wjust = resize [] mjcnt waiger.justice;
     wlive =
-      MAP
-        (λsignals.
+      MAP2
+        (λms ws.
            wfair ++
-           (MAP (not ∘ shared_lit micnt mlcnt iren lren) signals)) wjust;
+           resize TT (LENGTH ms)
+             (MAP (not ∘ shared_lit micnt mlcnt iren lren) ws))
+        maiger.justice wjust;
     interv =
       make_interv micnt mlcnt wicnt wmax_latch iren lren wnext_alist
         (ms.intervened_latches);
