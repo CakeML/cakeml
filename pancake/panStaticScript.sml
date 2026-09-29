@@ -17,15 +17,15 @@
         inner block occurs *before* this line, warnings within that block do not
         count towards this first. However, if an inner block occurs *after* this
         line, the line is recognised as the first for the inner block as well
-    - Base-calculated address in shared memory operation
     - Non-base -calculated address in local memory operation
+    - Base-calculated address in shared memory operation
     - Un-inline-able functions (exception handler, recursive)
 
   Scope checks:
   - Errors:
     - Undefined/out-of-scope functions
-    - Undefined/out-of-scope variables
     - Undefined/out-of-scope struct names
+    - Undefined/out-of-scope variables
     - Undefined/out-of-scope exceptions
     - Redefined functions
     - Redefined function parameter names
@@ -41,6 +41,7 @@
     - Mismatched variable assignments
     - Mismatched function arguments
     - Mismatched function returns
+    - Mismatched thrown exception value
     - Mismatched exception handler variables
     - Mismatched struct fields
     - Incorrect number of struct field values
@@ -1237,7 +1238,7 @@ Definition static_check_prog_def:
         do
           (* check for inline function *)
           if finf.inline then
-            error (WarningErr $ get_inline_ignore_msg (concat [
+            log (WarningErr $ get_inline_ignore_msg (concat [
                 strlit "function call "; fname; strlit " has handler"
               ]) ctxt.loc ctxt.scope)
           else return ();
@@ -1304,7 +1305,7 @@ Definition static_check_prog_def:
         do
           (* check for inline function *)
           if finf.inline then
-            error (WarningErr $ get_inline_ignore_msg (concat [
+            log (WarningErr $ get_inline_ignore_msg (concat [
                 strlit "function call "; fname; strlit " has handler"
               ]) ctxt.loc ctxt.scope)
           else return ();
@@ -1451,7 +1452,7 @@ Definition static_check_prog_def:
         do
           (* check for inline function *)
           if finf.inline then
-            error (WarningErr $ get_inline_ignore_msg (concat [
+            log (WarningErr $ get_inline_ignore_msg (concat [
                 strlit "function call "; fname; strlit " has handler"
               ]) ctxt.loc ctxt.scope)
           else return ();
@@ -1903,7 +1904,7 @@ Definition static_check_progs_def:
       prog_ret <- static_check_prog ctxt fi.body;
       (* check inlining with recursion *)
       if (prog_ret.recurse /\ fi.inline) then
-        error (WarningErr $ get_inline_ignore_msg (concat [
+        log (WarningErr $ get_inline_ignore_msg (concat [
             strlit "function definition "; fi.name; strlit " is recursive "
           ]) (strlit "") (FunScope fi.name (strlit "")))
       else return ();

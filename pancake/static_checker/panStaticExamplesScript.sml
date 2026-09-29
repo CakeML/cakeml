@@ -117,7 +117,7 @@ val warns_ =
 *)
 
 
-(* General checks *)
+(* ### General checks *)
 
 (* Error: Main function parameters *)
 
@@ -905,7 +905,6 @@ val warns_local_word_field_notbased =
   check_static_has_warnings $ static_check_pancake parse_local_word_field_notbased;
 
 
-(* based field *)
 val ex_local_word_field_based = `
   fun 1 f () {
     var 2 x = <@base, 0>;
@@ -1210,7 +1209,6 @@ val warns_shared_word_notbased =
   check_static_no_warnings $ static_check_pancake parse_shared_word_notbased;
 
 
-
 val ex_shared_word_based = `
   fun 1 f () {
     var 1 x = 0;
@@ -1231,7 +1229,6 @@ val warns_shared_word_based =
   check_static_has_warnings $ static_check_pancake parse_shared_word_based;
 
 
-(* notbased field *)
 val ex_shared_word_field_notbased = `
   fun 1 f () {
     var 2 x = <0, 0>;
@@ -1253,7 +1250,6 @@ val warns_shared_word_field_notbased =
   check_static_no_warnings $ static_check_pancake parse_shared_word_field_notbased;
 
 
-(* based field *)
 val ex_shared_word_field_based = `
   fun 1 f () {
     var 2 x = <@base, 0>;
@@ -1548,7 +1544,53 @@ val warns_shared_word_based_while_notbased =
   check_static_has_warnings $ static_check_pancake parse_shared_word_based_while_notbased
 
 
-(* Scope checks *)
+(* Warning: Un-inline-able functions (exception handler, recursive) *)
+
+val ex_inline_with_handler = `
+  exception Err : 1;
+
+  inline fun 1 f () {
+    throw Err 1;
+  }
+
+  fun 1 g () {
+    var 1 x = 0;
+    try f()
+    catch Err => x {
+      skip;
+    }
+    return 1;
+  }
+`;
+
+val parse_inline_with_handler =
+  check_parse_success $ parse_pancake ex_inline_with_handler;
+
+val static_inline_with_handler =
+  check_static_success $ static_check_pancake parse_inline_with_handler;
+
+val warns_inline_with_handler =
+  check_static_has_warnings $ static_check_pancake parse_inline_with_handler;
+
+
+val ex_inline_recursive = `
+  inline fun 1 f () {
+    f();
+    return 1;
+  }
+`;
+
+val parse_inline_recursive =
+  check_parse_success $ parse_pancake ex_inline_recursive;
+
+val static_inline_recursive =
+  check_static_success $ static_check_pancake parse_inline_recursive;
+
+val warns_inline_recursive =
+  check_static_has_warnings $ static_check_pancake parse_inline_recursive;
+
+
+(* ### Scope checks *)
 
 (* Error: Undefined/out-of-scope functions *)
 
@@ -1844,6 +1886,24 @@ val warns_global_function_order =
   check_static_no_warnings $ static_check_pancake parse_global_function_order;
 
 
+(* Undefined/out-of-scope exceptions *)
+
+val ex_undeclared_exception = `
+  fun 1 f () {
+    throw Err 1;
+  }
+`;
+
+val parse_undeclared_exception =
+  check_parse_success $ parse_pancake ex_undeclared_exception;
+
+val static_undeclared_exception =
+  check_static_failure $ static_check_pancake parse_undeclared_exception;
+
+val warns_undeclared_exception =
+  check_static_no_warnings $ static_check_pancake parse_undeclared_exception;
+
+
 (* Error: Redefined functions *)
 
 val ex_redefined_fun = `
@@ -1923,6 +1983,23 @@ val static_repeat_field =
 
 val warns_repeat_field =
   check_static_no_warnings $ static_check_pancake parse_repeat_field;
+
+
+(* Error: Redefined exceptions *)
+
+val ex_redefined_exception = `
+  exception Err : {1,1};
+  exception Err : 1;
+`;
+
+val parse_redefined_exception =
+  check_parse_success $ parse_pancake ex_redefined_exception;
+
+val static_redefined_exception =
+  check_static_failure $ static_check_pancake parse_redefined_exception;
+
+val warns_redefined_exception =
+  check_static_no_warnings $ static_check_pancake parse_redefined_exception;
 
 
 (* Warning: Redefined variables *)
@@ -2050,7 +2127,7 @@ val warns_redefined_global_var_deccall =
   check_static_has_warnings $ static_check_pancake parse_redefined_global_var_deccall;
 
 
-(* Shape checks *)
+(* ### Shape checks *)
 
 
 (* Error: Mismatched variable declarations *)
@@ -3134,6 +3211,51 @@ val static_func_ret_nstruct_mismatch_3 =
 
 val warns_func_ret_nstruct_mismatch_3 =
   check_static_no_warnings $ static_check_pancake parse_func_ret_nstruct_mismatch_3;
+
+
+(* Error: Mismatched thrown exception value *)
+
+val ex_exception_throw_shape_mismatch = `
+  exception Err : {1,1};
+
+  fun 1 f () {
+    throw Err 1;
+  }
+`;
+
+val parse_exception_throw_shape_mismatch =
+  check_parse_success $ parse_pancake ex_exception_throw_shape_mismatch;
+
+val static_exception_throw_shape_mismatch =
+  check_static_failure $ static_check_pancake parse_exception_throw_shape_mismatch;
+
+val warns_exception_throw_shape_mismatch =
+  check_static_no_warnings $ static_check_pancake parse_exception_throw_shape_mismatch;
+
+
+(* Error: Mismatched exception handler variables *)
+
+val ex_exception_catch_shape_mismatch = `
+  exception Err : {1,1};
+
+  fun 1 f () {
+    var 1 x = 0;
+    try f()
+    catch Err => x {
+      x = x + 1;
+    }
+    return 0;
+  }
+`;
+
+val parse_exception_catch_shape_mismatch =
+  check_parse_success $ parse_pancake ex_exception_catch_shape_mismatch;
+
+val static_exception_catch_shape_mismatch =
+  check_static_failure $ static_check_pancake parse_exception_catch_shape_mismatch;
+
+val warns_exception_catch_shape_mismatch =
+  check_static_no_warnings $ static_check_pancake parse_exception_catch_shape_mismatch;
 
 
 (* Error: Mismatched struct fields *)
@@ -4971,8 +5093,7 @@ val warns_invalid_nstruct_var_field =
   check_static_no_warnings $ static_check_pancake parse_invalid_nstruct_var_field;
 
 
-(* Error: Returned shape size >32 words
-return size (all in one, split across multiple) *)
+(* Error: Exception value shape size >32 words *)
 
 val ex_big_rstruct_var = `
   fun 1 f () {
@@ -5046,7 +5167,7 @@ val parse_big_rstruct_func_ret =
   check_parse_success $ parse_pancake ex_big_rstruct_func_ret;
 
 val static_big_rstruct_func_ret =
-  check_static_failure $ static_check_pancake parse_big_rstruct_func_ret;
+  check_static_success $ static_check_pancake parse_big_rstruct_func_ret;
 
 val warns_big_rstruct_func_ret =
   check_static_no_warnings $ static_check_pancake parse_big_rstruct_func_ret;
@@ -5067,7 +5188,7 @@ val parse_big_nstruct_func_ret =
   check_parse_success $ parse_pancake ex_big_nstruct_func_ret;
 
 val static_big_nstruct_func_ret =
-  check_static_failure $ static_check_pancake parse_big_nstruct_func_ret;
+  check_static_success $ static_check_pancake parse_big_nstruct_func_ret;
 
 val warns_big_nstruct_func_ret =
   check_static_no_warnings $ static_check_pancake parse_big_nstruct_func_ret;
@@ -5083,19 +5204,69 @@ val ex_big_nstruct_split_func_ret = `
     return my_struct <x = <0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>, y = <0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0> >;
   }
 `;
-(* Note: This example uses whitespace to get around the nested struct/shift operator parsing issue *)
 
 val parse_big_nstruct_split_func_ret =
   check_parse_success $ parse_pancake ex_big_nstruct_split_func_ret;
 
 val static_big_nstruct_split_func_ret =
-  check_static_failure $ static_check_pancake parse_big_nstruct_split_func_ret;
+  check_static_success $ static_check_pancake parse_big_nstruct_split_func_ret;
 
 val warns_big_nstruct_split_func_ret =
   check_static_no_warnings $ static_check_pancake parse_big_nstruct_split_func_ret;
 
 
-(* Misc: Default shape behaviour *)
+val ex_big_rstruct_excp_val = `
+  exception Err : 33;
+`;
+
+val parse_big_rstruct_excp_val =
+  check_parse_success $ parse_pancake ex_big_rstruct_excp_val;
+
+val static_big_rstruct_excp_val =
+  check_static_failure $ static_check_pancake parse_big_rstruct_excp_val;
+
+val warns_big_rstruct_excp_val =
+  check_static_no_warnings $ static_check_pancake parse_big_rstruct_excp_val;
+
+
+val ex_big_nstruct_excp_val = `
+  struct my_struct {
+    33 value
+  }
+
+  exception Err : my_struct;
+`;
+
+val parse_big_nstruct_excp_val =
+  check_parse_success $ parse_pancake ex_big_nstruct_excp_val;
+
+val static_big_nstruct_excp_val =
+  check_static_failure $ static_check_pancake parse_big_nstruct_excp_val;
+
+val warns_big_nstruct_excp_val =
+  check_static_no_warnings $ static_check_pancake parse_big_nstruct_excp_val;
+
+
+val ex_big_nstruct_split_excp_val = `
+  struct my_struct {
+    11 x,
+    22 y
+  }
+
+  exception Err : my_struct;
+`;
+
+val parse_big_nstruct_split_excp_val =
+  check_parse_success $ parse_pancake ex_big_nstruct_split_excp_val;
+
+val static_big_nstruct_split_excp_val =
+  check_static_failure $ static_check_pancake parse_big_nstruct_split_excp_val;
+
+val warns_big_nstruct_split_excp_val =
+  check_static_no_warnings $ static_check_pancake parse_big_nstruct_split_excp_val;
+
+
+(* ### Misc: Default shape behaviour *)
 
 val ex_default_all_good = `
   struct my_struct {
@@ -5532,7 +5703,8 @@ val static_default_bad_nstruct_field =
 val warns_default_bad_nstruct_field =
   check_static_no_warnings $ static_check_pancake parse_default_bad_nstruct_field;
 
-(* Primitive checks *)
+
+(* ### Primitive checks *)
 
 (* __add_with_carry__ checks *)
 
@@ -5824,61 +5996,3 @@ val static_not_field =
 val warns_not_field =
   check_static_no_warnings $ static_check_pancake parse_not_field;
 
-
-(* Error: shape mismatch in exception *)
-
-val ex_exception_throw_shape_mismatch = `
-  exception Err : {1,1};
-
-  fun 1 f () {
-    throw Err 1;
-  }
-`;
-
-val parse_exception_throw_shape_mismatch =
-  check_parse_success $ parse_pancake ex_exception_throw_shape_mismatch;
-
-val static_exception_throw_shape_mismatch =
-  check_static_failure $ static_check_pancake parse_exception_throw_shape_mismatch;
-
-val warns_exception_throw_shape_mismatch =
-  check_static_no_warnings $ static_check_pancake parse_exception_throw_shape_mismatch;
-
-
-val ex_exception_catch_shape_mismatch = `
-  exception Err : {1,1};
-
-  fun 1 f () {
-    var 1 x = 0;
-    try f()
-    catch Err => x {
-      x = x + 1;
-    }
-    return 0;
-  }
-`;
-
-val parse_exception_catch_shape_mismatch =
-  check_parse_success $ parse_pancake ex_exception_catch_shape_mismatch;
-
-val static_exception_catch_shape_mismatch =
-  check_static_failure $ static_check_pancake parse_exception_catch_shape_mismatch;
-
-val warns_exception_catch_shape_mismatch =
-  check_static_no_warnings $ static_check_pancake parse_exception_catch_shape_mismatch;
-
-
-val ex_undeclared_exception = `
-  fun 1 f () {
-    throw Err 1;
-  }
-`;
-
-val parse_undeclared_exception =
-  check_parse_success $ parse_pancake ex_undeclared_exception;
-
-val static_undeclared_exception =
-  check_static_failure $ static_check_pancake parse_undeclared_exception;
-
-val warns_undeclared_exception =
-  check_static_no_warnings $ static_check_pancake parse_undeclared_exception;
