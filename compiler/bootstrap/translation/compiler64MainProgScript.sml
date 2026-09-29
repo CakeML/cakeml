@@ -82,7 +82,7 @@ val _ = next_ml_names := ["compiler_for_eval"];
 val r = translate compiler_for_eval_alt;
 
 val _ = append_prog
-  ``[Dlet (Locs (POSN 1 2) (POSN 2 21)) (Pvar «eval_prim»)
+  ``[Dlet (Locs (1,2) (2,21)) (Pvar «eval_prim»)
       (Fun «x» (Mat (Var (Short «x»))
         [(Pcon NONE [Pvar «env»; Pvar «s1»; Pvar «decs»;
                      Pvar «s2»; Pvar «bs»; Pvar «ws»],

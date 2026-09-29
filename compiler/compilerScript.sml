@@ -218,7 +218,7 @@ End
 
 Definition locs_to_string_def:
   (locs_to_string input NONE = implode "unknown location") ∧
-  (locs_to_string input (SOME (Locs startl endl)) =
+  (locs_to_string input (SOME (location$Locs startl endl)) =
     case startl of
     | POSN r c =>
        (let line = get_nth_line r input 0 in
@@ -231,6 +231,14 @@ Definition locs_to_string_def:
                   line; «\n»;
                   underline;  «\n»])
     | _ => implode "unknown location")
+End
+
+Definition ast_locs_to_string_def:
+  ast_locs_to_string input (SOME (Locs (r1,c1) (r2,c2))) =
+    locs_to_string input
+      (SOME (location$Locs (POSN (Num (ABS r1)) (Num (ABS c1)))
+                           (POSN (Num (ABS r2)) (Num (ABS c2))))) ∧
+  ast_locs_to_string input _ = locs_to_string input NONE
 End
 
 (* this is a rather annoying feature of peg_exec requiring locs... *)
@@ -272,7 +280,7 @@ Definition compile_def:
        of
        | M_failure (locs, msg) =>
            (M_failure (TypeError (concat [msg; « at »;
-               locs_to_string (implode input) locs])), Nil)
+               ast_locs_to_string (implode input) locs])), Nil)
        | M_success ic =>
           let _ = empty_ffi «finished: type inference» in
           if c.only_print_types then
@@ -546,7 +554,7 @@ Definition conf_ok_check_def:
   conf_ok_check (:'a) c <=>
     shift_length c < dimindex (:α) ∧
     shift (:α) ≤ shift_length c ∧ c.len_size ≠ 0 ∧
-    c.len_size + 7 < dimindex (:α)
+    c.len_size + 9 < dimindex (:α)
 End
 
 (* data *)

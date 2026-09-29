@@ -4,7 +4,6 @@
 Theory ast
 Ancestors
   integer[qualified] words[qualified] string[qualified] mlstring[qualified] namespace
-  location[qualified]
 
 (* Literal constants *)
 Datatype:
@@ -23,6 +22,7 @@ End
 
 Datatype:
   arith = Add | Sub | Mul | Div | Mod | Neg | And | Xor | Or | Not | Abs | Sqrt | FMA
+        | Shift shift
 End
 
 (* Module names *)
@@ -78,8 +78,7 @@ Datatype:
     Arith arith prim_type
   (* conversions between primitive types: char<->int, word<->double, word<->int *)
   | FromTo prim_type prim_type
-  (* Operations on words *)
-  | Shift word_size shift num
+  (* Equality and comparisons *)
   | Equality
   | Test test prim_type
   (* Function application *)
@@ -93,6 +92,8 @@ Datatype:
   | Aw8sub
   | Aw8length
   | Aw8update
+  | Aw8subBit
+  | Aw8updateBit
   (* string/bytearray conversions *)
   | CopyStrStr
   | CopyStrAw8
@@ -122,6 +123,8 @@ Datatype:
   | Aupdate_unsafe
   | Aw8sub_unsafe
   | Aw8update_unsafe
+  | Aw8subBit_unsafe
+  | Aw8updateBit_unsafe
   (* thunk operations *)
   | ThunkOp thunk_op
   (* List operations *)
@@ -186,6 +189,10 @@ End
 (* Short circuiting logical operations *)
 Datatype:
   lop = Andalso | Orelse
+End
+
+Datatype:
+  locs = NoLocs | Locs (int # int) (int # int)
 End
 
 (* Expressions *)

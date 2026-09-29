@@ -136,6 +136,14 @@ Both variables accept positive decimal numbers of mebibytes (1024 * 1024
 bytes). To change the compiled-in default, adjust the default returned by
 `cml_memory_size` in `basis_ffi.c` and rebuild the executable.
 
+Huge pages on Linux
+-------------------
+
+Programs that allocate heavily may run faster with the heap backed by
+huge pages. On Linux with glibc, this is an optional setting to try:
+
+    $ export GLIBC_TUNABLES=glibc.malloc.hugetlb=1 ; ./fac.cake 50
+
 Basic profiling
 -------------------------------------
 

@@ -2518,8 +2518,8 @@ Proof
   \\ Cases_on `
       (?m. opp = MemOp m ∧ (
         m = Length \/ (?b. m = BoundsCheckByte b) \/
-        m = BoundsCheckArray \/ m = LengthByte \/
-        m = DerefByteVec \/ m = DerefByte \/ m = El \/
+        m = BoundsCheckArray \/ m = BoundsCheckBit \/ m = LengthByte \/
+        m = DerefByteVec \/ m = DerefByte \/ m = DerefBit \/ m = El \/
         ∃b cmp. m = StringCmp b cmp)) \/
       (?g. opp = GlobOp g ∧ (g = GlobalsPtr \/ g = SetGlobalsPtr)) \/
       (?n. opp = BlockOp (ElemAt n))`
@@ -2611,6 +2611,20 @@ Proof
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_values))
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_bytes))
     \\ asm_exists_tac \\ fs [LIST_REL_REPLICATE_same])
+  \\ Cases_on `opp = MemOp UpdateBit` THEN1
+   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+    \\ rw[Once do_app_def,AllCaseEqs(),PULL_EXISTS]
+    \\ drule_then strip_assume_tac $ iffLR simple_val_rel_alt
+    \\ fs[] \\ rveq
+    \\ imp_res_tac simple_val_rel_Boolv \\ gvs []
+    \\ simp[do_app_def]
+    \\ TRY (res_tac \\ fs [isClos_cases] \\ NO_TAC)
+    \\ drule (GEN_ALL simple_state_rel_FLOOKUP_refs_IMP)
+    \\ strip_tac >> res_tac \\ fs[]
+    \\ full_simp_tac(bool_ss)[GSYM state_fupdcanon]
+    \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_bytes)
+             \\ asm_exists_tac \\ fs [] \\ NO_TAC)
+    \\ rw [] \\ gvs [] \\ imp_res_tac simple_val_rel_Boolv \\ gvs [])
   \\ Cases_on `?m. opp = MemOp m ∧ (m = UpdateByte \/ m = Update) \/ ?n. opp = FFI n` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ rw[Once do_app_def,AllCaseEqs(),PULL_EXISTS]

@@ -255,14 +255,6 @@ val r = fromSexpTheory.sexpopt_def
         |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
         |> translate;
 
-val r = fromSexpTheory.sexplocpt_def
-        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
-        |> translate;
-
-val r = fromSexpTheory.sexplocn_def
-        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
-        |> translate;
-
 val r = fromSexpTheory.sexplit_def
         |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
         |> translate;
@@ -271,6 +263,16 @@ val sexplit_side = Q.prove(
   `∀x. sexplit_side x = T`,
   EVAL_TAC \\ rw[] \\ strip_tac \\ fs[])
   |> update_precondition;
+
+val r = translate fromSexpTheory.sexpint_def;
+
+val r = fromSexpTheory.sexplocpt_def
+        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
+        |> translate;
+
+val r = fromSexpTheory.sexplocn_def
+        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
+        |> translate;
 
 val r = translate sexppat_alt_def;
 
@@ -388,8 +390,6 @@ QED
 
 val _ = translate listsexp_alt
 
-val _ = translate (locnsexp_def |> SIMP_RULE list_ss []);
-
 val _ = translate HEX_def
 
 Theorem l2n_side_thm[local]:
@@ -472,6 +472,8 @@ val _ = translate testsexp_def;
 val _ = translate arithsexp_def;
 val _ = translate opsexp_def;
 val _ = translate logsexp_def;
+val _ = translate intsexp_def;
+val _ = translate (locnsexp_def |> SIMP_RULE list_ss []);
 val _ = translate locssexp_def;
 val _ = translate expsexp_def;
 val _ = translate type_defsexp_def;
