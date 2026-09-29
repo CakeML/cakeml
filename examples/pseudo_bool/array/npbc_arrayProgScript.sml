@@ -3,12 +3,14 @@
 *)
 Theory npbc_arrayProg
 Libs
-  preamble basis
+  preamble basis MapProgLib
 Ancestors
   UnsafeProg UnsafeProof npbc npbc_list pb_parse
 
 val _ = hide_environments true;
 val _ = translation_extends"UnsafeProg";
+
+val _ = MapProgLib.add_fmap_for_cmp miscTheory.TotOrd_num_cmp;
 
 Quote add_cakeml:
   exception Fail string;
@@ -4242,7 +4244,7 @@ val res = translate npbc_checkTheory.check_contradiction_fml_def;
 val res = translate npbc_checkTheory.insert_fml_def;
 
 val res = translate npbc_checkTheory.rup_pass1_def;
-val res = translate npbc_checkTheory.rup_pass2_def;
+val res = translate (npbc_checkTheory.rup_pass2_def |> REWRITE_RULE [GSYM fmap_update_def]);
 val res = translate npbc_checkTheory.update_assg_def;
 val res = translate npbc_checkTheory.model_bounding_def;
 val res = translate npbc_checkTheory.get_rup_constraint_def;
