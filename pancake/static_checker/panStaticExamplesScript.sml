@@ -5723,6 +5723,7 @@ val ex_addcarry_tail = `
 val parse_addcarry_tail =
   check_parse_failure $ parse_pancake ex_addcarry_tail;
 
+
 (* Error: Assignment to global value *)
 
 val ex_addcarry_global_dest = `
@@ -5823,9 +5824,10 @@ val static_not_field =
 val warns_not_field =
   check_static_no_warnings $ static_check_pancake parse_not_field;
 
+
 (* Error: shape mismatch in exception *)
 
-val ex_exception_shape_mismatch = `
+val ex_exception_throw_shape_mismatch = `
   exception Err : {1,1};
 
   fun 1 f () {
@@ -5833,16 +5835,17 @@ val ex_exception_shape_mismatch = `
   }
 `;
 
-val parse_exception_shape_mismatch =
-  check_parse_success $ parse_pancake ex_exception_shape_mismatch;
+val parse_exception_throw_shape_mismatch =
+  check_parse_success $ parse_pancake ex_exception_throw_shape_mismatch;
 
-val static_exception_shape_mismatch =
-  check_static_failure $ static_check_pancake parse_exception_shape_mismatch;
+val static_exception_throw_shape_mismatch =
+  check_static_failure $ static_check_pancake parse_exception_throw_shape_mismatch;
 
-val warns_exception_shape_mismatch =
-  check_static_no_warnings $ static_check_pancake parse_exception_shape_mismatch;
+val warns_exception_throw_shape_mismatch =
+  check_static_no_warnings $ static_check_pancake parse_exception_throw_shape_mismatch;
 
-val ex_exception_shape_mismatch2 = `
+
+val ex_exception_catch_shape_mismatch = `
   exception Err : {1,1};
 
   fun 1 f () {
@@ -5855,14 +5858,15 @@ val ex_exception_shape_mismatch2 = `
   }
 `;
 
-val parse_exception_shape_mismatch2 =
-  check_parse_success $ parse_pancake ex_exception_shape_mismatch2;
+val parse_exception_catch_shape_mismatch =
+  check_parse_success $ parse_pancake ex_exception_catch_shape_mismatch;
 
-val static_exception_shape_mismatch2 =
-  check_static_failure $ static_check_pancake parse_exception_shape_mismatch2;
+val static_exception_catch_shape_mismatch =
+  check_static_failure $ static_check_pancake parse_exception_catch_shape_mismatch;
 
-val warns_exception_shape_mismatch2 =
-  check_static_no_warnings $ static_check_pancake parse_exception_shape_mismatch2;
+val warns_exception_catch_shape_mismatch =
+  check_static_no_warnings $ static_check_pancake parse_exception_catch_shape_mismatch;
+
 
 val ex_undeclared_exception = `
   fun 1 f () {
