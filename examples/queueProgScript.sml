@@ -166,7 +166,7 @@ Proof
   xcf "full" st >> simp[QUEUE_def] >> xpull >> xs_auto_tac >>
   reverse (rw[]) >- EVAL_TAC (* validate_pat *) >>
   xlet_auto >- xsimpl >>
-  xapp_spec (cf_spec “:'ffi” Translator_spec eq_int_thm) >> xsimpl >>
+  xapp_spec (cf_spec (Context.snapshot()) “:'ffi” Translator_spec eq_int_thm) >> xsimpl >>
   fs[ml_translatorTheory.BOOL_def, ml_translatorTheory.NUM_def] >>
   rpt (goal_assum (first_assum o mp_then (Pos hd) mp_tac)) >>
   imp_res_tac LIST_REL_LENGTH >> simp[] >> metis_tac[]
