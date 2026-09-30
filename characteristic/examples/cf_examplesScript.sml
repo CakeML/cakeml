@@ -7,11 +7,13 @@ Ancestors
   ml_translator basisProg[qualified]
 Libs
   preamble ml_translatorLib cfTacticsBaseLib cfTacticsLib
-  ml_progLib basisFunctionsLib
+  ml_progLib basisFunctionsLib cfLetAutoLib
 
 val _ = translation_extends "basisProg"
 
 fun xcf' s = xcf_with_def (DB.fetch "-" (s ^ "_v_def"))
+
+val xlet_auto = cfLetAutoLib.xlet_auto
 
 Quote add_cakeml:
   fun example_let0 n = let val a = 3; in a end
@@ -22,9 +24,9 @@ val example_let0_v_def = DB.fetch "-" "example_let0_v_def"
 Theorem example_let0_spec[local]:
   !nv. app (p:'ffi ffi_proj) example_let0_v [nv] emp (POSTv v. & INT 3 v)
 Proof
-  strip_tac \\ xcf' "example_let0" \\ xlet `POSTv a. & INT 3 a`
+  strip_tac \\ xcf' "example_let0" \\ xlet_auto
   THEN1 (xret \\ xsimpl) \\
-  xret \\ xsimpl
+  xret \\ xsimpl \\ fs [NUM_def, INT_def]
 QED
 
 Quote add_cakeml:
@@ -376,8 +378,6 @@ QED
 Quote add_cakeml:
   fun strcat_foo r = r := !r ^ "foo"
 End
-
-val xlet_auto = cfLetAutoLib.xlet_auto
 
 Theorem strcat_foo_spec[local]:
   !rv sv s.
