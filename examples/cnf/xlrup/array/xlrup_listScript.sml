@@ -323,9 +323,6 @@ Proof
   rw[conv_xor_mv_list_def,conv_xor_mv_def,conv_rawxor_list]
 QED
 
-(* TODO: There is a minor optimization here if we inline
-  conv_rawxor into the addition in is_cfromx_list
-  so that the byte array is allocated only once *)
 Definition strxor_imp_cclause_list_def:
   strxor_imp_cclause_list mv s c =
   let t = conv_rawxor_list mv c in
@@ -339,6 +336,20 @@ Proof
   rw[strxor_imp_cclause_list_def,strxor_imp_cclause_def]>>
   simp[is_emp_xor_list,strxor_c]>>
   simp[MAP_MAP_o,o_DEF,conv_rawxor_list]
+QED
+
+(* The clause's XOR need not be built: flipping its bits into s gives
+  the same verdict *)
+Theorem strxor_imp_cclause_list_flip:
+  strxor_imp_cclause_list mv s c ⇔
+  is_emp_xor_list (conv_xor_aux_list (flip_bit_list (extend_s_list s 1) 0) c)
+Proof
+  simp[strxor_imp_cclause_list_def,conv_rawxor_list_def,
+    is_emp_xor_list_bit_list,bit_list_strxor_c,GSYM bit_list_get_bit]>>
+  ONCE_REWRITE_TAC[bit_list_conv_xor_aux_list]>>
+  qspecl_then[`s`,`1`] assume_tac LENGTH_extend_s_list>>
+  simp[bit_list_flip_bit_list,bit_list_REPLICATE_0w,bit_list_extend_s_list]>>
+  metis_tac[]
 QED
 
 Definition is_cfromx_list_def:
@@ -554,6 +565,182 @@ Proof
   simp[implode_REPLICATE_extend_s]>>
   rw[is_cfromx_vb_def]>>
   fs[strxor_imp_cclause_list]
+QED
+
+(*** The checks started from zero bytes of any length, as the array
+  checkers in xlrup_arrayProg do: the verdicts depend only on the bits
+  of the accumulator ***)
+
+Overload same_bits = ``λa b. ∀n. bit_list a n ⇔ bit_list b n``;
+
+Theorem bit_list_unit_prop_xor_list:
+  bit_list (unit_prop_xor_list tl s l) m ⇔
+  let k = any_el (Num (ABS l)) tl 0 in
+  if k = 0 then bit_list s m
+  else if l > 0 then
+    (if bit_list s k then ((m ≠ k ∧ bit_list s m) ⇎ m = 0)
+     else bit_list s m)
+  else m ≠ k ∧ bit_list s m
+Proof
+  qabbrev_tac`k = any_el (Num (ABS l)) tl 0`>>
+  simp[unit_prop_xor_list_def]>>
+  Cases_on`k = 0`>>simp[]>>
+  Cases_on`k < 8 * LENGTH s`
+  >- (
+    `k DIV 8 < LENGTH s` by simp[DIV_LT_X]>>
+    `bit_list s k ⇔ get_bit_list s k` by simp[bit_list_def]>>
+    `LENGTH (set_bit_list s k F) = LENGTH s` by simp[set_bit_list_def]>>
+    `0 < LENGTH s` by (Cases_on`s`>>fs[])>>
+    rw[bit_list_set_bit_list,bit_list_flip_bit_list]>>
+    metis_tac[])>>
+  `¬bit_list s k` by simp[bit_list_def,DIV_LT_X]>>
+  rw[]>>metis_tac[]
+QED
+
+Theorem add_xors_aux_c_list_same_bits:
+  ∀is a b.
+  same_bits a b ⇒
+  OPTREL same_bits
+    (add_xors_aux_c_list fml is a) (add_xors_aux_c_list fml is b)
+Proof
+  Induct>>rw[add_xors_aux_c_list_def]>>
+  TOP_CASE_TAC>>simp[]>>
+  first_x_assum irule>>
+  simp[bit_list_strxor_c]
+QED
+
+Theorem add_xors_aux_vb_list_same_bits:
+  ∀fml s i len a b.
+  same_bits a b ⇒
+  OPTREL same_bits
+    (add_xors_aux_vb_list fml s i len a) (add_xors_aux_vb_list fml s i len b)
+Proof
+  ho_match_mp_tac add_xors_aux_vb_list_ind>>rw[]>>
+  ONCE_REWRITE_TAC[add_xors_aux_vb_list_def]>>
+  Cases_on`parse_vb_int s i len`>>simp[]>>
+  IF_CASES_TAC>>simp[]>>
+  TOP_CASE_TAC>>simp[]>>
+  first_x_assum irule>>
+  simp[bit_list_strxor_c]
+QED
+
+Theorem FOLDL_unit_prop_xor_list_same_bits:
+  ∀cs a b.
+  same_bits a b ⇒
+  same_bits
+    (FOLDL (unit_prop_xor_list tl) a cs) (FOLDL (unit_prop_xor_list tl) b cs)
+Proof
+  Induct>>rw[]>>
+  first_x_assum irule>>
+  gvs[bit_list_unit_prop_xor_list]
+QED
+
+Theorem is_xor_list_zeros:
+  EVERY ($= 0w) zs ⇒
+  (is_xor_list def fml is cfml cis tl s ⇔
+   case add_xors_aux_c_list fml is (strxor_c zs s) of
+     NONE => F
+   | SOME x =>
+     case unit_props_xor_list cfml tl cis x of
+       NONE => F
+     | SOME y => is_emp_xor_list y)
+Proof
+  strip_tac>>
+  `∀n. ¬bit_list zs n` by
+    metis_tac[is_emp_xor_list_bit_list,is_emp_xor_list_def]>>
+  `same_bits (strxor_c (REPLICATE def 0w) s) (strxor_c zs s)` by
+    simp[bit_list_strxor_c,bit_list_REPLICATE_0w]>>
+  drule add_xors_aux_c_list_same_bits>>
+  disch_then (qspecl_then[`fml`,`is`] mp_tac)>>
+  simp[is_xor_list_def]>>
+  Cases_on`add_xors_aux_c_list fml is (strxor_c zs s)`>>
+  Cases_on`add_xors_aux_c_list fml is (strxor_c (REPLICATE def 0w) s)`>>
+  simp[optionTheory.OPTREL_def]>>
+  strip_tac>>simp[unit_props_xor_list_def]>>
+  Cases_on`get_units_list cfml cis []`>>simp[is_emp_xor_list_bit_list]>>
+  drule FOLDL_unit_prop_xor_list_same_bits>>simp[]
+QED
+
+Theorem is_xor_vb_list_zeros:
+  EVERY ($= 0w) zs ⇒
+  (is_xor_vb_list def fml s1 cfml s2 tl s ⇔
+   case add_xors_aux_vb_list fml s1 0 (strlen s1) (strxor_c zs s) of
+     NONE => F
+   | SOME x =>
+     case unit_props_xor_vb_list cfml tl s2 x of
+       NONE => F
+     | SOME y => is_emp_xor_list y)
+Proof
+  strip_tac>>
+  `∀n. ¬bit_list zs n` by
+    metis_tac[is_emp_xor_list_bit_list,is_emp_xor_list_def]>>
+  `same_bits (strxor_c (REPLICATE def 0w) s) (strxor_c zs s)` by
+    simp[bit_list_strxor_c,bit_list_REPLICATE_0w]>>
+  drule add_xors_aux_vb_list_same_bits>>
+  disch_then (qspecl_then[`fml`,`s1`,`0`,`strlen s1`] mp_tac)>>
+  simp[is_xor_vb_list_def]>>
+  Cases_on`add_xors_aux_vb_list fml s1 0 (strlen s1) (strxor_c zs s)`>>
+  Cases_on`add_xors_aux_vb_list fml s1 0 (strlen s1)
+    (strxor_c (REPLICATE def 0w) s)`>>
+  simp[optionTheory.OPTREL_def]>>
+  strip_tac>>simp[unit_props_xor_vb_list_def]>>
+  Cases_on`get_units_vb_list cfml s2 0 (strlen s2) []`>>
+  simp[is_emp_xor_list_bit_list]>>
+  drule FOLDL_unit_prop_xor_list_same_bits>>simp[]
+QED
+
+Theorem is_cfromx_list_zeros:
+  EVERY ($= 0w) zs ⇒
+  (is_cfromx_list def fml is c ⇔
+   case add_xors_aux_c_list fml is zs of
+     NONE => F
+   | SOME x =>
+     is_emp_xor_list
+       (conv_xor_aux_list (flip_bit_list (extend_s_list x 1) 0) c))
+Proof
+  strip_tac>>
+  `∀n. ¬bit_list zs n` by
+    metis_tac[is_emp_xor_list_bit_list,is_emp_xor_list_def]>>
+  `same_bits (REPLICATE def 0w) zs` by simp[bit_list_REPLICATE_0w]>>
+  drule add_xors_aux_c_list_same_bits>>
+  disch_then (qspecl_then[`fml`,`is`] mp_tac)>>
+  simp[is_cfromx_list_def,strxor_imp_cclause_list_flip]>>
+  Cases_on`add_xors_aux_c_list fml is zs`>>
+  Cases_on`add_xors_aux_c_list fml is (REPLICATE def 0w)`>>
+  simp[optionTheory.OPTREL_def]>>
+  strip_tac>>
+  simp[is_emp_xor_list_bit_list]>>
+  ONCE_REWRITE_TAC[bit_list_conv_xor_aux_list]>>
+  qspecl_then[`x`,`1`] assume_tac LENGTH_extend_s_list>>
+  qspecl_then[`x'`,`1`] assume_tac LENGTH_extend_s_list>>
+  gvs[bit_list_flip_bit_list,bit_list_extend_s_list]
+QED
+
+Theorem is_cfromx_vb_list_zeros:
+  EVERY ($= 0w) zs ⇒
+  (is_cfromx_vb_list def fml s c ⇔
+   case add_xors_aux_vb_list fml s 0 (strlen s) zs of
+     NONE => F
+   | SOME x =>
+     is_emp_xor_list
+       (conv_xor_aux_list (flip_bit_list (extend_s_list x 1) 0) c))
+Proof
+  strip_tac>>
+  `∀n. ¬bit_list zs n` by
+    metis_tac[is_emp_xor_list_bit_list,is_emp_xor_list_def]>>
+  `same_bits (REPLICATE def 0w) zs` by simp[bit_list_REPLICATE_0w]>>
+  drule add_xors_aux_vb_list_same_bits>>
+  disch_then (qspecl_then[`fml`,`s`,`0`,`strlen s`] mp_tac)>>
+  simp[is_cfromx_vb_list_def,strxor_imp_cclause_list_flip]>>
+  Cases_on`add_xors_aux_vb_list fml s 0 (strlen s) zs`>>
+  Cases_on`add_xors_aux_vb_list fml s 0 (strlen s) (REPLICATE def 0w)`>>
+  simp[optionTheory.OPTREL_def]>>
+  strip_tac>>
+  simp[is_emp_xor_list_bit_list]>>
+  ONCE_REWRITE_TAC[bit_list_conv_xor_aux_list]>>
+  qspecl_then[`x`,`1`] assume_tac LENGTH_extend_s_list>>
+  qspecl_then[`x'`,`1`] assume_tac LENGTH_extend_s_list>>
+  gvs[bit_list_flip_bit_list,bit_list_extend_s_list]
 QED
 
 Definition get_constrs_vb_list_def:

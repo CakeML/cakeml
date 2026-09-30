@@ -247,3 +247,160 @@ Proof
   simp[MAP_MAP_o,o_DEF]>>
   rw[extend_s_def]
 QED
+
+(*** Bit n of a byte list, reading 0 past its end, and the operations
+  above characterised bit by bit ***)
+
+Definition bit_list_def:
+  bit_list (s:word8 list) n ⇔
+  n DIV 8 < LENGTH s ∧ get_bit_list s n
+End
+
+Theorem bit_list_get_bit:
+  bit_list s n = get_bit (implode (MAP fromByte s)) n
+Proof
+  rw[bit_list_def]>>
+  Cases_on`n DIV 8 < LENGTH s`>>simp[get_bit_list]>>
+  simp[get_bit_def,get_char_def,get_bit_char_def]>>
+  EVAL_TAC>>
+  irule wordsTheory.word_0>>simp[]
+QED
+
+Theorem bit_list_REPLICATE_0w:
+  ¬bit_list (REPLICATE k 0w) n
+Proof
+  rw[bit_list_def,get_bit_list_def]>>
+  Cases_on`n DIV 8 < k`>>simp[EL_REPLICATE,wordsTheory.word_0]
+QED
+
+Theorem is_emp_xor_list_bit_list:
+  is_emp_xor_list s ⇔ ∀n. ¬bit_list s n
+Proof
+  rw[is_emp_xor_list_def,bit_list_def,get_bit_list_def,EVERY_EL,EQ_IMP_THM]
+  >- (
+    Cases_on`n DIV 8 < LENGTH s`>>gvs[]>>
+    irule wordsTheory.word_0>>simp[])>>
+  rw[fcpTheory.CART_EQ,wordsTheory.word_0]>>
+  first_x_assum (qspec_then`n * 8 + i` mp_tac)>>
+  simp[arithmeticTheory.DIV_MULT,arithmeticTheory.MOD_MULT]
+QED
+
+Theorem strxor_aux_1_EL[local]:
+  ∀ds cs i.
+  LENGTH ds ≤ LENGTH cs ⇒
+  LENGTH (strxor_aux_1 cs ds) = LENGTH cs ∧
+  (i < LENGTH cs ⇒
+   EL i (strxor_aux_1 cs ds) =
+   if i < LENGTH ds then EL i cs ⊕ toByte (EL i ds) else EL i cs)
+Proof
+  Induct>>rw[strxor_aux_1_def]>>
+  Cases_on`cs`>>fs[strxor_aux_1_def]>>
+  Cases_on`i`>>fs[]
+QED
+
+Theorem bit_list_strxor_c:
+  bit_list (strxor_c s t) n ⇔ (bit_list s n ⇎ get_bit t n)
+Proof
+  Cases_on`t`>>simp[strxor_c_def]>>
+  DEP_REWRITE_TAC[strxor_aux_c]>>rw[]>>
+  simp[bit_list_def,get_bit_list_def,get_bit_def,get_char_def,
+    get_bit_char_def]
+  >- (
+    qspecl_then[`s'`,`s`,`n DIV 8`] mp_tac strxor_aux_1_EL>>
+    rw[]>>Cases_on`n DIV 8 < STRLEN s'`>>
+    gvs[wordsTheory.word_xor_def,fcpTheory.FCP_BETA,wordsTheory.word_0,
+      toByte_def]
+    >- metis_tac[]>>
+    Cases_on`n DIV 8 < LENGTH s`>>gvs[])>>
+  qspecl_then[`s'`,`s ++ REPLICATE (STRLEN s' − LENGTH s) 0w`,`n DIV 8`]
+    mp_tac strxor_aux_1_EL>>
+  rw[]>>Cases_on`n DIV 8 < LENGTH s`>>
+  gvs[EL_APPEND_EQN,EL_REPLICATE,wordsTheory.word_xor_def,fcpTheory.FCP_BETA,
+    wordsTheory.word_0,toByte_def]>>
+  metis_tac[]
+QED
+
+Theorem flip_bit_word_bit[local]:
+  i < 8 ∧ r < 8 ⇒ (flip_bit_word w r ' i ⇔ (w ' i ⇎ i = r))
+Proof
+  rw[flip_bit_word_def,word_or_def,word_and_def,word_1comp_def,
+    word_lsl_def,fcpTheory.FCP_BETA,word_index]>>
+  Cases_on`i = r`>>fs[]
+QED
+
+Theorem set_bit_word_bit[local]:
+  i < 8 ∧ r < 8 ⇒ (set_bit_word w r b ' i ⇔ if i = r then b else w ' i)
+Proof
+  rw[set_bit_word_def,word_or_def,word_and_def,word_1comp_def,
+    word_lsl_def,fcpTheory.FCP_BETA,word_index]>>
+  fs[]
+QED
+
+Theorem DIV_MOD_8_eq[local]:
+  (n DIV 8 = k DIV 8 ∧ n MOD 8 = k MOD 8) ⇔ n = k
+Proof
+  rw[EQ_IMP_THM]>>
+  qspec_then`8` mp_tac arithmeticTheory.DIVISION>>simp[]>>
+  metis_tac[]
+QED
+
+Theorem bit_list_flip_bit_list:
+  k DIV 8 < LENGTH s ⇒
+  (bit_list (flip_bit_list s k) n ⇔ (bit_list s n ⇎ n = k))
+Proof
+  rw[bit_list_def,flip_bit_list_def,get_bit_list_def,EL_LUPDATE]>>
+  Cases_on`n DIV 8 = k DIV 8`>>gvs[flip_bit_word_bit]>>
+  metis_tac[DIV_MOD_8_eq]
+QED
+
+Theorem bit_list_set_bit_list:
+  k DIV 8 < LENGTH s ⇒
+  (bit_list (set_bit_list s k b) n ⇔ if n = k then b else bit_list s n)
+Proof
+  rw[bit_list_def,set_bit_list_def,get_bit_list_def,EL_LUPDATE]>>
+  Cases_on`n DIV 8 = k DIV 8`>>gvs[set_bit_word_bit]>>
+  rw[]>>metis_tac[DIV_MOD_8_eq]
+QED
+
+Theorem bit_list_extend_s_list:
+  bit_list (extend_s_list s m) n ⇔ bit_list s n
+Proof
+  rw[extend_s_list_def,bit_list_def,get_bit_list_def,EL_APPEND_EQN,
+    EL_REPLICATE]>>
+  Cases_on`n DIV 8 < LENGTH s`>>gvs[]>>
+  Cases_on`n DIV 8 < m`>>simp[EL_REPLICATE,wordsTheory.word_0]
+QED
+
+Theorem LENGTH_extend_s_list:
+  ∀s n.
+  n ≤ LENGTH (extend_s_list s n) ∧ LENGTH s ≤ LENGTH (extend_s_list s n)
+Proof
+  rw[extend_s_list_def]
+QED
+
+Theorem LENGTH_flip_bit_list[simp]:
+  LENGTH (flip_bit_list s n) = LENGTH s
+Proof
+  rw[flip_bit_list_def]
+QED
+
+Theorem bit_list_conv_xor_aux_list:
+  ∀xs s.
+  bit_list (conv_xor_aux_list s xs) n ⇔
+  (bit_list s n ⇎ bit_list (conv_xor_aux_list [] xs) n)
+Proof
+  Induct
+  >- simp[conv_xor_aux_list_def,bit_list_def]>>
+  rpt gen_tac>>
+  ONCE_REWRITE_TAC[conv_xor_aux_list_def]>>
+  simp_tac std_ss [LET_THM]>>
+  Cases_on`h > 0`>>
+  pop_assum (fn th => REWRITE_TAC[th])>>
+  first_assum (fn th => ONCE_REWRITE_TAC[th])>>
+  pop_assum kall_tac>>
+  qspecl_then[`s`,`Num (ABS h) DIV 8 + 1`] assume_tac LENGTH_extend_s_list>>
+  qspecl_then[`[]`,`Num (ABS h) DIV 8 + 1`] assume_tac LENGTH_extend_s_list>>
+  gvs[bit_list_flip_bit_list,bit_list_extend_s_list]>>
+  `¬bit_list [] n` by simp[bit_list_def]>>
+  metis_tac[]
+QED
