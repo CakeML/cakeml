@@ -412,9 +412,10 @@ QED
 
 val usage_string = ‘
 
-Usage:  cake_xlrup <CNF-XOR formula file> <optional: XLRUP proof file>
+Usage:  cake_xlrup [--binary|--no-binary] [--] <CNF-XOR formula file> <optional: XLRUP proof file>
 
 Run XLRUP unsatisfiability proof checking (if proof is given)
+The proof file is read in binary format unless --no-binary is given.
 
 ’
 
@@ -475,16 +476,18 @@ val r = translate to_cclause_def;
 val r = translate conv_cfml_def;
 
 (*
-  Checker takes up to 2 arguments:
-  2 args (CNF XOR file, proof file):
-    parse CNF XOR, run proof, report UNSAT (or error)
+  Checker takes up to 2 file arguments:
+  1 file (CNF XOR file): parse and print the formula
+  2 files (CNF XOR file, proof file):
+    parse CNF XOR, run proof, report UNSAT (or error);
+    b selects the binary (T) or text (F) proof format
 
   The RUP assignment array is indexed by the ORIGINAL variable, so mv+1
   slots suffice for the initial formula (every literal satisfies
   var_lit l ≤ mv by check_maxvar). It grows on demand thereafter.
 *)
 Quote add_cakeml:
-  fun check_unsat_2 f1 f2 =
+  fun check_unsat_2 f1 f2 b =
   case parse_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (mv,(ncx,(cfml,xfml))) =>
@@ -494,7 +497,7 @@ Quote add_cakeml:
       val tn = (Array.array 0 0, 1)
       val bnd = mv + 1
   in
-    case check_unsat' xfml carr xarr tn 0 f2 bnd of
+    case check_unsat' xfml carr xarr tn 0 f2 bnd b of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr b =>
       if b then
@@ -584,11 +587,44 @@ Proof
   xsimpl
 QED
 
+(* Separates the options from the file names. b is the binary option,
+  set by --binary and cleared by --no-binary; the last one given wins.
+  A bare -- ends the options; any other argument starting with -- before
+  it is unknown and gives NONE. *)
+Definition split_flags_def:
+  split_flags b [] = (SOME b, []) ∧
+  split_flags b (a::as) =
+    if a = «--» then (SOME b, as)
+    else if a = «--binary» then split_flags T as
+    else if a = «--no-binary» then split_flags F as
+    else if isPrefix «--» a then (NONE, [])
+    else
+      case split_flags b as of (r, ps) => (r, a::ps)
+End
+
+val _ = translate split_flags_def;
+
+Theorem split_flags_MEM:
+  ∀as b r ps x. split_flags b as = (r, ps) ∧ MEM x ps ⇒ MEM x as
+Proof
+  Induct>>
+  rw[split_flags_def]>>
+  gvs[]
+  >~ [`¬isPrefix _ _`]
+  >- (
+    Cases_on`split_flags b as`>>
+    gvs[]>>
+    qpat_x_assum`∀b r ps x. _`drule_all>>
+    simp[])>>
+  qpat_x_assum`∀b r ps x. _`drule_all>>
+  simp[]
+QED
+
 Quote add_cakeml:
   fun check_unsat u =
-  case CommandLine.arguments () of
-    [f1] => check_unsat_1 f1
-  | [f1,f2] => check_unsat_2 f1 f2
+  case split_flags True (CommandLine.arguments ()) of
+    (Some b, [f1]) => check_unsat_1 f1
+  | (Some b, [f1,f2]) => check_unsat_2 f1 f2 b
   | _ => TextIO.output TextIO.stdErr (mk_usage_string usage_string)
 End
 
@@ -602,10 +638,11 @@ End
 Theorem check_unsat_2_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
   STRING_TYPE f2 f2v ∧ validArg f2 ∧
+  BOOL b bv ∧
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) ^(fetch_v"check_unsat_2"(get_ml_prog_state()))
-    [f1v; f2v]
+    [f1v; f2v; bv]
     (STDIO fs)
     (POSTv uv. &UNIT_TYPE () uv *
     SEP_EXISTS out err.
@@ -642,7 +679,7 @@ Proof
     qmatch_asmsub_rename_tac`_ = Conv NONE [tna; _]`>>
     qexistsl_tac
       [`emp`,`xfml`,`REPLICATE ncl NONE`,`1`,`[]`,`[]`,`tna`,`mv+1`,`fs`,`f2`,
-       `build_cfml_list 1 (conv_cfml cfml) (2*ncl)`]>>
+       `build_cfml_list 1 (conv_cfml cfml) (2*ncl)`,`b`]>>
     xsimpl>>
     fs[FILENAME_def,validArg_def]>>
     rpt CONJ_TAC
@@ -657,19 +694,20 @@ Proof
     first_x_assum (irule_at Any)>>
     rw[]>>
     gvs[AllCaseEqs()]>>
+    Cases_on`b`>>
+    gvs[run_xlrup_file_def,parse_and_run_file_list_b_eq,
+      parse_and_run_file_list_eq,AllCaseEqs()]>>
+    qmatch_asmsub_rename_tac`check_xlrups_list _ _ _ _ _ _ _ _ = SOME res`>>
+    PairCases_on`res`>>gvs[]>>
+    imp_res_tac parse_xlrupsb_wf>>
+    imp_res_tac parse_xlrups_wf>>
+    `EVERY (EVERY nz_lit) cfml` by metis_tac[parse_cnf_ext_toks_nz_lit]>>
     irule check_xlrups_unsat_list_sound>>
     simp[check_xlrups_unsat_list_def]>>
-    CONJ_TAC >- metis_tac[parse_cnf_ext_toks_nz_lit]>>
-    qexists_tac`0`>>
-    qexists_tac`1`>>
-    qexists_tac`mv+1`>>
-    qexists_tac`2*ncl`>>
-    qexists_tac`ncl`>>
-    qexists_tac`xlrup`>>
-    fs[]>>
-    drule parse_xlrups_wf>>
-    simp[])>>
-  namedCases_on`res` ["err","b"]>>fs[SUM_TYPE_def]
+    qexistsl_tac
+      [`0`,`1`,`mv+1`,`2*ncl`,`ncl`,`xlrups`,`build_xorig_map xfml`]>>
+    simp[FDOM_build_xorig_map])>>
+  namedCases_on`res` ["err","r"]>>fs[SUM_TYPE_def]
   >- (
     xmatch>>err_tac no_out)>>
   xmatch>>
@@ -693,9 +731,10 @@ QED
 
 Definition check_unsat_sem_def:
   check_unsat_sem fs cl out ⇔
-  if LENGTH cl = 2 then check_unsat_1_sem fs (EL 1 cl) out
-  else if LENGTH cl = 3 then check_unsat_2_sem fs (EL 1 cl) out
-  else out = «»
+  case split_flags T (TL cl) of
+    (SOME b, [f1]) => check_unsat_1_sem fs f1 out
+  | (SOME b, [f1; f2]) => check_unsat_2_sem fs f1 out
+  | _ => out = «»
 End
 
 Theorem check_unsat_spec:
@@ -715,41 +754,50 @@ Proof
   reverse (Cases_on `STD_streams fs`)
   >- (fs [TextIOProofTheory.STDIO_def]>>xpull)>>
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def]>>xpull)>>
-  rpt xlet_autop >>
-  Cases_on `cl` >- fs[wfcl_def] >>
-  Cases_on`t`>>fs[LIST_TYPE_def]
-  >- (
-    xmatch>>
-    assume_tac (theorem "usage_string_v_thm")>>
-    xlet_autop>>
-    xapp_spec output_stderr_spec>>xsimpl>>
-    rename1`COMMANDLINE cl`>>
-    qexists_tac`COMMANDLINE cl`>>xsimpl>>
-    qexists_tac`mk_usage_string usage_string`>>
-    simp[]>>
-    qexists_tac`fs`>>xsimpl>>
+  rpt xlet_autop>>
+  `BOOL T v` by
+    simp[BOOL_def,semanticPrimitivesTheory.Boolv_def,
+      semanticPrimitivesTheory.bool_type_num_def]>>
+  xlet_autop>>
+  Cases_on`split_flags T (TL cl)`>>
+  rename1`split_flags T (TL cl) = (fl,ps)`>>
+  `∀x. MEM x ps ⇒ validArg x` by (
     rw[]>>
-    fs[STD_streams_add_stderr,STD_streams_stdout,add_stdo_nil]>>
-    metis_tac[STDIO_refl])>>
-  Cases_on`t'`>>fs[LIST_TYPE_def]
+    drule_all split_flags_MEM>>
+    Cases_on`cl`>>gvs[wfcl_def,EVERY_MEM])>>
+  `ps = [] ∨ (∃f1. ps = [f1]) ∨ (∃f1 f2. ps = [f1; f2]) ∨
+   (∃f1 f2 f3 rest. ps = f1::f2::f3::rest)` by (
+    namedCases_on`ps` ["","f1 t1"]>>simp[]>>
+    namedCases_on`t1` ["","f2 t2"]>>simp[]>>
+    namedCases_on`t2` ["","f3 t3"]>>simp[])>>
+  `fl = NONE ∨ ∃b. fl = SOME b` by (Cases_on`fl`>>simp[])>>
+  gvs[PAIR_TYPE_def,OPTION_TYPE_def,LIST_TYPE_def]>>
+  xmatch
+  >~ [`check_unsat_1_sem`]
   >- (
-    xmatch>>
-    xapp>>rw[]>>
-    rpt(first_x_assum (irule_at Any)>>xsimpl)>>
-    fs[wfcl_def]>>
-    rw[]>>metis_tac[STDIO_refl])>>
-  Cases_on`t`>>fs[LIST_TYPE_def]
+    xapp>>
+    xsimpl>>
+    qexistsl_tac [`COMMANDLINE cl`,`fs`,`f1`]>>
+    xsimpl>>
+    rw[]>>
+    first_x_assum (irule_at Any)>>
+    qmatch_goalsub_rename_tac`STDIO (add_stdout (add_stderr fs err) _) ==>> _`>>
+    qexists_tac`err`>>
+    xsimpl)
+  >~ [`check_unsat_2_sem`]
   >- (
-    xmatch>>
-    xapp>>rw[]>>
-    rpt(first_x_assum (irule_at Any)>>xsimpl)>>
-    fs[wfcl_def]>>
-    rw[]>>metis_tac[STDIO_refl])>>
-  xmatch>>
+    xapp>>
+    xsimpl>>
+    qexistsl_tac [`COMMANDLINE cl`,`fs`,`f1`,`b`,`f2`]>>
+    xsimpl>>
+    rw[]>>
+    first_x_assum (irule_at Any)>>
+    qmatch_goalsub_rename_tac`STDIO (add_stdout (add_stderr fs err) _) ==>> _`>>
+    qexists_tac`err`>>
+    xsimpl)>>
   assume_tac (theorem "usage_string_v_thm")>>
   xlet_autop>>
   xapp_spec output_stderr_spec>>xsimpl>>
-  rename1`COMMANDLINE cl`>>
   qexists_tac`COMMANDLINE cl`>>xsimpl>>
   qexists_tac`mk_usage_string usage_string`>>
   simp[]>>

@@ -50,6 +50,19 @@ Datatype:
     (* Derive a clause from hint XORs *)
   | XFromC num rawxor (num list)
     (* Derive an XOR from hint clauses *)
+
+  (* The binary format. Its steps carry the deleted and hint ids as the
+    raw variable-byte encoded chunks they were read from. *)
+  | Delvb mlstring
+    (* Delvb s : delete the clauses with the ids encoded in s after its tag *)
+  | RUPvb num vcclause mlstring
+    (* RUPvb n C s : derive clause C by RUP using the hints encoded in s *)
+  | XAddvb num rawxor mlstring mlstring
+    (* XAddvb n X xs cs : as XAdd, with XOR hints in xs and clause hints in cs *)
+  | XDelvb mlstring
+    (* XDelvb s : delete the XORs whose ids are encoded in s after its tag *)
+  | CFromXvb num cclause mlstring
+  | XFromCvb num rawxor mlstring
 End
 
 (* XOrig lines carry num lits, the rest carry ilits, so the same
@@ -60,6 +73,9 @@ Definition wf_xlrup_def:
   (wf_xlrup (CFromX n C i0) ⇔ nz_ilits C) ∧
   (wf_xlrup (XFromC n X i0) ⇔ nz_ilits X) ∧
   (wf_xlrup (XOrig n rX) ⇔ EVERY nz_lit rX) ∧
+  (wf_xlrup (RUPvb n C s) ⇔ nz_ilits (toList C)) ∧
+  (wf_xlrup (CFromXvb n C s) ⇔ nz_ilits C) ∧
+  (wf_xlrup (XFromCvb n X s) ⇔ nz_ilits X) ∧
   (wf_xlrup _ ⇔ T)
 End
 
@@ -177,6 +193,191 @@ Definition is_xfromc_def:
     check_rawxor_imp ds rx
 End
 
+(*** The binary format's hint walkers.
+
+  Each one reads its ids from the raw chunk s between bytes i and len
+  with parse_vb_int, as delete_ids_vb does, and is otherwise the list
+  function above. Ids are doubled, so a non-positive value ends the
+  chunk. ***)
+
+Definition add_xors_aux_vb_def:
+  add_xors_aux_vb fml s i len acc =
+  let (m,i) = parse_vb_int s i len in
+  if m ≤ 0 then SOME acc
+  else
+  case FLOOKUP fml (Num m) of NONE => NONE
+  | SOME x =>
+    add_xors_aux_vb fml s i len (strxor acc x)
+Termination
+  WF_REL_TAC` measure (λ(f,s,i,len,acc). len-i)`>>
+  rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
+  UNCURRY_EQ,AllCaseEqs()] >> rveq >>
+  fs[] >>
+  last_x_assum (assume_tac o GSYM) >>
+  drule_all parse_vb_num_aux_i >>
+  fs[]
+End
+
+Theorem add_xors_aux_vb:
+  ∀fml s i len acc r.
+  add_xors_aux_vb fml s i len acc = SOME r ⇒
+  ∃is. add_xors_aux fml is acc = SOME r
+Proof
+  ho_match_mp_tac add_xors_aux_vb_ind>>
+  rw[]>>
+  pop_assum mp_tac>>
+  simp[Once add_xors_aux_vb_def]>>
+  pairarg_tac>>gvs[]>>
+  IF_CASES_TAC>>simp[]
+  >- (rw[]>>qexists_tac`[]`>>simp[add_xors_aux_def])>>
+  simp[AllCaseEqs()]>>strip_tac>>gvs[]>>
+  qexists_tac`Num m::is`>>simp[add_xors_aux_def]
+QED
+
+Definition get_units_vb_def:
+  get_units_vb fml s i len cs =
+  let (m,i) = parse_vb_int s i len in
+  if m ≤ 0 then SOME cs
+  else
+  case FLOOKUP fml (Num m) of
+    SOME v =>
+      if length v = 1
+      then get_units_vb fml s i len (sub v 0::cs)
+      else NONE
+  | NONE => NONE
+Termination
+  WF_REL_TAC` measure (λ(f,s,i,len,cs). len-i)`>>
+  rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
+  UNCURRY_EQ,AllCaseEqs()] >> rveq >>
+  fs[] >>
+  last_x_assum (assume_tac o GSYM) >>
+  drule_all parse_vb_num_aux_i >>
+  fs[]
+End
+
+Theorem get_units_vb:
+  ∀fml s i len cs cs'.
+  get_units_vb fml s i len cs = SOME cs' ⇒
+  ∃is. get_units fml is cs = SOME cs'
+Proof
+  ho_match_mp_tac get_units_vb_ind>>
+  rw[]>>
+  pop_assum mp_tac>>
+  simp[Once get_units_vb_def]>>
+  pairarg_tac>>gvs[]>>
+  IF_CASES_TAC>>simp[]
+  >- (rw[]>>qexists_tac`[]`>>simp[get_units_def])>>
+  simp[AllCaseEqs()]>>strip_tac>>gvs[]>>
+  qexists_tac`Num m::is`>>simp[get_units_def]
+QED
+
+Definition unit_props_xor_vb_def:
+  unit_props_xor_vb fml t s x =
+  case get_units_vb fml s 0 (strlen s) [] of NONE => NONE
+  | SOME cs =>
+    SOME (FOLDL (unit_prop_xor t) x cs)
+End
+
+Definition is_xor_vb_def:
+  is_xor_vb def fml s1 cfml s2 t x =
+  let r = extend_s «» def in
+  case add_xors_aux_vb fml s1 0 (strlen s1) (strxor r x)
+    of NONE => F
+  | SOME y =>
+    case unit_props_xor_vb cfml t s2 y of
+      NONE => F
+    | SOME z => is_emp_xor z
+End
+
+Theorem is_xor_vb:
+  is_xor_vb def fml s1 cfml s2 t x ⇒
+  ∃is cis. is_xor def fml is cfml cis t x
+Proof
+  rw[is_xor_vb_def,is_xor_def]>>
+  gvs[AllCasePreds(),unit_props_xor_vb_def,unit_props_xor_def]>>
+  drule add_xors_aux_vb>>strip_tac>>
+  gvs[AllCaseEqs()]>>
+  drule get_units_vb>>strip_tac>>
+  simp[AllCaseEqs()]>>
+  rpt (first_x_assum (irule_at Any))>>
+  simp[]
+QED
+
+Definition is_cfromx_vb_def:
+  is_cfromx_vb def fml s c =
+  let r = extend_s «» def in
+  case add_xors_aux_vb fml s 0 (strlen s) r of NONE => F
+  | SOME x =>
+    strxor_imp_cclause def x c
+End
+
+Theorem is_cfromx_vb:
+  is_cfromx_vb def fml s c ⇒
+  ∃is. is_cfromx def fml is c
+Proof
+  rw[is_cfromx_vb_def,is_cfromx_def]>>
+  gvs[AllCasePreds()]>>
+  drule add_xors_aux_vb>>strip_tac>>
+  simp[AllCasePreds()]>>
+  first_x_assum (irule_at Any)>>
+  simp[]
+QED
+
+Definition get_constrs_vb_def:
+  get_constrs_vb fml s i len =
+  let (m,i) = parse_vb_int s i len in
+  if m ≤ 0 then SOME []
+  else
+  case FLOOKUP fml (Num m) of
+    NONE => NONE
+  | SOME Ci =>
+    (case get_constrs_vb fml s i len of NONE => NONE
+    | SOME Cs => SOME (toList Ci::Cs))
+Termination
+  WF_REL_TAC` measure (λ(f,s,i,len). len-i)`>>
+  rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
+  UNCURRY_EQ,AllCaseEqs()] >> rveq >>
+  fs[] >>
+  last_x_assum (assume_tac o GSYM) >>
+  drule_all parse_vb_num_aux_i >>
+  fs[]
+End
+
+Theorem get_constrs_vb:
+  ∀fml s i len ds.
+  get_constrs_vb fml s i len = SOME ds ⇒
+  ∃is. get_constrs fml is = SOME ds
+Proof
+  ho_match_mp_tac get_constrs_vb_ind>>
+  rw[]>>
+  pop_assum mp_tac>>
+  simp[Once get_constrs_vb_def]>>
+  pairarg_tac>>gvs[]>>
+  IF_CASES_TAC>>simp[]
+  >- (rw[]>>qexists_tac`[]`>>simp[get_constrs_def])>>
+  simp[AllCaseEqs()]>>strip_tac>>gvs[]>>
+  qexists_tac`Num m::is`>>simp[get_constrs_def]
+QED
+
+Definition is_xfromc_vb_def:
+  is_xfromc_vb fml s rx =
+  case get_constrs_vb fml s 0 (strlen s) of NONE => F
+  | SOME ds =>
+    check_rawxor_imp ds rx
+End
+
+Theorem is_xfromc_vb:
+  is_xfromc_vb fml s rx ⇒
+  ∃is. is_xfromc fml is rx
+Proof
+  rw[is_xfromc_vb_def,is_xfromc_def]>>
+  gvs[AllCasePreds()]>>
+  drule get_constrs_vb>>strip_tac>>
+  simp[AllCasePreds()]>>
+  first_x_assum (irule_at Any)>>
+  simp[]
+QED
+
 Definition conv_xor_mv_def:
   conv_xor_mv mv x =
   conv_rawxor mv (MAP to_ilit x)
@@ -248,6 +449,33 @@ Definition check_xlrup_def:
       let X = conv_rawxor def mX in
       SOME (cfml, xfml |+ (n,X), tn, MAX def (strlen X))
     else NONE
+  | Delvb s =>
+    (* The tag occupies one byte, so the ids start at 1 *)
+    SOME (delete_ids_vb cfml s 1 (strlen s), xfml, tn, def)
+  | RUPvb n C s =>
+    if is_rup_vb cfml C s then
+      SOME (insert_vcc cfml n C, xfml, tn, def)
+    else NONE
+  | XAddvb n rX s1 s2 =>
+    let (mX,tn) = ren_int_ls tn rX [] in
+    let X = conv_rawxor def mX in
+    if is_xor_vb def xfml s1 cfml s2 (FST tn) X then
+      SOME (cfml, xfml |+ (n,X), tn, MAX def (strlen X))
+    else NONE
+  | XDelvb s =>
+    (* The tag occupies two bytes, so the ids start at 2 *)
+    SOME (cfml, delete_ids_vb xfml s 2 (strlen s), tn, def)
+  | CFromXvb n C s =>
+    let (mC,tn) = ren_int_ls tn C [] in
+    if is_cfromx_vb def xfml s mC then
+      SOME (insert_vcc cfml n (Vector C), xfml, tn, def)
+    else NONE
+  | XFromCvb n rX s =>
+    if is_xfromc_vb cfml s rX then
+      let (mX,tn) = ren_int_ls tn rX [] in
+      let X = conv_rawxor def mX in
+      SOME (cfml, xfml |+ (n,X), tn, MAX def (strlen X))
+    else NONE
 End
 
 Definition check_xlrups_def:
@@ -307,6 +535,14 @@ Proof
   metis_tac[FRANGE_delete_ids_SUBSET,SUBSET_DEF]
 QED
 
+Theorem wf_cfml_delete_ids_vb:
+  wf_cfml fml ⇒
+  wf_cfml (delete_ids_vb fml s i len)
+Proof
+  rw[wf_cfml_def]>>
+  metis_tac[FRANGE_delete_ids_vb_SUBSET,SUBSET_DEF]
+QED
+
 Theorem wf_cfml_insert:
   wf_cfml fml ∧ nz_ilits (toList v) ⇒
   wf_cfml (insert_vcc fml n v)
@@ -324,7 +560,8 @@ Proof
   rw[check_xlrup_def]>>gvs[AllCaseEqs()]>>
   rpt(pairarg_tac>>fs[])>>gvs[]>>
   fs[wf_xlrup_def]>>
-  metis_tac[wf_cfml_delete_ids,wf_cfml_insert,toList_thm]
+  metis_tac[wf_cfml_delete_ids,wf_cfml_delete_ids_vb,wf_cfml_insert,
+    toList_thm]
 QED
 
 Theorem conv_xor_aux_cclause_sound:
@@ -1016,6 +1253,12 @@ Proof
   >- suspend "XDel"
   >- suspend "CFromX"
   >- suspend "XFromC"
+  >- suspend "Delvb"
+  >- suspend "RUPvb"
+  >- suspend "XAddvb"
+  >- suspend "XDelvb"
+  >- suspend "CFromXvb"
+  >- suspend "XFromCvb"
 QED
 
 Resume check_xlrup_sound[Del]:
@@ -1113,6 +1356,110 @@ QED
 Resume check_xlrup_sound[XFromC]:
   fs[isat_fml_def]>>
   pairarg_tac>>gvs[]>>
+  drule ren_int_ls_restore>>strip_tac>>gvs[]>>
+  fs[wf_xlrup_def]>>
+  `nz_ilits ([]:ilit list)` by
+    simp[nz_ilits_def]>>
+  `nz_ilits mX` by
+    metis_tac[ren_int_ls_nz_ilits]>>
+  `isat_xfml (w ∘ restore_fn tn') (FRANGE xfml)` by
+    metis_tac[isat_xfml_restore_str_submap]>>
+  `sat_cmsxor (w ∘ restore_fn tn') (MAP mk_lit mX)` by
+    metis_tac[is_xfromc_sound,sat_cmsxor_restore_fn_2]>>
+  `EVERY nz_lit (MAP mk_lit mX)` by (
+    gvs[EVERY_MEM,MEM_MAP,PULL_EXISTS,nz_ilits_def]>>
+    metis_tac[nz_lit_mk_lit])>>
+  qsuff_tac`isat_strxor (w ∘ restore_fn tn') (conv_rawxor def mX)`
+  >- (
+    strip_tac>>
+    CONJ_TAC >- (
+      rw[]
+      >- (
+        match_mp_tac can_restore_str_conv_rawxor>>
+        gvs[EVERY_MEM,MEM_MAP,PULL_EXISTS,can_restore_int_def])>>
+      gvs[IN_FRANGE_FLOOKUP,DOMSUB_FLOOKUP_THM]>>
+      metis_tac[can_restore_str_submap])>>
+    metis_tac[SRULE [] satisfies_fml_gen_insert])>>
+  rw[conv_rawxor_def]>>
+  match_mp_tac isat_strxor_conv_xor_aux>>
+  DEP_REWRITE_TAC[conv_xor_sound]>>
+  simp[]>>
+  DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
+  simp[isat_strxor_extend_s]>>
+  CONJ_TAC >- (EVAL_TAC>>rw[])>>
+  EVAL_TAC
+QED
+
+Resume check_xlrup_sound[Delvb]:
+  fs[isat_fml_def,satisfies_vcfml_def]>>
+  metis_tac[satisfies_fml_gen_delete_ids_vb]
+QED
+
+Resume check_xlrup_sound[RUPvb]:
+  qmatch_asmsub_rename_tac`is_rup_vb cfml C s`>>
+  gvs[isat_fml_def]>>
+  `satisfies_vcclause w C` by
+    metis_tac[is_rup_vb_sound]>>
+  fs[satisfies_vcfml_def,insert_vcc_def]>>
+  metis_tac[SRULE [] satisfies_fml_gen_insert]
+QED
+
+Resume check_xlrup_sound[XAddvb]:
+  pairarg_tac>>gvs[]>>
+  drule is_xor_vb>>strip_tac>>
+  fs[isat_fml_def]>>
+  drule ren_int_ls_restore>>strip_tac>>gvs[]>>
+  CONJ_ASM1_TAC >- (
+    rw[]
+    >- (
+      match_mp_tac can_restore_str_conv_rawxor>>
+      gvs[EVERY_MEM,MEM_MAP,PULL_EXISTS,can_restore_int_def])>>
+    gvs[IN_FRANGE_FLOOKUP,DOMSUB_FLOOKUP_THM]>>
+    metis_tac[can_restore_str_submap])>>
+  `isat_xfml (w ∘ restore_fn tn') (FRANGE xfml)` by
+    metis_tac[isat_xfml_restore_str_submap]>>
+  `tn_inv tn'` by
+    metis_tac[ren_int_ls_tn_inv]>>
+  `isat_strxor (w ∘ restore_fn tn') (conv_rawxor def mX)` by
+    metis_tac[is_xor_sound]>>
+  metis_tac[SRULE [] satisfies_fml_gen_insert]
+QED
+
+Resume check_xlrup_sound[XDelvb]:
+  fs[isat_fml_def,satisfies_vcfml_def]>>
+  CONJ_TAC >-
+    metis_tac[FRANGE_delete_ids_vb_SUBSET,SUBSET_DEF]>>
+  metis_tac[satisfies_fml_gen_delete_ids_vb]
+QED
+
+Resume check_xlrup_sound[CFromXvb]:
+  pairarg_tac>>gvs[]>>
+  drule is_cfromx_vb>>strip_tac>>
+  fs[isat_fml_def,wf_xlrup_def]>>
+  drule ren_int_ls_restore>>strip_tac>>gvs[]>>
+  `isat_xfml (w ∘ restore_fn tn') (FRANGE xfml)` by
+    metis_tac[isat_xfml_restore_str_submap]>>
+  `nz_ilits ([]:ilit list)` by
+    simp[nz_ilits_def]>>
+  `nz_ilits mC` by
+    metis_tac[ren_int_ls_nz_ilits]>>
+  `satisfies_cclause (w ∘ restore_fn tn') mC` by
+    metis_tac[is_cfromx_sound]>>
+  `satisfies_cclause w (MAP (restore_int tn') mC)` by
+    metis_tac[satisfies_cclause_restore_fn]>>
+  CONJ_TAC >- (
+    rw[]>>
+    metis_tac[can_restore_str_submap])>>
+  `satisfies_vcclause w (Vector (MAP (restore_int tn') mC))` by
+    simp[satisfies_vcclause_def,toList_thm]>>
+  fs[satisfies_vcfml_def,insert_vcc_def]>>
+  metis_tac[SRULE [] satisfies_fml_gen_insert]
+QED
+
+Resume check_xlrup_sound[XFromCvb]:
+  fs[isat_fml_def]>>
+  pairarg_tac>>gvs[]>>
+  drule is_xfromc_vb>>strip_tac>>
   drule ren_int_ls_restore>>strip_tac>>gvs[]>>
   fs[wf_xlrup_def]>>
   `nz_ilits ([]:ilit list)` by

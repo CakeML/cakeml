@@ -70,15 +70,16 @@ Theorem machine_code_sound:
   ∃out err.
     extract_fs ext (cl,fs) (cake_xlrup_io_events ext cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
-  if LENGTH cl = 2 then
-    (case get_cnf_ext fs (EL 1 cl) of
-      NONE => out = «»
-    | SOME fml => out = concat (print_cnf_ext fml))
-  else if LENGTH cl = 3 then
-    (out ≠ «» ⇒
-      out = «s VERIFIED UNSAT\n» ∧
-      ∃fml. get_cnf_ext fs (EL 1 cl) = SOME fml ∧ sols fml = {})
-  else out = «»
+  case split_flags T (TL cl) of
+    (SOME b, [f1]) =>
+      (case get_cnf_ext fs f1 of
+        NONE => out = «»
+      | SOME fml => out = concat (print_cnf_ext fml))
+  | (SOME b, [f1; f2]) =>
+      (out ≠ «» ⇒
+        out = «s VERIFIED UNSAT\n» ∧
+        ∃fml. get_cnf_ext fs f1 = SOME fml ∧ sols fml = {})
+  | _ => out = «»
 Proof
   strip_tac>>
   fs[installed_x64_def,cake_xlrup_code_def,cake_xlrup_run_def]>>

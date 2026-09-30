@@ -17,7 +17,7 @@ Quote add_cakeml:
   fun check_distrup_arr lno distrup fml carr b =
   case distrup of
     Del ls =>
-      (delete_ids_arr fml ls; (fml,carr,b))
+      (delete_ids_arr vcc_none fml ls; (fml,carr,b))
   | Lrup n v hints =>
       (case is_rup_arr lno fml carr b v hints of (dml,b) =>
         (insert_clause_arr fml n v, dml,b))
@@ -64,6 +64,7 @@ Proof
   Cases_on`distrup`>>fs[DISTRUP_DISTRUP_TYPE_def]>>
   xmatch
   >- ( (* Del *)
+    assume_tac vcc_none_v_thm>>
     xlet_autop >>
     xcon>>xsimpl)
   >- ( (* Rup *)

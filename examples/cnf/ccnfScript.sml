@@ -765,6 +765,20 @@ Proof
   metis_tac[satisfies_fml_gen_delete]
 QED
 
+Theorem FRANGE_delete_ids_vb_SUBSET:
+  ∀fml s i len.
+  FRANGE (delete_ids_vb fml s i len) ⊆ FRANGE fml
+Proof
+  ho_match_mp_tac delete_ids_vb_ind>>
+  rw[]>>
+  simp[Once delete_ids_vb_def]>>
+  pairarg_tac>>
+  rw[]>>
+  irule SUBSET_TRANS>>
+  first_x_assum (irule_at Any)>>
+  simp[FRANGE_DOMSUB_SUBSET]
+QED
+
 (* Empty clause representation *)
 Definition contains_emp_def:
   contains_emp fml =

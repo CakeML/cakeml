@@ -19,7 +19,7 @@ Quote add_cakeml:
   fun check_lrup_arr lno lrup fml carr b =
   case lrup of
     Delvb s =>
-      (delete_ids_vb_arr fml s 1 (String.size s); (fml, carr, b))
+      (delete_ids_vb_arr vcc_none fml s 1 (String.size s); (fml, carr, b))
   | Lrupvb n c s =>
       (case is_rup_vb_arr lno fml carr b c s of (carr,b) =>
         (insert_clause_arr fml n c, carr, b))
@@ -65,6 +65,7 @@ Proof
   >- (
     (* Delvb *)
     xmatch>>
+    assume_tac vcc_none_v_thm>>
     rpt xlet_autop>>
     xcon>>xsimpl>>
     metis_tac[bnd_fml_delete_ids_vb_list])>>
@@ -106,49 +107,9 @@ QED
 
 (*** Reading and checking a proof file, one record at a time ***)
 
-Theorem SEP_IMP_REFL_gc[local]:
-  p ==>> p * GC
-Proof
-  xsimpl
-QED
-
 (* Closes a separation-logic entailment whose two sides differ only by
   frame association and GC slack *)
 val sep_triv = metis_tac[SEP_IMP_REFL_gc,SEP_IMP_REFL,STAR_ASSOC,STAR_COMM];
-
-(* Records are terminated by a zero byte *)
-Definition nulc_def:
-  nulc = CHR 0
-End
-
-val nulc_v_thm = translate nulc_def;
-
-val res = translate vb_ilit_def;
-val res = translate parse_vb_ilits_int_def;
-
-Theorem parse_vb_ilits_int_side[local]:
-  ∀s i len acc.
-  len ≤ strlen s ⇒ parse_vb_ilits_int_side s i len acc
-Proof
-  ho_match_mp_tac parse_vb_ilits_int_ind>>
-  rw[]>>
-  simp[Once (fetch "-" "parse_vb_ilits_int_side_def")]>>
-  simp[fetch "ccnf_arrayProg" "parse_vb_num_side_def",parse_vb_num_aux_side,
-    parse_vb_int_side]
-QED
-
-val _ = parse_vb_ilits_int_side |> update_precondition;
-
-val res = translate parse_vb_ilits_eq;
-
-Theorem parse_vb_ilits_side[local]:
-  ∀s i len acc.
-  len ≤ strlen s ⇒ parse_vb_ilits_side s i len acc
-Proof
-  rw[fetch "-" "parse_vb_ilits_side_def",parse_vb_ilits_int_side]
-QED
-
-val _ = parse_vb_ilits_side |> update_precondition;
 
 val res = translate parse_lrup_chunk_def;
 
@@ -621,17 +582,3 @@ Proof
   qexistsl_tac [`1`,`x`,`n`,`nc`]>>
   gvs[Abbr`fmlls`,Abbr`Clist`]
 QED
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -1684,95 +1684,552 @@ Proof
   xsimpl
 QED
 
-(*** Deletion from the XOR store.
+(*** The binary format's hint walkers.
 
-  The clause array marks a free slot with vcc_none, so cnf/array's
-  delete_arr writes that sentinel; an XOR slot is an option, so it needs
-  its own deletion writing None. ***)
+  Each reads its ids from the raw chunk s between bytes i1 and len
+  with parse_vb_int, as unit_prop_vb_arr does, and is otherwise the
+  array function above. ***)
 
 Quote add_cakeml:
-  fun xdelete_arr fml i =
-    if Array.length fml <= i then ()
+  fun add_xors_aux_vb_arr lno fml s i1 len r =
+    case parse_vb_int s i1 len of (m,i) =>
+    if m <= 0 then r
     else
-      (Unsafe.update fml i None)
+      if Array.length fml <= m then
+        raise Fail (format_failure lno ("no xor at index: " ^ Int.toString m))
+      else
+      case Unsafe.sub fml m of
+        None => raise Fail (format_failure lno ("no xor at index (maybe deleted): " ^ Int.toString m))
+      | Some x =>
+        add_xors_aux_vb_arr lno fml s i len (strxor_c_arr r x)
 End
 
-Theorem xdelete_arr_spec:
+Theorem add_xors_aux_vb_arr_spec:
+  ∀fmlls s i len cs csv fmlv fmllsv lno lnov sv iv lenv.
+  NUM lno lnov ∧
+  STRING_TYPE s sv ∧
   NUM i iv ∧
+  NUM len lenv ∧
+  len ≤ strlen s ∧
   LIST_REL (OPTION_TYPE strxor_TYPE) fmlls fmllsv
   ⇒
   app (p : 'ffi ffi_proj)
-    ^(fetch_v "xdelete_arr" (get_ml_prog_state()))
-    [fmlv; iv]
+    ^(fetch_v "add_xors_aux_vb_arr" (get_ml_prog_state()))
+    [lnov; fmlv; sv; iv; lenv; csv]
+    (ARRAY fmlv fmllsv * W8ARRAY csv cs)
+    (POSTve
+      (λv. ARRAY fmlv fmllsv * SEP_EXISTS cs'.
+        W8ARRAY v cs' *
+        &(unwrap_TYPE $=
+          (add_xors_aux_vb_list fmlls s i len cs) cs'))
+       (λe.
+        ARRAY fmlv fmllsv *
+        &(Fail_exn e ∧ add_xors_aux_vb_list fmlls s i len cs = NONE)))
+Proof
+  ho_match_mp_tac add_xors_aux_vb_list_ind>>
+  rpt strip_tac>>
+  simp[Once add_xors_aux_vb_list_def]>>
+  xcf "add_xors_aux_vb_arr" (get_ml_prog_state ())>>
+  xlet_auto
+  >- (xsimpl>>fs[parse_vb_int_side])>>
+  Cases_on`parse_vb_int s i len`>>
+  rename1`parse_vb_int s i len = (m,j)`>>
+  gvs[PAIR_TYPE_def]>>
+  xmatch>>
+  xlet_autop>>
+  xif
+  >- (
+    xvar>>xsimpl>>
+    simp[unwrap_TYPE_def])>>
+  `∃n. m = &n` by (qexists_tac`Num m`>>intLib.ARITH_TAC)>>
+  gvs[GSYM NUM_def]>>
+  rpt xlet_autop>>
+  simp[any_el_ALT]>>
+  drule LIST_REL_LENGTH>> simp[]>>
+  strip_tac>>
+  xif
+  >- (
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    gvs[Fail_exn_def,unwrap_TYPE_def]>>
+    simp[Once add_xors_aux_vb_list_def,any_el_ALT]>>
+    metis_tac[])>>
+  gvs[]>>
+  xlet_autop>>
+  `OPTION_TYPE strxor_TYPE (EL n fmlls) (EL n fmllsv)` by fs[LIST_REL_EL_EQN]>>
+  namedCases_on`EL n fmlls` ["","xr"]>>fs[OPTION_TYPE_def]>>
+  xmatch
+  >- (
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    gvs[Fail_exn_def,unwrap_TYPE_def]>>
+    simp[Once add_xors_aux_vb_list_def,any_el_ALT]>>
+    metis_tac[])>>
+  xlet_autop>>
+  `any_el n fmlls NONE = SOME xr` by simp[any_el_ALT]>>
+  first_x_assum drule>>
+  strip_tac>>
+  `add_xors_aux_vb_list fmlls s i len cs =
+   add_xors_aux_vb_list fmlls s j len (strxor_c cs xr)` by
+    simp[Once add_xors_aux_vb_list_def]>>
+  xapp>>xsimpl>>
+  qexists_tac`lno`>>simp[]
+QED
+
+Quote add_cakeml:
+  fun get_units_vb_arr lno fml s i1 len cs =
+    case parse_vb_int s i1 len of (m,i) =>
+    if m <= 0 then cs
+    else
+      if Array.length fml <= m then
+        raise Fail (format_failure lno ("no clause at index: " ^ Int.toString m))
+      else
+      let
+        val x = Unsafe.sub fml m
+        val n = Vector.length x
+      in
+        if n = 1 andalso int_eq_0 (uvsub x 0) then
+          raise Fail (format_failure lno ("no clause at index (maybe deleted): " ^ Int.toString m))
+        else if n = 1 then
+          get_units_vb_arr lno fml s i len (Vector.sub x 0::cs)
+        else
+          raise Fail (format_failure lno ("clause at index not unit: " ^ Int.toString m))
+      end
+End
+
+Theorem get_units_vb_arr_spec:
+  ∀fmlls s i len cs csv fmlv fmllsv lno lnov sv iv lenv.
+  NUM lno lnov ∧
+  STRING_TYPE s sv ∧
+  NUM i iv ∧
+  NUM len lenv ∧
+  len ≤ strlen s ∧
+  LIST_REL vcclause_TYPE fmlls fmllsv ∧
+  (LIST_TYPE INT) cs csv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "get_units_vb_arr" (get_ml_prog_state()))
+    [lnov; fmlv; sv; iv; lenv; csv]
     (ARRAY fmlv fmllsv)
-    (POSTv resv.
-      &UNIT_TYPE () resv *
-      SEP_EXISTS fmllsv'.
-      ARRAY fmlv fmllsv' *
-      &(LIST_REL (OPTION_TYPE strxor_TYPE) (xdelete_list fmlls i) fmllsv') )
+    (POSTve
+       (λv. ARRAY fmlv fmllsv *
+        &(unwrap_TYPE (LIST_TYPE INT)
+          (get_units_vb_list fmlls s i len cs) v))
+       (λe.
+        ARRAY fmlv fmllsv *
+        &(Fail_exn e ∧ get_units_vb_list fmlls s i len cs = NONE)))
+Proof
+  ho_match_mp_tac get_units_vb_list_ind>>
+  rpt strip_tac>>
+  simp[Once get_units_vb_list_def]>>
+  xcf "get_units_vb_arr" (get_ml_prog_state ())>>
+  xlet_auto
+  >- (xsimpl>>fs[parse_vb_int_side])>>
+  Cases_on`parse_vb_int s i len`>>
+  rename1`parse_vb_int s i len = (m,j)`>>
+  gvs[PAIR_TYPE_def]>>
+  xmatch>>
+  xlet_autop>>
+  xif
+  >- (
+    xvar>>xsimpl>>
+    simp[unwrap_TYPE_def])>>
+  `∃n. m = &n` by (qexists_tac`Num m`>>intLib.ARITH_TAC)>>
+  gvs[GSYM NUM_def]>>
+  rpt xlet_autop>>
+  simp[any_el_ALT]>>
+  drule LIST_REL_LENGTH>> simp[]>>
+  strip_tac>>
+  xif
+  >- (
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    gvs[Fail_exn_def,unwrap_TYPE_def]>>
+    simp[Once get_units_vb_list_def,any_el_ALT]>>
+    metis_tac[])>>
+  gvs[]>>
+  `vcclause_TYPE (EL n fmlls) (EL n fmllsv)` by fs[LIST_REL_EL_EQN]>>
+  rpt xlet_autop>>
+  xlet`POSTv bb.
+    ARRAY fmlv fmllsv *
+    &BOOL (length (EL n fmlls) = 1 ∧ sub (EL n fmlls) 0 = 0) bb`
+  >- (
+    xlog>>
+    reverse IF_CASES_TAC>>gvs[]
+    >- xsimpl>>
+    xlet_auto
+    >- (xsimpl>>gvs[uvsub_side_def])>>
+    xapp>>
+    xsimpl>>
+    qexists_tac`sub (EL n fmlls) 0`>>
+    simp[int_eq_0_def])>>
+  xif
+  >- (
+    `EL n fmlls = vcc_none` by metis_tac[is_vcc_none]>>
+    simp[]>>
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    simp[Fail_exn_def,unwrap_TYPE_def]>>
+    simp[Once get_units_vb_list_def,any_el_ALT]>>
+    metis_tac[])>>
+  `EL n fmlls ≠ vcc_none` by metis_tac[is_vcc_none]>>
+  simp[]>>
+  xlet_autop>>
+  xif
+  >- (
+    rpt xlet_autop>>
+    `any_el n fmlls vcc_none = EL n fmlls` by simp[any_el_ALT]>>
+    gvs[]>>
+    `get_units_vb_list fmlls s i len cs =
+     get_units_vb_list fmlls s j len (sub (EL n fmlls) 0::cs)` by (
+      CONV_TAC (LHS_CONV (ONCE_REWRITE_CONV [get_units_vb_list_def]))>>
+      simp[])>>
+    xapp>>xsimpl>>
+    qexists_tac`lno`>>simp[LIST_TYPE_def])>>
+  rpt xlet_autop>>
+  xraise>>xsimpl>>
+  simp[Fail_exn_def,unwrap_TYPE_def]>>
+  simp[Once get_units_vb_list_def,any_el_ALT]>>
+  metis_tac[]
+QED
+
+Quote add_cakeml:
+  fun unit_props_xor_vb_arr lno fml t s r =
+  fold_unit_prop_xor_arr t r
+    (get_units_vb_arr lno fml s 0 (String.size s) [])
+End
+
+Theorem unit_props_xor_vb_arr_spec:
+  NUM lno lnov ∧
+  LIST_REL NUM tls tlsv ∧
+  STRING_TYPE s sv ∧
+  LIST_REL vcclause_TYPE fmlls fmllsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "unit_props_xor_vb_arr" (get_ml_prog_state()))
+    [lnov; fmlv; tav; sv; csv]
+    (ARRAY fmlv fmllsv * W8ARRAY csv cs * ARRAY tav tlsv)
+    (POSTve
+      (λv. ARRAY fmlv fmllsv * ARRAY tav tlsv * SEP_EXISTS cs'.
+        W8ARRAY v cs' *
+        &(unwrap_TYPE $=
+          (unit_props_xor_vb_list fmlls tls s cs) cs'))
+       (λe.
+        ARRAY fmlv fmllsv * ARRAY tav tlsv *
+        &(Fail_exn e ∧ unit_props_xor_vb_list fmlls tls s cs = NONE)))
 Proof
   rw[]>>
-  xcf "xdelete_arr" (get_ml_prog_state ())>>
-  simp[xdelete_list_def]>>
-  rpt xlet_autop>>
-  `LENGTH fmlls = LENGTH fmllsv` by
-    metis_tac[LIST_REL_LENGTH]>>
-  xif>-(xcon>>xsimpl)>>
-  xlet`POSTv v. ARRAY fmlv fmllsv * &OPTION_TYPE strxor_TYPE NONE v`
-  >- (xcon>>xsimpl>>simp[OPTION_TYPE_def])>>
-  simp[]>>
+  xcf "unit_props_xor_vb_arr" (get_ml_prog_state ())>>
+  simp[unit_props_xor_vb_list_def]>>
+  TOP_CASE_TAC
+  >- (
+    xlet_autop>>
+    xlet_autop>>
+    xlet `POSTve
+      (λv. ARRAY fmlv fmllsv * ARRAY tav tlsv * W8ARRAY csv cs *
+        &(unwrap_TYPE (LIST_TYPE INT)
+          (get_units_vb_list fmlls s 0 (strlen s) []) v))
+      (λe. ARRAY fmlv fmllsv * ARRAY tav tlsv *
+        &(Fail_exn e ∧ get_units_vb_list fmlls s 0 (strlen s) [] = NONE))`
+    >- (
+      xapp>>xsimpl>>
+      rpt (first_x_assum (irule_at Any))>>
+      qexists_tac`[]`>>
+      simp[LIST_TYPE_def,unwrap_TYPE_def]>>
+      rw[]>>xsimpl)
+    >- xsimpl>>
+    gvs[unwrap_TYPE_def])>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet `POSTve
+    (λv. ARRAY fmlv fmllsv * ARRAY tav tlsv * W8ARRAY csv cs *
+      &(unwrap_TYPE (LIST_TYPE INT)
+        (get_units_vb_list fmlls s 0 (strlen s) []) v))
+    (λe. ARRAY fmlv fmllsv * ARRAY tav tlsv *
+      &(Fail_exn e ∧ get_units_vb_list fmlls s 0 (strlen s) [] = NONE))`
+  >- (
+    xapp>>xsimpl>>
+    rpt (first_x_assum (irule_at Any))>>
+    qexists_tac`[]`>>
+    simp[LIST_TYPE_def,unwrap_TYPE_def]>>
+    rw[]>>xsimpl)
+  >- xsimpl>>
   xapp>>xsimpl>>
-  first_x_assum (irule_at Any)>>
-  rw[]>>
-  match_mp_tac EVERY2_LUPDATE_same>>
+  gvs[unwrap_TYPE_def]>>
+  rpt(first_x_assum (irule_at Any))>>
   simp[]
 QED
 
 Quote add_cakeml:
-  fun xdelete_ids_arr fml ls =
-    case ls of
-      [] => ()
-    | (i::is) =>
-      (xdelete_arr fml i; xdelete_ids_arr fml is)
+  fun is_xor_vb_arr lno tn def fml s1 cfml s2 x =
+  case tn of (tna,tnn) =>
+  let
+    val r = Word8Array.array def bw0
+    val r = strxor_c_arr r x
+    val r = add_xors_aux_vb_arr lno fml s1 0 (String.size s1) r
+    val r = unit_props_xor_vb_arr lno cfml tna s2 r
+  in
+    is_emp_xor_arr_aux lno tna r (Word8Array.length r)
+  end
 End
 
-Theorem xdelete_ids_arr_spec:
-  ∀ls lsv fmlls fmllsv.
-  (LIST_TYPE NUM) ls lsv ∧
-  LIST_REL (OPTION_TYPE strxor_TYPE) fmlls fmllsv
+Theorem is_xor_vb_arr_spec:
+  NUM lno lnov ∧
+  NUM def defv ∧
+  PAIR_TYPE ($=) NUM (tnav,tnn) tnv ∧
+  LIST_REL NUM tnls tnlsv ∧
+  STRING_TYPE s1 sv1 ∧
+  STRING_TYPE s2 sv2 ∧
+  LIST_REL (OPTION_TYPE strxor_TYPE) fmlls fmllsv ∧
+  LIST_REL vcclause_TYPE cfmlls cfmllsv ∧
+  strxor_TYPE x xv
   ⇒
   app (p : 'ffi ffi_proj)
-    ^(fetch_v "xdelete_ids_arr" (get_ml_prog_state()))
-    [fmlv; lsv]
-    (ARRAY fmlv fmllsv)
-    (POSTv resv.
-      &UNIT_TYPE () resv *
-      SEP_EXISTS fmllsv'.
-      ARRAY fmlv fmllsv' *
-      &(LIST_REL (OPTION_TYPE strxor_TYPE) (xdelete_ids_list fmlls ls) fmllsv') )
+    ^(fetch_v "is_xor_vb_arr" (get_ml_prog_state()))
+    [lnov; tnv; defv; fmlv; sv1; cfmlv; sv2; xv]
+    (ARRAY fmlv fmllsv * ARRAY cfmlv cfmllsv * ARRAY tnav tnlsv)
+    (POSTve
+      (λv. ARRAY fmlv fmllsv * ARRAY cfmlv cfmllsv * ARRAY tnav tnlsv *
+        &(is_xor_vb_list def fmlls s1 cfmlls s2 tnls x))
+      (λe.
+         ARRAY fmlv fmllsv * ARRAY cfmlv cfmllsv * ARRAY tnav tnlsv *
+         &(Fail_exn e ∧ ¬is_xor_vb_list def fmlls s1 cfmlls s2 tnls x)))
 Proof
-  Induct>>
-  rw[]>>fs[xdelete_ids_list_def]>>
-  xcf "xdelete_ids_arr" (get_ml_prog_state ())>>
-  fs[LIST_TYPE_def]>>xmatch
-  >- (xcon>>xsimpl) >>
-  xlet_autop>>
+  rw[]>>
+  xcf "is_xor_vb_arr" (get_ml_prog_state ())>>
+  fs[PAIR_TYPE_def]>>
+  xmatch>>
+  rw[is_xor_vb_list_def]>>
+  assume_tac bw0_v_thm>>
+  rpt xlet_autop>>xsimpl>>
+  gvs[unwrap_TYPE_def]>>
+  xapp>>xsimpl>>
+  first_x_assum (irule_at Any)>>simp[]>>
+  first_x_assum (irule_at Any)>>simp[]>>
+  first_x_assum (irule_at Any)>>simp[]
+QED
+
+Quote add_cakeml:
+  fun is_cfromx_vb_arr lno tn def fml s c =
+  let
+    val r = Word8Array.array def bw0
+    val res = add_xors_aux_vb_arr lno fml s 0 (String.size s) r
+  in
+    strxor_imp_cclause_arr lno tn def res c
+  end
+End
+
+Theorem is_cfromx_vb_arr_spec:
+  NUM lno lnov ∧
+  NUM def defv ∧
+  PAIR_TYPE ($=) NUM (tnav,tnn) tnv ∧
+  LIST_REL NUM tnls tnlsv ∧
+  STRING_TYPE s sv ∧
+  LIST_REL (OPTION_TYPE strxor_TYPE) fmlls fmllsv ∧
+  LIST_TYPE INT c cv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "is_cfromx_vb_arr" (get_ml_prog_state()))
+    [lnov; tnv; defv; fmlv; sv; cv]
+    (ARRAY fmlv fmllsv * ARRAY tnav tnlsv)
+    (POSTve
+      (λv. ARRAY fmlv fmllsv * ARRAY tnav tnlsv *
+        &(is_cfromx_vb_list def fmlls s c))
+      (λe.
+         ARRAY fmlv fmllsv * ARRAY tnav tnlsv *
+         &(Fail_exn e ∧ ¬is_cfromx_vb_list def fmlls s c)))
+Proof
+  rw[]>>
+  xcf "is_cfromx_vb_arr" (get_ml_prog_state ())>>
+  rw[is_cfromx_vb_list_def]>>
+  assume_tac bw0_v_thm>>
+  rpt xlet_autop
+  >-
+    xsimpl>>
+  TOP_CASE_TAC>>gvs[unwrap_TYPE_def]>>
   xapp>>
+  xsimpl>>
+  qexistsl_tac
+    [`ARRAY fmlv fmllsv`,`c`,`tnlsv`,`tnav`,`def`,`lno`,`tnls`,`tnn`]>>
   xsimpl
 QED
+
+Quote add_cakeml:
+  fun get_constrs_vb_arr lno fml s i1 len =
+    case parse_vb_int s i1 len of (m,i) =>
+    if m <= 0 then []
+    else
+      if Array.length fml <= m then
+        raise Fail (format_failure lno ("no clause/constraint at index: " ^ Int.toString m))
+      else
+        (let val ci = Unsafe.sub fml m in
+          if Vector.length ci = 1 andalso int_eq_0 (uvsub ci 0) then
+            raise Fail (format_failure lno ("no clause/constraint at index (maybe deleted): " ^ Int.toString m))
+          else
+            Vector.toList ci :: get_constrs_vb_arr lno fml s i len
+        end)
+End
+
+Theorem get_constrs_vb_arr_spec:
+  ∀fmlls s i len fmlv fmllsv lno lnov sv iv lenv.
+  NUM lno lnov ∧
+  STRING_TYPE s sv ∧
+  NUM i iv ∧
+  NUM len lenv ∧
+  len ≤ strlen s ∧
+  LIST_REL vcclause_TYPE fmlls fmllsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "get_constrs_vb_arr" (get_ml_prog_state()))
+    [lnov; fmlv; sv; iv; lenv]
+    (ARRAY fmlv fmllsv)
+    (POSTve
+      (λv. ARRAY fmlv fmllsv *
+        &unwrap_TYPE
+          (LIST_TYPE (LIST_TYPE INT))
+          (get_constrs_vb_list fmlls s i len) v)
+      (λe. ARRAY fmlv fmllsv *
+        &(Fail_exn e ∧ get_constrs_vb_list fmlls s i len = NONE)))
+Proof
+  ho_match_mp_tac get_constrs_vb_list_ind>>
+  rpt strip_tac>>
+  simp[Once get_constrs_vb_list_def]>>
+  xcf "get_constrs_vb_arr" (get_ml_prog_state ())>>
+  xlet_auto
+  >- (xsimpl>>fs[parse_vb_int_side])>>
+  Cases_on`parse_vb_int s i len`>>
+  rename1`parse_vb_int s i len = (m,j)`>>
+  gvs[PAIR_TYPE_def]>>
+  xmatch>>
+  xlet_autop>>
+  xif
+  >- (
+    xcon>>xsimpl>>
+    simp[unwrap_TYPE_def,LIST_TYPE_def])>>
+  `∃n. m = &n` by (qexists_tac`Num m`>>intLib.ARITH_TAC)>>
+  gvs[GSYM NUM_def]>>
+  rpt xlet_autop>>
+  drule LIST_REL_LENGTH>> simp[]>>
+  strip_tac>>
+  xif
+  >- (
+    rpt (xlet_autop)>>
+    xraise>>xsimpl>>
+    gvs[Fail_exn_def,any_el_ALT,unwrap_TYPE_def]>>
+    simp[Once get_constrs_vb_list_def,any_el_ALT]>>
+    metis_tac[])>>
+  gvs[]>>
+  `vcclause_TYPE (EL n fmlls) (EL n fmllsv)` by fs[LIST_REL_EL_EQN]>>
+  gvs[any_el_ALT]>>
+  rpt xlet_autop>>
+  xlet`POSTv bb.
+    ARRAY fmlv fmllsv *
+    &BOOL (length (EL n fmlls) = 1 ∧ sub (EL n fmlls) 0 = 0) bb`
+  >- (
+    xlog>>
+    reverse IF_CASES_TAC>>gvs[]
+    >- xsimpl>>
+    xlet_auto
+    >- (xsimpl>>gvs[uvsub_side_def])>>
+    xapp>>
+    xsimpl>>
+    qexists_tac`sub (EL n fmlls) 0`>>
+    simp[int_eq_0_def])>>
+  xif
+  >- (
+    `EL n fmlls = vcc_none` by metis_tac[is_vcc_none]>>
+    gvs[]>>
+    rpt(xlet_autop)>>
+    xraise>>xsimpl>>
+    gvs[Fail_exn_def,unwrap_TYPE_def]>>
+    simp[Once get_constrs_vb_list_def,any_el_ALT]>>
+    metis_tac[])>>
+  `EL n fmlls ≠ vcc_none` by metis_tac[is_vcc_none]>>
+  gvs[]>>
+  `get_constrs_vb_list fmlls s i len =
+   case get_constrs_vb_list fmlls s j len of
+     NONE => NONE
+   | SOME Cs => SOME (toList (EL n fmlls)::Cs)` by (
+    CONV_TAC (LHS_CONV (ONCE_REWRITE_CONV [get_constrs_vb_list_def]))>>
+    simp[any_el_ALT])>>
+  xlet_autop
+  >- (
+    xsimpl>>rw[]>>gvs[]>>
+    metis_tac[])>>
+  fs[unwrap_TYPE_def]>>
+  xlet_autop>>
+  xcon>>xsimpl>>
+  gvs[LIST_TYPE_def]
+QED
+
+Quote add_cakeml:
+  fun is_xfromc_vb_arr lno fml s rx =
+  let val ds = get_constrs_vb_arr lno fml s 0 (String.size s) in
+    if check_rawxor_imp ds rx then ()
+    else raise Fail
+      (format_failure lno ("clauses do not imply XOR"))
+  end
+End
+
+Theorem is_xfromc_vb_arr_spec:
+  NUM lno lnov ∧
+  STRING_TYPE s sv ∧
+  LIST_TYPE INT rx rxv ∧
+  LIST_REL vcclause_TYPE fmlls fmllsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "is_xfromc_vb_arr" (get_ml_prog_state()))
+    [lnov; fmlv; sv; rxv]
+    (ARRAY fmlv fmllsv)
+    (POSTve
+      (λv. ARRAY fmlv fmllsv *
+        &(is_xfromc_vb_list fmlls s rx))
+      (λe.
+         ARRAY fmlv fmllsv *
+         &(Fail_exn e ∧ ¬is_xfromc_vb_list fmlls s rx)))
+Proof
+  rw[]>>
+  xcf "is_xfromc_vb_arr" (get_ml_prog_state ())>>
+  simp[is_xfromc_vb_list_def]>>
+  rpt xlet_autop
+  >- xsimpl>>
+  TOP_CASE_TAC>>fs[unwrap_TYPE_def]>>
+  xlet_autop>>
+  xif
+  >-
+    (xcon>>xsimpl)>>
+  rpt xlet_autop>>
+  xraise>>xsimpl>>
+  fs[Fail_exn_def]>>
+  metis_tac[]
+QED
+
+(*** The original XORs, as a finite map ***)
+
+val _ = translate lit_cmp_def;
+
+Theorem cmsxor_cmp_eq[local] =
+  cmsxor_cmp_def |> SRULE [FUN_EQ_THM];
+
+val _ = translate cmsxor_cmp_eq;
+
+val _ = add_fmap_for_cmp TotOrd_cmsxor_cmp;
+
+val _ = translate build_xorig_map_def;
+val _ = translate xorig_mem_def;
 
 (*** One checker step ***)
 
 Quote add_cakeml:
-  fun check_xlrup_arr lno xorig xlrup cfml xfml tn def carr b =
+  fun check_xlrup_arr lno xm xlrup cfml xfml tn def carr b =
   case xlrup of
     Del cl =>
-      (delete_ids_arr cfml cl; (cfml, xfml, tn, def, carr, b))
+      (delete_ids_arr vcc_none cfml cl; (cfml, xfml, tn, def, carr, b))
   | Rup n c i0 =>
       (case is_rup_arr lno cfml carr b c i0 of (carr,b) =>
         (insert_clause_arr cfml n c, xfml, tn, def, carr, b))
   | Xorig n rx =>
-      if List.member rx xorig
+      if xorig_mem xm rx
       then
       (case ren_lits tn rx of (mx,tn) =>
       let
@@ -1793,7 +2250,7 @@ Quote add_cakeml:
           tn, max def (String.size x), carr, b)
       end)
   | Xdel xl =>
-      (xdelete_ids_arr xfml xl; (cfml, xfml, tn, def, carr, b))
+      (delete_ids_arr None xfml xl; (cfml, xfml, tn, def, carr, b))
   | Cfromx n c i0 =>
     (case ren_ints tn c of (mc,tn) =>
     let val u = is_cfromx_arr lno tn def xfml i0 mc
@@ -1810,14 +2267,51 @@ Quote add_cakeml:
             tn, max def (String.size x), carr, b)
       end
     end
+  | Delvb s =>
+      (delete_ids_vb_arr vcc_none cfml s 1 (String.size s);
+        (cfml, xfml, tn, def, carr, b))
+  | Rupvb n c s =>
+      (case is_rup_vb_arr lno cfml carr b c s of (carr,b) =>
+        (insert_clause_arr cfml n c, xfml, tn, def, carr, b))
+  | Xaddvb n rx s1 s2 =>
+      (case ren_ints tn rx of (mx,tn) =>
+      let
+        val x = conv_rawxor_arr def mx
+        val u = is_xor_vb_arr lno tn def xfml s1 cfml s2 x
+      in
+        (cfml, Array.updateResize xfml None n (Some x),
+          tn, max def (String.size x), carr, b)
+      end)
+  | Xdelvb s =>
+      (delete_ids_vb_arr None xfml s 2 (String.size s);
+        (cfml, xfml, tn, def, carr, b))
+  | Cfromxvb n c s =>
+    (case ren_ints tn c of (mc,tn) =>
+    let val u = is_cfromx_vb_arr lno tn def xfml s mc
+        val v = Vector.fromList c in
+      case resize_dm carr b v of (carr,b) =>
+        (insert_clause_arr cfml n v, xfml, tn, def, carr, b)
+    end)
+  | Xfromcvb n rx s =>
+    let val u = is_xfromc_vb_arr lno cfml s rx
+    in
+      case ren_ints tn rx of (mx,tn) =>
+      let val x = conv_rawxor_arr def mx in
+        (cfml, Array.updateResize xfml None n (Some x),
+            tn, max def (String.size x), carr, b)
+      end
+    end
 End
 
 val XLRUP_XLRUP_TYPE_def = fetch "-" "XLRUP_XLRUP_TYPE_def";
 
+Overload xorig_map_TYPE =
+  ``FMAP_TYPE cmsxor_cmp (LIST_TYPE (CNF_LIT_TYPE NUM)) UNIT_TYPE``
+
 Theorem check_xlrup_arr_spec:
   NUM lno lnov ∧
   XLRUP_XLRUP_TYPE xlrup xlrupv ∧
-  LIST_TYPE (LIST_TYPE (CNF_LIT_TYPE NUM)) xorig xorigv ∧
+  xorig_map_TYPE xm xmv ∧
   LIST_REL vcclause_TYPE cfmlls cfmllsv ∧
   LIST_REL (OPTION_TYPE strxor_TYPE) xfmlls xfmllsv ∧
   PAIR_TYPE ($=) NUM (tnav,tnn) tnv ∧
@@ -1828,7 +2322,7 @@ Theorem check_xlrup_arr_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_xlrup_arr" (get_ml_prog_state()))
-    [lnov; xorigv; xlrupv; cfmlv; xfmlv; tnv; defv; Carrv; bv]
+    [lnov; xmv; xlrupv; cfmlv; xfmlv; tnv; defv; Carrv; bv]
     (ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * NUM_ARRAY Carrv Clist *
       ARRAY tnav tnlsv)
     (POSTve
@@ -1841,7 +2335,7 @@ Theorem check_xlrup_arr_spec:
             NUM_ARRAY v5 clist' *
             ARRAY tnav' tnlsv' *
             &(
-            case check_xlrup_list xorig xlrup cfmlls xfmlls (tnls,tnn)
+            case check_xlrup_list xm xlrup cfmlls xfmlls (tnls,tnn)
               def Clist b of
               NONE => F
             | SOME (cfmlls', xfmlls', tnl', def', Clist', b') =>
@@ -1858,7 +2352,7 @@ Theorem check_xlrup_arr_spec:
       (λe. ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv *
         (SEP_EXISTS tnav' tnlsv'. ARRAY tnav' tnlsv') *
         &(Fail_exn e ∧
-        check_xlrup_list xorig xlrup cfmlls xfmlls (tnls,tnn)
+        check_xlrup_list xm xlrup cfmlls xfmlls (tnls,tnn)
           def Clist b = NONE)))
 Proof
   rw[check_xlrup_list_def]>>
@@ -1871,10 +2365,17 @@ Proof
   >- suspend "XDel"
   >- suspend "CFromX"
   >- suspend "XFromC"
+  >- suspend "Delvb"
+  >- suspend "RUPvb"
+  >- suspend "XAddvb"
+  >- suspend "XDelvb"
+  >- suspend "CFromXvb"
+  >- suspend "XFromCvb"
 QED
 
 Resume check_xlrup_arr_spec[Del]:
   xmatch>>
+  assume_tac vcc_none_v_thm>>
   xlet_autop>>
   xcon>>xsimpl>>
   qexistsl_tac [`tnav`,`tnlsv`]>>
@@ -1916,12 +2417,7 @@ QED
 
 Resume check_xlrup_arr_spec[XOrig]:
   xmatch>>
-  xlet_auto
-  >- (
-    xsimpl>>
-    match_mp_tac EqualityType_LIST_TYPE>>
-    simp[EqualityType_CNF_LIT_TYPE])>>
-  fs[MEMBER_INTRO]>>
+  xlet_autop>>
   reverse xif
   >- (
     xsimpl>>
@@ -2010,6 +2506,10 @@ QED
 
 Resume check_xlrup_arr_spec[XDel]:
   xmatch>>
+  xlet`POSTv v.
+    ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * NUM_ARRAY Carrv Clist *
+    ARRAY tnav tnlsv * &OPTION_TYPE strxor_TYPE NONE v`
+  >- (xcon>>xsimpl>>simp[OPTION_TYPE_def])>>
   xlet_autop>>
   xcon>>xsimpl>>
   qexistsl_tac [`tnav`,`tnlsv`]>>
@@ -2112,6 +2612,220 @@ Resume check_xlrup_arr_spec[XFromC]:
   simp[OPTION_TYPE_def]
 QED
 
+Resume check_xlrup_arr_spec[Delvb]:
+  xmatch>>
+  assume_tac vcc_none_v_thm>>
+  rpt xlet_autop>>
+  xcon>>xsimpl>>
+  rw[]>>
+  qexistsl_tac [`tnav`,`tnlsv`]>>
+  simp[bnd_fml_delete_ids_vb_list]>>
+  xsimpl
+QED
+
+Resume check_xlrup_arr_spec[RUPvb]:
+  qmatch_goalsub_rename_tac`is_rup_vb_list _ _ _ c h`>>
+  qmatch_goalsub_rename_tac`insert_vcc_list _ n _`>>
+  xmatch>>
+  xlet `
+    POSTve
+      (λres.
+           (SEP_EXISTS b' Carrv' Clist'.
+              NUM_ARRAY Carrv' Clist' *
+              &(PAIR_TYPE $= NUM (Carrv',b') res ∧
+               is_rup_vb_list cfmlls Clist b c h = (T,Clist',b'))) *
+           ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * ARRAY tnav tnlsv)
+      (λe.
+          ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * ARRAY tnav tnlsv *
+          &(Fail_exn e ∧ ¬FST (is_rup_vb_list cfmlls Clist b c h)))`
+  >- (
+    xapp>>xsimpl>>
+    rpt(first_x_assum (irule_at Any))>>
+    simp[PAIR_TYPE_def]>>rw[]>>
+    xsimpl)
+  >- (
+    xsimpl>>
+    simp[AllCaseEqs()]>>
+    Cases_on`is_rup_vb_list cfmlls Clist b c h`>>simp[]>>
+    rw[]>>
+    qexistsl_tac [`tnav`,`tnlsv`]>>xsimpl)>>
+  gvs[PAIR_TYPE_def]>>
+  xmatch>>
+  xlet`POSTv resv.
+    NUM_ARRAY Carrv' Clist' * ARRAY xfmlv xfmllsv * ARRAY tnav tnlsv *
+    SEP_EXISTS fmllsv'. ARRAY resv fmllsv' *
+    &LIST_REL vcclause_TYPE (insert_vcc_list cfmlls n c) fmllsv'`
+  >- (
+    xapp>>xsimpl>>
+    qexistsl_tac [`c`,`n`,`cfmlls`]>>
+    simp[])>>
+  xcon>>xsimpl>>
+  irule bnd_fml_insert_vcc_list>>
+  metis_tac[bnd_fml_is_rup_vb_list]
+QED
+
+Resume check_xlrup_arr_spec[XAddvb]:
+  qmatch_goalsub_rename_tac`is_xor_vb_list _ _ xs _ cs`>>
+  xmatch>>
+  xlet`POSTv res. SEP_EXISTS tnav' tnlsv'.
+    ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * NUM_ARRAY Carrv Clist *
+    ARRAY tnav' tnlsv' *
+    &(case ren_int_ls_list (tnls,tnn) l [] of
+        (ms,tnls',tnn') =>
+          PAIR_TYPE (LIST_TYPE INT) (PAIR_TYPE ($=) NUM)
+            (ms,(tnav',tnn')) res ∧
+          LIST_REL NUM tnls' tnlsv')`
+  >- (
+    xapp>>xsimpl>>
+    qexistsl_tac
+      [`ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * NUM_ARRAY Carrv Clist`,
+       `tnn`,`tnlsv`,`tnls`,`tnav`,`l`]>>
+    xsimpl>>
+    rw[]>>
+    asm_exists_tac>>xsimpl)>>
+  qabbrev_tac`rr = ren_int_ls_list (tnls,tnn) l []`>>
+  PairCases_on`rr`>>
+  gvs[PAIR_TYPE_def]>>
+  xmatch>>
+  xlet_autop>>
+  xlet`POSTve
+    (λv.
+       ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv *
+       NUM_ARRAY Carrv Clist * ARRAY tnav' tnlsv' *
+       &is_xor_vb_list def xfmlls xs cfmlls cs rr1 (conv_rawxor_list def rr0))
+    (λe.
+       ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * ARRAY tnav' tnlsv' *
+       &(Fail_exn e ∧
+        ¬is_xor_vb_list def xfmlls xs cfmlls cs rr1
+          (conv_rawxor_list def rr0)))`
+  >- (
+    xapp>>xsimpl>>
+    qexistsl_tac
+      [`NUM_ARRAY Carrv Clist`,`conv_rawxor_list def rr0`,`tnlsv'`,`rr1`,
+       `tnav'`,`cs`,`xs`,`xfmlls`,`def`,`cfmlls`,`lno`,`rr2`]>>
+    simp[PAIR_TYPE_def]>>
+    xsimpl)
+  >- (
+    xsimpl>>
+    rw[]>>
+    qexistsl_tac [`tnav'`,`tnlsv'`]>>xsimpl)>>
+  rpt xlet_autop>>
+  xcon>>xsimpl>>
+  irule LIST_REL_update_resize>>
+  simp[OPTION_TYPE_def]
+QED
+
+Resume check_xlrup_arr_spec[XDelvb]:
+  xmatch>>
+  xlet_autop>>
+  xlet`POSTv v.
+    ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * NUM_ARRAY Carrv Clist *
+    ARRAY tnav tnlsv * &OPTION_TYPE strxor_TYPE NONE v`
+  >- (xcon>>xsimpl>>simp[OPTION_TYPE_def])>>
+  xlet_autop>>
+  xcon>>xsimpl>>
+  qexistsl_tac [`tnav`,`tnlsv`]>>
+  xsimpl
+QED
+
+Resume check_xlrup_arr_spec[CFromXvb]:
+  qmatch_goalsub_rename_tac`is_cfromx_vb_list _ _ xs _`>>
+  xmatch>>
+  xlet`POSTv res. SEP_EXISTS tnav' tnlsv'.
+    ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * NUM_ARRAY Carrv Clist *
+    ARRAY tnav' tnlsv' *
+    &(case ren_int_ls_list (tnls,tnn) l [] of
+        (ms,tnls',tnn') =>
+          PAIR_TYPE (LIST_TYPE INT) (PAIR_TYPE ($=) NUM)
+            (ms,(tnav',tnn')) res ∧
+          LIST_REL NUM tnls' tnlsv')`
+  >- (
+    xapp>>xsimpl>>
+    qexistsl_tac
+      [`ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * NUM_ARRAY Carrv Clist`,
+       `tnn`,`tnlsv`,`tnls`,`tnav`,`l`]>>
+    xsimpl>>
+    rw[]>>
+    asm_exists_tac>>xsimpl)>>
+  qabbrev_tac`rr = ren_int_ls_list (tnls,tnn) l []`>>
+  PairCases_on`rr`>>
+  gvs[PAIR_TYPE_def]>>
+  xmatch>>
+  xlet`POSTve
+      (λv.
+           ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv *
+           NUM_ARRAY Carrv Clist * ARRAY tnav' tnlsv' *
+           &is_cfromx_vb_list def xfmlls xs rr0)
+      (λe.
+           ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * ARRAY tnav' tnlsv' *
+           &(Fail_exn e ∧ ¬is_cfromx_vb_list def xfmlls xs rr0))`
+  >- (
+    xapp>>xsimpl>>
+    qexistsl_tac
+      [`ARRAY cfmlv cfmllsv * NUM_ARRAY Carrv Clist`,`tnlsv'`,`tnav'`,`xs`,
+       `xfmlls`,`def`,`rr0`,`lno`,`rr1`,`rr2`]>>
+    simp[PAIR_TYPE_def]>>
+    xsimpl)
+  >- (
+    xsimpl>>
+    rw[]>>
+    qexistsl_tac [`tnav'`,`tnlsv'`]>>xsimpl)>>
+  xlet_autop>>
+  xlet_auto
+  >- (
+    xsimpl>>
+    rw[]>>metis_tac[NUM_ARRAY_refl])>>
+  fs[PAIR_TYPE_def]>>
+  xmatch>>
+  rpt xlet_autop>>
+  xcon>>xsimpl>>
+  metis_tac[bnd_fml_insert_vcc_list_resize_dm]
+QED
+
+Resume check_xlrup_arr_spec[XFromCvb]:
+  qmatch_goalsub_rename_tac`is_xfromc_vb_list _ cs _`>>
+  xmatch>>
+  xlet`POSTve
+    (λv.
+         ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv *
+         NUM_ARRAY Carrv Clist * ARRAY tnav tnlsv *
+         &is_xfromc_vb_list cfmlls cs l)
+    (λe.
+         ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * ARRAY tnav tnlsv *
+         &(Fail_exn e ∧ ¬is_xfromc_vb_list cfmlls cs l))`
+  >- (
+    xapp>>xsimpl>>
+    metis_tac[])
+  >- (
+    xsimpl>>
+    rw[]>>
+    qexistsl_tac [`tnav`,`tnlsv`]>>xsimpl)>>
+  xlet`POSTv res. SEP_EXISTS tnav' tnlsv'.
+    ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * NUM_ARRAY Carrv Clist *
+    ARRAY tnav' tnlsv' *
+    &(case ren_int_ls_list (tnls,tnn) l [] of
+        (ms,tnls',tnn') =>
+          PAIR_TYPE (LIST_TYPE INT) (PAIR_TYPE ($=) NUM)
+            (ms,(tnav',tnn')) res ∧
+          LIST_REL NUM tnls' tnlsv')`
+  >- (
+    xapp>>xsimpl>>
+    qexistsl_tac
+      [`ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * NUM_ARRAY Carrv Clist`,
+       `tnn`,`tnlsv`,`tnls`,`tnav`,`l`]>>
+    xsimpl>>
+    rw[]>>
+    asm_exists_tac>>xsimpl)>>
+  qabbrev_tac`rr = ren_int_ls_list (tnls,tnn) l []`>>
+  PairCases_on`rr`>>
+  gvs[PAIR_TYPE_def]>>
+  xmatch>>
+  rpt xlet_autop>>
+  xcon>>xsimpl>>
+  irule LIST_REL_update_resize>>
+  simp[OPTION_TYPE_def]
+QED
+
 Finalise check_xlrup_arr_spec;
 
 (*** Parsing.
@@ -2131,25 +2845,44 @@ val _ = translate parse_xor_nomv_def;
 val _ = translate parse_orig_def;
 val _ = translate parse_xlrup_def;
 
+(*** Parsing the binary format ***)
+
+val _ = register_type``:xlrupb_rest``;
+
+val XLRUP_PARSING_XLRUPB_REST_TYPE_def =
+  fetch "-" "XLRUP_PARSING_XLRUPB_REST_TYPE_def";
+
+val res = translate parse_xlrupb_chunk_def;
+
+Theorem parse_xlrupb_chunk_side[local]:
+  ∀s. parse_xlrupb_chunk_side s
+Proof
+  rw[fetch "-" "parse_xlrupb_chunk_side_def"]>>
+  simp[parse_vb_ilits_side,fetch "ccnf_arrayProg" "parse_vb_num_side_def",
+    parse_vb_num_aux_side]
+QED
+
+val _ = parse_xlrupb_chunk_side |> update_precondition;
+
 Definition parse_and_run_list_def:
-  parse_and_run_list xorig cfml xfml tn def Clist b l =
+  parse_and_run_list xm cfml xfml tn def Clist b l =
   case parse_xlrup l of
     NONE => NONE
   | SOME xlrup =>
-    check_xlrup_list xorig xlrup cfml xfml tn def Clist b
+    check_xlrup_list xm xlrup cfml xfml tn def Clist b
 End
 
 Quote add_cakeml:
-  fun parse_and_run_arr lno xorig cfml xfml tn def carr b l =
+  fun parse_and_run_arr lno xm cfml xfml tn def carr b l =
   case parse_xlrup l of
     None => raise Fail (format_failure lno "failed to parse line")
   | Some xlrup =>
-    check_xlrup_arr lno xorig xlrup cfml xfml tn def carr b
+    check_xlrup_arr lno xm xlrup cfml xfml tn def carr b
 End
 
 Theorem parse_and_run_arr_spec:
   NUM lno lnov ∧
-  LIST_TYPE (LIST_TYPE (CNF_LIT_TYPE NUM)) xorig xorigv ∧
+  xorig_map_TYPE xm xmv ∧
   LIST_TYPE (SUM_TYPE STRING_TYPE INT) l lv ∧
   LIST_REL vcclause_TYPE cfmlls cfmllsv ∧
   LIST_REL (OPTION_TYPE strxor_TYPE) xfmlls xfmllsv ∧
@@ -2161,7 +2894,7 @@ Theorem parse_and_run_arr_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_and_run_arr" (get_ml_prog_state()))
-    [lnov; xorigv; cfmlv; xfmlv; tnv; defv; Carrv; bv; lv]
+    [lnov; xmv; cfmlv; xfmlv; tnv; defv; Carrv; bv; lv]
     (ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * NUM_ARRAY Carrv Clist *
       ARRAY tnav tnlsv)
     (POSTve
@@ -2174,7 +2907,7 @@ Theorem parse_and_run_arr_spec:
             NUM_ARRAY v5 clist' *
             ARRAY tnav' tnlsv' *
             &(
-            case parse_and_run_list xorig cfmlls xfmlls (tnls,tnn)
+            case parse_and_run_list xm cfmlls xfmlls (tnls,tnn)
               def Clist b l of
               NONE => F
             | SOME (cfmlls', xfmlls', tnl', def', Clist', b') =>
@@ -2191,7 +2924,7 @@ Theorem parse_and_run_arr_spec:
       (λe. ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv *
         (SEP_EXISTS tnav' tnlsv'. ARRAY tnav' tnlsv') *
         &(Fail_exn e ∧
-        parse_and_run_list xorig cfmlls xfmlls (tnls,tnn)
+        parse_and_run_list xm cfmlls xfmlls (tnls,tnn)
           def Clist b l = NONE)))
 Proof
   rw[parse_and_run_list_def]>>
@@ -2214,33 +2947,33 @@ QED
 (*** Reading and checking a proof file, line by line ***)
 
 Quote add_cakeml:
-  fun check_unsat'' fd lno xorig cfml xfml tn def carr b =
+  fun check_unsat'' fd lno xm cfml xfml tn def carr b =
     case TextIO.inputLineTokens #"\n" fd blanks tokenize_fast of
       None => (cfml, xfml)
     | Some l =>
-    case parse_and_run_arr lno xorig cfml xfml tn def carr b l of
+    case parse_and_run_arr lno xm cfml xfml tn def carr b l of
       (cfml',xfml',tn',def',carr',b') =>
-      check_unsat'' fd (lno+1) xorig cfml' xfml' tn' def' carr' b'
+      check_unsat'' fd (lno+1) xm cfml' xfml' tn' def' carr' b'
 End
 
 Definition parse_and_run_file_list_def:
-  (parse_and_run_file_list [] xorig cfml xfml tn def Clist b =
+  (parse_and_run_file_list [] xm cfml xfml tn def Clist b =
     SOME (cfml, xfml)) ∧
-  (parse_and_run_file_list (x::xs) xorig cfml xfml tn def Clist b =
-    case parse_and_run_list xorig cfml xfml tn def Clist b (toks_fast x) of
+  (parse_and_run_file_list (x::xs) xm cfml xfml tn def Clist b =
+    case parse_and_run_list xm cfml xfml tn def Clist b (toks_fast x) of
       NONE => NONE
     | SOME (cfml', xfml', tn', def', Clist', b') =>
-    parse_and_run_file_list xs xorig cfml' xfml' tn' def' Clist' b')
+    parse_and_run_file_list xs xm cfml' xfml' tn' def' Clist' b')
 End
 
 Theorem parse_and_run_file_list_eq:
-  ∀ls xorig cfml xfml tn def Clist b.
-  parse_and_run_file_list ls xorig cfml xfml tn def Clist b =
+  ∀ls xm cfml xfml tn def Clist b.
+  parse_and_run_file_list ls xm cfml xfml tn def Clist b =
   case parse_xlrups ls of
     NONE => NONE
   | SOME xlrups =>
     OPTION_MAP (λ(cfml,xfml,rest). (cfml,xfml))
-      (check_xlrups_list xorig xlrups cfml xfml tn def Clist b)
+      (check_xlrups_list xm xlrups cfml xfml tn def Clist b)
 Proof
   Induct>>
   fs[parse_and_run_list_def,parse_xlrups_def,parse_and_run_file_list_def,
@@ -2265,9 +2998,9 @@ val inputLineTokens_fast_specialize =
 Theorem check_unsat''_spec:
   !lines fs cfmlv cfmlls cfmllsv xfmlv xfmlls xfmllsv
     Clist Carrv lno lnov tnav tnn tnls tnlsv tnv def defv b bv
-    xorig xorigv.
+    xm xmv.
   NUM lno lnov ∧
-  LIST_TYPE (LIST_TYPE (CNF_LIT_TYPE NUM)) xorig xorigv ∧
+  xorig_map_TYPE xm xmv ∧
   LIST_REL vcclause_TYPE cfmlls cfmllsv ∧
   LIST_REL (OPTION_TYPE strxor_TYPE) xfmlls xfmllsv ∧
   PAIR_TYPE ($=) NUM (tnav,tnn) tnv ∧
@@ -2278,7 +3011,7 @@ Theorem check_unsat''_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat''" (get_ml_prog_state()))
-    [fdv; lnov; xorigv; cfmlv; xfmlv; tnv; defv; Carrv; bv]
+    [fdv; lnov; xmv; cfmlv; xfmlv; tnv; defv; Carrv; bv]
     (STDIO fs * ARRAY cfmlv cfmllsv *
       ARRAY xfmlv xfmllsv * ARRAY tnav tnlsv *
       NUM_ARRAY Carrv Clist * INSTREAM_LINES #"\n" fd fdv lines fs)
@@ -2295,12 +3028,12 @@ Theorem check_unsat''_spec:
             &(unwrap_TYPE
               (λv fv.
               LIST_REL vcclause_TYPE (FST v) fv)
-                (parse_and_run_file_list lines xorig
+                (parse_and_run_file_list lines xm
                   cfmlls xfmlls (tnls,tnn) def Clist b) cfmllsv' ∧
               unwrap_TYPE
               (λv fv.
               LIST_REL (OPTION_TYPE strxor_TYPE) (SND v) fv)
-                 (parse_and_run_file_list lines xorig
+                 (parse_and_run_file_list lines xm
                   cfmlls xfmlls (tnls,tnn) def Clist b) xfmllsv'
               ))
       )
@@ -2312,7 +3045,7 @@ Theorem check_unsat''_spec:
            ARRAY xfmlv xfmllsv *
            ARRAY tnav' tnlsv' *
            &(Fail_exn e ∧
-             parse_and_run_file_list lines xorig
+             parse_and_run_file_list lines xm
                cfmlls xfmlls (tnls,tnn) def Clist b = NONE)))
 Proof
   Induct>>rw []>>
@@ -2413,14 +3146,480 @@ Proof
   xsimpl
 QED
 
-(*** The file-level entry point ***)
+(*** Reading and checking a binary proof file, one record at a time ***)
 
 Quote add_cakeml:
-  fun check_unsat' xorig cfml xfml tn def fname n =
+  fun parse_xlrupb_rest_arr lno fd l =
+    case parse_xlrupb_chunk l of
+      None =>
+        raise Fail (format_failure lno "failed to parse binary XLRUP record")
+    | Some (Inl step) => step
+    | Some (Inr rest) =>
+      (case rest of
+        Brup n c =>
+          (case TextIO.inputLineWith nulc fd of
+            None => raise Fail (format_failure lno "missing RUP hints")
+          | Some h => Rupvb n c h)
+      | Bxadd n x =>
+          (case TextIO.inputLineWith nulc fd of
+            None => raise Fail (format_failure lno "missing XOR hints")
+          | Some h1 =>
+          (case TextIO.inputLineWith nulc fd of
+            None => raise Fail (format_failure lno "missing unit hints")
+          | Some h2 => Xaddvb n x h1 h2))
+      | Bcfromx n c =>
+          (case TextIO.inputLineWith nulc fd of
+            None => raise Fail (format_failure lno "missing XOR hints")
+          | Some h => Cfromxvb n c h)
+      | Bxfromc n x =>
+          (case TextIO.inputLineWith nulc fd of
+            None => raise Fail (format_failure lno "missing clause hints")
+          | Some h => Xfromcvb n x h))
+End
+
+Theorem parse_xlrupb_rest_arr_spec:
+  NUM lno lnov ∧
+  STRING_TYPE l lv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "parse_xlrupb_rest_arr" (get_ml_prog_state()))
+    [lnov; fdv; lv]
+    (STDIO fs * INSTREAM_LINES nulc fd fdv lines fs)
+    (POSTve
+      (λv.
+        SEP_EXISTS k lines'.
+          STDIO (forwardFD fs fd k) *
+          INSTREAM_LINES nulc fd fdv lines' (forwardFD fs fd k) *
+          &(parse_xlrupb_rest l lines ≠ NONE ∧
+            XLRUP_XLRUP_TYPE (FST (THE (parse_xlrupb_rest l lines))) v ∧
+            lines' = SND (THE (parse_xlrupb_rest l lines))))
+      (λe.
+        SEP_EXISTS k lines'.
+          STDIO (forwardFD fs fd k) *
+          INSTREAM_LINES nulc fd fdv lines' (forwardFD fs fd k) *
+          &(Fail_exn e ∧ parse_xlrupb_rest l lines = NONE)))
+Proof
+  rw[]>>
+  xcf "parse_xlrupb_rest_arr" (get_ml_prog_state ())>>
+  xlet_autop>>
+  simp[parse_xlrupb_rest_def]>>
+  Cases_on`parse_xlrupb_chunk l`>>fs[OPTION_TYPE_def]
+  >- (
+    xmatch>>
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    qexistsl_tac [`0`,`lines`]>>
+    simp[Fail_exn_def]>>
+    conj_tac >- metis_tac[]>>
+    xsimpl)>>
+  rename1`parse_xlrupb_chunk l = SOME res`>>
+  Cases_on`res`>>fs[SUM_TYPE_def]
+  >- (
+    xmatch>>
+    xvar>>xsimpl>>
+    qexists_tac`0`>>
+    xsimpl)>>
+  rename1`parse_xlrupb_chunk l = SOME (INR rest)`>>
+  Cases_on`rest`>>fs[XLRUP_PARSING_XLRUPB_REST_TYPE_def]
+  >- (
+    qmatch_asmsub_rename_tac`BRup _ c`>>
+    xmatch>>
+    xmatch>>
+    xlet `POSTv v.
+      SEP_EXISTS k.
+        STDIO (forwardFD fs fd k) *
+        INSTREAM_LINES nulc fd fdv (TL lines) (forwardFD fs fd k) *
+        &OPTION_TYPE STRING_TYPE (oHD lines) v`
+    >- (
+      xapp>>
+      simp[nulc_v_thm])>>
+    namedCases_on`lines` ["","h rest"]>>fs[OPTION_TYPE_def]>>
+    xmatch
+    >- (
+      rpt xlet_autop>>
+      xraise>>xsimpl>>
+      qexistsl_tac [`k`,`[]`]>>
+      simp[Fail_exn_def]>>
+      conj_tac >- metis_tac[]>>
+      xsimpl)>>
+    xcon>>xsimpl>>
+    qexists_tac`k`>>
+    simp[XLRUP_XLRUP_TYPE_def]>>
+    xsimpl)
+  >- (
+    qmatch_asmsub_rename_tac`BXAdd _ x`>>
+    xmatch>>
+    xmatch>>
+    xlet `POSTv v.
+      SEP_EXISTS k.
+        STDIO (forwardFD fs fd k) *
+        INSTREAM_LINES nulc fd fdv (TL lines) (forwardFD fs fd k) *
+        &OPTION_TYPE STRING_TYPE (oHD lines) v`
+    >- (
+      xapp>>
+      simp[nulc_v_thm])>>
+    namedCases_on`lines` ["","h1 rest1"]>>fs[OPTION_TYPE_def]>>
+    xmatch
+    >- (
+      rpt xlet_autop>>
+      xraise>>xsimpl>>
+      qexistsl_tac [`k`,`[]`]>>
+      simp[Fail_exn_def]>>
+      conj_tac >- metis_tac[]>>
+      xsimpl)>>
+    xlet `POSTv v.
+      SEP_EXISTS k.
+        STDIO (forwardFD fs fd k) *
+        INSTREAM_LINES nulc fd fdv (TL rest1) (forwardFD fs fd k) *
+        &OPTION_TYPE STRING_TYPE (oHD rest1) v`
+    >- (
+      xapp>>
+      irule_at Any nulc_v_thm>>xsimpl>>
+      qexistsl_tac [`rest1`,`forwardFD fs fd k`,`fd`]>>
+      xsimpl>>
+      simp[forwardFD_o]>>
+      metis_tac[SEP_IMP_REFL_gc,SEP_IMP_REFL,STAR_ASSOC,STAR_COMM])>>
+    namedCases_on`rest1` ["","h2 rest"]>>fs[OPTION_TYPE_def]>>
+    xmatch
+    >- (
+      rpt xlet_autop>>
+      xraise>>xsimpl>>
+      qexistsl_tac [`k`,`[]`]>>
+      simp[Fail_exn_def]>>
+      conj_tac >- metis_tac[]>>
+      xsimpl)>>
+    xcon>>xsimpl>>
+    qexists_tac`k`>>
+    simp[XLRUP_XLRUP_TYPE_def]>>
+    xsimpl)
+  >- (
+    qmatch_asmsub_rename_tac`BCFromX _ c`>>
+    xmatch>>
+    xmatch>>
+    xlet `POSTv v.
+      SEP_EXISTS k.
+        STDIO (forwardFD fs fd k) *
+        INSTREAM_LINES nulc fd fdv (TL lines) (forwardFD fs fd k) *
+        &OPTION_TYPE STRING_TYPE (oHD lines) v`
+    >- (
+      xapp>>
+      simp[nulc_v_thm])>>
+    namedCases_on`lines` ["","h rest"]>>fs[OPTION_TYPE_def]>>
+    xmatch
+    >- (
+      rpt xlet_autop>>
+      xraise>>xsimpl>>
+      qexistsl_tac [`k`,`[]`]>>
+      simp[Fail_exn_def]>>
+      conj_tac >- metis_tac[]>>
+      xsimpl)>>
+    xcon>>xsimpl>>
+    qexists_tac`k`>>
+    simp[XLRUP_XLRUP_TYPE_def]>>
+    xsimpl)>>
+  qmatch_asmsub_rename_tac`BXFromC _ x`>>
+  xmatch>>
+  xmatch>>
+  xlet `POSTv v.
+    SEP_EXISTS k.
+      STDIO (forwardFD fs fd k) *
+      INSTREAM_LINES nulc fd fdv (TL lines) (forwardFD fs fd k) *
+      &OPTION_TYPE STRING_TYPE (oHD lines) v`
+  >- (
+    xapp>>
+    simp[nulc_v_thm])>>
+  namedCases_on`lines` ["","h rest"]>>fs[OPTION_TYPE_def]>>
+  xmatch
+  >- (
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    qexistsl_tac [`k`,`[]`]>>
+    simp[Fail_exn_def]>>
+    conj_tac >- metis_tac[]>>
+    xsimpl)>>
+  xcon>>xsimpl>>
+  qexists_tac`k`>>
+  simp[XLRUP_XLRUP_TYPE_def]>>
+  xsimpl
+QED
+
+Quote add_cakeml:
+  fun parse_xlrupb_one_arr lno fd =
+  case TextIO.inputLineWith nulc fd of
+    None => None
+  | Some l => Some (parse_xlrupb_rest_arr lno fd l)
+End
+
+Theorem parse_xlrupb_one_arr_spec:
+  NUM lno lnov
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "parse_xlrupb_one_arr" (get_ml_prog_state()))
+    [lnov; fdv]
+    (STDIO fs * INSTREAM_LINES nulc fd fdv lines fs)
+    (POSTve
+      (λv.
+        SEP_EXISTS k lines'.
+          STDIO (forwardFD fs fd k) *
+          INSTREAM_LINES nulc fd fdv lines' (forwardFD fs fd k) *
+          &(parse_xlrupb_one lines ≠ NONE ∧
+            OPTION_TYPE XLRUP_XLRUP_TYPE
+              (OPTION_MAP FST (THE (parse_xlrupb_one lines))) v ∧
+            (case THE (parse_xlrupb_one lines) of
+              NONE => lines' = []
+            | SOME res => lines' = SND res)))
+      (λe.
+        SEP_EXISTS k lines'.
+          STDIO (forwardFD fs fd k) *
+          INSTREAM_LINES nulc fd fdv lines' (forwardFD fs fd k) *
+          &(Fail_exn e ∧ parse_xlrupb_one lines = NONE)))
+Proof
+  rw[]>>
+  xcf "parse_xlrupb_one_arr" (get_ml_prog_state ())>>
+  xlet `POSTv v.
+    SEP_EXISTS k.
+      STDIO (forwardFD fs fd k) *
+      INSTREAM_LINES nulc fd fdv (TL lines) (forwardFD fs fd k) *
+      &OPTION_TYPE STRING_TYPE (oHD lines) v`
+  >- (
+    xapp>>
+    simp[nulc_v_thm])>>
+  simp[parse_xlrupb_one_def]>>
+  namedCases_on`lines` ["","h t"]>>fs[OPTION_TYPE_def]>>xmatch
+  >- (
+    xcon>>xsimpl>>
+    qexists_tac`k`>>xsimpl)>>
+  xlet `POSTve
+    (λv.
+      SEP_EXISTS k' lines'.
+        STDIO (forwardFD fs fd k') *
+        INSTREAM_LINES nulc fd fdv lines' (forwardFD fs fd k') *
+        &(parse_xlrupb_rest h t ≠ NONE ∧
+          XLRUP_XLRUP_TYPE (FST (THE (parse_xlrupb_rest h t))) v ∧
+          lines' = SND (THE (parse_xlrupb_rest h t))))
+    (λe.
+      SEP_EXISTS k' lines'.
+        STDIO (forwardFD fs fd k') *
+        INSTREAM_LINES nulc fd fdv lines' (forwardFD fs fd k') *
+        &(Fail_exn e ∧ parse_xlrupb_rest h t = NONE))`
+  >- (
+    xapp>>xsimpl>>
+    qexistsl_tac [`emp`,`t`,`h`,`forwardFD fs fd k`,`fd`,`lno`]>>
+    xsimpl>>
+    rw[forwardFD_o]
+    >- (
+      qexists_tac`k+x`>>xsimpl)>>
+    qexistsl_tac [`k+x`,`x'`]>>xsimpl)
+  >- xsimpl>>
+  xcon>>xsimpl>>
+  namedCases_on`parse_xlrupb_rest h t` ["","res"]>>gvs[OPTION_TYPE_def]>>
+  qexists_tac`k'`>>xsimpl
+QED
+
+Definition parse_and_run_file_list_b_def:
+  parse_and_run_file_list_b lines xm cfml xfml tn def Clist b =
+  case parse_xlrupb_one lines of
+    NONE => NONE
+  | SOME NONE => SOME (cfml, xfml)
+  | SOME (SOME (step,rest)) =>
+    (case check_xlrup_list xm step cfml xfml tn def Clist b of
+      NONE => NONE
+    | SOME (cfml', xfml', tn', def', Clist', b') =>
+      parse_and_run_file_list_b rest xm cfml' xfml' tn' def' Clist' b')
+Termination
+  WF_REL_TAC` measure (LENGTH o FST)`>>
+  rw[]>>
+  drule parse_xlrupb_one_LENGTH>>
+  simp[]
+End
+
+Theorem parse_and_run_file_list_b_eq:
+  ∀lines xm cfml xfml tn def Clist b.
+  parse_and_run_file_list_b lines xm cfml xfml tn def Clist b =
+  case parse_xlrupsb lines of
+    NONE => NONE
+  | SOME xlrups =>
+    OPTION_MAP (λ(cfml,xfml,rest). (cfml,xfml))
+      (check_xlrups_list xm xlrups cfml xfml tn def Clist b)
+Proof
+  ho_match_mp_tac parse_and_run_file_list_b_ind>>
+  rw[]>>
+  simp[Once parse_and_run_file_list_b_def,Once parse_xlrupsb_def]>>
+  every_case_tac>>
+  gvs[check_xlrups_list_def]
+QED
+
+Quote add_cakeml:
+  fun check_unsat_b'' fd lno xm cfml xfml tn def carr b =
+  case parse_xlrupb_one_arr lno fd of
+    None => (cfml, xfml)
+  | Some step =>
+    (case check_xlrup_arr lno xm step cfml xfml tn def carr b of
+      (cfml',xfml',tn',def',carr',b') =>
+      check_unsat_b'' fd (lno+1) xm cfml' xfml' tn' def' carr' b')
+End
+
+Theorem check_unsat_b''_spec:
+  ∀lines xm cfmlls xfmlls tn def Clist b fs cfmlv cfmllsv xfmlv xfmllsv
+    Carrv lno lnov tnav tnn tnls tnlsv tnv defv bv xmv.
+  tn = (tnls,tnn) ∧
+  NUM lno lnov ∧
+  xorig_map_TYPE xm xmv ∧
+  LIST_REL vcclause_TYPE cfmlls cfmllsv ∧
+  LIST_REL (OPTION_TYPE strxor_TYPE) xfmlls xfmllsv ∧
+  PAIR_TYPE ($=) NUM (tnav,tnn) tnv ∧
+  LIST_REL NUM tnls tnlsv ∧
+  NUM def defv ∧
+  NUM b bv ∧
+  bnd_fml cfmlls (LENGTH Clist)
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "check_unsat_b''" (get_ml_prog_state()))
+    [fdv; lnov; xmv; cfmlv; xfmlv; tnv; defv; Carrv; bv]
+    (STDIO fs * ARRAY cfmlv cfmllsv *
+      ARRAY xfmlv xfmllsv * ARRAY tnav tnlsv *
+      NUM_ARRAY Carrv Clist * INSTREAM_LINES nulc fd fdv lines fs)
+    (POSTve
+      (λv.
+         SEP_EXISTS k v1 v2.
+           STDIO (forwardFD fs fd k) *
+           INSTREAM_LINES nulc fd fdv [] (forwardFD fs fd k) *
+           &(v = Conv NONE [v1; v2]) *
+           (SEP_EXISTS cfmllsv' xfmllsv' tnav' tnlsv'.
+            ARRAY v1 cfmllsv' *
+            ARRAY v2 xfmllsv' *
+            ARRAY tnav' tnlsv' *
+            &(unwrap_TYPE
+              (λv fv.
+              LIST_REL vcclause_TYPE (FST v) fv)
+                (parse_and_run_file_list_b lines xm
+                  cfmlls xfmlls (tnls,tnn) def Clist b) cfmllsv' ∧
+              unwrap_TYPE
+              (λv fv.
+              LIST_REL (OPTION_TYPE strxor_TYPE) (SND v) fv)
+                 (parse_and_run_file_list_b lines xm
+                  cfmlls xfmlls (tnls,tnn) def Clist b) xfmllsv'
+              ))
+      )
+      (λe.
+         SEP_EXISTS k cfmlv cfmllsv xfmlv xfmllsv tnav' tnlsv' lines'.
+           STDIO (forwardFD fs fd k) *
+           INSTREAM_LINES nulc fd fdv lines' (forwardFD fs fd k) *
+           ARRAY cfmlv cfmllsv *
+           ARRAY xfmlv xfmllsv *
+           ARRAY tnav' tnlsv' *
+           &(Fail_exn e ∧
+             parse_and_run_file_list_b lines xm
+               cfmlls xfmlls (tnls,tnn) def Clist b = NONE)))
+Proof
+  ho_match_mp_tac parse_and_run_file_list_b_ind>>
+  rpt strip_tac>>
+  gvs[]>>
+  xcf "check_unsat_b''" (get_ml_prog_state ())>>
+  simp[Once parse_and_run_file_list_b_def]>>
+  xlet `
+    POSTve
+      (λv.
+        SEP_EXISTS k lines'.
+          STDIO (forwardFD fs fd k) *
+          INSTREAM_LINES nulc fd fdv lines' (forwardFD fs fd k) *
+          ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * ARRAY tnav tnlsv *
+          NUM_ARRAY Carrv Clist *
+          &(parse_xlrupb_one lines ≠ NONE ∧
+            OPTION_TYPE XLRUP_XLRUP_TYPE
+              (OPTION_MAP FST (THE (parse_xlrupb_one lines))) v ∧
+            (case THE (parse_xlrupb_one lines) of
+              NONE => lines' = []
+            | SOME res => lines' = SND res)))
+      (λe.
+        SEP_EXISTS k lines'.
+          STDIO (forwardFD fs fd k) *
+          INSTREAM_LINES nulc fd fdv lines' (forwardFD fs fd k) *
+          ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * ARRAY tnav tnlsv *
+          &(Fail_exn e ∧ parse_xlrupb_one lines = NONE))`
+  >- (
+    xapp>>xsimpl>>
+    qexistsl_tac [`ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv *
+      ARRAY tnav tnlsv * NUM_ARRAY Carrv Clist`,`lines`,`fs`,`fd`,`lno`]>>
+    xsimpl>>rw[]>>
+    qexistsl_tac [`x`,`x'`]>>
+    xsimpl)
+  >- (
+    xsimpl>>rw[]>>
+    qexistsl_tac [`x`,`cfmlv`,`cfmllsv`,`xfmlv`,`xfmllsv`,`tnav`,`tnlsv`,`x'`]>>
+    xsimpl>>
+    simp[Once parse_and_run_file_list_b_def])>>
+  namedCases_on`parse_xlrupb_one lines` ["","res"]>>gvs[]>>
+  namedCases_on`res` ["","stp"]>>gvs[OPTION_TYPE_def]
+  >- (
+    xmatch>>
+    xcon>>xsimpl>>
+    simp[unwrap_TYPE_def]>>
+    simp[Once parse_and_run_file_list_b_def]>>
+    qexistsl_tac [`k`,`tnav`,`tnlsv`]>>
+    xsimpl)>>
+  namedCases_on`stp` ["step rest"]>>gvs[]>>
+  xmatch>>
+  xlet_auto
+  >- (
+    xsimpl>>rw[]
+    >- (
+      every_case_tac>>gvs[]>>
+      qmatch_goalsub_rename_tac`_ * ARRAY av al ==>> _`>>
+      qexistsl_tac [`av`,`al`]>>xsimpl)>>
+    qmatch_goalsub_rename_tac`ARRAY av al ==>> _`>>
+    qexistsl_tac [`av`,`al`]>>xsimpl)
+  >- (
+    xsimpl>>rw[]>>
+    simp[Once parse_and_run_file_list_b_def]>>
+    xsimpl>>
+    qmatch_goalsub_rename_tac`ARRAY av al * ARRAY xfmlv xfmllsv`>>
+    qexistsl_tac [`k`,`cfmlv`,`cfmllsv`,`xfmlv`,`xfmllsv`,`av`,`al`,`rest`]>>
+    xsimpl)>>
+  namedCases_on`check_xlrup_list xm step cfmlls xfmlls (tnls,tnn) def Clist b`
+    ["","res"]>>gvs[]>>
+  PairCases_on`res`>>gvs[]>>
+  xmatch>>
+  xlet_autop>>
+  xapp>>xsimpl>>
+  rpt(first_x_assum (irule_at Any))>>
+  qexistsl_tac [`forwardFD fs fd k`,`emp`]>>
+  xsimpl>>rw[]
+  >- (
+    simp[Once parse_and_run_file_list_b_def,forwardFD_o]>>
+    qexists_tac`k+x`>>xsimpl>>
+    qmatch_goalsub_rename_tac`ARRAY c1 c2 ==>> _`>>
+    qexistsl_tac [`c1`,`c2`]>>
+    xsimpl)>>
+  simp[Once parse_and_run_file_list_b_def,forwardFD_o]>>
+  qexists_tac`k+x`>>xsimpl>>
+  rename1`INSTREAM_LINES _ _ _ A _ *
+    ARRAY a1 a2 * ARRAY b1 b2 * ARRAY c1 c2 ==>> _`>>
+  qexistsl_tac [`a1`,`a2`,`b1`,`b2`,`c1`,`c2`,`A`]>>
+  xsimpl
+QED
+
+(*** The file-level entry point: b selects the binary format ***)
+
+Definition run_xlrup_file_def:
+  run_xlrup_file b xm cfml xfml tn def Clist bnd fs f =
+  if b then
+    parse_and_run_file_list_b (all_lines_file_gen nulc fs f)
+      xm cfml xfml tn def Clist bnd
+  else
+    parse_and_run_file_list (all_lines_file fs f)
+      xm cfml xfml tn def Clist bnd
+End
+
+Quote add_cakeml:
+  fun check_unsat' xorig cfml xfml tn def fname n b =
   let
     val fd = TextIO.openIn fname
     val carr = Array.array n 0
-    val chk = Inr (check_unsat'' fd 1 xorig cfml xfml tn def carr 1)
+    val xm = build_xorig_map xorig
+    val chk = Inr (
+      if b then check_unsat_b'' fd 1 xm cfml xfml tn def carr 1
+      else check_unsat'' fd 1 xm cfml xfml tn def carr 1)
       handle Fail s => Inl s
     val close = TextIO.closeIn fd;
   in
@@ -2443,24 +3642,22 @@ Theorem check_unsat'_spec:
   PAIR_TYPE ($=) NUM (tnav,tnn) tnv ∧
   LIST_REL NUM tnls tnlsv ∧
   NUM def defv ∧
+  BOOL b bv ∧
   bnd_fml cfmlls n
   ⇒
   app (p:'ffi ffi_proj) ^(fetch_v"check_unsat'"(get_ml_prog_state()))
-  [xorigv; cfmlv; xfmlv; tnv; defv; fv; nv]
+  [xorigv; cfmlv; xfmlv; tnv; defv; fv; nv; bv]
   (STDIO fs * ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * ARRAY tnav tnlsv)
   (POSTv v.
     STDIO fs *
     SEP_EXISTS err.
       &(SUM_TYPE STRING_TYPE BOOL)
       (if inFS_fname fs f then
-        (case parse_xlrups (all_lines_file fs f) of
-         SOME xlrup =>
-           (case check_xlrups_list xorig xlrup
-             cfmlls xfmlls (tnls,tnn) def (REPLICATE n 0) 1 of
-             NONE => INL err
-           | SOME (cfml', xfml') =>
-            INR (contains_emp_list cfml'))
-        | NONE => INL err)
+        (case run_xlrup_file b (build_xorig_map xorig)
+            cfmlls xfmlls (tnls,tnn) def (REPLICATE n 0) 1 fs f of
+          NONE => INL err
+        | SOME (cfml', xfml') =>
+          INR (contains_emp_list cfml'))
       else
         INL err
       ) v)
@@ -2489,22 +3686,24 @@ Proof
   qmatch_goalsub_abbrev_tac`$POSTv Qval`>>
   xhandle`$POSTv Qval`>>xsimpl >>
   qunabbrev_tac`Qval`>>
-  xlet_auto_spec (SOME (openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`))>>xsimpl >>
+  qabbrev_tac`c0 = if b then nulc else #"\n"`>>
+  xlet_auto_spec (SOME (openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `c0`))>>xsimpl >>
   xlet_auto_spec (SOME NUM_ARRAY_alloc_zero_spec)
   >- xsimpl>>
+  xlet_autop>>
   qmatch_goalsub_abbrev_tac`STDIO fss`>>
   qabbrev_tac`Clist = REPLICATE n (0:num)`>>
   xlet`POSTv resv.
    SEP_EXISTS v0 v1 v2 cfmllsv' cfmlv' xfmllsv' xfmlv' tnav' tnlsv' k rest.
     STDIO (forwardFD fss (nextFD fs) k) *
-    INSTREAM_LINES #"\n" (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
+    INSTREAM_LINES c0 (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
     ARRAY cfmlv' cfmllsv' *
     ARRAY xfmlv' xfmllsv' *
     ARRAY tnav' tnlsv' *
     &(
       case
-        parse_and_run_file_list (all_lines_file fs f) xorig
-          cfmlls xfmlls (tnls,tnn) def (REPLICATE n 0) 1
+        run_xlrup_file b (build_xorig_map xorig)
+          cfmlls xfmlls (tnls,tnn) def Clist 1 fs f
       of
         NONE => resv =
           Conv (SOME (TypeStamp «Inl» 4)) [v0] ∧ ∃s. STRING_TYPE s v0
@@ -2516,84 +3715,75 @@ Proof
         LIST_REL (OPTION_TYPE strxor_TYPE) xfmlls' xfmllsv'
     )`
   >- (
-    simp[]>>
     TOP_CASE_TAC
     >- (
       xhandle`POSTe e.
         SEP_EXISTS cfmlv cfmllsv xfmlv xfmllsv tnav' tnlsv' rest k.
           STDIO (forwardFD fss (nextFD fs) k) *
-          INSTREAM_LINES #"\n" (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
+          INSTREAM_LINES c0 (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
           ARRAY cfmlv cfmllsv *
           ARRAY xfmlv xfmllsv *
           ARRAY tnav' tnlsv' *
-          &(Fail_exn e ∧ parse_and_run_file_list (all_lines_file fs f) xorig
-            cfmlls xfmlls (tnls,tnn) def Clist 1 = NONE)`
+          &(Fail_exn e ∧ run_xlrup_file b (build_xorig_map xorig)
+            cfmlls xfmlls (tnls,tnn) def Clist 1 fs f = NONE)`
       >- (
         xlet `POSTe e.
          SEP_EXISTS k cfmlv cfmllsv xfmlv xfmllsv tnav' tnlsv' lines'.
            STDIO (forwardFD fss (nextFD fs) k) *
-           INSTREAM_LINES #"\n" (nextFD fs) is lines' (forwardFD fss (nextFD fs) k) *
+           INSTREAM_LINES c0 (nextFD fs) is lines' (forwardFD fss (nextFD fs) k) *
            ARRAY cfmlv cfmllsv *
            ARRAY xfmlv xfmllsv *
            ARRAY tnav' tnlsv' *
-           &(Fail_exn e ∧ parse_and_run_file_list (all_lines_file fs f) xorig
-            cfmlls xfmlls (tnls,tnn) def Clist 1 = NONE)`
-        >-
-         (xapp_spec check_unsat''_spec>>
+           &(Fail_exn e ∧ run_xlrup_file b (build_xorig_map xorig)
+            cfmlls xfmlls (tnls,tnn) def Clist 1 fs f = NONE)`
+        >- (
+          xif
+          >- (
+            gvs[Abbr`c0`,run_xlrup_file_def]>>
+            xapp_spec check_unsat_b''_spec>>
+            xsimpl>>
+            qexistsl_tac [`emp`,`build_xorig_map xorig`,`xfmlls`,`tnn`,`tnlsv`,
+              `tnls`,`tnav`,`all_lines_file_gen nulc fs f`,`fss`,`nextFD fs`,
+              `def`,`cfmlls`,`Clist`]>>
+            xsimpl>>
+            simp[Abbr`Clist`,NUM_ARRAY_refl,unwrap_TYPE_def]>>
+            rw[]>>
+            rename [`STDIO (forwardFD _ _ k) * INSTREAM_LINES _ _ _ rest _ *
+              ARRAY a1 a2 * ARRAY b1 b2 * ARRAY c1 c2 ==>> _`]>>
+            qexistsl_tac [`k`,`a1`,`a2`,`b1`,`b2`,`c1`,`c2`,`rest`]>>
+            xsimpl)>>
+          gvs[Abbr`c0`,run_xlrup_file_def]>>
+          xapp_spec check_unsat''_spec>>
           xsimpl>>
-          rpt (first_x_assum (irule_at Any))>>
-          xsimpl>>fs [Abbr`Clist`]>>
-          qexists_tac `all_lines_file fs f`>>
-          qexists_tac `fss`>>
-          qexists_tac `nextFD fs`>>
-          qexists_tac `emp`>>
-          xsimpl>>fs [unwrap_TYPE_def]>>
-          qexists_tac`REPLICATE n 0`>>
-          simp[NUM_ARRAY_refl]>>
+          qexistsl_tac [`emp`,`build_xorig_map xorig`,`xfmlls`,`tnn`,`tnlsv`,
+            `tnls`,`tnav`,`all_lines_file fs f`,`fss`,`nextFD fs`,`def`,
+            `cfmlls`,`Clist`]>>
+          xsimpl>>
+          simp[Abbr`Clist`,NUM_ARRAY_refl,unwrap_TYPE_def]>>
           rw[]>>
-          qexists_tac `x`>>
-          rename [`_ * INSTREAM_LINES _ _ _ xxx _ *
-            ARRAY a1 a2 * ARRAY b1 b2 * ARRAY c1 c2`]>>
-          qexists_tac `a1`>>
-          qexists_tac `a2`>>
-          qexists_tac `b1`>>
-          qexists_tac `b2`>>
-          qexists_tac `c1`>>
-          qexists_tac `c2`>>
-          qexists_tac `xxx`>>
+          rename [`STDIO (forwardFD _ _ k) * INSTREAM_LINES _ _ _ rest _ *
+            ARRAY a1 a2 * ARRAY b1 b2 * ARRAY c1 c2 ==>> _`]>>
+          qexistsl_tac [`k`,`a1`,`a2`,`b1`,`b2`,`c1`,`c2`,`rest`]>>
           xsimpl)>>
-        fs[unwrap_TYPE_def]>>
         xsimpl>>
         rw[]>>
-        rename [`_ * INSTREAM_LINES _ _ _ xxx _ *
-          ARRAY a1 a2 * ARRAY b1 b2 * ARRAY c1 c2`]>>
-        qexists_tac `a1`>>
-        qexists_tac `a2`>>
-        qexists_tac `b1`>>
-        qexists_tac `b2`>>
-        qexists_tac `c1`>>
-        qexists_tac `c2`>>
-        qexists_tac `xxx`>>
-        qexists_tac `x`>>
+        rename [`STDIO (forwardFD _ _ k) * INSTREAM_LINES _ _ _ rest _ *
+          ARRAY a1 a2 * ARRAY b1 b2 * ARRAY c1 c2 ==>> _`]>>
+        qexistsl_tac [`a1`,`a2`,`b1`,`b2`,`c1`,`c2`,`rest`,`k`]>>
         xsimpl)>>
-      fs[Fail_exn_def]>>
+      gvs[Fail_exn_def]>>
       xcases>>
-      xcon>>xsimpl>>
-      simp[PULL_EXISTS]>>
-      asm_exists_tac>> simp[]>>
-      rename [`_ * _ * ARRAY a1 a2 * ARRAY b1 b2 * ARRAY c1 c2`]>>
-      qexists_tac `a2` >>
-      qexists_tac `a1` >>
-      qexists_tac `b2` >>
-      qexists_tac `b1` >>
-      qexists_tac `c1` >>
-      qexists_tac `c2` >>
-      qexists_tac `k` >>
-      qexists_tac `rest` >> xsimpl) >>
+      xcon>>
+      xsimpl>>
+      qexistsl_tac [`sv`,`cfmllsv'`,`cfmlv'`,`xfmllsv'`,`xfmlv'`,`tnav'`,
+        `tnlsv'`,`k`,`rest`]>>
+      conj_tac
+      >- (qexists_tac`s`>>simp[])>>
+      xsimpl)>>
     xhandle`(POSTv v.
         SEP_EXISTS v1 v2 k rest.
          STDIO (forwardFD fss (nextFD fs) k) *
-         INSTREAM_LINES #"\n" (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
+         INSTREAM_LINES c0 (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
          &(v = Conv (SOME (TypeStamp «Inr» 4)) [Conv NONE [v1; v2]]) *
          (SEP_EXISTS cfmllsv' xfmllsv' tnav' tnlsv'.
            ARRAY v1 cfmllsv' *
@@ -2601,83 +3791,77 @@ Proof
            ARRAY tnav' tnlsv' *
            &(unwrap_TYPE
              (λv fv. LIST_REL vcclause_TYPE (FST v) fv)
-                (parse_and_run_file_list (all_lines_file fs f) xorig
-                  cfmlls xfmlls (tnls,tnn) def Clist 1) cfmllsv' ∧
+                (run_xlrup_file b (build_xorig_map xorig)
+                  cfmlls xfmlls (tnls,tnn) def Clist 1 fs f) cfmllsv' ∧
              unwrap_TYPE
              (λv fv. LIST_REL (OPTION_TYPE strxor_TYPE) (SND v) fv)
-                (parse_and_run_file_list (all_lines_file fs f) xorig
-                  cfmlls xfmlls (tnls,tnn) def Clist 1) xfmllsv'
-            )))`
+                (run_xlrup_file b (build_xorig_map xorig)
+                  cfmlls xfmlls (tnls,tnn) def Clist 1 fs f) xfmllsv')))`
     >- (
       xlet `POSTv v.
          SEP_EXISTS k v1 v2.
-             STDIO (forwardFD fss (nextFD fs) k) *
-             INSTREAM_LINES #"\n" (nextFD fs) is [] (forwardFD fss (nextFD fs) k) *
-             &(v = Conv NONE [v1; v2]) *
-             (SEP_EXISTS cfmllsv' xfmllsv' tnav' tnlsv'.
-                  ARRAY v1 cfmllsv' *
-                  ARRAY v2 xfmllsv' *
-                  ARRAY tnav' tnlsv' *
-                  &(unwrap_TYPE
-                    (λv fv.
-                         LIST_REL vcclause_TYPE
-                           (FST v) fv)
-                      (parse_and_run_file_list (all_lines_file fs f) xorig
-                        cfmlls xfmlls (tnls,tnn) def Clist 1) cfmllsv' ∧
-                    unwrap_TYPE
-                    (λv fv.
-                         LIST_REL (OPTION_TYPE strxor_TYPE)
-                           (SND v) fv)
-                      (parse_and_run_file_list (all_lines_file fs f) xorig
-                        cfmlls xfmlls (tnls,tnn) def Clist 1) xfmllsv'
-                    ))`
-      >-
-       (xapp_spec check_unsat''_spec>>
+           STDIO (forwardFD fss (nextFD fs) k) *
+           INSTREAM_LINES c0 (nextFD fs) is [] (forwardFD fss (nextFD fs) k) *
+           &(v = Conv NONE [v1; v2]) *
+           (SEP_EXISTS cfmllsv' xfmllsv' tnav' tnlsv'.
+             ARRAY v1 cfmllsv' *
+             ARRAY v2 xfmllsv' *
+             ARRAY tnav' tnlsv' *
+             &(unwrap_TYPE
+               (λv fv. LIST_REL vcclause_TYPE (FST v) fv)
+                  (run_xlrup_file b (build_xorig_map xorig)
+                    cfmlls xfmlls (tnls,tnn) def Clist 1 fs f) cfmllsv' ∧
+               unwrap_TYPE
+               (λv fv. LIST_REL (OPTION_TYPE strxor_TYPE) (SND v) fv)
+                  (run_xlrup_file b (build_xorig_map xorig)
+                    cfmlls xfmlls (tnls,tnn) def Clist 1 fs f) xfmllsv'))`
+      >- (
+        xif
+        >- (
+          gvs[Abbr`c0`,run_xlrup_file_def]>>
+          xapp_spec check_unsat_b''_spec>>
+          xsimpl>>
+          qexistsl_tac [`emp`,`build_xorig_map xorig`,`xfmlls`,`tnn`,`tnlsv`,
+            `tnls`,`tnav`,`all_lines_file_gen nulc fs f`,`fss`,`nextFD fs`,
+            `def`,`cfmlls`,`Clist`]>>
+          xsimpl>>
+          simp[Abbr`Clist`,NUM_ARRAY_refl]>>
+          rw[]>>
+          rename [`STDIO (forwardFD _ _ k) * _ * ARRAY c1 c2 ==>> _`]>>
+          qexistsl_tac [`k`,`c1`,`c2`]>>
+          xsimpl)>>
+        gvs[Abbr`c0`,run_xlrup_file_def]>>
+        xapp_spec check_unsat''_spec>>
         xsimpl>>
-        rpt (first_x_assum (irule_at Any))>>
-        xsimpl>>fs [Abbr`Clist`]>>
-        qexists_tac `all_lines_file fs f`>>
-        qexists_tac `fss`>>
-        qexists_tac `nextFD fs`>>
-        qexists_tac `emp`>>
-        xsimpl>>fs [unwrap_TYPE_def]>>
-        qexists_tac`REPLICATE n 0`>>
-        simp[NUM_ARRAY_refl]>>
-        rpt strip_tac>>
-        qexists_tac `x'`>>
+        qexistsl_tac [`emp`,`build_xorig_map xorig`,`xfmlls`,`tnn`,`tnlsv`,
+          `tnls`,`tnav`,`all_lines_file fs f`,`fss`,`nextFD fs`,`def`,`cfmlls`,
+          `Clist`]>>
         xsimpl>>
-        qmatch_goalsub_rename_tac`ARRAY c1 c2 ==>> _`>>
-        qexistsl_tac [`c1`,`c2`]>>
-        xsimpl) >>
-      fs[unwrap_TYPE_def]>>
-      xcon >>
+        simp[Abbr`Clist`,NUM_ARRAY_refl]>>
+        rw[]>>
+        rename [`STDIO (forwardFD _ _ k) * _ * ARRAY c1 c2 ==>> _`]>>
+        qexistsl_tac [`k`,`c1`,`c2`]>>
+        xsimpl)>>
+      xcon>>
       xsimpl>>
-      rename [`forwardFD _ _ k`]>>qexists_tac `k` >>
-      rename [`INSTREAM_LINES _ _ _ rr`]>>qexists_tac `rr`>>
-      xsimpl>>gvs []>>
-      qexistsl_tac [`tnav'`,`tnlsv'`]>>xsimpl) >>
-      xsimpl>>simp[unwrap_TYPE_def]>>
-      PairCases_on`x`>>fs[]>>rw[]>>
-      rename [`STDIO (forwardFD _ _ kk) *
-        INSTREAM_LINES _ _ _ rr _ *
-        ARRAY _ cls * ARRAY _ xls * ARRAY tna tnl ==>> _`]>>
-      qexistsl_tac [`cls`,`xls`,`tna`,`tnl`,`kk`,`rr`]>>
+      qexistsl_tac [`k`,`[]`,`tnav'`,`tnlsv'`]>>
+      gvs[]>>
       xsimpl)>>
-  qspecl_then [`all_lines_file fs f`,`xorig`,`cfmlls`,`xfmlls`,`(tnls,tnn)`,
-    `def`,`Clist`,`1`]
-    strip_assume_tac parse_and_run_file_list_eq>>
-  gs[]>>rw[]>>
-  pop_assum kall_tac >>
+    xsimpl>>
+    simp[unwrap_TYPE_def]>>
+    PairCases_on`x`>>
+    rw[]>>
+    rename [`STDIO (forwardFD _ _ kk) * INSTREAM_LINES _ _ _ rr _ *
+      ARRAY _ cls * ARRAY _ xls * ARRAY tna tnl ==>> _`]>>
+    qexistsl_tac [`cls`,`xls`,`tna`,`tnl`,`kk`,`rr`]>>
+    xsimpl)>>
   xlet `POSTv v. STDIO fs *
     ARRAY cfmlv' cfmllsv' * ARRAY xfmlv' xfmllsv' * ARRAY tnav' tnlsv'`
-  >-
-   (xapp_spec closeIn_spec_lines >>
-    rename [`_ * _ * ARRAY a1 a2 * ARRAY b1 b2 * ARRAY c1 c2`] >>
-    qexists_tac `ARRAY a1 a2 * ARRAY b1 b2 * ARRAY c1 c2` >>
-    qexists_tac `rest` >>
-    qexists_tac `forwardFD fss (nextFD fs) k` >>
-    qexists_tac `nextFD fs` >>
-    qexists_tac `#"\n"` >>
+  >- (
+    xapp_spec closeIn_spec_lines >>
+    qexistsl_tac [`ARRAY cfmlv' cfmllsv' * ARRAY xfmlv' xfmllsv' *
+      ARRAY tnav' tnlsv'`,`rest`,`forwardFD fss (nextFD fs) k`,`nextFD fs`,
+      `c0`]>>
     conj_tac >-
      (fs [forwardFD_def,Abbr`fss`]>>
       imp_res_tac fsFFIPropsTheory.nextFD_ltX>>fs []>>
@@ -2691,22 +3875,23 @@ Proof
     imp_res_tac fsFFIPropsTheory.nextFD_leX>>fs [] >>
     drule fsFFIPropsTheory.openFileFS_ADELKEY_nextFD >>
     fs [Abbr`fss`]>>xsimpl) >>
-  Cases_on`parse_xlrups (all_lines_file fs f)`>>
-  fs[OPTION_TYPE_def]
+  Cases_on`run_xlrup_file b (build_xorig_map xorig)
+    cfmlls xfmlls (tnls,tnn) def Clist 1 fs f`>>
+  gvs[]
   >- (
     xmatch>>
-    xcon >> xsimpl >>
-    simp[SUM_TYPE_def]>>metis_tac[])>>
-  TOP_CASE_TAC>> fs[]
-  >- (
-    xmatch >> xcon >>
-    xsimpl>> simp[SUM_TYPE_def] >> metis_tac[])>>
-  PairCases_on`x'`>>gvs[]>>
-  xmatch >> fs[]>>
-  xmatch >> fs[]>>
+    xcon>>
+    xsimpl>>
+    simp[SUM_TYPE_def]>>
+    qexists_tac`s`>>simp[])>>
+  PairCases_on`x`>>
+  gvs[]>>
+  xmatch>>
+  xmatch>>
   xlet_autop>>
-  xcon >> xsimpl>>
-  simp[SUM_TYPE_def] >> gvs[]
+  xcon>>
+  xsimpl>>
+  simp[SUM_TYPE_def]
 QED
 
 (*** The array-level soundness theorem ***)

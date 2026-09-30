@@ -11,7 +11,7 @@ Definition check_lrup_list_def:
   check_lrup_list lrup fml dml b =
   case lrup of
     Delvb s =>
-    SOME (delete_ids_vb_list fml s 1 (strlen s), dml, b)
+    SOME (delete_ids_vb_list vcc_none fml s 1 (strlen s), dml, b)
   | Lrupvb n C s =>
     (case is_rup_vb_list fml dml b C s of
       (T, dml', b') =>

@@ -249,3 +249,161 @@ Proof
   drule parse_xlrup_wf>>
   simp[]
 QED
+
+(***
+  Parser for the binary XLRUP format.
+
+  Records are chunks terminated by a zero byte, as in the binary LRUP
+  format, whose a and d records are reused unchanged. An XOR record
+  starts with x and a kind byte:
+
+    x o <id> <lits> 0                       original XOR
+    x a <id> <lits> 0   <xids> 0   <cids> 0 XOR addition, then unit propagation
+    x d <xids> 0                            XOR deletion
+    x c <id> <lits> 0   <xids> 0            clause from XORs
+    x i <id> <lits> 0   <cids> 0            XOR from clauses
+ ***)
+
+(* A first chunk whose record owes further hint chunks *)
+Datatype:
+  xlrupb_rest =
+  | BRup num vcclause
+  | BXAdd num rawxor
+  | BCFromX num cclause
+  | BXFromC num rawxor
+End
+
+Definition parse_xlrupb_chunk_def:
+  parse_xlrupb_chunk s =
+  if strlen s = 0 then NONE
+  else
+  let c = strsub s 0 in
+  if c = #"x"
+  then
+    if strlen s < 2 then NONE
+    else
+    let k = strsub s 1 in
+    if k = #"d" then SOME (INL (XDelvb s))
+    else
+    let len = strlen s in
+    let (m,i) = parse_vb_num s 2 len in
+    if m = 0 ∨ m MOD 2 ≠ 0
+    then NONE
+    else
+    let n = m DIV 2 in
+    let ls = parse_vb_ilits s i len [] in
+    if k = #"o" then SOME (INL (XOrig n (MAP mk_lit (REVERSE ls))))
+    else if k = #"a" then SOME (INR (BXAdd n ls))
+    else if k = #"c" then SOME (INR (BCFromX n ls))
+    else if k = #"i" then SOME (INR (BXFromC n ls))
+    else NONE
+  else if c = #"d" then SOME (INL (Delvb s))
+  else if c = #"a"
+  then
+    let len = strlen s in
+    let (m,i) = parse_vb_num s 1 len in
+    if m = 0 ∨ m MOD 2 ≠ 0
+    then NONE
+    else SOME (INR (BRup (m DIV 2) (Vector (parse_vb_ilits s i len []))))
+  else NONE
+End
+
+(* The record whose first chunk is l, taking the chunks it owes from
+  ls: NONE on a parse failure, otherwise the step and the unread chunks *)
+Definition parse_xlrupb_rest_def:
+  parse_xlrupb_rest l ls =
+  case parse_xlrupb_chunk l of
+    NONE => NONE
+  | SOME (INL step) => SOME (step, ls)
+  | SOME (INR (BRup n C)) =>
+    (case ls of
+      [] => NONE
+    | h::rest => SOME (RUPvb n C h, rest))
+  | SOME (INR (BXAdd n X)) =>
+    (case ls of
+      h1::h2::rest => SOME (XAddvb n X h1 h2, rest)
+    | _ => NONE)
+  | SOME (INR (BCFromX n C)) =>
+    (case ls of
+      [] => NONE
+    | h::rest => SOME (CFromXvb n C h, rest))
+  | SOME (INR (BXFromC n X)) =>
+    (case ls of
+      [] => NONE
+    | h::rest => SOME (XFromCvb n X h, rest))
+End
+
+(* One record's worth of chunks: NONE on a parse failure, SOME NONE at
+  end of file, and otherwise the step together with the unread chunks *)
+Definition parse_xlrupb_one_def:
+  parse_xlrupb_one lines =
+  case lines of
+    [] => SOME NONE
+  | l::ls => OPTION_MAP SOME (parse_xlrupb_rest l ls)
+End
+
+Theorem parse_xlrupb_one_LENGTH:
+  parse_xlrupb_one lines = SOME (SOME (step,rest)) ⇒
+  LENGTH rest < LENGTH lines
+Proof
+  rw[parse_xlrupb_one_def,parse_xlrupb_rest_def]>>
+  gvs[AllCaseEqs()]
+QED
+
+Definition parse_xlrupsb_def:
+  parse_xlrupsb lines =
+  case parse_xlrupb_one lines of
+    NONE => NONE
+  | SOME NONE => SOME []
+  | SOME (SOME (step,rest)) =>
+    (case parse_xlrupsb rest of
+      NONE => NONE
+    | SOME ss => SOME (step :: ss))
+Termination
+  WF_REL_TAC` measure LENGTH`>>
+  rw[]>>
+  drule parse_xlrupb_one_LENGTH>>
+  simp[]
+End
+
+(* The literals a first chunk carries are non-zero, whichever record it
+  starts *)
+Theorem parse_xlrupb_chunk_wf:
+  parse_xlrupb_chunk l = SOME res ⇒
+  case res of
+    INL step => wf_xlrup step
+  | INR (BRup n C) => nz_ilits (toList C)
+  | INR (BXAdd n X) => T
+  | INR (BCFromX n C) => nz_ilits C
+  | INR (BXFromC n X) => nz_ilits X
+Proof
+  rw[parse_xlrupb_chunk_def]>>
+  rpt (pairarg_tac>>gvs[])>>
+  gvs[AllCaseEqs(),wf_xlrup_def]>>
+  gvs[nz_ilits_def,toList_thm,EVERY_MAP,EVERY_MEM,MEM_REVERSE]>>
+  metis_tac[nz_lit_mk_lit,parse_vb_ilits_nz,MEM]
+QED
+
+Theorem parse_xlrupb_one_wf:
+  parse_xlrupb_one lines = SOME (SOME (step,rest)) ⇒
+  wf_xlrup step
+Proof
+  rw[parse_xlrupb_one_def,parse_xlrupb_rest_def]>>
+  gvs[AllCaseEqs(),wf_xlrup_def]>>
+  drule parse_xlrupb_chunk_wf>>
+  simp[]
+QED
+
+Theorem parse_xlrupsb_wf:
+  ∀lines xlrups.
+  parse_xlrupsb lines = SOME xlrups ⇒
+  EVERY wf_xlrup xlrups
+Proof
+  ho_match_mp_tac parse_xlrupsb_ind>>
+  rw[]>>
+  pop_assum mp_tac>>
+  simp[Once parse_xlrupsb_def]>>
+  rw[AllCaseEqs()]>>
+  gvs[]>>
+  metis_tac[parse_xlrupb_one_wf]
+QED

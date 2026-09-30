@@ -1032,27 +1032,28 @@ Proof
   fs[]
 QED
 
+(* d is the value that marks a free slot: vcc_none in a clause array *)
 Definition delete_list_def:
-  delete_list fml i =
+  delete_list d fml i =
   if i < LENGTH fml
-  then LUPDATE vcc_none i fml
+  then LUPDATE d i fml
   else fml
 End
 
 Definition delete_ids_list_def:
-  (delete_ids_list fml ls =
-  FOLDL delete_list fml ls)
+  (delete_ids_list d fml ls =
+  FOLDL (delete_list d) fml ls)
 End
 
 Theorem LENGTH_delete_list[simp]:
-  LENGTH (delete_list fmlls i) = LENGTH fmlls
+  LENGTH (delete_list d fmlls i) = LENGTH fmlls
 Proof
   rw[delete_list_def]
 QED
 
 Theorem LENGTH_delete_ids_list[simp]:
   ∀l.
-  LENGTH (delete_ids_list fmlls l) = LENGTH fmlls
+  LENGTH (delete_ids_list d fmlls l) = LENGTH fmlls
 Proof
   simp[delete_ids_list_def,FOLDL_FOLDR_REVERSE]>>
   strip_tac>>
@@ -1061,9 +1062,17 @@ Proof
   Induct_on`ll`>>rw[]
 QED
 
+Theorem any_el_delete_list:
+  any_el n (delete_list d fmlls l) d =
+  if l = n then d else any_el n fmlls d
+Proof
+  rw[delete_list_def,any_el_ALT,EL_LUPDATE]>>
+  gvs[]
+QED
+
 Theorem fml_rel_delete_list:
   fml_rel fml fmlls ⇒
-  fml_rel (fml \\ l) (delete_list fmlls l)
+  fml_rel (fml \\ l) (delete_list vcc_none fmlls l)
 Proof
   simp[fml_rel_def,DOMSUB_FLOOKUP_THM]>>
   strip_tac>>
@@ -1077,7 +1086,7 @@ QED
 Theorem fml_rel_delete_ids_list:
   ∀l fml fmlls fmlls'.
   fml_rel fml fmlls ⇒
-  fml_rel (delete_ids fml l) (delete_ids_list fmlls l)
+  fml_rel (delete_ids fml l) (delete_ids_list vcc_none fmlls l)
 Proof
   simp[delete_ids_def,delete_ids_list_def]>>
   Induct>>rw[]>>
@@ -1126,7 +1135,7 @@ QED
 Theorem bnd_fml_delete_ids_list:
   ∀ls fmlls sz.
   bnd_fml fmlls sz ⇒
-  bnd_fml (delete_ids_list fmlls ls) sz
+  bnd_fml (delete_ids_list vcc_none fmlls ls) sz
 Proof
   Induct>>
   rw[]>>fs[delete_ids_list_def]>>
@@ -1137,13 +1146,13 @@ Proof
 QED
 
 Definition delete_ids_vb_list_def:
-  delete_ids_vb_list fmlls s i len =
+  delete_ids_vb_list d fmlls s i len =
   let (m,i) = parse_vb_int s i len in
   if m <= 0
   then fmlls
-  else delete_ids_vb_list (delete_list fmlls (Num m)) s i len
+  else delete_ids_vb_list d (delete_list d fmlls (Num m)) s i len
 Termination
-  WF_REL_TAC` measure (λ(f,x,i,r). r-i)`>>
+  WF_REL_TAC` measure (λ(d,f,x,i,r). r-i)`>>
   rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
   UNCURRY_EQ,AllCaseEqs()] >> rveq >>
   fs[] >>
@@ -1153,8 +1162,8 @@ Termination
 End
 
 Theorem LENGTH_delete_ids_vb_list[simp]:
-  ∀fmlls s i len.
-  LENGTH (delete_ids_vb_list fmlls s i len) = LENGTH fmlls
+  ∀d fmlls s i len.
+  LENGTH (delete_ids_vb_list d fmlls s i len) = LENGTH fmlls
 Proof
   ho_match_mp_tac delete_ids_vb_list_ind>>
   rw[]>>
@@ -1165,7 +1174,8 @@ QED
 Theorem fml_rel_delete_ids_vb_list:
   ∀fml s i len fmlls.
   fml_rel fml fmlls ⇒
-  fml_rel (delete_ids_vb fml s i len) (delete_ids_vb_list fmlls s i len)
+  fml_rel (delete_ids_vb fml s i len)
+    (delete_ids_vb_list vcc_none fmlls s i len)
 Proof
   ho_match_mp_tac delete_ids_vb_ind>>
   rw[]>>
@@ -1176,9 +1186,10 @@ Proof
 QED
 
 Theorem bnd_fml_delete_ids_vb_list:
-  ∀fmlls s i len sz.
+  ∀d fmlls s i len sz.
+  d = vcc_none ∧
   bnd_fml fmlls sz ⇒
-  bnd_fml (delete_ids_vb_list fmlls s i len) sz
+  bnd_fml (delete_ids_vb_list d fmlls s i len) sz
 Proof
   ho_match_mp_tac delete_ids_vb_list_ind>>
   rw[]>>

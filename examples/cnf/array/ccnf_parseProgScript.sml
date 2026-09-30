@@ -191,6 +191,19 @@ Proof
   xsimpl
 QED
 
+Theorem SEP_IMP_REFL_gc:
+  p ==>> p * GC
+Proof
+  xsimpl
+QED
+
+(* Binary proof records are terminated by a zero byte *)
+Definition nulc_def:
+  nulc = CHR 0
+End
+
+val res = translate nulc_def;
+
 Theorem EqualityType_CNF_LIT_TYPE:
   EqualityType (CNF_LIT_TYPE NUM)
 Proof

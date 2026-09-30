@@ -739,6 +739,19 @@ QED
 
 val _ = parse_vb_int_side |> update_precondition;
 
+val res = translate parse_vb_ilits_def;
+
+Theorem parse_vb_ilits_side:
+  ∀s i len acc.
+  len ≤ strlen s ⇒ parse_vb_ilits_side s i len acc
+Proof
+  ho_match_mp_tac parse_vb_ilits_ind>>
+  rw[]>>
+  simp[Once (fetch "-" "parse_vb_ilits_side_def"),parse_vb_int_side]
+QED
+
+val _ = parse_vb_ilits_side |> update_precondition;
+
 Quote add_cakeml:
   fun unit_prop_vb_arr lno fml carr b s i1 len =
     case parse_vb_int s i1 len of (m,i) =>
@@ -1009,25 +1022,26 @@ QED
 
 
 Quote add_cakeml:
-  fun delete_arr fml i =
+  fun delete_arr d fml i =
     if Array.length fml <= i then ()
     else
-      (Unsafe.update fml i vcc_none)
+      (Unsafe.update fml i d)
 End
 
 Theorem delete_arr_spec:
+  A d dv ∧
   NUM i iv ∧
-  LIST_REL vcclause_TYPE fmlls fmllsv
+  LIST_REL A fmlls fmllsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "delete_arr" (get_ml_prog_state()))
-    [fmlv; iv]
+    [dv; fmlv; iv]
     (ARRAY fmlv fmllsv)
     (POSTv resv.
       &UNIT_TYPE () resv *
       SEP_EXISTS fmllsv'.
       ARRAY fmlv fmllsv' *
-      &(LIST_REL vcclause_TYPE (delete_list fmlls i) fmllsv') )
+      &(LIST_REL A (delete_list d fmlls i) fmllsv') )
 Proof
   rw[]>>
   xcf "delete_arr" (get_ml_prog_state ())>>
@@ -1040,31 +1054,32 @@ Proof
   first_x_assum (irule_at Any)>>
   rw[]>>
   match_mp_tac EVERY2_LUPDATE_same>>
-  simp[vcc_none_v_thm]
+  simp[]
 QED
 
 Quote add_cakeml:
-  fun delete_ids_arr fml ls =
+  fun delete_ids_arr d fml ls =
     case ls of
       [] => ()
     | (i::is) =>
-      (delete_arr fml i; delete_ids_arr fml is)
+      (delete_arr d fml i; delete_ids_arr d fml is)
 End
 
 Theorem delete_ids_arr_spec:
   ∀ls lsv fmlls fmllsv.
+  A d dv ∧
   (LIST_TYPE NUM) ls lsv ∧
-  LIST_REL vcclause_TYPE fmlls fmllsv
+  LIST_REL A fmlls fmllsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "delete_ids_arr" (get_ml_prog_state()))
-    [fmlv; lsv]
+    [dv; fmlv; lsv]
     (ARRAY fmlv fmllsv)
     (POSTv resv.
       &UNIT_TYPE () resv *
       SEP_EXISTS fmllsv'.
       ARRAY fmlv fmllsv' *
-      &(LIST_REL vcclause_TYPE (delete_ids_list fmlls ls) fmllsv') )
+      &(LIST_REL A (delete_ids_list d fmlls ls) fmllsv') )
 Proof
   Induct>>
   rw[]>>fs[delete_ids_list_def]>>
@@ -1077,16 +1092,17 @@ Proof
 QED
 
 Quote add_cakeml:
-  fun delete_ids_vb_arr fml s i1 len =
+  fun delete_ids_vb_arr d fml s i1 len =
     case parse_vb_int s i1 len of (m,i) =>
     if m <= 0 then ()
     else
-      (delete_arr fml m; delete_ids_vb_arr fml s i len)
+      (delete_arr d fml m; delete_ids_vb_arr d fml s i len)
 End
 
 Theorem delete_ids_vb_arr_spec:
-  ∀fmlls s i l fmllsv sv iv lv.
-  LIST_REL vcclause_TYPE fmlls fmllsv ∧
+  ∀d fmlls s i l fmllsv sv iv lv.
+  A d dv ∧
+  LIST_REL A fmlls fmllsv ∧
   STRING_TYPE s sv ∧
   NUM i iv ∧
   NUM l lv ∧
@@ -1094,13 +1110,13 @@ Theorem delete_ids_vb_arr_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "delete_ids_vb_arr" (get_ml_prog_state()))
-    [fmlv; sv; iv; lv]
+    [dv; fmlv; sv; iv; lv]
     (ARRAY fmlv fmllsv)
     (POSTv resv.
       &UNIT_TYPE () resv *
       SEP_EXISTS fmllsv'.
       ARRAY fmlv fmllsv' *
-      &(LIST_REL vcclause_TYPE (delete_ids_vb_list fmlls s i l) fmllsv') )
+      &(LIST_REL A (delete_ids_vb_list d fmlls s i l) fmllsv') )
 Proof
   ho_match_mp_tac delete_ids_vb_list_ind>>
   rpt strip_tac>>

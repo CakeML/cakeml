@@ -12,7 +12,7 @@ Definition check_distrup_list_def:
   check_distrup_list distrup fml dml b =
   case distrup of
   | Del ls =>
-    SOME (delete_ids_list fml ls, (dml, b))
+    SOME (delete_ids_list vcc_none fml ls, (dml, b))
   | Lrup n vc hints =>
     (case is_rup_list fml dml b vc hints of
       (T, dmlb) =>
