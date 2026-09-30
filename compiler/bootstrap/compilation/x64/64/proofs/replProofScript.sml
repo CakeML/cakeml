@@ -3,8 +3,8 @@
 *)
 Theory replProof
 Ancestors
-  semanticsProps backendProof x64_configProof compiler64Prog
-  compiler64MainProg compiler64Host compiler64ReplProof
+  semanticsProps backendProof x64_configProof compiler64X64Prog
+  compiler64MainProg compiler64ReplProof
   evaluate semanticPrimitives ml_translator repl_types
   repl_check_and_tweak repl_init
 Libs
@@ -20,10 +20,10 @@ Proof
 QED
 
 Theorem repl_prog_isPREFIX:
-  repl_prog ≼ FRONT compiler64_prog
+  repl_prog ≼ FRONT compiler64_x64_prog
 Proof
   rewrite_tac [listTheory.isPREFIX_THM,repl_moduleProgTheory.repl_prog_def,
-               compiler64ProgTheory.compiler64_prog_def,FRONT_CONS,
+               compiler64X64ProgTheory.compiler64_x64_prog_def,FRONT_CONS,
                locationTheory.unknown_loc_def]
   \\ EVAL_TAC
 QED
@@ -34,33 +34,33 @@ val ffi_inst = type_of “basis_ffi _ _ _” |> dest_type |> snd |> hd
   max_print_depth := 15
 *)
 
-Theorem evaluate_decs_compiler64_prog:
+Theorem evaluate_decs_compiler64_x64_prog:
   s.compiler = compiler_inst x64_config ∧
   s.decode_decs = v_fun_abs decs_allowed (LIST_v DEC_v) ∧
-  s.env_id_counter = (0,0,1) ∧ prog_syntax_ok compiler64_prog ∧
+  s.env_id_counter = (0,0,1) ∧ prog_syntax_ok compiler64_x64_prog ∧
   has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
   s.compiler_state = BACKEND_CONFIG_v conf ∧
   file_content fs «config_enc_str.txt» = SOME (encode_backend_config conf) ∧
   evaluate_decs (init_state (basis_ffi ext cl fs) with
                             <| clock := ck; eval_state := (SOME (EvalDecs s)) |>)
-      init_env compiler64_prog = (s1,res) ⇒
+      init_env compiler64_x64_prog = (s1,res) ⇒
   res ≠ Rerr (Rabort Rtype_error)
 Proof
   rw [] \\ pop_assum mp_tac
-  \\ ‘~NULL compiler64_prog’ by
-   (once_rewrite_tac [compiler64_prog_def] \\ rewrite_tac [NULL])
+  \\ ‘~NULL compiler64_x64_prog’ by
+   (once_rewrite_tac [compiler64_x64_prog_def] \\ rewrite_tac [NULL])
   \\ drule BUTLAST_LAST
   \\ disch_then (once_rewrite_tac o single)
   \\ strip_tac
-  \\ assume_tac (Decls_FRONT_compiler64_prog
+  \\ assume_tac (Decls_FRONT_compiler64_x64_prog
        |> REWRITE_RULE [ml_progTheory.ML_code_env_def]
        |> Q.GEN ‘ffi’ |> Q.ISPEC ‘basis_ffi ext cl fs’
        |> Q.INST [‘eval_state_var’|->‘s’])
   \\ dxrule ml_progTheory.Decls_IMP_Prog
-  \\ ‘prog_syntax_ok (FRONT compiler64_prog)’ by
+  \\ ‘prog_syntax_ok (FRONT compiler64_x64_prog)’ by
     (irule ml_progTheory.prog_syntax_ok_isPREFIX
      \\ first_x_assum $ irule_at Any
-     \\ Cases_on ‘compiler64_prog’ using SNOC_CASES
+     \\ Cases_on ‘compiler64_x64_prog’ using SNOC_CASES
      \\ gvs [])
   \\ ‘prog_syntax_ok repl_prog’ by
     (irule ml_progTheory.prog_syntax_ok_isPREFIX
@@ -77,7 +77,7 @@ Proof
   \\ qpat_abbrev_tac ‘ppp = W8array _ :: _’ \\ pop_assum kall_tac
   \\ qpat_x_assum ‘Prog _ _ _ _ _’ kall_tac
   \\ qpat_x_assum ‘evaluate_decs _ _ _ = _’ kall_tac
-  \\ strip_tac \\ fs [LAST_compiler64_prog]
+  \\ strip_tac \\ fs [LAST_compiler64_x64_prog]
   \\ qpat_x_assum ‘evaluate_decs _ _ _ = _’ mp_tac
   (* calling main *)
   \\ fs [evaluate_decs_def,astTheory.pat_bindings_def,
@@ -204,11 +204,11 @@ Proof
        [‘st8’,‘env8’,‘Short «start_repl»’,‘Short « v0»’,‘basis_ffi ext cl fs’,‘TL cl’] mp_tac
     (evaluate_start_repl
      |> Q.INST [`host` |-> `HostX64`,
-                `host_v` |-> `COMPILER64HOST_COMPILER64_HOST_v HostX64`]
+                `host_v` |-> `COMPILER64MAINPROG_COMPILER64_HOST_v HostX64`]
      |> Q.GENL [`st`,`env`,`start_repl_str`,`arg_str`,`ffi`,`cl`,`s1`,`s`])
   \\ simp [Abbr`st8`,Abbr`env8`,Abbr`ev`,host_config_def,
-           COMPILER64HOST_COMPILER64_HOST_TYPE_def,
-           COMPILER64HOST_COMPILER64_HOST_v_def]
+           COMPILER64MAINPROG_COMPILER64_HOST_TYPE_def,
+           COMPILER64MAINPROG_COMPILER64_HOST_v_def]
   \\ fs [backend_enc_decTheory.encode_backend_config_thm]
   \\ drule BACKEND_CONFIG_TYPE_v \\ strip_tac
   \\ gvs []
@@ -228,19 +228,19 @@ Proof
   \\ simp [pmatch_def] \\ rw [combine_dec_result_def] \\ fs []
 QED
 
-Theorem semantics_prog_compiler64_prog:
+Theorem semantics_prog_compiler64_x64_prog:
   s.compiler = compiler_inst x64_config ∧
   s.decode_decs = v_fun_abs decs_allowed (LIST_v DEC_v) ∧
   s.env_id_counter = (0,0,1) ∧ has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧
-  STD_streams fs ∧ hasFreeFD fs ∧ prog_syntax_ok compiler64_prog ∧
+  STD_streams fs ∧ hasFreeFD fs ∧ prog_syntax_ok compiler64_x64_prog ∧
   s.compiler_state = BACKEND_CONFIG_v conf ∧
   file_content fs «config_enc_str.txt» = SOME (encode_backend_config conf) ⇒
   Fail ∉ semantics_prog
            (init_state (basis_ffi ext cl fs) with eval_state := SOME (EvalDecs s))
-           init_env compiler64_prog
+           init_env compiler64_x64_prog
 Proof
   fs [IN_DEF,semanticsTheory.semantics_prog_def] \\ rpt strip_tac
-  \\ mp_tac (Q.GENL [‘ck’,‘res’,‘s1’] evaluate_decs_compiler64_prog) \\ fs []
+  \\ mp_tac (Q.GENL [‘ck’,‘res’,‘s1’] evaluate_decs_compiler64_x64_prog) \\ fs []
   \\ fs [semanticsTheory.evaluate_prog_with_clock_def]
   \\ pairarg_tac \\ gvs []
   \\ qexists_tac ‘k’ \\ fs []

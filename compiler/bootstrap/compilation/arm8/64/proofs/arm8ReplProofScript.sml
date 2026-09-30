@@ -4,7 +4,7 @@
 Theory arm8ReplProof
 Ancestors
   semanticsProps backendProof arm8_configProof compiler64Arm8Prog
-  compiler64MainProg compiler64Host compiler64ReplProof
+  compiler64MainProg compiler64ReplProof
   evaluate semanticPrimitives ml_translator repl_types
   repl_check_and_tweak repl_init candle_prover_inv
 Libs
@@ -197,11 +197,11 @@ Proof
        [‘st8’,‘env8’,‘Short «start_repl»’,‘Short « v0»’,‘basis_ffi ext cl fs’,‘TL cl’] mp_tac
     (evaluate_start_repl
      |> Q.INST [`host` |-> `HostArm8`,
-                `host_v` |-> `COMPILER64HOST_COMPILER64_HOST_v HostArm8`]
+                `host_v` |-> `COMPILER64MAINPROG_COMPILER64_HOST_v HostArm8`]
      |> Q.GENL [`st`,`env`,`start_repl_str`,`arg_str`,`ffi`,`cl`,`s1`,`s`])
   \\ simp [Abbr`st8`,Abbr`env8`,Abbr`ev`,host_config_def,
-           COMPILER64HOST_COMPILER64_HOST_TYPE_def,
-           COMPILER64HOST_COMPILER64_HOST_v_def]
+           COMPILER64MAINPROG_COMPILER64_HOST_TYPE_def,
+           COMPILER64MAINPROG_COMPILER64_HOST_v_def]
   \\ fs [backend_enc_decTheory.encode_backend_config_thm]
   \\ drule BACKEND_CONFIG_TYPE_v \\ strip_tac
   \\ gvs []

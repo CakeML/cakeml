@@ -4,7 +4,7 @@
 Theory compiler64ReplProof
 Ancestors
   semanticsProps backendProof
-  compiler64MainProg compiler64Host
+  compiler64MainProg
   evaluate semanticPrimitives ml_translator repl_types
   repl_check_and_tweak repl_init
 Libs
@@ -220,7 +220,7 @@ Theorem evaluate_eval:
     s.compiler = compiler_inst (host_config host) ∧
     s.compiler_state = s1_v ∧
     s.decode_decs = v_fun_abs decs_allowed (LIST_v DEC_v) ∧
-    COMPILER64HOST_COMPILER64_HOST_TYPE host host_v ∧
+    COMPILER64MAINPROG_COMPILER64_HOST_TYPE host host_v ∧
     s.env_id_counter = (cur_gen1,next_id1,next_gen1) ∧
     env_v = Env env1 (env_id,0) ∧ decs_allowed decs ∧
     nsLookup env.v (Short eval_str) = SOME eval_v ⇒
@@ -299,7 +299,7 @@ Proof
     fs [Abbr `compile_arg`,ml_translatorTheory.PAIR_TYPE_def])
   \\ qmatch_goalsub_abbrev_tac `evaluate compile_state _ [_]`
   \\ qpat_x_assum
-       `(COMPILER64HOST_COMPILER64_HOST_TYPE --> _) compiler_for_eval _` kall_tac
+       `(COMPILER64MAINPROG_COMPILER64_HOST_TYPE --> _) compiler_for_eval _` kall_tac
   \\ drule_all Arrow_IMP
   \\ disch_then (qspec_then `compile_state` mp_tac)
   \\ disch_then (qx_choosel_then
@@ -505,7 +505,7 @@ Theorem evaluate_repl:
      s.compiler = compiler_inst (host_config host) ∧
      s.compiler_state = s1_v ∧
      s.decode_decs = v_fun_abs decs_allowed (LIST_v DEC_v) ∧
-     COMPILER64HOST_COMPILER64_HOST_TYPE host host_v ∧
+     COMPILER64MAINPROG_COMPILER64_HOST_TYPE host host_v ∧
      s.env_id_counter = (cur_gen,next_id,next_gen) ∧
      BACKEND_CONFIG_TYPE s1 s.compiler_state ∧
      LIST_TYPE DEC_TYPE decs decs_v ∧
@@ -992,7 +992,7 @@ Theorem evaluate_start_repl:
   (st:'ffi semanticPrimitives$state).eval_state = SOME (EvalDecs s) ∧
   s.compiler = compiler_inst (host_config host) ∧
   s.decode_decs = v_fun_abs decs_allowed (LIST_v DEC_v) ∧
-  COMPILER64HOST_COMPILER64_HOST_TYPE host host_v ∧
+  COMPILER64MAINPROG_COMPILER64_HOST_TYPE host host_v ∧
   s.env_id_counter = (0,1,1) ∧
   BACKEND_CONFIG_TYPE s1 s.compiler_state ∧
   LIST_TYPE STRING_TYPE cl cl_v ∧
