@@ -9,6 +9,7 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 | Function declaration | `MODIFIERS fun RETSHAPE FNAME ( ARGS ) { BODY }` | `MODIFIERS` and/or `ARGS` may be empty. See [Function modifiers](#function-modifiers) for possible modifiers. Each argument expects both a shape and an identifier, and are comma separated, eg `1 x, {1,2} y`. `BODY` must include a function return in all execution branches. All functions are callable (ie. in scope) from all function bodies |
 | Global variable declaration | `var SHAPE VNAME = EXP;` | Globals cannot be initialised with a function call. Globals are in scope for all function bodies and for any globals declared after them. Beware of shadowing |
 | Named struct declaration | `struct SNAME { FIELDS }` | `FIELDS` may NOT be empty. Each field expects both a shape and an identifier, and are comma separated, eg `1 x, {1,2} y`. Named structs are in scope for all functions and globals, and for any named structs declared after them |
+| Exception declaration | `exception ENAME : VALSHAPE;` | Exceptions are in scope for all functions bodies. `VALSHAPE` must be less than 32 words in size |
 
 ## Function modifiers
 
@@ -31,9 +32,10 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 | Feature | Syntax | Notes |
 | --- | --- | --- |
 | Local variable declaration | `var SHAPE VNAME = EXP;`, `var SHAPE VNAME = FNAME(ARGS);` | Beware of shadowing |
-| Assignment | `VNAME = EXP;`, `VNAME = FNAME(ARGS);` | Variable assignment only; no struct field assignment yet |
-| Stand-alone function call | `FNAME(ARGS);` | |
+| Assignment | `VNAME = EXP;`, `VNAME = FNAME(ARGS);`, `try VNAME = FNAME(ARGS) catch ENAME => EVAR { HANDLER }` | Variable assignment only; no struct field assignment yet. When handling exceptions, `EVAR` should be an in-scope variable matching the value shape of `ENAME` |
+| Stand-alone function call | `FNAME(ARGS);`, `try FNAME(ARGS) catch ENAME => EVAR { HANDLER }` | When handling exceptions, `EVAR` should be an in-scope variable matching the value shape of `ENAME` |
 | Function return | `return EXP;`, `return FNAME(ARGS);` | |
+| Exception throw | `throw ENAME EXP;` | |
 | FFI function call | `@FNAME(PTR1, LEN1, PTR2, LEN2);` | `PTR1` should be the array of function inputs and `LEN1` its length; `PTR2` and `LEN2` are similarly for function outputs. Should be declared as `ffiFNAME` in C file |
 | Memory store | `st ADDR, VAR;`, `st8 ADDR, VAR;`, `st32 ADDR, VAR;` | |
 | Shared memory store | `!stw ADDR, VAR;`, `!st8 ADDR, VAR;`, `!st32 ADDR, VAR;` | |
