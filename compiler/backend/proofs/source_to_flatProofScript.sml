@@ -8,7 +8,7 @@ Ancestors
   backend_common[qualified] misc[qualified] backendProps
   source_evalProof
   semanticPrimitives flatLang flatSem
-  flat_elimProof[qualified] flat_patternProof[qualified]
+  flat_patternProof[qualified]
 Libs
   preamble experimentalLib
 
@@ -3435,12 +3435,6 @@ Proof
   \\ every_case_tac \\ simp [v_rel_eqns]
 QED
 
-Theorem keep_glob_alloc:
-  flat_elim$keep calc (glob_alloc next st)
-Proof
-  simp [glob_alloc_def, flat_elimTheory.keep_def, flat_elimTheory.is_pure_def]
-QED
-
 Theorem inc_compile_prog_nonempty:
   inc_compile_prog env_id st decs = (st', fdecs) ==> fdecs ≠ []
 Proof
@@ -5927,8 +5921,7 @@ Theorem compile_flat_correct:
    semantics ec2 ffi (compile_flat cfg prog)
 Proof
   rw [compile_flat_def]
-  \\ metis_tac [flat_patternProofTheory.compile_decs_semantics,
-        flat_elimProofTheory.flat_remove_semantics]
+  \\ metis_tac [flat_patternProofTheory.compile_decs_semantics]
 QED
 
 Definition precondition_def:
@@ -6067,7 +6060,7 @@ Theorem compile_flat_esgc_free:
 Proof
   rw [compile_flat_def, compile_def]
   \\ irule flat_patternProofTheory.compile_decs_esgc_free
-  \\ simp [flat_elimProofTheory.remove_flat_prog_esgc_free]
+  \\ simp []
 QED
 
 Theorem compile_esgc_free:
@@ -6205,7 +6198,6 @@ Theorem compile_flat_sub_bag:
 Proof
   fs [source_to_flatTheory.compile_flat_def]
   \\ metis_tac [
-       flat_elimProofTheory.remove_flat_prog_sub_bag,
        flat_patternProofTheory.compile_decs_elist_globals,
        SUB_BAG_TRANS]
 QED
