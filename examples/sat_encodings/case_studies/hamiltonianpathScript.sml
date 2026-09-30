@@ -3,7 +3,7 @@
 *)
 Theory hamiltonianpath
 Ancestors
-  misc boolExpToCnf quantifierExp cnf
+  misc boolExpToCnf quantifierExp satCnf
 Libs
   preamble
 
@@ -16,14 +16,14 @@ Type graph = “:((num list) list)”
 (* ----------------- Evaluation -------------- *)
 
 Definition eval_vertex_def:
-  eval_vertex (w:assignment) [] = F ∧
+  eval_vertex (w:num assignment) [] = F ∧
   eval_vertex w (edges:num list) =
   let nr_traversed_edges = sum_bools (MAP w edges) in
       (nr_traversed_edges ≤ 2 ∧ 1 ≤ nr_traversed_edges)
 End
 
 Definition eval_hamiltonian_graph_def:
-  eval_hamiltonian_graph (w:assignment) (graph:graph) =
+  eval_hamiltonian_graph (w:num assignment) (graph:graph) =
   EVERY (λ vertex_edge_list. eval_vertex w vertex_edge_list) graph
 End
 
@@ -32,15 +32,15 @@ End
 
 Definition edge_list_to_pseudoBool_list_def:
   edge_list_to_pseudoBool_list edgeList =
-  MAP (λ edge.  PLit (INL edge)) edgeList
+  MAP (λ edge.  PLit (Pos edge)) edgeList
 End
 
 Definition vertex_to_pseudoBool_def:
   vertex_to_pseudoBool [] = PFalse ∧
   vertex_to_pseudoBool [(edge: num)] = PTrue ∧
   vertex_to_pseudoBool ((edge::vertex_edge_list):num list) =
-  PAnd (PImpl (PLit (INL edge))
-        (PMostOne (MAP (λ y. PLit (INL y)) vertex_edge_list)))
+  PAnd (PImpl (PLit (Pos edge))
+        (PMostOne (MAP (λ y. PLit (Pos y)) vertex_edge_list)))
        (vertex_to_pseudoBool vertex_edge_list)
 End
 
@@ -55,7 +55,7 @@ Definition hamiltonian_to_pseudoBool_def:
   hamiltonian_to_pseudoBool_inner
   (MAP (λ vertex_edge_list.
           (PAnd (vertex_to_pseudoBool vertex_edge_list)
-           (PLeastOne (MAP (λ y. PLit (INL y))
+           (PLeastOne (MAP (λ y. PLit (Pos y))
                        vertex_edge_list)))) graph)
 End
 
@@ -67,7 +67,7 @@ Theorem sum_bools_least_one:
   1 ≤ sum_bools (w h'::MAP w h) ⇔
     sum_bools
     (w h'::MAP (eval_pseudoBool w)
-     (MAP (λy. PLit (INL y)) h)) ≥ 1
+     (MAP (λy. PLit (Pos y)) h)) ≥ 1
 Proof
   Induct
   >> rw[sum_bools_def]
@@ -79,7 +79,7 @@ Theorem sum_bools_map:
   ∀ h w.
     sum_bools
     (MAP (λa. eval_pseudoBool w a)
-     (MAP (λy. PLit (INL y)) h)) =
+     (MAP (λy. PLit (Pos y)) h)) =
     sum_bools (MAP w h)
 Proof
   Induct
@@ -121,11 +121,10 @@ Proof
                   (MAP
                    (λ vertex_edge_list.
                       PAnd (vertex_to_pseudoBool vertex_edge_list)
-                           (PLeastOne (MAP (λy. PLit (INL y))
+                           (PLeastOne (MAP (λy. PLit (Pos y))
                                        vertex_edge_list)))
                    graph))’ >> gvs[]
   >> Induct_on‘h’ >> gvs[eval_vertex_def, vertex_to_pseudoBool_def,
                          eval_pseudoBool_def, sum_bools_def, eval_literal_def]
   >> metis_tac[sum_bools_vertex, sum_bools_least_one]
 QED
-

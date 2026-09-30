@@ -3,7 +3,7 @@
 *)
 Theory old_boolExpToCnf
 Ancestors
-  misc ASCIInumbers cnf
+  misc ASCIInumbers satCnf
 Libs
   preamble
 
@@ -44,7 +44,7 @@ End
 (* ----------------------- Satisfiability ------------------------------ *)
 
 Definition eval_nnf_def:
-  (eval_nnf (w: assignment) NnfTrue = T) ∧
+  (eval_nnf (w:num assignment) NnfTrue = T) ∧
   (eval_nnf w NnfFalse = F) ∧
   (eval_nnf w (NnfLit l) = eval_literal w l) ∧
   (eval_nnf w (NnfAnd nnf1 nnf2) =
@@ -54,7 +54,7 @@ Definition eval_nnf_def:
 End
 
 Definition eval_noImp_def:
-  (eval_noImp (w: assignment) NoImpTrue = T) ∧
+  (eval_noImp (w:num assignment) NoImpTrue = T) ∧
   (eval_noImp w NoImpFalse = F) ∧
   (eval_noImp w (NoImpLit l) =
    eval_literal w l) ∧
@@ -67,7 +67,7 @@ Definition eval_noImp_def:
 End
 
 Definition eval_boolExp_def:
-  (eval_boolExp (w: assignment) True = T) ∧
+  (eval_boolExp (w:num assignment) True = T) ∧
   (eval_boolExp w False = F) ∧
   (eval_boolExp w (Lit l) = eval_literal w l) ∧
   (eval_boolExp w (Not b) = ¬ (eval_boolExp w b)) ∧
@@ -88,11 +88,7 @@ End
 (* ----------------- Simplification functions -------------------------- *)
 
 Definition distr_def:
-  (distr CnfEmpty _ = CnfEmpty) ∧
-  (distr _ CnfEmpty = CnfEmpty) ∧
-  (distr (CnfAnd a b) c = CnfAnd (distr a c) (distr b c)) ∧
-  (distr a (CnfAnd b c) = CnfAnd (distr a b) (distr a c)) ∧
-  (distr (CnfClause a) (CnfClause b) = CnfClause (ClauseOr a b))
+  distr a b = FLAT (MAP (λc. MAP (λd. c ++ d) b) a)
 End
 
 Definition nnf_to_cnf_def:
@@ -182,10 +178,14 @@ Theorem distr_preserves_sat:
     eval_cnf w (distr b1 b2) ⇔
     (eval_cnf w b1 ∨ eval_cnf w b2)
 Proof
-  ho_match_mp_tac distr_ind
-  >> rpt strip_tac
-  >> rw[distr_def, eval_cnf_def, eval_clause_def]
-  >> metis_tac[]
+  ‘∀bs c.
+     eval_cnf w (MAP (λd. c ++ d) bs) ⇔
+     eval_clause w c ∨ eval_cnf w bs’ by
+    (Induct >> simp[eval_cnf_list, eval_clause_append] >>
+     metis_tac[]) >>
+  Induct >> simp[distr_def, eval_cnf_list, eval_cnf_append] >>
+  fs[distr_def] >>
+  metis_tac[]
 QED
 
 Theorem nnf_to_cnf_preserves_sat:
@@ -249,30 +249,22 @@ QED
 (* --------------------- Pretty printing ------------------------- *)
 
 Definition lit_to_str_def:
-  lit_to_str (INL l) = "b" ++ num_to_dec_string l ∧
-  lit_to_str (INR l) = "~b" ++ num_to_dec_string l
+  lit_to_str (Pos l) = "b" ++ num_to_dec_string l ∧
+  lit_to_str (Neg l) = "~b" ++ num_to_dec_string l
 End
 
 Definition clause_to_str_def:
-  clause_to_str ClauseEmpty = "False" ∧
-  clause_to_str (ClauseLit l) = lit_to_str l ∧
-  clause_to_str (ClauseOr b1 b2) =
-  clause_to_str b1 ++ " \\/ " ++ clause_to_str b2
+  clause_to_str [] = "False" ∧
+  clause_to_str (l::ls) =
+    if NULL ls then lit_to_str l
+    else lit_to_str l ++ " \\/ " ++ clause_to_str ls
 End
 
 Definition cnf_to_str_def:
-  cnf_to_str CnfEmpty = "True" ∧
-  cnf_to_str (CnfClause c) = clause_to_str c ∧
-  cnf_to_str (CnfAnd b1 b2) =
-  let b1_str =
-      case b1 of
-        (CnfClause (ClauseOr _ _)) => "(" ++ cnf_to_str b1 ++ ")"
-      | _ => cnf_to_str b1
-  in let b2_str =
-         case b2 of
-           (CnfClause (ClauseOr _ _)) => "(" ++ cnf_to_str b2 ++ ")"
-         | _ => cnf_to_str b2
-     in b1_str ++ " /\\ " ++ b2_str
+  cnf_to_str [] = "True" ∧
+  cnf_to_str (c::cs) =
+    if NULL cs then clause_to_str c
+    else clause_to_str c ++ " /\\ " ++ cnf_to_str cs
 End
 
 Theorem example1 =
@@ -280,30 +272,29 @@ Theorem example1 =
               (boolExp_to_cnf
                (And
                 (Not (And
-                      (Lit (INL 2))
-                      (Lit (INR 1))))
+                      (Lit (Pos 2))
+                      (Lit (Neg 1))))
                 (Or
-                 (Lit (INL 0))
-                 (Lit (INR 1)))))”;
+                 (Lit (Pos 0))
+                 (Lit (Neg 1)))))”;
 
 Theorem example2 =
         EVAL “cnf_to_str
               (boolExp_to_cnf
                (And
-                (Lit (INL 0))
+                (Lit (Pos 0))
                 (And
-                 (Lit (INL 2))
+                 (Lit (Pos 2))
                  (And
-                  (Lit (INR 1))
-                  (Lit (INR 3))))))”;
+                  (Lit (Neg 1))
+                  (Lit (Neg 3))))))”;
 
 Theorem example3 =
         EVAL “(boolExp_to_cnf
                (Or
-                (Lit (INL 0))
+                (Lit (Pos 0))
                 (Or
-                 (Lit (INL 2))
+                 (Lit (Pos 2))
                  (Or
-                  (Lit (INR 1))
-                  (Lit (INR 3))))))”;
-
+                  (Lit (Neg 1))
+                  (Lit (Neg 3))))))”;

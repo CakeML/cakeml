@@ -4,7 +4,7 @@
 *)
 Theory orderEncodingBool
 Ancestors
-  misc quantifierExp boolExpToCnf cnf
+  misc quantifierExp boolExpToCnf satCnf
 Libs
   preamble
 
@@ -63,7 +63,7 @@ End
 (* ----------------------------- Evaluation --------------------------- *)
 
 Definition eval_orderAxiom_def:
-  eval_orderAxiom (w:assignment) [] = F ∧  (* Last element has to be T *)
+  eval_orderAxiom (w:num assignment) [] = F ∧  (* Last element has to be T *)
   eval_orderAxiom w (x::xs) =
   if w x
   then EVERY w xs
@@ -71,7 +71,7 @@ Definition eval_orderAxiom_def:
 End
 
 Definition eval_orderBool_def:
-  eval_orderBool (w: assignment) OTrue = T ∧
+  eval_orderBool (w:num assignment) OTrue = T ∧
   eval_orderBool w OFalse = F ∧
   eval_orderBool w (OLit l) = eval_literal w l ∧
   eval_orderBool w (ONot b) = ¬ (eval_orderBool w b) ∧
@@ -110,9 +110,9 @@ End
 
 Definition encode_orderAxiom_def:
   encode_orderAxiom [] = PFalse ∧
-  encode_orderAxiom [x] = PLit (INL x) ∧
+  encode_orderAxiom [x] = PLit (Pos x) ∧
   encode_orderAxiom (x::y::xs) =
-  PAnd (PImpl (PLit (INL x)) (PLit (INL y))) (encode_orderAxiom (y::xs))
+  PAnd (PImpl (PLit (Pos x)) (PLit (Pos y))) (encode_orderAxiom (y::xs))
 End
 
 Definition orderBool_to_pseudoBool_def:
@@ -226,4 +226,3 @@ Proof
   fs [unsat_orderBool_def,orderBool_to_cnf_def, unsat_pseudoBool_def,
       GSYM pseudoBool_to_cnf_preserves_unsat, orderBool_to_pseudoBool_preserves_sat]
 QED
-

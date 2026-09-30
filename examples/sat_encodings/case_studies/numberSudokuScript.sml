@@ -127,7 +127,7 @@ Definition cellAssignment_to_assignment_def:
 End
 
 Definition assignment_to_cellAssignment_def:
-  assignment_to_cellAssignment (w:assignment) (sudoku:sudoku) =
+  assignment_to_cellAssignment (w:num assignment) (sudoku:sudoku) =
   assignment_to_numVarAssignment_numBoolRange
   w get_sudoku_rangeList (ns_sudoku_to_numBoolRange sudoku)
 End

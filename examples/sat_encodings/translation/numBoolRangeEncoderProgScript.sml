@@ -3,7 +3,7 @@
 *)
 Theory numBoolRangeEncoderProg
 Ancestors
-  misc set_sep list cnf boolExpToCnf quantifierExp
+  misc set_sep list satCnf boolExpToCnf quantifierExp
   orderEncodingBool numBoolExp numBoolExtended numBoolRange
   (* for parsing: *) parsing source_values mlstring
   toCnfHelper sat_encodersProg
@@ -132,7 +132,7 @@ Definition bool_to_str_def:
 End
 
 Definition assignment_to_output_def:
-  assignment_to_output (w:assignment) [] = List [] ∧
+  assignment_to_output (w:num assignment) [] = List [] ∧
   assignment_to_output w (boolVar::boolVarList) = Append
     (List [num_to_str (boolVar); « = »;
            bool_to_str (w boolVar) ; «\n»])

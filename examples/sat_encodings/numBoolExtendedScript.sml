@@ -3,7 +3,7 @@
 *)
 Theory numBoolExtended
 Ancestors
-  misc boolExpToCnf numBoolExp cnf
+  misc boolExpToCnf numBoolExp satCnf
 Libs
   preamble
 
@@ -153,7 +153,7 @@ End
 (* -------------------------------- Evaluation ------------------------------- *)
 
 Definition eval_numBoolExtended_def:
-  eval_numBoolExtended (w:assignment) (w':numVarAssignment) ETrue = T ∧
+  eval_numBoolExtended (w:num assignment) (w':numVarAssignment) ETrue = T ∧
   eval_numBoolExtended w w' EFalse = F ∧
   eval_numBoolExtended w w' (EBoolVar b) = w b ∧
   eval_numBoolExtended w w' (ENot e) = ¬eval_numBoolExtended w w' e ∧
@@ -243,7 +243,7 @@ End
 
 Definition assignment_to_numVarAssignment_numBoolExtended_def:
   assignment_to_numVarAssignment_numBoolExtended
-  (w:assignment) (l:numVarList) (e:numBoolExtended) =
+  (w:num assignment) (l:numVarList) (e:numBoolExtended) =
   let e' = numBoolExtended_to_numBoolExp e in
     minimal_assignment_to_numVarAssignment w l e'
 End
@@ -368,4 +368,3 @@ Proof
 QED
 
 *)
-

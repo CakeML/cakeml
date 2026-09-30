@@ -3,7 +3,7 @@
 *)
 Theory numBoolRange
 Ancestors
-  misc cnf boolExpToCnf numBoolExp numBoolExtended
+  misc satCnf boolExpToCnf numBoolExp numBoolExtended
 Libs
   preamble
 
@@ -566,4 +566,3 @@ Proof
 QED
 
 *)
-

@@ -3,7 +3,7 @@
 *)
 Theory boolExpToCnf
 Ancestors
-  misc ASCIInumbers cnf
+  misc ASCIInumbers satCnf
 Libs
   preamble
 
@@ -44,8 +44,8 @@ End
 (* --------------------------- Well-formed -------------------------------- *)
 
 Definition bigger_than_literal_def:
-  bigger_than_literal (n:num) (INL x) = (n > x) ∧
-  bigger_than_literal n (INR y) = (n > y)
+  bigger_than_literal (n:num) (Pos x) = (n > x) ∧
+  bigger_than_literal n (Neg y) = (n > y)
 End
 
 Definition num_bigger_than_rhs_def:
@@ -68,9 +68,9 @@ Definition mapping_ok_def:
 End
 
 Definition constFree_mapping_ok_def:
-  constFree_mapping_ok mapping (CLit (INL x)) =
+  constFree_mapping_ok mapping (CLit (Pos x)) =
   ¬ MEM x (MAP FST mapping) ∧
-  constFree_mapping_ok mapping (CLit (INR x)) =
+  constFree_mapping_ok mapping (CLit (Neg x)) =
   ¬ MEM x (MAP FST mapping) ∧
   constFree_mapping_ok mapping (CNot b) =
   constFree_mapping_ok mapping b ∧
@@ -87,7 +87,7 @@ End
 (* --------------------------- Evaluation -------------------------------- *)
 
 Definition eval_boolExp_def:
-  (eval_boolExp (w: assignment) True = T) ∧
+  (eval_boolExp (w:num assignment) True = T) ∧
   (eval_boolExp w False = F) ∧
   (eval_boolExp w (Lit l) = eval_literal w l) ∧
   (eval_boolExp w (Not b) = ¬ (eval_boolExp w b)) ∧
@@ -106,7 +106,7 @@ Definition unsat_boolExp_def:
 End
 
 Definition eval_constFree_def:
-  eval_constFree (w:assignment) (CLit l) = eval_literal w l ∧
+  eval_constFree (w:num assignment) (CLit l) = eval_literal w l ∧
   eval_constFree w (CNot b) = ¬ eval_constFree w b ∧
   eval_constFree w (CAnd b1 b2) =
   (eval_constFree w b1 ∧ eval_constFree w b2) ∧
@@ -162,7 +162,7 @@ End
 
 Definition bind_def:
   bind (next:num) b map =
-  (next + 1, INL next, Append (List [(next, b)]) map)
+  (next + 1, Pos next, Append (List [(next, b)]) map)
 End
 
 Definition constFree_to_cnf_inner_def:
@@ -288,11 +288,11 @@ Definition replace_iff_def:
 End
 
 Definition rhs_to_cnf_def:
-  rhs_to_cnf x (RNot l) = replace_not (INL x) l ∧
-  rhs_to_cnf x (RAnd l1 l2) = replace_and (INL x) l1 l2 ∧
-  rhs_to_cnf x (ROr l1 l2) = replace_or (INL x) l1 l2 ∧
-  rhs_to_cnf x (RImpl l1 l2) = replace_impl (INL x) l1 l2 ∧
-  rhs_to_cnf x (RIff l1 l2) = replace_iff (INL x) l1 l2
+  rhs_to_cnf x (RNot l) = replace_not (Pos x) l ∧
+  rhs_to_cnf x (RAnd l1 l2) = replace_and (Pos x) l1 l2 ∧
+  rhs_to_cnf x (ROr l1 l2) = replace_or (Pos x) l1 l2 ∧
+  rhs_to_cnf x (RImpl l1 l2) = replace_impl (Pos x) l1 l2 ∧
+  rhs_to_cnf x (RIff l1 l2) = replace_iff (Pos x) l1 l2
 End
 
 Definition map_to_cnf_def:
@@ -302,8 +302,8 @@ Definition map_to_cnf_def:
 End
 
 Definition get_fresh_name_constFree_def:
-  get_fresh_name_constFree (CLit (INL x)) = x + 1 ∧
-  get_fresh_name_constFree (CLit (INR x)) = x + 1 ∧
+  get_fresh_name_constFree (CLit (Pos x)) = x + 1 ∧
+  get_fresh_name_constFree (CLit (Neg x)) = x + 1 ∧
   get_fresh_name_constFree (CNot b) = get_fresh_name_constFree b ∧
   get_fresh_name_constFree (CAnd b1 b2) =
   MAX (get_fresh_name_constFree b1) (get_fresh_name_constFree b2) ∧
@@ -471,8 +471,8 @@ Theorem literal_smaller_than_next:
 Proof
   Induct >> rw[]
   >- (gs[constFree_to_cnf_inner_def]
-      >> Cases_on ‘l’ >> gs[]
-      >> gs[bigger_than_literal_def, get_fresh_name_constFree_def])
+      >> Cases_on ‘l’ >> gvs[bigger_than_literal_def,
+                              get_fresh_name_constFree_def])
   >- (gs[constFree_to_cnf_inner_def, get_fresh_name_constFree_def]
       >> pairarg_tac >> gs[]
       >> gvs[bind_def, bigger_than_literal_def])
@@ -518,8 +518,7 @@ Theorem mapping_created_ok:
     mapping_ok (append map')
 Proof
   Induct >> rw[]
-  >- (Cases_on ‘s’ >> gs[]
-      >> gs[get_fresh_name_constFree_def, constFree_to_cnf_inner_def,
+  >- (gs[get_fresh_name_constFree_def, constFree_to_cnf_inner_def,
             mapping_ok_def])
   >- (gs[get_fresh_name_constFree_def]
       >> gs[constFree_to_cnf_inner_def]
@@ -597,7 +596,7 @@ Proof
       >> rw[eval_rhs_def]
       >> rw[eval_cnf_def]
       >> (rw[eval_clause_def]
-          >> Cases_on ‘s’ >> rw[]
+          >> Cases_on ‘l’ >> rw[]
           >> (rw[negate_literal_def]
               >> rw[eval_literal_def]
               >> rewrite_tac[APPLY_UPDATE_THM]
@@ -610,8 +609,8 @@ Proof
       >> (rw[eval_clause_def]
           >> rw[make_assignments_def]
           >> rw[eval_rhs_def]
-          >> Cases_on ‘s’ >> rw[]
-          >> (Cases_on ‘s0’ >> rw[]
+          >> Cases_on ‘l’ >> rw[]
+          >> (Cases_on ‘l0’ >> rw[]
               >> (rw[negate_literal_def]
                   >> rw[eval_literal_def]
                   >> rewrite_tac[APPLY_UPDATE_THM]
@@ -631,15 +630,15 @@ Proof
   Induct >> rw[]
   >- (rw[rhs_to_cnf_def]
       >> gs[num_bigger_than_rhs_def]
-      >> Cases_on ‘s’ >> gs[]
+      >> Cases_on ‘l’ >> gs[]
       >> (gs[bigger_than_literal_def]
           >> rw[replace_not_def]
           >> rw[eval_cnf_def, eval_clause_def, negate_literal_def,
                 eval_literal_def, APPLY_UPDATE_THM]))
   >> (rw[rhs_to_cnf_def]
       >> gs[num_bigger_than_rhs_def]
-      >> Cases_on ‘s’ >> gs[]
-      >> (Cases_on ‘s0’ >> gs[]
+      >> Cases_on ‘l’ >> gs[]
+      >> (Cases_on ‘l0’ >> gs[]
           >> (gs[bigger_than_literal_def]
               >> rw[replace_and_def, replace_or_def,
                     replace_impl_def, replace_iff_def]
@@ -699,8 +698,8 @@ Proof
   \\ rename [‘rhs_to_cnf x y’]
   \\ Cases_on ‘y’ \\ fs []
   \\ fs [eval_rhs_def]
-  \\ Cases_on ‘s’
-  \\ TRY (Cases_on ‘s0’)
+  \\ Cases_on ‘l’
+  \\ TRY (Cases_on ‘l0’)
   \\ gvs [rhs_to_cnf_def,eval_cnf_def,eval_literal_def,replace_not_def,
           eval_clause_def,negate_literal_def,replace_and_def,replace_or_def,
           replace_impl_def,replace_iff_def]
@@ -725,12 +724,12 @@ Proof
       >> rw[eval_constFree_def]
       >> gvs[IN_DISJOINT, next_range_def]
       >> Cases_on ‘l’ >> gvs[get_fresh_name_constFree_def]
-      >- (last_x_assum (qspecl_then [‘x’] mp_tac)
-          >> last_x_assum (qspecl_then [‘x’] mp_tac)
+      >- (last_x_assum (qspecl_then [‘a’] mp_tac)
+          >> last_x_assum (qspecl_then [‘a’] mp_tac)
           >> gvs[make_assignment_not_mem, make_assignment_not_mem_2,
                  eval_literal_def])
-      >> last_x_assum (qspecl_then [‘y’] mp_tac)
-      >> last_x_assum (qspecl_then [‘y’] mp_tac)
+      >> last_x_assum (qspecl_then [‘a’] mp_tac)
+      >> last_x_assum (qspecl_then [‘a’] mp_tac)
       >> gvs[make_assignment_not_mem, make_assignment_not_mem_2,
              eval_literal_def])
   >- (rw[eval_constFree_def]
@@ -900,4 +899,3 @@ Proof
   \\ imp_res_tac boolExp_to_cnf_imp_sat
   \\ gvs [boolExp_to_cnf_preserves_sat]
 QED
-

@@ -4,7 +4,7 @@
 Theory numBoolExp
 Ancestors
   misc quantifierExp arithmetic orderEncodingBool boolExpToCnf
-  cnf
+  satCnf
 Libs
   preamble
 
@@ -187,7 +187,7 @@ End
 (* ------------------------ Satisfiability ----------------------------- *)
 
 Definition eval_numBoolExp_def:
-  eval_numBoolExp (w:assignment) (w':numVarAssignment) NTrue = T ∧
+  eval_numBoolExp (w:num assignment) (w':numVarAssignment) NTrue = T ∧
   eval_numBoolExp w w' NFalse = F ∧
   eval_numBoolExp w w' (NBoolVar b) = w b ∧
   eval_numBoolExp w w' (NNot e) = ¬ eval_numBoolExp w w' e ∧
@@ -214,7 +214,7 @@ End
 
 Definition vMap_to_orderBool_def:
   vMap_to_orderBool [] = [] ∧
-  vMap_to_orderBool ((bv, v)::l) = (OLit (INL bv))::(vMap_to_orderBool l)
+  vMap_to_orderBool ((bv, v)::l) = (OLit (Pos bv))::(vMap_to_orderBool l)
 End
 
 Definition encode_combinations_def:
@@ -264,7 +264,7 @@ End
 Definition numBoolExp_to_orderBool_def:
   (numBoolExp_to_orderBool (vMap: numVarMap) NTrue = OTrue) ∧
   (numBoolExp_to_orderBool vMap NFalse = OFalse) ∧
-  (numBoolExp_to_orderBool vMap (NBoolVar x) = (OLit (INL x))) ∧
+  (numBoolExp_to_orderBool vMap (NBoolVar x) = (OLit (Pos x))) ∧
   (numBoolExp_to_orderBool vMap (NNot b) =
    (ONot (numBoolExp_to_orderBool vMap b))) ∧
   (numBoolExp_to_orderBool vMap (NAnd b1 b2) =
@@ -335,7 +335,7 @@ End
 
 Definition encode_assignment_def:
   encode_assignment
-  (w:assignment) (w':numVarAssignment) (vMap:numVarMap) (bv:num) =
+  (w:num assignment) (w':numVarAssignment) (vMap:numVarMap) (bv:num) =
   case ALOOKUP (invert_numVarMap vMap) bv of
   | NONE => w bv
   | SOME (x, v) => w' x ≤ v
@@ -343,14 +343,14 @@ End
 
 Definition minimal_encode_assignment_def:
   minimal_encode_assignment
-  (w:assignment) (w':numVarAssignment)
+  (w:num assignment) (w':numVarAssignment)
   (vList:numVarList) (e:numBoolExp) (bv:num) =
   let vMap = create_numVarMap e vList in
     encode_assignment w w' vMap bv
 End
 
 Definition find_value_def:
-  find_value (w:assignment) ([]:(num # num) list) = 0 ∧
+  find_value (w:num assignment) ([]:(num # num) list) = 0 ∧
   find_value w ((bv, v)::bvs) =
   if w bv
   then v
@@ -358,7 +358,7 @@ Definition find_value_def:
 End
 
 Definition assignment_to_numVarAssignment_def:
-  assignment_to_numVarAssignment (w:assignment) (vMap:numVarMap) (x:numVar) =
+  assignment_to_numVarAssignment (w:num assignment) (vMap:numVarMap) (x:numVar) =
   case ALOOKUP vMap x of
   | NONE => (0:num)
   | SOME bvs => find_value w bvs
@@ -366,7 +366,7 @@ End
 
 Definition minimal_assignment_to_numVarAssignment_def:
   minimal_assignment_to_numVarAssignment
-  (w:assignment) (vList:numVarList) (e:numBoolExp) (x:numVar) =
+  (w:num assignment) (vList:numVarList) (e:numBoolExp) (x:numVar) =
   let vMap = create_numVarMap e vList in
     assignment_to_numVarAssignment w vMap x
 End
@@ -604,7 +604,7 @@ Proof
 QED
 
 Definition bv_to_orderBool_def:
-  bv_to_orderBool (bv, v) = OLit (INL bv)
+  bv_to_orderBool (bv, v) = OLit (Pos bv)
 End
 
 Theorem vMap_to_orderBool_el_flip:
@@ -1078,7 +1078,7 @@ QED
 Theorem vMap_orderBool_snoc_lemma:
   ∀l x0 x1.
   vMap_to_orderBool (SNOC (x0,x1) l) =
-  SNOC (OLit (INL x0)) (vMap_to_orderBool l)
+  SNOC (OLit (Pos x0)) (vMap_to_orderBool l)
 Proof
   Induct
   >> gs[vMap_to_orderBool_def,SNOC_APPEND]
@@ -1858,7 +1858,7 @@ QED
 
 Definition numBoolExp_to_assignment_def:
   numBoolExp_to_assignment
-  (w:assignment) (w':numVarAssignment) (vList:numVarList) (e:numBoolExp) =
+  (w:num assignment) (w':numVarAssignment) (vList:numVarList) (e:numBoolExp) =
   orderBool_to_assignment
   (minimal_encode_assignment w w' vList e)
   (numBool_to_orderBool vList e)
@@ -2296,4 +2296,3 @@ Proof
 QED
 
 *) *)
-

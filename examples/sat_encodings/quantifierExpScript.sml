@@ -3,7 +3,7 @@
 *)
 Theory quantifierExp
 Ancestors
-  misc boolExpToCnf cnf
+  misc boolExpToCnf satCnf
 Libs
   preamble
 
@@ -105,7 +105,7 @@ Definition remove_def:
 End
 
 Definition eval_quant_def:
-  eval_quant (w: assignment) QTrue = T ∧
+  eval_quant (w:num assignment) QTrue = T ∧
   eval_quant w QFalse = F ∧
   eval_quant w (QLit l) = eval_literal w l ∧
   eval_quant w (QNot b) = ¬ (eval_quant w b) ∧
@@ -126,7 +126,7 @@ Definition sum_bools_def:
 End
 
 Definition eval_pseudoBool_def:
-  eval_pseudoBool (w: assignment) PTrue = T ∧
+  eval_pseudoBool (w:num assignment) PTrue = T ∧
   eval_pseudoBool w PFalse = F ∧
   eval_pseudoBool w (PLit l) = eval_literal w l ∧
   eval_pseudoBool w (PNot b) = ¬ (eval_pseudoBool w b) ∧
@@ -166,8 +166,8 @@ Definition replace_name_quant_def:
   (replace_name_quant x v QTrue = QTrue) ∧
   (replace_name_quant x v QFalse = QFalse) ∧
   (replace_name_quant x v (QLit l) =
-   if l = INL x then (bool_to_quant v) else
-     if l = INR x then (bool_to_quant ¬ v) else
+   if l = Pos x then (bool_to_quant v) else
+     if l = Neg x then (bool_to_quant ¬ v) else
        QLit l) ∧
   (replace_name_quant x v (QNot b) = QNot (replace_name_quant x v b)) ∧
   (replace_name_quant x v (QAnd b1 b2) =
@@ -282,7 +282,7 @@ Proof
   >- (Cases_on ‘v'’
       >> rw[replace_name_quant_def, eval_quant_def,
             eval_literal_def])
-  >- (Cases_on ‘s’
+  >- (Cases_on ‘l’
       >> rw[replace_name_quant_def, eval_quant_def,
             eval_literal_def, APPLY_UPDATE_THM])
   >> metis_tac[UPDATE_COMMUTES]
@@ -298,8 +298,8 @@ Proof
       >> EVAL_TAC)
   >- (Cases_on‘v’
       >> EVAL_TAC)
-  >- (Cases_on‘s’
-      >> gs[])
+  >- (Cases_on‘l’
+      >> gs[eval_literal_def, APPLY_UPDATE_THM])
   >> metis_tac[UPDATE_COMMUTES]
 QED
 
@@ -415,4 +415,3 @@ Proof
       GSYM boolExp_to_cnf_preserves_unsat, unsat_boolExp_def,
       pseudoBool_to_quant_preserves_sat, quant_to_boolExp_preserves_sat]
 QED
-
