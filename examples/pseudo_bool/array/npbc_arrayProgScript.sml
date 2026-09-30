@@ -25,6 +25,15 @@ Definition Fail_exn_def:
 End
 
 val _ = register_type ``:constr``
+
+Theorem EqualityType_NPBC_CHECK_CONSTR_TYPE[simp]:
+  EqualityType NPBC_CHECK_CONSTR_TYPE
+Proof
+  ‘EqualityType (APP_LIST_TYPE (PAIR_TYPE NUM (PBC_LIT_TYPE NUM)))’
+    by simp (eq_lemmas())>>
+  simp (eq_lemmas())
+QED
+
 val _ = register_type ``:lstep ``
 val _ = register_type ``:sstep ``
 
@@ -64,7 +73,18 @@ val r = translate add_listsLR_def;
 val r = translate add_listsLR_thm;
 val r = translate (add_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 
-val r = translate multiply_def;
+Theorem multiply_eq[local]:
+  multiply c k =
+  if k = 1 then c else
+  let (l,n) = c in
+  if k = 0 then ([],0) else
+    (MAP (λ(c,v). (c * &k,v)) l,n * &k)
+Proof
+  Cases_on `c`>>rw[multiply_def]>>
+  fs[GSYM LAMBDA_PROD,MAP_ID]
+QED
+
+val r = translate multiply_eq;
 val r = translate minus_def;
 
 val r = translate IQ_def;
@@ -225,6 +245,9 @@ val r = translate npbc_checkTheory.weaken_sorted_def;
 val r = translate npbc_checkTheory.fuse_weaken_def;
 val r = translate npbc_checkTheory.sing_lit_def;
 val r = translate npbc_checkTheory.clean_triv_def;
+
+val r = translate npbc_checkTheory.bal_add_round_def;
+val r = translate npbc_checkTheory.bal_add_def;
 
 Definition lookup_err_string_def:
   lookup_err_string b =
@@ -428,6 +451,63 @@ Proof
   metis_tac[]
 QED
 
+Quote add_cakeml:
+  fun lincomb_ids_arr lno b fml ids =
+  case ids of
+    [] => []
+  | ((n,k)::ids) =>
+    let val c = multiply (dec (lookup_core_only_err_arr lno b fml n)) k in
+      c :: lincomb_ids_arr lno b fml ids
+    end
+End
+
+Theorem lincomb_ids_arr_spec:
+  ∀ids idsv lno lnov b bv fmlls fmllsv fmlv.
+  LIST_TYPE (PAIR_TYPE NUM NUM) ids idsv ∧
+  NUM lno lnov ∧
+  BOOL b bv ∧
+  LIST_REL fslot_TYPE fmlls fmllsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "lincomb_ids_arr" (get_ml_prog_state()))
+    [lnov; bv; fmlv; idsv]
+    (ARRAY fmlv fmllsv)
+    (POSTve
+      (λv.
+      ARRAY fmlv fmllsv *
+        &(case lookup_lincomb_list b fmlls ids of NONE => F
+          | SOME x => LIST_TYPE constraint_TYPE x v))
+      (λe.
+      ARRAY fmlv fmllsv *
+        & (Fail_exn e ∧
+          lookup_lincomb_list b fmlls ids = NONE)))
+Proof
+  Induct>>rw[]>>
+  xcf "lincomb_ids_arr" (get_ml_prog_state ())
+  >- (
+    fs[LIST_TYPE_def,lookup_lincomb_list_def]>>
+    xmatch>>xcon>>xsimpl>>
+    simp[LIST_TYPE_def])>>
+  Cases_on`h`>>
+  rename1`LIST_TYPE _ ((n,k)::_) _`>>
+  gvs[LIST_TYPE_def,PAIR_TYPE_def,lookup_lincomb_list_def,
+    lookup_core_only_dec_def]>>
+  xmatch>>
+  xlet_autop >- (xsimpl>>simp[])>>
+  qmatch_asmsub_abbrev_tac`fslot_TYPE s v`>>
+  xlet`POSTv v. ARRAY fmlv fmllsv * &constraint_TYPE (dec s) v`
+  >- (
+    xapp>>xsimpl>>
+    qexists_tac`s`>>
+    fs[fslot_TYPE_def,dec_side])>>
+  Cases_on`s`>>fs[]>>
+  xlet_autop>>
+  xlet_autop>>
+  Cases_on`lookup_lincomb_list b fmlls ids`>>fs[]>>
+  xcon>>xsimpl>>
+  simp[LIST_TYPE_def]
+QED
+
 (* Throws an error *)
 Quote add_cakeml:
   fun check_cutting_arr lno b fml constr =
@@ -454,10 +534,22 @@ Quote add_cakeml:
   | Weak c vs =>
     weaken_sorted (check_cutting_arr lno b fml c) vs
   | Triv ls => (clean_triv ls)
+  | Lincomb ids ns =>
+    let val ic = bal_add (lincomb_ids_arr lno b fml ids)
+        val ncs = check_cutting_nest_arr lno b fml ns in
+      bal_add (ic :: ncs)
+    end
+  and check_cutting_nest_arr lno b fml ns =
+  case ns of
+    [] => []
+  | ((c,k)::ns) =>
+    let val c = multiply (check_cutting_arr lno b fml c) k in
+      c :: check_cutting_nest_arr lno b fml ns
+    end
 End
 
-Theorem check_cutting_arr_spec:
-  ∀constr constrv lno lnov b bv fmlls fmllsv fmlv.
+Theorem check_cutting_arr_spec_aux:
+  (∀b fmlls constr constrv lno lnov bv fmllsv fmlv.
   NPBC_CHECK_CONSTR_TYPE constr constrv ∧
   NUM lno lnov ∧
   BOOL b bv ∧
@@ -475,10 +567,58 @@ Theorem check_cutting_arr_spec:
       (λe.
       ARRAY fmlv fmllsv *
         & (Fail_exn e ∧
-          check_cutting_list b fmlls constr = NONE)))
+          check_cutting_list b fmlls constr = NONE)))) ∧
+  (∀b fmlls ns nsv lno lnov bv fmllsv fmlv.
+  LIST_TYPE (PAIR_TYPE NPBC_CHECK_CONSTR_TYPE NUM) ns nsv ∧
+  NUM lno lnov ∧
+  BOOL b bv ∧
+  LIST_REL fslot_TYPE fmlls fmllsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "check_cutting_nest_arr" (get_ml_prog_state()))
+    [lnov; bv; fmlv; nsv]
+    (ARRAY fmlv fmllsv)
+    (POSTve
+      (λv.
+      ARRAY fmlv fmllsv *
+        &(case check_cutting_list_nest b fmlls ns of NONE => F
+          | SOME x => LIST_TYPE constraint_TYPE x v))
+      (λe.
+      ARRAY fmlv fmllsv *
+        & (Fail_exn e ∧
+          check_cutting_list_nest b fmlls ns = NONE))))
 Proof
-  Induct_on`constr` >> rw[]>>
-  xcf "check_cutting_arr" (get_ml_prog_state ())
+  ho_match_mp_tac check_cutting_list_ind >> rw[]>>
+  xcfs ["check_cutting_arr","check_cutting_nest_arr"] (get_ml_prog_state ())
+  >~[`Lincomb`] >- (
+    fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
+    xmatch>>
+    xlet_autop >- (xsimpl>>simp[])>>
+    Cases_on`lookup_lincomb_list b fmlls ids`>>fs[]>>
+    rename1`lookup_lincomb_list _ _ _ = SOME ics`>>
+    xlet_autop>>
+    xlet_autop >- (xsimpl>>simp[])>>
+    Cases_on`check_cutting_list_nest b fmlls ns`>>fs[]>>
+    rename1`check_cutting_list_nest _ _ _ = SOME ncs`>>
+    xlet_autop>>
+    xapp>>xsimpl>>
+    qexists_tac`bal_add ics::ncs`>>
+    simp[LIST_TYPE_def])
+  >~[`check_cutting_list_nest _ _ []`] >- (
+    fs[check_cutting_list_def,LIST_TYPE_def]>>
+    xmatch>>xcon>>xsimpl>>
+    simp[LIST_TYPE_def])
+  >~[`check_cutting_list_nest _ _ (_::_)`] >- (
+    fs[check_cutting_list_def,LIST_TYPE_def,PAIR_TYPE_def]>>
+    rename1`NPBC_CHECK_CONSTR_TYPE c _`>>
+    xmatch>>
+    xlet_autop >- (xsimpl>>simp[])>>
+    Cases_on`check_cutting_list b fmlls c`>>fs[]>>
+    xlet_autop>>
+    xlet_autop >- (xsimpl>>simp[])>>
+    Cases_on`check_cutting_list_nest b fmlls ns`>>fs[]>>
+    xcon>>xsimpl>>
+    simp[LIST_TYPE_def])
   >~[`Id`] >- (
     fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def,lookup_core_only_dec_def]>>
     xmatch>>
@@ -566,6 +706,8 @@ Proof
     metis_tac[]
   )
 QED
+
+Theorem check_cutting_arr_spec = CONJUNCT1 check_cutting_arr_spec_aux
 
 (*
 val res = translate npbcTheory.add_terms_spt_def;
@@ -1587,7 +1729,24 @@ QED
 val res = translate npbc_checkTheory.map_app_list_def;
 val res = translate npbc_checkTheory.mul_triv_def;
 val res = translate SmartAppend_def;
+val res = translate npbc_checkTheory.is_sum_def;
+val res = translate npbc_checkTheory.mk_lincomb_def;
 val res = translate npbc_checkTheory.to_triv_def;
+
+Theorem to_triv_ind_thm[local]:
+  to_triv_ind
+Proof
+  once_rewrite_tac [fetch "-" "to_triv_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD]
+QED
+
+val _ = to_triv_ind_thm |> update_precondition;
 
 val res = translate check_trivial_def;
 val res = translate match_sign_def;
@@ -4970,6 +5129,7 @@ val extract_clauses_side = Q.prove(
   gvs[el_side]) |> update_precondition
 
 val res = translate FOLDL;
+val res = translate npbc_checkTheory.lookup_lincomb_def;
 val res = translate npbc_checkTheory.check_cutting_def;
 val res = translate npbc_checkTheory.check_contradiction_fml_def;
 val res = translate npbc_checkTheory.insert_fml_def;

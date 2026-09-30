@@ -30,6 +30,17 @@ Definition lookup_core_only_dec_def:
   | s => SOME (dec s)
 End
 
+Definition lookup_lincomb_list_def:
+  (lookup_lincomb_list b fml [] = SOME []) ∧
+  (lookup_lincomb_list b fml ((n,k)::ids) =
+    case lookup_core_only_dec b fml n of
+      NONE => NONE
+    | SOME c =>
+      case lookup_lincomb_list b fml ids of
+        NONE => NONE
+      | SOME cs => SOME (multiply c k :: cs))
+End
+
 (* TODO: optimize this using arrays instead of lists
   alternative:
     collapse all adds into one big list before normalizing
@@ -55,7 +66,22 @@ Definition check_cutting_list_def:
     | Neg v => SOME ([(-1,v)],0)) ∧
   (check_cutting_list b fml (Triv ls) = SOME (clean_triv ls)) ∧
   (check_cutting_list b fml (Weak c var) =
-    OPTION_MAP (λc. weaken_sorted c var) (check_cutting_list b fml c))
+    OPTION_MAP (λc. weaken_sorted c var) (check_cutting_list b fml c)) ∧
+  (check_cutting_list b fml (Lincomb ids ns) =
+    case lookup_lincomb_list b fml ids of
+      NONE => NONE
+    | SOME ics =>
+      case check_cutting_list_nest b fml ns of
+        NONE => NONE
+      | SOME ncs => SOME (bal_add (bal_add ics :: ncs))) ∧
+  (check_cutting_list_nest b fml [] = SOME []) ∧
+  (check_cutting_list_nest b fml ((c,k)::ns) =
+    case check_cutting_list b fml c of
+      NONE => NONE
+    | SOME c =>
+      case check_cutting_list_nest b fml ns of
+        NONE => NONE
+      | SOME cs => SOME (multiply c k :: cs))
 End
 
 (* Copied from LPR *)
@@ -572,14 +598,45 @@ Proof
   simp[]
 QED
 
+Theorem fml_rel_lookup_lincomb:
+  ∀ids.
+  fml_rel fml fmlls ⇒
+  lookup_lincomb_list b fmlls ids = lookup_lincomb b fml ids
+Proof
+  Induct>>
+  simp[FORALL_PROD,lookup_lincomb_list_def,lookup_lincomb_def]>>
+  rw[]>>
+  drule fml_rel_lookup_core_only_dec>>
+  simp[]
+QED
+
+Theorem fml_rel_check_cutting_mutual[local]:
+  (∀b fmlls p.
+    fml_rel fml fmlls ⇒
+    check_cutting_list b fmlls p = check_cutting b fml p) ∧
+  (∀b fmlls ns.
+    fml_rel fml fmlls ⇒
+    check_cutting_list_nest b fmlls ns = check_cutting_nest b fml ns)
+Proof
+  ho_match_mp_tac check_cutting_list_ind>>
+  rw[check_cutting_list_def,check_cutting_def]
+  >~[`lookup_core_only_dec`]
+  >- metis_tac[fml_rel_lookup_core_only_dec]
+  >~[`lookup_lincomb_list`]
+  >- (
+    drule_then assume_tac fml_rel_lookup_lincomb>>
+    gvs[]>>
+    TOP_CASE_TAC>>gvs[])
+  >~[`multiply`]
+  >- (TOP_CASE_TAC>>gvs[])
+QED
+
 Theorem fml_rel_check_cutting:
   ∀p.
   fml_rel fml fmlls ⇒
   check_cutting_list b fmlls p = check_cutting b fml p
 Proof
-  Induct>>rw[check_cutting_list_def,check_cutting_def]>>
-  drule fml_rel_lookup_core_only_dec>>
-  simp[]
+  metis_tac[fml_rel_check_cutting_mutual]
 QED
 
 Theorem fml_rel_rollback:

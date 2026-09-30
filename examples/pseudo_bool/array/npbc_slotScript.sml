@@ -317,7 +317,7 @@ Proof
   Induct>>simp[terms_snd_def,FORALL_PROD]
 QED
 
-(* The encoding in one pass over the terms *)
+(* Encoding with one metadata pass and two maps for vector contents *)
 Theorem enc_thm:
   enc ((l,d):npbc) b =
   let (s,mc,mv) = sum_max_abs l 0 0 0 in

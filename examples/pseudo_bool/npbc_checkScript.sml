@@ -48,6 +48,9 @@ Datatype:
   | Lit (num lit)       (* Literal axiom lit ≥ 0 (superseded by triv but used in parsing) *)
   | Weak constr (var list)     (* Addition of literal axioms until "var" disappears *)
   | Triv ((num # num lit) app_list) (* Literal axiom corresponds to [1,l] ≥ 0 *)
+  | Lincomb ((num # num) list) ((constr # num) list)
+    (* Sum of the IDs' constraints and of the nested constraints,
+       each scaled by its factor *)
 End
 
 (* Steps that preserve logical implication *)
@@ -105,23 +108,29 @@ Definition fuse_weaken_def:
   (fuse_weaken vs p = Weak p vs)
 End
 
+Definition is_sum_def:
+  (is_sum (Add _ _) = T) ∧
+  (is_sum (Mul c _) = is_sum c) ∧
+  (is_sum _ = F)
+End
+
+(* The operands of a sum, each list in reverse order:
+  IDs, other parts and literals, each with its factor *)
+Definition mk_lincomb_def:
+  mk_lincomb (ids,ns,lits) =
+  if NULL ids ∧ NULL ns then Triv (List (REVERSE lits))
+  else
+    let ns = if NULL lits then ns else (Triv (List (REVERSE lits)),1)::ns in
+    Lincomb (REVERSE ids) (REVERSE ns)
+End
+
+(* Each maximal sum of Add and Mul nodes becomes one Lincomb *)
 Definition to_triv_def:
   (to_triv (Add l r) =
-    let ll = to_triv l in
-    let rr = to_triv r in
-    case ll of
-      Triv lt =>
-        (case rr of
-          Triv rt => Triv (SmartAppend lt rt)
-        | Add re (Triv rt) => Add re (Triv (SmartAppend lt rt))
-        | _ => Add rr ll)
-    | Add le (Triv lt) =>
-        (case rr of
-          Triv rt => Add le (Triv (SmartAppend lt rt))
-        | Add re (Triv rt) => Add (Add le re) (Triv (SmartAppend lt rt))
-        | _ => Add (Add le rr) (Triv lt))
-    | _ => Add ll rr) ∧
+    mk_lincomb (to_lin r 1 (to_lin l 1 ([],[],[])))) ∧
   (to_triv (Mul c k) =
+    if is_sum c then mk_lincomb (to_lin c k ([],[],[]))
+    else
     let cc = to_triv c in
     case cc of
       Triv ls => Triv (mul_triv ls k)
@@ -131,7 +140,19 @@ Definition to_triv_def:
   (to_triv (Sat c) = Sat (to_triv c)) ∧
   (to_triv (Weak c vs) = fuse_weaken vs (to_triv c)) ∧
   (to_triv (Lit l) = Triv (List [(1,l)])) ∧
-  (to_triv c = c)
+  (to_triv c = c) ∧
+  (to_lin (Add l r) m acc = to_lin r m (to_lin l m acc)) ∧
+  (to_lin (Mul c k) m acc = to_lin c (m * k) acc) ∧
+  (to_lin (Id n) m acc =
+    let (ids,ns,lits) = acc in ((n,m)::ids,ns,lits)) ∧
+  (to_lin (Lit l) m acc =
+    let (ids,ns,lits) = acc in (ids,ns,(m,l)::lits)) ∧
+  (to_lin c m acc =
+    let (ids,ns,lits) = acc in (ids,(to_triv c,m)::ns,lits))
+Termination
+  WF_REL_TAC ‘measure (λx. case x of
+    INL c => 2 * constr_size c
+  | INR (c,_,_) => 2 * constr_size c + 1)’
 End
 
 Definition sing_lit_def:
@@ -185,6 +206,103 @@ Definition do_divide_def:
   | Nd => mir c k
 End
 
+(* Balanced combination of a list: rounds that combine neighbouring pairs *)
+Definition bal_round_def:
+  (bal_round f (x::y::xs) = f x y :: bal_round f xs) ∧
+  (bal_round f xs = xs)
+End
+
+Theorem LENGTH_bal_round:
+  ∀f xs. LENGTH (bal_round f xs) ≤ LENGTH xs ∧
+    (2 ≤ LENGTH xs ⇒ LENGTH (bal_round f xs) < LENGTH xs)
+Proof
+  ho_match_mp_tac bal_round_ind>>
+  rw[bal_round_def]
+QED
+
+Definition bal_def:
+  bal f e xs =
+  case xs of
+    [] => e
+  | [x] => x
+  | _ => bal f e (bal_round f xs)
+Termination
+  WF_REL_TAC ‘measure (LENGTH o SND o SND)’>>
+  simp[bal_round_def,GSYM LESS_EQ_IFF_LESS_SUC,LENGTH_bal_round]
+End
+
+Theorem EVERY_bal_round:
+  ∀f xs.
+  (∀x y. P x ∧ P y ⇒ P (f x y)) ∧ EVERY P xs ⇒
+  EVERY P (bal_round f xs)
+Proof
+  ho_match_mp_tac bal_round_ind>>
+  rw[bal_round_def]
+QED
+
+Theorem bal_pres:
+  ∀f e xs.
+  P e ∧ (∀x y. P x ∧ P y ⇒ P (f x y)) ∧ EVERY P xs ⇒
+  P (bal f e xs)
+Proof
+  ho_match_mp_tac bal_ind>>
+  rpt strip_tac>>
+  ONCE_REWRITE_TAC[bal_def]>>
+  Cases_on`xs`>>gvs[]>>
+  rename1`_::rest`>>
+  Cases_on`rest`>>gvs[]>>
+  first_x_assum irule>>
+  irule EVERY_bal_round>>
+  simp[]
+QED
+
+Definition bal_add_round_def:
+  (bal_add_round (x::y::xs) = add x y :: bal_add_round xs) ∧
+  (bal_add_round xs = xs)
+End
+
+Theorem bal_add_round_eq:
+  ∀xs. bal_add_round xs = bal_round add xs
+Proof
+  ho_match_mp_tac bal_add_round_ind>>
+  rw[bal_add_round_def,bal_round_def]
+QED
+
+Definition bal_add_def:
+  bal_add xs =
+  case xs of
+    [] => ([],0)
+  | [x] => x
+  | _ => bal_add (bal_add_round xs)
+Termination
+  WF_REL_TAC ‘measure LENGTH’>>
+  simp[bal_add_round_eq,bal_round_def,GSYM LESS_EQ_IFF_LESS_SUC,
+    LENGTH_bal_round]
+End
+
+Theorem bal_add_eq:
+  ∀xs. bal_add xs = bal add ([],0) xs
+Proof
+  ho_match_mp_tac bal_add_ind>>
+  rpt strip_tac>>
+  ONCE_REWRITE_TAC[bal_add_def,bal_def]>>
+  Cases_on`xs`>>simp[]>>
+  rename1`_::rest`>>
+  Cases_on`rest`>>gvs[bal_add_round_eq]
+QED
+
+(* The IDs' constraints, each scaled by its factor *)
+Definition lookup_lincomb_def:
+  (lookup_lincomb b fml [] = SOME []) ∧
+  (lookup_lincomb b fml ((n,k)::ids) =
+    case lookup_core_only b fml n of
+      NONE => NONE
+    | SOME c =>
+      case lookup_lincomb b fml ids of
+        NONE => NONE
+      | SOME cs => SOME (multiply c k :: cs))
+End
+
 Definition check_cutting_def:
   (check_cutting b (fml:pbf) (Id n) =
     lookup_core_only b fml n) ∧
@@ -206,7 +324,22 @@ Definition check_cutting_def:
     | Neg v => SOME ([(-1,v)],0)) ∧
   (check_cutting b fml (Triv ls) = SOME (clean_triv ls)) ∧
   (check_cutting b fml (Weak c var) =
-    OPTION_MAP (λc. weaken_sorted c var) (check_cutting b fml c))
+    OPTION_MAP (λc. weaken_sorted c var) (check_cutting b fml c)) ∧
+  (check_cutting b fml (Lincomb ids ns) =
+    case lookup_lincomb b fml ids of
+      NONE => NONE
+    | SOME ics =>
+      case check_cutting_nest b fml ns of
+        NONE => NONE
+      | SOME ncs => SOME (bal_add (bal_add ics :: ncs))) ∧
+  (check_cutting_nest b fml [] = SOME []) ∧
+  (check_cutting_nest b fml ((c,k)::ns) =
+    case check_cutting b fml c of
+      NONE => NONE
+    | SOME c =>
+      case check_cutting_nest b fml ns of
+        NONE => NONE
+      | SOME cs => SOME (multiply c k :: cs))
 End
 
 Definition check_contradiction_fml_def:
@@ -361,20 +494,67 @@ Proof
   simp[satisfies_npbc_def]
 QED
 
-Theorem check_cutting_correct:
-  ∀fml n c w.
-  check_cutting b fml n = SOME c ∧
+Theorem bal_add_sound:
+  EVERY (satisfies_npbc w) xs ⇒
+  satisfies_npbc w (bal_add xs)
+Proof
+  rw[bal_add_eq]>>
+  irule bal_pres>>
+  simp[add_thm,satisfies_npbc_def]
+QED
+
+Theorem lookup_core_only_sound:
+  lookup_core_only b fml n = SOME c ∧
   satisfies w (core_only_fml b fml) ⇒
   satisfies_npbc w c
 Proof
-  Induct_on`n`
+  rw[lookup_core_only_def,core_only_fml_def]>>
+  every_case_tac>>
+  fs[satisfies_def,satisfies_npbc_def,range_def,PULL_EXISTS]>>
+  metis_tac[]
+QED
+
+Theorem lookup_lincomb_sound:
+  ∀b fml ids cs.
+  lookup_lincomb b fml ids = SOME cs ∧
+  satisfies w (core_only_fml b fml) ⇒
+  EVERY (satisfies_npbc w) cs
+Proof
+  ho_match_mp_tac lookup_lincomb_ind>>
+  rw[lookup_lincomb_def,AllCaseEqs()]>>
+  simp[]>>
+  metis_tac[multiply_thm,lookup_core_only_sound]
+QED
+
+Theorem check_cutting_correct_mutual[local]:
+  (∀b fml n c.
+    check_cutting b fml n = SOME c ∧
+    satisfies w (core_only_fml b fml) ⇒
+    satisfies_npbc w c) ∧
+  (∀b fml ns cs.
+    check_cutting_nest b fml ns = SOME cs ∧
+    satisfies w (core_only_fml b fml) ⇒
+    EVERY (satisfies_npbc w) cs)
+Proof
+  ho_match_mp_tac check_cutting_ind>>
+  rpt conj_tac
   >~[`Id`]
   >- (
     rw[check_cutting_def]>>
-    fs[lookup_core_only_def,core_only_fml_def]>>
-    every_case_tac>>
-    fs[satisfies_def,satisfies_npbc_def,range_def,PULL_EXISTS]>>
-    metis_tac[])
+    metis_tac[lookup_core_only_sound])
+  >~[`Lincomb`]
+  >- (
+    rw[check_cutting_def,AllCaseEqs()]>>
+    irule bal_add_sound>>
+    simp[]>>
+    metis_tac[bal_add_sound,lookup_lincomb_sound])
+  >~[`check_cutting_nest _ _ []`]
+  >- rw[check_cutting_def]
+  >~[`check_cutting_nest _ _ (_::_)`]
+  >- (
+    rw[check_cutting_def,AllCaseEqs()]>>
+    simp[]>>
+    metis_tac[multiply_thm])
   >~[`Add`]
   >- (
     rw[check_cutting_def]>>
@@ -419,6 +599,15 @@ Proof
     metis_tac[clean_triv_thm])
 QED
 
+Theorem check_cutting_correct:
+  ∀fml n c w.
+  check_cutting b fml n = SOME c ∧
+  satisfies w (core_only_fml b fml) ⇒
+  satisfies_npbc w c
+Proof
+  metis_tac[check_cutting_correct_mutual]
+QED
+
 Theorem FOLDR_add_compact:
   ∀ls c.
   compact c ∧ EVERY (λh. FST h ≠ 0) ls ⇒
@@ -438,43 +627,114 @@ Proof
   simp[EVERY_FILTER]
 QED
 
-Theorem check_cutting_compact:
-  ∀n c.
+Theorem bal_add_compact:
+  EVERY compact xs ⇒
+  compact (bal_add xs)
+Proof
+  rw[bal_add_eq]>>
+  irule bal_pres>>
+  rw[compact_add]
+QED
+
+Theorem lookup_core_only_compact:
   (∀c. c ∈ core_only_fml b fml ⇒ compact c) ∧
-  check_cutting b fml n = SOME c ⇒
+  lookup_core_only b fml n = SOME c ⇒
   compact c
 Proof
-  Induct_on`n`>>rw[check_cutting_def]
+  rw[]>>
+  fs[core_only_fml_def,lookup_core_only_def]>>
+  every_case_tac>>gvs[]>>
+  metis_tac[]
+QED
+
+Theorem lookup_lincomb_compact:
+  ∀b fml ids cs.
+  (∀c. c ∈ core_only_fml b fml ⇒ compact c) ∧
+  lookup_lincomb b fml ids = SOME cs ⇒
+  EVERY compact cs
+Proof
+  ho_match_mp_tac lookup_lincomb_ind>>
+  rw[lookup_lincomb_def,AllCaseEqs()]>>
+  simp[]>>
+  metis_tac[compact_multiply,lookup_core_only_compact]
+QED
+
+Theorem check_cutting_compact_mutual[local]:
+  (∀b fml n c.
+    (∀c. c ∈ core_only_fml b fml ⇒ compact c) ∧
+    check_cutting b fml n = SOME c ⇒
+    compact c) ∧
+  (∀b fml ns cs.
+    (∀c. c ∈ core_only_fml b fml ⇒ compact c) ∧
+    check_cutting_nest b fml ns = SOME cs ⇒
+    EVERY compact cs)
+Proof
+  ho_match_mp_tac check_cutting_ind>>
+  rpt conj_tac
+  >~[`Id`]
   >- (
-    (*Id case*)
-    fs[core_only_fml_def,lookup_core_only_def]>>
-    every_case_tac>>gvs[]>>
-    metis_tac[])
+    rw[check_cutting_def]>>
+    metis_tac[lookup_core_only_compact])
+  >~[`Lincomb`]
   >- (
-    (* add case *)
-    metis_tac[compact_add])
+    rw[check_cutting_def,AllCaseEqs()]>>
+    irule bal_add_compact>>
+    simp[]>>
+    metis_tac[bal_add_compact,lookup_lincomb_compact])
+  >~[`check_cutting_nest _ _ []`]
+  >- rw[check_cutting_def]
+  >~[`check_cutting_nest _ _ (_::_)`]
   >- (
-    (* multiply case *)
+    rw[check_cutting_def,AllCaseEqs()]>>
+    simp[]>>
     metis_tac[compact_multiply])
+  >~[`Add`]
   >- (
+    rw[check_cutting_def]>>
+    metis_tac[compact_add])
+  >~[`Mul`]
+  >- (
+    rw[check_cutting_def]>>
+    metis_tac[compact_multiply])
+  >~[`Div`]
+  >- (
+    rw[check_cutting_def]>>
     simp[oneline do_divide_def]>>
     every_case_tac
     >- metis_tac[compact_var_divide]
     >- metis_tac[compact_divide]
     >- metis_tac[compact_mir]
     >- metis_tac[compact_var_mir])
-  >- metis_tac[compact_minus]
-  >- metis_tac[compact_saturate]
+  >~[`Minus`]
   >- (
-    (* literal case *)
-    Cases_on`l`>>fs[check_cutting_def]>>rveq>>
+    rw[check_cutting_def]>>
+    metis_tac[compact_minus])
+  >~[`Sat`]
+  >- (
+    rw[check_cutting_def]>>
+    metis_tac[compact_saturate])
+  >~[`Lit`]
+  >- (
+    rw[check_cutting_def,AllCaseEqs()]>>
     EVAL_TAC)
+  >~[`Weak`]
   >- (
-    (* weaken case *)
+    rw[check_cutting_def]>>
     simp[weaken_sorted_def]>>
     metis_tac[compact_weaken])
-  >-
-    metis_tac[clean_triv_compact]
+  >~[`Triv`]
+  >- (
+    rw[check_cutting_def]>>
+    metis_tac[clean_triv_compact])
+QED
+
+Theorem check_cutting_compact:
+  ∀n c.
+  (∀c. c ∈ core_only_fml b fml ⇒ compact c) ∧
+  check_cutting b fml n = SOME c ⇒
+  compact c
+Proof
+  metis_tac[check_cutting_compact_mutual]
 QED
 
 Definition id_ok_def:
