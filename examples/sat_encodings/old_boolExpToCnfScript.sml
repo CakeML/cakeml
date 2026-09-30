@@ -46,7 +46,7 @@ End
 Definition eval_nnf_def:
   (eval_nnf (w:num assignment) NnfTrue = T) ∧
   (eval_nnf w NnfFalse = F) ∧
-  (eval_nnf w (NnfLit l) = eval_literal w l) ∧
+  (eval_nnf w (NnfLit l) = satisfies_lit w l) ∧
   (eval_nnf w (NnfAnd nnf1 nnf2) =
    (eval_nnf w nnf1 ∧ eval_nnf w nnf2)) ∧
   (eval_nnf w (NnfOr nnf1 nnf2) =
@@ -57,7 +57,7 @@ Definition eval_noImp_def:
   (eval_noImp (w:num assignment) NoImpTrue = T) ∧
   (eval_noImp w NoImpFalse = F) ∧
   (eval_noImp w (NoImpLit l) =
-   eval_literal w l) ∧
+   satisfies_lit w l) ∧
   (eval_noImp w (NoImpNot b) =
    ¬ (eval_noImp w b)) ∧
   (eval_noImp w (NoImpAnd b1 b2) =
@@ -69,7 +69,7 @@ End
 Definition eval_boolExp_def:
   (eval_boolExp (w:num assignment) True = T) ∧
   (eval_boolExp w False = F) ∧
-  (eval_boolExp w (Lit l) = eval_literal w l) ∧
+  (eval_boolExp w (Lit l) = satisfies_lit w l) ∧
   (eval_boolExp w (Not b) = ¬ (eval_boolExp w b)) ∧
   (eval_boolExp w (And b1 b2) =
    (eval_boolExp w b1 ∧ eval_boolExp w b2)) ∧
@@ -173,35 +173,39 @@ End
 
 (* ----------------------- Theorems ------------------------------------ *)
 
+Theorem mem_distr:
+  MEM c (distr b1 b2) ⇔
+    ∃c1 c2. MEM c1 b1 ∧ MEM c2 b2 ∧ c = c1 ++ c2
+Proof
+  simp[distr_def, MEM_FLAT, MEM_MAP, PULL_EXISTS] >>
+  metis_tac[]
+QED
+
 Theorem distr_preserves_sat:
   ∀ b1 b2.
-    eval_cnf w (distr b1 b2) ⇔
-    (eval_cnf w b1 ∨ eval_cnf w b2)
+    satisfies_cnf w (set (distr b1 b2)) ⇔
+    (satisfies_cnf w (set b1) ∨ satisfies_cnf w (set b2))
 Proof
-  ‘∀bs c.
-     eval_cnf w (MAP (λd. c ++ d) bs) ⇔
-     eval_clause w c ∨ eval_cnf w bs’ by
-    (Induct >> simp[eval_cnf_list, eval_clause_append] >>
-     metis_tac[]) >>
-  Induct >> simp[distr_def, eval_cnf_list, eval_cnf_append] >>
-  fs[distr_def] >>
+  simp[cnfTheory.satisfies_cnf_def,
+       cnfTheory.satisfies_fml_gen_def,
+       mem_distr, satisfies_clause_append, PULL_EXISTS] >>
   metis_tac[]
 QED
 
 Theorem nnf_to_cnf_preserves_sat:
-  eval_nnf w b = eval_cnf w (nnf_to_cnf b)
+  eval_nnf w b = satisfies_cnf w (set (nnf_to_cnf b))
 Proof
   Induct_on ‘b’
   >> simp[eval_nnf_def, nnf_to_cnf_def,
-          eval_cnf_def, eval_clause_def,
+          satisfies_cnf_constructors, satisfies_clause_constructors,
           distr_preserves_sat]
 QED
 
 Theorem negate_literal_thm:
-  eval_literal w (negate_literal l) ⇔ ¬ eval_literal w l
+  satisfies_lit w (negate_literal l) ⇔ ¬ satisfies_lit w l
 Proof
   Cases_on ‘l’
-  >> rw[negate_literal_def, eval_literal_def]
+  >> rw[negate_literal_def, cnfTheory.satisfies_lit_def]
 QED
 
 Theorem noImpNot_thm:
@@ -237,7 +241,7 @@ Proof
 QED
 
 Theorem boolExp_to_cnf_preserves_sat:
-  eval_boolExp w b = eval_cnf w (boolExp_to_cnf b)
+  eval_boolExp w b = satisfies_cnf w (set (boolExp_to_cnf b))
 Proof
   rw[boolExp_to_noImp_preserves_sat,
      noImp_to_nnf_preserves_sat,

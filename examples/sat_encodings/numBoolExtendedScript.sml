@@ -287,9 +287,8 @@ Theorem numBoolExtended_to_cnf_preserves_sat:
     extended_numVarList_ok  vList e ∧
     minimal_numVarAssignment_ok w' vList ⇒
     (eval_numBoolExtended w w' e ⇔
-       eval_cnf
-       (numBoolExtended_to_assignment w w' vList e)
-       (numBoolExtended_to_cnf vList e))
+       satisfies_cnf (numBoolExtended_to_assignment w w' vList e)
+         (set (numBoolExtended_to_cnf vList e)))
 Proof
   rw[numBoolExtended_to_numBoolExp_preserves_sat, numBoolExtended_to_cnf_def,
      numBoolExtended_to_assignment_def]
@@ -304,7 +303,7 @@ End
 Theorem numBoolExtended_to_cnf_imp_sat:
   numVarList_ok vList ∧
   extended_numVarList_ok vList e ∧
-  eval_cnf w (numBoolExtended_to_cnf vList e) ⇒
+  satisfies_cnf w (set (numBoolExtended_to_cnf vList e)) ⇒
   eval_numBoolExtended w (to_numExtended_assignment vList e w) e
 Proof
   rw [numBoolExtended_to_cnf_def,
@@ -317,7 +316,7 @@ QED
 Theorem numBoolExtended_to_cnf_preserves_unsat:
   numVarList_ok vList ∧ extended_numVarList_ok vList e ⇒
   (unsat_numBoolExtended (SND vList) e ⇔
-   unsat_cnf (numBoolExtended_to_cnf vList e))
+   unsatisfiable_cnf (set (numBoolExtended_to_cnf vList e)))
 Proof
   rw [numBoolExtended_to_cnf_def]
   \\ imp_res_tac numVarList_ok_lemma
@@ -334,9 +333,7 @@ Theorem numBoolExtended_to_cnf_preserves_sat:
     extended_numVarList_ok l e ∧
     minimal_numVarAssignment_ok w' l ⇒
     eval_numBoolExtended w w' e =
-    eval_cnf
-    (encode_assignment_numBoolExtended w w' l e)
-    (numBoolExtended_to_cnf l e)
+    satisfies_cnf (encode_assignment_numBoolExtended w w' l e) (set (numBoolExtended_to_cnf l e))
 Proof
   rw[numBoolExtended_to_cnf_def]
   >> rw[encode_assignment_numBoolExtended_def]

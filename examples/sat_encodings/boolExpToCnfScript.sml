@@ -89,7 +89,7 @@ End
 Definition eval_boolExp_def:
   (eval_boolExp (w:num assignment) True = T) ∧
   (eval_boolExp w False = F) ∧
-  (eval_boolExp w (Lit l) = eval_literal w l) ∧
+  (eval_boolExp w (Lit l) = satisfies_lit w l) ∧
   (eval_boolExp w (Not b) = ¬ (eval_boolExp w b)) ∧
   (eval_boolExp w (And b1 b2) =
    (eval_boolExp w b1 ∧ eval_boolExp w b2)) ∧
@@ -106,7 +106,7 @@ Definition unsat_boolExp_def:
 End
 
 Definition eval_constFree_def:
-  eval_constFree (w:num assignment) (CLit l) = eval_literal w l ∧
+  eval_constFree (w:num assignment) (CLit l) = satisfies_lit w l ∧
   eval_constFree w (CNot b) = ¬ eval_constFree w b ∧
   eval_constFree w (CAnd b1 b2) =
   (eval_constFree w b1 ∧ eval_constFree w b2) ∧
@@ -336,15 +336,15 @@ End
 (* -------------------- Encoding the assignment ---------------------- *)
 
 Definition eval_rhs_def:
-  eval_rhs w (RNot l) = ¬ eval_literal w l ∧
+  eval_rhs w (RNot l) = ¬ satisfies_lit w l ∧
   eval_rhs w (RAnd l1 l2) =
-  (eval_literal w l1 ∧ eval_literal w l2) ∧
+  (satisfies_lit w l1 ∧ satisfies_lit w l2) ∧
   eval_rhs w (ROr l1 l2) =
-  (eval_literal w l1 ∨ eval_literal w l2) ∧
+  (satisfies_lit w l1 ∨ satisfies_lit w l2) ∧
   eval_rhs w (RImpl l1 l2) =
-  (eval_literal w l1 ⇒ eval_literal w l2) ∧
+  (satisfies_lit w l1 ⇒ satisfies_lit w l2) ∧
   eval_rhs w (RIff l1 l2) =
-  (eval_literal w l1 ⇔ eval_literal w l2)
+  (satisfies_lit w l1 ⇔ satisfies_lit w l2)
 End
 
 Definition make_assignments_def:
@@ -587,32 +587,32 @@ Theorem one_mapping_true:
     num_bigger_than_rhs q r ∧
     EVERY (λq'. q > q') (MAP FST mapping) ∧
     ¬MEM q (MAP FST mapping) ⇒
-    eval_cnf (make_assignments w ((q,r)::mapping)) (rhs_to_cnf q r)
+    satisfies_cnf (make_assignments w ((q,r)::mapping)) (set (rhs_to_cnf q r))
 Proof
   Induct >> rw[]
   >- (rw[rhs_to_cnf_def]
       >> rw[replace_not_def]
       >> rw[make_assignments_def]
       >> rw[eval_rhs_def]
-      >> rw[eval_cnf_def]
-      >> (rw[eval_clause_def]
+      >> rw[satisfies_cnf_constructors]
+      >> (rw[satisfies_clause_constructors]
           >> Cases_on ‘l’ >> rw[]
           >> (rw[negate_literal_def]
-              >> rw[eval_literal_def]
+              >> rw[cnfTheory.satisfies_lit_def]
               >> rewrite_tac[APPLY_UPDATE_THM]
               >> gs[num_bigger_than_rhs_def]
               >> gs[bigger_than_literal_def])))
   >> (rw[rhs_to_cnf_def]
       >> rw[replace_and_def, replace_or_def,
             replace_impl_def, replace_iff_def]
-      >> rw[eval_cnf_def]
-      >> (rw[eval_clause_def]
+      >> rw[satisfies_cnf_constructors]
+      >> (rw[satisfies_clause_constructors]
           >> rw[make_assignments_def]
           >> rw[eval_rhs_def]
           >> Cases_on ‘l’ >> rw[]
           >> (Cases_on ‘l0’ >> rw[]
               >> (rw[negate_literal_def]
-                  >> rw[eval_literal_def]
+                  >> rw[cnfTheory.satisfies_lit_def]
                   >> rewrite_tac[APPLY_UPDATE_THM]
                   >> gs[num_bigger_than_rhs_def]
                   >> gs[bigger_than_literal_def]
@@ -624,8 +624,8 @@ Theorem eval_same:
     num_bigger_than_rhs q' r' ∧
     num_bigger_than_rhs q r ∧
     q > q' ⇒
-    (eval_cnf w⦇q ↦ v⦈ (rhs_to_cnf q' r') ⇔
-       eval_cnf w (rhs_to_cnf q' r'))
+    (satisfies_cnf w⦇q ↦ v⦈ (set (rhs_to_cnf q' r')) ⇔
+       satisfies_cnf w (set (rhs_to_cnf q' r')))
 Proof
   Induct >> rw[]
   >- (rw[rhs_to_cnf_def]
@@ -633,8 +633,8 @@ Proof
       >> Cases_on ‘l’ >> gs[]
       >> (gs[bigger_than_literal_def]
           >> rw[replace_not_def]
-          >> rw[eval_cnf_def, eval_clause_def, negate_literal_def,
-                eval_literal_def, APPLY_UPDATE_THM]))
+          >> rw[satisfies_cnf_constructors, satisfies_clause_constructors, negate_literal_def,
+                cnfTheory.satisfies_lit_def, APPLY_UPDATE_THM]))
   >> (rw[rhs_to_cnf_def]
       >> gs[num_bigger_than_rhs_def]
       >> Cases_on ‘l’ >> gs[]
@@ -642,8 +642,8 @@ Proof
           >> (gs[bigger_than_literal_def]
               >> rw[replace_and_def, replace_or_def,
                     replace_impl_def, replace_iff_def]
-              >> rw[eval_cnf_def, eval_clause_def, negate_literal_def,
-                    eval_literal_def, APPLY_UPDATE_THM])))
+              >> rw[satisfies_cnf_constructors, satisfies_clause_constructors, negate_literal_def,
+                    cnfTheory.satisfies_lit_def, APPLY_UPDATE_THM])))
 QED
 
 Theorem mapping_always_true_inductive_step:
@@ -652,14 +652,14 @@ Theorem mapping_always_true_inductive_step:
     num_bigger_than_rhs q r ∧
     EVERY (λq'. q > q') (MAP FST mapping) ∧
     ¬MEM q (MAP FST mapping) ⇒
-    (eval_cnf w⦇q ↦ v⦈ (map_to_cnf mapping) ⇔
-       eval_cnf w (map_to_cnf mapping))
+    (satisfies_cnf w⦇q ↦ v⦈ (set (map_to_cnf mapping)) ⇔
+       satisfies_cnf w (set (map_to_cnf mapping)))
 Proof
   Induct >> rw[]
-  >- rw[map_to_cnf_def, eval_cnf_def]
+  >- rw[map_to_cnf_def, satisfies_cnf_constructors]
   >> Cases_on ‘h’ >> gs[]
   >> rw[map_to_cnf_def]
-  >> rw[eval_cnf_def]
+  >> rw[satisfies_cnf_constructors]
   >> last_x_assum (qspecl_then [‘q’, ‘v’, ‘w’] assume_tac)
   >> gs[mapping_ok_def]
   >> metis_tac[eval_same]
@@ -668,14 +668,14 @@ QED
 Theorem mapping_always_true:
   ∀ mapping w.
     mapping_ok mapping ⇒
-    eval_cnf (make_assignments w mapping) (map_to_cnf mapping)
+    satisfies_cnf (make_assignments w mapping) (set (map_to_cnf mapping))
 Proof
   Induct >> rw[]
-  >- rw[map_to_cnf_def, eval_cnf_def]
+  >- rw[map_to_cnf_def, satisfies_cnf_constructors]
   >> Cases_on ‘h’ >> gs[]
   >> gs[mapping_ok_def]
   >> gs[map_to_cnf_def]
-  >> rw[eval_cnf_def]
+  >> rw[satisfies_cnf_constructors]
   >- rw[one_mapping_true]
   >> rw[make_assignments_def]
   >> metis_tac[mapping_always_true_inductive_step]
@@ -683,7 +683,7 @@ QED
 
 Theorem make_assignments_thm:
   ∀xs w.
-    eval_cnf w (map_to_cnf xs) ∧ mapping_ok xs ⇒
+    satisfies_cnf w (set (map_to_cnf xs)) ∧ mapping_ok xs ⇒
     make_assignments w xs = w
 Proof
   Induct \\ fs [make_assignments_def,FORALL_PROD]
@@ -691,17 +691,17 @@ Proof
   \\ rpt gen_tac \\ strip_tac
   \\ first_x_assum (qspecl_then [‘w’] mp_tac)
   \\ impl_tac
-  THEN1 (fs [mapping_ok_def,map_to_cnf_def,eval_cnf_def])
+  THEN1 (fs [mapping_ok_def,map_to_cnf_def,satisfies_cnf_constructors])
   \\ rw [] \\ fs []
   \\ rw [] \\ fs []
-  \\ fs [map_to_cnf_def,eval_cnf_def]
+  \\ fs [map_to_cnf_def,satisfies_cnf_constructors]
   \\ rename [‘rhs_to_cnf x y’]
   \\ Cases_on ‘y’ \\ fs []
   \\ fs [eval_rhs_def]
   \\ Cases_on ‘l’
   \\ TRY (Cases_on ‘l0’)
-  \\ gvs [rhs_to_cnf_def,eval_cnf_def,eval_literal_def,replace_not_def,
-          eval_clause_def,negate_literal_def,replace_and_def,replace_or_def,
+  \\ gvs [rhs_to_cnf_def,satisfies_cnf_constructors,cnfTheory.satisfies_lit_def,replace_not_def,
+          satisfies_clause_constructors,negate_literal_def,replace_and_def,replace_or_def,
           replace_impl_def,replace_iff_def]
 QED
 
@@ -716,7 +716,7 @@ Theorem constFree_to_cnf_preserves_sat_2:
     (DISJOINT (next_range 0 (get_fresh_name_constFree b)) (set (MAP FST xs))) ∧
     (DISJOINT (next_range 0 (get_fresh_name_constFree b)) (set (MAP FST ys))) ⇒
     (eval_constFree w b ⇔
-       eval_literal (make_assignments w (xs ++ append map' ++ ys)) l)
+       satisfies_lit (make_assignments w (xs ++ append map' ++ ys)) l)
 Proof
   Induct >> rw[]
   >- (gs[constFree_to_cnf_inner_def]
@@ -727,16 +727,16 @@ Proof
       >- (last_x_assum (qspecl_then [‘a’] mp_tac)
           >> last_x_assum (qspecl_then [‘a’] mp_tac)
           >> gvs[make_assignment_not_mem, make_assignment_not_mem_2,
-                 eval_literal_def])
+                 cnfTheory.satisfies_lit_def])
       >> last_x_assum (qspecl_then [‘a’] mp_tac)
       >> last_x_assum (qspecl_then [‘a’] mp_tac)
       >> gvs[make_assignment_not_mem, make_assignment_not_mem_2,
-             eval_literal_def])
+             cnfTheory.satisfies_lit_def])
   >- (rw[eval_constFree_def]
       >> gs[constFree_to_cnf_inner_def, get_fresh_name_constFree_def]
       >> pairarg_tac >> gs[]
       >> gvs[bind_def]
-      >> gvs[eval_literal_def]
+      >> gvs[cnfTheory.satisfies_lit_def]
       >> gvs[IN_DISJOINT]
       >> gvs[next_range_def]
       >> qspecl_then
@@ -747,7 +747,7 @@ Proof
       >> rw[make_assignments_def]
       >> rw[APPLY_UPDATE_THM]
       >> rw[eval_rhs_def]
-      >> rw[eval_literal_def]
+      >> rw[cnfTheory.satisfies_lit_def]
       >> last_x_assum
          (qspecl_then [‘map''’, ‘w’, ‘l'’, ‘next’, ‘next''’, ‘[]’, ‘ys’]
           assume_tac)
@@ -762,7 +762,7 @@ Proof
       >> gvs[bind_def]
       >> imp_res_tac next_bigger_lemma
       >> gvs[]
-      >> rw[eval_literal_def, SimpRHS]
+      >> rw[cnfTheory.satisfies_lit_def, SimpRHS]
       >> gs[IN_DISJOINT]
       >> gs[next_range_def]
       >> last_x_assum (qspecl_then [‘next'''’] assume_tac) >> gs[]
@@ -818,12 +818,12 @@ QED
 Theorem constFree_to_cnf_preserves_sat:
   ∀ b w.
     eval_constFree w b ⇔
-      eval_cnf (constFree_to_assignment w b) (constFree_to_cnf b)
+      satisfies_cnf (constFree_to_assignment w b) (set (constFree_to_cnf b))
 Proof
   rw[constFree_to_cnf_def]
   >> pairarg_tac >> gvs[]
   >> rw[constFree_to_assignment_def]
-  >> rw[eval_cnf_def, eval_clause_def]
+  >> rw[satisfies_cnf_constructors, satisfies_clause_constructors]
   >> qspecl_then [‘b’, ‘map'’, ‘get_fresh_name_constFree b’, ‘next'’, ‘l’]
                  assume_tac mapping_created_ok
   >> gs[mapping_always_true]
@@ -861,30 +861,28 @@ QED
 Theorem boolExp_to_cnf_preserves_sat:
   ∀ b w.
     eval_boolExp w b ⇔
-      eval_cnf
-      (boolExp_to_assignment w b)
-      (boolExp_to_cnf b)
+      satisfies_cnf (boolExp_to_assignment w b) (set (boolExp_to_cnf b))
 Proof
   gs[boolExp_to_cnf_def]
   >> gs[boolExp_to_constFree_preserves_sat]
   >> rw[]
   >> Cases_on ‘boolExp_to_constFree b’ >> rw[]
   >- gs[constFree_to_cnf_preserves_sat, boolExp_to_assignment_def]
-  >- gs[eval_cnf_def]
-  >> gs[eval_cnf_def, eval_clause_def]
+  >- gs[satisfies_cnf_constructors]
+  >> gs[satisfies_cnf_constructors, satisfies_clause_constructors]
 QED
 
 Theorem boolExp_to_cnf_imp_sat:
-  eval_cnf w (boolExp_to_cnf b) ⇒
+  satisfies_cnf w (set (boolExp_to_cnf b)) ⇒
   eval_boolExp w b
 Proof
   gvs [boolExp_to_cnf_preserves_sat]
   \\ gvs [boolExp_to_cnf_def]
   \\ reverse CASE_TAC \\ fs []
-  THEN1 (rw [] \\ gvs [eval_cnf_def,eval_clause_def])
+  THEN1 (rw [] \\ gvs [satisfies_cnf_constructors,satisfies_clause_constructors])
   \\ fs [constFree_to_cnf_def]
   \\ pairarg_tac \\ fs []
-  \\ fs [eval_cnf_def] \\ strip_tac
+  \\ fs [satisfies_cnf_constructors] \\ strip_tac
   \\ fs [boolExp_to_assignment_def,constFree_to_assignment_def]
   \\ qsuff_tac ‘make_assignments w (append map') = w’ \\ fs []
   \\ ‘get_fresh_name_constFree x ≤ get_fresh_name_constFree x’ by gs []
@@ -893,9 +891,11 @@ Proof
 QED
 
 Theorem boolExp_to_cnf_preserves_unsat:
-  unsat_boolExp b ⇔ unsat_cnf (boolExp_to_cnf b)
+  unsat_boolExp b ⇔ unsatisfiable_cnf (set (boolExp_to_cnf b))
 Proof
-  eq_tac \\ rw [unsat_boolExp_def,unsat_cnf_def] \\ strip_tac
+  eq_tac \\
+  rw [unsat_boolExp_def, cnfTheory.unsatisfiable_cnf_def,
+      cnfTheory.satisfiable_cnf_def] \\ strip_tac
   \\ imp_res_tac boolExp_to_cnf_imp_sat
   \\ gvs [boolExp_to_cnf_preserves_sat]
 QED

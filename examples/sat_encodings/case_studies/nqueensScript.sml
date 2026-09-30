@@ -116,7 +116,7 @@ Theorem map_eval:
     MAP (λ y. eval_pseudoBool w y) (MAP (λ x. PLit (Pos x)) xs)
 Proof
   Induct >> rw[]
-  >> rw[eval_pseudoBool_def, eval_literal_def]
+  >> rw[eval_pseudoBool_def, cnfTheory.satisfies_lit_def]
 QED
 
 Theorem eval_every_at_most_one:

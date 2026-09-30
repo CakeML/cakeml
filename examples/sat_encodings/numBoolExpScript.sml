@@ -763,7 +763,7 @@ Proof
       >> gs[ALOOKUP_MEM, vMap_orderBool_same_size_lemma])
   >> rw[vMap_to_orderBool_el_flip]
   >> Cases_on ‘EL n bvs’
-  >> rw[bv_to_orderBool_def, eval_orderBool_def, eval_literal_def,
+  >> rw[bv_to_orderBool_def, eval_orderBool_def, cnfTheory.satisfies_lit_def,
         encode_assignment_def]
   >> qspecl_then [‘vMap’, ‘bvs’, ‘x’, ‘q’, ‘r’] assume_tac alookup_el_lemma
   >> ‘n < LENGTH bvs’ by gs[vMap_orderBool_same_size_lemma]
@@ -834,7 +834,7 @@ Proof
       >- gs[vMap_to_orderBool_def]
       >> Cases_on ‘h’
       >> rw[vMap_to_orderBool_def, eval_orderBool_def,
-            eval_literal_def, encode_assignment_def]
+            cnfTheory.satisfies_lit_def, encode_assignment_def]
       >> qspecl_then [‘vMap’, ‘(q, r)::t’, ‘x’, ‘q’, ‘r’]
                      mp_tac alookup_el_lemma
       >> rw[]
@@ -847,7 +847,7 @@ Proof
         numVarMap_ok_def]
   >> Cases_on ‘EL n bvs’
   >> Cases_on ‘EL (n − 1) bvs’
-  >> gs[bv_to_orderBool_def, eval_orderBool_def, eval_literal_def,
+  >> gs[bv_to_orderBool_def, eval_orderBool_def, cnfTheory.satisfies_lit_def,
         encode_assignment_def, numVarMap_ok_def]
   >> ‘MEM (x, bvs) vMap’ by gvs[ALOOKUP_MEM]
   >> qspecl_then [‘vMap’, ‘bvs’, ‘x’, ‘q’, ‘r’] assume_tac alookup_el_lemma
@@ -1008,7 +1008,7 @@ Proof
   >> gs[vMap_to_orderBool_def]
   >> rw[encode_leq_def]
   >> rw[eval_orderBool_def]
-  >> rw[eval_literal_def]
+  >> rw[cnfTheory.satisfies_lit_def]
   >> rw[encode_assignment_def]
   >> qspecl_then [‘vMap’, ‘xs ++ (q',r')::t’, ‘x’, ‘q'’, ‘r'’]
                  assume_tac alookup_el_lemma
@@ -1122,7 +1122,7 @@ Proof
       >> gvs[])
   >> gvs[vMap_to_orderBool_def, encode_combinations_def, bool_comb_def]
   >> gvs[vMap_orderBool_snoc_lemma]
-  >> gvs[eval_orderBool_def, eval_literal_def, REVERSE_SNOC]
+  >> gvs[eval_orderBool_def, cnfTheory.satisfies_lit_def, REVERSE_SNOC]
 QED
 
 Theorem eval_orderBool_encode_add_lemma:
@@ -1143,7 +1143,7 @@ Proof
   >> Cases_on ‘h’ >> Cases_on ‘h'’ >> Cases_on ‘h''’ >> gvs[]
   >> gvs[vMap_to_orderBool_def, bool_combs_def,
          encode_add_def, eval_orderBool_def]
-  >> gvs[eval_orderBool_lemma, eval_literal_def]
+  >> gvs[eval_orderBool_lemma, cnfTheory.satisfies_lit_def]
   >> rw[]
   >> qspecl_then [‘(q,r)::t’, ‘(q',r')::t'’, ‘w’]
                  assume_tac eval_orderBool_lemma
@@ -1786,7 +1786,7 @@ Theorem numBoolExp_to_orderBool_preserves_sat:
 Proof
   Induct
   >> TRY (gs[eval_numBoolExp_def, numBoolExp_to_orderBool_def,
-             eval_orderBool_def, eval_literal_def,
+             eval_orderBool_def, cnfTheory.satisfies_lit_def,
              encode_assignment_def, boolVar_not_in_vMap_lemma,
              exp_numVarMap_ok_def]
           >> metis_tac[]
@@ -1899,9 +1899,7 @@ Theorem numBool_to_cnf_preserves_sat:
     exp_numVarList_ok vList e ∧
     minimal_numVarAssignment_ok w' vList ⇒
     (eval_numBoolExp w w' e ⇔
-       eval_cnf
-       (numBoolExp_to_assignment w w' vList e)
-       (numBool_to_cnf vList e))
+       satisfies_cnf (numBoolExp_to_assignment w w' vList e) (set (numBool_to_cnf vList e)))
 Proof
   rw[]
   >> imp_res_tac minimal_numVarAssignment_equal
@@ -2021,7 +2019,7 @@ End
 Theorem numBool_to_cnf_imp_sat:
   numVarList_ok vList ∧
   exp_numVarList_ok vList e ⇒
-  eval_cnf w (numBool_to_cnf vList e) ⇒
+  satisfies_cnf w (set (numBool_to_cnf vList e)) ⇒
   eval_numBoolExp w (to_numExp_assignment e vList w) e
 Proof
   rw [numBool_to_cnf_def, numBool_to_orderBool_def, to_numExp_assignment_def]
@@ -2068,9 +2066,11 @@ QED
 Theorem numBool_to_cnf_preserves_unsat:
   numVarList_ok vList ∧ exp_numVarList_ok vList e ⇒
   (unsat_numBoolExp (SND vList) e ⇔
-   unsat_cnf (numBool_to_cnf vList e))
+   unsatisfiable_cnf (set (numBool_to_cnf vList e)))
 Proof
-  rw [] \\ eq_tac \\ rw [unsat_numBoolExp_def,unsat_cnf_def] \\ strip_tac
+  rw [] \\ eq_tac \\
+  rw [unsat_numBoolExp_def, cnfTheory.unsatisfiable_cnf_def,
+      cnfTheory.satisfiable_cnf_def] \\ strip_tac
   THEN1
    (drule numBool_to_cnf_imp_sat
     \\ disch_then drule
@@ -2102,8 +2102,7 @@ Theorem numBool_to_cnf_preserves_sat:
     exp_numVarList_ok l e ∧
     numVarAssignment_ok w' (create_numVarMap e l) ⇒
     eval_numBoolExp w w' e =
-    eval_cnf (encode_assignment w w' (create_numVarMap e l))
-             (numBool_to_cnf l e)
+    satisfies_cnf (encode_assignment w w' (create_numVarMap e l)) (set (numBool_to_cnf l e))
 Proof
   metis_tac[numBool_to_cnf_def ,numBool_to_orderBool_preserves_sat,
             orderBool_to_cnf_preserves_sat]
@@ -2118,9 +2117,7 @@ Theorem minimal_numBool_to_cnf_preserves_sat:
     exp_numVarList_ok l e ∧
     minimal_numVarAssignment_ok w' l ⇒
     eval_numBoolExp w w' e =
-    eval_cnf
-    (minimal_encode_assignment w w' l e)
-    (numBool_to_cnf l e)
+    satisfies_cnf (minimal_encode_assignment w w' l e) (set (numBool_to_cnf l e))
 Proof
   rw[]
   >> qspecl_then [‘w’, ‘w'’, ‘e’, ‘l’]

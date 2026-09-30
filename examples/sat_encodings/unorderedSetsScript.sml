@@ -585,9 +585,7 @@ Theorem equation_to_cnf_preserves_sat:
     eq_elementVarAssignment_ok w' l e ∧
     equation_ok e ⇒
     (eval_equation w w' e ⇔
-       eval_cnf
-       (encode_assignment_unorderedSet w w' l e)
-       (equation_to_cnf l e))
+       satisfies_cnf (encode_assignment_unorderedSet w w' l e) (set (equation_to_cnf l e)))
 Proof
   rw[]
   >> qspecl_then [‘e’, ‘l’, ‘w’, ‘w'’]

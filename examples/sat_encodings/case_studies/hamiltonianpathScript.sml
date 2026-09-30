@@ -71,7 +71,7 @@ Theorem sum_bools_least_one:
 Proof
   Induct
   >> rw[sum_bools_def]
-  >> gvs[eval_pseudoBool_def, eval_literal_def]
+  >> gvs[eval_pseudoBool_def, cnfTheory.satisfies_lit_def]
   >> Cases_on‘w h''’ >> gvs[sum_bools_def]
 QED
 
@@ -83,7 +83,7 @@ Theorem sum_bools_map:
     sum_bools (MAP w h)
 Proof
   Induct
-  >> gvs[sum_bools_def, eval_pseudoBool_def, eval_literal_def]
+  >> gvs[sum_bools_def, eval_pseudoBool_def, cnfTheory.satisfies_lit_def]
   >> rw[]
   >> Cases_on‘w h'’ >> gvs[sum_bools_def]
 QED
@@ -95,7 +95,7 @@ Theorem sum_bools_vertex:
 Proof
   Induct
   >> rw[sum_bools_def, vertex_to_pseudoBool_def,
-        eval_pseudoBool_def, eval_literal_def]
+        eval_pseudoBool_def, cnfTheory.satisfies_lit_def]
   >- (Cases_on ‘w h'’ >> gvs[sum_bools_def])
   >> last_x_assum (qspecl_then [‘h'’, ‘w’] assume_tac)
   >> Cases_on‘w h''’
@@ -125,6 +125,6 @@ Proof
                                        vertex_edge_list)))
                    graph))’ >> gvs[]
   >> Induct_on‘h’ >> gvs[eval_vertex_def, vertex_to_pseudoBool_def,
-                         eval_pseudoBool_def, sum_bools_def, eval_literal_def]
+                         eval_pseudoBool_def, sum_bools_def, cnfTheory.satisfies_lit_def]
   >> metis_tac[sum_bools_vertex, sum_bools_least_one]
 QED

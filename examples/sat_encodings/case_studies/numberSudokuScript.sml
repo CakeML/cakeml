@@ -577,9 +577,7 @@ Theorem numberSudoku_to_cnf_preserves_sat:
     sudoku_ok sudoku ∧
     assignment_ok w sudoku ⇒
     (eval_sudoku w sudoku ⇔
-       eval_cnf
-       (numberSudoku_to_assignment w sudoku)
-       (numberSudoku_to_cnf sudoku))
+       satisfies_cnf (numberSudoku_to_assignment w sudoku) (set (numberSudoku_to_cnf sudoku)))
 Proof
   rw[]
   >> imp_res_tac ns_sudoku_to_numBoolRange_preserves_sat >> rgs[]

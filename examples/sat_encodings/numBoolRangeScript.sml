@@ -399,9 +399,7 @@ Theorem numBoolRange_to_cnf_preserves_sat:
     exp_rangeList_ok l e ∧
     numVarAssignment_range_ok w' l ⇒
     (eval_numBoolRange w w' e ⇔
-       eval_cnf
-       (numBoolRange_to_assignment w w' l e)
-       (numBoolRange_to_cnf l e))
+       satisfies_cnf (numBoolRange_to_assignment w w' l e) (set (numBoolRange_to_cnf l e)))
 Proof
   rw[]
   >> imp_res_tac numBoolRange_to_numBoolExtended_preserves_sat >> gs[]
@@ -421,7 +419,7 @@ End
 Theorem numBoolRange_to_cnf_imp_sat:
   rangeList_ok l ∧
   exp_rangeList_ok l e ∧
-  eval_cnf w (numBoolRange_to_cnf l e) ⇒
+  satisfies_cnf w (set (numBoolRange_to_cnf l e)) ⇒
   eval_numBoolRange w (to_numRange_assignment l e w) e ∧
   within_range l (to_numRange_assignment l e w)
 Proof
@@ -453,14 +451,14 @@ QED
 Theorem numBoolRange_to_cnf_preserves_unsat:
   rangeList_ok l ∧ exp_rangeList_ok l e ⇒
   (unsat_numBoolRange l e ⇔
-   unsat_cnf (numBoolRange_to_cnf l e))
+   unsatisfiable_cnf (set (numBoolRange_to_cnf l e)))
 Proof
   strip_tac
   \\ imp_res_tac rangeList_encoded_ok
   \\ imp_res_tac exp_rangeList_encoded_ok
   \\ rw [] \\ eq_tac \\ rw []
   THEN1
-   (fs [unsat_cnf_def] \\ rpt strip_tac
+   (fs [cnfTheory.unsatisfiable_cnf_def, cnfTheory.satisfiable_cnf_def] \\ rpt strip_tac
     \\ drule_all numBoolRange_to_cnf_imp_sat \\ strip_tac
     \\ fs [unsat_numBoolRange_def]
     \\ first_x_assum drule
@@ -518,9 +516,7 @@ Theorem numBoolRange_to_cnf_preserves_sat:
     exp_rangeList_ok l e ∧
     numVarAssignment_range_ok w' l ⇒
     (eval_numBoolRange w w' e ⇔
-       eval_cnf
-       (encode_assignment_numBoolRange w w' l e)
-       (numBoolRange_to_cnf l e))
+       satisfies_cnf (encode_assignment_numBoolRange w w' l e) (set (numBoolRange_to_cnf l e)))
 Proof
   rw[]
   >> qspecl_then [‘e’, ‘l’, ‘w’, ‘w'’]
