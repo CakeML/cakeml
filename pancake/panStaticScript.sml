@@ -352,17 +352,6 @@ Definition seq_loc_inf_def:
   seq_loc_inf x y = union y x
 End
 
-(* Get shape string from shaped based *)
-Definition sh_bd_to_str_def:
-  sh_bd_to_str (WordB b) = strlit "1" ∧
-  sh_bd_to_str (StructB []) = strlit "{}" ∧ (* should never happen *)
-  sh_bd_to_str (StructB (x::xs)) = concat (
-    strlit "{" :: sh_bd_to_str x ::
-    MAP (λx. strlit "," ^ x) (MAP sh_bd_to_str xs) ++
-    [strlit "}"]) ∧
-  sh_bd_to_str (NamedB nm flds) = nm
-End
-
 
 (* Functions for `last_stmt` and `reachable` *)
 
@@ -631,6 +620,17 @@ Definition primop_to_str_def:
   primop_to_str pop =
     case pop of
     | AddCarry => «AddCarry»
+End
+
+(* Get shape string from shaped based *)
+Definition sh_bd_to_str_def:
+  sh_bd_to_str (WordB b) = strlit "1" ∧
+  sh_bd_to_str (StructB []) = strlit "{}" ∧ (* should never happen *)
+  sh_bd_to_str (StructB (x::xs)) = concat (
+    strlit "{" :: sh_bd_to_str x ::
+    MAP (λx. strlit "," ^ x) (MAP sh_bd_to_str xs) ++
+    [strlit "}"]) ∧
+  sh_bd_to_str (NamedB nm flds) = nm
 End
 
 
