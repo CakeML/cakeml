@@ -5,9 +5,6 @@ inside the logic to produce the verified machine code version of the
 [arm8BootstrapScript.sml](arm8BootstrapScript.sml):
 Evaluation of the 64-bit version of the compiler into arm8 machine code.
 
-[arm8SexprBootstrap64Script.sml](arm8SexprBootstrap64Script.sml):
-S-expression release artifact for the native ARM8 compiler.
-
 [basis_ffi.c](basis_ffi.c):
 Implements the foreign function interface (FFI) used in the CakeML basis
 library, as a thin wrapper around the relevant system calls.

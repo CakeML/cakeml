@@ -1,0 +1,8 @@
+all: $(DEFAULT_TARGETS) cake-sexpr-arm8-64
+.PHONY: all
+
+cake-sexpr-arm8-64: *arm8SexprExportScript.sml
+
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
+endif
