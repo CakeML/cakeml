@@ -27,6 +27,9 @@ compset for the definitions in ml_progTheory.
 Functions for constructing a CakeML program (a list of declarations) together
 with the semantic environment resulting from evaluation of the program.
 
+[ml_progPropsScript.sml](ml_progPropsScript.sml):
+Clock-erased successful execution interfaces for program composition.
+
 [ml_progScript.sml](ml_progScript.sml):
 Definitions and theorems supporting ml_progLib, which constructs a
 CakeML program and its semantic environment.

@@ -12,6 +12,17 @@ val _ = translation_extends "candle_kernelProg";
 
 val _ = (use_full_type_names := false);
 
+(* Preserve the actual incoming program for initialization decomposition. *)
+val ast_prefix_state = get_ml_prog_state () |> remove_snocs;
+val ast_prefix = get_prog ast_prefix_state;
+
+Definition ast_prefix_prog_def:
+  ast_prefix_prog = ^ast_prefix
+End
+
+Theorem Decls_ast_prefix = get_Decls_thm ast_prefix_state
+  |> REWRITE_RULE [GSYM ast_prefix_prog_def];
+
 val _ = ml_prog_update (open_module "Ast");
 
 val _ = register_type ``:lit``;
@@ -34,7 +45,37 @@ val ast_decs =
   |> el 2 |> listSyntax.dest_list |> fst |> hd
   |> pairSyntax.dest_pair |> snd |> pairSyntax.strip_pair |> el 2;
 
+Definition ast_type_decs_def:
+  ast_type_decs = ^ast_decs
+End
+
 val _ = ml_prog_update (addPrettyPrintersLib.add_pps
           (addPrettyPrintersLib.pps_of_global_tys ast_decs));
 
 val _ = ml_prog_update (close_module NONE);
+
+(* These partitions are extracted from generated code, not an AST schema. *)
+val ast_state = get_ml_prog_state () |> remove_snocs;
+val ast_prog_tm = get_prog ast_state;
+val ast_module_body = ast_prog_tm |> listSyntax.dest_list |> fst |> last
+  |> rand |> listSyntax.dest_list |> fst;
+val ast_pp_decs = List.drop (ast_module_body,
+  ast_decs |> listSyntax.dest_list |> fst |> length);
+
+Definition ast_pp_decs_def:
+  ast_pp_decs = ^(listSyntax.mk_list (ast_pp_decs, ``:ast$dec``))
+End
+
+Definition ast_prog_def:
+  ast_prog = ^ast_prog_tm
+End
+
+Theorem ast_prog_partition =
+  ``ast_prog = ast_prefix_prog ++
+      [Dmod «Ast» (ast_type_decs ++ ast_pp_decs)]``
+  |> PURE_REWRITE_CONV [ast_prog_def, ast_prefix_prog_def,
+       ast_type_decs_def, ast_pp_decs_def, APPEND, REFL_CLAUSE]
+  |> EQT_ELIM;
+
+Theorem Decls_ast_prog = get_Decls_thm ast_state
+  |> REWRITE_RULE [GSYM ast_prog_def];

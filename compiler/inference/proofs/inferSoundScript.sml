@@ -935,6 +935,31 @@ Proof
   metis_tac [infer_d_sound_worker, env_rel_ienv_to_tenv]
 QED
 
+Theorem infertype_prog_inc_sound:
+  !initial_types ds output_types.
+  ienv_ok {} (FST initial_types) /\ start_type_id <= SND initial_types /\
+  infertype_prog_inc initial_types ds = M_success output_types ==>
+  ienv_ok {} (FST output_types) /\ SND initial_types <= SND output_types /\
+  ?out_tenv.
+    type_ds T (ienv_to_tenv (FST initial_types)) ds
+      (set_ids (SND initial_types) (SND output_types)) out_tenv /\
+    ienv_to_tenv (FST output_types) =
+      extend_dec_tenv out_tenv (ienv_to_tenv (FST initial_types))
+Proof
+  qx_genl_tac [`previous_types`,`ds`,`updated_types`] >>
+  namedCases_on `previous_types` ["old_ienv old_id"] >>
+  namedCases_on `updated_types` ["new_ienv new_id"] >>
+  rw [infertype_prog_inc_def, CaseEq "prod", CaseEq "exc"] >>
+  qmatch_asmsub_rename_tac `infer_ds _ _ _ = (M_success local_ienv,inferred_st)` >>
+  drule (CONJUNCT2 infer_d_sound_canonical) >>
+  simp [init_infer_state_def] >> strip_tac >>
+  drule_all (CONJUNCT2 infer_d_check) >> strip_tac >>
+  drule (CONJUNCT2 infer_d_next_id_mono) >>
+  simp [init_infer_state_def] >> strip_tac >>
+  simp [ienv_ok_extend_dec_ienv] >>
+  qexists_tac `ienv_to_tenv local_ienv` >> simp [ienv_to_tenv_extend]
+QED
+
 Theorem db_subst_infer_subst_swap2:
  (!t s tvs uvar n.
   t_wfs s ∧

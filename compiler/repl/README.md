@@ -38,6 +38,20 @@ This file runs the type inferencer on the declarations of the basis,
 Candle kernel and REPL module, i.e. everything in the user-visible
 initial environment of the read-eval-print loop.
 
+[repl_inputInitScript.sml](repl_inputInitScript.sml):
+Compose the generated initialization execution with joint input witnesses.
+Concrete allocation establishes closed signatures; the common declaration
+preservation interface carries them through the remaining initialization.
+
+[repl_inputInvariantScript.sml](repl_inputInvariantScript.sml):
+Immutable input metadata and the joint typing certificate used at the
+direct-AST REPL boundary. No AST-specific constructor map is assumed here.
+
+[repl_inputMetadataScript.sml](repl_inputMetadataScript.sml):
+Concrete input metadata derived from the generated initialization program.
+These lookups identify the datatype family and reference slots; they do not
+by themselves prove constructor-signature closure or the joint certificate.
+
 [repl_moduleProgScript.sml](repl_moduleProgScript.sml):
 This file defines two modules:
 - Repl, for the configurable part of the REPL,
