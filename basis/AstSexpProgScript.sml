@@ -6,13 +6,13 @@ Ancestors
   words (* dimword{8,64} *)
   ast_sexp
   ml_translator
-  SexpProg
+  AstProg
 Libs
   preamble
   ml_translatorLib  (* translation_extends, register_type, .. *)
   ml_progLib  (* open_module, open_local_block, .. *)
 
-val _ = translation_extends "SexpProg"
+val _ = translation_extends "AstProg"
 
 Theorem option_case_guard[local]:
   (case OPTION_GUARD b of NONE => n | SOME x => s x) =
@@ -28,8 +28,6 @@ val apply_rewrites =
     option_case_guard,
     UNCURRY_SIMP, dimword_8, dimword_64
   ]
-
-val _ = register_type “:ast$dec”
 
 val _ = ml_prog_update $ open_module "AstSexp"
 
@@ -98,3 +96,5 @@ val r = translate (ast_sexpTheory.to_tdef_def |> apply_rewrites)
 val r = translate (ast_sexpTheory.to_type_def_def |> apply_rewrites)
 val r = translate (ast_sexpTheory.to_dec_def |> apply_rewrites)
 val r = translate (ast_sexpTheory.to_dec_list_def |> apply_rewrites)
+
+val _ = ml_prog_update (close_module NONE)

@@ -2,13 +2,13 @@
   Translates the CakeML source AST types into an Ast module, with generated
   pretty-printers, so that they are part of the REPL's initial environment.
 *)
-Theory astProg
+Theory AstProg
 Ancestors
-  ast ml_translator candle_kernelProg
+  ast ml_translator SexpProg
 Libs
   preamble ml_translatorLib ml_progLib addPrettyPrintersLib[qualified]
 
-val _ = translation_extends "candle_kernelProg";
+val _ = translation_extends "SexpProg";
 
 val _ = (use_full_type_names := false);
 

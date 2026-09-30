@@ -7,6 +7,10 @@ A module about Arrays for the CakeML standard basis library.
 [ArrayProofScript.sml](ArrayProofScript.sml):
 Proofs about the Array module.
 
+[AstProgScript.sml](AstProgScript.sml):
+Translates the CakeML source AST types into an Ast module, with generated
+pretty-printers, so that they are part of the REPL's initial environment.
+
 [AstSexpProgScript.sml](AstSexpProgScript.sml):
 Module for converts between AST and s-expressions.
 
