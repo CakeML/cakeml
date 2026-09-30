@@ -49,6 +49,116 @@ End
  * the identity of the type. *)
 Type ctMap = ``:(stamp, (tvarN list # t list # type_ident)) fmap``
 
+(* Ordinary datatype signatures are closed: unlike exceptions, declarations
+ * cannot add constructors to an existing static type identity.  Record the
+ * complete entry, including parameter order and resolved argument types. *)
+Definition datatype_signature_def:
+  datatype_signature (ctMap:ctMap) ti =
+    {entry | ?cn n tvs ts.
+      entry = (cn,n,tvs,ts) /\
+      FLOOKUP ctMap (TypeStamp cn n) = SOME (tvs,ts,ti)}
+End
+
+Definition preserves_datatype_signatures_def:
+  preserves_datatype_signatures tids (ctMap:ctMap) ctMap' <=>
+    !ti. ti NOTIN tids ==>
+      datatype_signature ctMap' ti = datatype_signature ctMap ti
+End
+
+Theorem datatype_signature_member:
+  (cn,n,tvs,ts) IN datatype_signature ctMap ti <=>
+  FLOOKUP ctMap (TypeStamp cn n) = SOME (tvs,ts,ti)
+Proof
+  simp [datatype_signature_def]
+QED
+
+Theorem preserves_datatype_signatures_refl:
+  preserves_datatype_signatures tids ctMap ctMap
+Proof
+  simp [preserves_datatype_signatures_def]
+QED
+
+Theorem preserves_datatype_signatures_mono:
+  preserves_datatype_signatures tids ctMap ctMap' /\ tids SUBSET tids' ==>
+  preserves_datatype_signatures tids' ctMap ctMap'
+Proof
+  rw [preserves_datatype_signatures_def, pred_setTheory.SUBSET_DEF] >>
+  metis_tac []
+QED
+
+Theorem preserves_datatype_signatures_trans:
+  preserves_datatype_signatures tids ctMap ctMap' /\
+  preserves_datatype_signatures tids' ctMap' ctMap'' ==>
+  preserves_datatype_signatures (tids UNION tids') ctMap ctMap''
+Proof
+  rw [preserves_datatype_signatures_def]
+QED
+
+Theorem preserves_datatype_signatures_lookup:
+  preserves_datatype_signatures tids ctMap ctMap' /\ ti NOTIN tids ==>
+  (FLOOKUP ctMap' (TypeStamp cn n) = SOME (tvs,ts,ti) <=>
+   FLOOKUP ctMap (TypeStamp cn n) = SOME (tvs,ts,ti))
+Proof
+  rw [preserves_datatype_signatures_def, GSYM datatype_signature_member]
+QED
+
+Theorem preserves_datatype_signatures_fresh:
+  ctMap SUBMAP ctMap' /\
+  (!cn n tvs ts ti.
+    FLOOKUP ctMap' (TypeStamp cn n) = SOME (tvs,ts,ti) /\
+    FLOOKUP ctMap (TypeStamp cn n) = NONE ==> ti IN tids) ==>
+  preserves_datatype_signatures tids ctMap ctMap'
+Proof
+  rw [preserves_datatype_signatures_def, pred_setTheory.EXTENSION,
+      pairTheory.FORALL_PROD, datatype_signature_member] >>
+  rename1 `FLOOKUP ctMap' (TypeStamp cn n) = SOME (tvs,ts,ti)` >>
+  Cases_on `FLOOKUP ctMap (TypeStamp cn n)`
+  >- (
+    simp [] >>
+    metis_tac []) >>
+  imp_res_tac finite_mapTheory.FLOOKUP_SUBMAP >> simp []
+QED
+
+Theorem preserves_datatype_signatures_funion:
+  ctMap SUBMAP (FUNION added ctMap) /\
+  (!cn n tvs ts ti.
+    FLOOKUP added (TypeStamp cn n) = SOME (tvs,ts,ti) ==> ti IN tids) ==>
+  preserves_datatype_signatures tids ctMap (FUNION added ctMap)
+Proof
+  strip_tac >>
+  irule preserves_datatype_signatures_fresh >>
+  simp [] >>
+  rw [finite_mapTheory.FLOOKUP_FUNION] >>
+  Cases_on `FLOOKUP added (TypeStamp cn n)` >> gvs [] >> res_tac
+QED
+
+Theorem preserves_datatype_signatures_exn:
+  preserves_datatype_signatures tids ctMap (ctMap |+ (ExnStamp n,entry))
+Proof
+  simp [preserves_datatype_signatures_def, pred_setTheory.EXTENSION,
+        pairTheory.FORALL_PROD, datatype_signature_member,
+        finite_mapTheory.FLOOKUP_UPDATE]
+QED
+
+Theorem datatype_signature_empty:
+  datatype_signature ctMap ti = EMPTY <=>
+  !cn n tvs ts. FLOOKUP ctMap (TypeStamp cn n) <> SOME (tvs,ts,ti)
+Proof
+  simp [pred_setTheory.EXTENSION, pairTheory.FORALL_PROD,
+        datatype_signature_member]
+QED
+
+Theorem datatype_signature_funion_new:
+  datatype_signature ctMap ti = EMPTY ==>
+  datatype_signature (FUNION added ctMap) ti = datatype_signature added ti
+Proof
+  rw [datatype_signature_empty, pred_setTheory.EXTENSION,
+      pairTheory.FORALL_PROD, datatype_signature_member,
+      finite_mapTheory.FLOOKUP_FUNION] >>
+  rename1 `FLOOKUP added (TypeStamp cn n) = SOME (tvs,ts,ti)` >>
+  Cases_on `FLOOKUP added (TypeStamp cn n)` >> simp []
+QED
+
 Definition ctMap_ok_def:
   ctMap_ok ctMap ⇔
     (* No free variables in the range *)
@@ -254,3 +364,72 @@ type_sound_invariant st env ctMap tenvS type_idents tenv ⇔
   type_all_env ctMap tenvS env tenv ∧
   type_s ctMap st.refs tenvS
 End
+
+(* Reference inversions expose the store-typing witness used by an environment. *)
+Theorem type_v_reference:
+  type_v tvs ctMap tenvS (Loc T loc) (Tref ty) <=>
+  check_freevars 0 [] ty /\ FLOOKUP tenvS loc = SOME (Ref_t ty)
+Proof
+  simp [Once type_v_cases, Tref_def, Tarray_def, Tword8array_def,
+        Tref_num_def, Tarray_num_def, Tword8array_num_def]
+QED
+
+Theorem type_all_env_reference:
+  type_all_env ctMap tenvS env tenv /\
+  nsLookup env.v name = SOME (Loc T loc) /\
+  nsLookup tenv.v name = SOME (0,Tref ty) ==>
+  check_freevars 0 [] ty /\ FLOOKUP tenvS loc = SOME (Ref_t ty)
+Proof
+  strip_tac >> fs [type_all_env_def] >>
+  drule_all nsAll2_nsLookup1 >>
+  simp [type_v_reference]
+QED
+
+Theorem type_s_reference:
+  type_s ctMap refs tenvS /\ FLOOKUP tenvS loc = SOME (Ref_t ty) ==>
+  ?value. store_lookup loc refs = SOME (Refv value) /\
+    type_v 0 ctMap tenvS value ty
+Proof
+  rw [type_s_def] >>
+  first_x_assum (qspec_then `loc` mp_tac) >> simp [] >>
+  disch_then (CONJUNCTS_THEN2 (qx_choose_then `stored` assume_tac) mp_tac) >>
+  disch_then (qspec_then `stored` mp_tac) >> simp [] >>
+  Cases_on `stored` >> simp [type_sv_def]
+QED
+
+Theorem constructor_type_stamp_index:
+  ctMap_ok ctMap /\
+  FLOOKUP ctMap (TypeStamp anchor index) = SOME (ctor_params,ctor_fields,ti) /\
+  FLOOKUP ctMap (TypeStamp cn n) = SOME (other_params,other_fields,ti) ==>
+  n = index
+Proof
+  rw [ctMap_ok_def] >> res_tac >> fs [same_type_def]
+QED
+
+Theorem type_sound_invariant_reserve:
+  type_sound_invariant (st:'ffi semanticPrimitives$state) env ctMap tenvS {} tenv /\
+  DISJOINT tids (FRANGE ((SND o SND) o_f ctMap)) ==>
+  type_sound_invariant st env ctMap tenvS tids tenv
+Proof
+  simp [type_sound_invariant_def, consistent_ctMap_def] >>
+  rw [] >> res_tac
+QED
+
+Theorem type_sound_invariant_clock:
+  type_sound_invariant ((st:'ffi semanticPrimitives$state) with clock := ck)
+    env ctMap tenvS tids tenv <=>
+  type_sound_invariant st env ctMap tenvS tids tenv
+Proof
+  simp [type_sound_invariant_def, consistent_ctMap_def]
+QED
+
+(* Abbreviation environments may differ while c/v typing is unchanged. *)
+Theorem type_sound_invariant_retarget:
+  type_sound_invariant (st:'ffi semanticPrimitives$state) env ctMap tenvS tids
+    input_tenv /\
+  tenv_ok output_tenv /\
+  output_tenv.c = input_tenv.c /\ output_tenv.v = input_tenv.v ==>
+  type_sound_invariant st env ctMap tenvS tids output_tenv
+Proof
+  simp [type_sound_invariant_def, type_all_env_def]
+QED
