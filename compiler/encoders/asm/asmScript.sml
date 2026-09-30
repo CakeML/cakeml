@@ -91,6 +91,8 @@ Datatype:
         | AddCarry reg reg reg reg
         | AddOverflow reg reg reg reg
         | SubOverflow reg reg reg reg
+        | IMul reg reg reg reg (* product, operands, signed overflow flag *)
+        | IDiv reg reg reg reg (* quotient, remainder, dividend, divisor *)
 End
 
 Datatype:
@@ -254,7 +256,16 @@ Definition arith_ok_def:
   (arith_ok (SubOverflow r1 r2 r3 r4) c <=>
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
-     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3))
+     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3)) /\
+  (arith_ok (IMul rd ra rb ro) c <=>
+     c.ISA IN {x86_64; ARMv7; ARMv8; MIPS; RISC_V} /\
+     reg_ok rd c /\ reg_ok ra c /\ reg_ok rb c /\ reg_ok ro c /\
+     rd <> ro /\ (c.ISA = x86_64 ==> rd = ra)) /\
+  (arith_ok (IDiv rq rr ra rb) c <=>
+     c.ISA IN {x86_64; ARMv8; MIPS; RISC_V} /\
+     reg_ok rq c /\ reg_ok rr c /\ reg_ok ra c /\ reg_ok rb c /\
+     rq <> rr /\
+     (c.ISA = x86_64 ==> rq = 0 /\ rr = 2 /\ ra = 0 /\ rb <> 2))
 End
 
 Definition fp_ok_def:
