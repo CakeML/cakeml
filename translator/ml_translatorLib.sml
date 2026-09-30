@@ -2636,92 +2636,16 @@ end
    if NONE then foo is not recursive, if SOME th then th is an
    induction theorem that matches the structure of foo. *)
 
-fun pattern_complete def vs = let
-  val lines = def |> SPEC_ALL |> CONJUNCTS |> map SPEC_ALL
-                  |> map (fst o dest_eq o concl)
-  val const = hd lines |> repeat rator
-  val ws = map (fn v => (v,genvar (type_of v))) vs
-  val tm = foldl (fn (x,y) => mk_comb(y,snd x)) const ws
-  fun tt line = let
-    val i = fst (match_term tm line)
-    val x = list_mk_exists(rev (free_vars line),
-              list_mk_conj (map (fn v => mk_eq(snd v,subst i (snd v))) ws))
-    in x end
-  val pat_tm = list_mk_disj (map tt lines)
-  val pat_tm = subst (map (fn (y,x) => x |-> y) ws) pat_tm
-  val pre_tm = mk_PRECONDITION pat_tm
-  in pre_tm end
-
 fun single_line_def def = let
-  val lhs = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
-                |> concl |> dest_eq |> fst
-  val const = lhs |> repeat rator
-  in if List.null (filter (not o is_var) (dest_args lhs)) then (def,NONE) else let
-  val name = const |> dest_const |> fst
-  val thy = #Thy (dest_thy_const const)
-  val rw = fetch thy (name ^ "_curried_def")
-           handle HOL_ERR _ =>
-           fetch thy (name ^ "_curried_DEF")
-           handle HOL_ERR _ => let
-           val arg = mk_var("x",const |> type_of |> dest_type |> snd |> hd)
-           in REFL (mk_comb(const,arg)) end
-  val tpc = rw |> SPEC_ALL |> concl |> dest_eq |> snd |> rator
-  val args = rw |> SPEC_ALL |> concl |> dest_eq |> snd |> rand
-  val tp = fetch thy (name ^ "_tupled_primitive_def")
-           handle HOL_ERR _ =>
-           fetch thy (name ^ "_tupled_primitive_DEF")
-           handle HOL_ERR _ =>
-           fetch thy (name ^ "_primitive_def")
-           handle HOL_ERR _ =>
-           fetch thy (name ^ "_primitive_DEF")
-  val (v,tm) = tp |> concl |> rand |> rand |> dest_abs
-  val goal = mk_eq(mk_comb(tpc,args),mk_comb(subst [v|->tpc] tm,args))
-  val pre_tm =
-    if not (can (find_term is_arb) tm) then T else let
-      val vs = rw |> SPEC_ALL |> concl |> dest_eq |> fst |> dest_args
-      val pre_tm = pattern_complete def vs
-      in pre_tm end
-  val goal = mk_imp(pre_tm,goal)
-  val lemma = auto_prove "single_line_def-1" (goal,
-    SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD,GSYM rw]
-    \\ REPEAT STRIP_TAC
-    \\ CONV_TAC (BINOP_CONV (REWR_CONV (GSYM CONTAINER_def)))
-    \\ SRW_TAC [] []
-    \\ BasicProvers.EVERY_CASE_TAC
-    \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [def]))
-    \\ SRW_TAC [] []
-    \\ POP_ASSUM MP_TAC \\ REWRITE_TAC [PRECONDITION_def])
-  val lemma = lemma |> RW [] |> UNDISCH_ALL
-  val new_def =
-    rw |> SPEC_ALL |> CONV_RULE (RAND_CONV (ONCE_REWRITE_CONV [lemma]))
-       |> CONV_RULE (RAND_CONV BETA_CONV)
-       |> REWRITE_RULE [I_THM]
-       |> ONCE_REWRITE_RULE [GSYM rw]
-  in (new_def,NONE) end handle HOL_ERR _ => let
-  val v = mk_var("generated_definition",mk_type("fun",[oneSyntax.one_ty,type_of const]))
-  val lemma  = def |> SPEC_ALL |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
-  val def_tm = (subst [const|->mk_comb(v,oneSyntax.one_tm)] (concl lemma))
-  val _ = Pmatch.with_classic_heuristic quietDefine [ANTIQUOTE def_tm]
-(*
-  val qDefine = TotalDefn.qDefine "generated_definition[notuserdef]"
-  val _ = Pmatch.with_classic_heuristic qDefine [ANTIQUOTE def_tm]
-*)
-  fun find_def name =
-    Theory.current_definitions ()
-    |> first (fn (s,_) => s = name) |> snd
-  val ind = fetch "-" "generated_definition_ind"
-  val _ = (delete_const "generated_definition" handle HOL_ERR e => ())
-  val _ = (Theory.delete_binding "generated_definition_def" handle HOL_ERR e => ())
-  val _ = (Theory.delete_binding "generated_definition_ind" handle HOL_ERR e => ())
-  val tys = ind |> concl |> dest_forall |> fst |> type_of |> dest_type |> snd
-  val vv = mk_var("very unlikely name",el 2 tys)
-  val ind = ind |> SPEC (mk_abs(mk_var("x",hd tys),vv))
-                |> CONV_RULE (DEPTH_CONV BETA_CONV)
-                |> CONV_RULE (RAND_CONV (SIMP_CONV std_ss []))
-                |> GEN vv
-  val lemma = DefnBase.one_line_ify NONE def
-  in (lemma,SOME ind) end end
-  handle HOL_ERR _ => failwith("Preprocessor failed: unable to reduce definition to single line.")
+  val def = DefnBase.one_line_ify NONE def
+  fun wrap_precondition (h, th) =
+    if is_PRECONDITION h then th else
+      PROVE_HYP
+        (ASSUME (mk_PRECONDITION h) |> REWRITE_RULE [PRECONDITION_def]) th
+  val def = foldl wrap_precondition def (hyp def)
+  in (def,NONE) end
+  handle HOL_ERR _ =>
+    failwith "Preprocessor failed: unable to reduce definition to single line."
 
 fun remove_pair_abs def = let
   fun args tm = let val (x,y) = dest_comb tm in args x @ [y] end
@@ -3098,7 +3022,8 @@ fun preprocess_def def = let
     val def = rename_bound_vars_rule "v" (GEN_ALL def) |> SPEC_ALL
     in def end;
   val defs = map rephrase_def defs
-  val ind = if is_rec andalso is_NONE ind then SOME (find_ind_thm (hd defs)) else ind
+  val ind = if is_rec andalso is_NONE ind then
+              SOME (get_induction_for_def def) else ind
   (* TODO: This performs e.g.special <| |> rewrites that are also applied to defs in the rephrase step to the induction theorem so that they match up *)
   fun rephrase_ind th = let
     val th = PURE_REWRITE_RULE ([ADD1,boolTheory.literal_case_DEF,

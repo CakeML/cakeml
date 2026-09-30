@@ -8,8 +8,30 @@ Ancestors
 Libs
   ml_translatorLib ml_progLib blastLib
 
+(* Recursive tuple arguments with a user-supplied termination proof. *)
+Definition tuple_termination_def:
+  tuple_termination (a, b) =
+    if a ≤ b then () else tuple_termination (a, b + 1:num)
+Termination
+  WF_REL_TAC ‘measure (λ(a, b). a - b)’
+End
+
+val _ = translate tuple_termination_def;
+
+Definition nested_tuple_termination_def:
+  nested_tuple_termination (a, (b, c)) =
+    if a ≤ b then c else nested_tuple_termination (a, (b + 1:num, c:num))
+Termination
+  WF_REL_TAC ‘measure (λ(a, (b, c)). a - b)’
+End
+
+val _ = translate nested_tuple_termination_def;
+
 val _ = register_type “:'a list”;
 val _ = register_type “:'a option”;
+
+(* Partial recursion without a registered function induction theorem. *)
+val _ = translate listTheory.LAST_DEF;
 
 Datatype:
   a_ty = A1 | B1 (b_ty list) ;
