@@ -36,6 +36,16 @@ key that occurs in `m2`. The inputs can have different value types.
 (on `None`) or from a named file (on `Some fname`), closing the stream
 afterwards, and returns `None` if the file cannot be opened.
 
+### Word8Array
+
+There are new primitives for reading and updating a bit of a byte array (#1502):
+```
+Word8Array.subBit: byte_array -> int -> bool
+Word8Array.updateBit: byte_array -> int -> bool -> unit
+```
+The supplied index `i` is used as follows: `i div 8` is the read/updated byte,
+and, in that byte, bit `i mod 8` is read/updated.
+
 ## Compiler backend and runtime
 
 The compiler handles dynamic installation of new code in new way (#1487). This
