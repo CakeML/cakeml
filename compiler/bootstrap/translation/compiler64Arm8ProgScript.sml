@@ -7,7 +7,7 @@ Ancestors
 Libs
   preamble ml_translatorLib cfLib basis
 
-open preamble compiler64MainProgTheory compiler64HostTheory
+open preamble compiler64MainProgTheory
      ml_translatorLib ml_translatorTheory
 open cfLib basis
 
@@ -30,14 +30,14 @@ Theorem main_spec:
 Proof
   strip_tac
   \\ xcf_with_def main_v_def
-  \\ xlet `POSTv v. &COMPILER64HOST_COMPILER64_HOST_TYPE HostArm8 v *
+  \\ xlet `POSTv v. &COMPILER64MAINPROG_COMPILER64_HOST_TYPE HostArm8 v *
                 (STDIO fs * COMMANDLINE cl)`
   >- (
     simp [cfTheory.cf_con_def,semanticPrimitivesTheory.do_con_check_def,
           semanticPrimitivesTheory.build_conv_def,cfNormaliseTheory.exp2v_list_def,
           cfTheory.extend_env_rec_def,ml_progTheory.merge_env_def]
     \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv)
-    \\ simp [COMPILER64HOST_COMPILER64_HOST_TYPE_def]
+    \\ simp [COMPILER64MAINPROG_COMPILER64_HOST_TYPE_def]
     \\ irule cfHeapsTheory.local_elim
     \\ xsimpl)
   \\ xlet_auto >- (xcon \\ xsimpl)
@@ -119,7 +119,7 @@ Theorem Decls_FRONT_compiler64_arm8_prog =
 
 Theorem LAST_compiler64_arm8_prog:
   LAST compiler64_arm8_prog =
-    Dlet unknown_loc (Pcon NONE [])
+    Dlet NoLocs (Pcon NONE [])
       (App Opapp [Var (Short «main»); Con NONE []])
 Proof
   CONV_TAC (LAND_CONV

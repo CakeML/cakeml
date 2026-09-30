@@ -1,8 +1,8 @@
 (*
-This file records the current, linear dependency order between the
+This file records the current dependency order between the
 translations for the bootstrapped compiler.
 
-This unnatural linear dependency graph is required by the concrete mode
+This mostly linear dependency graph is required by the concrete mode
 translator (which provides only translation_extends as a method for joining two
 translations). Eventually, when we have an abstract mode translator, the
 different modules can be made more independent and different combinations can
@@ -43,4 +43,9 @@ x64
 arm8
 riscv
 mips
-compiler64
+compiler64Common
+compiler64Main
+--- (the native entry points both extend compiler64Main)
+compiler64X64
+---
+compiler64Arm8

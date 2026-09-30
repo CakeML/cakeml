@@ -385,7 +385,7 @@ val _ = translate $ spec64 compile_def;
 
 open backendTheory;
 
-(* TODO: duplicated from compiler64ProgScript. *)
+(* TODO: duplicated from compiler64CommonProgScript. *)
 val _ = translate $ INST_TYPE[alpha|->“:word8 list”,
                               beta|->“:word64 list”,
                               gamma|->“:64”,

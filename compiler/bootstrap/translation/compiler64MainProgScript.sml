@@ -1,16 +1,55 @@
 (*
-  Shared entry points for the native 64-bit compiler programs.
+  Shared host selection and entry points for the native 64-bit compiler programs.
 *)
 Theory compiler64MainProg[no_sig_docs]
 Ancestors
-  compiler64CommonProg compiler64Host compiler export ml_translator
+  compiler64CommonProg compiler export ml_translator
   basis_ffi[qualified]
 Libs
   preamble ml_translatorLib cfLib basis
 
-open preamble compiler64CommonProgTheory compiler64HostTheory compilerTheory
+open preamble compiler64CommonProgTheory compilerTheory
      exportTheory ml_translatorLib ml_translatorTheory
 open cfLib basis
+
+Datatype:
+  compiler64_host = HostX64 | HostArm8
+End
+
+Definition host_config_def:
+  host_config HostX64 = x64_config ∧
+  host_config HostArm8 = arm8_config
+End
+
+Definition host_args_def:
+  host_args host cl =
+    if host = HostArm8 ∧ find_str «--target=» cl = NONE then
+      «--target=arm8» :: cl
+    else cl
+End
+
+Theorem host_args_x64[simp]:
+  host_args HostX64 cl = cl
+Proof
+  simp [host_args_def]
+QED
+
+Theorem host_args_explicit:
+  find_str «--target=» cl = SOME target_name ⇒ host_args host cl = cl
+Proof
+  simp [host_args_def]
+QED
+
+Theorem host_args_arm8_default:
+  find_str «--target=» cl = NONE ⇒
+  parse_target_64 (host_args HostArm8 cl) =
+    INL (arm8_backend_config,arm8_export,arm8_config)
+Proof
+  simp [host_args_def, compilerTheory.parse_target_64_def,
+        compilerTheory.find_str_def]
+  >> simp [EVAL “isPrefix «--target=» «--target=arm8»”,
+           EVAL “extract «--target=arm8» 9 NONE”]
+QED
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"];
 val _ = translation_extends "compiler64CommonProg";
@@ -298,7 +337,7 @@ End
 val main_host_v_def = fetch "-" "main_host_v_def";
 
 Theorem main_host_spec:
-  COMPILER64HOST_COMPILER64_HOST_TYPE host host_v /\
+  COMPILER64MAINPROG_COMPILER64_HOST_TYPE host host_v /\
   ~has_repl_flag (TL cl) /\ IS_SOME (stdin_content fs) ==>
   app (p:'ffi ffi_proj) main_host_v
       [Conv NONE [host_v; Conv NONE []]] (STDIO fs * COMMANDLINE cl)
