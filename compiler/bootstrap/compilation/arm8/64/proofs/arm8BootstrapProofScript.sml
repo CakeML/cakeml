@@ -25,7 +25,7 @@ QED
 Definition compiler_instance_def:
   compiler_instance =
     <| init_state := info;
-       compiler_fun := compile_inc_progs_for_eval arm8_config ;
+       compiler_fun := compile_inc_progs_for_eval (:64) arm8_config ;
        config_dom := UNIV ;
        config_v := BACKEND_CONFIG_v ;
        decs_dom := decs_allowed ;
@@ -35,7 +35,7 @@ End
 Theorem compiler_instance_lemma[local]:
   INJ compiler_instance.config_v 𝕌(:backend$config) 𝕌(:semanticPrimitives$v) ∧
   compiler_instance.init_state = info ∧
-  compiler_instance.compiler_fun = compile_inc_progs_for_eval arm8_config
+  compiler_instance.compiler_fun = compile_inc_progs_for_eval (:64) arm8_config
 Proof
   fs [compiler_instance_def]
 QED

@@ -39,7 +39,7 @@ Datatype:
        | Store32 num num
        | StoreByte num num
        | Seq prog prog
-       | If cmp num ('a reg_imm) prog prog num_set
+       | If cmp num reg_imm prog prog num_set
        | Loop num_set prog num_set     (* names in, body, names out *)
        | Break num
        | Continue num

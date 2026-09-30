@@ -163,8 +163,8 @@ Definition find_code_def:
 End
 
 Definition get_var_imm_def:
-  (get_var_imm ((Reg n):'a reg_imm) ^s = sptree$lookup n s.locals) ∧
-  (get_var_imm (Imm w) s = SOME(Word w))
+  (get_var_imm (Reg n) ^s = sptree$lookup n s.locals) ∧
+  (get_var_imm (Imm w) s = SOME(Word (i2w w)))
 End
 
 Theorem fix_clock_IMP_LESS_EQ:

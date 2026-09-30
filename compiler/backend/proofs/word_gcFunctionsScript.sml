@@ -14,7 +14,7 @@ val shift_def = backend_commonTheory.word_shift_def;
 (* move candidates *)
 Theorem bytes_in_word_mul_eq_shift:
    good_dimindex (:'a) ==>
-   (bytes_in_word * w = (w << shift (:'a)):'a word)
+   (bytes_in_word * w = (w << shift (dimindex (:'a))):'a word)
 Proof
   fs [bytes_in_word_def,shift_def,WORD_MUL_LSL,word_mul_n2w]
   \\ fs [good_dimindex_def,dimword_def] \\ rw [] \\ rfs []
@@ -231,10 +231,18 @@ Definition word_gen_gc_can_do_partial_def:
       allo <=+ endh - trig
 End
 
+Definition word_gen_size_def:
+  (word_gen_size [] = -bytes_in_word:'a word) /\
+  (word_gen_size (x::xs) =
+     if dimindex (:'a) DIV 8 * x < dimword (:'a)
+     then bytes_in_word * n2w x
+     else -bytes_in_word:'a word)
+End
+
 Definition new_trig_def:
   new_trig (heap_space:'a word) (alloc_pref:'a word) gs =
     let a = w2n alloc_pref in
-    let g = w2n ((get_gen_size gs):'a word) in
+    let g = w2n ((word_gen_size gs):'a word) in
     let h = w2n heap_space in
       if a <= g (* allocation smaller than gen *) then n2w (MIN h g) else
       if h < a (* allocation too big *) then n2w h else
@@ -288,7 +296,7 @@ End
 Definition word_gen_gc_partial_def:
   word_gen_gc_partial conf (roots,(curr:'a word),new,len,m,dm,gs,rs) =
     let refs_end = curr + len in
-    let gen_start = gs ⋙ shift (:α) in
+    let gen_start = gs ⋙ shift (dimindex (:α)) in
     let (roots,i,pa,m,c1) = word_gen_gc_partial_move_roots conf
                     (roots,gen_start,new,curr,m,dm,gs,rs) in
     let (i,pa,m,c2) = word_gen_gc_partial_move_ref_list (dimword (:'a)) conf
@@ -301,7 +309,7 @@ End
 Definition word_gen_gc_partial_full_def:
   word_gen_gc_partial_full conf (roots,(curr:'a word),new,len,m,dm,gs,rs) =
     let (roots,i,pa,m,c1) = word_gen_gc_partial conf (roots,curr,new,len,m,dm,gs,rs) in
-    let cpy_length = (pa - new) >>> shift(:'a) in
+    let cpy_length = (pa - new) >>> shift (dimindex (:'a)) in
     let (b1,m,c2) = memcpy cpy_length new (curr + gs) m dm in
      (roots,i,b1,m,c1 /\ c2)
 End
@@ -420,7 +428,7 @@ End
 Definition word_gen_gc_def:
   word_gen_gc conf (roots,curr,new,len:'a word,m,dm) =
     let new_end = new + len in
-    let len = len >>> shift (:'a) in
+    let len = len >>> shift (dimindex (:'a)) in
     let (roots,i,pa,ib,pb,m,c1) = word_gen_gc_move_roots conf
                     (roots,0w,new,len,new_end,curr,m,dm) in
     let (i,pa,ib,pb,m,c2) = word_gen_gc_move_loop conf (w2n len)
@@ -430,7 +438,7 @@ End
 
 Definition glob_real_def:
   (glob_real c curr (Word (w:'a word)) =
-     Word (curr + (w >>> (shift_length c) << shift (:α)))) ∧
+     Word (curr + (w >>> (shift_length c) << shift (dimindex (:α))))) ∧
   (glob_real c curr w = w)
 End
 

@@ -30,9 +30,9 @@ Datatype:
                      counter is shared with ExtCall) *)
      ; io_fp_regs : num (* seq number *) -> num (* FP register *) -> word64
      ; cc_fp_regs : num -> num -> word64
-     ; code       : 'a labLang$prog
-     ; compile    : 'c -> 'a labLang$prog -> (word8 list # 'c) option
-     ; compile_oracle : num -> 'c # 'a labLang$prog
+     ; code       : labLang$prog
+     ; compile    : 'c -> labLang$prog -> (word8 list # 'c) option
+     ; compile_oracle : num -> 'c # labLang$prog
      ; code_buffer : ('a,8) buffer
      ; clock      : num
      ; failed     : bool
@@ -82,7 +82,7 @@ End
 
 Definition reg_imm_def[simp]:
   (reg_imm (Reg r) s = read_reg r s) /\
-  (reg_imm (Imm w) s = Word w)
+  (reg_imm (Imm w) s = Word (i2w w))
 End
 
 Definition binop_upd_def:
@@ -94,7 +94,7 @@ Definition binop_upd_def:
 End
 
 Definition arith_upd_def[simp]:
-  (arith_upd (Binop b r1 r2 (ri:'a reg_imm)) s =
+  (arith_upd (Binop b r1 r2 (ri:reg_imm)) (s:('a,'c,'ffi) labSem$state) =
      case (read_reg r2 s, reg_imm ri s) of
      | (Word w1, Word w2) => binop_upd r1 b w1 w2 s
      | (x,_) => if b = Or /\ ri = Reg r2 then upd_reg r1 x s else assert F s) /\
@@ -225,7 +225,7 @@ End
 Definition addr_def:
   addr (Addr r offset) s =
     case read_reg r s of
-    | Word w => SOME (w + offset)
+    | Word w => SOME (w + i2w offset)
     | _ => NONE
 End
 
@@ -304,13 +304,13 @@ Definition mem_op_def[simp]:
   (mem_op Store32 r a = mem_store32 r a) /\
   (mem_op Load8 r a = mem_load_byte r a) /\
   (mem_op Store8 r a = mem_store_byte r a) /\
-  (mem_op Load16 r (a:'a addr) = assert F) /\
-  (mem_op Store16 r (a:'a addr) = assert F)
+  (mem_op Load16 r (a:addr) = assert F) /\
+  (mem_op Store16 r (a:addr) = assert F)
 End
 
 Definition asm_inst_def[simp]:
   (asm_inst Skip s = (s:('a,'c,'ffi) labSem$state)) /\
-  (asm_inst (Const r imm) s = upd_reg r (Word imm) s) /\
+  (asm_inst (Const r imm) s = upd_reg r (Word (i2w imm)) s) /\
   (asm_inst (Arith x) s = arith_upd x s) /\
   (asm_inst (Mem m r a) s = mem_op m r a s) /\
   (asm_inst (FP fp) s = fp_upd fp s)

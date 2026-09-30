@@ -63,7 +63,7 @@ val _ = next_ml_names := ["host_args"];
 val r = translate host_args_def;
 
 Definition compiler_for_eval_def:
-  compiler_for_eval host = compile_inc_progs_for_eval (host_config host)
+  compiler_for_eval host = compile_inc_progs_for_eval (:64) (host_config host)
 End
 
 Theorem upper_w2w_eq_I[local]:
