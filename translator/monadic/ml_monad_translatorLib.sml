@@ -106,7 +106,7 @@ local
      ("ARRAY_REL_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="ARRAY_REL"}),
      ("W8ARRAY_const",prim_mk_const{Thy="cfHeapsBase",Name="W8ARRAY"}),
      ("RW8ARRAY_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="RW8ARRAY"}),
-     ("BITARRAY_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="BITARRAY"}),
+     ("BITARRAY_const",prim_mk_const{Thy="cfHeapsBase",Name="BITARRAY"}),
      ("RBITARRAY_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="RBITARRAY"}),
      ("run_const",ml_monadBaseSyntax.run_tm),
      ("EXC_TYPE_aux_const",prim_mk_const{Thy="ml_monad_translator",Name="EXC_TYPE_aux"}),

@@ -18,14 +18,14 @@ QED
 (* -- well-formedness of encoding -- *)
 
 Definition offset_monotonic_def:
-  offset_monotonic enc c a1 a2 i1 i2 <=>
+  offset_monotonic enc c (a1:int) (a2:int) i1 i2 <=>
   asm_ok i1 c /\ asm_ok i2 c ==>
-  (0w <= a1 /\ 0w <= a2 /\ a1 <= a2 ==> LENGTH (enc i1) <= LENGTH (enc i2)) /\
-  (a1 < 0w /\ a2 < 0w /\ a2 <= a1 ==> LENGTH (enc i1) <= LENGTH (enc i2))
+  (0 <= a1 /\ 0 <= a2 /\ a1 <= a2 ==> LENGTH (enc i1) <= LENGTH (enc i2)) /\
+  (a1 < 0 /\ a2 < 0 /\ a2 <= a1 ==> LENGTH (enc i1) <= LENGTH (enc i2))
 End
 
 Definition enc_ok_def:
-  enc_ok (c : 'a asm_config) <=>
+  enc_ok (c : asm_config) <=>
     (* code alignment and length *)
     (2 EXP c.code_alignment = LENGTH (c.encode (Inst Skip))) /\
     (!w. (LENGTH (c.encode w) MOD 2 EXP c.code_alignment = 0) /\
@@ -43,7 +43,7 @@ End
 
 Datatype:
   target =
-    <| config : 'a asm_config
+    <| config : asm_config
      ; next : 'b -> 'b
      ; get_pc : 'b -> 'a word
      ; get_reg : 'b -> num -> 'a word

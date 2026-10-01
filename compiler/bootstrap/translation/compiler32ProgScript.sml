@@ -26,6 +26,7 @@ val () = Globals.max_print_depth := 15;
 val () = use_long_names := true;
 
 val spec32 = INST_TYPE[alpha|->``:32``]
+val dimindex_32 = EVAL ``dimindex (:32)``;
 
 val res = translate $ errorLogMonadTheory.return_def;
 val res = translate $ errorLogMonadTheory.bind_def;
@@ -109,20 +110,22 @@ val _ = res |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of " ^
                   "panStaticTheory.static_check_def.");
 
+val max_heap_limit_32_spec = data_to_wordTheory.max_heap_limit_def
+  |> Q.SPEC `32`
+  |> SPEC_ALL
+  |> SIMP_RULE (srw_ss()) [backend_commonTheory.word_shift_def];
+
 Definition max_heap_limit_32_def:
   max_heap_limit_32 c =
-    ^(spec32 data_to_wordTheory.max_heap_limit_def
-      |> SPEC_ALL
-      |> SIMP_RULE (srw_ss())[backend_commonTheory.word_shift_def]
-      |> concl |> rhs)
+    ^(max_heap_limit_32_spec |> concl |> rhs)
 End
 
 val res = translate max_heap_limit_32_def
 
 Theorem max_heap_limit_32_thm:
-   max_heap_limit (:32) = max_heap_limit_32
+   max_heap_limit 32 = max_heap_limit_32
 Proof
-  rw[FUN_EQ_THM] \\ EVAL_TAC
+  rw[FUN_EQ_THM,max_heap_limit_32_def,max_heap_limit_32_spec]
 QED
 
 val r = translate presLangTheory.default_tap_config_def;
@@ -135,7 +138,7 @@ val def = spec32
 val res = translate def
 
 val def = spec32 backendTheory.compile_def
-  |> REWRITE_RULE[max_heap_limit_32_thm]
+  |> REWRITE_RULE[dimindex_32,max_heap_limit_32_thm]
 
 val res = translate def
 
@@ -164,22 +167,22 @@ val r = backend_passesTheory.to_word_all_def |> spec32
           |> REWRITE_RULE [data_to_wordTheory.stubs_def,APPEND] |> translate;
 
 val r = backend_passesTheory.to_stack_all_def |> spec32
-          |> REWRITE_RULE[max_heap_limit_32_thm] |> translate;
+          |> REWRITE_RULE[dimindex_32,max_heap_limit_32_thm] |> translate;
 
 val r = backend_passesTheory.to_lab_all_def |> spec32
-          |> REWRITE_RULE[max_heap_limit_32_thm] |> translate;
+          |> REWRITE_RULE[dimindex_32,max_heap_limit_32_thm] |> translate;
 
 val r = backend_passesTheory.to_target_all_def |> spec32 |> translate;
 
 val r = backend_passesTheory.from_lab_all_def |> spec32 |> translate;
 
 val r = backend_passesTheory.from_stack_all_def |> spec32
-          |> REWRITE_RULE[max_heap_limit_32_thm] |> translate;
+          |> REWRITE_RULE[dimindex_32,max_heap_limit_32_thm] |> translate;
 
 val r = backend_passesTheory.from_word_all_def |> spec32 |> translate;
 
 val r = backend_passesTheory.from_word_0_all_def |> spec32
-          |> REWRITE_RULE[max_heap_limit_32_thm] |> translate;
+          |> REWRITE_RULE[dimindex_32,max_heap_limit_32_thm] |> translate;
 
 val r = presLangTheory.word_to_strs_def |> spec32 |> translate
 val r = presLangTheory.stack_to_strs_def |> spec32 |> translate
@@ -223,7 +226,6 @@ val r = pan_passesTheory.pan_to_strs_def |> spec32 |> translate;
 val r = pan_passesTheory.crep_to_strs_def |> spec32 |> translate;
 val r = pan_passesTheory.loop_to_strs_def |> spec32 |> translate;
 val r = pan_passesTheory.any_pan_prog_pp_def |> spec32 |> translate;
-
 val r = pan_passesTheory.pan_compile_tap_def |> spec32 |> translate;
 
 val _ = r |> hyp |> null orelse

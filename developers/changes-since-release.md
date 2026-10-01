@@ -19,6 +19,14 @@ The shift and rotate functions `<<`, `>>`, `~>>` and `ror` in the `Word8` and
 of an int, e.g. `Word8.<< : Word8.word -> Word8.word -> Word8.word` (#1500).
 Programs that call these functions with an int amount need to be updated.
 
+There are new primitives for reading and updating a bit of a byte array (#1502):
+```
+Word8Array.subBit: byte_array -> int -> bool
+Word8Array.updateBit: byte_array -> int -> bool -> unit
+```
+The supplied index `i` is used as follows: `i div 8` is the read/updated byte,
+and, in that byte, bit `i mod 8` is read/updated.
+
 ## Compiler backend and runtime
 
 The compiler handles dynamic installation of new code in new way (#1487). This
