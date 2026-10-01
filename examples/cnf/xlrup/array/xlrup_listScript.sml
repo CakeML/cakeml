@@ -689,60 +689,6 @@ Proof
   drule FOLDL_unit_prop_xor_list_same_bits>>simp[]
 QED
 
-Theorem is_cfromx_list_zeros:
-  EVERY ($= 0w) zs ⇒
-  (is_cfromx_list def fml is c ⇔
-   case add_xors_aux_c_list fml is zs of
-     NONE => F
-   | SOME x =>
-     is_emp_xor_list
-       (conv_xor_aux_list (flip_bit_list (extend_s_list x 1) 0) c))
-Proof
-  strip_tac>>
-  `∀n. ¬bit_list zs n` by
-    metis_tac[is_emp_xor_list_bit_list,is_emp_xor_list_def]>>
-  `same_bits (REPLICATE def 0w) zs` by simp[bit_list_REPLICATE_0w]>>
-  drule add_xors_aux_c_list_same_bits>>
-  disch_then (qspecl_then[`fml`,`is`] mp_tac)>>
-  simp[is_cfromx_list_def,strxor_imp_cclause_list_flip]>>
-  Cases_on`add_xors_aux_c_list fml is zs`>>
-  Cases_on`add_xors_aux_c_list fml is (REPLICATE def 0w)`>>
-  simp[optionTheory.OPTREL_def]>>
-  strip_tac>>
-  simp[is_emp_xor_list_bit_list]>>
-  ONCE_REWRITE_TAC[bit_list_conv_xor_aux_list]>>
-  qspecl_then[`x`,`1`] assume_tac LENGTH_extend_s_list>>
-  qspecl_then[`x'`,`1`] assume_tac LENGTH_extend_s_list>>
-  gvs[bit_list_flip_bit_list,bit_list_extend_s_list]
-QED
-
-Theorem is_cfromx_vb_list_zeros:
-  EVERY ($= 0w) zs ⇒
-  (is_cfromx_vb_list def fml s c ⇔
-   case add_xors_aux_vb_list fml s 0 (strlen s) zs of
-     NONE => F
-   | SOME x =>
-     is_emp_xor_list
-       (conv_xor_aux_list (flip_bit_list (extend_s_list x 1) 0) c))
-Proof
-  strip_tac>>
-  `∀n. ¬bit_list zs n` by
-    metis_tac[is_emp_xor_list_bit_list,is_emp_xor_list_def]>>
-  `same_bits (REPLICATE def 0w) zs` by simp[bit_list_REPLICATE_0w]>>
-  drule add_xors_aux_vb_list_same_bits>>
-  disch_then (qspecl_then[`fml`,`s`,`0`,`strlen s`] mp_tac)>>
-  simp[is_cfromx_vb_list_def,strxor_imp_cclause_list_flip]>>
-  Cases_on`add_xors_aux_vb_list fml s 0 (strlen s) zs`>>
-  Cases_on`add_xors_aux_vb_list fml s 0 (strlen s) (REPLICATE def 0w)`>>
-  simp[optionTheory.OPTREL_def]>>
-  strip_tac>>
-  simp[is_emp_xor_list_bit_list]>>
-  ONCE_REWRITE_TAC[bit_list_conv_xor_aux_list]>>
-  qspecl_then[`x`,`1`] assume_tac LENGTH_extend_s_list>>
-  qspecl_then[`x'`,`1`] assume_tac LENGTH_extend_s_list>>
-  gvs[bit_list_flip_bit_list,bit_list_extend_s_list]
-QED
-
 Definition get_constrs_vb_list_def:
   get_constrs_vb_list fml s i len =
   let (m,i) = parse_vb_int s i len in
@@ -824,6 +770,233 @@ Proof
   gvs[]>>
   first_x_assum drule_all>>
   rw[]
+QED
+
+(* Renaming a literal list and flipping its bits into s, in one pass *)
+Definition ren_flip_list_def:
+  (ren_flip_list tnl s [] = (s:word8 list, tnl)) ∧
+  (ren_flip_list tnl s ((i:int)::is) =
+    let (m,tnl) = get_name_list tnl (Num (ABS i)) in
+    let s = flip_bit_list (extend_s_list s (m DIV 8 + 1)) m in
+    let s = if i < 0 then flip_bit_list s 0 else s in
+    ren_flip_list tnl s is)
+End
+
+Theorem ren_int_ls_list_acc[local]:
+  ∀is tnl acc.
+  ren_int_ls_list tnl is acc =
+  (REVERSE acc ++ FST (ren_int_ls_list tnl is []),
+   SND (ren_int_ls_list tnl is []))
+Proof
+  Induct
+  >- simp[ren_int_ls_list_def]>>
+  rpt strip_tac>>
+  ONCE_REWRITE_TAC[ren_int_ls_list_def]>>
+  simp_tac (srw_ss()) [LET_THM]>>
+  qmatch_goalsub_rename_tac`Num (ABS i)`>>
+  Cases_on`get_name_list tnl (Num (ABS i))`>>
+  simp_tac (srw_ss()) []>>
+  qpat_x_assum`∀tnl acc. _`(fn ih => ONCE_REWRITE_TAC[ih])>>
+  simp[]
+QED
+
+Theorem get_name_list_pos[local]:
+  0 < SND tnl ∧
+  get_name_list tnl v = (m,tnl') ⇒
+  0 < m ∧ 0 < SND tnl'
+Proof
+  PairCases_on`tnl`>>
+  rw[get_name_list_def]>>
+  gvs[AllCaseEqs()]
+QED
+
+(* Fresh names are positive, so a renamed literal is positive iff the
+  original is not negative *)
+Theorem ren_flip_list_conv_xor_aux_list:
+  ∀is tnl s.
+  0 < SND tnl ⇒
+  ren_flip_list tnl s is =
+  (conv_xor_aux_list s (FST (ren_int_ls_list tnl is [])),
+   SND (ren_int_ls_list tnl is []))
+Proof
+  Induct
+  >- simp[ren_flip_list_def,ren_int_ls_list_def,conv_xor_aux_list_def]>>
+  rpt strip_tac>>
+  ONCE_REWRITE_TAC[ren_flip_list_def,ren_int_ls_list_def]>>
+  simp_tac (srw_ss()) [LET_THM]>>
+  qmatch_goalsub_rename_tac`Num (ABS i)`>>
+  Cases_on`get_name_list tnl (Num (ABS i))`>>
+  drule_all get_name_list_pos>>
+  strip_tac>>
+  ONCE_REWRITE_TAC[ren_int_ls_list_acc]>>
+  simp[Once conv_xor_aux_list_def]>>
+  `&q > (0:int) ∧ ¬(-&q > (0:int))` by intLib.ARITH_TAC>>
+  Cases_on`i < 0`>>simp[]
+QED
+
+Theorem ren_flip_list_same_bits:
+  ∀is tnl s s'.
+  same_bits s s' ⇒
+  SND (ren_flip_list tnl s is) = SND (ren_flip_list tnl s' is) ∧
+  same_bits (FST (ren_flip_list tnl s is)) (FST (ren_flip_list tnl s' is))
+Proof
+  Induct
+  >- simp[ren_flip_list_def]>>
+  rpt gen_tac>>strip_tac>>
+  ONCE_REWRITE_TAC[ren_flip_list_def]>>
+  simp_tac (srw_ss()) [LET_THM]>>
+  qmatch_goalsub_rename_tac`Num (ABS i)`>>
+  Cases_on`get_name_list tnl (Num (ABS i))`>>
+  simp_tac (srw_ss()) []>>
+  first_x_assum irule>>
+  qspecl_then[`s`,`q DIV 8 + 1`] mp_tac LENGTH_extend_s_list>>
+  qspecl_then[`s'`,`q DIV 8 + 1`] mp_tac LENGTH_extend_s_list>>
+  rw[bit_list_flip_bit_list,bit_list_extend_s_list]
+QED
+
+Definition conv_ren_list_def:
+  conv_ren_list mv tnl x =
+  let r = flip_bit_list (REPLICATE (MAX 1 mv) (0w:word8)) 0 in
+  let (r,tnl) = ren_flip_list tnl r x in
+    (implode (MAP fromByte r), tnl)
+End
+
+Theorem tn_rel_conv_ren_list:
+  tn_rel tn tnl ∧
+  conv_ren_list mv tnl is = (X,tnl') ⇒
+  ∃ms tn'.
+    ren_int_ls tn is [] = (ms,tn') ∧
+    X = conv_rawxor mv ms ∧
+    tn_rel tn' tnl'
+Proof
+  rw[conv_ren_list_def]>>
+  `0 < SND tnl` by (PairCases_on`tn`>>PairCases_on`tnl`>>gvs[tn_rel_def])>>
+  gvs[ren_flip_list_conv_xor_aux_list]>>
+  Cases_on`ren_int_ls_list tnl is []`>>
+  drule_all tn_rel_ren_int_ls_list>>
+  strip_tac>>
+  simp[GSYM conv_rawxor_list,conv_rawxor_list_def]
+QED
+
+Definition is_cfromx_ren_list_def:
+  is_cfromx_ren_list def fml is tnl c =
+  case add_xors_aux_c_list fml is (REPLICATE def (0w:word8)) of
+    NONE => (F,tnl)
+  | SOME x =>
+    let (r,tnl) =
+      ren_flip_list tnl (flip_bit_list (extend_s_list x 1) 0) c in
+      (is_emp_xor_list r, tnl)
+End
+
+Theorem tn_rel_is_cfromx_ren_list:
+  tn_rel tn tnl ∧
+  is_cfromx_ren_list def fml is tnl c = (T,tnl') ⇒
+  ∃ms tn'.
+    ren_int_ls tn c [] = (ms,tn') ∧
+    is_cfromx_list def fml is ms ∧
+    tn_rel tn' tnl'
+Proof
+  rw[is_cfromx_ren_list_def,AllCaseEqs()]>>
+  `0 < SND tnl` by (PairCases_on`tn`>>PairCases_on`tnl`>>gvs[tn_rel_def])>>
+  gvs[ren_flip_list_conv_xor_aux_list]>>
+  Cases_on`ren_int_ls_list tnl c []`>>
+  drule_all tn_rel_ren_int_ls_list>>
+  strip_tac>>
+  gvs[is_cfromx_list_def,strxor_imp_cclause_list_flip]
+QED
+
+Theorem is_cfromx_ren_list_zeros:
+  EVERY ($= 0w) zs ⇒
+  is_cfromx_ren_list def fml is tnl c =
+  case add_xors_aux_c_list fml is zs of
+    NONE => (F,tnl)
+  | SOME x =>
+    let (r,tnl) =
+      ren_flip_list tnl (flip_bit_list (extend_s_list x 1) 0) c in
+      (is_emp_xor_list r, tnl)
+Proof
+  strip_tac>>
+  `∀n. ¬bit_list zs n` by
+    metis_tac[is_emp_xor_list_bit_list,is_emp_xor_list_def]>>
+  `same_bits (REPLICATE def 0w) zs` by simp[bit_list_REPLICATE_0w]>>
+  drule add_xors_aux_c_list_same_bits>>
+  disch_then (qspecl_then[`fml`,`is`] mp_tac)>>
+  simp[is_cfromx_ren_list_def]>>
+  namedCases_on`add_xors_aux_c_list fml is zs`["","y"]>>
+  namedCases_on`add_xors_aux_c_list fml is (REPLICATE def 0w)`["","x"]>>
+  simp[optionTheory.OPTREL_def]>>
+  strip_tac>>
+  `same_bits (flip_bit_list (extend_s_list x 1) 0)
+     (flip_bit_list (extend_s_list y 1) 0)` by (
+    qspecl_then[`x`,`1`] mp_tac LENGTH_extend_s_list>>
+    qspecl_then[`y`,`1`] mp_tac LENGTH_extend_s_list>>
+    rw[bit_list_flip_bit_list,bit_list_extend_s_list])>>
+  drule ren_flip_list_same_bits>>
+  disch_then (qspecl_then[`c`,`tnl`] strip_assume_tac)>>
+  Cases_on`ren_flip_list tnl (flip_bit_list (extend_s_list x 1) 0) c`>>
+  Cases_on`ren_flip_list tnl (flip_bit_list (extend_s_list y 1) 0) c`>>
+  gvs[is_emp_xor_list_bit_list]
+QED
+
+Definition is_cfromx_vb_ren_list_def:
+  is_cfromx_vb_ren_list def fml s tnl c =
+  case add_xors_aux_vb_list fml s 0 (strlen s) (REPLICATE def (0w:word8)) of
+    NONE => (F,tnl)
+  | SOME x =>
+    let (r,tnl) =
+      ren_flip_list tnl (flip_bit_list (extend_s_list x 1) 0) c in
+      (is_emp_xor_list r, tnl)
+End
+
+Theorem tn_rel_is_cfromx_vb_ren_list:
+  tn_rel tn tnl ∧
+  is_cfromx_vb_ren_list def fml s tnl c = (T,tnl') ⇒
+  ∃ms tn'.
+    ren_int_ls tn c [] = (ms,tn') ∧
+    is_cfromx_vb_list def fml s ms ∧
+    tn_rel tn' tnl'
+Proof
+  rw[is_cfromx_vb_ren_list_def,AllCaseEqs()]>>
+  `0 < SND tnl` by (PairCases_on`tn`>>PairCases_on`tnl`>>gvs[tn_rel_def])>>
+  gvs[ren_flip_list_conv_xor_aux_list]>>
+  Cases_on`ren_int_ls_list tnl c []`>>
+  drule_all tn_rel_ren_int_ls_list>>
+  strip_tac>>
+  gvs[is_cfromx_vb_list_def,strxor_imp_cclause_list_flip]
+QED
+
+Theorem is_cfromx_vb_ren_list_zeros:
+  EVERY ($= 0w) zs ⇒
+  is_cfromx_vb_ren_list def fml s tnl c =
+  case add_xors_aux_vb_list fml s 0 (strlen s) zs of
+    NONE => (F,tnl)
+  | SOME x =>
+    let (r,tnl) =
+      ren_flip_list tnl (flip_bit_list (extend_s_list x 1) 0) c in
+      (is_emp_xor_list r, tnl)
+Proof
+  strip_tac>>
+  `∀n. ¬bit_list zs n` by
+    metis_tac[is_emp_xor_list_bit_list,is_emp_xor_list_def]>>
+  `same_bits (REPLICATE def 0w) zs` by simp[bit_list_REPLICATE_0w]>>
+  drule add_xors_aux_vb_list_same_bits>>
+  disch_then (qspecl_then[`fml`,`s`,`0`,`strlen s`] mp_tac)>>
+  simp[is_cfromx_vb_ren_list_def]>>
+  namedCases_on`add_xors_aux_vb_list fml s 0 (strlen s) zs`["","y"]>>
+  namedCases_on
+    `add_xors_aux_vb_list fml s 0 (strlen s) (REPLICATE def 0w)`["","x"]>>
+  simp[optionTheory.OPTREL_def]>>
+  strip_tac>>
+  `same_bits (flip_bit_list (extend_s_list x 1) 0)
+     (flip_bit_list (extend_s_list y 1) 0)` by (
+    qspecl_then[`x`,`1`] mp_tac LENGTH_extend_s_list>>
+    qspecl_then[`y`,`1`] mp_tac LENGTH_extend_s_list>>
+    rw[bit_list_flip_bit_list,bit_list_extend_s_list])>>
+  drule ren_flip_list_same_bits>>
+  disch_then (qspecl_then[`c`,`tnl`] strip_assume_tac)>>
+  Cases_on`ren_flip_list tnl (flip_bit_list (extend_s_list x 1) 0) c`>>
+  Cases_on`ren_flip_list tnl (flip_bit_list (extend_s_list y 1) 0) c`>>
+  gvs[is_emp_xor_list_bit_list]
 QED
 
 Definition ren_lit_ls_list_def:
@@ -946,8 +1119,7 @@ Definition check_xlrup_list_def:
         MAX def (strlen X), dml, b)
     else NONE
   | XAdd n rX i0 i1 =>
-    let (mX,tnl) = ren_int_ls_list tnl rX [] in
-    let X = conv_rawxor_list def mX in
+    let (X,tnl) = conv_ren_list def tnl rX in
     if is_xor_list def xfml i0 cfml i1 (FST tnl) X then
       SOME (cfml, update_resize xfml NONE (SOME X) n, tnl,
         MAX def (strlen X), dml, b)
@@ -955,15 +1127,14 @@ Definition check_xlrup_list_def:
   | XDel xl =>
     SOME (cfml, delete_ids_list NONE xfml xl, tnl, def, dml, b)
   | CFromX n C i0 =>
-    let (mC,tnl) = ren_int_ls_list tnl C [] in
-    if is_cfromx_list def xfml i0 mC then
+    let (ok,tnl) = is_cfromx_ren_list def xfml i0 tnl C in
+    if ok then
       SOME (insert_vcc_list cfml n (Vector C), xfml, tnl,
         def, resize_dm dml b (Vector C))
     else NONE
   | XFromC n rX i0 =>
     if is_xfromc_list cfml i0 rX then
-      let (mX,tnl) = ren_int_ls_list tnl rX [] in
-      let X = conv_rawxor_list def mX in
+      let (X,tnl) = conv_ren_list def tnl rX in
       SOME (cfml, update_resize xfml NONE (SOME X) n, tnl,
         MAX def (strlen X), dml, b)
     else NONE
@@ -975,9 +1146,8 @@ Definition check_xlrup_list_def:
       (T, dml', b') =>
       SOME (insert_vcc_list cfml n C, xfml, tnl, def, dml', b')
     | _ => NONE)
-  | XAddvb n rX s1 s2 =>
-    let (mX,tnl) = ren_int_ls_list tnl rX [] in
-    let X = conv_rawxor_list def mX in
+  | XAddvb n l i s1 s2 =>
+    let (X,tnl) = conv_ren_list def tnl (parse_vb_ilits_fwd l i (strlen l)) in
     if is_xor_vb_list def xfml s1 cfml s2 (FST tnl) X then
       SOME (cfml, update_resize xfml NONE (SOME X) n, tnl,
         MAX def (strlen X), dml, b)
@@ -985,15 +1155,14 @@ Definition check_xlrup_list_def:
   | XDelvb s =>
     SOME (cfml, delete_ids_vb_list NONE xfml s 2 (strlen s), tnl, def, dml, b)
   | CFromXvb n C s =>
-    let (mC,tnl) = ren_int_ls_list tnl C [] in
-    if is_cfromx_vb_list def xfml s mC then
+    let (ok,tnl) = is_cfromx_vb_ren_list def xfml s tnl C in
+    if ok then
       SOME (insert_vcc_list cfml n (Vector C), xfml, tnl,
         def, resize_dm dml b (Vector C))
     else NONE
   | XFromCvb n rX s =>
     if is_xfromc_vb_list cfml s rX then
-      let (mX,tnl) = ren_int_ls_list tnl rX [] in
-      let X = conv_rawxor_list def mX in
+      let (X,tnl) = conv_ren_list def tnl rX in
       SOME (cfml, update_resize xfml NONE (SOME X) n, tnl,
         MAX def (strlen X), dml, b)
     else NONE
@@ -1031,8 +1200,8 @@ Proof
     strip_tac>>gvs[]>>
     metis_tac[xfml_rel_update_resize])
   >- ( (* XAdd *)
-    rpt (pairarg_tac>>gvs[conv_rawxor_list])>>
-    drule_all tn_rel_ren_int_ls_list>>
+    rpt (pairarg_tac>>gvs[])>>
+    drule_all tn_rel_conv_ren_list>>
     strip_tac>>gvs[]>>
     imp_res_tac tn_rel_nm_rel>>
     drule_all is_xor_list>>
@@ -1042,7 +1211,7 @@ Proof
     (simp[xfml_rel_delete_ids_list]>>metis_tac[])
   >- ( (* CFromX *)
     rpt (pairarg_tac>>gvs[])>>
-    drule_all tn_rel_ren_int_ls_list>>
+    drule_all tn_rel_is_cfromx_ren_list>>
     strip_tac>>gvs[]>>
     drule_all is_cfromx_list>>
     rw[]>>
@@ -1051,8 +1220,8 @@ Proof
     drule_all dm_rel_reset_dm_list>>
     metis_tac[])
   >- ( (* XFromC *)
-    rpt (pairarg_tac>>gvs[conv_rawxor_list])>>
-    drule_all tn_rel_ren_int_ls_list>>
+    rpt (pairarg_tac>>gvs[])>>
+    drule_all tn_rel_conv_ren_list>>
     strip_tac>>gvs[]>>
     drule_all is_xfromc_list>>
     metis_tac[xfml_rel_update_resize])
@@ -1063,8 +1232,8 @@ Proof
     drule fml_rel_insert_vcc_list>>
     metis_tac[])
   >- ( (* XAddvb *)
-    rpt (pairarg_tac>>gvs[conv_rawxor_list])>>
-    drule_all tn_rel_ren_int_ls_list>>
+    rpt (pairarg_tac>>gvs[])>>
+    drule_all tn_rel_conv_ren_list>>
     strip_tac>>gvs[]>>
     imp_res_tac tn_rel_nm_rel>>
     drule_all is_xor_vb_list>>
@@ -1074,7 +1243,7 @@ Proof
     (simp[xfml_rel_delete_ids_vb_list]>>metis_tac[])
   >- ( (* CFromXvb *)
     rpt (pairarg_tac>>gvs[])>>
-    drule_all tn_rel_ren_int_ls_list>>
+    drule_all tn_rel_is_cfromx_vb_ren_list>>
     strip_tac>>gvs[]>>
     drule_all is_cfromx_vb_list>>
     rw[]>>
@@ -1083,8 +1252,8 @@ Proof
     drule_all dm_rel_reset_dm_list>>
     metis_tac[])
   >- ( (* XFromCvb *)
-    rpt (pairarg_tac>>gvs[conv_rawxor_list])>>
-    drule_all tn_rel_ren_int_ls_list>>
+    rpt (pairarg_tac>>gvs[])>>
+    drule_all tn_rel_conv_ren_list>>
     strip_tac>>gvs[]>>
     drule_all is_xfromc_vb_list>>
     metis_tac[xfml_rel_update_resize])

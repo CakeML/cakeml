@@ -57,8 +57,9 @@ Datatype:
     (* Delvb s : delete the clauses with the ids encoded in s after its tag *)
   | RUPvb num vcclause mlstring
     (* RUPvb n C s : derive clause C by RUP using the hints encoded in s *)
-  | XAddvb num rawxor mlstring mlstring
-    (* XAddvb n X xs cs : as XAdd, with XOR hints in xs and clause hints in cs *)
+  | XAddvb num mlstring num mlstring mlstring
+    (* XAddvb n l i xs cs : as XAdd, with the XOR's literals encoded in l
+      from offset i, XOR hints in xs and clause hints in cs *)
   | XDelvb mlstring
     (* XDelvb s : delete the XORs whose ids are encoded in s after its tag *)
   | CFromXvb num cclause mlstring
@@ -412,6 +413,44 @@ Definition ren_lit_ls_def:
         ren_lit_ls tn is (Neg m::acc))
 End
 
+(* The doubled literals of a binary record from offset i, in file order,
+  up to the value that decodes to 0 *)
+(* TMC *)
+Definition parse_vb_ilits_fwd_def:
+  parse_vb_ilits_fwd (s:mlstring) (i:num) (len:num) =
+  let (v,j) = parse_vb_int s i len in
+  if v ≠ 0 then v :: parse_vb_ilits_fwd s j len else []
+Termination
+  WF_REL_TAC` measure (λ(x,s,i). i-s)`>>
+  rw[]>> fs[parse_vb_int_def,parse_vb_num_def] >>
+  pairarg_tac >> gvs[] >>
+  `m <> 0` by (strip_tac >> gvs[]) >>
+  qpat_x_assum `parse_vb_num_aux _ _ _ _ _ = _` (assume_tac o GSYM) >>
+  drule_all parse_vb_num_aux_i >>
+  fs[]
+End
+
+Theorem parse_vb_ilits_fwd:
+  ∀s i len acc.
+  parse_vb_ilits s i len acc = REVERSE (parse_vb_ilits_fwd s i len) ++ acc
+Proof
+  ho_match_mp_tac parse_vb_ilits_ind>>
+  rw[]>>
+  simp[Once parse_vb_ilits_def,Once parse_vb_ilits_fwd_def]>>
+  pairarg_tac>>
+  rw[]
+QED
+
+Theorem parse_vb_ilits_fwd_nz:
+  ∀s i len. ¬MEM 0 (parse_vb_ilits_fwd s i len)
+Proof
+  ho_match_mp_tac parse_vb_ilits_fwd_ind>>
+  rw[]>>
+  simp[Once parse_vb_ilits_fwd_def]>>
+  pairarg_tac>>
+  rw[]
+QED
+
 (* Note: in CFromX, the clause is renamed for checking against the
   XORs, but the original clause is the one stored *)
 Definition check_xlrup_def:
@@ -456,7 +495,8 @@ Definition check_xlrup_def:
     if is_rup_vb cfml C s then
       SOME (insert_vcc cfml n C, xfml, tn, def)
     else NONE
-  | XAddvb n rX s1 s2 =>
+  | XAddvb n l i s1 s2 =>
+    let rX = parse_vb_ilits_fwd l i (strlen l) in
     let (mX,tn) = ren_int_ls tn rX [] in
     let X = conv_rawxor def mX in
     if is_xor_vb def xfml s1 cfml s2 (FST tn) X then

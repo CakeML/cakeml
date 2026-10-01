@@ -268,7 +268,7 @@ QED
 Datatype:
   xlrupb_rest =
   | BRup num vcclause
-  | BXAdd num rawxor
+  | BXAdd num num
   | BCFromX num cclause
   | BXFromC num rawxor
 End
@@ -291,9 +291,10 @@ Definition parse_xlrupb_chunk_def:
     then NONE
     else
     let n = m DIV 2 in
-    let ls = parse_vb_ilits s i len [] in
-    if k = #"o" then SOME (INL (XOrig n (MAP mk_lit (REVERSE ls))))
-    else if k = #"a" then SOME (INR (BXAdd n ls))
+    if k = #"a" then SOME (INR (BXAdd n i))
+    else
+    let ls = parse_vb_ilits_fwd s i len in
+    if k = #"o" then SOME (INL (XOrig n (MAP mk_lit ls)))
     else if k = #"c" then SOME (INR (BCFromX n ls))
     else if k = #"i" then SOME (INR (BXFromC n ls))
     else NONE
@@ -319,9 +320,9 @@ Definition parse_xlrupb_rest_def:
     (case ls of
       [] => NONE
     | h::rest => SOME (RUPvb n C h, rest))
-  | SOME (INR (BXAdd n X)) =>
+  | SOME (INR (BXAdd n i)) =>
     (case ls of
-      h1::h2::rest => SOME (XAddvb n X h1 h2, rest)
+      h1::h2::rest => SOME (XAddvb n l i h1 h2, rest)
     | _ => NONE)
   | SOME (INR (BCFromX n C)) =>
     (case ls of
@@ -373,15 +374,15 @@ Theorem parse_xlrupb_chunk_wf:
   case res of
     INL step => wf_xlrup step
   | INR (BRup n C) => nz_ilits (toList C)
-  | INR (BXAdd n X) => T
+  | INR (BXAdd n i) => T
   | INR (BCFromX n C) => nz_ilits C
   | INR (BXFromC n X) => nz_ilits X
 Proof
   rw[parse_xlrupb_chunk_def]>>
   rpt (pairarg_tac>>gvs[])>>
   gvs[AllCaseEqs(),wf_xlrup_def]>>
-  gvs[nz_ilits_def,toList_thm,EVERY_MAP,EVERY_MEM,MEM_REVERSE]>>
-  metis_tac[nz_lit_mk_lit,parse_vb_ilits_nz,MEM]
+  gvs[nz_ilits_def,toList_thm,EVERY_MAP,EVERY_MEM]>>
+  metis_tac[nz_lit_mk_lit,parse_vb_ilits_nz,parse_vb_ilits_fwd_nz,MEM]
 QED
 
 Theorem parse_xlrupb_one_wf:
