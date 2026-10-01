@@ -33,6 +33,12 @@ val _ = register_type “:'a option”;
 (* Partial recursion without a registered function induction theorem. *)
 val _ = translate listTheory.LAST_DEF;
 
+(* A relation induction theorem is not a function induction theorem. *)
+val _ = translate listTheory.LIST_REL_def;
+val _ = translate
+  (INST_TYPE [alpha |-> numSyntax.num, beta |-> numSyntax.num]
+    listTheory.LIST_REL_def);
+
 Datatype:
   a_ty = A1 | B1 (b_ty list) ;
   b_ty = B2 | A2 a_ty

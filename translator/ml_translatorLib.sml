@@ -2720,12 +2720,25 @@ fun list_mk_fun_type [ty] = ty
   | list_mk_fun_type _ = fail()
 
 fun get_induction_for_def def = let
-  val names = def |> SPEC_ALL |> CONJUNCTS |> map (fn x => x |>SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator |> dest_thy_const) |> mk_set
+  val consts = def |> SPEC_ALL |> CONJUNCTS |> map (fn x => x |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator) |> op_mk_set aconv
+  val names = map dest_thy_const consts
+  (* Function induction may have termination guards, but relation induction
+     assumes the relation itself in its conclusion. *)
+  fun function_ind th = let
+    val conclusion = th |> concl |> strip_forall |> snd |> dest_imp |> snd
+    val goals = strip_conj conclusion |> map (snd o strip_forall)
+    fun functional goal = let
+      val (guards,result) = strip_imp goal
+      val guards_ok = all (fn guard =>
+        not (exists (same_const (repeat rator guard)) consts)) guards
+      in is_var (repeat rator result) andalso guards_ok end
+    val _ = all functional goals orelse failwith "not function induction"
+    in th end
   fun get_ind [] = raise ERR "get_ind" "Bind Error"
     | get_ind [res] =
-      (fetch_from_thy (#Thy res) ((#Name res) ^ "_trans_ind") handle HOL_ERR _ =>
-       (fetch_from_thy (#Thy res) ((#Name res) ^ "_ind") handle HOL_ERR _ =>
-        (fetch_from_thy (#Thy res) ((#Name res) ^ "_IND"))))
+      (function_ind (fetch_from_thy (#Thy res) ((#Name res) ^ "_trans_ind")) handle HOL_ERR _ =>
+       (function_ind (fetch_from_thy (#Thy res) ((#Name res) ^ "_ind")) handle HOL_ERR _ =>
+        (function_ind (fetch_from_thy (#Thy res) ((#Name res) ^ "_IND")))))
     | get_ind (res::ths) = (get_ind [res]) handle HOL_ERR _ => get_ind ths
   in
     get_ind names
@@ -2758,7 +2771,8 @@ fun get_induction_for_def def = let
     val vs = pairSyntax.list_mk_pair args
     val ss = fst (match_term vs pat)
     val xs = map (subst ss) args
-    in (split_at (not o is_var) xs) end
+    val (xs,(_,pat),ys) = split_at (not o is_var o snd) (zip args xs)
+    in (map fst xs,pat,map fst ys) end
   val xs = map find_pat_match cs
   val ty = map (fn (_,x,_) => type_of x) xs |> hd
   val raw_ind = TypeBase.induction_of ty
@@ -2785,8 +2799,8 @@ fun get_induction_for_def def = let
   val lemma = auto_prove "get_induction_for" (goal, REPEAT STRIP_TAC THEN ASM_REWRITE_TAC [])
   val ind = MP lemma (ind |> UNDISCH_ALL) |> DISCH_ALL
             |> GENL (map fst res)
-  in ind end handle HOL_ERR _ =>
-  failwith "unable to construct induction theorem from TypeBase info"
+  in ind end handle e as HOL_ERR _ =>
+    raise (wrap_exn "ml_translatorLib" "get_induction_for_def" e)
 
 fun mutual_to_single_line_def def = let
   (* get induction theorem *)
