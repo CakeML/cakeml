@@ -13,5 +13,5 @@ cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile
 EXTRA_CLEANS = cake.S cake-$(ARCH)-$(WORD_SIZE).tar.gz
 
 ifdef POLY
-HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
+HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_ag32_heap
 endif
