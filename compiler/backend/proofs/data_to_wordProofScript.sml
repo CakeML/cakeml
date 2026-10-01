@@ -878,7 +878,7 @@ Resume data_compile_correct[Seq]:
     \\ fs[GSYM AND_IMP_INTRO]
     \\ first_x_assum (drule_all_then assume_tac)
     \\ fs[]
-    \\ pop_assum (mp_tac o Q.SPECL [`n`,`l`])
+    \\ pop_assum (qspecl_then [`n`,`l`] mp_tac)
     \\ rpt strip_tac \\ rfs []
     \\ reverse (Cases_on `q'' = NONE`) \\ fs []
     THEN1 (fs [] \\ rpt strip_tac \\ fs []
@@ -898,7 +898,7 @@ Resume data_compile_correct[Seq]:
     \\ qpat_x_assum `state_rel c l1 l2 _ _ NONE locs` (fn th =>
              first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
     \\ imp_res_tac wordSemTheory.evaluate_clock \\ fs[]
-    \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`r`])
+    \\ strip_tac \\ pop_assum (qspecl_then [`n`,`r`] mp_tac)
     \\ rpt strip_tac \\ rfs [] \\ rpt strip_tac \\ fs []
     \\ BasicProvers.EVERY_CASE_TAC \\ fs [mk_loc_def] \\ fs []
     \\ imp_res_tac evaluate_mk_loc_EQ \\ fs []
@@ -2220,7 +2220,8 @@ Theorem data_to_word_compile_lab_pres:
 Proof
   fs[data_to_wordTheory.compile_def]>>
   qpat_abbrev_tac`datap = _ ++ MAP (A B) prog`>>
-  mp_tac (compile_to_word_conventions |>GEN_ALL |> Q.SPECL [`word_conf`,`datap`,`asm_conf`])>>
+  qspecl_then [`word_conf`,`datap`,`asm_conf`] mp_tac
+    (GEN_ALL compile_to_word_conventions)>>
   impl_tac>-
    (fs[Abbr‘datap’]>>
     irule_at Any EVERY_MONOTONIC>>

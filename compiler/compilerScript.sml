@@ -552,6 +552,7 @@ EVAL ``parse_gc [«--gc=gen1234,1234,1234»] def``
 (* Copy of conf_ok from data_to_word *)
 Definition conf_ok_check_def:
   conf_ok_check (:'a) c <=>
+    arch_width_bits c.arch_width = dimindex (:α) ∧
     shift_length c < dimindex (:α) ∧
     backend_common$word_shift (dimindex (:α)) ≤ shift_length c ∧ c.len_size ≠ 0 ∧
     c.len_size + 9 < dimindex (:α)

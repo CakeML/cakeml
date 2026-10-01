@@ -1143,6 +1143,38 @@ Proof
   \\ rfs [good_dimindex_def,dimword_def,ADD1]
 QED
 
+Theorem header_or_word:
+  sh < dimindex (:'a) /\ k < 2 ** sh /\
+  n < 2 ** (dimindex (:'a) - sh) ==>
+  w2n ((n2w n:'a word) << sh || n2w k) = n * 2 ** sh + k
+Proof
+  rpt strip_tac
+  \\ `n * 2 ** sh + k < dimword (:'a)` by
+       (fs [dimword_def]
+        \\ `2 ** dimindex (:'a) =
+            2 ** (dimindex (:'a) - sh) * 2 ** sh` by
+             simp [GSYM EXP_ADD]
+        \\ `n * 2 ** sh + k < (n + 1) * 2 ** sh` by
+             (simp [RIGHT_ADD_DISTRIB] \\ decide_tac)
+        \\ `n + 1 <= 2 ** (dimindex (:'a) - sh)` by decide_tac
+        \\ `((n + 1) * 2 ** sh) <=
+            2 ** (dimindex (:'a) - sh) * 2 ** sh` by
+             simp [LE_MULT_RCANCEL]
+        \\ decide_tac)
+  \\ `((n2w n:'a word) << sh || n2w k) =
+      (n2w n:'a word) << sh + n2w k` by
+       (irule (SPEC_ALL WORD_ADD_OR |> PURE_ONCE_REWRITE_RULE [EQ_SYM_EQ])
+        \\ simp [WORD_AND_COMM,word_and_lsl_eq_0,w2n_n2w,dimword_def])
+  \\ asm_rewrite_tac []
+  \\ simp [WORD_MUL_LSL,word_mul_n2w,word_add_n2w,w2n_n2w]
+QED
+
+Theorem word_or_swap[local]:
+  (a:'a word) ‖ b ‖ c = b ‖ a ‖ c
+Proof
+  metis_tac [WORD_OR_ASSOC,WORD_OR_COMM]
+QED
+
 val s = ``s:('c,'ffi)dataSem$state``;
 
 val _ = numSimps.clear_arith_caches();
@@ -2081,7 +2113,7 @@ Proof
           fs [LENGTH_REPLICATE,X_LT_DIV,multiwordTheory.i2mw_def]
     \\ simp [DIV_MULT |> ONCE_REWRITE_RULE [MULT_COMM]]
     \\ simp [MULT_DIV |> ONCE_REWRITE_RULE [MULT_COMM]] \\ NO_TAC)
-  \\ disch_then (qspecl_then [`SND (i2mw v):'a word list`,`new_header`] mp_tac)
+  \\ disch_then (qspecl_then [`SND (i2mw v):'a word list`,`w2n new_header`] mp_tac)
   \\ impl_tac THEN1
    (fs [LENGTH_REPLICATE]
     \\ full_simp_tac std_ss [encode_header_def,multiwordTheory.i2mw_def]
@@ -2094,7 +2126,41 @@ Proof
       \\ simp_tac std_ss [mc_multiwordTheory.mc_header_AND_1]
       \\ Cases_on `v < 0i` \\ asm_rewrite_tac [] \\ EVAL_TAC \\ NO_TAC)
     \\ asm_rewrite_tac []
-    \\ reverse conj_tac THEN1 simp [WORD_MUL_LSL]
+    \\ reverse conj_tac THEN1
+     (`(b2w (v < 0) ≪ 4 ‖ 15w:'a word) =
+        n2w (4 * w2n (b2w (v < 0) ≪ 2 ‖ 3w:'a word) + 3)` by
+        (Cases_on `v < 0i`
+         \\ fs [b2w_def,WORD_MUL_LSL,word_or_n2w,w2n_n2w,
+                good_dimindex_def,dimword_def]
+         \\ EVAL_TAC)
+      \\ once_rewrite_tac [word_or_swap]
+      \\ asm_rewrite_tac []
+      \\ `LENGTH (n2mw (Num (ABS v))) < 2 ** c.len_size` by fs []
+      \\ `w2n (b2w (v < 0) ≪ 2 ‖ 3w:'a word) < 8` by
+           (Cases_on `v < 0i`
+            \\ fs [b2w_def,WORD_MUL_LSL,word_or_n2w,w2n_n2w,
+                   good_dimindex_def,dimword_def]
+            \\ EVAL_TAC)
+      \\ `5 <= dimindex (:α) - c.len_size` by decide_tac
+      \\ `2 ** 5 <= 2 ** (dimindex (:α) - c.len_size)` by
+           (irule bitTheory.TWOEXP_MONO2 \\ decide_tac)
+      \\ `4 * w2n (b2w (v < 0) ≪ 2 ‖ 3w:'a word) + 3 <
+          2 ** (dimindex (:α) - c.len_size)` by
+           (match_mp_tac LESS_LESS_EQ_TRANS
+            \\ qexists_tac `2 ** 5`
+            \\ conj_tac
+            >- (fs [EVAL ``2 ** 5``] \\ decide_tac)
+            \\ fs [])
+      \\ qsuff_tac `w2n
+            (n2w (LENGTH (n2mw (Num (ABS v)):'a word list)) ≪
+              (dimindex (:α) - c.len_size) ‖
+             n2w (4 * w2n (b2w (v < 0) ≪ 2 ‖ 3w:'a word) + 3):'a word) =
+          LENGTH (n2mw (Num (ABS v)):'a word list) *
+            2 ** (dimindex (:α) - c.len_size) +
+          (4 * w2n (b2w (v < 0) ≪ 2 ‖ 3w:'a word) + 3)`
+      >- (strip_tac \\ asm_rewrite_tac [] \\ decide_tac)
+      \\ irule header_or_word
+      \\ fs [])
     \\ rpt strip_tac THEN1
      (match_mp_tac LESS_LESS_EQ_TRANS
       \\ qexists_tac `2 ** 3` \\ simp []
@@ -2135,6 +2201,7 @@ Proof
   \\ fs [join_env_def] \\ rw [] \\ fs [FAPPLY_FUPDATE_THM]
   \\ print_tac "AnyArith_thm: done"
 QED
+
 
 val _ = numSimps.clear_arith_caches();
 

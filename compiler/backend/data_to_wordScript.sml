@@ -7,7 +7,7 @@
 *)
 Theory data_to_word
 Ancestors
-  wordLang dataLang word_to_word multiword word_bignum
+  asm wordLang dataLang word_to_word multiword word_bignum
   backend_common[qualified] word_depth[qualified]
 Libs
   preamble
@@ -27,6 +27,7 @@ Datatype:
             ; len_bits : num (* in each pointer *)
             ; pad_bits : num (* in each pointer *)
             ; len_size : num (* size of length field in block header *)
+            ; arch_width : asm$arch_width
             ; has_div : bool (* Div available in target *)
             ; has_longdiv : bool (* LongDiv available in target *)
             ; has_fp_ops : bool (* can compile floating-point ops *)
@@ -64,9 +65,9 @@ Definition BignumHalt_def:
 End
 
 Definition make_header_def:
-  make_header conf tag len =
-    let l = dimindex (:'a) - conf.len_size in
-      (n2w len << l || tag << 2 || 3w:'a word)
+  make_header conf (tag:num) (len:num) =
+    let l = arch_width_bits conf.arch_width - conf.len_size in
+      len * 2 ** l + tag * 4 + 3
 End
 
 Definition tag_mask_def:
@@ -77,11 +78,11 @@ End
 
 Definition encode_header_def:
   encode_header (conf:data_to_word$config) tag len =
-    if tag < 2 ** (dimindex (:'a) - conf.len_size - 2) /\
-       tag < dimword (:'a) DIV 16 /\
-       len < 2 ** (dimindex (:'a) - 4) /\
+    if tag < 2 ** (arch_width_bits conf.arch_width - conf.len_size - 2) /\
+       tag < 2 ** arch_width_bits conf.arch_width DIV 16 /\
+       len < 2 ** (arch_width_bits conf.arch_width - 4) /\
        len < 2 ** conf.len_size
-    then SOME ((make_header conf (n2w tag) len):'a word)
+    then SOME (make_header conf tag len)
     else NONE
 End
 
@@ -108,7 +109,7 @@ End
 
 Definition conf_ok_def:
   conf_ok (bits:num) c <=>
-    shift_length c < bits ∧
+    arch_width_bits c.arch_width = bits ∧ shift_length c < bits ∧
     shift bits ≤ shift_length c ∧ c.len_size ≠ 0 ∧
     c.len_size + 9 < bits
 End
@@ -514,7 +515,7 @@ Definition RefArray_code_def:
            (* compute header *)
            Assign 5 (Op Or [ShiftN Lsl (Var 2)
                               (dimindex (:'a) − c.len_size - 1);
-                            Const (make_header c 2w 0)]);
+                            Const (n2w (make_header c 2 0))]);
            (* store header *)
            Store (Var 1) 5;
            Call NONE (SOME Replicate_location)
@@ -867,13 +868,13 @@ Definition Append_code_def:
   Append_code c =
     (case encode_header c 0 2 of
      | NONE => Skip  :'a wordLang$prog
-     | SOME (header:'a word) =>
+     | SOME header =>
         If Test 4 (Imm 1) (Return 0 [2])
           (list_Seq
             [Set (Temp 0w) (Var 2);
              Set (Temp 1w) (Var 4);
              Assign 1 (Lookup NextFree);
-             Assign 3 (Const header);
+             Assign 3 (Const (n2w header));
              Assign 5 (Op Sub [Lookup TriggerGC; Var 1]);
              Assign 7 (Op Or [ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
                                    (shift_length c − shift (dimindex (:'a)));
@@ -987,10 +988,10 @@ End
 
 Definition WriteWord64_def:
   (* also works for storing bignums of length 1 *)
-  WriteWord64 c (header:'a word) dest i =
+  WriteWord64 c (header:num) dest i =
     list_Seq [Assign 1 (Lookup NextFree);
               Store (Op Add [Var 1; Const bytes_in_word]) i;
-              Assign 3 (Const header);
+              Assign 3 (Const (n2w header));
               Store (Var 1) 3;
               Set NextFree (Op Add [Var 1; Const (2w * bytes_in_word)]);
               Assign (adjust_var dest)
@@ -1000,11 +1001,11 @@ Definition WriteWord64_def:
 End
 
 Definition WriteWord64_on_32_def:
-  WriteWord64_on_32 c (header:'a word) dest i1 i2 =
+  WriteWord64_on_32 c (header:num) dest i1 i2 =
     list_Seq [Assign 1 (Lookup NextFree);
               Store (Op Add [Var 1; Const bytes_in_word]) i2;
               Store (Op Add [Var 1; Const (2w * bytes_in_word)]) i1;
-              Assign 3 (Const header);
+              Assign 3 (Const (n2w header));
               Store (Var 1) 3;
               Set NextFree (Op Add [Var 1; Const (3w * bytes_in_word)]);
               Assign (adjust_var dest)
@@ -1018,7 +1019,7 @@ Definition WriteWord32_on_32_def:
      list_Seq
        [Assign 1 (Lookup NextFree);
         Store (Op Add [Var 1; Const bytes_in_word]) i1;
-        Assign 3 (Const header); Store (Var 1) 3;
+        Assign 3 (Const (n2w header)); Store (Var 1) 3;
         Set NextFree (Op Add [Var 1; Const (2w * bytes_in_word)]);
         Assign (adjust_var dest)
           (Op Or
@@ -1316,9 +1317,9 @@ val def = assign_Define `
        | Evaluated =>
            (case encode_header c (8 + 6) 1 of
             | NONE => (GiveUp,l)
-            | SOME (header:'a word) => (list_Seq
+            | SOME header => (list_Seq
                 [Assign 1 (real_addr c (adjust_var v1));
-                 Assign 3 (Const header);
+                 Assign 3 (Const (n2w header));
                  Store (Var 1) 3;
                  Store (Op Add [Var 1; Const bytes_in_word]) (adjust_var v2);
                  Assign (adjust_var dest) Unit],l)))
@@ -1353,7 +1354,7 @@ val def = assign_Define `
             (secn:num) (l:num) (dest:num) (names:num_set option) v1 v2 =
          (case encode_header c 0 2 of
           | NONE => (GiveUp,l)
-          | SOME (header:'a word) =>
+          | SOME header =>
            (MustTerminate
              (Call (SOME ([adjust_var dest],adjust_sets (get_names names),Skip,secn,l))
                 (SOME Append_location)
@@ -1370,9 +1371,9 @@ val def = assign_Define `
                   else
                     (case encode_header c (4 * tag) (LENGTH args) of
                      | NONE => (GiveUp,l)
-                     | SOME (header:'a word) => (list_Seq
+                     | SOME header => (list_Seq
                         [Assign 1 (Lookup NextFree);
-                         Assign 3 (Const header);
+                         Assign 3 (Const (n2w header));
                          StoreEach 1 (3::MAP adjust_var args) 0w;
                          Assign (adjust_var dest)
                            (Op Or [ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
@@ -1450,11 +1451,11 @@ Definition byte_len_def:
 End
 
 Definition make_byte_header_def:
-  make_byte_header conf cmp_by_contents len =
-  let tag = if cmp_by_contents then 0b00111w else 0b10111w in
-    (if dimindex (:'a) = 32
-     then n2w (len + 4) << (dimindex (:α) - 2 - conf.len_size) || tag
-     else n2w (len + 8) << (dimindex (:α) - 3 - conf.len_size) || tag):'a word
+  make_byte_header conf cmp_by_contents (len:num) =
+  let tag = if cmp_by_contents then 7 else 23 in
+    if conf.arch_width = Arch32
+    then (len + 4) * 2 ** (arch_width_bits conf.arch_width - 2 - conf.len_size) + tag
+    else (len + 8) * 2 ** (arch_width_bits conf.arch_width - 3 - conf.len_size) + tag
 End
 
 Definition get_lowerbits_def:
@@ -1494,7 +1495,7 @@ Definition part_to_words_def:
             case encode_header c (if sign then 7 else 3) (LENGTH ws) of
             | NONE => NONE
             | SOME hd => SOME ((T,(make_ptr c offset (0w:'a word) (LENGTH ws))),
-                               MAP (λw. (F,Word w)) (hd::ws))) ∧
+                               (F,Word (n2w hd))::MAP (λw. (F,Word w)) ws)) ∧
   part_to_words c m (closLang$Con t ns) (offset:'a word) =
     (if NULL ns then
        if t < dimword (:'a) DIV 4
@@ -1505,7 +1506,7 @@ Definition part_to_words_def:
        | SOME hd => SOME ((T,Word
                               (offset ≪ (shift_length c − shift (dimindex (:α))) +
                                (ptr_bits c t (LENGTH ns) ‖ 1w))),
-                          (F,Word hd)::(MAP (lookup_mem m) ns))) ∧
+                          (F,Word (n2w hd))::(MAP (lookup_mem m) ns))) ∧
   part_to_words c m (W64 w) offset =
     (let ws = (if dimindex (:α) < 64
                then [((63 >< 32) w); ((31 >< 0) w)]
@@ -1513,7 +1514,7 @@ Definition part_to_words_def:
        case encode_header c 3 (LENGTH ws) of
        | NONE => NONE
        | SOME hd => SOME ((T,(make_ptr c offset (0w:'a word) (LENGTH ws))),
-                          MAP (λw. (F,Word w)) (hd::ws))) ∧
+                          (F,Word (n2w hd))::MAP (λw. (F,Word w)) ws)) ∧
   part_to_words c m (Str s) offset =
     (let bytes = MAP (n2w o ORD) (explode s) in
      let n = LENGTH bytes in
@@ -1522,7 +1523,7 @@ Definition part_to_words_def:
      let ws = write_bytes bytes (REPLICATE k 0w) c.be in
        if k < 2 ** (dimindex (:α) − 4) ∧ k < 2 ** c.len_size
        then SOME ((T,(make_ptr c offset (0w:'a word) k)),
-                  MAP (λw. (F,Word w)) (hd::ws))
+                  (F,Word (n2w hd))::MAP (λw. (F,Word w)) ws)
        else NONE)
 End
 
@@ -1577,7 +1578,7 @@ val def = assign_Define `
                    Assign 1 (Var (adjust_var tot));
                    AllocVar c limit (list_insert args (get_names names));
                    Assign 1 (Lookup NextFree);
-                   Assign 5 (Op Or [h; Const header]);
+                   Assign 5 (Op Or [h; Const (n2w header)]);
                    Assign 7 (ShiftN Lsr (Var (adjust_var tot)) 1);
                    Assign 9 (Const (n2w tag));
                    StoreEach 1 (5::MAP adjust_var rest) 0w;
@@ -1603,13 +1604,13 @@ val def = assign_Define `
              (l:num) (dest:num) (names:num_set option) args =
           (case encode_header c 2 (LENGTH args) of
               | NONE => (GiveUp,l)
-              | SOME (header:'a word) => (list_Seq
+              | SOME header => (list_Seq
                  [Set TriggerGC (Op Sub [Lookup TriggerGC;
                      Const (bytes_in_word * n2w (LENGTH args + 1))]);
                   Assign 1 (Op Sub [Lookup EndOfHeap;
                      Const (bytes_in_word * n2w (LENGTH args + 1))]);
                   Set EndOfHeap (Var 1);
-                  Assign 3 (Const header);
+                  Assign 3 (Const (n2w header));
                   StoreEach 1 (3::MAP adjust_var args) 0w;
                   Assign (adjust_var dest)
                     (Op Or [ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
@@ -1625,13 +1626,13 @@ val def = assign_Define `
                          | NotEvaluated => 0 + 6) in
            case encode_header c tag 1 of
               | NONE => (GiveUp,l)
-              | SOME (header:'a word) => (list_Seq
+              | SOME header => (list_Seq
                  [Set TriggerGC (Op Sub [Lookup TriggerGC;
                      Const (bytes_in_word * 2w)]);
                   Assign 1 (Op Sub [Lookup EndOfHeap;
                      Const (bytes_in_word * 2w)]);
                   Set EndOfHeap (Var 1);
-                  Assign 3 (Const header);
+                  Assign 3 (Const (n2w header));
                   StoreEach 1 [3; adjust_var arg] 0w;
                   Assign (adjust_var dest)
                     (Op Or [ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
@@ -1748,7 +1749,7 @@ val def = assign_Define `
 val def = assign_Define `
   assign_FromList (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) tag v1 v2 =
-       if encode_header c (4 * tag) 0 = (NONE:'a word option) then (GiveUp,l) else
+       if encode_header c (4 * tag) 0 = (NONE:num option) then (GiveUp,l) else
          (MustTerminate (list_Seq [
             Assign 1 (Const (n2w (16 * tag)));
             (Call (SOME ([adjust_var dest],adjust_sets (get_names names),Skip,secn,l))
@@ -1964,7 +1965,7 @@ val def = assign_Define `
                                [Assign 1 (Const 0w);
                                 If Test (adjust_var v1) (Imm 1) Skip
                                   (Assign 1 (Load (real_addr c (adjust_var v1))));
-                                If Equal 1 (Imm (w2i (h:'a word)))
+                                If Equal 1 (Imm (w2i (n2w h:'a word)))
                                   (Assign (adjust_var dest) TRUE_CONST)
                                   (Assign (adjust_var dest) FALSE_CONST)],l))
       : 'a wordLang$prog # num`;
@@ -2142,7 +2143,7 @@ val def = assign_Define `
        (if dimindex(:'a) = 64 then
          (case encode_header c 3 1 of
           | NONE => (GiveUp,l)
-          | SOME (header:'a word) =>
+          | SOME header =>
                 (Seq (Assign 3
                   (Op (case opw of
                           Andw => And
@@ -2207,7 +2208,7 @@ val def = assign_Define `
          let len = if dimindex(:'a) < 64 then 2 else 1 in
          (case encode_header c 3 len of
           | NONE => (GiveUp,l)
-          | SOME (header:'a word) =>
+          | SOME header =>
             (if len = 1 then
                list_Seq
                  [LoadWord64 c 3 (adjust_var v1);
@@ -2237,7 +2238,7 @@ val def = assign_Define `
              (l:num) (dest:num) (names:num_set option) v1 v2 =
          ((case encode_header c 3 (if dimindex(:'a) < 64 then 2 else 1) of
           | NONE => GiveUp
-          | SOME (header:'a word) =>
+          | SOME header =>
             if dimindex(:'a) < 64 then
               list_Seq [
                 Assign 15 (real_addr c (adjust_var v1));
@@ -2288,7 +2289,7 @@ val def = assign_Define `
         let len = if dimindex(:'a) < 64 then 2 else 1 in
         (case encode_header c 3 len of
          | NONE => (GiveUp,l)
-         | SOME (header:'a word) =>
+         | SOME header =>
            (if len = 1 then
              Seq
                (* put the word value into 3 *)
@@ -2483,7 +2484,7 @@ val def = assign_Define `
         if dimindex(:'a) = 64 then
          (case encode_header c 3 1 of
           | NONE => (GiveUp,l)
-          | SOME (header:'a word) =>
+          | SOME header =>
             (list_Seq [
                Assign 3 (Load (Op Add
                            [real_addr c (adjust_var v1); Const bytes_in_word]));
@@ -2526,7 +2527,7 @@ val def = assign_Define `
         if dimindex(:'a) = 64 then
          (case encode_header c 3 1 of
           | NONE => (GiveUp,l)
-          | SOME (header:'a word) =>
+          | SOME header =>
             (list_Seq [
                Assign 3 (Load (Op Add
                            [real_addr c (adjust_var v1); Const bytes_in_word]));
@@ -2562,7 +2563,7 @@ val def = assign_Define `
         if dimindex(:'a) = 64 then
          (case encode_header c 3 1 of
           | NONE => (GiveUp,l)
-          | SOME (header:'a word) =>
+          | SOME header =>
             (list_Seq [
                Assign 3 (Load (Op Add
                            [real_addr c (adjust_var v1); Const bytes_in_word]));
@@ -2676,7 +2677,7 @@ Definition force_thunk_def:
   force_thunk (c:data_to_word$config) secn (l:num) ret loc v1 =
     (case encode_header c (8 + 6) 1 of
      | NONE => (GiveUp,l)
-     | SOME (header:'a word) =>
+     | SOME header =>
      If Test (adjust_var v1) (Imm 1)
        (case ret of
         | NONE => Return 0 [adjust_var v1]
