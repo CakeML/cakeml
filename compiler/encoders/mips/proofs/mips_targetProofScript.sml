@@ -3,7 +3,7 @@
 *)
 Theory mips_targetProof
 Ancestors
-  mips_target
+  mips_target asmSigned
 Libs
   realLib asmLib mips_stepLib
 
@@ -583,6 +583,42 @@ Proof
   blastLib.FULL_BBLAST_TAC
 QED
 
+Theorem register_pair_update_64[local]:
+  rq < 32 /\ rr < 32 /\ rq <> rr /\
+  (!i. i < 32 /\ mips_reg_ok i ==>
+       (src : num -> word64) i = (dst : word5 -> word64) (n2w i)) ==>
+  !i. i < 32 /\ mips_reg_ok i ==>
+      ((rq =+ quotient) ((rr =+ remainder) src)) i =
+      ((n2w rr =+ remainder) ((n2w rq =+ quotient) dst)) (n2w i)
+Proof
+  rpt strip_tac
+  \\ rw [combinTheory.APPLY_UPDATE_THM, wordsTheory.n2w_11]
+QED
+
+Theorem signed_mul_flag_64[local]:
+  (v2w [((a * b : word64) >> 63 ??
+           (127 >< 64) ((sw2sw a : word128) * sw2sw b)) <> 0w] : word64) =
+  if w2i (a * b) <> w2i a * w2i b then 1w else 0w
+Proof
+  `!lo hi : word64. (lo ?? hi = 0w) <=> hi = lo` by
+    blastLib.BBLAST_TAC
+  \\ simp [asmSignedTheory.signed_mul_high_64, bitstringTheory.v2w_thm]
+QED
+
+Theorem register_pair_update_scratch_64[local]:
+  rd < 32 /\ ro < 32 /\
+  (!i. i < 32 /\ mips_reg_ok i ==>
+       (src : num -> word64) i = (dst : word5 -> word64) (n2w i)) ==>
+  !i. i < 32 /\ mips_reg_ok i ==>
+      ((ro =+ flag) ((rd =+ product) src)) i =
+      ((n2w ro =+ flag) ((1w =+ scratch)
+        ((n2w ro =+ high) ((n2w rd =+ product) dst)))) (n2w i)
+Proof
+  rpt strip_tac
+  \\ fs [mips_reg_ok_def, mips_config_def]
+  \\ rw [combinTheory.APPLY_UPDATE_THM, wordsTheory.n2w_11]
+QED
+
 Theorem mips_encoder_correct:
     encoder_correct mips_target
 Proof
@@ -668,16 +704,14 @@ Resume mips_encoder_correct[Const64State]:
          DECIDE ``~(n < 32n) ==> (n - 32 + 32 = n)``]
   \\ NO_STRIP_FULL_SIMP_TAC (srw_ss())
        [gt_not_leq, alignmentTheory.aligned_extract, EVAL ``mips_reg_ok 30``]
-  \\ suspend "Const64Bits"
-QED
-
-Resume mips_encoder_correct[Const64Bits]:
-  POP_ASSUM_LIST (K all_tac)
+  \\ POP_ASSUM_LIST (K all_tac)
   \\ blastLib.BBLAST_TAC
 QED
 
 Resume mips_encoder_correct[Arith]:
   Cases_on `a`
+  >~ [`asm$IMul rd ra rb ro`] >- suspend "IMul"
+  >~ [`asm$IDiv rq rr ra rb`] >- suspend "IDiv"
   >- suspend "Binop"
   >- suspend "Shift"
   >- suspend "Div"
@@ -686,6 +720,93 @@ Resume mips_encoder_correct[Arith]:
   >- suspend "AddCarry"
   >- suspend "AddOverflow"
   >- suspend "SubOverflow"
+QED
+
+Resume mips_encoder_correct[IMul]:
+  next_tac_with (fn _ => all_tac)
+  \\ NO_STRIP_FULL_SIMP_TAC (srw_ss())
+    [asmPropsTheory.all_pcs, mips_ok_def, asmPropsTheory.sym_target_state_rel,
+     mips_target_def, mips_config, alignmentTheory.aligned_numeric,
+     set_sepTheory.fun2set_eq, mips_reg_ok, lem8, lem9, lem9b, fcc_lem,
+     wordsTheory.WORD_EXTRACT_OVER_MUL, asmSignedTheory.signed_low_64]
+  \\ rpt conj_tac
+  >- (
+    gen_tac \\ disch_tac
+    \\ qpat_x_assum `!a. a IN s1.mem_domain ==> (env 0 _).MEM a = ms.MEM a`
+         (qspec_then `pc` match_mp_tac)
+    \\ qpat_x_assum `!i:num state:mips_state. _` kall_tac
+    \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> _` kall_tac)
+    \\ fs [])
+  >- (
+    gen_tac \\ disch_tac
+    \\ qpat_x_assum `!a. a IN s1.mem_domain ==> (env 1 _).MEM a = ms.MEM a`
+         (qspec_then `pc` match_mp_tac)
+    \\ qpat_x_assum `!i:num state:mips_state. _` kall_tac
+    \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> _` kall_tac)
+    \\ fs [])
+  >- (
+    gen_tac \\ disch_tac
+    \\ qpat_x_assum `!a. a IN s1.mem_domain ==> (env 2 _).MEM a = ms.MEM a`
+         (qspec_then `pc` match_mp_tac)
+    \\ qpat_x_assum `!i:num state:mips_state. _` kall_tac
+    \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> _` kall_tac)
+    \\ fs [])
+  >- (
+    gen_tac \\ disch_tac
+    \\ qpat_x_assum `!a. a IN s1.mem_domain ==> (env 3 _).MEM a = ms.MEM a`
+         (qspec_then `pc` match_mp_tac)
+    \\ qpat_x_assum `!i:num state:mips_state. _` kall_tac
+    \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> _` kall_tac)
+    \\ fs [])
+  >- (
+    gen_tac \\ disch_tac
+    \\ qpat_x_assum `!a. a IN s1.mem_domain ==> (env 4 _).MEM a = ms.MEM a`
+         (qspec_then `pc` match_mp_tac)
+    \\ qpat_x_assum `!i:num state:mips_state. _` kall_tac
+    \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> _` kall_tac)
+    \\ fs [])
+  \\ rewrite_tac [signed_mul_flag_64, combinTheory.APPLY_UPDATE_THM]
+  \\ match_mp_tac (REWRITE_RULE [combinTheory.APPLY_UPDATE_THM]
+                    register_pair_update_scratch_64)
+  \\ asm_rewrite_tac []
+  \\ rpt strip_tac \\ simp []
+QED
+
+Resume mips_encoder_correct[IDiv]:
+  `ms.gpr (n2w rb) <> 0w` by (
+    qpat_assum `target_state_rel mips_target s1 ms`
+      (assume_tac o MATCH_MP lem5)
+    \\ qpat_x_assum `~(asm _ _ _).failed` mp_tac
+    \\ fs (integer_wordTheory.w2i_eq_0 :: enc_rwts))
+  \\ next_tac_with (fn _ => all_tac)
+  \\ NO_STRIP_FULL_SIMP_TAC (srw_ss())
+    [asmPropsTheory.all_pcs, mips_ok_def, asmPropsTheory.sym_target_state_rel,
+     mips_target_def, mips_config, alignmentTheory.aligned_numeric,
+     set_sepTheory.fun2set_eq, mips_reg_ok, lem8, lem9, lem9b, fcc_lem]
+  \\ rpt conj_tac
+  >- (
+    gen_tac \\ disch_tac
+    \\ qpat_x_assum `!a. a IN s1.mem_domain ==> (env 0 _).MEM a = ms.MEM a`
+         (qspec_then `pc` match_mp_tac)
+    \\ fs [])
+  >- (
+    gen_tac \\ disch_tac
+    \\ qpat_x_assum `!a. a IN s1.mem_domain ==> (env 1 _).MEM a = ms.MEM a`
+         (qspec_then `pc` match_mp_tac)
+    \\ fs [])
+  \\ qpat_assum `(ms.gpr (n2w rb) : word64) <> 0w` (fn nz =>
+    rewrite_tac
+      [MATCH_MP (Q.ISPECL [`(ms : mips_state).gpr (n2w ra)`,
+                          `(ms : mips_state).gpr (n2w rb)`]
+                    integer_wordTheory.word_quot) nz,
+       MATCH_MP (Q.ISPECL [`(ms : mips_state).gpr (n2w ra)`,
+                          `(ms : mips_state).gpr (n2w rb)`]
+                    integer_wordTheory.word_rem) nz])
+  \\ rewrite_tac [combinTheory.APPLY_UPDATE_THM]
+  \\ match_mp_tac (REWRITE_RULE [combinTheory.APPLY_UPDATE_THM]
+                    register_pair_update_64)
+  \\ asm_rewrite_tac []
+  \\ rpt strip_tac \\ simp []
 QED
 
 Resume mips_encoder_correct[Binop]:

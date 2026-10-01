@@ -3,7 +3,7 @@
 *)
 Theory riscv_targetProof
 Ancestors
-  riscv_target
+  riscv_target asmSigned
 Libs
   asmLib riscv_stepLib
 
@@ -450,7 +450,7 @@ local
      ``aligned 2 w ==> ¬word_bit 0 (w:word64)``,
      fs [alignmentTheory.aligned_bitwise_and] \\ blastLib.BBLAST_TAC)
 in
-  fun next_tac gs =
+  fun next_tac_with finish gs =
     let
       val asm = get_asm (snd gs)
     in
@@ -458,8 +458,9 @@ in
       \\ next_tac_by_instructions
       \\ imp_res_tac aligned_imp_bit_0
       \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
-      \\ state_tac asm
+      \\ finish asm
     end gs
+  val next_tac = next_tac_with state_tac
   fun jc_next_tac c =
     NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
     \\ Cases_on c
@@ -559,6 +560,26 @@ Proof
   blastLib.FULL_BBLAST_TAC
 QED
 
+Theorem signed_mul_sltu_64[local]:
+  (v2w [0w <+ ((a * b : word64) >> 63 ??
+                  (127 >< 64) ((sw2sw a : word128) * sw2sw b))] : word64) =
+  if w2i (a * b) <> w2i a * w2i b then 1w else 0w
+Proof
+  `!lo hi : word64. (lo ?? hi = 0w) <=> hi = lo` by
+    blastLib.BBLAST_TAC
+  \\ simp [wordsTheory.WORD_LO_word_0,
+           asmSignedTheory.signed_mul_high_64, bitstringTheory.v2w_thm]
+QED
+
+Theorem riscv_reg_read_64[local]:
+  target_state_rel riscv_target s ms ==>
+  !r. reg_ok r riscv_config ==>
+      s.regs r = ms.c_gpr ms.procID (n2w r)
+Proof
+  rw [asmPropsTheory.sym_target_state_rel, riscv_target_def,
+      asmTheory.reg_ok_def]
+QED
+
 Theorem riscv_encoder_correct:
     encoder_correct riscv_target
 Proof
@@ -579,12 +600,11 @@ QED
 
 Resume riscv_encoder_correct[Inst]:
   Cases_on `i'`
-      >- suspend "Skip"
-      >- suspend "Const"
-      >- suspend "Arith"
-         >- suspend "Mem"
-
-         \\ suspend "FP"
+  >- suspend "Skip"
+  >- suspend "Const"
+  >- suspend "Arith"
+  >- suspend "Mem"
+  >- suspend "FP"
 QED
 
 Resume riscv_encoder_correct[Skip]:
@@ -608,6 +628,8 @@ QED
 
 Resume riscv_encoder_correct[Arith]:
   Cases_on `a`
+  >~ [`asm$IMul rd ra rb ro`] >- suspend "IMul"
+  >~ [`asm$IDiv rq rr ra rb`] >- suspend "IDiv"
          >- suspend "Binop"
          >- suspend "Shift"
          >- suspend "Div"
@@ -616,6 +638,84 @@ Resume riscv_encoder_correct[Arith]:
          >- suspend "AddCarry"
          >- suspend "AddOverflow"
          >- suspend "SubOverflow"
+QED
+
+Resume riscv_encoder_correct[IMul]:
+  next_tac_with (fn _ => all_tac)
+  \\ assume_tac (Q.ISPECL [`ms.c_gpr ms.procID (n2w ra)`,
+                           `ms.c_gpr ms.procID (n2w rb)`]
+                          (GEN_ALL signed_mul_sltu_64))
+  \\ state_tac ``Inst (Arith (IMul rd ra rb ro)) : asm``
+  \\ qpat_x_assum `w2i _ * w2i _ <> w2i _ * w2i _`
+       (CONTR_TAC o SIMP_RULE std_ss [integerTheory.INT_MUL_COMM])
+QED
+
+Resume riscv_encoder_correct[IDiv]:
+  `ms.c_gpr ms.procID (n2w rb) <> 0w` by (
+    qpat_x_assum `~(asm _ _ _).failed` mp_tac
+    \\ simp (integer_wordTheory.w2i_eq_0 :: asmLib.asm_rwts)
+    \\ rpt strip_tac
+    \\ qpat_x_assum `w2i (i2w _) = _` kall_tac
+    \\ qpat_x_assum `bytes_in_memory _ _ _ _` kall_tac
+    \\ qpat_assum `target_state_rel riscv_target s1 ms`
+         (assume_tac o Q.SPEC `rb` o MATCH_MP riscv_reg_read_64)
+    \\ qpat_assum `asm_ok _ _`
+         (strip_assume_tac o REWRITE_RULE
+           [asmTheory.asm_ok_def, asmTheory.inst_ok_def, asmTheory.arith_ok_def])
+    \\ qpat_x_assum `reg_ok rb riscv_config ==> _` (fn eq =>
+         qpat_assum `reg_ok rb riscv_config` (mp_tac o MATCH_MP eq))
+    \\ asm_rewrite_tac [])
+  \\ Cases_on `rq = ra \/ rq = rb`
+  >- (
+    NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
+    \\ qpat_x_assum `w2i (i2w _) = _ /\ _` strip_assume_tac
+    \\ qpat_x_assum `w2i (i2w _) = _` kall_tac
+    \\ qpat_x_assum `rq = ra \/ rq = rb` kall_tac
+    \\ qexists_tac `2`
+    \\ simp [asmPropsTheory.asserts_eval, asmPropsTheory.asserts2_eval,
+             set_sepTheory.fun2set_eq, asmPropsTheory.interference_ok_def,
+             riscv_proj_def]
+    \\ NTAC 2 strip_tac
+    \\ drule bytes_in_memory_IMP_all_pcs_MEM8
+    \\ disch_then (qspec_then `env` mp_tac)
+    \\ simp []
+    \\ strip_tac
+    \\ NTAC 2 (split_bytes_in_memory_tac 4)
+    \\ next_state_tac
+    \\ next_state_tac
+    \\ next_state_tac
+    \\ qpat_assum `ms.c_gpr ms.procID (n2w rb) <> 0w` (fn nz =>
+         MAP_EVERY assume_tac
+           (map (fn th => MATCH_MP
+             (Q.ISPECL [`ms.c_gpr ms.procID (n2w ra)`,
+                        `ms.c_gpr ms.procID (n2w rb)`] th) nz)
+             [integer_wordTheory.word_quot, integer_wordTheory.word_rem]))
+    \\ state_tac ``Inst (Arith (IDiv rq rr ra rb)) : asm``)
+  \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
+  \\ qpat_x_assum `w2i (i2w _) = _ /\ _` strip_assume_tac
+  \\ qpat_x_assum `w2i (i2w _) = _` kall_tac
+  \\ qexists_tac `1`
+  \\ simp_tac (srw_ss()++boolSimps.LET_ss)
+       [asmPropsTheory.asserts_eval, asmPropsTheory.asserts2_eval,
+        set_sepTheory.fun2set_eq, asmPropsTheory.interference_ok_def,
+        riscv_proj_def]
+  \\ NTAC 2 strip_tac
+  \\ qpat_assum `!i st. _ /\ _` (fn th =>
+       assume_tac (GENL (fst (strip_forall (concl th)))
+         (CONJUNCT1 (funpow 5 CONJUNCT2 (SPEC_ALL th)))))
+  \\ qpat_assum `bytes_in_memory _ _ _ _` (fn bytes =>
+    qpat_assum `!i st a. a IN s1.mem_domain ==> _`
+      (assume_tac o MATCH_MP bytes_in_memory_IMP_all_pcs_MEM8 o CONJ bytes))
+  \\ split_bytes_in_memory_tac 4
+  \\ next_state_tac
+  \\ next_state_tac
+  \\ qpat_assum `ms.c_gpr ms.procID (n2w rb) <> 0w` (fn nz =>
+       MAP_EVERY assume_tac
+         (map (fn th => MATCH_MP
+           (Q.ISPECL [`ms.c_gpr ms.procID (n2w ra)`,
+                      `ms.c_gpr ms.procID (n2w rb)`] th) nz)
+           [integer_wordTheory.word_quot, integer_wordTheory.word_rem]))
+  \\ state_tac ``Inst (Arith (IDiv rq rr ra rb)) : asm``
 QED
 
 Resume riscv_encoder_correct[Binop]:
@@ -782,16 +882,16 @@ Resume riscv_encoder_correct[JumpCmp]:
        (qunabbrev_tac `c0`
         \\ irule (CONJUNCT2 branch_offset_i2w)
         \\ fs (riscv_config :: asmLib.asm_ok_rwts))
-  \\   print_tac "JumpCmp"
-      \\ Cases_on `-0xFFCw <= c0 /\ c0 <= 0xFFFw`
-      >- suspend "CmpSmall"
-      \\ suspend "CmpLarge"
+  \\ print_tac "JumpCmp"
+  \\ Cases_on `-0xFFCw <= c0 /\ c0 <= 0xFFFw`
+  >~ [`~(-0xFFCw <= _ /\ _ <= 0xFFFw)`] >- suspend "CmpLarge"
+  >~ [`-0xFFCw <= _ /\ _ <= 0xFFFw`] >- suspend "CmpSmall"
 QED
 
 Resume riscv_encoder_correct[CmpSmall]:
   Cases_on `r`
-  >- suspend "CmpSmallReg"
-  \\ suspend "CmpSmallImm"
+  >~ [`asm$Reg _`] >- suspend "CmpSmallReg"
+  >~ [`asm$Imm _`] >- suspend "CmpSmallImm"
 QED
 
 Resume riscv_encoder_correct[CmpSmallReg]:
@@ -887,8 +987,8 @@ QED
 
 Resume riscv_encoder_correct[CmpLarge]:
   Cases_on `r`
-  >- suspend "CmpLargeReg"
-  \\ suspend "CmpLargeImm"
+  >~ [`asm$Reg _`] >- suspend "CmpLargeReg"
+  >~ [`asm$Imm _`] >- suspend "CmpLargeImm"
 QED
 
 Resume riscv_encoder_correct[CmpLargeReg]:

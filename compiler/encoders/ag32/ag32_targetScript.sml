@@ -107,6 +107,8 @@ Definition ag32_enc_def:
         [Normal (fMulHU, n2w r1, Reg (n2w r3), Reg (n2w r4));
          Normal (fMul, n2w r2, Reg (n2w r3), Reg (n2w r4))]) /\
    (ag32_enc (Inst (Arith (LongDiv _ _ _ _ _))) = enc ReservedInstr) /\
+   (ag32_enc (Inst (Arith (IMul _ _ _ _))) = enc ReservedInstr) /\
+   (ag32_enc (Inst (Arith (IDiv _ _ _ _))) = enc ReservedInstr) /\
    (ag32_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
       ag32_encode
         [Normal (fAdd, temp_reg, Imm (-1w), Reg (n2w r4));
