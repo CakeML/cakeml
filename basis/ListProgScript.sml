@@ -117,7 +117,7 @@ val _ = ml_prog_update open_local_in_block;
 
 val result = next_ml_names := ["mapi","mapPartial"];
 val result = translate MAPI_thm;
-val result = translate mapPartial_def;
+val result = translate listTheory.mapPartial_def;
 
 Quote add_cakeml:
   fun app f ls = case ls of [] => ()

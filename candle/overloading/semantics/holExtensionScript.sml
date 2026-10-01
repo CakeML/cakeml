@@ -588,7 +588,7 @@ Proof
   fs[] >>
   dxrule_then assume_tac extends_NIL_CONS_updates >>
   fs[updates_cases] >>
-  (conj_tac >- simp[mllistTheory.mapPartial_thm] >>
+  (conj_tac >- fs[FILTER_EQ_NIL,EVERY_MAP,EVERY_MEM] >>
    conj_tac >-
      (rw[mllistTheory.mapPartial_thm,FILTER_EQ_NIL,MEM_MAP,EVERY_MEM,type_matches_def] >>
       TOP_CASE_TAC >> simp[] >>
@@ -600,7 +600,7 @@ Proof
       dxrule_then assume_tac extends_NIL_CONS_updates >>
       fs[updates_cases]
      ) >>
-   conj_tac >- simp[mllistTheory.mapPartial_thm] >>
+   conj_tac >- fs[FILTER_EQ_NIL,EVERY_MAP,EVERY_MEM] >>
    conj_tac >-
      (rw[mllistTheory.mapPartial_thm,FILTER_EQ_NIL,MEM_MAP,EVERY_MEM,type_matches_def] >>
       TOP_CASE_TAC >> simp[] >>
@@ -1042,6 +1042,7 @@ Theorem NewConst_no_abs_rep:
   MEM (NewConst c ty) ctxt ==>
   mapPartial (abs_or_rep_matches c ty') ctxt = []
 Proof
+  PURE_REWRITE_TAC [mllistTheory.mapPartial_thm] >>
   rw[MEM_SPLIT] >>
   imp_res_tac extends_NIL_DISJOINT >>
   FULL_SIMP_TAC bool_ss [GSYM APPEND_ASSOC] >>
@@ -1058,6 +1059,7 @@ Theorem NewType_no_type_match:
   MEM (NewType name arity) ctxt ==>
   mapPartial (type_matches (Tyapp name tyargs)) ctxt = []
 Proof
+  PURE_REWRITE_TAC [mllistTheory.mapPartial_thm] >>
   rw[MEM_SPLIT] >>
   imp_res_tac extends_NIL_DISJOINT >>
   FULL_SIMP_TAC bool_ss [GSYM APPEND_ASSOC] >>

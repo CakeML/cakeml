@@ -16,6 +16,8 @@ Libs
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+(* Keep mapPartial equations available for explicit rewriting below. *)
+val _ = temp_delsimps ["mapPartial_EQ_NIL"]
 
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
@@ -3066,7 +3068,7 @@ Proof
          ‘~aaa’ by(fs[markerTheory.Abbrev_def]) >>
          qunabbrev_tac ‘aaa’ >>
          fs[IS_SOME_EXISTS] >>
-         fs[mapPartial_APPEND,mllistTheory.mapPartial_def] >>
+         fs[mapPartial_APPEND,listTheory.mapPartial_def] >>
          rename1 `type_matches _ _ = SOME tymtch` >>
          PairCases_on `tymtch` >>
          fs[] >>
@@ -8253,7 +8255,7 @@ Resume interpretation_models_axioms_lemma[type_defn]:
     pop_assum SUBST_ALL_TAC >>
     MAP_EVERY qunabbrev_tac [`ff`,`ll`]) >>
   simp[] >>
-  simp[mllistTheory.mapPartial_def,mapPartial_APPEND] >>
+  simp[listTheory.mapPartial_def,mapPartial_APPEND] >>
   rpt
     (qmatch_goalsub_abbrev_tac `mapPartial a1 a2` >>
     `mapPartial a1 a2 = []`
@@ -9289,7 +9291,7 @@ Resume interpretation_models_axioms_lemma[type_defn]:
     pop_assum SUBST_ALL_TAC >>
     MAP_EVERY qunabbrev_tac [`ff`,`ll`]) >>
   simp[] >>
-  simp[mllistTheory.mapPartial_def,mapPartial_APPEND] >>
+  simp[listTheory.mapPartial_def,mapPartial_APPEND] >>
   rpt
     (qmatch_goalsub_abbrev_tac `mapPartial a1 a2` >>
     `mapPartial a1 a2 = []`
