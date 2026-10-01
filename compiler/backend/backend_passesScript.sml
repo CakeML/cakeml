@@ -17,8 +17,8 @@ Datatype:
            | Bvi ((num # num # bvi$exp) list) (mlstring sptree$num_map)
            | Data ((num # num # dataLang$prog) list) (mlstring sptree$num_map)
            | Word ((num # num # α wordLang$prog) list) (mlstring sptree$num_map)
-           | Stack ((num # α stackLang$prog) list) (mlstring sptree$num_map)
-           | Lab (α sec list) (mlstring sptree$num_map)
+           | Stack ((num # stackLang$prog) list) (mlstring sptree$num_map)
+           | Lab (sec list) (mlstring sptree$num_map)
 End
 
 Definition to_flat_all_def:
@@ -237,7 +237,7 @@ Definition to_word_all_def:
             <|has_fp_ops := (1 < asm_conf.fp_reg_count);
               has_fp_tern :=
                 (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
-    let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) p in
+    let p = stubs data_conf ++ MAP (compile_part data_conf) p in
     let ps = ps ++ [(«after data_to_word»,Word p names)] in
     let (p,ps) = word_internal_all asm_conf ps names p in
     let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
@@ -306,21 +306,22 @@ Definition to_lab_all_def:
     let (ps,bm,c,p,names) = to_stack_all asm_conf c p in
     let stack_conf = c.stack_conf in
     let data_conf = c.data_conf in
-    let max_heap = 2 * max_heap_limit (:'a) c.data_conf - 1 in
+    let max_heap = &(2 * max_heap_limit (dimindex (:'a)) c.data_conf - 1) in
     let sp = asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3) in
     let offset = asm_conf.addr_offset in
     let prog = stack_rawcall$compile p in
     let ps = ps ++ [(«after stack_rawcall»,Stack prog names)] in
-    let prog = stack_alloc$compile data_conf prog in
+    let prog = stack_alloc$compile (arch_wordsize asm_conf.ISA) data_conf prog in
     let ps = ps ++ [(«after stack_alloc»,Stack prog names)] in
-    let prog = stack_remove$compile stack_conf.jump offset (is_gen_gc data_conf.gc_kind)
+    let prog = stack_remove$compile (arch_wordsize asm_conf.ISA) stack_conf.jump offset
+                 (is_gen_gc data_conf.gc_kind)
                  max_heap sp InitGlobals_location prog in
     let ps = ps ++ [(«after stack_remove»,Stack prog names)] in
     let prog = stack_names$compile stack_conf.reg_names prog in
     let ps = ps ++ [(«after stack_names»,Stack prog names)] in
     let p = MAP prog_to_section prog in
     let ps = ps ++ [(«after stack_to_lab»,Lab p names)] in
-      ((ps: (mlstring # 'a any_prog) list),bm:'a word list,c,p:'a labLang$prog,names)
+      ((ps: (mlstring # 'a any_prog) list),bm:'a word list,c,p:labLang$prog,names)
 End
 
 Theorem to_lab_thm:
@@ -363,17 +364,18 @@ Proof
 QED
 
 Definition from_stack_all_def:
-  from_stack_all ps (asm_conf:'a asm_config) (c:config) names p bm =
+  from_stack_all ps (asm_conf:asm_config) (c:config) names p (bm:'a word list) =
     let stack_conf = c.stack_conf in
     let data_conf = c.data_conf in
-    let max_heap = 2 * max_heap_limit (:'a) c.data_conf - 1 in
+    let max_heap = &(2 * max_heap_limit (dimindex (:'a)) c.data_conf - 1) in
     let sp = asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3) in
     let offset = asm_conf.addr_offset in
     let prog = stack_rawcall$compile p in
     let ps = ps ++ [(«after stack_rawcall»,Stack prog names)] in
-    let prog = stack_alloc$compile data_conf prog in
+    let prog = stack_alloc$compile (arch_wordsize asm_conf.ISA) data_conf prog in
     let ps = ps ++ [(«after stack_alloc»,Stack prog names)] in
-    let prog = stack_remove$compile stack_conf.jump offset (is_gen_gc data_conf.gc_kind)
+    let prog = stack_remove$compile (arch_wordsize asm_conf.ISA) stack_conf.jump offset
+                 (is_gen_gc data_conf.gc_kind)
                  max_heap sp InitGlobals_location prog in
     let ps = ps ++ [(«after stack_remove»,Stack prog names)] in
     let prog = stack_names$compile stack_conf.reg_names prog in
@@ -448,7 +450,7 @@ Definition from_data_all_def:
             <|has_fp_ops := (1 < asm_conf.fp_reg_count);
               has_fp_tern :=
                 (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
-    let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) p in
+    let p = stubs data_conf ++ MAP (compile_part data_conf) p in
     let ps = ps ++ [(«after data_to_word»,Word p names)] in
       from_word_0_all ps asm_conf c names p
 End

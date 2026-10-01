@@ -466,7 +466,7 @@ val mem_enc_dec' = ref ([]:thm list);
 
 fun get_enc_dec_ok'_thm (name, ty) =
   if can (match_type “:'a -> 'b”) ty orelse
-     can (match_type “:'a asm_config”) ty then
+     can (match_type “:asm_config”) ty then
     ISPEC (mk_var(name,ty)) enc_dec_ok'_const
   else if can get_enc_dec_ok_thm ty then
     MATCH_MP IMP_enc_dec_ok (get_enc_dec_ok_thm ty)

@@ -26,7 +26,7 @@ fun accessor_thm (a,b,c,d,e,f) = LIST_CONJ [b,c,d,e,f]
 (* The state is just an array *)
 Datatype:
   enc_state_64 = <|
-       hash_tab_64 : ((64 asm # word8 list) list) list
+       hash_tab_64 : ((asm # word8 list) list) list
      |>
 End
 
@@ -75,8 +75,8 @@ Definition enc_line_hash_64_def:
     od) ∧
   (enc_line_hash_64 enc skip_len n (LabAsm l _ _ _) =
      do
-       bs <- lookup_ins_table_64 enc n (lab_inst 0w l);
-       return (LabAsm l 0w bs (LENGTH bs))
+       bs <- lookup_ins_table_64 enc n (lab_inst 0 l);
+       return (LabAsm l 0 bs (LENGTH bs))
      od)
 End
 
