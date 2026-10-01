@@ -245,6 +245,9 @@ val res = translate flat_patternTheory.compile_dec_def;
 (* source_to_flat                                                            *)
 (* ------------------------------------------------------------------------- *)
 
+val res = translate flat_ticksTheory.remove_ticks_exp_def;
+val res = translate flat_ticksTheory.remove_ticks_decs_def;
+
 val res = translate source_to_flatTheory.compile_flat_def;
 
 val res = translate source_to_flatTheory.compile_def;

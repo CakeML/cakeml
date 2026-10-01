@@ -325,8 +325,8 @@ Definition compile_decs_alt_def:
      case simple_dlet p e of
      | SOME (pv,v) =>
          (case nsLookup env.v v of
-          | SOME (Glob t i) =>
-                 (n, next, <| v := alist_to_ns [(pv, Glob t i)]; c := nsEmpty |>, envs, [])
+          | SOME (Glob t i k) =>
+                 (n, next, <| v := alist_to_ns [(pv, Glob t i k)]; c := nsEmpty |>, envs, [])
           | _ => (n, next, <| v := nsEmpty; c := nsEmpty |>, envs, []))
      | NONE =>
          let n' = n + 4 in
@@ -335,7 +335,11 @@ Definition compile_decs_alt_def:
          let l = LENGTH xs in
          let n'' = n' + l in
            (n'', (next with vidx := next.vidx + l),
-            <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
+            <| v := alist_to_ns (case (p, alloc_defs n' next.vidx xs) of
+                                 | (Pvar _, [(x, Glob t i _)]) =>
+                                     [(x, Glob t i (exp_info e))]
+                                 | (_, defs) => defs);
+               c := nsEmpty |>,
             envs,
             [(Mat None e'
               [(compile_pat env p, make_varls 0 None next.vidx xs)])])) ∧
@@ -376,7 +380,7 @@ Definition compile_decs_alt_def:
      in (n'', next2, new_env2, envs'', lds'++ds')) ∧
   (compile_dec_alt t n next env envs (Denv nenv) =
      (n + 1, next with vidx := next.vidx + 1,
-        <| v := nsBind nenv (Glob None next.vidx) nsEmpty; c := nsEmpty |>,
+        <| v := nsBind nenv (Glob None next.vidx NoInfo) nsEmpty; c := nsEmpty |>,
         envs with <| next := envs.next + 1;
             envs := insert envs.next env envs.envs |>,
         [(App None (GlobalVarInit next.vidx)
@@ -692,6 +696,9 @@ Definition compile_exp_alt_def:
     let (j, sg2, y2) = compile_exp_alt cfg x2 in
     let (k, sg3, y3) = compile_exp_alt cfg x3 in
     (MAX i (MAX j k), sg1 \/ sg2 \/ sg3, SmartIf t y1 y2 y3)) /\
+  (compile_exp_alt cfg (flatLang$Tick t x) =
+    let (i, sg, y) = compile_exp_alt cfg x in
+    (i, sg, flatLang$Tick t y)) /\
   (compile_exp_alt cfg exp = (0, F, exp)) /\
   (compile_exp_alts_alt cfg [] = (0, F, [])) /\
   (compile_exp_alts_alt cfg (x::xs) =
@@ -802,6 +809,9 @@ Proof
   gvs[spt_fold_union_thm]
 QED
 
+val _ = cv_trans flat_ticksTheory.remove_ticks_exp_def;
+val _ = cv_trans flat_ticksTheory.remove_ticks_decs_def;
+
 val _ = cv_auto_trans backendTheory.to_flat_def;
 
 (* flat_to_clos *)
@@ -845,6 +855,8 @@ Definition flat_to_clos_compile_alt_def:
        (Letrec (MAP (\n. join_strings t (FST n)) funs) NONE NONE
           (flat_to_clos_compile_lets_alt new_m funs)
           (flat_to_clos_compile_alt new_m (e)))) ∧
+  (flat_to_clos_compile_alt m (flatLang$Tick t e) =
+     closLang$Let t [flat_to_clos_compile_alt m e] (closLang$Tick t (Var t 0))) ∧
   (flat_to_clos_compile_lets_alt m [] = []) /\
   (flat_to_clos_compile_lets_alt m ((f,v,x)::xs) = (1, flat_to_clos_compile_alt (SOME v :: m) x) :: flat_to_clos_compile_lets_alt m xs)
 Termination

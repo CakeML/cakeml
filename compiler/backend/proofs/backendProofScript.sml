@@ -2895,7 +2895,7 @@ QED
 Theorem state_co_inc_compile_has_flat_comp:
   compile asm_conf c prog = SOME (b,bm,c') ==>
   state_co (\c (env_id,decs:ast$dec list). inc_compile env_id c (f decs)) (cake_orac asm_conf c' src config_tuple1 g) =
-  pure_co (MAP (flat_pattern$compile_dec c.source_conf.pattern_cfg)) o
+  pure_co (source_to_flat$compile_flat c.source_conf.pattern_cfg) o
   state_co (\c (env_id,decs). inc_compile_prog env_id c (f decs)) (cake_orac asm_conf c' src config_tuple1 g)
 Proof
   simp [FUN_EQ_THM, state_co_def, pure_co_def, UNCURRY]
@@ -3002,7 +3002,7 @@ Theorem backend_from_flat_tuple_cc_eq_compile_inc_progs:
   c.stack_conf.perf_calls = F ∧
   c.source_conf.pattern_cfg = prim_src_config.pattern_cfg ==>
   backend_from_flat_tuple_cc asm_conf c (SND (config_tuple1 c'))
-    (MAP (flat_pattern$compile_dec prim_src_config.pattern_cfg)
+    (source_to_flat$compile_flat prim_src_config.pattern_cfg
       (SND (inc_compile_prog env_id src_cfg (source_to_source$inc_compile decs)))) =
   let (c'', ps) = compile_inc_progs T asm_conf c' (env_id, decs) in
     OPTION_MAP (\(bs, ws). (bs,
@@ -3267,27 +3267,42 @@ Proof
   \\ qexists_tac `(I ## SND) o ((source_evalProof$orac_s es).oracle)`
   \\ fs [Q.ISPEC `compile prim_src_config _` PAIR_FST_SND_EQ]
   \\ rveq \\ fs []
+  \\ qabbrev_tac ‘prog_co = state_co (λc (env_id,decs).
+                         source_to_flat$inc_compile_prog env_id c (source_to_source$inc_compile decs))
+                (cake_orac asm_conf c' ((I ## SND) ∘ (source_evalProof$orac_s es).oracle)
+                    config_tuple1 (\ps. (ps.env_id, ps.source_prog)))’
   \\ reverse (qsuff_tac
-    `flat_patternProof$install_conf_rel
+    `flat_ticksProof$install_conf_rel
+        (mk_flat_install_conf
+            (pure_cc (source_to_flat$compile_flat prim_src_config.pattern_cfg)
+                (backend_from_flat_tuple_cc asm_conf c)) prog_co)
+        (mk_flat_install_conf
+            (pure_cc (MAP (flat_pattern$compile_dec prim_src_config.pattern_cfg))
+                (backend_from_flat_tuple_cc asm_conf c))
+            (pure_co flat_ticks$remove_ticks_decs o prog_co)) ∧
+     flat_patternProof$install_conf_rel
         prim_src_config.pattern_cfg
         (mk_flat_install_conf
             (pure_cc (MAP (flat_pattern$compile_dec prim_src_config.pattern_cfg))
                 (backend_from_flat_tuple_cc asm_conf c))
-            (state_co (λc (env_id,decs).
-                         source_to_flat$inc_compile_prog env_id c (source_to_source$inc_compile decs))
-                (cake_orac asm_conf c' ((I ## SND) ∘ (source_evalProof$orac_s es).oracle)
-                    config_tuple1 (\ps. (ps.env_id, ps.source_prog)))))
+            (pure_co flat_ticks$remove_ticks_decs o prog_co))
         (mk_flat_install_conf (backend_from_flat_tuple_cc asm_conf c)
             (cake_orac asm_conf c' ((I ## SND) ∘ (source_evalProof$orac_s es).oracle)
                 (SND ∘ config_tuple1) (λps. ps.flat_prog)))`
     )
   >- (
-    simp [flat_patternProofTheory.install_conf_rel_def, mk_flat_install_conf_def]
+    simp [flat_ticksProofTheory.install_conf_rel_def,
+          flat_patternProofTheory.install_conf_rel_def, mk_flat_install_conf_def]
+    \\ conj_tac
+    >- simp [FUN_EQ_THM, pure_cc_def, source_to_flatTheory.compile_flat_def]
     \\ fs [markerTheory.Abbrev_def]
     \\ drule state_co_inc_compile_has_flat_comp
     \\ simp [GSYM source_to_flat_orac_eq]
+    \\ simp [FUN_EQ_THM, pure_co_def, source_to_flatTheory.compile_flat_def,
+             PAIR_MAP]
   )
-  \\ disch_tac
+  \\ strip_tac
+  \\ qunabbrev_tac ‘prog_co’
   \\ qabbrev_tac `the_ev = THE ev`
   \\ Cases_on `ev` \\ fs []
   >- (
@@ -3301,6 +3316,7 @@ Proof
     \\ qpat_x_assum `s0.eval_state = _` kall_tac
     \\ qexists_tac `NONE`
     \\ simp [source_to_flatProofTheory.precondition_def]
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
     \\ goal_assum (first_assum o mp_then Any mp_tac)
     \\ simp [source_to_flatProofTheory.precondition1_def]
     \\ fs [prim_sem_env_eq]
@@ -3363,10 +3379,12 @@ Proof
         o v_fun_abs UNIV the_ev.config_v)`
   \\ simp [source_to_flatProofTheory.precondition_def]
   \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
   \\ qexists_tac `source_to_source$inc_compile`
   \\ simp [source_to_flatProofTheory.precondition1_def]
   (* should be done with install_conf_rel now *)
   \\ qpat_x_assum `flat_patternProof$install_conf_rel _ _ _` kall_tac
+  \\ qpat_x_assum `flat_ticksProof$install_conf_rel _ _` kall_tac
   \\ conj_tac
   >- (
     (* src_orac_step_invs *)

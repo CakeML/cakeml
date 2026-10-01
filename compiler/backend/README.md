@@ -204,6 +204,11 @@ replaces it with an alloc call with 0.
 [flat_patternScript.sml](flat_patternScript.sml):
 Interface between flatLang and pattern compiler.
 
+[flat_ticksScript.sml](flat_ticksScript.sml):
+This compiler phase removes all Tick expressions from flatLang
+programs. Ticks are introduced by source_to_flat when it inlines
+calls to primitive wrappers. They have no observable behaviour.
+
 [flat_to_closScript.sml](flat_to_closScript.sml):
 Compilation from flatLang to closLang. This compiler phase converts
 explicit variable names of flatLang to de Bruijn indexing of

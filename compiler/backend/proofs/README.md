@@ -114,6 +114,11 @@ the proofs in this directory
 [flat_patternProofScript.sml](flat_patternProofScript.sml):
 Correctness proof for flat_pattern
 
+[flat_ticksProofScript.sml](flat_ticksProofScript.sml):
+Correctness proof for flat_ticks, the removal of Tick in flatLang.
+The simulation goes from the tick-free program to the original one,
+which needs more clock to perform its ticks.
+
 [flat_to_closProofScript.sml](flat_to_closProofScript.sml):
 Correctness proof for flat_to_clos
 
