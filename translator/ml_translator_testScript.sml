@@ -177,7 +177,7 @@ val res = translate char_to_byte_def;
 
 val res = translate MAP;
 
-val _ = hol2deep “λx. pure_seq (n+1:num) x”
+val _ = translate_tm “λx. pure_seq (n+1:num) x”
   |> concl |> find_term (can (match_term “Let NONE”))
 
 (*
@@ -597,10 +597,10 @@ val res = translate id_to_string_def;
 
 val _ = use_string_type true;
 
-val _ = (hol2deep ``"hi"`` |> concl |> rator |> rand |> astSyntax.is_Lit)
+val _ = (translate_tm ``"hi"`` |> concl |> rator |> rand |> astSyntax.is_Lit)
         orelse failwith "incorrectly translates string literals";
 
-val r = hol2deep ``\c. STRING c ""``;
+val r = translate_tm ``\c. STRING c ""``;
 
 (* more advanced test of HOL_STRING_TYPE *)
 

@@ -6291,7 +6291,7 @@ Proof
    (spose_not_then assume_tac \\ rw []
     \\ fsrw_tac [QUANT_INST_ss[pair_default_qp]] []
     \\ last_assum (qspec_then `k` mp_tac)
-    \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
+    \\ goal_term (subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)`))
     \\ strip_tac \\ fs[]
     \\ rveq \\ fs [eval_sim_def]
     \\ first_x_assum old_drule \\ fs []

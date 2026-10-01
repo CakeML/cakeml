@@ -41,7 +41,7 @@ sig
     (* Translation functions *)
     val m_translate : thm -> thm
     val m_translate_run : thm -> thm
-    val m2deep : term -> thm
+    val m2deep : Context.t -> term -> thm
 
     (* Update precondition for dynamic specifications *)
     val update_local_precondition : thm -> thm
