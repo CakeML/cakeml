@@ -5,7 +5,7 @@
 Theory repl_inputInvariant
 Ancestors
   typeSound typeSoundInvariants typeSysProps namespaceProps primTypes typeSystem
-  semanticPrimitives
+  semanticPrimitives evaluate_skip
 Libs
   preamble
 
@@ -54,6 +54,22 @@ Definition initial_input_certificate_def:
       (st:'ffi semanticPrimitives$state) env <=>
     ?ctMap tenvS.
       input_typing_witnesses catalogue slots tids tenv st env ctMap tenvS
+End
+
+(* Trusted writes must typecheck for every matching map/store pair and be
+   unchanged by reference/exception renaming that fixes protected type stamps. *)
+Definition input_stamp_fix_def:
+  input_stamp_fix catalogue ft <=>
+    !cn n. TypeStamp cn n IN catalogue_stamps catalogue ==>
+      FLOOKUP ft n = SOME n
+End
+
+Definition trusted_input_value_def:
+  trusted_input_value catalogue ty value <=>
+    (!ctMap tenvS. good_ctMap ctMap /\ catalogue_matches catalogue ctMap ==>
+      type_v 0 ctMap tenvS value ty) /\
+    (!fr ft fe. input_stamp_fix catalogue ft ==>
+      v_rel fr ft fe value value)
 End
 
 Theorem catalogue_stamps_member:
@@ -219,6 +235,25 @@ Proof
   qexistsl_tac [`result_map`,`result_store`] >> simp []
 QED
 
+(* Reference assignment is independent of whether the typed location belongs
+   to the input-slot catalogue or to the primitive reference list. *)
+Theorem input_typing_reference_assign:
+  input_typing_witnesses catalogue slots tids tenv
+    (st:'ffi semanticPrimitives$state) env ctMap tenvS /\
+  FLOOKUP tenvS loc = SOME (Ref_t ty) /\ type_v 0 ctMap tenvS value ty /\
+  store_assign loc (Refv value) st.refs = SOME new_refs ==>
+  input_typing_witnesses catalogue slots tids tenv
+    (st with refs := new_refs) env ctMap tenvS
+Proof
+  strip_tac >>
+  `type_s ctMap st.refs tenvS` by (
+    fs [input_typing_witnesses_def, type_sound_invariant_def]) >>
+  `type_sv ctMap tenvS (Refv value) (Ref_t ty)` by simp [type_sv_def] >>
+  drule_all store_assign_type_sound >> strip_tac >>
+  gvs [input_typing_witnesses_def, type_sound_invariant_def,
+    consistent_ctMap_def] >> rpt strip_tac >> res_tac
+QED
+
 Theorem input_typing_slot_assign:
   input_typing_witnesses catalogue slots tids tenv
     (st:'ffi semanticPrimitives$state) env ctMap tenvS /\
@@ -231,12 +266,22 @@ Proof
   `input_slots_hold slots tenvS` by fs [input_typing_witnesses_def] >>
   `FLOOKUP tenvS loc = SOME (Ref_t ty)` by (
     fs [input_slots_hold_def] >> res_tac) >>
-  `type_s ctMap st.refs tenvS` by (
-    fs [input_typing_witnesses_def, type_sound_invariant_def]) >>
-  `type_sv ctMap tenvS (Refv value) (Ref_t ty)` by simp [type_sv_def] >>
-  drule_all store_assign_type_sound >> strip_tac >>
-  gvs [input_typing_witnesses_def, type_sound_invariant_def,
-    consistent_ctMap_def] >> rpt strip_tac >> res_tac
+  drule_all input_typing_reference_assign >> simp []
+QED
+
+Theorem input_typing_trusted_assign:
+  input_typing_witnesses catalogue slots tids tenv
+    (st:'ffi semanticPrimitives$state) env ctMap tenvS /\
+  FLOOKUP slots loc = SOME ty /\ trusted_input_value catalogue ty value /\
+  store_assign loc (Refv value) st.refs = SOME new_refs ==>
+  input_typing_witnesses catalogue slots tids tenv
+    (st with refs := new_refs) env ctMap tenvS
+Proof
+  strip_tac >>
+  `type_v 0 ctMap tenvS value ty` by (
+    fs [trusted_input_value_def, input_typing_witnesses_def,
+      type_sound_invariant_def] >> res_tac) >>
+  drule_all input_typing_slot_assign >> simp []
 QED
 
 Theorem input_typing_declarations_no_type_error:
@@ -322,3 +367,35 @@ Theorem initial_input_certificate_clock:
 Proof
   simp [initial_input_certificate_def, input_typing_witnesses_clock]
 QED
+
+(* Exported interfaces must not rest on assumptions or admissions. *)
+val _ = List.app (fn theorem => let
+  val (oracles,axioms) = Tag.dest_tag (Thm.tag theorem)
+  in
+    if null (hyp theorem) andalso null axioms andalso
+      List.all (fn name => name = "DISK_THM") oracles then ()
+    else failwith "Input typing invariants have assumptions or admissions"
+  end)
+  [catalogue_stamps_member,
+   catalogue_matches_lookup,
+   catalogue_matches_preserved,
+   input_metadata_bounds_from_typing,
+   initial_input_certificate_intro,
+   input_typing_witnesses_bounds,
+   initial_input_certificate_contract,
+   input_slots_hold_extension,
+   input_typing_witnesses_reserve,
+   input_typing_witnesses_advance,
+   input_typing_declarations_success,
+   input_typing_declarations_raise,
+   input_typing_reference_assign,
+   input_typing_slot_assign,
+   input_typing_trusted_assign,
+   input_typing_declarations_no_type_error,
+   input_slots_hold_entries,
+   input_catalogue_entries_match,
+   input_catalogue_restrict_entries,
+   input_catalogue_new_signatures,
+   input_catalogues_union,
+   input_typing_witnesses_clock,
+   initial_input_certificate_clock];

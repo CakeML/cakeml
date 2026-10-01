@@ -8,8 +8,9 @@ Ancestors
   astCanonical typeRepCanonical typeRepPreludeCanonical repl_inputInit
   repl_inputInvariant repl_inputMetadata repl_init_types inferSound
   typeSoundInvariants typeSystem semanticPrimitives ml_translator std_prelude
+  repl_types evaluate_skip ml_prog envRel
 Libs
-  preamble mlstringSyntax[qualified]
+  preamble mlstringSyntax[qualified] semanticPrimitivesSyntax[qualified]
 
 (* Actual inferred identities, namespace and closed catalogue. *)
 Definition repl_ast_canonical_id_def:
@@ -235,6 +236,171 @@ Proof
     repl_input_decs_encoded) >> simp []
 QED
 
+(* Concrete source injection and original initialization locations. *)
+val input_source_stamp = find_term semanticPrimitivesSyntax.is_TypeStamp
+  (concl (CONJUNCT2 SUM_TYPE_def));
+val (input_source_name,input_source_number) =
+  semanticPrimitivesSyntax.dest_TypeStamp input_source_stamp;
+val input_source_ctor_lookup = EVAL
+  ``nsLookup (ienv_to_tenv (FST repl_prog_types)).c
+      (Short ^input_source_name)``;
+val [input_source_params,input_source_fields,input_source_type] =
+  input_source_ctor_lookup |> concl |> rand |> optionSyntax.dest_some
+    |> pairSyntax.strip_pair;
+val _ = if aconv input_source_type (rhs (concl repl_sum_type_id_def)) then ()
+  else failwith "Source constructor does not have the inferred sum identity";
+val input_source_signature = EVAL
+  ``FLOOKUP repl_input_catalogue repl_sum_type_id``
+  |> concl |> rand |> optionSyntax.dest_some;
+
+Definition repl_source_value_def:
+  repl_source_value text = Conv (SOME ^input_source_stamp) [Litv (StrLit text)]
+End
+
+fun input_origin_value name =
+  BODY_CONJUNCTS repl_input_slot_values
+  |> List.find (fn th => aconv (lhs (concl th))
+       ``nsLookup repl_prog_env.v ^name``)
+  |> valOf |> concl |> rand |> optionSyntax.dest_some;
+
+val input_primitive_origins =
+  [(``Long «Repl» (Short «isEOF»)`` , ``repl_types$Bool``),
+   (``Long «Repl» (Short «errorMessage»)`` , ``repl_types$Str``),
+   (``Long «Repl» (Short «exn»)`` , ``repl_types$Exn``)]
+  |> map (fn (name,ty) => let
+       val (is_ref,loc) = semanticPrimitivesSyntax.dest_Loc (input_origin_value name)
+       val _ = if aconv is_ref T then () else failwith "Expected an original reference"
+       in pairSyntax.list_mk_pair [name,ty,loc] end);
+val (_,input_source_location) = semanticPrimitivesSyntax.dest_Loc
+  (input_origin_value ``Long «Repl» (Short «nextInput»)``);
+
+Definition repl_input_primitive_refs_def:
+  repl_input_primitive_refs =
+    ^(listSyntax.mk_list (input_primitive_origins,
+      ``:(mlstring,mlstring) id # simple_type # num``))
+End
+
+Definition repl_input_location_def:
+  repl_input_location = ^input_source_location
+End
+
+
+Theorem repl_source_representation:
+  SUM_TYPE STRING_TYPE right_rep (INL text) (repl_source_value text)
+Proof
+  simp [SUM_TYPE_def, STRING_TYPE_def, repl_source_value_def]
+QED
+
+Theorem repl_source_signature_member:
+  ?signature.
+      FLOOKUP repl_input_catalogue repl_sum_type_id = SOME signature /\
+      (^input_source_name,^input_source_number,
+       ^input_source_params,^input_source_fields) IN signature
+Proof
+  qexists_tac `^input_source_signature` >> EVAL_TAC
+QED
+
+Theorem repl_source_constructor_typing:
+  catalogue_matches repl_input_catalogue ctMap ==>
+  FLOOKUP ctMap ^input_source_stamp =
+    SOME (^input_source_params,^input_source_fields,repl_sum_type_id)
+Proof
+  metis_tac [catalogue_matches_lookup, repl_source_signature_member]
+QED
+
+Theorem repl_source_stamp_protected:
+  ^input_source_stamp IN catalogue_stamps repl_input_catalogue
+Proof
+  metis_tac [catalogue_stamps_member, repl_source_signature_member]
+QED
+
+Theorem repl_source_value_type:
+  catalogue_matches repl_input_catalogue ctMap ==>
+  type_v 0 ctMap tenvS (repl_source_value text) repl_input_type
+Proof
+  strip_tac >> drule repl_source_constructor_typing >> strip_tac >>
+  simp [repl_source_value_def, repl_input_type_def, Once type_v_cases] >>
+  simp [Once check_freevars_def, Once type_subst_def] >>
+  simp [Once check_freevars_def, Once type_v_cases] >> EVAL_TAC
+QED
+
+Theorem repl_source_value_self:
+  input_stamp_fix repl_input_catalogue ft ==>
+  v_rel fr ft fe (repl_source_value text) (repl_source_value text)
+Proof
+  strip_tac >>
+  `FLOOKUP ft ^input_source_number = SOME ^input_source_number` by (
+    metis_tac [input_stamp_fix_def, repl_source_stamp_protected]) >>
+  simp [repl_source_value_def, Once v_rel_def, stamp_rel_cases] >>
+  simp [Once v_rel_def]
+QED
+
+Theorem repl_source_value_trusted:
+  trusted_input_value repl_input_catalogue repl_input_type (repl_source_value text)
+Proof
+  simp [trusted_input_value_def, repl_source_value_type, repl_source_value_self]
+QED
+
+Theorem repl_input_primitive_refs_types:
+  EVERY (check_ref_types (FST repl_prog_types) repl_prog_env)
+    repl_input_primitive_refs
+Proof
+  simp [repl_input_primitive_refs_def, check_ref_types_def,
+    repl_input_slot_values] >> EVAL_TAC
+QED
+
+Theorem repl_input_location_type:
+  FLOOKUP repl_input_slots repl_input_location = SOME repl_input_type
+Proof
+  EVAL_TAC
+QED
+
+Theorem repl_input_initial_environment:
+  extend_dec_env input_repl_decl_env init_env = repl_prog_env
+Proof
+  simp [repl_prog_env_def, GSYM input_repl_decl_env_def,
+    merge_env_def, extend_dec_env_def]
+QED
+
+Theorem repl_input_initial_reachable:
+  !b (ffi:'ffi ffi_state).
+    repl_types_input repl_input_catalogue repl_input_slots b
+      (ffi,repl_input_primitive_refs)
+      (repl_prog_types,input_repl_state ffi,repl_prog_env)
+Proof
+  qx_genl_tac [`b`,`ffi`] >>
+  mp_tac (input_repl_Prog |> GEN_ALL |> Q.ISPEC `ffi:'ffi ffi_state`) >>
+  rewrite_tac [Prog_def] >>
+  disch_then (CONJUNCTS_THEN2 assume_tac
+    (qx_choosel_then [`initial_clock`,`final_clock`] assume_tac)) >>
+  mp_tac (repl_initial_input_certificate |> GEN_ALL
+    |> Q.ISPEC `ffi:'ffi ffi_state`) >> strip_tac >>
+  mp_tac (Q.ISPECL
+    [`repl_input_catalogue`,`repl_input_slots`,`ffi:'ffi ffi_state`,
+     `repl_input_primitive_refs`,`repl_prog`,`repl_prog_types`,
+     `input_repl_state (ffi:'ffi ffi_state) with clock := final_clock`,
+     `input_repl_decl_env`,`initial_clock:num`,`b:bool`] repl_types_input_init) >>
+  simp [repl_prog_types_thm, repl_input_initial_environment,
+    repl_input_primitive_refs_types, input_init_ok_def,
+    initial_input_certificate_clock] >> strip_tac >>
+  drule repl_types_input_set_clock >>
+  disch_then (qspec_then `(input_repl_state ffi).clock` mp_tac) >>
+  simp []
+QED
+
+Theorem repl_input_source_assign:
+  repl_types_input repl_input_catalogue repl_input_slots b (ffi,rs)
+    (input_types,st,env) /\
+  store_assign repl_input_location (Refv (repl_source_value text)) st.refs =
+    SOME new_store ==>
+  repl_types_input repl_input_catalogue repl_input_slots b (ffi,rs)
+    (input_types,st with refs := new_store,env)
+Proof
+  strip_tac >> irule repl_types_input_trusted_assign >> simp [] >>
+  qexistsl_tac [`repl_input_location`,`repl_input_type`,`repl_source_value text`] >>
+  simp [repl_input_location_type, repl_source_value_trusted]
+QED
+
 (* Exported interfaces must not rest on assumptions or admissions. *)
 val _ = List.app (fn theorem => let
   val (oracles,axioms) = Tag.dest_tag (Thm.tag theorem)
@@ -249,4 +415,9 @@ val _ = List.app (fn theorem => let
    repl_ast_canonical_context, repl_ast_canonical_family_complete,
    repl_ast_canonical_dec_complete, repl_input_dec_list_complete,
    repl_input_sum_complete, repl_input_value_canonical, repl_input_decs_encoded,
-   repl_initial_input_representations];
+   repl_initial_input_representations, repl_source_representation,
+   repl_source_signature_member, repl_source_constructor_typing,
+   repl_source_stamp_protected, repl_source_value_type, repl_source_value_self,
+   repl_source_value_trusted, repl_input_primitive_refs_types,
+   repl_input_location_type, repl_input_initial_environment,
+   repl_input_initial_reachable, repl_input_source_assign];
