@@ -35,6 +35,12 @@ paves the way for supporting Eval on Arm.
 Smallnums and nullary constructors have improved runtime representation (#1487).
 This means, e.g., that smallnums can use 63 bits on 64-bit architectures.
 
+The Eval/Install mechanism has been updated (#1507) so that it does a memcpy
+instead of a byte-by-byte write. The new basis_ffi.c now has a function called
+cml_install implementing this; the whole C file has also been cleaned up. This
+is NOT backwards compatible. On the flip side, the REPL now runs on ARM8 + Mac
+combinations which have W^X permissions.
+
 ## Pancake
 
 Queryable feature tags (#1470).
