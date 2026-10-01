@@ -12,7 +12,7 @@ Libs
 Type shift = ``:ast$shift``
 
 Datatype:
-  exp = Const ('a word)
+  exp = Const int
       | Var num
       | Lookup store_name
       | Load exp
@@ -20,13 +20,13 @@ Datatype:
       | Shift shift exp exp
 End
 
-Overload ShiftN = “λsh e n. Shift sh e (Const (n2w n))”;
+Overload ShiftN = “λsh e n. Shift sh e (Const (& n))”;
 
 Theorem MEM_IMP_exp_size:
-   !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)
+   !xs a. MEM a xs ==> (exp_size a < exp1_size xs)
 Proof
   Induct \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ REPEAT STRIP_TAC \\ SRW_TAC [] [definition"exp_size_def"]
+  \\ REPEAT STRIP_TAC \\ SRW_TAC [] [definition "exp_size_def"]
   \\ RES_TAC \\ DECIDE_TAC
 QED
 
@@ -36,10 +36,10 @@ Datatype:
   prog = Skip
        | Move num ((num # num) list)
        | Inst inst
-       | Assign num ('a exp)
+       | Assign num exp
        | Get num store_name
-       | Set store_name ('a exp)
-       | Store ('a exp) num
+       | Set store_name exp
+       | Store exp num
        | MustTerminate wordLang$prog
        | Call ((num list # cutsets # wordLang$prog # num # num) option)
               (* return vars, cut-set, return-handler code, labels l1,l2*)
@@ -64,7 +64,7 @@ Datatype:
                    data buffer start, length of new data, cut-set *)
        | DataBufferWrite num num (* data buffer address, word to write *)
        | FFI mlstring num num num num cutsets (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
-       | ShareInst memop num ('a exp) (* memory operation, varname, expression for memory address *)
+       | ShareInst memop num exp (* memory operation, varname, expression for memory address *)
 End
 
 Definition raise_stub_location_def:
@@ -320,12 +320,8 @@ End
 
 Definition exp_to_addr_def:
   (exp_to_addr (Var ad) = SOME $ Addr ad 0) /\
-  (exp_to_addr (Op Add [Var ad;Const offset]) = SOME $ Addr ad (w2i offset)) /\
+  (exp_to_addr (Op Add [Var ad;Const offset]) = SOME $ Addr ad offset) /\
   (exp_to_addr _ = NONE)
 End
 
 Overload shift = “backend_common$word_shift”
-
-Datatype:
-  word_loc = Word ('a word) | Loc num num
-End

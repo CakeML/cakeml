@@ -13,6 +13,10 @@ Ancestors
   backend_common (* for word_add_carry *)
 
 Datatype:
+  word_loc = Word ('a word) | Loc num num
+End
+
+Datatype:
   buffer =
     <| position   : 'a word
      ; buffer     : 'b word list
@@ -339,7 +343,7 @@ Definition set_store_def:
 End
 
 Definition word_exp_def:
-  (word_exp ^s (Const w) = SOME (Word w)) /\
+  (word_exp ^s (Const i) = SOME (Word (i2w i))) /\
   (word_exp s (Var v) = get_var v s) /\
   (word_exp s (Lookup name) = get_store name s) /\
   (word_exp s (Load addr) =
@@ -355,7 +359,7 @@ Definition word_exp_def:
      | (SOME (Word w), SOME (Word w1)) => OPTION_MAP Word (word_sh sh w (w2n w1))
      | _ => NONE)
 Termination
-  WF_REL_TAC `measure (exp_size ARB o SND)`
+  WF_REL_TAC `measure (exp_size o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ DECIDE_TAC
@@ -717,15 +721,15 @@ Definition inst_def:
   inst i ^s =
     case i of
     | Skip => SOME s
-    | Const reg w => assign reg (Const (i2w w)) s
+    | Const reg j => assign reg (Const j) s
     | Arith (Binop bop r1 r2 ri) =>
         assign r1
           (Op bop [Var r2; case ri of Reg r3 => Var r3
-                                    | Imm w => Const (i2w w)]) s
+                                    | Imm i => Const i]) s
     | Arith (Shift sh r1 r2 ri) =>
         assign r1
           (Shift sh (Var r2) (case ri of Reg r3 => Var r3
-                                       | Imm w => Const (i2w w))) s
+                                       | Imm i => Const i)) s
     | Arith (Div r1 r2 r3) =>
        (let vs = get_vars[r3;r2] s in
        case vs of
@@ -774,14 +778,14 @@ Definition inst_def:
          else NONE
       | _ => NONE)
     | Mem Load r (Addr a w) =>
-       (case word_exp s (Op Add [Var a; Const (i2w w)]) of
+       (case word_exp s (Op Add [Var a; Const w]) of
         | SOME (Word w) =>
            (case mem_load w s of
             | NONE => NONE
             | SOME w => SOME (set_var r w s))
         | _ => NONE)
     | Mem Load8 r (Addr a w) =>
-       (case word_exp s (Op Add [Var a; Const (i2w w)]) of
+       (case word_exp s (Op Add [Var a; Const w]) of
         | SOME (Word w) =>
            (case mem_load_byte_aux s.memory s.mdomain s.be w of
             | NONE => NONE
@@ -789,21 +793,21 @@ Definition inst_def:
         | _ => NONE)
     | Mem Load16 _ _ => NONE
     | Mem Load32 r (Addr a w) =>
-       (case word_exp s (Op Add [Var a; Const (i2w w)]) of
+       (case word_exp s (Op Add [Var a; Const w]) of
         | SOME (Word w) =>
            (case mem_load_32 s.memory s.mdomain s.be w of
             | NONE => NONE
             | SOME w => SOME (set_var r (Word (w2w w)) s))
         | _ => NONE)
     | Mem Store r (Addr a w) =>
-       (case (word_exp s (Op Add [Var a; Const (i2w w)]), get_var r s) of
+       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME (Word a), SOME w) =>
             (case mem_store a w s of
              | SOME s1 => SOME s1
              | NONE => NONE)
         | _ => NONE)
     | Mem Store8 r (Addr a w) =>
-       (case (word_exp s (Op Add [Var a; Const (i2w w)]), get_var r s) of
+       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME (Word a), SOME (Word w)) =>
             (case mem_store_byte_aux s.memory s.mdomain s.be a (w2w w) of
              | SOME new_m => SOME (s with memory := new_m)
@@ -811,7 +815,7 @@ Definition inst_def:
         | _ => NONE)
     | Mem Store16 _ _ => NONE
     | Mem Store32 r (Addr a w) =>
-       (case (word_exp s (Op Add [Var a; Const (i2w w)]), get_var r s) of
+       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME (Word a), SOME (Word w)) =>
             (case mem_store_32 s.memory s.mdomain s.be a (w2w w) of
              | SOME new_m => SOME (s with memory := new_m)
