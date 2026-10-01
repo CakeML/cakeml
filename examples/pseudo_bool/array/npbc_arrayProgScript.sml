@@ -5715,62 +5715,108 @@ Proof
   simp[LIST_TYPE_def,PAIR_TYPE_def,fslot_TYPE_def,SLOT_TYPE_def]
 QED
 
+(* The objective and solution checks walk the index once and return it
+  without the IDs of deleted constraints *)
 Quote add_cakeml:
-  fun every_sat_arr wv fml inds =
-  case inds of [] => True
+  fun sat_inds_arr lno wv fml inds =
+  case inds of [] => []
   | (i::is) =>
-    sat_slot wv (lookup_core_only_arr True fml i) andalso
-    every_sat_arr wv fml is
+    (case Array.lookup fml Empty i of
+      Empty => sat_inds_arr lno wv fml is
+    | Stored cs vs d mc sm b =>
+      if not b orelse d <= 0 orelse
+        sat_slot_aux wv cs vs 0 (Vector.length cs) d
+      then i :: sat_inds_arr lno wv fml is
+      else raise Fail (format_failure lno
+        "supplied assignment did not satisfy constraints or did not improve objective"))
 End
 
-Theorem every_sat_arr_spec:
+Theorem sat_inds_arr_spec:
   ∀inds indsv.
+  NUM lno lnov ∧
   VECTOR_TYPE BOOL wv wvv ∧
   LIST_REL fslot_TYPE fmlls fmllsv ∧
   LIST_TYPE NUM inds indsv
   ⇒
   app (p : 'ffi ffi_proj)
-    ^(fetch_v "every_sat_arr" (get_ml_prog_state()))
-    [wvv; fmlv; indsv]
+    ^(fetch_v "sat_inds_arr" (get_ml_prog_state()))
+    [lnov; wvv; fmlv; indsv]
     (ARRAY fmlv fmllsv)
-    (POSTv v.
-      ARRAY fmlv fmllsv *
-      &BOOL (EVERY (λi. sat_slot wv (lookup_core_only_list T fmlls i)) inds) v)
+    (POSTve
+      (λv. ARRAY fmlv fmllsv *
+        &(EVERY (λi. sat_slot wv (lookup_core_only_list T fmlls i)) inds ∧
+          LIST_TYPE NUM (reindex fmlls inds) v))
+      (λe. ARRAY fmlv fmllsv *
+        &(Fail_exn e ∧
+          ¬EVERY (λi. sat_slot wv (lookup_core_only_list T fmlls i)) inds)))
 Proof
   Induct>>
   rw[]>>
-  xcf "every_sat_arr" (get_ml_prog_state ())>>
+  xcf "sat_inds_arr" (get_ml_prog_state ())>>
   fs[LIST_TYPE_def]>>
   xmatch
-  >- (xcon>>xsimpl)>>
+  >- (xcon>>xsimpl>>simp[reindex_characterize,LIST_TYPE_def])>>
+  rpt xlet_autop>>
+  xlet_auto>>
+  qmatch_asmsub_rename_tac`sv = any_el h fmllsv _`>>
+  `fslot_TYPE (any_el h fmlls Empty) sv` by (
+    rw[any_el_ALT]>>
+    gvs[LIST_REL_EL_EQN,fslot_TYPE_def,wf_slot_def,SLOT_TYPE_def])>>
+  Cases_on`any_el h fmlls Empty`>>gvs[fslot_TYPE_def,SLOT_TYPE_def]
+  >- (
+    xmatch>>
+    xapp>>xsimpl>>
+    simp[lookup_core_only_list_def,sat_slot_def,reindex_characterize])>>
+  qmatch_asmsub_rename_tac`any_el h fmlls Empty = Stored cs vs d mc sm b`>>
+  xmatch>>
   xlet_autop>>
-  xlet`POSTv sv. ARRAY fmlv fmllsv *
-    &fslot_TYPE (lookup_core_only_list T fmlls h) sv`
-  >- (xapp>>xsimpl)>>
-  qpat_x_assum`fslot_TYPE _ sv`
-    (strip_assume_tac o REWRITE_RULE[fslot_TYPE_def])>>
-  xlet_auto >- (xsimpl>>simp[sat_slot_side])>>
-  xlog>>xsimpl>>
-  rw[]>>gvs[]>>
-  xapp>>xsimpl
+  xlet`POSTv bv. ARRAY fmlv fmllsv * &BOOL (¬b ∨ d ≤ 0) bv`
+  >- (xlog>>xsimpl>>rw[]>>gvs[]>>xapp>>xsimpl>>qexists_tac`d`>>simp[])>>
+  xlet`POSTv bv. ARRAY fmlv fmllsv *
+    &BOOL (¬b ∨ d ≤ 0 ∨ sat_slot_aux wv cs vs 0 (length cs) d) bv`
+  >- (
+    xlog>>xsimpl>>rw[]>>gvs[]>>
+    xlet_autop>>
+    xapp>>xsimpl>>
+    qexistsl_tac[`wv`,`vs`,`d`,`length cs`,`cs`]>>
+    gvs[wf_slot_def,sat_slot_aux_side])>>
+  xif
+  >- (
+    `sat_slot wv (lookup_core_only_list T fmlls h)` by
+      (Cases_on`b`>>gvs[lookup_core_only_list_def,core_slot_def,sat_slot_def])>>
+    xlet`POSTve
+      (λv. ARRAY fmlv fmllsv *
+        &(EVERY (λi. sat_slot wv (lookup_core_only_list T fmlls i)) inds ∧
+          LIST_TYPE NUM (reindex fmlls inds) v))
+      (λe. ARRAY fmlv fmllsv *
+        &(Fail_exn e ∧
+          ¬EVERY (λi. sat_slot wv (lookup_core_only_list T fmlls i)) inds))`
+    >- (xapp>>xsimpl)
+    >- (xsimpl>>simp[EXISTS_NOT_EVERY])>>
+    xcon>>xsimpl>>
+    gvs[reindex_characterize,LIST_TYPE_def])>>
+  rpt xlet_autop>>
+  xraise>>xsimpl>>
+  gvs[Fail_exn_def,lookup_core_only_list_def,core_slot_def,sat_slot_def]>>
+  metis_tac[]
 QED
 
 Quote add_cakeml:
-  fun check_obj_core_arr obj wm fml inds bopt =
+  fun check_obj_core_arr lno obj wm fml inds bopt =
   let
     val wv = mk_obj_vec wm
     val w = vec_lookup_d False wv
     val new = eval_obj obj w
+    val inds' = sat_inds_arr lno wv fml inds
   in
-    if every_sat_arr wv fml inds then
-      case bopt of
-        None => Some (new, w)
-      | Some b => if b = new then Some (new, w) else None
-    else None
+    case bopt of
+      None => Some (new, (w, inds'))
+    | Some b => if b = new then Some (new, (w, inds')) else None
   end
 End
 
 Theorem check_obj_core_arr_spec:
+  NUM lno lnov ∧
   obj_TYPE obj objv ∧
   LIST_TYPE (PAIR_TYPE NUM BOOL) wm wmv ∧
   LIST_REL fslot_TYPE fmlls fmllsv ∧
@@ -5779,12 +5825,15 @@ Theorem check_obj_core_arr_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_obj_core_arr" (get_ml_prog_state()))
-    [objv; wmv; fmlv; indsv; boptv]
+    [lnov; objv; wmv; fmlv; indsv; boptv]
     (ARRAY fmlv fmllsv)
-    (POSTv v.
-      ARRAY fmlv fmllsv *
-      &OPTION_TYPE (PAIR_TYPE INT (NUM --> BOOL))
-        (check_obj_core obj wm fmlls inds bopt) v)
+    (POSTve
+      (λv. ARRAY fmlv fmllsv *
+        &OPTION_TYPE (PAIR_TYPE INT (PAIR_TYPE (NUM --> BOOL) (LIST_TYPE NUM)))
+          (OPTION_MAP (λ(n,w). (n, w, reindex fmlls inds))
+            (check_obj_core obj wm fmlls inds bopt)) v)
+      (λe. ARRAY fmlv fmllsv *
+        &(Fail_exn e ∧ check_obj_core obj wm fmlls inds bopt = NONE)))
 Proof
   rw[]>>
   xcf "check_obj_core_arr" (get_ml_prog_state ())>>
@@ -5797,15 +5846,28 @@ Proof
     xapp_spec (vec_lookup_d_app |> INST_TYPE [alpha|->``:bool``])>>
     qexistsl_tac[`ARRAY fmlv fmllsv`,`mk_obj_vec wm`,`F`,`BOOL`]>>
     simp[]>>xsimpl)>>
-  rpt xlet_autop>>
-  reverse xif
-  >- (xcon>>xsimpl>>simp[OPTION_TYPE_def])>>
+  xlet_autop>>
+  xlet`POSTve
+    (λv. ARRAY fmlv fmllsv *
+      &(EVERY (λi. sat_slot (mk_obj_vec wm)
+          (lookup_core_only_list T fmlls i)) inds ∧
+        LIST_TYPE NUM (reindex fmlls inds) v))
+    (λe. ARRAY fmlv fmllsv *
+      &(Fail_exn e ∧
+        ¬EVERY (λi. sat_slot (mk_obj_vec wm)
+          (lookup_core_only_list T fmlls i)) inds))`
+  >- (
+    xapp>>xsimpl>>
+    qexistsl_tac[`mk_obj_vec wm`,`inds`,`fmlls`,`lno`]>>
+    simp[])
+  >- (xsimpl>>rw[]>>gvs[EVERY_MEM,EXISTS_MEM])>>
+  simp[]>>
   Cases_on`bopt`>>gvs[OPTION_TYPE_def]>>
   xmatch
   >- (
     rpt xlet_autop>>
     xcon>>xsimpl>>
-    simp[PAIR_TYPE_def])>>
+    simp[OPTION_TYPE_def,PAIR_TYPE_def])>>
   xlet_autop>>
   xif
   >- (
@@ -5817,60 +5879,107 @@ Proof
 QED
 
 Quote add_cakeml:
-  fun every_cube_arr cv fml inds =
-  case inds of [] => True
+  fun cube_inds_arr lno cv fml inds =
+  case inds of [] => []
   | (i::is) =>
-    cube_slot cv (lookup_core_only_arr True fml i) andalso
-    every_cube_arr cv fml is
+    (case Array.lookup fml Empty i of
+      Empty => cube_inds_arr lno cv fml is
+    | Stored cs vs d mc sm b =>
+      if not b orelse d <= 0 orelse
+        cube_slot_aux cv cs vs 0 (Vector.length cs) d
+      then i :: cube_inds_arr lno cv fml is
+      else raise Fail (format_failure lno
+        "supplied solution cube has conflicting assignments or does not satisfy constraints"))
 End
 
-Theorem every_cube_arr_spec:
+Theorem cube_inds_arr_spec:
   ∀inds indsv.
+  NUM lno lnov ∧
   VECTOR_TYPE (OPTION_TYPE BOOL) cv cvv ∧
   LIST_REL fslot_TYPE fmlls fmllsv ∧
   LIST_TYPE NUM inds indsv
   ⇒
   app (p : 'ffi ffi_proj)
-    ^(fetch_v "every_cube_arr" (get_ml_prog_state()))
-    [cvv; fmlv; indsv]
+    ^(fetch_v "cube_inds_arr" (get_ml_prog_state()))
+    [lnov; cvv; fmlv; indsv]
     (ARRAY fmlv fmllsv)
-    (POSTv v.
-      ARRAY fmlv fmllsv *
-      &BOOL (EVERY (λi. cube_slot cv (lookup_core_only_list T fmlls i)) inds) v)
+    (POSTve
+      (λv. ARRAY fmlv fmllsv *
+        &(EVERY (λi. cube_slot cv (lookup_core_only_list T fmlls i)) inds ∧
+          LIST_TYPE NUM (reindex fmlls inds) v))
+      (λe. ARRAY fmlv fmllsv *
+        &(Fail_exn e ∧
+          ¬EVERY (λi. cube_slot cv (lookup_core_only_list T fmlls i)) inds)))
 Proof
   Induct>>
   rw[]>>
-  xcf "every_cube_arr" (get_ml_prog_state ())>>
+  xcf "cube_inds_arr" (get_ml_prog_state ())>>
   fs[LIST_TYPE_def]>>
   xmatch
-  >- (xcon>>xsimpl)>>
+  >- (xcon>>xsimpl>>simp[reindex_characterize,LIST_TYPE_def])>>
+  rpt xlet_autop>>
+  xlet_auto>>
+  qmatch_asmsub_rename_tac`sv = any_el h fmllsv _`>>
+  `fslot_TYPE (any_el h fmlls Empty) sv` by (
+    rw[any_el_ALT]>>
+    gvs[LIST_REL_EL_EQN,fslot_TYPE_def,wf_slot_def,SLOT_TYPE_def])>>
+  Cases_on`any_el h fmlls Empty`>>gvs[fslot_TYPE_def,SLOT_TYPE_def]
+  >- (
+    xmatch>>
+    xapp>>xsimpl>>
+    simp[lookup_core_only_list_def,cube_slot_def,reindex_characterize])>>
+  qmatch_asmsub_rename_tac`any_el h fmlls Empty = Stored cs vs d mc sm b`>>
+  xmatch>>
   xlet_autop>>
-  xlet`POSTv sv. ARRAY fmlv fmllsv *
-    &fslot_TYPE (lookup_core_only_list T fmlls h) sv`
-  >- (xapp>>xsimpl)>>
-  qpat_x_assum`fslot_TYPE _ sv`
-    (strip_assume_tac o REWRITE_RULE[fslot_TYPE_def])>>
-  xlet_auto >- (xsimpl>>simp[cube_slot_side])>>
-  xlog>>xsimpl>>
-  rw[]>>gvs[]>>
-  xapp>>xsimpl
+  xlet`POSTv bv. ARRAY fmlv fmllsv * &BOOL (¬b ∨ d ≤ 0) bv`
+  >- (xlog>>xsimpl>>rw[]>>gvs[]>>xapp>>xsimpl>>qexists_tac`d`>>simp[])>>
+  xlet`POSTv bv. ARRAY fmlv fmllsv *
+    &BOOL (¬b ∨ d ≤ 0 ∨ cube_slot_aux cv cs vs 0 (length cs) d) bv`
+  >- (
+    xlog>>xsimpl>>rw[]>>gvs[]>>
+    xlet_autop>>
+    xapp>>xsimpl>>
+    qexistsl_tac[`vs`,`d`,`length cs`,`cv`,`cs`]>>
+    gvs[wf_slot_def,cube_slot_aux_side])>>
+  xif
+  >- (
+    `cube_slot cv (lookup_core_only_list T fmlls h)` by
+      (Cases_on`b`>>gvs[lookup_core_only_list_def,core_slot_def,cube_slot_def])>>
+    xlet`POSTve
+      (λv. ARRAY fmlv fmllsv *
+        &(EVERY (λi. cube_slot cv (lookup_core_only_list T fmlls i)) inds ∧
+          LIST_TYPE NUM (reindex fmlls inds) v))
+      (λe. ARRAY fmlv fmllsv *
+        &(Fail_exn e ∧
+          ¬EVERY (λi. cube_slot cv (lookup_core_only_list T fmlls i)) inds))`
+    >- (xapp>>xsimpl)
+    >- (xsimpl>>simp[EXISTS_NOT_EVERY])>>
+    xcon>>xsimpl>>
+    gvs[reindex_characterize,LIST_TYPE_def])>>
+  rpt xlet_autop>>
+  xraise>>xsimpl>>
+  gvs[Fail_exn_def,lookup_core_only_list_def,core_slot_def,cube_slot_def]>>
+  metis_tac[]
 QED
 
 Quote add_cakeml:
-  fun check_sol_core_arr wm free fml inds =
+  fun check_sol_core_arr lno wm free fml inds =
   if sol_free_ok wm free then
     let
       val cv = mk_cube_vec wm free
       val cw = vec_lookup_d (Some False) cv
     in
-      if sol_cw_ok cw wm andalso every_cube_arr cv fml inds then
-        Some (sol_fun cw)
+      if sol_cw_ok cw wm then
+        let val inds' = cube_inds_arr lno cv fml inds in
+          Some (sol_fun cw, inds')
+        end
       else None
     end
   else None
 End
 
 Theorem check_sol_core_arr_spec:
+  NUM lno lnov ∧
   LIST_TYPE (PAIR_TYPE NUM BOOL) wm wmv ∧
   SPTREE_SPT_TYPE UNIT_TYPE free freev ∧
   LIST_REL fslot_TYPE fmlls fmllsv ∧
@@ -5878,12 +5987,15 @@ Theorem check_sol_core_arr_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_sol_core_arr" (get_ml_prog_state()))
-    [wmv; freev; fmlv; indsv]
+    [lnov; wmv; freev; fmlv; indsv]
     (ARRAY fmlv fmllsv)
-    (POSTv v.
-      ARRAY fmlv fmllsv *
-      &OPTION_TYPE (NUM --> BOOL)
-        (check_sol_core wm free fmlls inds) v)
+    (POSTve
+      (λv. ARRAY fmlv fmllsv *
+        &OPTION_TYPE (PAIR_TYPE (NUM --> BOOL) (LIST_TYPE NUM))
+          (OPTION_MAP (λf. (f, reindex fmlls inds))
+            (check_sol_core wm free fmlls inds)) v)
+      (λe. ARRAY fmlv fmllsv *
+        &(Fail_exn e ∧ check_sol_core wm free fmlls inds = NONE)))
 Proof
   rw[]>>
   xcf "check_sol_core_arr" (get_ml_prog_state ())>>
@@ -5901,14 +6013,22 @@ Proof
       `OPTION_TYPE BOOL`]>>
     simp[OPTION_TYPE_def]>>xsimpl)>>
   xlet_autop>>
-  xlet`POSTv b. ARRAY fmlv fmllsv *
-    &BOOL (sol_cw_ok (vec_lookup_d (SOME F) (mk_cube_vec wm free)) wm ∧
-      EVERY (λi. cube_slot (mk_cube_vec wm free)
-        (lookup_core_only_list T fmlls i)) inds) b`
-  >- (xlog>>xsimpl>>rw[]>>gvs[]>>xapp>>xsimpl)>>
-  qmatch_goalsub_abbrev_tac`OPTION_TYPE _ (if ok then _ else _)`>>
   reverse xif
   >- (xcon>>xsimpl>>simp[OPTION_TYPE_def])>>
+  xlet`POSTve
+    (λv. ARRAY fmlv fmllsv *
+      &(EVERY (λi. cube_slot (mk_cube_vec wm free)
+          (lookup_core_only_list T fmlls i)) inds ∧
+        LIST_TYPE NUM (reindex fmlls inds) v))
+    (λe. ARRAY fmlv fmllsv *
+      &(Fail_exn e ∧
+        ¬EVERY (λi. cube_slot (mk_cube_vec wm free)
+          (lookup_core_only_list T fmlls i)) inds))`
+  >- (
+    xapp>>xsimpl>>
+    qexistsl_tac[`inds`,`fmlls`,`mk_cube_vec wm free`,`lno`]>>
+    simp[])
+  >- (xsimpl>>rw[]>>gvs[EVERY_MEM,EXISTS_MEM])>>
   xlet`POSTv fv. ARRAY fmlv fmllsv *
     &(NUM --> BOOL)
       (sol_fun (vec_lookup_d (SOME F) (mk_cube_vec wm free))) fv`
@@ -5916,8 +6036,9 @@ Proof
     xapp_spec (MATCH_MP Arrow_app_one (fetch "-" "sol_fun_v_thm"))>>
     xsimpl>>
     metis_tac[])>>
+  rpt xlet_autop>>
   xcon>>xsimpl>>
-  simp[OPTION_TYPE_def]
+  simp[OPTION_TYPE_def,PAIR_TYPE_def]
 QED
 
 Definition map_snd_def:
@@ -7161,13 +7282,12 @@ Quote add_cakeml:
     end
   | Obj w mi bopt => (
     let val obj = get_obj pc in
-      case check_obj_core_arr obj w fml inds bopt of
+      case check_obj_core_arr lno obj w fml inds bopt of
       None =>
        raise Fail (format_failure lno
         ("supplied assignment did not satisfy constraints or did not improve objective"))
-      | Some neww =>
+      | Some (new, (w', cinds)) =>
       let
-        val new = fst neww
         val bound' = update_bound (get_chk pc) (get_bound pc) new
         val dbound' = update_dbound (get_dbound pc) new
       in
@@ -7182,13 +7302,13 @@ Quote add_cakeml:
           val id = get_id pc
           val c = model_improving obj new in
           case enc_mv c True of (s,mv) =>
-          case store_ind_arr fml s mv id inds vimap assg st of
+          case store_ind_arr fml s mv id cinds vimap assg st of
             (fml',(inds',(vimap',(id',(assg',st'))))) =>
           (fml', (assg', (st', (inds', (vimap', (vomap,
             obj_update pc id' bound' dbound'))))))
         end
       else
-        (fml, (assg, (st, (inds, (vimap, (vomap, obj_update pc (get_id pc) bound' dbound'))))))
+        (fml, (assg, (st, (cinds, (vimap, (vomap, obj_update pc (get_id pc) bound' dbound'))))))
       end
     end
     )
@@ -7234,11 +7354,11 @@ Quote add_cakeml:
       val chk = get_chk pc
     in
       if obj_chk_check obj chk then
-        (case check_sol_core_arr w free fml inds of
+        (case check_sol_core_arr lno w free fml inds of
         None =>
          raise Fail (format_failure lno
           ("supplied solution cube has conflicting assignments or does not satisfy constraints"))
-        | Some ww =>
+        | Some (ww, cinds) =>
         let
           val bound' = update_bound chk (get_bound pc) 0
           val dbound' = update_dbound (get_dbound pc) 0
@@ -7247,7 +7367,7 @@ Quote add_cakeml:
           val c = model_banning pres free ww
           val count = cube_count pres free in
           case enc_mv c True of (s,mv) =>
-          case store_ind_arr fml s mv id inds vimap assg st of
+          case store_ind_arr fml s mv id cinds vimap assg st of
             (fml',(inds',(vimap',(id',(assg',st'))))) =>
           (fml', (assg', (st', (inds', (vimap', (vomap,
             sol_update pc id' bound' dbound' count))))))
@@ -7575,19 +7695,24 @@ QED
 Resume check_cstep_arr_spec[Obj]:
   xmatch>>
   simp[check_cstep_list_def]>>
-  rpt xlet_autop>>
+  xlet_autop>>
   fs[get_obj_def]>>
   rename1`check_obj_core pc.obj wm fmlls inds bopt`>>
+  xlet_auto
+  >- (xsimpl>>rw[]>>metis_tac[ARRAY_NUM_ARRAY_refl])
+  >- (xsimpl>>metis_tac[ARRAY_NUM_ARRAY_refl])>>
   Cases_on`check_obj_core pc.obj wm fmlls inds bopt`>>
-  fs[OPTION_TYPE_def]>>
-  xmatch
+  fs[OPTION_TYPE_def]
   >- (
+    xmatch>>
     rpt xlet_autop>>
     xraise>>xsimpl>>
     simp[Fail_exn_def]>>
     metis_tac[ARRAY_NUM_ARRAY_refl])>>
   rename1`check_obj_core _ _ _ _ _ = SOME nw`>>
   PairCases_on`nw`>>
+  gvs[PAIR_TYPE_def]>>
+  xmatch>>
   rpt xlet_autop>>
   fs[get_chk_def,get_bound_def,get_dbound_def]>>
   reverse xif
@@ -7616,7 +7741,8 @@ Resume check_cstep_arr_spec[Obj]:
   xmatch>>
   qabbrev_tac`c = model_improving pc.obj nw0`>>
   `∃fml1 inds1 vimap1 id1 assg1 st1.
-    store_ind fmlls (enc c T) (max_var (FST c)) pc.id inds vimap assg st =
+    store_ind fmlls (enc c T) (max_var (FST c)) pc.id (reindex fmlls inds)
+      vimap assg st =
     (fml1,inds1,vimap1,id1,assg1,st1)` by metis_tac[PAIR]>>
   simp[]>>
   xlet`POSTv v.
@@ -7629,8 +7755,8 @@ Resume check_cstep_arr_spec[Obj]:
       (fml1,inds1,vimap1,id1,assg1,st1) v`
   >- (
     xapp>>xsimpl>>
-    qexistsl_tac[`emp`,`vimap`,`st`,`enc c T`,`max_var (FST c)`,`inds`,
-      `pc.id`,`fmlls`,`assg`]>>
+    qexistsl_tac[`emp`,`vimap`,`st`,`enc c T`,`max_var (FST c)`,
+      `reindex fmlls inds`,`pc.id`,`fmlls`,`assg`]>>
     simp[fslot_TYPE_def,slot_bound_enc_max_var]>>
     xsimpl>>
     rpt strip_tac>>
@@ -7751,26 +7877,31 @@ Resume check_cstep_arr_spec[Sol]:
   >- (xsimpl>>simp (eq_lemmas()))>>
   xif>>fs[obj_chk_check_def,get_chk_def,get_obj_def]
   >- (
-    rpt xlet_autop>>
     rename1`check_sol_core wm free fmlls inds`>>
+    xlet_auto
+    >- (xsimpl>>rw[]>>metis_tac[ARRAY_NUM_ARRAY_refl])
+    >- (xsimpl>>metis_tac[ARRAY_NUM_ARRAY_refl])>>
     Cases_on`check_sol_core wm free fmlls inds`>>
-    fs[OPTION_TYPE_def]>>
-    xmatch
+    fs[OPTION_TYPE_def]
     >- (
+      xmatch>>
       rpt xlet_autop>>
       xraise>>xsimpl>>
       simp[Fail_exn_def]>>
       metis_tac[ARRAY_NUM_ARRAY_refl])>>
+    rename1`check_sol_core _ _ _ _ = SOME ww`>>
+    gvs[PAIR_TYPE_def]>>
+    xmatch>>
     rpt xlet_autop>>
     `BOOL T (Conv (SOME (TypeStamp «True» 0)) [])` by EVAL_TAC>>
     xlet_autop>>
-    rename1`check_sol_core _ _ _ _ = SOME ww`>>
     gvs[enc_mv_enc,PAIR_TYPE_def,get_id_def,get_pres_def,get_bound_def,
       get_dbound_def]>>
     xmatch>>
     qabbrev_tac`c = model_banning pc.pres free ww`>>
     `∃fml1 inds1 vimap1 id1 assg1 st1.
-      store_ind fmlls (enc c T) (max_var (FST c)) pc.id inds vimap assg st =
+      store_ind fmlls (enc c T) (max_var (FST c)) pc.id (reindex fmlls inds)
+        vimap assg st =
       (fml1,inds1,vimap1,id1,assg1,st1)` by metis_tac[PAIR]>>
     simp[]>>
     xlet`POSTv v.
@@ -7783,8 +7914,8 @@ Resume check_cstep_arr_spec[Sol]:
         (fml1,inds1,vimap1,id1,assg1,st1) v`
     >- (
       xapp>>xsimpl>>
-      qexistsl_tac[`emp`,`vimap`,`st`,`enc c T`,`max_var (FST c)`,`inds`,
-        `pc.id`,`fmlls`,`assg`]>>
+      qexistsl_tac[`emp`,`vimap`,`st`,`enc c T`,`max_var (FST c)`,
+        `reindex fmlls inds`,`pc.id`,`fmlls`,`assg`]>>
       simp[fslot_TYPE_def,slot_bound_enc_max_var]>>
       xsimpl>>
       rpt strip_tac>>

@@ -4058,6 +4058,7 @@ Definition check_cstep_list_def:
     case check_obj_core pc.obj w fml inds bopt of
       NONE => NONE
     | SOME (new,w) =>
+      let rinds = reindex fml inds in
       let bound' = update_bound pc.chk pc.bound new in
       let dbound' = update_dbound pc.dbound new in
       if mi then
@@ -4065,7 +4066,7 @@ Definition check_cstep_list_def:
           let c = model_improving pc.obj new in
           let (s,mv) = enc_mv c T in
           let (fml',inds',vimap',id',assg',st') =
-            store_ind fml s mv pc.id inds vimap assg st in
+            store_ind fml s mv pc.id rinds vimap assg st in
           SOME (
             fml', assg', st', inds', vimap', vomap,
             pc with
@@ -4074,7 +4075,7 @@ Definition check_cstep_list_def:
                dbound := dbound' |>)
         else NONE
       else
-        SOME (fml, assg, st, inds, vimap, vomap,
+        SOME (fml, assg, st, rinds, vimap, vomap,
           pc with
           <| bound := bound';
              dbound := dbound' |>))
@@ -4120,12 +4121,13 @@ Definition check_cstep_list_def:
     case check_sol_core w free fml inds of
       NONE => NONE
     | SOME w =>
+      let rinds = reindex fml inds in
       let bound' = update_bound pc.chk pc.bound 0 in
       let dbound' = update_dbound pc.dbound 0 in
       let c = model_banning pc.pres free w in
       let (s,mv) = enc_mv c T in
       let (fml',inds',vimap',id',assg',st') =
-        store_ind fml s mv pc.id inds vimap assg st in
+        store_ind fml s mv pc.id rinds vimap assg st in
         SOME (
           fml', assg', st', inds', vimap', vomap,
           pc with
@@ -4545,6 +4547,7 @@ Proof
       check_obj_core_thm,check_obj_slots_thm]>>
     drule_all core_fmlls_mk_core_fml>>strip_tac>>
     drule check_obj_cong>>rw[]>>fs[]>>
+    drule_all ind_rel_reindex>>strip_tac>>
     rpt (pairarg_tac>>gvs[])>>
     gvs[enc_mv_enc,store_ind_enc,opt_update_SOME]>>
     drule_all store_rels>>
@@ -4628,6 +4631,7 @@ Proof
       check_sol_core_thm,check_sol_slots_thm]>>
     drule_all core_fmlls_mk_core_fml>>strip_tac>>
     drule check_sol_cong>>rw[]>>fs[]>>
+    drule_all ind_rel_reindex>>strip_tac>>
     rpt (pairarg_tac>>gvs[])>>
     gvs[enc_mv_enc,store_ind_enc,opt_update_SOME]>>
     drule_all store_rels>>
