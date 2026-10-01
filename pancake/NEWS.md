@@ -5,6 +5,17 @@ User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
 
+Oct 1st 2026
+-------------------
+
+### Updated static error reporting
+
+Attempts to call inline functions with an exception handler or to
+declare a recursive inline function now prompt compiler warnings.
+
+The 32 word size limit on function return values has been removed.
+The missing 32 word size limit on exception values has been added.
+
 Sep 2nd 2026
 -------------------
 
@@ -248,7 +259,7 @@ The syntax is as exemplified here.
     st32 @base, v; // store 32 bits from variable v to @base
     v = ld32 @base+4 // load 32 bits from address @base+4 to variable v.
 
-<sub>Feature disabled: `32bit`</sub>
+<sub>Feature enabled: `32bit`</sub>
 
 March 27th 2025
 -------------------

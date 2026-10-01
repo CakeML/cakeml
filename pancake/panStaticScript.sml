@@ -17,18 +17,21 @@
         inner block occurs *before* this line, warnings within that block do not
         count towards this first. However, if an inner block occurs *after* this
         line, the line is recognised as the first for the inner block as well
-    - Base-calculated address in shared memory operation
     - Non-base -calculated address in local memory operation
+    - Base-calculated address in shared memory operation
+    - Un-inline-able functions (exception handler, recursive)
 
   Scope checks:
   - Errors:
     - Undefined/out-of-scope functions
-    - Undefined/out-of-scope variables
     - Undefined/out-of-scope struct names
+    - Undefined/out-of-scope variables
+    - Undefined/out-of-scope exceptions
     - Redefined functions
     - Redefined function parameter names
     - Redefined struct names
     - Redefined struct field names
+    - Redefined exceptions
   - Warnings:
     - Redefined variables
 
@@ -38,6 +41,8 @@
     - Mismatched variable assignments
     - Mismatched function arguments
     - Mismatched function returns
+    - Mismatched thrown exception value
+    - Mismatched exception handler variables
     - Mismatched struct fields
     - Incorrect number of struct field values
     - Mismatched source/destination for memory operations
@@ -50,7 +55,7 @@
     - Non-word condition expressions
     - Invalid field index
     - Invalid field name
-    - Returned shape size >32 words (TODO: raised shape size)
+    - Exception value shape size >32 words
 
   Primitive checks:
   - Errors:
@@ -129,8 +134,9 @@ End
 (* Type for function state *)
 Datatype:
   func_info = <|
-    ret_shape : shape                  (* shape of return value *)
-  ; params    : (varname # shape) list (* parameter info *)
+    ret_shape : shape                   (* shape of return value *)
+  ; params    : (varname # shape) list  (* parameter info *)
+  ; inline    : bool                    (* inline status *)
   |>
 End
 
@@ -145,6 +151,13 @@ End
 Datatype:
   global_info = <|
     vshape : shape (* shape of var *)
+  |>
+End
+
+(* Type for exception state *)
+Datatype:
+  except_info = <|
+    eshape : shape (* shape of exception data *)
   |>
 End
 
@@ -163,7 +176,7 @@ Datatype:
     locals       : (varname , local_info ) map  (* tracked var state *)
   ; globals      : (varname , global_info) map  (* declared globals *)
   ; funcs        : (funname , func_info  ) map  (* all function info *)
-  ; exns         : (eid, shape) map             (* all exception decl info*)
+  ; exns         : (eid     , except_info) map  (* all exception decl info *)
   ; structs      : (stcname # struct_info) list (* struct name context *)
   ; scope        : scope                        (* current scope info *)
   ; in_loop      : bool                         (* loop status *)
@@ -195,12 +208,13 @@ Datatype:
   ; last       : last_stmt                  (* new exit-ness of last statement *)
   ; var_delta  : (varname, local_info) map  (* change in var state *)
   ; curr_loc   : mlstring                   (* latest location string *)
+  ; recurse    : bool                       (* func recursiveness status *)
   |>
 End
 
 (* Varieties of identifiers that can be out of scope *)
 Datatype:
-  scoped_id = Var | Fun | Stc
+  scoped_id = Var | Fun | Stc | Exn
 End
 
 
@@ -338,17 +352,6 @@ Definition seq_loc_inf_def:
   seq_loc_inf x y = union y x
 End
 
-(* Get shape string from shaped based *)
-Definition sh_bd_to_str_def:
-  sh_bd_to_str (WordB b) = strlit "1" ∧
-  sh_bd_to_str (StructB []) = strlit "{}" ∧ (* should never happen *)
-  sh_bd_to_str (StructB (x::xs)) = concat (
-    strlit "{" :: sh_bd_to_str x ::
-    MAP (λx. strlit "," ^ x) (MAP sh_bd_to_str xs) ++
-    [strlit "}"]) ∧
-  sh_bd_to_str (NamedB nm flds) = nm
-End
-
 
 (* Functions for `last_stmt` and `reachable` *)
 
@@ -445,7 +448,8 @@ Definition get_scope_msg_def:
       case id_type of
       | Var => strlit "variable "
       | Fun => strlit "function "
-      | Stc => strlit "struct name " in
+      | Stc => strlit "struct name "
+      | Exn => strlit "exception " in
     concat [loc; id_desc; id;
       « is not in scope in »;
       get_scope_desc scope; «\n»]
@@ -481,7 +485,8 @@ Definition get_redec_msg_def:
       case id_type of
       | Var => strlit "variable "
       | Fun => strlit "function "
-      | Stc => strlit "struct name " in
+      | Stc => strlit "struct name "
+      | Exn => strlit "exception " in
     concat [
       loc; id_desc; id;
       strlit " is redeclared in ";
@@ -565,6 +570,14 @@ Definition get_shape_mismatch_msg_def:
     get_scope_desc scope; strlit "\n"]
 End
 
+(* Get message for ignoring  *)
+Definition get_inline_ignore_msg_def:
+  get_inline_ignore_msg desc loc scope = concat [
+    loc; desc; strlit " and will not be inlined in ";
+    get_scope_desc scope; strlit "\n"]
+End
+
+(* Get message for reaching impossible cases *)
 Definition get_implementation_err_msg_def:
   get_implementation_err_msg desc loc scope = concat [
     loc; desc; strlit " in "; get_scope_desc scope; strlit "\n";
@@ -609,6 +622,17 @@ Definition primop_to_str_def:
     | AddCarry => «AddCarry»
 End
 
+(* Get shape string from shaped based *)
+Definition sh_bd_to_str_def:
+  sh_bd_to_str (WordB b) = strlit "1" ∧
+  sh_bd_to_str (StructB []) = strlit "{}" ∧ (* should never happen *)
+  sh_bd_to_str (StructB (x::xs)) = concat (
+    strlit "{" :: sh_bd_to_str x ::
+    MAP (λx. strlit "," ^ x) (MAP sh_bd_to_str xs) ++
+    [strlit "}"]) ∧
+  sh_bd_to_str (NamedB nm flds) = nm
+End
+
 
 (* Static check helpers *)
 
@@ -617,7 +641,7 @@ Definition check_fun_name_def:
   check_fun_name ctxt fname =
     case lookup ctxt.funcs fname of
     | NONE => error (ScopeErr $
-        add_primitive_hint fname (get_scope_msg Fun ctxt.loc fname ctxt.scope))
+      add_primitive_hint fname (get_scope_msg Fun ctxt.loc fname ctxt.scope))
     | SOME f => return f
 End
 
@@ -643,6 +667,14 @@ Definition check_redec_var_def:
     case (lookup ctxt.locals vname, lookup ctxt.globals vname) of
     | (NONE, NONE) => return ()
     | _ => log (WarningErr $ get_redec_msg Var ctxt.loc vname ctxt.scope)
+End
+
+(* Check for out of scope exception *)
+Definition check_exn_name_def:
+  check_exn_name ctxt eid =
+    case lookup ctxt.exns eid of
+    | NONE => error (ScopeErr $ get_scope_msg Exn ctxt.loc eid ctxt.scope)
+    | SOME e => return e
 End
 
 (* Check shapes of exported arguments *)
@@ -787,8 +819,8 @@ Definition check_id_shapes_def:
           return $ StcScope sname id
         (* should never occur if static checker implemented correctly *)
         | s => error (GenErr $ get_implementation_err_msg
-            (strlit "parameter or field found in unexpected scope")
-            loc scope);
+          (strlit "parameter or field found in unexpected scope")
+          loc scope);
       check_shape sctxt loc scope' shape;
       check_id_shapes sctxt loc scope ids
     od
@@ -822,7 +854,7 @@ Definition static_check_exp_def:
       (* return exp info with stored shape *)
       | SOME sb => return <| sh_bd := sb |>
       (* should never occur if static checker implemented correctly *)
-      | NONE => error (ScopeErr $ get_implementation_err_msg
+      | NONE => error (GenErr $ get_implementation_err_msg
         (strlit "static analysis failed to convert in-scope shape")
         ctxt.loc ctxt.scope)
     od ∧
@@ -847,6 +879,7 @@ Definition static_check_exp_def:
     od ∧
   static_check_exp ctxt (NStruct name eflds) =
     do
+      (* check struct name declared *)
       sinfo <-
         case ALOOKUP ctxt.structs name of
         | SOME info => return info
@@ -894,7 +927,7 @@ Definition static_check_exp_def:
       (* return exp info *)
       | SOME sb => return <| sh_bd := sb |>
       (* should never occur if static checker implemented correctly *)
-      | NONE => error (ScopeErr $ get_implementation_err_msg
+      | NONE => error (GenErr $ get_implementation_err_msg
         (strlit "static analysis failed to convert in-scope shape")
         ctxt.loc ctxt.scope)
     od ∧
@@ -1053,7 +1086,8 @@ Definition static_check_prog_def:
       ; exits_loop := F
       ; last       := OtherLast
       ; var_delta  := empty mlstring$compare
-      ; curr_loc   := ctxt.loc |> ∧
+      ; curr_loc   := ctxt.loc
+      ; recurse    := F |> ∧
   static_check_prog ctxt (Dec vname shape exp prog) =
     do
       (* check for redeclaration *)
@@ -1080,7 +1114,8 @@ Definition static_check_prog_def:
         ; exits_loop := pret.exits_loop
         ; last       := pret.last
         ; var_delta  := delete pret.var_delta vname
-        ; curr_loc   := pret.curr_loc |>
+        ; curr_loc   := pret.curr_loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (DecCall vname shape fname args prog) =
     do
@@ -1088,8 +1123,9 @@ Definition static_check_prog_def:
       check_redec_var ctxt vname;
       (* check shape *)
       check_shape ctxt.structs ctxt.loc ctxt.scope shape;
-      (* check func and arg exps *)
+      (* check func declared *)
       finf <- check_fun_name ctxt fname;
+      (* check arg exps *)
       esret <- static_check_exps ctxt args;
       (* check arg num and shapes *)
       check_func_args ctxt fname finf.params esret.sh_bds;
@@ -1107,20 +1143,29 @@ Definition static_check_prog_def:
         (* return exp info with stored shape *)
         | SOME sb => return sb
         (* should never occur if static checker implemented correctly *)
-        | NONE => error (ScopeErr $ get_implementation_err_msg
+        | NONE => error (GenErr $ get_implementation_err_msg
           (strlit "static analysis failed to convert in-scope shape")
           ctxt.loc ctxt.scope);
       ctxt' <<- ctxt with <|
           locals := insert ctxt.locals vname <| vsh_bd := sb |>
         ; last := OtherLast |>;
       pret <- static_check_prog ctxt' prog;
+      (* lookup current function name *)
+      caller_name <-
+        case ctxt.scope of
+        | FunScope caller _ => return caller
+        (* should never occur if static checker implemented correctly *)
+        | _ => error (GenErr $ get_implementation_err_msg
+          (strlit "declaration call found outside function scope")
+          ctxt.loc ctxt.scope);
       (* return prog info without declared var *)
       return <|
           exits_fun  := pret.exits_fun
         ; exits_loop := pret.exits_loop
         ; last       := pret.last
         ; var_delta  := delete pret.var_delta vname
-        ; curr_loc   := pret.curr_loc |>
+        ; curr_loc   := pret.curr_loc
+        ; recurse    := (fname = caller_name) |>
     od ∧
   static_check_prog ctxt (Assign Local vname exp) =
     do
@@ -1143,7 +1188,8 @@ Definition static_check_prog_def:
         ; var_delta  :=
           singleton mlstring$compare vname (vinf with
             <| vsh_bd := eret.sh_bd |>)
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (Assign Global vname exp) =
     do
@@ -1164,14 +1210,16 @@ Definition static_check_prog_def:
         ; exits_loop := F
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
-      static_check_prog ctxt (AssignCall (Local, vname) hdl fname args) =
+  static_check_prog ctxt (AssignCall (Local, vname) hdl fname args) =
     do
       (* check for out of scope assignment *)
       vinf <- check_local_var ctxt vname;
-      (* check func ptr exp and arg exps *)
+      (* check func declared *)
       finf <- check_fun_name ctxt fname;
+      (* check arg exps *)
       esret <- static_check_exps ctxt args;
       (* check arg num and shapes *)
       check_func_args ctxt fname finf.params esret.sh_bds;
@@ -1186,42 +1234,41 @@ Definition static_check_prog_def:
       (* check exception handling info *)
       case hdl of
       | NONE => return ()
-        (* check for out of scope exception variable *)
       | SOME (eid, evar, prog) =>
-          do
-            (* check exception declared *)
-            sh <- case lookup ctxt.exns eid of
-                    NONE => error (ScopeErr $ concat [
-                              strlit "exception "; eid; strlit " is not declared\n"])
-                  | SOME sh => return sh;
-
-            (* check handler variable exists *)
-            evinf <- check_local_var ctxt evar;
-
-            (* check handler variable shape matches exception shape *)
-            if ~(sh_bd_has_shape sh evinf.vsh_bd) then
-              error (ShapeErr $ concat [
+        do
+          (* check for inline function *)
+          if finf.inline then
+            log (WarningErr $ get_inline_ignore_msg (concat [
+                strlit "function call "; fname; strlit " has handler"
+              ]) ctxt.loc ctxt.scope)
+          else return ();
+          (* check exception declared *)
+          einf <- check_exn_name ctxt eid;
+          (* check for out of scope handler variable *)
+          evinf <- check_local_var ctxt evar;
+          (* check handler variable shape matches exception shape *)
+          if ~(sh_bd_has_shape einf.eshape evinf.vsh_bd) then
+            error (ShapeErr $ get_shape_mismatch_msg (concat [
                 strlit "handler variable "; evar;
-                strlit " does not match shape of exception "; eid; strlit "\n"])
-            else return ();
-
-            sb <-
-              case sh_bd_from_sh ctxt.structs Trusted sh of
-              (* return exp info with stored shape *)
-              | SOME sb => return sb
-              (* should never occur if static checker implemented correctly *)
-              | NONE => error (ScopeErr $ get_implementation_err_msg
-                (strlit "static analysis failed to convert in-scope shape")
-                ctxt.loc ctxt.scope);
-
-            (* type-check handler body *)
-            static_check_prog
-              (ctxt with locals :=
-                insert ctxt.locals evar
-                  (evinf with <| vsh_bd := sb |>))
-              prog;
-            return ()
-          od;
+                strlit " for exception "; eid
+              ]) (sh_bd_to_str evinf.vsh_bd) (shape_to_str einf.eshape)
+              ctxt.loc ctxt.scope)
+          else return ();
+          (* check handler prog with evar *)
+          static_check_prog (ctxt with locals :=
+              insert ctxt.locals evar (evinf with
+                <| vsh_bd := sh_bd_from_bd Trusted evinf.vsh_bd |>
+            )) prog;
+          return ()
+        od;
+      (* lookup current function name *)
+      caller_name <-
+        case ctxt.scope of
+        | FunScope caller _ => return caller
+        (* should never occur if static checker implemented correctly *)
+        | _ => error (GenErr $ get_implementation_err_msg
+          (strlit "assignment call found outside function scope")
+          ctxt.loc ctxt.scope);
       (* return prog info with updated var *)
       return <|
           exits_fun  := F
@@ -1230,14 +1277,16 @@ Definition static_check_prog_def:
         ; var_delta  :=
           singleton mlstring$compare vname (vinf with
             <| vsh_bd := sh_bd_from_bd Trusted vinf.vsh_bd |>)
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := (fname = caller_name) |>
     od ∧
   static_check_prog ctxt (AssignCall (Global, vname) hdl fname args) =
     do
       (* check for out of scope assignment *)
       vinf <- check_global_var ctxt vname;
-      (* check func ptr exp and arg exps *)
+      (* check func declared *)
       finf <- check_fun_name ctxt fname;
+      (* check arg exps *)
       esret <- static_check_exps ctxt args;
       (* check arg num and shapes *)
       check_func_args ctxt fname finf.params esret.sh_bds;
@@ -1252,23 +1301,49 @@ Definition static_check_prog_def:
       (* check exception handling info *)
       case hdl of
       | NONE => return ()
-        (* check for out of scope exception variable *)
       | SOME (eid, evar, prog) =>
-          do
-            evinf <- check_local_var ctxt evar;
-            static_check_prog (ctxt with locals :=
-                insert ctxt.locals evar (evinf with
-                  <| vsh_bd := sh_bd_from_bd Trusted evinf.vsh_bd |>
-              )) prog;
-            return ()
-          od;
+        do
+          (* check for inline function *)
+          if finf.inline then
+            log (WarningErr $ get_inline_ignore_msg (concat [
+                strlit "function call "; fname; strlit " has handler"
+              ]) ctxt.loc ctxt.scope)
+          else return ();
+          (* check exception declared *)
+          einf <- check_exn_name ctxt eid;
+          (* check for out of scope handler variable *)
+          evinf <- check_local_var ctxt evar;
+          (* check handler variable shape matches exception shape *)
+          if ~(sh_bd_has_shape einf.eshape evinf.vsh_bd) then
+            error (ShapeErr $ get_shape_mismatch_msg (concat [
+                strlit "handler variable "; evar;
+                strlit " for exception "; eid
+              ]) (sh_bd_to_str evinf.vsh_bd) (shape_to_str einf.eshape)
+              ctxt.loc ctxt.scope)
+          else return ();
+          (* check handler prog with evar *)
+          static_check_prog (ctxt with locals :=
+              insert ctxt.locals evar (evinf with
+                <| vsh_bd := sh_bd_from_bd Trusted evinf.vsh_bd |>
+            )) prog;
+          return ()
+        od;
+      (* lookup current function name *)
+      caller_name <-
+        case ctxt.scope of
+        | FunScope caller _ => return caller
+        (* should never occur if static checker implemented correctly *)
+        | _ => error (GenErr $ get_implementation_err_msg
+          (strlit "assignment call found outside function scope")
+          ctxt.loc ctxt.scope);
       (* return prog info with updated var *)
       return <|
           exits_fun  := F
         ; exits_loop := F
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := (fname = caller_name) |>
     od ∧
   static_check_prog ctxt (Primitive vname pop es) =
     do
@@ -1287,12 +1362,14 @@ Definition static_check_prog_def:
           ctxt.loc ctxt.scope)
       else return ();
       (* return prog info with updated var *)
-      return <| exits_fun  := F
-              ; exits_loop := F
-              ; last       := OtherLast
-              ; var_delta  := singleton mlstring$compare vname
-                                (vinf with <| vsh_bd := res_sb |>)
-              ; curr_loc   := ctxt.loc |>
+      return <|
+          exits_fun  := F
+        ; exits_loop := F
+        ; last       := OtherLast
+        ; var_delta  := singleton mlstring$compare vname
+                          (vinf with <| vsh_bd := res_sb |>)
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (Return exp) =
     do
@@ -1319,17 +1396,26 @@ Definition static_check_prog_def:
         ; exits_loop := F
         ; last       := RetLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (TailCall fname args) =
     do
       (* lookup current function info *)
-      caller_inf <- case ctxt.scope of
-        | FunScope caller _ => check_fun_name ctxt caller
+      (caller_inf, caller_name) <-
+        case ctxt.scope of
+        | FunScope caller _ =>
+          do
+            inf <- check_fun_name ctxt caller;
+            return (inf, caller)
+          od
         (* should never occur if static checker implemented correctly *)
-        | _ => error (GenErr $ strlit "tail call found outside function scope");
-      (* check func ptr exp and arg exps *)
+        | _ => error (GenErr $ get_implementation_err_msg
+          (strlit "tail call found outside function scope")
+          ctxt.loc ctxt.scope);
+      (* check func declared *)
       callee_inf <- check_fun_name ctxt fname;
+      (* check arg exps *)
       esret <- static_check_exps ctxt args;
       (* check for shape match *)
       if ~(caller_inf.ret_shape = callee_inf.ret_shape) then
@@ -1348,61 +1434,63 @@ Definition static_check_prog_def:
         ; exits_loop := F
         ; last       := TailLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := (fname = caller_name) |>
     od ∧
   static_check_prog ctxt (StandAloneCall hdl fname args) =
     do
-      (* check func ptr exp and arg exps *)
+      (* check func declared *)
       finf <- check_fun_name ctxt fname;
+      (* check arg exps *)
       esret <- static_check_exps ctxt args;
       (* check arg num and shapes *)
       check_func_args ctxt fname finf.params esret.sh_bds;
       (* check exception handling info *)
       case hdl of
       | NONE => return ()
-        (* check for out of scope exception variable *)
       | SOME (eid, evar, prog) =>
-          do
-            (* check exception declared *)
-            sh <- case lookup ctxt.exns eid of
-                    NONE => error (ScopeErr $ concat [
-                              strlit "exception "; eid; strlit " is not declared\n"])
-                  | SOME sh => return sh;
-
-            (* check handler variable exists *)
-            evinf <- check_local_var ctxt evar;
-
-            (* check handler variable shape matches exception shape *)
-            if ~(sh_bd_has_shape sh evinf.vsh_bd) then
-              error (ShapeErr $ concat [
+        do
+          (* check for inline function *)
+          if finf.inline then
+            log (WarningErr $ get_inline_ignore_msg (concat [
+                strlit "function call "; fname; strlit " has handler"
+              ]) ctxt.loc ctxt.scope)
+          else return ();
+          (* check exception declared *)
+          einf <- check_exn_name ctxt eid;
+          (* check for out of scope handler variable *)
+          evinf <- check_local_var ctxt evar;
+          (* check handler variable shape matches exception shape *)
+          if ~(sh_bd_has_shape einf.eshape evinf.vsh_bd) then
+            error (ShapeErr $ get_shape_mismatch_msg (concat [
                 strlit "handler variable "; evar;
-                strlit " does not match shape of exception "; eid; strlit "\n"])
-            else return ();
-
-            sb <-
-              case sh_bd_from_sh ctxt.structs Trusted sh of
-              (* return exp info with stored shape *)
-              | SOME sb => return sb
-              (* should never occur if static checker implemented correctly *)
-              | NONE => error (ScopeErr $ get_implementation_err_msg
-                (strlit "static analysis failed to convert in-scope shape")
-                ctxt.loc ctxt.scope);
-
-            (* type-check handler body *)
-            static_check_prog
-              (ctxt with locals :=
-                insert ctxt.locals evar
-                  (evinf with <| vsh_bd := sb |>))
-              prog;
-            return ()
-          od;
+                strlit " for exception "; eid
+              ]) (sh_bd_to_str evinf.vsh_bd) (shape_to_str einf.eshape)
+              ctxt.loc ctxt.scope)
+          else return ();
+          (* check handler prog with evar *)
+          static_check_prog (ctxt with locals :=
+              insert ctxt.locals evar (evinf with
+                <| vsh_bd := sh_bd_from_bd Trusted evinf.vsh_bd |>
+            )) prog;
+          return ()
+        od;
+      (* lookup current function name *)
+      caller_name <-
+        case ctxt.scope of
+        | FunScope caller _ => return caller
+        (* should never occur if static checker implemented correctly *)
+        | _ => error (GenErr $ get_implementation_err_msg
+          (strlit "standalone call found outside function scope")
+          ctxt.loc ctxt.scope);
       (* return prog info *)
       return <|
           exits_fun  := F
         ; exits_loop := F
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := (fname = caller_name) |>
     od ∧
   static_check_prog ctxt (ExtCall fname ptr1 len1 ptr2 len2) =
     do
@@ -1420,7 +1508,8 @@ Definition static_check_prog_def:
         ; exits_loop := F
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (Seq prog1 prog2) =
     do
@@ -1455,7 +1544,8 @@ Definition static_check_prog_def:
         ; exits_loop := (pret1.exits_loop \/ pret2.exits_loop)
         ; last       := seq_last_stmt pret1.last pret2.last
         ; var_delta  := seq_loc_inf pret1.var_delta pret2.var_delta
-        ; curr_loc   := pret2.curr_loc |>
+        ; curr_loc   := pret2.curr_loc
+        ; recurse    := (pret1.recurse \/ pret2.recurse) |>
     od ∧
   static_check_prog ctxt (If exp prog1 prog2) =
     do
@@ -1477,7 +1567,8 @@ Definition static_check_prog_def:
         ; exits_loop := double_loop_exit
         ; last       := branch_last_stmt double_ret double_loop_exit
         ; var_delta  := branch_loc_inf ctxt.locals pret1.var_delta pret2.var_delta
-        ; curr_loc   := pret2.curr_loc |>
+        ; curr_loc   := pret2.curr_loc
+        ; recurse    := (pret1.recurse \/ pret2.recurse) |>
     od ∧
   static_check_prog ctxt (While exp prog) =
     do
@@ -1497,7 +1588,8 @@ Definition static_check_prog_def:
         ; last       := OtherLast
         ; var_delta  :=
             branch_loc_inf ctxt.locals pret.var_delta $ mlmap$empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := pret.recurse |>
     od ∧
   static_check_prog ctxt Break =
     do
@@ -1511,7 +1603,8 @@ Definition static_check_prog_def:
         ; exits_loop := T
         ; last       := BreakLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt Continue =
     do
@@ -1525,31 +1618,30 @@ Definition static_check_prog_def:
         ; exits_loop := T
         ; last       := ContLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (Raise eid exp) =
     do
       (* check exception declared *)
-      sh <- case lookup ctxt.exns eid of
-              NONE => error (ScopeErr $ concat [
-                        strlit "exception "; eid; strlit " is not declared\n"])
-            | SOME sh => return sh;
-
+      einf <- check_exn_name ctxt eid;
       (* check exception value expression *)
       eret <- static_check_exp ctxt exp;
-
-      (* check shape match *)
-      if ~(sh_bd_has_shape sh eret.sh_bd) then
-        error (ShapeErr $ concat [
-          strlit "raised exception "; eid;
-          strlit " has wrong value shape\n"])
+      (* check exception value shape *)
+      if ~(sh_bd_has_shape einf.eshape eret.sh_bd) then
+        error (ShapeErr $ get_shape_mismatch_msg
+          (strlit "exception value")
+          (sh_bd_to_str eret.sh_bd) (shape_to_str einf.eshape)
+          ctxt.loc ctxt.scope)
       else return ();
-
-      return <| exits_fun := T
-              ; exits_loop := F
-              ; last := RaiseLast
-              ; var_delta := empty mlstring$compare
-              ; curr_loc := ctxt.loc |>
+      (* return prog info *)
+      return <|
+          exits_fun  := T
+        ; exits_loop := F
+        ; last       := RaiseLast
+        ; var_delta  := empty mlstring$compare
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (Store addr exp) =
     do
@@ -1575,7 +1667,8 @@ Definition static_check_prog_def:
         ; exits_loop := F
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (Store32 addr exp) =
     do
@@ -1606,7 +1699,8 @@ Definition static_check_prog_def:
         ; exits_loop := F
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (StoreByte addr exp) =
     do
@@ -1637,7 +1731,8 @@ Definition static_check_prog_def:
         ; exits_loop := F
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (ShMemLoad mop Local vname addr) =
     do
@@ -1671,7 +1766,8 @@ Definition static_check_prog_def:
         ; var_delta  :=
           singleton mlstring$compare vname (vinf with
             <| vsh_bd := sh_bd_from_bd Trusted vinf.vsh_bd |>)
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (ShMemLoad mop Global vname addr) =
     do
@@ -1703,7 +1799,8 @@ Definition static_check_prog_def:
         ; exits_loop := F
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt (ShMemStore mop addr exp) =
     do
@@ -1734,7 +1831,8 @@ Definition static_check_prog_def:
         ; exits_loop := F
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
-        ; curr_loc   := ctxt.loc |>
+        ; curr_loc   := ctxt.loc
+        ; recurse    := F |>
     od ∧
   static_check_prog ctxt Tick =
     (* return prog info with no checks *)
@@ -1743,7 +1841,8 @@ Definition static_check_prog_def:
       ; exits_loop := F
       ; last       := InvisLast
       ; var_delta  := empty mlstring$compare
-      ; curr_loc   := ctxt.loc |> ∧
+      ; curr_loc   := ctxt.loc
+      ; recurse    := F |> ∧
   static_check_prog ctxt (Annot tag str) =
     (* update current location *)
     let loc =
@@ -1756,7 +1855,8 @@ Definition static_check_prog_def:
       ; exits_loop := F
       ; last       := InvisLast
       ; var_delta  := empty mlstring$compare
-      ; curr_loc   := loc |>
+      ; curr_loc   := loc
+      ; recurse    := F |>
 End
 
 (*
@@ -1784,7 +1884,7 @@ Definition static_check_progs_def:
         (* return exp info with stored shape *)
         | SOME sbs => return $ ZIP (param_names, sbs)
         (* should never occur if static checker implemented correctly *)
-        | NONE => error (ScopeErr $ get_implementation_err_msg
+        | NONE => error (GenErr $ get_implementation_err_msg
           (strlit "static analysis failed to convert in-scope shape")
           (strlit "") (FunScope fi.name (strlit "")));
       (* setup initial checking context *)
@@ -1802,6 +1902,12 @@ Definition static_check_progs_def:
                 ; loc := «» |>;
       (* check function body *)
       prog_ret <- static_check_prog ctxt fi.body;
+      (* check inlining with recursion *)
+      if (prog_ret.recurse /\ fi.inline) then
+        log (WarningErr $ get_inline_ignore_msg (concat [
+            strlit "function definition "; fi.name; strlit " is recursive "
+          ]) (strlit "") (FunScope fi.name (strlit "")))
+      else return ();
       (* check missing function exit *)
       if ~(prog_ret.exits_fun) then
         error (GenErr $ concat [
@@ -1859,12 +1965,18 @@ Definition static_check_decls_def:
     do
       (* check redeclaration *)
       if member eid ectxt then
-        error (ScopeErr $ concat [
-          strlit "exception "; eid; strlit " is redeclared\n"])
+        error (ScopeErr $ get_redec_msg Exn (strlit "") eid TopLevel)
       else return ();
-
+      (* check exception value shape size *)
+      if size_of_sh_with_ctxt sctxt sh > 32 then
+        error (ShapeErr $ concat [
+            strlit "exception "; eid;
+            strlit " value has a shape bigger than 32 words\n"])
+      else return () ;
       (* continue with updated exception environment *)
-      static_check_decls fctxt gctxt sctxt (insert ectxt eid sh) decls
+      static_check_decls fctxt gctxt sctxt (insert ectxt eid
+          <| eshape := sh |>
+        ) decls
     od ∧
   static_check_decls fctxt gctxt sctxt ectxt (Function fi::decls) =
     do
@@ -1923,17 +2035,13 @@ Definition static_check_decls_def:
               (FunScope fi.name (strlit "")) fi.params;
             (* check return shape *)
             check_shape sctxt (strlit "")
-              (FunScope fi.name (strlit " return")) fi.return;
-            (* check func return shape size *)
-            if size_of_sh_with_ctxt sctxt fi.return > 32 then
-              error (ShapeErr $ concat [
-                  strlit "function "; fi.name;
-                  strlit " returns a shape bigger than 32 words\n"])
-            else return () ;
+              (FunScope fi.name (strlit " return")) fi.return
         od ;
       (* check remaining decls *)
       static_check_decls (insert fctxt fi.name
-          <| ret_shape := fi.return ; params := fi.params |>
+          <| ret_shape := fi.return
+           ; params := fi.params
+           ; inline := fi.inline |>
         ) gctxt sctxt ectxt decls
     od
 End

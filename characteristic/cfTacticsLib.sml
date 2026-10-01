@@ -137,6 +137,7 @@ val cf_defs =
    cf_app_def, cf_fun_def, cf_fun_rec_def, cf_ref_def, cf_assign_def,
    cf_deref_def, cf_aalloc_def, cf_asub_def, cf_alength_def, cf_aupdate_def,
    cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def, cf_aw8update_def,
+   cf_aw8subbit_def, cf_aw8updatebit_def,
    cf_copyaw8aw8_def, cf_log_def, cf_if_def, cf_match_def, cf_ffi_def,
    cf_raise_def, cf_handle_def]
 
@@ -431,26 +432,26 @@ fun xspec_in_db f : (string * string * spec_kind * thm) option =
          | NONE => fail())
     | _ => NONE
 
-fun cf_spec (ffi_ty : hol_type) (kind : spec_kind) (spec : thm) : thm =
+fun cf_spec ctxt (ffi_ty : hol_type) (kind : spec_kind) (spec : thm) : thm =
   case kind of
       CF_spec => spec
-    | Translator_spec => app_of_Arrow_rule ffi_ty spec
+    | Translator_spec => app_of_Arrow_rule ctxt ffi_ty spec
 
 (* todo: variants *)
-fun xspec ffi_ty f (ttac: thm_tactic) (g as (asl, w)) =
+fun xspec ffi_ty f (ttac: thm_tactic) (g as (asl, w)) ctxt =
   case xspec_in_asl f asl of
       SOME (k, a) =>
       (print
          ("Using a " ^ (spec_kind_toString k) ^
           " specification from the assumptions\n");
-       ttac (cf_spec ffi_ty k (ASSUME a)) g)
+       ttac (cf_spec ctxt ffi_ty k (ASSUME a)) g ctxt)
     | NONE =>
       case xspec_in_db f of
           SOME (thy, name, k, thm) =>
           (print ("Using " ^ (spec_kind_toString k) ^
                   " specification " ^ name ^
                   " from theory " ^ thy ^ "\n");
-           ttac (cf_spec ffi_ty k thm) g)
+           ttac (cf_spec ctxt ffi_ty k thm) g ctxt)
         | NONE =>
           raise ERR "xspec" ("Could not find a specification for " ^
                              fst (dest_const f))
@@ -496,15 +497,15 @@ val xapp_prepare_goal =
 (* This tactical assumes the goal is of the form [app _ _ _ _ _].
    This is the case after calling [xapp_prepare_goal] (if it doesn't fail).
 *)
-fun app_f_tac tmtac (g as (_, w)) = tmtac (goal_app_infos w) g
+fun app_f_tac tmtac (g as (_, w)) ctxt = tmtac ctxt (goal_app_infos w) g ctxt
 
 fun xapp_common spec do_xapp =
   xapp_prepare_goal \\
-  app_f_tac (fn (ffi_ty, f) =>
+  app_f_tac (fn ctxt => fn (ffi_ty, f) =>
     case spec of
         SOME thm =>
         (case spec_kind_for f (concl thm) of
-             SOME k => do_xapp (cf_spec ffi_ty k thm)
+             SOME k => do_xapp (cf_spec ctxt ffi_ty k thm)
            | NONE => failwith "Invalid specification")
       | NONE => xspec ffi_ty f do_xapp)
 

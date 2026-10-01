@@ -683,72 +683,10 @@ Definition RW8ARRAY_def:
   RW8ARRAY rv av = SEP_EXISTS arv. REF rv arv * W8ARRAY arv av
 End
 
-(* Bool arrays are stored as byte arrays: element i of the bool array is
-   bit (i MOD 8) of byte (i DIV 8) *)
-Definition bytes_to_bits_def:
-  bytes_to_bits ([]:word8 list) = [] /\
-  bytes_to_bits (w::ws) = GENLIST (\i. w ' i) 8 ++ bytes_to_bits ws
-End
-
-Definition BITS_BYTES_def:
-  BITS_BYTES (bs:bool list) ws <=> bs = bytes_to_bits ws
-End
-
-(* Fixed-size bool arrays *)
-Definition BITARRAY_def:
-  BITARRAY rv bs = SEP_EXISTS ws. W8ARRAY rv ws * &BITS_BYTES bs ws
-End
-
 (* Resizable bool arrays *)
 Definition RBITARRAY_def:
   RBITARRAY rv bs = SEP_EXISTS ws. RW8ARRAY rv ws * &BITS_BYTES bs ws
 End
-
-Theorem LENGTH_bytes_to_bits:
-  !ws. LENGTH (bytes_to_bits ws) = 8 * LENGTH ws
-Proof
-  Induct \\ rw[bytes_to_bits_def]
-QED
-
-Theorem EL_bytes_to_bits:
-  !ws i. i < 8 * LENGTH ws ==>
-    EL i (bytes_to_bits ws) = (EL (i DIV 8) ws) ' (i MOD 8)
-Proof
-  Induct \\ rw[bytes_to_bits_def]
-  \\ Cases_on `i < 8` >- gvs[NUMERAL_LESS_THM]
-  \\ `?j. i = j + 8` by (qexists_tac `i - 8` \\ fs[])
-  \\ gvs[]
-  \\ `(j + 8) DIV 8 = SUC (j DIV 8) /\ (j + 8) MOD 8 = j MOD 8` by
-       (once_rewrite_tac [DECIDE ``j + 8 = 1 * 8 + j:num``]
-        \\ simp[ADD_DIV_ADD_DIV, MOD_TIMES])
-  \\ simp[DECIDE ``j + 8 = SUC (SUC (SUC (SUC (SUC (SUC (SUC (SUC j)))))))``]
-  \\ first_x_assum irule \\ fs[MULT_CLAUSES]
-QED
-
-Theorem LUPDATE_bytes_to_bits:
-  !ws i b. i < 8 * LENGTH ws ==>
-    LUPDATE b i (bytes_to_bits ws) =
-    bytes_to_bits (LUPDATE (((i MOD 8) :+ b) (EL (i DIV 8) ws)) (i DIV 8) ws)
-Proof
-  rpt strip_tac \\ irule LIST_EQ
-  \\ simp[LENGTH_bytes_to_bits, EL_LUPDATE] \\ rpt strip_tac
-  \\ simp[EL_bytes_to_bits, EL_LUPDATE]
-  \\ `i DIV 8 < LENGTH ws /\ x DIV 8 < LENGTH ws` by fs[DIV_LT_X]
-  \\ rw[] \\ `i MOD 8 < 8` by fs[]
-  \\ rewrite_tac[fcpTheory.FCP_APPLY_UPDATE_THM] \\ simp[] \\ rw[]
-  \\ `x = 8 * (x DIV 8) + x MOD 8 /\ i = 8 * (i DIV 8) + i MOD 8`
-       by metis_tac[DIVISION, MULT_COMM, DECIDE ``0 < 8n``]
-  \\ metis_tac[]
-QED
-
-Theorem bytes_to_bits_REPLICATE:
-  !n. bytes_to_bits (REPLICATE n 0w) = REPLICATE (8 * n) F
-Proof
-  Induct \\ rw[bytes_to_bits_def, MULT_CLAUSES]
-  \\ once_rewrite_tac [ADD_COMM]
-  \\ rewrite_tac [GSYM REPLICATE_APPEND]
-  \\ simp[] \\ EVAL_TAC
-QED
 
 Theorem RARRAY_HPROP_SAT_EQ:
    RARRAY (Loc T l) av s <=>
