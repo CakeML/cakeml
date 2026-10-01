@@ -178,13 +178,13 @@ Definition compile_def:
         lp = compile ctxt l p;
         lq = compile ctxt l q in
     nested_seq (np ++ [Assign tmp le;
-                       If NotEqual tmp (Imm 0w) lp lq l])) /\
+                       If NotEqual tmp (Imm 0) lp lq l])) /\
   (compile ctxt l (While e p) =
     let (np, le, tmp, nl) = compile_exp ctxt (ctxt.vmax + 1) l e;
         lp = compile ctxt l p in
      Loop l (nested_seq (np ++ [
                 Assign tmp le;
-                If NotEqual tmp (Imm 0w)
+                If NotEqual tmp (Imm 0)
                    (Seq lp (Continue 0)) (Break 0) l]))
           l) /\
   (compile ctxt l (Call call_type e es) =
@@ -200,7 +200,7 @@ Definition compile_def:
                   | NONE => Raise en
                   | SOME (eid, ep) =>
                     let cpe = compile ctxt l ep in
-                      (If NotEqual en (Imm eid) (Raise en) (Seq Tick cpe) l)
+                      (If NotEqual en (Imm (w2i eid)) (Raise en) (Seq Tick cpe) l)
            in (SOME (rns, l), SOME (en, pe, Skip, l))
    in
       nested_seq (p ++ MAP2 Assign nargs les ++ [Call rt1 (SOME dest) nargs rt2])) /\

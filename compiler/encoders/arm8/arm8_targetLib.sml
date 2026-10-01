@@ -73,7 +73,8 @@ val add_arm8_encode_compset = computeLib.extend_compset
   [computeLib.Convs
      [(prim_mk_const{Thy="arm8_target",Name="arm8_enc"}, 1, arm8_encode_conv),
       (prim_mk_const{Thy="arm8_target",Name="valid_immediate"}, 2, valid_immediate_conv)],
-   computeLib.Defs [arm8_targetTheory.arm8_config]]
+   computeLib.Defs [arm8_targetTheory.arm8_config,
+                    arm8_targetTheory.arm8_valid_imm_def]]
 
 val arm8_encode_decode_conv = computeLib.compset_conv (wordsLib.words_compset)
   [computeLib.Extenders
