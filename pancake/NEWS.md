@@ -5,7 +5,7 @@ User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
 
-xxx xxxth 2026
+Oct 1st 2026
 -------------------
 
 ### Updated static error reporting
