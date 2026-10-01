@@ -68,3 +68,11 @@ A few other examples of HOL functions that can be translated into CakeML.
 [std_preludeScript.sml](std_preludeScript.sml):
 Translations of various useful HOL functions and datatypes, to serve as a
 starting point for further translations.
+
+[typeRepCanonicalScript.sml](typeRepCanonicalScript.sml):
+Typed-value interfaces for translator representation completeness.
+These facts are independent of any particular registered datatype family.
+
+[typeRepPreludeCanonicalScript.sml](typeRepPreludeCanonicalScript.sml):
+Canonical forms for registered prelude containers. Static identities are
+parameters; runtime constructors come from the representation definitions.

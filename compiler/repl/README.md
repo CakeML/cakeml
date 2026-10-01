@@ -1,6 +1,11 @@
 Some definitions and proofs used in the proof of the CakeML
 and Candle read-eval-print loop (REPL).
 
+[astCanonicalScript.sml](astCanonicalScript.sml):
+Canonical forms for the actual registered AST family. Metadata, root
+proofs, recursive families and encoder correspondence share this owner.
+Identities remain parameters; signatures come from the registered module.
+
 [astProgScript.sml](astProgScript.sml):
 Translates the CakeML source AST types into an Ast module, with generated
 pretty-printers, so that they are part of the REPL's initial environment.
@@ -51,6 +56,11 @@ direct-AST REPL boundary. No AST-specific constructor map is assumed here.
 Concrete input metadata derived from the generated initialization program.
 These lookups identify the datatype family and reference slots; they do not
 by themselves prove constructor-signature closure or the joint certificate.
+
+[repl_inputRepresentationScript.sml](repl_inputRepresentationScript.sml):
+Instantiate the registered AST family at the actual inferred REPL
+identities, then strengthen the same initial witnesses with representations.
+These facts establish representation, not Candle declaration allowedness.
 
 [repl_moduleProgScript.sml](repl_moduleProgScript.sml):
 This file defines two modules:
