@@ -3046,7 +3046,7 @@ Proof
      \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[]
      >- (qhdtm_x_assum`bviSem$evaluate`kall_tac
         \\ last_x_assum(qspec_then`k'`mp_tac)>>simp[]
-        \\ (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g)
+        \\ goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`))
         \\ spose_not_then strip_assume_tac
         \\ drule_then (qspecl_then [`ss`,`lim`] mp_tac) compile_prog_evaluate
         \\ impl_tac >- ( srw_tac[][] >> strip_tac >> full_simp_tac(srw_ss())[])
@@ -3094,8 +3094,7 @@ Proof
   \\ simp[dataSemTheory.semantics_def]
   \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[]
   >- (last_x_assum(qspec_then`k`mp_tac)
-     \\ (fn g => subterm
-          (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
+     \\ goal_term (subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)`))
      \\ strip_tac
      \\ drule_then (qspecl_then [`ss`,`lim`] mp_tac) compile_prog_evaluate
      \\ impl_tac
@@ -3108,8 +3107,7 @@ Proof
   \\ conj_tac
   >- (spose_not_then strip_assume_tac
      \\ last_x_assum(qspec_then`k`mp_tac)
-     \\ (fn g => subterm
-          (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
+     \\ goal_term (subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)`))
      \\ strip_tac
      \\ drule_then (qspecl_then [`ss`,`lim`] mp_tac) compile_prog_evaluate
      \\ impl_tac
@@ -3125,8 +3123,7 @@ Proof
   \\ rpt(AP_TERM_TAC ORELSE AP_THM_TAC)
   \\ simp[FUN_EQ_THM] >> gen_tac
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
-  \\ (fn g => subterm
-       (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (rhs(#2 g)))
+  \\ goal_term (subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)`) o rhs)
   \\ drule_then (qspecl_then [`ss`,`lim`] mp_tac) compile_prog_evaluate
   \\ impl_tac
   >- (conj_tac >> spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]

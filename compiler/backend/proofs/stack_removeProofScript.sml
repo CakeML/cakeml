@@ -1325,10 +1325,10 @@ Proof
          wordLangTheory.word_sh_def,mem_store_def,dec_clock_def]
   \\ rewrite_tac [STOP_def]
   \\ fs [copy_each_def,list_Seq_def]
-  \\ (fn x =>
-        qexists_tac ‘1’ x
+  \\ (fn x => fn c =>
+        qexists_tac ‘1’ x c
         |> fst |> hd |> snd |> find_term (can (match_term “stackSem$evaluate _”))
-        |> rand |> rand |> (fn tm => qabbrev_tac ‘t8 = ^tm’ x))
+        |> rand |> rand |> (fn tm => qabbrev_tac ‘t8 = ^tm’ x c))
   \\ fs [EL_LENGTH_APPEND]
   \\ last_x_assum (qspecl_then [‘x’,‘t8’] mp_tac)
   \\ (impl_tac
@@ -1392,10 +1392,10 @@ Proof
     \\ fs [evaluate_def,get_var_def,get_var_imm_def,wordSemTheory.word_cmp_def,inst_def,
            word_exp_def,get_var_def,wordLangTheory.word_op_def,mem_load_def,assign_def,
            GSYM bytes_in_word_def,set_var_def,FLOOKUP_UPDATE]
-    \\ (fn x =>
-        qexists_tac ‘0’ x
+    \\ (fn x => fn c =>
+        qexists_tac ‘0’ x c
         |> fst |> hd |> snd |> find_term (can (match_term “stackSem$evaluate _”))
-        |> rand |> rand |> (fn tm => qabbrev_tac ‘t8 = ^tm’ x))
+        |> rand |> rand |> (fn tm => qabbrev_tac ‘t8 = ^tm’ x c))
     \\ old_drule copy_each_thm \\ fs []
     \\ disch_then (qspecl_then [‘x'’,‘t8’] mp_tac)
     \\ unabbrev_all_tac \\ fs [FLOOKUP_UPDATE,get_var_def]
@@ -1417,10 +1417,10 @@ Proof
       \\ fs [fmap_EXT,FLOOKUP_DEF,FAPPLY_FUPDATE_THM,EXTENSION]
       \\ rw [] \\ TRY eq_tac \\ rw []\\ fs []))
   \\ simp [EVAL “list_Seq [_;_]”]
-  \\ (fn x =>
-        (qexists_tac ‘0’ \\ qexists_tac ‘ARB’ \\ qexists_tac ‘ARB’ \\ qexists_tac ‘ARB’) x
+  \\ (fn x => fn c =>
+        (qexists_tac ‘0’ \\ qexists_tac ‘ARB’ \\ qexists_tac ‘ARB’ \\ qexists_tac ‘ARB’) x c
         |> fst |> hd |> snd |> find_term (can (match_term “stackSem$evaluate _”))
-        |> rand |> rand |> (fn tm => qabbrev_tac ‘t8 = ^tm’ x))
+        |> rand |> rand |> (fn tm => qabbrev_tac ‘t8 = ^tm’ x c))
   \\ fs [evaluate_def,get_var_def,get_var_imm_def,wordSemTheory.word_cmp_def,inst_def,
          word_exp_def,get_var_def,wordLangTheory.word_op_def,mem_load_def,assign_def,
          GSYM bytes_in_word_def,set_var_def,FLOOKUP_UPDATE]
@@ -1433,9 +1433,9 @@ Proof
   THEN1 (gvs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])
   \\ strip_tac
   \\ ntac 2 (pop_assum mp_tac)
-  \\ (fn x =>
-        x |> snd |> dest_imp |> fst |> rand |> rand
-          |> (fn tm => qabbrev_tac ‘t8 = ^tm’ x))
+  \\ goal_term (fn w =>
+        w |> dest_imp |> fst |> rand |> rand
+          |> (fn tm => qabbrev_tac ‘t8 = ^tm’))
   \\ rw []
   \\ last_x_assum (qspecl_then [‘x'’,‘t8’] mp_tac)
   \\ impl_tac
@@ -1851,7 +1851,7 @@ Proof
     >- (
       strip_tac \\ rveq \\ fs[]
       \\ qmatch_asmsub_abbrev_tac`state_rel aw _ _ _ ss _`
-      \\ (fn g => subterm (fn tm => (sg `state_rel aw jump off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
+      \\ (fn g => fn c => subterm (fn tm => (sg `state_rel aw jump off k ss (^tm with clock := s.clock - 1)`) g c) (#2 g))
       >- (
         simp[Abbr`ss`,dec_clock_def]
         \\ match_mp_tac state_rel_with_clock
@@ -1866,7 +1866,7 @@ Proof
     >- (
       strip_tac \\ rveq \\ fs[]
       \\ qmatch_asmsub_abbrev_tac`state_rel aw _ _ _ ss _`
-      \\ (fn g => subterm (fn tm => (sg `state_rel aw jump off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
+      \\ (fn g => fn c => subterm (fn tm => (sg `state_rel aw jump off k ss (^tm with clock := s.clock - 1)`) g c) (#2 g))
       >- (
         simp[Abbr`ss`,dec_clock_def]
         \\ match_mp_tac state_rel_with_clock
@@ -1883,7 +1883,7 @@ Proof
       \\ strip_tac \\ fs[] \\ rfs[]
       \\ qmatch_asmsub_abbrev_tac`state_rel aw _ _ _ (dec_clock sss) _`
       \\ qabbrev_tac`ss = dec_clock sss`
-      \\ (fn g => subterm (fn tm => (sg `state_rel aw jump off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
+      \\ (fn g => fn c => subterm (fn tm => (sg `state_rel aw jump off k ss (^tm with clock := s.clock - 1)`) g c) (#2 g))
       >- (
         simp[Abbr`ss`,dec_clock_def,Abbr`sss`]
         \\ match_mp_tac state_rel_with_clock
@@ -1902,7 +1902,7 @@ Proof
     >- (
       strip_tac \\ rveq \\ fs[]
       \\ qmatch_asmsub_abbrev_tac`state_rel aw _ _ _ ss _`
-      \\ (fn g => subterm (fn tm => (sg `state_rel aw jump off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
+      \\ (fn g => fn c => subterm (fn tm => (sg `state_rel aw jump off k ss (^tm with clock := s.clock - 1)`) g c) (#2 g))
       >- (
         simp[Abbr`ss`,dec_clock_def]
         \\ match_mp_tac state_rel_with_clock
@@ -1918,7 +1918,7 @@ Proof
     >- (
       strip_tac \\ rveq
       \\ qmatch_asmsub_abbrev_tac`state_rel aw _ _ _ ss _`
-      \\ (fn g => subterm (fn tm => (sg `state_rel aw jump off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
+      \\ (fn g => fn c => subterm (fn tm => (sg `state_rel aw jump off k ss (^tm with clock := s.clock - 1)`) g c) (#2 g))
       >- (
         simp[Abbr`ss`,dec_clock_def]
         \\ match_mp_tac state_rel_with_clock
@@ -1935,7 +1935,7 @@ Proof
     \\ strip_tac \\ fs[] \\ rfs[]
     \\ qmatch_asmsub_abbrev_tac`state_rel aw _ _ _ (dec_clock sss) _`
     \\ qabbrev_tac`ss = dec_clock sss`
-    \\ (fn g => subterm (fn tm => (sg `state_rel aw jump off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
+    \\ (fn g => fn c => subterm (fn tm => (sg `state_rel aw jump off k ss (^tm with clock := s.clock - 1)`) g c) (#2 g))
     >- (
       simp[Abbr`ss`,dec_clock_def,Abbr`sss`]
       \\ match_mp_tac state_rel_with_clock
@@ -2438,7 +2438,7 @@ Proof
     gen_tac >> ntac 2 strip_tac >>
     IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
       first_x_assum(qspec_then`k''`mp_tac)>>simp[]>>
-      (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
+      goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >>
       simp[] >>
       qmatch_assum_rename_tac`_ = (res,_)` >>
       Cases_on`res=SOME Error`>>simp[]>>
@@ -2450,7 +2450,7 @@ Proof
       \\ simp[comp_def]
       \\ strip_tac \\ full_simp_tac(srw_ss())[]
       \\ qpat_x_assum`FST _ ≠ _`mp_tac
-      \\ (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g)
+      \\ goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`))
       \\ old_drule (GEN_ALL evaluate_add_clock)
       \\ full_simp_tac(srw_ss())[]
       \\ disch_then(qspec_then`ck`mp_tac)
@@ -2503,10 +2503,10 @@ Proof
   >- (
     full_simp_tac(srw_ss())[]
     \\ qpat_x_assum`_ ≠ _`mp_tac
-    \\ (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g)
+    \\ goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`))
     \\ strip_tac \\ full_simp_tac(srw_ss())[]
     \\ last_x_assum(qspec_then`k'`mp_tac)
-    \\ (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g)
+    \\ goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`))
     \\ old_drule comp_correct
     \\ qmatch_assum_rename_tac`_ = (res,_)`
     \\ Cases_on`res=SOME Error`\\ full_simp_tac(srw_ss())[]
@@ -2528,7 +2528,7 @@ Proof
     \\ full_simp_tac(srw_ss())[METIS_PROVE[]``¬a ∨ b ⇔ a ⇒ b``]
     \\ full_simp_tac(srw_ss())[]
     \\ last_assum(qspec_then`k'`mp_tac)
-    \\ (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g)
+    \\ goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`))
     \\ qpat_x_assum`∀x y. _`(fn th => assume_tac th >> qspec_then`k'`mp_tac th)
     \\ simp[]
     \\ old_drule comp_correct
@@ -2592,8 +2592,8 @@ Proof
   simp[LNTH_fromList,PULL_EXISTS] >>
   simp[GSYM FORALL_AND_THM] >>
   rpt gen_tac >>
-  (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
-  (fn g => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm (#2 g)) tm)`) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
+  goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >> full_simp_tac(srw_ss())[] >>
+  goal_term (fn w => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm w) tm)`) w) >> full_simp_tac(srw_ss())[] >>
   old_drule comp_correct >>
   simp[comp_def,reg_bound_def,RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
   impl_tac >- (

@@ -88,7 +88,7 @@ signature cfLetAutoLib = sig
     val xlet_auto_spec : thm option -> tactic
 
     (* xlet_find_auto returns the appropriate post-condition *)
-    val xlet_find_auto : term list * term -> term
+    val xlet_find_auto : Context.t -> term list * term -> term
 
     (* xlet_auto is the default function to use *)
     val xlet_auto : tactic
