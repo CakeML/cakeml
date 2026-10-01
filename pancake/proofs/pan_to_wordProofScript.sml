@@ -1409,7 +1409,7 @@ QED
 
 Theorem pan_to_word_every_inst_ok_less:
   pan_to_word$compile_prog c.ISA pan_code = wprog0 ∧
-  byte_offset_ok c 0w ∧ addr_offset_ok c 0w ∧
+  byte_offset_ok c 0 ∧ addr_offset_ok c 0 ∧
   EVERY good_panops pan_code
   ⇒
   EVERY (λ(n,m,p). every_inst (inst_ok_less c) p) wprog0

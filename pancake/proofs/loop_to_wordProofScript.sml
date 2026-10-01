@@ -891,7 +891,7 @@ Resume compile_correct[Store32]:
   fs [loopSemTheory.evaluate_def,
       comp_def, evaluate_def] >>
   fs [CaseEq "option", CaseEq "word_loc"] >> rveq >>
-  fs [inst_def, word_exp_def] >>
+  fs [inst_def, word_exp_def, integer_wordTheory.i2w_0] >>
   drule locals_rel_intro >>
   strip_tac >>
   res_tac >> fs [] >>
@@ -905,7 +905,7 @@ Resume compile_correct[StoreByte]:
   fs [loopSemTheory.evaluate_def,
       comp_def, evaluate_def] >>
   fs [CaseEq "option", CaseEq "word_loc"] >> rveq >>
-  fs [inst_def, word_exp_def] >>
+  fs [inst_def, word_exp_def, integer_wordTheory.i2w_0] >>
   drule locals_rel_intro >>
   strip_tac >>
   res_tac >> fs [] >>
@@ -919,7 +919,7 @@ Resume compile_correct[Load32]:
   fs [loopSemTheory.evaluate_def,
       comp_def, evaluate_def] >>
   fs [CaseEq "option", CaseEq "word_loc"] >> rveq >>
-  fs [inst_def, word_exp_def] >>
+  fs [inst_def, word_exp_def, integer_wordTheory.i2w_0] >>
   drule locals_rel_intro >>
   strip_tac >>
   res_tac >> fs [] >>
@@ -943,7 +943,7 @@ Resume compile_correct[LoadByte]:
   fs [loopSemTheory.evaluate_def,
       comp_def, evaluate_def] >>
   fs [CaseEq "option", CaseEq "word_loc"] >> rveq >>
-  fs [inst_def, word_exp_def] >>
+  fs [inst_def, word_exp_def, integer_wordTheory.i2w_0] >>
   drule locals_rel_intro >>
   strip_tac >>
   res_tac >> fs [] >>
@@ -2293,7 +2293,7 @@ End
 
 Theorem loop_to_word_comp_every_inst_ok_less:
   ∀ctxt prog l.
-    byte_offset_ok c 0w ∧ addr_offset_ok c 0w ∧
+    byte_offset_ok c 0 ∧ addr_offset_ok c 0 ∧
     every_prog (loop_inst_ok c) prog ∧
     domain(acc_vars prog LN) ⊆ domain ctxt ∧
     INJ (find_var ctxt) (domain ctxt) 𝕌(:num) ∧
@@ -2337,7 +2337,7 @@ QED
 Theorem loop_to_word_comp_func_every_inst_ok_less:
   comp_func n params body = p ∧
   every_prog (loop_inst_ok c) body ∧
-  addr_offset_ok c 0w ∧ byte_offset_ok c 0w ⇒
+  addr_offset_ok c 0 ∧ byte_offset_ok c 0 ⇒
   every_inst (inst_ok_less c) p
 Proof
   strip_tac>>gs[loop_to_wordTheory.comp_func_def]>>
@@ -2354,7 +2354,7 @@ QED
 
 Theorem loop_to_word_compile_prog_every_inst_ok_less:
   compile_prog lprog = wprog0 ∧
-  byte_offset_ok c 0w ∧ addr_offset_ok c 0w ∧
+  byte_offset_ok c 0 ∧ addr_offset_ok c 0 ∧
   EVERY (λ(n,params,body). every_prog (loop_inst_ok c) body) lprog
   ⇒
   EVERY (λ(n,m,p). every_inst (inst_ok_less c) p) wprog0
@@ -2371,7 +2371,7 @@ QED
 
 Theorem loop_to_word_every_inst_ok_less:
   compile lprog = wprog0 ∧
-  byte_offset_ok c 0w ∧ addr_offset_ok c 0w ∧
+  byte_offset_ok c 0 ∧ addr_offset_ok c 0 ∧
   EVERY (λ(n,params,body). every_prog (loop_inst_ok c) body) lprog ⇒
   EVERY (λ(n,m,p). every_inst (inst_ok_less c) p) wprog0
 Proof

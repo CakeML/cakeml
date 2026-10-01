@@ -33,7 +33,9 @@ in
             mips_cmp_def, mips_sh32_def, mips_memop_def, form1_def, form2_def,
             form3_def, form4_def, form5_def],
          computeLib.Tys ([sumSyntax.mk_sum(alpha,beta), astSyntax.shift_ty] @ mips_tys),
-         computeLib.Extenders [optionLib.OPTION_rws, pairLib.add_pair_compset]])
+         computeLib.Extenders
+           [asmLib.add_asm_compset, optionLib.OPTION_rws,
+            pairLib.add_pair_compset]])
 end
 
 val add_mips_encode_compset = computeLib.extend_compset

@@ -154,13 +154,13 @@ Proof
   EVAL_TAC
 QED
 
-(* shift values, per dimindex(:α) *)
+(* shift values, per word width *)
 Definition word_shift_def:
-  word_shift (:'a) =
-    (* this could be defined as LOG 2 (dimindex(:'a)) - 3, but I want
+  word_shift (bits:num) =
+    (* this could be defined as LOG 2 bits - 3, but I want
        to be sure that LOG doesn't unnecessarily end up in the
        generated CakeML code *)
-    if dimindex (:'a) = 32 then 2 else 3:num
+    if bits = 32 then 2 else 3:num
 End
 
 Definition upper_w2w_def:

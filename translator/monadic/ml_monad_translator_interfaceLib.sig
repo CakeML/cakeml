@@ -29,6 +29,15 @@
             ``<subscript_exception>``, ``<update_exception>``),
         ...
       ] |>
+      with_fixed_bool_arrays [
+        ("fbarray1", <size_in_bytes>,
+            ``<subscript_exception>``, ``<update_exception>``),
+        ...
+      ] |>
+      with_resizeable_bool_arrays [
+        ("rbarray1", ``<subscript_exception>``, ``<update_exception>``),
+        ...
+      ] |>
       {
         with_heap_propositions [(<predicate1>, "field_name1"), ...]    |
         with_stdio "stdio_name"    |
@@ -93,6 +102,20 @@ sig
     val with_resizeable_arrays :
       (string * term * term * term) list -> config -> config
       (* field name, initial array, subscript exception, update exception *)
+
+    (* Choose fixed-length bool list array fields from the state (optional).
+       These are stored as byte arrays, 8 elements per byte, that are
+       initially all F. *)
+    val with_fixed_bool_arrays :
+      (string * int * term * term) list -> config -> config
+      (* field name, length in bytes, subscript exception, update exception *)
+
+    (* Choose resizeable bool list array fields from the state (optional).
+       These are stored as byte arrays and are initially empty. For such a
+       field x, alloc_x n allocates 8 * n elements that are all F. *)
+    val with_resizeable_bool_arrays :
+      (string * term * term) list -> config -> config
+      (* field name, subscript exception, update exception *)
 
     (* Choose other heap propositions (e.g. HOL_STORE)*)
     val with_heap_propositions : (term * string) list -> config -> config

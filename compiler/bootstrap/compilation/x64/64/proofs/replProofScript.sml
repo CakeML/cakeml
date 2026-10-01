@@ -15,7 +15,7 @@ Definition compiler_inst_def:
   compiler_inst c = (λ(x,y,z).
                 do
                   cfg <- v_fun_abs 𝕌(:backend$config) BACKEND_CONFIG_v y;
-                  (cfg2,bs,ws) <- compile_inc_progs_for_eval c (x,cfg,z);
+                  (cfg2,bs,ws) <- compile_inc_progs_for_eval (:64) c (x,cfg,z);
                   SOME (BACKEND_CONFIG_v cfg2,bs,ws)
                 od)
 End
@@ -111,7 +111,7 @@ QED
 
 Theorem evaluate_Eval:
   (st:'ffi semanticPrimitives$state).eval_state = SOME (EvalDecs s) ∧
-  compile_inc_progs_for_eval x64_config (id1,s1,decs) = SOME (s2,bs,ws) ∧
+  compile_inc_progs_for_eval (:64) x64_config (id1,s1,decs) = SOME (s2,bs,ws) ∧
   s.compiler = compiler_inst x64_config ∧
   s.compiler_state = s1_v ∧
   s.decode_decs = v_fun_abs decs_allowed (LIST_v DEC_v) ⇒

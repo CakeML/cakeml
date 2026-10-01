@@ -20,7 +20,7 @@ Definition check_and_tweak_def:
         else INL «ERROR: input contains reserved constructor/FFI names»
     | M_failure (loc,msg) =>
         INL (concat [«ERROR: »; msg; « at »;
-                     locs_to_string input_str loc])
+                     ast_locs_to_string input_str loc])
 End
 
 (* main correctness result *)

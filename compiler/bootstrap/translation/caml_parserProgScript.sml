@@ -222,13 +222,6 @@ val r = preprocess ptree_TypeDefinition_def |> translate;
 val r = preprocess ptree_ModuleType_def |> translate;
 val r = preprocess ptree_Definition_def |> translate;
 
-Theorem destresult_side[local]:
-  pegexec_destresult_side v = (?r. v = Result r)
-Proof
-  rw [fetch "-" "pegexec_destresult_side_def"]
-  \\ Cases_on `v` \\ gs []
-QED
-
 Theorem ptree_definition_side:
   (∀x. camlptreeconversion_ptree_definition_side x) ∧
   (∀x. camlptreeconversion_ptree_modexpr_side x) ∧
@@ -246,7 +239,7 @@ Proof
   \\ qspec_then ‘lexer_fun$lexer_fun inp’ strip_assume_tac
                 cmlPEGTheory.owhile_TopLevelDecs_total
   \\ fs [parserProgTheory.INTRO_FLOOKUP, SF ETA_ss]
-  \\ simp [destresult_side, cmlPEGTheory.parse_TopLevelDecs_total]
+  \\ simp [cmlPEGTheory.parse_TopLevelDecs_total]
 QED
 
 val _ = List.map update_precondition (CONJUNCTS ptree_definition_side);
