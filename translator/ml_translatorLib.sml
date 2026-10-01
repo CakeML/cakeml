@@ -2740,8 +2740,43 @@ fun get_induction_for_def def = let
        (function_ind (fetch_from_thy (#Thy res) ((#Name res) ^ "_ind")) handle HOL_ERR _ =>
         (function_ind (fetch_from_thy (#Thy res) ((#Name res) ^ "_IND")))))
     | get_ind (res::ths) = (get_ind [res]) handle HOL_ERR _ => get_ind ths
+  (* Nested patterns need function induction.  For flat patterns, keep type
+     induction, which generalises arguments changed by recursive calls. *)
+  fun derive_ind () = let
+    val _ = is_rec_def def orelse failwith "not recursive"
+    val patterns = def |> SPEC_ALL |> CONJUNCTS |> map (fn th =>
+      th |> SPEC_ALL |> concl |> dest_eq |> fst |> strip_comb |> snd)
+      |> List.concat
+    fun nested pat = not (is_var pat) andalso
+                     exists (not o is_var) (snd (strip_comb pat))
+    val _ = exists nested patterns orelse failwith "flat patterns"
+    val const = case consts of [c] => c | _ => failwith "mutual induction"
+    val used_names = map (fst o dest_const) (constants "-") @
+                     map fst (DB.thms "-")
+    (* Reserve the stem and its generated definition/induction bindings. *)
+    fun fresh_name name =
+      if exists (String.isPrefix name) used_names then fresh_name (name ^ "_")
+      else name
+    val name = fresh_name "generated_definition"
+    val v = mk_var(name,oneSyntax.one_ty --> type_of const)
+    val lemma = def |> SPEC_ALL |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
+    val def_tm = subst [const |-> mk_comb(v,oneSyntax.one_tm)] (concl lemma)
+    val _ = Pmatch.with_classic_heuristic
+      (Theory.try_theory_extension quietDefine) [ANTIQUOTE def_tm]
+    val ind = total (fetch "-") (name ^ "_ind")
+    val _ = delete_const name
+    val _ = Theory.delete_binding (name ^ "_def")
+    val _ = Option.app (fn _ => Theory.delete_binding (name ^ "_ind")) ind
+    val ind = case ind of SOME th => th | NONE => failwith "no function induction"
+    val tys = ind |> concl |> dest_forall |> fst |> type_of |> dest_type |> snd
+    val predicate = mk_var("induction_predicate",el 2 tys)
+    val ind = ind |> SPEC (mk_abs(mk_var("x",hd tys),predicate))
+                  |> CONV_RULE (DEPTH_CONV BETA_CONV)
+                  |> CONV_RULE (RAND_CONV (SIMP_CONV std_ss []))
+                  |> GEN predicate
+    in ind end
   in
-    get_ind names
+    get_ind names handle HOL_ERR _ => derive_ind ()
   end handle HOL_ERR _ => let
   fun mk_arg_vars xs = let
     fun mk_name n x =

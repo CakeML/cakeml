@@ -16,7 +16,9 @@ Termination
   WF_REL_TAC ‘measure (λ(a, b). a - b)’
 End
 
-val _ = translate tuple_termination_def;
+val tuple_termination_translation = translate tuple_termination_def;
+val _ = null (hyp tuple_termination_translation) orelse
+        failwith "Tuple termination translation retained a precondition";
 
 Definition nested_tuple_termination_def:
   nested_tuple_termination (a, (b, c)) =
@@ -25,7 +27,9 @@ Termination
   WF_REL_TAC ‘measure (λ(a, (b, c)). a - b)’
 End
 
-val _ = translate nested_tuple_termination_def;
+val nested_tuple_termination_translation = translate nested_tuple_termination_def;
+val _ = null (hyp nested_tuple_termination_translation) orelse
+        failwith "Nested tuple termination translation retained a precondition";
 
 val _ = register_type “:'a list”;
 val _ = register_type “:'a option”;
@@ -34,10 +38,49 @@ val _ = register_type “:'a option”;
 val _ = translate listTheory.LAST_DEF;
 
 (* A relation induction theorem is not a function induction theorem. *)
-val _ = translate listTheory.LIST_REL_def;
-val _ = translate
+val list_rel_translation = translate listTheory.LIST_REL_def;
+val _ = null (hyp list_rel_translation) orelse
+        failwith "LIST_REL translation retained a precondition";
+val num_list_rel_translation = translate
   (INST_TYPE [alpha |-> numSyntax.num, beta |-> numSyntax.num]
     listTheory.LIST_REL_def);
+val _ = null (hyp num_list_rel_translation) orelse
+        failwith "Specialised LIST_REL translation retained a precondition";
+
+(* A nested pattern needs function induction even when its definition theorem
+   has a different name from the recursive constant. *)
+Datatype:
+  nested_pattern_tree = NPLeaf | NPNode (nested_pattern_tree list)
+End
+
+Definition nested_pattern_recursion_def:
+  (nested_pattern [] = T) /\
+  (nested_pattern [NPLeaf] = T) /\
+  (nested_pattern [NPNode children] = nested_pattern children) /\
+  (nested_pattern (x::y::xs) =
+    (nested_pattern [x] /\ nested_pattern (y::xs)))
+End
+
+val _ = register_type ``:nested_pattern_tree``;
+val nested_pattern_translation = translate nested_pattern_recursion_def;
+val _ = null (hyp nested_pattern_translation) orelse
+        failwith "Nested pattern translation retained a precondition";
+
+(* Type induction generalises the accumulator in nested recursive calls. *)
+Datatype:
+  cps_fold_tree = CPSLeaf | CPSBranch num cps_fold_tree cps_fold_tree
+End
+
+Definition cps_fold_recursion_def:
+  (cps_fold f z CPSLeaf = z) /\
+  (cps_fold f z (CPSBranch k left right) =
+    cps_fold f (f k (cps_fold f z right)) left)
+End
+
+val _ = register_type ``:cps_fold_tree``;
+val cps_fold_translation = translate cps_fold_recursion_def;
+val _ = null (hyp cps_fold_translation) orelse
+        failwith "Nested-call fold translation retained a precondition";
 
 Datatype:
   a_ty = A1 | B1 (b_ty list) ;
