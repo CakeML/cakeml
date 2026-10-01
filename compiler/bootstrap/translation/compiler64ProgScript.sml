@@ -28,6 +28,7 @@ val () = Globals.max_print_depth := 15;
 val () = use_long_names := true;
 
 val spec64 = INST_TYPE[alpha|->``:64``]
+val dimindex_64 = EVAL ``dimindex (:64)``;
 
 val res = translate $ errorLogMonadTheory.return_def;
 val res = translate $ errorLogMonadTheory.bind_def;
@@ -74,6 +75,7 @@ val res = translate $ panStaticTheory.get_unreach_msg_def;
 val res = translate $ panStaticTheory.get_rogue_msg_def;
 val res = translate $ panStaticTheory.get_non_word_msg_def;
 val res = translate $ panStaticTheory.get_shape_mismatch_msg_def;
+val res = translate $ panStaticTheory.get_inline_ignore_msg_def;
 val res = translate $ panStaticTheory.get_implementation_err_msg_def;
 
 val res = translate $ panStaticTheory.first_repeat_def;
@@ -91,6 +93,7 @@ val res = translate $ panStaticTheory.check_fun_name_def;
 val res = translate $ panStaticTheory.check_global_var_def;
 val res = translate $ panStaticTheory.check_local_var_def;
 val res = translate $ panStaticTheory.check_redec_var_def;
+val res = translate $ panStaticTheory.check_exn_name_def;
 val res = translate $ panStaticTheory.check_export_params_def;
 val res = translate $ panStaticTheory.check_operands_def;
 val res = translate $ panStaticTheory.check_primitive_args_def;
@@ -111,20 +114,22 @@ val _ = res |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of " ^
                   "panStaticTheory.static_check_def.");
 
+val max_heap_limit_64_spec = data_to_wordTheory.max_heap_limit_def
+  |> Q.SPEC `64`
+  |> SPEC_ALL
+  |> SIMP_RULE (srw_ss()) [backend_commonTheory.word_shift_def];
+
 Definition max_heap_limit_64_def:
   max_heap_limit_64 c =
-    ^(spec64 data_to_wordTheory.max_heap_limit_def
-      |> SPEC_ALL
-      |> SIMP_RULE (srw_ss())[backend_commonTheory.word_shift_def]
-      |> concl |> rhs)
+    ^(max_heap_limit_64_spec |> concl |> rhs)
 End
 
 val res = translate max_heap_limit_64_def
 
 Theorem max_heap_limit_64_thm:
-  max_heap_limit (:64) = max_heap_limit_64
+  max_heap_limit 64 = max_heap_limit_64
 Proof
-  rw[FUN_EQ_THM] \\ EVAL_TAC
+  rw[FUN_EQ_THM,max_heap_limit_64_def,max_heap_limit_64_spec]
 QED
 
 val r = translate presLangTheory.default_tap_config_def;
@@ -137,7 +142,7 @@ val def = spec64
 val res = translate def
 
 val def = spec64 backendTheory.compile_def
-  |> REWRITE_RULE[max_heap_limit_64_thm]
+  |> REWRITE_RULE[dimindex_64,max_heap_limit_64_thm]
 
 val res = translate def
 
@@ -166,22 +171,22 @@ val r = backend_passesTheory.to_word_all_def |> spec64
           |> REWRITE_RULE [data_to_wordTheory.stubs_def,APPEND] |> translate;
 
 val r = backend_passesTheory.to_stack_all_def |> spec64
-          |> REWRITE_RULE[max_heap_limit_64_thm] |> translate;
+          |> REWRITE_RULE[dimindex_64,max_heap_limit_64_thm] |> translate;
 
 val r = backend_passesTheory.to_lab_all_def |> spec64
-          |> REWRITE_RULE[max_heap_limit_64_thm] |> translate;
+          |> REWRITE_RULE[dimindex_64,max_heap_limit_64_thm] |> translate;
 
 val r = backend_passesTheory.to_target_all_def |> spec64 |> translate;
 
 val r = backend_passesTheory.from_lab_all_def |> spec64 |> translate;
 
 val r = backend_passesTheory.from_stack_all_def |> spec64
-          |> REWRITE_RULE[max_heap_limit_64_thm] |> translate;
+          |> REWRITE_RULE[dimindex_64,max_heap_limit_64_thm] |> translate;
 
 val r = backend_passesTheory.from_word_all_def |> spec64 |> translate;
 
 val r = backend_passesTheory.from_word_0_all_def |> spec64
-          |> REWRITE_RULE[max_heap_limit_64_thm] |> translate;
+          |> REWRITE_RULE[dimindex_64,max_heap_limit_64_thm] |> translate;
 
 val r = presLangTheory.word_to_strs_def |> spec64 |> translate
 val r = presLangTheory.stack_to_strs_def |> spec64 |> translate
@@ -225,7 +230,6 @@ val r = pan_passesTheory.pan_to_strs_def |> spec64 |> translate;
 val r = pan_passesTheory.crep_to_strs_def |> spec64 |> translate;
 val r = pan_passesTheory.loop_to_strs_def |> spec64 |> translate;
 val r = pan_passesTheory.any_pan_prog_pp_def |> spec64 |> translate;
-
 val r = pan_passesTheory.pan_compile_tap_def |> spec64 |> translate;
 
 val _ = r |> hyp |> null orelse
@@ -447,7 +451,7 @@ val res = translate nonzero_exit_code_for_error_msg_def;
 (* incremental compiler *)
 
 Definition compiler_for_eval_def:
-  compiler_for_eval = compile_inc_progs_for_eval x64_config
+  compiler_for_eval = compile_inc_progs_for_eval (:64) x64_config
 End
 
 Theorem upper_w2w_eq_I[local]:
@@ -495,6 +499,10 @@ val _ = update_precondition semanticprimitives_ws_to_chars_side;
 
 val _ = (next_ml_names := ["compiler_for_eval"]);
 val r = translate compiler_for_eval_alt;
+
+val _ = r |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "compiler_for_eval.");
 
 (* fun eval_prim env s1 decs s2 bs ws = Eval [env,s1,decs,s2,bs,ws] *)
 val _ = append_prog

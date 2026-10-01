@@ -33,11 +33,28 @@ val _ = cv_auto_trans (ag32_targetTheory.ag32_encode_def
 
 val _ = cv_trans ag32_targetTheory.ag32_enc_def;
 
+(* The target-specific backend definitions are polymorphic in the word
+   size; fix it to the target's word size before translating. *)
+fun word_tyvars ty =
+  case total dest_thy_type ty of
+    NONE => []
+  | SOME {Thy="fcp",Tyop="cart",Args=[_,v]} =>
+      if is_vartype v then [v] else word_tyvars v
+  | SOME {Thy="wordLang",Tyop=("prog"|"exp"),Args=[v]} =>
+      if is_vartype v then [v] else word_tyvars v
+  | SOME {Args,...} => List.concat (map word_tyvars Args);
+
+fun arch_spec th =
+  find_terms (K true) (concl th)
+  |> List.concat o map (word_tyvars o type_of) |> mk_set
+  |> map (fn v => v |-> “:32”)
+  |> (fn s => INST_TYPE s th);
+
 (*---------------------------------------------------------------------------*
   Remaining ag32-specific functions
  *---------------------------------------------------------------------------*)
 
-val pre = cv_auto_trans_pre "" comp_ag32_def;
+val pre = cv_auto_trans_pre "" (comp_ag32_def |> arch_spec);
 
 Theorem comp_ag32_pre[cv_pre,local]:
   ∀perf v bs kf. comp_ag32_pre perf v bs kf
@@ -50,9 +67,9 @@ Proof
   \\ gvs [wordLangTheory.prog_size_def]
 QED
 
-val _ = cv_auto_trans compile_prog_ag32_def;
+val _ = cv_auto_trans (compile_prog_ag32_def |> arch_spec);
 
-val pre = cv_auto_trans_pre "" compile_word_to_stack_ag32_def;
+val pre = cv_auto_trans_pre "" (compile_word_to_stack_ag32_def |> arch_spec);
 
 Theorem compile_word_to_stack_ag32_pre[cv_pre]:
   ∀perf k v bitmaps. compile_word_to_stack_ag32_pre perf k v bitmaps
@@ -67,16 +84,16 @@ Proof
   Cases_on ‘v’ \\ gvs [fp_ok_ag32_def |> SRULE [fp_reg_ok_ag32_def]]
 QED
 
-val _ = cv_auto_trans (inst_ok_ag32_def
-          |> SRULE [fp_ok_false,alignmentTheory.aligned_w2n,asmTheory.offset_ok_def,LET_THM]);
+val _ = cv_auto_trans ((inst_ok_ag32_def |> arch_spec)
+          |> SRULE [fp_ok_false,alignmentTheory.aligned_w2n,LET_THM]);
 
-val _ = cv_auto_trans (asm_ok_ag32_def
-          |> SRULE [alignmentTheory.aligned_w2n,asmTheory.offset_ok_def,LET_THM]);
+val _ = cv_auto_trans ((asm_ok_ag32_def |> arch_spec)
+          |> SRULE [alignmentTheory.aligned_w2n,LET_THM]);
 
-val _ = cv_auto_trans line_ok_light_ag32_def;
-val _ = cv_auto_trans sec_ok_light_ag32_def;
+val _ = cv_auto_trans (line_ok_light_ag32_def |> arch_spec);
+val _ = cv_auto_trans (sec_ok_light_ag32_def |> arch_spec);
 
-val pre = cv_trans_pre "" enc_lines_again_ag32_def;
+val pre = cv_trans_pre "" (enc_lines_again_ag32_def |> arch_spec);
 
 Theorem enc_lines_again_ag32_pre[cv_pre,local]:
   ∀labs ffis pos v0 v. enc_lines_again_ag32_pre labs ffis pos v0 v
@@ -84,7 +101,7 @@ Proof
   Induct_on ‘v0’ \\ simp [Once pre]
 QED
 
-val pre = cv_trans_pre "" enc_secs_again_ag32_def;
+val pre = cv_trans_pre "" (enc_secs_again_ag32_def |> arch_spec);
 
 Theorem enc_secs_again_ag32_pre[cv_pre,local]:
   ∀pos labs ffis v. enc_secs_again_ag32_pre pos labs ffis v
@@ -92,7 +109,7 @@ Proof
   Induct_on ‘v’ \\ simp [Once pre]
 QED
 
-val pre = cv_auto_trans_pre "" remove_labels_loop_ag32_def;
+val pre = cv_auto_trans_pre "" (remove_labels_loop_ag32_def |> arch_spec);
 
 Theorem remove_labels_loop_ag32_pre[cv_pre]:
   ∀clock pos init_labs ffis sec_list.
@@ -101,20 +118,20 @@ Proof
   Induct_on ‘clock’ \\ simp [Once pre]
 QED
 
-val _ = cv_trans enc_line_ag32_def;
-val _ = cv_auto_trans enc_sec_ag32_def;
-val _ = cv_auto_trans enc_sec_list_ag32_def;
-val _ = cv_trans remove_labels_ag32_def;
-val _ = cv_auto_trans compile_lab_ag32_def;
-val _ = cv_trans lab_to_target_ag32_def;
+val _ = cv_trans (enc_line_ag32_def |> arch_spec);
+val _ = cv_auto_trans (enc_sec_ag32_def |> arch_spec);
+val _ = cv_auto_trans (enc_sec_list_ag32_def |> arch_spec);
+val _ = cv_trans (remove_labels_ag32_def |> arch_spec);
+val _ = cv_auto_trans (compile_lab_ag32_def |> arch_spec);
+val _ = cv_trans (lab_to_target_ag32_def |> arch_spec);
 val _ = cv_trans from_lab_ag32_def;
 
-val _ = cv_trans (from_stack_ag32_def
+val _ = cv_trans ((from_stack_ag32_def |> arch_spec)
   |> SRULE [data_to_wordTheory.max_heap_limit_def,backend_commonTheory.word_shift_def]);
 
-val _ = cv_auto_trans from_word_ag32_def;
+val _ = cv_auto_trans (from_word_ag32_def |> arch_spec);
 
-val pre = cv_trans_pre "" get_forced_ag32_def;
+val pre = cv_trans_pre "" (get_forced_ag32_def |> arch_spec);
 Theorem get_forced_ag32_pre[cv_pre,local]:
   ∀v acc. get_forced_ag32_pre v acc
 Proof
@@ -125,9 +142,9 @@ Proof
   \\ gvs [wordLangTheory.prog_size_def]
 QED
 
-val _ = cv_trans word_alloc_inlogic_ag32_def;
+val _ = cv_trans (word_alloc_inlogic_ag32_def |> arch_spec);
 
-val pre = cv_trans_pre "" inst_select_exp_ag32_def;
+val pre = cv_trans_pre "" (inst_select_exp_ag32_def |> arch_spec);
 Theorem inst_select_exp_ag32_pre[cv_pre]:
   ∀v tar temp. inst_select_exp_ag32_pre tar temp v
 Proof
@@ -139,7 +156,7 @@ Proof
   \\ gvs [wordLangTheory.exp_size_def]
 QED
 
-val pre = cv_trans_pre "" inst_select_ag32_def;
+val pre = cv_trans_pre "" (inst_select_ag32_def |> arch_spec);
 Theorem inst_select_ag32_pre[cv_pre,local]:
   ∀v temp. inst_select_ag32_pre temp v
 Proof
@@ -149,23 +166,23 @@ Proof
   \\ first_x_assum irule \\ gvs [wordLangTheory.prog_size_def]
 QED
 
-val pre = each_inlogic_ag32_def |> cv_trans_pre "";
+val pre = (each_inlogic_ag32_def |> arch_spec) |> cv_trans_pre "";
 Theorem each_inlogic_ag32_pre[cv_pre,local]:
   ∀v. each_inlogic_ag32_pre v
 Proof
   Induct \\ rw [] \\ simp [Once pre]
 QED
 
-val _ = cv_trans word_to_word_inlogic_ag32_def;
-val _ = cv_trans from_word_0_ag32_def;
+val _ = cv_trans (word_to_word_inlogic_ag32_def |> arch_spec);
+val _ = cv_trans (from_word_0_ag32_def |> arch_spec);
 
-val _ = cv_trans (compile_0_ag32_def
+val _ = cv_trans ((compile_0_ag32_def |> arch_spec)
                     |> SRULE [data_to_wordTheory.stubs_def,
                               backend_32_cvTheory.inline,
                               to_map_compile_part]);
 
-val _ = cv_trans backend_ag32Theory.to_word_0_ag32_def;
-val _ = cv_auto_trans backend_ag32Theory.to_livesets_0_ag32_def;
+val _ = cv_trans (backend_ag32Theory.to_word_0_ag32_def |> arch_spec);
+val _ = cv_auto_trans (backend_ag32Theory.to_livesets_0_ag32_def |> arch_spec);
 
 (* export *)
 
@@ -177,8 +194,8 @@ val _ = cv_auto_trans
 
 (* main translations below *)
 
-val _ = cv_trans backend_ag32Theory.to_livesets_ag32_def;
-val _ = cv_trans backend_ag32Theory.compile_cake_ag32_def;
-val _ = cv_auto_trans backend_ag32Theory.compile_cake_explore_ag32_def;
+val _ = cv_trans (backend_ag32Theory.to_livesets_ag32_def |> arch_spec);
+val _ = cv_trans (backend_ag32Theory.compile_cake_ag32_def |> arch_spec);
+val _ = cv_auto_trans (backend_ag32Theory.compile_cake_explore_ag32_def |> arch_spec);
 
 

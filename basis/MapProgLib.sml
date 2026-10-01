@@ -15,7 +15,7 @@ open MapProgTheory;
 
 fun add_fmap_for_cmp th = let
   val cmp_tm = th |> concl |> rand
-  val _ = hol2deep cmp_tm handle UnableToTranslate _ =>
+  val _ = translate_tm cmp_tm handle UnableToTranslate _ =>
           failwith "Ordering must the translated first"
   fun find_name name i = let
     val s = if i < 0 then name else name ^ "_" ^ int_to_string i

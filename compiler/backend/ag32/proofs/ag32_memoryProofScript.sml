@@ -796,7 +796,7 @@ QED
 
 Theorem init_memory_startup_bytes_in_memory:
    i < LENGTH scc  ∧
-   (scc = startup_asm_code (LENGTH ffis) (n2w (LENGTH code)) (n2w (4 * (LENGTH data)))) ⇒
+   (scc = startup_asm_code (LENGTH ffis) (LENGTH code) (4 * (LENGTH data))) ⇒
    bytes_in_memory (n2w (SUM (MAP (LENGTH o ag32_enc) (TAKE i scc)))) (ag32_enc (EL i scc))
      (init_memory code data ffis inputs) ag32_startup_addresses
 Proof
@@ -894,7 +894,7 @@ QED
 Definition init_asm_state_def:
   init_asm_state code data ffis input =
   let im =  init_memory code data ffis in
-  let sac = startup_asm_code (LENGTH ffis) (n2w (LENGTH code)) (n2w (4 * LENGTH data)) in
+  let sac = startup_asm_code (LENGTH ffis) (LENGTH code) (4 * LENGTH data) in
     FOLDL (λs i. asm i (s.pc + n2w (LENGTH (ag32_enc i))) s)
       (ag32_init_asm_state
         (im input)
@@ -1085,8 +1085,8 @@ Theorem init_asm_state_asm_step:
      asm_state0
      (startup_asm_code
        (LENGTH ffis)
-       (n2w (LENGTH code))
-       (n2w (4 * LENGTH data)))) in
+       (LENGTH code)
+       (4 * LENGTH data))) in
   steps_rel (asm_step (ag32_target.config)) asm_state0 tr ∧
   let final_st = LAST (asm_state0::(MAP SND tr)) in
   let num_ffis = LENGTH ffis in
