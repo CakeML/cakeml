@@ -8,13 +8,6 @@ Ancestors
 Libs
   preamble ml_translatorLib inliningLib
 
-open preamble;
-open evaluateTheory
-open ml_translatorLib ml_translatorTheory;
-open from_pancake32ProgTheory
-open arm7_targetTheory armTheory;
-open inliningLib;
-
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "from_pancake32Prog";
@@ -526,7 +519,6 @@ val res = CONJUNCTS d1 |> map SPEC_ALL |> map translate;
 val res = translate def;
 
 val res = translate (arm7_config_def |> SIMP_RULE std_ss[valid_immediate_def] |> gconv)
-
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

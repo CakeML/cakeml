@@ -7,11 +7,6 @@ Ancestors
 Libs
   preamble ml_translatorLib
 
-open preamble
-     panPEGTheory
-     pancake_lexProgTheory
-     ml_translatorLib ml_translatorTheory;
-
 val _ = translation_extends "pancake_lexProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "pancake_parseProg");

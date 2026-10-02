@@ -8,11 +8,6 @@ Ancestors
 Libs
   preamble ml_translatorLib
 
-open preamble camlPEGTheory camlPtreeConversionTheory caml_parserTheory;
-open caml_lexProgTheory;
-open ml_translatorLib ml_translatorTheory;
-
-
 val _ = translation_extends "caml_lexProg";
 
 val _ =

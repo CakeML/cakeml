@@ -8,11 +8,6 @@ Ancestors
 Libs
   preamble ml_translatorLib
 
-open preamble parserProgTheory
-     reg_allocProgTheory
-     ml_translatorLib ml_translatorTheory
-     semanticPrimitivesTheory inferPropsTheory;
-
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "reg_allocProg";
@@ -289,7 +284,7 @@ fun fix_infer_induction_thm def = let
   val cname = const |> dest_const |> fst
   val ind_name = cname ^ "_ind"
   val ind = fetch "infer" ind_name
-  val s_var = mk_var("state", ``: (num |-> infer_t) infer_st``)
+  val s_var = mk_var("state", ``:infer$infer_st``)
   val cs = ind |> SPEC_ALL |> UNDISCH_ALL |> CONJUNCTS |> map concl
                |> map (fn tm => let val xs = list_dest dest_forall tm
                                     val vs = butlast xs
@@ -380,7 +375,7 @@ fun full_infer_def aggressive const = let
               |> RW [op_apply,if_apply,option_case_apply]
               |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV)
   val def = let
-    val s_var = mk_var("state", ``: (num |-> infer_t) infer_st``)
+    val s_var = mk_var("state", ``:infer$infer_st``)
     val s = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL |> concl
                 |> dest_eq |> fst |> rand |> type_of
     val def = INST_TYPE (match_type s (type_of s_var)) def
@@ -508,14 +503,7 @@ val inter_p_lemma1 = prove(
   every_case_tac \\ fs [])
   |> REWRITE_RULE [infer_p_lemma];
 
-val x_var = inter_p_lemma1 |> CONJUNCT1 |> concl |> dest_eq |> fst |> rand
-
-Theorem infer_p_ind =
-  inferTheory.infer_p_ind
-  |> Q.SPEC `\v1 v2 v3. !^x_var. P0 v1 v2 v3 ^x_var`
-  |> Q.SPEC `\v1 v2 v3. !^x_var. P1 v1 v2 v3 ^x_var`
-  |> Q.GENL [`P0`,`P1`]
-  |> CONV_RULE (DEPTH_CONV BETA_CONV)
+val infer_p_ind = theorem "infer_p_ind";
 
 val res = translate inter_p_lemma1;
 
@@ -554,14 +542,7 @@ val inter_e_lemma1 = prove(
   every_case_tac \\ fs [])
   |> REWRITE_RULE [infer_e_lemma];
 
-Theorem infer_e_ind =
-  inferTheory.infer_e_ind
-  |> Q.SPEC `\v1 v2 v3. !^x_var. P0 v1 v2 v3 ^x_var`
-  |> Q.SPEC `\v1 v2 v3. !^x_var. P1 v1 v2 v3 ^x_var`
-  |> Q.SPEC `\v1 v2 v3 v4 v5. !^x_var. P2 v1 v2 v3 v4 v5 ^x_var`
-  |> Q.SPEC `\v1 v2 v3. !^x_var. P3 v1 v2 v3 ^x_var`
-  |> Q.GENL [`P0`,`P1`,`P2`,`P3`]
-  |> CONV_RULE (DEPTH_CONV BETA_CONV)
+val infer_e_ind = theorem "infer_e_ind";
 
 val res = translate inter_e_lemma1;
 
@@ -746,7 +727,6 @@ Theorem infertype_prog_side_thm = Q.prove(`
   fs [fetch "-" "infertype_prog_side_def"]
   \\ match_mp_tac (CONJUNCT2 infer_d_side_thm) \\ fs [])
   |> update_precondition;
-
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
