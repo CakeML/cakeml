@@ -1,5 +1,7 @@
-all: $(DEFAULT_TARGETS) cake-sexpr-x64-64
+all: $(DEFAULT_TARGETS) README.md cake-sexpr-x64-64
 .PHONY: all
+
+sinclude $(CAKEMLDIR)/developers/readme.mk
 
 cake-sexpr-x64-64: *x64SexprExportScript.sml
 
