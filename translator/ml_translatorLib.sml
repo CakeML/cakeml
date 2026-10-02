@@ -2636,14 +2636,84 @@ end
    if NONE then foo is not recursive, if SOME th then th is an
    induction theorem that matches the structure of foo. *)
 
+local
+  val preferred = ref ([]:string list);
+in
+  fun add_preferred_thy thy_name = (preferred := thy_name::(!preferred))
+  fun fetch_from_thy thy name = let
+    fun aux [] name = failwith ("cannot find theorem: " ^ name)
+      | aux (thy::ts) name = fetch thy name handle HOL_ERR _ => aux ts name
+    in aux ((!preferred) @ [thy]) name end
+end
+
+
 fun single_line_def def = let
-  val def = DefnBase.one_line_ify NONE def
+  val lhs = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
+                |> concl |> dest_eq |> fst
+  val const = lhs |> repeat rator
+  val oneline = DefnBase.one_line_ify NONE def
   fun wrap_precondition (h, th) =
     if is_PRECONDITION h then th else
       PROVE_HYP
         (ASSUME (mk_PRECONDITION h) |> REWRITE_RULE [PRECONDITION_def]) th
-  val def = foldl wrap_precondition def (hyp def)
-  in (def,NONE) end
+  val oneline = foldl wrap_precondition oneline (hyp oneline)
+  (* Prefer saved function induction, including strengthened local theorems.
+     Relation induction assumes the function itself in its conclusion and
+     cannot establish evaluation for every argument. *)
+  fun named_ind () = let
+    val r = dest_thy_const const
+    fun function_ind th = let
+      val conclusion = th |> concl |> strip_forall |> snd |> dest_imp |> snd
+      fun functional goal = let
+        val (guards,result) = strip_imp (snd (strip_forall goal))
+        in is_var (repeat rator result) andalso
+           all (fn guard => not (same_const (repeat rator guard) const)) guards
+        end
+      val _ = all functional (strip_conj conclusion) orelse
+              failwith "not function induction"
+      in th end
+    fun search [] = failwith "no saved function induction"
+      | search (name::names) =
+          function_ind (fetch_from_thy (#Thy r) name)
+          handle HOL_ERR _ => search names
+    in search (map (fn suffix => #Name r ^ suffix)
+                   ["_trans_ind", "_ind", "_IND"]) end
+  (* Keep the original reconstruction fallback when no saved theorem exists.
+     Failed termination must not discard HOL's successful conversion. *)
+  fun reconstruct_ind () = let
+    val used_names = map (fst o dest_const) (constants "-") @
+                     map fst (DB.thms "-")
+    fun fresh_name name =
+      if exists (String.isPrefix name) used_names then fresh_name (name ^ "_")
+      else name
+    val name = fresh_name "generated_definition"
+    val v = mk_var(name,oneSyntax.one_ty --> type_of const)
+    val lemma = def |> SPEC_ALL |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
+    val def_tm = subst [const |-> mk_comb(v,oneSyntax.one_tm)] (concl lemma)
+    (* The API reports failed termination without exiting a batch build. *)
+    fun define tm =
+      case TotalDefn.std_apiDefine (name,tm) of
+        Lib.PASS (defn,_) => defn
+      | Lib.FAIL (_,e) => raise e
+    val snapshot = constants "-"
+    val defn = Pmatch.with_classic_heuristic
+      (Theory.try_theory_extension define) def_tm
+    val ind = Defn.ind_of defn
+    val _ = DefnBase.delete_support defn (constants "-") snapshot
+    val _ = delete_const name
+    val _ = Theory.delete_binding (name ^ "_def")
+    val ind = case ind of SOME th => th | NONE => failwith "no function induction"
+    val tys = ind |> concl |> dest_forall |> fst |> type_of |> dest_type |> snd
+    val predicate = mk_var("induction_predicate",el 2 tys)
+    val ind = ind |> SPEC (mk_abs(mk_var("x",hd tys),predicate))
+                  |> CONV_RULE (DEPTH_CONV BETA_CONV)
+                  |> CONV_RULE (RAND_CONV (SIMP_CONV std_ss []))
+                  |> GEN predicate
+    in ind end
+  val ind = SOME (named_ind ()) handle HOL_ERR _ =>
+              if all is_var (dest_args lhs) then NONE else
+                SOME (reconstruct_ind ()) handle HOL_ERR _ => NONE
+  in (oneline,ind) end
   handle HOL_ERR _ =>
     failwith "Preprocessor failed: unable to reduce definition to single line."
 
@@ -2675,15 +2745,6 @@ fun is_rec_def def = let
 
 fun is_NONE NONE = true | is_NONE _ = false
 
-local
-  val preferred = ref ([]:string list);
-in
-  fun add_preferred_thy thy_name = (preferred := thy_name::(!preferred))
-  fun fetch_from_thy thy name = let
-    fun aux [] name = failwith ("cannot find theorem: " ^ name)
-      | aux (thy::ts) name = fetch thy name handle HOL_ERR _ => aux ts name
-    in aux ((!preferred) @ [thy]) name end
-end
 
 fun find_ind_thm def = let
   val const = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL |> concl
@@ -2720,63 +2781,15 @@ fun list_mk_fun_type [ty] = ty
   | list_mk_fun_type _ = fail()
 
 fun get_induction_for_def def = let
-  val consts = def |> SPEC_ALL |> CONJUNCTS |> map (fn x => x |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator) |> op_mk_set aconv
-  val names = map dest_thy_const consts
-  (* Function induction may have termination guards, but relation induction
-     assumes the relation itself in its conclusion. *)
-  fun function_ind th = let
-    val conclusion = th |> concl |> strip_forall |> snd |> dest_imp |> snd
-    val goals = strip_conj conclusion |> map (snd o strip_forall)
-    fun functional goal = let
-      val (guards,result) = strip_imp goal
-      val guards_ok = all (fn guard =>
-        not (exists (same_const (repeat rator guard)) consts)) guards
-      in is_var (repeat rator result) andalso guards_ok end
-    val _ = all functional goals orelse failwith "not function induction"
-    in th end
+  val names = def |> SPEC_ALL |> CONJUNCTS |> map (fn x => x |>SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator |> dest_thy_const) |> mk_set
   fun get_ind [] = raise ERR "get_ind" "Bind Error"
     | get_ind [res] =
-      (function_ind (fetch_from_thy (#Thy res) ((#Name res) ^ "_trans_ind")) handle HOL_ERR _ =>
-       (function_ind (fetch_from_thy (#Thy res) ((#Name res) ^ "_ind")) handle HOL_ERR _ =>
-        (function_ind (fetch_from_thy (#Thy res) ((#Name res) ^ "_IND")))))
+      (fetch_from_thy (#Thy res) ((#Name res) ^ "_trans_ind") handle HOL_ERR _ =>
+       (fetch_from_thy (#Thy res) ((#Name res) ^ "_ind") handle HOL_ERR _ =>
+        (fetch_from_thy (#Thy res) ((#Name res) ^ "_IND"))))
     | get_ind (res::ths) = (get_ind [res]) handle HOL_ERR _ => get_ind ths
-  (* Nested patterns need function induction.  For flat patterns, keep type
-     induction, which generalises arguments changed by recursive calls. *)
-  fun derive_ind () = let
-    val _ = is_rec_def def orelse failwith "not recursive"
-    val patterns = def |> SPEC_ALL |> CONJUNCTS |> map (fn th =>
-      th |> SPEC_ALL |> concl |> dest_eq |> fst |> strip_comb |> snd)
-      |> List.concat
-    fun nested pat = not (is_var pat) andalso
-                     exists (not o is_var) (snd (strip_comb pat))
-    val _ = exists nested patterns orelse failwith "flat patterns"
-    val const = case consts of [c] => c | _ => failwith "mutual induction"
-    val used_names = map (fst o dest_const) (constants "-") @
-                     map fst (DB.thms "-")
-    (* Reserve the stem and its generated definition/induction bindings. *)
-    fun fresh_name name =
-      if exists (String.isPrefix name) used_names then fresh_name (name ^ "_")
-      else name
-    val name = fresh_name "generated_definition"
-    val v = mk_var(name,oneSyntax.one_ty --> type_of const)
-    val lemma = def |> SPEC_ALL |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
-    val def_tm = subst [const |-> mk_comb(v,oneSyntax.one_tm)] (concl lemma)
-    val _ = Pmatch.with_classic_heuristic
-      (Theory.try_theory_extension quietDefine) [ANTIQUOTE def_tm]
-    val ind = total (fetch "-") (name ^ "_ind")
-    val _ = delete_const name
-    val _ = Theory.delete_binding (name ^ "_def")
-    val _ = Option.app (fn _ => Theory.delete_binding (name ^ "_ind")) ind
-    val ind = case ind of SOME th => th | NONE => failwith "no function induction"
-    val tys = ind |> concl |> dest_forall |> fst |> type_of |> dest_type |> snd
-    val predicate = mk_var("induction_predicate",el 2 tys)
-    val ind = ind |> SPEC (mk_abs(mk_var("x",hd tys),predicate))
-                  |> CONV_RULE (DEPTH_CONV BETA_CONV)
-                  |> CONV_RULE (RAND_CONV (SIMP_CONV std_ss []))
-                  |> GEN predicate
-    in ind end
   in
-    get_ind names handle HOL_ERR _ => derive_ind ()
+    get_ind names
   end handle HOL_ERR _ => let
   fun mk_arg_vars xs = let
     fun mk_name n x =
@@ -2806,8 +2819,7 @@ fun get_induction_for_def def = let
     val vs = pairSyntax.list_mk_pair args
     val ss = fst (match_term vs pat)
     val xs = map (subst ss) args
-    val (xs,(_,pat),ys) = split_at (not o is_var o snd) (zip args xs)
-    in (map fst xs,pat,map fst ys) end
+    in (split_at (not o is_var) xs) end
   val xs = map find_pat_match cs
   val ty = map (fn (_,x,_) => type_of x) xs |> hd
   val raw_ind = TypeBase.induction_of ty
@@ -2834,8 +2846,8 @@ fun get_induction_for_def def = let
   val lemma = auto_prove "get_induction_for" (goal, REPEAT STRIP_TAC THEN ASM_REWRITE_TAC [])
   val ind = MP lemma (ind |> UNDISCH_ALL) |> DISCH_ALL
             |> GENL (map fst res)
-  in ind end handle e as HOL_ERR _ =>
-    raise (wrap_exn "ml_translatorLib" "get_induction_for_def" e)
+  in ind end handle HOL_ERR _ =>
+  failwith "unable to construct induction theorem from TypeBase info"
 
 fun mutual_to_single_line_def def = let
   (* get induction theorem *)
@@ -3071,8 +3083,7 @@ fun preprocess_def def = let
     val def = rename_bound_vars_rule "v" (GEN_ALL def) |> SPEC_ALL
     in def end;
   val defs = map rephrase_def defs
-  val ind = if is_rec andalso is_NONE ind then
-              SOME (get_induction_for_def def) else ind
+  val ind = if is_rec andalso is_NONE ind then SOME (find_ind_thm (hd defs)) else ind
   (* TODO: This performs e.g.special <| |> rewrites that are also applied to defs in the rephrase step to the induction theorem so that they match up *)
   fun rephrase_ind th = let
     val th = PURE_REWRITE_RULE ([ADD1,boolTheory.literal_case_DEF,

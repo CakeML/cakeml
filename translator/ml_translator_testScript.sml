@@ -34,53 +34,85 @@ val _ = null (hyp nested_tuple_termination_translation) orelse
 val _ = register_type “:'a list”;
 val _ = register_type “:'a option”;
 
-(* Partial recursion without a registered function induction theorem. *)
-val _ = translate listTheory.LAST_DEF;
+(* A state-passing rewrite needs induction over the explicit state argument.
+   Keep a stale saved theorem visible instead of reconstructing over it. *)
+Definition state_fold_def:
+  (state_fold [] = (λs:num. s)) /\
+  (state_fold (x::xs) = (λs. state_fold xs (s + x)))
+End
 
-(* A relation induction theorem is not a function induction theorem. *)
+val stale_state_ind = TypeBase.induction_of ``:num list``;
+val _ = save_thm ("state_fold_trans_ind", stale_state_ind);
+val explicit_state_fold_def = PURE_REWRITE_RULE [FUN_EQ_THM] state_fold_def;
+val stale_state_translation = translate explicit_state_fold_def;
+val _ = length (hyp stale_state_translation) = 1 orelse
+        failwith "Stale state induction was hidden by reconstruction";
+val _ = aconv (concl (latest_ind ())) (concl stale_state_ind) orelse
+        failwith "Saved state induction was replaced";
+
+(* This is the same strengthening performed by inferProg's corrected helper. *)
+val state_fold_trans_ind = stale_state_ind
+  |> Q.SPEC `λxs. ∀s. P xs s`
+  |> CONV_RULE (DEPTH_CONV BETA_CONV)
+  |> Q.GEN `P`;
+val _ = Theory.delete_binding "state_fold_trans_ind";
+val _ = save_thm ("state_fold_trans_ind", state_fold_trans_ind);
+val corrected_state_translation = translate explicit_state_fold_def;
+val _ = null (hyp corrected_state_translation) orelse
+        failwith "Strengthened state induction did not close translation";
+
+(* Relation induction must not replace function induction. *)
 val list_rel_translation = translate listTheory.LIST_REL_def;
 val _ = null (hyp list_rel_translation) orelse
-        failwith "LIST_REL translation retained a precondition";
-val num_list_rel_translation = translate
-  (INST_TYPE [alpha |-> numSyntax.num, beta |-> numSyntax.num]
-    listTheory.LIST_REL_def);
-val _ = null (hyp num_list_rel_translation) orelse
-        failwith "Specialised LIST_REL translation retained a precondition";
+        failwith "LIST_REL selected relation induction";
 
-(* A nested pattern needs function induction even when its definition theorem
-   has a different name from the recursive constant. *)
+(* Preserve manual induction over a datatype with auxiliary induction predicates.
+   The definition name deliberately differs from the recursive function name. *)
 Datatype:
-  nested_pattern_tree = NPLeaf | NPNode (nested_pattern_tree list)
+  induction_tree = IndTip 'a
+                 | IndBranch induction_tree induction_tree
+                 | IndLink (induction_aux option);
+  induction_aux = IndAuxTip
+                | IndAuxBranch induction_aux induction_aux
+                | IndAux induction_tree
 End
 
-Definition nested_pattern_recursion_def:
-  (nested_pattern [] = T) /\
-  (nested_pattern [NPLeaf] = T) /\
-  (nested_pattern [NPNode children] = nested_pattern children) /\
-  (nested_pattern (x::y::xs) =
-    (nested_pattern [x] /\ nested_pattern (y::xs)))
+Definition induction_fold_recursion_def:
+  (induction_fold (n:num) (IndTip x) = n) /\
+  (induction_fold n (IndBranch left right) =
+    induction_fold (induction_fold n right) left) /\
+  (induction_fold n (IndLink child) = n)
 End
 
-val _ = register_type ``:nested_pattern_tree``;
-val nested_pattern_translation = translate nested_pattern_recursion_def;
-val _ = null (hyp nested_pattern_translation) orelse
-        failwith "Nested pattern translation retained a precondition";
+val _ = register_type ``:'a induction_tree``;
+val induction_fold_translation = translate_no_ind induction_fold_recursion_def;
+val _ = length (hyp induction_fold_translation) = 1 orelse
+        failwith "Nested-datatype fold did not retain its induction obligation";
 
-(* Type induction generalises the accumulator in nested recursive calls. *)
-Datatype:
-  cps_fold_tree = CPSLeaf | CPSBranch num cps_fold_tree cps_fold_tree
-End
+Theorem induction_fold_ind[local]:
+  induction_fold_ind (:'a)
+Proof
+  rewrite_tac [fetch "-" "induction_fold_ind_def"]
+  \\ rpt gen_tac \\ strip_tac
+  \\ ONCE_REWRITE_TAC [SWAP_FORALL_THM]
+  \\ ho_match_mp_tac
+       (fetch "-" "induction_tree_induction"
+        |> Q.SPECL [`P`, `λaux. T`, `λopt. T`]
+        |> SIMP_RULE std_ss [] |> Q.GEN `P`)
+  \\ rpt strip_tac
+  \\ qpat_x_assum `∀n tree. _ ⇒ P n tree` irule
+  \\ simp []
+QED
+val _ = update_precondition induction_fold_ind;
+val induction_fold_complete = fetch "-" "induction_fold_v_thm"
+                              |> SPEC_ALL |> UNDISCH_ALL;
+val _ = null (hyp induction_fold_complete) orelse
+        failwith "Nested-datatype fold induction was not discharged";
 
-Definition cps_fold_recursion_def:
-  (cps_fold f z CPSLeaf = z) /\
-  (cps_fold f z (CPSBranch k left right) =
-    cps_fold f (f k (cps_fold f z right)) left)
-End
-
-val _ = register_type ``:cps_fold_tree``;
-val cps_fold_translation = translate cps_fold_recursion_def;
-val _ = null (hyp cps_fold_translation) orelse
-        failwith "Nested-call fold translation retained a precondition";
+(* Partial patterns must retain their domain precondition after flattening. *)
+val last_translation = translate listTheory.LAST_DEF;
+val _ = exists ml_translatorSyntax.is_PRECONDITION (hyp last_translation) orelse
+        failwith "LAST translation lost its domain precondition";
 
 Datatype:
   a_ty = A1 | B1 (b_ty list) ;
