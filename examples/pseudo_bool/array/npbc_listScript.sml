@@ -2614,6 +2614,32 @@ Proof
   gvs[]
 QED
 
+(* The Delete step's check and deletion in one pass over the ids *)
+Definition delete_ids_list_def:
+  (delete_ids_list mindel fml [] = SOME fml) ∧
+  (delete_ids_list mindel fml (i::is) =
+    if mindel ≤ i ∧ lookup_core_only_list T fml i = Empty then
+      delete_ids_list mindel (delete_list i fml) is
+    else NONE)
+End
+
+Theorem delete_ids_list_eq:
+  ∀ls fml.
+  delete_ids_list mindel fml ls =
+  if EVERY (λid. mindel ≤ id ∧ lookup_core_only_list T fml id = Empty) ls
+  then SOME (list_delete_list ls fml)
+  else NONE
+Proof
+  Induct >> rw[delete_ids_list_def,list_delete_list_def] >>
+  `delete_list h fml = list_delete_list [h] fml` by
+    simp[list_delete_list_def] >>
+  pop_assum SUBST_ALL_TAC >>
+  `∀id. lookup_core_only_list T (list_delete_list [h] fml) id =
+        lookup_core_only_list T fml id` by
+    rw[lookup_core_only_list_list_delete_list] >>
+  gvs[] >> metis_tac[NOT_EVERY]
+QED
+
 Definition vimap_rel_def:
   vimap_rel fmlls (vimap:vimap_ty) ⇔
   ∀i coeff x.
@@ -3531,7 +3557,7 @@ Definition check_sol_core_def:
   check_sol_core wm free fml inds =
   if sol_free_ok wm free then
     let cv = mk_cube_vec wm free in
-    let cw = vec_lookup_d (SOME F) cv in
+    let cw = vec_lookup_d 0 cv in
     if sol_cw_ok cw wm ∧
       EVERY (λi. cube_slot cv (lookup_core_only_list T fml i)) inds then
       SOME (sol_fun cw)
@@ -4116,7 +4142,7 @@ Definition check_cstep_list_def:
         vimap, vomap,
         pc with <| id:=id'; pres:=SOME pres' |>))
   | Sol w free =>
-    (if pc.obj ≠ NONE ∨ ¬pc.chk then NONE
+    (if pc.obj ≠ NONE ∨ ¬pc.chk ∨ ¬free_ok pc.pres free then NONE
     else
     case check_sol_core w free fml inds of
       NONE => NONE
@@ -4134,7 +4160,7 @@ Definition check_cstep_list_def:
           <| id := id';
              bound := bound';
              dbound := dbound';
-             enum := pc.enum + cube_count pc.pres free |>))
+             enum := pc.enum + cube_count free |>))
   | CheckPres ls' =>
     if check_eq_pres pc.pres ls'
     then SOME (fml, assg, st, inds, vimap, vomap, pc)

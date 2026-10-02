@@ -179,6 +179,11 @@ Definition terms_snd_def:
   terms_snd ((c:int,v:num)::l) = v :: terms_snd l
 End
 
+Definition terms_neg_fst_def:
+  terms_neg_fst [] = [] ∧
+  terms_neg_fst ((c:int,v:num)::l) = -c :: terms_neg_fst l
+End
+
 (* every variable of the slot is below n *)
 Definition slot_bound_def:
   slot_bound Empty n = T ∧
@@ -315,6 +320,12 @@ Theorem terms_snd_MAP:
   ∀l. terms_snd l = MAP SND l
 Proof
   Induct>>simp[terms_snd_def,FORALL_PROD]
+QED
+
+Theorem terms_neg_fst_MAP:
+  ∀l. terms_neg_fst l = MAP (λ(c:int,v:num). -c) l
+Proof
+  Induct>>simp[terms_neg_fst_def,FORALL_PROD]
 QED
 
 (* Encoding with one metadata pass and two maps for vector contents *)
@@ -768,6 +779,110 @@ Proof
     `Num (ABS d)`,`LENGTH l`,`l`,`dm`,`dm`] mp_tac rup_pass2_slot_thm>>
   simp[]>>
   strip_tac>>
+  gvs[]
+QED
+
+(* Copies of the two passes and of update_assg_slot for the CakeML code:
+  each term is split on the sign of its coefficient, b1 = b + 1 is
+  computed once, and pass 2 compares against gap = max - l and reads a
+  coefficient only for an unassigned variable *)
+Definition rup_pass1_fast_def:
+  rup_pass1_fast (assg:num list) (b:num) b1 cs vs lim i (acc:num) =
+  if lim ≤ acc then (acc,T)
+  else if i = 0 then (acc,T)
+  else
+    let i1 = i - 1 in
+    let n = sub_unsafe vs i1 in
+    if n < LENGTH assg then
+      let c = sub_unsafe cs i1 in
+      let v = EL n assg in
+      if 0 ≤ c then
+        rup_pass1_fast assg b b1 cs vs lim i1
+          (if v < b ∨ v = b1 then acc + Num c else acc)
+      else
+        rup_pass1_fast assg b b1 cs vs lim i1
+          (if v = b1 then acc else acc + Num (-c))
+    else (acc,F)
+End
+
+Definition rup_pass2_fast_def:
+  rup_pass2_fast (assg:num list) (b:num) b1 (gap:num) cs vs i =
+  if i = 0 then (assg,T)
+  else
+    let i1 = i - 1 in
+    let n = sub_unsafe vs i1 in
+    if n < LENGTH assg then
+      if EL n assg < b then
+        let c = sub_unsafe cs i1 in
+        if 0 ≤ c then
+          if gap < Num c then
+            rup_pass2_fast (LUPDATE b1 n assg) b b1 gap cs vs i1
+          else rup_pass2_fast assg b b1 gap cs vs i1
+        else if gap < Num (-c) then
+          rup_pass2_fast (LUPDATE b n assg) b b1 gap cs vs i1
+        else rup_pass2_fast assg b b1 gap cs vs i1
+      else rup_pass2_fast assg b b1 gap cs vs i1
+    else (assg,F)
+End
+
+Definition update_assg_fast_def:
+  update_assg_fast assg b s =
+  case s of
+    Empty => (F,assg,T)
+  | Stored cs vs d mc sm core =>
+    if d ≤ 0 then (F,assg,T)
+    else
+      let l = Num d in
+      let lim = l + mc in
+      let b1 = b + 1 in
+      let (max,pre) = rup_pass1_fast assg b b1 cs vs lim (length cs) 0 in
+      if lim ≤ max then (F,assg,pre)
+      else if max < l then (T,assg,pre)
+      else
+        let (assg',pre') =
+          rup_pass2_fast assg b b1 (max - l) cs vs (length cs) in
+        (F,assg',pre ∧ pre')
+End
+
+Theorem rup_pass1_fast_eq:
+  ∀assg b b1 cs vs lim i acc.
+  b1 = b + 1 ⇒
+  rup_pass1_fast assg b b1 cs vs lim i acc =
+  rup_pass1_slot assg b cs vs lim i acc
+Proof
+  ho_match_mp_tac rup_pass1_fast_ind >> rw[] >>
+  once_rewrite_tac[rup_pass1_fast_def] >>
+  once_rewrite_tac[rup_pass1_slot_def] >>
+  rw[] >>
+  gvs[intLib.ARITH_PROVE ``∀c:int. 0 ≤ c ⇒ ABS c = c``,
+      intLib.ARITH_PROVE ``∀c:int. ¬(0 ≤ c) ⇒ ABS c = -c``]
+QED
+
+Theorem rup_pass2_fast_eq:
+  ∀assg b b1 gap cs vs i.
+  b1 = b + 1 ∧ l ≤ max ∧ gap = max - l ⇒
+  rup_pass2_fast assg b b1 gap cs vs i =
+  rup_pass2_slot assg b max cs vs l i
+Proof
+  ho_match_mp_tac rup_pass2_fast_ind >> rw[] >>
+  once_rewrite_tac[rup_pass2_fast_def] >>
+  once_rewrite_tac[rup_pass2_slot_def] >>
+  rw[] >>
+  gvs[intLib.ARITH_PROVE ``∀c:int. 0 ≤ c ⇒ ABS c = c``,
+      intLib.ARITH_PROVE ``∀c:int. ¬(0 ≤ c) ⇒ ABS c = -c``]
+QED
+
+Theorem update_assg_fast_eq:
+  update_assg_fast assg b s = update_assg_slot assg b s
+Proof
+  Cases_on `s` >> rw[update_assg_fast_def,update_assg_slot_def] >>
+  `Num i = Num (ABS i)` by intLib.ARITH_TAC >>
+  simp[rup_pass1_fast_eq] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  rw[] >>
+  `rup_pass2_fast assg b (b + 1) (max' − Num (ABS i)) v v0 (length v) =
+   rup_pass2_slot assg b max' v v0 (Num (ABS i)) (length v)` by
+    (irule rup_pass2_fast_eq >> simp[]) >>
   gvs[]
 QED
 
@@ -1545,17 +1660,17 @@ Termination
   WF_REL_TAC`measure (λ(wv,cs,vs,i,len,r). len - i)`
 End
 
-(* The same under the cube vector cv (unlisted variables are fixed to
-  false, NONE entries are free) *)
+(* The same under the cube vector cv (entries as for cube_dec; unlisted
+  variables are fixed to false) *)
 Definition cube_slot_aux_def:
   cube_slot_aux cv cs vs i len (r:int) =
   if i < len then
-    let c = sub_unsafe cs i in
     let v = sub_unsafe vs i in
-    case (if v < length cv then sub_unsafe cv v else SOME F) of
-      NONE => cube_slot_aux cv cs vs (i+1) len r
-    | SOME b =>
-      if b then
+    let e = (if v < length cv then sub_unsafe cv v else 0n) in
+    if e = 2 then cube_slot_aux cv cs vs (i+1) len r
+    else
+      let c = sub_unsafe cs i in
+      if e = 1 then
         if 0 < c then r ≤ c ∨ cube_slot_aux cv cs vs (i+1) len (r - c)
         else cube_slot_aux cv cs vs (i+1) len r
       else if c < 0 then r ≤ -c ∨ cube_slot_aux cv cs vs (i+1) len (r + c)
@@ -1598,18 +1713,18 @@ Definition sol_free_ok_def:
 End
 
 Definition sol_cw_ok_def:
-  sol_cw_ok cw wm ⇔ EVERY (λ(v:num,b). cw v = SOME b) wm
+  sol_cw_ok cw wm ⇔ EVERY (λ(v:num,b). cw v = if b then 1n else 0) wm
 End
 
 Definition sol_fun_def:
-  sol_fun cw = (λv:num. case cw v of NONE => F | SOME b => b)
+  sol_fun cw = (λv:num. cw v = 1n)
 End
 
 Definition check_sol_slots_def:
   check_sol_slots wm free ss =
   if sol_free_ok wm free then
     let cv = mk_cube_vec wm free in
-    let cw = vec_lookup_d (SOME F) cv in
+    let cw = vec_lookup_d 0 cv in
     if sol_cw_ok cw wm ∧ EVERY (cube_slot cv) ss then SOME (sol_fun cw)
     else NONE
   else NONE
@@ -1618,12 +1733,10 @@ End
 Theorem cube_slot_test:
   let s = enc ([(2,1);(-3,4);(1,7)],4) T in
   let c = ([(2,1);(-3,4);(1,7)],4) in
-  (cube_slot (Vector [NONE;SOME T]) s ⇔
-    check_cube (vec_lookup_d (SOME F) (Vector [NONE;SOME T])) c) ∧
-  (cube_slot (Vector [NONE;NONE;NONE;NONE;NONE;NONE;NONE;NONE]) s ⇔
-    check_cube
-      (vec_lookup_d (SOME F) (Vector [NONE;NONE;NONE;NONE;NONE;NONE;NONE;NONE]))
-      c)
+  (cube_slot (Vector [2;1]) s ⇔
+    check_cube (vec_lookup_d 0 (Vector [2;1])) c) ∧
+  (cube_slot (Vector [2;2;2;2;2;2;2;2]) s ⇔
+    check_cube (vec_lookup_d 0 (Vector [2;2;2;2;2;2;2;2])) c)
 Proof
   EVAL_TAC
 QED
@@ -1665,7 +1778,7 @@ Theorem cube_slot_aux_thm:
   0 < r ⇒
   (cube_slot_aux cv cs vs i len r ⇔
     r ≤ &SUM (MAP (λx.
-      case vec_lookup_d (SOME F) cv (SND x) of
+      case cube_dec (vec_lookup_d 0 cv (SND x)) of
         NONE => 0
       | SOME b => eval_term (K b) x)
       (GENLIST (λj. (sub cs (i+j), sub vs (i+j))) (len - i))))
@@ -1683,13 +1796,13 @@ Proof
   REWRITE_TAC[GENLIST_CONS]>>
   simp[combinTheory.o_DEF,ADD1]>>
   qmatch_goalsub_abbrev_tac`SUM (MAP _ rest)`>>
-  `(if sub vs i < length cv then sub cv (sub vs i) else SOME F) =
-    vec_lookup_d (SOME F) cv (sub vs i)` by simp[vec_lookup_d_def]>>
+  `(if sub vs i < length cv then sub cv (sub vs i) else 0) =
+    vec_lookup_d 0 cv (sub vs i)` by simp[vec_lookup_d_def]>>
   gvs[]>>
-  Cases_on`vec_lookup_d (SOME F) cv (sub vs i)`>>
-  gvs[]>>
-  rename1`SOME b`>>
-  Cases_on`b`>>
+  qabbrev_tac`e = vec_lookup_d 0 cv (sub vs i)`>>
+  `cube_dec e = if e = 2 then NONE else SOME (e = 1)` by simp[cube_dec_def]>>
+  Cases_on`e = 2`>>gvs[]>>
+  Cases_on`e = 1`>>gvs[]>>
   rw[GSYM integerTheory.INT_ADD,integerTheory.Num_EQ_ABS]>>
   qmatch_goalsub_abbrev_tac`&SUM ls`>>
   `0 ≤ &SUM ls` by simp[]>>
@@ -1714,7 +1827,7 @@ Proof
 QED
 
 Theorem cube_slot_thm:
-  cube_slot cv s ⇔ check_cube (vec_lookup_d (SOME F) cv) (dec s)
+  cube_slot cv s ⇔ check_cube (vec_lookup_d 0 cv) (dec s)
 Proof
   Cases_on`s`
   >- simp[cube_slot_def,dec_def,check_cube_correct]>>
@@ -1760,7 +1873,7 @@ QED
 Definition neg_slot_def:
   neg_slot ((l,n):npbc) b =
   let (s,mc,mv) = sum_max_abs l 0 0 0 in
-  (Stored (Vector (MAP (λ(c:int,v:num). -c) l)) (Vector (terms_snd l))
+  (Stored (Vector (terms_neg_fst l)) (Vector (terms_snd l))
     (&s + 1 - n) mc s b, mv)
 End
 
@@ -1782,7 +1895,7 @@ Proof
   PairCases_on`c`>>
   simp[neg_slot_def,sum_max_abs_thm,enc_def,not_def,MAP_MAP_o,
     combinTheory.o_DEF,LAMBDA_PROD,max_coeff_negate,lslack_negate,
-    SUM_MAP_ABS_lslack,terms_snd_MAP]>>
+    SUM_MAP_ABS_lslack,terms_snd_MAP,terms_neg_fst_MAP]>>
   simp[MAP_EQ_f,FORALL_PROD]
 QED
 
@@ -1936,7 +2049,7 @@ Definition neg_pos_slot_def:
   let vs = Vector (terms_snd l) in
   let (s,mc,mv) = sum_max_abs l 0 0 0 in
   (Stored (Vector (terms_fst l)) vs n mc s b1,
-   Stored (Vector (MAP (λ(c:int,v:num). -c) l)) vs (&s + 1 - n) mc s b2,
+   Stored (Vector (terms_neg_fst l)) vs (&s + 1 - n) mc s b2,
    mv)
 End
 
@@ -1946,7 +2059,7 @@ Proof
   PairCases_on`c`>>
   simp[neg_pos_slot_def,sum_max_abs_thm,enc_def,not_def,MAP_MAP_o,
     combinTheory.o_DEF,LAMBDA_PROD,max_coeff_negate,lslack_negate,
-    SUM_MAP_ABS_lslack,terms_fst_MAP,terms_snd_MAP]>>
+    SUM_MAP_ABS_lslack,terms_fst_MAP,terms_snd_MAP,terms_neg_fst_MAP]>>
   simp[MAP_EQ_f,FORALL_PROD]
 QED
 
