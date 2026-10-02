@@ -29,6 +29,8 @@ Datatype:
             ; len_size : num (* size of length field in block header *)
             ; has_div : bool (* Div available in target *)
             ; has_longdiv : bool (* LongDiv available in target *)
+            ; has_imul : bool (* signed multiply with overflow available *)
+            ; has_idiv : bool (* signed quotient and remainder available *)
             ; has_fp_ops : bool (* can compile floating-point ops *)
             ; has_fp_tern : bool (* can compile FMA *)
             ; be : bool (* bigendian *)
@@ -2052,7 +2054,17 @@ val def = assign_Define `
 val def = assign_Define `
   assign_Mult (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
-        (list_Seq [Assign 1 (Var (adjust_var v1));
+        (if c.has_imul then
+           list_Seq [Assign 1 (ShiftVar Asr (adjust_var v1) 1);
+                     Inst (Arith (IMul 1 1 (adjust_var v2) 3));
+                     Assign 3 (Op Or
+                       [Var 3; Var (adjust_var v1); Var (adjust_var v2)]);
+                     If Test 3 (Imm 1) Skip
+                       (MustTerminate
+                         (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
+                           (SOME Mul_location) [adjust_var v1; adjust_var v2] NONE));
+                     Move 2 [(adjust_var dest,1)]]
+         else list_Seq [Assign 1 (Var (adjust_var v1));
                    Inst (Arith (LongMul 3 1 1 (adjust_var v2)));
                    Assign 3 (Op Or [Var 3;
                                Op And [Const 1w;
@@ -2065,10 +2077,49 @@ val def = assign_Define `
                    Move 2 [(adjust_var dest,1)]],l+1)
       : 'a wordLang$prog # num`;
 
+(* Tagged inputs give an untagged quotient and a tagged remainder. Correct
+   only the result needed by the consumer, leaving original operands intact. *)
+Definition SmallDivMod_def:
+  SmallDivMod is_mod v1 v2 =
+    list_Seq [Inst (Arith (IDiv 1 3 (adjust_var v1) (adjust_var v2)));
+              If Equal 3 (Imm 0) Skip
+                (list_Seq [Assign 5 (Op Xor [Var 3; Var (adjust_var v2)]);
+                           If Less 5 (Imm 0)
+                             (if is_mod then
+                                Assign 3 (Op Add [Var 3; Var (adjust_var v2)])
+                              else Assign 1 (Op Sub [Var 1; Const 1w]))
+                             Skip])] : 'a wordLang$prog
+End
+
 val def = assign_Define `
   assign_Div (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
-        (list_Seq [
+        (if c.has_idiv then
+           let fallback = \ret_label. MustTerminate
+                 (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,ret_label))
+                   (SOME Div_location) [adjust_var v1; adjust_var v2] NONE) in
+           let signed = list_Seq
+                 [SmallDivMod F v1 v2;
+                  Assign 5 (ShiftVar Lsr 1 (dimindex (:'a)-2));
+                  If Equal 5 (Imm 1) (fallback (l+1))
+                    (Assign 1 (ShiftVar Lsl 1 1))] in
+             list_Seq
+               [Assign 1 (Op Or [Var (adjust_var v1); Var (adjust_var v2)]);
+                If Test 1 (Imm 1)
+                  (if c.has_div \/ c.has_longdiv then
+                     If Less 1 (Imm 0) signed
+                       (list_Seq
+                         [if c.has_div then
+                            Inst (Arith (Div 1 (adjust_var v1) (adjust_var v2)))
+                          else list_Seq
+                            [Assign 1 (Const 0w);
+                             Inst (Arith (LongDiv 1 3 1 (adjust_var v1)
+                                                       (adjust_var v2)))];
+                          Assign 1 (ShiftVar Lsl 1 1)])
+                   else signed)
+                  (fallback l);
+                Move 2 [(adjust_var dest,1)]]
+         else list_Seq [
            Assign 1 (Op Or [Var (adjust_var v1); Var (adjust_var v2)]);
            Assign 1 (Op Or [Var 1; ShiftVar Lsr 1 (dimindex (:'a)-1)]);
            If Test 1 (Imm 1)
@@ -2097,7 +2148,25 @@ val def = assign_Define `
 val def = assign_Define `
   assign_Mod (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
-        (list_Seq [
+        (if c.has_idiv then
+           list_Seq
+             [Assign 1 (Op Or [Var (adjust_var v1); Var (adjust_var v2)]);
+              If Test 1 (Imm 1)
+                (list_Seq
+                  [if c.has_longdiv then
+                     If Less 1 (Imm 0) (SmallDivMod T v1 v2)
+                       (list_Seq
+                         [Assign 1 (Const 0w);
+                          Inst (Arith (LongDiv 1 3 1 (adjust_var v1)
+                                                    (adjust_var v2)))])
+                   else SmallDivMod T v1 v2;
+                   Move 2 [(adjust_var dest,3)]])
+                (list_Seq
+                  [MustTerminate
+                     (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
+                       (SOME Mod_location) [adjust_var v1; adjust_var v2] NONE);
+                   Move 2 [(adjust_var dest,1)]])]
+         else list_Seq [
            Assign 1 (Op Or [Var (adjust_var v1); Var (adjust_var v2)]);
            Assign 1 (Op Or [Var 1; ShiftVar Lsr 1 (dimindex (:'a)-1)]);
            If Test 1 (Imm 1)
