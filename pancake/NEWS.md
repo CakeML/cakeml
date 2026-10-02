@@ -5,6 +5,14 @@ User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
 
+xxx xxxth 2026
+-------------------
+
+### Static checker bug fix
+
+The bug where the static checker used the shift amount instead of the
+shifted expression for address location warnings has been fixed.
+
 Oct 1st 2026
 -------------------
 
