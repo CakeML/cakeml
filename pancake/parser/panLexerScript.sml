@@ -138,7 +138,7 @@ Definition get_keyword_def:
   if s = "ld16" then (KeywordT Ld16K) else
   if s = "ld32" then (KeywordT Ld32K) else
   if s = "@base" then (KeywordT BaseK) else
-  if s = "@top" then (KeywordT BaseK) else
+  if s = "@top" then (KeywordT TopK) else
   if s = "@biw" then (KeywordT BiwK) else
   if s = "true" then (KeywordT TrueK) else
   if s = "false" then (KeywordT FalseK) else
