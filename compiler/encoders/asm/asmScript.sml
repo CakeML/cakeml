@@ -260,7 +260,7 @@ Definition arith_ok_def:
   (arith_ok (IMul rd ra rb ro) c <=>
      c.ISA IN {x86_64; ARMv7; ARMv8; MIPS; RISC_V} /\
      reg_ok rd c /\ reg_ok ra c /\ reg_ok rb c /\ reg_ok ro c /\
-     rd <> ro /\ (c.ISA = x86_64 ==> rd = ra)) /\
+     rd <> ro /\ (c.two_reg_arith ==> rd = ra)) /\
   (arith_ok (IDiv rq rr ra rb) c <=>
      c.ISA IN {x86_64; ARMv8; MIPS; RISC_V} /\
      reg_ok rq c /\ reg_ok rr c /\ reg_ok ra c /\ reg_ok rb c /\

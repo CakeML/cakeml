@@ -230,6 +230,8 @@ Definition const_fp_inst_cs_def:
   (const_fp_inst_cs (Arith (AddCarry r1 _ _ r2)) cs = delete r2 (delete r1 cs)) /\
   (const_fp_inst_cs (Arith (AddOverflow r1 _ _ r2)) cs = delete r2 (delete r1 cs)) /\
   (const_fp_inst_cs (Arith (SubOverflow r1 _ _ r2)) cs = delete r2 (delete r1 cs)) /\
+  (const_fp_inst_cs (Arith (IMul r1 _ _ r2)) cs = delete r2 (delete r1 cs)) /\
+  (const_fp_inst_cs (Arith (IDiv r1 r2 _ _)) cs = delete r1 (delete r2 cs)) /\
   (const_fp_inst_cs (Arith (LongMul r1 r2 _ _)) cs = delete r1 (delete r2 cs)) /\
   (const_fp_inst_cs (Arith (LongDiv r1 r2 _ _ _)) cs = delete r1 (delete r2 cs)) /\
   (const_fp_inst_cs (Arith (Div r1 _ _)) cs = delete r1 cs) /\

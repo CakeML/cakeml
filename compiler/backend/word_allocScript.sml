@@ -187,6 +187,21 @@ Definition ssa_cc_trans_inst_def:
     let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
     let mov_out = Move1 [(r4'',0)] in
       (Seq (Inst (Arith (SubOverflow r1' r2' r3' 0))) mov_out, ssa'',na'')) ∧
+  (ssa_cc_trans_inst (Arith (IMul rd ra rb ro)) ssa na =
+    let ra' = option_lookup ssa ra in
+    let rb' = option_lookup ssa rb in
+    let (rd',ssa',na') = next_var_rename rd ssa na in
+    let (ro',ssa'',na'') = next_var_rename ro ssa' na' in
+    let mov_out = Move1 [(ro',0)] in
+      (Seq (Inst (Arith (IMul rd' ra' rb' 0))) mov_out, ssa'',na'')) ∧
+  (ssa_cc_trans_inst (Arith (IDiv rq rr ra rb)) ssa na =
+    let ra' = option_lookup ssa ra in
+    let rb' = option_lookup ssa rb in
+    let mov_in = Move1 [(0,ra')] in
+    let (rr',ssa',na') = next_var_rename rr ssa na in
+    let (rq',ssa'',na'') = next_var_rename rq ssa' na' in
+    let mov_out = Move1 [(rr',6);(rq',0)] in
+      (Seq mov_in (Seq (Inst (Arith (IDiv 0 6 0 rb'))) mov_out),ssa'',na'')) ∧
   (ssa_cc_trans_inst (Arith (LongMul r1 r2 r3 r4)) ssa na =
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
@@ -602,6 +617,10 @@ Definition apply_colour_inst_def[simp]:
     Arith (AddOverflow (f r1) (f r2) (f r3) (f r4))) ∧
   (apply_colour_inst f (Arith (SubOverflow r1 r2 r3 r4)) =
     Arith (SubOverflow (f r1) (f r2) (f r3) (f r4))) ∧
+  (apply_colour_inst f (Arith (IMul rd ra rb ro)) =
+    Arith (IMul (f rd) (f ra) (f rb) (f ro))) ∧
+  (apply_colour_inst f (Arith (IDiv rq rr ra rb)) =
+    Arith (IDiv (f rq) (f rr) (f ra) (f rb))) ∧
   (apply_colour_inst f (Arith (LongMul r1 r2 r3 r4)) =
     Arith (LongMul (f r1) (f r2) (f r3) (f r4))) ∧
   (apply_colour_inst f (Arith (LongDiv r1 r2 r3 r4 r5)) =
@@ -681,6 +700,8 @@ Definition get_writes_inst_def:
   (get_writes_inst bits (Arith (AddCarry r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
   (get_writes_inst bits (Arith (AddOverflow r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
   (get_writes_inst bits (Arith (SubOverflow r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
+  (get_writes_inst bits (Arith (IMul rd ra rb ro)) = insert ro () (insert rd () LN)) ∧
+  (get_writes_inst bits (Arith (IDiv rq rr ra rb)) = insert rq () (insert rr () LN)) ∧
   (get_writes_inst bits (Arith (LongMul r1 r2 r3 r4)) = insert r2 () (insert r1 () LN)) ∧
   (get_writes_inst bits (Arith (LongDiv r1 r2 r3 r4 r5)) = insert r2 () (insert r1 () LN)) ∧
   (get_writes_inst bits (Mem Load r (Addr a w)) = insert r () LN) ∧
@@ -716,6 +737,10 @@ Definition get_live_inst_def:
     insert r3 () (insert r2 () (delete r4 (delete r1 live)))) ∧
   (get_live_inst bits (Arith (SubOverflow r1 r2 r3 r4)) live =
     insert r3 () (insert r2 () (delete r4 (delete r1 live)))) ∧
+  (get_live_inst bits (Arith (IMul rd ra rb ro)) live =
+    insert rb () (insert ra () (delete ro (delete rd live)))) ∧
+  (get_live_inst bits (Arith (IDiv rq rr ra rb)) live =
+    insert rb () (insert ra () (delete rq (delete rr live)))) ∧
   (get_live_inst bits (Arith (LongMul r1 r2 r3 r4)) live =
     insert r4 () (insert r3 () (delete r2 (delete r1 live)))) ∧
   (get_live_inst bits (Arith (LongDiv r1 r2 r3 r4 r5)) live =
@@ -856,6 +881,10 @@ Definition remove_dead_inst_def:
     (lookup r1 live = NONE ∧ lookup r4 live = NONE)) ∧
   (remove_dead_inst bits (Arith (SubOverflow r1 r2 r3 r4)) live =
     (lookup r1 live = NONE ∧ lookup r4 live = NONE)) ∧
+  (remove_dead_inst bits (Arith (IMul rd ra rb ro)) live =
+    (lookup rd live = NONE ∧ lookup ro live = NONE)) ∧
+  (remove_dead_inst bits (Arith (IDiv rq rr ra rb)) live =
+    (lookup rq live = NONE ∧ lookup rr live = NONE)) ∧
   (remove_dead_inst bits (Arith (LongMul r1 r2 r3 r4)) live =
     (lookup r1 live = NONE ∧ lookup r2 live = NONE)) ∧
   (remove_dead_inst bits (Arith (LongDiv r1 r2 r3 r4 r5)) live =
@@ -1089,6 +1118,8 @@ Definition get_delta_inst_def:
   (get_delta_inst bits (Arith (AddCarry r1 r2 r3 r4)) = Delta [r1;r4] [r4;r3;r2]) ∧
   (get_delta_inst bits (Arith (AddOverflow r1 r2 r3 r4)) = Delta [r1;r4] [r3;r2]) ∧
   (get_delta_inst bits (Arith (SubOverflow r1 r2 r3 r4)) = Delta [r1;r4] [r3;r2]) ∧
+  (get_delta_inst bits (Arith (IMul rd ra rb ro)) = Delta [rd;ro] [rb;ra]) ∧
+  (get_delta_inst bits (Arith (IDiv rq rr ra rb)) = Delta [rq;rr] [rb;ra]) ∧
   (get_delta_inst bits (Arith (LongMul r1 r2 r3 r4)) = Delta [r1;r2] [r4;r3]) ∧
   (get_delta_inst bits (Arith (LongDiv r1 r2 r3 r4 r5)) = Delta [r1;r2] [r5;r4;r3]) ∧
   (get_delta_inst bits (Mem Load r (Addr a w)) = Delta [r] [a]) ∧
@@ -1329,6 +1360,12 @@ Definition get_heu_inst_def:
     (*r1,r4 := r2,r3 *)
      (add1_lhs_reg r4 (add1_lhs_reg r1
      (add1_rhs_reg r3 (add1_rhs_reg r2 lr))))) ∧
+  (get_heu_inst (Arith (IMul rd ra rb ro)) lr =
+    add1_lhs_reg ro (add1_lhs_reg rd
+      (add1_rhs_reg rb (add1_rhs_reg ra lr)))) ∧
+  (get_heu_inst (Arith (IDiv rq rr ra rb)) lr =
+    add1_lhs_reg rr (add1_lhs_reg rq
+      (add1_rhs_reg rb (add1_rhs_reg ra lr)))) ∧
   (get_heu_inst (Arith (LongMul r1 r2 r3 r4)) lr =
     (*r1,r2 := r3,r4 *)
      (add1_lhs_reg r2 (add1_lhs_reg r1
@@ -1473,6 +1510,11 @@ Definition get_forced_def:
           (if r1=r3 then [] else [(r1,r3)]) ++
           acc
        else acc
+    | Arith (IMul rd ra rb ro) =>
+        (if rd = ro then [] else [(rd,ro)]) ++ acc
+    | Arith (IDiv rq rr ra rb) =>
+        (if rq = rr then [] else [(rq,rr)]) ++
+        (if c.ISA = x86_64 ∧ rb ≠ rr then [(rb,rr)] else []) ++ acc
     | Arith (LongMul r1 r2 r3 r4) =>
        if (c.ISA = ARMv7) then
          (if (r1=r2) then [] else [(r1,r2)]) ++ acc
@@ -1523,6 +1565,11 @@ Theorem get_forced_pmatch:
           (if r1=r3 then [] else [(r1,r3)]) ++
           acc
        else acc
+    | Inst (Arith (IMul rd ra rb ro)) =>
+        (if rd = ro then [] else [(rd,ro)]) ++ acc
+    | Inst (Arith (IDiv rq rr ra rb)) =>
+        (if rq = rr then [] else [(rq,rr)]) ++
+        (if c.ISA = x86_64 ∧ rb ≠ rr then [(rb,rr)] else []) ++ acc
     | Inst(Arith (LongMul r1 r2 r3 r4)) =>
        if (c.ISA = ARMv7) then
          (if (r1=r2) then [] else [(r1,r2)]) ++ acc
@@ -1558,6 +1605,10 @@ Proof
   >> rpt(POP_ASSUM MP_TAC)
   >> (fn (asms,g) => (asms,g) |> EVERY(map UNDISCH_TAC asms))
   >> Q.SPEC_TAC (`acc`,`acc`) >> Q.SPEC_TAC (`prog`,`prog`) >> Q.SPEC_TAC (`c`,`c`)
+  >~ [`(if _ then _ else []) = ([]:(num # num) list)`]
+  >- (rpt strip_tac >> IF_CASES_TAC >> gvs[])
+  >~ [`(if _ then _ else []) = ([]:(num # num) list)`]
+  >- (rpt strip_tac >> IF_CASES_TAC >> gvs[])
   >> ho_match_mp_tac (theorem "get_forced_ind")
   >> rpt strip_tac
   >> fs[get_forced_def]
