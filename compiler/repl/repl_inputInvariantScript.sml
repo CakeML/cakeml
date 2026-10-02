@@ -72,6 +72,20 @@ Definition trusted_input_value_def:
       v_rel fr ft fe value value)
 End
 
+Theorem input_stamp_fix_extension:
+  input_stamp_fix catalogue ft /\ ft SUBMAP next_ft ==>
+  input_stamp_fix catalogue next_ft
+Proof
+  rw [input_stamp_fix_def] >> metis_tac [FLOOKUP_SUBMAP]
+QED
+
+Theorem input_stamp_fix_identity:
+  input_metadata_bounds catalogue slots (st:'ffi semanticPrimitives$state) ==>
+  input_stamp_fix catalogue (FUN_FMAP I (count st.next_type_stamp))
+Proof
+  rw [input_metadata_bounds_def,input_stamp_fix_def,FLOOKUP_FUN_FMAP]
+QED
+
 Theorem catalogue_stamps_member:
   TypeStamp cn n IN catalogue_stamps catalogue <=>
   ?ti signature tvs ts.
@@ -376,7 +390,9 @@ val _ = List.app (fn theorem => let
       List.all (fn name => name = "DISK_THM") oracles then ()
     else failwith "Input typing invariants have assumptions or admissions"
   end)
-  [catalogue_stamps_member,
+  [input_stamp_fix_extension,
+   input_stamp_fix_identity,
+   catalogue_stamps_member,
    catalogue_matches_lookup,
    catalogue_matches_preserved,
    input_metadata_bounds_from_typing,

@@ -742,6 +742,17 @@ Proof
   rw [repl_types_def] >> drule repl_types_input_F_thm >> simp []
 QED
 
+Theorem input_init_ok_bounds:
+  input_init_ok catalogue slots tids tenv
+    (st:'ffi semanticPrimitives$state) env ==>
+  input_metadata_bounds catalogue slots st
+Proof
+  rw [input_init_ok_def]
+  >- simp [input_metadata_bounds_def,catalogue_stamps_def] >>
+  fs [initial_input_certificate_def] >>
+  drule input_typing_witnesses_bounds >> simp []
+QED
+
 Theorem input_init_ok_clock:
   input_init_ok catalogue slots tids tenv (st with clock := ck) env <=>
   input_init_ok catalogue slots tids tenv (st:'ffi semanticPrimitives$state) env
@@ -887,6 +898,168 @@ Proof
   fs [INJ_DEF] \\ rw [] \\ res_tac \\ fs []
 QED
 
+Theorem repl_types_input_T_F:
+  !catalogue slots (ffi:'ffi ffi_state) rs types physical physical_env.
+    repl_types_input catalogue slots T (ffi,rs)
+      (types,physical,physical_env) ==>
+    ?clean clean_env fr ft fe l.
+      repl_types_input catalogue slots F (ffi,rs) (types,clean,clean_env) /\
+      state_rel l fr ft fe clean physical /\
+      env_rel fr ft fe clean_env physical_env /\
+      input_stamp_fix catalogue ft /\ FDOM slots SUBSET count l /\
+      EVERY (\(name,ty,loc). loc < l) rs
+Proof
+  qx_genl_tac [‘catalogue’,‘slots’] >> Induct_on ‘repl_types_input’ >>
+  rpt conj_tac >> rpt gen_tac >> rw []
+  >- suspend "Init"
+  >- suspend "Skip"
+  >- suspend "Eval"
+  >- suspend "Exn"
+  >- suspend "ExnAssign"
+  >- suspend "StringAssign"
+  >- suspend "TrustedAssign"
+QED
+
+Resume repl_types_input_T_F[Init]:
+  drule input_init_ok_bounds >> strip_tac >>
+  drule evaluate_decs_init >> rw [] >> gvs [] >>
+  ‘repl_types_input catalogue slots F (ffi,rs)
+    (types,s,extend_dec_env env init_env)’ by (
+      metis_tac [repl_types_input_init]) >>
+  ‘input_stamp_fix catalogue (FUN_FMAP I (count s.next_type_stamp))’ by (
+    drule input_stamp_fix_identity >> simp []) >>
+  qexistsl_tac [‘s’,‘extend_dec_env env init_env’,
+    ‘FUN_FMAP I (count (LENGTH s.refs))’,
+    ‘FUN_FMAP I (count s.next_type_stamp)’,
+    ‘FUN_FMAP I (count s.next_exn_stamp)’,‘LENGTH s.refs’] >>
+  simp [] >> fs [input_metadata_bounds_def,SUBSET_DEF] >>
+  fs [EVERY_MEM,FORALL_PROD] >> rw [] >> res_tac >>
+  fs [check_ref_types_def,env_rel_def] >>
+  imp_res_tac nsAll2_nsLookup1 >> imp_res_tac nsAll2_nsLookup2 >>
+  gvs [] >> res_tac >> fs [Once v_rel_cases,FLOOKUP_FUN_FMAP]
+QED
+
+Resume repl_types_input_T_F[Skip]:
+  rename [‘repl_types_input _ _ F _ (saved_types,saved_state,saved_env)’,
+    ‘state_rel protected_prefix ref_map type_map exn_map saved_state physical_state’] >>
+  qmatch_goalsub_rename_tac ‘physical_state.clock - skipped_clock’ >>
+  qexistsl_tac [‘saved_state with clock := saved_state.clock - skipped_clock’,
+    ‘saved_env’,‘ref_map’,‘type_map’,‘exn_map’,‘protected_prefix’] >>
+  simp [] >> conj_tac
+  >- metis_tac [repl_types_input_set_clock] >>
+  fs [state_rel_def,SF SFY_ss] >> rw [] >> gvs [INJ_count_ADD] >>
+  qmatch_goalsub_rename_tac ‘FLOOKUP ref_map index’ >>
+  qpat_x_assum ‘!n. if n < LENGTH saved_state.refs then _ else _’
+    (qspec_then ‘index’ assume_tac) >> gvs [EL_APPEND1]
+QED
+
+Resume repl_types_input_T_F[Eval]:
+  gvs [] >>
+  rename [‘state_rel protected_prefix ref_map type_map exn_map clean_state physical_state’,
+    ‘repl_types_input _ _ F _ (old_types,clean_state,clean_env)’,
+    ‘evaluate_decs physical_state physical_env declarations = (_,Rval _)’] >>
+  namedCases_on ‘evaluate_decs clean_state clean_env declarations’
+    ["result_state result"] >>
+  drule_all evaluate_decs_skip >>
+  disch_then (qx_choosel_then [‘physical_result_state’,‘physical_result’,
+    ‘next_ref_map’,‘next_type_map’,‘next_exn_map’] strip_assume_tac) >>
+  namedCases_on ‘result’ ["clean_declarations","error"] >> gvs [res_rel_def] >>
+  ‘input_stamp_fix catalogue next_type_map’ by (
+    drule_all input_stamp_fix_extension >> simp []) >>
+  qexistsl_tac [‘result_state’,‘extend_dec_env clean_declarations clean_env’,
+    ‘next_ref_map’,‘next_type_map’,‘next_exn_map’,‘protected_prefix’] >>
+  simp [] >> metis_tac [repl_types_input_eval]
+QED
+
+Resume repl_types_input_T_F[Exn]:
+  gvs [] >>
+  rename [‘state_rel protected_prefix ref_map type_map exn_map clean_state physical_state’,
+    ‘repl_types_input _ _ F _ (old_types,clean_state,clean_env)’,
+    ‘evaluate_decs physical_state physical_env declarations = (_,Rerr (Rraise _))’] >>
+  namedCases_on ‘evaluate_decs clean_state clean_env declarations’
+    ["result_state result"] >>
+  drule_all evaluate_decs_skip >>
+  disch_then (qx_choosel_then [‘physical_result_state’,‘physical_result’,
+    ‘next_ref_map’,‘next_type_map’,‘next_exn_map’] strip_assume_tac) >>
+  namedCases_on ‘result’ ["clean_declarations","error"] >> gvs [res_rel_def] >>
+  namedCases_on ‘error’ ["clean_exception","abort"] >> gvs [res_rel_def] >>
+  ‘env_rel next_ref_map next_type_map next_exn_map clean_env physical_env’ by (
+    drule_all env_rel_update >> simp []) >>
+  ‘input_stamp_fix catalogue next_type_map’ by (
+    drule_all input_stamp_fix_extension >> simp []) >>
+  qexistsl_tac [‘result_state’,‘clean_env’,‘next_ref_map’,
+    ‘next_type_map’,‘next_exn_map’,‘protected_prefix’] >>
+  simp [] >> metis_tac [repl_types_input_exn]
+QED
+
+Resume repl_types_input_T_F[ExnAssign]:
+  gvs [] >>
+  rename [‘state_rel protected_prefix ref_map type_map exn_map clean_state physical_state’,
+    ‘repl_types_input _ _ F _ (old_types,clean_state,clean_env)’,
+    ‘evaluate_decs physical_state physical_env declarations =
+      (assigned_state,Rerr (Rraise physical_exception))’,
+    ‘store_assign assigned_loc (Refv physical_exception) assigned_state.refs =
+      SOME assigned_refs’] >>
+  namedCases_on ‘evaluate_decs clean_state clean_env declarations’
+    ["result_state result"] >>
+  drule_all evaluate_decs_skip >>
+  disch_then (qx_choosel_then [‘physical_result_state’,‘physical_result’,
+    ‘next_ref_map’,‘next_type_map’,‘next_exn_map’] strip_assume_tac) >>
+  namedCases_on ‘result’ ["clean_declarations","error"] >> gvs [res_rel_def] >>
+  namedCases_on ‘error’ ["clean_exception","abort"] >> gvs [res_rel_def] >>
+  ‘env_rel next_ref_map next_type_map next_exn_map clean_env physical_env’ by (
+    drule_all env_rel_update >> simp []) >>
+  ‘input_stamp_fix catalogue next_type_map’ by (
+    drule_all input_stamp_fix_extension >> simp []) >>
+  ‘assigned_loc < protected_prefix’ by (fs [EVERY_MEM,FORALL_PROD] >> res_tac) >>
+  ‘FLOOKUP next_ref_map assigned_loc = SOME assigned_loc’ by fs [state_rel_def] >>
+  ‘ref_rel (v_rel next_ref_map next_type_map next_exn_map)
+    (Refv clean_exception) (Refv physical_exception)’ by simp [ref_rel_def] >>
+  drule_all state_rel_store_assign_success >>
+  disch_then (qx_choose_then ‘clean_refs’ strip_assume_tac) >>
+  qexistsl_tac [‘result_state with refs := clean_refs’,‘clean_env’,
+    ‘next_ref_map’,‘next_type_map’,‘next_exn_map’,‘protected_prefix’] >>
+  simp [] >> metis_tac [repl_types_input_exn_assign]
+QED
+
+Resume repl_types_input_T_F[StringAssign]:
+  gvs [] >>
+  rename [‘state_rel protected_prefix ref_map type_map exn_map clean_state physical_state’,
+    ‘repl_types_input _ _ F _ (old_types,clean_state,clean_env)’,
+    ‘store_assign assigned_loc (Refv (Litv (StrLit text))) physical_state.refs =
+      SOME assigned_refs’] >>
+  ‘assigned_loc < protected_prefix’ by (fs [EVERY_MEM,FORALL_PROD] >> res_tac) >>
+  ‘FLOOKUP ref_map assigned_loc = SOME assigned_loc’ by fs [state_rel_def] >>
+  ‘ref_rel (v_rel ref_map type_map exn_map)
+    (Refv (Litv (StrLit text))) (Refv (Litv (StrLit text)))’ by
+      simp [ref_rel_def,v_rel_def] >>
+  drule_all state_rel_store_assign_success >>
+  disch_then (qx_choose_then ‘clean_refs’ strip_assume_tac) >>
+  qexistsl_tac [‘clean_state with refs := clean_refs’,‘clean_env’,
+    ‘ref_map’,‘type_map’,‘exn_map’,‘protected_prefix’] >>
+  simp [] >> metis_tac [repl_types_input_str_assign]
+QED
+
+Resume repl_types_input_T_F[TrustedAssign]:
+  gvs [] >>
+  rename [‘state_rel protected_prefix ref_map type_map exn_map clean_state physical_state’,
+    ‘repl_types_input _ _ F _ (old_types,clean_state,clean_env)’,
+    ‘store_assign assigned_loc (Refv value) physical_state.refs = SOME assigned_refs’] >>
+  ‘assigned_loc < protected_prefix’ by (fs [SUBSET_DEF,flookup_thm] >> res_tac) >>
+  ‘FLOOKUP ref_map assigned_loc = SOME assigned_loc’ by fs [state_rel_def] >>
+  ‘v_rel ref_map type_map exn_map value value’ by (
+    fs [trusted_input_value_def] >> res_tac) >>
+  ‘ref_rel (v_rel ref_map type_map exn_map) (Refv value) (Refv value)’ by
+    simp [ref_rel_def] >>
+  drule_all state_rel_store_assign_success >>
+  disch_then (qx_choose_then ‘clean_refs’ strip_assume_tac) >>
+  qexistsl_tac [‘clean_state with refs := clean_refs’,‘clean_env’,
+    ‘ref_map’,‘type_map’,‘exn_map’,‘protected_prefix’] >>
+  simp [] >> metis_tac [repl_types_input_trusted_assign]
+QED
+
+Finalise repl_types_input_T_F;
+
 Theorem repl_types_T_F:
   ∀(ffi:'ffi ffi_state) rs types t env1.
     repl_types T (ffi,rs) (types,t,env1) ⇒
@@ -896,115 +1069,7 @@ Theorem repl_types_T_F:
       env_rel fr ft fe env env1 ∧
       EVERY (λ(a,b,loc). loc < l) rs
 Proof
-  Induct_on ‘repl_types’ \\ rpt conj_tac \\ rpt gen_tac \\ rw []
-  >- (* init *)
-   (drule evaluate_decs_init \\ rw [] \\ gvs []
-    \\ first_assum $ irule_at Any
-    \\ first_assum $ irule_at Any
-    \\ irule_at Any repl_types_init
-    \\ rpt (first_assum $ irule_at Any)
-    \\ fs [EVERY_MEM,FORALL_PROD] \\ rw []
-    \\ res_tac
-    \\ fs [check_ref_types_def,env_rel_def]
-    \\ imp_res_tac nsAll2_nsLookup1
-    \\ imp_res_tac nsAll2_nsLookup2
-    \\ gs [] \\ gvs []
-    \\ res_tac \\ fs [Once v_rel_cases]
-    \\ fs [FLOOKUP_DEF])
-  >- (
-    rename1 ‘repl_types F (ffi,rs) (saved_types,saved_state,saved_env)’
-    \\ ‘repl_types F (ffi,rs)
-        (saved_types,saved_state with clock := saved_state.clock - ck,saved_env)’ by (
-          irule_at Any repl_types_set_clock \\ fs [])
-    \\ pop_assum $ irule_at Any
-    \\ rpt (last_assum $ irule_at $ Pos last)
-    \\ fs [state_rel_def,SF SFY_ss]
-    \\ rw []
-    \\ first_x_assum (qspec_then ‘n’ assume_tac)
-    \\ gvs [EL_APPEND1]
-    \\ irule INJ_count_ADD \\ fs [])
-  >- (* eval *)
-   (gvs []
-    \\ irule_at Any repl_types_eval
-    \\ ntac 2 (first_assum $ irule_at $ Pos hd)
-    \\ rename [‘state_rel l fr ft fe s1 s2’,‘env_rel fr ft fe env1 env2’]
-    \\ Cases_on ‘evaluate_decs s1 env1 decs’ \\ gvs []
-    \\ drule_all evaluate_decs_skip \\ gvs []
-    \\ strip_tac
-    \\ Cases_on ‘r’ \\ fs [res_rel_def]
-    \\ rpt (first_assum $ irule_at $ Pos hd))
-  >- (* exn *)
-   (gvs []
-    \\ irule_at Any repl_types_exn
-    \\ ntac 2 (first_assum $ irule_at $ Pos hd)
-    \\ rename [‘state_rel l fr ft fe s1 s2’,‘env_rel fr ft fe env1 env2’]
-    \\ Cases_on ‘evaluate_decs s1 env1 decs’ \\ gvs []
-    \\ drule_all evaluate_decs_skip \\ gvs []
-    \\ strip_tac
-    \\ Cases_on ‘r’ \\ fs [res_rel_def]
-    \\ rename [‘_ (Rerr e1) _’]
-    \\ Cases_on ‘e1’ \\ fs [res_rel_def]
-    \\ rpt (first_assum $ irule_at $ Pos hd)
-    \\ rpt (first_assum $ irule_at $ Pos last)
-    \\ irule env_rel_update
-    \\ rpt (first_assum $ irule_at $ Pos last))
-  >- (* exn_assign *)
-   (gvs []
-    \\ irule_at Any repl_types_exn_assign
-    \\ ntac 2 (first_assum $ irule_at $ Pos hd)
-    \\ rename [‘state_rel l fr ft fe s1 s2’,‘env_rel fr ft fe env1 env2’]
-    \\ Cases_on ‘evaluate_decs s1 env1 decs’ \\ gvs []
-    \\ drule_all evaluate_decs_skip \\ gvs []
-    \\ strip_tac
-    \\ Cases_on ‘r’ \\ fs [res_rel_def]
-    \\ rename [‘_ (Rerr e1) _’]
-    \\ Cases_on ‘e1’ \\ fs [res_rel_def]
-    \\ rpt (first_assum $ irule_at $ Pos hd)
-    \\ first_assum $ irule_at $ Pos last
-    \\ irule_at Any env_rel_update
-    \\ rpt (first_assum $ irule_at $ Pos hd)
-    \\ fs [state_rel_def,store_assign_def]
-    \\ fs [EL_LUPDATE,EVERY_MEM] \\ res_tac
-    \\ Cases_on ‘EL loc new_s.refs’ \\ fs [store_v_same_type_def]
-    \\ res_tac \\ fs []
-    \\ first_assum (qspec_then ‘loc’ assume_tac)
-    \\ qpat_x_assum ‘FLOOKUP fr loc = SOME loc’ assume_tac \\ fs []
-    \\ qpat_x_assum ‘loc < LENGTH q.refs’ assume_tac
-    \\ fs [] \\ gvs []
-    \\ Cases_on ‘EL loc q.refs’ \\ fs [ref_rel_def]
-    \\ strip_tac \\ first_x_assum (qspec_then ‘n’ mp_tac) \\ fs [EL_LUPDATE]
-    \\ reverse IF_CASES_TAC \\ fs []
-    \\ strip_tac \\ fs []
-    \\ ‘FLOOKUP fr1 loc = SOME loc ∧ loc < LENGTH q.refs’ by (res_tac \\ fs [])
-    \\ ‘n = loc ⇔ m = loc’ by
-     (fs [FLOOKUP_DEF]
-      \\ qpat_x_assum ‘INJ ($' fr1) (count (LENGTH q.refs)) _’ mp_tac
-      \\ simp_tac (srw_ss()) [INJ_DEF] \\ metis_tac [])
-    \\ asm_rewrite_tac []
-    \\ rw [] \\ fs [] \\ rw [ref_rel_def]
-    \\ fs [FLOOKUP_DEF] \\ gvs [])
-  >- (* str_assign *)
-   (gvs []
-    \\ irule_at Any repl_types_str_assign
-    \\ ntac 2 (first_assum $ irule_at $ Pos hd)
-    \\ ntac 2 (first_assum $ irule_at $ Pos last)
-    \\ gvs [store_assign_def,EVERY_MEM]
-    \\ res_tac \\ fs []
-    \\ rename [‘state_rel l fr ft fe s1 s2’,‘env_rel fr ft fe env1 env2’]
-    \\ fs [state_rel_def]
-    \\ qexists_tac ‘t’ \\ fs []
-    \\ fs [EL_LUPDATE] \\ res_tac
-    \\ Cases_on ‘EL loc s2.refs’ \\ fs [store_v_same_type_def]
-    \\ first_assum (qspec_then ‘loc’ assume_tac)
-    \\ qpat_x_assum ‘FLOOKUP fr loc = SOME loc’ assume_tac \\ fs []
-    \\ gvs [] \\ Cases_on ‘EL loc s1.refs’ \\ fs [ref_rel_def]
-    \\ rw []
-    >- fs [ref_rel_def,Once v_rel_cases]
-    \\ first_x_assum (qspec_then ‘n’ mp_tac) \\ fs []
-    \\ rw [] \\ fs [] \\ rw []
-    \\ fs [FLOOKUP_DEF] \\ gvs []
-    \\ qpat_x_assum ‘INJ ($' fr) (count (LENGTH _)) _’ mp_tac
-    \\ simp_tac (srw_ss()) [INJ_DEF] \\ metis_tac [])
+  rw [repl_types_def] >> drule repl_types_input_T_F >> metis_tac []
 QED
 
 
@@ -1062,9 +1127,9 @@ val _ = List.app (fn theorem => let
    input_typing_primitive_assign, input_typing_initial_primitive_slots,
    repl_types_TS_input_witnesses, repl_types_TS_input_thm, repl_types_TS_thm, DISJOINT_set_ids,
    set_ids_SUBSET, set_ids_UNION, repl_types_input_F_TS, repl_types_F_repl_types_TS,
-   repl_types_input_F_thm, repl_types_F_thm, input_init_ok_clock, repl_types_input_skip_alt,
+   repl_types_input_F_thm, repl_types_F_thm, input_init_ok_bounds, input_init_ok_clock, repl_types_input_skip_alt,
    repl_types_skip_alt, repl_types_input_set_clock, repl_types_set_clock, INJ_count_ADD,
-   repl_types_T_F, repl_types_thm, repl_types_input_init, repl_types_input_eval,
+   repl_types_input_T_F, repl_types_T_F, repl_types_thm, repl_types_input_init, repl_types_input_eval,
    repl_types_input_exn, repl_types_input_exn_assign, repl_types_input_str_assign,
    repl_types_input_trusted_assign, repl_types_input_rules, repl_types_input_cases,
    repl_types_input_ind, repl_types_input_strongind, repl_types_TS_input_init,

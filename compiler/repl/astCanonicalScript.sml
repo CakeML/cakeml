@@ -6,7 +6,7 @@
 Theory astCanonical
 Ancestors
   astProg typeRepCanonical typeRepPreludeCanonical typeSoundInvariants
-  typeSystem semanticPrimitives namespace ml_translator std_prelude ast
+  typeSystem semanticPrimitives namespace ml_translator std_prelude ast evaluate_skip
 Libs
   preamble ml_translatorLib astSyntax[qualified]
   semanticPrimitivesSyntax[qualified] mlstringSyntax[qualified]
@@ -916,6 +916,231 @@ Proof
   fs [IsTypeRep_def, EqualityType_def] >> metis_tac []
 QED
 
+(* Runtime transport uses the actual representation definitions, including
+   containers and Boolv's hidden constructors, rather than another AST schema.
+   The structural proofs below establish sufficiency of this footprint. *)
+val canonical_representation_stamps = canonical_available_rep_defs @ [Boolv_def]
+  |> map (fn theorem => find_terms semanticPrimitivesSyntax.is_TypeStamp
+      (concl theorem))
+  |> List.concat |> HOLset.fromList Term.compare |> HOLset.listItems;
+val _ = if not (null canonical_representation_stamps) andalso
+    List.all (fn stamp => null (free_vars stamp)) canonical_representation_stamps
+  then () else failwith "AST representation stamps are not closed";
+
+Definition ast_canonical_representation_stamps_def:
+  ast_canonical_representation_stamps =
+    ^(listSyntax.mk_list (canonical_representation_stamps, ``:stamp``))
+End
+
+Theorem ast_encoder_list_self[local]:
+  stamp_rel ft fe (TypeStamp «[]» list_type_num) (TypeStamp «[]» list_type_num) /\
+  stamp_rel ft fe (TypeStamp «::» list_type_num) (TypeStamp «::» list_type_num) /\
+  (!item. v_rel fr ft fe (element_v item) (element_v item)) ==>
+  !items. v_rel fr ft fe (LIST_v element_v items) (LIST_v element_v items)
+Proof
+  strip_tac >> Induct >> rw [] >>
+  simp [Once LIST_v_def] >>
+  fs [Once LIST_v_def,v_rel_def,OPTREL_def,list_type_num_def]
+QED
+
+Theorem ast_literal_encoder_self[local]:
+  (!stamp. MEM stamp ast_canonical_representation_stamps ==>
+    stamp_rel ft fe stamp stamp) ==>
+  !literal. v_rel fr ft fe (LIT_v literal) (LIT_v literal)
+Proof
+  strip_tac >> qx_gen_tac ‘literal’ >> Cases_on ‘literal’ >>
+  fs [ast_canonical_representation_stamps_def,LIT_v_def,INT_v_def,
+    CHAR_v_def,STRING_v_def,WORD_v_def,v_rel_def,OPTREL_def]
+QED
+
+Theorem ast_identifier_encoder_self[local]:
+  (!stamp. MEM stamp ast_canonical_representation_stamps ==>
+    stamp_rel ft fe stamp stamp) /\
+  (!name. v_rel fr ft fe (module_v name) (module_v name)) /\
+  (!name. v_rel fr ft fe (name_v name) (name_v name)) ==>
+  !identifier.
+    v_rel fr ft fe (ID_v module_v name_v identifier)
+      (ID_v module_v name_v identifier)
+Proof
+  strip_tac >> Induct >> simp [Once ID_v_def] >>
+  fs [Once ID_v_def,ast_canonical_representation_stamps_def,v_rel_def,OPTREL_def]
+QED
+
+Theorem ast_type_encoder_self[local]:
+  (!stamp. MEM stamp ast_canonical_representation_stamps ==>
+    stamp_rel ft fe stamp stamp) ==>
+  (!ty. v_rel fr ft fe (AST_T_v ty) (AST_T_v ty)) /\
+  (!tys. v_rel fr ft fe (AST_T_v_aux_1 tys) (AST_T_v_aux_1 tys))
+Proof
+  strip_tac >>
+  ‘!identifier. v_rel fr ft fe (ID_v STRING_v STRING_v identifier)
+    (ID_v STRING_v STRING_v identifier)’ by (
+      match_mp_tac ast_identifier_encoder_self >> simp [STRING_v_def,v_rel_def]) >>
+  ho_match_mp_tac (TypeBase.induction_of ``:ast$ast_t``) >> rw [] >>
+  simp [Once AST_T_v_def] >>
+  fs [Once AST_T_v_def,ast_canonical_representation_stamps_def,
+    STRING_v_def,v_rel_def,OPTREL_def]
+QED
+
+Theorem ast_option_encoder_self[local]:
+  (!stamp. MEM stamp ast_canonical_representation_stamps ==>
+    stamp_rel ft fe stamp stamp) /\
+  (!item. v_rel fr ft fe (element_v item) (element_v item)) ==>
+  !item. v_rel fr ft fe (OPTION_v element_v item) (OPTION_v element_v item)
+Proof
+  strip_tac >> Cases >>
+  fs [OPTION_v_def,ast_canonical_representation_stamps_def,v_rel_def,OPTREL_def]
+QED
+
+Theorem ast_pattern_encoder_self[local]:
+  (!stamp. MEM stamp ast_canonical_representation_stamps ==>
+    stamp_rel ft fe stamp stamp) ==>
+  (!pattern. v_rel fr ft fe (PAT_v pattern) (PAT_v pattern)) /\
+  (!patterns. v_rel fr ft fe (PAT_v_aux_1 patterns) (PAT_v_aux_1 patterns))
+Proof
+  strip_tac >>
+  ‘!literal. v_rel fr ft fe (LIT_v literal) (LIT_v literal)’ by (
+    match_mp_tac ast_literal_encoder_self >> simp []) >>
+  ‘(!ty. v_rel fr ft fe (AST_T_v ty) (AST_T_v ty)) /\
+    (!tys. v_rel fr ft fe (AST_T_v_aux_1 tys) (AST_T_v_aux_1 tys))’ by (
+      match_mp_tac ast_type_encoder_self >> simp []) >>
+  ‘!identifier. v_rel fr ft fe (ID_v STRING_v STRING_v identifier)
+    (ID_v STRING_v STRING_v identifier)’ by (
+      match_mp_tac ast_identifier_encoder_self >> simp [STRING_v_def,v_rel_def]) >>
+  ‘!constructor.
+    v_rel fr ft fe (OPTION_v (ID_v STRING_v STRING_v) constructor)
+      (OPTION_v (ID_v STRING_v STRING_v) constructor)’ by (
+        match_mp_tac ast_option_encoder_self >> simp []) >>
+  ho_match_mp_tac (TypeBase.induction_of ``:ast$pat``) >> rw [] >>
+  simp [Once PAT_v_def] >>
+  fs [Once PAT_v_def,ast_canonical_representation_stamps_def,STRING_v_def,
+    v_rel_def,OPTREL_def]
+QED
+
+Theorem ast_encoder_pair_self[local]:
+  (!item. v_rel fr ft fe (left_v item) (left_v item)) /\
+  (!item. v_rel fr ft fe (right_v item) (right_v item)) ==>
+  !pair. v_rel fr ft fe (PAIR_v left_v right_v pair) (PAIR_v left_v right_v pair)
+Proof
+  strip_tac >> Cases >> simp [PAIR_v_def,v_rel_def]
+QED
+
+Theorem ast_leaf_encoders_self[local]:
+  (!stamp. MEM stamp ast_canonical_representation_stamps ==>
+    stamp_rel ft fe stamp stamp) ==>
+  (!arg. v_rel fr ft fe (BOOL_v arg) (BOOL_v arg)) /\
+  (!arg. v_rel fr ft fe (LOP_v arg) (LOP_v arg)) /\
+  (!arg. v_rel fr ft fe (SHIFT_v arg) (SHIFT_v arg)) /\
+  (!arg. v_rel fr ft fe (WORD_SIZE_v arg) (WORD_SIZE_v arg)) /\
+  (!arg. v_rel fr ft fe (OPB_v arg) (OPB_v arg)) /\
+  (!arg. v_rel fr ft fe (THUNK_MODE_v arg) (THUNK_MODE_v arg)) /\
+  (!arg. v_rel fr ft fe (PRIM_v_v arg) (PRIM_v_v arg)) /\
+  (!arg. v_rel fr ft fe (LOCS_v arg) (LOCS_v arg))
+Proof
+  strip_tac >>
+  ‘!size. v_rel fr ft fe (WORD_SIZE_v size) (WORD_SIZE_v size)’ by (
+    Cases >> fs [WORD_SIZE_v_def,ast_canonical_representation_stamps_def,
+      v_rel_def,OPTREL_def]) >>
+  ‘!pair. v_rel fr ft fe (PAIR_v INT_v INT_v pair) (PAIR_v INT_v INT_v pair)’ by (
+    match_mp_tac ast_encoder_pair_self >> simp [INT_v_def,v_rel_def]) >>
+  rpt conj_tac >> simp [] >> Cases >>
+  fs [ast_canonical_representation_stamps_def,BOOL_v_def,Boolv_def,
+    LOP_v_def,SHIFT_v_def,WORD_SIZE_v_def,OPB_v_def,THUNK_MODE_v_def,
+    PRIM_v_v_def,LOCS_v_def,v_rel_def,OPTREL_def]
+QED
+
+Theorem ast_operator_encoders_self[local]:
+  (!stamp. MEM stamp ast_canonical_representation_stamps ==>
+    stamp_rel ft fe stamp stamp) ==>
+  (!arg. v_rel fr ft fe (ARITH_v arg) (ARITH_v arg)) /\
+  (!arg. v_rel fr ft fe (TEST_v arg) (TEST_v arg)) /\
+  (!arg. v_rel fr ft fe (THUNK_OP_v arg) (THUNK_OP_v arg)) /\
+  (!arg. v_rel fr ft fe (OP_v arg) (OP_v arg))
+Proof
+  strip_tac >> mp_tac (SPEC_ALL ast_leaf_encoders_self) >> simp [] >> strip_tac >>
+  ‘!arg. v_rel fr ft fe (ARITH_v arg) (ARITH_v arg)’ by (
+    Cases >> fs [ARITH_v_def,ast_canonical_representation_stamps_def,
+      v_rel_def,OPTREL_def]) >>
+  ‘!arg. v_rel fr ft fe (TEST_v arg) (TEST_v arg)’ by (
+    Cases >> fs [TEST_v_def,ast_canonical_representation_stamps_def,
+      v_rel_def,OPTREL_def]) >>
+  ‘!arg. v_rel fr ft fe (THUNK_OP_v arg) (THUNK_OP_v arg)’ by (
+    Cases >> fs [THUNK_OP_v_def,ast_canonical_representation_stamps_def,
+      v_rel_def,OPTREL_def]) >>
+  rpt conj_tac >> simp [] >> Cases >>
+  fs [OP_v_def,ast_canonical_representation_stamps_def,STRING_v_def,
+    v_rel_def,OPTREL_def]
+QED
+
+Theorem ast_expression_encoder_self[local]:
+  (!stamp. MEM stamp ast_canonical_representation_stamps ==>
+    stamp_rel ft fe stamp stamp) ==>
+  (!arg. v_rel fr ft fe (EXP_v arg) (EXP_v arg)) /\
+  (!arg. v_rel fr ft fe (EXP_v_aux_1 arg) (EXP_v_aux_1 arg)) /\
+  (!arg. v_rel fr ft fe (EXP_v_aux_2 arg) (EXP_v_aux_2 arg)) /\
+  (!arg. v_rel fr ft fe (EXP_v_aux_3 arg) (EXP_v_aux_3 arg)) /\
+  (!arg. v_rel fr ft fe (EXP_v_aux_4 arg) (EXP_v_aux_4 arg)) /\
+  (!arg. v_rel fr ft fe (EXP_v_aux_5 arg) (EXP_v_aux_5 arg)) /\
+  (!arg. v_rel fr ft fe (EXP_v_aux_6 arg) (EXP_v_aux_6 arg))
+Proof
+  strip_tac >>
+  mp_tac (SPEC_ALL ast_leaf_encoders_self) >> simp [] >> strip_tac >>
+  mp_tac (SPEC_ALL ast_operator_encoders_self) >> simp [] >> strip_tac >>
+  mp_tac (SPEC_ALL ast_literal_encoder_self) >> simp [] >> strip_tac >>
+  mp_tac (SPEC_ALL ast_type_encoder_self) >> simp [] >> strip_tac >>
+  mp_tac (SPEC_ALL ast_pattern_encoder_self) >> simp [] >> strip_tac >>
+  ‘!identifier. v_rel fr ft fe (ID_v STRING_v STRING_v identifier)
+    (ID_v STRING_v STRING_v identifier)’ by (
+      match_mp_tac ast_identifier_encoder_self >> simp [STRING_v_def,v_rel_def]) >>
+  ‘!constructor.
+    v_rel fr ft fe (OPTION_v (ID_v STRING_v STRING_v) constructor)
+      (OPTION_v (ID_v STRING_v STRING_v) constructor)’ by (
+        match_mp_tac ast_option_encoder_self >> simp []) >>
+  ‘!name. v_rel fr ft fe (OPTION_v STRING_v name) (OPTION_v STRING_v name)’ by (
+    match_mp_tac ast_option_encoder_self >> simp [STRING_v_def,v_rel_def]) >>
+  ‘!items. v_rel fr ft fe (LIST_v STRING_v items) (LIST_v STRING_v items)’ by (
+    qx_gen_tac ‘items’ >> match_mp_tac ast_encoder_list_self >>
+    fs [ast_canonical_representation_stamps_def,list_type_num_def,
+      STRING_v_def,v_rel_def]) >>
+  ho_match_mp_tac (TypeBase.induction_of ``:ast$exp``) >> rw [] >>
+  simp [Once EXP_v_def] >>
+  fs [Once EXP_v_def,ast_canonical_representation_stamps_def,STRING_v_def,
+    v_rel_def,OPTREL_def]
+QED
+
+Theorem ast_declaration_encoder_self[local]:
+  (!stamp. MEM stamp ast_canonical_representation_stamps ==>
+    stamp_rel ft fe stamp stamp) ==>
+  (!arg. v_rel fr ft fe (DEC_v arg) (DEC_v arg)) /\
+  (!arg. v_rel fr ft fe (DEC_v_aux_1 arg) (DEC_v_aux_1 arg))
+Proof
+  strip_tac >>
+  mp_tac (SPEC_ALL ast_leaf_encoders_self) >> simp [] >> strip_tac >>
+  mp_tac (SPEC_ALL ast_type_encoder_self) >> simp [] >> strip_tac >>
+  mp_tac (SPEC_ALL ast_pattern_encoder_self) >> simp [] >> strip_tac >>
+  mp_tac (SPEC_ALL ast_expression_encoder_self) >> simp [] >> strip_tac >>
+  ‘stamp_rel ft fe (TypeStamp «[]» list_type_num) (TypeStamp «[]» list_type_num) /\
+    stamp_rel ft fe (TypeStamp «::» list_type_num) (TypeStamp «::» list_type_num)’ by (
+      fs [ast_canonical_representation_stamps_def,list_type_num_def]) >>
+  ho_match_mp_tac (TypeBase.induction_of ``:ast$dec``) >> rw [] >>
+  simp [Once DEC_v_def] >>
+  fs [Once DEC_v_def,ast_canonical_representation_stamps_def,STRING_v_def,
+    v_rel_def,OPTREL_def,ast_encoder_pair_self,ast_encoder_list_self] >>
+  match_mp_tac ast_encoder_list_self >> simp [] >>
+  match_mp_tac ast_encoder_pair_self >>
+  simp [STRING_v_def,v_rel_def,ast_encoder_list_self,ast_encoder_pair_self]
+QED
+
+Theorem ast_dec_list_encoder_self:
+  (!stamp. MEM stamp ast_canonical_representation_stamps ==>
+    stamp_rel ft fe stamp stamp) ==>
+  !decs. v_rel fr ft fe (LIST_v DEC_v decs) (LIST_v DEC_v decs)
+Proof
+  strip_tac >> mp_tac (SPEC_ALL ast_declaration_encoder_self) >> simp [] >>
+  strip_tac >> match_mp_tac ast_encoder_list_self >>
+  fs [ast_canonical_representation_stamps_def,list_type_num_def]
+QED
+
 (* Exported interfaces must not rest on assumptions or admissions. *)
 val _ = List.app (fn theorem => let
   val (oracles,axioms) = Tag.dest_tag (Thm.tag theorem)
@@ -957,4 +1182,16 @@ val _ = List.app (fn theorem => let
    ast_dec_type_rep,
    ast_dec_list_type_rep,
    ast_dec_list_equality,
-   ast_dec_list_representation];
+   ast_dec_list_representation,
+   ast_encoder_list_self,
+   ast_literal_encoder_self,
+   ast_identifier_encoder_self,
+   ast_type_encoder_self,
+   ast_option_encoder_self,
+   ast_pattern_encoder_self,
+   ast_encoder_pair_self,
+   ast_leaf_encoders_self,
+   ast_operator_encoders_self,
+   ast_expression_encoder_self,
+   ast_declaration_encoder_self,
+   ast_dec_list_encoder_self];

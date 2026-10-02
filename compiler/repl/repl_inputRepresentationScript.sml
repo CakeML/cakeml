@@ -401,6 +401,122 @@ Proof
   simp [repl_input_location_type, repl_source_value_trusted]
 QED
 
+(* Exact runtime transport through the protected constructor catalogue. *)
+Theorem repl_input_representation_stamps_protected:
+  set ast_canonical_representation_stamps SUBSET
+    catalogue_stamps repl_input_catalogue
+Proof
+  irule SUBSET_TRANS >>
+  qexists_tac `BIGUNION (set (MAP
+    (\(ti,signature). IMAGE (\(cn,n,tvs,ts). TypeStamp cn n) signature)
+    repl_input_catalogue_entries))` >> conj_tac
+  >- (
+    EVAL_TAC >> simp [LIST_TO_SET,BIGUNION_INSERT] >> simp [SUBSET_DEF]) >>
+  rw [SUBSET_DEF,IN_BIGUNION,MEM_MAP,EXISTS_PROD,IN_IMAGE] >>
+  qmatch_asmsub_rename_tac `MEM (type_id,signature) repl_input_catalogue_entries` >>
+  fs [IN_IMAGE,EXISTS_PROD] >>
+  qmatch_goalsub_rename_tac `TypeStamp ctor_name stamp_num IN catalogue_stamps _` >>
+  qmatch_asmsub_rename_tac `(ctor_name,stamp_num,params,field_types) IN signature` >>
+  `ALOOKUP (REVERSE repl_input_catalogue_entries) type_id = SOME signature` by (
+    irule alistTheory.ALOOKUP_ALL_DISTINCT_MEM >>
+    simp [MAP_REVERSE,repl_input_catalogue_keys_distinct]) >>
+  simp [catalogue_stamps_member] >>
+  qexistsl_tac [`type_id`,`signature`,`params`,`field_types`] >>
+  simp [repl_input_catalogue_def,alistTheory.FLOOKUP_FUPDATE_LIST]
+QED
+
+Theorem repl_input_representation_stamp_self:
+  input_stamp_fix repl_input_catalogue ft ==>
+  !stamp. MEM stamp ast_canonical_representation_stamps ==>
+    stamp_rel ft fe stamp stamp
+Proof
+  rw [] >>
+  `stamp IN catalogue_stamps repl_input_catalogue` by (
+    metis_tac [repl_input_representation_stamps_protected,SUBSET_DEF,MEM]) >>
+  Cases_on `stamp` >> fs [catalogue_stamps_def] >>
+  fs [input_stamp_fix_def,catalogue_stamps_def,stamp_rel_cases] >> metis_tac []
+QED
+
+Theorem repl_input_dec_list_self:
+  input_stamp_fix repl_input_catalogue ft /\ LIST_TYPE DEC_TYPE decs value ==>
+  v_rel fr ft fe value value
+Proof
+  rw [ast_dec_list_representation] >> irule ast_dec_list_encoder_self >>
+  match_mp_tac repl_input_representation_stamp_self >> simp []
+QED
+
+Theorem repl_input_value_self:
+  input_stamp_fix repl_input_catalogue ft /\
+  SUM_TYPE STRING_TYPE (LIST_TYPE DEC_TYPE) input value ==>
+  v_rel fr ft fe value value
+Proof
+  strip_tac >>
+  `!stamp. MEM stamp ast_canonical_representation_stamps ==>
+    stamp_rel ft fe stamp stamp` by (
+      match_mp_tac repl_input_representation_stamp_self >> simp []) >>
+  Cases_on `input` >> fs [SUM_TYPE_def,STRING_TYPE_def]
+  >~ [`Litv (StrLit _)`] >- (
+    fs [v_rel_def,OPTREL_def,ast_canonical_representation_stamps_def]) >>
+  drule_all repl_input_dec_list_self >> strip_tac >>
+  fs [v_rel_def,OPTREL_def,ast_canonical_representation_stamps_def]
+QED
+
+Theorem repl_input_value_transport:
+  input_stamp_fix repl_input_catalogue ft /\
+  SUM_TYPE STRING_TYPE (LIST_TYPE DEC_TYPE) input value /\
+  v_rel fr ft fe value physical_value ==>
+  physical_value = value /\
+  SUM_TYPE STRING_TYPE (LIST_TYPE DEC_TYPE) input physical_value
+Proof
+  strip_tac >>
+  `no_closures value` by (
+    Cases_on `input` >> fs [SUM_TYPE_def,STRING_TYPE_def,Once no_closures_def] >>
+    fs [Once no_closures_def] >>
+    metis_tac [ast_dec_list_equality |> REWRITE_RULE [EqualityType_def]
+      |> CONJUNCT1]) >>
+  `v_rel fr ft fe value value` by (
+    drule_all repl_input_value_self >> simp []) >>
+  `physical_value = value` by (
+    metis_tac [v_rel_no_closures_functional]) >> simp []
+QED
+
+Theorem repl_input_read:
+  repl_types_input repl_input_catalogue repl_input_slots T (ffi,rs)
+    (input_types,physical,physical_env) ==>
+  ?input value.
+    store_lookup repl_input_location physical.refs = SOME (Refv value) /\
+    SUM_TYPE STRING_TYPE (LIST_TYPE DEC_TYPE) input value
+Proof
+  strip_tac >> drule repl_types_input_T_F >>
+  disch_then (qx_choosel_then
+    [`clean`,`clean_env`,`ref_map`,`type_map`,`exn_map`,`prefix_len`]
+    strip_assume_tac) >>
+  drule repl_types_input_F_thm >> strip_tac >>
+  qpat_x_assum `initial_input_certificate _ _ _ _ _ _`
+    (mp_tac o REWRITE_RULE [initial_input_certificate_def]) >>
+  disch_then (qx_choosel_then [`ctor_map`,`store_types`] strip_assume_tac) >>
+  fs [input_typing_witnesses_def,type_sound_invariant_def,good_ctMap_def,
+    input_slots_hold_def] >>
+  `FLOOKUP store_types repl_input_location = SOME (Ref_t repl_input_type)` by (
+    metis_tac [repl_input_location_type]) >>
+  drule_all type_s_reference >>
+  disch_then (qx_choose_then `clean_value` strip_assume_tac) >>
+  drule_all repl_input_value_canonical >>
+  disch_then (qx_choose_then `input` assume_tac) >>
+  `repl_input_location < prefix_len` by (
+    fs [SUBSET_DEF,IN_COUNT] >>
+    metis_tac [repl_input_location_type,flookup_thm]) >>
+  `FLOOKUP ref_map repl_input_location = SOME repl_input_location` by (
+    fs [state_rel_def]) >>
+  drule_all state_rel_store_lookup >> simp [OPTREL_def] >>
+  disch_then (qx_choose_then `physical_ref` strip_assume_tac) >>
+  Cases_on `physical_ref` >> fs [ref_rel_def] >>
+  qmatch_asmsub_rename_tac
+    `store_lookup repl_input_location physical.refs = SOME (Refv physical_value)` >>
+  drule_all repl_input_value_transport >> strip_tac >>
+  qexists_tac `input` >> simp []
+QED
+
 (* Exported interfaces must not rest on assumptions or admissions. *)
 val _ = List.app (fn theorem => let
   val (oracles,axioms) = Tag.dest_tag (Thm.tag theorem)
@@ -420,4 +536,7 @@ val _ = List.app (fn theorem => let
    repl_source_stamp_protected, repl_source_value_type, repl_source_value_self,
    repl_source_value_trusted, repl_input_primitive_refs_types,
    repl_input_location_type, repl_input_initial_environment,
-   repl_input_initial_reachable, repl_input_source_assign];
+   repl_input_initial_reachable, repl_input_source_assign,
+   repl_input_representation_stamps_protected, repl_input_representation_stamp_self,
+   repl_input_dec_list_self, repl_input_value_self, repl_input_value_transport,
+   repl_input_read];
