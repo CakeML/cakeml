@@ -13,6 +13,11 @@ xxx xxxth 2026
 The bug where the static checker used the shift amount instead of the
 shifted expression for address location warnings has been fixed.
 
+### Parser bug fix
+
+`@top` now refers to the end of internal memory, as documented.
+Previously, it was parsed as `@base`.
+
 Oct 1st 2026
 -------------------
 
