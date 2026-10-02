@@ -251,6 +251,17 @@ val ex9 = ‘
 
 val treeEx9 = check_success $ parse_pancake ex9;
 
+(** @top is a separate keyword from @base. *)
+val top_ex = ‘
+ fun testfun() {
+   return @top;
+ }’;
+
+val top_ex_parse = check_success $ parse_pancake top_ex;
+val has_top_addr =
+  assert (can (find_term (same_const “panLang$TopAddr”)) o rhs o concl)
+         top_ex_parse;
+
 (** Shifts *)
 val ex10 = ‘
  fun testfun() {
