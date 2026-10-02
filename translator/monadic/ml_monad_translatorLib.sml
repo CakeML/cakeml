@@ -106,6 +106,8 @@ local
      ("ARRAY_REL_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="ARRAY_REL"}),
      ("W8ARRAY_const",prim_mk_const{Thy="cfHeapsBase",Name="W8ARRAY"}),
      ("RW8ARRAY_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="RW8ARRAY"}),
+     ("BITARRAY_const",prim_mk_const{Thy="cfHeapsBase",Name="BITARRAY"}),
+     ("RBITARRAY_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="RBITARRAY"}),
      ("run_const",ml_monadBaseSyntax.run_tm),
      ("EXC_TYPE_aux_const",prim_mk_const{Thy="ml_monad_translator",Name="EXC_TYPE_aux"}),
      ("return_pat",``st_ex_return x``),
@@ -204,6 +206,8 @@ val RARRAY_REL_const = get_term "RARRAY_REL_const";
 val ARRAY_REL_const = get_term "ARRAY_REL_const";
 val W8ARRAY_const = get_term "W8ARRAY_const";
 val RW8ARRAY_const = get_term "RW8ARRAY_const";
+val BITARRAY_const = get_term "BITARRAY_const";
+val RBITARRAY_const = get_term "RBITARRAY_const";
 val run_const = get_term "run_const";
 val EXC_TYPE_aux_const = get_term "EXC_TYPE_aux_const";
 val return_pat = get_term "return_pat";
@@ -1254,7 +1258,7 @@ fun inst_ro th1 th2 =
   handle HOL_ERR _ => (th1, th2)
        | Empty     => (th1, th2);
 
-fun var_hol2deep tm =
+fun var_hol2deep ctxt tm =
   if is_var tm andalso can get_arrow_type_inv (type_of tm) then let
     val (name,ty) = dest_var tm
     val inv = get_arrow_type_inv ty
@@ -1262,7 +1266,7 @@ fun var_hol2deep tm =
     val str = mlstringSyntax.mk_mlstring name
     val result = ISPECL_TM [str,mk_comb(inv,tm)] Eval_name_RI_abs |> ASSUME
     in check_inv "var" tm result end
-  else hol2deep tm;
+  else hol2deep ctxt tm;
 
 (* raise, handle *)
 fun get_pattern patterns tm =
@@ -1304,7 +1308,7 @@ in result end;
 
 
 local
-  fun derive_case_of ty = let
+  fun derive_case_of ctxt ty = let
       (* TODO : clean that *)
       fun smart_full_name_of_type ty =
         let val r = dest_thy_type ty
@@ -1340,7 +1344,7 @@ local
               end
             in tryfind is_valid thms end
       (* *)
-      val case_th = get_nchotomy_of ty
+      val case_th = get_nchotomy_of ctxt ty
       val pat = Eval_pat
       val pure_tm = case_of ty |> concl
       (* Find a variable for the store invariant *)
@@ -1425,7 +1429,7 @@ local
       val is_simple_case = name = "PAIR_TYPE" orelse name = "UNIT_TYPE"
       val input_var = goal |> rand |> rand |> rator |> rand |> rator |> rand |> rand
                            |> rand |> rand
-      val case_lemma = auto_prove "case-of-proof" (new_goal,
+      val case_lemma = auto_prove ctxt "case-of-proof" (new_goal,
         rpt strip_tac
         \\ match_mp_tac Mat_lemma
         \\ full_simp_tac std_ss [GSYM PULL_FORALL]
@@ -1482,7 +1486,7 @@ local
     in mk_type(ty_cons, undo_fcp_types_rec ty_args ty_args_new) end
     else ty
 
-  fun mem_derive_case_of ty =
+  fun mem_derive_case_of ctxt ty =
     let
       fun lookup x [] = fail()
       | lookup x ((y,z)::ys) = if can (match_type y) x then z else lookup x ys
@@ -1493,7 +1497,7 @@ local
     in SPEC (H_st |> Term.inst (match_type (type_of H_st) H_ty)) th end
     handle HOL_ERR _ => (let
       val ty = get_general_type ty
-      val th = derive_case_of ty
+      val th = derive_case_of ctxt ty
       val H_ty = th |> concl |> dest_forall |> fst |> type_of
       val H_st = (!(#H translator_state))
     in
@@ -1502,11 +1506,11 @@ local
       SPEC (H_st |> Term.inst (match_type (type_of H_st) H_ty)) th
     end);
 in
-  fun inst_case_thm_for tm = let
+  fun inst_case_thm_for ctxt tm = let
     val (_,_,names) = TypeBase.dest_case tm
     val names = List.map fst names
     val th =
-      mem_derive_case_of ((repeat rator tm) |> type_of |> dom_rng |> fst) |>
+      mem_derive_case_of ctxt ((repeat rator tm) |> type_of |> dom_rng |> fst) |>
       UNDISCH
     val pat = th |> UNDISCH_ALL |> concl |> rator |> rand |> rand
     val (ss,i) = match_term pat tm
@@ -1788,11 +1792,11 @@ in th2 end;
 ******************************************************************************)
 
 (* PMATCH *)
-fun prove_EvalMPatBind goal = let
+fun prove_EvalMPatBind ctxt goal = let
   val (vars,rhs_tm) = repeat (snd o dest_forall) goal
                       |> rand |> get_Eval_arg |> rator
                       |> dest_pabs
-  val res = m2deep rhs_tm
+  val res = m2deep ctxt rhs_tm
   val exp = res |> concl |> get_Eval_exp
   val th = disch_asms res
   (* *)
@@ -1824,7 +1828,7 @@ fun prove_EvalMPatBind goal = let
   val num_assums = List.length all_assums
   val new_goal = List.foldr mk_imp new_goal all_assums
 
-  val th = TAC_PROOF (([],new_goal),
+  val th = TAC_PROOF_in ctxt (([],new_goal),
     NTAC num_assums STRIP_TAC \\ STRIP_TAC
     (**)
     \\ FULL_SIMP_TAC pure_ss
@@ -1850,10 +1854,10 @@ fun prove_EvalMPatBind goal = let
   handle HOL_ERR e =>
     failwith ("prove_EvalMPatBind failed: (" ^ message_of e ^ ")")
 
-and pmatch_m2deep tm = let
+and pmatch_m2deep ctxt tm = let
   val (x,ts) = dest_pmatch_K_T tm
   val v = genvar (type_of x)
-  val x_res = hol2deep x |> disch_asms
+  val x_res = hol2deep ctxt x |> disch_asms
   val x_type = type_of x
   val x_inv = get_type_inv x_type
   val pmatch_type = type_of tm
@@ -1882,7 +1886,7 @@ and pmatch_m2deep tm = let
           val th = trans xs
           val i_str = Int.toString (n - (List.length xs))
           val _ = print ("pmatch " ^index_str ^ " " ^ i_str  ^ "\n")
-          val p = pat |> dest_pabs |> snd |> hol2deep
+          val p = pat |> dest_pabs |> snd |> hol2deep ctxt
                       |> concl |> rator |> rand |> to_pattern
           val lemma = cons_lemma |> Q.GEN `pt` |> ISPEC p |> (prove_hyp EVAL) |>
                         Q.GEN `pat` |> ISPEC pat |>
@@ -1893,10 +1897,10 @@ and pmatch_m2deep tm = let
                    CONV_RULE ((RATOR_CONV o RAND_CONV) (UNBETA_CONV v)) |>
                    MATCH_MP lemma |> remove_primes
           val goal = fst (dest_imp (concl th))
-          val th = MP th (prove_EvalPatRel goal hol2deep) |> remove_primes |>
+          val th = MP th (prove_EvalPatRel ctxt goal (hol2deep ctxt)) |> remove_primes |>
                    Q.GEN `res` |> ISPEC rhs_tm
           val goal = fst (dest_imp (concl th))
-          val th = MATCH_MP th (prove_EvalMPatBind goal) |>
+          val th = MATCH_MP th (prove_EvalMPatBind ctxt goal) |>
                     remove_primes |>
                     CONV_RULE ((RAND_CONV o RAND_CONV o RATOR_CONV o RAND_CONV)
                     (SIMP_CONV std_ss [FORALL_PROD,
@@ -1918,7 +1922,7 @@ and pmatch_m2deep tm = let
   in th end handle HOL_ERR e =>
   failwith ("pmatch_m2deep failed (" ^ message_of e ^ ")")
 
-and inst_case_thm tm = let
+and inst_case_thm ctxt tm = let
   fun inst_monad_type tm =
     let val ty_subst = Type.match_type poly_M_type (type_of tm)
         val a = Type.type_subst ty_subst a_ty
@@ -1927,7 +1931,7 @@ and inst_case_thm tm = let
                   c |-> !(#exn_type translator_state)] tm
     end
   val tm = if can dest_monad_type (type_of tm) then (inst_monad_type tm) else tm
-  val th = inst_case_thm_for tm
+  val th = inst_case_thm_for ctxt tm
   val th = CONV_RULE (RATOR_CONV (PURE_REWRITE_CONV [CONJ_ASSOC])) th
   val (hyps,rest) = dest_imp (concl th)
   fun list_dest_forall tm = let
@@ -1946,8 +1950,8 @@ and inst_case_thm tm = let
     val (x,y) = dest_imp x
     val z = get_Eval_arg y
     val lemma = if can dest_monad_type (type_of z)
-                then m2deep z
-                else hol2deep z
+                then m2deep ctxt z
+                else hol2deep ctxt z
     val lemma = INST_ro lemma
     val lemma = disch_asms lemma
     val new_env = get_Eval_env y
@@ -1992,12 +1996,12 @@ and inst_case_thm tm = let
   in th |> UNDISCH_ALL end handle Empty => failwith "empty"
 
 
-and inst_EvalM_handle EvalM_th tm = let
+and inst_EvalM_handle ctxt EvalM_th tm = let
     val x = tm |> rator |> rand
     val y = tm |> rand
     val (vars, y_body) = strip_abs y
-    val thx = m2deep x
-    val thy = m2deep y_body
+    val thx = m2deep ctxt x
+    val thy = m2deep ctxt y_body
 
     val thy2 = inst_list_EvalM_env vars thy
     val inv = get_type_inv (#2 (dest_monad_type (type_of x)))
@@ -2011,7 +2015,7 @@ and inst_EvalM_handle EvalM_th tm = let
     (* Prove the assumptions *)
     fun prove_assumption th = let
         val a = concl th |> dest_imp |> fst
-        val a_th = prove(a,EVAL_TAC)
+        val a_th = prove_in ctxt (a,EVAL_TAC)
     in MP th a_th end
     val lemma2 = prove_assumption lemma1 |> prove_assumption |> UNDISCH
     val lemma3 = MATCH_MP lemma2 (disch_asms thx)
@@ -2022,7 +2026,7 @@ and inst_EvalM_handle EvalM_th tm = let
                       |> strip_imp |> snd |> rator |> rand |> rand
     val expr2 = dest_abs expr1 |> snd |> rator
     val eq = mk_eq(expr1, expr2)
-    val eq_lemma = prove(eq, irule EQ_EXT \\ rw[])
+    val eq_lemma = prove_in ctxt (eq, irule EQ_EXT \\ rw[])
     val lemma4 = PURE_REWRITE_RULE [eq_lemma] lemma4
 
     val lemma5 = MY_MATCH_MP lemma4 thy2
@@ -2033,11 +2037,11 @@ and inst_EvalM_handle EvalM_th tm = let
             |> UNDISCH_ALL
 in check_inv "handle" tm lemma5 end
 
-and inst_EvalM_otherwise tm = let
+and inst_EvalM_otherwise ctxt tm = let
     val x = tm |> rator |> rand
     val y = tm |> rand
-    val th1 = m2deep x
-    val th2 = m2deep y
+    val th1 = m2deep ctxt x
+    val th2 = m2deep ctxt y
     val (th1,th2) = inst_ro th1 th2
   fun simp_EvalM_env tm =
     if can (match_term EvalM_pat) tm then
@@ -2068,16 +2072,16 @@ in result end
 
 
 (* normal function application *)
-and m2deep_normal_fun_app tm = let
+and m2deep_normal_fun_app ctxt tm = let
     val (f,x) = dest_comb tm
-    val thf = m2deep f |>
+    val thf = m2deep ctxt f |>
               (CONV_RULE (
                 (RATOR_CONV o RAND_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV)
                 (PURE_REWRITE_CONV [ArrowM_def])))
     val thf = INST_ro thf
     val (thx,is_monad) = (
-      (hol2deep x |> HO_MATCH_MP (ISPEC_EvalM Eval_IMP_PURE) |> disch_asms, false)
-      handle _ => (disch_asms (m2deep x), true)
+      (hol2deep ctxt x |> HO_MATCH_MP (ISPEC_EvalM Eval_IMP_PURE) |> disch_asms, false)
+      handle _ => (disch_asms (m2deep ctxt x), true)
     )
     val thx = INST_ro thx
     (* If the argument is monadic, clean it by removing Eq and EqSt*)
@@ -2136,7 +2140,7 @@ and m2deep_normal_fun_app tm = let
 in result end
 
 
-and m2deep tm =
+and m2deep ctxt tm =
   (* variable *)
   if is_var tm then let
     val _ = debug_print "is_var" tm
@@ -2159,7 +2163,7 @@ and m2deep tm =
 
     (* Apply hol2deep to the parameters given to the raise function *)
     val params = strip_comb tm |> snd
-    val params_EvalMs = List.map hol2deep params
+    val params_EvalMs = List.map (hol2deep ctxt) params
     (* Symplify the assumptions *)
     fun simp_asms th = let
         val asms = List.mapPartial (Lib.total DECIDE) (hyp th)
@@ -2182,12 +2186,12 @@ and m2deep tm =
   if can (get_pattern (!(#exn_handles translator_state))) tm then let
     val _ = debug_print "handle custom pattern" tm
     val (_, EvalM_th) = get_pattern (!(#exn_handles translator_state)) tm
-    val result = inst_EvalM_handle EvalM_th tm
+    val result = inst_EvalM_handle ctxt EvalM_th tm
     in check_inv "handle custom pattern" tm result end
   (* return *)
   else if can (match_term return_pat) tm then let
     val _ = debug_print "return" tm
-    val th = hol2deep (rand tm)
+    val th = hol2deep ctxt (rand tm)
     val result = HO_MATCH_MP (ISPEC_EvalM_MONAD EvalM_return) th
     in check_inv "return" tm result end
   (* bind *)
@@ -2195,8 +2199,8 @@ and m2deep tm =
     val _ = debug_print "monad_bind" tm
     val x1 = tm |> rator |> rand
     val (v,x2) = tm |> rand |> dest_abs
-    val th1 = m2deep x1
-    val th2 = m2deep x2
+    val th1 = m2deep ctxt x1
+    val th2 = m2deep ctxt x2
     val (th1,th2) = inst_ro th1 th2
     val th2 = inst_EvalM_env v th2
     val result = inst_EvalM_bind th1 th2
@@ -2206,20 +2210,20 @@ and m2deep tm =
     val _ = debug_print "pure_seq" tm
     val x1 = tm |> rator |> rand
     val x2 = tm |> rand
-    val th1 = hol2deep x1
-    val th2 = m2deep x2
+    val th1 = hol2deep ctxt x1
+    val th2 = m2deep ctxt x2
     val result = MATCH_MP EvalM_pure_seq (CONJ th1 th2)
     in check_inv "pure_seq" tm result end else
   (* otherwise *)
   if can (match_term otherwise_pat) tm then let
     val _ = debug_print "otherwise" tm
-    val result = inst_EvalM_otherwise tm
+    val result = inst_EvalM_otherwise ctxt tm
     in check_inv "otherwise" tm result end else
   (* abs *)
   if is_abs tm then let
     val _ = debug_print "abs" tm
     val (v,x) = dest_abs tm
-    val thx = m2deep x
+    val thx = m2deep ctxt x
     val result = apply_EvalM_Fun v thx false
     in check_inv "abs" tm result end else
   (* let expressions *)
@@ -2227,8 +2231,8 @@ and m2deep tm =
     val _ = debug_print "let expressions" tm
     val (x,y) = dest_let tm
     val (v,x) = dest_abs x
-    val th1 = hol2deep y
-    val th2 = m2deep x
+    val th1 = hol2deep ctxt y
+    val th2 = m2deep ctxt x
     val th2 = inst_EvalM_env v th2
     val th2 = th2 |> GEN v_var
     val z = th1 |> concl |> rand |> rand
@@ -2237,7 +2241,7 @@ and m2deep tm =
     in check_inv "let" tm result end
   (* data-type pattern-matching *)
   else (
-    let val thm = inst_case_thm tm
+    let val thm = inst_case_thm ctxt tm
     in debug_print "data-type pattern-matching" tm; thm end)
 
   handle HOL_ERR _ =>
@@ -2257,9 +2261,9 @@ and m2deep tm =
   if can (match_term if_statement_pat) tm then let
     val _ = debug_print "if" tm
     val (t,x1,x2) = dest_cond tm
-    val th0 = hol2deep t
-    val th1 = m2deep x1
-    val th2 = m2deep x2
+    val th0 = hol2deep ctxt t
+    val th1 = m2deep ctxt x1
+    val th2 = m2deep ctxt x2
     val (th1,th2) = inst_ro th1 th2
     val th = MATCH_MP (ISPEC_EvalM EvalM_If) (LIST_CONJ [disch_asms th0, disch_asms th1, disch_asms th2])
     val result = UNDISCH th
@@ -2291,7 +2295,7 @@ and m2deep tm =
 
       (* Translate the parameters *)
       val args = tms |> List.map (fn {redex = v, residue = x} => x)
-      val args_evals = List.map hol2deep args
+      val args_evals = List.map (hol2deep ctxt) args
 
       (* Substitute the translated expressions of the parameters *)
       val eval_concls = List.map concl args_evals
@@ -2361,7 +2365,7 @@ and m2deep tm =
     *)
     val ys = List.map (fn tm => MY_MATCH_MP (ISPEC_EvalM Eval_IMP_PURE |>
                                              SPEC_ALL)
-                        (MY_MATCH_MP Eval_Eq (var_hol2deep tm))) xs
+                        (MY_MATCH_MP Eval_Eq (var_hol2deep ctxt tm))) xs
     (*val ys' = ys |> map (INST_TYPE ty_subst)*)
     fun apply_arrow h [] = INST_ro h
       | apply_arrow h (x::xs) =
@@ -2378,16 +2382,16 @@ and m2deep tm =
   if is_pmatch tm then let
     val _ = debug_print "PMATCH" tm
     val original_tm = tm
-    val lemma = pmatch_preprocess_conv tm
+    val lemma = pmatch_preprocess_conv ctxt tm
     val tm = lemma |> concl |> rand
     (* HERE *)
-    val result = pmatch_m2deep tm |>
+    val result = pmatch_m2deep ctxt tm |>
                  CONV_RULE (RATOR_CONV (RAND_CONV (RAND_CONV (K (GSYM lemma)))))
     in check_inv "pmatch_m2deep" original_tm result end else
   (* normal function applications *)
   if is_comb tm then let
     val _ = debug_print "normal function application" tm
-    val result = m2deep_normal_fun_app tm
+    val result = m2deep_normal_fun_app ctxt tm
     in check_inv "comb" tm result end else
   failwith ("cannot translate: " ^ term_to_string tm);
 
@@ -2527,7 +2531,7 @@ in
 end (* end local *)
 
 (* Apply the induction in the case of a recursive function w/o preconditions *)
-fun apply_ind thms ind = let
+fun apply_ind ctxt thms ind = let
     fun get_goal (fname,ml_fname,def,th,pre) = let
         val th = REWRITE_RULE [CONTAINER_def] th
         val hs = hyp th
@@ -2615,7 +2619,7 @@ fun apply_ind thms ind = let
       end
 
     fun prove_ind_thm goal goals ind_thm =
-      auto_prove "ind" (goal,
+      auto_prove ctxt "ind" (goal,
         STRIP_TAC
         \\ HO_MATCH_MP_TAC ind_thm
         \\ REPEAT STRIP_TAC
@@ -2627,7 +2631,7 @@ fun apply_ind thms ind = let
         \\ SIMP_TAC std_ss [GSYM FORALL_PROD]
         \\ METIS_TAC [])
       handle HOL_ERR _ =>
-      auto_prove "ind" (goal,
+      auto_prove ctxt "ind" (goal,
         STRIP_TAC
         \\ HO_MATCH_MP_TAC ind_thm
         \\ REPEAT STRIP_TAC
@@ -2636,7 +2640,7 @@ fun apply_ind thms ind = let
         \\ fs[NOT_NIL_EQ_LENGTH_NOT_0] (*For arithmetic-based goals*)
         \\ METIS_TAC[])
       handle HOL_ERR _ =>
-      auto_prove "ind" (goal,
+      auto_prove ctxt "ind" (goal,
         STRIP_TAC
         \\ SIMP_TAC std_ss [FORALL_PROD]
         \\ (HO_MATCH_MP_TAC ind_thm ORELSE
@@ -2649,7 +2653,7 @@ fun apply_ind thms ind = let
         \\ FULL_SIMP_TAC std_ss [UNCURRY_SIMP]
         \\ METIS_TAC [])
       handle HOL_ERR _ =>
-      auto_prove "ind" (goal,
+      auto_prove ctxt "ind" (goal,
         STRIP_TAC
         \\ SIMP_TAC std_ss [FORALL_PROD]
         \\ (HO_MATCH_MP_TAC ind_thm ORELSE
@@ -2665,7 +2669,7 @@ fun apply_ind thms ind = let
         \\ FULL_SIMP_TAC std_ss [UNCURRY_SIMP,PRECONDITION_def]
         \\ METIS_TAC [])
       handle HOL_ERR _ =>
-      auto_prove "ind" (mk_imp(hs,ind_thm |> concl |> rand),
+      auto_prove ctxt "ind" (mk_imp(hs,ind_thm |> concl |> rand),
         STRIP_TAC
         \\ HO_MATCH_MP_TAC ind_thm
         \\ REPEAT STRIP_TAC
@@ -2674,7 +2678,7 @@ fun apply_ind thms ind = let
         \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
         \\ METIS_TAC [])
       handle HOL_ERR e =>
-        auto_prove "ind" (goal,
+        auto_prove ctxt "ind" (goal,
         STRIP_TAC
         \\ HO_MATCH_MP_TAC ind_thm
         \\ REPEAT STRIP_TAC
@@ -2686,7 +2690,7 @@ fun apply_ind thms ind = let
         \\ SIMP_TAC std_ss [GSYM FORALL_PROD]
         \\ rpt(split_ineq_orelse_tac(metis_tac [])))
       handle HOL_ERR e =>
-        auto_prove "ind" (goal,
+        auto_prove ctxt "ind" (goal,
         STRIP_TAC
         \\ HO_MATCH_MP_TAC ind_thm
         \\ REPEAT STRIP_TAC
@@ -3007,7 +3011,7 @@ in tys end;
 
 ******************************************************************************)
 
-fun m_translate_main def =
+fun m_translate_main ctxt def =
   (let
     (* Instantiate the monadic type if necessary -
        the state and the exceptions can't be polymorphic *)
@@ -3026,7 +3030,7 @@ fun m_translate_main def =
       else register_type ty;
 
     val _ = register_term_types register_pure_type (concl def)
-    val (is_rec,defs,ind) = preprocess_def def
+    val (is_rec,defs,ind) = preprocess_def ctxt def
     val info = List.map get_info defs
     val msg = comma (List.map (fn (fname,_,_,_,_) => fname) info)
     (* val (fname,ml_fname,lhs,tm,def) = List.hd info *)
@@ -3036,7 +3040,7 @@ fun m_translate_main def =
     val _ = List.map (fn (fname,ml_fname,lhs,_,_) =>
                          install_rec_pattern lhs fname ml_fname) info
     val thms = List.map (fn (fname,ml_fname,lhs,rhs,def) =>
-                            (fname,ml_fname,m2deep rhs,def)) info
+                            (fname,ml_fname,m2deep ctxt rhs,def)) info
     val _ = uninstall_rec_patterns ()
     val thms = List.map
       (fn (x0,x1,th,x2) => (x0,x1,instantiate_cons_name th,x2)) thms
@@ -3161,7 +3165,7 @@ fun m_translate_main def =
              recursive functions with no preconditions *)
           val thms = case #5 (hd thms) of
                          SOME _ => thms
-                       | NONE => apply_ind thms ind
+                       | NONE => apply_ind ctxt thms ind
 
           (* clean up *)
           fun fix_thm th = th |> remove_Eq |> SIMP_EqualityType_ASSUMS |>
@@ -3219,7 +3223,7 @@ fun m_translate_main def =
 
 ******************************************************************************)
 
-val unknown_loc = locationTheory.unknown_loc_def |> concl |> dest_eq |> fst;
+val no_locs = prim_mk_const {Name = "NoLocs", Thy = "ast"};
 
 fun add_dynamic_v_thms (name, ml_name, th, pre_def) = let
     val th = UNDISCH_ALL th
@@ -3275,7 +3279,8 @@ fun m_translate def =
       rpt (match_mp_tac EQ_EXT >> rw[]) >>
       fs[st_ex_ignore_bind_def, st_ex_bind_def]);
     val def = REWRITE_RULE [st_ex_ignore_bind] def |> BETA_RULE
-    val (is_rec,is_fun,results) = m_translate_main (* m_translate *) def
+    val (is_rec,is_fun,results) =
+      m_translate_main (Context.snapshot()) (* m_translate *) def
   in
     if is_rec then
     let
@@ -3284,7 +3289,7 @@ fun m_translate def =
       val ii = INST [cl_env_tm |-> get_curr_env()]
       val v_names = List.map (fn x => find_const_name (#1 x ^ "_v")) results
       val _ = if not (!(#local_state_init_H translator_state))
-              then ml_prog_update (add_Dletrec unknown_loc recc v_names)
+              then ml_prog_update (add_Dletrec no_locs recc v_names)
               else ()
       val v_defs =
         if not (!(#local_state_init_H translator_state)) then
@@ -3361,7 +3366,7 @@ fun m_translate def =
               val v = lemma |> concl |> rand |> rator |> rand
               val exp = lemma |> concl |> rand |> rand
               val v_name = find_const_name (fname ^ "_v")
-              val _ = ml_prog_update (add_Dlet_Fun unknown_loc n v exp
+              val _ = ml_prog_update (add_Dlet_Fun no_locs n v exp
                                                    v_name)
               val v_def = hd (get_curr_v_defs ())
               val v_thm = lemma |>
@@ -3526,10 +3531,10 @@ fun gen_name_tac name (g as (asl, w)) = let
     val renamed_w_th = RENAME_VARS_CONV [name] w
 in (PURE_ONCE_REWRITE_TAC[renamed_w_th] \\ strip_tac) g end
 
-fun create_local_references init_state th = let
+fun create_local_references ctxt init_state th = let
     (* Check that FST and SND are already translated *)
-    val _ = if not(can hol2deep FST_const) then translate FST else TRUTH
-    val _ = if not(can hol2deep SND_const) then translate SND else TRUTH
+    val _ = if not(can (hol2deep ctxt) FST_const) then translate FST else TRUTH
+    val _ = if not(can (hol2deep ctxt) SND_const) then translate SND else TRUTH
 
     (* *)
     val th = PURE_REWRITE_RULE[!(#H_def translator_state)] th
@@ -3575,7 +3580,7 @@ fun create_local_references init_state th = let
     fun get_field_access_eval_thm tm = let
         val tm_eq = rewrite_field_access_conv tm
         val tm = concl tm_eq |> rhs
-        val eval_thm = hol2deep tm |> rewrite_field_access_rule tm_eq
+        val eval_thm = hol2deep ctxt tm |> rewrite_field_access_rule tm_eq
     in eval_thm end
 
     val loc_info = !(#dynamic_refs_bindings translator_state)
@@ -3608,14 +3613,31 @@ fun create_local_references init_state th = let
                              |> dest_abs |> snd |> dest_star
                              |> fst |> strip_comb |> fst
         val is_rw8array = same_const RW8ARRAY_const hprop_const
+        val is_rbitarray = same_const RBITARRAY_const hprop_const
         val is_rarray = same_const RARRAY_REL_const hprop_const
         val is_w8array = same_const W8ARRAY_const hprop_const
+        val is_bitarray = same_const BITARRAY_const hprop_const
         val is_farray = same_const ARRAY_REL_const hprop_const orelse is_w8array
+
+        fun remove_EQ_assums lemma = let
+            val EQ_pat = EQ_def |> SPEC_ALL |> concl |> dest_eq |> fst
+            val EQ_assums = lemma |> hyp |> filter (can (match_term EQ_pat))
+            fun remove [] th = th
+              | remove (goal::goals) th = let
+                  val l = auto_prove ctxt "EQ_assum" (goal, SIMP_TAC (srw_ss())
+                                                        [EQ_def])
+                  val th = MP (DISCH (concl l) th) l
+                  in remove goals th end
+                  handle HOL_ERR _ => remove goals th
+        in remove EQ_assums lemma end
 
         val lemma =
         if is_rw8array then
             ISPECL[exp, get_ref_fun, loc_name, env, H_part2, P, state_var]
                   EvalSt_W8AllocEmpty |> BETA_RULE |> UNDISCH
+        else if is_rbitarray then
+            ISPECL[exp, get_ref_fun, loc_name, env, H_part2, P, state_var]
+                  EvalSt_BitAllocEmpty |> BETA_RULE |> UNDISCH
         else if is_rarray then
             ISPECL[exp, get_ref_fun, loc_name,
                    rand TYPE, st_name, env, H_part2, P, state_var]
@@ -3642,17 +3664,20 @@ fun create_local_references init_state th = let
             val lemma = ISPECL args lemma |> UNDISCH
             val lemma = MATCH_MP (MATCH_MP lemma nexp_eval) xexp_eval
             val lemma = CONV_RULE (DEPTH_CONV BETA_CONV) lemma
-            val EQ_pat = EQ_def |> SPEC_ALL |> concl |> dest_eq |> fst
-            val EQ_assums = lemma |> hyp |> filter (can (match_term EQ_pat))
-            fun remove_EQ_assums [] th = th
-              | remove_EQ_assums (goal::goals) th = let
-                  val l = auto_prove "EQ_assum" (goal, SIMP_TAC (srw_ss())
-                                                        [EQ_def])
-                  val th = MP (DISCH (concl l) th) l
-                  in remove_EQ_assums goals th end
-                  handle HOL_ERR _ => remove_EQ_assums goals th
-            val lemma = remove_EQ_assums EQ_assums lemma
-        in lemma end
+        in remove_EQ_assums lemma end
+        else if is_bitarray then let
+            (* the initial state holds only the size, in bytes *)
+            val ntm = mk_comb(accessor, init_state)
+            val nexp_eval = get_field_access_eval_thm ntm
+            val nexp = concl nexp_eval |> rator |> rand
+            val n = concl nexp_eval |> rand |> rand
+            val lemma =
+              PURE_REWRITE_RULE [GSYM NUM_def, GSYM INT_def] EvalSt_BitAlloc
+            val lemma = ISPECL [exp, nexp, n, rator state_field, loc_name,
+                                env, H_part2, P, state] lemma |> UNDISCH
+            val lemma = MATCH_MP lemma nexp_eval
+            val lemma = CONV_RULE (DEPTH_CONV BETA_CONV) lemma
+        in remove_EQ_assums lemma end
         else MATCH_MP (ISPECL[exp, get_ref_exp, get_ref_fun, loc_name,
                        TYPE, st_name, env, H_part2, P, state]
                        EvalSt_Opref |> BETA_RULE |>
@@ -3833,6 +3858,7 @@ fun m_translate_run def =
                       |> strip_forall |> snd |> rhs |> strip_exists |> snd
                       |> dest_conj |> fst |> rhs |> rator |> rand |> rand
                       |> rand
+    val ctxt = Context.snapshot()
     val EXC_TYPE_RW =
       let
         val x = EXC_TYPE_aux_def |> CONJUNCT1 |> SPEC EXC_TYPE_stamp
@@ -3840,7 +3866,7 @@ fun m_translate_run def =
                 |> rator |> rator |> rator |> rator
         val t = fs [FUN_EQ_THM] \\ GEN_TAC \\ GEN_TAC
                    \\ Cases \\ GEN_TAC \\ EVAL_TAC
-        val lemma = auto_prove "EXC_TYPE_RW" (mk_eq(x,EXC_TYPE_tm),t)
+        val lemma = auto_prove ctxt "EXC_TYPE_RW" (mk_eq(x,EXC_TYPE_tm),t)
       in lemma end
 
     (* Translate the run construct *)
@@ -3866,7 +3892,7 @@ fun m_translate_run def =
     val th = create_local_fun_defs th
 
     (* Create the store *)
-    val th = create_local_references init_state th
+    val th = create_local_references ctxt init_state th
 
     (* Abstract the parameters *)
     val all_params = strip_comb def_lhs |> snd
@@ -3924,7 +3950,7 @@ fun m_translate_run def =
     val v = th |> concl |> rand |> rator |> rand
     val e = th |> concl |> rand |> rand
     val v_name = find_const_name (fname ^ "_v")
-    val _ = ml_prog_update (add_Dlet_Fun unknown_loc fname_str v e v_name)
+    val _ = ml_prog_update (add_Dlet_Fun no_locs fname_str v e v_name)
     val s = get_curr_prog_state ()
     val v_def = hd (get_v_defs s)
     val th = th |> REWRITE_RULE [GSYM v_def]

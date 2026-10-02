@@ -23,6 +23,8 @@ Datatype:
                  farray2 : int list;
                  fbarray : word8 list;
                  rbarray : word8 list;
+                 fbits : bool list;
+                 rbits : bool list;
                 |>
 End
 
@@ -47,6 +49,13 @@ val config =  local_state_config |>
                 ("farray1", ``0 : num``, 0, ``Subscript``, ``Subscript``),
                 ("farray2", ``0 : num``, 0, ``Subscript``, ``Subscript``),
                 ("fbarray", ``0w : word8``, 0, ``Subscript``, ``Subscript``)
+              ] |>
+              (* bool list arrays stored as byte arrays, 8 bools per byte *)
+              with_fixed_bool_arrays [
+                ("fbits", 0, ``Subscript``, ``Subscript``)
+              ] |>
+              with_resizeable_bool_arrays [
+                ("rbits", ``Subscript``, ``Subscript``)
               ];
 
 val _ = start_translation config;
@@ -120,10 +129,34 @@ Definition test8_def:
 End
 val test8_v_thm = test8_def |> m_translate;
 
+(* bool list arrays are stored as CakeML byte arrays, 8 bools per byte *)
+Definition test9_def:
+  test9 n =
+  do
+      x <- fbits_sub n;
+      update_fbits n (~x);
+      fbits_length
+  od
+End
+val test9_v_thm = test9_def |> m_translate;
+
+(* alloc_rbits n allocates 8 * n bools, all F *)
+Definition test10_def:
+  test10 n =
+  do
+      alloc_rbits n;
+      x <- rbits_sub 0;
+      update_rbits 0 (~x);
+      rbits_length
+  od
+End
+val test10_v_thm = test10_def |> m_translate;
+
 (* run translations *)
 (* test 1 *)
 val run_init_state_def =
-  define_run ``:state_refs`` ["farray1", "farray2", "fbarray"] "init_state"
+  define_run ``:state_refs`` ["farray1", "farray2", "fbarray", "fbits"]
+             "init_state"
 
 Definition run_test1_def:
   run_test1 (x: num) (state: init_state) = run_init_state (test1 x) (state: init_state)
@@ -132,7 +165,7 @@ val run_test1_v_thm = m_translate_run run_test1_def;
 
 Definition crun_test1_def:
   crun_test1 x =
-    run_init_state (test1 x) (init_state 0 0 [] [] (10, 0) (11, 0) (12, 0w) [])
+    run_init_state (test1 x) (init_state 0 0 [] [] (10, 0) (11, 0) (12, 0w) [] 2 [])
 End
 val crun_test1_v_thm = m_translate_run crun_test1_def;
 
@@ -144,7 +177,7 @@ val run_test2_v_thm = m_translate_run run_test2_def;
 
 Definition crun_test2_def:
   crun_test2 x =
-    run_init_state (test2 x) (init_state 0 0 [] [] (10, 0) (11, 0) (12, 0w) [])
+    run_init_state (test2 x) (init_state 0 0 [] [] (10, 0) (11, 0) (12, 0w) [] 2 [])
 End
 val crun_test2_v_thm = m_translate_run crun_test2_def;
 
@@ -156,7 +189,7 @@ val run_test3_v_thm = m_translate_run run_test3_def;
 
 Definition crun_test3_def:
   crun_test3 x =
-    run_init_state (test3 x) (init_state 0 0 [] [] (10, 0) (11, 0) (12, 0w) [])
+    run_init_state (test3 x) (init_state 0 0 [] [] (10, 0) (11, 0) (12, 0w) [] 2 [])
 End
 val crun_test3_v_thm = m_translate_run crun_test3_def;
 
@@ -168,7 +201,7 @@ val run_test4_v_thm = m_translate_run run_test4_def;
 
 Definition crun_test4_def:
   crun_test4 n x =
-    run_init_state (test4 n x) (init_state 0 0 [] [] (10, 0) (11, 0) (12, 0w) [])
+    run_init_state (test4 n x) (init_state 0 0 [] [] (10, 0) (11, 0) (12, 0w) [] 2 [])
 End
 val crun_test4_v_thm = m_translate_run crun_test4_def;
 
@@ -180,7 +213,7 @@ val run_test5_v_thm = m_translate_run run_test5_def;
 
 Definition crun_test5_def:
   crun_test5 n x =
-    run_init_state (test5 n x) (init_state 0 0 [] [] (10, 0) (11, 0) (12, 0w) [])
+    run_init_state (test5 n x) (init_state 0 0 [] [] (10, 0) (11, 0) (12, 0w) [] 2 [])
 End
 val crun_test5_v_thm = m_translate_run crun_test5_def;
 
@@ -192,7 +225,7 @@ val run_test6_v_thm = m_translate_run run_test6_def;
 
 Definition crun_test6_def:
   crun_test6 n x =
-    run_init_state (test6 n x) (init_state 0 0 [] [] (10, 0) (11, 0) (12, 0w) [])
+    run_init_state (test6 n x) (init_state 0 0 [] [] (10, 0) (11, 0) (12, 0w) [] 2 [])
 End
 val crun_test6_v_thm = m_translate_run crun_test6_def;
 
@@ -204,7 +237,7 @@ val run_test7_v_thm = m_translate_run run_test7_def;
 
 Definition crun_test7_def:
   crun_test7 n =
-    run_init_state (test7 n) (init_state 0 0 [] [] (10, 0) (11, 0) (12, 0w) [])
+    run_init_state (test7 n) (init_state 0 0 [] [] (10, 0) (11, 0) (12, 0w) [] 2 [])
 End
 val crun_test7_v_thm = m_translate_run crun_test7_def;
 
@@ -216,8 +249,33 @@ val run_test8_v_thm = m_translate_run run_test8_def;
 
 Definition crun_test8_def:
   crun_test8 n =
-    run_init_state (test8 n) (init_state 0 0 [] [] (10, 0) (11, 0) (12, 0w) [])
+    run_init_state (test8 n) (init_state 0 0 [] [] (10, 0) (11, 0) (12, 0w) [] 2 [])
 End
 val crun_test8_v_thm = m_translate_run crun_test8_def;
+
+(* test 9 *)
+Definition run_test9_def:
+  run_test9 n state = run_init_state (test9 n) state
+End
+val run_test9_v_thm = m_translate_run run_test9_def;
+
+(* fbits starts as 2 bytes, i.e. 16 bools that are all F *)
+Definition crun_test9_def:
+  crun_test9 n =
+    run_init_state (test9 n) (init_state 0 0 [] [] (10, 0) (11, 0) (12, 0w) [] 2 [])
+End
+val crun_test9_v_thm = m_translate_run crun_test9_def;
+
+(* test 10 *)
+Definition run_test10_def:
+  run_test10 n state = run_init_state (test10 n) state
+End
+val run_test10_v_thm = m_translate_run run_test10_def;
+
+Definition crun_test10_def:
+  crun_test10 n =
+    run_init_state (test10 n) (init_state 0 0 [] [] (10, 0) (11, 0) (12, 0w) [] 2 [])
+End
+val crun_test10_v_thm = m_translate_run crun_test10_def;
 
 (* ... *)

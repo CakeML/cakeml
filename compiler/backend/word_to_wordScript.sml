@@ -49,7 +49,7 @@ Definition next_n_oracle_def:
 End
 
 Definition compile_def:
-  compile word_conf (asm_conf:'a asm_config) progs =
+  compile word_conf (asm_conf:asm_config) progs =
     let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
     let (n_oracles,col) = next_n_oracle (LENGTH progs) word_conf.col_oracle in
     let progs = ZIP (progs,n_oracles) in
@@ -95,7 +95,7 @@ QED
 
 (* used for bootstrap translation *)
 Theorem compile_alt:
-    compile word_conf (asm_conf:'a asm_config) progs =
+    compile word_conf (asm_conf:asm_config) progs =
     let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
     let (n_oracles,col) = next_n_oracle (LENGTH progs) word_conf.col_oracle in
     let alg = word_conf.reg_alg in

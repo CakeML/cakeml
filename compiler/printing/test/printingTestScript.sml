@@ -88,7 +88,7 @@ val _ = ml_prog_update remove_snocs;
 val prog = get_prog (get_ml_prog_state ());
 
 val dlet_empty =
-  “[Dlet unknown_loc (Pvar «x_app_list_empty») (Con (SOME (Short «Nil»)) [])]”
+  “[Dlet NoLocs (Pvar «x_app_list_empty») (Con (SOME (Short «Nil»)) [])]”
 
 Quote more_decs = cakeml:
   type 'a foo = ('a->int) option;

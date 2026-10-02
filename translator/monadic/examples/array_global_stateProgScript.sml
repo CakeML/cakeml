@@ -21,6 +21,8 @@ Datatype:
                    farray2 : int list;
                    fbarray : word8 list;
                    rbarray : word8 list;
+                   fbits : bool list;
+                   rbits : bool list;
                    |>
 End
 
@@ -49,6 +51,14 @@ val config =  global_state_config |>
                   ``Subscript``, ``Subscript``),
                 ("rbarray", ``[] : word8 list``,
                   ``Subscript``, ``Subscript``)
+              ] |>
+              (* bool list arrays stored as byte arrays; the size is given in
+                 bytes, i.e. fbits has 3 * 8 = 24 elements, all F *)
+              with_fixed_bool_arrays [
+                ("fbits", 3, ``Subscript``, ``Subscript``)
+              ] |>
+              with_resizeable_bool_arrays [
+                ("rbits", ``Subscript``, ``Subscript``)
               ];
 
 Overload failwith = ``raise_Fail``
@@ -120,5 +130,28 @@ Definition test8_def:
   od
 End
 val test8_v_thm = test8_def |> m_translate;
+
+(* bool list arrays are stored as CakeML byte arrays, 8 bools per byte *)
+Definition test9_def:
+  test9 n =
+  do
+      x <- fbits_sub n;
+      update_fbits n (~x);
+      fbits_length
+  od
+End
+val test9_v_thm = test9_def |> m_translate;
+
+(* alloc_rbits n allocates 8 * n bools, all F *)
+Definition test10_def:
+  test10 n =
+  do
+      alloc_rbits n;
+      x <- rbits_sub 0;
+      update_rbits 0 (~x);
+      rbits_length
+  od
+End
+val test10_v_thm = test10_def |> m_translate;
 
 (* ... *)

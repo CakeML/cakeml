@@ -14,7 +14,7 @@ val _ = ml_prog_update (open_module "List");
 val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [«'a»] «list» (Atapp [Atvar «'a»] (Short «list»))`` I);
+  ``Dtabbrev NoLocs [«'a»] «list» (Atapp [Atvar «'a»] (Short «list»))`` I);
 
 val r = translate NULL;
 
@@ -455,7 +455,7 @@ val Eval_FUPDATE = Q.prove(
   |> (fn th => MATCH_MP th AUPDATE_eval)
   |> add_user_proved_v_thm;
 
-val NIL_eval = hol2deep ``[]:('a # 'b) list``
+val NIL_eval = translate_tm ``[]:('a # 'b) list``
 
 val Eval_FEMPTY = Q.prove(
   `!v. (LIST_TYPE (PAIR_TYPE (a:'a -> v -> bool) (b:'b -> v -> bool)) []) v ==>

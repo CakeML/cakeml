@@ -16,12 +16,12 @@ val _ = patternMatchesSyntax.temp_enable_pmatch();
 (* collect stack allocation information *)
 
 Definition seq_stack_alloc_def:
-  seq_stack_alloc (p: 'a stackLang$prog) =
+  seq_stack_alloc (p: stackLang$prog) =
     case p of Seq (StackAlloc k) _ => SOME k | _ => NONE
 End
 
 Theorem seq_stack_alloc_pmatch:
-  seq_stack_alloc (p: 'a stackLang$prog) =
+  seq_stack_alloc (p: stackLang$prog) =
     pmatch p of Seq (StackAlloc k) _ => SOME k | _ => NONE
 Proof
   CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true) \\ rw []
@@ -30,7 +30,7 @@ QED
 
 Definition collect_info_def:
   (collect_info [] f = f) /\
-  (collect_info ((n,b:'a stackLang$prog)::xs) f =
+  (collect_info ((n,b:stackLang$prog)::xs) f =
      collect_info xs (case seq_stack_alloc b of
                       | NONE => f
                       | SOME k => insert n k f))
@@ -39,14 +39,14 @@ End
 (* optimise based on stack allocation information *)
 
 Definition dest_case_def:
-  dest_case (p1: 'a stackLang$prog) (p2: 'a stackLang$prog) =
+  dest_case (p1: stackLang$prog) (p2: stackLang$prog) =
     case p1 of
     | StackFree k => (case p2 of Call NONE (INL d) NONE => SOME (k,d) | _ => NONE)
     | _ => NONE
 End
 
 Theorem dest_case_pmatch:
-  dest_case (p1: 'a stackLang$prog) (p2: 'a stackLang$prog) =
+  dest_case (p1: stackLang$prog) (p2: stackLang$prog) =
     pmatch p1 of
     | StackFree k => (pmatch p2 of Call NONE (INL d) NONE => SOME (k,d) | _ => NONE)
     | _ => NONE
@@ -56,7 +56,7 @@ Proof
 QED
 
 Definition comp_seq_def:
-  comp_seq (p1:'a stackLang$prog) (p2:'a stackLang$prog) i (default:'a stackLang$prog) =
+  comp_seq (p1:stackLang$prog) (p2:stackLang$prog) i (default:stackLang$prog) =
   case dest_case p1 p2 of
   | SOME (k,dest) =>
       (case lookup dest i of
@@ -70,7 +70,7 @@ End
 
 local
 val q = `
-  comp i (p:'a stackLang$prog) =
+  comp i (p:stackLang$prog) =
     case p of
     | Seq p1 p2 => comp_seq p1 p2 i (Seq (comp i p1) (comp i p2))
     | If c r ri p1 p2 => If c r ri (comp i p1) (comp i p2)
@@ -93,12 +93,12 @@ Theorem comp_pmatch = Q.prove(
 end
 
 Definition comp_top_def:
-  comp_top i (p: 'a stackLang$prog) =
+  comp_top i (p: stackLang$prog) =
     case p of Seq p1 p2 => Seq (comp i p1) (comp i p2) | _ => comp i p
 End
 
 Theorem comp_top_pmatch:
-  comp_top i (p: 'a stackLang$prog) =
+  comp_top i (p: stackLang$prog) =
     pmatch p of Seq p1 p2 => Seq (comp i p1) (comp i p2) | _ => comp i p
 Proof
   CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true) \\ rw []
@@ -108,5 +108,5 @@ QED
 Definition compile_def:
   compile prog =
     let i = collect_info prog LN in
-      MAP (\(n,b:'a stackLang$prog). (n,comp_top i b)) prog
+      MAP (\(n,b:stackLang$prog). (n,comp_top i b)) prog
 End

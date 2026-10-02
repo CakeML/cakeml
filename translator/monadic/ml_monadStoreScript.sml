@@ -41,6 +41,16 @@ Proof
   \\ rw[state_component_equality]
 QED
 
+Theorem ALLOCATE_BITARRAY_evaluate:
+   !env s n.
+    eval_rel s env (App Aw8alloc [Lit (IntLit &n); Lit (Word8 0w)])
+      (s with refs := s.refs ++ [W8array (REPLICATE n 0w)])
+      (Loc T (LENGTH s.refs))
+Proof
+  rw[evaluate_def, do_app_def, store_alloc_def, ml_progTheory.eval_rel_def]
+  \\ rw[state_component_equality]
+QED
+
 Theorem ALLOCATE_EMPTY_RARRAY_evaluate:
    !env s.
      eval_rel s env (App Opref [App AallocEmpty [Con NONE []]])

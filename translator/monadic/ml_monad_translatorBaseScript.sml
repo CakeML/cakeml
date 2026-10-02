@@ -683,6 +683,11 @@ Definition RW8ARRAY_def:
   RW8ARRAY rv av = SEP_EXISTS arv. REF rv arv * W8ARRAY arv av
 End
 
+(* Resizable bool arrays *)
+Definition RBITARRAY_def:
+  RBITARRAY rv bs = SEP_EXISTS ws. RW8ARRAY rv ws * &BITS_BYTES bs ws
+End
+
 Theorem RARRAY_HPROP_SAT_EQ:
    RARRAY (Loc T l) av s <=>
   ?l'. s = {Mem l' (Varray av); Mem l (Refv (Loc T l'))}

@@ -124,6 +124,7 @@ val _ = translate (real_addr_def |> inline_simp |> conv64_RHS |> SIMP_RULE std_s
 
 val _ = translate (real_offset_def |> inline_simp |> conv64)
 val _ = translate (real_byte_offset_def |> inline_simp |> conv64)
+val _ = translate (real_bit_offset_def |> inline_simp |> conv64)
 val _ = translate (GiveUp_def |> wcomp_simp |> conv64)
 
 val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``]
@@ -146,6 +147,8 @@ QED
 *)
 
 val _ = translate (ShiftVar_def |> inline_simp |> conv64);
+val _ = translate (WordShiftVar64_def |> inline_simp |> conv64)
+val _ = translate (ShiftW8_def |> inline_simp |> conv64)
 val _ = translate (LoadWord64_def |> inline_simp |> conv64)
 val _ = translate (WriteWord64_def |> inline_simp |> conv64)
 val _ = translate (LoadBignum_def |> inline_simp |> conv64)
@@ -159,7 +162,7 @@ Proof
 QED
 
 val _ = translate (Smallnum_alt |> inline_simp |> conv64)
-val _ = translate (MemEqList_def |> inline_simp |> conv64)
+val _ = translate (MemEqList_def |> inline_simp |> INST_TYPE [beta|->``:64``] |> conv64)
 
 Theorem n2mw_ind =
   multiwordTheory.n2mw_ind |> inline_simp |> conv64
@@ -326,16 +329,29 @@ Theorem comp_ind =
 (* Inlines the let k = 8 manually *)
 val _ = translate (comp_def |> conv64 |> wcomp_simp |> conv64 |> SIMP_RULE std_ss[LET_THM |> INST_TYPE [alpha|->``:num``]]);
 
+val loc_values = find "location_def"
+  |> filter (fn ((m,_),_) => m = "data_to_word")
+  |> map (fn (_,(d,_,_)) => d |> concl |> dest_eq |> fst |> EVAL)
+  |> LIST_CONJ;
 open word_simpTheory word_allocTheory word_instTheory
 
 val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,
-                   ``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``]
+                   ``foo:reg_imm``,``foo:arith``,``foo:addr``]
 
 val res = word_cseTheory.map_insert_def |> DefnBase.one_line_ify NONE |> translate;
 
 val res = translate word_cseTheory.bm_inter_eq_def;
 val res = translate sptreeTheory.inter_eq_def;
 val res = translate word_cseTheory.merge_data_def;
+
+val _ = translate word_cseTheory.intToNum_def;
+
+Theorem word_cse_inttonum_side:
+  word_cse_inttonum_side i
+Proof
+  rw [fetch "-" "word_cse_inttonum_side_def"] \\ intLib.COOPER_TAC
+QED
+val _ = word_cse_inttonum_side |> update_precondition;
 
 val res = translate (word_cseTheory.word_cseInst_def |> spec64);
 val res = translate_no_ind (word_cseTheory.word_cse_def |> spec64);
@@ -354,6 +370,10 @@ QED
 val _ = word_cse_ind |> update_precondition;
 
 val res = translate (word_cseTheory.word_common_subexp_elim_def |> spec64);
+
+val _ = res |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "word_cseTheory.word_common_subexp_elim_def.");
 
 val res = translate (word_copyTheory.copy_prop_def |> spec64);
 
@@ -432,11 +452,11 @@ val _ = translate (spec64 simp_duplicate_if_def)
 val _ = translate (spec64 compile_exp_def)
 
 val _ = translate (wordLangTheory.max_var_inst_def |> conv64)
-val _ = translate (spec64 wordLangTheory.max_var_def)
+val _ = translate (conv64 wordLangTheory.max_var_def)
 
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
 
-val _ = translate (asmTheory.offset_ok_def |> SIMP_RULE std_ss [alignmentTheory.aligned_bitwise_and] |> conv64)
+val _ = translate (asmTheory.offset_ok_def |> SIMP_RULE (srw_ss()) [alignmentTheory.aligned_bitwise_and, integerTheory.INT_DIVIDES_MOD0] |> conv64)
 val _ = translate (is_Lookup_CurrHeap_pmatch |> conv64)
 val res = translate_no_ind (inst_select_exp_pmatch |> conv64 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv64)
 
@@ -495,7 +515,9 @@ val _ = translate (spec64 full_ssa_cc_trans_def)
 
 val _ = translate (conv64 remove_dead_inst_def)
 val _ = translate (conv64 get_live_inst_def)
-val _ = translate (spec64 remove_dead_prog_def)
+val _ = translate (conv64 get_live_def)
+val _ = translate (conv64 remove_dead_def)
+val _ = translate (conv64 remove_dead_prog_def)
 
 Theorem lem[local]:
   dimindex(:64) = 64 ∧
@@ -508,6 +530,7 @@ val _ = translate (INST_TYPE [alpha|->``:64``,beta|->``:64``] get_forced_pmatch
                   |> SIMP_RULE (bool_ss++ARITH_ss) [lem])
 
 val _ = translate (get_delta_inst_def |> conv64)
+val _ = translate (get_clash_tree_def |> conv64)
 val _ = translate (wordLangTheory.every_var_inst_def |> conv64)
 val _ = translate select_reg_alloc_def
 val _ = translate (INST_TYPE [alpha|->``:64``,beta|->``:64``]  word_alloc_def)
@@ -708,6 +731,9 @@ val res = translate (data_to_wordTheory.compile_def
                      |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def, loc_values]
                      |> conv64_RHS);
 
+val _ = res |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "data_to_wordTheory.compile_def.");
 
 (* explorer specific functions *)
 

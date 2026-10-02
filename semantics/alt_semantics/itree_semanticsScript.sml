@@ -37,10 +37,6 @@ Definition do_app_def:
           (SOME xs, SOME ys) => SOME (s, Rval (list_to_v (xs ++ ys)))
         | _ => NONE
       )
-    | (Shift W8 op n, [Litv (Word8 w)]) =>
-        SOME (s, Rval (Litv (Word8 (shift8_lookup op w n))))
-    | (Shift W64 op n, [Litv (Word64 w)]) =>
-        SOME (s, Rval (Litv (Word64 (shift64_lookup op w n))))
     | (Equality, [v1; v2]) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
@@ -148,6 +144,51 @@ Definition do_app_def:
                       NONE => NONE
                     | SOME s' => SOME (s', Rval (Conv NONE []))
                   )
+        | _ => NONE
+      )
+    | (Aw8subBit, [Loc _ lnum; Litv (IntLit i)]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+              SOME (s, Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8))))
+            else SOME (s, Rraise sub_exn_v)
+        | _ => NONE
+      )
+    | (Aw8updateBit, [Loc _ lnum; Litv (IntLit i); v]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if ¬(v = Boolv T ∨ v = Boolv F) then NONE else
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+              (case store_assign lnum
+                      (W8array (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                         (EL (Num i DIV 8) ws))
+                                        (Num i DIV 8) ws)) s of
+                  NONE => NONE
+                | SOME s' => SOME (s', Rval (Conv NONE []))
+              )
+            else SOME (s, Rraise sub_exn_v)
+        | _ => NONE
+      )
+    | (Aw8subBit_unsafe, [Loc _ lnum; Litv (IntLit i)]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+              SOME (s, Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8))))
+            else NONE
+        | _ => NONE
+      )
+    | (Aw8updateBit_unsafe, [Loc _ lnum; Litv (IntLit i); v]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws ∧ (v = Boolv T ∨ v = Boolv F) then
+              (case store_assign lnum
+                      (W8array (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                         (EL (Num i DIV 8) ws))
+                                        (Num i DIV 8) ws)) s of
+                  NONE => NONE
+                | SOME s' => SOME (s', Rval (Conv NONE []))
+              )
+            else NONE
         | _ => NONE
       )
     | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>

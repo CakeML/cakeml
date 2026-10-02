@@ -128,7 +128,8 @@ Overload temp_reg2[local] = ``30w : word5``
 
 Definition mips_ast_def:
    (mips_ast (Inst Skip) = [^nop]) /\
-   (mips_ast (Inst (Const r (i: word64))) =
+   (mips_ast (Inst (Const r i)) =
+      let i = (i2w i : word64) in
       let top    = (63 >< 32) i : word32
       and middle = (31 >< 16) i : word16
       and bottom = (15 ><  0) i : word16
@@ -150,14 +151,14 @@ Definition mips_ast_def:
    (mips_ast (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
        [ArithR (mips_bop_r bop (n2w r2, n2w r3, n2w r1))]) /\
    (mips_ast (Inst (Arith (Binop Sub r1 r2 (Imm i)))) =
-       [ArithI (DADDIU (n2w r2, n2w r1, -(w2w i)))]) /\
+       [ArithI (DADDIU (n2w r2, n2w r1, -(w2w (i2w i : word64))))]) /\
    (mips_ast (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
-       if (bop = Xor) /\ (i = -1w) then
+       if (bop = Xor) /\ (i = -1) then
          [ArithR (NOR (n2w r2, 0w, n2w r1))]
        else
-         [ArithI (mips_bop_i bop (n2w r2, n2w r1, w2w i))]) /\
+         [ArithI (mips_bop_i bop (n2w r2, n2w r1, w2w (i2w i : word64)))]) /\
    (mips_ast (Inst (Arith (Shift sh r1 r2 (Imm i)))) =
-       let n = w2n i in
+       let n = Num i in
        if sh = Ror then
          if n < 32 then
            [Shift (DSRL (n2w r2, temp_reg, n2w n));
@@ -213,9 +214,10 @@ Definition mips_ast_def:
         ArithR (AND (temp_reg, n2w r4, n2w r4));
         Shift (DSRL32 (n2w r4, n2w r4, 31w))]) /\
    (mips_ast (Inst (Mem mop r1 (Addr r2 a))) =
+       let c = i2w a : word64 in
        case mips_memop mop of
-          INL f => [Load (f (n2w r2, n2w r1, w2w a))]
-        | INR f => [Store (f (n2w r2, n2w r1, w2w a))]) /\
+          INL f => [Load (f (n2w r2, n2w r1, w2w c))]
+        | INR f => [Store (f (n2w r2, n2w r1, w2w c))]) /\
    (mips_ast (Inst (FP (FPLess n d1 d2))) = mips_fp_cmp 4w n d1 d2) /\
    (mips_ast (Inst (FP (FPLessEqual n d1 d2))) = mips_fp_cmp 6w n d1 d2) /\
    (mips_ast (Inst (FP (FPEqual n d1 d2))) = mips_fp_cmp 2w n d1 d2) /\
@@ -241,6 +243,7 @@ Definition mips_ast_def:
        [COP1 (CVT_D_L (n2w d1, n2w d2))]) /\
    (mips_ast (Inst (FP _ )) = mips_encode_fail) /\
    (mips_ast (Jump a) =
+       let a = (i2w a : word64) in
        if ^min18 + 4w <= a /\ a <= ^max18 + 4w then
          [Branch (BEQ (0w, 0w, w2w (a >>> 2) - 1w)); ^nop]
        else let b = a - 12w in
@@ -252,6 +255,7 @@ Definition mips_ast_def:
           Branch (JR temp_reg);                           (* pc := tmp     *)
           ArithI (ORI (temp_reg2, 31w, 0w))]) /\          (* LR := tmp2    *)
    (mips_ast (JumpCmp c r1 (Reg r2) a) =
+       let a = (i2w a : word64) in
        let b = w2w (a >>> 2) - 2w in
          case mips_cmp c of
             (SOME (f1, _), f2) =>
@@ -260,17 +264,19 @@ Definition mips_ast_def:
                 ^nop]
           | (NONE, f) => [Branch (f (n2w r1, n2w r2, b + 1w)); ^nop]) /\
    (mips_ast (JumpCmp c r (Imm i) a) =
+       let a = (i2w a : word64) in
        let b = w2w (a >>> 2) - 2w in
          case mips_cmp c of
             (SOME (_, f1), f2) =>
-               [ArithI (f1 (n2w r, temp_reg, w2w i));
+               [ArithI (f1 (n2w r, temp_reg, w2w (i2w i : word64)));
                 Branch (f2 (temp_reg, 0w, b));
                 ^nop]
           | (NONE, f) =>
-               [ArithI (DADDIU (0w, temp_reg, w2w i));
+               [ArithI (DADDIU (0w, temp_reg, w2w (i2w i : word64)));
                 Branch (f (n2w r, temp_reg, b));
                 ^nop]) /\
    (mips_ast (Call a) =
+       let a = (i2w a : word64) in
        if ^min18 + 4w <= a /\ a <= ^max18 + 4w then
          [Branch (BGEZAL (0w, w2w (a >>> 2) - 1w)); ^nop]
        else let b = a - 8w in
@@ -282,6 +288,7 @@ Definition mips_ast_def:
           ^nop]) /\                                       (* LR := pc      *)
    (mips_ast (JumpReg r) = [Branch (JR (n2w r)); ^nop]) /\
    (mips_ast (Loc r i) =
+       let i = (i2w i : word64) in
        if r = 31 then
           if ^min16 + 8w <= i /\ i <= ^max16 + 8w then
             [Branch (BLTZAL (0w, 0w));                    (* LR := pc + 8    *)
@@ -323,15 +330,15 @@ Definition mips_config_def:
     ; big_endian := T
     ; valid_imm :=
        (\b i. if b IN {INL And; INL Or; INL Xor; INR Test; INR NotTest} then
-                0w <= i /\ i <= ^umax16
-              else (if b = INL Sub then ^min16 < i else ^min16 <= i) /\
-                   i <= ^max16)
-    ; addr_offset := (^min16, ^max16)
-    ; hw_offset := (^min16, ^max16)
-    ; byte_offset := (^min16, ^max16)
-    ; jump_offset := (^min32 + 12w, ^max32 + 8w)
-    ; cjump_offset := (^min18 + 8w, ^max18 + 4w)
-    ; loc_offset := (^min32 + 12w, ^max32 + 8w)
+                0 <= i /\ i <= 65535
+              else (if b = INL Sub then -32768 < i else -32768 <= i) /\
+                   i <= 32767)
+    ; addr_offset := (-32768, 32767)
+    ; hw_offset := (-32768, 32767)
+    ; byte_offset := (-32768, 32767)
+    ; jump_offset := (-2147483636, 2147483655)
+    ; cjump_offset := (-131064, 131075)
+    ; loc_offset := (-2147483636, 2147483655)
     ; code_alignment := 2
     |>
 End

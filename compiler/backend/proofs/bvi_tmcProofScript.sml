@@ -1699,6 +1699,10 @@ val memop_update_byte_tac =
       ORELSE (irule holes_still_not_finalised_frange_update >> first_assum $ irule_at Any)
       ORELSE (gvs [state_rel_def] >> irule state_ref_rel_update >> simp [ref_rel_cases]));
 
+(* UpdateBit: the bool argument is Boolv on both sides. *)
+val memop_update_bit_tac =
+  gvs [bvlSemTheory.Boolv_def, v_rel_cases] >> memop_update_byte_tac;
+
 (* Turning a stack of mutable conses into a Block (FinaliseCons). *)
 val memop_finalise_tac =
   qexists ‘f’
@@ -1786,7 +1790,8 @@ Resume do_app_op_rel[MemOp]:
           no_mutcons_op_def, v_rel_cases]
   >> FIRST [memop_mutblock_tac >> NO_TAC, memop_finalise_tac >> NO_TAC,
             memop_create_tac >> NO_TAC, memop_update_val_tac >> NO_TAC,
-            memop_update_byte_tac >> NO_TAC, memop_el_ref_tac >> NO_TAC,
+            memop_update_byte_tac >> NO_TAC, memop_update_bit_tac >> NO_TAC,
+            memop_el_ref_tac >> NO_TAC,
             memop_el_block_tac >> NO_TAC, memop_read_tac >> NO_TAC,
             memop_configgc_tac >> NO_TAC, memop_strcmp_tac >> NO_TAC,
             memop_finalise_tac >> NO_TAC, memop_finalise_block_tac >> NO_TAC]
@@ -6025,7 +6030,7 @@ Proof
    (spose_not_then assume_tac >> rw []
     >> qpat_x_assum ‘∀k. _’ mp_tac
     >> first_assum (qspec_then `k` mp_tac)
-    >> (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
+    >> goal_term (subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)`))
     >> strip_tac
     >> drule (GEN_ALL evaluate_compile_each)
     >> rveq

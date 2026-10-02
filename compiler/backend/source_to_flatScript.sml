@@ -202,7 +202,7 @@ Definition compile_exp_def:
                (compile_exp t (env with v := new_env) e)) ∧
   (compile_exp t env (Tannot e _) = compile_exp t env e) ∧
   (* When encountering a Lannot, we update the trace we are passing *)
-  (compile_exp t env (Lannot e (Locs st en)) = compile_exp t env e) ∧
+  (compile_exp t env (Lannot e _) = compile_exp t env e) ∧
   (compile_exp t env (Open path e) =
     case open_compile_env path env of
     | NONE => Var_local None «» (* Unreachable for a well-typed open. *)

@@ -13,7 +13,7 @@ Libs
 val _ = diminish_srw_ss ["ABBREV"]
 
 Definition config_ok_def:
-  config_ok (cc:α compiler$config) mc ⇔
+  config_ok (cc:compiler$config) mc ⇔
     env_rel prim_tenv cc.inferencer_config ∧
     inf_set_tids_ienv prim_type_ids cc.inferencer_config ∧ (* TODO: ok? *)
     ¬cc.input_is_sexp ∧
@@ -26,7 +26,7 @@ Definition config_ok_def:
 End
 
 Definition initial_condition_def:
-  initial_condition (st:'ffi semantics$state) (cc:α compiler$config) mc ⇔
+  initial_condition (st:'ffi semantics$state) (cc:compiler$config) mc ⇔
     (st.sem_st,st.sem_env) = THE (prim_sem_env st.sem_st.ffi) ∧
     (?ctMap.
       type_sound_invariant st.sem_st st.sem_env ctMap FEMPTY {} st.tenv ∧
@@ -99,17 +99,19 @@ Definition read_limits_def:
 End
 
 Definition is_safe_for_space_def:
-  is_safe_for_space ffi cc = backendProof$is_safe_for_space ffi cc.asm_config cc.backend_config
+  is_safe_for_space (:'a) ffi cc = backendProof$is_safe_for_space (:'a) ffi cc.asm_config cc.backend_config
 End
 
 Theorem compile_correct_gen:
-   ∀(st:'ffi semantics$state) (cc:α compiler$config) prelude input mc data_sp cbspace.
+   ∀(st:'ffi semantics$state) (cc:compiler$config) prelude input
+     (mc:(α,β,γ) machine_config) data_sp cbspace.
     initial_condition st cc mc ⇒
     case FST (compiler$compile cc prelude input) of
     | M_failure (ParseError e) => semantics st prelude input = CannotParse
     | M_failure (TypeError e) => semantics st prelude input = IllTyped
     | M_failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
     | M_failure (ConfigError e) => T (* configuration string is malformed *)
+    | M_failure (StaticError e) => T
     | M_success (code,data,c) =>
       ∃behaviours source_decs.
         (semantics st prelude input = Execute behaviours) ∧
@@ -120,7 +122,7 @@ Theorem compile_correct_gen:
             ⇒
             machine_sem mc st.sem_st.ffi ms ⊆
               extend_with_resource_limit'
-                (is_safe_for_space st.sem_st.ffi cc
+                (is_safe_for_space (:α) st.sem_st.ffi cc
                    (prelude ++ source_decs) (read_limits cc mc ms))
                 behaviours
 Proof
@@ -177,13 +179,15 @@ Proof
 QED
 
 Theorem compile_correct_lemma:
-  ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace.
+  ∀(ffi:'ffi ffi_state) prelude input (cc:compiler$config)
+    (mc:(α,β,γ) machine_config) data_sp cbspace.
     config_ok cc mc ⇒
     case FST (compiler$compile cc prelude input) of
     | M_failure (ParseError e) => semantics_init ffi prelude input = CannotParse
     | M_failure (TypeError e) => semantics_init ffi prelude input = IllTyped
     | M_failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
     | M_failure (ConfigError e) => T (* configuration string is malformed *)
+    | M_failure (StaticError e) => T
     | M_success (code,data,c) =>
       ∃behaviours source_decs.
         (semantics_init ffi prelude input = Execute behaviours) ∧
@@ -192,7 +196,7 @@ Theorem compile_correct_lemma:
           installed code cbspace data data_sp c.lab_conf.ffi_names (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms ⇒
             machine_sem mc ffi ms ⊆
               extend_with_resource_limit'
-                (is_safe_for_space ffi cc
+                (is_safe_for_space (:α) ffi cc
                    (prelude ++ source_decs) (read_limits cc mc ms))
                 behaviours
 Proof
@@ -230,14 +234,15 @@ Proof
 QED
 
 Theorem compile_correct_safe_for_space:
-  ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace code data c c'.
+  ∀(ffi:'ffi ffi_state) prelude input (cc:compiler$config)
+    (mc:(α,β,γ) machine_config) data_sp cbspace code data c c'.
     config_ok cc mc ⇒
     compiler$compile cc prelude input = (M_success (code,data,c), c') ⇒
       ∃behaviours source_decs.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
         ∀ms.
-          is_safe_for_space ffi cc (prelude ++ source_decs)              (* cost semantics *)
+          is_safe_for_space (:α) ffi cc (prelude ++ source_decs)          (* cost semantics *)
             (read_limits cc mc ms) ∧
           installed code cbspace data data_sp c.lab_conf.ffi_names
             (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms ⇒
@@ -262,13 +267,14 @@ Proof
 QED
 
 Theorem compile_correct = Q.prove(`
-  ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace.
+  ∀(ffi:'ffi ffi_state) prelude input (cc:compiler$config) mc data_sp cbspace.
     config_ok cc mc ⇒
     case FST (compiler$compile cc prelude input) of
     | M_failure (ParseError e) => semantics_init ffi prelude input = CannotParse
     | M_failure (TypeError e) => semantics_init ffi prelude input = IllTyped
     | M_failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
     | M_failure (ConfigError e) => T (* configuration string is malformed *)
+    | M_failure (StaticError e) => T
     | M_success (code,data,c) =>
       ∃behaviours.
         (semantics_init ffi prelude input = Execute behaviours) ∧
