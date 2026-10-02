@@ -174,7 +174,7 @@ Proof
       \\ EVERY_CASE_TAC \\ gvs[event_satisfy_rules]
      )
   \\ irule yes_while_1_safety
-  \\ rw[read_bytearray_compute, mem_load_byte_def, byte_align_extract]
+  \\ rw[read_bytearray_compute, mem_load_byte_def, byte_align_def, align_def]
   \\ Cases_on ‘s.be’ \\ gvs[word_to_bytes_def, word_to_bytes_aux_compute, get_byte_def]
 QED
 
@@ -383,7 +383,7 @@ Proof
   \\ gvs[]
   \\ irule branch_satisfy_non_ret_bind
   \\ irule_at Any yes_while_1_liveness
-  \\ rw[read_bytearray_compute, mem_load_byte_def, byte_align_extract]
+  \\ rw[read_bytearray_compute, mem_load_byte_def, byte_align_def, align_def]
   >- (Cases_on ‘s.be’ \\ gvs[word_to_bytes_def, word_to_bytes_aux_compute, get_byte_def]
      )
   >- (CCONTR_TAC
