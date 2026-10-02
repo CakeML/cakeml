@@ -483,7 +483,7 @@ Definition word_cseInst_def:
 End
 
 Definition dest_Var_def:
-  dest_Var (Var v :'a wordLang$exp) = SOME v ∧
+  dest_Var (Var v :wordLang$exp) = SOME v ∧
   dest_Var _ = NONE
 End
 

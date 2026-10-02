@@ -1022,7 +1022,7 @@ Definition reg_bound_exp_def[simp]:
   (reg_bound_exp (Op _ es) k ⇔ EVERY (λe. reg_bound_exp e k) es) ∧
   (reg_bound_exp _ _ ⇔ T)
 Termination
-  WF_REL_TAC`measure ((exp_size ARB) o FST)` \\ simp[]
+  WF_REL_TAC`measure (exp_size o FST)` \\ simp[]
    \\ Induct \\ simp[wordLangTheory.exp_size_def]
    \\ srw_tac[][] \\ res_tac \\ simp[]
 End

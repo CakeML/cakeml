@@ -5,7 +5,7 @@
 *)
 Theory word_simp
 Ancestors
-  wordLang asm sptree
+  wordLang asm sptree int_bitwise
 Libs
   preamble
 
@@ -188,28 +188,78 @@ Definition strip_const_def:
   (strip_const _ = NONE)
 End
 
+Definition int_op_def:
+  int_op op ws =
+    case (op,ws) of
+    | (And,ws) => SOME (FOLDR int_and (-1) ws)
+    | (Add,ws) => SOME (FOLDR $+ 0 ws)
+    | (Or,ws) => SOME (FOLDR int_or 0 ws)
+    | (Xor,ws) => SOME (FOLDR int_xor 0 ws)
+    | (Sub,[w1;w2]) => SOME (w1 - w2)
+    | _ => NONE
+End
+
+Definition int_unsigned_def:
+  int_unsigned (bits:num) i = i % &(2 ** bits)
+End
+
+Definition int_signed_def:
+  int_signed bits i =
+    let u = int_unsigned bits i in
+      if u < &(2 ** (bits - 1)) then u else u - &(2 ** bits)
+End
+
+Definition int_sh_def:
+  int_sh bits sh i j =
+    let n = Num (int_unsigned bits j) in
+      if n = 0 then SOME i
+      else if bits <= n then NONE
+      else let p = &(2 ** n) in
+        case sh of
+        | Lsl => SOME (i * p)
+        | Lsr => SOME (int_unsigned bits i / p)
+        | Asr => SOME (int_signed bits i / p)
+        | Ror => let u = int_unsigned bits i in
+                   SOME (u / p + (u % p) * &(2 ** (bits - n)))
+End
+
+Definition int_cmp_def:
+  int_cmp bits cmp i j =
+    let u = int_unsigned bits i in
+    let v = int_unsigned bits j in
+      case cmp of
+      | Equal => u = v
+      | NotEqual => u <> v
+      | Lower => u < v
+      | NotLower => ~(u < v)
+      | Less => int_signed bits i < int_signed bits j
+      | NotLess => ~(int_signed bits i < int_signed bits j)
+      | Test => int_and u v = 0
+      | NotTest => int_and u v <> 0
+End
+
 Definition const_fp_exp_def:
-  (const_fp_exp (Var v) cs =
+  (const_fp_exp bits (Var v) cs =
      case lookup v cs of
        | SOME x => Const x
        | NONE => Var v) /\
-  (const_fp_exp (Op op args) cs =
-     let const_fp_args = MAP (\a. const_fp_exp a cs) args in
+  (const_fp_exp bits (Op op args) cs =
+     let const_fp_args = MAP (\a. const_fp_exp bits a cs) args in
        case strip_const const_fp_args of
-         | SOME ws => (case word_op op ws of
+         | SOME ws => (case int_op op ws of
                         | SOME w => Const w
                         | _ => Op op (MAP Const ws))
          | _ => Op op const_fp_args) /\
-  (const_fp_exp (Shift sh e e1) cs =
-     let const_fp_exp_e = const_fp_exp e cs in
-     let const_fp_exp_e1 = const_fp_exp e1 cs in
-       case (const_fp_exp_e, const_fp_exp_e1) of
-         | (Const c, Const c1) =>
-             (case word_sh sh c (w2n c1) of
-              | SOME w => Const w
-              | _ => Shift sh (Const c) (Const c1))
-         | _ => Shift sh const_fp_exp_e const_fp_exp_e1) /\
-  (const_fp_exp e _ = e)
+  (const_fp_exp bits (Shift sh e e1) cs =
+     let e' = const_fp_exp bits e cs in
+     let e1' = const_fp_exp bits e1 cs in
+       case (e',e1') of
+       | (Const i,Const j) =>
+           (case int_sh bits sh i j of
+            | SOME k => Const k
+            | NONE => Shift sh e' e1')
+       | _ => Shift sh e' e1') /\
+  (const_fp_exp bits e _ = e)
 End
 
 Definition const_fp_move_cs_def:
@@ -224,34 +274,34 @@ Definition const_fp_move_cs_def:
 End
 
 Definition const_fp_inst_cs_def:
-  (const_fp_inst_cs (Const r _) (cs:'a word num_map) = delete r cs) /\
-  (const_fp_inst_cs (Arith (Binop _ r _ _)) cs = delete r cs) /\
-  (const_fp_inst_cs (Arith (Shift _ r _ _)) cs = delete r cs) /\
-  (const_fp_inst_cs (Arith (AddCarry r1 _ _ r2)) cs = delete r2 (delete r1 cs)) /\
-  (const_fp_inst_cs (Arith (AddOverflow r1 _ _ r2)) cs = delete r2 (delete r1 cs)) /\
-  (const_fp_inst_cs (Arith (SubOverflow r1 _ _ r2)) cs = delete r2 (delete r1 cs)) /\
-  (const_fp_inst_cs (Arith (LongMul r1 r2 _ _)) cs = delete r1 (delete r2 cs)) /\
-  (const_fp_inst_cs (Arith (LongDiv r1 r2 _ _ _)) cs = delete r1 (delete r2 cs)) /\
-  (const_fp_inst_cs (Arith (Div r1 _ _)) cs = delete r1 cs) /\
-  (const_fp_inst_cs (Mem Load r _) cs = delete r cs) /\
-  (const_fp_inst_cs (Mem Load32 r _) cs = delete r cs) /\
-  (const_fp_inst_cs (Mem Load8 r _) cs = delete r cs) /\
-  (const_fp_inst_cs (FP (FPLess r f1 f2)) cs = delete r cs) ∧
-  (const_fp_inst_cs (FP (FPLessEqual r f1 f2)) cs = delete r cs) ∧
-  (const_fp_inst_cs (FP (FPEqual r f1 f2)) cs = delete r cs) ∧
-  (const_fp_inst_cs ((FP (FPMovToReg r1 r2 d)):inst) cs =
-    if dimindex(:'a) = 64 then delete r1 cs
+  (const_fp_inst_cs (bits:num) (Const r _) (cs:int num_map) = delete r cs) /\
+  (const_fp_inst_cs bits (Arith (Binop _ r _ _)) cs = delete r cs) /\
+  (const_fp_inst_cs bits (Arith (Shift _ r _ _)) cs = delete r cs) /\
+  (const_fp_inst_cs bits (Arith (AddCarry r1 _ _ r2)) cs = delete r2 (delete r1 cs)) /\
+  (const_fp_inst_cs bits (Arith (AddOverflow r1 _ _ r2)) cs = delete r2 (delete r1 cs)) /\
+  (const_fp_inst_cs bits (Arith (SubOverflow r1 _ _ r2)) cs = delete r2 (delete r1 cs)) /\
+  (const_fp_inst_cs bits (Arith (LongMul r1 r2 _ _)) cs = delete r1 (delete r2 cs)) /\
+  (const_fp_inst_cs bits (Arith (LongDiv r1 r2 _ _ _)) cs = delete r1 (delete r2 cs)) /\
+  (const_fp_inst_cs bits (Arith (Div r1 _ _)) cs = delete r1 cs) /\
+  (const_fp_inst_cs bits (Mem Load r _) cs = delete r cs) /\
+  (const_fp_inst_cs bits (Mem Load32 r _) cs = delete r cs) /\
+  (const_fp_inst_cs bits (Mem Load8 r _) cs = delete r cs) /\
+  (const_fp_inst_cs bits (FP (FPLess r f1 f2)) cs = delete r cs) ∧
+  (const_fp_inst_cs bits (FP (FPLessEqual r f1 f2)) cs = delete r cs) ∧
+  (const_fp_inst_cs bits (FP (FPEqual r f1 f2)) cs = delete r cs) ∧
+  (const_fp_inst_cs bits (FP (FPMovToReg r1 r2 d)) cs =
+    if bits = 64 then delete r1 cs
     else delete r2 (delete r1 cs)) ∧
-  (const_fp_inst_cs _ cs = cs)
+  (const_fp_inst_cs bits _ cs = cs)
 End
 
 Definition get_var_imm_cs_def:
   (get_var_imm_cs (Reg r) cs = lookup r cs) /\
-  (get_var_imm_cs (Imm i) _ = SOME (i2w i))
+  (get_var_imm_cs (Imm i) _ = SOME i)
 End
 
 Definition is_gc_const_def:
-  is_gc_const c = ((c && 1w) = 0w)
+  is_gc_const c = (int_and c 1 = 0)
 End
 
 
@@ -272,9 +322,9 @@ End
 
 Definition const_fp_loop_def:
   (const_fp_loop (Move pri moves : 'a prog) cs = (Move pri moves, const_fp_move_cs moves cs cs)) /\
-  (const_fp_loop (Inst i) cs = (Inst i, const_fp_inst_cs i cs)) /\
+  (const_fp_loop (Inst i) cs = (Inst i, const_fp_inst_cs (dimindex (:'a)) i cs)) /\
   (const_fp_loop (Assign v e) cs =
-     let const_fp_e = const_fp_exp e cs in
+     let const_fp_e = const_fp_exp (dimindex (:'a)) e cs in
        case const_fp_e of
          | Const c => (Assign v const_fp_e, insert v c cs)
          | _ => (Assign v const_fp_e, delete v cs)) /\
@@ -290,7 +340,8 @@ Definition const_fp_loop_def:
   (const_fp_loop (wordLang$If cmp lhs rhs p1 p2) cs =
     case (lookup lhs cs, get_var_imm_cs rhs cs) of
       | (SOME clhs, SOME crhs) =>
-        (if asm$word_cmp cmp clhs crhs then const_fp_loop p1 cs else const_fp_loop p2 cs)
+        (if int_cmp (dimindex (:'a)) cmp clhs crhs
+         then const_fp_loop p1 cs else const_fp_loop p2 cs)
       | _ => (let (p1', p1cs) = const_fp_loop p1 cs in
               let (p2', p2cs) = const_fp_loop p2 cs in
                (wordLang$If cmp lhs rhs p1' p2', inter_eq p1cs p2cs))) /\
@@ -317,23 +368,23 @@ Definition const_fp_loop_def:
     (SmartSeq (drop_consts cs [r1;r2;r3;r4;r5])
       (Install r1 r2 r3 r4 r5 names), delete r1 (filter_v is_gc_const (inter cs (all_names names))))) /\
   (const_fp_loop (Store e v) cs =
-    (Store (const_fp_exp e cs) v, cs)) /\
+    (Store (const_fp_exp (dimindex (:'a)) e cs) v, cs)) /\
   (const_fp_loop (ShareInst Load v e) cs =
-    (ShareInst Load v (const_fp_exp e cs), delete v cs)) /\
+    (ShareInst Load v (const_fp_exp (dimindex (:'a)) e cs), delete v cs)) /\
   (const_fp_loop (ShareInst Load8 v e) cs =
-    (ShareInst Load8 v (const_fp_exp e cs), delete v cs)) /\
+    (ShareInst Load8 v (const_fp_exp (dimindex (:'a)) e cs), delete v cs)) /\
   (const_fp_loop (ShareInst Load16 v e) cs =
-    (ShareInst Load16 v (const_fp_exp e cs), delete v cs)) /\
+    (ShareInst Load16 v (const_fp_exp (dimindex (:'a)) e cs), delete v cs)) /\
   (const_fp_loop (ShareInst Load32 v e) cs =
-    (ShareInst Load32 v (const_fp_exp e cs), delete v cs)) /\
+    (ShareInst Load32 v (const_fp_exp (dimindex (:'a)) e cs), delete v cs)) /\
   (const_fp_loop (ShareInst Store v e) cs =
-    (ShareInst Store v (const_fp_exp e cs), cs)) /\
+    (ShareInst Store v (const_fp_exp (dimindex (:'a)) e cs), cs)) /\
   (const_fp_loop (ShareInst Store8 v e) cs =
-    (ShareInst Store8 v (const_fp_exp e cs), cs)) /\
+    (ShareInst Store8 v (const_fp_exp (dimindex (:'a)) e cs), cs)) /\
   (const_fp_loop (ShareInst Store16 v e) cs =
-    (ShareInst Store16 v (const_fp_exp e cs), cs)) /\
+    (ShareInst Store16 v (const_fp_exp (dimindex (:'a)) e cs), cs)) /\
   (const_fp_loop (ShareInst Store32 v e) cs =
-    (ShareInst Store32 v (const_fp_exp e cs), cs)) /\
+    (ShareInst Store32 v (const_fp_exp (dimindex (:'a)) e cs), cs)) /\
   (const_fp_loop (Loop names body exit_names) cs =
     (Loop names (FST (const_fp_loop body LN)) exit_names, LN)) /\
   (const_fp_loop p cs = (p, cs))
@@ -496,4 +547,3 @@ Definition compile_exp_def:
     let e = push_out_if e in
       e
 End
-

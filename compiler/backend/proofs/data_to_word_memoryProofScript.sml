@@ -7564,6 +7564,22 @@ Definition decode_addr_def:
      decode_maxout conf.tag_bits 2 w)
 End
 
+Definition get_lowerbits_def:
+  (get_lowerbits conf (Word w) = data_to_word$get_lowerbits conf w) /\
+  (get_lowerbits conf (Loc _ _) = 1w)
+End
+
+Definition make_ptr_def:
+  make_ptr conf nf tag len = Word (data_to_word$make_ptr conf nf tag len)
+End
+
+Definition make_cons_ptr_def:
+  make_cons_ptr conf nf tag len = Word (data_to_word$make_cons_ptr conf nf tag len)
+End
+
+val _ = augment_srw_ss [rewrites [data_to_wordTheory.get_lowerbits_def,
+  data_to_wordTheory.make_ptr_def,data_to_wordTheory.make_cons_ptr_def]];
+
 Definition get_addr_def:
   get_addr conf n w =
     ((n2w n << shift_length conf) || get_lowerbits conf w)
@@ -15487,7 +15503,7 @@ Theorem memory_rel_String_const_test:
       part_to_words c LN (Str s) 0w = SOME (x,res) ⇒
       ∃(w:'a word) a.
         v = Word w ∧ get_real_addr c st w = SOME a ∧
-        word_mem_eq a (MAP (get_Word o SND) res) dm m = SOME (s = t)
+        word_mem_eq a (MAP SND res) dm m = SOME (s = t)
 Proof
   strip_tac
   \\ drule_all memory_rel_ByteArray_IMP
@@ -19388,7 +19404,7 @@ Proof
   \\ ‘heap_length heap1 = heap_length heap0’ by
     simp [Abbr‘heap1’,Abbr‘heap0’,heap_length_APPEND,heap_length_def,el_length_Bytes]
   \\ ‘LENGTH res_vals = LENGTH vals2’ by imp_res_tac xor_bytes_length
-  \\ full_simp_tac std_ss [heap_in_memory_store_def,wordLangTheory.word_loc_11]
+  \\ full_simp_tac std_ss [heap_in_memory_store_def,wordSemTheory.word_loc_11]
   \\ qpat_x_assum ‘_ (fun2set (m,dm))’ mp_tac
   \\ gvs [Abbr‘heap0’,Abbr‘heap1’]
   \\ rename [‘(_ * frame) (fun2set _)’]

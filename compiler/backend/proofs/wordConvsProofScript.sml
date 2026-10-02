@@ -269,11 +269,11 @@ Theorem const_fp_loop_Seq[local] =
    the hoist mechanism hoists will simplify (via const_fp) back to a program
    in which nothing is duplicated. *)
 Theorem const_fp_loop_dummy_cases[local]:
-  const_fp_loop (If cmp lhs rhs (Raise 1) (Raise 2)) cs = (p2, cs2) ==>
+  const_fp_loop (If cmp lhs rhs (Raise 1) (Raise 2):'a prog) cs = (p2, cs2) ==>
   (dest_Raise_num p2 = 1 /\
-  (! br1 br2 . const_fp_loop (If cmp lhs rhs br1 br2) cs = const_fp_loop br1 cs)) \/
+  (! (br1:'a prog) br2 . const_fp_loop (If cmp lhs rhs br1 br2) cs = const_fp_loop br1 cs)) \/
   (dest_Raise_num p2 = 2 /\
-  (! br1 br2 . const_fp_loop (If cmp lhs rhs br1 br2) cs = const_fp_loop br2 cs)) \/
+  (! (br1:'a prog) br2 . const_fp_loop (If cmp lhs rhs br1 br2) cs = const_fp_loop br2 cs)) \/
   (dest_Raise_num p2 = 0)
 Proof
   rw [const_fp_loop_def, dest_Raise_num_def]
@@ -908,9 +908,9 @@ QED
 
 (*Less restrictive version of inst_ok guaranteed by inst_select*)
 Theorem inst_select_exp_full_inst_ok_less[local]:
-  ∀c tar temp (exp:'a wordLang$exp).
+  ∀c tar temp exp.
   isa_bits c = dimindex (:'a) ∧ addr_offset_ok c 0 ⇒
-  full_inst_ok_less c (inst_select_exp c tar temp exp)
+  full_inst_ok_less c (inst_select_exp c tar temp exp:'a wordLang$prog)
 Proof
   ho_match_mp_tac inst_select_exp_ind>>rw[]>>
   fs[inst_select_exp_def,LET_THM,inst_ok_less_def,full_inst_ok_less_def]>>

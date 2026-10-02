@@ -30,7 +30,9 @@ Proof
 QED
 
 val _ = augment_srw_ss [rewrites [integer_wordTheory.i2w_pos,
-                                  integer_wordTheory.i2w_w2i, i2w_neg]]
+                                  integer_wordTheory.i2w_w2i, i2w_neg,
+  data_to_wordTheory.get_lowerbits_def,data_to_wordTheory.make_ptr_def,
+  data_to_wordTheory.make_cons_ptr_def]]
 
 val _ = numLib.prefer_num ();
 
@@ -41,6 +43,9 @@ val _ = hide "next";
 val _ = hide "el";
 val shift_def = backend_commonTheory.word_shift_def
 val upper_w2w_def = backend_commonTheory.upper_w2w_def
+val get_lowerbits_def = data_to_word_memoryProofTheory.get_lowerbits_def;
+val make_ptr_def = data_to_word_memoryProofTheory.make_ptr_def;
+val make_cons_ptr_def = data_to_word_memoryProofTheory.make_cons_ptr_def;
 val isWord_def = wordSemTheory.isWord_def
 val theWord_def = wordSemTheory.theWord_def
 
@@ -178,12 +183,13 @@ QED
 Theorem get_real_offset_lemma:
    get_var v t = SOME (Word i_w) /\
     good_dimindex (:'a) /\
+    arch_width_bits c.arch_width = dimindex (:'a) /\
     get_real_offset i_w = SOME y ==>
     word_exp t (real_offset c v) = SOME (Word (y:'a word))
 Proof
   fs [get_real_offset_def] \\ every_case_tac \\ fs []
   \\ fs [wordSemTheory.get_var_def,real_offset_def] \\ eval_tac \\ fs []
-  \\ fs [good_dimindex_def,dimword_def] \\ rw []
+  \\ fs [good_dimindex_def,dimword_def,bytes_in_word_def] \\ rw []
     \\ fs [wordSemTheory.get_var_def,real_offset_def]
 QED
 
@@ -249,10 +255,11 @@ Proof
 QED
 
 Theorem get_real_byte_offset_lemma:
-   get_var v t = SOME (Word (w:α word)) ∧ good_dimindex (:α) ⇒
-   word_exp t (real_byte_offset v) = SOME (Word (bytes_in_word + (w >>> 1)))
+   get_var v t = SOME (Word (w:α word)) ∧ good_dimindex (:α) ∧
+   arch_width_bits c.arch_width = dimindex (:α) ⇒
+   word_exp t (real_byte_offset c v) = SOME (Word (bytes_in_word + (w >>> 1)))
 Proof
-  rw[real_byte_offset_def,wordSemTheory.get_var_def]
+  rw[real_byte_offset_def,wordSemTheory.get_var_def,bytes_in_word_def]
   \\ eval_tac \\ fs[good_dimindex_def,dimword_def]
 QED
 
@@ -272,7 +279,7 @@ QED
 
 Theorem evaluate_StoreEach = Q.prove(`
   !xs ys t offset m1.
-      store_list (a + offset) ys t.memory t.mdomain = SOME m1 /\
+      store_list (a + n2w offset) ys t.memory t.mdomain = SOME m1 /\
       get_vars xs t = SOME ys /\
       get_var i t = SOME (Word a) ==>
       evaluate (StoreEach i xs offset, t) = (NONE,t with memory := m1)`,
@@ -285,10 +292,11 @@ Theorem evaluate_StoreEach = Q.prove(`
   \\ Cases_on `get_vars xs t` \\ fs [] \\ clean_tac
   \\ fs [store_list_def,wordSemTheory.mem_store_def]
   \\ `(t with memory := m1) =
-      (t with memory := (a + offset =+ x) t.memory) with memory := m1` by
+      (t with memory := (a + n2w offset =+ x) t.memory) with memory := m1` by
        (fs [wordSemTheory.state_component_equality] \\ NO_TAC)
   \\ pop_assum (fn th => rewrite_tac [th])
-  \\ first_x_assum match_mp_tac \\ fs []
+  \\ first_x_assum match_mp_tac
+  \\ fs [bytes_in_word_def,GSYM word_add_n2w]
   \\ asm_exists_tac \\ fs []
   \\ rename1 `get_vars qs t = SOME ts`
   \\ pop_assum mp_tac
@@ -296,7 +304,7 @@ Theorem evaluate_StoreEach = Q.prove(`
   \\ qspec_tac (`qs`,`qs`)
   \\ Induct \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
   \\ rw [] \\ every_case_tac \\ fs [])
-  |> Q.SPECL [`xs`,`ys`,`t`,`0w`] |> SIMP_RULE (srw_ss()) [] |> GEN_ALL;
+  |> Q.SPECL [`xs`,`ys`,`t`,`0`] |> SIMP_RULE (srw_ss()) [] |> GEN_ALL;
 
 Theorem get_vars_adjust_var:
    ODD k ==>
@@ -361,6 +369,7 @@ QED
 Theorem word_exp_real_addr:
    get_real_addr c t.store ptr_w = SOME a /\
     shift_length c < dimindex (:α) ∧ good_dimindex (:α) /\
+    arch_width_bits c.arch_width = dimindex (:α) /\
     lookup (adjust_var a1) (t:('a,'c,'ffi) wordSem$state).locals = SOME (Word ptr_w) ==>
     !w. word_exp (t with locals := insert 1 (Word (w:'a word)) t.locals)
           (real_addr c (adjust_var a1)) = SOME (Word a)
@@ -372,6 +381,7 @@ QED
 Theorem word_exp_real_addr_2:
    get_real_addr c (t:('a,'c,'ffi) wordSem$state).store ptr_w = SOME a /\
     shift_length c < dimindex (:α) ∧ good_dimindex (:α) /\
+    arch_width_bits c.arch_width = dimindex (:α) /\
     lookup (adjust_var a1) t.locals = SOME (Word ptr_w) ==>
     !w1 w2.
       word_exp

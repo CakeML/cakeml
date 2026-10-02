@@ -1315,12 +1315,11 @@ Proof
   \\ rw [] \\ res_tac \\ gvs []
 QED
 
-Theorem MEM_word_exps_size_ARB[local] =
-  wordLangTheory.MEM_IMP_exp_size |> Q.GEN `l` |> Q.SPEC `ARB`;
+Theorem MEM_word_exps_size[local] = wordLangTheory.MEM_IMP_exp_size;
 
 Definition word_exp_to_display_def:
   (word_exp_to_display (wordLang$Const v)
-    = item_with_word «Const» v) /\
+    = Item NONE «Const» [int_to_display v]) /\
   (word_exp_to_display (Var n)
     = item_with_num «Var» n) /\
   (word_exp_to_display (Lookup st)
@@ -1340,7 +1339,7 @@ Definition word_exp_to_display_def:
   (word_exp_to_display_list (x::xs) =
     word_exp_to_display x :: word_exp_to_display_list xs)
 Termination
-  WF_REL_TAC ‘measure $ λx. case x of INL v => wordLang$exp_size ARB v | INR v => list_size wordLang$exp_size ARB v’
+  WF_REL_TAC ‘measure $ λx. case x of INL v => wordLang$exp_size v | INR v => list_size wordLang$exp_size v’
 End
 
 Definition ws_to_display_def:

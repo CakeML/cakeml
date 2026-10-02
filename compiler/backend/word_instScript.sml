@@ -4,7 +4,7 @@
 *)
 Theory word_inst
 Ancestors
-  wordLang stackLang sorting
+  wordLang stackLang sorting word_simp
 Libs
   preamble
 
@@ -36,7 +36,7 @@ End
 Definition rm_const_def:
   (rm_const (Const w) = w) ∧
   (*Make it total*)
-  (rm_const _ = 0w)
+  (rm_const _ = 0)
 End
 
 Definition convert_sub_def:
@@ -60,16 +60,16 @@ Proof
 QED
 
 Definition op_consts_def:
-  (op_consts And = Const (~0w)) ∧
-  (op_consts _ = Const 0w)
+  (op_consts And = Const (-1)) ∧
+  (op_consts _ = Const 0)
 End
 
 Theorem op_consts_pmatch:
   !op.
   op_consts op =
   pmatch op of
-    And => Const (~0w)
-  | _ => Const 0w
+    And => Const (-1)
+  | _ => Const 0
 Proof
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
@@ -80,14 +80,14 @@ QED
 (* Returns a definite value *)
 Definition reduce_const_def:
   reduce_const op w rest =
-  if w = 0w then
+  if w = 0 then
     if op = Add ∨ op = Or ∨ op = Xor then
       case rest of
         []  => Const w
       | [x] => x
       | _ => Op op rest
     else if op = And then
-      Const 0w
+      Const 0
     else Op op (Const w::rest)
   else Op op (Const w::rest)
 End
@@ -98,7 +98,7 @@ Definition optimize_consts_def:
     case const_ls of
       [] => Op op nconst_ls
     | _ =>
-      let w = THE (word_op op (MAP rm_const const_ls)) in
+      let w = THE (int_op op (MAP rm_const const_ls)) in
       reduce_const op w nconst_ls
 End
 
@@ -120,16 +120,16 @@ Definition pull_exp_def:
   (pull_exp (Shift shift exp nexp) = Shift shift (pull_exp exp) (pull_exp nexp)) ∧
   (pull_exp exp = exp)
 Termination
-  WF_REL_TAC `measure (exp_size ARB)`
+  WF_REL_TAC `measure exp_size`
   \\ rw[]
   \\ gvs[]
   \\ drule MEM_list_size
-  \\ disch_then(qspec_then `exp_size ARB` mp_tac)
+  \\ disch_then(qspec_then `exp_size` mp_tac)
   \\ rw[]
 End
 
 Theorem pull_exp_pmatch:
-  !(exp:'a exp).
+  !(exp:wordLang$exp).
   pull_exp exp =
   pmatch exp of
    Op Sub ls => (
@@ -169,9 +169,8 @@ Definition flatten_exp_def:
   (flatten_exp (Shift shift exp nexp) = Shift shift (flatten_exp exp) (flatten_exp nexp)) ∧
   (flatten_exp exp = exp)
 Termination
-  WF_REL_TAC `measure (exp_size ARB)`
+  WF_REL_TAC `measure exp_size`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ fs[exp_size_def]
    \\ TRY (DECIDE_TAC)
 End
@@ -231,19 +230,19 @@ QED
 *)
 
 Definition inst_select_exp_def:
-  (inst_select_exp (c:asm_config) (tar:num) (temp:num) (Load (exp:'a wordLang$exp)) : 'a prog =
+  (inst_select_exp (c:asm_config) (tar:num) (temp:num) (Load (exp:wordLang$exp)) : 'a prog =
     case exp of
     | Op Add [exp';Const w] =>
-      if addr_offset_ok c (w2i w) then
+      if addr_offset_ok c w then
         let prog = inst_select_exp c temp temp exp' in
-          Seq prog (Inst (Mem Load tar (Addr temp (w2i w))))
+          Seq prog (Inst (Mem Load tar (Addr temp w)))
       else
         let prog = inst_select_exp c temp temp exp in
           Seq prog (Inst (Mem Load tar (Addr temp 0)))
     | _ =>
       let prog = inst_select_exp c temp temp exp in
       Seq prog (Inst (Mem Load tar (Addr temp 0)))) ∧
-  (inst_select_exp c (tar:num) (temp:num) (Const w) = (Inst (Const tar (w2i w)))) ∧
+  (inst_select_exp c (tar:num) (temp:num) (Const w) = (Inst (Const tar w))) ∧
   (inst_select_exp c (tar:num) (temp:num) (Var v) =
     Move 0 [tar,v]) ∧
   (inst_select_exp c tar temp (Lookup store_name) =
@@ -261,14 +260,14 @@ Definition inst_select_exp_def:
     case e2 of
     | Const w =>
       (*t = r op const*)
-      if c.valid_imm (INL op) (w2i w) then
-        Seq p1 (Inst (Arith (Binop op tar temp (Imm (w2i w)))))
+      if c.valid_imm (INL op) w then
+        Seq p1 (Inst (Arith (Binop op tar temp (Imm w))))
       (*t = r + const --> t = r - const*)
-      else if op = Add ∧ c.valid_imm (INL Sub) (w2i (-w)) then
-        Seq p1 (Inst (Arith (Binop Sub tar temp (Imm (w2i (-w))))))
+      else if op = Add ∧ c.valid_imm (INL Sub) (-w) then
+        Seq p1 (Inst (Arith (Binop Sub tar temp (Imm (-w)))))
       else
       (*no immediates*)
-        let p2 = Inst (Const (temp+1) (w2i w)) in
+        let p2 = Inst (Const (temp+1) w) in
         Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))
     | _ =>
       let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
@@ -276,7 +275,7 @@ Definition inst_select_exp_def:
   (inst_select_exp c tar temp (Shift sh exp e1) =
     case e1 of
     | Const shift_len =>
-        let n = w2n shift_len in
+        let n = w2n (i2w shift_len:'a word) in
           if (n < dimindex(:'a)) then
             (let prog = inst_select_exp c temp temp exp in
               if n = 0 then
@@ -292,28 +291,27 @@ Definition inst_select_exp_def:
   (*Make it total*)
   (inst_select_exp _ _ _ _ = Skip)
 Termination
-  WF_REL_TAC `measure (exp_size ARB o SND o SND o SND)`
+  WF_REL_TAC `measure (exp_size o SND o SND o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ fs[exp_size_def]
    \\ TRY (DECIDE_TAC)
 End
 
 Theorem inst_select_exp_pmatch:
   !c tar temp exp.
-  inst_select_exp (c:asm_config) tar temp (exp:'a wordLang$exp) =
+  (inst_select_exp (c:asm_config) tar temp (exp:wordLang$exp):'a prog) =
   pmatch exp of
     Load(Op Add [exp';Const w]) =>
-      if addr_offset_ok c (w2i w) then
+      if addr_offset_ok c w then
         let prog = inst_select_exp c temp temp exp' in
-          Seq prog (Inst (Mem Load tar (Addr temp (w2i w))))
+          Seq prog (Inst (Mem Load tar (Addr temp w)))
       else
         (let prog = inst_select_exp c temp temp (Op Add [exp'; Const w]) in
           Seq prog (Inst (Mem Load tar (Addr temp 0))))
   | Load exp =>
       (let prog = inst_select_exp c temp temp exp in
       Seq prog (Inst (Mem Load tar (Addr temp 0))))
-  | Const w => Inst (Const tar (w2i w))
+  | Const w => Inst (Const tar w)
   | Var v =>
     Move 0 [tar,v]
   | Lookup store_name =>
@@ -330,14 +328,14 @@ Theorem inst_select_exp_pmatch:
      pmatch e2 of
       Const w =>
       (*t = r op const*)
-      if c.valid_imm (INL op) (w2i w) then
-        Seq (inst_select_exp c temp temp e1) (Inst (Arith (Binop op tar temp (Imm (w2i w)))))
+      if c.valid_imm (INL op) w then
+        Seq (inst_select_exp c temp temp e1) (Inst (Arith (Binop op tar temp (Imm w))))
       (*t = r + const --> t = r - const*)
-      else if op = Add ∧ c.valid_imm (INL Sub) (w2i (-w)) then
-        Seq (inst_select_exp c temp temp e1) (Inst (Arith (Binop Sub tar temp (Imm (w2i (-w))))))
+      else if op = Add ∧ c.valid_imm (INL Sub) (-w) then
+        Seq (inst_select_exp c temp temp e1) (Inst (Arith (Binop Sub tar temp (Imm (-w)))))
       else
       (*no immediates*)
-        let p2 = Inst (Const (temp+1) (w2i w)) in
+        let p2 = Inst (Const (temp+1) w) in
         Seq (inst_select_exp c temp temp e1) (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))
     | _ =>
       let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
@@ -345,7 +343,7 @@ Theorem inst_select_exp_pmatch:
   | Shift sh exp e1 =>
    (case e1 of
     | Const shift_len =>
-        let n = w2n shift_len in
+        let n = w2n (i2w shift_len:'a word) in
           if (n < dimindex(:'a)) then
             (let prog = inst_select_exp c temp temp exp in
               if n = 0 then
@@ -390,9 +388,9 @@ Definition inst_select_def:
     let exp = (flatten_exp o pull_exp) exp in
     case exp of
     | Op Add [exp';Const w] =>
-      if addr_offset_ok c (w2i w) then
+      if addr_offset_ok c w then
         let prog = inst_select_exp c temp temp exp' in
-          Seq prog (Inst (Mem Store var (Addr temp (w2i w))))
+          Seq prog (Inst (Mem Store var (Addr temp w)))
       else
         let prog = inst_select_exp c temp temp exp in
           Seq prog (Inst (Mem Store var (Addr temp 0)))
@@ -407,10 +405,10 @@ Definition inst_select_def:
     let exp = (flatten_exp o pull_exp) exp in
     case exp of
     | Op Add [exp';Const w] =>
-      if ((op = Load ∨ op = Store) /\ addr_offset_ok c (w2i w)) ∨
-          ((op = Load32 ∨ op  = Store32) /\ addr_offset_ok c (w2i w)) ∨
-          ((op = Load16 ∨ op  = Store16) /\ hw_offset_ok c (w2i w)) ∨
-          ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c (w2i w)) then
+      if ((op = Load ∨ op = Store) /\ addr_offset_ok c w) ∨
+          ((op = Load32 ∨ op  = Store32) /\ addr_offset_ok c w) ∨
+          ((op = Load16 ∨ op  = Store16) /\ hw_offset_ok c w) ∨
+          ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c w) then
         let prog = inst_select_exp c temp temp exp' in
           Seq prog (ShareInst op v (Op Add [Var temp; Const w]))
       else
@@ -450,9 +448,9 @@ Theorem inst_select_pmatch:
     (let exp = (flatten_exp o pull_exp) exp in
     pmatch exp of
     | Op Add [exp';Const w] =>
-      if addr_offset_ok c (w2i w) then
+      if addr_offset_ok c w then
         let prog = inst_select_exp c temp temp exp' in
-          Seq prog (Inst (Mem Store var (Addr temp (w2i w))))
+          Seq prog (Inst (Mem Store var (Addr temp w)))
       else
         let prog = inst_select_exp c temp temp exp in
           Seq prog (Inst (Mem Store var (Addr temp 0)))
@@ -469,10 +467,10 @@ Theorem inst_select_pmatch:
     (let exp = (flatten_exp o pull_exp) exp in
     pmatch exp of
     | Op Add [exp';Const w] =>
-      if ((op = Load ∨ op = Store) /\ addr_offset_ok c (w2i w)) \/
-          ((op = Load32 ∨ op  = Store32) /\ addr_offset_ok c (w2i w)) \/
-          ((op = Load16 ∨ op  = Store16) /\ hw_offset_ok c (w2i w)) \/
-          ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c (w2i w)) then
+      if ((op = Load ∨ op = Store) /\ addr_offset_ok c w) \/
+          ((op = Load32 ∨ op  = Store32) /\ addr_offset_ok c w) \/
+          ((op = Load16 ∨ op  = Store16) /\ hw_offset_ok c w) \/
+          ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c w) then
         let prog = inst_select_exp c temp temp exp' in
           Seq prog (ShareInst op var (Op Add [Var temp; Const w]))
       else

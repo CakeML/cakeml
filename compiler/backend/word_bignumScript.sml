@@ -17,7 +17,7 @@ End
 
 Datatype:
   mini = Skip
-       | Assign num ('a wordLang$exp)
+       | Assign num wordLang$exp
        | Delete (num list)
        | Seq mini mini
        | Load num num address
@@ -38,9 +38,9 @@ End
 
 (* syntax helper funs *)
 
-val Skip_tm = ``Skip:'a word_bignum$mini``
-val Swap_tm = ``Swap:'a word_bignum$mini``
-val Continue_tm = ``Continue:'a word_bignum$mini``
+val Skip_tm = ``Skip:word_bignum$mini``
+val Swap_tm = ``Swap:word_bignum$mini``
+val Continue_tm = ``Continue:word_bignum$mini``
 
 local val s = HolKernel.syntax_fns1 "word_bignum" in
   val (Delete_tm,mk_Delete,dest_Delete,is_Delete) = s "Delete"
@@ -111,7 +111,7 @@ fun get_exp x =
   in wordLangSyntax.mk_Var n end handle HOL_ERR _ =>
   (* Const *) let
   val _ = wordsSyntax.dest_n2w x
-  in wordLangSyntax.mk_Const x end handle HOL_ERR _ =>
+  in wordLangSyntax.mk_Const (intSyntax.mk_injected (fst (wordsSyntax.dest_n2w x))) end handle HOL_ERR _ =>
   (* Op *) let
   val (_,name) = first (fn (pat,_) => can (match_term pat) x) binops
   val x1 = get_exp (x |> rator |> rand)
@@ -122,7 +122,7 @@ fun get_exp x =
   val (_,name) = first (fn (pat,_) => can (match_term pat) x) shifts
   val x1 = get_exp (x |> rator |> rand)
   val x2 = x |> rand
-  in wordLangSyntax.mk_Shift(name,x1,``Const (n2w ^x2)``) end
+  in wordLangSyntax.mk_Shift(name,x1,``Const (& ^x2)``) end
   handle HOL_ERR _ =>
   (* ~ *) let
   val r = wordsSyntax.dest_word_1comp x
@@ -349,14 +349,14 @@ fun get_full_prog inp tm = let
                                  handle HOL_ERR _ => true)
              |> LIST_CONJ |> CONJ (REFL init_prog) |> concl
   fun is_delete tm =
-    can (match_term ``(Delete n):'a mini``) tm
-  val Add_tm = ``(Add n1 n2):num -> reg_imm -> reg_imm -> α mini``
-  val Sub_tm = ``(Sub n1 n2):num -> reg_imm -> reg_imm -> α mini``
-  val Mul_tm = ``(Mul n1 n2):num -> num -> α mini``
-  val Div_tm = ``(Div n1 n2):num -> num -> num -> α mini``
+    can (match_term ``(Delete n):mini``) tm
+  val Add_tm = ``(Add n1 n2):num -> reg_imm -> reg_imm -> mini``
+  val Sub_tm = ``(Sub n1 n2):num -> reg_imm -> reg_imm -> mini``
+  val Mul_tm = ``(Mul n1 n2):num -> num -> mini``
+  val Div_tm = ``(Div n1 n2):num -> num -> num -> mini``
   fun is_assign tm =
-    can (match_term ``(Assign n):α wordLang$exp -> α mini``) tm orelse
-    can (match_term ``(Load n):num -> address -> α mini``) tm orelse
+    can (match_term ``(Assign n):wordLang$exp -> mini``) tm orelse
+    can (match_term ``(Load n):num -> address -> mini``) tm orelse
     can (match_term Add_tm) tm orelse can (match_term (rator Add_tm)) tm orelse
     can (match_term Sub_tm) tm orelse can (match_term (rator Sub_tm)) tm orelse
     can (match_term Mul_tm) tm orelse can (match_term (rator Mul_tm)) tm orelse
@@ -443,7 +443,7 @@ Definition compile_exp_def:
   compile_exp (Var n) = Lookup (Temp (n2w n)) /\
   compile_exp (Const w) = Const w /\
   compile_exp (Shift sh x y) = Shift sh (compile_exp x) (compile_exp y) /\
-  compile_exp _ = Const 0w
+  compile_exp _ = Const 0
 End
 
 Definition TempIn1_def:
@@ -462,13 +462,13 @@ End
 
 Definition SeqTempImm_def:
   SeqTempImm i (Reg r) p = SeqTemp i r p /\
-  SeqTempImm i (Imm w) p = Seq (wordLang$Assign i (Const (i2w w))) p
+  SeqTempImm i (Imm w) p = Seq (wordLang$Assign i (Const w)) p
 End
 
 Definition SeqTempImmNot_def:
   SeqTempImmNot i (Reg r) p =
-    SeqTemp i r (Seq (Assign i (Op Xor [Var i; Const (~0w)])) p) /\
-  SeqTempImmNot i (Imm w) p = Seq (wordLang$Assign i (Const (~(i2w w)))) p
+    SeqTemp i r (Seq (Assign i (Op Xor [Var i; Const (-1)])) p) /\
+  SeqTempImmNot i (Imm w) p = Seq (wordLang$Assign i (Const (-w - 1))) p
 End
 
 Definition SeqIndex_def:

@@ -5,9 +5,12 @@ Theory word_instProof
 Libs
   preamble
 Ancestors
-  wordLang wordProps word_inst wordSem wordConvs asm
+  wordLang wordProps word_inst wordSem wordConvs asm word_simpProof
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = augment_srw_ss [rewrites [integer_wordTheory.i2w_pos,
+                                  integer_wordTheory.i2w_minus_1,
+                                  integer_wordTheory.MULT_MINUS_ONE]]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
@@ -65,7 +68,8 @@ Proof
   ho_match_mp_tac convert_sub_ind>>srw_tac[][convert_sub_def,word_exp_def]>>unabbrev_all_tac>>
   full_simp_tac(srw_ss())[word_op_def,the_words_def]>>
   EVERY_CASE_TAC>>
-  simp[]
+  simp[integerTheory.int_sub,integer_wordTheory.MULT_MINUS_ONE,
+       integer_wordTheory.word_i2w_add]
 QED
 
 (*In general, any permutation works*)
@@ -193,7 +197,7 @@ QED
 Theorem word_exp_swap_head[local]:
   ∀B.
   op ≠ Sub ⇒
-  word_exp s (Op op A) = SOME (Word w) ⇒
+  word_exp s (Op op A) = SOME (Word (i2w w)) ⇒
   word_exp s (Op op (B++A)) = word_exp s (Op op (Const w::B))
 Proof
   fs[word_exp_def,the_words_append,the_words_def]>>rw[]>>
@@ -216,19 +220,16 @@ Theorem all_consts_simp[local]:
   ∀ls.
   EVERY is_const ls ⇒
   word_exp s (Op op ls) =
-  SOME( Word(THE (word_op op (MAP rm_const ls))))
+  SOME (Word (i2w (THE (int_op op (MAP rm_const ls)))))
 Proof
-  strip_tac>>Induct>>
-  fs[word_exp_def,the_words_def]
-  >-
-    (fs[word_op_def]>>
-    Cases_on`op`>>full_simp_tac(srw_ss())[])
-  >>
-  rw[]>>
-  Cases_on`h`>>
-  gvs[is_const_def,word_exp_def,AllCaseEqs()]>>
-  drule EVERY_is_const_word_exp>>rw[]>>
-  Cases_on`op`>>fs[word_op_def,rm_const_def]
+  rw []
+  \\ `MAP (λa. word_exp s a) ls = MAP (SOME o Word o i2w) (MAP rm_const ls)` by
+    (rw [MAP_MAP_o,MAP_EQ_f] \\ fs [EVERY_MEM] \\ res_tac
+     \\ rename1 `word_exp s e = _` \\ Cases_on `e`
+     \\ fs [is_const_def,word_exp_def,rm_const_def])
+  \\ fs [word_exp_def,word_simpProofTheory.the_words_int_thm,
+         word_simpProofTheory.int_op_correct]
+  \\ Cases_on `op` \\ fs [word_simpTheory.int_op_def]
 QED
 
 Theorem word_exp_reduce_const[local]:
@@ -401,9 +402,8 @@ Definition binary_branch_exp_def:
   (binary_branch_exp (Shift shift exp nexp) = (binary_branch_exp exp ∧ binary_branch_exp nexp)) ∧
   (binary_branch_exp exp = T)
 Termination
-  WF_REL_TAC `measure (exp_size ARB)`
+  WF_REL_TAC `measure exp_size`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ full_simp_tac(srw_ss())[exp_size_def]
    \\ TRY (DECIDE_TAC)
 End
@@ -441,12 +441,12 @@ Theorem inst_select_exp_thm[local]:
     else if x < temp then lookup x loc' = lookup x s.locals
     else T
 Proof
-  completeInduct_on`exp_size (K 0) exp`>>
+  completeInduct_on`exp_size exp`>>
   rpt strip_tac>>
   Cases_on`exp`>>
   full_simp_tac(srw_ss())[evaluate_def,binary_branch_exp_def,every_var_exp_def]
   >-
-    (rename [‘Const’]>>
+    (rename [‘wordLang$Const’]>>
     simp[inst_select_exp_def]>>
     full_simp_tac(srw_ss())[LET_THM,evaluate_def,inst_def,mem_load_def,assign_def,word_exp_def,set_var_def,mem_load_def,word_op_def]>>
     simp[state_component_equality,locals_rel_def,lookup_insert]>>
@@ -496,7 +496,7 @@ Proof
         rw[]>>DISJ2_TAC>>rw[]>>
         `x ≠ temp` by DECIDE_TAC>>metis_tac[]))
     >>
-      `inst_select_exp c tar temp (Load e) =
+      `(inst_select_exp c tar temp (Load e):'a prog) =
         let prog = inst_select_exp c temp temp e in
           Seq prog (Inst (Mem Load tar (Addr temp 0)))` by
       (full_simp_tac(srw_ss())[inst_select_exp_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])>>
@@ -597,7 +597,7 @@ Proof
           srw_tac[][]))>>
       ntac 2 (disch_then assume_tac)
       >>
-        `inst_select_exp c tar temp (Op b [e1;e2]) =
+        `(inst_select_exp c tar temp (Op b [e1;e2]):'a prog) =
         let p1 = inst_select_exp c temp temp e1 in
         let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
           Seq p1 (Seq p2 (Inst (Arith (Binop b tar temp (Reg (temp+1))))))` by
@@ -675,9 +675,9 @@ Proof
       srw_tac[][]>>DISJ2_TAC>>strip_tac>>`x ≠ temp` by DECIDE_TAC>>
       metis_tac[])
     >-
-      (`w2n l ≥ dimindex(:'a)` by DECIDE_TAC>>
+      (`w2n (i2w l:'a word) ≥ dimindex(:'a)` by DECIDE_TAC>>
       full_simp_tac(srw_ss())[word_sh_def]))>>
-    `inst_select_exp c tar temp (Shift ss e e0) =
+    `(inst_select_exp c tar temp (Shift ss e e0):'a prog) =
       let p = inst_select_exp c temp temp e in
       let p1 = inst_select_exp c (temp+1) (temp+1) e0 in
       Seq p (Seq p1 (Inst (Arith (Shift ss tar temp (Reg (temp+1))))))` by

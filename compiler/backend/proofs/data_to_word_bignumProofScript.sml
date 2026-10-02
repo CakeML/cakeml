@@ -18,7 +18,9 @@ val _ = temp_delsimps ["NORMEQ_CONV", "fromAList_def", "domain_union",
                        "sptree.insert_notEmpty", "sptree.isEmpty_union"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
-val _ = augment_srw_ss [rewrites [integer_wordTheory.i2w_pos, integer_wordTheory.i2w_w2i]]
+val _ = augment_srw_ss [rewrites [integer_wordTheory.i2w_pos, integer_wordTheory.i2w_w2i,
+  data_to_wordTheory.get_lowerbits_def,data_to_wordTheory.make_ptr_def,
+  data_to_wordTheory.make_cons_ptr_def]]
 
 val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="wordSem"};
 
@@ -60,7 +62,7 @@ Proof
 QED
 
 Theorem word_exp_set_var_ShiftVar_lemma:
-   word_exp t (ShiftVar sow v n) =
+   word_exp (t:('a,'c,'ffi) wordSem$state) (ShiftVar (dimindex (:'a)) sow v n) =
     case lookup v t.locals of
     | SOME (Word w) =>
         OPTION_MAP Word
@@ -68,7 +70,7 @@ Theorem word_exp_set_var_ShiftVar_lemma:
                      | Lsr => SOME (w >>> n)
                      | Asr => SOME (w >> n)
                      | Ror => SOME (word_ror w n))
-    | _ => FAIL (word_exp t (ShiftVar sow v n)) "lookup failed"
+    | _ => FAIL (word_exp t (ShiftVar (dimindex (:'a)) sow v n)) "lookup failed"
 Proof
   Cases_on `lookup v t.locals` \\ fs [] \\ rw [FAIL_DEF]
   \\ Cases_on ‘x’ \\ gvs []
@@ -489,6 +491,7 @@ QED
 Theorem get_real_addr_lemma:
    shift_length c < dimindex (:'a) /\
     good_dimindex (:'a) /\
+    arch_width_bits c.arch_width = dimindex (:'a) /\
     get_var v (t:('a,'c,'ffi) wordSem$state) = SOME (Word ptr_w) /\
     get_real_addr c t.store ptr_w = SOME x ==>
     word_exp t (real_addr c v) = SOME (Word (x:'a word))
@@ -499,7 +502,8 @@ Proof
   \\ eval_tac \\ fs [] \\ rw [wordSemTheory.get_var_def]
   \\ eval_tac \\ fs [] \\ rw [] \\ fs []
   \\ fs [good_dimindex_def,dimword_def] \\ rw []
-  \\ rfs [backend_commonTheory.word_shift_def] \\ fs []
+  \\ rfs [backend_commonTheory.word_shift_def]
+  \\ fs [DECIDE ``(a:num) <= b ==> a - b = 0``]
 QED
 
 Theorem memory_rel_lookup:

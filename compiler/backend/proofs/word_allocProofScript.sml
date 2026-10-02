@@ -1251,7 +1251,7 @@ Resume evaluate_apply_colour[Inst]:
   Cases_on`i`>> (TRY (Cases_on`a`))>> (TRY(Cases_on`m`))>>
   full_simp_tac(srw_ss())[get_live_def,get_live_inst_def,inst_def,assign_def,word_add_carry_def]
   >-
-  (Cases_on`word_exp st (Const (i2w c))`>>
+  (Cases_on`word_exp st (Const c)`>>
   fs[word_exp_def,set_var_def,domain_union,get_writes_def,get_writes_inst_def]>>
   match_mp_tac strong_locals_rel_insert>>
   metis_tac[INSERT_SING_UNION])
@@ -7847,7 +7847,7 @@ Resume ssa_cc_trans_correct[Inst]:
     fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,evaluate_def,LET_THM]
     >~[`Const`]
     >- (
-      Cases_on`word_exp st (Const (i2w c))`>>
+      Cases_on`word_exp st (Const c)`>>
       full_simp_tac(srw_ss())[set_var_def,word_exp_def]>>
       match_mp_tac ssa_locals_rel_set_var>>
       full_simp_tac(srw_ss())[every_var_inst_def,every_var_def])
@@ -10965,7 +10965,7 @@ QED
 Theorem exp_to_addr_ShareInst[local]:
   exp_to_addr exp = SOME (Addr n c) <=>
     ((exp = Var n /\ c = 0) \/
-     (?offset. exp = Op Add [Var n; Const offset] /\ c = w2i offset))
+     (?offset. exp = Op Add [Var n; Const offset] /\ c = offset))
 Proof
   eq_tac
   >- (

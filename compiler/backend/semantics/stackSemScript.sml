@@ -126,7 +126,7 @@ Definition dec_clock_def:
 End
 
 Definition word_exp_def:
-  (word_exp s (Const w) = SOME w) /\
+  (word_exp s (Const i) = SOME (i2w i)) /\
   (word_exp s (Var v) =
      case FLOOKUP s.regs v of
      | SOME (Word w) => SOME w
@@ -149,9 +149,8 @@ Definition word_exp_def:
      | (SOME w, SOME w1) => word_sh sh w (w2n w1)
      | _ => NONE)
 Termination
-  WF_REL_TAC `measure (exp_size ARB o SND)`
+  WF_REL_TAC `measure (exp_size o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC wordLangTheory.MEM_IMP_exp_size
-   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ DECIDE_TAC
 End
 
@@ -410,7 +409,7 @@ Definition inst_def:
   inst i (s:('a,'c,'ffi) stackSem$state) =
     case i of
     | Skip => SOME s
-    | Const reg w => assign reg (Const (i2w w)) s
+    | Const reg w => assign reg (Const w) s
     | Arith (Binop bop r1 r2 ri) =>
         if bop = Or /\ ri = Reg r2 then
           case FLOOKUP s.regs r2 of
@@ -419,11 +418,11 @@ Definition inst_def:
         else
           assign r1
             (Op bop [Var r2; case ri of Reg r3 => Var r3
-                                      | Imm w => Const (i2w w)]) s
+                                      | Imm w => Const w]) s
     | Arith (Shift sh r1 r2 ri) =>
         assign r1
           (Shift sh (Var r2) (case ri of Reg r3 => Var r3
-                                       | Imm w => Const (i2w w))) s
+                                       | Imm w => Const w)) s
     | Arith (Div r1 r2 r3) =>
        (let vs = get_vars[r3;r2] s in
        case vs of
@@ -473,14 +472,14 @@ Definition inst_def:
          else NONE
       | _ => NONE)
     | Mem Load r (Addr a w) =>
-       (case word_exp s (Op Add [Var a; Const (i2w w)]) of
+       (case word_exp s (Op Add [Var a; Const w]) of
         | NONE => NONE
         | SOME w =>
             case mem_load w s of
             | NONE => NONE
             | SOME w => SOME (set_var r w s))
     | Mem Load8 r (Addr a w) =>
-       (case word_exp s (Op Add [Var a; Const (i2w w)]) of
+       (case word_exp s (Op Add [Var a; Const w]) of
         | SOME w =>
            (case mem_load_byte_aux s.memory s.mdomain s.be w of
             | NONE => NONE
@@ -488,21 +487,21 @@ Definition inst_def:
         | _ => NONE)
     | Mem Load16 _ _ => NONE
     | Mem Load32 r (Addr a w) =>
-       (case word_exp s (Op Add [Var a; Const (i2w w)]) of
+       (case word_exp s (Op Add [Var a; Const w]) of
         | SOME w =>
            (case mem_load_32 s.memory s.mdomain s.be w of
             | NONE => NONE
             | SOME w => SOME (set_var r (Word (w2w w)) s))
         | _ => NONE)
     | Mem Store r (Addr a w) =>
-       (case (word_exp s (Op Add [Var a; Const (i2w w)]), get_var r s) of
+       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME a, SOME w) =>
             (case mem_store a w s of
              | SOME s1 => SOME s1
              | NONE => NONE)
         | _ => NONE)
     | Mem Store8 r (Addr a w) =>
-       (case (word_exp s (Op Add [Var a; Const (i2w w)]), get_var r s) of
+       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME a, SOME (Word w)) =>
             (case mem_store_byte_aux s.memory s.mdomain s.be a (w2w w) of
              | SOME new_m => SOME (s with memory := new_m)
@@ -510,7 +509,7 @@ Definition inst_def:
         | _ => NONE)
     | Mem Store16 _ _ => NONE
     | Mem Store32 r (Addr a w) =>
-       (case (word_exp s (Op Add [Var a; Const (i2w w)]), get_var r s) of
+       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME a, SOME (Word w)) =>
             (case mem_store_32 s.memory s.mdomain s.be a (w2w w) of
              | SOME new_m => SOME (s with memory := new_m)
@@ -926,7 +925,7 @@ Definition evaluate_def:
       | _ => (SOME Error,s))
       | _ => (SOME Error,s))) /\
   (evaluate (ShMemOp op r (Addr a w),s) =
-    (case word_exp s (Op Add [Var a; Const (i2w w)]) of
+    (case word_exp s (Op Add [Var a; Const w]) of
      | SOME a =>
          if s.clock = 0 then (SOME TimeOut,empty_env s) else
            sh_mem_op op r a (dec_clock s)

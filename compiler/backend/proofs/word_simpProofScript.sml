@@ -5,7 +5,9 @@ Theory word_simpProof
 Libs
   preamble
 Ancestors
-  mllist wordLang wordSem wordProps word_simp alist
+  integer_word int_bitwise mllist wordLang wordSem wordProps word_simp alist
+
+val word_exp_def = wordSemTheory.word_exp_def;
 
 val s = ``s:('a,'c,'ffi) wordSem$state``
 
@@ -125,12 +127,186 @@ QED
 
 (** verification of const_fp **)
 
+Theorem i2w_not[local]:
+  i2w (-i - 1) = ~(i2w i:'a word)
+Proof
+  `-i - 1 = -1 * i + -1` by intLib.ARITH_TAC
+  \\ pop_assum SUBST1_TAC
+  \\ simp [GSYM word_i2w_add,GSYM word_i2w_mul,i2w_minus_1,
+           WORD_NEG_LMUL,WORD_NOT,word_sub_def]
+QED
+
+Theorem i2w_int_not[local]:
+  i2w (int_not i) = ~(i2w i:'a word)
+Proof
+  simp [int_not_def,i2w_not]
+QED
+
+Theorem i2w_bits[local]:
+  b < dimindex (:'a) ==> ((i2w i:'a word) ' b = int_bit b i)
+Proof
+  rw [int_bit_def]
+  >- (`0 <= int_not i` by (fs [int_not_def] \\ intLib.ARITH_TAC)
+      \\ `i2w i = ~(i2w (int_not i):'a word)` by
+        metis_tac [i2w_int_not,int_not_not]
+      \\ pop_assum SUBST1_TAC
+      \\ fs [integer_wordTheory.i2w_def,GSYM integerTheory.INT_NOT_LT,word_1comp_def,
+               fcpTheory.FCP_BETA,word_index])
+  \\ fs [integer_wordTheory.i2w_def,word_index]
+QED
+
+Theorem i2w_int_and[local]:
+  i2w (int_and i j) = (i2w i && i2w j:'a word)
+Proof
+  rw [fcpTheory.CART_EQ,word_and_def,fcpTheory.FCP_BETA]
+  \\ fs [i2w_bits,int_bit_and]
+QED
+
+Theorem i2w_int_or[local]:
+  i2w (int_or i j) = (i2w i || i2w j:'a word)
+Proof
+  rw [fcpTheory.CART_EQ,word_or_def,fcpTheory.FCP_BETA]
+  \\ fs [i2w_bits,int_bit_or]
+QED
+
+Theorem i2w_int_xor[local]:
+  i2w (int_xor i j) = (word_xor (i2w i) (i2w j):'a word)
+Proof
+  rw [fcpTheory.CART_EQ,word_xor_def,fcpTheory.FCP_BETA]
+  \\ fs [i2w_bits,int_bit_xor]
+QED
+
+Theorem i2w_sub[local]:
+  i2w (i - j) = (i2w i - i2w j:'a word)
+Proof
+  `i - j = i + -1 * j` by intLib.ARITH_TAC
+  \\ pop_assum SUBST1_TAC
+  \\ simp [GSYM word_i2w_add,GSYM word_i2w_mul,i2w_minus_1,
+           WORD_NEG_LMUL,word_sub_def]
+QED
+
+Theorem int_op_correct:
+  word_op op (MAP (i2w:int -> 'a word) ws) = OPTION_MAP i2w (int_op op ws)
+Proof
+  Cases_on `op`
+  >~ [`Sub`] >-
+    (Cases_on `ws` \\ fs [word_op_def,int_op_def]
+     \\ Cases_on `t` \\ fs [word_op_def,int_op_def]
+     \\ Cases_on `t'` \\ fs [word_op_def,int_op_def,i2w_sub])
+  \\ Induct_on `ws`
+  \\ fs [word_op_def,int_op_def,i2w_0,i2w_minus_1,i2w_int_and,
+         i2w_int_or,i2w_int_xor,word_i2w_add]
+QED
+
+Theorem int_unsigned_i2w[local]:
+  int_unsigned (dimindex (:'a)) i = &w2n (i2w i:'a word)
+Proof
+  simp [int_unsigned_def,w2n_i2w,dimword_def]
+QED
+
+Theorem int_signed_i2w[local]:
+  int_signed (dimindex (:'a)) i = w2i (i2w i:'a word)
+Proof
+  simp [int_signed_def,int_unsigned_i2w,w2i_eq_w2n,
+        wordsTheory.INT_MIN_def,dimword_def]
+QED
+
+Theorem i2w_lsr[local]:
+  i2w (&w2n w / &(2 ** n)) = (w:'a word) >>> n
+Proof
+  simp [integerTheory.INT_DIV,i2w_pos,GSYM w2n_lsr]
+QED
+
+Theorem i2w_asr[local]:
+  n < dimindex (:'a) ==>
+  i2w (w2i (w:'a word) / &(2 ** n)) = w >> n
+Proof
+  strip_tac
+  \\ mp_tac (Q.SPECL [`n`,`w2i w`] i2w_DIV)
+  \\ simp [integerTheory.INT_EXP,w2i_le,w2i_ge]
+QED
+
+Theorem i2w_ror[local]:
+  0 < n /\ n < dimindex (:'a) ==>
+  i2w (&w2n (w:'a word) / &(2 ** n) +
+       (&w2n w % &(2 ** n)) * &(2 ** (dimindex (:'a) - n))) = word_ror w n
+Proof
+  strip_tac
+  \\ mp_tac (Q.SPECL [`n`,`w2n (w:'a word)`] word_ror_n2w)
+  \\ fs [integerTheory.INT_DIV,integerTheory.INT_MOD,
+           integerTheory.INT_MUL,integerTheory.INT_ADD,i2w_pos,
+           bitTheory.BITS_THM2,bitTheory.BITS_ZERO3,GSYM dimword_def,
+           w2n_lt,DIMINDEX_GT_0,DECIDE ``0 < k ==> SUC (k - 1) = k``]
+QED
+
+Theorem n2w_ror[local] = i2w_ror |> SIMP_RULE (srw_ss())
+  [integerTheory.INT_DIV,integerTheory.INT_MOD,integerTheory.INT_MUL,
+   integerTheory.INT_ADD,i2w_pos]
+  |> ONCE_REWRITE_RULE [MULT_COMM]
+  |> ONCE_REWRITE_RULE [ADD_COMM];
+
+Theorem int_sh_correct:
+  word_sh sh (i2w i:'a word) (w2n (i2w j:'a word)) =
+  OPTION_MAP i2w (int_sh (dimindex (:'a)) sh i j)
+Proof
+  simp [int_sh_def,int_unsigned_i2w,int_signed_i2w]
+  \\ Cases_on `w2n (i2w j:'a word) = 0` \\ fs [word_sh_def]
+  \\ Cases_on `dimindex (:'a) <= w2n (i2w j:'a word)` \\ fs []
+  \\ Cases_on `sh`
+  \\ fs [i2w_lsr,i2w_asr,n2w_ror,GSYM word_i2w_mul,
+         i2w_pos,WORD_MUL_LSL,WORD_MULT_COMM,integerTheory.INT_ADD,
+         integerTheory.INT_MUL]
+  \\ `0 < w2n (i2w j:'a word)` by
+       (Cases_on `w2n (i2w j:'a word)` \\ fs [])
+  \\ fs [n2w_ror]
+  \\ fs [GSYM w2n_lsr]
+QED
+
+Theorem int_bit_unsigned[local]:
+  int_bit n (&w2n (w:'a word)) = word_bit n w
+Proof
+  `word_bit n w = (n < dimindex (:'a) /\ BIT n (w2n w))` by
+    (mp_tac (Q.SPECL [`n`,`w2n (w:'a word)`] word_bit_n2w)
+     \\ simp [n2w_w2n,DIMINDEX_GT_0,
+              DECIDE ``0 < (k:num) ==> (n <= k - 1 <=> n < k)``])
+  \\ Cases_on `n < dimindex (:'a)` \\ fs [int_bit_def]
+  \\ `w2n w < 2 ** n` by
+    (irule LESS_LESS_EQ_TRANS \\ qexists_tac `dimword (:'a)`
+     \\ fs [w2n_lt,dimword_def,bitTheory.TWOEXP_MONO2])
+  \\ fs [bitTheory.NOT_BIT_GT_TWOEXP]
+QED
+
+Theorem int_and_unsigned_eq_0[local]:
+  (int_and (&w2n (w1:'a word)) (&w2n (w2:'a word)) = 0) <=>
+  (w1 && w2 = 0w)
+Proof
+  simp [Once int_bit_equiv,int_bit_and,int_bit_unsigned,
+        int_bit_def,GSYM WORD_EQ,word_bit_and,word_bit_n2w]
+  \\ metis_tac [word_bit_thm]
+QED
+
+Theorem int_cmp_correct:
+  int_cmp (dimindex (:'a)) cmp i j = word_cmp cmp (i2w i:'a word) (i2w j)
+Proof
+  Cases_on `cmp`
+  \\ simp [int_cmp_def,int_unsigned_i2w,int_signed_i2w,asmTheory.word_cmp_def,
+           w2n_11,WORD_LO,WORD_LTi,int_and_unsigned_eq_0]
+QED
+
 (* gc *)
 
 Definition is_gc_word_const_def:
   is_gc_word_const (Loc _ _) = T /\
-  is_gc_word_const (Word w) = is_gc_const w
+  is_gc_word_const (Word w) = (w && 1w = 0w)
 End
+
+Theorem is_gc_const_i2w:
+  is_gc_const i ==> is_gc_word_const (Word (i2w i:'a word))
+Proof
+  rw [is_gc_const_def,is_gc_word_const_def]
+  \\ pop_assum (mp_tac o AP_TERM ``i2w:int -> 'a word``)
+  \\ simp [i2w_int_and,i2w_pos,i2w_0]
+QED
 
 Definition gc_fun_const_ok_def:
   gc_fun_const_ok (f:'a gc_fun_type) =
@@ -170,7 +346,8 @@ QED
 (* Assign *)
 
 Theorem strip_const_thm:
-   !xs x s. strip_const xs = SOME x ==> MAP (\a. word_exp s a) xs = MAP (SOME o Word) x
+   !xs x s. strip_const xs = SOME x ==>
+     MAP (\a. word_exp s a) xs = MAP (SOME o Word o i2w) x
 Proof
   Induct \\ TRY (Cases_on `h`) \\ fs [strip_const_def, word_exp_def] \\ CASE_TAC \\ fs []
 QED
@@ -181,50 +358,55 @@ Proof
   Induct \\ rw [the_words_def]
 QED
 
-Theorem const_fp_exp_word_exp:
-   !e cs s. (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word w)) ==>
-            word_exp s (const_fp_exp e cs) = word_exp s e
+Theorem the_words_int_thm:
+  the_words (MAP (SOME o Word o i2w) xs) = SOME (MAP i2w xs)
+Proof
+  Induct_on `xs` \\ simp [the_words_def]
+QED
+
+Theorem const_fp_exp_word_exp_lemma[local]:
+  !bits e cs s.
+    bits = dimindex (:'a) /\
+    (!v w. lookup v cs = SOME w ==>
+           get_var v (s:('a,'c,'ffi) wordSem$state) = SOME (Word (i2w w))) ==>
+    word_exp s (const_fp_exp bits e cs) = word_exp s e
 Proof
   ho_match_mp_tac const_fp_exp_ind \\ rw [const_fp_exp_def]
-  >-
-  (CASE_TAC \\ rw [word_exp_def] \\ fs [get_var_def])
-  >-
-  (CASE_TAC \\ rw [word_exp_def] \\
-  `(MAP (\a. word_exp s a) (MAP (\a. const_fp_exp a cs) args)) =
-   (MAP (\a. word_exp s a) args)` by (fs [] \\ fs [MAP_MAP_o, MAP_EQ_f]) \\ fs [] \\
-  `MAP (\a. word_exp s a) args = MAP (SOME o Word) x` by metis_tac [strip_const_thm] \\
-  fs [the_words_thm] \\ CASE_TAC \\ fs [word_exp_def] \\
-  rw [MAP_MAP_o, o_DEF, word_exp_def, SIMP_RULE std_ss [o_DEF] the_words_thm])
-  >-
-  (CASE_TAC \\ CASE_TAC \\ rw [word_exp_def] \\ every_case_tac \\
-  res_tac \\ qpat_x_assum `_ = word_exp s e` (assume_tac o GSYM) \\ gvs [word_exp_def])
+  >- (CASE_TAC \\ rw [word_exp_def] \\ fs [get_var_def])
+  >- (CASE_TAC \\ rw [word_exp_def]
+      \\ `(MAP (\a. word_exp s a)
+                 (MAP (\a. const_fp_exp (dimindex (:'a)) a cs) args)) =
+           (MAP (\a. word_exp s a) args)` by
+           fs [MAP_MAP_o,MAP_EQ_f]
+      \\ fs []
+      \\ `MAP (\a. word_exp s a) args = MAP (SOME o Word o i2w) x` by
+           metis_tac [strip_const_thm]
+      \\ fs [the_words_int_thm,int_op_correct]
+      \\ CASE_TAC \\ fs [word_exp_def,MAP_MAP_o,o_DEF,int_op_correct,
+           SIMP_RULE std_ss [o_DEF] the_words_int_thm])
+  >- (CASE_TAC \\ CASE_TAC \\ rw [word_exp_def]
+      \\ every_case_tac \\ res_tac
+      \\ qpat_x_assum `_ = word_exp s e` (assume_tac o GSYM)
+      \\ gvs [word_exp_def,int_sh_correct])
+QED
+
+Theorem const_fp_exp_word_exp:
+  !e cs s.
+    (!v w. lookup v cs = SOME w ==>
+      get_var v (s:('a,'c,'ffi) wordSem$state) = SOME (Word (i2w w))) ==>
+    word_exp s (const_fp_exp (dimindex (:'a)) e cs) = word_exp s e
+Proof
+  metis_tac [const_fp_exp_word_exp_lemma]
 QED
 
 Theorem const_fp_exp_word_exp_const:
-   !e cs s c. (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word w)) /\
-              const_fp_exp e cs = Const c ==>
-              word_exp s e = SOME (Word c)
+  !e cs s c.
+    (!v w. lookup v cs = SOME w ==>
+      get_var v (s:('a,'c,'ffi) wordSem$state) = SOME (Word (i2w w))) /\
+    const_fp_exp (dimindex (:'a)) e cs = Const c ==>
+    word_exp s e = SOME (Word (i2w c))
 Proof
-  ho_match_mp_tac const_fp_exp_ind \\ rw [const_fp_exp_def]
-
-  >- (* Var *)
-  (every_case_tac \\ rw [word_exp_def] \\ fs [get_var_def])
-
-  >- (* Op *)
-  (every_case_tac \\ rw [word_exp_def] \\
-  `(MAP (\a. word_exp s a) args) =
-   (MAP (\a. word_exp s a) (MAP (\a. const_fp_exp a cs) args))`
-  by (fs [MAP_MAP_o, MAP_EQ_f, const_fp_exp_word_exp]) \\
-  asm_rewrite_tac [] \\ imp_res_tac strip_const_thm \\
-  last_x_assum (qspec_then `s` assume_tac) \\ asm_rewrite_tac [] \\
-  rw [the_words_thm])
-
-  >- (* Shift *)
-  (every_case_tac \\ rw [word_exp_def] \\ res_tac \\
-  qpat_x_assum `!c. _` (qspec_then `c'` assume_tac) \\ fs [])
-
-  >- (* Others *)
-  (rw [word_exp_def])
+  metis_tac [const_fp_exp_word_exp,word_exp_def]
 QED
 
 (* Move *)
@@ -336,9 +518,9 @@ QED
 (* If *)
 
 Theorem get_var_imm_cs_imp_get_var_imm:
-   !x y s cs. (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word w)) /\
+   !x y s cs. (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word (i2w w))) /\
               get_var_imm_cs x cs = SOME y ==>
-              get_var_imm x s = SOME (Word y)
+              get_var_imm x s = SOME (Word (i2w y))
 Proof
   rw [] \\ Cases_on `x` \\ fs [get_var_imm_cs_def, get_var_imm_def]
 QED
@@ -361,18 +543,18 @@ QED
 
 Theorem cs_delete_if_set:
    !x v1 v2 s cs w.
-   (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word w)) /\
+   (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word (i2w w))) /\
   lookup v2 (delete v1 cs) = SOME w ==>
-  get_var v2 (set_var v1 x s) = SOME (Word w)
+  get_var v2 (set_var v1 x s) = SOME (Word (i2w w))
 Proof
   rw [get_var_set_var_thm] \\ fs [lookup_delete]
 QED
 
 Theorem cs_delete_if_set_x2:
    !x1 x2 v1 v2 v3 s cs w.
-   (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word w)) /\
+   (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word (i2w w))) /\
   lookup v3 (delete v2 (delete v1 cs)) = SOME w ==>
-  get_var v3 (set_var v2 x2 (set_var v1 x1 s)) = SOME (Word w)
+  get_var v3 (set_var v2 x2 (set_var v1 x1 s)) = SOME (Word (i2w w))
 Proof
   rw [] \\ irule cs_delete_if_set \\ metis_tac [cs_delete_if_set]
 QED
@@ -894,7 +1076,7 @@ Finalise evaluate_sf_gc_consts;
 
 Theorem evaluate_drop_consts_1:
   ∀vs rest s.
-  (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word w)) ==>
+  (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word (i2w w))) ==>
   evaluate (drop_consts cs vs,s) = (NONE, s)
 Proof
   Induct>>rw[evaluate_def,drop_consts_def]>>
@@ -904,7 +1086,7 @@ Proof
 QED
 
 Theorem evaluate_drop_consts[simp]:
-  (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word w)) ==>
+  (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word (i2w w))) ==>
   evaluate (SmartSeq (drop_consts cs vs) p,s) = evaluate (p, s)
 Proof
   rw[evaluate_SmartSeq,evaluate_def,evaluate_drop_consts_1]
@@ -931,9 +1113,9 @@ Theorem evaluate_const_fp_loop:
   evaluate (p, s) = (res, s') /\
   const_fp_loop p cs = (p', cs') /\
   gc_fun_const_ok s.gc_fun /\
-  (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word w)) ==>
+  (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word (i2w w))) ==>
   evaluate (p', s) = (res, s') /\
-  (res = NONE ==> (!v w. lookup v cs' = SOME w ==> get_var v s' = SOME (Word w)))
+  (res = NONE ==> (!v w. lookup v cs' = SOME w ==> get_var v s' = SOME (Word (i2w w))))
 Proof
   ho_match_mp_tac const_fp_loop_ind \\ (rpt conj_tac)
   >~ [`Loop`] >- suspend "Loop"
@@ -941,7 +1123,7 @@ Proof
   (fs [const_fp_loop_def, evaluate_def] \\ rw [const_fp_move_cs_def] \\
   every_case_tac \\ fs [] \\
   imp_res_tac get_var_move_thm \\ asm_rewrite_tac [] \\
-  imp_res_tac (INST_TYPE [``:'a``|->``:'a word``] lookup_const_fp_move_cs) \\
+  imp_res_tac (INST_TYPE [``:'a`` |-> ``:int``] lookup_const_fp_move_cs) \\
   CASE_TAC \\ fs [])
   >- (** Inst **)
   (rw [] >- fs [const_fp_loop_def] \\
@@ -976,14 +1158,16 @@ Proof
       metis_tac [cs_delete_if_set,cs_delete_if_set_x2])
   )
   >- (** Assign **)
-  (rpt gen_tac \\ strip_tac \\
-  fs [const_fp_loop_def] \\ FULL_CASE_TAC \\ fs [] \\
-  rveq \\ fs [evaluate_def] \\ (rw [] >- (metis_tac [const_fp_exp_word_exp]))
+  (rpt gen_tac \\ strip_tac \\ fs [const_fp_loop_def]
+  \\ FULL_CASE_TAC \\ fs [] \\ rveq \\ fs [evaluate_def]
+  \\ (rw [] >- metis_tac [const_fp_exp_word_exp])
     >- (* Const *)
-    (imp_res_tac const_fp_exp_word_exp_const \\
-    fs [lookup_insert] \\ every_case_tac \\ fs [] \\ rw [get_var_set_var_thm])
+    (imp_res_tac const_fp_exp_word_exp_const
+    \\ fs [lookup_insert] \\ every_case_tac \\ fs []
+    \\ rveq \\ fs [get_var_set_var_thm])
     \\ (* Other cases *)
-    fs [lookup_delete] \\ every_case_tac \\ fs [] \\ rw [get_var_set_var_thm])
+    fs [lookup_delete] \\ every_case_tac \\ fs []
+    \\ rveq \\ fs [get_var_set_var_thm])
   >- (** Get **)
   (fs [const_fp_loop_def] \\ rw [evaluate_def] \\
   every_case_tac \\ fs [] \\ metis_tac [cs_delete_if_set])
@@ -997,7 +1181,7 @@ Proof
   `gc_fun_const_ok (s with <|clock := MustTerminate_limit (:'a); termdep := s.termdep − 1|>).gc_fun`
   by (rw []) \\
   `!v w. lookup v cs = SOME w ==>
-         get_var v (s with <|clock := MustTerminate_limit (:'a); termdep := s.termdep − 1|>) = SOME (Word w)`
+         get_var v (s with <|clock := MustTerminate_limit (:'a); termdep := s.termdep − 1|>) = SOME (Word (i2w w))`
   by (fs [get_var_def]) \\
   res_tac \\ every_case_tac \\ fs [get_var_def] \\ rw [])
   >- (** Seq **)
@@ -1013,7 +1197,7 @@ Proof
   DISCH_TAC \\ fs []
     >- (* Both SOME *)
     (imp_res_tac get_var_imm_cs_imp_get_var_imm \\ res_tac \\ fs [] \\
-    Cases_on `word_cmp cmp x x'` \\ fs [] \\ res_tac \\ rw [])
+    fs [int_cmp_correct] \\ Cases_on `word_cmp cmp (i2w x:'a word) (i2w x')` \\ fs [] \\ res_tac \\ rw [])
 
     \\ (* Otherwise *)
     (rpt (pairarg_tac \\ fs []) \\ every_case_tac \\ rw [evaluate_def] \\
@@ -1072,7 +1256,7 @@ Proof
        last_x_assum drule>>
        strip_tac>>
        disch_then drule>>
-       fs[is_gc_word_const_def,get_var_set_vars_ignore])
+       fs[get_var_set_vars_ignore] \\ metis_tac [is_gc_const_i2w])
     >- (imp_res_tac evaluate_consts \\ imp_res_tac pop_env_gc_fun \\
        fs [set_vars_def])
     >- rw[])
@@ -1095,7 +1279,7 @@ Proof
   fs [push_env_set_store_stack] \\
   imp_res_tac lookup_filter_v_SOME \\
   imp_res_tac lookup_filter_v_SOME_imp \\ fs [lookup_inter_EQ] \\
-  metis_tac [push_env_pop_env_locals_thm, is_gc_word_const_def])
+  metis_tac [push_env_pop_env_locals_thm, is_gc_const_i2w])
 
   >- ( (** StoreConsts **)
     fs [const_fp_loop_def] \\ rw [evaluate_def] \\ every_case_tac \\ fs [] \\
