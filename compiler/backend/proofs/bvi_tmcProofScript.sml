@@ -2180,6 +2180,7 @@ QED
 
 Theorem wrapper_strip_let:
   ∀n loc loc_opt xs x w.
+    float_call n loc (Let xs x) = NONE ∧
     rewrite_wrapper loc loc_opt n (Let xs x) = SOME w ⇒
     ∃w'.
       w = Let xs w' ∧
@@ -2925,6 +2926,412 @@ Proof
   >> strip_tac
   >> simp [evaluate_def]
   >> CASE_TAC >> gvs []
+QED
+
+Theorem find_call_SOME[local]:
+  ∀xs n loc i j.
+    find_call n loc xs i = SOME j ⇒
+    i ≤ j ∧ j < i + LENGTH xs ∧
+    ∀k. k < LENGTH xs ∧ k ≠ j − i ⇒ pure_exp n (EL k xs)
+Proof
+  Induct >> simp [find_call_def]
+  >> rpt gen_tac >> IF_CASES_TAC
+  >- (
+    strip_tac >> first_x_assum drule >> strip_tac >> simp []
+    >> Cases >> simp [] >> strip_tac >> first_x_assum irule >> simp [])
+  >> rw [] >> Cases_on ‘k’ >> gvs [EVERY_EL]
+QED
+
+Theorem float_call_SOME:
+  ∀n loc x e.
+    float_call n loc x = SOME e ⇒
+    ∃xs b j op es us.
+      x = Let xs b ∧
+      j < LENGTH xs ∧
+      (∀k. k < LENGTH xs ∧ k ≠ j ⇒ pure_exp n (EL k xs)) ∧
+      inline (n + LENGTH xs) b = SOME (Op op es) ∧
+      pure_exp (n + LENGTH xs) (Op op es) ∧
+      subst xs (Op op es) = SOME (e,us) ∧
+      ALL_DISTINCT us ∧ MEM j us
+Proof
+  rpt gen_tac
+  >> Cases_on ‘x’ >> simp [float_call_def, AllCaseEqs ()]
+  >> rw []
+  >> drule find_call_SOME >> simp [] >> strip_tac
+  >> qexists_tac ‘j’ >> simp []
+QED
+
+Theorem subst_Op:
+  ∀xs op es e us.
+    subst xs (Op op es) = SOME (e,us) ⇒ ∃es'. e = Op op es'
+Proof
+  rw [subst_def, AllCaseEqs ()] >> simp []
+QED
+
+Theorem subst_uses_lt_lemma[local]:
+  (∀E xs e us.
+     subst xs E = SOME (e,us) ⇒ EVERY (λi. i < LENGTH xs) us) ∧
+  (∀(x:bvi$exp option). T) ∧
+  (∀Es xs es us.
+     substs xs Es = SOME (es,us) ⇒ EVERY (λi. i < LENGTH xs) us)
+Proof
+  ho_match_mp_tac bviTheory.exp_induction
+  >> rw [subst_def, AllCaseEqs ()] >> gvs [LLOOKUP_EQ_EL]
+  >> res_tac
+QED
+
+Theorem subst_pure_fwd_lemma[local]:
+  (∀E xs e us n.
+     subst xs E = SOME (e,us) ∧ pure_exp (n + LENGTH xs) E ∧
+     (∀i. MEM i us ⇒ pure_exp n (EL i xs)) ⇒
+     pure_exp n e) ∧
+  (∀(x:bvi$exp option). T) ∧
+  (∀Es xs es us n.
+     substs xs Es = SOME (es,us) ∧ pure_exps (n + LENGTH xs) Es ∧
+     (∀i. MEM i us ⇒ pure_exp n (EL i xs)) ⇒
+     pure_exps n es)
+Proof
+  ho_match_mp_tac bviTheory.exp_induction
+  >> rw [subst_def, AllCaseEqs ()] >> gvs [pure_exp_def, LLOOKUP_THM]
+  >~ [‘pure_op _ _ ∧ _’] >- (
+    rename [‘substs xs Es = SOME (es1,us)’, ‘pure_op op Es’]
+    >> reverse conj_tac
+    >- (first_x_assum irule >> first_assum $ irule_at Any >> simp [])
+    >> qpat_x_assum ‘substs _ _ = _’ mp_tac
+    >> Cases_on ‘Es’ >> rw [subst_def, AllCaseEqs ()]
+    >> Cases_on ‘op’ >> gvs [pure_op_def]
+    >~ [‘IntOp i’] >- (Cases_on ‘i’ >> gvs [pure_op_def])
+    >> Cases_on ‘b’ >> gvs [pure_op_def])
+  >> conj_tac >> first_x_assum irule >> first_assum $ irule_at Any >> simp []
+QED
+
+Theorem subst_size_lemma[local]:
+  (∀E xs e us.
+     subst xs E = SOME (e,us) ⇒
+     exp_size e + LENGTH us ≤
+     exp_size E + SUM (MAP (λi. exp_size (EL i xs)) us)) ∧
+  (∀(x:bvi$exp option). T) ∧
+  (∀Es xs es us.
+     substs xs Es = SOME (es,us) ⇒
+     list_size exp_size es + LENGTH us ≤
+     list_size exp_size Es + SUM (MAP (λi. exp_size (EL i xs)) us))
+Proof
+  ho_match_mp_tac bviTheory.exp_induction
+  >> rw [subst_def, AllCaseEqs ()] >> gvs [LLOOKUP_THM, SUM_APPEND]
+  >> rpt (first_x_assum drule) >> simp []
+QED
+
+Theorem SUM_MAP_EL_distinct[local]:
+  ∀us xs (f:α -> num).
+    ALL_DISTINCT us ∧ EVERY (λi. i < LENGTH xs) us ⇒
+    SUM (MAP (λi. f (EL i xs)) us) ≤ SUM (MAP f xs)
+Proof
+  rpt strip_tac
+  >> ‘SUM (MAP (λi. f (EL i xs)) us) = ∑ (λi. f (EL i xs)) (set us)’ by (
+    qpat_x_assum ‘ALL_DISTINCT _’ mp_tac >> qid_spec_tac ‘us’
+    >> Induct >> rw [SUM_IMAGE_THM, DELETE_NON_ELEMENT_RWT])
+  >> ‘SUM (MAP f xs) = ∑ (λi. f (EL i xs)) (count (LENGTH xs))’
+    by simp [SUM_IMAGE_count_SUM_GENLIST, GENLIST_EL_MAP]
+  >> simp []
+  >> irule SUM_IMAGE_SUBSET_LE
+  >> gvs [SUBSET_DEF, EVERY_MEM]
+QED
+
+Theorem subst_size_distinct[local]:
+  ∀xs E e us.
+    subst xs E = SOME (e,us) ∧ ALL_DISTINCT us ⇒
+    exp_size e ≤ exp_size E + list_size exp_size xs
+Proof
+  rpt strip_tac
+  >> drule (cj 1 subst_size_lemma) >> strip_tac
+  >> drule (cj 1 subst_uses_lt_lemma) >> strip_tac
+  >> qspecl_then [‘us’, ‘xs’, ‘exp_size’] mp_tac SUM_MAP_EL_distinct
+  >> simp [] >> strip_tac
+  >> ‘SUM (MAP exp_size xs) ≤ list_size exp_size xs’
+    by (rpt (pop_assum kall_tac) >> Induct_on ‘xs’ >> simp [])
+  >> simp []
+QED
+
+Theorem inline_size[local]:
+  ∀m b E. inline m b = SOME E ⇒ exp_size E ≤ exp_size b
+Proof
+  recInduct inline_ind
+  >> rw [inline_def, AllCaseEqs ()] >> simp []
+  >> drule_all subst_size_distinct >> gvs []
+QED
+
+Theorem float_call_size:
+  ∀n loc x e. float_call n loc x = SOME e ⇒ exp_size e < exp_size x
+Proof
+  rpt strip_tac
+  >> drule float_call_SOME >> strip_tac >> gvs []
+  >> drule_all subst_size_distinct >> drule inline_size >> simp []
+QED
+
+Theorem subst_no_mutcons_lemma[local]:
+  (∀E xs e us.
+     subst xs E = SOME (e,us) ∧ EVERY no_mutcons xs ∧ no_mutcons E ⇒
+     no_mutcons e) ∧
+  (∀(x:bvi$exp option). T) ∧
+  (∀Es xs es us.
+     substs xs Es = SOME (es,us) ∧ EVERY no_mutcons xs ∧ EVERY no_mutcons Es ⇒
+     EVERY no_mutcons es)
+Proof
+  ho_match_mp_tac bviTheory.exp_induction
+  >> rw [subst_def, AllCaseEqs ()] >> gvs [LLOOKUP_THM, ETA_THM]
+  >~ [‘no_mutcons (EL _ _)’] >- gvs [EVERY_EL]
+  >> rpt (first_x_assum drule) >> simp []
+QED
+
+Theorem inline_no_mutcons[local]:
+  ∀m b E. inline m b = SOME E ∧ no_mutcons b ⇒ no_mutcons E
+Proof
+  recInduct inline_ind
+  >> rw [inline_def, AllCaseEqs ()] >> gvs [ETA_THM]
+  >> drule (cj 1 subst_no_mutcons_lemma) >> simp []
+QED
+
+Theorem float_call_no_mutcons:
+  ∀n loc x e. float_call n loc x = SOME e ∧ no_mutcons x ⇒ no_mutcons e
+Proof
+  rpt strip_tac
+  >> drule float_call_SOME >> strip_tac >> gvs [ETA_THM]
+  >> drule_all inline_no_mutcons >> strip_tac
+  >> drule (cj 1 subst_no_mutcons_lemma) >> simp []
+QED
+
+Theorem pure_exps_EVERY[local]:
+  ∀n xs. pure_exps n xs ⇔ EVERY (pure_exp n) xs
+Proof
+  Induct_on ‘xs’ >> simp [pure_exp_def]
+QED
+
+Theorem evaluate_EL_pure[local]:
+  ∀xs n env (s:('c,'ffi) bviSem$state) vs s1 i.
+    evaluate (xs,env,s) = (Rval vs,s1) ∧ i < LENGTH xs ∧
+    pure_exp n (EL i xs) ∧ n ≤ LENGTH env ⇒
+    ∀(t:('c,'ffi) bviSem$state).
+      evaluate ([EL i xs],env,t) = (Rval [EL i vs],t)
+Proof
+  Induct >> simp [] >> rpt gen_tac
+  >> simp [Once evaluate_CONS] >> strip_tac
+  >> gvs [CaseEq "prod", CaseEq "result"]
+  >> drule evaluate_SING_IMP >> strip_tac >> gvs []
+  >> Cases_on ‘i’ >> gvs []
+  >- (
+    drule_all (cj 1 evaluate_pure_exp_lemma) >> strip_tac
+    >> first_assum (qspec_then ‘s’ mp_tac) >> simp [])
+  >> first_x_assum drule_all >> simp []
+QED
+
+Theorem evaluate_bindings_except[local]:
+  ∀xs j n env (s:('c,'ffi) bviSem$state).
+    j < LENGTH xs ∧
+    (∀k. k < LENGTH xs ∧ k ≠ j ⇒ pure_exp n (EL k xs)) ∧
+    n ≤ LENGTH env ⇒
+    evaluate ([EL j xs],env,s) =
+    case evaluate (xs,env,s) of
+    | (Rval vs,s1) => (Rval [EL j vs],s1)
+    | (Rerr err,s1) => (Rerr err,s1)
+Proof
+  Induct >> simp [] >> qx_gen_tac ‘x’ >> rpt gen_tac >> strip_tac
+  >> CONV_TAC (RAND_CONV (ONCE_REWRITE_CONV [evaluate_CONS]))
+  >> namedCases_on ‘j’ ["", "i"] >> gvs []
+  >- (
+    ‘pure_exps n xs’ by (
+      simp [pure_exps_EVERY, EVERY_EL] >> rpt strip_tac
+      >> rename1 ‘EL k xs’
+      >> qpat_x_assum ‘∀k. _ ⇒ pure_exp _ _’ (qspec_then ‘SUC k’ mp_tac)
+      >> simp [])
+    >> drule_all (cj 3 evaluate_pure_exp_lemma) >> strip_tac
+    >> namedCases_on ‘evaluate ([x],env,s)’ ["r s2"]
+    >> namedCases_on ‘r’ ["w", "err"] >> gvs []
+    >> drule evaluate_SING_IMP >> strip_tac >> gvs [])
+  >> ‘pure_exp n x’
+    by (qpat_x_assum ‘∀k. _ ⇒ pure_exp _ _’ (qspec_then ‘0’ mp_tac) >> simp [])
+  >> drule_all (cj 1 evaluate_pure_exp_lemma) >> strip_tac >> simp []
+  >> qpat_x_assum ‘∀j n env s. _’ (qspecl_then [‘i’, ‘n’, ‘env’, ‘s’] mp_tac)
+  >> impl_tac >- (
+    rw [] >> qpat_x_assum ‘∀k. _ ⇒ pure_exp _ _’ (qspec_then ‘SUC k’ mp_tac)
+    >> simp [])
+  >> disch_then SUBST1_TAC
+  >> namedCases_on ‘evaluate (xs,env,s)’ ["r s1"]
+  >> Cases_on ‘r’ >> simp []
+QED
+
+Theorem evaluate_subst_0_lemma[local]:
+  (∀E xs e us n env (s:('c,'ffi) bviSem$state) vs s1.
+     subst xs E = SOME (e,us) ∧
+     (∀i. MEM i us ⇒ pure_exp n (EL i xs)) ∧
+     evaluate (xs,env,s) = (Rval vs,s1) ∧ n ≤ LENGTH env ⇒
+     ∀(t:('c,'ffi) bviSem$state).
+       evaluate ([e],env,t) = evaluate ([E],vs ++ env,t)) ∧
+  (∀(x:bvi$exp option). T) ∧
+  (∀Es xs es us n env (s:('c,'ffi) bviSem$state) vs s1.
+     substs xs Es = SOME (es,us) ∧
+     (∀i. MEM i us ⇒ pure_exp n (EL i xs)) ∧
+     evaluate (xs,env,s) = (Rval vs,s1) ∧ n ≤ LENGTH env ⇒
+     ∀(t:('c,'ffi) bviSem$state).
+       evaluate (es,env,t) = evaluate (Es,vs ++ env,t))
+Proof
+  ho_match_mp_tac bviTheory.exp_induction
+  >> rw [subst_def, AllCaseEqs ()]
+  >~ [‘LLOOKUP xs _ = NONE’] >- (
+    gvs [LLOOKUP_THM] >> imp_res_tac evaluate_IMP_LENGTH
+    >> rw [evaluate_def, EL_APPEND2])
+  >~ [‘LLOOKUP xs _ = SOME _’] >- (
+    gvs [LLOOKUP_EQ_EL] >> imp_res_tac evaluate_IMP_LENGTH
+    >> drule_all evaluate_EL_pure >> simp [evaluate_def, EL_APPEND1])
+  >~ [‘evaluate ([Op _ _],_,_)’] >- (
+    first_x_assum drule_all >> strip_tac >> simp [evaluate_def])
+  >~ [‘evaluate ([],_,_)’] >- simp [evaluate_def]
+  >> gvs [DISJ_IMP_THM, FORALL_AND_THM]
+  >> rpt (first_x_assum drule_all >> strip_tac)
+  >> once_rewrite_tac [evaluate_CONS] >> simp []
+QED
+
+Theorem evaluate_subst_1_lemma[local]:
+  (∀E xs e us j n env (s:('c,'ffi) bviSem$state) s1.
+     subst xs E = SOME (e,us) ∧ ALL_DISTINCT us ∧ MEM j us ∧
+     (∀k. k < LENGTH xs ∧ k ≠ j ⇒ pure_exp n (EL k xs)) ∧
+     pure_exp (n + LENGTH xs) E ∧ n ≤ LENGTH env ⇒
+     (∀vs. evaluate (xs,env,s) = (Rval vs,s1) ⇒
+           evaluate ([e],env,s) = evaluate ([E],vs ++ env,s1)) ∧
+     (∀err. evaluate (xs,env,s) = (Rerr err,s1) ⇒
+            evaluate ([e],env,s) = (Rerr err,s1))) ∧
+  (∀(x:bvi$exp option). T) ∧
+  (∀Es xs es us j n env (s:('c,'ffi) bviSem$state) s1.
+     substs xs Es = SOME (es,us) ∧ ALL_DISTINCT us ∧ MEM j us ∧
+     (∀k. k < LENGTH xs ∧ k ≠ j ⇒ pure_exp n (EL k xs)) ∧
+     pure_exps (n + LENGTH xs) Es ∧ n ≤ LENGTH env ⇒
+     (∀vs. evaluate (xs,env,s) = (Rval vs,s1) ⇒
+           evaluate (es,env,s) = evaluate (Es,vs ++ env,s1)) ∧
+     (∀err. evaluate (xs,env,s) = (Rerr err,s1) ⇒
+            evaluate (es,env,s) = (Rerr err,s1)))
+Proof
+  ho_match_mp_tac bviTheory.exp_induction >> simp []
+  >> rpt strip_tac
+  >> gvs [subst_def, AllCaseEqs (), pure_exp_def]
+  >~ [‘evaluate ([Var _],_,_)’] >- (
+    gvs [LLOOKUP_EQ_EL]
+    >> drule_all evaluate_bindings_except
+    >> disch_then (qspec_then ‘s’ mp_tac)
+    >> imp_res_tac evaluate_IMP_LENGTH
+    >> simp [evaluate_def, EL_APPEND1])
+  >~ [‘LLOOKUP _ _ = SOME _’] >- (
+    gvs [LLOOKUP_EQ_EL]
+    >> drule_all evaluate_bindings_except
+    >> disch_then (qspec_then ‘s’ mp_tac)
+    >> simp [])
+  >~ [‘evaluate ([Op _ _],_,_) = evaluate _’] >- (
+    first_x_assum drule_all
+    >> disch_then (qspecl_then [‘s’, ‘s1’] strip_assume_tac)
+    >> first_x_assum drule >> strip_tac
+    >> simp [evaluate_def])
+  >~ [‘evaluate ([Op _ _],_,_)’] >- (
+    first_x_assum drule_all
+    >> disch_then (qspecl_then [‘s’, ‘s1’] strip_assume_tac)
+    >> first_x_assum drule >> strip_tac
+    >> simp [evaluate_def])
+  >> rename [‘subst xs E = SOME (e1,u1)’, ‘substs xs Es = SOME (es1,u2)’]
+  >> gvs [ALL_DISTINCT_APPEND]
+  >~ [‘evaluate (_::_,_,_) = evaluate _’] >- (
+    (* the hole is in the head *)
+    qpat_x_assum ‘∀xs (e:bvi$exp) us j n env s s1. _’
+      (qspecl_then [‘xs’, ‘e1’, ‘u1’, ‘j’, ‘n’, ‘env’, ‘s’, ‘s1’] mp_tac)
+    >> impl_tac >- simp []
+    >> strip_tac >> first_x_assum drule >> strip_tac
+    >> ‘∀i. MEM i u2 ⇒ pure_exp n (EL i xs)’ by (
+      drule (cj 3 subst_uses_lt_lemma) >> rw [EVERY_MEM]
+      >> qpat_x_assum ‘∀k. _ ⇒ pure_exp _ _’ irule
+      >> simp [] >> strip_tac >> gvs [])
+    >> drule_all (cj 3 evaluate_subst_0_lemma) >> strip_tac
+    >> imp_res_tac evaluate_IMP_LENGTH
+    >> drule (cj 1 evaluate_pure_exp_lemma)
+    >> disch_then (qspec_then ‘vs ++ env’ mp_tac) >> impl_tac >- simp []
+    >> strip_tac
+    >> once_rewrite_tac [evaluate_CONS] >> simp [])
+  >~ [‘evaluate (_::_,_,_) = evaluate _’] >- (
+    (* the hole is in the tail, after a pure head *)
+    ‘∀i. MEM i u1 ⇒ pure_exp n (EL i xs)’ by (
+      drule (cj 1 subst_uses_lt_lemma) >> rw [EVERY_MEM]
+      >> qpat_x_assum ‘∀k. _ ⇒ pure_exp _ _’ irule
+      >> simp [] >> strip_tac >> gvs [])
+    >> drule_all (cj 1 evaluate_subst_0_lemma) >> strip_tac
+    >> qpat_x_assum ‘∀xs (es:bvi$exp list) us j n env s s1. _’
+         (qspecl_then [‘xs’, ‘es1’, ‘u2’, ‘j’, ‘n’, ‘env’, ‘s’, ‘s1’] mp_tac)
+    >> impl_tac >- simp []
+    >> strip_tac >> first_x_assum drule >> strip_tac
+    >> imp_res_tac evaluate_IMP_LENGTH
+    >> drule (cj 1 evaluate_pure_exp_lemma)
+    >> disch_then (qspec_then ‘vs ++ env’ mp_tac) >> impl_tac >- simp []
+    >> strip_tac
+    >> once_rewrite_tac [evaluate_CONS] >> simp [])
+  >~ [‘evaluate (_::_,_,_)’] >- (
+    (* the hole is in the head *)
+    qpat_x_assum ‘∀xs (e:bvi$exp) us j n env s s1. _’
+      (qspecl_then [‘xs’, ‘e1’, ‘u1’, ‘j’, ‘n’, ‘env’, ‘s’, ‘s1’] mp_tac)
+    >> impl_tac >- simp []
+    >> strip_tac >> first_x_assum drule >> strip_tac
+    >> once_rewrite_tac [evaluate_CONS] >> simp [])
+  (* the hole is in the tail, after a pure head *)
+  >> ‘∀i. MEM i u1 ⇒ pure_exp n (EL i xs)’ by (
+    drule (cj 1 subst_uses_lt_lemma) >> rw [EVERY_MEM]
+    >> qpat_x_assum ‘∀k. _ ⇒ pure_exp _ _’ irule
+    >> simp [] >> strip_tac >> gvs [])
+  >> drule_all (cj 1 subst_pure_fwd_lemma) >> strip_tac
+  >> drule_all (cj 1 evaluate_pure_exp_lemma) >> strip_tac
+  >> qpat_x_assum ‘∀xs (es:bvi$exp list) us j n env s s1. _’
+       (qspecl_then [‘xs’, ‘es1’, ‘u2’, ‘j’, ‘n’, ‘env’, ‘s’, ‘s1’] mp_tac)
+  >> impl_tac >- simp []
+  >> strip_tac >> first_x_assum drule >> strip_tac
+  >> once_rewrite_tac [evaluate_CONS] >> simp []
+QED
+
+Theorem evaluate_inline[local]:
+  ∀m b E env (s:('c,'ffi) bviSem$state).
+    inline m b = SOME E ∧ m ≤ LENGTH env ⇒
+    evaluate ([b],env,s) = evaluate ([E],env,s)
+Proof
+  recInduct inline_ind
+  >> rw [inline_def, AllCaseEqs ()]
+  >> ‘pure_exps m xs’ by simp [pure_exps_EVERY]
+  >> drule_all (cj 3 evaluate_pure_exp_lemma) >> strip_tac
+  >> first_assum (qspec_then ‘s’ assume_tac)
+  >> imp_res_tac evaluate_IMP_LENGTH
+  >> ‘∀i. MEM i us ⇒ pure_exp m (EL i xs)’ by (
+    drule (cj 1 subst_uses_lt_lemma) >> rw [EVERY_MEM] >> gvs [EVERY_EL])
+  >> drule_all (cj 1 evaluate_subst_0_lemma) >> strip_tac
+  >> simp [evaluate_def]
+QED
+
+Theorem evaluate_float_call:
+  ∀n loc x e env (s:('c,'ffi) bviSem$state).
+    float_call n loc x = SOME e ∧ n ≤ LENGTH env ⇒
+    evaluate ([x],env,s) = evaluate ([e],env,s)
+Proof
+  rpt strip_tac
+  >> drule float_call_SOME >> strip_tac >> gvs []
+  >> drule_all (cj 1 evaluate_subst_1_lemma)
+  >> disch_then (qspec_then ‘s’ mp_tac)
+  >> namedCases_on ‘evaluate (xs,env,s)’ ["r s1"]
+  >> disch_then (qspec_then ‘s1’ strip_assume_tac)
+  >> Cases_on ‘r’ >> gvs []
+  >> CONV_TAC (LAND_CONV (ONCE_REWRITE_CONV [evaluate_def])) >> simp []
+  >> imp_res_tac evaluate_IMP_LENGTH
+  >> drule evaluate_inline >> disch_then irule >> simp []
+QED
+
+Theorem float_call_rewrite:
+  ∀n loc x e loc_opt p i.
+    float_call n loc x = SOME e ⇒
+    rewrite_wrapper loc loc_opt n x = rewrite_wrapper loc loc_opt n e ∧
+    rewrite_worker loc loc_opt p i n x = rewrite_worker loc loc_opt p i n e
+Proof
+  rpt gen_tac >> strip_tac
+  >> drule float_call_SOME >> strip_tac
+  >> drule subst_Op >> strip_tac
+  >> gvs [rewrite_wrapper_def, rewrite_worker_def]
 QED
 
 Theorem WF_I_I[local]:
@@ -4793,7 +5200,22 @@ Resume evaluate_rewrite_tmc[if]:
 QED
 
 Resume evaluate_rewrite_tmc[lett]:
-  gvs [evaluate_def]
+  reverse $ Cases_on ‘float_call (LENGTH env1) loc (Let xs x2)’
+  >- (
+    rename1 ‘float_call _ _ _ = SOME e’
+    >> ‘LENGTH env1 ≤ LENGTH env2’ by (imp_res_tac env_rel_length >> gvs [])
+    >> ‘no_mutcons e’ by (drule float_call_no_mutcons >> gvs [])
+    >> drule float_call_size >> strip_tac
+    >> drule float_call_rewrite >> strip_tac
+    >> qspecl_then [‘LENGTH env1’, ‘loc’, ‘Let xs x2’, ‘e’, ‘env1’, ‘s’] mp_tac evaluate_float_call
+    >> qspecl_then [‘LENGTH env1’, ‘loc’, ‘Let xs x2’, ‘e’, ‘env2’, ‘s'’] mp_tac evaluate_float_call
+    >> simp [] >> rpt strip_tac
+    >> gvs []
+    >> first_x_assum (qspecl_then [‘[e]’, ‘s’, ‘env1’, ‘r’, ‘t’, ‘opt’, ‘f’, ‘s'’, ‘env2’, ‘loc’] mp_tac)
+    >> impl_tac >- simp []
+    >> impl_tac >- gvs []
+    >> simp [])
+  >> gvs [evaluate_def]
   >> gvs [CaseEq "prod", PULL_EXISTS]
   >> rename [‘evaluate (xs,env,s) = (rs,u)’]
   (* First inductive hypothesis *)
@@ -4817,7 +5239,7 @@ Resume evaluate_rewrite_tmc[lett]:
     >> gvs []
     >> rw []
     >-
-     (drule wrapper_strip_let
+     (drule_all wrapper_strip_let
       >> strip_tac
       >> gvs [evaluate_def]
       >> rpt $ first_assum $ irule_at Any)
@@ -6193,6 +6615,45 @@ Proof
   \\ gvs [SUBSET_DEF]
 QED
 
+Theorem subst_code_labels_lemma[local]:
+  (∀E xs e us.
+     subst xs E = SOME (e,us) ⇒
+     get_code_labels e ⊆
+     get_code_labels E ∪ BIGUNION (set (MAP get_code_labels xs))) ∧
+  (∀(x:bvi$exp option). T) ∧
+  (∀Es xs es us.
+     substs xs Es = SOME (es,us) ⇒
+     BIGUNION (set (MAP get_code_labels es)) ⊆
+     BIGUNION (set (MAP get_code_labels Es)) ∪
+     BIGUNION (set (MAP get_code_labels xs)))
+Proof
+  ho_match_mp_tac bviTheory.exp_induction
+  >> rw [subst_def, AllCaseEqs ()] >> gvs [get_code_labels_def, LLOOKUP_EQ_EL]
+  >~ [‘get_code_labels (EL _ _)’] >- (
+    simp [SUBSET_DEF, MEM_MAP, PULL_EXISTS] >> metis_tac [MEM_EL])
+  >> rpt (first_x_assum drule) >> rpt strip_tac
+  >> gvs [SUBSET_DEF] >> metis_tac []
+QED
+
+Theorem inline_code_labels[local]:
+  ∀m b E. inline m b = SOME E ⇒ get_code_labels E ⊆ get_code_labels b
+Proof
+  recInduct inline_ind
+  >> rw [inline_def, AllCaseEqs ()] >> gvs [get_code_labels_def]
+  >> drule (cj 1 subst_code_labels_lemma)
+  >> gvs [SUBSET_DEF] >> metis_tac []
+QED
+
+Theorem float_call_code_labels[local]:
+  ∀n loc x e.
+    float_call n loc x = SOME e ⇒ get_code_labels e ⊆ get_code_labels x
+Proof
+  rpt strip_tac
+  >> drule float_call_SOME >> strip_tac >> gvs []
+  >> drule inline_code_labels >> drule (cj 1 subst_code_labels_lemma)
+  >> gvs [get_code_labels_def, SUBSET_DEF] >> metis_tac []
+QED
+
 Theorem rewrite_wrapper_code_labels[local]:
   ∀loc loc_opt n exp y.
     rewrite_wrapper loc loc_opt n exp = SOME y ⇒
@@ -6203,6 +6664,7 @@ Proof
   \\ gvs [CaseEq "option", CaseEq "prod", CaseEq "call_block",
           cb_to_bvi_wrapper_code_labels]
   \\ imp_res_tac bvi_to_cb_code_labels
+  \\ imp_res_tac float_call_code_labels
   \\ gvs [SUBSET_DEF] \\ rw [] \\ res_tac \\ gvs []
 QED
 
@@ -6218,6 +6680,7 @@ Proof
   \\ gvs [bvi_tmcTheory.fill_hole_def, closLangTheory.assign_get_code_label_def,
           cb_to_bvi_worker_code_labels]
   \\ imp_res_tac bvi_to_cb_code_labels
+  \\ imp_res_tac float_call_code_labels
   \\ gvs [SUBSET_DEF] \\ rw [] \\ res_tac \\ gvs []
 QED
 
