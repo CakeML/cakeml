@@ -5,6 +5,14 @@ User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
 
+xxx xxxth 2026
+-------------------
+
+### Parser bug fix
+
+`@top` now refers to the end of internal memory, as documented.
+Previously, it was parsed as `@base`.
+
 Oct 1st 2026
 -------------------
 
