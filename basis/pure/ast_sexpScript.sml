@@ -3,7 +3,7 @@
 *)
 Theory ast_sexp
 Ancestors
-  ast mlsexp mlint
+  ast mlsexp mlint mlstring
 Libs
   preamble
 
@@ -282,8 +282,8 @@ Definition dest_atom_def:
 End
 
 Definition dest_expr_def:
-  dest_expr (Expr ls) = SOME ls ∧
-  dest_expr _         = NONE
+  (dest_expr (Expr ls) = SOME ls) ∧
+  (dest_expr _         = NONE)
 End
 
 Definition to_int_pair_def:
@@ -333,7 +333,7 @@ Proof
 QED
 
 Definition to_option_def:
-  (to_option f (Atom s) = if s = «NONE» then return NONE else fail) ∧
+  (to_option _ (Atom s) = if s = «NONE» then return NONE else fail) ∧
   (to_option f sexp =
    do
      (tag, args) <- dest_tagged sexp;
@@ -1001,3 +1001,203 @@ Definition to_dec_list_def:
     to_decs ls
   od
 End
+
+(* Round trip lemmas **********************************************************)
+
+Theorem opt_mmap_map_some[local]:
+  (∀x. f (g x) = SOME x) ⇒ OPT_MMAP f (MAP g ls) = SOME ls
+Proof
+  Induct_on ‘ls’ >> simp []
+QED
+
+(** to (from x) = SOME x ******************************************************)
+
+Theorem to_from_option_some:
+  (∀x. f (g x) = SOME x) ⇒ to_option f (from_option g opt) = SOME opt
+Proof
+  Cases_on ‘opt’
+  >> simp [from_option_def, to_option_def, dest_tagged_def]
+QED
+
+Theorem to_from_int_pair_ok:
+  to_int_pair (from_int_pair p) = SOME p
+Proof
+  Cases_on ‘p’
+  >> simp [from_int_pair_def, to_int_pair_def, dest_expr_def, dest_atom_def]
+QED
+
+Theorem to_from_id_ok:
+  to_id (from_id id) = SOME id
+Proof
+  Induct_on ‘id’
+  >> simp [from_id_def, Once to_id_def, dest_tagged_def, dest_atom_def]
+QED
+
+Theorem to_from_lit_ok:
+  to_lit (from_lit lit) = SOME lit
+Proof
+  Cases_on ‘lit’
+  >> simp [to_lit_def, from_lit_def, dest_tagged_def, dest_atom_def,
+           chr_to_str_def]
+  >> Cases_on ‘c’ >> fs []
+QED
+
+Theorem to_from_shift_ok:
+  to_shift (from_shift s) = SOME s
+Proof
+  Cases_on ‘s’ >> simp [from_shift_def, to_shift_def]
+QED
+
+Theorem to_from_arith_ok:
+  to_arith (from_arith a) = SOME a
+Proof
+  Cases_on ‘a’
+  >> simp [from_arith_def, to_arith_def, dest_tagged_def, to_from_shift_ok]
+QED
+
+Theorem to_from_word_size_ok:
+  to_word_size (from_word_size w) = SOME w
+Proof
+  Cases_on ‘w’
+  >> simp [from_word_size_def, to_word_size_def]
+QED
+
+Theorem to_from_prim_type_ok:
+  to_prim_type (from_prim_type pt) = SOME pt
+Proof
+  Cases_on ‘pt’
+  >> simp [from_prim_type_def, to_prim_type_def, dest_tagged_def,
+           to_from_word_size_ok]
+QED
+
+Theorem to_from_thunk_mode_ok:
+  to_thunk_mode (from_thunk_mode tm) = SOME tm
+Proof
+  Cases_on ‘tm’ >> simp [from_thunk_mode_def, to_thunk_mode_def]
+QED
+
+Theorem to_from_thunk_op_ok:
+  to_thunk_op (from_thunk_op t) = SOME t
+Proof
+  Cases_on ‘t’
+  >> simp [from_thunk_op_def, to_thunk_op_def, dest_tagged_def,
+           to_from_thunk_mode_ok]
+QED
+
+Theorem to_from_opb_ok:
+  to_opb (from_opb opb) = SOME opb
+Proof
+  Cases_on ‘opb’ >> simp [from_opb_def, to_opb_def]
+QED
+
+Theorem to_from_test_ok:
+  to_test (from_test t) = SOME t
+Proof
+  Cases_on ‘t’
+  >> simp [to_test_def, from_test_def, dest_tagged_def, to_from_opb_ok]
+QED
+
+Theorem to_from_op_ok:
+  to_op (from_op op) = SOME op
+Proof
+  Cases_on ‘op’
+  (* a bit slow *)
+  >> simp [from_op_def, to_op_def, dest_tagged_def, dest_atom_def,
+           to_from_thunk_op_ok, to_from_test_ok, to_from_prim_type_ok,
+           to_from_arith_ok]
+QED
+
+Theorem to_from_ast_t_ok:
+  (∀t. to_ast_t (from_ast_t t) = SOME t) ∧
+  (∀ts. to_ast_ts (from_ast_ts ts) = SOME ts)
+Proof
+  ho_match_mp_tac ast_t_induction
+  >> rpt strip_tac
+  >> simp [from_ast_t_def, Once to_ast_t_def, dest_tagged_def, dest_atom_def,
+           dest_expr_def, to_from_id_ok]
+QED
+
+Theorem to_from_pat_ok:
+  (∀pat. to_pat (from_pat pat) = SOME pat) ∧
+  (∀pats. to_pats (from_pats pats) = SOME pats)
+Proof
+  ho_match_mp_tac pat_induction
+  >> rw [from_pat_def, to_pat_def, dest_tagged_def, dest_atom_def,
+         dest_expr_def, to_from_lit_ok, to_from_ast_t_ok]
+  >> irule to_from_option_some
+  >> simp [to_from_id_ok]
+QED
+
+Theorem to_from_lop_ok:
+  to_lop (from_lop lop) = SOME lop
+Proof
+  Cases_on ‘lop’ >> simp [from_lop_def, to_lop_def]
+QED
+
+Theorem to_from_locs_ok:
+  to_locs (from_locs locs) = SOME locs
+Proof
+  Cases_on ‘locs’
+  >> simp [from_locs_def, to_locs_def, dest_tagged_def, to_from_int_pair_ok]
+QED
+
+Theorem to_from_exp_ok:
+  (∀e. to_exp (from_exp e) = SOME e) ∧
+  (∀es. to_exps (from_exps es) = SOME es) ∧
+  (∀pes. to_pes (from_pes pes) = SOME pes) ∧
+  (∀funs. to_funs (from_funs funs) = SOME funs)
+Proof
+  ho_match_mp_tac from_exp_ind >> rw []
+  (* a bit slow *)
+  >> simp [from_exp_def, Once to_exp_def, dest_tagged_def,
+           dest_expr_def, dest_atom_def, to_from_id_ok, to_from_lit_ok,
+           to_from_op_ok, to_from_lop_ok, to_from_ast_t_ok, to_from_locs_ok,
+           to_from_pat_ok]
+  >- (irule to_from_option_some >> simp [to_from_id_ok])
+  >- (irule to_from_option_some >> simp [dest_atom_def])
+  >> irule opt_mmap_map_some >> simp [dest_atom_def]
+QED
+
+Theorem to_from_ctor_ok:
+  to_ctor (from_ctor c) = SOME c
+Proof
+  Cases_on ‘c’
+  >> simp [from_ctor_def, to_ctor_def, dest_expr_def, dest_atom_def,
+           to_from_ast_t_ok]
+QED
+
+Theorem to_from_tdef_ok:
+  to_tdef (from_tdef td) = SOME td
+Proof
+  PairCases_on ‘td’
+  >> simp [from_tdef_def, to_tdef_def, dest_expr_def, dest_atom_def]
+  >> conj_tac
+  >> irule opt_mmap_map_some
+  >> simp [dest_atom_def, to_from_ctor_ok]
+QED
+
+Theorem to_from_type_def_ok:
+  to_type_def (from_type_def td) = SOME td
+Proof
+  simp [from_type_def_def, to_type_def_def, dest_expr_def]
+  >> irule opt_mmap_map_some
+  >> simp [to_from_tdef_ok]
+QED
+
+Theorem to_from_dec_ok:
+  (∀dec. to_dec (from_dec dec) = SOME dec) ∧
+  (∀decs. to_decs (from_decs decs) = SOME decs)
+Proof
+  ho_match_mp_tac dec_induction
+  >> simp [from_dec_def, to_dec_def, dest_tagged_def, dest_expr_def,
+           dest_atom_def]
+  >> simp [to_from_locs_ok, to_from_pat_ok, to_from_exp_ok,
+           to_from_type_def_ok, to_from_ast_t_ok]
+  >> irule opt_mmap_map_some >> simp [dest_atom_def]
+QED
+
+Theorem to_from_dec_list_ok:
+  to_dec_list (from_dec_list decs) = SOME decs
+Proof
+  simp [from_dec_list_def, to_dec_list_def, dest_expr_def, to_from_dec_ok]
+QED
