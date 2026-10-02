@@ -2974,7 +2974,8 @@ QED
 Theorem encoding_xis_safe_and_live:
   LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive wlive ∧
   set klatches = set mlatches ∩ set wlatches ∧
-  stratified_cond wxaig wreset wlatches ∧
+  set wdmlatches = set wlatches DIFF set mlatches ∧
+  stratified_cond wxaig wreset wdmlatches ∧
   dep_cond mxaig mreset mnext msafes mcnstrs mlive mlatches ∧
   encodings_unsat
     mxaig mreset mnext msafes mcnstrs mlive mlatches
@@ -3048,8 +3049,10 @@ Proof
   )
   >> sg ‘FINITE (set wlatches)’ >- simp []
   >> drule_all stratified_cond_is_stratified >> strip_tac
-  >> drule_all_then assume_tac is_witness_xis_safe_and_live
-  >> simp []
+  >> drule is_witness_xis_safe_and_live
+  >> rename [‘is_stratified lt’, ‘dep_qxaig minput’]
+  >> disch_then $ qspecl_then [‘minput’, ‘lt’] mp_tac
+  >> gvs []
 QED
 
 (** Mapping names to nums *****************************************************)

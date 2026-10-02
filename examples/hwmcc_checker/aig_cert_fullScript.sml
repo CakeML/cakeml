@@ -24,6 +24,18 @@ Proof
   simp [range_inter_def, EXTENSION, LIST_TO_SET_FILTER]
 QED
 
+(* Removes the elements from the set of numbers from m to n from the set xs. *)
+Definition range_diff_def:
+  range_diff m n xs = FILTER (λh. n < h ∨ h < m) xs
+End
+
+Theorem range_diff_thm:
+  set (range_diff m n xs) = set xs DIFF set [m .. n]
+Proof
+  simp [range_diff_def, EXTENSION, LIST_TO_SET_FILTER, NOT_LE,
+        AC CONJ_ASSOC CONJ_COMM, AC DISJ_ASSOC DISJ_COMM]
+QED
+
 (* Returns whether xs is a subset of the set of numbers from m to n. *)
 Definition range_is_subset_def:
   (range_is_subset [] m n ⇔ T) ∧
@@ -234,12 +246,13 @@ Definition process_and_check_def:
     mxaig <<- aig_to_xaig maig;
     wxaig <<- aig_to_xaig waig;
     klatches <<- range_inter mlatch_start mmax_latch wlatches;
+    wdmlatches <<- range_diff mlatch_start mmax_latch wlatches;
     check_model
       mxaig mreset mnext msafes mcnstrs
       mlatches mlatch_start mmax_latch mlive;
     assert «length mismatch in number of liveness properties/signals»
     (LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive wlive);
-    assert «witness not stratified» (stratified_cond wxaig wreset wlatches);
+    assert «witness not stratified» (stratified_cond wxaig wreset wdmlatches);
     return (mxaig, wxaig, klatches)
   od
 End
@@ -272,7 +285,8 @@ Proof
   >> simp []
   >> irule $ INST_TYPE [“:δ” |-> “:γ”, “:γ” |-> “:num”] encoding_xis_safe_and_live
   >> qpat_assum ‘encodings_unsat _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _’ $ irule_at Any
-  >> simp [range_inter_thm]
+  >> qpat_assum ‘stratified_cond _ _ _’ $ irule_at Any
+  >> simp [range_inter_thm, range_diff_thm]
 QED
 
 Definition make_reset_string_def:

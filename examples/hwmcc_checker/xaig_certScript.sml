@@ -1123,8 +1123,8 @@ Theorem extend_model_trace_to_witness:
   transition_cond
     mxaig mnext mcnstrs mlatches
     wxaig wnext wcnstrs wlatches ∧
-  is_stratified lt wxaig wreset wlatches ∧
-  FINITE wlatches
+  is_stratified lt wxaig wreset (wlatches DIFF mlatches) ∧
+  FINITE (wlatches DIFF mlatches)
   ⇒
   ∃steps'. ∀n.
     xis_trace mxaig mreset mnext mcnstrs mlatches steps n ⇒
@@ -1140,7 +1140,9 @@ Proof
     >> namedCases_on ‘steps 0’ ["is ls"] >> fs []
     >> gvs [mk_trace_def]
     >> qmatch_goalsub_abbrev_tac ‘patch _ _ _ _ xs’
-    >> sg ‘∀l. MEM l xs ⇔ l ∈ (wlatches DIFF mlatches ∩ wlatches)’
+    >> have ‘FINITE (wlatches DIFF mlatches ∩ wlatches)’
+    >- simp [DIFF_INTER2]
+    >> have ‘∀l. MEM l xs ⇔ l ∈ (wlatches DIFF mlatches ∩ wlatches)’
     >- (simp [Abbr ‘xs’, Req0 set_topo_sort_eq])
     >> qmatch_goalsub_abbrev_tac ‘xis_reset ss0’
     >> CONJ_TAC
@@ -1173,7 +1175,8 @@ Proof
       >> irule subset_xis_reset_patch
       >> first_assum $ irule_at (Pos last)
       >> simp [Abbr ‘xs’, Req0 set_topo_sort_eq, ALL_DISTINCT_topo_sort,
-               no_inversions_topo_sort])
+               no_inversions_topo_sort]
+      >> simp [DIFF_INTER2])
     >> simp [steps_agree_def, agree_on_def, Abbr`ss0`]
     >-
      (rw []
@@ -1258,8 +1261,8 @@ Theorem is_witness_xis_safe:
     wxaig wreset wnext wsafes wcnstrs wqxaig wlive wlatches ∧
   dep_model
     mxaig mreset mnext msafes mcnstrs minputs mlatches ∧
-  is_stratified lt wxaig wreset wlatches ∧
-  FINITE wlatches
+  is_stratified lt wxaig wreset (wlatches DIFF mlatches) ∧
+  FINITE (wlatches DIFF mlatches)
   ⇒
   xis_safe
     mxaig mreset mnext mcnstrs mlatches msafes
@@ -1453,13 +1456,14 @@ Theorem is_witness_xis_live:
   (* TODO Does dep_qxaig really need the same minput?
      If not, the proof of encoding_xis_safe_and_live may become tidier *)
   dep_qxaig minput mqxaig mlive mlatches ∧
-  is_stratified lt wxaig wreset wlatches ∧
+  is_stratified lt wxaig wreset (wlatches DIFF mlatches) ∧
   FINITE wlatches
   ⇒
   xis_live
     mxaig mreset mnext mcnstrs mqxaig (IMAGE set (set mlive)) mlatches
 Proof
   rw []
+  >> have ‘FINITE (wlatches DIFF mlatches)’ >- simp []
   (* Get safety of model *)
   >> drule_all_then assume_tac is_witness_xis_safe
   (* Extend trace on model to trace on witness *)
@@ -1596,7 +1600,7 @@ Theorem is_witness_xis_safe_and_live:
     mxaig mreset mnext msafes mcnstrs minput mlatches ∧
   (* TODO See is_witness_xis_live comment *)
   dep_qxaig minput mqxaig mlive mlatches ∧
-  is_stratified lt wxaig wreset wlatches ∧
+  is_stratified lt wxaig wreset (wlatches DIFF mlatches) ∧
   FINITE wlatches
   ⇒
   xis_safe
@@ -1606,6 +1610,7 @@ Theorem is_witness_xis_safe_and_live:
     mxaig mreset mnext mcnstrs mqxaig (IMAGE set (set mlive)) mlatches
 Proof
   strip_tac
+  >> have ‘FINITE (wlatches DIFF mlatches)’ >- simp []
   >> drule_all_then assume_tac is_witness_xis_safe
   >> drule_all_then assume_tac is_witness_xis_live
   >> simp []

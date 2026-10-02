@@ -17,6 +17,7 @@ val r = translate listRangeTheory.listRangeINC_def;  (* [x .. y] *)
 val _ = use_sub_check false;
 
 val r = translate aig_cert_fullTheory.range_inter_def;
+val r = translate aig_cert_fullTheory.range_diff_def;
 val r = translate aig_cert_fullTheory.range_is_subset_def;
 
 val r = translate syntax_helperTheory.print_lit_def;
