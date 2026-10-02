@@ -73,7 +73,7 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 | Base pointer | `@base` | Points to the base of the user memory |
 | Top pointer | `@top` | Points to the top of the user memory |
 | Bytes in word | `@biw` | Number of bytes in a word; 8 for 64bit targets, 4 for 32bit targets |
-| Checked addition | `var 2 VNAME = __add_with_carry__(LEFT, RIGHT, CARRY_IN);`, `VNAME = __add_with_carry__(LEFT, RIGHT, CARRY_IN);` | `VNAME` must be a local variable of shape `2`, and is assigned the result `<SUM, CARRY_OUT>`. `CARRY_IN` and `CARRY_OUT` can be thought of as holding 1-bit values, and `CARRY_IN` is treated as 1 for any non-zero value |
+| Checked addition | `var 2 VNAME = __add_with_carry__(LEFT, RIGHT, CARRY_IN);`, `VNAME = __add_with_carry__(LEFT, RIGHT, CARRY_IN);` | `VNAME` must be a local variable of shape `2`, and is assigned the result `<SUM, CARRY_OUT>`. `CARRY_IN` and `CARRY_OUT` can be thought of as holding 1-bit values, and any non-zero `CARRY_IN` is treated as 1 |
 | Single line comments | `// COMMENT` | |
 | Block comments | `/* COMMENT */` | Non-recursive |
 | Annotation comments | `/@ COMMENT @/` | Non-recursive. For adding tool-specific annotations in the underlying code representation; the same as block comments otherwise. Will not be ignored by CPP |
