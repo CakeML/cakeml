@@ -4586,7 +4586,7 @@ Proof
       impl_tac >- full_simp_tac(srw_ss())[] >> strip_tac >>
       qhdtm_x_assum`bvlSem$evaluate`kall_tac >>
       qpat_assum`∀k. FST _ ≠ _`(qspec_then`SUC k'`mp_tac)>>
-      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
       old_drule (GEN_ALL compile_prog_evaluate) >>
       disch_then old_drule >>
       impl_tac >- ( full_simp_tac(srw_ss())[] >> METIS_TAC[FST] ) >>
@@ -4685,7 +4685,7 @@ Proof
     spose_not_then strip_assume_tac >> srw_tac[][] >>
     fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
     qpat_assum`∀k. _ ≠ _`(qspec_then`SUC k`mp_tac) >>
-    (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)`)) >>
     strip_tac >>
     old_drule (GEN_ALL compile_prog_evaluate) >>
     disch_then old_drule >>

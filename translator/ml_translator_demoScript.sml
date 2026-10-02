@@ -60,7 +60,7 @@ Theorem ML_QSORT_CORRECT:
         (LIST_TYPE a l' xs') /\ PERM l l' /\ SORTED ord l'
 Proof
   rw [] \\ imp_res_tac Eval_Var_lemma
-  \\ imp_res_tac (DISCH_ALL (hol2deep ``QSORT R xs``))
+  \\ imp_res_tac (DISCH_ALL (translate_tm ``QSORT R xs``))
   \\ fs [Eval_def,build_state_def,ml_progTheory.eval_rel_def]
   \\ metis_tac [sortingTheory.QSORT_PERM,sortingTheory.QSORT_SORTED]
 QED

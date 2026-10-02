@@ -14,6 +14,8 @@ val arch_size = if String.isSubstring "32" (current_theory()) then “:32” els
 
 val arch_spec = INST_TYPE [alpha |-> arch_size];
 val arch_spec_beta = INST_TYPE [beta |-> arch_size];
+val arch_spec_both = INST_TYPE [alpha |-> arch_size,beta |-> arch_size];
+val arch_bool_spec = INST_TYPE [alpha |-> “:bool”,beta |-> arch_size];
 
 val _ = cv_memLib.use_long_names := true;
 
@@ -21,63 +23,12 @@ Overload Num[local] = “cv$Num”;
 Overload Pair[local] = “cv$Pair”;
 
 val _ = cv_trans (alignmentTheory.aligned_w2n |> arch_spec);;
-val _ = cv_trans (asmTheory.offset_ok_def |> arch_spec);
-val _ = cv_trans (lab_to_targetTheory.section_labels_def |> arch_spec);
-val _ = cv_trans (lab_to_targetTheory.compute_labels_alt_def |> arch_spec);
-val _ = cv_trans (lab_to_targetTheory.lines_upd_lab_len_def |> arch_spec);
-val _ = cv_auto_trans (lab_to_targetTheory.get_jump_offset_def |> arch_spec);
-
-val pre = cv_trans_pre "" (lab_to_targetTheory.upd_lab_len_def |> arch_spec);
-Theorem lab_to_target_upd_lab_len_pre[cv_pre]:
-  ∀pos v. lab_to_target_upd_lab_len_pre pos v
-Proof
-  Induct_on ‘v’ \\ simp [Once pre]
-QED
-
-val _ = cv_trans (lab_to_targetTheory.add_nop_def |> arch_spec);
-
-val pre = cv_trans_pre "" (lab_to_targetTheory.pad_section_def |> arch_spec);
-Theorem lab_to_target_pad_section_pre[cv_pre,local]:
-  ∀nop v aux. lab_to_target_pad_section_pre nop v aux
-Proof
-  Induct_on ‘v’ \\ simp [Once pre]
-QED
-
-val _ = cv_trans (lab_to_targetTheory.pad_code_def |> arch_spec);
-
-Theorem to_shmem_info_num[local]:
-  <| entry_pc := ep ;
-     nbytes := nb ;
-     addr_reg := ar ;
-     addr_off := ao ;
-     reg := r ;
-     exit_pc := ex |>
-   = shmem_info_num ep nb ar ao r ex
-Proof
-  gvs [lab_to_targetTheory.shmem_info_num_component_equality]
-QED
-
-val pre = cv_trans_pre "" (lab_to_targetTheory.get_shmem_info_def
-                          |> SRULE [to_shmem_info_num] |> arch_spec);
-
-Theorem lab_to_target_get_shmem_info_pre[cv_pre]:
-  ∀v pos ffi_names shmem_info.
-    lab_to_target_get_shmem_info_pre v pos ffi_names shmem_info
-Proof
-  ho_match_mp_tac lab_to_targetTheory.get_shmem_info_ind
-  \\ rw [] \\ simp [Once pre] \\ gvs [to_shmem_info_num]
-QED
 
 Theorem bytes_in_word_def[cv_inline] =
   bytes_in_word_def |> arch_spec |> CONV_RULE (RAND_CONV EVAL);
 
-Theorem shift_def[cv_inline] =
-  backend_commonTheory.word_shift_def |> arch_spec |> CONV_RULE (RAND_CONV EVAL);
-
 val _ = data_to_wordTheory.SetBool_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.AssignCmp_def |> arch_spec |> SRULE [] |> cv_trans;
-val _ = data_to_wordTheory.get_gen_size_def |> arch_spec |> SRULE [] |> cv_trans;
-
 val _ = stack_to_labTheory.compile_jump_def |> arch_spec |> cv_trans;
 val _ = stack_to_labTheory.is_Seq_def |> arch_spec |> cv_trans;
 
@@ -106,9 +57,9 @@ val _ = stackLangTheory.list_Seq_def |> arch_spec |> cv_trans;
 val _ = stack_removeTheory.copy_each_def |> arch_spec |> cv_trans;
 val _ = stack_removeTheory.copy_loop_def |> arch_spec |> cv_trans;
 val _ = cv_trans_rec (stack_removeTheory.upshift_def |> arch_spec)
- (WF_REL_TAC ‘measure $ cv$c2n o SND’ \\ Cases \\ gvs [] \\ rw [] \\ gvs []);
+ (WF_REL_TAC ‘measure $ cv$c2n o SND o SND’ \\ Cases \\ gvs [] \\ rw [] \\ gvs []);
 val _ = cv_trans_rec (stack_removeTheory.downshift_def |> arch_spec)
- (WF_REL_TAC ‘measure $ cv$c2n o SND’ \\ Cases \\ gvs [] \\ rw [] \\ gvs []);
+ (WF_REL_TAC ‘measure $ cv$c2n o SND o SND’ \\ Cases \\ gvs [] \\ rw [] \\ gvs []);
 val _ = stack_removeTheory.stack_store_def |> arch_spec |> cv_trans;
 val _ = stack_removeTheory.stack_load_def |> arch_spec |> cv_trans;
 val _ = stack_removeTheory.comp_def |> arch_spec |> cv_trans;
@@ -144,7 +95,7 @@ val _ = stack_allocTheory.word_gen_gc_partial_move_ref_list_code_def |> arch_spe
 val _ = stack_allocTheory.word_gen_gc_partial_move_data_code_def |> arch_spec |> cv_trans;
 val _ = stack_allocTheory.word_gen_gc_move_refs_code_def |> arch_spec |> cv_trans;
 val _ = stack_allocTheory.word_gen_gc_move_loop_code_def |> arch_spec |> cv_trans;
-val _ = stack_allocTheory.word_gc_partial_or_full_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gc_partial_or_full_def |> cv_trans;
 val _ = stack_allocTheory.SetNewTrigger_def |> arch_spec |> cv_trans;
 val _ = stack_allocTheory.word_gc_code_def |> arch_spec |> cv_trans;
 val _ = stack_allocTheory.stubs_def |> arch_spec |> cv_auto_trans;
@@ -170,7 +121,6 @@ val _ = stack_rawcallTheory.comp_def |> arch_spec |> cv_trans;
 val _ = stack_rawcallTheory.comp_top_def |> arch_spec |> cv_trans;
 val _ = stack_rawcallTheory.compile_def |> arch_spec |> cv_auto_trans;
 val _ = stack_to_labTheory.compile_def |> arch_spec |> cv_auto_trans;
-val _ = word_to_stackTheory.format_var_def |> cv_trans;
 val _ = word_to_stackTheory.wReg1_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.wReg2_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.wStackLoad_def |> arch_spec |> cv_trans;
@@ -205,9 +155,6 @@ val _ = word_to_stackTheory.call_dest_def |> arch_spec |> cv_auto_trans;
 val _ = word_to_stackTheory.stack_free_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.stack_move_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.StackArgs_def |> arch_spec |> cv_trans;
-val _ = word_to_stackTheory.perf_rbp_def |> cv_trans;
-val _ = word_to_stackTheory.perf_rsp_def |> cv_trans;
-val _ = word_to_stackTheory.handler_slots_def |> cv_trans;
 val _ = word_to_stackTheory.perf_call_prefix_def |> arch_spec |> cv_auto_trans;
 val _ = word_to_stackTheory.perf_call_suffix_def |> arch_spec |> cv_auto_trans;
 val _ = word_to_stackTheory.StackHandlerArgs_def |> arch_spec |> cv_trans;
@@ -341,9 +288,6 @@ Proof
   \\ simp [Once pre]
 QED
 
-val _ = cv_trans word_instTheory.three_to_two_reg_def;
-
-val _ = cv_trans word_instTheory.three_to_two_reg_prog_def;
 
 val _ = word_cseTheory.add_to_data_aux_def |> arch_spec
          |> SRULE [GSYM lookup_listCmp_def, GSYM insert_listCmp_def] |> cv_auto_trans;
@@ -418,7 +362,6 @@ val _ = data_to_wordTheory.real_bit_offset_def |> arch_spec |> SRULE [] |> cv_tr
 val _ = data_to_wordTheory.make_header_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.make_byte_header_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.encode_header_def |> arch_spec |> SRULE [] |> cv_trans;
-val _ = data_to_wordTheory.adjust_sets_def |> cv_trans;
 val _ = data_to_wordTheory.GiveUp_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.BignumHalt_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.list_Seq_def |> arch_spec |> cv_trans;
@@ -430,6 +373,9 @@ val _ = data_to_wordTheory.WriteWord64_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.WriteWord64_on_32_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.WriteWord32_on_32_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.WordShift64_on_32_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.WordShiftVar64_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.WordShiftVar64_on_32_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.ShiftW8_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.WordOp64_on_32_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.LoadBignum_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.LoadWord64_def |> arch_spec |> SRULE [] |> cv_trans;
@@ -443,7 +389,6 @@ val _ = data_to_wordTheory.WriteLastBytes_def |> arch_spec |> SRULE [] |> cv_tra
 val _ = data_to_wordTheory.MakeBytes_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.all_ones_def |> arch_spec |> SRULE []
         |> SRULE [wordsTheory.word_2comp_n2w,wordsTheory.word_slice_n2w] |> cv_trans;
-val _ = cv_trans GREATER_DEF;
 val _ = data_to_wordTheory.maxout_bits_def |> arch_spec
         |> SRULE [GSYM GREATER_DEF] |> cv_trans;
 val _ = data_to_wordTheory.ptr_bits_def |> arch_spec |> SRULE [] |> cv_trans;
@@ -487,10 +432,10 @@ val _ = data_to_wordTheory.parts_to_words_def |> arch_spec
           |> SRULE [backend_commonTheory.word_shift_def] |> cv_trans;
 val _ = data_to_wordTheory.const_parts_to_words_def |> arch_spec
           |> SRULE [backend_commonTheory.word_shift_def] |> cv_trans;
-val _ = data_to_wordTheory.MemEqList_def |> arch_spec |> cv_trans;
+val _ = data_to_wordTheory.MemEqList_def |> arch_spec_both |> cv_trans;
 val _ = data_to_wordTheory.get_Word_def |> arch_spec |> cv_trans;
 val _ = get_words_def |> arch_spec |> cv_trans;
-val _ = data_to_wordTheory.getWords_def |> arch_spec_beta |> cv_trans;
+val _ = data_to_wordTheory.getWords_def |> arch_bool_spec |> cv_trans;
 val cv_getWords_def = fetch "-" "cv_data_to_word_getWords_def";
 
 Theorem cv_getWords_lemma[local]:
@@ -541,8 +486,10 @@ val assigns =
 
 val problem_count = assigns
   |> mapi (fn i => fn th => (i+1,th))
-  |> filter (fn (i,th) => not (can cv_trans th)) |> map fst
-  |> map (fn i => print ("cv_trans (el " ^ int_to_string i ^ " assigns)\n"))
+  |> filter (fn (i,th) => not (can cv_trans th))
+  |> map (fn (i,th) =>
+       print ("cv_trans (el " ^ int_to_string i ^ " assigns):\n" ^
+              thm_to_string th ^ "\n"))
   |> length
 
 val _ = problem_count = 0 orelse failwith("Some assign_def didn't translate")

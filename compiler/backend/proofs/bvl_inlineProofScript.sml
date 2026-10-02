@@ -356,7 +356,7 @@ Proof
       \\ strip_tac
       \\ qpat_x_assum `evaluate (_,_,_ _ (_ prog) _ _ _ _) = _` kall_tac
       \\ last_assum (qspec_then `k'` mp_tac)
-      \\ (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g )
+      \\ goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`))
       \\ drule (GEN_ALL evaluate_compile_prog) \\ simp []
       \\ strip_tac
       \\ first_x_assum (qspec_then `ck` mp_tac)
@@ -486,7 +486,7 @@ Proof
     (spose_not_then assume_tac \\ rw []
     \\ fsrw_tac [QUANT_INST_ss[pair_default_qp]] []
     \\ last_assum (qspec_then `k` mp_tac)
-    \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
+    \\ goal_term (subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)`))
     \\ strip_tac
     \\ drule (GEN_ALL evaluate_compile_prog)
     \\ strip_tac
@@ -1228,7 +1228,7 @@ val semantics_tick_inline = prove(
       \\ strip_tac
       \\ qpat_x_assum `evaluate (_,_,_ _ (_ prog) _ _ _ _) = _` kall_tac
       \\ last_assum (qspec_then `k'` mp_tac)
-      \\ (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g )
+      \\ goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`))
       \\ rw [] \\ fs [] \\ rveq
       \\ CCONTR_TAC
       \\ drule (GEN_ALL in_evaluate_Call) \\ simp [])
@@ -1364,7 +1364,7 @@ val semantics_tick_inline = prove(
     (spose_not_then assume_tac \\ rw []
     \\ fsrw_tac [QUANT_INST_ss[pair_default_qp]] []
     \\ last_assum (qspec_then `k` mp_tac)
-    \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
+    \\ goal_term (subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)`))
     \\ strip_tac
     \\ qmatch_assum_rename_tac `evaluate (_,[],_ k) = (_,rr)`
     \\ drule (GEN_ALL in_evaluate_Call)
@@ -1691,7 +1691,7 @@ val semantics_let_op = prove(
       \\ CCONTR_TAC \\ fs []
       \\ qpat_x_assum `evaluate (_,_,_ _ (_ prog) _ _ _ _) = _` kall_tac
       \\ last_assum (qspec_then `k'` mp_tac)
-      \\ (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g )
+      \\ goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`))
       \\ rw [] \\ fs [] \\ rveq
       \\ CCONTR_TAC
       \\ drule (GEN_ALL let_evaluate_Call) \\ simp []
@@ -1825,7 +1825,7 @@ val semantics_let_op = prove(
     (spose_not_then assume_tac \\ rw []
     \\ fsrw_tac [QUANT_INST_ss[pair_default_qp]] []
     \\ last_assum (qspec_then `k` mp_tac)
-    \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
+    \\ goal_term (subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)`))
     \\ strip_tac
     \\ qmatch_assum_rename_tac `evaluate (_,[],_ k) = (_,rr)`
     \\ drule (GEN_ALL let_evaluate_Call)

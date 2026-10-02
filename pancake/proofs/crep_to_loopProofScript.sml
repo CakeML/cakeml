@@ -1214,7 +1214,7 @@ Proof
     pop_assum kall_tac >>
     fs [] >> rfs [] >> rveq >>
     fs [lookup_insert] >>
-    fs [get_var_imm_def, list_insert_def] >>
+    fs [get_var_imm_def, integer_wordTheory.i2w_0, list_insert_def] >>
     cases_on ‘word_cmp cmp w1 w2’ >>
     fs [loopSemTheory.evaluate_def, loopSemTheory.eval_def,
         loopSemTheory.set_var_def] >> (
@@ -2634,12 +2634,12 @@ Resume ncompile_correct[If]:
    drule evaluate_none_nested_seq_append >>
    disch_then (qspec_then
                ‘[Assign tmp le;
-                 If NotEqual tmp (Imm 0w) (compile ctxt l c1)
+                 If NotEqual tmp (Imm 0) (compile ctxt l c1)
                  (compile ctxt l c2) l]’ assume_tac) >>
    fs [] >> pop_assum kall_tac >>
    fs [nested_seq_def] >>
    fs [evaluate_def, eval_upd_clock_eq, set_var_def] >>
-   fs [get_var_imm_def] >>
+   fs [get_var_imm_def, integer_wordTheory.i2w_0] >>
    cases_on ‘w <> 0w’ >>
    fs [asmTheory.word_cmp_def, cut_res_def, cut_state_def] >>
    TOP_CASE_TAC >> fs [] >> rveq >>
@@ -2667,12 +2667,12 @@ Resume ncompile_correct[If]:
   drule evaluate_none_nested_seq_append >>
   disch_then (qspec_then
               ‘[Assign tmp le;
-                If NotEqual tmp (Imm 0w) (compile ctxt l c1)
+                If NotEqual tmp (Imm 0) (compile ctxt l c1)
                  (compile ctxt l c2) l]’ assume_tac) >>
   fs [] >> pop_assum kall_tac >>
   fs [nested_seq_def] >>
   fs [evaluate_def, eval_upd_clock_eq, set_var_def] >>
-  fs [get_var_imm_def] >>
+  fs [get_var_imm_def, integer_wordTheory.i2w_0] >>
   cases_on ‘x’ >> fs [] >> rveq >>
   cases_on ‘w <> 0w’ >>
   fs [asmTheory.word_cmp_def, cut_res_def]
@@ -2768,10 +2768,10 @@ Resume ncompile_correct[While]:
    rw [Once evaluate_def] >>
    fs [Once evaluate_def]
    >- (
-    fs [get_var_imm_def, asmTheory.word_cmp_def] >>
+    fs [get_var_imm_def, integer_wordTheory.i2w_0, asmTheory.word_cmp_def] >>
     fs [Once evaluate_def] >>
     fs [cut_res_def]) >>
-   fs [get_var_imm_def] >>
+   fs [get_var_imm_def, integer_wordTheory.i2w_0] >>
    fs [asmTheory.word_cmp_def] >>
    fs [Once evaluate_def] >>
    fs [cut_res_def] >> rveq >>
@@ -2905,7 +2905,7 @@ Resume ncompile_correct[While]:
        pairarg_tac >> fs [] >>
        pop_assum mp_tac >>
        simp [Once evaluate_def] >>
-       fs [get_var_imm_def] >>
+       fs [get_var_imm_def, integer_wordTheory.i2w_0] >>
        rfs [asmTheory.word_cmp_def] >>
        pop_assum mp_tac >>
        simp [Once evaluate_def] >>
@@ -2945,7 +2945,7 @@ Resume ncompile_correct[While]:
      >> pairarg_tac >> fs[]
      >> pop_assum $ assume_tac o SRULE [evaluate_def] >> rfs[Once evaluate_def]
      >> pairarg_tac >> gvs[set_var_def]
-     >> pop_assum $ assume_tac o SRULE [evaluate_def, get_var_imm_def] >> gvs[cut_res_def, cut_state_def, asmTheory.word_cmp_def, eval_upd_clock_eq]
+     >> pop_assum $ assume_tac o SRULE [evaluate_def, get_var_imm_def, integer_wordTheory.i2w_0] >> gvs[cut_res_def, cut_state_def, asmTheory.word_cmp_def, eval_upd_clock_eq]
      >> pop_assum $ assume_tac o SRULE [evaluate_def] >> fs []
      >> pairarg_tac >> gvs[cut_res_def]
    )
@@ -2990,7 +2990,7 @@ Resume ncompile_correct[While]:
        pairarg_tac >> fs [] >>
        pop_assum mp_tac >>
        simp [Once evaluate_def] >>
-       fs [get_var_imm_def] >>
+       fs [get_var_imm_def, integer_wordTheory.i2w_0] >>
        rfs [asmTheory.word_cmp_def] >>
        pop_assum mp_tac >>
        simp [Once evaluate_def] >>
@@ -3016,7 +3016,7 @@ Resume ncompile_correct[While]:
      >> pairarg_tac >> fs[]
      >> pop_assum $ assume_tac o SRULE [evaluate_def] >> rfs[Once evaluate_def]
      >> pairarg_tac >> gvs[set_var_def]
-     >> pop_assum $ assume_tac o SRULE [evaluate_def, get_var_imm_def] >> gvs[cut_res_def, cut_state_def, asmTheory.word_cmp_def, eval_upd_clock_eq]
+     >> pop_assum $ assume_tac o SRULE [evaluate_def, get_var_imm_def, integer_wordTheory.i2w_0] >> gvs[cut_res_def, cut_state_def, asmTheory.word_cmp_def, eval_upd_clock_eq]
      >> pop_assum $ assume_tac o SRULE [evaluate_def] >> fs []
      >> pairarg_tac >> gvs[cut_res_def]
    ) >>
@@ -3043,7 +3043,7 @@ Resume ncompile_correct[While]:
    pairarg_tac >> fs [] >>
    pop_assum mp_tac >>
    simp [Once evaluate_def] >>
-   fs [get_var_imm_def] >>
+   fs [get_var_imm_def, integer_wordTheory.i2w_0] >>
    rfs [asmTheory.word_cmp_def] >>
    pop_assum mp_tac >>
    simp [Once evaluate_def] >>
@@ -3120,7 +3120,7 @@ Resume ncompile_correct[While]:
   pairarg_tac >> fs [] >>
   pop_assum mp_tac >>
   simp [Once evaluate_def] >>
-  fs [get_var_imm_def] >>
+  fs [get_var_imm_def, integer_wordTheory.i2w_0] >>
   rfs [asmTheory.word_cmp_def] >>
   simp [Once evaluate_def] >>
   simp [Once evaluate_def] >>
@@ -3636,7 +3636,7 @@ Resume ncompile_correct[Call]:
         \\ simp [UNCURRY_eq_case, CaseEq "prod"]
         \\ rewrite_tac [ADD_ASSOC]
         \\ disch_then (irule_at Any)
-        \\ simp [evaluate_def, set_var_def, get_var_imm_def, asmTheory.word_cmp_def]
+        \\ simp [evaluate_def, set_var_def, get_var_imm_def, integer_wordTheory.i2w_0, asmTheory.word_cmp_def]
         \\ qmatch_goalsub_abbrev_tac
             `dec_clock (base_st with <| locals := locs; clock := _ |>)`
         \\ first_x_assum (qspec_then `base_st with <| locals := locs |>` mp_tac)
@@ -3695,7 +3695,7 @@ Resume ncompile_correct[Call]:
       >- (
         gs []
         \\ GEN_EXISTS_TAC "ck''" `ck'`
-        \\ simp [evaluate_def, set_var_def, get_var_imm_def, asmTheory.word_cmp_def]
+        \\ simp [evaluate_def, set_var_def, get_var_imm_def, integer_wordTheory.i2w_0, asmTheory.word_cmp_def]
         \\ simp [cut_res_def, call_env_def]
         \\ gvs []
         \\ fs [state_rel_def, empty_locals_def, ctxt_fc_def]

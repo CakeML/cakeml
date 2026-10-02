@@ -211,7 +211,8 @@ Definition arith_to_display_def:
   arith_to_display Not = empty_item «Not» ∧
   arith_to_display Abs = empty_item «Abs» ∧
   arith_to_display Sqrt = empty_item «Sqrt» ∧
-  arith_to_display FMA = empty_item «FMA»
+  arith_to_display FMA = empty_item «FMA» ∧
+  arith_to_display (Shift sh) = Item NONE «Shift» [shift_to_display sh]
 End
 
 Definition prim_type_to_display_def:
@@ -232,10 +233,6 @@ End
 Definition op_to_display_def:
   op_to_display (p:ast$op) =
   case p of
-  | Shift ws sh num => Item NONE «Shift»
-                            [word_size_to_display ws;
-                             shift_to_display sh;
-                             num_to_display num]
   | Arith a ty => Item NONE «Arith»
                          [arith_to_display a;
                           prim_type_to_display ty]
@@ -670,6 +667,9 @@ Definition clos_op_to_display_def:
                                            [word_size_to_display ws;
                                             shift_to_display sh;
                                             num_to_display num]
+    | WordOp (WordShiftVar ws sh) => Item NONE «WordShiftVar»
+                                           [word_size_to_display ws;
+                                            shift_to_display sh]
     | WordOp (WordTest ws test) => Item NONE «WordTest»
                                         [word_size_to_display ws;
                                          test_to_display test]
@@ -1015,7 +1015,7 @@ End
 Definition asm_reg_imm_to_display_def:
   asm_reg_imm_to_display reg_imm = case reg_imm of
     | asm$Reg reg => item_with_num «Reg» reg
-    | Imm imm => item_with_word «Imm» imm
+    | Imm imm => Item NONE «Imm» [int_to_display imm]
 End
 
 Definition asm_arith_to_display_def:
@@ -1039,7 +1039,7 @@ End
 Definition asm_addr_to_display_def:
   asm_addr_to_display addr = case addr of
     | Addr reg w => Item NONE «Addr»
-                         [num_to_display reg; word_to_display w]
+                         [num_to_display reg; int_to_display w]
 End
 
 Definition asm_memop_to_display_def:
@@ -1090,7 +1090,7 @@ Definition asm_inst_to_display_def:
   asm_inst_to_display inst = case inst of
     | asm$Skip => empty_item «Skip»
     | Const reg w => Item NONE «Const» [num_to_display reg;
-                                                 word_to_display w]
+                                                 int_to_display w]
     | Arith a => Item NONE «Arith» [asm_arith_to_display a]
     | Mem mop r addr => Item NONE «Mem» [asm_memop_to_display mop;
         num_to_display r; asm_addr_to_display addr]
@@ -1100,13 +1100,13 @@ End
 Definition asm_asm_to_display_def:
   asm_asm_to_display inst = case inst of
     | Inst i => asm_inst_to_display i
-    | Jump w => item_with_word «Jump» w
+    | Jump w => Item NONE «Jump» [int_to_display w]
     | JumpCmp c r to w => Item NONE «JumpCmp»
       [asm_cmp_to_display c; num_to_display r; asm_reg_imm_to_display to;
-       word_to_display w]
-    | Call w => item_with_word «Call» w
+       int_to_display w]
+    | Call w => Item NONE «Call» [int_to_display w]
     | JumpReg r => item_with_num «JumpReg>» r
-    | Loc r w => Item NONE «Loc» [num_to_display r; word_to_display w]
+    | Loc r w => Item NONE «Loc» [num_to_display r; int_to_display w]
 End
 
 (* stackLang *)
@@ -1141,7 +1141,7 @@ Definition stack_seqs_def:
 End
 
 Theorem MEM_append_stack_seqs[local]:
-  ∀x. MEM a (append (stack_seqs x)) ⇒ prog_size ARB a ≤ prog_size ARB x
+  ∀x. MEM a (append (stack_seqs x)) ⇒ prog_size a ≤ prog_size x
 Proof
   Induct \\ simp [Once stack_seqs_def,stackLangTheory.prog_size_def]
   \\ rw [] \\ res_tac \\ gvs []
@@ -1149,8 +1149,8 @@ QED
 
 Theorem list_size_append_stack_seqs[local]:
   ∀x.
-  list_size (prog_size ARB) (append (stack_seqs x)) =
-  prog_size ARB x + 1
+  list_size prog_size (append (stack_seqs x)) =
+  prog_size x + 1
 Proof
   Induct \\ simp [Once stack_seqs_def,stackLangTheory.prog_size_def,list_size_def,list_size_append]
 QED
@@ -1589,7 +1589,7 @@ val lab_test =
   “concat $ append $ lab_to_strs
      (insert 50 «foo» (insert 60 «bar» LN))
      [Section 50 [Label 50 1 0;
-                  Asm (Asmi (Inst (Const 5 (70w:word32)))) [] 0;
+                  Asm (Asmi (Inst (Const 5 70))) [] 0;
                   Label 50 2 0];
       Section 60 [Label 50 5 0]]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring

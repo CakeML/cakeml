@@ -14,7 +14,6 @@ val _ = numLib.temp_prefer_num();
 (* getOpClass as a inductive to make the proofs potentially easier *)
 Inductive opClass:
 (∀ op. opClass (FFI op) Simple) ∧
-(∀ op1 op2 op3. opClass (Shift op1 op2 op3) Simple) ∧
 (∀ op. op = Equality ∨ op = Opassign ∨
        op = Opref ∨ op = Aw8alloc ∨ op = Aw8sub ∨ op = Aw8length ∨
        op = Aw8update ∨ op = CopyStrStr ∨ op = CopyStrAw8 ∨
