@@ -1914,7 +1914,7 @@ Theorem WORD_dimindex[local]:
   Eval env x (WORD (w:'a word)) ==> dimindex (:'a) <= 64
 Proof
   rw [Eval_rw,WORD_def]
-  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ first_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
 QED
 
 Theorem Eval_ShiftExp8[local]:
@@ -1923,7 +1923,7 @@ Theorem Eval_ShiftExp8[local]:
     (WORD (shift8_lookup sh w n))
 Proof
   rw [Eval_rw,WORD_def]
-  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ first_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
   \\ qexists_tac `ck1` \\ fs [state_component_equality]
 QED
 
@@ -1933,7 +1933,7 @@ Theorem Eval_ShiftExp64[local]:
     (WORD (shift64_lookup sh w n))
 Proof
   rw [Eval_rw,WORD_def]
-  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ first_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
   \\ qexists_tac `ck1` \\ fs [state_component_equality]
 QED
 
