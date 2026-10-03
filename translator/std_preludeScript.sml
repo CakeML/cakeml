@@ -135,9 +135,14 @@ val least_side_thm = Q.prove(
   |> update_precondition;
 
 (* list *)
+Theorem el_thm:
+  ∀n h t. EL n (h::t) = if n = 0 then h else EL (n - 1) t
+Proof
+  Cases >> rw []
+QED
 
 val _ = next_ml_names := ["el"];
-val r = translate listTheory.EL;
+val r = translate el_thm;
 
 Theorem el_side[local]:
   ∀n xs. el_side n xs ⇔ n < LENGTH xs
