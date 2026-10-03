@@ -407,8 +407,8 @@ fun fold_code def =
     PURE_REWRITE_TAC [GSYM (SIMP_RULE (srw_ss()) ths (SPEC_ALL def))]);
 
 fun abbrev_under_exists tm tac =
-  (fn state => (`?^(tm). ^(hd (fst (hd (fst (tac state)))))` by
-        (fs [markerTheory.Abbrev_def] \\ NO_TAC)) state);
+  (fn state => fn c => (`?^(tm). ^(hd (fst (hd (fst (tac state c)))))` by
+        (fs [markerTheory.Abbrev_def] \\ NO_TAC)) state c);
 
 Theorem memcpy_code_thm[local]:
   !n a b m dm b1 m1 (s:('a,'c,'b)stackSem$state).
@@ -5996,7 +5996,7 @@ Proof
     gen_tac >> ntac 2 strip_tac >>
     IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
       first_x_assum(qspec_then`k'`mp_tac)>>simp[]>>
-      (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
+      goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >>
       simp[] >>
       qmatch_assum_rename_tac`_ = (res,_)` >>
       Cases_on`res=SOME Error`>>simp[]>>
@@ -6006,7 +6006,7 @@ Proof
       simp[comp_def] >>
       strip_tac >>
       qpat_x_assum`_ ≠ SOME TimeOut`mp_tac >>
-      (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
+      goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >>
       strip_tac >>
       old_drule (Q.GEN`extra`evaluate_add_clock) >>
       disch_then(qspec_then`ck`mp_tac) >> full_simp_tac(srw_ss())[] >>
@@ -6048,21 +6048,21 @@ Proof
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
     first_x_assum(qspec_then`k`mp_tac)>>simp[]>>
     first_x_assum(qspec_then`k`mp_tac)>>
-    (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >>
     simp[] >> strip_tac >> fs[] >>
     old_drule comp_correct_thm >>
     simp[alloc_arg_def,comp_def] >>
     conj_tac >- metis_tac[] >>
     srw_tac[][] >>
     qpat_x_assum`_ ≠ SOME TimeOut`mp_tac >>
-    (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >> srw_tac[][] >>
+    goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >> srw_tac[][] >>
     old_drule (GEN_ALL evaluate_add_clock) >>
     disch_then(qspec_then`ck`mp_tac)>>simp[]) >>
   DEEP_INTRO_TAC some_intro >> full_simp_tac(srw_ss())[] >>
   conj_tac >- (
     srw_tac[][] >>
     qpat_x_assum`∀k t. _`(qspec_then`k`mp_tac) >>
-    (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >>
     simp[] >>
     last_x_assum mp_tac >>
     last_x_assum mp_tac >>
@@ -6101,8 +6101,8 @@ Proof
   simp[LNTH_fromList,PULL_EXISTS] >>
   simp[GSYM FORALL_AND_THM] >>
   rpt gen_tac >>
-  (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
-  (fn g => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm (#2 g)) tm)`) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
+  goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >> full_simp_tac(srw_ss())[] >>
+  goal_term (fn w => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm w) tm)`) w) >> full_simp_tac(srw_ss())[] >>
   old_drule comp_correct_thm >>
   simp[comp_def,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (

@@ -75,6 +75,7 @@ val res = translate $ panStaticTheory.get_unreach_msg_def;
 val res = translate $ panStaticTheory.get_rogue_msg_def;
 val res = translate $ panStaticTheory.get_non_word_msg_def;
 val res = translate $ panStaticTheory.get_shape_mismatch_msg_def;
+val res = translate $ panStaticTheory.get_inline_ignore_msg_def;
 val res = translate $ panStaticTheory.get_implementation_err_msg_def;
 
 val res = translate $ panStaticTheory.first_repeat_def;
@@ -92,6 +93,7 @@ val res = translate $ panStaticTheory.check_fun_name_def;
 val res = translate $ panStaticTheory.check_global_var_def;
 val res = translate $ panStaticTheory.check_local_var_def;
 val res = translate $ panStaticTheory.check_redec_var_def;
+val res = translate $ panStaticTheory.check_exn_name_def;
 val res = translate $ panStaticTheory.check_export_params_def;
 val res = translate $ panStaticTheory.check_operands_def;
 val res = translate $ panStaticTheory.check_primitive_args_def;

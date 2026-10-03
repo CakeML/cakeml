@@ -5,6 +5,17 @@ User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
 
+Oct 1st 2026
+-------------------
+
+### Updated static error reporting
+
+Attempts to call inline functions with an exception handler or to
+declare a recursive inline function now prompt compiler warnings.
+
+The 32 word size limit on function return values has been removed.
+The missing 32 word size limit on exception values has been added.
+
 Sep 2nd 2026
 -------------------
 
