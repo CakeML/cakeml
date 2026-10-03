@@ -5,6 +5,14 @@ User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
 
+xxx xxxth 2026
+-------------------
+
+### Parser bug fix
+
+Parse errors now report the line where the error is. Previously, they
+reported the next line.
+
 Oct 1st 2026
 -------------------
 
