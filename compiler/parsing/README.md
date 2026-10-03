@@ -24,10 +24,6 @@ Definition of the overall parsing functions that go from tokens to abstract
 syntax trees. In other words, these include calls to the functions in
 `../semantics/cmlPtreeConversion`.
 
-[fromSexpScript.sml](fromSexpScript.sml):
-Definitions of functions for conversion between an S-expression encoding of
-the CakeML abstract syntax and the abstract syntax type itself.
-
 [lexer_implScript.sml](lexer_implScript.sml):
 Definition of the lexer: code for consuming tokens until a top-level
 semicolon is found (semicolons can be hidden in `let`-`in`-`end` blocks,
