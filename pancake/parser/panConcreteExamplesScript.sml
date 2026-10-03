@@ -652,3 +652,22 @@ val exception_declaration =
   ’
 
 val exception_declaration_parse = check_success $ parse_pancake exception_declaration;
+
+(* A number directly followed by a letter or an underscore is a lexer
+   error, rather than a number followed by a name *)
+val malformed_number_exs : (term quotation * term) list =
+  [(‘var 1g = 0;’, “«Malformed number: 1g»”),
+   (‘fun 1f() { return 0; }’, “«Malformed number: 1f»”),
+   (‘fun f(1a) { return a; }’, “«Malformed number: 1a»”),
+   (‘fun f() { var 1x = 0; return x; }’, “«Malformed number: 1x»”),
+   (‘struct p { 1x }’, “«Malformed number: 1x»”),
+   (‘fun f() { var y = lds 1x; return y; }’, “«Malformed number: 1x»”),
+   (‘fun f() { return 0x10; }’, “«Malformed number: 0x10»”),
+   (‘fun f() { return 1_000; }’, “«Malformed number: 1_000»”),
+   (‘fun f() { return -1x; }’, “«Malformed number: -1x»”)]
+
+val malformed_number_parses =
+  map (fn (ex, msg) =>
+         assert (can (find_term (aconv msg)) o rhs o concl) $
+           check_failure $ parse_pancake ex)
+      malformed_number_exs
