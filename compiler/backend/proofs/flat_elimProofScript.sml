@@ -476,9 +476,9 @@ Proof
   \\ rfs []
 QED
 
-fun qif_pat_tac qpat (tac : tactic) goal = if can (rename [qpat]) goal
-  then tac goal
-  else ALL_TAC goal
+fun qif_pat_tac qpat (tac : tactic) goal c = if can (rename [qpat] goal) c
+  then tac goal c
+  else ALL_TAC goal c
 
 fun conseq xs = ConseqConv.CONSEQ_REWRITE_TAC (xs, [], [])
 

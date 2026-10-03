@@ -6030,7 +6030,7 @@ Proof
    (spose_not_then assume_tac >> rw []
     >> qpat_x_assum ‘∀k. _’ mp_tac
     >> first_assum (qspec_then `k` mp_tac)
-    >> (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
+    >> goal_term (subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)`))
     >> strip_tac
     >> drule (GEN_ALL evaluate_compile_each)
     >> rveq

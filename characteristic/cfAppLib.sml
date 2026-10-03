@@ -118,12 +118,12 @@ fun mk_Arrow_of_app_goal t = let
         list_mk_comb (arrows, [f, fv])))
 in mk_imp (t, arrows_full_tm) end
 
-fun auto_prove proof_name (goal,tac) = let
-  val (rest,validation) = tac ([],goal) handle Empty => fail()
+fun auto_prove ctxt proof_name (goal,tac) = let
+  val (rest,validation) = tac ([],goal) ctxt handle Empty => fail()
   in if length rest = 0 then validation [] else let
   in failwith("auto_prove failed for " ^ proof_name) end end
 
-fun app_of_Arrow_rule ffi_ty thm = let
+fun app_of_Arrow_rule ctxt ffi_ty thm = let
   val thm' = DISCH_ALL thm
   val proof_tac =
     rpt strip_tac \\
@@ -144,7 +144,7 @@ fun app_of_Arrow_rule ffi_ty thm = let
         qexists_tac `emp` \\ fs [SEP_CLAUSES] \\ tac_acc
       ) all_tac (rev assums)
     )
-  val rule_thm = auto_prove "app_of_Arrow_rule"
+  val rule_thm = auto_prove ctxt "app_of_Arrow_rule"
     (mk_app_of_Arrow_goal ffi_ty (concl thm'), proof_tac)
 in MATCH_MP rule_thm thm' |> SIMP_RULE std_ss [PRECONDITION_def, Eq_def] end
 

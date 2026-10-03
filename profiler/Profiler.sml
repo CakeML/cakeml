@@ -50,11 +50,11 @@ fun reset_data () = data := []
  * `gvs` would be defined as a function that immediately calls itself, whereas
  * sending the definition of `CASE_TAC` n times would lead to `CASE_TAC` adding
  * n data points every time it is used. *)
-fun profile_tac name tac g = let
+fun profile_tac name tac g ctxt = let
   val _ = data := (name, START, Time.now())::(!data)
   (* Without this handler, we might generated events that never terminate, which
    * we assume does not happen during data processing. *)
-  val r = tac g handle e => (data := (name, STOP, Time.now())::(!data); raise e)
+  val r = tac g ctxt handle e => (data := (name, STOP, Time.now())::(!data); raise e)
   val _ = data := (name, STOP, Time.now())::(!data)
 in r end
 

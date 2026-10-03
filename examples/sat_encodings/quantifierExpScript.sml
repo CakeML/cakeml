@@ -3,7 +3,7 @@
 *)
 Theory quantifierExp
 Ancestors
-  misc boolExpToCnf cnf
+  misc boolExpToCnf satCnf
 Libs
   preamble
 
@@ -105,9 +105,9 @@ Definition remove_def:
 End
 
 Definition eval_quant_def:
-  eval_quant (w: assignment) QTrue = T ∧
+  eval_quant (w:num assignment) QTrue = T ∧
   eval_quant w QFalse = F ∧
-  eval_quant w (QLit l) = eval_literal w l ∧
+  eval_quant w (QLit l) = satisfies_lit w l ∧
   eval_quant w (QNot b) = ¬ (eval_quant w b) ∧
   eval_quant w (QAnd b1 b2) = (eval_quant w b1 ∧ eval_quant w b2) ∧
   eval_quant w (QOr b1 b2) = (eval_quant w b1 ∨ eval_quant w b2) ∧
@@ -126,9 +126,9 @@ Definition sum_bools_def:
 End
 
 Definition eval_pseudoBool_def:
-  eval_pseudoBool (w: assignment) PTrue = T ∧
+  eval_pseudoBool (w:num assignment) PTrue = T ∧
   eval_pseudoBool w PFalse = F ∧
-  eval_pseudoBool w (PLit l) = eval_literal w l ∧
+  eval_pseudoBool w (PLit l) = satisfies_lit w l ∧
   eval_pseudoBool w (PNot b) = ¬ (eval_pseudoBool w b) ∧
   eval_pseudoBool w (PAnd b1 b2) =
   (eval_pseudoBool w b1 ∧ eval_pseudoBool w b2) ∧
@@ -166,8 +166,8 @@ Definition replace_name_quant_def:
   (replace_name_quant x v QTrue = QTrue) ∧
   (replace_name_quant x v QFalse = QFalse) ∧
   (replace_name_quant x v (QLit l) =
-   if l = INL x then (bool_to_quant v) else
-     if l = INR x then (bool_to_quant ¬ v) else
+   if l = Pos x then (bool_to_quant v) else
+     if l = Neg x then (bool_to_quant ¬ v) else
        QLit l) ∧
   (replace_name_quant x v (QNot b) = QNot (replace_name_quant x v b)) ∧
   (replace_name_quant x v (QAnd b1 b2) =
@@ -275,16 +275,16 @@ Theorem eval_quant_update_ignore:
     eval_quant w (replace_name_quant n v' b)
 Proof
   Induct
-  >> rw[replace_name_quant_def, eval_quant_def, eval_literal_def]
+  >> rw[replace_name_quant_def, eval_quant_def, cnfTheory.satisfies_lit_def]
   >- (Cases_on ‘v'’
       >> rw[replace_name_quant_def, eval_quant_def,
-            eval_literal_def])
+            cnfTheory.satisfies_lit_def])
   >- (Cases_on ‘v'’
       >> rw[replace_name_quant_def, eval_quant_def,
-            eval_literal_def])
-  >- (Cases_on ‘s’
+            cnfTheory.satisfies_lit_def])
+  >- (Cases_on ‘l’
       >> rw[replace_name_quant_def, eval_quant_def,
-            eval_literal_def, APPLY_UPDATE_THM])
+            cnfTheory.satisfies_lit_def, APPLY_UPDATE_THM])
   >> metis_tac[UPDATE_COMMUTES]
 QED
 
@@ -292,14 +292,14 @@ Theorem replace_preserves_sat:
  ∀ b x v w. eval_quant w⦇x ↦ v⦈ b ⇔ eval_quant w (replace_name_quant x v b)
 Proof
   Induct
-  >> rw[eval_quant_def, replace_name_quant_def, eval_literal_def,
+  >> rw[eval_quant_def, replace_name_quant_def, cnfTheory.satisfies_lit_def,
         APPLY_UPDATE_THM, eval_quant_update_ignore]
   >- (Cases_on‘v’
       >> EVAL_TAC)
   >- (Cases_on‘v’
       >> EVAL_TAC)
-  >- (Cases_on‘s’
-      >> gs[])
+  >- (Cases_on‘l’
+      >> gs[cnfTheory.satisfies_lit_def, APPLY_UPDATE_THM])
   >> metis_tac[UPDATE_COMMUTES]
 QED
 
@@ -351,7 +351,7 @@ Proof
   ho_match_mp_tac pseudoBool_to_quant_ind
   >> rw[]
   >> TRY (rw[eval_quant_def, pseudoBool_to_quant_def,
-             eval_pseudoBool_def, eval_literal_def,
+             eval_pseudoBool_def, cnfTheory.satisfies_lit_def,
              sum_bools_def, most_one_to_quant_def,
              none_of_list_to_quant_def]
     >> NO_TAC)
@@ -390,9 +390,7 @@ End
 Theorem pseudoBool_to_cnf_preserves_sat:
   ∀ b w.
     eval_pseudoBool w b ⇔
-      eval_cnf
-      (pseudoBool_to_assignment w b)
-      (pseudoBool_to_cnf b)
+      satisfies_cnf (pseudoBool_to_assignment w b) (set (pseudoBool_to_cnf b))
 Proof
   gs[pseudoBool_to_quant_preserves_sat, quant_to_boolExp_preserves_sat,
      pseudoBool_to_cnf_def, pseudoBool_to_assignment_def,
@@ -400,7 +398,7 @@ Proof
 QED
 
 Theorem pseudoBool_to_cnf_imp_sat:
-  eval_cnf w (pseudoBool_to_cnf b) ⇒
+  satisfies_cnf w (set (pseudoBool_to_cnf b)) ⇒
   eval_pseudoBool w b
 Proof
   rw [pseudoBool_to_cnf_def]
@@ -409,10 +407,9 @@ Proof
 QED
 
 Theorem pseudoBool_to_cnf_preserves_unsat:
-  unsat_pseudoBool b ⇔ unsat_cnf (pseudoBool_to_cnf b)
+  unsat_pseudoBool b ⇔ unsatisfiable_cnf (set (pseudoBool_to_cnf b))
 Proof
   fs [unsat_pseudoBool_def,pseudoBool_to_cnf_def,
       GSYM boolExp_to_cnf_preserves_unsat, unsat_boolExp_def,
       pseudoBool_to_quant_preserves_sat, quant_to_boolExp_preserves_sat]
 QED
-

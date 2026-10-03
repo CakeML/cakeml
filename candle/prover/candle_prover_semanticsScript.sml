@@ -195,7 +195,7 @@ QED
  * ------------------------------------------------------------------------- *)
 
 fun prove_v_ok v_tm =
-  auto_prove
+  auto_prove (Context.snapshot())
     ("v_ok for " ^ (#1 (dest_const v_tm)))
     (“v_ok ctxt (^v_tm)”,
      irule v_ok_KernelVals
