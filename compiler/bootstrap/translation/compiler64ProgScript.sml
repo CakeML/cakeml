@@ -862,19 +862,6 @@ Proof
   \\ xsimpl
 QED
 
-Theorem dec_sides[local]:
-  (peg_v_side ⇔ T) ∧
-  (peg_longv_side ⇔ T) ∧
-  (peg_uqconstructorname_side ⇔ T) ∧
-  (cmlpeg_side ⇔ T)
-Proof
-  fs[
-    parserProgTheory.cmlpeg_side_def,
-    parserProgTheory.peg_v_side_def,
-    parserProgTheory.peg_longv_side_def,
-    parserProgTheory.peg_uqconstructorname_side_def]
-QED
-
 val sem_thm = prove_sem_thm "main" "compiler64_prog" main_whole_prog_spec;
 val compiler64_prog_def = fetch "-" "compiler64_prog_def";
 
@@ -892,7 +879,7 @@ Theorem semantics_compiler64_prog:
 Proof
   strip_tac
   \\ irule sem_thm
-  \\ fs [dec_sides]
+  \\ fs []
 QED
 
 (* saving a tidied up final theorem *)
@@ -916,7 +903,7 @@ val th1 = th
             |> CONV_RULE (RAND_CONV (EVAL THENC REWRITE_CONV
                                           (DB.find "_refs_def" |> map (#1 o #2)) THENC
                                           SIMP_CONV std_ss [APPEND_NIL,APPEND]))
-            |> DISCH_ALL |> REWRITE_RULE [dec_sides]
+            |> DISCH_ALL
 
 Theorem Decls_FRONT_compiler64_prog = th1
 
