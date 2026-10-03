@@ -181,7 +181,7 @@ End
 
 Definition terms_neg_fst_def:
   terms_neg_fst [] = [] ∧
-  terms_neg_fst ((c:int,v:num)::l) = -c :: terms_neg_fst l
+  terms_neg_fst ((c:int,v:num)::l) = let d = -c in d :: terms_neg_fst l
 End
 
 (* every variable of the slot is below n *)
