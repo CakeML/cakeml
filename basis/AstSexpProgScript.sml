@@ -1,5 +1,5 @@
 (*
-  Module for converts between AST and s-expressions.
+  Module for converting between AST values and s-expressions.
 *)
 Theory AstSexpProg
 Ancestors
@@ -58,16 +58,6 @@ val r = translate ast_sexpTheory.from_dec_list_def
 
 val r = translate ast_sexpTheory.dest_atom_def
 val r = translate ast_sexpTheory.dest_expr_def
-
-val r = translate listTheory.EL
-Theorem el_side[local]:
-  ∀n xs. el_side n xs ⇔ n < LENGTH xs
-Proof
-  Induct >> Cases
-  >> once_rewrite_tac [fetch "-" "el_side_def"]
-  >> fs [CONTAINER_def]
-QED
-val _ = el_side |> update_precondition
 
 val r = translate (ast_sexpTheory.to_int_pair_def |> apply_rewrites)
 val r = translate ast_sexpTheory.dest_tagged_def

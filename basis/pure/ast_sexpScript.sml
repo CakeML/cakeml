@@ -66,7 +66,7 @@ Definition from_arith_def:
   (from_arith Xor  = Atom «Xor») ∧
   (from_arith Or   = Atom «Or») ∧
   (from_arith Not  = Atom «Not») ∧
-  (from_arith Abs  = Atom «Abs») ∧
+  (from_arith Absolute = Atom «Absolute») ∧
   (from_arith Sqrt = Atom «Sqrt») ∧
   (from_arith FMA  = Atom «FMA») ∧
   (from_arith (Shift s) = Expr [Atom «Shift»; from_shift s])
@@ -429,7 +429,7 @@ Definition to_arith_def:
      else if s = «Xor» then return Xor
      else if s = «Or» then return Or
      else if s = «Not» then return Not
-     else if s = «Abs» then return Abs
+     else if s = «Absolute» then return Absolute
      else if s = «Sqrt» then return Sqrt
      else if s = «FMA» then return FMA
      else fail) ∧

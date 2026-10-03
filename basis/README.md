@@ -12,7 +12,7 @@ Translates the CakeML source AST types into an Ast module, with generated
 pretty-printers, so that they are part of the REPL's initial environment.
 
 [AstSexpProgScript.sml](AstSexpProgScript.sml):
-Module for converts between AST and s-expressions.
+Module for converting between AST values and s-expressions.
 
 [CharProgScript.sml](CharProgScript.sml):
 A module about the char type for the CakeML standard basis library.

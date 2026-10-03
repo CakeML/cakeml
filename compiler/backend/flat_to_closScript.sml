@@ -124,7 +124,7 @@ Definition compile_arith_def:
                                    (Op t (IntOp closLang$Mod) [Var t 0; Var t 1]))
                | _ => Let None xs (Var None 0))
     | Float64T => (case a of
-                   | Abs => Op t (WordOp (FP_uop FP_Abs)) xs
+                   | Absolute => Op t (WordOp (FP_uop FP_Abs)) xs
                    | Neg => Op t (WordOp (FP_uop FP_Neg)) xs
                    | Sqrt => Op t (WordOp (FP_uop FP_Sqrt)) xs
                    | Add => Op t (WordOp (FP_bop FP_Add)) xs

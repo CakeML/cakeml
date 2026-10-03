@@ -21,8 +21,9 @@ Datatype:
 End
 
 Datatype:
-  arith = Add | Sub | Mul | Div | Mod | Neg | And | Xor | Or | Not | Abs | Sqrt | FMA
-        | Shift shift
+  arith = Add | Sub | Mul | Div | Mod | Neg | And | Xor | Or | Not
+        | Absolute  (* Abs is reserved for Candle *)
+        | Sqrt | FMA | Shift shift
 End
 
 (* Module names *)

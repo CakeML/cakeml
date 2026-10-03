@@ -209,7 +209,7 @@ Definition arith_to_display_def:
   arith_to_display Or  = empty_item «Or» ∧
   arith_to_display Neg = empty_item «Neg» ∧
   arith_to_display Not = empty_item «Not» ∧
-  arith_to_display Abs = empty_item «Abs» ∧
+  arith_to_display Absolute = empty_item «Absolute» ∧
   arith_to_display Sqrt = empty_item «Sqrt» ∧
   arith_to_display FMA = empty_item «FMA» ∧
   arith_to_display (Shift sh) = Item NONE «Shift» [shift_to_display sh]
