@@ -439,6 +439,15 @@ val error_line_ex1 =
 
 val error_line_ex1_parse = check_failure $ parse_pancake error_line_ex1
 
+(* error rows count from 0, as locs_to_string expects, over the lines
+   that quote_to_strings keeps *)
+fun has_error_row r =
+  let val row = numSyntax.term_of_int r in
+    assert $ can (match_term “INR [(m, Locs (POSN ^row c) e)]”) o rhs o concl
+  end
+
+val error_line_ex1_row = has_error_row 6 error_line_ex1_parse
+
 val error_line_ex2 =
  ‘/* this
   nasty /* non recursive /*
@@ -452,6 +461,8 @@ val error_line_ex2 =
  ’
 
 val error_line_ex2_parse = check_failure $ parse_pancake error_line_ex2
+
+val error_line_ex2_row = has_error_row 7 error_line_ex2_parse
 
 val error_line_ex3 =
 ‘
@@ -467,6 +478,8 @@ val error_line_ex3 =
 ’
 
 val error_line_ex3_parse = check_failure $ parse_pancake error_line_ex3
+
+val error_line_ex3_row = has_error_row 5 error_line_ex3_parse
 
 (* Exporting a function, that is, making a function callable for external entry into Pancake,
    uses the `export` keyword. Functions without this keyword are not callable in this way *)
