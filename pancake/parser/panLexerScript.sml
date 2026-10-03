@@ -297,7 +297,7 @@ Proof
 QED
 
 Definition init_loc_def:
-  init_loc = POSN 1 1
+  init_loc = POSN 0 1
 End
 
 Definition pancake_lex_aux_def:
