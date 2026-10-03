@@ -580,9 +580,14 @@ Quote add_cakeml:
       | Eval_result new_env new_conf =>
           (* check whether the program that ran has loaded in new input *)
           if !Repl.isEOF then () (* exit if there is no new input *) else
-            let val new_input = !Repl.nextString in
-              (* if there is new input: parse the input and recurse *)
-              case parse new_input of
+            let
+              val (parsed_input, new_input) =
+                case !Repl.nextInput of
+                  Inl text => (parse text, text)
+                | Inr decs => (Inr decs, "")
+            in
+              (* Both input forms share checking and evaluation on recursion. *)
+              case parsed_input of
                 Inl msg      => repl (parse, new_types, new_conf, new_env, report_error msg, "")
               | Inr new_decs => repl (parse, new_types, new_conf, new_env, new_decs, new_input)
             end
@@ -634,7 +639,7 @@ Quote add_cakeml:
       val env = (repl_init_env, 0)
       val decs = []
       val input_str = ""
-      val _ = (Repl.nextString := init_next_string cl)
+      val _ = (Repl.nextInput := Inl (init_next_string cl))
     in
       repl (parse, types, conf, env, decs, input_str)
     end

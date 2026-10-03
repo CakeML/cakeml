@@ -598,7 +598,7 @@ let () =
       match List.find isFile paths with
       | None ->
           print ("- No such file: " ^ fname ^ "\n");
-          Repl.nextString := "";
+          Repl.nextInput := Inl "";
           failwith ("No such file : " ^ fname)
       | Some fname ->
           let loader = match pragma with
@@ -738,18 +738,18 @@ let () =
         match scan 0 with
         | None ->
             Repl.isEOF := true;
-            Repl.nextString := ""
+            Repl.nextInput := Inl ""
         | Some ts ->
             Repl.isEOF := false;
-            Repl.nextString :=
-              String.concat
-                (List.map (Lexer.string_of_token (Some (!unquote))) ts)
+            Repl.nextInput := Inl
+              (String.concat
+                (List.map (Lexer.string_of_token (Some (!unquote))) ts))
     with Repl_error ->
       if not (!userInput) then print (!prompt1);
       Buffer.flush input_buffer;
       Buffer.flush output_buffer;
       clearLoadStack ();
-      Repl.nextString := "";
+      Repl.nextInput := Inl "";
       userInput := true in
   Repl.readNextString := (fun () ->
     print (!prompt1);

@@ -156,8 +156,7 @@ val nextInput_stamp = EVAL ``ml_prog$lookup_cons (Short «Inl») ^nextInput_env`
   |> concl |> rand |> optionSyntax.dest_some |> pairSyntax.dest_pair |> snd;
 val nextInput_loc_tm = EVAL ``Loc T (LENGTH ^nextInput_st.refs)``
   |> concl |> rand;
-Theorem nextInput_def = define_abbrev false "nextInput_loc" nextInput_loc_tm
-  |> tidy_up;
+Theorem nextInput_def = define_abbrev false "nextInput_loc" nextInput_loc_tm;
 val nextInput_new_st =
   ``^nextInput_st with refs := ^nextInput_st.refs ++
       [Refv (Conv (SOME ^nextInput_stamp) [Litv (StrLit «»)])]``;
@@ -172,6 +171,7 @@ Proof
 QED
 val _ = ml_prog_update (add_Dlet
   (nextInput_allocation |> REWRITE_RULE [GSYM nextInput_def]) "nextInput");
+Theorem nextInput_def[allow_rebind] = nextInput_def |> tidy_up;
 Theorem errorMessage_def[allow_rebind] = declare_new_ref "errorMessage" “«»” |> tidy_up;
 
 val _ = ml_prog_update open_local_block;

@@ -17,6 +17,11 @@ This directory contains the end-to-end correctness theorem for the
 This file gives the CakeML REPL multi-line input and file loading
 capabilities.
 
+[repl_input.cml](repl_input.cml):
+Self-checking source/direct-AST REPL boundary test. The callback and payloads
+capture the original references and constructors before namespace shadowing.
+Only the terminal callback prints the PASS marker; reaching EOF is not enough.
+
 [sexprBootstrap32Script.sml](sexprBootstrap32Script.sml):
 Produces an sexp print-out of the bootstrap translated compiler
 definition for the 32-bit version of the compiler.

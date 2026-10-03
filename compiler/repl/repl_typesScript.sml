@@ -1073,6 +1073,48 @@ Proof
 QED
 
 
+Theorem repl_types_input_thm:
+  !catalogue slots (ffi:'ffi ffi_state) b rs input_types st env.
+    repl_types_input catalogue slots b (ffi,rs) (input_types,st,env) ==>
+      EVERY (ref_lookup_ok st.refs) rs /\
+      !decs updated_types new_st result.
+        infertype_prog_inc input_types decs = M_success updated_types /\
+        evaluate_decs st env decs = (new_st,result) ==>
+        result <> Rerr (Rabort Rtype_error)
+Proof
+  reverse (Cases_on `b`) >- metis_tac [repl_types_input_F_thm] >>
+  rpt gen_tac >> strip_tac >>
+  drule repl_types_input_T_F >>
+  disch_then (qx_choosel_then
+    [`clean_state`,`clean_env`,`ref_map`,`type_map`,`exn_map`,`prefix_len`]
+    strip_assume_tac) >>
+  drule repl_types_input_F_thm >> strip_tac >>
+  conj_tac
+  >- (
+    fs [EVERY_MEM,FORALL_PROD] >> rw [] >> res_tac >>
+    fs [ref_lookup_ok_def,state_rel_def] >> res_tac >>
+    gvs [store_lookup_def] >>
+    qmatch_goalsub_rename_tac `location < LENGTH st.refs` >>
+    qmatch_asmsub_rename_tac `simple_ty = Str` >>
+    qpat_x_assum `!n. if n < LENGTH clean_state.refs then _ else _`
+      (qspec_then `location` mp_tac) >> fs [] >> strip_tac >>
+    Cases_on `EL location st.refs` >> fs [ref_rel_def] >>
+    Cases_on `simple_ty` >>
+    gvs [semanticPrimitivesTheory.Boolv_def,v_rel_cases] >>
+    qmatch_asmsub_rename_tac `OPTREL _ _ physical_tag` >>
+    Cases_on `physical_tag` >> gvs [stamp_rel_cases]) >>
+  rpt gen_tac >> strip_tac >>
+  qpat_x_assum `!decs updated_types new_st result. _`
+    (drule_then assume_tac) >>
+  namedCases_on `evaluate_decs clean_state clean_env decs`
+    ["clean_result_state clean_result"] >> fs [] >>
+  drule_all evaluate_decs_skip >> strip_tac >> gvs [] >>
+  CCONTR_TAC >> gvs [] >>
+  namedCases_on `clean_result` ["clean_values","clean_error"] >> fs [] >>
+  Cases_on `clean_error` >> fs []
+QED
+
+
 Theorem repl_types_thm:
   ∀(ffi:'ffi ffi_state) b rs types s env.
     repl_types b (ffi,rs) (types,s,env) ⇒
@@ -1082,28 +1124,7 @@ Theorem repl_types_thm:
         evaluate_decs s env decs = (new_s,res) ⇒
         res ≠ Rerr (Rabort Rtype_error)
 Proof
-  reverse (Cases_on ‘b’) >- metis_tac [repl_types_F_thm]
-  \\ rpt gen_tac \\ strip_tac
-  \\ drule repl_types_T_F \\ strip_tac
-  \\ drule repl_types_F_thm
-  \\ rpt strip_tac
-  >-
-   (fs [EVERY_MEM,FORALL_PROD] \\ rw [] \\ res_tac
-    \\ fs [ref_lookup_ok_def,state_rel_def] \\ res_tac
-    \\ gvs [store_lookup_def]
-    \\ rename [‘n1 < LENGTH s'.refs’]
-    \\ first_x_assum (qspec_then ‘n1’ mp_tac) \\ fs []
-    \\ Cases_on ‘EL n1 s'.refs’ \\ strip_tac \\ fs [ref_rel_def]
-    \\ rename [‘xx = Str’] \\ Cases_on ‘xx’
-    \\ gvs [semanticPrimitivesTheory.Boolv_def]
-    \\ gvs [v_rel_cases]
-    \\ Cases_on ‘t2’ \\ gvs [stamp_rel_cases])
-  \\ gvs []
-  \\ first_x_assum $ drule_then assume_tac
-  \\ Cases_on ‘evaluate_decs s' env' decs’ \\ fs []
-  \\ drule_all evaluate_decs_skip \\ strip_tac \\ gvs []
-  \\ Cases_on ‘r’ \\ fs []
-  \\ Cases_on ‘e’ \\ fs []
+  rw [repl_types_def] >> drule repl_types_input_thm >> simp []
 QED
 
 
@@ -1129,7 +1150,8 @@ val _ = List.app (fn theorem => let
    set_ids_SUBSET, set_ids_UNION, repl_types_input_F_TS, repl_types_F_repl_types_TS,
    repl_types_input_F_thm, repl_types_F_thm, input_init_ok_bounds, input_init_ok_clock, repl_types_input_skip_alt,
    repl_types_skip_alt, repl_types_input_set_clock, repl_types_set_clock, INJ_count_ADD,
-   repl_types_input_T_F, repl_types_T_F, repl_types_thm, repl_types_input_init, repl_types_input_eval,
+   repl_types_input_T_F, repl_types_T_F, repl_types_input_thm, repl_types_thm,
+   repl_types_input_init, repl_types_input_eval,
    repl_types_input_exn, repl_types_input_exn_assign, repl_types_input_str_assign,
    repl_types_input_trusted_assign, repl_types_input_rules, repl_types_input_cases,
    repl_types_input_ind, repl_types_input_strongind, repl_types_TS_input_init,

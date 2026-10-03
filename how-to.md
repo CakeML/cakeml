@@ -50,6 +50,40 @@ use the system's C compiler to build `basis_ffi.c` and to connect the
 CakeML generated machine code with the C code that is accessed through
 CakeML's foreign function interface (FFI).
 
+Providing REPL input
+--------------------
+
+On GNU/Linux, `./cake --repl` starts the CakeML REPL and `./cake --candle`
+starts the Candle REPL. Run from the directory containing `config_enc_str.txt`
+from the same bootstrap and `repl_boot.cml` or `candle_boot.ml`, respectively.
+The existing boot readers provide interactive source input and file loading.
+
+The user-visible `Ast` module also allows a custom reader to supply declarations
+directly. The input reference is
+`Repl.nextInput : (string, Ast.dec list) sum ref`: assign `Inl text` to use the
+selected source parser, or `Inr declarations` to bypass source parsing. Both
+forms use the same type checking, reserved-name restrictions and evaluation.
+Direct AST input uses empty source text for diagnostics; it is not serialized
+or reparsed.
+
+Install a reader by assigning `Repl.readNextString`, whose historical name is
+retained. This reference holds a `unit -> unit` function. Each call should set
+`Repl.isEOF := False` and supply `Repl.nextInput`, or set `Repl.isEOF := True`
+when finished. For example, enter these declarations in the CakeML REPL:
+
+    val pending = Ref (Some [Ast.Dlet Ast.Nolocs (Ast.Pvar "answer")
+      (Ast.Lit (Ast.Intlit 42))]);
+    fun read_ast () =
+      case !pending of
+        None => Repl.isEOF := True
+      | Some decs => (pending := None; Repl.isEOF := False;
+          Repl.nextInput := Inr decs);
+    Repl.readNextString := read_ast;
+
+This evaluates the supplied declaration and then exits. Custom readers should
+also inspect and handle `Repl.errorMessage` and `Repl.exn` as appropriate;
+rejected declarations do not bypass the normal REPL error path.
+
 A simple but complete program
 -----------------------------
 
