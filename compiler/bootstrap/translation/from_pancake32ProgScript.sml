@@ -287,7 +287,7 @@ val _ = translate $ INST_TYPE[alpha|->“:32 crepLang$exp”] cexp_heads_def;
 
 val _ = translate $ spec32 comp_field_def;
 
-val _ = translate $ spec32 exp_hdl_def;
+val _ = translate $ INST_TYPE[alpha|->“:32”,beta|->“:mlstring”,gamma|->“:shape”] exp_hdl_def;
 
 val _ = translate $ SIMP_RULE std_ss [byteTheory.bytes_in_word_def,lem]
                   $ INST_TYPE[alpha|->“:32”,
@@ -311,9 +311,12 @@ val ind_lemma = Q.prove(
 
 val _ = translate $ spec32 mk_ctxt_def;
 
+val _ = translate (make_vmap_def |> INST_TYPE[alpha|->“:mlstring”]
+                                 |> REWRITE_RULE [FUPDATE_LIST]);
+
 val _ = translate $ spec32 comp_func_def;
 
-val _ = translate $ make_funcs_def;
+val _ = translate $ INST_TYPE[alpha|->“:mlstring”] make_funcs_def;
 
 val _ = translate $ INST_TYPE[alpha|->“:32”,
                               beta|->“:32”] get_eids_from_decls_def;
@@ -358,11 +361,16 @@ val _ = translate $ spec32 compile_crepop_def;
 
 val _ = translate $ spec32 compile_exp_def;
 
+val _ = translate $ INST_TYPE[alpha|->“:crepLang$varname”] rt_vars_def;
+
+val _ = translate (make_vmap_def |> INST_TYPE[alpha|->“:crepLang$varname”]
+                                 |> REWRITE_RULE [FUPDATE_LIST]);
+
 val _ = translate $ spec32 compile_def;
 
 val _ = translate $ spec32 comp_func_def;
 
-val _ = translate $ make_funcs_def;
+val _ = translate $ INST_TYPE[alpha|->“:crepLang$funname”] make_funcs_def;
 
 val _ = translate $ spec32 compile_prog_def;
 

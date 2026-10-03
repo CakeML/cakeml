@@ -597,19 +597,6 @@ Proof
   \\ xsimpl
 QED
 
-Theorem dec_sides[local]:
-  (peg_v_side ⇔ T) ∧
-  (peg_longv_side ⇔ T) ∧
-  (peg_uqconstructorname_side ⇔ T) ∧
-  (cmlpeg_side ⇔ T)
-Proof
-  fs[
-    parserProgTheory.cmlpeg_side_def,
-    parserProgTheory.peg_v_side_def,
-    parserProgTheory.peg_longv_side_def,
-    parserProgTheory.peg_uqconstructorname_side_def]
-QED
-
 val sem_thm = prove_sem_thm "main" "compiler32_prog" main_whole_prog_spec;
 val compiler32_prog_def = fetch "-" "compiler32_prog_def";
 
@@ -626,7 +613,7 @@ Theorem semantics_compiler32_prog:
 Proof
   strip_tac
   \\ irule sem_thm
-  \\ fs [dec_sides]
+  \\ fs []
 QED
 
 val _ = ml_translatorLib.reset_translation(); (* because this translation won't be continued *)
