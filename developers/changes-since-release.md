@@ -54,6 +54,10 @@ paves the way for supporting Eval on Arm.
 Smallnums and nullary constructors have improved runtime representation (#1487).
 This means, e.g., that smallnums can use 63 bits on 64-bit architectures.
 
+The exported assembly marks the stack as non-executable on ELF platforms, so
+`cake` and the programs it compiles no longer get an executable stack from the
+linker (#1517).
+
 ## Pancake
 
 Queryable feature tags (#1470).
