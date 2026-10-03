@@ -2678,7 +2678,7 @@ fun single_line_def def = let
           handle HOL_ERR _ => search names
     in search (map (fn suffix => #Name r ^ suffix)
                    ["_trans_ind", "_ind", "_IND"]) end
-  (* Keep the original reconstruction fallback when no saved theorem exists.
+  (* Reconstruct induction when no suitable saved theorem exists.
      Failed termination must not discard HOL's successful conversion. *)
   fun reconstruct_ind () = let
     val used_names = map (fst o dest_const) (constants "-") @
@@ -2908,6 +2908,13 @@ fun mutual_to_single_line_def def = let
              |> CONV_RULE (DEPTH_CONV BETA_CONV)
              |> CONJUNCTS |> map SPEC_ALL
   in (def2,SOME ind) end end handle HOL_ERR _ => let
+  (* DefnBase.one_line_ify can return an all-variable clause
+     before checking the remaining function names. *)
+  val clauses = def |> SPEC_ALL |> CONJUNCTS
+  fun head th = th |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
+  val const = head (hd clauses)
+  val _ = all (aconv const o head) clauses orelse
+          failwith "Preprocessor failed: definition defines more than one function."
   val (def,ind) = single_line_def def
   in ([def],ind) end
 

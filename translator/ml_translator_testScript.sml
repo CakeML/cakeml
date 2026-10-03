@@ -34,6 +34,59 @@ val _ = null (hyp nested_tuple_termination_translation) orelse
 val _ = register_type “:'a list”;
 val _ = register_type “:'a option”;
 
+(* A mutual definition whose saved induction theorem uses the definition name. *)
+Definition parity_def:
+  (my_even 0 = T) /\
+  (my_even (SUC n) = my_odd n) /\
+  (my_odd 0 = F) /\
+  (my_odd (SUC n) = my_even n)
+End
+
+Theorem parity_all_variable[local]:
+  (∀n. my_even n = if n = 0 then T else my_odd (n - 1)) /\
+  (∀n. my_odd n = if n = 0 then F else my_even (n - 1))
+Proof
+  conj_tac \\ Cases
+  \\ simp [parity_def]
+QED
+
+val _ = not (can (fetch "-") "my_even_ind") andalso
+        not (can (fetch "-") "my_odd_ind") orelse
+        failwith "Parity unexpectedly has function-named induction";
+val parity_expected_error =
+  "Preprocessor failed: definition defines more than one function.";
+val parity_preprocessing_error =
+  (mutual_to_single_line_def parity_all_variable; NONE)
+  handle HOL_ERR err => SOME (Feedback.message_of err);
+val _ = parity_preprocessing_error = SOME parity_expected_error orelse
+        failwith "Parity preprocessing did not reject the single-function fallback";
+val parity_translation_error =
+  (translate parity_all_variable; NONE)
+  handle HOL_ERR err => SOME (Feedback.message_of err);
+val _ = parity_translation_error = SOME parity_expected_error orelse
+        failwith "Parity translation did not reject the single-function fallback";
+val _ = print "Parity: single-function fallback rejects the mutual definition.\n";
+
+(* Define saves induction for the numeric recursion before state is exposed. *)
+Definition native_state_step_def:
+  native_state_step (n:num) =
+    if n = 0 then (I:num -> num) else native_state_step (n - 1) o SUC
+End
+
+val native_state_ind = fetch "-" "native_state_step_ind";
+val _ = not (can (fetch "-") "native_state_step_trans_ind") orelse
+        failwith "Native state recursion unexpectedly has translation induction";
+val explicit_native_state_def = PURE_REWRITE_RULE
+  [FUN_EQ_THM, COND_RATOR, combinTheory.I_THM, combinTheory.o_THM]
+  native_state_step_def;
+val native_state_translation = translate explicit_native_state_def;
+val _ = length (hyp native_state_translation) = 1 andalso
+        aconv (hd (hyp native_state_translation)) ``native_state_step_ind`` orelse
+        failwith "Native state translation no longer retains its induction obligation";
+val _ = aconv (concl (latest_ind ())) (concl native_state_ind) orelse
+        failwith "Native state induction was replaced";
+val _ = print "Native state recursion: saved _ind selected; one induction obligation.\n";
+
 (* A state-passing rewrite needs induction over the explicit state argument.
    Keep a stale saved theorem visible instead of reconstructing over it. *)
 Definition state_fold_def:
@@ -50,7 +103,7 @@ val _ = length (hyp stale_state_translation) = 1 orelse
 val _ = aconv (concl (latest_ind ())) (concl stale_state_ind) orelse
         failwith "Saved state induction was replaced";
 
-(* This is the same strengthening performed by inferProg's corrected helper. *)
+(* Generalise the state argument in the list induction predicate. *)
 val state_fold_trans_ind = stale_state_ind
   |> Q.SPEC `λxs. ∀s. P xs s`
   |> CONV_RULE (DEPTH_CONV BETA_CONV)

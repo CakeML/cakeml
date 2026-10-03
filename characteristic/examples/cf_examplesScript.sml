@@ -13,8 +13,6 @@ val _ = translation_extends "basisProg"
 
 fun xcf' s = xcf_with_def (DB.fetch "-" (s ^ "_v_def"))
 
-val xlet_auto = cfLetAutoLib.xlet_auto
-
 Quote add_cakeml:
   fun example_let0 n = let val a = 3; in a end
 End

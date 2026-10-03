@@ -16,7 +16,6 @@ Libs
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-(* Keep mapPartial equations available for explicit rewriting below. *)
 val _ = temp_delsimps ["mapPartial_EQ_NIL"]
 
 val _ = diminish_srw_ss ["ABBREV"]
