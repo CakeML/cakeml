@@ -18,6 +18,12 @@ shifted expression for address location warnings has been fixed.
 `@top` now refers to the end of internal memory, as documented.
 Previously, it was parsed as `@base`.
 
+### Parser bug fix
+
+Parse errors now report the line where the error is. Previously, they
+reported the next line.
+
+
 Oct 1st 2026
 -------------------
 
