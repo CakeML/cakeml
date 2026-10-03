@@ -5,6 +5,15 @@ User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
 
+xxx xxxth 2026
+-------------------
+
+### Malformed numbers
+
+A number directly followed by a letter or `_`, such as `1x` or `0x10`,
+is now a parse error (`Malformed number: 1x`). Previously, `1x` was
+read as `1 x`, so `var 1x = 0;` declared `x` with shape 1.
+
 Oct 1st 2026
 -------------------
 
