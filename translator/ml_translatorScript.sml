@@ -718,6 +718,84 @@ Proof
   \\ rw[state_component_equality]
 QED
 
+Definition ptr_eq_def:
+  ptr_eq x y = (x = y:'a)
+End
+
+Theorem Eval_PtrEq:
+  Eval env x1 (a y1) /\ Eval env x2 (a y2) /\ Eval env e1 (b t1) /\ Eval env e2 (b t2) ==>
+  EqualityType a /\ (y1 = y2 ⇒ t1 = t2) ==>
+  Eval env (If (App PtrEq [x1;x2]) e1 e2) (b (if ptr_eq y1 y2 then t1 else t2))
+Proof
+  rpt strip_tac
+  \\ reverse $ Cases_on ‘y1 = y2’ \\ gvs [ptr_eq_def]
+  \\ fs [Eval_def] \\ rw []
+  \\ fs [eval_rel_def, PULL_EXISTS]
+  \\ gvs [evaluate_def, AllCaseEqs(), PULL_EXISTS]
+  >-
+   (last_x_assum mp_tac
+    \\ last_x_assum $ qspecl_then [‘refs’,‘po’] strip_assume_tac
+    \\ strip_tac
+    \\ dxrule evaluate_set_clock \\ simp []
+    \\ first_x_assum $ qspecl_then [‘refs ++ refs'’,‘po'’] strip_assume_tac
+    \\ dxrule evaluate_set_clock \\ simp []
+    \\ rename [‘build_state (refs1 ++ refs2 ++ refs3)’]
+    \\ rpt strip_tac
+    \\ qabbrev_tac ‘p1 = po''⦇0 ↦ shift_seq 1 (po'' 0)⦈’
+    \\ first_x_assum $ qspecl_then [‘refs1 ++ refs2 ++ refs3’,‘p1’] strip_assume_tac
+    \\ first_x_assum $ qspecl_then [‘refs1 ++ refs2 ++ refs3’,‘p1’] kall_tac
+    \\ dxrule evaluate_set_clock \\ simp []
+    \\ disch_then $ qspec_then ‘0’ strip_assume_tac
+    \\ rename [‘(build_state (refs1 ++ refs2 ++ refs3) p1 with clock := ck6)’]
+    \\ last_x_assum $ qspec_then ‘ck6’ strip_assume_tac
+    \\ rename [‘(build_state (refs1 ++ refs2) p2 with clock := ck7)’]
+    \\ last_x_assum $ qspec_then ‘ck7’ strip_assume_tac
+    \\ pop_assum $ irule_at $ Pos hd \\ simp []
+    \\ imp_res_tac do_eq_succeeds \\ fs []
+    \\ simp [do_if_def]
+    \\ gvs [build_state_def]
+    \\ simp [state_component_equality])
+  \\ last_x_assum mp_tac
+  \\ last_x_assum $ qspecl_then [‘refs’,‘po’] strip_assume_tac
+  \\ strip_tac
+  \\ dxrule evaluate_set_clock \\ simp []
+  \\ first_x_assum $ qspecl_then [‘refs ++ refs'’,‘po'’] strip_assume_tac
+  \\ dxrule evaluate_set_clock \\ simp []
+  \\ rename [‘build_state (refs1 ++ refs2 ++ refs3)’]
+  \\ rpt strip_tac
+  \\ Cases_on ‘po'' 0 0’
+  >-
+   (qabbrev_tac ‘p1 = po''⦇0 ↦ shift_seq 1 (po'' 0)⦈’
+    \\ first_x_assum $ qspecl_then [‘refs1 ++ refs2 ++ refs3’,‘p1’] kall_tac
+    \\ first_x_assum $ qspecl_then [‘refs1 ++ refs2 ++ refs3’,‘p1’] strip_assume_tac
+    \\ dxrule evaluate_set_clock \\ simp []
+    \\ disch_then $ qspec_then ‘0’ strip_assume_tac
+    \\ rename [‘(build_state (refs1 ++ refs2 ++ refs3) p1 with clock := ck6)’]
+    \\ last_x_assum $ qspec_then ‘ck6’ strip_assume_tac
+    \\ rename [‘(build_state (refs1 ++ refs2) p2 with clock := ck7)’]
+    \\ last_x_assum $ qspec_then ‘ck7’ strip_assume_tac
+    \\ pop_assum $ irule_at $ Pos hd \\ simp []
+    \\ imp_res_tac do_eq_succeeds \\ fs []
+    \\ simp [do_if_def]
+    \\ gvs [build_state_def]
+    \\ simp [state_component_equality])
+  >-
+   (qabbrev_tac ‘p1 = po''⦇0 ↦ shift_seq 1 (po'' 0)⦈’
+    \\ first_x_assum $ qspecl_then [‘refs1 ++ refs2 ++ refs3’,‘p1’] strip_assume_tac
+    \\ first_x_assum $ qspecl_then [‘refs1 ++ refs2 ++ refs3’,‘p1’] kall_tac
+    \\ dxrule evaluate_set_clock \\ simp []
+    \\ disch_then $ qspec_then ‘0’ strip_assume_tac
+    \\ rename [‘(build_state (refs1 ++ refs2 ++ refs3) p1 with clock := ck6)’]
+    \\ last_x_assum $ qspec_then ‘ck6’ strip_assume_tac
+    \\ rename [‘(build_state (refs1 ++ refs2) p2 with clock := ck7)’]
+    \\ last_x_assum $ qspec_then ‘ck7’ strip_assume_tac
+    \\ pop_assum $ irule_at $ Pos hd \\ simp []
+    \\ imp_res_tac do_eq_succeeds \\ fs []
+    \\ simp [do_if_def]
+    \\ gvs [build_state_def]
+    \\ simp [state_component_equality])
+QED
+
 (* booleans *)
 
 Theorem Eval_Or:
