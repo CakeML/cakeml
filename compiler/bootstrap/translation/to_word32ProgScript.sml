@@ -151,6 +151,7 @@ val _ = translate (WriteWord64_on_32_def |> inline_simp |> conv32)
 val _ = translate (WordOp64_on_32_def |> inline_simp |> SIMP_RULE std_ss [word_mul_def,word_2comp_def]|> conv32)
 
 val _ = translate (ShiftVar_def |> inline_simp |> conv32);
+val _ = translate (SmallDivMod_def |> inline_simp |> conv32);
 val _ = translate (WordShift64_on_32_def |> inline_simp |> conv32)
 val _ = translate (WordShiftVar64_on_32_def |> inline_simp |> conv32)
 val _ = translate (ShiftW8_def |> inline_simp |> conv32)

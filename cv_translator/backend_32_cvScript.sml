@@ -367,6 +367,7 @@ val _ = data_to_wordTheory.BignumHalt_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.list_Seq_def |> arch_spec |> cv_trans;
 val _ = data_to_wordTheory.SilentFFI_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.ShiftVar_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.SmallDivMod_def |> arch_spec |> cv_trans;
 val _ = data_to_wordTheory.AllocVar_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.StoreEach_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.WriteWord64_def |> arch_spec |> SRULE [] |> cv_trans;

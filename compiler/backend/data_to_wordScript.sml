@@ -2095,13 +2095,13 @@ val def = assign_Define `
   assign_Div (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
         (if c.has_idiv then
-           let fallback = \ret_label. MustTerminate
-                 (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,ret_label))
-                   (SOME Div_location) [adjust_var v1; adjust_var v2] NONE) in
            let signed = list_Seq
                  [SmallDivMod F v1 v2;
                   Assign 5 (ShiftVar Lsr 1 (dimindex (:'a)-2));
-                  If Equal 5 (Imm 1) (fallback (l+1))
+                  If Equal 5 (Imm 1)
+                    (MustTerminate
+                      (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l+1))
+                        (SOME Div_location) [adjust_var v1; adjust_var v2] NONE))
                     (Assign 1 (ShiftVar Lsl 1 1))] in
              list_Seq
                [Assign 1 (Op Or [Var (adjust_var v1); Var (adjust_var v2)]);
@@ -2117,7 +2117,9 @@ val def = assign_Define `
                                                        (adjust_var v2)))];
                           Assign 1 (ShiftVar Lsl 1 1)])
                    else signed)
-                  (fallback l);
+                  (MustTerminate
+                    (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
+                      (SOME Div_location) [adjust_var v1; adjust_var v2] NONE));
                 Move 2 [(adjust_var dest,1)]]
          else list_Seq [
            Assign 1 (Op Or [Var (adjust_var v1); Var (adjust_var v2)]);
