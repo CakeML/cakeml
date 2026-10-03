@@ -230,13 +230,15 @@ Definition next_atom_def:
     else if isSpace c then
       next_atom cs (next_loc 1 loc)
     else if isDigit c then
-      let (n, cs') = read_while isDigit cs [c] in
-        SOME (NumberA &(num_from_dec_string_alt n),
+      let (n, cs') = read_while isAlphaNumOrWild cs [c] in
+        SOME (if EVERY isDigit n then NumberA &(num_from_dec_string_alt n)
+              else ErrA $ concat [«Malformed number: »; implode n],
               Locs loc (next_loc (LENGTH n) loc),
               cs')
     else if c = #"-" ∧ cs ≠ "" ∧ isDigit (HD cs) then
-      let (n, rest) = read_while isDigit cs [] in
-      SOME (NumberA (0 - &(num_from_dec_string_alt n)),
+      let (n, rest) = read_while isAlphaNumOrWild cs [] in
+      SOME (if EVERY isDigit n then NumberA (0 - &(num_from_dec_string_alt n))
+            else ErrA $ concat [«Malformed number: -»; implode n],
             Locs loc (next_loc (LENGTH n) loc),
             rest)
     else if isPREFIX "//" (c::cs) then (* comment *)
