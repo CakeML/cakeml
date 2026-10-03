@@ -464,6 +464,70 @@ val _ = cv_auto_trans backend_asmTheory.attach_bitmaps_def;
 
 (* ------------------------------------------------------------------------ *)
 
+Theorem offset_ok_cv_def =
+  asmTheory.offset_ok_def |> SRULE [integerTheory.INT_DIVIDES_MOD0];
+val offset_ok_pre = cv_trans_pre "" offset_ok_cv_def;
+Theorem asm_offset_ok_pre[cv_pre]:
+  ∀a offset i. asm_offset_ok_pre a offset i
+Proof
+  simp [Once offset_ok_pre]
+QED
+val _ = cv_trans lab_to_targetTheory.section_labels_def;
+val _ = cv_trans lab_to_targetTheory.compute_labels_alt_def;
+val _ = cv_trans lab_to_targetTheory.lines_upd_lab_len_def;
+val _ = cv_auto_trans lab_to_targetTheory.get_jump_offset_def;
+
+val pre = cv_trans_pre "" lab_to_targetTheory.upd_lab_len_def;
+Theorem lab_to_target_upd_lab_len_pre[cv_pre]:
+  ∀pos v. lab_to_target_upd_lab_len_pre pos v
+Proof
+  Induct_on ‘v’ \\ simp [Once pre]
+QED
+
+val _ = cv_trans lab_to_targetTheory.add_nop_def;
+
+val pre = cv_trans_pre "" lab_to_targetTheory.pad_section_def;
+Theorem lab_to_target_pad_section_pre[cv_pre,local]:
+  ∀nop v aux. lab_to_target_pad_section_pre nop v aux
+Proof
+  Induct_on ‘v’ \\ simp [Once pre]
+QED
+
+val _ = cv_trans lab_to_targetTheory.pad_code_def;
+
+Theorem to_shmem_info_num[local]:
+  <| entry_pc := ep ; nbytes := nb ; addr_reg := ar ; addr_off := ao ;
+     reg := r ; exit_pc := ex |> = shmem_info_num ep nb ar ao r ex
+Proof
+  gvs [lab_to_targetTheory.shmem_info_num_component_equality]
+QED
+
+val pre = cv_trans_pre "" (lab_to_targetTheory.get_shmem_info_def
+                          |> SRULE [to_shmem_info_num]);
+Theorem lab_to_target_get_shmem_info_pre[cv_pre]:
+  ∀v pos ffi_names shmem_info.
+    lab_to_target_get_shmem_info_pre v pos ffi_names shmem_info
+Proof
+  ho_match_mp_tac lab_to_targetTheory.get_shmem_info_ind
+  \\ rw [] \\ simp [Once pre] \\ gvs [to_shmem_info_num]
+QED
+
+Theorem shift_def[cv_inline] = backend_commonTheory.word_shift_def;
+
+val _ = asmTheory.arch_width_bits_def |> cv_trans;
+val _ = asmTheory.arch_bytes_def |> cv_trans;
+val _ = asmTheory.arch_shift_def |> cv_trans;
+val _ = asmTheory.int_offset_ok_def |> cv_trans;
+val _ = data_to_wordTheory.get_gen_size_def |> cv_trans;
+
+val _ = word_to_stackTheory.format_var_def |> cv_trans;
+val _ = word_to_stackTheory.perf_rbp_def |> cv_trans;
+val _ = word_to_stackTheory.perf_rsp_def |> cv_trans;
+val _ = word_to_stackTheory.handler_slots_def |> cv_trans;
+val _ = cv_trans word_instTheory.three_to_two_reg_def;
+val _ = cv_trans word_instTheory.three_to_two_reg_prog_def;
+val _ = cv_trans GREATER_DEF;
+
 val _ = cv_trans stack_to_labTheory.find_lab_def;
 val _ = cv_trans stack_to_labTheory.negate_def;
 val _ = cv_trans stack_to_labTheory.is_gen_gc_def;
@@ -726,6 +790,7 @@ Theorem flatten_exp_eq =
   |> REWRITE_RULE [GSYM flatten_exp_list_def]
 
 val _ = word_cseTheory.empty_data_def |> CONV_RULE (RAND_CONV EVAL) |> cv_trans;
+val _ = word_cseTheory.intToNum_def |> cv_trans;
 
 Definition lookup_listCmp_def:
   lookup_listCmp = balanced_map$lookup listCmp
@@ -888,6 +953,7 @@ QED
 val _ = cv_trans data_to_wordTheory.adjust_var_def;
 val _ = cv_trans adjust_vars_def;
 val _ = cv_auto_trans data_to_wordTheory.adjust_set_def;
+val _ = data_to_wordTheory.adjust_sets_def |> cv_trans;
 val _ = cv_trans data_to_wordTheory.get_names_def;
 val _ = cv_trans data_to_wordTheory.lookup_word_op_def;
 val _ = cv_trans data_to_wordTheory.fp_cmp_inst_def;
@@ -897,7 +963,7 @@ val _ = cv_trans data_to_wordTheory.fp_uop_inst_def;
 val _ = bitTheory.SLICE_def |> SRULE [bitTheory.MOD_2EXP_def] |> cv_trans;
 
 Definition get_words_def:
-  get_words [] = [] ∧
+  get_words ([]:(bool # 'a word_loc) list) = [] ∧
   get_words ((_,Word w) :: ws) = w :: get_words ws ∧
   get_words (_ :: ws) = 0w :: get_words ws
 End

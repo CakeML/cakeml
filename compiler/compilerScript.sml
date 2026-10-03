@@ -158,9 +158,9 @@ End
 
 Datatype:
   config =
-    <| inferencer_config : inf_env
-     ; backend_config : backend$config
-     ; asm_config : α asm_config
+    <| inferencer_config   : inf_env
+     ; backend_config      : backend$config
+     ; asm_config          : asm_config
      ; input_is_sexp       : bool
      ; exclude_prelude     : bool
      ; skip_type_inference : bool
@@ -553,7 +553,7 @@ EVAL ``parse_gc [«--gc=gen1234,1234,1234»] def``
 Definition conf_ok_check_def:
   conf_ok_check (:'a) c <=>
     shift_length c < dimindex (:α) ∧
-    shift (:α) ≤ shift_length c ∧ c.len_size ≠ 0 ∧
+    backend_common$word_shift (dimindex (:α)) ≤ shift_length c ∧ c.len_size ≠ 0 ∧
     c.len_size + 9 < dimindex (:α)
 End
 

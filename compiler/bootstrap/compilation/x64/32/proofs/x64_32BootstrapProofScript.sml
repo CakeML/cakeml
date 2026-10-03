@@ -23,7 +23,7 @@ QED
 Definition compiler_instance_def:
   compiler_instance =
     <| init_state := info;
-       compiler_fun := compile_inc_progs_for_eval x64_config ;
+       compiler_fun := compile_inc_progs_for_eval (:64) x64_config ;
        config_dom := UNIV ;
        config_v := BACKEND_CONFIG_v ;
        decs_dom := decs_allowed ;
@@ -33,7 +33,7 @@ End
 Theorem compiler_instance_lemma[local]:
   INJ compiler_instance.config_v 𝕌(:backend$config) 𝕌(:semanticPrimitives$v) ∧
   compiler_instance.init_state = info ∧
-  compiler_instance.compiler_fun = compile_inc_progs_for_eval x64_config
+  compiler_instance.compiler_fun = compile_inc_progs_for_eval (:64) x64_config
 Proof
   fs [compiler_instance_def]
 QED

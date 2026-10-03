@@ -31,7 +31,7 @@ Theorem arm7_backend_config_ok:
 Proof
   simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >> TRY(fs[arm7_backend_config_def]>>NO_TAC)
-  >- (EVAL_TAC>> blastLib.FULL_BBLAST_TAC)
+  >- (EVAL_TAC >> intLib.ARITH_TAC)
   >- (EVAL_TAC >> fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def])
   >- (EVAL_TAC >> fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def])
   >- (EVAL_TAC >> fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def])
@@ -52,6 +52,7 @@ Proof
     \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
     \\ rveq \\ fs [] \\ EVAL_TAC)
   \\ fs[stack_removeTheory.max_stack_alloc_def]
+  \\ simp[arm7_targetTheory.arm7_config_def,arm7_targetTheory.arm7_valid_imm_def,integer_wordTheory.i2w_pos]
   \\ EVAL_TAC>>fs[]
   \\ simp [armTheory.EncodeARMImmediate_def,
            Once (GSYM wordsTheory.word_mul_n2w)]

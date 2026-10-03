@@ -832,6 +832,7 @@ Definition localise_exp_def:
   localise_exp ls (NField fld exp) = NField fld (localise_exp ls exp) ∧
   localise_exp ls (Load shape exp) = Load shape (localise_exp ls exp) ∧
   localise_exp ls (LoadByte exp) = LoadByte (localise_exp ls exp) ∧
+  localise_exp ls (Load32 exp) = Load32 (localise_exp ls exp) ∧
   localise_exp ls (Op binop exps) = Op binop (localise_exps ls exps) ∧
   localise_exp ls (Panop panop exps) = Panop panop (localise_exps ls exps) ∧
   localise_exp ls (Cmp cmp exp1 exp2) = Cmp cmp (localise_exp ls exp1) (localise_exp ls exp2) ∧
@@ -857,6 +858,9 @@ Definition localise_prog_def:
   localise_prog ls (StoreByte exp1 exp2) =
   StoreByte (localise_exp ls exp1)
             (localise_exp ls exp2) ∧
+  localise_prog ls (Store32 exp1 exp2) =
+  Store32 (localise_exp ls exp1)
+          (localise_exp ls exp2) ∧
   localise_prog ls (Seq prog1 prog2) =
   Seq (localise_prog ls prog1)
       (localise_prog ls prog2) ∧

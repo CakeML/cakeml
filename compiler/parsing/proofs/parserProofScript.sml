@@ -12,7 +12,8 @@ Theorem parse_prog_correct0:
   (parse_prog s = Failure fl fe ⇒ parse s = NONE) ∧
   (parse_prog s = Success s' a eo ⇒ parse s = SOME a ∧ s' = [])
 Proof
-  simp[parse_prog_def, parse_def, pegresult_bind_def, cmlPEGTheory.pnt_def] >>
+  simp[parse_prog_def, parse_def, pegresult_bind_def, cmlPEGTheory.pnt_def,
+       cml_parse_nTopLevelDecs_def] >>
   ‘∃r. peg_eval cmlPEG (s, nt (mkNT nTopLevelDecs) I) r’
     by simp[pegTheory.peg_eval_total] >>
   drule_then assume_tac pegexecTheory.pegexec >>
@@ -76,4 +77,3 @@ Proof
   >- (drule $ cj 2 parse_prog_correct0 >> simp[]) >>
   drule $ cj 1 parse_prog_correct0 >> simp[]
 QED
-
