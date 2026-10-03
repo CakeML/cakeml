@@ -10,6 +10,65 @@ Libs
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
+(* A conservative check on the expressions evaluated now. Function bodies
+   are not run when closures are created; applications that could run them,
+   force thunks, or dynamically evaluate code are excluded. *)
+Definition no_ptr_eq_def[simp]:
+  (no_ptr_eq (Raise e) = no_ptr_eq e) ∧
+  (no_ptr_eq (Handle e pes) =
+    (no_ptr_eq e ∧ EVERY (λ(p,e). no_ptr_eq e) pes)) ∧
+  (no_ptr_eq (Lit l) = T) ∧
+  (no_ptr_eq (Con cn es) = EVERY no_ptr_eq es) ∧
+  (no_ptr_eq (Ident n) = T) ∧
+  (no_ptr_eq (Fun n e) = T) ∧
+  (no_ptr_eq (App op es) =
+    (getOpClass op = Simple ∧ EVERY no_ptr_eq es)) ∧
+  (no_ptr_eq (Log op e1 e2) = (no_ptr_eq e1 ∧ no_ptr_eq e2)) ∧
+  (no_ptr_eq (If e1 e2 e3) =
+    (no_ptr_eq e1 ∧ no_ptr_eq e2 ∧ no_ptr_eq e3)) ∧
+  (no_ptr_eq (Mat e pes) =
+    (no_ptr_eq e ∧ EVERY (λ(p,e). no_ptr_eq e) pes)) ∧
+  (no_ptr_eq (Let n e1 e2) = (no_ptr_eq e1 ∧ no_ptr_eq e2)) ∧
+  (no_ptr_eq (Letrec funs e) = no_ptr_eq e) ∧
+  (no_ptr_eq (Tannot e t) = no_ptr_eq e) ∧
+  (no_ptr_eq (Lannot e l) = no_ptr_eq e) ∧
+  (no_ptr_eq (Open path e) = no_ptr_eq e)
+End
+
+Theorem evaluate_no_ptr_eq:
+  (∀(st:'ffi state) env es st' res.
+    EVERY no_ptr_eq es ∧ evaluate st env es = (st',res) ⇒
+    st'.ptr_eq_oracle = st.ptr_eq_oracle ∧
+    ∀oracle. evaluate (st with ptr_eq_oracle := oracle) env es =
+      (st' with ptr_eq_oracle := oracle,res)) ∧
+  (∀(st:'ffi state) env v pes err_v st' res.
+    EVERY (λ(p,e). no_ptr_eq e) pes ∧
+    evaluate_match st env v pes err_v = (st',res) ⇒
+    st'.ptr_eq_oracle = st.ptr_eq_oracle ∧
+    ∀oracle. evaluate_match (st with ptr_eq_oracle := oracle)
+      env v pes err_v = (st' with ptr_eq_oracle := oracle,res))
+Proof
+  ho_match_mp_tac evaluate_ind
+  \\ rw [evaluate_def, Excl "getOpClass_def"]
+  \\ gvs [AllCaseEqs(), ETA_THM, Excl "getOpClass_def"]
+  \\ gvs [do_log_def, do_if_def, AllCaseEqs()]
+QED
+
+Theorem evaluate_no_ptr_eq_preserves_oracle:
+  no_ptr_eq e ∧ evaluate st env [e] = (st',res) ⇒
+  st'.ptr_eq_oracle = st.ptr_eq_oracle
+Proof
+  metis_tac [evaluate_no_ptr_eq, EVERY_DEF]
+QED
+
+Theorem evaluate_no_ptr_eq_with_oracle:
+  no_ptr_eq e ∧ evaluate st env [e] = (st',res) ⇒
+  evaluate (st with ptr_eq_oracle := oracle) env [e] =
+    (st' with ptr_eq_oracle := oracle,res)
+Proof
+  metis_tac [evaluate_no_ptr_eq, EVERY_DEF]
+QED
+
 Theorem call_FFI_LENGTH:
    (call_FFI st index conf x = FFI_return new_st new_bytes) ==>
     (LENGTH x = LENGTH new_bytes)
