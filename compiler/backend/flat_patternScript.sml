@@ -283,6 +283,9 @@ Definition compile_exp_def:
     let (j, sg2, y2) = compile_exp cfg x2 in
     let (k, sg3, y3) = compile_exp cfg x3 in
     (MAX i (MAX j k), sg1 \/ sg2 \/ sg3, SmartIf t y1 y2 y3)) /\
+  (compile_exp cfg (flatLang$Tick t x) =
+    let (i, sg, y) = compile_exp cfg x in
+    (i, sg, flatLang$Tick t y)) /\
   (compile_exp cfg exp = (0, F, exp)) /\
   (compile_exps cfg [] = (0, F, [])) /\
   (compile_exps cfg (x::xs) =
