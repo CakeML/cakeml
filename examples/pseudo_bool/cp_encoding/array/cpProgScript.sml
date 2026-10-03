@@ -638,23 +638,7 @@ val res = translate cp_to_ilp_extensionalTheory.cencode_smart_table_def;
 
 (* regular *)
 
-(* the translated EL precondition holds for any in-bounds index *)
-Theorem el_side_imp[local]:
-  ∀xs n. n < LENGTH xs ⇒ el_side n xs
-Proof
-  Induct>>rw[Once npbc_arrayProgTheory.el_side_def]
-QED
-
 val res = translate cpTheory.nfa_edges_def;
-
-Theorem nfa_edges_side:
-  nfa_edges_side trans q ⇔ T
-Proof
-  rw[fetch "-" "nfa_edges_side_def"]>>metis_tac[el_side_imp]
-QED
-
-val _ = update_precondition nfa_edges_side;
-
 val res = translate cp_to_ilp_extensionalTheory.reg_state_def;
 val res = translate cp_to_ilp_extensionalTheory.state_idx_row;
 val res = translate cp_to_ilp_extensionalTheory.state_idx_def;

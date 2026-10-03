@@ -60,24 +60,6 @@ val res = translate vMap_to_orderBool_def;
 val res = translate encode_combinations_def;
 val res = translate encode_add_def;
 val res = translate encode_leq_def;
-val res = translate EL;
-
-val el_side_def = fetch "-" "el_side_def";
-
-Theorem el_side:
-  ∀ n l.
-    n < LENGTH l ⇒
-    el_side n l
-Proof
-  gs[Once el_side_def]
-  >> Induct
-  >- (
-    rw[]>>
-    pure_rewrite_tac[GSYM LENGTH_NIL]>>
-    intLib.ARITH_TAC)
-  >> rw[]
-  >> rw[Once el_side_def]
-QED
 
 val res = translate encode_eqConst_def; (* side *)
 
@@ -88,29 +70,11 @@ Theorem encode_eqconst_side:
     encode_eqconst_side n bvs
 Proof
   gs[Once encode_eqconst_side_def]
-  >> rw[]
-  >- gs[]
-  >- (irule el_side
-      >> gs[])
-  >> irule el_side
-  >> gs[]
 QED
 
 val _ = update_precondition encode_eqconst_side;
 
-val res = translate encode_leqConst_def; (* side *)
-
-val encode_leqconst_side_def = fetch "-" "encode_leqconst_side_def";
-
-Theorem encode_leqconst_side:
-  ∀ n bvs.
-    encode_leqconst_side n bvs
-Proof
-  rw[Once encode_leqconst_side_def]
-  >> irule el_side >> gs[]
-QED
-
-val _ = update_precondition encode_leqconst_side;
+val res = translate encode_leqConst_def;
 
 val res = translate numBoolExp_to_orderBool_def;
 val res = translate encode_axioms_def;

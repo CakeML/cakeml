@@ -2152,27 +2152,7 @@ Proof
   metis_tac[]
 QED
 
-val res = translate EL;
 val res = translate npbc_checkTheory.mk_scope_def;
-
-Theorem el_side[local]:
-  ∀xs n.
-  n < LENGTH xs ⇒
-  el_side n xs
-Proof
-  Induct>>
-  rw[Once (fetch "-" "el_side_def")]
-QED
-
-val _ = el_side |> update_precondition;
-
-Theorem mk_scope_side[local]:
-  mk_scope_side x y
-Proof
-  EVAL_TAC>>rw[]>>
-  metis_tac[el_side]
-QED
-val _ = mk_scope_side |> update_precondition;
 
 Quote add_cakeml:
   fun extract_scopes_arr lno scopes s b fml rsubs pfs =
@@ -3427,7 +3407,7 @@ Quote add_cakeml:
 End
 
 Theorem spt_Ln[local,simp]:
-  v = Conv (SOME (TypeStamp «Ln» 26)) [] ⇔
+  v = Conv (SOME (TypeStamp «Ln» 43)) [] ⇔
   SPTREE_SPT_TYPE UNIT_TYPE LN v
 Proof
   EVAL_TAC
@@ -4230,11 +4210,6 @@ val res = translate npbc_checkTheory.build_fml_def;
 
 val res = translate npbc_checkTheory.lookup_core_only_def;
 val res = translate npbc_checkTheory.extract_clauses_def;
-
-val extract_clauses_side = Q.prove(
-  `∀a b c d e f. extract_clauses_side a b c d e f`,
-  Induct_on`e`>>rw[Once (fetch "-" "extract_clauses_side_def")]>>
-  gvs[el_side]) |> update_precondition
 
 val res = translate FOLDL;
 val res = translate npbc_checkTheory.check_cutting_def;

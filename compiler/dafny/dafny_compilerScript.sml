@@ -3,8 +3,9 @@
 *)
 Theory dafny_compiler
 Ancestors
+  ast_sexp mlsexp
   result_monad sexp_to_dafny dafny_to_cakeml
-  dafny_freshen dafny_remove_assert fromSexp simpleSexpParse
+  dafny_freshen dafny_remove_assert
 Libs
   preamble
 
@@ -37,16 +38,12 @@ Definition cmlm_to_str_def:
   cmlm_to_str cmlm =
   let
     cml = unpack cmlm;
-    cml_sexp = listsexp (MAP decsexp cml);
+    cml_sexp = from_dec_list cml;
   in
-    print_sexp cml_sexp
+    sexp_to_string cml_sexp
 End
 
 Definition main_function_def:
   main_function (sexp: mlsexp$sexp): mlstring =
-  let
-    cmlm = dfy_to_cml sexp;
-    cml_str = cmlm_to_str cmlm;
-  in
-    implode cml_str
+    cmlm_to_str (dfy_to_cml sexp)
 End

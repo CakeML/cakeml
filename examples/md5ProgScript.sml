@@ -53,17 +53,6 @@ val res = translate genlist_rev_def;
 val res = translate (update_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 val final_v = translate (final_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 val res = translate hxd_def;
-val res = translate EL;
-
-Theorem el_side_thm:
-  ∀n xs. el_side n xs ⇔ n < LENGTH xs
-Proof
-  Induct
-  \\ once_rewrite_tac [fetch "-" "el_side_def"]
-  \\ rw [] \\ Cases_on ‘xs’ \\ fs []
-QED
-
-val _ = update_precondition el_side_thm;
 
 val res = translate byte2hex_def;
 
