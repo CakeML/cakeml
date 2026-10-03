@@ -3,7 +3,6 @@ name = "cakeml"
 holpath = "CAKEMLDIR"
 
 exclude = [
-  "compiler/backend/San",                        # broken, see #1104
   "compiler/benchmarks/cakeml_benchmarks/sml",   # plain SML programs, built by their own Makefile
   "compiler/benchmarks/mlton_benchmarks/sml",
   "tutorial/problems"                            # exercises generated from tutorial/solutions
@@ -25,5 +24,4 @@ external_includes = [
   "$(HOLDIR)/examples/l3-machine-code/riscv/model",
   "$(HOLDIR)/examples/l3-machine-code/x64/model",
 ]
-
 
