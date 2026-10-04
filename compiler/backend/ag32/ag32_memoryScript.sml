@@ -3648,7 +3648,7 @@ Definition startup_asm_code_def:
          CakeML code
        --------------- <- start PC
     *)
-    num_ffis (code_length:word32) bitmaps_length =
+    num_ffis (code_length:num) (bitmaps_length:num) =
     (*
       r2 <- heap_start_offset
       r4 <- code_start_offset num_ffis
@@ -3666,20 +3666,20 @@ Definition startup_asm_code_def:
       r1 <- code_start_offset num_ffis
       jump r1
     *)
-    [Inst (Const 2 (n2w heap_start_offset));
-     Inst (Const 4 (n2w (code_start_offset num_ffis)));
-     Inst (Const 1 code_length);
+    [Inst (Const 2 (&heap_start_offset));
+     Inst (Const 4 (&(code_start_offset num_ffis)));
+     Inst (Const 1 (&code_length));
      Inst (Arith (Binop Add 4 4 (Reg 1)));
-     Inst (Mem Store 4 (Addr 2 (0w * bytes_in_word)));
-     Inst (Mem Store 4 (Addr 2 (3w * bytes_in_word)));
-     Inst (Mem Store 4 (Addr 2 (4w * bytes_in_word)));
-     Inst (Const 1 bitmaps_length);
+     Inst (Mem Store 4 (Addr 2 0));
+     Inst (Mem Store 4 (Addr 2 12));
+     Inst (Mem Store 4 (Addr 2 16));
+     Inst (Const 1 (&bitmaps_length));
      Inst (Arith (Binop Add 4 1 (Reg 4)));
-     Inst (Mem Store 4 (Addr 2 (1w * bytes_in_word)));
-     Inst (Mem Store 4 (Addr 2 (2w * bytes_in_word)));
-     Inst (Const 1 (n2w heap_size));
+     Inst (Mem Store 4 (Addr 2 4));
+     Inst (Mem Store 4 (Addr 2 8));
+     Inst (Const 1 (&heap_size));
      Inst (Arith (Binop Add 4 2 (Reg 1)));
-     Inst (Const 1 (n2w (code_start_offset num_ffis)));
+     Inst (Const 1 (&(code_start_offset num_ffis)));
      JumpReg 1]
 End
 
@@ -3688,7 +3688,7 @@ Theorem LENGTH_startup_asm_code =
 
 Definition startup_code_def:
   startup_code ffi_len code_len data_len =
-    FLAT (MAP ag32_enc (startup_asm_code ffi_len (n2w code_len) (n2w (4* data_len))))
+    FLAT (MAP ag32_enc (startup_asm_code ffi_len code_len (4 * data_len)))
 End
 
 Definition init_memory_words_def:

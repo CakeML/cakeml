@@ -69,13 +69,13 @@ Definition compile_def:
     let (bm,c',fs,p) = word_to_stack$compile asm_conf c.stack_conf.perf_calls p in
     let c = c with word_conf := c' in
     let _ = empty_ffi «finished: word_to_stack» in
-    let p = stack_to_lab$compile
-      c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
+    let p = stack_to_lab$compile (arch_wordsize asm_conf.ISA)
+      c.stack_conf c.data_conf (&(2 * max_heap_limit (dimindex (:'a)) c.data_conf - 1))
       (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs +3))
       (asm_conf.addr_offset) p in
     let _ = empty_ffi «finished: stack_to_lab» in
-    let res = attach_bitmaps names c bm
-      (lab_to_target$compile asm_conf c.lab_conf (p:'a labLang$prog)) in
+    let res = attach_bitmaps names c (bm:'a word list)
+      (lab_to_target$compile asm_conf c.lab_conf (p:labLang$prog)) in
     let _ = empty_ffi «finished: lab_to_target» in
       res
 End
@@ -161,11 +161,11 @@ End
 Definition to_lab_def:
   to_lab asm_conf c p =
   let (bm,c,p,names) = to_stack asm_conf c p in
-  let p = stack_to_lab$compile
-    c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
+  let p = stack_to_lab$compile (arch_wordsize asm_conf.ISA)
+    c.stack_conf c.data_conf (&(2 * max_heap_limit (dimindex (:'a)) c.data_conf - 1))
     (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs +3))
     (asm_conf.addr_offset) p in
-  (bm,c,p:'a labLang$prog,names)
+  (bm:'a word list,c,p:labLang$prog,names)
 End
 
 Definition to_target_def:
@@ -217,12 +217,12 @@ Definition from_lab_def:
 End
 
 Definition from_stack_def:
-  from_stack asm_conf c names p bm =
-  let p = stack_to_lab$compile
-    c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
+  from_stack asm_conf c names p (bm:'a word list) =
+  let p = stack_to_lab$compile (arch_wordsize asm_conf.ISA)
+    c.stack_conf c.data_conf (&(2 * max_heap_limit (dimindex (:'a)) c.data_conf - 1))
     (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs +3))
     (asm_conf.addr_offset) p in
-  from_lab asm_conf c names (p:'a labLang$prog) bm
+  from_lab asm_conf c names (p:labLang$prog) bm
 End
 
 Definition from_word_def:
@@ -543,9 +543,9 @@ Datatype:
    ; bvi_prog : (num # num # bvi$exp # metadata) list
    ; data_prog : (num # num # dataLang$prog # metadata) list
    ; word_prog : (num # num # 'a wordLang$prog # metadata) list
-   ; stack_prog : (num # 'a stackLang$prog # metadata) list
+   ; stack_prog : (num # stackLang$prog # metadata) list
    ; cur_bm : 'a word list
-   ; lab_prog : 'a sec list
+   ; lab_prog : sec list
    ; target_prog : (mlstring # 'a word list) option
    |>
 End
@@ -592,11 +592,11 @@ Definition compile_inc_progs_def:
     let c = c with word_conf := (c.word_conf with bitmaps_length := SND bm) in
     let ps = ps with <| stack_prog := keep_progs k p ; cur_bm := cur_bm |> in
     let reg_count2 = asm_conf.reg_count - (3 + LENGTH asm_conf.avoid_regs) in
-    let p = stack_to_lab$compile_no_stubs
+    let p = stack_to_lab$compile_no_stubs (arch_wordsize asm_conf.ISA)
         c.stack_conf.reg_names c.stack_conf.jump asm_conf.addr_offset
         reg_count2 p in
     let ps = ps with <| lab_prog := keep_progs k p |> in
-    let target = lab_to_target$compile asm_conf c.lab_conf (p:'a labLang$prog) in
+    let target = lab_to_target$compile asm_conf c.lab_conf (p:labLang$prog) in
     let ps = ps with <| target_prog := OPTION_MAP
         (\(bytes, _). (implode (ws_to_chars bytes), cur_bm)) target |> in
     let c = c with lab_conf updated_by (case target of NONE => I
@@ -605,10 +605,10 @@ Definition compile_inc_progs_def:
 End
 
 Definition compile_inc_progs_for_eval_def:
-  compile_inc_progs_for_eval asm_conf x =
+  compile_inc_progs_for_eval (:'a) asm_conf x =
   let (env_id, c', decs) = x in
   let (c'', ps) = compile_inc_progs T asm_conf c' (env_id, decs) in
-    OPTION_MAP (\(bs, ws). (c'', bs, MAP upper_w2w ws))
+    OPTION_MAP (\(bs, ws). (c'', bs, MAP upper_w2w (ws:'a word list)))
         ps.target_prog
 End
 
@@ -629,7 +629,7 @@ Proof
 QED
 
 Theorem compile_inc_progs_for_eval_eq:
-  compile_inc_progs_for_eval asm_conf (env_id,c,p) =
+  compile_inc_progs_for_eval (:'a) asm_conf (env_id,c,p) =
     let p = source_to_source$compile p in
     let (c',p) = source_to_flat$inc_compile env_id c.source_conf p in
     let _ = empty_ffi «finished: source_to_flat» in
@@ -656,15 +656,16 @@ Theorem compile_inc_progs_for_eval_eq:
     let cur_bm = append (FST bm) in
     let c = c with word_conf := (c.word_conf with bitmaps_length := SND bm) in
     let reg_count2 = asm_conf.reg_count - (3 + LENGTH asm_conf.avoid_regs) in
-    let p = stack_to_lab$compile_no_stubs
+    let p = stack_to_lab$compile_no_stubs (arch_wordsize asm_conf.ISA)
         c.stack_conf.reg_names c.stack_conf.jump asm_conf.addr_offset
         reg_count2 p in
     let _ = empty_ffi «finished: stack_to_lab» in
-    let target = lab_to_target$compile asm_conf c.lab_conf (p:'a labLang$prog) in
+    let target = lab_to_target$compile asm_conf c.lab_conf (p:labLang$prog) in
     let _ = empty_ffi «finished: lab_to_target» in
     let c = c with lab_conf updated_by (case target of NONE => I
                                         | SOME (_, c') => K c') in
-      OPTION_MAP (λx. (c,implode (ws_to_chars (FST x)),MAP upper_w2w cur_bm)) target
+      OPTION_MAP (λx. (c,implode (ws_to_chars (FST x)),
+                      MAP upper_w2w (cur_bm:'a word list))) target
 Proof
   fs [compile_inc_progs_for_eval_def,compile_inc_progs_def, full_compile_single_for_eval_eq]
   \\ rpt (pairarg_tac \\ gvs [])

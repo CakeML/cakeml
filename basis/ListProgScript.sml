@@ -14,7 +14,7 @@ val _ = ml_prog_update (open_module "List");
 val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [«'a»] «list» (Atapp [Atvar «'a»] (Short «list»))`` I);
+  ``Dtabbrev NoLocs [«'a»] «list» (Atapp [Atvar «'a»] (Short «list»))`` I);
 
 val r = translate NULL;
 
@@ -406,6 +406,8 @@ val _ =  ml_prog_update (close_module NONE);
 
 val _ = ml_prog_update (open_module "Alist");
 
+(*
+
 Definition FMAP_EQ_ALIST_def:
   FMAP_EQ_ALIST f l <=> (ALOOKUP l = FLOOKUP f)
 End
@@ -418,8 +420,12 @@ End
 val _ = add_type_inv ``FMAP_TYPE (a:'a -> v -> bool) (b:'b -> v -> bool)``
                      ``:('a # 'b) list``;
 
+*)
+
 val _ = next_ml_names := ["lookup"];
 val ALOOKUP_eval = translate ALOOKUP_def;
+
+(*
 
 val Eval_FLOOKUP = Q.prove(
   `!v. ((LIST_TYPE (PAIR_TYPE (b:'b -> v -> bool) (a:'a -> v -> bool)) -->
@@ -430,11 +436,15 @@ val Eval_FLOOKUP = Q.prove(
   |> (fn th => MATCH_MP th ALOOKUP_eval)
   |> add_user_proved_v_thm;
 
+*)
+
 val _ = next_ml_names := ["update"];
 Definition AUPDATE_def:
   AUPDATE l (x:'a,y:'b) = (x,y)::l
 End
 val AUPDATE_eval = translate AUPDATE_def;
+
+(*
 
 Theorem FMAP_EQ_ALIST_UPDATE[local]:
   FMAP_EQ_ALIST f l ==> FMAP_EQ_ALIST (FUPDATE f (x,y)) (AUPDATE l (x,y))
@@ -455,7 +465,7 @@ val Eval_FUPDATE = Q.prove(
   |> (fn th => MATCH_MP th AUPDATE_eval)
   |> add_user_proved_v_thm;
 
-val NIL_eval = hol2deep ``[]:('a # 'b) list``
+val NIL_eval = translate_tm ``[]:('a # 'b) list``
 
 val Eval_FEMPTY = Q.prove(
   `!v. (LIST_TYPE (PAIR_TYPE (a:'a -> v -> bool) (b:'b -> v -> bool)) []) v ==>
@@ -466,6 +476,8 @@ val Eval_FEMPTY = Q.prove(
          finite_mapTheory.FLOOKUP_DEF])
   |> MATCH_MP (MATCH_MP Eval_WEAKEN NIL_eval)
   |> add_eval_thm;
+
+*)
 
 Definition AEVERY_AUX_def:
   (AEVERY_AUX aux P [] = T) /\
@@ -479,6 +491,8 @@ End
 val _ = next_ml_names := ["every","every"];
 val _ = translate AEVERY_AUX_def;
 val AEVERY_eval = translate AEVERY_def;
+
+(*
 
 Theorem AEVERY_AUX_THM[local]:
   !l aux P. AEVERY_AUX aux P l <=>
@@ -515,12 +529,16 @@ val Eval_FEVERY = Q.prove(
   |> (fn th => MATCH_MP th AEVERY_eval)
   |> add_user_proved_v_thm;
 
+*)
+
 val _ = next_ml_names := ["map"];
 Definition AMAP_def:
   (AMAP f [] = []) /\
   (AMAP f ((x:'a,y:'b)::xs) = (x,(f y):'c) :: AMAP f xs)
 End
 val AMAP_eval = translate AMAP_def;
+
+(*
 
 Theorem ALOOKUP_AMAP[local]:
   !l. ALOOKUP (AMAP f l) a =
@@ -577,12 +595,16 @@ val Eval_FUNION = Q.prove(
   |> (fn th => MATCH_MP th append_eval)
   |> add_user_proved_v_thm;
 
+*)
+
 val _ = next_ml_names := ["delete"];
 Definition ADEL_def:
   (ADEL [] z = []) /\
   (ADEL ((x:'a,y:'b)::xs) z = if x = z then ADEL xs z else (x,y)::ADEL xs z)
 End
 val ADEL_eval = translate ADEL_def;
+
+(*
 
 Theorem ALOOKUP_ADEL[local]:
   !l a x. ALOOKUP (ADEL l a) x = if x = a then NONE else ALOOKUP l x
@@ -609,5 +631,7 @@ val Eval_fmap_domsub = Q.prove(
   METIS_TAC[FMAP_EQ_ALIST_ADEL])
   |> (fn th => MATCH_MP th ADEL_eval)
   |> add_user_proved_v_thm;
+
+*)
 
 val _ =  ml_prog_update (close_module NONE);

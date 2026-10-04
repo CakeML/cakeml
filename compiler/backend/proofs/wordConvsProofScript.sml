@@ -908,8 +908,8 @@ QED
 
 (*Less restrictive version of inst_ok guaranteed by inst_select*)
 Theorem inst_select_exp_full_inst_ok_less[local]:
-  ∀c tar temp exp.
-  addr_offset_ok c 0w ⇒
+  ∀c tar temp (exp:'a wordLang$exp).
+  isa_bits c = dimindex (:'a) ∧ addr_offset_ok c 0 ⇒
   full_inst_ok_less c (inst_select_exp c tar temp exp)
 Proof
   ho_match_mp_tac inst_select_exp_ind>>rw[]>>
@@ -918,10 +918,10 @@ Proof
 QED
 
 Theorem inst_select_full_inst_ok_less:
-  ∀c temp prog.
-    addr_offset_ok c 0w ∧
-    hw_offset_ok c 0w ∧
-    byte_offset_ok c 0w ∧
+  ∀c temp (prog:'a wordLang$prog).
+    isa_bits c = dimindex (:'a) ∧ addr_offset_ok c 0 ∧
+    hw_offset_ok c 0 ∧
+    byte_offset_ok c 0 ∧
     every_inst (inst_ok_less c) prog
     ⇒
     full_inst_ok_less c (inst_select c temp prog)
@@ -3103,4 +3103,3 @@ Proof
   every_case_tac>>fs[]>>
   rveq>>fs[]
 QED
-

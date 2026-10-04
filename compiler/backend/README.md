@@ -213,6 +213,9 @@ explicit variable names of flatLang to de Bruijn indexing of
 closLang. It also makes all division-by-zero and out-of-bounds
 exceptions raised explicitly.
 
+[flat_to_clos_shift_testScript.sml](flat_to_clos_shift_testScript.sml):
+Check fixed and computed word shifts at the flatLang-to-closLang boundary.
+
 [gc](gc):
 This directory contains the garbage collector (GC) algorithms and
 their verification proofs.

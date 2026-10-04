@@ -709,7 +709,11 @@ Definition sexparith_def:
      if s = "Or"  then SOME Or  else
      if s = "Not" then SOME Not else
      if s = "Sqrt" then SOME Sqrt else
-     if s = "FMA" then SOME FMA else NONE) ∧
+     if s = "FMA" then SOME FMA else
+     if s = "ShiftLsl" then SOME (Shift Lsl) else
+     if s = "ShiftLsr" then SOME (Shift Lsr) else
+     if s = "ShiftAsr" then SOME (Shift Asr) else
+     if s = "ShiftRor" then SOME (Shift Ror) else NONE) ∧
   sexparith _ = NONE
 End
 
@@ -774,15 +778,6 @@ Definition sexpop_def:
          if s = "AllocThunk" then SOME (ThunkOp (AllocThunk m)) else
          if s = "UpdateThunk" then SOME (ThunkOp (UpdateThunk m)) else NONE
    ) ∧
-  (sexpop (SX_CONS (SX_SYM s) (SX_NUM n)) =
-    if s = "Shift8Lsl" then SOME (Shift W8 Lsl n) else
-    if s = "Shift8Lsr" then SOME (Shift W8 Lsr n) else
-    if s = "Shift8Asr" then SOME (Shift W8 Asr n) else
-    if s = "Shift8Ror" then SOME (Shift W8 Ror n) else
-    if s = "Shift64Lsl" then SOME (Shift W64 Lsl n) else
-    if s = "Shift64Lsr" then SOME (Shift W64 Lsr n) else
-    if s = "Shift64Asr" then SOME (Shift W64 Asr n) else
-    if s = "Shift64Ror" then SOME (Shift W64 Ror n) else NONE) ∧
   (sexpop (SX_CONS (SX_SYM s) (SX_CONS x y)) =
     if s = "Arith" then
       (case (sexparith x, decode_prim_type y) of
@@ -800,28 +795,27 @@ Definition sexpop_def:
   (sexpop _ = NONE)
 End
 
+Definition sexpint_def:
+  sexpint s = case sexplit s of SOME (IntLit i) => SOME i | _ => NONE
+End
+
 Definition sexplocpt_def:
-  (sexplocpt (SX_SYM s) =
-    if s = "unk" then SOME UNKNOWNpt
-    else if s = "eof" then SOME EOFpt
-    else NONE) ∧
-  (sexplocpt s =
+  sexplocpt s =
    do
      ls <- strip_sxcons s ;
-     guard (LENGTH ls = 2) (lift2 POSN
-                            (odestSXNUM (EL 0 ls))
-                            (odestSXNUM (EL 1 ls)))
-   od)
+     guard (LENGTH ls = 2) (lift2 $,
+                            (sexpint (EL 0 ls))
+                            (sexpint (EL 1 ls)))
+   od
 End
 
 Definition sexplocn_def:
   sexplocn s =
     do
-      ls <- strip_sxcons s;
-      guard (LENGTH ls = 2)
-            (lift2 Locs
-             (sexplocpt (EL 0 ls))
-             (sexplocpt (EL 1 ls)))
+      (nm, args) <- dstrip_sexp s;
+      guard (nm = "NoLocs" ∧ LENGTH args = 0) (SOME NoLocs) ++
+      guard (nm = "Locs" ∧ LENGTH args = 2)
+            (lift2 Locs (sexplocpt (EL 0 args)) (sexplocpt (EL 1 args)))
     od
 End
 
@@ -1359,7 +1353,11 @@ Definition arithsexp_def:
   arithsexp Neg = SX_SYM "Neg" ∧
   arithsexp Abs = SX_SYM "Abs" ∧
   arithsexp Sqrt = SX_SYM "Sqrt" ∧
-  arithsexp FMA = SX_SYM "FMA"
+  arithsexp FMA = SX_SYM "FMA" ∧
+  arithsexp (Shift Lsl) = SX_SYM "ShiftLsl" ∧
+  arithsexp (Shift Lsr) = SX_SYM "ShiftLsr" ∧
+  arithsexp (Shift Asr) = SX_SYM "ShiftAsr" ∧
+  arithsexp (Shift Ror) = SX_SYM "ShiftRor"
 End
 
 Theorem arithsexp_11[simp]:
@@ -1373,7 +1371,9 @@ QED
 Theorem arithsexp_sexparith[simp]:
   ∀x. sexparith (arithsexp x) = SOME x
 Proof
-  Cases \\ fs [sexparith_def,arithsexp_def]
+  Cases >> simp [sexparith_def, arithsexp_def] >>
+  rename1 `Shift sh` >> Cases_on `sh` >>
+  simp [sexparith_def, arithsexp_def]
 QED
 
 Definition prim_typesexp_def:
@@ -1558,14 +1558,6 @@ Proof
 QED
 
 Definition opsexp_def:
-  (opsexp (Shift W8 Lsl n) = SX_CONS (SX_SYM "Shift8Lsl") (SX_NUM n)) ∧
-  (opsexp (Shift W8 Lsr n) = SX_CONS (SX_SYM "Shift8Lsr") (SX_NUM n)) ∧
-  (opsexp (Shift W8 Asr n) = SX_CONS (SX_SYM "Shift8Asr") (SX_NUM n)) ∧
-  (opsexp (Shift W8 Ror n) = SX_CONS (SX_SYM "Shift8Ror") (SX_NUM n)) ∧
-  (opsexp (Shift W64 Lsl n) = SX_CONS (SX_SYM "Shift64Lsl") (SX_NUM n)) ∧
-  (opsexp (Shift W64 Lsr n) = SX_CONS (SX_SYM "Shift64Lsr") (SX_NUM n)) ∧
-  (opsexp (Shift W64 Asr n) = SX_CONS (SX_SYM "Shift64Asr") (SX_NUM n)) ∧
-  (opsexp (Shift W64 Ror n) = SX_CONS (SX_SYM "Shift64Ror") (SX_NUM n)) ∧
   (opsexp Equality = SX_SYM "Equality") ∧
   (opsexp Opapp = SX_SYM "Opapp") ∧
   (opsexp Opassign = SX_SYM "Opassign") ∧
@@ -1636,10 +1628,7 @@ Proof
       \\ rw [] \\ gvs [AllCaseEqs()]
       \\ Cases_on ‘t'’ \\ gvs [encode_thunk_mode_def,decode_thunk_mode_def]) >>
   Cases_on`op`>>fs []>>rw[sexpop_def,opsexp_def] >>
-  rw[sexpop_def,opsexp_def,SEXSTR_def] >>
-  rename [‘Shift c1 c2 _’] >>
-  Cases_on`c1` >> rw[sexpop_def,opsexp_def] >>
-  Cases_on`c2` >> rw[sexpop_def,opsexp_def]
+  rw[sexpop_def,opsexp_def,SEXSTR_def]
 QED
 
 Theorem opsexp_11[simp]:
@@ -1659,26 +1648,30 @@ Proof
   Cases \\ Cases \\ simp[logsexp_def]
 QED
 
+Definition intsexp_def:
+  intsexp i = litsexp (IntLit i)
+End
+
 Definition locnsexp_def:
-  locnsexp (POSN n1 n2) = listsexp (MAP SX_NUM [n1;n2]) ∧
-  locnsexp UNKNOWNpt = SX_SYM "unk" ∧
-  locnsexp EOFpt = SX_SYM "eof"
+  locnsexp (r,c) = listsexp [intsexp r; intsexp c]
 End
 
 Theorem locnsexp_11[simp]:
   locnsexp p1 = locnsexp p2 ⇔ p1 = p2
 Proof
-  map_every Cases_on [‘p1’, ‘p2’] >> simp[locnsexp_def, listsexp_def]
+  map_every PairCases_on [‘p1’, ‘p2’] >>
+  simp[locnsexp_def, listsexp_def, intsexp_def]
 QED
 
 Definition locssexp_def:
-  locssexp (Locs p1 p2) = listsexp (MAP locnsexp [p1;p2])
+  locssexp NoLocs = listsexp [SX_SYM "NoLocs"] ∧
+  locssexp (Locs p1 p2) = listsexp [SX_SYM "Locs"; locnsexp p1; locnsexp p2]
 End
 
 Theorem locssexp_11[simp]:
    ∀l1 l2. locssexp l1 = locssexp l2 ⇔ l1 = l2
 Proof
-  Cases \\ Cases \\ simp[locssexp_def]
+  Cases \\ Cases \\ simp[locssexp_def, listsexp_def]
 QED
 
 Definition expsexp_def:
@@ -1853,11 +1846,16 @@ Proof
   rw[] >> simp[patsexp_def,Once sexppat_def]
 QED
 
+Theorem sexpint_intsexp[simp]:
+  sexpint (intsexp i) = SOME i
+Proof
+  simp[sexpint_def, intsexp_def]
+QED
+
 Theorem sexplocpt_locnsexp[simp]:
   sexplocpt (locnsexp p) = SOME p
 Proof
-  Cases_on ‘p’ >> simp[sexplocpt_def, locnsexp_def, listsexp_def] >>
-  simp[strip_sxcons_def]
+  PairCases_on ‘p’ >> simp[sexplocpt_def, locnsexp_def, listsexp_def]
 QED
 
 Theorem sexplocn_locnsexp[simp]:
@@ -2063,12 +2061,18 @@ Proof
           sexparith_arithsexp]
 QED
 
+Theorem intsexp_sexpint:
+  sexpint s = SOME i ⇔ intsexp i = s
+Proof
+  simp[sexpint_def, intsexp_def, AllCaseEqs(), litsexp_sexplit]
+QED
+
 Theorem locnsexp_sexplocpt0:
   sexplocpt s = SOME z ⇒ locnsexp z = s
 Proof
-  Cases_on ‘z’ >> Cases_on ‘s’ >>
+  PairCases_on ‘z’ >>
   simp[locnsexp_def,sexplocpt_def, AllCaseEqs(), PULL_EXISTS,
-       LENGTH_EQ_NUM_compute, listsexp_def]
+       LENGTH_EQ_NUM_compute, listsexp_def, intsexp_sexpint]
 QED
 
 Theorem locnsexp_sexplocpt[simp]:
@@ -2082,9 +2086,10 @@ Theorem locnsexp_sexplocn:
    (sexplocn s = SOME z ⇔ locssexp z = s) ∧
    (SOME z = sexplocn s ⇔ locssexp z = s)
 Proof
-  Cases_on`z` >>
-  simp[sexplocn_def, locssexp_def, listsexp_def, LENGTH_EQ_NUM_compute,
-       PULL_EXISTS] >> metis_tac[]
+  simp[EQ_SYM_EQ] >>
+  simp[sexplocn_def, OPTION_CHOICE_EQUALS_OPTION, dstrip_sexp_SOME,
+       PULL_EXISTS, LENGTH_EQ_NUM_compute, SF CONJ_ss] >>
+  Cases_on ‘z’ >> simp[locssexp_def, listsexp_def] >> metis_tac[]
 QED
 
 Theorem logsexp_sexplog:
@@ -2243,7 +2248,8 @@ QED
 Theorem valid_sexp_arithsexp[local,simp]:
   valid_sexp (arithsexp a)
 Proof
-  Cases_on ‘a’ \\ EVAL_TAC
+  Cases_on `a` >> EVAL_TAC >>
+  rename1 `Shift sh` >> Cases_on `sh` >> EVAL_TAC
 QED
 
 Theorem valid_sexp_logsexp[local,simp]:
@@ -2273,7 +2279,8 @@ QED
 Theorem locnsexp_valid[simp]:
   ∀p. valid_sexp (locnsexp p)
 Proof
-  Cases >> simp[locnsexp_def] >> EVAL_TAC
+  PairCases >> simp[locnsexp_def, intsexp_def, listsexp_valid, litsexp_valid] >>
+  EVAL_TAC
 QED
 
 Theorem locssexp_valid[simp]:

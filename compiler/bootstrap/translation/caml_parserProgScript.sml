@@ -218,39 +218,8 @@ val r = translate extract_record_defns_def;
 val r = translate strip_record_fields_def;
 
 val r = preprocess ptree_TypeDefinition_def |> translate;
-
 val r = preprocess ptree_ModuleType_def |> translate;
 val r = preprocess ptree_Definition_def |> translate;
-
-Theorem destresult_side[local]:
-  pegexec_destresult_side v = (?r. v = Result r)
-Proof
-  rw [fetch "-" "pegexec_destresult_side_def"]
-  \\ Cases_on `v` \\ gs []
-QED
-
-Theorem ptree_definition_side:
-  (∀x. camlptreeconversion_ptree_definition_side x) ∧
-  (∀x. camlptreeconversion_ptree_modexpr_side x) ∧
-  (∀x. camlptreeconversion_ptree_moduleitems_side x) ∧
-  (∀x. camlptreeconversion_ptree_moduleitem_side x) ∧
-  (∀x. camlptreeconversion_ptree_exprordefn_side x)
-Proof
-  ho_match_mp_tac ptree_Definition_ind \\ rw []
-  \\ simp [Once (fetch "-" "camlptreeconversion_ptree_definition_side_def")]
-  \\ rw []
-  \\ simp [parserProgTheory.parse_prog_side_def,
-           parserProgTheory.peg_exec_side_def,
-           parserProgTheory.coreloop_side_def]
-  \\ rename [‘lexer_fun inp’]
-  \\ qspec_then ‘lexer_fun$lexer_fun inp’ strip_assume_tac
-                cmlPEGTheory.owhile_TopLevelDecs_total
-  \\ fs [parserProgTheory.INTRO_FLOOKUP, SF ETA_ss]
-  \\ simp [destresult_side, cmlPEGTheory.parse_TopLevelDecs_total]
-QED
-
-val _ = List.map update_precondition (CONJUNCTS ptree_definition_side);
-
 val r = preprocess ptree_Start_def |> translate;
 
 (* -------------------------------------------------------------------------
@@ -269,19 +238,42 @@ Proof
 QED
 
 val r = translate (identMixed_def |> PURE_REWRITE_RULE [and_or_imp_lemma]);
-
 val r = translate run_lexer_def;
-val r = translate run_parser_def;
+
+Definition peg_caml_rules_def:
+  peg_caml_rules n fk k tf3 errs eo r i =
+  case FLOOKUP camlPEG.rules n of
+  | NONE => Looped
+  | SOME x => pegexec$EV x i r eo errs (appf1 tf3 k) fk
+End
+
+val r = peg_caml_rules_def
+  |> RW [camlPEG_def, oneline OPTION_BIND_def]
+  |> SRULE [FUPDATE_LIST, parserProgTheory.option_CASE_FLOOKUP_SIMP, FOLDL]
+  |> translate;
+
+val r = run_parser_def
+  |> SRULE [pegexecTheory.coreloop_def,
+            pegexecTheory.peg_exec_def, GSYM peg_caml_rules_def,
+            parserProgTheory.INTRO_FLOOKUP]
+  |> SRULE [camlPEG_def]
+  |> translate;
 
 Theorem run_parser_side[local]:
   ∀x. caml_parser_run_parser_side x
 Proof
-  rw [fetch "-" "caml_parser_run_parser_side_def",
-      parserProgTheory.peg_exec_side_def,
-      parserProgTheory.coreloop_side_def,
-      camlPEGTheory.owhile_Start_total]
+  rw [fetch "-" "caml_parser_run_parser_side_def"]
   \\ qspec_then ‘x’ strip_assume_tac owhile_Start_total
-  \\ gs [parserProgTheory.INTRO_FLOOKUP, SF ETA_ss]
+  \\ pop_assum mp_tac
+  \\ simp [parserProgTheory.INTRO_FLOOKUP, GSYM peg_caml_rules_def]
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+  \\ qmatch_goalsub_abbrev_tac ‘OWHILE g1 g2’
+  \\ strip_tac \\ gvs []
+  \\ qmatch_goalsub_abbrev_tac ‘OWHILE f1 f2’
+  \\ qsuff_tac ‘g1 = f1 ∧ f2 = g2’ >- (strip_tac \\ gvs [])
+  \\ unabbrev_all_tac
+  \\ rpt $ pop_assum kall_tac
+  \\ fs [FUN_EQ_THM, camlPEG_def]
 QED
 
 val _ = update_precondition run_parser_side;
@@ -297,4 +289,3 @@ QED
 val _ = update_precondition run_side;
 
 val () = ml_translatorLib.clean_on_exit := true;
-

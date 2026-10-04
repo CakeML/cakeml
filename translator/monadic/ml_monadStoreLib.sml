@@ -76,9 +76,9 @@ val RARRAY_const = ml_monad_translatorBaseTheory.RARRAY_def |> left_const
 val ARRAY_const = cfHeapsBaseTheory.ARRAY_def |> left_const
 val W8ARRAY_const = cfHeapsBaseTheory.W8ARRAY_def |> left_const
 val RW8ARRAY_const = ml_monad_translatorBaseTheory.RW8ARRAY_def |> left_const
-val BITARRAY_const = ml_monad_translatorBaseTheory.BITARRAY_def |> left_const
+val BITARRAY_const = cfHeapsBaseTheory.BITARRAY_def |> left_const
 val RBITARRAY_const = ml_monad_translatorBaseTheory.RBITARRAY_def |> left_const
-val BITS_BYTES_tm = ml_monad_translatorBaseTheory.BITS_BYTES_def |> left_const
+val BITS_BYTES_tm = cfHeapsBaseTheory.BITS_BYTES_def |> left_const
 val one_const = numSyntax.term_of_int 1
 val cond_const = set_sepTheory.cond_def |> left_const
 val get_refs_const = let
@@ -1007,9 +1007,9 @@ fun prove_store_access_specs refs_manip_list
         val set_arr = set_fun
         val sub_exn = concl sub_def |> rhs |> rand
         val update_exn = concl update_def |> rhs |> rand
-        val Eval_sub_rexp = hol2deep sub_exn
+        val Eval_sub_rexp = translate_tm sub_exn
         val sub_rexp = concl Eval_sub_rexp |> rator |> rand
-        val Eval_update_rexp = hol2deep update_exn
+        val Eval_update_rexp = translate_tm update_exn
         val update_rexp = concl Eval_update_rexp |> rator |> rand
 
         val compos_conv = (PURE_REWRITE_CONV[store_X_hprop_def])
@@ -1160,9 +1160,9 @@ fun prove_store_access_specs refs_manip_list
         val set_arr = set_fun
         val sub_exn = concl sub_def |> rhs |> rand
         val update_exn = concl update_def |> rhs |> rand
-        val Eval_sub_rexp = hol2deep sub_exn
+        val Eval_sub_rexp = translate_tm sub_exn
         val sub_rexp = concl Eval_sub_rexp |> rator |> rand
-        val Eval_update_rexp = hol2deep update_exn
+        val Eval_update_rexp = translate_tm update_exn
         val update_rexp = concl Eval_update_rexp |> rator |> rand
 
         val compos_conv = (PURE_REWRITE_CONV[store_X_hprop_def])

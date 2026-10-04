@@ -578,7 +578,7 @@ Quote add_cakeml:
     let val n = None in
     (case
       ores_to_string (
-        check_unsat_top False (plainlim_ns nv) fml n n [] n n f2) of
+        check_unsat_top False (plainlim_ns nv) (enc_list fml) n n [] n n f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s)
     end
@@ -629,9 +629,7 @@ Proof
   PairCases_on`y`>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
-  xlet_autop>>
-  xlet_autop>>
-  xlet_autop>>
+  ntac 4 xlet_autop>>
   xlet`POSTv v. STDIO fs * &BOOL F v`
   >-
     (xcon>>xsimpl)>>
@@ -648,6 +646,9 @@ Proof
            sem_concl (set (fml_to_pbf fml)) NONE {} concl
         | INL l => T)`
   >- (
+    `LIST_TYPE fslot_TYPE (MAP (λc. enc c T) (fml_to_pbf fml)) v''` by
+      gvs[npbc_arrayProgTheory.LIST_TYPE_fslot_TYPE,
+        npbc_parseProgTheory.enc_list_def,EVERY_MAP]>>
     drule_at (Pos (el 2)) check_unsat_top_spec>>
     disch_then drule>>
     strip_tac>>

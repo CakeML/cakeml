@@ -717,15 +717,15 @@ Definition inst_def:
   inst i ^s =
     case i of
     | Skip => SOME s
-    | Const reg w => assign reg (Const w) s
+    | Const reg w => assign reg (Const (i2w w)) s
     | Arith (Binop bop r1 r2 ri) =>
         assign r1
           (Op bop [Var r2; case ri of Reg r3 => Var r3
-                                    | Imm w => Const w]) s
+                                    | Imm w => Const (i2w w)]) s
     | Arith (Shift sh r1 r2 ri) =>
         assign r1
           (Shift sh (Var r2) (case ri of Reg r3 => Var r3
-                                       | Imm w => Const w)) s
+                                       | Imm w => Const (i2w w))) s
     | Arith (Div r1 r2 r3) =>
        (let vs = get_vars[r3;r2] s in
        case vs of
@@ -774,14 +774,14 @@ Definition inst_def:
          else NONE
       | _ => NONE)
     | Mem Load r (Addr a w) =>
-       (case word_exp s (Op Add [Var a; Const w]) of
+       (case word_exp s (Op Add [Var a; Const (i2w w)]) of
         | SOME (Word w) =>
            (case mem_load w s of
             | NONE => NONE
             | SOME w => SOME (set_var r w s))
         | _ => NONE)
     | Mem Load8 r (Addr a w) =>
-       (case word_exp s (Op Add [Var a; Const w]) of
+       (case word_exp s (Op Add [Var a; Const (i2w w)]) of
         | SOME (Word w) =>
            (case mem_load_byte_aux s.memory s.mdomain s.be w of
             | NONE => NONE
@@ -789,21 +789,21 @@ Definition inst_def:
         | _ => NONE)
     | Mem Load16 _ _ => NONE
     | Mem Load32 r (Addr a w) =>
-       (case word_exp s (Op Add [Var a; Const w]) of
+       (case word_exp s (Op Add [Var a; Const (i2w w)]) of
         | SOME (Word w) =>
            (case mem_load_32 s.memory s.mdomain s.be w of
             | NONE => NONE
             | SOME w => SOME (set_var r (Word (w2w w)) s))
         | _ => NONE)
     | Mem Store r (Addr a w) =>
-       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
+       (case (word_exp s (Op Add [Var a; Const (i2w w)]), get_var r s) of
         | (SOME (Word a), SOME w) =>
             (case mem_store a w s of
              | SOME s1 => SOME s1
              | NONE => NONE)
         | _ => NONE)
     | Mem Store8 r (Addr a w) =>
-       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
+       (case (word_exp s (Op Add [Var a; Const (i2w w)]), get_var r s) of
         | (SOME (Word a), SOME (Word w)) =>
             (case mem_store_byte_aux s.memory s.mdomain s.be a (w2w w) of
              | SOME new_m => SOME (s with memory := new_m)
@@ -811,7 +811,7 @@ Definition inst_def:
         | _ => NONE)
     | Mem Store16 _ _ => NONE
     | Mem Store32 r (Addr a w) =>
-       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
+       (case (word_exp s (Op Add [Var a; Const (i2w w)]), get_var r s) of
         | (SOME (Word a), SOME (Word w)) =>
             (case mem_store_32 s.memory s.mdomain s.be a (w2w w) of
              | SOME new_m => SOME (s with memory := new_m)
@@ -939,8 +939,8 @@ Definition inst_def:
 End
 
 Definition get_var_imm_def:
-  (get_var_imm ((Reg n):'a reg_imm) ^s = get_var n s) ∧
-  (get_var_imm (Imm w) s = SOME(Word w))
+  (get_var_imm ((Reg n):reg_imm) ^s = get_var n s) ∧
+  (get_var_imm (Imm w) s = SOME(Word (i2w w)))
 End
 
 Definition add_ret_loc_def:

@@ -1,0 +1,7 @@
+fun yes() {
+  st 0, 121;
+  while (1 == 1) {
+    @putChar(0,4,0,0);
+  }
+  return 0;
+}

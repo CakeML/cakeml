@@ -44,6 +44,7 @@ Datatype:
   word_op
      = WordOpw word_size opw
      | WordShift word_size shift num
+     | WordShiftVar word_size shift
      | WordTest word_size ast$test
      | WordFromInt
      | WordToInt
