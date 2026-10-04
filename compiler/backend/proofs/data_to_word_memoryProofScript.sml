@@ -17,6 +17,41 @@ val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
+(* Word representations used by the semantic memory relation. *)
+Definition tag_mask_def:
+  tag_mask conf =
+    let l = dimindex (:'a) - conf.len_size in
+      (l-1 '' 2) (~0w:'a word)
+End
+
+Definition all_ones_def:
+  (all_ones m n :α word) = if m <= n then 0w else (m - 1 '' n) (~0w)
+End
+
+Definition maxout_bits_def:
+  maxout_bits n rep_len k =
+    if n < 2 ** rep_len - 1 then n2w n << k else all_ones (k + rep_len) k
+End
+
+Definition ptr_bits_def:
+  ptr_bits conf tag len =
+    (maxout_bits tag conf.tag_bits (1 + conf.len_bits) ||
+     maxout_bits len conf.len_bits 1)
+End
+
+Definition Smallnum_def:
+  (Smallnum i :α word) =
+    if i < 0 then 0w - n2w (Num (2 * (0 - i))) else n2w (Num (2 * i))
+End
+
+Definition write_bytes_def:
+  (write_bytes bs [] be = []) /\
+  (write_bytes bs ((w:'a word)::ws) be =
+     let k = dimindex (:'a) DIV 8 in
+       bytes_to_word k 0w bs w be
+          :: write_bytes (DROP k bs) ws be)
+End
+
 (* TODO: move? *)
 val clean_tac = rpt var_eq_tac \\ rpt (qpat_x_assum `T` kall_tac)
 fun rpt_drule th = old_drule (th |> GEN_ALL) \\ rpt (disch_then old_drule \\ fs [])
@@ -7565,20 +7600,20 @@ Definition decode_addr_def:
 End
 
 Definition get_lowerbits_def:
-  (get_lowerbits conf (Word w) = data_to_word$get_lowerbits conf w) /\
+  (get_lowerbits conf (Word w) = (((small_shift_length conf - 1) -- 0) w) || 1w) /\
   (get_lowerbits conf (Loc _ _) = 1w)
 End
 
 Definition make_ptr_def:
-  make_ptr conf nf tag len = Word (data_to_word$make_ptr conf nf tag len)
+  make_ptr conf (nf:α word) tag len =
+    Word (nf << (shift_length conf - shift (dimindex (:α))) || 1w)
 End
 
 Definition make_cons_ptr_def:
-  make_cons_ptr conf nf tag len = Word (data_to_word$make_cons_ptr conf nf tag len)
+  make_cons_ptr conf (nf:α word) tag len =
+    Word (nf << (shift_length conf - shift (dimindex (:α))) || 1w ||
+          get_lowerbits conf (Word (ptr_bits conf tag len)))
 End
-
-val _ = augment_srw_ss [rewrites [data_to_wordTheory.get_lowerbits_def,
-  data_to_wordTheory.make_ptr_def,data_to_wordTheory.make_cons_ptr_def]];
 
 Definition get_addr_def:
   get_addr conf n w =
@@ -15092,7 +15127,11 @@ Proof
                 qpat_x_assum `n2w (make_byte_header c T (LENGTH bs1)) ⋙ _ = _`
                   (fn sh1 =>
                     qpat_x_assum `n2w (make_byte_header c T (LENGTH bs2)) ⋙ _ = _`
-                      (fn sh2 => qpat_x_assum `dimindex (:α) = _` (fn dim => rewrite_tac [dim]) \\ rewrite_tac [EVAL ``64n = 32n``] \\ once_rewrite_tac [GSYM sh1] \\ once_rewrite_tac [GSYM sh2] \\ simp [heq]))))
+                      (fn sh2 =>
+                        qpat_x_assum `dimindex (:α) = _` (fn dim => rewrite_tac [dim])
+                        \\ rewrite_tac [EVAL ``64n = 32n``]
+                        \\ once_rewrite_tac [GSYM sh1]
+                        \\ once_rewrite_tac [GSYM sh2] \\ simp [heq]))))
       \\ fs [n2w_11,dimword_def]
       \\ rfs [arithmeticTheory.LESS_MOD]
       \\ decide_tac )
@@ -15493,22 +15532,73 @@ Proof
   \\ decide_tac
 QED
 
+Theorem i2w_w2i_same_width[local]:
+  dimindex (:α) = dimindex (:β) ⇒
+  (i2w (w2i (w:β word)):α word) = w2w w
+Proof
+  strip_tac
+  \\ mp_tac (Q.ISPEC `w2i (w:β word)` integer_wordTheory.w2w_i2w)
+  \\ simp []
+QED
+
+Theorem w2w_set_byte_same_width[local]:
+  dimindex (:α) = dimindex (:β) ⇒
+  (w2w (set_byte (a:β word) b w be):α word) =
+    set_byte (w2w a) b (w2w w) be
+Proof
+  rw [set_byte_def,byte_index_def,w2n_w2w]
+  \\ fs [dimword_def]
+  \\ simp [w2n_lt,arithmeticTheory.MOD_LESS]
+  \\ srw_tac [fcpLib.FCP_ss]
+       [word_or_def,word_lsl_def,word_slice_alt_def,w2w]
+  \\ full_simp_tac (srw_ss()++ARITH_ss) [w2w]
+QED
+
+Theorem w2w_bytes_to_word_same_width[local]:
+  dimindex (:α) = dimindex (:β) ⇒
+  (w2w (bytes_to_word k (a:β word) bs w be):α word) =
+    bytes_to_word k (w2w a) bs (w2w w) be
+Proof
+  qid_spec_tac `a` \\ qid_spec_tac `k` \\ Induct_on `bs`
+  \\ Cases_on `k` \\ simp [bytes_to_word_eq] \\ rw []
+  \\ simp [bytes_to_word_eq,w2w_set_byte_same_width,
+           WORD_w2w_OVER_ADD,w2w_n2w,WORD_ALL_BITS]
+QED
+
+Theorem write_bytes_zeros:
+  arch_width_bits c.arch_width = dimindex (:α) ⇒
+  MAP (i2w:int->α word) (data_to_word$write_bytes c bs (REPLICATE n 0)) =
+    write_bytes bs (REPLICATE n 0w) c.be
+Proof
+  qid_spec_tac `bs` \\ Induct_on `n`
+  \\ simp [data_to_wordTheory.write_bytes_def,write_bytes_def,REPLICATE]
+  \\ rw [] \\ Cases_on `c.arch_width`
+  \\ gvs [asmTheory.arch_width_bits_def,asmTheory.arch_bytes_def]
+  \\ simp [data_to_wordTheory.write_bytes_def,write_bytes_def,REPLICATE,
+           i2w_w2i_same_width,w2w_bytes_to_word_same_width,w2w_0,
+           integer_wordTheory.i2w_0]
+  \\ qpat_x_assum `_ = dimindex (:α)` (assume_tac o SYM)
+  \\ fs []
+QED
+
 Theorem memory_rel_String_const_test:
   memory_rel c be ts refs sp st m dm ((RefPtr bl i,v)::vars) /\
   lookup i refs = SOME (ByteArray T other) /\
   good_dimindex (:'a) ==>
   let t = implode (MAP (CHR o w2n) other) in
-    (part_to_words c LN (Str s) (0w:'a word) = NONE ⇒ s ≠ t) ∧
+    (part_to_words c LN (Str s) 0 = NONE ⇒ s ≠ t) ∧
     ∀x res.
-      part_to_words c LN (Str s) 0w = SOME (x,res) ⇒
+      part_to_words c LN (Str s) 0 = SOME (x,res) ⇒
       ∃(w:'a word) a.
         v = Word w ∧ get_real_addr c st w = SOME a ∧
-        word_mem_eq a (MAP SND res) dm m = SOME (s = t)
+        word_mem_eq a (MAP (i2w o SND) res) dm m = SOME (s = t)
 Proof
   strip_tac
+  \\ `arch_width_bits c.arch_width = dimindex (:α)` by
+       fs [memory_rel_def,heap_in_memory_store_def]
   \\ drule_all memory_rel_ByteArray_IMP
   \\ strip_tac
-  \\ Cases_on ‘part_to_words c LN (Str s) 0w’ \\ fs []
+  \\ Cases_on ‘part_to_words c LN (Str s) 0’ \\ fs []
   THEN1
    (strip_tac \\ gvs [] \\ pop_assum mp_tac
     \\ simp [part_to_words_def]
@@ -15530,7 +15620,7 @@ Proof
     \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
     \\ qpat_x_assum ‘LENGTH other + _ < 2 ** (c.len_size + _)’ assume_tac
     \\ fs [EXP_ADD])
-  \\ rw [] \\ gvs [part_to_words_def]
+  \\ rw [] \\ gvs [part_to_words_def,MAP_MAP_o,o_DEF,integer_wordTheory.i2w_pos,ETA_AX,write_bytes_zeros]
   \\ fs [word_mem_eq_def,isWord_def]
   \\ ‘(n2w (make_byte_header c T (LENGTH other)):α word) =
        n2w (make_byte_header c T (strlen s)) ⇔
@@ -18597,26 +18687,204 @@ Definition word_cond_add_def[simp]:
   word_cond_add c a (T,other) = other
 End
 
-Theorem part_to_words_add:
-  ∀part m off a w ws m1.
-    byte_aligned off ∧ byte_aligned a ∧
-    good_dimindex (:'a) ∧ shift (dimindex (:α)) ≤ shift_length c ⇒
-    part_to_words c m part (off:'a word) = SOME (w,ws) ∧
-    (∀i. SND (lookup_mem m1 i) = word_cond_add c a (lookup_mem m i)) ⇒
-    ∃v vs. part_to_words c m1 part (off + a:'a word) = SOME (v,vs) ∧
-           MAP SND vs = MAP (word_cond_add c a) ws ∧
-           SND v = word_cond_add c a w
+Definition const_word_def:
+  const_word c (a:'a word) (b,i:int) =
+    word_cond_add c a (b,Word (i2w i))
+End
+
+open integer_wordTheory;
+
+Theorem i2w_not[local]:
+i2w (-i - 1) = ~(i2w i:'a word)
 Proof
-  Cases
-  \\ rw [part_to_words_def] \\ gvs [AllCaseEqs()]
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs [AllCaseEqs()]
-  \\ ‘byte_aligned (a + off)’ by fs [alignmentTheory.byte_aligned_add]
-  \\ drule_all make_cons_ptr_add
-  \\ fs [make_cons_ptr_def,get_lowerbits_ptrbits]
-  \\ disch_then (assume_tac o GSYM)
-  \\ gvs [make_cons_ptr_add,make_ptr_add,wordSemTheory.theWord_def]
-  \\ fs [MAP_MAP_o] \\ fs [MAP_EQ_f]
+`-i - 1 = -1 * i + -1` by intLib.ARITH_TAC
+  \\ pop_assum SUBST1_TAC
+  \\ simp [GSYM word_i2w_add,GSYM word_i2w_mul,i2w_minus_1,
+           WORD_NEG_LMUL,WORD_NOT,word_sub_def]
+QED
+
+Theorem i2w_int_not[local]:
+i2w (int_not i) = ~(i2w i:'a word)
+Proof
+simp [int_not_def,i2w_not]
+QED
+
+Theorem i2w_bits[local]:
+b < dimindex (:'a) ==> ((i2w i:'a word) ' b = int_bit b i)
+Proof
+rw [int_bit_def]
+  >- (`0 <= int_not i` by (fs [int_not_def] \\ intLib.ARITH_TAC)
+      \\ `i2w i = ~(i2w (int_not i):'a word)` by
+        metis_tac [i2w_int_not,int_not_not]
+      \\ pop_assum SUBST1_TAC
+      \\ fs [integer_wordTheory.i2w_def,GSYM integerTheory.INT_NOT_LT,word_1comp_def,
+               fcpTheory.FCP_BETA,word_index])
+  \\ fs [integer_wordTheory.i2w_def,word_index]
+QED
+
+Theorem i2w_int_or[local]:
+i2w (int_or i j) = (i2w i || i2w j:'a word)
+Proof
+rw [fcpTheory.CART_EQ,word_or_def,fcpTheory.FCP_BETA]
+  \\ fs [i2w_bits,int_bit_or]
+QED
+
+Theorem compiler_all_ones_i2w:
+i2w (data_to_word$all_ones m n) = (all_ones m n:'a word)
+Proof
+Cases_on `m <= n`
+  >- simp[data_to_wordTheory.all_ones_def,all_ones_def,integer_wordTheory.i2w_pos] >>
+  simp[data_to_wordTheory.all_ones_def,integer_wordTheory.i2w_pos] >>
+  `m = (m - n) + n` by DECIDE_TAC >>
+  qabbrev_tac `l = m - n` >> gvs[] >>
+  `2 ** l * 2 ** n - 2 ** n = (2 ** l - 1) * 2 ** n` by simp[RIGHT_SUB_DISTRIB] >>
+  simp[all_ones_n2w,EXP_ADD,GSYM word_mul_n2w,WORD_MUL_LSL]
+QED
+
+Theorem compiler_maxout_bits_i2w:
+i2w (data_to_word$maxout_bits n r k) = (maxout_bits n r k:'a word)
+Proof
+rw[data_to_wordTheory.maxout_bits_def,maxout_bits_def] >>
+ simp[compiler_all_ones_i2w,i2w_pos,GSYM word_mul_n2w,WORD_MUL_LSL]
+QED
+
+Theorem compiler_ptr_bits_i2w[local]:
+i2w (data_to_word$ptr_bits c tag len) = (ptr_bits c tag len:'a word)
+Proof
+simp[data_to_wordTheory.ptr_bits_def,ptr_bits_def,i2w_int_or,compiler_maxout_bits_i2w]
+QED
+
+Theorem compiler_make_ptr_i2w[local]:
+arch_width_bits c.arch_width = dimindex(:'a) ==>
+ Word (i2w (data_to_word$make_ptr c off tag len):'a word) =
+ make_ptr c (i2w off) tag len
+Proof
+rw[data_to_wordTheory.make_ptr_def,make_ptr_def] >>
+ simp[i2w_int_or,GSYM word_i2w_mul,i2w_pos,WORD_MUL_LSL]
+QED
+
+Theorem n2mw_same_width[local]:
+!n. dimindex(:'a) = dimindex(:'b) ==>
+ MAP (w2w:'b word -> 'a word) (n2mw n) = n2mw n
+Proof
+completeInduct_on `n` >> rw[] >>
+ once_rewrite_tac[multiwordTheory.n2mw_def] >>
+ rw[] >> gvs[dimword_def,w2w_n2w,bitTheory.BITS_ZERO3] >>
+ first_x_assum irule >> simp[DIV_LESS,ONE_LT_dimword,GSYM dimword_def]
+QED
+
+Theorem n2mw_w2i_i2w[local]:
+dimindex(:'a) = dimindex(:'b) ==>
+ MAP (((i2w o w2i):'b word -> 'a word)) (n2mw n) = n2mw n
+Proof
+rw[] >> qsuff_tac `MAP (((i2w o w2i):'b word -> 'a word)) (n2mw n) = MAP w2w (n2mw n:'b word list)`
+ >- simp[n2mw_same_width] >>
+ irule MAP_CONG >> simp[i2w_w2i_same_width]
+QED
+
+Theorem n2mw_length_same_width[local]:
+dimindex(:'a) = dimindex(:'b) ==>
+ LENGTH(n2mw n:'a word list) = LENGTH(n2mw n:'b word list)
+Proof
+strip_tac >> Q.ISPECL_THEN [`n`] mp_tac n2mw_same_width >>
+ simp[] >> disch_then(mp_tac o AP_TERM ``LENGTH:'a word list -> num``) >> simp[]
+QED
+
+Theorem n2mw_project_words[local]:
+dimindex(:'a) = dimindex(:'b) ==>
+ MAP (λ(x:'b word).Word(i2w(w2i x):'a word)) (n2mw n) = MAP Word (n2mw n)
+Proof
+strip_tac >>
+ `MAP (((i2w o w2i):'b word -> 'a word)) (n2mw n) = n2mw n` by simp[n2mw_w2i_i2w] >>
+ pop_assum (mp_tac o AP_TERM ``MAP (Word:'a word -> 'a word_loc)``) >>
+ simp[MAP_MAP_o,o_DEF]
+QED
+
+Theorem compiler_write_bytes_words[local]:
+arch_width_bits c.arch_width = dimindex(:'a) ==>
+ MAP (λi.Word (i2w i:'a word)) (data_to_word$write_bytes c bs (REPLICATE n 0)) =
+ MAP Word (write_bytes bs (REPLICATE n 0w) c.be)
+Proof
+rw[] >>
+ `MAP (i2w:int -> 'a word) (data_to_word$write_bytes c bs (REPLICATE n 0)) =
+  write_bytes bs (REPLICATE n 0w) c.be` by simp[write_bytes_zeros] >>
+ pop_assum (mp_tac o AP_TERM ``MAP(Word:'a word -> 'a word_loc)``) >>
+ simp[MAP_MAP_o,o_DEF]
+QED
+
+Theorem part_to_words_IMP_build_words:
+part_to_words c m p off = SOME (w,ws) /\ good_dimindex (:'a) /\
+  arch_width_bits c.arch_width = dimindex(:'a) /\
+  byte_aligned (i2w off:'a word) /\ shift (dimindex(:'a)) <= shift_length c ==>
+  build_part_words c (λi. Word (i2w (SND (lookup_mem m i)):'a word)) p (i2w off) =
+  SOME (Word (i2w (SND w)),MAP (Word o i2w o SND) ws)
+Proof
+strip_tac >> Cases_on `p` >> fs[part_to_words_def,build_part_words_def,dimword_def] >>
+ rw[] >> gvs[AllCaseEqs(),MAP_MAP_o,o_DEF] >>
+ rpt(pairarg_tac >> gvs[]) >>
+ gvs[AllCaseEqs(),MAP_MAP_o,o_DEF,SF ETA_ss,compiler_make_ptr_i2w,
+     i2w_pos,GSYM word_i2w_add,GSYM word_i2w_mul,i2w_int_or,
+     compiler_ptr_bits_i2w,WORD_MUL_LSL,Smallnum_i2w,write_bytes_zeros] >>
+ fs[make_cons_ptr_add,get_lowerbits_ptrbits]
+ >~ [`i2w (data_to_word$Smallnum i)`] >-
+   simp[data_to_wordTheory.Smallnum_def,GSYM word_i2w_mul,i2w_pos]
+ >~ [`i2w off << _ = i2w off * _`] >-
+   simp[WORD_MULT_COMM,WORD_MUL_LSL]
+ >~ [`i2mw i = _`] >-
+  (Cases_on `c.arch_width` >>
+   gvs[asmTheory.arch_width_bits_def,multiwordTheory.i2mw_def] >>
+   TRY(qpat_x_assum `_ = dimindex(:α)` (assume_tac o SYM)) >>
+   simp[make_ptr_def] >> Cases_on `i < 0` >> gvs[b2w_def] >>
+   fs[INST_TYPE [beta |-> ``:32``] n2mw_length_same_width,
+      INST_TYPE [beta |-> ``:64``] n2mw_length_same_width,n2mw_project_words] >>
+   simp[word_or_n2w,word_mul_n2w,w2n_n2w,dimword_def] >> fs[]) >~ [`i2mw i = _`] >-
+  (Cases_on `c.arch_width` >>
+   gvs[asmTheory.arch_width_bits_def,multiwordTheory.i2mw_def] >>
+   TRY(qpat_x_assum `_ = dimindex(:α)` (assume_tac o SYM)) >>
+   simp[make_ptr_def] >> Cases_on `i < 0` >> gvs[b2w_def] >>
+   fs[INST_TYPE [beta |-> ``:32``] n2mw_length_same_width,
+      INST_TYPE [beta |-> ``:64``] n2mw_length_same_width,n2mw_project_words] >>
+   simp[word_or_n2w,word_mul_n2w,w2n_n2w,dimword_def] >> fs[])
+ >> simp[make_ptr_def,compiler_write_bytes_words] >>
+ Cases_on `c.arch_width` >> gvs[asmTheory.arch_width_bits_def,make_ptr_def,i2w_pos] >>
+ TRY(qpat_x_assum `_ = dimindex(:α)` (assume_tac o SYM)) >>
+ Cases_on `c'` >> gvs[word_extract_n2w,bitTheory.BITS_THM,dimword_def,w2w_n2w]
+QED
+
+
+Theorem compiler_make_ptr_add[local]:
+arch_width_bits c.arch_width = dimindex(:'a) /\
+ byte_aligned (i2w off:'a word) /\ good_dimindex(:'a) /\
+ shift(dimindex(:'a)) <= shift_length c ==>
+ (i2w(data_to_word$make_ptr c off tag len):'a word) =
+ i2w off << (shift_length c - shift(dimindex(:'a))) + 1w
+Proof
+rw[] >> simp[data_to_wordTheory.make_ptr_def,i2w_int_or,
+ GSYM word_i2w_mul,i2w_pos] >>
+ ONCE_REWRITE_TAC[WORD_MULT_COMM] >>
+ PURE_REWRITE_TAC[GSYM WORD_MUL_LSL] >>
+ irule (SIMP_RULE std_ss [make_ptr_def,wordSemTheory.word_loc_11] make_ptr_add) >> simp[]
+QED
+
+Theorem part_to_words_add:
+∀part m off a w ws m1.
+  arch_width_bits c.arch_width = dimindex(:'a) /\
+  byte_aligned (i2w off:'a word) /\ byte_aligned (i2w a:'a word) /\
+  good_dimindex(:'a) /\ shift(dimindex(:'a)) <= shift_length c ==>
+  part_to_words c m part off = SOME(w,ws) /\
+  (∀i. Word(i2w(SND(lookup_mem m1 i)):'a word) = const_word c (i2w a) (lookup_mem m i)) ==>
+  ∃v vs. part_to_words c m1 part (off + a) = SOME(v,vs) /\
+    MAP ((Word o i2w o SND):bool#int -> 'a word_loc) vs = MAP (const_word c (i2w a)) ws /\
+    Word(i2w(SND v):'a word) = const_word c (i2w a) w
+Proof
+Cases >> rw[part_to_words_def] >> gvs[AllCaseEqs()] >>
+ rpt(pairarg_tac >> gvs[]) >> gvs[AllCaseEqs()] >>
+ `byte_aligned (i2w (off+a):'a word)` by
+  simp[GSYM word_i2w_add,alignmentTheory.byte_aligned_add] >>
+ fs[const_word_def,word_cond_add_def,compiler_make_ptr_i2w,MAP_MAP_o,o_DEF,
+    GSYM word_i2w_add,GSYM word_i2w_mul,i2w_int_or,i2w_pos,
+    compiler_ptr_bits_i2w,make_ptr_add,compiler_make_ptr_add,MAP_EQ_f,MEM_MAP,PULL_EXISTS,FORALL_PROD,WORD_LEFT_ADD_DISTRIB,WORD_RIGHT_ADD_DISTRIB,WORD_MUL_LSL] >>
+ simp[AC WORD_ADD_COMM WORD_ADD_ASSOC]
 QED
 
 Theorem byte_aligned_bytes_in_word:
@@ -18639,67 +18907,66 @@ Proof
   \\ irule byte_aligned_add \\ fs [byte_aligned_bytes_in_word]
 QED
 
-Theorem parts_to_words_add:
-  ∀parts m i off a w ws m1.
-    parts_to_words c m i parts (off:'a word) = SOME (w,ws) ∧
-    byte_aligned off ∧ byte_aligned a ∧
-    good_dimindex (:'a) ∧ shift (dimindex (:α)) ≤ shift_length c ∧
-    (∀i. SND (lookup_mem m1 i) = word_cond_add c a (lookup_mem m i)) ⇒
-    ∃v vs. parts_to_words c m1 i parts (off + a:'a word) = SOME (v,vs) ∧
-           MAP SND vs = MAP (word_cond_add c a) ws ∧
-           SND v = word_cond_add c a w
+Theorem arch_bytes_i2w[local]:
+arch_width_bits c.arch_width = dimindex(:'a) ==>
+ (i2w(&(n * arch_bytes c.arch_width)):'a word) = bytes_in_word * n2w n
 Proof
-  Induct \\ fs [parts_to_words_def]
-  \\ fs [AllCaseEqs()] \\ rw [PULL_EXISTS]
-  \\ drule_all part_to_words_add
-  \\ rw [] \\ fs []
-  \\ first_x_assum old_drule
-  \\ disch_then (qspecl_then [‘a’,‘insert i v m1’] mp_tac)
-  \\ impl_tac
-  THEN1
-   (fs [lookup_mem_def,lookup_insert] \\ rw []
-    \\ irule byte_aligned_add \\ fs [byte_align_mult_bytes_in_word])
-  \\ strip_tac \\ fs []
-  \\ ‘LENGTH (MAP SND vs) = LENGTH (MAP (word_cond_add c a) xs)’ by asm_rewrite_tac []
-  \\ fs []
+rw[bytes_in_word_def,i2w_pos,word_mul_n2w] >>
+ Cases_on `c.arch_width` >> gvs[asmTheory.arch_width_bits_def,asmTheory.arch_bytes_def] >>
+ qpat_x_assum `_ = dimindex(:α)` (assume_tac o SYM) >> fs[]
 QED
 
-Theorem part_to_words_IMP_build_words:
-  part_to_words c m p (off:'a word) = SOME (w,ws) ∧ good_dimindex (:'a) ∧
-  byte_aligned off ∧ shift (dimindex (:α)) ≤ shift_length c ⇒
-  build_part_words c (λi. SND (lookup_mem m i)) p off = SOME (SND w,MAP SND ws)
+Theorem parts_to_words_add:
+∀parts m i off a w ws m1.
+ parts_to_words c m i parts off = SOME(w,ws) /\
+ byte_aligned(i2w off:'a word) /\ byte_aligned(i2w a:'a word) /\
+ arch_width_bits c.arch_width = dimindex(:'a) /\
+ good_dimindex(:'a) /\ shift(dimindex(:'a)) <= shift_length c /\
+ (∀i. Word(i2w(SND(lookup_mem m1 i)):'a word) = const_word c (i2w a) (lookup_mem m i)) ==>
+ ∃v vs. parts_to_words c m1 i parts (off+a) = SOME(v,vs) /\
+ MAP ((Word o i2w o SND):bool#int -> 'a word_loc) vs = MAP (const_word c (i2w a)) ws /\
+ Word(i2w(SND v):'a word) = const_word c (i2w a) w
 Proof
-  Cases_on ‘p’
-  \\ fs [part_to_words_def,build_part_words_def]
-  \\ rw [] \\ gvs [AllCaseEqs()]
-  \\ gvs [MAP_MAP_o,o_DEF]
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs [AllCaseEqs()]
-  \\ gvs [MAP_MAP_o,o_DEF,SF ETA_ss]
-  \\ fs [make_cons_ptr_add,get_lowerbits_ptrbits]
-  \\ Cases_on ‘sign’ \\ fs [b2w_def,WORD_MUL_LSL]
-  \\ gvs [good_dimindex_def,dimword_def]
+Induct >> fs[parts_to_words_def] >>
+ fs[AllCaseEqs()] >> rw[PULL_EXISTS] >>
+ drule_all part_to_words_add >> rw[] >> fs[] >>
+ first_x_assum old_drule >>
+ disch_then(qspecl_then[`a`,`insert i v m1`] mp_tac) >>
+ impl_tac
+ >- (fs[lookup_mem_def,lookup_insert] >> rw[] >>
+     simp[GSYM word_i2w_add,arch_bytes_i2w] >>
+     irule byte_aligned_add >> fs[byte_align_mult_bytes_in_word]) >>
+ strip_tac >> fs[] >>
+ `LENGTH (MAP ((Word o i2w o SND):bool#int -> 'a word_loc) vs) =
+  LENGTH (MAP (const_word c (i2w a:'a word)) xs)` by asm_rewrite_tac[] >> fs[AC integerTheory.INT_ADD_COMM integerTheory.INT_ADD_ASSOC]
 QED
+
+
 
 Theorem parts_to_words_IMP_build_words:
-  ∀c m i parts (off:'a word) w ws.
-    parts_to_words c m i parts off = SOME (w,ws) ∧ good_dimindex (:'a) ∧
-    byte_aligned off ∧ shift (dimindex (:α)) ≤ shift_length c ⇒
-    build_words c (λi. SND (lookup_mem m i)) i parts off = SOME (SND w,MAP SND ws)
+ ∀c m i parts off w ws.
+ parts_to_words c m i parts off = SOME(w,ws) /\ good_dimindex(:'a) /\
+ arch_width_bits c.arch_width = dimindex(:'a) /\
+ byte_aligned(i2w off:'a word) /\ shift(dimindex(:'a)) <= shift_length c ==>
+ build_words c (λi.Word(i2w(SND(lookup_mem m i)):'a word)) i parts (i2w off) =
+ SOME(Word(i2w(SND w)),MAP(Word o i2w o SND) ws)
 Proof
-  Induct_on ‘parts’ \\ fs [parts_to_words_def,build_words_def]
-  \\ fs [AllCaseEqs()] \\ rw [] \\ fs [PULL_EXISTS]
-  \\ drule_all part_to_words_IMP_build_words \\ fs []
-  \\ last_x_assum old_drule \\ fs []
-  \\ impl_tac THEN1
-   (irule byte_aligned_add
-    \\ fs [byte_align_mult_bytes_in_word])
-  \\ strip_tac
-  \\ pop_assum (fn th => once_rewrite_tac [GSYM th])
-  \\ strip_tac
-  \\ rpt (AP_THM_TAC ORELSE AP_TERM_TAC)
-  \\ rw [FUN_EQ_THM,lookup_mem_def,lookup_insert,APPLY_UPDATE_THM]
-  \\ rw [FUN_EQ_THM,lookup_mem_def,lookup_insert,APPLY_UPDATE_THM]
+
+ Induct_on `parts` >> fs[parts_to_words_def,build_words_def] >>
+ fs[AllCaseEqs()] >> rw[] >> fs[PULL_EXISTS] >>
+ drule_all part_to_words_IMP_build_words >> fs[] >>
+ last_x_assum old_drule >> fs[] >>
+ impl_tac
+ >- (simp[GSYM word_i2w_add,arch_bytes_i2w] >>
+     irule byte_aligned_add >> fs[byte_align_mult_bytes_in_word]) >>
+ strip_tac >>
+ pop_assum (fn th => once_rewrite_tac[GSYM th]) >>
+ strip_tac >> rpt(AP_THM_TAC ORELSE AP_TERM_TAC) >>
+ rw[FUN_EQ_THM,lookup_mem_def,lookup_insert,APPLY_UPDATE_THM] >>
+ rw[FUN_EQ_THM,lookup_mem_def,lookup_insert,APPLY_UPDATE_THM] >>
+ simp[GSYM word_i2w_add,arch_bytes_i2w,MAP_MAP_o,o_DEF] >>
+ rpt(AP_THM_TAC ORELSE AP_TERM_TAC) >>
+ rw[FUN_EQ_THM,APPLY_UPDATE_THM] >> every_case_tac >> fs[]
 QED
 
 Theorem LESS_EQ_num_size:
@@ -18725,32 +18992,33 @@ Proof
   \\ fs [good_dimindex_def,dimword_def,LESS_DIV_EQ_ZERO]
 QED
 
-Theorem part_to_words_LENGTH:
-  part_to_words c m h a = SOME ((w:bool # 'a word_loc),ws) ∧
-  good_dimindex (:'a) ⇒
-  LENGTH ws ≤ part_space_req h
+Theorem compiler_write_bytes_length[local]:
+∀ws bs. LENGTH(data_to_word$write_bytes c bs ws) = LENGTH ws
 Proof
-  Cases_on ‘h’ \\ fs [part_to_words_def,AllCaseEqs()]
-  \\ strip_tac \\ gvs [wordSemTheory.isWord_def,data_spaceTheory.part_space_req_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ TRY (Cases_on ‘l’) \\ fs [make_cons_ptr_def,wordSemTheory.isWord_def,EVERY_MAP,make_ptr_def]
-  \\ gvs [AllCaseEqs(),wordSemTheory.isWord_def,EVERY_MAP]
-  \\ rw [] \\ gvs []
-  THEN1 (gvs [small_int_def,good_dimindex_def,dimword_def] \\ intLib.COOPER_TAC)
-  \\ TRY (gvs [byte_len_def,good_dimindex_def,dimword_def,ADD1]
-          \\ irule multiwordTheory.DIV_thm1 \\ fs [])
-  \\ gvs [multiwordTheory.i2mw_def]
-  \\ irule LESS_EQ_num_size \\ fs []
+Induct >> simp[data_to_wordTheory.write_bytes_def]
+QED
+
+Theorem part_to_words_LENGTH:
+ part_to_words c m h a = SOME(w,ws) ==> LENGTH ws <= part_space_req h
+Proof
+
+ Cases_on `h` >> Cases_on `c.arch_width` >>
+ fs[part_to_words_def,asmTheory.arch_width_bits_def,AllCaseEqs()] >>
+ strip_tac >> gvs[data_spaceTheory.part_space_req_def] >>
+ rpt(pairarg_tac >> fs[]) >>
+ TRY(Cases_on `l`) >> gvs[AllCaseEqs()] >>
+ rw[] >> gvs[compiler_write_bytes_length,byte_len_def,multiwordTheory.i2mw_def] >>
+ TRY(irule multiwordTheory.DIV_thm1 >> fs[] >> NO_TAC) >>
+ fs[small_int_def] >> TRY intLib.COOPER_TAC >>
+ irule LESS_EQ_num_size >> simp[good_dimindex_def]
 QED
 
 Theorem const_parts_to_words_LENGTH:
-  const_parts_to_words c parts = SOME ((w:bool # 'a word_loc),ws) ∧
-  good_dimindex (:'a) ⇒
+  const_parts_to_words c parts = SOME (w,ws) ⇒
   LENGTH ws ≤ SUM (MAP part_space_req parts)
 Proof
   fs [const_parts_to_words_def]
   \\ qpat_abbrev_tac ‘m = LN’
-  \\ last_x_assum kall_tac
   \\ rename [‘parts_to_words c _ k parts a’]
   \\ EVERY (map qid_spec_tac [‘m’,‘c’,‘k’,‘parts’,‘a’,‘w’,‘ws’])
   \\ rewrite_tac [AND_IMP_INTRO]
@@ -18773,37 +19041,14 @@ End
 
 Theorem const_parts_to_words_good_loc:
   const_parts_to_words c parts = SOME ((y0,y1),y2) ⇒
-  good_loc s y1 ∧ EVERY (good_loc s ∘ SND) y2
+  good_loc s (Word (i2w y1:'a word)) ∧
+  EVERY (good_loc s ∘ Word ∘ i2w ∘ SND) y2
 Proof
-  fs [const_parts_to_words_def]
-  \\ qpat_abbrev_tac ‘m = LN’
-  \\ ‘∀y0 y1 k. lookup_mem m k = (y0,y1) ⇒ good_loc s y1’ by
-         fs [Abbr‘m’,lookup_mem_def,lookup_def,good_loc_def]
-  \\ pop_assum mp_tac
-  \\ last_x_assum kall_tac
-  \\ rename [‘parts_to_words c _ k parts a’]
-  \\ EVERY (map qid_spec_tac [‘m’,‘c’,‘k’,‘parts’,‘a’,‘y1’,‘y0’,‘y2’])
-  \\ rewrite_tac [AND_IMP_INTRO]
-  \\ Induct_on ‘parts’
-  \\ fs [parts_to_words_def]
-  THEN1 (rw [] \\ res_tac \\ fs [])
-  \\ rpt gen_tac \\ strip_tac
-  \\ gvs [AllCaseEqs()]
-  \\ last_x_assum (drule_at (Pos $ el 2))
-  \\ qsuff_tac ‘EVERY (good_loc s ∘ SND) xs ∧ good_loc s (SND w)’
-  THEN1
-   (strip_tac \\ fs [] \\ impl_tac \\ fs []
-    \\ fs [lookup_mem_def,lookup_insert] \\ rw []
-    \\ gvs [AllCaseEqs(),good_loc_def] \\ res_tac \\ fs [])
-  \\ Cases_on ‘h’ \\ gvs [part_to_words_def,AllCaseEqs(),good_loc_def]
-  \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
-  \\ fs [make_ptr_def,good_loc_def,EVERY_MAP]
-  \\ fs [EVERY_MEM] \\ rw []
-  \\ Cases_on ‘lookup_mem m x’ \\ res_tac \\ fs []
+  simp[good_loc_def,EVERY_MEM,o_DEF]
 QED
 
 Theorem memory_rel_do_build_const:
-  do_build_const parts refs (SOME ts) = (v,refs1,SOME ts1) ∧
+do_build_const parts refs (SOME ts) = (v,refs1,SOME ts1) ∧
   const_parts_to_words c parts = SOME (w,ws) ∧
   memory_rel c be ts refs sp st m dm vars ∧
   SUM (MAP part_space_req parts) ≤ sp ∧
@@ -18812,48 +19057,47 @@ Theorem memory_rel_do_build_const:
   good_dimindex (:'a) ==>
   ∃m1.
     let nf = free + bytes_in_word * n2w (LENGTH ws) in
-    let adjust = word_cond_add c (free − curr :'a word) in
+    let adjust = const_word c (free − curr :'a word) in
       memory_rel c be ts1 refs1 (sp − LENGTH ws)
         (st |+ (NextFree,Word nf)) m1 dm ((v,adjust w)::vars) ∧
       store_list free (MAP adjust ws) m dm = SOME m1
 Proof
-  assume_tac (GEN_ALL memory_rel_do_build) \\ fs []
-  \\ strip_tac
-  \\ qabbrev_tac ‘ws1 = (MAP (word_cond_add c (free - curr)) ws)’
-  \\ fs []
-  \\ ‘LENGTH ws = LENGTH ws1’ by fs [Abbr ‘ws1’]
-  \\ fs []
-  \\ last_x_assum irule \\ fs []
-  \\ fs [do_build_const_def]
-  \\ last_x_assum $ irule_at Any
-  \\ qexists_tac ‘(λn. Word 0w)’ \\ fs []
-  \\ conj_tac
+  assume_tac (GEN_ALL memory_rel_do_build) >> fs []
+  >> strip_tac
+  >> qabbrev_tac ‘ws1 = (MAP (const_word c (free - curr)) ws)’
+  >> fs []
+  >> ‘LENGTH ws = LENGTH ws1’ by fs [Abbr ‘ws1’]
+  >> fs []
+  >> last_x_assum irule >> fs []
+  >> fs [do_build_const_def]
+  >> last_x_assum $ irule_at Any
+  >> qexists_tac ‘(λn. Word 0w)’ >> fs []
+  >> conj_tac
   THEN1
-   (Induct \\ fs []
-    \\ (IMP_memory_rel_Number |> Q.INST [‘i’|->‘0’]
-          |> SIMP_RULE std_ss [EVAL “Smallnum 0”] |> irule) \\ fs []
-    \\ EVAL_TAC \\ fs [good_dimindex_def,dimword_def])
-  \\ fs [const_parts_to_words_def]
-  \\ drule_at Any parts_to_words_add
-  \\ disch_then old_drule
-  \\ fs [word_cond_add_def]
-  \\ disch_then (qspecl_then [‘free-curr’,‘LN’] mp_tac)
-  \\ impl_tac THEN1
-   (fs [lookup_mem_def,lookup_def]
-    \\ qsuff_tac ‘byte_aligned (free - curr)’
-    THEN1 (fs [memory_rel_def,heap_in_memory_store_def] \\ EVAL_TAC)
-    \\ ‘byte_aligned free ∧ byte_aligned curr’ by
-         (gvs [memory_rel_def,heap_in_memory_store_def]
-          \\ irule byte_aligned_add
-          \\ fs [byte_align_mult_bytes_in_word])
-    \\ ntac 2 (pop_assum mp_tac)
-    \\ rewrite_tac [byte_aligned_def]
-    \\ rpt strip_tac
-    \\ imp_res_tac aligned_add_sub_cor)
-  \\ strip_tac
-  \\ old_drule parts_to_words_IMP_build_words \\ fs [lookup_mem_def,lookup_def]
-  \\ disch_then irule
-  \\ fs [memory_rel_def,heap_in_memory_store_def,byte_align_mult_bytes_in_word]
+   (Induct >> fs []
+    >> (IMP_memory_rel_Number |> Q.INST [‘i’|->‘0’]
+          |> SIMP_RULE std_ss [EVAL “Smallnum 0”] |> irule) >> fs []
+    >> EVAL_TAC >> fs [good_dimindex_def,dimword_def])
+  >> `arch_width_bits c.arch_width = dimindex(:α) ∧
+       shift(dimindex(:α)) <= shift_length c` by
+       fs[memory_rel_def,heap_in_memory_store_def]
+  >> `byte_aligned (free:'a word) ∧ byte_aligned (curr:'a word)` by
+       (gvs[memory_rel_def,heap_in_memory_store_def] >> irule byte_aligned_add
+        >> fs[byte_align_mult_bytes_in_word])
+  >> `byte_aligned (free-curr:'a word)` by
+       (full_simp_tac std_ss [byte_aligned_def] >> metis_tac[aligned_add_sub_cor])
+  >> `byte_aligned (0w:'a word)` by EVAL_TAC
+  >> fs[const_parts_to_words_def]
+  >> Q.ISPECL_THEN [`parts`,`LN:(bool#int)num_map`,`0`,`0`,
+        `w2i(free-curr:'a word)`,`w`,`ws`,`LN:(bool#int)num_map`]
+        mp_tac (INST_TYPE [alpha |-> ``:'a``] parts_to_words_add)
+  >> simp[i2w_w2i,const_word_def,word_cond_add_def,lookup_mem_def,lookup_def,i2w_pos]
+  >> strip_tac
+  >> Q.ISPECL_THEN [`c`,`LN:(bool#int)num_map`,`0`,`parts`,
+       `w2i(free-curr:'a word)`,`v`,`vs`] mp_tac parts_to_words_IMP_build_words
+  >> simp[i2w_w2i,lookup_mem_def,lookup_def,i2w_pos] >> fs[]
+
+
 QED
 
 Definition read_word_def:

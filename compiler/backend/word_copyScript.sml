@@ -290,7 +290,7 @@ Definition copy_prop_share_def:
 End
 
 Definition copy_prop_prog_def:
-  (copy_prop_prog (Skip:'a wordLang$prog) cs =
+  (copy_prop_prog (Skip:wordLang$prog) cs =
     (Skip, cs)) ∧
   (copy_prop_prog (Move pri xs) cs =
     let tt = MAP FST xs; ss = MAP SND xs in
@@ -380,7 +380,7 @@ Definition copy_prop_prog_def:
 End
 
 Definition copy_prop_def:
-  copy_prop (e:'a wordLang$prog) =
+  copy_prop (e:wordLang$prog) =
     FST (copy_prop_prog e empty_eq)
 End
 

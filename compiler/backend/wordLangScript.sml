@@ -51,7 +51,7 @@ Datatype:
        | If cmp num reg_imm wordLang$prog wordLang$prog
        | Loop num_set wordLang$prog num_set
        | Alloc num cutsets
-       | StoreConsts num num num num ((bool # 'a word) list)
+       | StoreConsts num num num num ((bool # int) list)
        | Raise num
        | Return num (num list) (* return lab, return values *)
        | Break num
@@ -131,48 +131,48 @@ Definition every_name_def:
 End
 
 Definition every_var_def:
-  (every_var P (Skip:'a prog) ⇔ T) ∧
-  (every_var P (Move pri ls) = (EVERY P (MAP FST ls) ∧ EVERY P (MAP SND ls))) ∧
-  (every_var P (Inst i) = every_var_inst (dimindex (:'a)) P i) ∧
-  (every_var P (Assign num exp) = (P num ∧ every_var_exp P exp)) ∧
-  (every_var P (Get num store) = P num) ∧
-  (every_var P (Store exp num) = (P num ∧ every_var_exp P exp)) ∧
-  (every_var P (LocValue r _) = P r) ∧
-  (every_var P (Install r1 r2 r3 r4 r5 names) =
+  (every_var bits P (Skip:prog) ⇔ T) ∧
+  (every_var bits P (Move pri ls) = (EVERY P (MAP FST ls) ∧ EVERY P (MAP SND ls))) ∧
+  (every_var bits P (Inst i) = every_var_inst (bits) P i) ∧
+  (every_var bits P (Assign num exp) = (P num ∧ every_var_exp P exp)) ∧
+  (every_var bits P (Get num store) = P num) ∧
+  (every_var bits P (Store exp num) = (P num ∧ every_var_exp P exp)) ∧
+  (every_var bits P (LocValue r _) = P r) ∧
+  (every_var bits P (Install r1 r2 r3 r4 r5 names) =
     (P r1 ∧ P r2 ∧ P r3 ∧ P r4 ∧ P r5 ∧ every_name P names)) ∧
-  (every_var P (DataBufferWrite r1 r2) = (P r1 ∧ P r2)) ∧
-  (every_var P (FFI ffi_index cptr clen ptr len names) =
+  (every_var bits P (DataBufferWrite r1 r2) = (P r1 ∧ P r2)) ∧
+  (every_var bits P (FFI ffi_index cptr clen ptr len names) =
     (P cptr ∧ P clen ∧ P ptr ∧ P len ∧ every_name P names)) ∧
-  (every_var P (MustTerminate s1) = every_var P s1) ∧
-  (every_var P (Call ret dest args h) =
+  (every_var bits P (MustTerminate s1) = every_var bits P s1) ∧
+  (every_var bits P (Call ret dest args h) =
     ((EVERY P args) ∧
     (case ret of
       NONE => T
     | SOME (v,cutset,ret_handler,l1,l2) =>
       (EVERY P v ∧ every_name P cutset ∧
-      every_var P ret_handler ∧
+      every_var bits P ret_handler ∧
       (case h of
         NONE => T
       | SOME (v,prog,l1,l2) =>
         (P v ∧
-        every_var P prog)))))) ∧
-  (every_var P (Seq s1 s2) = (every_var P s1 ∧ every_var P s2)) ∧
-  (every_var P (If cmp r1 ri e2 e3) =
-    (P r1 ∧ every_var_imm P ri ∧ every_var P e2 ∧ every_var P e3)) ∧
-  (every_var P (Alloc num numset) =
+        every_var bits P prog)))))) ∧
+  (every_var bits P (Seq s1 s2) = (every_var bits P s1 ∧ every_var bits P s2)) ∧
+  (every_var bits P (If cmp r1 ri e2 e3) =
+    (P r1 ∧ every_var_imm P ri ∧ every_var bits P e2 ∧ every_var bits P e3)) ∧
+  (every_var bits P (Alloc num numset) =
     (P num ∧ every_name P numset)) ∧
-  (every_var P (StoreConsts a b c d ws) =
+  (every_var bits P (StoreConsts a b c d ws) =
     (P a ∧ P b ∧ P c ∧ P d)) ∧
-  (every_var P (Raise num) = P num) ∧
-  (every_var P (Return num1 ns) = (P num1 ∧ EVERY P ns)) ∧
-  (every_var P (OpCurrHeap _ num1 num2) = (P num1 ∧ P num2)) ∧
-  (every_var P Tick = T) ∧
-  (every_var P (Set n exp) = every_var_exp P exp) ∧
-  (every_var P (ShareInst op num exp) = (P num /\ every_var_exp P exp)) /\
-  (every_var P (wordLang$Loop names body exit_names) =
-    (EVERY P (MAP FST (toAList names)) ∧ every_var P body ∧
+  (every_var bits P (Raise num) = P num) ∧
+  (every_var bits P (Return num1 ns) = (P num1 ∧ EVERY P ns)) ∧
+  (every_var bits P (OpCurrHeap _ num1 num2) = (P num1 ∧ P num2)) ∧
+  (every_var bits P Tick = T) ∧
+  (every_var bits P (Set n exp) = every_var_exp P exp) ∧
+  (every_var bits P (ShareInst op num exp) = (P num /\ every_var_exp P exp)) /\
+  (every_var bits P (wordLang$Loop names body exit_names) =
+    (EVERY P (MAP FST (toAList names)) ∧ every_var bits P body ∧
      EVERY P (MAP FST (toAList exit_names)))) ∧
-  (every_var P p = T)
+  (every_var bits P p = T)
 End
 
 (*Recursor for stack variables*)
@@ -250,51 +250,51 @@ Definition cutsets_max_def[simp]:
 End
 
 Definition max_var_def:
-  (max_var (Skip:'a prog) = 0) ∧
-  (max_var (Move pri ls) =
+  (max_var bits (Skip:prog) = 0) ∧
+  (max_var bits (Move pri ls) =
     MAX_LIST (MAP FST ls ++ MAP SND ls)) ∧
-  (max_var (Inst i) = max_var_inst (dimindex (:'a)) i) ∧
-  (max_var (Assign num exp) = MAX num (max_var_exp exp)) ∧
-  (max_var (Get num store) = num) ∧
-  (max_var (Store exp num) = MAX num (max_var_exp exp)) ∧
-  (max_var (Call ret dest args h) =
+  (max_var bits (Inst i) = max_var_inst (bits) i) ∧
+  (max_var bits (Assign num exp) = MAX num (max_var_exp exp)) ∧
+  (max_var bits (Get num store) = num) ∧
+  (max_var bits (Store exp num) = MAX num (max_var_exp exp)) ∧
+  (max_var bits (Call ret dest args h) =
     let n = MAX_LIST args in
     case ret of
       NONE => n
     | SOME (v,cutset,ret_handler,l1,l2) =>
       let cutset_max = MAX n (cutsets_max cutset) in
-      let ret_max = max3 (MAX_LIST v) cutset_max (max_var ret_handler) in
+      let ret_max = max3 (MAX_LIST v) cutset_max (max_var bits ret_handler) in
       (case h of
         NONE => ret_max
       | SOME (v,prog,l1,l2) =>
-        max3 v ret_max (max_var prog))) ∧
-  (max_var (Seq s1 s2) = MAX (max_var s1) (max_var s2)) ∧
-  (max_var (MustTerminate s1) = max_var s1) ∧
-  (max_var (If cmp r1 ri e2 e3) =
+        max3 v ret_max (max_var bits prog))) ∧
+  (max_var bits (Seq s1 s2) = MAX (max_var bits s1) (max_var bits s2)) ∧
+  (max_var bits (MustTerminate s1) = max_var bits s1) ∧
+  (max_var bits (If cmp r1 ri e2 e3) =
     let r = case ri of Reg r => MAX r r1 | _ => r1 in
-      max3 r (max_var e2) (max_var e3)) ∧
-  (max_var (Alloc num numset) =
+      max3 r (max_var bits e2) (max_var bits e3)) ∧
+  (max_var bits (Alloc num numset) =
     MAX num (cutsets_max numset)) ∧
-  (max_var (StoreConsts a b c d ws) =
+  (max_var bits (StoreConsts a b c d ws) =
     MAX_LIST [a;b;c;d]) ∧
-  (max_var (Install r1 r2 r3 r4 r5 numset) =
+  (max_var bits (Install r1 r2 r3 r4 r5 numset) =
     (MAX_LIST [r1;r2;r3;r4;r5;cutsets_max numset])) ∧
-  (max_var (DataBufferWrite r1 r2) =
+  (max_var bits (DataBufferWrite r1 r2) =
     MAX r1 r2) ∧
-  (max_var (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
+  (max_var bits (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
     MAX_LIST [ptr1;len1;ptr2;len2;cutsets_max numset]) ∧
-  (max_var (Raise num) = num) ∧
-  (max_var (OpCurrHeap _ num1 num2) = MAX num1 num2) ∧
-  (max_var (Return num1 ns) = MAX_LIST (num1::ns)) ∧
-  (max_var Tick = 0) ∧
-  (max_var (LocValue r l1) = r) ∧
-  (max_var (Set n exp) = max_var_exp exp) ∧
-  (max_var (ShareInst op num exp) = MAX num (max_var_exp exp)) /\
-  (max_var (Loop names body exit_names) =
+  (max_var bits (Raise num) = num) ∧
+  (max_var bits (OpCurrHeap _ num1 num2) = MAX num1 num2) ∧
+  (max_var bits (Return num1 ns) = MAX_LIST (num1::ns)) ∧
+  (max_var bits Tick = 0) ∧
+  (max_var bits (LocValue r l1) = r) ∧
+  (max_var bits (Set n exp) = max_var_exp exp) ∧
+  (max_var bits (ShareInst op num exp) = MAX num (max_var_exp exp)) /\
+  (max_var bits (Loop names body exit_names) =
     max3 (MAX_LIST (MAP FST (toAList names)))
-         (max_var body)
+         (max_var bits body)
          (MAX_LIST (MAP FST (toAList exit_names)))) /\
-  (max_var p = 0)
+  (max_var bits p = 0)
 End
 
 Definition word_op_def:
@@ -310,7 +310,7 @@ End
 
 Definition word_sh_def:
   word_sh sh (w:'a word) n =
-    if n <> 0 /\ n ≥ dimindex (:'a) then NONE else
+    if n <> 0 /\ n ≥ dimindex (:α) then NONE else
       case sh of
       | Lsl => SOME (w << n)
       | Lsr => SOME (w >>> n)

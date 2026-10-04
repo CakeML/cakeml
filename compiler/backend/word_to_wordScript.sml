@@ -19,24 +19,24 @@ Datatype:
 End
 
 Definition compile_single_def:
-  compile_single two_reg_arith reg_count alg c ((name_num:num,arg_count,prog),col_opt) =
-  let prog = word_simp$compile_exp prog in
-  let maxv = max_var prog + 1 in
-  let inst_prog = inst_select c maxv prog in
-  let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
-  let rm_ssa_prog = remove_dead_prog ssa_prog in
+  compile_single bits two_reg_arith reg_count alg c ((name_num:num,arg_count,prog),col_opt) =
+  let prog = word_simp$compile_exp bits prog in
+  let maxv = max_var bits prog + 1 in
+  let inst_prog = inst_select bits c maxv prog in
+  let ssa_prog = full_ssa_cc_trans bits arg_count inst_prog in
+  let rm_ssa_prog = remove_dead_prog bits ssa_prog in
   let cse_prog = word_common_subexp_elim rm_ssa_prog in
   let cp_prog = copy_prop cse_prog in
   let two_prog = three_to_two_reg_prog two_reg_arith cp_prog in
   let unreach_prog = remove_unreach two_prog in
-  let rm_prog = remove_dead_prog unreach_prog in
-  let reg_prog = word_alloc name_num c alg reg_count rm_prog col_opt in
+  let rm_prog = remove_dead_prog bits unreach_prog in
+  let reg_prog = word_alloc bits name_num c alg reg_count rm_prog col_opt in
     (name_num,arg_count,reg_prog)
 End
 
 Definition full_compile_single_def:
-  full_compile_single two_reg_arith reg_count alg c p =
-  let (name_num,arg_count,reg_prog) = compile_single two_reg_arith reg_count alg c p in
+  full_compile_single bits two_reg_arith reg_count alg c p =
+  let (name_num,arg_count,reg_prog) = compile_single bits two_reg_arith reg_count alg c p in
     (name_num,arg_count,remove_must_terminate reg_prog)
 End
 
@@ -50,23 +50,24 @@ End
 
 Definition compile_def:
   compile word_conf (asm_conf:asm_config) progs =
+    let bits = isa_bits asm_conf in
     let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
     let (n_oracles,col) = next_n_oracle (LENGTH progs) word_conf.col_oracle in
     let progs = ZIP (progs,n_oracles) in
-    (col,MAP (full_compile_single two_reg_arith reg_count word_conf.reg_alg asm_conf) progs)
+    (col,MAP (full_compile_single bits two_reg_arith reg_count word_conf.reg_alg asm_conf) progs)
 End
 
 Definition full_compile_single_for_eval_def:
-  full_compile_single_for_eval two_reg_arith reg_count alg c p =
+  full_compile_single_for_eval bits two_reg_arith reg_count alg c p =
     let ((name_num,arg_count,prog),col_opt) = p in
-    let prog = word_simp$compile_exp prog in
+    let prog = word_simp$compile_exp bits prog in
     let _ = empty_ffi «finished: word_simp» in
-    let maxv = max_var prog + 1 in
-    let inst_prog = inst_select c maxv prog in
+    let maxv = max_var bits prog + 1 in
+    let inst_prog = inst_select bits c maxv prog in
     let _ = empty_ffi «finished: word_inst» in
-    let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
+    let ssa_prog = full_ssa_cc_trans bits arg_count inst_prog in
     let _ = empty_ffi «finished: word_ssa» in
-    let rm_ssa_prog = remove_dead_prog ssa_prog in
+    let rm_ssa_prog = remove_dead_prog bits ssa_prog in
     let _ = empty_ffi «finished: word_remove_dead after word_ssa» in
     let cse_prog = word_common_subexp_elim rm_ssa_prog in
     let _ = empty_ffi «finished: word_cse» in
@@ -76,9 +77,9 @@ Definition full_compile_single_for_eval_def:
     let _ = empty_ffi «finished: word_two_reg» in
     let unreach_prog = remove_unreach two_prog in
     let _ = empty_ffi «finished: word_unreach» in
-    let rm_prog = remove_dead_prog unreach_prog in
+    let rm_prog = remove_dead_prog bits unreach_prog in
     let _ = empty_ffi «finished: word_remove_dead» in
-    let reg_prog = word_alloc name_num c alg reg_count rm_prog col_opt in
+    let reg_prog = word_alloc bits name_num c alg reg_count rm_prog col_opt in
     let _ = empty_ffi «finished: word_alloc» in
     let rmt_prog = remove_must_terminate reg_prog in
     let _ = empty_ffi «finished: word_remove» in
@@ -86,8 +87,8 @@ Definition full_compile_single_for_eval_def:
 End
 
 Theorem full_compile_single_for_eval_eq:
-  full_compile_single two_reg_arith reg_count alg c p =
-  full_compile_single_for_eval two_reg_arith reg_count alg c p
+  full_compile_single bits two_reg_arith reg_count alg c p =
+  full_compile_single_for_eval bits two_reg_arith reg_count alg c p
 Proof
   rw [full_compile_single_for_eval_def, full_compile_single_def]
   \\ PairCases_on ‘p’ \\ simp [compile_single_def]
@@ -96,19 +97,20 @@ QED
 (* used for bootstrap translation *)
 Theorem compile_alt:
     compile word_conf (asm_conf:asm_config) progs =
+    let bits = isa_bits asm_conf in
     let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
     let (n_oracles,col) = next_n_oracle (LENGTH progs) word_conf.col_oracle in
     let alg = word_conf.reg_alg in
     let names = MAP (λ(x,y,z). x) progs in
     let args = MAP (λ(x,y,z). y) progs in
     let ps = MAP (\(x,y,z). z) progs in
-    let simp_ps = MAP word_simp$compile_exp ps in
+    let simp_ps = MAP (word_simp$compile_exp bits) ps in
     let _ = empty_ffi «finished: word_simp» in
-    let inst_ps = MAP (λp. inst_select asm_conf (max_var p +1) p) simp_ps in
+    let inst_ps = MAP (λp. inst_select bits asm_conf (max_var bits p +1) p) simp_ps in
     let _ = empty_ffi «finished: word_inst» in
-    let ssa_ps = MAP2 (λa p. full_ssa_cc_trans a p) args inst_ps in
+    let ssa_ps = MAP2 (λa p. full_ssa_cc_trans bits a p) args inst_ps in
     let _ = empty_ffi «finished: word_ssa» in
-    let rm_ssa_ps = MAP remove_dead_prog ssa_ps in
+    let rm_ssa_ps = MAP (remove_dead_prog bits) ssa_ps in
     let _ = empty_ffi «finished: word_remove_dead after word_ssa» in
     let cse_ps = MAP word_common_subexp_elim rm_ssa_ps in
     let _ = empty_ffi «finished: word_cse» in
@@ -118,9 +120,9 @@ Theorem compile_alt:
     let _ = empty_ffi «finished: word_two_reg» in
     let unreach_ps = MAP remove_unreach two_ps in
     let _ = empty_ffi «finished: word_unreach» in
-    let dead_ps = MAP remove_dead_prog unreach_ps in
+    let dead_ps = MAP (remove_dead_prog bits) unreach_ps in
     let _ = empty_ffi «finished: word_remove_dead» in
-    let reg_ps = MAP2 (λc (n,p). word_alloc n asm_conf alg reg_count p c) n_oracles (ZIP(names,dead_ps)) in
+    let reg_ps = MAP2 (λc (n,p). word_alloc bits n asm_conf alg reg_count p c) n_oracles (ZIP(names,dead_ps)) in
     let _ = empty_ffi «finished: word_alloc» in
     let rmt_ps = MAP remove_must_terminate reg_ps in
     let _ = empty_ffi «finished: word_remove» in

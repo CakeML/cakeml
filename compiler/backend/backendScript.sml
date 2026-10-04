@@ -318,22 +318,22 @@ Definition to_livesets_0_def:
   let alg = word_conf.reg_alg in
   let p =
     MAP (λ(name_num,arg_count,prog).
-    let prog = word_simp$compile_exp prog in
-    let maxv = max_var prog + 1 in
-    let inst_prog = inst_select asm_conf maxv prog in
-    let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
-    let rm_ssa_prog = remove_dead_prog ssa_prog in
+    let prog = word_simp$compile_exp (isa_bits asm_conf) prog in
+    let maxv = max_var (isa_bits asm_conf) prog + 1 in
+    let inst_prog = inst_select (isa_bits asm_conf) asm_conf maxv prog in
+    let ssa_prog = full_ssa_cc_trans (isa_bits asm_conf) arg_count inst_prog in
+    let rm_ssa_prog = remove_dead_prog (isa_bits asm_conf) ssa_prog in
     let cse_prog = word_common_subexp_elim rm_ssa_prog in
     let cp_prog = copy_prop cse_prog in
     let two_prog = three_to_two_reg_prog asm_conf.two_reg_arith cp_prog in
     let unreach_prog = remove_unreach two_prog in
-    let rm_prog = remove_dead_prog unreach_prog in
+    let rm_prog = remove_dead_prog (isa_bits asm_conf) unreach_prog in
         (name_num,arg_count,rm_prog))
       p in
     let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
-    (get_clash_tree prog [],heu_moves,spillcosts,
-      get_forced asm_conf prog [],get_stack_only prog)) p
+    (get_clash_tree (isa_bits asm_conf) prog [],heu_moves,spillcosts,
+      get_forced asm_conf prog [],get_stack_only (isa_bits asm_conf) prog)) p
   in
     ((asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs),data),c,names,p)
 End
@@ -542,7 +542,7 @@ Datatype:
    ; bvl_prog : (num # num # bvl$exp) list
    ; bvi_prog : (num # num # bvi$exp) list
    ; data_prog : (num # num # dataLang$prog) list
-   ; word_prog : (num # num # 'a wordLang$prog) list
+   ; word_prog : (num # num # wordLang$prog) list
    ; stack_prog : (num # stackLang$prog) list
    ; cur_bm : 'a word list
    ; lab_prog : sec list
@@ -582,7 +582,7 @@ Definition compile_inc_progs_def:
     let dc = ensure_fp_conf_ok asm_conf c.data_conf in
     let p = MAP (compile_part dc) p in
     let reg_count1 = asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs) in
-    let p = MAP (\p. full_compile_single asm_conf.two_reg_arith reg_count1
+    let p = MAP (\p. full_compile_single (isa_bits asm_conf) asm_conf.two_reg_arith reg_count1
         c.word_to_word_conf.reg_alg asm_conf (p, NONE)) p in
     let ps = ps with <| word_prog := keep_progs k p |> in
     let bm0 = c.word_conf.bitmaps_length in
@@ -646,7 +646,7 @@ Theorem compile_inc_progs_for_eval_eq:
     let dc = ensure_fp_conf_ok asm_conf c.data_conf in
     let p = MAP (compile_part dc) p in
     let reg_count1 = asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs) in
-    let p = MAP (\p. full_compile_single_for_eval asm_conf.two_reg_arith reg_count1
+    let p = MAP (\p. full_compile_single_for_eval (isa_bits asm_conf) asm_conf.two_reg_arith reg_count1
         c.word_to_word_conf.reg_alg asm_conf (p, NONE)) p in
     let _ = empty_ffi «finished: data_to_word» in
     let bm0 = c.word_conf.bitmaps_length in

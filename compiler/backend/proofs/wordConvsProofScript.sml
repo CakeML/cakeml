@@ -14,7 +14,7 @@ Libs
   across wordLang passes.
   It must NOT depend on the semantics or word_Xproof files.
 
-  word_simp$compile_exp
+  word_simp$compile_exp bits
   ===
     preserves label_rel: extract_labels_compile_exp
     preserves every_inst: compile_exp_no_inst
@@ -23,7 +23,7 @@ Libs
     preserves code_labels (no export):   word_get_code_labels_word_simp
     preserves good_handlers (no export): word_good_handlers_word_simp
 
-  inst_select
+  inst_select bits
   ===
     preserves label_rel: inst_select_lab_pres (equality on labels)
     creates flat_exp_conventions: inst_select_flat_exp_conventions
@@ -33,7 +33,7 @@ Libs
     preserves code_labels (no export):   word_get_code_labels_inst_select
     preserves good_handlers (no export): word_good_handlers_inst_select
 
-  full_ssa_cc_trans
+  full_ssa_cc_trans bits
   ===
     preserves label_rel: full_ssa_cc_trans_lab_pres (equality on labels)
 
@@ -50,7 +50,7 @@ Libs
     preserves code_labels (no_export):   word_get_code_labels_full_ssa_cc_trans
     preserves good_handlers (no_export): word_good_handlers_full_ssa_cc_trans
 
-  remove_dead_prog (note this is ran again after remove_unreach)
+  remove_dead_prog bits (note this is ran again after remove_unreach)
   ===
     preserves label_rel: remove_dead_prog_conventions (equality on labels)
 
@@ -124,7 +124,7 @@ Libs
     preserves code_labels (no export):   word_get_code_labels_remove_unreach
     preserves good_handlers (no export): word_good_handlers_remove_unreach
 
-  word_alloc
+  word_alloc bits
   ===
     preserves label_rel: word_alloc_lab_pres (equality on labels)
 
@@ -133,7 +133,7 @@ Libs
 
     TODO: move these out of word_allocProof somehow
       preserves full_inst_ok_less: word_alloc_full_inst_ok_less
-      creates post_alloc_conventions (from pre_alloc_conventions): pre_post_conventions_word_alloc
+      creates post_alloc_conventions bits (from pre_alloc_conventions): pre_post_conventions_word_alloc
     TODO ends here
 
     preserves subprogs (no export): word_alloc_not_created_subprogs
@@ -146,21 +146,21 @@ Libs
 
     preserves flat_exp_conventions: remove_must_terminate_conventions
     preserves full_inst_ok_less: remove_must_terminate_conventions
-    preserves post_alloc_conventions: remove_must_terminate_conventions
+    preserves post_alloc_conventions bits: remove_must_terminate_conventions
     preserves every_inst: remove_must_terminate_conventions
 
     (subprogs is dealt with separately)
     preserves code_labels (no export): word_get_code_labels_remove_must_terminate
     preserves good_handlers (no export): word_good_handlers_remove_must_terminate
 
-  word_to_word (compile_single and full_compile_single thms)
+  word_to_word (compile_single bits and full_compile_single bits thms)
   ===
     preserves subprogs: compile_single_not_created_subprogs
     preserves good_handlers: word_good_handlers_word_to_word, word_good_handlers_word_to_word_incr
     preserves good_code_labels: word_good_code_labels_word_to_word_incr, word_good_code_labels_word_to_word
 ***)
 
-(*** word_simp$compile_exp ***)
+(*** word_simp$compile_exp bits ***)
 
 (* labels_rel *)
 Theorem extract_labels_SmartSeq[local]:
@@ -201,8 +201,8 @@ Proof
 QED
 
 Theorem extract_labels_const_fp_loop[local]:
-  !p cs p1 cs1.
-  const_fp_loop p cs = (p1,cs1) ==>
+  !bits p cs p1 cs1.
+  const_fp_loop bits p cs = (p1,cs1) ==>
   labels_rel (extract_labels p) (extract_labels p1)
 Proof
   ho_match_mp_tac const_fp_loop_ind
@@ -217,7 +217,7 @@ Proof
   \\ TRY (fs [const_fp_loop_def] \\ rw [] \\ fs [extract_labels_def] \\ NO_TAC)
   THEN1 (* Loop *)
    (rw [] \\ fs [const_fp_loop_def]
-    \\ Cases_on `const_fp_loop p LN` \\ fs []
+    \\ Cases_on `const_fp_loop bits p LN` \\ fs []
     \\ rveq \\ fs [extract_labels_def]
     \\ res_tac)
   THEN1 (* Call *)
@@ -236,9 +236,9 @@ Proof
 QED
 
 Theorem extract_labels_const_fp[local]:
-   labels_rel (extract_labels p) (extract_labels (const_fp p))
+   labels_rel (extract_labels p) (extract_labels (const_fp bits p))
 Proof
-  fs [const_fp_def] \\ Cases_on `const_fp_loop p LN`
+  fs [const_fp_def] \\ Cases_on `const_fp_loop bits p LN`
   \\ drule extract_labels_const_fp_loop
   \\ simp []
 QED
@@ -266,14 +266,14 @@ Theorem const_fp_loop_Seq[local] =
 
 (* The tricky part: to prove this syntactic property (and only for this) we
    have to show that the strategy actually works, and that any program which
-   the hoist mechanism hoists will simplify (via const_fp) back to a program
+   the hoist mechanism hoists will simplify (via const_fp bits) back to a program
    in which nothing is duplicated. *)
 Theorem const_fp_loop_dummy_cases[local]:
-  const_fp_loop (If cmp lhs rhs (Raise 1) (Raise 2):'a prog) cs = (p2, cs2) ==>
+  const_fp_loop bits (If cmp lhs rhs (Raise 1) (Raise 2):prog) cs = (p2, cs2) ==>
   (dest_Raise_num p2 = 1 /\
-  (! (br1:'a prog) br2 . const_fp_loop (If cmp lhs rhs br1 br2) cs = const_fp_loop br1 cs)) \/
+  (! (br1:prog) br2 . const_fp_loop bits (If cmp lhs rhs br1 br2) cs = const_fp_loop bits br1 cs)) \/
   (dest_Raise_num p2 = 2 /\
-  (! (br1:'a prog) br2 . const_fp_loop (If cmp lhs rhs br1 br2) cs = const_fp_loop br2 cs)) \/
+  (! (br1:prog) br2 . const_fp_loop bits (If cmp lhs rhs br1 br2) cs = const_fp_loop bits br2 cs)) \/
   (dest_Raise_num p2 = 0)
 Proof
   rw [const_fp_loop_def, dest_Raise_num_def]
@@ -287,8 +287,8 @@ Proof
 QED
 
 Theorem labels_rel_hoist2[local]:
-  ! N p1 interm dummy p2 s.
-  try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
+  !bits  N p1 interm dummy p2 s.
+  try_if_hoist2 bits N p1 interm dummy p2 = SOME p3 ==>
   dest_If p2 = SOME (cmp, lhs, rhs, br1, br2) ==>
   dummy = If cmp lhs rhs (Raise 1) (Raise 2) ==>
   extract_labels interm = [] ==>
@@ -343,7 +343,7 @@ Proof
 QED
 
 Theorem labels_rel_simp_duplicate_if[local]:
-  !p. labels_rel (extract_labels p) (extract_labels (simp_duplicate_if p))
+  !bits p. labels_rel (extract_labels p) (extract_labels (simp_duplicate_if bits p))
 Proof
   ho_match_mp_tac simp_duplicate_if_ind
   \\ rw []
@@ -369,7 +369,7 @@ Proof
   \\ rw[]
   \\ simp_tac(srw_ss())[Once push_out_if_aux_def]
   \\ simp $ map (Q.ISPEC `FST:'free_tyvar # 'free_tyvar2 -> 'free_tyvar` o TypeBase.case_rand_of) $
-     [``:'a prog``, ``:'a # 'b``,``:'a option``,``:bool``]
+     [``:prog``, ``:'a # 'b``,``:'a option``,``:bool``]
   \\ rpt (PURE_TOP_CASE_TAC \\ simp_tac(srw_ss())[])
   \\ fs[] \\ simp[extract_labels_def]
   \\ metis_tac[ labels_rel_refl,labels_rel_APPEND,labels_rel_append_imp]
@@ -377,7 +377,7 @@ QED
 
 Theorem extract_labels_compile_exp:
   !p. labels_rel (extract_labels p)
-                 (extract_labels (word_simp$compile_exp p))
+                 (extract_labels (word_simp$compile_exp bits p))
 Proof
   rw [word_simpTheory.compile_exp_def] >>
   irule labels_rel_TRANS >> ONCE_REWRITE_TAC [CONJ_COMM] >>
@@ -431,20 +431,20 @@ Proof
 QED
 
 Theorem every_inst_const_fp[local]:
-   ∀prog.
+   ∀bits prog.
     every_inst P prog ⇒
-    every_inst P (const_fp prog)
+    every_inst P (const_fp bits prog)
 Proof
-  strip_tac
-  \\ fs [const_fp_def] \\ Cases_on `const_fp_loop prog LN`
-  \\ rename1 `const_fp_loop p cs = (p1,cs1)` \\ fs []
+  ntac 2 gen_tac
+  \\ fs [const_fp_def] \\ Cases_on `const_fp_loop bits prog LN`
+  \\ rename1 `const_fp_loop bits p cs = (p1,cs1)` \\ fs []
   \\ pop_assum mp_tac
   \\ qspec_tac (`cs1`,`cs1`) \\ qspec_tac (`p1`,`p1`)
-  \\ qspec_tac (`cs`,`cs`) \\ qspec_tac (`p`,`p`)
+  \\ qspec_tac (`cs`,`cs`) \\ qspec_tac (`p`,`p`) \\ qspec_tac (`bits`,`bits`)
   \\ ho_match_mp_tac const_fp_loop_ind \\ rw []
   >~ [`Loop names p exit_names`]
   >- (fs [const_fp_loop_def] \\ rw [] \\ fs [every_inst_def]
-      \\ Cases_on `const_fp_loop p LN` \\ fs []
+      \\ Cases_on `const_fp_loop bits p LN` \\ fs []
       \\ first_x_assum drule \\ fs [])
   \\ fs [const_fp_loop_def] \\ rw [] \\ fs [every_inst_def]
   \\ every_case_tac \\ rw [] \\ fs [every_inst_def]
@@ -453,8 +453,8 @@ Proof
 QED
 
 Theorem try_if_hoist2_no_inst[local]:
-  ! N p1 interm dummy p2 s.
-  try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
+  !bits  N p1 interm dummy p2 s.
+  try_if_hoist2 bits N p1 interm dummy p2 = SOME p3 ==>
   every_inst P p1 ==>
   every_inst P interm ==>
   every_inst P p2 ==>
@@ -472,7 +472,7 @@ Proof
 QED
 
 Theorem simp_duplicate_if_no_inst[local]:
-  !p. every_inst P p ==> every_inst P (simp_duplicate_if p)
+  !bits p. every_inst P p ==> every_inst P (simp_duplicate_if bits p)
 Proof
   ho_match_mp_tac simp_duplicate_if_ind
   \\ rw []
@@ -495,7 +495,7 @@ Proof
   \\ rw []
   \\ simp_tac(srw_ss())[Once push_out_if_aux_def]
   \\ simp $ map (Q.ISPEC `FST:'free_tyvar # 'free_tyvar2 -> 'free_tyvar` o TypeBase.case_rand_of) $
-     [``:'a prog``, ``:'a # 'b``,``:'a option``,``:bool``]
+     [``:prog``, ``:'a # 'b``,``:'a option``,``:bool``]
   \\ rpt (PURE_TOP_CASE_TAC \\ asm_simp_tac(srw_ss())[])
   \\ fs[every_inst_def]
   \\ res_tac \\ fs []
@@ -504,7 +504,7 @@ QED
 Theorem compile_exp_no_inst:
   ∀prog.
     every_inst P prog ⇒
-    every_inst P (compile_exp prog)
+    every_inst P (compile_exp bits prog)
 Proof
   rw[compile_exp_def]>>
   rpt (MAP_FIRST irule [Seq_assoc_no_inst,every_inst_def,
@@ -544,8 +544,8 @@ Proof
 QED
 
 Theorem not_created_subprogs_const_fp_loop[local]:
-  !p cs p1 cs1.
-  const_fp_loop p cs = (p1,cs1) ==>
+  !bits p cs p1 cs1.
+  const_fp_loop bits p cs = (p1,cs1) ==>
   not_created_subprogs P p ==>
   not_created_subprogs P p1
 Proof
@@ -556,22 +556,22 @@ Proof
   \\ gvs [CaseEq "exp", CaseEq "option", CaseEq "bool", CaseEq "prod", not_created_subprogs_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ gvs [not_created_subprogs_def]
-  \\ Cases_on `const_fp_loop p LN` \\ fs []
+  \\ Cases_on `const_fp_loop bits p LN` \\ fs []
   \\ res_tac \\ fs []
 QED
 
 Theorem not_created_subprogs_const_fp[local]:
   not_created_subprogs P p ==>
-  not_created_subprogs P (const_fp p)
+  not_created_subprogs P (const_fp bits p)
 Proof
   rw [const_fp_def]
-  \\ Cases_on `const_fp_loop p LN` \\ fs []
+  \\ Cases_on `const_fp_loop bits p LN` \\ fs []
   \\ imp_res_tac not_created_subprogs_const_fp_loop
 QED
 
 Theorem not_created_subprogs_hoist2[local]:
-  ! N p1 interm dummy p2.
-  try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
+  !bits  N p1 interm dummy p2.
+  try_if_hoist2 bits N p1 interm dummy p2 = SOME p3 ==>
   not_created_subprogs P p1 ==> not_created_subprogs P interm ==>
   not_created_subprogs P p2 ==>
   not_created_subprogs P p3
@@ -590,8 +590,8 @@ Proof
 QED
 
 Theorem not_created_subprogs_simp_duplicate_if[local]:
-  !p. not_created_subprogs P p ==>
-  not_created_subprogs P (simp_duplicate_if p)
+  !bits p. not_created_subprogs P p ==>
+  not_created_subprogs P (simp_duplicate_if bits p)
 Proof
   ho_match_mp_tac simp_duplicate_if_ind
   \\ rw []
@@ -614,14 +614,14 @@ Proof
   \\ rw []
   \\ simp_tac(srw_ss())[Once push_out_if_aux_def]
   \\ simp $ map (Q.ISPEC `FST:'free_tyvar # 'free_tyvar2 -> 'free_tyvar` o TypeBase.case_rand_of) $
-     [``:'a prog``, ``:'a # 'b``,``:'a option``,``:bool``]
+     [``:prog``, ``:'a # 'b``,``:'a option``,``:bool``]
   \\ rpt (PURE_TOP_CASE_TAC \\ asm_simp_tac(srw_ss())[])
   \\ fs[not_created_subprogs_def,EQ_IMP_THM]
 QED
 
 Theorem compile_exp_not_created_subprogs[local]:
   not_created_subprogs P p ==>
-  not_created_subprogs P (compile_exp p)
+  not_created_subprogs P (compile_exp bits p)
 Proof
   rw [compile_exp_def, not_created_subprogs_const_fp,not_created_subprogs_push_out_if,
     not_created_subprogs_simp_duplicate_if, not_created_subprogs_Seq_assoc,
@@ -644,8 +644,8 @@ Proof
 QED
 
 Theorem word_get_code_labels_const_fp_loop[local]:
-  ∀p l.
-  word_get_code_labels (FST (const_fp_loop p l)) ⊆ word_get_code_labels p
+  ∀bits p l.
+  word_get_code_labels (FST (const_fp_loop bits p l)) ⊆ word_get_code_labels p
 Proof
   ho_match_mp_tac const_fp_loop_ind \\ rw []
   \\ fs [const_fp_loop_def]
@@ -671,9 +671,9 @@ Proof
 QED
 
 Theorem word_good_handlers_const_fp_loop[local]:
-  ∀p l.
+  ∀bits p l.
   word_good_handlers n p ⇒
-  word_good_handlers n (FST (const_fp_loop p l))
+  word_good_handlers n (FST (const_fp_loop bits p l))
 Proof
   ho_match_mp_tac const_fp_loop_ind \\ rw []
   \\ fs [const_fp_loop_def]
@@ -702,8 +702,8 @@ Proof
 QED
 
 Theorem word_good_handlers_try_if_hoist2[local]:
-  ! N p1 interm dummy p2 s.
-  try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
+  !bits  N p1 interm dummy p2 s.
+  try_if_hoist2 bits N p1 interm dummy p2 = SOME p3 ==>
   word_good_handlers n p1 /\ word_good_handlers n p2 /\ word_good_handlers n interm ==>
   word_good_handlers n p3
 Proof
@@ -722,7 +722,7 @@ Proof
 QED
 
 Theorem word_good_handlers_simp_duplicate_if[local]:
-  !p. word_good_handlers n p ==> word_good_handlers n (simp_duplicate_if p)
+  !bits p. word_good_handlers n p ==> word_good_handlers n (simp_duplicate_if bits p)
 Proof
   ho_match_mp_tac simp_duplicate_if_ind
   \\ rw []
@@ -744,7 +744,7 @@ Proof
   \\ rw []
   \\ simp_tac(srw_ss())[Once push_out_if_aux_def]
   \\ simp $ map (Q.ISPEC `FST:'free_tyvar # 'free_tyvar2 -> 'free_tyvar` o TypeBase.case_rand_of) $
-     [``:'a prog``, ``:'a # 'b``,``:'a option``,``:bool``]
+     [``:prog``, ``:'a # 'b``,``:'a option``,``:bool``]
   \\ rpt (PURE_TOP_CASE_TAC \\ asm_simp_tac(srw_ss())[])
   \\ fs[]
 QED
@@ -752,7 +752,7 @@ QED
 Theorem word_good_handlers_word_simp[local]:
   ∀ps.
   word_good_handlers n ps ⇒
-  word_good_handlers n (word_simp$compile_exp ps)
+  word_good_handlers n (word_simp$compile_exp bits ps)
 Proof
   rw[compile_exp_def]>>
   irule word_good_handlers_simp_push_out_if >>
@@ -763,8 +763,8 @@ Proof
 QED
 
 Theorem word_get_code_labels_try_if_hoist2[local]:
-  ! N p1 interm dummy p2 s.
-  try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
+  !bits  N p1 interm dummy p2 s.
+  try_if_hoist2 bits N p1 interm dummy p2 = SOME p3 ==>
   word_get_code_labels p3 SUBSET
   (word_get_code_labels p1 UNION word_get_code_labels interm UNION word_get_code_labels p2)
 Proof
@@ -782,13 +782,13 @@ Proof
     \\ simp [SUBSET_DEF]
   )
   >- (
-    irule_at (Pat `word_get_code_labels (const_fp _) SUBSET _`) SUBSET_TRANS
+    irule_at (Pat `word_get_code_labels (const_fp bits _) SUBSET _`) SUBSET_TRANS
     \\ simp [const_fp_def]
     \\ irule_at Any word_get_code_labels_const_fp_loop
     \\ simp [SUBSET_DEF, DISJ_IMP_THM]
   )
   >- (
-    irule_at (Pat `word_get_code_labels (const_fp _) SUBSET _`) SUBSET_TRANS
+    irule_at (Pat `word_get_code_labels (const_fp bits _) SUBSET _`) SUBSET_TRANS
     \\ simp [const_fp_def]
     \\ irule_at Any word_get_code_labels_const_fp_loop
     \\ simp [SUBSET_DEF, DISJ_IMP_THM]
@@ -796,7 +796,7 @@ Proof
 QED
 
 Theorem word_get_code_labels_simp_duplicate_if[local]:
-  !p. word_get_code_labels (simp_duplicate_if p) SUBSET word_get_code_labels p
+  !bits p. word_get_code_labels (simp_duplicate_if bits p) SUBSET word_get_code_labels p
 Proof
   ho_match_mp_tac simp_duplicate_if_ind
   \\ rw []
@@ -820,14 +820,14 @@ Proof
   \\ rw []
   \\ simp_tac(srw_ss())[Once push_out_if_aux_def]
   \\ simp $ map (Q.ISPEC `FST:'free_tyvar # 'free_tyvar2 -> 'free_tyvar` o TypeBase.case_rand_of) $
-     [``:'a prog``, ``:'a # 'b``,``:'a option``,``:bool``]
+     [``:prog``, ``:'a # 'b``,``:'a option``,``:bool``]
   \\ rpt (PURE_TOP_CASE_TAC \\ asm_simp_tac(srw_ss())[])
   \\ fs[] \\ ASM_SET_TAC[]
 QED
 
 Theorem word_get_code_labels_word_simp[local]:
   ∀ps.
-  word_get_code_labels (word_simp$compile_exp ps) ⊆
+  word_get_code_labels (word_simp$compile_exp bits ps) ⊆
   word_get_code_labels ps
 Proof
   rw [compile_exp_def]>>
@@ -839,12 +839,12 @@ Proof
 QED
 
 
-(*** inst_select ***)
+(*** inst_select bits ***)
 
 (* label preservation stuff *)
 Theorem inst_select_exp_no_lab[local]:
-  ∀c temp temp' exp.
-  extract_labels (inst_select_exp c temp temp' exp) = []
+  ∀bits c temp temp' exp.
+  extract_labels (inst_select_exp bits c temp temp' exp) = []
 Proof
   ho_match_mp_tac inst_select_exp_ind>>
   rw[inst_select_exp_def]>>fs[extract_labels_def]>>
@@ -852,8 +852,8 @@ Proof
 QED
 
 Theorem inst_select_lab_pres:
-  ∀c temp prog.
-    extract_labels prog = extract_labels (inst_select c temp prog)
+  ∀bits c temp prog.
+    extract_labels prog = extract_labels (inst_select bits c temp prog)
 Proof
   ho_match_mp_tac inst_select_ind>>rw[inst_select_def,extract_labels_def]>>
   TRY(metis_tac[inst_select_exp_no_lab])>>
@@ -861,18 +861,18 @@ Proof
   TRY(metis_tac[inst_select_exp_no_lab])
 QED
 
-(* inst_select syntax *)
+(* inst_select bits syntax *)
 Theorem inst_select_exp_flat_exp_conventions[local]:
-  ∀c tar temp exp.
-  flat_exp_conventions (inst_select_exp c tar temp exp)
+  ∀bits c tar temp exp.
+  flat_exp_conventions (inst_select_exp bits c tar temp exp)
 Proof
   ho_match_mp_tac inst_select_exp_ind>>srw_tac[][]>>full_simp_tac(srw_ss())[inst_select_exp_def,flat_exp_conventions_def,LET_THM]>>
   EVERY_CASE_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def,inst_select_exp_def,LET_THM]
 QED
 
 Theorem inst_select_flat_exp_conventions:
-  ∀c temp prog.
-    flat_exp_conventions (inst_select c temp prog)
+  ∀bits c temp prog.
+    flat_exp_conventions (inst_select bits c temp prog)
 Proof
   ho_match_mp_tac inst_select_ind >>srw_tac[][]>>
   full_simp_tac(srw_ss())[flat_exp_conventions_def,inst_select_def,LET_THM]>>
@@ -882,9 +882,9 @@ Proof
 QED
 
 Theorem inst_select_exp_not_created_subprogs[local]:
-  not_created_subprogs P (inst_select_exp c c' n exp)
+  not_created_subprogs P (inst_select_exp bits c c' n exp)
 Proof
-  MAP_EVERY qid_spec_tac [‘exp’, ‘n’, ‘c'’, ‘c’]>>
+  MAP_EVERY qid_spec_tac [‘exp’, ‘n’, ‘c'’, ‘c’, ‘bits’]>>
   ho_match_mp_tac word_instTheory.inst_select_exp_ind>>
   rw[word_instTheory.inst_select_exp_def, not_created_subprogs_def]>>
   every_case_tac>>
@@ -893,9 +893,9 @@ QED
 
 Theorem inst_select_not_created_subprogs[local]:
   not_created_subprogs P prog ⇒
-  not_created_subprogs P (inst_select c n prog)
+  not_created_subprogs P (inst_select bits c n prog)
 Proof
-  MAP_EVERY qid_spec_tac [‘prog’, ‘n’, ‘c’]>>
+  MAP_EVERY qid_spec_tac [‘prog’, ‘n’, ‘c’, ‘bits’]>>
   ho_match_mp_tac word_instTheory.inst_select_ind>>
   rw[not_created_subprogs_def]>>
   every_case_tac>>
@@ -906,11 +906,11 @@ Proof
      not_created_subprogs_def]
 QED
 
-(*Less restrictive version of inst_ok guaranteed by inst_select*)
+(*Less restrictive version of inst_ok guaranteed by inst_select bits*)
 Theorem inst_select_exp_full_inst_ok_less[local]:
-  ∀c tar temp exp.
-  isa_bits c = dimindex (:'a) ∧ addr_offset_ok c 0 ⇒
-  full_inst_ok_less c (inst_select_exp c tar temp exp:'a wordLang$prog)
+  ∀bits c tar temp exp.
+  isa_bits c = bits ∧ addr_offset_ok c 0 ⇒
+  full_inst_ok_less c (inst_select_exp bits c tar temp exp:wordLang$prog)
 Proof
   ho_match_mp_tac inst_select_exp_ind>>rw[]>>
   fs[inst_select_exp_def,LET_THM,inst_ok_less_def,full_inst_ok_less_def]>>
@@ -918,13 +918,13 @@ Proof
 QED
 
 Theorem inst_select_full_inst_ok_less:
-  ∀c temp (prog:'a wordLang$prog).
-    isa_bits c = dimindex (:'a) ∧ addr_offset_ok c 0 ∧
+  ∀bits c temp (prog:wordLang$prog).
+    isa_bits c = bits ∧ addr_offset_ok c 0 ∧
     hw_offset_ok c 0 ∧
     byte_offset_ok c 0 ∧
     every_inst (inst_ok_less c) prog
     ⇒
-    full_inst_ok_less c (inst_select c temp prog)
+    full_inst_ok_less c (inst_select bits c temp prog)
 Proof
   ho_match_mp_tac inst_select_ind >>
   rw[inst_select_def,full_inst_ok_less_def,every_inst_def] >>
@@ -934,8 +934,8 @@ Proof
 QED
 
 Theorem word_get_code_labels_inst_select_exp[local]:
-  ∀a b c exp.
-  word_get_code_labels (inst_select_exp a b c exp) = {}
+  ∀bits a b c exp.
+  word_get_code_labels (inst_select_exp bits a b c exp) = {}
 Proof
   ho_match_mp_tac inst_select_exp_ind>>rw[]>>
   fs[inst_select_exp_def]>>
@@ -943,8 +943,8 @@ Proof
 QED
 
 Theorem word_get_code_labels_inst_select[local]:
-  ∀ac v ps.
-  word_get_code_labels (inst_select ac v ps) =
+  ∀bits ac v ps.
+  word_get_code_labels (inst_select bits ac v ps) =
   word_get_code_labels ps
 Proof
   ho_match_mp_tac inst_select_ind>>rw[]>>
@@ -953,8 +953,8 @@ Proof
 QED
 
 Theorem word_good_handlers_inst_select_exp[local]:
-  ∀a b c exp.
-  word_good_handlers n (inst_select_exp a b c exp)
+  ∀bits a b c exp.
+  word_good_handlers n (inst_select_exp bits a b c exp)
 Proof
   ho_match_mp_tac inst_select_exp_ind>>rw[]>>
   fs[inst_select_exp_def]>>
@@ -962,8 +962,8 @@ Proof
 QED
 
 Theorem word_good_handlers_inst_select[local]:
-  ∀ac v ps.
-  word_good_handlers n (inst_select ac v ps) ⇔
+  ∀bits ac v ps.
+  word_good_handlers n (inst_select bits ac v ps) ⇔
   word_good_handlers n ps
 Proof
   ho_match_mp_tac inst_select_ind>>rw[]>>
@@ -971,7 +971,7 @@ Proof
   every_case_tac>>fs[word_good_handlers_inst_select_exp]
 QED
 
-(*** full_ssa_cc_trans ***)
+(*** full_ssa_cc_trans bits ***)
 Theorem fake_moves_no_labs[local]:
   ∀ls a b c d e f g h.
   fake_moves prio ls a b c = (d,e,f,g,h) ⇒
@@ -1100,16 +1100,16 @@ Proof
 QED
 
 Theorem full_ssa_cc_trans_lab_pres:
-  ∀prog n.
+  ∀bits prog n.
   extract_labels prog =
-  extract_labels (full_ssa_cc_trans n prog)
+  extract_labels (full_ssa_cc_trans bits n prog)
 Proof
   rw[full_ssa_cc_trans_def,setup_ssa_def,list_next_var_rename_move_def]>>
   ntac 3 (pairarg_tac>>fs[])>>rveq>>fs[extract_labels_def]>>
   pop_assum kall_tac >> pop_assum mp_tac>>
   qspec_tac(`[]:(num sptree$num_map # sptree$num_set # sptree$num_set) list`,`lt`)>>
   gen_tac>>
-  map_every qid_spec_tac (rev[`prog`,`ssa`,`n'`,`lt`,`prog'`,`ssa'`,`na'`])>>
+  map_every qid_spec_tac (rev[`bits`,`prog`,`ssa`,`n'`,`lt`,`prog'`,`ssa'`,`na'`])>>
   ho_match_mp_tac ssa_cc_trans_ind>>rw[extract_labels_def,ssa_cc_trans_def,list_next_var_rename_move_def,fix_inconsistencies_def]>>
   rveq>>fs[extract_labels_def]>>EVERY_CASE_TAC>>
   rpt(pairarg_tac>>fs[]>>rveq>>fs[extract_labels_def])
@@ -1126,10 +1126,10 @@ Proof
 QED
 
 Theorem ssa_cc_trans_inst_not_created_subprogs[local]:
-  ssa_cc_trans_inst i ssa na = (i',ssa',na') ⇒
+  ssa_cc_trans_inst bits i ssa na = (i',ssa',na') ⇒
   not_created_subprogs P i'
 Proof
-  MAP_EVERY qid_spec_tac [‘i'’, ‘ssa'’, ‘na'’, ‘na’, ‘ssa’, ‘i’]>>
+  MAP_EVERY qid_spec_tac [‘i'’, ‘ssa'’, ‘na'’, ‘na’, ‘ssa’, ‘i’, ‘bits’]>>
   recInduct word_allocTheory.ssa_cc_trans_inst_ind>>
   rw[word_allocTheory.ssa_cc_trans_inst_def,
      not_created_subprogs_def]>>
@@ -1175,10 +1175,10 @@ QED
 
 Theorem ssa_cc_trans_not_created_subprogs[local]:
   not_created_subprogs P prog ∧
-  ssa_cc_trans prog ssa n lt = (prog', ssa', na)⇒
+  ssa_cc_trans bits prog ssa n lt = (prog', ssa', na)⇒
   not_created_subprogs P prog'
 Proof
-  MAP_EVERY qid_spec_tac [‘prog'’, ‘ssa'’, ‘na’, ‘lt’, ‘n’, ‘ssa’, ‘prog’]>>
+  MAP_EVERY qid_spec_tac [‘prog'’, ‘ssa'’, ‘na’, ‘lt’, ‘n’, ‘ssa’, ‘prog’, ‘bits’]>>
   recInduct word_allocTheory.ssa_cc_trans_ind>>
   rw[word_allocTheory.ssa_cc_trans_def,
      word_allocTheory.fix_inconsistencies_def,
@@ -1204,7 +1204,7 @@ QED
 
 Theorem setup_ssa_not_created_subprogs[local]:
   not_created_subprogs P prog ∧
-  setup_ssa n v prog = (mov, ssa, na)⇒
+  setup_ssa bits n v prog = (mov, ssa, na)⇒
   not_created_subprogs P mov
 Proof
   rw[word_allocTheory.setup_ssa_def]>>
@@ -1216,7 +1216,7 @@ QED
 
 Theorem full_ssa_cc_trans_not_created_subprogs[local]:
   not_created_subprogs P prog ⇒
-  not_created_subprogs P (full_ssa_cc_trans n prog)
+  not_created_subprogs P (full_ssa_cc_trans bits n prog)
 Proof
   rw[word_allocTheory.full_ssa_cc_trans_def]>>
   pairarg_tac>>gs[]>>
@@ -1241,8 +1241,8 @@ Proof
 QED
 
 Theorem word_get_code_labels_ssa_cc_trans[local]:
-   ∀x y z lt a b c.
-   ssa_cc_trans x y z lt = (a,b,c) ⇒
+   ∀bits x y z lt a b c.
+   ssa_cc_trans bits x y z lt = (a,b,c) ⇒
    word_get_code_labels a = word_get_code_labels x
 Proof
   recInduct ssa_cc_trans_ind
@@ -1293,7 +1293,7 @@ QED
 
 Theorem word_get_code_labels_full_ssa_cc_trans[local]:
   ∀m p.
-  word_get_code_labels (full_ssa_cc_trans m p) =
+  word_get_code_labels (full_ssa_cc_trans bits m p) =
   word_get_code_labels p
 Proof
   simp[full_ssa_cc_trans_def]
@@ -1321,8 +1321,8 @@ Proof
 QED
 
 Theorem word_good_handlers_ssa_cc_trans[local]:
-   ∀x y z lt a b c.
-   ssa_cc_trans x y z lt = (a,b,c) ⇒
+   ∀bits x y z lt a b c.
+   ssa_cc_trans bits x y z lt = (a,b,c) ⇒
    word_good_handlers n a = word_good_handlers n x
 Proof
   recInduct ssa_cc_trans_ind
@@ -1373,7 +1373,7 @@ QED
 
 Theorem word_good_handlers_full_ssa_cc_trans[local]:
   ∀m p.
-  word_good_handlers n (full_ssa_cc_trans m p) ⇔
+  word_good_handlers n (full_ssa_cc_trans bits m p) ⇔
   word_good_handlers n p
 Proof
   simp[full_ssa_cc_trans_def]
@@ -1415,9 +1415,9 @@ Proof
 QED
 
 Theorem ssa_cc_trans_flat_exp_conventions[local]:
-  ∀prog ssa na lt.
+  ∀bits prog ssa na lt.
   flat_exp_conventions prog ⇒
-  flat_exp_conventions (FST (ssa_cc_trans prog ssa na lt))
+  flat_exp_conventions (FST (ssa_cc_trans bits prog ssa na lt))
 Proof
   ho_match_mp_tac ssa_cc_trans_ind>>full_simp_tac(srw_ss())[ssa_cc_trans_def]>>srw_tac[][]>>
   unabbrev_all_tac>>
@@ -1467,7 +1467,7 @@ QED
 Theorem full_ssa_cc_trans_flat_exp_conventions:
   ∀prog n.
   flat_exp_conventions prog ⇒
-  flat_exp_conventions (full_ssa_cc_trans n prog)
+  flat_exp_conventions (full_ssa_cc_trans bits n prog)
 Proof
   full_simp_tac(srw_ss())[full_ssa_cc_trans_def,setup_ssa_def,list_next_var_rename_move_def]>>
   LET_ELIM_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[flat_exp_conventions_def,EQ_SYM_EQ]>>
@@ -1485,8 +1485,8 @@ Proof
   metis_tac[]
 QED
 Theorem ssa_cc_trans_wf_cutsets[local]:
-  ∀prog ssa na lt.
-  let (prog',ssa',na') = ssa_cc_trans prog ssa na lt in
+  ∀bits prog ssa na lt.
+  let (prog',ssa',na') = ssa_cc_trans bits prog ssa na lt in
   wf_cutsets prog'
 Proof
   ho_match_mp_tac ssa_cc_trans_ind>>
@@ -1504,24 +1504,24 @@ QED
 
 Theorem full_ssa_cc_trans_wf_cutsets:
   ∀n prog.
-  wf_cutsets (full_ssa_cc_trans n prog)
+  wf_cutsets (full_ssa_cc_trans bits n prog)
 Proof
   fs[full_ssa_cc_trans_def,setup_ssa_def,list_next_var_rename_move_def]>>
   rw[]>>pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
   rveq>>fs[wf_cutsets_def]>>
-  Q.ISPECL_THEN [`prog`,`ssa`,`n'`,`[]:(num sptree$num_map # sptree$num_set # sptree$num_set) list`] assume_tac ssa_cc_trans_wf_cutsets>>
+  Q.ISPECL_THEN [`bits`,`prog`,`ssa`,`n'`,`[]:(num sptree$num_map # sptree$num_set # sptree$num_set) list`] assume_tac ssa_cc_trans_wf_cutsets>>
   rfs[]
 QED
 
-(*** remove_dead_prog ***)
+(*** remove_dead_prog bits ***)
 val convs = [flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def,pre_alloc_conventions_def,call_arg_convention_def,every_stack_var_def,every_var_def,extract_labels_def,wf_cutsets_def];
 
 Theorem remove_dead_not_created_subprogs[local]:
-  ∀prog q r lt.
+  ∀bits prog q r lt.
   not_created_subprogs P prog ⇒
-  not_created_subprogs P (FST (remove_dead prog q r lt))
+  not_created_subprogs P (FST (remove_dead bits prog q r lt))
 Proof
   recInduct word_allocTheory.remove_dead_ind>>
   rw[word_allocTheory.remove_dead_def,
@@ -1536,15 +1536,15 @@ QED
 
 Theorem remove_dead_prog_not_created_subprogs[local]:
   not_created_subprogs P prog ⇒
-  not_created_subprogs P (remove_dead_prog prog)
+  not_created_subprogs P (remove_dead_prog bits prog)
 Proof
   simp[word_allocTheory.remove_dead_prog_def]>>
   metis_tac[remove_dead_not_created_subprogs]
 QED
 
 Theorem remove_dead_conventions[local]:
-  ∀p live nlive lt c k.
-    let comp = FST (remove_dead p live nlive lt) in
+  ∀bits p live nlive lt c k.
+    let comp = FST (remove_dead bits p live nlive lt) in
     (flat_exp_conventions p ⇒ flat_exp_conventions comp) ∧
     (full_inst_ok_less c p ⇒ full_inst_ok_less c comp) ∧
     (pre_alloc_conventions p ⇒ pre_alloc_conventions comp) ∧
@@ -1561,12 +1561,12 @@ Proof
 QED
 
 Theorem remove_dead_prog_conventions =
-  (remove_dead_conventions |> Q.SPEC`p` |> Q.SPEC`LN` |> Q.SPEC`[]` |> Q.SPEC`[]` |> SPEC_ALL |>
+  (remove_dead_conventions |> Q.SPEC`bits` |> Q.SPEC`p` |> Q.SPEC`LN` |> Q.SPEC`[]` |> Q.SPEC`[]` |> SPEC_ALL |>
     SIMP_RULE std_ss [LET_THM,FORALL_AND_THM,GSYM remove_dead_prog_def]);
 
 Theorem word_get_code_labels_remove_dead[local]:
-  ∀ps live nlive lt.
-  word_get_code_labels (FST (remove_dead ps live nlive lt)) ⊆
+  ∀bits ps live nlive lt.
+  word_get_code_labels (FST (remove_dead bits ps live nlive lt)) ⊆
   word_get_code_labels ps
 Proof
   ho_match_mp_tac remove_dead_ind>>rw[]>>
@@ -1577,15 +1577,15 @@ Proof
 QED
 
 Theorem word_get_code_labels_remove_dead_prog[local]:
-  word_get_code_labels (remove_dead_prog ps) ⊆
+  word_get_code_labels (remove_dead_prog bits ps) ⊆
   word_get_code_labels ps
 Proof
   simp[remove_dead_prog_def,word_get_code_labels_remove_dead]
 QED
 
 Theorem word_good_handlers_remove_dead[local]:
-  ∀ps live nlive lt.
-  word_good_handlers n (FST (remove_dead ps live nlive lt)) ⇔
+  ∀bits ps live nlive lt.
+  word_good_handlers n (FST (remove_dead bits ps live nlive lt)) ⇔
   word_good_handlers n ps
 Proof
   ho_match_mp_tac remove_dead_ind>>rw[]>>
@@ -1596,7 +1596,7 @@ Proof
 QED
 
 Theorem word_good_handlers_remove_dead_prog[local]:
-  word_good_handlers n (remove_dead_prog ps) ⇔
+  word_good_handlers n (remove_dead_prog bits ps) ⇔
   word_good_handlers n ps
 Proof
   simp[remove_dead_prog_def,word_good_handlers_remove_dead]
@@ -1696,7 +1696,7 @@ QED
    second LocValue for the same label by a Move), so this is a ⊆, not an
    equality. *)
 Theorem word_cse_get_code_labels[local]:
-  ∀p data data' (q:'a prog).
+  ∀p data data' (q:prog).
     word_cse data p = (data',q) ⇒
     word_get_code_labels q ⊆ word_get_code_labels p
 Proof
@@ -1747,7 +1747,7 @@ Proof
 QED
 
 Theorem word_cse_flat_exp_conventions[local]:
-  ∀p data data' (q:'a prog).
+  ∀p data data' (q:prog).
     flat_exp_conventions p ∧ word_cse data p = (data',q) ⇒
     flat_exp_conventions q
 Proof
@@ -1799,7 +1799,7 @@ Proof
 QED
 
 Theorem word_cse_wf_cutsets[local]:
-  ∀p data data' (q:'a prog).
+  ∀p data data' (q:prog).
     wf_cutsets p ∧ word_cse data p = (data',q) ⇒
     wf_cutsets q
 Proof
@@ -2778,7 +2778,7 @@ Proof
   \\ gvs[flat_exp_conventions_def]
 QED
 
-(*** word_alloc ***)
+(*** word_alloc bits ***)
 Theorem apply_colour_lab_pres[local]:
   ∀col prog.
   extract_labels prog = extract_labels (apply_colour col prog)
@@ -2789,7 +2789,7 @@ Proof
 QED
 
 Theorem word_alloc_lab_pres:
-  extract_labels prog = extract_labels (word_alloc fc c alg k prog col_opt)
+  extract_labels prog = extract_labels (word_alloc bits fc c alg k prog col_opt)
 Proof
   fs[word_alloc_def,oracle_colour_ok_def]>>
   EVERY_CASE_TAC>>fs[]>>
@@ -2817,7 +2817,7 @@ QED
 Theorem word_alloc_flat_exp_conventions:
   ∀fc c alg k prog col_opt.
   flat_exp_conventions prog ⇒
-  flat_exp_conventions (word_alloc fc c alg k prog col_opt)
+  flat_exp_conventions (word_alloc bits fc c alg k prog col_opt)
 Proof
   full_simp_tac(srw_ss())[word_alloc_def,oracle_colour_ok_def]>>
   srw_tac[][]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
@@ -2842,7 +2842,7 @@ QED
 Theorem word_alloc_two_reg_inst:
   ∀fc c alg k prog col_opt.
   every_inst two_reg_inst prog ⇒
-  every_inst two_reg_inst (word_alloc fc c alg k prog col_opt)
+  every_inst two_reg_inst (word_alloc bits fc c alg k prog col_opt)
 Proof
   fs[word_alloc_def,oracle_colour_ok_def]>>
   rw[]>>
@@ -2865,7 +2865,7 @@ QED
 
 Theorem word_alloc_not_created_subprogs[local]:
   not_created_subprogs P prog ⇒
-  not_created_subprogs P (word_alloc n c a r prog cl)
+  not_created_subprogs P (word_alloc bits n c a r prog cl)
 Proof
   rw[word_allocTheory.word_alloc_def]>>
   every_case_tac>>gs[not_created_subprogs_def]
@@ -2898,7 +2898,7 @@ Proof
 QED
 
 Theorem word_get_code_labels_word_alloc[local]:
-  word_get_code_labels (word_alloc fc c alg k prog col_opt) =
+  word_get_code_labels (word_alloc bits fc c alg k prog col_opt) =
   word_get_code_labels prog
 Proof
   fs[word_alloc_def,oracle_colour_ok_def]>>
@@ -2909,7 +2909,7 @@ Proof
 QED
 
 Theorem word_good_handlers_word_alloc[local]:
-  word_good_handlers n (word_alloc fc c alg k prog col_opt) ⇔
+  word_good_handlers n (word_alloc bits fc c alg k prog col_opt) ⇔
   word_good_handlers n prog
 Proof
   fs[word_alloc_def,oracle_colour_ok_def]>>
@@ -2931,7 +2931,7 @@ Theorem remove_must_terminate_conventions:
   let comp = remove_must_terminate p in
   (flat_exp_conventions p ⇒ flat_exp_conventions comp) ∧
   (full_inst_ok_less c p ⇒ full_inst_ok_less c comp) ∧
-  (post_alloc_conventions k p ⇒ post_alloc_conventions k comp) ∧
+  (post_alloc_conventions bits k p ⇒ post_alloc_conventions bits k comp) ∧
   (every_inst P p ⇒ every_inst P comp) ∧
   (extract_labels p = extract_labels comp)
 Proof
@@ -2972,7 +2972,7 @@ QED
 Theorem compile_single_not_created_subprogs:
   not_created_subprogs P (SND (SND (FST prog_opt))) ==>
   not_created_subprogs P (SND (SND
-    (compile_single two_reg_arith reg_count alg c prog_opt)))
+    (compile_single bits two_reg_arith reg_count alg c prog_opt)))
 Proof
   PairCases_on `prog_opt`>>
   strip_tac>>
@@ -2994,7 +2994,7 @@ Theorem word_good_handlers_word_to_word_incr_helper[local]:
   LENGTH progs = LENGTH oracles ⇒
   EVERY (λ(n,m,pp). word_good_handlers n pp) progs ⇒
   EVERY (λ(n,m,pp). word_good_handlers n pp)
-  (MAP (full_compile_single tra reg_count1
+  (MAP (full_compile_single bits tra reg_count1
         ralg asm_c) (ZIP (progs,oracles)))
 Proof
   rw[]>>
@@ -3015,7 +3015,7 @@ QED
 Theorem word_good_handlers_word_to_word_incr:
   EVERY (λ(n,m,pp). word_good_handlers n pp) progs ⇒
   EVERY (λ(n,m,pp). word_good_handlers n pp)
-    (MAP (\p. full_compile_single tra reg_count1 ralg asm_c (p, NONE)) progs)
+    (MAP (\p. full_compile_single bits tra reg_count1 ralg asm_c (p, NONE)) progs)
 Proof
   strip_tac>>
   qspec_then `MAP (\p. NONE) progs` assume_tac word_good_handlers_word_to_word_incr_helper>>
@@ -3039,7 +3039,7 @@ Theorem word_good_code_labels_word_to_word_incr_helper[local]:
   LENGTH progs = LENGTH oracles ⇒
   word_good_code_labels progs elabs ⇒
   word_good_code_labels
-  (MAP (full_compile_single tra reg_count1
+  (MAP (full_compile_single bits tra reg_count1
         ralg asm_c) (ZIP (progs,oracles))) elabs
 Proof
   fs[wordConvsTheory.good_code_labels_def]>>
@@ -3085,7 +3085,7 @@ QED
 Theorem word_good_code_labels_word_to_word_incr:
   word_good_code_labels progs elabs ⇒
   word_good_code_labels
-    (MAP (\p. full_compile_single tra reg_count1 ralg asm_c (p, NONE)) progs) elabs
+    (MAP (\p. full_compile_single bits tra reg_count1 ralg asm_c (p, NONE)) progs) elabs
 Proof
   strip_tac>>
   qspec_then `MAP (\p. NONE) progs` assume_tac word_good_code_labels_word_to_word_incr_helper>>

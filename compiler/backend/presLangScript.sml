@@ -1309,7 +1309,7 @@ Definition word_seqs_def:
 End
 
 Theorem MEM_append_word_seqs[local]:
-  ∀x. MEM a (append (word_seqs x)) ⇒ prog_size ARB a ≤ prog_size ARB x
+  ∀x. MEM a (append (word_seqs x)) ⇒ prog_size a ≤ prog_size x
 Proof
   Induct \\ simp [Once word_seqs_def,wordLangTheory.prog_size_def]
   \\ rw [] \\ res_tac \\ gvs []
@@ -1345,7 +1345,7 @@ End
 Definition ws_to_display_def:
   ws_to_display [] = [] ∧
   ws_to_display ((b,x)::xs) =
-    Tuple [bool_to_display b; word_to_display x] :: ws_to_display xs
+    Tuple [bool_to_display b; int_to_display x] :: ws_to_display xs
 End
 
 Definition num_sets_to_display_def:

@@ -19,6 +19,13 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 *)
 Type result[pp] = “:'a wordSem$result”
 
+Theorem Num_int_unsigned_i2w[local,simp]:
+  Num (int_unsigned (dimindex (:α)) i) = w2n (i2w i:α word)
+Proof
+  simp [word_simpTheory.int_unsigned_def,
+        GSYM (integer_wordTheory.w2n_i2w |> REWRITE_RULE [dimword_def])]
+QED
+
 (* TODO: Move, but some of these are specific instantiations *)
 Theorem PERM_SWAP_SIMP[local]:
   PERM (A ++ (B::C)) (B::(A++C))
@@ -435,7 +442,7 @@ Theorem inst_select_exp_thm[local]:
   word_exp s exp = SOME w
   ⇒
   ∃loc'.
-  evaluate ((inst_select_exp c tar temp exp),s with locals:=loc) = (NONE:'a result option,s with locals:=loc') ∧
+  evaluate ((inst_select_exp (dimindex (:α)) c tar temp exp),s with locals:=loc) = (NONE:'a result option,s with locals:=loc') ∧
   ∀x.
     if x = tar then lookup x loc' = SOME w
     else if x < temp then lookup x loc' = lookup x s.locals
@@ -496,8 +503,8 @@ Proof
         rw[]>>DISJ2_TAC>>rw[]>>
         `x ≠ temp` by DECIDE_TAC>>metis_tac[]))
     >>
-      `(inst_select_exp c tar temp (Load e):'a prog) =
-        let prog = inst_select_exp c temp temp e in
+      `(inst_select_exp (dimindex (:α)) c tar temp (Load e):prog) =
+        let prog = inst_select_exp (dimindex (:α)) c temp temp e in
           Seq prog (Inst (Mem Load tar (Addr temp 0)))` by
       (full_simp_tac(srw_ss())[inst_select_exp_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])>>
       last_x_assum mp_tac>>simp[Once PULL_FORALL]>>
@@ -597,9 +604,9 @@ Proof
           srw_tac[][]))>>
       ntac 2 (disch_then assume_tac)
       >>
-        `(inst_select_exp c tar temp (Op b [e1;e2]):'a prog) =
-        let p1 = inst_select_exp c temp temp e1 in
-        let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
+        `(inst_select_exp (dimindex (:α)) c tar temp (Op b [e1;e2]):prog) =
+        let p1 = inst_select_exp (dimindex (:α)) c temp temp e1 in
+        let p2 = inst_select_exp (dimindex (:α)) c (temp+1) (temp+1) e2 in
           Seq p1 (Seq p2 (Inst (Arith (Binop b tar temp (Reg (temp+1))))))` by
             (full_simp_tac(srw_ss())[inst_select_exp_def,LET_THM]>>
              EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])>>
@@ -677,9 +684,9 @@ Proof
     >-
       (`w2n (i2w l:'a word) ≥ dimindex(:'a)` by DECIDE_TAC>>
       full_simp_tac(srw_ss())[word_sh_def]))>>
-    `(inst_select_exp c tar temp (Shift ss e e0):'a prog) =
-      let p = inst_select_exp c temp temp e in
-      let p1 = inst_select_exp c (temp+1) (temp+1) e0 in
+    `(inst_select_exp (dimindex (:α)) c tar temp (Shift ss e e0):prog) =
+      let p = inst_select_exp (dimindex (:α)) c temp temp e in
+      let p1 = inst_select_exp (dimindex (:α)) c (temp+1) (temp+1) e0 in
       Seq p (Seq p1 (Inst (Arith (Shift ss tar temp (Reg (temp+1))))))` by
       (fs[inst_select_exp_def]>>
       every_case_tac>>gvs[])>>
@@ -723,13 +730,14 @@ QED
     with possibly more locals used
 *)
 Theorem inst_select_thm:
-  ∀c temp prog st res rst loc.
+  ∀bits c temp prog (st:(α,β,γ) wordSem$state) res rst loc.
+  bits = dimindex (:α) ∧
   evaluate (prog,st) = (res,rst) ∧
-  every_var (λx. x < temp) prog ∧
+  every_var bits (λx. x < temp) prog ∧
   res ≠ SOME Error ∧
   locals_rel temp st.locals loc ⇒
   ∃loc'.
-  evaluate (inst_select c temp prog,st with locals:=loc) = (res,rst with locals:=loc') ∧
+  evaluate (inst_select bits c temp prog,st with locals:=loc) = (res,rst with locals:=loc') ∧
   case res of
     NONE => locals_rel temp rst.locals loc'
   | SOME (Break _) => locals_rel temp rst.locals loc'
@@ -750,6 +758,7 @@ Proof
 QED
 
 Resume inst_select_thm[Assign]:
+    rename1 `inst_select_exp _ c tar temp _` >>
     full_simp_tac(srw_ss())[evaluate_def]>>last_x_assum mp_tac>>FULL_CASE_TAC>>srw_tac[][]>>
     full_simp_tac(srw_ss())[every_var_def]>>
     imp_res_tac pull_exp_every_var_exp>>
@@ -760,7 +769,7 @@ Resume inst_select_thm[Assign]:
     assume_tac flatten_exp_binary_branch_exp>>
     pop_assum(qspec_then`pull_exp exp` assume_tac)>>
     imp_res_tac inst_select_exp_thm>>rev_full_simp_tac(srw_ss())[]>>
-    first_x_assum(qspecl_then[`c'`,`c`] assume_tac)>>full_simp_tac(srw_ss())[]>>
+    first_x_assum(qspecl_then[`tar`,`c`] assume_tac)>>full_simp_tac(srw_ss())[]>>
     simp[state_component_equality,set_var_def,locals_rel_def]>>
     srw_tac[][]>>full_simp_tac(srw_ss())[lookup_insert]>>
     IF_CASES_TAC>>fs[]>>
@@ -847,8 +856,8 @@ Resume inst_select_thm[Store]:
         TOP_CASE_TAC>>rw[]>>
         `x' ≠ temp` by DECIDE_TAC>>metis_tac[])
     >>
-      `inst_select c temp (Store exp var) =
-        Seq(inst_select_exp c temp temp expr)
+      `inst_select (dimindex (:α)) c temp (Store exp var) =
+        Seq(inst_select_exp (dimindex (:α)) c temp temp expr)
         (Inst (Mem Store var (Addr temp 0)))` by
         (full_simp_tac(srw_ss())[inst_select_def,LET_THM]>>
         EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])>>
@@ -894,13 +903,16 @@ Resume inst_select_thm[MustTerminate]:
     ntac 2 (pairarg_tac>>full_simp_tac(srw_ss())[])>>
     Cases_on`res'' = SOME TimeOut`>>full_simp_tac(srw_ss())[]>>
     rveq>>
-    res_tac>>
-    last_x_assum kall_tac>>
-    ntac 2 (pop_assum kall_tac)>>
-    pop_assum(qspec_then`loc` assume_tac)>>rev_full_simp_tac(srw_ss())[]
+    qpat_x_assum `!st res rst loc. _`
+      (qspecl_then [`st with <|clock := MustTerminate_limit (:α);
+                              termdep := st.termdep - 1|>`,
+                    `res`, `s1'`, `loc`] mp_tac)>>
+    simp []>>strip_tac>>qexists_tac `loc'`>>
+    gvs [state_component_equality]
 QED
 
 Resume inst_select_thm[ShareInst]:
+    rename1 `ShareInst _ share_var _` >>
     gvs[evaluate_def,LET_THM,every_var_def,AllCaseEqs()] >>
     qpat_abbrev_tac`expr = flatten_exp (pull_exp exp)`>>
     Cases_on`∃w exp'. expr = Op Add [exp';Const w]` >>
@@ -953,7 +965,7 @@ Resume inst_select_thm[ShareInst]:
     imp_res_tac flatten_exp_every_var_exp>>
     assume_tac flatten_exp_binary_branch_exp >>
     qmatch_goalsub_abbrev_tac `evaluate prog` >>
-    `prog = (Seq (inst_select_exp c temp temp expr) (ShareInst op c' (Var temp)),
+    `prog = (Seq (inst_select_exp (dimindex (:α)) c temp temp expr) (ShareInst op share_var (Var temp)),
        st with locals := loc)`
       by (unabbrev_all_tac >> PURE_REWRITE_TAC[inst_select_def, LET_THM] >> BETA_TAC >>
           every_case_tac >> simp[] >> metis_tac[]) >>
@@ -1070,7 +1082,7 @@ Theorem inst_select_Loop_helper:
        evaluate (prog, st) = (res, rst) /\ res <> SOME Error /\
        locals_rel temp st.locals loc ==>
        ?loc'.
-         evaluate (inst_select c temp prog, st with locals := loc) =
+         evaluate (inst_select (dimindex (:α)) c temp prog, st with locals := loc) =
            (res, rst with locals := loc') /\
          case res of
            NONE => locals_rel temp rst.locals loc'
@@ -1079,12 +1091,12 @@ Theorem inst_select_Loop_helper:
          | SOME _ => rst.locals = loc') /\
     evaluate (Loop names prog exit_names, s) = (res, rst) /\
     res <> SOME Error /\
-    every_var (\x. x < temp) prog /\
+    every_var (dimindex (:α)) (\x. x < temp) prog /\
     every_name (\x. x < temp) (names, LN) /\
     every_name (\x. x < temp) (exit_names, LN) /\
     locals_rel temp s.locals loc ==>
     ?loc'.
-      evaluate (Loop names (inst_select c temp prog) exit_names,
+      evaluate (Loop names (inst_select (dimindex (:α)) c temp prog) exit_names,
                 s with locals := loc) = (res, rst with locals := loc') /\
       case res of
         NONE => locals_rel temp rst.locals loc'

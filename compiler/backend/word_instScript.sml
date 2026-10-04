@@ -230,33 +230,33 @@ QED
 *)
 
 Definition inst_select_exp_def:
-  (inst_select_exp (c:asm_config) (tar:num) (temp:num) (Load (exp:wordLang$exp)) : 'a prog =
+  (inst_select_exp bits (c:asm_config) (tar:num) (temp:num) (Load (exp:wordLang$exp)) : prog =
     case exp of
     | Op Add [exp';Const w] =>
       if addr_offset_ok c w then
-        let prog = inst_select_exp c temp temp exp' in
+        let prog = inst_select_exp bits c temp temp exp' in
           Seq prog (Inst (Mem Load tar (Addr temp w)))
       else
-        let prog = inst_select_exp c temp temp exp in
+        let prog = inst_select_exp bits c temp temp exp in
           Seq prog (Inst (Mem Load tar (Addr temp 0)))
     | _ =>
-      let prog = inst_select_exp c temp temp exp in
+      let prog = inst_select_exp bits c temp temp exp in
       Seq prog (Inst (Mem Load tar (Addr temp 0)))) ∧
-  (inst_select_exp c (tar:num) (temp:num) (Const w) = (Inst (Const tar w))) ∧
-  (inst_select_exp c (tar:num) (temp:num) (Var v) =
+  (inst_select_exp bits c (tar:num) (temp:num) (Const w) = (Inst (Const tar w))) ∧
+  (inst_select_exp bits c (tar:num) (temp:num) (Var v) =
     Move 0 [tar,v]) ∧
-  (inst_select_exp c tar temp (Lookup store_name) =
+  (inst_select_exp bits c tar temp (Lookup store_name) =
     Get tar store_name) ∧
   (*All ops are binary branching*)
-  (inst_select_exp c tar temp (Op op [e1;e2]) =
+  (inst_select_exp bits c tar temp (Op op [e1;e2]) =
     if is_Lookup_CurrHeap e2 then
-      (let p1 = inst_select_exp c temp temp e1 in
+      (let p1 = inst_select_exp bits c temp temp e1 in
         Seq p1 (OpCurrHeap op tar temp))
     else if is_Lookup_CurrHeap e1 ∧ op ≠ Sub then
-      (let p2 = inst_select_exp c temp temp e2 in
+      (let p2 = inst_select_exp bits c temp temp e2 in
         Seq p2 (OpCurrHeap op tar temp))
     else
-    let p1 = inst_select_exp c temp temp e1 in
+    let p1 = inst_select_exp bits c temp temp e1 in
     case e2 of
     | Const w =>
       (*t = r op const*)
@@ -270,14 +270,14 @@ Definition inst_select_exp_def:
         let p2 = Inst (Const (temp+1) w) in
         Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))
     | _ =>
-      let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
+      let p2 = inst_select_exp bits c (temp+1) (temp+1) e2 in
       Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))) ∧
-  (inst_select_exp c tar temp (Shift sh exp e1) =
+  (inst_select_exp bits c tar temp (Shift sh exp e1) =
     case e1 of
     | Const shift_len =>
-        let n = w2n (i2w shift_len:'a word) in
-          if (n < dimindex(:'a)) then
-            (let prog = inst_select_exp c temp temp exp in
+        let n = Num (int_unsigned bits shift_len) in
+          if (n < bits) then
+            (let prog = inst_select_exp bits c temp temp exp in
               if n = 0 then
                 Seq prog (Move 0 [tar,temp])
               else
@@ -285,13 +285,13 @@ Definition inst_select_exp_def:
           else
             Inst (Const tar 0)
     | _ =>
-      let p = inst_select_exp c temp temp exp in
-      let p1 = inst_select_exp c (temp+1) (temp+1) e1 in
+      let p = inst_select_exp bits c temp temp exp in
+      let p1 = inst_select_exp bits c (temp+1) (temp+1) e1 in
       Seq p (Seq p1 (Inst (Arith (Shift sh tar temp (Reg (temp+1))))))) ∧
   (*Make it total*)
-  (inst_select_exp _ _ _ _ = Skip)
+  (inst_select_exp bits _ _ _ _ = Skip)
 Termination
-  WF_REL_TAC `measure (exp_size o SND o SND o SND)`
+  WF_REL_TAC `measure (exp_size o SND o SND o SND o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
    \\ fs[exp_size_def]
    \\ TRY (DECIDE_TAC)
@@ -299,17 +299,17 @@ End
 
 Theorem inst_select_exp_pmatch:
   !c tar temp exp.
-  (inst_select_exp (c:asm_config) tar temp (exp:wordLang$exp):'a prog) =
+  (inst_select_exp bits (c:asm_config) tar temp (exp:wordLang$exp):prog) =
   pmatch exp of
     Load(Op Add [exp';Const w]) =>
       if addr_offset_ok c w then
-        let prog = inst_select_exp c temp temp exp' in
+        let prog = inst_select_exp bits c temp temp exp' in
           Seq prog (Inst (Mem Load tar (Addr temp w)))
       else
-        (let prog = inst_select_exp c temp temp (Op Add [exp'; Const w]) in
+        (let prog = inst_select_exp bits c temp temp (Op Add [exp'; Const w]) in
           Seq prog (Inst (Mem Load tar (Addr temp 0))))
   | Load exp =>
-      (let prog = inst_select_exp c temp temp exp in
+      (let prog = inst_select_exp bits c temp temp exp in
       Seq prog (Inst (Mem Load tar (Addr temp 0))))
   | Const w => Inst (Const tar w)
   | Var v =>
@@ -319,33 +319,33 @@ Theorem inst_select_exp_pmatch:
   (*All ops are binary branching*)
   | Op op [e1;e2] =>
     (if is_Lookup_CurrHeap e2 then
-      (let p1 = inst_select_exp c temp temp e1 in
+      (let p1 = inst_select_exp bits c temp temp e1 in
         Seq p1 (OpCurrHeap op tar temp))
     else if is_Lookup_CurrHeap e1 ∧ op ≠ Sub then
-      (let p2 = inst_select_exp c temp temp e2 in
+      (let p2 = inst_select_exp bits c temp temp e2 in
         Seq p2 (OpCurrHeap op tar temp))
     else
      pmatch e2 of
       Const w =>
       (*t = r op const*)
       if c.valid_imm (INL op) w then
-        Seq (inst_select_exp c temp temp e1) (Inst (Arith (Binop op tar temp (Imm w))))
+        Seq (inst_select_exp bits c temp temp e1) (Inst (Arith (Binop op tar temp (Imm w))))
       (*t = r + const --> t = r - const*)
       else if op = Add ∧ c.valid_imm (INL Sub) (-w) then
-        Seq (inst_select_exp c temp temp e1) (Inst (Arith (Binop Sub tar temp (Imm (-w)))))
+        Seq (inst_select_exp bits c temp temp e1) (Inst (Arith (Binop Sub tar temp (Imm (-w)))))
       else
       (*no immediates*)
         let p2 = Inst (Const (temp+1) w) in
-        Seq (inst_select_exp c temp temp e1) (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))
+        Seq (inst_select_exp bits c temp temp e1) (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))
     | _ =>
-      let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
-      Seq (inst_select_exp c temp temp e1) (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1)))))))
+      let p2 = inst_select_exp bits c (temp+1) (temp+1) e2 in
+      Seq (inst_select_exp bits c temp temp e1) (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1)))))))
   | Shift sh exp e1 =>
    (case e1 of
     | Const shift_len =>
-        let n = w2n (i2w shift_len:'a word) in
-          if (n < dimindex(:'a)) then
-            (let prog = inst_select_exp c temp temp exp in
+        let n = Num (int_unsigned bits shift_len) in
+          if (n < bits) then
+            (let prog = inst_select_exp bits c temp temp exp in
               if n = 0 then
                 Seq prog (Move 0 [tar,temp])
               else
@@ -353,8 +353,8 @@ Theorem inst_select_exp_pmatch:
           else
             Inst (Const tar 0)
     | _ =>
-      let p = inst_select_exp c temp temp exp in
-      let p1 = inst_select_exp c (temp+1) (temp+1) e1 in
+      let p = inst_select_exp bits c temp temp exp in
+      let p1 = inst_select_exp bits c (temp+1) (temp+1) e1 in
       Seq p (Seq p1 (Inst (Arith (Shift sh tar temp (Reg (temp+1)))))))
   (*Make it total*)
   | _ => Skip
@@ -368,40 +368,40 @@ QED
 (*
 
 First munch
-EVAL ``inst_select_exp``
+EVAL ``inst_select_exp bits``
  x64_config 5 5 (Load (Op Add [Const 400w; Var 6]))``
-EVAL ``inst_select_exp x64_config 5 5 (Load (Op Add [Const 99999999999w; Var 6]))``
+EVAL ``inst_select_exp bits x64_config 5 5 (Load (Op Add [Const 99999999999w; Var 6]))``
 
 Second munch
-EVAL ``inst_select_exp x64_config 0 99
+EVAL ``inst_select_exp bits x64_config 0 99
 EVAL ``(pull_exp (Op And [Const (99w:64 word); Op Add [Op Add [];Op Or []]]))``
 *)
 
 (*Flattens all expressions in program, temp must a fresh var*)
 Definition inst_select_def:
-  (inst_select c temp (Assign v exp) =
-    (inst_select_exp c v temp o flatten_exp o pull_exp) exp) ∧
-  (inst_select c temp (Set store exp) =
-    let prog = (inst_select_exp c temp temp o flatten_exp o pull_exp) exp in
+  (inst_select bits c temp (Assign v exp) =
+    (inst_select_exp bits c v temp o flatten_exp o pull_exp) exp) ∧
+  (inst_select bits c temp (Set store exp) =
+    let prog = (inst_select_exp bits c temp temp o flatten_exp o pull_exp) exp in
     Seq prog (Set store (Var temp))) ∧
-  (inst_select c temp (Store exp var) =
+  (inst_select bits c temp (Store exp var) =
     let exp = (flatten_exp o pull_exp) exp in
     case exp of
     | Op Add [exp';Const w] =>
       if addr_offset_ok c w then
-        let prog = inst_select_exp c temp temp exp' in
+        let prog = inst_select_exp bits c temp temp exp' in
           Seq prog (Inst (Mem Store var (Addr temp w)))
       else
-        let prog = inst_select_exp c temp temp exp in
+        let prog = inst_select_exp bits c temp temp exp in
           Seq prog (Inst (Mem Store var (Addr temp 0)))
     | _ =>
-      let prog = inst_select_exp c temp temp exp in
+      let prog = inst_select_exp bits c temp temp exp in
       Seq prog (Inst (Mem Store var (Addr temp 0)))) ∧
-  (inst_select c temp (Seq p1 p2) =
-    Seq (inst_select c temp p1) (inst_select c temp p2)) ∧
-  (inst_select c temp (MustTerminate p1) =
-    MustTerminate (inst_select c temp p1)) ∧
-  (inst_select c temp (ShareInst op v exp) =
+  (inst_select bits c temp (Seq p1 p2) =
+    Seq (inst_select bits c temp p1) (inst_select bits c temp p2)) ∧
+  (inst_select bits c temp (MustTerminate p1) =
+    MustTerminate (inst_select bits c temp p1)) ∧
+  (inst_select bits c temp (ShareInst op v exp) =
     let exp = (flatten_exp o pull_exp) exp in
     case exp of
     | Op Add [exp';Const w] =>
@@ -409,60 +409,60 @@ Definition inst_select_def:
           ((op = Load32 ∨ op  = Store32) /\ addr_offset_ok c w) ∨
           ((op = Load16 ∨ op  = Store16) /\ hw_offset_ok c w) ∨
           ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c w) then
-        let prog = inst_select_exp c temp temp exp' in
+        let prog = inst_select_exp bits c temp temp exp' in
           Seq prog (ShareInst op v (Op Add [Var temp; Const w]))
       else
-        let prog = inst_select_exp c temp temp exp in
+        let prog = inst_select_exp bits c temp temp exp in
           Seq prog (ShareInst op v (Var temp))
     | _ =>
-      let prog = inst_select_exp c temp temp exp in
+      let prog = inst_select_exp bits c temp temp exp in
       Seq prog (ShareInst op v (Var temp))) ∧
-  (inst_select c temp (If cmp r1 ri c1 c2) =
-    If cmp r1 ri (inst_select c temp c1) (inst_select c temp c2)) ∧
-  (inst_select c temp (Call ret dest args handler) =
+  (inst_select bits c temp (If cmp r1 ri c1 c2) =
+    If cmp r1 ri (inst_select bits c temp c1) (inst_select bits c temp c2)) ∧
+  (inst_select bits c temp (Call ret dest args handler) =
     let retsel =
       case ret of
         NONE => NONE
       | SOME (n,names,ret_handler,l1,l2) =>
-        SOME (n,names,inst_select c temp ret_handler,l1,l2) in
+        SOME (n,names,inst_select bits c temp ret_handler,l1,l2) in
     let handlersel =
       case handler of
         NONE => NONE
-      | SOME (n,h,l1,l2) => SOME (n,inst_select c temp h,l1,l2) in
+      | SOME (n,h,l1,l2) => SOME (n,inst_select bits c temp h,l1,l2) in
     Call retsel dest args handlersel) ∧
-  (inst_select c temp (Loop names body exit_names) =
-    Loop names (inst_select c temp body) exit_names) ∧
-  (inst_select c temp prog = prog)
+  (inst_select bits c temp (Loop names body exit_names) =
+    Loop names (inst_select bits c temp body) exit_names) ∧
+  (inst_select bits c temp prog = prog)
 End
 
 Theorem inst_select_pmatch:
   !c temp prog.
-  inst_select c temp prog =
+  inst_select bits c temp prog =
   pmatch prog of
   | Assign v exp =>
-    (inst_select_exp c v temp o flatten_exp o pull_exp) exp
+    (inst_select_exp bits c v temp o flatten_exp o pull_exp) exp
   | Set store exp =>
-    (let prog = (inst_select_exp c temp temp o flatten_exp o pull_exp) exp in
+    (let prog = (inst_select_exp bits c temp temp o flatten_exp o pull_exp) exp in
     Seq prog (Set store (Var temp)))
   | Store exp var =>
     (let exp = (flatten_exp o pull_exp) exp in
     pmatch exp of
     | Op Add [exp';Const w] =>
       if addr_offset_ok c w then
-        let prog = inst_select_exp c temp temp exp' in
+        let prog = inst_select_exp bits c temp temp exp' in
           Seq prog (Inst (Mem Store var (Addr temp w)))
       else
-        let prog = inst_select_exp c temp temp exp in
+        let prog = inst_select_exp bits c temp temp exp in
           Seq prog (Inst (Mem Store var (Addr temp 0)))
     | _ =>
-      let prog = inst_select_exp c temp temp exp in
+      let prog = inst_select_exp bits c temp temp exp in
       Seq prog (Inst (Mem Store var (Addr temp 0))))
   | Seq p1 p2 =>
-    Seq (inst_select c temp p1) (inst_select c temp p2)
+    Seq (inst_select bits c temp p1) (inst_select bits c temp p2)
   | MustTerminate p1 =>
-    MustTerminate (inst_select c temp p1)
+    MustTerminate (inst_select bits c temp p1)
   | (If cmp r1 ri c1 c2) =>
-      If cmp r1 ri (inst_select c temp c1) (inst_select c temp c2)
+      If cmp r1 ri (inst_select bits c temp c1) (inst_select bits c temp c2)
   | ShareInst op var exp =>
     (let exp = (flatten_exp o pull_exp) exp in
     pmatch exp of
@@ -471,27 +471,27 @@ Theorem inst_select_pmatch:
           ((op = Load32 ∨ op  = Store32) /\ addr_offset_ok c w) \/
           ((op = Load16 ∨ op  = Store16) /\ hw_offset_ok c w) \/
           ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c w) then
-        let prog = inst_select_exp c temp temp exp' in
+        let prog = inst_select_exp bits c temp temp exp' in
           Seq prog (ShareInst op var (Op Add [Var temp; Const w]))
       else
-        let prog = inst_select_exp c temp temp exp in
+        let prog = inst_select_exp bits c temp temp exp in
           Seq prog (ShareInst op var (Var temp))
     | _ =>
-      let prog = inst_select_exp c temp temp exp in
+      let prog = inst_select_exp bits c temp temp exp in
       Seq prog (ShareInst op var (Var temp)))
   | (Call ret dest args handler) =>
     (let retsel =
       pmatch ret of
         NONE => NONE
       | SOME (n,names,ret_handler,l1,l2) =>
-        SOME (n,names,inst_select c temp ret_handler,l1,l2) in
+        SOME (n,names,inst_select bits c temp ret_handler,l1,l2) in
     let handlersel =
       pmatch handler of
         NONE => NONE
-      | SOME (n,h,l1,l2) => SOME (n,inst_select c temp h,l1,l2) in
+      | SOME (n,h,l1,l2) => SOME (n,inst_select bits c temp h,l1,l2) in
     Call retsel dest args handlersel)
   | (Loop names body exit_names) =>
-    Loop names (inst_select c temp body) exit_names
+    Loop names (inst_select bits c temp body) exit_names
   | prog => prog
 Proof
   rpt(

@@ -840,7 +840,7 @@ Proof
 QED
 
 Theorem push_env_pop_env_locals_thm:
-  ∀^s s' s'':('a,'c,'ffi) wordSem$state s''' env names (handler:(num # 'a prog # num # num) option).
+  ∀^s s' s'':('a,'c,'ffi) wordSem$state s''' env names (handler:(num # prog # num # num) option).
   cut_envs names s.locals = SOME env /\
   push_env env handler s = s' /\
   LIST_REL sf_gc_consts s'.stack s''.stack /\
@@ -1109,9 +1109,10 @@ Proof
 QED
 
 Theorem evaluate_const_fp_loop:
-  !p cs p' cs' s res s'.
+  !bits p cs p' cs' ^s res s'.
+  bits = dimindex (:'a) /\
   evaluate (p, s) = (res, s') /\
-  const_fp_loop p cs = (p', cs') /\
+  const_fp_loop bits p cs = (p', cs') /\
   gc_fun_const_ok s.gc_fun /\
   (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word (i2w w))) ==>
   evaluate (p', s) = (res, s') /\
@@ -1183,18 +1184,18 @@ Proof
   `!v w. lookup v cs = SOME w ==>
          get_var v (s with <|clock := MustTerminate_limit (:'a); termdep := s.termdep − 1|>) = SOME (Word (i2w w))`
   by (fs [get_var_def]) \\
-  res_tac \\ every_case_tac \\ fs [get_var_def] \\ rw [])
+  res_tac \\ every_case_tac \\ fs [get_var_def] \\ rw [] \\ res_tac \\ fs [])
   >- (** Seq **)
   (rpt gen_tac \\ strip_tac \\ rpt gen_tac \\ strip_tac \\
   fs [evaluate_def, const_fp_loop_def] \\
-  rpt (pairarg_tac \\ fs []) \\
-  imp_res_tac evaluate_consts \\
+  rpt (pairarg_tac \\ gvs []) \\
+  imp_res_tac evaluate_consts \\ gvs [] \\
   (* Does the first program evaluation fail? *)
   Cases_on `res'` \\ fs [] \\ res_tac \\ fs [] \\ rw [evaluate_def])
   >- (** If **)
   (rpt gen_tac \\ strip_tac \\ rewrite_tac [evaluate_def, const_fp_loop_def] \\ rpt gen_tac \\
   reverse (Cases_on `lookup lhs cs`) \\ reverse (Cases_on `get_var_imm_cs rhs cs`) \\
-  DISCH_TAC \\ fs []
+  DISCH_TAC \\ fs [] \\ qpat_x_assum `bits = dimindex (:α)` SUBST_ALL_TAC
     >- (* Both SOME *)
     (imp_res_tac get_var_imm_cs_imp_get_var_imm \\ res_tac \\ fs [] \\
     fs [int_cmp_correct] \\ Cases_on `word_cmp cmp (i2w x:'a word) (i2w x')` \\ fs [] \\ res_tac \\ rw [])
@@ -1273,7 +1274,7 @@ Proof
 
   >- (** Alloc **)
   (fs [const_fp_loop_def] \\ rw [evaluate_def, alloc_def] \\ every_case_tac \\ fs [] \\
-  `gc_fun_const_ok (push_env x (NONE:(num # 'a prog # num # num) option) (set_store AllocSize (Word c) s)).gc_fun`
+  `gc_fun_const_ok (push_env x (NONE:(num # prog # num # num) option) (set_store AllocSize (Word c) s)).gc_fun`
   by (fs [set_store_def]) \\
   imp_res_tac gc_sf_gc_consts \\
   fs [push_env_set_store_stack] \\
@@ -1332,7 +1333,7 @@ QED
 
 Resume evaluate_const_fp_loop[Loop]:
   rw [const_fp_loop_def] \\ rpt (pairarg_tac \\ fs []) \\ gvs []
-  \\ Cases_on `const_fp_loop p LN` \\ gvs []
+  \\ Cases_on `const_fp_loop (dimindex (:'a)) p LN` \\ gvs []
   \\ `evaluate (Loop names q exit_names, s) = evaluate (Loop names p exit_names, s)` suffices_by fs []
   \\ irule evaluate_Loop_body_cong_gc
   \\ qexists_tac `gc_fun_const_ok` \\ rw []
@@ -1342,19 +1343,22 @@ QED
 Finalise evaluate_const_fp_loop;
 
 Theorem evaluate_const_fp:
-   !p s. gc_fun_const_ok s.gc_fun ==> evaluate (const_fp p, s) = evaluate (p, s)
+   !p ^s. gc_fun_const_ok s.gc_fun ==> evaluate (const_fp (dimindex (:'a)) p, s) = evaluate (p, s)
 Proof
-  rw [const_fp_def] \\ imp_res_tac evaluate_const_fp_loop \\
-  last_assum (qspec_then `LN` assume_tac) \\ fs [lookup_def] \\
-  Cases_on `const_fp_loop p LN` \\ simp [] \\ res_tac \\
-  Cases_on `evaluate (p, s)` \\ res_tac
+  rw [const_fp_def]
+  \\ Cases_on `const_fp_loop (dimindex (:α)) p LN` \\ fs []
+  \\ Cases_on `evaluate (p,s)` \\ fs []
+  \\ mp_tac (Q.SPECL [`dimindex (:α)`,`p`,`LN`,`q`,`r`,`s`,`q'`,`r'`]
+       evaluate_const_fp_loop)
+  \\ fs [lookup_def]
 QED
 
 (* the duplicate-if pass *)
 
 Theorem evaluate_try_if_hoist2[local]:
-  ! N p1 interm dummy p2 s.
-  try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
+  ! bits N p1 interm dummy p2 ^s.
+  bits = dimindex (:'a) ==>
+  try_if_hoist2 bits N p1 interm dummy p2 = SOME p3 ==>
   gc_fun_const_ok s.gc_fun ==>
   evaluate (p3, s) = evaluate (Seq (Seq p1 interm) p2, s)
 Proof
@@ -1390,22 +1394,22 @@ Proof
 QED
 
 Theorem evaluate_try_if_hoist1[local]:
-  try_if_hoist1 p1 p2 = SOME p3 ==>
+  try_if_hoist1 (dimindex (:'a)) p1 p2 = SOME p3 ==>
   gc_fun_const_ok s.gc_fun ==>
-  evaluate (p3, s) = evaluate (Seq p1 p2, s)
+  evaluate (p3, ^s) = evaluate (Seq p1 p2, s)
 Proof
   simp [try_if_hoist1_def]
   \\ every_case_tac \\ fs []
   \\ rw []
-  \\ drule evaluate_try_if_hoist2
+  \\ drule (Q.SPEC `dimindex (:α)` evaluate_try_if_hoist2 |> SIMP_RULE std_ss [])
   \\ rw []
   \\ ONCE_REWRITE_TAC [GSYM evaluate_Seq_assoc]
   \\ simp [Seq_assoc_def]
 QED
 
 Theorem evaluate_simp_duplicate_if:
-  !p s. gc_fun_const_ok s.gc_fun ==>
-  evaluate (simp_duplicate_if p, s) = evaluate (p, s)
+  !bits p ^s. bits = dimindex (:'a) /\ gc_fun_const_ok s.gc_fun ==>
+  evaluate (simp_duplicate_if bits p, s) = evaluate (p, s)
 Proof
   ho_match_mp_tac simp_duplicate_if_ind
   \\ rw []
@@ -1503,7 +1507,7 @@ QED
 Theorem compile_exp_thm:
    wordSem$evaluate (prog,^s) = (res,s2) /\ res <> SOME Error /\
    gc_fun_const_ok s.gc_fun ==>
-   evaluate (word_simp$compile_exp prog,s) = (res,s2)
+   evaluate (word_simp$compile_exp (dimindex (:'a)) prog,s) = (res,s2)
 Proof
     fs [word_simpTheory.compile_exp_def,evaluate_Seq_assoc,
         evaluate_const_fp, evaluate_simp_duplicate_if,

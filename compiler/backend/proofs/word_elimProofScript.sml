@@ -351,7 +351,7 @@ QED
 
 Definition code_rel_def:
     code_rel (reachable:num_set) s_code
-        (t_code :(num # ('a wordLang$prog)) num_map) =
+        (t_code :(num # (wordLang$prog)) num_map) =
         ∀ n . n ∈ domain reachable ⇒
             lookup n s_code = lookup n t_code
 End
@@ -522,7 +522,7 @@ Proof
 QED
 
 Theorem remove_word_code_MAP_FST_lemma:
-     ∀ reachable:num_set (l: (num,num # α prog) alist) .
+     ∀ reachable:num_set (l: (num,num # prog) alist) .
         MAP FST (FILTER (λx. IS_SOME (lookup (FST x) reachable)) l) =
             FILTER (λx. IS_SOME (lookup x reachable)) (MAP FST l)
 Proof

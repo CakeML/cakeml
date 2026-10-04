@@ -1301,7 +1301,7 @@ QED
 (* TODO: generated names *)
 
 val goal = “
-  λ(p:'a wordLang$prog,s:('a,'c,'ffi) wordSem$state).
+  λ(p:wordLang$prog,s:('a,'c,'ffi) wordSem$state).
      ∀r s'.
       evaluate (p, s) = (r, s') ⇒
       s'.clock = s.clock”
@@ -1325,7 +1325,7 @@ Proof
 QED
 
 val clock_goal = “
-  λ(p:'a wordLang$prog,s:('a,'c,'ffi) wordSem$state).
+  λ(p:wordLang$prog,s:('a,'c,'ffi) wordSem$state).
     ∀k.
       evaluate (p, s with clock := k) = (λ(r,s). (r,s with clock := k)) (evaluate (p,s))”
 val ind_thm2 = evaluate_ind |> ISPEC clock_goal |> CONV_RULE (DEPTH_CONV PAIRED_BETA_CONV);
@@ -3571,10 +3571,10 @@ QED
   do not affect evaluation
   TODO: theorem statement needs to be changed *)
 Theorem locals_rel_evaluate_thm:
-  ∀prog st res rst loc temp.
+  ∀prog (st:(α,β,γ) state) res rst loc temp.
     evaluate (prog,st) = (res,rst) ∧
     res ≠ SOME Error ∧
-    every_var (λx.x < temp) prog ∧
+    every_var (dimindex (:α)) (λx.x < temp) prog ∧
     locals_rel temp st.locals loc ⇒
     ∃loc'.
       evaluate (prog,st with locals:=loc) = (res,rst with locals:=loc') ∧
@@ -3584,7 +3584,7 @@ Theorem locals_rel_evaluate_thm:
       | SOME (Continue _) => locals_rel temp rst.locals loc'
       | SOME _ => rst.locals = loc'
 Proof
-  completeInduct_on`prog_size (K 0) prog`>>
+  completeInduct_on`prog_size prog`>>
   rpt strip_tac>>
   Cases_on`prog` >> fs[every_var_def]
   >~[`Move`] >- suspend "Move"
@@ -4676,7 +4676,7 @@ Proof
 QED
 
 Definition no_alloc_code_def:
-  no_alloc_code (code : (num # ('a wordLang$prog)) num_map) ⇔
+  no_alloc_code (code : (num # (wordLang$prog)) num_map) ⇔
   ∀ k n p . lookup k code = SOME (n, p) ⇒ no_alloc p
 End
 
@@ -4693,7 +4693,7 @@ Proof
 QED
 
 Definition no_install_code_def:
-    no_install_code (code : (num # ('a wordLang$prog)) num_map) ⇔
+    no_install_code (code : (num # (wordLang$prog)) num_map) ⇔
         ∀ k n p . lookup k code = SOME (n, p) ⇒ no_install p
 End
 
@@ -4758,7 +4758,7 @@ Proof
 QED
 
 Definition no_mt_code_def:
-  no_mt_code (code : (num # ('a wordLang$prog)) num_map) <=>
+  no_mt_code (code : (num # (wordLang$prog)) num_map) <=>
   ! k n p . lookup k code = SOME (n, p) ==> no_mt p
 End
 

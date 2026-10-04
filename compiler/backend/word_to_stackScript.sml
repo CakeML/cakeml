@@ -384,18 +384,18 @@ Definition PopHandler_def:
 End
 
 Definition chunk_to_bits_def:
-  chunk_to_bits ([]:(bool # α word) list) = 1w:'a word ∧
+  chunk_to_bits ([]:(bool # int) list) = 1w:'a word ∧
   chunk_to_bits ((b,w)::ws) =
     let res = (chunk_to_bits ws) << 1 in
       if b then res + 1w else res
 End
 
 Definition chunk_to_bitmap_def:
-  chunk_to_bitmap ws = chunk_to_bits ws :: MAP SND ws
+  chunk_to_bitmap ws = chunk_to_bits ws :: MAP (i2w o SND) ws
 End
 
 Definition const_words_to_bitmap_def:
-  const_words_to_bitmap (ws:(bool # α word) list) (ws_len:num) =
+  (const_words_to_bitmap (ws:(bool # int) list) (ws_len:num):α word list) =
     if ws_len < (dimindex (:'a) - 1) ∨ (dimindex (:'a) - 1) = 0
     then chunk_to_bitmap ws
     else
@@ -451,7 +451,7 @@ End
 
 (* Return should be 2,4,6,...,2k,2k+1,... *)
 Definition comp_def:
-  (comp conf perf (Skip:'a wordLang$prog) bs kf = (Skip:stackLang$prog,bs)) /\
+  (comp conf perf (Skip:wordLang$prog) bs kf = (Skip:stackLang$prog,bs)) /\
   (comp conf perf (Move _ xs) bs kf = (wMove xs kf,bs)) /\
   (comp conf perf (Inst i) bs kf = (wInst (arch_wordsize conf.ISA) i kf,bs)) /\
   (comp conf perf (Return v1 vs) bs kf =
@@ -581,9 +581,9 @@ End
 (*2*k and above are "stack" variables*)
 (*We always allocate enough space for the maximum stack var*)
 Definition compile_prog_def:
-  compile_prog asm_conf perf (prog:'a wordLang$prog) arg_count reg_count bitmaps =
+  compile_prog asm_conf perf (prog:wordLang$prog) arg_count reg_count bitmaps =
     let stack_arg_count = arg_count - reg_count in
-    let stack_var_count = MAX ((max_var prog DIV 2 + 1)- reg_count) stack_arg_count in
+    let stack_var_count = MAX ((max_var (isa_bits asm_conf) prog DIV 2 + 1)- reg_count) stack_arg_count in
     let f = if stack_var_count = 0 then 0 else stack_var_count + 1 in
     let (q1,bitmaps) = comp asm_conf perf prog bitmaps (reg_count,f,stack_var_count) in
       (Seq (StackAlloc (f - stack_arg_count)) q1, f, bitmaps)

@@ -16,6 +16,7 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 val _ = augment_srw_ss [rewrites [integer_wordTheory.i2w_pos, integer_wordTheory.i2w_w2i,
+  integer_wordTheory.i2w_minus_1,
   data_to_wordTheory.get_lowerbits_def,data_to_wordTheory.make_ptr_def,
   data_to_wordTheory.make_cons_ptr_def]]
 
@@ -4539,8 +4540,8 @@ QED
    ------------------------------------------------------- *)
 
 Definition code_rel_def:
-  code_rel c s_code (t_code: (num # 'a wordLang$prog) num_map) <=>
-    domain t_code = domain s_code UNION set (MAP FST (stubs c:(num # num # 'a wordLang$prog) list)) /\
+  code_rel c s_code (t_code: (num # wordLang$prog) num_map) <=>
+    domain t_code = domain s_code UNION set (MAP FST (stubs c:(num # num # wordLang$prog) list)) /\
     EVERY (\(n,x). lookup n t_code = SOME x) (stubs c) /\
     !n arg_count prog.
       (lookup n s_code = SOME (arg_count:num,prog)) ==>
@@ -4572,7 +4573,7 @@ Definition code_oracle_rel_def:
       (s_compile:'c -> (num # num # dataLang$prog) list ->
                        (mlstring # word64 list # 'c) option)
       s_compile_oracle t_store
-      (t_compile:'c -> (num # num # 'a wordLang$prog) list ->
+      (t_compile:'c -> (num # num # wordLang$prog) list ->
                        (word8 list # 'a word list # 'c) option)
       t_compile_oracle t_code_buffer t_data_buffer <=>
     t_code_buffer.buffer = [] /\
@@ -5487,7 +5488,7 @@ QED
 val _ = temp_delsimps ["fromAList_def"]
 
 Theorem state_rel_call_env_push_opt:
-  ∀(opt:(num # 'a wordLang$prog # num # num) option).
+  ∀(opt:(num # wordLang$prog # num # num) option).
     state_rel c l1 l2 s t (SOME (ZIP(xs,ws))) locs ∧
     lookup 0 t.locals = SOME (Loc l1 l2) ∧
     LENGTH xs = LENGTH ws ∧
@@ -5599,7 +5600,7 @@ Proof
 QED
 
 Theorem state_rel_call_env_push_env: (* TODO: tidy up proof *)
-  !opt:(num # 'a wordLang$prog # num # num) option.
+  !opt:(num # wordLang$prog # num # num) option.
     state_rel c l1 l2 s (t:('a,'c,'ffi)wordSem$state) NONE locs /\
     get_vars args s.locals = SOME xs /\
     get_vars (MAP adjust_var args) t = SOME ws /\
@@ -5671,7 +5672,7 @@ Theorem find_code_thm_handler:
         find_code dest (Loc q l::ws) t.code fs = SOME (args1,FST (comp c n1 n2 prog),ss) /\
         state_rel c q l (call_env ys ss (push_env x T (dec_clock s)))
           (call_env args1 ss (push_env y
-             (SOME (adjust_var x0,(prog1:'a wordLang$prog),nn,l + 1))
+             (SOME (adjust_var x0,(prog1:wordLang$prog),nn,l + 1))
           (dec_clock t))) NONE ((l1,l2)::locs)
 Proof
   reverse (Cases_on `dest`) \\ srw_tac[][] \\ full_simp_tac(srw_ss())[find_code_def]
@@ -5734,13 +5735,13 @@ QED
 
 Theorem mk_loc_eq_push_env_exc_Exception:
    evaluate
-      (c:'a wordLang$prog, call_env args1 ss
-            (push_env y (SOME (x0,prog1:'a wordLang$prog,x1,l))
+      (c:wordLang$prog, call_env args1 ss
+            (push_env y (SOME (x0,prog1:wordLang$prog,x1,l))
                (dec_clock t))) = (SOME (Exception xx w),(t1:('a,'b,'c) state)) ==>
     mk_loc (jump_exc t1) = mk_loc (jump_exc t) :'a word_loc
 Proof
   qspecl_then [`c`,`call_env args1 ss
-    (push_env y (SOME (x0,prog1:'a wordLang$prog,x1,l)) (dec_clock t))`]
+    (push_env y (SOME (x0,prog1:wordLang$prog,x1,l)) (dec_clock t))`]
        mp_tac wordPropsTheory.evaluate_stack_swap \\ srw_tac[][] \\ fs []
   \\ fs [wordSemTheory.call_env_def,wordSemTheory.push_env_def,
          wordSemTheory.dec_clock_def]
@@ -5755,7 +5756,7 @@ QED
 
 Theorem evaluate_IMP_domain_EQ:
    evaluate (c,call_env (args1:'a word_loc list) ss
-     (push_env y (opt:(num # ('a wordLang$prog) # num # num) option) (dec_clock t))) =
+     (push_env y (opt:(num # (wordLang$prog) # num # num) option) (dec_clock t))) =
       (SOME (Result ll w),t1) /\ pop_env t1 = SOME t2 ==>
     domain t2.locals = domain (FST y) UNION domain (SND y)
 Proof
@@ -5775,12 +5776,12 @@ QED
 
 Theorem evaluate_IMP_domain_EQ_Exc:
    evaluate (c,call_env args1 ss (push_env y
-      (SOME (x0,prog1:'a wordLang$prog,x1,l))
+      (SOME (x0,prog1:wordLang$prog,x1,l))
       (dec_clock (t:('a,'b,'c) state)))) = (SOME (Exception ll w),t1) ==>
     domain t1.locals = domain (FST y) UNION domain (SND y)
 Proof
   qspecl_then [`c`,`call_env args1 ss
-     (push_env y (SOME (x0,prog1:'a wordLang$prog,x1,l)) (dec_clock t))`]
+     (push_env y (SOME (x0,prog1:wordLang$prog,x1,l)) (dec_clock t))`]
      mp_tac wordPropsTheory.evaluate_stack_swap \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[wordSemTheory.call_env_def,wordSemTheory.push_env_def,
          wordSemTheory.dec_clock_def]
@@ -7668,7 +7669,7 @@ QED
 
 Theorem gc_lemma_gen:
    let t0 = call_env [Loc l1 l2] ss (push_env y
-        (NONE:(num # 'a wordLang$prog # num # num) option) t) in
+        (NONE:(num # wordLang$prog # num # num) option) t) in
       dataSem$cut_env names (s:('c,'ffi) dataSem$state).locals = SOME x /\
       state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) NONE locs /\
       FLOOKUP t.store AllocSize = SOME (Word (alloc_size k)) /\
@@ -8102,7 +8103,7 @@ Theorem evaluate_GiveUp:
     ?r. evaluate (GiveUp,t) = (SOME NotEnoughSpace,r) /\
         r.ffi = s.ffi /\ t.ffi = s.ffi
 Proof
-  fs [GiveUp_def,wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
+  fs [integer_wordTheory.i2w_minus_1,GiveUp_def,wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
   \\ strip_tac
   \\ Cases_on `alloc (-1w) (adjust_sets (LN:num_set)) (set_var 1 (Word (-1w)) t)
                   :'a result option # ('a,'c,'ffi) wordSem$state`
@@ -8405,6 +8406,8 @@ Theorem AllocVar_thm_gen:
       q = NONE)
 Proof
   fs [wordSemTheory.evaluate_def,AllocVar_def,list_Seq_def] \\ strip_tac
+  \\ `arch_width_bits c.arch_width = dimindex(:'a)` by
+       fs[state_rel_def,memory_rel_def,heap_in_memory_store_def]
   \\ `limit < dimword (:'a)` by
         (rfs [EVAL ``good_dimindex (:'a)``,state_rel_def,dimword_def] \\ rfs [])
   \\ `?end next heap_length1 cu.
@@ -8784,11 +8787,11 @@ Theorem memory_rel_get_var_IMP =
          PULL_EXISTS,ZIP,APPEND]
 
 Theorem lookup_RefByte_location:
-   state_rel c l1 l2 x t NONE locs ==>
+   state_rel c l1 l2 x (t:('a,'c,'ffi) wordSem$state) NONE locs ==>
     lookup RefByte_location t.code = SOME (4,RefByte_code c) /\
     lookup RefArray_location t.code = SOME (3,RefArray_code c) /\
     lookup FromList_location t.code = SOME (4,FromList_code c) /\
-    lookup Replicate_location t.code = SOME (5,Replicate_code) /\
+    lookup Replicate_location t.code = SOME (5,Replicate_code c) /\
     lookup AnyArith_location t.code = SOME (4,AnyArith_code c) /\
     lookup Add_location t.code = SOME (3,Add_code) /\
     lookup Sub_location t.code = SOME (3,Sub_code) /\
@@ -8958,3 +8961,11 @@ Theorem word_ml_inv_get_var_IMP[allow_rebind] =
   |> Q.INST [`n`|->`[n1]`,`x`|->`[x1]`] |> GEN_ALL
   |> REWRITE_RULE [get_vars_SOME_IFF,get_vars_SOME_IFF_data,MAP]
   |> SIMP_RULE std_ss [Once get_vars_sing,PULL_EXISTS,get_vars_SOME_IFF,ZIP,APPEND]
+
+Theorem state_rel_arch_width:
+  state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) vs locs ==>
+  arch_width_bits c.arch_width = dimindex(:'a)
+Proof
+  rpt strip_tac >>
+  fs[state_rel_def,memory_rel_def,heap_in_memory_store_def]
+QED

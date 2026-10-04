@@ -218,15 +218,15 @@ Datatype:
      ; mdomain : ('a word) set
      ; sh_mdomain : ('a word) set
      ; permute : num -> num -> num (* sequence of bijective mappings *)
-     ; compile : 'c -> (num # num # 'a wordLang$prog) list -> (word8 list # 'a word list # 'c) option
-     ; compile_oracle : num -> 'c # (num # num # 'a wordLang$prog) list
+     ; compile : 'c -> (num # num # wordLang$prog) list -> (word8 list # 'a word list # 'c) option
+     ; compile_oracle : num -> 'c # (num # num # wordLang$prog) list
      ; code_buffer : ('a,8) buffer
      ; data_buffer : ('a,'a) buffer
      ; gc_fun  : 'a gc_fun_type
      ; handler : num (*position of current handle frame on stack*)
      ; clock   : num
      ; termdep : num (* count of how many MustTerminates we can still enter *)
-     ; code    : (num # ('a wordLang$prog)) num_map
+     ; code    : (num # (wordLang$prog)) num_map
      ; be      : bool (*is big-endian*)
      ; ffi     : 'ffi ffi_state |>
 End
@@ -527,7 +527,7 @@ Definition push_env_def:
       s with <| stack := stack
               ; stack_max := OPTION_MAP2 MAX s.stack_max (stack_size stack)
               ; permute := permute|>) ∧
-  (push_env envs (SOME (w:num,h:'a wordLang$prog,l1,l2)) s =
+  (push_env envs (SOME (w:num,h:wordLang$prog,l1,l2)) s =
     let l0 = toAList (FST envs);
         (l,permute) = env_to_list (SND envs) s.permute;
         handler = SOME (s.handler,l1,l2);
@@ -679,7 +679,7 @@ Definition alloc_def:
     | NONE => (SOME (Error:'a result),flush_state T s)
     | SOME envs =>
      (* perform garbage collection *)
-     (case gc (push_env envs (NONE:(num # 'a wordLang$prog # num # num) option) (set_store AllocSize (Word w) s)) of
+     (case gc (push_env envs (NONE:(num # wordLang$prog # num # num) option) (set_store AllocSize (Word w) s)) of
       | NONE => (SOME Error,flush_state T s)
       | SOME s =>
        (* restore local variables *)
@@ -1057,7 +1057,7 @@ Proof
 QED
 
 Definition evaluate_def:
-  (evaluate (Skip:'a wordLang$prog,^s) = (NONE,s)) /\
+  (evaluate (Skip:wordLang$prog,^s) = (NONE,s)) /\
   (evaluate (Alloc n names,s) =
      case get_var n s of
      | SOME (Word w) => alloc w names s
@@ -1068,7 +1068,7 @@ Definition evaluate_def:
         (if ~ const_addresses a words s.mdomain then
            (SOME Error,s)
          else
-           let s = s with memory := const_writes a off words s.memory in
+           let s = s with memory := const_writes a off (MAP (λ(b,i). (b,i2w i)) words) s.memory in
            let s = set_var offset (Word off) (unset_var t1 (unset_var t2 s)) in
              (NONE, set_var addr (Word (a + bytes_in_word * n2w (LENGTH words))) s))
      | _ => (SOME Error,s)) /\
@@ -1286,7 +1286,7 @@ Definition evaluate_def:
                            | (SOME (Continue _),s) => (SOME Error,s)
                            | res => res)))
 Termination
-  WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure (prog_size (K 0)))
+  WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure prog_size)
                (\(xs,^s). (s.termdep,s.clock,xs)))`
   \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
   \\ full_simp_tac(srw_ss())[termdep_rw,STOP_def]

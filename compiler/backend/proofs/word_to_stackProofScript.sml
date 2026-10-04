@@ -36,7 +36,7 @@ Type state[pp] = “:(α,β,γ)wordSem$state”
 Overload word_cmp[local] = “wordSem$word_cmp”;
 val _ = Parse.hide "B"
 
-val nn = ``(NONE:(num # 'a wordLang$prog # num # num) option)``
+val nn = ``(NONE:(num # wordLang$prog # num # num) option)``
 
 val s = ``s:('a,num # 'c,'ffi) wordSem$state``
 val t = ``t:('a,'c,'ffi) stackSem$state``
@@ -915,7 +915,7 @@ Definition state_rel_def:
       let (progs,fs,bm) = word_to_stack$compile_word_to_stack ac F k progs (Nil, bm0) in
         (cfg,progs,append (FST bm))) ∧
     (∀n. let ((bm0,cfg),progs) = s.compile_oracle n in
-        EVERY (post_alloc_conventions k o SND o SND) progs ∧
+        EVERY (post_alloc_conventions (dimindex (:α)) k o SND o SND) progs ∧
         EVERY (flat_exp_conventions o SND o SND) progs ∧
         EVERY ((<>) raise_stub_location o FST) progs ∧
         EVERY ((<>) store_consts_stub_location o FST) progs ∧
@@ -924,7 +924,7 @@ Definition state_rel_def:
                       store_consts_stub_location INSERT domain s.code ∧
     (!n word_prog arg_count.
        (lookup n s.code = SOME (arg_count,word_prog)) ==>
-       post_alloc_conventions k word_prog /\
+       post_alloc_conventions (dimindex (:α)) k word_prog /\
        flat_exp_conventions word_prog /\
        ?bs i bs2 i2 f stack_prog.
          word_to_stack$compile_prog ac F word_prog arg_count k (bs,i) = (stack_prog,f,(bs2,i2)) /\
@@ -1386,7 +1386,7 @@ Proof
   >>~[`flat_exp_conventions word_prog`]
   >- metis_tac[]
   >- metis_tac[]
-  >>~[`post_alloc_conventions k word_prog`]
+  >>~[`post_alloc_conventions (dimindex (:α)) k word_prog`]
   >- metis_tac[]
   >- metis_tac[]
   >~[`stack_rel k s.handler _ _ _ _ _ (f'::lens)`]
@@ -3327,7 +3327,7 @@ Theorem call_dest_lemma[local]:
     t4.stack_space = t.stack_space /\
     !real_args prog ssize.
       find_code dest
-                (add_ret_loc (ret:(num list # (cutsets) # 'a wordLang$prog#num#num)option)
+                (add_ret_loc (ret:(num list # (cutsets) # wordLang$prog#num#num)option)
                              args':'a word_loc list)
                 s.code s.stack_size = SOME (real_args,prog,ssize) ==>
       ?bs i bs2 i2 fs stack_prog.
@@ -4062,7 +4062,7 @@ Definition map_var_def[simp]:
   (map_var f (Const c) = Const c) ∧
   (map_var f (Lookup v) = Lookup v)
 Termination
-  WF_REL_TAC`measure (exp_size ARB o SND)`
+  WF_REL_TAC`measure (exp_size o SND)`
  \\ simp[]
  \\ Induct \\ simp[] \\ rw[]
  \\ EVAL_TAC \\ simp[] \\ res_tac \\ simp[]
@@ -5484,7 +5484,7 @@ Theorem evaluate_PushHandler[local]:
   (∀i. i ≠ k ⇒ get_var i t' = get_var i t) ∧
   t'.stack_space +3 = t.stack_space ∧
   LENGTH t'.stack = LENGTH t.stack ∧
-  state_rel ac k 0 0 (push_env x' (SOME (x''0,x''1:'a wordLang$prog,x''2,x''3)) s with <|locals:=LN; locals_size:=SOME 0|>) t' (f'::lens) 0
+  state_rel ac k 0 0 (push_env x' (SOME (x''0,x''1:wordLang$prog,x''2,x''3)) s with <|locals:=LN; locals_size:=SOME 0|>) t' (f'::lens) 0
 Proof
   rw[]>>
   `t.use_stack ∧ t.use_store ∧ t.stack_space -3 < LENGTH t.stack ∧ ∃h. FLOOKUP t.store Handler = SOME h` by
@@ -5723,17 +5723,17 @@ Proof
 QED
 
 val goal = ``
-   λ(prog:'a wordLang$prog,s:('a,num # 'c,'ffi) wordSem$state).
+   λ(prog:wordLang$prog,s:('a,num # 'c,'ffi) wordSem$state).
      ∀k f f' res s1 t bs n bs' n' sprog lens.
      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
      state_rel ac k f f' s t lens 0 /\
-     post_alloc_conventions k prog /\
+     post_alloc_conventions (dimindex (:α)) k prog /\
      flat_exp_conventions prog /\
      comp ac F prog (bs,n) (k,f,f') = (sprog, (bs',n')) /\
      LENGTH (append bs) ≤ n ∧ n - LENGTH (append bs) ≤ LENGTH t.bitmaps ∧
      isPREFIX (append bs') (DROP (n - LENGTH (append bs)) t.bitmaps) ∧
      get_labels sprog SUBSET loc_check t.code /\
-     max_var prog < 2 * f' + 2 * k ==>
+     max_var (dimindex (:α)) prog < 2 * f' + 2 * k ==>
      ?ck t1:('a,'c,'ffi) stackSem$state res1.
        (stackSem$evaluate (sprog,t with clock := t.clock + ck) = (res1,t1)) /\
        if OPTION_MAP compile_result res <> res1
@@ -5887,10 +5887,10 @@ Theorem copy_words_for_pattern_thm:
   ∀words xs a off ys dm m.
     LENGTH words < dimindex (:α) ∧ const_addresses a words dm ⇒
     copy_words_for_pattern (chunk_to_bits words) (LENGTH xs) (a:'a word) off
-      (xs ++ MAP SND words ++ ys) dm m =
+      (xs ++ MAP (i2w o SND) words ++ ys) dm m =
     SOME (LENGTH xs + LENGTH words,
           a + bytes_in_word * n2w (LENGTH words),
-          const_writes a off words m)
+          const_writes a off (MAP (λ(b,i). (b,i2w i)) words) m)
 Proof
   Induct \\ fs [FORALL_PROD]
   THEN1 (EVAL_TAC \\ fs [])
@@ -5933,10 +5933,10 @@ Proof
     \\ old_drule chunk_to_bits_bound
     \\ strip_tac \\ fs [word_msb_def])
   \\ fs []
-  \\ disch_then (qspecl_then [‘xs ++ [p_2]’,‘off’,‘ys’,
-        ‘m⦇a ↦ Word (if p_1 then off + p_2 else p_2)⦈’] mp_tac)
+  \\ disch_then (qspecl_then [‘xs ++ [i2w p_2]’,‘off’,‘ys’,
+        ‘m⦇a ↦ Word (if p_1 then off + i2w p_2 else i2w p_2)⦈’] mp_tac)
   \\ fs [ADD1] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-  \\ fs [const_writes_def]
+  \\ fs [const_writes_def,o_DEF]
   \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
 QED
 
@@ -5958,10 +5958,10 @@ Theorem copy_words:
        copy_words (LENGTH xs + (LENGTH words + 1))
              (a + bytes_in_word * n2w (LENGTH words)) off
              (xs ++ chunk_to_bitmap words ++ ys) dm
-             (const_writes a off words m)
+             (const_writes a off (MAP (λ(b,i). (b,i2w i)) words) m)
      else
        SOME (a + bytes_in_word * n2w (LENGTH words),
-             const_writes (a:'a word) off words m)
+             const_writes (a:'a word) off (MAP (λ(b,i). (b,i2w i)) words) m)
 Proof
   fs [chunk_to_bitmap_def]
   \\ simp [Once copy_words_def]
@@ -6001,7 +6001,7 @@ Theorem copy_words_correct:
     const_addresses a words dm ∧ good_dimindex (:'a) ⇒
     copy_words (LENGTH xs) (a:'a word) off
       (xs ++ const_words_to_bitmap words (LENGTH words) ++ ys) dm m =
-    SOME (a + bytes_in_word * n2w (LENGTH words), const_writes a off words m)
+    SOME (a + bytes_in_word * n2w (LENGTH words), const_writes a off (MAP (λ(b,i). (b,i2w i)) words) m)
 Proof
   strip_tac
   \\ completeInduct_on ‘LENGTH words’
@@ -6024,7 +6024,7 @@ Proof
   \\ reverse IF_CASES_TAC THEN1 gvs [Abbr‘h’,LENGTH_TAKE]
   \\ first_x_assum (qspecl_then [‘t’,‘xs ++ chunk_to_bitmap h’,‘ys’,
        ‘a + bytes_in_word * n2w (LENGTH h)’,‘off’,‘dm’,
-       ‘const_writes a off h m’] mp_tac)
+       ‘const_writes a off (MAP (λ(b,i). (b,i2w i)) h) m’] mp_tac)
   \\ rewrite_tac [AND_IMP_INTRO]
   \\ impl_tac THEN1
    (‘words = h ++ t’ by metis_tac [TAKE_DROP]
@@ -6032,14 +6032,14 @@ Proof
   \\ strip_tac \\ gvs []
   \\ ‘LENGTH t = LENGTH words + 1 - dimindex (:α)’ by
     (unabbrev_all_tac \\ fs [])
-  \\ ‘LENGTH (chunk_to_bitmap h) = dimindex (:α)’ by
+  \\ ‘LENGTH (chunk_to_bitmap h:'a word list) = dimindex (:α)’ by
     fs [chunk_to_bitmap_def]
   \\ fs []
   \\ qpat_x_assum ‘LENGTH t = _’ (assume_tac o GSYM)
   \\ ‘dimindex (:α) − 1 = LENGTH h’ by fs [Abbr‘h’] \\ fs []
   \\ ‘words = h ++ t’ by metis_tac [TAKE_DROP]
   \\ gvs [] \\ gvs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
-  \\ fs [const_writes_append]
+  \\ fs [const_writes_append,MAP_APPEND]
 QED
 
 (* ?
@@ -6438,10 +6438,10 @@ Resume comp_correct[Seq]:
   \\ pairarg_tac \\ fs []
   \\ pairarg_tac \\ fs []
   \\ pairarg_tac \\ fs [get_labels_def]
-  \\ `max_var c1 < 2 * f' + 2 * k /\ max_var c2 < 2 * f' + 2 * k` by
+  \\ `max_var (dimindex (:α)) c1 < 2 * f' + 2 * k /\ max_var (dimindex (:α)) c2 < 2 * f' + 2 * k` by
     (fs [wordLangTheory.max_var_def] \\ decide_tac)
-  \\ `post_alloc_conventions k c1 /\
-      post_alloc_conventions k c2 /\
+  \\ `post_alloc_conventions (dimindex (:α)) k c1 /\
+      post_alloc_conventions (dimindex (:α)) k c2 /\
       flat_exp_conventions c1 /\
       flat_exp_conventions c2` by fs [convs_def]
   \\ imp_res_tac comp_IMP_isPREFIX
@@ -7106,7 +7106,7 @@ QED
 
 Resume comp_correct[FFI]:
   REPEAT STRIP_TAC \\ fs[get_labels_def] \\
-  fs [EVAL ``post_alloc_conventions k (FFI ffi_index ptr1 len1 ptr2 len2 names)``]
+  fs [EVAL ``post_alloc_conventions (dimindex (:α)) k (FFI ffi_index ptr1 len1 ptr2 len2 names)``]
   \\ rw [] \\ fs [] \\ rw []
   \\ fs [wordSemTheory.evaluate_def]
   \\ qpat_x_assum `aaa = (res,s1)` mp_tac
@@ -7156,7 +7156,7 @@ QED
 
 Theorem word_exp_Op_Add_0:
   wordSem$word_exp s exp = SOME $ Word x <=>
-    word_exp s (Op Add [exp;Const 0w]) = SOME $ Word x
+    word_exp s (Op Add [exp;Const 0]) = SOME $ Word x
 Proof
   eq_tac >>
   gvs[wordSemTheory.word_exp_def,the_words_def,
@@ -7167,7 +7167,7 @@ QED
 
 Theorem evaluate_ShareInst_Var_eq_Op_Add:
   wordSem$evaluate (ShareInst op v (Var ad),s) =
-    evaluate (ShareInst op v (Op Add [Var ad;Const 0w]),s)
+    evaluate (ShareInst op v (Op Add [Var ad;Const 0]),s)
 Proof
   gvs[wordSemTheory.evaluate_def] >>
   TOP_CASE_TAC
@@ -7375,7 +7375,7 @@ Theorem evaluate_ShareInst_Load:
   (op = Load \/ op = Load8 \/ op = Load16 \/ op = Load32) ==>
   ?ck t1.
     evaluate
-      (wShareInst op (2 * v) (Addr (2 * ad) (w2i offset)) (k,f,f'),
+      (wShareInst op (2 * v) (Addr (2 * ad) offset) (k,f,f'),
         t with clock := ck + t.clock) =
         (OPTION_MAP compile_result res,t1) /\
     ((?fv. res = SOME (FinalFFI fv) /\
@@ -7436,7 +7436,7 @@ Theorem evaluate_ShareInst_Store:
   (op = Store \/ op = Store8 \/ op = Store16 \/ op = Store32) ==>
   ?ck t1.
     evaluate
-      (wShareInst op (2 * v) (Addr (2 * ad) (w2i offset)) (k,f,f'),
+      (wShareInst op (2 * v) (Addr (2 * ad) offset) (k,f,f'),
         t with clock := ck + t.clock) =
         (OPTION_MAP compile_result res,t1) /\
     ((?fv. res = SOME (FinalFFI fv) /\
@@ -7489,7 +7489,7 @@ Theorem evaluate_ShareInst_correct_lemma:
   ad < f' + k ==>
   ?ck t1.
     evaluate
-      (wShareInst op (2 * v) (Addr (2 * ad) (w2i offset)) (k,f,f'),
+      (wShareInst op (2 * v) (Addr (2 * ad) offset) (k,f,f'),
         t with clock := ck + t.clock) =
       (OPTION_MAP compile_result res,t1) /\
     ((res = NONE /\ state_rel ac k f f' s1 t1 lens 0) \/
@@ -7509,7 +7509,7 @@ QED
 
 Resume comp_correct[ShareInst]:
   rpt strip_tac >>
-  gvs[EVAL ``post_alloc_conventions k (ShareInst op v exp)``,comp_def] >>
+  gvs[EVAL ``post_alloc_conventions (dimindex (:α)) k (ShareInst op v exp)``,comp_def] >>
   old_drule flat_exp_conventions_ShareInst_exp_simp >>
   rpt strip_tac >>
   gvs[wordLangTheory.exp_to_addr_def,evaluate_ShareInst_Var_eq_Op_Add] >>
@@ -7914,7 +7914,9 @@ Resume comp_correct[Call]:
   >- suspend "Call_returning"
 QED
 
+
 Resume comp_correct[Call_tail]:
+    `isa_bits ac = dimindex(:α)` by fs[state_rel_def] >>
     note_tac "comp_correct tail call case"
     \\ fs[AllCaseEqs()] \\ rveq
     \\ qpat_x_assum `_ = (res,s1)` mp_tac
@@ -7977,7 +7979,7 @@ Resume comp_correct[Call_tail]:
        by
          (
          fsrw_tac[][convs_def] \\
-         qpat_x_assum `max_var _ < _` mp_tac \\
+         qpat_x_assum `max_var (dimindex (:α)) _ < _` mp_tac \\
          qpat_x_assum `args = _` SUBST_ALL_TAC \\
          simp[wordLangTheory.max_var_def] \\
          simp[MAX_LIST_GENLIST_evens] \\
@@ -8118,7 +8120,7 @@ Resume comp_correct[Call_tail]:
         \\ old_drule find_code_IMP_get_labels
         \\ fs [get_labels_def])
       >>
-        (`EVEN (max_var prog)` by
+        (`EVEN (max_var (dimindex (:α)) prog)` by
             (ho_match_mp_tac max_var_intro>>
             fsrw_tac[][convs_def]>>
             match_mp_tac every_var_mono>>
@@ -8146,6 +8148,7 @@ Resume comp_correct[Call_tail]:
 QED
 
 Resume comp_correct[Call_returning]:
+  `isa_bits ac = dimindex(:α)` by fs[state_rel_def] >>
   note_tac "comp_correct returning call case(s)"
   \\ fs[UNCURRY_EQ,TypeBase.case_eq_of ``:'a # 'b``] \\ rveq
   \\ qpat_x_assum `_ = (res,s1)` mp_tac
@@ -8570,7 +8573,7 @@ Resume comp_correct[Call_returning]:
         rpt TOP_CASE_TAC>>rw[]>>metis_tac[])>>
       simp[CONJ_ASSOC] >>
       reverse CONJ_TAC >-
-        (`EVEN (max_var prog)` by
+        (`EVEN (max_var (dimindex (:α)) prog)` by
             (ho_match_mp_tac max_var_intro>>
             fsrw_tac[][convs_def]>>
             match_mp_tac every_var_mono>>
@@ -9399,7 +9402,7 @@ Resume comp_correct[Call_returning]:
       rpt TOP_CASE_TAC>>rw[]>>metis_tac[])>>
     simp[CONJ_ASSOC] >>
     reverse CONJ_TAC >-
-      (`EVEN (max_var prog)` by
+      (`EVEN (max_var (dimindex (:α)) prog)` by
           (ho_match_mp_tac max_var_intro>>
           fsrw_tac[][convs_def]>>
           match_mp_tac every_var_mono>>
@@ -10065,7 +10068,7 @@ val comp_Call_lemma = comp_correct
   |> Q.SPECL [`s`,`k`,`0`,`0`]
   |> SIMP_RULE std_ss [stack_arg_count_def,SeqStackFree_def,
        evaluate_Seq_Skip,
-       EVAL  ``post_alloc_conventions k (Call NONE (SOME start) [0] NONE)``,
+       EVAL  ``post_alloc_conventions (dimindex (:α)) k (Call NONE (SOME start) [0] NONE)``,
        EVAL  ``flat_exp_conventions (Call NONE (SOME start) [0] NONE)``,
        wordLangTheory.max_var_def,LET_DEF,MAX_DEF] |> GEN_ALL
 
@@ -10371,12 +10374,13 @@ Definition init_state_ok_def:
       let (progs,fs,bm) = word_to_stack$compile_word_to_stack ac F k progs (Nil, bm0) in
         (cfg,progs,append (FST bm))) ∧
     (∀n. let ((bm0,cfg),progs) = coracle n in
-        EVERY (post_alloc_conventions k o SND o SND) progs ∧
+        EVERY (post_alloc_conventions (dimindex (:α)) k o SND o SND) progs ∧
         EVERY (flat_exp_conventions o SND o SND) progs ∧
         EVERY ((<>) raise_stub_location o FST) progs ∧
         EVERY ((<>) store_consts_stub_location o FST) progs ∧
         (n = 0 ⇒ bm0 = LENGTH t.bitmaps))
 End
+
 
 Definition make_init_def:
   make_init (ac:asm_config) k ^t code coracle =
@@ -10405,7 +10409,7 @@ Definition make_init_def:
      ; stack_limit := LENGTH t.stack
      ; stack_max   := stack_size([]:'a stack_frame list)
       (* Not sure about Nil,0 *)
-     ; stack_size  := mapi (λn (arg_count,prog). FST (SND (compile_prog ac F prog arg_count k (Nil,0)))) code
+     ; stack_size  := mapi (λn (arg_count,prog). FST (SND (compile_prog ac F prog arg_count k (Nil:'a word app_list,0)))) code
      ; locals_size := SOME 0|>
 End
 
@@ -10414,7 +10418,7 @@ Theorem init_state_ok_IMP_state_rel[local]:
    lookup store_consts_stub_location t.code = SOME (store_consts_stub k) /\
     (!n word_prog arg_count.
        (lookup n code = SOME (arg_count,word_prog)) ==>
-       post_alloc_conventions k word_prog /\
+       post_alloc_conventions (dimindex (:α)) k word_prog /\
        flat_exp_conventions word_prog /\
        ?bs i bs2 i2 f stack_prog.
          word_to_stack$compile_prog ac F word_prog arg_count k (bs,i) = (stack_prog,f,(bs2,i2)) /\
@@ -10690,14 +10694,14 @@ val init_state_ok_semantics' =
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
 Theorem compile_semantics:
-    ^t.code = fromAList (SND (SND (SND (compile asm_conf F code)))) /\
+    ^t.code = fromAList (SND (SND (SND (compile asm_conf F code : 'a word list # word_to_stack$config # num list # (num # stackLang$prog) list)))) /\
     k = (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) /\
     init_state_ok asm_conf k t coracle /\
     (ALOOKUP code raise_stub_location = NONE) /\
     (ALOOKUP code store_consts_stub_location = NONE) /\
     FST (compile asm_conf F code) ≼ t.bitmaps /\
     EVERY (λn,m,prog. flat_exp_conventions prog /\
-    post_alloc_conventions (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) prog) code /\
+    post_alloc_conventions (dimindex (:α)) (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) prog) code /\
     semantics (make_init asm_conf k t (fromAList code) coracle) start <> Fail ==>
     semantics start t IN
     extend_with_resource_limit' (word_lang_safe_for_space
@@ -10988,10 +10992,10 @@ Proof
 QED
 
 Theorem word_to_stack_stack_asm_name_lem:
-  ∀c perf (p:'a wordLang$prog) bs kf.
+  ∀c perf (p:wordLang$prog) bs kf.
   isa_bits c = dimindex (:'a) ∧
   perf = F ∧
-  post_alloc_conventions (FST kf) p ∧
+  post_alloc_conventions (dimindex (:α)) (FST kf) p ∧
   full_inst_ok_less c p ∧
   (c.two_reg_arith ⇒ every_inst two_reg_inst p) ∧
   (no_share_inst p ∨ c.ISA ≠ Ag32) ∧
@@ -11006,7 +11010,7 @@ Proof
   >- (
     rpt (pairarg_tac \\ fs[]) \\
     fs[stack_asm_name_def] \\
-    last_x_assum irule \\
+    fs[every_inst_def,no_share_inst_def,wReg1_def] >> every_case_tac >> fs[] >> TRY (last_x_assum irule) \\
     fs wconvs \\
     fs[no_share_inst_def,every_inst_def,full_inst_ok_less_def])
   >- (
@@ -11047,14 +11051,14 @@ Proof
     \\ CCONTR_TAC \\ gvs [])
   >- (
     fs wconvs>>
-    last_x_assum irule>>
+    fs[every_inst_def,no_share_inst_def,wReg1_def] >> every_case_tac >> fs[] >> TRY (last_x_assum irule)>>
     fs[no_share_inst_def]>>
     ntac 4 (pop_assum mp_tac)>>
     EVAL_TAC>>rw[])
   >- (
     fs wconvs>>rpt (pairarg_tac>>fs[])>>
     EVAL_TAC>>rw[]>>
-    last_x_assum irule>>
+    fs[every_inst_def,no_share_inst_def,wReg1_def] >> every_case_tac >> fs[] >> TRY (last_x_assum irule)>>
     fs[no_share_inst_def]>>
     ntac 6 (pop_assum mp_tac)>>
     EVAL_TAC>>rw[])
@@ -11068,7 +11072,7 @@ Proof
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>rw[]>>
-    last_x_assum irule>>
+    fs[every_inst_def,no_share_inst_def,wReg1_def] >> every_case_tac >> fs[] >> TRY (last_x_assum irule)>>
     fs[no_share_inst_def]>>
     ntac 10 (pop_assum mp_tac)>>
     EVAL_TAC>>rw[])
@@ -11086,13 +11090,10 @@ Proof
     every_case_tac>>simp[stack_asm_name_def]>>
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>rw[]>>
-    first_assum match_mp_tac>>
-    fs wconvs>>fs[every_inst_def,no_share_inst_def])
+    fs wconvs >> fs[every_inst_def,no_share_inst_def])
   >- (
     pairarg_tac>>fs[]>>EVAL_TAC>>
-    irule wLive_stack_asm_name>>
-    first_x_assum (irule_at Any)>>
-    gvs[])
+    imp_res_tac wLive_stack_asm_name >> gvs[])
   >- (pairarg_tac \\ fs [] \\ EVAL_TAC \\ fs [])
   >- (
     EVAL_TAC>>rw[]>>
@@ -11169,7 +11170,7 @@ Proof
 QED
 
 Theorem word_to_stack_stack_asm_remove_lem:
-  ∀(c:asm_config) perf (p:'a wordLang$prog) bs kf.
+  ∀(c:asm_config) perf (p:wordLang$prog) bs kf.
   (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ∧ perf = F ⇒
   stack_asm_remove c (FST (comp c perf p bs kf))
 Proof
@@ -11243,11 +11244,11 @@ QED
 
 Theorem word_to_stack_stack_asm_convs:
   isa_bits c = dimindex (:'a) ∧
-  EVERY (λ(n,m,p:'a wordLang$prog).
+  EVERY (λ(n,m,p:wordLang$prog).
     full_inst_ok_less c p ∧
     (c.two_reg_arith ⇒ every_inst two_reg_inst p) ∧
     (no_share_inst p ∨ c.ISA ≠ Ag32) ∧
-    post_alloc_conventions (c.reg_count - (LENGTH c.avoid_regs +5)) p) progs ∧
+    post_alloc_conventions (dimindex (:α)) (c.reg_count - (LENGTH c.avoid_regs +5)) p) progs ∧
     4 < (c.reg_count - (LENGTH c.avoid_regs +5)) ⇒
   EVERY (λ(n,p). stack_asm_name c p ∧ stack_asm_remove c p) (SND(SND(SND(compile c F progs))))
 Proof
@@ -11396,9 +11397,9 @@ Proof
 QED
 
 Theorem word_to_stack_reg_bound:
-  ∀c perf (p:'a wordLang$prog) n args.
+  ∀c perf (p:wordLang$prog) n args.
     isa_bits c = dimindex (:'a) ∧
-    post_alloc_conventions (FST args) p ∧
+    post_alloc_conventions (dimindex (:α)) (FST args) p ∧
     4 ≤ FST args ∧ perf = F ⇒
     reg_bound (FST(word_to_stack$comp c perf p n args)) (FST args+2)
 Proof
@@ -11506,7 +11507,7 @@ QED
 
 Theorem word_to_stack_call_args:
   ∀c perf p n args.
-    post_alloc_conventions (FST args) p ∧ perf = F ⇒
+    post_alloc_conventions (dimindex (:α)) (FST args) p ∧ perf = F ⇒
     call_args (FST(word_to_stack$comp c perf p n args)) 1 2 3 4 0
 Proof
   ho_match_mp_tac comp_ind >>
@@ -11596,9 +11597,9 @@ QED
 
 (* Gluing all the conventions together *)
 Theorem word_to_stack_stack_convs:
-  word_to_stack$compile (ac:asm_config) F (p:(num # num # 'a wordLang$prog) list) = (bytes,c',f', p') ∧
+  word_to_stack$compile (ac:asm_config) F (p:(num # num # wordLang$prog) list) = (bytes,c',f', p') ∧
   isa_bits ac = dimindex (:'a) ∧
-  EVERY (post_alloc_conventions k) (MAP (SND o SND) p) ∧
+  EVERY (post_alloc_conventions (dimindex (:α)) k) (MAP (SND o SND) p) ∧
   k = (ac.reg_count- (5 +LENGTH ac.avoid_regs)) ∧
   4 ≤ k
   ⇒
@@ -11651,14 +11652,14 @@ Proof
 QED
 
 Theorem compile_word_to_stack_convs:
-  ∀(p:(num # num # 'a wordLang$prog) list) bm q bm'.
+  ∀(p:(num # num # wordLang$prog) list) bm q bm'.
    compile_word_to_stack c F k p bm = (q,bm') ∧
    isa_bits c = dimindex (:'a) ∧
    EVERY (λ(n,m,p).
      full_inst_ok_less c p ∧
      (c.two_reg_arith ⇒ every_inst two_reg_inst p) ∧
      (no_share_inst p ∨ c.ISA ≠ Ag32) ∧
-     post_alloc_conventions k p) p ∧ 4 < k ∧ k + 1 < c.reg_count - LENGTH c.avoid_regs
+     post_alloc_conventions (dimindex (:α)) k p) p ∧ 4 < k ∧ k + 1 < c.reg_count - LENGTH c.avoid_regs
    ⇒
    EVERY (λ(x,y).
      stack_asm_name c y ∧
@@ -11838,7 +11839,7 @@ Proof
 QED
 
 Theorem word_to_stack_good_code_labels:
-  compile (asm_conf:asm_config) F (progs:(num # num # 'a wordLang$prog) list) = (bytes,bs,fs,prog') ∧
+  compile (asm_conf:asm_config) F (progs:(num # num # wordLang$prog) list) = (bytes,bs,fs,prog') ∧
   good_code_labels progs elabs ⇒
   stack_good_code_labels prog' elabs
 Proof
@@ -11867,7 +11868,7 @@ QED
 Theorem word_to_stack_good_code_labels_incr:
   raise_stub_location ∈ elabs ∧
   store_consts_stub_location ∈ elabs ∧
-  compile_word_to_stack (ac:asm_config) F k (prog:(num # num # 'a wordLang$prog) list) bs = (prog',fs', bs') ⇒
+  compile_word_to_stack (ac:asm_config) F k (prog:(num # num # wordLang$prog) list) bs = (prog',fs', bs') ⇒
   good_code_labels prog elabs ⇒
   stack_good_code_labels prog' elabs
 Proof
@@ -11895,7 +11896,7 @@ Proof
 QED
 
 Theorem word_to_stack_good_handler_labels:
-  EVERY (λ(n,m,pp). good_handlers n pp) (prog:(num # num # 'a wordLang$prog) list) ⇒
+  EVERY (λ(n,m,pp). good_handlers n pp) (prog:(num # num # wordLang$prog) list) ⇒
   compile (asm_conf:asm_config) F prog = (bytes,bs,fs,prog') ⇒
   stack_good_handler_labels prog'
 Proof
@@ -11923,7 +11924,7 @@ Proof
 QED
 
 Theorem word_to_stack_good_handler_labels_incr:
-  EVERY (λ(n,m,pp). good_handlers n pp) (prog:(num # num # 'a wordLang$prog) list) ⇒
+  EVERY (λ(n,m,pp). good_handlers n pp) (prog:(num # num # wordLang$prog) list) ⇒
   compile_word_to_stack (ac:asm_config) F k prog bs = (prog',fs', bs') ⇒
   stack_good_handler_labels prog'
 Proof
@@ -12126,17 +12127,10 @@ Theorem compile_word_to_stack_no_install:
     perf = F ⇒
     EVERY (\(a,p). no_install p) prog'
 Proof
-  ho_match_mp_tac compile_word_to_stack_ind >>
-  rw[] >>
-  gvs[compile_word_to_stack_def,ELIM_UNCURRY,compile_prog_def] >>
-  conj_tac
-  >- (
-    simp[no_install_def] >>
-    drule comp_no_install >> disch_then irule >> simp[] >>
-    metis_tac[FST_EQ_EQUIV]
-  ) >>
-  last_x_assum irule >>
-  metis_tac[FST_EQ_EQUIV]
+  ho_match_mp_tac compile_word_to_stack_ind >> rw[] >>
+  gvs[compile_word_to_stack_def] >> rpt(pairarg_tac >> gvs[]) >>
+  gvs[compile_prog_def] >> rpt(pairarg_tac >> gvs[]) >>
+  simp[no_install_def] >> imp_res_tac comp_no_install >> fs[]
 QED
 
 (* no_share_mem is preserved *)
@@ -12359,7 +12353,8 @@ Proof
   conj_tac
   >- (
     simp[no_shmemop_def] >>
-    drule comp_no_shmemop >> disch_then irule >>
+    Q.ISPECL_THEN [`ac`,`perf`,`p`,`bs`]
+      (fn th => drule th >> disch_then irule) comp_no_shmemop >>
     metis_tac[FST_EQ_EQUIV]
   ) >>
   last_x_assum irule >>
@@ -12367,15 +12362,14 @@ Proof
 QED
 
 Theorem compile_no_shmemop:
-  compile (cf:asm_config) F (prog:(num # num # 'a wordLang$prog) list) = (bs,fs,ns,prog') /\
+  compile (cf:asm_config) F (prog:(num # num # wordLang$prog) list) = (bs,fs,ns,prog') /\
   EVERY (\(n,m,pp). no_share_inst pp) prog ==>
   EVERY (\(a,p). no_shmemop p) prog'
 Proof
   rw[compile_def] >>
   pairarg_tac >>
   gvs[] >>
-  drule compile_word_to_stack_no_share_inst>>
-  disch_then drule>>simp[]>>
+  drule_all compile_word_to_stack_no_share_inst >> strip_tac >>
   simp[no_shmemop_def,
     raise_stub_F,store_consts_stub_def]
 QED
@@ -12383,7 +12377,7 @@ QED
 Theorem word_to_stack_compile_no_install:
   ALL_DISTINCT (MAP FST prog) ∧
   no_install_code (fromAList prog) ∧
-  word_to_stack$compile (ac:asm_config) F (prog:(num # num # 'a wordLang$prog) list) = (bm, c, fs, p) ⇒
+  word_to_stack$compile (ac:asm_config) F (prog:(num # num # wordLang$prog) list) = (bm, c, fs, p) ⇒
   EVERY (λ(n,x). no_install x) p
 Proof
   strip_tac>>

@@ -213,17 +213,17 @@ Definition code_subset_def:
 End
 
 Definition code_rel_def:
-  code_rel cs code <=>
+  code_rel bits cs code <=>
     !prog n p2.
        ALOOKUP (SND cs) prog = SOME (n,p2) ==>
        ?cs1 l2 i2 cs2.
-         compile n 2 1 cs1 prog = (p2,l2,i2,cs2) /\
+         compile bits n 2 1 cs1 prog = (p2,l2,i2,cs2) /\
          lookup n code = SOME (1n,Seq p2 (Return 0 [0])) /\
          code_subset cs2 cs
 End
 
 Definition div_code_assum_def:
-  div_code_assum (:'ffi) (:'c) code =
+  div_code_assum (:'a) (:'ffi) (:'c) code =
     !(t1:('a,'c,'ffi) wordSem$state) n l i0 i1 i2 i3 i4 w3 w4 w5 ret_val.
       0 < i0 /\ 0 < i1 /\ 0 < i2 /\ 0 < i3 /\ 0 < i4 /\
       ALL_DISTINCT [i0;i1;i2;i3;i4] /\
@@ -260,8 +260,8 @@ Definition state_rel_def:
        a < 25 /\
        FLOOKUP t.store (Temp (n2w a)) = SOME (Word v)) /\
     (* code assumption *)
-    code_rel cs t.code /\
-    div_code_assum (:'ffi) (:'c) t.code /\
+    code_rel (dimindex(:'a)) cs t.code /\
+    div_code_assum (:'a) (:'ffi) (:'c) t.code /\
     t.termdep <> 0 /\
     (* rest same as original *)
     t0.gc_fun = t.gc_fun /\
@@ -381,8 +381,8 @@ Proof
 QED
 
 Theorem compile_IMP_code_subset[local]:
-    !prog n l i cs p1 l1 i1 cs1.
-      compile n l i cs prog = (p1,l1,i1,cs1) ==> code_subset cs cs1 /\ i <= i1
+    !prog bits n l i cs p1 l1 i1 cs1.
+      compile bits n l i cs prog = (p1,l1,i1,cs1) ==> code_subset cs cs1 /\ i <= i1
 Proof
   Induct
   \\ TRY (fs [compile_def,code_subset_refl] \\ NO_TAC)
@@ -402,10 +402,10 @@ Proof
 QED
 
 Theorem has_compiled_lemma[local]:
-    state_rel s1 t1 cs2 t0 frame ∧
+    state_rel s1 (t1:('a,'c,'ffi) wordSem$state) cs2 t0 frame ∧
     has_compiled p cs = INL x /\ code_subset cs cs2 ==>
     ?cs0 p1 l1 i1 cs' cs1.
-      compile x 2 1 cs' p = (p1,l1,i1,cs1) /\ code_subset cs1 cs2 /\
+      compile (dimindex(:'a)) x 2 1 cs' p = (p1,l1,i1,cs1) /\ code_subset cs1 cs2 /\
       lookup x t1.code = SOME (1,Seq p1 (Return 0 [0]))
 Proof
   Cases_on `cs`
@@ -695,12 +695,12 @@ Theorem compile_thm:
    !rec s1 prog s2.
       Eval rec s1 prog s2 ==>
       !n l i cs p1 l1 i1 cs1 cs2 t1 (ret_val:'a word_loc) p9.
-        compile n l i cs prog = (p1,l1,i1,cs1) /\
+        compile (dimindex(:'a)) n l i cs prog = (p1,l1,i1,cs1) /\
         state_rel s1 t1 cs2 t0 frame /\ 0 < i /\
         syntax_ok prog /\ code_subset cs1 cs2 /\
         (!body. rec = SOME body ==>
                 ?l i cs p1 l1 i1 cs1.
-                  compile n l i cs body = (p1,l1,i1,cs1) /\
+                  compile (dimindex(:'a)) n l i cs body = (p1,l1,i1,cs1) /\
                   0 < i ∧ syntax_ok_aux body ∧ code_subset cs1 cs2 /\
                   lookup n t1.code = SOME (1,Seq p1 (Return 0 [0]))) /\
         (!body. prog = LoopBody body ==>
@@ -974,7 +974,7 @@ Proof
     \\ once_rewrite_tac [evaluate_SeqTemp] \\ fs [set_var_def]
     \\ fs [evaluate_def,inst_def,get_vars_def,get_var_def,lookup_insert,
            set_var_def,word_exp_def,set_store_def,single_div_pre_def]
-    \\ `div_code_assum (:'d) (:'c) t1.code` by fs [state_rel_def]
+    \\ `div_code_assum (:'a) (:'d) (:'c) t1.code` by fs [state_rel_def]
     \\ pop_assum mp_tac
     \\ fs [div_code_assum_def]
     \\ disch_then (qspecl_then [`t1`,`n`,`l`,`i+0`,`i+1`,`i+2`,`i+3`,`i+4`,
@@ -1262,16 +1262,16 @@ Proof
 QED
 
 Definition good_code_def:
-  good_code cs3 =
+  good_code bits cs3 =
     !prog n p2.
       MEM (prog,n,p2) (SND cs3) ==>
       ∃cs1 l2' i2 cs2.
-        compile n 2 1 cs1 prog = (p2,l2',i2,cs2) ∧ code_subset cs2 cs3
+        compile bits n 2 1 cs1 prog = (p2,l2',i2,cs2) ∧ code_subset cs2 cs3
 End
 
 Theorem compile_LESS_mini_size[local]:
-    !k l1 l2 yy5 code xx1 xx2 xx3 xx5.
-      compile k l1 l2 yy5 code = (xx1,xx2,xx3,xx5) ==>
+    !bits k l1 l2 yy5 code xx1 xx2 xx3 xx5.
+      compile bits k l1 l2 yy5 code = (xx1,xx2,xx3,xx5) ==>
       !x. MEM x (SND xx5) /\ ~MEM x (SND yy5) ==>
           mini_size (FST x) < mini_size code
 Proof
@@ -1291,10 +1291,10 @@ Proof
 QED
 
 Theorem MEM_compile[local]:
-    !k l1 l2 yy5 code xx1 xx2 xx3 xx5.
-      good_code yy5 /\
-      compile k l1 l2 yy5 code = (xx1,xx2,xx3,xx5) ==>
-      good_code xx5
+    !bits k l1 l2 yy5 code xx1 xx2 xx3 xx5.
+      good_code bits yy5 /\
+      compile bits k l1 l2 yy5 code = (xx1,xx2,xx3,xx5) ==>
+      good_code bits xx5
 Proof
   HO_MATCH_MP_TAC compile_ind \\ reverse (rpt strip_tac)
   \\ TRY (fs [compile_def] \\ rfs [] \\ NO_TAC)
@@ -1314,10 +1314,10 @@ Proof
   \\ Cases_on `yy5`
   \\ fs [has_compiled_def]
   \\ every_case_tac \\ fs [] \\ rveq
-  \\ `good_code (code_acc_next (q,r))` by
+  \\ `good_code bits (code_acc_next (q,r))` by
     (fs [code_acc_next_def,good_code_def,
          code_subset_def,FORALL_PROD,EXISTS_PROD] \\ NO_TAC) \\ fs []
-  \\ qpat_x_assum `good_code cs'` mp_tac
+  \\ qpat_x_assum `good_code bits cs'` mp_tac
   \\ simp [good_code_def]
   \\ Cases_on `cs'`
   \\ `ALOOKUP r' code = NONE` by
@@ -1338,7 +1338,7 @@ QED
 
 Theorem compile_NIL_IMP =
   MEM_compile
-  |> Q.SPECL [`k`,`l1`,`l2`,`(l,[])`]
+  |> Q.SPECL [`bits`,`k`,`l1`,`l2`,`(l,[])`]
   |> SIMP_RULE std_ss [good_code_def,MEM]
 
 

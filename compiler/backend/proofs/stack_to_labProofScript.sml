@@ -25,7 +25,7 @@ val get_reg_value_def = targetSemTheory.get_reg_value_def;
 
 (* val _ = set_prover (fn (tm,_) => mk_thm([],tm)); remove *)
 
-Overload Loc = “wordLang$Loc”
+Overload Loc = “wordSem$Loc”
 
 (* TODO: move *)
 
@@ -3806,7 +3806,7 @@ Theorem IMP_init_state_ok:
   (∀n.
     (λ((bm0,cfg),progs).
      EVERY
-       (post_alloc_conventions kkk ∘ SND ∘ SND) progs ∧
+       (post_alloc_conventions (isa_bits ac) kkk ∘ SND ∘ SND) progs ∧
      EVERY (flat_exp_conventions ∘ SND ∘ SND) progs ∧
      EVERY ((λy. raise_stub_location ≠ y) ∘ FST) progs ∧
      EVERY ((λy. store_consts_stub_location ≠ y) ∘ FST) progs ∧
@@ -3847,7 +3847,8 @@ Proof
   fs[data_to_word_gcProofTheory.gc_fun_ok_word_gc_fun] >>
   qhdtm_x_assum `make_init_opt` mp_tac>>
   simp[stack_removeProofTheory.make_init_opt_def]>>
-  every_case_tac>>fs[stack_removeProofTheory.init_reduce_def]>>rw[]>>fs[]
+  every_case_tac>>fs[stack_removeProofTheory.init_reduce_def]>>rw[]>>fs[] >>
+  first_x_assum (qspec_then `n` mp_tac) >> pairarg_tac >> gvs []
 QED
 
 Theorem full_make_init_has_fp_ops[simp]:
