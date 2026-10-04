@@ -60,15 +60,22 @@ cml_install implementing this; the whole C file has also been cleaned up. This
 is NOT backwards compatible. On the flip side, the REPL now runs on ARM8 + Mac
 combinations which have W^X permissions.
 
+The exported assembly marks the stack as non-executable on ELF platforms, so
+`cake` and the programs it compiles no longer get an executable stack from the
+linker (#1517).
+
 ## Pancake
 
 Queryable feature tags (#1470).
+
+The initial version of the decompiler-into-itree of Pancake---DecompIt (#1492).
 
 ## Candle
 
 ## Examples
 
 The PB checker has been reorganized with minor fixes, and also supports solutions cubes (#1496).
+Its backing representation and corresponding algorithms have been optimized heavily (#1528).
 
 The CNF checker(s) have various improvements, especially the RUP algorithm has been updated. Additionally, there is now a centralized and cleaned up basis FFI C file for the checkers (#1495).
 
