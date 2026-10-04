@@ -37,7 +37,7 @@ sig
                      term -> term -> term -> (* Dtabbrev args *)
                      ml_prog_state -> ml_prog_state
 
-  val add_Dlet     : thm (* evaluate thm *) ->
+  val add_Dlet     : thm (* eval_rel thm; expression must pass EVAL no_ptr_eq *) ->
                      string (* var name *) ->
                      ml_prog_state -> ml_prog_state
 
@@ -57,7 +57,7 @@ sig
                      string list (* names of v consts *) ->
                      ml_prog_state -> ml_prog_state
 
-  val add_dec      : term (* dec *) ->
+  val add_dec      : term (* dec; general Dlet (Pvar _) uses EVAL no_ptr_eq *) ->
                      (string -> string) (* pick name for v abbrev const *) ->
                      ml_prog_state -> ml_prog_state
 

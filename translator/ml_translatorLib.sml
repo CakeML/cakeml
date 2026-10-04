@@ -5116,9 +5116,7 @@ fun declare_new_ref name tm = let
                  |> ml_progLib.clean_state
                  |> ml_progLib.get_thm
   val state_tm = ml_thm |> concl |> rand
-  val env_tm = MATCH_MP ML_code_Dlet_var ml_thm
-    |> REWRITE_RULE [ML_code_env_def]
-    |> SPEC_ALL |> concl |> rand |> rator |> rand |> rand
+  val env_tm = get_env (get_ml_prog_state ())
   val env_var = init_val_th |> concl |> rator |> rator |> rand
   val init_val_th1 = INST [env_var|->env_tm] init_val_th |> D |> clean_assumptions
   val _ = MP (D init_val_th1) TRUTH handle HOL_ERR _ =>

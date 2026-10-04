@@ -329,6 +329,7 @@ QED
 Definition Decls_def:
   Decls env s1 ds env2 s2 <=>
     s1.clock = s2.clock /\
+    s1.ptr_eq_oracle = s2.ptr_eq_oracle /\
     ?ck1 ck2. evaluate_dec_list (s1 with clock := ck1) env ds =
                                 (s2 with clock := ck2, Rval env2)
 End
@@ -336,6 +337,7 @@ End
 Definition Prog_def:
   Prog env s1 ds env2 s2 <=>
     s1.clock = s2.clock /\
+    s1.ptr_eq_oracle = s2.ptr_eq_oracle /\
     ?ck1 ck2. evaluate_decs (s1 with clock := ck1) env ds =
                             (s2 with clock := ck2, Rval env2)
 End
@@ -412,11 +414,34 @@ Definition eval_match_rel_def:
                 (s2 with clock := ck2,Rval [x])
 End
 
+Theorem eval_rel_no_ptr_eq_preserves_oracle:
+  no_ptr_eq e ∧ eval_rel s1 env e s2 x ⇒
+  s1.ptr_eq_oracle = s2.ptr_eq_oracle
+Proof
+  rw [eval_rel_def]
+  \\ imp_res_tac evaluate_no_ptr_eq_preserves_oracle
+  \\ gvs []
+QED
+
+Theorem eval_rel_no_ptr_eq:
+  no_ptr_eq e ∧ evaluate s env [e] = (s',Rval [x]) ⇒
+  eval_rel s env e (s' with clock := s.clock) x ∧
+  s.ptr_eq_oracle = (s' with clock := s.clock).ptr_eq_oracle
+Proof
+  rw [eval_rel_def]
+  \\ imp_res_tac evaluate_no_ptr_eq_preserves_oracle
+  \\ gvs []
+  \\ qexists_tac `s.clock` \\ qexists_tac `s'.clock`
+  \\ simp [state_component_equality]
+QED
+
 (* Delays the write *)
 Theorem Decls_Dlet:
    !env s1 v e s2 env2 locs.
       Decls env s1 [Dlet locs (Pvar v) e] env2 s2 <=>
-      ?x. eval_rel s1 env e s2 x /\ (env2 = write v x empty_env)
+      ?x. eval_rel s1 env e s2 x /\
+          s1.ptr_eq_oracle = s2.ptr_eq_oracle /\
+          (env2 = write v x empty_env)
 Proof
   simp [Decls_def,evaluate_dec_list_def,eval_rel_def]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs [bool_case_eq]
@@ -515,36 +540,22 @@ Proof
   \\ rw [] \\ eq_tac \\ rw []
 QED
 
+(* Oracle preservation composes. Preservation by a whole declaration list
+   alone does not imply preservation by each part for an arbitrary oracle. *)
 Theorem Decls_CONS:
-   !s1 s3 env1 d ds1 ds2 env3.
-      Decls env1 s1 (d::ds2) env3 s3 =
-      ?envA envB s2.
+   !s1 s3 env1 d ds2 env3.
+      (?envA envB s2.
          Decls env1 s1 [d] envA s2 /\
          Decls (merge_env envA env1) s2 ds2 envB s3 /\
-         env3 = merge_env envB envA
+         env3 = merge_env envB envA) ==>
+      Decls env1 s1 (d::ds2) env3 s3
 Proof
-  rw[Decls_def,PULL_EXISTS,evaluate_dec_list_def]
-  \\ reverse (rw[EQ_IMP_THM]) \\ fs []
-  THEN1
-   (once_rewrite_tac [evaluate_dec_list_cons]
-    \\ imp_res_tac evaluate_dec_list_add_to_clock \\ fs []
-    \\ first_x_assum (qspec_then `ck1'` assume_tac)
-    \\ qexists_tac `ck1+ck1'` \\ fs []
-    \\ fs [merge_env_def,extend_dec_env_def,combine_dec_result_def]
-    \\ fs [state_component_equality])
-  \\ pop_assum mp_tac
+  rw [Decls_def,PULL_EXISTS]
   \\ once_rewrite_tac [evaluate_dec_list_cons]
-  \\ fs [pair_case_eq,result_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
-  \\ gvs [evaluate_dec_list_def]
-  \\ Cases_on `r` \\ fs [combine_dec_result_def]
-  \\ rveq \\ fs []
-  \\ qexists_tac `env1'` \\ fs []
-  \\ qexists_tac `a` \\ fs []
-  \\ qexists_tac `s1' with clock := s3.clock` \\ fs [merge_env_def]
-  \\ qexists_tac `ck1` \\ fs [state_component_equality]
-  \\ qexists_tac `s1'.clock` \\ fs [state_component_equality]
-  \\ `(s1' with clock := s1'.clock) = s1'` by fs [state_component_equality]
-  \\ fs [extend_dec_env_def]
+  \\ imp_res_tac evaluate_dec_list_add_to_clock \\ fs []
+  \\ first_x_assum (qspec_then `ck1'` assume_tac)
+  \\ qexists_tac `ck1+ck1'` \\ fs []
+  \\ fs [merge_env_def,extend_dec_env_def,combine_dec_result_def]
   \\ fs [state_component_equality]
 QED
 
@@ -563,24 +574,28 @@ QED
 
 Theorem Decls_APPEND:
    !s1 s3 env1 ds1 ds2 env3.
-      Decls env1 s1 (ds1 ++ ds2) env3 s3 =
-      ?envA envB s2.
+      (?envA envB s2.
          Decls env1 s1 ds1 envA s2 /\
          Decls (merge_env envA env1) s2 ds2 envB s3 /\
-         env3 = merge_env envB envA
+         env3 = merge_env envB envA) ==>
+      Decls env1 s1 (ds1 ++ ds2) env3 s3
 Proof
-  Induct_on `ds1` \\ fs [APPEND,Decls_NIL,merge_env_empty_env]
-  \\ once_rewrite_tac [Decls_CONS]
-  \\ fs [PULL_EXISTS,merge_env_assoc] \\ metis_tac []
+  rw [Decls_def,PULL_EXISTS]
+  \\ once_rewrite_tac [evaluate_dec_list_append]
+  \\ imp_res_tac evaluate_dec_list_add_to_clock \\ fs []
+  \\ first_x_assum (qspec_then `ck1'` assume_tac)
+  \\ qexists_tac `ck1+ck1'` \\ fs []
+  \\ fs [merge_env_def,extend_dec_env_def,combine_dec_result_def]
+  \\ fs [state_component_equality]
 QED
 
 Theorem Decls_SNOC:
    !s1 s3 env1 ds1 d env3.
-      Decls env1 s1 (SNOC d ds1) env3 s3 =
-      ?envA envB s2.
+      (?envA envB s2.
          Decls env1 s1 ds1 envA s2 /\
          Decls (merge_env envA env1) s2 [d] envB s3 /\
-         env3 = merge_env envB envA
+         env3 = merge_env envB envA) ==>
+      Decls env1 s1 (SNOC d ds1) env3 s3
 Proof
   METIS_TAC [SNOC_APPEND, Decls_APPEND]
 QED
@@ -694,7 +709,8 @@ Theorem ML_code_close_module:
             env2) :: bls) st2
 Proof
   rw [ML_code_def, ML_code_env_def]
-  \\ fs [SNOC_APPEND,Decls_APPEND]
+  \\ fs [SNOC_APPEND]
+  \\ irule Decls_APPEND
   \\ asm_exists_tac \\ fs [Decls_Dmod,PULL_EXISTS]
   \\ asm_exists_tac
   \\ fs [write_mod_def,merge_env_def,empty_env_def]
@@ -709,7 +725,8 @@ Theorem ML_code_close_local:
             env2) :: bls) st2
 Proof
   rw [ML_code_def, ML_code_env_def]
-  \\ fs [SNOC_APPEND,Decls_APPEND] \\ metis_tac [Decls_Dlocal]
+  \\ fs [SNOC_APPEND]
+  \\ irule Decls_APPEND \\ metis_tac [Decls_Dlocal]
 QED
 
 (* appending a Dtype *)
@@ -722,8 +739,10 @@ Theorem ML_code_Dtype:
      let env3 = write_tdefs nts tds env2 in
      ML_code inp_env ((comm, s1, SNOC (Dtype locs tds) prog, env3) :: bls) s3
 Proof
-  fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Decls_Dtype,merge_env_empty_env]
-  \\ rw [] \\ rpt (asm_exists_tac \\ fs [])
+  fs [ML_code_def,SNOC_APPEND,Decls_Dtype,merge_env_empty_env]
+  \\ rw [] \\ irule Decls_APPEND
+  \\ simp [Decls_Dtype,merge_env_empty_env]
+  \\ rpt (asm_exists_tac \\ fs [])
   \\ fs [merge_env_write_tdefs] \\ AP_TERM_TAC
   \\ fs [merge_env_def,empty_env_def,sem_env_component_equality]
 QED
@@ -737,8 +756,10 @@ Theorem ML_code_Dexn:
      let env3 = write_cons n (LENGTH l,ExnStamp nes) env2 in
      ML_code inp_env ((comm, s1, SNOC (Dexn locs n l) prog, env3) :: bls) s3
 Proof
-  fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Decls_Dexn,merge_env_empty_env]
-  \\ rw [] \\ rpt (asm_exists_tac \\ fs [])
+  fs [ML_code_def,SNOC_APPEND,Decls_Dexn,merge_env_empty_env]
+  \\ rw [] \\ irule Decls_APPEND
+  \\ simp [Decls_Dexn,merge_env_empty_env]
+  \\ rpt (asm_exists_tac \\ fs [])
   \\ fs [write_cons_def,merge_env_def,empty_env_def,sem_env_component_equality]
 QED
 
@@ -749,7 +770,10 @@ Theorem ML_code_Dtabbrev:
      ML_code inp_env ((comm, s1, SNOC (Dtabbrev locs x y z) prog, env2) :: bls)
        s2
 Proof
-  fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Decls_Dtabbrev,merge_env_empty_env]
+  fs [ML_code_def,SNOC_APPEND,Decls_Dtabbrev,merge_env_empty_env]
+  \\ rw [] \\ irule Decls_APPEND
+  \\ simp [Decls_Dtabbrev,merge_env_empty_env]
+  \\ rpt (asm_exists_tac \\ fs [])
 QED
 
 (* appending a Letrec *)
@@ -770,8 +794,10 @@ Theorem ML_code_Dletrec:
       let env3 = write_rec fns code_env env2 in
       ML_code env0 ((comm, s1, SNOC (Dletrec locs fns) prog, env3) :: bls) s2
 Proof
-  fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Decls_Dletrec,ML_code_env_def]
-  \\ rw [] \\ asm_exists_tac
+  fs [ML_code_def,SNOC_APPEND,Decls_Dletrec,ML_code_env_def]
+  \\ rw [] \\ irule Decls_APPEND
+  \\ simp [Decls_Dletrec]
+  \\ asm_exists_tac
   \\ fs [merge_env_def,write_rec_thm,empty_env_def,sem_env_component_equality]
   \\ fs [build_rec_env_APPEND]
 QED
@@ -781,13 +807,16 @@ QED
 Theorem ML_code_Dlet_var:
   ∀cenv e s3 x n locs. ML_code env0 ((comm, s1, prog, env1) :: bls) s2 ==>
     eval_rel s2 cenv e s3 x ==>
+    s2.ptr_eq_oracle = s3.ptr_eq_oracle ==>
     cenv = ML_code_env env0 ((comm, s1, prog, env1) :: bls) ==>
     let env2 = write n x env1 in let s3_abbrev = s3 in
     ML_code env0 ((comm, s1, SNOC (Dlet locs (Pvar n) e) prog, env2)
         :: bls) s3_abbrev
 Proof
-  fs [ML_code_def,ML_code_env_def,SNOC_APPEND,Decls_APPEND,Decls_Dlet]
-  \\ rw [] \\ asm_exists_tac \\ fs [PULL_EXISTS]
+  fs [ML_code_def,ML_code_env_def,SNOC_APPEND,Decls_Dlet]
+  \\ rw [] \\ irule Decls_APPEND
+  \\ simp [Decls_Dlet]
+  \\ asm_exists_tac \\ fs [PULL_EXISTS]
   \\ fs [write_def,merge_env_def,empty_env_def,sem_env_component_equality]
 QED
 
@@ -825,7 +854,7 @@ Theorem ML_code_Dlet_Var_Var:
 Proof
   rw []
   \\ irule (SIMP_RULE std_ss [LET_THM] ML_code_Dlet_var) \\ fs []
-  \\ first_x_assum $ irule_at $ Pos hd
+  \\ qexists_tac `s2`
   \\ fs [eval_rel_def,evaluate_def,state_component_equality]
 QED
 
@@ -842,7 +871,7 @@ Theorem ML_code_Dlet_Var_Ref_Var:
 Proof
   rw []
   \\ irule (SIMP_RULE std_ss [LET_THM] ML_code_Dlet_var) \\ fs []
-  \\ first_x_assum $ irule_at $ Pos hd
+  \\ qexists_tac `s2`
   \\ fs [eval_rel_def,evaluate_def,state_component_equality,AllCaseEqs(),
          do_app_def,store_alloc_def, getOpClass_def]
 QED
@@ -867,8 +896,9 @@ Theorem ML_code_Denv:
     in
     ML_code env0 ((comm,s1,SNOC (Denv n) prog,env2)::bls) s3_abbrev
 Proof
-  rw[ML_code_def, SNOC_APPEND, Decls_APPEND, Decls_Denv,
+  rw[ML_code_def, SNOC_APPEND, Decls_Denv,
      declare_env_rel_def, ML_code_env_def]
+  \\ irule Decls_APPEND \\ simp [Decls_Denv]
   \\ first_assum $ irule_at Any
   \\ first_assum $ irule_at Any
   \\ rw[write_def, merge_env_def, empty_env_def,

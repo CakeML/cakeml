@@ -31,6 +31,9 @@ with the semantic environment resulting from evaluation of the program.
 Definitions and theorems supporting ml_progLib, which constructs a
 CakeML program and its semantic environment.
 
+[ml_prog_testScript.sml](ml_prog_testScript.sml):
+Tests for constructing declarations from oracle-independent expressions.
+
 [ml_translatorLib.sml](ml_translatorLib.sml):
 The HOL to CakeML translator itself.
 The main entry point is the translate function.
