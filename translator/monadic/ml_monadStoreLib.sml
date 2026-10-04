@@ -253,8 +253,7 @@ fun derive_eval_thm_ALLOCATE_EMPTY_ARRAY name v_name value_def = let
     val th = SIMP_RULE pure_ss [res_pair_eq,res_pair2_eq] th
 
     (* Abbreviate the array location *)
-    val array_loc = concl th |> rator |> rand |> rand |> rator
-                    |> rand |> rand |> rand |> listSyntax.dest_cons |> fst
+    val array_loc = EVAL ``Loc T (LENGTH ^s.refs)`` |> concl |> rhs
     val array_loc_def = define_abbrev false array_loc_name array_loc
     val th = PURE_REWRITE_RULE [GSYM array_loc_def] th
 
@@ -744,9 +743,15 @@ in
 
       val solve_first_ref_subheap_tac =
         check_ref
-        \\ CONV_TAC ((RAND_CONV o RAND_CONV) (PURE_ONCE_REWRITE_CONV[append_empty]))
-        \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
-        \\ irule eliminate_substore_thm
+        (* Evaluation can expose the allocated cell directly. *)
+        \\ (fn (g as (_,w)) =>
+          if listSyntax.is_cons (rand (rand w)) then
+            CONV_TAC ((RAND_CONV o RAND_CONV) (REWR_CONV CONS_APPEND)) g
+          else
+            (CONV_TAC ((RAND_CONV o RAND_CONV)
+               (PURE_ONCE_REWRITE_CONV[append_empty]))
+             \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
+             \\ irule eliminate_substore_thm) g)
         \\ TRY(irule store2heap_aux_decompose_store1 \\ rpt conj_tac)
         >-(
           REPEAT (irule H_STAR_GC_SAT_IMP)
@@ -769,7 +774,9 @@ in
       val solve_first_farray_subheap_tac =
         check_farray
         \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, APPEND]
-        \\ irule eliminate_substore_thm
+        \\ (fn (g as (_,w)) =>
+          if listSyntax.is_cons (rand (rand w)) then ALL_TAC g
+          else irule eliminate_substore_thm g)
         \\ TRY(irule store2heap_aux_decompose_store2 \\ rpt conj_tac)
         >-(
           REPEAT (irule H_STAR_GC_SAT_IMP)
