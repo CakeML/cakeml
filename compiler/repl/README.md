@@ -10,6 +10,9 @@ Identities remain parameters; signatures come from the registered module.
 Translates the CakeML source AST types into an Ast module, with generated
 pretty-printers, so that they are part of the REPL's initial environment.
 
+[compiler64ReplProofScript.sml](compiler64ReplProofScript.sml):
+Verification of the function (called repl) that implements the REPL
+
 [evaluate_initScript.sml](evaluate_initScript.sml):
 Lemma used in repl_typesTheory: that evaluate_skip's invariant
 holds at initialisation.

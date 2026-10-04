@@ -40,7 +40,7 @@ Datatype:
     (* target next-state function etc. *)
     ; target : ('a,'b,'c) target
     (* ffi_index -> byte_size, address, register to be updated/ stored, new pc value *)
-    ; mmio_info : (num # (word8 # 'a addr # num # 'a word)) list
+    ; mmio_info : (num # (word8 # addr # num # 'a word)) list
     |>
 End
 
@@ -74,7 +74,7 @@ Definition read_ffi_bytearrays_def:
 End
 
 Definition is_valid_mapped_read_def:
-  is_valid_mapped_read pc (nb: word8) (ad: 'a addr) r pc' t ms md =
+  is_valid_mapped_read pc (nb: word8) (ad: addr) r pc' t ms md =
     if nb = 1w
     then
       (bytes_in_memory pc (t.config.encode (Inst (Mem Load8 r ad)))
@@ -95,7 +95,7 @@ Definition is_valid_mapped_read_def:
 End
 
 Definition is_valid_mapped_write_def:
-  is_valid_mapped_write pc (nb:word8) (ad: 'a addr) r pc' t ms md =
+  is_valid_mapped_write pc (nb:word8) (ad: addr) r pc' t ms md =
     if nb = 1w
     then
         (bytes_in_memory pc (t.config.encode (Inst (Mem Store8 r ad)))
@@ -159,7 +159,7 @@ Definition evaluate_def:
                          | MappedRead =>
                              (case a of
                               | Addr r off =>
-                                  let ad = mc.target.get_reg ms r + off in
+                                  let ad = mc.target.get_reg ms r + i2w off in
                                     (if (if nb = 0w
                                          then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
                                         (ad IN mc.shared_addresses) ∧
@@ -180,7 +180,7 @@ Definition evaluate_def:
                          | MappedWrite =>
                              (case a of
                               | Addr r off =>
-                                  let ad = (mc.target.get_reg ms r) + off in
+                                  let ad = (mc.target.get_reg ms r) + i2w off in
                                     (if (if nb = 0w
                                          then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
                                         (ad IN mc.shared_addresses) ∧
@@ -514,7 +514,7 @@ Definition installed_def:
        DROP i (MAP w2n mc_conf.ffi_entry_pcs) /\
      mc_conf.mmio_info = ZIP (GENLIST (λindex. index + i) (LENGTH shmem_extra),
                               (MAP (\rec. (rec.nbytes,
-                                   Addr rec.addr_reg (n2w rec.addr_off), rec.reg,
+                                   Addr rec.addr_reg rec.addr_off, rec.reg,
                                    n2w rec.exit_pc + mc_conf.target.get_pc ms))
                                    shmem_extra)) /\
     cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a))

@@ -22,14 +22,6 @@ Self-checking source/direct-AST REPL boundary test. The callback and payloads
 capture the original references and constructors before namespace shadowing.
 Only the terminal callback prints the PASS marker; reaching EOF is not enough.
 
-[sexprBootstrap32Script.sml](sexprBootstrap32Script.sml):
-Produces an sexp print-out of the bootstrap translated compiler
-definition for the 32-bit version of the compiler.
-
-[sexprBootstrap64Script.sml](sexprBootstrap64Script.sml):
-Produces an sexp print-out of the bootstrap translated compiler
-definition for the 64-bit version of the compiler.
-
 [test-hello.cml](test-hello.cml):
 A hello world program used for testing that the bootstrapped
 compiler was built successfully.

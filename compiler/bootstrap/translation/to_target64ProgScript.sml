@@ -76,7 +76,7 @@ val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
 
 val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
 
-val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``,``foo:'a stackLang$prog``]
+val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo:reg_imm``,``foo:arith``,``foo:addr``,``foo:stackLang$prog``]
 
 val _ = inst_tyargs := [alpha]
 
@@ -109,6 +109,15 @@ val _ = translate (wInst_def |> conv64)
 
 val _ = translate (perf_call_prefix_def |> conv64)
 val _ = translate (perf_call_suffix_def |> conv64)
+
+val _ = translate (num_stack_ret_def |> INST_TYPE [alpha|->``:num``])
+val _ = translate (skip_free_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
+val _ = translate (copy_ret_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
+val _ = translate (stack_arg_count_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
+val _ = translate (StackArgs_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
+val _ = translate (StackHandlerArgs_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
+val _ = translate (PushHandler_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
+val _ = translate (PopHandler_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
 
 val _ = translate (spec64 comp_def)
 
@@ -156,7 +165,8 @@ val _ = translate (stack_allocTheory.word_gen_gc_partial_move_roots_bitmaps_code
 val _ = translate (stack_allocTheory.word_gen_gc_partial_move_list_code_def |> inline_simp |> conv64);
 val _ = translate (stack_allocTheory.word_gen_gc_partial_move_ref_list_code_def |> inline_simp |> conv64);
 val _ = translate (stack_allocTheory.word_gen_gc_partial_move_data_code_def |> inline_simp |> conv64);
-val r = translate (stack_allocTheory.word_gc_partial_or_full_def |> inline_simp |> conv64);
+val r = translate (stack_allocTheory.word_gc_partial_or_full_def |> INST_TYPE [alpha|->``:num``]);
+
 val r = translate (stack_allocTheory.word_gc_code_def |> inline_simp |> conv64);
 
 val _ = translate (spec64 stubs_def);
@@ -221,10 +231,10 @@ val _ = translate (compile_def |> INST_TYPE [beta |-> ``:64``])
 
 open stack_to_labTheory;
 
-val _ = matches := [``foo:'a labLang$prog``,``foo:'a
-  labLang$sec``,``foo:'a labLang$line``,``foo:'a
-  labLang$asm_with_lab``,``foo:'a labLang$line list``,``foo:'a
-  inst``,``foo:'a asm_config``] @ (!matches)
+val _ = matches := [``foo:labLang$prog``,``foo:labLang$sec``,
+  ``foo:labLang$line``,``foo:labLang$asm_with_lab``,
+  ``foo:labLang$line list``,
+  ``foo:inst``,``foo:asm_config``] @ (!matches)
 
 val _ = translate (flatten_def |> spec64)
 

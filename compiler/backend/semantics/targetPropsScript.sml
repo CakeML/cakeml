@@ -150,7 +150,7 @@ Definition find_next_interference_def:
                          | MappedRead =>
                              (case a of
                               | Addr r off =>
-                                  let ad = mc.target.get_reg ms r + off in
+                                  let ad = mc.target.get_reg ms r + i2w off in
                                     (if (if nb = 0w
                                          then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
                                         (ad IN mc.shared_addresses) ∧
@@ -171,7 +171,7 @@ Definition find_next_interference_def:
                          | MappedWrite =>
                              (case a of
                               | Addr r off =>
-                                  let ad = (mc.target.get_reg ms r) + off in
+                                  let ad = (mc.target.get_reg ms r) + i2w off in
                                     (if (if nb = 0w
                                          then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
                                         (ad IN mc.shared_addresses) ∧
@@ -686,12 +686,12 @@ Theorem next_interference_MappedRead:
   EL index mc.ffi_names = SharedMem MappedRead ∧
   ALOOKUP mc.mmio_info index = SOME (nb,Addr r off,reg,pc') ∧
   (nb = 0w ⇒
-   w2n (mc.target.get_reg ms r + off) MOD (dimindex (:'b) DIV 8) = 0) ∧
-  mc.target.get_reg ms r + off ∈ mc.shared_addresses ∧
+   w2n (mc.target.get_reg ms r + i2w off) MOD (dimindex (:'b) DIV 8) = 0) ∧
+  mc.target.get_reg ms r + i2w off ∈ mc.shared_addresses ∧
   is_valid_mapped_read (mc.target.get_pc ms) nb (Addr r off) reg pc'
     mc.target ms mc.prog_addresses ∧
   call_FFI ffi (EL index mc.ffi_names) [nb]
-    (word_to_bytes (mc.target.get_reg ms r + off) F) =
+    (word_to_bytes (mc.target.get_reg ms r + i2w off) F) =
     FFI_return new_ffi new_bytes ⇒
   next_interference (mc:('b,'a,'c) machine_config) ffi ms =
     SOME (FfiApp index new_bytes ms (mc.ffi_interfer 0 (index,new_bytes,ms)),
@@ -713,15 +713,15 @@ Theorem next_interference_MappedWrite:
   EL index mc.ffi_names = SharedMem MappedWrite ∧
   ALOOKUP mc.mmio_info index = SOME (nb,Addr r off,reg,pc') ∧
   (nb = 0w ⇒
-   w2n (mc.target.get_reg ms r + off) MOD (dimindex (:'b) DIV 8) = 0) ∧
-  mc.target.get_reg ms r + off ∈ mc.shared_addresses ∧
+   w2n (mc.target.get_reg ms r + i2w off) MOD (dimindex (:'b) DIV 8) = 0) ∧
+  mc.target.get_reg ms r + i2w off ∈ mc.shared_addresses ∧
   is_valid_mapped_write (mc.target.get_pc ms) nb (Addr r off) reg pc'
     mc.target ms mc.prog_addresses ∧
   call_FFI ffi (EL index mc.ffi_names) [nb]
     ((let w = mc.target.get_reg ms reg in
         if nb = 0w then word_to_bytes w F
         else word_to_bytes_aux (w2n nb) w F) ++
-     word_to_bytes (mc.target.get_reg ms r + off) F) =
+     word_to_bytes (mc.target.get_reg ms r + i2w off) F) =
     FFI_return new_ffi new_bytes ⇒
   next_interference (mc:('b,'a,'c) machine_config) ffi ms =
     SOME (FfiApp index new_bytes ms (mc.ffi_interfer 0 (index,new_bytes,ms)),
@@ -743,13 +743,13 @@ Theorem next_interference_SharedMem:
   EL index mc.ffi_names = SharedMem op ∧
   ALOOKUP mc.mmio_info index = SOME (nb,Addr r off,reg,pc') ∧
   (nb = 0w ⇒
-   w2n (mc.target.get_reg ms r + off) MOD (dimindex (:'b) DIV 8) = 0) ∧
-  mc.target.get_reg ms r + off ∈ mc.shared_addresses ∧
+   w2n (mc.target.get_reg ms r + i2w off) MOD (dimindex (:'b) DIV 8) = 0) ∧
+  mc.target.get_reg ms r + i2w off ∈ mc.shared_addresses ∧
   (op = MappedRead ⇒
      is_valid_mapped_read (mc.target.get_pc ms) nb (Addr r off) reg pc'
        mc.target ms mc.prog_addresses ∧
      call_FFI ffi (EL index mc.ffi_names) [nb]
-       (word_to_bytes (mc.target.get_reg ms r + off) F) =
+       (word_to_bytes (mc.target.get_reg ms r + i2w off) F) =
        FFI_return new_ffi new_bytes) ∧
   (op = MappedWrite ⇒
      is_valid_mapped_write (mc.target.get_pc ms) nb (Addr r off) reg pc'
@@ -758,7 +758,7 @@ Theorem next_interference_SharedMem:
        ((let w = mc.target.get_reg ms reg in
            if nb = 0w then word_to_bytes w F
            else word_to_bytes_aux (w2n nb) w F) ++
-        word_to_bytes (mc.target.get_reg ms r + off) F) =
+        word_to_bytes (mc.target.get_reg ms r + i2w off) F) =
        FFI_return new_ffi new_bytes) ⇒
   next_interference (mc:('b,'a,'c) machine_config) ffi ms =
     SOME (FfiApp index new_bytes ms (mc.ffi_interfer 0 (index,new_bytes,ms)),
