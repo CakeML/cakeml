@@ -13,6 +13,8 @@ Ancestors
   word_bignumProof gen_gc_partial gc_shared word_gcFunctions
   gen_gc[qualified] bvi_to_data[qualified] word_simpProof
 
+val _ = augment_srw_ss [rewrites [CONJUNCT2 data_to_wordTheory.arch_size]];
+
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = temp_delsimps ["DIV_NUMERAL_THM"]
@@ -202,10 +204,10 @@ Theorem get_real_offset_lemma:
     get_real_offset i_w = SOME y ==>
     word_exp t (real_offset c v) = SOME (Word (y:'a word))
 Proof
-  fs [get_real_offset_def] \\ every_case_tac \\ fs []
-  \\ fs [wordSemTheory.get_var_def,real_offset_def] \\ eval_tac \\ fs []
+  fs [get_real_offset_def,shift_def,data_to_wordTheory.arch_size] \\ every_case_tac \\ fs []
+  \\ fs [wordSemTheory.get_var_def,real_offset_def,shift_def,data_to_wordTheory.arch_size] \\ eval_tac \\ fs []
   \\ fs [good_dimindex_def,dimword_def,bytes_in_word_def] \\ rw []
-    \\ fs [wordSemTheory.get_var_def,real_offset_def]
+    \\ fs [wordSemTheory.get_var_def,real_offset_def,shift_def,data_to_wordTheory.arch_size]
 QED
 
 Theorem state_rel_push_env_loc:
@@ -274,7 +276,7 @@ Theorem get_real_byte_offset_lemma:
    arch_width_bits c.arch_width = dimindex (:α) ⇒
    word_exp t (real_byte_offset c v) = SOME (Word (bytes_in_word + (w >>> 1)))
 Proof
-  rw[real_byte_offset_def,wordSemTheory.get_var_def,bytes_in_word_def]
+  rw[real_byte_offset_def,data_to_wordTheory.arch_size,wordSemTheory.get_var_def,bytes_in_word_def]
   \\ eval_tac \\ fs[good_dimindex_def,dimword_def]
 QED
 
@@ -300,7 +302,7 @@ Theorem evaluate_StoreEach = Q.prove(`
       arch_width_bits c.arch_width = dimindex(:'a) ==>
       evaluate (StoreEach c i xs offset, t) = (NONE,t with memory := m1)`,
   Induct
-  \\ fs [store_list_def,StoreEach_def] \\ eval_tac
+  \\ fs [store_list_def,StoreEach_def,data_to_wordTheory.arch_size] \\ eval_tac
   \\ fs [wordSemTheory.state_component_equality,
            wordSemTheory.get_vars_def,store_list_def,
            wordSemTheory.get_var_def]
@@ -9740,7 +9742,7 @@ Proof
           dataLangTheory.op_space_reset_def,
           dataSemTheory.cut_state_opt_def]
   \\ gvs [do_app,AllCaseEqs(),allowed_op_def]
-  \\ fs [assign_def,eq_eval,wordSemTheory.get_store_def,GSYM dimword_def]
+  \\ fs [assign_def,eq_eval,small_shift_length_def,wordSemTheory.get_store_def,GSYM dimword_def]
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ gvs [LENGTH_EQ_NUM_compute]
   \\ imp_res_tac get_vars_IMP_LENGTH
@@ -11709,7 +11711,7 @@ Theorem assign_BoundsCheckByte:
                                (Assign (adjust_var dest) FALSE_CONST)],l)
       | _ => (Skip:wordLang$prog,l)
 Proof
-  fs [assign_def,asmTheory.arch_bytes_def] \\ every_case_tac \\ fs [asmTheory.arch_bytes_def]
+  fs [assign_def,asmTheory.arch_bytes_def,shift_def] \\ every_case_tac \\ fs [asmTheory.arch_bytes_def,shift_def]
 QED
 
 Theorem assign_BoundsCheckByte[allow_rebind]:
@@ -11803,7 +11805,7 @@ Theorem assign_BoundsCheckBit:
                                  (Assign (adjust_var dest) FALSE_CONST)],l)
       | _ => (Skip:wordLang$prog,l)
 Proof
-  fs [assign_def,asmTheory.arch_bytes_def] \\ every_case_tac \\ fs [asmTheory.arch_bytes_def]
+  fs [assign_def,asmTheory.arch_bytes_def,shift_def] \\ every_case_tac \\ fs [asmTheory.arch_bytes_def,shift_def]
 QED
 
 Theorem assign_BoundsCheckBit[allow_rebind]:
@@ -16097,7 +16099,7 @@ Theorem get_real_bit_offset_lemma:
   arch_width_bits c.arch_width = dimindex(:'a) ⇒
   word_exp t (real_bit_offset c v) = SOME (Word (bytes_in_word + (w:'a word) ⋙ 4))
 Proof
-  rw[real_bit_offset_def,wordSemTheory.get_var_def]
+  rw[real_bit_offset_def,data_to_wordTheory.arch_size,wordSemTheory.get_var_def]
   \\ eval_tac \\ fs[good_dimindex_def,dimword_def,bytes_in_word_def]
 QED
 

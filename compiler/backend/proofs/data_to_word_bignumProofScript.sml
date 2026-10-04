@@ -12,6 +12,8 @@ Ancestors
   semanticsProps alignment word_bignum wordLang gen_gc_partial
   gc_shared word_gcFunctions word_depthProof gen_gc[qualified]
 
+val _ = augment_srw_ss [rewrites [data_to_wordTheory.arch_size]];
+
 val _ = temp_delsimps ["NORMEQ_CONV", "fromAList_def", "domain_union",
                        "domain_inter", "domain_difference",
                        "domain_map", "sptree.map_def", "sptree.lookup_rwts",

@@ -115,7 +115,7 @@ Theorem arch_size[simp]:
    arch_bytes aw = arch_width_bits aw DIV 8 /\
    arch_shift aw = word_shift (arch_width_bits aw)
 Proof
-  Cases_on `aw` \\ EVAL_TAC
+  simp [data_to_wordTheory.arch_size]
 QED
 
 Theorem word_offset_eq:

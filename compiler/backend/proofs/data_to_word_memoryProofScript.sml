@@ -9,6 +9,8 @@ Ancestors
 Libs
   preamble helperLib blastLib[qualified]
 
+val _ = augment_srw_ss [rewrites [data_to_wordTheory.arch_size]];
+
 
 val shift_def = backend_commonTheory.word_shift_def;
 val good_dimindex_def = miscTheory.good_dimindex_def;
@@ -18907,13 +18909,10 @@ Proof
   \\ irule byte_aligned_add \\ fs [byte_aligned_bytes_in_word]
 QED
 
-Theorem arch_bytes_i2w[local]:
-arch_width_bits c.arch_width = dimindex(:'a) ==>
- (i2w(&(n * arch_bytes c.arch_width)):'a word) = bytes_in_word * n2w n
+Theorem word_bytes_i2w[local]:
+ (i2w(&(n * (dimindex(:'a) DIV 8))):'a word) = bytes_in_word * n2w n
 Proof
-rw[bytes_in_word_def,i2w_pos,word_mul_n2w] >>
- Cases_on `c.arch_width` >> gvs[asmTheory.arch_width_bits_def,asmTheory.arch_bytes_def] >>
- qpat_x_assum `_ = dimindex(:α)` (assume_tac o SYM) >> fs[]
+ simp[bytes_in_word_def,i2w_pos,word_mul_n2w,MULT_COMM]
 QED
 
 Theorem parts_to_words_add:
@@ -18934,7 +18933,7 @@ Induct >> fs[parts_to_words_def] >>
  disch_then(qspecl_then[`a`,`insert i v m1`] mp_tac) >>
  impl_tac
  >- (fs[lookup_mem_def,lookup_insert] >> rw[] >>
-     simp[GSYM word_i2w_add,arch_bytes_i2w] >>
+     simp[GSYM word_i2w_add,word_bytes_i2w] >>
      irule byte_aligned_add >> fs[byte_align_mult_bytes_in_word]) >>
  strip_tac >> fs[] >>
  `LENGTH (MAP ((Word o i2w o SND):bool#int -> 'a word_loc) vs) =
@@ -18957,14 +18956,14 @@ Proof
  drule_all part_to_words_IMP_build_words >> fs[] >>
  last_x_assum old_drule >> fs[] >>
  impl_tac
- >- (simp[GSYM word_i2w_add,arch_bytes_i2w] >>
+ >- (simp[GSYM word_i2w_add,word_bytes_i2w] >>
      irule byte_aligned_add >> fs[byte_align_mult_bytes_in_word]) >>
  strip_tac >>
  pop_assum (fn th => once_rewrite_tac[GSYM th]) >>
  strip_tac >> rpt(AP_THM_TAC ORELSE AP_TERM_TAC) >>
  rw[FUN_EQ_THM,lookup_mem_def,lookup_insert,APPLY_UPDATE_THM] >>
  rw[FUN_EQ_THM,lookup_mem_def,lookup_insert,APPLY_UPDATE_THM] >>
- simp[GSYM word_i2w_add,arch_bytes_i2w,MAP_MAP_o,o_DEF] >>
+ simp[GSYM word_i2w_add,word_bytes_i2w,MAP_MAP_o,o_DEF] >>
  rpt(AP_THM_TAC ORELSE AP_TERM_TAC) >>
  rw[FUN_EQ_THM,APPLY_UPDATE_THM] >> every_case_tac >> fs[]
 QED

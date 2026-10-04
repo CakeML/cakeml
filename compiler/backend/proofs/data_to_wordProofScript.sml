@@ -13,6 +13,8 @@ Ancestors
 Libs
   preamble helperLib blastLib match_goal
 
+val _ = augment_srw_ss [rewrites [CONJUNCT2 data_to_wordTheory.arch_size]];
+
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -777,7 +779,7 @@ Resume data_compile_correct[Tick]:
 QED
 
 Resume data_compile_correct[MakeSpace]:
-  (fs [comp_def,dataSemTheory.evaluate_def,
+  (fs [comp_def,data_to_wordTheory.arch_size,dataSemTheory.evaluate_def,
         wordSemTheory.evaluate_def,
         GSYM alloc_size_def,alloc_size_i2w,GSYM dimword_def,
         integer_wordTheory.i2w_minus_1,LET_DEF,wordSemTheory.word_exp_def,

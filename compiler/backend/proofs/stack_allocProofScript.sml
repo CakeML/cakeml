@@ -29,6 +29,12 @@ Theorem arch_size[simp]:
    arch_bytes aw = arch_width_bits aw DIV 8 /\
    arch_shift aw = word_shift (arch_width_bits aw)
 Proof
+  simp [data_to_wordTheory.arch_size]
+QED
+
+Theorem arch_byte_mask[local,simp]:
+  &(arch_bytes aw - 1) = (if arch_width_bits aw = 32 then 3 else 7):int
+Proof
   Cases_on `aw` \\ EVAL_TAC
 QED
 

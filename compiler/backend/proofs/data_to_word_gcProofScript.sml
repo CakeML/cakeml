@@ -11,6 +11,8 @@ Ancestors
   word_bignum wordLang word_bignumProof gen_gc_partial gc_shared
   word_gcFunctions gen_gc[qualified]
 
+val _ = augment_srw_ss [rewrites [data_to_wordTheory.arch_size]];
+
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = diminish_srw_ss ["ABBREV"]

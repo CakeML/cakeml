@@ -37,6 +37,13 @@ Datatype:
             ; gc_kind : gc_kind (* GC settings *) |>
 End
 
+Theorem arch_size:
+  arch_bytes aw = arch_width_bits aw DIV 8 /\
+  arch_shift aw = shift (arch_width_bits aw)
+Proof
+  Cases_on `aw` \\ EVAL_TAC
+QED
+
 Definition adjust_var_def:
   adjust_var n = 2 * n + 2:num
 End
@@ -96,7 +103,7 @@ Definition StoreEach_def:
   (StoreEach c v [] offset = Skip) /\
   ((StoreEach c v (x::xs) (offset:num):wordLang$prog) =
      Seq (Store (Op Add [Var v; Const (&offset)]) x)
-         (StoreEach c v xs (offset + (arch_width_bits c.arch_width) DIV 8)))
+         (StoreEach c v xs (offset + arch_bytes c.arch_width)))
 End
 
 Definition small_shift_length_def:
@@ -137,7 +144,7 @@ End
 
 Definition real_addr_def:
   real_addr (conf:data_to_word$config) r =
-    let k = shift (arch_width_bits conf.arch_width) in
+    let k = arch_shift conf.arch_width in
     let l = shift_length conf in
       if k = l ∧ conf.len_bits = 0 ∧ conf.tag_bits = 0 then
         Op Add [Lookup CurrHeap; Op Sub [Var r; Const 1]]
@@ -149,20 +156,19 @@ End
 
 Definition real_offset_def:
   real_offset (conf:data_to_word$config) r =
-     Op Add [Const (& (arch_width_bits conf.arch_width DIV 8));
-             if arch_width_bits conf.arch_width = 32 then ShiftN Lsl (Var r) 1
-                                    else ShiftN Lsl (Var r) 2]
+     Op Add [Const (&(arch_bytes conf.arch_width));
+             ShiftN Lsl (Var r) (arch_shift conf.arch_width - 1)]
 End
 
 Definition real_byte_offset_def:
   real_byte_offset conf r =
-    Op Add [Const (& (arch_width_bits conf.arch_width DIV 8));
+    Op Add [Const (&(arch_bytes conf.arch_width));
             ShiftN Lsr (Var r) 1]
 End
 
 Definition real_bit_offset_def:
   real_bit_offset conf r =
-    Op Add [Const (& (arch_width_bits conf.arch_width DIV 8));
+    Op Add [Const (&(arch_bytes conf.arch_width));
             ShiftN Lsr (Var r) 4]
 End
 
@@ -359,7 +365,7 @@ Definition AllocVar_def:
   AllocVar c (limit:num) (names:num_set) =
     list_Seq [Assign 1 (ShiftN Lsr (Var 1) 1);
               If Lower 1 (Imm (&limit))
-                (Assign 1 (ShiftN Lsl (Op Add [Var 1; Const 1]) (shift (arch_width_bits c.arch_width))))
+                (Assign 1 (ShiftN Lsl (Op Add [Var 1; Const 1]) (arch_shift c.arch_width)))
                 (Assign 1 (Const (-1)));
               Assign 3 (Op Sub [Lookup TriggerGC; Lookup NextFree]);
               If Lower 3 (Reg 1)
@@ -406,23 +412,23 @@ Definition RefByte_code_def:
   RefByte_code c =
       let limit = MIN (2 ** c.len_size) ((2 ** arch_width_bits c.arch_width) DIV 16) in
       let h = Op Add [ShiftN Lsr (Var 2) 1; Const (& (arch_bytes c.arch_width))] in
-      let x = SmallLsr h (shift (arch_width_bits c.arch_width) - 1) in
-      let y = ShiftN Lsl h ((arch_width_bits c.arch_width) - shift (arch_width_bits c.arch_width) - c.len_size) in
+      let x = SmallLsr h (arch_shift c.arch_width - 1) in
+      let y = ShiftN Lsl h ((arch_width_bits c.arch_width) - arch_shift c.arch_width - c.len_size) in
         list_Seq
           [BignumHalt 2;
            Assign 1 x;
            AllocVar c limit (fromList [();();()]);
            (* compute length *)
-           Assign 5 (ShiftN Lsr h (shift (arch_width_bits c.arch_width)));
+           Assign 5 (ShiftN Lsr h (arch_shift c.arch_width));
            Assign 7 (ShiftN Lsl (Var 5) 1);
            Assign 9 (Lookup NextFree);
            (* adjust end of heap *)
            Assign 1 (Op Add [Var 9;
-                             ShiftN Lsl (Var 5) (shift (arch_width_bits c.arch_width))]);
+                             ShiftN Lsl (Var 5) (arch_shift c.arch_width)]);
            Set NextFree (Op Add [Var 1; Const (& (arch_bytes c.arch_width))]);
            (* 3 := return value *)
            Assign 3 (Op Or [ShiftN Lsl (Op Sub [Var 9; Lookup CurrHeap])
-               (shift_length c − shift (arch_width_bits c.arch_width)); Const 1]);
+               (shift_length c − arch_shift c.arch_width); Const 1]);
            (* compute header *)
            Assign 5 (Op Or [Op Or [y; Const 7]; Var 6]);
            (* compute repeated byte *)
@@ -454,7 +460,7 @@ Definition Make_ptr_bits_code_def:
   Make_ptr_bits_code c tag len dest =
     list_Seq [Assign dest (Op Or
        [Const 1; ShiftN Lsl (Op Sub [Lookup NextFree; Lookup CurrHeap])
-           (shift_length c − shift (arch_width_bits c.arch_width))]);
+           (shift_length c − arch_shift c.arch_width)]);
         Maxout_bits_code c.tag_bits (1 + c.len_bits) dest tag;
         Maxout_bits_code c.len_bits 1 dest len] :wordLang$prog
 End
@@ -505,13 +511,13 @@ Definition RefArray_code_def:
   RefArray_code c =
         list_Seq
           [Assign 1 (ShiftN Lsl (Op Add [(ShiftN Lsr (Var 2) 1); Const 1])
-                      (shift (arch_width_bits c.arch_width)));
+                      (arch_shift c.arch_width));
            Set TriggerGC (Op Sub [Lookup TriggerGC; Var 1]);
            Assign 1 (Op Sub [Lookup EndOfHeap; Var 1]);
            Set EndOfHeap (Var 1);
            (* 3 := return value *)
            Assign 3 (Op Or [ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
-               (shift_length c − shift (arch_width_bits c.arch_width)); Const 1]);
+               (shift_length c − arch_shift c.arch_width); Const 1]);
            (* compute header *)
            Assign 5 (Op Or [ShiftN Lsl (Var 2)
                               ((arch_width_bits c.arch_width) − c.len_size - 1);
@@ -643,9 +649,9 @@ Definition AnyArith_code_def:
                        ShiftVar (arch_width_bits c.arch_width) Lsl 8 4]);
       Store (Var 5) 7;
       Assign 1 (Op Sub [Var 5; Lookup CurrHeap]);
-      Assign 1 (Op Or [ShiftVar (arch_width_bits c.arch_width) Lsl 1 (shift_length c − shift (arch_width_bits c.arch_width)); Const 1]);
+      Assign 1 (Op Or [ShiftVar (arch_width_bits c.arch_width) Lsl 1 (shift_length c − arch_shift c.arch_width); Const 1]);
       Set NextFree (Op Add [Var 5; Const (& (arch_bytes c.arch_width));
-                            ShiftVar (arch_width_bits c.arch_width) Lsl 6 (shift (arch_width_bits c.arch_width))]);
+                            ShiftVar (arch_width_bits c.arch_width) Lsl 6 (arch_shift c.arch_width)]);
       Return 0 [1]]:wordLang$prog
 End
 
@@ -686,7 +692,7 @@ Definition Install_code_def:
                 Assign 5 (Lookup CodeBuffer);
                 Assign 3 (real_addr c 4);
                 Assign 7 (ShiftN Lsr (Load (Var 3))
-                            ((arch_width_bits c.arch_width) - shift (arch_width_bits c.arch_width) - c.len_size));
+                            ((arch_width_bits c.arch_width) - arch_shift c.arch_width - c.len_size));
                 Assign 7 (Op Sub [Var 7; Const (& (arch_bytes c.arch_width))]);
                 Assign 3 (Op Add [Var 3; Const (& (arch_bytes c.arch_width))]);
                 Set BitmapBuffer (Var 2);
@@ -752,8 +758,8 @@ Definition Compare_code_def:
                  Assign 8 (ShiftN Lsr (Var 3) (((arch_width_bits c.arch_width) − c.len_size)));
                  If Equal 1 (Reg 3) (* headers are the same *)
                    (list_Seq
-                     [Assign 2 (Op Add [Var 11;ShiftN Lsl (Var 6)(shift (arch_width_bits c.arch_width))]);
-                      Assign 4 (Op Add [Var 13;ShiftN Lsl (Var 6)(shift (arch_width_bits c.arch_width))]);
+                     [Assign 2 (Op Add [Var 11;ShiftN Lsl (Var 6)(arch_shift c.arch_width)]);
+                      Assign 4 (Op Add [Var 13;ShiftN Lsl (Var 6)(arch_shift c.arch_width)]);
                       If Test 1 (Imm 16)
                        (Call NONE (SOME Compare1_location) [0;6;2;4] NONE)
                        (Call NONE (SOME Compare1_location) [0;6;4;2] NONE)])
@@ -820,8 +826,8 @@ Definition Equal_code_def:
       If Equal 1 (Imm 16)
         (Seq (Assign 2 (Const 0)) (Return 0 [2])) Skip;
       Assign 6 (ShiftVar (arch_width_bits c.arch_width) Lsr 21 (((arch_width_bits c.arch_width) − c.len_size)));
-      Assign 2 (Op Add [Var 20; ShiftVar (arch_width_bits c.arch_width) Lsl 6 (shift (arch_width_bits c.arch_width))]);
-      Assign 4 (Op Add [Var 40; ShiftVar (arch_width_bits c.arch_width) Lsl 6 (shift (arch_width_bits c.arch_width))]);
+      Assign 2 (Op Add [Var 20; ShiftVar (arch_width_bits c.arch_width) Lsl 6 (arch_shift c.arch_width)]);
+      Assign 4 (Op Add [Var 40; ShiftVar (arch_width_bits c.arch_width) Lsl 6 (arch_shift c.arch_width)]);
       Call NONE (SOME Compare1_location) [0;6;2;4] NONE]
 End
 
@@ -882,7 +888,7 @@ Definition Append_code_def:
              Assign 3 (Const (& header));
              Assign 5 (Op Sub [Lookup TriggerGC; Var 1]);
              Assign 7 (Op Or [ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                                   (shift_length c − shift (arch_width_bits c.arch_width));
+                                   (shift_length c − arch_shift c.arch_width);
                               Const (get_lowerbits c (ptr_bits c 0 2))]);
              Set (Temp 2w) (Var 7);
              Call NONE (SOME AppendMainLoop_location) [0; 1; 4; 3; 5; 7] NONE]))
@@ -921,7 +927,7 @@ Definition AppendLenLoop_code_def:
     If Test 2 (Imm 1)
       (list_Seq
         [Assign 1 (Op Sub [Lookup TriggerGC; Lookup NextFree]);
-         Assign 1 (Op Add [Var 4; ShiftVar (arch_width_bits c.arch_width) Lsr 1 (shift (arch_width_bits c.arch_width) - 1)]);
+         Assign 1 (Op Add [Var 4; ShiftVar (arch_width_bits c.arch_width) Lsr 1 (arch_shift c.arch_width - 1)]);
          Assign 4 (Lookup (Temp 0w));
          Assign 2 (Lookup (Temp 1w));
          AllocVar c ((2 ** arch_width_bits c.arch_width) DIV 8 - 1) (fromList [();()]);
@@ -1000,7 +1006,7 @@ Definition WriteWord64_def:
               Set NextFree (Op Add [Var 1; Const (2 * & (arch_bytes c.arch_width))]);
               Assign (adjust_var dest)
                 (Op Or [ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                          (shift_length c − shift (arch_width_bits c.arch_width));
+                          (shift_length c − arch_shift c.arch_width);
                         Const 1])]:wordLang$prog
 End
 
@@ -1014,7 +1020,7 @@ Definition WriteWord64_on_32_def:
               Set NextFree (Op Add [Var 1; Const (3 * & (arch_bytes c.arch_width))]);
               Assign (adjust_var dest)
                 (Op Or [ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                          (shift_length c − shift (arch_width_bits c.arch_width));
+                          (shift_length c − arch_shift c.arch_width);
                         Const 1])]:wordLang$prog
 End
 
@@ -1028,7 +1034,7 @@ Definition WriteWord32_on_32_def:
         Assign (adjust_var dest)
           (Op Or
              [ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                (shift_length c − shift (arch_width_bits c.arch_width)); Const 1])]
+                (shift_length c − arch_shift c.arch_width); Const 1])]
 End
 
 Definition WordOp64_on_32_def:
@@ -1375,7 +1381,7 @@ val def = assign_Define `
                          StoreEach c 1 (3::MAP adjust_var args) 0;
                          Assign (adjust_var dest)
                            (Op Or [ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                                     (shift_length c − shift (arch_width_bits c.arch_width));
+                                     (shift_length c − arch_shift c.arch_width);
                                    Const (get_lowerbits c (ptr_bits c tag (LENGTH args)))]);
                          Set NextFree (Op Add [Var 1;
                            Const (& (arch_bytes c.arch_width) * & (LENGTH args + 1))])],l))
@@ -1431,13 +1437,13 @@ End
 
 Definition make_cons_ptr_def:
   make_cons_ptr conf (nf:int) tag len =
-    int_or (nf * &(2 ** (shift_length conf - shift (arch_width_bits conf.arch_width))))
+    int_or (nf * &(2 ** (shift_length conf - arch_shift conf.arch_width)))
            (get_lowerbits conf (ptr_bits conf tag len))
 End
 
 Definition make_ptr_def:
   make_ptr conf (nf:int) tag len =
-    int_or (nf * &(2 ** (shift_length conf - shift (arch_width_bits conf.arch_width)))) 1
+    int_or (nf * &(2 ** (shift_length conf - arch_shift conf.arch_width))) 1
 End
 
 Definition write_bytes_def:
@@ -1475,7 +1481,7 @@ Definition part_to_words_def:
        case encode_header c (4 * t) (LENGTH ns) of
        | NONE => NONE
        | SOME hd => SOME ((T,
-                              offset * &(2 ** (shift_length c - shift (arch_width_bits c.arch_width))) +
+                              offset * &(2 ** (shift_length c - arch_shift c.arch_width)) +
                                int_or (ptr_bits c t (LENGTH ns)) 1),
                           (F,&hd)::MAP (lookup_mem m) ns)) ∧
   part_to_words c m (W64 w) offset =
@@ -1524,7 +1530,7 @@ val def = assign_Define `
       (list_Seq
         [Assign 1 (Lookup NextFree);
          Assign 3 (ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                    (shift_length c − shift (arch_width_bits c.arch_width)));
+                    (shift_length c − arch_shift c.arch_width));
          StoreAnyConsts (adjust_var dest) 1 3 ws w],l)
       : wordLang$prog # num`;
 
@@ -1550,13 +1556,13 @@ val def = assign_Define `
                    StoreEach c 1 (5::MAP adjust_var rest) 0;
                    Make_ptr_bits_code c 9 7 3;
                    Set NextFree (Op Add [Var 1; Const (& (arch_bytes c.arch_width));
-                     ShiftN Lsl (Var 7) (shift (arch_width_bits c.arch_width))]);
+                     ShiftN Lsl (Var 7) (arch_shift c.arch_width)]);
                    Assign 15 (Var (adjust_var len));
                    Assign 13 (Op Add [Var 1;
                      Const (& (arch_bytes c.arch_width) * & (LENGTH rest + 1))]);
                    Assign 11 (Op Add [real_addr c (adjust_var old);
                      Const (& (arch_bytes c.arch_width));
-                     ShiftVar (arch_width_bits c.arch_width) Lsl (adjust_var start) (shift (arch_width_bits c.arch_width) - 1)]);
+                     ShiftVar (arch_width_bits c.arch_width) Lsl (adjust_var start) (arch_shift c.arch_width - 1)]);
                    If Test 15 (Reg 15) (Assign (adjust_var dest) (Var 3)) (list_Seq [
                      MustTerminate
                        (Call (SOME ([adjust_var dest],adjust_sets (get_names names),
@@ -1580,7 +1586,7 @@ val def = assign_Define `
                   StoreEach c 1 (3::MAP adjust_var args) 0;
                   Assign (adjust_var dest)
                     (Op Or [ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                              (shift_length c − shift (arch_width_bits c.arch_width));
+                              (shift_length c − arch_shift c.arch_width);
                             Const 1])],l))
       : wordLang$prog # num`;
 
@@ -1602,7 +1608,7 @@ val def = assign_Define `
                   StoreEach c 1 [3; adjust_var arg] 0;
                   Assign (adjust_var dest)
                     (Op Or [ShiftN Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                              (shift_length c − shift (arch_width_bits c.arch_width));
+                              (shift_length c − arch_shift c.arch_width);
                             Const 1])],l))
       : wordLang$prog # num`;
 
@@ -1649,7 +1655,7 @@ End
 val def = assign_Define `
   assign_StringCmp (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) (b:bool) (cmp:ast$opb) v1 v2 =
-    (let k = ((arch_width_bits c.arch_width) − c.len_size - shift (arch_width_bits c.arch_width)) in
+    (let k = ((arch_width_bits c.arch_width) − c.len_size - arch_shift c.arch_width) in
       list_Seq [
           Assign 1 (real_addr c (adjust_var v1)); (* address to header *)
           Assign 3 (real_addr c (adjust_var v2)); (* address to header *)
@@ -1764,7 +1770,7 @@ val def = assign_Define `
                    (list_Seq [Assign 1
                                (let addr = real_addr c (adjust_var v1) in
                                 let header = Load addr in
-                                let extra = (if (arch_width_bits c.arch_width) = 32 then 2 else 3) in
+                                let extra = arch_shift c.arch_width in
                                 let k = (arch_width_bits c.arch_width) - c.len_size - extra in
                                   Op Sub [ShiftN Lsr header k; Const (& (arch_bytes c.arch_width))]);
                               Assign 3 (ShiftVar (arch_width_bits c.arch_width) Ror (adjust_var v2) 1);
@@ -1780,7 +1786,7 @@ val def = assign_Define `
                    (list_Seq [Assign 1
                                (let addr = real_addr c (adjust_var v1) in
                                 let header = Load addr in
-                                let extra = (if (arch_width_bits c.arch_width) = 32 then 2 else 3) in
+                                let extra = arch_shift c.arch_width in
                                 let k = (arch_width_bits c.arch_width) - c.len_size - extra in
                                   ShiftN Lsl (Op Sub [ShiftN Lsr header k;
                                                       Const (& (arch_bytes c.arch_width))]) 3);
@@ -1899,7 +1905,7 @@ val def = assign_Define `
             (Assign (adjust_var dest)
                (let addr = real_addr c (adjust_var v1) in
                 let header = Load addr in
-                let k = (arch_width_bits c.arch_width) - shift (arch_width_bits c.arch_width) - c.len_size in
+                let k = (arch_width_bits c.arch_width) - arch_shift c.arch_width - c.len_size in
                 let fakelen = ShiftN Lsr header k in
                 let len = Op Sub [fakelen; Const (& (arch_bytes c.arch_width))] in
                   (ShiftN Lsl len 1)),l)
@@ -1919,7 +1925,7 @@ val def = assign_Define `
                            (Seq
                              (Assign 1 (Op And
                                 [Var (adjust_var v1);
-                                 Const (all_ones (c.len_bits + c.tag_bits + 1) 0)]))
+                                 Const (all_ones (small_shift_length c) 0)]))
                              (If Equal 1 (Imm (int_or (ptr_bits c tag len) 1))
                                 (Assign (adjust_var dest) TRUE_CONST)
                                 (Assign (adjust_var dest) FALSE_CONST)),l)
@@ -2343,7 +2349,7 @@ val def = assign_Define `
       if ¬c.call_empty_ffi ∧ ffi_index = «» then (Assign (adjust_var dest) Unit,l) else
         let addr1 = real_addr c (adjust_var v1) in
         let header1 = Load addr1 in
-        let k = (arch_width_bits c.arch_width) - shift (arch_width_bits c.arch_width) - c.len_size in
+        let k = (arch_width_bits c.arch_width) - arch_shift c.arch_width - c.len_size in
         let fakelen1 = ShiftN Lsr header1 k in
         let addr2 = real_addr c (adjust_var v2) in
         let header2 = Load addr2 in
@@ -2397,13 +2403,13 @@ val def = assign_Define `
                    Assign 1 (Lookup BitmapBuffer);
                    Assign 3 (Op Sub [Lookup BitmapBufferEnd; Var 1]);
                    Assign 5 (ShiftVar (arch_width_bits c.arch_width) Lsr (adjust_var v3) 1);
-                   Assign 3 (ShiftVar (arch_width_bits c.arch_width) Lsr 3 (shift (arch_width_bits c.arch_width)));
+                   Assign 3 (ShiftVar (arch_width_bits c.arch_width) Lsr 3 (arch_shift c.arch_width));
                    If Lower 3 (Reg 5) (* too little data space *) GiveUp Skip;
                    Assign 1 (Lookup CodeBuffer);
                    Assign 3 (Op Sub [Lookup CodeBufferEnd; Var 1]);
                    Assign 5 (real_addr c (adjust_var v1));
                    Assign 5 (ShiftN Lsr (Load (Var 5))
-                               ((arch_width_bits c.arch_width) - shift (arch_width_bits c.arch_width) - c.len_size));
+                               ((arch_width_bits c.arch_width) - arch_shift c.arch_width - c.len_size));
                    Assign 5 (Op Sub [Var 5; Const (& (arch_bytes c.arch_width))]);
                    If Lower 3 (Reg 5) (* too little code space *) GiveUp Skip;
                    Assign 1 (Lookup BitmapBuffer);
@@ -2689,7 +2695,7 @@ Definition comp_def:
         let (q2,l2) = comp c secn l1 p2 in
           (If Equal (adjust_var n) (Imm 2) q1 q2,l2)
     | MakeSpace n names =>
-        let k = (arch_width_bits c.arch_width) DIV 8 in
+        let k = arch_bytes c.arch_width in
         let w = if n * k < (2 ** arch_width_bits c.arch_width) then &(n * k) else -1 in
           (Seq (Assign 1 (Op Sub [Lookup TriggerGC; Lookup NextFree]))
                (If Lower 1 (Imm w)
