@@ -8082,10 +8082,10 @@ Resume comp_correct[Call_tail]:
       Cases_on `s'.stack_max` \\ fsrw_tac[][the_eqn] \\
       rveq \\ fs[GREATER_EQ])
     \\ fsrw_tac[][stackSemTheory.dec_clock_def]
-    \\ (fn g =>
+    \\ (fn g => fn c =>
          qabbrev_tac `t5 = ^((qexists_tac`0`
-         \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t5)`) g
-         |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g)
+         \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t5)`) g c
+         |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g c)
     \\ `state_rel ac k f'' stack_var_count (call_env args1 ss (dec_clock s)) t5 lens 0` by
         (
         fsrw_tac[][state_rel_def,dec_clock_def,Abbr`t5`] \\
@@ -8490,10 +8490,10 @@ Resume comp_correct[Call_returning]:
     qpat_abbrev_tac`word_state = call_env args1 ss st`>>
     strip_tac >>
     (*This looks hacky but it works*)
-    (fn g =>
+    (fn g => fn c =>
          qabbrev_tac `stack_state = ^((qexists_tac`0`
-         \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t7)`) g
-         |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g) >>
+         \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t7)`) g c
+         |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g c) >>
     `state_rel ac k f'' stack_var_count word_state stack_state (f'::lens) 0` by(
        `stack_arg_count' = (LENGTH args1 -k)` by
           (simp[Abbr`stack_arg_count'`]) >>
@@ -8746,10 +8746,10 @@ Resume comp_correct[Call_returning]:
       qpat_abbrev_tac `FREE = (LENGTH vs + 1 - k)` >>
       fs[]) \\
     fs[] \\ gvs[] \\
-    (fn g =>
+    (fn g => fn c =>
        qabbrev_tac `stack_state2 = ^((qexists_tac`0`
-       \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t7)`) g
-       |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g) >>
+       \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t7)`) g c
+       |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g c) >>
     `state_rel ac k f f' (set_vars vs l x) stack_state2 lens 0` by (
       ntac 2 $ qpat_x_assum `state_rel ac k _ _ _ t5 _ _` mp_tac >>
       qmatch_goalsub_abbrev_tac `P` >>
@@ -9320,10 +9320,10 @@ Resume comp_correct[Call_returning]:
   qpat_abbrev_tac`word_state = call_env args1 ss st`>>
   strip_tac >>
   (*This looks hacky but it works*)
-  (fn g =>
+  (fn g => fn c =>
        qabbrev_tac `stack_state = ^((qexists_tac`0`
-       \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t7)`) g
-       |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g) >>
+       \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t7)`) g c
+       |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g c) >>
   `state_rel ac k f'' stack_var_count word_state stack_state (f'::lens) 0` by (
     `stack_arg_count' = (LENGTH args1 -k)` by
        (simp[Abbr`stack_arg_count'`]) >>
@@ -9579,10 +9579,10 @@ Resume comp_correct[Call_returning]:
   simp[PopHandler_F,stackSemTheory.evaluate_def] \\
   simp_tac(pure_ss)[GSYM stackSemTheory.state_fupdcanon] \\
   simp[stackSemTheory.set_store_def] \\
-  (fn g =>
+  (fn g => fn c =>
      qabbrev_tac `stack_state2 = ^((qexists_tac`0`
-     \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t7)`) g
-     |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g) >>
+     \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t7)`) g c
+     |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g c) >>
   `state_rel ac k f f' (set_vars vs l x) stack_state2 lens 0` by (
     ntac 2 $ qpat_x_assum `state_rel ac k _ _ _ t5 _ _` mp_tac >>
     qmatch_goalsub_abbrev_tac `P` >>
@@ -10212,7 +10212,7 @@ Proof
       fs[] >> rveq >> fs[] >>
       qhdtm_x_assum`wordSem$evaluate`kall_tac >>
       last_x_assum(qspec_then`k''`mp_tac)>>simp[] >>
-      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
       strip_tac >>
       drule0 comp_Call >> fs[] >>
       simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
@@ -10223,7 +10223,7 @@ Proof
       Cases_on`q`>>fs[]>>
       strip_tac >>
       qpat_x_assum`_ ≠ SOME TimeOut`mp_tac >>
-      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
       strip_tac >> fs[] >>
       drule0 (GEN_ALL stackPropsTheory.evaluate_add_clock) >>
       disch_then(qspec_then`ck`mp_tac) >>
@@ -10274,7 +10274,7 @@ Proof
   IF_CASES_TAC >- (
     fs[] >> rveq >> fs[] >>
     last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
-    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
     strip_tac >>
     drule0 comp_Call >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
@@ -10296,7 +10296,7 @@ Proof
   conj_tac >- (
     rw[extend_with_resource_limit_def] >> fs[] >>
     qpat_x_assum`∀x y. _`(qspec_then`k'`mp_tac)>>
-    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
     strip_tac >>
     drule0 comp_Call >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
@@ -10388,7 +10388,7 @@ Proof
     IF_CASES_TAC >> simp[] >> strip_tac >> fs[] >>
     first_x_assum(qspec_then`ck+k'`mp_tac)>>simp[]>>
     TOP_CASE_TAC >> simp[]) >>
-    (fn g => subterm (fn tm => Cases_on`^(Term.subst[{redex = #1(dest_exists(#2 g)), residue = ``k':num``}] (assert(has_pair_type)tm))`) (#2 g) g) >>
+    goal_term (fn w => subterm (fn tm => Cases_on`^(Term.subst[{redex = #1(dest_exists w), residue = ``k':num``}] (assert(has_pair_type)tm))`) w) >>
   drule0 comp_Call >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (
@@ -10537,7 +10537,7 @@ Proof
       fs[] >> rveq >> fs[] >>
       qhdtm_x_assum`wordSem$evaluate`kall_tac >>
       last_x_assum(qspec_then`k''`mp_tac) >> simp[] >>
-      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
       CCONTR_TAC >>
       drule0 comp_Call >> fs[] >>
       drule0(GEN_ALL state_rel_with_clock) >>
@@ -10549,7 +10549,7 @@ Proof
       Cases_on`q`>>fs[]>>
       CCONTR_TAC >> fs [] >>
       qpat_x_assum`_ ≠ SOME TimeOut`mp_tac >>
-      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
       strip_tac >> fs[] >>
       drule0 (GEN_ALL stackPropsTheory.evaluate_add_clock) >>
       disch_then(qspec_then`ck`mp_tac) >>
@@ -10616,7 +10616,7 @@ Proof
   >- (
     fs[] >> rveq >> fs[] >>
     last_x_assum(qspec_then`k'`mp_tac)>> simp[] >>
-    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
     CCONTR_TAC >>
     drule0 comp_Call >> fs[] >>
     drule0(GEN_ALL state_rel_with_clock) >>
@@ -10644,7 +10644,7 @@ Proof
   >- (
     rw [] >>  fs[] >>
     qpat_x_assum`∀x y. _`(qspec_then`k'`mp_tac)>>
-    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
     strip_tac >>
     drule0 comp_Call >> fs [] >>
     drule0(GEN_ALL state_rel_with_clock) >>
@@ -10718,8 +10718,8 @@ Proof
     IF_CASES_TAC >> simp[] >> strip_tac >> fs[] >>
     first_x_assum(qspec_then`ck+k'`mp_tac)>>simp[]>>
     TOP_CASE_TAC >> simp[]) >>
-    (fn g => subterm (fn tm => Cases_on`^(Term.subst[{redex = #1(dest_exists(#2 g)), residue = ``k':num``}]
-      (assert(has_pair_type)tm))`) (#2 g) g) >>
+    goal_term (fn w => subterm (fn tm => Cases_on`^(Term.subst[{redex = #1(dest_exists w), residue = ``k':num``}]
+      (assert(has_pair_type)tm))`) w) >>
   drule0 comp_Call >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (

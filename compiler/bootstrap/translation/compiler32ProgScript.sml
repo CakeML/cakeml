@@ -73,6 +73,7 @@ val res = translate $ panStaticTheory.get_unreach_msg_def;
 val res = translate $ panStaticTheory.get_rogue_msg_def;
 val res = translate $ panStaticTheory.get_non_word_msg_def;
 val res = translate $ panStaticTheory.get_shape_mismatch_msg_def;
+val res = translate $ panStaticTheory.get_inline_ignore_msg_def;
 val res = translate $ panStaticTheory.get_implementation_err_msg_def;
 
 val res = translate $ panStaticTheory.first_repeat_def;
@@ -90,6 +91,7 @@ val res = translate $ panStaticTheory.check_fun_name_def;
 val res = translate $ panStaticTheory.check_global_var_def;
 val res = translate $ panStaticTheory.check_local_var_def;
 val res = translate $ panStaticTheory.check_redec_var_def;
+val res = translate $ panStaticTheory.check_exn_name_def;
 val res = translate $ panStaticTheory.check_export_params_def;
 val res = translate $ panStaticTheory.check_operands_def;
 val res = translate $ panStaticTheory.check_primitive_args_def;
@@ -595,19 +597,6 @@ Proof
   \\ xsimpl
 QED
 
-Theorem dec_sides[local]:
-  (peg_v_side ⇔ T) ∧
-  (peg_longv_side ⇔ T) ∧
-  (peg_uqconstructorname_side ⇔ T) ∧
-  (cmlpeg_side ⇔ T)
-Proof
-  fs[
-    parserProgTheory.cmlpeg_side_def,
-    parserProgTheory.peg_v_side_def,
-    parserProgTheory.peg_longv_side_def,
-    parserProgTheory.peg_uqconstructorname_side_def]
-QED
-
 val sem_thm = prove_sem_thm "main" "compiler32_prog" main_whole_prog_spec;
 val compiler32_prog_def = fetch "-" "compiler32_prog_def";
 
@@ -624,7 +613,7 @@ Theorem semantics_compiler32_prog:
 Proof
   strip_tac
   \\ irule sem_thm
-  \\ fs [dec_sides]
+  \\ fs []
 QED
 
 val _ = ml_translatorLib.reset_translation(); (* because this translation won't be continued *)
