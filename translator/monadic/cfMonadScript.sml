@@ -274,6 +274,7 @@ Theorem EvalM_from_app_gen:
 Proof
   rw [EvalM_def] \\ fs [Eval_def]
   \\ first_x_assum (qspec_then `s.refs` strip_assume_tac)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
   \\ fs [cfAppTheory.app_def, cfAppTheory.app_basic_def, evaluate_to_heap_def]
   \\ simp [MONAD_def]
   \\ first_x_assum (qspecl_then [`x`,`st`] strip_assume_tac) \\ fs []
@@ -287,7 +288,9 @@ Proof
          cfAppTheory.st2heap_with_refs_append,
          cfStoreTheory.st2heap_def, SUBSET_DEF]
   \\ fs [Abbr`rss`]
-  \\ rpt (disch_then drule) \\ rw []
+  \\ disch_then (qspec_then
+       `s with <|refs := s.refs ++ refs'; ptr_eq_oracle := po'|>` mp_tac)
+  \\ simp [] \\ rpt (disch_then drule) \\ rw []
   \\ fs [cfHeapsBaseTheory.POSTv_def, cfHeapsBaseTheory.POST_def]
   \\ FULL_CASE_TAC \\ fs [set_sepTheory.cond_def]
   \\ rw [evaluate_def, astTheory.getOpClass_def, PULL_EXISTS]
@@ -391,6 +394,7 @@ Theorem EvalM_from_app_unit_gen:
 Proof
   rw [EvalM_def] \\ fs [Eval_def]
   \\ first_x_assum (qspec_then `s.refs` strip_assume_tac)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
   \\ fs [cfAppTheory.app_def, cfAppTheory.app_basic_def, evaluate_to_heap_def]
   \\ simp [MONAD_def]
   \\ first_x_assum (qspecl_then [`st`] strip_assume_tac) \\ fs []
@@ -403,7 +407,9 @@ Proof
          cfAppTheory.st2heap_with_refs_append,
          cfStoreTheory.st2heap_def, SUBSET_DEF]
   \\ fs [Abbr`rss`]
-  \\ rpt (disch_then drule) \\ rw []
+  \\ disch_then (qspec_then
+       `s with <|refs := s.refs ++ refs'; ptr_eq_oracle := po'|>` mp_tac)
+  \\ simp [] \\ rpt (disch_then drule) \\ rw []
   \\ fs [cfHeapsBaseTheory.POSTv_def, cfHeapsBaseTheory.POST_def]
   \\ FULL_CASE_TAC \\ fs [set_sepTheory.cond_def]
   \\ rw [evaluate_def, astTheory.getOpClass_def, PULL_EXISTS]
@@ -487,4 +493,3 @@ Proof
   \\ rw[] \\ qexists_tac ‘K T’
   \\ simp[]
 QED
-

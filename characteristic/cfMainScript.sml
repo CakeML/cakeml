@@ -21,23 +21,19 @@ fun mk_main_call s =
 val fname = mk_var("fname",``:mlstring``);
 val main_call = mk_main_call fname;
 
+(* Running main may consume the oracle, unlike the declarations in Decls. *)
 Theorem call_main_thm1:
  Decls env1 st1 prog env2 st2 ==> (* get this from the current ML prog state *)
  lookup_var fname env2 = SOME fv ==> (* get this by EVAL *)
   app p fv [Conv NONE []] P (POSTv uv. &UNIT_TYPE () uv * Q) ==> (* this should be the CF spec you prove for the "main" function *)
     SPLIT (st2heap p st2) (h1,h2) /\ P h1 ==>  (* this might need simplification, but some of it may need to stay on the final theorem *)
     ∃st3.
-      Decls env1 st1 (SNOC ^main_call prog) env2 st3 /\
+      (?ck1 ck2. evaluate_dec_list (st1 with clock := ck1) env1
+                   (SNOC ^main_call prog) =
+                   (st3 with clock := ck2, Rval env2)) /\
       (?h3 h4. SPLIT3 (st2heap p st3) (h3,h2,h4) /\ Q h3)
 Proof
-  rw[SNOC_APPEND,Decls_APPEND,PULL_EXISTS]
-  \\ simp[Decls_def]
-  \\ fs [evaluate_dec_list_def,PULL_EXISTS,
-         EVAL ``(pat_bindings (Pcon NONE []))``,pair_case_eq,result_case_eq]
-  \\ fs [evaluate_def,PULL_EXISTS,pair_case_eq,
-         result_case_eq,do_con_check_def,build_conv_def,bool_case_eq,
-         lookup_var_def,option_case_eq,match_result_case_eq,
-         nsLookup_merge_env,app_def,app_basic_def]
+  rw [app_def,app_basic_def]
   \\ first_x_assum drule \\ fs [] \\ strip_tac \\ fs []
   \\ fs [cfHeapsBaseTheory.POSTv_def, cfHeapsBaseTheory.POST_def]
   \\ Cases_on `r` \\ fs [cond_STAR] \\ fs [cond_def]
@@ -47,30 +43,28 @@ Proof
   \\ disch_then (qspec_then `ck2` mp_tac) \\ simp []
   \\ qpat_x_assum `_ env1 prog = _` assume_tac
   \\ drule evaluate_dec_list_add_to_clock
-  \\ disch_then (qspec_then `ck` mp_tac) \\ simp []
+  \\ disch_then (qspec_then `ck + 1` mp_tac) \\ simp []
   \\ rpt strip_tac
-  \\ once_rewrite_tac [CONJ_COMM]
-  \\ `evaluate_dec_list (st1 with clock := ck + ck1) env1 prog =
-         (st2 with clock := ck + ck2,Rval env2)` by fs []
-  \\ asm_exists_tac \\ fs []
-  \\ once_rewrite_tac [CONJ_COMM] \\ rewrite_tac [GSYM CONJ_ASSOC]
-  \\ once_rewrite_tac [CONJ_COMM] \\ rewrite_tac [GSYM CONJ_ASSOC]
-  \\ fs [evaluateTheory.dec_clock_def]
-  \\ `evaluate (st2 with clock := (ck + ck2 + 1) - 1) env [exp] =
-        ((st' with clock := st2.clock) with clock := ck2 + st'.clock,
-         Rval [Conv NONE []])` by fs []
-  \\ asm_exists_tac \\ fs [pmatch_def]
-  \\ fs [merge_env_def]
-  \\ fs [cfStoreTheory.st2heap_clock]
-  \\ asm_exists_tac \\ fs []
+  \\ qexists_tac `st'`
+  \\ conj_tac
+  >- (MAP_EVERY qexists_tac [`ck + (ck1 + 1)`, `ck2 + st'.clock`]
+      \\ simp [SNOC_APPEND,evaluate_dec_list_append,extend_dec_env_def]
+      \\ simp [evaluate_dec_list_def,astTheory.pat_bindings_def]
+      \\ NTAC 3 (simp [Once evaluate_def])
+      \\ simp [do_con_check_def,build_conv_def]
+      \\ fs [Once evaluate_def,lookup_var_def,nsLookup_nsAppend_Short]
+      \\ simp [dec_clock_def,pmatch_def,combine_dec_result_def,
+               merge_env_def,empty_env_def])
+  \\ fs [] \\ asm_exists_tac \\ fs []
 QED
 
 Theorem prog_to_semantics_dec_list[local]:
   !init_env inp prog st c r env2 s2.
-     Decls init_env inp prog env2 s2 ==>
+     (?ck1 ck2. evaluate_dec_list (inp with clock := ck1) init_env prog =
+                 (s2 with clock := ck2, Rval env2)) ==>
      (semantics_dec_list inp init_env prog (Terminate Success s2.ffi.io_events))
 Proof
-  rw[Decls_def]
+  rw[]
   \\ fs[semantics_dec_list_def,PULL_EXISTS]
   \\ fs[evaluate_dec_list_with_clock_def]
   \\ qexists_tac `ck1` \\ fs []
@@ -145,19 +139,14 @@ Theorem call_main_thm2:
     call_FFI_rel^* st1.ffi st3.ffi
 Proof
   rw[]
-  \\ qho_match_abbrev_tac`?st3. A st3 /\ B st3 /\ C st1 st3`
-  \\ `?st3. Decls env1 st1 (SNOC ^main_call prog) env2 st3
-            /\ B st3 /\ C st1 st3`
-         suffices_by metis_tac[prog_to_semantics_dec_list]
-  \\ reverse (sg `?st3. Decls env1 st1 (SNOC ^main_call prog) env2 st3 ∧ B st3`)
-  THEN1 (asm_exists_tac \\ fs [Abbr`C`]
-         \\ fs [Decls_def]
-         \\ imp_res_tac evaluate_dec_list_call_FFI_rel_imp \\ fs [])
-  \\ simp[Abbr`A`,Abbr`B`]
   \\ drule (GEN_ALL call_main_thm1)
   \\ rpt (disch_then drule)
   \\ simp[] \\ strip_tac
-  \\ asm_exists_tac \\ simp[]
+  \\ qexists_tac `st3`
+  \\ fs []
+  \\ conj_tac >- metis_tac [prog_to_semantics_dec_list]
+  \\ imp_res_tac evaluate_dec_list_call_FFI_rel_imp \\ fs []
+  \\ asm_exists_tac \\ fs []
 QED
 
 Theorem call_main_thm2_ffidiv:

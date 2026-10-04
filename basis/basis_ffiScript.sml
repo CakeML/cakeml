@@ -783,7 +783,7 @@ QED
 
 val _ = translation_extends "TextIOProg";
 val st_f = get_ml_prog_state () |> get_state |> strip_comb |> fst;
-val st = mk_icomb (st_f, ``basis_ffi ext cls fs``);
+val st = mk_icomb (st_f, ``(basis_ffi ext cls fs, po : num -> num -> bool)``);
 val _ = reset_translation ()
 
 Theorem parts_ok_basis_st:
@@ -1212,6 +1212,6 @@ QED
 val ref_eq_nil_pat = “_ = [] : v store_v list”
 Theorem basis_refs_eqs =
   find "refs_def"
-    |> map (fn (_,(x,_,_)) => x)
+    |> map (fn (_,(x,_,_)) => SPEC_ALL x)
     |> filter (can (match_term ref_eq_nil_pat) o concl)
     |> LIST_CONJ;

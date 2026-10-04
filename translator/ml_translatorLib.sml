@@ -1428,12 +1428,16 @@ fun EqualityType_rule prems ty = let
 (* A value binding gets a closed constant only when its type predicate pins the
    value uniquely; otherwise the value may vary with the pointer-equality
    oracle and the constant takes the oracle as an argument. *)
-fun unique_value_thm inv_tm x_tm =
-  SOME (MATCH_MP EqualityType_IMP_unique
-          (prove (ml_translatorSyntax.mk_EqualityType inv_tm,
-             ConseqConv.CONSEQ_CONV_TAC EqualityType_cc
-             \\ full_simp_tac bool_ss []))
-        |> ISPEC x_tm)
+fun unique_value_thm inv_tm x_tm = let
+  fun unique_inv inv =
+    if same_const (fst (strip_comb inv))
+         (prim_mk_const {Thy="ml_translator",Name="VECTOR_TYPE"}) then
+      MATCH_MP VECTOR_TYPE_unique (unique_inv (rand inv))
+    else MATCH_MP EqualityType_IMP_unique
+      (prove (ml_translatorSyntax.mk_EqualityType inv,
+         ConseqConv.CONSEQ_CONV_TAC EqualityType_cc
+         \\ full_simp_tac bool_ss []))
+  in SOME (ISPEC x_tm (unique_inv inv_tm)) end
   handle HOL_ERR _ => NONE
 
 (* remove some known-true preconditions of proven eq-lemmas *)
@@ -4780,7 +4784,10 @@ fun translate_options options def =
           val c = SIMP_CONV std_ss [EVERY_DEF,MAP,SND,no_change_refs_def] THENC EVAL
           val ref_def_lemma = CONV_RULE ((RATOR_CONV o RAND_CONV) c) ref_def
           val ref_def = MP ref_def_lemma TRUTH |> GEN root_po
-          in allowing_rebind save_thm(refs_name ^ "_def", ref_def) end
+          val def_name = refs_name ^ "_def"
+          val saved = allowing_rebind save_thm(def_name, ref_def)
+          val _ = computeLib.add_persistent_funs [def_name]
+          in saved end
           handle HOL_ERR _ => TRUTH
         val v_thm = MATCH_MP Eval_evaluate_IMP (CONJ th (CONJUNCT1 refs_spec))
                     |> SIMP_EqualityType_ASSUMS |> UNDISCH_ALL

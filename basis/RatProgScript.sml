@@ -60,10 +60,10 @@ Proof
   strip_tac
   \\ SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,REAL_TYPE_def,PULL_EXISTS,
                           FORALL_PROD] \\ rw []
-  \\ rename [‘empty_state with refs := R’]
+  \\ rename [‘build_state R po’]
   \\ first_x_assum (first_assum o
                      mp_then.mp_then (mp_then.Pos hd)
-                                    (qspec_then ‘R’ strip_assume_tac))
+                                    (qspecl_then [‘R’,‘po’] strip_assume_tac))
   \\ fs [] \\ asm_exists_tac \\ fs []
   \\ fs [] \\ asm_exists_tac \\ fs []
 QED
@@ -76,14 +76,14 @@ Proof
   strip_tac
   \\ SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,REAL_TYPE_def,PULL_EXISTS,
                           FORALL_PROD] \\ rw []
-  \\ rename [‘empty_state with refs := R’]
+  \\ rename [‘build_state R po’]
   \\ first_x_assum (first_assum o
                      mp_then.mp_then (mp_then.Pos hd)
-                                    (qspec_then ‘R’ strip_assume_tac))
+                                    (qspecl_then [‘R’,‘po’] strip_assume_tac))
   \\ fs [] \\ asm_exists_tac \\ fs []
   \\ rw [] \\ first_x_assum drule
-  \\ qmatch_goalsub_rename_tac `(empty_state with refs := refs2)`
-  \\ disch_then (qspec_then `refs2` mp_tac)
+  \\ qmatch_goalsub_rename_tac `(build_state refs2 po2)`
+  \\ disch_then (qspecl_then [`refs2`,`po2`] mp_tac)
   \\ strip_tac \\ rpt (asm_exists_tac \\ fs [])
 QED
 
@@ -95,14 +95,14 @@ Proof
   strip_tac
   \\ SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,REAL_TYPE_def,PULL_EXISTS,
                           FORALL_PROD] \\ rw []
-  \\ rename [‘empty_state with refs := R’]
+  \\ rename [‘build_state R po’]
   \\ first_x_assum (first_assum o
                      mp_then.mp_then (mp_then.Pos hd)
-                                    (qspec_then ‘R’ strip_assume_tac))
+                                    (qspecl_then [‘R’,‘po’] strip_assume_tac))
   \\ fs [] \\ asm_exists_tac \\ fs []
   \\ rw [] \\ first_x_assum drule
-  \\ qmatch_goalsub_rename_tac `(empty_state with refs := refs2)`
-  \\ disch_then (qspec_then `refs2` mp_tac)
+  \\ qmatch_goalsub_rename_tac `(build_state refs2 po2)`
+  \\ disch_then (qspecl_then [`refs2`,`po2`] mp_tac)
   \\ strip_tac \\ rpt (asm_exists_tac \\ fs [])
 QED
 
@@ -137,8 +137,8 @@ val Eval_RAT_INT = Q.prove(
        (INT --> RAT_TYPE) rat_of_int v`,
   SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,RAT_TYPE_def,PULL_EXISTS,
                        FORALL_PROD] \\ rw [] \\ res_tac >>
-  rename [‘empty_state with refs := R’] >>
-  pop_assum (qspec_then ‘R’ strip_assume_tac) >>
+  rename [‘build_state R po’] >>
+  pop_assum (qspecl_then [‘R’,‘po’] strip_assume_tac) >>
   fs [] >> asm_exists_tac >> fs [] >>
   qexists_tac `x` >> qexists_tac `1` >>
   fs [rational_of_int_def])
@@ -157,8 +157,8 @@ val Eval_REAL_INT = Q.prove(
        (INT --> REAL_TYPE) real_of_int v`,
   SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,
     REAL_TYPE_def,PULL_EXISTS,FORALL_PROD] \\ rw [] \\ res_tac
-  \\ rename [‘empty_state with refs := R’]
-  \\ pop_assum (qspec_then ‘R’ strip_assume_tac)
+  \\ rename [‘build_state R po’]
+  \\ pop_assum (qspecl_then [‘R’,‘po’] strip_assume_tac)
   \\ fs [] \\ asm_exists_tac
   \\ fs [] \\ asm_exists_tac
   \\ fs [real_of_int_of_rat])
@@ -186,14 +186,14 @@ val Eval_RAT_LE = Q.prove(
        (RAT_TYPE --> RAT_TYPE --> BOOL) ($<=) v`,
   SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,RAT_TYPE_def,PULL_EXISTS,
                        pair_le_def,FORALL_PROD] >> rw [] >>
-  rename [‘empty_state with refs := R’] >>
+  rename [‘build_state R po’] >>
   first_x_assum (first_assum o
                  mp_then.mp_then (mp_then.Pos hd)
-                                 (qspec_then ‘R’ strip_assume_tac)) >>
+                                 (qspecl_then [‘R’,‘po’] strip_assume_tac)) >>
   fs [] >> asm_exists_tac >> fs []
   >> rw [] >> first_x_assum drule >> fs [pair_le_def]
-  >> qmatch_goalsub_rename_tac `(empty_state with refs := refs2)`
-  >> disch_then (qspec_then `refs2` mp_tac)
+  >> qmatch_goalsub_rename_tac `(build_state refs2 po2)`
+  >> disch_then (qspecl_then [`refs2`,`po2`] mp_tac)
   >> strip_tac >> rpt (asm_exists_tac >> fs []) >>
   rename [‘BOOL (n1 * &d1 ≤ n2 * &d2) bv’] >>
   `0q < &d1 ∧ 0q < &d2` by simp[] >>
@@ -237,8 +237,8 @@ val Eval_RAT_LT = Q.prove(
   \\ pop_assum (strip_assume_tac o SPEC_ALL)
   \\ fs [] \\ asm_exists_tac \\ fs []
   \\ rw [] \\ first_x_assum drule \\ fs [pair_lt_def]
-  \\ qmatch_goalsub_rename_tac `(empty_state with refs := refs2)`
-  \\ disch_then (qspec_then `refs2` mp_tac)
+  \\ qmatch_goalsub_rename_tac `(build_state refs2 po2)`
+  \\ disch_then (qspecl_then [`refs2`,`po2`] mp_tac)
   \\ strip_tac \\ rpt (asm_exists_tac \\ fs [])
   \\ pop_assum mp_tac
   \\ ntac 2 (qpat_x_assum `~_` mp_tac)
@@ -294,8 +294,8 @@ val Eval_RAT_COMPARE = Q.prove(
   \\ pop_assum (strip_assume_tac o SPEC_ALL)
   \\ fs [] \\ asm_exists_tac \\ fs []
   \\ rw [] \\ first_x_assum drule \\ fs [pair_compare_def]
-  \\ qmatch_goalsub_rename_tac `(empty_state with refs := refs2)`
-  \\ disch_then (qspec_then `refs2` mp_tac)
+  \\ qmatch_goalsub_rename_tac `(build_state refs2 po2)`
+  \\ disch_then (qspecl_then [`refs2`,`po2`] mp_tac)
   \\ strip_tac \\ rpt (asm_exists_tac \\ fs [])
   \\ pop_assum mp_tac
   \\ ntac 2 (qpat_x_assum `~_` mp_tac)
@@ -458,8 +458,8 @@ val Eval_RAT_ADD = Q.prove(
   pop_assum (strip_assume_tac o SPEC_ALL) >>
   fs [] \\ asm_exists_tac \\ fs [] >>
   rw [] \\ first_x_assum drule >> fs [pair_add_def] >>
-  qmatch_goalsub_rename_tac `(empty_state with refs := refs2)` >>
-  disch_then (qspec_then `refs2` mp_tac) >>
+  qmatch_goalsub_rename_tac `(build_state refs2 po2)` >>
+  disch_then (qspecl_then [`refs2`,`po2`] mp_tac) >>
   strip_tac \\ rpt (asm_exists_tac \\ fs []) >>
   pop_assum mp_tac >>
   ntac 2 (qpat_x_assum `~_` mp_tac) >>
@@ -497,8 +497,8 @@ val Eval_RAT_SUB = Q.prove(
   res_tac >> pop_assum (strip_assume_tac o SPEC_ALL)
   \\ fs [] \\ asm_exists_tac \\ fs []
   \\ rw [] \\ first_x_assum drule \\ fs [pair_sub_def]
-  \\ qmatch_goalsub_rename_tac `(empty_state with refs := refs2)`
-  \\ disch_then (qspec_then `refs2` mp_tac)
+  \\ qmatch_goalsub_rename_tac `(build_state refs2 po2)`
+  \\ disch_then (qspecl_then [`refs2`,`po2`] mp_tac)
   \\ strip_tac \\ rpt (asm_exists_tac \\ fs [])
   \\ pop_assum mp_tac
   \\ ntac 2 (qpat_x_assum `~_` mp_tac)
@@ -557,8 +557,8 @@ val Eval_RAT_MUL = Q.prove(
   \\ pop_assum (strip_assume_tac o SPEC_ALL)
   \\ fs [] \\ asm_exists_tac \\ fs []
   \\ rw [] \\ first_x_assum drule \\ fs [pair_mul_def]
-  \\ qmatch_goalsub_rename_tac `(empty_state with refs := refs2)`
-  \\ disch_then (qspec_then `refs2` mp_tac)
+  \\ qmatch_goalsub_rename_tac `(build_state refs2 po2)`
+  \\ disch_then (qspecl_then [`refs2`,`po2`] mp_tac)
   \\ strip_tac \\ rpt (asm_exists_tac \\ fs [])
   \\ pop_assum mp_tac
   \\ ntac 2 (qpat_x_assum `~_` mp_tac)
@@ -593,7 +593,7 @@ val Eval_RAT_INV = Q.prove(
   \\ pop_assum (strip_assume_tac o SPEC_ALL)
   \\ fs [] \\ asm_exists_tac \\ fs []
   \\ rw [] \\ first_x_assum drule
-  \\ disch_then (qspec_then `refs` mp_tac)
+  \\ disch_then (qspecl_then [`refs`,`po`] mp_tac)
   \\ strip_tac \\ rpt (asm_exists_tac \\ fs [])
   \\ rename [‘pair_inv (RatPair n d)’]
   \\ ‘rat_of_int n ≠ 0’ by (strip_tac >> fs[])
@@ -623,7 +623,7 @@ val Eval_REAL_INV = Q.prove(
   \\ `x2 ≠ 0` by metis_tac [real_of_rat_int, real_of_rat_eq]
   \\ first_x_assum drule
   \\ disch_then drule
-  \\ disch_then (qspec_then `refs` mp_tac)
+  \\ disch_then (qspecl_then [`refs`,`po`] mp_tac)
   \\ strip_tac \\ fs []
   \\ asm_exists_tac \\ fs []
   \\ asm_exists_tac \\ fs [real_of_rat_inv])
@@ -654,9 +654,9 @@ Proof
   \\ fs [Arrow_def,AppReturns_def,REAL_TYPE_def,PULL_EXISTS, FORALL_PROD, Eq_def]
   \\ fs [rat_div_side_def,PRECONDITION_def,PULL_FORALL]
   \\ rw []
-  \\ rename [‘empty_state with refs := R’]
+  \\ rename [‘build_state R po’]
   \\ last_x_assum $ drule_at Any
-  \\ disch_then (fn th => mp_tac th \\ qspecl_then [‘1’,‘R’] strip_assume_tac th)
+  \\ disch_then (fn th => mp_tac th \\ qspecl_then [‘1’,‘R’,‘po’] strip_assume_tac th)
   \\ gvs [GSYM PULL_FORALL]
   \\ pop_assum kall_tac
   \\ strip_tac
@@ -664,10 +664,10 @@ Proof
   \\ rw [] \\ gvs []
   \\ ‘x ≠ 0’ by fs [real_of_rat_eq_0]
   \\ first_x_assum drule
-  \\ disch_then $ qspec_then ‘R’ strip_assume_tac
-  \\ qmatch_goalsub_rename_tac `(empty_state with refs := refs2)`
+  \\ disch_then $ qspecl_then [‘R’,‘po’] strip_assume_tac
+  \\ qmatch_goalsub_rename_tac `(build_state refs2 po2)`
   \\ first_x_assum drule
-  \\ disch_then (qspec_then `refs2` mp_tac)
+  \\ disch_then (qspecl_then [`refs2`,`po2`] mp_tac)
   \\ strip_tac \\ fs []
   \\ rpt $ first_assum $ irule_at Any
   \\ fs [real_of_rat_div]
@@ -688,7 +688,7 @@ Theorem real_to_str_lemma[local]:
 Proof
   fs [Arrow_def,AppReturns_def,REAL_TYPE_def,RAT_TYPE_def] \\ rw []
   \\ first_x_assum drule
-  \\ disch_then $ qspec_then ‘refs’ strip_assume_tac \\ fs []
+  \\ disch_then $ qspecl_then [‘refs’,‘po’] strip_assume_tac \\ fs []
   \\ first_x_assum $ irule_at Any
   \\ pop_assum mp_tac
   \\ match_mp_tac EQ_IMPLIES
@@ -837,7 +837,7 @@ val Eval_RAT_RATN = Q.prove(
  rw[]
   \\ FULL_SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,RAT_TYPE_def,PULL_EXISTS,FORALL_PROD] \\ rw []
   \\ first_x_assum drule
-  \\ disch_then (qspec_then `refs` mp_tac)
+  \\ disch_then (qspecl_then [`refs`,`po`] mp_tac)
   \\ rw[]
   \\ asm_exists_tac \\ fs[]
   \\ asm_exists_tac \\ fs[]
@@ -859,7 +859,7 @@ val Eval_RAT_RATD = Q.prove(
  rw[]
   \\ FULL_SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,RAT_TYPE_def,PULL_EXISTS,FORALL_PROD] \\ rw []
   \\ first_x_assum drule
-  \\ disch_then (qspec_then `refs` mp_tac)
+  \\ disch_then (qspecl_then [`refs`,`po`] mp_tac)
   \\ rw[]
   \\ asm_exists_tac \\ fs[]
   \\ asm_exists_tac \\ fs[]
@@ -902,7 +902,7 @@ val Eval_RAT_FLOOR = Q.prove(
   \\ first_x_assum(qspec_then `RatPair n d` mp_tac)
   \\ simp[]
   \\ disch_then drule
-  \\ disch_then (qspec_then `refs` mp_tac)
+  \\ disch_then (qspecl_then [`refs`,`po`] mp_tac)
   \\ rw[]
   \\ asm_exists_tac \\ fs[]
   \\ asm_exists_tac \\ fs[]
@@ -974,7 +974,7 @@ val Eval_RAT_is_int = Q.prove(
  rw[]
   \\ FULL_SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,RAT_TYPE_def,PULL_EXISTS,FORALL_PROD] \\ rw []
   \\ first_x_assum drule
-  \\ disch_then (qspec_then `refs` mp_tac)
+  \\ disch_then (qspecl_then [`refs`,`po`] mp_tac)
   \\ rw[]
   \\ asm_exists_tac \\ fs[]
   \\ asm_exists_tac \\ fs[]

@@ -56,15 +56,47 @@ Definition VALID_REFS_PRED_def:
   VALID_REFS_PRED ^H = ?(s : 'ffi state) refs. REFS_PRED H refs s
 End
 
-(* Frame rule for EvalM *)
+(* Frame rule for EvalM. Pure evaluation can advance the pointer oracle. *)
 
 Definition REFS_PRED_FRAME_def:
   REFS_PRED_FRAME ro (h,p:'ffi ffi_proj) (refs1, s1) (refs2, s2) <=>
-    (ro ==> ?refs. s2 = s1 with refs := refs) /\
+    (ro ==> ?refs po. s2 = s1 with <|refs := refs; ptr_eq_oracle := po|>) /\
     s2.next_type_stamp = s1.next_type_stamp /\
     s2.next_exn_stamp = s1.next_exn_stamp /\
     !F. (h refs1 * F) (st2heap p s1) ==> (h refs2 * F * GC) (st2heap p s2)
 End
+
+Theorem st2heap_refs_ptr_eq_oracle[simp]:
+  st2heap p (s with <|refs := refs; ptr_eq_oracle := po|>) =
+  st2heap p (s with refs := refs)
+Proof
+  simp [st2heap_def]
+QED
+
+Theorem REFS_PRED_refs_ptr_eq_oracle[simp]:
+  REFS_PRED H st (s with <|refs := refs; ptr_eq_oracle := po|>) =
+  REFS_PRED H st (s with refs := refs)
+Proof
+  Cases_on `H` \\ simp [REFS_PRED_def]
+QED
+
+Theorem REFS_PRED_FRAME_refs_ptr_eq_oracle[simp]:
+  REFS_PRED_FRAME ro H (refs1,s1)
+    (refs2,s2 with <|refs := refs; ptr_eq_oracle := po|>) =
+  REFS_PRED_FRAME ro H (refs1,s1) (refs2,s2 with refs := refs)
+Proof
+  Cases_on `H`
+  \\ simp [REFS_PRED_FRAME_def,state_component_equality,st2heap_def]
+QED
+
+Theorem REFS_PRED_FRAME_refs_ptr_eq_oracle_input[simp]:
+  REFS_PRED_FRAME ro H
+    (refs1,s1 with <|refs := refs; ptr_eq_oracle := po|>) (refs2,s2) =
+  REFS_PRED_FRAME ro H (refs1,s1 with refs := refs) (refs2,s2)
+Proof
+  Cases_on `H`
+  \\ simp [REFS_PRED_FRAME_def,state_component_equality,st2heap_def]
+QED
 
 Theorem EMP_STAR_GC:
    !H. emp * H = H
@@ -336,7 +368,9 @@ Theorem REFS_PRED_FRAME_append:
    !H refs s. REFS_PRED_FRAME ro ^H (refs, s) (refs, s with refs := s.refs ++ junk)
 Proof
   Cases >>
-  rw[REFS_PRED_FRAME_def] \\ metis_tac[with_same_refs, STATE_APPEND_JUNK]
+  rw[REFS_PRED_FRAME_def]
+  >- fs [state_component_equality]
+  \\ metis_tac[with_same_refs, STATE_APPEND_JUNK]
 QED
 
 (*
@@ -758,4 +792,3 @@ Proof
   \\ drule GC_ABSORB_L
   \\ fs[]
 QED
-

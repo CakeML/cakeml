@@ -3686,6 +3686,15 @@ Proof
   rw [EqualityType_def] \\ metis_tac []
 QED
 
+Theorem VECTOR_TYPE_unique:
+  (!x v1 v2. a x v1 /\ a x v2 ==> v1 = v2) ==>
+  !x v1 v2. VECTOR_TYPE a x v1 /\ VECTOR_TYPE a x v2 ==> v1 = v2
+Proof
+  strip_tac \\ Cases \\ rw [VECTOR_TYPE_def]
+  \\ irule LIST_EQ
+  \\ fs [LIST_REL_EL_EQN] \\ metis_tac []
+QED
+
 (* When the type predicate pins the value uniquely, that one value serves at
    every oracle. Otherwise the value is oracle-dependent and only the form
    above is available. *)
