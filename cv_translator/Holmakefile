@@ -4,11 +4,14 @@ all: $(DEFAULT_TARGETS) README.md
 README_DIRS = $(patsubst bootstrap/,,$(patsubst encoders/,,$(wildcard */)))
 sinclude $(CAKEMLDIR)/developers/readme.mk
 
-EXTRA_CLEANS = cake_compile_heap
+EXTRA_CLEANS = cake_compile_heap cake_compile_ag32_heap
 
 ifdef POLY
-all: cake_compile_heap
+all: cake_compile_heap cake_compile_ag32_heap
 
 cake_compile_heap: eval_cake_compile_x64Lib.uo eval_cake_compile_arm8Lib.uo
+	$(HOLDIR)/bin/hol buildheap -o $@ $<
+
+cake_compile_ag32_heap: eval_cake_compile_ag32Lib.uo
 	$(HOLDIR)/bin/hol buildheap -o $@ $<
 endif
