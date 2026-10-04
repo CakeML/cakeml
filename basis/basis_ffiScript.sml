@@ -1209,6 +1209,14 @@ Proof
   \\ pop_assum $ irule_at Any
 QED
 
+Theorem FORALL_po_Decls:
+  (∀po. Decls init_env (init_state fs with ptr_eq_oracle := po) ds e (f po)) ==>
+  Decls init_env (init_state fs) ds e (f (K (K F)))
+Proof
+  rw [] \\ pop_assum $ qspec_then `K (K F)` mp_tac
+  \\ gvs [ml_progTheory.init_state_def]
+QED
+
 val ref_eq_nil_pat = “_ = [] : v store_v list”
 Theorem basis_refs_eqs =
   find "refs_def"

@@ -404,13 +404,11 @@ fun add_Dlet eval_thm var_str = let
       (prim_mk_const {Thy = "evaluateProps", Name = "no_ptr_eq"}, exp)
     val safe_thm = EQT_ELIM (EVAL safe_tm) handle HOL_ERR _ =>
       failwith "add_Dlet: expression does not pass no_ptr_eq"
-    val oracle_thm = MATCH_MP eval_rel_no_ptr_eq_preserves_oracle
-      (CONJ safe_thm eval_thm)
     val mp_thm = ML_code_Dlet_var |> SPECL (tl eval_thm_xs
         @ [mlstringSyntax.mk_mlstring var_str,no_locs])
   in ML_code_upd "add_Dlet" mp_thm
     [solve_ml_imp_mp eval_thm,
-     solve_ml_imp_mp oracle_thm,
+     solve_ml_imp_mp safe_thm,
      solve_ml_imp_conv (SIMP_CONV bool_ss []
                         THENC SIMP_CONV bool_ss [ML_code_env_def]),
      let_env_abbrev ALL_CONV, let_st_abbrev reduce_conv]
@@ -545,7 +543,7 @@ fun add_Dlet_expr loc n exp s = let
     val mp_thm = SPECL (tl xs @ [n,loc]) ML_code_Dlet_var
   in ML_code_upd "add_Dlet_expr" mp_thm
     [solve_ml_imp_mp rel_thm,
-     solve_ml_imp_mp (CONJUNCT2 lemma),
+     solve_ml_imp_mp safe_thm,
      solve_ml_imp_conv (SIMP_CONV bool_ss [ML_code_env_def]),
      let_env_abbrev ALL_CONV,
      let_st_abbrev reduce_conv] s
