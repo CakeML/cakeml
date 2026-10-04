@@ -4,8 +4,8 @@
 Theory x64BootstrapProof
 Ancestors
   holLightConsistency
-  semanticsProps backendProof x64_configProof compiler64Prog
-  x64Bootstrap replProof candle_prover_semantics mlstring
+  semanticsProps backendProof x64_configProof compiler64X64Prog
+  x64Bootstrap replProof compiler64ReplProof candle_prover_semantics mlstring
 Libs
   preamble
 
@@ -54,7 +54,7 @@ Proof
 QED
 
 val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events"],
-  semantics_compiler64_prog
+  semantics_compiler64_x64_prog
   |> SRULE [ml_progTheory.prog_syntax_ok_semantics, compiler64_compiled]
   |> Q.INST[‘eval_state_var’|->‘the_EvalDecs (mk_init_eval_state compiler_instance)’]
   |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_init_eval_state_def,the_EvalDecs_def]
@@ -99,7 +99,7 @@ Theorem mk_init_eval_state_lemma =
        source_evalProofTheory.mk_init_eval_state_def]
   |> ONCE_REWRITE_RULE [mk_compiler_fun_from_ci_tuple]
   |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_compiler_fun_from_ci_def,
-        GSYM compiler_inst_def];
+        GSYM compiler64ReplProofTheory.compiler_inst_def];
 
 Overload init_eval_state_for =
   “λext cl fs. (init_state (basis_ffi ext cl fs) with
@@ -123,7 +123,7 @@ Proof
 QED
 
 Theorem repl_not_fail =
-  semantics_prog_compiler64_prog
+  semantics_prog_compiler64_x64_prog
   |> Q.GEN ‘s’ |> ISPEC (mk_init_eval_state_lemma |> concl |> rand |> rand)
   |> REWRITE_RULE [GSYM mk_init_eval_state_lemma]
   |> SIMP_RULE (srw_ss()) [IN_DEF]
@@ -136,7 +136,7 @@ Overload basis_init_ok =
 
 Theorem repl_not_fail_thm:
   has_repl_flag (TL cl) ∧ basis_init_ok cl fs ⇒
-  Fail ∉ semantics_prog (init_eval_state_for ext cl fs) init_env compiler64_prog
+  Fail ∉ semantics_prog (init_eval_state_for ext cl fs) init_env compiler64_x64_prog
 Proof
   rw [IN_DEF] \\ irule repl_not_fail \\ fs []
   \\ simp [compiler64_compiled]
@@ -167,11 +167,11 @@ End
 Overload machine_sem = “λffi (mc,ms). targetSem$machine_sem mc ffi ms”
 
 Theorem compile_correct_applied:
-  Fail ∉ semantics_prog (init_eval_state_for ext cl fs) init_env compiler64_prog ∧
+  Fail ∉ semantics_prog (init_eval_state_for ext cl fs) init_env compiler64_x64_prog ∧
   repl_ready_to_run cl fs ms ⇒
   machine_sem (basis_ffi ext cl fs) ms ⊆
     extend_with_resource_limit
-      (semantics_prog (init_eval_state_for ext cl fs) init_env compiler64_prog)
+      (semantics_prog (init_eval_state_for ext cl fs) init_env compiler64_x64_prog)
 Proof
   PairCases_on ‘ms’ \\ rw [IN_DEF,repl_ready_to_run_def]
   \\ irule compile_correct_applied2 \\ fs []
@@ -269,13 +269,13 @@ val tac =
            IN_INSERT,NOT_IN_EMPTY,EVAL “kernel_ffi”] @ char_eq_lemmas)
   \\ EVAL_TAC
 
-Theorem compiler64_prog_eq_candle_code_append: (* this is very slow *)
-  ∃prog. compiler64_prog = candle_code ++ prog ∧ EVERY safe_dec prog
+Theorem compiler64_x64_prog_eq_candle_code_append: (* this is very slow *)
+  ∃prog. compiler64_x64_prog = candle_code ++ prog ∧ EVERY safe_dec prog
 Proof
-  qexists_tac ‘DROP (LENGTH candle_code) compiler64_prog’
+  qexists_tac ‘DROP (LENGTH candle_code) compiler64_x64_prog’
   \\ once_rewrite_tac [candle_kernelProgTheory.candle_code_def]
   \\ rewrite_tac [LENGTH]
-  \\ once_rewrite_tac [compiler64_prog_def]
+  \\ once_rewrite_tac [compiler64_x64_prog_def]
   \\ PURE_REWRITE_TAC [rich_listTheory.DROP]
   \\ conj_tac >- EVAL_TAC
   \\ rewrite_tac [APPEND,locationTheory.unknown_loc_def,EVERY_DEF]
@@ -286,10 +286,10 @@ QED
 Theorem prog_syntax_ok_candle_code[local]:
   prog_syntax_ok candle_code
 Proof
-  ‘prog_syntax_ok compiler64_prog’ by fs [compiler64_compiled]
+  ‘prog_syntax_ok compiler64_x64_prog’ by fs [compiler64_compiled]
   \\ irule ml_progTheory.prog_syntax_ok_isPREFIX
   \\ first_x_assum $ irule_at Any
-  \\ strip_assume_tac compiler64_prog_eq_candle_code_append
+  \\ strip_assume_tac compiler64_x64_prog_eq_candle_code_append
   \\ gvs []
 QED
 
@@ -321,7 +321,7 @@ Proof
     \\ first_x_assum drule \\ fs [])
   \\ rw []
   \\ drule_all events_of_extend_with_resource_limit \\ rw []
-  \\ strip_assume_tac compiler64_prog_eq_candle_code_append \\ gvs []
+  \\ strip_assume_tac compiler64_x64_prog_eq_candle_code_append \\ gvs []
   \\ drule_then irule candle_soundness
   \\ fs [prog_syntax_ok_candle_code] \\ CCONTR_TAC \\ fs []
 QED
