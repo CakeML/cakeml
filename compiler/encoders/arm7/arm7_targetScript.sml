@@ -105,6 +105,7 @@ Definition arm7_enc_def:
       (* >= ARMv6T2 has dedicated NOP but using MOV r0, r0 instead. *)
       enc (Data (ShiftImmediate (F, F, 0w, 0w, SRType_LSL, 0)))) /\
    (arm7_enc (Inst (Const r i)) =
+      let i = (i2w i : word32) in
       case EncodeARMImmediate i of
          SOME imm12 => enc (Data (Move (F, F, n2w r, imm12)))
        | NONE =>
@@ -118,16 +119,16 @@ Definition arm7_enc_def:
       enc (Data (Register (arm7_bop bop, F, n2w r1, n2w r2, n2w r3,
                            SRType_LSL, 0)))) /\
    (arm7_enc (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
-      if (bop = Xor) /\ (i = -1w) then
+      if (bop = Xor) /\ (i = -1) then
         enc (Data (ShiftImmediate (T, F, n2w r1, n2w r2, SRType_LSL, 0)))
       else
-        case EncodeARMImmediate i of
+        case EncodeARMImmediate (i2w i) of
            SOME imm12 =>
              enc (Data (ArithLogicImmediate
                            (arm7_bop bop, F, n2w r1, n2w r2, imm12)))
          | NONE => arm7_encode_fail) /\
    (arm7_enc (Inst (Arith (Shift sh r1 r2 (Imm i)))) =
-      enc (Data (ShiftImmediate (F, F, n2w r1, n2w r2, arm7_sh sh, w2n i)))) /\
+      enc (Data (ShiftImmediate (F, F, n2w r1, n2w r2, arm7_sh sh, Num i)))) /\
    (arm7_enc (Inst (Arith (Shift sh r1 r2 (Reg r3)))) =
       enc (Data (ShiftRegister (F, F, n2w r1, n2w r2, arm7_sh sh, n2w r3)))) /\
    (arm7_enc (Inst (Arith (Div _ _ _))) = arm7_encode_fail) /\
@@ -153,35 +154,43 @@ Definition arm7_enc_def:
          (VC, Data (Move (F, F, n2w r4, 0w)));
          (VS, Data (Move (F, F, n2w r4, 1w)))]) /\
    (arm7_enc (Inst (Mem Load r1 (Addr r2 a))) =
-      let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
+      let c = i2w a : word32 in
+      let (add, imm12) = if 0w <= c then (T, c) else (F, -c) in
       enc (Load (LoadWord (add, T, F, n2w r1, n2w r2,
                            immediate_form1 imm12)))) /\
    (arm7_enc (Inst (Mem Load32 r1 (Addr r2 a))) =
-      let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
+      let c = i2w a : word32 in
+      let (add, imm12) = if 0w <= c then (T, c) else (F, -c) in
       enc (Load (LoadWord (add, T, F, n2w r1, n2w r2,
                            immediate_form1 imm12)))) /\
    (arm7_enc (Inst (Mem Load16 r1 (Addr r2 a))) =
-      let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
+      let c = i2w a : word32 in
+      let (add, imm12) = if 0w <= c then (T, c) else (F, -c) in
       enc (Load (LoadHalf (T, add, T, F, n2w r1, n2w r2,
                            immediate_form1 imm12)))) /\
    (arm7_enc (Inst (Mem Load8 r1 (Addr r2 a))) =
-      let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
+      let c = i2w a : word32 in
+      let (add, imm12) = if 0w <= c then (T, c) else (F, -c) in
       enc (Load (LoadByte (T, add, T, F, n2w r1, n2w r2,
                            immediate_form1 imm12)))) /\
    (arm7_enc (Inst (Mem Store r1 (Addr r2 a))) =
-      let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
+      let c = i2w a : word32 in
+      let (add, imm12) = if 0w <= c then (T, c) else (F, -c) in
       enc (Store (StoreWord (add, T, F, n2w r1, n2w r2,
                              immediate_form1 imm12)))) /\
    (arm7_enc (Inst (Mem Store32 r1 (Addr r2 a))) =
-      let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
+      let c = i2w a : word32 in
+      let (add, imm12) = if 0w <= c then (T, c) else (F, -c) in
       enc (Store (StoreWord (add, T, F, n2w r1, n2w r2,
                              immediate_form1 imm12)))) /\
    (arm7_enc (Inst (Mem Store16 r1 (Addr r2 a))) =
-      let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
+      let c = i2w a : word32 in
+      let (add, imm12) = if 0w <= c then (T, c) else (F, -c) in
       enc (Store (StoreHalf (add, T, F, n2w r1, n2w r2,
                              immediate_form1 imm12)))) /\
    (arm7_enc (Inst (Mem Store8 r1 (Addr r2 a))) =
-      let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
+      let c = i2w a : word32 in
+      let (add, imm12) = if 0w <= c then (T, c) else (F, -c) in
       enc (Store (StoreByte (add, T, F, n2w r1, n2w r2,
                              immediate_form1 imm12)))) /\
    (arm7_enc (Inst (FP (FPLess n d1 d2))) = arm7_vfp_cmp LT n d1 d2) /\
@@ -214,25 +223,27 @@ Definition arm7_enc_def:
       enc (VFP (vcvt_to_integer (T, F, F, n2w d1, n2w d2)))) /\
    (arm7_enc (Inst (FP (FPFromInt d1 d2))) =
       enc (VFP (vcvt_from_integer (T, F, n2w d1, n2w d2)))) /\
-   (arm7_enc (Jump a) = enc (Branch (BranchTarget (a - 8w)))) /\
+   (arm7_enc (Jump a) = enc (Branch (BranchTarget ((i2w a : word32) - 8w)))) /\
    (arm7_enc (JumpCmp cmp r1 (Reg r2) a) =
       let (opc, c) = arm7_cmp cmp in
       arm7_encode
         [(AL, Data (TestCompareRegister (opc, n2w r1, n2w r2, SRType_LSL, 0)));
-         (c, Branch (BranchTarget (a - 12w)))]) /\
+         (c, Branch (BranchTarget ((i2w a : word32) - 12w)))]) /\
    (arm7_enc (JumpCmp cmp r (Imm i) a) =
       let (opc, c) = arm7_cmp cmp
       in
-        case EncodeARMImmediate i of
+        case EncodeARMImmediate (i2w i) of
            SOME imm12 =>
               arm7_encode
                 [(AL, Data (TestCompareImmediate (opc, n2w r, imm12)));
-                 (c, Branch (BranchTarget (a - 12w)))]
+                 (c, Branch (BranchTarget ((i2w a : word32) - 12w)))]
          | NONE => arm7_encode_fail) /\
    (arm7_enc (Call a) =
-      enc (Branch (BranchLinkExchangeImmediate (InstrSet_ARM, a - 8w)))) /\
+      enc (Branch
+             (BranchLinkExchangeImmediate (InstrSet_ARM, (i2w a : word32) - 8w)))) /\
    (arm7_enc (JumpReg r) = enc (Branch (BranchExchange (n2w r)))) /\
    (arm7_enc (Loc r i) =
+      let i = (i2w i : word32) in
       let (opc, imm32) = if 8w <= i then (4w, i - 8w) else (2w, 8w - i) in
       let imm32b3 = (31 >< 24) imm32 : word8
       and imm32b2 = (23 >< 16) imm32 : word8
@@ -271,6 +282,10 @@ Definition valid_immediate_def:
    valid_immediate = IS_SOME o EncodeARMImmediate
 End
 
+Definition arm7_valid_imm_def:
+   arm7_valid_imm (c:binop+cmp) (i: int) = valid_immediate (i2w i : word32)
+End
+
 Definition arm7_config_def:
    arm7_config =
    <| ISA := ARMv7
@@ -282,13 +297,13 @@ Definition arm7_config_def:
     ; link_reg := SOME 14
     ; two_reg_arith := F
     ; big_endian := F
-    ; valid_imm := \c i. valid_immediate i
-    ; addr_offset := (^min12, ^max12)
-    ; hw_offset := (^min8, ^max8)
-    ; byte_offset := (^min12, ^max12)
-    ; jump_offset := (^min26 + 8w, ^max26 + 8w)
-    ; cjump_offset := (^min26 + 12w, ^max26 + 12w)
-    ; loc_offset := (INT_MINw, INT_MAXw)
+    ; valid_imm := arm7_valid_imm
+    ; addr_offset := (-4095, 4095)
+    ; hw_offset := (-255, 255)
+    ; byte_offset := (-4095, 4095)
+    ; jump_offset := (-33554424, 33554439)
+    ; cjump_offset := (-33554420, 33554443)
+    ; loc_offset := (-2147483648, 2147483647)
     |>
 End
 

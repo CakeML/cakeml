@@ -56,7 +56,7 @@ val _ = not (can (fetch "-") "my_even_ind") andalso
 val parity_expected_error =
   "Preprocessor failed: definition defines more than one function.";
 val parity_preprocessing_error =
-  (mutual_to_single_line_def parity_all_variable; NONE)
+  (mutual_to_single_line_def (Context.snapshot ()) parity_all_variable; NONE)
   handle HOL_ERR err => SOME (Feedback.message_of err);
 val _ = parity_preprocessing_error = SOME parity_expected_error orelse
         failwith "Parity preprocessing did not reject the single-function fallback";
@@ -333,7 +333,7 @@ val res = translate char_to_byte_def;
 
 val res = translate MAP;
 
-val _ = hol2deep “λx. pure_seq (n+1:num) x”
+val _ = translate_tm “λx. pure_seq (n+1:num) x”
   |> concl |> find_term (can (match_term “Let NONE”))
 
 (*
@@ -753,10 +753,10 @@ val res = translate id_to_string_def;
 
 val _ = use_string_type true;
 
-val _ = (hol2deep ``"hi"`` |> concl |> rator |> rand |> astSyntax.is_Lit)
+val _ = (translate_tm ``"hi"`` |> concl |> rator |> rand |> astSyntax.is_Lit)
         orelse failwith "incorrectly translates string literals";
 
-val r = hol2deep ``\c. STRING c ""``;
+val r = translate_tm ``\c. STRING c ""``;
 
 (* more advanced test of HOL_STRING_TYPE *)
 

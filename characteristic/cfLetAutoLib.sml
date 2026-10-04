@@ -686,9 +686,9 @@ fun mk_post_condition (postv_v, postv_pred, poste_v, poste_pred, postf_args, pos
 (* [find_spec]
    Finds a proper specification for the application in the goal.
    The code has been taken from xspec (cfTactics) *)
-fun find_spec g =
+fun find_spec ctxt g =
   let
-    val (asl, w) = (xapp_prepare_goal g) |> #1 |> List.hd
+    val (asl, w) = (xapp_prepare_goal g ctxt) |> #1 |> List.hd
     val (ffi_ty, f) = (goal_app_infos w)
   in
   case xspec_in_asl f asl of
@@ -696,14 +696,14 @@ fun find_spec g =
       (print
       ("Using a " ^ (spec_kind_toString k) ^
        " specification from the assumptions\n");
-      cf_spec ffi_ty k (ASSUME a))
+      cf_spec ctxt ffi_ty k (ASSUME a))
    | NONE =>
        case xspec_in_db f of
           SOME (thy, name, k, thm) =>
           (print ("Using " ^ (spec_kind_toString k) ^
           " specification " ^ name ^
           " from theory " ^ thy ^ "\n");
-          cf_spec ffi_ty k thm)
+          cf_spec ctxt ffi_ty k thm)
        | NONE =>
           raise ERR "find_spec" ("Could not find a specification for " ^
                              fst (dest_const f))
@@ -733,13 +733,13 @@ fun rename_dest_foralls (asl, spec) =
 
 (* [xlet_find_spec]
    Find the app specification to use given a goal to prove *)
-fun xlet_find_spec g =
+fun xlet_find_spec ctxt g =
   let
     (* Find the specification *)
     val dummy_spec = `POSTv (v:v). &T`
-    val g' = xlet dummy_spec g |> #1 |> List.hd
+    val g' = xlet dummy_spec g ctxt |> #1 |> List.hd
   in
-    SPEC_ALL(find_spec g')
+    SPEC_ALL(find_spec ctxt g')
   end;
 
 (* [xlet_dest_app_spec] *)
@@ -1736,13 +1736,13 @@ fun xlet_mk_post_condition asl frame_hpl app_spec =
   end;
 
 (* [xlet_app_auto] *)
-fun xlet_app_auto app_info env let_pre opt_app_spec (g as (asl, w)) =
+fun xlet_app_auto ctxt app_info env let_pre opt_app_spec (g as (asl, w)) =
   let
       (* Find the specification  *)
       val app_spec =
           case opt_app_spec of
               SOME spec => spec
-            | NONE => xlet_find_spec g |> DISCH_ALL |> GEN_ALL
+            | NONE => xlet_find_spec ctxt g |> DISCH_ALL |> GEN_ALL
 
       (* Substitute the paramaters *)
       val subst_app_spec =
@@ -1856,7 +1856,7 @@ fun is_cf_app_aux let_expr =
   handle HOL_ERR _ => false;
 
 (* [xlet_find_auto] *)
-fun xlet_find_auto (g as (asl, w)) =
+fun xlet_find_auto ctxt (g as (asl, w)) =
   if is_cf_let w then
       let
           val (goal_op, goal_args) = strip_comb w
@@ -1869,7 +1869,7 @@ fun xlet_find_auto (g as (asl, w)) =
               xlet_expr_auto let_expr env pre post g
           else if is_cf_app_aux let_expr then
               let val (_, c) =
-                      xlet_app_auto let_expr env pre NONE g
+                      xlet_app_auto ctxt let_expr env pre NONE g
               in c end
               handle XLET_ERR err =>
                      (print (XLET_ERR_MSG err);
@@ -1881,7 +1881,7 @@ fun xlet_find_auto (g as (asl, w)) =
       raise (ERR "xlet_find_auto" "Not a cf_let expression");
 
 (* [xlet_auto_spec] *)
-fun xlet_auto_spec (opt_spec : thm option) (g as (asl, w)) =
+fun xlet_auto_spec (opt_spec : thm option) (g as (asl, w)) ctxt =
    if is_cf_let w then
       let
           val (goal_op, goal_args) = strip_comb w
@@ -1892,11 +1892,11 @@ fun xlet_auto_spec (opt_spec : thm option) (g as (asl, w)) =
       in
           if is_cf_value_aux let_expr then
               let val c = xlet_expr_auto let_expr env pre post g
-              in xlet `^c` g end
+              in xlet `^c` g ctxt end
           else if is_cf_app_aux let_expr then
               let val (H, c) =
-                      xlet_app_auto let_expr env pre opt_spec g
-              in (xlet `^c` THEN_LT (NTH_GOAL (xapp_spec H) 1)) g end
+                      xlet_app_auto ctxt let_expr env pre opt_spec g
+              in (xlet `^c` THEN_LT (NTH_GOAL (xapp_spec H) 1)) g ctxt end
               handle XLET_ERR err =>
                      (print (XLET_ERR_MSG err);
                       raise ERR "xlet_auto" "unable to find the post-condition")
@@ -1907,8 +1907,8 @@ fun xlet_auto_spec (opt_spec : thm option) (g as (asl, w)) =
       raise (ERR "xlet_auto_spec" "Not a cf_let expression");
 
 (* [xlet_auto] *)
-fun xlet_auto (g as (asl, w)) =
-  xlet_auto_spec NONE g
+fun xlet_auto (g as (asl, w)) ctxt =
+  xlet_auto_spec NONE g ctxt
   handle HOL_ERR e
          => raise (ERR "xlet_auto" (message_of e));
 

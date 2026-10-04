@@ -80,7 +80,7 @@ val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
 
 val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
 
-val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``,``foo:'a stackLang$prog``, “foo:'a pan_to_crep$context”]
+val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo:reg_imm``,``foo:arith``,``foo:addr``,``foo:stackLang$prog``, “foo:'a pan_to_crep$context”]
 
 val _ = register_type “:32 panLang$exp”;
 
@@ -265,7 +265,7 @@ val _ = translate $ INST_TYPE[alpha|->“:32 crepLang$exp”] pan_to_crepTheory.
 
 val _ = translate $ spec32 pan_to_crepTheory.comp_field_def;
 
-val _ = translate $ spec32 pan_to_crepTheory.exp_hdl_def;
+val _ = translate $ INST_TYPE[alpha|->“:32”,beta|->“:mlstring”,gamma|->“:shape”] pan_to_crepTheory.exp_hdl_def;
 
 val _ = translate $ SIMP_RULE std_ss [byteTheory.bytes_in_word_def,lem]
                   $ INST_TYPE[alpha|->“:32”,
@@ -289,9 +289,12 @@ val ind_lemma = Q.prove(
 
 val _ = translate $ spec32 pan_to_crepTheory.mk_ctxt_def;
 
+val _ = translate (pan_to_crepTheory.make_vmap_def |> INST_TYPE[alpha|->“:mlstring”]
+                                 |> REWRITE_RULE [FUPDATE_LIST]);
+
 val _ = translate $ spec32 pan_to_crepTheory.comp_func_def;
 
-val _ = translate $ pan_to_crepTheory.make_funcs_def;
+val _ = translate $ INST_TYPE[alpha|->“:mlstring”] pan_to_crepTheory.make_funcs_def;
 
 val _ = translate $ INST_TYPE[alpha|->“:32”,
                               beta|->“:32”] pan_to_crepTheory.get_eids_from_decls_def;
@@ -328,11 +331,16 @@ val _ = translate $ spec32 crep_to_loopTheory.compile_crepop_def;
 
 val _ = translate $ spec32 crep_to_loopTheory.compile_exp_def;
 
+val _ = translate $ INST_TYPE[alpha|->“:crepLang$varname”] crep_to_loopTheory.rt_vars_def;
+
+val _ = translate (crep_to_loopTheory.make_vmap_def |> INST_TYPE[alpha|->“:crepLang$varname”]
+                                 |> REWRITE_RULE [FUPDATE_LIST]);
+
 val _ = translate $ spec32 crep_to_loopTheory.compile_def;
 
 val _ = translate $ spec32 crep_to_loopTheory.comp_func_def;
 
-val _ = translate $ crep_to_loopTheory.make_funcs_def;
+val _ = translate $ INST_TYPE[alpha|->“:crepLang$funname”] crep_to_loopTheory.make_funcs_def;
 
 val _ = translate $ spec32 crep_to_loopTheory.compile_prog_def;
 

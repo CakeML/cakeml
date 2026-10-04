@@ -71,7 +71,7 @@ val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
 
 val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
 
-val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``,``foo:'a stackLang$prog``]
+val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo:reg_imm``,``foo:arith``,``foo:addr``,``foo:stackLang$prog``]
 
 val _ = inst_tyargs := [alpha]
 
@@ -102,6 +102,15 @@ val _ = translate (word_to_stackTheory.wInst_def |> conv32)
 
 val _ = translate (word_to_stackTheory.perf_call_prefix_def |> conv32)
 val _ = translate (word_to_stackTheory.perf_call_suffix_def |> conv32)
+
+val _ = translate (word_to_stackTheory.num_stack_ret_def |> INST_TYPE [alpha|->``:num``])
+val _ = translate (word_to_stackTheory.skip_free_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
+val _ = translate (word_to_stackTheory.copy_ret_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
+val _ = translate (word_to_stackTheory.stack_arg_count_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
+val _ = translate (word_to_stackTheory.StackArgs_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
+val _ = translate (word_to_stackTheory.StackHandlerArgs_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
+val _ = translate (word_to_stackTheory.PushHandler_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
+val _ = translate (word_to_stackTheory.PopHandler_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
 
 val _ = translate (spec32 word_to_stackTheory.comp_def)
 
@@ -147,7 +156,8 @@ val _ = translate (stack_allocTheory.word_gen_gc_partial_move_roots_bitmaps_code
 val _ = translate (stack_allocTheory.word_gen_gc_partial_move_list_code_def |> inline_simp |> conv32);
 val _ = translate (stack_allocTheory.word_gen_gc_partial_move_ref_list_code_def |> inline_simp |> conv32);
 val _ = translate (stack_allocTheory.word_gen_gc_partial_move_data_code_def |> inline_simp |> conv32);
-val r = translate (stack_allocTheory.word_gc_partial_or_full_def |> inline_simp |> conv32);
+val r = translate (stack_allocTheory.word_gc_partial_or_full_def |> INST_TYPE [alpha|->``:num``]);
+
 val r = translate (stack_allocTheory.word_gc_code_def |> inline_simp |> conv32);
 
 val _ = translate (spec32 stack_allocTheory.stubs_def);
@@ -206,10 +216,10 @@ val _ = translate (spec32 stack_namesTheory.comp_def)
 val _ = translate (stack_namesTheory.prog_comp_def |> INST_TYPE [beta |-> ``:32``])
 val _ = translate (stack_namesTheory.compile_def |> INST_TYPE [beta |-> ``:32``])
 
-val _ = matches := [``foo:'a labLang$prog``,``foo:'a
-  labLang$sec``,``foo:'a labLang$line``,``foo:'a
-  labLang$asm_with_lab``,``foo:'a labLang$line list``,``foo:'a
-  inst``,``foo:'a asm_config``] @ (!matches)
+val _ = matches := [``foo:labLang$prog``,``foo:labLang$sec``,
+  ``foo:labLang$line``,``foo:labLang$asm_with_lab``,
+  ``foo:labLang$line list``,
+  ``foo:inst``,``foo:asm_config``] @ (!matches)
 
 val _ = translate (stack_to_labTheory.flatten_def |> spec32)
 

@@ -144,6 +144,31 @@ val r = translate bvi_tmcTheory.pure_exp_eq;
 
 val r = translate bvi_tmcTheory.bvi_to_cb_aux_def;
 
+(* subst/substs recurse over expressions and expression lists, skipping the
+   optional-expression predicate in the datatype induction theorem. *)
+Theorem subst_trans_ind =
+  bviTheory.exp_induction
+  |> Q.SPECL [`\e. !xs:bvi$exp list. P xs e`, `\h. T`,
+              `\es. !xs:bvi$exp list. Q xs es`]
+  |> SIMP_RULE std_ss []
+  |> Q.GENL [`P`, `Q`]
+  |> CONV_RULE (BINDER_CONV (BINDER_CONV
+       (RAND_CONV (BINOP_CONV SWAP_FORALL_CONV))));
+
+val r = translate bvi_tmcTheory.subst_def;
+
+Theorem bvi_tmc_subst_side[local]:
+  (∀xs e. bvi_tmc_subst_side xs e) ∧
+  (∀xs es. bvi_tmc_substs_side xs es)
+Proof
+  ho_match_mp_tac subst_trans_ind>>
+  rw[]>>
+  simp[Once (fetch "-" "bvi_tmc_subst_side_def")]>>
+  rw[LLOOKUP_THM]
+QED
+
+val _ = bvi_tmc_subst_side |> update_precondition;
+
 (* ------------------------------------------------------------------------- *)
 (* bvl_to_bvi                                                                *)
 (* ------------------------------------------------------------------------- *)

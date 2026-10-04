@@ -67,7 +67,7 @@ val defaults = [riscv_ast_def, riscv_encode_def, Encode_def,
 val riscv_enc_thms =
   riscv_enc_def
   |> SIMP_RULE std_ss [FUN_EQ_THM]
-  |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss[``:64 asm``])[]
+  |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss[``:asm``])[]
   |> CONJUNCTS
 val riscv_enc1 = el 1 riscv_enc_thms
 val riscv_enc2 = el 2 riscv_enc_thms
@@ -78,7 +78,7 @@ val riscv_enc6 = el 6 riscv_enc_thms;
 
 val riscv_enc1s =
   riscv_enc1
-  |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss [``:64 inst``]) defaults
+  |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss [``:inst``]) defaults
   |> CONJUNCTS;
 
 val riscv_enc1_1 = el 1 riscv_enc1s |> wc_simp |> we_simp |> econv
@@ -90,10 +90,10 @@ val riscv_enc1_2 = el 2 riscv_enc1s
   |> csethm 10;
 
 val (binop::shift::rest) = el 3 riscv_enc1s |> SIMP_RULE (srw_ss() ++
-  DatatypeSimps.expand_type_quants_ss [``:64 arith``]) [] |> CONJUNCTS;
+  DatatypeSimps.expand_type_quants_ss [``:arith``]) [] |> CONJUNCTS;
 
 val (binopreg_aux::binopimm_aux::_) = binop |> SIMP_RULE (srw_ss() ++
-  DatatypeSimps.expand_type_quants_ss [``:64 reg_imm``])
+  DatatypeSimps.expand_type_quants_ss [``:reg_imm``])
   [FORALL_AND_THM] |> CONJUNCTS |> map (SIMP_RULE (srw_ss() ++ LET_ss
   ++ DatatypeSimps.expand_type_quants_ss [``:asm$binop``]) []);
 
@@ -111,14 +111,14 @@ val binopimm = binopimm_aux |> CONJUNCTS |> map(fn th => th
   |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]);
 
 val binopimmth = reconstruct_case
-  ``riscv_enc (Inst (Arith (Binop b n n0 (Imm c))))``
+  ``riscv_enc (Inst (Arith (Binop b n n0 (Imm i))))``
   (rand o rator o rator o rator o rand o rand o rand) binopimm
 
 val binopth = reconstruct_case ``riscv_enc(Inst (Arith (Binop b n n0 r)))``
   (rand o rand o rand o rand) [binopregth,binopimmth];
 
 val (shiftreg_aux::shiftimm_aux::_) = shift |> SIMP_RULE (srw_ss() ++
-  DatatypeSimps.expand_type_quants_ss [``:64 reg_imm``])
+  DatatypeSimps.expand_type_quants_ss [``:reg_imm``])
   [FORALL_AND_THM] |> CONJUNCTS |> map (SIMP_RULE (srw_ss() ++ LET_ss ++
   DatatypeSimps.expand_type_quants_ss [``:shift``]) []);
 
@@ -134,6 +134,19 @@ val shiftreg = shiftreg_aux |> CONJUNCTS
 val shiftregth = reconstruct_case ``riscv_enc (Inst (Arith (Shift b n n0
   (Reg n'))))`` (rand o rator o rator o rator o rand o rand o rand) shiftreg;
 
+Theorem Num_shift_abs[local]:
+  !i:int. Num i = Num (ABS i)
+Proof
+  metis_tac[integerTheory.Num_EQ_ABS,integerTheory.INT_ABS_ABS,
+            integerTheory.INT_INJ]
+QED
+
+fun num_shift_conv tm =
+  if intSyntax.is_Num tm andalso
+     not (can (match_term ``ABS (i:int)``) (rand tm))
+  then REWR_CONV Num_shift_abs tm
+  else NO_CONV tm;
+
 val shiftimm = shiftimm_aux |> CONJUNCTS
   |> map(fn th => th
     |> SIMP_RULE (srw_ss()++LET_ss)
@@ -141,10 +154,11 @@ val shiftimm = shiftimm_aux |> CONJUNCTS
          Q.ISPEC`LIST_BIND`COND_RAND ::
          COND_RATOR ::
          riscv_sh_def :: defaults)
-    |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]);
+    |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+    |> CONV_RULE (DEPTH_CONV num_shift_conv));
 
 val shiftimmth = reconstruct_case ``riscv_enc (Inst (Arith (Shift b n n0
-  (Imm c))))`` (rand o rator o rator o rator o rand o rand o rand) shiftimm;
+  (Imm i))))`` (rand o rator o rator o rator o rand o rand o rand) shiftimm;
 
 val shiftth = reconstruct_case ``riscv_enc(Inst (Arith (Shift b n n0
   r)))`` (rand o rand o rand o rand) [shiftregth,shiftimmth];
@@ -157,13 +171,13 @@ val riscv_enc1_3 = reconstruct_case ``riscv_enc (Inst (Arith a))``
   (rand o rand o rand) riscv_enc1_3_aux;
 
 val riscv_enc1_4_aux = el 4 riscv_enc1s |> SIMP_RULE (srw_ss() ++
-  DatatypeSimps.expand_type_quants_ss [``:64 addr``,``:memop``])
+  DatatypeSimps.expand_type_quants_ss [``:addr``,``:memop``])
   defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss
   [SHIFT_ZERO] |> CONJUNCTS;
 
 val riscv_enc1_4 = reconstruct_case ``riscv_enc (Inst (Mem m n a))``
   (rand o rand o rand) [reconstruct_case ``riscv_enc (Inst (Mem m n
-  (Addr n' c)))`` (rand o rator o rator o rand o rand)
+  (Addr n' i)))`` (rand o rator o rator o rand o rand)
   riscv_enc1_4_aux];
 
 Theorem notw2w[local]:
@@ -194,7 +208,7 @@ val riscv_simp2 = riscv_enc2 |> SIMP_RULE (srw_ss() ++ LET_ss) (Once
   gconv;
 
 val riscv_enc3_aux = riscv_enc3
-  |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss[``:64 reg_imm``])[FORALL_AND_THM]
+  |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss[``:reg_imm``])[FORALL_AND_THM]
   |> CONJUNCTS
   |> map (fn th => th
      |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss[``:cmp``])
@@ -206,13 +220,15 @@ val riscv_enc3_2 = el 2 riscv_enc3_aux |> SIMP_RULE std_ss [v2w_rw]
 
 val riscv_enc3_1_th =
   riscv_enc3_1 |> CONJUNCTS
-  |> reconstruct_case ``riscv_enc (JumpCmp c n (Reg n') c0)``
-     (rand o funpow 3 rator o rand);
+  |> reconstruct_case ``riscv_enc (JumpCmp c n (Reg n') i)``
+     (rand o funpow 3 rator o rand)
+  |> INST [``i:int`` |-> ``c0:int``];
 
 val riscv_enc3_2_th =
   riscv_enc3_2 |> CONJUNCTS
-  |> reconstruct_case ``riscv_enc (JumpCmp c n (Imm c') c0)``
-     (rand o funpow 3 rator o rand);
+  |> reconstruct_case ``riscv_enc (JumpCmp c n (Imm i) i')``
+     (rand o funpow 3 rator o rand)
+  |> INST [``i:int`` |-> ``c':int``, ``i':int`` |-> ``c0:int``];
 
 val riscv_simp3 =
   reconstruct_case ``riscv_enc (JumpCmp c n r c0)`` (rand o rator o rand)
@@ -236,15 +252,15 @@ val riscv_enc_thm = reconstruct_case ``riscv_enc i`` rand
   riscv_simp6];
 
 val cases_defs = LIST_CONJ
-  [TypeBase.case_def_of “:'a asm$inst”,
+  [TypeBase.case_def_of “:asm$inst”,
    TypeBase.case_def_of “:asm$cmp”,
    TypeBase.case_def_of “:asm$memop”,
    TypeBase.case_def_of “:asm$binop”,
    TypeBase.case_def_of “:ast$shift”,
-   TypeBase.case_def_of “:'a asm$arith”,
-   TypeBase.case_def_of “:'a asm$addr”,
-   TypeBase.case_def_of “:'a asm$reg_imm”,
-   TypeBase.case_def_of “:'a asm$asm”];
+   TypeBase.case_def_of “:asm$arith”,
+   TypeBase.case_def_of “:asm$addr”,
+   TypeBase.case_def_of “:asm$reg_imm”,
+   TypeBase.case_def_of “:asm$asm”];
 
 val d1 = Define ‘riscv_enc_Const n c = riscv_enc (Inst (Const n c))’
   |> SIMP_RULE std_ss [riscv_enc_thm,cases_defs,APPEND]
@@ -408,7 +424,19 @@ val d1 = CONJ d1 $ Define ‘riscv_enc_Arith_Xor_Reg a b c =
 
 val def = riscv_enc_thm |> SIMP_RULE std_ss [APPEND] |> SIMP_RULE std_ss [GSYM d1];
 
-val res = CONJUNCTS d1 |> map SPEC_ALL |> map translate;
+val inline_encode_defs =
+  [LIST_BIND_def,riscv_encode_def,Encode_def,Rtype_def,Itype_def,
+   Stype_def,Utype_def,UJtype_def,SBtype_def,opc_def,amofunc_def];
+
+val minus_one_literals =
+  [EVAL ``-1w:word8``, EVAL ``-1w:word20``, EVAL ``-1w:word32``];
+
+fun prep_encoder th = th
+  |> SIMP_RULE (srw_ss()) inline_encode_defs
+  |> wc_simp |> we_simp |> gconv
+  |> SIMP_RULE std_ss ([v2w_rw,notw2w] @ minus_one_literals);
+
+val res = CONJUNCTS d1 |> map SPEC_ALL |> map (translate o prep_encoder);
 
 val res = translate def;
 
