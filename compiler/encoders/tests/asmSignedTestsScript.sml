@@ -1,4 +1,6 @@
-(* Executable regression checks for signed ASM operations and encodings. *)
+(*
+  Executable regression checks for signed ASM operations and encodings.
+*)
 Theory asmSignedTests
 Ancestors
   x64_target arm7_target arm8_target mips_target riscv_target ag32_target

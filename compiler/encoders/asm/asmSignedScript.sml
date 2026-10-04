@@ -1,4 +1,6 @@
-(* Arithmetic facts shared by the signed ASM encoder proofs. *)
+(*
+  Arithmetic facts shared by the signed ASM encoder proofs.
+*)
 Theory asmSigned
 Ancestors
   asmProps integer_word
