@@ -395,4 +395,3 @@ Definition copy_prop_def:
   copy_prop (e:'a wordLang$prog) =
     FST (copy_prop_prog e empty_eq)
 End
-

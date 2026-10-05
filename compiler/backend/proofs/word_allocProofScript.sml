@@ -9952,8 +9952,8 @@ Resume ssa_cc_trans_correct[FFI]:
     full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
     reverse(Cases_on`call_FFI st.ffi (ExtCall s) x'' x'`)>>full_simp_tac(srw_ss())[]
     >- fs[call_env_def,flush_state_def] >>
-    qpat_abbrev_tac`ffi_memory = write_bytearray A B C D E`>>
-    qabbrev_tac`rst = st with <|locals := x;fp_regs:=FEMPTY;memory:=ffi_memory;ffi:=f'|>`>>
+    qpat_abbrev_tac`mem = write_bytearray A B C D E`>>
+    qabbrev_tac`rst = st with <|locals := x;fp_regs:=FEMPTY;memory:=mem;ffi:=f'|>`>>
     qpat_abbrev_tac`rcstt = rcst with <|locals := A;fp_regs:=FEMPTY;memory:=B;ffi:=D|>`>>
     `domain ssa_cut = domain x` by (
       fs[Abbr`ssa_cut`,domain_union,cut_env_def,AllCaseEqs()]>>

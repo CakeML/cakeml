@@ -337,4 +337,3 @@ Proof
   fs[target_state_rel_def,riscv_ok_def, aligned_w2n,
     APPLY_UPDATE_THM,riscv_config_def,riscv_target_def]
 QED
-

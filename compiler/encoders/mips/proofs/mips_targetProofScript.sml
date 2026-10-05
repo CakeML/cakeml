@@ -730,46 +730,18 @@ Resume mips_encoder_correct[IMul]:
      set_sepTheory.fun2set_eq, mips_reg_ok, lem8, lem9, lem9b, fcc_lem,
      wordsTheory.WORD_EXTRACT_OVER_MUL, asmSignedTheory.signed_low_64]
   \\ rpt conj_tac
+  >~ [`(ro =+ _) ((rd =+ _) s1.regs)`]
   >- (
-    gen_tac \\ disch_tac
-    \\ qpat_x_assum `!a. a IN s1.mem_domain ==> (env 0 _).MEM a = ms.MEM a`
-         (qspec_then `pc` match_mp_tac)
-    \\ qpat_x_assum `!i:num state:mips_state. _` kall_tac
-    \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> _` kall_tac)
-    \\ fs [])
-  >- (
-    gen_tac \\ disch_tac
-    \\ qpat_x_assum `!a. a IN s1.mem_domain ==> (env 1 _).MEM a = ms.MEM a`
-         (qspec_then `pc` match_mp_tac)
-    \\ qpat_x_assum `!i:num state:mips_state. _` kall_tac
-    \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> _` kall_tac)
-    \\ fs [])
-  >- (
-    gen_tac \\ disch_tac
-    \\ qpat_x_assum `!a. a IN s1.mem_domain ==> (env 2 _).MEM a = ms.MEM a`
-         (qspec_then `pc` match_mp_tac)
-    \\ qpat_x_assum `!i:num state:mips_state. _` kall_tac
-    \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> _` kall_tac)
-    \\ fs [])
-  >- (
-    gen_tac \\ disch_tac
-    \\ qpat_x_assum `!a. a IN s1.mem_domain ==> (env 3 _).MEM a = ms.MEM a`
-         (qspec_then `pc` match_mp_tac)
-    \\ qpat_x_assum `!i:num state:mips_state. _` kall_tac
-    \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> _` kall_tac)
-    \\ fs [])
-  >- (
-    gen_tac \\ disch_tac
-    \\ qpat_x_assum `!a. a IN s1.mem_domain ==> (env 4 _).MEM a = ms.MEM a`
-         (qspec_then `pc` match_mp_tac)
-    \\ qpat_x_assum `!i:num state:mips_state. _` kall_tac
-    \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> _` kall_tac)
-    \\ fs [])
-  \\ rewrite_tac [signed_mul_flag_64, combinTheory.APPLY_UPDATE_THM]
-  \\ match_mp_tac (REWRITE_RULE [combinTheory.APPLY_UPDATE_THM]
-                    register_pair_update_scratch_64)
-  \\ asm_rewrite_tac []
-  \\ rpt strip_tac \\ simp []
+    rewrite_tac [signed_mul_flag_64, combinTheory.APPLY_UPDATE_THM]
+    \\ match_mp_tac (REWRITE_RULE [combinTheory.APPLY_UPDATE_THM]
+                      register_pair_update_scratch_64)
+    \\ asm_rewrite_tac []
+    \\ rpt strip_tac \\ simp [])
+  \\ gen_tac \\ disch_tac
+  \\ first_x_assum (qspec_then `pc` match_mp_tac)
+  \\ qpat_x_assum `!i:num state:mips_state. _` kall_tac
+  \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> _` kall_tac)
+  \\ fs []
 QED
 
 Resume mips_encoder_correct[IDiv]:
@@ -784,29 +756,24 @@ Resume mips_encoder_correct[IDiv]:
      mips_target_def, mips_config, alignmentTheory.aligned_numeric,
      set_sepTheory.fun2set_eq, mips_reg_ok, lem8, lem9, lem9b, fcc_lem]
   \\ rpt conj_tac
+  >~ [`(rq =+ _) ((rr =+ _) s1.regs)`]
   >- (
-    gen_tac \\ disch_tac
-    \\ qpat_x_assum `!a. a IN s1.mem_domain ==> (env 0 _).MEM a = ms.MEM a`
-         (qspec_then `pc` match_mp_tac)
-    \\ fs [])
-  >- (
-    gen_tac \\ disch_tac
-    \\ qpat_x_assum `!a. a IN s1.mem_domain ==> (env 1 _).MEM a = ms.MEM a`
-         (qspec_then `pc` match_mp_tac)
-    \\ fs [])
-  \\ qpat_assum `(ms.gpr (n2w rb) : word64) <> 0w` (fn nz =>
-    rewrite_tac
-      [MATCH_MP (Q.ISPECL [`(ms : mips_state).gpr (n2w ra)`,
-                          `(ms : mips_state).gpr (n2w rb)`]
-                    integer_wordTheory.word_quot) nz,
-       MATCH_MP (Q.ISPECL [`(ms : mips_state).gpr (n2w ra)`,
-                          `(ms : mips_state).gpr (n2w rb)`]
-                    integer_wordTheory.word_rem) nz])
-  \\ rewrite_tac [combinTheory.APPLY_UPDATE_THM]
-  \\ match_mp_tac (REWRITE_RULE [combinTheory.APPLY_UPDATE_THM]
-                    register_pair_update_64)
-  \\ asm_rewrite_tac []
-  \\ rpt strip_tac \\ simp []
+    qpat_assum `(ms.gpr (n2w rb) : word64) <> 0w` (fn nz =>
+      rewrite_tac
+        [MATCH_MP (Q.ISPECL [`(ms : mips_state).gpr (n2w ra)`,
+                            `(ms : mips_state).gpr (n2w rb)`]
+                      integer_wordTheory.word_quot) nz,
+         MATCH_MP (Q.ISPECL [`(ms : mips_state).gpr (n2w ra)`,
+                            `(ms : mips_state).gpr (n2w rb)`]
+                      integer_wordTheory.word_rem) nz])
+    \\ rewrite_tac [combinTheory.APPLY_UPDATE_THM]
+    \\ match_mp_tac (REWRITE_RULE [combinTheory.APPLY_UPDATE_THM]
+                      register_pair_update_64)
+    \\ asm_rewrite_tac []
+    \\ rpt strip_tac \\ simp [])
+  \\ gen_tac \\ disch_tac
+  \\ first_x_assum (qspec_then `pc` match_mp_tac)
+  \\ fs []
 QED
 
 Resume mips_encoder_correct[Binop]:

@@ -1605,10 +1605,8 @@ Proof
   >> rpt(POP_ASSUM MP_TAC)
   >> (fn (asms,g) => (asms,g) |> EVERY(map UNDISCH_TAC asms))
   >> Q.SPEC_TAC (`acc`,`acc`) >> Q.SPEC_TAC (`prog`,`prog`) >> Q.SPEC_TAC (`c`,`c`)
-  >~ [`(if _ then _ else []) = ([]:(num # num) list)`]
-  >- (rpt strip_tac >> IF_CASES_TAC >> gvs[])
-  >~ [`(if _ then _ else []) = ([]:(num # num) list)`]
-  >- (rpt strip_tac >> IF_CASES_TAC >> gvs[])
+  >>~- ([`_ = Inst (Arith (IDiv _ _ _ _))`],
+        rpt strip_tac >> IF_CASES_TAC >> gvs[])
   >> ho_match_mp_tac (theorem "get_forced_ind")
   >> rpt strip_tac
   >> fs[get_forced_def]

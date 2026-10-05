@@ -425,47 +425,20 @@ QED
 
 Theorem signed_msub_rem_64[local]:
   (b : word64) <> 0w ==>
-  a + -1w * (b * (a / b)) = i2w (w2i a rem w2i b)
+  a + -1w * (i2w (w2i a quot w2i b) * b) = i2w (w2i a rem w2i b)
 Proof
   strip_tac
-  \\ simp [integer_wordTheory.word_quot]
-  \\ sg `w2i a + -1 * (w2i b * (w2i a quot w2i b)) =
+  \\ sg `w2i a + -1 * ((w2i a quot w2i b) * w2i b) =
          w2i a rem w2i b`
   >- (
     mp_tac (Q.SPEC `w2i (b : word64)` integerTheory.INT_REMQUOT)
     \\ simp [integer_wordTheory.w2i_eq_0]
     \\ disch_then (Q.SPEC_THEN `w2i (a : word64)` strip_assume_tac)
-    \\ simp [integerTheory.INT_MUL_COMM]
     \\ intLib.ARITH_TAC)
   \\ qpat_x_assum `_ = _ rem _` (fn th => once_rewrite_tac [GSYM th])
   \\ simp [GSYM integer_wordTheory.word_i2w_add,
            GSYM integer_wordTheory.word_i2w_mul,
            integer_wordTheory.i2w_w2i, integer_wordTheory.i2w_minus_1]
-QED
-
-Theorem register_pair_update_64[local]:
-  rq < 32 /\ rr < 32 /\ rq <> rr /\
-  (!i. i < 32 /\ i <> 18 /\ i <> 26 /\ i <> 31 ==>
-       (src : num -> word64) i = (dst : word5 -> word64) (n2w i)) ==>
-  !i. i < 32 /\ i <> 18 /\ i <> 26 /\ i <> 31 ==>
-      ((rq =+ quotient) ((rr =+ remainder) src)) i =
-      ((n2w rr =+ remainder) ((n2w rq =+ quotient) dst)) (n2w i)
-Proof
-  rpt strip_tac
-  \\ rw [combinTheory.APPLY_UPDATE_THM, wordsTheory.n2w_11]
-QED
-
-Theorem register_pair_update_temp_64[local]:
-  rq < 32 /\ rr < 32 /\
-  (!i. i < 32 /\ i <> 18 /\ i <> 26 /\ i <> 31 ==>
-       (src : num -> word64) i = (dst : word5 -> word64) (n2w i)) ==>
-  !i. i < 32 /\ i <> 18 /\ i <> 26 /\ i <> 31 ==>
-      ((rq =+ quotient) ((rr =+ remainder) src)) i =
-      ((n2w rq =+ quotient)
-        ((n2w rr =+ remainder) ((26w =+ scratch) dst))) (n2w i)
-Proof
-  rpt strip_tac
-  \\ rw [combinTheory.APPLY_UPDATE_THM, wordsTheory.n2w_11]
 QED
 
 Theorem arm8_encoder_correct:
@@ -549,8 +522,8 @@ QED
 
 Resume arm8_encoder_correct[Arith]:
   Cases_on `a`
-  >~ [`asm$IMul rd ra rb ro`] >- suspend "IMul"
-  >~ [`asm$IDiv rq rr ra rb`] >- suspend "IDiv"
+         >~ [`asm$IMul rd ra rb ro`] >- suspend "IMul"
+         >~ [`asm$IDiv rq rr ra rb`] >- suspend "IDiv"
          >- suspend "Binop"
          >- suspend "Shift"
          >- suspend "Div"
@@ -572,7 +545,7 @@ Resume arm8_encoder_correct[IMul]:
   \\ next_state_tacN (`8w`, 1) filter_vacuous
   \\ next_state_tacN (`12w`, 0) filter_reg_31
   \\ state_tac [arm8Theory.ExtendWord_def, arm8Theory.DecodeShift_def,
-             arm8Theory.ShiftValue_def, mul_cmp_zero_64, signed_mul_high_64]
+                arm8Theory.ShiftValue_def, mul_cmp_zero_64, signed_mul_high_64]
 QED
 
 Resume arm8_encoder_correct[IDiv]:
@@ -587,88 +560,20 @@ Resume arm8_encoder_correct[IDiv]:
     \\ next_state_tacN (`4w`, 1) filter_reg_31
     \\ next_state_tacN (`8w`, 0) filter_reg_31
     \\ qpat_x_assum `w2i (i2w _) = _` kall_tac
-    \\ arm8_fs [asmPropsTheory.sym_target_state_rel, arm8_target_def,
-                arm8_config, asmPropsTheory.all_pcs, arm8_ok_def, lem30,
-                set_sepTheory.fun2set_eq]
     \\ qpat_assum `w2i _ <> 0`
          (assume_tac o REWRITE_RULE [integer_wordTheory.w2i_eq_0])
-    \\ simp [signed_msub_rem_64]
-    \\ qpat_assum `(_ : word64) <> 0w` (fn nz =>
-         rewrite_tac [MATCH_MP (Q.ISPECL
-           [`(ms : arm8_state).REG (n2w ra)`,
-            `(ms : arm8_state).REG (n2w rb)`]
-           integer_wordTheory.word_quot) nz])
-    \\ rewrite_tac [combinTheory.APPLY_UPDATE_THM,
-                    alignmentTheory.aligned_numeric]
-    \\ qpat_x_assum `NextStateARM8 _ = _` kall_tac
-    \\ qpat_x_assum `NextStateARM8 _ = _` kall_tac
-    \\ qpat_x_assum `NextStateARM8 _ = _` kall_tac
-    \\ qpat_x_assum `bytes_in_memory _ _ _ _` kall_tac
-    \\ qpat_x_assum `bytes_in_memory _ _ _ _` kall_tac
-    \\ qpat_x_assum `bytes_in_memory _ _ _ _` kall_tac
-    \\ qabbrev_tac `quotient = i2w (w2i (ms.REG (n2w ra)) quot
-                                   w2i (ms.REG (n2w rb))) : word64`
-    \\ qabbrev_tac `remainder = i2w (w2i (ms.REG (n2w ra)) rem
-                                    w2i (ms.REG (n2w rb))) : word64`
-    \\ rpt conj_tac
-    >- (
-      qmatch_goalsub_abbrev_tac `env 0 middle`
-      \\ qpat_x_assum `!i:num state:arm8_state. _`
-           (qspecl_then [`0`, `middle`] strip_assume_tac)
-      \\ rw []
-      \\ fs [Abbr `middle`])
-    >- (
-      qmatch_goalsub_abbrev_tac `env 1 middle`
-      \\ qpat_assum `!i:num state:arm8_state. _`
-           (qspecl_then [`1`, `middle`] strip_assume_tac)
-      \\ qunabbrev_tac `middle`
-      \\ qmatch_goalsub_abbrev_tac `env 0 before`
-      \\ qpat_x_assum `!i:num state:arm8_state. _`
-           (qspecl_then [`0`, `before`] strip_assume_tac)
-      \\ rw []
-      \\ fs [Abbr `before`])
-    >- asm_rewrite_tac []
-    \\ match_mp_tac (REWRITE_RULE [combinTheory.APPLY_UPDATE_THM]
-                                  register_pair_update_temp_64)
-    \\ asm_rewrite_tac [])
+    \\ state_tac [integer_wordTheory.word_quot]
+    \\ simp [signed_msub_rem_64])
   \\ next_tac `1`
   \\ enc_rwts_tac
   \\ asmLib.split_bytes_in_memory_tac 4
   \\ next_state_tac01
   \\ next_state_tacN (`4w`, 0) filter_reg_31
   \\ qpat_x_assum `w2i (i2w _) = _` kall_tac
-  \\ arm8_fs [asmPropsTheory.sym_target_state_rel, arm8_target_def,
-              arm8_config, asmPropsTheory.all_pcs, arm8_ok_def, lem30,
-              set_sepTheory.fun2set_eq]
   \\ qpat_assum `w2i _ <> 0`
        (assume_tac o REWRITE_RULE [integer_wordTheory.w2i_eq_0])
+  \\ state_tac [integer_wordTheory.word_quot]
   \\ simp [signed_msub_rem_64]
-  \\ qpat_assum `(_ : word64) <> 0w` (fn nz =>
-       rewrite_tac [MATCH_MP (Q.ISPECL
-         [`(ms : arm8_state).REG (n2w ra)`,
-          `(ms : arm8_state).REG (n2w rb)`]
-         integer_wordTheory.word_quot) nz])
-  \\ rewrite_tac [combinTheory.APPLY_UPDATE_THM,
-                  alignmentTheory.aligned_numeric]
-  \\ qpat_x_assum `NextStateARM8 _ = _` kall_tac
-  \\ qpat_x_assum `NextStateARM8 _ = _` kall_tac
-  \\ qpat_x_assum `bytes_in_memory _ _ _ _` kall_tac
-  \\ qpat_x_assum `bytes_in_memory _ _ _ _` kall_tac
-  \\ qabbrev_tac `quotient = i2w (w2i (ms.REG (n2w ra)) quot
-                                 w2i (ms.REG (n2w rb))) : word64`
-  \\ qabbrev_tac `remainder = i2w (w2i (ms.REG (n2w ra)) rem
-                                  w2i (ms.REG (n2w rb))) : word64`
-  \\ rpt conj_tac
-  >- (
-    qmatch_goalsub_abbrev_tac `env 0 middle`
-    \\ qpat_x_assum `!i:num state:arm8_state. _`
-         (qspecl_then [`0`, `middle`] strip_assume_tac)
-    \\ rw []
-    \\ fs [Abbr `middle`])
-  >- asm_rewrite_tac []
-  \\ match_mp_tac (REWRITE_RULE [combinTheory.APPLY_UPDATE_THM]
-                                register_pair_update_64)
-  \\ asm_rewrite_tac []
 QED
 
 Resume arm8_encoder_correct[Binop]:

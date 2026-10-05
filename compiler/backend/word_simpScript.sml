@@ -498,4 +498,3 @@ Definition compile_exp_def:
     let e = push_out_if e in
       e
 End
-

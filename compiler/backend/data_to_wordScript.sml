@@ -2065,16 +2065,16 @@ val def = assign_Define `
                            (SOME Mul_location) [adjust_var v1; adjust_var v2] NONE));
                      Move 2 [(adjust_var dest,1)]]
          else list_Seq [Assign 1 (Var (adjust_var v1));
-                   Inst (Arith (LongMul 3 1 1 (adjust_var v2)));
-                   Assign 3 (Op Or [Var 3;
-                               Op And [Const 1w;
-                                 Op Or [Var (adjust_var v1); Var (adjust_var v2)]]]);
-                   Assign 1 (ShiftVar Lsr 1 1);
-                   If Equal 3 (Imm 0) Skip
-                     (MustTerminate
-                       (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
-                        (SOME Mul_location) [adjust_var v1; adjust_var v2] NONE));
-                   Move 2 [(adjust_var dest,1)]],l+1)
+                        Inst (Arith (LongMul 3 1 1 (adjust_var v2)));
+                        Assign 3 (Op Or [Var 3;
+                                    Op And [Const 1w;
+                                      Op Or [Var (adjust_var v1); Var (adjust_var v2)]]]);
+                        Assign 1 (ShiftVar Lsr 1 1);
+                        If Equal 3 (Imm 0) Skip
+                          (MustTerminate
+                            (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
+                             (SOME Mul_location) [adjust_var v1; adjust_var v2] NONE));
+                        Move 2 [(adjust_var dest,1)]],l+1)
       : 'a wordLang$prog # num`;
 
 (* Tagged inputs give an untagged quotient and a tagged remainder. Correct

@@ -1107,7 +1107,7 @@ Resume arm7_encoder_correct[IMul]:
   \\ next_state_tac
   \\ next_state_tac
   \\ fs [combinTheory.APPLY_UPDATE_THM, arm_stepTheory.R_mode_11,
-      wordsTheory.WORD_EXTRACT_OVER_MUL, signed_low_32]
+         wordsTheory.WORD_EXTRACT_OVER_MUL, signed_low_32]
   \\ Cases_on
     `-1w * ((ms.REG (R_mode ms.CPSR.M (n2w ra)) *
              ms.REG (R_mode ms.CPSR.M (n2w rb))) >> 31) +

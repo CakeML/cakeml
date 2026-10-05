@@ -875,30 +875,19 @@ Resume evaluate_sf_gc_consts[Loop]:
   >~ [`Exception`] >- gvs [get_above_handler_def]
   >~ [`Break`]
   >- (Cases_on `n = 0` \\ gvs [cut_state_def, AllCaseEqs()] \\ rw [])
-  >> qmatch_asmsub_rename_tac
-    `evaluate (_,_) = (SOME (wordSem$Continue continue_depth),iteration_state)` >>
-  Cases_on `continue_depth = 0` >> gvs[flush_state_def] >>
-  Cases_on `iteration_state.clock = 0` >> gvs[flush_state_def] >>
-  namedCases_on `res` ["", "loop_result"] >> fs[]
-  >- (
-    irule EVERY2_trans >> conj_tac >- metis_tac[sf_gc_consts_trans] >>
-    qexists_tac `iteration_state.stack` >> fs[])
-  >> namedCases_on `loop_result`
-    ["return_loc return_values", "exception_loc exception_value",
-     "break_depth", "next_depth", "", "", "final_event", ""] >> fs[]
-  >~ [`evaluate (_,_) = (SOME (wordSem$Exception _ _),_)`]
-  >- (
-    strip_tac >>
-    `s.handler < LENGTH iteration_state.stack` by (
-      imp_res_tac LIST_REL_LENGTH >> fs[]) >> fs[] >>
-    conj_tac
-    >- (
-      match_mp_tac (SRULE [] EVERY2_trans_LASTN_sf_gc_consts) >>
-      qexists_tac `iteration_state.stack` >> fs[])
-    >> irule sf_gc_consts_get_above_handler >> fs[dec_clock_def])
-  >> (
-    irule EVERY2_trans >> conj_tac >- metis_tac[sf_gc_consts_trans] >>
-    qexists_tac `iteration_state.stack` >> fs[])
+  >~ [`Continue`]
+  >- (Cases_on `n = 0` \\ gvs [flush_state_def]
+      \\ Cases_on `s1.clock = 0` \\ gvs [flush_state_def]
+      \\ qpat_x_assum `case _ of NONE => _ | SOME _ => _` mp_tac
+      \\ Cases_on `res` \\ fs [] \\ strip_tac
+      >- (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [])
+      \\ Cases_on `x` \\ fs []
+      >~ [`Exception`]
+      >- (strip_tac \\ `s.handler < LENGTH s1.stack` by (imp_res_tac LIST_REL_LENGTH \\ fs []) \\ fs []
+          \\ conj_tac >- (match_mp_tac (SRULE [] EVERY2_trans_LASTN_sf_gc_consts) \\ qexists_tac `s1.stack` \\ fs [])
+          \\ irule sf_gc_consts_get_above_handler \\ fs [dec_clock_def])
+      \\ (* Result / Break / Continue *)
+         (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs []))
 QED
 
 Finalise evaluate_sf_gc_consts;

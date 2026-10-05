@@ -2149,11 +2149,11 @@ Proof
 QED
 
 Resume comp_no_share_inst[Skip]:
-  gvs [comp_def, no_share_inst_def]
+  gvs[comp_def,no_share_inst_def]
 QED
 
 Resume comp_no_share_inst[Move]:
-  gvs [comp_def, no_share_inst_def]
+  gvs[comp_def,no_share_inst_def]
 QED
 
 Resume comp_no_share_inst[Call]:
@@ -2167,18 +2167,17 @@ QED
 Resume comp_no_share_inst[Assign]:
   gvs[comp_def,AllCaseEqs(),assign_def,all_assign_defs,
     arg1_def,arg2_def,arg3_def,arg4_def] >>
-  simp[no_share_inst_SmallDivMod,no_share_inst_def,oneline AssignCmp_def, SetBool_def,
+  simp[no_share_inst_def,oneline AssignCmp_def, SetBool_def,
     GiveUp_def,BignumHalt_def,AllocVar_def,SilentFFI_def,
     list_Seq_no_share_inst,StoreEach_no_share_inst,
     Make_ptr_bits_code_def,StoreAnyConsts_no_share_inst,
-    Maxout_bits_code_def,MemEqList_no_share_inst,
+    Maxout_bits_code_def,MemEqList_no_share_inst,no_share_inst_SmallDivMod,
     WriteWord64_def,WordOp64_on_32_def,WriteWord64_on_32_def,
     LoadWord64_def,WordShift64_on_32_def,LoadBignum_def,
     WriteWord32_on_32_def,WordShiftVar64_def,WordShiftVar64_on_32_def] >>
   rpt (
     TOP_CASE_TAC >>
-    simp [no_share_inst_SmallDivMod, no_share_inst_def,
-      list_Seq_no_share_inst])
+    simp[no_share_inst_def,list_Seq_no_share_inst,no_share_inst_SmallDivMod])
 QED
 
 Resume comp_no_share_inst[Seq]:
@@ -2202,15 +2201,15 @@ Resume comp_no_share_inst[MakeSpace]:
 QED
 
 Resume comp_no_share_inst[Raise]:
-  gvs [comp_def, no_share_inst_def]
+  gvs[comp_def,no_share_inst_def]
 QED
 
 Resume comp_no_share_inst[Return]:
-  gvs [comp_def, no_share_inst_def]
+  gvs[comp_def,no_share_inst_def]
 QED
 
 Resume comp_no_share_inst[Tick]:
-  gvs [comp_def, no_share_inst_def]
+  gvs[comp_def,no_share_inst_def]
 QED
 
 Resume comp_no_share_inst[Force]:

@@ -1,5 +1,3 @@
 all: $(DEFAULT_TARGETS) README.md
 
-asmSignedEncoders: ../x64/x64_targetLib.uo ../arm7/arm7_targetLib.uo ../arm8/arm8_targetLib.uo ../mips/mips_targetLib.uo ../riscv/riscv_targetLib.uo ../ag32/ag32_targetTheory.uo
-
 sinclude $(CAKEMLDIR)/developers/readme.mk

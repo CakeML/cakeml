@@ -8,7 +8,8 @@ Libs
   preamble x64_targetLib arm7_targetLib arm8_targetLib mips_targetLib
   riscv_targetLib
 
-(* The integer numeral conversions leave zero / -1 unevaluated. *)
+(* Add `0 quot -1 = 0` and `0 rem -1 = 0`, which the integer numeral
+   conversions leave unevaluated. *)
 val signed_compset = computeLib.add_thms
   (map (fn th => MP (Q.SPEC `-1` th)
      (EQT_ELIM (EVAL ``(-1:int) <> 0``)))
@@ -78,7 +79,7 @@ val () = check ``LENGTH (arm8_enc (Inst (Arith (IMul 0 0 1 2)))) = 16``;
 val () = check ``LENGTH (riscv_enc (Inst (Arith (IMul 5 5 6 7)))) = 20``;
 val () = check ``LENGTH (mips_enc (Inst (Arith (IMul 2 2 3 4)))) = 24``;
 
-(* GNU as reference bytes for the two ARM instruction sequences. *)
+(* GNU as reference bytes for the ARMv7 and ARMv8 sequences. *)
 val () = check ``arm7_enc (Inst (Arith (IMul 0 0 1 2))) =
   [0x90w; 0x01w; 0xC2w; 0xE0w; 0xC0w; 0x0Fw; 0x52w; 0xE1w;
    0x00w; 0x20w; 0xA0w; 0x03w; 0x01w; 0x20w; 0xA0w; 0x13w]``;

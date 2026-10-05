@@ -4738,18 +4738,14 @@ Proof
       disch_then (qx_choose_then `divisor_state` strip_assume_tac) >>
       simp[Once stackSemTheory.evaluate_def] >>
       `4 < k` by fs[state_rel_def] >>
-      `0 < k` by (
-        qpat_x_assum `4 < k` mp_tac >> decide_tac
-      ) >>
+      `0 < k` by (qpat_x_assum `4 < k` mp_tac >> decide_tac) >>
       `get_var 0 divisor_state = SOME (Word dividend_word)` by (
         drule_all (SIMP_RULE (srw_ss()) []
           (Q.INST [`n` |-> `0`] state_rel_get_var_imp')) >>
-        simp[]
-      ) >>
+        simp[]) >>
       fs[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.get_vars_def] >>
       irule state_rel_set_var' >> simp[] >>
-      irule state_rel_set_var' >> simp[]
-    )
+      irule state_rel_set_var' >> simp[])
     >~ [`Arith (IMul _ _ _ _)`]
     >- (
       qmatch_goalsub_rename_tac `wInst _ (Arith (IMul product_reg left_reg right_reg 0)) _` >>
@@ -4773,8 +4769,7 @@ Proof
       pairarg_tac >> simp[] >>
       qmatch_asmsub_rename_tac `wReg1 product_reg _ = (product_stores,product_stack_reg)` >>
       fs[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.get_vars_def] >>
-      match_mp_tac evaluate_wStackStore_wReg1_0 >> simp[]
-    )
+      match_mp_tac evaluate_wStackStore_wReg1_0 >> simp[])
     >~ [`Arith (SubOverflow _ _ _ _)`]
     >-( (* SubOverflow *)
         gvs[get_vars_def,AllCaseEqs()] >>
@@ -11098,115 +11093,31 @@ Resume word_to_stack_stack_asm_name_lem[Inst]:
   ‘(arch_wordsize c.ISA = Arch64) ⇔ dimindex (:'a) = 64’ by (
     Cases_on ‘arch_wordsize c.ISA’ >>
     fs[asmTheory.arch_width_bits_def]) >>
-  namedCases_on `i` ["", "dst value", "arith_op",
-                     "mem_op data_reg address", "fp_op"] >>
-  fs wconvs
-  >~ [`wInst _ asm$Skip _`]
-  >- EVAL_TAC
-  >~ [`wInst _ (asm$Const _ _) _`]
+  Cases_on`i`>>TRY(Cases_on`m`)>>TRY(Cases_on`a`)>>
+  TRY(Cases_on`b`>>Cases_on`r`)>>TRY(Cases_on`r`)>>
+  TRY(Cases_on`f`)>>
+  fs wconvs>>
+  fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,two_reg_inst_def,wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,asmTheory.fp_reg_ok_def]
+  >~ [`Arith (IMul dst_reg _ _ _)`]
   >- (
-    EVAL_TAC >> rw[] >> EVAL_TAC >> fs[])
+    ‘dst_reg DIV 2 ≠ 0’ by metis_tac[EVEN_DIV_2_props] >>
+    Cases_on `c.two_reg_arith` >> gvs[] >>
+    fs[wInst_def] >> EVAL_TAC >> rw[] >>
+    EVAL_TAC >> rw[] >> EVAL_TAC >> gvs[])
+  >~ [`Arith (IDiv _ _ _ _)`]
   >- (
-    namedCases_on `arith_op`
-      ["bin_op dst_reg left_reg right_imm", "shift_op dst_reg left_reg right_imm",
-       "dst_reg left_reg right_reg", "hi_reg lo_reg left_reg right_reg",
-       "quotient_reg remainder_reg hi_reg lo_reg divisor_reg",
-       "dst_reg left_reg right_reg carry_reg",
-       "dst_reg left_reg right_reg overflow_reg",
-       "dst_reg left_reg right_reg overflow_reg",
-       "dst_reg left_reg right_reg overflow_reg",
-       "quotient_reg remainder_reg dividend_reg divisor_reg"]
-    >- (
-      namedCases_on `right_imm` ["right_reg", "immediate_value"] >>
-      fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,
-         two_reg_inst_def,wordLangTheory.every_var_inst_def,
-         reg_allocTheory.is_phy_var_def] >>
-      fs[wInst_def] >> EVAL_TAC >> rw[] >>
-      EVAL_TAC >> rw[] >> EVAL_TAC >> gvs[] >>
-      rw[] >> gvs[] >>
-      CCONTR_TAC >> gvs[])
-    >- (
-      namedCases_on `right_imm` ["right_reg", "shift_amount"] >>
-      fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,
-         two_reg_inst_def,wordLangTheory.every_var_inst_def,
-         reg_allocTheory.is_phy_var_def] >>
-      fs[wInst_def] >> EVAL_TAC >> rw[] >>
-      EVAL_TAC >> rw[] >> EVAL_TAC >> gvs[] >>
-      rw[] >> gvs[] >>
-      CCONTR_TAC >> gvs[])
-    >- (
-      fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,
-         two_reg_inst_def,wordLangTheory.every_var_inst_def,
-         reg_allocTheory.is_phy_var_def] >>
-      fs[wInst_def] >> EVAL_TAC >> rw[] >>
-      EVAL_TAC >> rw[] >> EVAL_TAC >> gvs[])
-    >- (
-      gvs[inst_arg_convention_def,wInst_def] >>
-      EVAL_TAC >> rw[] >> EVAL_TAC >> gvs[])
-    >- (
-      fs[inst_ok_less_def,wInst_def] >>
-      EVAL_TAC >> rw[] >> EVAL_TAC >> gvs[])
-    >- (
-      fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,
-         two_reg_inst_def,wordLangTheory.every_var_inst_def,
-         reg_allocTheory.is_phy_var_def] >>
-      fs[wInst_def] >> EVAL_TAC >> rw[] >>
-      EVAL_TAC >> rw[] >> EVAL_TAC >> gvs[] >>
-      rw[] >> gvs[] >>
-      metis_tac[EVEN_DIV_2_props])
-    >- (
-      fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,
-         two_reg_inst_def,wordLangTheory.every_var_inst_def,
-         reg_allocTheory.is_phy_var_def] >>
-      fs[wInst_def] >> EVAL_TAC >> rw[] >>
-      EVAL_TAC >> rw[] >> EVAL_TAC >> gvs[] >>
-      rw[] >> gvs[] >>
-      metis_tac[EVEN_DIV_2_props])
-    >- (
-      fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,
-         two_reg_inst_def,wordLangTheory.every_var_inst_def,
-         reg_allocTheory.is_phy_var_def] >>
-      fs[wInst_def] >> EVAL_TAC >> rw[] >>
-      EVAL_TAC >> rw[] >> EVAL_TAC >> gvs[] >>
-      rw[] >> gvs[] >>
-      metis_tac[EVEN_DIV_2_props])
-    >- (
-      fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,
-         two_reg_inst_def,wordLangTheory.every_var_inst_def,
-         reg_allocTheory.is_phy_var_def] >>
-      ‘dst_reg DIV 2 ≠ 0’ by metis_tac[EVEN_DIV_2_props] >>
-      Cases_on `c.two_reg_arith` >> gvs[] >>
-      fs[wInst_def] >> EVAL_TAC >> rw[] >>
-      EVAL_TAC >> rw[] >> EVAL_TAC >> gvs[])
-    >> fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,
-       two_reg_inst_def,wordLangTheory.every_var_inst_def,
-       reg_allocTheory.is_phy_var_def] >> gvs[] >>
+    gvs[] >>
     fs[wInst_def] >> EVAL_TAC >> rw[] >>
     EVAL_TAC >> rw[] >> EVAL_TAC >> gvs[] >>
     drule (SIMP_RULE (srw_ss()) [] (Q.INST [`b` |-> `6`] EVEN_DIV_2_props)) >>
     simp[])
-  >- (
-    Cases_on `mem_op` >> namedCases_on `address` ["base_reg offset"] >>
-    fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,
-       two_reg_inst_def,wordLangTheory.every_var_inst_def,
-       reg_allocTheory.is_phy_var_def] >>
-    fs[wInst_def] >> EVAL_TAC >> rw[] >>
-    EVAL_TAC >> rw[] >> EVAL_TAC >> gvs[] >>
-    rw[] >> gvs[asmTheory.int_offset_ok_def])
-  >> namedCases_on `fp_op`
-    ["cmp_reg fp_left fp_right", "cmp_reg fp_left fp_right",
-     "cmp_reg fp_left fp_right", "fp_dst fp_src", "fp_dst fp_src",
-     "fp_dst fp_src", "fp_dst fp_left fp_right", "fp_dst fp_left fp_right",
-     "fp_dst fp_left fp_right", "fp_dst fp_left fp_right",
-     "fp_dst fp_left fp_right", "fp_dst fp_src", "lo_reg hi_reg fp_src",
-     "fp_dst lo_reg hi_reg", "fp_dst fp_src", "fp_dst fp_src"] >>
-  fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,
-     two_reg_inst_def,wordLangTheory.every_var_inst_def,
-     reg_allocTheory.is_phy_var_def,asmTheory.fp_reg_ok_def] >>
-  fs[oneline wInst_def] >> EVAL_TAC >> rw[] >>
-  EVAL_TAC >> rw[] >> EVAL_TAC >> gvs[] >>
-  rw[] >> gvs[] >>
-  metis_tac[EVEN_DIV_2_props]
+  >> fs[oneline wInst_def] >>
+  EVAL_TAC>>rw[]>>
+  EVAL_TAC>>rw[]>>
+  EVAL_TAC>>fs[]>>
+  rw[]>>
+  TRY(metis_tac[EVEN_DIV_2_props])>>
+  fs[asmTheory.int_offset_ok_def]
 QED
 
 Resume word_to_stack_stack_asm_name_lem[Return]:

@@ -1080,8 +1080,8 @@ QED
 
 Resume x64_encoder_correct[Arith]:
   Cases_on `a`
-  >~ [`asm$IMul rd ra rb ro`] >- suspend "IMul"
-  >~ [`asm$IDiv rq rr ra rb`] >- suspend "IDiv"
+         >~ [`asm$IMul rd ra rb ro`] >- suspend "IMul"
+         >~ [`asm$IDiv rq rr ra rb`] >- suspend "IDiv"
          >- suspend "Binop"
          >- suspend "Shift"
          >- suspend "Div"

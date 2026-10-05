@@ -7,7 +7,7 @@ Ancestors
 Libs
   preamble blastLib
 
-Theorem signed_extend_i2w:
+Theorem signed_extend_i2w[local]:
   dimindex (:'a) <= dimindex (:'b) ==>
   (sw2sw (w : 'a word) : 'b word) = i2w (w2i w)
 Proof
@@ -18,7 +18,7 @@ Proof
            integer_wordTheory.w2i_ge, integer_wordTheory.w2i_le]
 QED
 
-Theorem signed_mul_wide_value:
+Theorem signed_mul_wide_value[local]:
   dimindex (:'a) <= dimindex (:'b) /\
   INT_MIN (:'b) <= w2i (a : 'a word) * w2i (b : 'a word) /\
   w2i a * w2i b <= INT_MAX (:'b) ==>
@@ -29,7 +29,7 @@ Proof
            integer_wordTheory.w2i_i2w]
 QED
 
-Theorem signed_product_64_bounds:
+Theorem signed_product_64_bounds[local]:
   INT_MIN (:128) <= w2i (a : word64) * w2i (b : word64) /\
   w2i a * w2i b <= INT_MAX (:128)
 Proof
@@ -53,7 +53,7 @@ Proof
   \\ intLib.ARITH_TAC
 QED
 
-Theorem signed_product_32_bounds:
+Theorem signed_product_32_bounds[local]:
   INT_MIN (:64) <= w2i (a : word32) * w2i (b : word32) /\
   w2i a * w2i b <= INT_MAX (:64)
 Proof
@@ -89,14 +89,14 @@ Proof
   blastLib.BBLAST_TAC
 QED
 
-Theorem signed_high_fits_64:
+Theorem signed_high_fits_64[local]:
   ((127 >< 64) (w : word128) = ((63 >< 0) w : word64) >> 63) <=>
   (w = sw2sw ((63 >< 0) w : word64))
 Proof
   blastLib.BBLAST_TAC
 QED
 
-Theorem signed_high_fits_32:
+Theorem signed_high_fits_32[local]:
   ((63 >< 32) (w : word64) = ((31 >< 0) w : word32) >> 31) <=>
   (w = sw2sw ((31 >< 0) w : word32))
 Proof
@@ -141,17 +141,6 @@ Proof
        `(sw2sw (a : word32) : word64) * sw2sw (b : word32)`
        (GEN_ALL signed_high_fits_32))
   \\ simp [EQ_SYM_EQ]
-QED
-
-Theorem signed_dividend_64:
-  w2i (((w >> 63) @@ (w : word64)) : word128) = w2i w
-Proof
-  `(((w >> 63) @@ (w : word64)) : word128) = sw2sw w` by
-    blastLib.BBLAST_TAC
-  \\ mp_tac (Q.ISPECL
-       [`(((w >> 63) @@ (w : word64)) : word128)`, `w : word64`]
-       (INST_TYPE [gamma |-> ``:128``] integer_wordTheory.w2i_11_lift))
-  \\ simp []
 QED
 
 Theorem signed_dividend_parts_64:

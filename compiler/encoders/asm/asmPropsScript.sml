@@ -367,41 +367,6 @@ Proof
   Cases_on`b`>>EVAL_TAC
 QED
 
-Theorem arith_upd_IMul_regs:
-  rd <> ro ==>
-  (arith_upd (IMul rd ra rb ro) s).regs rd = s.regs ra * s.regs rb /\
-  (arith_upd (IMul rd ra rb ro) s).regs ro =
-    (if w2i (s.regs ra * s.regs rb) <> w2i (s.regs ra) * w2i (s.regs rb)
-     then 1w else 0w) /\
-  (arith_upd (IMul rd ra rb ro) s).failed = s.failed /\
-  (!r. r <> rd /\ r <> ro ==>
-       (arith_upd (IMul rd ra rb ro) s).regs r = s.regs r)
-Proof
-  rw [arith_upd_def, read_reg_def, upd_reg_def, APPLY_UPDATE_THM]
-QED
-
-Theorem arith_upd_IDiv_regs:
-  rq <> rr ==>
-  (arith_upd (IDiv rq rr ra rb) s).regs rq =
-    i2w (w2i (s.regs ra) quot w2i (s.regs rb)) /\
-  (arith_upd (IDiv rq rr ra rb) s).regs rr =
-    i2w (w2i (s.regs ra) rem w2i (s.regs rb)) /\
-  (!r. r <> rq /\ r <> rr ==>
-       (arith_upd (IDiv rq rr ra rb) s).regs r = s.regs r)
-Proof
-  rw [arith_upd_def, read_reg_def, upd_reg_def, assert_def, APPLY_UPDATE_THM]
-QED
-
-Theorem arith_upd_IDiv_failed:
-  (arith_upd (IDiv rq rr ra rb) (s : 'a asm_state)).failed <=>
-    s.failed \/ w2i (s.regs rb) = 0 \/
-    w2i (i2w (w2i (s.regs ra) quot w2i (s.regs rb)) : 'a word) <>
-      w2i (s.regs ra) quot w2i (s.regs rb)
-Proof
-  simp [arith_upd_def, read_reg_def, upd_reg_def, assert_def]
-  \\ metis_tac []
-QED
-
 Theorem arith_upd_consts[simp]:
    ((arith_upd a x).mem_domain = x.mem_domain) ∧
    ((arith_upd a x).align = x.align) ∧
