@@ -216,6 +216,11 @@ val res = translate source_to_sourceTheory.compile_def;
 val _ = (length (hyp res) = 0)
         orelse failwith "Unproved side condition: source_to_source_compile";
 
+val res = translate source_to_sourceTheory.inc_compile_def;
+
+val _ = (length (hyp res) = 0)
+        orelse failwith "Unproved side condition: source_to_source_inc_compile";
+
 (* ------------------------------------------------------------------------- *)
 (* sptree                                                                    *)
 (* ------------------------------------------------------------------------- *)
