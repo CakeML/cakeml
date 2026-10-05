@@ -4,7 +4,7 @@
 Theory npbc_mo_arrayProg
 Ancestors
   npbc_check pbc_mo npbc_mo npbc_mo_check npbc_list npbc_mo_list
-  pb_parse pbc_normalise npbc_arrayProg npbc_parseProg
+  pb_parse pb_parse_mo pbc_normalise npbc_arrayProg npbc_parseProg
 Libs
   preamble basis cfLib basisFunctionsLib
 

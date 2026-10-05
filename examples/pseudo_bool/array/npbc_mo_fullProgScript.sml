@@ -4,7 +4,8 @@
 *)
 Theory npbc_mo_fullProg
 Ancestors
-  basis_ffi pb_parse pbc_mo pbc_normalise npbc_parseProg npbc_mo_arrayProg
+  basis_ffi pb_parse pb_parse_mo pbc_mo pbc_normalise npbc_parseProg
+  npbc_mo_arrayProg
 Libs
   preamble basis
 

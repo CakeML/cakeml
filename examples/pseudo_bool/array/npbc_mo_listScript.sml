@@ -7,6 +7,31 @@ Ancestors
 Libs
   preamble
 
+Definition list_conf_rel_def:
+  list_conf_rel fml fmlls zeros inds vimap vomap (pc:proof_conf) ⇔
+    fml_rel fml fmlls ∧
+    ind_rel fmlls inds ∧
+    vimap_rel fmlls vimap ∧
+    vomap_rel pc.obj vomap ∧
+    (∀n. n ≥ pc.id ⇒ any_el n fmlls NONE = NONE) ∧
+    EVERY (λw. w = 0w) zeros
+End
+
+Theorem fml_rel_check_cstep_list_conf_rel:
+  list_conf_rel fml fmlls zeros inds vimap vomap pc ∧
+  check_cstep_list cstep fmlls zeros inds vimap vomap pc =
+    SOME (fmlls',zeros',inds',vimap',vomap',pc') ⇒
+  ∃fml'.
+    check_cstep cstep fml pc = SOME (fml', pc') ∧
+    list_conf_rel fml' fmlls' zeros' inds' vimap' vomap' pc' ∧
+    pc.id ≤ pc'.id
+Proof
+  rw[list_conf_rel_def]>>
+  drule_all fml_rel_check_cstep_list>>
+  rw[]>>
+  metis_tac[]
+QED
+
 (* Every objective variable must be assigned by a logged solution.
   The assignment's domain is the num_set that model_banning bans over *)
 Definition mo_vars_covered_def:
@@ -15,7 +40,7 @@ Definition mo_vars_covered_def:
 End
 
 (* The multi-objective solution-logging step bans the logged assignment
-  over its own domain, so it cannot share check_cstep_sol_list *)
+  over its own domain, so it cannot share the Sol case of check_cstep_list *)
 Definition check_mo_cstep_sol_list_def:
   check_mo_cstep_sol_list objs w
     (fml: (npbc # bool) option list) (zeros:word8 list) (inds:num list)

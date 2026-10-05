@@ -3,7 +3,7 @@
 *)
 Theory npbc_mo_check
 Ancestors
-  pbc npbc npbc_check pbc_mo npbc_mo
+  pbc npbc npbc_check npbc_check_step pbc_mo npbc_mo
 Libs
   preamble
 
@@ -622,16 +622,11 @@ Proof
   strip_tac>>
   gvs[mo_conf_ok_def]>>
   Cases_on`cstep`>>
-  gvs[check_mo_cstep_def,check_cstep_def,
-      check_cstep_changeobj_def,check_change_obj_def,
-      check_cstep_checkobj_def,check_eq_obj_def,
-      check_cstep_assertobj_def,
-      check_cstep_changepres_def,check_change_pres_def,
-      check_cstep_checkpres_def,check_eq_pres_def]
-  >~ [`check_cstep_dom`] >- (
+  gvs[check_mo_cstep_def]
+  >~ [`Dom`] >- (
     gvs[AllCaseEqs()]>>
     (Cases_on`pc.ord`
-    >- gvs[check_cstep_dom_def])>>
+    >- gvs[check_cstep_def])>>
     gvs[]>>
     qspecl_then [`p`,`l`,`l0`,`o'`,`fml`,`pc`,`mo_esc mord objs sols`] mp_tac
       check_cstep_dom_str>>
@@ -662,7 +657,7 @@ Proof
       simp[])>>
     drule_all sat_obj_po_ord_le>>
     simp[])
-  >~ [`check_cstep_sstep`] >- (
+  >~ [`Sstep`] >- (
     gvs[AllCaseEqs()]>>
     qspecl_then [`s`,`fml`,`pc`] mp_tac check_cstep_sstep_str>>
     impl_tac>>
@@ -673,7 +668,7 @@ Proof
     drule_all mo_step_ok>>
     strip_tac>>
     gvs[])
-  >~ [`check_cstep_checkeddelete`] >- (
+  >~ [`CheckedDelete`] >- (
     gvs[AllCaseEqs()]>>
     qspecl_then [`n`,`l`,`l0`,`o'`,`fml`,`pc`] mp_tac
       check_cstep_checkeddelete_str>>
@@ -685,8 +680,8 @@ Proof
     drule_all mo_step_ok>>
     strip_tac>>
     gvs[])
-  >~ [`check_cstep_uncheckeddelete`] >- (
-    gvs[AllCaseEqs(),check_cstep_uncheckeddelete_def]>>
+  >~ [`UncheckedDelete`] >- (
+    gvs[AllCaseEqs(),check_cstep_def]>>
     drule id_ok_FOLDL_delete>>
     strip_tac>>
     `core_only_fml F (FOLDL (\a b. delete b a) fml l) ⊆ core_only_fml F fml` by (
@@ -706,8 +701,8 @@ Proof
     simp[mo_ord_ok_refl]>>
     drule_all satisfies_SUBSET>>
     simp[])
-  >~ [`check_cstep_transfer`] >- (
-    gvs[AllCaseEqs(),check_cstep_transfer_def]>>
+  >~ [`Transfer`] >- (
+    gvs[AllCaseEqs(),check_cstep_def]>>
     drule do_transfer_props>>
     strip_tac>>
     gvs[id_ok_def]>>
@@ -716,14 +711,14 @@ Proof
     >- metis_tac[sat_obj_po_esc_more]
     >- metis_tac[mo_ord_ok_refl]>>
     metis_tac[satisfies_SUBSET,mo_ord_ok_refl])
-  >~ [`check_cstep_strengthentocore`] >- (
-    gvs[AllCaseEqs(),check_cstep_strengthentocore_def]>>
+  >~ [`StrengthenToCore`] >- (
+    gvs[AllCaseEqs(),check_cstep_def]>>
     Cases_on`pc.ord`>>
     gvs[OPTION_ALL_def]>>
     rw[core_only_fml_map_core,id_ok_map,sat_obj_po_esc_refl]>>
     metis_tac[mo_ord_ok_refl,satisfies_SUBSET,core_only_fml_T_SUBSET_F])
-  >~ [`check_cstep_loadorder`] >- (
-    gvs[AllCaseEqs(),check_cstep_loadorder_def]>>
+  >~ [`LoadOrder`] >- (
+    gvs[AllCaseEqs(),check_cstep_def]>>
     drule ALOOKUP_MEM>>
     fs[EVERY_MEM,Once FORALL_PROD]>>
     strip_tac>>
@@ -754,22 +749,22 @@ Proof
     irule satisfies_SUBSET>>
     irule_at Any core_only_fml_T_SUBSET_F>>
     simp[])
-  >~ [`check_cstep_unloadorder`] >- (
-    gvs[AllCaseEqs(),check_cstep_unloadorder_def]>>
+  >~ [`UnloadOrder`] >- (
+    gvs[AllCaseEqs(),check_cstep_def]>>
     rw[]>>
     metis_tac[mo_ord_ok_refl])
-  >~ [`check_cstep_storeorder`] >- (
+  >~ [`StoreOrder`] >- (
     gvs[AllCaseEqs()]>>
     drule_all check_cstep_storeorder_str>>
     strip_tac>>
     gvs[]>>
     rw[]>>
     metis_tac[mo_ord_ok_refl])
-  >~ [`check_cstep_obj`] >- (
-    gvs[AllCaseEqs(),check_cstep_obj_def]>>
+  >~ [`Obj`] >- (
+    gvs[AllCaseEqs(),check_cstep_def]>>
     rw[]>>
     metis_tac[mo_ord_ok_refl])
-  >- (
+  >~ [`model_banning`] >- (
     gvs[AllCaseEqs(),lookup_list_to_num_set]>>
     `pc.id ∉ domain fml` by gvs[id_ok_def]>>
     drule check_obj_imp>>
@@ -836,7 +831,9 @@ Proof
       disj2_tac>>
       qexists_tac`wsol`>>
       simp[mo_ord_ok_refl])>>
-    simp[])
+    simp[])>>
+  gvs[check_cstep_def,check_change_obj_def,check_eq_obj_def,
+      check_change_pres_def,check_eq_pres_def]
 QED
 
 (* Soundness of a whole run: the paper's Lemmas 2 and 3 *)
