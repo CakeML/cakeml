@@ -1312,10 +1312,10 @@ QED
 
 Theorem prog_syntax_ok_semantics:
   prog_syntax_ok prog ⇒
-  semantics_dec_list st init_env prog = semantics_determ st init_env prog
+  semantics_dec_list_determ st init_env prog = semantics_determ st init_env prog
 Proof
   simp [FUN_EQ_THM] \\ strip_tac \\ Cases
-  \\ gvs [semanticsTheory.semantics_determ_def, semantics_dec_list_def]
+  \\ gvs [semanticsTheory.semantics_determ_def, semantics_dec_list_determ_def]
   \\ gvs [prog_syntax_ok_def, evaluate_dec_list_eq_evaluate_decs,
           semanticsTheory.evaluate_prog_with_clock_def,
           evaluate_decTheory.evaluate_dec_list_with_clock_def]

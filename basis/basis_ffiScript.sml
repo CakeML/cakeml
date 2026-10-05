@@ -564,6 +564,15 @@ Definition whole_prog_spec2_def:
       )
 End
 
+(* Preserve the nonempty behavior set when weakening its specification. *)
+Theorem sem_satisfies_imp[local]:
+  sem_satisfies s P ⇒
+  (∀behavior. P behavior ⇒ Q behavior) ⇒
+  sem_satisfies s Q
+Proof
+  rw [sem_satisfies_def] \\ res_tac
+QED
+
 Theorem whole_prog_spec2_semantics_prog:
    ∀fname fv.
      Decls env1 (init_state (basis_ffi ext cl fs) with eval_state := es) prog env2 st2 ==>
@@ -572,10 +581,12 @@ Theorem whole_prog_spec2_semantics_prog:
      (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\
      (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME Q => Q) h1)
    ==>
-   ∃io_events fs'.
-     semantics_dec_list (init_state (basis_ffi ext cl fs) with eval_state := es) env1
-       (SNOC ^main_call prog) (Terminate Success io_events) /\
-     extract_fs ext (cl,fs) io_events = SOME fs' ∧ Q fs'
+   sem_satisfies
+     (semantics_dec_list (init_state (basis_ffi ext cl fs) with eval_state := es) env1
+       (SNOC ^main_call prog))
+     (λbehavior. ∃io_events fs'.
+       behavior = Terminate Success io_events ∧
+       extract_fs ext (cl,fs) io_events = SOME fs' ∧ Q fs')
 Proof
   rw[whole_prog_spec2_def]
   \\ drule (GEN_ALL call_main_thm2)
@@ -590,8 +601,10 @@ Proof
     \\ match_mp_tac FFI_part_hprop_STAR \\ disj1_tac
     \\ ho_match_mp_tac FFI_part_hprop_SEP_EXISTS
     \\ metis_tac[IOFS_FFI_part_hprop] )
+  \\ strip_tac
+  \\ drule sem_satisfies_imp
+  \\ disch_then match_mp_tac
   \\ rw[]
-  \\ asm_exists_tac \\ rw[]
   \\ rw[extract_fs_def,PULL_EXISTS]
   \\ drule RTC_call_FFI_rel_IMP_basis_events
   \\ simp[Once ml_progTheory.init_state_def,Once basis_ffi_def]
@@ -625,10 +638,12 @@ Theorem whole_prog_spec_semantics_prog:
      (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\
      (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME Q => Q) h1)
    ==>
-   ∃io_events fs'.
-     semantics_dec_list (init_state (basis_ffi ext cl fs) with eval_state := es) env1
-       (SNOC ^main_call prog) (Terminate Success io_events) /\
-     extract_fs ext (cl,fs) io_events = SOME fs' ∧ Q fs'
+   sem_satisfies
+     (semantics_dec_list (init_state (basis_ffi ext cl fs) with eval_state := es) env1
+       (SNOC ^main_call prog))
+     (λbehavior. ∃io_events fs'.
+       behavior = Terminate Success io_events ∧
+       extract_fs ext (cl,fs) io_events = SOME fs' ∧ Q fs')
 Proof
   rw[]>>
   match_mp_tac (whole_prog_spec2_semantics_prog |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
@@ -653,11 +668,13 @@ Theorem whole_prog_spec_semantics_prog_ffidiv:
      (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\
      (COMMANDLINE cl * STDIO fs * RUNTIME) h1)
    ==>
-   ∃io_events fs' n c b.
-     semantics_dec_list (init_state (basis_ffi ext cl fs) with eval_state := es) env1
-       (SNOC ^main_call prog)
-       (Terminate (FFI_outcome(Final_event (ExtCall n) c b FFI_diverged)) io_events) /\
-     extract_fs ext (cl,fs) io_events = SOME fs' ∧ Q n c b fs'
+   sem_satisfies
+     (semantics_dec_list (init_state (basis_ffi ext cl fs) with eval_state := es) env1
+       (SNOC ^main_call prog))
+     (λbehavior. ∃io_events fs' n c b.
+       behavior = Terminate
+         (FFI_outcome (Final_event (ExtCall n) c b FFI_diverged)) io_events ∧
+       extract_fs ext (cl,fs) io_events = SOME fs' ∧ Q n c b fs')
 Proof
   rw[whole_prog_ffidiv_spec_def]
   \\ drule (GEN_ALL call_main_thm2_ffidiv)
@@ -667,7 +684,9 @@ Proof
   \\ disch_then (qspec_then `\n c b. STDIO fs' * RUNTIME * &(n = n' ∧ c = c' ∧ b = b')` mp_tac)
   \\ disch_then (qspec_then `COMMANDLINE cl * STDIO fs * RUNTIME` mp_tac)
   \\ simp[] \\ strip_tac
-  \\ asm_exists_tac \\ rw[]
+  \\ drule sem_satisfies_imp
+  \\ disch_then match_mp_tac
+  \\ rw[]
   \\ rw[extract_fs_def,PULL_EXISTS]
   \\ drule RTC_call_FFI_rel_IMP_basis_events
   \\ simp[Once ml_progTheory.init_state_def,Once basis_ffi_def]
@@ -1035,13 +1054,12 @@ Theorem whole_prog_spec_IMP':
     is_refs_basis res_st.refs
     ⇒
     wfcl cl ∧ wfFS fs ∧ STD_streams fs ⇒
-    ∃io_events result.
-      semantics_dec_list
-        (init_state (basis_ffi ext cl fs) with eval_state := es) init_env
-        all_decs
-        (Terminate Success io_events) ∧
-      extract_fs ext (cl,fs) io_events = SOME result ∧
-      post result
+    sem_satisfies
+      (semantics_dec_list
+        (init_state (basis_ffi ext cl fs) with eval_state := es) init_env all_decs)
+      (λbehavior. ∃io_events result.
+        behavior = Terminate Success io_events ∧
+        extract_fs ext (cl,fs) io_events = SOME result ∧ post result)
 Proof
   simp [] \\ rpt strip_tac
   \\ irule whole_prog_spec_semantics_prog
@@ -1068,13 +1086,12 @@ Theorem whole_prog_spec_IMP:
     is_refs_basis res_st.refs
     ⇒
     wfcl cl ∧ wfFS fs ∧ STD_streams fs ⇒
-    ∃io_events result.
-      semantics_dec_list
-        (init_state (basis_ffi ext cl fs)) init_env
-        all_decs
-        (Terminate Success io_events) ∧
-      extract_fs ext (cl,fs) io_events = SOME result ∧
-      post result
+    sem_satisfies
+      (semantics_dec_list
+        (init_state (basis_ffi ext cl fs)) init_env all_decs)
+      (λbehavior. ∃io_events result.
+        behavior = Terminate Success io_events ∧
+        extract_fs ext (cl,fs) io_events = SOME result ∧ post result)
 Proof
   simp [] \\ rpt strip_tac
   \\ ‘init_state (basis_ffi ext cl fs) =
@@ -1107,13 +1124,12 @@ Theorem whole_prog_spec_SOME_IMP:
     ⇒
     wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
     (∃other. p other ∧ other ⊆ store2heap_aux 2 (TL (TL res_st.refs))) ⇒
-    ∃io_events result.
-      semantics_dec_list
-        (init_state (basis_ffi ext cl fs)) init_env
-        all_decs
-        (Terminate Success io_events) ∧
-      extract_fs ext (cl,fs) io_events = SOME result ∧
-      post result
+    sem_satisfies
+      (semantics_dec_list
+        (init_state (basis_ffi ext cl fs)) init_env all_decs)
+      (λbehavior. ∃io_events result.
+        behavior = Terminate Success io_events ∧
+        extract_fs ext (cl,fs) io_events = SOME result ∧ post result)
 Proof
   simp [] \\ rpt strip_tac
   \\ ‘init_state (basis_ffi ext cl fs) =
@@ -1146,13 +1162,12 @@ Theorem whole_prog_spec2_IMP:
     is_refs_basis res_st.refs
     ⇒
     wfcl cl ∧ wfFS fs ∧ STD_streams fs ⇒
-    ∃io_events result.
-      semantics_dec_list
-        (init_state (basis_ffi ext cl fs)) init_env
-        all_decs
-        (Terminate Success io_events) ∧
-      extract_fs ext (cl,fs) io_events = SOME result ∧
-      post result
+    sem_satisfies
+      (semantics_dec_list
+        (init_state (basis_ffi ext cl fs)) init_env all_decs)
+      (λbehavior. ∃io_events result.
+        behavior = Terminate Success io_events ∧
+        extract_fs ext (cl,fs) io_events = SOME result ∧ post result)
 Proof
   simp [] \\ rpt strip_tac
   \\ ‘init_state (basis_ffi ext cl fs) =
@@ -1184,14 +1199,12 @@ Theorem whole_prog_spec_ffidiv_IMP:
     is_refs_basis res_st.refs
     ⇒
     wfcl cl ∧ wfFS fs ∧ STD_streams fs ⇒
-    ∃io_events fs' n c b.
-      semantics_dec_list
-        (init_state (basis_ffi ext cl fs)) init_env
-        all_decs
-        (Terminate
-           (FFI_outcome (Final_event (ExtCall n) c b FFI_diverged))
-           io_events) ∧
-      extract_fs ext (cl,fs) io_events = SOME fs' ∧ Q n c b fs'
+    sem_satisfies
+      (semantics_dec_list (init_state (basis_ffi ext cl fs)) init_env all_decs)
+      (λbehavior. ∃io_events fs' n c b.
+        behavior = Terminate
+          (FFI_outcome (Final_event (ExtCall n) c b FFI_diverged)) io_events ∧
+        extract_fs ext (cl,fs) io_events = SOME fs' ∧ Q n c b fs')
 Proof
   simp [] \\ rpt strip_tac
   \\ ‘init_state (basis_ffi ext cl fs) =
