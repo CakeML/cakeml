@@ -10,11 +10,11 @@ Libs
 (* the bool is used as indicating whether the pc is accessing shared memory *)
 Definition san_prog_asm_def:
   san_prog_asm = [
-    F, (Inst (Const 5 0w));
+    F, (Inst (Const 5 0));
     T, (Inst (Mem Load 6 (Addr 5 20000)));
-    F, (Inst (Arith (Binop Add 7 6 (Imm 1w))));
+    F, (Inst (Arith (Binop Add 7 6 (Imm 1))));
     T, (Inst (Mem Store 7 (Addr 5 20008)));
-    F, (Jump (-32w: word64))] (* jump to the halt pc *)
+    F, (Jump (-32))] (* jump to the halt pc *)
 End
 
 Definition asm2ast_def:
@@ -60,7 +60,7 @@ End
 Definition san_ffi_interfer_def:
   san_ffi_interfer info_func = K (\((n:num),bytes,state).
     if n = 0 then
-      let (nb,ad,reg,new_pc) = info_func n in
+      let (nb,ad,reg,new_pc) = THE (ALOOKUP info_func n) in
       state with
       <|c_gpr := (\pid r.
           if pid = state.procID /\ r = n2w reg
@@ -68,7 +68,7 @@ Definition san_ffi_interfer_def:
           else state.c_gpr pid r);
         c_PC := (state.procID =+ new_pc) state.c_PC |>
     else if n = 1 then
-      let (_,_,_,new_pc) = info_func n in
+      let (_,_,_,new_pc) = THE (ALOOKUP info_func n) in
         state with
       <|c_PC := (state.procID =+ new_pc) state.c_PC |>
     else state)
@@ -76,10 +76,8 @@ End
 
 Definition san_mmio_info_def:
   san_mmio_info =
-    let max_size = dimindex (:64) DIV 8 in
-    ((0:num) =+ (n2w max_size,Addr 5 20000,(6:num),EL 0 san_end_ffi_pcs)) $
-    (1 =+ (n2w max_size,Addr 5 20008,7,EL 1 san_end_ffi_pcs)) $
-    K ARB
+    [(0:num, (0w:word8,Addr 5 20000,6:num,EL 0 san_end_ffi_pcs));
+     (1, (0w,Addr 5 20008,7,EL 1 san_end_ffi_pcs))]
 End
 
 val san_ffi_pcs_simp = CONV_RULE (SIMP_CONV (srw_ss()) [san_ffi_pcs_def]) $
@@ -91,13 +89,13 @@ Definition san_config_def:
   <| prog_addresses := {x | x < 1000w} DELETE 0w DELETE n2w ffi_offset
    ; shared_addresses := {a| 20000w <= a /\ a < 20016w}
    ; ffi_entry_pcs := san_ffi_pcs
-   ; ffi_names := ["MappedRead";"MappedWrite"]
+   ; ffi_names := [SharedMem MappedRead;SharedMem MappedWrite]
    ; ptr_reg := ARB
    ; len_reg := ARB
    ; ptr2_reg := ARB
    ; len2_reg := ARB
    ; ffi_interfer := san_ffi_interfer
-      (san_mmio_info: num -> word8 # 64 addr # num # word64)
+      (san_mmio_info: (num # (word8 # addr # num # word64)) list)
    ; next_interfer := K I
    ; halt_pc := n2w ffi_offset
    ; install_pc := 0w
@@ -109,7 +107,8 @@ End
 Definition san_oracle_def:
   san_oracle s () l1 l2 =
     Oracle_return ()
-      (PAD_RIGHT 0w (LENGTH l2) [20w])
+      (if s = SharedMem MappedRead then PAD_RIGHT 0w (LENGTH l2) [20w]
+       else l2)
 End
 
 Definition san_init_ffi_state_def:
@@ -154,9 +153,10 @@ Definition san_result_def:
   evaluate san_config san_init_ffi_state n san_init_machine_state
 End
 
-val riscv_inst_defs = map (fst o snd) $
-  filter (fn n => substring (snd (fst n),0, 4) = "dfn'") $
-  filter (fn n => snd (snd n) = Def) $ DB.match ["riscv"] ``_``;
+val riscv_inst_defs = DB.match ["riscv"] ``_``
+  |> filter (fn ((_,name),(_,cl,_)) =>
+       cl = Def andalso String.isPrefix "dfn'" name)
+  |> map (fn (_, (th,_,_)) => th);
 
 val _ = computeLib.add_funs
   [Encode_def,Itype_def,Stype_def,UJtype_def,opc_def,word_concat_def,v2w_def];
@@ -257,7 +257,7 @@ Proof
   valid_mapped_read_tac \\
   simp[call_FFI_def,san_init_ffi_state_def,san_oracle_def] \\
   simp[length_pad_right,
-    EVAL ``LENGTH (addr2w8list (20000w:word64))``] \\
+    EVAL ``LENGTH (word_to_bytes (20000w:word64) F)``] \\
   simp[apply_oracle_def,san_ffi_interfer_def,APPLY_UPDATE_THM] \\
   simp[Once evaluate_def,APPLY_UPDATE_THM] \\
   encoded_bytes_in_mem_tac `SND $ EL 2 san_prog_asm` `0` \\
@@ -270,15 +270,18 @@ Proof
   valid_mapped_write_tac \\
   simp[call_FFI_def,san_init_ffi_state_def,san_oracle_def] \\
   simp[length_pad_right,
-    EVAL ``LENGTH (addr2w8list 20008w)``,
-    EVAL ``LENGTH (w2wlist_le 21w 8)``] \\
+    EVAL ``LENGTH (word_to_bytes (20008w:word64) F)``,
+    EVAL ``LENGTH (word_to_bytes (21w:word64) F)``] \\
   simp[apply_oracle_def,shift_seq_def] \\
   simp[Once evaluate_def,APPLY_UPDATE_THM] \\
   encoded_bytes_in_mem_tac `SND $ EL 4 san_prog_asm` `0` \\
   simp[apply_oracle_def,shift_seq_def] \\
   next_state_tac \\
   riscv_ok_tac \\
-  simp[Once evaluate_def, APPLY_UPDATE_THM]
+  simp[Once evaluate_def, APPLY_UPDATE_THM] \\
+  simp[EVAL ``i2w 20000:word64``, EVAL ``i2w 20008:word64``] \\
+  rpt IF_CASES_TAC \\
+  simp[]
 QED
 
 Theorem leq_2_cases:
@@ -294,7 +297,7 @@ Proof
 QED
 
 Theorem san_mmio_pcs_min_index_0:
-  SOME 0 = mmio_pcs_min_index ["MappedRead";"MappedWrite"]
+  SOME 0 = mmio_pcs_min_index [SharedMem MappedRead;SharedMem MappedWrite]
 Proof
   fs[mmio_pcs_min_index_def] \\
   irule some_intro \\
@@ -336,4 +339,3 @@ Proof
   fs[target_state_rel_def,riscv_ok_def, aligned_w2n,
     APPLY_UPDATE_THM,riscv_config_def,riscv_target_def]
 QED
-

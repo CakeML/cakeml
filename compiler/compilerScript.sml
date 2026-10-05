@@ -305,14 +305,14 @@ Definition compile_pancake_def:
        MAP (λ(msg,loc). concat [msg; « at »;
                                 locs_to_string (implode input) (SOME loc); «\n»])
            errs), Nil, [])
-  | INL funs =>
+  | INL (funs:'a decl list) =>
       case static_check funs of
       | (error e, warns) => (M_failure $ StaticError e, Nil, MAP StaticError warns)
       | (return (), warns) =>
           let _ = empty_ffi «finished: lexing and parsing» in
           case pan_passes$pan_compile_tap asm_conf c funs of
           | (NONE,td) => (M_failure AssembleError, td, MAP StaticError warns)
-          | (SOME (bytes,data,c),td) => (M_success (bytes,data,c), td, MAP StaticError warns)
+          | (SOME (bytes,data:'a word list,c),td) => (M_success (bytes,data,c), td, MAP StaticError warns)
 End
 
 (* The top-level compiler *)
