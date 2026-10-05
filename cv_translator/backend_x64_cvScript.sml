@@ -265,16 +265,20 @@ QED
 val _ = cv_trans (word_to_word_inlogic_x64_def |> arch_spec);
 val _ = cv_trans (from_word_0_x64_def |> arch_spec);
 
-val _ = cv_trans ((compile_0_x64_def |> arch_spec)
-                    |> SRULE [data_to_wordTheory.stubs_def,
+Theorem stubs_md_def[cv_inline,local] =
+  data_to_wordTheory.stubs_md_def |> arch_spec;
+
+val _ = cv_auto_trans ((compile_0_x64_def |> arch_spec)
+                    |> SRULE [stubs_md_def,data_to_wordTheory.stubs_def,
                               backend_64_cvTheory.inline,
                               to_map_compile_part]);
 
 val _ = cv_trans (backend_x64Theory.to_word_0_x64_def |> arch_spec);
-val _ = cv_auto_trans (backend_x64Theory.to_livesets_0_x64_def |> arch_spec);
+val _ = cv_auto_trans (backend_x64Theory.to_livesets_0_x64_def
+                        |> arch_spec |> INST_TYPE [beta |-> “:metadata”]);
 
 val _ = cv_auto_trans ((backend_x64Theory.to_word_all_x64_def |> arch_spec)
-                         |> SRULE [data_to_wordTheory.stubs_def,to_map_compile_part,
+                         |> SRULE [stubs_md_def,data_to_wordTheory.stubs_def,to_map_compile_part,
                                    backend_64_cvTheory.inline]);
 val _ = cv_trans (backend_x64Theory.to_stack_all_x64_def |> arch_spec);
 val _ = cv_trans ((backend_x64Theory.to_lab_all_x64_def |> arch_spec)

@@ -181,7 +181,7 @@ End
 
 Definition each_inlogic_def:
   each_inlogic asm_conf [] = SOME [] ∧
-  each_inlogic asm_conf (((name_num,arg_count,prog),col_opt)::rest) =
+  each_inlogic asm_conf (((name_num,arg_count,prog,md),col_opt)::rest) =
    let prog = compile_exp prog;
        maxv = max_var prog + 1;
        inst_prog = inst_select asm_conf maxv prog;
@@ -198,7 +198,7 @@ Definition each_inlogic_def:
       | SOME reg_prog =>
         case each_inlogic asm_conf rest of
           NONE => NONE
-        | SOME progs => SOME ((name_num,arg_count,remove_must_terminate reg_prog) :: progs)
+        | SOME progs => SOME ((name_num,arg_count,remove_must_terminate reg_prog,md) :: progs)
 End
 
 Definition word_to_word_inlogic_def:
@@ -353,18 +353,18 @@ Definition to_word_all_def:
             <|has_fp_ops := (1 < asm_conf.fp_reg_count);
               has_fp_tern :=
                 (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
-    let p = stubs data_conf ++ MAP (compile_part data_conf) p in
+    let p = stubs_md (:α) data_conf ++ MAP (compile_part data_conf) p in
     let ps = ps ++ [(«after data_to_word»,Word p names)] in
     let (p,ps) = word_internal_all asm_conf ps names p in
     let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
     let alg = word_conf.reg_alg in
     let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
+    let p = MAP (λ((name_num,arg_count,prog,md),col_opt).
               ((name_num,arg_count,
                remove_must_terminate
                  (case word_alloc_inlogic asm_conf prog col_opt of
                   | NONE => FFI «reg alloc fail» 0 0 0 0 (LN,LN)
-                  | SOME x => x)))) (ZIP (p,n_oracles)) in
+                  | SOME x => x),md))) (ZIP (p,n_oracles)) in
     let ps = ps ++ [(«after word_alloc (and remove_must_terminate)»,Word p names)] in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
       ((ps: (mlstring # 'a any_prog) list),c,p,names)
