@@ -585,6 +585,7 @@ Resume data_compile_correct[Force]:
       \\ simp [wordSemTheory.find_code_def]
       \\ qpat_x_assum ‘code_rel _ _ _’ assume_tac
       \\ gvs [code_rel_def]
+      \\ Cases_on ‘r’ \\ gvs []
       \\ first_x_assum drule \\ strip_tac \\ gvs []
       \\ simp [wordSemTheory.add_ret_loc_def]
       \\ IF_CASES_TAC \\ gvs []
@@ -639,7 +640,7 @@ Resume data_compile_correct[Force]:
     \\ simp [wordSemTheory.bad_dest_args_def]
     \\ gvs [find_code_def]
     \\ Cases_on ‘lookup loc s.code’ \\ gvs []
-    \\ Cases_on ‘x''’ \\ gvs []
+    \\ PairCases_on ‘x''’ \\ gvs []
     \\ simp [wordSemTheory.find_code_def]
     \\ qpat_x_assum ‘code_rel _ _ _’ assume_tac
     \\ gvs [code_rel_def]
@@ -1259,8 +1260,8 @@ Proof
     \\ imp_res_tac eq_shape_IMP_domain
     \\ fs [spt_eq,lookup_map,domain_lookup,EXTENSION,PULL_EXISTS,FORALL_PROD]
     \\ fs [EXISTS_PROD]
-    \\ `?v11 v12. lookup k t.code = SOME (v11,v12)` by metis_tac []
-    \\ `?v21 v22. lookup k t2.code = SOME (v21,v22)` by metis_tac []
+    \\ `?v11 v12 v13. lookup k t.code = SOME (v11,v12,v13)` by metis_tac []
+    \\ `?v21 v22 v23. lookup k t2.code = SOME (v21,v22,v23)` by metis_tac []
     \\ res_tac
     \\ fs [] \\ rveq \\ pairarg_tac \\ fs [] \\ rveq \\ fs [])
   \\ drule (compile_word_to_word_thm |> GEN_ALL |> SIMP_RULE std_ss [])
@@ -2070,6 +2071,18 @@ Proof
   EVAL_TAC \\ fs []
 QED
 
+Theorem stubs_md_with_has_fp_ops[simp]:
+   stubs_md (:α) (data_conf with has_fp_ops := b) = stubs_md (:α) data_conf
+Proof
+  simp [stubs_md_def]
+QED
+
+Theorem stubs_md_with_has_fp_tern[simp]:
+   stubs_md (:α) (data_conf with has_fp_tern := b) = stubs_md (:α) data_conf
+Proof
+  simp [stubs_md_def]
+QED
+
 (* no ShareInst in the compiled program *)
 
 Theorem list_Seq_no_share_inst:
@@ -2106,8 +2119,9 @@ Proof
 QED
 
 Theorem stubs_no_share_inst:
-  EVERY (\x. no_share_inst (SND $ SND x)) (data_to_word$stubs data_conf)
+  EVERY (\x. no_share_inst (FST $ SND $ SND x)) (stubs_md (:α) data_conf)
 Proof
+  simp [stubs_md_def,EVERY_MAP,LAMBDA_PROD] >>
   EVAL_TAC >>
   rw [] >>
   EVAL_TAC
@@ -2224,7 +2238,7 @@ Proof
   impl_tac>-
    (fs[Abbr‘datap’]>>
     irule_at Any EVERY_MONOTONIC>>
-    qexists ‘λx. no_share_inst (SND $ SND x)’>>simp[FORALL_PROD]>>
+    qexists ‘λx. no_share_inst (FST $ SND $ SND x)’>>simp[FORALL_PROD]>>
     irule_at Any stubs_no_share_inst>>
     fs[EVERY_MAP,LAMBDA_PROD]>>
     simp[compile_part_def]>>
@@ -2236,7 +2250,7 @@ Proof
   fs[EVERY_MEM]>>rw[]
   >-
     (match_mp_tac LIST_EQ>>rw[EL_MAP]>>
-    Cases_on`EL x prog`>>Cases_on`r`>>fs[compile_part_def]) >>
+    Cases_on`EL x prog`>>PairCases_on`r`>>fs[compile_part_def]) >>
   qmatch_assum_abbrev_tac`MAP FST p = MAP FST p1 ++ MAP FST p2`>>
   full_simp_tac std_ss [GSYM MAP_APPEND]>>
   qabbrev_tac`pp = p1 ++ p2` >>
@@ -2250,7 +2264,7 @@ Proof
     >>
       fs[MEM_MAP,MEM_EL,EXISTS_PROD]>>rw[]>>fs[compile_part_def]>>
       qmatch_goalsub_abbrev_tac `comp data_conf2` >>
-      Q.SPECL_THEN [`data_conf2`,`p_1`,`2n`,`p_2`]assume_tac
+      Q.SPECL_THEN [`data_conf2`,`p_1`,`2n`,`p_1''`]assume_tac
         data_to_word_lab_pres_lem>>
       fs[]>>pairarg_tac>>fs[EVERY_EL,PULL_EXISTS]>>
       rw[]>>res_tac>>
@@ -2381,13 +2395,13 @@ Theorem data_to_word_compile_conventions:
     (no_share_inst prog ∨ ac.ISA ≠ Ag32)) p
 Proof
  fs[data_to_wordTheory.compile_def]>>
- qpat_abbrev_tac`p= stubs data_conf ++B`>>
+ qpat_abbrev_tac`p= stubs_md (:α) data_conf ++B`>>
  pairarg_tac>>fs[]>>
  Q.SPECL_THEN [`wc`,`p`,`ac`] mp_tac (GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
  impl_tac >-
   (fs[Abbr‘p’]>>
    irule_at Any EVERY_MONOTONIC>>
-   qexists ‘λx. no_share_inst (SND $ SND x)’>>simp[FORALL_PROD]>>
+   qexists ‘λx. no_share_inst (FST $ SND $ SND x)’>>simp[FORALL_PROD]>>
    irule_at Any stubs_no_share_inst>>
    fs[EVERY_MAP,LAMBDA_PROD]>>
    simp[compile_part_def]>>
@@ -2407,7 +2421,7 @@ Proof
    qpat_x_assum`good_dimindex _` mp_tac>>
    qpat_x_assum`isa_bits ac = _` mp_tac>>
    rpt(pop_assum kall_tac)>>
-   fs[stubs_def,generated_bignum_stubs_eq]>>rw[]>>
+   fs[stubs_md_def,stubs_def,generated_bignum_stubs_eq]>>rw[]>>
    TRY(rename1`ByteCopySub_code`>>
    fs[good_dimindex_def,ByteCopySub_code_def,every_inst_def,list_Seq_def,inst_ok_less_def]>>rw[]>>
    fs[]>>
@@ -2714,7 +2728,7 @@ Theorem data_to_word_good_code_labels:
   word_good_code_labels prog' elabs
 Proof
   fs[data_to_wordTheory.compile_def]>>rw[]>>
-  qmatch_asmsub_abbrev_tac` stubs dc`>>
+  qmatch_asmsub_abbrev_tac`stubs_md (:α) dc`>>
   pop_assum kall_tac>>
   qmatch_asmsub_abbrev_tac`LHS = _`>>
   `prog' = SND LHS` by (unabbrev_all_tac>>fs[])>>
@@ -2743,7 +2757,8 @@ Proof
       disch_then old_drule>>fs[MEM_MAP,EXISTS_PROD]>>
       metis_tac[])
     >>
-      fs[MEM_MAP]>>metis_tac[]
+      fs[MEM_MAP]>>PairCases_on `y`>>
+      fs[stubs_md_def,MEM_MAP,EXISTS_PROD]>>metis_tac[]
 QED
 
 val th = EVAL``MAP FST (stubs c)``;
@@ -2787,7 +2802,7 @@ Theorem data_to_word_good_handlers:
 Proof
   fs[data_to_wordTheory.compile_def]>>
   rw[]>>
-  qmatch_asmsub_abbrev_tac` stubs dc`>>
+  qmatch_asmsub_abbrev_tac`stubs_md (:α) dc`>>
   pop_assum kall_tac>>
   qmatch_asmsub_abbrev_tac`LHS = _`>>
   `prog' = SND LHS` by (unabbrev_all_tac>>fs[])>>

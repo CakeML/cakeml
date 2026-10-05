@@ -1115,9 +1115,10 @@ Proof
     \\ Cases_on `x` \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[find_code_def]
     \\ Cases_on `FLOOKUP s2'.code dest` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `x` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ rename1 `FLOOKUP s2'.code dest = SOME (LENGTH a,r,md)`
     \\ `?c2. shift (FST (alt_free [r])) 0 (LENGTH a) LN = [c2] /\
-             FLOOKUP t2.code dest = SOME (LENGTH a,c2)` by
+             FLOOKUP t2.code dest = SOME (LENGTH a,c2,md)` by
          (full_simp_tac(srw_ss())[state_rel_def] \\ RES_TAC \\ NO_TAC)
     \\ full_simp_tac(srw_ss())[] \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
     \\ `s2'.clock = t2.clock` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
@@ -1303,6 +1304,8 @@ Proof
     \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff
     \\ full_simp_tac(srw_ss())[])
 QED
+
+
 
 Theorem env_set_default[local]:
   x SUBSET env_ok 0 0 LN [] env'

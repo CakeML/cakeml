@@ -488,7 +488,7 @@ Resume max_depth_call_graph_lemma[Call]:
     \\ `?md. lookup name funs2 = SOME (a,body,md) /\
         lookup name s.code = SOME (a,body,md)`
           by (fs [subspt_lookup,lookup_delete,call_env_def]
-                       \\ fs [domain_lookup] \\ metis_tac [])
+                       \\ fs [domain_lookup] \\ metis_tac [PAIR_EQ,SOME_11])
     \\ fs [max_depth_graphs_def]
     \\ simp [call_env_def,dec_clock_def]
     \\ rename [`pop_env s1 = SOME s2`]
@@ -621,7 +621,7 @@ Resume max_depth_call_graph_lemma[Call]:
     \\ `?md. lookup name funs2 = SOME (a,body,md) /\
         lookup name s.code = SOME (a,body,md)`
           by (fs [subspt_lookup,lookup_delete,call_env_def]
-                       \\ fs [domain_lookup] \\ metis_tac [])
+                       \\ fs [domain_lookup] \\ metis_tac [PAIR_EQ,SOME_11])
     \\ fs [max_depth_graphs_def]
     \\ simp [call_env_def,dec_clock_def]
     \\ rename [`pop_env s1 = SOME s2`]
@@ -685,7 +685,7 @@ Resume max_depth_call_graph_lemma[Call]:
     \\ `?md. lookup name funs2 = SOME (a,body,md) /\
         lookup name s.code = SOME (a,body,md)`
           by (fs [subspt_lookup,lookup_delete,call_env_def]
-                       \\ fs [domain_lookup] \\ metis_tac [])
+                       \\ fs [domain_lookup] \\ metis_tac [PAIR_EQ,SOME_11])
     \\ fs [max_depth_graphs_def]
     \\ simp [call_env_def,dec_clock_def]
     \\ rveq \\ fs []

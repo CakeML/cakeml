@@ -3345,10 +3345,11 @@ Proof
       fs[wStackLoad_def,stackSemTheory.evaluate_def,state_rel_def]>>
       CONJ_TAC>-
         metis_tac[]>>
-      fs[find_code_def,stackSemTheory.find_code_def]>>
+      fs[find_code_def,stackSemTheory.find_code_def,pair_case_eq]>>
       rw[]>>
       pop_assum mp_tac>>
       ntac 4 TOP_CASE_TAC>>rw[]>>
+      fs[pair_case_eq]>>rveq>>
       imp_res_tac get_vars_length_lemma>>
       `args' ≠ []` by metis_tac[LENGTH_NIL]>>
       fs[LAST_add_ret_loc]>>
@@ -3372,10 +3373,11 @@ Proof
       rw[stackSemTheory.evaluate_def,wStackLoad_def]>>
       TRY(fs[state_rel_def] \\ `F` by decide_tac)
       >- (
-        fs[find_code_def,stackSemTheory.find_code_def,state_rel_def]>>
+        fs[find_code_def,stackSemTheory.find_code_def,state_rel_def,pair_case_eq]>>
         rw[]>>
         ntac 2 (pop_assum mp_tac)>>
         ntac 4 TOP_CASE_TAC>>rw[]>>
+        fs[pair_case_eq]>>rveq>>
         imp_res_tac get_vars_length_lemma>>
         `args' ≠ []` by metis_tac[LENGTH_NIL]>>
         fs[LAST_add_ret_loc]>>
@@ -3415,8 +3417,9 @@ Proof
   fs[stackSemTheory.evaluate_def,state_rel_def]>>
   CONJ_TAC>-
     metis_tac[]>>
-  fs[find_code_def,stackSemTheory.find_code_def]>>
+  fs[find_code_def,stackSemTheory.find_code_def,pair_case_eq]>>
   ntac 2 TOP_CASE_TAC>>rw[]>>
+  fs[pair_case_eq]>>rveq>>
   res_tac>>
   simp[]>>
   metis_tac[]
@@ -6644,7 +6647,7 @@ Resume comp_correct[Raise]:
   \\ fs [wordSemTheory.evaluate_def,LET_DEF,
       stackSemTheory.evaluate_def,jump_exc_def,
       stackSemTheory.find_code_def]
-  \\ `lookup raise_stub_location t.code = SOME (raise_stub F k)` by fs [state_rel_def]
+  \\ `?md. lookup raise_stub_location t.code = SOME (raise_stub F k,md)` by fs [state_rel_def]
   \\ fs []
   \\ pop_assum kall_tac
   \\ fs [stackSemTheory.dec_clock_def,raise_stub_F,wordLangTheory.max_var_def]
@@ -6980,7 +6983,7 @@ Resume comp_correct[Install]:
   \\ fs[EXISTS_PULL_FORALL1,EXISTS_PULL_FORALL2,EXISTS_PULL_FORALL3]
   \\ rpt strip_tac
   \\ `? prog' progs'. progs'' = (k',prog')::progs'`
-      by (Cases_on `prog`
+      by (PairCases_on `prog`
       \\ fs[compile_word_to_stack_def]
       \\ rpt (pairarg_tac \\ gvs[]))
   \\ fs[]
@@ -9539,7 +9542,7 @@ Resume comp_correct[Call_returning]:
     simp[pop_env_def] >> strip_tac >> rveq >>
     simp[] >>
     CONJ_TAC>-
-      metis_tac[evaluate_consts]>>
+      (rpt strip_tac \\ first_x_assum drule \\ simp [])>>
     CONJ_TAC >- (Cases_on `f' = 0` >> fs[]) >>
     CONJ_TAC >-
       simp[wf_alist_insert,wf_fromAList,wf_union]>>
@@ -9865,7 +9868,7 @@ Resume comp_correct[Call_returning]:
     fsrw_tac [] [LASTN_CONS_ID]>>
     ntac 2 strip_tac>>
     CONJ_TAC>-
-      metis_tac[evaluate_consts]>>
+      (rpt strip_tac \\ first_x_assum drule \\ simp [])>>
     CONJ_ASM1_TAC>-
       (imp_res_tac stack_rel_cons_LEN_NONE>>
       fsrw_tac[][LENGTH_DROP]>>
@@ -11619,11 +11622,12 @@ Proof
   rename1`compile_word_to_stack ac _ k p bm = _`>>
   map_every qid_spec_tac [`bm`,`p''`,`progs`, `fs`, `bitmaps`,`p`]>>
   Induct>>fs[compile_word_to_stack_def,FORALL_PROD]>>
-  ntac 14 strip_tac>>
+  ntac 16 strip_tac>>
   pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
   rveq>>fs[]
   >- (
+    rename1 `compile_prog ac F word_prog _ k _ = _` >>
     qpat_x_assum`_ = (prog,f, bitmaps')` mp_tac>>
     SIMP_TAC (std_ss++LET_ss) [Once compile_prog_def]>>
     qpat_abbrev_tac`mm = if _ then _ else _`>>
@@ -11632,7 +11636,7 @@ Proof
     strip_tac>> strip_tac>>
     rveq>>fs[]>>
     EVAL_TAC>>
-    first_x_assum(qspec_then`p_2` assume_tac)>>
+    first_x_assum(qspec_then`word_prog` assume_tac)>>
     rw[]
     >-
       metis_tac[word_to_stack_alloc_arg,FST]
@@ -11646,7 +11650,7 @@ Proof
   >>
   fs[AND_IMP_INTRO]>>
   first_x_assum match_mp_tac>>
-  metis_tac[]
+  metis_tac[PAIR]
 QED
 
 Theorem compile_word_to_stack_convs:
@@ -11670,11 +11674,12 @@ Proof
   rpt strip_tac>>
   FULL_SIMP_TAC (srw_ss())[compile_prog_def]>>
   rpt(pairarg_tac \\ fs[]) \\ rveq
-  \\ qmatch_asmsub_abbrev_tac`comp c _ p_2 bm (k,f)`
-  \\ Q.ISPECL_THEN[`c`,`F`,`p_2`,`bm`,`(k,f)`]mp_tac
+  \\ rename1 `comp c F word_prog _ _ = _`
+  \\ qmatch_asmsub_abbrev_tac`comp c _ word_prog bm (k,f)`
+  \\ Q.ISPECL_THEN[`c`,`F`,`word_prog`,`bm`,`(k,f)`]mp_tac
         word_to_stack_stack_asm_name_lem
   \\ impl_tac >- fs[] \\ strip_tac
-  \\ Q.ISPECL_THEN[`c`,`F`,`p_2`,`bm`,`(k,f)`]mp_tac
+  \\ Q.ISPECL_THEN[`c`,`F`,`word_prog`,`bm`,`(k,f)`]mp_tac
         word_to_stack_stack_asm_remove_lem
   \\ impl_tac >- fs[] \\ strip_tac
   \\ simp_tac(srw_ss())[]
@@ -12383,7 +12388,7 @@ Theorem word_to_stack_compile_no_install:
   ALL_DISTINCT (MAP FST prog) ∧
   no_install_code (fromAList prog) ∧
   word_to_stack$compile (ac:asm_config) F (prog:(num # num # 'a wordLang$prog # metadata) list) = (bm, c, fs, p) ⇒
-  EVERY (λ(n,x). no_install x) p
+  EVERY (λ(n,x,md). no_install x) p
 Proof
   strip_tac>>
   fs[compile_def]>>

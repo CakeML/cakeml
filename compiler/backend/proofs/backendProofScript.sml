@@ -222,10 +222,10 @@ Theorem compile_common_syntax:
    !cf e3 cf1 e4.
       clos_to_bvl$compile_common cf e3 = (cf1,e4) ==>
       (EVERY no_Labels e3 ==>
-       EVERY no_Labels (MAP (SND o SND) e4)) /\
+       EVERY no_Labels (MAP (FST o SND o SND) e4)) /\
       (0 < cf.max_app /\ EVERY no_mti e3 ==>
-       EVERY (obeys_max_app cf.max_app) (MAP (SND o SND) e4)) /\
-      every_Fn_SOME (MAP (SND o SND) e4)
+       EVERY (obeys_max_app cf.max_app) (MAP (FST o SND o SND) e4)) /\
+      every_Fn_SOME (MAP (FST o SND o SND) e4)
 Proof
   fs [clos_to_bvlTheory.compile_common_def]
   \\ rpt gen_tac \\ rpt (pairarg_tac \\ fs [])
@@ -247,7 +247,8 @@ Proof
     \\ match_mp_tac clos_annotateProofTheory.no_Labels_ann
     \\ fs [clos_callProofTheory.state_syntax_def]
     \\ rw [] \\ TRY (match_mp_tac clos_to_bvlProofTheory.chain_exps_no_Labels \\ fs [])
-    \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
+    \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,
+           add_metadata_def,EXISTS_PROD]
     \\ rw [] \\ res_tac \\ fs [])
   THEN1 (* obeys_max_app *)
    (drule (clos_numberProofTheory.renumber_code_locs_obeys_max_app
@@ -271,7 +272,8 @@ Proof
     \\ match_mp_tac clos_annotateProofTheory.obeys_max_app_ann
     \\ fs [clos_callProofTheory.state_syntax_def]
     \\ rw [] \\ TRY (match_mp_tac clos_to_bvlProofTheory.chain_exps_obeys_max_app \\ fs [])
-    \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
+    \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,
+           add_metadata_def,EXISTS_PROD]
     \\ rw [] \\ res_tac \\ fs [])
   \\ rename [`renumber_code_locs_list r1 r2`]
   \\ qspecl_then [`r1`,`r2`] mp_tac
@@ -294,8 +296,10 @@ Proof
   \\ TRY (old_drule clos_callProofTheory.calls_preserves_every_Fn_SOME
           \\ impl_tac THEN1 (fs [] \\ EVAL_TAC) \\ strip_tac \\ fs [])
   \\ match_mp_tac clos_annotateProofTheory.every_Fn_SOME_ann
-  \\ fs [closPropsTheory.every_Fn_SOME_APPEND]
-  \\ match_mp_tac clos_to_bvlProofTheory.chain_exps_every_Fn_SOME \\ fs []
+  \\ fs [closPropsTheory.every_Fn_SOME_APPEND,add_metadata_def,
+         MAP_MAP_o,o_DEF,UNCURRY]
+  \\ match_mp_tac (SIMP_RULE std_ss [o_DEF]
+       clos_to_bvlProofTheory.chain_exps_every_Fn_SOME) \\ fs []
 QED
 
 Theorem word_list_exists_imp:
@@ -1285,18 +1289,18 @@ Proof
 QED
 
 Theorem compile_to_word_conventions2:
-  compile wc ac (p:(num # num # 'a wordLang$prog) list) = (_,ps) ∧
-  EVERY (λ(_,_,prg). wordConvs$no_share_inst prg ∨ ac.ISA ≠ Ag32) p ==>
+  compile wc ac (p:(num # num # 'a wordLang$prog # metadata) list) = (_,ps) ∧
+  EVERY (λ(_,_,prg,_). wordConvs$no_share_inst prg ∨ ac.ISA ≠ Ag32) p ==>
   MAP FST ps = MAP FST p ∧
   LIST_REL wordConvs$labels_rel
-    (MAP (wordConvs$extract_labels ∘ SND ∘ SND) p)
-    (MAP (wordConvs$extract_labels ∘ SND ∘ SND) ps) ∧
-  EVERY (λ(n,m,prog).
+    (MAP (wordConvs$extract_labels ∘ FST ∘ SND ∘ SND) p)
+    (MAP (wordConvs$extract_labels ∘ FST ∘ SND ∘ SND) ps) ∧
+  EVERY (λ(n,m,prog,md).
     wordConvs$flat_exp_conventions prog ∧
     wordConvs$post_alloc_conventions
       (ac.reg_count - (5 + LENGTH ac.avoid_regs)) prog ∧
     (isa_bits ac = dimindex (:'a) ∧
-     EVERY (λ(n,m,prog).
+     EVERY (λ(n,m,prog,md).
               wordConvs$every_inst (wordConvs$inst_ok_less ac) prog)
            p ∧ addr_offset_ok ac 0 ∧ hw_offset_ok ac 0 ∧
      byte_offset_ok ac 0 ⇒
@@ -1359,7 +1363,7 @@ Proof
   \\ simp[stack_removeTheory.prog_comp_def]
   \\ simp[stack_namesTheory.prog_comp_def]
   \\ simp[Once EVERY_MEM, FORALL_PROD]
-  \\ qx_genl_tac[`l1`,`l2`] \\ strip_tac
+  \\ qx_genl_tac[`l1`,`l2`,`md`] \\ strip_tac
   \\ simp[GSYM stack_namesProofTheory.stack_names_lab_pres]
   \\ simp[GSYM stack_removeProofTheory.stack_remove_lab_pres]
   \\ qspecl_then[`l1`,`next_lab l2 2`,`l2`]mp_tac stack_allocProofTheory.stack_alloc_lab_pres
@@ -1377,14 +1381,14 @@ Proof
   \\ drule compile_to_word_conventions2
   \\ impl_tac
   >- (irule_at Any EVERY_MONOTONIC>>
-      qexists ‘λx. wordConvs$no_share_inst (SND $ SND x)’>>
+      qexists ‘λx. wordConvs$no_share_inst (FST $ SND $ SND x)’>>
       simp[FORALL_PROD]>>
       fs[EVERY_MAP,LAMBDA_PROD]>>
       simp[data_to_wordTheory.compile_part_def]>>
       simp[EVERY_MEM]>>rw[]>>
       pairarg_tac>>fs[]>>
       irule comp_no_share_inst>>metis_tac[PAIR])
-  \\ rw []
+  \\ rw [] \\ TRY (asm_exists_tac \\ fs [])
   \\ qhdtm_x_assum`EVERY`mp_tac
   \\ simp[Once EVERY_MEM] \\ strip_tac
   \\ simp[Once EVERY_MEM]
@@ -1522,10 +1526,10 @@ fun specl_compile_args_of_then th ttac (g as (_,w)) =
 Theorem to_word_labels_ok:
   compile asm_conf c prog = SOME (b,bm:'a word list,c') /\ backend_config_ok asm_conf c
   ==>
-  let (_, p : (num # num # 'a wordLang$prog) list, _) = to_word asm_conf c prog in
+  let (_, p : (num # num # 'a wordLang$prog # metadata) list, _) = to_word asm_conf c prog in
   ALL_DISTINCT (MAP FST p) /\
   EVERY (λn. n > store_consts_stub_location) (MAP FST p) /\
-  EVERY (λ(n,m,p).
+  EVERY (λ(n,m,p,md).
     let labs = wordConvs$extract_labels p in
     EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧ ALL_DISTINCT labs) p
 Proof
@@ -1538,11 +1542,12 @@ Proof
      |> C specl_compile_args_of_then mp_tac)
   \\ rpt disch_tac \\ fs []
   \\ drule to_data_labels_ok
-  \\ simp [data_to_word_stubs_above_store_consts_stub]
+  \\ simp [data_to_wordTheory.stubs_md_def,MAP_MAP_o,o_DEF,UNCURRY,
+           ETA_AX,data_to_word_stubs_above_store_consts_stub]
   \\ simp [ALL_DISTINCT_APPEND, EVERY_MEM, ALL_DISTINCT_MAP_FST_stubs]
-  \\ metis_tac [prim_recTheory.LESS_REFL, MAP_FST_stubs_bound,
-    LESS_LESS_EQ_TRANS, (EVAL ``store_consts_stub_location < data_num_stubs``),
-    arithmeticTheory.GREATER_DEF]
+  \\ ‘store_consts_stub_location < data_num_stubs’ by EVAL_TAC
+  \\ rpt strip_tac \\ imp_res_tac MAP_FST_stubs_bound
+  \\ fs [arithmeticTheory.GREATER_DEF] \\ res_tac \\ decide_tac
 QED
 
 Theorem to_bvi_perf_calls:
@@ -1892,7 +1897,7 @@ Theorem monotonic_labels_stack_to_lab:
   compile asm_conf c prog = SOME (b,bm:'a word list,c') /\ backend_config_ok asm_conf c
   ==>
   oracle_monotonic (set o MAP FST o FST o SND) (≠)
-    (set (MAP FST (FST (SND (SND (to_stack asm_conf c prog : 'a word list # config # (num # stackLang$prog) list # mlstring sptree$num_map))))) ∪ count (SUC gc_stub_location))
+    (set (MAP FST (FST (SND (SND (to_stack asm_conf c prog : 'a word list # config # (num # stackLang$prog # metadata) list # mlstring sptree$num_map))))) ∪ count (SUC gc_stub_location))
     (cake_orac (:'a) asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
         (λps. (ps.stack_prog,ps.cur_bm)))
  ==>
@@ -1937,7 +1942,7 @@ Theorem monotonic_labels_bvi_down_to_stack:
     (cake_orac (:'a) asm_conf c' syntax (SND o SND o SND o SND o SND o config_tuple2) (\ps. ps.bvi_prog))
   ==>
   oracle_monotonic (set o MAP FST o FST o SND) (≠)
-    (set (MAP FST (FST (SND (SND (to_stack asm_conf c prog : 'a word list # config # (num # stackLang$prog) list # mlstring sptree$num_map))))) ∪ count (SUC gc_stub_location))
+    (set (MAP FST (FST (SND (SND (to_stack asm_conf c prog : 'a word list # config # (num # stackLang$prog # metadata) list # mlstring sptree$num_map))))) ∪ count (SUC gc_stub_location))
     (cake_orac (:'a) asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
         (λps. (ps.stack_prog,ps.cur_bm)))
 Proof
@@ -1967,6 +1972,8 @@ Proof
     \\ imp_res_tac to_bvi_perf_calls
     \\ fs [backend_config_ok_def]
     \\ gvs []
+    \\ rpt (pop_assum kall_tac)
+    \\ simp [data_to_wordTheory.stubs_md_def,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]
     \\ metis_tac [MAP_FST_stubs_bound, prim_recTheory.LESS_THM,
         EVAL ``gc_stub_location < data_num_stubs``, LESS_TRANS,
         EVAL ``raise_stub_location < data_num_stubs``,
@@ -2292,7 +2299,6 @@ Proof
   \\ simp []
 QED
 
-
 Theorem syntax_oracle_ok_start:
   clos_to_bvlProof$syntax_oracle_ok c (c' with start updated_by f) es co =
   clos_to_bvlProof$syntax_oracle_ok c c' es co
@@ -2337,7 +2343,7 @@ Proof
   \\ simp [clos_to_bvlProofTheory.set_MAP_code_sort]
   \\ rw []
   >- (
-    rw [SUBSET_DEF, miscTheory.toAList_domain]
+    rw [SUBSET_DEF, miscTheory.toAList_domain,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]
     \\ drule clos_to_bvlProofTheory.domain_init_code_lt_num_stubs
     \\ simp []
   )
@@ -2478,7 +2484,7 @@ Resume good_code_lab_oracle[word_convs]:
       \\ impl_tac
       >- (fs[Abbr‘pp0’]>>
           irule_at Any EVERY_MONOTONIC>>
-          qexists ‘λx. wordConvs$no_share_inst (SND $ SND x)’>>
+          qexists ‘λx. wordConvs$no_share_inst (FST $ SND $ SND x)’>>
           simp[FORALL_PROD]>>
           fs[EVERY_MAP,LAMBDA_PROD]>>
           simp[data_to_wordTheory.compile_part_def]>>
@@ -2530,8 +2536,8 @@ Proof
   \\ rw [] \\ rveq \\ fs []
   \\ simp [stack_to_labProofTheory.good_code_def]
   \\ imp_res_tac word_to_stackProofTheory.MAP_FST_compile_word_to_stack
-  \\ simp [Q.SPEC`P o FST`(INST_TYPE[alpha|->``:'a # 'b``]EVERY_CONJ)
-              |> Q.SPEC`Q o SND` |> SIMP_RULE (srw_ss()) [LAMBDA_PROD]]
+  \\ simp [Q.SPEC`P o FST`(INST_TYPE[alpha|->``:'a # 'b # 'c``]EVERY_CONJ)
+              |> Q.SPEC`Q o FST o SND` |> SIMP_RULE (srw_ss()) [LAMBDA_PROD]]
   \\ simp [GSYM ALL_EL_MAP, GSYM CONJ_ASSOC]
   \\ simp [MAP_MAP_o, o_DEF, word_to_wordTheory.full_compile_single_def, UNCURRY]
   \\ simp [ETA_THM]
@@ -2555,7 +2561,7 @@ Proof
   \\ impl_tac
   >- (fs[Abbr‘pp0’]>>
       irule_at Any EVERY_MONOTONIC>>
-      qexists ‘λx. wordConvs$no_share_inst (SND $ SND x)’>>
+      qexists ‘λx. wordConvs$no_share_inst (FST $ SND $ SND x)’>>
       simp[FORALL_PROD]>>
       fs[EVERY_MAP,LAMBDA_PROD]>>
       simp[data_to_wordTheory.compile_part_def]>>
@@ -2607,8 +2613,8 @@ Proof
     \\ fs [backend_config_ok_def]
   )
   \\ drule compile_word_to_stack_lab_pres
-  \\ simp[Q.SPEC`P o FST`(INST_TYPE[alpha|->``:'a # 'b``]EVERY_CONJ)
-          |> Q.SPEC`Q o SND` |> SIMP_RULE (srw_ss()) [LAMBDA_PROD]]
+  \\ simp[Q.SPEC`P o FST`(INST_TYPE[alpha|->``:'a # 'b # 'c``]EVERY_CONJ)
+          |> Q.SPEC`Q o FST o SND` |> SIMP_RULE (srw_ss()) [LAMBDA_PROD]]
   \\ simp[o_DEF]
   \\ reverse impl_tac
   >- (
@@ -2652,7 +2658,7 @@ QED
 
 Theorem to_lab_good_code_lemma:
   compile aw c.stack_conf c.data_conf lim1 lim2 offs stack_prog = code /\
-  compile (asm_conf3:asm_config) F (word_prog:(num # num # 'a wordLang$prog) list) = (bm, wc, fs, stack_prog) /\
+  compile (asm_conf3:asm_config) F (word_prog:(num # num # 'a wordLang$prog # metadata) list) = (bm, wc, fs, stack_prog) /\
   compile data_conf word_conf asm_conf2 data_prog = (col, word_prog) /\
   stack_to_labProof$labels_ok code /\
   all_enc_ok_pre conf code
@@ -2708,7 +2714,7 @@ max_print_depth := 20
 Definition compute_stack_frame_sizes_def:
   compute_stack_frame_sizes c word_prog =
     let reg_count = c.reg_count - LENGTH c.avoid_regs - 5 in
-      mapi (λn (arg_count,prog).
+      mapi (λn (arg_count,prog,md).
               let stack_arg_count = arg_count - reg_count ;
                   stack_var_count = MAX (max_var prog DIV 2 + 1 - reg_count) stack_arg_count ;
               in if stack_var_count = 0 then 0 else stack_var_count + 1)
@@ -2718,7 +2724,7 @@ End
 Theorem compute_stack_frame_sizes_thm:
   compute_stack_frame_sizes c word_prog =
     let k = c.reg_count - LENGTH c.avoid_regs - 5 in
-      mapi (λn (arg_count,prog).
+      mapi (λn (arg_count,prog,md).
         FST (SND (compile_prog c F prog arg_count k (Nil,0)))) (fromAList word_prog)
 Proof
   fs [compute_stack_frame_sizes_def]
@@ -2740,7 +2746,7 @@ End
 Definition is_safe_for_space_def:
   is_safe_for_space (:'a) ffi asm_conf c prog stack_heap_limit =
     let data_prog = FST (SND (to_data c prog)) in
-    let word_prog : (num # num # 'a wordLang$prog) list =
+    let word_prog : (num # num # 'a wordLang$prog # metadata) list =
       FST (SND (to_word (asm_conf:asm_config) c prog)) in
       dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
         (dataSem$compute_limits c.data_conf.len_size (is_64_bits (:'a)) c.data_conf.has_fp_ops c.data_conf.has_fp_tern stack_heap_limit)
@@ -2820,9 +2826,9 @@ Theorem compile_word_to_stack_sfs_aux:
      (MAP
         (λkv.
              (FST kv,
-              (λ(arg_count,prog).
+              (λ(arg_count,prog,md).
                    FST (SND (compile_prog ac perf prog arg_count k (Nil,0)))) (SND kv))) p)
-   = fromAList (MAP (λ((i,_),n). (i,n)) (ZIP (progs',fs')))
+   = fromAList (MAP (λ((i,_,_),n). (i,n)) (ZIP (progs',fs')))
 Proof
   ho_match_mp_tac compile_word_to_stack_ind
   \\ rw [fromAList_def,compile_word_to_stack_def] \\ fs [fromAList_def]
@@ -3872,7 +3878,8 @@ Resume compile_correct'[data_word]:
   \\ old_drule clos_to_bvlProofTheory.compile_all_distinct_locs
   \\ strip_tac
   \\ disch_then(qspec_then`0`mp_tac) \\ simp[] \\ strip_tac
-  \\ `stubs c4.data_conf = stubs c4_data_conf` by ( simp[Abbr`c4_data_conf`] )
+  \\ `stubs_md (:α) c4.data_conf = stubs_md (:α) c4_data_conf`
+    by simp[data_to_wordTheory.stubs_md_def,Abbr`c4_data_conf`]
   \\ qmatch_assum_rename_tac`bvi_tmc_compile_prog _ _ _ = (_,p3)`
   (* bvi_inline runs after bvi_tmc and preserves names *)
   \\ qpat_assum `bvi_inline$compile_prog _ = _`
@@ -3888,21 +3895,25 @@ Resume compile_correct'[data_word]:
       (fs[domain_fromAList]>>
       simp[Once UNION_COMM,SimpRHS]>>
       AP_TERM_TAC>>
-      simp[data_to_wordTheory.compile_part_def,FST_triple,MAP_MAP_o,o_DEF,LAMBDA_PROD])>>
+      simp[data_to_wordTheory.compile_part_def,FST_triple,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX])>>
     conj_tac >- (
       rw[] \\
       old_drule(ONCE_REWRITE_RULE[CONJ_COMM] ALOOKUP_ALL_DISTINCT_MEM) \\
-      impl_tac >- MATCH_ACCEPT_TAC ALL_DISTINCT_MAP_FST_stubs \\ simp[] ) \\
+      impl_tac >-
+        simp[data_to_wordTheory.stubs_md_def,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX,
+             ALL_DISTINCT_MAP_FST_stubs] \\ simp[] ) \\
     rw[] \\
     reverse CASE_TAC >- (
       imp_res_tac ALOOKUP_MEM \\
+      fs[data_to_wordTheory.stubs_md_def,MEM_MAP,EXISTS_PROD] \\
       qpat_x_assum`MAP FST p4 = _`(assume_tac o SYM) \\ fs[] \\
       fs[EVERY_MEM,EVERY_MAP,FORALL_PROD] \\
       res_tac \\
       imp_res_tac(SIMP_RULE(std_ss)[MEM_MAP,Once EXISTS_PROD,PULL_EXISTS]MAP_FST_stubs_bound) \\
       fs[] ) \\
     match_mp_tac ALOOKUP_ALL_DISTINCT_MEM \\
-    simp[MAP_MAP_o,o_DEF,LAMBDA_PROD,data_to_wordTheory.compile_part_def,FST_triple,MEM_MAP,EXISTS_PROD] \\
+    simp[MAP_MAP_o,o_DEF,UNCURRY,ETA_AX,data_to_wordTheory.compile_part_def,
+         FST_triple,MEM_MAP,EXISTS_PROD] \\
     metis_tac[ALOOKUP_MEM] ) \\
   `word_to_wordProof$code_rel_ext (fromAList t_code) (fromAList p5)` by metis_tac[word_to_wordProofTheory.code_rel_ext_word_to_word] \\
   qpat_x_assum`Abbrev(tar_st = _)`kall_tac \\
@@ -3970,7 +3981,7 @@ Resume compile_correct'[data_word]:
       \\ simp[EVERY_MAP, LAMBDA_PROD] ) \\
     conj_tac >- (
       AP_TERM_TAC>>
-      simp[data_to_wordTheory.compile_part_def,FST_triple,MAP_MAP_o,o_DEF,LAMBDA_PROD])>>
+      simp[data_to_wordTheory.compile_part_def,FST_triple,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX])>>
     conj_tac >- (
       simp [stack_to_labProofTheory.full_make_init_def,
             stack_allocProofTheory.make_init_def,
@@ -4234,14 +4245,14 @@ Resume compile_correct'[stack_init]:
           \\ EVAL_TAC
           \\ simp[] \\ NO_TAC )
         \\ decide_tac )>>
-      (* simple syntactic thing *)
-      simp[EVERY_FST_SND]>>
-      CONJ_TAC>- EVAL_TAC>>
-      CONJ_TAC>- EVAL_TAC>>
-      `!k. data_num_stubs<= k ⇒ stack_num_stubs <=k` by
-        (EVAL_TAC>>fs[])>>
-      CONJ_TAC>-
-        EVAL_TAC>>
+      `EVERY (λk. stack_num_stubs ≤ k) (MAP FST p6)` suffices_by
+        (fs[EVERY_MEM,EVERY_MAP,FORALL_PROD] >> metis_tac[]) >>
+      simp[] >>
+      CONJ_TAC >- EVAL_TAC >>
+      CONJ_TAC >- EVAL_TAC >>
+      `!k. data_num_stubs <= k ⇒ stack_num_stubs <= k` by
+        (EVAL_TAC >> fs[]) >>
+      CONJ_TAC >- EVAL_TAC >>
       metis_tac[EVERY_MONOTONIC]) >>
     fs[Abbr `stack_oracle`]
     \\ gen_tac
@@ -4337,7 +4348,7 @@ Resume compile_correct'[stack_init]:
       \\ drule compile_to_word_conventions2
       \\ impl_tac >- (
             irule_at Any EVERY_MONOTONIC>>
-            qexists ‘λx. wordConvs$no_share_inst (SND $ SND x)’>>
+            qexists ‘λx. wordConvs$no_share_inst (FST $ SND $ SND x)’>>
             simp[FORALL_PROD]>>
             fs[EVERY_MAP,LAMBDA_PROD]>>
             simp[data_to_wordTheory.compile_part_def]>>

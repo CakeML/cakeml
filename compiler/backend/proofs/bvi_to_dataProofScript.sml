@@ -1911,7 +1911,7 @@ Resume compile_correct[Force]:
       \\ drule_all_then assume_tac state_rel_dest_thunk \\ gvs []
       \\ `t1.clock = s.clock` by gvs [state_rel_def] \\ gvs []
       \\ gvs [find_code_def, dataSemTheory.find_code_def, AllCaseEqs()]
-      \\ `lookup force_loc t1.code = SOME (2,compile_exp 2 exp)`
+      \\ `lookup force_loc t1.code = SOME (2,compile_exp 2 exp,md)`
         by gvs [state_rel_def, code_rel_def] \\ gvs []
       \\ Cases_on `tail` \\ gvs []
       >- gvs [state_rel_def]
@@ -2951,7 +2951,7 @@ Proof
   \\ full_simp_tac(srw_ss())[]
   \\ qmatch_assum_rename_tac`lookup start s1.code = SOME p`
   \\ PairCases_on`p`
-  \\ `lookup start t1.code = SOME (p0,compile_exp p0 p1)`
+  \\ `lookup start t1.code = SOME (p0,compile_exp p0 p1,p2)`
      by (full_simp_tac(srw_ss())[state_rel_def,code_rel_def])
   \\ full_simp_tac(srw_ss())[]
   \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[] >> var_eq_tac

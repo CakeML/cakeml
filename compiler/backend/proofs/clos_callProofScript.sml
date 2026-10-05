@@ -155,7 +155,7 @@ Definition wfg_def:
 End
 
 Definition make_g_def:
-  make_g d code =
+  make_g d (code:num |-> num # closLang$exp # metadata) =
     if IMAGE SUC (domain d) ⊆ (FDOM code) then
       SOME (d, MAP (\k. (FST k + 1,
                          (I ## FST) (THE (FLOOKUP code (FST k + 1)))))
@@ -171,7 +171,7 @@ Proof
 QED
 
 Theorem make_g_wfg:
-   make_g d code = SOME g ==> wfg g
+   make_g d (code:num |-> num # closLang$exp # metadata) = SOME g ==> wfg g
 Proof
   rw [make_g_def,wfg_def] \\ fs [MAP_MAP_o,o_DEF]
   \\ fs [ALL_DISTINCT_MAP_FST_ADD1,ALL_DISTINCT_MAP_FST_toAList]
@@ -191,10 +191,20 @@ Proof
   \\ disch_then(qspec_then`FEMPTY`(SUBST1_TAC o SYM))
   \\ old_drule (GEN_ALL FLOOKUP_FUPDATE_LIST_ALOOKUP_SOME)
   \\ disch_then(qspec_then`FEMPTY`mp_tac) \\ strip_tac
-  \\ fs[MEM_MAP, PULL_EXISTS, MEM_toAList, EXISTS_PROD]
+  \\ fs[MEM_MAP, PULL_EXISTS, MEM_toAList, EXISTS_PROD,
+        backend_commonTheory.add_metadata_def]
   \\ imp_res_tac ALOOKUP_MEM
   \\ fsrw_tac[DNF_ss][EXTENSION, MEM_MAP, PULL_EXISTS, EXISTS_PROD, EQ_IMP_THM]
-  \\ res_tac \\ fs[ADD1, domain_lookup]
+  \\ PairCases_on `v`
+  \\ `ALOOKUP (REVERSE (backend_common$add_metadata empty_metadata aux)) k =
+        SOME (v0,v1,empty_metadata)` by
+   (match_mp_tac ALOOKUP_ALL_DISTINCT_MEM
+    \\ simp [backend_commonTheory.add_metadata_def,MAP_REVERSE,
+             MAP_MAP_o,o_DEF,ELIM_UNCURRY,FORALL_PROD,MEM_MAP,PULL_EXISTS]
+    \\ qexists_tac `(k,v0,v1)` \\ fs []
+    \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  \\ res_tac \\ fs [ADD1,domain_lookup,FLOOKUP_FUPDATE_LIST,
+                      GSYM MAP_REVERSE,backend_commonTheory.add_metadata_def]
 QED
 
 Theorem make_g_make_g_eq:
@@ -216,8 +226,15 @@ Proof
   \\ once_rewrite_tac [EQ_SYM_EQ]
   \\ pop_assum match_mp_tac \\ fs []
   \\ Cases_on `ALOOKUP (MAP (λk.
-       (FST k + 1,THE (FLOOKUP x2 (FST k + 1)))) l1) (kk0 + 1)` \\ fs []
+       (FST k + 1,(I ## FST) (THE (FLOOKUP x2 (FST k + 1))))) l1) (kk0 + 1)` \\ fs []
   \\ imp_res_tac ALOOKUP_MEM \\ fs [MEM_MAP]
+QED
+
+Theorem ALOOKUP_without_metadata[local]:
+  ALOOKUP (MAP (I ## I ## FST) xs) k =
+  OPTION_MAP (I ## FST) (ALOOKUP xs k)
+Proof
+  Induct_on `xs` \\ simp [] \\ gen_tac \\ PairCases_on `h` \\ rw []
 QED
 
 Theorem make_g_IMP_subg:
@@ -230,14 +247,16 @@ Theorem make_g_IMP_subg:
 Proof
   rw [] \\ imp_res_tac make_g_wfg
   \\ fs [make_g_def] \\ rveq \\ fs [] \\ fs [subg_def,wfg_def]
-  \\ fs [ALOOKUP_APPEND,option_case_eq]
-  \\ strip_tac \\ Cases_on `ALOOKUP progs1 k` \\ fs [] THEN1
-   (fs [GSYM MEM_ALOOKUP] \\ fs [MEM_MAP,EXISTS_PROD,MEM_toAList]
+  \\ fs [ALOOKUP_APPEND,option_case_eq,ALOOKUP_without_metadata]
+  \\ strip_tac \\ Cases_on `ALOOKUP progs1 k` \\ fs []
+  THEN1
+   (fs [GSYM MEM_ALOOKUP] \\ fs [MEM_MAP,EXISTS_PROD,MEM_toAList,ALOOKUP_NONE]
     \\ rw [] \\ fs []
     \\ imp_res_tac subspt_lookup \\ fs [FLOOKUP_FUPDATE_LIST_ALOOKUP_NONE]
     \\ `ALOOKUP (REVERSE progs1) (p_1 + 1) = NONE` by
-          fs [ALOOKUP_NONE,MAP_REVERSE,MEM_REVERSE]
+          fs [ALOOKUP_NONE,MAP_REVERSE,MEM_REVERSE,FORALL_PROD,MEM_MAP,EXISTS_PROD]
     \\ old_drule (GEN_ALL FLOOKUP_FUPDATE_LIST_ALOOKUP_NONE) \\ fs [])
+  \\ PairCases_on `x` \\ fs []
   \\ old_drule (GEN_ALL FLOOKUP_FUPDATE_LIST_ALOOKUP_SOME)
   \\ disch_then(qspec_then`code`mp_tac) \\ strip_tac
   \\ fs [GSYM MEM_ALOOKUP]
@@ -262,7 +281,7 @@ End
 
 Definition code_includes_def:
   code_includes al code ⇔
-    ∀k v. ALOOKUP al k = SOME v ⇒ ∃md. FLOOKUP code k = SOME (FST v, SND v, md)
+    ∀k v. ALOOKUP al k = SOME v ⇒ ∃md:metadata. FLOOKUP code k = SOME (FST v, SND v, md)
 End
 
 Definition recclosure_rel_def:
@@ -2137,6 +2156,28 @@ Definition includes_state_def:
 End
 *)
 
+Theorem ALOOKUP_add_metadata[local,simp]:
+  ALOOKUP (add_metadata md xs) k =
+  OPTION_MAP (\v. (FST v,SND v,md)) (ALOOKUP xs k)
+Proof
+  Induct_on `xs` \\ simp [backend_commonTheory.add_metadata_def]
+  \\ gen_tac \\ PairCases_on `h` \\ rw []
+  \\ fs [backend_commonTheory.add_metadata_def]
+QED
+
+Theorem MAP_FST_add_metadata[local,simp]:
+  MAP FST (add_metadata md xs) = MAP FST xs
+Proof
+  simp [backend_commonTheory.add_metadata_def,MAP_MAP_o,o_DEF,ELIM_UNCURRY]
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ simp []
+QED
+
+Theorem add_metadata_APPEND[local,simp]:
+  add_metadata md (xs ++ ys) = add_metadata md xs ++ add_metadata md ys
+Proof
+  simp [backend_commonTheory.add_metadata_def]
+QED
+
 Theorem code_rel_state_rel_install:
   code_inv (SOME g1) l1
       r.code r.compile r.compile_oracle t.code t.compile t.compile_oracle /\
@@ -2184,7 +2225,7 @@ Proof
     \\ qspec_then `1` assume_tac t)
   \\ rfs []
   \\ rename [`calls exps (FST cfg, _) = (exps', d', new_code)`]
-  \\ rename [`t.code = alist_to_fmap code`]
+  \\ rename [`t.code = alist_to_fmap (add_metadata empty_metadata code)`]
   \\ `DISJOINT (set (MAP FST code)) (set (MAP FST new_code)) /\
     DISJOINT (set (code_locs exps)) (domain (FST cfg))`
   by (
@@ -4506,7 +4547,7 @@ Proof
   \\ old_drule evaluate_code
   \\ strip_tac \\ fs [initial_state_def]
   \\ disch_then (qspecl_then [`[]`,
-      `initial_state ffi max_app (FOLDL $|+ FEMPTY aux) co1 cc1 k`,
+      `initial_state ffi max_app (FOLDL $|+ FEMPTY (add_metadata empty_metadata aux)) co1 cc1 k`,
       `set (code_locs x) DIFF domain (FST (FST (co 0)))`,
       `(FST (FST (co 0)), aux)`] mp_tac)
   \\ fs []
@@ -4537,7 +4578,11 @@ Proof
     \\ fs [])
   \\ conj_tac THEN1 (fs [wfv_state_def,initial_state_def,FEVERY_DEF,code_inv_def])
   \\ conj_tac THEN1 (fs [IN_DISJOINT] \\ metis_tac [])
-  \\ metis_tac [alistTheory.ALOOKUP_EQ_FLOOKUP]
+  \\ rpt strip_tac
+  \\ `ALOOKUP (add_metadata empty_metadata aux) k' =
+      ALOOKUP (add_metadata empty_metadata aux') k'` by
+       metis_tac [alistTheory.ALOOKUP_EQ_FLOOKUP]
+  \\ Cases_on `ALOOKUP aux' k'` \\ fs [] \\ rfs []
 QED
 
 Theorem semantics_compile:
@@ -4555,7 +4600,8 @@ Proof
   reverse(Cases_on`do_call`)
   \\ rw[compile_def]
   \\ fs[FUPDATE_LIST_THM]
-  >- ( match_mp_tac semantics_CURRY_I \\ fs[] )
+  >- ( fs [backend_commonTheory.add_metadata_def,FUPDATE_LIST_THM]
+    \\ match_mp_tac semantics_CURRY_I \\ fs [] )
   \\ irule semantics_calls
   \\ fs[compile_def, syntax_ok_def]
 QED

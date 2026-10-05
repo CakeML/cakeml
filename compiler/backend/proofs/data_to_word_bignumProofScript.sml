@@ -855,7 +855,7 @@ Proof
   \\ `(?md. lookup LongDiv1_location t2.code = SOME (7,LongDiv1_code c,md)) /\
       lookup 0 t2.locals = SOME (Loc l1 l2)` by
     (qunabbrev_tac `t2` \\ fs [lookup_insert])
-  \\ rpt_drule LongDiv1_thm'
+  \\ rpt_drule (SIMP_RULE std_ss [PULL_EXISTS] LongDiv1_thm')
   \\ impl_tac THEN1 (qunabbrev_tac `t2` \\ EVAL_TAC \\ fs [])
   \\ strip_tac \\ fs []
   \\ qunabbrev_tac `t2` \\ fs []
@@ -905,7 +905,7 @@ Proof
   \\ `(?md. lookup LongDiv1_location t2.code = SOME (7,LongDiv1_code c,md)) /\
       lookup 0 t2.locals = SOME (Loc l1 l2)` by
     (qunabbrev_tac `t2` \\ fs [lookup_insert])
-  \\ rpt_drule LongDiv1_thm
+  \\ rpt_drule (SIMP_RULE std_ss [PULL_EXISTS] LongDiv1_thm)
   \\ impl_tac THEN1 (qunabbrev_tac `t2` \\ EVAL_TAC \\ fs [])
   \\ strip_tac \\ fs []
   \\ qunabbrev_tac `t2` \\ fs []
@@ -920,7 +920,7 @@ Theorem div_code_assum_thm:
     div_code_assum (:'ffi) (:'c) t.code
 Proof
   fs [DivCode_def,div_code_assum_def,eq_eval] \\ rpt strip_tac
-  \\ fs [state_rel_thm,code_rel_def,stubs_def]
+  \\ fs [state_rel_thm,code_rel_def,stubs_def,stubs_md_def,MAP_MAP_o,o_DEF]
   \\ fs [EVAL ``LongDiv_location``,div_location_def]
   \\ qpat_abbrev_tac `x = cut_envs (LS (),LN) _`
   \\ `x = SOME (insert 0 ret_val LN,LN)` by
@@ -959,7 +959,8 @@ Theorem IMP_bignum_code_rel:
     state_rel c l1 l2 s t NONE locs ==>
     code_rel (xx4,xx5) t.code
 Proof
-  fs [word_bignumProofTheory.code_rel_def,state_rel_def,code_rel_def,stubs_def]
+  fs [word_bignumProofTheory.code_rel_def,state_rel_def,code_rel_def,stubs_def,
+      stubs_md_def,MAP_MAP_o,o_DEF]
   \\ rpt strip_tac
   \\ fs [generated_bignum_stubs_def] \\ rfs [] \\ fs [EVERY_MAP]
   \\ drule alistTheory.ALOOKUP_MEM \\ strip_tac
@@ -1005,7 +1006,9 @@ Theorem lookup_Arith_location:
 Proof
   rw [] \\ drule lookup_RefByte_location
   \\ fs [int_op_def] \\ every_case_tac \\ fs []
-  \\ fs [Arith_location_def] \\ rw [] \\ EVAL_TAC
+  \\ fs [Arith_location_def,Arith_code_def,Add_location_def,Sub_location_def,Mul_location_def,Div_location_def,
+         Mod_location_def,Add_code_def,Sub_code_def,Mul_code_def,Div_code_def,
+         Mod_code_def,EVAL ``AnyArith_location``]
 QED
 
 Theorem Replicate_code_thm:
@@ -1397,10 +1400,10 @@ Proof
      \\ qunabbrev_tac `w1` \\ fs [word_mul_n2w,word_add_n2w]
      \\ conj_tac THEN1
        (unabbrev_all_tac
-        \\ fs [wordSemTheory.set_store_def,code_rel_def,stubs_def] \\ rfs [])
+        \\ fs [wordSemTheory.set_store_def,code_rel_def,stubs_def,stubs_md_def,MAP_MAP_o,o_DEF] \\ rfs [])
      \\ `s0.clock = t.clock` by
        (unabbrev_all_tac
-        \\ fs [wordSemTheory.set_store_def,code_rel_def,stubs_def,state_rel_def])
+        \\ fs [wordSemTheory.set_store_def,code_rel_def,stubs_def,stubs_md_def,MAP_MAP_o,o_DEF,state_rel_def])
      \\ simp []
      \\ drule MustTerminate_limit_SUB_2 \\ fs []
      \\ `il + (jl + 1) < dimword (:α) DIV 8` by
@@ -1429,7 +1432,8 @@ Proof
            wordSemTheory.get_store_def]
   \\ `code_rel c s.code t.code` by (fs [state_rel_def] \\ NO_TAC)
   \\ pop_assum mp_tac
-  \\ rewrite_tac [code_rel_def,stubs_def,generated_bignum_stubs_def,LET_THM]
+  \\ rewrite_tac [code_rel_def,stubs_md_def,stubs_def,generated_bignum_stubs_def,
+                    MAP_MAP_o,o_DEF,EVERY_MAP,LET_THM]
   \\ Cases_on `compile Bignum_location 2 1 (Bignum_location + 1,[]) mc_iop_code`
   \\ PairCases_on `r`
   \\ simp_tac (srw_ss())[APPEND,EVERY_DEF,EVAL ``domain (fromList [()]) = ∅``,
@@ -2136,6 +2140,8 @@ Proof
   \\ print_tac "AnyArith_thm: done"
 QED
 
+
+
 val _ = numSimps.clear_arith_caches();
 
 Theorem MAP_FST_EQ_IMP_IS_SOME_ALOOKUP:
@@ -2230,7 +2236,7 @@ Proof
   \\ rename1 `get_vars [adjust_var a1; adjust_var a2] t = SOME [x1; x2]`
   \\ imp_res_tac get_vars_2_IMP
   \\ fs [wordSemTheory.get_vars_def]
-  \\ rpt_drule lookup_Arith_location \\ fs [get_names_def]
+  \\ rpt_drule lookup_Arith_location \\ strip_tac \\ fs [get_names_def]
   \\ `option_le (OPTION_MAP2 $+ (stack_size t.stack) t.locals_size) t.stack_max` by
       fs [state_rel_def]
   \\ fs [wordSemTheory.evaluate_def,list_Seq_def,word_exp_rw,
@@ -2239,7 +2245,6 @@ Proof
   \\ fs [wordSemTheory.add_ret_loc_def,wordSemTheory.find_code_def]
   \\ fs [wordSemTheory.bad_dest_args_def,wordSemTheory.get_vars_def,
          wordSemTheory.get_var_def,lookup_insert,domain_adjust_sets]
-  \\ disch_then kall_tac
   \\ fs [cut_state_opt_def,cut_state_def]
   \\ rename1 `state_rel c l1 l2 s1 t NONE locs`
   \\ Cases_on `dataSem$cut_env x' s.locals` \\ fs []
@@ -2251,14 +2256,13 @@ Proof
   \\ drule cut_env_IMP_cut_envs \\ strip_tac \\ gvs []
   \\ fs [wordSemTheory.dec_clock_def]
   \\ fs [Arith_code_def]
-  \\ drule lookup_RefByte_location \\ fs [get_names_def]
+  \\ drule lookup_RefByte_location \\ strip_tac \\ fs [get_names_def]
   \\ fs [wordSemTheory.evaluate_def,list_Seq_def,word_exp_rw,push_env_code,
          wordSemTheory.find_code_def,wordSemTheory.set_var_def]
   \\ fs [wordSemTheory.add_ret_loc_def,wordSemTheory.find_code_def]
   \\ fs [wordSemTheory.bad_dest_args_def,wordSemTheory.get_vars_def,fromList2_def,
          wordSemTheory.get_var_def,lookup_insert,
          wordSemTheory.call_env_def,push_env_code]
-  \\ disch_then kall_tac
   \\ Q.MATCH_GOALSUB_ABBREV_TAC `evaluate (AnyArith_code c,t4)` \\ rveq
   \\ `let (l',permute) =  env_to_list y2 t.permute in
        t4 =
@@ -2524,15 +2528,7 @@ Proof
   \\ TOP_CASE_TAC \\ fs []
   \\ TOP_CASE_TAC \\ fs [wordSemTheory.add_ret_loc_def,wordSemTheory.find_code_def]
   \\ `?md. lookup (Arith_location index) t.code = SOME (3, Arith_code index, md)` by
-    (fs [state_rel_thm]
-     \\ qpat_x_assum `int_op index i1 i2 = SOME r` mp_tac
-     \\ rw [int_op_def]
-     \\ qpat_x_assum `code_rel c s.code t.code` mp_tac
-     \\ simp [code_rel_def] \\ strip_tac
-     \\ pop_assum kall_tac
-     \\ fs [EVERY_MEM,FORALL_PROD,Arith_location_def,Arith_code_def]
-     \\ pop_assum match_mp_tac
-     \\ fs [stubs_def,Add_code_def,Sub_code_def,Mul_code_def,Div_code_def,Mod_code_def])
+       metis_tac [lookup_Arith_location]
   \\ fs [domain_adjust_sets]
   \\ ntac 4 (TOP_CASE_TAC \\ fs [])
   \\ rveq \\ fs [Arith_code_def]
@@ -2549,10 +2545,10 @@ Proof
   \\ drule max_depth_Call_NONE
   \\ Cases_on `q' = SOME Error`
   THEN1 (fs [] \\ rw [] \\ fs [])
-  \\ disch_then (qspec_then `fromAList (stubs c : (num # num # α wordLang$prog) list)` mp_tac)
+  \\ disch_then (qspec_then `fromAList (stubs_md (:α) c)` mp_tac)
   \\ impl_tac THEN1
    (simp [] \\ fs [state_rel_thm,code_rel_def]
-    \\ qpat_x_assum `EVERY (λ(n,x). lookup n t.code = SOME x) (stubs c)` mp_tac
+    \\ qpat_x_assum `EVERY (λ(n,x). lookup n t.code = SOME x) (stubs_md (:α) c)` mp_tac
     \\ simp [subspt_lookup,lookup_fromAList]
     \\ strip_tac \\ imp_res_tac EVERY_IMP_ALOOKUP \\ fs [])
   \\ strip_tac \\ fs []

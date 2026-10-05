@@ -3076,7 +3076,7 @@ Proof
       rename1`nn < LENGTH _`>>
       DISJ1_TAC>>
       qexists_tac`nn`>>simp[]>>
-      Cases_on`EL nn progs`>>Cases_on`r`>>
+      Cases_on`EL nn progs`>>Cases_on`r`>>Cases_on`r'`>>
       fs[compile_single_def])>>
     simp[]
 QED

@@ -696,10 +696,10 @@ Theorem tick_compile_prog_res_range:
       subspt cs0 c /\ domain c INTER set (MAP FST in1) = EMPTY ==>
       subspt cs1 (union c (md_off (fromAList in2)))
 Proof
-  Induct \\ fs [tick_compile_prog_def]
-  THEN1 (fs [tick_inline_all_def,fromAList_def])
+  Induct \\ fs [tick_compile_prog_def,md_off_def,map_insert,map_union]
+  THEN1 (fs [tick_inline_all_def,fromAList_def,md_off_def,map_insert,map_union])
   \\ fs [FORALL_PROD]
-  \\ fs [tick_inline_all_def,fromAList_def]
+  \\ fs [tick_inline_all_def,fromAList_def,md_off_def,map_insert,map_union]
   \\ rw []
   THEN1
    (qpat_x_assum `_ = (_,_)` mp_tac
@@ -707,7 +707,7 @@ Proof
     \\ fs [] \\ pairarg_tac \\ fs [] \\ rw [] \\ fs []
     \\ first_x_assum drule
     \\ disch_then (qspec_then `union c
-          (insert p_1 (p_1',HD (tick_inline cs0 [p_2])) LN)` mp_tac)
+          (insert p_1 (p_1',HD (tick_inline cs0 [p_1''])) LN)` mp_tac)
     \\ impl_tac
     THEN1
      (fs [domain_union,EXTENSION]
@@ -717,7 +717,7 @@ Proof
       \\ metis_tac [lookup_NONE_domain])
     \\ fs [GSYM union_assoc]
     \\ match_mp_tac subspt_union_lemma
-    \\ fs [lookup_union,lookup_insert,lookup_def,fromAList_def]
+    \\ fs [lookup_union,lookup_insert,lookup_def,fromAList_def,map_insert]
     \\ fs [case_eq_thms] \\ metis_tac [])
   \\ qpat_x_assum `_ = (_,_)` mp_tac
   \\ once_rewrite_tac [tick_inline_all_acc]
@@ -734,7 +734,7 @@ Proof
     \\ imp_res_tac subspt_domain_SUBSET
     \\ fs [EXTENSION,SUBSET_DEF] \\ metis_tac [])
   \\ fs [subspt_lookup]
-  \\ fs [lookup_union,fromAList_def,lookup_insert]
+  \\ fs [lookup_union,fromAList_def,lookup_insert,lookup_map]
   \\ rw [] \\ fs[domain_lookup]
   \\ rw [] \\ fs []
 QED
@@ -813,8 +813,8 @@ Proof
     \\ match_mp_tac exp_rel_tick_inline \\ metis_tac [])
   \\ first_x_assum drule
   \\ disch_then (qspec_then `k` mp_tac) \\ fs []
-  \\ qmatch_goalsub_rename_tac `(p1,p2,p3) :: in1`
-  \\ disch_then (qspec_then `union src_code (insert p1 (p2,p3) LN)` mp_tac)
+  \\ qmatch_goalsub_rename_tac `(p1,p2,p3,p4) :: in1`
+  \\ disch_then (qspec_then `union src_code (insert p1 (p2,p3,p4) LN)` mp_tac)
   \\ fs [exp_rel_rw] \\ disch_then match_mp_tac
   \\ reverse (IF_CASES_TAC \\ fs [])
   THEN1
@@ -881,24 +881,26 @@ Proof
       THEN1 (fs [domain_lookup,EXTENSION] \\ metis_tac [NOT_SOME_NONE])
       \\ fs [lookup_fromAList]
       \\ `DISJOINT (domain q0) (set (MAP FST in1))` by
-       (fs [subspt_def,EXTENSION,DISJOINT_DEF,Abbr`in1`] \\ metis_tac [])
+       (fs [subspt_def,md_off_def,domain_map,EXTENSION,DISJOINT_DEF,Abbr`in1`] \\ metis_tac [])
       \\ `ALL_DISTINCT (MAP FST in1)` by fs [Abbr `in1`]
       \\ match_mp_tac tick_compile_prog_IMP_exp_rel
       \\ asm_exists_tac \\ fs []
       \\ reverse conj_tac
       THEN1 (unabbrev_all_tac \\ fs [DISJOINT_DEF,EXTENSION] \\ metis_tac [])
-      \\ rw [] \\ fs [subspt_lookup]
+      \\ rw [] \\ fs [subspt_lookup,md_off_def,lookup_map,AllCaseEqs()]
       \\ first_x_assum drule \\ strip_tac
-      \\ rename1 `lookup k2 t1.code = SOME (arity2,v)`
+      \\ PairCases_on `z` \\ fs [] \\ rveq
+      \\ rename1 `lookup k2 t1.code = SOME (arity2,v,md2)`
       \\ Cases_on `lookup k2 s1.code`
       THEN1 (fs [domain_eq] \\ res_tac \\ fs [])
       \\ PairCases_on `x` \\ res_tac \\ fs []
       \\ rveq \\ fs [])
-    \\ drule (tick_compile_prog_res_range |> SIMP_RULE std_ss [])
+    \\ fs [md_off_def,map_union]
+    \\ drule (tick_compile_prog_res_range |> SIMP_RULE std_ss [md_off_def])
     \\ disch_then match_mp_tac \\ fs []
     \\ unabbrev_all_tac \\ fs []
     \\ CCONTR_TAC \\ fs [EXTENSION] \\ rveq \\ fs []
-    \\ fs [subspt_def] \\ res_tac
+    \\ fs [subspt_def,md_off_def,lookup_map,domain_map,AllCaseEqs()] \\ res_tac
     \\ fs [DISJOINT_DEF,EXTENSION]
     \\ metis_tac [])
   \\ strip_tac \\ reverse (Cases_on `do_app op a s1`) \\ fs []
@@ -924,11 +926,14 @@ QED
 Theorem exp_rel_refl:
    !cs xs. exp_rel cs xs xs
 Proof
-  ho_match_mp_tac tick_inline_ind \\ rw []
+  qsuff_tac `(!e cs. exp_rel cs [e] [e]) /\
+             (!es cs. exp_rel cs es es)`
+  THEN1 metis_tac []
+  \\ ho_match_mp_tac bvlTheory.exp_induction \\ rw []
   \\ once_rewrite_tac [exp_rel_cases] \\ fs []
-  \\ Cases_on `dest` \\ fs []
-  \\ Cases_on `lookup x cs` \\ fs []
-  \\ Cases_on `x'` \\ fs []
+  \\ Cases_on `es` \\ fs []
+  \\ qpat_x_assum `!cs. exp_rel cs [e] [e]` (qspec_then `cs` mp_tac)
+  \\ simp [Once exp_rel_cases]
 QED
 
 Theorem evaluate_inline:
@@ -1079,10 +1084,11 @@ Proof
   \\ imp_res_tac tick_inline_all_names \\ fs []
 QED
 
-val exp_rel_rw = prove(
-  ``~MEM x (MAP FST prog) ==>
+Theorem exp_rel_insert_swap[local]:
+  ~MEM x (MAP FST prog) ==>
     exp_rel (union (insert x y (fromAList prog)) acc) [exp] [exp2] =
-    exp_rel (union (fromAList prog) (insert x y acc)) [exp] [exp2]``,
+    exp_rel (union (fromAList prog) (insert x y acc)) [exp] [exp2]
+Proof
   strip_tac
   \\ match_mp_tac exp_rel_swap
   \\ fs [lookup_union,lookup_insert,lookup_fromAList] \\ strip_tac
@@ -1090,10 +1096,11 @@ val exp_rel_rw = prove(
   \\ every_case_tac \\ fs []
   \\ imp_res_tac ALOOKUP_MEM
   \\ fs [MEM_MAP,FORALL_PROD] \\ rfs []
-  \\ Cases_on `x'` \\ rfs []);
+  \\ PairCases_on `x'` \\ rfs []
+QED
 
-val lookup_tick_inline_all = prove(
-  ``!cs0 prog acc.
+Theorem lookup_tick_inline_all[local]:
+  !cs0 prog acc.
       (∀k arity v.
           lookup k cs0 = SOME (arity,v) ⇒
           ∃exp md.
@@ -1106,7 +1113,8 @@ val lookup_tick_inline_all = prove(
         lookup k (fromAList prog) = SOME (arity,exp,md) ⇒
         ∃exp2.
           lookup k (fromAList (SND (tick_inline_all limit cs0 prog []))) =
-          SOME (arity,exp2,md) ∧ exp_rel (union (fromAList prog) acc) [exp] [exp2]``,
+          SOME (arity,exp2,md) ∧ exp_rel (union (fromAList prog) acc) [exp] [exp2]
+Proof
   Induct_on `prog` THEN1 (fs [fromAList_def,lookup_def])
   \\ fs [FORALL_PROD] \\ rw []
   \\ qmatch_goalsub_rename_tac `(p1,p2,p3,p4)::_`
@@ -1121,46 +1129,50 @@ val lookup_tick_inline_all = prove(
   \\ fs [] \\ rveq
   \\ qmatch_goalsub_abbrev_tac `tick_inline_all _ cs1`
   \\ qpat_x_assum `!x cs. _ ==> _` (qspec_then `cs1` mp_tac)
-  \\ disch_then (qspec_then `insert p1 (p2,p3) acc` mp_tac)
+  \\ disch_then (qspec_then `insert p1 (p2,p3,p4) acc` mp_tac)
   \\ fs [PULL_FORALL,AND_IMP_INTRO]
   \\ disch_then (qspec_then `k` mp_tac) \\ fs [GSYM PULL_FORALL]
-  \\ simp [exp_rel_rw]
+  \\ simp [exp_rel_insert_swap]
   \\ disch_then match_mp_tac \\ fs []
   THEN1
    (unabbrev_all_tac \\ fs [lookup_insert] \\ rw []
     THEN1
      (fs [lookup_union,lookup_insert,lookup_fromAList]
       \\ reverse CASE_TAC \\ fs []
-      THEN1 (Cases_on `x`
+      THEN1 (PairCases_on `x`
         \\ imp_res_tac ALOOKUP_MEM \\ fs [MEM_MAP,FORALL_PROD] \\ rfs [])
       \\ match_mp_tac exp_rel_tick_inline
       \\ rw [] \\ first_x_assum drule
       \\ IF_CASES_TAC THEN1 fs [GSYM lookup_NONE_domain]
       \\ fs [case_eq_thms] \\ strip_tac
       \\ fs [lookup_union,lookup_insert,lookup_fromAList]
-      \\ rfs [exp_rel_rw])
+      \\ rfs [exp_rel_insert_swap])
     \\ rpt strip_tac \\ first_x_assum drule
     \\ fs [lookup_union,lookup_insert]
-    \\ fs [GSYM lookup_NONE_domain] \\ fs [exp_rel_rw])
+    \\ fs [GSYM lookup_NONE_domain] \\ fs [exp_rel_insert_swap])
   \\ rpt strip_tac \\ first_x_assum drule
   \\ fs [lookup_union,lookup_insert]
-  \\ IF_CASES_TAC \\ fs [GSYM lookup_NONE_domain] \\ fs [exp_rel_rw]);
+  \\ IF_CASES_TAC \\ fs [GSYM lookup_NONE_domain] \\ fs [exp_rel_insert_swap]
+QED
 
-val subspt_tick_inline = prove(
-  ``!prog cs aux.
+Theorem subspt_tick_inline[local]:
+  !prog cs aux.
       subspt cs (md_off (fromAList (REVERSE aux))) /\
       EVERY (\x. ~(FST x IN domain cs)) prog /\
       ALL_DISTINCT (MAP FST prog ++ MAP FST aux) ==>
       subspt (FST (tick_inline_all limit cs prog aux))
-             (md_off (fromAList (SND (tick_inline_all limit cs prog aux))))``,
+             (md_off (fromAList (SND (tick_inline_all limit cs prog aux))))
+Proof
   Induct \\ fs [tick_inline_all_def,FORALL_PROD] \\ rw []
   \\ first_x_assum match_mp_tac
   \\ fs [subspt_lookup,lookup_insert] \\ rw []
   \\ fs [ALL_DISTINCT_APPEND]
   \\ res_tac \\ fs []
-  \\ fs [lookup_fromAList,ALOOKUP_APPEND]
+  \\ fs [md_off_def,lookup_map,lookup_fromAList,ALOOKUP_APPEND]
   \\ fs [case_eq_thms,ALOOKUP_NONE,MAP_REVERSE]
-  \\ fs [EVERY_MEM,MEM_MAP] \\ rw [] \\ res_tac \\ metis_tac [])
+  \\ fs [EVERY_MEM,MEM_MAP,EXISTS_PROD] \\ rw [] \\ res_tac
+  \\ fs [EXISTS_OR_THM] \\ PairCases_on `x` \\ fs [] \\ metis_tac []
+QED
 
 val evaluate_initial_state = prove(
   ``evaluate
@@ -1672,11 +1684,12 @@ Proof
   \\ unabbrev_all_tac \\ fs [initial_state_def]
 QED
 
-val semantics_let_op = prove(
-  ``semantics ffi prog co (let_op_cc q4 l4 cc) start <> Fail ==>
+Theorem semantics_let_op[local]:
+  semantics ffi prog co (let_op_cc q4 l4 cc) start <> Fail ==>
     semantics ffi (map (let_opt q4 l4) prog)
                   ((I ## MAP (I ## let_opt q4 l4)) o co) cc start =
-    semantics (ffi:'b ffi_state) prog co (let_op_cc q4 l4 cc) start``,
+    semantics (ffi:'b ffi_state) prog co (let_op_cc q4 l4 cc) start
+Proof
   simp [Once semantics_def]
   \\ simp [Once semantics_def, SimpRHS]
   \\ IF_CASES_TAC \\ fs []
@@ -1705,7 +1718,7 @@ val semantics_let_op = prove(
     \\ conj_tac
     >-
      (gen_tac \\ strip_tac \\ rveq \\ fs []
-      \\ qabbrev_tac `opts = (map (I ## let_op_sing) prog)`
+      \\ qabbrev_tac `opts = map (let_opt q4 l4) prog`
       \\ qmatch_assum_abbrev_tac `bvlSem$evaluate (opts1,[],sopt1) = _`
       \\ qmatch_assum_abbrev_tac `bvlSem$evaluate (exps1,[],st1) = (r,s)`
       \\ qspecl_then [`opts1`,`[]`,`sopt1`] mp_tac
@@ -1871,7 +1884,8 @@ val semantics_let_op = prove(
   \\ drule (GEN_ALL let_evaluate_Call)
   \\ impl_tac >- (last_x_assum (qspec_then `k` mp_tac) \\ fs [])
   \\ strip_tac \\ fs []
-  \\ conj_tac \\ rw [] \\ qexists_tac `k` \\ fs []);
+  \\ conj_tac \\ rw [] \\ qexists_tac `k` \\ fs []
+QED
 
 (* combined theorems *)
 

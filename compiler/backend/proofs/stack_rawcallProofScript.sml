@@ -9,6 +9,7 @@ Ancestors
   labProps[qualified]
 
 
+
 val _ = (max_print_depth := 18);
 
 val word_shift_def = backend_commonTheory.word_shift_def
@@ -45,6 +46,18 @@ End
 
 Theorem state_rel_thm =
   state_rel_def |> SIMP_RULE (srw_ss()) [state_component_equality];
+
+Theorem state_rel_find_code[local]:
+  state_rel i s t /\ find_code dest regs s.code = SOME prog ==>
+  ?j. state_ok j s.code /\
+      find_code dest regs t.code = SOME (comp_top j prog)
+Proof
+  Cases_on `dest`
+  \\ fs [find_code_def,state_rel_thm,AllCaseEqs()]
+  \\ rpt strip_tac \\ first_x_assum drule
+  \\ disch_then (qx_choose_then `j` strip_assume_tac)
+  \\ qexists_tac `j` \\ fs []
+QED
 
 Theorem with_stack_space[local]:
   t1 with stack_space := t1.stack_space = t1
@@ -446,23 +459,20 @@ Resume comp_correct[Seq]:
 QED
 
 Resume comp_correct[Call]:
-  cheat (*
   simp [Once comp_def]
   \\ fs [evaluate_def,get_var_def,CaseEq"option",CaseEq"bool",
          CaseEq"word_loc",pair_case_eq]
   \\ rpt strip_tac \\ rveq \\ fs [] \\ simp [PULL_EXISTS]
   \\ (`?i. state_ok i s.code /\
-           find_code dest t.regs t.code = SOME (comp_top i prog)` by cheat (*
-        (Cases_on `dest`
-         \\ fs [find_code_def,CaseEq"option",CaseEq"word_loc",CaseEq"bool",CaseEq"num"]
-         \\ PairCases_on ‘z’ \\ gvs []
-         \\ fs [state_rel_thm, FORALL_PROD])
-        ORELSE
-        (`?i. state_ok i s.code /\
-              find_code dest (t.regs \\ link_reg) t.code = SOME (comp_top i prog)` by
-           (Cases_on `dest`
-            \\ fs [find_code_def,CaseEq"option",CaseEq"word_loc",CaseEq"bool",CaseEq"num"]
-            \\ fs [state_rel_thm])) *) )
+          find_code dest t.regs t.code = SOME (comp_top i prog)` by
+   (imp_res_tac state_rel_find_code
+    \\ rename1 `find_code dest _ t.code = SOME (comp_top j prog)`
+    \\ qexists_tac `j` \\ fs [state_rel_thm]) ORELSE
+      `?i. state_ok i s.code /\
+          find_code dest (t.regs \\ link_reg) t.code = SOME (comp_top i prog)` by
+   (imp_res_tac state_rel_find_code
+    \\ rename1 `find_code dest _ t.code = SOME (comp_top j prog)`
+    \\ qexists_tac `j` \\ fs [state_rel_thm]))
   THEN1
    (qexists_tac `0` \\ qexists_tac `empty_env t`
     \\ fs [state_rel_thm,empty_env_def,evaluate_def] \\ rfs []
@@ -480,8 +490,7 @@ Resume comp_correct[Call]:
    (every_case_tac \\ fs []
     \\ qexists_tac `0` \\ qexists_tac `empty_env t`
     \\ fs [state_rel_thm,empty_env_def,evaluate_def]
-    \\ rfs [state_component_equality])
-  \\ cheat (*
+    \\ rfs [state_component_equality] \\ rfs [])
   \\ qmatch_goalsub_abbrev_tac `evaluate (pp,_)`
   \\ `pp =
       Call (SOME (comp i ret_handler,link_reg,l1,l2)) dest
@@ -558,7 +567,7 @@ Resume comp_correct[Call]:
     \\ disch_then (qspec_then `ck''` assume_tac)
     \\ fs [dec_clock_def,set_var_def] \\ rfs []
     \\ qpat_x_assum `evaluate (comp i h,_) = _` (fn th => rewrite_tac [GSYM th])
-    \\ AP_TERM_TAC \\ fs [] \\ fs [state_component_equality]) *) *)
+    \\ AP_TERM_TAC \\ fs [] \\ fs [state_component_equality])
 QED
 
 Finalise comp_correct;

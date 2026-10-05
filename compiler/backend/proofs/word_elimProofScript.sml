@@ -523,7 +523,7 @@ Proof
 QED
 
 Theorem remove_word_code_MAP_FST_lemma:
-     ∀ reachable:num_set (l: (num,num # α prog) alist) .
+     ∀ reachable:num_set (l: (num,α) alist) .
         MAP FST (FILTER (λx. IS_SOME (lookup (FST x) reachable)) l) =
             FILTER (λx. IS_SOME (lookup x reachable)) (MAP FST l)
 Proof

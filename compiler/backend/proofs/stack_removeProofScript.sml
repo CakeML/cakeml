@@ -1262,7 +1262,7 @@ Proof
 QED
 
 Theorem prog_comp_eta:
-   prog_comp = \jump off k (n,p). (n,(comp aw jump off k ## I) p)
+   prog_comp aw = \jump off k (n,p,md). (n,comp aw jump off k p,md)
 Proof
   srw_tac[][FUN_EQ_THM,prog_comp_def,FORALL_PROD,LAMBDA_PROD]
 QED
@@ -1499,6 +1499,13 @@ Proof
   fs [STAR_def,memory_def,fun2set_def] \\ fs [SPLIT_def]
   \\ rw [] \\ fs [EXTENSION,FORALL_PROD,SUBSET_DEF]
   \\ metis_tac []
+QED
+
+Theorem state_rel_lookup_code[local]:
+  state_rel aw jump off k s t /\ lookup dest s.code = SOME (prog,md) ==>
+  lookup dest t.code = SOME (comp aw jump off k prog,md) /\ reg_bound prog k
+Proof
+  fs [state_rel_def,code_rel_def] \\ rpt strip_tac \\ res_tac \\ fs []
 QED
 
 Theorem comp_correct[local]:
@@ -1789,10 +1796,11 @@ Proof
     \\ rev_full_simp_tac(srw_ss()++ARITH_ss)[])
   THEN1 (* RawCall *)
    (simp [Once comp_def]
-    \\ fs [evaluate_def,CaseEq"option",PULL_EXISTS]
-    \\ old_drule (GEN_ALL (find_code_lemma |> Q.INST [`dest`|->`INL d`]))
-    \\ fs [find_code_def]
-    \\ disch_then old_drule \\ strip_tac \\ fs []
+    \\ fs [evaluate_def,CaseEq"option",pair_case_eq,PULL_EXISTS]
+    \\ `lookup dest t1.code = SOME (comp aw jump off k prog,md) /\
+        reg_bound prog k` by
+         (drule_all state_rel_lookup_code \\ simp [])
+    \\ fs []
     \\ Cases_on `prog` \\ fs [dest_Seq_def] \\ rveq \\ fs []
     \\ once_rewrite_tac [comp_def] \\ fs [dest_Seq_def]
     \\ `t1.clock = s.clock` by fs [state_rel_def]
@@ -1971,6 +1979,8 @@ Proof
     \\ pairarg_tac \\ fs[]
     \\ pairarg_tac \\ fs[]
     \\ TOP_CASE_TAC \\ gvs[AllCaseEqs()]
+    \\ rename1 `s.compile_oracle 0 = (cfg,(n,prog)::progs,bm)`
+    \\ PairCases_on `prog`
     \\ qexists_tac`0`
     \\ simp[prog_comp_eta,shift_seq_def]
     \\ fs[state_rel_def]
@@ -1988,22 +1998,23 @@ Proof
       \\ strip_tac
       \\ conj_tac >- (
         qx_genl_tac[`nn`,`pp`]
+        \\ PairCases_on `pp` \\ fs []
         \\ reverse TOP_CASE_TAC
-        >- ( strip_tac \\ rveq \\ res_tac \\ simp[] )
+        >- (strip_tac \\ rveq \\ res_tac \\ fs [])
         \\ strip_tac
-        \\ `reg_bound pp k /\ num_stubs <= nn + 1` by (
-          qpat_assum`_ = SOME pp`mp_tac
+        \\ `reg_bound pp0 k /\ num_stubs <= nn + 1` by (
+          qpat_assum`_ = SOME (pp0,pp1)`mp_tac
           \\ IF_CASES_TAC \\ simp[]
           \\ strip_tac \\ rveq
           \\ metis_tac[ALOOKUP_MEM] )
         \\ `lookup nn t1.code = NONE` by
           fs[lookup_NONE_domain,backend_commonTheory.stack_num_stubs_def]
         \\ simp[]
-        \\ qpat_x_assum`_ = SOME pp`mp_tac
-        \\ IF_CASES_TAC \\ simp[ALOOKUP_MAP_2]
-        \\ strip_tac \\ rveq \\ simp[] )
+        \\ qpat_x_assum`_ = SOME (pp0,pp1)`mp_tac
+        \\ IF_CASES_TAC \\ simp[ALOOKUP_MAP_3]
+        \\ strip_tac \\ rveq \\ simp[])
       \\ simp[domain_fromAList,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]
-      \\ metis_tac[UNION_COMM,UNION_ASSOC] )
+      \\ metis_tac[UNION_COMM,UNION_ASSOC])
     \\ conj_tac >- simp[lookup_union]
     \\ conj_tac >- (
       simp[FLOOKUP_DRESTRICT,FLOOKUP_UPDATE] \\
@@ -4036,14 +4047,15 @@ Theorem IMP_code_rel[local]:
 Proof
   rw[]>>
   fs[code_rel_def,lookup_fromAList]>>
-  CONJ_TAC>- (
+  CONJ_TAC >- (
     fs[ALOOKUP_def,compile_def,init_stubs_def] \\ rw []
     \\ rpt var_eq_tac
+    \\ PairCases_on `x`
     \\ imp_res_tac ALOOKUP_MEM
     \\ imp_res_tac EVERY_MEM \\ full_simp_tac(srw_ss())[]
-    \\ simp[prog_comp_eta,ALOOKUP_MAP_2]
-    \\ pop_assum mp_tac \\ EVAL_TAC)>>
-  simp[domain_fromAList,compile_def,init_stubs_def,prog_comp_eta,MAP_MAP_o,UNCURRY,o_DEF,ETA_AX]>>
+    \\ simp[prog_comp_eta,ALOOKUP_MAP_3]
+    \\ pop_assum mp_tac \\ EVAL_TAC)
+  >> simp[domain_fromAList,compile_def,init_stubs_def,prog_comp_eta,MAP_MAP_o,UNCURRY,o_DEF,ETA_AX]>>
   simp[EXTENSION]>>
   metis_tac[]
 QED
@@ -4125,10 +4137,8 @@ Proof
   \\ match_mp_tac (GEN_ALL make_init_opt_SOME_semantics)
   \\ imp_res_tac IMP_code_rel
   \\ fs[init_pre_def,init_code_pre_def,propagate_these_def]
-  \\ simp[lookup_fromAList,compile_def,ALOOKUP_APPEND]
-  \\ conj_tac THEN1 EVAL_TAC
-  \\ conj_tac THEN1 metis_tac []
-  \\ EVAL_TAC
+  \\ simp[lookup_fromAList,compile_def,ALOOKUP_APPEND,init_stubs_def,stack_err_lab_def]
+  \\ first_assum ACCEPT_TAC
 QED
 
 Theorem make_init_any_ffi:
@@ -4388,9 +4398,9 @@ Proof
   fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,stack_removeTheory.prog_comp_def]>>
   rw[]>>res_tac>>
   pop_assum mp_tac>> rpt (pop_assum kall_tac)>>
-  map_every qid_spec_tac[`p_2`,`k`,`off`,`jump`,`aw`]>>
+  map_every qid_spec_tac[`p_1'`,`k`,`off`,`jump`,`aw`]>>
   ho_match_mp_tac stack_removeTheory.comp_ind>>
-  Cases_on`p_2`>>rw[]>>
+  Cases_on`p_1'`>>rw[]>>
   ONCE_REWRITE_TAC [stack_removeTheory.comp_def]>>
   fs[call_args_def]>>
   TRY(IF_CASES_TAC>>fs[call_args_def])

@@ -8687,7 +8687,7 @@ Theorem lookup_RefByte_location:
     (?md. lookup Div_location t.code = SOME (3,Div_code,md)) /\
     (?md. lookup Mod_location t.code = SOME (3,Mod_code,md))
 Proof
-  fs [state_rel_def,code_rel_def,stubs_def]
+  fs [state_rel_def,code_rel_def,stubs_md_def,stubs_def,MAP_MAP_o,o_DEF]
 QED
 
 Theorem memory_rel_insert:

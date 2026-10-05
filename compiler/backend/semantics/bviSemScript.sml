@@ -180,7 +180,7 @@ Definition do_install_def:
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in
                  if DISJOINT (domain s.code) (set (MAP FST progs)) ∧
-                    ALL_DISTINCT (MAP (FST o SND) progs) then
+                    ALL_DISTINCT (MAP FST progs) then
                  (case s.compile cfg progs, progs of
                   | SOME (bytes',data',cfg'), (k,_)::_ =>
                       if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then

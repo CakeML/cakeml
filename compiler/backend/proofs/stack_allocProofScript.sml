@@ -5202,7 +5202,8 @@ QED
 Theorem find_code_IMP_lookup[local]:
   find_code dest regs (s:('b # 'c) num_map) = SOME x ==>
     ?k md. sptree$lookup k s = SOME (x,md) /\
-        (!c. find_code dest regs c = OPTION_MAP FST (lookup k c))
+        (!c:('b # 'c) num_map.
+          find_code dest regs c = OPTION_MAP FST (lookup k c))
 Proof
   Cases_on `dest` \\ fs[find_code_def,FUN_EQ_THM, EXISTS_PROD]
   \\ every_case_tac \\ rw[] \\ fs []
@@ -5711,7 +5712,7 @@ Proof
      \\ impl_tac THEN1 (res_tac \\ fs [alloc_arg_def] \\ rw [] \\ res_tac)
      \\ strip_tac \\ fs [] \\ qexists_tac `ck` \\ fs []
      \\ fs [state_component_equality])
-  \\ conj_tac (* Call *) >- cheat (* (
+  \\ conj_tac (* Call *) >- (
 
      rpt strip_tac
      \\ full_simp_tac(srw_ss())[evaluate_def]
@@ -5800,7 +5801,8 @@ Proof
           fs[MAP_MAP_o,MAP_GENLIST,MEM_GENLIST,lookup_fromAList] \\
           pop_assum (assume_tac o SYM) \\
           imp_res_tac ALOOKUP_MEM \\
-          metis_tac[] ) \\
+          PairCases_on `prog` \\ fs[] \\
+          metis_tac[FST] ) \\
         metis_tac[])
       \\ strip_tac \\ fs[] \\ rw[]
       \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[]
@@ -5859,7 +5861,8 @@ Proof
         fs[MAP_MAP_o,MAP_GENLIST,MEM_GENLIST,lookup_fromAList] \\
         pop_assum (assume_tac o SYM) \\
         imp_res_tac ALOOKUP_MEM \\
-        metis_tac[] ) \\
+        PairCases_on `prog` \\ fs[] \\
+        metis_tac[FST] ) \\
       metis_tac[])
     \\ srw_tac[][]
     \\ qhdtm_x_assum`evaluate`mp_tac
@@ -5869,7 +5872,7 @@ Proof
     \\ qexists_tac `ck+ck'` \\ full_simp_tac(srw_ss())[]
     \\ `ck + ck' + s.clock - 1 = s.clock - 1 + ck + ck'` by decide_tac \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[]
-    \\ simp[state_component_equality]) *)
+    \\ simp[state_component_equality])
 
   (* Install *)
   \\ conj_tac >- (
