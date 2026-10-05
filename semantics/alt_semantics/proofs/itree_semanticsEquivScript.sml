@@ -225,11 +225,11 @@ Proof
           )
         >- (
           drule application_rel >> gvs[ctxt_rel_def] >> disch_then drule >>
-          disch_then $ qspecl_then [`vs`,`st`,`ffi`,`env`] assume_tac >>
+          disch_then $ qspecl_then [`vs`,`st`,`po`,`ffi`,`env`] assume_tac >>
           gvs[step_result_rel_cases, ctxt_rel_def]
           )
         ) >>
-      qspecl_then [`vs`,`st`,`s`,`env`,`rest1`]
+      qspecl_then [`vs`,`(st,po)`,`s`,`env`,`rest1`]
         assume_tac $ GEN_ALL application_FFI_results >> gvs[] >>
       csimp[] >> gvs[is_Effi_def, get_ffi_def]
       >- metis_tac[application_rel_FFI_type_error] >>
@@ -264,12 +264,12 @@ Proof
         )
       >- (
         drule application_rel >> gvs[ctxt_rel_def] >> disch_then drule >>
-        disch_then $ qspecl_then [`[]`,`st`,`ffi`,`env`] assume_tac >>
+        disch_then $ qspecl_then [`[]`,`st`,`po`,`ffi`,`env`] assume_tac >>
         gvs[step_result_rel_cases, ctxt_rel_def]
         )
       )
     >- (
-      qspecl_then [`[]`,`st`,`s`,`env`,`cs1`]
+      qspecl_then [`[]`,`(st,po)`,`s`,`env`,`cs1`]
         assume_tac $ GEN_ALL application_FFI_results >> gvs[] >>
       csimp[] >> gvs[is_Effi_def, get_ffi_def]
       >- (imp_res_tac application_rel_FFI_type_error >> gs[]) >>
@@ -569,7 +569,7 @@ Proof
   Cases_on ‘deva’ >> gvs[dstep_result_rel_cases, deval_rel_cases] >>
   gvs[SF dsmallstep_ss] >>
   qmatch_asmsub_abbrev_tac ‘e_step_result_CASE foo’ >>
-  qspec_then ‘(s',(dstb.refs,dstb.ffi),e,scs)’ mp_tac $
+  qspec_then ‘(s',(dstb.refs,dstb.ffi,dstb.ptr_eq_oracle),e,scs)’ mp_tac $
     (step_result_rel_single_FFI_error
        |> Q.INST [‘s’ |-> ‘ExtCall ss’]
        |> Q.INST [‘ss’ |-> ‘s’]
