@@ -607,3 +607,6 @@ val Eval_fmap_domsub = Q.prove(
   |> add_user_proved_v_thm;
 
 val _ =  ml_prog_update (close_module NONE);
+
+val _ = ml_translatorLib.print_profile ();
+val _ = ml_progLib.print_let_env_profile ();

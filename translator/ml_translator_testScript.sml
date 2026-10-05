@@ -641,3 +641,6 @@ val _ = use_sub_check true;
 
 (* no precondition *)
 val res = translate foo_sub_def;
+
+val _ = ml_translatorLib.print_profile ();
+val _ = ml_progLib.print_let_env_profile ();

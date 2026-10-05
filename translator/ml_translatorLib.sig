@@ -150,9 +150,20 @@ sig
     val prove_EvalPatBind : term -> (term -> thm) -> thm
 
     val prove_EvalPatRel_fail : term ref
+
+    (* Capture inputs to prove_EvalPatRel / prove_EvalPatBind for testing.
+       per_captures stores (asms, goal) pairs; peb_captures stores goals.
+       Most-recent-first. Reset with reset_per_captures (). *)
+    val per_captures : (term list * term) list ref
+    val peb_captures : term list ref
+    val reset_per_captures : unit -> unit
     val get_term :string -> term
 
     val trace_timing_to : string option ref
+
+    (* bucket profiling — see ml_translatorLib.sml for buckets *)
+    val print_profile : unit -> unit
+    val reset_profile : unit -> unit
 
     (* returns the induction theorem for the latest rec translation *)
     val latest_ind : unit -> thm

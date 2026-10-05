@@ -126,6 +126,388 @@ end
 (* / non-persistent state *)
 
 
+(* === bucket profiling ===
+   Wall-clock time accumulators for the translator's hot paths.
+   Reset with reset_profile (); print with print_profile ().
+   Wrappers below the main local block re-export the timed versions
+   of the lookup/install functions so external callers (notably hol2deep
+   and translate_main) get measured without per-call-site instrumentation. *)
+
+fun time_bucket bucket f x =
+    let val t0 = Time.now ()
+        val y = f x
+        val t1 = Time.now ()
+        val _ = bucket := !bucket + Time.toReal (Time.- (t1, t0))
+    in y end
+
+fun bump n = (n := !n + 1)
+
+(* top-level entries *)
+val prof_translate          = ref 0.0
+val prof_translate_n        = ref 0
+val prof_register_type      = ref 0.0
+val prof_register_type_n    = ref 0
+
+(* phases inside translate_main *)
+val prof_preprocess         = ref 0.0
+val prof_deep_embed         = ref 0.0
+val prof_inst_cons          = ref 0.0
+val prof_optimise           = ref 0.0
+val prof_translate_final    = ref 0.0
+
+(* hot lookups (cumulative across all calls) *)
+val prof_lookup_v_thm       = ref 0.0
+val prof_lookup_v_thm_n     = ref 0
+val prof_lookup_eval_thm    = ref 0.0
+val prof_lookup_eval_thm_n  = ref 0
+val prof_lookup_cons_name   = ref 0.0
+val prof_lookup_cons_name_n = ref 0
+val prof_add_v_thms         = ref 0.0
+val prof_add_v_thms_n       = ref 0
+
+(* sub-phases inside register_type_main *)
+val prof_adding_type        = ref 0.0
+val prof_adding_type_n      = ref 0
+val prof_derive_thms        = ref 0.0
+val prof_derive_thms_n      = ref 0
+val prof_prove_case_lemma   = ref 0.0
+val prof_prove_case_lemma_n = ref 0
+
+(* sub-phases inside translate_main / translate_options final phase *)
+val prof_clean_assumptions  = ref 0.0
+val prof_clean_assumptions_n = ref 0
+val prof_clean_findterms    = ref 0.0   (* phase total — superseded by sub-buckets *)
+val prof_clean_lift_eq      = ref 0.0
+val prof_clean_lift_lcons   = ref 0.0
+val prof_clean_move_eval    = ref 0.0
+(* Granular sub-phases of clean_assumptions *)
+val prof_clean_ft1          = ref 0.0   (* find_terms for nsLookup/lookup_cons eqs *)
+val prof_clean_prove_lc     = ref 0.0   (* prove_lookup_cons_eq map + filter *)
+val prof_clean_rw_lookup    = ref 0.0   (* REWRITE_RULE lemmas th *)
+val prof_clean_ft_eq        = ref 0.0   (* find_terms for EqualityType *)
+val prof_clean_rw_eq        = ref 0.0   (* REWRITE_RULE eq_assums *)
+val prof_clean_ft_lc        = ref 0.0   (* find_terms for lookup_cons-only pat *)
+val prof_clean_rw_lc        = ref 0.0
+val prof_clean_ft_ns        = ref 0.0   (* find_terms for nsLookup-only pat *)
+val prof_clean_rw_ns        = ref 0.0
+
+(* inst_case_thm sub-phases *)
+val prof_icase_for          = ref 0.0   (* inst_case_thm_for tm *)
+val prof_icase_sat          = ref 0.0   (* sat_hyps loop *)
+val prof_icase_finish       = ref 0.0   (* post MATCH_MP + CONV_RULE chain *)
+
+(* inst_cons_thm sub-phases *)
+val prof_icons_lookup       = ref 0.0   (* cons_for tm — type_memory lookup *)
+val prof_icons_finish       = ref 0.0   (* post-recursion MATCH_MP/INST work *)
+
+(* pmatch_hol2deep sub-phases *)
+val prof_pmatch_setup       = ref 0.0   (* before trans loop *)
+val prof_pmatch_pat_h2d     = ref 0.0   (* hol2deep on each pat *)
+val prof_pmatch_evalpatrel  = ref 0.0   (* prove_EvalPatRel calls *)
+val prof_pmatch_evalpatbind = ref 0.0   (* prove_EvalPatBind calls *)
+val prof_pmatch_simp_etc    = ref 0.0   (* SIMP_CONV / CONV_RULE between *)
+val prof_pmatch_matchmp     = ref 0.0   (* MATCH_MP / UNDISCH per row *)
+val prof_pmatch_rows_n      = ref 0     (* total rows processed *)
+
+(* prove_EvalPatRel / prove_EvalPatBind sub-phases *)
+val prof_per_h2d            = ref 0.0   (* asms hol2deep call *)
+val prof_per_setup          = ref 0.0   (* tac/tac2 closure prep *)
+val prof_per_autoprove      = ref 0.0   (* auto_prove_asms big tactic *)
+(* Stage timers inside prove_EvalPatRel's tactic *)
+val prof_per_t1_simp        = ref 0.0   (* simp[EvalPatRel_def, EXISTS_PROD] *)
+val prof_per_t2_srw_fs      = ref 0.0   (* SRW_TAC [] [] \\ fs [] *)
+val prof_per_t3_pop         = ref 0.0   (* POP_ASSUM MP_TAC *)
+val prof_per_t4_repeat_tac  = ref 0.0   (* REPEAT tac \\ CONV EVAL \\ STRIP \\ fs *)
+val prof_per_t5_eval1       = ref 0.0   (* fs[Once evaluate_def] (first) *)
+val prof_per_t6_lc          = ref 0.0   (* fs[lookup_cons_def] *)
+val prof_per_t7_simp_lt     = ref 0.0   (* simp[LIST_TYPE_def, ...] (first) *)
+val prof_per_t8_eval2       = ref 0.0   (* fs[Once evaluate_def] (second) *)
+val prof_per_t9_rw_simp     = ref 0.0   (* rw[] >> simp[Once evaluate_def] *)
+val prof_per_t10_buildconv  = ref 0.0   (* fs[build_conv_def, do_con_check_def] *)
+val prof_per_t11_simp_lt2   = ref 0.0   (* fs[LIST_TYPE_def, ...] (second) *)
+val prof_per_t12_eval_evcase = ref 0.0  (* fs[Once evaluate_def] >> every_case_tac *)
+val prof_per_t13_rpt_loop   = ref 0.0   (* rpt (CHANGED_TAC (...)) *)
+val prof_peb_h2d            = ref 0.0   (* res = hol2deep rhs_tm *)
+val prof_peb_setup          = ref 0.0
+val prof_peb_autoprove      = ref 0.0
+
+(* prove_lookup_cons_eq sub-phases & call count *)
+val prof_plc_n              = ref 0
+val prof_plc_step1_lc       = ref 0.0   (* REWRITE_CONV [lookup_cons_def] *)
+val prof_plc_step2_ns       = ref 0.0   (* TOP_DEPTH_CONV nsLookup_conv *)
+val prof_plc_step3_eval     = ref 0.0   (* EVAL #1 *)
+val prof_plc_step4_simp     = ref 0.0   (* SIMP_CONV (srw_ss()) ... *)
+val prof_plc_step5_eval     = ref 0.0   (* EVAL #2 *)
+val prof_plc_step6_ns       = ref 0.0   (* nsLookup_conv (single) *)
+val prof_plc_step7_eval     = ref 0.0   (* EVAL #3 *)
+
+(* h2d_child_acc tracks the cumulative *total* elapsed time of hol2deep calls
+   that are direct children of the currently active hol2deep frame. The frame
+   prologue saves and resets it; the epilogue restores the parent's value plus
+   the frame's own total. Branches read it to compute self-time as
+   (branch_elapsed - !h2d_child_acc). *)
+val h2d_child_acc           = ref 0.0
+
+(* h2d_frame_t0 holds the current frame's start timestamp. Each branch calls
+   dispatch_charge() at entry to attribute the if-cascade traversal cost from
+   frame start to branch entry. *)
+val h2d_frame_t0            = ref Time.zeroTime
+val prof_h2d_dispatch       = ref 0.0
+(* Charges time from the last "checkpoint" (frame start, or previous
+   dispatch_charge call) to now into the dispatch bucket, then advances the
+   checkpoint. Robust against fallthrough (e.g. cons-fails-then-case): the
+   second charge covers only [first checkpoint, now]. *)
+fun dispatch_charge () = let
+    val now = Time.now ()
+    val _ = prof_h2d_dispatch := !prof_h2d_dispatch
+              + Time.toReal (Time.- (now, !h2d_frame_t0))
+    val _ = h2d_frame_t0 := now
+in () end
+
+(* Record a branch's self-time relative to t0:
+     self = (now - t0) - !h2d_child_acc
+   For leaf branches (no recursion) h2d_child_acc is 0 → self = elapsed. *)
+fun h2d_record_time bucket t0 =
+  bucket := !bucket
+    + (Time.toReal (Time.- (Time.now (), t0)) - !h2d_child_acc)
+
+(* Wrap a tactic so its goal-transformation time is added to bucket.
+   Validation runs separately; for typical simp/fs/rw tactics, almost all
+   real work happens during transformation. *)
+fun timed_tac bucket tac (asms, goal) = let
+  val t0 = Time.now ()
+  val r = tac (asms, goal)
+  val _ = bucket := !bucket
+            + Time.toReal (Time.- (Time.now (), t0))
+in r end
+
+(* hol2deep branch counters / self-times. Each timed branch records
+     branch_self = branch_elapsed - !h2d_child_acc
+   so self-times sum (modulo wrapper overhead) to the full hol2deep total. *)
+val prof_h2d_var_n          = ref 0
+val prof_h2d_var            = ref 0.0
+val prof_h2d_lit_n          = ref 0
+val prof_h2d_lit            = ref 0.0
+val prof_h2d_cons_n         = ref 0
+val prof_h2d_cons           = ref 0.0
+val prof_h2d_case_n         = ref 0
+val prof_h2d_case           = ref 0.0
+val prof_h2d_rec_pat_n      = ref 0
+val prof_h2d_rec_pat        = ref 0.0
+val prof_h2d_abs_v_n        = ref 0
+val prof_h2d_abs_v          = ref 0.0
+val prof_h2d_v_thm_n        = ref 0
+val prof_h2d_v_thm          = ref 0.0
+val prof_h2d_eval_thm_n     = ref 0
+val prof_h2d_eval_thm       = ref 0.0
+val prof_h2d_builtin_n      = ref 0
+val prof_h2d_builtin        = ref 0.0
+val prof_h2d_logic_n        = ref 0
+val prof_h2d_logic          = ref 0.0
+val prof_h2d_let_n          = ref 0
+val prof_h2d_let            = ref 0.0
+val prof_h2d_special_n      = ref 0
+val prof_h2d_special        = ref 0.0
+val prof_h2d_pmatch_n       = ref 0
+val prof_h2d_pmatch         = ref 0.0
+val prof_h2d_comb_n         = ref 0
+val prof_h2d_comb           = ref 0.0
+val prof_h2d_abs_n          = ref 0
+val prof_h2d_abs            = ref 0.0
+val prof_h2d_arb_n          = ref 0
+val prof_h2d_arb            = ref 0.0
+val prof_proc_rec_case      = ref 0.0
+val prof_proc_rec_case_n    = ref 0
+val prof_proc_fun_case      = ref 0.0
+val prof_proc_fun_case_n    = ref 0
+val prof_proc_val_case      = ref 0.0
+val prof_proc_val_case_n    = ref 0
+
+(* boundary into ml_progLib *)
+val prof_ml_prog_update     = ref 0.0
+val prof_ml_prog_update_n   = ref 0
+
+fun reset_profile () =
+  ( prof_translate := 0.0; prof_translate_n := 0
+  ; prof_register_type := 0.0; prof_register_type_n := 0
+  ; prof_preprocess := 0.0
+  ; prof_deep_embed := 0.0
+  ; prof_inst_cons := 0.0
+  ; prof_optimise := 0.0
+  ; prof_translate_final := 0.0
+  ; prof_lookup_v_thm := 0.0; prof_lookup_v_thm_n := 0
+  ; prof_lookup_eval_thm := 0.0; prof_lookup_eval_thm_n := 0
+  ; prof_lookup_cons_name := 0.0; prof_lookup_cons_name_n := 0
+  ; prof_add_v_thms := 0.0; prof_add_v_thms_n := 0
+  ; prof_adding_type := 0.0; prof_adding_type_n := 0
+  ; prof_derive_thms := 0.0; prof_derive_thms_n := 0
+  ; prof_prove_case_lemma := 0.0; prof_prove_case_lemma_n := 0
+  ; prof_clean_assumptions := 0.0; prof_clean_assumptions_n := 0
+  ; prof_proc_rec_case := 0.0; prof_proc_rec_case_n := 0
+  ; prof_proc_fun_case := 0.0; prof_proc_fun_case_n := 0
+  ; prof_proc_val_case := 0.0; prof_proc_val_case_n := 0
+  ; prof_clean_findterms := 0.0
+  ; prof_clean_lift_eq := 0.0
+  ; prof_clean_lift_lcons := 0.0
+  ; prof_clean_move_eval := 0.0
+  ; prof_clean_ft1 := 0.0; prof_clean_prove_lc := 0.0; prof_clean_rw_lookup := 0.0
+  ; prof_clean_ft_eq := 0.0; prof_clean_rw_eq := 0.0
+  ; prof_clean_ft_lc := 0.0; prof_clean_rw_lc := 0.0
+  ; prof_clean_ft_ns := 0.0; prof_clean_rw_ns := 0.0
+  ; prof_icase_for := 0.0; prof_icase_sat := 0.0; prof_icase_finish := 0.0
+  ; prof_icons_lookup := 0.0; prof_icons_finish := 0.0
+  ; prof_plc_n := 0
+  ; prof_plc_step1_lc := 0.0; prof_plc_step2_ns := 0.0
+  ; prof_plc_step3_eval := 0.0; prof_plc_step4_simp := 0.0
+  ; prof_plc_step5_eval := 0.0; prof_plc_step6_ns := 0.0
+  ; prof_plc_step7_eval := 0.0
+  ; prof_h2d_dispatch := 0.0
+  ; prof_pmatch_setup := 0.0; prof_pmatch_pat_h2d := 0.0
+  ; prof_pmatch_evalpatrel := 0.0; prof_pmatch_evalpatbind := 0.0
+  ; prof_pmatch_simp_etc := 0.0; prof_pmatch_matchmp := 0.0
+  ; prof_pmatch_rows_n := 0
+  ; prof_per_h2d := 0.0; prof_per_setup := 0.0; prof_per_autoprove := 0.0
+  ; prof_per_t1_simp := 0.0; prof_per_t2_srw_fs := 0.0
+  ; prof_per_t3_pop := 0.0; prof_per_t4_repeat_tac := 0.0
+  ; prof_per_t5_eval1 := 0.0; prof_per_t6_lc := 0.0
+  ; prof_per_t7_simp_lt := 0.0; prof_per_t8_eval2 := 0.0
+  ; prof_per_t9_rw_simp := 0.0; prof_per_t10_buildconv := 0.0
+  ; prof_per_t11_simp_lt2 := 0.0; prof_per_t12_eval_evcase := 0.0
+  ; prof_per_t13_rpt_loop := 0.0
+  ; prof_peb_h2d := 0.0; prof_peb_setup := 0.0; prof_peb_autoprove := 0.0
+  ; prof_h2d_var_n := 0; prof_h2d_var := 0.0
+  ; prof_h2d_lit_n := 0; prof_h2d_lit := 0.0
+  ; prof_h2d_cons_n := 0; prof_h2d_cons := 0.0
+  ; prof_h2d_case_n := 0; prof_h2d_case := 0.0
+  ; prof_h2d_rec_pat_n := 0; prof_h2d_rec_pat := 0.0
+  ; prof_h2d_abs_v_n := 0; prof_h2d_abs_v := 0.0
+  ; prof_h2d_v_thm_n := 0; prof_h2d_v_thm := 0.0
+  ; prof_h2d_eval_thm_n := 0; prof_h2d_eval_thm := 0.0
+  ; prof_h2d_builtin_n := 0; prof_h2d_builtin := 0.0
+  ; prof_h2d_logic_n := 0; prof_h2d_logic := 0.0
+  ; prof_h2d_let_n := 0; prof_h2d_let := 0.0
+  ; prof_h2d_special_n := 0; prof_h2d_special := 0.0
+  ; prof_h2d_pmatch_n := 0; prof_h2d_pmatch := 0.0
+  ; prof_h2d_comb_n := 0; prof_h2d_comb := 0.0
+  ; prof_h2d_abs_n := 0; prof_h2d_abs := 0.0
+  ; prof_h2d_arb_n := 0; prof_h2d_arb := 0.0
+  ; prof_ml_prog_update := 0.0; prof_ml_prog_update_n := 0)
+
+fun print_profile () = let
+  fun fmt_s r  = Real.fmt (StringCvt.FIX (SOME 3)) r
+  fun fmt_n n  = Int.toString n
+  fun pad s    = StringCvt.padRight #" " 28 s
+  fun line lbl t n =
+      print ("  " ^ pad lbl ^ fmt_s (!t) ^ " s   " ^ fmt_n (!n) ^ " calls\n")
+  fun linet lbl t =
+      print ("  " ^ pad lbl ^ fmt_s (!t) ^ " s\n")
+  fun linen lbl n =
+      print ("  " ^ pad lbl ^ "                   " ^ fmt_n (!n) ^ " calls\n")
+  in
+    print "\n=== ml_translatorLib profile ===\n";
+    line  "translate (top-level)"      prof_translate prof_translate_n;
+    line  "register_type (top-level)"  prof_register_type prof_register_type_n;
+    print "  -- phases of translate_main --\n";
+    linet "  preprocess"               prof_preprocess;
+    linet "  hol2deep (loop)"          prof_deep_embed;
+    linet "  instantiate cons"         prof_inst_cons;
+    linet "  optimise+abstract"        prof_optimise;
+    linet "  final (precond+install)"  prof_translate_final;
+    print "  -- hot lookups (cumulative) --\n";
+    line  "lookup_v_thm"               prof_lookup_v_thm prof_lookup_v_thm_n;
+    line  "lookup_eval_thm"            prof_lookup_eval_thm prof_lookup_eval_thm_n;
+    line  "lookup_cons_name"           prof_lookup_cons_name prof_lookup_cons_name_n;
+    line  "add_v_thms"                 prof_add_v_thms prof_add_v_thms_n;
+    print "  -- register_type sub-phases --\n";
+    line  "adding type (1 type)"       prof_adding_type prof_adding_type_n;
+    line  "derive_thms_for_type"       prof_derive_thms prof_derive_thms_n;
+    line  "prove_case_of_lemma"        prof_prove_case_lemma prof_prove_case_lemma_n;
+    print "  -- translate_options final-phase sub-phases --\n";
+    line  "clean_assumptions"          prof_clean_assumptions prof_clean_assumptions_n;
+    line  "processing rec case"        prof_proc_rec_case prof_proc_rec_case_n;
+    line  "processing fun case"        prof_proc_fun_case prof_proc_fun_case_n;
+    line  "processing val case"        prof_proc_val_case prof_proc_val_case_n;
+    print "  -- clean_assumptions sub-phases (granular) --\n";
+    linet "  ft1 nsLookup/lc-eq"       prof_clean_ft1;
+    linet "  prove_lookup_cons_eq map" prof_clean_prove_lc;
+    linet "  REWRITE lemmas"           prof_clean_rw_lookup;
+    linet "  ft EqualityType"          prof_clean_ft_eq;
+    linet "  REWRITE eq_assums"        prof_clean_rw_eq;
+    linet "  ft lookup_cons"           prof_clean_ft_lc;
+    linet "  REWRITE lookup_cons"      prof_clean_rw_lc;
+    linet "  ft nsLookup"              prof_clean_ft_ns;
+    linet "  REWRITE nsLookup"         prof_clean_rw_ns;
+    linet "  move_Eval_conv"           prof_clean_move_eval;
+    print "  -- inst_case_thm sub-phases --\n";
+    linet "  inst_case_thm_for"        prof_icase_for;
+    linet "  sat_hyps (incl recursion)" prof_icase_sat;
+    linet "  post MATCH_MP + CONV"     prof_icase_finish;
+    print "  -- inst_cons_thm sub-phases --\n";
+    linet "  cons_for (type_memory)"   prof_icons_lookup;
+    linet "  post-recursion finish"    prof_icons_finish;
+    print ("  -- pmatch_hol2deep breakdown ("
+          ^ fmt_n (!prof_pmatch_rows_n) ^ " rows) --\n");
+    linet "  setup (before trans)"     prof_pmatch_setup;
+    linet "  hol2deep on patterns"     prof_pmatch_pat_h2d;
+    linet "  prove_EvalPatRel"         prof_pmatch_evalpatrel;
+    linet "  prove_EvalPatBind"        prof_pmatch_evalpatbind;
+    linet "  SIMP_CONV / CONV_RULE"    prof_pmatch_simp_etc;
+    linet "  MATCH_MP/UNDISCH/etc"     prof_pmatch_matchmp;
+    print "  -- prove_EvalPatRel breakdown --\n";
+    linet "  recursive hol2deep"       prof_per_h2d;
+    linet "  setup (filter/closures)"  prof_per_setup;
+    linet "  auto_prove_asms tactic"   prof_per_autoprove;
+    print "    tactic stages:\n";
+    linet "    t1 simp[EvalPatRel,EXISTS_PROD]" prof_per_t1_simp;
+    linet "    t2 SRW_TAC \\\\ fs []"  prof_per_t2_srw_fs;
+    linet "    t3 POP_ASSUM MP_TAC"    prof_per_t3_pop;
+    linet "    t4 REPEAT tac+EVAL+STRIP+fs" prof_per_t4_repeat_tac;
+    linet "    t5 fs[Once evaluate_def] #1" prof_per_t5_eval1;
+    linet "    t6 fs[lookup_cons_def]" prof_per_t6_lc;
+    linet "    t7 simp[LIST_TYPE_def,...]" prof_per_t7_simp_lt;
+    linet "    t8 fs[Once evaluate_def] #2" prof_per_t8_eval2;
+    linet "    t9 rw[]>>simp[evaluate_def]" prof_per_t9_rw_simp;
+    linet "    t10 fs[build_conv,do_con]" prof_per_t10_buildconv;
+    linet "    t11 fs[LIST_TYPE_def,...]" prof_per_t11_simp_lt2;
+    linet "    t12 fs[evaluate_def]>>evcase" prof_per_t12_eval_evcase;
+    linet "    t13 rpt(CHANGED_TAC ...)" prof_per_t13_rpt_loop;
+    print "  -- prove_EvalPatBind breakdown --\n";
+    linet "  recursive hol2deep"       prof_peb_h2d;
+    linet "  setup"                    prof_peb_setup;
+    linet "  auto_prove tactic"        prof_peb_autoprove;
+    linet "hol2deep dispatch overhead" prof_h2d_dispatch;
+    print ("  -- prove_lookup_cons_eq breakdown ("
+          ^ fmt_n (!prof_plc_n) ^ " calls) --\n");
+    linet "  step1 REWRITE lookup_cons_def" prof_plc_step1_lc;
+    linet "  step2 TOP_DEPTH nsLookup_conv" prof_plc_step2_ns;
+    linet "  step3 EVAL #1"            prof_plc_step3_eval;
+    linet "  step4 SIMP_CONV (srw_ss)" prof_plc_step4_simp;
+    linet "  step5 EVAL #2"            prof_plc_step5_eval;
+    linet "  step6 nsLookup_conv"      prof_plc_step6_ns;
+    linet "  step7 EVAL #3"            prof_plc_step7_eval;
+    print "  -- hol2deep branches (self-time = post-recursion work) --\n";
+    line  "  var"                      prof_h2d_var prof_h2d_var_n;
+    line  "  literal"                  prof_h2d_lit prof_h2d_lit_n;
+    line  "  cons"                     prof_h2d_cons prof_h2d_cons_n;
+    line  "  case"                     prof_h2d_case prof_h2d_case_n;
+    line  "  rec_pattern"              prof_h2d_rec_pat prof_h2d_rec_pat_n;
+    line  "  lookup_abs_v_thm"         prof_h2d_abs_v prof_h2d_abs_v_n;
+    line  "  lookup_v_thm"             prof_h2d_v_thm prof_h2d_v_thm_n;
+    line  "  lookup_eval_thm"          prof_h2d_eval_thm prof_h2d_eval_thm_n;
+    line  "  builtin op"               prof_h2d_builtin prof_h2d_builtin_n;
+    line  "  eq/and/or/if"             prof_h2d_logic prof_h2d_logic_n;
+    line  "  let"                      prof_h2d_let prof_h2d_let_n;
+    line  "  special MAP/EVERY/EXISTS" prof_h2d_special prof_h2d_special_n;
+    line  "  pmatch"                   prof_h2d_pmatch prof_h2d_pmatch_n;
+    line  "  comb"                     prof_h2d_comb prof_h2d_comb_n;
+    line  "  abs"                      prof_h2d_abs prof_h2d_abs_n;
+    line  "  arb"                      prof_h2d_arb prof_h2d_arb_n;
+    print "  -- ml_progLib boundary --\n";
+    line  "ml_prog_update"             prof_ml_prog_update prof_ml_prog_update_n;
+    print "================================\n"
+  end
+
+
 (* code for managing state of certificate theorems *)
 
 fun MY_MP name th1 th2 =
@@ -488,6 +870,31 @@ in
         raise ERR "enter_cons_name"
                 ("already entered with different value: " ^ term_to_string v_tm)
     end
+end
+
+(* profiling wrappers — measure external calls into the lookup tables.
+   Internal calls within the local block above (e.g. enter_cons_name's call
+   to lookup_cons_name) bypass these and so are not double-counted. *)
+local
+  val u_add_v_thms       = add_v_thms
+  val u_lookup_v_thm     = lookup_v_thm
+  val u_lookup_eval_thm  = lookup_eval_thm
+  val u_lookup_cons_name = lookup_cons_name
+  val u_ml_prog_update   = ml_prog_update
+in
+  fun add_v_thms args =
+      (bump prof_add_v_thms_n; time_bucket prof_add_v_thms u_add_v_thms args)
+  fun lookup_v_thm tm =
+      (bump prof_lookup_v_thm_n; time_bucket prof_lookup_v_thm u_lookup_v_thm tm)
+  fun lookup_eval_thm tm =
+      (bump prof_lookup_eval_thm_n;
+       time_bucket prof_lookup_eval_thm u_lookup_eval_thm tm)
+  fun lookup_cons_name k =
+      (bump prof_lookup_cons_name_n;
+       time_bucket prof_lookup_cons_name u_lookup_cons_name k)
+  fun ml_prog_update f =
+      (bump prof_ml_prog_update_n;
+       time_bucket prof_ml_prog_update u_ml_prog_update f)
 end
 
 (*
@@ -1025,15 +1432,27 @@ val prove_lookup_cons_eq_fail = ref T;
 *)
 fun prove_lookup_cons_eq tm =
   let
+    val _ = bump prof_plc_n
+    fun timed bucket conv x =
+        let val t0 = Time.now ()
+            val r  = conv x
+            val _  = bucket := !bucket
+                     + Time.toReal (Time.- (Time.now (), t0))
+        in r end
     val res = (* TODO: remove the SIMP_CONV and tidy up *)
-      tm |> (REWRITE_CONV [lookup_cons_def]
-             THENC TOP_DEPTH_CONV nsLookup_conv THENC EVAL
-             THENC SIMP_CONV (srw_ss())
-               [optionTheory.OPTION_CHOICE_EQ_NONE,empty_env_def]
-             THENC EVAL THENC nsLookup_conv THENC EVAL)
+      tm |> (timed prof_plc_step1_lc   (REWRITE_CONV [lookup_cons_def])
+             THENC timed prof_plc_step2_ns   (TOP_DEPTH_CONV nsLookup_conv)
+             THENC timed prof_plc_step3_eval EVAL
+             THENC timed prof_plc_step4_simp (SIMP_CONV (srw_ss())
+                     [optionTheory.OPTION_CHOICE_EQ_NONE,empty_env_def])
+             THENC timed prof_plc_step5_eval EVAL
+             THENC timed prof_plc_step6_ns   nsLookup_conv
+             THENC timed prof_plc_step7_eval EVAL)
     val c = res |> concl |> rand
     val _ = not (null (free_vars tm)) orelse aconv c T orelse aconv c F orelse
-              raise ERR "prove_lookup_cons_eq" "prove_lookup_cons_eq failed to reduce to F or T"
+              (print "\n[prove_lookup_cons_eq] stuck at rhs:\n";
+               print_term c; print "\n";
+               raise ERR "prove_lookup_cons_eq" "prove_lookup_cons_eq failed to reduce to F or T")
   in res end
   handle e => (prove_lookup_cons_eq_fail := tm; print_term tm; raise e);
 
@@ -1661,6 +2080,8 @@ fun avoid_v_subst ty = let
 fun derive_thms_for_type is_exn_type ty = let
 
   val start = start_timing "derive_thms_for_type"
+  val derive_t0 = Time.now ()
+  val _ = bump prof_derive_thms_n
   val tsubst = avoid_v_subst ty;
   val ty = type_subst tsubst ty;
   val is_word_type = wordsSyntax.is_word_type ty
@@ -1781,6 +2202,8 @@ val th = inv_defs |> map #2 |> hd
   fun prove_case_of_lemma (ty,case_th,inv_lhs,inv_def) = let
     val start = start_timing ("prove_case_of_lemma for "
         ^ Parse.type_to_string ty)
+    val pcol_t0 = Time.now ()
+    val _ = bump prof_prove_case_lemma_n
     val cases_th = TypeBase.case_def_of ty |> INST_TYPE tsubst
     val (x1,x2) = cases_th |> CONJUNCTS |> hd |> concl |> repeat (snd o dest_forall)
                            |> dest_eq
@@ -1928,6 +2351,8 @@ val (n,f,fxs,pxs,tm,exp,xs) = el 1 ts
     val case_lemma = case_lemma |> PURE_REWRITE_RULE [TAG_def,Mat_cases_def,MAP]
                        |> CONV_RULE (DEPTH_CONV (PairRules.PBETA_CONV))
     val _ = end_timing start
+    val _ = prof_prove_case_lemma :=
+              !prof_prove_case_lemma + Time.toReal (Time.- (Time.now (), pcol_t0))
     in (case_lemma,ts) end
     handle (e as HOL_ERR _) => raise (wrap_exn "ml_translatorLib" "prove_case_of_lemma" e);
 (*
@@ -2040,6 +2465,8 @@ val (n,f,fxs,pxs,tm,exp,xs) = el 2 ts
     | ms => print (add_str ^ " to nested modules [" ^ comma ms ^ "].\n")
   val _ = enter_type_mod name
   val _ = end_timing start
+  val _ = prof_derive_thms :=
+            !prof_derive_thms + Time.toReal (Time.- (Time.now (), derive_t0))
 
   in (rws1,rws2,res,tr_lemmas,dprog) end
   handle (e as HOL_ERR _) =>
@@ -2053,6 +2480,8 @@ local
     ml_prog_update (add_prog dprog I)
   fun add_type abstract_mode ty = let
     val start = start_timing ("adding type " ^ Parse.type_to_string ty)
+    val add_t0 = Time.now ()
+    val _ = bump prof_adding_type_n
     val fcps = ((filter fcpSyntax.is_numeric_type) o snd o dest_type) ty
     val (rws1,rws2,res,tr_lemmas,dprog) = derive_thms_for_type false ty
     val (rws1,rws2) =
@@ -2065,6 +2494,8 @@ local
     val _ = add_type_thms (rws1,rws2,res,tr_lemmas)
     val _ = map do_translate rws1
     val _ = end_timing start
+    val _ = prof_adding_type :=
+              !prof_adding_type + Time.toReal (Time.- (Time.now (), add_t0))
     in res end
     handle (e as HOL_ERR _) =>
     raise wrap_exn "ml_translatorLib" "add_type" e
@@ -2080,8 +2511,14 @@ in
     handle UnsupportedType ty1 =>
       (register_type_main abstract_mode ty1;
        register_type_main abstract_mode ty)
-  val register_type = allowing_rebind (register_type_main false)
-  val abs_register_type = allowing_rebind (register_type_main true)
+  val register_type = (fn ty =>
+      (bump prof_register_type_n;
+       time_bucket prof_register_type
+         (allowing_rebind (register_type_main false)) ty))
+  val abs_register_type = (fn ty =>
+      (bump prof_register_type_n;
+       time_bucket prof_register_type
+         (allowing_rebind (register_type_main true)) ty))
   fun cons_for tm = let
     val ty = type_of tm
     val conses = conses_of ty
@@ -2140,13 +2577,17 @@ register_type ``:unit``;
 *)
 
 fun inst_cons_thm tm hol2deep = let
+  val lk_t0 = Time.now ()
   val th = cons_for tm |> UNDISCH
   val res = th |> UNDISCH_ALL |> concl |> rand |> rand
   fun args tm = let val (x,y) = dest_comb tm in args x @ [y] end
                 handle HOL_ERR _ => []
   val xs = args res
   val ss = fst (match_term res tm)
+  val _ = prof_icons_lookup :=
+            !prof_icons_lookup + Time.toReal (Time.- (Time.now (), lk_t0))
   val ys = map (fn x => remove_primes (hol2deep (subst ss x))) xs
+  val fin_t0 = Time.now ()
   val ys =
     let
       val refs = th |> concl |> dest_imp |> fst |> list_dest dest_conj |> map rand
@@ -2158,11 +2599,14 @@ fun inst_cons_thm tm hol2deep = let
           in res end
     in map insert_HOL_STRING (zip ys refs) end handle HOL_ERR _ => ys
   val th1 = if length ys = 0 then TRUTH else LIST_CONJ ys
-  in MATCH_MP th (UNDISCH_ALL th1)
+  val r = MATCH_MP th (UNDISCH_ALL th1)
      handle HOL_ERR _ =>
        if use_hol_string_type () andalso stringSyntax.is_string tm
        then raise failwith "string cons"
-       else raise UnableToTranslate tm end
+       else raise UnableToTranslate tm
+  val _ = prof_icons_finish :=
+            !prof_icons_finish + Time.toReal (Time.- (Time.now (), fin_t0))
+  in r end
 
 val inst_case_thm_for_fail = ref T;
 val tm = !inst_case_thm_for_fail
@@ -2213,8 +2657,11 @@ val last_fail = ref T;
 *)
 
 fun inst_case_thm tm hol2deep = let
+  val for_t0 = Time.now ()
   val th = inst_case_thm_for tm
   val th = CONV_RULE (RATOR_CONV (PURE_REWRITE_CONV [CONJ_ASSOC])) th
+  val _ = prof_icase_for :=
+            !prof_icase_for + Time.toReal (Time.- (Time.now (), for_t0))
   val (hyps,rest) = dest_imp (concl th)
   fun list_dest_forall tm = let
     val (v,tm) = dest_forall tm
@@ -2251,11 +2698,17 @@ fun inst_case_thm tm hol2deep = let
   fun sat_hyps tm = if is_conj tm then let
     val (x,y) = dest_conj tm
     in CONJ (sat_hyps x) (sat_hyps y) end else sat_hyp tm
+  val sat_t0 = Time.now ()
   val lemma = sat_hyps hyps
+  val _ = prof_icase_sat :=
+            !prof_icase_sat + Time.toReal (Time.- (Time.now (), sat_t0))
+  val fin_t0 = Time.now ()
   val th = MATCH_MP th lemma
   val th = CONV_RULE (RATOR_CONV (DEPTH_CONV BETA_CONV THENC
                                   REWRITE_CONV [])) th
   val th = th |> UNDISCH_ALL
+  val _ = prof_icase_finish :=
+            !prof_icase_finish + Time.toReal (Time.- (Time.now (), fin_t0))
   in th end;
 
 fun SIMP_EqualityType_ASSUMS th = let
@@ -2317,10 +2770,22 @@ val lookup_cons_pat = get_term "lookup_cons eq"
 val prove_EvalPatRel_fail = ref T;
 val goal = !prove_EvalPatRel_fail;
 
+(* Capture inputs to prove_EvalPatRel / prove_EvalPatBind for testing.
+   Each call appends (asms, goal) (resp. goal) before doing any work.
+   Most-recent-first. *)
+val per_captures = ref ([] : (term list * term) list)
+val peb_captures = ref ([] : term list)
+fun reset_per_captures () = (per_captures := []; peb_captures := [])
+
 fun prove_EvalPatRel goal hol2deep = let
-  val asms =
-    goal |> rand |> dest_pabs |> snd |> hol2deep |> hyp
-         |> filter (can (match_term lookup_cons_pat))
+  val per_h2d_t0 = Time.now ()
+  val per_h2d_thm = goal |> rand |> dest_pabs |> snd |> hol2deep
+  val _ = prof_per_h2d :=
+            !prof_per_h2d + Time.toReal (Time.- (Time.now (), per_h2d_t0))
+  val per_setup_t0 = Time.now ()
+  val asms = per_h2d_thm |> hyp
+                         |> filter (can (match_term lookup_cons_pat))
+  val _ = per_captures := (asms, goal) :: !per_captures
   val pat = get_term "not eq"
   fun badtype ty = Lib.mem ty [listSyntax.mk_list_type alpha,numSyntax.num, mlstringSyntax.mlstring_ty]
   fun tac (hs,gg) = let
@@ -2352,31 +2817,36 @@ fun prove_EvalPatRel goal hol2deep = let
   (*
     set_goal(asms,goal)
   *)
+  val _ = prof_per_setup :=
+            !prof_per_setup + Time.toReal (Time.- (Time.now (), per_setup_t0))
+  val per_ap_t0 = Time.now ()
   val th = auto_prove_asms "prove_EvalPatRel" ((asms,goal),
-    simp[EvalPatRel_def,EXISTS_PROD] >>
-    SRW_TAC [] [] \\ fs [] >>
-    POP_ASSUM MP_TAC >>
-    REPEAT tac
-    \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
-    \\ REPEAT STRIP_TAC \\ fs [] >>
-    fs[Once evaluate_def] >>
-    fs[(*lookup_cons_thm*) lookup_cons_def] >>
-    simp[LIST_TYPE_def,pmatch_def,same_type_def,
+    timed_tac prof_per_t1_simp (simp[EvalPatRel_def,EXISTS_PROD]) >>
+    timed_tac prof_per_t2_srw_fs (SRW_TAC [] [] \\ fs []) >>
+    timed_tac prof_per_t3_pop (POP_ASSUM MP_TAC) >>
+    timed_tac prof_per_t4_repeat_tac (REPEAT tac
+      \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
+      \\ REPEAT STRIP_TAC \\ fs []) >>
+    timed_tac prof_per_t5_eval1 (fs[Once evaluate_def]) >>
+    timed_tac prof_per_t6_lc (fs[(*lookup_cons_thm*) lookup_cons_def]) >>
+    timed_tac prof_per_t7_simp_lt (simp[LIST_TYPE_def,pmatch_def,same_type_def,
          same_ctor_def,id_to_n_def,EXISTS_PROD,
-         pat_bindings_def,lit_same_type_def] >>
-    fs[Once evaluate_def] >>
-    rw[] >> simp[Once evaluate_def] >>
-    fs [build_conv_def,do_con_check_def] >>
-    fs[LIST_TYPE_def,pmatch_def,same_type_def,
+         pat_bindings_def,lit_same_type_def]) >>
+    timed_tac prof_per_t8_eval2 (fs[Once evaluate_def]) >>
+    timed_tac prof_per_t9_rw_simp (rw[] >> simp[Once evaluate_def]) >>
+    timed_tac prof_per_t10_buildconv (fs [build_conv_def,do_con_check_def]) >>
+    timed_tac prof_per_t11_simp_lt2 (fs[LIST_TYPE_def,pmatch_def,same_type_def,
          same_ctor_def,id_to_n_def,EXISTS_PROD,
-         pat_bindings_def,lit_same_type_def] >>
-    fs [Once evaluate_def] >> every_case_tac >>
-    rpt (CHANGED_TAC
+         pat_bindings_def,lit_same_type_def]) >>
+    timed_tac prof_per_t12_eval_evcase (fs [Once evaluate_def] >> every_case_tac) >>
+    timed_tac prof_per_t13_rpt_loop (rpt (CHANGED_TAC
           (rpt (CHANGED_TAC
                  (every_case_tac >> TRY(fs[] >> NO_TAC) >> tac2)) >>
                   fs [same_type_def,CaseEq"match_result",pmatch_def,
                       lit_same_type_def,CaseEq"bool",INT_def,NUM_def,CHAR_def,STRING_TYPE_def,explode_eq,eq_explode] >>
-                  rpt var_eq_tac)))
+                  rpt var_eq_tac))))
+  val _ = prof_per_autoprove :=
+            !prof_per_autoprove + Time.toReal (Time.- (Time.now (), per_ap_t0))
   in th end handle HOL_ERR e =>
   (prove_EvalPatRel_fail := goal;
    failwith "prove_EvalPatRel failed");
@@ -2385,10 +2855,18 @@ val prove_EvalPatBind_fail = ref T;
 val goal = !prove_EvalPatBind_fail;
 
 fun prove_EvalPatBind goal hol2deep = let
+  val _ = peb_captures := goal :: !peb_captures
+  val peb_setup_t0 = Time.now ()
   val (vars,rhs_tm) = repeat (snd o dest_forall) goal
                       |> rand |> rand |> rand |> rator
                       |> dest_pabs
+  val _ = prof_peb_setup :=
+            !prof_peb_setup + Time.toReal (Time.- (Time.now (), peb_setup_t0))
+  val peb_h2d_t0 = Time.now ()
   val res = hol2deep rhs_tm
+  val _ = prof_peb_h2d :=
+            !prof_peb_h2d + Time.toReal (Time.- (Time.now (), peb_h2d_t0))
+  val peb_setup2_t0 = Time.now ()
   val exp = res |> concl |> rator |> rand
   val th = D res
   val var_assum = get_term "Eval Var"
@@ -2461,6 +2939,9 @@ fun prove_EvalPatBind goal hol2deep = let
   (*
     set_goal([],new_goal)
   *)
+  val _ = prof_peb_setup :=
+            !prof_peb_setup + Time.toReal (Time.- (Time.now (), peb_setup2_t0))
+  val peb_ap_t0 = Time.now ()
   val th = auto_prove "prove_EvalPatBind" (new_goal,
     NTAC (length vs) STRIP_TAC \\ STRIP_TAC
     \\ full_simp_tac std_ss [FORALL_PROD] \\ REPEAT STRIP_TAC
@@ -2478,6 +2959,8 @@ fun prove_EvalPatBind goal hol2deep = let
     \\ TRY tac2 \\ TRY (fs[CONTAINER_def] >> NO_TAC)
     \\ TRY (EVAL_TAC >> NO_TAC)
     \\ metis_tac [CONTAINER_def])
+  val _ = prof_peb_autoprove :=
+            !prof_peb_autoprove + Time.toReal (Time.- (Time.now (), peb_ap_t0))
   in UNDISCH_ALL th end handle HOL_ERR e =>
   (prove_EvalPatBind_fail := goal;
    failwith "prove_EvalPatBind failed");
@@ -2512,6 +2995,7 @@ val pmatch_hol2deep_fail = ref T;
 val tm = !pmatch_hol2deep_fail;
 
 fun pmatch_hol2deep tm hol2deep = let
+  val setup_t0 = Time.now ()
   val (x,ts) = dest_pmatch_K_T tm
   val v = genvar (type_of x)
   val x_res = hol2deep x |> D
@@ -2527,40 +3011,73 @@ fun pmatch_hol2deep tm hol2deep = let
   fun prove_hyp conv th =
     MP (CONV_RULE ((RATOR_CONV o RAND_CONV) conv) th) TRUTH
   val assm = nil_lemma |> concl |> dest_imp |> fst
+  val _ = prof_pmatch_setup :=
+            !prof_pmatch_setup + Time.toReal (Time.- (Time.now (), setup_t0))
   fun trans [] = nil_lemma
     | trans ((pat,rhs_tm)::xs) = let
     (*
     val ((pat,rhs_tm)::xs) = List.drop(ts,3)
     *)
     val th = trans xs
+    val _ = bump prof_pmatch_rows_n
+    val ph_t0 = Time.now ()
     val p = pat |> dest_pabs |> snd |> hol2deep
                 |> concl |> rator |> rand |> to_pattern
+    val _ = prof_pmatch_pat_h2d :=
+              !prof_pmatch_pat_h2d + Time.toReal (Time.- (Time.now (), ph_t0))
+    val mm_t0 = Time.now ()
     val lemma = cons_lemma |> GEN (mk_var("p",pat_ty)) |> ISPEC p
+    val _ = prof_pmatch_matchmp :=
+              !prof_pmatch_matchmp + Time.toReal (Time.- (Time.now (), mm_t0))
+    val sc_t0 = Time.now ()
     val lemma = prove_hyp EVAL lemma
+    val _ = prof_pmatch_simp_etc :=
+              !prof_pmatch_simp_etc + Time.toReal (Time.- (Time.now (), sc_t0))
+    val mm2_t0 = Time.now ()
     val pat_var = lemma |> concl |> free_vars
                         |> first (fn v => fst (dest_var v) = "pat")
     val lemma = lemma |> GEN pat_var |> ISPEC pat
+    val _ = prof_pmatch_matchmp :=
+              !prof_pmatch_matchmp + Time.toReal (Time.- (Time.now (), mm2_t0))
+    val sc2_t0 = Time.now ()
     val lemma = prove_hyp (SIMP_CONV (srw_ss()) [FORALL_PROD]) lemma
+    val _ = prof_pmatch_simp_etc :=
+              !prof_pmatch_simp_etc + Time.toReal (Time.- (Time.now (), sc2_t0))
+    val mm3_t0 = Time.now ()
     val lemma = UNDISCH lemma
     val th0 = UNDISCH th |> CONJUNCT1
     val th = UNDISCH th |> CONJUNCT2
              |> CONV_RULE ((RATOR_CONV o RAND_CONV) (UNBETA_CONV v))
     val th = MATCH_MP lemma th
     val th = remove_primes th
+    val _ = prof_pmatch_matchmp :=
+              !prof_pmatch_matchmp + Time.toReal (Time.- (Time.now (), mm3_t0))
+    val pr_t0 = Time.now ()
     val goal = fst (dest_imp (concl th))
     val th = MP th (prove_EvalPatRel goal hol2deep)
     val th = remove_primes th
+    val _ = prof_pmatch_evalpatrel :=
+              !prof_pmatch_evalpatrel + Time.toReal (Time.- (Time.now (), pr_t0))
+    val pb_t0 = Time.now ()
     val res_var = th |> concl |> free_vars
                      |> first (fn v => fst (dest_var v) = "res")
     val th = th |> GEN res_var |> ISPEC rhs_tm
     val goal = fst (dest_imp (concl th))
     val th = MATCH_MP th (prove_EvalPatBind goal hol2deep)
     val th = remove_primes th
+    val _ = prof_pmatch_evalpatbind :=
+              !prof_pmatch_evalpatbind + Time.toReal (Time.- (Time.now (), pb_t0))
+    val mm4_t0 = Time.now ()
     val th = MP th th0
+    val _ = prof_pmatch_matchmp :=
+              !prof_pmatch_matchmp + Time.toReal (Time.- (Time.now (), mm4_t0))
+    val sc3_t0 = Time.now ()
     val th = CONV_RULE ((RAND_CONV o RATOR_CONV o RAND_CONV)
           (SIMP_CONV std_ss [FORALL_PROD,PMATCH_SIMP,
               patternMatchesTheory.PMATCH_ROW_COND_def])) th
     val th = DISCH assm th
+    val _ = prof_pmatch_simp_etc :=
+              !prof_pmatch_simp_etc + Time.toReal (Time.- (Time.now (), sc3_t0))
     in th end
   val th = trans ts
   val th = MATCH_MP th (x_res |> UNDISCH)
@@ -3242,14 +3759,29 @@ val th = D res
 val be_quiet = true
 *)
 
+(* Patterns are hoisted out of clean_assumptions_aux: they only depend on
+   theory state at module-load time and were previously rebuilt per call. *)
+local
+  val ca_lhs1 = get_term "nsLookup_pat"
+  val ca_lhs2 = lookup_cons_def |> SPEC_ALL |> concl |> dest_eq |> fst
+in
+  val ca_pattern1 = mk_eq(ca_lhs1, mk_var("_", type_of ca_lhs1))
+  val ca_pattern2 = mk_eq(ca_lhs2, mk_var("_", type_of ca_lhs2))
+  val ca_pat_eq    = get_term "eq type"
+  val ca_pat_lcons = get_term "lookup_cons"
+  val ca_pat_ns    = get_term "nsLookup"
+end
+
 fun clean_assumptions_aux be_quiet th = let
   val start = start_timing "clean assumptions"
-  val lhs1 = get_term "nsLookup_pat"
-  val pattern1 = mk_eq(lhs1,mk_var("_",type_of lhs1))
-  val lhs2 = lookup_cons_def (*lookup_cons_thm*) |> SPEC_ALL |> concl |> dest_eq |> fst
-  val pattern2 = mk_eq(lhs2,mk_var("_",type_of lhs2))
-  val lookup_assums = find_terms (fn tm => can (match_term pattern1) tm
-                                    orelse can (match_term pattern2) tm) (concl th)
+  val ca_t0 = Time.now ()
+  val _ = bump prof_clean_assumptions_n
+  val ft1_t0 = Time.now ()
+  val lookup_assums = find_terms (fn tm => can (match_term ca_pattern1) tm
+                                    orelse can (match_term ca_pattern2) tm) (concl th)
+  val _ = prof_clean_ft1 :=
+            !prof_clean_ft1 + Time.toReal (Time.- (Time.now (), ft1_t0))
+  val plc_t0 = Time.now ()
   val lemmas = map prove_lookup_cons_eq lookup_assums
                |> filter (fn th => th |> concl |> rand |> is_const)
   val _ = case List.find (fn l => Feq (l |> concl |> rand)) lemmas of
@@ -3258,24 +3790,49 @@ fun clean_assumptions_aux be_quiet th = let
                     (print "clean_assumptions: false assumption\n\n";
                      print_thm t; print "\n\n")) ;
                  failwith ("clean_assumptions: false" ^ Parse.thm_to_string t))
+  val _ = prof_clean_prove_lc :=
+            !prof_clean_prove_lc + Time.toReal (Time.- (Time.now (), plc_t0))
+  val rwl_t0 = Time.now ()
   val th = REWRITE_RULE lemmas th
+  val _ = prof_clean_rw_lookup :=
+            !prof_clean_rw_lookup + Time.toReal (Time.- (Time.now (), rwl_t0))
   (* lift EqualityType assumptions out *)
-  val pattern = get_term "eq type"
-  val eq_assums = find_terms (can (match_term pattern)) (concl th)
+  val ft_eq_t0 = Time.now ()
+  val eq_assums = find_terms (can (match_term ca_pat_eq)) (concl th)
+  val _ = prof_clean_ft_eq :=
+            !prof_clean_ft_eq + Time.toReal (Time.- (Time.now (), ft_eq_t0))
+  val rw_eq_t0 = Time.now ()
   val th = REWRITE_RULE (map ASSUME eq_assums) th
+  val _ = prof_clean_rw_eq :=
+            !prof_clean_rw_eq + Time.toReal (Time.- (Time.now (), rw_eq_t0))
   (* lift lookup_cons out *)
-  val pattern = get_term "lookup_cons"
-  val lookup_cons_assums = find_terms (can (match_term pattern)) (concl th)
+  val ft_lc_t0 = Time.now ()
+  val lookup_cons_assums = find_terms (can (match_term ca_pat_lcons)) (concl th)
+  val _ = prof_clean_ft_lc :=
+            !prof_clean_ft_lc + Time.toReal (Time.- (Time.now (), ft_lc_t0))
+  val rw_lc_t0 = Time.now ()
   val th = REWRITE_RULE (map ASSUME lookup_cons_assums) th
+  val _ = prof_clean_rw_lc :=
+            !prof_clean_rw_lc + Time.toReal (Time.- (Time.now (), rw_lc_t0))
   (* lift nsLookup out *)
-  val pattern = get_term "nsLookup"
-  val nsLookup_assums = find_terms (can (match_term pattern)) (concl th)
+  val ft_ns_t0 = Time.now ()
+  val nsLookup_assums = find_terms (can (match_term ca_pat_ns)) (concl th)
+  val _ = prof_clean_ft_ns :=
+            !prof_clean_ft_ns + Time.toReal (Time.- (Time.now (), ft_ns_t0))
+  val rw_ns_t0 = Time.now ()
   val th = REWRITE_RULE (map ASSUME nsLookup_assums) th
+  val _ = prof_clean_rw_ns :=
+            !prof_clean_rw_ns + Time.toReal (Time.- (Time.now (), rw_ns_t0))
   (* lift Eval out *)
+  val me_t0 = Time.now ()
   val th1 = th |> REWRITE_RULE [GSYM PreImpEval_def]
   val th2 = CONV_RULE (QCONV (LAND_CONV (ONCE_DEPTH_CONV move_Eval_conv))) th1
   val th = REWRITE_RULE [PreImpEval_def] th2
+  val _ = prof_clean_move_eval :=
+            !prof_clean_move_eval + Time.toReal (Time.- (Time.now (), me_t0))
   val _ = end_timing start
+  val _ = prof_clean_assumptions :=
+            !prof_clean_assumptions + Time.toReal (Time.- (Time.now (), ca_t0))
   in th end;
 
 fun clean_assumptions th = clean_assumptions_aux false th;
@@ -3442,53 +3999,116 @@ fun is_float_literal tm =
       List.all (wordsSyntax.is_word_literal o #2) alist
     end handle HOL_ERR _ => false
 
-fun hol2deep tm =
+(* hol2deep frame: maintains h2d_child_acc so each branch can compute
+   exclusive (self) time as (branch_elapsed - !h2d_child_acc). Also exposes
+   the frame's start timestamp so each branch can charge dispatch overhead
+   (the if-cascade traversal cost) via dispatch_charge(). *)
+fun hol2deep tm = let
+  val parent_child = !h2d_child_acc
+  val parent_frame = !h2d_frame_t0
+  val _ = h2d_child_acc := 0.0
+  val frame_t0 = Time.now ()
+  val _ = h2d_frame_t0 := frame_t0
+  val r = hol2deep_inner tm
+  val frame_total = Time.toReal (Time.- (Time.now (), frame_t0))
+  val _ = h2d_child_acc := parent_child + frame_total
+  val _ = h2d_frame_t0 := parent_frame
+in r end
+and hol2deep_inner tm =
   (* variables *)
   if is_var tm then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_var_n
+    val t0 = Time.now ()
     val (name,ty) = dest_var tm
     val inv = get_type_inv ty
     val str = mlstringSyntax.mk_mlstring name
     val result = ASSUME (mk_Eval(env_tm,
                        astSyntax.mk_Var(astSyntax.mk_Short(str)),
                        mk_comb(inv,tm)))
+    val _ = h2d_record_time prof_h2d_var t0
     in check_inv "var" tm result end else
   (* constants *)
-  if tm ~~ oneSyntax.one_tm then Eval_Val_UNIT else
-  if numSyntax.is_numeral tm then SPEC tm Eval_Val_NUM else
-  if intSyntax.is_int_literal tm then SPEC tm Eval_Val_INT else
+  if tm ~~ oneSyntax.one_tm then (dispatch_charge (); bump prof_h2d_lit_n;
+    let val t0 = Time.now () val r = Eval_Val_UNIT
+        val _ = h2d_record_time prof_h2d_lit t0 in r end) else
+  if numSyntax.is_numeral tm then (dispatch_charge (); bump prof_h2d_lit_n;
+    let val t0 = Time.now () val r = SPEC tm Eval_Val_NUM
+        val _ = h2d_record_time prof_h2d_lit t0 in r end) else
+  if intSyntax.is_int_literal tm then (dispatch_charge (); bump prof_h2d_lit_n;
+    let val t0 = Time.now () val r = SPEC tm Eval_Val_INT
+        val _ = h2d_record_time prof_h2d_lit t0 in r end) else
   if is_word_literal tm andalso word_ty_ok (type_of tm) then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_lit_n
+    val t0 = Time.now ()
     val dim = wordsSyntax.dim_of tm
     val result = SPEC tm (INST_TYPE [alpha|->dim] Eval_Val_WORD)
                  |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
                  |> (fn th => MP th TRUTH)
                  |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    val _ = h2d_record_time prof_h2d_lit t0
     in check_inv "word_literal" tm result end else
-  if stringSyntax.is_char_literal tm then SPEC tm Eval_Val_CHAR else
+  if stringSyntax.is_char_literal tm then (dispatch_charge (); bump prof_h2d_lit_n;
+    let val t0 = Time.now () val r = SPEC tm Eval_Val_CHAR
+        val _ = h2d_record_time prof_h2d_lit t0 in r end) else
   if is_float_literal tm then
     let
+      val _ = dispatch_charge ()
+      val _ = bump prof_h2d_lit_n
+      val t0 = Time.now ()
       val th0 = SPEC tm Eval_Val_FLOAT64
-    in
-      CONV_RULE
+      val r = CONV_RULE
         (LAND_CONV
            (RAND_CONV
               (RAND_CONV (REWR_CONV machine_ieeeTheory.float_to_fp64_def THENC
                           EVAL))))
         th0
-    end else
+      val _ = h2d_record_time prof_h2d_lit t0
+    in r end else
   if mlstringSyntax.is_mlstring_literal tm then
-    SPEC tm Eval_Val_STRING else
+    (dispatch_charge (); bump prof_h2d_lit_n;
+     let val t0 = Time.now () val r = SPEC tm Eval_Val_STRING
+         val _ = h2d_record_time prof_h2d_lit t0 in r end) else
   if use_hol_string_type () andalso can stringSyntax.fromHOLstring tm then
-    SPEC tm Eval_HOL_STRING_LITERAL else
-  if (Teq tm) then Eval_Val_BOOL_T else
-  if (Feq tm) then Eval_Val_BOOL_F else
-  if (tm ~~ TRUE) then Eval_Val_BOOL_TRUE else
-  if (tm ~~ FALSE) then Eval_Val_BOOL_FALSE else
+    (dispatch_charge (); bump prof_h2d_lit_n;
+     let val t0 = Time.now () val r = SPEC tm Eval_HOL_STRING_LITERAL
+         val _ = h2d_record_time prof_h2d_lit t0 in r end) else
+  if (Teq tm) then (dispatch_charge (); bump prof_h2d_lit_n;
+     let val t0 = Time.now () val r = Eval_Val_BOOL_T
+         val _ = h2d_record_time prof_h2d_lit t0 in r end) else
+  if (Feq tm) then (dispatch_charge (); bump prof_h2d_lit_n;
+     let val t0 = Time.now () val r = Eval_Val_BOOL_F
+         val _ = h2d_record_time prof_h2d_lit t0 in r end) else
+  if (tm ~~ TRUE) then (dispatch_charge (); bump prof_h2d_lit_n;
+     let val t0 = Time.now () val r = Eval_Val_BOOL_TRUE
+         val _ = h2d_record_time prof_h2d_lit t0 in r end) else
+  if (tm ~~ FALSE) then (dispatch_charge (); bump prof_h2d_lit_n;
+     let val t0 = Time.now () val r = Eval_Val_BOOL_FALSE
+         val _ = h2d_record_time prof_h2d_lit t0 in r end) else
   (* data-type constructor *)
-  inst_cons_thm tm hol2deep handle HOL_ERR _ =>
+  let val _ = dispatch_charge ()
+      val cons_t0 = Time.now ()
+      val r = inst_cons_thm tm hol2deep
+      val _ = bump prof_h2d_cons_n
+      val elapsed = Time.toReal (Time.- (Time.now (), cons_t0))
+      val _ = prof_h2d_cons :=
+                !prof_h2d_cons + (elapsed - !h2d_child_acc)
+  in r end handle HOL_ERR _ =>
   (* data-type pattern-matching *)
-  inst_case_thm tm hol2deep handle HOL_ERR _ =>
+  let val _ = dispatch_charge ()
+      val case_t0 = Time.now ()
+      val r = inst_case_thm tm hol2deep
+      val _ = bump prof_h2d_case_n
+      val elapsed = Time.toReal (Time.- (Time.now (), case_t0))
+      val _ = prof_h2d_case :=
+                !prof_h2d_case + (elapsed - !h2d_child_acc)
+  in r end handle HOL_ERR _ =>
   (* recursive pattern *)
   if can match_rec_pattern tm then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_rec_pat_n
+    val rp_t0 = Time.now ()
     val (lhs,fname,pre_var) = match_rec_pattern tm
     fun dest_args tm = rand tm :: dest_args (rator tm) handle HOL_ERR _ => []
     val xs = dest_args tm
@@ -3513,10 +4133,14 @@ fun hol2deep tm =
       | apply_arrow hyp (x::xs) =
           MATCH_MP (MATCH_MP Eval_Arrow (apply_arrow hyp xs)) x
     val result = apply_arrow h ys
+    val _ = h2d_record_time prof_h2d_rec_pat rp_t0
     in check_inv "rec_pattern" tm result end else
   (* previously translated term *)
   let
+    val _ = dispatch_charge ()
+    val abs_v_t0 = Time.now ()
     val th = lookup_abs_v_thm tm
+    val _ = bump prof_h2d_abs_v_n
     val _ = check_no_ind_assum tm th
     val inv = get_type_inv (type_of tm)
     val target = mk_comb(inv,tm)
@@ -3524,9 +4148,15 @@ fun hol2deep tm =
     val (ss,ii) = match_term res target handle HOL_ERR _ =>
                   match_term (rm_fix res) (rm_fix target) handle HOL_ERR _ => ([],[])
     val result = INST ss (INST_TYPE ii th)
+    val elapsed = Time.toReal (Time.- (Time.now (), abs_v_t0))
+    val _ = prof_h2d_abs_v :=
+              !prof_h2d_abs_v + (elapsed - !h2d_child_acc)
   in check_inv "lookup_abs_v_thm" tm result end handle NotFoundVThm _ =>
   (* previously translated term *)
   if can lookup_v_thm tm then let
+    val _ = dispatch_charge ()
+    val v_thm_t0 = Time.now ()
+    val _ = bump prof_h2d_v_thm_n
     val th = lookup_v_thm tm
     val _ = check_no_ind_assum tm th
     val pat = Eq_def |> SPEC_ALL |> concl |> dest_eq |> fst
@@ -3544,77 +4174,122 @@ fun hol2deep tm =
                     match_term res new_target
                   end handle HOL_ERR _ => ([],[])
     val result = INST ss (INST_TYPE ii th)
+    val elapsed = Time.toReal (Time.- (Time.now (), v_thm_t0))
+    val _ = prof_h2d_v_thm :=
+              !prof_h2d_v_thm + (elapsed - !h2d_child_acc)
     in check_inv "lookup_v_thm" tm result end else
   (* previously translated term *)
   if can lookup_eval_thm tm then let
+    val _ = dispatch_charge ()
+    val eval_t0 = Time.now ()
+    val _ = bump prof_h2d_eval_thm_n
     val th = lookup_eval_thm tm
     val inv = hol2deep (mk_var("v",type_of tm)) |> concl |> rand |> rator
     val pat = th |> concl |> rand |> rator
     val (ss,ii) = match_term pat inv
     val result = INST ss (INST_TYPE ii th)
+    val elapsed = Time.toReal (Time.- (Time.now (), eval_t0))
+    val _ = prof_h2d_eval_thm :=
+              !prof_h2d_eval_thm + (elapsed - !h2d_child_acc)
     in check_inv "lookup_eval_thm" tm result end else
   (* built-in ternary operations *)
   if can dest_builtin_terop tm then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_builtin_n
+    val t0 = Time.now ()
     val (p,x1,x2,x3,lemma) = dest_builtin_terop tm
     val th1 = hol2deep x1
     val th2 = hol2deep x2
     val th3 = hol2deep x3
     val result = MATCH_MP (MATCH_MP (MATCH_MP lemma th1) (UNDISCH_ALL th2)) (UNDISCH_ALL th3) |> UNDISCH_ALL
+    val _ = h2d_record_time prof_h2d_builtin t0
     in check_inv "terop" tm result end else
   (* equality: n = 0 *)
   if can (match_term (get_term "n = 0")) tm then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_builtin_n
+    val t0 = Time.now ()
     val x1 = fst (dest_eq tm)
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_NUM_EQ_0 th1
+    val _ = h2d_record_time prof_h2d_builtin t0
     in check_inv "num_eq_0" tm result end else
   (* equality: 0 = n *)
   if can (match_term (get_term "0 = n")) tm then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_builtin_n
+    val t0 = Time.now ()
     val x1 = snd (dest_eq tm)
     val th1 = hol2deep x1
     val result = MATCH_MP (GSYM Eval_NUM_EQ_0) th1
+    val _ = h2d_record_time prof_h2d_builtin t0
     in check_inv "0_eq_num" tm result end else
   (* built-in binary operations *)
   if can dest_builtin_binop tm then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_builtin_n
+    val t0 = Time.now ()
     val (p,x1,x2,lemma) = dest_builtin_binop tm
     val th1 = hol2deep x1
     val th2 = hol2deep x2
     val result = MATCH_MP (MATCH_MP lemma th1) (UNDISCH_ALL th2) |> UNDISCH_ALL
+    val _ = h2d_record_time prof_h2d_builtin t0
     in check_inv "binop" tm result end else
   (* built-in unary operations *)
   if can dest_builtin_monop tm then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_builtin_n
+    val t0 = Time.now ()
     val (p,x1,lemma) = dest_builtin_monop tm
     val th1 = hol2deep x1
     val result = MATCH_MP lemma th1 |> UNDISCH_ALL
+    val _ = h2d_record_time prof_h2d_builtin t0
     in check_inv "monop" tm result end else
   (* equality (but not word equality) *)
   if is_eq tm andalso not (word_ty_ok (type_of (rand tm))) then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_logic_n
+    val t0 = Time.now ()
     val (x1,x2) = dest_eq tm
     val th1 = hol2deep x1
     val th2 = hol2deep x2
     val result = MATCH_MP Eval_Equality (CONJ th1 th2) |> UNDISCH
+    val _ = h2d_record_time prof_h2d_logic t0
     in check_inv "equal" tm result end else
   (* and, or *)
   if is_conj tm then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_logic_n
+    val t0 = Time.now ()
     val (x1,x2) = dest_conj tm
     val th1 = hol2deep x1
     val th2 = hol2deep x2
     val th = MATCH_MP Eval_And (LIST_CONJ [D th1, D th2])
     val result = UNDISCH th
+    val _ = h2d_record_time prof_h2d_logic t0
     in check_inv "and" tm result end else
   if is_disj tm then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_logic_n
+    val t0 = Time.now ()
     val (x1,x2) = dest_disj tm
     val th1 = hol2deep x1
     val th2 = hol2deep x2
     val th = MATCH_MP Eval_Or (LIST_CONJ [D th1, D th2])
     val result = UNDISCH th
+    val _ = h2d_record_time prof_h2d_logic t0
     in check_inv "or" tm result end else
   (* if statements *)
   if is_cond tm then
+    let val _ = dispatch_charge ()
+        val _ = bump prof_h2d_logic_n
+        val t0 = Time.now () in
     if is_precond (tm |> rator |> rator |> rand) then let
       val (x1,x2,x3) = dest_cond tm
       val th2 = hol2deep x2
       val lemma = IF_TAKEN |> SPEC x1 |> ISPEC x2 |> SPEC x3 |> UNDISCH |> SYM
       val result = th2 |> CONV_RULE ((RAND_CONV o RAND_CONV) (K lemma))
+      val _ = h2d_record_time prof_h2d_logic t0
       in check_inv "if" tm result end
     else let
       val (x1,x2,x3) = dest_cond tm
@@ -3623,52 +4298,81 @@ fun hol2deep tm =
       val th3 = hol2deep x3
       val th = MATCH_MP Eval_If (LIST_CONJ [D th1, D th2, D th3])
       val result = UNDISCH th
-      in check_inv "if" tm result end else
+      val _ = h2d_record_time prof_h2d_logic t0
+      in check_inv "if" tm result end
+    end else
   (* Num (ABS i) *)
   if can (match_term Num_ABS_pat) tm then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_builtin_n
+    val t0 = Time.now ()
     val x1 = tm |> rand |> rand
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_Num_ABS th1
+    val _ = h2d_record_time prof_h2d_builtin t0
     in check_inv "num_abs" tm result end else
   (* Num i *)
   if intSyntax.is_Num tm then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_builtin_n
+    val t0 = Time.now ()
     val x1 = tm |> rand
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_Num th1 |> UNDISCH_ALL
+    val _ = h2d_record_time prof_h2d_builtin t0
     in check_inv "num" tm result end else
   (* n2w 'a word for known 'a *)
   if wordsSyntax.is_n2w tm andalso word_ty_ok (type_of tm) then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_builtin_n
+    val t0 = Time.now ()
     val dim = wordsSyntax.dim_of tm
     val th1 = hol2deep (rand tm)
     val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_n2w
                            |> CONV_RULE wordsLib.WORD_CONV) th1
+    val _ = h2d_record_time prof_h2d_builtin t0
     in check_inv "n2w" tm result end else
   (* i2w 'a word for known 'a *)
   if integer_wordSyntax.is_i2w tm andalso word_ty_ok (type_of tm) then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_builtin_n
+    val t0 = Time.now ()
     val dim = wordsSyntax.dim_of tm
     val th1 = hol2deep (rand tm)
     val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_i2w
                            |> CONV_RULE wordsLib.WORD_CONV) th1
+    val _ = h2d_record_time prof_h2d_builtin t0
     in check_inv "i2w" tm result end else
   (* w2n 'a word for known 'a *)
   if wordsSyntax.is_w2n tm andalso word_ty_ok (type_of (rand tm)) then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_builtin_n
+    val t0 = Time.now ()
     val x1 = tm |> rand
     val dim = wordsSyntax.dim_of x1
     val th1 = hol2deep x1
     (* th1 should have instantiated 'a already *)
     val result = MATCH_MP Eval_w2n th1 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    val _ = h2d_record_time prof_h2d_builtin t0
     in check_inv "w2n" tm result end else
   (* w2i 'a word for known 'a *)
   if integer_wordSyntax.is_w2i tm andalso word_ty_ok (type_of (rand tm)) then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_builtin_n
+    val t0 = Time.now ()
     val x1 = tm |> rand
     val dim = wordsSyntax.dim_of x1
     val th1 = hol2deep x1
     (* th1 should have instantiated 'a already *)
     val result = MATCH_MP Eval_w2i th1 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    val _ = h2d_record_time prof_h2d_builtin t0
     in check_inv "w2i" tm result end else
   (* w2w 'a word for known 'a *)
   if wordsSyntax.is_w2w tm andalso word_ty_ok (type_of (rand tm))
                            andalso word_ty_ok (type_of tm) then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_builtin_n
+    val t0 = Time.now ()
     val x1 = tm |> rand
     val dim1 = wordsSyntax.dim_of tm
     val dim2 = wordsSyntax.dim_of x1
@@ -3682,17 +4386,25 @@ fun hol2deep tm =
         MATCH_MP (lemma |> SIMP_RULE std_ss [LET_THM]
                         |> CONV_RULE (RAND_CONV (RATOR_CONV wordsLib.WORD_CONV)))
           (hol2deep x1)
+    val _ = h2d_record_time prof_h2d_builtin t0
     in check_inv "w2w" tm result end else
   (* word_add, _and, _or, _xor, _sub *)
   if can dest_word_binop tm andalso word_ty_ok (type_of (rand tm)) then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_builtin_n
+    val t0 = Time.now ()
     val lemma = dest_word_binop tm
     val th1 = hol2deep (tm |> rator |> rand)
     val th2 = hol2deep (tm |> rand)
     val result = MATCH_MP lemma (CONJ th1 th2)
                 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    val _ = h2d_record_time prof_h2d_builtin t0
     in check_inv "word_binop" tm result end else
   (* word_lsl, _lsr, _asr *)
   if can dest_word_shift tm andalso word_ty_ok (type_of tm) then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_builtin_n
+    val t0 = Time.now ()
     val n = tm |> rand
     val _ = numSyntax.is_numeral n orelse
             failwith "2nd arg to word shifts must be numeral constant"
@@ -3702,21 +4414,33 @@ fun hol2deep tm =
                    |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
                    |> REWRITE_RULE []
                    |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    val _ = h2d_record_time prof_h2d_builtin t0
     in check_inv "word_shift" tm result end else
   (* $& o f *)
   if can (match_term int_of_num_o_pat) tm then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_builtin_n
+    val t0 = Time.now ()
     val x1 = tm |> rand
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_int_of_num_o th1
+    val _ = h2d_record_time prof_h2d_builtin t0
     in check_inv "int_of_num_o" tm result end else
   (* f o $& *)
   if can (match_term o_int_of_num_pat) tm then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_builtin_n
+    val t0 = Time.now ()
     val x1 = tm |> rator |> rand
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_o_int_of_num th1
+    val _ = h2d_record_time prof_h2d_builtin t0
     in check_inv "o_int_of_num" tm result end else
   (* let expressions *)
   if can dest_let tm andalso is_abs (fst (dest_let tm)) then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_let_n
+    val let_t0 = Time.now ()
     val (x,y) = dest_let tm
     val (v,x) = dest_abs x
     val th1 = hol2deep y
@@ -3726,6 +4450,9 @@ fun hol2deep tm =
     val z = th1 |> concl |> rand |> rand
     val th2 = INST [v|->z] th2
     val result = MATCH_MP Eval_Let (CONJ th1 th2)
+    val elapsed = Time.toReal (Time.- (Time.now (), let_t0))
+    val _ = prof_h2d_let :=
+              !prof_h2d_let + (elapsed - !h2d_child_acc)
     in check_inv "let" tm result end else
   (* special pattern *) let
     fun pat_match pat tm = (match_term pat tm; rator pat)
@@ -3733,6 +4460,9 @@ fun hol2deep tm =
             pat_match EVERY_pattern tm handle HOL_ERR _ =>
             pat_match EXISTS_pattern tm handle HOL_ERR _ =>
           (* pat_match FILTER_pattern tm handle HOL_ERR _ => *) fail()
+    val _ = dispatch_charge ()  (* matched a special pattern *)
+    val _ = bump prof_h2d_special_n
+    val sp_t0 = Time.now ()
     val (m,f) = dest_comb tm
     val th_m = hol2deep r
     val (v,x) = dest_abs f
@@ -3745,9 +4475,13 @@ fun hol2deep tm =
     val thi = MATCH_MP And_IMP_Eq thi
     val thi = SIMP_RULE std_ss [EVERY_MEM_CONTAINER] thi
     val result = thi |> UNDISCH_ALL
+    val _ = h2d_record_time prof_h2d_special sp_t0
     in check_inv "map" tm result end handle HOL_ERR _ =>
   (* PMATCH *)
   if is_pmatch tm then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_pmatch_n
+    val pmatch_t0 = Time.now ()
    (*
      val tm = def |> SPEC_ALL |> concl |> rand
    *)
@@ -3756,9 +4490,15 @@ fun hol2deep tm =
     val tm = lemma |> concl |> rand
     val result = pmatch_hol2deep tm hol2deep
     val result = result |> CONV_RULE (RAND_CONV (RAND_CONV (K (GSYM lemma))))
+    val elapsed = Time.toReal (Time.- (Time.now (), pmatch_t0))
+    val _ = prof_h2d_pmatch :=
+              !prof_h2d_pmatch + (elapsed - !h2d_child_acc)
     in check_inv "pmatch_hol2deep" original_tm result end else
   (* normal function applications *)
   if is_comb tm then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_comb_n
+    val comb_t0 = Time.now ()
     val (f,x) = dest_comb tm
     val thf = hol2deep f |> remove_primes
     val thx = hol2deep x |> remove_primes
@@ -3773,20 +4513,31 @@ fun hol2deep tm =
                      val _ = print "Warning: automatically added string EXPLODE "
                      val _ = print "due to HOL_STRING_TYPE\n"
                    in res end handle HOL_ERR _ => raise (HOL_ERR e)
+    val elapsed = Time.toReal (Time.- (Time.now (), comb_t0))
+    val _ = prof_h2d_comb :=
+              !prof_h2d_comb + (elapsed - !h2d_child_acc)
     in check_inv "comb" tm result end else
   (* lambda applications *)
   if is_abs tm then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_abs_n
+    val abs_t0 = Time.now ()
     val (v,x) = dest_abs tm
     val thx = hol2deep x
     val result = apply_Eval_Fun v thx false
+    val _ = h2d_record_time prof_h2d_abs abs_t0
     in check_inv "abs" tm result end else
   if is_arb tm then let
+    val _ = dispatch_charge ()
+    val _ = bump prof_h2d_arb_n
+    val arb_t0 = Time.now ()
     val inv = get_type_inv (type_of tm)
     val goal = mk_imp(mk_PRECONDITION F,
                       mk_Eval(env_tm,
                               astSyntax.mk_Raise(get_term "bind"),
                               mk_comb(inv,tm)))
     val result = auto_prove"hol2deep"(goal,SIMP_TAC std_ss [PRECONDITION_def]) |> UNDISCH
+    val _ = h2d_record_time prof_h2d_arb arb_t0
     in check_inv "arb" tm result end
   else raise (UnableToTranslate tm)
 
@@ -4332,10 +5083,13 @@ fun translate_main options translate register_type def = (let
   fun the (SOME x) = x | the _ = failwith("the of NONE")
   (* preprocessing: reformulate def, read off info and register types *)
   val prep_start = start_timing "preprocessing+registering"
+  val prep_t0 = Time.now ()
   val _ = register_term_types register_type (concl def)
   val (is_rec,defs,ind) = preprocess_def def
   (* this is usually a no-op, but preprocess_def might have introduced pairs *)
   val _ = register_term_types register_type (concl (LIST_CONJ defs))
+  val _ = prof_preprocess :=
+            !prof_preprocess + Time.toReal (Time.- (Time.now (), prep_t0))
   val _ = end_timing prep_start
   val info = map get_info defs
   val msg = comma (map (fn (fname,_,_,_,_) => fname) info)
@@ -4359,9 +5113,9 @@ val _ = map (fn (fname,ml_name,lhs,_,_) => install_rec_pattern lhs fname) info
 val (fname,ml_name,lhs,rhs,def) = el 1 info
 can (find_term is_arb) (rhs |> rand |> rator)
 *)
-  val thms = do_timing "doing loop" loop info
-  val thms = do_timing "instantiating cons names"
-    (map (fn (x0,x1,th,x2) => (x0,x1,instantiate_cons_name th,x2))) thms
+  val thms = time_bucket prof_deep_embed (do_timing "doing loop" loop) info
+  val thms = time_bucket prof_inst_cons (do_timing "instantiating cons names"
+    (map (fn (x0,x1,th,x2) => (x0,x1,instantiate_cons_name th,x2)))) thms
 
   val _ = print ("Translating " ^ msg ^ "\n")
   (* postprocess raw certificates *)
@@ -4383,9 +5137,11 @@ val (fname,ml_fname,th,def) = hd thms
                     last rev_params)
     in (fname,ml_fname,def,th,v) end
     handle (e as HOL_ERR _) => raise (wrap_exn "ml_translatorLib" "optimise_and_abstract" e)
-  val thms = do_timing "optimise+abstract" (map optimise_and_abstract) thms
+  val thms = time_bucket prof_optimise
+               (do_timing "optimise+abstract" (map optimise_and_abstract)) thms
   (* final phase: extract precondition, perform induction, store cert *)
   val start_fin = start_timing "translate_main final phase"
+  val final_t0 = Time.now ()
 
   val (is_fun,results) = if not is_rec then let
     (* non-recursive case *)
@@ -4533,6 +5289,8 @@ val (th,(fname,ml_fname,def,_,pre)) = hd (zip results thms)
     val _ = map (delete_const o fst o dest_const o fst o dest_eq o concl) code_defs
   in (true,results) end
 
+  val _ = prof_translate_final :=
+            !prof_translate_final + Time.toReal (Time.- (Time.now (), final_t0))
   val _ = end_timing start_fin
 
   fun check results = let
@@ -4580,6 +5338,8 @@ fun translate_options options def =
     if is_rec then
     let
       val start_rec = start_timing "processing rec case"
+      val rec_t0 = Time.now ()
+      val _ = bump prof_proc_rec_case_n
       val recc = results |> map (fn (fname,_,def,th,pre) => th) |> hd |> hyp
         |> first (can (find_term (aconv Recclosure_tm)))
         |> rand |> rator |> rand
@@ -4605,6 +5365,8 @@ fun translate_options options def =
                   |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO]
                   |> UNDISCH_ALL
       val _ = (end_timing start_rec; end_timing start)
+      val _ = prof_proc_rec_case :=
+                !prof_proc_rec_case + Time.toReal (Time.- (Time.now (), rec_t0))
       in v_thm end
     else (* not is_rec *)
     let
@@ -4612,6 +5374,8 @@ fun translate_options options def =
     in
       if is_fun then let
         val start_fun = start_timing "processing fun case"
+        val fun_t0 = Time.now ()
+        val _ = bump prof_proc_fun_case_n
         val th = th |> INST [cl_env_tm |-> get_curr_env()]
         val n = ml_fname |> mlstringSyntax.mk_mlstring
         val lookup_var_assum = th |> hyp
@@ -4629,10 +5393,14 @@ fun translate_options options def =
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
         val _ = add_v_thms (fname,ml_fname,v_thm,pre_def)
         val _ = (end_timing start_fun; end_timing start)
+        val _ = prof_proc_fun_case :=
+                  !prof_proc_fun_case + Time.toReal (Time.- (Time.now (), fun_t0))
         in allowing_rebind save_thm(fname ^ "_v_thm",v_thm) end
       else let (* not is_fun *)
 
         val start_v = start_timing "processing val case"
+        val val_t0 = Time.now ()
+        val _ = bump prof_proc_val_case_n
         val th = th |> INST [env_tm |-> get_curr_env()]
         val th = UNDISCH_ALL (clean_assumptions (D th))
         val curr_state = get_curr_state()
@@ -4676,11 +5444,21 @@ fun translate_options options def =
                     |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO]
                     |> UNDISCH_ALL
         val _ = (end_timing start_v; end_timing start)
+        val _ = prof_proc_val_case :=
+                  !prof_proc_val_case + Time.toReal (Time.- (Time.now (), val_t0))
         in allowing_rebind save_thm(fname ^ "_v_thm",v_thm) end end
   end
 
-val translate = translate_options [];
-val translate_no_ind = translate_options [NoInd];
+(* Public translate / translate_no_ind are timed at the top level only.
+   Recursive translation of dependent definitions goes through
+   translate_options inside translate_main, so it is excluded from this
+   bucket (and counts against the phase totals instead). *)
+val translate =
+    (fn def => (bump prof_translate_n;
+                time_bucket prof_translate (translate_options []) def))
+val translate_no_ind =
+    (fn def => (bump prof_translate_n;
+                time_bucket prof_translate (translate_options [NoInd]) def))
 
 fun abs_translate_options options def =
   let
@@ -4700,8 +5478,12 @@ fun abs_translate_options options def =
     LIST_CONJ (map mapthis results)
   end
 
-val abs_translate = abs_translate_options [];
-val abs_translate_no_ind = abs_translate_options [NoInd];
+val abs_translate =
+    (fn def => (bump prof_translate_n;
+                time_bucket prof_translate (abs_translate_options []) def))
+val abs_translate_no_ind =
+    (fn def => (bump prof_translate_n;
+                time_bucket prof_translate (abs_translate_options [NoInd]) def))
 
 val _ = set_translator translate;
 

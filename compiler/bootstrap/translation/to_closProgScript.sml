@@ -373,3 +373,6 @@ val r = translate clos_ticksTheory.compile_inc_def;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;
+
+val _ = ml_translatorLib.print_profile ();
+val _ = ml_progLib.print_let_env_profile ();
