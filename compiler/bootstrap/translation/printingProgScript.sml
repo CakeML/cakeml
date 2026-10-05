@@ -8,9 +8,6 @@ Ancestors
 Libs
   preamble ml_translatorLib
 
-open preamble ml_translatorLib ml_translatorTheory
-     basis_defProgTheory std_preludeTheory printTweaksTheory;
-
 val _ = translation_extends "basis_defProg";
 val _ = ml_translatorLib.use_sub_check true;
 
@@ -129,8 +126,6 @@ val lemma5 = prove(“printtweaks_add_print_then_read_side x y = T”,
   \\ imp_res_tac t_wfs_inv
   \\ fs [])
   |> update_precondition;
-
-
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

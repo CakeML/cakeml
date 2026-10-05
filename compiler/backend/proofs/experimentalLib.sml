@@ -90,7 +90,7 @@ val thm = ASSUME (first is_forall assums)
 val pat = ...
 *)
 
-fun select_goals pats : list_tactic = fn goals => let
+fun select_goals pats : list_tactic = fn goals => fn _ => let
     fun m pat t = can (find_term (can (match_term pat))) t
     fun do_sel [] idx_goals = idx_goals
       | do_sel (pat :: pats) idx_goals = let

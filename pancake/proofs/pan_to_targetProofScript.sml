@@ -24,7 +24,7 @@ Definition pancake_good_code_def:
 End
 
 Theorem pan_to_lab_good_code_lemma:
-  stack_to_lab$compile c.stack_conf c.data_conf lim1 lim2 offs stack_prog = code ∧
+  stack_to_lab$compile (arch_wordsize asm_conf3.ISA) c.stack_conf c.data_conf lim1 lim2 offs stack_prog = code ∧
   word_to_stack$compile asm_conf3 F word_prog = (bm, wc, fs, stack_prog) ∧
   word_to_word$compile word_conf asm_conf3 word_prog0 = (col, word_prog) ∧
   pan_to_word_compile_prog asm_conf3.ISA pan_prog = word_prog0 ∧
@@ -178,7 +178,7 @@ Theorem pan_to_lab_labels_ok:
   pan_to_word_compile_prog mc.target.config.ISA pan_code = wprog0 ∧
   word_to_word_compile c.word_to_word_conf mc.target.config wprog0 = (col,wprog) ∧ mc.target.config.ISA ≠ Ag32 ∧
   word_to_stack_compile mc.target.config F wprog = (bitmaps,c'',fs,p) ∧
-  stack_to_lab_compile c.stack_conf c.data_conf max_heap sp mc.target.config.addr_offset p = lprog ∧
+  stack_to_lab_compile (arch_wordsize mc.target.config.ISA) c.stack_conf c.data_conf max_heap sp mc.target.config.addr_offset p = lprog ∧
   ALL_DISTINCT (MAP FST (functions pan_code)) ⇒
   labels_ok lprog
 Proof
@@ -194,7 +194,9 @@ Theorem word_to_stack_good_code_lemma:
   word_to_word_compile c.word_to_word_conf mc.target.config
   (pan_to_word_compile_prog mc.target.config.ISA pan_code) = (col,wprog) ∧
   mc.target.config.ISA ≠ Ag32 ∧
-  word_to_stack_compile mc.target.config F wprog = (bitmaps,c'',fs,p) ∧
+  word_to_stack_compile mc.target.config F
+    (wprog:(num # num # α wordLang$prog) list) = (bitmaps,c'',fs,p) ∧
+  isa_bits mc.target.config = dimindex (:α) ∧
   LENGTH mc.target.config.avoid_regs + 13 ≤ mc.target.config.reg_count ∧
   (* from backend_config_ok c *)
   ALL_DISTINCT (MAP FST (functions pan_code)) ⇒
@@ -275,7 +277,7 @@ QED
 
 (* move to stack_to_labProof *)
 Theorem full_make_init_be:
-  (FST(full_make_init a b c d e f g h i j k)).be ⇔ h.be
+  (FST(full_make_init aw a b c d e f g h i j k)).be ⇔ h.be
 Proof
   fs[stack_to_labProofTheory.full_make_init_def]>>
   fs[stack_allocProofTheory.make_init_def]>>
@@ -319,7 +321,7 @@ Definition pan_installed_def:
          DROP i (MAP w2n mc_conf.ffi_entry_pcs) ∧
          mc_conf.mmio_info =
          ZIP (GENLIST (λindex. index + i) (LENGTH shmem_extra),
-             (MAP (λrec. (rec.nbytes, Addr rec.addr_reg (n2w rec.addr_off), rec.reg,
+             (MAP (λrec. (rec.nbytes, Addr rec.addr_reg rec.addr_off, rec.reg,
                         n2w rec.exit_pc + mc_conf.target.get_pc ms))
                                                            shmem_extra)) ∧
     cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a))
@@ -518,7 +520,20 @@ Proof
       gs[wordSemTheory.set_var_def]>>
       gs[wordSemTheory.mem_store_def]>>
       rpt (FULL_CASE_TAC>>gs[])>>gvs[]>>TRY (metis_tac[])>>
-      irule_at Any fun2set_update_eq>>gs[]>>metis_tac[])>>
+      TRY (qmatch_goalsub_rename_tac ‘m⦇ad ↦ value⦈’>>
+           qexists_tac ‘m⦇ad ↦ value⦈’>>
+           gs[fun2set_update_eq]>>NO_TAC)>>
+      TRY (qmatch_assum_rename_tac ‘mem_store_32 m _ _ _ _ = SOME x’>>
+           qexists_tac ‘x’>>gs[]>>
+           qpat_x_assum ‘fun2set (s.memory,s.mdomain) = fun2set (m,s.mdomain)’
+             (fn h => assume_tac (MATCH_MP mem_store_32_const_memory h
+               |> Q.INST [`be`|->`s.be`, `ad`|->`c'`, `hw`|->`w2w c`]))>>
+           gs[]>>NO_TAC)>>
+      qexists_tac ‘x’>>gs[]>>
+      qpat_x_assum ‘fun2set (s.memory,s.mdomain) = fun2set (m,s.mdomain)’
+        (fn h => assume_tac (MATCH_MP mem_store_byte_aux_const_memory h
+          |> Q.INST [`be`|->`s.be`, `w`|->`c'`, `b`|->`w2w c`]))>>
+      gs[])>>
   rpt strip_tac>>
   gs[wordSemTheory.get_fp_var_def,
      wordSemTheory.set_fp_var_def,
@@ -1171,7 +1186,7 @@ Theorem from_pan_to_lab_no_install:
   pan_to_word_compile_prog isa pan_code = wprog0 ∧
   word_to_word_compile wc ac wprog0 = (col, wprog) ∧
   word_to_stack_compile ac F wprog = (bm, c, fs, p) ⇒
-  no_install (stack_to_lab_compile scc dc lim regc off p)
+  no_install (stack_to_lab_compile (arch_wordsize ac.ISA) scc dc lim regc off p)
 Proof
   strip_tac>>
   imp_res_tac first_compile_prog_all_distinct>>
@@ -1277,14 +1292,14 @@ Theorem pan_to_target_compile_semantics:
   s.top_addr = s.base_addr + bytes_in_word * n2w heap_len - n2w(globals_size*dimindex (:α) DIV 8) ∧
   globals_size ≤ heap_len ∧
   s.memaddrs = addresses (mc.target.get_reg ms mc.len_reg) (heap_len-globals_size) ∧
-  aligned (shift (:'a) + 1) ((mc.target.get_reg ms mc.ptr2_reg) + -1w * (mc.target.get_reg ms mc.len_reg)) ∧
+  aligned (backend_common$word_shift (dimindex (:'a)) + 1) ((mc.target.get_reg ms mc.ptr2_reg) + -1w * (mc.target.get_reg ms mc.len_reg)) ∧
   adj_ptr2 = (mc.target.get_reg ms mc.len_reg) + bytes_in_word * n2w max_stack_alloc ∧
   adj_ptr4 = (mc.target.get_reg ms mc.len2_reg) - bytes_in_word * n2w max_stack_alloc ∧
   adj_ptr2 ≤₊ (mc.target.get_reg ms mc.ptr2_reg) ∧
   (mc.target.get_reg ms mc.ptr2_reg) ≤₊ adj_ptr4 ∧
   w2n (mc.target.get_reg ms mc.ptr2_reg + -1w * (mc.target.get_reg ms mc.len_reg)) ≤
-  w2n (bytes_in_word:'a word) * (2 * max_heap_limit (:'a) c.data_conf -1) ∧
-  w2n (bytes_in_word:'a word) * (2 * max_heap_limit (:'a) c.data_conf -1) < dimword (:'a) ∧
+  w2n (bytes_in_word:'a word) * (2 * max_heap_limit (dimindex (:'a)) c.data_conf -1) ∧
+  w2n (bytes_in_word:'a word) * (2 * max_heap_limit (dimindex (:'a)) c.data_conf -1) < dimword (:'a) ∧
   s.ffi = ffi ∧ mc.target.config.big_endian = s.be ∧
   OPTION_ALL (EVERY $ \x. ∃s. x = ExtCall s) c.lab_conf.ffi_names ∧
   pan_installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
@@ -1338,14 +1353,14 @@ Proof
     by fs[lab_to_targetProofTheory.no_install_or_no_share_mem_def]>>
 
   (* compiler_orackle_ok *)
-  qmatch_asmsub_abbrev_tac ‘stack_to_lab_compile _ _ max_heap sp _ _’>>
+  qmatch_asmsub_abbrev_tac ‘stack_to_lab_compile _ _ _ max_heap sp _ _’>>
   qabbrev_tac ‘lorac = λn:num.
-                         (ltconf, []:(num # 'a stack_rawcallProof$prog) list, []:'a word list)’>>
+                         (ltconf, []:(num # stack_rawcallProof$prog) list, []:'a word list)’>>
   qabbrev_tac ‘sorac =
                (λn:num.
                   (λ(c',p,b:'a word list).
                      (c',
-                      compile_no_stubs c.stack_conf.reg_names
+                      compile_no_stubs (arch_wordsize mc.target.config.ISA) c.stack_conf.reg_names
                                        c.stack_conf.jump
                                        mc.target.config.addr_offset sp p))
                   (lorac n))’>>
@@ -1391,9 +1406,8 @@ Proof
     (* labels_ok *)
     drule_all pan_to_lab_labels_ok>>strip_tac>>gs[]>>
     (* all_enc_ok_pre mc.target.config lprog *)
-    ‘byte_offset_ok mc.target.config 0w’
-      by (gs[lab_to_targetProofTheory.mc_conf_ok_def]>>
-          drule good_dimindex_0w_8w>>gs[])>>
+    ‘byte_offset_ok mc.target.config 0’
+      by gs[lab_to_targetProofTheory.mc_conf_ok_def]>>
     gs[stack_to_labTheory.compile_def]>>rveq>>
     irule stack_to_labProofTheory.compile_all_enc_ok_pre>>gs[]>>
     (irule stack_namesProofTheory.stack_names_stack_asm_ok>>
@@ -1418,7 +1432,9 @@ Proof
      qpat_assum ‘EVERY _ wprog’ $ irule_at Any>>
      rpt strip_tac>>pairarg_tac>>gs[]>>
      first_x_assum $ irule>>
-     irule pan_to_word_every_inst_ok_less>>metis_tac[pancake_good_code_def])>>
+     irule pan_to_word_every_inst_ok_less>>
+     conj_tac >- (qexists_tac ‘pan_code’>>gs[pancake_good_code_def])>>
+     gs[])>>
     gs[])>>
   gs[]>>
   first_assum $ irule_at Any>>gs[]>>
@@ -1441,15 +1457,15 @@ Proof
   gs[lab_to_targetProofTheory.mc_conf_ok_def]>>
   disch_then (qspec_then ‘labst’ mp_tac)>>gs[]>>
   ‘labst.code = stack_to_lab_compile
-                c.stack_conf c.data_conf
-                (2 * max_heap_limit (:α) c.data_conf − 1)
+                (arch_wordsize mc.target.config.ISA) c.stack_conf c.data_conf
+                (2 * max_heap_limit (dimindex (:α)) c.data_conf − 1)
                 (mc.target.config.reg_count −
                  (LENGTH mc.target.config.avoid_regs + 3))
                 mc.target.config.addr_offset p’
     by gs[Abbr ‘labst’, Abbr ‘lprog’,lab_to_targetProofTheory.make_init_def]>>
   disch_then $ drule_at Any>>gs[]>>
   qabbrev_tac ‘sopt =
-               full_make_init c.stack_conf c.data_conf max_heap
+               full_make_init (arch_wordsize mc.target.config.ISA) c.stack_conf c.data_conf max_heap
                               sp mc.target.config.addr_offset
                               bitmaps p labst
                               (set mc.callee_saved_regs) data_sp lorac’>>
@@ -1458,7 +1474,7 @@ Proof
   disch_then $ drule_at (Pos hd)>>
   ‘labst.compile_oracle =
    (λn. (λ(c',p,b).
-           (c', compile_no_stubs c.stack_conf.reg_names c.stack_conf.jump
+           (c', compile_no_stubs (arch_wordsize mc.target.config.ISA) c.stack_conf.reg_names c.stack_conf.jump
                                  mc.target.config.addr_offset sp p)) (lorac n))’
     by gs[Abbr ‘labst’, Abbr ‘sorac’,lab_to_targetProofTheory.make_init_def]>>
   gs[]>>
@@ -1571,19 +1587,21 @@ Proof
        stack_allocProofTheory.make_init_def,
        stack_to_labProofTheory.make_init_def,
        stack_namesProofTheory.make_init_def]>>
-    qmatch_asmsub_abbrev_tac ‘evaluate (init_code gengc _ _, s')’>>
-    qmatch_asmsub_abbrev_tac ‘make_init_opt _ _ _ _ coracle jump off _ code _’>>
-    Cases_on ‘evaluate (init_code gengc max_heap sp, s')’>>gs[]>>
+    qmatch_asmsub_abbrev_tac ‘evaluate (init_code _ gengc _ _, s')’>>
+    qmatch_asmsub_abbrev_tac ‘make_init_opt _ _ _ _ _ coracle jump off _ code _’>>
+    Cases_on ‘evaluate (init_code (arch_wordsize mc.target.config.ISA) gengc max_heap sp, s')’>>gs[]>>
     rename1 ‘evaluate _ = (q', r')’>>
     Cases_on ‘q'’>>gs[]>>rveq>>
     gs[stackSemTheory.state_component_equality]>>
-    Cases_on ‘make_init_opt gengc max_heap bitmaps data_sp coracle jump off sp code s'’>>
+    Cases_on ‘make_init_opt (arch_wordsize mc.target.config.ISA) gengc max_heap bitmaps data_sp coracle jump off sp code s'’>>
     gs[stackSemTheory.state_component_equality]>>
     gs[stack_removeProofTheory.make_init_opt_def]>>
     gs[stack_removeProofTheory.init_reduce_def]>>
     gs[stack_removeProofTheory.init_prop_def]>>
     rveq>>gs[stackSemTheory.state_component_equality])>>
 
+  ‘sst.code = fromAList (SND (SND (SND (word_to_stack_compile mc.target.config F wprog))))’
+    by gs[]>>
   drule_at Any word_to_stackProofTheory.compile_semantics>>
   gs[]>>
 
@@ -1629,7 +1647,7 @@ Proof
     irule stack_to_labProofTheory.IMP_init_state_ok>>
     gs[]>>
     Cases_on ‘opt’>>gs[]>>rename1 ‘(sst, SOME xxx)’>>
-    MAP_EVERY qexists_tac [‘data_sp’, ‘c.data_conf’, ‘labst’, ‘max_heap’, ‘p’, ‘set mc.callee_saved_regs’,
+    MAP_EVERY qexists_tac [‘arch_wordsize mc.target.config.ISA’, ‘data_sp’, ‘c.data_conf’, ‘labst’, ‘max_heap’, ‘p’, ‘set mc.callee_saved_regs’,
                            ‘c.stack_conf’, ‘sp’, ‘mc.target.config.addr_offset’, ‘TL bitmaps’, ‘xxx’]>>
 
     ‘4w::TL bitmaps = bitmaps’ by (rveq>>gs[]>>metis_tac[CONS])>>gs[]>>
@@ -1793,11 +1811,11 @@ Proof
     last_x_assum $ qspecl_then [‘3’, ‘4’] assume_tac>>
     gs[])>>
 
-  qmatch_goalsub_abbrev_tac ‘init_reduce gck jump off _ mprog _ _’>>
+  qmatch_goalsub_abbrev_tac ‘init_reduce _ gck jump off _ mprog _ _ _ _’>>
   simp[o_DEF]>>strip_tac>>gs[]>>
 
   (* introduce init_code_thm *)
-  ‘lookup stack_err_lab ssx.code = SOME (halt_inst 2w)’
+  ‘lookup stack_err_lab ssx.code = SOME (halt_inst 2)’
     by
     (gs[Abbr ‘ssx’]>>
      gs[lookup_fromAList,stack_removeTheory.compile_def]>>
@@ -1806,14 +1824,14 @@ Proof
   gs[Abbr ‘initc’]>>
   drule_at Any stack_removeProofTheory.init_code_thm>>
   ‘ssx.compile_oracle =
-   (I ## MAP (stack_remove_prog_comp jump off sp) ## I)
+   (I ## MAP (stack_remove_prog_comp (arch_wordsize mc.target.config.ISA) jump off sp) ## I)
    ∘ (I ## MAP stack_alloc_prog_comp ## I) ∘ (λn. (ltconf,[],[]))’
     by gs[Abbr ‘ssx’,o_DEF]>>
   disch_then $ drule_at Any>>
   simp[o_DEF]>>
   pop_assum kall_tac>> (* ssx.compile_oracle *)
 
-  ‘code_rel jump off sp mprog ssx.code’
+  ‘code_rel (arch_wordsize mc.target.config.ISA) jump off sp mprog ssx.code’
     by (
     simp[stack_removeProofTheory.code_rel_def]>>
     gs[Abbr ‘ssx’, Abbr ‘mprog’]>>
@@ -1825,8 +1843,8 @@ Proof
       simp[stack_removeTheory.init_stubs_def]>>
       rewrite_tac[Once UNION_COMM]>>
       gs[MAP_MAP_o,o_DEF,LAMBDA_PROD]>>
-      ‘set (MAP (λ(p1,p2). p1) (compile c.data_conf (compile p))) =
-       set (MAP FST (compile c.data_conf (compile p)))’
+      ‘set (MAP (λ(p1,p2). p1) (compile (arch_wordsize mc.target.config.ISA) c.data_conf (compile p))) =
+       set (MAP FST (compile (arch_wordsize mc.target.config.ISA) c.data_conf (compile p)))’
         by (
         gs[LIST_TO_SET_MAP]>>
         irule IMAGE_CONG>>rw[]>>pairarg_tac>>gs[])>>
@@ -1866,7 +1884,7 @@ Proof
     gs[stack_allocTheory.compile_def]>>
     gs[stack_rawcallTheory.compile_def]>>
     gs[ALOOKUP_APPEND]>>
-    Cases_on ‘ALOOKUP (stubs c.data_conf) n’>>
+    Cases_on ‘ALOOKUP (stubs (arch_wordsize mc.target.config.ISA) c.data_conf) n’>>
     gs[stack_allocTheory.stubs_def,
        stackLangTheory.gc_stub_location_def,
        backend_commonTheory.stack_num_stubs_def]>>
@@ -1880,7 +1898,7 @@ Proof
     gs[EVERY_MEM]>>
     first_x_assum $ qspec_then ‘p1’ assume_tac>>gs[])>>
   disch_then $ drule_at Any>>
-  ‘init_code_pre sp bitmaps data_sp ssx’
+  ‘init_code_pre (arch_wordsize mc.target.config.ISA) sp bitmaps data_sp ssx’
     by
     (simp[stack_removeProofTheory.init_code_pre_def]>>
      gs[stack_to_labProofTheory.memory_assumption_def]>>
@@ -1925,7 +1943,7 @@ Proof
 
     gs[stack_removeProofTheory.init_prop_def]>>
 
-    qpat_x_assum ‘init_reduce _ _ _ _ _ _ _ _ _ = x'’ (assume_tac o GSYM)>>fs[]>>
+    qpat_x_assum ‘init_reduce _ _ _ _ _ _ _ _ _ _ = x'’ (assume_tac o GSYM)>>fs[]>>
     fs[stack_removeProofTheory.init_reduce_def]>>
 
     gs[FLOOKUP_MAP_KEYS_LINV]>>
@@ -1933,7 +1951,7 @@ Proof
     gs[REVERSE_DEF, ALOOKUP_APPEND]>>
 
     ‘store_init (is_gen_gc c.data_conf.gc_kind) sp CurrHeap =
-     (INR (sp + 2) :'a word + num)’
+     (INR (sp + 2) :int + num)’
       by gs[stack_removeTheory.store_init_def, APPLY_UPDATE_LIST_ALOOKUP]>>
     gs[]>>
 
@@ -1941,7 +1959,7 @@ Proof
      (MAP FST (MAP (λn. case
                         store_init (is_gen_gc c.data_conf.gc_kind) sp n
                         of
-                          INL w => (n,Word w)
+                          INL w => (n,Word (i2w w))
                         | INR i => (n,sss.regs ' i)) store_list))’
       by (rewrite_tac[stack_removeTheory.store_list_def,
                       stack_removeTheory.store_init_def,
@@ -1988,7 +2006,7 @@ Proof
     first_x_assum $ qspec_then ‘mc.len2_reg’ mp_tac>>
     impl_tac>-fs[asmTheory.reg_ok_def]>>
     ntac 2 strip_tac>>gs[]>>
-    ‘(w3 + -1w * s.base_addr) ⋙ (shift (:α) + 1) ≪ (shift (:α) + 1)
+    ‘(w3 + -1w * s.base_addr) ⋙ (backend_common$word_shift (dimindex (:α)) + 1) ≪ (backend_common$word_shift (dimindex (:α)) + 1)
      = w3 + -1w * s.base_addr’
       by (irule data_to_word_gcProofTheory.lsr_lsl>>gs[])>>
     gs[backendProofTheory.heap_regs_def]>>
@@ -1998,7 +2016,7 @@ Proof
   (* memory shift *)
   qpat_x_assum ‘FLOOKUP sss.regs (sp + 2) = _’ mp_tac>>
   gs[flookup_thm]>>strip_tac>>gs[]>>
-  ‘(w3 + -1w * s.base_addr) ⋙ (shift (:α) + 1) ≪ (shift (:α) + 1)
+  ‘(w3 + -1w * s.base_addr) ⋙ (backend_common$word_shift (dimindex (:α)) + 1) ≪ (backend_common$word_shift (dimindex (:α)) + 1)
    = w3 + -1w * s.base_addr’
     by (irule data_to_word_gcProofTheory.lsr_lsl>>gs[])>>
   gs[]>>
@@ -2121,7 +2139,7 @@ Proof
       gs[wordSemTheory.theWord_def]>>
 
       ‘store_init gck sp CurrHeap =
-       (INR (sp + 2) :'a word + num)’
+       (INR (sp + 2) :int + num)’
         by gs[stack_removeTheory.store_init_def, APPLY_UPDATE_LIST_ALOOKUP]>>
       gs[]>>
 
@@ -2130,7 +2148,7 @@ Proof
                                  case
                                  store_init gck sp n
                                  of
-                                   INL w => (n,Word w)
+                                   INL w => (n,Word (i2w w))
                                  | INR i => (n,sss.regs ' i)) store_list))’
         by (rewrite_tac[stack_removeTheory.store_list_def,
                         stack_removeTheory.store_init_def,
@@ -2321,7 +2339,7 @@ Proof
         first_assum $ irule_at Any>>
         simp[word_mul_def])>>gs[]>>
   pop_assum $ kall_tac>>
-  ‘(w3 + -1w * s.base_addr) ⋙ (shift (:α) + 1) ≪ (shift (:α) + 1) =
+  ‘(w3 + -1w * s.base_addr) ⋙ (backend_common$word_shift (dimindex (:α)) + 1) ≪ (backend_common$word_shift (dimindex (:α)) + 1) =
    w3 + -1w * s.base_addr’
     by (irule data_to_word_gcProofTheory.lsr_lsl>>gs[])>>gs[]>>
   pop_assum $ kall_tac>>
@@ -2335,7 +2353,7 @@ Proof
   gs[Abbr ‘wst’, Abbr ‘worac’]>>
   gs[word_to_stackProofTheory.make_init_def]>>
   qpat_x_assum ‘_ = sst’ $ assume_tac o GSYM>>gs[]>>
-  qpat_x_assum ‘init_reduce _ _ _ _ _ _ _ _ _ = x'’ $ assume_tac o GSYM>>gs[]>>
+  qpat_x_assum ‘init_reduce _ _ _ _ _ _ _ _ _ _ = x'’ $ assume_tac o GSYM>>gs[]>>
   gs[stack_removeProofTheory.init_reduce_def]>>
   gs[stack_removeProofTheory.LENGTH_read_mem]>>
   pop_assum kall_tac>>
@@ -2446,7 +2464,7 @@ Proof
   ‘byte_aligned (w3 - w2)’
     by (simp[Once WORD_NEG_MUL]>>
         simp[byte_aligned_def]>>
-        ‘LOG2 (dimindex (:'a) DIV 8) < shift (:'a) + 1’
+        ‘LOG2 (dimindex (:'a) DIV 8) < backend_common$word_shift (dimindex (:'a)) + 1’
           by gs[backend_commonTheory.word_shift_def,
                 good_dimindex_def]>>
         drule_all aligned_imp>>rw[])>>

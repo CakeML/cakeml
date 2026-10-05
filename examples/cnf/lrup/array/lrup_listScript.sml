@@ -107,7 +107,7 @@ QED
 Theorem check_lrups_unsat_list_sound:
   check_lrups_unsat_list lrups
     (build_cfml_list kc (conv_cfml cfml) nc)
-    (REPLICATE n 0w) 1w ∧
+    (REPLICATE n 0) 1 ∧
   EVERY (EVERY nz_lit) cfml ⇒
   unsatisfiable_cnf (set cfml)
 Proof
@@ -138,7 +138,7 @@ Theorem check_lrups_unsat_list_dup_cnf[local]:
   check_lrups_unsat_list
     (THE (parse_lrups [implode (MAP CHR [97;6]); implode (MAP CHR [2;4])]))
     (build_cfml_list 1 (conv_cfml [[Pos 1; Pos 1]; [Neg 1]]) 10)
-    (REPLICATE 4 0w) 1w
+    (REPLICATE 4 0) 1
 Proof
   EVAL_TAC
 QED
@@ -153,7 +153,7 @@ Theorem check_lrups_unsat_list_dup_derived[local]:
        implode (MAP CHR [97;10]);    implode (MAP CHR [8;6])]))
     (build_cfml_list 1
       (conv_cfml [[Pos 1; Pos 2]; [Pos 1; Neg 2]; [Neg 1]]) 10)
-    (REPLICATE 4 0w) 1w
+    (REPLICATE 4 0) 1
 Proof
   EVAL_TAC
 QED

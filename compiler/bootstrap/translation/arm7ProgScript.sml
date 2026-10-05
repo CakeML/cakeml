@@ -8,13 +8,6 @@ Ancestors
 Libs
   preamble ml_translatorLib inliningLib
 
-open preamble;
-open evaluateTheory
-open ml_translatorLib ml_translatorTheory;
-open from_pancake32ProgTheory
-open arm7_targetTheory armTheory;
-open inliningLib;
-
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "from_pancake32Prog";
@@ -171,10 +164,26 @@ val arm7_enc4 = replace_at 4 (fn th => th |> Q.GEN `bop` |> SIMP_RULE (srw_ss() 
 |> reconstruct_case ``arm7_enc (Inst (Arith (Binop bop r1 r2 (Imm i))))`` (rand o rator o rator o rator o rand o rand o rand))
 
 (* Shift Imm *)
+(* Num is absolute value on negative integers.  Expose that absolute value
+   before deriving the helper equations so the translator uses its total rule. *)
+Theorem Num_shift_abs[local]:
+  !i:int. Num i = Num (ABS i)
+Proof
+  metis_tac[integerTheory.Num_EQ_ABS,integerTheory.INT_ABS_ABS,
+            integerTheory.INT_INJ]
+QED
+
+fun num_shift_conv tm =
+  if intSyntax.is_Num tm andalso
+     not (can (match_term ``ABS (i:int)``) (rand tm))
+  then REWR_CONV Num_shift_abs tm
+  else NO_CONV tm;
+
 val arm7_enc5 = replace_at 5 (fn th => th |> Q.GEN `sh` |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:shift``]) (LET_THM::arm7_sh_def::defaults) |> finish
 |> SIMP_RULE (srw_ss())[word_2comp_def]
 |> CONJUNCTS
-|> reconstruct_case ``arm7_enc (Inst (Arith (Shift s r1 r2 (Imm i))))`` (rand o rator o rator o rator o rand o rand o rand))
+|> reconstruct_case ``arm7_enc (Inst (Arith (Shift s r1 r2 (Imm i))))`` (rand o rator o rator o rator o rand o rand o rand)
+|> CONV_RULE (DEPTH_CONV num_shift_conv))
 
 (* Shift Ref *)
 val arm7_enc6 = replace_at 6 (fn th => th |> Q.GEN `sh` |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:shift``]) (LET_THM::arm7_sh_def::defaults) |> finish
@@ -299,16 +308,16 @@ val _ = translate (EncodeARMImmediate_def |> SIMP_RULE (srw_ss())
   (srw_ss()) [word_2comp_def])
 
 val cases_defs = LIST_CONJ
-  [TypeBase.case_def_of “:'a asm$inst”,
+  [TypeBase.case_def_of “:asm$inst”,
    TypeBase.case_def_of “:asm$cmp”,
    TypeBase.case_def_of “:asm$memop”,
    TypeBase.case_def_of “:asm$binop”,
    TypeBase.case_def_of “:ast$shift”,
    TypeBase.case_def_of “:asm$fp”,
-   TypeBase.case_def_of “:'a asm$arith”,
-   TypeBase.case_def_of “:'a asm$addr”,
-   TypeBase.case_def_of “:'a asm$reg_imm”,
-   TypeBase.case_def_of “:'a asm$asm”];
+   TypeBase.case_def_of “:asm$arith”,
+   TypeBase.case_def_of “:asm$addr”,
+   TypeBase.case_def_of “:asm$reg_imm”,
+   TypeBase.case_def_of “:asm$asm”];
 
 val d1 = Define ‘arm7_enc_Const n c = arm7_enc (Inst (Const n c))’
   |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
@@ -526,7 +535,6 @@ val res = CONJUNCTS d1 |> map SPEC_ALL |> map translate;
 val res = translate def;
 
 val res = translate (arm7_config_def |> SIMP_RULE std_ss[valid_immediate_def] |> gconv)
-
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

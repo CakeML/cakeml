@@ -45,3 +45,6 @@ Theorems about the type system.
 
 [weakeningScript.sml](weakeningScript.sml):
 Weakening lemmas used in type soundness
+
+[wordShiftPropsScript.sml](wordShiftPropsScript.sml):
+Typing and evaluation of word shifts with computed shift amounts.

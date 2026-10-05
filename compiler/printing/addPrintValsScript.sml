@@ -216,11 +216,11 @@ Definition print_of_val_opts_def:
     let nm_str = id_to_str nm in
     let idl = Lit (StrLit nm_str) in
     let tstr = Lit (StrLit (inf_t_to_s tn inf_t)) in
-    let pp_hidden = Dlet unknown_loc Pany (App Opapp [Var (Short «print_pp»);
+    let pp_hidden = Dlet NoLocs Pany (App Opapp [Var (Short «print_pp»);
         Apps (Var (Long «PrettyPrinter» (Short «val_hidden_type»))) [idl; tstr]]) in
     let pp_val = case inf_t_to_ast_t_mono ienv tn inf_t of
           NONE => []
-        | SOME ast_t => [Dlet unknown_loc Pany (App Opapp [Var (Short «print_pp»);
+        | SOME ast_t => [Dlet NoLocs Pany (App Opapp [Var (Short «print_pp»);
             Apps (Var (Long «PrettyPrinter» (Short «val_eq»)))
                 [idl; pp_of_ast_t tn.pp_fixes ast_t; Var nm; tstr]])] in
     (nm_str, pp_val ++ [pp_hidden])
