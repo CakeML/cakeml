@@ -72,7 +72,15 @@ val _ = register_type “:backend$config”
 Theorem IsTypeRep_BACKEND_CONFIG_v:
   IsTypeRep BACKEND_CONFIG_v BACKEND_CONFIG_TYPE
 Proof
-  irule_at Any (fetch_v_fun “:backend$config” |> snd |> hd) \\ fs []
+  `IsTypeRep SOURCE_TO_FLAT_ENVIRONMENT_v SOURCE_TO_FLAT_ENVIRONMENT_TYPE` by
+   (irule (fetch_v_fun “:source_to_flat$environment” |> snd |> hd)
+    \\ irule (fetch_v_fun “:('a,'b,'c) namespace” |> snd |> hd)
+    \\ fs [IsTypeRep_NUM_BOOL]
+    \\ irule IsTypeRep_LIST \\ irule IsTypeRep_PAIR \\ simp [IsTypeRep_NUM_BOOL]
+    \\ irule (fetch_v_fun “:source_to_flat$var_name” |> snd |> hd) \\ fs []
+    \\ irule (fetch_v_fun “:source_to_flat$glob_info” |> snd |> hd) \\ fs []
+    \\ irule (fetch_v_fun “:ast$lit” |> snd |> hd) \\ fs [IsTypeRep_NUM_BOOL])
+  \\ irule_at Any (fetch_v_fun “:backend$config” |> snd |> hd) \\ fs []
   \\ irule_at Any (fetch_v_fun “:bvl_to_bvi$config” |> snd |> hd) \\ fs []
   \\ irule_at Any (fetch_v_fun “:clos_to_bvl$config” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:'a num_map” |> snd |> hd) \\ fs []
@@ -99,10 +107,14 @@ Proof
   \\ rpt $ irule_at Any (fetch_v_fun “:closLang$const_part” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:closLang$const” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:word64” |> snd |> hd) \\ fs []
-  \\ irule (fetch_v_fun “:lab_to_target$config” |> snd |> hd) \\ fs []
-  \\ irule (fetch_v_fun “:'a list” |> snd |> hd) \\ fs []
-  \\ irule (fetch_v_fun “:lab_to_target$shmem_info_num” |> snd |> hd) \\ fs []
-  \\ irule (fetch_v_fun “:word8” |> snd |> hd) \\ fs []
+  \\ conj_tac
+  >- (irule (fetch_v_fun “:lab_to_target$config” |> snd |> hd) \\ fs []
+      \\ irule (fetch_v_fun “:'a list” |> snd |> hd) \\ fs []
+      \\ irule (fetch_v_fun “:lab_to_target$shmem_info_num” |> snd |> hd) \\ fs []
+      \\ irule (fetch_v_fun “:word8” |> snd |> hd) \\ fs [])
+  \\ irule (fetch_v_fun “:source_to_flat$config” |> snd |> hd) \\ fs []
+  \\ irule (fetch_v_fun “:source_to_flat$environment_store” |> snd |> hd)
+  \\ rpt $ irule (fetch_v_fun “:'a num_map” |> snd |> hd) \\ fs []
 QED
 
 Theorem EqualityType_BACKEND_CONFIG_TYPE =
