@@ -24,7 +24,7 @@ Proof
 QED
 
 Definition to_small_st_def:
-  to_small_st s = (s.refs,s.ffi)
+  to_small_st s = (s.refs,s.ffi,s.ptr_eq_oracle)
 End
 
 Theorem to_small_st_with_clock[simp]:
@@ -579,9 +579,22 @@ Proof
     gvs[update_thunk_def, AllCaseEqs()]
     )
   >~ [‘Boolv (_ ∧ _.ptr_eq_oracle 0 0)’] >- (
-    (* PtrEq with a value result: does not hold, since the small-step
-       semantics has no pointer-equality oracle yet *)
-    cheat)
+    ‘op = PtrEq’ by gvs[opClass_cases] >> gvs[] >>
+    imp_res_tac small_eval_list_length >>
+    ‘LENGTH es = 2’ by metis_tac[LENGTH_REVERSE, LENGTH] >>
+    Cases_on ‘es’ >> gvs[] >> Cases_on ‘t’ >> gvs[] >>
+    ntac 3 $ gvs[Once small_eval_list_cases] >>
+    simp[small_eval_def] >>
+    irule_at Any $ cj 2 RTC_RULES >>
+    simp[e_step_reln_def, Once e_step_def, push_def] >>
+    dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
+    irule_at Any $ cj 2 RTC_RULES >>
+    simp[e_step_reln_def, Once e_step_def, continue_def, push_def] >>
+    dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
+    irule_at Any $ cj 2 RTC_RULES >>
+    simp[e_step_reln_def, Once e_step_def, continue_def, application_thm,
+         getOpClass_def, to_small_st_def, return_def]
+    )
   >>~- ([‘small_eval _ _ (App _ _) _ (_, Rerr (Rabort Rtype_error))’],
     gvs[small_eval_def] >> Cases_on ‘es’ using SNOC_CASES >> gvs[]
     >- (
@@ -931,10 +944,10 @@ QED
 
 Theorem one_step_backward:
   ∀env (s:α state) e c env' e' c' ck (bv:α state # (v,v) result)
-   refs ffi refs' ffi'.
-    e_step (env,(refs,ffi),e,c) = Estep (env',(refs',ffi'),e',c') ∧
-    evaluate_state ck (env',s with <| refs := refs'; ffi := ffi' ; |>,e',c') bv
-  ⇒ evaluate_state ck (env,s with <| refs := refs; ffi := ffi ; |>,e,c) bv
+   refs ffi po refs' ffi' po'.
+    e_step (env,(refs,ffi,po),e,c) = Estep (env',(refs',ffi',po'),e',c') ∧
+    evaluate_state ck (env',s with <| refs := refs'; ffi := ffi'; ptr_eq_oracle := po'; |>,e',c') bv
+  ⇒ evaluate_state ck (env,s with <| refs := refs; ffi := ffi; ptr_eq_oracle := po; |>,e,c) bv
 Proof
   rw[e_step_def] >> Cases_on `e` >> gvs[]
   >- (
@@ -1148,10 +1161,7 @@ Proof
         qexists_tac ‘s.clock’ >> simp[evaluate_list_NIL, SF DNF_ss] >>
         simp[evaluate_ctxts_type_error] >> Cases_on ‘l’ >> gvs[] >>
         strip_tac >> ‘t' = []’ by (Cases_on ‘t'’ >> gvs[]) >> gvs[] >>
-        Cases_on ‘do_eq v h’ >> gvs[] >>
-        (* PtrEq with a value result: does not hold, since the small-step
-           semantics has no pointer-equality oracle yet *)
-        cheat)
+        Cases_on ‘do_eq v h’ >> gvs[return_def])
     >- (‘~ opClass op FunApp ∧ ¬opClass op Force’
           by (Cases_on ‘op’ >> gs[opClass_cases]) >>
         gs[] >>
@@ -1171,11 +1181,11 @@ Proof
 QED
 
 Theorem small_exp_to_big_exp:
-  ∀ck env refs (ffi:α ffi_state) e c env' refs' ffi' e' c'.
-    RTC e_step_reln (env,(refs,ffi),e,c) (env',(refs',ffi'),e',c') ⇒
+  ∀ck env refs (ffi:α ffi_state) po e c env' refs' ffi' po' e' c'.
+    RTC e_step_reln (env,(refs,ffi,po),e,c) (env',(refs',ffi',po'),e',c') ⇒
     ∀(s:α state) r.
-      evaluate_state ck (env',s with <| refs := refs'; ffi := ffi'; |>,e',c') r
-    ⇒ evaluate_state ck (env,s with <| refs := refs; ffi := ffi; |>,e,c) r
+      evaluate_state ck (env',s with <| refs := refs'; ffi := ffi'; ptr_eq_oracle := po'; |>,e',c') r
+    ⇒ evaluate_state ck (env,s with <| refs := refs; ffi := ffi; ptr_eq_oracle := po; |>,e,c) r
 Proof
   Induct_on `RTC` >> rw[e_step_reln_def] >> simp[] >>
   metis_tac[one_step_backward, PAIR]
@@ -1220,20 +1230,14 @@ Theorem small_big_exp_equiv:
  !env s e s' r.
    small_eval env (to_small_st s) e [] (to_small_st s',  r) ∧
    s.clock = s'.clock ∧ s.next_type_stamp = s'.next_type_stamp ∧
-   s.next_exn_stamp = s'.next_exn_stamp ∧ s.eval_state = s'.eval_state ∧
-   s.ptr_eq_oracle = s'.ptr_eq_oracle
+   s.next_exn_stamp = s'.next_exn_stamp ∧ s.eval_state = s'.eval_state
    ⇔
    evaluate F env s e (s',r)
 Proof
   rw[] >> reverse eq_tac
   >- (
     rw[] >> imp_res_tac big_exp_to_small_exp >>
-    gvs[small_eval_def, to_small_res_def]
-    >~ [‘_.ptr_eq_oracle = _.ptr_eq_oracle’]
-    >- (
-      (* does not hold when a PtrEq is evaluated, since that advances the
-         oracle; the small-step semantics has no pointer-equality oracle yet *)
-      cheat) >>
+    gvs[small_eval_def, to_small_res_def] >>
     metis_tac[evaluate_no_new_types_exns, big_unclocked, FST]
     ) >>
   rw[] >> reverse (Cases_on ‘r’ >| [all_tac, Cases_on ‘e'’]) >>
@@ -1288,7 +1292,7 @@ Proof
     ‘∀r. ¬small_eval env (to_small_st s) e [] r’ by (
       CCONTR_TAC >> gvs[] >>
       PairCases_on ‘r’ >>
-      ‘(r0,r1) = to_small_st (s with <| refs := r0; ffi := r1; |>)’ by
+      ‘(r0,r1,r2) = to_small_st (s with <| refs := r0; ffi := r1; ptr_eq_oracle := r2; |>)’ by
         simp[to_small_st_def] >>
       pop_assum SUBST_ALL_TAC >> drule $ iffLR small_big_exp_equiv >> simp[]) >>
     CCONTR_TAC >> gvs[GSYM untyped_safety_exp]
@@ -1319,9 +1323,9 @@ Proof
     gvs[GSYM small_big_exp_equiv, to_small_st_def] >>
     eq_tac >- metis_tac[] >> rw[] >>
     PairCases_on ‘r’ >>
-    Q.REFINE_EXISTS_TAC ‘(s with <| refs := r0; ffi := r1; |>, res)’ >> simp[] >>
-    rename [‘small_eval _ _ _ _ ((r0,r1), r2)’] >>
-    reverse $ Cases_on ‘r2’ >> gvs[]
+    Q.REFINE_EXISTS_TAC ‘(s with <| refs := r0; ffi := r1; ptr_eq_oracle := r2; |>, res)’ >> simp[] >>
+    rename [‘small_eval _ _ _ _ ((r0,r1,r2), r3)’] >>
+    reverse $ Cases_on ‘r3’ >> gvs[]
     >- (qexists_tac ‘Rerr e'’ >> gvs[]) >>
     Cases_on ‘pmatch env.c r0 p a []’ >> gvs[]
     >- (
@@ -2029,10 +2033,10 @@ Proof
     dxrule e_step_reln_decl_step_reln >>
     disch_then $ qspecl_then [‘env’,‘s with clock := s'.clock’,‘locs’,‘p’,‘[]’] mp_tac >>
     gvs[to_small_st_def] >>
-    ‘s with <| clock := s'.clock; refs := s.refs; ffi := s.ffi |> =
+    ‘s with <| clock := s'.clock; refs := s.refs; ffi := s.ffi; ptr_eq_oracle := s.ptr_eq_oracle |> =
      s with clock := s'.clock ’ by gvs[state_component_equality] >>
     qsuff_tac
-      ‘s with <| clock := s'.clock; refs := s'.refs; ffi := s'.ffi; |> = s'’ >>
+      ‘s with <| clock := s'.clock; refs := s'.refs; ffi := s'.ffi; ptr_eq_oracle := s'.ptr_eq_oracle; |> = s'’ >>
     rw[]
     >- (
       irule_at Any $ cj 2 RTC_RULES >>
@@ -2041,9 +2045,7 @@ Proof
     >- (
       gvs[state_component_equality] >>
       drule $ cj 1 evaluate_no_new_types_exns >> simp[] >>
-      (* the oracle is unchanged unless a PtrEq was evaluated; the small-step
-         semantics has no pointer-equality oracle yet *)
-      cheat
+      metis_tac []
       )
     )
   >- ( (* Dmod *)

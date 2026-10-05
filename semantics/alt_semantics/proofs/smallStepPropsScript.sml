@@ -50,8 +50,8 @@ Theorem small_eval_prefix:
 Proof
   srw_tac[][] >>
   PairCases_on `r` >>
-  rename [‘small_eval env s e c ((r0,r1),r2) (* g *)’] >>
-  cases_on `r2` >>
+  rename [‘small_eval env s e c ((refs,ffi,po),res) (* g *)’] >>
+  cases_on `res` >>
   full_simp_tac(srw_ss())[small_eval_def] >-
    metis_tac [transitive_RTC, transitive_def] >>
   cases_on `e''` >>
@@ -261,7 +261,7 @@ srw_tac[][do_con_check_def] >>
 every_case_tac >>
 full_simp_tac(srw_ss())[] >>
 PairCases_on `r` >>
-cases_on `r2` >|
+cases_on `r3` >|
 [all_tac,
  cases_on `e`] >>
 srw_tac[][small_eval_def] >>
@@ -612,7 +612,7 @@ Proof
       match_mp_tac RTC_SINGLE >>
       srw_tac[][e_step_reln_def, e_step_def, continue_def])
   >- (PairCases_on `r` >>
-      cases_on `r2` >|
+      cases_on `r3` >|
       [all_tac,
        cases_on `e'`] >>
       full_simp_tac(srw_ss())[alt_small_eval_def, small_eval_def]
@@ -630,7 +630,7 @@ Proof
       srw_tac[][] >>
       srw_tac[][e_step_def, continue_def])
   >- (PairCases_on `r` >>
-      cases_on `r2` >|
+      cases_on `r3` >|
       [all_tac,
        cases_on `e'`] >>
       full_simp_tac(srw_ss())[alt_small_eval_def] >>
@@ -713,6 +713,7 @@ Proof
     TRY(PairCases_on`x`) >>
     gvs[CaseEq"prod",CaseEq"result",CaseEq"error_result",
         do_app_cases,PULL_EXISTS]
+    >~ [‘Capp PtrEq _ _ _’] >- (Cases_on ‘t’ >> gvs[])
     >~ [`do_arith a p`] >- (
       Cases_on`a` \\ Cases_on ‘p’ using prim_type_cases
       \\ gvs[do_arith_def, CaseEq"list"] ) >>
@@ -755,6 +756,7 @@ Proof
     TRY(PairCases_on`x`) >>
     gvs[CaseEq"prod",CaseEq"result",CaseEq"error_result",
         do_app_cases,PULL_EXISTS]
+    >~ [‘Capp PtrEq _ _ _’] >- (Cases_on ‘t’ >> gvs[])
     >~ [`do_arith a p`] >- (
       Cases_on`a` \\ Cases_on ‘p’ using prim_type_cases
       \\ gvs[do_arith_def, CaseEq"list"]
@@ -1038,11 +1040,11 @@ Theorem small_exp_safety1:
 Proof
   rw[e_diverges_def, Once DISJ_COMM, DISJ_EQ_IMP] >>
   PairCases_on `r` >>
-  rename [‘small_eval env s e [] ((stl, ffi), result)’] >>
+  rename [‘small_eval env s e [] ((stl, ffi, po), result)’] >>
   Cases_on ‘result’ >>
   gvs[small_eval_def, e_step_reln_def]
   >- (goal_assum drule >> simp[e_step_def, continue_def]) >>
-  rename [‘((stl,ffi), Rerr err)’] >>
+  rename [‘((stl,ffi,po), Rerr err)’] >>
   Cases_on `err` >> gvs[small_eval_def] >>
   goal_assum drule >> simp[e_step_def, continue_def]
 QED
@@ -1306,13 +1308,13 @@ Proof
 QED
 
 Theorem e_step_reln_decl_step_reln:
-  ∀env (stffi:('ffi,v) store_ffi) ev cs env' stffi' ev' cs'
+  ∀env (stffi:'ffi small_store) ev cs env' stffi' ev' cs'
     benv (st:'ffi state) locs p dcs.
   e_step_reln꙳ (env, stffi,  ev, cs) (env', stffi', ev', cs')
   ⇒ (decl_step_reln benv)꙳
-      (st with <| refs := FST stffi ; ffi := SND stffi ; |>,
+      (st with <| refs := FST stffi ; ffi := FST (SND stffi); ptr_eq_oracle := SND (SND stffi); |>,
           ExpVal env ev cs locs p, dcs)
-      (st with <| refs := FST stffi' ; ffi := SND stffi' ; |>,
+      (st with <| refs := FST stffi' ; ffi := FST (SND stffi'); ptr_eq_oracle := SND (SND stffi'); |>,
           ExpVal env' ev' cs' locs p, dcs)
 Proof
   Induct_on `RTC e_step_reln` >> rw[] >> simp[] >>
@@ -1552,25 +1554,25 @@ QED
 Theorem small_decl_diverges_ExpVal_lemma[local]:
   ∀benv (st:'ffi state) env ev cs locs p dcs b.
     (decl_step_reln benv)꙳ (st,ExpVal env ev cs locs p,dcs) b ∧
-    (∀res. (e_step_reln꙳ (env,(st.refs,st.ffi),ev,cs) res ⇒
+    (∀res. (e_step_reln꙳ (env,(st.refs,st.ffi,st.ptr_eq_oracle),ev,cs) res ⇒
       ∃res'. e_step_reln res res'))
   ⇒ ∃c. decl_step_reln benv b c
 Proof
   gen_tac >> Induct_on ‘RTC (decl_step_reln benv)’ >> rw[] >>
   gvs[decl_step_reln_def, e_step_reln_def]
   >- (
-    last_x_assum $ qspec_then ‘(env,(st.refs,st.ffi),ev,cs)’ mp_tac >> rw[] >>
+    last_x_assum $ qspec_then ‘(env,(st.refs,st.ffi,st.ptr_eq_oracle),ev,cs)’ mp_tac >> rw[] >>
     simp[decl_step_def] >> every_case_tac >> gvs[] >>
     gvs[e_step_def, continue_def]
     ) >>
   first_x_assum irule >>
-  ‘∃r. e_step (env,(st.refs,st.ffi),ev,cs) = Estep r’ by (
+  ‘∃r. e_step (env,(st.refs,st.ffi,st.ptr_eq_oracle),ev,cs) = Estep r’ by (
     first_x_assum irule >> simp[]) >>
   rename1 ‘Dstep dst’ >> PairCases_on ‘dst’ >> simp[] >>
   PairCases_on ‘r’ >>
-  rename [‘e_step _ = Estep (env1, (stl,ffs), eve, stk)’] >>
+  rename [‘e_step _ = Estep (env1, (stl,ffs,po), eve, stk)’] >>
   qexistsl_tac [‘stk’,‘env1’,‘eve’,‘locs’,‘p’] >>
-  ‘stl = dst0.refs ∧ ffs = dst0.ffi’ by (
+  ‘stl = dst0.refs ∧ ffs = dst0.ffi ∧ po = dst0.ptr_eq_oracle’ by (
     gvs[decl_step_def] >> every_case_tac >> gvs[] >>
     gvs[e_step_def, continue_def]
     ) >>
@@ -1584,7 +1586,7 @@ QED
 
 Theorem small_decl_diverges_ExpVal:
   ∀env (st:'ffi state) e benv env e locs pat dcs.
-    e_diverges env (st.refs,st.ffi) e
+    e_diverges env (st.refs,st.ffi,st.ptr_eq_oracle) e
   ⇒ small_decl_diverges benv (st, ExpVal env (Exp e) [] locs pat, dcs)
 Proof
   rw[e_diverges_def, small_decl_diverges_def] >>
@@ -1695,9 +1697,9 @@ QED
 (******************** IO traces *******************)
 
 Theorem application_ffi_unchanged:
-  ∀op env st ffi vs cs env' st' ffi' ev cs'.
+  ∀op env st ffi po vs cs env' st' ffi' po' ev cs'.
     (∀s. op ≠ FFI s) ∧
-    application op env (st, ffi) vs cs = Estep (env', (st', ffi'), ev, cs')
+    application op env (st, ffi, po) vs cs = Estep (env', (st', ffi', po'), ev, cs')
   ⇒ ffi = ffi'
 Proof
   rpt gen_tac >> rw[application_thm, return_def] >>
@@ -1709,8 +1711,8 @@ Proof
 QED
 
 Theorem e_step_ffi_changed:
-  ∀env st ffi ev cs ffi' env' st' ev' cs'.
-  e_step (env, (st, ffi),  ev, cs) = Estep (env', (st', ffi'), ev', cs') ∧
+  ∀env st ffi po ev cs ffi' env' st' po' ev' cs'.
+  e_step (env, (st, ffi, po),  ev, cs) = Estep (env', (st', ffi', po'), ev', cs') ∧
   ffi ≠ ffi' ⇒
   ∃ s conf lnum ccs ws ffi_st ws' b.
     ev = Val (Litv (StrLit conf)) ∧
@@ -1781,7 +1783,7 @@ Proof
   TOP_CASE_TAC >> gvs[] >>
   qmatch_goalsub_abbrev_tac `e_step_result_CASE stepe` >>
   qpat_abbrev_tac `foo = e_step_result_CASE _ _ _ _` >> strip_tac >>
-  qspecl_then [‘s’,‘st.refs’,‘st.ffi’,‘e’,‘l’,‘st'.ffi’] assume_tac e_step_ffi_changed >>
+  qspecl_then [‘s’,‘st.refs’,‘st.ffi’,‘st.ptr_eq_oracle’,‘e’,‘l’,‘st'.ffi’] assume_tac e_step_ffi_changed >>
   gvs[Abbr `stepe`] >> last_x_assum assume_tac >> last_x_assum mp_tac >>
   TOP_CASE_TAC >> gvs[]
   >- (unabbrev_all_tac >> gvs[] >> every_case_tac >> gvs[state_component_equality]) >>
@@ -1793,10 +1795,10 @@ QED
 
 Theorem io_events_mono_e_step:
   e_step e1 = Estep e2 ⇒
-  io_events_mono (SND $ FST $ SND e1) (SND $ FST $ SND e2)
+  io_events_mono (FST $ SND $ FST $ SND e1) (FST $ SND $ FST $ SND e2)
 Proof
   PairCases_on `e1` >> PairCases_on `e2` >> gvs[] >> rw[] >>
-  rename1 `e_step (env1,(st1,ffi1),ev1,cs1) = _ (env2,(st2,ffi2),ev2,cs2)` >>
+  rename1 `e_step (env1,(st1,ffi1,po1),ev1,cs1) = _ (env2,(st2,ffi2,po2),ev2,cs2)` >>
   Cases_on `ffi1 = ffi2` >- simp[io_events_mono_refl] >>
   drule_all e_step_ffi_changed >> rw[] >> gvs[] >>
   rw[io_events_mono_def]
@@ -1815,7 +1817,7 @@ QED
 Theorem RTC_e_step_reln_io_events_mono:
   ∀env s ev cs env' s' ev' cs'.
     RTC e_step_reln (env,s,ev,cs) (env',s',ev',cs')
-  ⇒ io_events_mono (SND s) (SND s')
+  ⇒ io_events_mono (FST (SND s)) (FST (SND s'))
 Proof
   Induct_on `RTC` >> rw[] >> simp[] >>
   rename1 `(_,_) = ctxt` >> PairCases_on `ctxt` >> gvs[e_step_reln_def] >>

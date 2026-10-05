@@ -49,7 +49,10 @@ End
  * - the context stack (continuation) of what to do once the current expression
  *   is finished.  Each entry has an environment for it's free variables *)
 
-Type small_state = ``: v sem_env # ('ffi, v) store_ffi # exp_val_exn # ctxt list``
+(* Expression evaluation carries the store, FFI state, and pointer oracle. *)
+Type small_store = ``: v store # 'ffi ffi_state # (num -> num -> bool)``
+
+Type small_state = ``: v sem_env # 'ffi small_store # exp_val_exn # ctxt list``
 
 Datatype:
   e_step_result =
@@ -66,7 +69,7 @@ End
 
 (*val push : forall 'ffi. sem_env v -> store_ffi 'ffi v -> exp -> ctxt_frame -> list ctxt -> e_step_result 'ffi*)
 Definition push_def:
- (push: v sem_env -> v store#'ffi ffi_state ->
+ (push: v sem_env -> 'ffi small_store ->
         exp -> ctxt_frame ->(ctxt_frame#v sem_env)list -> 'ffi e_step_result)
    env s e c' cs = (Estep (env, s, Exp e, ((c',env)::cs)))
 End
@@ -74,11 +77,11 @@ End
 
 (*val return : forall 'ffi. sem_env v -> store_ffi 'ffi v -> v -> list ctxt -> e_step_result 'ffi*)
 Definition return_def:
- ((return:(v)sem_env ->(v)store#'ffi ffi_state -> v ->(ctxt)list -> 'ffi e_step_result) env s v c=  (Estep (env, s, Val v, c)))
+ ((return:(v)sem_env ->'ffi small_store -> v ->(ctxt)list -> 'ffi e_step_result) env s v c=  (Estep (env, s, Val v, c)))
 End
 
 Definition application_def:
- (application:op ->(v)sem_env ->(v)store#'ffi ffi_state -> (v)list ->(ctxt)list -> 'ffi e_step_result) op env s vs c=
+ (application:op ->(v)sem_env ->'ffi small_store -> (v)list ->(ctxt)list -> 'ffi e_step_result) op env s vs c=
    (case getOpClass op of
       FunApp =>
       (case do_opapp vs of
@@ -95,9 +98,21 @@ Definition application_def:
                 Estep (env, s, Val f,
                        (Capp Opapp [Conv NONE []] () [], env)::(Cforce n, env)::c))
         | _ => Eabort Rtype_error)
+     | PtrEqOp =>
+       (case vs of
+          [v1; v2] =>
+            (case do_eq v1 v2 of
+               Eq_type_error => Eabort Rtype_error
+             | Eq_val b =>
+                 let po = SND (SND s) in
+                 return env
+                   (FST s, FST (SND s), (0 =+ shift_seq 1 (po 0)) po)
+                   (Boolv (b ∧ po 0 0)) c)
+        | _ => Eabort Rtype_error)
      | _ =>
-      (case do_app s op vs of
-          SOME (s',r) =>
+      (case do_app (FST s, FST (SND s)) op vs of
+          SOME ((refs',ffi'),r) =>
+          let s' = (refs',ffi',SND (SND s)) in
           (case r of
               Rerr (Rraise v) => Estep (env,s', Exn v, c)
             | Rerr (Rabort a) => Eabort a
@@ -110,7 +125,7 @@ End
 (* apply a context to a value *)
 (*val continue : forall 'ffi. store_ffi 'ffi v -> v -> list ctxt -> e_step_result 'ffi*)
 Definition continue_def:
- ((continue:(v)store#'ffi ffi_state -> v ->(ctxt_frame#(v)sem_env)list -> 'ffi e_step_result) s v cs=
+ ((continue:'ffi small_store -> v ->(ctxt_frame#(v)sem_env)list -> 'ffi e_step_result) s v cs=
    ((case cs of
       [] => Estuck
     | (Craise () , env) :: c => Estep (env, s, Exn v, c)
@@ -186,7 +201,7 @@ End
 
 (*val e_step : forall 'ffi. small_state 'ffi -> e_step_result 'ffi*)
 Definition e_step_def:
- ((e_step:(v)sem_env#((v)store#'ffi ffi_state)#exp_val_exn#(ctxt)list -> 'ffi e_step_result) (env, s, ev, c)=
+ ((e_step:(v)sem_env#('ffi small_store)#exp_val_exn#(ctxt)list -> 'ffi e_step_result) (env, s, ev, c)=
    ((case ev of
       Val v  =>
         continue s v c
@@ -255,18 +270,18 @@ End
 (*val small_eval : forall 'ffi. sem_env v -> store_ffi 'ffi v -> exp -> list ctxt -> store_ffi 'ffi v * result v v -> bool*)
 
 Definition e_step_reln_def:
- ((e_step_reln:(v)sem_env#('ffi,(v))store_ffi#exp_val_exn#(ctxt)list ->(v)sem_env#('ffi,(v))store_ffi#exp_val_exn#(ctxt)list -> bool) st1 st2=
+ ((e_step_reln:(v)sem_env#('ffi small_store)#exp_val_exn#(ctxt)list ->(v)sem_env#('ffi small_store)#exp_val_exn#(ctxt)list -> bool) st1 st2=
    (e_step st1 = Estep st2))
 End
 
 Definition small_eval_def:
-((small_eval:(v)sem_env ->(v)store#'ffi ffi_state -> exp ->(ctxt)list ->((v)store#'ffi ffi_state)#((v),(v))result -> bool) env s e c (s', Rval v)=
+((small_eval:(v)sem_env ->'ffi small_store -> exp ->(ctxt)list ->('ffi small_store)#((v),(v))result -> bool) env s e c (s', Rval v)=
    (? env'. (RTC (e_step_reln)) (env,s,Exp e,c) (env',s',Val v,[])))
 /\
-((small_eval:(v)sem_env ->(v)store#'ffi ffi_state -> exp ->(ctxt)list ->((v)store#'ffi ffi_state)#(v,v)result -> bool) env s e c (s', Rerr (Rraise v))=
+((small_eval:(v)sem_env ->'ffi small_store -> exp ->(ctxt)list ->('ffi small_store)#(v,v)result -> bool) env s e c (s', Rerr (Rraise v))=
    (? env'. (RTC (e_step_reln)) (env,s,Exp e,c) (env',s',Exn v,[])))
 /\
-((small_eval:(v)sem_env ->(v)store#'ffi ffi_state -> exp ->(ctxt)list ->((v)store#'ffi ffi_state)#(v,v)result -> bool) env s e c (s', Rerr (Rabort a))=
+((small_eval:(v)sem_env ->'ffi small_store -> exp ->(ctxt)list ->('ffi small_store)#(v,v)result -> bool) env s e c (s', Rerr (Rabort a))=
    (? env' e' c'.
     (RTC (e_step_reln)) (env,s,Exp e,c) (env',s',e',c') /\
     (e_step (env',s',e',c') = Eabort a)))
@@ -275,7 +290,7 @@ End
 
 (*val e_diverges : forall 'ffi. sem_env v -> store_ffi 'ffi v -> exp -> bool*)
 Definition e_diverges_def:
- ((e_diverges:(v)sem_env ->(v)store#'ffi ffi_state -> exp -> bool) env s e =
+ ((e_diverges:(v)sem_env ->'ffi small_store -> exp -> bool) env s e =
    (! env' s' e' c'.
     (RTC (e_step_reln)) (env,s,Exp e,[]) (env',s',e',c')
     ==>
@@ -433,9 +448,9 @@ Definition decl_step_def:
           else Dabort Rtype_error
       | (Exn v, []) => Draise v
       | _ =>
-        (case e_step (env, (st.refs, st.ffi), ev, ec) of
-          Estep (env', (refs', ffi'), ev', ec') =>
-            Dstep (( st with<| refs := refs' ; ffi := ffi'; |>),
+        (case e_step (env, (st.refs, st.ffi, st.ptr_eq_oracle), ev, ec) of
+          Estep (env', (refs', ffi', po'), ev', ec') =>
+            Dstep (( st with<| refs := refs' ; ffi := ffi'; ptr_eq_oracle := po'; |>),
               ExpVal env' ev' ec' locs p, c)
         | Eabort a => Dabort a
         | Estuck => Ddone (* cannot happen *)

@@ -74,12 +74,17 @@ Theorem application_rel:
   (∀s. op ≠ FFI s) ∧
   ctxt_rel cs1 cs2 ⇒
   step_result_rel
-    (application op env st vs cs1)
-    (application op env (st,ffi) vs cs2)
+    (application op env (st,po) vs cs1)
+    (application op env (st,ffi,po) vs cs2)
 Proof
   rw[] >>
   drule do_app_rel >> disch_then $ qspecl_then [`vs`,`st`,`ffi`] assume_tac >>
   Cases_on ‘getOpClass op’
+  >~ [‘getOpClass op = PtrEqOp’] >- (
+    rw[application_def, cml_application_thm] >>
+    every_case_tac >>
+    gvs[return_def, smallStepTheory.return_def, step_result_rel_cases]
+    )
   >- (
     Cases_on ‘op’ >> gs[getOpClass_def, application_def, cml_application_thm]
     >- gvs[AllCaseEqs()] >>
@@ -120,8 +125,8 @@ Proof
 QED
 
 Theorem application_rel_FFI_type_error:
-  application (FFI s) env st vs cs1 = Etype_error ⇔
-  application (FFI s) env (st, ffi) vs cs2 = Eabort Rtype_error
+  application (FFI s) env (st,po) vs cs1 = Etype_error ⇔
+  application (FFI s) env (st,ffi,po) vs cs2 = Eabort Rtype_error
 Proof
   rw[application_def, cml_application_thm] >>
   simp[semanticPrimitivesTheory.do_app_def] >>
@@ -130,8 +135,8 @@ Proof
 QED
 
 Theorem application_rel_FFI_step:
-  application (FFI s) env st vs cs1 = Estep (env, st, Val v, cs1) ⇔
-  application (FFI s) env (st, ffi) vs cs2 = Estep (env, (st,ffi), Val v, cs2)
+  application (FFI s) env (st,po) vs cs1 = Estep (env, (st,po), Val v, cs1) ⇔
+  application (FFI s) env (st,ffi,po) vs cs2 = Estep (env, (st,ffi,po), Val v, cs2)
 Proof
   rw[application_def, cml_application_thm] >>
   simp[semanticPrimitivesTheory.do_app_def] >>
@@ -143,11 +148,11 @@ QED
 
 Theorem dstep_ExpVal_Exp:
   dstep env st (ExpVal env' (Exp e) cs locs p) dcs =
-  case estep (env',st.refs,Exp e,cs) of
-  | Estep (env',refs',ev',ec') =>
-      dreturn (st with <| refs := refs'; |>) dcs (ExpVal env' ev' ec' locs p)
-  | Effi s ws1 ws2 n env'' refs'' ec'' =>
-    Dffi (st with refs := refs'') (s,ws1,ws2,n,env'',ec'') locs p dcs
+  case estep (env',(st.refs,st.ptr_eq_oracle),Exp e,cs) of
+  | Estep (env',(refs',po'),ev',ec') =>
+      dreturn (st with <| refs := refs'; ptr_eq_oracle := po'; |>) dcs (ExpVal env' ev' ec' locs p)
+  | Effi s ws1 ws2 n env'' (refs'',po'') ec'' =>
+    Dffi (st with <| refs := refs''; ptr_eq_oracle := po'' |>) (s,ws1,ws2,n,env'',ec'') locs p dcs
   | Edone => Ddone
   | Etype_error => Dtype_error
 Proof
@@ -156,10 +161,10 @@ QED
 
 Theorem decl_step_ExpVal_Exp:
   decl_step env (st,ExpVal env' (Exp e) ec locs p,c) =
-  case e_step (env',(st.refs,st.ffi),Exp e,ec) of
-    Estep (env',(refs',ffi'),ev',ec') =>
+  case e_step (env',(st.refs,st.ffi,st.ptr_eq_oracle),Exp e,ec) of
+    Estep (env',(refs',ffi',po'),ev',ec') =>
       Dstep
-        (st with <|refs := refs'; ffi := ffi'; |>,
+        (st with <|refs := refs'; ffi := ffi'; ptr_eq_oracle := po'; |>,
          ExpVal env' ev' ec' locs p,c)
   | Eabort a => Dabort a
   | Estuck => Ddone
@@ -184,7 +189,7 @@ Theorem step_result_rel_single:
   ⇒ step_result_rel (estep ea) (e_step eb) ∧
     ∀ffi. get_ffi (e_step eb) = SOME ffi ⇒ get_ffi (Estep eb) = SOME ffi
 Proof
-  rpt PairCases >> rename1 `_ (_ (env,st,ev,cs1)) (_ (env',(st',ffi),ev',cs2))` >>
+  rpt PairCases >> rename1 `_ (_ (env,(st,po),ev,cs1)) (_ (env',(st',ffi,po'),ev',cs2))` >>
   gvs[e_step_def] >> reverse $ TOP_CASE_TAC >> gvs[]
   >- (
     simp[Once step_result_rel_cases] >> strip_tac >> gvs[] >>
@@ -215,7 +220,7 @@ Proof
         reverse $ rw[]
         >- (
           drule application_ffi_unchanged >>
-          Cases_on `application op env (st,ffi) vs rest2` >> gvs[get_ffi_def] >>
+          Cases_on `application op env (st,ffi,po) vs rest2` >> gvs[get_ffi_def] >>
           PairCases_on `p` >> disch_then drule >> gvs[get_ffi_def]
           )
         >- (
@@ -254,7 +259,7 @@ Proof
       reverse $ rw[]
       >- (
         drule application_ffi_unchanged >>
-        Cases_on `application op env (st,ffi) [] cs2` >> gvs[get_ffi_def] >>
+        Cases_on `application op env (st,ffi,po) [] cs2` >> gvs[get_ffi_def] >>
         PairCases_on `p` >> disch_then drule >> gvs[get_ffi_def]
         )
       >- (
@@ -275,7 +280,7 @@ QED
 
 Theorem is_Dffi_eq_is_Effi_single:
   is_Dffi (dstep env dsta (ExpVal env' ev cs l p) dcs) ⇔
-  is_Effi (estep (env',dsta.refs,ev,cs))
+  is_Effi (estep (env',(dsta.refs,dsta.ptr_eq_oracle),ev,cs))
 Proof
   Cases_on `ev` >> rw[SF ditree_ss, SF itree_ss] >>
   Cases_on `cs` >> rw[SF ditree_ss, SF itree_ss, is_Effi_def, is_Dffi_def] >>
@@ -306,7 +311,7 @@ Proof
     ) >>
   Cases_on `ev` >> gvs[]
   >- (
-    `¬is_Effi (estep (env',dsta.refs,Exp e,cs))` by gvs[is_Dffi_eq_is_Effi_single] >>
+    `¬is_Effi (estep (env',(dsta.refs,dsta.ptr_eq_oracle),Exp e,cs))` by gvs[is_Dffi_eq_is_Effi_single] >>
     simp[dstep_ExpVal_Exp, decl_step_ExpVal_Exp] >>
     drule_at Any step_result_rel_single >>
     simp[Once step_result_rel_cases, PULL_EXISTS] >>
@@ -380,17 +385,17 @@ Theorem estep_to_Effi:
     conf = MAP (λc. n2w (ORD c)) (explode conf') ∧
     ea = (env',st,Val (Litv (StrLit conf')),
             (Capp (FFI s) [Loc b lnum] [],env)::cs) ∧
-    store_lookup lnum st = SOME (W8array ws) ∧ s ≠ «»
+    store_lookup lnum (FST st) = SOME (W8array ws) ∧ s ≠ «»
 Proof
   PairCases_on `ea` >>
-  rename [‘(ea0,ea1,ea2,ea3) = (_, st, Val _, (Capp _ _ _, env)::cs)’] >>
-  Cases_on `ea2` >> gvs[SF itree_ss] >~
-  [‘estep (ea0,ea1,Exp e,_) ≠ _’]
+  rename [‘(env0,(refs,po),ev,cs0) = (_, st, Val _, (Capp _ _ _, env)::cs)’] >>
+  Cases_on `ev` >> gvs[SF itree_ss] >~
+  [‘estep (env0,(refs,po),Exp e,_) ≠ _’]
   >- (
     Cases_on `e` >> gvs[SF itree_ss] >> every_case_tac >> gvs[] >>
     simp[application_thm] >> every_case_tac >> gvs[SF itree_ss]
     ) >>
-  Cases_on `ea3` >> gvs[SF itree_ss] >>
+  Cases_on `cs0` >> gvs[SF itree_ss] >>
   rename [‘h::t’] >>
   PairCases_on `h` >> rename [‘(h0,h1)::t’] >>
   reverse $ Cases_on `h0` >> gvs[SF itree_ss] >>
@@ -1640,6 +1645,7 @@ Definition dstate_of_def:
     next_type_stamp := st.next_type_stamp;
     next_exn_stamp := st.next_exn_stamp;
     eval_state := st.eval_state;
+    ptr_eq_oracle := st.ptr_eq_oracle;
   |>
 End
 
@@ -1853,7 +1859,9 @@ QED
 (******************** Initial state/environment ********************)
 
 Theorem start_dstate:
-  ∀ffi:'ffi ffi_state. dstate_of (FST $ THE $ prim_sem_env ffi) = start_dstate
+  ∀(ffi:'ffi ffi_state) po.
+    dstate_of ((FST $ THE $ prim_sem_env ffi) with ptr_eq_oracle := po) =
+    start_dstate po
 Proof
   rw[prim_sem_env_eq, dstate_of_def, start_dstate_def]
 QED
@@ -1871,9 +1879,9 @@ Proof
 QED
 
 Theorem itree_semantics_itree_of:
-  ∀(ffi:'ffi ffi_state) prog.
-    itree_of (FST $ THE $ prim_sem_env ffi) start_env prog =
-    itree_semantics prog
+  ∀(ffi:'ffi ffi_state) po prog.
+    itree_of ((FST $ THE $ prim_sem_env ffi) with ptr_eq_oracle := po) start_env prog =
+    itree_semantics po prog
 Proof
   rw[itree_semantics_def, itree_of_def, start_dstate]
 QED

@@ -411,12 +411,14 @@ End
 
 Type "ctxt"[pp] = ``:ctxt_frame # v sem_env``;
 
-Type "small_state"[pp] = ``:v sem_env # v store # exp_val_exn # ctxt list``;
+Type "expr_store"[pp] = ``:v store # (num -> num -> bool)``;
+
+Type "small_state"[pp] = ``:v sem_env # expr_store # exp_val_exn # ctxt list``;
 
 Datatype:
   estep_result = Estep small_state
                | Effi ffiname (word8 list) (word8 list) num
-                        (v sem_env) (v store) (ctxt list)
+                        (v sem_env) expr_store (ctxt list)
                | Edone
                | Etype_error
 End
@@ -439,7 +441,7 @@ Definition application_def:
    | Force =>
       (case vs of
          [Loc b n] => (
-            case dest_thunk [Loc b n] s of
+            case dest_thunk [Loc b n] (FST s) of
             | BadRef => Etype_error
             | NotThunk => Etype_error
             | IsThunk Evaluated v => return env s v c
@@ -447,12 +449,22 @@ Definition application_def:
                 return env s f
                   ((Capp Opapp [Conv NONE []] [], env)::(Cforce n, env)::c))
         | _ => Etype_error)
+   | PtrEqOp =>
+       (case vs of
+          [v1; v2] =>
+            (case do_eq v1 v2 of
+               Eq_type_error => Etype_error
+             | Eq_val b =>
+                 let po = SND s in
+                 return env (FST s, (0 =+ shift_seq 1 (po 0)) po)
+                   (Boolv (b ∧ po 0 0)) c)
+        | _ => Etype_error)
    | _ =>
        case op of
        | FFI n => (
          case vs of
            [Litv (StrLit conf); Loc _ lnum] => (
-           case store_lookup lnum s of
+           case store_lookup lnum (FST s) of
              SOME (W8array ws) =>
                if n = «» then Estep (env, s, Val $ Conv NONE [], c)
                else Effi (ExtCall n)
@@ -461,9 +473,9 @@ Definition application_def:
            | _ => Etype_error)
          | _ => Etype_error)
        | _ =>
-           (case do_app s op vs of
+           (case do_app (FST s) op vs of
               SOME (s', Rraise v) => Estep (env, s, Exn v,c)
-              | SOME (s', Rval v) => return env s' v c
+              | SOME (s', Rval v) => return env (s', SND s) v c
               | NONE => Etype_error )
 End
 
@@ -474,11 +486,11 @@ Definition continue_def:
   continue s v ((Capp op vs [], env) :: c) = application op env s (v::vs) c ∧
   continue s v ((Capp op vs (e::es), env) :: c) = push env s e (Capp op (v::vs) es) c ∧
   continue s v ((Cforce n, env) :: c) = (
-    case dest_thunk [v] s of
+    case dest_thunk [v] (FST s) of
     | BadRef => Etype_error
     | NotThunk => (
-        case store_assign n (Thunk Evaluated v) s of
-        | SOME s' => return env s' v c
+        case store_assign n (Thunk Evaluated v) (FST s) of
+        | SOME s' => return env (s', SND s) v c
         | NONE => Etype_error)
     | IsThunk v3 v4 => Etype_error) ∧
   continue s v ((Clog l e, env) :: c) = (
@@ -491,14 +503,14 @@ Definition continue_def:
       SOME e => Estep (env, s, Exp e, c)
     | NONE => Etype_error) ∧
   continue s v ((Cmat_check pes err_v, env) :: c) = (
-    if can_pmatch_all env.c s (MAP FST pes) v then
+    if can_pmatch_all env.c (FST s) (MAP FST pes) v then
       Estep (env, s, Val v, (Cmat pes err_v, env)::c)
     else Etype_error) ∧
   continue s v ((Cmat [] err_v, env) :: c) =
     Estep (env, s, Exn err_v, c) ∧
   continue s v ((Cmat ((p,e)::pes) err_v, env) :: c) = (
     if ALL_DISTINCT (pat_bindings p) then (
-      case pmatch env.c s p v [] of
+      case pmatch env.c (FST s) p v [] of
         Match_type_error => Etype_error
       | No_match => Estep (env, s, Val v, (Cmat pes err_v, env)::c)
       | Match env' =>
@@ -577,6 +589,7 @@ Datatype:
    ; next_type_stamp : num
    ; next_exn_stamp : num
    ; eval_state : eval_state option
+   ; ptr_eq_oracle : num -> num -> bool
    |>
 End
 
@@ -671,13 +684,13 @@ Definition dstep_def:
     else Dtype_error ) ∧
   dstep benv st (ExpVal env (Exn v) [] locs p) c = Draise v ∧
   dstep benv st (ExpVal env ev ec locs p) c =
-    case estep (env, st.refs, ev, ec) of
-    | Estep (env', refs', ev', ec') =>
-        dreturn (st with <| refs := refs'; |>) c (ExpVal env' ev' ec' locs p)
+    case estep (env, (st.refs, st.ptr_eq_oracle), ev, ec) of
+    | Estep (env', (refs',po'), ev', ec') =>
+        dreturn (st with <| refs := refs'; ptr_eq_oracle := po' |>) c (ExpVal env' ev' ec' locs p)
     | Etype_error => Dtype_error
     | Edone => Ddone (* cannot happen *)
-    | Effi s ws1 ws2 n env' refs' ec' =>
-        Dffi (st with refs := refs') (s, ws1, ws2, n, env', ec') locs p c
+    | Effi s ws1 ws2 n env' (refs',po') ec' =>
+        Dffi (st with <| refs := refs'; ptr_eq_oracle := po' |>) (s, ws1, ws2, n, env', ec') locs p c
 End
 
 Definition is_halt_def:
@@ -745,8 +758,8 @@ Definition interp_def:
 End
 
 Definition start_dstate_def:
-  start_dstate : dstate =
-  <| refs := []; next_type_stamp := 2; next_exn_stamp := 4; eval_state := NONE;
+  start_dstate po : dstate =
+  <| refs := []; next_type_stamp := 2; next_exn_stamp := 4; eval_state := NONE; ptr_eq_oracle := po;
   |>
 End
 
@@ -761,8 +774,8 @@ Definition start_env_def:
 End
 
 Definition itree_semantics_def:
-  itree_semantics prog =
-  interp start_env (Dstep start_dstate (Decl (Dlocal [] prog)) [])
+  itree_semantics po prog =
+  interp start_env (Dstep (start_dstate po) (Decl (Dlocal [] prog)) [])
 End
 
 CoInductive safe_itree:

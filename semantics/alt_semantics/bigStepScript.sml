@@ -566,7 +566,7 @@ Inductive dec_diverges:
 (! env st locs p e.
 (ALL_DISTINCT (pat_bindings p) /\
  check_exp_constructors env.c e /\
- e_diverges env (st.refs, st.ffi) e)
+ e_diverges env (st.refs, st.ffi, st.ptr_eq_oracle) e)
 ==>
 dec_diverges env st (Dlet locs p e))
 
