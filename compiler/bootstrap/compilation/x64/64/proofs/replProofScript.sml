@@ -217,9 +217,7 @@ Proof
   \\ impl_tac
   >-
    (CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [dec_clock_def]
-    \\ irule repl_types_clock_refs
-    \\ qsuff_tac ‘(s_pr with eval_state := NONE) = s_pr’ >- fs []
-    \\ fs [semanticPrimitivesTheory.state_component_equality])
+    \\ drule_then irule repl_types_input_skip_alt \\ simp [])
   \\ strip_tac \\ simp []
   \\ rename [‘res9 ≠ Rerr (Rabort Rtype_error)’]
   \\ Cases_on ‘res9 = Rerr (Rabort Rtype_error)’ >- fs [combine_dec_result_def]
@@ -245,3 +243,5 @@ Proof
   \\ pairarg_tac \\ gvs []
   \\ qexists_tac ‘k’ \\ fs []
 QED
+
+val _ = check_thm semantics_prog_compiler64_x64_prog;
