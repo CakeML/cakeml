@@ -359,7 +359,7 @@ QED
    check_cstep, except that
 
    - a solution is logged and banned over its own assigned variables rather
-     than over the (empty) preserved set;
+     than over the (empty) preserved set, and must have no free variables;
    - Sstep and CheckedDelete need a loaded order, because without one their
      witness carries no order relation and hence no bound on the objective
      vector;
@@ -368,16 +368,17 @@ Definition check_mo_cstep_def:
   check_mo_cstep mord (objs:((int # num) list # int) list) cstep
     (fml:pbf) (pc:proof_conf) (sols:int list list) =
   case cstep of
-    Sol w =>
+    Sol w free =>
     (let ws = list_to_num_set (MAP FST w) in
-    if pc.chk ∧ EVERY (λv. sptree$lookup v ws ≠ NONE) (mo_obj_vars objs) then
+    if free = LN ∧ pc.chk ∧
+      EVERY (λv. sptree$lookup v ws ≠ NONE) (mo_obj_vars objs) then
       case check_obj NONE w
         (MAP SND (toAList (mk_core_fml T fml))) NONE of
         NONE => NONE
       | SOME (new,wsol) =>
         SOME (
           insert pc.id
-            (model_banning (SOME ws) wsol,T) fml,
+            (model_banning (SOME ws) LN wsol,T) fml,
           pc with <| id := pc.id+1; enum := pc.enum+1 |>,
           obj_vecs objs wsol :: sols)
     else NONE)
@@ -468,7 +469,7 @@ QED
 (* Failing to satisfy the ban means agreeing with the logged assignment
    on every banned variable *)
 Theorem model_banning_agree[local]:
-  ¬satisfies_npbc w (model_banning (SOME (list_to_num_set vs)) wsol) ⇒
+  ¬satisfies_npbc w (model_banning (SOME (list_to_num_set vs)) LN wsol) ⇒
   ∀v. MEM v vs ⇒ (wsol v ⇔ w v)
 Proof
   rw[satisfies_npbc_model_banning,pres_set_spt_def]>>
@@ -772,7 +773,7 @@ Proof
     `satisfies wsol (core_only_fml T fml)` by
       gvs[GSYM range_mk_core_fml,range_toAList]>>
     `∀w. ¬satisfies_npbc w
-        (model_banning (SOME (list_to_num_set (MAP FST l))) wsol) ⇒
+        (model_banning (SOME (list_to_num_set (MAP FST l))) LN wsol) ⇒
        obj_vecs objs w = obj_vecs objs wsol` by (
       rw[]>>
       drule model_banning_agree>>
@@ -794,7 +795,7 @@ Proof
       rw[]
       >- (
         Cases_on`satisfies_npbc w'
-          (model_banning (SOME (list_to_num_set (MAP FST l))) wsol)`
+          (model_banning (SOME (list_to_num_set (MAP FST l))) LN wsol)`
         >- (
           disj1_tac>>
           qexists_tac`w'`>>
@@ -813,7 +814,7 @@ Proof
       metis_tac[])
     >- (
       Cases_on`satisfies_npbc w
-        (model_banning (SOME (list_to_num_set (MAP FST l))) wsol)`
+        (model_banning (SOME (list_to_num_set (MAP FST l))) LN wsol)`
       >- (
         disj1_tac>>
         qexists_tac`w`>>
