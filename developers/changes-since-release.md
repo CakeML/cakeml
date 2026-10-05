@@ -105,3 +105,5 @@ must be rewritten into `FOLDL` over `|+`. The bootstrap translation calls
 `add_fmap_for_cmp` for `mlstring`, `int` and `num` keys in `decProg`.
 
 ## Miscellaneous
+
+Combined fix for some small issues (PR #1530 fixing #1313, #1373, #1449, #1480, #1503).
