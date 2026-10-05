@@ -3,7 +3,7 @@
 *)
 Theory caketaigerCompile
 Ancestors
-  caketaigerProgProof x64_config
+  caketaigerProg x64_config
 Libs
   preamble eval_cake_compile_x64Lib
 
