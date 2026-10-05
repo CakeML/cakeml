@@ -8,15 +8,6 @@ Ancestors
   linear_scan state_transformer ml_translator
   pancake_parseProg reg_alloc reg_allocProof
 
-open preamble
-open reg_allocTheory reg_allocProofTheory state_transformerTheory
-open ml_monad_translatorLib ml_translatorTheory;
-open pancake_parseProgTheory;
-
-(*
-open basisProgTheory
-*)
-
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = translation_extends "pancake_parseProg";
@@ -265,7 +256,6 @@ val _ = translate reg_alloc_def;
 
 (* === Translation of linear scan register allocator === *)
 
-open linear_scanTheory;
 
 (*
  *  Set up the monadic translator
@@ -292,11 +282,11 @@ val exn_functions = [
 val refs_manip_list = [] : (string * thm * thm) list;
 val rarrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
 val farrays_manip_list = [
-    ("colors", get_colors_def, set_colors_def, colors_length_def, colors_sub_def, update_colors_def),
-    ("int_beg", get_int_beg_def, set_int_beg_def, int_beg_length_def, int_beg_sub_def, update_int_beg_def),
-    ("int_end", get_int_end_def, set_int_end_def, int_end_length_def, int_end_sub_def, update_int_end_def),
-    ("sorted_regs", get_sorted_regs_def, set_sorted_regs_def, sorted_regs_length_def, sorted_regs_sub_def, update_sorted_regs_def),
-    ("sorted_moves", get_sorted_moves_def, set_sorted_moves_def, sorted_moves_length_def, sorted_moves_sub_def, update_sorted_moves_def)
+    ("colors", get_colors_def, set_colors_def, linear_scanTheory.colors_length_def, linear_scanTheory.colors_sub_def, linear_scanTheory.update_colors_def),
+    ("int_beg", get_int_beg_def, set_int_beg_def, linear_scanTheory.int_beg_length_def, linear_scanTheory.int_beg_sub_def, linear_scanTheory.update_int_beg_def),
+    ("int_end", get_int_end_def, set_int_end_def, linear_scanTheory.int_end_length_def, linear_scanTheory.int_end_sub_def, linear_scanTheory.update_int_end_def),
+    ("sorted_regs", get_sorted_regs_def, set_sorted_regs_def, linear_scanTheory.sorted_regs_length_def, linear_scanTheory.sorted_regs_sub_def, linear_scanTheory.update_sorted_regs_def),
+    ("sorted_moves", get_sorted_moves_def, set_sorted_moves_def, linear_scanTheory.sorted_moves_length_def, linear_scanTheory.sorted_moves_sub_def, linear_scanTheory.update_sorted_moves_def)
 ];
 
 val add_type_theories  = ([] : string list);
@@ -319,7 +309,7 @@ val _ = start_dynamic_init_fixed_store_translation
 
 val res = translate the_def;
 val res = translate numset_list_delete_def;
-val res = translate numset_list_insert_def;
+val res = translate linear_scanTheory.numset_list_insert_def;
 val res = translate is_stack_var_def;
 val res = translate is_phy_var_def;
 val res = translate pairTheory.LEX_DEF;
@@ -341,110 +331,72 @@ Proof
   \\ Induct \\ fs [map_colors_sub_def,st_ex_MAP_def]
 QED
 
-val res = m_translate spill_register_def;
-val res = m_translate MAP_colors_def;
-val res = m_translate st_ex_FOLDL_def;
+val res = m_translate linear_scanTheory.spill_register_def;
+val res = m_translate linear_scanTheory.MAP_colors_def;
+val res = m_translate linear_scanTheory.st_ex_FOLDL_def;
 val res = m_translate map_colors_sub_def;
-val res = m_translate remove_inactive_intervals_def;
+val res = m_translate linear_scanTheory.remove_inactive_intervals_def;
 
-val res = translate linear_reg_alloc_pass1_initial_state_def;
-val res = translate linear_reg_alloc_pass2_initial_state_def;
-val res = translate add_active_interval_def;
-val res = translate find_color_in_list_def;
-val res = translate find_color_in_colornum_def;
-val res = translate find_color_def;
-val res = m_translate color_register_def;
-val res = m_translate find_last_stealable_def;
-val res = m_translate find_spill_def;
-val res = m_translate (linear_reg_alloc_step_aux_def
+val res = translate linear_scanTheory.linear_reg_alloc_pass1_initial_state_def;
+val res = translate linear_scanTheory.linear_reg_alloc_pass2_initial_state_def;
+val res = translate linear_scanTheory.add_active_interval_def;
+val res = translate linear_scanTheory.find_color_in_list_def;
+val res = translate linear_scanTheory.find_color_in_colornum_def;
+val res = translate linear_scanTheory.find_color_def;
+val res = m_translate linear_scanTheory.color_register_def;
+val res = m_translate linear_scanTheory.find_last_stealable_def;
+val res = m_translate linear_scanTheory.find_spill_def;
+val res = m_translate (linear_scanTheory.linear_reg_alloc_step_aux_def
                        |> REWRITE_RULE [MEMBER_INTRO]);
-val res = m_translate (linear_reg_alloc_step_pass1_def
+val res = m_translate (linear_scanTheory.linear_reg_alloc_step_pass1_def
                        |> REWRITE_RULE [GSYM map_colors_sub_eq]);
-val res = m_translate (linear_reg_alloc_step_pass2_def
+val res = m_translate (linear_scanTheory.linear_reg_alloc_step_pass2_def
                        |> REWRITE_RULE [GSYM map_colors_sub_eq]);
 
-val res = m_translate find_reg_exchange_def;
-val res = m_translate apply_reg_exchange_def;
+val res = m_translate linear_scanTheory.find_reg_exchange_def;
+val res = m_translate linear_scanTheory.apply_reg_exchange_def;
 
-val res = m_translate list_to_sorted_regs_def;
+val res = m_translate linear_scanTheory.list_to_sorted_regs_def;
 
-val res = m_translate swap_regs_def;
-val res = m_translate partition_regs_def;
+val res = m_translate linear_scanTheory.swap_regs_def;
+val res = m_translate linear_scanTheory.partition_regs_def;
 
-val res = m_translate sort_regs_def;
-val res = m_translate sorted_regs_to_list_def;
-val res = m_translate list_to_sorted_moves_def;
+val res = m_translate linear_scanTheory.sort_regs_def;
+val res = m_translate linear_scanTheory.sorted_regs_to_list_def;
+val res = m_translate linear_scanTheory.list_to_sorted_moves_def;
 
-val res = m_translate swap_moves_def;
-val res = m_translate partition_moves_def;
-val res = m_translate sort_moves_def;
-val res = m_translate sorted_moves_to_list_def;
+val res = m_translate linear_scanTheory.swap_moves_def;
+val res = m_translate linear_scanTheory.partition_moves_def;
+val res = m_translate linear_scanTheory.sort_moves_def;
+val res = m_translate linear_scanTheory.sorted_moves_to_list_def;
 
-val res = m_translate edges_to_adjlist_def;
-val res = m_translate st_ex_FILTER_good_def;
+val res = m_translate linear_scanTheory.edges_to_adjlist_def;
+val res = m_translate linear_scanTheory.st_ex_FILTER_good_def;
 
-val res = m_translate (linear_reg_alloc_intervals_def)
+val res = m_translate (linear_scanTheory.linear_reg_alloc_intervals_def)
 
-val res = m_translate extract_coloration_def;
-val res = translate find_bijection_init_def;
-val res = translate find_bijection_step_def;
-val res = translate apply_bijection_def;
+val res = m_translate linear_scanTheory.extract_coloration_def;
+val res = translate linear_scanTheory.find_bijection_init_def;
+val res = translate linear_scanTheory.find_bijection_step_def;
+val res = translate linear_scanTheory.apply_bijection_def;
 
-val res = m_translate numset_list_add_if_lt_monad_def;
-val res = m_translate numset_list_add_if_gt_monad_def;
-val res = m_translate get_intervals_ct_monad_aux_def;
-val res = m_translate get_intervals_ct_monad_def;
-val res = m_translate linear_reg_alloc_and_extract_coloration_def;
-val res = m_translate_run run_linear_reg_alloc_intervals_def;
+val res = m_translate linear_scanTheory.numset_list_add_if_lt_monad_def;
+val res = m_translate linear_scanTheory.numset_list_add_if_gt_monad_def;
+val res = m_translate linear_scanTheory.get_intervals_ct_monad_aux_def;
+val res = m_translate linear_scanTheory.get_intervals_ct_monad_def;
+val res = m_translate linear_scanTheory.linear_reg_alloc_and_extract_coloration_def;
+val res = m_translate_run linear_scanTheory.run_linear_reg_alloc_intervals_def;
 
-val res = translate get_live_tree_def;
-val res = translate get_live_backward_def;
-val res = translate fix_domination_def;
-val res = translate numset_list_add_if_def;
-val res = translate numset_list_add_if_lt_def;
-val res = translate numset_list_add_if_gt_def;
-val res = translate get_intervals_def;
-val res = translate find_bijection_clash_tree_def;
-val res = translate apply_bij_on_clash_tree_def;
-val res = translate size_of_clash_tree_def;
-val res = translate linear_scan_reg_alloc_def;
-
-
-(*
-TODO: update the following code (comes from the non-monadic register allocator
-
-misc code to generate the unverified register allocator in SML
-
-(* Not sure where this gets overwritten *)
-val implode = String.implode;
-val explode = String.explode;
-
-open ml_progLib cfLib basis
-open astPP
-
-Quote add_cakeml:
-  fun main u = ()
-End
-
-val st =  get_ml_prog_state ();
-
-Theorem main_whole_prog_spec:
-   F ==> whole_prog_spec ^(fetch_v "main" st) cl fs NONE (\x. T)
-Proof
-  simp []
-QED
-
-val (_,prog_tm) = prove_sem_thm st "main" (UNDISCH main_whole_prog_spec);
-
-val _ = enable_astPP()
-val _ = Globals.max_print_depth:= ~1
-val _ = trace("pp_avoids_symbol_merges",0)
-val t = TextIO.openOut("reg_alloc.sml")
-val _ = TextIO.output(t,term_to_string prog_tm)
-val _ = TextIO.closeOut(t)
-val _ = Globals.max_print_depth:= 20
-val _ = disable_astPP()
-
-*)
+val res = translate linear_scanTheory.get_live_tree_def;
+val res = translate linear_scanTheory.get_live_backward_def;
+val res = translate linear_scanTheory.fix_domination_def;
+val res = translate linear_scanTheory.numset_list_add_if_def;
+val res = translate linear_scanTheory.numset_list_add_if_lt_def;
+val res = translate linear_scanTheory.numset_list_add_if_gt_def;
+val res = translate linear_scanTheory.get_intervals_def;
+val res = translate linear_scanTheory.find_bijection_clash_tree_def;
+val res = translate linear_scanTheory.apply_bij_on_clash_tree_def;
+val res = translate linear_scanTheory.size_of_clash_tree_def;
+val res = translate linear_scanTheory.linear_scan_reg_alloc_def;
 
 val _ = (ml_translatorLib.clean_on_exit := true);
