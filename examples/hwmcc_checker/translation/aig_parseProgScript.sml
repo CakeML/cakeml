@@ -77,7 +77,8 @@ val r = translate aig_parseTheory.parse_ands_def;
 val r = translate (aig_parseTheory.parse_aiger_def |> demonadify);
 
 val r = translate sptreeTheory.insert_def;
-val r = translate aig_parseTheory.insert_if_def;
+val r = translate (aig_parseTheory.parse_mapping_def |> demonadify);
+val r = translate aig_parseTheory.add_mapping_def;
 
 val r = translate (aig_parseTheory.parse_entry_def |> demonadify);
 val r = translate aig_parseTheory.parse_symbol_table_aux_def;

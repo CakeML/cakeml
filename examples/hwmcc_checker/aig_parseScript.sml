@@ -359,36 +359,63 @@ End
   identity map.
 *)
 
-Definition insert_if_def:
-  insert_if b k v m = if b then insert k v m else m
+Definition parse_mapping_def:
+  parse_mapping s i =
+  let i = consume_space s i; is_interv = is_char s i #"<" in
+    if is_interv ∨ is_char s i #"=" then
+      do
+        (lit, i) <- parse_number s (consume_space s (i + 1));
+        return ([(is_interv, lit)], i)
+      od
+    else return ([], i)
+End
+
+Theorem parse_mapping_mono[local]:
+  parse_mapping s i = return (ms, i') ⇒ i ≤ i'
+Proof
+  simp [parse_mapping_def, oneline bind_def]
+  >> reverse IF_CASES_TAC
+  >- (strip_tac >> gvs [consume_space_mono])
+  >> CASE_TAC >> simp []
+  >> rename1 ‘_ ≤ i₃’
+  >> qmatch_asmsub_abbrev_tac ‘parse_number s (consume_space s i₁)’
+  >> qmatch_asmsub_abbrev_tac ‘parse_number s i₂’
+  >> strip_tac
+  >> have ‘i₂ ≤ i₃’
+  >- (
+    rpt (pairarg_tac >> gvs [])
+    >> drule parse_number_return_mono >> simp []
+  )
+  >> have ‘i₁ ≤ i₂’ >- (simp [Abbr ‘i₂’, consume_space_mono])
+  >> have ‘i ≤ i₁’
+  >- (
+    qspecl_then [‘s’, ‘i’] assume_tac consume_space_mono
+    >> simp [Abbr ‘i₁’]
+  )
+  >> simp []
+QED
+
+Definition add_mapping_def:
+  add_mapping kind v (is_interv, lit) (shared_is, shared_ls, interv) =
+    if is_interv then (shared_is, shared_ls, insert v lit interv)
+    else if kind = #"i" then (insert v lit shared_is, shared_ls, interv)
+    else (shared_is, insert v lit shared_ls, interv)
 End
 
 Definition parse_entry_def:
   parse_entry s i latch_start kind shared_is shared_ls interv =
   do
     (pos, i) <- parse_number s i;
-    i <<- consume_space s i;
-    if strlen s ≤ i then error («unexpected EOF while parsing symbol table», i)
-    else
-      let op = strsub s i; i = i + 1 in
-        if op = #"=" ∨ op = #"<" then
-          do
-            (lit, i) <- parse_number s (consume_space s i);
-            assert («input or latch mapped to negative literal», i)
-             (if kind = #"i" ∨ kind = #"l" then lit MOD 2 = 0 else T);
-            return (
-              if is_char s i #"\n" then
-                let
-                  interv    = insert_if (op = #"<")
-                    ((if kind = #"i" then 1 else latch_start) + pos) lit interv;
-                  shared_is = insert_if (kind = #"i" ∧ op = #"=")
-                    (1 + pos) lit shared_is;
-                  shared_ls = insert_if (kind = #"l" ∧ op = #"=")
-                    (latch_start + pos) lit shared_ls;
-                in ((shared_is, shared_ls, interv), consume_line s i)
-              else ((shared_is, shared_ls, interv), consume_line s i))
-          od
-        else return ((shared_is, shared_ls, interv), consume_line s i)
+    (m₁, i) <- parse_mapping s i;
+    (m₂, i) <- parse_mapping s i;
+    ms <<- m₁ ++ m₂;
+    assert («input or latch mapped to negative literal», i)
+      (EVERY (λm. SND m MOD 2 = 0) ms);
+    v <<- (if kind = #"i" then 1 else latch_start) + pos;
+    acc <<- (shared_is, shared_ls, interv);
+    return
+      (if is_char s i #"\n" then FOLDR (add_mapping kind v) acc ms else acc,
+       consume_line s i)
   od
 End
 
@@ -397,29 +424,20 @@ Theorem parse_entry_mono[local]:
   return ((shared_is', shared_ls', interv'), i') ⇒
   i ≤ i'
 Proof
-  simp [parse_entry_def, oneline bind_def]
-  >> TOP_CASE_TAC
-  >> rpt (pairarg_tac >> gvs [])
-  >> drule_then assume_tac parse_number_return_mono
+  simp [parse_entry_def, oneline bind_def, guard_def]
+  >> TOP_CASE_TAC >> rpt (pairarg_tac >> gvs [])
+  >> rename1 ‘parse_number _ _ = _ (_, i₁)’
+  >> TOP_CASE_TAC >> rpt (pairarg_tac >> gvs [])
+  >> rename1 ‘parse_mapping _ _ = _ (_, i₂)’
+  >> TOP_CASE_TAC >> rpt (pairarg_tac >> gvs [])
+  >> rename1 ‘parse_mapping _ _ = _ (_, i₃)’
   >> IF_CASES_TAC >> gvs []
-  >> rename1 ‘consume_space s i₂ + 1’
-  >> qmatch_goalsub_abbrev_tac ‘parse_number s (consume_space s (i₃ + 1))’
-  >> qmatch_goalsub_abbrev_tac ‘parse_number s i₄’
-  >> ‘i₂ ≤ i₃’ by simp [Abbr ‘i₃’, consume_space_mono]
-  >> ‘i₃ ≤ i₄’ by
-    (qspecl_then [‘s’, ‘i₃ + 1’] assume_tac consume_space_mono
-     >> simp [Abbr ‘i₄’])
-  >> reverse IF_CASES_TAC
-  >-
-   (‘i₃ ≤ consume_line s (i₃ + 1)’ by
-      (qspecl_then [‘s’, ‘i₃ + 1’] assume_tac consume_line_mono >> simp [])
-    >> simp [])
-  >> TOP_CASE_TAC
-  >> rpt (pairarg_tac >> gvs [AllCaseEqs()])
-  >> rw []
+  >> strip_tac >> gvs []
+  >> qmatch_goalsub_abbrev_tac ‘i ≤ i₄’
+  >> have ‘i₃ ≤ i₄’ >- simp [Abbr ‘i₄’, consume_line_mono]
   >> imp_res_tac parse_number_return_mono
-  >> rename1 ‘consume_line s i₅’
-  >> qspecl_then [‘s’, ‘i₅’] assume_tac consume_line_mono >> simp []
+  >> imp_res_tac parse_mapping_mono
+  >> simp []
 QED
 
 Definition parse_symbol_table_aux_def:
