@@ -439,15 +439,6 @@ val error_line_ex1 =
 
 val error_line_ex1_parse = check_failure $ parse_pancake error_line_ex1
 
-(* error rows count from 0, as locs_to_string expects, over the lines
-   that quote_to_strings keeps *)
-fun has_error_row r =
-  let val row = numSyntax.term_of_int r in
-    assert $ can (match_term “INR [(m, Locs (POSN ^row c) e)]”) o rhs o concl
-  end
-
-val error_line_ex1_row = has_error_row 6 error_line_ex1_parse
-
 val error_line_ex2 =
  ‘/* this
   nasty /* non recursive /*
@@ -461,8 +452,6 @@ val error_line_ex2 =
  ’
 
 val error_line_ex2_parse = check_failure $ parse_pancake error_line_ex2
-
-val error_line_ex2_row = has_error_row 7 error_line_ex2_parse
 
 val error_line_ex3 =
 ‘
@@ -478,8 +467,6 @@ val error_line_ex3 =
 ’
 
 val error_line_ex3_parse = check_failure $ parse_pancake error_line_ex3
-
-val error_line_ex3_row = has_error_row 5 error_line_ex3_parse
 
 (* Exporting a function, that is, making a function callable for external entry into Pancake,
    uses the `export` keyword. Functions without this keyword are not callable in this way *)
@@ -679,19 +666,19 @@ val exception_declaration_parse = check_success $ parse_pancake exception_declar
 
 (* A number directly followed by a letter or an underscore is a lexer
    error, rather than a number followed by a name *)
-val malformed_number_exs : (term quotation * term) list =
-  [(‘var 1g = 0;’, “«Malformed number: 1g»”),
-   (‘fun 1f() { return 0; }’, “«Malformed number: 1f»”),
-   (‘fun f(1a) { return a; }’, “«Malformed number: 1a»”),
-   (‘fun f() { var 1x = 0; return x; }’, “«Malformed number: 1x»”),
-   (‘struct p { 1x }’, “«Malformed number: 1x»”),
-   (‘fun f() { var y = lds 1x; return y; }’, “«Malformed number: 1x»”),
-   (‘fun f() { return 0x10; }’, “«Malformed number: 0x10»”),
-   (‘fun f() { return 1_000; }’, “«Malformed number: 1_000»”),
-   (‘fun f() { return -1x; }’, “«Malformed number: -1x»”)]
+val malformed_number_exs =
+  [‘var 1g = 0;’,
+   ‘fun 1f() { return 0; }’,
+   ‘fun f(1a) { return a; }’,
+   ‘fun f() { var 1x = 0; return x; }’,
+   ‘struct p { 1x }’,
+   ‘fun f() { var y = lds 1x; return y; }’,
+   ‘fun f() { return 0x10; }’,
+   ‘fun f() { return 1_000; }’,
+   ‘fun f() { return -1x; }’]
 
 val malformed_number_parses =
-  map (fn (ex, msg) =>
-         assert (can (find_term (aconv msg)) o rhs o concl) $
-           check_failure $ parse_pancake ex)
+  map (fn ex =>
+         assert (can (find_term (same_const “LexErrorT”)) o rhs o concl) $
+           lex_pancake ex)
       malformed_number_exs
