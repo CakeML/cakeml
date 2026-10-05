@@ -409,8 +409,6 @@ Definition parse_entry_def:
     (m₁, i) <- parse_mapping s i;
     (m₂, i) <- parse_mapping s i;
     ms <<- m₁ ++ m₂;
-    assert («input or latch mapped to negative literal», i)
-      (EVERY (λm. SND m MOD 2 = 0) ms);
     v <<- (if kind = #"i" then 1 else latch_start) + pos;
     acc <<- (shared_is, shared_ls, interv);
     return
@@ -424,14 +422,13 @@ Theorem parse_entry_mono[local]:
   return ((shared_is', shared_ls', interv'), i') ⇒
   i ≤ i'
 Proof
-  simp [parse_entry_def, oneline bind_def, guard_def]
+  simp [parse_entry_def, oneline bind_def]
   >> TOP_CASE_TAC >> rpt (pairarg_tac >> gvs [])
   >> rename1 ‘parse_number _ _ = _ (_, i₁)’
   >> TOP_CASE_TAC >> rpt (pairarg_tac >> gvs [])
   >> rename1 ‘parse_mapping _ _ = _ (_, i₂)’
   >> TOP_CASE_TAC >> rpt (pairarg_tac >> gvs [])
   >> rename1 ‘parse_mapping _ _ = _ (_, i₃)’
-  >> IF_CASES_TAC >> gvs []
   >> strip_tac >> gvs []
   >> qmatch_goalsub_abbrev_tac ‘i ≤ i₄’
   >> have ‘i₃ ≤ i₄’ >- simp [Abbr ‘i₄’, consume_line_mono]
@@ -595,16 +592,19 @@ End
 Definition make_interv_def:
   make_interv micnt mlcnt wicnt wmax_latch iren lren next interv =
   if isEmpty interv then
-    (* next: latch -> lit is turned into var -> (Latch latch, bool) *)
+    (* next: latch -> lit is turned into var -> (bvar, bool) *)
     FOLDL
       (λmap x.
-         let lit = shared_lit micnt mlcnt iren lren (SND x) in
+         let
+           lit = shared_lit micnt mlcnt iren lren (SND x);
+           c' = shared_lit micnt mlcnt iren lren (Base (Latch (FST x)), F)
+         in
            case FST lit of
            | Base Ff => map
            | _ =>
-             fmap_update map (FST lit)
-               (Latch (shared_latch_key micnt mlcnt iren lren (FST x)),
-                SND lit))
+             case FST c' of
+             | Base bv => fmap_update map (FST lit) (bv, SND lit ≠ SND c')
+             | _ => map)
       FEMPTY next
   else
     foldi
@@ -618,7 +618,7 @@ Definition make_interv_def:
                (Base (if c ≤ wicnt then Input c else Latch c), F)
          in
            case FST c' of
-           | Base bv => fmap_update map (FST lit') (bv, SND lit')
+           | Base bv => fmap_update map (FST lit') (bv, SND lit' ≠ SND c')
            | _ => map)
       0 FEMPTY interv
 End
