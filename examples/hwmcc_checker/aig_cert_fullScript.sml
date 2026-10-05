@@ -183,7 +183,7 @@ Definition preprocess_witness_def:
         maiger.justice wjust;
     interv =
       make_interv micnt mlcnt wicnt wmax_latch iren lren waiger.next
-        (ms.intervened_latches);
+        ms.intervened;
     interv = FLOOKUP interv;
   in
     (waig, wreset, wnext, wsafes, wcnstrs, wlive, wlatches, interv)

@@ -138,7 +138,8 @@ Overload "LATCH_LIT_TYPE"[local] = “NUM --> LIT_TYPE”
 Overload "LATCH_OPTION_LIT_TYPE"[local] = “NUM --> OPTION_TYPE LIT_TYPE”
 
 Overload "INTERV_TYPE"[local] =
-  “AIG_VAR_TYPE NUM NUM NUM --> OPTION_TYPE (PAIR_TYPE NUM BOOL)”
+  “AIG_VAR_TYPE NUM NUM NUM -->
+   OPTION_TYPE (PAIR_TYPE (AIG_BVAR_TYPE NUM NUM) BOOL)”
 
 Theorem write_reset_spec[local]:
   FILENAME prefix prefixv ∧

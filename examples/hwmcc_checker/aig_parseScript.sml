@@ -50,7 +50,7 @@ Datatype:
   maps = <|
     shared_inputs        : num num_map;
     shared_latches       : num num_map;
-    intervened_latches   : num num_map;
+    intervened           : num num_map;
   |>
 End
 
@@ -376,13 +376,11 @@ Definition parse_entry_def:
             (lit, i) <- parse_number s (consume_space s i);
             assert («input or latch mapped to negative literal», i)
              (if kind = #"i" ∨ kind = #"l" then lit MOD 2 = 0 else T);
-            assert («intervention maps something other than latches», i)
-              (if op = #"<" then kind = #"l" else T);
             return (
               if is_char s i #"\n" then
                 let
                   interv    = insert_if (op = #"<")
-                    (latch_start + pos) lit interv;
+                    ((if kind = #"i" then 1 else latch_start) + pos) lit interv;
                   shared_is = insert_if (kind = #"i" ∧ op = #"=")
                     (1 + pos) lit shared_is;
                   shared_ls = insert_if (kind = #"l" ∧ op = #"=")
@@ -470,7 +468,7 @@ Definition parse_symbol_table_def:
       parse_symbol_table_aux s i latch_start LN LN LN;
     return
       (<| shared_inputs := shared_is; shared_latches := shared_ls;
-          intervened_latches := interv |>, i)
+          intervened := interv |>, i)
   od
 End
 
@@ -579,7 +577,7 @@ End
 Definition make_interv_def:
   make_interv micnt mlcnt wicnt wmax_latch iren lren next interv =
   if isEmpty interv then
-    (* next: latch -> lit is turned into var -> (latch, bool) *)
+    (* next: latch -> lit is turned into var -> (Latch latch, bool) *)
     FOLDL
       (λmap x.
          let lit = shared_lit micnt mlcnt iren lren (SND x) in
@@ -587,17 +585,23 @@ Definition make_interv_def:
            | Base Ff => map
            | _ =>
              fmap_update map (FST lit)
-               (shared_latch_key micnt mlcnt iren lren (FST x), (SND lit)))
+               (Latch (shared_latch_key micnt mlcnt iren lren (FST x)),
+                SND lit))
       FEMPTY next
   else
     foldi
-      (λlat lit map.
+      (λc lit map.
          let
            lit' =
-             shared_lit micnt mlcnt iren lren (convert_lit wicnt wmax_latch lit)
+             shared_lit micnt mlcnt iren lren
+               (convert_lit wicnt wmax_latch lit);
+           c' =
+             shared_lit micnt mlcnt iren lren
+               (Base (if c ≤ wicnt then Input c else Latch c), F)
          in
-           fmap_update map (FST lit')
-             (shared_latch_key micnt mlcnt iren lren lat, (SND lit')))
+           case FST c' of
+           | Base bv => fmap_update map (FST lit') (bv, SND lit')
+           | _ => map)
       0 FEMPTY interv
 End
 
@@ -637,6 +641,6 @@ val interv =
         ^(maiger).counts.inputs ^(maiger).counts.latches
         ^(waiger).counts.inputs (^(waiger).counts.inputs + ^(waiger).counts.latches)
         ^iren ^lren
-        ^(waiger).next ^(wmaps).intervened_latches”
+        ^(waiger).next ^(wmaps).intervened”
     |> concl |> rhs
 *)
