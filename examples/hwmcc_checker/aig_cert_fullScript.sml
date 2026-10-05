@@ -182,7 +182,7 @@ Definition preprocess_witness_def:
              (MAP (not ∘ shared_lit micnt mlcnt iren lren) ws))
         maiger.justice wjust;
     interv =
-      make_interv micnt mlcnt wicnt wmax_latch iren lren wnext_alist
+      make_interv micnt mlcnt wicnt wmax_latch iren lren waiger.next
         (ms.intervened_latches);
     interv = FLOOKUP interv;
   in

@@ -583,8 +583,11 @@ Definition make_interv_def:
     FOLDL
       (λmap x.
          let lit = shared_lit micnt mlcnt iren lren (SND x) in
-           fmap_update map (FST lit)
-             (shared_latch_key micnt mlcnt iren lren (FST x), (SND lit)))
+           case FST lit of
+           | Base Ff => map
+           | _ =>
+             fmap_update map (FST lit)
+               (shared_latch_key micnt mlcnt iren lren (FST x), (SND lit)))
       FEMPTY next
   else
     foldi
