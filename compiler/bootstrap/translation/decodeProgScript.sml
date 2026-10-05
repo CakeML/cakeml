@@ -8,10 +8,6 @@ Ancestors
 Libs
   preamble basisFunctionsLib ml_translatorLib cfLib
 
-open preamble basisFunctionsLib
-     num_list_enc_decTheory num_tree_enc_decTheory backend_enc_decTheory
-     explorerProgTheory ml_translatorLib ml_translatorTheory cfLib;
-
 val _ = translation_extends "explorerProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "decodeProg");
@@ -285,7 +281,6 @@ val res = translate def;
 val res = translate backend_config_dec_def;
 
 val res = translate decode_backend_config_def;
-
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

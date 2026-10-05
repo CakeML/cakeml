@@ -7,13 +7,6 @@ Ancestors
 Libs
   preamble ml_translatorLib inliningLib
 
-open preamble;
-open evaluateTheory
-open ml_translatorLib ml_translatorTheory;
-open x64ProgTheory
-open arm8_targetTheory arm8Theory;
-open inliningLib;
-
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = computeLib.upd_compset (fn c => computeLib.set_skip c “COND” (SOME 1));
@@ -572,7 +565,6 @@ val _ = translate (valid_immediate_def |> SIMP_RULE bool_ss
 
 Theorem arm8_config_v_thm[allow_rebind] =
   translate (arm8_config_def |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]|> econv)
-
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

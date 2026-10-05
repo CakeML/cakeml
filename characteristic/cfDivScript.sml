@@ -842,7 +842,7 @@ Proof
           fs[quantHeuristicsTheory.LIST_LENGTH_1] >> rveq >>
           fs[mk_inl_res_def] >> rveq >>
           fs[dest_inl_v_def,dest_inr_v_def] >>
-          fs[astTheory.getOpClass_def] >>
+          fs[semanticPrimitivesTheory.getOpClass_def] >>
           qmatch_goalsub_abbrev_tac `a1 = _` >>
           MAP_EVERY qexists_tac [`FST a1`,`SND a1`] >>
           simp[] >> PURE_TOP_CASE_TAC >> simp[]) >>
