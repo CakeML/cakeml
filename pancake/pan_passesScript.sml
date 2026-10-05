@@ -14,7 +14,7 @@ Datatype:
       Pan ('a decl list)
     | Crep ((mlstring # num list # α crepLang$prog) list)
     | Loop ((num # num list # α loopLang$prog) list) (mlstring sptree$num_map)
-    | Cake ('a backend_passes$any_prog)
+    | Cake backend_passes$any_prog
 End
 
 Definition pan_to_target_all_def:

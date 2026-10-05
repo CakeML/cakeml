@@ -159,7 +159,7 @@ Proof
         gs[MEM_EL]>>
         first_x_assum $ qspec_then ‘n''''’ assume_tac>>
         gs[]>>pairarg_tac>>gs[])>>
-  drule (INST_TYPE [beta|->alpha] word_to_stackProofTheory.word_to_stack_compile_lab_pres)>>
+  drule (INST_TYPE [alpha|->“:ε”] word_to_stackProofTheory.word_to_stack_compile_lab_pres)>>
   disch_then $ qspec_then ‘mc.target.config’ assume_tac>>
   drule_all pan_to_stack_first_ALL_DISTINCT>>
   strip_tac>>gs[]>>
@@ -195,7 +195,7 @@ Theorem word_to_stack_good_code_lemma:
   (pan_to_word_compile_prog mc.target.config.ISA pan_code) = (col,wprog) ∧
   mc.target.config.ISA ≠ Ag32 ∧
   word_to_stack_compile mc.target.config F
-    (wprog:(num # num # α wordLang$prog) list) = (bitmaps,c'',fs,p) ∧
+    (wprog:(num # num # wordLang$prog) list) = (bitmaps:α word list,c'',fs,p) ∧
   isa_bits mc.target.config = dimindex (:α) ∧
   LENGTH mc.target.config.avoid_regs + 13 ≤ mc.target.config.reg_count ∧
   (* from backend_config_ok c *)
@@ -207,7 +207,8 @@ Proof
   gs[stack_to_labProofTheory.good_code_def]>>strip_tac>>
   qmatch_asmsub_abbrev_tac ‘word_to_word_compile _ _ wprog0 = _’>>
   qpat_x_assum ‘Abbrev (wprog0 = _)’ (assume_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def])>>
-  drule_at (Pat ‘word_to_word_compile _ _ _ = _’) pan_to_stack_compile_lab_pres>>
+  drule_at (Pat ‘word_to_word_compile _ _ _ = _’)
+    (INST_TYPE [alpha|->“:ε”,“:ε”|->alpha] pan_to_stack_compile_lab_pres)>>
   disch_then drule_all>>strip_tac>>gs[]>>
   drule backendProofTheory.compile_to_word_conventions2>>
   impl_tac
@@ -1346,7 +1347,7 @@ Proof
   (* no_install_or_no_share_mem *)
   ‘no_install lprog’ by
     (fs[Abbr ‘lprog’]>>
-     irule from_pan_to_lab_no_install>>
+     irule (INST_TYPE [beta|->alpha] from_pan_to_lab_no_install)>>
      rpt (first_assum $ irule_at Any)>>
      metis_tac[mc_init_ok_def])>>
   ‘no_install_or_no_share_mem lprog mc.ffi_names’
@@ -1394,7 +1395,7 @@ Proof
 
   ‘good_code mc.target.config (LN:num sptree$num_map sptree$num_map) lprog’
     by (
-    irule (INST_TYPE [beta|-> ``:num``] pan_to_lab_good_code_lemma)>>
+    irule (INST_TYPE [beta|->alpha] pan_to_lab_good_code_lemma)>>
     gs[]>>
     rpt (first_assum $ irule_at Any)>>
     qpat_x_assum ‘Abbrev (lprog = _)’
@@ -1404,7 +1405,9 @@ Proof
     qpat_x_assum ‘Abbrev (wprog0 = _)’
                  (assume_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def])>>
     (* labels_ok *)
-    drule_all pan_to_lab_labels_ok>>strip_tac>>gs[]>>
+    drule_all (INST_TYPE [beta|->alpha,gamma|->beta,
+                          “:δ”|->gamma,“:ε”|->alpha] pan_to_lab_labels_ok)>>
+    strip_tac>>gs[]>>
     (* all_enc_ok_pre mc.target.config lprog *)
     ‘byte_offset_ok mc.target.config 0’
       by gs[lab_to_targetProofTheory.mc_conf_ok_def]>>
@@ -1423,7 +1426,8 @@ Proof
      (* reshaping... *)
      gs[GSYM EVERY_CONJ]>>
      simp[LAMBDA_PROD]>>
-     ‘p = SND (SND (SND (word_to_stack_compile mc.target.config F wprog)))’
+     ‘p = SND (SND (SND (word_to_stack_compile mc.target.config F wprog :
+        α word list # word_to_stack$config # num list # (num # stackLang$prog) list)))’
        by gs[]>>
      pop_assum $ (fn h => rewrite_tac[h])>>
      irule word_to_stackProofTheory.word_to_stack_stack_asm_convs>>
@@ -1500,7 +1504,9 @@ Proof
         gs[Abbr ‘lorac’]>>
         drule backendProofTheory.byte_aligned_MOD>>gs[]>>
         strip_tac>>
-        drule_all word_to_stack_good_code_lemma>>
+        drule_all (INST_TYPE [beta|->alpha,gamma|->beta,
+                              “:δ”|->gamma,“:ε”|->alpha]
+                    word_to_stack_good_code_lemma)>>
         rw[]>>
         gs[stack_to_labProofTheory.good_code_def])>>
   gs[]>>
@@ -1600,14 +1606,15 @@ Proof
     gs[stack_removeProofTheory.init_prop_def]>>
     rveq>>gs[stackSemTheory.state_component_equality])>>
 
-  ‘sst.code = fromAList (SND (SND (SND (word_to_stack_compile mc.target.config F wprog))))’
+  ‘sst.code = fromAList (SND (SND (SND (word_to_stack_compile mc.target.config F wprog :
+      α word list # word_to_stack$config # num list # (num # stackLang$prog) list))))’
     by gs[]>>
   drule_at Any word_to_stackProofTheory.compile_semantics>>
   gs[]>>
 
   ‘EVERY (λ(n,m,prog).
             flat_exp_conventions prog ∧
-            post_alloc_conventions
+            post_alloc_conventions (isa_bits mc.target.config)
             (mc.target.config.reg_count −
              (LENGTH mc.target.config.avoid_regs + 5)) prog) wprog’
     by (qpat_x_assum ‘EVERY _ wprog’ assume_tac>>
@@ -1695,7 +1702,8 @@ Proof
   pop_assum $ irule_at Any>>
 
   (* word_to_word *)
-  drule (word_to_wordProofTheory.word_to_word_compile_semantics |> INST_TYPE [beta |-> “: num # lab_to_target$config”])>>
+  drule_at (Pat ‘word_to_word_compile _ _ _ = _’)
+    (word_to_wordProofTheory.word_to_word_compile_semantics |> INST_TYPE [beta |-> “: num # lab_to_target$config”])>>
 
   disch_then (qspecl_then [‘wst’, ‘InitGlobals_location’, ‘wst with code := fromAList (pan_to_word_compile_prog mc.target.config.ISA pan_code)’] mp_tac)>>
   gs[]>>
@@ -2372,7 +2380,7 @@ Proof
            (compile_prog mc.target.config F prog arg_count
             (mc.target.config.reg_count −
              (LENGTH mc.target.config.avoid_regs + 5))
-            (Nil,0)))) (fromAList (toAList (fromAList wprog)))’
+            (Nil:α word app_list,0)))) (fromAList (toAList (fromAList wprog)))’
     by (irule EQ_TRANS>>
         irule_at Any (GSYM map_fromAList)>>
         gs[Abbr ‘f’]>>gs[LAMBDA_PROD])>>

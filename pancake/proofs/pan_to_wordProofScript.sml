@@ -27,7 +27,7 @@ Definition crep_state_def:
 End
 
 Definition wloc_wlab_def:
-  wloc_wlab (wordLang$Word w) = panSem$Word w
+  wloc_wlab (wordSem$Word w) = panSem$Word w
 End
 
 Theorem wloc_wlab_wlab_wloc[simp]:
@@ -37,7 +37,7 @@ Proof
 QED
 
 Definition no_labels_def:
-  no_labels mem dom = (∀a. a ∈ dom ⇒ ∃w. mem a = wordLang$Word w)
+  no_labels mem dom = (∀a. a ∈ dom ⇒ ∃w. mem a = wordSem$Word w)
 End
 
 Definition loop_state_def:

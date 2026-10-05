@@ -43,7 +43,7 @@ End
 *)
 
 Definition wlab_wloc_def:
-  (wlab_wloc (panSem$Word w) = wordLang$Word w)
+  (wlab_wloc (panSem$Word w) = wordSem$Word w)
 End
 
 Definition mem_rel_def:
