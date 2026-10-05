@@ -231,12 +231,18 @@ Proof
   >> every_case_tac
 QED
 
+Theorem bvar_map_o:
+  bvar_map f g ∘ bvar_map f' g' = bvar_map (f ∘ f') (g ∘ g')
+Proof
+  simp [FUN_EQ_THM] >> Cases >> simp [bvar_map_def]
+QED
+
 Theorem lit_map_o:
   lit_map f g h ∘ lit_map f' g' h' = lit_map (f ∘ f') (g ∘ g') (h ∘ h')
 Proof
   simp [FUN_EQ_THM] >> Cases >> simp [lit_map_def]
-  >> simp [oneline var_map_def, oneline bvar_map_def]
-  >> every_case_tac >> simp []
+  >> simp [oneline var_map_def] >> CASE_TAC >> simp []
+  >> simp [GSYM bvar_map_o]
 QED
 
 Definition lit_map_base_def:
