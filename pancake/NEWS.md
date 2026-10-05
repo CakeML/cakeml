@@ -5,20 +5,16 @@ User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
 
-xxx xxxth 2026
+Oct 5th 2026
 -------------------
 
-### Static checker bug fix
+### Frontend bug fixes
 
 The bug where the static checker used the shift amount instead of the
 shifted expression for address location warnings has been fixed.
 
-### Parser bug fix
-
 `@top` now refers to the end of internal memory, as documented.
 Previously, it was parsed as `@base`.
-
-### Parser bug fix
 
 Parse errors now report the line where the error is. Previously, they
 reported the next line.
