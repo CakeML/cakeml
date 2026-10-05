@@ -3,7 +3,7 @@
 *)
 Theory npbc_check_step
 Ancestors
-  pbc npbc npbc_check
+  pbc npbc spt_to_vec npbc_check
 Libs
   preamble
 
