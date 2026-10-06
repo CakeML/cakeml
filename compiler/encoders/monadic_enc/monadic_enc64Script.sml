@@ -93,11 +93,11 @@ End
 Definition enc_sec_hash_64_ls_def:
   (enc_sec_hash_64_ls enc skip_len n [] = return []) ∧
   (enc_sec_hash_64_ls enc skip_len n (x::xs) =
-  case x of Section k ys =>
+  case x of Section k ys md =>
   do
     ls <- enc_line_hash_64_ls enc skip_len n ys;
     rest <- enc_sec_hash_64_ls enc skip_len n xs;
-    return (Section k ls::rest)
+    return (Section k ls md::rest)
   od)
 End
 
