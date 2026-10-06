@@ -10,8 +10,6 @@ Ancestors
 Libs
   preamble ml_translatorLib
 
-open preamble ml_translatorLib ml_translatorTheory to_flatProgTheory;
-
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = translation_extends "to_flatProg";
@@ -77,7 +75,6 @@ val r = translate flat_to_closTheory.dest_pat_pmatch;
 val r = translate flat_to_closTheory.arg1_pmatch;
 val r = translate flat_to_closTheory.arg2_pmatch;
 val r = translate flat_to_closTheory.dest_nop_def;
-
 
 val _ = patternMatchesSyntax.temp_enable_pmatch();
 
