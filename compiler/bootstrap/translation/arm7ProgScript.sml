@@ -4,7 +4,7 @@
 Theory arm7Prog[no_sig_docs]
 Ancestors
   evaluate ml_translator from_pancake32Prog arm7_target arm
-  to_target32Prog[qualified]
+  to_targetProg[qualified]
 Libs
   preamble ml_translatorLib inliningLib
 

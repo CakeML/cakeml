@@ -27,17 +27,15 @@ explorer
 decode
 sexp_parser
 basis_def
+printing
+to_word
+to_target
 --- (the translation splits into two paths for 32- and 64-bit targets)
-to_word32
-to_target32
 from_pancake32
 arm7
 ag32
 compiler32
 ---
-printing
-to_word64
-to_target64
 from_pancake64
 x64
 arm8

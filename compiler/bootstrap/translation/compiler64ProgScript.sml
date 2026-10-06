@@ -36,6 +36,7 @@ val res = translate $ errorLogMonadTheory.log_def;
 val res = translate $ errorLogMonadTheory.error_def;
 
 val res = translate $ listTheory.OPT_MMAP_def;
+val res = translate $ listTheory.dropWhile_def;
 
 Theorem OPT_MMAP_eq_MAP[local]:
   OPT_MMAP f xs = (OPT_MMAP I o MAP f) xs
@@ -146,7 +147,7 @@ val def = spec64 backendTheory.compile_def
 
 val res = translate def
 
-val _ = register_type “:64 any_prog”
+val _ = register_type “:any_prog”
 
 val r = backend_passesTheory.to_flat_all_def |> spec64 |> translate;
 val r = backend_passesTheory.to_clos_all_def |> spec64 |> translate;
@@ -200,7 +201,8 @@ val _ = r |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of " ^
                   "backend_passesTheory.compile_tap_def.");
 
-val r = pan_passesTheory.pan_to_target_all_def |> spec64
+val r = pan_passesTheory.pan_to_target_all_def
+          |> INST_TYPE [alpha |-> “:64”, beta |-> “:64”]
           |> REWRITE_RULE [NULL_EQ] |> translate;
 
 val r = pan_passesTheory.opsize_to_display_def |> translate;
@@ -230,7 +232,8 @@ val r = pan_passesTheory.pan_to_strs_def |> spec64 |> translate;
 val r = pan_passesTheory.crep_to_strs_def |> spec64 |> translate;
 val r = pan_passesTheory.loop_to_strs_def |> spec64 |> translate;
 val r = pan_passesTheory.any_pan_prog_pp_def |> spec64 |> translate;
-val r = pan_passesTheory.pan_compile_tap_def |> spec64 |> translate;
+val r = pan_passesTheory.pan_compile_tap_def
+          |> INST_TYPE [alpha |-> “:64”, beta |-> “:64”] |> translate;
 
 val _ = r |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of " ^

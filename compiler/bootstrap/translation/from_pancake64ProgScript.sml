@@ -3,7 +3,7 @@
 *)
 Theory from_pancake64Prog
 Ancestors
-  ml_translator to_target64Prog std_prelude panLang crepLang
+  ml_translator to_targetProg std_prelude panLang crepLang
   pan_simp loopLang loop_to_word pan_to_crep
   loop_call loop_live crep_arith crep_to_loop pan_to_word
   word_to_word backend pan_to_target panPtreeConversion
@@ -13,9 +13,9 @@ Libs
 
 open preamble;
 open ml_translatorLib ml_translatorTheory;
-open to_target64ProgTheory std_preludeTheory;
+open to_targetProgTheory std_preludeTheory;
 
-val _ = translation_extends "to_target64Prog";
+val _ = translation_extends "to_targetProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "from_pancake64Prog");
 val _ = ml_translatorLib.use_sub_check true;
@@ -44,8 +44,6 @@ def |> RW (!extra_preprocessing)
     |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]
     |> REWRITE_RULE [NOT_NIL_AND_LEMMA];
 
-val matches = ref ([]: term list);
-
 fun def_of_const tm = let
 val res = dest_thy_const tm handle HOL_ERR _ =>
   failwith ("Unable to translate: " ^ term_to_string tm)
@@ -59,9 +57,8 @@ DB.fetch thy (name ^ "_pmatch") handle HOL_ERR _ =>
 val def = def_from_thy (#Thy res) name handle HOL_ERR _ =>
   failwith ("Unable to find definition of " ^ name)
 
-val insts = if exists (fn term => can (find_term (can (match_term term))) (concl def))
-                      (!matches)
-            then [alpha |-> ``:64``,beta|->``:64``] else []
+val insts = match_type
+  (type_of (prim_mk_const {Thy = #Thy res, Name = name})) (type_of tm)
 
 val def = def |> RW (!extra_preprocessing)
               |> INST_TYPE insts
@@ -85,10 +82,6 @@ val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SP
 val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
 
 val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
-
-val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,
-                   ``foo:reg_imm``,``foo:arith``,``foo:addr``,
-                   ``foo:stackLang$prog``, “foo:'a pan_to_crep$context”]
 
 open panLangTheory;
 
@@ -405,7 +398,7 @@ open pan_to_targetTheory;
 
 val _ = translate $ spec64 exports_def;
 
-val _ = translate $ spec64 compile_prog_def;
+val _ = translate $ INST_TYPE[alpha|->“:64”, beta|->“:64”] compile_prog_def;
 
 (* ptree conversion *)
 
