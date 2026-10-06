@@ -4195,7 +4195,7 @@ Theorem inline_op_props[local]:
   astOp_to_flatOp p ≠ Src (ThunkOp ForceThunk)
 Proof
   rw [inline_op_def] \\ strip_tac
-  \\ gvs [astOp_to_flatOp_def, AllCaseEqs(), astTheory.getOpClass_def]
+  \\ gvs [astOp_to_flatOp_def, AllCaseEqs(), semanticPrimitivesTheory.getOpClass_def]
 QED
 
 Theorem dest_inline_SOME[local]:
