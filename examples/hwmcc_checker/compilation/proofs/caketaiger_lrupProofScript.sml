@@ -172,11 +172,10 @@ Theorem caketaiger_lrup_sound:
   EVERY (λf. ∃txt. file_content fs₁ f = SOME txt ∧ lrup_verified txt)
     (cnf_fnames (cl_prefix cl))
   ⇒
-  ∃maig mreset mnext msafes mcnstrs mlive mlatches mlatch_start mmax_latch.
+  ∃maig mreset mnext msafes mcnstrs mlive mlatches.
     get_model fs (EL 1 cl) =
-      SOME (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatches,
-            mlatch_start, mmax_latch) ∧
-    is_safe maig mreset mnext (set mcnstrs) (set mlatches) (set msafes) ∧
+      SOME (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatches) ∧
+    is_safe maig mreset mnext (set mcnstrs) (set msafes) (set mlatches) ∧
     is_live maig mreset mnext (set mcnstrs) (qleft maig)
       (IMAGE set (set (qleft_live mlive))) (set mlatches)
 Proof

@@ -66,6 +66,7 @@ QED
    not soundness. Thus, while the preprocessing of the witness is not entirely
    trivial, the preprocessing of the model is kept straightforward. *)
 
+(* Part of the trusted computing base. *)
 Definition parse_model_def:
   parse_model mstr =
   do
@@ -74,6 +75,7 @@ Definition parse_model_def:
   od
 End
 
+(* Part of the trusted computing base. *)
 Definition preprocess_model_def:
   preprocess_model maiger =
   let
@@ -270,8 +272,8 @@ Theorem process_and_check_return:
     interv klatches
   ⇒
   is_safe
-    maig mreset mnext (set mcnstrs)
-    (set [mlatch_start .. mmax_latch]) (set msafes) ∧
+    maig mreset mnext (set mcnstrs) (set msafes)
+    (set [mlatch_start .. mmax_latch]) ∧
   is_live
     maig mreset mnext (set mcnstrs) (qleft maig)
     (IMAGE set (set (qleft_live mlive))) (set [mlatch_start .. mmax_latch])

@@ -258,21 +258,21 @@ Definition xis_reset_def:
 End
 
 Definition xis_next_def:
-  xis_next ss₀ (xaig: ('a, 'i, 'l) xaig)
-    (next: 'l -> ('a,'i,'l) lit) (latches: 'l set) ls₁ =
+  xis_next ss₀ ls₁ (xaig: ('a, 'i, 'l) xaig)
+    (next: 'l -> ('a,'i,'l) lit) (latches: 'l set) =
   ∀l. l ∈ latches ⇒ xeval_lit ss₀ xaig (next l) = ls₁ l
 End
 
 Definition xis_trace_def:
-  xis_trace (xaig: ('a, 'i, 'l) xaig)
+  xis_trace (steps: ('i, 'l) steps) (xaig: ('a, 'i, 'l) xaig)
     (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
     (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
-    (steps: ('i, 'l) steps) (n: num)
+    (n: num)
   ⇔
     xis_reset (steps 0) xaig reset latches ∧
     xlits_hold (steps 0) xaig cnstrs ∧
     (∀i. i < n ⇒
-       xis_next (steps i) xaig next latches (SND (steps (i + 1))) ∧
+       xis_next (steps i) (SND (steps (i + 1))) xaig next latches ∧
        xlits_hold (steps (i + 1)) xaig cnstrs)
 End
 
@@ -281,25 +281,25 @@ End
 Definition xis_unsafe_def:
   xis_unsafe (xaig: ('a, 'i, 'l) xaig)
     (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
-    (cnstrs: ('a,'i,'l) lit set) (latches: 'l set) (safes: ('a,'i,'l) lit set)
+    (cnstrs: ('a,'i,'l) lit set) (safes: ('a,'i,'l) lit set) (latches: 'l set)
   =
   ∃(steps: ('i, 'l) steps) (n: num).
-    xis_trace xaig reset next cnstrs latches steps n ∧
+    xis_trace steps xaig reset next cnstrs latches n ∧
     ¬xlits_hold (steps n) xaig safes
 End
 
 Definition xis_safe_def:
   xis_safe (xaig: ('a, 'i, 'l) xaig)
     (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
-    (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
-    (safes: ('a,'i,'l) lit set) ⇔
-  ¬xis_unsafe xaig reset next cnstrs latches safes
+    (cnstrs: ('a,'i,'l) lit set) (safes: ('a,'i,'l) lit set)
+    (latches: 'l set) ⇔
+  ¬xis_unsafe xaig reset next cnstrs safes latches
 End
 
 Theorem xis_safe_is_safe:
   aig_xaig_rel maig mxaig ⇒
-  (xis_safe mxaig mreset mnext mcnstrs mlatches msafes ⇔
-   is_safe maig mreset mnext mcnstrs mlatches msafes)
+  (xis_safe mxaig mreset mnext mcnstrs msafes mlatches ⇔
+   is_safe maig mreset mnext mcnstrs msafes mlatches)
 Proof
   rw [aig_xaig_rel_def]
   >> simp [xis_safe_def, is_safe_def,
@@ -312,21 +312,20 @@ QED
 (** Liveness ******************************************************************)
 
 Definition xis_inf_trace_def:
-  xis_inf_trace (xaig: ('a, 'i, 'l) xaig)
+  xis_inf_trace (steps: ('i, 'l) steps) (xaig: ('a, 'i, 'l) xaig)
     (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
     (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
-    (steps: ('i, 'l) steps)
   ⇔
     xis_reset (steps 0) xaig reset latches ∧
     xlits_hold (steps 0) xaig cnstrs ∧
     (∀i.
-       xis_next (steps i) xaig next latches (SND (steps (i + 1))) ∧
+       xis_next (steps i) (SND (steps (i + 1))) xaig next latches ∧
        xlits_hold (steps (i + 1)) xaig cnstrs)
 End
 
 Theorem xis_inf_trace_eq:
-  xis_inf_trace xaig reset next cnstrs latches steps ⇔
-  ∀n. xis_trace xaig reset next cnstrs latches steps n
+  xis_inf_trace steps xaig reset next cnstrs latches ⇔
+  ∀n. xis_trace steps xaig reset next cnstrs latches n
 Proof
   eq_tac>>
   rw[xis_inf_trace_def,xis_trace_def]>>
@@ -340,7 +339,7 @@ Definition xis_live_def:
     (qxaig: ('b, 'i + 'i, 'l + 'l) xaig)
     (live: ('b, 'i + 'i, 'l + 'l) lit set set) (latches: 'l set) =
   ∀steps.
-    xis_inf_trace xaig reset next cnstrs latches steps ⇒
+    xis_inf_trace steps xaig reset next cnstrs latches ⇒
     ∀prop. prop ∈ live ⇒
       ∃k signal.
         signal ∈ prop ∧

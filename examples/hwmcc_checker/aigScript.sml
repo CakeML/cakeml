@@ -11,6 +11,7 @@ val _ = numLib.prefer_num()
 
 (* TODO Make aigScript over tuples again *)
 (* TODO Turn all lits_hold over singleton set to eval/xeval *)
+(* TODO Check whether the order of arguments is the same across all functions *)
 
 (* TODO Replace sg and derivatives by have *)
 (* TODO Replace qsuff_tac with suff *)
@@ -123,21 +124,21 @@ Definition is_reset_def:
 End
 
 Definition is_next_def:
-  is_next ss₀ (aig: ('a, 'i, 'l) aig)
-    (next: 'l -> ('a,'i,'l) lit) (latches: 'l set) ls₁ =
+  is_next ss₀ ls₁ (aig: ('a, 'i, 'l) aig)
+    (next: 'l -> ('a,'i,'l) lit) (latches: 'l set) =
   ∀l. l ∈ latches ⇒ eval_lit ss₀ aig (next l) = ls₁ l
 End
 
 Definition is_trace_def:
-  is_trace (aig: ('a, 'i, 'l) aig)
+  is_trace (steps: ('i, 'l) steps) (aig: ('a, 'i, 'l) aig)
     (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
     (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
-    (steps: ('i, 'l) steps) (n: num)
+    (n: num)
   ⇔
     is_reset (steps 0) aig reset latches ∧
     lits_hold (steps 0) aig cnstrs ∧
     (∀i. i < n ⇒
-       is_next (steps i) aig next latches (SND (steps (i + 1))) ∧
+       is_next (steps i) (SND (steps (i + 1))) aig next latches ∧
        lits_hold (steps (i + 1)) aig cnstrs)
 End
 
@@ -146,39 +147,38 @@ End
 Definition is_unsafe_def:
   is_unsafe (aig: ('a, 'i, 'l) aig)
     (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
-    (cnstrs: ('a,'i,'l) lit set) (latches: 'l set) (safes: ('a,'i,'l) lit set)
+    (cnstrs: ('a,'i,'l) lit set) (safes: ('a,'i,'l) lit set) (latches: 'l set)
   =
   ∃(steps: ('i, 'l) steps) (n: num).
-    is_trace aig reset next cnstrs latches steps n ∧
+    is_trace steps aig reset next cnstrs latches n ∧
     ¬lits_hold (steps n) aig safes
 End
 
 Definition is_safe_def:
   is_safe (aig: ('a, 'i, 'l) aig)
     (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
-    (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
-    (safes: ('a,'i,'l) lit set) ⇔
-  ¬is_unsafe aig reset next cnstrs latches safes
+    (cnstrs: ('a,'i,'l) lit set) (safes: ('a,'i,'l) lit set)
+    (latches: 'l set) ⇔
+  ¬is_unsafe aig reset next cnstrs safes latches
 End
 
 (** Liveness ******************************************************************)
 
 Definition is_inf_trace_def:
-  is_inf_trace (aig: ('a, 'i, 'l) aig)
+  is_inf_trace (steps: ('i, 'l) steps) (aig: ('a, 'i, 'l) aig)
     (reset: 'l -> ('a,'i,'l) lit option) (next: 'l -> ('a,'i,'l) lit)
     (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
-    (steps: ('i, 'l) steps)
   ⇔
     is_reset (steps 0) aig reset latches ∧
     lits_hold (steps 0) aig cnstrs ∧
     (∀i.
-       is_next (steps i) aig next latches (SND (steps (i + 1))) ∧
+       is_next (steps i) (SND (steps (i + 1))) aig next latches ∧
        lits_hold (steps (i + 1)) aig cnstrs)
 End
 
 Theorem is_inf_trace_eq:
-  is_inf_trace aig reset next cnstrs latches steps ⇔
-  ∀n. is_trace aig reset next cnstrs latches steps n
+  is_inf_trace steps aig reset next cnstrs latches ⇔
+  ∀n. is_trace steps aig reset next cnstrs latches n
 Proof
   eq_tac>>
   rw[is_inf_trace_def,is_trace_def]>>
@@ -192,7 +192,7 @@ Definition is_live_def:
     (qaig: ('b, 'i + 'i, 'l + 'l) aig)
     (live: ('b, 'i + 'i, 'l + 'l) lit set set) (latches: 'l set) =
   ∀steps.
-    is_inf_trace aig reset next cnstrs latches steps ⇒
+    is_inf_trace steps aig reset next cnstrs latches ⇒
     ∀prop. prop ∈ live ⇒
       ∃k signal.
         signal ∈ prop ∧

@@ -30,7 +30,11 @@ Definition get_model_def:
   | SOME str =>
     case parse_model (implode str) of
     | error _ => NONE
-    | return maiger => SOME (preprocess_model maiger)
+    | return maiger =>
+      case preprocess_model maiger of
+      (* Drop implementation details *)
+      (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatches, _, _) =>
+        SOME (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatches)
 End
 
 (* Asserts that str is the DIMACS text of cnf, whose header declares a
@@ -78,11 +82,10 @@ End
 Definition make_cert_sem_def:
   make_cert_sem fs fs' fmodel out prefix ⇔
     (out = «SUCCESS\n» ∧ cnf_files_fresh fs prefix ⇒
-     ∃maig mreset mnext msafes mcnstrs mlive mlatches mlatch_start mmax_latch
+     ∃maig mreset mnext msafes mcnstrs mlive mlatches
       reset transition safety base induction liveness decrease closure stable.
         get_model fs fmodel =
-          SOME (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatches,
-                mlatch_start, mmax_latch) ∧
+          SOME (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatches) ∧
         LIST_REL (cnf_saved fs') (cnf_fnames prefix)
           [reset; transition; safety; base; induction; liveness; decrease;
            closure; stable] ∧
@@ -91,7 +94,7 @@ Definition make_cert_sem_def:
             closure; stable]
          ⇒
           is_safe
-            maig mreset mnext (set mcnstrs) (set mlatches) (set msafes) ∧
+            maig mreset mnext (set mcnstrs) (set msafes) (set mlatches) ∧
           is_live
             maig mreset mnext (set mcnstrs) (qleft maig)
             (IMAGE set (set (qleft_live mlive))) (set mlatches)))

@@ -2987,7 +2987,7 @@ Theorem encoding_xis_safe_and_live:
     interv klatches
   ⇒
   xis_safe
-    mxaig mreset mnext (set mcnstrs) (set mlatches) (set msafes) ∧
+    mxaig mreset mnext (set mcnstrs) (set msafes) (set mlatches) ∧
   xis_live
     mxaig mreset mnext (set mcnstrs) (qxleft mxaig)
     (IMAGE set (set (qleft_live mlive))) (set mlatches)

@@ -430,21 +430,21 @@ Definition steps_agree_def:
 End
 
 Theorem xis_next_subset:
-  xis_next ss xaig next latches  ls ∧ latches' ⊆ latches ⇒
-  xis_next ss xaig next latches' ls
+  xis_next ss ls xaig next latches ∧ latches' ⊆ latches ⇒
+  xis_next ss ls xaig next latches'
 Proof
   rw [xis_next_def] >> metis_tac [SUBSET_DEF]
 QED
 
 Theorem xis_next_dep_xaig:
-  xis_next ss₀ xaig next latches ls₁ ∧
+  xis_next ss₀ ls₁ xaig next latches ∧
   (∀l. l ∈ latches' ⇒ ls₁ l = ls₁' l) ∧
   agree_on inputs latches' ss₀ ss₀' ∧
   dep_xaig inputs latches' xaig ∧
   dep_latch_lit inputs latches' next latches ∧
   latches ⊆ latches'
   ⇒
-  xis_next ss₀' xaig next latches ls₁'
+  xis_next ss₀' ls₁' xaig next latches
 Proof
   rw [xis_next_def, dep_latch_lit_def]
   >> fs[SUBSET_DEF]
@@ -480,14 +480,14 @@ Proof
 QED
 
 Theorem xis_trace_dep_xaig:
-  xis_trace xaig reset next cnstrs latches steps n ∧
+  xis_trace steps xaig reset next cnstrs latches n ∧
   dep_xaig inputs latches xaig ∧
   dep_lits inputs latches cnstrs ∧
   dep_reset inputs latches reset latches ∧
   dep_latch_lit inputs latches next latches ∧
   steps_agree n inputs latches steps' steps
   ⇒
-  xis_trace xaig reset next cnstrs latches steps' n
+  xis_trace steps' xaig reset next cnstrs latches n
 Proof
   rw [steps_agree_def, xis_trace_def, agree_on_sym]
   >-
@@ -514,21 +514,20 @@ Proof
 QED
 
 Theorem xis_inf_trace_dep_xaig:
-  xis_inf_trace xaig reset next cnstrs latches steps ∧
+  xis_inf_trace steps xaig reset next cnstrs latches ∧
   dep_xaig inputs latches xaig ∧
   dep_lits inputs latches cnstrs ∧
   dep_reset inputs latches reset latches ∧
   dep_latch_lit inputs latches next latches ∧
   (∀n. steps_agree n inputs latches steps' steps)
   ⇒
-  xis_inf_trace xaig reset next cnstrs latches steps'
+  xis_inf_trace steps' xaig reset next cnstrs latches
 Proof
   rw [xis_inf_trace_eq] >> metis_tac[xis_trace_dep_xaig]
 QED
 
-
 Theorem xis_trace_xlits_hold_n:
-  xis_trace xaig reset next cnstrs latches steps n
+  xis_trace steps xaig reset next cnstrs latches n
   ⇒
   xlits_hold (steps n) xaig cnstrs
 Proof
@@ -536,10 +535,10 @@ Proof
 QED
 
 Theorem xis_trace_SUC:
-  xis_trace mxaig mreset mnext mcnstrs mlatches steps (SUC n)
+  xis_trace steps mxaig mreset mnext mcnstrs mlatches (SUC n)
   ⇔
-  xis_trace mxaig mreset mnext mcnstrs mlatches steps n ∧
-  xis_next (steps n) mxaig mnext mlatches (SND (steps (n + 1))) ∧
+  xis_trace steps mxaig mreset mnext mcnstrs mlatches n ∧
+  xis_next (steps n) (SND (steps (n + 1))) mxaig mnext mlatches ∧
   xlits_hold (steps (n + 1)) mxaig mcnstrs
 Proof
   eq_tac >> rw [xis_trace_def]
@@ -585,8 +584,8 @@ Definition dep_qxaig_def:
 End
 
 Theorem xis_safe_xis_inf_trace_xlits_hold:
-  xis_safe xaig reset next cnstrs latches safes ∧
-  xis_inf_trace xaig reset next cnstrs latches steps
+  xis_safe xaig reset next cnstrs safes latches ∧
+  xis_inf_trace steps xaig reset next cnstrs latches
   ⇒
   ∀n. xlits_hold (steps n) xaig safes
 Proof
@@ -595,7 +594,7 @@ Proof
 QED
 
 Theorem xis_inf_trace_cnstrs_hold:
-  xis_inf_trace xaig reset next cnstrs latches steps
+  xis_inf_trace steps xaig reset next cnstrs latches
   ⇒
   ∀n. xlits_hold (steps n) xaig cnstrs
 Proof
@@ -603,9 +602,9 @@ Proof
 QED
 
 Theorem xis_inf_trace_xis_next:
-  xis_inf_trace xaig reset next cnstrs latches steps
+  xis_inf_trace steps xaig reset next cnstrs latches
   ⇒
-  ∀n. xis_next (steps n) xaig next latches (SND (steps (n + 1)))
+  ∀n. xis_next (steps n) (SND (steps (n + 1))) xaig next latches
 Proof
   rw [xis_inf_trace_def]
 QED
@@ -673,12 +672,12 @@ QED
 
 Theorem xis_inf_trace_steps_agree:
   (∀n.
-     xis_trace mxaig mreset mnext mcnstrs mlatches steps n ⇒
-     xis_trace wxaig wreset wnext wcnstrs wlatches steps' n ∧
+     xis_trace steps mxaig mreset mnext mcnstrs mlatches n ⇒
+     xis_trace steps' wxaig wreset wnext wcnstrs wlatches n ∧
      steps_agree n UNIV mlatches steps' steps)
   ⇒
-    (xis_inf_trace mxaig mreset mnext mcnstrs mlatches steps ⇒
-     xis_inf_trace wxaig wreset wnext wcnstrs wlatches steps' ∧
+    (xis_inf_trace steps mxaig mreset mnext mcnstrs mlatches ⇒
+     xis_inf_trace steps' wxaig wreset wnext wcnstrs wlatches ∧
      (∀n. steps_agree n UNIV mlatches steps' steps))
 Proof
   rw [xis_inf_trace_eq]
@@ -798,12 +797,12 @@ Definition transition_cond_def:
     wxaig wnext wcnstrs wlatches
   ⇔
   ∀ss₀ ss₁.
-    (xis_next ss₀ mxaig mnext mlatches (SND ss₁) ∧
+    (xis_next ss₀ (SND ss₁) mxaig mnext mlatches ∧
      xlits_hold ss₀ mxaig mcnstrs ∧
      xlits_hold ss₁ mxaig mcnstrs ∧
      xlits_hold ss₀ wxaig wcnstrs)
     ⇒
-    (xis_next ss₀ wxaig wnext (mlatches ∩ wlatches) (SND ss₁) ∧
+    (xis_next ss₀ (SND ss₁) wxaig wnext (mlatches ∩ wlatches) ∧
      xlits_hold ss₁ wxaig wcnstrs)
 End
 
@@ -834,7 +833,7 @@ Definition liveness_cond_def:
        xlits_hold ss₁ mxaig mcnstrs ∧
        xlits_hold ss₁ wxaig wcnstrs ∧
        xlits_hold ss₁ wxaig wsafes ∧
-       xis_next ss₀ wxaig wnext wlatches (SND ss₁))
+       xis_next ss₀ (SND ss₁) wxaig wnext wlatches)
       ⇒
       lives_imply (state_pair ss₀ ss₁) (state_pair ss₀ ss₁) wqxaig mqxaig
         wlive mlive
@@ -879,7 +878,7 @@ Definition induction_cond_def:
   ⇔
     ∀ss₀ ss₁.
       (xlits_hold ss₀ xaig safes ∧
-       xis_next ss₀ xaig next latches (SND ss₁) ∧
+       xis_next ss₀ (SND ss₁) xaig next latches ∧
        xlits_hold ss₀ xaig cnstrs ∧
        xlits_hold ss₁ xaig cnstrs)
       ⇒
@@ -903,7 +902,7 @@ Definition decrease_cond_def:
        xlits_hold ss₀ xaig safes ∧
        xlits_hold ss₁ xaig cnstrs ∧
        xlits_hold ss₁ xaig safes ∧
-       xis_next ss₀ xaig next latches (SND ss₁))
+       xis_next ss₀ (SND ss₁) xaig next latches)
        ⇒
        lives_hold (state_pair ss₁ ss₀) qxaig live
 End
@@ -919,7 +918,7 @@ Definition closure_cond_def:
        xlits_hold ss₁ xaig safes ∧
        xlits_hold ss₂ xaig cnstrs ∧
        xlits_hold ss₂ xaig safes ∧
-       xis_next ss₀ xaig next latches (SND ss₁) ∧
+       xis_next ss₀ (SND ss₁) xaig next latches ∧
        lives_hold (state_pair ss₀ ss₂) qxaig live)
       ⇒
       lives_hold (state_pair ss₁ ss₂) qxaig live
@@ -936,8 +935,8 @@ Definition stable_cond_def:
        xlits_hold ss₁ xaig safes ∧
        xlits_hold ss₂ xaig cnstrs ∧
        xlits_hold ss₂ xaig safes ∧
-       xis_next ss₀ xaig next latches (SND ss₁) ∧
-       xis_next ss₁ xaig next latches (SND ss₂) ∧
+       xis_next ss₀ (SND ss₁) xaig next latches ∧
+       xis_next ss₁ (SND ss₂) xaig next latches ∧
        lives_hold (state_pair ss₀ ss₁) qxaig live ∧
        lives_hold (state_pair ss₁ ss₂) qxaig live)
        ⇒
@@ -1082,7 +1081,7 @@ Definition mk_trace_def:
      prev = mk_trace lt mlatches wxaig wreset wnext wsafes wcnstrs wlatches steps n
    in
      @succ.
-       xis_next prev wxaig wnext wlatches (SND succ) ∧
+       xis_next prev (SND succ) wxaig wnext wlatches ∧
        xlits_hold succ wxaig wcnstrs ∧
        agree_on UNIV mlatches succ (steps (SUC n)))
 End
@@ -1127,8 +1126,8 @@ Theorem extend_model_trace_to_witness:
   FINITE (wlatches DIFF mlatches)
   ⇒
   ∃steps'. ∀n.
-    xis_trace mxaig mreset mnext mcnstrs mlatches steps n ⇒
-    xis_trace wxaig wreset wnext wcnstrs wlatches steps' n ∧
+    xis_trace steps mxaig mreset mnext mcnstrs mlatches n ⇒
+    xis_trace steps' wxaig wreset wnext wcnstrs wlatches n ∧
     steps_agree n UNIV mlatches steps' steps
 Proof
   rw [dep_model_def, is_stratified_def]
@@ -1193,7 +1192,7 @@ Proof
                   λl. if l ∈ mlatches then (SND (steps (n + 1))) l
                       else xeval_lit (steps'n) wxaig (wnext l))’
     >> qexists ‘step’
-    >> ‘xis_next (steps'n) mxaig mnext mlatches (SND step)’ by
+    >> ‘xis_next (steps'n) (SND step) mxaig mnext mlatches’ by
       (drule xis_next_dep_xaig
        >> disch_then irule
        >> qpat_x_assum ‘dep_xaig _ _ _’ $ irule_at Any
@@ -1226,7 +1225,7 @@ Proof
 QED
 
 Theorem is_inductive_xlits_hold[local]:
-  xis_trace xaig reset next cnstrs latches steps n ∧
+  xis_trace steps xaig reset next cnstrs latches n ∧
   is_inductive
     xaig reset next safes cnstrs latches
   ⇒
@@ -1246,7 +1245,7 @@ Proof
 QED
 
 Theorem inf_is_inductive_xlits_hold[local]:
-  xis_inf_trace xaig reset next cnstrs latches steps ∧
+  xis_inf_trace steps xaig reset next cnstrs latches ∧
   is_inductive
     xaig reset next safes cnstrs latches
   ⇒
@@ -1265,7 +1264,7 @@ Theorem is_witness_xis_safe:
   FINITE (wlatches DIFF mlatches)
   ⇒
   xis_safe
-    mxaig mreset mnext mcnstrs mlatches msafes
+    mxaig mreset mnext mcnstrs msafes mlatches
 Proof
   rw [is_witness_def, xis_safe_def, simulates_def]
   >> CCONTR_TAC
@@ -1278,12 +1277,14 @@ Proof
   >> drule_all is_inductive_xlits_hold
   >> strip_tac
   >> fs [dep_model_def]
-  >> `xis_trace mxaig mreset mnext mcnstrs mlatches steps' n` by
-    (irule xis_trace_dep_xaig >> fs []
-     >> first_assum $ irule_at (Pos hd) >> simp []
-     >> irule_at (Pos hd) steps_agree_weaken_inputs
-     >> first_assum $ irule_at (Pos hd)
-     >> simp [])
+  >> have ‘xis_trace steps' mxaig mreset mnext mcnstrs mlatches n’
+  >- (
+    irule xis_trace_dep_xaig >> fs []
+    >> first_assum $ irule_at (Pos hd) >> simp []
+    >> irule_at (Pos hd) steps_agree_weaken_inputs
+    >> first_assum $ irule_at (Pos hd)
+    >> simp []
+  )
   >> drule_at_then Any irule xlits_hold_dep_xaig
   >> rename1`steps_agree n _ mlatches steps' steps`
   >> fs[steps_agree_def]
@@ -1306,7 +1307,7 @@ Theorem closure_cond_lives_hold[local]:
     lives_hold (state_pair (steps i) (steps j)) qxaig live ∧
     (∀n. xlits_hold (steps n) xaig safes) ∧
     (∀n. xlits_hold (steps n) xaig cnstrs) ∧
-    (∀n. xis_next (steps n) xaig next latches (SND (steps (n + 1))))
+    (∀n. xis_next (steps n) (SND (steps (n + 1))) xaig next latches)
     ⇒
     lives_hold (state_pair (steps (i + k)) (steps j)) qxaig live
 Proof
@@ -1349,7 +1350,7 @@ QED
 Theorem matching_transition_live[local]:
   decrease_cond
     xaig next safes cnstrs qxaig live latches  ∧
-  xis_inf_trace xaig reset next cnstrs latches steps ∧
+  xis_inf_trace steps xaig reset next cnstrs latches ∧
   closure_cond
     xaig next safes cnstrs qxaig live latches ∧
   matching_transition inputs' latches' steps i j ∧
@@ -1420,7 +1421,7 @@ Theorem stable_cond_xlits_hold[local]:
   xeval_lit (state_pair (steps j) (steps (j + 1))) wqxaig q ∧
   (∀n. xlits_hold (steps n) wxaig wcnstrs) ∧
   (∀n. xlits_hold (steps n) wxaig wsafes) ∧
-  (∀n. xis_next (steps n) wxaig wnext wlatches (SND (steps (n + 1)))) ∧
+  (∀n. xis_next (steps n) (SND (steps (n + 1))) wxaig wnext wlatches) ∧
   (∀i. j ≤ i ⇒
        lives_hold (state_pair (steps i) (steps (i + 1))) wqxaig wlive) ∧
   j ≤ i
@@ -1470,7 +1471,7 @@ Proof
   >> fs [is_witness_def, simulates_def]
   >> rw [xis_live_def]
   >> drule_all extend_model_trace_to_witness
-  >> rename1 ‘xis_inf_trace _ _ _ _ _ steps’
+  >> rename1 ‘xis_inf_trace steps _ _ _ _ _’
   >> disch_then $ qspec_then ‘steps’ mp_tac >> strip_tac
   >> dxrule xis_inf_trace_steps_agree
   >> simp [] >> strip_tac
@@ -1480,10 +1481,10 @@ Proof
   >> ‘∀n. xlits_hold (steps' n) wxaig wcnstrs’ by
     metis_tac [xis_inf_trace_cnstrs_hold]
   (* Extended trace has valid steps for the witness *)
-  >> ‘∀n. xis_next (steps' n) wxaig wnext wlatches (SND (steps' (n + 1)))’ by
+  >> ‘∀n. xis_next (steps' n) (SND (steps' (n + 1))) wxaig wnext wlatches’ by
      metis_tac [xis_inf_trace_xis_next]
   (* Extended trace is also a trace for the model *)
-  >> ‘xis_inf_trace mxaig mreset mnext mcnstrs mlatches steps'’ by
+  >> ‘xis_inf_trace steps' mxaig mreset mnext mcnstrs mlatches’ by
     (irule xis_inf_trace_dep_xaig
      >> first_assum $ irule_at (Pos last)
      >> fs [dep_model_def]
@@ -1604,7 +1605,7 @@ Theorem is_witness_xis_safe_and_live:
   FINITE wlatches
   ⇒
   xis_safe
-    mxaig mreset mnext mcnstrs mlatches msafes
+    mxaig mreset mnext mcnstrs msafes mlatches
   ∧
   xis_live
     mxaig mreset mnext mcnstrs mqxaig (IMAGE set (set mlive)) mlatches
