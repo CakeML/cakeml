@@ -109,7 +109,19 @@ Definition arith_upd_def:
      let w3 = read_reg r3 s
      in
        upd_reg r4 (if w2i (w2 - w3) <> w2i w2 - w2i w3 then 1w else 0w)
-         (upd_reg r1 (w2 - w3) s))
+         (upd_reg r1 (w2 - w3) s)) /\
+  (arith_upd (IMul rd ra rb ro) (s : 'a asm_state) =
+     let a = read_reg ra s in
+     let b = read_reg rb s in
+       upd_reg ro (if w2i (a * b) <> w2i a * w2i b then 1w else 0w)
+         (upd_reg rd (a * b) s)) /\
+  (arith_upd (IDiv rq rr ra rb) (s : 'a asm_state) =
+     let a = w2i (read_reg ra s) in
+     let b = w2i (read_reg rb s) in
+     let q = a quot b in
+     let wq = i2w q : 'a word in
+       assert (b <> 0 /\ w2i wq = q)
+         (upd_reg rq wq (upd_reg rr (i2w (a rem b)) s)))
 End
 
 Definition fp_upd_def:

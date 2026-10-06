@@ -19,6 +19,8 @@ sig
    val isCall: Term.term -> bool
    val isConst: Term.term -> bool
    val isFP: Term.term -> bool
+   val isIMul: Term.term -> bool
+   val isIDiv: Term.term -> bool
    val isInst: Term.term -> bool
    val isJump: Term.term -> bool
    val isJumpCmp: Term.term -> bool

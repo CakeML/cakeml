@@ -2259,6 +2259,91 @@ Proof
   rfs[align_w2n,dimword_def]>>gvs[]
 QED
 
+Theorem arith_upd_not_failed[local]:
+  ¬(t:'a asm_state).failed ∧
+  (∀r. word_loc_val p labs
+    (read_reg r (s:('a,'c,'ffi) labSem$state)) = SOME (t.regs r)) ∧
+  ¬(labSem$arith_upd a s).failed ⇒
+  ¬(asmSem$arith_upd a t).failed
+Proof
+  strip_tac >>
+  namedCases_on `a`
+    ["b rd ra ri", "sh rd ra ri", "rd ra rb", "rh rl ra rb",
+     "rq rr rh rl rb", "rd ra rb rc", "rd ra rb ro", "rd ra rb ro",
+     "rd ra rb ro", "rq rr ra rb"] >>
+  simp[asmSemTheory.arith_upd_def, asmSemTheory.upd_reg_def,
+       asmSemTheory.assert_def]
+  >- (
+    namedCases_on `ri` ["rc", "imm"] >> simp[] >>
+    qpat_assum `!r. word_loc_val _ _ _ = SOME _`
+      (qspec_then `rc` assume_tac) >>
+    namedCases_on `read_reg ra s` ["wa", "la oa"] >>
+    namedCases_on `read_reg rc s` ["wc", "lc oc"] >>
+    gvs[labSemTheory.arith_upd_def, labSemTheory.reg_imm_def,
+        labSemTheory.assert_def, labSemTheory.upd_reg_def,
+        word_loc_val_def, asmSemTheory.read_reg_def])
+  >- (
+    qpat_assum `!r. word_loc_val _ _ _ = SOME _`
+      (qspec_then `rb` assume_tac) >>
+    namedCases_on `read_reg ra s` ["wa", "la oa"] >>
+    namedCases_on `read_reg rb s` ["wb", "lb ob"] >>
+    gvs[labSemTheory.arith_upd_def, labSemTheory.assert_def,
+        labSemTheory.upd_reg_def, word_loc_val_def,
+        asmSemTheory.read_reg_def])
+  >- (
+    qpat_assum `!r. word_loc_val _ _ _ = SOME _`
+      (qspec_then `rh` assume_tac) >>
+    qpat_assum `!r. word_loc_val _ _ _ = SOME _`
+      (qspec_then `rl` assume_tac) >>
+    qpat_assum `!r. word_loc_val _ _ _ = SOME _`
+      (qspec_then `rb` assume_tac) >>
+    namedCases_on `read_reg rh s` ["wh", "lh oh"] >>
+    namedCases_on `read_reg rl s` ["wl", "ll ol"] >>
+    namedCases_on `read_reg rb s` ["wb", "lb ob"] >>
+    gvs[labSemTheory.arith_upd_def, labSemTheory.assert_def,
+        labSemTheory.upd_reg_def, word_loc_val_def,
+        asmSemTheory.read_reg_def, ADD_COMM, MULT_COMM])
+  >> qpat_assum `!r. word_loc_val _ _ _ = SOME _`
+       (qspec_then `ra` assume_tac)
+  >> qpat_assum `!r. word_loc_val _ _ _ = SOME _`
+       (qspec_then `rb` assume_tac)
+  >> namedCases_on `read_reg ra s` ["wa", "la oa"]
+  >> namedCases_on `read_reg rb s` ["wb", "lb ob"]
+  >> gvs[labSemTheory.arith_upd_def, labSemTheory.assert_def,
+         labSemTheory.upd_reg_def, word_loc_val_def,
+         asmSemTheory.read_reg_def]
+QED
+
+Theorem arith_upd_state_rel[local]:
+  ¬(arith_upd a s1).failed ∧
+  state_rel (mc_conf,code2,labs,p) s1 t1 ms1 ∧
+  (pos_val (s1.pc + 1) 0 code2 = pos_val s1.pc 0 code2 + LENGTH bytes') ⇒
+  ¬(arith_upd a t1).failed ∧
+  (target_state_rel mc_conf.target
+     (upd_pc (n2w (LENGTH bytes') + t1.pc) (arith_upd a t1)) ms2 ⇒
+   state_rel (mc_conf,code2,labs,p) (inc_pc (dec_clock (arith_upd a s1)))
+     (upd_pc (n2w (LENGTH bytes') + t1.pc) (arith_upd a t1)) ms2)
+Proof
+  strip_tac >>
+  conj_asm1_tac >- (
+    fs[state_rel_def] >> metis_tac[arith_upd_not_failed]) >>
+  strip_tac >>
+  simp[inc_pc_dec_clock, dec_clock_def] >>
+  match_mp_tac state_rel_clock >>
+  fs[state_rel_def] >>
+  simp[GSYM word_add_n2w] >>
+  fsrw_tac[ARITH_ss][] >>
+  conj_tac >- metis_tac[] >>
+  conj_tac >- (rw[] >> metis_tac[]) >>
+  conj_tac >- metis_tac[] >>
+  conj_tac >- (match_mp_tac arith_upd_lemma >> rw[]) >>
+  conj_tac >- fs[GSYM word_add_n2w] >>
+  conj_tac >- metis_tac[] >>
+  conj_tac >- rfs[] >>
+  fs[upd_pc_def, inc_pc_def, arith_upd_def, share_mem_state_rel_def] >>
+  rw[] >> gvs[IMP_CONJ_THM, AND_IMP_INTRO]
+QED
+
 Theorem Inst_lemma:
   ~(asm_inst i s1).failed /\
    state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,p) s1 t1 ms1 /\
@@ -2284,53 +2369,7 @@ Proof
     \\ rpt strip_tac \\ rfs[] \\ res_tac \\ fs[GSYM word_add_n2w]
     \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM] \\ srw_tac[][word_loc_val_def]
     >- (drule_all Inst_share_mem_reg_update_helper >> fs[]))
-  THEN1
-   (strip_tac >>
-    conj_asm1_tac >- (
-      Cases_on`a`>> full_simp_tac(srw_ss())[asmSemTheory.arith_upd_def,labSemTheory.arith_upd_def] >>
-      every_case_tac >> full_simp_tac(srw_ss())[labSemTheory.assert_def] >> srw_tac[][] >>
-      full_simp_tac(srw_ss())[reg_imm_def,binop_upd_def,labSemTheory.binop_upd_def] >>
-      full_simp_tac(srw_ss())[upd_reg_def,labSemTheory.upd_reg_def,state_rel_def] >>
-      TRY (Cases_on`b`)>>EVAL_TAC >> full_simp_tac(srw_ss())[state_rel_def]
-      >-
-       (rename1 ‘w2n (_ n')’
-        \\ qpat_x_assum ‘∀r. word_loc_val _ _ _ = SOME _’ mp_tac
-        \\ disch_then(qspec_then‘n'’assume_tac)
-        \\ gvs [word_loc_val_def])
-      (*Div*)
-      >-
-        (unabbrev_all_tac \\ fs[]
-        \\ qpat_x_assum `!bn. bn < _ ==> ~(MEM _ _)` kall_tac
-        \\ first_x_assum(qspec_then`n1`mp_tac)>>
-        first_x_assum(qspec_then`n1`mp_tac)>>
-        simp[]>>EVAL_TAC>>metis_tac[])
-      (*LongDiv*)
-      >>
-      unabbrev_all_tac \\ fs[]
-      \\ qpat_x_assum `!bn. bn < _ ==> ~(MEM _ _)` kall_tac
-      \\ first_x_assum(qspec_then`n0`kall_tac)
-      \\ first_assum(qspec_then`n0`mp_tac)
-      \\ first_assum(qspec_then`n1`mp_tac)
-      \\ first_assum(qspec_then`n2`mp_tac)
-      \\ first_x_assum(qspec_then`n3`mp_tac)
-      \\ simp[word_loc_val_def] \\ ntac 3 strip_tac
-      \\ rveq \\ fs[asmSemTheory.read_reg_def]) >>
-    srw_tac[][] >>
-    simp[inc_pc_dec_clock] >>
-    simp[dec_clock_def] >>
-    match_mp_tac state_rel_clock >>
-    full_simp_tac(srw_ss())[state_rel_def] >>
-    simp[GSYM word_add_n2w] >>
-    fsrw_tac[ARITH_ss][] >>
-    conj_tac >- metis_tac[] >>
-    conj_tac >- (srw_tac[][] >> metis_tac[]) >>
-    conj_tac >- metis_tac[] >>
-    conj_tac>- (match_mp_tac arith_upd_lemma >> srw_tac[][]) >>
-    conj_tac>- fs[GSYM word_add_n2w]>>
-    conj_tac >- metis_tac[] >>
-    conj_tac >- rfs[] >>
-    fs[upd_pc_def, inc_pc_def, arith_upd_def, share_mem_state_rel_def] >> rw[]>>
-    gvs[IMP_CONJ_THM, AND_IMP_INTRO])
+  THEN1 (metis_tac[arith_upd_state_rel])
   THEN1
     (strip_tac >>
     Cases_on`m`>>fs[mem_op_def,labSemTheory.assert_def]

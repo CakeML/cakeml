@@ -67,6 +67,8 @@ local
      `Inst (Arith (AddCarry r1 r2 r3 r4)) : asm`,
      `Inst (Arith (AddOverflow r1 r2 r3 r4)) : asm`,
      `Inst (Arith (SubOverflow r1 r2 r3 r4)) : asm`,
+     `Inst (Arith (IMul rd ra rb ro)) : asm`,
+     `Inst (Arith (IDiv rq rr ra rb)) : asm`,
      `Inst (Mem Load r1 (Addr r2 w)) : asm`,
      `Inst (Mem Load8 r1 (Addr r2 w)) : asm`,
      `Inst (Mem Load16 r1 (Addr r2 w)) : asm`,
@@ -356,7 +358,9 @@ fun asm_cases_tac i =
         all_tac, (* LongDiv *)
         all_tac, (* AddCarry *)
         all_tac, (* AddOverflow *)
-        all_tac  (* SubOverflow *)
+        all_tac, (* SubOverflow *)
+        all_tac, (* IMul *)
+        all_tac  (* IDiv *)
       ],
       Q.MATCH_GOALSUB_RENAME_TAC `Mem m _ a`
       \\ Cases_on `a`
@@ -397,6 +401,8 @@ in
   val isAddCarry = can_match `asm$Inst (asm$Arith (asm$AddCarry _ _ _ _))`
   val isAddOverflow = can_match `asm$Inst (asm$Arith (asm$AddOverflow _ _ _ _))`
   val isSubOverflow = can_match `asm$Inst (asm$Arith (asm$SubOverflow _ _ _ _))`
+  val isIMul = can_match `asm$Inst (asm$Arith (asm$IMul _ _ _ _))`
+  val isIDiv = can_match `asm$Inst (asm$Arith (asm$IDiv _ _ _ _))`
 end
 
 end

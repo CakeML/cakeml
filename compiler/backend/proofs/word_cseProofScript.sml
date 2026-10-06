@@ -2895,7 +2895,8 @@ Proof
   rpt strip_tac
   \\ namedCases_on ‘a’
        ["b r1 r2 ri", "sh r1 r2 ri", "r1 r2 r3", "r1 r2 r3 r4",
-        "r1 r2 r3 r4 r5", "r1 r2 r3 r4", "r1 r2 r3 r4", "r1 r2 r3 r4"]
+        "r1 r2 r3 r4 r5", "r1 r2 r3 r4", "r1 r2 r3 r4", "r1 r2 r3 r4",
+        "r1 r2 r3 r4", "r1 r2 r3 r4"]
   \\ gvs [canonicalArith_def, can_mem_arith_def, firstRegOfArith_def]
   >- (namedCases_on ‘ri’ ["r3", "imm"]
       \\ gvs [canonicalImmReg'_def, can_mem_arith_def, arithReads_def]
@@ -3388,7 +3389,8 @@ Resume comp_correct[Inst]:
       >- (
           namedCases_on ‘a’
             ["b n n0 ri", "sh n n0 ri", "n n0 n1", "n n0 n1 n2",
-             "n n0 n1 n2 n3", "n n0 n1 n2", "n n0 n1 n2", "n n0 n1 n2"]
+             "n n0 n1 n2 n3", "n n0 n1 n2", "n n0 n1 n2", "n n0 n1 n2",
+             "n n0 n1 n2", "n n0 n1 n2"]
           \\ gvs [canonicalArith_def, can_mem_arith_def, firstRegOfArith_def]
           >- ((* Binop *)
               ‘∃w. res = NONE ∧

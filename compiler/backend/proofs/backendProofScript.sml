@@ -63,6 +63,10 @@ Definition backend_config_ok_def:
     (c.data_conf.has_div ⇒
       asm_conf.ISA = ARMv8 ∨ asm_conf.ISA = MIPS ∨
       asm_conf.ISA = RISC_V) ∧
+    (c.data_conf.has_imul ⇒
+      asm_conf.ISA ∈ {x86_64; ARMv7; ARMv8; MIPS; RISC_V}) ∧
+    (c.data_conf.has_idiv ⇒
+      asm_conf.ISA ∈ {x86_64; ARMv8; MIPS; RISC_V}) ∧
     (c.data_conf.has_fp_tern ⇔
         asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count) ∧
     (c.data_conf.has_fp_ops ⇔ 1 < asm_conf.fp_reg_count) ∧
