@@ -1025,15 +1025,12 @@ val prove_lookup_cons_eq_fail = ref T;
 *)
 fun prove_lookup_cons_eq tm =
   let
-    val res = (* TODO: remove the SIMP_CONV and tidy up *)
-      tm |> (REWRITE_CONV [lookup_cons_def]
-             THENC TOP_DEPTH_CONV nsLookup_conv THENC EVAL
-             THENC SIMP_CONV (srw_ss())
-               [optionTheory.OPTION_CHOICE_EQ_NONE,empty_env_def]
-             THENC EVAL THENC nsLookup_conv THENC EVAL)
+    val res = tm |> (nsLookup_conv THENC EVAL)
     val c = res |> concl |> rand
     val _ = not (null (free_vars tm)) orelse aconv c T orelse aconv c F orelse
-              raise ERR "prove_lookup_cons_eq" "prove_lookup_cons_eq failed to reduce to F or T"
+              (print "\n[prove_lookup_cons_eq] stuck at rhs:\n";
+               print_term c; print "\n";
+               raise ERR "prove_lookup_cons_eq" "prove_lookup_cons_eq failed to reduce to F or T")
   in res end
   handle e => (prove_lookup_cons_eq_fail := tm; print_term tm; raise e);
 
@@ -4991,5 +4988,13 @@ fun declare_new_ref name tm = let
   (* add_Dlet th name (get_ml_prog_state ()) *)
   val _ = ml_prog_update (add_Dlet th name)
   in allowing_rebind save_thm(name ^ "_def",v_def) end
+
+(* PROFILE: wrap top-level translator entry points *)
+val translate = fn d => Profile.profile "translate" translate d
+val translate_no_ind = fn d => Profile.profile "translate_no_ind" translate_no_ind d
+val register_type = fn t => Profile.profile "register_type" register_type t
+val abs_register_type = fn t => Profile.profile "abs_register_type" abs_register_type t
+val hol2deep = fn t => Profile.profile "hol2deep" hol2deep t
+val hol2val = fn t => Profile.profile "hol2val" hol2val t
 
 end

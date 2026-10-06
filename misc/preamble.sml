@@ -595,5 +595,7 @@ val old_dxrule = old_dxrule_then mp_tac
 
 end
 
+(* Proof-tracing utilities removed — only available on trknl branch *)
+
 
 end

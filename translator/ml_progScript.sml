@@ -46,6 +46,337 @@ Definition merge_env_def[nocompute]:
      ; c := nsAppend env2.c env1.c|>
 End
 
+(* --- balanced env tree --- *)
+
+(* A structured entry: what key k contributes to each env component.
+   sv = Short value, sc = Short constructor,
+   mv = module value namespace, mc = module constructor namespace *)
+Datatype:
+  env_entry =
+    <| sv : v option
+     ; sc : (num # stamp) option
+     ; mv : (mlstring, mlstring, v) namespace option
+     ; mc : (mlstring, mlstring, (num # stamp)) namespace option
+     |>
+End
+val env_entry_component_equality = fetch "-" "env_entry_component_equality";
+
+(* A balanced tree of env entries, projected to sem_env *)
+Datatype:
+  env_tree = EnvLeaf mlstring env_entry
+           | EnvBranch env_tree env_tree
+End
+
+(* Well-formedness: sorted keys with exact first/last bounds *)
+Definition env_wf_def:
+  env_wf (EnvLeaf k e) k1 k2 = (k1 = k /\ k2 = k) /\
+  env_wf (EnvBranch l r) k1 k2 =
+    ?kl kr. env_wf l k1 kl /\ env_wf r kr k2 /\ kl < kr
+End
+
+(* Intro rules for building WF bottom-up *)
+Theorem env_wf_leaf:
+  env_wf (EnvLeaf k e) k k
+Proof
+  fs [env_wf_def]
+QED
+
+Theorem env_wf_branch_intro:
+  env_wf l k1 kl /\ env_wf r kr k2 ==> kl < kr ==>
+  env_wf (EnvBranch l r) k1 k2
+Proof
+  rw [env_wf_def] \\ metis_tac []
+QED
+
+(* Leaf membership *)
+Definition env_leaf_mem_def:
+  env_leaf_mem k e (EnvLeaf k2 e2) = (k = k2 /\ e = e2) /\
+  env_leaf_mem k e (EnvBranch l r) = (env_leaf_mem k e l \/ env_leaf_mem k e r)
+End
+
+(* Subset / containment: structural inclusion in a tree.
+   env_sub t1 t2 means every leaf in t1 also occurs in t2.
+   Both left and right child rules are unconditional. *)
+Definition env_sub_def:
+  env_sub t1 t2 = !k e. env_leaf_mem k e t1 ==> env_leaf_mem k e t2
+End
+
+Theorem env_sub_refl:
+  env_sub t t
+Proof
+  fs [env_sub_def]
+QED
+
+Theorem env_sub_left:
+  env_sub t l ==> env_sub t (EnvBranch l r)
+Proof
+  fs [env_sub_def, env_leaf_mem_def]
+QED
+
+Theorem env_sub_right:
+  env_sub t r ==> env_sub t (EnvBranch l r)
+Proof
+  fs [env_sub_def, env_leaf_mem_def]
+QED
+
+Theorem env_sub_trans:
+  env_sub t1 t2 /\ env_sub t2 t3 ==> env_sub t1 t3
+Proof
+  fs [env_sub_def]
+QED
+
+(* Unified lookup: one HOL function returning an env_entry that packages
+   all four component lookups. Paired with nsLookup_all below. *)
+
+Definition empty_entry_def:
+  empty_entry = <|sv := NONE; sc := NONE; mv := NONE; mc := NONE|>
+End
+
+Definition tree_lookup_def:
+  tree_lookup (EnvLeaf k' e) k =
+    (if k = k' then e else empty_entry) /\
+  tree_lookup (EnvBranch l r) k =
+    (let el = tree_lookup l k in
+     let er = tree_lookup r k in
+       <| sv := OPTION_CHOICE el.sv er.sv
+        ; sc := OPTION_CHOICE el.sc er.sc
+        ; mv := OPTION_CHOICE el.mv er.mv
+        ; mc := OPTION_CHOICE el.mc er.mc |>)
+End
+
+(* nsLookup_all_def is defined further below, after nsLookup_Mod1_def. *)
+
+(* Intro rules for env_leaf_mem, for building membership proofs bottom-up *)
+Theorem env_leaf_mem_leaf:
+  env_leaf_mem k e (EnvLeaf k e)
+Proof
+  fs [env_leaf_mem_def]
+QED
+
+Theorem env_leaf_mem_branch_l:
+  env_leaf_mem k e l ==> env_leaf_mem k e (EnvBranch l r)
+Proof
+  fs [env_leaf_mem_def]
+QED
+
+Theorem env_leaf_mem_branch_r:
+  env_leaf_mem k e r ==> env_leaf_mem k e (EnvBranch l r)
+Proof
+  fs [env_leaf_mem_def]
+QED
+
+(* Unified tree_lookup hit/miss theorems are defined further below
+   after env_wf_bounds_le / env_wf_mem_bounds. *)
+
+(* --- WF structural lemmas --- *)
+
+(* env_wf implies bounds are ordered *)
+Theorem env_wf_bounds_le:
+  !t k1 k2. env_wf t k1 k2 ==> k1 ≤ k2
+Proof
+  Induct_on `t` >- fs [env_wf_def, mlstringTheory.mlstring_le_thm]
+  \\ rw [env_wf_def]
+  \\ metis_tac [mlstringTheory.mlstring_le_thm, mlstringTheory.mlstring_lt_trans]
+QED
+
+(* All leaf keys are within the WF bounds *)
+Theorem env_wf_mem_bounds:
+  !t k1 k2 k e. env_wf t k1 k2 /\ env_leaf_mem k e t ==> k1 ≤ k /\ k ≤ k2
+Proof
+  Induct_on `t` >- fs [env_wf_def, env_leaf_mem_def, mlstringTheory.mlstring_le_thm]
+  \\ rw [env_wf_def, env_leaf_mem_def] \\ res_tac \\ fs []
+  \\ imp_res_tac env_wf_bounds_le
+  \\ metis_tac [mlstringTheory.mlstring_le_thm, mlstringTheory.mlstring_lt_trans]
+QED
+
+(* The first and second bounds in env_wf are structurally determined by t. *)
+Theorem env_wf_bounds_unique:
+  !t k1 k1' k2 k2'.
+    env_wf t k1 k2 /\ env_wf t k1' k2' ==> k1 = k1' /\ k2 = k2'
+Proof
+  Induct_on `t` >- fs [env_wf_def]
+  \\ rw [env_wf_def] \\ res_tac \\ fs []
+QED
+
+(* Given the full branch WF plus the two child WFs at specific bounds,
+   the relation < between the children's adjacent bounds
+   holds.  Used by the ML driver to derive lt theorems from a parent
+   WF that's already in scope, without invoking EVAL via mk_lt_thm. *)
+Theorem env_wf_branch_split_lt:
+  !l r k1 k2 kl kr.
+    env_wf (EnvBranch l r) k1 k2 /\
+    env_wf l k1 kl /\ env_wf r kr k2 ==>
+    kl < kr
+Proof
+  rw [env_wf_def]
+  \\ imp_res_tac env_wf_bounds_unique
+  \\ fs []
+QED
+
+(* CPS form for apply_cps: parent WF as an explicit Branch equation so
+   INST + PROVE_HYP on (tT, l, r, k1, k2, kl, kr) can discharge it. *)
+Theorem env_wf_branch_split_lt_cps:
+  tT = EnvBranch l r /\ env_wf tT k1 k2 /\
+  env_wf l k1 kl /\ env_wf r kr k2 ==>
+  kl < kr
+Proof
+  rpt strip_tac \\ gvs []
+  \\ irule env_wf_branch_split_lt \\ metis_tac []
+QED
+
+(* Unified tree_lookup miss theorem: key outside WF bounds ==> empty_entry *)
+Theorem tree_lookup_miss:
+  !t k1 k2 k. env_wf t k1 k2 /\ (k < k1 \/ k2 < k) ==>
+    tree_lookup t k = empty_entry
+Proof
+  Induct_on `t`
+  >- (rw [env_wf_def, tree_lookup_def]
+      \\ metis_tac [mlstringTheory.mlstring_lt_nonrefl, empty_entry_def])
+  \\ rw [env_wf_def, tree_lookup_def, LET_THM]
+  \\ imp_res_tac env_wf_bounds_le
+  \\ `tree_lookup t k = empty_entry /\ tree_lookup t' k = empty_entry` by (
+    conj_tac >> first_x_assum irule
+    >| map qexistsl_tac [[`k1`, `kl`], [`kr`, `k2`]] \\ fs []
+    \\ metis_tac [mlstringTheory.mlstring_le_thm, mlstringTheory.mlstring_lt_trans])
+  \\ fs [empty_entry_def, optionTheory.OPTION_CHOICE_def]
+QED
+
+(* An "in-range miss" predicate: k is within [k1,k2] but not at any leaf.
+   The ML driver carries this up one branch at a time so each outer miss
+   needs only two proofs < (for the two leaves adjacent to k),
+   instead of an O(depth) cascade. *)
+Definition tree_miss_def:
+  tree_miss t k1 k2 k <=>
+    env_wf t k1 k2 /\
+    tree_lookup t k = empty_entry /\
+    k1 ≤ k /\ k ≤ k2
+End
+
+Theorem tree_miss_imp_lookup:
+  !t k1 k2 k. tree_miss t k1 k2 k ==> tree_lookup t k = empty_entry
+Proof
+  rw [tree_miss_def]
+QED
+
+(* Base: a branch whose two subtrees bracket k strictly — the two lt proofs
+   are the between < k and the two inner bounds (kL, kR). *)
+Theorem tree_miss_gap:
+  env_wf tL k1 kL /\ env_wf tR kR k2 /\
+  kL < k /\ k < kR ==>
+  tree_miss (EnvBranch tL tR) k1 k2 k
+Proof
+  rw [tree_miss_def]
+  >- (rw [env_wf_def]
+      \\ qexistsl_tac [`kL`, `kR`] \\ fs []
+      \\ metis_tac [mlstringTheory.mlstring_lt_trans])
+  >- (rw [tree_lookup_def, LET_THM]
+      \\ `tree_lookup tL k = empty_entry` by (
+           irule tree_lookup_miss \\ qexistsl_tac [`k1`, `kL`] \\ fs [])
+      \\ `tree_lookup tR k = empty_entry` by (
+           irule tree_lookup_miss \\ qexistsl_tac [`kR`, `k2`] \\ fs [])
+      \\ fs [empty_entry_def, optionTheory.OPTION_CHOICE_def])
+  >- (imp_res_tac env_wf_bounds_le
+      \\ metis_tac [mlstringTheory.mlstring_le_thm,
+                    mlstringTheory.transitive_mlstring_le,
+                    relationTheory.transitive_def])
+  >- (imp_res_tac env_wf_bounds_le
+      \\ metis_tac [mlstringTheory.mlstring_le_thm,
+                    mlstringTheory.transitive_mlstring_le,
+                    relationTheory.transitive_def])
+QED
+
+(* Step-left: k missed in tL; carry up one level through EnvBranch tL tR.
+   tR's lookup is empty because k < kL < kR (all R's leaves are > kR). *)
+Theorem tree_miss_branch_l:
+  tree_miss tL k1 kL k /\ env_wf (EnvBranch tL tR) k1 k2 ==>
+  tree_miss (EnvBranch tL tR) k1 k2 k
+Proof
+  simp [tree_miss_def] \\ strip_tac
+  \\ `?kl kr. env_wf tL k1 kl /\ env_wf tR kr k2 /\ kl < kr`
+      by metis_tac [env_wf_def]
+  \\ `kl = kL` by metis_tac [env_wf_bounds_unique]
+  \\ gvs []
+  \\ `tree_lookup tR k = empty_entry` by (
+        irule tree_lookup_miss \\ qexistsl_tac [`kr`, `k2`] \\ fs []
+        \\ metis_tac [mlstringTheory.mlstring_le_thm, mlstringTheory.mlstring_lt_trans])
+  \\ conj_tac >-
+      (rw [tree_lookup_def, LET_THM]
+        \\ fs [empty_entry_def, optionTheory.OPTION_CHOICE_def])
+  \\ imp_res_tac env_wf_bounds_le
+  \\ metis_tac [mlstringTheory.mlstring_le_thm, mlstringTheory.mlstring_lt_trans]
+QED
+
+(* Step-right: symmetric. *)
+Theorem tree_miss_branch_r:
+  tree_miss tR kR k2 k /\ env_wf (EnvBranch tL tR) k1 k2 ==>
+  tree_miss (EnvBranch tL tR) k1 k2 k
+Proof
+  simp [tree_miss_def] \\ strip_tac
+  \\ `?kl kr. env_wf tL k1 kl /\ env_wf tR kr k2 /\ kl < kr`
+       by metis_tac [env_wf_def]
+  \\ `kr = kR` by metis_tac [env_wf_bounds_unique]
+  \\ gvs []
+  \\ `tree_lookup tL k = empty_entry` by (
+        irule tree_lookup_miss \\ qexistsl_tac [`k1`, `kl`] \\ fs []
+        \\ metis_tac [mlstringTheory.mlstring_le_thm, mlstringTheory.mlstring_lt_trans])
+  \\ conj_tac >-
+       (rw [tree_lookup_def, LET_THM]
+        \\ fs [empty_entry_def, optionTheory.OPTION_CHOICE_def])
+  \\ imp_res_tac env_wf_bounds_le
+  \\ metis_tac [mlstringTheory.mlstring_le_thm, mlstringTheory.mlstring_lt_trans]
+QED
+
+(* CPS forms for INST + PROVE_HYP in the ML driver. *)
+Theorem tree_miss_gap_cps:
+  tT = EnvBranch tL tR /\
+  env_wf tL k1 kL /\ env_wf tR kR k2 /\
+  kL < k /\ k < kR ==>
+  tree_miss tT k1 k2 k
+Proof
+  rpt strip_tac \\ gvs []
+  \\ irule tree_miss_gap \\ metis_tac []
+QED
+
+Theorem tree_miss_branch_l_cps:
+  tT = EnvBranch tL tR /\
+  tree_miss tL k1 kL k /\ env_wf tT k1 k2 ==>
+  tree_miss tT k1 k2 k
+Proof
+  rpt strip_tac \\ gvs []
+  \\ irule tree_miss_branch_l \\ metis_tac []
+QED
+
+Theorem tree_miss_branch_r_cps:
+  tT = EnvBranch tL tR /\
+  tree_miss tR kR k2 k /\ env_wf tT k1 k2 ==>
+  tree_miss tT k1 k2 k
+Proof
+  rpt strip_tac \\ gvs []
+  \\ irule tree_miss_branch_r \\ metis_tac []
+QED
+
+(* Unified tree_lookup hit theorem: WF + membership ==> return the entry *)
+Theorem tree_lookup_hit:
+  !t k1 k2 k e. env_wf t k1 k2 /\ env_leaf_mem k e t ==> tree_lookup t k = e
+Proof
+  Induct_on `t`
+  >- (rw [env_wf_def, env_leaf_mem_def, tree_lookup_def])
+  \\ rw [env_wf_def, env_leaf_mem_def, tree_lookup_def, LET_THM]
+  \\ res_tac
+  >- (`tree_lookup t' k = empty_entry` by (
+        match_mp_tac tree_lookup_miss \\ qexistsl_tac [`kr`, `k2`]
+        \\ imp_res_tac env_wf_mem_bounds \\ fs []
+        \\ metis_tac [mlstringTheory.mlstring_le_thm, mlstringTheory.mlstring_lt_trans])
+      \\ fs [empty_entry_def, optionTheory.OPTION_CHOICE_def,
+             env_entry_component_equality])
+  \\ `tree_lookup t k = empty_entry` by (
+        match_mp_tac tree_lookup_miss \\ qexistsl_tac [`k1`, `kl`]
+        \\ imp_res_tac env_wf_mem_bounds \\ fs []
+        \\ metis_tac [mlstringTheory.mlstring_le_thm, mlstringTheory.mlstring_lt_trans])
+  \\ fs [empty_entry_def, optionTheory.OPTION_CHOICE_def,
+         env_entry_component_equality]
+QED
+
 (* the components of nsLookup are 'nicer' partial functions *)
 
 Definition nsLookup_Short_def[nocompute]:
@@ -56,145 +387,599 @@ Definition nsLookup_Mod1_def[nocompute]:
   nsLookup_Mod1 ns = (case ns of Bind _ ms => ALOOKUP ms)
 End
 
+(* The unified sem_env lookup: packages all four component lookups for a key
+   into a single env_entry. Paired with tree_lookup (defined above) for the
+   equivalence theorem maintained by ml_progLib. *)
+Definition nsLookup_all_def:
+  nsLookup_all (env : v sem_env) k =
+    <| sv := nsLookup_Short env.v k
+     ; sc := nsLookup_Short env.c k
+     ; mv := nsLookup_Mod1 env.v k
+     ; mc := nsLookup_Mod1 env.c k |>
+End
+
+(* Inductive step lemmas: how nsLookup_all changes under each env-construction
+   operation. Chain these with the tree-level equivalent to build the per-env
+   (nsLookup_all env = tree_lookup tree_const) theorem. *)
+
+Theorem nsLookup_all_write:
+  !n v env k. nsLookup_all (write n v env) k =
+    if k = n then
+      <| sv := SOME v
+       ; sc := (nsLookup_all env k).sc
+       ; mv := (nsLookup_all env k).mv
+       ; mc := (nsLookup_all env k).mc |>
+    else nsLookup_all env k
+Proof
+  rw [nsLookup_all_def, write_def]
+  \\ Cases_on `env.v`
+  \\ fs [nsBind_def, nsLookup_def, nsLookup_Short_def, nsLookup_Mod1_def]
+QED
+
+Theorem nsLookup_all_write_cons:
+  !n c env k. nsLookup_all (write_cons n c env) k =
+    if k = n then
+      <| sv := (nsLookup_all env k).sv
+       ; sc := SOME c
+       ; mv := (nsLookup_all env k).mv
+       ; mc := (nsLookup_all env k).mc |>
+    else nsLookup_all env k
+Proof
+  rw [nsLookup_all_def, write_cons_def]
+  \\ Cases_on `env.c`
+  \\ fs [nsSing_def, nsBind_def, nsAppend_def, nsLookup_def, nsLookup_Short_def, nsLookup_Mod1_def]
+QED
+
+Theorem nsLookup_all_write_mod:
+  !mn mod_env env k. nsLookup_all (write_mod mn mod_env env) k =
+    if k = mn then
+      <| sv := (nsLookup_all env k).sv
+       ; sc := (nsLookup_all env k).sc
+       ; mv := SOME mod_env.v
+       ; mc := SOME mod_env.c |>
+    else nsLookup_all env k
+Proof
+  rw [nsLookup_all_def, write_mod_def]
+  \\ Cases_on `env.v` \\ Cases_on `env.c`
+  \\ fs [nsLift_def, nsAppend_def, nsLookup_def, nsLookup_Short_def, nsLookup_Mod1_def,
+         alistTheory.ALOOKUP_APPEND]
+QED
+
+Theorem nsLookup_all_merge_env:
+  !env1 env2 k. nsLookup_all (merge_env env1 env2) k =
+    (let e1 = nsLookup_all env1 k in
+     let e2 = nsLookup_all env2 k in
+       <| sv := OPTION_CHOICE e1.sv e2.sv
+        ; sc := OPTION_CHOICE e1.sc e2.sc
+        ; mv := OPTION_CHOICE e1.mv e2.mv
+        ; mc := OPTION_CHOICE e1.mc e2.mc |>)
+Proof
+  rw [nsLookup_all_def, merge_env_def]
+  \\ Cases_on `env1.v` \\ Cases_on `env2.v`
+  \\ Cases_on `env1.c` \\ Cases_on `env2.c`
+  \\ fs [nsAppend_def, nsLookup_def, nsLookup_Short_def, nsLookup_Mod1_def,
+         alistTheory.ALOOKUP_APPEND]
+  \\ rpt (CASE_TAC \\ fs [])
+QED
+
+Theorem nsLookup_all_empty_env:
+  !k. nsLookup_all empty_env k = empty_entry
+Proof
+  fs [nsLookup_all_def, empty_env_def, nsEmpty_def, nsLookup_def,
+      nsLookup_Short_def, nsLookup_Mod1_def, empty_entry_def]
+QED
+
+(* CPS-style tree-level versions of write / write_cons / write_mod:
+   given nsLookup_all env = tree_lookup T, inserting a new binding is
+   equivalent to branching on a singleton leaf on the LEFT (priority). *)
+
+Theorem nsLookup_all_write_tree_cps:
+  !n v env tT tL Tnew.
+    nsLookup_all env = tree_lookup tT /\
+    tL = EnvLeaf n (empty_entry with sv := SOME v) /\
+    Tnew = EnvBranch tL tT ==>
+    nsLookup_all (write n v env) = tree_lookup Tnew
+Proof
+  rpt strip_tac \\ gvs []
+  \\ simp [FUN_EQ_THM] \\ gen_tac
+  \\ simp [nsLookup_all_write, tree_lookup_def, LET_THM, empty_entry_def,
+           optionTheory.OPTION_CHOICE_def]
+  \\ `nsLookup_all env x = tree_lookup tT x` by fs [FUN_EQ_THM]
+  \\ rw [] \\ fs [] \\ rw [] \\ simp [env_entry_component_equality]
+QED
+
+Theorem nsLookup_all_write_cons_tree_cps:
+  !n c env tT tL Tnew.
+    nsLookup_all env = tree_lookup tT /\
+    tL = EnvLeaf n (empty_entry with sc := SOME c) /\
+    Tnew = EnvBranch tL tT ==>
+    nsLookup_all (write_cons n c env) = tree_lookup Tnew
+Proof
+  rpt strip_tac \\ gvs []
+  \\ simp [FUN_EQ_THM] \\ gen_tac
+  \\ simp [nsLookup_all_write_cons, tree_lookup_def, LET_THM, empty_entry_def,
+           optionTheory.OPTION_CHOICE_def]
+  \\ `nsLookup_all env x = tree_lookup tT x` by fs [FUN_EQ_THM]
+  \\ rw [] \\ fs [] \\ rw [] \\ simp [env_entry_component_equality]
+QED
+
+Theorem nsLookup_all_write_mod_tree_cps:
+  !n mod_env env tT tL Tnew.
+    nsLookup_all env = tree_lookup tT /\
+    tL = EnvLeaf n ((empty_entry with mv := SOME mod_env.v)
+                                 with mc := SOME mod_env.c) /\
+    Tnew = EnvBranch tL tT ==>
+    nsLookup_all (write_mod n mod_env env) = tree_lookup Tnew
+Proof
+  rpt strip_tac \\ gvs []
+  \\ simp [FUN_EQ_THM] \\ gen_tac
+  \\ simp [nsLookup_all_write_mod, tree_lookup_def, LET_THM, empty_entry_def,
+           optionTheory.OPTION_CHOICE_def]
+  \\ `nsLookup_all env x = tree_lookup tT x` by fs [FUN_EQ_THM]
+  \\ rw [] \\ fs [] \\ rw [] \\ simp [env_entry_component_equality]
+QED
+
+(* Direct projection theorems: the nsLookup_{Short,Mod1} functions on
+   env.{v,c} are just field projections of `nsLookup_all env k`.  Used by
+   nsLookup_tree_conv: SPECL [env, k] one of these, ONCE_REWRITE_RULE with
+   the env's tree-equivalence (nsLookup_all env = tree_lookup T), substitute
+   the concrete tree_lookup result, EVAL the field projection. *)
+Theorem nsLookup_Short_v_via_all:
+  nsLookup_Short env.v k = (nsLookup_all env k).sv
+Proof
+  rw [nsLookup_Short_def, nsLookup_all_def]
+QED
+
+Theorem nsLookup_Short_c_via_all:
+  nsLookup_Short env.c k = (nsLookup_all env k).sc
+Proof
+  rw [nsLookup_Short_def, nsLookup_all_def]
+QED
+
+Theorem nsLookup_Mod1_v_via_all:
+  nsLookup_Mod1 env.v k = (nsLookup_all env k).mv
+Proof
+  rw [nsLookup_all_def]
+QED
+
+Theorem nsLookup_Mod1_c_via_all:
+  nsLookup_Mod1 env.c k = (nsLookup_all env k).mc
+Proof
+  rw [nsLookup_all_def]
+QED
+
+(* Merge-env push-down: when both sides have a tree equivalence, the
+   combination is exactly tree_lookup (EnvBranch T1 T2). Holds
+   unconditionally; WF of the combined tree requires disjoint ranges, handled
+   separately by env_wf_branch_intro. *)
+Theorem nsLookup_all_merge_tree:
+  !e1 e2 T1 T2.
+    nsLookup_all e1 = tree_lookup T1 /\
+    nsLookup_all e2 = tree_lookup T2 ==>
+    nsLookup_all (merge_env e1 e2) = tree_lookup (EnvBranch T1 T2)
+Proof
+  rpt strip_tac
+  \\ simp [FUN_EQ_THM]
+  \\ gen_tac
+  \\ simp [nsLookup_all_merge_env, tree_lookup_def, LET_THM]
+  \\ `nsLookup_all e1 x = tree_lookup T1 x` by fs [FUN_EQ_THM]
+  \\ `nsLookup_all e2 x = tree_lookup T2 x` by fs [FUN_EQ_THM]
+  \\ simp []
+QED
+
+(* Tree-side insertion lemmas: how tree_lookup changes when we structurally
+   insert or update a leaf. The ML chains these as it walks the tree during
+   insertion, building the per-env equivalence proof. *)
+
+Theorem tree_lookup_prepend:
+  !t k1 k2 n entry k.
+    env_wf t k1 k2 /\ n < k1 ==>
+    tree_lookup (EnvBranch (EnvLeaf n entry) t) k =
+      if k = n then entry else tree_lookup t k
+Proof
+  rpt gen_tac \\ strip_tac
+  \\ rw [tree_lookup_def, LET_THM]
+  \\ TRY (`tree_lookup t k = empty_entry` by
+        (match_mp_tac tree_lookup_miss \\ qexistsl_tac [`k1`,`k2`] \\ fs []))
+  \\ fs [empty_entry_def, optionTheory.OPTION_CHOICE_def,
+         env_entry_component_equality]
+QED
+
+Theorem tree_lookup_append:
+  !t k1 k2 n entry k.
+    env_wf t k1 k2 /\ k2 < n ==>
+    tree_lookup (EnvBranch t (EnvLeaf n entry)) k =
+      if k = n then entry else tree_lookup t k
+Proof
+  rpt gen_tac \\ strip_tac
+  \\ rw [tree_lookup_def, LET_THM]
+  \\ TRY (`tree_lookup t k = empty_entry` by
+        (match_mp_tac tree_lookup_miss \\ qexistsl_tac [`k1`,`k2`] \\ fs []))
+  \\ fs [empty_entry_def, optionTheory.OPTION_CHOICE_def,
+         env_entry_component_equality]
+QED
+
+(* Propagate a local update to the right through a branch *)
+Theorem tree_lookup_branch_right_update:
+  !l k1 k2 r r' n entry.
+    env_wf l k1 k2 /\ k2 < n /\
+    (!k. tree_lookup r' k = if k = n then entry else tree_lookup r k) ==>
+    !k. tree_lookup (EnvBranch l r') k =
+          if k = n then entry else tree_lookup (EnvBranch l r) k
+Proof
+  rw [tree_lookup_def, LET_THM]
+  \\ TRY (`tree_lookup l n = empty_entry` by
+            (match_mp_tac tree_lookup_miss \\ qexistsl_tac [`k1`,`k2`] \\ fs []))
+  \\ fs [empty_entry_def, optionTheory.OPTION_CHOICE_def,
+         env_entry_component_equality]
+  \\ rw []
+QED
+
+(* --- merge_env rebalance infrastructure ---
+   combine_entries + flatten_tree + alist_lookup + merge_alists + build_tree
+   are the building blocks for rebalancing two WF trees into one on merge_env.
+   Proofs of the remaining correctness theorems (alist_lookup_merge_alists,
+   tree_lookup_of_build_tree, env_wf_build_tree, tree_merge_spec) are in flight. *)
+
+Definition combine_entries_def:
+  combine_entries e1 e2 =
+    <| sv := OPTION_CHOICE e1.sv e2.sv
+     ; sc := OPTION_CHOICE e1.sc e2.sc
+     ; mv := OPTION_CHOICE e1.mv e2.mv
+     ; mc := OPTION_CHOICE e1.mc e2.mc |>
+End
+
+Theorem OPTION_CHOICE_assoc:
+  !x y z. OPTION_CHOICE x (OPTION_CHOICE y z) = OPTION_CHOICE (OPTION_CHOICE x y) z
+Proof
+  Cases \\ Cases \\ fs [optionTheory.OPTION_CHOICE_def]
+QED
+
+Theorem combine_entries_empty_left:
+  !e. combine_entries empty_entry e = e
+Proof
+  rw [combine_entries_def, empty_entry_def, optionTheory.OPTION_CHOICE_def]
+  \\ rw [env_entry_component_equality]
+QED
+
+Theorem combine_entries_empty_right:
+  !(e:env_entry). combine_entries e empty_entry = e
+Proof
+  rw [combine_entries_def, empty_entry_def, optionTheory.OPTION_CHOICE_def]
+  \\ rw [env_entry_component_equality]
+  \\ Cases_on `e.sv` \\ Cases_on `e.sc` \\ Cases_on `e.mv` \\ Cases_on `e.mc`
+  \\ fs []
+QED
+
+(* --- Commutativity of record updates through combine_entries ---
+   When the LHS has a definite field (SOME _), combine_entries lifts that
+   fupd outside.  Together with combine_entries_empty_left, these rules let
+   simp eliminate combine_entries from stacked-fupd entries. *)
+Theorem combine_entries_sv_fupd:
+  !v e1 e2.
+    combine_entries (e1 with sv := SOME v) e2 =
+    (combine_entries e1 e2) with sv := SOME v
+Proof
+  rw [combine_entries_def, env_entry_component_equality,
+      optionTheory.OPTION_CHOICE_def]
+QED
+
+Theorem combine_entries_sc_fupd:
+  !c e1 e2.
+    combine_entries (e1 with sc := SOME c) e2 =
+    (combine_entries e1 e2) with sc := SOME c
+Proof
+  rw [combine_entries_def, env_entry_component_equality,
+      optionTheory.OPTION_CHOICE_def]
+QED
+
+Theorem combine_entries_mv_fupd:
+  !m e1 e2.
+    combine_entries (e1 with mv := SOME m) e2 =
+    (combine_entries e1 e2) with mv := SOME m
+Proof
+  rw [combine_entries_def, env_entry_component_equality,
+      optionTheory.OPTION_CHOICE_def]
+QED
+
+Theorem combine_entries_mc_fupd:
+  !n e1 e2.
+    combine_entries (e1 with mc := SOME n) e2 =
+    (combine_entries e1 e2) with mc := SOME n
+Proof
+  rw [combine_entries_def, env_entry_component_equality,
+      optionTheory.OPTION_CHOICE_def]
+QED
+
+(* --- Primitives for merge_env rebalancing ---
+   Rotation, commute (with disjoint-range side-condition), coalesce, cong.
+   The ML drives the sequence of moves; each one is a one-step rewrite. *)
+
+Theorem tree_lookup_assoc:
+  tree_lookup (EnvBranch (EnvBranch A B) C) =
+  tree_lookup (EnvBranch A (EnvBranch B C))
+Proof
+  rw [FUN_EQ_THM, tree_lookup_def, LET_THM, OPTION_CHOICE_assoc]
+QED
+
+Theorem tree_lookup_coalesce_leaves:
+  tree_lookup (EnvBranch (EnvLeaf k e1) (EnvLeaf k e2)) =
+  tree_lookup (EnvLeaf k (combine_entries e1 e2))
+Proof
+  rw [FUN_EQ_THM, tree_lookup_def, LET_THM]
+  \\ rw [combine_entries_def, empty_entry_def, optionTheory.OPTION_CHOICE_def]
+  \\ fs [env_entry_component_equality]
+QED
+
+Theorem tree_lookup_branch_cong:
+  tree_lookup l = tree_lookup l' /\ tree_lookup r = tree_lookup r' ==>
+    tree_lookup (EnvBranch l r) = tree_lookup (EnvBranch l' r')
+Proof
+  rw [FUN_EQ_THM, tree_lookup_def, LET_THM]
+QED
+
+(* Commute B and C within a left-skewed branch, when their key ranges
+   are disjoint. The disjoint-keys form is the primitive; the WF form
+   follows. *)
+Theorem tree_lookup_commute_disjoint:
+  (!k. tree_lookup B k = empty_entry \/ tree_lookup C k = empty_entry) ==>
+    tree_lookup (EnvBranch (EnvBranch A B) C) =
+    tree_lookup (EnvBranch (EnvBranch A C) B)
+Proof
+  rw [FUN_EQ_THM, tree_lookup_def, LET_THM]
+  \\ pop_assum (qspec_then `x` assume_tac)
+  \\ fs [empty_entry_def, optionTheory.OPTION_CHOICE_def]
+QED
+
+(* Top-level sibling swap, derived from the disjoint-range commute on the
+   trivial "outer" position.  Used by push-leaf when the pushed leaf's key
+   sorts before the whole target tree. *)
+Theorem tree_lookup_swap_disjoint:
+  (!k. tree_lookup X k = empty_entry \/ tree_lookup Y k = empty_entry) ==>
+  tree_lookup (EnvBranch X Y) = tree_lookup (EnvBranch Y X)
+Proof
+  rw [FUN_EQ_THM, tree_lookup_def, LET_THM]
+  \\ pop_assum (qspec_then `x` assume_tac)
+  \\ fs [empty_entry_def, optionTheory.OPTION_CHOICE_def]
+QED
+
+Theorem tree_lookup_swap:
+  env_wf X kX1 kX2 /\ env_wf Y kY1 kY2 /\
+  (kX2 < kY1 \/ kY2 < kX1) ==>
+  tree_lookup (EnvBranch X Y) = tree_lookup (EnvBranch Y X)
+Proof
+  rpt strip_tac
+  \\ match_mp_tac tree_lookup_swap_disjoint
+  \\ gen_tac
+  (* Sub-goal 1: kX2 < kY1 *)
+  >- (Cases_on `k < kY1`
+      >- (disj2_tac \\ match_mp_tac tree_lookup_miss
+          \\ qexistsl_tac [`kY1`, `kY2`] \\ simp [])
+      \\ disj1_tac \\ match_mp_tac tree_lookup_miss
+      \\ qexistsl_tac [`kX1`, `kX2`] \\ simp [] \\ disj2_tac
+      \\ `kY1 = k \/ kY1 < k` by
+           (Q.SPECL_THEN [`kY1`, `k`] mp_tac mlstringTheory.mlstring_lt_cases
+            \\ fs [])
+      \\ fs []
+      \\ imp_res_tac (REWRITE_RULE [GSYM AND_IMP_INTRO]
+                        mlstringTheory.mlstring_lt_trans) \\ fs [])
+  (* Sub-goal 2: kY2 < kX1 — symmetric *)
+  \\ Cases_on `k < kX1`
+  >- (disj1_tac \\ match_mp_tac tree_lookup_miss
+      \\ qexistsl_tac [`kX1`, `kX2`] \\ simp [])
+  \\ disj2_tac \\ match_mp_tac tree_lookup_miss
+  \\ qexistsl_tac [`kY1`, `kY2`] \\ simp [] \\ disj2_tac
+  \\ `kX1 = k \/ kX1 < k` by
+       (Q.SPECL_THEN [`kX1`, `k`] mp_tac mlstringTheory.mlstring_lt_cases
+        \\ fs [])
+  \\ fs []
+  \\ imp_res_tac (REWRITE_RULE [GSYM AND_IMP_INTRO]
+                    mlstringTheory.mlstring_lt_trans) \\ fs []
+QED
+
+(* WF-friendly commute: caller supplies two WF theorems and a single bound
+   ordering, no ∀k disjointness proof needed. *)
+Theorem tree_lookup_commute:
+  env_wf B kB1 kB2 /\ env_wf C kC1 kC2 /\
+  (kB2 < kC1 \/ kC2 < kB1) ==>
+    tree_lookup (EnvBranch (EnvBranch A B) C) =
+    tree_lookup (EnvBranch (EnvBranch A C) B)
+Proof
+  rpt strip_tac
+  \\ match_mp_tac tree_lookup_commute_disjoint
+  \\ gen_tac
+  (* Sub-goal 1: kB2 < kC1 *)
+  >- (Cases_on `k < kC1`
+      >- (disj2_tac \\ match_mp_tac tree_lookup_miss
+          \\ qexistsl_tac [`kC1`, `kC2`] \\ simp [])
+      \\ disj1_tac \\ match_mp_tac tree_lookup_miss
+      \\ qexistsl_tac [`kB1`, `kB2`] \\ simp [] \\ disj2_tac
+      \\ `kC1 = k \/ kC1 < k` by
+           (Q.SPECL_THEN [`kC1`, `k`] mp_tac mlstringTheory.mlstring_lt_cases
+            \\ fs [])
+      \\ fs []
+      \\ imp_res_tac (REWRITE_RULE [GSYM AND_IMP_INTRO]
+                        mlstringTheory.mlstring_lt_trans) \\ fs [])
+  (* Sub-goal 2: kC2 < kB1 — symmetric *)
+  \\ Cases_on `k < kB1`
+  >- (disj1_tac \\ match_mp_tac tree_lookup_miss
+      \\ qexistsl_tac [`kB1`, `kB2`] \\ simp [])
+  \\ disj2_tac \\ match_mp_tac tree_lookup_miss
+  \\ qexistsl_tac [`kC1`, `kC2`] \\ simp [] \\ disj2_tac
+  \\ `kB1 = k \/ kB1 < k` by
+       (Q.SPECL_THEN [`kB1`, `k`] mp_tac mlstringTheory.mlstring_lt_cases
+        \\ fs [])
+  \\ fs []
+  \\ imp_res_tac (REWRITE_RULE [GSYM AND_IMP_INTRO]
+                    mlstringTheory.mlstring_lt_trans) \\ fs []
+QED
+
+(* Propagate a local update to the left through a branch *)
+Theorem tree_lookup_branch_left_update:
+  !r k1 k2 l l' n entry.
+    env_wf r k1 k2 /\ n < k1 /\
+    (!k. tree_lookup l' k = if k = n then entry else tree_lookup l k) ==>
+    !k. tree_lookup (EnvBranch l' r) k =
+          if k = n then entry else tree_lookup (EnvBranch l r) k
+Proof
+  rw [tree_lookup_def, LET_THM]
+  \\ TRY (`tree_lookup r n = empty_entry` by
+            (match_mp_tac tree_lookup_miss \\ qexistsl_tac [`k1`,`k2`] \\ fs []))
+  \\ fs [empty_entry_def, optionTheory.OPTION_CHOICE_def,
+         env_entry_component_equality]
+  \\ rw []
+QED
+
+(* --- CPS-form primitives ---
+   Each lemma takes equations of the form  T = EnvBranch l r  or
+   T = EnvLeaf k e  as premises. When the ML driver has a constant for
+   a node, it passes the Definition; when the node is a raw EnvBranch,
+   it passes REFL. This unifies the constant and raw cases so the
+   conclusion is always about the "outer" names (which may themselves
+   be constants), keeping saved theorems compact. *)
+
+Theorem tree_lookup_join_left_cps:
+  tL = EnvBranch tA tB /\
+  tree_lookup (EnvBranch tB tC) = tree_lookup tT /\
+  tree_lookup (EnvBranch tA tT) = tree_lookup tT' ==>
+  tree_lookup (EnvBranch tL tC) = tree_lookup tT'
+Proof
+  rw [tree_lookup_assoc] \\ metis_tac [tree_lookup_branch_cong]
+QED
+
+Theorem tree_lookup_join_right_cps:
+  tR = EnvBranch tB tC /\
+  tree_lookup (EnvBranch tA tB) = tree_lookup tT /\
+  tree_lookup (EnvBranch tT tC) = tree_lookup tT' ==>
+  tree_lookup (EnvBranch tA tR) = tree_lookup tT'
+Proof
+  rw [SYM tree_lookup_assoc] \\ metis_tac [tree_lookup_branch_cong]
+QED
+
+Theorem tree_lookup_coalesce_leaves_cps:
+  tL1 = EnvLeaf k e1 /\ tL2 = EnvLeaf k e2 /\
+  combine_entries e1 e2 = e /\ tT = EnvLeaf k e ==>
+  tree_lookup (EnvBranch tL1 tL2) = tree_lookup tT
+Proof
+  rpt strip_tac \\ gvs [] \\ simp [tree_lookup_coalesce_leaves]
+QED
+
+Theorem tree_lookup_commute_left_cps:
+  tL = EnvBranch tA tB /\
+  tree_lookup (EnvBranch tA tC) = tree_lookup tT /\
+  tree_lookup (EnvBranch tT tB) = tree_lookup tT' /\
+  env_wf tB kB1 kB2 /\ env_wf tC kC1 kC2 /\ kC2 < kB1 ==>
+  tree_lookup (EnvBranch tL tC) = tree_lookup tT'
+Proof
+  metis_tac [tree_lookup_assoc, tree_lookup_branch_cong, tree_lookup_commute]
+QED
+
+Theorem tree_lookup_swap_cps:
+  tree_lookup (EnvBranch Y X) = tree_lookup tT /\
+  env_wf X kX1 kX2 /\ env_wf Y kY1 kY2 /\ kY2 < kX1 ==>
+  tree_lookup (EnvBranch X Y) = tree_lookup tT
+Proof
+  metis_tac [tree_lookup_swap]
+QED
+
+Theorem tree_lookup_commute_cps:
+  tLinner = EnvBranch tA tB /\ tT = EnvBranch tLinner tC /\
+  tLinner' = EnvBranch tA tC /\ tT' = EnvBranch tLinner' tB /\
+  env_wf tB kB1 kB2 /\ env_wf tC kC1 kC2 /\
+  (kB2 < kC1 \/ kC2 < kB1) ==>
+  tree_lookup tT = tree_lookup tT'
+Proof
+  rpt strip_tac \\ gvs [] \\ metis_tac [tree_lookup_commute]
+QED
+
+Theorem env_wf_leaf_cps:
+  tT = EnvLeaf k e ==> env_wf tT k k
+Proof
+  rw [env_wf_def]
+QED
+
+Theorem env_wf_branch_intro_cps:
+  tT = EnvBranch l r /\ env_wf l k1 kl /\ env_wf r kr k2 ==> kl < kr ==>
+  env_wf tT k1 k2
+Proof
+  metis_tac [env_wf_branch_intro]
+QED
+
+Theorem tree_lookup_prepend_cps:
+  tL = EnvLeaf n entry /\ tT = EnvBranch tL t /\
+  env_wf t k1 k2 /\ n < k1 ==>
+  !k. tree_lookup tT k = if k = n then entry else tree_lookup t k
+Proof
+  rpt strip_tac \\ gvs []
+  \\ match_mp_tac tree_lookup_prepend \\ metis_tac []
+QED
+
+Theorem tree_lookup_append_cps:
+  tL = EnvLeaf n entry /\ tT = EnvBranch t tL /\
+  env_wf t k1 k2 /\ k2 < n ==>
+  !k. tree_lookup tT k = if k = n then entry else tree_lookup t k
+Proof
+  rpt strip_tac \\ gvs []
+  \\ match_mp_tac tree_lookup_append \\ metis_tac []
+QED
+
+Theorem tree_lookup_branch_right_update_cps:
+  tT = EnvBranch l r /\ tT' = EnvBranch l r' /\
+  env_wf l k1 k2 /\ k2 < n /\
+  (!k. tree_lookup r' k = if k = n then entry else tree_lookup r k) ==>
+  !k. tree_lookup tT' k = if k = n then entry else tree_lookup tT k
+Proof
+  rpt strip_tac \\ gvs []
+  \\ irule tree_lookup_branch_right_update \\ metis_tac []
+QED
+
+Theorem tree_lookup_branch_left_update_cps:
+  tT = EnvBranch l r /\ tT' = EnvBranch l' r /\
+  env_wf r k1 k2 /\ n < k1 /\
+  (!k. tree_lookup l' k = if k = n then entry else tree_lookup l k) ==>
+  !k. tree_lookup tT' k = if k = n then entry else tree_lookup tT k
+Proof
+  rpt strip_tac \\ gvs []
+  \\ irule tree_lookup_branch_left_update \\ metis_tac []
+QED
+
+Theorem tree_lookup_replace_leaf_cps:
+  tTold = EnvLeaf n old_entry /\ tTnew = EnvLeaf n new_entry ==>
+  !k. tree_lookup tTnew k = if k = n then new_entry else tree_lookup tTold k
+Proof
+  rpt strip_tac \\ gvs [tree_lookup_def]
+QED
+
+(* CPS forms of env_leaf_mem so the ML driver can construct membership
+   proofs in terms of the constant-backed tree_tms, matching the shape
+   used by WF theorems. *)
+
+Theorem env_leaf_mem_leaf_cps:
+  tT = EnvLeaf k e ==> env_leaf_mem k e tT
+Proof
+  rw [env_leaf_mem_def]
+QED
+
+Theorem env_leaf_mem_branch_l_cps:
+  tT = EnvBranch l r /\ env_leaf_mem k e l ==> env_leaf_mem k e tT
+Proof
+  rw [env_leaf_mem_def]
+QED
+
+Theorem env_leaf_mem_branch_r_cps:
+  tT = EnvBranch l r /\ env_leaf_mem k e r ==> env_leaf_mem k e tT
+Proof
+  rw [env_leaf_mem_def]
+QED
+
 Theorem nsLookup_eq:
-   nsLookup ns (Short nm) = nsLookup_Short ns nm /\
-    nsLookup ns (Long mnm id) = (case nsLookup_Mod1 ns mnm of
-      NONE => NONE | SOME ns2 => nsLookup ns2 id)
+  nsLookup ns (Short nm) = nsLookup_Short ns nm /\
+  nsLookup ns (Long mnm id) = (case nsLookup_Mod1 ns mnm of
+    NONE => NONE | SOME ns2 => nsLookup ns2 id)
 Proof
   fs [nsLookup_Short_def]
   \\ Cases_on `ns`
   \\ fs[nsLookup_Mod1_def, nsLookup_def]
-QED
-
-(* base facts about the partial functions *)
-
-Theorem option_choice_f_apply:
-   option_choice_f f g x = OPTION_CHOICE (f x) (g x)
-Proof
-  fs [option_choice_f_def]
-QED
-
-Theorem nsLookup_Short_Bind:
-   nsLookup_Short (Bind ss ms) = ALOOKUP ss
-Proof
-  fs [nsLookup_Short_def, nsLookup_def, FUN_EQ_THM]
-QED
-
-Theorem nsLookup_Short_nsAppend:
-   nsLookup_Short (nsAppend ns1 ns2)
-    = option_choice_f (nsLookup_Short ns1) (nsLookup_Short ns2)
-Proof
-  Cases_on `ns1` \\ Cases_on `ns2`
-  \\ fs [nsLookup_Short_Bind, nsAppend_def,
-    alookup_append_option_choice_f]
-QED
-
-Theorem nsLookup_Mod1_Bind:
-   nsLookup_Mod1 (Bind ss ms) nm = ALOOKUP ms nm
-Proof
-  fs [nsLookup_Mod1_def]
-QED
-
-Theorem nsLookup_Mod1_nsAppend:
-   nsLookup_Mod1 (nsAppend ns1 ns2)
-    = option_choice_f (nsLookup_Mod1 ns1) (nsLookup_Mod1 ns2)
-Proof
-  Cases_on `ns1` \\ Cases_on `ns2`
-  \\ fs [nsLookup_Mod1_def, nsAppend_def,
-    alookup_append_option_choice_f]
-QED
-
-Theorem nsLookup_Short_nsLift:
-   nsLookup_Short (nsLift mnm ns) = ALOOKUP []
-Proof
-  Cases_on `ns` \\ fs [nsLift_def, nsLookup_Short_Bind]
-QED
-
-Theorem nsLookup_Mod1_nsLift:
-   nsLookup_Mod1 (nsLift mnm ns) = ALOOKUP [(mnm, ns)]
-Proof
-  Cases_on `ns` \\ fs [nsLift_def, nsLookup_Mod1_def]
-QED
-
-Theorem nsLookup_pf_nsBind:
-   nsLookup_Short (nsBind n v ns)
-        = option_choice_f (ALOOKUP [(n, v)]) (nsLookup_Short ns) /\
-  nsLookup_Mod1 (nsBind n v ns) = nsLookup_Mod1 ns
-Proof
-  Cases_on `ns`
-  \\ fs [nsLookup_Short_def,nsLookup_Mod1_def, FUN_EQ_THM,
-    write_def,nsLookup_def,nsBind_def,option_choice_f_def]
-  \\ rpt strip_tac
-  \\ fs [] \\ CASE_TAC \\ fs []
-QED
-
-(* equalities on these partial functions for the various env operators *)
-
-Theorem nsLookup_write_eqs:
-   nsLookup_Short ((write n v env).c) = nsLookup_Short env.c /\
-    nsLookup_Mod1 ((write n v env).c) = nsLookup_Mod1 env.c /\
-    nsLookup_Mod1 ((write n v env).v) = nsLookup_Mod1 env.v /\
-    nsLookup_Short ((write n v env).v) = option_choice_f (ALOOKUP [(n, v)])
-        (nsLookup_Short env.v)
-Proof
-  fs[write_def, nsLookup_pf_nsBind]
-QED
-
-Theorem nsLookup_write_cons_eqs:
-   nsLookup_Short ((write_cons n v env).v) = nsLookup_Short env.v /\
-    nsLookup_Mod1 ((write_cons n v env).v) = nsLookup_Mod1 env.v /\
-    nsLookup_Mod1 ((write_cons n v env).c) = nsLookup_Mod1 env.c /\
-    nsLookup_Short ((write_cons n v env).c) = option_choice_f (ALOOKUP [(n, v)])
-        (nsLookup_Short env.c)
-Proof
-  fs[write_cons_def, nsLookup_pf_nsBind]
-QED
-
-Theorem nsLookup_merge_env_eqs:
-   nsLookup_Short ((merge_env env env2).v)
-        = option_choice_f (nsLookup_Short env.v) (nsLookup_Short env2.v) /\
-    nsLookup_Mod1 ((merge_env env env2).v)
-        = option_choice_f (nsLookup_Mod1 env.v) (nsLookup_Mod1 env2.v) /\
-    nsLookup_Short ((merge_env env env2).c)
-        = option_choice_f (nsLookup_Short env.c) (nsLookup_Short env2.c) /\
-    nsLookup_Mod1 ((merge_env env env2).c)
-        = option_choice_f (nsLookup_Mod1 env.c) (nsLookup_Mod1 env2.c)
-Proof
-  fs[merge_env_def, nsLookup_Short_nsAppend, nsLookup_Mod1_nsAppend]
-QED
-
-Theorem nsLookup_write_mod_eqs:
-   nsLookup_Short ((write_mod mnm env env2).v) = nsLookup_Short env2.v /\
-    nsLookup_Mod1 ((write_mod mnm env env2).v)
-        = option_choice_f (ALOOKUP [(mnm, env.v)]) (nsLookup_Mod1 env2.v) /\
-    nsLookup_Short ((write_mod mnm env env2).c) = nsLookup_Short env2.c /\
-    nsLookup_Mod1 ((write_mod mnm env env2).c)
-        = option_choice_f (ALOOKUP [(mnm, env.c)]) (nsLookup_Mod1 env2.c)
-Proof
-  fs[write_mod_def, nsLookup_Short_nsAppend, nsLookup_Mod1_nsAppend,
-    nsLookup_Short_nsLift, nsLookup_Mod1_nsLift,
-    alookup_empty_option_choice_f]
-QED
-
-Theorem nsLookup_empty_eqs:
-   nsLookup_Short empty_env.v = ALOOKUP [] /\
-    nsLookup_Mod1 empty_env.v = ALOOKUP [] /\
-    nsLookup_Short empty_env.c = ALOOKUP [] /\
-    nsLookup_Mod1 empty_env.c = ALOOKUP []
-Proof
-  fs[empty_env_def, nsEmpty_def, nsLookup_Short_Bind, nsLookup_Mod1_def]
-QED
-
-(* nonsense theorem instantiated when env's are defined *)
-
-Theorem nsLookup_eq_format:
-   !env:v sem_env.
-     (nsLookup_Short env.v = nsLookup_Short env.v) /\
-     (nsLookup_Short env.c = nsLookup_Short env.c) /\
-     (nsLookup_Mod1 env.v = nsLookup_Mod1 env.v) /\
-     (nsLookup_Mod1 env.c = nsLookup_Mod1 env.c)
-Proof
-  rewrite_tac []
 QED
 
 (* some shorthands that are allowed to EVAL are below *)
@@ -432,13 +1217,6 @@ Proof
   \\ fs [write_def,empty_env_def]
 QED
 
-Theorem FOLDR_LEMMA[local]:
-  ∀xs ys. FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) [] xs ++ ys =
-          FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) ys xs
-Proof
-  Induct \\ FULL_SIMP_TAC (srw_ss()) [FORALL_PROD]
-QED
-
 (* Delays the write in build_rec_env *)
 Theorem Decls_Dletrec:
    ∀env s1 funs s2 env2 locs.
@@ -565,17 +1343,6 @@ Proof
   \\ fs [PULL_EXISTS,merge_env_assoc] \\ metis_tac []
 QED
 
-Theorem Decls_SNOC:
-   !s1 s3 env1 ds1 d env3.
-      Decls env1 s1 (SNOC d ds1) env3 s3 =
-      ?envA envB s2.
-         Decls env1 s1 ds1 envA s2 /\
-         Decls (merge_env envA env1) s2 [d] envB s3 /\
-         env3 = merge_env envB envA
-Proof
-  METIS_TAC [SNOC_APPEND, Decls_APPEND]
-QED
-
 Theorem Decls_set_eval_state:
   Decls env1 s1 ds env2 s2 ∧ s1.eval_state = NONE ⇒
   ∀es.
@@ -618,9 +1385,6 @@ Proof
   fs [ML_code_def, ML_code_env_def]
 QED
 
-(* an empty program *)
-local open primSemEnvTheory in
-
 local
   val init_env_tm =
     ``SND (THE (prim_sem_env (ARB:unit ffi_state)))``
@@ -645,18 +1409,61 @@ end
 Theorem init_state_env_thm:
    THE (prim_sem_env ffi) = (init_state ffi,init_env)
 Proof
-  rewrite_tac[prim_sem_env_eq,THE_DEF,init_state_def,init_env_def]
+  rewrite_tac[primSemEnvTheory.prim_sem_env_eq,THE_DEF,init_state_def,init_env_def]
 QED
 
-Theorem nsLookup_init_env_pfun_eqs =
-  [``nsLookup_Short init_env.c``, ``nsLookup_Short init_env.v``,
-    ``nsLookup_Mod1 init_env.c``, ``nsLookup_Mod1 init_env.v``]
-  |> map (SIMP_CONV bool_ss
-        [init_env_def, nsLookup_Short_Bind, nsLookup_Mod1_def,
-            namespace_case_def, sem_env_accfupds, K_DEF])
-  |> LIST_CONJ;
-
+(* The balanced env_tree for init_env: 8 leaves, one per built-in
+   constructor, keys sorted by (mlstring_lt).  Built as 15 named
+   Definitions (init_env_1 .. init_env_15) with per-node env_wf
+   theorems, via SML helpers.  init_env_15 is the root. *)
+local
+  val env_tree_ty = ``:env_tree``
+  val all_defs : thm list ref = ref []
+  val counter = ref 0
+  fun next_name () = (counter := !counter + 1; "init_env_" ^ Int.toString (!counter))
+  fun mk_leaf key stamp_tm = let
+    val nm = next_name ()
+    val key_tm = mlstringSyntax.mk_mlstring key
+    val def = new_definition (nm ^ "_def",
+      ``^(mk_var (nm, env_tree_ty)) = EnvLeaf ^key_tm (empty_entry with sc := SOME ^stamp_tm)``)
+    val _ = all_defs := def :: !all_defs
+    in save_thm (nm ^ "_wf", MATCH_MP env_wf_leaf_cps def) end
+  fun mk_branch wfL wfR = let
+    val nm = next_name ()
+    val constL = wfL |> concl |> strip_comb |> snd |> hd
+    val constR = wfR |> concl |> strip_comb |> snd |> hd
+    val def = new_definition (nm ^ "_def",
+      ``^(mk_var (nm, env_tree_ty)) = EnvBranch ^constL ^constR``)
+    val _ = all_defs := def :: !all_defs
+    val wf = MATCH_MP env_wf_branch_intro (CONJ wfL wfR)
+    in save_thm (nm ^ "_wf", ONCE_REWRITE_RULE [SYM def] $ MP_CONV EVAL wf) end
+  val envt1  = mk_leaf "::"        ``(2n, TypeStamp «::» 1n)``
+  val envt2  = mk_leaf "Bind"      ``(0n, ExnStamp 0n)``
+  val envt3  = mk_leaf "Chr"       ``(0n, ExnStamp 1n)``
+  val envt4  = mk_leaf "Div"       ``(0n, ExnStamp 2n)``
+  val envt5  = mk_leaf "False"     ``(0n, TypeStamp «False» 0n)``
+  val envt6  = mk_leaf "Subscript" ``(0n, ExnStamp 3n)``
+  val envt7  = mk_leaf "True"      ``(0n, TypeStamp «True» 0n)``
+  val envt8  = mk_leaf "[]"        ``(0n, TypeStamp «[]» 1n)``
+  val envt9  = mk_branch envt1 envt2
+  val envt10 = mk_branch envt3 envt4
+  val envt11 = mk_branch envt5 envt6
+  val envt12 = mk_branch envt7 envt8
+  val envt13 = mk_branch envt9 envt10
+  val envt14 = mk_branch envt11 envt12
+  val _ = mk_branch envt13 envt14
+in
+  val init_env_all_defs = List.rev (!all_defs)
 end
+
+Theorem nsLookup_all_init_env:
+  nsLookup_all init_env = tree_lookup init_env_15
+Proof
+  rw ([FUN_EQ_THM, nsLookup_all_def, init_env_def,
+       tree_lookup_def, nsLookup_def, nsLookup_Short_def, nsLookup_Mod1_def, empty_entry_def]
+      @ init_env_all_defs)
+  \\ EVAL_TAC \\ rw []
+QED
 
 Theorem ML_code_NIL:
    ML_code init_env [((«Toplevel», «»), init_state ffi, [], empty_env)]
@@ -933,30 +1740,7 @@ Proof
   \\ metis_tac[nsLookupMod_nsBind,mod_defined_def]
 QED
 
-Theorem nsLookup_write_cons:
-   (nsLookup (write_cons n v env).v a = nsLookup env.v a) /\
-   (nsLookup (write_cons n d env).c (Short name) =
-     if name = n then SOME d else nsLookup env.c (Short name)) /\
-   (mod_defined (write_cons n d env).v x = mod_defined env.v x) /\
-   (mod_defined (write_cons n d env).c x = mod_defined env.c x) /\
-   (nsLookup (write_cons n d env).c (Long mn lname) =
-    nsLookup env.c (Long mn lname))
-Proof
-  fs [write_cons_def] \\ rw [] \\
-  metis_tac[nsLookupMod_nsBind,mod_defined_def]
-QED
-
-Theorem nsLookup_empty:
-   (nsLookup empty_env.v a = NONE) /\
-   (nsLookup empty_env.c b = NONE) /\
-   (mod_defined empty_env.v x = F) /\
-   (mod_defined empty_env.c x = F)
-Proof
-  rw[empty_env_def, nsLookup_def, mod_defined_def,
-    nsLookupMod_def] \\ Cases_on`p1` \\ fs[]
-QED
-
-val nsLookupMod_nsAppend = Q.prove(`
+Theorem nsLookupMod_nsAppend[local]:
   nsLookupMod (nsAppend env1 env2) p =
   if p = [] then SOME (nsAppend env1 env2)
   else
@@ -964,54 +1748,17 @@ val nsLookupMod_nsAppend = Q.prove(`
       SOME v => SOME v
     | NONE =>
       if (∃p1 p2 e3. p1 ≠ [] ∧ p = p1 ++ p2 ∧ nsLookupMod env1 p1 = SOME e3) then NONE
-      else nsLookupMod env2 p`,
+      else nsLookupMod env2 p
+Proof
   IF_CASES_TAC>-
     fs[nsLookupMod_def]>>
   BasicProvers.TOP_CASE_TAC>>
   rw[]>>
   TRY(Cases_on`nsLookupMod env2 p`)>>
   fs[namespacePropsTheory.nsLookupMod_nsAppend_none,namespacePropsTheory.nsLookupMod_nsAppend_some]>>
-  metis_tac[option_CLAUSES]) |> GEN_ALL;
-
-Theorem nsLookup_write_mod:
-   (nsLookup (write_mod mn env1 env2).v (Short n) =
-    nsLookup env2.v (Short n)) /\
-   (nsLookup (write_mod mn env1 env2).c (Short n) =
-    nsLookup env2.c (Short n)) /\
-   (mod_defined (write_mod mn env1 env2).v (Long mn' r) =
-     ((mn = mn') \/ mod_defined env2.v (Long mn' r))) /\
-   (mod_defined (write_mod mn env1 env2).c (Long mn' r) =
-     if mn = mn' then T
-     else mod_defined env2.c (Long mn' r)) /\
-   (nsLookup (write_mod mn env1 env2).v (Long mn1 ln) =
-    if mn = mn1 then nsLookup env1.v ln else
-      nsLookup env2.v (Long mn1 ln)) /\
-   (nsLookup (write_mod mn env1 env2).c (Long mn1 ln) =
-    if mn = mn1 then nsLookup env1.c ln else
-      nsLookup env2.c (Long mn1 ln))
-Proof
-  fs [write_mod_def,mod_defined_def] \\
-  EVAL_TAC \\
-  fs[GSYM nsLift_def,id_to_mods_def,nsLookupMod_nsAppend] \\
-  simp[] >> CONJ_TAC>>
-  (eq_tac
-  >-
-    (strip_tac>>
-    Cases_on`p1`>>fs[]>>
-    fs[namespacePropsTheory.nsLookupMod_nsLift]>>
-    Cases_on`mn=h`>>fs[]>>
-    qexists_tac`h::t`>>fs[])
-  >>
-  Cases_on`mn=mn'`>>fs[]
-  >-
-    (qexists_tac`[mn']`>>fs[namespacePropsTheory.nsLookupMod_nsLift,nsLookupMod_def])
-  >>
-    strip_tac>>
-    asm_exists_tac>>fs[namespacePropsTheory.nsLookupMod_nsLift,nsLookupMod_def]>>
-    Cases_on`p1`>>fs[]>> rw[]>>
-    Cases_on`p1'`>>fs[]>>
-    metis_tac[])
+  metis_tac[option_CLAUSES]
 QED
+val nsLookupMod_nsAppend = GEN_ALL nsLookupMod_nsAppend
 
 Theorem nsLookup_merge_env:
    (nsLookup (merge_env e1 e2).v (Short n) =
@@ -1121,6 +1868,52 @@ Theorem nsLookup_nsAppend[compute] =
   |> Q.INST [`e1`|->`<|c:=e1c;v:=e1v|>`,`e2`|->`<|c:=e2c;v:=e2v|>`]
   |> SIMP_RULE (srw_ss()) []
 
+(* simp-normal forms for nsLookup_Short / nsLookup_Mod1 on symbolic
+   namespace shapes (nsBind / nsAppend / Bind). Used in the simpset
+   driving nsLookup_conv to reduce lookups in cf-style proofs over
+   on-the-fly built envs. *)
+
+Theorem nsLookup_Short_nsBind:
+   nsLookup_Short (nsBind n v ns) k =
+     if n = k then SOME v else nsLookup_Short ns k
+Proof
+  rw [nsLookup_Short_def, namespacePropsTheory.nsLookup_nsBind]
+QED
+
+Theorem nsLookup_Short_nsAppend_simp:
+   nsLookup_Short (nsAppend ns1 ns2) k =
+     case nsLookup_Short ns1 k of NONE => nsLookup_Short ns2 k | SOME v => SOME v
+Proof
+  rw [nsLookup_Short_def, nsLookup_nsAppend_Short]
+QED
+
+Theorem nsLookup_Short_Bind:
+   nsLookup_Short (Bind ss ms) k = ALOOKUP ss k
+Proof
+  rw [nsLookup_Short_def, nsLookup_def]
+QED
+
+Theorem nsLookup_Mod1_nsBind:
+   nsLookup_Mod1 (nsBind n v ns) k = nsLookup_Mod1 ns k
+Proof
+  Cases_on `ns` \\ rw [nsLookup_Mod1_def, nsBind_def]
+QED
+
+Theorem nsLookup_Mod1_nsAppend:
+   nsLookup_Mod1 (nsAppend ns1 ns2) k =
+     case nsLookup_Mod1 ns1 k of NONE => nsLookup_Mod1 ns2 k | SOME v => SOME v
+Proof
+  Cases_on `ns1` \\ Cases_on `ns2`
+  \\ rw [nsLookup_Mod1_def, nsAppend_def, alistTheory.ALOOKUP_APPEND]
+  \\ every_case_tac \\ fs []
+QED
+
+Theorem nsLookup_Mod1_Bind:
+   nsLookup_Mod1 (Bind ss ms) k = ALOOKUP ms k
+Proof
+  rw [nsLookup_Mod1_def]
+QED
+
 (* Base case for mod_defined (?) *)
 Theorem mod_defined_base[compute]:
    mod_defined (Bind _ []) _ = F
@@ -1144,60 +1937,6 @@ Theorem lookup_var_write:
 Proof
   fs [lookup_var_def,write_def,lookup_cons_def] \\ rw []
 QED
-
-Theorem lookup_var_write_mod:
-   (lookup_var v (write_mod mn e1 env) = lookup_var v env) /\
-   (lookup_cons (Long mn1 (Short name)) (write_mod mn2 e1 env) =
-    if mn1 = mn2 then
-      lookup_cons (Short name) e1
-    else
-      lookup_cons (Long mn1 (Short name)) env) /\
-   (lookup_cons (Short name) (write_mod mn2 e1 env) =
-    lookup_cons (Short name) env)
-Proof
-  fs [lookup_var_def,write_mod_def, lookup_cons_def] \\ rw []
-QED
-
-Theorem lookup_var_write_cons:
-   (lookup_var v (write_cons n d env) = lookup_var v env) /\
-   (lookup_cons (Short name) (write_cons n d env) =
-     if name = n then SOME d else lookup_cons (Short name) env) /\
-   (lookup_cons (Long l full_name) (write_cons n d env) =
-    lookup_cons (Long l full_name) env) /\
-   (nsLookup (write_cons n d env).v x = nsLookup env.v x)
-Proof
-  fs [lookup_var_def,write_cons_def,lookup_cons_def] \\ rw []
-QED
-
-Theorem lookup_var_empty_env:
-   (lookup_var v empty_env = NONE) /\
-    (nsLookup empty_env.v (Short k) = NONE) /\
-    (nsLookup empty_env.v (Long mn m) = NONE) /\
-    (lookup_cons name empty_env = NONE)
-Proof
-  fs[lookup_var_def,empty_env_def,lookup_cons_def]
-QED
-
-(*
-Theorem lookup_var_merge_env:
-   (lookup_var v1 (merge_env e1 e2) =
-       case lookup_var v1 e1 of
-       | NONE => lookup_var v1 e2
-       | res => res) /\
-    (lookup_cons name (merge_env e1 e2) =
-       case lookup_cons name e1 of
-       | NONE => lookup_cons name e2
-       | res => res)
-Proof
-  fs [lookup_var_def,lookup_cons_def,merge_env_def] \\ rw[] \\ every_case_tac \\
-  fs[namespacePropsTheory.nsLookup_nsAppend_some]
-  >-
-    (Cases_on`nsLookup e2.v (Short v1)`>>
-    fs[namespacePropsTheory.nsLookup_nsAppend_none,
-       namespacePropsTheory.nsLookup_nsAppend_some,namespaceTheory.id_to_mods_def])
-  \\ ... (* TODO *)
-QED);
-*)
 
 Definition prog_syntax_ok_def:
   prog_syntax_ok prog = IS_SOME (check_cons_dec_list init_env.c prog)
