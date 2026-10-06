@@ -124,6 +124,7 @@ Proof
   first_x_assum (qspec_then `ext` mp_tac)>>rw[]>>
   first_x_assum (irule_at Any)>>
   rw[]>>
+  gvs[]>>
   metis_tac[]
 QED
 

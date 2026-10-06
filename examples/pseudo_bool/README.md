@@ -18,6 +18,9 @@ Formalisation of normalised pseudo-boolean constraints
 [npbc_checkScript.sml](npbc_checkScript.sml):
 Pseudo-boolean constraints proof format and checker
 
+[npbc_check_stepScript.sml](npbc_check_stepScript.sml):
+Structural facts about the individual core proof steps of the PB checker
+
 [npbc_moScript.sml](npbc_moScript.sml):
 Multi-objective semantics for npbc and the pbc to npbc bridge
 
@@ -26,6 +29,9 @@ Checker for the restricted (multi-objective) proof format
 
 [pb_parseScript.sml](pb_parseScript.sml):
 Parse and print for pbc, npbc_check
+
+[pb_parse_moScript.sml](pb_parse_moScript.sml):
+Parse and print for multi-objective pbc problems
 
 [pbcScript.sml](pbcScript.sml):
 Formalisation of a flexible surface syntax and semantics for
