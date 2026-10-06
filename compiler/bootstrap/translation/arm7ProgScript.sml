@@ -56,6 +56,8 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
+val _ = translate (conv32_RHS integer_wordTheory.WORD_LEi);
+
 Theorem v2w_rw[local]:
   v2w [P] = if P then 1w else 0w
 Proof
