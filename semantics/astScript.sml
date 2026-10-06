@@ -139,24 +139,6 @@ Datatype:
   | Env_id
 End
 
-(* Define operator classes, that allow to group their behavior later *)
-Datatype:
- op_class =
-    EvalOp (* Eval primitive *)
-  | FunApp (* function application *)
-  | Force (* forcing a thunk *)
-  | Simple (* arithmetic operation, no finite-precision/reals *)
-End
-
-Definition getOpClass_def[simp]:
- getOpClass op =
- case op of
-  | Opapp => FunApp
-  | Eval => EvalOp
-  | ThunkOp t => (if t = ForceThunk then Force else Simple)
-  | _ => Simple
-End
-
 (* Types used in type annotations *)
 Datatype:
  ast_t =

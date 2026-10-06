@@ -2677,6 +2677,11 @@ QED
 val _ = cv_auto_trans bvi_tmcTheory.cb_to_bvi_worker_aux_alt_def;
 val _ = cv_trans bvi_tmcTheory.cb_to_bvi_worker_aux_eq;
 
+val _ = cv_auto_trans bvi_tmcTheory.subst_def;
+val _ = cv_auto_trans bvi_tmcTheory.inline_def;
+val _ = cv_auto_trans bvi_tmcTheory.find_call_def;
+val _ = cv_auto_trans bvi_tmcTheory.float_call_def;
+
 val pre = cv_auto_trans_pre "" bvi_tmcTheory.compile_each_def;
 Theorem bvi_tmc_compile_each_pre[cv_pre]:
   ∀next v. bvi_tmc_compile_each_pre next v

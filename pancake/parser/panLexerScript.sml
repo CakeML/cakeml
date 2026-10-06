@@ -138,7 +138,7 @@ Definition get_keyword_def:
   if s = "ld16" then (KeywordT Ld16K) else
   if s = "ld32" then (KeywordT Ld32K) else
   if s = "@base" then (KeywordT BaseK) else
-  if s = "@top" then (KeywordT BaseK) else
+  if s = "@top" then (KeywordT TopK) else
   if s = "@biw" then (KeywordT BiwK) else
   if s = "true" then (KeywordT TrueK) else
   if s = "false" then (KeywordT FalseK) else
@@ -230,13 +230,19 @@ Definition next_atom_def:
     else if isSpace c then
       next_atom cs (next_loc 1 loc)
     else if isDigit c then
-      let (n, cs') = read_while isDigit cs [c] in
-        SOME (NumberA &(num_from_dec_string_alt n),
+      let (n, cs') = read_while isAlphaNumOrWild cs [c] in
+        SOME (if EVERY isDigit n then
+                NumberA &(num_from_dec_string_alt n)
+              else
+                ErrA $ concat [«Malformed number: »; implode n],
               Locs loc (next_loc (LENGTH n) loc),
               cs')
     else if c = #"-" ∧ cs ≠ "" ∧ isDigit (HD cs) then
-      let (n, rest) = read_while isDigit cs [] in
-      SOME (NumberA (0 - &(num_from_dec_string_alt n)),
+      let (n, rest) = read_while isAlphaNumOrWild cs [] in
+      SOME (if EVERY isDigit n then
+              NumberA (0 - &(num_from_dec_string_alt n))
+            else
+              ErrA $ concat [«Malformed number: -»; implode n],
             Locs loc (next_loc (LENGTH n) loc),
             rest)
     else if isPREFIX "//" (c::cs) then (* comment *)
@@ -297,7 +303,7 @@ Proof
 QED
 
 Definition init_loc_def:
-  init_loc = POSN 1 1
+  init_loc = POSN 0 1
 End
 
 Definition pancake_lex_aux_def:

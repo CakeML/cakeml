@@ -8,10 +8,6 @@ Ancestors
 Libs
   preamble ml_translatorLib
 
-open preamble decodeProgTheory
-     ml_translatorLib ml_translatorTheory
-     pegTheory simpleSexpTheory simpleSexpPEGTheory simpleSexpParseTheory fromSexpTheory;
-
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = translation_extends "decodeProg";

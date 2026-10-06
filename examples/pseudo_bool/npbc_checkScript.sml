@@ -48,6 +48,9 @@ Datatype:
   | Lit (num lit)       (* Literal axiom lit ≥ 0 (superseded by triv but used in parsing) *)
   | Weak constr (var list)     (* Addition of literal axioms until "var" disappears *)
   | Triv ((num # num lit) app_list) (* Literal axiom corresponds to [1,l] ≥ 0 *)
+  | Lincomb ((num # num) list) ((constr # num) list)
+    (* Sum of the IDs' constraints and of the nested constraints,
+       each scaled by its factor *)
 End
 
 (* Steps that preserve logical implication *)
@@ -105,23 +108,29 @@ Definition fuse_weaken_def:
   (fuse_weaken vs p = Weak p vs)
 End
 
+Definition is_sum_def:
+  (is_sum (Add _ _) = T) ∧
+  (is_sum (Mul c _) = is_sum c) ∧
+  (is_sum _ = F)
+End
+
+(* The operands of a sum, each list in reverse order:
+  IDs, other parts and literals, each with its factor *)
+Definition mk_lincomb_def:
+  mk_lincomb (ids,ns,lits) =
+  if NULL ids ∧ NULL ns then Triv (List (REVERSE lits))
+  else
+    let ns = if NULL lits then ns else (Triv (List (REVERSE lits)),1)::ns in
+    Lincomb (REVERSE ids) (REVERSE ns)
+End
+
+(* Each maximal sum of Add and Mul nodes becomes one Lincomb *)
 Definition to_triv_def:
   (to_triv (Add l r) =
-    let ll = to_triv l in
-    let rr = to_triv r in
-    case ll of
-      Triv lt =>
-        (case rr of
-          Triv rt => Triv (SmartAppend lt rt)
-        | Add re (Triv rt) => Add re (Triv (SmartAppend lt rt))
-        | _ => Add rr ll)
-    | Add le (Triv lt) =>
-        (case rr of
-          Triv rt => Add le (Triv (SmartAppend lt rt))
-        | Add re (Triv rt) => Add (Add le re) (Triv (SmartAppend lt rt))
-        | _ => Add (Add le rr) (Triv lt))
-    | _ => Add ll rr) ∧
+    mk_lincomb (to_lin r 1 (to_lin l 1 ([],[],[])))) ∧
   (to_triv (Mul c k) =
+    if is_sum c then mk_lincomb (to_lin c k ([],[],[]))
+    else
     let cc = to_triv c in
     case cc of
       Triv ls => Triv (mul_triv ls k)
@@ -131,7 +140,19 @@ Definition to_triv_def:
   (to_triv (Sat c) = Sat (to_triv c)) ∧
   (to_triv (Weak c vs) = fuse_weaken vs (to_triv c)) ∧
   (to_triv (Lit l) = Triv (List [(1,l)])) ∧
-  (to_triv c = c)
+  (to_triv c = c) ∧
+  (to_lin (Add l r) m acc = to_lin r m (to_lin l m acc)) ∧
+  (to_lin (Mul c k) m acc = to_lin c (m * k) acc) ∧
+  (to_lin (Id n) m acc =
+    let (ids,ns,lits) = acc in ((n,m)::ids,ns,lits)) ∧
+  (to_lin (Lit l) m acc =
+    let (ids,ns,lits) = acc in (ids,ns,(m,l)::lits)) ∧
+  (to_lin c m acc =
+    let (ids,ns,lits) = acc in (ids,(to_triv c,m)::ns,lits))
+Termination
+  WF_REL_TAC ‘measure (λx. case x of
+    INL c => 2 * constr_size c
+  | INR (c,_,_) => 2 * constr_size c + 1)’
 End
 
 Definition sing_lit_def:
@@ -185,6 +206,103 @@ Definition do_divide_def:
   | Nd => mir c k
 End
 
+(* Balanced combination of a list: rounds that combine neighbouring pairs *)
+Definition bal_round_def:
+  (bal_round f (x::y::xs) = f x y :: bal_round f xs) ∧
+  (bal_round f xs = xs)
+End
+
+Theorem LENGTH_bal_round:
+  ∀f xs. LENGTH (bal_round f xs) ≤ LENGTH xs ∧
+    (2 ≤ LENGTH xs ⇒ LENGTH (bal_round f xs) < LENGTH xs)
+Proof
+  ho_match_mp_tac bal_round_ind>>
+  rw[bal_round_def]
+QED
+
+Definition bal_def:
+  bal f e xs =
+  case xs of
+    [] => e
+  | [x] => x
+  | _ => bal f e (bal_round f xs)
+Termination
+  WF_REL_TAC ‘measure (LENGTH o SND o SND)’>>
+  simp[bal_round_def,GSYM LESS_EQ_IFF_LESS_SUC,LENGTH_bal_round]
+End
+
+Theorem EVERY_bal_round:
+  ∀f xs.
+  (∀x y. P x ∧ P y ⇒ P (f x y)) ∧ EVERY P xs ⇒
+  EVERY P (bal_round f xs)
+Proof
+  ho_match_mp_tac bal_round_ind>>
+  rw[bal_round_def]
+QED
+
+Theorem bal_pres:
+  ∀f e xs.
+  P e ∧ (∀x y. P x ∧ P y ⇒ P (f x y)) ∧ EVERY P xs ⇒
+  P (bal f e xs)
+Proof
+  ho_match_mp_tac bal_ind>>
+  rpt strip_tac>>
+  ONCE_REWRITE_TAC[bal_def]>>
+  Cases_on`xs`>>gvs[]>>
+  rename1`_::rest`>>
+  Cases_on`rest`>>gvs[]>>
+  first_x_assum irule>>
+  irule EVERY_bal_round>>
+  simp[]
+QED
+
+Definition bal_add_round_def:
+  (bal_add_round (x::y::xs) = add x y :: bal_add_round xs) ∧
+  (bal_add_round xs = xs)
+End
+
+Theorem bal_add_round_eq:
+  ∀xs. bal_add_round xs = bal_round add xs
+Proof
+  ho_match_mp_tac bal_add_round_ind>>
+  rw[bal_add_round_def,bal_round_def]
+QED
+
+Definition bal_add_def:
+  bal_add xs =
+  case xs of
+    [] => ([],0)
+  | [x] => x
+  | _ => bal_add (bal_add_round xs)
+Termination
+  WF_REL_TAC ‘measure LENGTH’>>
+  simp[bal_add_round_eq,bal_round_def,GSYM LESS_EQ_IFF_LESS_SUC,
+    LENGTH_bal_round]
+End
+
+Theorem bal_add_eq:
+  ∀xs. bal_add xs = bal add ([],0) xs
+Proof
+  ho_match_mp_tac bal_add_ind>>
+  rpt strip_tac>>
+  ONCE_REWRITE_TAC[bal_add_def,bal_def]>>
+  Cases_on`xs`>>simp[]>>
+  rename1`_::rest`>>
+  Cases_on`rest`>>gvs[bal_add_round_eq]
+QED
+
+(* The IDs' constraints, each scaled by its factor *)
+Definition lookup_lincomb_def:
+  (lookup_lincomb b fml [] = SOME []) ∧
+  (lookup_lincomb b fml ((n,k)::ids) =
+    case lookup_core_only b fml n of
+      NONE => NONE
+    | SOME c =>
+      case lookup_lincomb b fml ids of
+        NONE => NONE
+      | SOME cs => SOME (multiply c k :: cs))
+End
+
 Definition check_cutting_def:
   (check_cutting b (fml:pbf) (Id n) =
     lookup_core_only b fml n) ∧
@@ -206,7 +324,22 @@ Definition check_cutting_def:
     | Neg v => SOME ([(-1,v)],0)) ∧
   (check_cutting b fml (Triv ls) = SOME (clean_triv ls)) ∧
   (check_cutting b fml (Weak c var) =
-    OPTION_MAP (λc. weaken_sorted c var) (check_cutting b fml c))
+    OPTION_MAP (λc. weaken_sorted c var) (check_cutting b fml c)) ∧
+  (check_cutting b fml (Lincomb ids ns) =
+    case lookup_lincomb b fml ids of
+      NONE => NONE
+    | SOME ics =>
+      case check_cutting_nest b fml ns of
+        NONE => NONE
+      | SOME ncs => SOME (bal_add (bal_add ics :: ncs))) ∧
+  (check_cutting_nest b fml [] = SOME []) ∧
+  (check_cutting_nest b fml ((c,k)::ns) =
+    case check_cutting b fml c of
+      NONE => NONE
+    | SOME c =>
+      case check_cutting_nest b fml ns of
+        NONE => NONE
+      | SOME cs => SOME (multiply c k :: cs))
 End
 
 Definition check_contradiction_fml_def:
@@ -237,7 +370,7 @@ End
 Definition rup_pass2_def:
   rup_pass2 assg max [] l = SOME assg ∧
   rup_pass2 assg max ((k:num,i:int,n:num)::ys) l =
-    if max < l + k then
+    if max < l + k ∧ FLOOKUP assg n = NONE then
       rup_pass2 (assg |+ (n,0 ≤ i)) max ys l
     else
       rup_pass2 assg max ys l
@@ -361,20 +494,67 @@ Proof
   simp[satisfies_npbc_def]
 QED
 
-Theorem check_cutting_correct:
-  ∀fml n c w.
-  check_cutting b fml n = SOME c ∧
+Theorem bal_add_sound:
+  EVERY (satisfies_npbc w) xs ⇒
+  satisfies_npbc w (bal_add xs)
+Proof
+  rw[bal_add_eq]>>
+  irule bal_pres>>
+  simp[add_thm,satisfies_npbc_def]
+QED
+
+Theorem lookup_core_only_sound:
+  lookup_core_only b fml n = SOME c ∧
   satisfies w (core_only_fml b fml) ⇒
   satisfies_npbc w c
 Proof
-  Induct_on`n`
+  rw[lookup_core_only_def,core_only_fml_def]>>
+  every_case_tac>>
+  fs[satisfies_def,satisfies_npbc_def,range_def,PULL_EXISTS]>>
+  metis_tac[]
+QED
+
+Theorem lookup_lincomb_sound:
+  ∀b fml ids cs.
+  lookup_lincomb b fml ids = SOME cs ∧
+  satisfies w (core_only_fml b fml) ⇒
+  EVERY (satisfies_npbc w) cs
+Proof
+  ho_match_mp_tac lookup_lincomb_ind>>
+  rw[lookup_lincomb_def,AllCaseEqs()]>>
+  simp[]>>
+  metis_tac[multiply_thm,lookup_core_only_sound]
+QED
+
+Theorem check_cutting_correct_mutual[local]:
+  (∀b fml n c.
+    check_cutting b fml n = SOME c ∧
+    satisfies w (core_only_fml b fml) ⇒
+    satisfies_npbc w c) ∧
+  (∀b fml ns cs.
+    check_cutting_nest b fml ns = SOME cs ∧
+    satisfies w (core_only_fml b fml) ⇒
+    EVERY (satisfies_npbc w) cs)
+Proof
+  ho_match_mp_tac check_cutting_ind>>
+  rpt conj_tac
   >~[`Id`]
   >- (
     rw[check_cutting_def]>>
-    fs[lookup_core_only_def,core_only_fml_def]>>
-    every_case_tac>>
-    fs[satisfies_def,satisfies_npbc_def,range_def,PULL_EXISTS]>>
-    metis_tac[])
+    metis_tac[lookup_core_only_sound])
+  >~[`Lincomb`]
+  >- (
+    rw[check_cutting_def,AllCaseEqs()]>>
+    irule bal_add_sound>>
+    simp[]>>
+    metis_tac[bal_add_sound,lookup_lincomb_sound])
+  >~[`check_cutting_nest _ _ []`]
+  >- rw[check_cutting_def]
+  >~[`check_cutting_nest _ _ (_::_)`]
+  >- (
+    rw[check_cutting_def,AllCaseEqs()]>>
+    simp[]>>
+    metis_tac[multiply_thm])
   >~[`Add`]
   >- (
     rw[check_cutting_def]>>
@@ -419,6 +599,15 @@ Proof
     metis_tac[clean_triv_thm])
 QED
 
+Theorem check_cutting_correct:
+  ∀fml n c w.
+  check_cutting b fml n = SOME c ∧
+  satisfies w (core_only_fml b fml) ⇒
+  satisfies_npbc w c
+Proof
+  metis_tac[check_cutting_correct_mutual]
+QED
+
 Theorem FOLDR_add_compact:
   ∀ls c.
   compact c ∧ EVERY (λh. FST h ≠ 0) ls ⇒
@@ -438,43 +627,114 @@ Proof
   simp[EVERY_FILTER]
 QED
 
-Theorem check_cutting_compact:
-  ∀n c.
+Theorem bal_add_compact:
+  EVERY compact xs ⇒
+  compact (bal_add xs)
+Proof
+  rw[bal_add_eq]>>
+  irule bal_pres>>
+  rw[compact_add]
+QED
+
+Theorem lookup_core_only_compact:
   (∀c. c ∈ core_only_fml b fml ⇒ compact c) ∧
-  check_cutting b fml n = SOME c ⇒
+  lookup_core_only b fml n = SOME c ⇒
   compact c
 Proof
-  Induct_on`n`>>rw[check_cutting_def]
+  rw[]>>
+  fs[core_only_fml_def,lookup_core_only_def]>>
+  every_case_tac>>gvs[]>>
+  metis_tac[]
+QED
+
+Theorem lookup_lincomb_compact:
+  ∀b fml ids cs.
+  (∀c. c ∈ core_only_fml b fml ⇒ compact c) ∧
+  lookup_lincomb b fml ids = SOME cs ⇒
+  EVERY compact cs
+Proof
+  ho_match_mp_tac lookup_lincomb_ind>>
+  rw[lookup_lincomb_def,AllCaseEqs()]>>
+  simp[]>>
+  metis_tac[compact_multiply,lookup_core_only_compact]
+QED
+
+Theorem check_cutting_compact_mutual[local]:
+  (∀b fml n c.
+    (∀c. c ∈ core_only_fml b fml ⇒ compact c) ∧
+    check_cutting b fml n = SOME c ⇒
+    compact c) ∧
+  (∀b fml ns cs.
+    (∀c. c ∈ core_only_fml b fml ⇒ compact c) ∧
+    check_cutting_nest b fml ns = SOME cs ⇒
+    EVERY compact cs)
+Proof
+  ho_match_mp_tac check_cutting_ind>>
+  rpt conj_tac
+  >~[`Id`]
   >- (
-    (*Id case*)
-    fs[core_only_fml_def,lookup_core_only_def]>>
-    every_case_tac>>gvs[]>>
-    metis_tac[])
+    rw[check_cutting_def]>>
+    metis_tac[lookup_core_only_compact])
+  >~[`Lincomb`]
   >- (
-    (* add case *)
-    metis_tac[compact_add])
+    rw[check_cutting_def,AllCaseEqs()]>>
+    irule bal_add_compact>>
+    simp[]>>
+    metis_tac[bal_add_compact,lookup_lincomb_compact])
+  >~[`check_cutting_nest _ _ []`]
+  >- rw[check_cutting_def]
+  >~[`check_cutting_nest _ _ (_::_)`]
   >- (
-    (* multiply case *)
+    rw[check_cutting_def,AllCaseEqs()]>>
+    simp[]>>
     metis_tac[compact_multiply])
+  >~[`Add`]
   >- (
+    rw[check_cutting_def]>>
+    metis_tac[compact_add])
+  >~[`Mul`]
+  >- (
+    rw[check_cutting_def]>>
+    metis_tac[compact_multiply])
+  >~[`Div`]
+  >- (
+    rw[check_cutting_def]>>
     simp[oneline do_divide_def]>>
     every_case_tac
     >- metis_tac[compact_var_divide]
     >- metis_tac[compact_divide]
     >- metis_tac[compact_mir]
     >- metis_tac[compact_var_mir])
-  >- metis_tac[compact_minus]
-  >- metis_tac[compact_saturate]
+  >~[`Minus`]
   >- (
-    (* literal case *)
-    Cases_on`l`>>fs[check_cutting_def]>>rveq>>
+    rw[check_cutting_def]>>
+    metis_tac[compact_minus])
+  >~[`Sat`]
+  >- (
+    rw[check_cutting_def]>>
+    metis_tac[compact_saturate])
+  >~[`Lit`]
+  >- (
+    rw[check_cutting_def,AllCaseEqs()]>>
     EVAL_TAC)
+  >~[`Weak`]
   >- (
-    (* weaken case *)
+    rw[check_cutting_def]>>
     simp[weaken_sorted_def]>>
     metis_tac[compact_weaken])
-  >-
-    metis_tac[clean_triv_compact]
+  >~[`Triv`]
+  >- (
+    rw[check_cutting_def]>>
+    metis_tac[clean_triv_compact])
+QED
+
+Theorem check_cutting_compact:
+  ∀n c.
+  (∀c. c ∈ core_only_fml b fml ⇒ compact c) ∧
+  check_cutting b fml n = SOME c ⇒
+  compact c
+Proof
+  metis_tac[check_cutting_compact_mutual]
 QED
 
 Definition id_ok_def:
@@ -620,7 +880,7 @@ Proof
   \\ gvs [rup_pass2_def] \\ rpt gen_tac \\ strip_tac
   \\ qabbrev_tac ‘x = if h1 < 0 then 1 − b2n (w h2) else b2n (w h2)’
   \\ ‘x ≤ 1’ by (rw [Abbr‘x’] \\ Cases_on ‘w h2’ \\ gvs [])
-  \\ reverse (Cases_on ‘max < c1 + h0’) \\ gvs []
+  \\ reverse (Cases_on ‘max < c1 + h0 ∧ FLOOKUP assg h2 = NONE’) \\ gvs []
   \\ last_x_assum irule \\ fs []
   \\ gvs [SF DNF_ss,SF SFY_ss]
   \\ fs [lslack_def] \\ fs [GSYM lslack_def]
@@ -2710,32 +2970,39 @@ Proof
   gvs[]
 QED
 
+(* Cube entries: 0 = false, 1 = true, 2 = free *)
+Definition cube_dec_def:
+  cube_dec (e:num) = if e = 2 then NONE else SOME (e = 1)
+End
+
 Definition check_cube_aux_def:
-  (check_cube_aux w [] (remaining:num) = F) ∧
+  (check_cube_aux (w:num -> num) [] (remaining:num) = F) ∧
   (check_cube_aux w ((c,v)::xs) remaining =
-    case w v of
-      NONE => check_cube_aux w xs remaining
-    | SOME b =>
-      if b then
-        if 0 < c then
-          remaining ≤ Num c ∨ check_cube_aux w xs (remaining - Num c)
-        else check_cube_aux w xs remaining
-      else
-        if c < 0 then
-          remaining ≤ Num (-c) ∨ check_cube_aux w xs (remaining - Num (-c))
-        else check_cube_aux w xs remaining)
+    let e = w v in
+    if e = 2 then check_cube_aux w xs remaining
+    else if e = 1 then
+      if 0 < c then
+        remaining ≤ Num c ∨ check_cube_aux w xs (remaining - Num c)
+      else check_cube_aux w xs remaining
+    else
+      if c < 0 then
+        remaining ≤ Num (-c) ∨ check_cube_aux w xs (remaining - Num (-c))
+      else check_cube_aux w xs remaining)
 End
 
 Theorem check_cube_aux_correct:
   ∀xs remaining. 0 < remaining ⇒
     (check_cube_aux w xs remaining ⇔
      remaining ≤ SUM (MAP (λcv.
-       case w (SND cv) of NONE => 0 | SOME b => eval_term (K b) cv) xs))
+       case cube_dec (w (SND cv)) of NONE => 0 | SOME b => eval_term (K b) cv) xs))
 Proof
   Induct >> simp[check_cube_aux_def] >>
   qx_gen_tac `cv` >> namedCases_on `cv` ["c v"] >>
-  namedCases_on `w v` ["", "b"] >>
-  rw[check_cube_aux_def,eval_term_def,eval_lit_def,b2n_def]
+  `cube_dec (w v) = if w v = 2 then NONE else SOME (w v = 1)` by
+    simp[cube_dec_def] >>
+  Cases_on `w v = 2` >> Cases_on `w v = 1` >>
+  rw[check_cube_aux_def,eval_term_def,eval_lit_def,b2n_def,
+     Q.SPEC `2` cube_dec_def,Q.SPEC `1` cube_dec_def]
   >~ [`0 < c`, `c < 0`]
   >- (`F` by intLib.ARITH_TAC)
   >~ [`¬(0 < c)`, `¬(c < 0)`]
@@ -2749,17 +3016,22 @@ Definition check_cube_def:
     if rhs ≤ 0 then T else check_cube_aux w xs (Num rhs)
 End
 
+(* TMC *)
 Definition to_flat_d_def:
-  to_flat_d d n l acc =
-    case l of
-    | [] => REVERSE acc
-    | ((m,x)::xs) => to_flat_d d (m+1) xs (x :: prepend (m-n) d acc)
+  (to_flat_d d n [] = []) ∧
+  (to_flat_d d n ((m,x)::xs) =
+    if n < m then d :: to_flat_d d (n+1) ((m,x)::xs)
+    else x :: to_flat_d d (m+1) xs)
+Termination
+  WF_REL_TAC `inv_image (($< :num -> num -> bool) LEX ($< :num -> num -> bool))
+    (λ(d,n,l). (LENGTH l, case l of [] => 0 | (m,x)::xs => m - n))` >>
+  simp[pairTheory.LEX_DEF_THM]
 End
 
 Definition mk_obj_vec_def:
   mk_obj_vec (wm:((num # bool) list)) =
     let wms = sort (λx y. FST x ≤ FST y) wm in
-    Vector (to_flat_d F 0 wms [])
+    Vector (to_flat_d F 0 wms)
 End
 
 Definition vec_lookup_d_def:
@@ -2767,33 +3039,55 @@ Definition vec_lookup_d_def:
     if n < length vec then sub vec n else d
 End
 
-Theorem MAP_prepend[local]:
-  ∀n x xs. MAP f (prepend n x xs) = prepend n (f x) (MAP f xs)
+Theorem prepend_REPLICATE[local]:
+  ∀n x xs. prepend n x xs = REPLICATE n x ++ xs
 Proof
-  Induct >> once_rewrite_tac[prepend_def] >> simp[]
+  Induct >> rewrite_tac[GSYM SNOC_REPLICATE,SNOC_APPEND] >>
+  fs[ADD1] >> once_rewrite_tac[prepend_def] >> fs[]
+QED
+
+Theorem to_flat_acc[local]:
+  ∀l n acc. to_flat n l acc = REVERSE acc ++ to_flat n l []
+Proof
+  Induct
+  >- (once_rewrite_tac[to_flat_def] >> simp[]) >>
+  rpt strip_tac >> namedCases_on `h` ["k v"] >>
+  pop_assum (fn ih =>
+    once_rewrite_tac[to_flat_def] >> simp[] >>
+    once_rewrite_tac[ih]) >>
+  simp[prepend_REPLICATE,REVERSE_APPEND,REVERSE_REPLICATE]
+QED
+
+Theorem to_flat_cons[local]:
+  to_flat n ((m,x)::xs) [] =
+  REPLICATE (m - n) NONE ++ [SOME x] ++ to_flat (m + 1) xs []
+Proof
+  CONV_TAC (LAND_CONV (ONCE_REWRITE_CONV [to_flat_def])) >> simp[] >>
+  CONV_TAC (LAND_CONV (ONCE_REWRITE_CONV [to_flat_acc])) >>
+  simp[prepend_REPLICATE,REVERSE_APPEND,REVERSE_REPLICATE]
 QED
 
 Theorem to_flat_d_eq[local]:
-  ∀ls n acc.
-    to_flat_d d n ls (MAP (λx. case x of NONE => d | SOME v => v) acc) =
-    MAP (λx. case x of NONE => d | SOME v => v) (to_flat n ls acc)
+  ∀d n ls.
+    to_flat_d d n ls =
+    MAP (λx. case x of NONE => d | SOME v => v) (to_flat n ls [])
 Proof
-  Induct >> once_rewrite_tac[to_flat_d_def,to_flat_def] >>
-  simp[MAP_REVERSE] >>
-  qx_gen_tac `kv` >> namedCases_on `kv` ["k v"] >> simp[] >>
-  first_x_assum (fn th => rewrite_tac[GSYM th]) >> simp[MAP_prepend]
+  ho_match_mp_tac to_flat_d_ind >> rw[]
+  >- simp[to_flat_d_def,Once to_flat_def] >>
+  rw[Once to_flat_d_def] >> gvs[to_flat_cons] >>
+  `m - n = SUC (m - (n + 1))` by decide_tac >>
+  pop_assum SUBST1_TAC >> simp[REPLICATE]
 QED
 
 Theorem vec_lookup_d_toSortedAList:
-  vec_lookup_d d (Vector (to_flat_d d 0 (toSortedAList t) [])) n =
+  vec_lookup_d d (Vector (to_flat_d d 0 (toSortedAList t))) n =
   case lookup n t of NONE => d | SOME v => v
 Proof
   mp_tac vec_lookup_num_man_to_vec >>
-  simp[spt_to_vec_def,vec_lookup_def,vec_lookup_d_def,
-       to_flat_d_eq |> Q.SPECL [`toSortedAList t`,`0`,`[]`]
-                    |> SIMP_RULE std_ss [MAP],length_def,sub_def] >>
+  simp[spt_to_vec_def,vec_lookup_def,vec_lookup_d_def,to_flat_d_eq,
+       length_def,sub_def] >>
   Cases_on `n < LENGTH (to_flat 0 (toSortedAList t) [])` >>
-  simp[EL_MAP] >> rw[]
+  simp[EL_MAP]
 QED
 
 Theorem toSortedAList_fromAList_sorted[local]:
@@ -2815,7 +3109,7 @@ QED
 
 Theorem vec_lookup_d_to_flat_d:
   SORTED $< (MAP FST ls) ⇒
-  vec_lookup_d d (Vector (to_flat_d d 0 ls [])) n =
+  vec_lookup_d d (Vector (to_flat_d d 0 ls)) n =
   case ALOOKUP ls n of NONE => d | SOME v => v
 Proof
   strip_tac >> drule toSortedAList_fromAList_sorted >>
@@ -2824,10 +3118,11 @@ QED
 
 Definition mk_cube_vec_def:
   mk_cube_vec (wm:(num # bool) list) (free:num_set) =
-    let fixed = MAP (λ(v,b). (v,SOME b)) (toSortedAList (fromAList wm)) in
-    let holes = MAP (λ(v,u). (v,NONE)) (toSortedAList free) in
+    let fixed =
+      MAP (λ(v,b). (v,if b then 1n else 0)) (toSortedAList (fromAList wm)) in
+    let holes = MAP (λ(v,u). (v,2n)) (toSortedAList free) in
     let entries = mergesort$merge (λx y. FST x ≤ FST y) fixed holes in
-      Vector (to_flat_d (SOME F) 0 entries [])
+      Vector (to_flat_d 0 0 entries)
 End
 
 Theorem merge_alist_correct[local]:
@@ -2859,15 +3154,15 @@ QED
 
 Theorem mk_cube_vec_lookup:
   DISJOINT (set (MAP FST wm)) (domain free) ⇒
-  vec_lookup_d (SOME F) (mk_cube_vec wm free) n =
+  vec_lookup_d 0 (mk_cube_vec wm free) n =
     if lookup n free = NONE then
-      SOME (case ALOOKUP wm n of NONE => F | SOME b => b)
-    else NONE
+      (if ALOOKUP wm n = SOME T then 1 else 0)
+    else 2
 Proof
   strip_tac >> simp[mk_cube_vec_def] >>
   qmatch_goalsub_abbrev_tac `mergesort$merge _ fixed holes` >>
   mp_tac (merge_alist_correct |> Q.GENL [`xs`,`ys`] |>
-    Q.ISPECL [`fixed:(num # bool option) list`,`holes:(num # bool option) list`]) >>
+    Q.ISPECL [`fixed:(num # num) list`,`holes:(num # num) list`]) >>
   simp[Abbr`fixed`,Abbr`holes`,MAP_MAP_o,o_DEF,LAMBDA_PROD,
        FST_pair,SORTED_toSortedAList] >>
   impl_tac >- (
@@ -2907,9 +3202,10 @@ End
 Definition check_sol_def:
   check_sol wm free (cs:npbc list) =
   if EVERY (λ(v,b). lookup v free = NONE) wm then
-    let cw = vec_lookup_d (SOME F) (mk_cube_vec wm free) in
-    if EVERY (λ(v,b). cw v = SOME b) wm ∧ EVERY (check_cube cw) cs then
-      SOME (λv. case cw v of NONE => F | SOME b => b)
+    let cw = vec_lookup_d 0 (mk_cube_vec wm free) in
+    if EVERY (λ(v,b). cw v = if b then 1 else 0) wm ∧
+       EVERY (check_cube cw) cs then
+      SOME (λv. cw v = 1)
     else NONE
   else NONE
 End
@@ -2951,7 +3247,7 @@ QED
 Theorem check_cube_correct:
   check_cube cw (xs,rhs) ⇔
   rhs ≤ &(SUM (MAP (λcv.
-    case cw (SND cv) of NONE => 0 | SOME b => eval_term (K b) cv) xs))
+    case cube_dec (cw (SND cv)) of NONE => 0 | SOME b => eval_term (K b) cv) xs))
 Proof
   rw[check_cube_def] >>
   Cases_on `rhs ≤ 0` >- (simp[] >> intLib.ARITH_TAC) >>
@@ -2975,7 +3271,7 @@ Proof
   `lower ≤ SUM (MAP (eval_term w') xs)` suffices_by intLib.ARITH_TAC >>
   unabbrev_all_tac >> irule SUM_MAP_same_LE >>
   simp[EVERY_MEM,FORALL_PROD] >>
-  rw[] >> fs[mk_cube_vec_lookup]
+  rw[] >> fs[mk_cube_vec_lookup,cube_dec_def]
 QED
 
 Theorem check_sol_cong:
@@ -3014,19 +3310,29 @@ Theorem check_sol_empty:
   check_sol wm LN cs = OPTION_MAP SND (check_obj NONE wm cs NONE)
 Proof
   strip_tac >>
-  `vec_lookup_d F (mk_obj_vec wm) =
-    λv. case ALOOKUP wm v of NONE => F | SOME b => b` by
-    simp[FUN_EQ_THM,mk_obj_vec_lookup] >>
-  `EVERY (λ(v,b). (case ALOOKUP wm v of NONE => F | SOME b => b) = b) wm` by (
-    simp[EVERY_MEM,FORALL_PROD] >> rpt strip_tac >>
+  qabbrev_tac `sw = λv. case ALOOKUP wm v of NONE => F | SOME b => b` >>
+  `vec_lookup_d F (mk_obj_vec wm) = sw` by
+    simp[Abbr`sw`,FUN_EQ_THM,mk_obj_vec_lookup] >>
+  `∀v. vec_lookup_d 0 (mk_cube_vec wm LN) v = if sw v then 1 else 0` by (
+    rw[Abbr`sw`,mk_cube_vec_lookup,lookup_def,domain_def] >>
+    Cases_on `ALOOKUP wm v` >> gvs[]) >>
+  `EVERY (λ(v,b). sw v = b) wm` by (
+    simp[Abbr`sw`,EVERY_MEM,FORALL_PROD] >> rpt strip_tac >>
     drule_all ALOOKUP_ALL_DISTINCT_MEM >> simp[]) >>
-  simp[check_sol_def,check_obj_def,mk_cube_vec_lookup,domain_def,lookup_def] >>
-  simp[EVERY_MEM,FORALL_PROD,check_cube_correct,satisfies_npbc_def,
-       mk_cube_vec_lookup,domain_def,lookup_def,eval_term_const] >>
-  simp[eval_term_const |> Q.INST
-    [`w` |-> `λv. case ALOOKUP (wm:(num # bool) list) v of NONE => F | SOME b => b`]
-    |> SIMP_RULE std_ss [K_DEF]] >>
-  CONV_TAC (DEPTH_CONV ETA_CONV) >> IF_CASES_TAC >> simp[]
+  `∀v. cube_dec (if sw v then 1 else 0) = SOME (sw v)` by rw[cube_dec_def] >>
+  sg `∀c. check_cube (vec_lookup_d 0 (mk_cube_vec wm LN)) c ⇔ satisfies_npbc sw c`
+  >- (
+    Cases >> simp[check_cube_correct,satisfies_npbc_def] >>
+    rpt AP_TERM_TAC >>
+    simp[eval_term_const,MAP_EQ_f]) >>
+  `check_cube (vec_lookup_d 0 (mk_cube_vec wm LN)) = satisfies_npbc sw` by
+    simp[FUN_EQ_THM] >>
+  `EVERY (λ(v,b). (if sw v then 1n else 0) = if b then 1 else 0) wm` by (
+    qpat_x_assum `EVERY _ wm` mp_tac >> match_mp_tac EVERY_MONOTONIC >>
+    simp[FORALL_PROD]) >>
+  `EVERY (λ(v:num,b:bool). T) wm` by simp[EVERY_MEM,FORALL_PROD] >>
+  simp[check_sol_def,check_obj_def,lookup_def] >>
+  rw[FUN_EQ_THM] >> IF_CASES_TAC >> simp[]
 QED
 
 (* For a bound b, the model improving constraint is
@@ -3709,10 +4015,20 @@ Proof
   simp[] >> metis_tac[IN_DEF]
 QED
 
+Definition free_ok_def:
+  free_ok (presopt:num_set option) (free:num_set) =
+  subspt free (case presopt of NONE => LN | SOME pres => pres)
+End
+
+Theorem free_ok_domain:
+  free_ok presopt free ⇔ domain free ⊆ pres_set_spt presopt
+Proof
+  Cases_on `presopt` >>
+  simp[free_ok_def,pres_set_spt_def,subspt_domain]
+QED
+
 Definition cube_count_def:
-  cube_count (presopt:num_set option) (free:num_set) =
-  case presopt of NONE => 1
-  | SOME pres => 2 ** size (inter pres free)
+  cube_count (free:num_set) = 2 ** size free
 End
 
 Definition projected_cube_def:
@@ -3741,11 +4057,15 @@ Proof
 QED
 
 Theorem cube_count_card:
-  cube_count pres free =
+  domain free ⊆ pres_set_spt pres ⇒
+  cube_count free =
   CARD (projected_cube (pres_set_spt pres) (domain free) w)
 Proof
   Cases_on `pres` >>
-  simp[cube_count_def,pres_set_spt_def,projected_cube_card,domain_inter,size_domain]
+  simp[cube_count_def,pres_set_spt_def,projected_cube_card,size_domain] >>
+  strip_tac >>
+  `domain x ∩ domain free = domain free` by simp[INTER_SUBSET_EQN] >>
+  simp[]
 QED
 
 Theorem check_sol_projected_cube:
@@ -3908,7 +4228,7 @@ Definition check_cstep_def:
       SOME (fml, pc with <| id := id'; pres := SOME pres' |>)
     )
   | Sol w free =>
-    (if pc.obj ≠ NONE ∨ ¬pc.chk then NONE
+    (if pc.obj ≠ NONE ∨ ¬pc.chk ∨ ¬free_ok pc.pres free then NONE
     else
     case check_sol w free
       (MAP SND (toAList (mk_core_fml T fml))) of
@@ -3923,7 +4243,7 @@ Definition check_cstep_def:
           <| id := pc.id+1;
              bound := bound';
              dbound := dbound';
-             enum := pc.enum + cube_count pc.pres free
+             enum := pc.enum + cube_count free
              |>))
   | CheckPres ls' =>
     if check_eq_pres pc.pres ls'
@@ -5569,6 +5889,7 @@ Proof
     ) >>
     conj_tac >- (
       qexists_tac `projected_cube (pres_set_spt pc.pres) (domain free) w` >>
+      `domain free ⊆ pres_set_spt pc.pres` by fs[free_ok_domain] >>
       simp[GSYM cube_count_card] >> conj_tac
       >- (
         drule check_sol_projected_cube >>

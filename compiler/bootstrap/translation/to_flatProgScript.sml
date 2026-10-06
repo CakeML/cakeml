@@ -8,8 +8,6 @@ Ancestors
 Libs
   preamble ml_translatorLib
 
-open preamble ml_translatorLib ml_translatorTheory decProgTheory;
-
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = translation_extends "decProg";
