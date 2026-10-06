@@ -55,16 +55,22 @@ Providing REPL input
 
 On GNU/Linux, `./cake --repl` starts the CakeML REPL and `./cake --candle`
 starts the Candle REPL. Run from the directory containing `config_enc_str.txt`
-from the same bootstrap and `repl_boot.cml` or `candle_boot.ml`, respectively.
-The existing boot readers provide interactive source input and file loading.
+from the same bootstrap and `repl_boot.cml`, or for Candle `candle_boot.cml`
+and `candle_boot.ml`. The existing boot readers provide interactive source
+input and file loading.
+
+Candle input is parsed by the Candle parser in `candle_boot.cml`, which is
+loaded at startup, and reaches the REPL as declarations. A `(*CML ... *)` block
+at the start of a phrase is CakeML source. Candle diagnostics give line numbers
+relative to the current phrase, and type errors show no source excerpt.
 
 The user-visible `Ast` module also allows a custom reader to supply declarations
 directly. The input reference is
-`Repl.nextInput : (string, Ast.dec list) sum ref`: assign `Inl text` to use the
-selected source parser, or `Inr declarations` to bypass source parsing. Both
-forms use the same type checking, reserved-name restrictions and evaluation.
-Direct AST input uses empty source text for diagnostics; it is not serialized
-or reparsed.
+`Repl.nextInput : (string, Ast.dec list) sum ref`: assign `Inl text` to parse
+CakeML source, or `Inr declarations` to bypass source parsing. Both forms use
+the same type checking, reserved-name restrictions and evaluation. Direct AST
+input uses empty source text for diagnostics; it is not serialized or
+reparsed.
 
 Install a reader by assigning `Repl.readNextString`, whose historical name is
 retained. This reference holds a `unit -> unit` function. Each call should set

@@ -1,0 +1,73 @@
+(*
+  Types and literals, ported from camlPtreeConversionScript.sml.
+*)
+structure CandleTypes = struct
+  open CandleNames;
+  fun ptree_TVar pt = case pt of Lf (_,l) => Inl (l,"Expected type variable non-terminal")
+    | Nd (n,l) args => if n <> Inl NTVar then Inl (l,"Expected type variable non-terminal")
+      else case args of [tick,id] => bind (expect_tok tick TickT) (fn _ =>
+        fmap (fn v => Ast.Atvar v) (ptree_Ident id))
+      | _ => Inl (l,"Impossible: nTVar");
+  fun ptree_Type pt = case pt of Lf (_,l) => Inl (l,"Expected a type non-terminal")
+    | Nd (n,l) args =>
+      if n = Inl NType then
+        (case args of [ty] => ptree_Type ty | _ => Inl (l,"Impossible: nType"))
+      else if n = Inl NTBase then
+        (case args of [lp,ts,rp,ctor] => bind (expect_tok lp LparT) (fn _ =>
+           bind (expect_tok rp RparT) (fn _ => bind (ptree_TypeList ts) (fn tys =>
+           bind (ptree_TypeConstr ctor) (fn nm =>
+           fmap (fn id => Ast.Atapp tys id) (path_to_ns l nm)))))
+         | [lp,arg,rp] => bind (expect_tok lp LparT) (fn _ =>
+           bind (expect_tok rp RparT) (fn _ => ptree_Type arg))
+         | [arg] => ptree_TVar arg
+         | _ => Inl (l,"Impossible: nTBase"))
+      else if n = Inl NTConstr then
+        (case args of arg::rest =>
+          let fun apply ty = bind (mapM ptree_TypeConstr rest) (fn ids =>
+                fmap (fn cns => List.foldl (fn id => fn t => Ast.Atapp [t] id) ty cns)
+                  (mapM (path_to_ns l) ids));
+          in choice (bind (ptree_Type arg) apply) (fn _ =>
+               bind (ptree_TypeConstr arg) (fn id =>
+               bind (path_to_ns l id) (fn cn => apply (Ast.Atapp [] cn)))) end
+         | _ => Inl (l,"Impossible: nTConstr"))
+      else if n = Inl NTProd then
+        (case args of [arg] => ptree_Type arg
+         | arg::rest => bind (ptree_Type arg) (fn ty =>
+             fmap (fn ts => Ast.Attup (ty::ts)) (ptree_StarTypes rest))
+         | _ => Inl (l,"Impossible: nTProd"))
+      else if n = Inl NTFun then
+        (case args of [arg] => ptree_Type arg
+         | [arg,arrow,rest] => bind (expect_tok arrow RarrowT) (fn _ =>
+             bind (ptree_Type arg) (fn t1 => fmap (fn t2 => Ast.Atfun t1 t2) (ptree_Type rest)))
+         | _ => Inl (l,"Impossible: nTFun"))
+      else Inl (l,"Expected type non-terminal")
+  and ptree_TypeList pt = case pt of Lf (_,l) => Inl (l,"Expected a type list non-terminal")
+    | Nd (n,l) args =>
+      if n = Inl NTypeList orelse n = Inl NTypeLists then
+        (case args of [typ,comma,tlist] => bind (ptree_Type typ) (fn t =>
+           bind (expect_tok comma CommaT) (fn _ =>
+           fmap (fn ts => t::ts) (ptree_TypeList tlist)))
+         | [typ] => if n = Inl NTypeLists then fmap (fn t => [t]) (ptree_Type typ)
+                    else Inl (l,"Impossible: nTypeList")
+         | _ => Inl (l,if n = Inl NTypeList then "Impossible: nTypeList"
+                        else "Impossible: nTypeLists"))
+      else Inl (l,"Expected a type list non-terminal")
+  and ptree_StarTypes pts = case pts of [] => Inr [] | x::xs =>
+    choice (bind (expect_tok x StarT) (fn _ => ptree_StarTypes xs)) (fn _ =>
+      bind (ptree_Type x) (fn t => fmap (fn ts => t::ts) (ptree_StarTypes xs)));
+  fun literal expected impossible convert pt = case pt of Lf (_,l) => Inl (l,expected)
+    | Nd (n,l) args => if n <> Inl NLiteral then Inl (l,expected)
+      else case args of [arg] => bind (token arg) (convert l)
+      | _ => Inl (l,impossible);
+  fun ptree_Literal pt = literal "Expected a literal non-terminal" "Impossible: nLiteral"
+    (fn l => fn tk => case tk of IntT n => Inr (Ast.Intlit n)
+      | CharT c => Inr (Ast.Char c) | StringT s => Inr (Ast.Strlit s)
+      | _ => Inl (l,"Impossible: nLiteral")) pt;
+  fun bool2id b = Ast.Short (if b then "True" else "False");
+  fun ptree_Bool pt = literal "Expected a boolean literal non-terminal" "Impossible: nLiteral (bool)"
+    (fn l => fn tk => if tk = TrueT orelse tk = FalseT then Inr (bool2id (tk = TrueT))
+                     else Inl (l,"not a boolean literal")) pt;
+  fun ptree_Double pt = literal "Expected a float literal non-terminal" "Impossible: nLiteral (float)"
+    (fn l => fn tk => case tk of FloatT s => Inr (Ast.Lit (Ast.Strlit s))
+                             | _ => Inl (l,"not a float literal")) pt;
+end;

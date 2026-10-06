@@ -1,0 +1,27 @@
+(*
+  Operator-precedence resolution, ported from precparser's precparse1 and
+  precparse.
+*)
+structure CandlePrecedence = struct
+  datatype action = Reduce | Shift;
+  fun omap f x = case x of None => None | Some y => Some (f y);
+  fun step rules reduce lift isOp mkApp (stk,input) = case input of
+      [] => (case stk of Inr b::Inl oper::Inr a::rest =>
+               omap (fn r => (Inr r::rest,[])) (reduce a oper b)
+             | _ => None)
+    | tok::more => if isOp tok then
+        (case stk of Inr b::Inl oper::Inr a::rest =>
+          (case rules (oper,tok) of
+             Some Shift => Some (Inl tok::stk,more)
+           | Some Reduce => omap (fn r => (Inr r::rest,input)) (reduce a oper b)
+           | None => None)
+         | [Inr tm] => Some ([Inl tok,Inr tm],more)
+         | _ => None)
+      else (case stk of [] => Some ([Inr (lift tok)],more)
+        | Inr ftm::rest => omap (fn r => (Inr r::rest,more)) (mkApp ftm (lift tok))
+        | Inl _::_ => Some (Inr (lift tok)::stk,more));
+  fun precparse rules reduce lift isOp mkApp state = case state of
+      ([Inr tm],[]) => Some tm
+    | _ => (case step rules reduce lift isOp mkApp state of None => None
+          | Some next => precparse rules reduce lift isOp mkApp next);
+end;

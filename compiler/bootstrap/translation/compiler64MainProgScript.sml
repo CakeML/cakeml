@@ -226,23 +226,8 @@ Definition parse_cakeml_syntax_def:
   | Failure l _ => INL («Parsing failed at » ^ locs_to_string input (SOME l))
 End
 
-Definition parse_ocaml_syntax_def:
-  parse_ocaml_syntax input =
-  case caml_parser$run (explode input) of
-  | INR res => INR res
-  | INL (l,err) =>
-      INL (err ^ «\nParsing failed at » ^ locs_to_string input (SOME l))
-End
-
-Definition select_parse_def:
-  select_parse cl =
-  if MEMBER «--candle» cl then parse_ocaml_syntax else parse_cakeml_syntax
-End
-
+val _ = next_ml_names := ["parse_cakeml_syntax"];
 val r = translate parse_cakeml_syntax_def;
-val r = translate parse_ocaml_syntax_def;
-val _ = next_ml_names := ["select_parse"];
-val r = translate select_parse_def;
 
 Definition init_next_string_def:
   init_next_string cl = if MEM «--candle» cl then «candle» else «»
@@ -254,7 +239,7 @@ val r = translate (init_next_string_def |> REWRITE_RULE [MEMBER_INTRO]);
 Quote add_cakeml:
   fun start_repl (host,cl,s1) =
     let
-      val parse = select_parse cl
+      val parse = parse_cakeml_syntax
       val types = init_types
       val conf = (s1,1)
       val env = (repl_init_env, 0)

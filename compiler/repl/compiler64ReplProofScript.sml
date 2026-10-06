@@ -1152,21 +1152,10 @@ Proof
   \\ simp [Once evaluate_def]
   \\ simp [can_pmatch_all_def,pmatch_def,evaluate_Var]
   \\ simp [Once evaluate_def,astTheory.pat_bindings_def,pmatch_def]
-  (* calling select_parse *)
+  (* let parse = parse_cakeml_syntax *)
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
-           namespaceTheory.nsOptBind_def]
-  \\ rename [`evaluate _ _ [App Opapp _]`]
-  \\ simp [Once evaluate_def,evaluate_Var,evaluate_list,build_rec_env_def]
+           namespaceTheory.nsOptBind_def,build_rec_env_def]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ rename [`do_opapp [compiler64mainprog_select_parse_v;_]`]
-  \\ assume_tac compiler64mainprog_select_parse_v_thm
-  \\ drule_all Arrow_IMP
-  \\ fs [dec_clock_def]
-  \\ disch_then (qspec_then `st with clock := st.clock − 2`
-       (qx_choosel_then [`select_env`,`select_body`,`select_junk`,`selected_parse`,
-                        `select_cost`,`select_state`,`select_res`] strip_assume_tac))
-  \\ fs [] \\ IF_CASES_TAC \\ fs []
-  \\ Cases_on `select_res = Rerr (Rabort Rtimeout_error)` \\ gvs []
   (* let types = init_types *)
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def]
@@ -1204,11 +1193,9 @@ Proof
   \\ fs [] \\ IF_CASES_TAC \\ fs [Abbr`st2`]
   \\ Cases_on `next_res = Rerr (Rabort Rtimeout_error)` \\ gvs []
   \\ rename1 ‘evaluate _ _ [_] =
-    (st with <|clock := st.clock - (parser_ck + (source_ck + 3));
-               refs := st.refs ++ parser_junk ++ source_junk|>,
+    (st with <|clock := st.clock - (source_ck + 2);
+               refs := st.refs ++ source_junk|>,
      Rval [source_value])’
-  \\ rename1 ‘(STRING_TYPE --> SUM_TYPE STRING_TYPE (LIST_TYPE DEC_TYPE))
-       (select_parse cl) parser_value’
   (* Wrap the initial source text in Inl. *)
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
        namespaceTheory.nsOptBind_def,evaluate_Lit,do_con_check_def,build_conv_def]
@@ -1261,6 +1248,7 @@ Proof
        ml_progTheory.option_choice_f_apply,alistTheory.ALOOKUP_def]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv)
   \\ simp [Abbr ‘startup_state’]
+  \\ assume_tac compiler64mainprog_parse_cakeml_syntax_v_thm
   \\ assume_tac repl_init_types_repl_init_types_v_thm
   \\ rpt (first_assum $ irule_at Any)
   \\ simp [repl_init_typesTheory.repl_init_types_def]

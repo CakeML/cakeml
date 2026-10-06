@@ -1,0 +1,75 @@
+(*
+  Candle REPL startup after the parser: CakeML-syntax bindings that the
+  Candle prelude needs, error reporting for CandleParser, and the switch to
+  reading candle_boot.ml through CandleParser.
+*)
+
+(* TODO: the Candle parser cannot read ~ (as in Int.~), so these bindings,
+   which the prelude in candle_boot.ml uses, are written here in CakeML
+   syntax. Once the parser accepts ~, move them into candle_boot.ml. *)
+val negint = Int.~;
+val negfloat = Double.~;
+val rat_minus = Rat.~;
+
+(* Candle syntax rejects a module name with a capital after its first letter
+   (CandleBoot.parse does not parse), hence the Text_io-style name. *)
+structure Candle_boot = struct
+  local
+    (* compilerTheory.locs_to_string and its helpers, for CandleParser
+       locations. Positions are nonnegative; subtraction saturates at 0. *)
+    fun nsub a b = if a < b then 0 else a - b;
+    fun find_next_newline n s =
+      if String.size s <= n then n
+      else if String.sub s n = #"\n" then n
+      else find_next_newline (n + 1) s;
+    fun safe_substring s n len =
+      let val size = String.size s in
+        if size <= n then ""
+        else if n + len <= size then String.substring s n len
+        else String.substring s n (size - n)
+      end;
+    fun get_nth_line row s n =
+      if row = 0 then safe_substring s n (nsub (find_next_newline n s) n)
+      else get_nth_line (row - 1) s (find_next_newline n s + 1);
+    fun copies n s =
+      let fun loop k acc = if k <= 0 then acc else loop (k - 1) (s::acc)
+      in loop n [] end;
+    fun locs_to_string source loc = case loc of
+        CandleParser.Locs (CandleParser.Posn row col) finish =>
+          let val line = get_nth_line row source 0
+              val stop = case finish of
+                  CandleParser.Posn last_row last_col =>
+                    if last_row = row then last_col else String.size line
+                | _ => String.size line
+              val underline = String.concat
+                (copies col " " @ copies (nsub stop col + 1) "^")
+          in String.concat ["line ", Int.toString (row + 1), "\n\n",
+              line, "\n", underline, "\n"] end
+      | _ => "unknown location";
+  in
+    (* Parses Candle source text. A failure is printed in the compiler's
+       format and gives None. *)
+    fun parse text =
+      (case CandleParser.parse text of
+         Inr decs => Some decs
+       | Inl (loc, message) =>
+           (print (message ^ "\nParsing failed at " ^
+                   locs_to_string text loc ^ "\n");
+            None))
+      handle _ => (print "Parsing failed: the Candle parser raised an exception\n";
+                   None);
+  end
+end;
+
+(* The next input is candle_boot.ml, parsed by CandleParser. The callback
+   first replaces itself, so a failure while booting ends the session instead
+   of re-reading the file. candle_boot.ml installs the Candle reader. *)
+val _ = Repl.readNextString := (fn () =>
+  let
+    val _ = Repl.readNextString := (fn () => Repl.isEOF := True)
+    val text = String.implode (Repl.charsFrom "candle_boot.ml")
+  in
+    case Candle_boot.parse text of
+      Some decs => (Repl.isEOF := False; Repl.nextInput := Inr decs)
+    | None => Repl.isEOF := True
+  end);

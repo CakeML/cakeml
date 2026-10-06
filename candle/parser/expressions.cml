@@ -1,0 +1,258 @@
+(*
+  The mutually recursive ptree_Expr family from camlPtreeConversionScript.sml.
+  check_tokens sequences expect_tok calls; expr_binary shares the identical
+  binary-tier clauses, keeping the reference's evaluation order.
+*)
+structure CandleExpressions = struct
+  open CandleExpressionSupport;
+  fun check_tokens pairs = case pairs of [] => Inr () | (p,t)::rest =>
+    bind (expect_tok p t) (fn _ => check_tokens rest);
+  fun single_patterns loc msg pss =
+    if List.all (fn ps => List.length ps = 1) pss then Inr (List.concat pss)
+    else Inl (loc,msg);
+  fun ptree_Expr et pt = case pt of Lf (_,l) => Inl (l,"Expected an expression non-terminal")
+    | Nd (n,l) args =>
+      let fun err s = Inl (l,s)
+          fun unary nt s = case args of [a] => ptree_Expr nt a | _ => err s
+          fun dispatch nts bad arity = case args of [a] => bind (nterm_of a) (fn m =>
+            case m of Inl nt => if member nt nts then ptree_Expr nt a else err bad
+              | _ => err bad) | _ => err arity
+          fun binary single left right bad = expr_binary single left right l bad args
+          fun rec_update checks c x u = bind (check_tokens checks) (fn _ =>
+            bind (ptree_Expr NExpr x) (fn e => bind (ptree_Updates u) (fn us =>
+            bind (ptree_Constr c) (fn path => fmap (fn ns =>
+              List.foldl (fn upd => fn b => build_record_upd ns b upd) e us)
+              (path_to_ns l path)))))
+          fun rec_cons checks c u = bind (check_tokens checks) (fn _ =>
+            bind (ptree_Constr c) (fn path => bind (ptree_Updates u) (build_record_cons path)))
+      in if n <> Inl et then err "ptree_Expr" else case et of
+        NExpr => unary NESeq "Impossible: nExpr"
+      | NEUnclosed => dispatch [NELet,NELetRec,NEMatch,NEFun,NEFunction,NETry,NEWhile,NEFor,NEApp]
+          "Expected an expression non-terminal" "Impossible: nEUnclosed"
+      | NEList => (case args of lb::rest => bind (expect_tok lb LbrackT) (fn _ =>
+          fmap build_list_exp (ptree_ExprList rest)) | _ => err "Impossible: nEList")
+      | NEBase => (case args of
+          [lp,rp] => choice
+            (bind (check_tokens [(lp,LparT),(rp,RparT)]) (fn _ => Inr (Ast.Con None [])))
+            (fn _ => bind (check_tokens [(lp,BeginT),(rp,EndT)]) (fn _ => Inr (Ast.Con None [])))
+        | [lp,e,rp] => choice
+            (bind (check_tokens [(lp,LparT),(rp,RparT)]) (fn _ => ptree_Expr NExpr e))
+            (fn _ => bind (check_tokens [(lp,BeginT),(rp,EndT)]) (fn _ => ptree_Expr NExpr e))
+        | [lp,e,colon,ty,rp] => bind (check_tokens [(lp,LparT),(rp,RparT),(colon,ColonT)])
+            (fn _ => bind (ptree_Type ty) (fn t => fmap (fn x => Ast.Tannot x t) (ptree_Expr NExpr e)))
+        | [a] => bind (nterm_of a) (fn m => case m of
+            Inl NERecUpdate => ptree_Expr NERecUpdate a
+          | Inl NLiteral => choice (fmap (fn id => Ast.Con (Some id) []) (ptree_Bool a))
+              (fn _ => fmap (fn x => Ast.Lit x) (ptree_Literal a))
+          | Inl NValuePath => bind (ptree_ValuePath a) (fn path =>
+              fmap (fn id => Ast.Ident id) (path_to_ns l path))
+          | Inl NConstr => bind (ptree_Constr a) (fn path =>
+              fmap (fn id => Ast.Con (Some id) []) (path_to_ns l path))
+          | Inl NEList => ptree_Expr NEList a
+          | _ => err "Impossible: nEBase")
+        | _ => err "Impossible: nEBase")
+      | NERecUpdate => (case args of
+          [c,lb,x,w,u,s,rb] => rec_update [(lb,LbraceT),(w,WithT),(s,SemiT),(rb,RbraceT)] c x u
+        | [c,lb,x,w,u,rb] => rec_update [(lb,LbraceT),(w,WithT),(rb,RbraceT)] c x u
+        | _ => err "Impossible: nERecUpdate")
+      | NEIndex => (case args of [a] => ptree_Expr NEPrefix a
+        | [a,i] => bind (ptree_Expr NEPrefix a) (fn x => fmap (fn idx => case idx of
+            Inl e => build_funapp (Ast.Ident (Ast.Long "String" (Ast.Short "get"))) [x,e]
+          | Inr e => build_funapp (Ast.Ident (Ast.Long "Array" (Ast.Short "get"))) [x,e]) (ptree_Index i))
+        | _ => err "Impossible: nEIndex")
+      | NERecProj => (case args of [a] => ptree_Expr NEIndex a
+        | [a,d1,c,d2,f] => bind (check_tokens [(d1,DotT),(d2,DotT)]) (fn _ =>
+            bind (ptree_Expr NEIndex a) (fn x => bind (ptree_FieldName f) (fn field =>
+            bind (ptree_Constr c) (fn path => fmap (fn ns => build_record_proj ns field x)
+              (path_to_ns l path)))))
+        | _ => err "Impossible: nERecProj")
+      | NERecCons => (case args of
+          [c,lb,u,s,rb] => rec_cons [(lb,LbraceT),(s,SemiT),(rb,RbraceT)] c u
+        | [c,lb,u,rb] => rec_cons [(lb,LbraceT),(rb,RbraceT)] c u
+        | _ => err "Impossible: nERecCons")
+      | NEAssert => (case args of [kw,e] => bind (expect_tok kw AssertT) (fn _ =>
+          fmap (fn x => Ast.App Ast.Opapp [Ast.Ident (Ast.Short "assert"),x]) (ptree_Expr NERecProj e))
+        | _ => err "Impossible: nEAssert")
+      | NELazy => (case args of [kw,e] => bind (expect_tok kw LazyT) (fn _ =>
+          fmap (fn x => Ast.App Ast.Opapp [Ast.Ident (Ast.Short "lazy"),x]) (ptree_Expr NERecProj e))
+        | _ => err "Impossible: nELazy")
+      | NEConstr => (case args of [c,e] => bind (ptree_Constr c) (fn path =>
+          bind (path_to_ns l path) (fn id => fmap (compatCurryE id) (ptree_Expr NERecProj e)))
+        | _ => err "Impossible: nEConstr")
+      | NEFunapp => (case args of [e] => ptree_Expr NERecProj e
+        | [f,a] => bind (ptree_Expr NEFunapp f) (fn x =>
+            fmap (fn y => build_funapp x [y]) (ptree_Expr NERecProj a))
+        | _ => err "Impossible: nEFunapp")
+      | NEApp => dispatch [NELazy,NEAssert,NEConstr,NEFunapp,NERecCons,NERecProj]
+          "Impolssible: nEApp" "Impossible: nEApp"
+      | NEPrefix => (case args of [oper,e] => bind (ptree_Op oper) (fn s =>
+          fmap (fn x => Ast.App Ast.Opapp [Ast.Ident (Ast.Short s),x]) (ptree_Expr NEBase e))
+        | [e] => ptree_Expr NEBase e | _ => err "Impossible: nEPrefix")
+      | NENeg => (case args of [pref,e] => bind (token pref) (fn tk =>
+          bind (ptree_Expr NEUnclosed e) (fn x =>
+            let fun app s = Inr (Ast.App Ast.Opapp [Ast.Ident (Ast.Short s),x])
+            in case tk of MinusT => app "~-" | MinusFT => app "~-."
+              | SymbolT s => app s | _ => err "Impossible: nEPrefix" end))
+        | [e] => ptree_Expr NEUnclosed e | _ => err "Impossible: nEPrefix")
+      | NEShift => binary NENeg NENeg NEShift "Impossible: nEShift"
+      | NEMult => binary NEShift NEMult NEShift "Impossible: nMult"
+      | NEAdd => binary NEMult NEAdd NEMult "Impossible: nEAdd"
+      | NECons => (case args of [e] => ptree_Expr NEAdd e
+        | [x,c,y] => bind (expect_tok c ColonsT) (fn _ => bind (ptree_Expr NEAdd x)
+            (fn a => fmap (fn b => Ast.Con (Some (Ast.Short "::")) [a,b]) (ptree_Expr NECons y)))
+        | _ => err "Impossible: nECons")
+      | NECat => binary NECons NECons NECat "Impossible: nECat"
+      | NERel => binary NECat NERel NECat "Impossible: nERel"
+      | NEAnd => binary NERel NERel NEAnd "Impossible: nEAnd"
+      | NEOr => binary NEAnd NEAnd NEOr "Impossible: nEOr"
+      | NEHolInfix => binary NEOr NEHolInfix NEOr "Impossible: nEHolInfix"
+      | NEProd => (case args of [e] => ptree_Expr NEHolInfix e
+        | e::rest => bind (ptree_Expr NEHolInfix e) (fn x =>
+            fmap (fn xs => Ast.Con None (x::xs)) (ptree_ExprCommas rest))
+        | _ => err "Impossible: nEProd")
+      | NEAssign => binary NEProd NEProd NEAssign "Impossible: nEAssign"
+      | NEIf => (case args of [ift,x,th,y,els,z] =>
+          bind (check_tokens [(ift,IfT),(th,ThenT),(els,ElseT)]) (fn _ =>
+          bind (ptree_Expr NExpr x) (fn a => bind (ptree_Expr NEIf y) (fn b =>
+          fmap (fn c => Ast.If a b c) (ptree_Expr NEIf z))))
+        | [ift,x,th,y] => bind (check_tokens [(ift,IfT),(th,ThenT)]) (fn _ =>
+          bind (ptree_Expr NExpr x) (fn a => fmap (fn b => Ast.If a b (Ast.Con None [])) (ptree_Expr NEIf y)))
+        | [e] => ptree_Expr NEAssign e | _ => err "Impossible: nEIf")
+      | NESeq => (case args of [x,s,y] => bind (expect_tok s SemiT) (fn _ =>
+          bind (ptree_Expr NEIf x) (fn a => fmap (fn b => Ast.Let None a b) (ptree_Expr NExpr y)))
+        | [e] => ptree_Expr NEIf e | _ => err "Impossible: nESeq")
+      | NELetRec => (case args of [lt,rc,bs,it,e] =>
+          bind (check_tokens [(lt,LetT),(rc,RecT),(it,InT)]) (fn _ =>
+          bind (ptree_LetRecBindings bs) (fn binds => fmap (fn x => Ast.Letrec (build_letrec binds) x)
+            (ptree_Expr NExpr e))) | _ => err "Impossible: nELetRec")
+      | NELet => (case args of [lt,bs,it,e] => bind (check_tokens [(lt,LetT),(it,InT)]) (fn _ =>
+          bind (ptree_LetBindings bs) (fn binds => fmap (fn x => build_lets x binds) (ptree_Expr NExpr e)))
+        | _ => err "Impossible: nELet")
+      | NEMatch => (case args of [mt,e,wt,pm] => bind (check_tokens [(mt,MatchT),(wt,WithT)]) (fn _ =>
+          bind (ptree_Expr NExpr e) (fn x => fmap (fn rows => build_match x (flatten_pmatch rows))
+            (ptree_PatternMatch pm))) | _ => err "Impossible: nEMatch")
+      | NEFun => (case args of [ft,ps,ar,e] => bind (check_tokens [(ft,FunT),(ar,RarrowT)]) (fn _ =>
+          bind (ptree_Patterns ps) (fn pats => bind (ptree_Expr NExpr e) (fn x =>
+          fmap (build_fun_lam x) (single_patterns l "Or-patterns are not allowed in fun expressions" pats))))
+        | [ft,ps,colon,ty,ar,e] => bind (check_tokens [(ft,FunT),(ar,RarrowT)]) (fn _ =>
+          bind (ptree_Patterns ps) (fn pats => bind (ptree_Expr NExpr e) (fn x =>
+          bind (ptree_Type ty) (fn t => fmap (fn qs => Ast.Tannot (build_fun_lam x qs) t)
+            (single_patterns l "Or-patterns are not allowed in fun expressions" pats)))))
+        | _ => err "Impossible: nEFun")
+      | NEFunction => (case args of [ft,pm] => bind (expect_tok ft FunctionT) (fn _ =>
+          fmap (fn rows => build_function (flatten_pmatch rows)) (ptree_PatternMatch pm))
+        | _ => err "Impossible: nEFunction")
+      | NETry => (case args of [tt,e,wt,pm] => bind (check_tokens [(tt,TryT),(wt,WithT)]) (fn _ =>
+          bind (ptree_Expr NExpr e) (fn x => fmap (fn rows => build_handle x (flatten_pmatch rows))
+            (ptree_PatternMatch pm))) | _ => err "Impossible: nETry")
+      | NEWhile => (case args of [wt,e,dt,b,done] =>
+          bind (check_tokens [(wt,WhileT),(dt,DoT),(done,DoneT)]) (fn _ =>
+          bind (ptree_Expr NExpr e) (fn x => fmap (fn y =>
+            build_funapp (Ast.Ident (Ast.Short "while")) [x,y]) (ptree_Expr NExpr b)))
+        | _ => err "Impossible: nEWhile")
+      | NEFor => (case args of [ft,id,eq,u,dir,d,dt,b,done] =>
+          bind (check_tokens [(ft,ForT),(eq,EqualT),(dt,DoT)]) (fn _ => bind (token dir) (fn tk =>
+          if tk <> ToT andalso tk <> DowntoT then err "Expected 'to' or 'downto'" else
+          bind (ptree_ValueName id) (fn nm => bind (ptree_Expr NExpr u) (fn ub =>
+          bind (ptree_Expr NExpr d) (fn lb => fmap (fn body =>
+            build_funapp (Ast.Ident (Ast.Short "for"))
+              [Ast.Con (Some (bool2id (tk = ToT))) [],Ast.Ident (Ast.Short nm),ub,lb,body])
+              (ptree_Expr NExpr b))))))
+        | _ => err "Impossible: nEFor")
+      | _ => err "ptree_Expr" end
+  and expr_binary single left right l bad args = case args of
+      [e] => ptree_Expr single e
+    | [x,oper,y] => bind (ptree_Expr left x) (fn a => bind (ptree_Expr right y) (fn b =>
+        fmap (fn s => build_binop s a b) (ptree_Op oper)))
+    | _ => Inl (l,bad)
+  and ptree_LetRecBinding pt = case pt of Lf (_,l) => Inl (l,"Expected a let rec binding non-terminal")
+    | Nd (n,l) args =>
+      let fun finish nm ps x = fmap (fn qs => (nm,qs,x))
+            (single_patterns l "Or-patterns are not allowed in let (rec) bindings" ps)
+      in if n <> Inl NLetRecBinding then Inl (l,"Expected a let rec binding non-terminal") else case args of
+        [id,ps,c,ty,eq,e] => bind (check_tokens [(c,ColonT),(eq,EqualT)]) (fn _ =>
+          bind (ptree_ValueName id) (fn nm => bind (ptree_Patterns ps) (fn qs =>
+          bind (ptree_Type ty) (fn t => bind (ptree_Expr NExpr e) (fn x => finish nm qs (Ast.Tannot x t))))))
+      | [id,ps,eq,e] => bind (expect_tok eq EqualT) (fn _ =>
+          bind (ptree_ValueName id) (fn nm => bind (ptree_Patterns ps) (fn qs =>
+          bind (ptree_Expr NExpr e) (finish nm qs))))
+      | [id,c,ty,eq,e] => bind (check_tokens [(eq,EqualT),(c,ColonT)]) (fn _ =>
+          bind (ptree_ValueName id) (fn nm => bind (ptree_Type ty) (fn t =>
+          fmap (fn x => (nm,[],Ast.Tannot x t)) (ptree_Expr NExpr e))))
+      | [id,eq,e] => bind (expect_tok eq EqualT) (fn _ => bind (ptree_ValueName id) (fn nm =>
+          fmap (fn x => (nm,[],x)) (ptree_Expr NExpr e)))
+      | _ => Inl (l,"Impossible: nLetRecBinding") end
+  and ptree_LetRecBindings pt = case pt of Lf (_,l) => Inl (l,"Expected a list of let rec bindings non-terminal")
+    | Nd (n,l) args => if n <> Inl NLetRecBindings then Inl (l,"Expected a list of let rec bindings non-terminal")
+      else case args of [b] => fmap (fn x => [x]) (ptree_LetRecBinding b)
+      | [b,a,bs] => bind (expect_tok a AndT) (fn _ => bind (ptree_LetRecBinding b) (fn x =>
+          fmap (fn xs => x::xs) (ptree_LetRecBindings bs)))
+      | _ => Inl (l,"Impossible: nLetRecBindings")
+  and ptree_LetBinding pt = case pt of Lf (_,l) => Inl (l,"Expected a let binding non-terminal")
+    | Nd (n,l) args =>
+      let fun finish nm ps x = fmap (fn qs => Inr (nm,qs,x))
+            (single_patterns l "Or-patterns are not allowed in let (rec) bindings" ps)
+      in if n <> Inl NLetBinding then Inl (l,"Expected a let binding non-terminal") else case args of
+        [p,eq,e] => bind (expect_tok eq EqualT) (fn _ => bind (ptree_Pattern p) (fn ps =>
+          bind (ptree_Expr NExpr e) (fn x => case ps of [q] => Inr (Inl (q,x))
+            | _ => Inl (l,"Or-patterns are not allowed in let (rec) bindings"))))
+      | [id,ps,eq,e] => bind (expect_tok eq EqualT) (fn _ =>
+          bind (ptree_ValueName id) (fn nm => bind (ptree_Patterns ps) (fn qs =>
+          bind (ptree_Expr NExpr e) (finish nm qs))))
+      | [id,c,ty,eq,e] => bind (check_tokens [(eq,EqualT),(c,ColonT)]) (fn _ =>
+          bind (ptree_ValueName id) (fn nm => bind (ptree_Type ty) (fn t =>
+          fmap (fn x => Inl (Inr (Ast.Pvar nm),Ast.Tannot x t)) (ptree_Expr NExpr e))))
+      | [id,ps,c,ty,eq,e] => bind (check_tokens [(eq,EqualT),(c,ColonT)]) (fn _ =>
+          bind (ptree_ValueName id) (fn nm => bind (ptree_Patterns ps) (fn qs =>
+          bind (ptree_Type ty) (fn t => bind (ptree_Expr NExpr e) (fn x => finish nm qs (Ast.Tannot x t))))))
+      | _ => Inl (l,"Impossible: nLetBinding") end
+  and ptree_LetBindings pt = case pt of Lf (_,l) => Inl (l,"Expected a list of let bindings non-terminal")
+    | Nd (n,l) args => if n <> Inl NLetBindings then Inl (l,"Expected a list of let bindings non-terminal")
+      else case args of [b] => fmap (fn x => [x]) (ptree_LetBinding b)
+      | [b,a,bs] => bind (expect_tok a AndT) (fn _ => bind (ptree_LetBinding b) (fn x =>
+          fmap (fn xs => x::xs) (ptree_LetBindings bs)))
+      | _ => Inl (l,"Impossible: nLetBindings")
+  and ptree_PatternMatches pt = case pt of Lf (_,l) => Inl (l,"Expected a pattern-matches non-terminal")
+    | Nd (n,l) args => if n <> Inl NPatternMatches then Inl (l,"Expected a pattern-matches non-terminal")
+      else case args of
+        [a,b,c,d,e] => choice
+          (bind (check_tokens [(d,RarrowT),(b,WhenT)]) (fn _ => bind (ptree_Pattern a) (fn p =>
+           bind (ptree_Expr NExpr e) (fn x => fmap (fn w => [(p,x,Some w)]) (ptree_Expr NExpr c)))))
+          (fn _ => bind (check_tokens [(b,RarrowT),(d,BarT)]) (fn _ => bind (ptree_Pattern a) (fn p =>
+           bind (ptree_Expr NExpr c) (fn x => fmap (fn ps => (p,x,None)::ps) (ptree_PatternMatches e)))))
+      | [p,w,g,a,e,b,ms] => bind (check_tokens [(a,RarrowT),(w,WhenT)]) (fn _ =>
+          bind (ptree_Pattern p) (fn ps => bind (ptree_Expr NExpr e) (fn x =>
+          bind (ptree_Expr NExpr g) (fn guard => bind (expect_tok b BarT) (fn _ =>
+          fmap (fn rows => (ps,x,Some guard)::rows) (ptree_PatternMatches ms))))))
+      | [p,a,e] => bind (expect_tok a RarrowT) (fn _ => bind (ptree_Pattern p) (fn ps =>
+          fmap (fn x => [(ps,x,None)]) (ptree_Expr NExpr e)))
+      | _ => Inl (l,"Impossible: nPatternMatches")
+  and ptree_PatternMatch pt = case pt of Lf (_,l) => Inl (l,"Expected a pattern-match non-terminal")
+    | Nd (n,l) args => if n <> Inl NPatternMatch then Inl (l,"Expected a pattern-match non-terminal")
+      else case args of [b,ms] => bind (expect_tok b BarT) (fn _ => ptree_PatternMatches ms)
+      | [ms] => ptree_PatternMatches ms | _ => Inl (l,"Impossible: nPatternMatch")
+  and ptree_ExprList pts = case pts of [] => Inl (unknown_loc,"Expression lists cannot be empty")
+    | [t] => bind (expect_tok t RbrackT) (fn _ => Inr [])
+    | x::xs => choice (bind (expect_tok x SemiT) (fn _ => ptree_ExprList xs))
+        (fn _ => bind (ptree_Expr NEIf x) (fn e => fmap (fn es => e::es) (ptree_ExprList xs)))
+  and ptree_ExprCommas pts = case pts of [] => Inr []
+    | x::xs => choice (bind (expect_tok x CommaT) (fn _ => ptree_ExprCommas xs))
+        (fn _ => bind (ptree_Expr NEHolInfix x) (fn e => fmap (fn es => e::es) (ptree_ExprCommas xs)))
+  and ptree_Update pt = case pt of Lf (_,l) => Inl (l,"Expected an update non-terminal")
+    | Nd (n,l) args => if n <> Inl NUpdate then Inl (l,"Expected an update non-terminal")
+      else case args of [f,eq,e] => bind (expect_tok eq EqualT) (fn _ => bind (ptree_FieldName f)
+        (fn nm => fmap (fn x => (nm,x)) (ptree_Expr NEIf e))) | _ => Inl (l,"Impossible: nUpdate")
+  and ptree_Updates pt = case pt of Lf (_,l) => Inl (l,"Expected an updates non-terminal")
+    | Nd (n,l) args => if n <> Inl NUpdates then Inl (l,"Expected an updates non-terminal")
+      else case args of [u] => fmap (fn x => [x]) (ptree_Update u)
+      | [u,s,us] => bind (expect_tok s SemiT) (fn _ => bind (ptree_Update u)
+          (fn x => fmap (fn xs => x::xs) (ptree_Updates us))) | _ => Inl (l,"Impossible: nUpdates")
+  and ptree_Index pt = case pt of Lf (_,l) => Inl (l,"Expected an index non-terminal")
+    | Nd (n,l) args => if n = Inl NArrIdx then (case args of [d,lp,e,rp] =>
+        bind (check_tokens [(d,DotT),(lp,LparT),(rp,RparT)]) (fn _ =>
+          fmap (fn x => Inr x) (ptree_Expr NExpr e)) | _ => Inl (l,"Impossible: nArrIdx"))
+      else if n = Inl NStrIdx then (case args of [d,lb,e,rb] =>
+        bind (check_tokens [(d,DotT),(lb,LbrackT),(rb,RbrackT)]) (fn _ =>
+          fmap (fn x => Inl x) (ptree_Expr NExpr e)) | _ => Inl (l,"Impossible: nStrIdx"))
+      else Inl (l,"Expected an index non-terminal");
+end;

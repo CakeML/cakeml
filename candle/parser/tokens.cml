@@ -1,0 +1,154 @@
+(*
+  Token vocabulary and reserved spellings, ported from caml_lexScript.sml.
+*)
+structure CandleTokens = struct
+  datatype token
+    (* keywords: *)
+    = AndT | AsT | AssertT | AsrT | BeginT | ClassT | ConstraintT | DoT | DoneT
+    | DowntoT | ElseT | EndT | ExceptionT | ExternalT | FalseT | ForT | FunT
+    | FunctionT | FunctorT | IfT | InT | IncludeT | InheritT | InitializerT
+    | LandT | LazyT | LetT | LorT | LslT | LsrT | LxorT | MatchT | MethodT
+    | ModT | ModuleT | MutableT | NewT | NonrecT | ObjectT | OfT | OpenT | OrT
+    | PrivateT | RecT | SigT | StructT | ThenT | ToT | TrueT | TryT | TypeT
+    | ValT | VirtualT | WhenT | WhileT | WithT
+    (* symbol keywords: *)
+    | EqualT | TickT | LparT | RparT | HashT | StarT | PlusT | CommaT | MinusT
+    | LessT | GreaterT | LbrackT | RbrackT | LbraceT | RbraceT | QuestionT
+    | SemiT | SemisT | BarT | OrelseT | AmpT | AndalsoT | NeqT | MinusFT
+    | RarrowT | LarrowT | DotT | DotsT | EscapeT | ColonT | ColonsT | UpdateT
+    | SealT | AnyT | BtickT | TildeT | LqbraceT | RqbraceT | LqbrackT
+    | RqbrackT | RrbrackT | LlbrackT | RlbrackT
+    (* special HOL Light tokens (all infixes): *)
+    | FuncompT | F_FT
+    | THEN_T | THENC_T | THENL_T | THEN_TCL_T
+    | ORELSE_T | ORELSEC_T | ORELSE_TCL_T
+    (* CakeML pragma *)
+    | PragmaT string
+    (* literals and identifiers: *)
+    | IntT int
+    | FloatT string
+    | CharT char
+    | StringT string
+    | IdentT string
+    | SymbolT string    (* symbols *)
+    | LexErrorT;
+  val keywords = [
+    ("", LexErrorT),
+    ("=", EqualT),
+    ("'", TickT),
+    ("(", LparT),
+    (")", RparT),
+    ("#", HashT),
+    ("*", StarT),
+    ("+", PlusT),
+    (",", CommaT),
+    ("-", MinusT),
+    ("<", LessT),
+    (">", GreaterT),
+    ("[", LbrackT),
+    ("]", RbrackT),
+    ("{", LbraceT),
+    ("}", RbraceT),
+    ("?", QuestionT),
+    (";", SemiT),
+    (";;", SemisT),
+    ("|", BarT),
+    ("||", OrelseT),
+    ("&", AmpT),
+    ("&&", AndalsoT),
+    ("!=", NeqT),
+    ("-.", MinusFT),
+    ("->", RarrowT),
+    ("<-", LarrowT),
+    (".", DotT),
+    ("..", DotsT),
+    (".~", EscapeT),
+    (":", ColonT),
+    ("::", ColonsT),
+    (":=", UpdateT),
+    (":>", SealT),
+    ("_", AnyT),
+    ("`", BtickT),
+    ("~", TildeT),
+    ("{<", LqbraceT),
+    (">}", RqbraceT),
+    ("[<", LqbrackT),
+    (">]", RqbrackT),
+    ("[>", RrbrackT),
+    ("[|", LlbrackT),
+    ("|]", RlbrackT),
+    ("and", AndT),
+    ("as", AsT),
+    ("assert", AssertT),
+    ("asr", AsrT),
+    ("begin", BeginT),
+    ("class", ClassT),
+    ("constraint", ConstraintT),
+    ("do", DoT),
+    ("done", DoneT),
+    ("downto", DowntoT),
+    ("else", ElseT),
+    ("end", EndT),
+    ("exception", ExceptionT),
+    ("external", ExternalT),
+    ("false", FalseT),
+    ("for", ForT),
+    ("fun", FunT),
+    ("function", FunctionT),
+    ("functor", FunctorT),
+    ("if", IfT),
+    ("in", InT),
+    ("include", IncludeT),
+    ("inherit", InheritT),
+    ("initializer", InitializerT),
+    ("land", LandT),
+    ("lazy", LazyT),
+    ("let", LetT),
+    ("lor", LorT),
+    ("lsl", LslT),
+    ("lsr", LsrT),
+    ("lxor", LxorT),
+    ("match", MatchT),
+    ("method", MethodT),
+    ("mod", ModT),
+    ("module", ModuleT),
+    ("mutable", MutableT),
+    ("new", NewT),
+    ("nonrec", NonrecT),
+    ("object", ObjectT),
+    ("of", OfT),
+    ("open", OpenT),
+    ("or", OrT),
+    ("private", PrivateT),
+    ("rec", RecT),
+    ("sig", SigT),
+    ("struct", StructT),
+    ("then", ThenT),
+    ("to", ToT),
+    ("true", TrueT),
+    ("try", TryT),
+    ("type", TypeT),
+    ("val", ValT),
+    ("virtual", VirtualT),
+    ("when", WhenT),
+    ("while", WhileT),
+    ("with", WithT),
+    ("o", FuncompT),
+    ("F_F", F_FT),
+    ("THEN", THEN_T),
+    ("THENC", THENC_T),
+    ("THENL", THENL_T),
+    ("THEN_TCL", THEN_TCL_T),
+    ("ORELSE", ORELSE_T),
+    ("ORELSEC", ORELSEC_T),
+    ("ORELSE_TCL", ORELSE_TCL_T)
+  ];
+  fun get_token s =
+    if s = "" then LexErrorT else
+    case Alist.lookup keywords s of
+      Some t => t
+    | None =>
+        let val c = String.sub s 0 in
+          if Char.isAlpha c orelse c = #"_" then IdentT s else SymbolT s
+        end;
+end;

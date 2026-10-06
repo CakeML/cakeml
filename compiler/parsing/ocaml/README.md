@@ -1,4 +1,5 @@
-OCaml lexer and parser frontend for the Candle theorem prover.
+Definitions of the lexer and parser for Candle's OCaml-like syntax. The Candle
+parser in candle/parser is a CakeML port of these definitions.
 
 [camlPEGScript.sml](camlPEGScript.sml):
 Definition of a PEG for (a subset of) OCaml.

@@ -3,16 +3,16 @@
 *)
 Theory pancake_lexProg[no_sig_docs]
 Ancestors
-  panLexer location caml_parserProg ml_translator
+  panLexer location parserProg ml_translator
 Libs
   preamble ml_translatorLib
 
 open preamble
      panLexerTheory locationTheory
-     caml_parserProgTheory
+     parserProgTheory
      ml_translatorLib ml_translatorTheory;
 
-val _ = translation_extends "caml_parserProg";
+val _ = translation_extends "parserProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "pancake_lexProg");
 
@@ -107,19 +107,19 @@ QED
 
 val _ = update_precondition next_atom_side;
 
-Theorem next_token_2_side[local]:
-  ∀x y. next_token_2_side x y
+Theorem next_token_1_side[local]:
+  ∀x y. next_token_1_side x y
 Proof
-  simp [Once (fetch "-" "next_token_2_side_def"), next_atom_side]
+  simp [Once (fetch "-" "next_token_1_side_def"), next_atom_side]
 QED
 
-val _ = update_precondition next_token_2_side;
+val _ = update_precondition next_token_1_side;
 
 Theorem pancake_lex_aux_side[local]:
   ∀s n. pancake_lex_aux_side s n
 Proof
   ho_match_mp_tac pancake_lex_aux_ind>>rw[]>>
-  simp [Once (fetch "-" "pancake_lex_aux_side_def"), next_token_2_side]
+  simp [Once (fetch "-" "pancake_lex_aux_side_def"), next_token_1_side]
 QED
 
 val _ = update_precondition pancake_lex_aux_side;

@@ -201,7 +201,7 @@ Quote add_cakeml:
       val _ = TextIO.print "Welcome to the CakeML read-eval-print loop.\n"
       val fname =
         (case !nextInput of
-           Inl marker => if marker = "candle" then "candle_boot.ml" else "repl_boot.cml"
+           Inl marker => if marker = "candle" then "candle_boot.cml" else "repl_boot.cml"
          | Inr _ => "repl_boot.cml")
       val str = charsFrom fname
     in

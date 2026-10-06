@@ -1,0 +1,65 @@
+(*
+  Grammar-building helpers of camlPEG, with native string predicates.
+*)
+structure CandleGrammarSupport = struct
+  open CandleTokens;
+  open CandleTree;
+  fun identity x = x;
+  fun append a b = a @ b;
+  fun foldl f acc xs = List.foldl (fn x => fn a => f a x) acc xs;
+  fun sumID x = case x of Inl a => a | Inr b => b;
+  fun mktokLf t = [Lf t];
+  fun bindNT n l = [mkNd (Inl n) l];
+  fun mk_linfix tgt acc rest = case rest of
+      opt::t::tl => mk_linfix tgt (mkNd tgt [acc,opt,t]) tl
+    | _ => acc;
+  fun empty v = CandlePeg.Empty v;
+  fun tok p f = CandlePeg.Tok p f;
+  fun seq a b f = CandlePeg.Seq a b f;
+  fun rpt e f = CandlePeg.Rpt e f;
+  fun pnt n = CandlePeg.Nt (Inl n) identity;
+  fun choicel xs = case xs of
+      [] => CandlePeg.Not (empty []) []
+    | h::t => CandlePeg.Choice h (choicel t) sumID;
+  fun pegf sym f = seq sym (empty []) (fn a => fn b => f a);
+  fun seql xs f = pegf
+    (List.foldr (fn p => fn acc => seq p acc append) (empty []) xs) f;
+  fun try sym = choicel [sym,empty []];
+  fun peg_linfix tgt rptsym opsym =
+    seq rptsym (rpt (seq opsym rptsym append) List.concat)
+      (fn a => fn b => case a of
+         [] => [] | h::_ => [mk_linfix tgt (mkNd tgt [h]) b]);
+  fun tokeq t = tok (fn x => x = t) mktokLf;
+  fun tokSymP p = tok (fn t => case t of SymbolT s => p s | _ => False) mktokLf;
+  fun tokIdP p = tok (fn t => case t of IdentT s => p s | _ => False) mktokLf;
+  fun tokPragma u = tok (fn t => case t of PragmaT s => True | _ => False) mktokLf;
+  fun isInt t = case t of IntT _ => True | _ => False;
+  fun isString t = case t of StringT _ => True | _ => False;
+  fun isChar t = case t of CharT _ => True | _ => False;
+  fun isIdent t = case t of IdentT _ => True | _ => False;
+  fun validCoreOpChar c = Char.contains "$&*+-/=>@^|" c;
+  fun validOpChar c = Char.contains "!?%<:." c orelse validCoreOpChar c;
+  fun opName first s = case String.explode s of
+      [] => False | h::t => first h t andalso List.all validOpChar t;
+  fun validPrefixSym s = opName (fn h => fn t =>
+    h = #"!" orelse h = #"?" orelse (h = #"~" andalso t <> [])) s;
+  fun validInfixSym s = opName (fn h => fn t =>
+    validCoreOpChar h orelse h = #"%" orelse h = #"<" orelse
+    (h = #"#" andalso t <> [])) s;
+  fun validMultOp s = s = "%" orelse s = "/" orelse
+    opName (fn h => fn t => Char.contains "*%/" h andalso t <> []) s;
+  fun validAddOp s = opName (fn h => fn t => Char.contains "+-" h andalso t <> []) s;
+  fun validRelOp s = opName (fn h => fn t => Char.contains "=<>|&$" h andalso t <> []) s;
+  fun validShiftOp s = case String.explode s of
+      #"*" :: #"*" :: t => List.all validOpChar t | _ => False;
+  fun validCatOp s = opName (fn h => fn t => h = #"@" orelse Char.ord h = 94) s;
+  fun idChar p cs = List.all (fn c => p c orelse c = #"_" orelse c = #"'" orelse Char.isDigit c) cs;
+  fun identUpperLower s = case String.explode s of [] => False
+    | h::t => Char.isUpper h andalso idChar Char.isLower t andalso List.exists Char.isLower t;
+  fun identMixed s = case String.explode s of [] => False
+    | h::t => idChar Char.isAlpha t andalso
+        (Char.isLower h orelse h = #"_" orelse
+         (Char.isUpper h andalso (not (List.exists Char.isAlpha t) orelse List.exists Char.isUpper t)));
+  fun identLower s = case String.explode s of [] => False
+    | h::t => (Char.isLower h orelse h = #"_") andalso idChar Char.isAlpha t;
+end;
