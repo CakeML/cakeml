@@ -14,3 +14,7 @@ Refine PB proof checker to use arrays
 
 [npbc_parseProgScript.sml](npbc_parseProgScript.sml):
 Add shared pbp parsing, normalization and other common stuff to npbc_arrayProg
+
+[npbc_slotScript.sml](npbc_slotScript.sml):
+Stored form of a formula constraint (a slot) and the RUP check on it,
+against a stamped assignment array.

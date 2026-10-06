@@ -284,7 +284,7 @@ val _ = translate $ INST_TYPE[alpha|->“:64 crepLang$exp”] cexp_heads_def;
 
 val _ = translate $ spec64 comp_field_def;
 
-val _ = translate $ spec64 exp_hdl_def;
+val _ = translate $ INST_TYPE[alpha|->“:64”,beta|->“:mlstring”,gamma|->“:shape”] exp_hdl_def;
 
 val _ = translate $ SIMP_RULE std_ss [byteTheory.bytes_in_word_def,lem]
                   $ INST_TYPE[alpha|->“:64”,
@@ -308,9 +308,12 @@ val ind_lemma = Q.prove(
 
 val _ = translate $ spec64 mk_ctxt_def;
 
+val _ = translate (make_vmap_def |> INST_TYPE[alpha|->“:mlstring”]
+                                 |> REWRITE_RULE [FUPDATE_LIST]);
+
 val _ = translate $ spec64 comp_func_def;
 
-val _ = translate $ make_funcs_def;
+val _ = translate $ INST_TYPE[alpha|->“:mlstring”] make_funcs_def;
 
 val _ = translate $ INST_TYPE[alpha|->“:64”,
                               beta|->“:64”] get_eids_from_decls_def;
@@ -355,11 +358,16 @@ val _ = translate $ spec64 compile_crepop_def;
 
 val _ = translate $ spec64 compile_exp_def;
 
+val _ = translate $ INST_TYPE[alpha|->“:crepLang$varname”] rt_vars_def;
+
+val _ = translate (make_vmap_def |> INST_TYPE[alpha|->“:crepLang$varname”]
+                                 |> REWRITE_RULE [FUPDATE_LIST]);
+
 val _ = translate $ spec64 compile_def;
 
 val _ = translate $ spec64 comp_func_def;
 
-val _ = translate $ make_funcs_def;
+val _ = translate $ INST_TYPE[alpha|->“:crepLang$funname”] make_funcs_def;
 
 val _ = translate $ spec64 compile_prog_def;
 
@@ -378,7 +386,7 @@ val _ = translate $ spec64 compile_def;
 
 open backendTheory;
 
-(* TODO: duplicated from compiler64ProgScript. *)
+(* TODO: duplicated from compiler64CommonProgScript. *)
 val _ = translate $ INST_TYPE[alpha|->“:word8 list”,
                               beta|->“:word64 list”,
                               gamma|->“:64”,

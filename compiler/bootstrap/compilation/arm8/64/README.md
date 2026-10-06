@@ -15,3 +15,11 @@ A simple hello world program in CakeML
 [proofs](proofs):
 This directory contains the end-to-end correctness theorem for the
 64-bit version of the CakeML compiler.
+
+[repl_boot.cml](repl_boot.cml):
+This file gives the CakeML REPL multi-line input and file loading
+capabilities.
+
+[test-hello.cml](test-hello.cml):
+A hello world program used for testing that the bootstrapped
+compiler was built successfully.
