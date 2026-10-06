@@ -145,6 +145,23 @@ Definition arith_upd_def[simp]:
      | (Word w2, Word w3) =>
          upd_reg r4 (Word (if w2i (w2 - w3) ≠ w2i w2 - w2i w3 then 1w else 0w))
             (upd_reg r1 (Word (w2 - w3)) s)
+     | _ => assert F s) /\
+  (arith_upd (IMul rd ra rb ro) s =
+     case (read_reg ra s, read_reg rb s) of
+     | (Word a, Word b) =>
+         upd_reg ro (Word (if w2i (a * b) ≠ w2i a * w2i b then 1w else 0w))
+           (upd_reg rd (Word (a * b)) s)
+     | _ => assert F s) /\
+  (arith_upd (IDiv rq rr ra rb) s =
+     case (read_reg ra s, read_reg rb s) of
+     | (Word wa, Word wb) =>
+         let a = w2i wa in
+         let b = w2i wb in
+         let q = a quot b in
+         let wq = i2w q : 'a word in
+           assert (b ≠ 0 ∧ w2i wq = q)
+             (upd_reg rq (Word wq)
+               (upd_reg rr (Word (i2w (a rem b))) s))
      | _ => assert F s)
 End
 

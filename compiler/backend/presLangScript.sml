@@ -1032,6 +1032,8 @@ Definition asm_arith_to_display_def:
     | AddCarry n1 n2 n3 n4 => item_with_nums «AddCarry» [n1; n2; n3; n4]
     | AddOverflow n1 n2 n3 n4 => item_with_nums «AddOverflow» [n1; n2; n3; n4]
     | SubOverflow n1 n2 n3 n4 => item_with_nums «SubOverflow» [n1; n2; n3; n4]
+    | IMul rd ra rb ro => item_with_nums «IMul» [rd; ra; rb; ro]
+    | IDiv rq rr ra rb => item_with_nums «IDiv» [rq; rr; ra; rb]
 End
 
 Definition asm_addr_to_display_def:

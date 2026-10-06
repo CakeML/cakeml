@@ -2043,19 +2043,26 @@ Proof
   >> rpt(pairarg_tac>>fs[])
   >> fs[wordLangTheory.every_stack_var_def,call_arg_convention_def]
   >~[`copy_prop_inst`]
-  >-(
-    rpt $ pop_assum mp_tac >>
-    qid_spec_tac‘cs’>>qid_spec_tac‘i’
+  >- (
+    rpt (pop_assum mp_tac)
+    >> map_every qid_spec_tac [`cs`, `i`]
     >> ho_match_mp_tac copy_prop_inst_ind
-    >> rpt conj_tac >> rpt (gen_tac ORELSE disch_tac)
-    >> fs[copy_prop_inst_def,wordLangTheory.every_stack_var_def,
-       inst_arg_convention_def, call_arg_convention_def]
-    >- (Cases_on`n`>>fs[inst_arg_convention_def,lookup_eq_imm_def,lookup_eq_def,reg_allocTheory.is_alloc_var_def])
-    >- fs[reg_allocTheory.is_alloc_var_def,lookup_eq_def]
-    >> rpt(pairarg_tac>>fs[]) >> rw[]
-    >> fs[copy_prop_inst_def,wordLangTheory.every_stack_var_def,
-       inst_arg_convention_def, call_arg_convention_def]
-  )
+    >> rpt conj_tac >> rpt gen_tac >> rpt strip_tac
+    >> fs [copy_prop_inst_def, wordLangTheory.every_stack_var_def,
+           inst_arg_convention_def, call_arg_convention_def]
+    >~ [`inst_arg_convention (Arith (Shift _ _ _ _))`]
+    >- (
+      qmatch_asmsub_rename_tac
+        `inst_arg_convention (Arith (Shift _ _ _ shift_amount))`
+      >> namedCases_on `shift_amount` ["amount_reg", "amount_value"]
+      >> fs [inst_arg_convention_def, lookup_eq_imm_def, lookup_eq_def,
+             reg_allocTheory.is_alloc_var_def])
+    >~ [`lookup_eq _ 6 = 6`]
+    >- fs [reg_allocTheory.is_alloc_var_def, lookup_eq_def]
+    >~ [`lookup_eq _ 0 = 0`]
+    >- fs [reg_allocTheory.is_alloc_var_def, lookup_eq_def]
+    >> simp [COND_RAND, every_stack_var_def, call_arg_convention_def,
+             inst_arg_convention_def])
   >- (qpat_abbrev_tac `ysl = LENGTH _` >> gvs[] >>
   fs[MAP_GENLIST,GENLIST_FUN_EQ] >>
   rw[] >>

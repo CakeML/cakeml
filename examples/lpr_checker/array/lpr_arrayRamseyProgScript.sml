@@ -126,13 +126,12 @@ Proof
   xcf "check_unsat_1" (get_ml_prog_state ())>>
   reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
   rpt xlet_autop>>
-  xlet`POSTv v. &NUM 1 v * STDIO fs` >- (xlit>>xsimpl)>>
-  drule fill_arr_spec>>
-  drule fill_earliest_spec>>
+  drule (fill_arr_spec |> SPEC_ALL |> INST [“i:num” |-> “1n”])>>
+  drule (fill_earliest_spec |> SPEC_ALL |> INST [“c:num” |-> “1n”])>>
   rw[]>>
   rpt xlet_autop>>
   (* help instantiate fill_arr_spec *)
-  qmatch_asmsub_abbrev_tac`NUM (LENGTH fmlls) nv`>>
+  qmatch_asmsub_abbrev_tac`NUM (LENGTH fmlls) _`>>
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE (2*(LENGTH fmlls)) NONE)
         (REPLICATE (2 * (LENGTH fmlls)) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>

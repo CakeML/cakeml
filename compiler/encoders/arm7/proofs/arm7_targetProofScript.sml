@@ -3,7 +3,7 @@
 *)
 Theory arm7_targetProof
 Ancestors
-  arm7_target
+  arm7_target asmSigned
 Libs
   arm_stepLib asmLib
 
@@ -657,6 +657,7 @@ local
          imp_res_tac th
          \\ tac
          \\ assume_tac step_thm
+         \\ SUBST1_TAC (Thm.SPEC the_state arm7_next)
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss())
               [lem1, lem2, lem3, lem3b, lem3c, lem3d, lem4, lem7,
                lem4b, lem5b, decode_imm8_thm, decode_imm8_thm0,
@@ -666,7 +667,6 @@ local
                combinTheory.UPDATE_APPLY, combinTheory.UPDATE_EQ]
          \\ fail_if_vacuous_tac
          \\ Tactical.PAT_X_ASSUM x_tm kall_tac
-         \\ SUBST1_TAC (Thm.SPEC the_state arm7_next)
          \\ asmLib.byte_eq_tac
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss())
                [alignmentTheory.aligned_0, alignmentTheory.aligned_numeric,
@@ -675,6 +675,8 @@ local
       end
       handle List.Empty => FAIL_TAC "next_state_tac: empty") (asl, g)
 in
+   (* Conditional instructions need an explicit execution-path selection. *)
+   val next_state_tac_by_conditions = next_state_tac0
    val next_state_tac =
      next_state_tac0 [true]
      ORELSE next_state_tac0 [true, false]
@@ -1021,6 +1023,12 @@ val mem_tac8 =
 
 val _ = diminish_srw_ss ["NORMEQ"]
 
+Theorem mul_cmp_zero_32[local]:
+  (-1w * a + b : word32) = 0w <=> b = a
+Proof
+  blastLib.BBLAST_TAC
+QED
+
 Theorem arm7_encoder_correct:
   encoder_correct arm7_target
 Proof
@@ -1071,6 +1079,8 @@ QED
 
 Resume arm7_encoder_correct[Arith]:
   Cases_on `a`
+  >~ [`asm$IMul rd ra rb ro`] >- suspend "IMul"
+  >~ [`asm$IDiv rq rr ra rb`] >- suspend "IDiv"
   >- suspend "Binop"
   >- suspend "Shift"
   >- suspend "Div"
@@ -1079,6 +1089,44 @@ Resume arm7_encoder_correct[Arith]:
   >- suspend "AddCarry"
   >- suspend "AddOverflow"
   >- suspend "SubOverflow"
+QED
+
+Resume arm7_encoder_correct[IMul]:
+  Q.PAT_ABBREV_TAC `instr = arm7_enc _`
+  \\ pop_assum mp_tac
+  \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
+  \\ strip_tac
+  \\ qunabbrev_tac `instr`
+  \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()) []
+  \\ exists_tac ``3:num``
+  \\ simp_tac (srw_ss()++boolSimps.CONJ_ss)
+       [asmPropsTheory.asserts_eval, asmPropsTheory.asserts2_eval,
+        reg_mode_eq, asmPropsTheory.interference_ok_def, arm7_proj_def]
+  \\ NTAC 2 strip_tac
+  \\ NTAC 3 (split_bytes_in_memory_tac 4)
+  \\ next_state_tac
+  \\ next_state_tac
+  \\ fs [combinTheory.APPLY_UPDATE_THM, arm_stepTheory.R_mode_11,
+         wordsTheory.WORD_EXTRACT_OVER_MUL, signed_low_32]
+  \\ Cases_on
+    `-1w * ((ms.REG (R_mode ms.CPSR.M (n2w ra)) *
+             ms.REG (R_mode ms.CPSR.M (n2w rb))) >> 31) +
+     ((63 >< 32)
+       ((sw2sw (ms.REG (R_mode ms.CPSR.M (n2w ra))) : word64) *
+        sw2sw (ms.REG (R_mode ms.CPSR.M (n2w rb)))) : word32) = 0w`
+  >- (
+    next_state_tac_by_conditions [false, true]
+    \\ next_state_tac_by_conditions [true, false]
+    \\ fs [mul_cmp_zero_32, signed_mul_high_32]
+    \\ state_tac)
+  \\ next_state_tac_by_conditions [true, false]
+  \\ next_state_tac_by_conditions [false, true]
+  \\ fs [mul_cmp_zero_32, signed_mul_high_32]
+  \\ state_tac
+QED
+
+Resume arm7_encoder_correct[IDiv]:
+  fs enc_rwts
 QED
 
 Resume arm7_encoder_correct[Binop]:

@@ -223,6 +223,11 @@ Definition inst_ok_less_def:
     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
   (inst_ok_less c (Arith (SubOverflow r1 r2 r3 r4)) ⇔
     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
+  (inst_ok_less c (Arith (IMul rd ra rb ro)) ⇔
+    c.ISA ∈ {x86_64; ARMv7; ARMv8; MIPS; RISC_V} ∧ rd ≠ ro) ∧
+  (inst_ok_less c (Arith (IDiv rq rr ra rb)) ⇔
+    c.ISA ∈ {x86_64; ARMv8; MIPS; RISC_V} ∧ rq ≠ rr ∧
+    (c.ISA = x86_64 ⇒ rb ≠ rr)) ∧
   (inst_ok_less c (Mem m r (Addr r' w)) ⇔
      if m IN {Load; Store; Load16; Store16; Load32; Store32}
      then addr_offset_ok c w
@@ -275,6 +280,8 @@ Definition distinct_tar_reg_def:
     ⇔ r1 ≠ r3) ∧
   (distinct_tar_reg (Arith (SubOverflow r1 r2 r3 r4))
     ⇔ r1 ≠ r3) ∧
+  (distinct_tar_reg (Arith (IMul rd ra rb ro))
+    ⇔ rd ≠ rb) ∧
   (distinct_tar_reg _ ⇔ T)
 End
 
@@ -292,6 +299,8 @@ Definition two_reg_inst_def:
     ⇔ (r1 = r2)) ∧
   (two_reg_inst (Arith (SubOverflow r1 r2 r3 r4))
     ⇔ (r1 = r2)) ∧
+  (two_reg_inst (Arith (IMul rd ra rb ro))
+    ⇔ (rd = ra)) ∧
   (two_reg_inst _ ⇔ T)
 End
 
@@ -381,6 +390,8 @@ Definition inst_arg_convention_def:
   (* Note: these are not necessary *)
   (inst_arg_convention (Arith (AddOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
   (inst_arg_convention (Arith (SubOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
+  (inst_arg_convention (Arith (IMul rd ra rb ro)) ⇔ ro = 0) ∧
+  (inst_arg_convention (Arith (IDiv rq rr ra rb)) ⇔ rq = 0 ∧ rr = 6 ∧ ra = 0) ∧
   (inst_arg_convention (Arith (LongMul r1 r2 r3 r4)) ⇔ r1 = 6 ∧ r2 = 0 ∧ r3 = 0 ∧ r4 = 4) ∧
   (* LongDiv follows conventions for x86 as it is the only possibility *)
   (inst_arg_convention (Arith (LongDiv r1 r2 r3 r4 r5)) ⇔ r1 = 0 ∧ r2 = 6 ∧ r3 = 6 ∧ r4 = 0) ∧

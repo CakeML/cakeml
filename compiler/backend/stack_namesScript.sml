@@ -39,6 +39,10 @@ Definition inst_find_name_def:
         Arith (LongMul (find_name f r1) (find_name f r2) (find_name f r3) (find_name f r4))
     | Arith (LongDiv r1 r2 r3 r4 r5) =>
         Arith (LongDiv (find_name f r1) (find_name f r2) (find_name f r3) (find_name f r4) (find_name f r5))
+    | Arith (IMul rd ra rb ro) =>
+        Arith (IMul (find_name f rd) (find_name f ra) (find_name f rb) (find_name f ro))
+    | Arith (IDiv rq rr ra rb) =>
+        Arith (IDiv (find_name f rq) (find_name f rr) (find_name f ra) (find_name f rb))
     | Mem mop r (Addr a w) => Mem mop (find_name f r) (Addr (find_name f a) w)
     | FP (FPLess r f1 f2) => FP (FPLess (find_name f r) f1 f2)
     | FP (FPLessEqual r f1 f2) => FP (FPLessEqual (find_name f r) f1 f2)

@@ -884,6 +884,109 @@ val warns_local_byte_based =
   check_static_no_warnings $ static_check_pancake parse_local_byte_based;
 
 
+(* shifts keep the basedness of the shifted expression *)
+val ex_local_shift_based = `
+  fun 1 f () {
+    var 1 a = @base >> 0;
+    st a, 1;
+
+    return 1;
+  }
+`;
+
+val parse_local_shift_based =
+  check_parse_success $ parse_pancake ex_local_shift_based;
+
+val static_local_shift_based =
+  check_static_success $ static_check_pancake parse_local_shift_based;
+
+val warns_local_shift_based =
+  check_static_no_warnings $ static_check_pancake parse_local_shift_based;
+
+
+val ex_local_shift_trusted = `
+  fun 1 f () {
+    var 1 x = lds 1 @base;
+    var 1 a = x >> 1;
+    st a, 1;
+
+    return 1;
+  }
+`;
+
+val parse_local_shift_trusted =
+  check_parse_success $ parse_pancake ex_local_shift_trusted;
+
+val static_local_shift_trusted =
+  check_static_success $ static_check_pancake parse_local_shift_trusted;
+
+val warns_local_shift_trusted =
+  check_static_no_warnings $ static_check_pancake parse_local_shift_trusted;
+
+
+val ex_local_shift_notbased = `
+  fun 1 f () {
+    var 1 a = 8 >> 1;
+    st a, 1;
+
+    return 1;
+  }
+`;
+
+val parse_local_shift_notbased =
+  check_parse_success $ parse_pancake ex_local_shift_notbased;
+
+val static_local_shift_notbased =
+  check_static_success $ static_check_pancake parse_local_shift_notbased;
+
+val warns_local_shift_notbased =
+  check_static_has_warnings $ static_check_pancake parse_local_shift_notbased;
+
+
+val ex_local_shift_nottrusted = `
+  fun 1 f (1 p) {
+    var 1 a = 0;
+    if (1) {
+      a = @base;
+    } else {
+      a = 0;
+    }
+    var 1 b = a >> p;
+    st b, 1;
+
+    return 1;
+  }
+`;
+
+val parse_local_shift_nottrusted =
+  check_parse_success $ parse_pancake ex_local_shift_nottrusted;
+
+val static_local_shift_nottrusted =
+  check_static_success $ static_check_pancake parse_local_shift_nottrusted;
+
+val warns_local_shift_nottrusted =
+  check_static_has_warnings $ static_check_pancake parse_local_shift_nottrusted;
+
+
+val ex_local_shift_by_base = `
+  fun 1 f () {
+    var 1 a = 8 >> @base;
+    st a, 1;
+
+    return 1;
+  }
+`;
+
+val parse_local_shift_by_base =
+  check_parse_success $ parse_pancake ex_local_shift_by_base;
+
+val static_local_shift_by_base =
+  check_static_success $ static_check_pancake parse_local_shift_by_base;
+
+val warns_local_shift_by_base =
+  check_static_has_warnings $ static_check_pancake parse_local_shift_by_base;
+
+
 (* notbased field *)
 val ex_local_word_field_notbased = `
   fun 1 f () {
@@ -1227,6 +1330,26 @@ val static_shared_word_based =
 
 val warns_shared_word_based =
   check_static_has_warnings $ static_check_pancake parse_shared_word_based;
+
+
+val ex_shared_shift_based = `
+  fun 1 f () {
+    var 1 x = 0;
+    !ldw x, @base >> 0;
+    !stw @base >> 0, x;
+
+    return 1;
+  }
+`;
+
+val parse_shared_shift_based =
+  check_parse_success $ parse_pancake ex_shared_shift_based;
+
+val static_shared_shift_based =
+  check_static_success $ static_check_pancake parse_shared_shift_based;
+
+val warns_shared_shift_based =
+  check_static_has_warnings $ static_check_pancake parse_shared_shift_based;
 
 
 val ex_shared_word_field_notbased = `

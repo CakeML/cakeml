@@ -773,6 +773,25 @@ Definition inst_def:
            SOME (set_var r1 (Word (n2w q)) (set_var r2 (Word (n2w (n MOD d))) s))
          else NONE
       | _ => NONE)
+    | Arith (IMul rd ra rb ro) =>
+        (case get_vars [ra;rb] s of
+        | SOME [Word a;Word b] =>
+            SOME (set_var ro
+              (Word (if w2i (a * b) ≠ w2i a * w2i b then 1w else 0w))
+              (set_var rd (Word (a * b)) s))
+        | _ => NONE)
+    | Arith (IDiv rq rr ra rb) =>
+        (case get_vars [ra;rb] s of
+        | SOME [Word wa;Word wb] =>
+            let a = w2i wa in
+            let b = w2i wb in
+            let q = a quot b in
+            let wq = i2w q : 'a word in
+              if b ≠ 0 ∧ w2i wq = q then
+                SOME (set_var rq (Word wq)
+                  (set_var rr (Word (i2w (a rem b))) s))
+              else NONE
+        | _ => NONE)
     | Mem Load r (Addr a w) =>
        (case word_exp s (Op Add [Var a; Const (i2w w)]) of
         | SOME (Word w) =>

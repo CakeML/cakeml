@@ -872,7 +872,15 @@ Definition arith_name_def:
   (arith_name (SubOverflow r1 r2 r3 r4) c ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
     reg_name r3 c ∧ reg_name r4 c ∧
-    (c.ISA = MIPS ∨ c.ISA = RISC_V ⇒ r1 ≠ r3))
+    (c.ISA = MIPS ∨ c.ISA = RISC_V ⇒ r1 ≠ r3)) ∧
+  (arith_name (IMul rd ra rb ro) c ⇔
+    c.ISA ∈ {x86_64; ARMv7; ARMv8; MIPS; RISC_V} ∧
+    reg_name rd c ∧ reg_name ra c ∧ reg_name rb c ∧ reg_name ro c ∧
+    rd ≠ ro ∧ (c.two_reg_arith ⇒ rd = ra)) ∧
+  (arith_name (IDiv rq rr ra rb) c ⇔
+    c.ISA ∈ {x86_64; ARMv8; MIPS; RISC_V} ∧
+    reg_name rq c ∧ reg_name rr c ∧ reg_name ra c ∧ reg_name rb c ∧
+    rq ≠ rr ∧ (c.ISA = x86_64 ⇒ rq = 0 ∧ rr = 3 ∧ ra = 0 ∧ rb ≠ 3))
 End
 
 (* We could actually almost use fp_ok, except this needs to check reg_ok for
@@ -1039,6 +1047,8 @@ Definition reg_bound_inst_def[simp]:
   (reg_bound_inst (Arith (SubOverflow r1 r2 r3 r4)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k) ∧
   (reg_bound_inst (Arith (LongMul r1 r2 r3 r4)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k) ∧
   (reg_bound_inst (Arith (LongDiv r1 r2 r3 r4 r5)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k ∧ r5 < k) ∧
+  (reg_bound_inst (Arith (IMul rd ra rb ro)) k ⇔ rd < k ∧ ra < k ∧ rb < k ∧ ro < k) ∧
+  (reg_bound_inst (Arith (IDiv rq rr ra rb)) k ⇔ rq < k ∧ rr < k ∧ ra < k ∧ rb < k) ∧
   (reg_bound_inst (FP (FPLess r f1 f2)) k ⇔ r < k) ∧
   (reg_bound_inst (FP (FPLessEqual r f1 f2)) k ⇔ r < k) ∧
   (reg_bound_inst (FP (FPEqual r f1 f2)) k ⇔ r < k) ∧

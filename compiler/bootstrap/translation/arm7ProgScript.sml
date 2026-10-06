@@ -8,13 +8,6 @@ Ancestors
 Libs
   preamble ml_translatorLib inliningLib
 
-open preamble;
-open evaluateTheory
-open ml_translatorLib ml_translatorTheory;
-open from_pancake32ProgTheory
-open arm7_targetTheory armTheory;
-open inliningLib;
-
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "from_pancake32Prog";
@@ -205,48 +198,43 @@ val arm7_enc8 = replace_at 8 (fn th => th |> finish |> SIMP_RULE (srw_ss())[word
 
 (* LongDiv: trivial *)
 
-(* AddCarry *)
+(* IMul *)
 val arm7_enc10 = replace_at 10 (fn th => th |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
-(* Add/SubOverflow *)
-val arm7_enc11 = replace_at 11 (fn th => th |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
+(* IDiv: trivial *)
+
+(* AddCarry *)
 val arm7_enc12 = replace_at 12 (fn th => th |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
+(* Add/SubOverflow *)
+val arm7_enc13 = replace_at 13 (fn th => th |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
+val arm7_enc14 = replace_at 14 (fn th => th |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
+
 (* Mem Load *)
-val arm7_enc13 = replace_at 13 (fn th => th |> SIMP_RULE (srw_ss())
+val arm7_enc15 = replace_at 15 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LS,word_mul_def, Q.ISPEC`MachineCode_CASE`COND_RAND,
    MachineCode_case_def,COND_RATOR] |> SIMP_RULE std_ss[Once COND_RAND]
   |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
 (* Mem Load32 *)
-val arm7_enc14 = replace_at 14 (fn th => th |> SIMP_RULE (srw_ss())
-  [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
-  MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
-  COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
-
-(* Mem Load16 *)
-val arm7_enc15 = replace_at 15 (fn th => th |> SIMP_RULE (srw_ss())
-  [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
-  MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
-  COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
-
-(* Mem Load8 *)
 val arm7_enc16 = replace_at 16 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
   COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
-(* Mem Store *)
+(* Mem Load16 *)
 val arm7_enc17 = replace_at 17 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
   COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
+(* Mem Load8 *)
 val arm7_enc18 = replace_at 18 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
   COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
+(* Mem Store *)
 val arm7_enc19 = replace_at 19 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
@@ -257,22 +245,32 @@ val arm7_enc20 = replace_at 20 (fn th => th |> SIMP_RULE (srw_ss())
   MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
   COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
+val arm7_enc21 = replace_at 21 (fn th => th |> SIMP_RULE (srw_ss())
+  [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
+  MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
+  COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
+
+val arm7_enc22 = replace_at 22 (fn th => th |> SIMP_RULE (srw_ss())
+  [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
+  MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
+  COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
+
 (* FP *)
 val fp_defaults = [arm7_vfp_cmp_def,e_vfp_def,EncodeVFPReg_def]@defaults
 
-val arm7_enc21_to_36 = map (fn i => replace_at i (fn th => th |>
+val arm7_enc23_to_38 = map (fn i => replace_at i (fn th => th |>
   (SIMP_RULE (srw_ss()) fp_defaults) |> finish |> SIMP_RULE
   (srw_ss())[word_2comp_def]))
-  [21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36]
+  [23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38]
 
 (* Jump *)
-val arm7_enc37 = replace_at 37 (fn th => th |> SIMP_RULE (srw_ss())
+val arm7_enc39 = replace_at 39 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def,COND_RATOR,LET_THM] |> finish |> SIMP_RULE
   (srw_ss())[word_2comp_def])
 
 (* JumpCmp Reg *)
-val arm7_enc38 = replace_at 38 (fn th => th |> Q.GEN`cmp` |> SIMP_RULE
+val arm7_enc40 = replace_at 40 (fn th => th |> Q.GEN`cmp` |> SIMP_RULE
   (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss[``:cmp``])
   [arm7_cmp_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def,COND_RATOR,LET_THM] |> finish |> CONJUNCTS |>
@@ -281,7 +279,7 @@ val arm7_enc38 = replace_at 38 (fn th => th |> Q.GEN`cmp` |> SIMP_RULE
   rand) )
 
 (* JumpCmp Imm *)
-val arm7_enc39 = replace_at 39 (fn th => th |> Q.GEN`cmp` |> SIMP_RULE
+val arm7_enc41 = replace_at 41 (fn th => th |> Q.GEN`cmp` |> SIMP_RULE
   (srw_ss() ++ LET_ss ++
   DatatypeSimps.expand_type_quants_ss[``:cmp``])
   [arm7_cmp_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
@@ -291,24 +289,24 @@ val arm7_enc39 = replace_at 39 (fn th => th |> Q.GEN`cmp` |> SIMP_RULE
   rand) )
 
 (* Call *)
-val arm7_enc40 = replace_at 40 (fn th => th |> SIMP_RULE (srw_ss())
+val arm7_enc42 = replace_at 42 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LS, word_mul_def, Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def, COND_RATOR] |> finish |> SIMP_RULE
   (srw_ss())[word_2comp_def])
 
 (* JumpReg *)
-val arm7_enc41 = replace_at 41 (fn th => th |> SIMP_RULE (srw_ss())
+val arm7_enc43 = replace_at 43 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LS, word_mul_def, Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def, COND_RATOR] |> finish |> SIMP_RULE
   (srw_ss())[word_2comp_def])
 
-val arm7_enc42 = replace_at 42 (fn th => th |> SIMP_RULE (srw_ss())
+val arm7_enc44 = replace_at 44 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LO, word_mul_def, Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def, COND_RATOR] |> SIMP_RULE std_ss[Once
   COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
 val arm7_enc_thm =
-  List.tabulate (42, fn i => Array.sub(arm7_enc_thms,i)) |> LIST_CONJ
+  List.tabulate (44, fn i => Array.sub(arm7_enc_thms,i)) |> LIST_CONJ
 
 val _ = translate (EncodeARMImmediate_def |> SIMP_RULE (srw_ss())
   [Ntimes EncodeARMImmediate_aux_def 20] |> finish |> SIMP_RULE
@@ -427,6 +425,12 @@ val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_LongMul a b c d =
 val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_LongDiv a b c d e =
                     arm7_enc (Inst (Arith (LongDiv a b c d e)))’
   |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_IMul a b c d =
+                    arm7_enc (Inst (Arith (IMul a b c d)))’
+  |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_IDiv a b c d =
+                    arm7_enc (Inst (Arith (IDiv a b c d)))’
+  |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Div a b c =
                     arm7_enc (Inst (Arith (Div a b c)))’
   |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
@@ -542,7 +546,6 @@ val res = CONJUNCTS d1 |> map SPEC_ALL |> map translate;
 val res = translate def;
 
 val res = translate (arm7_config_def |> SIMP_RULE std_ss[valid_immediate_def] |> gconv)
-
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

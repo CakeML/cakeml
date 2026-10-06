@@ -64,6 +64,9 @@ The exported assembly marks the stack as non-executable on ELF platforms, so
 `cake` and the programs it compiles no longer get an executable stack from the
 linker (#1517).
 
+The backend now supports IMul and IDiv instructions and optimizes to the
+(#1533). Some further cleanup of the asm ops might be expected in the future.
+
 ## Pancake
 
 Queryable feature tags (#1470).
@@ -105,3 +108,5 @@ must be rewritten into `FOLDL` over `|+`. The bootstrap translation calls
 `add_fmap_for_cmp` for `mlstring`, `int` and `num` keys in `decProg`.
 
 ## Miscellaneous
+
+Combined fix for some small issues (PR #1530 fixing #1313, #1373, #1449, #1480, #1503).

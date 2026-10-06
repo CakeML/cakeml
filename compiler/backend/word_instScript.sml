@@ -518,6 +518,8 @@ Definition three_to_two_reg_def:
     Seq (Move 0 [r1,r2]) (Inst (Arith (AddOverflow r1 r1 r3 r4)))) ∧
   (three_to_two_reg (Inst (Arith (SubOverflow r1 r2 r3 r4))) =
     Seq (Move 0 [r1,r2]) (Inst (Arith (SubOverflow r1 r1 r3 r4)))) ∧
+  (three_to_two_reg (Inst (Arith (IMul r1 r2 r3 r4))) =
+    Seq (Move 0 [r1,r2]) (Inst (Arith (IMul r1 r1 r3 r4)))) ∧
   (three_to_two_reg (OpCurrHeap bop r1 r2) =
     Seq (Move 0 [r1,r2]) (OpCurrHeap bop r1 r1)) ∧
   (three_to_two_reg (Seq p1 p2) =
@@ -556,6 +558,8 @@ Theorem three_to_two_reg_pmatch:
     Seq (Move 0 [r1,r2]) (Inst (Arith (AddOverflow r1 r1 r3 r4)))
   | (Inst (Arith (SubOverflow r1 r2 r3 r4))) =>
     Seq (Move 0 [r1,r2]) (Inst (Arith (SubOverflow r1 r1 r3 r4)))
+  | (Inst (Arith (IMul r1 r2 r3 r4))) =>
+    Seq (Move 0 [r1,r2]) (Inst (Arith (IMul r1 r1 r3 r4)))
   | (OpCurrHeap bop r1 r2) =>
     Seq (Move 0 [r1,r2]) (OpCurrHeap bop r1 r1)
   | (Seq p1 p2) =>
