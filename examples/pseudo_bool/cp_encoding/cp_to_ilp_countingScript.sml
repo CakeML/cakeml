@@ -1138,93 +1138,114 @@ Proof
   metis_tac[MEM_EL]
 QED
 
-(* BinPacking Xs sizes bins: per bin b, a weighted-bitsum row against
-   Ls[b] (equality, loads form) or Cs[b] (one-sided ≤, capacities form),
-   over the weighted atoms sizes[i]·[Xs[i] = b]. The [Xi = b] eq-atoms
-   are shared/registered once via the eq-grid over the bin-index range.
-   Unfiltered: every item contributes a term to every bin's row,
-   regardless of declared domains (matches GCS's BinPacking::define_proof_model,
-   which is deliberately domain-agnostic). *)
+(* BinPacking Xs Ys Zs: per bin b, a weighted-bitsum row
+   Σ_i Ys[i]·[Xs[i] = b] against Ls[b] (equality =, loads form, when Zs
+   = INL Ls) or against Cs[b] (one-sided ≤, capacities form, when Zs =
+   INR CS). The [X[i] = b] eq-atoms are shared/registered once via the
+   eq-grid over the bin-index range. *)
 
 Definition bin_range_def:
   bin_range n = GENLIST (λb. &b) n
 End
 
 Definition bp_weighted_atoms_def:
-  bp_weighted_atoms Xs sizes b =
-  MAP (λ(X,sz). (sz:int, INL (Eq X b))) (ZIP (Xs,sizes))
+  bp_weighted_atoms Xs Ys b =
+  MAP2 (λX Y. (&Y, INL (Eq X b))) Xs Ys
 End
 
 Definition binpacking_range_def:
-  binpacking_range bins =
-  case bins of INL Ls => bin_range (LENGTH Ls) | INR Cs => bin_range (LENGTH Cs)
+  binpacking_range Zs =
+  case Zs of
+    INL Ls => bin_range (LENGTH Ls)
+  | INR Cs => bin_range (LENGTH Cs)
+End
+
+Definition encode_binpacking_aux_def:
+  encode_binpacking_aux Xs Ys Zs =
+  if LENGTH Xs = LENGTH Ys then
+    case Zs of
+      INL Ls => FLAT (MAPi
+        (λi L. encode_wbitsum (bp_weighted_atoms Xs Ys (&i)) L)
+        Ls)
+    | INR Cs => FLAT (MAPi
+        (λi c. encode_wbitsum_le (bp_weighted_atoms Xs Ys (&i)) (&c))
+        Cs)
+  else [false_constr]
 End
 
 Definition cencode_binpacking_aux_def:
-  cencode_binpacking_aux Xs sizes bins name =
-  if LENGTH Xs = LENGTH sizes then
-    case bins of
-      INL Ls =>
-        flat_app
-          (MAPi (λi (b,L).
-            cencode_wbitsum (bp_weighted_atoms Xs sizes b) L
-              name (toString i ^ «_»))
-            (ZIP (bin_range (LENGTH Ls), Ls)))
-    | INR Cs =>
-        flat_app
-          (MAPi (λi (b,c).
-            cencode_wbitsum_le (bp_weighted_atoms Xs sizes b) c
-              name (toString i ^ «_»))
-            (ZIP (bin_range (LENGTH Cs), Cs)))
+  cencode_binpacking_aux Xs Ys Zs name =
+  if LENGTH Xs = LENGTH Ys then
+    List $ mk_annotate
+      (case Zs of
+        INL Ls => FLAT (MAPi
+          (λi L.
+            [
+              mk_name name (toString i ^ «_ge»);
+              mk_name name (toString i ^ «_le»)
+            ])
+          Ls)
+      | INR Cs => MAPi (λi c. mk_name name (toString i ^ «_le»)) Cs)
+      (encode_binpacking_aux Xs Ys Zs)
   else cfalse_constr
 End
 
+Theorem abstr_cencode_binpacking_aux[simp]:
+  abstr (cencode_binpacking_aux Xs Ys Zs name) =
+  encode_binpacking_aux Xs Ys Zs
+Proof
+  rw[cencode_binpacking_aux_def,encode_binpacking_aux_def,cfalse_constr_def]
+QED
+
 Definition cencode_binpacking_def:
-  cencode_binpacking bnd Xs sizes bins name ec =
-  let (xs,ec') = cencode_eq_grid bnd Xs (binpacking_range bins) ec in
-  (Append xs (cencode_binpacking_aux Xs sizes bins name), ec')
+  cencode_binpacking bnd Xs Ys Zs name ec =
+  let
+    (xs, ec') = cencode_eq_grid bnd Xs (binpacking_range Zs) ec
+  in
+    (Append xs (cencode_binpacking_aux Xs Ys Zs name), ec')
 End
 
 Definition encode_binpacking_def:
-  encode_binpacking bnd Xs sizes bins name =
-  encode_eq_grid bnd Xs (binpacking_range bins) ++
-  abstr (cencode_binpacking_aux Xs sizes bins name)
+  encode_binpacking bnd Xs Ys Zs =
+  encode_eq_grid bnd Xs (binpacking_range Zs) ++
+  encode_binpacking_aux Xs Ys Zs
 End
 
 Theorem cencode_binpacking_sem:
   valid_assignment bnd wi ∧
-  cencode_binpacking bnd Xs sizes bins name ec = (es, ec') ⇒
-  enc_rel wi es (encode_binpacking bnd Xs sizes bins name) ec ec'
+  cencode_binpacking bnd Xs Ys Zs name ec = (es, ec') ⇒
+  enc_rel wi es (encode_binpacking bnd Xs Ys Zs) ec ec'
 Proof
   rw[cencode_binpacking_def,encode_binpacking_def]>>
   gvs[AllCaseEqs(),UNCURRY_EQ]>>
   irule enc_rel_Append>>
-  irule_at Any enc_rel_abstr>>
-  simp[enc_rel_encode_eq_grid]
+  qexists_tac ‘ec'’>>
+  conj_tac
+  >- simp[enc_rel_encode_eq_grid]
+  >- metis_tac[enc_rel_abstr,abstr_cencode_binpacking_aux]
 QED
 
-(* general in wb: only needs wb to agree with the semantics on the Eq
-   atoms Xs actually uses against bin b. Both directions instantiate this
-   — sem_1 with wb = reify_avar cs wi (where the hypothesis is trivial),
-   sem_2 with an arbitrary wb satisfied via the eq-grid rows. *)
 Theorem bin_load_bp_weighted_atoms:
-  ∀Xs sizes.
-  LENGTH Xs = LENGTH sizes ∧
-  (∀X. MEM X Xs ⇒ (wb (INL (Eq X b)) ⇔ varc wi X = b)) ⇒
-  bin_load Xs sizes wi b =
-  iSUM (MAP (λ(c,a). c * b2i (wb a)) (bp_weighted_atoms Xs sizes b))
+  ∀Xs Ys.
+  LENGTH Xs = LENGTH Ys ∧
+  (∀X. MEM X Xs ⇒ (wb (INL (Eq X (&b))) ⇔ varc wi X = &b)) ⇒
+  bin_load b Xs Ys wi =
+    iSUM (MAP (λ(c,a). c * b2i (wb a)) (bp_weighted_atoms Xs Ys (&b)))
 Proof
   Induct>>rw[bin_load_def,bp_weighted_atoms_def]>>
-  Cases_on ‘sizes’>>gvs[]>>
+  Cases_on ‘Ys’>>gvs[]>>
   simp[iSUM_def]>>
-  last_x_assum (qspec_then ‘t’ mp_tac)>>
-  simp[bin_load_def,bp_weighted_atoms_def]
+  last_x_assum $ qspec_then ‘t’ mp_tac>>
+  simp[bin_load_def,bp_weighted_atoms_def]>>
+  rw[]>>intLib.ARITH_TAC
 QED
 
 Theorem bin_load_bp_weighted_atoms_reify_avar:
-  LENGTH Xs = LENGTH sizes ⇒
-  bin_load Xs sizes wi b =
-  iSUM (MAP (λ(c,a). c * b2i (reify_avar cs wi a)) (bp_weighted_atoms Xs sizes b))
+  LENGTH Xs = LENGTH Ys ⇒
+  bin_load b Xs Ys wi =
+    iSUM (MAP
+      (λ(c,a). c * b2i (reify_avar cs wi a))
+      (bp_weighted_atoms Xs Ys (&b)))
 Proof
   strip_tac>>
   irule bin_load_bp_weighted_atoms>>
@@ -1233,78 +1254,54 @@ QED
 
 Theorem encode_binpacking_sem_1:
   valid_assignment bnd wi ∧
-  binpacking_sem Xs sizes bins wi ⇒
+  binpacking_sem Xs Ys Zs wi ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_binpacking bnd Xs sizes bins name)
+    (encode_binpacking bnd Xs Ys Zs)
 Proof
   rw[binpacking_sem_def,encode_binpacking_def]>>
   simp[reify_avar_def,reify_reif_def]>>
-  simp[cencode_binpacking_aux_def]>>
-  Cases_on ‘bins’>>fs[]
+  simp[encode_binpacking_aux_def]>>
+  Cases_on ‘Zs’>>fs[]>>
+  rw[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]
   >- (
-    simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>rw[]>>
-    DEP_REWRITE_TAC[EL_ZIP]>>
-    fs[LIST_REL_EL_EQN,bin_range_def]>>
-    DEP_REWRITE_TAC[encode_wbitsum_sem]>>
-    simp[]>>
+    drule_then (fn thm => simp[thm]) encode_wbitsum_sem>>
+    first_x_assum $ drule_then assume_tac>>
     metis_tac[bin_load_bp_weighted_atoms_reify_avar])
   >- (
-    simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>rw[]>>
-    qpat_x_assum ‘EVERY _ (ZIP (GENLIST _ _, _))’
-      (strip_assume_tac o SIMP_RULE (srw_ss()) [EVERY_EL,bin_range_def,EL_ZIP])>>
-    DEP_REWRITE_TAC[EL_ZIP]>>
-    simp[bin_range_def]>>
     simp[encode_wbitsum_le_sem]>>
     metis_tac[bin_load_bp_weighted_atoms_reify_avar])
 QED
 
 Theorem encode_binpacking_sem_2:
   valid_assignment bnd wi ∧
-  EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_binpacking bnd Xs sizes bins name) ⇒
-  binpacking_sem Xs sizes bins wi
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_binpacking bnd Xs Ys Zs) ⇒
+  binpacking_sem Xs Ys Zs wi
 Proof
   simp[binpacking_sem_def,encode_binpacking_def,EVERY_APPEND]>>strip_tac>>
-  reverse (Cases_on ‘LENGTH Xs = LENGTH sizes’)
-  >- fs[cencode_binpacking_aux_def,cfalse_constr_def]>>
-  simp[]>>
-  ‘∀X i. MEM X Xs ∧ MEM i (binpacking_range bins) ⇒
-     (wb (INL (Eq X i)) ⇔ varc wi X = i)’ by
-    (qpat_x_assum ‘EVERY _ (encode_eq_grid _ _ _)’ mp_tac>>
-     DEP_REWRITE_TAC[encode_eq_grid_sem]>>
-     simp[])>>
-  qpat_x_assum ‘EVERY _ (abstr _)’ mp_tac>>
-  simp[cencode_binpacking_aux_def]>>
-  Cases_on ‘bins’>>gvs[binpacking_range_def]
+  reverse (Cases_on ‘LENGTH Xs = LENGTH Ys’)
+  >- fs[encode_binpacking_aux_def]>>
+  drule_then (fn thm => fs[thm]) encode_eq_grid_sem>>
+  fs[encode_binpacking_aux_def]>>
+  Cases_on ‘Zs’>>
+  gvs[binpacking_range_def,bin_range_def,MEM_GENLIST]>>
+  qpat_x_assum ‘EVERY _ _’ mp_tac>>
+  simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>
+  rw[]>>
+  first_x_assum $ drule_then assume_tac>>
+  pop_assum mp_tac
   >- (
-    simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>
-    rw[LIST_REL_EL_EQN]>>
-    qpat_x_assum ‘∀n. _ ⇒ EVERY _ _’ (qspec_then ‘n’ mp_tac)>>
-    simp[bin_range_def]>>
-    DEP_REWRITE_TAC[EL_ZIP]>>simp[bin_range_def]>>
-    DEP_REWRITE_TAC[encode_wbitsum_sem]>>simp[]>>
-    disch_then sym_sub_tac>>
-    irule (GSYM bin_load_bp_weighted_atoms)>>simp[]>>
-    rw[]>>
-    qpat_x_assum
-      ‘∀X i. MEM X Xs ∧ MEM i _ ⇒ (wb (INL (Eq _ _)) ⇔ _)’
-      (qspecl_then [‘X’,‘&n’] mp_tac)>>
-    simp[bin_range_def,MEM_GENLIST])
+    DEP_REWRITE_TAC[encode_wbitsum_sem]>>
+    simp[]>>
+    disch_then $ SUBST_ALL_TAC o SYM>>
+    irule bin_load_bp_weighted_atoms>>
+    simp[])
   >- (
-    simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>strip_tac>>
-    simp[EVERY_EL]>>rw[]>>
-    DEP_REWRITE_TAC[EL_ZIP]>>simp[bin_range_def]>>
-    qpat_x_assum ‘∀n. _ ⇒ EVERY _ _’ (qspec_then ‘n’ mp_tac)>>
-    simp[bin_range_def]>>
-    DEP_REWRITE_TAC[EL_ZIP]>>simp[bin_range_def]>>
-    simp[encode_wbitsum_le_sem]>>
-    ‘bin_load Xs sizes wi (&n) =
-     iSUM (MAP (λ(c,a). c * b2i (wb a)) (bp_weighted_atoms Xs sizes (&n)))’ by
-      (irule bin_load_bp_weighted_atoms>>simp[]>>rw[]>>
-       qpat_x_assum
-         ‘∀X i. MEM X Xs ∧ MEM i _ ⇒ (wb (INL (Eq _ _)) ⇔ _)’
-         (qspecl_then [‘X’,‘&n’] mp_tac)>>
-       simp[bin_range_def,MEM_GENLIST])>>
+    DEP_REWRITE_TAC[encode_wbitsum_le_sem]>>
+    qmatch_goalsub_abbrev_tac‘a ≤ _ ⇒ b ≤ _’>>
+    ‘a = b’ suffices_by simp[]>>
+    unabbrev_all_tac>>
+    sym_tac>>
+    irule bin_load_bp_weighted_atoms>>
     simp[])
 QED
 
@@ -1377,8 +1374,8 @@ Definition encode_counting_constr_def:
   | AtMostOne Xs Y => encode_at_most_one bnd Xs Y name
   | GlobalCardinality Xs vs Cs clsd =>
       encode_global_cardinality bnd Xs vs Cs clsd name
-  | BinPacking Xs sizes bins =>
-      encode_binpacking bnd Xs sizes bins name
+  | BinPacking Xs Ys Zs =>
+      encode_binpacking bnd Xs Ys Zs
 End
 
 Theorem encode_counting_constr_sem_1:
@@ -1435,8 +1432,8 @@ Definition cencode_counting_constr_def:
   | AtMostOne Xs Y => (cencode_at_most_one bnd Xs Y name, ec)
   | GlobalCardinality Xs vs Cs clsd =>
       cencode_global_cardinality bnd Xs vs Cs clsd name ec
-  | BinPacking Xs sizes bins =>
-      cencode_binpacking bnd Xs sizes bins name ec
+  | BinPacking Xs Ys Zs =>
+      cencode_binpacking bnd Xs Ys Zs name ec
 End
 
 Theorem cencode_counting_constr_sem:
@@ -1455,5 +1452,5 @@ Proof
   >- simp[cencode_in_sem]
   >- simp[cencode_at_most_one_def,encode_at_most_one_def]
   >- simp[cencode_global_cardinality_sem]
-  >- simp[cencode_binpacking_sem]
+  >- metis_tac[cencode_binpacking_sem]
 QED

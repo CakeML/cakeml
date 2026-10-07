@@ -98,12 +98,11 @@ Datatype:
        equals the number of Xs taking the (constant) cover value vs[j].
        clsd ⇒ every Xs[i] additionally takes some value in vs. *)
   | GlobalCardinality ('a varc list) (int list) ('a varc list) bool
-    (* BinPacking Xs sizes bins : each Xs[i] is an item's bin (0..num_bins-1),
-       sizes[i] its (constant) size. INL Ls: for every bin b, load
-       variable Ls[b] equals the total size of items assigned to b.
-       INR Cs: for every bin b, the total size of items assigned to b is
-       at most the (constant) capacity Cs[b]. *)
-  | BinPacking ('a varc list) (int list) ('a varc list + int list)
+  (* BinPacking Xs Ys Zs : each item i has size Ys[i] and is assigned to
+     bin Xs[i], and each bin j has (a) when Zs = INL Ls, load Ls[j] =
+     Σ {Ys[i] | Xs[i] = j} (b) when Zs = INR Cs, capacity Cs[j] ≥
+     Σ {Ys[i] | Xs[i] = j} *)
+  | BinPacking ('a varc list) (num list) ('a varc list + num list)
 End
 
 Overload AllDifferent = ``λXs. AllDifferentExcept Xs []``;
@@ -518,20 +517,16 @@ End
 
 (* Total (constant) size of the items assigned to bin b *)
 Definition bin_load_def:
-  bin_load Xs sizes w b =
-  iSUM (MAP (λ(X,sz). sz * b2i (varc w X = b)) (ZIP (Xs,sizes)))
+  bin_load b Xs Ys w =
+  iSUM $ MAP (λ(x,y). b2i (varc w x = &b) * &y) $ ZIP (Xs,Ys)
 End
 
 Definition binpacking_sem_def:
-  binpacking_sem Xs sizes bins w ⇔
-  LENGTH Xs = LENGTH sizes ∧
-  case bins of
-    INL Ls =>
-      LIST_REL (λb L. varc w L = bin_load Xs sizes w b)
-        (GENLIST (λb. &b) (LENGTH Ls)) Ls
-  | INR Cs =>
-      EVERY (λ(b,c). bin_load Xs sizes w b ≤ c)
-        (ZIP (GENLIST (λb. &b) (LENGTH Cs), Cs))
+  binpacking_sem Xs Ys Zs w ⇔
+  LENGTH Xs = LENGTH Ys ∧
+  case Zs of
+    INL Ls => ∀i. i < LENGTH Ls ⇒ bin_load i Xs Ys w = varc w $ EL i Ls
+  | INR Cs => ∀i. i < LENGTH Cs ⇒ bin_load i Xs Ys w ≤ &(EL i Cs)
 End
 
 Definition counting_constr_sem_def:
@@ -546,7 +541,7 @@ Definition counting_constr_sem_def:
   | In Y Xs => in_sem Y Xs w
   | AtMostOne Xs Y => at_most_one_sem Xs Y w
   | GlobalCardinality Xs vs Cs clsd => global_cardinality_sem Xs vs Cs clsd w
-  | BinPacking Xs sizes bins => binpacking_sem Xs sizes bins w
+  | BinPacking Xs Ys Zs => binpacking_sem Xs Ys Zs w
 End
 
 (***

@@ -795,12 +795,12 @@ Definition sexp_binpacking_body_def:
       [Xs_e; sizes_e; Atom tag; bins_e] =>
       (do
          Xs <- sexp_varc_list Xs_e;
-         sizes <- sexp_int_list sizes_e;
+         sizes <- sexp_num_list sizes_e;
          bins <-
            (if tag = «loads» then
               (do Ls <- sexp_varc_list bins_e; return (INL Ls) od)
             else if tag = «capacities» then
-              (do Cs <- sexp_int_list bins_e; return (INR Cs) od)
+              (do Cs <- sexp_num_list bins_e; return (INR Cs) od)
             else
               fail («binpacking tag must be loads or capacities, got: » ^ tag ^ «\n»));
          return (Counting (BinPacking Xs sizes bins))
