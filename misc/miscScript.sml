@@ -1151,19 +1151,6 @@ Definition between_def:
   between x y z ⇔ x:num ≤ z ∧ z < y
 End
 
-(* Re-expressing folds *)
-
-(* only used in flat_elimProof *)
-Theorem FOLDR_CONS_triple:
- !f ls a. FOLDR (\(x,y,z) w. f x y z :: w) a ls = (MAP (\(x,y,z). f x y z) ls)++a
-Proof
-GEN_TAC THEN
-Induct THEN1 SRW_TAC[][] THEN
-Q.X_GEN_TAC `p` THEN
-PairCases_on `p` THEN
-SRW_TAC[][]
-QED
-
 (* Re-expressing curried lambdas *)
 
 Theorem FST_triple:
