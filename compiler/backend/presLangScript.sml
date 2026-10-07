@@ -524,6 +524,8 @@ Definition flat_to_display_def:
     Item (SOME None) (add_name_hint «letrec» name_hint)
         [Tuple (fun_flat_to_display_list funs); flat_to_display exp]
   )  ∧
+  (flat_to_display (flatLang$Tick tra exp) =
+    Item (SOME tra) «tick» [flat_to_display exp]) ∧
   (flat_to_display_list [] = []) ∧
   (flat_to_display_list (x::xs) =
     flat_to_display x :: flat_to_display_list xs)  ∧
