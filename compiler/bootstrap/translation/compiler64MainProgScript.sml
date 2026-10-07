@@ -62,10 +62,17 @@ Definition compiler_for_eval_def:
   compiler_for_eval host = compile_inc_progs_for_eval (host_config host)
 End
 
+Definition bitmap_to_word64_def:
+  bitmap_to_word64 (n:num) = (n2w n :word64)
+End
+
+val r = translate bitmap_to_word64_def;
+
 Theorem upper_n2w_Arch64[local]:
-  upper_n2w Arch64 = (n2w :num -> word64)
+  upper_n2w Arch64 = bitmap_to_word64
 Proof
-  simp [FUN_EQ_THM, backend_commonTheory.upper_n2w_def]
+  simp [FUN_EQ_THM, backend_commonTheory.upper_n2w_def,
+        bitmap_to_word64_def]
 QED
 
 val compiler_for_eval_alt =
