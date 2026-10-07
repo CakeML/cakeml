@@ -109,23 +109,8 @@ val _ = res |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of " ^
                   "panStaticTheory.static_check_def.");
 
-val max_heap_limit_64_spec = data_to_wordTheory.max_heap_limit_def
-  |> Q.SPEC `64`
-  |> SPEC_ALL
-  |> SIMP_RULE (srw_ss()) [backend_commonTheory.word_shift_def];
-
-Definition max_heap_limit_64_def:
-  max_heap_limit_64 c =
-    ^(max_heap_limit_64_spec |> concl |> rhs)
-End
-
-val res = translate max_heap_limit_64_def
-
-Theorem max_heap_limit_64_thm:
-  max_heap_limit 64 = max_heap_limit_64
-Proof
-  rw[FUN_EQ_THM,max_heap_limit_64_def,max_heap_limit_64_spec]
-QED
+val res = translate (data_to_wordTheory.max_heap_limit_def
+  |> SIMP_RULE std_ss [backend_commonTheory.word_shift_def]);
 
 val r = translate presLangTheory.default_tap_config_def;
 
@@ -137,7 +122,7 @@ val def = spec64
 val res = translate def
 
 val def = spec64 backendTheory.compile_def
-  |> REWRITE_RULE[dimindex_64,max_heap_limit_64_thm]
+  |> REWRITE_RULE[dimindex_64]
 
 val res = translate def
 
@@ -166,22 +151,22 @@ val r = backend_passesTheory.to_word_all_def |> spec64
           |> REWRITE_RULE [data_to_wordTheory.stubs_def,APPEND] |> translate;
 
 val r = backend_passesTheory.to_stack_all_def |> spec64
-          |> REWRITE_RULE[dimindex_64,max_heap_limit_64_thm] |> translate;
+          |> REWRITE_RULE[dimindex_64] |> translate;
 
 val r = backend_passesTheory.to_lab_all_def |> spec64
-          |> REWRITE_RULE[dimindex_64,max_heap_limit_64_thm] |> translate;
+          |> REWRITE_RULE[dimindex_64] |> translate;
 
 val r = backend_passesTheory.to_target_all_def |> spec64 |> translate;
 
 val r = backend_passesTheory.from_lab_all_def |> spec64 |> translate;
 
 val r = backend_passesTheory.from_stack_all_def |> spec64
-          |> REWRITE_RULE[dimindex_64,max_heap_limit_64_thm] |> translate;
+          |> REWRITE_RULE[dimindex_64] |> translate;
 
 val r = backend_passesTheory.from_word_all_def |> spec64 |> translate;
 
 val r = backend_passesTheory.from_word_0_all_def |> spec64
-          |> REWRITE_RULE[dimindex_64,max_heap_limit_64_thm] |> translate;
+          |> REWRITE_RULE[dimindex_64] |> translate;
 
 val r = presLangTheory.word_to_strs_def |> spec64 |> translate
 val r = presLangTheory.stack_to_strs_def |> spec64 |> translate
@@ -420,11 +405,25 @@ val _ = res |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of " ^
                   "compile_64_def.");
 
-val res = translate $ spec64 compile_pancake_def;
+val compile_pancake_spec = spec64 compile_pancake_def |> SPEC_ALL;
+
+Definition compile_pancake_fixed_def:
+  compile_pancake_fixed asm_conf c input =
+    ^(compile_pancake_spec |> concl |> rhs)
+End
+
+Theorem compile_pancake_fixed_eq[local]:
+  compiler$compile_pancake (:64) = compile_pancake_fixed
+Proof
+  simp [FUN_EQ_THM, compile_pancake_def, compile_pancake_fixed_def]
+QED
+
+val res = translate compile_pancake_fixed_def;
 
 val res = translate pancake_backend_conf_def;
 
-val res = translate compile_pancake_64_def;
+val res = translate (compile_pancake_64_def
+  |> REWRITE_RULE [compile_pancake_fixed_eq]);
 
 val _ = res |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of " ^

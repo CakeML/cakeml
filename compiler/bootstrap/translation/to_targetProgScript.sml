@@ -51,6 +51,25 @@ val _ = translate word_to_stackTheory.word_list_def;
 val _ = translate word_to_stackTheory.chunk_to_bits_def;
 val _ = translate word_to_stackTheory.chunk_to_bitmap_def;
 val _ = translate word_to_stackTheory.const_words_to_bitmap_def;
+Theorem word_to_stack_chunk_to_bitmap_side_total[local]:
+  ∀bits ws. word_to_stack_chunk_to_bitmap_side bits ws
+Proof
+  rw [fetch "-" "word_to_stack_chunk_to_bitmap_side_def"]
+  \\ mp_tac (Q.SPECL [`v1`,`&(2 ** bits)`] integerTheory.INT_MOD_BOUNDS)
+  \\ simp []
+QED
+val _ = update_precondition word_to_stack_chunk_to_bitmap_side_total;
+
+Theorem word_to_stack_const_words_to_bitmap_side_total[local]:
+  ∀bits ws ws_len. word_to_stack_const_words_to_bitmap_side bits ws ws_len
+Proof
+  ho_match_mp_tac word_to_stackTheory.const_words_to_bitmap_ind
+  \\ rpt strip_tac
+  \\ once_rewrite_tac [fetch "-" "word_to_stack_const_words_to_bitmap_side_def"]
+  \\ gvs [word_to_stack_chunk_to_bitmap_side_total]
+QED
+val _ = update_precondition word_to_stack_const_words_to_bitmap_side_total;
+
 val _ = translate (word_to_stackTheory.write_bitmap_def
   |> REWRITE_RULE (!extra_preprocessing));
 val _ = translate (word_to_stackTheory.wLive_def |> SIMP_RULE std_ss [LET_THM]);
