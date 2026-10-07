@@ -49,12 +49,12 @@ Definition adjust_var_def:
 End
 
 Definition adjust_set_def:
-  adjust_set (names:'a num_map) =
+  adjust_set (names:num_set) =
     (fromAList (MAP (\(n,k). (adjust_var n,())) (toAList names))):num_set
 End
 
 Definition adjust_sets_def:
-  adjust_sets (names:'a num_map) =
+  adjust_sets (names:num_set) =
     (LS (),adjust_set names):num_set # num_set
 End
 

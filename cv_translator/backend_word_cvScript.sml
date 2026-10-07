@@ -1,5 +1,5 @@
 (*
-  Translate the shared backend, including both fixed bitmap widths.
+  Translate the shared backend for every target.
 *)
 Theory backend_word_cv[no_sig_docs]
 Ancestors
@@ -207,12 +207,9 @@ Proof
   \\ Cases_on ‘n - m’ \\ gvs []
 QED
 
-(* Only bitmap values still need a fixed HOL word width. *)
-fun translate_bitmaps arch_size =
- let
-  val arch_spec = INST_TYPE [alpha |-> arch_size]
-  val _ = word_to_stackTheory.bits_to_word_def |> arch_spec |> cv_trans;
-  val _ = cv_trans_rec (word_to_stackTheory.word_list_def |> arch_spec)
+(* Numeric bitmap values are shared by every target. *)
+  val _ = word_to_stackTheory.bits_to_word_def |> cv_trans;
+  val _ = cv_trans_rec (word_to_stackTheory.word_list_def)
    (WF_REL_TAC ‘measure $ cv_size o FST’ \\ Cases \\ rw []
     \\ Cases_on ‘cv_d’ \\ gvs []
     >- (last_x_assum mp_tac \\ simp [cv_LENGTH_def,Once cv_LEN_def] \\ gvs [])
@@ -220,17 +217,19 @@ fun translate_bitmaps arch_size =
     \\ simp [Once cv_DROP_def]
     \\ irule LESS_EQ_LESS_TRANS \\ irule_at Any cv_DROP_lemma \\ gvs []);
 
-  val _ = word_to_stackTheory.write_bitmap_def |> arch_spec |> SRULE [] |> cv_auto_trans;
-  val _ = word_to_stackTheory.wLive_def |> arch_spec |> cv_trans;
-  val _ = word_to_stackTheory.chunk_to_bits_def |> arch_spec |> cv_trans;
-  val _ = word_to_stackTheory.chunk_to_bitmap_def |> arch_spec |> cv_auto_trans;
-  val pre = cv_trans_pre_rec "" (word_to_stackTheory.const_words_to_bitmap_def |> arch_spec |> SRULE [])
-   (WF_REL_TAC ‘measure $ cv$c2n o SND’ \\ Cases \\ gvs []
-    \\ gvs [cvTheory.c2b_def] \\ Cases_on ‘m’ \\ gvs []);
-  val _ = prove_pre (word_to_stackTheory.const_words_to_bitmap_ind |> arch_spec |> SRULE []) pre;
+  val _ = word_to_stackTheory.write_bitmap_def |> SRULE [] |> cv_auto_trans;
+  val _ = word_to_stackTheory.wLive_def |> cv_trans;
+  val _ = word_to_stackTheory.chunk_to_bits_def |> cv_trans;
+  val _ = word_to_stackTheory.chunk_to_bitmap_def |> cv_auto_trans;
+  val pre = cv_auto_trans_pre_rec "" word_to_stackTheory.const_words_to_bitmap_def
+   (WF_REL_TAC ‘measure $ cv_size o SND o SND’
+    \\ rw [] \\ Cases_on ‘cv_bits’ \\ Cases_on ‘cv_ws_len’
+    \\ gvs [cvTheory.cv_size_def,cvTheory.cv_if_def0,cvTheory.c2b_def,
+            cvTheory.cv_lt_def,cvTheory.cv_sub_def,cvTheory.cv_eq_def]
+    \\ rpt (qpat_x_assum ‘∀k:num. _’ (mp_tac o Q.SPEC ‘0’))
+    \\ rw [] \\ gvs []);
+  val _ = prove_pre (word_to_stackTheory.const_words_to_bitmap_ind |> SRULE []) pre;
 
- in () end;
-val _ = List.app translate_bitmaps [“:32”,“:64”];
 
 val _ = wordLangTheory.max_var_inst_def |> cv_trans
 

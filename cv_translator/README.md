@@ -10,7 +10,7 @@ Translate arm8-specialised functions to cv equations.
 Translate non-target-specific backend functions to cv equations.
 
 [backend_word_cvScript.sml](backend_word_cvScript.sml):
-Translate the shared backend, including both fixed bitmap widths.
+Translate the shared backend for every target.
 
 [backend_x64_cvScript.sml](backend_x64_cvScript.sml):
 Translate x64-specialised functions to cv equations.

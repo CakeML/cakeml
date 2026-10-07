@@ -5,6 +5,7 @@ Theory stack_rawcallProof
 Libs
   preamble
 Ancestors
+  wordSem
   stack_rawcall stackLang stackSem stackProps wordSem[qualified]
   labProps[qualified]
 
@@ -108,7 +109,7 @@ val simple_case =
   qexists_tac `0`
   \\ fs [Once comp_def,evaluate_def,get_var_def,set_var_def,loc_check_def,mem_load_def,
          alloc_def,gc_def,set_store_def,inst_def,assign_def,word_exp_def,get_vars_def,
-         mem_store_def,get_fp_var_def,set_fp_var_def,wordLangTheory.word_op_def,
+         mem_store_def,get_fp_var_def,set_fp_var_def,wordSemTheory.word_op_def,
          store_const_sem_def]
   \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq,CaseEq"ffi_result",pair_case_eq,
          CaseEq"inst",CaseEq"arith",IS_SOME_EXISTS,CaseEq"list",CaseEq"memop",
@@ -540,7 +541,7 @@ Proof
   THEN1
    (qexists_tac `0` >> Cases_on ‘op’
     \\ fs [Once comp_def,evaluate_def,sh_mem_op_def,get_var_def,
-           mem_store_def,word_exp_def,wordLangTheory.word_op_def,
+           mem_store_def,word_exp_def,wordSemTheory.word_op_def,
            sh_mem_load_def,sh_mem_store_def,
            sh_mem_load32_def,sh_mem_store32_def,
            sh_mem_load16_def,sh_mem_store16_def,

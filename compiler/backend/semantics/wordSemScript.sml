@@ -12,6 +12,41 @@ Ancestors
   machine_ieee[qualified] (* for FP *)
   backend_common (* for word_add_carry *)
 
+Definition word_op_def:
+  word_op op (ws:('a word) list) =
+    case (op,ws) of
+    | (And,ws) => SOME (FOLDR word_and (¬0w) ws)
+    | (Add,ws) => SOME (FOLDR word_add 0w ws)
+    | (Or,ws) => SOME (FOLDR word_or 0w ws)
+    | (Xor,ws) => SOME (FOLDR word_xor 0w ws)
+    | (Sub,[w1;w2]) => SOME (w1 - w2)
+    | _ => NONE
+End
+
+Definition word_sh_def:
+  word_sh sh (w:'a word) n =
+    if n <> 0 /\ n ≥ dimindex (:α) then NONE else
+      case sh of
+      | Lsl => SOME (w << n)
+      | Lsr => SOME (w >>> n)
+      | Asr => SOME (w >> n)
+      | Ror => SOME (word_ror w n)
+End
+
+Definition upper_w2w_def:
+  upper_w2w (w:'a word) =
+    if dimindex (:'a) = 32 then w2w w << 32 else (w2w w):word64
+End
+
+Definition word_add_carry_def:
+  word_add_carry (l: α word) (r: α word) (c: α word) : (α word # α word) =
+  let
+    res = w2n l + w2n r + (if c = 0w then 0 else 1)
+  in
+    (n2w res, if dimword(:α) ≤ res then 1w else 0w)
+End
+
+
 Datatype:
   word_loc = Word ('a word) | Loc num num
 End

@@ -306,7 +306,7 @@ Definition to_lab_all_def:
     let (ps,bm,c,p,names) = to_stack_all asm_conf c p in
     let stack_conf = c.stack_conf in
     let data_conf = c.data_conf in
-    let max_heap = &(2 * max_heap_limit (dimindex (:'a)) c.data_conf - 1) in
+    let max_heap = &(2 * max_heap_limit (isa_bits asm_conf) c.data_conf - 1) in
     let sp = asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3) in
     let offset = asm_conf.addr_offset in
     let prog = stack_rawcall$compile p in
@@ -321,7 +321,7 @@ Definition to_lab_all_def:
     let ps = ps ++ [(«after stack_names»,Stack prog names)] in
     let p = MAP prog_to_section prog in
     let ps = ps ++ [(«after stack_to_lab»,Lab p names)] in
-      ((ps: (mlstring # any_prog) list),bm:'a word list,c,p:labLang$prog,names)
+      ((ps: (mlstring # any_prog) list),bm:num list,c,p:labLang$prog,names)
 End
 
 Theorem to_lab_thm:
@@ -350,7 +350,7 @@ Proof
 QED
 
 Definition from_lab_all_def:
-  from_lab_all ps asm_conf (c:config) names p (bm:'a word list) =
+  from_lab_all ps asm_conf (c:config) names p (bm:num list) =
     let p = filter_skip p in
     let ps = ps ++ [(«after filter_skip»,Lab p names)] in
     let p = compile_lab asm_conf c.lab_conf p in
@@ -364,10 +364,10 @@ Proof
 QED
 
 Definition from_stack_all_def:
-  from_stack_all ps (asm_conf:asm_config) (c:config) names p (bm:'a word list) =
+  from_stack_all ps (asm_conf:asm_config) (c:config) names p (bm:num list) =
     let stack_conf = c.stack_conf in
     let data_conf = c.data_conf in
-    let max_heap = &(2 * max_heap_limit (dimindex (:'a)) c.data_conf - 1) in
+    let max_heap = &(2 * max_heap_limit (isa_bits asm_conf) c.data_conf - 1) in
     let sp = asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3) in
     let offset = asm_conf.addr_offset in
     let prog = stack_rawcall$compile p in

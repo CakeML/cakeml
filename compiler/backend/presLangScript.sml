@@ -75,11 +75,11 @@ Definition num_to_hex_mlstring_def:
 End
 
 Definition word_to_display_def:
-  word_to_display w = empty_item (num_to_hex_mlstring (w2n w))
+  word_to_display (n:num) = empty_item (num_to_hex_mlstring n)
 End
 
 Definition item_with_word_def:
-  item_with_word name w = Item NONE name [word_to_display w]
+  item_with_word name (n:num) = Item NONE name [word_to_display n]
 End
 
 Definition lit_to_display_def:
@@ -93,13 +93,13 @@ Definition lit_to_display_def:
     Item NONE «StrLit» [string_imp s])
   /\
   (lit_to_display (Word8 w) =
-    Item NONE «Word8» [word_to_display w])
+    Item NONE «Word8» [word_to_display (w2n w)])
   /\
   (lit_to_display (Word64 w) =
-    Item NONE «Word64» [word_to_display w])
+    Item NONE «Word64» [word_to_display (w2n w)])
   /\
   (lit_to_display (Float64 w) =
-    Item NONE «Float64» [word_to_display w])
+    Item NONE «Float64» [word_to_display (w2n w)])
 End
 
 Overload list_to_display = ``λf xs. displayLang$Tuple (MAP f xs)``
@@ -578,7 +578,7 @@ Definition const_part_to_display_def:
   const_part_to_display (Str s) =
     Item NONE «Str» [String (concat [strlit "\""; s; strlit "\""])] ∧
   const_part_to_display (W64 w) =
-    Item NONE «W64» [word_to_display w]
+    Item NONE «W64» [word_to_display (w2n w)]
 End
 
 Definition const_to_display_def:
@@ -589,7 +589,7 @@ Definition const_to_display_def:
   const_to_display (ConstStr s) =
     Item NONE «ConstStr» [String (concat [strlit "\""; s; strlit "\""])] ∧
   const_to_display (ConstWord64 w) =
-    Item NONE «ConstWord64» [word_to_display w] ∧
+    Item NONE «ConstWord64» [word_to_display (w2n w)] ∧
   (const_to_display_list [] = []) ∧
   (const_to_display_list (x::xs) =
     const_to_display x :: const_to_display_list xs)
@@ -1130,7 +1130,7 @@ Definition store_name_to_display_def:
     | CodeBufferEnd => empty_item «CodeBufferEnd»
     | BitmapBuffer => empty_item «BitmapBuffer»
     | BitmapBufferEnd => empty_item «BitmapBufferEnd»
-    | Temp w => item_with_word «Temp» w
+    | Temp w => item_with_word «Temp» (w2n w)
 End
 
 Definition stack_seqs_def:

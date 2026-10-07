@@ -9,7 +9,7 @@ Ancestors
   semanticsProps (* for extend_with_resource_limit *)
   stackLang (* for list_Seq *)
   stackProps (* for extract_labels *)
-  backend_common (* for word_add_carry_def *)
+  backend_common
   wordProps stackSem wordSem word_to_stack
 Ancestors[ignore_grammar]
   wordConvs parmove
@@ -662,6 +662,87 @@ Proof
       |> Q.SPECL [`1`,`m`] |> ONCE_REWRITE_RULE [ADD_COMM]) \\ fs []
 QED
 
+Definition bitmap_word_def:
+  (bitmap_word [] = 0w) /\
+  (bitmap_word (T::xs) = (bitmap_word xs << 1 || 1w)) /\
+  (bitmap_word (F::xs) = (bitmap_word xs << 1))
+End
+
+Definition bitmap_words_def:
+  bitmap_words (xs:bool list) d =
+    if LENGTH xs <= d \/ (d = 0) then [bitmap_word xs]
+    else bitmap_word (TAKE d xs ++ [T]) :: bitmap_words (DROP d xs) d
+Termination
+  WF_REL_TAC `measure (LENGTH o FST)`
+  \\ fs [LENGTH_DROP] \\ DECIDE_TAC
+End
+
+Definition bitmap_chunk_bits_def:
+  bitmap_chunk_bits ([]:(bool # int) list) = 1w:'a word ∧
+  bitmap_chunk_bits ((b,w)::ws) =
+    let res = (bitmap_chunk_bits ws) << 1 in
+      if b then res + 1w else res
+End
+
+Definition bitmap_chunk_def:
+  bitmap_chunk ws = bitmap_chunk_bits ws :: MAP (i2w o SND) ws
+End
+
+Definition bitmap_consts_def:
+  (bitmap_consts (ws:(bool # int) list) (ws_len:num):α word list) =
+    if ws_len < (dimindex (:'a) - 1) ∨ (dimindex (:'a) - 1) = 0
+    then bitmap_chunk ws
+    else
+      let h = TAKE (dimindex (:'a) - 1) ws in
+      let t = DROP (dimindex (:'a) - 1) ws in
+        bitmap_chunk h ++ bitmap_consts t (ws_len - (dimindex (:'a) - 1))
+End
+
+Theorem n2w_bits_to_word[simp]:
+  ∀bs. n2w (bits_to_word bs) = bitmap_word bs
+Proof
+  Induct >> simp [bits_to_word_def,bitmap_word_def]
+  >> Cases_on `h` >> simp [bits_to_word_def,bitmap_word_def,
+       word_shift_or_1,LSL_ONE,GSYM word_mul_n2w,GSYM word_add_n2w]
+QED
+
+Theorem MAP_n2w_word_list[simp]:
+  ∀xs d. MAP n2w (word_list xs d) = bitmap_words xs d
+Proof
+  recInduct word_list_ind >> rpt strip_tac
+  >> once_rewrite_tac [word_list_def,bitmap_words_def]
+  >> rw []
+QED
+
+Theorem n2w_chunk_to_bits[simp]:
+  ∀ws. n2w (chunk_to_bits ws) = bitmap_chunk_bits ws
+Proof
+  Induct >> fs [FORALL_PROD,chunk_to_bits_def,bitmap_chunk_bits_def]
+  >> rw [LSL_ONE,GSYM word_mul_n2w,GSYM word_add_n2w]
+QED
+
+Theorem n2w_Num_int_mod[simp]:
+  n2w (Num (w % &(2 ** dimindex (:α)))) = (i2w w:α word)
+Proof
+  simp [GSYM dimword_def,GSYM integer_wordTheory.w2n_i2w]
+QED
+
+Theorem MAP_n2w_chunk_to_bitmap[simp]:
+  MAP n2w (chunk_to_bitmap (dimindex (:α)) ws) = (bitmap_chunk ws:α word list)
+Proof
+  simp [chunk_to_bitmap_def,bitmap_chunk_def,MAP_MAP_o,o_DEF,
+        MAP_EQ_f,FORALL_PROD]
+QED
+
+Theorem MAP_n2w_const_words_to_bitmap[simp]:
+  ∀ws n. MAP n2w (const_words_to_bitmap (dimindex (:α)) ws n) =
+         (bitmap_consts ws n:α word list)
+Proof
+  completeInduct_on `n` >> rw [PULL_FORALL]
+  >> once_rewrite_tac [const_words_to_bitmap_def,bitmap_consts_def]
+  >> rw []
+QED
+
 Theorem LENGTH_word_list_lemma[local]:
   !xs d. 0 < d ==> (LENGTH (word_list xs d) = (LENGTH xs - 1) DIV d + 1)
 Proof
@@ -908,12 +989,12 @@ Definition state_rel_def:
     t.code_buffer = s.code_buffer ∧
     s.compile = (λ(bm0,cfg) progs.
       let (progs,fs,bm) = word_to_stack$compile_word_to_stack ac F k progs (Nil, bm0) in
-      OPTION_MAP (λ(bytes,cfg). (bytes,append (FST bm),(SND bm,cfg)))
+      OPTION_MAP (λ(bytes,cfg). (bytes,MAP n2w (append (FST bm)),(SND bm,cfg)))
         (t.compile cfg progs)) ∧
     t.compile_oracle = (λn.
       let ((bm0,cfg),progs) = s.compile_oracle n in
       let (progs,fs,bm) = word_to_stack$compile_word_to_stack ac F k progs (Nil, bm0) in
-        (cfg,progs,append (FST bm))) ∧
+        (cfg,progs,MAP n2w (append (FST bm)))) ∧
     (∀n. let ((bm0,cfg),progs) = s.compile_oracle n in
         EVERY (post_alloc_conventions (dimindex (:α)) k o SND o SND) progs ∧
         EVERY (flat_exp_conventions o SND o SND) progs ∧
@@ -929,7 +1010,7 @@ Definition state_rel_def:
        ?bs i bs2 i2 f stack_prog.
          word_to_stack$compile_prog ac F word_prog arg_count k (bs,i) = (stack_prog,f,(bs2,i2)) /\
          LENGTH (append bs) ≤ i ∧ i - LENGTH (append bs) ≤ LENGTH t.bitmaps /\
-         isPREFIX (append bs2) (DROP (i - LENGTH (append bs)) t.bitmaps) /\
+         isPREFIX (MAP n2w (append bs2)) (DROP (i - LENGTH (append bs)) t.bitmaps) /\
          (lookup n t.code = SOME stack_prog) /\
          the f (lookup n s.stack_size) = f
     ) /\
@@ -998,89 +1079,89 @@ QED
 Theorem DROP_list_LUPDATE_lemma[local] =
   MATCH_MP DROP_list_LUPDATE (SPEC_ALL LESS_EQ_REFL) |> SIMP_RULE std_ss []
 
-Theorem bits_to_word_bit[local]:
+Theorem bitmap_word_bit[local]:
   !bs i.
       i < dimindex (:'a) /\ i < LENGTH bs ==>
-      ((bits_to_word bs:'a word) ' i = EL i bs)
+      ((bitmap_word bs:'a word) ' i = EL i bs)
 Proof
   Induct \\ fs [] \\ Cases_on `i` \\ fs []
-  \\ Cases \\ fs [bits_to_word_def,word_or_def,fcpTheory.FCP_BETA,
+  \\ Cases \\ fs [bitmap_word_def,word_or_def,fcpTheory.FCP_BETA,
        word_index,word_lsl_def,ADD1]
 QED
 
-Theorem bits_to_word_miss[local]:
+Theorem bitmap_word_miss[local]:
   !bs i.
       i < dimindex (:'a) /\ LENGTH bs <= i ==>
-      ~((bits_to_word bs:'a word) ' i)
+      ~((bitmap_word bs:'a word) ' i)
 Proof
   Induct \\ fs [] THEN1 (EVAL_TAC \\ fs [word_0])
   \\ Cases_on `i` \\ fs [] \\ NTAC 2 strip_tac
   \\ `n < dimindex (:'a)` by decide_tac \\ res_tac
-  \\ Cases_on `h` \\ fs [bits_to_word_def,word_or_def,fcpTheory.FCP_BETA,
+  \\ Cases_on `h` \\ fs [bitmap_word_def,word_or_def,fcpTheory.FCP_BETA,
        word_index,word_lsl_def,ADD1]
 QED
 
-Theorem bits_to_word_SNOC[local]:
+Theorem bitmap_word_SNOC[local]:
  !bs b.
-  bits_to_word (SNOC b bs) =
- (if b then 1w else 0w) ≪ (LENGTH bs) ‖ (bits_to_word bs)
+  bitmap_word (SNOC b bs) =
+ (if b then 1w else 0w) ≪ (LENGTH bs) ‖ (bitmap_word bs)
 Proof
   Induct
-  >> simp[Once $ oneline bits_to_word_def, bits_to_word_def]
-  >> qpat_abbrev_tac `bits_to_word_bs = bits_to_word bs`
-  >> simp[Once $ oneline bits_to_word_def, bits_to_word_def]
+  >> simp[Once $ oneline bitmap_word_def, bitmap_word_def]
+  >> qpat_abbrev_tac `bitmap_word_bs = bitmap_word bs`
+  >> simp[Once $ oneline bitmap_word_def, bitmap_word_def]
   >> rw[] >> simp[ADD1]
 QED
 
 Theorem list_LUPDATE_write_bitmap_NOT_NIL[local]:
   8 <= dimindex (:'a) ==>
-    (list_LUPDATE (MAP Word (write_bitmap names k f')) 0 xs <>
+    (list_LUPDATE (MAP Word (MAP n2w (write_bitmap (dimindex (:α)) names k f'))) 0 xs <>
      [Word (0w:'a word)])
 Proof
   Cases_on `xs` >- fs [list_LUPDATE_NIL]
-  \\ full_simp_tac(srw_ss()) [write_bitmap_def,LET_DEF,Once word_list_def]
+  \\ full_simp_tac(srw_ss()) [write_bitmap_def,LET_DEF,Once bitmap_words_def]
   \\ strip_tac \\ `~(dimindex (:'a) <= 1)` by decide_tac \\ fs []
   \\ IF_CASES_TAC \\ simp[list_LUPDATE_def]
-  \\ simp[GSYM SNOC_APPEND,bits_to_word_SNOC,Excl "LIST_EQ_SIMP_CONV"]
+  \\ simp[GSYM SNOC_APPEND,bitmap_word_SNOC,Excl "LIST_EQ_SIMP_CONV"]
   \\ simp[word_or_eq_0,EXP_EQ_0]
   \\ simp[word_1_lsl] \\simp[dimword_def]
 QED
 
 
-Theorem bit_length_bits_to_word[local]:
+Theorem bit_length_bitmap_word[local]:
   !qs.
       LENGTH qs + 1 < dimindex (:'a) ==>
-      bit_length (bits_to_word (qs ++ [T]):'a word) = LENGTH qs + 1
+      bit_length (bitmap_word (qs ++ [T]):'a word) = LENGTH qs + 1
 Proof
   Induct THEN1
    (fs [] \\ fs [Once bit_length_def] \\ fs [Once bit_length_def]
-    \\ fs [bits_to_word_def] \\ EVAL_TAC)
-  \\ Cases \\ fs [bits_to_word_def]
+    \\ fs [bitmap_word_def] \\ EVAL_TAC)
+  \\ Cases \\ fs [bitmap_word_def]
   \\ once_rewrite_tac [bit_length_def]
   \\ fs [ADD_CLAUSES]
   \\ rpt strip_tac \\ fs [EVAL ``1w >>> 1``]
   \\ `(LENGTH qs + 1) < dimindex (:'a)` by decide_tac \\ fs []
-  \\ `bits_to_word (qs ++ [T]) << 1 <> 0w` by
+  \\ `bitmap_word (qs ++ [T]) << 1 <> 0w` by
    (fs [fcpTheory.CART_EQ,word_or_def,fcpTheory.FCP_BETA,word_0,word_lsl_def]
     \\ Q.EXISTS_TAC `LENGTH qs + 1`
     \\ fs [fcpTheory.CART_EQ,word_or_def,fcpTheory.FCP_BETA]
-    \\ (bits_to_word_bit |> SPEC_ALL |> DISCH ``EL i (bs:bool list)``
+    \\ (bitmap_word_bit |> SPEC_ALL |> DISCH ``EL i (bs:bool list)``
           |> SIMP_RULE std_ss [] |> MP_CANON |> match_mp_tac) \\ fs []
     \\ fs [EL_LENGTH_APPEND] \\ decide_tac)
-  \\ `bits_to_word (qs ++ [T]) ≪ 1 ⋙ 1 =
-      bits_to_word (qs ++ [T]):'a word` by
+  \\ `bitmap_word (qs ++ [T]) ≪ 1 ⋙ 1 =
+      bitmap_word (qs ++ [T]):'a word` by
    (match_mp_tac shift_shift_lemma \\ fs [word_msb_def]
-    \\ match_mp_tac bits_to_word_miss \\ fs [] \\ decide_tac)
+    \\ match_mp_tac bitmap_word_miss \\ fs [] \\ decide_tac)
   \\ fs [ADD1,word_or_eq_0]
 QED
 
 Theorem bits_to_word_bitstring_reverse:
-  (bits_to_word xs:'a word) = bitstring$v2w (REVERSE xs)
+  (bitmap_word xs:'a word) = bitstring$v2w (REVERSE xs)
 Proof
   Induct_on `xs`
-  >- simp[bitstringTheory.v2n,GSYM bitstringTheory.n2w_v2n, bits_to_word_def]
+  >- simp[bitstringTheory.v2n,GSYM bitstringTheory.n2w_v2n, bitmap_word_def]
   >> fs[GSYM bitstringTheory.n2w_v2n]
-  >> simp[bitstringTheory.v2n,bitstringTheory.v2n_APPEND,Once $ oneline bits_to_word_def]
+  >> simp[bitstringTheory.v2n,bitstringTheory.v2n_APPEND,Once $ oneline bitmap_word_def]
   >> reverse $ rw[]
   >- fs[word_add_n2w,wordsTheory.LSL_ONE]
   >> fs[word_shift_or_1]
@@ -1088,46 +1169,46 @@ Proof
   >> fs[wordsTheory.word_mul_n2w,wordsTheory.word_add_n2w]
 QED
 
-Theorem GENLIST_bits_to_word_alt[local]:
+Theorem GENLIST_bitmap_word_alt[local]:
   LENGTH (xs ++ ys) <= dimindex (:'a) ==>
-    GENLIST (\i. (bits_to_word (xs ++ ys):'a word) ' i) (LENGTH xs) = xs
+    GENLIST (\i. (bitmap_word (xs ++ ys):'a word) ' i) (LENGTH xs) = xs
 Proof
-  fs[Cong GENLIST_CONG,bits_to_word_bit,EL_APPEND1] >>
+  fs[Cong GENLIST_CONG,bitmap_word_bit,EL_APPEND1] >>
   fs[GENLIST_EL_MAP]
 QED
 
-Theorem GENLIST_bits_to_word[local]:
+Theorem GENLIST_bitmap_word[local]:
   LENGTH qs' + 1 < dimindex (:'a) ==>
-    GENLIST (\i. (bits_to_word (qs' ++ [T]):'a word) ' i) (LENGTH qs') = qs'
+    GENLIST (\i. (bitmap_word (qs' ++ [T]):'a word) ' i) (LENGTH qs') = qs'
 Proof
-  fs[GENLIST_bits_to_word_alt]
+  fs[GENLIST_bitmap_word_alt]
 QED
 
-Theorem read_bitmap_word_list[local]:
+Theorem read_bitmap_bitmap_words[local]:
   8 <= dimindex (:'a) ==>
     read_bitmap
-      ((word_list (qs ++ [T]) (dimindex (:'a) - 1)) ++ (xs:'a word list)) =
+      ((bitmap_words (qs ++ [T]) (dimindex (:'a) - 1)) ++ (xs:'a word list)) =
     SOME qs
 Proof
   completeInduct_on `LENGTH (qs:bool list)` \\ rpt strip_tac \\ fs [PULL_FORALL]
-  \\ rw [] \\ once_rewrite_tac [word_list_def]
+  \\ rw [] \\ once_rewrite_tac [bitmap_words_def]
   \\ `dimindex (:'a) - 1 <> 0` by decide_tac \\ fs []
   \\ Cases_on `LENGTH qs + 1 <= dimindex (:'a) - 1` \\ fs []
   THEN1
    (fs [read_bitmap_def]
-    \\ `~word_msb (bits_to_word (qs ++ [T]))` by
-     (fs [word_msb_def] \\ match_mp_tac bits_to_word_miss
+    \\ `~word_msb (bitmap_word (qs ++ [T]))` by
+     (fs [word_msb_def] \\ match_mp_tac bitmap_word_miss
       \\ fs [] \\ decide_tac) \\ fs []
     \\ `LENGTH qs + 1 < dimindex (:'a)` by decide_tac
-    \\ fs [bit_length_bits_to_word,GENLIST_bits_to_word])
+    \\ fs [bit_length_bitmap_word,GENLIST_bitmap_word])
   \\ fs [read_bitmap_def]
   \\ `dimindex (:'a) - 1 =
         LENGTH (TAKE (dimindex (:'a) - 1) (qs ++ [T]))` by
     (fs [LENGTH_TAKE_EQ,MIN_DEF] \\ decide_tac)
-  \\ `word_msb (bits_to_word (TAKE (dimindex (:'a) - 1)
+  \\ `word_msb (bitmap_word (TAKE (dimindex (:'a) - 1)
          (qs ++ [T]) ++ [T]) :'a word)` by
    (fsrw_tac[] [word_msb_def]
-    \\ (bits_to_word_bit |> SPEC_ALL |> DISCH ``EL i (bs:bool list)``
+    \\ (bitmap_word_bit |> SPEC_ALL |> DISCH ``EL i (bs:bool list)``
           |> SIMP_RULE std_ss [] |> MP_CANON |> match_mp_tac) \\ fsrw_tac[] []
     \\ reverse (rpt strip_tac) THEN1 decide_tac THEN1 decide_tac
     \\ pop_assum (fn th => simp_tac std_ss [Once th])
@@ -1147,7 +1228,7 @@ Proof
           (INST_TYPE [``:'a``|->``:bool``] TAKE_DROP))]))
   \\ AP_THM_TAC \\ AP_TERM_TAC
   \\ Q.ABBREV_TAC `ts = TAKE (dimindex (:'a) - 1) qs` \\ fs []
-  \\ match_mp_tac GENLIST_bits_to_word_alt \\ fs []
+  \\ match_mp_tac GENLIST_bitmap_word_alt \\ fs []
 QED
 
 Theorem APPEND_LEMMA[local]:
@@ -1167,25 +1248,25 @@ QED
 
 Theorem read_bitmap_write_bitmap:
    8 ≤ dimindex (:α) ⇒
-   read_bitmap ((write_bitmap names k f'):α word list) =
+   read_bitmap (MAP n2w (write_bitmap (dimindex (:α)) names k f'):α word list) =
    SOME (GENLIST (λx. MEM x (MAP (λ(r,y). f' - 1 - (r DIV 2 - k)) (toAList names))) f')
 Proof
   rw[write_bitmap_def]
-  \\ imp_res_tac read_bitmap_word_list
+  \\ imp_res_tac read_bitmap_bitmap_words
   \\ first_x_assum(qspec_then`[]`mp_tac)
   \\ simp[]
 QED
 
 Theorem read_bitmap_insert_bitmap:
-   ∀bs n bs' n' i cur.
+   ∀bs n bs' n' i (cur:α word list).
    i < dimword (:α) ∧
-   IS_SOME (read_bitmap bm) ∧
+   IS_SOME (read_bitmap (MAP n2w bm:α word list)) ∧
    n = LENGTH cur + LENGTH (append bs) ∧
    insert_bitmap bm (bs, n) = ((bs',n'),i)
-   ⇒ read_bitmap (DROP (i MOD dimword (:α)) (cur++append bs')) = read_bitmap bm
+   ⇒ read_bitmap (DROP (i MOD dimword (:α)) (cur++MAP n2w (append bs'))) = read_bitmap (MAP n2w bm:α word list)
 Proof
-  simp[insert_bitmap_def] \\ rw[] \\ simp[DROP_LENGTH_APPEND]>>
-  metis_tac[DROP_LENGTH_APPEND,LENGTH_APPEND]
+  simp [insert_bitmap_def,MAP_APPEND] >> rw []
+  >> fs [] >> simp [DROP_APPEND,DROP_LENGTH_TOO_LONG]
 QED
 
 Theorem abs_stack_IMP_LENGTH[local]:
@@ -1322,6 +1403,13 @@ Proof
   Cases_on`i`>>simp[]
 QED
 
+Theorem isPREFIX_TAKE_APPEND:
+  xs ≼ DROP n ys ⇒ TAKE n ys ++ xs ≼ ys
+Proof
+  rw [IS_PREFIX_APPEND]
+  >> metis_tac [TAKE_DROP,APPEND_ASSOC]
+QED
+
 Theorem LLOOKUP_cons_SUC[local]:
   m < n ⇒
   LLOOKUP (h::xs) (n - m) =
@@ -1340,14 +1428,14 @@ Proof
 QED
 
 Theorem evaluate_wLive[local]:
-  wLive names (bs,n) (k,f,f') = (wlive_prog,(bs',n')) /\
+  wLive (isa_bits ac) names (bs,n) (k,f,f') = (wlive_prog,(bs',n')) /\
   (∀x. x ∈ domain (FST names) ⇒ EVEN x /\ k ≤ x DIV 2) /\
   (∀x. x ∈ domain (SND names) ⇒ EVEN x /\ k ≤ x DIV 2) /\
   state_rel ac k f f' (s:('a,num # 'c,'ffi) wordSem$state) t lens 0 /\
   1 <= f /\
   (cut_envs names s.locals = SOME envs) /\
   LENGTH (append bs) ≤ n ∧ n - LENGTH (append bs) ≤ LENGTH t.bitmaps ∧
-  isPREFIX (append bs') (DROP (n - LENGTH (append bs)) t.bitmaps) ==>
+  isPREFIX (MAP n2w (append bs')) (DROP (n - LENGTH (append bs)) t.bitmaps) ==>
   ?t5:('a,'c,'ffi) stackSem$state bs5.
     (evaluate (wlive_prog,t) = (NONE,t5)) /\
     state_rel ac k 0 0 (push_env envs ^nn s with <|locals := LN; locals_size := SOME 0|>) t5 (f'::lens) 0 /\
@@ -1415,19 +1503,9 @@ Proof
     \\ disch_then drule
     \\ simp[read_bitmap_write_bitmap]
     \\ strip_tac
-    \\ `isPREFIX (DROP i (TAKE (n − LENGTH (append bs)) t.bitmaps ++ append bs')) (DROP i t.bitmaps)` by (
-      fs[LENGTH_TAKE,insert_bitmap_def]>>rveq>>fs[]>>
-      qmatch_goalsub_abbrev_tac`DROP a b`>>
-      `DROP a b = write_bitmap (SND names) k f'` by
-        (unabbrev_all_tac>> simp[DROP_APPEND])>>
-      old_drule isPREFIX_DROP>>
-      disch_then(qspec_then`LENGTH (append bs)` mp_tac)>>
-      simp[DROP_APPEND,DROP_LENGTH_NIL]>>
-      simp[Abbr`a`]>>
-      DEP_REWRITE_TAC[DROP_DROP,LENGTH_TAKE]>>
-      simp[]>>
-      old_drule IS_PREFIX_LENGTH>>
-      simp[])
+    \\ `isPREFIX (DROP i (TAKE (n − LENGTH (append bs)) t.bitmaps ++ MAP n2w (append bs'))) (DROP i t.bitmaps)` by
+      (match_mp_tac isPREFIX_DROP
+       >> match_mp_tac isPREFIX_TAKE_APPEND >> fs [])
     \\ fsrw_tac[][IS_PREFIX_APPEND]
     \\ imp_res_tac read_bitmap_append_extra
     \\ simp[DROP_APPEND]
@@ -2806,7 +2884,7 @@ Proof
 QED
 
 Theorem wLive_isPREFIX:
-   ∀a bs c q bs'. wLive a bs c = (q,bs') ⇒
+   ∀a bs c q bs'. wLive bits a bs c = (q,bs') ⇒
    append (FST bs) ≼ append (FST bs')
 Proof
   rw[]
@@ -2854,6 +2932,22 @@ Proof
   \\ Cases_on`bitmaps'` \\ fs[]
   \\ first_x_assum drule
   \\ imp_res_tac IS_PREFIX_TRANS \\ fs []
+QED
+
+Theorem comp_IMP_isPREFIX_words:
+  comp ac perf p bs kf = (q,bs') ⇒
+  MAP (n2w:num -> α word) (append (FST bs)) ≼
+  MAP n2w (append (FST bs'))
+Proof
+  metis_tac [comp_IMP_isPREFIX,isPREFIX_MAP]
+QED
+
+Theorem compile_word_to_stack_isPREFIX_words:
+  compile_word_to_stack ac perf k ps bs = (qs,fs,bs') ⇒
+  MAP (n2w:num -> α word) (append (FST bs)) ≼
+  MAP n2w (append (FST bs'))
+Proof
+  metis_tac [compile_word_to_stack_isPREFIX,isPREFIX_MAP]
 QED
 
 Theorem wMoveAux_thm:
@@ -3333,7 +3427,7 @@ Theorem call_dest_lemma[local]:
       ?bs i bs2 i2 fs stack_prog.
         compile_prog ac F prog (LENGTH real_args) k (bs,i) = (stack_prog,fs,(bs2,i2)) ∧
         LENGTH (append bs) ≤ i ∧ i - LENGTH (append bs) ≤ LENGTH t.bitmaps /\
-        isPREFIX (append bs2) (DROP (i - LENGTH (append bs)) t.bitmaps) ∧
+        isPREFIX (MAP n2w (append bs2)) (DROP (i - LENGTH (append bs)) t.bitmaps) ∧
         the fs ssize = fs ∧
         find_code dest' t4.regs t4.code = SOME stack_prog
 Proof
@@ -4896,7 +4990,7 @@ Proof
         `(if bool then A else B) =
          SOME (set_var n1 (Word z) t'')` by
           (UNABBREV_ALL_TAC >>
-          IF_CASES_TAC >> gvs[wordLangTheory.word_op_def]) >>
+          IF_CASES_TAC >> gvs[wordSemTheory.word_op_def]) >>
         POP_ASSUM SUBST_ALL_TAC >>
         simp[] >> UNABBREV_ALL_TAC >>
         match_mp_tac evaluate_wStackStore_wReg1 >>
@@ -5249,7 +5343,7 @@ QED
 
 Theorem evaluate_wLive_clock[local]:
   ∀x t q bs bs'.
-  wLive x bs kf = (q,bs') ⇒
+  wLive bits x bs kf = (q,bs') ⇒
   evaluate(q, t with clock:= clk) =
   (FST (evaluate(q,t:('a,'c,'ffi)stackSem$state)),
    (SND (evaluate(q,t)) with clock:=clk))
@@ -5623,7 +5717,7 @@ QED
 
 Theorem wLive_LENGTH:
    ∀a bs c q bs'.
-   wLive a bs c = (q,bs')  ∧
+   wLive bits a bs c = (q,bs')  ∧
    LENGTH (append (FST bs)) ≤ SND bs ⇒
    LENGTH (append (FST bs')) ≤ SND bs' ∧
    SND bs - LENGTH (append (FST bs)) = SND bs' - LENGTH (append (FST bs'))
@@ -5687,7 +5781,7 @@ QED
 (* Used in backendProof *)
 Theorem compile_word_to_stack_bitmaps:
    word_to_stack$compile c F p = (bitmaps,c2,prog1) ==>
-    (case bitmaps of [] => F | h::v1 => 4w = h) ∧ c2.bitmaps_length = LENGTH bitmaps
+    (case bitmaps of [] => F | h::v1 => 4n = h) ∧ c2.bitmaps_length = LENGTH bitmaps
 Proof
   fs [word_to_stackTheory.compile_def] \\ pairarg_tac \\ fs [] \\ rw [] \\ fs []
   >- (imp_res_tac compile_word_to_stack_isPREFIX \\ fs[])
@@ -5700,18 +5794,18 @@ Theorem compile_word_to_stack_IMP_ALOOKUP[local]:
     compile_word_to_stack ac perf k code (bs,i) = (progs,fs,bs',i') /\
     ALOOKUP code n = SOME (arg_count,word_prog) /\
     LENGTH (append bs) ≤ i ∧ i - LENGTH (append bs) ≤ LENGTH x ∧
-    isPREFIX (append bs') (DROP (i - LENGTH (append bs)) x) ⇒
+    isPREFIX (MAP n2w (append bs')) (DROP (i - LENGTH (append bs)) x) ⇒
     ∃bs i bs2 i2 f stack_prog.
       compile_prog ac perf word_prog arg_count k (bs,i) = (stack_prog,f,(bs2,i2)) ∧
       LENGTH (append bs) ≤ i ∧ i - LENGTH (append bs) ≤ LENGTH x ∧
-      isPREFIX (append bs2) (DROP (i - LENGTH (append bs)) x) ∧
+      isPREFIX (MAP n2w (append bs2)) (DROP (i - LENGTH (append bs)) x) ∧
       ALOOKUP progs n = SOME stack_prog
 Proof
   Induct \\ fs [] \\ strip_tac \\ PairCases_on `h`
   \\ fs [compile_word_to_stack_def] \\ rw [] \\ fs [LET_THM]
   \\ pairarg_tac \\ fs []
   \\ pairarg_tac \\ fs [] \\ rw []
-  \\ imp_res_tac compile_word_to_stack_isPREFIX
+  \\ imp_res_tac compile_word_to_stack_isPREFIX_words
   THEN1 (
     Cases_on`bitmaps'`
     \\ asm_exists_tac \\ fs [] \\ imp_res_tac IS_PREFIX_TRANS)
@@ -5731,7 +5825,7 @@ val goal = ``
      flat_exp_conventions prog /\
      comp ac F prog (bs,n) (k,f,f') = (sprog, (bs',n')) /\
      LENGTH (append bs) ≤ n ∧ n - LENGTH (append bs) ≤ LENGTH t.bitmaps ∧
-     isPREFIX (append bs') (DROP (n - LENGTH (append bs)) t.bitmaps) ∧
+     isPREFIX (MAP n2w (append bs')) (DROP (n - LENGTH (append bs)) t.bitmaps) ∧
      get_labels sprog SUBSET loc_check t.code /\
      max_var (dimindex (:α)) prog < 2 * f' + 2 * k ==>
      ?ck t1:('a,'c,'ffi) stackSem$state res1.
@@ -5860,12 +5954,12 @@ QED
 Theorem chunk_to_bits_bound:
   ∀ws.
     LENGTH ws < dimindex (:α) ⇒
-    (chunk_to_bits ws : 'a word) ' (LENGTH ws) ∧
-    ∀i. LENGTH ws < i ∧ i < dimindex (:'a) ⇒ ~(chunk_to_bits ws : 'a word) ' i
+    (bitmap_chunk_bits ws : 'a word) ' (LENGTH ws) ∧
+    ∀i. LENGTH ws < i ∧ i < dimindex (:'a) ⇒ ~(bitmap_chunk_bits ws : 'a word) ' i
 Proof
-  Induct \\ fs [chunk_to_bits_def,word_index,FORALL_PROD]
+  Induct \\ fs [bitmap_chunk_bits_def,word_index,FORALL_PROD]
   \\ gen_tac \\ strip_tac \\ gvs []
-  \\ ‘chunk_to_bits ws ≪ 1 + 1w = (chunk_to_bits ws ≪ 1) || 1w’ by
+  \\ ‘bitmap_chunk_bits ws ≪ 1 + 1w = (bitmap_chunk_bits ws ≪ 1) || 1w’ by
    (irule WORD_ADD_OR
     \\ fs [fcpTheory.CART_EQ,word_and_def,word_index,fcpTheory.FCP_BETA,word_lsl_def])
   \\ fs [] \\ IF_CASES_TAC \\ fs []
@@ -5873,10 +5967,10 @@ Proof
 QED
 
 Theorem chunk_to_bits_0:
-  chunk_to_bits ((b,w)::words) ' 0 ⇔ b
+  bitmap_chunk_bits ((b,w)::words) ' 0 ⇔ b
 Proof
-  fs [chunk_to_bits_def]
-  \\ ‘chunk_to_bits words ≪ 1 + 1w = (chunk_to_bits words ≪ 1) || 1w’ by
+  fs [bitmap_chunk_bits_def]
+  \\ ‘bitmap_chunk_bits words ≪ 1 + 1w = (bitmap_chunk_bits words ≪ 1) || 1w’ by
     (irule WORD_ADD_OR
      \\ fs [fcpTheory.CART_EQ,word_and_def,word_index,fcpTheory.FCP_BETA,word_lsl_def])
   \\ fs [] \\ rw []
@@ -5886,7 +5980,7 @@ QED
 Theorem copy_words_for_pattern_thm:
   ∀words xs a off ys dm m.
     LENGTH words < dimindex (:α) ∧ const_addresses a words dm ⇒
-    copy_words_for_pattern (chunk_to_bits words) (LENGTH xs) (a:'a word) off
+    copy_words_for_pattern (bitmap_chunk_bits words) (LENGTH xs) (a:'a word) off
       (xs ++ MAP (i2w o SND) words ++ ys) dm m =
     SOME (LENGTH xs + LENGTH words,
           a + bytes_in_word * n2w (LENGTH words),
@@ -5909,20 +6003,20 @@ Proof
     \\ simp [fcpTheory.CART_EQ,word_index]
     \\ qexists_tac ‘(SUC (LENGTH words))’ \\ simp [fcpTheory.CART_EQ,word_index])
   \\ last_x_assum drule
-  \\ ‘(chunk_to_bits ((p_1,p_2)::words) ⋙ 1) = chunk_to_bits words’ by
-   (fs [chunk_to_bits_def]
-    \\ ‘chunk_to_bits words ≪ 1 + 1w = (chunk_to_bits words ≪ 1) || 1w’ by
+  \\ ‘(bitmap_chunk_bits ((p_1,p_2)::words) ⋙ 1) = bitmap_chunk_bits words’ by
+   (fs [bitmap_chunk_bits_def]
+    \\ ‘bitmap_chunk_bits words ≪ 1 + 1w = (bitmap_chunk_bits words ≪ 1) || 1w’ by
       (irule WORD_ADD_OR
        \\ fs [fcpTheory.CART_EQ,word_and_def,word_index,fcpTheory.FCP_BETA,word_lsl_def])
     \\ simp []
-    \\ qsuff_tac ‘(chunk_to_bits words ≪ 1) ⋙ 1 = chunk_to_bits words’
+    \\ qsuff_tac ‘(bitmap_chunk_bits words ≪ 1) ⋙ 1 = bitmap_chunk_bits words’
     THEN1
      (rw []
       \\ fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_or_def,word_lsl_def,word_lsr_def]
       \\ rw []
-      \\ Cases_on ‘chunk_to_bits words ' i'’ \\ fs []
+      \\ Cases_on ‘bitmap_chunk_bits words ' i'’ \\ fs []
       \\ CCONTR_TAC \\ fs [] \\ gvs [word_index])
-    \\ qsuff_tac ‘~word_msb (chunk_to_bits words)’
+    \\ qsuff_tac ‘~word_msb (bitmap_chunk_bits words)’
     THEN1
      (simp [word_msb_def,fcpTheory.CART_EQ,fcpTheory.FCP_BETA,
             word_or_def,word_lsl_def,word_lsr_def]
@@ -5940,9 +6034,9 @@ Proof
   \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
 QED
 
-Theorem word_msb_chunk_to_bits:
+Theorem word_msb_bitmap_chunk_bits:
   LENGTH words < dimindex (:α) ∧ good_dimindex (:α) ⇒
-  word_msb (chunk_to_bits words : 'a word) = (LENGTH words = dimindex (:α) − 1)
+  word_msb (bitmap_chunk_bits words : 'a word) = (LENGTH words = dimindex (:α) − 1)
 Proof
   rw [] \\ old_drule chunk_to_bits_bound
   \\ Cases_on ‘LENGTH words = dimindex (:α) − 1’ \\ fs []
@@ -5953,26 +6047,26 @@ QED
 Theorem copy_words:
    const_addresses a words dm ∧ good_dimindex (:α) ∧
    LENGTH words < dimindex (:α) ⇒
-   copy_words (LENGTH xs) a off (xs ++ chunk_to_bitmap words ++ ys) dm m =
+   copy_words (LENGTH xs) a off (xs ++ bitmap_chunk words ++ ys) dm m =
      if LENGTH words = dimindex (:α) - 1 then
        copy_words (LENGTH xs + (LENGTH words + 1))
              (a + bytes_in_word * n2w (LENGTH words)) off
-             (xs ++ chunk_to_bitmap words ++ ys) dm
+             (xs ++ bitmap_chunk words ++ ys) dm
              (const_writes a off (MAP (λ(b,i). (b,i2w i)) words) m)
      else
        SOME (a + bytes_in_word * n2w (LENGTH words),
              const_writes (a:'a word) off (MAP (λ(b,i). (b,i2w i)) words) m)
 Proof
-  fs [chunk_to_bitmap_def]
+  fs [bitmap_chunk_def]
   \\ simp [Once copy_words_def]
   \\ simp_tac std_ss [GSYM APPEND_ASSOC,EL_LENGTH_APPEND,NULL]
   \\ fs [EL_LENGTH_APPEND,NULL]
   \\ strip_tac
   \\ old_drule copy_words_for_pattern_thm
-  \\ disch_then (qspec_then ‘xs ++ [chunk_to_bits words]’ mp_tac)
+  \\ disch_then (qspec_then ‘xs ++ [bitmap_chunk_bits words]’ mp_tac)
   \\ disch_then (assume_tac o SPEC_ALL)
   \\ fs [] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND] \\ fs []
-  \\ fs [word_msb_chunk_to_bits]
+  \\ fs [word_msb_bitmap_chunk_bits]
 QED
 
 Theorem const_writes_append:
@@ -6000,13 +6094,13 @@ Theorem copy_words_correct:
   ∀words xs ys a off dm m.
     const_addresses a words dm ∧ good_dimindex (:'a) ⇒
     copy_words (LENGTH xs) (a:'a word) off
-      (xs ++ const_words_to_bitmap words (LENGTH words) ++ ys) dm m =
+      (xs ++ bitmap_consts words (LENGTH words) ++ ys) dm m =
     SOME (a + bytes_in_word * n2w (LENGTH words), const_writes a off (MAP (λ(b,i). (b,i2w i)) words) m)
 Proof
   strip_tac
   \\ completeInduct_on ‘LENGTH words’
   \\ rpt strip_tac \\ gvs [PULL_FORALL]
-  \\ rw [Once const_words_to_bitmap_def]
+  \\ rw [Once bitmap_consts_def]
   THEN1
    (‘LENGTH words < dimindex (:α)’ by fs []
     \\ drule_all copy_words \\ fs [])
@@ -6022,7 +6116,7 @@ Proof
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ disch_then kall_tac
   \\ reverse IF_CASES_TAC THEN1 gvs [Abbr‘h’,LENGTH_TAKE]
-  \\ first_x_assum (qspecl_then [‘t’,‘xs ++ chunk_to_bitmap h’,‘ys’,
+  \\ first_x_assum (qspecl_then [‘t’,‘xs ++ bitmap_chunk h’,‘ys’,
        ‘a + bytes_in_word * n2w (LENGTH h)’,‘off’,‘dm’,
        ‘const_writes a off (MAP (λ(b,i). (b,i2w i)) h) m’] mp_tac)
   \\ rewrite_tac [AND_IMP_INTRO]
@@ -6032,8 +6126,8 @@ Proof
   \\ strip_tac \\ gvs []
   \\ ‘LENGTH t = LENGTH words + 1 - dimindex (:α)’ by
     (unabbrev_all_tac \\ fs [])
-  \\ ‘LENGTH (chunk_to_bitmap h:'a word list) = dimindex (:α)’ by
-    fs [chunk_to_bitmap_def]
+  \\ ‘LENGTH (bitmap_chunk h:'a word list) = dimindex (:α)’ by
+    fs [bitmap_chunk_def]
   \\ fs []
   \\ qpat_x_assum ‘LENGTH t = _’ (assume_tac o GSYM)
   \\ ‘dimindex (:α) − 1 = LENGTH h’ by fs [Abbr‘h’] \\ fs []
@@ -6060,7 +6154,7 @@ Resume comp_correct[StoreConsts]:
   \\ rpt strip_tac \\ gvs [comp_def]
   \\ pairarg_tac \\ gvs []
   \\ qexists_tac ‘0’
-  \\ ‘t.use_store ∧ t.use_alloc ∧ good_dimindex (:'a)’ by fs [state_rel_def]
+  \\ ‘t.use_store ∧ t.use_alloc ∧ good_dimindex (:'a) ∧ isa_bits ac = dimindex (:α)’ by fs [state_rel_def]
   \\ gvs [stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.assign_def,
           stackSemTheory.word_exp_def,post_alloc_conventions_def,call_arg_convention_def]
   \\ IF_CASES_TAC
@@ -6076,13 +6170,13 @@ Resume comp_correct[StoreConsts]:
     (fs [state_rel_def,get_var_def] \\ res_tac \\ ‘3 < k’ by fs [] \\ fs [])
   \\ fs [stackSemTheory.unset_var_def]
   \\ ‘LENGTH t.bitmaps < dimword (:α)’ by fs [state_rel_def]
-  \\ ‘∃xs ys. t.bitmaps = xs ++ const_words_to_bitmap words (LENGTH words) ++ ys ∧
+  \\ ‘∃xs ys. t.bitmaps = xs ++ MAP n2w (const_words_to_bitmap (isa_bits ac) words (LENGTH words)) ++ ys ∧
               LENGTH xs = i’ by (
     fs[insert_bitmap_def]>>rw[]>>
     fs[append_thm]>>
     old_drule isPREFIX_DROP>>
     disch_then(qspec_then`LENGTH(append bs)` mp_tac)>>
-    simp[DROP_APPEND,DROP_LENGTH_NIL]>>
+    simp[DROP_APPEND,DROP_LENGTH_NIL,DROP_LENGTH_TOO_LONG]>>
     DEP_REWRITE_TAC[DROP_DROP]>> simp[]>>
     old_drule IS_PREFIX_LENGTH>> simp[]>>
     strip_tac>>
@@ -6444,7 +6538,7 @@ Resume comp_correct[Seq]:
       post_alloc_conventions (dimindex (:α)) k c2 /\
       flat_exp_conventions c1 /\
       flat_exp_conventions c2` by fs [convs_def]
-  \\ imp_res_tac comp_IMP_isPREFIX
+  \\ imp_res_tac comp_IMP_isPREFIX_words
   \\ imp_res_tac comp_IMP_LENGTH
   \\ rfs[]
   \\ reverse (Cases_on `res' = NONE`) \\ fs [] \\ rpt var_eq_tac
@@ -6806,10 +6900,10 @@ Resume comp_correct[If]:
       last_x_assum (old_drule )>>
       rpt(disch_then (drule_at Any))>>
       impl_tac>- (
-        imp_res_tac comp_IMP_isPREFIX>>
+        imp_res_tac comp_IMP_isPREFIX_words>>
         imp_res_tac comp_IMP_LENGTH>>rfs[]>>
         imp_res_tac evaluate_mono>>fs[]>>rw[]
-        >- (imp_res_tac comp_IMP_isPREFIX>> fs[]>>
+        >- (imp_res_tac comp_IMP_isPREFIX_words>> fs[]>>
           metis_tac[IS_PREFIX_TRANS,isPREFIX_DROP])
         >>
           metis_tac[SUBSET_TRANS,loc_check_SUBSET])>>
@@ -6818,7 +6912,7 @@ Resume comp_correct[If]:
       last_x_assum (drule)>>
       rpt(disch_then (drule_at Any))>>
       impl_tac>- (
-        imp_res_tac comp_IMP_isPREFIX>>
+        imp_res_tac comp_IMP_isPREFIX_words>>
         imp_res_tac comp_IMP_LENGTH>>rfs[]>>
         imp_res_tac evaluate_mono>>fs[]>>rw[]
         >>
@@ -6841,10 +6935,10 @@ Resume comp_correct[If]:
       last_x_assum (old_drule )>>
       rpt(disch_then (drule_at Any))>>
       impl_tac>- (
-        imp_res_tac comp_IMP_isPREFIX>>
+        imp_res_tac comp_IMP_isPREFIX_words>>
         imp_res_tac comp_IMP_LENGTH>>rfs[]>>
         imp_res_tac evaluate_mono>>fs[]>>rw[]
-        >- (imp_res_tac comp_IMP_isPREFIX>> fs[]>>
+        >- (imp_res_tac comp_IMP_isPREFIX_words>> fs[]>>
           metis_tac[IS_PREFIX_TRANS,isPREFIX_DROP])
         >>
           metis_tac[SUBSET_TRANS,loc_check_SUBSET])>>
@@ -6853,7 +6947,7 @@ Resume comp_correct[If]:
       last_x_assum (drule)>>
       rpt(disch_then (drule_at Any))>>
       impl_tac>- (
-        imp_res_tac comp_IMP_isPREFIX>>
+        imp_res_tac comp_IMP_isPREFIX_words>>
         imp_res_tac comp_IMP_LENGTH>>rfs[]>>
         imp_res_tac evaluate_mono>>fs[]>>rw[]
         >>
@@ -6881,11 +6975,11 @@ Resume comp_correct[If]:
       last_x_assum (drule)>>
       rpt(disch_then (drule_at Any))>>
       impl_tac>- (
-        imp_res_tac comp_IMP_isPREFIX>>
+        imp_res_tac comp_IMP_isPREFIX_words>>
         imp_res_tac comp_IMP_LENGTH>>rfs[]>>
         imp_res_tac evaluate_mono>>fs[]>>rw[]
         >- (imp_res_tac IS_PREFIX_LENGTH>>fs[])
-        >- (imp_res_tac comp_IMP_isPREFIX>> fs[]>>
+        >- (imp_res_tac comp_IMP_isPREFIX_words>> fs[]>>
           metis_tac[IS_PREFIX_TRANS,isPREFIX_DROP])
         >>
           metis_tac[SUBSET_TRANS,loc_check_SUBSET])>>
@@ -6894,11 +6988,11 @@ Resume comp_correct[If]:
       last_x_assum (drule_at Any)>>
       rpt(disch_then (drule_at Any))>>
       impl_tac>- (
-        imp_res_tac comp_IMP_isPREFIX>>
+        imp_res_tac comp_IMP_isPREFIX_words>>
         imp_res_tac comp_IMP_LENGTH>>rfs[]>>
         imp_res_tac evaluate_mono>>fs[]>>rw[]
         >- (imp_res_tac IS_PREFIX_LENGTH>>fs[])
-        >- (imp_res_tac comp_IMP_isPREFIX>> fs[]>>
+        >- (imp_res_tac comp_IMP_isPREFIX_words>> fs[]>>
           metis_tac[IS_PREFIX_TRANS,isPREFIX_DROP])
         >>
           metis_tac[SUBSET_TRANS,loc_check_SUBSET]
@@ -6992,7 +7086,7 @@ Resume comp_correct[Install]:
   \\ pairarg_tac \\ fs[]
   \\ qpat_x_assum`compile_word_to_stack ac F k r _ = _`kall_tac
   \\ qmatch_assum_rename_tac`compile_word_to_stack ac F k ps (_,_) = (ps',_)`
-  \\ fs[state_rel_def]
+  \\ fs[state_rel_def,MAP_APPEND]
   \\ CONJ_TAC
   >- (
     qx_gen_tac`z`
@@ -7024,9 +7118,9 @@ Resume comp_correct[Install]:
       \\ asm_exists_tac \\ fs[]
       \\ fs[IS_PREFIX_APPEND]
       \\ fs[lookup_def,the_eqn]
-      \\ qexists_tac`l' ++append (FST bm)`
+      \\ qexists_tac`l' ++ MAP n2w (append (FST bm))`
       \\ simp[DROP_APPEND]
-      \\ `i - (LENGTH (append bs') + LENGTH t.bitmaps) = 0` by
+      \\ `i - (LENGTH t.bitmaps + LENGTH (append bs')) = 0` by
         fs[]
       \\ simp[])
     \\ strip_tac
@@ -7040,8 +7134,8 @@ Resume comp_correct[Install]:
     \\ old_drule compile_word_to_stack_IMP_ALOOKUP
     \\ disch_then drule
     \\ fs[]
-    \\ disch_then(qspec_then`t.bitmaps ++ append q`mp_tac)
-    \\ simp[DROP_APPEND,DROP_LENGTH_NIL]
+    \\ disch_then(qspec_then`t.bitmaps ++ MAP n2w (append q)`mp_tac)
+    \\ simp[DROP_APPEND,DROP_LENGTH_NIL,DROP_LENGTH_TOO_LONG]
     \\ strip_tac
     \\ asm_exists_tac \\ simp[]
     \\ CASE_TAC
@@ -7160,7 +7254,7 @@ Theorem word_exp_Op_Add_0:
 Proof
   eq_tac >>
   gvs[wordSemTheory.word_exp_def,the_words_def,
-    AllCaseEqs(),wordLangTheory.word_op_def] >>
+    AllCaseEqs(),wordSemTheory.word_op_def] >>
   rpt strip_tac >>
   gvs[]
 QED
@@ -7853,7 +7947,7 @@ Resume comp_correct[Loop]:
         (imp_res_tac IS_PREFIX_LENGTH \\ fs[]) \\
       `DROP (n - LENGTH (append bs)) t.bitmaps ≼
        DROP (n - LENGTH (append bs)) t1_b.bitmaps` by fs[isPREFIX_DROP] \\
-      `append bs' ≼ DROP (n - LENGTH (append bs)) t1_b.bitmaps` by
+      `MAP n2w (append bs') ≼ DROP (n - LENGTH (append bs)) t1_b.bitmaps` by
         metis_tac[isPREFIX_TRANS] \\
       `loc_check t.code ⊆ loc_check t1_b.code` by
         (match_mp_tac loc_check_SUBSET \\ fs[]) \\
@@ -8161,7 +8255,9 @@ Resume comp_correct[Call_returning]:
   \\ imp_res_tac evaluate_call_dest_clock
   \\ pop_assum(qspec_then`t` assume_tac)
   \\ Cases_on `bs''`
-  \\ old_drule ((GEN_ALL evaluate_wLive)|> REWRITE_RULE[GSYM AND_IMP_INTRO])
+  \\ old_drule (evaluate_wLive
+       |> REWRITE_RULE [ASSUME ``isa_bits ac = dimindex (:α)``]
+       |> GEN_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO])
   \\ rpt $ disch_then (drule_at Any)
   \\ simp[]
   \\ impl_keep_tac>- (
@@ -8216,7 +8312,7 @@ Resume comp_correct[Call_returning]:
     old_drule IS_PREFIX_LENGTH>>
     simp[])>>
     fs[UNCURRY_EQ] >>
-    imp_res_tac comp_IMP_isPREFIX>> fsrw_tac[][]>>
+    imp_res_tac comp_IMP_isPREFIX_words>> fsrw_tac[][]>>
     old_drule evaluate_mono>>
     metis_tac[IS_PREFIX_TRANS,isPREFIX_DROP])) >>
   strip_tac>>
@@ -8590,7 +8686,7 @@ Resume comp_correct[Call_returning]:
       fsrw_tac[][]>>rw[]
       >- (imp_res_tac IS_PREFIX_LENGTH>>
         simp[])
-      >- (imp_res_tac comp_IMP_isPREFIX>>
+      >- (imp_res_tac comp_IMP_isPREFIX_words>>
         fsrw_tac[][]>>
         metis_tac[IS_PREFIX_TRANS,isPREFIX_DROP])
       >>
@@ -9419,7 +9515,7 @@ Resume comp_correct[Call_returning]:
     fsrw_tac[][]>>rw[]
     >- (imp_res_tac IS_PREFIX_LENGTH>>
       simp[])
-    >- (imp_res_tac comp_IMP_isPREFIX>>
+    >- (imp_res_tac comp_IMP_isPREFIX_words>>
       fsrw_tac[][]>>
       metis_tac[IS_PREFIX_TRANS,isPREFIX_DROP])
     >>
@@ -9836,7 +9932,7 @@ Resume comp_correct[Call_returning]:
       rfs[]>>
       imp_res_tac evaluate_mono >>
       fs[]>>
-      imp_res_tac comp_IMP_isPREFIX>>
+      imp_res_tac comp_IMP_isPREFIX_words>>
       rfs[] >>
       rpt (qpat_x_assum `_ ≼ _` mp_tac) \\
       rpt (pop_assum kall_tac) \\
@@ -10021,7 +10117,7 @@ Resume comp_correct[Call_returning]:
       rfs[]>>
       imp_res_tac evaluate_mono >>
       fs[]>>
-      imp_res_tac comp_IMP_isPREFIX>>
+      imp_res_tac comp_IMP_isPREFIX_words>>
       rfs[] >>
       rpt (qpat_x_assum `_ ≼ _` mp_tac) \\
       rpt (pop_assum kall_tac) \\
@@ -10372,7 +10468,7 @@ Definition init_state_ok_def:
     t.compile_oracle = (λn.
       let ((bm0,cfg),progs) = coracle n in
       let (progs,fs,bm) = word_to_stack$compile_word_to_stack ac F k progs (Nil, bm0) in
-        (cfg,progs,append (FST bm))) ∧
+        (cfg,progs,MAP n2w (append (FST bm)))) ∧
     (∀n. let ((bm0,cfg),progs) = coracle n in
         EVERY (post_alloc_conventions (dimindex (:α)) k o SND o SND) progs ∧
         EVERY (flat_exp_conventions o SND o SND) progs ∧
@@ -10400,7 +10496,7 @@ Definition make_init_def:
      ; code_buffer := t.code_buffer
      ; compile := (λ(bm0,cfg) progs.
       let (progs,fs,bm) = word_to_stack$compile_word_to_stack ac F k progs (Nil, bm0) in
-      OPTION_MAP (λ(bytes,cfg). (bytes,append (FST bm),(SND bm,cfg)))
+      OPTION_MAP (λ(bytes,cfg). (bytes,MAP n2w (append (FST bm)),(SND bm,cfg)))
         (t.compile cfg progs))
      ; compile_oracle := coracle
      ; be      := t.be
@@ -10409,7 +10505,7 @@ Definition make_init_def:
      ; stack_limit := LENGTH t.stack
      ; stack_max   := stack_size([]:'a stack_frame list)
       (* Not sure about Nil,0 *)
-     ; stack_size  := mapi (λn (arg_count,prog). FST (SND (compile_prog ac F prog arg_count k (Nil:'a word app_list,0)))) code
+     ; stack_size  := mapi (λn (arg_count,prog). FST (SND (compile_prog ac F prog arg_count k (Nil:num app_list,0)))) code
      ; locals_size := SOME 0|>
 End
 
@@ -10423,7 +10519,7 @@ Theorem init_state_ok_IMP_state_rel[local]:
        ?bs i bs2 i2 f stack_prog.
          word_to_stack$compile_prog ac F word_prog arg_count k (bs,i) = (stack_prog,f,(bs2,i2)) /\
          LENGTH (append bs) ≤ i ∧ i - LENGTH (append bs) ≤ LENGTH t.bitmaps /\
-         isPREFIX (append bs2) (DROP (i - LENGTH (append bs)) t.bitmaps) /\
+         isPREFIX (MAP n2w (append bs2)) (DROP (i - LENGTH (append bs)) t.bitmaps) /\
          (lookup n t.code = SOME stack_prog)) /\
     domain t.code =
       raise_stub_location INSERT store_consts_stub_location INSERT domain code ∧
@@ -10694,12 +10790,12 @@ val init_state_ok_semantics' =
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
 Theorem compile_semantics:
-    ^t.code = fromAList (SND (SND (SND (compile asm_conf F code : 'a word list # word_to_stack$config # num list # (num # stackLang$prog) list)))) /\
+    ^t.code = fromAList (SND (SND (SND (compile asm_conf F code : num list # word_to_stack$config # num list # (num # stackLang$prog) list)))) /\
     k = (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) /\
     init_state_ok asm_conf k t coracle /\
     (ALOOKUP code raise_stub_location = NONE) /\
     (ALOOKUP code store_consts_stub_location = NONE) /\
-    FST (compile asm_conf F code) ≼ t.bitmaps /\
+    MAP n2w (FST (compile asm_conf F code)) ≼ t.bitmaps /\
     EVERY (λn,m,prog. flat_exp_conventions prog /\
     post_alloc_conventions (dimindex (:α)) (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) prog) code /\
     semantics (make_init asm_conf k t (fromAList code) coracle) start <> Fail ==>
@@ -10722,9 +10818,10 @@ Proof
    TRY (imp_res_tac ALOOKUP_MEM >>
     fs[EVERY_MEM,FORALL_PROD] >>
     metis_tac[]) >>
-   match_mp_tac (compile_word_to_stack_IMP_ALOOKUP |> SIMP_RULE std_ss[SUB_LEFT_LESS_EQ])>>
+   match_mp_tac (compile_word_to_stack_IMP_ALOOKUP |> SIMP_RULE std_ss[SUB_LEFT_LESS_EQ]
+     |> ONCE_REWRITE_RULE [ADD_COMM])>>
    HINT_EXISTS_TAC>>simp[]>>
-   qexists_tac`List [4w]`>>qexists_tac`1`>>simp[]>>
+   qexists_tac`List [4n]`>>qexists_tac`1`>>simp[]>>
    metis_tac[PAIR])>>
   rw [compile_def, extend_with_resource_limit'_def]
   \\ match_mp_tac (GEN_ALL init_state_ok_semantics)
@@ -10738,9 +10835,10 @@ Proof
     (imp_res_tac ALOOKUP_MEM>>
     fs[EVERY_MEM,FORALL_PROD]>>
     metis_tac[])
-  \\ match_mp_tac (compile_word_to_stack_IMP_ALOOKUP |> SIMP_RULE std_ss[SUB_LEFT_LESS_EQ])
+  \\ match_mp_tac (compile_word_to_stack_IMP_ALOOKUP |> SIMP_RULE std_ss[SUB_LEFT_LESS_EQ]
+     |> ONCE_REWRITE_RULE [ADD_COMM])
   \\ HINT_EXISTS_TAC>>simp[]
-  \\ qexists_tac`List [4w]`>>qexists_tac`1`>>simp[]
+  \\ qexists_tac`List [4n]`>>qexists_tac`1`>>simp[]
   \\ metis_tac[PAIR]
 QED
 
@@ -10959,7 +11057,7 @@ QED
 
 Theorem wLive_stack_asm_name[local]:
   (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ∧
-  wLive q bs kf = (q1,bs') ⇒
+  wLive bits q bs kf = (q1,bs') ⇒
   stack_asm_name c q1
 Proof
   PairCases_on`kf`>>
@@ -11132,7 +11230,7 @@ QED
 
 Theorem wLive_stack_asm_remove[local]:
   (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ∧
-  wLive q bs kf = (q1,bs') ⇒
+  wLive bits q bs kf = (q1,bs') ⇒
   stack_asm_remove c q1
 Proof
   PairCases_on`kf`>>
@@ -11706,7 +11804,7 @@ Proof
 QED
 
 Theorem wLive_code_labels[local]:
-  wLive q bs kf = (q',bs') ⇒
+  wLive bits q bs kf = (q',bs') ⇒
   get_code_labels q' = {}
 Proof
   PairCases_on`kf`>>rw[wLive_def]>>fs[]>>
@@ -11988,7 +12086,7 @@ Proof
 QED
 
 Theorem wLive_no_install_lem:
-  no_install $ FST (wLive live bs kf)
+  no_install $ FST (wLive bits live bs kf)
 Proof
   simp[oneline wLive_def] >>
   rpt (TOP_CASE_TAC >> gvs[no_install_def]) >>
@@ -12171,7 +12269,7 @@ Proof
 QED
 
 Theorem wLive_no_shmemop_lem:
-  no_shmemop $ FST (wLive live bs kf)
+  no_shmemop $ FST (wLive bits live bs kf)
 Proof
   simp[oneline wLive_def] >>
   rpt (TOP_CASE_TAC >> gvs[no_shmemop_def]) >>

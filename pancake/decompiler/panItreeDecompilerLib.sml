@@ -38,7 +38,7 @@ val tree_simp_rules = [mem_stores_def, mem_store_def, pair_case_def, flatten_def
                        state_update_locals_locals, upds_multi_memory, DOMSUB_FEMPTY,
                        state_fupdcanon, state_accfupds, option_case_ID, FUPDATE_LIST,
                        bstate_fupdcanon, FOLDR_MAP,FOLDR, option_case_same, bstate_accfupds, result_case_def, con_dif,
-                       neq_1w_0w, asmTheory.word_cmp_def, OPTION_BIND_def, wordLangTheory.word_op_def, pan_op_def, is_valid_value_def,
+                       neq_1w_0w, asmTheory.word_cmp_def, OPTION_BIND_def, wordSemTheory.word_op_def, pan_op_def, is_valid_value_def,
                        shape_of_def, size_of_shape_def, FLOOKUP_SIMP, FUPDATE_LIST_THM,
                        bool_case_ID, bool_case_rev_ID, nb_op_def, eval_simps, size_of_shape_def, shape_of_def,
                        itree_bind_assoc_tuple, itree_bind_v_case_assoc, itree_bind_option_case_assoc, itree_bind_cond_assoc,

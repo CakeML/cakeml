@@ -5,11 +5,24 @@ Theory data_to_word_gcProof
 Libs
   preamble helperLib blastLib
 Ancestors
+  wordSem
   mllist dataSem wordSem[qualified] data_to_word backendProps
   data_to_word_memoryProof dataProps copying_gc int_bitwise
   finite_map wordProps While set_sep semanticsProps alignment
   word_bignum wordLang word_bignumProof gen_gc_partial gc_shared
   word_gcFunctions gen_gc[qualified]
+
+(* The semantic environment may contain values; only its keys are needed. *)
+Definition adjust_set_def:
+  adjust_set names =
+    (fromAList (MAP (λ(n,k). (adjust_var n,())) (toAList names))):num_set
+End
+
+Theorem compiler_adjust_set[simp]:
+  data_to_word$adjust_set names = adjust_set names
+Proof
+  simp [data_to_wordTheory.adjust_set_def,adjust_set_def]
+QED
 
 val _ = augment_srw_ss [rewrites [data_to_wordTheory.arch_size]];
 
@@ -23,7 +36,7 @@ val _ = augment_srw_ss [rewrites [integer_wordTheory.i2w_pos, integer_wordTheory
   data_to_wordTheory.make_cons_ptr_def]]
 
 val shift_def = backend_commonTheory.word_shift_def
-val upper_w2w_def = backend_commonTheory.upper_w2w_def
+val upper_w2w_def = wordSemTheory.upper_w2w_def
 val isWord_def = wordSemTheory.isWord_def
 val theWord_def = wordSemTheory.theWord_def
 val is_fwd_ptr_def = wordSemTheory.is_fwd_ptr_def
@@ -8174,8 +8187,8 @@ QED
 Theorem word_exp_rw =
   LIST_CONJ
   [wordSemTheory.word_exp_def,
-   wordLangTheory.word_op_def,
-   wordLangTheory.word_sh_def,
+   wordSemTheory.word_op_def,
+   wordSemTheory.word_sh_def,
    wordSemTheory.get_var_def,
    wordSemTheory.get_var_imm_def,
    wordSemTheory.the_words_def,
@@ -8450,7 +8463,7 @@ Proof
              wordSemTheory.set_var_def,EVAL ``read_bytearray a 0 m``,
              ffiTheory.call_FFI_def,EVAL ``write_bytearray a [] m dm b``,
              wordSemTheory.get_var_def,lookup_insert,list_Seq_def,
-             wordSemTheory.the_words_def,wordLangTheory.word_op_def,
+             wordSemTheory.the_words_def,wordSemTheory.word_op_def,
              cut_names_adjust_set_insert_ODD,wordSemTheory.get_store_def]
       \\ fs [Q.SPECL [`3`,`1`] insert_insert |> SIMP_RULE std_ss [],
              Q.SPECL [`7`,`1`] insert_insert |> SIMP_RULE std_ss [],
@@ -8523,7 +8536,7 @@ Proof
          wordSemTheory.set_var_def,EVAL ``read_bytearray a 0 m``,
          ffiTheory.call_FFI_def,EVAL ``write_bytearray a [] m dm b``,
          wordSemTheory.get_var_def,lookup_insert,list_Seq_def,
-         wordSemTheory.the_words_def,wordLangTheory.word_op_def,
+         wordSemTheory.the_words_def,wordSemTheory.word_op_def,
          wordSemTheory.get_store_def]
   \\ fs [Q.SPECL [`3`,`1`] insert_insert |> SIMP_RULE std_ss [],
          Q.SPECL [`7`,`1`] insert_insert |> SIMP_RULE std_ss [],

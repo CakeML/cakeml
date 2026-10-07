@@ -5,6 +5,7 @@ Theory stack_to_labProof
 Libs
   preamble
 Ancestors
+  wordSem
   data_to_word_gcProof[qualified] word_to_stackProof[qualified]
   wordSem[qualified] wordProps
   stack_namesProof stack_rawcallProof[qualified]
@@ -32,7 +33,7 @@ Overload Loc = “wordSem$Loc”
 Theorem word_sh_word_shift:
    word_sh a (b: α word) c = SOME z ⇒ c < dimindex (:α) ∧ z = word_shift a b c
 Proof
-  rw [wordLangTheory.word_sh_def |> oneline, AllCaseEqs()]
+  rw [wordSemTheory.word_sh_def |> oneline, AllCaseEqs()]
   >> simp [asmSemTheory.word_shift_def]
 QED
 
@@ -748,7 +749,7 @@ Proof
   imp_res_tac state_rel_read_fp_reg_FLOOKUP_fp_regs >> rfs[] >> rw[] >>
   imp_res_tac word_sh_word_shift >>
   simp[w2n_lt] >>
-  full_simp_tac(srw_ss())[wordLangTheory.word_op_def] >> srw_tac[][] >>
+  full_simp_tac(srw_ss())[wordSemTheory.word_op_def] >> srw_tac[][] >>
   imp_res_tac state_rel_read_reg_FLOOKUP_regs >> rfs[] >> rw[] >>
   TRY ( full_simp_tac(srw_ss())[binop_upd_def] >> match_mp_tac set_var_upd_reg >> full_simp_tac(srw_ss())[] >> NO_TAC) >>
   TRY ( match_mp_tac set_fp_var_upd_fp_reg >> full_simp_tac(srw_ss())[] >> NO_TAC) >>
@@ -757,7 +758,7 @@ Proof
     rename1 `mem_load` >>
     full_simp_tac(srw_ss())[stackSemTheory.mem_load_def,labSemTheory.mem_load_def,labSemTheory.addr_def] >>
     full_simp_tac(srw_ss())[word_exp_def,LET_DEF] \\ every_case_tac \\ full_simp_tac(srw_ss())[]>>
-    res_tac \\ full_simp_tac(srw_ss())[wordLangTheory.word_op_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] >>
+    res_tac \\ full_simp_tac(srw_ss())[wordSemTheory.word_op_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] >>
     TRY ( qpat_x_assum`Loc _ _ = read_reg _ _`(assume_tac o SYM) ) >>
     TRY(qpat_x_assum`Word _ = _`(assume_tac o SYM) >> full_simp_tac(srw_ss())[]) >>
     `t1.mem_domain = s1.mdomain ∧ t1.mem = s1.memory` by ( full_simp_tac(srw_ss())[state_rel_def] ) >> full_simp_tac(srw_ss())[] >>
@@ -770,7 +771,7 @@ Proof
     rename1`mem_store` >>
     full_simp_tac(srw_ss())[stackSemTheory.word_exp_def,LET_THM,IS_SOME_EXISTS] >>
     every_case_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
-    full_simp_tac(srw_ss())[wordLangTheory.word_op_def,stackSemTheory.get_var_def] >> rpt var_eq_tac >>
+    full_simp_tac(srw_ss())[wordSemTheory.word_op_def,stackSemTheory.get_var_def] >> rpt var_eq_tac >>
     res_tac >>
     TRY ( qpat_x_assum`Loc _ _ = read_reg _ _`(assume_tac o SYM) ) >>
     TRY(qpat_x_assum`Word _ = _`(assume_tac o SYM) >> full_simp_tac(srw_ss())[]) >>
@@ -789,7 +790,7 @@ Proof
     \\ fs[wordSemTheory.mem_store_32_alt]
     \\ every_case_tac \\ fs[]
     \\ fs[mem_store32_def,addr_def]
-    \\ fs[word_exp_def,wordLangTheory.word_op_def]
+    \\ fs[word_exp_def,wordSemTheory.word_op_def]
     \\ qpat_x_assum`IS_SOME _`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -818,7 +819,7 @@ Proof
     qhdtm_x_assum`mem_load_32`mp_tac
     \\ fs[wordSemTheory.mem_load_32_alt,labSemTheory.mem_load32_def,labSemTheory.addr_def]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ fs[word_exp_def,wordLangTheory.word_op_def]
+    \\ fs[word_exp_def,wordSemTheory.word_op_def]
     \\ qpat_x_assum`IS_SOME _`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -839,7 +840,7 @@ Proof
     \\ fs[wordSemTheory.mem_store_byte_aux_def]
     \\ every_case_tac \\ fs[]
     \\ fs[mem_store_byte_def,addr_def]
-    \\ fs[word_exp_def,wordLangTheory.word_op_def]
+    \\ fs[word_exp_def,wordSemTheory.word_op_def]
     \\ qpat_x_assum`IS_SOME _`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -868,7 +869,7 @@ Proof
     qhdtm_x_assum`mem_load_byte_aux`mp_tac
     \\ fs[wordSemTheory.mem_load_byte_aux_def,labSemTheory.mem_load_byte_def,labSemTheory.addr_def]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ fs[word_exp_def,wordLangTheory.word_op_def]
+    \\ fs[word_exp_def,wordSemTheory.word_op_def]
     \\ qpat_x_assum`IS_SOME _`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -2595,7 +2596,7 @@ Resume flatten_correct[ShMemOp]:
             CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV word_to_bytes_aux_def]) >>
     Cases_on ‘op’>>
     fs[stackSemTheory.evaluate_def,flatten_def]>>
-    fs[word_exp_def,IS_SOME_EXISTS,wordLangTheory.word_op_def]>>
+    fs[word_exp_def,IS_SOME_EXISTS,wordSemTheory.word_op_def]>>
     gs[case_eq_thms]>>
     rveq>>fs[]>>
     gs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def,
@@ -3814,7 +3815,7 @@ Theorem IMP_init_state_ok:
   stack_oracle =
   (λn.
    (λ((bm0,cfg),progs).
-      (λ(progs,fs,bm). (cfg,progs,append (FST bm)))
+      (λ(progs,fs,bm). (cfg,progs,MAP n2w (append (FST bm))))
         (compile_word_to_stack
            ac F kkk progs
            (Nil, bm0))) (word_oracle n)) ∧

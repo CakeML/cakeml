@@ -58,8 +58,7 @@ val r = translate displayLangTheory.display_to_str_tree_def;
 (* presLang *)
 
 val res = translate presLangTheory.num_to_hex_def;
-val res = translate (presLangTheory.word_to_display_def |> INST_TYPE [``:'a``|->``:8``]);
-val res = translate (presLangTheory.word_to_display_def |> INST_TYPE [``:'a``|->``:64``]);
+val res = translate presLangTheory.word_to_display_def;
 
 val res = translate presLangTheory.source_to_strs_def;
 

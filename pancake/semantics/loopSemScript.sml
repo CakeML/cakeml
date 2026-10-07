@@ -3,6 +3,7 @@
 *)
 Theory loopSem
 Ancestors
+  wordSem
   loopLang alignment[qualified] finite_map[qualified]
   misc[qualified] wordSem[qualified] ffi[qualified]
   machine_ieee[qualified] (* for FP *)

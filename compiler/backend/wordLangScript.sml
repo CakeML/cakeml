@@ -297,27 +297,6 @@ Definition max_var_def:
   (max_var bits p = 0)
 End
 
-Definition word_op_def:
-  word_op op (ws:('a word) list) =
-    case (op,ws) of
-    | (And,ws) => SOME (FOLDR word_and (¬0w) ws)
-    | (Add,ws) => SOME (FOLDR word_add 0w ws)
-    | (Or,ws) => SOME (FOLDR word_or 0w ws)
-    | (Xor,ws) => SOME (FOLDR word_xor 0w ws)
-    | (Sub,[w1;w2]) => SOME (w1 - w2)
-    | _ => NONE
-End
-
-Definition word_sh_def:
-  word_sh sh (w:'a word) n =
-    if n <> 0 /\ n ≥ dimindex (:α) then NONE else
-      case sh of
-      | Lsl => SOME (w << n)
-      | Lsr => SOME (w >>> n)
-      | Asr => SOME (w >> n)
-      | Ror => SOME (word_ror w n)
-End
-
 Definition exp_to_addr_def:
   (exp_to_addr (Var ad) = SOME $ Addr ad 0) /\
   (exp_to_addr (Op Add [Var ad;Const offset]) = SOME $ Addr ad offset) /\

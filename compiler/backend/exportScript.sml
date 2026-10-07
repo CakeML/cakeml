@@ -144,7 +144,7 @@ Definition words_line_def:
 End
 
 Definition word_to_string_def:
-  word_to_string w = toString(w2n w)
+  word_to_string (n:num) = toString n
 End
 
 Definition byte_to_string_def:

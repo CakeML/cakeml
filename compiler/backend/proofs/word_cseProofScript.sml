@@ -128,12 +128,6 @@ Proof
   \\ gvs [canonicalImmReg'_def, word_exp_def, GSYM get_var_def]
 QED
 
-Theorem wordToNum_unique[simp]:
-  ∀c1 c2. wordToNum c1 = wordToNum c2 ⇔ c1 = c2
-Proof
-  gvs [wordToNum_def]
-QED
-
 Theorem intToNum_unique[simp]:
   ∀i1 i2. intToNum i1 = intToNum i2 ⇔ i1 = i2
 Proof
@@ -249,10 +243,10 @@ Proof
   \\ gvs [evaluate_def, inst_def, word_exp_def, the_words_def, set_var_def,
           lookup_insert, mem_load_def, get_var_def]
   >- (Cases_on ‘lookup a s.locals’ \\ gvs []
-      \\ Cases_on ‘x’ \\ gvs [wordLangTheory.word_op_def]
+      \\ Cases_on ‘x’ \\ gvs [wordSemTheory.word_op_def]
       \\ IF_CASES_TAC \\ gvs [state_component_equality, insert_eq])
   \\ Cases_on ‘lookup a s.locals’ \\ gvs []
-  \\ Cases_on ‘x’ \\ gvs [wordLangTheory.word_op_def]
+  \\ Cases_on ‘x’ \\ gvs [wordSemTheory.word_op_def]
   \\ TOP_CASE_TAC
   \\ gvs [AllCaseEqs()] \\ gvs [state_component_equality, insert_eq]
 QED
@@ -396,10 +390,10 @@ Proof
   \\ gvs [evaluate_def, inst_def, word_exp_def, the_words_def, set_var_def,
           unset_var_def, lookup_delete, mem_load_def, get_var_def]
   >- (Cases_on ‘lookup a s.locals’ \\ gvs []
-      \\ Cases_on ‘x’ \\ gvs [wordLangTheory.word_op_def]
+      \\ Cases_on ‘x’ \\ gvs [wordSemTheory.word_op_def]
       \\ IF_CASES_TAC \\ gvs [state_component_equality, insert_eq])
   \\ Cases_on ‘lookup a s.locals’ \\ gvs []
-  \\ Cases_on ‘x’ \\ gvs [wordLangTheory.word_op_def]
+  \\ Cases_on ‘x’ \\ gvs [wordSemTheory.word_op_def]
   \\ TOP_CASE_TAC
   \\ gvs [AllCaseEqs()] \\ gvs [state_component_equality, insert_eq]
 QED
@@ -2266,10 +2260,10 @@ Proof
   \\ gvs [evaluate_def, inst_def, word_exp_def, the_words_def, set_var_def,
           mem_load_def, get_var_def]
   >- (Cases_on ‘lookup a s.locals’ \\ gvs []
-      \\ Cases_on ‘x’ \\ gvs [wordLangTheory.word_op_def]
+      \\ Cases_on ‘x’ \\ gvs [wordSemTheory.word_op_def]
       \\ IF_CASES_TAC \\ gvs [state_component_equality, insert_eq])
   \\ Cases_on ‘lookup a s.locals’ \\ gvs []
-  \\ Cases_on ‘x’ \\ gvs [wordLangTheory.word_op_def]
+  \\ Cases_on ‘x’ \\ gvs [wordSemTheory.word_op_def]
   \\ TOP_CASE_TAC
   \\ gvs [AllCaseEqs()] \\ gvs [state_component_equality, insert_eq]
 QED

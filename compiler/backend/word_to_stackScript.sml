@@ -223,9 +223,9 @@ Definition wShareInst_def:
 End
 
 Definition bits_to_word_def:
-  (bits_to_word [] = 0w) /\
-  (bits_to_word (T::xs) = (bits_to_word xs << 1 || 1w)) /\
-  (bits_to_word (F::xs) = (bits_to_word xs << 1))
+  (bits_to_word [] = 0n) /\
+  (bits_to_word (T::xs) = (2 * bits_to_word xs + 1)) /\
+  (bits_to_word (F::xs) = (2 * bits_to_word xs))
 End
 
 Definition word_list_def:
@@ -238,22 +238,22 @@ Termination
 End
 
 Definition write_bitmap_def:
-  (write_bitmap live k f'):'a word list =
+  (write_bitmap bits (live:num_set) k f'):num list =
     let names = MAP (\(r,y). (f' -1) - (r DIV 2 - k)) (toAList live) in
-      word_list (GENLIST (\x. MEM x names) f' ++ [T]) (dimindex(:'a) - 1)
+      word_list (GENLIST (\x. MEM x names) f' ++ [T]) (bits - 1)
 End
 
 Definition insert_bitmap_def:
-  insert_bitmap ws (data,data_len) =
+  insert_bitmap (ws:num list) (data,data_len) =
     let l = LENGTH ws in
       ((Append data (List ws), data_len + l), data_len)
 End
 
 Definition wLive_def:
-  wLive (live:cutsets) (bitmaps:'a word app_list # num) (k,f:num,f':num) =
+  wLive bits (live:cutsets) (bitmaps:num app_list # num) (k,f:num,f':num) =
     if f = 0 then (Skip,bitmaps)
     else
-      let (new_bitmaps,i) = insert_bitmap (write_bitmap (SND live) k f') bitmaps in
+      let (new_bitmaps,i) = insert_bitmap (write_bitmap bits (SND live) k f') bitmaps in
         (Seq (Inst (Const k (&(i+1)))) (StackStore k 0):stackLang$prog,new_bitmaps)
 End
 
@@ -272,7 +272,7 @@ Definition call_dest_def:
 End
 
 Definition stack_arg_count_def:
-  stack_arg_count dest arg_count k =
+  stack_arg_count (dest:num + num) arg_count k =
     case dest of
     | INL _ => (arg_count - k:num)
     | INR _ => ((arg_count - 1) - k:num)
@@ -353,7 +353,7 @@ Definition StackHandlerArgs_def:
 End
 
 Definition PushHandler_def:
-  PushHandler perf l1 l2 (k,f,f') =
+  PushHandler perf l1 l2 (k:num,f:num,f':num) =
     Seq (StackAlloc (handler_slots perf))
    (Seq (Inst (Const k 1))
    (Seq (StackStore k 0)
@@ -376,7 +376,7 @@ Definition PushHandler_def:
 End
 
 Definition PopHandler_def:
-  PopHandler perf (k,f,f') prog =
+  PopHandler perf (k:num,f:num,f':num) prog =
    Seq (StackLoad k 2)
   (Seq (Set Handler k)
   (Seq (StackFree (handler_slots perf))
@@ -384,24 +384,25 @@ Definition PopHandler_def:
 End
 
 Definition chunk_to_bits_def:
-  chunk_to_bits ([]:(bool # int) list) = 1w:'a word ∧
+  chunk_to_bits ([]:(bool # int) list) = 1n ∧
   chunk_to_bits ((b,w)::ws) =
-    let res = (chunk_to_bits ws) << 1 in
-      if b then res + 1w else res
+    let res = 2 * chunk_to_bits ws in
+      if b then res + 1 else res
 End
 
 Definition chunk_to_bitmap_def:
-  chunk_to_bitmap ws = chunk_to_bits ws :: MAP (i2w o SND) ws
+  chunk_to_bitmap bits ws =
+    chunk_to_bits ws :: MAP (\(_,w). Num (w % &(2 ** bits))) ws
 End
 
 Definition const_words_to_bitmap_def:
-  (const_words_to_bitmap (ws:(bool # int) list) (ws_len:num):α word list) =
-    if ws_len < (dimindex (:'a) - 1) ∨ (dimindex (:'a) - 1) = 0
-    then chunk_to_bitmap ws
+  (const_words_to_bitmap bits (ws:(bool # int) list) (ws_len:num):num list) =
+    if ws_len < (bits - 1) ∨ (bits - 1) = 0
+    then chunk_to_bitmap bits ws
     else
-      let h = TAKE (dimindex (:'a) - 1) ws in
-      let t = DROP (dimindex (:'a) - 1) ws in
-        chunk_to_bitmap h ++ const_words_to_bitmap t (ws_len - (dimindex (:'a) - 1))
+      let h = TAKE (bits - 1) ws in
+      let t = DROP (bits - 1) ws in
+        chunk_to_bitmap bits h ++ const_words_to_bitmap bits t (ws_len - (bits - 1))
 End
 
 (* Store a large constant in the second temporary *)
@@ -415,13 +416,13 @@ End
 
 (* Stack slots used in multi-arg return *)
 Definition num_stack_ret_def:
-  num_stack_ret k vs =
+  num_stack_ret k (vs:num list) =
   LENGTH vs + 1 - k
 End
 
 (* Number of slots to free by callee *)
 Definition skip_free_def:
-  skip_free (k,f,f') vs =
+  skip_free (k,f,f':num) vs =
     f - num_stack_ret k vs
 End
 
@@ -441,7 +442,7 @@ Definition copy_ret_aux_def:
 End
 
 Definition copy_ret_def:
-  copy_ret perf is_handle (k,f,f') vs kont =
+  copy_ret perf is_handle (k,f,f':num) vs kont =
   let n = num_stack_ret k vs in
   if n = 0 then kont
   else Seq
@@ -502,7 +503,7 @@ Definition comp_def:
      | NONE => (Seq q0 (SeqStackFree (stack_free dest (LENGTH args) kf)
                  (Call NONE dest NONE)),bs)
      | SOME (vs, live, ret_code, l1, l2) =>
-         let (q1,bs) = wLive live bs kf in
+         let (q1,bs) = wLive (isa_bits conf) live bs kf in
          let (q2,bs) = comp conf perf ret_code bs kf in
          let pre = if perf then perf_call_prefix l1 l2 (FST kf) else Skip in
          let suf = if perf then perf_call_suffix else Skip in
@@ -526,10 +527,10 @@ Definition comp_def:
                           (Call (SOME (q3,0,l1,l2)) dest (SOME (q4,h1,h2))))))),
                 bs)) /\
   (comp conf perf (Alloc r live) bs kf =
-     let (q1,bs) = wLive live bs kf in
+     let (q1,bs) = wLive (isa_bits conf) live bs kf in
        (Seq q1 (Alloc 1),bs)) /\
   (comp conf perf (StoreConsts a b c d ws) bs kf =
-     let (new_bs,i) = insert_bitmap (const_words_to_bitmap ws (LENGTH ws)) bs in
+     let (new_bs,i) = insert_bitmap (const_words_to_bitmap (isa_bits conf) ws (LENGTH ws)) bs in
        (Seq (Inst (Const 1 (&i)))
             (StoreConsts (FST kf) (FST kf + 1) (SOME store_consts_stub_location)),new_bs)) /\
   (comp conf perf (LocValue r l1) bs kf = (wRegWrite1 (λr. LocValue r l1 0) r kf,bs)) /\
@@ -590,7 +591,7 @@ Definition compile_prog_def:
 End
 
 Definition compile_word_to_stack_def:
-  (compile_word_to_stack asm_conf perf k [] bitmaps = ([],[],bitmaps)) /\
+  (compile_word_to_stack asm_conf perf k ([]:(num # num # wordLang$prog) list) bitmaps = ([],[],bitmaps)) /\
   (compile_word_to_stack asm_conf perf k ((i,n,p)::progs) bitmaps =
      let (prog,f,bitmaps) = compile_prog asm_conf perf p n k bitmaps in
      let (progs,fs,bitmaps) = compile_word_to_stack asm_conf perf k progs bitmaps in
@@ -603,7 +604,7 @@ Definition compile_def:
     (* Since we increase the slots for the handler when perf=T, we need to
        update the bitmap to ensure that GC leaves the new entries alone. *)
     let init_bitmaps =
-        if perf then (List [16w], 1n) else (List [4w], 1n) in
+        if perf then (List [16n], 1n) else (List [4n], 1n) in
     let (progs,fs,bitmaps) = compile_word_to_stack asm_conf perf k progs init_bitmaps in
     let sfs = fromAList (MAP (λ((i,_),n). (i,n)) (ZIP (progs,fs))) in
       (append (FST bitmaps),

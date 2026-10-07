@@ -5,6 +5,7 @@ Theory stack_allocProof
 Libs
   preamble blastLib[qualified]
 Ancestors
+  wordSem
   stack_alloc stackLang stackSem stackProps
   word_gcFunctions (* for memcpy *)
   wordSem[qualified]
@@ -395,18 +396,18 @@ Proof
 QED
 
 val tac = simp [GSYM bytes_in_word_def,list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
-       wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
+       wordSemTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
        asmTheory.word_cmp_def,
        wordSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
-       wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE];
+       wordSemTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE];
 
 val tac1 = simp [GSYM bytes_in_word_def,Once list_Seq_def, evaluate_def,inst_def,word_exp_def,get_var_def,
-       wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
+       wordSemTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
        asmTheory.word_cmp_def,set_store_def,
        wordSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
-       wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE];
+       wordSemTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE];
 
 fun fold_code def =
   ASSUM_LIST (fn ths =>
@@ -5123,11 +5124,11 @@ Proof
   \\ IF_CASES_TAC \\ strip_tac \\ fs [] \\ rveq \\ fs []
   \\ fs [list_Seq_def,evaluate_def,word_gc_fun_assum_def,
        list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
-       wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
+       wordSemTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
        asmTheory.word_cmp_def,FAPPLY_FUPDATE_THM,
        wordSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
-       wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE]
+       wordSemTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE]
   \\ fs [wordSemTheory.word_cmp_def,FAPPLY_FUPDATE_THM,FLOOKUP_DEF,set_store_def]
   \\ fs [state_component_equality,FAPPLY_FUPDATE_THM]
   \\ Cases_on `s.store ' CurrHeap` \\ fs [isWord_def,theWord_def]
@@ -5321,7 +5322,7 @@ Proof
     metis_tac[SUBMAP_FUPDATE_both])
   >-
     (TOP_CASE_TAC>>rw[]>>
-    fs[assign_def,word_exp_def,wordLangTheory.word_op_def,get_vars_def,get_var_def]>>
+    fs[assign_def,word_exp_def,wordSemTheory.word_op_def,get_vars_def,get_var_def]>>
     fs[case_eq_thms] \\ rw[] \\ fs[IS_SOME_EXISTS,case_eq_thms] \\
     imp_res_tac FLOOKUP_SUBMAP>>fs[] \\
     TRY(Cases_on`r`) \\ fs[case_eq_thms,IS_SOME_EXISTS,word_exp_def]>>
@@ -5332,7 +5333,7 @@ Proof
     (TOP_CASE_TAC>>rw[]>>
     TOP_CASE_TAC>>rw[]>>
     fs[]>>qpat_x_assum`A=SOME t` mp_tac>>
-    fs[assign_def,word_exp_def,wordLangTheory.word_op_def,get_vars_def,get_var_def,mem_load_def,mem_store_def]>>
+    fs[assign_def,word_exp_def,wordSemTheory.word_op_def,get_vars_def,get_var_def,mem_load_def,mem_store_def]>>
     every_case_tac>>
     imp_res_tac FLOOKUP_SUBMAP>>fs[set_var_def,state_component_equality]>>
     rw[]>>fs[]>>
@@ -5912,7 +5913,7 @@ Proof
     fs[word_exp_def,sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,IS_SOME_EXISTS,
        sh_mem_load32_def,sh_mem_store32_def,
        sh_mem_load16_def,sh_mem_store16_def,
-       wordLangTheory.word_op_def,sh_mem_load_byte_def,sh_mem_store_byte_def,
+       wordSemTheory.word_op_def,sh_mem_load_byte_def,sh_mem_store_byte_def,
        get_var_def,dec_clock_def,empty_env_def]>>
     fs[case_eq_thms] \\ rw[] \\
     TRY (qexists_tac ‘0’)>>

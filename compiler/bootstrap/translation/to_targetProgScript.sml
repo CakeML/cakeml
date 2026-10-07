@@ -46,25 +46,14 @@ fun def_of_const tm = let
 val _ = find_def_for_const := def_of_const;
 val _ = use_long_names := true;
 
-fun translate_bitmaps ty = let
-  val spec = INST_TYPE [alpha |-> ty]
-  val conv = GEN_ALL o CONV_RULE wordsLib.WORD_CONV o spec o SPEC_ALL
-  val _ = translate (word_to_stackTheory.chunk_to_bits_def |> conv)
-  val _ = translate (word_to_stackTheory.chunk_to_bitmap_def |> SRULE [combinTheory.o_DEF] |> conv)
-  val res = translate_no_ind (word_to_stackTheory.const_words_to_bitmap_def |> conv)
-  val pre_tm = hd (hyp res)
-  val pre_name = fst (dest_const pre_tm)
-  val pre_def = fetch "-" (pre_name ^ "_def")
-  val total = prove (pre_tm,
-    rw [pre_def] \\ qid_spec_tac `v3` \\ completeInduct_on `v4`
-    \\ gen_tac \\ last_x_assum irule \\ rw []
-    \\ first_x_assum irule \\ simp [])
-  val _ = save_thm (pre_name ^ "_total", total)
-  val _ = update_precondition total
-  val _ = translate (word_to_stackTheory.write_bitmap_def |> conv |> REWRITE_RULE (!extra_preprocessing))
-  val _ = translate (word_to_stackTheory.wLive_def |> SIMP_RULE std_ss [LET_THM] |> conv)
- in () end;
-val _ = List.app translate_bitmaps [“:32”,“:64”];
+val _ = translate word_to_stackTheory.bits_to_word_def;
+val _ = translate word_to_stackTheory.word_list_def;
+val _ = translate word_to_stackTheory.chunk_to_bits_def;
+val _ = translate word_to_stackTheory.chunk_to_bitmap_def;
+val _ = translate word_to_stackTheory.const_words_to_bitmap_def;
+val _ = translate (word_to_stackTheory.write_bitmap_def
+  |> REWRITE_RULE (!extra_preprocessing));
+val _ = translate (word_to_stackTheory.wLive_def |> SIMP_RULE std_ss [LET_THM]);
 
 (* TODO: the name is messed up (pair_) *)
 val _ = translate PAIR_MAP
@@ -93,15 +82,10 @@ val _ = translate (word_to_stackTheory.StackHandlerArgs_def |> INST_TYPE [alpha|
 val _ = translate (word_to_stackTheory.PushHandler_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
 val _ = translate (word_to_stackTheory.PopHandler_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
 
-fun translate_word_to_stack ty = let
-  val spec = INST_TYPE [alpha |-> ty]
-  val _ = translate (word_to_stackTheory.comp_def |> spec)
-  (* Labels are numbers; only the bitmap words vary by target. *)
-  val _ = translate (word_to_stackTheory.compile_word_to_stack_def
-    |> INST_TYPE [alpha |-> “:num”, beta |-> ty])
-  val _ = translate (word_to_stackTheory.compile_def |> spec)
- in () end;
-val _ = List.app translate_word_to_stack [“:32”,“:64”];
+val _ = translate word_to_stackTheory.comp_def;
+val _ = translate (word_to_stackTheory.compile_word_to_stack_def
+  |> INST_TYPE [alpha |-> “:num”]);
+val _ = translate word_to_stackTheory.compile_def;
 
 (* stack_rawcall *)
 

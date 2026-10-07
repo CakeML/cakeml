@@ -312,7 +312,7 @@ Definition compile_pancake_def:
           let _ = empty_ffi «finished: lexing and parsing» in
           case pan_passes$pan_compile_tap asm_conf c funs of
           | (NONE,td) => (M_failure AssembleError, td, MAP StaticError warns)
-          | (SOME (bytes,data:'a word list,c),td) => (M_success (bytes,data,c), td, MAP StaticError warns)
+          | (SOME (bytes,data:num list,c),td) => (M_success (bytes,data,c), td, MAP StaticError warns)
 End
 
 (* The top-level compiler *)
@@ -703,7 +703,7 @@ Definition format_compiler_result_def:
   format_compiler_result bytes_export (M_failure err) =
     (List[]:mlstring app_list, error_to_str err) ∧
   format_compiler_result bytes_export
-    (M_success ((bytes:word8 list),(data:'a word list),(c:backend$config))) =
+    (M_success ((bytes:word8 list),(data:num list),(c:backend$config))) =
     (bytes_export (the [] c.lab_conf.ffi_names) bytes data, implode "")
 End
 

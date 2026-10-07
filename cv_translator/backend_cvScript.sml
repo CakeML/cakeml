@@ -846,7 +846,6 @@ val _ = cv_trans word_cseTheory.map_insert_def;
 val _ = cv_auto_trans word_cseTheory.canonicalMoveRegs_def;
 val _ = cv_trans word_cseTheory.canonicalArith_def;
 val _ = cv_trans word_cseTheory.canonicalFp_def;
-val _ = cv_trans word_cseTheory.wordToNum_def;
 val _ = cv_trans word_cseTheory.shiftToNum_def;
 val _ = cv_trans word_cseTheory.arithOpToNum_def;
 val _ = cv_trans word_cseTheory.regImmToNumList_def;

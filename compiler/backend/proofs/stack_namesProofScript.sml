@@ -5,6 +5,7 @@ Theory stack_namesProof
 Libs
   preamble dep_rewrite[qualified]
 Ancestors
+  wordSem
   stack_names stackSem stackProps
 
 val _ = bring_to_front_overload"prog_comp"{Name="prog_comp",Thy="stack_names"};
@@ -260,7 +261,7 @@ Proof
   CASE_TAC >> rfs[get_vars_def,get_fp_var_def] >>
   every_case_tac >> fs[LET_THM,word_exp_def,ri_find_name_def] >>
   rw[] >> fs[] >> rfs[] >> rw[set_var_find_name,set_fp_var_find_name]
-  \\ every_case_tac \\ fs [wordLangTheory.word_op_def]
+  \\ every_case_tac \\ fs [wordSemTheory.word_op_def]
   \\ rw [] \\ fs [] \\ fs [BIJ_DEF,INJ_DEF] \\ res_tac
   \\ fs [rename_state_with_memory]
 QED
@@ -490,7 +491,7 @@ Proof
     fs[word_exp_def,IS_SOME_EXISTS,empty_env_def]>>
     simp[sh_mem_op_rename_store]>>
     rpt (CASE_TAC>>gs[])>>
-    gs[wordLangTheory.word_op_def,dec_clock_rename_state]>>
+    gs[wordSemTheory.word_op_def,dec_clock_rename_state]>>
     rveq>>gs[rename_state_def])
   >~ [‘DataBufferWrite’] >- (
     simp[Once comp_def] \\

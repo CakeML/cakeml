@@ -428,13 +428,11 @@ val _ = res |> hyp |> null orelse
 (* explorer specific functions *)
 
 val r = presLangTheory.num_to_hex_def |> translate;
-val r = presLangTheory.word_to_display_def |> INST_TYPE [alpha |-> “:64”] |> translate;
-val r = presLangTheory.item_with_word_def |> INST_TYPE [alpha |-> “:64”] |> translate;
+val r = presLangTheory.word_to_display_def |> translate;
+val r = presLangTheory.item_with_word_def |> translate;
 val r = presLangTheory.asm_binop_to_display_def |> translate;
 val r = presLangTheory.asm_reg_imm_to_display_def |> translate;
 val r = presLangTheory.asm_arith_to_display_def |> translate;
-val r = presLangTheory.word_to_display_def |> INST_TYPE [“:'a”|->“:5”] |> translate
-val r = presLangTheory.item_with_word_def |> INST_TYPE [“:'a”|->“:5”] |> translate
 val r = presLangTheory.store_name_to_display_def |> translate
 val r = presLangTheory.word_exp_to_display_def |> translate
 val r = presLangTheory.asm_inst_to_display_def |> translate;

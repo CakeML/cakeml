@@ -3,6 +3,7 @@
 *)
 Theory data_to_wordProof
 Ancestors
+  wordSem
   backend[qualified] dataLang[qualified] dataSem
   data_to_word_gcProof word_to_wordProof wordProps data_to_word
   wordLang wordSem[qualified] dataProps copying_gc int_bitwise
@@ -49,6 +50,9 @@ val _ = hide "next";
 
 val clean_tac = rpt var_eq_tac \\ rpt (qpat_x_assum `T` kall_tac)
 fun rpt_drule th = old_drule (th |> GEN_ALL) \\ rpt (disch_then old_drule \\ fs [])
+
+val adjust_set_def = LIST_CONJ [data_to_wordTheory.adjust_set_def,
+  data_to_word_gcProofTheory.adjust_set_def];
 
 val state_rel_def = data_to_word_gcProofTheory.state_rel_def
 val code_rel_def = data_to_word_gcProofTheory.code_rel_def
@@ -783,7 +787,7 @@ Resume data_compile_correct[MakeSpace]:
         wordSemTheory.evaluate_def,
         GSYM alloc_size_def,alloc_size_i2w,GSYM dimword_def,
         integer_wordTheory.i2w_minus_1,LET_DEF,wordSemTheory.word_exp_def,
-        wordLangTheory.word_op_def,wordSemTheory.get_var_imm_def]
+        wordSemTheory.word_op_def,wordSemTheory.get_var_imm_def]
     \\ `?end next hlen curr.
           FLOOKUP t.store CurrHeap = SOME (Word curr) /\
           FLOOKUP t.store HeapLength = SOME (Word hlen) /\

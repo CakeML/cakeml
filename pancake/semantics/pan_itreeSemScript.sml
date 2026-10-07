@@ -3,6 +3,7 @@
 *)
 Theory pan_itreeSem
 Ancestors
+  wordSem
   panLang itreeTau panSem panProps
   wordLang ffi
 Libs

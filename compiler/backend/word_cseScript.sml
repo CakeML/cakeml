@@ -225,10 +225,6 @@ End
 
 (* SEEN INSTRUCTIONS MEMORY *)
 
-Definition wordToNum_def:
-  wordToNum w = w2n w
-End
-
 Definition intToNum_def:
   intToNum (i:int) = if i < 0 then 2 * Num (-i) - 1 else 2 * Num i
 End

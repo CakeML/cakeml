@@ -199,7 +199,7 @@ Definition export_funcs_def:
 End
 
 Definition riscv_export_def:
-  riscv_export ffi_names bytes (data:word64 list) syms exp ret pk =
+  riscv_export ffi_names bytes (data:num list) syms exp ret pk =
     let lsyms = get_sym_labels syms in
     SmartAppend
       (SmartAppend (List preamble)

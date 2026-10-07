@@ -3,6 +3,7 @@
 *)
 Theory stackSem
 Ancestors
+  wordSem
   stackLang
   wordSem[qualified] (* for word_loc and word_cmp *)
 Libs

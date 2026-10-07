@@ -5,6 +5,7 @@ Theory data_to_word_assignProof
 Libs
   preamble helperLib blastLib
 Ancestors
+  wordSem
   backend_common (* for word_add_carry *)
   data_to_word_memoryProof data_to_word_gcProof dataSem
   wordSem[qualified] data_to_word int_bitwise dataProps
@@ -54,7 +55,7 @@ fun drule0 th =
 val _ = hide "next";
 val _ = hide "el";
 val shift_def = backend_commonTheory.word_shift_def
-val upper_w2w_def = backend_commonTheory.upper_w2w_def
+val upper_w2w_def = wordSemTheory.upper_w2w_def
 val all_ones_def = data_to_word_memoryProofTheory.all_ones_def;
 val maxout_bits_def = data_to_word_memoryProofTheory.maxout_bits_def;
 val ptr_bits_def = data_to_word_memoryProofTheory.ptr_bits_def;
@@ -75,6 +76,9 @@ val assign_def =
 val clean_tac = rpt var_eq_tac \\ rpt (qpat_x_assum `T` kall_tac);
 fun rpt_drule0 th = drule0 (th |> GEN_ALL) \\ rpt (disch_then drule0 \\ fs []);
 
+val adjust_set_def = LIST_CONJ [data_to_wordTheory.adjust_set_def,
+  data_to_word_gcProofTheory.adjust_set_def];
+
 val state_rel_def = data_to_word_gcProofTheory.state_rel_def;
 val code_rel_def = data_to_word_gcProofTheory.code_rel_def;
 
@@ -88,7 +92,7 @@ val eval_tac = fs [wordSemTheory.evaluate_def,
   wordSemTheory.get_store_def,
   wordSemTheory.get_var_def,
   wordSemTheory.the_words_def, wordSemTheory.mem_load_def,
-  wordLangTheory.word_op_def, wordLangTheory.word_sh_def];
+  wordSemTheory.word_op_def, wordSemTheory.word_sh_def];
 
 (* This list must list all auxiliary definitions used in assign_def *)
 Theorem assign_def_extras =
@@ -2351,7 +2355,7 @@ Proof
          wordSemTheory.word_exp_def,
          wordSemTheory.set_var_def, wordSemTheory.get_var_def,
          lookup_insert, data_to_wordTheory.list_Seq_def,
-         wordSemTheory.the_words_def, wordLangTheory.word_op_def,
+         wordSemTheory.the_words_def, wordSemTheory.word_op_def,
          wordSemTheory.get_store_def,
          EVAL ``read_bytearray (a:'a word) 0 m``, ffiTheory.call_FFI_def,
          EVAL ``write_bytearray (a:'a word) [] m dm b``,
@@ -2819,7 +2823,7 @@ QED
 Theorem i2w_int_or[local]:
   i2w(int_or i j)=(i2w i || i2w j:'a word)
 Proof
-mp_tac (Q.INST [`op`|->`Or`,`ws`|->`[i;j]`] word_simpProofTheory.int_op_correct) >> simp[wordLangTheory.word_op_def,word_simpTheory.int_op_def,int_or_zero,integer_wordTheory.i2w_pos]
+mp_tac (Q.INST [`op`|->`Or`,`ws`|->`[i;j]`] word_simpProofTheory.int_op_correct) >> simp[wordSemTheory.word_op_def,word_simpTheory.int_op_def,int_or_zero,integer_wordTheory.i2w_pos]
 QED
 
 Theorem int_mod_mod_factor[local]:
@@ -5755,7 +5759,7 @@ Proof
           `shift_length c < dimindex (:'a)` suffices_by decide_tac \\
           fs [state_rel_thm,memory_rel_def,heap_in_memory_store_def])
     \\ simp [Once list_Seq_def,eq_eval,wordSemTheory.set_store_def,FLOOKUP_UPDATE,
-             wordLangTheory.word_sh_def,wordSemTheory.get_store_def]
+             wordSemTheory.word_sh_def,wordSemTheory.get_store_def]
     \\ IF_CASES_TAC THEN1
        (sg `F` \\ fs []
         \\ fs [state_rel_thm,memory_rel_def,heap_in_memory_store_def])
@@ -6264,7 +6268,7 @@ Proof
                 `shift_length c < dimindex (:'a)` suffices_by decide_tac \\
                 fs [state_rel_thm,memory_rel_def,heap_in_memory_store_def])
           \\ simp [Once list_Seq_def,eq_eval,wordSemTheory.set_store_def,FLOOKUP_UPDATE,
-                   wordLangTheory.word_sh_def,
+                   wordSemTheory.word_sh_def,
                    wordSemTheory.get_store_def]
           \\ qmatch_goalsub_abbrev_tac `insert 7 (Word init_ptr2)`
           \\ simp [list_Seq_def,eq_eval,wordSemTheory.set_store_def]
@@ -9045,7 +9049,7 @@ Proof[exclude_simps = INT_OF_NUM NUM_EQ0]
     \\ simp[word_exp_rw |> CONJUNCTS |> first(can(find_term(same_const``wordLang$Shift``)) o concl)]
     \\ simp[word_exp_rw |> CONJUNCTS |> first(can(find_term(same_const``wordLang$Var``)) o concl)]
     \\ fs[wordSemTheory.get_var_def]
-    \\ simp[wordLangTheory.word_sh_def]
+    \\ simp[wordSemTheory.word_sh_def]
     \\ simp[wordSemTheory.set_var_def]
     \\ simp[wordSemTheory.word_exp_def]
     \\ ‘2 MOD dimword (:α) < dimindex (:α)’ by simp[dimword_def]
@@ -9169,7 +9173,7 @@ simp[Once wordSemTheory.evaluate_def]
       \\ simp[word_exp_rw |> CONJUNCTS |> first(can(find_term(same_const``wordLang$Var``)) o concl)]
       \\ fs[wordSemTheory.get_var_def]
       \\ `31 < dimindex(:'a)` by fs[good_dimindex_def]
-      \\ simp[wordLangTheory.word_sh_def]
+      \\ simp[wordSemTheory.word_sh_def]
       \\ simp[wordSemTheory.set_var_def]
       \\ simp[wordSemTheory.word_exp_def]
       \\ ‘2 MOD dimword (:α) < dimindex (:α)
@@ -14559,8 +14563,8 @@ Proof
   \\ ‘k ≤ 8 ⇒ -1w * n2w k + 8w = n2w (8 - k) :'a word’ by
     (rw [n2w_sub] \\ simp [GSYM WORD_NEG_MUL])
   \\ gvs [ShiftW8_def, wordSemTheory.word_exp_def, wordSemTheory.get_var_def,
-          wordLangTheory.word_sh_def, wordSemTheory.the_words_def,
-          wordLangTheory.word_op_def, dimword_def]
+          wordSemTheory.word_sh_def, wordSemTheory.the_words_def,
+          wordSemTheory.word_op_def, dimword_def]
   \\ rw [fcpTheory.CART_EQ, word_lsl_def, word_lsr_def, word_asr_def,
          word_or_def, word_ror_def, word_msb_def, w2w, fcpTheory.FCP_BETA]
   \\ Cases_on ‘1 ≤ i ∧ i < 9’ \\ gvs [fcpTheory.FCP_BETA, w2w]
@@ -14762,7 +14766,7 @@ Proof
   \\ simp [Once wordSemTheory.evaluate_def]
   \\ simp [wordSemTheory.evaluate_def, wordSemTheory.word_exp_def,
           wordSemTheory.get_var_def, wordSemTheory.the_words_def,
-          wordLangTheory.word_op_def, wordLangTheory.word_sh_def,
+          wordSemTheory.word_op_def, wordSemTheory.word_sh_def,
           wordSemTheory.set_var_def, lookup_insert]
   \\ ntac 2 (qpat_x_assum ‘evaluate _ = _’ kall_tac)
   \\ qpat_x_assum ‘shift_lookup sh c1' _ = _’ (SUBST1_TAC o GSYM)
@@ -14772,7 +14776,7 @@ Proof
     by (rw [n2w_sub] \\ simp [GSYM WORD_NEG_MUL])
   \\ Cases_on ‘sh’
   \\ gvs [wordSemTheory.word_exp_def, wordSemTheory.the_words_def,
-          wordLangTheory.word_op_def, wordLangTheory.word_sh_def,
+          wordSemTheory.word_op_def, wordSemTheory.word_sh_def,
           wordSemTheory.get_var_def, lookup_insert, dimword_def]
   \\ rw [] \\ gvs []
 QED
@@ -17075,7 +17079,7 @@ Resume assign_ConsExtend[after_alloc]:
       (rewrite_tac [GSYM w2n_11,w2n_lsr,w2n_n2w]
        \\ fs [Abbr`tot_len`]
        \\ simp [MULT_DIV |> ONCE_REWRITE_RULE [MULT_COMM]] \\ NO_TAC)
-  \\ fs [eq_eval,wordLangTheory.word_sh_def]
+  \\ fs [eq_eval,wordSemTheory.word_sh_def]
   \\ qpat_abbrev_tac `full_header = word_or _ _`
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,s2)`
@@ -18028,7 +18032,7 @@ Proof
  Cases_on `vs` >> Cases_on `w0` >>
  gvs[StoreAnyConsts_def,wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,
    wordSemTheory.set_store_def,wordSemTheory.get_var_def,const_word_def,word_cond_add_def,
-   wordSemTheory.the_words_def,wordLangTheory.word_op_def,wordSemTheory.set_var_def,
+   wordSemTheory.the_words_def,wordSemTheory.word_op_def,wordSemTheory.set_var_def,
    wordSemTheory.unset_var_def,wordSemTheory.state_component_equality,
    lookup_insert,lookup_delete,store_list_def,integer_wordTheory.i2w_pos] >>
  rw[] >> ntac 10 (simp[Once insert_swap,insert_shadow])
@@ -18193,7 +18197,7 @@ Proof[exclude_simps = EXP_LE_LOG_SIMP EXP_LT_LOG_SIMP LE_EXP_LOG_SIMP LT_EXP_LOG
          wordSemTheory.get_store_def]
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,wordSemTheory.set_var_def,
-         wordSemTheory.the_words_def,wordLangTheory.word_op_def,wordLangTheory.word_sh_def,
+         wordSemTheory.the_words_def,wordSemTheory.word_op_def,wordSemTheory.word_sh_def,
          wordSemTheory.get_var_def]
   \\ once_rewrite_tac [list_Seq_def]
   \\ qpat_x_assum `state_rel c l1 l2 x t NONE locs` mp_tac

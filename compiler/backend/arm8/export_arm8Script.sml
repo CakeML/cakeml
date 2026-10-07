@@ -239,7 +239,7 @@ Definition arm8_code_buffer_def:
 End
 
 Definition arm8_export_def:
-  arm8_export ffi_names bytes (data:word64 list) syms exp ret pk =
+  arm8_export ffi_names bytes (data:num list) syms exp ret pk =
     let lsyms = get_sym_labels syms in
     SmartAppend
       (SmartAppend (List preamble)

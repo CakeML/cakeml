@@ -200,8 +200,8 @@ val r = pan_passesTheory.pan_to_target_all_def
 val r = pan_passesTheory.opsize_to_display_def |> translate;
 val r = pan_passesTheory.insert_es_def |> translate;
 val r = pan_passesTheory.varkind_to_str_def |> translate;
-val r = presLangTheory.word_to_display_def |> spec32 |> translate;
-val r = presLangTheory.item_with_word_def |> spec32 |> translate;
+val r = presLangTheory.word_to_display_def |> translate;
+val r = presLangTheory.item_with_word_def |> translate;
 Theorem lem[local]:
   dimindex(:32) = 32
 Proof
