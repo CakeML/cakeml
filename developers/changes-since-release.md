@@ -81,6 +81,9 @@ linker (#1517).
 The backend now supports IMul and IDiv instructions and optimizes to the
 (#1533). Some further cleanup of the asm ops might be expected in the future.
 
+The global dead code elimination pass has moved from flatLang to source,
+specifically, `flat_elim` has been replaced by `source_dce` (#1508).
+
 ## Pancake
 
 Queryable feature tags (#1470).
