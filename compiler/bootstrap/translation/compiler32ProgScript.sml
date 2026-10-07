@@ -160,7 +160,8 @@ val r = backend_passesTheory.to_data_all_def |> spec32 |> translate;
 val r = backend_passesTheory.word_internal_all_def |> spec32 |> translate;
 
 val r = backend_passesTheory.to_word_all_def |> spec32
-          |> REWRITE_RULE [data_to_wordTheory.stubs_def,APPEND] |> translate;
+          |> REWRITE_RULE [data_to_wordTheory.stubs_md_def,
+                           data_to_wordTheory.stubs_def,APPEND] |> translate;
 
 val r = backend_passesTheory.to_stack_all_def |> spec32
           |> REWRITE_RULE[dimindex_32,max_heap_limit_32_thm] |> translate;
