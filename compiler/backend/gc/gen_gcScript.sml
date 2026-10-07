@@ -11,8 +11,6 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = ParseExtras.temp_loose_equality();
-
 val gc_state_component_equality = DB.fetch "gc_shared" "gc_state_component_equality";
 
 (* Copying GC which moves references to the end of the heap. This
@@ -31,7 +29,7 @@ Definition gc_move_def:
      case heap_lookup ptr state.heap of
      | SOME (ForwardPointer ptr _ l) => (Pointer ptr d,state)
      | SOME (DataElement xs l dd) =>
-       let ok = state.ok /\ l+1 <= state.n in
+       let ok = (state.ok /\ l+1 <= state.n) in
        let n = state.n - (l + 1) in
         if conf.isRef dd then
           (* put refs in r4 *)
@@ -117,7 +115,7 @@ Definition gc_move_data_def:
          let (xs,state) = gc_move_list conf state xs in
          let h1 = state.h1 ++ [DataElement xs l d] in
          let h2 = TL state.h2 in
-         let ok = state.ok /\ state.h2 <> [] /\ (HD state.h2 = h) in
+         let ok = (state.ok /\ state.h2 <> [] /\ (HD state.h2 = h)) in
            gc_move_data conf (state with <| h1 := h1; h2 := h2; ok := ok |>)
        | _ => state with <| ok := F |>)
 Termination

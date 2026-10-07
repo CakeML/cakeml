@@ -9,8 +9,6 @@ Libs
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = ParseExtras.temp_loose_equality();
-
 (* The GC is a copying collector which moves elements *)
 
 Definition gc_move_def:
@@ -18,7 +16,7 @@ Definition gc_move_def:
   (gc_move (Pointer ptr d,h2,a,n,heap,c,limit) =
      case heap_lookup ptr heap of
      | SOME (DataElement xs l dd) =>
-         let c = c /\ l+1 <= n /\ (a + n = limit) in
+         let c = (c /\ l+1 <= n /\ (a + n = limit)) in
          let n = n - (l+1) in
          let h2 = h2 ++ [DataElement xs l dd] in
          let (heap,c) = gc_forward_ptr ptr heap a d c in
@@ -42,7 +40,7 @@ Definition gc_move_loop_def:
        case h of
        | DataElement xs l d =>
           let (xs,h2,a,n,heap,c) = gc_move_list (xs,h::h2,a,n,heap,c,limit) in
-          let c = c /\ h2 <> [] /\ (HD h2 = h) in
+          let c = (c /\ h2 <> [] /\ (HD h2 = h)) in
           let h2 = TL h2 in
           let h1 = h1 ++ [DataElement xs l d] in
             gc_move_loop (h1,h2,a,n,heap,c,limit)
@@ -68,7 +66,7 @@ val _ = augment_srw_ss [rewrites [LIST_REL_def]];
 
 Definition gc_inv_def:
   gc_inv (h1,h2,a,n,heap,c,limit) (heap0:('a, 'b) heap_element list)
-                                  (roots0:'a heap_address list) =
+                                  (roots0:'a heap_address list) <=>
     (a + n = limit) /\
     (a = heap_length (h1 ++ h2)) /\
     (n = heap_length (FILTER (\h. ~(isForwardPointer h)) heap)) /\ c /\

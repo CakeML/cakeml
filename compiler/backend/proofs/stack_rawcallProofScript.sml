@@ -676,7 +676,7 @@ Proof
         \\ simp [compile_def,lookup_fromAList,ALOOKUP_MAP]
         \\ fs [ALOOKUP_toAList,lookup_fromAList]) >>
       strip_tac >>
-      old_dxrule(GEN_ALL evaluate_add_clock) >>
+      dxrule(GEN_ALL evaluate_add_clock) >>
       disch_then(qspec_then `k'` mp_tac) >>
       impl_tac >- (CCONTR_TAC >> fs[]) >> simp [] >>
       dxrule evaluate_add_clock >>

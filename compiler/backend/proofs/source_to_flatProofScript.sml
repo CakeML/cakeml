@@ -15,7 +15,6 @@ Libs
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "getOpClass_def"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val build_rec_env_merge = flatPropsTheory.build_rec_env_merge;
 
