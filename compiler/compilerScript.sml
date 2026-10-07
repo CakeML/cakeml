@@ -297,7 +297,7 @@ Definition compile_def:
 End
 
 Definition compile_pancake_def:
-  compile_pancake asm_conf c input =
+  compile_pancake (:'a) asm_conf c input =
   let _ = empty_ffi «finished: start up» in
   case panPtreeConversion$parse_topdecs_to_ast input of
   | INR errs =>
@@ -771,7 +771,7 @@ Definition compile_pancake_64_def:
               (List[], error_to_str (ConfigError (get_err_str ext_conf)))
           | INL ext_conf =>
               let ext_conf = pancake_backend_conf ext_conf in
-              case compiler$compile_pancake aconf ext_conf input of
+              case compiler$compile_pancake (:64) aconf ext_conf input of
               | (M_failure err, td, warns) =>
                   (List[], concat (MAP error_to_str (err::(if nowarn then [] else warns))))
               | (M_success (bytes, data, c), td, warns) =>
@@ -850,7 +850,7 @@ Definition compile_pancake_32_def:
               (List[], error_to_str (ConfigError (get_err_str ext_conf)))
           | INL ext_conf =>
               let ext_conf = pancake_backend_conf ext_conf in
-              case compiler$compile_pancake aconf ext_conf input of
+              case compiler$compile_pancake (:32) aconf ext_conf input of
               | (M_failure err, td, warns) =>
                   (List[], concat (MAP error_to_str (err::(if nowarn then [] else warns))))
               | (M_success (bytes, data, c), td, warns) =>
