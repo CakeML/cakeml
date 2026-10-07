@@ -98,10 +98,10 @@ Datatype:
        equals the number of Xs taking the (constant) cover value vs[j].
        clsd ⇒ every Xs[i] additionally takes some value in vs. *)
   | GlobalCardinality ('a varc list) (int list) ('a varc list) bool
-  (* BinPacking Xs Ys Zs : each item i has size Ys[i] and is assigned to
-     bin Xs[i], and each bin j has (a) when Zs = INL Ls, load Ls[j] =
-     Σ {Ys[i] | Xs[i] = j} (b) when Zs = INR Cs, capacity Cs[j] ≥
-     Σ {Ys[i] | Xs[i] = j} *)
+  (* BinPacking Xs sizes bins : each item i has size sizes[i] and is
+     assigned to bin Xs[i], and each bin j has (a) when bins = INL Ls,
+     load Ls[j] = Σ {sizes[i] | Xs[i] = j} (b) when bins = INR Cs,
+     capacity Cs[j] ≥ Σ {sizes[i] | Xs[i] = j} *)
   | BinPacking ('a varc list) (num list) ('a varc list + num list)
 End
 
@@ -517,16 +517,16 @@ End
 
 (* Total (constant) size of the items assigned to bin b *)
 Definition bin_load_def:
-  bin_load b Xs Ys w =
-  iSUM $ MAP (λ(x,y). b2i (varc w x = &b) * &y) $ ZIP (Xs,Ys)
+  bin_load b Xs sizes w =
+  iSUM $ MAP (λ(x,y). b2i (varc w x = &b) * &y) $ ZIP (Xs,sizes)
 End
 
 Definition binpacking_sem_def:
-  binpacking_sem Xs Ys Zs w ⇔
-  LENGTH Xs = LENGTH Ys ∧
-  case Zs of
-    INL Ls => ∀i. i < LENGTH Ls ⇒ bin_load i Xs Ys w = varc w $ EL i Ls
-  | INR Cs => ∀i. i < LENGTH Cs ⇒ bin_load i Xs Ys w ≤ &(EL i Cs)
+  binpacking_sem Xs sizes bins w ⇔
+  LENGTH Xs = LENGTH sizes ∧
+  case bins of
+    INL Ls => ∀i. i < LENGTH Ls ⇒ bin_load i Xs sizes w = varc w $ EL i Ls
+  | INR Cs => ∀i. i < LENGTH Cs ⇒ bin_load i Xs sizes w ≤ &(EL i Cs)
 End
 
 Definition counting_constr_sem_def:
@@ -541,7 +541,7 @@ Definition counting_constr_sem_def:
   | In Y Xs => in_sem Y Xs w
   | AtMostOne Xs Y => at_most_one_sem Xs Y w
   | GlobalCardinality Xs vs Cs clsd => global_cardinality_sem Xs vs Cs clsd w
-  | BinPacking Xs Ys Zs => binpacking_sem Xs Ys Zs w
+  | BinPacking Xs sizes bins => binpacking_sem Xs sizes bins w
 End
 
 (***
