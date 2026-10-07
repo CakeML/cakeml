@@ -62,6 +62,12 @@ Definition compiler_for_eval_def:
   compiler_for_eval host = compile_inc_progs_for_eval (host_config host)
 End
 
+Theorem upper_n2w_Arch64[local]:
+  upper_n2w Arch64 = (n2w :num -> word64)
+Proof
+  simp [FUN_EQ_THM, backend_commonTheory.upper_n2w_def]
+QED
+
 val compiler_for_eval_alt =
   [``HostX64``, ``HostArm8``]
   |> map (fn host =>
@@ -78,7 +84,8 @@ val compiler_for_eval_alt =
              EVAL ``x64_config.addr_offset``, EVAL ``arm8_config.addr_offset``,
              EVAL ``x64_config.ISA``, EVAL ``arm8_config.ISA``,
              EVAL ``x86_64 = ARMv7``, EVAL ``ARMv8 = ARMv7``,
-             listTheory.MAP_ID, backend_commonTheory.upper_n2w_def])
+             asmTheory.arch_wordsize_def, upper_n2w_Arch64,
+             listTheory.MAP_ID])
   |> LIST_CONJ;
 
 val r = translate (word_to_wordTheory.compile_single_def |> spec64);
