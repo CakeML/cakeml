@@ -157,7 +157,6 @@ val _ = reg_enc_dec backend_common_tra_enc'_thm;
 
 (* some simple ones *)
 
-val res = define_enc_dec “:var_name”
 val res = define_enc_dec “:word_size”
 val res = define_enc_dec “:mlstring”
 val res = define_enc_dec “:shmem_op”
@@ -207,6 +206,27 @@ val res = define_enc_dec “:opw”;
 val res = define_enc_dec “:ast$shift”;
 val res = define_enc_dec “:ast$thunk_mode”
 val res = define_enc_dec “:ast$thunk_op”;
+
+Definition word8_enc'_def:
+  word8_enc' (n:word8) = Tree (w2n n) []
+End
+
+Definition word8_dec'_def[simp]:
+  word8_dec' (Tree n xs) = n2w n :word8
+End
+
+Theorem word8_dec_enc'[simp]:
+  word8_dec' (word8_enc' n) = n
+Proof
+  fs [word8_dec'_def,word8_enc'_def]
+QED
+
+val _ = reg_enc_dec_only “:word8” “word8_enc'” “word8_dec'”;
+val res = define_enc_dec “:ast$arith”;
+val res = define_enc_dec “:ast$lit”;
+val res = define_enc_dec “:ast$op”;
+val res = define_enc_dec “:glob_info”;
+val res = define_enc_dec “:var_name”;
 val res = define_enc_dec “:fp_cmp”;
 val res = define_enc_dec “:fp_uop”;
 val res = define_enc_dec “:fp_bop”;

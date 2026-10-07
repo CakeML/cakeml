@@ -100,6 +100,111 @@ val res = translate source_to_flatTheory.compile_prog_def;
 
 val _ = (length (hyp res) = 0)
         orelse failwith "Unproved side condition: source_to_flat_compile_prog";
+
+(* ------------------------------------------------------------------------- *)
+(* source_dce                                                                *)
+(* ------------------------------------------------------------------------- *)
+
+val res = translate source_dceTheory.open_free_dec_def;
+
+Theorem IN_FDOM_FLOOKUP[local]:
+  x ∈ FDOM f ⇔ IS_SOME (FLOOKUP f x)
+Proof
+  rw [FLOOKUP_DEF]
+QED
+
+val res = translate (source_dceTheory.is_used_def |> REWRITE_RULE [IN_FDOM_FLOOKUP]);
+
+val res = translate source_dceTheory.add_name_def;
+
+val res = translate (source_dceTheory.free_vars_def |> RW (!extra_preprocessing));
+
+Theorem source_dce_free_vars_ind[local]:
+  source_dce_free_vars_ind
+Proof
+  once_rewrite_tac [fetch "-" "source_dce_free_vars_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac source_dceTheory.free_vars_ind
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ fs []
+QED
+
+val _ = source_dce_free_vars_ind |> update_precondition;
+
+(* without the tuple patterns, which the translator cannot handle here *)
+Theorem union_names_eq[local]:
+  (union_names x y = (FUNION (FST x) (FST y), union_longs (SND x) (SND y))) ∧
+  (union_longs (Names []) l = l) ∧
+  (union_longs (Names ((mn,s)::xs)) l =
+     union_longs (Names xs) (insert_mod l mn (union_names s (lookup_mod l mn))))
+Proof
+  PairCases_on ‘x’ \\ PairCases_on ‘y’ \\ simp [source_dceTheory.union_names_def]
+QED
+
+val res = translate_no_ind union_names_eq;
+
+Theorem source_dce_union_names_ind[local]:
+  source_dce_union_names_ind
+Proof
+  once_rewrite_tac [fetch "-" "source_dce_union_names_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac source_dceTheory.union_names_ind
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD]
+QED
+
+val _ = source_dce_union_names_ind |> update_precondition;
+
+val res = translate source_dceTheory.update_names_def;
+
+val res = translate source_dceTheory.can_remove_def;
+val res = translate source_dceTheory.prune_pat_def;
+
+Theorem source_dce_prune_pat_ind[local]:
+  source_dce_prune_pat_ind
+Proof
+  once_rewrite_tac [fetch "-" "source_dce_prune_pat_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ qsuff_tac ‘(∀p used. P0 used p) ∧ ∀ps used. P1 used ps’
+  >- metis_tac []
+  \\ ho_match_mp_tac (TypeBase.induction_of “:ast$pat”)
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ fs []
+QED
+
+val _ = source_dce_prune_pat_ind |> update_precondition;
+
+val res = translate source_dceTheory.prune_dec_def;
+val res = translate source_dceTheory.strip_mod_def;
+
+val res = translate source_dceTheory.dce_decs_def;
+
+Theorem source_dce_dce_decs_ind[local]:
+  source_dce_dce_decs_ind
+Proof
+  once_rewrite_tac [fetch "-" "source_dce_dce_decs_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac source_dceTheory.dce_decs_ind
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ fs []
+QED
+
+val _ = source_dce_dce_decs_ind |> update_precondition;
+
+val res = translate source_dceTheory.has_Denv_dec_def;
+
 (* ------------------------------------------------------------------------- *)
 (* source_to_source                                                          *)
 (* ------------------------------------------------------------------------- *)
@@ -109,12 +214,16 @@ val res = translate source_to_sourceTheory.compile_def;
 val _ = (length (hyp res) = 0)
         orelse failwith "Unproved side condition: source_to_source_compile";
 
+val res = translate source_to_sourceTheory.inc_compile_def;
+
+val _ = (length (hyp res) = 0)
+        orelse failwith "Unproved side condition: source_to_source_inc_compile";
+
 (* ------------------------------------------------------------------------- *)
-(* flat_elim                                                                 *)
+(* sptree                                                                    *)
 (* ------------------------------------------------------------------------- *)
 
 val res = translate sptreeTheory.subspt_eq;
-val res = translate flat_elimTheory.remove_flat_prog_def;
 
 (* ------------------------------------------------------------------------- *)
 (* flat_pattern                                                              *)
@@ -138,6 +247,9 @@ val res = translate flat_patternTheory.compile_dec_def;
 (* ------------------------------------------------------------------------- *)
 (* source_to_flat                                                            *)
 (* ------------------------------------------------------------------------- *)
+
+val res = translate flat_ticksTheory.remove_ticks_exp_def;
+val res = translate flat_ticksTheory.remove_ticks_decs_def;
 
 val res = translate source_to_flatTheory.compile_flat_def;
 
