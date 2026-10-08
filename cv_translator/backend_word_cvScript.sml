@@ -490,6 +490,7 @@ val _ = data_to_wordTheory.parts_to_words_def
 val _ = data_to_wordTheory.const_parts_to_words_def
           |> SRULE [backend_commonTheory.word_shift_def] |> cv_trans;
 val _ = data_to_wordTheory.MemEqList_def |> cv_trans;
+val _ = data_to_wordTheory.SmallDivMod_def |> cv_trans;
 val _ = cv_trans data_to_wordTheory.StoreAnyConsts_def;
 
 val locs_thm =

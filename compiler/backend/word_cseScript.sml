@@ -185,7 +185,11 @@ Definition canonicalArith_def:
   canonicalArith data (AddOverflow r1 r2 r3 r4) =
     AddOverflow r1 (canonicalRegs' r1 data r2) (canonicalRegs' r1 data r3) r4 ∧
   canonicalArith data (SubOverflow r1 r2 r3 r4) =
-    SubOverflow r1 (canonicalRegs' r1 data r2) (canonicalRegs' r1 data r3) r4
+    SubOverflow r1 (canonicalRegs' r1 data r2) (canonicalRegs' r1 data r3) r4 ∧
+  canonicalArith data (IMul r1 r2 r3 r4) =
+    IMul r1 (canonicalRegs' r1 data r2) (canonicalRegs' r1 data r3) r4 ∧
+  canonicalArith data (IDiv r1 r2 r3 r4) =
+    IDiv r1 r2 (canonicalRegs data r3) (canonicalRegs' r2 data r4)
 End
 
 Definition canonicalFp_def:
@@ -257,7 +261,9 @@ Definition arithToNumList_def:
   arithToNumList (Div r1 r2 r3) = [29; r2+100; r3+100] ∧
   arithToNumList (AddCarry r1 r2 r3 r4) = [30; r2+100; r3+100] ∧
   arithToNumList (AddOverflow r1 r2 r3 r4) = [31; r2+100; r3+100] ∧
-  arithToNumList (SubOverflow r1 r2 r3 r4) = [32; r2+100; r3+100]
+  arithToNumList (SubOverflow r1 r2 r3 r4) = [32; r2+100; r3+100] ∧
+  arithToNumList (IMul r1 r2 r3 r4) = [48; r2+100; r3+100] ∧
+  arithToNumList (IDiv r1 r2 r3 r4) = [49; r3+100; r4+100]
 End
 
 Definition memOpToNum_def:
@@ -324,7 +330,9 @@ Definition firstRegOfArith_def:
   firstRegOfArith (LongDiv r _ _ _ _) = r ∧
   firstRegOfArith (AddCarry r _ _ _) = r ∧
   firstRegOfArith (AddOverflow r _ _ _) = r ∧
-  firstRegOfArith (SubOverflow r _ _ _) = r
+  firstRegOfArith (SubOverflow r _ _ _) = r ∧
+  firstRegOfArith (IMul r _ _ _) = r ∧
+  firstRegOfArith (IDiv r _ _ _) = r
 End
 
 (* All registers an arith instruction writes (multi-output ops write two), so
@@ -337,7 +345,9 @@ Definition arithWrites_def:
   arithWrites (LongDiv r1 r2 _ _ _) = [r1; r2] ∧
   arithWrites (AddCarry r1 _ _ r4) = [r1; r4] ∧
   arithWrites (AddOverflow r1 _ _ r4) = [r1; r4] ∧
-  arithWrites (SubOverflow r1 _ _ r4) = [r1; r4]
+  arithWrites (SubOverflow r1 _ _ r4) = [r1; r4] ∧
+  arithWrites (IMul r1 _ _ r4) = [r1; r4] ∧
+  arithWrites (IDiv r1 r2 _ _) = [r1; r2]
 End
 
 (* All registers an arith instruction reads (AddCarry also reads the
@@ -352,7 +362,9 @@ Definition arithReads_def:
   arithReads (LongDiv _ _ r3 r4 r5) = [r3; r4; r5] ∧
   arithReads (AddCarry _ r2 r3 r4) = [r2; r3; r4] ∧
   arithReads (AddOverflow _ r2 r3 _) = [r2; r3] ∧
-  arithReads (SubOverflow _ r2 r3 _) = [r2; r3]
+  arithReads (SubOverflow _ r2 r3 _) = [r2; r3] ∧
+  arithReads (IMul _ r2 r3 _) = [r2; r3] ∧
+  arithReads (IDiv _ _ r3 r4) = [r3; r4]
 End
 
 (* The general-purpose registers an fp instruction writes. Most write only

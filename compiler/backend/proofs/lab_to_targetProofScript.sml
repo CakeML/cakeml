@@ -52,7 +52,7 @@ Theorem loc_to_pc_thm:
      EVERY sec_labels_ok ls ⇒
      loc_to_pc n1 n2 ls =
        case ls of [] => NONE
-       | (Section k xs::ys) =>
+       | (Section k xs _::ys) =>
          if n1 = k then
            case sec_loc_to_pc n2 xs of
            | NONE => OPTION_MAP ($+ (LENGTH (FILTER ($~ o is_Label) xs))) (loc_to_pc n1 n2 ys)
@@ -382,9 +382,9 @@ QED
 
 Definition has_odd_inst_def:
   (has_odd_inst [] = F) /\
-  (has_odd_inst ((Section k [])::xs) = has_odd_inst xs) /\
-  (has_odd_inst ((Section k (y::ys))::xs) <=>
-     ~EVEN (line_length y) \/ has_odd_inst ((Section k ys)::xs))
+  (has_odd_inst ((Section k [] md)::xs) = has_odd_inst xs) /\
+  (has_odd_inst ((Section k (y::ys) md)::xs) <=>
+     ~EVEN (line_length y) \/ has_odd_inst ((Section k ys md)::xs))
 End
 
 Definition line_similar_def:
@@ -398,7 +398,7 @@ val line_similar_ind = theorem"line_similar_ind";
 
 Definition code_similar_def:
   (code_similar [] [] = T) /\
-  (code_similar ((Section s1 lines1)::rest1) ((Section s2 lines2)::rest2) <=>
+  (code_similar ((Section s1 lines1 _)::rest1) ((Section s2 lines2 _)::rest2) <=>
      code_similar rest1 rest2 /\
      EVERY2 line_similar lines1 lines2 /\ (s1 = s2)) /\
   (code_similar _ _ = F)
@@ -522,9 +522,9 @@ End
 
 Definition has_io_name_def:
   (has_io_name index [] = F) /\
-  (has_io_name index ((Section k [])::xs) = has_io_name index xs) /\
-  (has_io_name index ((Section k (y::ys))::xs) <=>
-     has_io_name index ((Section k ys)::xs) \/
+  (has_io_name index ((Section k [] md)::xs) = has_io_name index xs) /\
+  (has_io_name index ((Section k (y::ys) md)::xs) <=>
+     has_io_name index ((Section k ys md)::xs) \/
      case y of LabAsm (CallFFI i) _ _ _ => (i = index) | _ => F)
 End
 
@@ -578,18 +578,18 @@ End
 
 Definition all_enc_ok_def:
   (all_enc_ok c labs ffis pos [] = T) /\
-  (all_enc_ok c labs ffis pos ((Section k [])::xs) <=>
+  (all_enc_ok c labs ffis pos ((Section k [] md)::xs) <=>
      EVEN pos /\ all_enc_ok c labs ffis pos xs) /\
-  (all_enc_ok c labs ffis pos ((Section k (y::ys))::xs) <=>
+  (all_enc_ok c labs ffis pos ((Section k (y::ys) md)::xs) <=>
      line_ok c labs ffis pos y /\
-     all_enc_ok c labs ffis (pos + line_length y) ((Section k ys)::xs))
+     all_enc_ok c labs ffis (pos + line_length y) ((Section k ys md)::xs))
 End
 
 val all_enc_ok_ind = theorem"all_enc_ok_ind";
 
 Theorem all_enc_ok_cons:
    ∀ls pos.
-   all_enc_ok c labs ffis pos (Section k ls::xs) ⇔
+   all_enc_ok c labs ffis pos (Section k ls md::xs) ⇔
    all_enc_ok c labs ffis (pos + SUM (MAP line_length ls)) xs ∧
    EVEN (pos + SUM (MAP line_length ls)) ∧
    lines_ok c labs ffis pos ls
@@ -600,12 +600,12 @@ QED
 
 Definition pos_val_def:
   (pos_val i pos [] = (pos:num)) /\
-  (pos_val i pos ((Section k [])::xs) = pos_val i pos xs) /\
-  (pos_val i pos ((Section k (y::ys))::xs) =
+  (pos_val i pos ((Section k [] md)::xs) = pos_val i pos xs) /\
+  (pos_val i pos ((Section k (y::ys) md)::xs) =
      if is_Label y
-     then pos_val i (pos + line_length y) ((Section k ys)::xs)
+     then pos_val i (pos + line_length y) ((Section k ys md)::xs)
      else if i = 0:num then pos
-          else pos_val (i-1) (pos + line_length y) ((Section k ys)::xs))
+          else pos_val (i-1) (pos + line_length y) ((Section k ys md)::xs))
 End
 
 val pos_val_ind = theorem"pos_val_ind";
@@ -646,7 +646,7 @@ Theorem pos_val_thm0[local]:
   ∀i pos acc.
     pos_val i pos acc =
       case acc of [] => pos
-      | Section k s :: ss =>
+      | Section k s _ :: ss =>
         case sec_pos_val i pos s of NONE =>
         pos_val (i - LENGTH (FILTER ($~ o is_Label) s)) (pos + SUM (MAP line_length s)) ss
         | SOME x => x
@@ -657,7 +657,7 @@ QED
 
 Theorem pos_val_thm:
    (pos_val i pos [] = pos) ∧
-   (pos_val i pos (Section k s::ss) =
+   (pos_val i pos (Section k s md::ss) =
     case sec_pos_val i pos s of NONE =>
       pos_val (i - LENGTH (FILTER ($~ o is_Label) s)) (pos + SUM (MAP line_length s)) ss
     | SOME x => x)
@@ -678,10 +678,10 @@ End
 
 Definition num_pcs_def:
   num_pcs [] = (0:num) /\
-  num_pcs ((Section _ [])::rest) = num_pcs rest /\
-  num_pcs ((Section k (x::xs))::rest) = if is_Label x
-    then num_pcs ((Section k xs)::rest)
-    else 1 + num_pcs ((Section k xs)::rest)
+  num_pcs ((Section _ [] md)::rest) = num_pcs rest /\
+  num_pcs ((Section k (x::xs) md)::rest) = if is_Label x
+    then num_pcs ((Section k xs md)::rest)
+    else 1 + num_pcs ((Section k xs md)::rest)
 End
 
 Definition share_mem_domain_code_rel_def:
@@ -1189,7 +1189,7 @@ Proof
   \\ full_simp_tac(srw_ss())[] \\ Cases_on `is_Label x1` \\ full_simp_tac(srw_ss())[]
   THEN1
    (full_simp_tac(srw_ss())[prog_to_bytes_def,LET_DEF]
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`(Section k ys1)::t`,`pc`,`i`,
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`(Section k ys1 m)::t`,`pc`,`i`,
        `(pos + LENGTH (line_bytes x2))`])
     \\ full_simp_tac(srw_ss())[all_enc_ok_def,code_similar_def] \\ rpt strip_tac
     \\ full_simp_tac(srw_ss())[prog_to_bytes_def,LET_DEF]
@@ -1204,7 +1204,7 @@ Proof
     \\ full_simp_tac(srw_ss())[] \\ Cases_on `x2`
     \\ full_simp_tac(srw_ss())[line_ok_def,is_Label_def,line_bytes_def,line_length_def] \\ srw_tac[][])
   \\ full_simp_tac(srw_ss())[prog_to_bytes_def,LET_DEF]
-  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`(Section k ys1)::t`,`pc-1`,`i`,
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`(Section k ys1 m)::t`,`pc-1`,`i`,
        `(pos + LENGTH (line_bytes x2))`])
   \\ full_simp_tac(srw_ss())[all_enc_ok_def,code_similar_def]
   \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
@@ -2259,6 +2259,91 @@ Proof
   rfs[align_w2n,dimword_def]>>gvs[]
 QED
 
+Theorem arith_upd_not_failed[local]:
+  ¬(t:'a asm_state).failed ∧
+  (∀r. word_loc_val p labs
+    (read_reg r (s:('a,'c,'ffi) labSem$state)) = SOME (t.regs r)) ∧
+  ¬(labSem$arith_upd a s).failed ⇒
+  ¬(asmSem$arith_upd a t).failed
+Proof
+  strip_tac >>
+  namedCases_on `a`
+    ["b rd ra ri", "sh rd ra ri", "rd ra rb", "rh rl ra rb",
+     "rq rr rh rl rb", "rd ra rb rc", "rd ra rb ro", "rd ra rb ro",
+     "rd ra rb ro", "rq rr ra rb"] >>
+  simp[asmSemTheory.arith_upd_def, asmSemTheory.upd_reg_def,
+       asmSemTheory.assert_def]
+  >- (
+    namedCases_on `ri` ["rc", "imm"] >> simp[] >>
+    qpat_assum `!r. word_loc_val _ _ _ = SOME _`
+      (qspec_then `rc` assume_tac) >>
+    namedCases_on `read_reg ra s` ["wa", "la oa"] >>
+    namedCases_on `read_reg rc s` ["wc", "lc oc"] >>
+    gvs[labSemTheory.arith_upd_def, labSemTheory.reg_imm_def,
+        labSemTheory.assert_def, labSemTheory.upd_reg_def,
+        word_loc_val_def, asmSemTheory.read_reg_def])
+  >- (
+    qpat_assum `!r. word_loc_val _ _ _ = SOME _`
+      (qspec_then `rb` assume_tac) >>
+    namedCases_on `read_reg ra s` ["wa", "la oa"] >>
+    namedCases_on `read_reg rb s` ["wb", "lb ob"] >>
+    gvs[labSemTheory.arith_upd_def, labSemTheory.assert_def,
+        labSemTheory.upd_reg_def, word_loc_val_def,
+        asmSemTheory.read_reg_def])
+  >- (
+    qpat_assum `!r. word_loc_val _ _ _ = SOME _`
+      (qspec_then `rh` assume_tac) >>
+    qpat_assum `!r. word_loc_val _ _ _ = SOME _`
+      (qspec_then `rl` assume_tac) >>
+    qpat_assum `!r. word_loc_val _ _ _ = SOME _`
+      (qspec_then `rb` assume_tac) >>
+    namedCases_on `read_reg rh s` ["wh", "lh oh"] >>
+    namedCases_on `read_reg rl s` ["wl", "ll ol"] >>
+    namedCases_on `read_reg rb s` ["wb", "lb ob"] >>
+    gvs[labSemTheory.arith_upd_def, labSemTheory.assert_def,
+        labSemTheory.upd_reg_def, word_loc_val_def,
+        asmSemTheory.read_reg_def, ADD_COMM, MULT_COMM])
+  >> qpat_assum `!r. word_loc_val _ _ _ = SOME _`
+       (qspec_then `ra` assume_tac)
+  >> qpat_assum `!r. word_loc_val _ _ _ = SOME _`
+       (qspec_then `rb` assume_tac)
+  >> namedCases_on `read_reg ra s` ["wa", "la oa"]
+  >> namedCases_on `read_reg rb s` ["wb", "lb ob"]
+  >> gvs[labSemTheory.arith_upd_def, labSemTheory.assert_def,
+         labSemTheory.upd_reg_def, word_loc_val_def,
+         asmSemTheory.read_reg_def]
+QED
+
+Theorem arith_upd_state_rel[local]:
+  ¬(arith_upd a s1).failed ∧
+  state_rel (mc_conf,code2,labs,p) s1 t1 ms1 ∧
+  (pos_val (s1.pc + 1) 0 code2 = pos_val s1.pc 0 code2 + LENGTH bytes') ⇒
+  ¬(arith_upd a t1).failed ∧
+  (target_state_rel mc_conf.target
+     (upd_pc (n2w (LENGTH bytes') + t1.pc) (arith_upd a t1)) ms2 ⇒
+   state_rel (mc_conf,code2,labs,p) (inc_pc (dec_clock (arith_upd a s1)))
+     (upd_pc (n2w (LENGTH bytes') + t1.pc) (arith_upd a t1)) ms2)
+Proof
+  strip_tac >>
+  conj_asm1_tac >- (
+    fs[state_rel_def] >> metis_tac[arith_upd_not_failed]) >>
+  strip_tac >>
+  simp[inc_pc_dec_clock, dec_clock_def] >>
+  match_mp_tac state_rel_clock >>
+  fs[state_rel_def] >>
+  simp[GSYM word_add_n2w] >>
+  fsrw_tac[ARITH_ss][] >>
+  conj_tac >- metis_tac[] >>
+  conj_tac >- (rw[] >> metis_tac[]) >>
+  conj_tac >- metis_tac[] >>
+  conj_tac >- (match_mp_tac arith_upd_lemma >> rw[]) >>
+  conj_tac >- fs[GSYM word_add_n2w] >>
+  conj_tac >- metis_tac[] >>
+  conj_tac >- rfs[] >>
+  fs[upd_pc_def, inc_pc_def, arith_upd_def, share_mem_state_rel_def] >>
+  rw[] >> gvs[IMP_CONJ_THM, AND_IMP_INTRO]
+QED
+
 Theorem Inst_lemma:
   ~(asm_inst i s1).failed /\
    state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,p) s1 t1 ms1 /\
@@ -2284,53 +2369,7 @@ Proof
     \\ rpt strip_tac \\ rfs[] \\ res_tac \\ fs[GSYM word_add_n2w]
     \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM] \\ srw_tac[][word_loc_val_def]
     >- (drule_all Inst_share_mem_reg_update_helper >> fs[]))
-  THEN1
-   (strip_tac >>
-    conj_asm1_tac >- (
-      Cases_on`a`>> full_simp_tac(srw_ss())[asmSemTheory.arith_upd_def,labSemTheory.arith_upd_def] >>
-      every_case_tac >> full_simp_tac(srw_ss())[labSemTheory.assert_def] >> srw_tac[][] >>
-      full_simp_tac(srw_ss())[reg_imm_def,binop_upd_def,labSemTheory.binop_upd_def] >>
-      full_simp_tac(srw_ss())[upd_reg_def,labSemTheory.upd_reg_def,state_rel_def] >>
-      TRY (Cases_on`b`)>>EVAL_TAC >> full_simp_tac(srw_ss())[state_rel_def]
-      >-
-       (rename1 ‘w2n (_ n')’
-        \\ qpat_x_assum ‘∀r. word_loc_val _ _ _ = SOME _’ mp_tac
-        \\ disch_then(qspec_then‘n'’assume_tac)
-        \\ gvs [word_loc_val_def])
-      (*Div*)
-      >-
-        (unabbrev_all_tac \\ fs[]
-        \\ qpat_x_assum `!bn. bn < _ ==> ~(MEM _ _)` kall_tac
-        \\ first_x_assum(qspec_then`n1`mp_tac)>>
-        first_x_assum(qspec_then`n1`mp_tac)>>
-        simp[]>>EVAL_TAC>>metis_tac[])
-      (*LongDiv*)
-      >>
-      unabbrev_all_tac \\ fs[]
-      \\ qpat_x_assum `!bn. bn < _ ==> ~(MEM _ _)` kall_tac
-      \\ first_x_assum(qspec_then`n0`kall_tac)
-      \\ first_assum(qspec_then`n0`mp_tac)
-      \\ first_assum(qspec_then`n1`mp_tac)
-      \\ first_assum(qspec_then`n2`mp_tac)
-      \\ first_x_assum(qspec_then`n3`mp_tac)
-      \\ simp[word_loc_val_def] \\ ntac 3 strip_tac
-      \\ rveq \\ fs[asmSemTheory.read_reg_def]) >>
-    srw_tac[][] >>
-    simp[inc_pc_dec_clock] >>
-    simp[dec_clock_def] >>
-    match_mp_tac state_rel_clock >>
-    full_simp_tac(srw_ss())[state_rel_def] >>
-    simp[GSYM word_add_n2w] >>
-    fsrw_tac[ARITH_ss][] >>
-    conj_tac >- metis_tac[] >>
-    conj_tac >- (srw_tac[][] >> metis_tac[]) >>
-    conj_tac >- metis_tac[] >>
-    conj_tac>- (match_mp_tac arith_upd_lemma >> srw_tac[][]) >>
-    conj_tac>- fs[GSYM word_add_n2w]>>
-    conj_tac >- metis_tac[] >>
-    conj_tac >- rfs[] >>
-    fs[upd_pc_def, inc_pc_def, arith_upd_def, share_mem_state_rel_def] >> rw[]>>
-    gvs[IMP_CONJ_THM, AND_IMP_INTRO])
+  THEN1 (metis_tac[arith_upd_state_rel])
   THEN1
     (strip_tac >>
     Cases_on`m`>>fs[mem_op_def,labSemTheory.assert_def]
@@ -3169,7 +3208,7 @@ Proof
   >> every_case_tac
   >> fs[has_io_name_def,find_index_def, find_ffi_names_def,Q.INST [`n`|->`0`] list_add_if_fresh_simp,find_index_append]
   >- metis_tac [NOT_NONE_SOME]
-  >- (Cases_on `find_index (ExtCall s) (find_ffi_names (Section k xs::rest)) 0`
+  >- (Cases_on `find_index (ExtCall s) (find_ffi_names (Section k xs md::rest)) 0`
       >> metis_tac [NOT_NONE_SOME])
 QED
 
@@ -3714,7 +3753,7 @@ Definition line_encd0_def:
 End
 
 Definition sec_encd0_def[simp]:
-  sec_encd0 enc (Section _ ls) = EVERY (line_encd0 enc) ls
+  sec_encd0 enc (Section _ ls _) = EVERY (line_encd0 enc) ls
 End
 
 Overload all_encd0 = ``λenc l. EVERY (sec_encd0 enc) l``
@@ -3799,7 +3838,7 @@ Definition line_length_leq_def[simp]:
 End
 
 Definition sec_length_leq_def[simp]:
-  sec_length_leq (Section _ ls) = EVERY line_length_leq ls
+  sec_length_leq (Section _ ls _) = EVERY line_length_leq ls
 End
 
 Overload all_length_leq = ``λl. EVERY sec_length_leq l``
@@ -3812,7 +3851,7 @@ Definition label_one_def[simp]:
 End
 
 Definition sec_label_one_def[simp]:
-  sec_label_one (Section _ ls) = EVERY label_one ls
+  sec_label_one (Section _ ls _) = EVERY label_one ls
 End
 
 (* establishing label_one *)
@@ -3936,7 +3975,7 @@ End
 
 Definition all_encd_def:
   (all_encd enc labs ffis pos [] ⇔ T) ∧
-  (all_encd enc labs ffis pos (Section k ls::ss) ⇔
+  (all_encd enc labs ffis pos (Section k ls md::ss) ⇔
    lines_encd enc labs ffis pos ls ∧
    all_encd enc labs ffis (pos + SUM (MAP line_len ls)) ss)
 End
@@ -4013,7 +4052,7 @@ Definition line_length_ok_def:
 End
 
 Definition sec_length_ok_def:
-  sec_length_ok (Section _ ls) = EVERY line_length_ok ls
+  sec_length_ok (Section _ ls _) = EVERY line_length_ok ls
 End
 
 (* simple consequences of length_ok *)
@@ -4036,7 +4075,7 @@ Definition label_zero_def[simp]:
 End
 
 Definition sec_label_zero_def:
-  sec_label_zero (Section _ ls) = EVERY label_zero ls
+  sec_label_zero (Section _ ls _) = EVERY label_zero ls
 End
 
 (* label_zero preservation *)
@@ -4200,7 +4239,7 @@ Definition line_aligned_def:
 End
 
 Definition sec_aligned_def[simp]:
-  sec_aligned noplen (Section _ ls) = EVERY (line_aligned noplen) ls
+  sec_aligned noplen (Section _ ls _) = EVERY (line_aligned noplen) ls
 End
 
 (* establishing aligned *)
@@ -4267,7 +4306,7 @@ Definition label_prefix_zero_def:
 End
 
 Definition sec_label_prefix_zero_def[simp]:
-  sec_label_prefix_zero (Section k ls) ⇔ label_prefix_zero ls
+  sec_label_prefix_zero (Section k ls _) ⇔ label_prefix_zero ls
 End
 
 Theorem label_prefix_zero_cons:
@@ -4466,18 +4505,18 @@ QED
 
 Definition all_enc_with_nop_def:
   (all_enc_with_nop enc labs ffis pos [] ⇔ T) ∧
-  (all_enc_with_nop enc labs ffis pos (Section k []::xs) ⇔
+  (all_enc_with_nop enc labs ffis pos (Section k [] md::xs) ⇔
    all_enc_with_nop enc labs ffis pos xs) ∧
-  (all_enc_with_nop enc labs ffis pos (Section k (y::ys)::xs) ⇔
+  (all_enc_with_nop enc labs ffis pos (Section k (y::ys) md::xs) ⇔
    line_enc_with_nop enc labs ffis pos y ∧
-   all_enc_with_nop enc labs ffis (pos + line_length y) (Section k ys::xs))
+   all_enc_with_nop enc labs ffis (pos + line_length y) (Section k ys md::xs))
 End
 
 val all_enc_with_nop_ind = theorem"all_enc_with_nop_ind";
 
 Theorem all_enc_with_nop_alt:
    (all_enc_with_nop enc labs ffis pos [] ⇔ T) ∧
-   (all_enc_with_nop enc labs ffis pos (Section k ls::ss) ⇔
+   (all_enc_with_nop enc labs ffis pos (Section k ls md::ss) ⇔
     lines_enc_with_nop enc labs ffis pos ls ∧
     all_enc_with_nop enc labs ffis (pos + SUM (MAP line_length ls)) ss)
 Proof
@@ -4798,7 +4837,7 @@ QED
 
 Definition all_lab_len_pos_ok_def:
   (all_lab_len_pos_ok _ [] ⇔ T) ∧
-  (all_lab_len_pos_ok pos (Section k ls::ss) ⇔
+  (all_lab_len_pos_ok pos (Section k ls md::ss) ⇔
    lab_len_pos_ok pos ls ∧
    all_lab_len_pos_ok (pos + sec_length ls 0) ss)
 End
@@ -4976,7 +5015,7 @@ QED
 
 Definition offset_ok_def:
   (offset_ok labs ffis pos [] ⇔ T) ∧
-  (offset_ok labs ffis pos (Section k ls::ss) ⇔
+  (offset_ok labs ffis pos (Section k ls md::ss) ⇔
    lines_offset_ok labs ffis pos ls ∧
    offset_ok labs ffis (pos + SUM (MAP line_len ls)) ss)
 End
@@ -5090,7 +5129,7 @@ End
 val line_labs_exist_ind = theorem "line_labs_exist_ind";
 
 Definition sec_labs_exist_def[simp]:
-  sec_labs_exist labs (Section _ ls) ⇔ EVERY (line_labs_exist labs) ls
+  sec_labs_exist labs (Section _ ls _) ⇔ EVERY (line_labs_exist labs) ls
 End
 
 Overload all_labs_exist = ``λlabs code. EVERY (sec_labs_exist labs) code``
@@ -5312,10 +5351,10 @@ QED
 
 Definition even_labels_def:
   (even_labels pos [] ⇔ T) ∧
-  (even_labels pos (Section _ []::ls) ⇔ even_labels pos ls) ∧
-  (even_labels pos (Section k (y::ys)::ls) ⇔
+  (even_labels pos (Section _ [] md::ls) ⇔ even_labels pos ls) ∧
+  (even_labels pos (Section k (y::ys) md::ls) ⇔
    (is_Label y ⇒ EVEN pos) ∧
-   even_labels (pos + line_len y) (Section k ys::ls))
+   even_labels (pos + line_len y) (Section k ys md::ls))
 End
 
 val even_labels_ind = theorem"even_labels_ind";
@@ -5329,7 +5368,7 @@ End
 
 Theorem even_labels_alt:
    (even_labels pos [] ⇔ T) ∧
-   (even_labels pos (Section _ ls::ss) ⇔
+   (even_labels pos (Section _ ls md::ss) ⇔
     lines_even_labels pos ls ∧
     even_labels (pos + SUM (MAP line_len ls)) ss)
 Proof
@@ -5343,11 +5382,11 @@ QED
 
 Definition even_labels_strong_def:
   (even_labels_strong pos [] ⇔ T) ∧
-  (even_labels_strong pos (Section _ []::ls) ⇔
+  (even_labels_strong pos (Section _ [] md::ls) ⇔
     EVEN pos ∧ even_labels_strong pos ls) ∧
-  (even_labels_strong pos (Section k (y::ys)::ls) ⇔
+  (even_labels_strong pos (Section k (y::ys) md::ls) ⇔
    (is_Label y ⇒ EVEN pos) ∧
-   even_labels_strong (pos + line_len y) (Section k ys::ls))
+   even_labels_strong (pos + line_len y) (Section k ys md::ls))
 End
 
 Theorem even_labels_ends_imp_strong:
@@ -5398,9 +5437,9 @@ Proof
 QED
 
 Theorem all_enc_ok_split[local]:
-  ∀c labs ffis pos k lines xs.
-  all_enc_ok c labs ffis pos (Section k lines::xs) ⇒
-  all_enc_ok c labs ffis pos [Section k lines] ∧
+  ∀c labs ffis pos k lines md xs.
+  all_enc_ok c labs ffis pos (Section k lines md::xs) ⇒
+  all_enc_ok c labs ffis pos [Section k lines md] ∧
   all_enc_ok c labs ffis (pos + sec_length lines 0) xs
 Proof
   Induct_on`lines`>>rw[all_enc_ok_def,sec_length_def,all_enc_ok_def]>>
@@ -5413,7 +5452,7 @@ QED
 
 Theorem all_enc_ok_even[local]:
   ∀lines pos.
-  all_enc_ok c labs ffis pos [Section k lines] ⇒
+  all_enc_ok c labs ffis pos [Section k lines md] ⇒
   EVEN (sec_length lines pos)
 Proof
   Induct>>fs[all_enc_ok_def,sec_length_def]>>Cases>>
@@ -6765,11 +6804,11 @@ QED
 Theorem GENLIST_asm_fetch_aux_next:
   ~is_Label x ==>
   GENLIST (\i.
-    (i,asm_fetch_aux i (Section k (x::xs)::rest)))
+    (i,asm_fetch_aux i (Section k (x::xs) md::rest)))
     (n+1) =
   (0,SOME x)::(
     GENLIST (\i.
-      (i+1, asm_fetch_aux i (Section k xs::rest))) n)
+      (i+1, asm_fetch_aux i (Section k xs md::rest))) n)
 Proof
   rpt strip_tac >>
   Induct_on `n` >>
@@ -7402,7 +7441,7 @@ Proof
   >- metis_tac[pos_val_acc_0]
   >- metis_tac[pos_val_acc_0]
   >- (
-    first_x_assum $ qspecl_then [`n`,`pc-1`] mp_tac >>
+    first_x_assum $ qspecl_then [`n`,`m`,`pc-1`] mp_tac >>
     impl_tac
     >- decide_tac >>
     metis_tac[pos_val_acc_0]
@@ -9654,10 +9693,10 @@ Definition line_to_info_def:
 End
 
 Theorem line_to_info_next:
-  line_to_info (Section k1 (LabAsm a b bytes1 len1::xs1)::rest1) p1 (i1+1,l1)
-    = line_to_info ((Section k1 xs1)::rest1) (p1 + LENGTH bytes1) (i1,l1) /\
-  line_to_info (Section k2 (Asm c2 bytes2 len2::xs2)::rest2) p2 (i2+1,l2)
-    = line_to_info ((Section k2 xs2)::rest2) (p2 + LENGTH bytes2) (i2,l2)
+  line_to_info (Section k1 (LabAsm a b bytes1 len1::xs1) md1::rest1) p1 (i1+1,l1)
+    = line_to_info ((Section k1 xs1 md1)::rest1) (p1 + LENGTH bytes1) (i1,l1) /\
+  line_to_info (Section k2 (Asm c2 bytes2 len2::xs2) md2::rest2) p2 (i2+1,l2)
+    = line_to_info ((Section k2 xs2 md2)::rest2) (p2 + LENGTH bytes2) (i2,l2)
 Proof
   rw[line_to_info_def] >>
   TOP_CASE_TAC >>
@@ -9668,7 +9707,7 @@ Proof
 QED
 
 Theorem line_to_info_hd_empty:
-  line_to_info (Section k []::rest) p t =
+  line_to_info (Section k [] md::rest) p t =
     line_to_info rest p t
 Proof
   gvs[line_to_info_def] >>
@@ -9678,9 +9717,9 @@ Proof
 QED
 
 Theorem line_to_info_hd_Label:
-  line_to_info (Section k ((Label a b 0)::xs)::rest)
+  line_to_info (Section k ((Label a b 0)::xs) md::rest)
     p t
-    = line_to_info (Section k xs::rest) p t
+    = line_to_info (Section k xs md::rest) p t
 Proof
   gvs[line_to_info_def] >>
   TOP_CASE_TAC >>
@@ -10849,7 +10888,7 @@ QED
 *)
 Theorem asm_fetch_aux_MEM:
   MEM x l /\ ~(is_Label x) ==>
-  ?p. asm_fetch_aux p [Section n l] = SOME x
+  ?p. asm_fetch_aux p [Section n l md] = SOME x
 Proof
   Induct_on `l` >>
   simp[asm_fetch_aux_def] >>

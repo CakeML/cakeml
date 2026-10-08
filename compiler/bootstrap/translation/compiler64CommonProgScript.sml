@@ -148,7 +148,8 @@ val r = backend_passesTheory.to_data_all_def |> spec64 |> translate;
 val r = backend_passesTheory.word_internal_all_def |> spec64 |> translate;
 
 val r = backend_passesTheory.to_word_all_def |> spec64
-          |> REWRITE_RULE [data_to_wordTheory.stubs_def,APPEND] |> translate;
+          |> REWRITE_RULE [data_to_wordTheory.stubs_md_def,
+                           data_to_wordTheory.stubs_def,APPEND] |> translate;
 
 val r = backend_passesTheory.to_stack_all_def |> spec64
           |> REWRITE_RULE[dimindex_64] |> translate;
@@ -169,7 +170,7 @@ val r = backend_passesTheory.from_word_0_all_def |> spec64
           |> REWRITE_RULE[dimindex_64] |> translate;
 
 val r = presLangTheory.word_to_strs_def |> spec64 |> translate
-val r = presLangTheory.stack_to_strs_def |> spec64 |> translate
+val r = presLangTheory.stack_to_strs_def |> translate
 val r = presLangTheory.lab_to_strs_def |> spec64 |> translate
 
 val r = backend_passesTheory.any_prog_pp_def |> spec64 |> translate;

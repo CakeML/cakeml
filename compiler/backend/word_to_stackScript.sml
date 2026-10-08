@@ -126,6 +126,16 @@ Definition wInst_def:
     let (l',n3) = wReg2 n3 kf in
     wStackLoad (l++l')
       (wRegWrite1 (\n1. Inst (Arith (SubOverflow n1 n2 n3 n4))) n1 kf)) /\
+  (wInst aw (Arith (IMul n1 n2 n3 n4)) kf =
+    let (l,n2) = wReg1 n2 kf in
+    let (l',n3) = wReg2 n3 kf in
+    wStackLoad (l++l')
+      (wRegWrite1 (\n1. Inst (Arith (IMul n1 n2 n3 n4))) n1 kf)) /\
+  (wInst aw (Arith (IDiv n1 n2 n3 n4)) kf =
+    (* n1 = n3 = 0, n2 = 6; only the divisor can spill. *)
+    let (l,n4) = wReg1 n4 kf in
+    wStackLoad l
+      (Inst (Arith (IDiv 0 3 0 n4)))) /\
   (wInst aw (Arith (LongMul n1 n2 n3 n4)) kf =
     (*n1 = 2, n2 = 0, n3 = 0, n4 = 1 no spills necessary*)
       (Inst (Arith (LongMul 3 0 0 2)))) /\
@@ -591,11 +601,11 @@ Definition compile_prog_def:
 End
 
 Definition compile_word_to_stack_def:
-  (compile_word_to_stack asm_conf perf k ([]:(num # num # wordLang$prog) list) bitmaps = ([],[],bitmaps)) /\
-  (compile_word_to_stack asm_conf perf k ((i,n,p)::progs) bitmaps =
+  (compile_word_to_stack asm_conf perf k ([]:(num # num # wordLang$prog # metadata) list) bitmaps = ([],[],bitmaps)) /\
+  (compile_word_to_stack asm_conf perf k ((i,n,p,md)::progs) bitmaps =
      let (prog,f,bitmaps) = compile_prog asm_conf perf p n k bitmaps in
      let (progs,fs,bitmaps) = compile_word_to_stack asm_conf perf k progs bitmaps in
-       ((i,prog)::progs,f::fs,bitmaps))
+       ((i,prog,md)::progs,f::fs,bitmaps))
 End
 
 Definition compile_def:
@@ -606,12 +616,15 @@ Definition compile_def:
     let init_bitmaps =
         if perf then (List [16n], 1n) else (List [4n], 1n) in
     let (progs,fs,bitmaps) = compile_word_to_stack asm_conf perf k progs init_bitmaps in
-    let sfs = fromAList (MAP (λ((i,_),n). (i,n)) (ZIP (progs,fs))) in
+    let sfs = fromAList (MAP (λ((i,_,_),n). (i,n)) (ZIP (progs,fs))) in
       (append (FST bitmaps),
        <| bitmaps_length := SND bitmaps;
           stack_frame_size := sfs |>, 0::fs,
-       (raise_stub_location,raise_stub perf k) ::
-       (store_consts_stub_location,store_consts_stub k) :: progs)
+       (raise_stub_location,raise_stub perf k,
+          Metadata (implode "_Raise") [Stub]) ::
+       (store_consts_stub_location,store_consts_stub k,
+          Metadata (implode "_StoreConsts") [Stub]) ::
+       progs)
 End
 
 Definition stub_names_def:

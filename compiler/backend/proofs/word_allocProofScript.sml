@@ -1253,6 +1253,22 @@ Resume evaluate_apply_colour[Inst]:
   exists_tac>>
   Cases_on`i`>> (TRY (Cases_on`a`))>> (TRY(Cases_on`m`))>>
   full_simp_tac(srw_ss())[get_live_def,get_live_inst_def,inst_def,assign_def,word_add_carry_def]
+  >~ [`get_writes (Inst (Arith (Div rd ra rb)))`]
+  >- inst_arith_tac
+  >~ [`get_writes (Inst (Arith (LongMul rh rl ra rb)))`]
+  >- inst_arith_tac
+  >~ [`get_writes (Inst (Arith (LongDiv rq rr rh rl rb)))`]
+  >- inst_arith_tac
+  >~ [`get_writes (Inst (Arith (AddCarry rd ra rb rc)))`]
+  >- inst_arith_tac
+  >~ [`get_writes (Inst (Arith (AddOverflow rd ra rb ro)))`]
+  >- inst_arith_tac
+  >~ [`get_writes (Inst (Arith (SubOverflow rd ra rb ro)))`]
+  >- inst_arith_tac
+  >~ [`get_writes (Inst (Arith (IMul rd ra rb ro)))`]
+  >- inst_arith_tac
+  >~ [`get_writes (Inst (Arith (IDiv rq rr ra rb)))`]
+  >- inst_arith_tac
   >-
   (rename1 `word_exp st (Const imm)` >>
   Cases_on`word_exp st (Const imm)`>>
@@ -1290,12 +1306,6 @@ Resume evaluate_apply_colour[Inst]:
   match_mp_tac strong_locals_rel_insert>>
   fs[domain_union,get_writes_def,get_writes_inst_def]>>
   metis_tac[INSERT_SING_UNION,strong_locals_rel_subset,SUBSET_OF_INSERT])
-  >- inst_arith_tac
-  >- inst_arith_tac
-  >- inst_arith_tac
-  >- inst_arith_tac
-  >- inst_arith_tac
-  >- inst_arith_tac
   >-
   (qpat_abbrev_tac`expr=((Op Add [Var n';A]))`>>
   setup_tac>>
@@ -2812,6 +2822,68 @@ Proof
   fs [EXTENSION,INJ_DEF] \\ rw [] \\ metis_tac []
 QED
 
+Theorem check_clash_tree_delta[local]:
+  ∀f writes reads live flive livein flivein.
+  wf live ∧
+  domain flive = IMAGE f (domain live) ∧
+  INJ f (domain live) UNIV ∧
+  check_clash_tree f (Delta writes reads) live flive =
+    SOME (livein,flivein) ⇒
+  wf livein ∧
+  INJ f (domain livein) UNIV ∧
+  INJ f (domain live UNION set writes) UNIV ∧
+  livein = numset_list_insert reads (numset_list_delete writes live) ∧
+  domain flivein = IMAGE f (domain livein)
+Proof
+  rpt gen_tac >> disch_then strip_assume_tac >>
+  qpat_x_assum `check_clash_tree _ _ _ _ = _` mp_tac >>
+  simp[check_clash_tree_def] >>
+  Cases_on `check_partial_col f writes live flive` >> fs[] >>
+  rename1 `check_partial_col f writes live flive = SOME write_result` >>
+  Cases_on `write_result` >>
+  rename1 `check_partial_col f writes live flive = SOME (write_live,write_flive)` >>
+  strip_tac >>
+  drule_all check_partial_col_INJ >> strip_tac >>
+  gvs[domain_numset_list_insert] >>
+  `wf (numset_list_delete writes live)` by
+    metis_tac[numset_list_delete_swap] >>
+  `domain (numset_list_delete (MAP f writes) flive) =
+   IMAGE f (domain (numset_list_delete writes live))` by
+    simp[domain_numset_list_delete,LIST_TO_SET_MAP,IMAGE_DIFF] >>
+  `INJ f (domain (numset_list_delete writes live)) UNIV` by (
+    match_mp_tac INJ_SUBSET >>
+    qexistsl_tac [`domain live`,`UNIV:num set`] >>
+    simp[domain_numset_list_delete,DIFF_SUBSET]) >>
+  qspecl_then [`reads`,`f`,`numset_list_delete writes live`,
+               `numset_list_delete (MAP f writes) flive`,`livein`,`flivein`]
+    mp_tac check_partial_col_INJ >> simp[]
+QED
+
+Theorem get_delta_inst_live[local]:
+  ∀bits i live.
+  wf live ⇒
+  ∃writes reads.
+    get_delta_inst bits i = Delta writes reads ∧
+    get_live_inst bits i live =
+      numset_list_insert reads (numset_list_delete writes live) ∧
+    domain (get_writes_inst bits i) = set writes
+Proof
+  ho_match_mp_tac get_delta_inst_ind >>
+  rw[get_delta_inst_def,get_live_inst_def,get_writes_inst_def,
+     numset_list_insert_def,numset_list_delete_def] >>
+  simp[INSERT_COMM,wf_delete_swap,wf_insert_swap,wf_delete]
+  >- (
+    Cases_on `ri` >>
+    simp[numset_list_insert_def,numset_list_delete_def])
+  >- (
+    Cases_on `ri` >>
+    simp[numset_list_insert_def,numset_list_delete_def]) >>
+  DEP_REWRITE_TAC[spt_eq_thm] >>
+  simp[wf_insert,wf_delete,lookup_insert,lookup_delete] >> rw[] >>
+  irule wf_insert >> irule wf_insert >> irule wf_insert >>
+  irule wf_delete >> irule wf_delete >> simp[]
+QED
+
 Theorem clash_tree_colouring_ok:
   ∀bits prog lt f live flive livein flivein.
   wf_cutsets prog ∧
@@ -2838,131 +2910,12 @@ Proof
     CONJ_TAC>-
       subset_tac>>
     fs[LIST_TO_SET_MAP,INJ_IMP_IMAGE_DIFF])
-  >- (*Inst*)
-    (Cases_on`i`>>TRY(Cases_on`a`)>>
-    fs[get_delta_inst_def,get_live_inst_def,get_writes_inst_def,check_clash_tree_def]
-    >-
-      fs[hide_def,check_partial_col_def,numset_list_delete_def]
-    >-
-      (start_tac
-      >-
-        (CONJ_TAC>-
-          subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF_single])>>
-      fs[domain_union,UNION_COMM,DELETE_DEF])
-    >-
-      (Cases_on`r`>>FULL_CASE_TAC>>fs[check_clash_tree_def]>>start_tac>>
-      TRY (*2 cases*)
-        (CONJ_TAC>-
-          subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF_single,wf_insert_swap])
-      >> (*2 cases*)
-        (strip_tac>>CONJ_TAC>-
-          (match_mp_tac (GEN_ALL INJ_less)>>
-          qpat_x_assum`INJ f A B` kall_tac>>
-          HINT_EXISTS_TAC>>fs[DELETE_DEF])>>
-        fs[domain_union,UNION_COMM]))
-    >-
-      (Cases_on`r`>>FULL_CASE_TAC>>fs[check_clash_tree_def]>>start_tac>>
-      TRY (*2 cases*)
-        (CONJ_TAC>-
-          subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF_single,wf_insert_swap])
-      >> (*2 cases*)
-        (strip_tac>>CONJ_TAC>-
-          (match_mp_tac (GEN_ALL INJ_less)>>
-          qpat_x_assum`INJ f A B` kall_tac>>
-          HINT_EXISTS_TAC>>fs[DELETE_DEF])>>
-        fs[domain_union,UNION_COMM]))
-    >-
-      (start_tac>-
-        (CONJ_TAC>-
-          subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF_single])
-      >>
-      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ])
-    >-
-      (start_tac>-
-        (CONJ_TAC>-
-          subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF])
-      >>
-      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ,DIFF_UNION]>>
-      rw[]>>
-      `{n ; n0} = {n} ∪ {n0} ∧ {n0;n} = {n} ∪ {n0}` by fs[EXTENSION]>>
-      fs[GSYM DIFF_UNION])
-    >-
-      (start_tac>-
-        (CONJ_TAC>-
-          subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF])
-      >>
-      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ,DIFF_UNION]>>
-      rw[]>>
-      `{n ; n0} = {n} ∪ {n0} ∧ {n0;n} = {n} ∪ {n0}` by fs[EXTENSION]>>
-      fs[GSYM DIFF_UNION])
-    >-
-      (start_tac>-
-        (CONJ_TAC>-
-          subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF])
-      >>
-      `n2 INSERT n1 INSERT n0 INSERT domain live DIFF {n;n2} =
-       n2 INSERT n1 INSERT n0 INSERT domain live DIFF {n}` by
-         (rw[EXTENSION,EQ_IMP_THM]>>fs[])>>
-      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ]>>rw[]>>
-      `{ n ; n0} = {n} ∪ {n0}` by fs[EXTENSION]>>
-      fs[GSYM DIFF_UNION]
-      >-
-        (match_mp_tac (GEN_ALL INJ_less)>>fs[]>>
-        ntac 2 (qpat_x_assum`INJ f A B` kall_tac)>>
-        HINT_EXISTS_TAC>>
-        fs[])
-      >>
-        DEP_REWRITE_TAC[spt_eq_thm]>>rw[wf_insert,wf_delete,lookup_insert,lookup_delete])
-    >-
-      (start_tac>-
-        (CONJ_TAC>-
-          subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF]) >>
-      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ]>>rw[]>>
-      fs[GSYM DIFF_UNION] >>
-      `!n n0:num. { n ; n0} = {n} ∪ {n0}` by fs[EXTENSION]>> fs [] >>
-      fs [AC UNION_COMM UNION_ASSOC])
-    >-
-      (start_tac>-
-        (CONJ_TAC>-
-          subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF]) >>
-      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ]>>rw[]>>
-      fs[GSYM DIFF_UNION] >>
-      `!n n0:num. { n ; n0} = {n} ∪ {n0}` by fs[EXTENSION]>> fs [] >>
-      fs [AC UNION_COMM UNION_ASSOC])
-    >- (* Mem *)
-      (Cases_on`m`>>fs[check_clash_tree_def,get_delta_inst_def,get_live_inst_def,get_writes_inst_def]>>
-      start_tac>>
-      fs[INJ_IMP_IMAGE_DIFF_single]>>
-      (*2 cases*)
-      TRY subset_tac>>
-      TRY (*2 cases*)
-        (CONJ_TAC>-
-          subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF_single,wf_insert_swap])>>
-      (strip_tac>>CONJ_TAC>-
-          (match_mp_tac (GEN_ALL INJ_less)>>
-          qpat_x_assum`INJ f A B` kall_tac>>
-          HINT_EXISTS_TAC>>fs[DELETE_DEF])>>
-      fs[domain_union,UNION_COMM]))
-    >- (* FP *)
-      (Cases_on`f'`>>
-      fs[check_clash_tree_def,get_delta_inst_def,get_live_inst_def,get_writes_def,get_writes_inst_def]>>
-      rw[]>>
-      fs[check_clash_tree_def,get_delta_inst_def,get_live_inst_def,get_writes_def,get_writes_inst_def]>>
-      TRY(start_tac>>
-      (rw[]>- subset_tac >> fs[INJ_IMP_IMAGE_DIFF,domain_union, AC UNION_COMM UNION_ASSOC]))>>
-      (* One last goal *)
-      `!n n0:num. { n ; n0} = {n} ∪ {n0}` by fs[EXTENSION]>>
-      fs[AC UNION_COMM UNION_ASSOC,wf_insert_swap,wf_delete_swap]))
+  >- (
+    qspecl_then [`dimindex (:'a)`,`i`,`live`] mp_tac get_delta_inst_live >>
+    simp[] >>
+    disch_then (qx_choosel_then [`writes`,`reads`] strip_assume_tac) >>
+    fs[] >> drule_all check_clash_tree_delta >> strip_tac >>
+    gvs[hide_def,domain_union,UNION_COMM])
   >-
     (start_tac
     >-
@@ -4624,6 +4577,21 @@ Proof
   Cases_on`x=h`>>full_simp_tac(srw_ss())[]>>
   res_tac>-
     DECIDE_TAC
+QED
+
+Theorem ssa_locals_rel_option_lookup[local]:
+  ∀na ssa stloc cstloc n value.
+  ssa_locals_rel na ssa stloc cstloc ∧
+  ssa_map_ok na ssa ∧
+  lookup n stloc = SOME value ⇒
+  ¬is_phy_var (option_lookup ssa n) ∧ option_lookup ssa n < na
+Proof
+  rpt gen_tac >> disch_then strip_assume_tac >>
+  `n ∈ domain ssa` by (
+    fs[ssa_locals_rel_def] >> res_tac) >>
+  fs[domain_lookup] >>
+  rename1 `lookup n ssa = SOME mapped` >>
+  fs[option_lookup_def,ssa_map_ok_def] >> res_tac >> simp[]
 QED
 
 Theorem merge_moves_frame[local]:
@@ -7853,12 +7821,67 @@ Resume ssa_cc_trans_correct[Inst]:
     exists_tac>>
     Cases_on`i`>> (TRY (Cases_on`a`))>> (TRY(Cases_on`m`))>>
     fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,evaluate_def,LET_THM]
-    >~[`Const`]
+    >~[`every_var _ (Inst (Arith (IMul rd ra rb ro)))`]
     >- (
-      Cases_on`word_exp st (Const c)`>>
-      full_simp_tac(srw_ss())[set_var_def,word_exp_def]>>
-      match_mp_tac ssa_locals_rel_set_var>>
-      full_simp_tac(srw_ss())[every_var_inst_def,every_var_def])
+      Cases_on `get_var ra st` >> fs[get_vars_def] >>
+      rename1 `get_var ra st = SOME left_value` >>
+      Cases_on `get_var rb st` >> fs[get_vars_def] >>
+      rename1 `get_var rb st = SOME right_value` >>
+      imp_res_tac ssa_locals_rel_get_var >> fs[] >>
+      namedCases_on `left_value` ["left_word","left_label left_offset"] >>
+      namedCases_on `right_value` ["right_word","right_label right_offset"] >>
+      fs[] >>
+      fs[set_var_def,set_vars_def,get_vars_def,get_var_def,alist_insert_def,
+         lookup_insert] >>
+      irule (SIMP_RULE (srw_ss()) [GSYM ADD_ASSOC]
+        (Q.INST [`na` |-> `na + 4`] ssa_locals_rel_insert)) >>
+      `¬is_phy_var na` by metis_tac[convention_partitions] >>
+      `ssa_map_ok (na + 4) (insert rd na ssa)` by (
+        irule ssa_map_ok_extend >> simp[]) >>
+      fs[every_var_def,every_var_inst_def] >>
+      irule ssa_locals_rel_ignore_insert >> simp[is_phy_var_def] >>
+      irule ssa_locals_rel_insert >> simp[])
+    >~[`every_var _ (Inst (Arith (IDiv rq rr ra rb)))`]
+    >- (
+      Cases_on `get_var ra st` >> fs[get_vars_def] >>
+      rename1 `get_var ra st = SOME left_value` >>
+      Cases_on `get_var rb st` >> fs[get_vars_def] >>
+      rename1 `get_var rb st = SOME right_value` >>
+      imp_res_tac ssa_locals_rel_get_var >> fs[] >>
+      namedCases_on `left_value` ["left_word","left_label left_offset"] >>
+      namedCases_on `right_value` ["right_word","right_label right_offset"] >>
+      fs[get_var_def] >>
+      qspecl_then [`na`,`ssa`,`st.locals`,`cst.locals`,`rb`,`Word right_word`]
+        mp_tac ssa_locals_rel_option_lookup >> simp[] >> strip_tac >>
+      `option_lookup ssa rb ≠ 0` by (
+        CCONTR_TAC >> fs[is_phy_var_def]) >>
+      fs[set_var_def,set_vars_def,get_vars_def,get_var_def,alist_insert_def,
+         lookup_insert] >>
+      IF_CASES_TAC >> fs[lookup_insert,alist_insert_def] >>
+      qmatch_goalsub_abbrev_tac
+        `insert rq quotient (insert rr remainder st.locals)` >>
+      qpat_abbrev_tac
+        `scratch = insert 0 quotient (insert 6 remainder (insert 0 (Word left_word) cst.locals))` >>
+      qspecl_then [`scratch`,`na`,`remainder`,`na + 4`,`quotient`]
+        mp_tac insert_swap >> simp[] >>
+      disch_then (fn th => once_rewrite_tac [th]) >>
+      irule (SIMP_RULE (srw_ss()) [GSYM ADD_ASSOC]
+        (Q.INST [`na` |-> `na + 4`] ssa_locals_rel_insert)) >>
+      `¬is_phy_var na` by metis_tac[convention_partitions] >>
+      `ssa_map_ok (na + 4) (insert rr na ssa)` by (
+        irule ssa_map_ok_extend >> simp[]) >>
+      fs[every_var_def,every_var_inst_def] >>
+      irule ssa_locals_rel_insert >> simp[] >>
+      fs[Abbr`scratch`] >>
+      irule ssa_locals_rel_ignore_insert >> simp[is_phy_var_def] >>
+      irule ssa_locals_rel_ignore_insert >> simp[is_phy_var_def] >>
+      irule ssa_locals_rel_ignore_insert >> simp[is_phy_var_def])
+    >~[`every_var _ (Inst (asm$Const rd literal))`]
+    >- (
+      Cases_on `word_exp st (Const literal)` >>
+      fs[set_var_def,word_exp_def] >>
+      match_mp_tac ssa_locals_rel_set_var >>
+      fs[every_var_inst_def,every_var_def])
     >~[`Binop`]
     >-(
       Cases_on`r`>>
@@ -11049,7 +11072,7 @@ Resume ssa_cc_trans_full_inst_ok_less[Inst]:
     rw[]>>
     fs[option_lookup_def]>>every_case_tac>>rw[]>>
     pop_assum (assume_tac o SYM)>>res_tac>>
-    intLib.ARITH_TAC
+    CCONTR_TAC >> gvs[is_phy_var_def]
 QED
 
 Resume ssa_cc_trans_full_inst_ok_less[If]:

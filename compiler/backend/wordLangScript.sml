@@ -106,6 +106,8 @@ Definition every_var_inst_def:
   (every_var_inst bits P (Arith (SubOverflow r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
   (every_var_inst bits P (Arith (LongMul r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
   (every_var_inst bits P (Arith (LongDiv r1 r2 r3 r4 r5)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4 ∧ P r5)) ∧
+  (every_var_inst bits P (Arith (IMul rd ra rb ro)) = (P rd ∧ P ra ∧ P rb ∧ P ro)) ∧
+  (every_var_inst bits P (Arith (IDiv rq rr ra rb)) = (P rq ∧ P rr ∧ P ra ∧ P rb)) ∧
   (every_var_inst bits P (Mem Load r (Addr a w)) = (P r ∧ P a)) ∧
   (every_var_inst bits P (Mem Store r (Addr a w)) = (P r ∧ P a)) ∧
   (every_var_inst bits P (Mem Load32 r (Addr a w)) = (P r ∧ P a)) ∧
@@ -226,6 +228,8 @@ Definition max_var_inst_def:
   (max_var_inst bits (Arith (SubOverflow r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
   (max_var_inst bits (Arith (LongMul r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
   (max_var_inst bits (Arith (LongDiv r1 r2 r3 r4 r5)) = MAX (MAX (MAX r1 r2) (MAX r3 r4)) r5) ∧
+  (max_var_inst bits (Arith (IMul rd ra rb ro)) = MAX (MAX rd ra) (MAX rb ro)) ∧
+  (max_var_inst bits (Arith (IDiv rq rr ra rb)) = MAX (MAX rq rr) (MAX ra rb)) ∧
   (max_var_inst bits (Mem Load r (Addr a w)) = MAX a r) ∧
   (max_var_inst bits (Mem Store r (Addr a w)) = MAX a r) ∧
   (max_var_inst bits (Mem Load32 r (Addr a w)) = MAX a r) ∧

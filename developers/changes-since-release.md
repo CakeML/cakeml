@@ -78,6 +78,15 @@ The exported assembly marks the stack as non-executable on ELF platforms, so
 `cake` and the programs it compiles no longer get an executable stack from the
 linker (#1517).
 
+The backend now supports IMul and IDiv instructions and optimizes to the
+(#1533). Some further cleanup of the asm ops might be expected in the future.
+
+The global dead code elimination pass has moved from flatLang to source,
+specifically, `flat_elim` has been replaced by `source_dce` (#1508).
+
+The compiler backend now attaches a bit of metadata to every function (#1535).
+This is completely internal to the compiler.
+
 ## Pancake
 
 Queryable feature tags (#1470).

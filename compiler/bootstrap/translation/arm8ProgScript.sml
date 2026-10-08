@@ -213,7 +213,19 @@ val shiftimmth = reconstruct_case ``arm8_enc (Inst (Arith (Shift b n n0
 val shiftth = reconstruct_case ``arm8_enc(Inst (Arith (Shift b n n0
   r)))`` (rand o rand o rand o rand) [shiftregth,shiftimmth];
 
-val arm8_enc1_3_aux = binopth :: shiftth :: map (fn th => th |>
+val cons_cond = GEN_ALL (Q.ISPEC `CONS (h:arm8$instruction)` COND_RAND)
+
+fun is_idiv th = can (find_term (same_const ``asm$IDiv``)) (concl th)
+
+val arm8_enc1_3_aux = binopth :: shiftth :: map (fn th =>
+  if is_idiv th then th
+    |> SIMP_RULE (srw_ss()) (cons_cond :: Q.ISPEC`LIST_BIND`COND_RAND ::
+                             COND_RATOR :: defaults)
+    |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+    |> SIMP_RULE (srw_ss()) (Q.ISPEC`LIST_BIND`COND_RAND :: COND_RATOR ::
+                             defaults)
+    |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+  else th |>
 SIMP_RULE (srw_ss()) defaults |> wc_simp |> we_simp |> gconv |>
 SIMP_RULE std_ss [SHIFT_ZERO]) rest
 

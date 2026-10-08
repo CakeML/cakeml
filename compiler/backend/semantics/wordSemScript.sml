@@ -253,15 +253,15 @@ Datatype:
      ; mdomain : ('a word) set
      ; sh_mdomain : ('a word) set
      ; permute : num -> num -> num (* sequence of bijective mappings *)
-     ; compile : 'c -> (num # num # wordLang$prog) list -> (word8 list # 'a word list # 'c) option
-     ; compile_oracle : num -> 'c # (num # num # wordLang$prog) list
+     ; compile : 'c -> (num # num # wordLang$prog # metadata) list -> (word8 list # 'a word list # 'c) option
+     ; compile_oracle : num -> 'c # (num # num # wordLang$prog # metadata) list
      ; code_buffer : ('a,8) buffer
      ; data_buffer : ('a,'a) buffer
      ; gc_fun  : 'a gc_fun_type
      ; handler : num (*position of current handle frame on stack*)
      ; clock   : num
      ; termdep : num (* count of how many MustTerminates we can still enter *)
-     ; code    : (num # (wordLang$prog)) num_map
+     ; code    : (num # (wordLang$prog) # metadata) num_map
      ; be      : bool (*is big-endian*)
      ; ffi     : 'ffi ffi_state |>
 End
@@ -654,7 +654,7 @@ Definition find_code_def:
   (find_code (SOME p) args code ssize =
      case sptree$lookup p code of
      | NONE => NONE
-     | SOME (arity,exp) => if LENGTH args = arity then SOME (args,exp,sptree$lookup p ssize)
+     | SOME (arity,exp,md) => if LENGTH args = arity then SOME (args,exp,sptree$lookup p ssize)
                                                   else NONE) /\
   (find_code NONE args code ssize =
      if args = [] then NONE else
@@ -662,7 +662,7 @@ Definition find_code_def:
        | Loc loc 0 =>
            (case lookup loc code of
             | NONE => NONE
-            | SOME (arity,exp) => if LENGTH args = arity + 1
+            | SOME (arity,exp,md) => if LENGTH args = arity + 1
                                   then SOME (FRONT args,exp,sptree$lookup loc ssize)
                                   else NONE)
        | other => NONE)
@@ -812,6 +812,25 @@ Definition inst_def:
            SOME (set_var r1 (Word (n2w q)) (set_var r2 (Word (n2w (n MOD d))) s))
          else NONE
       | _ => NONE)
+    | Arith (IMul rd ra rb ro) =>
+        (case get_vars [ra;rb] s of
+        | SOME [Word a;Word b] =>
+            SOME (set_var ro
+              (Word (if w2i (a * b) ≠ w2i a * w2i b then 1w else 0w))
+              (set_var rd (Word (a * b)) s))
+        | _ => NONE)
+    | Arith (IDiv rq rr ra rb) =>
+        (case get_vars [ra;rb] s of
+        | SOME [Word wa;Word wb] =>
+            let a = w2i wa in
+            let b = w2i wb in
+            let q = a quot b in
+            let wq = i2w q : 'a word in
+              if b ≠ 0 ∧ w2i wq = q then
+                SOME (set_var rq (Word wq)
+                  (set_var rr (Word (i2w (a rem b))) s))
+              else NONE
+        | _ => NONE)
     | Mem Load r (Addr a w) =>
        (case word_exp s (Op Add [Var a; Const w]) of
         | SOME (Word w) =>
@@ -1210,7 +1229,7 @@ Definition evaluate_def:
          SOME (data, db) =>
         let new_oracle = shift_seq 1 s.compile_oracle in
         (case s.compile cfg progs, progs of
-          | SOME (bytes',data',cfg'), (k,prog)::_ =>
+          | SOME (bytes',data',cfg'), (k,_)::_ =>
             if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
             let s' =
                 s with <|

@@ -3,7 +3,7 @@
 *)
 Theory x64_targetProof
 Ancestors
-  x64_target
+  x64_target asmSigned
 Libs
   x64_stepLib asmLib
 
@@ -775,7 +775,7 @@ local
       (List.mapPartial (Lib.total markerSyntax.dest_abbrev) asl) (asl, g)
   val sub_overflow = SIMP_RULE (srw_ss()) [] integer_wordTheory.sub_overflow
 in
-  fun next_tac l =
+  fun next_tac_prefix l =
     let
       val i = List.length (List.filter (fn i => 0 < i) l)
       val n = numLib.term_of_int i
@@ -813,8 +813,8 @@ in
              GSYM wordsTheory.word_add_n2w, GSYM wordsTheory.word_mul_def]
       \\ fs [is_rax, is_rdx, adc_lem1, wordsTheory.w2w_n2w]
       \\ rfs []
-      \\ blastLib.FULL_BBLAST_TAC
     end
+  fun next_tac l = next_tac_prefix l \\ blastLib.FULL_BBLAST_TAC
 end;
 
 local
@@ -1049,12 +1049,11 @@ QED
 
 Resume x64_encoder_correct[Inst]:
   Cases_on `i'`
-      >- suspend "Skip"
-      >- suspend "Const"
-      >- suspend "Arith"
-         >- suspend "Mem"
-
-         \\ suspend "FP"
+  >- suspend "Skip"
+  >- suspend "Const"
+  >- suspend "Arith"
+  >- suspend "Mem"
+  >- suspend "FP"
 QED
 
 Resume x64_encoder_correct[Skip]:
@@ -1081,6 +1080,8 @@ QED
 
 Resume x64_encoder_correct[Arith]:
   Cases_on `a`
+         >~ [`asm$IMul rd ra rb ro`] >- suspend "IMul"
+         >~ [`asm$IDiv rq rr ra rb`] >- suspend "IDiv"
          >- suspend "Binop"
          >- suspend "Shift"
          >- suspend "Div"
@@ -1089,6 +1090,55 @@ Resume x64_encoder_correct[Arith]:
          >- suspend "AddCarry"
          >- suspend "AddOverflow"
          >- suspend "SubOverflow"
+QED
+
+Resume x64_encoder_correct[IMul]:
+  Cases_on `ro < 4`
+  >- (
+    fs [wordsTheory.NUMERAL_LESS_THM]
+    \\ gvs []
+    \\ next_tac_prefix [4,3]
+    \\ imp_res_tac is_rax
+    \\ imp_res_tac is_rdx
+    \\ imp_res_tac (SIMP_RULE (srw_ss()) [EVAL ``num2Zreg 1``]
+         (Q.SPEC `1` x64Theory.num2Zreg_11))
+    \\ imp_res_tac (SIMP_RULE (srw_ss()) [EVAL ``num2Zreg 3``]
+         (Q.SPEC `3` x64Theory.num2Zreg_11))
+    \\ fs []
+    \\ blastLib.FULL_BBLAST_TAC)
+  \\ `4 <= ro` by decide_tac
+  \\ Cases_on `word_bit 3 (n2w ro : word4)`
+  >- (
+    `(3 >< 3) (n2w ro : word4) = 1w : word1` by (
+      qpat_x_assum `word_bit 3 _` mp_tac
+      \\ blastLib.BBLAST_TAC)
+    \\ next_tac [4,4])
+  \\ `(3 >< 3) (n2w ro : word4) = 0w : word1` by (
+    qpat_x_assum `~word_bit 3 _` mp_tac
+    \\ blastLib.BBLAST_TAC)
+  \\ next_tac [4,4]
+QED
+
+Resume x64_encoder_correct[IDiv]:
+  next_tac_prefix [3,4]
+  \\ imp_res_tac is_rdx
+  \\ fs [combinTheory.APPLY_UPDATE_THM, signed_dividend_parts_64,
+         integer_wordTheory.w2i_eq_0]
+  \\ rfs []
+  \\ mp_tac (Q.ISPEC
+       `i2w (w2i (ms.REG RAX) quot w2i (ms.REG (num2Zreg rb))) : word64`
+       integer_wordTheory.w2i_ge)
+  \\ mp_tac (Q.ISPEC
+       `i2w (w2i (ms.REG RAX) quot w2i (ms.REG (num2Zreg rb))) : word64`
+       integer_wordTheory.w2i_le)
+  \\ simp [integer_wordTheory.INT_MIN_def, integer_wordTheory.INT_MAX_def,
+           wordsTheory.INT_MIN_def, wordsTheory.INT_MAX_def,
+           wordsTheory.dimword_def]
+  \\ rpt strip_tac
+  \\ gs [integerTheory.INT_NOT_LE, integerTheory.INT_NOT_LT,
+         integerTheory.INT_LE_LT1, combinTheory.APPLY_UPDATE_THM]
+  \\ imp_res_tac is_rax
+  \\ rfs []
 QED
 
 Resume x64_encoder_correct[Binop]:
@@ -1230,7 +1280,7 @@ Resume x64_encoder_correct[Mem]:
             >- suspend "Store8"
             >- suspend "Store16"
 
-            \\ suspend "Store32"
+            >- suspend "Store32"
 QED
 
 Resume x64_encoder_correct[Load]:
@@ -1353,7 +1403,7 @@ Resume x64_encoder_correct[FP]:
          >- suspend "FPMovToReg"
          >- suspend "FPMovFromReg"
          >- suspend "FPToInt"
-         \\ suspend "FPFromInt"
+         >- suspend "FPFromInt"
 QED
 
 Resume x64_encoder_correct[FPLess]:
@@ -1449,8 +1499,8 @@ Resume x64_encoder_correct[JumpCmp]:
         \\ fs (x64_config :: asmLib.asm_ok_rwts))
   \\   print_tac "JumpCmp"
       \\ Cases_on `r`
-      >- suspend "CmpReg"
-      \\ suspend "CmpImm"
+      >~ [`asm$Reg _`] >- suspend "CmpReg"
+      >~ [`asm$Imm _`] >- suspend "CmpImm"
 QED
 
 Resume x64_encoder_correct[CmpReg]:

@@ -30,6 +30,8 @@ Datatype:
             ; arch_width : asm$arch_width
             ; has_div : bool (* Div available in target *)
             ; has_longdiv : bool (* LongDiv available in target *)
+            ; has_imul : bool (* signed multiply with overflow available *)
+            ; has_idiv : bool (* signed quotient and remainder available *)
             ; has_fp_ops : bool (* can compile floating-point ops *)
             ; has_fp_tern : bool (* can compile FMA *)
             ; be : bool (* bigendian *)
@@ -2025,23 +2027,74 @@ val def = assign_Define `
 val def = assign_Define `
   assign_Mult (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
-        (list_Seq [Assign 1 (Var (adjust_var v1));
-                   Inst (Arith (LongMul 3 1 1 (adjust_var v2)));
-                   Assign 3 (Op Or [Var 3;
-                               Op And [Const 1;
-                                 Op Or [Var (adjust_var v1); Var (adjust_var v2)]]]);
-                   Assign 1 (ShiftVar (arch_width_bits c.arch_width) Lsr 1 1);
-                   If Equal 3 (Imm 0) Skip
-                     (MustTerminate
-                       (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
-                        (SOME Mul_location) [adjust_var v1; adjust_var v2] NONE));
-                   Move 2 [(adjust_var dest,1)]],l+1)
+        (if c.has_imul then
+           list_Seq [Assign 1 (ShiftVar (arch_width_bits c.arch_width) Asr (adjust_var v1) 1);
+                     Inst (Arith (IMul 1 1 (adjust_var v2) 3));
+                     Assign 3 (Op Or
+                       [Var 3; Var (adjust_var v1); Var (adjust_var v2)]);
+                     If Test 3 (Imm 1) Skip
+                       (MustTerminate
+                         (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
+                           (SOME Mul_location) [adjust_var v1; adjust_var v2] NONE));
+                     Move 2 [(adjust_var dest,1)]]
+         else list_Seq [Assign 1 (Var (adjust_var v1));
+                        Inst (Arith (LongMul 3 1 1 (adjust_var v2)));
+                        Assign 3 (Op Or [Var 3;
+                                    Op And [Const 1;
+                                      Op Or [Var (adjust_var v1); Var (adjust_var v2)]]]);
+                        Assign 1 (ShiftVar (arch_width_bits c.arch_width) Lsr 1 1);
+                        If Equal 3 (Imm 0) Skip
+                          (MustTerminate
+                            (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
+                             (SOME Mul_location) [adjust_var v1; adjust_var v2] NONE));
+                        Move 2 [(adjust_var dest,1)]],l+1)
       : wordLang$prog # num`;
+
+(* Tagged inputs give an untagged quotient and a tagged remainder. Correct
+   only the result needed by the consumer, leaving original operands intact. *)
+Definition SmallDivMod_def:
+  SmallDivMod is_mod v1 v2 =
+    list_Seq [Inst (Arith (IDiv 1 3 (adjust_var v1) (adjust_var v2)));
+              If Equal 3 (Imm 0) Skip
+                (list_Seq [Assign 5 (Op Xor [Var 3; Var (adjust_var v2)]);
+                           If Less 5 (Imm 0)
+                             (if is_mod then
+                                Assign 3 (Op Add [Var 3; Var (adjust_var v2)])
+                              else Assign 1 (Op Sub [Var 1; Const 1]))
+                             Skip])] : wordLang$prog
+End
 
 val def = assign_Define `
   assign_Div (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
-        (list_Seq [
+        (if c.has_idiv then
+           let signed = list_Seq
+                 [SmallDivMod F v1 v2;
+                  Assign 5 (ShiftVar (arch_width_bits c.arch_width) Lsr 1 (arch_width_bits c.arch_width-2));
+                  If Equal 5 (Imm 1)
+                    (MustTerminate
+                      (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l+1))
+                        (SOME Div_location) [adjust_var v1; adjust_var v2] NONE))
+                    (Assign 1 (ShiftVar (arch_width_bits c.arch_width) Lsl 1 1))] in
+             list_Seq
+               [Assign 1 (Op Or [Var (adjust_var v1); Var (adjust_var v2)]);
+                If Test 1 (Imm 1)
+                  (if c.has_div \/ c.has_longdiv then
+                     If Less 1 (Imm 0) signed
+                       (list_Seq
+                         [if c.has_div then
+                            Inst (Arith (Div 1 (adjust_var v1) (adjust_var v2)))
+                          else list_Seq
+                            [Assign 1 (Const 0);
+                             Inst (Arith (LongDiv 1 3 1 (adjust_var v1)
+                                                       (adjust_var v2)))];
+                          Assign 1 (ShiftVar (arch_width_bits c.arch_width) Lsl 1 1)])
+                   else signed)
+                  (MustTerminate
+                    (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
+                      (SOME Div_location) [adjust_var v1; adjust_var v2] NONE));
+                Move 2 [(adjust_var dest,1)]]
+         else list_Seq [
            Assign 1 (Op Or [Var (adjust_var v1); Var (adjust_var v2)]);
            Assign 1 (Op Or [Var 1; ShiftVar (arch_width_bits c.arch_width) Lsr 1 ((arch_width_bits c.arch_width)-1)]);
            If Test 1 (Imm 1)
@@ -2070,7 +2123,25 @@ val def = assign_Define `
 val def = assign_Define `
   assign_Mod (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
-        (list_Seq [
+        (if c.has_idiv then
+           list_Seq
+             [Assign 1 (Op Or [Var (adjust_var v1); Var (adjust_var v2)]);
+              If Test 1 (Imm 1)
+                (list_Seq
+                  [if c.has_longdiv then
+                     If Less 1 (Imm 0) (SmallDivMod T v1 v2)
+                       (list_Seq
+                         [Assign 1 (Const 0);
+                          Inst (Arith (LongDiv 1 3 1 (adjust_var v1)
+                                                    (adjust_var v2)))])
+                   else SmallDivMod T v1 v2;
+                   Move 2 [(adjust_var dest,3)]])
+                (list_Seq
+                  [MustTerminate
+                     (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
+                       (SOME Mod_location) [adjust_var v1; adjust_var v2] NONE);
+                   Move 2 [(adjust_var dest,1)]])]
+         else list_Seq [
            Assign 1 (Op Or [Var (adjust_var v1); Var (adjust_var v2)]);
            Assign 1 (Op Or [Var 1; ShiftVar (arch_width_bits c.arch_width) Lsr 1 ((arch_width_bits c.arch_width)-1)]);
            If Test 1 (Imm 1)
@@ -2720,7 +2791,7 @@ Definition comp_def:
 End
 
 Definition compile_part_def:
-  compile_part c (n,arg_count,p) = (n,arg_count+1n,FST (comp c n 2 p))
+  compile_part c (n,arg_count,p,md) = (n,arg_count+1n,FST (comp c n 2 p),md)
 End
 
 Definition MemCopy_code_def:
@@ -2929,6 +3000,18 @@ Definition stub_names_def:
     (data_num_stubs - Bignum_location)
 End
 
+(* the stubs, with metadata attached; the name of each stub is looked up in
+   stub_names so that the names are not written down twice *)
+Definition stubs_md_def:
+  stubs_md data_conf =
+    MAP (λ(n,arg_count,p).
+           (n, arg_count, p,
+            Metadata (case ALOOKUP (stub_names ()) n of
+                      | SOME s => s
+                      | NONE => strlit "") [Stub]))
+        (stubs data_conf : (num # num # wordLang$prog) list)
+End
+
 Theorem check_stubs_length:
    word_num_stubs + LENGTH (stubs c) = data_num_stubs
 Proof
@@ -2947,7 +3030,7 @@ Definition compile_def:
     let data_conf =
       (data_conf with <| has_fp_ops := (1 < asm_conf.fp_reg_count);
                       has_fp_tern := (asm_conf.ISA = ARMv7 /\ 2 < asm_conf.fp_reg_count) |>) in
-    let p = stubs data_conf ++ MAP (compile_part data_conf) prog in
+    let p = stubs_md data_conf ++ MAP (compile_part data_conf) prog in
       word_to_word$compile word_conf (asm_conf:asm_config) p
 End
 
@@ -2958,7 +3041,7 @@ Definition compile_0_def:
                          has_fp_tern := (asm_conf.ISA = ARMv7 /\
                                          2 < asm_conf.fp_reg_count) |>)
     in
-      stubs data_conf ++ MAP (compile_part data_conf) prog
+      stubs_md data_conf ++ MAP (compile_part data_conf) prog
 End
 
 (* Compute the call graph without evaluating integer constant payloads. *)
@@ -2966,16 +3049,16 @@ val call_graph_EVAL = computeLib.RESTR_EVAL_CONV
   [``int_bitwise$int_or``,``int_bitwise$int_and``,``int_bitwise$int_xor``];
 
 val th_FF = call_graph_EVAL ``full_call_graph AnyArith_location
-       (fromAList (stubs (data_conf with <| call_empty_ffi := F ;
+       (fromAList (stubs_md (data_conf with <| call_empty_ffi := F ;
                                                      has_longdiv := F |>)))``
 val th_FT = call_graph_EVAL ``full_call_graph AnyArith_location
-       (fromAList (stubs (data_conf with <| call_empty_ffi := F ;
+       (fromAList (stubs_md (data_conf with <| call_empty_ffi := F ;
                                                      has_longdiv := T |>)))``
 val th_TF = call_graph_EVAL ``full_call_graph AnyArith_location
-       (fromAList (stubs (data_conf with <| call_empty_ffi := T ;
+       (fromAList (stubs_md (data_conf with <| call_empty_ffi := T ;
                                                      has_longdiv := F |>)))``
 val th_TT = call_graph_EVAL ``full_call_graph AnyArith_location
-       (fromAList (stubs (data_conf with <| call_empty_ffi := T ;
+       (fromAList (stubs_md (data_conf with <| call_empty_ffi := T ;
                                                      has_longdiv := T |>)))``
 
 Definition AnyArith_call_tree_def:
@@ -2996,7 +3079,7 @@ End
 
 Theorem AnyArith_call_tree_thm:
   structure_le
-    (full_call_graph AnyArith_location (fromAList (stubs (data_conf))))
+    (full_call_graph AnyArith_location (fromAList (stubs_md (data_conf))))
     AnyArith_call_tree
 Proof
   Cases_on `data_conf.call_empty_ffi`

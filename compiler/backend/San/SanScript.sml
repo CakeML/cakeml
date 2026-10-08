@@ -96,6 +96,7 @@ Definition san_config_def:
    ; len2_reg := ARB
    ; ffi_interfer := san_ffi_interfer
       (san_mmio_info: (num # (word8 # addr # num # word64)) list)
+   ; callee_saved_regs := []
    ; next_interfer := K I
    ; halt_pc := n2w ffi_offset
    ; install_pc := 0w
@@ -257,6 +258,7 @@ Proof
   valid_mapped_read_tac \\
   simp[call_FFI_def,san_init_ffi_state_def,san_oracle_def] \\
   simp[length_pad_right,
+    EVAL ``i2w 20000 : word64``,
     EVAL ``LENGTH (word_to_bytes (20000w:word64) F)``] \\
   simp[apply_oracle_def,san_ffi_interfer_def,APPLY_UPDATE_THM] \\
   simp[Once evaluate_def,APPLY_UPDATE_THM] \\
@@ -270,6 +272,7 @@ Proof
   valid_mapped_write_tac \\
   simp[call_FFI_def,san_init_ffi_state_def,san_oracle_def] \\
   simp[length_pad_right,
+    EVAL ``i2w 20008 : word64``,
     EVAL ``LENGTH (word_to_bytes (20008w:word64) F)``,
     EVAL ``LENGTH (word_to_bytes (21w:word64) F)``] \\
   simp[apply_oracle_def,shift_seq_def] \\
@@ -302,15 +305,14 @@ Proof
   fs[mmio_pcs_min_index_def] \\
   irule some_intro \\
   rw[] >- (
-    `x = 1 \/ x = 0 \/ x = 2` by metis_tac[leq_2_cases] \\ fs[] \\
-    first_x_assum $ qspec_then `1` mp_tac \\
-    simp[]
-  ) >- (
-    qexists `0` \\
-    rw[] \\
-    Cases_on `j` \\ simp[] \\
-    Cases_on `n` \\ simp[]
-  )
+    qpat_x_assum `!j. j < _ ==> _` (qspec_then `0` mp_tac) \\
+    simp[])
+  \\ qexists_tac `0`
+  \\ rw[]
+  \\ qmatch_goalsub_rename_tac `EL shared_index _`
+  \\ Cases_on `shared_index < 2` \\ simp[]
+  \\ imp_res_tac lt_2_cases
+  \\ fs[]
 QED
 
 Theorem san_start_pc_ok:

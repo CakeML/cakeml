@@ -43,9 +43,10 @@ val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val word_to_word_conf = ``<| reg_alg:=2; col_oracle := [] |>``
 
 val x64_data_conf =
-  ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; arch_width:=Arch64;
-       has_div:=F; has_longdiv:=T; has_fp_ops:=T; has_fp_tern:=F; be:=F;
-       call_empty_ffi:=F; gc_kind:=Simple |>``
+  ``<| tag_bits := 4; len_bits := 4; pad_bits := 2; len_size := 32;
+       arch_width := Arch64; has_div := F; has_longdiv := T; has_imul := T; has_idiv := T;
+       has_fp_ops := T; has_fp_tern := F; be := F; call_empty_ffi := F;
+       gc_kind := Simple |>``
 val x64_word_conf = ``<| bitmaps_length := 0; stack_frame_size := LN |>``
 (* perf_calls=T yields an unverified binary suitable for
    `perf record --call-graph fp` profiling (x64 only). *)
@@ -67,4 +68,3 @@ Definition x64_backend_config_def:
                exported:=[]
                |>
 End
-

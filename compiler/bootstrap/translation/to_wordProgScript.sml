@@ -122,6 +122,7 @@ val _ = translate data_to_wordTheory.WriteWord64_def;
 val _ = translate data_to_wordTheory.LoadBignum_def;
 val _ = translate data_to_wordTheory.Smallnum_def;
 val _ = translate data_to_wordTheory.MemEqList_def;
+val _ = translate data_to_wordTheory.SmallDivMod_def;
 
 (* Constant construction converts through both fixed HOL word widths. *)
 fun translate_word_conversions ty = let
@@ -418,7 +419,7 @@ val _ = translate word_to_stackTheory.stub_names_def
 val _ = translate stack_allocTheory.stub_names_def
 val _ = translate stack_removeTheory.stub_names_def
 val res = translate (data_to_wordTheory.compile_def
-                     |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def, loc_values]
+                     |> SIMP_RULE std_ss [data_to_wordTheory.stubs_md_def, data_to_wordTheory.stubs_def, loc_values]
                      );
 
 val _ = res |> hyp |> null orelse
