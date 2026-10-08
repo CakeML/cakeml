@@ -832,6 +832,13 @@ Definition code_installed_def:
     EVERY (\(n,num_args,exp). ?md. lookup n code = SOME (num_args,exp,md)) aux
 End
 
+Theorem MAP_erase_metadata[local,simp]:
+  MAP (I ## I ## FST)
+    (MAP (λ(n,args,exp). (n,args,exp,f n args exp)) aux) = aux
+Proof
+  Induct_on `aux` \\ simp [FORALL_PROD]
+QED
+
 Definition closure_code_installed_def:
   closure_code_installed max_app code exps_ps (env:closSem$v list) =
     EVERY (\((n,exp),p).
@@ -1107,6 +1114,8 @@ Proof
   Cases_on`y`>>simp[ref_rel_def] >> srw_tac[][EQ_IMP_THM]
 QED
 
+(* Closure conversion fills source names in metadata.  The code relation
+   compares arities and executable bodies, allowing different metadata. *)
 Definition state_rel_def:
   state_rel f (s:('c,'ffi) closSem$state) (t:('c,'ffi) bvlSem$state) <=>
     (s.ffi = t.ffi) /\
@@ -1132,9 +1141,9 @@ Definition state_rel_def:
                                  t.code t.compile t.compile_oracle ∧
     (!name arity c md.
       (FLOOKUP s.code name = SOME (arity,c,md)) ==>
-      ?aux1 c2 aux2.
+      ?aux1 c2 aux2 md2.
         (compile_exps s.max_app [c] aux1 = ([c2],aux2)) /\
-        (lookup (name + (num_stubs s.max_app)) t.code = SOME (arity,c2,md)) /\
+        (lookup (name + (num_stubs s.max_app)) t.code = SOME (arity,c2,md2)) /\
         code_installed aux2 t.code)
 End
 
@@ -3778,7 +3787,7 @@ Proof
           \\ match_mp_tac (METIS_PROVE [] ``(x = x1) ==> f x y ==> f x1 y``)
           \\ fs [shift_seq_def,backendPropsTheory.pure_co_def]
           \\ rfs [] \\ fs [union_assoc,compile_inc_def,compile_prog_def])
-  \\ (fs [alistTheory.flookup_fupdate_list]
+  \\ ((fs [alistTheory.flookup_fupdate_list]
         \\ Cases_on `ALOOKUP (REVERSE progs1) name` \\ fs []
         >- (first_x_assum old_drule
           \\ strip_tac \\ asm_exists_tac \\ fs []
@@ -3794,8 +3803,8 @@ Proof
          (fs [compile_oracle_inv_def]
           \\ ntac 4 (first_x_assum (qspec_then `0` mp_tac)) \\ rfs []
           \\ fs [backendPropsTheory.pure_co_def,compile_inc_def,compile_prog_def])
-        \\ `?aux1 aux2 c2.
-              lookup aa (fromAList new_progs) = SOME (arity,c2,md') /\
+        \\ `?aux1 aux2 c2 md2.
+              lookup aa (fromAList new_progs) = SOME (arity,c2,md2) /\
               compile_exps p1.max_app [c] aux1 = ([c2],aux2) /\
               set aux2 SUBSET set (MAP (I ## I ## FST) new_progs)` by (rfs [] \\ fs [backendPropsTheory.pure_co_def]
             \\ rveq \\ fs [compile_inc_def,lookup_fromAList]
@@ -3815,6 +3824,7 @@ Proof
             \\ pop_assum (assume_tac o SYM) \\ fs[]
             \\ strip_tac
             \\ goal_assum(first_assum o mp_then Any mp_tac)
+            \\ CONV_TAC EXISTS_AND_CONV
             \\ reverse conj_tac >-
              (`MAP (I ## I ## FST) (add_metadata empty_metadata aux) = aux` by
     simp [add_metadata_def,MAP_MAP_o,MAP_EQ_ID,FORALL_PROD,o_DEF]
@@ -3822,8 +3832,9 @@ Proof
   \\ metis_tac [IS_SUBLIST_MEM])
             \\ imp_res_tac compile_exps_LENGTH \\ fs[]
             \\ simp[MAP2_MAP,MEM_MAP,MEM_ZIP,PULL_EXISTS,EXISTS_PROD]
+            \\ CONV_TAC EXISTS_OR_CONV \\ simp []
             \\ disj1_tac
-            \\ CONV_TAC SWAP_EXISTS_CONV
+            \\ CONV_TAC (QUANT_CONV SWAP_EXISTS_CONV THENC SWAP_EXISTS_CONV)
             \\ qexists_tac `n1 + LENGTH (chain_exps n real_es)`
             \\ fs [EL_APPEND2])
   \\ (`lookup aa t2.code = NONE` by
@@ -3855,8 +3866,8 @@ Proof
         \\ qpat_x_assum `!x. MEM x aux2 ==> _`
              (qspec_then `(p_1,p_1',p_2)` mp_tac)
         \\ simp [MEM_MAP,EXISTS_PROD])
-)))
-      \\ (`FEVERY (λp. every_Fn_SOME [FST (SND (SND p))]) (p1.code |++ progs1) ∧
+))))
+      \\ ((`FEVERY (λp. every_Fn_SOME [FST (SND (SND p))]) (p1.code |++ progs1) ∧
           FEVERY (λp. every_Fn_vs_SOME [FST (SND (SND p))]) (p1.code |++ progs1)` by
        (strip_tac \\ match_mp_tac FEVERY_FUPDATE_LIST_SUFF \\ fs []
         \\ fs [compile_oracle_inv_def,state_rel_def]
@@ -3919,7 +3930,7 @@ Proof
              \\ simp [EVERY_MEM,FORALL_PROD,lookup_fromAList]
              \\ simp [GSYM MEM_ALOOKUP]
              \\ simp [add_metadata_def,MEM_MAP,EXISTS_PROD]
-  \\ rpt strip_tac \\ qexists_tac `empty_metadata` \\ simp []
+  \\ rpt strip_tac \\ CONV_TAC EXISTS_OR_CONV \\ simp []
   \\ disj2_tac \\ imp_res_tac IS_SUBLIST_MEM \\ fs []))
 
       \\ (strip_tac \\ fs []
@@ -3946,7 +3957,15 @@ Proof
           \\ Cases_on `x6` \\ fs [] \\ Cases_on `progs` \\ fs [])
 
   \\ qabbrev_tac `annotated_progs = MAP2
-       (λ(loc,args,_,md) exp. (loc + num_stubs s.max_app,args,exp,md))
+       (λ(loc,args,_,md) exp.
+          (loc + num_stubs s.max_app,args,exp,
+           case md of Metadata name annots =>
+             Metadata (if name = «» then
+                         lookup_any loc
+                           (get_src_names (MAP (FST o SND o SND)
+                             (chain_exps n real_es ++ progs1)) LN)
+                           «unknown_clos_fun»
+                       else name) annots))
        (chain_exps n real_es ++ progs1) new_exps`
   \\ `MAP (I ## I ## FST) annotated_progs = progs` by
     (simp [Abbr `annotated_progs`,Abbr `progs`,MAP2_MAP,ADD_COMM,
@@ -3998,7 +4017,7 @@ Proof
       \\ imp_res_tac evaluate_IMP_LENGTH
       \\ match_mp_tac LIST_REL_IMP_LAST \\ fs []
       \\ disj2_tac \\ CCONTR_TAC \\ fs [])
-))))
+)))))
   \\ (srw_tac[][]
     \\ Cases_on `op = ThunkOp ForceThunk` >- (
       ‘?md. lookup (num_stubs s.max_app − 2) t1.code =
@@ -5211,9 +5230,9 @@ Proof
     \\ PairCases_on `x` \\ rename1 `FLOOKUP p1.code dest = SOME (q,r,md)`
     \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `q = LENGTH a` \\ full_simp_tac(srw_ss())[]
-    \\ `?aux1 c2 aux2.
+    \\ `?aux1 c2 aux2 md2.
           compile_exps s1.max_app [r] aux1 = ([c2],aux2) /\
-          lookup (dest + num_stubs s1.max_app) t2.code = SOME (LENGTH a,c2,md) /\
+          lookup (dest + num_stubs s1.max_app) t2.code = SOME (LENGTH a,c2,md2) /\
           code_installed aux2 t2.code` by METIS_TAC [state_rel_def,evaluate_const]
     \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `t2.clock < ticks+1` \\ full_simp_tac(srw_ss())[]
@@ -5250,8 +5269,7 @@ Proof
     qexists_tac `t1 with clock := s1.clock` >>
     srw_tac[][] >>
     metis_tac [SUBMAP_REFL])
-  \\ (
-   ( (* last goal but parenthesising this tactic reduces parse time a lot *)
+  \\ (( (* last goal but parenthesising this tactic reduces parse time a lot *)
     qpat_x_assum `evaluate_app x0 x1 x2 x3 = x4` mp_tac
     \\ simp [cEval_def]
     \\ qpat_abbrev_tac `args = _::_`
@@ -5661,6 +5679,7 @@ Proof
 )))
 QED
 
+
 (* more correctness properties *)
 
 Theorem build_aux_thm[local]:
@@ -6051,7 +6070,7 @@ Proof
 QED
 
 Theorem compile_all_distinct_locs:
-   clos_to_bvl$compile c e = (c',p,n) ⇒ ALL_DISTINCT (MAP FST p)
+   clos_to_bvl$compile c e = (c',p) ⇒ ALL_DISTINCT (MAP FST p)
 Proof
   rw [compile_def,GSYM add_metadata_def]
   \\ rpt (pairarg_tac \\ fs [])
@@ -6376,9 +6395,9 @@ Definition init_code_def:
        SOME (tot + 1 − prev,generate_partial_app_closure_fn tot prev,md)) ∧
     ∀name arity c md.
       FLOOKUP code1 name = SOME (arity,c,md) ⇒
-      ∃aux1 c2 aux2.
+      ∃aux1 c2 aux2 md2.
         compile_exps max_app [c] aux1 = ([c2],aux2) ∧
-        lookup (name + num_stubs max_app) code2 = SOME (arity,c2,md) ∧
+        lookup (name + num_stubs max_app) code2 = SOME (arity,c2,md2) ∧
         code_installed aux2 code2
 End
 
@@ -7693,9 +7712,9 @@ Theorem compile_prog_semantics:
    semantics (ffi:'ffi ffi_state) max_app code1 co1 cc1 [Call None 0 start []] ≠ Fail ∧
    (∀name arity c md.
      FLOOKUP code1 name = SOME (arity,c,md) ⇒
-     ∃aux1 c2 aux2.
+     ∃aux1 c2 aux2 md2.
        compile_exps max_app [c] aux1 = ([c2],aux2) ∧
-       lookup (name + num_stubs max_app) code2 = SOME (arity,c2,md) ∧
+       lookup (name + num_stubs max_app) code2 = SOME (arity,c2,md2) ∧
        code_installed aux2 code2) ∧
    clos_to_bvl$compile_prog max_app prog1 = prog2 ∧
    init_code code1 code2 max_app ∧
@@ -7894,8 +7913,12 @@ Proof
   \\ rveq \\ fs []
   \\ imp_res_tac compile_exps_LENGTH
   \\ fs [MAP2_MAP, GSYM ZIP_APPEND, MAP_MAP_o]
-  \\ simp [Q.prove (`FST ∘ (λ((loc,args,_,md),exp). (loc + num_stubs n,args,exp,md))
-        = (($+) (num_stubs n)) ∘ FST ∘ FST`, simp [UNCURRY, o_DEF])]
+  \\ qmatch_goalsub_abbrev_tac `MAP (FST o f) (ZIP (chain_exps n real_es,c1))`
+  \\ `FST o f = ($+ (num_stubs max_app)) o FST o FST` by
+    simp [Abbr `f`, FUN_EQ_THM, FORALL_PROD]
+  \\ fs []
+  \\ simp [Q.prove (`FST o (λ(n,args,exp). (n,args,exp,md n)) = FST`,
+                   simp [FUN_EQ_THM, FORALL_PROD])]
   \\ fs [GSYM MAP_MAP_o, MAP_ZIP]
   \\ full_simp_tac bool_ss [compile_exps_eq_append]
   \\ rpt (pairarg_tac \\ fs [])
@@ -8406,7 +8429,7 @@ Proof
   \\ simp[MAP_MAP_o, o_DEF]
   \\ qhdtm_x_assum`compile_exps`mp_tac
   \\ specl_args_of_then``compile_exps`` compile_exps_code_locs mp_tac
-  \\ rw[] \\ fs[]
+  \\ rw[] \\ fs[ETA_AX]
 QED
 
 Theorem IMAGE_ADD_SUBSET_count:
@@ -8639,7 +8662,7 @@ Theorem ALOOKUP_lemma[local]:
     ALL_DISTINCT (MAP FST l1) ∧
     n < LENGTH l1 ∧ LENGTH l2 = LENGTH l1
     ⇒
-  ALOOKUP (MAP2 (λ(loc,args,_,md) exp. (loc + (m:num),args,exp,md)) l1 l2) (k + m) = SOME (FST v, EL n l2, SND (SND v))
+  ALOOKUP (MAP2 (λ(loc,args,_,md) exp. (loc + (m:num),args,exp,(f loc md : metadata))) l1 l2) (k + m) = SOME (FST v, EL n l2, f k (SND (SND v)))
 Proof
   Induct \\ rw[]
   \\ Cases_on`l2` \\ fs[]
@@ -8658,17 +8681,14 @@ QED
 Theorem ALOOKUP_compile_common:
    compile_common c es = (c', prog) ∧
    ALOOKUP prog name = SOME (arity, exp, md) ⇒
-   ∃aux1 exp2 aux2.
+   ∃aux1 exp2 aux2 md2.
      compile_exps c.max_app [exp] aux1 = ([exp2], aux2) ∧
      ALOOKUP (compile_prog c.max_app prog) (name + num_stubs c.max_app) =
-       SOME (arity, exp2, md) ∧
+       SOME (arity, exp2, md2) ∧
      code_installed aux2 (fromAList (compile_prog c.max_app prog))
 Proof
   strip_tac
   \\ imp_res_tac compile_common_distinct_locs
-  \\ fs[compile_common_def]
-  \\ rpt(pairarg_tac \\ fs[])
-  \\ rveq \\ fs[]
   \\ fs[compile_prog_def]
   \\ pairarg_tac \\ fs[]
   \\ fs[GSYM MAP_MAP_o]
@@ -8683,33 +8703,43 @@ Proof
   \\ asm_exists_tac \\ fs[]
   \\ imp_res_tac compile_exps_LENGTH \\ fs[]
   \\ Q.ISPEC_THEN`new_exps`(old_drule o GEN_ALL)(CONV_RULE SWAP_FORALL_CONV ALOOKUP_lemma)
-  \\ disch_then(qspecl_then[`new_exps`,`num_stubs c.max_app`]mp_tac)
+  \\ disch_then(qspecl_then[`new_exps : bvl$exp list`,
+       `num_stubs (c : clos_to_bvl$config).max_app`,
+       `λloc md. case md of Metadata src_name annots =>
+          Metadata (if src_name = «» then
+                      lookup_any loc
+                        (get_src_names (MAP (FST o SND o SND)
+                          (prog : (num # num # closLang$exp # metadata) list)) LN)
+                        «unknown_clos_fun»
+                    else src_name) annots`]mp_tac)
   \\ simp[]
   \\ impl_keep_tac >- fs[ALL_DISTINCT_APPEND]
   \\ rw[ALOOKUP_APPEND]
+  \\ fs [MAP_MAP_o]
+  \\ qpat_x_assum `ALOOKUP (MAP2 _ _ _) _ = SOME _` SUBST1_TAC
   \\ simp[fromAList_append]
   \\ match_mp_tac code_installed_union
   \\ qhdtm_x_assum`compile_exps`mp_tac
   \\ qhdtm_x_assum`compile_exps`mp_tac
   \\ specl_args_of_then``compile_exps``compile_exps_code_locs mp_tac
   \\ ntac 2 strip_tac \\ fs[]
-  \\ `ALL_DISTINCT (MAP FST aux')`
+  \\ `ALL_DISTINCT (MAP FST aux)`
   by (
     simp[MAP_REVERSE]
     \\ match_mp_tac ALL_DISTINCT_MAP_INJ
-    \\ fs[ALL_DISTINCT_APPEND] )
+    \\ fs[ALL_DISTINCT_APPEND, MAP_MAP_o, o_DEF, UNCURRY, ETA_AX] )
   \\ strip_tac
   \\ conj_tac
   >- (
     match_mp_tac code_installed_fromAList_strong
-    \\ fs[]
-    \\ `MAP (I ## I ## FST) (add_metadata empty_metadata aux') = aux'` by
+    \\ fs[MAP_MAP_o, o_DEF, UNCURRY, ETA_AX]
+    \\ `MAP (I ## I ## FST) (add_metadata empty_metadata aux) = aux` by
       simp [add_metadata_def,MAP_MAP_o,MAP_EQ_ID,FORALL_PROD,o_DEF]
     \\ fs [] \\ rfs [] )
   \\ simp[domain_fromAList]
   \\ rewrite_tac[Once DISJOINT_SYM]
   \\ match_mp_tac DISJOINT_SUBSET
-  \\ qexists_tac`set (MAP FST aux')`
+  \\ qexists_tac`set (MAP FST aux)`
   \\ reverse conj_tac
   >- ( metis_tac[IS_SUBLIST_MEM, SUBSET_DEF, MEM_MAP] )
   \\ simp[MAP_REVERSE]
@@ -8915,7 +8945,7 @@ QED
 Theorem compile_semantics:
    semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co
      (compile_common_inc c (pure_cc (compile_inc c.max_app) cc)) es ≠ Fail ∧
-   compile c es = (c', prog, names) ∧
+   compile c es = (c', prog) ∧
    syntax_oracle_ok c c' es co
    ⇒
    semantics ffi (fromAList prog)
@@ -8958,6 +8988,7 @@ Proof
     \\ old_drule (GEN_ALL ALOOKUP_compile_common)
     \\ disch_then old_drule \\ strip_tac
     \\ asm_exists_tac \\ fs[]
+    \\ qexists_tac `md2`
     \\ conj_tac
     >- (
       simp[ALOOKUP_APPEND]

@@ -1513,7 +1513,8 @@ Definition clos_to_strs_def:
 End
 
 Definition bvl_to_strs_def:
-  bvl_to_strs names xs =
+  bvl_to_strs xs =
+    let names = fromAList (MAP (λ(n,_,_,md). (n, case md of Metadata name _ => name)) xs) in
     map_to_append (str_tree_to_strs «\n\n» o
                    display_to_str_tree o
                    bvl_fun_to_display names) xs
@@ -1521,16 +1522,16 @@ End
 
 val bvl_test =
   “concat $ append $ bvl_to_strs
-     (insert 50 «foo» (insert 60 «bar» LN))
      [(50,2,Let [Var 0; Var 1]
-              $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3],empty_metadata);
+              $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3],Metadata «foo» []);
       (60,2,Let [Var 0; Var 1]
-              $ Call 0 (SOME 50) [Var 2; Var 0],empty_metadata)]”
+              $ Call 0 (SOME 50) [Var 2; Var 0],Metadata «bar» [])]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"))
 
 Definition bvi_to_strs_def:
-  bvi_to_strs names xs =
+  bvi_to_strs xs =
+    let names = fromAList (MAP (λ(n,_,_,md). (n, case md of Metadata name _ => name)) xs) in
     map_to_append (str_tree_to_strs «\n\n» o
                    display_to_str_tree o
                    bvi_fun_to_display names) xs
@@ -1538,16 +1539,16 @@ End
 
 val bvi_test =
   “concat $ append $ bvi_to_strs
-     (insert 50 «foo» (insert 60 «bar» LN))
      [(50,2,Let [Var 0]
-              $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3],empty_metadata);
+              $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3],Metadata «foo» []);
       (60,2,Let [Var 0; Var 1]
-              $ Call 0 (SOME 50) [Var 2; Var 0] (SOME (Var 0)),empty_metadata)]”
+              $ Call 0 (SOME 50) [Var 2; Var 0] (SOME (Var 0)),Metadata «bar» [])]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"))
 
 Definition data_to_strs_def:
-  data_to_strs names xs =
+  data_to_strs xs =
+    let names = fromAList (MAP (λ(n,_,_,md). (n, case md of Metadata name _ => name)) xs) in
     map_to_append (str_tree_to_strs «\n\n» o
                    display_to_str_tree o
                    data_fun_to_display names) xs
@@ -1555,30 +1556,33 @@ End
 
 val data_test =
   “concat $ append $ data_to_strs
-     (insert 50 «foo» (insert 60 «bar» LN))
      [(50,2,Seq (Move 5 1) $
             Seq (Assign 3 (IntOp Add) [0;1] NONE) $
-            Seq (Assign 6 (IntOp Sub) [5;3] NONE) $ Return [6],empty_metadata);
-      (60,2,Skip,empty_metadata)]”
+            Seq (Assign 6 (IntOp Sub) [5;3] NONE) $ Return [6],Metadata «foo» []);
+      (60,2,Skip,Metadata «bar» [])]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"));
 
 Definition word_to_strs_def:
-  word_to_strs names xs =
+  word_to_strs xs =
+    let names = fromAList (MAP (λ(n,_,_,md). (n, case md of Metadata name _ => name)) xs) in
     map_to_append (str_tree_to_strs «\n\n» o
                    display_to_str_tree o
                    word_fun_to_display names) xs
 End
 
 Definition stack_to_strs_def:
-  stack_to_strs names xs =
+  stack_to_strs xs =
+    let names = fromAList (MAP (λ(n,_,md). (n, case md of Metadata name _ => name)) xs) in
     map_to_append (str_tree_to_strs «\n\n» o
                    display_to_str_tree o
                    stack_fun_to_display names) xs
 End
 
 Definition lab_to_strs_def:
-  lab_to_strs names xs =
+  lab_to_strs xs =
+    let names = fromAList (MAP (λsec. (Section_num sec,
+      case Section_metadata sec of Metadata name _ => name)) xs) in
     map_to_append (str_tree_to_strs «\n\n» o
                    display_to_str_tree o
                    lab_fun_to_display names) xs
@@ -1586,11 +1590,10 @@ End
 
 val lab_test =
   “concat $ append $ lab_to_strs
-     (insert 50 «foo» (insert 60 «bar» LN))
      [Section 50 [Label 50 1 0;
                   Asm (Asmi (Inst (Const 5 70))) [] 0;
-                  Label 50 2 0] empty_metadata;
-      Section 60 [Label 50 5 0] empty_metadata]”
+                  Label 50 2 0] (Metadata «foo» []);
+      Section 60 [Label 50 5 0] (Metadata «bar» [])]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"));
 
