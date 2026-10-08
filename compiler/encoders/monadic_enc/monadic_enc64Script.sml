@@ -200,15 +200,15 @@ Proof
   >- (
     fs[good_table_64_def]>>
     match_mp_tac IMP_EVERY_LUPDATE>>fs[]>>
-    old_drule EL_MEM>>
+    drule EL_MEM>>
     metis_tac[EVERY_MEM])
   >>
   fs[good_table_64_def]>>
-  old_drule EL_MEM>>
-  old_drule ALOOKUP_MEM>>
+  drule EL_MEM>>
+  drule ALOOKUP_MEM>>
   fs[EVERY_MEM]>>
-  rw[]>> first_x_assum old_drule>>
-  disch_then old_drule>>
+  rw[]>> first_x_assum drule>>
+  disch_then drule>>
   fs[]
 QED
 
@@ -224,7 +224,7 @@ Proof
   fs msimps>>
   qmatch_goalsub_abbrev_tac`lookup_ins_table_64 _ _ aa`>>
   rw[]>>
-  old_drule lookup_ins_table_64_correct>>rw[]>>simp[]
+  drule_all_then (qspec_then `aa` strip_assume_tac) lookup_ins_table_64_correct>>simp[]
 QED
 
 Theorem enc_line_hash_64_ls_correct[local]:
@@ -238,9 +238,9 @@ Proof
   Induct>>fs[enc_line_hash_64_ls_def]>>
   fs msimps>>
   rw[]>> simp[]>>
-  old_drule enc_line_hash_64_correct>>
-  disch_then (qspec_then `h` assume_tac)>>rfs[]>>
-  first_x_assum old_drule>>
+  drule_all_then (qspecl_then [`skip_len`,`h`] strip_assume_tac) enc_line_hash_64_correct>>
+  simp[]>>
+  first_x_assum drule>>
   rw[]>>simp[]
 QED
 
@@ -256,10 +256,9 @@ Proof
   fs msimps>>
   rw[]>> simp[]>>
   TOP_CASE_TAC>>simp[]>>
-  old_drule enc_line_hash_64_ls_correct>>
-  simp[]>>
-  disch_then(qspec_then`l` assume_tac)>>fs[]>>
-  first_x_assum old_drule>>rw[]>>
+  drule_all_then (qspecl_then [`skip_len`,`l`] strip_assume_tac) enc_line_hash_64_ls_correct>>
+  fs[]>>
+  first_x_assum drule>>rw[]>>
   simp[enc_sec_def]
 QED
 

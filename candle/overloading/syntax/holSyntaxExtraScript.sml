@@ -11,7 +11,6 @@ Ancestors
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 Overload "is_instance" = ``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``
 
@@ -1295,7 +1294,7 @@ Proof
   qmatch_assum_abbrev_tac`p` >> fs[] >>
   qhdtm_x_assum`orda`mp_tac >>
   simp[Once orda_def] >>
-  rw[] >- fs[markerTheory.Abbrev_def] >>
+  rw[] >>
   pop_assum mp_tac >>
   BasicProvers.CASE_TAC >>
   BasicProvers.CASE_TAC >>
@@ -1912,7 +1911,7 @@ Theorem VFREE_IN_VSUBST:
 Proof
   Induct >> simp[VFREE_IN_def,VSUBST_def] >- metis_tac[] >>
   map_every qx_gen_tac[`u`,`uty`,`ilist`] >>
-  disch_then(qx_choosel_then[`b`,`bty`]strip_assume_tac) >> simp[] >>
+  disch_then(qx_choosel_then[`x`,`xty`]strip_assume_tac) >> simp[] >>
   BasicProvers.VAR_EQ_TAC >> qmatch_assum_rename_tac`welltyped tm` >>
   qmatch_abbrev_tac`VFREE_IN vu (if p then Abs (Var vx xty) (VSUBST l1 tm) else Abs (Var x xty) (VSUBST l2 tm)) ⇔ q` >>
   qsuff_tac`VFREE_IN vu (Abs (Var (if p then vx else x) xty) (VSUBST (if p then l1 else l2) tm)) ⇔ q` >- metis_tac[] >>
@@ -6247,16 +6246,19 @@ Proof
     >> Cases_on `a` >> fs[]
     >> unabbrev_all_tac
     >> imp_res_tac MEM_SPLIT_APPEND_SND_first
-    >> (qspecl_then[`pfx`,`[(q,Tyvar n)]++sfx`,`Tyvar n`] assume_tac) TYPE_SUBST_reduce_list
+    >> rename1 `s = pfx ++ [(q1,Tyvar n)] ++ sfx`
+    >> (qspecl_then[`pfx`,`[(q1,Tyvar n)]++sfx`,`Tyvar n`] assume_tac) TYPE_SUBST_reduce_list
     >> `!ty. ~MEM (ty,Tyvar n) pfx` by (
       qpat_x_assum `~MEM _ (MAP SND pfx)` (assume_tac o PURE_ONCE_REWRITE_RULE[MEM_MAP])
       >> strip_tac >> fs[] >> first_x_assum (qspec_then `(ty',Tyvar n)` mp_tac) >> fs[]
     )
     >> pop_assum (fn x => fs[x,tyvars_def,REV_ASSOCD_def])
     >> rveq
-    >> last_assum (qspec_then `(q,Tyvar n)` assume_tac)
-    >> first_x_assum drule
-    >> fs[tyvars_def]
+    >- (gvs[tyvars_def] >> metis_tac[])
+    >> `?m'. q1 = Tyvar m'`
+         by (qpat_x_assum `!x. _ ==> ?m n. _` (qspec_then `(q1,Tyvar n)` mp_tac) >> simp[])
+    >> gvs[tyvars_def]
+    >> metis_tac[]
   )
   >> (qspecl_then[`MAP f' (FILTER f ts)`,`l1 ++ ts`,`Tyvar x`] assume_tac) TYPE_SUBST_reduce_list
   >> `!ty. ~MEM (ty,Tyvar x) (MAP f' (FILTER f ts))` by (

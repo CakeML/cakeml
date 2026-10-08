@@ -16,13 +16,12 @@ Libs
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 val _ = augment_srw_ss [rewrites [integer_wordTheory.i2w_pos, integer_wordTheory.i2w_w2i]]
 
 val _ = hide "next";
 
 val clean_tac = rpt var_eq_tac \\ rpt (qpat_x_assum `T` kall_tac)
-fun rpt_drule th = old_drule (th |> GEN_ALL) \\ rpt (disch_then old_drule \\ fs [])
+fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
 
 val state_rel_def = data_to_word_gcProofTheory.state_rel_def
 val code_rel_def = data_to_word_gcProofTheory.code_rel_def
@@ -158,9 +157,9 @@ Proof
   \\ imp_res_tac state_rel_get_var_IMP
   \\ fs[state_rel_def,wordSemTheory.get_var_def,dataSemTheory.get_var_def]
   \\ full_simp_tac std_ss [Once (GSYM APPEND_ASSOC)]
-  \\ old_drule (GEN_ALL word_ml_inv_lookup)
-  \\ disch_then old_drule
-  \\ disch_then old_drule
+  \\ drule (GEN_ALL word_ml_inv_lookup)
+  \\ disch_then drule
+  \\ disch_then drule
   \\ REWRITE_TAC[GSYM APPEND_ASSOC]
   \\ qmatch_goalsub_abbrev_tac‘vv ++ (rr ++ ls)’
   \\ qmatch_abbrev_tac‘P (vv ++ (rr ++ ls)) ⇒ _’
@@ -1192,7 +1191,7 @@ Theorem compile_correct_lemma:
         | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)
 Proof
   rpt strip_tac
-  \\ old_drule data_compile_correct \\ fs []
+  \\ drule data_compile_correct \\ fs []
   \\ ntac 2 (disch_then drule) \\ fs [comp_def]
   \\ strip_tac
   \\ qexists_tac `t1`
@@ -1289,7 +1288,7 @@ Proof
   \\ `state_rel x0 l1 l2 s (t2 with permute := perm') NONE []` by
    (fs [state_rel_def] \\ rfs []
     \\ Cases_on `s.stack` \\ fs [] \\ metis_tac [])
-  \\ old_drule compile_correct_lemma \\ fs []
+  \\ drule compile_correct_lemma \\ fs []
   \\ disch_then (drule o ONCE_REWRITE_RULE [CONJ_COMM])
   \\ fs [] \\ strip_tac \\ fs []
   THEN1 (rveq \\ fs [] \\ every_case_tac \\ fs[])
@@ -1308,8 +1307,8 @@ Theorem state_rel_ext_with_clock[local]:
     state_rel_ext a b c (s1 with clock := k) (s2 with clock := k)
 Proof
   fs [state_rel_ext_def] \\ srw_tac[][]
-  \\ old_drule state_rel_with_clock
-  \\ strip_tac \\ asm_exists_tac \\ fs []
+  \\ drule_then (qspec_then `k` assume_tac) state_rel_with_clock
+  \\ asm_exists_tac \\ fs []
   \\ qexists_tac `l` \\ fs []
   \\ fs [wordSemTheory.state_component_equality]
   \\ metis_tac []
@@ -1338,7 +1337,7 @@ Proof
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
       goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
       strip_tac >>
-      old_drule compile_correct >> simp[] >> full_simp_tac(srw_ss())[] >>
+      drule compile_correct >> simp[] >> full_simp_tac(srw_ss())[] >>
       simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
       impl_tac >- (
         strip_tac >> full_simp_tac(srw_ss())[] ) >>
@@ -1359,9 +1358,9 @@ Proof
       srw_tac[][extend_with_resource_limit_def] >> full_simp_tac(srw_ss())[] >>
       `r' <> Rerr(Rabort Rtype_error)` by(CCONTR_TAC >> fs[]) >>
       `r' <> Rerr(Rabort Rtimeout_error)` by(CCONTR_TAC >> fs[]) >>
-      old_drule(dataPropsTheory.evaluate_add_clock)>>simp[]>>
+      drule(dataPropsTheory.evaluate_add_clock)>>simp[]>>
       disch_then(qspec_then`k'`mp_tac)>>simp[]>>strip_tac>>
-      old_drule(compile_correct)>>simp[]>>
+      drule(compile_correct)>>simp[]>>
       drule state_rel_ext_with_clock >>simp[]>>
       disch_then(qspec_then `k+k'` assume_tac)>>disch_then drule>>
       simp[inc_clock_def]>>strip_tac>>
@@ -1372,12 +1371,12 @@ Proof
       simp[inc_clock_def]>>strip_tac>>
       rpt(PURE_FULL_CASE_TAC>>fs[]>>rveq>>fs[])) >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-    old_drule compile_correct >> simp[] >>
+    drule compile_correct >> simp[] >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
     impl_tac >- (
       last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
       srw_tac[][] >> strip_tac >> full_simp_tac(srw_ss())[] ) >>
-    old_drule(state_rel_ext_with_clock) >> simp[] >> strip_tac >>
+    drule_then (qspec_then `k` mp_tac) state_rel_ext_with_clock >> simp[] >> strip_tac >>
     disch_then drule >>
     simp[comp_def] >> strip_tac >>
     first_x_assum(qspec_then`k+ck`mp_tac) >>
@@ -1392,10 +1391,10 @@ Proof
     last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
     goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
     strip_tac >>
-    old_drule compile_correct >> simp[] >>
+    drule compile_correct >> simp[] >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
-    old_drule(state_rel_ext_with_clock) >>
+    drule_then (qspec_then `k` mp_tac) state_rel_ext_with_clock >>
     simp[] >> strip_tac >>
     disch_then drule >>
     simp[comp_def] >> strip_tac >>
@@ -1413,13 +1412,13 @@ Proof
     qpat_x_assum`∀x y. _`(qspec_then`k`mp_tac)>>
     goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
     strip_tac >>
-    old_drule(compile_correct)>>
+    drule(compile_correct)>>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
     impl_tac >- (
       strip_tac >> full_simp_tac(srw_ss())[] >>
       last_x_assum(qspec_then`k`mp_tac) >>
       simp[] ) >>
-    old_drule(state_rel_ext_with_clock) >>
+    drule_then (qspec_then `k` mp_tac) state_rel_ext_with_clock >>
     simp[] >> strip_tac >>
     disch_then drule >>
     simp[comp_def] >> strip_tac >>
@@ -1452,7 +1451,7 @@ Proof
         dataPropsTheory.evaluate_add_clock_io_events_mono,
         dataPropsTheory.initial_state_with_simp,
         dataPropsTheory.initial_state_simp]) >>
-    old_drule build_lprefix_lub_thm >>
+    drule build_lprefix_lub_thm >>
     simp[lprefix_lub_def] >> strip_tac >>
     match_mp_tac (GEN_ALL LPREFIX_TRANS) >>
     simp[LPREFIX_fromList] >>
@@ -1492,14 +1491,14 @@ Proof
   reverse conj_tac >> strip_tac >- (
     qmatch_assum_abbrev_tac`n < LENGTH (_ (_ (SND p)))` >>
     Cases_on`p`>>pop_assum(assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    old_drule compile_correct >>
+    drule compile_correct >>
     simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
     impl_tac >- (
       last_x_assum(qspec_then`k`mp_tac)>>srw_tac[][]>>
       strip_tac >> full_simp_tac(srw_ss())[] ) >>
-    old_drule(state_rel_ext_with_clock) >>
+    drule_then (qspec_then `k` mp_tac) state_rel_ext_with_clock >>
     simp[] >> strip_tac >>
-    disch_then old_drule >>
+    disch_then drule >>
     simp[comp_def] >> strip_tac >>
     qexists_tac`k+ck`>>full_simp_tac(srw_ss())[inc_clock_def]>>
     Cases_on`res1=SOME NotEnoughSpace`>>full_simp_tac(srw_ss())[]>-(
@@ -1514,14 +1513,14 @@ Proof
     rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[]) >>
     every_case_tac >> fs[]) >>
   goal_term (fn w => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists w), residue = “k:num”}] (assert(has_pair_type)tm))`) w) >>
-  old_drule compile_correct >>
+  drule compile_correct >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (
     last_x_assum(qspec_then`k`mp_tac)>>srw_tac[][]>>
     strip_tac >> full_simp_tac(srw_ss())[] ) >>
-  old_drule(state_rel_ext_with_clock) >>
+  drule_then (qspec_then `k` mp_tac) state_rel_ext_with_clock >>
   simp[] >> strip_tac >>
-  disch_then old_drule >>
+  disch_then drule >>
   simp[comp_def] >> strip_tac >>
   full_simp_tac(srw_ss())[inc_clock_def] >>
   Cases_on`res1=SOME NotEnoughSpace`>>full_simp_tac(srw_ss())[]>-(
@@ -1563,7 +1562,7 @@ Proof
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
       goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
       strip_tac >>
-      old_drule compile_correct >> simp[] >> full_simp_tac(srw_ss())[] >>
+      drule compile_correct >> simp[] >> full_simp_tac(srw_ss())[] >>
       simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
       impl_tac >- (
         strip_tac >> full_simp_tac(srw_ss())[] ) >>
@@ -1584,9 +1583,9 @@ Proof
       srw_tac[][extend_with_resource_limit'_def] >> full_simp_tac(srw_ss())[] >>
       `r' <> Rerr(Rabort Rtype_error)` by(CCONTR_TAC >> fs[]) >>
       `r' <> Rerr(Rabort Rtimeout_error)` by(CCONTR_TAC >> fs[]) >>
-      old_drule(dataPropsTheory.evaluate_add_clock)>>simp[]>>
+      drule(dataPropsTheory.evaluate_add_clock)>>simp[]>>
       disch_then(qspec_then`k'`mp_tac)>>simp[]>>strip_tac>>
-      old_drule(compile_correct)>>simp[]>>
+      drule(compile_correct)>>simp[]>>
       drule state_rel_ext_with_clock >>simp[]>>
       disch_then(qspec_then `k+k'` assume_tac)>>disch_then drule>>
       simp[inc_clock_def]>>strip_tac>>
@@ -1611,12 +1610,12 @@ Proof
       simp[inc_clock_def]>>strip_tac>>
       rpt(PURE_FULL_CASE_TAC>>fs[]>>rveq>>fs[])) >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-    old_drule compile_correct >> simp[] >>
+    drule compile_correct >> simp[] >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
     impl_tac >- (
       last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
       srw_tac[][] >> strip_tac >> full_simp_tac(srw_ss())[] ) >>
-    old_drule(state_rel_ext_with_clock) >> simp[] >> strip_tac >>
+    drule_then (qspec_then `k` mp_tac) state_rel_ext_with_clock >> simp[] >> strip_tac >>
     disch_then drule >>
     simp[comp_def] >> strip_tac >>
     first_x_assum(qspec_then`k+ck`mp_tac) >>
@@ -1632,10 +1631,10 @@ Proof
     last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
     goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
     strip_tac >>
-    old_drule compile_correct >> simp[] >>
+    drule compile_correct >> simp[] >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
-    old_drule(state_rel_ext_with_clock) >>
+    drule_then (qspec_then `k` mp_tac) state_rel_ext_with_clock >>
     simp[] >> strip_tac >>
     disch_then drule >>
     simp[comp_def] >> strip_tac >>
@@ -1720,14 +1719,14 @@ Proof
   reverse conj_tac >> strip_tac >- (
     qmatch_assum_abbrev_tac`n < LENGTH (_ (_ (SND p)))` >>
     Cases_on`p`>>pop_assum(assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    old_drule compile_correct >>
+    drule compile_correct >>
     simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
     impl_tac >- (
       last_x_assum(qspec_then`k`mp_tac)>>srw_tac[][]>>
       strip_tac >> full_simp_tac(srw_ss())[] ) >>
-    old_drule(state_rel_ext_with_clock) >>
+    drule_then (qspec_then `k` mp_tac) state_rel_ext_with_clock >>
     simp[] >> strip_tac >>
-    disch_then old_drule >>
+    disch_then drule >>
     simp[comp_def] >> strip_tac >>
     qexists_tac`k+ck`>>full_simp_tac(srw_ss())[inc_clock_def]>>
     Cases_on`res1=SOME NotEnoughSpace`>>full_simp_tac(srw_ss())[]>-(
@@ -1742,14 +1741,14 @@ Proof
     rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[]) >>
     every_case_tac >> fs[]) >>
   goal_term (fn w => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists w), residue = “k:num”}] (assert(has_pair_type)tm))`) w) >>
-  old_drule compile_correct >>
+  drule compile_correct >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (
     last_x_assum(qspec_then`k`mp_tac)>>srw_tac[][]>>
     strip_tac >> full_simp_tac(srw_ss())[] ) >>
-  old_drule(state_rel_ext_with_clock) >>
+  drule_then (qspec_then `k` mp_tac) state_rel_ext_with_clock >>
   simp[] >> strip_tac >>
-  disch_then old_drule >>
+  disch_then drule >>
   simp[comp_def] >> strip_tac >>
   full_simp_tac(srw_ss())[inc_clock_def] >>
   Cases_on`res1=SOME NotEnoughSpace`>>full_simp_tac(srw_ss())[]>-(
@@ -2024,11 +2023,11 @@ Proof
     cases_on_op `opname`>>
     TRY(
       rename1`WordOp (WordOpw _ _)`>>
-      pairarg_tac>>old_drule extract_labels_assignWordOp>>
+      pairarg_tac>>drule extract_labels_assignWordOp>>
       simp[])>>
     TRY(
       rename1`WordOp (WordShift _ _ _)`>>
-      pairarg_tac>>old_drule extract_labels_assignWordShift>>
+      pairarg_tac>>drule extract_labels_assignWordShift>>
       simp[])>>
     fs[extract_labels_def,GiveUp_def,assign_def,assign_def_extras,
        oneline AssignCmp_def, SetBool_def]>>
@@ -2903,11 +2902,11 @@ Proof
     fs[MAP_MAP_o,o_DEF,LAMBDA_PROD,compile_part_def]>>
     fs[SUBSET_DEF,PULL_EXISTS,Once MEM_MAP,FORALL_PROD]>>
     rw[]>>
-    old_drule (data_to_word_comp_code_labels |> SIMP_RULE std_ss [SUBSET_DEF])>>
+    drule (data_to_word_comp_code_labels |> SIMP_RULE std_ss [SUBSET_DEF])>>
     rw[]
     >-
-      (first_x_assum old_drule>>
-      disch_then old_drule>>fs[MEM_MAP,EXISTS_PROD]>>
+      (first_x_assum drule>>
+      disch_then drule>>fs[MEM_MAP,EXISTS_PROD]>>
       metis_tac[])
     >>
       fs[MEM_MAP]>>PairCases_on `y`>>

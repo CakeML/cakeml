@@ -148,3 +148,5 @@ Theorem get_mode_fsupdate[simp]:
 ## Miscellaneous
 
 Combined fix for some small issues (PR #1530 fixing #1313, #1373, #1449, #1480, #1503).
+
+Combined fix for some small issues (PR #1536 fixing #1408, #1171, #1104).

@@ -13,7 +13,6 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["DIV_NUMERAL_THM"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 (* TODO: move *)
 
@@ -782,9 +781,9 @@ Proof
     \\ simp[APPLY_UPDATE_THM]
     \\ qpat_x_assum`k < _` mp_tac
     \\ CONV_TAC(LAND_CONV EVAL)
-    \\ qpat_x_assum`Abbrev(s.PC = _)`mp_tac
+    \\ qpat_x_assum`_ = s.PC`(mp_tac o SYM)
     \\ CONV_TAC(LAND_CONV EVAL)
-    \\ simp[markerTheory.Abbrev_def]
+    \\ simp[]
     \\ ntac 2 strip_tac
     \\ simp[EVAL``output_offset``]
     \\ fs[word_add_n2w]
@@ -897,9 +896,9 @@ Proof
     \\ conj_tac >- ( EVAL_TAC )
     \\ simp[APPLY_UPDATE_THM]
     \\ simp[EVAL``output_offset``]
-    \\ qpat_x_assum`Abbrev(s.PC = _)`mp_tac
+    \\ qpat_x_assum`_ = s.PC`(mp_tac o SYM)
     \\ CONV_TAC(LAND_CONV EVAL)
-    \\ simp[markerTheory.Abbrev_def]
+    \\ simp[]
     \\ strip_tac
     \\ fs[word_add_n2w]
     \\ qpat_x_assum`k < _`mp_tac
@@ -977,9 +976,9 @@ Proof
             ag32Theory.incPC_def,
             ag32Theory.ri2word_def, APPLY_UPDATE_THM]
     \\ simp[EVAL``output_offset``]
-    \\ qpat_x_assum`Abbrev(s.PC = _)`mp_tac
+    \\ qpat_x_assum`_ = s.PC`(mp_tac o SYM)
     \\ CONV_TAC(LAND_CONV EVAL)
-    \\ simp[markerTheory.Abbrev_def]
+    \\ simp[]
     \\ strip_tac
     \\ fs[word_add_n2w]
     \\ qpat_x_assum`k < _`mp_tac
@@ -1056,9 +1055,9 @@ Proof
             ag32Theory.incPC_def,
             ag32Theory.ri2word_def, APPLY_UPDATE_THM]
     \\ simp[EVAL``output_offset``]
-    \\ qpat_x_assum`Abbrev(s.PC = _)`mp_tac
+    \\ qpat_x_assum`_ = s.PC`(mp_tac o SYM)
     \\ CONV_TAC(LAND_CONV EVAL)
-    \\ simp[markerTheory.Abbrev_def]
+    \\ simp[]
     \\ strip_tac
     \\ fs[word_add_n2w]
     \\ qpat_x_assum`k < _`mp_tac
@@ -1168,9 +1167,9 @@ Proof
             ag32Theory.incPC_def,
             ag32Theory.ri2word_def, APPLY_UPDATE_THM]
     \\ simp[EVAL``output_offset``]
-    \\ qpat_x_assum`Abbrev(s.PC = _)`mp_tac
+    \\ qpat_x_assum`_ = s.PC`(mp_tac o SYM)
     \\ CONV_TAC(LAND_CONV EVAL)
-    \\ simp[markerTheory.Abbrev_def]
+    \\ simp[]
     \\ strip_tac
     \\ fs[word_add_n2w]
     \\ qpat_x_assum`k < _`mp_tac
@@ -1250,9 +1249,9 @@ Proof
             ag32Theory.incPC_def,
             ag32Theory.ri2word_def, APPLY_UPDATE_THM]
     \\ simp[EVAL``output_offset``]
-    \\ qpat_x_assum`Abbrev(s.PC = _)`mp_tac
+    \\ qpat_x_assum`_ = s.PC`(mp_tac o SYM)
     \\ CONV_TAC(LAND_CONV EVAL)
-    \\ simp[markerTheory.Abbrev_def]
+    \\ simp[]
     \\ strip_tac
     \\ fs[word_add_n2w]
     \\ qpat_x_assum`k < _`mp_tac
@@ -2822,7 +2821,7 @@ Proof
         simp[startup_code_size_def, heap_start_offset_def, word_add_n2w,
              word_lo_n2w, word_ls_n2w, ffi_code_start_offset_thm,
              length_ag32_ffi_code_def]) >>
-  old_drule_then SUBST1_TAC asm_write_bytearray_avoiding >>
+  drule_then (SUBST1_TAC o Q.SPEC ‘f’) asm_write_bytearray_avoiding >>
   simp[Abbr‘f’, Abbr‘A’] >> glAbbrs 5 >>
   simp[set_mem_word_def, word_add_n2w, stdin_offset_def,
        asm_write_bytearray_def,

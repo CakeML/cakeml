@@ -1537,12 +1537,12 @@ Proof
       \\ qabbrev_tac `a = t.regs q`
       \\ qabbrev_tac `b = t.regs r`
       \\ qpat_x_assum `a <=+ b` assume_tac
-      \\ old_drule WORD_LS_IMP \\ strip_tac \\ fs [EXTENSION]
+      \\ drule WORD_LS_IMP \\ strip_tac \\ fs [EXTENSION]
       \\ fs [IN_DEF,PULL_EXISTS,bytes_in_word_def,word_mul_n2w]
       \\ rw [] \\ reverse eq_tac THEN1
        (rw [] \\ fs [] \\ qexists_tac `i * (dimindex (:α) DIV 8)` \\ fs []
         \\ `0 < dimindex (:α) DIV 8` by rfs [miscTheory.good_dimindex_def]
-        \\ old_drule X_LT_DIV \\ disch_then (fn th => fs [th])
+        \\ drule X_LT_DIV \\ disch_then (fn th => fs [th])
         \\ fs [RIGHT_ADD_DISTRIB]
         \\ fs [GSYM word_mul_n2w,GSYM bytes_in_word_def]
         \\ fs [byte_aligned_mult])
@@ -1552,7 +1552,7 @@ Proof
       \\ rfs [alignmentTheory.byte_aligned_def,
               ONCE_REWRITE_RULE [WORD_ADD_COMM] alignmentTheory.aligned_add_sub]
       \\ fs [aligned_w2n]
-      \\ old_drule DIVISION
+      \\ drule DIVISION
       \\ disch_then (qspec_then `i` (strip_assume_tac o GSYM))
       \\ `2 ** LOG2 (dimindex (:α) DIV 8) = dimindex (:α) DIV 8` by
         (fs [miscTheory.good_dimindex_def] \\ NO_TAC)
