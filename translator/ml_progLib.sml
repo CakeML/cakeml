@@ -132,16 +132,18 @@ val branch_cons_cache = ref (
   (term * term, term * thm * thm) Redblackmap.dict)
 
 (* Define a fresh tree-node constant whose rhs is tree_tm.
-   Returns (const_term, def_thm) where def_thm : |- <const> = <tree_tm>. *)
+   Returns (const_term, def_thm) where def_thm : |- <const> = <tree_tm>.
+   Inner tree constants exist for fast in-script ops, but their _def
+   bindings are not persisted: cross-script callers walk the inlined rhs
+   of the named env's tree_def instead.  Every definition reuses one temp
+   binding, which is never exported (deleting a real binding would cost a
+   rescan of every ThmSetData set). *)
+val tree_def_binding = Theory.temp_binding "env_tree_def"
 fun define_fresh_tree tree_tm = Profile.profile "define_fresh_tree" (fn () => let
   val nm = next_tree_const_name ()
   val lhs = mk_var (nm, env_tree_ty)
-  val def = Definition.new_definition (nm ^ "_def", mk_eq (lhs, tree_tm))
+  val def = Definition.new_definition (tree_def_binding, mk_eq (lhs, tree_tm))
   val const_tm = def |> concl |> dest_eq |> fst
-  (* Inner tree constants exist for fast in-script ops, but their _def/_wf
-     bindings are not persisted: cross-script callers walk the inlined rhs
-     of the named env's tree_def instead. *)
-  val _ = Theory.delete_binding (nm ^ "_def")
   in (const_tm, def) end) ()
 
 (* Naming convention. For env constant named "foo" we save:
@@ -1097,7 +1099,10 @@ fun nsLookup_tree_conv tm = let
   (* spec : nsLookup_<kind> env_const.<field> key_arg
           = (nsLookup_all env_const key_arg).<field> *)
   in
-    case build_tree_anon env_const handle _ => raise UNCHANGED of
+    (* symbolic envs (e.g. the `env` in `Eval env ...`) have no tree *)
+    if is_var env_const then raise UNCHANGED else
+    case build_tree_anon env_const
+         handle Interrupt => raise Interrupt | _ => raise UNCHANGED of
       (SOME node, equiv_thm) => let
       val lookup_thm = tree_lookup_thm node key_str
       (* equiv_thm : nsLookup_all env_const = tree_lookup tree_tm *)
