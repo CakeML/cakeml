@@ -52,8 +52,6 @@ val _ = translation_extends "compiler64CommonProg";
 val _ = ml_translatorLib.use_sub_check true;
 val _ = use_long_names := true;
 
-val spec64 = INST_TYPE [alpha |-> ``:64``];
-
 val _ = register_type ``:compiler64_host``;
 val _ = next_ml_names := ["host_args"];
 val r = translate host_args_def;
@@ -95,9 +93,7 @@ val compiler_for_eval_alt =
              listTheory.MAP_ID])
   |> LIST_CONJ;
 
-val r = translate (word_to_wordTheory.compile_single_def |> spec64);
-val r = translate (word_to_wordTheory.full_compile_single_def |> spec64);
-val r = translate (word_to_wordTheory.full_compile_single_for_eval_def |> spec64);
+val r = translate word_to_wordTheory.full_compile_single_for_eval_def;
 
 Theorem ws_to_chars_eq[local]:
   ws_to_chars [] = [] /\

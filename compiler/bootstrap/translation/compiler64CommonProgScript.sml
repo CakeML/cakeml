@@ -169,9 +169,9 @@ val r = backend_passesTheory.from_word_all_def |> spec64 |> translate;
 val r = backend_passesTheory.from_word_0_all_def |> spec64
           |> REWRITE_RULE[dimindex_64] |> translate;
 
-val r = presLangTheory.word_to_strs_def |> spec64 |> translate
+val r = presLangTheory.word_to_strs_def |> translate
 val r = presLangTheory.stack_to_strs_def |> translate
-val r = presLangTheory.lab_to_strs_def |> spec64 |> translate
+val r = presLangTheory.lab_to_strs_def |> translate
 
 val r = backend_passesTheory.any_prog_pp_def |> spec64 |> translate;
 val r = backend_passesTheory.pp_with_title_def |> translate;

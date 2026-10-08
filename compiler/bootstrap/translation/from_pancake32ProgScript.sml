@@ -343,26 +343,15 @@ val _ = translate $ spec32 crep_to_loopTheory.compile_prog_def;
 
 val _ = translate $ spec32 pan_to_wordTheory.compile_prog_def;
 
-val _ = translate $ spec32 word_to_wordTheory.compile_single_def;
+val _ = translate backendTheory.attach_bitmaps_def;
 
-val _ = translate $ spec32 word_to_wordTheory.full_compile_single_def;
+val _ = translate backendTheory.from_lab_def;
 
-val _ = translate $ spec32 word_to_wordTheory.compile_def;
+val _ = translate $ SIMP_RULE std_ss
+  [data_to_wordTheory.max_heap_limit_def, backend_commonTheory.word_shift_def]
+  backendTheory.from_stack_def;
 
-val _ = translate $ INST_TYPE[alpha|->“:word8 list”,
-                              beta|->“:word32 list”,
-                              gamma|->“:32”,
-                              delta|->“:32”] backendTheory.attach_bitmaps_def;
-
-val _ = translate $ INST_TYPE[alpha|->“:32 word list”,
-                              beta|->“:32”] backendTheory.from_lab_def;
-
-val _ = translate $ SIMP_RULE std_ss [dimword_def,lem,backend_commonTheory.word_shift_def]
-                  $ SIMP_RULE std_ss [data_to_wordTheory.max_heap_limit_def]
-                  $ INST_TYPE[alpha|->“:32”,
-                              beta|->“:32 word list”] backendTheory.from_stack_def;
-
-val _ = translate $ spec32 backendTheory.from_word_def;
+val _ = translate backendTheory.from_word_def;
 
 val _ = translate $ spec32 pan_to_targetTheory.exports_def;
 
