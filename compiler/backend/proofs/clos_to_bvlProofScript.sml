@@ -3929,16 +3929,17 @@ Proof
                     (λ(loc,args,_) exp. (loc + num_stubs s.max_app,args,exp))
                     (chain_exps n real_es ⧺ progs1) new_exps`
 
-  \\ `?rest0. Abbrev (progs ++ aux = (k1,0,d1)::rest0)` by (qpat_x_assum `Abbrev (_ = (k1,0,d1,md1)::rest)`
-       (mp_tac o Q.AP_TERM `MAP (I ## I ## FST)` o
-        REWRITE_RULE [markerTheory.Abbrev_def])
+  \\ `?rest0. Abbrev (progs ++ aux = (k1,0,d1)::rest0)` by (qpat_x_assum `(k1,0,d1,md1)::rest = _`
+       (mp_tac o SYM o Q.AP_TERM `MAP (I ## I ## FST)`)
      \\ simp [MAP2_MAP,ADD_COMM,add_metadata_def,MAP_MAP_o,o_DEF,UNCURRY,PAIR,
               markerTheory.Abbrev_def,Abbr `progs`]
      \\ strip_tac \\ qexists_tac `MAP (I ## I ## FST) rest`
      \\ first_x_assum (fn th => rewrite_tac [GSYM th])
      \\ AP_THM_TAC \\ AP_TERM_TAC \\ AP_THM_TAC \\ AP_TERM_TAC
      \\ simp [FUN_EQ_THM,FORALL_PROD])
-      \\ (metadata_drule (GEN_ALL evaluate_IMP_evaluate_chained)
+      \\ (qpat_x_assum `Abbrev (progs ++ aux = _)`
+            (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
+      \\ metadata_drule (GEN_ALL evaluate_IMP_evaluate_chained)
       \\ rpt (disch_then metadata_drule)
       \\ impl_tac >- (fs [] \\ reverse conj_tac THEN1
          (imp_res_tac compile_exps_LENGTH
@@ -3976,6 +3977,7 @@ Proof
       \\ fs [compile_inc_def,compile_prog_def]
       \\ LABEL_X_ASSUM "chain" assume_tac
       \\ fs [markerTheory.Abbrev_def]
+      \\ qpat_x_assum `(k1,0,d1,md1)::rest = _` (assume_tac o SYM)
       \\ fs [lookup_union]
       \\ fs [not_domain_lookup]
       \\ fs [lookup_fromAList] \\ rveq \\ fs []

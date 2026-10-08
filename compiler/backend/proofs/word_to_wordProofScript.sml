@@ -385,8 +385,6 @@ Resume compile_single_correct[Call]:
     rw[]>>
     qpat_x_assum`(λ(x,y). _) _`mp_tac >>
     pairarg_tac>>fs[]>>
-    qpat_x_assum`Abbrev( (_,_,_,_) = _)` (mp_tac o GSYM)>>
-    simp[Once markerTheory.Abbrev_def]>>rw[]>>
     rw[]>>fs[dec_clock_def,call_env_def,flush_state_def]>>
     qmatch_asmsub_abbrev_tac`evaluate (q',stt)`>>
     Q.ISPECL_THEN [`q'`,`stt`,`rcst.permute`] mp_tac permute_swap_lemma>>
