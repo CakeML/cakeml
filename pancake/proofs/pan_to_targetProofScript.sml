@@ -26,7 +26,8 @@ End
 Theorem pan_to_lab_good_code_lemma:
   stack_to_lab$compile (arch_wordsize asm_conf3.ISA) c.stack_conf c.data_conf lim1 lim2 offs stack_prog = code ∧
   word_to_stack$compile asm_conf3 F word_prog = (bm, wc, fs, stack_prog) ∧
-  word_to_word$compile word_conf asm_conf3 word_prog0 = (col, word_prog) ∧
+  word_to_word$compile word_conf asm_conf3
+    (add_metadata empty_metadata word_prog0) = (col, word_prog) ∧
   pan_to_word_compile_prog asm_conf3.ISA pan_prog = word_prog0 ∧
   stack_to_labProof$labels_ok code ∧
   all_enc_ok_pre conf code
@@ -62,10 +63,10 @@ Proof
   \\ drule stack_to_labProofTheory.stack_to_lab_stack_good_handler_labels
   \\ simp []
   \\ disch_then match_mp_tac
-  \\ qmatch_asmsub_abbrev_tac ‘word_to_word$compile _ _ wprog’
-  \\ pop_assum $ (assume_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def])
   \\ drule pan_to_word_good_handlers
   \\ disch_tac
+  \\ ‘EVERY (λ(n,m,pp,md). word_good_handlers n pp)
+          (add_metadata empty_metadata word_prog0)’ by simp []
   \\ drule word_good_handlers_word_to_word
   \\ disch_then (qspecl_then [‘word_conf’, ‘asm_conf3’] assume_tac)
   \\ drule (INST_TYPE [beta|->alpha] word_to_stackProofTheory.word_to_stack_good_handler_labels)
@@ -88,7 +89,8 @@ QED
 
 Theorem pan_to_stack_first_ALL_DISTINCT:
   pan_to_word_compile_prog mc.target.config.ISA pan_code = wprog0 ∧
-  word_to_word_compile c.word_to_word_conf mc.target.config wprog0 = (col,wprog) ∧ mc.target.config.ISA ≠ Ag32 ∧
+  word_to_word_compile c.word_to_word_conf mc.target.config
+    (add_metadata empty_metadata wprog0) = (col,wprog) ∧ mc.target.config.ISA ≠ Ag32 ∧
   word_to_stack_compile mc.target.config F wprog = (bitmaps,c'',fs,p) ∧
   ALL_DISTINCT (MAP FST (functions pan_code)) ⇒
   ALL_DISTINCT (MAP FST p)
@@ -115,13 +117,14 @@ QED
 
 Theorem pan_to_stack_compile_lab_pres:
   pan_to_word$compile_prog mc.target.config.ISA pan_code = wprog0 ∧
-  word_to_word_compile c.word_to_word_conf mc.target.config wprog0 =(col,wprog) ∧ mc.target.config.ISA ≠ Ag32 ∧
+  word_to_word_compile c.word_to_word_conf mc.target.config
+    (add_metadata empty_metadata wprog0) =(col,wprog) ∧ mc.target.config.ISA ≠ Ag32 ∧
   word_to_stack_compile mc.target.config F wprog = (bitmaps,c'',fs,p) ∧
   ALL_DISTINCT (MAP FST (functions pan_code)) ⇒
   ALL_DISTINCT (MAP FST p) ∧
   EVERY (λn. n ≠ 0 ∧ n ≠ 1 ∧ n ≠ 2 ∧ n ≠ gc_stub_location) (MAP FST p) ∧
   EVERY
-  (λ(n,p).
+  (λ(n,p,md).
      (let
         labs = extract_labels p
       in
@@ -140,7 +143,7 @@ Proof
   drule pan_to_wordProofTheory.first_compile_prog_all_distinct>>
   strip_tac>>gs[]>>
   ‘EVERY
-   (λ(n,m,p).
+   (λ(n,m,p,md).
       (let
          labs = extract_labels p
        in
@@ -176,7 +179,8 @@ QED
 
 Theorem pan_to_lab_labels_ok:
   pan_to_word_compile_prog mc.target.config.ISA pan_code = wprog0 ∧
-  word_to_word_compile c.word_to_word_conf mc.target.config wprog0 = (col,wprog) ∧ mc.target.config.ISA ≠ Ag32 ∧
+  word_to_word_compile c.word_to_word_conf mc.target.config
+    (add_metadata empty_metadata wprog0) = (col,wprog) ∧ mc.target.config.ISA ≠ Ag32 ∧
   word_to_stack_compile mc.target.config F wprog = (bitmaps,c'',fs,p) ∧
   stack_to_lab_compile (arch_wordsize mc.target.config.ISA) c.stack_conf c.data_conf max_heap sp mc.target.config.addr_offset p = lprog ∧
   ALL_DISTINCT (MAP FST (functions pan_code)) ⇒
@@ -192,10 +196,11 @@ QED
 
 Theorem word_to_stack_good_code_lemma:
   word_to_word_compile c.word_to_word_conf mc.target.config
-  (pan_to_word_compile_prog mc.target.config.ISA pan_code) = (col,wprog) ∧
+  (add_metadata empty_metadata
+    (pan_to_word_compile_prog mc.target.config.ISA pan_code)) = (col,wprog) ∧
   mc.target.config.ISA ≠ Ag32 ∧
   word_to_stack_compile mc.target.config F
-    (wprog:(num # num # α wordLang$prog) list) = (bitmaps,c'',fs,p) ∧
+    (wprog:(num # num # α wordLang$prog # metadata) list) = (bitmaps,c'',fs,p) ∧
   isa_bits mc.target.config = dimindex (:α) ∧
   LENGTH mc.target.config.avoid_regs + 13 ≤ mc.target.config.reg_count ∧
   (* from backend_config_ok c *)
@@ -1016,7 +1021,8 @@ Theorem panLang_wordSem_neq_NotEnoughSpace:
   evaluate (Call NONE (SOME start) [0] NONE, s with clock := k) = (res, t) ∧
   ALL_DISTINCT (MAP FST (functions pan_code)) ∧
   word_to_word_compile c.word_to_word_conf mc.target.config
-                       (pan_to_word_compile_prog mc.target.config.ISA pan_code) = (col,wprog) ∧
+                       (add_metadata empty_metadata
+    (pan_to_word_compile_prog mc.target.config.ISA pan_code)) = (col,wprog) ∧
   s.code = fromAList wprog ⇒
   res ≠ SOME NotEnoughSpace
 Proof
@@ -1162,7 +1168,8 @@ QED
 Definition compile_prog_max_def:
   compile_prog_max c mc prog =
     let asm_conf = mc.target.config in
-    let prog = pan_to_word$compile_prog asm_conf.ISA prog in
+    let prog = add_metadata empty_metadata
+                 (pan_to_word$compile_prog asm_conf.ISA prog) in
     let (col,wprog) = word_to_word$compile c.word_to_word_conf asm_conf prog in
     let (bm,c',fs,p) = word_to_stack$compile asm_conf F wprog in
     let max = max_depth c'.stack_frame_size (full_call_graph InitGlobals_location (fromAList wprog)) in
@@ -1184,7 +1191,7 @@ QED
 Theorem from_pan_to_lab_no_install:
   ALL_DISTINCT (MAP FST (functions pan_code)) ∧ ac.ISA ≠ Ag32 ∧
   pan_to_word_compile_prog isa pan_code = wprog0 ∧
-  word_to_word_compile wc ac wprog0 = (col, wprog) ∧
+  word_to_word_compile wc ac (add_metadata empty_metadata wprog0) = (col, wprog) ∧
   word_to_stack_compile ac F wprog = (bm, c, fs, p) ⇒
   no_install (stack_to_lab_compile (arch_wordsize ac.ISA) scc dc lim regc off p)
 Proof
@@ -1389,7 +1396,8 @@ Proof
   first_assum $ irule_at Any>>gs[]>> (* no_install_or_no_share_mem *)
   first_assum $ irule_at Any>>gs[]>>  (* lab_to_target$compile *)
 
-  ‘EVERY (λ(_,_,_). T) (pan_to_word_compile_prog mc.target.config.ISA pan_code)’ by
+  ‘EVERY (λ(_,_,_). T) (add_metadata empty_metadata
+    (pan_to_word_compile_prog mc.target.config.ISA pan_code))’ by
     (rw[]>>simp[EVERY_MEM,FORALL_PROD])>>fs[]>>
 
   ‘good_code mc.target.config (LN:num sptree$num_map sptree$num_map) lprog’
@@ -1605,7 +1613,7 @@ Proof
   drule_at Any word_to_stackProofTheory.compile_semantics>>
   gs[]>>
 
-  ‘EVERY (λ(n,m,prog).
+  ‘EVERY (λ(n,m,prog,md).
             flat_exp_conventions prog ∧
             post_alloc_conventions
             (mc.target.config.reg_count −
@@ -1697,12 +1705,16 @@ Proof
   (* word_to_word *)
   drule (word_to_wordProofTheory.word_to_word_compile_semantics |> INST_TYPE [beta |-> “: num # lab_to_target$config”])>>
 
-  disch_then (qspecl_then [‘wst’, ‘InitGlobals_location’, ‘wst with code := fromAList (pan_to_word_compile_prog mc.target.config.ISA pan_code)’] mp_tac)>>
+  disch_then (qspecl_then [‘wst’, ‘InitGlobals_location’, ‘wst with code := fromAList (add_metadata empty_metadata
+    (pan_to_word_compile_prog mc.target.config.ISA pan_code))’] mp_tac)>>
   gs[]>>
   ‘gc_fun_const_ok wst.gc_fun ∧
-   no_install_code (fromAList (pan_to_word_compile_prog mc.target.config.ISA pan_code)) ∧
-   no_alloc_code (fromAList (pan_to_word_compile_prog mc.target.config.ISA pan_code)) ∧
-   no_mt_code (fromAList (pan_to_word_compile_prog mc.target.config.ISA pan_code))’
+   no_install_code (fromAList (add_metadata empty_metadata
+    (pan_to_word_compile_prog mc.target.config.ISA pan_code))) ∧
+   no_alloc_code (fromAList (add_metadata empty_metadata
+    (pan_to_word_compile_prog mc.target.config.ISA pan_code))) ∧
+   no_mt_code (fromAList (add_metadata empty_metadata
+    (pan_to_word_compile_prog mc.target.config.ISA pan_code)))’
     by (conj_tac >- (
          gs[Abbr ‘wst’, word_to_stackProofTheory.make_init_def]>>
          gs[stack_to_labProofTheory.full_make_init_def,
@@ -1723,7 +1735,8 @@ Proof
          metis_tac[])>>
         irule pan_to_word_compile_prog_no_mt_code>>
         metis_tac[])>>gs[]>>
-  ‘ALL_DISTINCT (MAP FST (pan_to_word_compile_prog mc.target.config.ISA pan_code)) ∧
+  ‘ALL_DISTINCT (MAP FST (add_metadata empty_metadata
+    (pan_to_word_compile_prog mc.target.config.ISA pan_code))) ∧
    wst.stack = [] ∧ wst.code = fromAList wprog ∧
    lookup 0 wst.locals = SOME (Loc 1 0) ∧
    wst = wst with code := wst.code’
@@ -2121,7 +2134,8 @@ Proof
   (* pan_to_word *)
 
   fs [InitGlobals_location_eq_first_name]>>
-  ‘wst0.code = fromAList (pan_to_word_compile_prog mc.target.config.ISA pan_code)’
+  ‘wst0.code = fromAList (add_metadata empty_metadata
+    (pan_to_word_compile_prog mc.target.config.ISA pan_code))’
     by gs[Abbr ‘wst0’, wordSemTheory.state_component_equality]>>
 
   drule_at Any (INST_TYPE [beta|-> “:num # lab_to_target$config”]
@@ -2366,7 +2380,7 @@ Proof
   simp[mapi_Alist]>>
   qmatch_goalsub_abbrev_tac ‘max_depth (fromAList (MAP f _)) _’>>
   ‘fromAList (MAP f (toAList (fromAList wprog))) =
-   map (λ(arg_count,prog).
+   map (λ(arg_count,prog,md).
           FST
           (SND
            (compile_prog mc.target.config F prog arg_count
