@@ -11,7 +11,6 @@ Ancestors
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 val _ = augment_srw_ss [rewrites [integer_wordTheory.i2w_pos, integer_wordTheory.i2w_w2i,
                                   GSYM integer_wordTheory.MULT_MINUS_ONE]]
 
@@ -523,7 +522,7 @@ Proof
     \\ `d < dimword (:α)` by (UNABBREV_ALL_TAC
            \\ full_simp_tac(srw_ss())[good_dimindex_def,dimword_def]) \\ full_simp_tac(srw_ss())[]
     \\ qpat_x_assum `s.stack_space <= LENGTH s.stack` assume_tac
-    \\ old_drule LESS_EQUAL_ADD \\ strip_tac \\ srw_tac[][]
+    \\ drule LESS_EQUAL_ADD \\ strip_tac \\ srw_tac[][]
     \\ full_simp_tac(srw_ss())[LEFT_ADD_DISTRIB] \\ decide_tac)
   \\ simp[]
   >- (* jump = true *)
@@ -590,7 +589,7 @@ Proof
     \\ metis_tac[])
   \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]
   >- (
-    old_drule evaluate_single_stack_alloc
+    drule_then (qspecl_then [`s2`,`r`,`n`] mp_tac) evaluate_single_stack_alloc
     \\ impl_tac
     >- ( srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[state_rel_def] )
     \\ simp[]
@@ -599,7 +598,7 @@ Proof
     \\ every_case_tac \\ full_simp_tac(srw_ss())[]
     \\ rveq \\ full_simp_tac(srw_ss())[])
   \\ simp[evaluate_def]
-  \\ old_drule (GEN_ALL evaluate_single_stack_alloc)
+  \\ drule (GEN_ALL evaluate_single_stack_alloc)
   \\ disch_then(qspec_then`max_stack_alloc`mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["n"])))
   \\ simp[]
   \\ `max_stack_alloc ≠ 0` by EVAL_TAC
@@ -630,7 +629,7 @@ Proof
     \\ simp[]
     \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[Abbr`s'`] )
   \\ qhdtm_x_assum`evaluate`mp_tac
-  \\ old_drule (GEN_ALL evaluate_add_clock)
+  \\ drule (GEN_ALL evaluate_add_clock)
   \\ disch_then(qspec_then`ck'`mp_tac)
   \\ simp[] \\ ntac 2 strip_tac
   \\ qexists_tac`ck+ck'`\\simp[]
@@ -649,10 +648,10 @@ Proof
   srw_tac[][state_rel_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
   \\ fs[mem_load_def]
-  \\ old_drule fun2set_STAR_IMP \\ strip_tac
-  \\ old_drule fun2set_STAR_IMP \\ strip_tac
-  \\ old_drule fun2set_STAR_IMP \\ strip_tac
-  \\ old_drule fun2set_STAR_IMP \\ strip_tac
+  \\ drule fun2set_STAR_IMP \\ strip_tac
+  \\ drule fun2set_STAR_IMP \\ strip_tac
+  \\ drule fun2set_STAR_IMP \\ strip_tac
+  \\ drule fun2set_STAR_IMP \\ strip_tac
   \\ full_simp_tac(srw_ss())[memory_def]
   \\ full_simp_tac(srw_ss())[fun2set_def,EXTENSION,PULL_EXISTS,EXISTS_PROD,FORALL_PROD]
   \\ metis_tac[]
@@ -739,8 +738,8 @@ Proof
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ strip_tac
   \\ fs[GSYM STAR_ASSOC]
-  \\ old_drule (GEN_ALL memory_fun2set_IMP_read)
-  \\ disch_then old_drule
+  \\ drule (GEN_ALL memory_fun2set_IMP_read)
+  \\ disch_then drule
   \\ strip_tac \\ simp[]
   \\ rveq
   \\ simp[CONJ_ASSOC]
@@ -762,8 +761,8 @@ Proof
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ strip_tac
   \\ fs[GSYM STAR_ASSOC]
-  \\ old_drule (GEN_ALL memory_fun2set_IMP_read)
-  \\ disch_then old_drule
+  \\ drule (GEN_ALL memory_fun2set_IMP_read)
+  \\ disch_then drule
   \\ strip_tac \\ simp[]
   \\ rveq
   \\ simp[CONJ_ASSOC]
@@ -813,12 +812,12 @@ Proof
       \\ imp_res_tac state_rel_get_var \\ fs[]
       \\ rw[] \\ fs[] )
     >- (
-      old_drule state_rel_word_exp
+      drule state_rel_word_exp
       \\ qpat_x_assum`_ = SOME _`mp_tac
       \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
       \\ strip_tac
       \\ ONCE_REWRITE_TAC[CONJ_COMM]
-      \\ disch_then old_drule
+      \\ disch_then drule
       \\ srw_tac[][reg_bound_exp_def]
       \\ every_case_tac \\ fs[] )
     \\ qpat_abbrev_tac`c ⇔ _ ∧ _`
@@ -831,9 +830,9 @@ Proof
     \\ pop_assum mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ strip_tac
-    \\ old_drule state_rel_word_exp
+    \\ drule state_rel_word_exp
     \\ ONCE_REWRITE_TAC[CONJ_COMM]
-    \\ disch_then old_drule
+    \\ disch_then drule
     \\ simp[]
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ srw_tac[][] )
@@ -843,9 +842,9 @@ Proof
   \\ pop_assum mp_tac
   \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
-  \\ old_drule state_rel_word_exp
+  \\ drule state_rel_word_exp
   \\ ONCE_REWRITE_TAC[CONJ_COMM]
-  \\ disch_then old_drule
+  \\ disch_then drule
   \\ simp[]
   \\ imp_res_tac mem_load_byte_aux_IMP \\ fs[]
   \\ imp_res_tac mem_load_32_IMP \\ fs[]
@@ -864,15 +863,15 @@ Proof
       \\ fs[state_rel_def]
       \\ every_case_tac \\ fs[]
       \\ fs[GSYM STAR_ASSOC]
-      \\ old_drule (GEN_ALL memory_fun2set_IMP_read)
+      \\ drule (GEN_ALL memory_fun2set_IMP_read)
       \\ metis_tac[])
     \\ simp[]
     \\ imp_res_tac state_rel_mem_store)
-  >- (old_drule (GEN_ALL state_rel_mem_store_byte_aux)
-     \\ disch_then old_drule
+  >- (drule (GEN_ALL state_rel_mem_store_byte_aux)
+     \\ disch_then drule
      \\ strip_tac \\ simp[])
-  \\ old_drule (GEN_ALL state_rel_mem_store_32)
-  \\ disch_then old_drule
+  \\ drule (GEN_ALL state_rel_mem_store_32)
+  \\ disch_then drule
   \\ strip_tac \\ simp[])
   >>
     BasicProvers.TOP_CASE_TAC \\ fs[case_eq_thms] \\
@@ -892,7 +891,7 @@ Proof
   \\ Cases_on`a`\\full_simp_tac(srw_ss())[LUPDATE_def]
   \\ full_simp_tac(srw_ss())[word_list_def] >- SEP_W_TAC
   \\ SEP_F_TAC
-  \\ disch_then old_drule
+  \\ disch_then drule
   \\ simp[ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ srw_tac[star_ss][]
 QED
@@ -1025,9 +1024,9 @@ Proof
   \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]
   >- (
     every_case_tac>>fs[]>>
-    old_drule evaluate_single_stack_free>> rw[])
+    drule evaluate_single_stack_free>> rw[])
   \\ simp[evaluate_def]
-  \\ old_drule (GEN_ALL evaluate_single_stack_free)
+  \\ drule (GEN_ALL evaluate_single_stack_free)
   \\ disch_then(qspec_then`max_stack_alloc`mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["n"])))
   \\ simp[]>>
   qpat_assum`A=(r,s2)` mp_tac>>
@@ -1042,7 +1041,7 @@ Proof
     first_x_assum match_mp_tac >>
     qexists_tac`s'` >> simp[Abbr`s'`]>>rw[])
   \\ qhdtm_x_assum`evaluate`mp_tac
-  \\ old_drule (GEN_ALL evaluate_add_clock)
+  \\ drule (GEN_ALL evaluate_add_clock)
   \\ disch_then(qspec_then`ck'`mp_tac)
   \\ rveq \\ fs[]
   \\ ntac 2 strip_tac
@@ -1118,9 +1117,9 @@ Theorem mem_load_lemma[local]:
   mem_load (c+(i2w (store_offset aw name))) t1 = SOME x
 Proof
   strip_tac >>
-  old_drule fun2set_STAR_IMP>>
+  drule fun2set_STAR_IMP>>
   pop_assum kall_tac >> strip_tac >> pop_assum kall_tac >>
-  old_drule fun2set_STAR_IMP>>
+  drule fun2set_STAR_IMP>>
   simp[Once CONJ_COMM]>>
   pop_assum kall_tac >> strip_tac >>  pop_assum kall_tac>>
   ntac 2 (pop_assum mp_tac)>>
@@ -1161,9 +1160,9 @@ Theorem mem_load_lemma2[local]:
   c+(i2w (store_offset aw name)) ∈ t1.mdomain
 Proof
   strip_tac >>
-  old_drule fun2set_STAR_IMP>>
+  drule fun2set_STAR_IMP>>
   pop_assum kall_tac >> strip_tac >> pop_assum kall_tac >>
-  old_drule fun2set_STAR_IMP>>
+  drule fun2set_STAR_IMP>>
   simp[Once CONJ_COMM]>>
   pop_assum kall_tac >> strip_tac >>  pop_assum kall_tac>>
   pop_assum mp_tac>>
@@ -1301,7 +1300,7 @@ Proof
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [evaluate_def,get_var_def,get_var_imm_def,integer_wordTheory.i2w_pos,integer_wordTheory.i2w_w2i,asmTheory.word_cmp_def,inst_def,
          word_exp_def,get_var_def,wordLangTheory.word_op_def,mem_load_def]
-  \\ old_drule miscTheory.LESS_LENGTH
+  \\ drule miscTheory.LESS_LENGTH
   \\ strip_tac \\ gvs []
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ fs [word_list_def,word_list_APPEND]
@@ -1378,7 +1377,7 @@ Proof
   \\ simp [Once list_Seq_def]
   \\ ‘x' + bytes_in_word * n2w i ∈ t.mdomain ∧
       t.memory (x' + bytes_in_word * n2w i) = Word (EL i bs)’ by
-   (fs [GSYM NOT_LESS] \\ old_drule LESS_LENGTH
+   (fs [GSYM NOT_LESS] \\ drule LESS_LENGTH
     \\ strip_tac \\ gvs []
     \\ fs [word_list_def,word_list_APPEND] \\ SEP_R_TAC
     \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
@@ -1396,8 +1395,8 @@ Proof
         qexists_tac ‘0’ x c
         |> fst |> hd |> snd |> find_term (can (match_term “stackSem$evaluate _”))
         |> rand |> rand |> (fn tm => qabbrev_tac ‘t8 = ^tm’ x c))
-    \\ old_drule copy_each_thm \\ fs []
-    \\ disch_then (qspecl_then [‘x'’,‘t8’] mp_tac)
+    \\ drule copy_each_thm \\ fs []
+    \\ disch_then (qspecl_then [‘t2’,‘t1’,‘rest’,‘aw’,‘x'’,‘t8’] mp_tac)
     \\ unabbrev_all_tac \\ fs [FLOOKUP_UPDATE,get_var_def]
     \\ impl_tac
     THEN1 (gvs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])
@@ -1426,8 +1425,8 @@ Proof
          GSYM bytes_in_word_def,set_var_def,FLOOKUP_UPDATE]
   \\ qpat_abbrev_tac ‘ttt = STOP _’
   \\ simp [Once list_Seq_def]
-  \\ old_drule copy_each_thm \\ fs []
-  \\ disch_then (qspecl_then [‘x'’,‘t8’] mp_tac)
+  \\ drule copy_each_thm \\ fs []
+  \\ disch_then (qspecl_then [‘t2’,‘t1’,‘rest’,‘aw’,‘x'’,‘t8’] mp_tac)
   \\ unabbrev_all_tac \\ fs [FLOOKUP_UPDATE,get_var_def]
   \\ impl_tac
   THEN1 (gvs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])
@@ -1445,7 +1444,7 @@ Proof
   \\ rw []
   \\ unabbrev_all_tac \\ fs [FLOOKUP_UPDATE]
   \\ qpat_x_assum ‘evaluate (copy_each aw t1 t2,_) = _’ assume_tac
-  \\ old_drule (evaluate_add_clock |> GEN_ALL) \\ fs []
+  \\ drule (evaluate_add_clock |> GEN_ALL) \\ fs []
   \\ disch_then (qspec_then ‘ck'+1’ assume_tac)
   \\ qexists_tac ‘ck+ck'+1’
   \\ fs [evaluate_def]
@@ -1562,8 +1561,8 @@ Proof
     \\ TOP_CASE_TAC \\ fs [the_SOME_Word_def]
     \\ strip_tac
     \\ qabbrev_tac ‘r2 = t6.regs |+ (t2,Word (i ≪ shift (dimindex (:α)) + ww ≪ shift (dimindex (:α))))’
-    \\ old_drule (copy_loop_thm |> Q.GENL [‘t2’,‘t1’,‘rest’]) \\ fs []
-    \\ disch_then (qspecl_then [‘t2’,‘t1’] mp_tac) \\ fs []
+    \\ drule (copy_loop_thm |> Q.GENL [‘t2’,‘t1’,‘rest’]) \\ fs []
+    \\ disch_then (qspecl_then [‘aw’,‘t2’,‘t1’] mp_tac) \\ fs []
     \\ fs [word_list_APPEND]
     \\ qpat_x_assum ‘_ (fun2set _)’ mp_tac
     \\ fs [GSYM STAR_ASSOC]
@@ -1587,10 +1586,10 @@ Proof
     \\ last_x_assum mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ strip_tac \\ rveq
-    \\ old_drule (GEN_ALL state_rel_inst)
+    \\ drule (GEN_ALL state_rel_inst)
     \\ full_simp_tac(srw_ss())[reg_bound_def]
-    \\ disch_then old_drule
-    \\ disch_then old_drule
+    \\ disch_then drule
+    \\ disch_then drule
     \\ strip_tac
     \\ simp[]
     \\ imp_res_tac inst_const
@@ -1609,7 +1608,7 @@ Proof
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[] \\ strip_tac
     \\ full_simp_tac(srw_ss())[wordLangTheory.word_op_def]
     \\ `mem_load (c + (i2w (store_offset aw name))) t1 = SOME x` by
-     (old_drule name_cases>>
+     (drule name_cases>>
      strip_tac>>
      metis_tac[mem_load_lemma])
     \\ fs[] \\ res_tac
@@ -1632,7 +1631,7 @@ Proof
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[] \\ strip_tac
     \\ fs[wordLangTheory.word_op_def,mem_store_def]
     \\ `c + (i2w (store_offset aw name)) IN t1.mdomain` by
-     (old_drule name_cases>>
+     (drule name_cases>>
      strip_tac>>
      metis_tac[mem_load_lemma2])
     \\ fs[]
@@ -1642,7 +1641,7 @@ Proof
     \\ full_simp_tac(srw_ss())[AC MULT_COMM MULT_ASSOC]
     \\ Q.ABBREV_TAC `m = t1.memory`
     \\ Q.ABBREV_TAC `d = t1.mdomain`
-    \\ old_drule name_cases
+    \\ drule name_cases
     \\ metis_tac[store_write_lemma])
   THEN1 (* OpCurrHeap *)
    (qexists_tac`0`
@@ -1669,16 +1668,16 @@ Proof
     \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
     \\ reverse(Cases_on `res = NONE`) \\ full_simp_tac(srw_ss())[]
     >- (rpt var_eq_tac
-      \\ first_x_assum old_drule >> simp[]
+      \\ first_x_assum drule >> simp[]
       \\ strip_tac >> full_simp_tac(srw_ss())[]
       \\ pop_assum mp_tac >> CASE_TAC
       \\ rpt var_eq_tac >> full_simp_tac(srw_ss())[]
       \\ strip_tac
       \\ qexists_tac`ck`\\simp[])
-    \\ first_x_assum old_drule >> simp[] >> strip_tac
-    \\ first_x_assum old_drule \\ simp[] \\ strip_tac
+    \\ first_x_assum drule >> simp[] >> strip_tac
+    \\ first_x_assum drule \\ simp[] \\ strip_tac
     \\ ntac 2 (pop_assum mp_tac)
-    \\ old_drule (GEN_ALL evaluate_add_clock)
+    \\ drule (GEN_ALL evaluate_add_clock)
     \\ disch_then(qspec_then`ck'`mp_tac)
     \\ simp[] \\ ntac 3 strip_tac
     \\ qexists_tac`ck+ck'`\\simp[])
@@ -1713,7 +1712,7 @@ Proof
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ strip_tac \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
-    \\ first_x_assum old_drule \\ simp[] \\ strip_tac
+    \\ first_x_assum drule \\ simp[] \\ strip_tac
     \\ qexists_tac`ck` \\ simp[]
     \\ full_simp_tac(srw_ss())[get_var_def]
     \\ Cases_on `ri` \\ full_simp_tac(srw_ss())[get_var_imm_def]
@@ -1787,9 +1786,9 @@ Proof
   THEN1 (* RawCall *)
    (simp [Once comp_def]
     \\ fs [evaluate_def,CaseEq"option",PULL_EXISTS]
-    \\ old_drule (GEN_ALL (find_code_lemma |> Q.INST [`dest`|->`INL d`]))
+    \\ drule (GEN_ALL (find_code_lemma |> Q.INST [`dest`|->`INL d`]))
     \\ fs [find_code_def]
-    \\ disch_then old_drule \\ strip_tac \\ fs []
+    \\ disch_then drule \\ strip_tac \\ fs []
     \\ Cases_on `prog` \\ fs [dest_Seq_def] \\ rveq \\ fs []
     \\ once_rewrite_tac [comp_def] \\ fs [dest_Seq_def]
     \\ `t1.clock = s.clock` by fs [state_rel_def]
@@ -1797,7 +1796,7 @@ Proof
     THEN1 (qexists_tac `0` \\ fs [] \\ fs [state_rel_def])
     \\ `state_rel aw jump off k (dec_clock s) (dec_clock t1)` by
           (fs [state_rel_def,dec_clock_def] \\ metis_tac [])
-    \\ first_x_assum old_drule \\ fs [dec_clock_def]
+    \\ first_x_assum drule \\ fs [dec_clock_def]
     \\ disch_then match_mp_tac
     \\ pop_assum kall_tac
     \\ fs [state_rel_def]
@@ -1821,7 +1820,7 @@ Proof
       \\ `t1.clock <> 0` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
       \\ `state_rel aw jump off k (dec_clock s) (dec_clock t1)` by
        (full_simp_tac(srw_ss())[state_rel_def,dec_clock_def] \\ rev_full_simp_tac(srw_ss())[] \\ metis_tac [])
-      \\ first_x_assum old_drule \\ full_simp_tac(srw_ss())[]
+      \\ first_x_assum drule \\ full_simp_tac(srw_ss())[]
       \\ strip_tac \\ full_simp_tac(srw_ss())[]
       \\ qexists_tac`ck`
       \\ rev_full_simp_tac(srw_ss()++ARITH_ss)[dec_clock_def])
@@ -1830,9 +1829,9 @@ Proof
     \\ qhdtm_x_assum`evaluate`mp_tac
     \\ simp[Once evaluate_def]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ old_drule (GEN_ALL find_code_lemma2)
-    \\ disch_then old_drule
-    \\ disch_then old_drule
+    \\ drule (GEN_ALL find_code_lemma2)
+    \\ disch_then drule
+    \\ disch_then drule
     \\ strip_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     >- (
@@ -1857,7 +1856,7 @@ Proof
         \\ match_mp_tac state_rel_with_clock
         \\ match_mp_tac state_rel_set_var
         \\ simp[] )
-      \\ first_x_assum old_drule
+      \\ first_x_assum drule
       \\ simp[]
       \\ strip_tac
       \\ fs[dec_clock_def]
@@ -1872,7 +1871,7 @@ Proof
         \\ match_mp_tac state_rel_with_clock
         \\ match_mp_tac state_rel_set_var
         \\ simp[] )
-      \\ first_x_assum old_drule
+      \\ first_x_assum drule
       \\ simp[]
       \\ strip_tac
       \\ fs[dec_clock_def]
@@ -1889,12 +1888,12 @@ Proof
         \\ match_mp_tac state_rel_with_clock
         \\ match_mp_tac state_rel_set_var
         \\ simp[] )
-      \\ first_x_assum old_drule \\ simp[] \\ strip_tac
-      \\ first_x_assum old_drule \\ simp[] \\ strip_tac
+      \\ first_x_assum drule \\ simp[] \\ strip_tac
+      \\ first_x_assum drule \\ simp[] \\ strip_tac
       \\ fs[dec_clock_def]
       \\ qhdtm_x_assum`evaluate`mp_tac
       \\ qmatch_goalsub_rename_tac`ck2 + t2.clock`
-      \\ old_drule (GEN_ALL evaluate_add_clock)
+      \\ drule (GEN_ALL evaluate_add_clock)
       \\ disch_then(qspec_then`ck2`mp_tac)
       \\ simp[] \\ ntac 2 strip_tac
       \\ qexists_tac`ck' + ck2` \\  simp[] )
@@ -1908,7 +1907,7 @@ Proof
         \\ match_mp_tac state_rel_with_clock
         \\ match_mp_tac state_rel_set_var
         \\ simp[] )
-      \\ first_x_assum old_drule
+      \\ first_x_assum drule
       \\ simp[]
       \\ strip_tac
       \\ fs[dec_clock_def]
@@ -1924,7 +1923,7 @@ Proof
         \\ match_mp_tac state_rel_with_clock
         \\ match_mp_tac state_rel_set_var
         \\ simp[] )
-      \\ first_x_assum old_drule
+      \\ first_x_assum drule
       \\ simp[]
       \\ strip_tac
       \\ fs[dec_clock_def]
@@ -1941,12 +1940,12 @@ Proof
       \\ match_mp_tac state_rel_with_clock
       \\ match_mp_tac state_rel_set_var
       \\ simp[] )
-    \\ first_x_assum old_drule \\ simp[] \\ strip_tac
-    \\ first_x_assum old_drule \\ simp[] \\ strip_tac
+    \\ first_x_assum drule \\ simp[] \\ strip_tac
+    \\ first_x_assum drule \\ simp[] \\ strip_tac
     \\ fs[dec_clock_def]
     \\ qhdtm_x_assum`evaluate`mp_tac
     \\ qmatch_goalsub_rename_tac`ck2 + t2.clock`
-    \\ old_drule (GEN_ALL evaluate_add_clock)
+    \\ drule (GEN_ALL evaluate_add_clock)
     \\ disch_then(qspec_then`ck2`mp_tac)
     \\ simp[] \\ ntac 2 strip_tac
     \\ qexists_tac`ck' + ck2` \\  simp[] )
@@ -2115,9 +2114,9 @@ Proof
     \\ every_case_tac \\ rw[] \\ fs[] \\ res_tac \\ fs[] \\ rfs[])
   THEN1 (* StackAlloc *) (
     simp[comp_def]
-    \\ old_drule evaluate_stack_alloc
+    \\ drule evaluate_stack_alloc
     \\ simp[]
-    \\ disch_then old_drule
+    \\ disch_then drule
     \\ strip_tac \\ simp[]
     \\ asm_exists_tac \\ simp[]
     \\ BasicProvers.CASE_TAC \\ full_simp_tac(srw_ss())[]
@@ -2125,9 +2124,9 @@ Proof
     \\ full_simp_tac(srw_ss())[state_rel_def] )
   THEN1 (* StackFree *) (
     simp[comp_def]
-    \\ old_drule evaluate_stack_free
+    \\ drule evaluate_stack_free
     \\ simp[]
-    \\ disch_then old_drule
+    \\ disch_then drule
     \\ strip_tac \\ simp[]
     \\ asm_exists_tac \\ simp[]
     \\ fs[evaluate_def]
@@ -2160,7 +2159,7 @@ Proof
       qpat_abbrev_tac`t = (set_var r _ _) with clock:= _`>>
       `FLOOKUP t.regs r = SOME(Word (c + bytes_in_word * n2w s.stack_space))` by
         fs[Abbr`t`,set_var_def,FLOOKUP_UPDATE]>>
-      old_drule evaluate_upshift>>
+      drule evaluate_upshift>>
       disch_then (qspecl_then [`aw`,`n`] assume_tac)>>
       simp[inst_def,assign_def,word_exp_def,FLOOKUP_UPDATE,wordLangTheory.word_op_def]>>fs[Abbr`t`,set_var_def]>>
       simp[mem_load_def]
@@ -2234,7 +2233,7 @@ Proof
     >>
       simp[stack_store_def,evaluate_def]>>
       fs[get_var_def]>>
-      old_drule evaluate_upshift >> disch_then(qspecl_then[`aw`,`n`] assume_tac)>>
+      drule evaluate_upshift >> disch_then(qspecl_then[`aw`,`n`] assume_tac)>>
       simp[inst_def,word_exp_def,FLOOKUP_UPDATE,wordLangTheory.word_op_def]>>
       fs[get_var_def,FLOOKUP_UPDATE,set_var_def]>>
       simp[mem_store_def]>>
@@ -2250,7 +2249,7 @@ Proof
       \\ qpat_abbrev_tac`t' = t1 with <|regs:=_ ; memory := _|>`>>
       `FLOOKUP t'.regs k = SOME (Word (c + bytes_in_word * n2w n + bytes_in_word * n2w s.stack_space))` by
         fs[Abbr`t'`,FLOOKUP_UPDATE]>>
-      old_drule evaluate_downshift>>disch_then(qspecl_then[`aw`,`n`] assume_tac)>>
+      drule evaluate_downshift>>disch_then(qspecl_then[`aw`,`n`] assume_tac)>>
       fs[word_offset_eq,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,Abbr`t'`]>>
       qmatch_goalsub_abbrev_tac `t1 with <| regs:= R ; memory := M|>`>>
       `t1 with <|regs:=R;memory:=M|> = t1 with memory := M` by
@@ -2442,16 +2441,16 @@ Proof
       simp[] >>
       qmatch_assum_rename_tac`_ = (res,_)` >>
       Cases_on`res=SOME Error`>>simp[]>>
-      old_drule comp_correct >>
+      drule comp_correct >>
       simp[reg_bound_def,RIGHT_FORALL_IMP_THM] >>
-      old_drule (GEN_ALL state_rel_with_clock)
+      drule (GEN_ALL state_rel_with_clock)
       \\ disch_then(qspec_then`k''`strip_assume_tac)
-      \\ disch_then old_drule
+      \\ disch_then drule
       \\ simp[comp_def]
       \\ strip_tac \\ full_simp_tac(srw_ss())[]
       \\ qpat_x_assum`FST _ ≠ _`mp_tac
       \\ goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`))
-      \\ old_drule (GEN_ALL evaluate_add_clock)
+      \\ drule (GEN_ALL evaluate_add_clock)
       \\ full_simp_tac(srw_ss())[]
       \\ disch_then(qspec_then`ck`mp_tac)
       \\ simp[]) >>
@@ -2460,35 +2459,35 @@ Proof
       srw_tac[][] >>
       Cases_on`r=TimeOut`>>full_simp_tac(srw_ss())[] >>
       qhdtm_x_assum`evaluate`mp_tac >>
-      old_drule (GEN_ALL evaluate_add_clock) >>
+      drule (GEN_ALL evaluate_add_clock) >>
       disch_then(qspec_then`k''`mp_tac) >>
       simp[] >> strip_tac >>
-      old_drule comp_correct >>
+      drule comp_correct >>
       simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
       impl_tac >- (
         rpt(first_x_assum(qspec_then`k'`mp_tac))>>srw_tac[][] ) >>
       simp[reg_bound_def,comp_def] >>
-      old_drule (GEN_ALL state_rel_with_clock) >>
+      drule (GEN_ALL state_rel_with_clock) >>
       disch_then(qspec_then`k'+k''`strip_assume_tac) >>
-      disch_then old_drule >>
+      disch_then drule >>
       strip_tac >> full_simp_tac(srw_ss())[] >>
       strip_tac >>
       qmatch_assum_abbrev_tac`evaluate (e,ss) = _` >>
       qspecl_then[`ck+k'`,`e`,`ss`]mp_tac(GEN_ALL evaluate_add_clock_io_events_mono)>>
       simp[Abbr`ss`] >> strip_tac >>
-      old_drule (GEN_ALL evaluate_add_clock) >>
+      drule (GEN_ALL evaluate_add_clock) >>
       disch_then(qspec_then`ck+k'`mp_tac) >>
       simp[] >> strip_tac >> fs[] >>
       first_x_assum(qspec_then`k''`mp_tac) >>
       simp[] >> strip_tac >> fs[state_rel_def]) >>
-    old_drule comp_correct >>
+    drule comp_correct >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO,reg_bound_def] >>
     impl_tac >- (
       rpt(first_x_assum(qspec_then`k'`mp_tac))>>srw_tac[][]) >>
     simp[comp_def] >>
-    old_drule (GEN_ALL state_rel_with_clock)
+    drule (GEN_ALL state_rel_with_clock)
     \\ disch_then(qspec_then`k'`strip_assume_tac)
-    \\ disch_then old_drule
+    \\ disch_then drule
     \\ simp[] \\ strip_tac
     \\ first_x_assum(qspec_then`ck+k'`mp_tac)
     \\ simp[]
@@ -2507,12 +2506,12 @@ Proof
     \\ strip_tac \\ full_simp_tac(srw_ss())[]
     \\ last_x_assum(qspec_then`k'`mp_tac)
     \\ goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`))
-    \\ old_drule comp_correct
+    \\ drule comp_correct
     \\ qmatch_assum_rename_tac`_ = (res,_)`
     \\ Cases_on`res=SOME Error`\\ full_simp_tac(srw_ss())[]
-    \\ old_drule (GEN_ALL state_rel_with_clock)
+    \\ drule (GEN_ALL state_rel_with_clock)
     \\ disch_then(qspec_then`k'`strip_assume_tac)
-    \\ disch_then old_drule
+    \\ disch_then drule
     \\ simp[reg_bound_def,comp_def]
     \\ strip_tac
     \\ first_x_assum(qspec_then`k'`mp_tac)
@@ -2520,7 +2519,7 @@ Proof
     \\ BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ ntac 2 (qhdtm_x_assum`evaluate`mp_tac)
-    \\ old_drule (GEN_ALL evaluate_add_clock)
+    \\ drule (GEN_ALL evaluate_add_clock)
     \\ simp[] )
   \\ DEEP_INTRO_TAC some_intro \\ full_simp_tac(srw_ss())[]
   \\ conj_tac >- (
@@ -2531,12 +2530,12 @@ Proof
     \\ goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`))
     \\ qpat_x_assum`∀x y. _`(fn th => assume_tac th >> qspec_then`k'`mp_tac th)
     \\ simp[]
-    \\ old_drule comp_correct
+    \\ drule comp_correct
     \\ qmatch_assum_rename_tac`_ = (res,_)`
     \\ Cases_on`res=SOME Error`\\ full_simp_tac(srw_ss())[]
-    \\ old_drule (GEN_ALL state_rel_with_clock)
+    \\ drule (GEN_ALL state_rel_with_clock)
     \\ disch_then(qspec_then`k'`strip_assume_tac)
-    \\ disch_then old_drule
+    \\ disch_then drule
     \\ simp[reg_bound_def,comp_def]
     \\ strip_tac
     \\ qpat_x_assum`∀k. _ ∨ _`(fn th => assume_tac th >> qspec_then`ck+k'`mp_tac th)
@@ -2594,13 +2593,13 @@ Proof
   rpt gen_tac >>
   goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >> full_simp_tac(srw_ss())[] >>
   goal_term (fn w => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm w) tm)`) w) >> full_simp_tac(srw_ss())[] >>
-  old_drule comp_correct >>
+  drule comp_correct >>
   simp[comp_def,reg_bound_def,RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
   impl_tac >- (
     rpt(first_x_assum(qspec_then`k'`mp_tac))>>srw_tac[][] ) >>
-  old_drule (GEN_ALL state_rel_with_clock) >>
+  drule (GEN_ALL state_rel_with_clock) >>
   disch_then(qspec_then`k'`strip_assume_tac) >>
-  disch_then old_drule >>
+  disch_then drule >>
   strip_tac >> full_simp_tac(srw_ss())[] >>
   `t2.ffi = r'.ffi` by (
     pop_assum mp_tac
@@ -2689,7 +2688,7 @@ Proof
     \\ qpat_abbrev_tac `s4 = s with <| regs := _; memory := _ |>`
     \\ first_x_assum (qspec_then `s4` mp_tac)
     \\ unabbrev_all_tac \\ fs []
-    \\ rpt strip_tac \\ first_x_assum old_drule
+    \\ rpt strip_tac \\ first_x_assum drule
     \\ impl_tac
     THEN1 (fs [get_var_def,FLOOKUP_UPDATE,EVERY_MEM])
     \\ strip_tac
@@ -2720,7 +2719,7 @@ Proof
     \\ qpat_abbrev_tac `s4 = s with <| regs := _; memory := _ |>`
     \\ first_x_assum (qspec_then `s4` mp_tac)
     \\ unabbrev_all_tac \\ fs []
-    \\ rpt strip_tac \\ first_x_assum old_drule
+    \\ rpt strip_tac \\ first_x_assum drule
     \\ impl_tac
     THEN1 (fs [get_var_def,FLOOKUP_UPDATE,EVERY_MEM])
     \\ strip_tac
@@ -3021,7 +3020,7 @@ Proof
   `∃r.r < LENGTH ls ∧ 0 < r ∧ a + bytes_in_word * n2w r = a` by
     (fs[addressTheory.WORD_EQ_ADD_CANCEL,bytes_in_word_def,word_mul_n2w]>>
     `0 <dimword(:'a)` by fs[good_dimindex_def] >>
-    old_drule (GEN_ALL MOD_EQ_0_DIVISOR)>>fs[]>>disch_then kall_tac>>
+    drule (GEN_ALL MOD_EQ_0_DIVISOR)>>fs[]>>disch_then kall_tac>>
     fs[good_dimindex_def,dimword_def,PULL_EXISTS]>>rfs[]>>
     asm_exists_tac>>fs[])>>
   Q.ISPECL_THEN [`TAKE r ls`,`DROP r ls`,`a`] assume_tac word_list_APPEND>>
@@ -3153,12 +3152,12 @@ Proof
             simp[n2w_SUC,WORD_LEFT_ADD_DISTRIB])>>
         Cases_on ‘i’>>gvs[]
         >- (pop_assum $ assume_tac o GSYM>>
-            old_drule (iffLR WORD_ADD_INV_0_EQ)>>
+            drule (iffLR WORD_ADD_INV_0_EQ)>>
             gs[bytes_in_word_def,good_dimindex_def,dimword_def])>>
         pop_assum $ mp_tac>>
         TRY (rewrite_tac[Once (GSYM WORD_ADD_ASSOC)])>>strip_tac>>
         pop_assum $ assume_tac o GSYM>>
-        old_drule (iffLR WORD_ADD_INV_0_EQ)>>
+        drule (iffLR WORD_ADD_INV_0_EQ)>>
         gs[word_add_def,word_mul_def]>>
         gs[bytes_in_word_def,good_dimindex_def,dimword_def])>>
   gs[]>>
@@ -3189,9 +3188,9 @@ Proof
   rpt strip_tac>>rw[Once FUN_EQ_THM]>>
   drule_all word_list_set>>strip_tac>>
   simp[Once EQ_IMP_THM]>>strip_tac>>strip_tac>>gs[]>>
-  old_drule word_list_inj>>
+  drule word_list_inj>>
   qpat_x_assum ‘word_list _ _ (set _)’ $ assume_tac>>
-  disch_then $ old_drule>>strip_tac>>gs[]
+  disch_then $ drule>>strip_tac>>gs[]
 QED
 
 (* move? *)
@@ -3223,7 +3222,7 @@ Theorem word_list_in_memory:
            memory m (addresses a (LENGTH xs)) = word_list (a:'a word) xs
 Proof
   rpt strip_tac>>
-  drule_then old_drule word_list_EL_in_memory>>
+  drule_then drule word_list_EL_in_memory>>
   disch_then $ drule_at Any>>strip_tac>>
 
   simp[Once FUN_EQ_THM]>>strip_tac>>
@@ -3457,7 +3456,7 @@ Proof
      \\ fs [alignmentTheory.byte_aligned_def,aligned_w2n]
      \\ fs [good_dimindex_def,Abbr`d`]
      \\ fs [] \\ rfs [backend_commonTheory.word_shift_def])
-  \\ ntac 3 (old_drule MOD_EQ_IMP_MULT \\ asm_rewrite_tac [] \\ pop_assum kall_tac)
+  \\ ntac 3 (drule MOD_EQ_IMP_MULT \\ asm_rewrite_tac [] \\ pop_assum kall_tac)
   \\ strip_tac \\ rename1 `ptr2 = d * h2`
   \\ strip_tac \\ rename1 `final_ptr3 = d * h3`
   \\ strip_tac \\ rename1 `l = d * l4`
@@ -3465,7 +3464,7 @@ Proof
   \\ qpat_abbrev_tac `pat = get_stack_heap_limit'' _ _ _`
 
   \\ `pat = get_stack_heap_limit'' h2 h3 (h2 + l4)` by
-       (fs [Abbr`pat`] \\ old_drule MULT_DIV \\ fs []
+       (fs [Abbr`pat`] \\ drule MULT_DIV \\ fs []
         \\ simp_tac std_ss [GSYM LEFT_ADD_DISTRIB])
   \\ pop_assum (fn th => rewrite_tac [th]) \\ pop_assum kall_tac
   \\ fs [bytes_in_word_def,word_mul_n2w]
@@ -3492,10 +3491,10 @@ Proof
         \\ pop_assum (fn th => rewrite_tac [th])
         \\ qsuff_tac `d * max_heap DIV (2 * d) = max_heap DIV 2` \\ fs []
         \\ once_rewrite_tac [MULT_COMM]
-        \\ old_drule DIV_DIV_DIV_MULT
+        \\ drule DIV_DIV_DIV_MULT
         \\ disch_then (fn th => simp [GSYM th])
         \\ once_rewrite_tac [MULT_COMM]
-        \\ old_drule MULT_DIV \\ fs [])
+        \\ drule MULT_DIV \\ fs [])
       \\ fs [] \\ simp [markerTheory.Abbrev_def,word_add_n2w]
       \\ `w2n (n2w ptr3' + -1w * n2w (d * h2):'a word) = ptr3' - d * h2` by
        (rewrite_tac [WORD_SUB_INTRO,WORD_MULT_CLAUSES,
@@ -3539,7 +3538,7 @@ Proof
     \\ pop_assum (fn th => rewrite_tac [th])
     \\ fs [] \\ simp [markerTheory.Abbrev_def,word_add_n2w]
     \\ `2 * (d * (p DIV (2 * d))) <= p` by
-     (`0 < 2 * d` by fs [] \\ old_drule DIVISION
+     (`0 < 2 * d` by fs [] \\ drule DIVISION
       \\ disch_then (qspec_then `p` mp_tac) \\ decide_tac)
     \\ `(d * h2 + 2 * (d * (p DIV (2 * d)))) < dimword (:α)` by
        (fs [Abbr`d`,good_dimindex_def]
@@ -3609,8 +3608,8 @@ Proof
 QED
 
 Resume init_code_thm[Store]:
-  old_drule (store_list_code_thm |> Q.GENL [`t`,`a`])
-  \\ disch_then (qspecl_then [`0`,`k+1`,
+  drule (store_list_code_thm |> Q.GENL [`t`,`a`])
+  \\ disch_then (qspecl_then [`aw`,`0`,`k+1`,
        `(MAP (store_init gen_gc k) (REVERSE store_list))`,`s7`] mp_tac)
   \\ impl_tac THEN1
    (unabbrev_all_tac \\ fs [get_var_def] \\ tac
@@ -3625,9 +3624,8 @@ Resume init_code_thm[Store]:
     (gs[Abbr ‘s7’, FLOOKUP_UPDATE, FUPDATE_LIST,wordsTheory.WORD_LITERAL_ADD]
      \\ strip_tac
      \\simp[(GSYM wordsTheory.word_add_n2w)]
-     \\ qpat_x_assum `Abbrev (n2w _ = _)` $ assume_tac o REWRITE_RULE[markerTheory.Abbrev_def]
+     \\ qpat_x_assum `_ = n2w (d * LENGTH heap)` (assume_tac o GSYM)
      \\ gs[]
-     \\ gs[Abbr ‘ptr3'’]
      \\ gs[Abbr ‘max_heap_w’]
      \\ gs[]
      \\ `w2n (bytes_in_word:'a word) = dimindex (:'a) DIV 8` by
@@ -3637,7 +3635,7 @@ Resume init_code_thm[Store]:
        by gs[wordsTheory.word_mul_def]
      \\ gs[])
   \\ qpat_x_assum `n2w _ ⋙ 1 = n2w _` kall_tac
-  \\ rpt (qpat_x_assum `Abbrev (n2w _ = _)` kall_tac)
+  \\ qpat_x_assum `_ = n2w (d * LENGTH heap)` kall_tac
  \\ rpt var_eq_tac>> rveq>>fs[]
   \\ fs [state_rel_def,GSYM CONJ_ASSOC]
   \\ rpt (conj_tac THEN1 (fs [init_reduce_def] \\ unabbrev_all_tac \\ fs []))
@@ -3663,7 +3661,7 @@ Resume init_code_thm[Store]:
   \\ fs [init_reduce_stack_space,INSERT_SUBSET]
   \\ fs [init_reduce_def]
   \\ rpt (qpat_x_assum `evaluate _ = _` kall_tac)
-  \\ old_drule MOD_LESS_EQ_MOD_IMP
+  \\ drule MOD_LESS_EQ_MOD_IMP
   \\ impl_tac THEN1
    (unabbrev_all_tac
     \\ fs [good_dimindex_def,dimword_def,max_stack_alloc_def]
@@ -3730,7 +3728,7 @@ Resume init_code_thm[Memory]:
   \\ conj_tac THEN1 fs [bytes_in_word_def,word_mul_n2w]
   \\ conj_tac THEN1
      (fs [max_stack_alloc_def,Abbr`d`,good_dimindex_def] \\ rfs [])
-  \\ old_drule memory_addresses \\ fs []
+  \\ drule memory_addresses \\ fs []
   \\ disch_then kall_tac
   \\ qmatch_goalsub_abbrev_tac `read_mem a`
   \\ qmatch_goalsub_abbrev_tac`read_mem a m1 b`
@@ -3833,7 +3831,7 @@ Resume init_code_thm[Memory]:
   simp[Once STAR_ASSOC]>>
   simp[Once STAR_ASSOC]>>
   qmatch_goalsub_abbrev_tac ‘(r1 * word_list (n2w (d * h2)) heap * r2) (fun2set (_, _))’>>
-  strip_tac>>old_drule word_list_in_memory>>gs[]>>
+  strip_tac>>drule word_list_in_memory>>gs[]>>
   ‘w2n (bytes_in_word:'a word) = d’
   by gs[byteTheory.bytes_in_word_def,Abbr ‘d’]>>
   ‘d * h2 + LENGTH heap * w2n (bytes_in_word:'a word) < dimword (:α)’
@@ -3843,7 +3841,7 @@ Resume init_code_thm[Memory]:
   strip_tac>>
   qpat_x_assum ‘_ (fun2set (m1,_))’ mp_tac>>
   ntac 2 (simp[Once STAR_ASSOC])>>
-  strip_tac>>old_drule word_list_in_memory>>gs[]>>
+  strip_tac>>drule word_list_in_memory>>gs[]>>
   strip_tac>>
   gs[memory_def]>>
   qpat_x_assum ‘_ = word_list _ heap’ mp_tac>>
@@ -3906,7 +3904,9 @@ Theorem evaluate_init_code:
     | _ => F
 Proof
   strip_tac \\ fs [init_pre_def]
-  \\ old_drule init_code_thm \\ fs []
+  \\ drule_then (qspecl_then [`off`,`max_heap`,`jump`,`gen_gc`,`coracle`,`code`] mp_tac)
+       init_code_thm
+  \\ fs []
   \\ impl_tac >- metis_tac[]
   \\ CASE_TAC \\ CASE_TAC
   \\ fs [make_init_opt_def]

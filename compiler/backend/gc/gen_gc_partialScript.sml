@@ -9,8 +9,6 @@ Libs
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = ParseExtras.temp_loose_equality();
-
 val gc_state_component_equality = DB.fetch "gc_shared" "gc_state_component_equality";
 
 Datatype:
@@ -30,7 +28,7 @@ Definition gc_move_def:
         (Pointer ptr d,state with <| ok := ok |>) else
       case heap_lookup ptr state.heap of
         | SOME (DataElement xs l dd) =>
-          (let ok = ok /\ l+1 <= state.n /\ ~(conf.isRef dd) in
+          (let ok = (ok /\ l+1 <= state.n /\ ~(conf.isRef dd)) in
            let n = state.n - (l + 1) in
            let h2 = state.h2 ++ [DataElement xs l dd] in
            let (heap,ok) = gc_forward_ptr ptr state.heap state.a d ok in
@@ -107,7 +105,7 @@ Definition gc_move_data_def:
          let (xs,state) = gc_move_list conf state xs in
          let h1 = state.h1 ++ [DataElement xs l d] in
          let h2 = TL state.h2 in
-         let ok = state.ok /\ state.h2 <> [] /\ (HD state.h2 = h) in
+         let ok = (state.ok /\ state.h2 <> [] /\ (HD state.h2 = h)) in
            gc_move_data conf (state with <| h1 := h1; h2 := h2; ok := ok |>)
        | _ => state with <| ok := F |>)
 Termination
@@ -363,7 +361,7 @@ Definition heap_element_is_ref_def:
 End
 
 Definition gen_inv_def:
-  gen_inv (conf:'b gen_gc_partial_conf) heap =
+  gen_inv (conf:'b gen_gc_partial_conf) heap <=>
     conf.gen_start <= conf.refs_start /\
     conf.refs_start <= conf.limit /\
     ?heap_old heap_current heap_refs.
@@ -996,7 +994,7 @@ Proof
    (fs [EVAL ``(to_gen_state conf state).h2``]
     \\ strip_tac \\ rveq \\ fs [])
   \\ fs [EVAL ``(to_gen_state conf state).h2``]
-  \\ qpat_abbrev_tac `xx = (to_gen_conf conf).limit < _`
+  \\ qpat_abbrev_tac `xx = ((to_gen_conf conf).limit < _)`
   \\ Cases_on `xx` \\ fs []
   THEN1 (rw [] \\ fs [])
   \\ unabbrev_all_tac
@@ -1534,7 +1532,7 @@ QED
 Theorem new_f_FDOM[local]:
 
   (∀i. i ∈ FDOM f ⇒ isSomeDataElement (heap_lookup (i + conf.gen_start) heap)) ==>
-  (x IN FDOM (new_f f conf heap) =
+  (x IN FDOM (new_f f conf heap) <=>
   if x < conf.gen_start ∨ conf.refs_start ≤ x then
   isSomeDataElement (heap_lookup x heap) else
   x IN (IMAGE ($+ conf.gen_start) (FDOM f)))

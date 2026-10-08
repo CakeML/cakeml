@@ -7,8 +7,6 @@ Ancestors
 Libs
   Tactic Lib TotalDefn numLib
 
-val _ = ParseExtras.temp_loose_equality()
-
 (*---------------------------------------------------------------------------
        Define the 91 function. We call it "N". We use Hol_defn to
        make the definition, since we have to tackle the termination
@@ -58,7 +56,7 @@ QED
 (* Termination of 91 is a bit tricky.                                        *)
 (*---------------------------------------------------------------------------*)
 
-val lem = DECIDE ``~(x > 100) ==> (101-y < 101-x = x<y)``;
+val lem = DECIDE ``~(x > 100) ==> (101-y < 101-x <=> x<y)``;
 
 Theorem unexpand_measure[local]:
   (\x' x''. 101 < x' + (101 - x'') /\ x'' < 101) = measure \x. 101-x

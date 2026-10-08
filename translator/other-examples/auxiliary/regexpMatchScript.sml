@@ -41,7 +41,6 @@ Libs
   Tactic Lib stringLib
 
 val thm_counter = Count.mk_meter();
-val _ = ParseExtras.temp_loose_equality();
 
 (*---------------------------------------------------------------------------*)
 (* Change free variable names to desired ones. Takes a list of (old,new)     *)
@@ -99,7 +98,7 @@ val regexp_cases = TypeBase.nchotomy_of ``:'a regexp``;
 Definition sem_def:
   (sem Epsilon w     = (w = []))                                         /\
    (sem (Charset C) w = (?x. (w = [x]) /\ MEM x C))                       /\
-   (sem (r1 + r2) w   = sem r1 w \/ sem r2 w)                             /\
+   (sem (r1 + r2) w   <=> sem r1 w \/ sem r2 w)                           /\
    (sem (r1 # r2) w   = ?w1 w2. (w = w1 ++ w2) /\ sem r1 w1 /\ sem r2 w2) /\
    (sem (Repeat r) w  = ?wlist. (w = FLAT wlist) /\ EVERY (sem r) wlist)
 End
@@ -153,8 +152,8 @@ val match_defn =
 /\ (match [] _  _                 = F)
 /\ (match (Epsilon::t) w s        = match t w s)
 /\ (match (Charset C::t) [] s     = F)
-/\ (match (Charset C::t) (d::w) s = MEM d C /\ match t w NONE)
-/\ (match ((r1 + r2)::t) w s      = match (r1::t) w s \/ match (r2::t) w s)
+/\ (match (Charset C::t) (d::w) s <=> MEM d C /\ match t w NONE)
+/\ (match ((r1 + r2)::t) w s      <=> match (r1::t) w s \/ match (r2::t) w s)
 /\ (match ((r1 # r2)::t) w s      = match (r1::r2::t) w s)
 /\ (match (Repeat r::t) w s       =
        if s = SOME (Repeat r::t) then
@@ -258,10 +257,10 @@ QED
 
 Definition m_def:
   (m (Epsilon::t,w,s)  x     = (x = (t,w,s))) /\
-   (m (Charset C::t,d::w,s) x = (x = (t,w,NONE)) /\ MEM d C) /\
-   (m ((r1 + r2)::t, w, s) x  = (x = (r1::t,w,s)) \/ (x = (r2::t,w,s))) /\
+   (m (Charset C::t,d::w,s) x <=> (x = (t,w,NONE)) /\ MEM d C) /\
+   (m ((r1 + r2)::t, w, s) x  <=> (x = (r1::t,w,s)) \/ (x = (r2::t,w,s))) /\
    (m ((r1 # r2)::t, w, s) x  = (x = (r1::r2::t,w,s))) /\
-   (m (Repeat r::t, w,s) x    = (x = (t, w, s)) \/
+   (m (Repeat r::t, w,s) x    <=> (x = (t, w, s)) \/
                                 (x = (r::Repeat r::t, w, SOME(Repeat r::t))))/\
    (m _ _ = F)
 End
@@ -269,8 +268,8 @@ End
 
 Definition match_seq_def:
   (match_seq [] = T) /\
-   (match_seq [a] = (FST a = []) /\ (FST (SND a) = [])) /\
-   (match_seq (a::b::rest) = m a b /\ match_seq (b::rest))
+   (match_seq [a] <=> (FST a = []) /\ (FST (SND a) = [])) /\
+   (match_seq (a::b::rest) <=> m a b /\ match_seq (b::rest))
 End
 
 (*---------------------------------------------------------------------------*)

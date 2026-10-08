@@ -1,5 +1,2 @@
 # the exercises are not supposed to build until one solves them
 tutorial/problems
-
-# Broken, see #1104
-compiler/backend/San
